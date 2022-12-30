@@ -43,7 +43,7 @@ static void handle_scheme_exception(void) { //
   longjmp(jmp_env, on_exception);
 }
 
-static void define_display_condition(void);
+static void define_display_any(void);
 static void define_any_to_bytevector(void);
 static void define_eval_to_bytevector(void);
 
@@ -53,7 +53,7 @@ static void init(void) {
   Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/scheme.boot");
   Sbuild_heap(NULL, NULL);
 
-  define_display_condition();
+  define_display_any();
   define_any_to_bytevector();
   define_eval_to_bytevector();
 
@@ -80,7 +80,7 @@ ptr eval(const char str[]) {
   return call1("eval", call1("read", call1("open-input-string", Sstring(str))));
 }
 
-static void define_display_condition(void) {
+static void define_display_any(void) {
   eval("(define (display-condition x port)\n"
        "  (when (condition? x)\n"
        "    (put-string port \"#<condition\")\n"
@@ -114,9 +114,15 @@ static void define_display_condition(void) {
        "                                        (put-datum  port (condition-who c)))\n"
        "              ((serious-condition? c)   (put-string port \" &serious\")))))\n"
        "    (put-string port \">\")))\n");
+
+  eval("(define (display-any x port)\n"
+       "  (if (condition? x)\n"
+       "    (display-condition x port)\n"
+       "    (display x port)))\n");
 }
 
 static void define_any_to_bytevector(void) {
+  /* convert any type to a bytevector */
   eval("(define any->bytevector\n"
        "  (let ((transcoder (make-transcoder (utf-8-codec) (eol-style lf)\n"
        "                                     (error-handling-mode raise))))\n"
@@ -126,10 +132,21 @@ static void define_any_to_bytevector(void) {
        "            ((eq? (void) x) #vu8())\n"
        "            (#t (let-values (([port get-bytevector]\n"
        "                              (open-bytevector-output-port transcoder)))\n"
-       "                  (if (condition? x)\n"
-       "                    (display-condition x port)\n"
-       "                    (display x port))\n"
+       "                  (display-any x port)\n"
        "                  (get-bytevector)))))))\n");
+
+  /* convert string to #\nul terminated UTF-8 bytevector */
+  eval("(define string->bytevector0\n"
+       "  (let ((transcoder (make-transcoder (utf-8-codec) (eol-style lf)\n"
+       "                                     (error-handling-mode raise))))\n"
+       "    (lambda (x)\n"
+       "      (unless (or (string? x) (bytevector? x))\n"
+       "        (error 'string->bytevector0 \"argument must be a string or bytevector\" x))\n"
+       "      (let-values (([port get-bytevector]\n"
+       "                    (open-bytevector-output-port transcoder)))\n"
+       "        (display x port)\n"
+       "        (display #\\nul port)\n"
+       "        (get-bytevector)))))\n");
 }
 
 static void define_eval_to_bytevector(void) {
