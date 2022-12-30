@@ -17,7 +17,14 @@ int c_dup2_fd(int old_fd, int new_fd);
 /* return current C errno value */
 int c_errno(void);
 
-/* return a Scheme cons (pipe_read_fd . pipe_write_fd), or c_errno() on error */
+/* call open() and return fd of newly opened file, or c_errno() on error */
+int c_open_file_fd(ptr bytevector0_filepath,
+                   int flag_read_write,
+                   int flag_create,
+                   int flag_truncate,
+                   int flag_append);
+
+/* call pipe() and return a Scheme cons (pipe_read_fd . pipe_write_fd), or c_errno() on error */
 ptr c_open_pipe_fds(void);
 
 /* fork() and exec() an external program, return pid */
