@@ -13,7 +13,7 @@ int c_errno(void) {
   return -errno;
 }
 
-int c_close_fd(int fd) {
+int c_fd_close(int fd) {
   int ret = close(fd);
   return ret >= 0 ? ret : -errno;
 }
@@ -28,12 +28,12 @@ void c_close_all_fds(int lowest_fd_to_close) {
   }
 }
 
-int c_dup_fd(int old_fd) {
+int c_fd_dup(int old_fd) {
   int ret = dup(old_fd);
   return ret >= 0 ? ret : -errno;
 }
 
-int c_dup2_fd(int old_fd, int new_fd) {
+int c_fd_dup2(int old_fd, int new_fd) {
   int ret = dup2(old_fd, new_fd);
   return ret >= 0 ? ret : -errno;
 }
@@ -78,9 +78,9 @@ static void register_process_functions_into_scheme(void);
 
 void register_posix_functions_into_scheme(void) {
   Sregister_symbol("c_errno", &c_errno);
-  Sregister_symbol("c_close_fd", &c_close_fd);
-  Sregister_symbol("c_dup_fd", &c_dup_fd);
-  Sregister_symbol("c_dup2_fd", &c_dup2_fd);
+  Sregister_symbol("c_fd_close", &c_fd_close);
+  Sregister_symbol("c_fd_dup", &c_fd_dup);
+  Sregister_symbol("c_fd_dup2", &c_fd_dup2);
   Sregister_symbol("c_open_file_fd", &c_open_file_fd);
   Sregister_symbol("c_open_pipe_fds", &c_open_pipe_fds);
 
@@ -93,36 +93,32 @@ void register_posix_functions_into_scheme(void) {
   eval("(define (raise-errno-condition who c-errno)\n"
        "  (raise (make-errno-condition who c-errno)))\n");
 
-  eval("(define close-fd\n"
-       "  (let ((c-close-fd (foreign-procedure \"c_close_fd\" (int) int)))\n"
+  eval("(define fd-close\n"
+       "  (let ((c-fd-close (foreign-procedure \"c_fd_close\" (int) int)))\n"
        "    (lambda (x)\n"
-       "      (let ((ret (c-close-fd x)))\n"
+       "      (let ((ret (c-fd-close x)))\n"
        "        (if (>= ret 0)\n"
        "          (void)\n"
-       "          (make-errno-condition 'close-fd ret))))))\n");
-  eval("(define dup-fd\n"
-       "  (let ((c-dup-fd (foreign-procedure \"c_dup_fd\" (int) int)))\n"
+       "          (make-errno-condition 'fd-close ret))))))\n");
+  eval("(define (fd-close-list fd-list)\n"
+       "  (for-each fd-close fd-list))\n");
+
+  eval("(define fd-dup\n"
+       "  (let ((c-fd-dup (foreign-procedure \"c_fd_dup\" (int) int)))\n"
        "    (lambda (old-fd)\n"
-       "      (let ((ret (c-dup-fd old-fd)))\n"
+       "      (let ((ret (c-fd-dup old-fd)))\n"
        "        (if (>= ret 0)\n"
        "          ret\n"
-       "          (raise-errno-condition 'dup-fd ret))))))\n");
-  eval("(define dup2-fd\n"
-       "  (let ((c-dup2-fd (foreign-procedure \"c_dup2_fd\" (int int) int)))\n"
+       "          (raise-errno-condition 'fd-dup ret))))))\n");
+  eval("(define fd-dup2\n"
+       "  (let ((c-fd-dup2 (foreign-procedure \"c_fd_dup2\" (int int) int)))\n"
        "    (lambda (old-fd new-fd)\n"
-       "      (let ((ret (c-dup2-fd old-fd new-fd)))\n"
+       "      (let ((ret (c-fd-dup2 old-fd new-fd)))\n"
        "        (if (>= ret 0)\n"
        "          (void)\n"
-       "          (raise-errno-condition 'dup2-fd ret))))))\n");
+       "          (raise-errno-condition 'fd-dup2 ret))))))\n");
   eval("(define errno\n"
        "  (foreign-procedure \"c_errno\" () int))\n");
-  eval("(define open-pipe-fds\n"
-       "  (let ((c-open-pipe-fds (foreign-procedure \"c_open_pipe_fds\" () scheme-object)))\n"
-       "    (lambda ()\n"
-       "      (let ((ret (c-open-pipe-fds)))\n"
-       "        (if (pair? ret)\n"
-       "          ret\n"
-       "          (raise-errno-condition 'open-pipe-fds ret))))))\n");
   eval("(define open-file-fd\n"
        "  (let ((c-open-file-fd (foreign-procedure \"c_open_file_fd\""
        "                          (scheme-object int int int int) int)))\n"
@@ -141,13 +137,20 @@ void register_posix_functions_into_scheme(void) {
        "        (if (>= ret 0)\n"
        "          ret\n"
        "          (raise-errno-condition 'open-file-fd ret))))))\n");
+  eval("(define open-pipe-fds\n"
+       "  (let ((c-open-pipe-fds (foreign-procedure \"c_open_pipe_fds\" () scheme-object)))\n"
+       "    (lambda ()\n"
+       "      (let ((ret (c-open-pipe-fds)))\n"
+       "        (if (pair? ret)\n"
+       "          ret\n"
+       "          (raise-errno-condition 'open-pipe-fds ret))))))\n");
 
   register_process_functions_into_scheme();
 }
 
 static void register_process_functions_into_scheme(void) {
-  Sregister_symbol("c_spawnv", &c_spawnv);
-  Sregister_symbol("c_wait_pid", &c_wait_pid);
+  Sregister_symbol("c_spawn_pid", &c_spawn_pid);
+  Sregister_symbol("c_pid_wait", &c_pid_wait);
 
   eval("(define (list->cmd-argv l)\n"
        "  (let ((argv (list->vector l)))\n"
@@ -159,24 +162,25 @@ static void register_process_functions_into_scheme(void) {
   /**
    * Spawn an external program and return its pid.
    *
-   * Parameter program-and-args is a list containing program name and its arguments,
-   * and each element must be either a string or a bytevector.
+   * Parameter program is the program path to spawn;
+   * Parameter args is the list of arguments to pass to the program;
+   * The parameter program and each element in args must be either a string or a bytevector.
    */
   eval("(define spawn-pid\n"
-       "  (let ((c-spawn-pid (foreign-procedure \"c_spawnv\""
+       "  (let ((c-spawn-pid (foreign-procedure \"c_spawn_pid\""
        "                        (scheme-object scheme-object) int)))\n"
-       "    (lambda program-and-args\n"
-       "      (let ((ret (c-spawn-pid (list->cmd-argv program-and-args) (vector 0 1 2))))\n"
-       "        (if (>= ret 0)\n"
-       "          ret\n"
-       "          (raise-errno-condition 'spawn-pid ret))))))\n");
+       "    (lambda (program . args)\n"
+       "      (let ((ret (c-spawn-pid (list->cmd-argv (cons program args)) (vector 0 1 2))))\n"
+       "        (when (< ret 0)\n"
+       "          (raise-errno-condition 'spawn-pid ret))\n"
+       "        ret))))\n");
 
   /**
    * Wait for the program identified by pid to exit.
    *
    * Return the program's exit status, or 256 + signal, or c_errno() on error.
    */
-  eval("(define wait-pid (foreign-procedure \"c_wait_pid\" (int) int))\n");
+  eval("(define pid-wait (foreign-procedure \"c_pid_wait\" (int) int))\n");
 
   /**
    * Define the record type "cmd"
@@ -187,24 +191,26 @@ static void register_process_functions_into_scheme(void) {
        "    (mutable pid)\n"              /* fixnum, -1 if unknown */
        "    (mutable exit-status)\n"      /* fixnum, -1 if unknown */
        "    argv\n"                       /* vector of bytevectors, each #\nul terminated */
-       "    (mutable to-redirect-fds)\n"  /* vector of fds to redirect at spawn */
-       "    (mutable to-close-fds)))\n"); /* vector of fds to close after exit */
+       "    (mutable to-redirect-fds)\n"  /* vector of fds to redirect between fork() and execv() */
+       "    (mutable to-close-fds)))\n"); /* list of fds to close after spawn */
 
   /** Create a cmd to later spawn it. */
   eval("(define (make-cmd argv-list)\n"
-       "  (%make-cmd -1 -1 (list->cmd-argv argv-list) (vector 0 1 2) (vector)))\n");
+       "  (%make-cmd -1 -1 (list->cmd-argv argv-list) (vector 0 1 2) '()))\n");
 
   /** Spawn a cmd */
   eval("(define cmd-spawn\n"
-       "  (let ((c-spawn-pid (foreign-procedure \"c_spawnv\""
+       "  (let ((c-spawn-pid (foreign-procedure \"c_spawn_pid\""
        "                        (scheme-object scheme-object) int)))\n"
        "    (lambda (c)\n"
        "      (when (>= (cmd-pid c) 0)\n"
        "        (error 'cmd-spawn \"command already started\" (cmd-pid c)))\n"
        "      (let ([ret (c-spawn-pid (cmd-argv c) (cmd-to-redirect-fds c))])\n"
-       "        (if (>= ret 0)\n"
-       "          (cmd-pid-set! c ret)\n"
-       "          (raise-errno-condition 'cmd-spawn ret))))))\n");
+       "        (when (< ret 0)\n"
+       "          (raise-errno-condition 'cmd-spawn ret))\n"
+       "        (fd-close-list (cmd-to-close-fds c))\n"
+       "        (cmd-pid-set! c ret)\n"
+       "        (cmd-exit-status-set! c -1)))))\n"); /* cmd can now be waited-for */
 
   /** Wait for a cmd to exit and return its exit status, or 256 + signal */
   eval("(define (cmd-wait c)\n"
@@ -213,7 +219,7 @@ static void register_process_functions_into_scheme(void) {
        "    (begin\n"
        "      (when (< (cmd-pid c) 0)\n"
        "        (error 'cmd-wait \"command not started yet\" c))\n"
-       "      (let ([ret (wait-pid (cmd-pid c))])\n"
+       "      (let ([ret (pid-wait (cmd-pid c))])\n"
        "        (when (< ret 0)\n"
        "          (raise-errno-condition 'cmd-wait ret))\n"
        "        (cmd-pid-set! c -1)\n" /* cmd can now be spawned again */
@@ -251,6 +257,7 @@ static int c_check_redirect_fds(ptr vector_redirect_fds) {
   return 0;
 }
 
+/** redirect fds as indicated in vector_redirect_fds. return < 0 on error */
 static int c_redirect_fds(ptr vector_redirect_fds) {
   iptr i, n;
   int  lowest_fd_to_close = 0;
@@ -272,10 +279,17 @@ static int c_redirect_fds(ptr vector_redirect_fds) {
       lowest_fd_to_close = i + 1;
     }
   }
+  // close all fds in 0...(lowest_fd_to_close-1) except the redirected ones
+  for (i = 0; i < lowest_fd_to_close; i++) {
+    ptr elem = Svector_ref(vector_redirect_fds, i);
+    if (!Sfixnump(elem) || Sfixnum_value(elem) < 0) {
+      (void)close(i);
+    }
+  }
   return lowest_fd_to_close;
 }
 
-int c_spawnv(ptr vector_of_bytevector_cmdline, ptr vector_redirect_fds) {
+int c_spawn_pid(ptr vector_of_bytevector_cmdline, ptr vector_redirect_fds) {
   char** argv = NULL;
   iptr   argn, i;
   int    pid;
@@ -329,7 +343,7 @@ bad_arg:
   return -(errno = EINVAL);
 }
 
-int c_wait_pid(int pid) {
+int c_pid_wait(int pid) {
   int wstatus = 0;
   int ret     = waitpid((pid_t)pid, &wstatus, 0);
   if (ret < 0) {
