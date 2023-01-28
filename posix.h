@@ -31,9 +31,14 @@ int c_open_file_fd(ptr bytevector0_filepath,
 ptr c_open_pipe_fds(void);
 
 /* fork() and exec() an external program, return pid */
-int c_spawn_pid(ptr vector_of_bytevector_cmdline, ptr vector_redirect_fds);
+int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
+                ptr vector_redirect_fds,
+                ptr vector_of_bytevector0_environ);
 
 /* call waitpid(). return exit status, or 256 + signal, or c_errno() on error */
 int c_pid_wait(int pid);
+
+/* POSIX standard says programs need to declare environ by themselves */
+extern char** environ;
 
 #endif /* SCHEMESH_POSIX_H */

@@ -168,9 +168,12 @@ static void register_process_functions_into_scheme(void) {
    */
   eval("(define spawn-pid\n"
        "  (let ((c-spawn-pid (foreign-procedure \"c_spawn_pid\""
-       "                        (scheme-object scheme-object) int)))\n"
+       "                        (scheme-object scheme-object scheme-object) int)))\n"
        "    (lambda (program . args)\n"
-       "      (let ((ret (c-spawn-pid (list->cmd-argv (cons program args)) (vector 0 1 2))))\n"
+       "      (let ((ret (c-spawn-pid\n"
+       "                   (list->cmd-argv (cons program args))\n"
+       "                   (vector 0 1 2)\n"
+       "                   (sh-vars->vector-of-bytevector0 #f))))\n"
        "        (when (< ret 0)\n"
        "          (raise-errno-condition 'spawn-pid ret))\n"
        "        ret))))\n");
@@ -188,10 +191,10 @@ static void register_process_functions_into_scheme(void) {
   eval("(define-record-type\n"
        "  (cmd %make-cmd cmd?)\n"
        "  (fields\n"
-       "    (mutable pid)\n"              /* fixnum, -1 if unknown */
-       "    (mutable exit-status)\n"      /* fixnum, -1 if unknown */
-       "    argv\n"                       /* vector of bytevectors, each #\nul terminated */
-       "    (mutable to-redirect-fds)\n"  /* vector of fds to redirect between fork() and execv() */
+       "    (mutable pid)\n"             /* fixnum, -1 if unknown */
+       "    (mutable exit-status)\n"     /* fixnum, -1 if unknown */
+       "    argv\n"                      /* vector of bytevectors, each #\nul terminated */
+       "    (mutable to-redirect-fds)\n" /* vector of fds to redirect between fork() and execve() */
        "    (mutable to-close-fds)))\n"); /* list of fds to close after spawn */
 
   /** Create a cmd to later spawn it. */
@@ -201,11 +204,14 @@ static void register_process_functions_into_scheme(void) {
   /** Spawn a cmd */
   eval("(define cmd-spawn\n"
        "  (let ((c-spawn-pid (foreign-procedure \"c_spawn_pid\""
-       "                        (scheme-object scheme-object) int)))\n"
+       "                        (scheme-object scheme-object scheme-object) int)))\n"
        "    (lambda (c)\n"
        "      (when (>= (cmd-pid c) 0)\n"
        "        (error 'cmd-spawn \"command already started\" (cmd-pid c)))\n"
-       "      (let ([ret (c-spawn-pid (cmd-argv c) (cmd-to-redirect-fds c))])\n"
+       "      (let ((ret (c-spawn-pid\n"
+       "                   (cmd-argv c)\n"
+       "                   (cmd-to-redirect-fds c)\n"
+       "                   (sh-vars->vector-of-bytevector0 #f))))\n"
        "        (when (< ret 0)\n"
        "          (raise-errno-condition 'cmd-spawn ret))\n"
        "        (fd-close-list (cmd-to-close-fds c))\n"
@@ -289,35 +295,25 @@ static int c_redirect_fds(ptr vector_redirect_fds) {
   return lowest_fd_to_close;
 }
 
-int c_spawn_pid(ptr vector_of_bytevector_cmdline, ptr vector_redirect_fds) {
-  char** argv = NULL;
-  iptr   argn, i;
+int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
+                ptr vector_redirect_fds,
+                ptr vector_of_bytevector0_environ) {
+  char **argv = NULL, **envp = NULL;
   int    pid;
-  if (!Svectorp(vector_of_bytevector_cmdline) || c_check_redirect_fds(vector_redirect_fds) != 0) {
-    return -(errno = EINVAL);
+  if ((pid = c_check_redirect_fds(vector_redirect_fds)) < 0) {
+    goto out;
   }
-  argn = Svector_length(vector_of_bytevector_cmdline);
-  if (argn == 0) {
-    return -(errno = EINVAL);
+  envp = vector_to_c_argz(vector_of_bytevector0_environ);
+  argv = vector_to_c_argz(vector_of_bytevector0_cmdline);
+  if (!envp || !argv) {
+    pid = -ENOMEM;
+    goto out;
   }
-  argv = malloc((1 + argn) * sizeof(char*));
-  if (!argv) {
-    return -(errno = ENOMEM);
+  if (!argv[0]) {
+    pid = -EINVAL;
+    goto out;
   }
-  for (i = 0; i < argn; i++) {
-    ptr  argi = Svector_ref(vector_of_bytevector_cmdline, i);
-    iptr len;
-    if (!Sbytevectorp(argi)) {
-      goto bad_arg;
-    }
-    argv[i] = (char*)Sbytevector_data(argi);
-    len     = Sbytevector_length(argi);
-    if (len == 0 || argv[i][len - 1] != '\0') {
-      goto bad_arg;
-    }
-  }
-  argv[argn] = NULL;
-  pid        = fork();
+  pid = fork();
   switch (pid) {
     case -1:
       /* error */
@@ -328,6 +324,7 @@ int c_spawn_pid(ptr vector_of_bytevector_cmdline, ptr vector_redirect_fds) {
       int lowest_fd_to_close = c_redirect_fds(vector_redirect_fds);
       if (lowest_fd_to_close >= 0) {
         (void)c_close_all_fds(lowest_fd_to_close);
+        environ = envp;
         (void)execvp(argv[0], argv);
       }
       exit(1); // in case c_redirect_fds() fails or execvp() fails and returns
@@ -336,11 +333,13 @@ int c_spawn_pid(ptr vector_of_bytevector_cmdline, ptr vector_redirect_fds) {
       /* parent */
       break;
   }
+out:
   free(argv);
+  free(envp);
+  if (pid < 0) {
+    errno = -pid;
+  }
   return pid;
-bad_arg:
-  free(argv);
-  return -(errno = EINVAL);
 }
 
 int c_pid_wait(int pid) {

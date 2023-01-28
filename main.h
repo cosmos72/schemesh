@@ -22,4 +22,13 @@ ptr call2(const char symbol_name[], ptr arg1, ptr arg2);
  */
 ptr eval(const char str[]);
 
+/**
+ * convert Scheme vector-of-bytevector0 to a C-compatible NULL-terminated array of char*
+ * usable for example for environ or argz arguments to execve() execvp() etc.
+ * returned array should be deallocated with free()
+ * and contains pointers into Scheme bytevectors, thus becomes invalid
+ * after any call to Scheme functions.
+ */
+char** vector_to_c_argz(ptr vector_of_bytevector0);
+
 #endif /* SCHEMESH_MAIN_H */

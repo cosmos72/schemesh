@@ -6,6 +6,7 @@
 #include <setjmp.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -14,9 +15,6 @@
 #define STR_(arg) #arg
 #define STR(arg) STR_(arg)
 #define CHEZ_SCHEME_DIR_STR STR(CHEZ_SCHEME_DIR)
-
-/* POSIX standard says programs need to declare environ by themselves */
-extern char** environ;
 
 static jmp_buf jmp_env;
 static int     on_exception = 0;
@@ -47,12 +45,13 @@ static void handle_scheme_exception(void) { //
   longjmp(jmp_env, on_exception);
 }
 
-static void define_sh_vars(void);
-static void c_environ_to_sh_vars(char** env);
 static void define_display_any(void);
 static void define_any_to_string(void);
 static void define_any_to_bytevector(void);
 static void define_eval_to_bytevector(void);
+static void define_sh_vars(void);
+static void c_environ_to_sh_vars(char** env);
+char**      vector_to_c_argz(ptr vector_of_bytevector0);
 
 static void init(void) {
   Sscheme_init(&handle_scheme_exception);
@@ -242,6 +241,35 @@ static void c_environ_to_sh_vars(char** env) {
     call2("sh-var-set!", Sstring_of_length(entry, inamelen), Sstring(separator + 1));
     call2("sh-var-export!", Sstring_of_length(entry, inamelen), Strue);
   }
+}
+
+char** vector_to_c_argz(ptr vector_of_bytevector0) {
+  ptr    vec    = vector_of_bytevector0;
+  char** c_argz = NULL;
+  iptr   i, n;
+  if (!Svectorp(vec)) {
+    return c_argz;
+  }
+  n      = Svector_length(vec);
+  c_argz = malloc((n + 1) * sizeof(char*));
+  if (!c_argz) {
+    return c_argz;
+  }
+  for (i = 0; i < n; i++) {
+    ptr  bytevec = Svector_ref(vec, i);
+    iptr len;
+    if (Sbytevectorp(bytevec)                      /*                        */
+        && (len = Sbytevector_length(bytevec)) > 0 /*                        */
+        && Sbytevector_u8_ref(bytevec, len - 1) == 0) {
+
+      c_argz[i] = (char*)Sbytevector_data(bytevec);
+    } else {
+      free(c_argz);
+      return NULL;
+    }
+  }
+  c_argz[n] = NULL;
+  return c_argz;
 }
 
 /**
