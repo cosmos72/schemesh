@@ -100,50 +100,6 @@ ptr eval(const char str[]) {
   return call1("eval", call1("read", call1("open-input-string", Sstring(str))));
 }
 
-static void define_sh_vars(void) {
-  eval("(define sh-vars (make-hashtable string-hash string=?))");
-  eval("(define (sh-var-get name)\n"
-       "  (let ((elem (hashtable-ref sh-vars name #f)))\n"
-       "    (if (pair? elem)\n"
-       "      (cdr elem)\n"
-       "      \"\")))");
-  eval("(define (sh-var-set! name val)\n"
-       "  (let ((elem (hashtable-ref sh-vars name #f)))\n"
-       "    (if (pair? elem)\n"
-       "      (set-cdr! elem val)\n"
-       "      (hashtable-set! sh-vars name (cons #f val)))))\n");
-  eval("(define (sh-var-unset! name)\n"
-       "  (hashtable-delete! sh-vars name))\n");
-  eval("(define (sh-var-exported? name)\n"
-       "  (let ((elem (hashtable-ref sh-vars name #f)))\n"
-       "    (if (pair? elem)\n"
-       "      (car elem)\n"
-       "      #f)))");
-  eval("(define (sh-var-export! name exported?)\n"
-       "  (assert (boolean? exported?))\n"
-       "  (let ((elem (hashtable-ref sh-vars name #f)))\n"
-       "    (if (pair? elem)\n"
-       "      (set-car! elem exported?)\n"
-       "      (hashtable-set! sh-vars name (cons exported? \"\")))))\n");
-}
-
-static void c_environ_to_sh_vars(char** env) {
-  const char* entry;
-  if (!env) {
-    return;
-  }
-  for (; (entry = *env) != NULL; ++env) {
-    const char* separator = strchr(entry, '=');
-    size_t      namelen   = separator ? separator - entry : 0;
-    iptr        inamelen  = Sfixnum_value(Sfixnum(namelen));
-    if (namelen == 0 || inamelen < 0 || namelen != (size_t)inamelen) {
-      continue;
-    }
-    call2("sh-var-set!", Sstring_of_length(entry, inamelen), Sstring(separator + 1));
-    call2("sh-var-export!", Sstring_of_length(entry, inamelen), Strue);
-  }
-}
-
 static void define_display_any(void) {
   eval("(define (display-condition x port)\n"
        "  (when (condition? x)\n"
@@ -186,7 +142,7 @@ static void define_display_any(void) {
 }
 
 static void define_any_to_string(void) {
-  /* convert any type to a string */
+  /* convert any value to a string */
   eval("(define (any->string x)\n"
        "  (cond ((string? x) x)\n"
        "        ((bytevector? x) (utf8->string x))\n"
@@ -198,7 +154,7 @@ static void define_any_to_string(void) {
 }
 
 static void define_any_to_bytevector(void) {
-  /* convert any type to a bytevector */
+  /* convert any value to a bytevector */
   eval("(define any->bytevector\n"
        "  (let ((transcoder (make-transcoder (utf-8-codec) (eol-style lf)\n"
        "                                     (error-handling-mode raise))))\n"
@@ -211,23 +167,81 @@ static void define_any_to_bytevector(void) {
        "                  (display-any x port)\n"
        "                  (get-bytevector)))))))\n");
 
-  /* convert string to #\nul terminated UTF-8 bytevector */
-  eval("(define string->bytevector0\n"
+  /* convert any sequence of values to #\nul terminated bytevector */
+  eval("(define any->bytevector0\n"
        "  (let ((transcoder (make-transcoder (utf-8-codec) (eol-style lf)\n"
        "                                     (error-handling-mode raise))))\n"
-       "    (lambda (x)\n"
-       "      (unless (or (string? x) (bytevector? x))\n"
-       "        (error 'string->bytevector0 \"argument must be a string or bytevector\" x))\n"
+       "    (lambda args\n"
        "      (let-values (([port get-bytevector]\n"
        "                    (open-bytevector-output-port transcoder)))\n"
-       "        (display x port)\n"
+       "        (for-each (lambda (x) (display-any x port)) args)\n"
        "        (display #\\nul port)\n"
        "        (get-bytevector)))))\n");
+
+  /* convert string to #\nul terminated UTF-8 bytevector */
+  eval("(define (string->bytevector0 x)\n"
+       "  (assert (or (string? x) (bytevector? x)))\n"
+       "  (any->bytevector0 x))\n");
 }
 
 static void define_eval_to_bytevector(void) {
   eval("(define (eval->bytevector str)\n"
        "  (any->bytevector (eval (read (open-input-string str)))))\n");
+}
+
+static void define_sh_vars(void) {
+  eval("(define sh-vars (make-hashtable string-hash string=?))");
+  eval("(define (sh-var-get name)\n"
+       "  (let ((elem (hashtable-ref sh-vars name #f)))\n"
+       "    (if (pair? elem)\n"
+       "      (cdr elem)\n"
+       "      \"\")))");
+  eval("(define (sh-var-set! name val)\n"
+       "  (let ((elem (hashtable-ref sh-vars name #f)))\n"
+       "    (if (pair? elem)\n"
+       "      (set-cdr! elem val)\n"
+       "      (hashtable-set! sh-vars name (cons #f val)))))\n");
+  eval("(define (sh-var-unset! name)\n"
+       "  (hashtable-delete! sh-vars name))\n");
+  eval("(define (sh-var-exported? name)\n"
+       "  (let ((elem (hashtable-ref sh-vars name #f)))\n"
+       "    (if (pair? elem)\n"
+       "      (car elem)\n"
+       "      #f)))");
+  eval("(define (sh-var-export! name exported?)\n"
+       "  (assert (boolean? exported?))\n"
+       "  (let ((elem (hashtable-ref sh-vars name #f)))\n"
+       "    (if (pair? elem)\n"
+       "      (set-car! elem exported?)\n"
+       "      (hashtable-set! sh-vars name (cons exported? \"\")))))\n");
+  eval("(define (sh-vars->vector-of-bytevector0 all?)\n"
+       "  (let* ([n (hashtable-size sh-vars)]\n"
+       "         [out (make-vector n)])\n"
+       "    (let-values (([keys vals] (hashtable-entries sh-vars)))\n"
+       "      (do ([i 0 (+ 1 i)])\n"
+       "          ((>= i n))\n"
+       "        (let ([key (vector-ref keys i)]\n"
+       "              [val (vector-ref vals i)])\n"
+       "          (when (or all? (car val))\n"
+       "            (vector-set! out i (any->bytevector0 key \"=\" (cdr val)))))))\n"
+       "    out))\n");
+}
+
+static void c_environ_to_sh_vars(char** env) {
+  const char* entry;
+  if (!env) {
+    return;
+  }
+  for (; (entry = *env) != NULL; ++env) {
+    const char* separator = strchr(entry, '=');
+    size_t      namelen   = separator ? separator - entry : 0;
+    iptr        inamelen  = Sfixnum_value(Sfixnum(namelen));
+    if (namelen == 0 || inamelen < 0 || namelen != (size_t)inamelen) {
+      continue;
+    }
+    call2("sh-var-set!", Sstring_of_length(entry, inamelen), Sstring(separator + 1));
+    call2("sh-var-export!", Sstring_of_length(entry, inamelen), Strue);
+  }
 }
 
 /**
