@@ -6,6 +6,7 @@
 #include <setjmp.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 
 #include "posix.h"
@@ -13,6 +14,9 @@
 #define STR_(arg) #arg
 #define STR(arg) STR_(arg)
 #define CHEZ_SCHEME_DIR_STR STR(CHEZ_SCHEME_DIR)
+
+/* POSIX standard says programs need to declare environ by themselves */
+extern char** environ;
 
 static jmp_buf jmp_env;
 static int     on_exception = 0;
@@ -43,7 +47,10 @@ static void handle_scheme_exception(void) { //
   longjmp(jmp_env, on_exception);
 }
 
+static void define_sh_vars(void);
+static void c_environ_to_sh_vars(char** env);
 static void define_display_any(void);
+static void define_any_to_string(void);
 static void define_any_to_bytevector(void);
 static void define_eval_to_bytevector(void);
 
@@ -53,9 +60,13 @@ static void init(void) {
   Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/scheme.boot");
   Sbuild_heap(NULL, NULL);
 
+  define_sh_vars();
   define_display_any();
+  define_any_to_string();
   define_any_to_bytevector();
   define_eval_to_bytevector();
+
+  c_environ_to_sh_vars(environ);
 
   register_posix_functions_into_scheme();
 }
@@ -74,10 +85,63 @@ ptr call1(const char symbol_name[], ptr arg) {
 }
 
 /**
+ * call global Scheme procedure having specified symbol name
+ * passing two Scheme arguments to it.
+ * Return the resulting Scheme value.
+ */
+ptr call2(const char symbol_name[], ptr arg1, ptr arg2) {
+  return Scall2(Stop_level_value(Sstring_to_symbol(symbol_name)), arg1, arg2);
+}
+
+/**
  * call Scheme (eval) on a C string and return the resulting Scheme value
  */
 ptr eval(const char str[]) {
   return call1("eval", call1("read", call1("open-input-string", Sstring(str))));
+}
+
+static void define_sh_vars(void) {
+  eval("(define sh-vars (make-hashtable string-hash string=?))");
+  eval("(define (sh-var-get name)\n"
+       "  (let ((elem (hashtable-ref sh-vars name #f)))\n"
+       "    (if (pair? elem)\n"
+       "      (cdr elem)\n"
+       "      \"\")))");
+  eval("(define (sh-var-set! name val)\n"
+       "  (let ((elem (hashtable-ref sh-vars name #f)))\n"
+       "    (if (pair? elem)\n"
+       "      (set-cdr! elem val)\n"
+       "      (hashtable-set! sh-vars name (cons #f val)))))\n");
+  eval("(define (sh-var-unset! name)\n"
+       "  (hashtable-delete! sh-vars name))\n");
+  eval("(define (sh-var-exported? name)\n"
+       "  (let ((elem (hashtable-ref sh-vars name #f)))\n"
+       "    (if (pair? elem)\n"
+       "      (car elem)\n"
+       "      #f)))");
+  eval("(define (sh-var-export! name exported?)\n"
+       "  (assert (boolean? exported?))\n"
+       "  (let ((elem (hashtable-ref sh-vars name #f)))\n"
+       "    (if (pair? elem)\n"
+       "      (set-car! elem exported?)\n"
+       "      (hashtable-set! sh-vars name (cons exported? \"\")))))\n");
+}
+
+static void c_environ_to_sh_vars(char** env) {
+  const char* entry;
+  if (!env) {
+    return;
+  }
+  for (; (entry = *env) != NULL; ++env) {
+    const char* separator = strchr(entry, '=');
+    size_t      namelen   = separator ? separator - entry : 0;
+    iptr        inamelen  = Sfixnum_value(Sfixnum(namelen));
+    if (namelen == 0 || inamelen < 0 || namelen != (size_t)inamelen) {
+      continue;
+    }
+    call2("sh-var-set!", Sstring_of_length(entry, inamelen), Sstring(separator + 1));
+    call2("sh-var-export!", Sstring_of_length(entry, inamelen), Strue);
+  }
 }
 
 static void define_display_any(void) {
@@ -119,6 +183,18 @@ static void define_display_any(void) {
        "  (if (condition? x)\n"
        "    (display-condition x port)\n"
        "    (display x port)))\n");
+}
+
+static void define_any_to_string(void) {
+  /* convert any type to a string */
+  eval("(define (any->string x)\n"
+       "  (cond ((string? x) x)\n"
+       "        ((bytevector? x) (utf8->string x))\n"
+       "        ((eq? (void) x) \"\")\n"
+       "        (#t (let-values (([port get-string]\n"
+       "                          (open-string-output-port)))\n"
+       "              (display-any x port)\n"
+       "              (get-string)))))\n");
 }
 
 static void define_any_to_bytevector(void) {
@@ -178,12 +254,10 @@ static void show(FILE* out, bytes bv) {
   }
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, const char* argv[]) {
   enum { LEN = 1024 };
   char            buf[LEN];
   struct timespec start, end;
-  (void)argc;
-  (void)argv;
 
   switch (setjmp(jmp_env)) {
     case NOP: // first call to setjmp: continue initialization
@@ -200,6 +274,18 @@ int main(int argc, char* argv[]) {
 
   on_exception = EVAL_FAILED;
 again:
+#if 1
+  (void)buf;
+  (void)start;
+  (void)end;
+  (void)&show;
+  (void)&eval_to_bytevector;
+  (void)&diff;
+  Senable_expeditor(NULL);
+  Sscheme_start(argc, argv);
+#else  /*0*/
+  (void)argc;
+  (void)argv;
   while (fgets(buf, LEN, stdin) != NULL) {
     start = now();
 
@@ -209,6 +295,7 @@ again:
     end = now();
     fprintf(stdout, "; elapsed: %.09f\n", diff(start, end));
   }
+#endif /*0*/
 finish:
   on_exception = QUIT_FAILED;
   quit();

@@ -45,7 +45,7 @@ int c_open_file_fd(ptr bytevector0_filepath,
                    int flag_append) {
   const char* filepath;
   iptr        len;
-  int         ret;
+  int         flags, ret;
   if (!Sbytevectorp(bytevector0_filepath)) {
     return -(errno = EINVAL);
   }
@@ -54,14 +54,14 @@ int c_open_file_fd(ptr bytevector0_filepath,
   if (len == 0 || filepath[len - 1] != '\0') {
     return -(errno = EINVAL);
   }
-  ret = open(filepath,
-             (flag_read_write == 0 ? O_RDONLY :
-              flag_read_write == 1 ? O_WRONLY :
-                                     O_RDWR) |        /*                */
-                 (flag_create == 0 ? 0 : O_CREAT) |   /*                */
-                 (flag_truncate == 0 ? 0 : O_TRUNC) | /*                */
-                 (flag_append == 0 ? 0 : O_APPEND),   /*                */
-             0666);
+  flags = (flag_read_write == 0 ? O_RDONLY :
+           flag_read_write == 1 ? O_WRONLY :
+                                  O_RDWR) |    /*                */
+          (flag_create == 0 ? 0 : O_CREAT) |   /*                */
+          (flag_truncate == 0 ? 0 : O_TRUNC) | /*                */
+          (flag_append == 0 ? 0 : O_APPEND);   /*                */
+
+  ret = open(filepath, flags, 0666);
   return ret >= 0 ? ret : -errno;
 }
 

@@ -5,6 +5,9 @@
 
 void register_posix_functions_into_scheme(void);
 
+/* return current C errno value */
+int c_errno(void);
+
 /* close specified file descriptor */
 int c_fd_close(int fd);
 
@@ -16,9 +19,6 @@ int c_fd_dup(int old_fd);
 
 /* call dup2() */
 int c_fd_dup2(int old_fd, int new_fd);
-
-/* return current C errno value */
-int c_errno(void);
 
 /* call open() and return fd of newly opened file, or c_errno() on error */
 int c_open_file_fd(ptr bytevector0_filepath,
