@@ -45,6 +45,7 @@ static void handle_scheme_exception(void) { //
   longjmp(jmp_env, on_exception);
 }
 
+static void define_define_macro(void);
 static void define_display_any(void);
 static void define_any_to_string(void);
 static void define_any_to_bytevector(void);
@@ -59,11 +60,12 @@ static void init(void) {
   Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/scheme.boot");
   Sbuild_heap(NULL, NULL);
 
-  define_sh_vars();
+  define_define_macro();
   define_display_any();
   define_any_to_string();
   define_any_to_bytevector();
   define_eval_to_bytevector();
+  define_sh_vars();
 
   c_environ_to_sh_vars(environ);
 
@@ -97,6 +99,23 @@ ptr call2(const char symbol_name[], ptr arg1, ptr arg2) {
  */
 ptr eval(const char str[]) {
   return call1("eval", call1("read", call1("open-input-string", Sstring(str))));
+}
+
+static void define_define_macro(void) {
+  eval("(define-syntax define-macro\n"
+       "  (syntax-rules ()\n"
+       "    ((k (name . args) body ...)\n"
+       "     (define-macro name (lambda args body ...)))\n"
+       "    ((k name transformer)\n"
+       "     (define-syntax name\n"
+       "       (lambda (stx)\n"
+       "         (syntax-case stx ()\n"
+       "           ((l . sv)\n"
+       "            (let* ((v (syntax->datum (syntax sv)))\n"
+       "                   (e (apply transformer v)))\n"
+       "              (if (eq? (void) e)\n"
+       "                  (syntax (void))\n"
+       "                  (datum->syntax (syntax l) e))))))))))");
 }
 
 static void define_display_any(void) {
