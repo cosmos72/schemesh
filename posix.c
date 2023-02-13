@@ -84,6 +84,10 @@ void register_posix_functions_into_scheme(void) {
   Sregister_symbol("c_open_file_fd", &c_open_file_fd);
   Sregister_symbol("c_open_pipe_fds", &c_open_pipe_fds);
 
+  Sregister_symbol("c_fork_pid", &c_fork_pid);
+  Sregister_symbol("c_spawn_pid", &c_spawn_pid);
+  Sregister_symbol("c_pid_wait", &c_pid_wait);
+
   eval("(define (make-errno-condition who c-errno)\n"
        "  (condition\n"
        "    (make-error)\n"
@@ -149,8 +153,17 @@ void register_posix_functions_into_scheme(void) {
 }
 
 static void register_process_functions_into_scheme(void) {
-  Sregister_symbol("c_spawn_pid", &c_spawn_pid);
-  Sregister_symbol("c_pid_wait", &c_pid_wait);
+
+  /**
+   * Call fork()
+   */
+  eval("(define fork-pid\n"
+       "  (let ((c-fork-pid (foreign-procedure \"c_fork_pid\" () int)))\n"
+       "    (lambda ()\n"
+       "      (let ((ret (c-fork-pid)))\n"
+       "        (when (< ret 0)\n"
+       "          (raise-errno-condition 'fork-pid ret))\n"
+       "        ret))))\n");
 
   eval("(define (list->cmd-argv l)\n"
        "  (let ((argv (list->vector l)))\n"
@@ -209,45 +222,53 @@ static void register_process_functions_into_scheme(void) {
        "    argv))\n"); /* vector of bytevectors, each #\nul terminated */
 
   /** Create a cmd to later spawn it. */
-  eval("(define (sh-cmd argv-list)\n"
-       "  (%make-cmd -1 -1 (vector 0 1 2) '() '() #f (list->cmd-argv argv-list)))\n");
+  eval("(define (sh-cmd program . args)\n"
+       "  (%make-cmd -1 -1 (vector 0 1 2) '() '() #f (list->cmd-argv (cons program args))))\n");
 
   /** Start a cmd in a subprocess TODO: also support starting a job in a subprocess */
   eval("(define sh-start\n"
        "  (let ((c-spawn-pid (foreign-procedure \"c_spawn_pid\""
        "                        (scheme-object scheme-object scheme-object) int)))\n"
-       "    (lambda (c)\n"
-       "      (when (>= (job-pid c) 0)\n"
-       "        (error 'sh-start \"job already started\" (job-pid c)))\n"
+       "    (lambda (j)\n"
+       "      (when (>= (job-pid j) 0)\n"
+       "        (error 'sh-start \"job already started\" (job-pid j)))\n"
+       "      (when (not (cmd? j))\n"
+       "        (error 'sh-start \"unimplemented for non-cmd jobs\"))\n"
        "      (let ((ret (c-spawn-pid\n"
-       "                   (cmd-argv c)\n"
-       "                   (job-to-redirect-fds c)\n"
+       "                   (cmd-argv j)\n"
+       "                   (job-to-redirect-fds j)\n"
        "                   (sh-vars->vector-of-bytevector0 #f))))\n"
        "        (when (< ret 0)\n"
        "          (raise-errno-condition 'sh-start ret))\n"
-       "        (fd-close-list (job-to-close-fds c))\n"
-       "        (job-pid-set! c ret)\n"
-       "        (job-exit-status-set! c -1)))))\n"); /* job can now be waited-for */
+       "        (fd-close-list (job-to-close-fds j))\n"
+       "        (job-pid-set! j ret)\n"
+       "        (job-exit-status-set! j -1)))))\n"); /* job can now be waited-for */
 
   /** Wait for a cmd or job to exit and return its exit status, or 256 + signal */
   eval("(define (sh-wait j)\n"
-       "  (if (>= (job-exit-status j) 0)\n"
-       "    (job-exit-status c)\n" /* already waited for */
-       "    (begin\n"
-       "      (when (< (job-pid c) 0)\n"
-       "        (error 'job-wait \"command not started yet\" c))\n"
-       "      (let ([ret (pid-wait (job-pid c))])\n"
+       "  (cond\n"
+       "    ((>= (job-exit-status j) 0)\n"
+       "      (job-exit-status j))\n" /* already waited for */
+       "    ((< (job-pid j) 0)\n"
+       "      (error 'job-wait \"job not started yet\" j))\n"
+       "    (#t\n"
+       "      (let ([ret (pid-wait (job-pid j))])\n"
        "        (when (< ret 0)\n"
        "          (raise-errno-condition 'job-wait ret))\n"
-       "        (job-pid-set! c -1)\n" /* cmd can now be spawned again */
-       "        (job-exit-status-set! c ret)\n"
+       "        (job-pid-set! j -1)\n" /* cmd can now be spawned again */
+       "        (job-exit-status-set! j ret)\n"
        "        ret))))\n");
 
+  /** Start a cmd or job and wait for it to exit. return its exit status, or 256 + signal */
+  eval("(define (sh-run j)\n"
+       "  (sh-start j)\n"
+       "  (sh-wait j))\n");
+
   /** Create or remove a file description redirection for cmd or job */
-  eval("(define (sh-redirect-fd! c child-fd existing-fd-or-minus-1)\n"
+  eval("(define (sh-redirect-fd! j child-fd existing-fd-or-minus-1)\n"
        "  (when (or (not (fixnum? child-fd)) (< child-fd 0))\n"
        "    (error 'job-redirect! \"invalid redirect fd\" child-fd))\n"
-       "  (let* ([old-fds (job-to-redirect-fds c)]\n"
+       "  (let* ([old-fds (job-to-redirect-fds j)]\n"
        "         [old-n (vector-length old-fds)])\n"
        "    (when (<= old-n child-fd)\n"
        "      (let* ([new-n (max (+ 1 child-fd) (* 2 old-n))]\n"
@@ -255,14 +276,14 @@ static void register_process_functions_into_scheme(void) {
        "        (do ([i 0 (+ 1 i)])\n"
        "            ((>= i old-n))\n"
        "          (vector-set! new-fds i (vector-ref old-fds i)))\n"
-       "        (job-to-redirect-fds-set! c new-fds))))\n"
-       "  (vector-set! (job-to-redirect-fds c) child-fd existing-fd-or-minus-1))\n");
+       "        (job-to-redirect-fds-set! j new-fds))))\n"
+       "  (vector-set! (job-to-redirect-fds j) child-fd existing-fd-or-minus-1))\n");
 
   /** Create or remove multiple file description redirections for cmd or job */
-  eval("(define (sh-redirect-fds! c child-fds existing-fd-or-minus-1)\n"
+  eval("(define (sh-redirect-fds! j child-fds existing-fd-or-minus-1)\n"
        "  (do ([child-cons child-fds (cdr child-cons)])\n"
        "      ((eq '() child-cons))"
-       "    (job-redirect-fd! c (car child-cons) existing-fd-or-minus-1)))\n");
+       "    (job-redirect-fd! j (car child-cons) existing-fd-or-minus-1)))\n");
 }
 
 static int c_check_redirect_fds(ptr vector_redirect_fds) {
@@ -310,6 +331,14 @@ static int c_redirect_fds(ptr vector_redirect_fds) {
     }
   }
   return lowest_fd_to_close;
+}
+
+int c_fork_pid(void) {
+  int pid = fork();
+  if (pid < 0) {
+    pid = -errno; /* fork failed */
+  }
+  return pid;
 }
 
 int c_spawn_pid(ptr vector_of_bytevector0_cmdline,

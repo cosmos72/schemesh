@@ -30,6 +30,9 @@ int c_open_file_fd(ptr bytevector0_filepath,
 /* call pipe() and return a Scheme cons (pipe_read_fd . pipe_write_fd), or c_errno() on error */
 ptr c_open_pipe_fds(void);
 
+/* fork() and return pid, or c_errno on error */
+int c_fork_pid(void);
+
 /* fork() and exec() an external program, return pid */
 int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
                 ptr vector_redirect_fds,
