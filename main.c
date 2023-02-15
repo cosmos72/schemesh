@@ -2,7 +2,6 @@
 #error "please #define CHEZ_SCHEME_DIR to the installation path of Chez Scheme"
 #endif
 
-#include <scheme.h>
 #include <setjmp.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -10,7 +9,8 @@
 #include <string.h>
 #include <time.h>
 
-#include "hash_iterate.h"
+#include "hash_iterator.h"
+#include "main.h"
 #include "posix.h"
 
 #define STR_(arg) #arg
@@ -61,7 +61,7 @@ static void init(void) {
   Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/scheme.boot");
   Sbuild_heap(NULL, NULL);
 
-  define_hash_iterate();
+  define_hash_iterator();
   define_define_macro();
   define_display_any();
   define_any_to_string();

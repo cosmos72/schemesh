@@ -1,6 +1,6 @@
 #include "main.h"
 
-void define_hash_iterate(void) {
+void define_hash_iterator(void) {
   eval("(begin\n"
        "  ;;; return #t if argument is an hash-iterator, otherwise return #f\n"
        "  (define hash-iterator?)\n"
