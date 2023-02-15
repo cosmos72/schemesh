@@ -10,6 +10,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "hash_iterate.h"
 #include "posix.h"
 
 #define STR_(arg) #arg
@@ -60,6 +61,7 @@ static void init(void) {
   Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/scheme.boot");
   Sbuild_heap(NULL, NULL);
 
+  define_hash_iterate();
   define_define_macro();
   define_display_any();
   define_any_to_string();

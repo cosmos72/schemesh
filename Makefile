@@ -14,5 +14,8 @@ main.o: main.c posix.h
 posix.o: posix.c
 	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
-schemesh: main.o posix.o
+hash_iterate.o: hash_iterate.c
+	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
+
+schemesh: hash_iterate.o posix.o main.o
 	$(CC) $^ -o $@ -L$(CHEZ_SCHEME_DIR) -lkernel -lz -llz4 -lm -lncurses -luuid
