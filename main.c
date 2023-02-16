@@ -51,8 +51,8 @@ static void define_display_any(void);
 static void define_any_to_string(void);
 static void define_any_to_bytevector(void);
 static void define_eval_to_bytevector(void);
-static void define_sh_vars(void);
-static void c_environ_to_sh_vars(char** env);
+static void define_sh_env(void);
+static void c_environ_to_sh_env(char** env);
 char**      vector_to_c_argz(ptr vector_of_bytevector0);
 
 static void init(void) {
@@ -67,9 +67,9 @@ static void init(void) {
   define_any_to_string();
   define_any_to_bytevector();
   define_eval_to_bytevector();
-  define_sh_vars();
+  define_sh_env();
 
-  c_environ_to_sh_vars(environ);
+  c_environ_to_sh_env(environ);
 
   register_posix_functions_into_scheme();
 }
@@ -94,6 +94,15 @@ ptr call1(const char symbol_name[], ptr arg) {
  */
 ptr call2(const char symbol_name[], ptr arg1, ptr arg2) {
   return Scall2(Stop_level_value(Sstring_to_symbol(symbol_name)), arg1, arg2);
+}
+
+/**
+ * call global Scheme procedure having specified symbol name
+ * passing three Scheme arguments to it.
+ * Return the resulting Scheme value.
+ */
+ptr call3(const char symbol_name[], ptr arg1, ptr arg2, ptr arg3) {
+  return Scall3(Stop_level_value(Sstring_to_symbol(symbol_name)), arg1, arg2, arg3);
 }
 
 /**
@@ -209,35 +218,44 @@ static void define_eval_to_bytevector(void) {
        "  (any->bytevector (eval (read (open-input-string str)))))\n");
 }
 
-static void define_sh_vars(void) {
-  eval("(define sh-vars (make-hashtable string-hash string=?))");
-  eval("(define (sh-var-get name)\n"
-       "  (let ((elem (hashtable-ref sh-vars name #f)))\n"
+static void define_sh_env(void) {
+  eval("(define sh-env\n"
+       "  (let ((vars (make-hashtable string-hash string=?)))\n"
+       "    (lambda ()\n"
+       "      vars)))\n");
+  eval("(define (sh-env-get vars name)\n"
+       "  (let* ((vars (or vars (sh-env)))\n"
+       "         (elem (hashtable-ref vars name #f)))\n"
        "    (if (pair? elem)\n"
        "      (cdr elem)\n"
        "      \"\")))");
-  eval("(define (sh-var-set! name val)\n"
-       "  (let ((elem (hashtable-ref sh-vars name #f)))\n"
+  eval("(define (sh-env-set! vars name val)\n"
+       "  (let* ((vars (or vars (sh-env)))\n"
+       "         (elem (hashtable-ref vars name #f)))\n"
        "    (if (pair? elem)\n"
        "      (set-cdr! elem val)\n"
-       "      (hashtable-set! sh-vars name (cons #f val)))))\n");
-  eval("(define (sh-var-unset! name)\n"
-       "  (hashtable-delete! sh-vars name))\n");
-  eval("(define (sh-var-exported? name)\n"
-       "  (let ((elem (hashtable-ref sh-vars name #f)))\n"
+       "      (hashtable-set! vars name (cons #f val)))))\n");
+  eval("(define (sh-env-unset! vars name)\n"
+       "  (let ((vars (or vars (sh-env))))\n"
+       "    (hashtable-delete! vars name)))\n");
+  eval("(define (sh-env-exported? vars name)\n"
+       "  (let* ((vars (or vars (sh-env)))\n"
+       "         (elem (hashtable-ref vars name #f)))\n"
        "    (if (pair? elem)\n"
        "      (car elem)\n"
        "      #f)))");
-  eval("(define (sh-var-export! name exported?)\n"
+  eval("(define (sh-env-export! vars name exported?)\n"
        "  (assert (boolean? exported?))\n"
-       "  (let ((elem (hashtable-ref sh-vars name #f)))\n"
+       "  (let* ((vars (or vars (sh-env)))\n"
+       "         (elem (hashtable-ref vars name #f)))\n"
        "    (if (pair? elem)\n"
        "      (set-car! elem exported?)\n"
-       "      (hashtable-set! sh-vars name (cons exported? \"\")))))\n");
-  eval("(define (sh-vars->vector-of-bytevector0 all?)\n"
-       "  (let* ((n (hashtable-size sh-vars))\n"
+       "      (hashtable-set! vars name (cons exported? \"\")))))\n");
+  eval("(define (sh-env->vector-of-bytevector0 vars all?)\n"
+       "  (let* ((vars (or vars (sh-env)))\n"
+       "         (n (hashtable-size vars))\n"
        "         (out (make-vector n))\n"
-       "         (iter (make-hash-iterator sh-vars)))\n"
+       "         (iter (make-hash-iterator vars)))\n"
        "    (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter))\n"
        "         (i 0 (fx1+ i)))\n"
        "        ((not cell))\n"
@@ -248,7 +266,7 @@ static void define_sh_vars(void) {
        "    out))\n");
 }
 
-static void c_environ_to_sh_vars(char** env) {
+static void c_environ_to_sh_env(char** env) {
   const char* entry;
   if (!env) {
     return;
@@ -260,8 +278,8 @@ static void c_environ_to_sh_vars(char** env) {
     if (namelen == 0 || inamelen < 0 || namelen != (size_t)inamelen) {
       continue;
     }
-    call2("sh-var-set!", Sstring_of_length(entry, inamelen), Sstring(separator + 1));
-    call2("sh-var-export!", Sstring_of_length(entry, inamelen), Strue);
+    call3("sh-env-set!", Sfalse, Sstring_of_length(entry, inamelen), Sstring(separator + 1));
+    call3("sh-env-export!", Sfalse, Sstring_of_length(entry, inamelen), Strue);
   }
 }
 

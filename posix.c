@@ -186,7 +186,7 @@ static void register_process_functions_into_scheme(void) {
        "      (let ((ret (c-spawn-pid\n"
        "                   (list->cmd-argv (cons program args))\n"
        "                   (vector 0 1 2)\n"
-       "                   (sh-vars->vector-of-bytevector0 #f))))\n"
+       "                   (sh-env->vector-of-bytevector0 (sh-env) #f))))\n"
        "        (when (< ret 0)\n"
        "          (raise-errno-condition 'spawn-pid ret))\n"
        "        ret))))\n");
@@ -210,20 +210,29 @@ static void register_process_functions_into_scheme(void) {
                                               (start-func) */
        "    (mutable to-redirect-files)\n" /* vector of files to open before fork() */
        "    (mutable to-close-fds)\n"      /* list of fds to close after spawn */
-       "    start-func))\n");              /* function to start the job in fork()ed child */
+       "    start-func\n"                  /* function to start the job in fork()ed child */
+       "    (mutable env)\n"               /* overridden env variables, or #f */
+       "    (mutable parent))))\n");       /* parent job, contains default values of env variables
+                                            * and default redirections */
 
-  /**
-   * Define the record type "cmd"
-   */
+  /** Define the record type "cmd" */
   eval("(define-record-type\n"
        "  (cmd %make-cmd cmd?)\n"
        "  (parent job)"
        "  (fields\n"
        "    argv))\n"); /* vector of bytevectors, each #\nul terminated */
 
+  /** Define the function (sh-globals), returns global job */
+  eval("(define sh-globals\n"
+       "  (let ((globals (%make-job -1 -1 (vector 0 1 2) (vector)\n"
+       "                  '() #f (sh-env) #f)))\n"
+       "    (lambda ()\n"
+       "      globals)))\n");
+
   /** Create a cmd to later spawn it. */
   eval("(define (sh-cmd program . args)\n"
-       "  (%make-cmd -1 -1 (vector 0 1 2) '() '() #f (list->cmd-argv (cons program args))))\n");
+       "  (%make-cmd -1 -1 (vector 0 1 2) (vector) '() #f #f\n"
+       "    (sh-globals) (list->cmd-argv (cons program args))))\n");
 
   /** Start a cmd in a subprocess TODO: also support starting a job in a subprocess */
   eval("(define sh-start\n"
@@ -237,7 +246,7 @@ static void register_process_functions_into_scheme(void) {
        "      (let ((ret (c-spawn-pid\n"
        "                   (cmd-argv j)\n"
        "                   (job-to-redirect-fds j)\n"
-       "                   (sh-vars->vector-of-bytevector0 #f))))\n"
+       "                   (sh-env->vector-of-bytevector0 (sh-env) #f))))\n"
        "        (when (< ret 0)\n"
        "          (raise-errno-condition 'sh-start ret))\n"
        "        (fd-close-list (job-to-close-fds j))\n"

@@ -18,6 +18,13 @@ ptr call1(const char symbol_name[], ptr arg);
 ptr call2(const char symbol_name[], ptr arg1, ptr arg2);
 
 /**
+ * call global Scheme procedure having specified symbol name
+ * passing three Scheme arguments to it.
+ * Return the resulting Scheme value.
+ */
+ptr call3(const char symbol_name[], ptr arg1, ptr arg2, ptr arg3);
+
+/**
  * call Scheme (eval) on a C string and return the resulting Scheme value
  */
 ptr eval(const char str[]);
