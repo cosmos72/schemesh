@@ -9,7 +9,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "hash_iterator.h"
+#include "iterator.h"
 #include "main.h"
 #include "posix.h"
 
@@ -167,7 +167,7 @@ static void define_any_to_string(void) {
        "  (cond ((string? x) x)\n"
        "        ((bytevector? x) (utf8->string x))\n"
        "        ((eq? (void) x) \"\")\n"
-       "        (#t (let-values (([port get-string]\n"
+       "        (#t (let-values (((port get-string)\n"
        "                          (open-string-output-port)))\n"
        "              (display-any x port)\n"
        "              (get-string)))))\n");
@@ -182,7 +182,7 @@ static void define_any_to_bytevector(void) {
        "      (cond ((bytevector? x) x)\n"
        "            ((string? x) (string->utf8 x))\n"
        "            ((eq? (void) x) #vu8())\n"
-       "            (#t (let-values (([port get-bytevector]\n"
+       "            (#t (let-values (((port get-bytevector)\n"
        "                              (open-bytevector-output-port transcoder)))\n"
        "                  (display-any x port)\n"
        "                  (get-bytevector)))))))\n");
@@ -192,7 +192,7 @@ static void define_any_to_bytevector(void) {
        "  (let ((transcoder (make-transcoder (utf-8-codec) (eol-style lf)\n"
        "                                     (error-handling-mode raise))))\n"
        "    (lambda args\n"
-       "      (let-values (([port get-bytevector]\n"
+       "      (let-values (((port get-bytevector)\n"
        "                    (open-bytevector-output-port transcoder)))\n"
        "        (for-each (lambda (x) (display-any x port)) args)\n"
        "        (display #\\nul port)\n"
@@ -235,15 +235,16 @@ static void define_sh_vars(void) {
        "      (set-car! elem exported?)\n"
        "      (hashtable-set! sh-vars name (cons exported? \"\")))))\n");
   eval("(define (sh-vars->vector-of-bytevector0 all?)\n"
-       "  (let* ([n (hashtable-size sh-vars)]\n"
-       "         [out (make-vector n)])\n"
-       "    (let-values (([keys vals] (hashtable-entries sh-vars)))\n"
-       "      (do ([i 0 (+ 1 i)])\n"
-       "          ((>= i n))\n"
-       "        (let ([key (vector-ref keys i)]\n"
-       "              [val (vector-ref vals i)])\n"
-       "          (when (or all? (car val))\n"
-       "            (vector-set! out i (any->bytevector0 key \"=\" (cdr val)))))))\n"
+       "  (let* ((n (hashtable-size sh-vars))\n"
+       "         (out (make-vector n))\n"
+       "         (iter (make-hash-iterator sh-vars)))\n"
+       "    (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter))\n"
+       "         (i 0 (fx1+ i)))\n"
+       "        ((not cell))\n"
+       "      (let ((key (car cell))\n"
+       "            (val (cdr cell)))\n"
+       "        (when (or all? (car val))\n"
+       "          (vector-set! out i (any->bytevector0 key \"=\" (cdr val))))))\n"
        "    out))\n");
 }
 

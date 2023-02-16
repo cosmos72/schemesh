@@ -24,7 +24,7 @@ void define_hash_iterator(void) {
        "  (define hash-iterator-cell))\n"
        "  \n"
        "  \n"
-       "  ;;; modify hash-iterator in place to point to next hashtable element\n"
+       "  ;;; modify hash-iterator in place to point to next hashtable element.\n"
        "  ;;; return next hashtable element (key . val) if more elements are available,\n"
        "  ;;; otherwise return #f\n"
        "  ;;;\n"
@@ -91,7 +91,7 @@ void define_hash_iterator(void) {
        /**
         * Note: eqv hashtables contain two inner hashtables:
         * one for keys comparable with eq, and one for all other keys.
-        * We must retrieve both vectors from them and iterate on both
+        * We must retrieve both vectors from them and iterate on both.
         */
        "(define-record-type %hash-iterator\n"
        "  (fields (mutable index) (mutable bucket) (mutable vec1) (mutable vec2))\n"
