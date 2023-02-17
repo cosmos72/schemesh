@@ -1,3 +1,12 @@
+/**
+ * Copyright (C) 2023 by Massimiliano Ghilardi
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ */
+
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -6,7 +15,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "main.h"
+#include "eval.h"
 #include "posix.h"
 
 int c_errno(void) {
@@ -74,9 +83,9 @@ ptr c_open_pipe_fds(void) {
   return Scons(Sinteger(fds[0]), Sinteger(fds[1]));
 }
 
-static void register_process_functions_into_scheme(void);
+static void define_process_functions(void);
 
-void register_posix_functions_into_scheme(void) {
+void define_posix_functions(void) {
   Sregister_symbol("c_errno", &c_errno);
   Sregister_symbol("c_fd_close", &c_fd_close);
   Sregister_symbol("c_fd_dup", &c_fd_dup);
@@ -149,10 +158,10 @@ void register_posix_functions_into_scheme(void) {
        "          ret\n"
        "          (raise-errno-condition 'open-pipe-fds ret))))))\n");
 
-  register_process_functions_into_scheme();
+  define_process_functions();
 }
 
-static void register_process_functions_into_scheme(void) {
+static void define_process_functions(void) {
 
   /**
    * Call fork()
@@ -211,7 +220,7 @@ static void register_process_functions_into_scheme(void) {
        "    (mutable to-redirect-files)\n" /* vector of files to open before fork() */
        "    (mutable to-close-fds)\n"      /* list of fds to close after spawn */
        "    start-func\n"                  /* function to start the job in fork()ed child */
-       "    (mutable env)\n"               /* overridden env variables, or #f */
+       "    (mutable env)\n"               /* overridden env variables, or '() */
        "    (mutable parent))))\n");       /* parent job, contains default values of env variables
                                             * and default redirections */
 
@@ -231,7 +240,9 @@ static void register_process_functions_into_scheme(void) {
 
   /** Create a cmd to later spawn it. */
   eval("(define (sh-cmd program . args)\n"
-       "  (%make-cmd -1 -1 (vector 0 1 2) (vector) '() #f #f\n"
+       "  (%make-cmd -1 -1 (vector 0 1 2) (vector) '()\n"
+       "    #f\n"  /* start-func */
+       "    '()\n" /* env */
        "    (sh-globals) (list->cmd-argv (cons program args))))\n");
 
   /** Start a cmd in a subprocess TODO: also support starting a job in a subprocess */
@@ -246,7 +257,7 @@ static void register_process_functions_into_scheme(void) {
        "      (let ((ret (c-spawn-pid\n"
        "                   (cmd-argv j)\n"
        "                   (job-to-redirect-fds j)\n"
-       "                   (sh-env->vector-of-bytevector0 (sh-env) #f))))\n"
+       "                   (sh-env->vector-of-bytevector0 (job-env j) #f))))\n"
        "        (when (< ret 0)\n"
        "          (raise-errno-condition 'sh-start ret))\n"
        "        (fd-close-list (job-to-close-fds j))\n"

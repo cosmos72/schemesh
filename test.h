@@ -7,9 +7,9 @@
  * (at your option) any later version.
  */
 
-#ifndef SCHEMESH_ITERATOR_H
-#define SCHEMESH_ITERATOR_H
+#ifndef SCHEMESH_TEST_H
+#define SCHEMESH_TEST_H
 
-void define_hash_iterator(void);
+/* nothing here currently */
 
-#endif /* SCHEMESH_ITERATOR_H */
+#endif /* SCHEMESH_TEST_H */

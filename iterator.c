@@ -1,4 +1,13 @@
-#include "main.h"
+/**
+ * Copyright (C) 2023 by Massimiliano Ghilardi
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ */
+
+#include "eval.h"
 
 void define_hash_iterator(void) {
   eval("(begin\n"
@@ -30,7 +39,14 @@ void define_hash_iterator(void) {
        "  ;;;\n"
        "  ;;; as (hash-iterator-cell), setting the cdr of returned element propagates back\n"
        "  ;;; to the hashtable.\n"
-       "  (define hash-iterator-next!)\n");
+       "  (define hash-iterator-next!)\n"
+       "  \n"
+       "  \n"
+       "  ;;; iterate on all elements of given hashtable, and call (proc (cons key value))\n"
+       "  ;;; on each element. stop iterating if (proc ...) returns #f\n"
+       "  (define hashtable-iterate)\n"
+       "  \n"
+       ")\n");
 
   eval("(let ()\n"
        "\n"
@@ -171,6 +187,12 @@ void define_hash_iterator(void) {
        "            (%hash-iterator-vec1-set!   iter vec2)\n"
        "            (%hash-iterator-vec2-set!   iter (vector))\n"
        "            (hash-iterator-next! iter)))))))\n"
+       "\n"
+       "(set! hashtable-iterate\n"
+       "  (lambda (htable proc)\n"
+       "    (let ((iter (make-hash-iterator htable)))\n"
+       "      (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter)))\n"
+       "          ((or (not cell) (not (proc cell))))))))\n"
        "\n"
        ")\n");
 }
