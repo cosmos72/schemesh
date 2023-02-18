@@ -19,7 +19,7 @@ void define_env_functions(void);
 
 /**
  * Define the record types "job" "cmd" and functions (sh-globals) (sh-cmd ...)
- * Requires the function (sh-env)
+ * Requires the function (sh-global-env)
  */
 void define_job_functions(void);
 
@@ -31,7 +31,7 @@ void define_job_functions(void);
 void define_shell_functions(void);
 
 /**
- * copy C environment variables env into Scheme global environment (sh-env).
+ * copy C environment variables env into Scheme global environment (sh-global-env).
  */
 void c_environ_to_sh_env(char** env);
 

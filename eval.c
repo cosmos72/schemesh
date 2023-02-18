@@ -183,10 +183,21 @@ static void define_any_to_bytevector(void) {
        "        (display #\\nul port)\n"
        "        (get-bytevector)))))\n");
 
-  /* convert string to #\nul terminated UTF-8 bytevector */
+  /* convert string to bytevector0 i.e. #\nul terminated UTF-8 bytevector */
   eval("(define (string->bytevector0 x)\n"
        "  (assert (or (string? x) (bytevector? x)))\n"
        "  (any->bytevector0 x))\n");
+
+  /**
+   * convert a list of strings or bytevectors to vector-of-bytevector0
+   * i.e. to a vector of #\nul terminated UTF-8 bytevectors
+   */
+  eval("(define (list->cmd-argv l)\n"
+       "  (let ((argv (list->vector l)))\n"
+       "    (do ([i 0 (+ 1 i)])\n"
+       "        ((>= i (vector-length argv)))\n"
+       "      (vector-set! argv i (string->bytevector0 (vector-ref argv i))))\n"
+       "    argv))\n");
 }
 
 static void define_eval_to_bytevector(void) {

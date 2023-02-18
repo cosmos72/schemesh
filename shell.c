@@ -12,84 +12,9 @@
 
 #include <string.h>
 
-void define_env_functions(void) {
-
-  eval("(define sh-env\n"
-       "  (let ((vars (make-hashtable string-hash string=?)))\n"
-       "    (lambda ()\n"
-       "      vars)))\n");
-  eval("(define (sh-env-get vars name)\n"
-       "  (let* ((vars (if (null? vars) (sh-env) vars))\n"
-       "         (elem (hashtable-ref vars name #f)))\n"
-       "    (if (pair? elem)\n"
-       "      (cdr elem)\n"
-       "      \"\")))");
-  eval("(define (sh-env-set! vars name val)\n"
-       "  (let* ((vars (if (null? vars) (sh-env) vars))\n"
-       "         (elem (hashtable-ref vars name #f)))\n"
-       "    (if (pair? elem)\n"
-       "      (set-cdr! elem val)\n"
-       "      (hashtable-set! vars name (cons #f val)))))\n");
-  eval("(define (sh-env-unset! vars name)\n"
-       "  (let ((vars (if (null? vars) (sh-env) vars)))\n"
-       "    (hashtable-delete! vars name)))\n");
-  eval("(define (sh-env-exported? vars name)\n"
-       "  (let* ((vars (if (null? vars) (sh-env) vars))\n"
-       "         (elem (hashtable-ref vars name #f)))\n"
-       "    (if (pair? elem)\n"
-       "      (car elem)\n"
-       "      #f)))");
-  eval("(define (sh-env-export! vars name exported?)\n"
-       "  (assert (boolean? exported?))\n"
-       "  (let* ((vars (if (null? vars) (sh-env) vars))\n"
-       "         (elem (hashtable-ref vars name #f)))\n"
-       "    (if (pair? elem)\n"
-       "      (set-car! elem exported?)\n"
-       "      (hashtable-set! vars name (cons exported? \"\")))))\n");
-  /**
-   * FIXME: replace with a function that counts env variables from a job and its parents
-   */
-  eval("(define (sh-env-size vars all?)\n"
-       "  (assert (boolean? all?))\n"
-       "  (let ((vars (if (null? vars) (sh-env) vars)))\n"
-       "    (if all?\n"
-       "      (hashtable-size vars)\n"
-       "      (let ((n 0))\n"
-       "        (hashtable-iterate vars\n"
-       "          (lambda (cell)\n"
-       "            (when (cadr cell)\n"
-       "              (set! n (fx1+ n)))))\n"
-       "        n))))\n");
-  /**
-   * FIXME: replace with a function that extracts env variables from a job and its parents
-   */
-  eval("(define (sh-env->vector-of-bytevector0 vars all?)\n"
-       "  (let* ((vars (if (null? vars) (sh-env) vars))\n"
-       "         (i 0)\n"
-       "         (n (sh-env-size vars all?))\n"
-       "         (out (make-vector n #f)))\n"
-       "    (hashtable-iterate vars\n"
-       "      (lambda (cell)\n"
-       "        (let ((key (car cell))\n"
-       "              (val (cdr cell)))\n"
-       "          (when (or all? (car val))\n"
-       "            (vector-set! out i (any->bytevector0 key \"=\" (cdr val)))\n"
-       "            (set! i (fx1+ i))))))\n"
-       "    out))\n");
-}
-
 void define_job_functions(void) {
 
-  eval("(define (list->cmd-argv l)\n"
-       "  (let ((argv (list->vector l)))\n"
-       "    (do ([i 0 (+ 1 i)])\n"
-       "        ((>= i (vector-length argv)))\n"
-       "      (vector-set! argv i (string->bytevector0 (vector-ref argv i))))\n"
-       "    argv))\n");
-
-  /**
-   * Define the record type "job"
-   */
+  /** Define the record type "job" */
   eval("(define-record-type\n"
        "  (job %make-job job?)\n"
        "  (fields\n"
@@ -113,17 +38,121 @@ void define_job_functions(void) {
 
   /** Define the function (sh-globals), returns global job */
   eval("(define sh-globals\n"
-       "  (let ((j (%make-job -1 -1 (vector 0 1 2) (vector)\n"
-       "                      '() #f (sh-env) #f)))\n"
+       "  (let ((j (%make-job -1 -1 (vector 0 1 2) (vector) '() #f\n"
+       "                      (make-hashtable string-hash string=?) #f)))\n"
        "    (lambda ()\n"
        "      j)))\n");
+
+  /**
+   * Define the function (job-parents-iterate), calls (proc j) on given job and each of its parents.
+   * Stops iterating if (proc) returns false.
+   */
+  eval("(define (job-parents-iterate j proc)\n"
+       "  (do ((parent (if (null? j) (sh-globals) j) (job-parent parent)))\n"
+       "      ((or (not (job? parent)) (not (proc parent))))))\n");
 
   /** Create a cmd to later spawn it. */
   eval("(define (sh-cmd program . args)\n"
        "  (%make-cmd -1 -1 (vector 0 1 2) (vector) '()\n"
-       "    #f\n"  /* start-func */
-       "    '()\n" /* env */
-       "    (sh-globals) (list->cmd-argv (cons program args))))\n");
+       "    #f\n"           /* start-func */
+       "    '()\n"          /* overridden environment variables - initially none */
+       "    (sh-globals)\n" /* parent job - initially the global job */
+       "    (list->cmd-argv (cons program args))))\n");
+}
+
+void define_env_functions(void) {
+  /** return global environment variables */
+  eval("(define (sh-global-env)\n"
+       "  (job-env (sh-globals)))\n");
+  /** return environment variables of specified job, creating them if needed */
+  eval("(define (sh-env job)\n"
+       "  (if (null? job)\n"
+       "    (sh-global-env)\n"
+       "    (let ((vars (job-env job)))\n"
+       "      (unless (hashtable? vars)\n"
+       "        (set! vars (make-hashtable string-hash string=?))\n"
+       "        (job-env-set! job vars))\n"
+       "      vars)))\n");
+  /**
+   * return environment variable named "name" of specified job.
+   * If name is not found in job's environment, also search in job parents environment
+   */
+  eval("(define (sh-env-get job name)\n"
+       "  (let ((ret \"\"))\n"
+       "    (job-parents-iterate job\n"
+       "      (lambda (j)\n"
+       "        (let* ((vars (job-env j))\n"
+       "               (elem (if (hashtable? vars) (hashtable-ref vars name #f) #f)))\n"
+       "          (when (pair? elem)\n"
+       "            (set! ret (cdr elem))\n"
+       "            #f))))\n" /* name found, stop iterating */
+       "    ret))\n");
+  eval("(define (sh-env-set! job name val)\n"
+       "  (let* ((vars (sh-env job))\n"
+       "         (elem (hashtable-ref vars name #f)))\n"
+       "    (if (pair? elem)\n"
+       "      (set-cdr! elem val)\n"
+       "      (hashtable-set! vars name (cons #f val)))))\n");
+  /**
+   * FIXME: (sh-env-unset!) must insert an entry that means "deleted"
+   * Current implementation is buggy: it exposes job parent's environment variable
+   * with the same name, if any.
+   */
+  eval("(define (sh-env-unset! job name)\n"
+       "  (let ((vars (sh-env job)))\n"
+       "    (hashtable-delete! vars name)))\n");
+  eval("(define (sh-env-exported? job name)\n"
+       "  (let ((ret \"\"))\n"
+       "    (job-parents-iterate job\n"
+       "      (lambda (j)\n"
+       "        (let* ((vars (job-env j))\n"
+       "               (elem (if (hashtable? vars) (hashtable-ref vars name #f) #f)))\n"
+       "          (when (pair? elem)\n"
+       "            (set! ret (car elem))\n"
+       "            #f))))\n" /* name found, stop iterating */
+       "    ret))\n");
+  eval("(define (sh-env-export! job name exported?)\n"
+       "  (assert (boolean? exported?))\n"
+       "  (let* ((j (if (null? job) (sh-globals) job))\n"
+       "         (vars (job-env j))\n"
+       "         (elem (if (hashtable? vars) (hashtable-ref vars name #f) #f)))\n"
+       "    (if (pair? elem)\n"
+       "      ;\n" /* job enviroment contains name: simply mark it exported */
+       "      (set-car! elem exported?)\n"
+       "      ;\n" /* job enviroment does not contain name: search in parent environments */
+       "      (let ((value (sh-env-get j name)))\n"
+       "        ;\n" /* (sh-env j) creates job environment if not yet present */
+       "        (hashtable-set! (sh-env j) name (cons exported? value))))))\n");
+  /**
+   * FIXME: replace with a function that counts env variables from job and its parents
+   */
+  eval("(define (sh-env-size vars all?)\n"
+       "  (assert (boolean? all?))\n"
+       "  (let ((vars (if (null? vars) (sh-global-env) vars)))\n"
+       "    (if all?\n"
+       "      (hashtable-size vars)\n"
+       "      (let ((n 0))\n"
+       "        (hashtable-iterate vars\n"
+       "          (lambda (cell)\n"
+       "            (when (cadr cell)\n"
+       "              (set! n (fx1+ n)))))\n"
+       "        n))))\n");
+  /**
+   * FIXME: replace with a function that extracts env variables from a job and its parents
+   */
+  eval("(define (sh-env->vector-of-bytevector0 vars all?)\n"
+       "  (let* ((vars (if (null? vars) (sh-global-env) vars))\n"
+       "         (i 0)\n"
+       "         (n (sh-env-size vars all?))\n"
+       "         (out (make-vector n #f)))\n"
+       "    (hashtable-iterate vars\n"
+       "      (lambda (cell)\n"
+       "        (let ((key (car cell))\n"
+       "              (val (cdr cell)))\n"
+       "          (when (or all? (car val))\n"
+       "            (vector-set! out i (any->bytevector0 key \"=\" (cdr val)))\n"
+       "            (set! i (fx1+ i))))))\n"
+       "    out))\n");
 }
 
 void c_environ_to_sh_env(char** env) {
