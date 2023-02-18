@@ -144,6 +144,10 @@ static void define_display_any(void) {
        "  (if (condition? x)\n"
        "    (display-condition x port)\n"
        "    (display x port)))\n");
+
+  eval("(define (write-bytevector0 x port)\n"
+       "  (let ((str (utf8->string x)))\n"
+       "    (write (substring str 0 (fx1- (string-length str))) port)))\n");
 }
 
 static void define_any_to_string(void) {

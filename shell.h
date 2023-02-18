@@ -18,7 +18,7 @@
 void define_env_functions(void);
 
 /**
- * Define the record types "job" "cmd" and functions (sh-globals) (sh-cmd ...)
+ * Define the record types "job" "cmd" and functions sh-globals (sh-cmd ...)
  * Requires the function (sh-global-env)
  */
 void define_job_functions(void);

@@ -16,7 +16,7 @@ void define_job_functions(void) {
 
   /** Define the record type "job" */
   eval("(define-record-type\n"
-       "  (job %make-job job?)\n"
+       "  (job %make-job sh-job?)\n"
        "  (fields\n"
        "    (mutable pid)\n"               /* fixnum, -1 if unknown */
        "    (mutable exit-status)\n"       /* fixnum, -1 if unknown */
@@ -31,55 +31,94 @@ void define_job_functions(void) {
 
   /** Define the record type "cmd" */
   eval("(define-record-type\n"
-       "  (cmd %make-cmd cmd?)\n"
+       "  (cmd %make-cmd sh-cmd?)\n"
        "  (parent job)"
        "  (fields\n"
        "    argv))\n"); /* vector of bytevectors, each #\nul terminated */
 
-  /** Define the function (sh-globals), returns global job */
+  /** customize how "job" objects are printed */
+  eval("(record-writer (record-type-descriptor job)\n"
+       "  (lambda (obj port writer)\n"
+       "    (display \"#<job \" port)\n"
+       "    (writer (job-start-func obj) port)\n"
+       "    (display \">\" port)))\n");
+
+  /** customize how "cmd" objects are printed */
+  eval("(record-writer (record-type-descriptor cmd)\n"
+       "  (lambda (obj port writer)\n"
+       "    (display \"#<cmd\" port)\n"
+       "    (vector-for-each\n"
+       "       (lambda (arg)\n"
+       "         (display #\\space port)\n"
+       "         (write-bytevector0 arg port))\n"
+       "       (cmd-argv obj))\n"
+       "    (display \">\" port)))\n");
+
+  /**
+   * Define the variable sh-globals, contains global job.
+   * May be set! to a different value in subshells.
+   */
   eval("(define sh-globals\n"
-       "  (let ((j (%make-job -1 -1 (vector 0 1 2) (vector) '() #f\n"
-       "                      (make-hashtable string-hash string=?) #f)))\n"
-       "    (lambda ()\n"
-       "      j)))\n");
+       "  (%make-job -1 -1 (vector 0 1 2) (vector) '() #f\n"
+       "             (make-hashtable string-hash string=?) #f))\n");
+
+  /**
+   * Define the function (sh-get-job), converts job-id to job.
+   * Job-id can be either a job, the empty list '() which means sh-globals,
+   * or a fixnum (TODO: implement) which means one of the running jobs.
+   */
+  eval("(define (sh-get-job job-id)\n"
+       "  (assert (or (null? job-id) (sh-job? job-id)))\n"
+       "  (if (null? job-id) sh-globals job-id))\n");
 
   /**
    * Define the function (job-parents-iterate), calls (proc j) on given job and each of its parents.
-   * Stops iterating if (proc) returns false.
+   * Stops iterating if (proc) returns #f.
    */
-  eval("(define (job-parents-iterate j proc)\n"
-       "  (do ((parent (if (null? j) (sh-globals) j) (job-parent parent)))\n"
-       "      ((or (not (job? parent)) (not (proc parent))))))\n");
+  eval("(define (job-parents-iterate job-id proc)\n"
+       "  (do ((parent (sh-get-job job-id) (job-parent parent)))\n"
+       "      ((or (not (sh-job? parent)) (not (proc parent))))))\n");
+
+  /**
+   * Define the function (job-parents-list), returns list containing job
+   * followed by all its parents.
+   */
+  eval("(define (job-parents-list job-id)\n"
+       "  (let ((jlist '()))\n"
+       "    (job-parents-iterate job-id\n"
+       "      (lambda (job)\n"
+       "        (set! jlist (cons job jlist))))\n"
+       "    (reverse jlist)))\n");
 
   /** Create a cmd to later spawn it. */
   eval("(define (sh-cmd program . args)\n"
        "  (%make-cmd -1 -1 (vector 0 1 2) (vector) '()\n"
-       "    #f\n"           /* start-func */
-       "    '()\n"          /* overridden environment variables - initially none */
-       "    (sh-globals)\n" /* parent job - initially the global job */
+       "    #f\n"         /* start-func */
+       "    '()\n"        /* overridden environment variables - initially none */
+       "    sh-globals\n" /* parent job - initially the global job */
        "    (list->cmd-argv (cons program args))))\n");
 }
 
 void define_env_functions(void) {
   /** return global environment variables */
   eval("(define (sh-global-env)\n"
-       "  (job-env (sh-globals)))\n");
+       "  (job-env sh-globals))\n");
+
   /** return environment variables of specified job, creating them if needed */
-  eval("(define (sh-env job)\n"
-       "  (if (null? job)\n"
-       "    (sh-global-env)\n"
-       "    (let ((vars (job-env job)))\n"
-       "      (unless (hashtable? vars)\n"
-       "        (set! vars (make-hashtable string-hash string=?))\n"
-       "        (job-env-set! job vars))\n"
-       "      vars)))\n");
+  eval("(define (job-direct-env job-id)\n"
+       "  (let* ((job (sh-get-job job-id))\n"
+       "         (vars (job-env job)))\n"
+       "    (unless (hashtable? vars)\n"
+       "      (set! vars (make-hashtable string-hash string=?))\n"
+       "      (job-env-set! job vars))\n"
+       "    vars))\n");
   /**
    * return environment variable named "name" of specified job.
    * If name is not found in job's environment, also search in job parents environment
    */
-  eval("(define (sh-env-get job name)\n"
+  eval("(define (sh-env-get job-id name)\n"
        "  (let ((ret \"\"))\n"
-       "    (job-parents-iterate job\n"
+       "    (job-parents-iterate job-id\n"
        "      (lambda (j)\n"
        "        (let* ((vars (job-env j))\n"
        "               (elem (if (hashtable? vars) (hashtable-ref vars name #f) #f)))\n"
@@ -87,42 +126,56 @@ void define_env_functions(void) {
        "            (set! ret (cdr elem))\n"
        "            #f))))\n" /* name found, stop iterating */
        "    ret))\n");
-  eval("(define (sh-env-set! job name val)\n"
-       "  (let* ((vars (sh-env job))\n"
+  eval("(define (sh-env-set! job-id name val)\n"
+       "  (let* ((vars (job-direct-env job-id))\n"
        "         (elem (hashtable-ref vars name #f)))\n"
        "    (if (pair? elem)\n"
        "      (set-cdr! elem val)\n"
-       "      (hashtable-set! vars name (cons #f val)))))\n");
+       "      (hashtable-set! vars name (cons 'private val)))))\n");
   /**
-   * FIXME: (sh-env-unset!) must insert an entry that means "deleted"
-   * Current implementation is buggy: it exposes job parent's environment variable
-   * with the same name, if any.
+   * Note: (sh-env-unset!) inserts an entry that means "deleted",
+   * in order to override any parent job's environment variable
+   * with the same name.
    */
-  eval("(define (sh-env-unset! job name)\n"
-       "  (let ((vars (sh-env job)))\n"
-       "    (hashtable-delete! vars name)))\n");
-  eval("(define (sh-env-exported? job name)\n"
-       "  (let ((ret \"\"))\n"
-       "    (job-parents-iterate job\n"
+  eval("(define (sh-env-unset! job-id name)\n"
+       "  (let ((vars (job-direct-env job-id)))\n"
+       "    (hashtable-set! vars name (cons 'delete \"\"))))\n");
+  eval("(define (sh-env-exported? job-id name)\n"
+       "  (let ((ret #f))\n"
+       "    (job-parents-iterate job-id\n"
        "      (lambda (j)\n"
        "        (let* ((vars (job-env j))\n"
        "               (elem (if (hashtable? vars) (hashtable-ref vars name #f) #f)))\n"
        "          (when (pair? elem)\n"
-       "            (set! ret (car elem))\n"
+       "            (set! ret (eq? 'export (car elem)))\n"
        "            #f))))\n" /* name found, stop iterating */
        "    ret))\n");
-  eval("(define (sh-env-export! job name exported?)\n"
+  eval("(define (sh-env-export! job-id name exported?)\n"
        "  (assert (boolean? exported?))\n"
-       "  (let* ((j (if (null? job) (sh-globals) job))\n"
-       "         (vars (job-env j))\n"
-       "         (elem (if (hashtable? vars) (hashtable-ref vars name #f) #f)))\n"
-       "    (if (pair? elem)\n"
-       "      ;\n" /* job enviroment contains name: simply mark it exported */
-       "      (set-car! elem exported?)\n"
-       "      ;\n" /* job enviroment does not contain name: search in parent environments */
-       "      (let ((value (sh-env-get j name)))\n"
-       "        ;\n" /* (sh-env j) creates job environment if not yet present */
-       "        (hashtable-set! (sh-env j) name (cons exported? value))))))\n");
+       "  (let* ((j (sh-get-job job-id))\n"
+       "          ;\n" /* val may be in a parent environment */
+       "         (val (sh-env-get j name))\n"
+       "         (export (if exported? 'export 'private)))\n"
+       "    ;\n" /* (job-direct-env j) creates job environment if not yet present */
+       "    (hashtable-set! (job-direct-env j) name (cons export val))))))\n");
+
+#if 0
+  /**
+   * Iterate on environment variables of job and its parents,
+   * and call (proc name value exported?) on each of them.
+   * Stops iterating if (proc ...) returns #f
+   */
+  eval("(define (sh-env-iterate job-id proc)\n"
+       "  (let ((job-list (job-parents-list job-id))\n"
+       "        (job-list-contains-env?\n"
+       "          (lambda (name)\n"
+       "            (do ((jlist job-list (cdr jlist))\n"
+       "                 (found #f))\n"
+       "                ((or found (null? jlist)))\n"
+       "              (let* ((j (car jlist))\n"
+       "                     (vars (job-env j)))\n"
+       "    (set! job-list (reverse job-list)))\n");
+#endif /* 0 */
   /**
    * FIXME: replace with a function that counts env variables from job and its parents
    */
@@ -148,9 +201,9 @@ void define_env_functions(void) {
        "    (hashtable-iterate vars\n"
        "      (lambda (cell)\n"
        "        (let ((key (car cell))\n"
-       "              (val (cdr cell)))\n"
-       "          (when (or all? (car val))\n"
-       "            (vector-set! out i (any->bytevector0 key \"=\" (cdr val)))\n"
+       "              (elem (cdr cell)))\n"
+       "          (when (or all? (car elem))\n"
+       "            (vector-set! out i (any->bytevector0 key \"=\" (cdr elem)))\n"
        "            (set! i (fx1+ i))))))\n"
        "    out))\n");
 }
@@ -181,7 +234,7 @@ void define_shell_functions(void) {
        "    (lambda (j)\n"
        "      (when (>= (job-pid j) 0)\n"
        "        (error 'sh-start \"job already started\" (job-pid j)))\n"
-       "      (when (not (cmd? j))\n"
+       "      (when (not (sh-cmd? j))\n"
        "        (error 'sh-start \"unimplemented for non-cmd jobs\"))\n"
        "      (let ((ret (c-spawn-pid\n"
        "                   (cmd-argv j)\n"
