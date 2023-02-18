@@ -80,15 +80,22 @@ void define_job_functions(void) {
        "      ((or (not (sh-job? parent)) (not (proc parent))))))\n");
 
   /**
-   * Define the function (job-parents-list), returns list containing job
-   * followed by all its parents.
+   * Define the function (job-parents-list), returns list containing all job's parents,
+   * starting from sh-globals, until job itself.
    */
-  eval("(define (job-parents-list job-id)\n"
+  eval("(define (job-parents-revlist job-id)\n"
        "  (let ((jlist '()))\n"
        "    (job-parents-iterate job-id\n"
        "      (lambda (job)\n"
        "        (set! jlist (cons job jlist))))\n"
-       "    (reverse jlist)))\n");
+       "    jlist))\n");
+
+  /**
+   * Define the function (job-parents-list), returns list containing job
+   * followed by all its parents.
+   */
+  eval("(define (job-parents-list job-id)\n"
+       "  (reverse! (job-parents-revlist job-id)))\n");
 
   /** Create a cmd to later spawn it. */
   eval("(define (sh-cmd program . args)\n"
@@ -159,23 +166,54 @@ void define_env_functions(void) {
        "    ;\n" /* (job-direct-env j) creates job environment if not yet present */
        "    (hashtable-set! (job-direct-env j) name (cons export val))))))\n");
 
-#if 0
   /**
    * Iterate on environment variables of job and its parents,
    * and call (proc name value exported?) on each of them.
    * Stops iterating if (proc ...) returns #f
    */
-  eval("(define (sh-env-iterate job-id proc)\n"
-       "  (let ((job-list (job-parents-list job-id))\n"
-       "        (job-list-contains-env?\n"
-       "          (lambda (name)\n"
-       "            (do ((jlist job-list (cdr jlist))\n"
-       "                 (found #f))\n"
-       "                ((or found (null? jlist)))\n"
-       "              (let* ((j (car jlist))\n"
-       "                     (vars (job-env j)))\n"
-       "    (set! job-list (reverse job-list)))\n");
+  eval("(define sh-env-iterate\n"
+       "  (let* ((job-contains-env?\n"
+       "           (lambda (j name)\n"
+       "             (let ((vars (job-env j)))\n"
+       "               (and (hashtable? vars)\n"
+       "                    (hashtable-contains? vars name)))))\n"
+       "         (job-list-contains-env?\n"
+       "           (lambda (job-list name)\n"
+       "             (do ((jlist job-list (cdr jlist))\n"
+       "                  (found #f))\n"
+       "                 ((or found (null? jlist)) found)\n"
+       "               (set! found (job-contains-env? (car jlist) name))))))\n"
+       "    (lambda (job-id proc)\n"
+       "      (let ((job-revlist (job-parents-revlist job-id)))\n"
+       /*       iterate on job list, from farthest parent to job itself */
+       "        (do ((jlist job-revlist (cdr jlist))"
+       "             (continue #t))\n"
+       "            ((or (not continue) (null? jlist)))\n"
+       "          (let ((vars (job-env (car jlist))))\n"
+       "            (when (hashtable? vars)\n"
+       "              (hashtable-iterate vars\n"
+       "                (lambda (cell)\n"
+       "                  (let ((name (car cell))\n"
+       "                        (flag (cadr cell))\n"
+       "                        (val  (cddr cell)))\n"
+#if 0
+       "                    (display flag)\n"
+       "                    (display #\\space)\n"
+       "                    (display #\\newline)\n"
 #endif /* 0 */
+       /**                  FIXME: bugged ! */
+       /*                   if a more specific job overrides this var name, skip it */
+       "                    (unless (or (eq? 'delete flag))\n"
+       "                                (job-list-contains-env? (cdr jlist) name))\n"
+#if 1
+       "                      (set! continue (proc name val (eq? 'export flag))))\n"
+       "                    continue))))))))))\n"
+#else
+       "                      (set! continue (proc name val (eq? 'export flag)))))\n"
+       "                  continue)))))))))\n"
+#endif /* 0 */
+  );
+
   /**
    * FIXME: replace with a function that counts env variables from job and its parents
    */
