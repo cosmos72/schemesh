@@ -12,7 +12,12 @@
 
 #include <scheme.h>
 
-void define_posix_functions(void);
+void define_fd_functions(void);
+/**
+ * define functions (fork-pid) (spawn-pid) (pid-wait)
+ * requires functions (sh-env...)
+ */
+void define_pid_functions(void);
 
 /* return current C errno value */
 int c_errno(void);

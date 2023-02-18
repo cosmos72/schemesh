@@ -9,8 +9,6 @@
 
 #include "main.h"
 #include "eval.h"
-#include "iterator.h"
-#include "posix.h"
 
 #include <errno.h>
 #include <setjmp.h>

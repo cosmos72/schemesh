@@ -1,3 +1,4 @@
 /schemesh
+/schemesh_test
 *.o
 /.vscode

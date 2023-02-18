@@ -8,9 +8,6 @@
  */
 
 #include "eval.h"
-#include "iterator.h"
-#include "main.h"
-#include "posix.h"
 
 #include <errno.h>
 #include <stdio.h>

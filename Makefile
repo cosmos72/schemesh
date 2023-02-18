@@ -8,24 +8,27 @@ all: schemesh schemesh_test
 clean:
 	rm -f *~ *.o schemesh schemesh_test
 
-eval.o: eval.c eval.h
+eval.o: eval.c eval.h iterator.h posix.h shell.h
 	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR) -DCHEZ_SCHEME_DIR="$(CHEZ_SCHEME_DIR)"
 
-iterator.o: iterator.c iterator.h main.h
+iterator.o: iterator.c iterator.h eval.h
 	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
-main.o: main.c main.h eval.h iterator.h posix.h
+main.o: main.c main.h eval.h
 	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
-posix.o: posix.c posix.h main.h
+posix.o: posix.c posix.h eval.h
 	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
-test.o: test.c test.h eval.h iterator.h posix.h
+shell.o: shell.c shell.h eval.h
+	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
+
+test.o: test.c test.h eval.h
 	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
 
-schemesh: iterator.o posix.o eval.o main.o
+schemesh: iterator.o posix.o shell.o eval.o main.o
 	$(CC) $^ -o $@ -L$(CHEZ_SCHEME_DIR) -lkernel -lz -llz4 -lm -lncurses -luuid
 
-schemesh_test: iterator.o posix.o eval.o test.o
+schemesh_test: iterator.o posix.o shell.o eval.o test.o
 	$(CC) $^ -o $@ -L$(CHEZ_SCHEME_DIR) -lkernel -lz -llz4 -lm -lncurses -luuid

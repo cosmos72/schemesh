@@ -11,14 +11,12 @@
 #error "please #define CHEZ_SCHEME_DIR to the installation path of Chez Scheme"
 #endif
 
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include "eval.h"
 #include "iterator.h"
 #include "posix.h"
+#include "shell.h"
+
+#include <stddef.h> // NULL
 
 #define STR_(arg) #arg
 #define STR(arg) STR_(arg)
@@ -29,9 +27,6 @@ static void define_display_any(void);
 static void define_any_to_string(void);
 static void define_any_to_bytevector(void);
 static void define_eval_to_bytevector(void);
-static void define_sh_env(void);
-static void c_environ_to_sh_env(char** env);
-char**      vector_to_c_argz(ptr vector_of_bytevector0);
 
 void scheme_init(void (*on_scheme_exception)(void)) {
   Sscheme_init(on_scheme_exception);
@@ -45,11 +40,14 @@ void scheme_init(void (*on_scheme_exception)(void)) {
   define_any_to_string();
   define_any_to_bytevector();
   define_eval_to_bytevector();
-  define_sh_env();
+  define_env_functions();
+  define_job_functions();
+
+  define_fd_functions();
+  define_pid_functions();
+  define_shell_functions();
 
   c_environ_to_sh_env(environ);
-
-  define_posix_functions();
 }
 
 void scheme_quit(void) {
@@ -194,117 +192,6 @@ static void define_any_to_bytevector(void) {
 static void define_eval_to_bytevector(void) {
   eval("(define (eval->bytevector str)\n"
        "  (any->bytevector (eval (read (open-input-string str)))))\n");
-}
-
-static void define_sh_env(void) {
-  eval("(define sh-env\n"
-       "  (let ((vars (make-hashtable string-hash string=?)))\n"
-       "    (lambda ()\n"
-       "      vars)))\n");
-  eval("(define (sh-env-get vars name)\n"
-       "  (let* ((vars (if (null? vars) (sh-env) vars))\n"
-       "         (elem (hashtable-ref vars name #f)))\n"
-       "    (if (pair? elem)\n"
-       "      (cdr elem)\n"
-       "      \"\")))");
-  eval("(define (sh-env-set! vars name val)\n"
-       "  (let* ((vars (if (null? vars) (sh-env) vars))\n"
-       "         (elem (hashtable-ref vars name #f)))\n"
-       "    (if (pair? elem)\n"
-       "      (set-cdr! elem val)\n"
-       "      (hashtable-set! vars name (cons #f val)))))\n");
-  eval("(define (sh-env-unset! vars name)\n"
-       "  (let ((vars (if (null? vars) (sh-env) vars)))\n"
-       "    (hashtable-delete! vars name)))\n");
-  eval("(define (sh-env-exported? vars name)\n"
-       "  (let* ((vars (if (null? vars) (sh-env) vars))\n"
-       "         (elem (hashtable-ref vars name #f)))\n"
-       "    (if (pair? elem)\n"
-       "      (car elem)\n"
-       "      #f)))");
-  eval("(define (sh-env-export! vars name exported?)\n"
-       "  (assert (boolean? exported?))\n"
-       "  (let* ((vars (if (null? vars) (sh-env) vars))\n"
-       "         (elem (hashtable-ref vars name #f)))\n"
-       "    (if (pair? elem)\n"
-       "      (set-car! elem exported?)\n"
-       "      (hashtable-set! vars name (cons exported? \"\")))))\n");
-  /**
-   * FIXME: replace with a function that counts env variables from a job and its parents
-   */
-  eval("(define (sh-env-size vars all?)\n"
-       "  (assert (boolean? all?))\n"
-       "  (let ((vars (if (null? vars) (sh-env) vars)))\n"
-       "    (if all?\n"
-       "      (hashtable-size vars)\n"
-       "      (let ((n 0))\n"
-       "        (hashtable-iterate vars\n"
-       "          (lambda (cell)\n"
-       "            (when (cadr cell)\n"
-       "              (set! n (fx1+ n)))))\n"
-       "        n))))\n");
-  /**
-   * FIXME: replace with a function that extracts env variables from a job and its parents
-   */
-  eval("(define (sh-env->vector-of-bytevector0 vars all?)\n"
-       "  (let* ((vars (if (null? vars) (sh-env) vars))\n"
-       "         (i 0)\n"
-       "         (n (sh-env-size vars all?))\n"
-       "         (out (make-vector n #f)))\n"
-       "    (hashtable-iterate vars\n"
-       "      (lambda (cell)\n"
-       "        (let ((key (car cell))\n"
-       "              (val (cdr cell)))\n"
-       "          (when (or all? (car val))\n"
-       "            (vector-set! out i (any->bytevector0 key \"=\" (cdr val)))\n"
-       "            (set! i (fx1+ i))))))\n"
-       "    out))\n");
-}
-
-static void c_environ_to_sh_env(char** env) {
-  const char* entry;
-  if (!env) {
-    return;
-  }
-  for (; (entry = *env) != NULL; ++env) {
-    const char* separator = strchr(entry, '=');
-    size_t      namelen   = separator ? separator - entry : 0;
-    iptr        inamelen  = Sfixnum_value(Sfixnum(namelen));
-    if (namelen == 0 || inamelen < 0 || namelen != (size_t)inamelen) {
-      continue;
-    }
-    call3("sh-env-set!", Snil, Sstring_of_length(entry, inamelen), Sstring(separator + 1));
-    call3("sh-env-export!", Snil, Sstring_of_length(entry, inamelen), Strue);
-  }
-}
-
-char** vector_to_c_argz(ptr vector_of_bytevector0) {
-  ptr    vec    = vector_of_bytevector0;
-  char** c_argz = NULL;
-  iptr   i, n;
-  if (!Svectorp(vec)) {
-    return c_argz;
-  }
-  n      = Svector_length(vec);
-  c_argz = malloc((n + 1) * sizeof(char*));
-  if (!c_argz) {
-    return c_argz;
-  }
-  for (i = 0; i < n; i++) {
-    ptr  bytevec = Svector_ref(vec, i);
-    iptr len;
-    if (Sbytevectorp(bytevec)                      /*                        */
-        && (len = Sbytevector_length(bytevec)) > 0 /*                        */
-        && Sbytevector_u8_ref(bytevec, len - 1) == 0) {
-
-      c_argz[i] = (char*)Sbytevector_data(bytevec);
-    } else {
-      free(c_argz);
-      return NULL;
-    }
-  }
-  c_argz[n] = NULL;
-  return c_argz;
 }
 
 /**

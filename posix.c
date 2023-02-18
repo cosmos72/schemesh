@@ -18,6 +18,15 @@
 #include "eval.h"
 #include "posix.h"
 
+/**
+ * convert Scheme vector-of-bytevector0 to a C-compatible NULL-terminated array of char*
+ * usable for example for environ or argz arguments to execve() execvp() etc.
+ * returned array should be deallocated with free()
+ * and contains pointers into Scheme bytevectors, thus becomes invalid
+ * after any call to Scheme functions.
+ */
+static char** vector_to_c_argz(ptr vector_of_bytevector0);
+
 int c_errno(void) {
   return -errno;
 }
@@ -83,19 +92,13 @@ ptr c_open_pipe_fds(void) {
   return Scons(Sinteger(fds[0]), Sinteger(fds[1]));
 }
 
-static void define_process_functions(void);
-
-void define_posix_functions(void) {
+void define_fd_functions(void) {
   Sregister_symbol("c_errno", &c_errno);
   Sregister_symbol("c_fd_close", &c_fd_close);
   Sregister_symbol("c_fd_dup", &c_fd_dup);
   Sregister_symbol("c_fd_dup2", &c_fd_dup2);
   Sregister_symbol("c_open_file_fd", &c_open_file_fd);
   Sregister_symbol("c_open_pipe_fds", &c_open_pipe_fds);
-
-  Sregister_symbol("c_fork_pid", &c_fork_pid);
-  Sregister_symbol("c_spawn_pid", &c_spawn_pid);
-  Sregister_symbol("c_pid_wait", &c_pid_wait);
 
   eval("(define (make-errno-condition who c-errno)\n"
        "  (condition\n"
@@ -157,11 +160,12 @@ void define_posix_functions(void) {
        "        (if (pair? ret)\n"
        "          ret\n"
        "          (raise-errno-condition 'open-pipe-fds ret))))))\n");
-
-  define_process_functions();
 }
 
-static void define_process_functions(void) {
+void define_pid_functions(void) {
+  Sregister_symbol("c_fork_pid", &c_fork_pid);
+  Sregister_symbol("c_spawn_pid", &c_spawn_pid);
+  Sregister_symbol("c_pid_wait", &c_pid_wait);
 
   /**
    * Call fork()
@@ -173,13 +177,6 @@ static void define_process_functions(void) {
        "        (when (< ret 0)\n"
        "          (raise-errno-condition 'fork-pid ret))\n"
        "        ret))))\n");
-
-  eval("(define (list->cmd-argv l)\n"
-       "  (let ((argv (list->vector l)))\n"
-       "    (do ([i 0 (+ 1 i)])\n"
-       "        ((>= i (vector-length argv)))\n"
-       "      (vector-set! argv i (string->bytevector0 (vector-ref argv i))))\n"
-       "    argv))\n");
 
   /**
    * Spawn an external program and return its pid.
@@ -206,104 +203,6 @@ static void define_process_functions(void) {
    * Return the program's exit status, or 256 + signal, or c_errno() on error.
    */
   eval("(define pid-wait (foreign-procedure \"c_pid_wait\" (int) int))\n");
-
-  /**
-   * Define the record type "job"
-   */
-  eval("(define-record-type\n"
-       "  (job %make-job job?)\n"
-       "  (fields\n"
-       "    (mutable pid)\n"               /* fixnum, -1 if unknown */
-       "    (mutable exit-status)\n"       /* fixnum, -1 if unknown */
-       "    (mutable to-redirect-fds)\n"   /* vector of fds to redirect between fork() and
-                                              (start-func) */
-       "    (mutable to-redirect-files)\n" /* vector of files to open before fork() */
-       "    (mutable to-close-fds)\n"      /* list of fds to close after spawn */
-       "    start-func\n"                  /* function to start the job in fork()ed child */
-       "    (mutable env)\n"               /* overridden env variables, or '() */
-       "    (mutable parent))))\n");       /* parent job, contains default values of env variables
-                                            * and default redirections */
-
-  /** Define the record type "cmd" */
-  eval("(define-record-type\n"
-       "  (cmd %make-cmd cmd?)\n"
-       "  (parent job)"
-       "  (fields\n"
-       "    argv))\n"); /* vector of bytevectors, each #\nul terminated */
-
-  /** Define the function (sh-globals), returns global job */
-  eval("(define sh-globals\n"
-       "  (let ((globals (%make-job -1 -1 (vector 0 1 2) (vector)\n"
-       "                  '() #f (sh-env) #f)))\n"
-       "    (lambda ()\n"
-       "      globals)))\n");
-
-  /** Create a cmd to later spawn it. */
-  eval("(define (sh-cmd program . args)\n"
-       "  (%make-cmd -1 -1 (vector 0 1 2) (vector) '()\n"
-       "    #f\n"  /* start-func */
-       "    '()\n" /* env */
-       "    (sh-globals) (list->cmd-argv (cons program args))))\n");
-
-  /** Start a cmd in a subprocess TODO: also support starting a job in a subprocess */
-  eval("(define sh-start\n"
-       "  (let ((c-spawn-pid (foreign-procedure \"c_spawn_pid\""
-       "                        (scheme-object scheme-object scheme-object) int)))\n"
-       "    (lambda (j)\n"
-       "      (when (>= (job-pid j) 0)\n"
-       "        (error 'sh-start \"job already started\" (job-pid j)))\n"
-       "      (when (not (cmd? j))\n"
-       "        (error 'sh-start \"unimplemented for non-cmd jobs\"))\n"
-       "      (let ((ret (c-spawn-pid\n"
-       "                   (cmd-argv j)\n"
-       "                   (job-to-redirect-fds j)\n"
-       "                   (sh-env->vector-of-bytevector0 (job-env j) #f))))\n"
-       "        (when (< ret 0)\n"
-       "          (raise-errno-condition 'sh-start ret))\n"
-       "        (fd-close-list (job-to-close-fds j))\n"
-       "        (job-pid-set! j ret)\n"
-       "        (job-exit-status-set! j -1)))))\n"); /* job can now be waited-for */
-
-  /** Wait for a cmd or job to exit and return its exit status, or 256 + signal */
-  eval("(define (sh-wait j)\n"
-       "  (cond\n"
-       "    ((>= (job-exit-status j) 0)\n"
-       "      (job-exit-status j))\n" /* already waited for */
-       "    ((< (job-pid j) 0)\n"
-       "      (error 'job-wait \"job not started yet\" j))\n"
-       "    (#t\n"
-       "      (let ([ret (pid-wait (job-pid j))])\n"
-       "        (when (< ret 0)\n"
-       "          (raise-errno-condition 'job-wait ret))\n"
-       "        (job-pid-set! j -1)\n" /* cmd can now be spawned again */
-       "        (job-exit-status-set! j ret)\n"
-       "        ret))))\n");
-
-  /** Start a cmd or job and wait for it to exit. return its exit status, or 256 + signal */
-  eval("(define (sh-run j)\n"
-       "  (sh-start j)\n"
-       "  (sh-wait j))\n");
-
-  /** Create or remove a file description redirection for cmd or job */
-  eval("(define (sh-redirect-fd! j child-fd existing-fd-or-minus-1)\n"
-       "  (when (or (not (fixnum? child-fd)) (< child-fd 0))\n"
-       "    (error 'job-redirect! \"invalid redirect fd\" child-fd))\n"
-       "  (let* ([old-fds (job-to-redirect-fds j)]\n"
-       "         [old-n (vector-length old-fds)])\n"
-       "    (when (<= old-n child-fd)\n"
-       "      (let* ([new-n (max (+ 1 child-fd) (* 2 old-n))]\n"
-       "             [new-fds (make-vector new-n -1)])\n" /* fill with -1 i.e. no redirection */
-       "        (do ([i 0 (+ 1 i)])\n"
-       "            ((>= i old-n))\n"
-       "          (vector-set! new-fds i (vector-ref old-fds i)))\n"
-       "        (job-to-redirect-fds-set! j new-fds))))\n"
-       "  (vector-set! (job-to-redirect-fds j) child-fd existing-fd-or-minus-1))\n");
-
-  /** Create or remove multiple file description redirections for cmd or job */
-  eval("(define (sh-redirect-fds! j child-fds existing-fd-or-minus-1)\n"
-       "  (do ([child-cons child-fds (cdr child-cons)])\n"
-       "      ((eq '() child-cons))"
-       "    (job-redirect-fd! j (car child-cons) existing-fd-or-minus-1)))\n");
 }
 
 static int c_check_redirect_fds(ptr vector_redirect_fds) {
@@ -420,4 +319,33 @@ int c_pid_wait(int pid) {
   } else {
     return -(errno = -ENOENT);
   }
+}
+
+static char** vector_to_c_argz(ptr vector_of_bytevector0) {
+  ptr    vec    = vector_of_bytevector0;
+  char** c_argz = NULL;
+  iptr   i, n;
+  if (!Svectorp(vec)) {
+    return c_argz;
+  }
+  n      = Svector_length(vec);
+  c_argz = malloc((n + 1) * sizeof(char*));
+  if (!c_argz) {
+    return c_argz;
+  }
+  for (i = 0; i < n; i++) {
+    ptr  bytevec = Svector_ref(vec, i);
+    iptr len;
+    if (Sbytevectorp(bytevec)                      /*                        */
+        && (len = Sbytevector_length(bytevec)) > 0 /*                        */
+        && Sbytevector_u8_ref(bytevec, len - 1) == 0) {
+
+      c_argz[i] = (char*)Sbytevector_data(bytevec);
+    } else {
+      free(c_argz);
+      return NULL;
+    }
+  }
+  c_argz[n] = NULL;
+  return c_argz;
 }
