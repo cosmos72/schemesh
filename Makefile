@@ -8,10 +8,10 @@ all: schemesh schemesh_test
 clean:
 	rm -f *~ *.o schemesh schemesh_test
 
-eval.o: eval.c eval.h iterator.h posix.h shell.h
+eval.o: eval.c eval.h iterate.h posix.h shell.h
 	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR) -DCHEZ_SCHEME_DIR="$(CHEZ_SCHEME_DIR)"
 
-iterator.o: iterator.c iterator.h eval.h
+iterator.o: iterate.c iterate.h eval.h
 	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
 main.o: main.c main.h eval.h

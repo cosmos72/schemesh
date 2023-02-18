@@ -12,7 +12,7 @@
 #endif
 
 #include "eval.h"
-#include "iterator.h"
+#include "iterate.h"
 #include "posix.h"
 #include "shell.h"
 
@@ -35,7 +35,8 @@ void scheme_init(void (*on_scheme_exception)(void)) {
   Sbuild_heap(NULL, NULL);
 
   define_define_macro();
-  define_hash_iterator();
+  define_hash_iterate();
+  define_list_iterate();
   define_display_any();
   define_any_to_string();
   define_any_to_bytevector();
@@ -202,6 +203,22 @@ static void define_any_to_bytevector(void) {
        "        ((>= i (vector-length argv)))\n"
        "      (vector-set! argv i (string->bytevector0 (vector-ref argv i))))\n"
        "    argv))\n");
+
+  /**
+   * convert a hashtable containing string keys and string values
+   * to a vector of bytevector0, where each element is key=value\x0;
+   */
+  eval("(define (string-hashtable->vector-of-bytevector0 htable)\n"
+       "  (let* ((i 0)\n"
+       "         (n (hashtable-size htable))\n"
+       "         (out (make-vector n)))\n"
+       "    (hashtable-iterate htable\n"
+       "      (lambda (cell)\n"
+       "        (let ((key (car cell))\n"
+       "              (val (cdr cell)))\n"
+       "          (vector-set! out i (any->bytevector0 key \"=\" val))\n"
+       "          (set! i (fx1+ i)))))\n"
+       "    out))\n");
 }
 
 static void define_eval_to_bytevector(void) {
@@ -212,8 +229,7 @@ static void define_eval_to_bytevector(void) {
 /**
  * call Scheme (eval) on a C string, and convert returned Scheme value to
  * bytevector with (any->bytevector).
- * @return length and pointer to internal array of a Scheme-allocated
- * bytevector.
+ * @return length and pointer to memory of a Scheme-allocated bytevector.
  *
  * Returned pointer CANNOT be dereferenced anymore after calling Scheme code,
  * because it may be moved or garbage collected.

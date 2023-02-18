@@ -111,7 +111,11 @@ void define_env_functions(void) {
   eval("(define (sh-global-env)\n"
        "  (job-env sh-globals))\n");
 
-  /** return environment variables of specified job, creating them if needed */
+  /**
+   * Return direct environment variables of job, creating them if needed.
+   * Returned hashtable does not include default variables,
+   * i.e. the ones inherited from parent jobs.
+   */
   eval("(define (job-direct-env job-id)\n"
        "  (let* ((job (sh-get-job job-id))\n"
        "         (vars (job-env job)))\n"
@@ -119,9 +123,38 @@ void define_env_functions(void) {
        "      (set! vars (make-hashtable string-hash string=?))\n"
        "      (job-env-set! job vars))\n"
        "    vars))\n");
+
   /**
-   * return environment variable named "name" of specified job.
-   * If name is not found in job's environment, also search in job parents environment
+   * Return a copy of job's environment variables,
+   * including default variables inherited from parent jobs.
+   * If all? is #t, unexported variables are returned too.
+   */
+  eval("(define (job-flatten-env job-id all?)\n"
+       "  (assert (boolean? all?))\n"
+       "  (let ((jlist (job-parents-revlist job-id))\n"
+       "        (vars (make-hashtable string-hash string=?)))\n"
+       "    (list-iterate jlist\n"
+       "      (lambda (j)\n"
+       "        (let ((env (job-env j)))\n"
+       "          (when (hashtable? env)\n"
+       "            (hashtable-iterate env\n"
+       "              (lambda (cell)\n"
+       "                (let ((name (car cell))\n"
+       "                      (flag (cadr cell))\n"
+       "                      (val  (cddr cell)))\n"
+       "                  (cond\n"
+       "                    ((or (eq? 'delete flag)\n"
+       "                         (and (not all?) (eq? 'private flag)))\n"
+       "                      (hashtable-delete! vars name))\n"
+       "                    ((or (eq? 'export flag)\n"
+       "                         (and all? (eq? 'private flag)))\n"
+       "                      (hashtable-set! vars name val))))))))))\n"
+       "    vars))\n");
+
+  /**
+   * Return environment variable named "name" of specified job.
+   * If name is not found in job's environment, also search in environment
+   * inherited from parent jobs.
    */
   eval("(define (sh-env-get job-id name)\n"
        "  (let ((ret \"\"))\n"
@@ -167,83 +200,12 @@ void define_env_functions(void) {
        "    (hashtable-set! (job-direct-env j) name (cons export val))))))\n");
 
   /**
-   * Iterate on environment variables of job and its parents,
-   * and call (proc name value exported?) on each of them.
-   * Stops iterating if (proc ...) returns #f
+   * Extract environment variables from specified job and all its parents,
+   * and convert them to a vector of bytevector0.
+   * If all? is #t, unexported variables are returned too.
    */
-  eval("(define sh-env-iterate\n"
-       "  (let* ((job-contains-env?\n"
-       "           (lambda (j name)\n"
-       "             (let ((vars (job-env j)))\n"
-       "               (and (hashtable? vars)\n"
-       "                    (hashtable-contains? vars name)))))\n"
-       "         (job-list-contains-env?\n"
-       "           (lambda (job-list name)\n"
-       "             (do ((jlist job-list (cdr jlist))\n"
-       "                  (found #f))\n"
-       "                 ((or found (null? jlist)) found)\n"
-       "               (set! found (job-contains-env? (car jlist) name))))))\n"
-       "    (lambda (job-id proc)\n"
-       "      (let ((job-revlist (job-parents-revlist job-id)))\n"
-       /*       iterate on job list, from farthest parent to job itself */
-       "        (do ((jlist job-revlist (cdr jlist))"
-       "             (continue #t))\n"
-       "            ((or (not continue) (null? jlist)))\n"
-       "          (let ((vars (job-env (car jlist))))\n"
-       "            (when (hashtable? vars)\n"
-       "              (hashtable-iterate vars\n"
-       "                (lambda (cell)\n"
-       "                  (let ((name (car cell))\n"
-       "                        (flag (cadr cell))\n"
-       "                        (val  (cddr cell)))\n"
-#if 0
-       "                    (display flag)\n"
-       "                    (display #\\space)\n"
-       "                    (display #\\newline)\n"
-#endif /* 0 */
-       /**                  FIXME: bugged ! */
-       /*                   if a more specific job overrides this var name, skip it */
-       "                    (unless (or (eq? 'delete flag))\n"
-       "                                (job-list-contains-env? (cdr jlist) name))\n"
-#if 1
-       "                      (set! continue (proc name val (eq? 'export flag))))\n"
-       "                    continue))))))))))\n"
-#else
-       "                      (set! continue (proc name val (eq? 'export flag)))))\n"
-       "                  continue)))))))))\n"
-#endif /* 0 */
-  );
-
-  /**
-   * FIXME: replace with a function that counts env variables from job and its parents
-   */
-  eval("(define (sh-env-size vars all?)\n"
-       "  (assert (boolean? all?))\n"
-       "  (let ((vars (if (null? vars) (sh-global-env) vars)))\n"
-       "    (if all?\n"
-       "      (hashtable-size vars)\n"
-       "      (let ((n 0))\n"
-       "        (hashtable-iterate vars\n"
-       "          (lambda (cell)\n"
-       "            (when (cadr cell)\n"
-       "              (set! n (fx1+ n)))))\n"
-       "        n))))\n");
-  /**
-   * FIXME: replace with a function that extracts env variables from a job and its parents
-   */
-  eval("(define (sh-env->vector-of-bytevector0 vars all?)\n"
-       "  (let* ((vars (if (null? vars) (sh-global-env) vars))\n"
-       "         (i 0)\n"
-       "         (n (sh-env-size vars all?))\n"
-       "         (out (make-vector n #f)))\n"
-       "    (hashtable-iterate vars\n"
-       "      (lambda (cell)\n"
-       "        (let ((key (car cell))\n"
-       "              (elem (cdr cell)))\n"
-       "          (when (or all? (car elem))\n"
-       "            (vector-set! out i (any->bytevector0 key \"=\" (cdr elem)))\n"
-       "            (set! i (fx1+ i))))))\n"
-       "    out))\n");
+  eval("(define (sh-env->vector-of-bytevector0 job-id all?)\n"
+       "  (string-hashtable->vector-of-bytevector0 (job-flatten-env job-id all?)))\n");
 }
 
 void c_environ_to_sh_env(char** env) {
@@ -277,7 +239,7 @@ void define_shell_functions(void) {
        "      (let ((ret (c-spawn-pid\n"
        "                   (cmd-argv j)\n"
        "                   (job-to-redirect-fds j)\n"
-       "                   (sh-env->vector-of-bytevector0 (job-env j) #f))))\n"
+       "                   (sh-env->vector-of-bytevector0 j #f))))\n"
        "        (when (< ret 0)\n"
        "          (raise-errno-condition 'sh-start ret))\n"
        "        (fd-close-list (job-to-close-fds j))\n"

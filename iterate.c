@@ -9,7 +9,15 @@
 
 #include "eval.h"
 
-void define_hash_iterator(void) {
+void define_list_iterate(void) {
+  eval(";;; iterate on all elements of given list, and call (proc elem)\n"
+       ";;; on each element. stop iterating if (proc ...) returns #f\n"
+       "(define (list-iterate l proc)\n"
+       "  (do ((tail l (cdr tail)))\n"
+       "      ((or (null? tail) (not (proc (car tail)))))))\n");
+}
+
+void define_hash_iterate(void) {
   eval("(begin\n"
        "  ;;; return hash-iterator to first element in hashtable\n"
        "  (define make-hash-iterator)\n"

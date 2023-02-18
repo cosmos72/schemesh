@@ -7,9 +7,10 @@
  * (at your option) any later version.
  */
 
-#ifndef SCHEMESH_ITERATOR_H
-#define SCHEMESH_ITERATOR_H
+#ifndef SCHEMESH_ITERATE_H
+#define SCHEMESH_ITERATE_H
 
-void define_hash_iterator(void);
+void define_hash_iterate(void);
+void define_list_iterate(void);
 
-#endif /* SCHEMESH_ITERATOR_H */
+#endif /* SCHEMESH_ITERATE_H */

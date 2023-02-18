@@ -192,7 +192,7 @@ void define_pid_functions(void) {
        "      (let ((ret (c-spawn-pid\n"
        "                   (list->cmd-argv (cons program args))\n"
        "                   (vector 0 1 2)\n"
-       "                   (sh-env->vector-of-bytevector0 (sh-global-env) #f))))\n"
+       "                   (sh-env->vector-of-bytevector0 '() #f))))\n"
        "        (when (< ret 0)\n"
        "          (raise-errno-condition 'spawn-pid ret))\n"
        "        ret))))\n");

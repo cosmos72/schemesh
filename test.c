@@ -24,12 +24,26 @@ static const struct {
     {"(+ 1 2 3)", "6"},
     {"(* 4 5 6)", "120"},
     {"(errno)", "0"},
+    {"(let ((ret '()))\n"
+     "  (list-iterate '(a b c)\n"
+     "    (lambda (elem)\n"
+     "      (set! ret (cons elem ret))\n"
+     /*     stop iterating if (eq? 'b elem) */
+     "      (not (eq? 'b elem))))\n"
+     "  ret)\n",
+     "(b a)"},
     {"(let ((h (make-eqv-hashtable)))\n"
      "  (hashtable-set! h 1.0 'A)\n"
      "  (hashtable-set! h 2.1 'B)\n"
      "  (hashtable-set! h 3   'C)\n"
      "  (hashtable-cells h))\n",
      "#((3 . C) (1.0 . A) (2.1 . B))"},
+    {"(let ((h (make-hashtable string-hash string=?)))\n"
+     "  (hashtable-set! h \"A\" \"X\")\n"
+     "  (hashtable-set! h \"B\" \"Y\")\n"
+     "  (hashtable-set! h \"C\" \"Z\")\n"
+     "    (string-hashtable->vector-of-bytevector0 h))\n",
+     "#(#vu8(67 61 90 0) #vu8(66 61 89 0) #vu8(65 61 88 0))"},
     {"(let ((h (make-eqv-hashtable))\n"
      "       (ret '()))\n"
      "  (hashtable-set! h 1.0 'A)\n"
