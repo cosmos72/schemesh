@@ -39,20 +39,20 @@ void define_job_functions(void) {
   /** customize how "job" objects are printed */
   eval("(record-writer (record-type-descriptor job)\n"
        "  (lambda (obj port writer)\n"
-       "    (display \"#<job \" port)\n"
+       "    (display \"(sh-job \" port)\n"
        "    (writer (job-start-func obj) port)\n"
-       "    (display \">\" port)))\n");
+       "    (display #\\) port)))\n");
 
   /** customize how "cmd" objects are printed */
   eval("(record-writer (record-type-descriptor cmd)\n"
        "  (lambda (obj port writer)\n"
-       "    (display \"#<cmd\" port)\n"
+       "    (display \"(sh-cmd\" port)\n"
        "    (vector-for-each\n"
        "       (lambda (arg)\n"
        "         (display #\\space port)\n"
        "         (write-bytevector0 arg port))\n"
        "       (cmd-argv obj))\n"
-       "    (display \">\" port)))\n");
+       "    (display #\\) port)))\n");
 
   /**
    * Define the variable sh-globals, contains global job.
