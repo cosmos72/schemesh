@@ -54,6 +54,9 @@ typedef struct bytes_s {
  */
 bytes eval_to_bytevector(const char str[]);
 
+/** return < 0 if failed */
+int define_functions(void);
+
 void scheme_init(void (*on_scheme_exception)(void));
 void scheme_quit(void);
 

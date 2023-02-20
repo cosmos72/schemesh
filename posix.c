@@ -10,6 +10,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <signal.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
@@ -26,6 +28,11 @@
  * after any call to Scheme functions.
  */
 static char** vector_to_c_argz(ptr vector_of_bytevector0);
+
+/** close-on-exec file descriptor for out controlling tty */
+static int tty_fd = -1;
+/** process group id of this process */
+static pid_t my_pgid = -1;
 
 int c_errno(void) {
   return -errno;
@@ -92,7 +99,64 @@ ptr c_open_pipe_fds(void) {
   return Scons(Sinteger(fds[0]), Sinteger(fds[1]));
 }
 
-void define_fd_functions(void) {
+static int c_print_errno(const char label[]) {
+  const int err = errno;
+  fprintf(stderr,
+          "error initializing POSIX subsystem: %s failed with error %s\n",
+          label,
+          strerror(err));
+  return -err;
+}
+
+static int c_init_signals(void) {
+  struct sigaction action = {};
+  int              err    = 0;
+  action.sa_handler       = SIG_IGN;
+
+  if (sigaction(SIGTSTP, &action, NULL) < 0) {
+    err = c_print_errno("sigaction(SIGTSTP, SIG_IGN)");
+  } else if (sigaction(SIGTTIN, &action, NULL) < 0) {
+    err = c_print_errno("sigaction(SIGTTIN, SIG_IGN)");
+  } else if (sigaction(SIGTTOU, &action, NULL) < 0) {
+    err = c_print_errno("sigaction(SIGTTOU, SIG_IGN)");
+  }
+  return err;
+}
+
+static int c_restore_signals(void) {
+  struct sigaction action = {};
+  int              err    = 0;
+  action.sa_handler       = SIG_DFL;
+
+  if (sigaction(SIGTSTP, &action, NULL) < 0 || /*                           */
+      sigaction(SIGTTIN, &action, NULL) < 0 || /*                           */
+      sigaction(SIGTTOU, &action, NULL) < 0) {
+    err = -errno;
+  }
+  return err;
+}
+
+static int c_init_posix_subsystem(void) {
+  int err = 0;
+
+  if ((tty_fd = open("/dev/tty", O_RDWR)) < 0) {
+    err = c_print_errno("open(\"/dev/tty\")");
+  } else if (fcntl(tty_fd, F_SETFD, FD_CLOEXEC) < 0) {
+    err = c_print_errno("fcntl(tty_fd, F_SETFD, FD_CLOEXEC)");
+  } else if ((my_pgid = tcgetpgrp(tty_fd)) < 0) {
+    err = c_print_errno("tcgetpgrp(tty_fd)");
+  } else {
+    err = c_init_signals();
+  }
+  return err;
+}
+
+int define_fd_functions(void) {
+  int err;
+  if ((err = c_init_posix_subsystem()) < 0) {
+    return err;
+  }
+
   Sregister_symbol("c_errno", &c_errno);
   Sregister_symbol("c_fd_close", &c_fd_close);
   Sregister_symbol("c_fd_dup", &c_fd_dup);
@@ -160,6 +224,8 @@ void define_fd_functions(void) {
        "        (if (pair? ret)\n"
        "          ret\n"
        "          (raise-errno-condition 'open-pipe-fds ret))))))\n");
+
+  return 0;
 }
 
 void define_pid_functions(void) {
@@ -179,7 +245,7 @@ void define_pid_functions(void) {
        "        ret))))\n");
 
   /**
-   * Spawn an external program and return its pid.
+   * Spawn an external program in a new background process group (pgid) and return its pid.
    *
    * Parameter program is the program path to spawn;
    * Parameter args is the list of arguments to pass to the program;
@@ -187,12 +253,14 @@ void define_pid_functions(void) {
    */
   eval("(define spawn-pid\n"
        "  (let ((c-spawn-pid (foreign-procedure \"c_spawn_pid\""
-       "                        (scheme-object scheme-object scheme-object) int)))\n"
+       "                        (scheme-object scheme-object scheme-object int int) int)))\n"
        "    (lambda (program . args)\n"
        "      (let ((ret (c-spawn-pid\n"
        "                   (list->cmd-argv (cons program args))\n"
        "                   (vector 0 1 2)\n"
-       "                   (sh-env->vector-of-bytevector0 '() #f))))\n"
+       "                   (sh-env->vector-of-bytevector0 '() #f)\n"
+       "                   0\n"
+       "                   0)))\n"
        "        (when (< ret 0)\n"
        "          (raise-errno-condition 'spawn-pid ret))\n"
        "        ret))))\n");
@@ -260,9 +328,25 @@ int c_fork_pid(void) {
   return pid;
 }
 
+static int c_set_process_group(pid_t existing_pgid, c_spawn_options options) {
+  int err = 0;
+  if (options & c_spawn_use_existing_pgid) {
+    err = setpgid(0, existing_pgid);
+  } else {
+    err           = setpgid(0, 0);
+    existing_pgid = getpid();
+  }
+  if (err >= 0 && (options & c_spawn_foreground)) {
+    err = tcsetpgrp(0 /*stdin*/, existing_pgid);
+  }
+  return err;
+}
+
 int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
                 ptr vector_redirect_fds,
-                ptr vector_of_bytevector0_environ) {
+                ptr vector_of_bytevector0_environ,
+                int existing_pgid,
+                int spawn_options) {
   char **argv = NULL, **envp = NULL;
   int    pid;
   if ((pid = c_check_redirect_fds(vector_redirect_fds)) < 0) {
@@ -286,13 +370,21 @@ int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
       break;
     case 0: {
       /* child */
-      int lowest_fd_to_close = c_redirect_fds(vector_redirect_fds);
-      if (lowest_fd_to_close >= 0) {
-        (void)c_close_all_fds(lowest_fd_to_close);
-        environ = envp;
-        (void)execvp(argv[0], argv);
+      int err = c_set_process_group((pid_t)existing_pgid, (c_spawn_options)spawn_options);
+      if (err >= 0) {
+        err = c_restore_signals();
+        if (err >= 0) {
+          int lowest_fd_to_close = c_redirect_fds(vector_redirect_fds);
+          if (lowest_fd_to_close >= 0) {
+            (void)c_close_all_fds(lowest_fd_to_close);
+            environ = envp;
+            (void)execvp(argv[0], argv);
+          }
+        }
       }
-      exit(1); // in case c_redirect_fds() fails or execvp() fails and returns
+      // in case c_set_process_group() or c_redirect_fds() fail,
+      // or execvp() fails and returns
+      exit(1);
     }
     default:
       /* parent */

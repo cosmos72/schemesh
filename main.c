@@ -48,6 +48,7 @@ static void show(FILE* out, bytes bv) {
 
 int main(int argc, const char* argv[]) {
   enum { LEN = 1024 };
+  int             err;
   char            buf[LEN];
   struct timespec start, end;
 
@@ -63,6 +64,9 @@ int main(int argc, const char* argv[]) {
   }
   on_exception = INIT_FAILED;
   scheme_init(&handle_scheme_exception);
+  if ((err = define_functions()) < 0) {
+    return err;
+  }
 
   on_exception = EVAL_FAILED;
 again:

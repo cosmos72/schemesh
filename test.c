@@ -110,6 +110,9 @@ int main(int argc, const char* argv[]) {
   (void)argv;
 
   scheme_init(&handle_scheme_exception);
+  if ((err = define_functions()) < 0) {
+    return err;
+  }
 
   errno = 0;
   err   = run_tests();

@@ -227,27 +227,63 @@ void c_environ_to_sh_env(char** env) {
 
 void define_shell_functions(void) {
 
-  /** Start a cmd in a subprocess TODO: also support starting a job in a subprocess */
-  eval("(define sh-start\n"
+  eval("(define (cmd-start-options->existing-pgid options)\n"
+       "  (let ((existing-pgid 0))\n"
+       "    (list-iterate options\n"
+       "      (lambda (option)\n"
+       "        (when (fixnum? option)\n"
+       "          (set! existing-pgid option)\n"
+       "          #f)))\n" // stop iterating on options
+       "    existing-pgid))\n");
+
+  eval("(define (cmd-start-options->c-spawn-options options)\n"
+       "  (let ((c-spawn-options 0))\n"
+       "    (list-iterate options\n"
+       "      (lambda (option)\n"
+       "        (cond\n"
+       "          ((eq? 'fg option) (set! c-spawn-options (logior c-spawn-options 2)))\n"
+       "          ((fixnum? option) (set! c-spawn-options (logior c-spawn-options 1))))))\n"
+       "    c-spawn-options))\n");
+
+  /**
+   * Start a cmd,
+   * optionally in foreground (prevents this shell from doing tty I/O until the process finishes!)
+   * and optionally insert the new process into an existing process group.
+   *
+   * Options can be zero or more of:
+   *   'fg to start the cmd in foreground
+   *   a fixnum to insert the new process into the corresponding process group id.
+   */
+  eval("(define cmd-start\n"
        "  (let ((c-spawn-pid (foreign-procedure \"c_spawn_pid\""
-       "                        (scheme-object scheme-object scheme-object) int)))\n"
-       "    (lambda (j)\n"
-       "      (when (>= (job-pid j) 0)\n"
-       "        (error 'sh-start \"job already started\" (job-pid j)))\n"
-       "      (when (not (sh-cmd? j))\n"
-       "        (error 'sh-start \"unimplemented for non-cmd jobs\"))\n"
+       "                        (scheme-object scheme-object scheme-object int int) int)))\n"
+       "    (lambda (j . options)\n"
        "      (let ((ret (c-spawn-pid\n"
        "                   (cmd-argv j)\n"
        "                   (job-to-redirect-fds j)\n"
-       "                   (sh-env->vector-of-bytevector0 j #f))))\n"
+       "                   (sh-env->vector-of-bytevector0 j #f)\n"
+       "                   (cmd-start-options->existing-pgid options)\n"
+       "                   (cmd-start-options->c-spawn-options options))))\n"
        "        (when (< ret 0)\n"
        "          (raise-errno-condition 'sh-start ret))\n"
        "        (fd-close-list (job-to-close-fds j))\n"
        "        (job-pid-set! j ret)\n"
        "        (job-exit-status-set! j -1)))))\n"); /* job can now be waited-for */
 
-  /** Wait for a cmd or job to exit and return its exit status, or 256 + signal */
-  eval("(define (sh-wait j)\n"
+  /** Start a cmd or a job. TODO: implement starting a job */
+  eval("(define (sh-start j . options)\n"
+       "  (when (>= (job-pid j) 0)\n"
+       "    (error 'sh-start \"job already started\" (job-pid j)))\n"
+       "  (when (not (sh-cmd? j))\n"
+       "    (error 'sh-start \"unimplemented for non-cmd jobs\"))\n"
+       "  (apply cmd-start j options))\n");
+
+  /**
+   * Wait for a cmd or job to exit and return its exit status, or 256 + signal
+   * Warning: does not set the job as foreground process group,
+   * consider calling (sh-fg) instead.
+   */
+  eval("(define (job-wait j)\n"
        "  (cond\n"
        "    ((>= (job-exit-status j) 0)\n"
        "      (job-exit-status j))\n" /* already waited for */
@@ -263,8 +299,8 @@ void define_shell_functions(void) {
 
   /** Start a cmd or job and wait for it to exit. return its exit status, or 256 + signal */
   eval("(define (sh-run j)\n"
-       "  (sh-start j)\n"
-       "  (sh-wait j))\n");
+       "  (sh-start j 'fg)\n"
+       "  (job-wait j))\n");
 
   /** Create or remove a file description redirection for cmd or job */
   eval("(define (sh-redirect-fd! j child-fd existing-fd-or-minus-1)\n"

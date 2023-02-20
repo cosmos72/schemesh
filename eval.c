@@ -33,6 +33,10 @@ void scheme_init(void (*on_scheme_exception)(void)) {
   Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/petite.boot");
   Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/scheme.boot");
   Sbuild_heap(NULL, NULL);
+}
+
+int define_functions(void) {
+  int err;
 
   define_define_macro();
   define_hash_iterate();
@@ -44,11 +48,14 @@ void scheme_init(void (*on_scheme_exception)(void)) {
   define_env_functions();
   define_job_functions();
 
-  define_fd_functions();
+  if ((err = define_fd_functions()) < 0) {
+    return err;
+  }
   define_pid_functions();
   define_shell_functions();
 
   c_environ_to_sh_env(environ);
+  return err;
 }
 
 void scheme_quit(void) {
