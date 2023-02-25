@@ -21,14 +21,14 @@ int define_fd_functions(void);
  */
 void define_pid_functions(void);
 
-/* return current C errno value */
+/* return current (-errno) value */
 int c_errno(void);
 
 /* close specified file descriptor */
 int c_fd_close(int fd);
 
 /* close all file descriptors >= lowest_fd_to_close */
-void c_close_all_fds(int lowest_fd_to_close);
+void c_fd_close_all(int lowest_fd_to_close);
 
 /* call dup() */
 int c_fd_dup(int old_fd);
@@ -46,7 +46,7 @@ int c_open_file_fd(ptr bytevector0_filepath,
 /* call pipe() and return a Scheme cons (pipe_read_fd . pipe_write_fd), or c_errno() on error */
 ptr c_open_pipe_fds(void);
 
-/* fork() and return pid, or c_errno on error */
+/* fork() and return pid, or c_errno() on error */
 int c_fork_pid(void);
 
 typedef enum c_spawn_options_e {
@@ -55,17 +55,31 @@ typedef enum c_spawn_options_e {
   c_spawn_foreground        = 2, // call tcgetpgrp(pid) to mark new process as foreground
 } c_spawn_options;
 
-/* fork() and exec() an external program, return pid */
+/** fork() and exec() an external program, return pid */
 int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
                 ptr vector_redirect_fds,
                 ptr vector_of_bytevector0_environ,
                 int existing_pgid,
                 int spawn_options); // c_spawn_options
 
-/* call waitpid(). return exit status, or 256 + signal, or c_errno() on error */
+/**
+ * call waitpid() i.e. wait for process specified by pid to exit.
+ * return exit status, or 256 + signal, or c_errno() on error
+ */
 int c_pid_wait(int pid);
 
-/* POSIX standard says programs need to declare environ by themselves */
+/**
+ * call waitpid(-1, WNOHANG|WUNTRACED) i.e. non-blocking check if some child process
+ * exited or stopped.
+ * return a Scheme cons (pid . exit_flag), or 0 if no child exited, or c_errno() on error.
+ * Exit flag is one of: exit status, or 256 + signal, or 512 + stop signal
+ */
+ptr c_try_wait(void);
+
+/** print label and current errno value to stderr. return -errno */
+int c_print_errno(const char label[]);
+
+/** POSIX standard says programs need to declare environ by themselves */
 extern char** environ;
 
 #endif /* SCHEMESH_POSIX_H */

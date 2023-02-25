@@ -19,6 +19,7 @@
 
 #include "eval.h"
 #include "posix.h"
+#include "signal.h"
 
 /**
  * convert Scheme vector-of-bytevector0 to a C-compatible NULL-terminated array of char*
@@ -40,10 +41,10 @@ int c_errno(void) {
 
 int c_fd_close(int fd) {
   int ret = close(fd);
-  return ret >= 0 ? ret : -errno;
+  return ret >= 0 ? ret : c_errno();
 }
 
-void c_close_all_fds(int lowest_fd_to_close) {
+void c_fd_close_all(int lowest_fd_to_close) {
   int i       = lowest_fd_to_close >= 0 ? lowest_fd_to_close : 0;
   int last_ok = i - 1;
   for (; i < INT_MAX && i - 32 <= last_ok; i++) {
@@ -55,12 +56,12 @@ void c_close_all_fds(int lowest_fd_to_close) {
 
 int c_fd_dup(int old_fd) {
   int ret = dup(old_fd);
-  return ret >= 0 ? ret : -errno;
+  return ret >= 0 ? ret : c_errno();
 }
 
 int c_fd_dup2(int old_fd, int new_fd) {
   int ret = dup2(old_fd, new_fd);
-  return ret >= 0 ? ret : -errno;
+  return ret >= 0 ? ret : c_errno();
 }
 
 int c_open_file_fd(ptr bytevector0_filepath,
@@ -87,53 +88,25 @@ int c_open_file_fd(ptr bytevector0_filepath,
           (flag_append == 0 ? 0 : O_APPEND);   /*                */
 
   ret = open(filepath, flags, 0666);
-  return ret >= 0 ? ret : -errno;
+  return ret >= 0 ? ret : c_errno();
 }
 
 ptr c_open_pipe_fds(void) {
   int fds[2];
   int ret = pipe(fds);
   if (ret < 0) {
-    return Sinteger((iptr)-errno);
+    return Sinteger(c_errno());
   }
   return Scons(Sinteger(fds[0]), Sinteger(fds[1]));
 }
 
-static int c_print_errno(const char label[]) {
+int c_print_errno(const char label[]) {
   const int err = errno;
   fprintf(stderr,
           "error initializing POSIX subsystem: %s failed with error %s\n",
           label,
           strerror(err));
   return -err;
-}
-
-static int c_init_signals(void) {
-  struct sigaction action = {};
-  int              err    = 0;
-  action.sa_handler       = SIG_IGN;
-
-  if (sigaction(SIGTSTP, &action, NULL) < 0) {
-    err = c_print_errno("sigaction(SIGTSTP, SIG_IGN)");
-  } else if (sigaction(SIGTTIN, &action, NULL) < 0) {
-    err = c_print_errno("sigaction(SIGTTIN, SIG_IGN)");
-  } else if (sigaction(SIGTTOU, &action, NULL) < 0) {
-    err = c_print_errno("sigaction(SIGTTOU, SIG_IGN)");
-  }
-  return err;
-}
-
-static int c_restore_signals(void) {
-  struct sigaction action = {};
-  int              err    = 0;
-  action.sa_handler       = SIG_DFL;
-
-  if (sigaction(SIGTSTP, &action, NULL) < 0 || /*                           */
-      sigaction(SIGTTIN, &action, NULL) < 0 || /*                           */
-      sigaction(SIGTTOU, &action, NULL) < 0) {
-    err = -errno;
-  }
-  return err;
 }
 
 static int c_init_posix_subsystem(void) {
@@ -146,7 +119,7 @@ static int c_init_posix_subsystem(void) {
   } else if ((my_pgid = tcgetpgrp(tty_fd)) < 0) {
     err = c_print_errno("tcgetpgrp(tty_fd)");
   } else {
-    err = c_init_signals();
+    err = c_signals_init();
   }
   return err;
 }
@@ -232,6 +205,7 @@ void define_pid_functions(void) {
   Sregister_symbol("c_fork_pid", &c_fork_pid);
   Sregister_symbol("c_spawn_pid", &c_spawn_pid);
   Sregister_symbol("c_pid_wait", &c_pid_wait);
+  Sregister_symbol("c_try_wait", &c_try_wait);
 
   /**
    * Call fork()
@@ -271,6 +245,15 @@ void define_pid_functions(void) {
    * Return the program's exit status, or 256 + signal, or c_errno() on error.
    */
   eval("(define pid-wait (foreign-procedure \"c_pid_wait\" (int) int))\n");
+
+  /**
+   * Non-blocking check if some child process exited or stopped.
+   *
+   * return a Scheme cons (pid . exit_flag), or 0 if no child exited or stopped,
+   * or c_errno() on error.
+   * Exit flag is one of: exit status, or 256 + signal, or 512 + stop signal
+   */
+  eval("(define pids-try-wait (foreign-procedure \"c_try_wait\" () scheme-object))\n");
 }
 
 static int c_check_redirect_fds(ptr vector_redirect_fds) {
@@ -323,7 +306,7 @@ static int c_redirect_fds(ptr vector_redirect_fds) {
 int c_fork_pid(void) {
   int pid = fork();
   if (pid < 0) {
-    pid = -errno; /* fork failed */
+    pid = c_errno(); /* fork failed */
   }
   return pid;
 }
@@ -366,17 +349,17 @@ int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
   switch (pid) {
     case -1:
       /* error */
-      pid = -errno;
+      pid = c_errno();
       break;
     case 0: {
       /* child */
       int err = c_set_process_group((pid_t)existing_pgid, (c_spawn_options)spawn_options);
       if (err >= 0) {
-        err = c_restore_signals();
+        err = c_signals_restore();
         if (err >= 0) {
           int lowest_fd_to_close = c_redirect_fds(vector_redirect_fds);
           if (lowest_fd_to_close >= 0) {
-            (void)c_close_all_fds(lowest_fd_to_close);
+            (void)c_fd_close_all(lowest_fd_to_close);
             environ = envp;
             (void)execvp(argv[0], argv);
           }
@@ -400,17 +383,42 @@ out:
 }
 
 int c_pid_wait(int pid) {
-  int wstatus = 0;
-  int ret     = waitpid((pid_t)pid, &wstatus, 0);
+  int   wstatus = 0;
+  pid_t ret     = waitpid((pid_t)pid, &wstatus, 0);
   if (ret < 0) {
-    return -errno;
+    return c_errno();
   } else if (WIFEXITED(wstatus)) {
     return (int)(unsigned char)WEXITSTATUS(wstatus);
   } else if (WIFSIGNALED(wstatus)) {
     return 256 + WTERMSIG(wstatus);
   } else {
-    return -(errno = -ENOENT);
+    return -(errno = ENOENT);
   }
+}
+
+ptr c_try_wait(void) {
+  int   wstatus = 0;
+  int   flag    = 0;
+  pid_t pid     = waitpid((pid_t)-1, &wstatus, WNOHANG | WUNTRACED | WCONTINUED);
+  if (pid <= 0) { /* 0 if children exist but did not change status */
+    int err = 0;
+    if (pid < 0) {
+      err = c_errno();
+      if (err == -EAGAIN || err == -ECHILD) {
+        err = 0; /* no child changed status */
+      }
+    }
+    return Sinteger(err);
+  } else if (WIFEXITED(wstatus)) {
+    flag = (int)(unsigned char)WEXITSTATUS(wstatus);
+  } else if (WIFSIGNALED(wstatus)) {
+    flag = 256 + WTERMSIG(wstatus);
+  } else if (WIFSTOPPED(wstatus)) {
+    flag = 512 + WSTOPSIG(wstatus);
+  } else {
+    return Sinteger(-(errno = EINVAL));
+  }
+  return Scons(Sinteger(pid), Sinteger(flag));
 }
 
 static char** vector_to_c_argz(ptr vector_of_bytevector0) {

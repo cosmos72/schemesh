@@ -17,7 +17,10 @@ iterator.o: iterate.c iterate.h eval.h
 main.o: main.c main.h eval.h
 	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
-posix.o: posix.c posix.h eval.h
+posix.o: posix.c posix.h eval.h signal.h
+	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
+
+signal.o: signal.c signal.h posix.h
 	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
 shell.o: shell.c shell.h eval.h
@@ -27,8 +30,8 @@ test.o: test.c test.h eval.h
 	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
 
-schemesh: iterator.o posix.o shell.o eval.o main.o
+schemesh: main.o iterator.o posix.o shell.o eval.o signal.o
 	$(CC) $^ -o $@ -L$(CHEZ_SCHEME_DIR) -lkernel -lz -llz4 -lm -lncurses -luuid
 
-schemesh_test: iterator.o posix.o shell.o eval.o test.o
+schemesh_test: test.o iterator.o posix.o shell.o eval.o signal.o
 	$(CC) $^ -o $@ -L$(CHEZ_SCHEME_DIR) -lkernel -lz -llz4 -lm -lncurses -luuid
