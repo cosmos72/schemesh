@@ -205,7 +205,6 @@ void define_pid_functions(void) {
   Sregister_symbol("c_fork_pid", &c_fork_pid);
   Sregister_symbol("c_spawn_pid", &c_spawn_pid);
   Sregister_symbol("c_pid_wait", &c_pid_wait);
-  Sregister_symbol("c_try_wait", &c_try_wait);
 
   /**
    * Call fork()
@@ -240,20 +239,27 @@ void define_pid_functions(void) {
        "        ret))))\n");
 
   /**
-   * Wait for the program identified by pid to exit.
+   * (pid-wait pid may-block) calls waitpid(pid, WUNTRACED) i.e. checks if process specified by pid
+   * exited or stopped. Note: pid == -1 means "any child process".
    *
-   * Return the program's exit status, or 256 + signal, or c_errno() on error.
-   */
-  eval("(define pid-wait (foreign-procedure \"c_pid_wait\" (int) int))\n");
-
-  /**
-   * Non-blocking check if some child process exited or stopped.
+   * Argument may-block must be either 'blocking or 'nonblocking.
+   * If may-block is 'blocking, wait until pid (or any child process, if pid == -1) exits or stops,
+   * otherwise check for such conditions without blocking.
    *
-   * return a Scheme cons (pid . exit_flag), or 0 if no child exited or stopped,
-   * or c_errno() on error.
-   * Exit flag is one of: exit status, or 256 + signal, or 512 + stop signal
+   * If no child process matches pid, or if may_block is 'nonblocking and no child exited or
+   * stopped, return '().
+   * Otherwise return a Scheme cons (pid . exit_flag), or raise a condition on error.
+   * Exit flag is one of: process exit status, or 256 + signal, or 512 + stop signal.
    */
-  eval("(define pids-try-wait (foreign-procedure \"c_try_wait\" () scheme-object))\n");
+  eval("(define pid-wait"
+       "  (let ((c-pid-wait (foreign-procedure \"c_pid_wait\" (int int) scheme-object)))\n"
+       "    (lambda (pid may-block)\n"
+       "      (assert (member may-block '(blocking nonblocking)))\n"
+       "      (let* ((c-may-block (if (eq? may-block 'blocking) 1 0))\n"
+       "             (ret (c-pid-wait pid c-may-block)))\n"
+       "        (when (fixnum? ret)\n"
+       "          (raise-errno-condition 'pid-wait ret))\n"
+       "        ret))))\n");
 }
 
 static int c_check_redirect_fds(ptr vector_redirect_fds) {
@@ -382,33 +388,19 @@ out:
   return pid;
 }
 
-int c_pid_wait(int pid) {
-  int   wstatus = 0;
-  pid_t ret     = waitpid((pid_t)pid, &wstatus, 0);
-  if (ret < 0) {
-    return c_errno();
-  } else if (WIFEXITED(wstatus)) {
-    return (int)(unsigned char)WEXITSTATUS(wstatus);
-  } else if (WIFSIGNALED(wstatus)) {
-    return 256 + WTERMSIG(wstatus);
-  } else {
-    return -(errno = ENOENT);
-  }
-}
-
-ptr c_try_wait(void) {
-  int   wstatus = 0;
-  int   flag    = 0;
-  pid_t pid     = waitpid((pid_t)-1, &wstatus, WNOHANG | WUNTRACED | WCONTINUED);
-  if (pid <= 0) { /* 0 if children exist but did not change status */
+ptr c_pid_wait(int pid, int may_block) {
+  int wstatus = 0;
+  int flag    = 0;
+  int ret     = waitpid((pid_t)pid, &wstatus, may_block ? WUNTRACED : WNOHANG | WUNTRACED);
+  if (ret <= 0) { /* 0 if children exist but did not change status */
     int err = 0;
-    if (pid < 0) {
+    if (ret < 0) {
       err = c_errno();
       if (err == -EAGAIN || err == -ECHILD) {
         err = 0; /* no child changed status */
       }
     }
-    return Sinteger(err);
+    return err == 0 ? Snil : Sinteger(err);
   } else if (WIFEXITED(wstatus)) {
     flag = (int)(unsigned char)WEXITSTATUS(wstatus);
   } else if (WIFSIGNALED(wstatus)) {
@@ -418,7 +410,7 @@ ptr c_try_wait(void) {
   } else {
     return Sinteger(-(errno = EINVAL));
   }
-  return Scons(Sinteger(pid), Sinteger(flag));
+  return Scons(Sinteger(ret), Sinteger(flag));
 }
 
 static char** vector_to_c_argz(ptr vector_of_bytevector0) {

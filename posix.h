@@ -63,18 +63,17 @@ int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
                 int spawn_options); // c_spawn_options
 
 /**
- * call waitpid() i.e. wait for process specified by pid to exit.
- * return exit status, or 256 + signal, or c_errno() on error
+ * call waitpid(pid, WUNTRACED) i.e. check if process specified by pid exited or stopped.
+ * Note: pid == -1 means "any child process".
+ * If may_block != 0, wait until pid (or any child process, if pid == -1) exits or stops,
+ * otherwise check for such conditions without blocking.
+ *
+ * If no child process matches pid, or if may_block == 0 and no child exited or
+ * stopped, return Scheme empty list '().
+ * Otherwise return a Scheme cons (pid . exit_flag), or c_errno() on error.
+ * Exit flag is one of: process exit status, or 256 + signal, or 512 + stop signal.
  */
-int c_pid_wait(int pid);
-
-/**
- * call waitpid(-1, WNOHANG|WUNTRACED) i.e. non-blocking check if some child process
- * exited or stopped.
- * return a Scheme cons (pid . exit_flag), or 0 if no child exited, or c_errno() on error.
- * Exit flag is one of: exit status, or 256 + signal, or 512 + stop signal
- */
-ptr c_try_wait(void);
+ptr c_pid_wait(int pid, int may_block);
 
 /** print label and current errno value to stderr. return -errno */
 int c_print_errno(const char label[]);

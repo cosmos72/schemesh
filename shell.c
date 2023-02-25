@@ -279,7 +279,9 @@ void define_shell_functions(void) {
        "  (apply cmd-start j options))\n");
 
   /**
-   * Wait for a cmd or job to exit and return its exit status, or 256 + signal
+   * Wait for a cmd or job to exit or stop and return its exit status, or 256 + signal,
+   * or 512 + stop signal, or 1024 if exit status cannot be retrieved.
+   *
    * Warning: does not set the job as foreground process group,
    * consider calling (sh-fg) instead.
    */
@@ -290,14 +292,17 @@ void define_shell_functions(void) {
        "    ((< (job-pid j) 0)\n"
        "      (error 'job-wait \"job not started yet\" j))\n"
        "    (#t\n"
-       "      (let ([ret (pid-wait (job-pid j))])\n"
-       "        (when (< ret 0)\n"
-       "          (raise-errno-condition 'job-wait ret))\n"
+       "      (let* ([ret (pid-wait (job-pid j) 'blocking)]\n"
+       /*            if exit status cannot be retrieved, assume 1024 = unknown */
+       "             [status (if (pair? ret) (cdr ret) 1024)])\n"
        "        (job-pid-set! j -1)\n" /* cmd can now be spawned again */
-       "        (job-exit-status-set! j ret)\n"
-       "        ret))))\n");
+       "        (job-exit-status-set! j status)\n"
+       "        status))))\n");
 
-  /** Start a cmd or job and wait for it to exit. return its exit status, or 256 + signal */
+  /**
+   * Start a cmd or job and wait for it to exit. return its exit status, or 256 + signal
+   * or 512 + stop signal, or 1024 if exit status cannot be retrieved.
+   */
   eval("(define (sh-run j)\n"
        "  (sh-start j 'fg)\n"
        "  (job-wait j))\n");
