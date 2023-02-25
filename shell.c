@@ -36,6 +36,14 @@ void define_job_functions(void) {
        "  (fields\n"
        "    argv))\n"); /* vector of bytevectors, each #\nul terminated */
 
+  /** Define the record type "multijob" */
+  eval("(define-record-type\n"
+       "  (multijob %make-multijob sh-multijob?)\n"
+       "  (parent job)"
+       "  (fields\n"
+       "    kind\n"         /* one of: 'and 'or 'vec */
+       "    children))\n"); /* vector of children jobs */
+
   /** customize how "job" objects are printed */
   eval("(record-writer (record-type-descriptor job)\n"
        "  (lambda (obj port writer)\n"
@@ -47,11 +55,21 @@ void define_job_functions(void) {
   eval("(record-writer (record-type-descriptor cmd)\n"
        "  (lambda (obj port writer)\n"
        "    (display \"(sh-cmd\" port)\n"
-       "    (vector-for-each\n"
+       "    (vector-iterate (cmd-argv obj)\n"
        "       (lambda (arg)\n"
        "         (display #\\space port)\n"
-       "         (write-bytevector0 arg port))\n"
-       "       (cmd-argv obj))\n"
+       "         (write-bytevector0 arg port)))\n"
+       "    (display #\\) port)))\n");
+
+  /** customize how "multijob" objects are printed */
+  eval("(record-writer (record-type-descriptor multijob)\n"
+       "  (lambda (obj port writer)\n"
+       "    (display \"(sh-multijob '\" port)\n"
+       "    (display (multijob-kind obj) port)\n"
+       "    (vector-iterate (multijob-children obj)\n"
+       "       (lambda (child)\n"
+       "         (display #\\space port)\n"
+       "         (display child port)))\n"
        "    (display #\\) port)))\n");
 
   /**
@@ -59,8 +77,9 @@ void define_job_functions(void) {
    * May be set! to a different value in subshells.
    */
   eval("(define sh-globals\n"
-       "  (%make-job -1 -1 (vector 0 1 2) (vector) '() #f\n"
-       "             (make-hashtable string-hash string=?) #f))\n");
+       "  (%make-multijob -1 -1 (vector 0 1 2) (vector) '() #f\n"
+       "    (make-hashtable string-hash string=?) #f\n"
+       "    'vec (vector)))\n");
 
   /**
    * Define the function (sh-get-job), converts job-id to job.
@@ -104,6 +123,19 @@ void define_job_functions(void) {
        "    '()\n"        /* overridden environment variables - initially none */
        "    sh-globals\n" /* parent job - initially the global job */
        "    (list->cmd-argv (cons program args))))\n");
+
+  /** Create a multijob to later start it. */
+  eval("(define (sh-multijob kind . jobs)\n"
+       "  (assert (member kind '(and or vec)))\n"
+       "  (list-iterate jobs\n"
+       "    (lambda (j)\n"
+       "      (assert (sh-job? j))))\n"
+       "  (%make-multijob -1 -1 (vector 0 1 2) (vector) '()\n"
+       "    #f\n"         /* start-func */
+       "    '()\n"        /* overridden environment variables - initially none */
+       "    sh-globals\n" /* parent job - initially the global job */
+       "    kind\n"
+       "    (list->vector jobs)))\n");
 }
 
 void define_env_functions(void) {
@@ -129,7 +161,7 @@ void define_env_functions(void) {
    * including default variables inherited from parent jobs.
    * If all? is #t, unexported variables are returned too.
    */
-  eval("(define (job-flatten-env job-id all?)\n"
+  eval("(define (job-env-copy job-id all?)\n"
        "  (assert (boolean? all?))\n"
        "  (let ((jlist (job-parents-revlist job-id))\n"
        "        (vars (make-hashtable string-hash string=?)))\n"
@@ -205,7 +237,7 @@ void define_env_functions(void) {
    * If all? is #t, unexported variables are returned too.
    */
   eval("(define (sh-env->vector-of-bytevector0 job-id all?)\n"
-       "  (string-hashtable->vector-of-bytevector0 (job-flatten-env job-id all?)))\n");
+       "  (string-hashtable->vector-of-bytevector0 (job-env-copy job-id all?)))\n");
 }
 
 void c_environ_to_sh_env(char** env) {
@@ -300,7 +332,7 @@ void define_shell_functions(void) {
        "        status))))\n");
 
   /**
-   * Start a cmd or job and wait for it to exit. return its exit status, or 256 + signal
+   * Start a cmd or job and wait for it to exit or stop. return its exit status, or 256 + signal,
    * or 512 + stop signal, or 1024 if exit status cannot be retrieved.
    */
   eval("(define (sh-run j)\n"

@@ -12,5 +12,6 @@
 
 void define_hash_iterate(void);
 void define_list_iterate(void);
+void define_vector_iterate(void);
 
 #endif /* SCHEMESH_ITERATE_H */

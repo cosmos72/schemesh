@@ -41,6 +41,7 @@ int define_functions(void) {
   define_define_macro();
   define_hash_iterate();
   define_list_iterate();
+  define_vector_iterate();
   define_display_any();
   define_any_to_string();
   define_any_to_bytevector();
@@ -191,7 +192,7 @@ static void define_any_to_bytevector(void) {
        "    (lambda args\n"
        "      (let-values (((port get-bytevector)\n"
        "                    (open-bytevector-output-port transcoder)))\n"
-       "        (for-each (lambda (x) (display-any x port)) args)\n"
+       "        (list-iterate args (lambda (x) (display-any x port)))\n"
        "        (display #\\nul port)\n"
        "        (get-bytevector)))))\n");
 

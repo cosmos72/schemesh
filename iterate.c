@@ -10,48 +10,62 @@
 #include "eval.h"
 
 void define_list_iterate(void) {
-  eval(";;; iterate on all elements of given list, and call (proc elem)\n"
-       ";;; on each element. stop iterating if (proc ...) returns #f\n"
-       "(define (list-iterate l proc)\n"
+  /**
+   * (list-iterate l proc) iterates on all elements of given list l,
+   * and calls (proc elem) on each element. stops iterating if (proc ...) returns #f
+   */
+  eval("(define (list-iterate l proc)\n"
        "  (do ((tail l (cdr tail)))\n"
        "      ((or (null? tail) (not (proc (car tail)))))))\n");
 }
 
+void define_vector_iterate(void) {
+  /**
+   * (vector-iterate l proc) iterates on all elements of given vector v,
+   * and calls (proc elem) on each element. stops iterating if (proc ...) returns #f
+   */
+  eval("(define (vector-iterate v proc)\n"
+       "  (do ((i 0 (fx1+ i))\n"
+       "       (n (vector-length v)))\n"
+       "      ((or (fx>= i n) (not (proc (vector-ref v i))))))))\n");
+}
+
 void define_hash_iterate(void) {
   eval("(begin\n"
-       "  ;;; return hash-iterator to first element in hashtable\n"
+       /** return hash-iterator to first element in hashtable */
        "  (define make-hash-iterator)\n"
        "  \n"
-       "  \n"
-       "  ;;; return #t if argument is an hash-iterator, otherwise return #f\n"
+       /** return #t if argument is an hash-iterator, otherwise return #f */
        "  (define hash-iterator?)\n"
        "  \n"
-       "  \n"
-       "  ;;; make a copy of specified hash-iterator\n"
+       /** make a copy of specified hash-iterator */
        "  (define hash-iterator-copy)\n"
        "  \n"
-       "  \n"
-       "  ;;; return hashtable element (key . val) corresponding to current position\n"
-       "  ;;; of hash-iterator, or #f if end of hashtable is reached\n"
-       "  ;;;\n"
-       "  ;;; setting the cdr of returned element propagates back to the hashtable,\n"
-       "  ;;; i.e. it is equivalent to setting the value associated to key in the hashtable\n"
-       "  ;;;\n"
-       "  ;;; NEVER set or modify in any way the car of returned element!\n"
+       /**
+        * return hashtable element (key . val) corresponding to current position
+        * of hash-iterator, or #f if end of hashtable is reached
+        *
+        * setting the cdr of returned element propagates back to the hashtable,
+        * i.e. it is equivalent to setting the value associated to key in the hashtable
+        *
+        * NEVER set or modify in any way the car of returned element!
+        */
        "  (define hash-iterator-cell))\n"
        "  \n"
-       "  \n"
-       "  ;;; modify hash-iterator in place to point to next hashtable element.\n"
-       "  ;;; return next hashtable element (key . val) if more elements are available,\n"
-       "  ;;; otherwise return #f\n"
-       "  ;;;\n"
-       "  ;;; as (hash-iterator-cell), setting the cdr of returned element propagates back\n"
-       "  ;;; to the hashtable.\n"
+       /**
+        * modify hash-iterator in place to point to next hashtable element.
+        * return next hashtable element (key . val) if more elements are available,
+        * otherwise return #f
+        *
+        * as (hash-iterator-cell), setting the cdr of returned element propagates back
+        * to the hashtable.
+        */
        "  (define hash-iterator-next!)\n"
        "  \n"
-       "  \n"
-       "  ;;; iterate on all elements of given hashtable, and call (proc (cons key value))\n"
-       "  ;;; on each element. stop iterating if (proc ...) returns #f\n"
+       /**
+        * iterate on all elements of given hashtable, and call (proc (cons key value))
+        * on each element. stop iterating if (proc ...) returns #f
+        */
        "  (define hashtable-iterate)\n"
        "  \n"
        ")\n");

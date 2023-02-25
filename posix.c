@@ -154,7 +154,7 @@ int define_fd_functions(void) {
        "          (void)\n"
        "          (make-errno-condition 'fd-close ret))))))\n");
   eval("(define (fd-close-list fd-list)\n"
-       "  (for-each fd-close fd-list))\n");
+       "  (list-iterate fd-list fd-close))\n");
 
   eval("(define fd-dup\n"
        "  (let ((c-fd-dup (foreign-procedure \"c_fd_dup\" (int) int)))\n"
