@@ -12,7 +12,7 @@
 #endif
 
 #include "eval.h"
-#include "iterate.h"
+#include "container.h"
 #include "posix.h"
 #include "shell.h"
 
@@ -22,7 +22,7 @@
 #define STR(arg) STR_(arg)
 #define CHEZ_SCHEME_DIR_STR STR(CHEZ_SCHEME_DIR)
 
-static void define_define_macro(void);
+static void define_macros(void);
 static void define_display_any(void);
 static void define_any_to_string(void);
 static void define_any_to_bytevector(void);
@@ -38,7 +38,9 @@ void scheme_init(void (*on_scheme_exception)(void)) {
 int define_functions(void) {
   int err;
 
-  define_define_macro();
+  define_macros();
+  define_array();
+  define_array_iterate();
   define_hash_iterate();
   define_list_iterate();
   define_vector_iterate();
@@ -97,7 +99,17 @@ ptr eval(const char str[]) {
   return call1("eval", call1("read", call1("open-input-string", Sstring(str))));
 }
 
-static void define_define_macro(void) {
+static void define_macros(void) {
+  eval("(define-syntax while\n"
+       "  (syntax-rules ()\n"
+       "    ((_ pred)          (do () ((not pred))))\n"
+       "    ((_ pred body ...) (do () ((not pred)) body ...))))\n");
+
+  eval("(define-syntax until\n"
+       "  (syntax-rules ()\n"
+       "    ((_ pred)          (do () (pred)))\n"
+       "    ((_ pred body ...) (do () (pred) body ...))))\n");
+
   eval("(define-syntax define-macro\n"
        "  (syntax-rules ()\n"
        "    ((k (name . args) body ...)\n"
@@ -111,7 +123,7 @@ static void define_define_macro(void) {
        "                   (e (apply transformer v)))\n"
        "              (if (eq? (void) e)\n"
        "                  (syntax (void))\n"
-       "                  (datum->syntax (syntax l) e))))))))))");
+       "                  (datum->syntax (syntax l) e))))))))))\n");
 }
 
 static void define_display_any(void) {

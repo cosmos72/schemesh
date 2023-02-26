@@ -7,11 +7,14 @@
  * (at your option) any later version.
  */
 
-#ifndef SCHEMESH_ITERATE_H
-#define SCHEMESH_ITERATE_H
+#ifndef SCHEMESH_CONTAINER_H
+#define SCHEMESH_CONTAINER_H
 
+void define_array(void);
+
+void define_array_iterate(void);
 void define_hash_iterate(void);
 void define_list_iterate(void);
 void define_vector_iterate(void);
 
-#endif /* SCHEMESH_ITERATE_H */
+#endif /* SCHEMESH_CONTAINER_H */

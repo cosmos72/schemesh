@@ -64,7 +64,7 @@ void define_job_functions(void) {
   /** customize how "multijob" objects are printed */
   eval("(record-writer (record-type-descriptor multijob)\n"
        "  (lambda (obj port writer)\n"
-       "    (display \"(sh-multijob '\" port)\n"
+       "    (display \"(sh-\" port)\n"
        "    (display (multijob-kind obj) port)\n"
        "    (vector-iterate (multijob-children obj)\n"
        "       (lambda (child)\n"
@@ -125,7 +125,7 @@ void define_job_functions(void) {
        "    (list->cmd-argv (cons program args))))\n");
 
   /** Create a multijob to later start it. */
-  eval("(define (sh-multijob kind . jobs)\n"
+  eval("(define (make-multijob kind . jobs)\n"
        "  (assert (member kind '(and or vec)))\n"
        "  (list-iterate jobs\n"
        "    (lambda (j)\n"

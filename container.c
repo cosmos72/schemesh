@@ -9,6 +9,89 @@
 
 #include "eval.h"
 
+void define_array(void) {
+  eval("(define (vectory-copy! src src-start dst dst-start n)\n"
+       "  (do ((i 0 (fx1+ i)))\n"
+       "      ((fx>= i n))\n"
+       "    (let ((elem (vector-ref src (fx+ i src-start))))\n"
+       "      (vector-set! dst (fx+ i dst-start) elem))))\n");
+
+  eval("(define (subvector-fill! vec start n obj)\n"
+       "  (do ((i 0 (fx1+ i)))\n"
+       "      ((fx>= i n))\n"
+       "    (vector-set! vec (fx+ i start) obj))))\n");
+
+  /** array is a resizeable vector */
+  eval("(define-record-type\n"
+       "  (array %make-array array?)\n"
+       "  (fields\n"
+       "     (mutable len  array-length %array-len-set!)\n"
+       "     (mutable vec  %array-vec   %array-vec-set!)))\n");
+
+  eval("(define (make-array n . obj)\n"
+       "  (%make-array n (apply make-vector n obj)))\n");
+
+  eval("(define (array . objs)\n"
+       "  (let ((vec (apply vector objs)))\n"
+       "    (%make-array (vector-length vec) vec)))\n");
+
+  eval("(define (array-capacity arr)\n"
+       "  (vector-length (%array-vec arr)))\n");
+
+  eval("(define (array-ref arr n)\n"
+       "  (assert (fx< n (array-length arr)))\n"
+       "  (vector-ref (%array-vec arr) n))\n");
+
+  eval("(define (array-set! arr n obj)\n"
+       "  (assert (fx< n (array-length arr)))\n"
+       "  (vector-set! (%array-vec arr) n obj))\n");
+
+  eval("(define (array-fill! arr obj)\n"
+       /* no optimized function to fill only up to array-length,
+        * so fill up to array-capacity */
+       "  (vector-fill! (%array-vec arr) obj))\n");
+
+  eval("(define (subarray-fill! arr start n obj)\n"
+       "  (assert (fx<= (fx+ src n) (array-length arr)))\n"
+       "  (subvector-fill! (%array-vec arr) start n obj))\n");
+
+  eval("(define (array-copy! src src-start dst dst-start n)\n"
+       "  (assert (fx<= (fx+ src-start n) (array-length src)))\n"
+       "  (assert (fx<= (fx+ dst-start n) (array-length dst)))\n"
+       "  (vectory-copy! (%array-vec src) src-start (%array-vec dst) dst-start n))\n");
+
+  eval("(define (array-capacity-set! arr n)\n"
+       "  (assert (fx>= n (array-length arr)))\n"
+       "  (unless (fx= n (array-capacity arr))\n"
+       "    (let* ((len (array-length arr))\n"
+       "           (old-vec (%array-vec arr))\n"
+       "           (nev-vec (make-vector n)))\n"
+       "      (vector-copy! old-vec 0 new-vec 0 len)\n"
+       "      (%array-vec-set! arr new-vec))))\n");
+
+  eval("(define (array-length-set! arr n)\n"
+       "  (when (fx> n (array-capacity arr))\n"
+       "    (let ((new-cap (fxmax 8 n (fx* 2 (array-capacity arr)))))\n"
+       "      (array-capacity-set! arr new-cap)))\n"
+       "  (%array-len-set arr n))\n");
+}
+
+void define_array_iterate(void) {
+
+  eval("(define (array-iterate arr proc)\n"
+       "  (let ((vec (%array-vec arr))\n"
+       "    (let ((new-cap (fxmax 8 n (fx* 2 (array-capacity arr)))))\n"
+       "      (array-capacity-set! arr new-cap)))\n"
+       "  (%array-len-set arr n))\n");
+
+  /** customize how "array" objects are printed */
+  eval("(record-writer (record-type-descriptor array)\n"
+       "  (lambda (obj port writer)\n"
+       "    (display \"(array \" port)\n"
+       "    (writer (job-start-func obj) port)\n"
+       "    (display #\\) port)))\n");
+}
+
 void define_list_iterate(void) {
   /**
    * (list-iterate l proc) iterates on all elements of given list l,
