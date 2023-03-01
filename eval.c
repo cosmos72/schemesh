@@ -40,7 +40,6 @@ int define_functions(void) {
 
   define_macros();
   define_array();
-  define_array_iterate();
   define_hash_iterate();
   define_list_iterate();
   define_vector_iterate();

@@ -12,7 +12,6 @@
 
 void define_array(void);
 
-void define_array_iterate(void);
 void define_hash_iterate(void);
 void define_list_iterate(void);
 void define_vector_iterate(void);

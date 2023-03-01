@@ -23,6 +23,10 @@ static const struct {
 } tests[] = {
     {"(+ 1 2 3)", "6"},
     {"(* 4 5 6)", "120"},
+    {"(array 1 2 3)", "(array 1 2 3)"},
+    {"(array-length (array 1 2 3))", "3"},
+    {"(array-capacity (array 1 2 3))", "3"},
+    {"(array-ref (array 'a 'b 'c) 1)", "b"},
     {"(errno)", "0"},
     {"(let ((ret '()))\n"
      "  (list-iterate '(a b c)\n"
