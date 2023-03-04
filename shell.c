@@ -11,6 +11,7 @@
 #include "eval.h"
 
 #include <string.h>
+#include <unistd.h>
 
 void define_job_functions(void) {
 
@@ -18,14 +19,15 @@ void define_job_functions(void) {
   eval("(define-record-type\n"
        "  (job %make-job sh-job?)\n"
        "  (fields\n"
-       "    (mutable pid)\n"               /* fixnum, -1 if unknown */
-       "    (mutable exit-status)\n"       /* fixnum, -1 if unknown */
+       "    (mutable pid)\n"               /* fixnum: process id,       -1 if unknown     */
+       "    (mutable pgid)\n"              /* fixnum: process group id, -1 if unknown     */
+       "    (mutable exit-status)\n"       /* fixnum: exit status,      -1 if unknown     */
        "    (mutable to-redirect-fds)\n"   /* vector of fds to redirect between fork() and
-                                              (start-func) */
-       "    (mutable to-redirect-files)\n" /* vector of files to open before fork() */
-       "    (mutable to-close-fds)\n"      /* list of fds to close after spawn */
+                                              (start-func)                                */
+       "    (mutable to-redirect-files)\n" /* vector of files to open before fork()       */
+       "    (mutable to-close-fds)\n"      /* list of fds to close after spawn            */
        "    start-func\n"                  /* function to start the job in fork()ed child */
-       "    (mutable env)\n"               /* overridden env variables, or '() */
+       "    (mutable env)\n"               /* overridden env variables, or '()            */
        "    (mutable parent))))\n");       /* parent job, contains default values of env variables
                                             * and default redirections */
 
@@ -77,9 +79,12 @@ void define_job_functions(void) {
    * May be set! to a different value in subshells.
    */
   eval("(define sh-globals\n"
-       "  (%make-multijob -1 -1 (vector 0 1 2) (vector) '() #f\n"
+       "  (%make-multijob -1 -1 -1 (vector 0 1 2) (vector) '() #f\n"
        "    (make-hashtable string-hash string=?) #f\n"
        "    'vec (vector)))\n");
+
+  call2("job-pid-set!", Stop_level_value(Sstring_to_symbol("sh-globals")), Sfixnum(getpid()));
+  call2("job-pgid-set!", Stop_level_value(Sstring_to_symbol("sh-globals")), Sfixnum(getpgrp()));
 
   /**
    * Define the function (sh-get-job), converts job-id to job.
@@ -118,7 +123,7 @@ void define_job_functions(void) {
 
   /** Create a cmd to later spawn it. */
   eval("(define (sh-cmd program . args)\n"
-       "  (%make-cmd -1 -1 (vector 0 1 2) (vector) '()\n"
+       "  (%make-cmd -1 -1 -1 (vector 0 1 2) (vector) '()\n"
        "    #f\n"         /* start-func */
        "    '()\n"        /* overridden environment variables - initially none */
        "    sh-globals\n" /* parent job - initially the global job */
@@ -130,7 +135,7 @@ void define_job_functions(void) {
        "  (list-iterate jobs\n"
        "    (lambda (j)\n"
        "      (assert (sh-job? j))))\n"
-       "  (%make-multijob -1 -1 (vector 0 1 2) (vector) '()\n"
+       "  (%make-multijob -1 -1 -1 (vector 0 1 2) (vector) '()\n"
        "    #f\n"         /* start-func */
        "    '()\n"        /* overridden environment variables - initially none */
        "    sh-globals\n" /* parent job - initially the global job */
@@ -259,8 +264,8 @@ void c_environ_to_sh_env(char** env) {
 
 void define_shell_functions(void) {
 
-  eval("(define (cmd-start-options->existing-pgid options)\n"
-       "  (let ((existing-pgid 0))\n"
+  eval("(define (cmd-start-options->process-group-id options)\n"
+       "  (let ((existing-pgid -1))\n"
        "    (list-iterate options\n"
        "      (lambda (option)\n"
        "        (when (fixnum? option)\n"
@@ -268,38 +273,31 @@ void define_shell_functions(void) {
        "          #f)))\n" // stop iterating on options
        "    existing-pgid))\n");
 
-  eval("(define (cmd-start-options->c-spawn-options options)\n"
-       "  (let ((c-spawn-options 0))\n"
-       "    (list-iterate options\n"
-       "      (lambda (option)\n"
-       "        (cond\n"
-       "          ((eq? 'fg option) (set! c-spawn-options (logior c-spawn-options 2)))\n"
-       "          ((fixnum? option) (set! c-spawn-options (logior c-spawn-options 1))))))\n"
-       "    c-spawn-options))\n");
-
   /**
-   * Start a cmd,
-   * optionally in foreground (prevents this shell from doing tty I/O until the process finishes!)
-   * and optionally insert the new process into an existing process group.
+   * Start a cmd, optionally inserting it into an existing process group.
    *
-   * Options can be zero or more of:
-   *   'fg to start the cmd in foreground
-   *   a fixnum to insert the new process into the corresponding process group id.
+   * The new process is started in background, i.e. the foreground process group is NOT set
+   * to the process group of the newly created process.
+   *
+   * Options is a list of zero or more of the following:
+   *   process-group-id a fixnum, if present the new process will be inserted
+   *     into the corresponding process group id - which must already exist.
    */
   eval("(define cmd-start\n"
        "  (let ((c-spawn-pid (foreign-procedure \"c_spawn_pid\""
-       "                        (scheme-object scheme-object scheme-object int int) int)))\n"
+       "                        (scheme-object scheme-object scheme-object int) int)))\n"
        "    (lambda (j . options)\n"
-       "      (let ((ret (c-spawn-pid\n"
+       "      (let* ((process-group-id (cmd-start-options->process-group-id options))\n"
+       "             (ret (c-spawn-pid\n"
        "                   (cmd-argv j)\n"
        "                   (job-to-redirect-fds j)\n"
        "                   (sh-env->vector-of-bytevector0 j #f)\n"
-       "                   (cmd-start-options->existing-pgid options)\n"
-       "                   (cmd-start-options->c-spawn-options options))))\n"
+       "                   process-group-id)))\n"
        "        (when (< ret 0)\n"
        "          (raise-errno-condition 'sh-start ret))\n"
        "        (fd-close-list (job-to-close-fds j))\n"
        "        (job-pid-set! j ret)\n"
+       "        (job-pgid-set! j (if (> process-group-id 0) process-group-id ret))\n"
        "        (job-exit-status-set! j -1)))))\n"); /* job can now be waited-for */
 
   /** Start a cmd or a job. TODO: implement starting a job */
@@ -315,7 +313,7 @@ void define_shell_functions(void) {
    * or 512 + stop signal, or 1024 if exit status cannot be retrieved.
    *
    * Warning: does not set the job as foreground process group,
-   * consider calling (sh-fg) instead.
+   * consider calling (sh-fg j) instead.
    */
   eval("(define (job-wait j)\n"
        "  (cond\n"
@@ -328,22 +326,58 @@ void define_shell_functions(void) {
        /*            if exit status cannot be retrieved, assume 1024 = unknown */
        "             [status (if (pair? ret) (cdr ret) 1024)])\n"
        "        (job-pid-set! j -1)\n" /* cmd can now be spawned again */
+       "        (job-pgid-set! j -1)\n"
        "        (job-exit-status-set! j status)\n"
        "        status))))\n");
+
+  /**
+   * Wait for a cmd, job or job-id to exit or stop and return its exit status, or 256 + signal,
+   * or 512 + stop signal, or 1024 if exit status cannot be retrieved.
+   *
+   * Note: upon invocation, sets the job as fg process group.
+   * Before returning, restores the this process as fg process group.
+   */
+  eval("(define sh-fg\n"
+       "  (let ((c-set-foreground-pid-or-pgid (foreign-procedure \"c_pid_foreground\"\n"
+       "                                                        (int int) int)))\n"
+       "    (lambda (job-id)\n"
+       "      (let ((job (sh-get-job job-id)))\n"
+       "        (cond\n"
+       "          ((>= (job-exit-status job) 0)\n"
+       "            (job-exit-status job))\n" /* already waited for */
+       "          ((< (job-pid job) 0)\n"
+       "            (error 'sh-fg \"job not started yet\" job))\n"
+       "          (#t\n"
+       "            (let ((ret (c-set-foreground-pid-or-pgid (job-pid job) (job-pgid job))))\n"
+       "              (with-exception-handler\n"
+       "                (lambda (x)\n"
+       /*                 on exception, restore this process as fg process group */
+       "                  (c-set-foreground-pid-or-pgid (job-pid sh-globals)\n"
+       "                                                (job-pgid sh-globals)))\n"
+       /*                 try to wait. may raise exceptions */
+       "                (lambda ()\n"
+       "                  (when (< ret 0)\n"
+       "                    (raise-errno-condition 'sh-fg ret))\n"
+       "                  (let ((status (job-wait job)))\n"
+       /*                 before normal return, restore this process as fg process group */
+       "                    (c-set-foreground-pid-or-pgid (job-pid sh-globals)\n"
+       "                                                  (job-pgid sh-globals))\n"
+       "                    status))))))))))\n");
 
   /**
    * Start a cmd or job and wait for it to exit or stop. return its exit status, or 256 + signal,
    * or 512 + stop signal, or 1024 if exit status cannot be retrieved.
    */
   eval("(define (sh-run j)\n"
-       "  (sh-start j 'fg)\n"
-       "  (job-wait j))\n");
+       "  (sh-start j)\n"
+       "  (sh-fg j))\n");
 
   /** Create or remove a file description redirection for cmd or job */
-  eval("(define (sh-redirect-fd! j child-fd existing-fd-or-minus-1)\n"
+  eval("(define (sh-redirect-fd! job-id child-fd existing-fd-or-minus-1)\n"
        "  (when (or (not (fixnum? child-fd)) (< child-fd 0))\n"
        "    (error 'job-redirect! \"invalid redirect fd\" child-fd))\n"
-       "  (let* ([old-fds (job-to-redirect-fds j)]\n"
+       "  (let* ([job (sh-get-job job-id)]\n"
+       "         [old-fds (job-to-redirect-fds j)]\n"
        "         [old-n (vector-length old-fds)])\n"
        "    (when (<= old-n child-fd)\n"
        "      (let* ([new-n (max (+ 1 child-fd) (* 2 old-n))]\n"

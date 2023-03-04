@@ -24,7 +24,7 @@ void define_env_functions(void);
 void define_job_functions(void);
 
 /**
- * Define the functions (sh-start) (sh-wait) (sh-run) (sh-redirect...)
+ * Define the functions (sh-start) (sh-fg) (sh-run) (sh-redirect...)
  * Requires the "job" and "cmd" record types, the (sh-env...) functions
  * and the fd-related and pid-related functions.
  */

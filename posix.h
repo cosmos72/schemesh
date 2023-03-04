@@ -49,18 +49,17 @@ ptr c_open_pipe_fds(void);
 /* fork() and return pid, or c_errno() on error */
 int c_fork_pid(void);
 
-typedef enum c_spawn_options_e {
-  c_spawn_create_new_pgid   = 0, // insert new process into its own pgid
-  c_spawn_use_existing_pgid = 1, // insert new process into existing_pgid
-  c_spawn_foreground        = 2, // call tcgetpgrp(pid) to mark new process as foreground
-} c_spawn_options;
-
 /** fork() and exec() an external program, return pid */
 int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
                 ptr vector_redirect_fds,
                 ptr vector_of_bytevector0_environ,
-                int existing_pgid,
-                int spawn_options); // c_spawn_options
+                int existing_pgid_or_negative); // if > 0, add process to given process group
+
+/**
+ * set the specified process group as the foreground process group.
+ * if pgid <= 0, use instead the process group of specified process id.
+ */
+int c_pid_foreground(int pid, int pgid);
 
 /**
  * call waitpid(pid, WUNTRACED) i.e. check if process specified by pid exited or stopped.

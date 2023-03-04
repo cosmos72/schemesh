@@ -33,7 +33,7 @@ static char** vector_to_c_argz(ptr vector_of_bytevector0);
 /** close-on-exec file descriptor for out controlling tty */
 static int tty_fd = -1;
 /** process group id of this process */
-static pid_t my_pgid = -1;
+static pid_t main_pgid = 0;
 
 int c_errno(void) {
   return -errno;
@@ -116,7 +116,7 @@ static int c_init_posix_subsystem(void) {
     err = c_print_errno("open(\"/dev/tty\")");
   } else if (fcntl(tty_fd, F_SETFD, FD_CLOEXEC) < 0) {
     err = c_print_errno("fcntl(tty_fd, F_SETFD, FD_CLOEXEC)");
-  } else if ((my_pgid = tcgetpgrp(tty_fd)) < 0) {
+  } else if ((main_pgid = tcgetpgrp(tty_fd)) < 0) {
     err = c_print_errno("tcgetpgrp(tty_fd)");
   } else {
     err = c_signals_init();
@@ -205,6 +205,7 @@ void define_pid_functions(void) {
   Sregister_symbol("c_fork_pid", &c_fork_pid);
   Sregister_symbol("c_spawn_pid", &c_spawn_pid);
   Sregister_symbol("c_pid_wait", &c_pid_wait);
+  Sregister_symbol("c_pid_foreground", &c_pid_foreground);
 
   /**
    * Call fork()
@@ -226,13 +227,12 @@ void define_pid_functions(void) {
    */
   eval("(define spawn-pid\n"
        "  (let ((c-spawn-pid (foreign-procedure \"c_spawn_pid\""
-       "                        (scheme-object scheme-object scheme-object int int) int)))\n"
+       "                        (scheme-object scheme-object scheme-object int) int)))\n"
        "    (lambda (program . args)\n"
        "      (let ((ret (c-spawn-pid\n"
        "                   (list->cmd-argv (cons program args))\n"
        "                   (vector 0 1 2)\n"
        "                   (sh-env->vector-of-bytevector0 '() #f)\n"
-       "                   0\n"
        "                   0)))\n"
        "        (when (< ret 0)\n"
        "          (raise-errno-condition 'spawn-pid ret))\n"
@@ -317,25 +317,16 @@ int c_fork_pid(void) {
   return pid;
 }
 
-static int c_set_process_group(pid_t existing_pgid, c_spawn_options options) {
-  int err = 0;
-  if (options & c_spawn_use_existing_pgid) {
-    err = setpgid(0, existing_pgid);
-  } else {
-    err           = setpgid(0, 0);
-    existing_pgid = getpid();
-  }
-  if (err >= 0 && (options & c_spawn_foreground)) {
-    err = tcsetpgrp(0 /*stdin*/, existing_pgid);
-  }
-  return err;
+static int c_set_process_group(pid_t existing_pgid_or_negative) {
+  int err =
+      setpgid(0 /*current process*/, existing_pgid_or_negative < 0 ? 0 : existing_pgid_or_negative);
+  return err >= 0 ? err : c_errno();
 }
 
 int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
                 ptr vector_redirect_fds,
                 ptr vector_of_bytevector0_environ,
-                int existing_pgid,
-                int spawn_options) {
+                int existing_pgid_or_negative) {
   char **argv = NULL, **envp = NULL;
   int    pid;
   if ((pid = c_check_redirect_fds(vector_redirect_fds)) < 0) {
@@ -359,7 +350,7 @@ int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
       break;
     case 0: {
       /* child */
-      int err = c_set_process_group((pid_t)existing_pgid, (c_spawn_options)spawn_options);
+      int err = c_set_process_group((pid_t)existing_pgid_or_negative);
       if (err >= 0) {
         err = c_signals_restore();
         if (err >= 0) {
@@ -386,6 +377,16 @@ out:
     errno = -pid;
   }
   return pid;
+}
+
+int c_pid_foreground(int pid, int pgid) {
+  if (pgid <= 0) {
+    pgid = getpgid((pid_t)pid);
+  }
+  if (pgid >= 0 && tcsetpgrp(tty_fd, pgid) >= 0) {
+    return 0;
+  }
+  return c_errno();
 }
 
 ptr c_pid_wait(int pid, int may_block) {
