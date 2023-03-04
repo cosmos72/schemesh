@@ -280,7 +280,7 @@ void define_shell_functions(void) {
    * to the process group of the newly created process.
    *
    * Options is a list of zero or more of the following:
-   *   process-group-id a fixnum, if present the new process will be inserted
+   *   process-group-id: a fixnum, if present and > 0 the new process will be inserted
    *     into the corresponding process group id - which must already exist.
    */
   eval("(define cmd-start\n"
@@ -354,7 +354,7 @@ void define_shell_functions(void) {
        "                (raise-errno-condition 'sh-fg ret)))\n"
        "            (with-exception-handler\n"
        "              (lambda (x)\n"
-       /*               on exception, restore this process as fg process group */
+       /*               on exception, restore main process as fg process group */
        "                (c-set-foreground-pid-or-pgid (job-pid sh-globals)\n"
        "                                              (job-pgid sh-globals)))\n"
        /*               try to wait. may raise exceptions */
