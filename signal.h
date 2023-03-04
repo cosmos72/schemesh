@@ -19,4 +19,7 @@ int c_signals_restore(void);
 /** return != 0 if SIGCHLD was received after last call to this function */
 int c_sigchld_consume(void);
 
+/** define functions (signal-number->name) (signal-name->number) */
+void define_signal_functions(void);
+
 #endif /* SCHEMESH_SIGNAL_H */

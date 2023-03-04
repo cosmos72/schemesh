@@ -10,10 +10,9 @@
 #ifndef SCHEMESH_CONTAINER_H
 #define SCHEMESH_CONTAINER_H
 
-void define_array(void);
-
-void define_hash_iterate(void);
-void define_list_iterate(void);
-void define_vector_iterate(void);
+void define_array_functions(void);
+void define_hash_functions(void);
+void define_list_functions(void);
+void define_vector_functions(void);
 
 #endif /* SCHEMESH_CONTAINER_H */

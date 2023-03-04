@@ -9,8 +9,9 @@
 
 #include "eval.h"
 
-void define_array(void) {
-  /** some additional vector functions */
+/** some additional vector functions */
+void define_vector_functions(void) {
+  /** copies a portion of vector src into dst */
   eval("(define (vector-copy! src src-start dst dst-start n)\n"
        "  (do ((i 0 (fx1+ i)))\n"
        "      ((fx>= i n))\n"
@@ -22,6 +23,30 @@ void define_array(void) {
        "      ((fx>= i n))\n"
        "    (vector-set! vec (fx+ i start) obj))))\n");
 
+  /**
+   * (vector-iterate l proc) iterates on all elements of given vector vec,
+   * and calls (proc elem) on each element. stops iterating if (proc ...) returns #f
+   */
+  eval("(define (vector-iterate vec proc)\n"
+       "  (do ((i 0 (fx1+ i))\n"
+       "       (n (vector-length vec)))\n"
+       "      ((or (fx>= i n) (not (proc (vector-ref vec i))))))))\n");
+
+  /**
+   * (vector->hashtable vec htable) iterates on all elements of given vector vec,
+   * which must be cons cells, and inserts them into hashtable htable:
+   * (car cell) is used as key, and (cdr cell) is used ad value.
+   *
+   * Returns htable.
+   */
+  eval("(define (vector->hashtable vec htable)\n"
+       "  (vector-iterate vec\n"
+       "    (lambda (cell)\n"
+       "      (hashtable-set! htable (car cell) (cdr cell))))\n"
+       "  htable)\n");
+}
+
+void define_array_functions(void) {
   /** array is a resizeable vector */
   eval("(begin\n"
        "  (define make-array)\n"
@@ -125,7 +150,7 @@ void define_array(void) {
        ")\n");
 }
 
-void define_list_iterate(void) {
+void define_list_functions(void) {
   /**
    * (list-iterate l proc) iterates on all elements of given list l,
    * and calls (proc elem) on each element. stops iterating if (proc ...) returns #f
@@ -135,18 +160,7 @@ void define_list_iterate(void) {
        "      ((or (null? tail) (not (proc (car tail)))))))\n");
 }
 
-void define_vector_iterate(void) {
-  /**
-   * (vector-iterate l proc) iterates on all elements of given vector v,
-   * and calls (proc elem) on each element. stops iterating if (proc ...) returns #f
-   */
-  eval("(define (vector-iterate v proc)\n"
-       "  (do ((i 0 (fx1+ i))\n"
-       "       (n (vector-length v)))\n"
-       "      ((or (fx>= i n) (not (proc (vector-ref v i))))))))\n");
-}
-
-void define_hash_iterate(void) {
+void define_hash_functions(void) {
   eval("(begin\n"
        /** return hash-iterator to first element in hashtable */
        "  (define make-hash-iterator)\n"
@@ -333,4 +347,16 @@ void define_hash_iterate(void) {
        "          ((or (not cell) (not (proc cell))))))))\n"
        "\n"
        ")\n");
+
+  /**
+   * (hashtable-transpose src dst) iterates on all (key . value) elements of hashtable src,
+   * and inserts each of them into hashtable dst as transposed (value . key)
+   *
+   * Returns dst.
+   */
+  eval("(define (hashtable-transpose src dst)\n"
+       "  (hashtable-iterate src\n"
+       "    (lambda (cell)\n"
+       "      (hashtable-set! dst (cdr cell) (car cell))))\n"
+       "  dst)\n");
 }

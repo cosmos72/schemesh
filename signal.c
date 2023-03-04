@@ -11,6 +11,7 @@
 #include <stdatomic.h>
 #include <stddef.h> // size_t, NULL
 
+#include "eval.h"
 #include "posix.h"
 #include "signal.h"
 
@@ -66,4 +67,57 @@ int c_signals_restore(void) {
     }
   }
   return 0;
+}
+
+#define x(arg) STR_(arg)
+#define STR_(arg) #arg
+
+void define_signal_functions(void) {
+  /* clang-format off */
+  eval("(define signal-table-number->name\n"
+       "  (vector->hashtable '#("
+       " (" x(SIGHUP)  " . sighup)"
+       " (" x(SIGINT)  " . sigint)"
+       " (" x(SIGQUIT) " . sigquit)"
+       " (" x(SIGILL)  " . sigill)"
+       " (" x(SIGTRAP) " . sigtrap)"
+       " (" x(SIGABRT) " . sigabrt)"
+       " (" x(SIGBUS)  " . sigbus)"
+       " (" x(SIGFPE)  " . sigfpe)"
+       " (" x(SIGKILL) " . sigkill)"
+       " (" x(SIGUSR1) " . sigusr1)"
+       " (" x(SIGSEGV) " . sigsegv)"
+       " (" x(SIGUSR2) " . sigusr2)"
+       " (" x(SIGPIPE) " . sigpipe)"
+       " (" x(SIGALRM) " . sigalrm)"
+       " (" x(SIGTERM) " . sigterm)"
+       " (" x(SIGSTKFLT) " . sigstkflt)"
+       " (" x(SIGCHLD) " . sigchld)"
+       " (" x(SIGCONT) " . sigcont)"
+       " (" x(SIGSTOP) " . sigstop)"
+       " (" x(SIGTSTP) " . sigtstp)"
+       " (" x(SIGTTIN) " . sigttin)"
+       " (" x(SIGTTOU) " . sigttou)"
+       " (" x(SIGURG)  " . sigurg)"
+       " (" x(SIGXCPU) " . sigxcpu)"
+       " (" x(SIGXFSZ) " . sigxfsz)"
+       " (" x(SIGVTALRM) " . sigvtalrm)"
+       " (" x(SIGPROF) " . sigprof)"
+       " (" x(SIGWINCH) " . sigwinch)"
+       " (" x(SIGIO)   " . sigio)"
+       " (" x(SIGPWR)  " . sigpwr)"
+       " (" x(SIGSYS)  " . sigsys))\n"
+       "    (make-eq-hashtable)))\n");
+  /* clang-format on */
+
+  eval("(define signal-table-name->number\n"
+       "  (hashtable-transpose\n"
+       "    signal-table-number->name\n"
+       "    (make-eq-hashtable)))\n");
+
+  eval("(define (signal-number->name number)\n"
+       "  (hashtable-ref signal-table-number->name number #f))\n");
+
+  eval("(define (signal-name->number name)\n"
+       "  (hashtable-ref signal-table-name->number name #f)))\n");
 }

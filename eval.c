@@ -15,6 +15,7 @@
 #include "container.h"
 #include "posix.h"
 #include "shell.h"
+#include "signal.h"
 
 #include <stddef.h> // NULL
 
@@ -39,10 +40,10 @@ int define_functions(void) {
   int err;
 
   define_macros();
-  define_array();
-  define_hash_iterate();
-  define_list_iterate();
-  define_vector_iterate();
+  define_vector_functions();
+  define_array_functions();
+  define_hash_functions();
+  define_list_functions();
   define_display_any();
   define_any_to_string();
   define_any_to_bytevector();
@@ -53,6 +54,7 @@ int define_functions(void) {
   if ((err = define_fd_functions()) < 0) {
     return err;
   }
+  define_signal_functions();
   define_pid_functions();
   define_shell_functions();
 
