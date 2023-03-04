@@ -344,26 +344,27 @@ void define_shell_functions(void) {
        "      (let ((job (sh-get-job job-id)))\n"
        "        (cond\n"
        "          ((>= (job-exit-status job) 0)\n"
-       "            (job-exit-status job))\n" /* already waited for */
+       /**          already waited for. TODO: check for stopped jobs and continue them as below */
+       "            (job-exit-status job))\n"
        "          ((< (job-pid job) 0)\n"
        "            (error 'sh-fg \"job not started yet\" job))\n"
        "          (#t\n"
-       /**          TODO: send SIGCONT to process group */
        "            (let ((ret (c-set-foreground-pid-or-pgid (job-pid job) (job-pgid job))))\n"
-       "              (with-exception-handler\n"
-       "                (lambda (x)\n"
-       /*                 on exception, restore this process as fg process group */
+       "              (when (< ret 0)\n"
+       "                (raise-errno-condition 'sh-fg ret)))\n"
+       "            (with-exception-handler\n"
+       "              (lambda (x)\n"
+       /*               on exception, restore this process as fg process group */
+       "                (c-set-foreground-pid-or-pgid (job-pid sh-globals)\n"
+       "                                              (job-pgid sh-globals)))\n"
+       /*               try to wait. may raise exceptions */
+       "              (lambda ()\n"
+       /**              TODO: send SIGCONT to process group */
+       "                (let ((status (job-wait job)))\n"
+       /*               before normal return, restore this process as fg process group */
        "                  (c-set-foreground-pid-or-pgid (job-pid sh-globals)\n"
-       "                                                (job-pgid sh-globals)))\n"
-       /*                 try to wait. may raise exceptions */
-       "                (lambda ()\n"
-       "                  (when (< ret 0)\n"
-       "                    (raise-errno-condition 'sh-fg ret))\n"
-       "                  (let ((status (job-wait job)))\n"
-       /*                 before normal return, restore this process as fg process group */
-       "                    (c-set-foreground-pid-or-pgid (job-pid sh-globals)\n"
-       "                                                  (job-pgid sh-globals))\n"
-       "                    status))))))))))\n");
+       "                                                (job-pgid sh-globals))\n"
+       "                  status)))))))))\n");
 
   /**
    * Start a cmd or job and wait for it to exit or stop. return its exit status, or 256 + signal,
