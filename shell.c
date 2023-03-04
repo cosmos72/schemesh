@@ -348,6 +348,7 @@ void define_shell_functions(void) {
        "          ((< (job-pid job) 0)\n"
        "            (error 'sh-fg \"job not started yet\" job))\n"
        "          (#t\n"
+       /**          TODO: send SIGCONT to process group */
        "            (let ((ret (c-set-foreground-pid-or-pgid (job-pid job) (job-pgid job))))\n"
        "              (with-exception-handler\n"
        "                (lambda (x)\n"
