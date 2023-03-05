@@ -391,45 +391,21 @@ static void define_shell_functions(void) {
        "          ((not (job-started? j))\n"
        "            (error 'sh-fg \"job not started yet\" j))\n"
        "          (#t\n"
-#if 0
-       "            (display \"step 1: before c-pgid-foreground\n\")\n"
-#endif
        "            (let ((ret (c-pgid-foreground (job-pgid j))))\n"
-#if 0
-       "              (display \"step 2: after  c-pgid-foreground\n\")\n"
-#endif
        "              (when (< ret 0)\n"
        "                (raise-errno-condition 'sh-fg ret)))\n"
-       "            (with-exception-handler\n"
-       "              (lambda (x)\n"
-  /*               on exception, restore main process as fg process group */
-#if 0
-       "                (display \"step 2: got exception \")\n"
-       "                (display-any x (current-output-port))\n"
-       "                (display \"step 4: before c-pgid-foreground (on exception)\n\")\n"
-#endif
-       "                (c-pgid-foreground (job-pgid sh-globals))\n"
-#if 0
-       "                (display \"step 5: after  c-pgid-foreground (on exception)\n\")\n"
-#endif
-       "                )\n"
-       /*               try to wait. may raise exceptions */
+       /**          TODO: send SIGCONT to process group */
+       "            (dynamic-wind\n"
+       "              (lambda () #f)\n" /* run before body */
        "              (lambda ()\n"
-       /**              TODO: send SIGCONT to process group */
-       "                (let ((status (job-wait j)))\n"
-  /*               before normal return, restore this process as fg process group */
-#if 0
-       "                  (display \"step 6: before c-pgid-foreground (on return)\n\")\n"
-#endif
-       "                  (c-pgid-foreground (job-pgid sh-globals))\n"
-#if 0
-       "                  (display \"step 7: after  c-pgid-foreground (on return)\n\")\n"
-#endif
-       "                  status)))))))))\n");
+       "                (job-wait j))\n" /* body */
+       /*             run after body, even if it raised exception */
+       "              (lambda ()\n"
+       "                (c-pgid-foreground (job-pgid sh-globals))))))))))\n");
 
   /**
-   * Start a cmd or job and wait for it to exit or stop. return its exit status, or 256 + signal,
-   * or 512 + stop signal, or 1024 if exit status cannot be retrieved.
+   * Start a cmd or job and wait for it to exit or stop. return its exit status, or 256 +
+   * signal, or 512 + stop signal, or 1024 if exit status cannot be retrieved.
    */
   eval("(define (sh-run j)\n"
        "  (sh-start j)\n"
