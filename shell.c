@@ -74,7 +74,7 @@ static void define_job_functions(void) {
        "  (lambda (obj port writer)\n"
        "    (display \"(sh-cmd\" port)\n"
        "    (vector-iterate (cmd-argv obj)\n"
-       "       (lambda (arg)\n"
+       "       (lambda (i arg)\n"
        "         (display #\\space port)\n"
        "         (write-bytevector0 arg port)))\n"
        "    (display #\\) port)))\n");
@@ -85,7 +85,7 @@ static void define_job_functions(void) {
        "    (display \"(sh-\" port)\n"
        "    (display (multijob-kind obj) port)\n"
        "    (array-iterate (multijob-children obj)\n"
-       "       (lambda (child)\n"
+       "       (lambda (i child)\n"
        "         (display #\\space port)\n"
        "         (display child port)))\n"
        "    (display #\\) port)))\n");
@@ -97,7 +97,7 @@ static void define_job_functions(void) {
   eval("(define sh-globals\n"
        "  (%make-multijob -1 -1 #f (vector 0 1 2) (vector) '() #f\n"
        "    (make-hashtable string-hash string=?) #f\n"
-       "    'vec (array)))\n");
+       "    'vec (array #t)))\n");
 
   call2("job-pid-set!", Stop_level_value(Sstring_to_symbol("sh-globals")), Sfixnum(getpid()));
   call2("job-pgid-set!", Stop_level_value(Sstring_to_symbol("sh-globals")), Sfixnum(getpgrp()));
@@ -105,11 +105,19 @@ static void define_job_functions(void) {
   /**
    * Define the function (sh-get-job), converts job-id to job.
    * Job-id can be either a job, the empty list '() which means sh-globals,
-   * or a fixnum (TODO: implement) which means one of the running jobs.
+   * or a fixnum which means one of the running jobs.
    */
   eval("(define (sh-get-job job-id)\n"
-       "  (assert (or (null? job-id) (sh-job? job-id)))\n"
-       "  (if (null? job-id) sh-globals job-id))\n");
+       "  (cond\n"
+       "    ((null? job-id)  sh-globals)\n"
+       "    ((fixnum? job-id)\n"
+       "      (let* ((all-jobs (multijob-children sh-globals))\n"
+       "             (job (if (fx< job-id (array-length all-jobs)) (array-ref all-jobs job-id))))\n"
+       "        (unless (sh-job? job)\n"
+       "          (error 'sh-job \"job not found:\" job-id))\n"
+       "        job))\n"
+       "    ((sh-job? job-id) job-id)\n"
+       "    (#t (error 'sh-job \"not a job-id:\" job-id))))\n");
 
   /**
    * Define the function (job-parents-iterate), calls (proc j) on given job and each of its parents.
@@ -326,6 +334,16 @@ static void define_shell_functions(void) {
   eval("(define (job-started? c)\n"
        "  (and (fx>= (job-pid c) 0) (fx>= (job-pgid c) 0)))\n");
 
+  /** If job's parent is sh-globals, remove the job from sh-globals children */
+  eval("(define (job-remove-from-sh-globals j)\n"
+       "  (when (eq? sh-globals (job-parent j))\n"
+       "    (let ((arr (multijob-children sh-globals)))\n"
+       "      (array-iterate arr\n"
+       "        (lambda (i elem)\n"
+       "          (when (eq? j elem)\n"
+       "            (array-set! arr i #f)\n"
+       "            #f))))))\n");
+
   /** Start a cmd or a job. TODO: implement starting a job */
   eval("(define (sh-start j . options)\n"
        "  (when (fx>= (job-pid j) 0)\n"
@@ -334,8 +352,7 @@ static void define_shell_functions(void) {
        "    (error 'sh-start \"unimplemented for non-cmd jobs\"))\n"
        "  (apply cmd-start j options)\n"
        "  (when (eq? sh-globals (job-parent j))\n"
-       /*   append job to sh-globals children. Makes it discoverable by job-id */
-       "    (void)))\n");
+       "    (array-append! (multijob-children sh-globals) j)))\n");
 
   /**
    * Convert a numeric exit status, or 256 + signal, or 512 + stop signal to one of:
@@ -368,13 +385,14 @@ static void define_shell_functions(void) {
        "    ((not (job-started? j))\n"
        "      (error 'job-wait \"job not started yet\" j))\n"
        "    (#t\n"
-       /**    TODO: wait for ALL processes in job's process group */
+       /**    TODO: wait for ALL processes in job's process group? */
        "      (let* ((ret (pid-wait (job-pid j) 'blocking))\n"
        /*            if exit status cannot be retrieved, assume 1024 = unknown */
        "             (status (pid-exit-status->job-exit-status (if (pair? ret) (cdr ret) 1024))))\n"
        "        (job-pid-set! j -1)\n" /* cmd can now be spawned again */
        "        (job-pgid-set! j -1)\n"
        "        (job-exit-status-set! j status)\n"
+       "        (job-remove-from-sh-globals j)\n"
        "        status))))\n");
 
   /**

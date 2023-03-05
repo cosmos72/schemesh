@@ -25,12 +25,12 @@ static void define_vector_functions(void) {
 
   /**
    * (vector-iterate l proc) iterates on all elements of given vector vec,
-   * and calls (proc elem) on each element. stops iterating if (proc ...) returns #f
+   * and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
    */
   eval("(define (vector-iterate vec proc)\n"
        "  (do ((i 0 (fx1+ i))\n"
        "       (n (vector-length vec)))\n"
-       "      ((or (fx>= i n) (not (proc (vector-ref vec i))))))))\n");
+       "      ((or (fx>= i n) (not (proc i (vector-ref vec i))))))))\n");
 
   /**
    * (vector->hashtable vec htable) iterates on all elements of given vector vec,
@@ -41,7 +41,7 @@ static void define_vector_functions(void) {
    */
   eval("(define (vector->hashtable vec htable)\n"
        "  (vector-iterate vec\n"
-       "    (lambda (cell)\n"
+       "    (lambda (i cell)\n"
        "      (hashtable-set! htable (car cell) (cdr cell))))\n"
        "  htable)\n");
 }
@@ -147,14 +147,14 @@ static void define_array_functions(void) {
        "  (do ((i 0 (fx1+ i))\n"
        "       (n (array-len arr))\n"
        "       (v (array-vec arr)))\n"
-       "    ((or (fx>= i n) (not (proc (vector-ref v i))))))))\n"
+       "    ((or (fx>= i n) (not (proc i (vector-ref v i))))))))\n"
        "\n"
        /** customize how "array" objects are printed */
        "(record-writer (record-type-descriptor %array)\n"
        "  (lambda (obj port writer)\n"
        "    (display \"(array\" port)\n"
        "    (array-iterate obj"
-       "      (lambda (elem)"
+       "      (lambda (i elem)"
        "        (display #\\space port)\n"
        "        (writer elem port)))\n"
        "    (display #\\) port)))\n"
@@ -164,7 +164,7 @@ static void define_array_functions(void) {
 static void define_list_functions(void) {
   /**
    * (list-iterate l proc) iterates on all elements of given list l,
-   * and calls (proc elem) on each element. stops iterating if (proc ...) returns #f
+   * and calls (proc elem) on each element. Stops iterating if (proc ...) returns #f
    */
   eval("(define (list-iterate l proc)\n"
        "  (do ((tail l (cdr tail)))\n"
@@ -206,6 +206,11 @@ static void define_hash_functions(void) {
        /**
         * iterate on all elements of given hashtable, and call (proc (cons key value))
         * on each element. stop iterating if (proc ...) returns #f
+        *
+        * Assigning the (cdr) of an element propagates to the hashtable,
+        * i.e. changes the value associated to key in hashtable.
+        *
+        * Do NOT modify the (car) of an element!
         */
        "  (define hashtable-iterate)\n"
        "  \n"

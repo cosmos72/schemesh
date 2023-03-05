@@ -150,7 +150,7 @@ static void define_any_to_bytevector(void) {
        "    (lambda args\n"
        "      (let-values (((port get-bytevector)\n"
        "                    (open-bytevector-output-port transcoder)))\n"
-       "        (list-iterate args (lambda (x) (display-any x port)))\n"
+       "        (list-iterate args (lambda (e) (display-any e port)))\n"
        "        (display #\\nul port)\n"
        "        (get-bytevector)))))\n");
 
