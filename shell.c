@@ -324,7 +324,7 @@ static void define_shell_functions(void) {
 
   /** Start a cmd or a job. TODO: implement starting a job */
   eval("(define (sh-start j . options)\n"
-       "  (when (>= (job-pid j) 0)\n"
+       "  (when (fx>= (job-pid j) 0)\n"
        "    (error 'sh-start \"job already started\" (job-pid j)))\n"
        "  (when (not (sh-cmd? j))\n"
        "    (error 'sh-start \"unimplemented for non-cmd jobs\"))\n"
@@ -382,10 +382,10 @@ static void define_shell_functions(void) {
        "    (lambda (job-id)\n"
        "      (let ((job (sh-get-job job-id)))\n"
        "        (cond\n"
-       "          ((job-exit-status job))\n"
+       "          ((job-exit-status job)\n"
        /**          already waited for. TODO: check for stopped jobs and continue them as below */
        "            (job-exit-status job))\n"
-       "          ((< (job-pid job) 0)\n"
+       "          ((fx< (job-pid job) 0)\n"
        "            (error 'sh-fg \"job not started yet\" job))\n"
        "          (#t\n"
        "            (let ((ret (c-set-foreground-pid-or-pgid (job-pid job) (job-pgid job))))\n"

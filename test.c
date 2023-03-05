@@ -64,8 +64,8 @@ static const struct {
      "    (sh-env-get       '() \"foo\")\n"
      "    (sh-env-exported? '() \"foo\")))\n",
      "(bar . #f)"},
-    {"(sh-run (sh-cmd \"true\"))", "0"},
-    {"(sh-run (sh-cmd \"false\"))", "1"},
+    {"(sh-run (sh-cmd \"true\"))", "(exited . 0)"},
+    {"(sh-run (sh-cmd \"false\"))", "(exited . 1)"},
 };
 
 static int run_tests(void) {
