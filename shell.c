@@ -37,13 +37,13 @@ static void define_job_functions(void) {
        "  (fields\n"
        "    (mutable pid)\n"               /* fixnum: process id,       -1 if unknown     */
        "    (mutable pgid)\n"              /* fixnum: process group id, -1 if unknown     */
-       "    (mutable exit-status)\n"       /* fixnum: exit status,      -1 if unknown     */
+       "    (mutable exit-status)\n"       /* cons: exit status,        #f if running     */
        "    (mutable to-redirect-fds)\n"   /* vector of fds to redirect between fork() and
                                               (start-func)                                */
        "    (mutable to-redirect-files)\n" /* vector of files to open before fork()       */
        "    (mutable to-close-fds)\n"      /* list of fds to close after spawn            */
        "    start-func\n"                  /* function to start the job in fork()ed child */
-       "    (mutable env)\n"               /* overridden env variables, or '()            */
+       "    (mutable env)\n"               /* hashtable: overridden env variables, or '() */
        "    (mutable parent))))\n");       /* parent job, contains default values of env variables
                                             * and default redirections */
 
@@ -95,7 +95,7 @@ static void define_job_functions(void) {
    * May be set! to a different value in subshells.
    */
   eval("(define sh-globals\n"
-       "  (%make-multijob -1 -1 -1 (vector 0 1 2) (vector) '() #f\n"
+       "  (%make-multijob -1 -1 #f (vector 0 1 2) (vector) '() #f\n"
        "    (make-hashtable string-hash string=?) #f\n"
        "    'vec (vector)))\n");
 
@@ -139,7 +139,7 @@ static void define_job_functions(void) {
 
   /** Create a cmd to later spawn it. */
   eval("(define (sh-cmd program . args)\n"
-       "  (%make-cmd -1 -1 -1 (vector 0 1 2) (vector) '()\n"
+       "  (%make-cmd -1 -1 #f (vector 0 1 2) (vector) '()\n"
        "    #f\n"         /* start-func */
        "    '()\n"        /* overridden environment variables - initially none */
        "    sh-globals\n" /* parent job - initially the global job */
@@ -151,7 +151,7 @@ static void define_job_functions(void) {
        "  (list-iterate jobs\n"
        "    (lambda (j)\n"
        "      (assert (sh-job? j))))\n"
-       "  (%make-multijob -1 -1 -1 (vector 0 1 2) (vector) '()\n"
+       "  (%make-multijob -1 -1 #f (vector 0 1 2) (vector) '()\n"
        "    #f\n"         /* start-func */
        "    '()\n"        /* overridden environment variables - initially none */
        "    sh-globals\n" /* parent job - initially the global job */
@@ -320,7 +320,7 @@ static void define_shell_functions(void) {
        "        (fd-close-list (job-to-close-fds j))\n"
        "        (job-pid-set! j ret)\n"
        "        (job-pgid-set! j (if (> process-group-id 0) process-group-id ret))\n"
-       "        (job-exit-status-set! j -1)))))\n"); /* job can now be waited-for */
+       "        (job-exit-status-set! j #f)))))\n"); /* job can now be waited-for */
 
   /** Start a cmd or a job. TODO: implement starting a job */
   eval("(define (sh-start j . options)\n"
@@ -331,22 +331,39 @@ static void define_shell_functions(void) {
        "  (apply cmd-start j options))\n");
 
   /**
-   * Wait for a cmd or job to exit or stop and return its exit status, or 256 + signal,
-   * or 512 + stop signal, or 1024 if exit status cannot be retrieved.
+   * Convert a numeric exit status, or 256 + signal, or 512 + stop signal to one of:
+   *   (cons 'exited  exit-status)
+   *   (cons 'killed  signal-name)
+   *   (cons 'stopped signal-name)
+   * any other fixnum value is converted to
+   *   'unknown
+   */
+  eval("(define (pid-exit-status->job-exit-status num)\n"
+       "  (cond ((fx<= num 256) (cons 'exited  num))\n"
+       "        ((fx<= num 512) (cons 'killed  (signal-number->name (logand num 255))))\n"
+       "        ((fx<= num 768) (cons 'stopped (signal-number->name (logand num 255))))\n"
+       "        (#t             'unknown)))\n");
+
+  /**
+   * Wait for a cmd or job to exit or stop and return its exit status, which can be one of:
+   * (cons 'exited  exit-status)
+   * (cons 'killed  signal-name)
+   * (cons 'stopped signal-name)
+   * 'unknown
    *
    * Warning: does not set the job as foreground process group,
    * consider calling (sh-fg j) instead.
    */
   eval("(define (job-wait j)\n"
        "  (cond\n"
-       "    ((>= (job-exit-status j) 0)\n"
+       "    ((job-exit-status j)\n"
        "      (job-exit-status j))\n" /* already waited for */
-       "    ((< (job-pid j) 0)\n"
+       "    ((fx< (job-pid j) 0)\n"
        "      (error 'job-wait \"job not started yet\" j))\n"
        "    (#t\n"
-       "      (let* ([ret (pid-wait (job-pid j) 'blocking)]\n"
+       "      (let* ((ret (pid-wait (job-pid j) 'blocking))\n"
        /*            if exit status cannot be retrieved, assume 1024 = unknown */
-       "             [status (if (pair? ret) (cdr ret) 1024)])\n"
+       "             (status (pid-exit-status->job-exit-status (if (pair? ret) (cdr ret) 1024))))\n"
        "        (job-pid-set! j -1)\n" /* cmd can now be spawned again */
        "        (job-pgid-set! j -1)\n"
        "        (job-exit-status-set! j status)\n"
@@ -365,7 +382,7 @@ static void define_shell_functions(void) {
        "    (lambda (job-id)\n"
        "      (let ((job (sh-get-job job-id)))\n"
        "        (cond\n"
-       "          ((>= (job-exit-status job) 0)\n"
+       "          ((job-exit-status job))\n"
        /**          already waited for. TODO: check for stopped jobs and continue them as below */
        "            (job-exit-status job))\n"
        "          ((< (job-pid job) 0)\n"
