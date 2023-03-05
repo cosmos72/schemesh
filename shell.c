@@ -95,7 +95,9 @@ static void define_job_functions(void) {
    * May be set! to a different value in subshells.
    */
   eval("(define sh-globals\n"
-       "  (%make-multijob -1 -1 #f (vector 0 1 2) (vector) '() #f\n"
+       /* waiting for sh-globals to exit is not useful:
+        * pretend it already exited with unknown exit status */
+       "  (%make-multijob -1 -1 'unknown (vector 0 1 2) (vector) '() #f\n"
        "    (make-hashtable string-hash string=?) #f\n"
        "    'vec (array #t)))\n");
 
@@ -104,15 +106,18 @@ static void define_job_functions(void) {
 
   /**
    * Define the function (sh-get-job), converts job-id to job.
-   * Job-id can be either a job, the empty list '() which means sh-globals,
-   * or a fixnum which means one of the running jobs.
+   * Job-id can be either a job,
+   * or '() which means sh-globals - needed by C function c_environ_to_sh_env()
+   * or a fixnum indicating one of the running jobs stored in (multijob-children sh-globals)
    */
   eval("(define (sh-get-job job-id)\n"
        "  (cond\n"
-       "    ((null? job-id)  sh-globals)\n"
+       "    ((null? job-id) sh-globals)\n"
        "    ((fixnum? job-id)\n"
        "      (let* ((all-jobs (multijob-children sh-globals))\n"
-       "             (job (if (fx< job-id (array-length all-jobs)) (array-ref all-jobs job-id))))\n"
+       "             (job (when (and (fx> job-id 0)\n" /* job-ids start at 1 */
+       "                             (fx< job-id (array-length all-jobs)))\n"
+       "                    (array-ref all-jobs job-id))))\n"
        "        (unless (sh-job? job)\n"
        "          (error 'sh-job \"job not found:\" job-id))\n"
        "        job))\n"
