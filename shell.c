@@ -107,12 +107,12 @@ static void define_job_functions(void) {
   /**
    * Define the function (sh-get-job), converts job-id to job.
    * Job-id can be either a job,
-   * or '() which means sh-globals - needed by C function c_environ_to_sh_env()
+   * or #t which means sh-globals - needed by C function c_environ_to_sh_env()
    * or a fixnum indicating one of the running jobs stored in (multijob-children sh-globals)
    */
   eval("(define (sh-get-job job-id)\n"
        "  (cond\n"
-       "    ((null? job-id) sh-globals)\n"
+       "    ((eq? #t job-id) sh-globals)\n"
        "    ((fixnum? job-id)\n"
        "      (let* ((all-jobs (multijob-children sh-globals))\n"
        "             (job (when (and (fx> job-id 0)\n" /* job-ids start at 1 */
@@ -194,12 +194,16 @@ static void define_env_functions(void) {
   /**
    * Return a copy of job's environment variables,
    * including default variables inherited from parent jobs.
-   * If all? is #t, unexported variables are returned too.
+   * Argument which must be one of:
+   *   'exported: only exported variables are returned.
+   *   'all : unexported variables are returned too.
    */
-  eval("(define (job-env-copy job-id all?)\n"
-       "  (assert (boolean? all?))\n"
-       "  (let ((jlist (job-parents-revlist job-id))\n"
-       "        (vars (make-hashtable string-hash string=?)))\n"
+  eval("(define (sh-env-copy job-id which)\n"
+       "  (assert (member which '(exported all)))\n"
+       "  (let* ((jlist (job-parents-revlist job-id))\n"
+       "         (vars (make-hashtable string-hash string=?))\n"
+       "         (also-unexported? (eq? 'all which))\n"
+       "         (only-exported? (not also-unexported?)))\n"
        "    (list-iterate jlist\n"
        "      (lambda (j)\n"
        "        (let ((env (job-env j)))\n"
@@ -211,10 +215,10 @@ static void define_env_functions(void) {
        "                      (val  (cddr cell)))\n"
        "                  (cond\n"
        "                    ((or (eq? 'delete flag)\n"
-       "                         (and (not all?) (eq? 'private flag)))\n"
+       "                         (and only-exported? (eq? 'private flag)))\n"
        "                      (hashtable-delete! vars name))\n"
        "                    ((or (eq? 'export flag)\n"
-       "                         (and all? (eq? 'private flag)))\n"
+       "                         (and also-unexported? (eq? 'private flag)))\n"
        "                      (hashtable-set! vars name val))))))))))\n"
        "    vars))\n");
 
@@ -269,10 +273,12 @@ static void define_env_functions(void) {
   /**
    * Extract environment variables from specified job and all its parents,
    * and convert them to a vector of bytevector0.
-   * If all? is #t, unexported variables are returned too.
+   * Argument which must be one of:
+   * 'exported: only exported variables are returned.
+   * 'all : unexported variables are returned too.
    */
-  eval("(define (sh-env->vector-of-bytevector0 job-id all?)\n"
-       "  (string-hashtable->vector-of-bytevector0 (job-env-copy job-id all?)))\n");
+  eval("(define (sh-env->vector-of-bytevector0 job-id which)\n"
+       "  (string-hashtable->vector-of-bytevector0 (sh-env-copy job-id which)))\n");
 }
 
 static void c_environ_to_sh_env(char** env) {
@@ -287,8 +293,8 @@ static void c_environ_to_sh_env(char** env) {
     if (namelen == 0 || inamelen < 0 || namelen != (size_t)inamelen) {
       continue;
     }
-    call3("sh-env-set!", Snil, Sstring_of_length(entry, inamelen), Sstring(separator + 1));
-    call3("sh-env-export!", Snil, Sstring_of_length(entry, inamelen), Strue);
+    call3("sh-env-set!", Strue, Sstring_of_length(entry, inamelen), Sstring(separator + 1));
+    call3("sh-env-export!", Strue, Sstring_of_length(entry, inamelen), Strue);
   }
 }
 
@@ -326,7 +332,7 @@ static void define_shell_functions(void) {
        "             (ret (c-spawn-pid\n"
        "                   (cmd-argv c)\n"
        "                   (job-to-redirect-fds c)\n"
-       "                   (sh-env->vector-of-bytevector0 c #f)\n"
+       "                   (sh-env->vector-of-bytevector0 c 'exported)\n"
        "                   process-group-id)))\n"
        "        (when (< ret 0)\n"
        "          (raise-errno-condition 'sh-start ret))\n"

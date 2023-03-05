@@ -63,10 +63,10 @@ static const struct {
      "  ret)\n",
      "((2.1 . B) (1.0 . A) (3 . C))"},
     {"(begin\n"
-     "  (sh-env-set! '() \"foo\" \"bar\")\n"
+     "  (sh-env-set! #t \"foo\" \"bar\")\n"
      "  (cons\n"
-     "    (sh-env-get       '() \"foo\")\n"
-     "    (sh-env-exported? '() \"foo\")))\n",
+     "    (sh-env-get       #t \"foo\")\n"
+     "    (sh-env-exported? #t \"foo\")))\n",
      "(bar . #f)"},
     {"(sh-run (sh-cmd \"true\"))", "(exited . 0)"},
     {"(sh-run (sh-cmd \"false\"))", "(exited . 1)"},
