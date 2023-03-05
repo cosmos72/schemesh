@@ -9,8 +9,8 @@
 
 #include "eval.h"
 
-/** some additional vector functions */
-void define_vector_functions(void) {
+/** define some additional vector functions */
+static void define_vector_functions(void) {
   /** copies a portion of vector src into dst */
   eval("(define (vector-copy! src src-start dst dst-start n)\n"
        "  (do ((i 0 (fx1+ i)))\n"
@@ -46,8 +46,8 @@ void define_vector_functions(void) {
        "  htable)\n");
 }
 
-void define_array_functions(void) {
-  /** array is a resizeable vector */
+/** Define Scheme type "array", a resizeable vector */
+static void define_array_functions(void) {
   eval("(begin\n"
        "  (define make-array)\n"
        "  (define array)\n"
@@ -150,7 +150,7 @@ void define_array_functions(void) {
        ")\n");
 }
 
-void define_list_functions(void) {
+static void define_list_functions(void) {
   /**
    * (list-iterate l proc) iterates on all elements of given list l,
    * and calls (proc elem) on each element. stops iterating if (proc ...) returns #f
@@ -160,7 +160,7 @@ void define_list_functions(void) {
        "      ((or (null? tail) (not (proc (car tail)))))))\n");
 }
 
-void define_hash_functions(void) {
+static void define_hash_functions(void) {
   eval("(begin\n"
        /** return hash-iterator to first element in hashtable */
        "  (define make-hash-iterator)\n"
@@ -359,4 +359,11 @@ void define_hash_functions(void) {
        "    (lambda (cell)\n"
        "      (hashtable-set! dst (cdr cell) (car cell))))\n"
        "  dst)\n");
+}
+
+void define_container_functions(void) {
+  define_vector_functions();
+  define_array_functions();
+  define_hash_functions();
+  define_list_functions();
 }

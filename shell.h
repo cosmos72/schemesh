@@ -12,27 +12,11 @@
 
 #include "eval.h"
 
-/**
- * Define the functions (sh-env...)
- */
-void define_env_functions(void);
+void scheme_init(void (*on_scheme_exception)(void));
 
-/**
- * Define the record types "job" "cmd" and functions sh-globals (sh-cmd ...)
- * Requires the function (sh-global-env)
- */
-void define_job_functions(void);
+/** define all functions. return < 0 if failed */
+int define_functions(void);
 
-/**
- * Define the functions (sh-start) (sh-fg) (sh-run) (sh-redirect...)
- * Requires the "job" and "cmd" record types, the (sh-env...) functions
- * and the fd-related and pid-related functions.
- */
-void define_shell_functions(void);
-
-/**
- * copy C environment variables env into Scheme global environment (sh-global-env).
- */
-void c_environ_to_sh_env(char** env);
+void scheme_quit(void);
 
 #endif /* SCHEMESH_SHELL_H */

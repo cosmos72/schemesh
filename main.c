@@ -8,7 +8,7 @@
  */
 
 #include "main.h"
-#include "eval.h"
+#include "shell.h"
 
 #include <errno.h>
 #include <setjmp.h>

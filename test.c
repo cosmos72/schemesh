@@ -7,7 +7,7 @@
  * (at your option) any later version.
  */
 
-#include "eval.h"
+#include "shell.h"
 
 #include <errno.h>
 #include <stdio.h>

@@ -8,12 +8,28 @@
  */
 
 #include "shell.h"
+#include "container.h"
 #include "eval.h"
+#include "posix.h"
+#include "shell.h"
+#include "signal.h"
 
 #include <string.h>
 #include <unistd.h>
 
-void define_job_functions(void) {
+#ifndef CHEZ_SCHEME_DIR
+#error "please #define CHEZ_SCHEME_DIR to the installation path of Chez Scheme"
+#endif
+
+#define STR_(arg) #arg
+#define STR(arg) STR_(arg)
+#define CHEZ_SCHEME_DIR_STR STR(CHEZ_SCHEME_DIR)
+
+/**
+ * Define the record types "job" "cmd" and functions sh-globals (sh-cmd ...)
+ * Requires the function (sh-global-env)
+ */
+static void define_job_functions(void) {
 
   /** Define the record type "job" */
   eval("(define-record-type\n"
@@ -143,7 +159,8 @@ void define_job_functions(void) {
        "    (list->vector jobs)))\n");
 }
 
-void define_env_functions(void) {
+/** Define the functions (sh-env...) */
+static void define_env_functions(void) {
   /** return global environment variables */
   eval("(define (sh-global-env)\n"
        "  (job-env sh-globals))\n");
@@ -245,7 +262,7 @@ void define_env_functions(void) {
        "  (string-hashtable->vector-of-bytevector0 (job-env-copy job-id all?)))\n");
 }
 
-void c_environ_to_sh_env(char** env) {
+static void c_environ_to_sh_env(char** env) {
   const char* entry;
   if (!env) {
     return;
@@ -262,7 +279,12 @@ void c_environ_to_sh_env(char** env) {
   }
 }
 
-void define_shell_functions(void) {
+/**
+ * Define the functions (sh-start) (sh-fg) (sh-run) (sh-redirect...)
+ * Requires the "job" and "cmd" record types, the (sh-env...) functions
+ * and the fd-related and pid-related functions.
+ */
+static void define_shell_functions(void) {
 
   eval("(define (cmd-start-options->process-group-id options)\n"
        "  (let ((existing-pgid -1))\n"
@@ -395,4 +417,35 @@ void define_shell_functions(void) {
        "  (do ([child-cons child-fds (cdr child-cons)])\n"
        "      ((eq '() child-cons))"
        "    (job-redirect-fd! j (car child-cons) existing-fd-or-minus-1)))\n");
+}
+
+void scheme_init(void (*on_scheme_exception)(void)) {
+  Sscheme_init(on_scheme_exception);
+  Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/petite.boot");
+  Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/scheme.boot");
+  Sbuild_heap(NULL, NULL);
+}
+
+int define_functions(void) {
+  int err;
+
+  define_container_functions();
+  define_eval_functions();
+
+  define_env_functions();
+  define_job_functions();
+
+  if ((err = define_fd_functions()) < 0) {
+    return err;
+  }
+  define_signal_functions();
+  define_pid_functions();
+  define_shell_functions();
+
+  c_environ_to_sh_env(environ);
+  return err;
+}
+
+void scheme_quit(void) {
+  Sscheme_deinit();
 }

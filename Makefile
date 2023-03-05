@@ -11,10 +11,10 @@ clean:
 container.o: container.c container.h eval.h
 	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
-eval.o: eval.c eval.h container.h posix.h shell.h
-	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR) -DCHEZ_SCHEME_DIR="$(CHEZ_SCHEME_DIR)"
+eval.o: eval.c eval.h
+	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
-main.o: main.c main.h eval.h
+main.o: main.c main.h shell.h
 	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
 posix.o: posix.c posix.h eval.h signal.h
@@ -23,10 +23,10 @@ posix.o: posix.c posix.h eval.h signal.h
 signal.o: signal.c signal.h posix.h
 	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
-shell.o: shell.c shell.h eval.h
-	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
+shell.o: shell.c shell.h container.h eval.h posix.h shell.h
+	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR) -DCHEZ_SCHEME_DIR="$(CHEZ_SCHEME_DIR)"
 
-test.o: test.c test.h eval.h
+test.o: test.c test.h shell.h
 	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
 

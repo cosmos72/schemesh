@@ -7,64 +7,9 @@
  * (at your option) any later version.
  */
 
-#ifndef CHEZ_SCHEME_DIR
-#error "please #define CHEZ_SCHEME_DIR to the installation path of Chez Scheme"
-#endif
-
 #include "eval.h"
-#include "container.h"
-#include "posix.h"
-#include "shell.h"
-#include "signal.h"
 
 #include <stddef.h> // NULL
-
-#define STR_(arg) #arg
-#define STR(arg) STR_(arg)
-#define CHEZ_SCHEME_DIR_STR STR(CHEZ_SCHEME_DIR)
-
-static void define_macros(void);
-static void define_display_any(void);
-static void define_any_to_string(void);
-static void define_any_to_bytevector(void);
-static void define_eval_to_bytevector(void);
-
-void scheme_init(void (*on_scheme_exception)(void)) {
-  Sscheme_init(on_scheme_exception);
-  Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/petite.boot");
-  Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/scheme.boot");
-  Sbuild_heap(NULL, NULL);
-}
-
-int define_functions(void) {
-  int err;
-
-  define_macros();
-  define_vector_functions();
-  define_array_functions();
-  define_hash_functions();
-  define_list_functions();
-  define_display_any();
-  define_any_to_string();
-  define_any_to_bytevector();
-  define_eval_to_bytevector();
-  define_env_functions();
-  define_job_functions();
-
-  if ((err = define_fd_functions()) < 0) {
-    return err;
-  }
-  define_signal_functions();
-  define_pid_functions();
-  define_shell_functions();
-
-  c_environ_to_sh_env(environ);
-  return err;
-}
-
-void scheme_quit(void) {
-  Sscheme_deinit();
-}
 
 /**
  * call global Scheme procedure having specified symbol name
@@ -252,11 +197,19 @@ static void define_eval_to_bytevector(void) {
  * bytevector with (any->bytevector).
  * @return length and pointer to memory of a Scheme-allocated bytevector.
  *
- * Returned pointer CANNOT be dereferenced anymore after calling Scheme code,
+ * Returned pointer CANNOT be dereferenced anymore after calling further Scheme code,
  * because it may be moved or garbage collected.
  */
 bytes eval_to_bytevector(const char str[]) {
   ptr   bytevec = call1("eval->bytevector", Sstring(str));
   bytes ret     = {Sbytevector_length(bytevec), Sbytevector_data(bytevec)};
   return ret;
+}
+
+void define_eval_functions(void) {
+  define_macros();
+  define_display_any();
+  define_any_to_string();
+  define_any_to_bytevector();
+  define_eval_to_bytevector();
 }

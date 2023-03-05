@@ -12,6 +12,8 @@
 
 #include <scheme.h>
 
+void define_eval_functions(void);
+
 /**
  * call global Scheme procedure having specified symbol name
  * passing a single Scheme argument to it.
@@ -53,11 +55,5 @@ typedef struct bytes_s {
  * because it may be moved or garbage collected.
  */
 bytes eval_to_bytevector(const char str[]);
-
-/** return < 0 if failed */
-int define_functions(void);
-
-void scheme_init(void (*on_scheme_exception)(void));
-void scheme_quit(void);
 
 #endif /* SCHEMESH_EVAL_H */
