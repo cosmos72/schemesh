@@ -56,10 +56,9 @@ int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
                 int existing_pgid_or_negative); // if > 0, add process to given process group
 
 /**
- * set the specified process group as the foreground process group.
- * if pgid <= 0, use instead the process group of specified process id.
+ * set the specified pgid i.e. process group id as the foreground process group.
  */
-int c_pid_foreground(int pid, int pgid);
+int c_pgid_foreground(int pgid);
 
 /**
  * call waitpid(pid, WUNTRACED) i.e. check if process specified by pid exited or stopped.

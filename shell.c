@@ -308,19 +308,23 @@ static void define_shell_functions(void) {
   eval("(define cmd-start\n"
        "  (let ((c-spawn-pid (foreign-procedure \"c_spawn_pid\""
        "                        (scheme-object scheme-object scheme-object int) int)))\n"
-       "    (lambda (j . options)\n"
+       "    (lambda (c . options)\n"
        "      (let* ((process-group-id (cmd-start-options->process-group-id options))\n"
        "             (ret (c-spawn-pid\n"
-       "                   (cmd-argv j)\n"
-       "                   (job-to-redirect-fds j)\n"
-       "                   (sh-env->vector-of-bytevector0 j #f)\n"
+       "                   (cmd-argv c)\n"
+       "                   (job-to-redirect-fds c)\n"
+       "                   (sh-env->vector-of-bytevector0 c #f)\n"
        "                   process-group-id)))\n"
        "        (when (< ret 0)\n"
        "          (raise-errno-condition 'sh-start ret))\n"
-       "        (fd-close-list (job-to-close-fds j))\n"
-       "        (job-pid-set! j ret)\n"
-       "        (job-pgid-set! j (if (> process-group-id 0) process-group-id ret))\n"
-       "        (job-exit-status-set! j #f)))))\n"); /* job can now be waited-for */
+       "        (fd-close-list (job-to-close-fds c))\n"
+       "        (job-pid-set! c ret)\n"
+       "        (job-pgid-set! c (if (> process-group-id 0) process-group-id ret))\n"
+       "        (job-exit-status-set! c #f)))))\n"); /* cmd can now be waited-for */
+
+  /** Return #t if cmd was already started, otherwise return #f */
+  eval("(define (job-started? c)\n"
+       "  (and (fx>= (job-pid c) 0) (fx>= (job-pgid c) 0)))\n");
 
   /** Start a cmd or a job. TODO: implement starting a job */
   eval("(define (sh-start j . options)\n"
@@ -358,7 +362,7 @@ static void define_shell_functions(void) {
        "  (cond\n"
        "    ((job-exit-status j)\n"
        "      (job-exit-status j))\n" /* already waited for */
-       "    ((fx< (job-pid j) 0)\n"
+       "    ((not (job-started? j))\n"
        "      (error 'job-wait \"job not started yet\" j))\n"
        "    (#t\n"
        "      (let* ((ret (pid-wait (job-pid j) 'blocking))\n"
@@ -377,32 +381,50 @@ static void define_shell_functions(void) {
    * Before returning, restores the this process as fg process group.
    */
   eval("(define sh-fg\n"
-       "  (let ((c-set-foreground-pid-or-pgid (foreign-procedure \"c_pid_foreground\"\n"
-       "                                                        (int int) int)))\n"
+       "  (let ((c-pgid-foreground (foreign-procedure \"c_pgid_foreground\" (int) int)))\n"
        "    (lambda (job-id)\n"
-       "      (let ((job (sh-get-job job-id)))\n"
+       "      (let ((j (sh-get-job job-id)))\n"
        "        (cond\n"
-       "          ((job-exit-status job)\n"
+       "          ((job-exit-status j)\n"
        /**          already waited for. TODO: check for stopped jobs and continue them as below */
-       "            (job-exit-status job))\n"
-       "          ((fx< (job-pid job) 0)\n"
-       "            (error 'sh-fg \"job not started yet\" job))\n"
+       "            (job-exit-status j))\n"
+       "          ((not (job-started? j))\n"
+       "            (error 'sh-fg \"job not started yet\" j))\n"
        "          (#t\n"
-       "            (let ((ret (c-set-foreground-pid-or-pgid (job-pid job) (job-pgid job))))\n"
+#if 0
+       "            (display \"step 1: before c-pgid-foreground\n\")\n"
+#endif
+       "            (let ((ret (c-pgid-foreground (job-pgid j))))\n"
+#if 0
+       "              (display \"step 2: after  c-pgid-foreground\n\")\n"
+#endif
        "              (when (< ret 0)\n"
        "                (raise-errno-condition 'sh-fg ret)))\n"
        "            (with-exception-handler\n"
        "              (lambda (x)\n"
-       /*               on exception, restore main process as fg process group */
-       "                (c-set-foreground-pid-or-pgid (job-pid sh-globals)\n"
-       "                                              (job-pgid sh-globals)))\n"
+  /*               on exception, restore main process as fg process group */
+#if 0
+       "                (display \"step 2: got exception \")\n"
+       "                (display-any x (current-output-port))\n"
+       "                (display \"step 4: before c-pgid-foreground (on exception)\n\")\n"
+#endif
+       "                (c-pgid-foreground (job-pgid sh-globals))\n"
+#if 0
+       "                (display \"step 5: after  c-pgid-foreground (on exception)\n\")\n"
+#endif
+       "                )\n"
        /*               try to wait. may raise exceptions */
        "              (lambda ()\n"
        /**              TODO: send SIGCONT to process group */
-       "                (let ((status (job-wait job)))\n"
-       /*               before normal return, restore this process as fg process group */
-       "                  (c-set-foreground-pid-or-pgid (job-pid sh-globals)\n"
-       "                                                (job-pgid sh-globals))\n"
+       "                (let ((status (job-wait j)))\n"
+  /*               before normal return, restore this process as fg process group */
+#if 0
+       "                  (display \"step 6: before c-pgid-foreground (on return)\n\")\n"
+#endif
+       "                  (c-pgid-foreground (job-pgid sh-globals))\n"
+#if 0
+       "                  (display \"step 7: after  c-pgid-foreground (on return)\n\")\n"
+#endif
        "                  status)))))))))\n");
 
   /**

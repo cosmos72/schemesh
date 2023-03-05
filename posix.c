@@ -205,7 +205,7 @@ void define_pid_functions(void) {
   Sregister_symbol("c_fork_pid", &c_fork_pid);
   Sregister_symbol("c_spawn_pid", &c_spawn_pid);
   Sregister_symbol("c_pid_wait", &c_pid_wait);
-  Sregister_symbol("c_pid_foreground", &c_pid_foreground);
+  Sregister_symbol("c_pgid_foreground", &c_pgid_foreground);
 
   /**
    * Call fork()
@@ -379,14 +379,8 @@ out:
   return pid;
 }
 
-int c_pid_foreground(int pid, int pgid) {
-  if (pgid <= 0) {
-    pgid = getpgid((pid_t)pid);
-  }
-  if (pgid >= 0 && tcsetpgrp(tty_fd, pgid) >= 0) {
-    return 0;
-  }
-  return c_errno();
+int c_pgid_foreground(int pgid) {
+  return tcsetpgrp(tty_fd, pgid) >= 0 ? 0 : c_errno();
 }
 
 ptr c_pid_wait(int pid, int may_block) {
