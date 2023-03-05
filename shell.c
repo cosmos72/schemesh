@@ -60,7 +60,7 @@ static void define_job_functions(void) {
        "  (parent job)"
        "  (fields\n"
        "    kind\n"         /* one of: 'and 'or 'vec */
-       "    children))\n"); /* vector of children jobs */
+       "    children))\n"); /* array of children jobs */
 
   /** customize how "job" objects are printed */
   eval("(record-writer (record-type-descriptor job)\n"
@@ -84,7 +84,7 @@ static void define_job_functions(void) {
        "  (lambda (obj port writer)\n"
        "    (display \"(sh-\" port)\n"
        "    (display (multijob-kind obj) port)\n"
-       "    (vector-iterate (multijob-children obj)\n"
+       "    (array-iterate (multijob-children obj)\n"
        "       (lambda (child)\n"
        "         (display #\\space port)\n"
        "         (display child port)))\n"
@@ -97,7 +97,7 @@ static void define_job_functions(void) {
   eval("(define sh-globals\n"
        "  (%make-multijob -1 -1 #f (vector 0 1 2) (vector) '() #f\n"
        "    (make-hashtable string-hash string=?) #f\n"
-       "    'vec (vector)))\n");
+       "    'vec (array)))\n");
 
   call2("job-pid-set!", Stop_level_value(Sstring_to_symbol("sh-globals")), Sfixnum(getpid()));
   call2("job-pgid-set!", Stop_level_value(Sstring_to_symbol("sh-globals")), Sfixnum(getpgrp()));
@@ -332,7 +332,10 @@ static void define_shell_functions(void) {
        "    (error 'sh-start \"job already started\" (job-pid j)))\n"
        "  (when (not (sh-cmd? j))\n"
        "    (error 'sh-start \"unimplemented for non-cmd jobs\"))\n"
-       "  (apply cmd-start j options))\n");
+       "  (apply cmd-start j options)\n"
+       "  (when (eq? sh-globals (job-parent j))\n"
+       /*   append job to sh-globals children. Makes it discoverable by job-id */
+       "    (void)))\n");
 
   /**
    * Convert a numeric exit status, or 256 + signal, or 512 + stop signal to one of:
@@ -365,6 +368,7 @@ static void define_shell_functions(void) {
        "    ((not (job-started? j))\n"
        "      (error 'job-wait \"job not started yet\" j))\n"
        "    (#t\n"
+       /**    TODO: wait for ALL processes in job's process group */
        "      (let* ((ret (pid-wait (job-pid j) 'blocking))\n"
        /*            if exit status cannot be retrieved, assume 1024 = unknown */
        "             (status (pid-exit-status->job-exit-status (if (pair? ret) (cdr ret) 1024))))\n"
@@ -385,20 +389,25 @@ static void define_shell_functions(void) {
        "    (lambda (job-id)\n"
        "      (let ((j (sh-get-job job-id)))\n"
        "        (cond\n"
-       "          ((job-exit-status j)\n"
-       /**          already waited for. TODO: check for stopped jobs and continue them as below */
+       /**        if job already exited, return its exit status.
+        *         if job is stopped, consider as running: we'll send SIGCONT to it below */
+       "          ((let ((status (job-exit-status j)))\n"
+       "              (and (pair? status) (not (eq? 'stopped (car status)))))\n"
        "            (job-exit-status j))\n"
        "          ((not (job-started? j))\n"
        "            (error 'sh-fg \"job not started yet\" j))\n"
        "          (#t\n"
+       /**          set job's process group as the foreground process group */
        "            (let ((ret (c-pgid-foreground (job-pgid j))))\n"
        "              (when (< ret 0)\n"
        "                (raise-errno-condition 'sh-fg ret)))\n"
-       /**          TODO: send SIGCONT to process group */
        "            (dynamic-wind\n"
        "              (lambda () #f)\n" /* run before body */
-       "              (lambda ()\n"
-       "                (job-wait j))\n" /* body */
+       "              (lambda ()\n"     /* body */
+       /**              send SIGCONT to job's process group. may raise error */
+       "                (pid-kill (fx- (job-pgid j)) 'sigcont)\n"
+       /**              wait for job's pid to exit. TODO: wait for ALL pids in process group */
+       "                (job-wait j))\n"
        /*             run after body, even if it raised exception */
        "              (lambda ()\n"
        "                (c-pgid-foreground (job-pgid sh-globals))))))))))\n");
@@ -430,7 +439,7 @@ static void define_shell_functions(void) {
   /** Create or remove multiple file description redirections for cmd or job */
   eval("(define (sh-redirect-fds! j child-fds existing-fd-or-minus-1)\n"
        "  (do ([child-cons child-fds (cdr child-cons)])\n"
-       "      ((eq '() child-cons))"
+       "      ((eq? '() child-cons))"
        "    (job-redirect-fd! j (car child-cons) existing-fd-or-minus-1)))\n");
 }
 

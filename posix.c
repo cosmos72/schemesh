@@ -204,6 +204,7 @@ int define_fd_functions(void) {
 void define_pid_functions(void) {
   Sregister_symbol("c_fork_pid", &c_fork_pid);
   Sregister_symbol("c_spawn_pid", &c_spawn_pid);
+  Sregister_symbol("c_pid_kill", &c_pid_kill);
   Sregister_symbol("c_pid_wait", &c_pid_wait);
   Sregister_symbol("c_pgid_foreground", &c_pgid_foreground);
 
@@ -239,8 +240,27 @@ void define_pid_functions(void) {
        "        ret))))\n");
 
   /**
+   * (pid-kill pid signal-name) calls C function kill(pid, sig) i.e. sends specified signal
+   * to the process(es) identified by pid.
+   * Notes:
+   * pid ==  0 means "all processes in the same process group as the caller".
+   * pid == -1 means "all processes".
+   * pid <  -1 means "all processes in process group -pid"
+   *
+   * Returns < 0 if C function kill() fails with C errno != 0.
+   */
+  eval("(define pid-kill"
+       "  (let ((c-pid-kill (foreign-procedure \"c_pid_kill\" (int int) int)))\n"
+       "    (lambda (pid signal-name)\n"
+       "      (c-pid-kill pid (signal-name->number signal-name)))))\n");
+
+  /**
    * (pid-wait pid may-block) calls waitpid(pid, WUNTRACED) i.e. checks if process specified by pid
-   * exited or stopped. Note: pid == -1 means "any child process".
+   * exited or stopped.
+   * Notes:
+   * pid ==  0 means "any process in the same process group as the caller".
+   * pid == -1 means "any child process".
+   * pid <  -1 means "any process in process group -pid".
    *
    * Argument may-block must be either 'blocking or 'nonblocking.
    * If may-block is 'blocking, wait until pid (or any child process, if pid == -1) exits or stops,
@@ -248,18 +268,16 @@ void define_pid_functions(void) {
    *
    * If no child process matches pid, or if may_block is 'nonblocking and no child exited or
    * stopped, return '().
-   * Otherwise return a Scheme cons (pid . exit_flag), or raise a condition on error.
+   * Otherwise return a Scheme cons (pid . exit_flag), or return < 0 on error.
    * Exit flag is one of: process exit status, or 256 + signal, or 512 + stop signal.
+   *
+   * Returns < 0 if waitpid() fails with C errno != 0.
    */
   eval("(define pid-wait"
        "  (let ((c-pid-wait (foreign-procedure \"c_pid_wait\" (int int) scheme-object)))\n"
        "    (lambda (pid may-block)\n"
        "      (assert (member may-block '(blocking nonblocking)))\n"
-       "      (let* ((c-may-block (if (eq? may-block 'blocking) 1 0))\n"
-       "             (ret (c-pid-wait pid c-may-block)))\n"
-       "        (when (fixnum? ret)\n"
-       "          (raise-errno-condition 'pid-wait ret))\n"
-       "        ret))))\n");
+       "      (c-pid-wait pid (if (eq? may-block 'blocking) 1 0)))))\n");
 }
 
 static int c_check_redirect_fds(ptr vector_redirect_fds) {
@@ -381,6 +399,10 @@ out:
 
 int c_pgid_foreground(int pgid) {
   return tcsetpgrp(tty_fd, pgid) >= 0 ? 0 : c_errno();
+}
+
+int c_pid_kill(int pid, int sig) {
+  return kill(pid, sig) >= 0 ? 0 : c_errno();
 }
 
 ptr c_pid_wait(int pid, int may_block) {

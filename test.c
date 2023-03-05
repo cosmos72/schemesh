@@ -27,6 +27,10 @@ static const struct {
     {"(array-length (array 1 2 3))", "3"},
     {"(array-capacity (array 1 2 3))", "3"},
     {"(array-ref (array 'a 'b 'c) 1)", "b"},
+    {"(let ((arr (array 'foo)))\n"
+     "  (array-append! arr 'bar 'qux)\n"
+     "  arr)",
+     "(array foo bar qux)"},
     {"(errno)", "0"},
     {"(let ((ret '()))\n"
      "  (list-iterate '(a b c)\n"

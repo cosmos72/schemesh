@@ -61,6 +61,17 @@ int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
 int c_pgid_foreground(int pgid);
 
 /**
+ * call kill(pid, sig) i.e. send signal number sig to specified process id.
+ * Notes:
+ * pid ==  0 means "all processes in the same process group as the caller".
+ * pid == -1 means "all processes".
+ * pid <  -1 means "all processes in process group -pid"
+ *
+ * Return 0 on success, otherwise return c_errno()
+ */
+int c_pid_kill(int pid, int sig);
+
+/**
  * call waitpid(pid, WUNTRACED) i.e. check if process specified by pid exited or stopped.
  * Note: pid == -1 means "any child process".
  * If may_block != 0, wait until pid (or any child process, if pid == -1) exits or stops,
