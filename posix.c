@@ -177,14 +177,14 @@ int define_fd_functions(void) {
        "                          (scheme-object int int int int) int)))\n"
        "    (lambda (filepath . flags)\n"
        "      (let* ([filepath0 (string->bytevector0 filepath)]\n"
-       "             [flag-rw (cond ((member 'rw flags) 2)\n"
+       "             [flag-rw (cond ((member 'rw    flags) 2)\n"
        "                            ((member 'write flags) 1)\n"
-       "                            ((member 'read flags) 0)\n"
+       "                            ((member 'read  flags) 0)\n"
        "                            (#t (error 'open-file-fd\n"
        "                                 \"flags must contain one of 'read 'write 'rw\" flags)))]\n"
-       "             [flag-create   (if (member 'create flags) 1 0)]\n"
+       "             [flag-create   (if (member 'create   flags) 1 0)]\n"
        "             [flag-truncate (if (member 'truncate flags) 1 0)]\n"
-       "             [flag-append   (if (member 'append flags) 1 0)]\n"
+       "             [flag-append   (if (member 'append   flags) 1 0)]\n"
        "             [ret (c-open-file-fd filepath0 flag-rw flag-create "
        "                    flag-truncate flag-append)])\n"
        "        (if (>= ret 0)\n"
@@ -408,7 +408,11 @@ int c_pid_kill(int pid, int sig) {
 ptr c_pid_wait(int pid, int may_block) {
   int wstatus = 0;
   int flag    = 0;
-  int ret     = waitpid((pid_t)pid, &wstatus, may_block ? WUNTRACED : WNOHANG | WUNTRACED);
+  int ret;
+  do {
+    ret = waitpid((pid_t)pid, &wstatus, may_block ? WUNTRACED : WNOHANG | WUNTRACED);
+  } while (ret == -1 && errno == EINTR);
+
   if (ret <= 0) { /* 0 if children exist but did not change status */
     int err = 0;
     if (ret < 0) {

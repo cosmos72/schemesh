@@ -159,6 +159,20 @@ static void define_array_functions(void) {
        "        (writer elem port)))\n"
        "    (display #\\) port)))\n"
        ")\n");
+
+  /**
+   * (array-find) iterates on array elements from start to (fxmin (fx+ start n) (array-length arr)),
+   * and returns the index of first array element that causes (predicate elem)
+   * to return non-#f.
+   * Returns #f if no such element is found.
+   */
+  eval("(define (array-find arr start n predicate)\n"
+       "  (let ((ret #f))\n"
+       "    (do ((i   start (fx1+ i))\n"
+       "         (end (fxmin (fx+ start n) (array-length arr))))\n"
+       "        ((or ret (fx>= i end)) ret)\n"
+       "      (when (predicate (array-ref arr i))\n"
+       "        (set! ret i)))))\n");
 }
 
 static void define_list_functions(void) {

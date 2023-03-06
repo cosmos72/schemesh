@@ -31,6 +31,9 @@ static const struct {
      "  (array-append! arr 'bar 'qux)\n"
      "  arr)",
      "(array foo bar qux)"},
+    {"(let ((arr (array 'a 'b 'c 'd)))\n"
+     "  (array-find arr 0 999 (lambda (elem) (eq? 'c elem))))\n",
+     "2"},
     {"(errno)", "0"},
     {"(let ((ret '()))\n"
      "  (list-iterate '(a b c)\n"

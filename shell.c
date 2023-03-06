@@ -62,6 +62,13 @@ static void define_job_functions(void) {
        "    kind\n"         /* one of: 'and 'or 'vec */
        "    children))\n"); /* array of children jobs */
 
+  /** Define the record type "globaljob" */
+  eval("(define-record-type\n"
+       "  (globaljob %make-globaljob sh-globaljob?)\n"
+       "  (parent multijob)"
+       "  (fields\n"
+       "    (mutable next-id)))\n"); /* first available job-id */
+
   /** customize how "job" objects are printed */
   eval("(record-writer (record-type-descriptor job)\n"
        "  (lambda (obj port writer)\n"
@@ -97,12 +104,45 @@ static void define_job_functions(void) {
   eval("(define sh-globals\n"
        /* waiting for sh-globals to exit is not useful:
         * pretend it already exited with unknown exit status */
-       "  (%make-multijob -1 -1 'unknown (vector 0 1 2) (vector) '() #f\n"
+       "  (%make-globaljob -1 -1 '(unknown . 0) (vector 0 1 2) (vector) '() #f\n"
        "    (make-hashtable string-hash string=?) #f\n"
-       "    'vec (array #t)))\n");
+       "    'vec (array #t) 1))\n");
 
   call2("job-pid-set!", Stop_level_value(Sstring_to_symbol("sh-globals")), Sfixnum(getpid()));
   call2("job-pgid-set!", Stop_level_value(Sstring_to_symbol("sh-globals")), Sfixnum(getpgrp()));
+
+  /**
+   * Define the function (globaljob-delete!), removes a job from a globaljob
+   */
+  eval("(define (globaljob-delete! globals j)\n"
+       "  (let* ((arr (multijob-children globals))\n"
+       "         (job-id (array-find arr 0 (array-length arr) (lambda (elem) (eq? elem j)))))\n"
+       "    (when job-id\n"
+       "      (array-set! arr job-id #f)\n"
+       "      (globaljob-next-id-set! globals\n"
+       "                              (fxmin job-id (globaljob-next-id globals))))))))\n");
+
+  /**
+   * Define the function (globaljob-put!), adds a job to a globaljob
+   * extending (multijob-array globals) as needed.
+   * Return job-id assigned to job.
+   */
+  eval("(define (globaljob-put! globals j)\n"
+       "  (let* ((arr     (multijob-children globals))\n"
+       "         (len     (array-length arr))\n"
+       "         (next-id (globaljob-next-id globals))\n"
+       "         (job-id (array-find arr next-id (fx- len next-id) not)))\n"
+       "    (if job-id\n"
+       "      (array-set! arr job-id j)\n" // found a free job-id
+       "      (begin\n"                    // no free job-id, enlarge array
+       "        (array-append! arr j)\n"
+       "        (set! job-id len)))\n"
+       "    (let* ((start   (globaljob-next-id globals))\n"
+       "           (len     (array-length arr))\n"
+       "           (next-id (array-find arr start (fx- len job-id) not)))\n"
+       "      (globaljob-next-id-set! globals\n"
+       "                              (or next-id len)))\n"
+       "    job-id))\n");
 
   /**
    * Define the function (sh-get-job), converts job-id to job.
@@ -345,17 +385,12 @@ static void define_shell_functions(void) {
   eval("(define (job-started? c)\n"
        "  (and (fx>= (job-pid c) 0) (fx>= (job-pgid c) 0)))\n");
 
-  /** If job's parent is sh-globals, remove the job from sh-globals children */
-  eval("(define (job-remove-from-sh-globals j)\n"
-       "  (when (eq? sh-globals (job-parent j))\n"
-       "    (let ((arr (multijob-children sh-globals)))\n"
-       "      (array-iterate arr\n"
-       "        (lambda (i elem)\n"
-       "          (when (eq? j elem)\n"
-       "            (array-set! arr i #f)\n"
-       "            #f))))))\n");
-
-  /** Start a cmd or a job. TODO: implement starting a job */
+  /**
+   * Start a cmd or a job.
+   * If job parent is sh-globals, return job-id assigned to job.
+   * Otherwise return (void).
+   * TODO: implement starting a non-cmd job
+   */
   eval("(define (sh-start j . options)\n"
        "  (when (fx>= (job-pid j) 0)\n"
        "    (error 'sh-start \"job already started\" (job-pid j)))\n"
@@ -363,52 +398,72 @@ static void define_shell_functions(void) {
        "    (error 'sh-start \"unimplemented for non-cmd jobs\"))\n"
        "  (apply cmd-start j options)\n"
        "  (when (eq? sh-globals (job-parent j))\n"
-       "    (array-append! (multijob-children sh-globals) j)))\n");
+       "    (globaljob-put! sh-globals j)))");
 
   /**
-   * Convert a numeric exit status, or 256 + signal, or 512 + stop signal to one of:
-   *   (cons 'exited  exit-status)
-   *   (cons 'killed  signal-name)
-   *   (cons 'stopped signal-name)
-   * any other fixnum value is converted to
-   *   'unknown
+   * Convert pid-wait-result to a symbolic job-status:
+   *
+   * If pid-wait-result is a pair (pid . exit-status) where exit-status is:
+   *  not a fixnum, or < 0 => return (cons 'unknown exit-status)
+   *  0..255               => return (cons 'exited  exit-status)
+   *  256 + kill_signal    => return (cons 'killed  signal-name)
+   *  512 + stop_signal    => return (cons 'stopped signal-name)
+   *  >= 768               => return (cons 'unknown exit-status)
+   * Otherwise return (cons 'unknown pid-wait-result)
    */
-  eval("(define (pid-exit-status->job-exit-status num)\n"
-       "  (cond ((fx<= num 256) (cons 'exited  num))\n"
-       "        ((fx<= num 512) (cons 'killed  (signal-number->name (logand num 255))))\n"
-       "        ((fx<= num 768) (cons 'stopped (signal-number->name (logand num 255))))\n"
-       "        (#t             'unknown)))\n");
+  eval("(define (pid-wait->job-status pid-wait-result)\n"
+       "  (if (pair? pid-wait-result)\n"
+       "    (let ((num (cdr pid-wait-result)))\n"
+       "      (cond ((or (not (fixnum? num)) (fx< num 0)) (cons 'unknown num))\n"
+       "            ((fx< num 256) (cons 'exited  num))\n"
+       "            ((fx< num 512) (cons 'killed  (signal-number->name (logand num 255))))\n"
+       "            ((fx< num 768) (cons 'stopped (signal-number->name (logand num 255))))\n"
+       "            (#t            (cons 'unknown num))))\n"
+       "    (cons 'unknown pid-wait-result)))\n");
+
+  /** Return #t if job-status is (cons 'stopped ...), otherwise return #f */
+  eval("(define (job-status-stopped? job-status)\n"
+       "  (job-status-member? job-status '(stopped)))\n");
+
+  /**
+   * Return #t if job-status is a pair whose car is in allowed-list:
+   * otherwise return #f
+   */
+  eval("(define (job-status-member? job-status allowed-list)\n"
+       "  (and (pair? job-status)\n"
+       "       (member (car job-status) allowed-list)))\n");
 
   /**
    * Wait for a cmd or job to exit or stop and return its exit status, which can be one of:
    * (cons 'exited  exit-status)
    * (cons 'killed  signal-name)
    * (cons 'stopped signal-name)
-   * 'unknown
+   * (cons 'unknown ...)
    *
    * Warning: does not set the job as foreground process group,
    * consider calling (sh-fg j) instead.
    */
   eval("(define (job-wait j)\n"
        "  (cond\n"
-       "    ((job-exit-status j)\n"
-       "      (job-exit-status j))\n" /* already waited for */
+       "    ((job-status-member? (job-exit-status j) '(exited killed unknown))\n"
+       "      (job-exit-status j))\n" /* job exited, and exit status already available */
        "    ((not (job-started? j))\n"
        "      (error 'job-wait \"job not started yet\" j))\n"
        "    (#t\n"
        /**    TODO: wait for ALL processes in job's process group? */
-       "      (let* ((ret (pid-wait (job-pid j) 'blocking))\n"
-       /*            if exit status cannot be retrieved, assume 1024 = unknown */
-       "             (status (pid-exit-status->job-exit-status (if (pair? ret) (cdr ret) 1024))))\n"
-       "        (job-pid-set! j -1)\n" /* cmd can now be spawned again */
-       "        (job-pgid-set! j -1)\n"
+       "      (let* ((ret    (pid-wait (job-pid j) 'blocking))\n"
+       "             (status (pid-wait->job-status ret)))\n"
        "        (job-exit-status-set! j status)\n"
-       "        (job-remove-from-sh-globals j)\n"
+       "        (unless (job-status-stopped? status)\n"
+       /*         cmd exited. it can now be spawned again */
+       "          (job-pid-set! j -1)\n"
+       "          (job-pgid-set! j -1)\n"
+       "          (when (eq? sh-globals (job-parent j))\n"
+       "            (globaljob-delete! sh-globals j)))\n"
        "        status))))\n");
 
   /**
-   * Wait for a cmd, job or job-id to exit or stop and return its exit status, or 256 + signal,
-   * or 512 + stop signal, or 1024 if exit status cannot be retrieved.
+   * Wait for a cmd, job or job-id to exit or stop and return its exit status.
    *
    * Note: upon invocation, sets the job as fg process group.
    * Before returning, restores the this process as fg process group.
@@ -420,8 +475,7 @@ static void define_shell_functions(void) {
        "        (cond\n"
        /**        if job already exited, return its exit status.
         *         if job is stopped, consider as running: we'll send SIGCONT to it below */
-       "          ((let ((status (job-exit-status j)))\n"
-       "              (and (pair? status) (not (eq? 'stopped (car status)))))\n"
+       "          ((job-status-member? (job-exit-status j) '(exited killed unknown))\n"
        "            (job-exit-status j))\n"
        "          ((not (job-started? j))\n"
        "            (error 'sh-fg \"job not started yet\" j))\n"
@@ -435,15 +489,15 @@ static void define_shell_functions(void) {
        "              (lambda ()\n"     /* body */
        /**              send SIGCONT to job's process group. may raise error */
        "                (pid-kill (fx- (job-pgid j)) 'sigcont)\n"
-       /**              wait for job's pid to exit. TODO: wait for ALL pids in process group */
+       /**              wait for job's pid to exit or stop.
+        *               TODO: wait for ALL pids in process group? */
        "                (job-wait j))\n"
        /*             run after body, even if it raised exception */
        "              (lambda ()\n"
        "                (c-pgid-foreground (job-pgid sh-globals))))))))))\n");
 
   /**
-   * Start a cmd or job and wait for it to exit or stop. return its exit status, or 256 +
-   * signal, or 512 + stop signal, or 1024 if exit status cannot be retrieved.
+   * Start a cmd or job and wait for it to exit or stop. return its exit status.
    */
   eval("(define (sh-run j)\n"
        "  (sh-start j)\n"
