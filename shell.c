@@ -59,15 +59,9 @@ static void define_job_functions(void) {
        "  (multijob %make-multijob sh-multijob?)\n"
        "  (parent job)"
        "  (fields\n"
-       "    kind\n"         /* one of: 'and 'or 'vec */
-       "    children))\n"); /* array of children jobs */
-
-  /** Define the record type "globaljob" */
-  eval("(define-record-type\n"
-       "  (globaljob %make-globaljob sh-globaljob?)\n"
-       "  (parent multijob)"
-       "  (fields\n"
-       "    (mutable next-id)))\n"); /* first available job-id */
+       "    kind\n"                  /* one of: 'and 'or 'vec */
+       "    children\n"              /* array of children jobs */
+       "    (mutable next-id)))\n"); /* first available index in array of children jobs */
 
   /** customize how "job" objects are printed */
   eval("(record-writer (record-type-descriptor job)\n"
@@ -104,7 +98,7 @@ static void define_job_functions(void) {
   eval("(define sh-globals\n"
        /* waiting for sh-globals to exit is not useful:
         * pretend it already exited with unknown exit status */
-       "  (%make-globaljob -1 -1 '(unknown . 0) (vector 0 1 2) (vector) '() #f\n"
+       "  (%make-multijob -1 -1 '(unknown . 0) (vector 0 1 2) (vector) '() #f\n"
        "    (make-hashtable string-hash string=?) #f\n"
        "    'vec (array #t) 1))\n");
 
@@ -112,36 +106,36 @@ static void define_job_functions(void) {
   call2("job-pgid-set!", Stop_level_value(Sstring_to_symbol("sh-globals")), Sfixnum(getpgrp()));
 
   /**
-   * Define the function (globaljob-delete!), removes a job from a globaljob
+   * Define the function (multijob-child-delete!), removes a job from a multijob
    */
-  eval("(define (globaljob-delete! globals j)\n"
+  eval("(define (multijob-child-delete! globals j)\n"
        "  (let* ((arr (multijob-children globals))\n"
        "         (job-id (array-find arr 0 (array-length arr) (lambda (elem) (eq? elem j)))))\n"
        "    (when job-id\n"
        "      (array-set! arr job-id #f)\n"
-       "      (globaljob-next-id-set! globals\n"
-       "                              (fxmin job-id (globaljob-next-id globals))))))))\n");
+       "      (multijob-next-id-set! globals\n"
+       "                              (fxmin job-id (multijob-next-id globals))))))))\n");
 
   /**
-   * Define the function (globaljob-put!), adds a job to a globaljob
+   * Define the function (multijob-child-put!), adds a job to a multijob
    * extending (multijob-array globals) as needed.
    * Return job-id assigned to job.
    */
-  eval("(define (globaljob-put! globals j)\n"
+  eval("(define (multijob-child-put! globals j)\n"
        "  (let* ((arr     (multijob-children globals))\n"
        "         (len     (array-length arr))\n"
-       "         (next-id (globaljob-next-id globals))\n"
+       "         (next-id (multijob-next-id globals))\n"
        "         (job-id (array-find arr next-id (fx- len next-id) not)))\n"
        "    (if job-id\n"
        "      (array-set! arr job-id j)\n" // found a free job-id
        "      (begin\n"                    // no free job-id, enlarge array
        "        (array-append! arr j)\n"
        "        (set! job-id len)))\n"
-       "    (let* ((start   (globaljob-next-id globals))\n"
+       "    (let* ((start   (multijob-next-id globals))\n"
        "           (len     (array-length arr))\n"
        "           (next-id (array-find arr start (fx- len job-id) not)))\n"
-       "      (globaljob-next-id-set! globals\n"
-       "                              (or next-id len)))\n"
+       "      (multijob-next-id-set! globals\n"
+       "                             (or next-id len)))\n"
        "    job-id))\n");
 
   /**
@@ -209,7 +203,8 @@ static void define_job_functions(void) {
        "    '()\n"        /* overridden environment variables - initially none */
        "    sh-globals\n" /* parent job - initially the global job */
        "    kind\n"
-       "    (list->vector jobs)))\n");
+       "    (list->array jobs)\n"
+       "    0))\n");
 }
 
 /** Define the functions (sh-env...) */
@@ -398,7 +393,7 @@ static void define_shell_functions(void) {
        "    (error 'sh-start \"unimplemented for non-cmd jobs\"))\n"
        "  (apply cmd-start j options)\n"
        "  (when (eq? sh-globals (job-parent j))\n"
-       "    (globaljob-put! sh-globals j)))");
+       "    (multijob-child-put! sh-globals j)))");
 
   /**
    * Convert pid-wait-result to a symbolic job-status:
@@ -459,7 +454,7 @@ static void define_shell_functions(void) {
        "          (job-pid-set! j -1)\n"
        "          (job-pgid-set! j -1)\n"
        "          (when (eq? sh-globals (job-parent j))\n"
-       "            (globaljob-delete! sh-globals j)))\n"
+       "            (multijob-child-delete! sh-globals j)))\n"
        "        status))))\n");
 
   /**

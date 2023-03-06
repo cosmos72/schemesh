@@ -49,6 +49,7 @@ static void define_vector_functions(void) {
 /** Define Scheme type "array", a resizeable vector */
 static void define_array_functions(void) {
   eval("(begin\n"
+       "  (define list->array)\n"
        "  (define make-array)\n"
        "  (define array)\n"
        "  (define array?)\n"
@@ -74,6 +75,10 @@ static void define_array_functions(void) {
        "     (mutable vec array-vec array-vec-set!))\n"
        "  (nongenerative #{%array ddartshmtuppqpm7bv5l7h7jm-0}))\n"
        "\n"
+       "(set! list->array (lambda (l)\n"
+       "  (let ((vec (list->vector l)))\n"
+       "    (%make-array (vector-length vec) vec))))\n"
+       "\n"
        "(set! make-array (lambda (n . obj)\n"
        "  (%make-array n (apply make-vector n obj))))\n"
        "\n"
@@ -81,8 +86,7 @@ static void define_array_functions(void) {
        "   (%array? obj)))\n"
        "\n"
        "(set! array (lambda objs\n"
-       "  (let ((vec (apply vector objs)))\n"
-       "    (%make-array (vector-length vec) vec))))\n"
+       "  (list->array objs)))\n"
        "\n"
        "(set! array-length (lambda (arr)\n"
        "  (array-len arr)))\n"
