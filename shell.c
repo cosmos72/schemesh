@@ -38,10 +38,10 @@ static void define_job_functions(void) {
        "    (mutable pid)\n"               /* fixnum: process id,       -1 if unknown     */
        "    (mutable pgid)\n"              /* fixnum: process group id, -1 if unknown     */
        "    (mutable exit-status)\n"       /* cons: exit status,        #f if running     */
-       "    (mutable to-redirect-fds)\n"   /* vector of fds to redirect between fork() and
+       "    (mutable to-redirect-fds)\n"   /* vector: fds to redirect between fork() and
                                               (start-func)                                */
        "    (mutable to-redirect-files)\n" /* vector of files to open before fork()       */
-       "    (mutable to-close-fds)\n"      /* list of fds to close after spawn            */
+       "    (mutable to-close-fds)\n"      /* list: fds to close after spawn              */
        "    start-func\n"                  /* function to start the job in fork()ed child */
        "    (mutable env)\n"               /* hashtable: overridden env variables, or '() */
        "    (mutable parent))))\n");       /* parent job, contains default values of env variables
@@ -59,9 +59,9 @@ static void define_job_functions(void) {
        "  (multijob %make-multijob sh-multijob?)\n"
        "  (parent job)"
        "  (fields\n"
-       "    kind\n"                  /* one of: 'and 'or 'vec */
-       "    children\n"              /* array of children jobs */
-       "    (mutable next-id)))\n"); /* first available index in array of children jobs */
+       "    kind\n"                  /* symbol: one of 'and 'or 'vec 'global */
+       "    children\n"              /* array:  children jobs */
+       "    (mutable next-id)))\n"); /* fixnum: first available index in array of children jobs */
 
   /** customize how "job" objects are printed */
   eval("(record-writer (record-type-descriptor job)\n"
@@ -92,18 +92,44 @@ static void define_job_functions(void) {
        "    (display #\\) port)))\n");
 
   /**
-   * Define the variable sh-globals, contains global job.
-   * May be set! to a different value in subshells.
+   * Define the variable sh-globals, contains the global job.
+   * Jobs started with (sh-start) will be children of sh-globals.
+   *
+   * Variable may be set! to a different value in subshells.
    */
   eval("(define sh-globals\n"
        /* waiting for sh-globals to exit is not useful:
         * pretend it already exited with unknown exit status */
        "  (%make-multijob -1 -1 '(unknown . 0) (vector 0 1 2) (vector) '() #f\n"
        "    (make-hashtable string-hash string=?) #f\n"
-       "    'vec (array #t) 1))\n");
+       "    'global (array #t) 1))\n");
 
   call2("job-pid-set!", Stop_level_value(Sstring_to_symbol("sh-globals")), Sfixnum(getpid()));
   call2("job-pgid-set!", Stop_level_value(Sstring_to_symbol("sh-globals")), Sfixnum(getpgrp()));
+
+  /**
+   * Define the global hashtable pid -> job
+   * Define function (pid->job) to convert pid to job, return #f if job not found
+   * Define function (pid->job-set!) adds entries to the global hashtable pid -> job
+   * Define function (pid->job-delete!) removes entries from the global hashtable pid -> job
+   */
+  eval("(begin\n"
+       "\n"
+       "(define %table-pid->job (make-eq-hashtable))\n"
+       "\n"
+       "(define (pid->job pid)\n"
+       "  (assert (fixnum? pid))\n"
+       "  (hashtable-ref %table-pid->job pid #f))\n"
+       "\n"
+       "(define (pid->job-set! pid job)\n"
+       "  (assert (fixnum? pid))\n"
+       "  (assert (sh-job? job))\n"
+       "  (hashtable-set! %table-pid->job pid job))\n"
+       "\n"
+       "(define (pid->job-delete! pid)\n"
+       "  (assert (fixnum? pid))\n"
+       "  (hashtable-delete! %table-pid->job pid))\n"
+       ")\n");
 
   /**
    * Define the function (multijob-child-delete!), removes a job from a multijob
@@ -121,30 +147,32 @@ static void define_job_functions(void) {
    * extending (multijob-array globals) as needed.
    * Return job-id assigned to job.
    */
-  eval("(define (multijob-child-put! globals j)\n"
-       "  (let* ((arr     (multijob-children globals))\n"
+  eval("(define (multijob-child-put! mjob j)\n"
+       "  (let* ((arr     (multijob-children mjob))\n"
        "         (len     (array-length arr))\n"
-       "         (next-id (multijob-next-id globals))\n"
+       "         (next-id (multijob-next-id mjob))\n"
        "         (job-id (array-find arr next-id (fx- len next-id) not)))\n"
        "    (if job-id\n"
        "      (array-set! arr job-id j)\n" // found a free job-id
        "      (begin\n"                    // no free job-id, enlarge array
        "        (array-append! arr j)\n"
        "        (set! job-id len)))\n"
-       "    (let* ((start   (multijob-next-id globals))\n"
+       "    (let* ((start   (multijob-next-id mjob))\n"
        "           (len     (array-length arr))\n"
        "           (next-id (array-find arr start (fx- len job-id) not)))\n"
-       "      (multijob-next-id-set! globals\n"
+       "      (multijob-next-id-set! mjob\n"
        "                             (or next-id len)))\n"
        "    job-id))\n");
 
   /**
-   * Define the function (sh-get-job), converts job-id to job.
+   * Define the function (sh-job-ref), converts job-id to job.
    * Job-id can be either a job,
    * or #t which means sh-globals - needed by C function c_environ_to_sh_env()
    * or a fixnum indicating one of the running jobs stored in (multijob-children sh-globals)
+   *
+   * Raises error if no job matches job-id.
    */
-  eval("(define (sh-get-job job-id)\n"
+  eval("(define (sh-job-ref job-id)\n"
        "  (cond\n"
        "    ((eq? #t job-id) sh-globals)\n"
        "    ((fixnum? job-id)\n"
@@ -153,17 +181,30 @@ static void define_job_functions(void) {
        "                             (fx< job-id (array-length all-jobs)))\n"
        "                    (array-ref all-jobs job-id))))\n"
        "        (unless (sh-job? job)\n"
-       "          (error 'sh-job \"job not found:\" job-id))\n"
+       "          (error 'sh-job-ref \"job not found:\" job-id))\n"
        "        job))\n"
        "    ((sh-job? job-id) job-id)\n"
-       "    (#t (error 'sh-job \"not a job-id:\" job-id))))\n");
+       "    (#t (error 'sh-job-ref \"not a job-id:\" job-id))))\n");
+
+  /**
+   * Define the function (sh-job-array), returns an array of pairs (job-id . job)
+   * sorted by job-id
+   */
+  eval("(define (sh-job-array)\n"
+       "  (let ((src (multijob-children sh-globals))\n"
+       "        (dst (array)))\n"
+       "    (array-iterate src\n"
+       "      (lambda (job-id job)\n"
+       "        (when (sh-job? job)\n"
+       "          (array-append! dst (cons job-id job)))))\n"
+       "    dst))\n");
 
   /**
    * Define the function (job-parents-iterate), calls (proc j) on given job and each of its parents.
    * Stops iterating if (proc) returns #f.
    */
   eval("(define (job-parents-iterate job-id proc)\n"
-       "  (do ((parent (sh-get-job job-id) (job-parent parent)))\n"
+       "  (do ((parent (sh-job-ref job-id) (job-parent parent)))\n"
        "      ((or (not (sh-job? parent)) (not (proc parent))))))\n");
 
   /**
@@ -219,7 +260,7 @@ static void define_env_functions(void) {
    * i.e. the ones inherited from parent jobs.
    */
   eval("(define (job-direct-env job-id)\n"
-       "  (let* ((job (sh-get-job job-id))\n"
+       "  (let* ((job (sh-job-ref job-id))\n"
        "         (vars (job-env job)))\n"
        "    (unless (hashtable? vars)\n"
        "      (set! vars (make-hashtable string-hash string=?))\n"
@@ -298,7 +339,7 @@ static void define_env_functions(void) {
        "    ret))\n");
   eval("(define (sh-env-export! job-id name exported?)\n"
        "  (assert (boolean? exported?))\n"
-       "  (let* ((j (sh-get-job job-id))\n"
+       "  (let* ((j (sh-job-ref job-id))\n"
        "          ;\n" /* val may be in a parent environment */
        "         (val (sh-env-get j name))\n"
        "         (export (if exported? 'export 'private)))\n"
@@ -392,6 +433,7 @@ static void define_shell_functions(void) {
        "  (when (not (sh-cmd? j))\n"
        "    (error 'sh-start \"unimplemented for non-cmd jobs\"))\n"
        "  (apply cmd-start j options)\n"
+       "  (pid->job-set! (job-pid j) j)\n"
        "  (when (eq? sh-globals (job-parent j))\n"
        "    (multijob-child-put! sh-globals j)))");
 
@@ -451,10 +493,11 @@ static void define_shell_functions(void) {
        "        (job-exit-status-set! j status)\n"
        "        (unless (job-status-stopped? status)\n"
        /*         cmd exited. it can now be spawned again */
-       "          (job-pid-set! j -1)\n"
-       "          (job-pgid-set! j -1)\n"
        "          (when (eq? sh-globals (job-parent j))\n"
        "            (multijob-child-delete! sh-globals j)))\n"
+       "          (pid->job-delete! (job-pid j))\n"
+       "          (job-pid-set! j -1)\n"
+       "          (job-pgid-set! j -1)\n"
        "        status))))\n");
 
   /**
@@ -466,7 +509,7 @@ static void define_shell_functions(void) {
   eval("(define sh-fg\n"
        "  (let ((c-pgid-foreground (foreign-procedure \"c_pgid_foreground\" (int) int)))\n"
        "    (lambda (job-id)\n"
-       "      (let ((j (sh-get-job job-id)))\n"
+       "      (let ((j (sh-job-ref job-id)))\n"
        "        (cond\n"
        /**        if job already exited, return its exit status.
         *         if job is stopped, consider as running: we'll send SIGCONT to it below */
@@ -502,7 +545,7 @@ static void define_shell_functions(void) {
   eval("(define (sh-redirect-fd! job-id child-fd existing-fd-or-minus-1)\n"
        "  (when (or (not (fixnum? child-fd)) (< child-fd 0))\n"
        "    (error 'job-redirect! \"invalid redirect fd\" child-fd))\n"
-       "  (let* ([job (sh-get-job job-id)]\n"
+       "  (let* ([job (sh-job-ref job-id)]\n"
        "         [old-fds (job-to-redirect-fds j)]\n"
        "         [old-n (vector-length old-fds)])\n"
        "    (when (<= old-n child-fd)\n"
