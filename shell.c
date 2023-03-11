@@ -132,11 +132,15 @@ static void define_job_functions(void) {
        ")\n");
 
   /**
-   * Define the function (multijob-child-delete!), removes a job from a multijob
+   * Define the function (multijob-child-delete!), removes a job-id from a multijob
    */
-  eval("(define (multijob-child-delete! globals j)\n"
+  eval("(define (multijob-child-delete! globals job-id)\n"
        "  (let* ((arr (multijob-children globals))\n"
-       "         (job-id (array-find arr 0 (array-length arr) (lambda (elem) (eq? elem j)))))\n"
+       "         (job-id\n"
+       "           (if (fixnum? job-id)\n"
+       "             (when (and (fx>= job-id 0) (fx< job-id (array-length arr)))\n"
+       "               job-id)\n"
+       "             (array-find arr 0 (array-length arr) (lambda (elem) (eq? elem job-id))))))\n"
        "    (when job-id\n"
        "      (array-set! arr job-id #f)\n"
        "      (multijob-next-id-set! globals\n"
@@ -494,10 +498,10 @@ static void define_shell_functions(void) {
        "        (unless (job-status-stopped? status)\n"
        /*         cmd exited. it can now be spawned again */
        "          (when (eq? sh-globals (job-parent j))\n"
-       "            (multijob-child-delete! sh-globals j)))\n"
+       "            (multijob-child-delete! sh-globals j))\n"
        "          (pid->job-delete! (job-pid j))\n"
        "          (job-pid-set! j -1)\n"
-       "          (job-pgid-set! j -1)\n"
+       "          (job-pgid-set! j -1))\n"
        "        status))))\n");
 
   /**
@@ -530,9 +534,25 @@ static void define_shell_functions(void) {
        /**              wait for job's pid to exit or stop.
         *               TODO: wait for ALL pids in process group? */
        "                (job-wait j))\n"
-       /*             run after body, even if it raised exception */
+       /*             run after body, even if it raised exception:
+        *             restore sh-globals as the foreground process group */
        "              (lambda ()\n"
        "                (c-pgid-foreground (job-pgid sh-globals))))))))))\n");
+
+  /** Continue a cmd, job or job-id in background. */
+  eval("(define (sh-bg job-id)\n"
+       "  (let ((j (sh-job-ref job-id)))\n"
+       "    (cond\n"
+       /**    if job already exited, return its exit status.
+        *     if job is stopped, consider as running: we'll send SIGCONT to it below */
+       "      ((job-status-member? (job-exit-status j) '(exited killed unknown))\n"
+       "        (job-exit-status j))\n"
+       "      ((not (job-started? j))\n"
+       "        (error 'sh-bg \"job not started yet\" j))\n"
+       "      (#t\n"
+       /**      send SIGCONT to job's process group. may raise error */
+       "        (pid-kill (fx- (job-pgid j)) 'sigcont)\n"
+       "        (void)))))\n");
 
   /**
    * Start a cmd or job and wait for it to exit or stop. return its exit status.
