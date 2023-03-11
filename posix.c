@@ -266,12 +266,11 @@ void define_pid_functions(void) {
    * If may-block is 'blocking, wait until pid (or any child process, if pid == -1) exits or stops,
    * otherwise check for such conditions without blocking.
    *
+   * If waitpid() fails with C errno != 0, return < 0.
    * If no child process matches pid, or if may_block is 'nonblocking and no child exited or
    * stopped, return '().
-   * Otherwise return a Scheme cons (pid . exit_flag), or return < 0 on error.
-   * Exit flag is one of: process exit status, or 256 + signal, or 512 + stop signal.
-   *
-   * Returns < 0 if waitpid() fails with C errno != 0.
+   * Otherwise return a Scheme cons (pid . exit_flag), where exit_flag is one of:
+   * process_exit_status, or 256 + signal, or 512 + stop_signal.
    */
   eval("(define pid-wait"
        "  (let ((c-pid-wait (foreign-procedure \"c_pid_wait\" (int int) scheme-object)))\n"

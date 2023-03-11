@@ -419,7 +419,7 @@ static void define_shell_functions(void) {
        "        (fd-close-list (job-to-close-fds c))\n"
        "        (job-pid-set! c ret)\n"
        "        (job-pgid-set! c (if (> process-group-id 0) process-group-id ret))\n"
-       "        (job-exit-status-set! c #f)))))\n"); /* cmd can now be waited-for */
+       "        (job-exit-status-set! c '(running . 0))))))\n"); /* cmd can now be waited-for */
 
   /** Return #t if cmd was already started, otherwise return #f */
   eval("(define (job-started? c)\n"
@@ -450,21 +450,25 @@ static void define_shell_functions(void) {
    *  256 + kill_signal    => return (cons 'killed  signal-name)
    *  512 + stop_signal    => return (cons 'stopped signal-name)
    *  >= 768               => return (cons 'unknown exit-status)
+   *
+   * If pid-wait-result is '() i.e. process status did not change,
+   * return '(running . 0) indicating process is still running.
+   *
    * Otherwise return (cons 'unknown pid-wait-result)
    */
   eval("(define (pid-wait->job-status pid-wait-result)\n"
-       "  (if (pair? pid-wait-result)\n"
-       "    (let ((num (cdr pid-wait-result)))\n"
-       "      (cond ((or (not (fixnum? num)) (fx< num 0)) (cons 'unknown num))\n"
-       "            ((fx< num 256) (cons 'exited  num))\n"
-       "            ((fx< num 512) (cons 'killed  (signal-number->name (logand num 255))))\n"
-       "            ((fx< num 768) (cons 'stopped (signal-number->name (logand num 255))))\n"
-       "            (#t            (cons 'unknown num))))\n"
-       "    (cons 'unknown pid-wait-result)))\n");
-
-  /** Return #t if job-status is (cons 'stopped ...), otherwise return #f */
-  eval("(define (job-status-stopped? job-status)\n"
-       "  (job-status-member? job-status '(stopped)))\n");
+       "  (cond"
+       "    ((pair? pid-wait-result)\n"
+       "      (let ((num (cdr pid-wait-result)))\n"
+       "        (cond ((or (not (fixnum? num)) (fx< num 0)) (cons 'unknown num))\n"
+       "              ((fx< num 256) (cons 'exited  num))\n"
+       "              ((fx< num 512) (cons 'killed  (signal-number->name (logand num 255))))\n"
+       "              ((fx< num 768) (cons 'stopped (signal-number->name (logand num 255))))\n"
+       "              (#t            (cons 'unknown num)))))\n"
+       "    ((null? pid-wait-result)\n"
+       "      '(running . 0))\n"
+       "    (#t\n"
+       "      (cons 'unknown pid-wait-result))))\n");
 
   /**
    * Return #t if job-status is a pair whose car is in allowed-list:
@@ -481,10 +485,13 @@ static void define_shell_functions(void) {
    * (cons 'stopped signal-name)
    * (cons 'unknown ...)
    *
+   * Argument may-block must be one of: 'blocking 'nonblocking
+   *
    * Warning: does not set the job as foreground process group,
    * consider calling (sh-fg j) instead.
    */
-  eval("(define (job-wait j)\n"
+  eval("(define (job-wait j may-block)\n"
+       "  (assert (member may-block '(blocking nonblocking)))\n"
        "  (cond\n"
        "    ((job-status-member? (job-exit-status j) '(exited killed unknown))\n"
        "      (job-exit-status j))\n" /* job exited, and exit status already available */
@@ -492,10 +499,12 @@ static void define_shell_functions(void) {
        "      (error 'job-wait \"job not started yet\" j))\n"
        "    (#t\n"
        /**    TODO: wait for ALL processes in job's process group? */
-       "      (let* ((ret    (pid-wait (job-pid j) 'blocking))\n"
+       "      (let* ((ret    (pid-wait (job-pid j) may-block))\n"
        "             (status (pid-wait->job-status ret)))\n"
+       /*       if may-block is 'non-blocking, ret may be '() and status will be '(running . 0)
+        *       indicating job status did not change i.e. it's (expected to be) still running */
        "        (job-exit-status-set! j status)\n"
-       "        (unless (job-status-stopped? status)\n"
+       "        (when (job-status-member? status '(exited killed unknown))\n"
        /*         cmd exited. it can now be spawned again */
        "          (when (eq? sh-globals (job-parent j))\n"
        "            (multijob-child-delete! sh-globals j))\n"
@@ -531,9 +540,9 @@ static void define_shell_functions(void) {
        "              (lambda ()\n"     /* body */
        /**              send SIGCONT to job's process group. may raise error */
        "                (pid-kill (fx- (job-pgid j)) 'sigcont)\n"
-       /**              wait for job's pid to exit or stop.
+       /**              blocking wait for job's pid to exit or stop.
         *               TODO: wait for ALL pids in process group? */
-       "                (job-wait j))\n"
+       "                (job-wait j 'blocking))\n"
        /*             run after body, even if it raised exception:
         *             restore sh-globals as the foreground process group */
        "              (lambda ()\n"
@@ -552,7 +561,9 @@ static void define_shell_functions(void) {
        "      (#t\n"
        /**      send SIGCONT to job's process group. may raise error */
        "        (pid-kill (fx- (job-pgid j)) 'sigcont)\n"
-       "        (void)))))\n");
+       /**      nonblocking wait for job's pid to exit or stop.
+        *       TODO: wait for ALL pids in process group? */
+       "        (job-wait j 'nonblocking)))))\n");
 
   /**
    * Start a cmd or job and wait for it to exit or stop. return its exit status.
