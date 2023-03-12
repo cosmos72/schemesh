@@ -42,7 +42,9 @@ static void define_job_functions(void) {
                                               (subshell-func)                             */
        "    (mutable to-redirect-files)\n" /* vector of files to open before fork()       */
        "    (mutable to-close-fds)\n"      /* list: fds to close after spawn              */
-       "    subshell-func\n"               /* function to run in fork()ed child           */
+       "    subshell-func\n"               /* procedure to run in fork()ed child.
+                                              receives job as only argument, and its
+                                              return value is passed to C exit()          */
        "    (mutable env)\n"               /* hashtable: overridden env variables, or '() */
        "    (mutable parent))))\n");       /* parent job, contains default values of env variables
                                             * and default redirections */
@@ -239,10 +241,10 @@ static void define_job_functions(void) {
        "    (list->cmd-argv (cons program args))))\n");
 
   /** Create a multijob to later start it. */
-  eval("(define (make-multijob subshell-func kind . jobs)\n"
-       "  (assert (member kind '(and or vec)))\n"
+  eval("(define (make-multijob subshell-func kind . children-jobs)\n"
+       "  (assert (symbol? kind))\n"
        "  (assert (or (not subshell-func) (procedure? subshell-func)))\n"
-       "  (list-iterate jobs\n"
+       "  (list-iterate children-jobs\n"
        "    (lambda (j)\n"
        "      (assert (sh-job? j))))\n"
        "  (%make-multijob -1 -1 '(new . 0) (vector 0 1 2) (vector) '()\n"
@@ -250,7 +252,7 @@ static void define_job_functions(void) {
        "    '()\n"        /* overridden environment variables - initially none */
        "    sh-globals\n" /* parent job - initially the global job */
        "    kind\n"
-       "    (list->array jobs)\n"
+       "    (list->array children-jobs)\n"
        "    0))\n");
 }
 
@@ -454,30 +456,29 @@ static void define_shell_functions(void) {
        "    (lambda (j . options)\n"
        "      (assert (procedure? (job-subshell-func j)))\n"
        "      (let* ((process-group-id (job-start-options->process-group-id options))\n"
-       "             (ret (fork-pid\n"
+       "             (ret (c-fork-pid\n"
        "                    (job-to-redirect-fds j)\n"
        "                    process-group-id)))\n"
        "        (cond\n"
        "          ((< ret 0)\n"
        "            (raise-errno-condition 'sh-start ret))\n" /* fork() failed */
        "          ((= ret 0)\n"                               /* child */
-       "            (dynamic-wind\n"
-       "              (lambda () #f)\n" /* run before body */
-       "              (lambda ()\n"     /* body */
-       "                ((job-subshell-func j) j))\n"
-       "              (lambda ()\n" /* run after body, even if it raised exception */
-       "                (let* ((status (job-last-status j))\n"
-       "                       (fx-status (if (and (pair? status)\n"
-       "                                           (eq 'exited (car status))\n"
-       "                                           (fixnum? (cdr status)))\n"
-       "                                      (cdr status)\n"
-       "                                      255)))\n"
-       "                  (c-exit fx-status)))))\n"
+       "            (let ((status 1))\n"
+       "              (dynamic-wind\n"
+       "                (lambda () #f)\n" /* run before body */
+       "                (lambda ()\n"     /* body */
+       "                  (set! status ((job-subshell-func j) j)))\n"
+       "                (lambda ()\n" /* run after body, even if it raised exception */
+       "                  (let ((fxstatus\n"
+       "                         (if (and (fixnum? status) (fx<= 0 status 255))\n"
+       "                             status\n"
+       "                             1)))\n"
+       "                    (c-exit fxstatus))))))\n"
        "          ((> ret 0)\n" /* parent */
        "            (job-pid-set! j ret)\n"
        "            (job-pgid-set! j (if (> process-group-id 0) process-group-id ret))))))))\n");
 
-  /** Return #t if cmd was already started, otherwise return #f */
+  /** Return #t if job was already started, otherwise return #f */
   eval("(define (job-started? c)\n"
        "  (and (fx>= (job-pid c) 0) (fx>= (job-pgid c) 0)))\n");
 

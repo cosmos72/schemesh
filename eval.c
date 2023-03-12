@@ -112,6 +112,7 @@ static void define_display_any(void) {
        "    (display-condition x port)\n"
        "    (display x port)))\n");
 
+  /* convert bytevector0 to string and print it quoted, i.e. surrounded by " */
   eval("(define (write-bytevector0 x port)\n"
        "  (let ((str (utf8->string x)))\n"
        "    (write (substring str 0 (fx1- (string-length str))) port)))\n");

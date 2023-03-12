@@ -71,8 +71,11 @@ static const struct {
      "    (sh-env-get       #t \"foo\")\n"
      "    (sh-env-exported? #t \"foo\")))\n",
      "(bar . #f)"},
+    {"(sh-cmd \"echo\" \"foo\" \" bar \")", "(sh-cmd \"echo\" \"foo\" \" bar \")"},
     {"(sh-run (sh-cmd \"true\"))", "(exited . 0)"},
     {"(sh-run (sh-cmd \"false\"))", "(exited . 1)"},
+    {"(make-multijob (lambda (j) 42) 'hello)", "(sh-hello)"},
+    {"(sh-run (make-multijob (lambda (j) 42) 'hello))", "(exited . 42)"},
 };
 
 static int run_tests(void) {
