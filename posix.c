@@ -30,10 +30,8 @@
  */
 static char** vector_to_c_argz(ptr vector_of_bytevector0);
 
-/** close-on-exec file descriptor for out controlling tty */
+/** close-on-exec file descriptor for our controlling tty */
 static int tty_fd = -1;
-/** process group id of this process */
-static pid_t main_pgid = 0;
 
 int c_errno(void) {
   return -errno;
@@ -109,15 +107,22 @@ int c_print_errno(const char label[]) {
   return -err;
 }
 
+int c_exit(int status) {
+  exit(status);
+  return -EINVAL;
+}
+
 static int c_init_posix_subsystem(void) {
   int err = 0;
 
   if ((tty_fd = open("/dev/tty", O_RDWR)) < 0) {
     err = c_print_errno("open(\"/dev/tty\")");
-  } else if (fcntl(tty_fd, F_SETFD, FD_CLOEXEC) < 0) {
+  } else if (dup2(tty_fd, 255) < 0) {
+    err = c_print_errno("dup2(tty_fd, 255)");
+  } else if (close(tty_fd) < 0) {
+    err = c_print_errno("close(tty_fd)");
+  } else if (fcntl(tty_fd = 255, F_SETFD, FD_CLOEXEC) < 0) {
     err = c_print_errno("fcntl(tty_fd, F_SETFD, FD_CLOEXEC)");
-  } else if ((main_pgid = tcgetpgrp(tty_fd)) < 0) {
-    err = c_print_errno("tcgetpgrp(tty_fd)");
   } else {
     err = c_signals_init();
   }
@@ -207,17 +212,7 @@ void define_pid_functions(void) {
   Sregister_symbol("c_pid_kill", &c_pid_kill);
   Sregister_symbol("c_pid_wait", &c_pid_wait);
   Sregister_symbol("c_pgid_foreground", &c_pgid_foreground);
-
-  /**
-   * Call fork()
-   */
-  eval("(define fork-pid\n"
-       "  (let ((c-fork-pid (foreign-procedure \"c_fork_pid\" () int)))\n"
-       "    (lambda ()\n"
-       "      (let ((ret (c-fork-pid)))\n"
-       "        (when (< ret 0)\n"
-       "          (raise-errno-condition 'fork-pid ret))\n"
-       "        ret))))\n");
+  Sregister_symbol("c_exit", &c_exit);
 
   /**
    * Spawn an external program in a new background process group (pgid) and return its pid.
@@ -326,24 +321,38 @@ static int c_redirect_fds(ptr vector_redirect_fds) {
   return lowest_fd_to_close;
 }
 
-int c_fork_pid(void) {
-  int pid = fork();
-  if (pid < 0) {
-    pid = c_errno(); /* fork failed */
-  }
-  return pid;
+static int c_set_process_group(pid_t existing_pgid_if_positive) {
+  int err = setpgid(0 /*current process*/, /*                                    */
+                    existing_pgid_if_positive > 0 ? existing_pgid_if_positive : 0);
+  return err >= 0 ? err : c_errno();
 }
 
-static int c_set_process_group(pid_t existing_pgid_or_negative) {
-  int err =
-      setpgid(0 /*current process*/, existing_pgid_or_negative < 0 ? 0 : existing_pgid_or_negative);
-  return err >= 0 ? err : c_errno();
+int c_fork_pid(ptr vector_redirect_fds, int existing_pgid_if_positive) {
+  const int pid = fork();
+  switch (pid) {
+    case -1:
+      return c_errno(); /* fork() failed */
+    case 0: {
+      /* child */
+      int err = c_set_process_group((pid_t)existing_pgid_if_positive);
+      if (err >= 0) {
+        int lowest_fd_to_close = c_redirect_fds(vector_redirect_fds);
+        if (lowest_fd_to_close >= 0) {
+          return 0;
+        }
+      }
+      // in case c_set_process_group() or c_redirect_fds() fail
+      exit(255);
+    }
+    default:
+      return pid;
+  }
 }
 
 int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
                 ptr vector_redirect_fds,
                 ptr vector_of_bytevector0_environ,
-                int existing_pgid_or_negative) {
+                int existing_pgid_if_positive) {
   char **argv = NULL, **envp = NULL;
   int    pid;
   if ((pid = c_check_redirect_fds(vector_redirect_fds)) < 0) {
@@ -367,7 +376,7 @@ int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
       break;
     case 0: {
       /* child */
-      int err = c_set_process_group((pid_t)existing_pgid_or_negative);
+      int err = c_set_process_group((pid_t)existing_pgid_if_positive);
       if (err >= 0) {
         err = c_signals_restore();
         if (err >= 0) {
@@ -381,7 +390,7 @@ int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
       }
       // in case c_set_process_group() or c_redirect_fds() fail,
       // or execvp() fails and returns
-      exit(1);
+      exit(255);
     }
     default:
       /* parent */

@@ -47,13 +47,13 @@ int c_open_file_fd(ptr bytevector0_filepath,
 ptr c_open_pipe_fds(void);
 
 /* fork() and return pid, or c_errno() on error */
-int c_fork_pid(void);
+int c_fork_pid(ptr vector_redirect_fds, int existing_pgid_if_positive);
 
 /** fork() and exec() an external program, return pid */
 int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
                 ptr vector_redirect_fds,
                 ptr vector_of_bytevector0_environ,
-                int existing_pgid_or_negative); // if > 0, add process to given process group
+                int existing_pgid_if_positive); // if > 0, add process to given process group
 
 /**
  * set the specified pgid i.e. process group id as the foreground process group.
