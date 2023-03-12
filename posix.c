@@ -207,12 +207,32 @@ int define_fd_functions(void) {
 }
 
 void define_pid_functions(void) {
+  Sregister_symbol("c_get_pid", &c_get_pid);
+  Sregister_symbol("c_get_pgid", &c_get_pgid);
   Sregister_symbol("c_fork_pid", &c_fork_pid);
   Sregister_symbol("c_spawn_pid", &c_spawn_pid);
   Sregister_symbol("c_pid_kill", &c_pid_kill);
   Sregister_symbol("c_pid_wait", &c_pid_wait);
   Sregister_symbol("c_pgid_foreground", &c_pgid_foreground);
   Sregister_symbol("c_exit", &c_exit);
+
+  /** (get-pid) returns pid of current process */
+  eval("(define get-pid"
+       "  (let ((c-get-pid (foreign-procedure \"c_get_pid\" () int)))\n"
+       "    (lambda ()\n"
+       "      (let ((ret (c-get-pid)))\n"
+       "        (when (< ret 0)\n"
+       "          (raise-errno-condition 'get-pid ret))\n"
+       "        ret))))\n");
+
+  /** (get-pgid) returns process group of specified process (0 = current process) */
+  eval("(define get-pgid"
+       "  (let ((c-get-pgid (foreign-procedure \"c_get_pgid\" (int) int)))\n"
+       "    (lambda (pid)\n"
+       "      (let ((ret (c-get-pgid pid)))\n"
+       "        (when (< ret 0)\n"
+       "          (raise-errno-condition 'get-pgid ret))\n"
+       "        ret))))\n");
 
   /**
    * Spawn an external program in a new background process group (pgid) and return its pid.
@@ -319,6 +339,16 @@ static int c_redirect_fds(ptr vector_redirect_fds) {
     }
   }
   return lowest_fd_to_close;
+}
+
+int c_get_pid(void) {
+  int pid = getpid();
+  return pid >= 0 ? pid : c_errno();
+}
+
+int c_get_pgid(int pid) {
+  int pgid = getpgid((pid_t)pid);
+  return pgid >= 0 ? pgid : c_errno();
 }
 
 static int c_set_process_group(pid_t existing_pgid_if_positive) {

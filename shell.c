@@ -102,13 +102,10 @@ static void define_job_functions(void) {
   eval("(define sh-globals\n"
        /* waiting for sh-globals to exit is not useful:
         * pretend it already exited with unknown exit status */
-       "  (%make-multijob -1 -1 '(unknown . 0) (vector 0 1 2) (vector) '()\n"
+       "  (%make-multijob (get-pid) (get-pgid 0) '(unknown . 0) (vector 0 1 2) (vector) '()\n"
        "    #f\n" /* subshell-func */
        "    (make-hashtable string-hash string=?) #f\n"
        "    'global (array #t) 1))\n");
-
-  call2("job-pid-set!", Stop_level_value(Sstring_to_symbol("sh-globals")), Sfixnum(getpid()));
-  call2("job-pgid-set!", Stop_level_value(Sstring_to_symbol("sh-globals")), Sfixnum(getpgrp()));
 
   /**
    * Define the global hashtable pid -> job
@@ -467,6 +464,10 @@ static void define_shell_functions(void) {
        "              (dynamic-wind\n"
        "                (lambda () #f)\n" /* run before body */
        "                (lambda ()\n"     /* body */
+       "                  (job-pid-set!  j (get-pid))\n"
+       "                  (job-pgid-set! j (get-pgid 0))\n"
+       /*                 cannot wait on our own process */
+       "                  (job-last-status-set! j '(unknown . 0))\n"
        "                  (set! status ((job-subshell-func j) j)))\n"
        "                (lambda ()\n" /* run after body, even if it raised exception */
        "                  (let ((fxstatus\n"
@@ -707,13 +708,13 @@ int define_functions(void) {
   define_eval_functions();
 
   define_env_functions();
-  define_job_functions();
 
   if ((err = define_fd_functions()) < 0) {
     return err;
   }
   define_signal_functions();
   define_pid_functions();
+  define_job_functions();
   define_shell_functions();
 
   c_environ_to_sh_env(environ);

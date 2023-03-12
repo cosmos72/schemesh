@@ -21,32 +21,38 @@ int define_fd_functions(void);
  */
 void define_pid_functions(void);
 
-/* return current (-errno) value */
+/** return current (-errno) value */
 int c_errno(void);
 
-/* close specified file descriptor */
+/** close specified file descriptor */
 int c_fd_close(int fd);
 
-/* close all file descriptors >= lowest_fd_to_close */
+/** close all file descriptors >= lowest_fd_to_close */
 void c_fd_close_all(int lowest_fd_to_close);
 
-/* call dup() */
+/** call dup() */
 int c_fd_dup(int old_fd);
 
-/* call dup2() */
+/** call dup2() */
 int c_fd_dup2(int old_fd, int new_fd);
 
-/* call open() and return fd of newly opened file, or c_errno() on error */
+/** call open() and return fd of newly opened file, or c_errno() on error */
 int c_open_file_fd(ptr bytevector0_filepath,
                    int flag_read_write,
                    int flag_create,
                    int flag_truncate,
                    int flag_append);
 
-/* call pipe() and return a Scheme cons (pipe_read_fd . pipe_write_fd), or c_errno() on error */
+/** call pipe() and return a Scheme cons (pipe_read_fd . pipe_write_fd), or c_errno() on error */
 ptr c_open_pipe_fds(void);
 
-/* fork() and return pid, or c_errno() on error */
+/** return pid of current process, or c_errno() on error */
+int c_get_pid(void);
+
+/** return process group of specified process (0 = current process), or c_errno() on error */
+int c_get_pgid(int pid);
+
+/** fork() and return pid, or c_errno() on error */
 int c_fork_pid(ptr vector_redirect_fds, int existing_pgid_if_positive);
 
 /** fork() and exec() an external program, return pid */
@@ -90,4 +96,4 @@ int c_print_errno(const char label[]);
 /** POSIX standard says programs need to declare environ by themselves */
 extern char** environ;
 
-#endif /* SCHEMESH_POSIX_H */
+#endif /** SCHEMESH_POSIX_H */
