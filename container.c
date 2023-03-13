@@ -14,13 +14,13 @@ static void define_vector_functions(void) {
   /** copies a portion of vector src into dst */
   eval("(define (vector-copy! src src-start dst dst-start n)\n"
        "  (do ((i 0 (fx1+ i)))\n"
-       "      ((fx>= i n))\n"
+       "      ((fx>=? i n))\n"
        "    (let ((elem (vector-ref src (fx+ i src-start))))\n"
        "      (vector-set! dst (fx+ i dst-start) elem))))\n");
 
   eval("(define (subvector-fill! vec start n obj)\n"
        "  (do ((i 0 (fx1+ i)))\n"
-       "      ((fx>= i n))\n"
+       "      ((fx>=? i n))\n"
        "    (vector-set! vec (fx+ i start) obj))))\n");
 
   /**
@@ -30,7 +30,7 @@ static void define_vector_functions(void) {
   eval("(define (vector-iterate vec proc)\n"
        "  (do ((i 0 (fx1+ i))\n"
        "       (n (vector-length vec)))\n"
-       "      ((or (fx>= i n) (not (proc i (vector-ref vec i))))))))\n");
+       "      ((or (fx>=? i n) (not (proc i (vector-ref vec i))))))))\n");
 
   /**
    * (vector->hashtable vec htable) iterates on all elements of given vector vec,
@@ -55,8 +55,10 @@ static void define_array_functions(void) {
        "  (define array?)\n"
        "  (define array-length)\n"
        "  (define array-capacity)\n"
+       "  (define array-empty?)\n"
        "  (define array-ref)\n"
        "  (define array-set!)\n"
+       "  (define array-last)\n"
        "  (define array-fill!)\n"
        "  (define subarray-fill!)\n"
        "  (define array-copy)\n"
@@ -94,13 +96,20 @@ static void define_array_functions(void) {
        "(set! array-capacity (lambda (arr)\n"
        "  (vector-length (array-vec arr))))\n"
        "\n"
+       "(set! array-empty? (lambda (arr)\n"
+       "  (fxzero? (array-len arr))))\n"
+       "\n"
        "(set! array-ref (lambda (arr n)\n"
-       "  (assert (fx< n (array-len arr)))\n"
+       "  (assert (fx<? n (array-len arr)))\n"
        "  (vector-ref (array-vec arr) n)))\n"
        "\n"
        "(set! array-set! (lambda (arr n obj)\n"
-       "  (assert (fx< n (array-len arr)))\n"
+       "  (assert (fx<? n (array-len arr)))\n"
        "  (vector-set! (array-vec arr) n obj)))\n"
+       "\n"
+       "(set! array-last (lambda (arr)\n"
+       "  (assert (not (array-empty? arr)))\n"
+       "  (vector-ref (array-vec arr) (fx1- (array-len arr)))))\n"
        "\n"
        "(set! array-fill! (lambda (arr obj)\n"
        /* no optimized function to fill only up to array-len,
@@ -108,7 +117,7 @@ static void define_array_functions(void) {
        "  (vector-fill! (array-vec arr) obj)))\n"
        "\n"
        "(set! subarray-fill! (lambda (arr start n obj)\n"
-       "  (assert (fx<= (fx+ src n) (array-len arr)))\n"
+       "  (assert (fx<=? (fx+ src n) (array-len arr)))\n"
        "  (subvector-fill! (array-vec arr) start n obj)))\n"
        "\n"
        "(set! array-copy (lambda (src)\n"
@@ -118,13 +127,13 @@ static void define_array_functions(void) {
        "    dst)))\n"
        "\n"
        "(set! array-copy! (lambda (src src-start dst dst-start n)\n"
-       "  (assert (fx<= (fx+ src-start n) (array-len src)))\n"
-       "  (assert (fx<= (fx+ dst-start n) (array-len dst)))\n"
+       "  (assert (fx<=? (fx+ src-start n) (array-len src)))\n"
+       "  (assert (fx<=? (fx+ dst-start n) (array-len dst)))\n"
        "  (vector-copy! (array-vec src) src-start (array-vec dst) dst-start n)))\n"
        "\n"
        "(set! array-capacity-set! (lambda (arr n)\n"
-       "  (assert (fx>= n (array-len arr)))\n"
-       "  (unless (fx= n (array-capacity arr))\n"
+       "  (assert (fx>=? n (array-len arr)))\n"
+       "  (unless (fx=? n (array-capacity arr))\n"
        "    (let* ((len (array-len arr))\n"
        "           (old-vec (array-vec arr))\n"
        "           (new-vec (make-vector n)))\n"
@@ -132,7 +141,7 @@ static void define_array_functions(void) {
        "      (array-vec-set! arr new-vec)))))\n"
        "\n"
        "(set! array-length-set! (lambda (arr n)\n"
-       "  (when (fx> n (array-capacity arr))\n"
+       "  (when (fx>? n (array-capacity arr))\n"
        "    (let ((new-cap (fxmax 8 n (fx* 2 (array-capacity arr)))))\n"
        "      (array-capacity-set! arr new-cap)))\n"
        "  (array-len-set! arr n)))\n"
@@ -151,7 +160,7 @@ static void define_array_functions(void) {
        "  (do ((i 0 (fx1+ i))\n"
        "       (n (array-len arr))\n"
        "       (v (array-vec arr)))\n"
-       "    ((or (fx>= i n) (not (proc i (vector-ref v i))))))))\n"
+       "    ((or (fx>=? i n) (not (proc i (vector-ref v i))))))))\n"
        "\n"
        /** customize how "array" objects are printed */
        "(record-writer (record-type-descriptor %array)\n"
@@ -174,7 +183,7 @@ static void define_array_functions(void) {
        "  (let ((ret #f))\n"
        "    (do ((i   start (fx1+ i))\n"
        "         (end (fxmin (fx+ start n) (array-length arr))))\n"
-       "        ((or ret (fx>= i end)) ret)\n"
+       "        ((or ret (fx>=? i end)) ret)\n"
        "      (when (predicate (array-ref arr i))\n"
        "        (set! ret i)))))\n");
 }

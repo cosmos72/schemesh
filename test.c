@@ -26,6 +26,9 @@ static const struct {
     {"(array 1 2 3)", "(array 1 2 3)"},
     {"(array-length (array 1 2 3))", "3"},
     {"(array-capacity (array 1 2 3))", "3"},
+    {"(array-empty? (array))", "#t"},
+    {"(array-empty? (array 'x))", "#f"},
+    {"(array-last (array 'y))", "y"},
     {"(array-ref (array 'a 'b 'c) 1)", "b"},
     {"(let ((arr (array 'foo)))\n"
      "  (array-append! arr 'bar 'qux)\n"
@@ -74,8 +77,18 @@ static const struct {
     {"(sh-cmd \"echo\" \"foo\" \" bar \")", "(sh-cmd \"echo\" \"foo\" \" bar \")"},
     {"(sh-run (sh-cmd \"true\"))", "(exited . 0)"},
     {"(sh-run (sh-cmd \"false\"))", "(exited . 1)"},
-    {"(make-multijob (lambda (j) 42) 'hello)", "(sh-hello)"},
-    {"(sh-run (make-multijob (lambda (j) 42) 'hello))", "(exited . 42)"},
+    {"(make-multijob 'hello (lambda (j) 42))", "(sh-hello)"},
+    {"(sh-run (make-multijob 'hello (lambda (j) 42)))", "(exited . 42)"},
+    {"(let ((j (sh-vec (sh-cmd \"false\") (sh-cmd \"true\"))))\n"
+     "  (sh-start j)\n"
+     "  (sh-wait j))\n",
+     "(exited . 0)"},
+    {"(let ((j (sh-vec (sh-cmd \"true\") (sh-cmd \"false\"))))\n"
+     "  (sh-start j)\n"
+     "  (sh-wait j))\n",
+     "(exited . 1)"},
+    {"(sh-run (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 1)"},
+    {"(sh-run (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 0)"},
 };
 
 static int run_tests(void) {

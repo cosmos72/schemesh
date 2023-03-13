@@ -16,6 +16,9 @@ int c_signals_init(void);
 /** restore all signal handlers to default values */
 int c_signals_restore(void);
 
+/** restore handler for specified signal to default value */
+int c_signal_restore(int sig);
+
 /** return != 0 if SIGCHLD was received after last call to this function */
 int c_sigchld_consume(void);
 

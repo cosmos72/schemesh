@@ -138,7 +138,7 @@ static void define_job_functions(void) {
        "  (let* ((arr (multijob-children globals))\n"
        "         (job-id\n"
        "           (if (fixnum? job-id)\n"
-       "             (when (and (fx>= job-id 0) (fx< job-id (array-length arr)))\n"
+       "             (when (and (fx>=? job-id 0) (fx<? job-id (array-length arr)))\n"
        "               job-id)\n"
        "             (array-find arr 0 (array-length arr) (lambda (elem) (eq? elem job-id))))))\n"
        "    (when job-id\n"
@@ -181,8 +181,8 @@ static void define_job_functions(void) {
        "    ((eq? #t job-id) sh-globals)\n"
        "    ((fixnum? job-id)\n"
        "      (let* ((all-jobs (multijob-children sh-globals))\n"
-       "             (job (when (and (fx> job-id 0)\n" /* job-ids start at 1 */
-       "                             (fx< job-id (array-length all-jobs)))\n"
+       "             (job (when (and (fx>? job-id 0)\n" /* job-ids start at 1 */
+       "                             (fx<? job-id (array-length all-jobs)))\n"
        "                    (array-ref all-jobs job-id))))\n"
        "        (unless (sh-job? job)\n"
        "          (error 'sh-job-ref \"job not found:\" job-id))\n"
@@ -236,21 +236,6 @@ static void define_job_functions(void) {
        "    '()\n"        /* overridden environment variables - initially none */
        "    sh-globals\n" /* parent job - initially the global job */
        "    (list->cmd-argv (cons program args))))\n");
-
-  /** Create a multijob to later start it. */
-  eval("(define (make-multijob subshell-func kind . children-jobs)\n"
-       "  (assert (symbol? kind))\n"
-       "  (assert (or (not subshell-func) (procedure? subshell-func)))\n"
-       "  (list-iterate children-jobs\n"
-       "    (lambda (j)\n"
-       "      (assert (sh-job? j))))\n"
-       "  (%make-multijob -1 -1 '(new . 0) (vector 0 1 2) (vector) '()\n"
-       "    subshell-func\n"
-       "    '()\n"        /* overridden environment variables - initially none */
-       "    sh-globals\n" /* parent job - initially the global job */
-       "    kind\n"
-       "    (list->array children-jobs)\n"
-       "    0))\n");
 }
 
 /** Define the functions (sh-env...) */
@@ -466,12 +451,15 @@ static void define_shell_functions(void) {
        "                (lambda ()\n"     /* body */
        "                  (job-pid-set!  j (get-pid))\n"
        "                  (job-pgid-set! j (get-pgid 0))\n"
+       /*                 this process now "is" the job j => update sh-globals' pid and pgid */
+       "                  (job-pid-set!  sh-globals (job-pid j))\n"
+       "                  (job-pgid-set! sh-globals (job-pgid j))\n"
        /*                 cannot wait on our own process */
        "                  (job-last-status-set! j '(unknown . 0))\n"
        "                  (set! status ((job-subshell-func j) j)))\n"
        "                (lambda ()\n" /* run after body, even if it raised exception */
        "                  (let ((fxstatus\n"
-       "                         (if (and (fixnum? status) (fx<= 0 status 255))\n"
+       "                         (if (and (fixnum? status) (fx<=? 0 status 255))\n"
        "                             status\n"
        "                             1)))\n"
        "                    (c-exit fxstatus))))))\n"
@@ -481,7 +469,7 @@ static void define_shell_functions(void) {
 
   /** Return #t if job was already started, otherwise return #f */
   eval("(define (job-started? c)\n"
-       "  (and (fx>= (job-pid c) 0) (fx>= (job-pgid c) 0)))\n");
+       "  (and (fx>=? (job-pid c) 0) (fx>=? (job-pgid c) 0)))\n");
 
   /**
    * Start a cmd or a job.
@@ -493,7 +481,7 @@ static void define_shell_functions(void) {
    *     into the corresponding process group id - which must already exist.
    */
   eval("(define (sh-start j . options)\n"
-       "  (when (fx>= (job-pid j) 0)\n"
+       "  (when (fx>=? (job-pid j) 0)\n"
        "    (error 'sh-start \"job already started\" (job-pid j)))\n"
        "  (cond\n"
        "    ((sh-cmd? j)\n"
@@ -527,10 +515,10 @@ static void define_shell_functions(void) {
        "  (cond"
        "    ((pair? pid-wait-result)\n"
        "      (let ((num (cdr pid-wait-result)))\n"
-       "        (cond ((or (not (fixnum? num)) (fx< num 0)) (cons 'unknown num))\n"
-       "              ((fx< num 256) (cons 'exited  num))\n"
-       "              ((fx< num 512) (cons 'killed  (signal-number->name (logand num 255))))\n"
-       "              ((fx< num 768) (cons 'stopped (signal-number->name (logand num 255))))\n"
+       "        (cond ((or (not (fixnum? num)) (fx<? num 0)) (cons 'unknown num))\n"
+       "              ((fx<? num 256) (cons 'exited  num))\n"
+       "              ((fx<? num 512) (cons 'killed  (signal-number->name (logand num 255))))\n"
+       "              ((fx<? num 768) (cons 'stopped (signal-number->name (logand num 255))))\n"
        "              (#t            (cons 'unknown (fx- num 768))))))\n"
        "    ((null? pid-wait-result)\n"
        "      '(running . 0))\n"
@@ -582,7 +570,7 @@ static void define_shell_functions(void) {
        "        status))))\n");
 
   /**
-   * Return status of a job or job-id, which can be one of:
+   * Return up-to-date status of a job or job-id, which can be one of:
    *   (cons 'new     0)
    *   (cons 'running 0)
    *   (cons 'exited  exit-status)
@@ -601,14 +589,42 @@ static void define_shell_functions(void) {
        "    (job-last-status j)))\n");
 
   /**
-   * Wait for a job or job-id to exit or stop and return its status, which can be one of:
+   * Continue a job or job-id in background by sending SIGCONT to it.
+   * Return job status, which can be one of:
+   *
+   *   (cons 'running 0)
+   *   (cons 'exited  exit-status)
+   *   (cons 'killed  signal-name)
+   *   (cons 'stopped signal-name)
+   *   (cons 'unknown ...)
+   */
+  eval("(define (sh-bg job-id)\n"
+       "  (let ((j (sh-job-ref job-id)))\n"
+       "    (cond\n"
+       /**    if job already exited, return its exit status.
+        *     if job is stopped, consider as running: we'll send SIGCONT to it below */
+       "      ((job-status-member? (job-last-status j) '(exited killed unknown))\n"
+       "        (job-last-status j))\n"
+       "      ((not (job-started? j))\n"
+       "        (error 'sh-bg \"job not started yet\" j))\n"
+       "      (#t\n"
+       /**      send SIGCONT to job's process group. may raise error */
+       "        (pid-kill (fx- (job-pgid j)) 'sigcont)\n"
+       /**      nonblocking wait for job's pid to exit or stop.
+        *       TODO: wait for ALL pids in process group? */
+       "        (job-wait j 'nonblocking)))))\n");
+
+  /**
+   * Continue a job or job-id by sending SIGCONT to it, wait for it to exit or stop,
+   * and finally return its status, which can be one of:
+   *
    *   (cons 'exited  exit-status)
    *   (cons 'killed  signal-name)
    *   (cons 'stopped signal-name)
    *   (cons 'unknown ...)
    *
    * Note: upon invocation, sets the job as fg process group.
-   * Before returning, restores the this process as fg process group.
+   * Before returning, restores the sh-globals as fg process group.
    */
   eval("(define sh-fg\n"
        "  (let ((c-pgid-foreground (foreign-procedure \"c_pgid_foreground\" (int) int)))\n"
@@ -640,35 +656,51 @@ static void define_shell_functions(void) {
        "                (c-pgid-foreground (job-pgid sh-globals))))))))))\n");
 
   /**
-   * Continue a job or job-id in background. Return job status, which can be one of:
-   *   (cons 'running 0)
+   * Wait for a job or job-id to exit. Do NOT send SIGCONT to it in case it's already stopped,
+   * and do NOT return if the job gets stopped.
+   * Return job status, which can be one of:
+   *
    *   (cons 'exited  exit-status)
    *   (cons 'killed  signal-name)
-   *   (cons 'stopped signal-name)
    *   (cons 'unknown ...)
+   *
+   * Note: upon invocation, sets the job as fg process group.
+   * Before returning, restores the sh-globals as fg process group.
    */
-  eval("(define (sh-bg job-id)\n"
-       "  (let ((j (sh-job-ref job-id)))\n"
-       "    (cond\n"
-       /**    if job already exited, return its exit status.
-        *     if job is stopped, consider as running: we'll send SIGCONT to it below */
-       "      ((job-status-member? (job-last-status j) '(exited killed unknown))\n"
-       "        (job-last-status j))\n"
-       "      ((not (job-started? j))\n"
-       "        (error 'sh-bg \"job not started yet\" j))\n"
-       "      (#t\n"
-       /**      send SIGCONT to job's process group. may raise error */
-       "        (pid-kill (fx- (job-pgid j)) 'sigcont)\n"
-       /**      nonblocking wait for job's pid to exit or stop.
-        *       TODO: wait for ALL pids in process group? */
-       "        (job-wait j 'nonblocking)))))\n");
+  eval("(define sh-wait\n"
+       "  (let ((c-pgid-foreground (foreign-procedure \"c_pgid_foreground\" (int) int)))\n"
+       "    (lambda (job-id)\n"
+       "      (let ((j (sh-job-ref job-id)))\n"
+       "        (cond\n"
+       /**        if job already exited, return its exit status.
+        *         if job is stopped, consider as running */
+       "          ((job-status-member? (job-last-status j) '(exited killed unknown))\n"
+       "            (job-last-status j))\n"
+       "          ((not (job-started? j))\n"
+       "            (error 'sh-wait \"job not started yet\" j))\n"
+       "          (#t\n"
+       /**          set job's process group as the foreground process group */
+       "            (let ((ret (c-pgid-foreground (job-pgid j))))\n"
+       "              (when (< ret 0)\n"
+       "                (raise-errno-condition 'sh-wait ret)))\n"
+       "            (dynamic-wind\n"
+       "              (lambda () #f)\n" /* run before body */
+       "              (lambda ()\n"     /* body */
+       /**              blocking wait for job's pid to exit.
+        *               TODO: wait for ALL pids in process group? */
+       "                (do ((status #f (job-wait j 'blocking)))\n"
+       "                    ((job-status-member? status '(exited killed unknown)) status)))\n"
+       /*             run after body, even if it raised exception:
+        *             restore sh-globals as the foreground process group */
+       "              (lambda ()\n"
+       "                (c-pgid-foreground (job-pgid sh-globals))))))))))\n");
 
   /**
    * Start a job and wait for it to exit or stop.
    * Return job status, possible values are the same as (sh-fg)
    */
-  eval("(define (sh-run j)\n"
-       "  (sh-start j)\n"
+  eval("(define (sh-run j . options)\n"
+       "  (apply sh-start j options)\n"
        "  (sh-fg j))\n");
 
   /** Create or remove a file description redirection for cmd or job */
@@ -694,6 +726,94 @@ static void define_shell_functions(void) {
        "    (job-redirect-fd! j (car child-cons) existing-fd-or-minus-1)))\n");
 }
 
+static void define_multijob_functions(void) {
+  /**
+   * convert job-status to 8-bit exit status suitable for C function exit().
+   * if job-status is '(exited . n) return n
+   * if job-status is '(killed . signal_name) return 128 + signal_number
+   * otherwise return 255
+   */
+  eval("(define (job-approx-exit-status job-status)\n"
+       "  (if (pair? job-status)\n"
+       "    (cond\n"
+       "      ((eq? 'exited (car job-status))\n"
+       "        (cdr job-status))\n"
+       "      ((eq? 'killed (car job-status))\n"
+       "        (fx+ 128 (signal-name->number (cdr job-status))))\n"
+       "      (#t 255))\n" /* (car job-status) is 'new 'running 'stopped etc */
+       "    255))\n");     /* job-status is not a cons */
+
+  /** Create a multijob to later start it. */
+  eval("(define (make-multijob kind subshell-func . children-jobs)\n"
+       "  (assert (symbol? kind))\n"
+       "  (assert (or (not subshell-func) (procedure? subshell-func)))\n"
+       "  (list-iterate children-jobs\n"
+       "    (lambda (j)\n"
+       "      (assert (sh-job? j))))\n"
+       "  (%make-multijob -1 -1 '(new . 0) (vector 0 1 2) (vector) '()\n"
+       "    subshell-func\n"
+       "    '()\n"        /* overridden environment variables - initially none */
+       "    sh-globals\n" /* parent job - initially the global job */
+       "    kind\n"
+       "    (list->array children-jobs)\n"
+       "    0))\n");
+
+  /**
+   * Run a multijob containing an "and" of children jobs.
+   * Used by (sh-and), implements runtime behavior of shell syntax foo && bar && baz
+   */
+  eval("(define (%multijob-run-and mj)\n"
+       "  (let ((jobs   (multijob-children mj))\n"
+       "        (pgid   (job-pgid mj))\n"
+       "        (status '(exited . 0)))\n"
+       "    (array-iterate jobs\n"
+       "      (lambda (i job)\n"
+       "        (sh-start job pgid)\n"         /* run child job in parent's process group        */
+       "        (set! status (sh-wait job))\n" /* wait for child job to exit                     */
+       /*                                         keep iterating only if job exited successfully */
+       "        (equal? status '(exited . 0))))\n"
+       "    (job-approx-exit-status status)))\n");
+
+  /**
+   * Run a multijob containing an "and" of children jobs.
+   * Used by (sh-and), implements runtime behavior of shell syntax foo && bar && baz
+   */
+  eval("(define (%multijob-run-or mj)\n"
+       "  (let ((jobs   (multijob-children mj))\n"
+       "        (pgid   (job-pgid mj))\n"
+       "        (status '(exited . 1)))\n"
+       "    (array-iterate jobs\n"
+       "      (lambda (i job)\n"
+       "        (sh-start job pgid)\n"         /* run child job in parent's process group     */
+       "        (set! status (sh-wait job))\n" /* wait for child job to exit                  */
+       "        (not (equal? status '(exited . 0)))))\n" /* keep iterating only if job failed */
+       "    (job-approx-exit-status status)))\n");
+
+  /**
+   * Run a multijob containing a sequence of children jobs.
+   * Used by (sh-vec), implements runtime behavior of shell syntax foo; bar; baz
+   */
+  eval("(define (%multijob-run-vec mj)\n"
+       "  (let ((jobs   (multijob-children mj))\n"
+       "        (pgid   (job-pgid mj))\n"
+       "        (status '(exited . 0)))\n"
+       "    (array-iterate jobs\n"
+       "      (lambda (i job)\n"
+       "        (sh-start job pgid)\n"         /* run child job in parent's process group */
+       "        (set! status (sh-wait job))\n" /* wait for child job to exit */
+       "        #t))\n"                        /* keep iterating */
+       "    (job-approx-exit-status status)))\n");
+
+  eval("(define (sh-and . children-jobs)\n"
+       "  (apply make-multijob 'and %multijob-run-and children-jobs))\n");
+
+  eval("(define (sh-or . children-jobs)\n"
+       "  (apply make-multijob 'or  %multijob-run-or  children-jobs))\n");
+
+  eval("(define (sh-vec . children-jobs)\n"
+       "  (apply make-multijob 'vec %multijob-run-vec children-jobs))\n");
+}
+
 void scheme_init(void (*on_scheme_exception)(void)) {
   Sscheme_init(on_scheme_exception);
   Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/petite.boot");
@@ -716,6 +836,7 @@ int define_functions(void) {
   define_pid_functions();
   define_job_functions();
   define_shell_functions();
+  define_multijob_functions();
 
   c_environ_to_sh_env(environ);
   return err;

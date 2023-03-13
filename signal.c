@@ -67,6 +67,16 @@ int c_signals_restore(void) {
   return 0;
 }
 
+int c_signal_restore(int sig) {
+  struct sigaction action = {};
+  action.sa_handler       = SIG_DFL;
+
+  if (sigaction(sig, &action, NULL) < 0) {
+    return c_errno();
+  }
+  return 0;
+}
+
 #define x(arg) STR_(arg)
 #define STR_(arg) #arg
 

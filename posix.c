@@ -108,6 +108,7 @@ int c_print_errno(const char label[]) {
 }
 
 int c_exit(int status) {
+  /* printf("c_exit(%d) invoked\n", status); */
   exit(status);
   return -EINVAL;
 }
@@ -366,9 +367,12 @@ int c_fork_pid(ptr vector_redirect_fds, int existing_pgid_if_positive) {
       /* child */
       int err = c_set_process_group((pid_t)existing_pgid_if_positive);
       if (err >= 0) {
-        int lowest_fd_to_close = c_redirect_fds(vector_redirect_fds);
-        if (lowest_fd_to_close >= 0) {
-          return 0;
+        err = c_signal_restore(SIGTSTP);
+        if (err >= 0) {
+          int lowest_fd_to_close = c_redirect_fds(vector_redirect_fds);
+          if (lowest_fd_to_close >= 0) {
+            return 0;
+          }
         }
       }
       // in case c_set_process_group() or c_redirect_fds() fail
