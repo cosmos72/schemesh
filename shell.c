@@ -775,8 +775,8 @@ static void define_multijob_functions(void) {
        "    (job-approx-exit-status status)))\n");
 
   /**
-   * Run a multijob containing an "and" of children jobs.
-   * Used by (sh-and), implements runtime behavior of shell syntax foo && bar && baz
+   * Run a multijob containing an "or" of children jobs.
+   * Used by (sh-and), implements runtime behavior of shell syntax foo || bar || baz
    */
   eval("(define (%multijob-run-or mj)\n"
        "  (let ((jobs   (multijob-children mj))\n"
