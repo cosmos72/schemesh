@@ -270,7 +270,7 @@ void define_pid_functions(void) {
    *   pid == -1 means "all processes".
    *   pid <  -1 means "all processes in process group -pid"
    *
-   * Returns < 0 if C function kill() fails with C errno != 0 or if signal-name is unknown.
+   * Returns < 0 if signal-name is unknown, or if C function kill() fails with C errno != 0.
    */
   eval("(define pid-kill"
        "  (let ((c-pid-kill (foreign-procedure \"c_pid_kill\" (int int) int)))\n"
@@ -316,7 +316,9 @@ void define_pid_functions(void) {
        "  (let ((c-exit (foreign-procedure \"c_exit\" (int) int)))\n"
        "    (lambda (status)\n"
        "      (let ((exit-status\n"
-       "             (if (and (pair? status) (eq? 'exited (car status)) (fixnum? (cdr status)))\n"
+       "             (if (and (pair? status) (eq? 'exited (car status))\n"
+       "                      (fixnum? (cdr status)) (fx=? (cdr status)\n"
+       "                                                   (logand 255 (cdr status))))\n"
        "               (cdr status)\n"
        "               255)))\n"
        "        (dynamic-wind\n"
@@ -328,8 +330,8 @@ void define_pid_functions(void) {
        "              (let ((signal-name (cdr status)))\n"
        "                (unless (member signal-name '(sigstop sigtstp sigcont\n"
        "                                              sigttin sigttou))\n"
-       "                  (pid-kill (get-pid) signal-name))\n"
-       /*               process did not die with kill() */
+       "                  (signal-raise signal-name))\n"
+       /*               process did not die with (signal-raise) */
        "                (let ((signal-number (signal-name->number signal-name)))\n"
        "                  (when (fixnum? signal-number)\n"
        "                    (set! exit-status (fx+ 128 signal-number)))))))\n"

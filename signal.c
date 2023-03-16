@@ -77,44 +77,55 @@ int c_signal_restore(int sig) {
   return 0;
 }
 
+int c_signal_raise(int sig) {
+  (void)c_signal_restore(sig);
+  int pid = c_get_pid();
+  if (pid <= 0 || kill(pid, sig) < 0) {
+    return c_errno();
+  }
+  return 0;
+}
+
 #define STR_(arg) #arg
-#define x(arg) STR_(arg)
+#define STR(arg) STR_(arg)
 
 void define_signal_functions(void) {
+  Sregister_symbol("c_signal_raise", &c_signal_raise);
+
   /* clang-format off */
   eval("(define signal-table-number->name\n"
        "  (vector->hashtable '#("
-       " (" x(SIGHUP)  " . sighup)"
-       " (" x(SIGINT)  " . sigint)"
-       " (" x(SIGQUIT) " . sigquit)"
-       " (" x(SIGILL)  " . sigill)"
-       " (" x(SIGTRAP) " . sigtrap)"
-       " (" x(SIGABRT) " . sigabrt)"
-       " (" x(SIGBUS)  " . sigbus)"
-       " (" x(SIGFPE)  " . sigfpe)"
-       " (" x(SIGKILL) " . sigkill)"
-       " (" x(SIGUSR1) " . sigusr1)"
-       " (" x(SIGSEGV) " . sigsegv)"
-       " (" x(SIGUSR2) " . sigusr2)"
-       " (" x(SIGPIPE) " . sigpipe)"
-       " (" x(SIGALRM) " . sigalrm)"
-       " (" x(SIGTERM) " . sigterm)"
-       " (" x(SIGSTKFLT) " . sigstkflt)"
-       " (" x(SIGCHLD) " . sigchld)"
-       " (" x(SIGCONT) " . sigcont)"
-       " (" x(SIGSTOP) " . sigstop)"
-       " (" x(SIGTSTP) " . sigtstp)"
-       " (" x(SIGTTIN) " . sigttin)"
-       " (" x(SIGTTOU) " . sigttou)"
-       " (" x(SIGURG)  " . sigurg)"
-       " (" x(SIGXCPU) " . sigxcpu)"
-       " (" x(SIGXFSZ) " . sigxfsz)"
-       " (" x(SIGVTALRM) " . sigvtalrm)"
-       " (" x(SIGPROF) " . sigprof)"
-       " (" x(SIGWINCH) " . sigwinch)"
-       " (" x(SIGIO)   " . sigio)"
-       " (" x(SIGPWR)  " . sigpwr)"
-       " (" x(SIGSYS)  " . sigsys))\n"
+       " (" STR(SIGHUP)  " . sighup)"
+       " (" STR(SIGINT)  " . sigint)"
+       " (" STR(SIGQUIT) " . sigquit)"
+       " (" STR(SIGILL)  " . sigill)"
+       " (" STR(SIGTRAP) " . sigtrap)"
+       " (" STR(SIGABRT) " . sigabrt)"
+       " (" STR(SIGBUS)  " . sigbus)"
+       " (" STR(SIGFPE)  " . sigfpe)"
+       " (" STR(SIGKILL) " . sigkill)"
+       " (" STR(SIGUSR1) " . sigusr1)"
+       " (" STR(SIGSEGV) " . sigsegv)"
+       " (" STR(SIGUSR2) " . sigusr2)"
+       " (" STR(SIGPIPE) " . sigpipe)"
+       " (" STR(SIGALRM) " . sigalrm)"
+       " (" STR(SIGTERM) " . sigterm)"
+       " (" STR(SIGSTKFLT) " . sigstkflt)"
+       " (" STR(SIGCHLD) " . sigchld)"
+       " (" STR(SIGCONT) " . sigcont)"
+       " (" STR(SIGSTOP) " . sigstop)"
+       " (" STR(SIGTSTP) " . sigtstp)"
+       " (" STR(SIGTTIN) " . sigttin)"
+       " (" STR(SIGTTOU) " . sigttou)"
+       " (" STR(SIGURG)  " . sigurg)"
+       " (" STR(SIGXCPU) " . sigxcpu)"
+       " (" STR(SIGXFSZ) " . sigxfsz)"
+       " (" STR(SIGVTALRM) " . sigvtalrm)"
+       " (" STR(SIGPROF) " . sigprof)"
+       " (" STR(SIGWINCH) " . sigwinch)"
+       " (" STR(SIGIO)   " . sigio)"
+       " (" STR(SIGPWR)  " . sigpwr)"
+       " (" STR(SIGSYS)  " . sigsys))\n"
        "    (make-eq-hashtable)))\n");
   /* clang-format on */
 
@@ -128,4 +139,20 @@ void define_signal_functions(void) {
 
   eval("(define (signal-name->number name)\n"
        "  (hashtable-ref signal-table-name->number name #f)))\n");
+
+  /**
+   * (signal-raise signal-name) calls C functions sigaction(sig, SIG_DFL),
+   * then calls C function kill(getpid(), sig)
+   * i.e. sends specified signal to the process itself.
+   *
+   * Returns < 0 if signal-name is unknown, or if C functions getpid() or kill()
+   * fail with C errno != 0.
+   */
+  eval("(define signal-raise"
+       "  (let ((c-signal-raise (foreign-procedure \"c_signal_raise\" (int) int)))\n"
+       "    (lambda (signal-name)\n"
+       "      (let ((signal-number (signal-name->number signal-name)))\n"
+       "        (if (fixnum? signal-number)\n"
+       "          (c-signal-raise signal-number)\n"
+       "          -" STR(EINVAL) ")))))\n");
 }

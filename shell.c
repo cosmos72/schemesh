@@ -426,7 +426,8 @@ static void define_shell_functions(void) {
    * to the process group of the newly created process.
    *
    * The subshell process will execute the Scheme function (job-subshell-func j)
-   * then will exit with the value stored in (job-last-status j).
+   * passing the job j as only argument,
+   * then will call (exit-with-job-status) with the value returned by (job-subshell-func j)
    *
    * Options is a list of zero or more of the following:
    *   process-group-id: a fixnum, if present and > 0 the new subshell will be inserted

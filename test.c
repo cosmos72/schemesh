@@ -79,7 +79,7 @@ static const struct {
     {"(sh-run (sh-cmd \"false\"))", "(exited . 1)"},
     {"(make-multijob 'hello (lambda (j) '(exited . 42)))", "(sh-hello)"},
     {"(sh-run (make-multijob 'hello (lambda (j) '(exited . 42))))", "(exited . 42)"},
-    {"(sh-run (make-multijob 'hello (lambda (j) '(killed . sigabrt))))", "(killed . sigabrt)"},
+    {"(sh-run (make-multijob 'hello (lambda (j) '(killed . sigsegv))))", "(killed . sigsegv)"},
     {"(let ((j (sh-vec (sh-cmd \"false\") (sh-cmd \"true\"))))\n"
      "  (sh-start j)\n"
      "  (sh-wait j))\n",
