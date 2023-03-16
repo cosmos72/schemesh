@@ -21,6 +21,9 @@
 #include "posix.h"
 #include "signal.h"
 
+#define STR_(arg) #arg
+#define STR(arg) STR_(arg)
+
 /**
  * convert Scheme vector-of-bytevector0 to a C-compatible NULL-terminated array of char*
  * usable for example for environ or argz arguments to execve() execvp() etc.
@@ -105,6 +108,10 @@ int c_print_errno(const char label[]) {
           label,
           strerror(err));
   return -err;
+}
+
+int c_pid_kill(int pid, int sig) {
+  return kill(pid, sig) >= 0 ? 0 : c_errno();
 }
 
 int c_exit(int status) {
@@ -212,9 +219,9 @@ void define_pid_functions(void) {
   Sregister_symbol("c_get_pgid", &c_get_pgid);
   Sregister_symbol("c_fork_pid", &c_fork_pid);
   Sregister_symbol("c_spawn_pid", &c_spawn_pid);
-  Sregister_symbol("c_pid_kill", &c_pid_kill);
   Sregister_symbol("c_pid_wait", &c_pid_wait);
   Sregister_symbol("c_pgid_foreground", &c_pgid_foreground);
+  Sregister_symbol("c_pid_kill", &c_pid_kill);
   Sregister_symbol("c_exit", &c_exit);
 
   /** (get-pid) returns pid of current process */
@@ -259,24 +266,27 @@ void define_pid_functions(void) {
    * (pid-kill pid signal-name) calls C function kill(pid, sig) i.e. sends specified signal
    * to the process(es) identified by pid.
    * Notes:
-   * pid ==  0 means "all processes in the same process group as the caller".
-   * pid == -1 means "all processes".
-   * pid <  -1 means "all processes in process group -pid"
+   *   pid ==  0 means "all processes in the same process group as the caller".
+   *   pid == -1 means "all processes".
+   *   pid <  -1 means "all processes in process group -pid"
    *
-   * Returns < 0 if C function kill() fails with C errno != 0.
+   * Returns < 0 if C function kill() fails with C errno != 0 or if signal-name is unknown.
    */
   eval("(define pid-kill"
        "  (let ((c-pid-kill (foreign-procedure \"c_pid_kill\" (int int) int)))\n"
        "    (lambda (pid signal-name)\n"
-       "      (c-pid-kill pid (signal-name->number signal-name)))))\n");
+       "      (let ((signal-number (signal-name->number signal-name)))\n"
+       "        (if (fixnum? signal-number)\n"
+       "          (c-pid-kill pid signal-number)\n"
+       "          -" STR(EINVAL) ")))))\n");
 
   /**
    * (pid-wait pid may-block) calls waitpid(pid, WUNTRACED) i.e. checks if process specified by pid
    * exited or stopped.
    * Notes:
-   * pid ==  0 means "any process in the same process group as the caller".
-   * pid == -1 means "any child process".
-   * pid <  -1 means "any process in process group -pid".
+   *   pid ==  0 means "any process in the same process group as the caller".
+   *   pid == -1 means "any child process".
+   *   pid <  -1 means "any process in process group -pid".
    *
    * Argument may-block must be either 'blocking or 'nonblocking.
    * If may-block is 'blocking, wait until pid (or any child process, if pid == -1) exits or stops,
@@ -293,6 +303,39 @@ void define_pid_functions(void) {
        "    (lambda (pid may-block)\n"
        "      (assert (member may-block '(blocking nonblocking)))\n"
        "      (c-pid-wait pid (if (eq? may-block 'blocking) 1 0)))))\n");
+
+  /**
+   * Call kill() or exit() to terminate current process with job-status, which can be one of:
+   *   (cons 'exited  exit-status)  ; will call C function exit(exit_status)
+   *   (cons 'killed  signal-name)  ; will call C function kill(getpid(), signal_number)
+   *               ; unless signal-name is one of: 'sigstop 'sigtstp 'sigcont 'sigttin 'sigttou
+   *               ; if kill() returns, will call C function exit(128 + signal_number)
+   *   ... any other value ... ;  will call C function exit(255)
+   */
+  eval("(define exit-with-job-status\n"
+       "  (let ((c-exit (foreign-procedure \"c_exit\" (int) int)))\n"
+       "    (lambda (status)\n"
+       "      (let ((exit-status\n"
+       "             (if (and (pair? status) (eq? 'exited (car status)) (fixnum? (cdr status)))\n"
+       "               (cdr status)\n"
+       "               255)))\n"
+       "        (dynamic-wind\n"
+       /*         before body */
+       "          (lambda () #f)\n"
+       /*         body */
+       "          (lambda ()\n"
+       "            (when (and (pair? status) (eq? 'killed (car status)))\n"
+       "              (let ((signal-name (cdr status)))\n"
+       "                (unless (member signal-name '(sigstop sigtstp sigcont\n"
+       "                                              sigttin sigttou))\n"
+       "                  (pid-kill (get-pid) signal-name))\n"
+       /*               process did not die with kill() */
+       "                (let ((signal-number (signal-name->number signal-name)))\n"
+       "                  (when (fixnum? signal-number)\n"
+       "                    (set! exit-status (fx+ 128 signal-number)))))))\n"
+       /*         after body */
+       "          (lambda ()\n"
+       "            (c-exit exit-status)))))))\n");
 }
 
 static int c_check_redirect_fds(ptr vector_redirect_fds) {
@@ -441,10 +484,6 @@ out:
 
 int c_pgid_foreground(int pgid) {
   return tcsetpgrp(tty_fd, pgid) >= 0 ? 0 : c_errno();
-}
-
-int c_pid_kill(int pid, int sig) {
-  return kill(pid, sig) >= 0 ? 0 : c_errno();
 }
 
 ptr c_pid_wait(int pid, int may_block) {

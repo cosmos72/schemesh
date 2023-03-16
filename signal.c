@@ -77,8 +77,8 @@ int c_signal_restore(int sig) {
   return 0;
 }
 
-#define x(arg) STR_(arg)
 #define STR_(arg) #arg
+#define x(arg) STR_(arg)
 
 void define_signal_functions(void) {
   /* clang-format off */

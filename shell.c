@@ -43,8 +43,8 @@ static void define_job_functions(void) {
        "    (mutable to-redirect-files)\n" /* vector of files to open before fork()       */
        "    (mutable to-close-fds)\n"      /* list: fds to close after spawn              */
        "    subshell-func\n"               /* procedure to run in fork()ed child.
-                                              receives job as only argument, and its
-                                              return value is passed to C exit()          */
+                                              receives job as only argument, and its return
+                                              value is passed to (exit-with-job-status)   */
        "    (mutable env)\n"               /* hashtable: overridden env variables, or '() */
        "    (mutable parent))))\n");       /* parent job, contains default values of env variables
                                             * and default redirections */
@@ -433,8 +433,7 @@ static void define_shell_functions(void) {
    *     into the corresponding process group id - which must already exist.
    */
   eval("(define %job-start\n"
-       "  (let ((c-fork-pid (foreign-procedure \"c_fork_pid\" (scheme-object int) int))\n"
-       "        (c-exit     (foreign-procedure \"c_exit\" (int) int)))\n"
+       "  (let ((c-fork-pid (foreign-procedure \"c_fork_pid\" (scheme-object int) int)))\n"
        "    (lambda (j . options)\n"
        "      (assert (procedure? (job-subshell-func j)))\n"
        "      (let* ((process-group-id (job-start-options->process-group-id options))\n"
@@ -445,7 +444,7 @@ static void define_shell_functions(void) {
        "          ((< ret 0)\n"
        "            (raise-errno-condition 'sh-start ret))\n" /* fork() failed */
        "          ((= ret 0)\n"                               /* child */
-       "            (let ((status 1))\n"
+       "            (let ((status '(exited . 255)))\n"
        "              (dynamic-wind\n"
        "                (lambda () #f)\n" /* run before body */
        "                (lambda ()\n"     /* body */
@@ -458,11 +457,7 @@ static void define_shell_functions(void) {
        "                  (job-last-status-set! j '(unknown . 0))\n"
        "                  (set! status ((job-subshell-func j) j)))\n"
        "                (lambda ()\n" /* run after body, even if it raised exception */
-       "                  (let ((fxstatus\n"
-       "                         (if (and (fixnum? status) (fx<=? 0 status 255))\n"
-       "                             status\n"
-       "                             1)))\n"
-       "                    (c-exit fxstatus))))))\n"
+       "                  (exit-with-job-status status)))))\n"
        "          ((> ret 0)\n" /* parent */
        "            (job-pid-set! j ret)\n"
        "            (job-pgid-set! j (if (> process-group-id 0) process-group-id ret))))))))\n");
@@ -500,11 +495,11 @@ static void define_shell_functions(void) {
    * Convert pid-wait-result to a symbolic job-status:
    *
    * If pid-wait-result is a pair (pid . exit-status) where exit-status is:
-   *  not a fixnum, or < 0 => return (cons 'unknown exit-status)
-   *  0..255               => return (cons 'exited  exit-status)
-   *  256 + kill_signal    => return (cons 'killed  signal-name)
-   *  512 + stop_signal    => return (cons 'stopped signal-name)
-   *  >= 768               => return (cons 'unknown (fx- exit-status 768))
+   *   not a fixnum, or < 0 => return (cons 'unknown exit-status)
+   *   0..255               => return (cons 'exited  exit-status)
+   *   256 + kill_signal    => return (cons 'killed  signal-name)
+   *   512 + stop_signal    => return (cons 'stopped signal-name)
+   *   >= 768               => return (cons 'unknown (fx- exit-status 768))
    *
    * If pid-wait-result is '() i.e. process status did not change,
    * return '(running . 0) indicating process is still running.
@@ -535,11 +530,11 @@ static void define_shell_functions(void) {
 
   /**
    * Wait for a cmd or job to exit or stop and return its status, which can be one of:
-   * (cons 'running ...)   ; may happen only if may-block is 'nonblocking
-   * (cons 'exited  exit-status)
-   * (cons 'killed  signal-name)
-   * (cons 'stopped signal-name)
-   * (cons 'unknown ...)
+   *   (cons 'running ...)   ; may happen only if may-block is 'nonblocking
+   *   (cons 'exited  exit-status)
+   *   (cons 'killed  signal-name)
+   *   (cons 'stopped signal-name)
+   *   (cons 'unknown ...)
    *
    * Argument may-block must be one of: 'blocking 'nonblocking
    *
@@ -656,8 +651,8 @@ static void define_shell_functions(void) {
        "                (c-pgid-foreground (job-pgid sh-globals))))))))))\n");
 
   /**
-   * Wait for a job or job-id to exit. Do NOT send SIGCONT to it in case it's already stopped,
-   * and do NOT return if the job gets stopped.
+   * Wait for a job or job-id to exit. Does NOT send SIGCONT to it in case it's already stopped,
+   * and does NOT return if the job gets stopped.
    * Return job status, which can be one of:
    *
    *   (cons 'exited  exit-status)
@@ -665,7 +660,7 @@ static void define_shell_functions(void) {
    *   (cons 'unknown ...)
    *
    * Note: upon invocation, sets the job as fg process group.
-   * Before returning, restores the sh-globals as fg process group.
+   * Before returning, restores sh-globals as fg process group.
    */
   eval("(define sh-wait\n"
        "  (let ((c-pgid-foreground (foreign-procedure \"c_pgid_foreground\" (int) int)))\n"
@@ -772,7 +767,7 @@ static void define_multijob_functions(void) {
        "        (set! status (sh-wait job))\n" /* wait for child job to exit                     */
        /*                                         keep iterating only if job exited successfully */
        "        (equal? status '(exited . 0))))\n"
-       "    (job-approx-exit-status status)))\n");
+       "    status))\n");
 
   /**
    * Run a multijob containing an "or" of children jobs.
@@ -787,7 +782,7 @@ static void define_multijob_functions(void) {
        "        (sh-start job pgid)\n"         /* run child job in parent's process group     */
        "        (set! status (sh-wait job))\n" /* wait for child job to exit                  */
        "        (not (equal? status '(exited . 0)))))\n" /* keep iterating only if job failed */
-       "    (job-approx-exit-status status)))\n");
+       "    status))\n");
 
   /**
    * Run a multijob containing a sequence of children jobs.
@@ -802,7 +797,7 @@ static void define_multijob_functions(void) {
        "        (sh-start job pgid)\n"         /* run child job in parent's process group */
        "        (set! status (sh-wait job))\n" /* wait for child job to exit */
        "        #t))\n"                        /* keep iterating */
-       "    (job-approx-exit-status status)))\n");
+       "    status))\n");
 
   eval("(define (sh-and . children-jobs)\n"
        "  (apply make-multijob 'and %multijob-run-and children-jobs))\n");

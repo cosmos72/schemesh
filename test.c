@@ -77,8 +77,9 @@ static const struct {
     {"(sh-cmd \"echo\" \"foo\" \" bar \")", "(sh-cmd \"echo\" \"foo\" \" bar \")"},
     {"(sh-run (sh-cmd \"true\"))", "(exited . 0)"},
     {"(sh-run (sh-cmd \"false\"))", "(exited . 1)"},
-    {"(make-multijob 'hello (lambda (j) 42))", "(sh-hello)"},
-    {"(sh-run (make-multijob 'hello (lambda (j) 42)))", "(exited . 42)"},
+    {"(make-multijob 'hello (lambda (j) '(exited . 42)))", "(sh-hello)"},
+    {"(sh-run (make-multijob 'hello (lambda (j) '(exited . 42))))", "(exited . 42)"},
+    {"(sh-run (make-multijob 'hello (lambda (j) '(killed . sigabrt))))", "(killed . sigabrt)"},
     {"(let ((j (sh-vec (sh-cmd \"false\") (sh-cmd \"true\"))))\n"
      "  (sh-start j)\n"
      "  (sh-wait j))\n",
