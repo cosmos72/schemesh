@@ -79,8 +79,7 @@ int c_signal_restore(int sig) {
 
 int c_signal_raise(int sig) {
   (void)c_signal_restore(sig);
-  int pid = c_get_pid();
-  if (pid <= 0 || kill(pid, sig) < 0) {
+  if (raise(sig) < 0) { // better than kill(getpid(), sig) in multi-threaded-programs
     return c_errno();
   }
   return 0;
