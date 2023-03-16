@@ -144,8 +144,7 @@ void define_signal_functions(void) {
    * then calls C function kill(getpid(), sig)
    * i.e. sends specified signal to the process itself.
    *
-   * Returns < 0 if signal-name is unknown, or if C functions getpid() or kill()
-   * fail with C errno != 0.
+   * Returns < 0 if signal-name is unknown, or if C function raise() fails with C errno != 0.
    */
   eval("(define signal-raise"
        "  (let ((c-signal-raise (foreign-procedure \"c_signal_raise\" (int) int)))\n"
