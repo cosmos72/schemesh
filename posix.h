@@ -24,6 +24,9 @@ void define_pid_functions(void);
 /** return current (-errno) value */
 int c_errno(void);
 
+/** return file descriptor for our controlling tty */
+int c_get_tty_fd(void);
+
 /** close specified file descriptor */
 int c_fd_close(int fd);
 

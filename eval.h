@@ -12,6 +12,10 @@
 
 #include <scheme.h>
 
+/** must be called before any other define_*() */
+void define_eval_macros(void);
+
+/** requires define_container_functions() */
 void define_eval_functions(void);
 
 /**
@@ -36,7 +40,7 @@ ptr call2(const char symbol_name[], ptr arg1, ptr arg2);
 ptr call3(const char symbol_name[], ptr arg1, ptr arg2, ptr arg3);
 
 /**
- * call Scheme (eval) on a C string and return the resulting Scheme value
+ * call Scheme (eval-string) on a C string and return the resulting Scheme value
  */
 ptr eval(const char str[]);
 

@@ -9,29 +9,32 @@ clean:
 	rm -f *~ *.o schemesh schemesh_test
 
 container.o: container.c container.h eval.h
-	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
+	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
 eval.o: eval.c eval.h
-	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
+	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
-main.o: main.c main.h shell.h
-	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
+lineedit.o: lineedit.c lineedit.h eval.h posix.h
+	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
+
+main.o: main.c main.h eval.h shell.h
+	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
 posix.o: posix.c posix.h eval.h signal.h
-	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
+	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
-signal.o: signal.c signal.h posix.h
-	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
+signal.o: signal.c signal.h eval.h posix.h
+	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
-shell.o: shell.c shell.h container.h eval.h posix.h shell.h
-	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR) -DCHEZ_SCHEME_DIR="$(CHEZ_SCHEME_DIR)"
+shell.o: shell.c shell.h container.h eval.h lineedit.h posix.h signal.h
+	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR) -DCHEZ_SCHEME_DIR="$(CHEZ_SCHEME_DIR)"
 
 test.o: test.c test.h shell.h
-	$(CC) -c $< -o $@ $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
+	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
 
-schemesh: main.o container.o eval.o posix.o shell.o signal.o
-	$(CC) $^ -o $@ -L$(CHEZ_SCHEME_DIR) -lkernel -lz -llz4 -lm -lncurses -luuid
+schemesh: main.o container.o eval.o lineedit.o posix.o shell.o signal.o
+	$(CC) -o $@ $^ -L$(CHEZ_SCHEME_DIR) -lkernel -lz -llz4 -lm -lncurses -luuid
 
-schemesh_test: test.o container.o eval.o posix.o shell.o signal.o
-	$(CC) $^ -o $@ -L$(CHEZ_SCHEME_DIR) -lkernel -lz -llz4 -lm -lncurses -luuid
+schemesh_test: test.o container.o eval.o lineedit.o posix.o shell.o signal.o
+	$(CC) -o $@ $^ -L$(CHEZ_SCHEME_DIR) -lkernel -lz -llz4 -lm -lncurses -luuid

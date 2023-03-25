@@ -36,6 +36,11 @@ static char** vector_to_c_argz(ptr vector_of_bytevector0);
 /** close-on-exec file descriptor for our controlling tty */
 static int tty_fd = -1;
 
+/** return file descriptor for our controlling tty */
+int c_get_tty_fd(void) {
+  return tty_fd;
+}
+
 int c_errno(void) {
   return -errno;
 }

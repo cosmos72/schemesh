@@ -10,8 +10,8 @@
 #include "shell.h"
 #include "container.h"
 #include "eval.h"
+#include "lineedit.h"
 #include "posix.h"
-#include "shell.h"
 #include "signal.h"
 
 #include <string.h>
@@ -820,6 +820,7 @@ void scheme_init(void (*on_scheme_exception)(void)) {
 int define_functions(void) {
   int err;
 
+  define_eval_macros();
   define_container_functions();
   define_eval_functions();
 
@@ -829,6 +830,7 @@ int define_functions(void) {
     return err;
   }
   define_signal_functions();
+  define_lineedit_functions();
   define_pid_functions();
   define_job_functions();
   define_shell_functions();

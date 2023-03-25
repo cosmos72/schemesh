@@ -93,6 +93,7 @@ again:
     end = now();
     fprintf(stdout, "; elapsed: %.09f\n", diff(start, end));
   }
+  fprintf(stdout, "; got EOF. exiting.\n");
 #endif /*0*/
 finish:
   on_exception = QUIT_FAILED;

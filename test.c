@@ -68,6 +68,13 @@ static const struct {
      "      (set! ret (cons cell ret))))\n"
      "  ret)\n",
      "((2.1 . B) (1.0 . A) (3 . C))"},
+    {"(let ((sz (tty-size)))\n"
+     "  (and (pair? sz)\n"
+     "       (integer? (car sz))\n"
+     "       (integer? (cdr sz))\n"
+     "       (positive? (car sz))\n"
+     "       (positive? (cdr sz))))\n",
+     "#t"},
     {"(begin\n"
      "  (sh-env-set! #t \"foo\" \"bar\")\n"
      "  (cons\n"

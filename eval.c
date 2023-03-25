@@ -39,13 +39,24 @@ ptr call3(const char symbol_name[], ptr arg1, ptr arg2, ptr arg3) {
 }
 
 /**
- * call Scheme (eval) on a C string and return the resulting Scheme value
+ * call Scheme (eval (read (open-input-string str))) on a C string
+ * and return the resulting Scheme value
  */
-ptr eval(const char str[]) {
+static ptr minimal_eval(const char str[]) {
   return call1("eval", call1("read", call1("open-input-string", Sstring(str))));
 }
 
-static void define_macros(void) {
+/**
+ * call Scheme (eval-string str) on a C string and return the resulting Scheme value
+ */
+ptr eval(const char str[]) {
+  return call1("eval-string", Sstring(str));
+}
+
+void define_eval_macros(void) {
+  minimal_eval("(define (eval-string str)\n"
+               "  (eval (read (open-input-string str))))\n");
+
   eval("(define-syntax while\n"
        "  (syntax-rules ()\n"
        "    ((_ pred)          (do () ((not pred))))\n"
@@ -208,7 +219,6 @@ bytes eval_to_bytevector(const char str[]) {
 }
 
 void define_eval_functions(void) {
-  define_macros();
   define_display_any();
   define_any_to_string();
   define_any_to_bytevector();
