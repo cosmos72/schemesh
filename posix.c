@@ -11,7 +11,7 @@
 #include "eval.h" // eval()
 #include "signal.h"
 
-#include <errno.h> // EINVAL, errno
+#include <errno.h> // EINVAL, EIO, errno
 #include <fcntl.h>
 #include <limits.h>
 #include <poll.h>
@@ -398,6 +398,8 @@ int define_fd_functions(void) {
   Sregister_symbol("c_fd_dup2", &c_fd_dup2);
   Sregister_symbol("c_fd_read", &c_fd_read);
   Sregister_symbol("c_fd_write", &c_fd_write);
+  Sregister_symbol("c_fd_select", &c_fd_select);
+  Sregister_symbol("c_fd_setnonblock", &c_fd_setnonblock);
   Sregister_symbol("c_open_file_fd", &c_open_file_fd);
   Sregister_symbol("c_open_pipe_fds", &c_open_pipe_fds);
 
@@ -449,6 +451,38 @@ int define_fd_functions(void) {
        "        (if (>= ret 0)\n"
        "          ret\n"
        "          (raise-errno-condition 'fd-write ret))))))\n");
+  /**
+   * (fd-select fd direction timeout-milliseconds) waits up to timeout-milliseconds
+   * for file descriptor fd to become ready for input, output or both.
+   *
+   * direction must be one of: 'read 'write 'rw
+   * timeout-milliseconds < 0 means infinite timeout
+   *
+   * On success, returns one of: 'timeout 'read 'write 'rw
+   * On error, raises condition.
+   */
+  eval("(define fd-select\n"
+       "  (let ((c-fd-select (foreign-procedure \"c_fd_select\" (int int int) int)))\n"
+       "    (lambda (fd direction timeout-milliseconds)\n"
+       "      (assert (member direction '(read write rw)))\n"
+       "      (let* ((rw-mask (cond ((eq? 'rw    direction) 3)\n"
+       "                            ((eq? 'write direction) 2)\n"
+       "                            ((eq? 'read  direction) 1)\n"
+       "                            (#t (error 'fd-select\n"
+       "                                \"direction must be one of 'read 'write 'rw\"))))\n"
+       "              (ret (c-fd-select fd rw-mask timeout-milliseconds)))\n"
+       "        (cond\n"
+       "          ((< ret 0) (raise-errno-condition 'fd-select ret))\n"
+       "          ((< ret 4) (vector-ref '#(timeout read write rw) ret))\n"
+       /*                     c_fd_select() called poll() which set (revents & POLLERR) */
+       "          (#t        (raise-errno-condition 'fd-select " STR(EIO) ")))))))\n");
+  eval("(define fd-setnonblock\n"
+       "  (let ((c-fd-setnonblock (foreign-procedure \"c_fd_setnonblock\" (int) int)))\n"
+       "    (lambda (fd)\n"
+       "      (let ((ret (c-fd-setnonblock fd)))\n"
+       "        (if (>= ret 0)\n"
+       "          ret\n"
+       "          (raise-errno-condition 'fd-setnonblock ret))))))\n");
 
   eval("(define open-file-fd\n"
        "  (let ((c-open-file-fd (foreign-procedure \"c_open_file_fd\""
