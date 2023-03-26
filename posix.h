@@ -12,6 +12,9 @@
 
 #include <scheme.h>
 
+/** define tty-related functions. */
+void define_tty_functions(void);
+
 /** define fd-related functions. return < 0 if some C system call failed */
 int define_fd_functions(void);
 
@@ -24,8 +27,20 @@ void define_pid_functions(void);
 /** return current (-errno) value */
 int c_errno(void);
 
+/** set errno = errno_value, then return (-errno) */
+int c_errno_set(int errno_value);
+
 /** return file descriptor for our controlling tty */
-int c_get_tty_fd(void);
+int c_tty_fd(void);
+
+/** restore controlling tty to saved config */
+int c_tty_restore(void);
+
+/** save controlling tty config, then set it to raw mode */
+int c_tty_setraw(void);
+
+/** return a cons (width . height), or c_errno() on error */
+ptr c_tty_size(void);
 
 /** close specified file descriptor */
 int c_fd_close(int fd);
@@ -39,7 +54,38 @@ int c_fd_dup(int old_fd);
 /** call dup2() */
 int c_fd_dup2(int old_fd, int new_fd);
 
-/** call open() and return fd of newly opened file, or c_errno() on error */
+/** call read(). returns number of bytes read, or c_errno() < 0 on error */
+iptr c_fd_read(int fd, ptr bytevector_read, iptr offset);
+
+/** call write(). returns number of bytes written, or c_errno() < 0 on error */
+iptr c_fd_write(int fd, ptr bytevector_towrite, iptr offset);
+
+/**
+ * call select() or poll() on file descriptor.
+ * Returns rw_mask of operations available on file descriptor,
+ * or c_errno() < 0 on error.
+ *
+ * argument rw_mask and return value are a bitwise-or of:
+ *   1 => fd is readable
+ *   2 => fd is writable
+ *   4 => fd is in error (only in return value)
+ */
+int c_fd_select(int fd, int rw_mask, int timeout_milliseconds);
+
+/**
+ * call fcntl(fd, FD_SETFL, O_NONBLOCK | fcntl(fd, FD_GETFL))
+ * to set file descriptor to non-blocking mode.
+ * returns >= 0 on success, or c_errno() on error
+ */
+int c_fd_setnonblock(int fd);
+
+/**
+ * call open() and return fd of newly opened file, or c_errno() on error
+ * flag_read_write can be one of:
+ *   0 => open readonly
+ *   1 => open writeonly
+ *   2 => open readwrite
+ */
 int c_open_file_fd(ptr bytevector0_filepath,
                    int flag_read_write,
                    int flag_create,
@@ -94,7 +140,7 @@ int c_pid_kill(int pid, int sig);
 ptr c_pid_wait(int pid, int may_block);
 
 /** print label and current errno value to stderr. return -errno */
-int c_print_errno(const char label[]);
+int c_errno_print(const char label[]);
 
 /** POSIX standard says programs need to declare environ by themselves */
 extern char** environ;

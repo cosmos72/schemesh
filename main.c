@@ -8,9 +8,9 @@
  */
 
 #include "main.h"
+#include "posix.h"
 #include "shell.h"
 
-#include <errno.h>
 #include <setjmp.h>
 #include <stdio.h>
 #include <time.h>
@@ -77,12 +77,12 @@ again:
   (void)&show;
   (void)&diff;
   Senable_expeditor(NULL);
-  errno = 0; // not enough, Scheme (errno) still returns -11
+  c_errno_set(0); // not enough, Scheme (errno) still returns -11
   Sscheme_start(argc, argv);
 #else  /*0*/
   (void)argc;
   (void)argv;
-  errno = 0;
+  c_errno_set(0);
 
   while (fgets(buf, LEN, stdin) != NULL) {
     start = now();

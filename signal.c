@@ -49,7 +49,7 @@ int c_signals_init(void) {
   for (i = 0; i < N_OF(signals_tohandle); i++) {
     action.sa_handler = handlers[i];
     if (sigaction(signals_tohandle[i], &action, NULL) < 0) {
-      return c_print_errno(labels[i]);
+      return c_errno_print(labels[i]);
     }
   }
   return 0;

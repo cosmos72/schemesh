@@ -7,43 +7,181 @@
  * (at your option) any later version.
  */
 
-#include <errno.h>
+#include "posix.h"
+#include "eval.h" // eval()
+#include "signal.h"
+
+#include <errno.h> // EINVAL, errno
 #include <fcntl.h>
 #include <limits.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdio.h>
-#include <stdlib.h>
+#include <stdlib.h> // getenv(), strtoul
 #include <string.h>
+#include <sys/ioctl.h> // ioctl(), TIOCGWINSZ
 #include <sys/wait.h>
+#include <termios.h> // tcgetattr(), tcsetattr()
 #include <unistd.h>
-
-#include "eval.h"
-#include "posix.h"
-#include "signal.h"
 
 #define STR_(arg) #arg
 #define STR(arg) STR_(arg)
 
-/**
- * convert Scheme vector-of-bytevector0 to a C-compatible NULL-terminated array of char*
- * usable for example for environ or argz arguments to execve() execvp() etc.
- * returned array should be deallocated with free()
- * and contains pointers into Scheme bytevectors, thus becomes invalid
- * after any call to Scheme functions.
- */
-static char** vector_to_c_argz(ptr vector_of_bytevector0);
-
-/** close-on-exec file descriptor for our controlling tty */
-static int tty_fd = -1;
-
-/** return file descriptor for our controlling tty */
-int c_get_tty_fd(void) {
-  return tty_fd;
-}
+/******************************************************************************/
+/*                                                                            */
+/*                          errno-related functions                           */
+/*                                                                            */
+/******************************************************************************/
 
 int c_errno(void) {
   return -errno;
 }
+
+int c_errno_set(int errno_value) {
+  return -(errno = errno_value);
+}
+
+int c_errno_print(const char label[]) {
+  const int err = errno;
+  fprintf(stderr,
+          "error initializing POSIX subsystem: %s failed with error %s\n",
+          label,
+          strerror(err));
+  return -err;
+}
+
+/******************************************************************************/
+/*                                                                            */
+/*                           tty-related functions                            */
+/*                                                                            */
+/******************************************************************************/
+
+/** close-on-exec file descriptor for our controlling tty */
+static int tty_fd = -1;
+
+static int c_tty_init(void) {
+  int err = 0;
+
+  if ((tty_fd = open("/dev/tty", O_RDWR)) < 0) {
+    err = c_errno_print("open(\"/dev/tty\")");
+  } else if (dup2(tty_fd, 255) < 0) {
+    err = c_errno_print("dup2(tty_fd, 255)");
+  } else if (close(tty_fd) < 0) {
+    err = c_errno_print("close(tty_fd)");
+  } else if (fcntl(tty_fd = 255, F_SETFD, FD_CLOEXEC) < 0) {
+    err = c_errno_print("fcntl(tty_fd, F_SETFD, FD_CLOEXEC)");
+  }
+  return err;
+}
+
+/** return file descriptor for our controlling tty */
+int c_tty_fd(void) {
+  return tty_fd;
+}
+
+static struct termios saved_conf;
+
+int c_tty_restore(void) {
+  while (tcsetattr(tty_fd, TCSADRAIN, &saved_conf) != 0) {
+    if (errno != EINTR) {
+      return c_errno();
+    }
+  }
+  return 0;
+}
+
+int c_tty_setraw(void) {
+  struct termios conf;
+  size_t         i;
+
+  while (tcgetattr(tty_fd, &saved_conf) != 0) {
+    if (errno != EINTR) {
+      return c_errno();
+    }
+  }
+  conf = saved_conf;
+  conf.c_iflag &= ~(BRKINT | ICRNL | IGNBRK | IGNCR | INLCR | ISTRIP | IXOFF | IXON | PARMRK);
+  conf.c_oflag |= OPOST | ONLCR;
+  conf.c_cflag &= ~(CSIZE | PARENB);
+  conf.c_cflag |= CS8;
+  conf.c_lflag &= ~(/*ECHO | ECHONL | */ ICANON | IEXTEN | ISIG);
+  /* conf.c_lflag |= TOSTOP; */
+  for (i = 0; i < NCCS; i++) {
+    conf.c_cc[i] = 0;
+  }
+  conf.c_cc[VMIN] = 1;
+  while (tcsetattr(tty_fd, TCSADRAIN, &conf) != 0) {
+    if (errno != EINTR) {
+      return c_errno();
+    }
+  }
+  return 0;
+}
+
+static unsigned long c_parse_unsigned_long(const char* str);
+
+ptr c_tty_size(void) {
+  unsigned long width = 0, height = 0;
+  int           err = 0;
+#ifdef TIOCGWINSZ
+  {
+    struct winsize wsize;
+    while ((err = ioctl(tty_fd, TIOCGWINSZ, &wsize)) != 0 && errno == EINTR) {
+    }
+    if (err != 0) {
+      // save ioctl() error
+      err = c_errno();
+    } else if (wsize.ws_col > 0 && wsize.ws_row > 0) {
+      width  = wsize.ws_col;
+      height = wsize.ws_row;
+    }
+  }
+#endif /* TIOCGWINSZ */
+  if (width == 0) {
+    width = c_parse_unsigned_long(getenv("COLUMNS"));
+  }
+  if (height == 0) {
+    width = c_parse_unsigned_long(getenv("LINES"));
+  }
+  if (width != 0 && height != 0) {
+    return Scons(Sunsigned(width), Sunsigned(height));
+  }
+  if (err == 0) {
+    err = c_errno_set(EINVAL);
+  }
+  return Sinteger(err);
+}
+
+static unsigned long c_parse_unsigned_long(const char* str) {
+  if (str != NULL) {
+    char*         end = NULL;
+    unsigned long n   = strtoul(str, &end, 10);
+    if (*end == '\0') {
+      return n;
+    }
+  }
+  return 0;
+}
+
+void define_tty_functions(void) {
+  Sregister_symbol("c_tty_restore", &c_tty_restore);
+  Sregister_symbol("c_tty_setraw", &c_tty_setraw);
+  Sregister_symbol("c_tty_size", &c_tty_size);
+
+  /**
+   * (tty-size) calls C functions c_tty_size(),
+   * which returns controlling tty's (width . height), or c_errno() on error
+   */
+  eval("(define tty-restore! (foreign-procedure \"c_tty_restore\" () int))\n");
+  eval("(define tty-setraw! (foreign-procedure \"c_tty_setraw\" () int))\n");
+  eval("(define tty-size   (foreign-procedure \"c_tty_size\" () scheme-object))\n");
+}
+
+/******************************************************************************/
+/*                                                                            */
+/*                            fd-related functions                            */
+/*                                                                            */
+/******************************************************************************/
 
 int c_fd_close(int fd) {
   int ret = close(fd);
@@ -70,6 +208,83 @@ int c_fd_dup2(int old_fd, int new_fd) {
   return ret >= 0 ? ret : c_errno();
 }
 
+int c_fd_setnonblock(int fd) {
+  int flags;
+  while ((flags = fcntl(fd, F_GETFL)) < 0 && errno == EINTR) {
+    if (errno != EINTR) {
+      return c_errno();
+    }
+  }
+  flags |= O_NONBLOCK;
+  while (fcntl(fd, F_SETFL, flags) < 0) {
+    if (errno != EINTR) {
+      return c_errno();
+    }
+  }
+  return 0;
+}
+
+/** call read(). returns number of bytes received, or c_errno() < 0 on error */
+iptr c_fd_read(int fd, ptr bytevector_read, iptr offset) {
+  char*   buf;
+  iptr    len;
+  ssize_t got_n;
+  if (!Sbytevectorp(bytevector_read)) {
+    return c_errno_set(EINVAL);
+  }
+  buf = (char*)Sbytevector_data(bytevector_read);
+  len = Sbytevector_length(bytevector_read);
+  if (offset > len) {
+    return c_errno_set(EINVAL);
+  }
+  buf += offset;
+  len -= offset;
+  while ((got_n = read(fd, buf, len)) < 0 && errno == EINTR) {
+  }
+  return got_n >= 0 ? got_n : c_errno();
+}
+
+/** call write(). returns number of bytes written, or c_errno() < 0 on error */
+iptr c_fd_write(int fd, ptr bytevector_towrite, iptr offset) {
+  const char* buf;
+  iptr        len;
+  ssize_t     sent_n;
+  if (!Sbytevectorp(bytevector_towrite)) {
+    return c_errno_set(EINVAL);
+  }
+  buf = (const char*)Sbytevector_data(bytevector_towrite);
+  len = Sbytevector_length(bytevector_towrite);
+  if (offset > len) {
+    return c_errno_set(EINVAL);
+  }
+  buf += offset;
+  len -= offset;
+  while ((sent_n = write(fd, buf, len)) < 0 && errno == EINTR) {
+  }
+  return sent_n >= 0 ? sent_n : c_errno();
+}
+
+enum read_write_mask {
+  mask_READ  = 1,
+  mask_WRITE = 2,
+  mask_ERR   = 4,
+};
+
+int c_fd_select(int fd, int rw_mask, int timeout_milliseconds) {
+  struct pollfd entry;
+  entry.fd     = fd;
+  entry.events = (rw_mask & mask_READ ? POLLIN : 0) | /*                                         */
+                 (rw_mask & mask_WRITE ? POLLOUT : 0);
+  entry.revents = 0;
+  if (poll(&entry, 1, timeout_milliseconds) < 0) {
+    /** TODO: retry on EINTR ? */
+    return c_errno();
+  }
+  return (entry.revents & POLLIN ? mask_READ : 0) |   /*                                         */
+         (entry.revents & POLLOUT ? mask_WRITE : 0) | /*                                         */
+         (entry.revents & POLLERR ? mask_ERR : 0);
+}
+
 int c_open_file_fd(ptr bytevector0_filepath,
                    int flag_read_write,
                    int flag_create,
@@ -79,12 +294,12 @@ int c_open_file_fd(ptr bytevector0_filepath,
   iptr        len;
   int         flags, ret;
   if (!Sbytevectorp(bytevector0_filepath)) {
-    return -(errno = EINVAL);
+    return c_errno_set(EINVAL);
   }
   filepath = (const char*)Sbytevector_data(bytevector0_filepath);
   len      = Sbytevector_length(bytevector0_filepath);
   if (len == 0 || filepath[len - 1] != '\0') {
-    return -(errno = EINVAL);
+    return c_errno_set(EINVAL);
   }
   flags = (flag_read_write == 0 ? O_RDONLY :
            flag_read_write == 1 ? O_WRONLY :
@@ -106,14 +321,58 @@ ptr c_open_pipe_fds(void) {
   return Scons(Sinteger(fds[0]), Sinteger(fds[1]));
 }
 
-int c_print_errno(const char label[]) {
-  const int err = errno;
-  fprintf(stderr,
-          "error initializing POSIX subsystem: %s failed with error %s\n",
-          label,
-          strerror(err));
-  return -err;
+static int c_check_redirect_fds(ptr vector_redirect_fds) {
+  iptr i, n;
+  if (!Svectorp(vector_redirect_fds)) {
+    return -EINVAL;
+  }
+  n = Svector_length(vector_redirect_fds);
+  for (i = 0; i < n; i++) {
+    ptr elem = Svector_ref(vector_redirect_fds, i);
+    if (!Sfixnump(elem)) {
+      return -EINVAL;
+    }
+  }
+  return 0;
 }
+
+/** redirect fds as indicated in vector_redirect_fds. return < 0 on error */
+static int c_redirect_fds(ptr vector_redirect_fds) {
+  iptr i, n;
+  int  lowest_fd_to_close = 0;
+  if (!Svectorp(vector_redirect_fds)) {
+    return -1;
+  }
+  n = Svector_length(vector_redirect_fds);
+  for (i = 0; i < n; i++) {
+    ptr  elem = Svector_ref(vector_redirect_fds, i);
+    iptr fd;
+    if (!Sfixnump(elem)) {
+      return -1;
+    }
+    fd = Sfixnum_value(elem);
+    if (fd >= 0) {
+      if (fd != i && dup2(fd, i) < 0) {
+        return -1;
+      }
+      lowest_fd_to_close = i + 1;
+    }
+  }
+  // close all fds in 0...(lowest_fd_to_close-1) except the redirected ones
+  for (i = 0; i < lowest_fd_to_close; i++) {
+    ptr elem = Svector_ref(vector_redirect_fds, i);
+    if (!Sfixnump(elem) || Sfixnum_value(elem) < 0) {
+      (void)close(i);
+    }
+  }
+  return lowest_fd_to_close;
+}
+
+/******************************************************************************/
+/*                                                                            */
+/*                           pid-related functions                            */
+/*                                                                            */
+/******************************************************************************/
 
 int c_pid_kill(int pid, int sig) {
   return kill(pid, sig) >= 0 ? 0 : c_errno();
@@ -125,26 +384,11 @@ int c_exit(int status) {
   return -EINVAL;
 }
 
-static int c_init_posix_subsystem(void) {
-  int err = 0;
-
-  if ((tty_fd = open("/dev/tty", O_RDWR)) < 0) {
-    err = c_print_errno("open(\"/dev/tty\")");
-  } else if (dup2(tty_fd, 255) < 0) {
-    err = c_print_errno("dup2(tty_fd, 255)");
-  } else if (close(tty_fd) < 0) {
-    err = c_print_errno("close(tty_fd)");
-  } else if (fcntl(tty_fd = 255, F_SETFD, FD_CLOEXEC) < 0) {
-    err = c_print_errno("fcntl(tty_fd, F_SETFD, FD_CLOEXEC)");
-  } else {
-    err = c_signals_init();
-  }
-  return err;
-}
-
 int define_fd_functions(void) {
   int err;
-  if ((err = c_init_posix_subsystem()) < 0) {
+  if ((err = c_tty_init()) < 0) {
+    return err;
+  } else if ((err = c_signals_init()) < 0) {
     return err;
   }
 
@@ -152,9 +396,13 @@ int define_fd_functions(void) {
   Sregister_symbol("c_fd_close", &c_fd_close);
   Sregister_symbol("c_fd_dup", &c_fd_dup);
   Sregister_symbol("c_fd_dup2", &c_fd_dup2);
+  Sregister_symbol("c_fd_read", &c_fd_read);
+  Sregister_symbol("c_fd_write", &c_fd_write);
   Sregister_symbol("c_open_file_fd", &c_open_file_fd);
   Sregister_symbol("c_open_pipe_fds", &c_open_pipe_fds);
 
+  eval("(define errno\n"
+       "  (foreign-procedure \"c_errno\" () int))\n");
   eval("(define (make-errno-condition who c-errno)\n"
        "  (condition\n"
        "    (make-error)\n"
@@ -173,7 +421,6 @@ int define_fd_functions(void) {
        "          (make-errno-condition 'fd-close ret))))))\n");
   eval("(define (fd-close-list fd-list)\n"
        "  (list-iterate fd-list fd-close))\n");
-
   eval("(define fd-dup\n"
        "  (let ((c-fd-dup (foreign-procedure \"c_fd_dup\" (int) int)))\n"
        "    (lambda (old-fd)\n"
@@ -188,8 +435,21 @@ int define_fd_functions(void) {
        "        (if (>= ret 0)\n"
        "          (void)\n"
        "          (raise-errno-condition 'fd-dup2 ret))))))\n");
-  eval("(define errno\n"
-       "  (foreign-procedure \"c_errno\" () int))\n");
+  eval("(define fd-read\n"
+       "  (let ((c-fd-read (foreign-procedure \"c_fd_read\" (int ptr iptr) iptr)))\n"
+       "    (lambda (fd bytevector-result offset)\n"
+       "      (let ((ret (c-fd-read fd bytevector-result offset)))\n"
+       "        (if (>= ret 0)\n"
+       "          ret\n"
+       "          (raise-errno-condition 'fd-read ret))))))\n");
+  eval("(define fd-write\n"
+       "  (let ((c-fd-write (foreign-procedure \"c_fd_write\" (int ptr iptr) iptr)))\n"
+       "    (lambda (fd bytevector-towrite offset)\n"
+       "      (let ((ret (c-fd-read fd bytevector-towrite offset)))\n"
+       "        (if (>= ret 0)\n"
+       "          ret\n"
+       "          (raise-errno-condition 'fd-write ret))))))\n");
+
   eval("(define open-file-fd\n"
        "  (let ((c-open-file-fd (foreign-procedure \"c_open_file_fd\""
        "                          (scheme-object int int int int) int)))\n"
@@ -345,53 +605,6 @@ void define_pid_functions(void) {
        "            (c-exit exit-status)))))))\n");
 }
 
-static int c_check_redirect_fds(ptr vector_redirect_fds) {
-  iptr i, n;
-  if (!Svectorp(vector_redirect_fds)) {
-    return -EINVAL;
-  }
-  n = Svector_length(vector_redirect_fds);
-  for (i = 0; i < n; i++) {
-    ptr elem = Svector_ref(vector_redirect_fds, i);
-    if (!Sfixnump(elem)) {
-      return -EINVAL;
-    }
-  }
-  return 0;
-}
-
-/** redirect fds as indicated in vector_redirect_fds. return < 0 on error */
-static int c_redirect_fds(ptr vector_redirect_fds) {
-  iptr i, n;
-  int  lowest_fd_to_close = 0;
-  if (!Svectorp(vector_redirect_fds)) {
-    return -1;
-  }
-  n = Svector_length(vector_redirect_fds);
-  for (i = 0; i < n; i++) {
-    ptr  elem = Svector_ref(vector_redirect_fds, i);
-    iptr fd;
-    if (!Sfixnump(elem)) {
-      return -1;
-    }
-    fd = Sfixnum_value(elem);
-    if (fd >= 0) {
-      if (fd != i && dup2(fd, i) < 0) {
-        return -1;
-      }
-      lowest_fd_to_close = i + 1;
-    }
-  }
-  // close all fds in 0...(lowest_fd_to_close-1) except the redirected ones
-  for (i = 0; i < lowest_fd_to_close; i++) {
-    ptr elem = Svector_ref(vector_redirect_fds, i);
-    if (!Sfixnump(elem) || Sfixnum_value(elem) < 0) {
-      (void)close(i);
-    }
-  }
-  return lowest_fd_to_close;
-}
-
 int c_get_pid(void) {
   int pid = getpid();
   return pid >= 0 ? pid : c_errno();
@@ -432,6 +645,15 @@ int c_fork_pid(ptr vector_redirect_fds, int existing_pgid_if_positive) {
       return pid;
   }
 }
+
+/**
+ * convert Scheme vector-of-bytevector0 to a C-compatible NULL-terminated array of char*
+ * usable for example for environ or argz arguments to execve() execvp() etc.
+ * returned array should be deallocated with free()
+ * and contains pointers into Scheme bytevectors, thus becomes invalid
+ * after any call to Scheme functions.
+ */
+static char** vector_to_c_argz(ptr vector_of_bytevector0);
 
 int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
                 ptr vector_redirect_fds,
@@ -484,7 +706,7 @@ out:
   free(argv);
   free(envp);
   if (pid < 0) {
-    errno = -pid;
+    c_errno_set(-pid);
   }
   return pid;
 }
@@ -517,7 +739,7 @@ ptr c_pid_wait(int pid, int may_block) {
   } else if (WIFSTOPPED(wstatus)) {
     flag = 512 + WSTOPSIG(wstatus);
   } else {
-    return Sinteger(-(errno = EINVAL));
+    return Sinteger(c_errno_set(EINVAL));
   }
   return Scons(Sinteger(ret), Sinteger(flag));
 }

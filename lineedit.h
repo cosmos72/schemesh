@@ -12,15 +12,4 @@
 
 #include <scheme.h>
 
-void define_lineedit_functions(void);
-
-/** return a cons (width . height), or c_errno() on error */
-ptr c_tty_size(void);
-
-/** save controlling tty config, then set it to raw mode */
-int c_tty_setraw(void);
-
-/** restore controlling tty to saved config */
-int c_tty_restore(void);
-
 #endif /* SCHEMESH_LINEEDIT_H */
