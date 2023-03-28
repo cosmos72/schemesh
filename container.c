@@ -46,6 +46,23 @@ static void define_vector_functions(void) {
        "  htable)\n");
 }
 
+/** define some additional bytevector functions */
+static void define_bytevector_functions(void) {
+  eval("(define (subbytevector-fill! bvec start n val)\n"
+       "  (do ((i 0 (fx1+ i)))\n"
+       "      ((fx>=? i n))\n"
+       "    (bytevector-u8-set! bvec (fx+ i start) val))))\n");
+
+  /**
+   * (bytevector-iterate l proc) iterates on all elements of given bytevector vec,
+   * and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
+   */
+  eval("(define (bytevector-iterate bvec proc)\n"
+       "  (do ((i 0 (fx1+ i))\n"
+       "       (n (bytevector-length bvec)))\n"
+       "      ((or (fx>=? i n) (not (proc i (bytevector-u8-ref bvec i))))))))\n");
+}
+
 /** Define Scheme type "array", a resizeable vector */
 static void define_array_functions(void) {
   eval("(begin\n"
@@ -185,6 +202,147 @@ static void define_array_functions(void) {
        "         (end (fxmin (fx+ start n) (array-length arr))))\n"
        "        ((or ret (fx>=? i end)) ret)\n"
        "      (when (predicate (array-ref arr i))\n"
+       "        (set! ret i)))))\n");
+}
+
+/** Define Scheme type "bytearray", a resizeable bytevector */
+static void define_bytearray_functions(void) {
+  eval("(begin\n"
+       "  (define list->bytearray)\n"
+       "  (define make-bytearray)\n"
+       "  (define bytearray)\n"
+       "  (define bytearray?)\n"
+       "  (define bytearray-length)\n"
+       "  (define bytearray-capacity)\n"
+       "  (define bytearray-empty?)\n"
+       "  (define bytearray-u8-ref)\n"
+       "  (define bytearray-u8-set!)\n"
+       "  (define bytearray-u8-last)\n"
+       "  (define bytearray-fill!)\n"
+       "  (define subbytearray-fill!)\n"
+       "  (define bytearray-copy)\n"
+       "  (define bytearray-copy!)\n"
+       "  (define bytearray-capacity-set!)\n"
+       "  (define bytearray-length-set!)\n"
+       "  (define bytearray-u8-append!)\n"
+       "  (define bytearray-iterate))\n");
+
+  eval("(let ()\n"
+       "\n"
+       "(define-record-type\n"
+       "  (%bytearray %make-bytearray %bytearray?)\n"
+       "  (fields\n"
+       "     (mutable len bytearray-len bytearray-len-set!)\n"
+       "     (mutable vec bytearray-vec bytearray-vec-set!))\n"
+       "  (nongenerative #{%bytearray mu5r2go07bretxssmue01kt46-0}))\n"
+       "\n"
+       "(set! list->bytearray (lambda (l)\n"
+       "  (let ((vec (apply bytevector l)))\n"
+       "    (%make-bytearray (bytevector-length vec) vec))))\n"
+       "\n"
+       "(set! make-bytearray (lambda (n . val)\n"
+       "  (%make-bytearray n (apply make-bytevector n val))))\n"
+       "\n"
+       "(set! bytearray? (lambda (obj)\n"
+       "   (%bytearray? obj)))\n"
+       "\n"
+       "(set! bytearray (lambda objs\n"
+       "  (list->bytearray objs)))\n"
+       "\n"
+       "(set! bytearray-length (lambda (arr)\n"
+       "  (bytearray-len arr)))\n"
+       "\n"
+       "(set! bytearray-capacity (lambda (arr)\n"
+       "  (bytevector-length (bytearray-vec arr))))\n"
+       "\n"
+       "(set! bytearray-empty? (lambda (arr)\n"
+       "  (fxzero? (bytearray-len arr))))\n"
+       "\n"
+       "(set! bytearray-u8-ref (lambda (arr n)\n"
+       "  (assert (fx<? n (bytearray-len arr)))\n"
+       "  (bytevector-u8-ref (bytearray-vec arr) n)))\n"
+       "\n"
+       "(set! bytearray-u8-set! (lambda (arr n obj)\n"
+       "  (assert (fx<? n (bytearray-len arr)))\n"
+       "  (bytevector-u8-set! (bytearray-vec arr) n obj)))\n"
+       "\n"
+       "(set! bytearray-u8-last (lambda (arr)\n"
+       "  (assert (not (bytearray-empty? arr)))\n"
+       "  (bytevector-u8-ref (bytearray-vec arr) (fx1- (bytearray-len arr)))))\n"
+       "\n"
+       "(set! bytearray-fill! (lambda (arr obj)\n"
+       /* no optimized function to fill only up to bytearray-len,
+        * so fill up to bytearray-capacity */
+       "  (bytevector-fill! (bytearray-vec arr) obj)))\n"
+       "\n"
+       "(set! subbytearray-fill! (lambda (arr start n obj)\n"
+       "  (assert (fx<=? (fx+ src n) (bytearray-len arr)))\n"
+       "  (subbytevector-fill! (bytearray-vec arr) start n obj)))\n"
+       "\n"
+       "(set! bytearray-copy (lambda (src)\n"
+       "  (let* ((n (bytearray-length src))\n"
+       "         (dst (make-bytearray n)))\n"
+       "    (bytevector-copy! (bytearray-vec src) 0 (bytearray-vec dst) 0 n)\n"
+       "    dst)))\n"
+       "\n"
+       "(set! bytearray-copy! (lambda (src src-start dst dst-start n)\n"
+       "  (assert (fx<=? (fx+ src-start n) (bytearray-len src)))\n"
+       "  (assert (fx<=? (fx+ dst-start n) (bytearray-len dst)))\n"
+       "  (bytevector-copy! (bytearray-vec src) src-start (bytearray-vec dst) dst-start n)))\n"
+       "\n"
+       "(set! bytearray-capacity-set! (lambda (arr n)\n"
+       "  (assert (fx>=? n (bytearray-len arr)))\n"
+       "  (unless (fx=? n (bytearray-capacity arr))\n"
+       "    (let* ((len (bytearray-len arr))\n"
+       "           (old-vec (bytearray-vec arr))\n"
+       "           (new-vec (make-bytevector n)))\n"
+       "      (bytevector-copy! old-vec 0 new-vec 0 len)\n"
+       "      (bytearray-vec-set! arr new-vec)))))\n"
+       "\n"
+       "(set! bytearray-length-set! (lambda (arr n)\n"
+       "  (when (fx>? n (bytearray-capacity arr))\n"
+       "    (let ((new-cap (fxmax 8 n (fx* 2 (bytearray-capacity arr)))))\n"
+       "      (bytearray-capacity-set! arr new-cap)))\n"
+       "  (bytearray-len-set! arr n)))\n"
+       "\n"
+       "(set! bytearray-u8-append! (lambda (arr . elements)\n"
+       "  (unless (null? elements)\n"
+       "    (let ((elem-n (length elements))\n"
+       "          (pos    (bytearray-len arr)))\n"
+       "      (bytearray-length-set! arr (fx+ pos elem-n))\n"
+       "      (list-iterate elements\n"
+       "        (lambda (elem)\n"
+       "          (bytearray-u8-set! arr pos elem)\n"
+       "          (set! pos (fx1+ pos))))))))\n"
+       "\n"
+       "(set! bytearray-iterate (lambda (arr proc)\n"
+       "  (do ((i 0 (fx1+ i))\n"
+       "       (n (bytearray-len arr))\n"
+       "       (v (bytearray-vec arr)))\n"
+       "    ((or (fx>=? i n) (not (proc i (bytevector-u8-ref v i))))))))\n"
+       "\n"
+       /** customize how "bytearray" objects are printed */
+       "(record-writer (record-type-descriptor %bytearray)\n"
+       "  (lambda (obj port writer)\n"
+       "    (display \"(bytearray\" port)\n"
+       "    (bytearray-iterate obj"
+       "      (lambda (i elem)"
+       "        (display #\\space port)\n"
+       "        (writer elem port)))\n"
+       "    (display #\\) port)))\n"
+       ")\n");
+
+  /**
+   * (bytearray-u8-find) iterates on bytearray elements from start to (fxmin (fx+ start n)
+   * (bytearray-length arr)), and returns the index of first bytearray element that causes
+   * (predicate elem) to return non-#f. Returns #f if no such element is found.
+   */
+  eval("(define (bytearray-u8-find arr start n predicate)\n"
+       "  (let ((ret #f))\n"
+       "    (do ((i   start (fx1+ i))\n"
+       "         (end (fxmin (fx+ start n) (bytearray-length arr))))\n"
+       "        ((or ret (fx>=? i end)) ret)\n"
+       "      (when (predicate (bytearray-u8-ref arr i))\n"
        "        (set! ret i)))))\n");
 }
 
@@ -407,6 +565,8 @@ static void define_hash_functions(void) {
 void define_container_functions(void) {
   define_vector_functions();
   define_array_functions();
+  define_bytevector_functions();
+  define_bytearray_functions();
   define_hash_functions();
   define_list_functions();
 }

@@ -832,6 +832,8 @@ int define_functions(void) {
   define_signal_functions();
   define_tty_functions();
   define_pid_functions();
+  define_lineedit_functions();
+
   define_job_functions();
   define_shell_functions();
   define_multijob_functions();

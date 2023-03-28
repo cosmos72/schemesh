@@ -37,6 +37,20 @@ static const struct {
     {"(let ((arr (array 'a 'b 'c 'd)))\n"
      "  (array-find arr 0 999 (lambda (elem) (eq? 'c elem))))\n",
      "2"},
+    {"(bytearray 1 2 3)", "(bytearray 1 2 3)"},
+    {"(bytearray-length (bytearray 1 2 3))", "3"},
+    {"(bytearray-capacity (bytearray 1 2 3))", "3"},
+    {"(bytearray-empty? (bytearray))", "#t"},
+    {"(bytearray-empty? (bytearray 250))", "#f"},
+    {"(bytearray-u8-last (bytearray 251))", "251"},
+    {"(bytearray-u8-ref (bytearray 252 253 254 255) 2)", "254"},
+    {"(let ((arr (bytearray 4 5 6)))\n"
+     "  (bytearray-u8-append! arr 7 8)\n"
+     "  arr)",
+     "(bytearray 4 5 6 7 8)"},
+    {"(let ((arr (bytearray 9 10 11 12)))\n"
+     "  (bytearray-u8-find arr 0 999 (lambda (elem) (eq? 11 elem))))\n",
+     "2"},
     {"(errno)", "0"},
     {"(let ((ret '()))\n"
      "  (list-iterate '(a b c)\n"
