@@ -16,8 +16,8 @@ void define_lineedit_functions(void) {
        "  (fields\n"
        "    (mutable rbuf)\n"       /* bytearray, buffer for (fd-read) */
        "    (mutable wbuf)\n"       /* bytearray, buffer for (fw-write) */
-       "    (mutable lines)\n"      /* bytearray, input being edited */
-       "    (mutable status)\n"     /* bytearray, stack of nested ( [ { and " */
+       "    (mutable lines)\n"      /* array of bytearrays, input being edited */
+       "    (mutable state)\n"      /* bytearray, stack of nested ( [ { and " */
        "    (mutable x)\n"          /* fixnum, cursor x position */
        "    (mutable y)\n"          /* fixnum, cursor y position */
        "    (mutable save-x)\n"     /* fixnum, saved cursor x position */
@@ -30,14 +30,14 @@ void define_lineedit_functions(void) {
        "  (let ((sz (tty-size))\n"
        "        (rbuf  (make-bytearray 2048))\n"
        "        (wbuf  (make-bytearray 2048)))\n"
-       "        (lines (make-bytearray 2048)))\n"
-       "        (status (make-bytearray 32)))\n"
+       "        (lines (make-array     10)))\n"
+       "        (state (make-bytearray 32)))\n"
        "    (bytearray-length-set! rbuf 0)\n"
        "    (bytearray-length-set! wbuf 0)\n"
-       "    (bytearray-length-set! lines 0)\n"
-       "    (bytearray-length-set! status 0)\n"
+       "    (array-length-set!     lines 0)\n"
+       "    (bytearray-length-set! state 0)\n"
        "    (%make-linectx\n"
-       "      rbuf wbuf lines status\n"
+       "      rbuf wbuf lines state\n"
        "      -1 -1 -1 -1 +1\n"                   /* x y save-x save-y rows */
        "      (if (pair? sz) (car sz) 80)\n"      /* width */
        "      (if (pair? sz) (cdr sz) 24))))\n"); /* height */
