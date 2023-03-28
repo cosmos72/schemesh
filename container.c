@@ -214,6 +214,7 @@ static void define_bytearray_functions(void) {
        "  (define bytearray?)\n"
        "  (define bytearray-length)\n"
        "  (define bytearray-capacity)\n"
+       "  (define bytearray-underlying)\n" /* return underlying bytevector */
        "  (define bytearray-empty?)\n"
        "  (define bytearray-u8-ref)\n"
        "  (define bytearray-u8-set!)\n"
@@ -254,6 +255,9 @@ static void define_bytearray_functions(void) {
        "\n"
        "(set! bytearray-capacity (lambda (arr)\n"
        "  (bytevector-length (bytearray-vec arr))))\n"
+       "\n"
+       "(set! bytearray-underlying (lambda (arr)\n"
+       "  (bytearray-vec arr)))\n"
        "\n"
        "(set! bytearray-empty? (lambda (arr)\n"
        "  (fxzero? (bytearray-len arr))))\n"
