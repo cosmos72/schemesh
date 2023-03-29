@@ -505,13 +505,14 @@ static void define_hash_functions(void) {
        "(set! make-hash-iterator\n"
        "  (lambda (h)\n"
        "    (if (fxzero? (hashtable-size h))\n"
-       "      ; hashtable is empty, return empty iterator\n"
+       /*     ; hashtable is empty, return empty iterator */
        "      (make-%hash-iterator 0 #f (vector) (vector))\n"
-       "      ; hashtable is not empty, seek to first bucket\n"
+       /*     ; hashtable is not empty, seek to first bucket */
        "      (let* ((is-eqv (eqv-ht? h))\n"
        "             (vec1 (if is-eqv (ht-vec (eqv-ht-eqht h))  (ht-vec h)))\n"
        "             (vec2 (if is-eqv (ht-vec (eqv-ht-genht h)) (vector)))\n"
        "             (iter (make-%hash-iterator -1 #f vec1 vec2)))\n"
+       /*       ; advance iterator to first bucket */
        "        (hash-iterator-next! iter)\n"
        "        iter))))\n"
        "\n"
@@ -523,7 +524,7 @@ static void define_hash_functions(void) {
        "           (vlen   (vector-length vec1)))\n"
        "      (set! bucket (hash-bucket-next bucket))\n"
        "      \n"
-       "      ; iterate on vec1 until we find a cell\n"
+       /*     ; iterate on vec1 until we find a cell */
        "      (do ()\n"
        "        ((or (hash-bucket-valid? bucket) (fx>=? index vlen)))\n"
        "        (set! index (fx1+ index))\n"
@@ -535,9 +536,9 @@ static void define_hash_functions(void) {
        "      (let ((keyval (hash-bucket-keyval  bucket))\n"
        "            (vec2   (%hash-iterator-vec2 iter)))\n"
        "        (if (or keyval (fxzero? (vector-length vec2)))\n"
-       "          ; either we found a cell, or vec2 is empty and we reached end of vec1\n"
+       /*         ; either we found a cell, or vec2 is empty and we reached end of vec1 */
        "          keyval\n"
-       "          ; no cell found, but vec2 is non-empty: switch to it and retry\n"
+       /*         ; no cell found, but vec2 is non-empty: switch to it and retry */
        "          (begin\n"
        "            (%hash-iterator-index-set!  iter -1)\n"
        "            (%hash-iterator-bucket-set! iter #f)\n"
@@ -564,6 +565,46 @@ static void define_hash_functions(void) {
        "    (lambda (cell)\n"
        "      (hashtable-set! dst (cdr cell) (car cell))))\n"
        "  dst)\n");
+
+  /**
+   * (eq-hashtable . pairs) iterates on all (key . value) elements of pairs,
+   * and inserts each of them into a new hashtable created with (make-eq-hashtable (length pairs)).
+   *
+   * Returns the new hashtable.
+   */
+  eval("(define (eq-hashtable . pairs)\n"
+       "  (let ((dst (make-eq-hashtable (length pairs))))\n"
+       "    (list-iterate pairs\n"
+       "      (lambda (cell)\n"
+       "        (hashtable-set! dst (car cell) (cdr cell))))\n"
+       "    dst))\n");
+
+  /**
+   * (eqv-hashtable . pairs) iterates on all (key . value) elements of pairs,
+   * and inserts each of them into a new hashtable created with (make-eqv-hashtable (length pairs)).
+   *
+   * Returns the new hashtable.
+   */
+  eval("(define (eqv-hashtable . pairs)\n"
+       "  (let ((dst (make-eqv-hashtable (length pairs))))\n"
+       "    (list-iterate pairs\n"
+       "      (lambda (cell)\n"
+       "        (hashtable-set! dst (car cell) (cdr cell))))\n"
+       "    dst))\n");
+
+  /**
+   * (hashtable hash-proc eq-proc . pairs) iterates on all (key . value) elements of pairs,
+   * and inserts each of them into a new hashtable created with
+   *   (make-hashtable hash-proc eq-proc (length pairs)).
+   *
+   * Returns the new hashtable.
+   */
+  eval("(define (hashtable hash-proc eq-proc . pairs)\n"
+       "  (let ((dst (make-hashtable hash-proc eq-proc (length pairs))))\n"
+       "    (list-iterate pairs\n"
+       "      (lambda (cell)\n"
+       "        (hashtable-set! dst (car cell) (cdr cell))))\n"
+       "    dst))\n");
 }
 
 void define_container_functions(void) {

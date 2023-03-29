@@ -120,8 +120,8 @@ void define_lineedit_functions(void) {
        ")\n");
 
   eval("(define lineedit-keytable\n"
-       "  (let* ((seq lineedit-keyseq)\n"
-       "         (vec (vector\n"
+       "  (let ((seq lineedit-keyseq))\n"
+       "    (eq-hashtable\n"
        "(cons 1 lineedit-key-bol)\n"             /* CTRL+A */
        "(cons 2 lineedit-key-left)\n"            /* CTRL+B */
        "(cons 3 lineedit-key-break)\n"           /* CTRL+C */
@@ -167,9 +167,7 @@ void define_lineedit_functions(void) {
        "(cons (seq 27 91 51 126) lineedit-key-del-char-right)\n" /* DELETE \e[3~ */
        "(cons (seq 27 91 52 126) lineedit-key-eol)\n"            /* END    \e[4~ */
 
-       "         ))\n"
-       "         (htable (make-eq-hashtable (vector-length vec))))\n"
-       "    (vector->hashtable vec htable)))\n");
+       "    )))\n");
 
   eval("(define (lineedit-keytable-apply ctx)\n"
        "  (assert (lineedit? ctx))\n"

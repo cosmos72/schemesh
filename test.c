@@ -60,24 +60,24 @@ static const struct {
      "      (not (eq? 'b elem))))\n"
      "  ret)\n",
      "(b a)"},
-    {"(let ((h (make-eqv-hashtable)))\n"
-     "  (hashtable-set! h 1.0 'A)\n"
-     "  (hashtable-set! h 2.1 'B)\n"
-     "  (hashtable-set! h 3   'C)\n"
-     "  (hashtable-cells h))\n",
+    {"(hashtable-cells\n"
+     "  (eq-hashtable '(3 . C) '(2 . B) '(1 . A)))\n",
+     "#((1 . A) (2 . B) (3 . C))"},
+    {"(hashtable-cells\n"
+     "  (eqv-hashtable '(1.0 . A) '(2.1 . B) '(3 . C)))\n",
      "#((3 . C) (1.0 . A) (2.1 . B))"},
-    {"(let ((h (make-hashtable string-hash string=?)))\n"
-     "  (hashtable-set! h \"A\" \"X\")\n"
-     "  (hashtable-set! h \"B\" \"Y\")\n"
-     "  (hashtable-set! h \"C\" \"Z\")\n"
-     "    (string-hashtable->vector-of-bytevector0 h))\n",
+    {"(hashtable-cells\n"
+     "  (eqv-hashtable '(3.1 . C) '(2 . B) '(1 . A)))\n",
+     "#((1 . A) (2 . B) (3.1 . C))"},
+    {"(hashtable-cells\n"
+     "  (hashtable string-hash string=? '(\"a\" . 1) '(\"B\" . 2) '(\"+\" . 3)))\n",
+     "#((+ . 3) (B . 2) (a . 1))"},
+    {"(string-hashtable->vector-of-bytevector0\n"
+     "  (hashtable string-hash string=?\n"
+     "             '(\"A\" . \"X\") '(\"B\" . \"Y\") '(\"C\" . \"Z\")))\n",
      "#(#vu8(67 61 90 0) #vu8(66 61 89 0) #vu8(65 61 88 0))"},
-    {"(let ((h (make-eqv-hashtable))\n"
-     "       (ret '()))\n"
-     "  (hashtable-set! h 1.0 'A)\n"
-     "  (hashtable-set! h 2.1 'B)\n"
-     "  (hashtable-set! h 3   'C)\n"
-     "  (hashtable-iterate h\n"
+    {"(let ((ret '()))\n"
+     "  (hashtable-iterate (eqv-hashtable '(1.0 . A) '(2.1 . B) '(3 . C))\n"
      "    (lambda (cell)\n"
      "      (set! ret (cons cell ret))))\n"
      "  ret)\n",
