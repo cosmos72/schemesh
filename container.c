@@ -11,14 +11,24 @@
 
 /** define some additional vector functions */
 static void define_vector_functions(void) {
-  /** copies a portion of vector src into dst */
+  /** copy a portion of vector src into dst */
   eval("(define (vector-copy! src src-start dst dst-start n)\n"
        "  (do ((i 0 (fx1+ i)))\n"
        "      ((fx>=? i n))\n"
        "    (let ((elem (vector-ref src (fx+ i src-start))))\n"
        "      (vector-set! dst (fx+ i dst-start) elem))))\n");
 
-  eval("(define (subvector-fill! vec start n obj)\n"
+  /**
+   * return a copy of vector vec containing only elements
+   * from start (inclusive) to end (exclusive)
+   */
+  eval("(define (subvector vec start end)\n"
+       "  (let* ((n (fx- end start))\n"
+       "         (dst (make-vector n)))\n"
+       "    (vector-copy! vec start dst 0 n)\n"
+       "    dst))\n");
+
+  eval("(define (vector-fill-range! vec start n val)\n"
        "  (do ((i 0 (fx1+ i)))\n"
        "      ((fx>=? i n))\n"
        "    (vector-set! vec (fx+ i start) obj))))\n");
@@ -48,7 +58,7 @@ static void define_vector_functions(void) {
 
 /** define some additional bytevector functions */
 static void define_bytevector_functions(void) {
-  eval("(define (subbytevector-fill! bvec start n val)\n"
+  eval("(define (bytevector-fill-range! bvec start n val)\n"
        "  (do ((i 0 (fx1+ i)))\n"
        "      ((fx>=? i n))\n"
        "    (bytevector-u8-set! bvec (fx+ i start) val))))\n");
@@ -67,7 +77,9 @@ static void define_bytevector_functions(void) {
 static void define_array_functions(void) {
   eval("(begin\n"
        "  (define list->array)\n"
+       "  (define vector->array)\n"
        "  (define make-array)\n"
+       "  (define array->vector)\n"
        "  (define array)\n"
        "  (define array?)\n"
        "  (define array-length)\n"
@@ -77,7 +89,7 @@ static void define_array_functions(void) {
        "  (define array-set!)\n"
        "  (define array-last)\n"
        "  (define array-fill!)\n"
-       "  (define subarray-fill!)\n"
+       "  (define array-fill-range!)\n"
        "  (define array-copy)\n"
        "  (define array-copy!)\n"
        "  (define array-capacity-set!)\n"
@@ -98,14 +110,20 @@ static void define_array_functions(void) {
        "  (let ((vec (list->vector l)))\n"
        "    (%make-array (vector-length vec) vec))))\n"
        "\n"
+       "(set! vector->array (lambda (vec)\n"
+       "  (%make-array (vector-length vec) (vector-copy vec))))\n"
+       "\n"
        "(set! make-array (lambda (n . obj)\n"
        "  (%make-array n (apply make-vector n obj))))\n"
        "\n"
-       "(set! array? (lambda (obj)\n"
-       "   (%array? obj)))\n"
+       "(set! array->vector (lambda (obj)\n"
+       "  (subvector (array-vec obj) (array-len obj))))\n"
        "\n"
        "(set! array (lambda objs\n"
        "  (list->array objs)))\n"
+       "\n"
+       "(set! array? (lambda (obj)\n"
+       "  (%array? obj)))\n"
        "\n"
        "(set! array-length (lambda (arr)\n"
        "  (array-len arr)))\n"
@@ -133,9 +151,9 @@ static void define_array_functions(void) {
         * so fill up to array-capacity */
        "  (vector-fill! (array-vec arr) obj)))\n"
        "\n"
-       "(set! subarray-fill! (lambda (arr start n obj)\n"
+       "(set! array-fill-range! (lambda (arr start n obj)\n"
        "  (assert (fx<=? (fx+ src n) (array-len arr)))\n"
-       "  (subvector-fill! (array-vec arr) start n obj)))\n"
+       "  (vector-fill-range! (array-vec arr) start n obj)))\n"
        "\n"
        "(set! array-copy (lambda (src)\n"
        "  (let* ((n (array-length src))\n"
@@ -208,8 +226,10 @@ static void define_array_functions(void) {
 /** Define Scheme type "bytearray", a resizeable bytevector */
 static void define_bytearray_functions(void) {
   eval("(begin\n"
+       "  (define bytevector->bytearray)\n"
        "  (define list->bytearray)\n"
        "  (define make-bytearray)\n"
+       "  (define bytearray->bytevector)\n"
        "  (define bytearray)\n"
        "  (define bytearray?)\n"
        "  (define bytearray-length)\n"
@@ -220,7 +240,7 @@ static void define_bytearray_functions(void) {
        "  (define bytearray-u8-set!)\n"
        "  (define bytearray-u8-last)\n"
        "  (define bytearray-fill!)\n"
-       "  (define subbytearray-fill!)\n"
+       "  (define bytearray-fill-range!)\n"
        "  (define bytearray-copy)\n"
        "  (define bytearray-copy!)\n"
        "  (define bytearray-capacity-set!)\n"
@@ -237,6 +257,8 @@ static void define_bytearray_functions(void) {
        "     (mutable vec bytearray-vec bytearray-vec-set!))\n"
        "  (nongenerative #{%bytearray mu5r2go07bretxssmue01kt46-0}))\n"
        "\n"
+       "(set! bytevector->bytearray (lambda (vec)\n"
+       "  (%make-bytearray (bytevector-length vec) (bytevector-copy vec))))\n"
        "(set! list->bytearray (lambda (l)\n"
        "  (let ((vec (apply bytevector l)))\n"
        "    (%make-bytearray (bytevector-length vec) vec))))\n"
@@ -244,11 +266,17 @@ static void define_bytearray_functions(void) {
        "(set! make-bytearray (lambda (n . val)\n"
        "  (%make-bytearray n (apply make-bytevector n val))))\n"
        "\n"
-       "(set! bytearray? (lambda (obj)\n"
-       "   (%bytearray? obj)))\n"
+       "(set! bytearray->bytevector (lambda (obj)\n"
+       "  (let* ((n (bytearray-len obj))\n"
+       "         (dst (make-bytevector n)))\n"
+       "    (bytevector-copy! (bytearray-vec obj) 0 dst 0 n)\n"
+       "    dst)))\n"
        "\n"
        "(set! bytearray (lambda objs\n"
        "  (list->bytearray objs)))\n"
+       "\n"
+       "(set! bytearray? (lambda (obj)\n"
+       "   (%bytearray? obj)))\n"
        "\n"
        "(set! bytearray-length (lambda (arr)\n"
        "  (bytearray-len arr)))\n"
@@ -279,9 +307,9 @@ static void define_bytearray_functions(void) {
         * so fill up to bytearray-capacity */
        "  (bytevector-fill! (bytearray-vec arr) obj)))\n"
        "\n"
-       "(set! subbytearray-fill! (lambda (arr start n obj)\n"
+       "(set! bytearray-fill-range! (lambda (arr start n obj)\n"
        "  (assert (fx<=? (fx+ src n) (bytearray-len arr)))\n"
-       "  (subbytevector-fill! (bytearray-vec arr) start n obj)))\n"
+       "  (bytevector-fill-range! (bytearray-vec arr) start n obj)))\n"
        "\n"
        "(set! bytearray-copy (lambda (src)\n"
        "  (let* ((n (bytearray-length src))\n"
@@ -347,6 +375,152 @@ static void define_bytearray_functions(void) {
        "         (end (fxmin (fx+ start n) (bytearray-length arr))))\n"
        "        ((or ret (fx>=? i end)) ret)\n"
        "      (when (predicate (bytearray-u8-ref arr i))\n"
+       "        (set! ret i)))))\n");
+}
+
+/** Define Scheme type "chararray", a resizeable string */
+static void define_chararray_functions(void) {
+  eval("(begin\n"
+       "  (define list->chararray)\n"
+       "  (define string->chararray)\n"
+       "  (define make-chararray)\n"
+       "  (define chararray->string)\n"
+       "  (define chararray)\n"
+       "  (define chararray?)\n"
+       "  (define chararray-length)\n"
+       "  (define chararray-capacity)\n"
+       "  (define chararray-empty?)\n"
+       "  (define chararray-ref)\n"
+       "  (define chararray-set!)\n"
+       "  (define chararray-last)\n"
+       "  (define chararray-fill!)\n"
+       "  (define chararray-fill-range!)\n"
+       "  (define chararray-copy)\n"
+       "  (define chararray-copy!)\n"
+       "  (define chararray-capacity-set!)\n"
+       "  (define chararray-length-set!)\n"
+       "  (define chararray-append!)\n"
+       "  (define chararray-iterate))\n");
+
+  eval("(let ()\n"
+       "\n"
+       "(define-record-type\n"
+       "  (%chararray %make-chararray %chararray?)\n"
+       "  (fields\n"
+       "     (mutable len chararray-len chararray-len-set!)\n"
+       "     (mutable vec chararray-vec chararray-vec-set!))\n"
+       "  (nongenerative #{%chararray g8i3d8unk70r0jnvh6n2uil2a-0}))\n"
+       "\n"
+       "(set! list->chararray (lambda (l)\n"
+       "  (let ((vec (apply string l)))\n"
+       "    (%make-chararray (string-length vec) vec))))\n"
+       "\n"
+       "(set! string->chararray (lambda (vec)\n"
+       "  (%make-chararray (string-length vec) (string-copy vec))))\n"
+       "\n"
+       "(set! make-chararray (lambda (len . fillchar)\n"
+       "  (%make-chararray len (apply make-string len fillchar))))\n"
+       "\n"
+       "(set! chararray->string (lambda (obj)\n"
+       "  (substring (chararray-vec obj) 0 (chararray-len obj))))\n"
+       "\n"
+       "(set! chararray (lambda objs\n"
+       "  (list->chararray objs)))\n"
+       "\n"
+       "(set! chararray? (lambda (obj)\n"
+       "  (%chararray? obj)))\n"
+       "\n"
+       "(set! chararray-length (lambda (arr)\n"
+       "  (chararray-len arr)))\n"
+       "\n"
+       "(set! chararray-capacity (lambda (arr)\n"
+       "  (string-length (chararray-vec arr))))\n"
+       "\n"
+       "(set! chararray-empty? (lambda (arr)\n"
+       "  (fxzero? (chararray-len arr))))\n"
+       "\n"
+       "(set! chararray-ref (lambda (arr n)\n"
+       "  (assert (fx<? n (chararray-len arr)))\n"
+       "  (string-ref (chararray-vec arr) n)))\n"
+       "\n"
+       "(set! chararray-set! (lambda (arr n obj)\n"
+       "  (assert (fx<? n (chararray-len arr)))\n"
+       "  (string-set! (chararray-vec arr) n obj)))\n"
+       "\n"
+       "(set! chararray-last (lambda (arr)\n"
+       "  (assert (not (chararray-empty? arr)))\n"
+       "  (string-ref (chararray-vec arr) (fx1- (chararray-len arr)))))\n"
+       "\n"
+       "(set! chararray-fill! (lambda (arr obj)\n"
+       /* no optimized function to fill only up to chararray-len,
+        * so fill up to chararray-capacity */
+       "  (string-fill! (chararray-vec arr) obj)))\n"
+       "\n"
+       "(set! chararray-fill-range! (lambda (arr start n obj)\n"
+       "  (assert (fx<=? (fx+ src n) (chararray-len arr)))\n"
+       "  (substring-fill! (chararray-vec arr) start n obj)))\n"
+       "\n"
+       "(set! chararray-copy (lambda (src)\n"
+       "  (let* ((n (chararray-length src))\n"
+       "         (dst (make-chararray n)))\n"
+       "    (string-copy! (chararray-vec src) 0 (chararray-vec dst) 0 n)\n"
+       "    dst)))\n"
+       "\n"
+       "(set! chararray-copy! (lambda (src src-start dst dst-start n)\n"
+       "  (assert (fx<=? (fx+ src-start n) (chararray-len src)))\n"
+       "  (assert (fx<=? (fx+ dst-start n) (chararray-len dst)))\n"
+       "  (string-copy! (chararray-vec src) src-start (chararray-vec dst) dst-start n)))\n"
+       "\n"
+       "(set! chararray-capacity-set! (lambda (arr n)\n"
+       "  (assert (fx>=? n (chararray-len arr)))\n"
+       "  (unless (fx=? n (chararray-capacity arr))\n"
+       "    (let* ((len (chararray-len arr))\n"
+       "           (old-vec (chararray-vec arr))\n"
+       "           (new-vec (make-string n)))\n"
+       "      (string-copy! old-vec 0 new-vec 0 len)\n"
+       "      (chararray-vec-set! arr new-vec)))))\n"
+       "\n"
+       "(set! chararray-length-set! (lambda (arr n)\n"
+       "  (when (fx>? n (chararray-capacity arr))\n"
+       "    (let ((new-cap (fxmax 8 n (fx* 2 (chararray-capacity arr)))))\n"
+       "      (chararray-capacity-set! arr new-cap)))\n"
+       "  (chararray-len-set! arr n)))\n"
+       "\n"
+       "(set! chararray-append! (lambda (arr . elements)\n"
+       "  (unless (null? elements)\n"
+       "    (let ((elem-n (length elements))\n"
+       "          (pos    (chararray-len arr)))\n"
+       "      (chararray-length-set! arr (fx+ pos elem-n))\n"
+       "      (list-iterate elements\n"
+       "        (lambda (elem)\n"
+       "          (chararray-set! arr pos elem)\n"
+       "          (set! pos (fx1+ pos))))))))\n"
+       "\n"
+       "(set! chararray-iterate (lambda (arr proc)\n"
+       "  (do ((i 0 (fx1+ i))\n"
+       "       (n (chararray-len arr))\n"
+       "       (v (chararray-vec arr)))\n"
+       "    ((or (fx>=? i n) (not (proc i (string-ref v i))))))))\n"
+       "\n"
+       /** customize how "chararray" objects are printed */
+       "(record-writer (record-type-descriptor %chararray)\n"
+       "  (lambda (obj port writer)\n"
+       "    (display \"(string->chararray \" port)\n"
+       "    (write (substring (chararray-vec obj) 0 (chararray-len obj)) port)\n"
+       "    (display #\\) port)))\n"
+       ")\n");
+
+  /**
+   * (chararray-find) iterates on chararray elements from start to (fxmin (fx+ start n)
+   * (chararray-length arr)), and returns the index of first chararray element that causes
+   * (predicate elem) to return non-#f. Returns #f if no such element is found.
+   */
+  eval("(define (chararray-find arr start n predicate)\n"
+       "  (let ((ret #f))\n"
+       "    (do ((i   start (fx1+ i))\n"
+       "         (end (fxmin (fx+ start n) (chararray-length arr))))\n"
+       "        ((or ret (fx>=? i end)) ret)\n"
+       "      (when (predicate (chararray-ref arr i))\n"
        "        (set! ret i)))))\n");
 }
 
@@ -612,6 +786,7 @@ void define_container_functions(void) {
   define_array_functions();
   define_bytevector_functions();
   define_bytearray_functions();
+  define_chararray_functions();
   define_hash_functions();
   define_list_functions();
 }

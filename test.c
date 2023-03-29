@@ -23,6 +23,7 @@ static const struct {
 } tests[] = {
     {"(+ 1 2 3)", "6"},
     {"(* 4 5 6)", "120"},
+    {"(subvector '#(aa bb cc dd) 1 3)", "#(bb cc)"},
     {"(array 1 2 3)", "(array 1 2 3)"},
     {"(array-length (array 1 2 3))", "3"},
     {"(array-capacity (array 1 2 3))", "3"},
@@ -38,6 +39,9 @@ static const struct {
      "  (array-find arr 0 999 (lambda (elem) (eq? 'c elem))))\n",
      "2"},
     {"(bytearray 1 2 3)", "(bytearray 1 2 3)"},
+    {"(list->bytearray '(56 12 0 46))", "(bytearray 56 12 0 46)"},
+    {"(bytevector->bytearray #vu8(7 19 88 255))", "(bytearray 7 19 88 255)"},
+    {"(bytearray->bytevector (bytearray 65 66 67))", "ABC"},
     {"(bytearray-length (bytearray 1 2 3))", "3"},
     {"(bytearray-capacity (bytearray 1 2 3))", "3"},
     {"(bytearray-empty? (bytearray))", "#t"},
@@ -50,6 +54,23 @@ static const struct {
      "(bytearray 4 5 6 7 8)"},
     {"(let ((arr (bytearray 9 10 11 12)))\n"
      "  (bytearray-u8-find arr 0 999 (lambda (elem) (eq? 11 elem))))\n",
+     "2"},
+    {"(chararray #\\1 #\\2 #\\3)", "(string->chararray \"123\")"},
+    {"(list->chararray '(#\\i #\\j #\\k #\\l))", "(string->chararray \"ijkl\")"},
+    {"(string->chararray \"pqrst\")", "(string->chararray \"pqrst\")"},
+    {"(chararray->string (string->chararray \"pqrst\"))", "pqrst"},
+    {"(chararray-length (chararray #\\a #\\b #\\c))", "3"},
+    {"(chararray-capacity (chararray #\\a #\\b #\\c))", "3"},
+    {"(chararray-empty? (chararray))", "#t"},
+    {"(chararray-empty? (chararray #\\~))", "#f"},
+    {"(chararray-last (chararray #\\{))", "{"},
+    {"(chararray-ref (chararray #\\x #\\y #\\z) 2)", "z"},
+    {"(let ((arr (chararray #\\4 #\\5 #\\6)))\n"
+     "  (chararray-append! arr #\\7 #\\8)\n"
+     "  arr)",
+     "(string->chararray \"45678\")"},
+    {"(let ((arr (chararray #\\@ #\\a #\\b #\\c)))\n"
+     "  (chararray-find arr 0 999 (lambda (elem) (eq? #\\b elem))))\n",
      "2"},
     {"(errno)", "0"},
     {"(let ((ret '()))\n"
