@@ -29,7 +29,7 @@ static const struct {
     {"(span-capacity (span 1 2 3))", "3"},
     {"(span-empty? (span))", "#t"},
     {"(span-empty? (span 'x))", "#f"},
-    {"(span-last (span 'y))", "y"},
+    {"(span-last (span 'x 'y))", "y"},
     {"(span-ref (span 'a 'b 'c) 1)", "b"},
     {"(let ((arr (span 'foo)))\n"
      "  (span-append! arr 'bar 'qux)\n"
