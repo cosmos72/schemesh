@@ -16,7 +16,7 @@
 #include "posix.h"
 #include "signal.h"
 
-#define N_OF(array) (sizeof(array) / sizeof((array)[0]))
+#define N_OF(span) (sizeof(span) / sizeof((span)[0]))
 
 static volatile int c_sigchld_received = 0;
 

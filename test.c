@@ -24,53 +24,53 @@ static const struct {
     {"(+ 1 2 3)", "6"},
     {"(* 4 5 6)", "120"},
     {"(subvector '#(aa bb cc dd) 1 3)", "#(bb cc)"},
-    {"(array 1 2 3)", "(array 1 2 3)"},
-    {"(array-length (array 1 2 3))", "3"},
-    {"(array-capacity (array 1 2 3))", "3"},
-    {"(array-empty? (array))", "#t"},
-    {"(array-empty? (array 'x))", "#f"},
-    {"(array-last (array 'y))", "y"},
-    {"(array-ref (array 'a 'b 'c) 1)", "b"},
-    {"(let ((arr (array 'foo)))\n"
-     "  (array-append! arr 'bar 'qux)\n"
+    {"(span 1 2 3)", "(span 1 2 3)"},
+    {"(span-length (span 1 2 3))", "3"},
+    {"(span-capacity (span 1 2 3))", "3"},
+    {"(span-empty? (span))", "#t"},
+    {"(span-empty? (span 'x))", "#f"},
+    {"(span-last (span 'y))", "y"},
+    {"(span-ref (span 'a 'b 'c) 1)", "b"},
+    {"(let ((arr (span 'foo)))\n"
+     "  (span-append! arr 'bar 'qux)\n"
      "  arr)",
-     "(array foo bar qux)"},
-    {"(let ((arr (array 'a 'b 'c 'd)))\n"
-     "  (array-find arr 0 999 (lambda (elem) (eq? 'c elem))))\n",
+     "(span foo bar qux)"},
+    {"(let ((arr (span 'a 'b 'c 'd)))\n"
+     "  (span-find arr 0 999 (lambda (elem) (eq? 'c elem))))\n",
      "2"},
-    {"(bytearray 1 2 3)", "(bytearray 1 2 3)"},
-    {"(list->bytearray '(56 12 0 46))", "(bytearray 56 12 0 46)"},
-    {"(bytevector->bytearray #vu8(7 19 88 255))", "(bytearray 7 19 88 255)"},
-    {"(bytearray->bytevector (bytearray 65 66 67))", "ABC"},
-    {"(bytearray-length (bytearray 1 2 3))", "3"},
-    {"(bytearray-capacity (bytearray 1 2 3))", "3"},
-    {"(bytearray-empty? (bytearray))", "#t"},
-    {"(bytearray-empty? (bytearray 250))", "#f"},
-    {"(bytearray-u8-last (bytearray 251))", "251"},
-    {"(bytearray-u8-ref (bytearray 252 253 254 255) 2)", "254"},
-    {"(let ((arr (bytearray 4 5 6)))\n"
-     "  (bytearray-u8-append! arr 7 8)\n"
+    {"(bytespan 1 2 3)", "(bytespan 1 2 3)"},
+    {"(list->bytespan '(56 12 0 46))", "(bytespan 56 12 0 46)"},
+    {"(bytevector->bytespan #vu8(7 19 88 255))", "(bytespan 7 19 88 255)"},
+    {"(bytespan->bytevector (bytespan 65 66 67))", "ABC"},
+    {"(bytespan-length (bytespan 1 2 3))", "3"},
+    {"(bytespan-capacity (bytespan 1 2 3))", "3"},
+    {"(bytespan-empty? (bytespan))", "#t"},
+    {"(bytespan-empty? (bytespan 250))", "#f"},
+    {"(bytespan-u8-last (bytespan 251))", "251"},
+    {"(bytespan-u8-ref (bytespan 252 253 254 255) 2)", "254"},
+    {"(let ((arr (bytespan 4 5 6)))\n"
+     "  (bytespan-u8-append! arr 7 8)\n"
      "  arr)",
-     "(bytearray 4 5 6 7 8)"},
-    {"(let ((arr (bytearray 9 10 11 12)))\n"
-     "  (bytearray-u8-find arr 0 999 (lambda (elem) (eq? 11 elem))))\n",
+     "(bytespan 4 5 6 7 8)"},
+    {"(let ((arr (bytespan 9 10 11 12)))\n"
+     "  (bytespan-u8-find arr 0 999 (lambda (elem) (eq? 11 elem))))\n",
      "2"},
-    {"(chararray #\\1 #\\2 #\\3)", "(string->chararray \"123\")"},
-    {"(list->chararray '(#\\i #\\j #\\k #\\l))", "(string->chararray \"ijkl\")"},
-    {"(string->chararray \"pqrst\")", "(string->chararray \"pqrst\")"},
-    {"(chararray->string (string->chararray \"pqrst\"))", "pqrst"},
-    {"(chararray-length (chararray #\\a #\\b #\\c))", "3"},
-    {"(chararray-capacity (chararray #\\a #\\b #\\c))", "3"},
-    {"(chararray-empty? (chararray))", "#t"},
-    {"(chararray-empty? (chararray #\\~))", "#f"},
-    {"(chararray-last (chararray #\\{))", "{"},
-    {"(chararray-ref (chararray #\\x #\\y #\\z) 2)", "z"},
-    {"(let ((arr (chararray #\\4 #\\5 #\\6)))\n"
-     "  (chararray-append! arr #\\7 #\\8)\n"
+    {"(charspan #\\1 #\\2 #\\3)", "(string->charspan \"123\")"},
+    {"(list->charspan '(#\\i #\\j #\\k #\\l))", "(string->charspan \"ijkl\")"},
+    {"(string->charspan \"pqrst\")", "(string->charspan \"pqrst\")"},
+    {"(charspan->string (string->charspan \"pqrst\"))", "pqrst"},
+    {"(charspan-length (charspan #\\a #\\b #\\c))", "3"},
+    {"(charspan-capacity (charspan #\\a #\\b #\\c))", "3"},
+    {"(charspan-empty? (charspan))", "#t"},
+    {"(charspan-empty? (charspan #\\~))", "#f"},
+    {"(charspan-last (charspan #\\{))", "{"},
+    {"(charspan-ref (charspan #\\x #\\y #\\z) 2)", "z"},
+    {"(let ((arr (charspan #\\4 #\\5 #\\6)))\n"
+     "  (charspan-append! arr #\\7 #\\8)\n"
      "  arr)",
-     "(string->chararray \"45678\")"},
-    {"(let ((arr (chararray #\\@ #\\a #\\b #\\c)))\n"
-     "  (chararray-find arr 0 999 (lambda (elem) (eq? #\\b elem))))\n",
+     "(string->charspan \"45678\")"},
+    {"(let ((arr (charspan #\\@ #\\a #\\b #\\c)))\n"
+     "  (charspan-find arr 0 999 (lambda (elem) (eq? #\\b elem))))\n",
      "2"},
     {"(errno)", "0"},
     {"(let ((ret '()))\n"

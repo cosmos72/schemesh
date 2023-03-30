@@ -681,9 +681,9 @@ int c_fork_pid(ptr vector_redirect_fds, int existing_pgid_if_positive) {
 }
 
 /**
- * convert Scheme vector-of-bytevector0 to a C-compatible NULL-terminated array of char*
+ * convert Scheme vector-of-bytevector0 to a C-compatible NULL-terminated span of char*
  * usable for example for environ or argz arguments to execve() execvp() etc.
- * returned array should be deallocated with free()
+ * returned span should be deallocated with free()
  * and contains pointers into Scheme bytevectors, thus becomes invalid
  * after any call to Scheme functions.
  */

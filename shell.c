@@ -62,8 +62,8 @@ static void define_job_functions(void) {
        "  (parent job)"
        "  (fields\n"
        "    kind\n"                  /* symbol: one of 'and 'or 'vec 'global */
-       "    children\n"              /* array:  children jobs */
-       "    (mutable next-id)))\n"); /* fixnum: first available index in array of children jobs */
+       "    children\n"              /* span:  children jobs */
+       "    (mutable next-id)))\n"); /* fixnum: first available index in span of children jobs */
 
   /** customize how "job" objects are printed */
   eval("(record-writer (record-type-descriptor job)\n"
@@ -87,7 +87,7 @@ static void define_job_functions(void) {
        "  (lambda (obj port writer)\n"
        "    (display \"(sh-\" port)\n"
        "    (display (multijob-kind obj) port)\n"
-       "    (array-iterate (multijob-children obj)\n"
+       "    (span-iterate (multijob-children obj)\n"
        "       (lambda (i child)\n"
        "         (display #\\space port)\n"
        "         (display child port)))\n"
@@ -105,7 +105,7 @@ static void define_job_functions(void) {
        "  (%make-multijob (get-pid) (get-pgid 0) '(unknown . 0) (vector 0 1 2) (vector) '()\n"
        "    #f\n" /* subshell-func */
        "    (make-hashtable string-hash string=?) #f\n"
-       "    'global (array #t) 1))\n");
+       "    'global (span #t) 1))\n");
 
   /**
    * Define the global hashtable pid -> job
@@ -138,32 +138,32 @@ static void define_job_functions(void) {
        "  (let* ((arr (multijob-children globals))\n"
        "         (job-id\n"
        "           (if (fixnum? job-id)\n"
-       "             (when (and (fx>=? job-id 0) (fx<? job-id (array-length arr)))\n"
+       "             (when (and (fx>=? job-id 0) (fx<? job-id (span-length arr)))\n"
        "               job-id)\n"
-       "             (array-find arr 0 (array-length arr) (lambda (elem) (eq? elem job-id))))))\n"
+       "             (span-find arr 0 (span-length arr) (lambda (elem) (eq? elem job-id))))))\n"
        "    (when job-id\n"
-       "      (array-set! arr job-id #f)\n"
+       "      (span-set! arr job-id #f)\n"
        "      (multijob-next-id-set! globals\n"
        "                              (fxmin job-id (multijob-next-id globals))))))))\n");
 
   /**
    * Define the function (multijob-child-put!), adds a job to a multijob
-   * extending (multijob-array globals) as needed.
+   * extending (multijob-span globals) as needed.
    * Return job-id assigned to job.
    */
   eval("(define (multijob-child-put! mjob j)\n"
        "  (let* ((arr     (multijob-children mjob))\n"
-       "         (len     (array-length arr))\n"
+       "         (len     (span-length arr))\n"
        "         (next-id (multijob-next-id mjob))\n"
-       "         (job-id (array-find arr next-id (fx- len next-id) not)))\n"
+       "         (job-id (span-find arr next-id (fx- len next-id) not)))\n"
        "    (if job-id\n"
-       "      (array-set! arr job-id j)\n" // found a free job-id
-       "      (begin\n"                    // no free job-id, enlarge array
-       "        (array-append! arr j)\n"
+       "      (span-set! arr job-id j)\n" // found a free job-id
+       "      (begin\n"                   // no free job-id, enlarge span
+       "        (span-append! arr j)\n"
        "        (set! job-id len)))\n"
        "    (let* ((start   (multijob-next-id mjob))\n"
-       "           (len     (array-length arr))\n"
-       "           (next-id (array-find arr start (fx- len job-id) not)))\n"
+       "           (len     (span-length arr))\n"
+       "           (next-id (span-find arr start (fx- len job-id) not)))\n"
        "      (multijob-next-id-set! mjob\n"
        "                             (or next-id len)))\n"
        "    job-id))\n");
@@ -182,8 +182,8 @@ static void define_job_functions(void) {
        "    ((fixnum? job-id)\n"
        "      (let* ((all-jobs (multijob-children sh-globals))\n"
        "             (job (when (and (fx>? job-id 0)\n" /* job-ids start at 1 */
-       "                             (fx<? job-id (array-length all-jobs)))\n"
-       "                    (array-ref all-jobs job-id))))\n"
+       "                             (fx<? job-id (span-length all-jobs)))\n"
+       "                    (span-ref all-jobs job-id))))\n"
        "        (unless (sh-job? job)\n"
        "          (error 'sh-job-ref \"job not found:\" job-id))\n"
        "        job))\n"
@@ -191,16 +191,16 @@ static void define_job_functions(void) {
        "    (#t (error 'sh-job-ref \"not a job-id:\" job-id))))\n");
 
   /**
-   * Define the function (sh-job-array), returns currently running jobs
-   * as an array of pairs (job-id . job) sorted by job-id
+   * Define the function (sh-job-span), returns currently running jobs
+   * as an span of pairs (job-id . job) sorted by job-id
    */
-  eval("(define (sh-job-array)\n"
+  eval("(define (sh-job-span)\n"
        "  (let ((src (multijob-children sh-globals))\n"
-       "        (dst (array)))\n"
-       "    (array-iterate src\n"
+       "        (dst (span)))\n"
+       "    (span-iterate src\n"
        "      (lambda (job-id job)\n"
        "        (when (sh-job? job)\n"
-       "          (array-append! dst (cons job-id job)))))\n"
+       "          (span-append! dst (cons job-id job)))))\n"
        "    dst))\n");
 
   /**
@@ -751,7 +751,7 @@ static void define_multijob_functions(void) {
        "    '()\n"        /* overridden environment variables - initially none */
        "    sh-globals\n" /* parent job - initially the global job */
        "    kind\n"
-       "    (list->array children-jobs)\n"
+       "    (list->span children-jobs)\n"
        "    0))\n");
 
   /**
@@ -762,7 +762,7 @@ static void define_multijob_functions(void) {
        "  (let ((jobs   (multijob-children mj))\n"
        "        (pgid   (job-pgid mj))\n"
        "        (status '(exited . 0)))\n"
-       "    (array-iterate jobs\n"
+       "    (span-iterate jobs\n"
        "      (lambda (i job)\n"
        "        (sh-start job pgid)\n"         /* run child job in parent's process group        */
        "        (set! status (sh-wait job))\n" /* wait for child job to exit                     */
@@ -778,7 +778,7 @@ static void define_multijob_functions(void) {
        "  (let ((jobs   (multijob-children mj))\n"
        "        (pgid   (job-pgid mj))\n"
        "        (status '(exited . 1)))\n"
-       "    (array-iterate jobs\n"
+       "    (span-iterate jobs\n"
        "      (lambda (i job)\n"
        "        (sh-start job pgid)\n"         /* run child job in parent's process group     */
        "        (set! status (sh-wait job))\n" /* wait for child job to exit                  */
@@ -793,7 +793,7 @@ static void define_multijob_functions(void) {
        "  (let ((jobs   (multijob-children mj))\n"
        "        (pgid   (job-pgid mj))\n"
        "        (status '(exited . 0)))\n"
-       "    (array-iterate jobs\n"
+       "    (span-iterate jobs\n"
        "      (lambda (i job)\n"
        "        (sh-start job pgid)\n"         /* run child job in parent's process group */
        "        (set! status (sh-wait job))\n" /* wait for child job to exit */

@@ -14,10 +14,10 @@ void define_lineedit_functions(void) {
   eval("(define-record-type\n"
        "  (linectx %make-linectx linectx?)\n"
        "  (fields\n"
-       "    (mutable rbuf)\n"       /* bytearray, buffer for (fd-read) */
-       "    (mutable wbuf)\n"       /* bytearray, buffer for (fw-write) */
-       "    (mutable lines)\n"      /* array of bytearrays, input being edited */
-       "    (mutable state)\n"      /* bytearray, stack of nested ( [ { and " */
+       "    (mutable rbuf)\n"       /* bytespan, buffer for (fd-read) */
+       "    (mutable wbuf)\n"       /* bytespan, buffer for (fw-write) */
+       "    (mutable lines)\n"      /* span of bytespans, input being edited */
+       "    (mutable state)\n"      /* bytespan, stack of nested ( [ { and " */
        "    (mutable x)\n"          /* fixnum, cursor x position */
        "    (mutable y)\n"          /* fixnum, cursor y position */
        "    (mutable save-x)\n"     /* fixnum, saved cursor x position */
@@ -28,14 +28,14 @@ void define_lineedit_functions(void) {
 
   eval("(define (make-linectx)\n"
        "  (let ((sz (tty-size))\n"
-       "        (rbuf  (make-bytearray 2048))\n"
-       "        (wbuf  (make-bytearray 2048)))\n"
-       "        (lines (make-array     10)))\n"
-       "        (state (make-bytearray 32)))\n"
-       "    (bytearray-length-set! rbuf 0)\n"
-       "    (bytearray-length-set! wbuf 0)\n"
-       "    (array-length-set!     lines 0)\n"
-       "    (bytearray-length-set! state 0)\n"
+       "        (rbuf  (make-bytespan 2048))\n"
+       "        (wbuf  (make-bytespan 2048)))\n"
+       "        (lines (make-span     10)))\n"
+       "        (state (make-bytespan 32)))\n"
+       "    (bytespan-length-set! rbuf 0)\n"
+       "    (bytespan-length-set! wbuf 0)\n"
+       "    (span-length-set!     lines 0)\n"
+       "    (bytespan-length-set! state 0)\n"
        "    (%make-linectx\n"
        "      rbuf wbuf lines state\n"
        "      -1 -1 -1 -1 +1\n"                   /* x y save-x save-y rows */
@@ -177,16 +177,16 @@ void define_lineedit_functions(void) {
        "  (assert (linectx? ctx))\n"
        "  (assert (fixnum? timeout-milliseconds))\n"
        "  (let* ((rbuf (linectx-rbuf ctx))\n"
-       "         (rlen (bytearray-length rbuf))\n"
+       "         (rlen (bytespan-length rbuf))\n"
        "         (delta 1024))\n"
-       /*   ensure bytearray-capacity is large enough */
-       "    (bytearray-length-set! rbuf (fx+ rlen delta))\n"
-       "    (bytearray-length-set! rbuf delta)\n"
+       /*   ensure bytespan-capacity is large enough */
+       "    (bytespan-length-set! rbuf (fx+ rlen delta))\n"
+       "    (bytespan-length-set! rbuf delta)\n"
        "    (when (eq? 'read (fd-select 0 'read timeout-milliseconds))\n"
-       "      (let ((got (fd-read 0 (bytearray-underlying rbuf) rlen)))\n"
+       "      (let ((got (fd-read 0 (bytespan-underlying rbuf) rlen)))\n"
        "        (assert (fixnum? got))\n"
        "        (assert (fx>=? got 0))\n"
-       "        (bytearray-length-set! rbuf (fx+ rlen got)))\n"
+       "        (bytespan-length-set! rbuf (fx+ rlen got)))\n"
        "      (lineedit-keytable-apply ctx))))\n");
 
   eval("(define (sh-lineedit ctx)\n"

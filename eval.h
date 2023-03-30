@@ -52,7 +52,7 @@ typedef struct bytes_s {
 /**
  * call Scheme (eval) on a C string, and convert returned Scheme value to
  * bytevector with (any->bytevector).
- * @return length and pointer to internal array of a Scheme-allocated
+ * @return length and pointer to internal span of a Scheme-allocated
  * bytevector.
  *
  * Returned pointer CANNOT be dereferenced anymore after calling Scheme code,

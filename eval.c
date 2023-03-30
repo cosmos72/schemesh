@@ -69,9 +69,9 @@ void define_eval_macros(void) {
 
   eval("(define-syntax define-macro\n"
        "  (syntax-rules ()\n"
-       "    ((k (name . args) body ...)\n"
+       "    ((_ (name . args) body ...)\n"
        "     (define-macro name (lambda args body ...)))\n"
-       "    ((k name transformer)\n"
+       "    ((_ name transformer)\n"
        "     (define-syntax name\n"
        "       (lambda (stx)\n"
        "         (syntax-case stx ()\n"
