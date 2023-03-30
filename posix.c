@@ -225,40 +225,40 @@ int c_fd_setnonblock(int fd) {
 }
 
 /** call read(). returns number of bytes received, or c_errno() < 0 on error */
-iptr c_fd_read(int fd, ptr bytevector_read, iptr offset) {
+iptr c_fd_read(int fd, ptr bytevector_read, iptr start, iptr end) {
   char*   buf;
   iptr    len;
   ssize_t got_n;
-  if (!Sbytevectorp(bytevector_read)) {
+  if (start < 0 || end < 0 || start > end || !Sbytevectorp(bytevector_read)) {
     return c_errno_set(EINVAL);
   }
   buf = (char*)Sbytevector_data(bytevector_read);
   len = Sbytevector_length(bytevector_read);
-  if (offset > len) {
+  if (end > len) {
     return c_errno_set(EINVAL);
   }
-  buf += offset;
-  len -= offset;
+  buf += start;
+  len = end - start;
   while ((got_n = read(fd, buf, len)) < 0 && errno == EINTR) {
   }
   return got_n >= 0 ? got_n : c_errno();
 }
 
 /** call write(). returns number of bytes written, or c_errno() < 0 on error */
-iptr c_fd_write(int fd, ptr bytevector_towrite, iptr offset) {
+iptr c_fd_write(int fd, ptr bytevector_towrite, iptr start, iptr end) {
   const char* buf;
   iptr        len;
   ssize_t     sent_n;
-  if (!Sbytevectorp(bytevector_towrite)) {
+  if (start < 0 || end < 0 || start > end || !Sbytevectorp(bytevector_towrite)) {
     return c_errno_set(EINVAL);
   }
   buf = (const char*)Sbytevector_data(bytevector_towrite);
   len = Sbytevector_length(bytevector_towrite);
-  if (offset > len) {
+  if (end > len) {
     return c_errno_set(EINVAL);
   }
-  buf += offset;
-  len -= offset;
+  buf += start;
+  len = end - start;
   while ((sent_n = write(fd, buf, len)) < 0 && errno == EINTR) {
   }
   return sent_n >= 0 ? sent_n : c_errno();
@@ -438,16 +438,16 @@ int define_fd_functions(void) {
        "          (void)\n"
        "          (raise-errno-condition 'fd-dup2 ret))))))\n");
   eval("(define fd-read\n"
-       "  (let ((c-fd-read (foreign-procedure \"c_fd_read\" (int ptr iptr) iptr)))\n"
-       "    (lambda (fd bytevector-result offset)\n"
-       "      (let ((ret (c-fd-read fd bytevector-result offset)))\n"
+       "  (let ((c-fd-read (foreign-procedure \"c_fd_read\" (int ptr iptr iptr) iptr)))\n"
+       "    (lambda (fd bytevector-result start end)\n"
+       "      (let ((ret (c-fd-read fd bytevector-result start end)))\n"
        "        (if (>= ret 0)\n"
        "          ret\n"
        "          (raise-errno-condition 'fd-read ret))))))\n");
   eval("(define fd-write\n"
-       "  (let ((c-fd-write (foreign-procedure \"c_fd_write\" (int ptr iptr) iptr)))\n"
-       "    (lambda (fd bytevector-towrite offset)\n"
-       "      (let ((ret (c-fd-read fd bytevector-towrite offset)))\n"
+       "  (let ((c-fd-write (foreign-procedure \"c_fd_write\" (int ptr iptr iptr) iptr)))\n"
+       "    (lambda (fd bytevector-towrite start end)\n"
+       "      (let ((ret (c-fd-write fd bytevector-towrite start end)))\n"
        "        (if (>= ret 0)\n"
        "          ret\n"
        "          (raise-errno-condition 'fd-write ret))))))\n");

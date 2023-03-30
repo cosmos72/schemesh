@@ -55,10 +55,10 @@ int c_fd_dup(int old_fd);
 int c_fd_dup2(int old_fd, int new_fd);
 
 /** call read(). returns number of bytes read, or c_errno() < 0 on error */
-iptr c_fd_read(int fd, ptr bytevector_read, iptr offset);
+iptr c_fd_read(int fd, ptr bytevector_read, iptr start, iptr end);
 
 /** call write(). returns number of bytes written, or c_errno() < 0 on error */
-iptr c_fd_write(int fd, ptr bytevector_towrite, iptr offset);
+iptr c_fd_write(int fd, ptr bytevector_towrite, iptr start, iptr end);
 
 /**
  * call select() or poll() on file descriptor.

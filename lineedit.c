@@ -29,8 +29,8 @@ void define_lineedit_functions(void) {
   eval("(define (make-linectx)\n"
        "  (let ((sz (tty-size))\n"
        "        (rbuf  (make-bytespan 2048))\n"
-       "        (wbuf  (make-bytespan 2048)))\n"
-       "        (lines (make-span     10)))\n"
+       "        (wbuf  (make-bytespan 2048))\n"
+       "        (lines (make-span     10))\n"
        "        (state (make-bytespan 32)))\n"
        "    (bytespan-length-set! rbuf 0)\n"
        "    (bytespan-length-set! wbuf 0)\n"
@@ -41,6 +41,10 @@ void define_lineedit_functions(void) {
        "      -1 -1 -1 -1 +1\n"                   /* x y save-x save-y rows */
        "      (if (pair? sz) (car sz) 80)\n"      /* width */
        "      (if (pair? sz) (cdr sz) 24))))\n"); /* height */
+
+  eval("(define (lineedit-insert-rbuf ctx start end)\n"
+       /** TODO: update linectx-lines */
+       "  (fd-write 1 (bytespan-underlying (linectx-rbuf ctx)) start end))\n");
 
   eval("(begin\n"
        "\n"
@@ -112,16 +116,10 @@ void define_lineedit_functions(void) {
        "\n"
        "(define (lineedit-key-history-prev ctx)\n"
        "  (void))\n"
-       "\n"
-       "(define (lineedit-keyseq . bytes)\n"
-       "  (do ((ret 0 (fxior (car tail) (fxarithmetic-shift-left ret 8)))\n"
-       "       (tail bytes (cdr tail)))\n"
-       "      ((null? tail) ret)))\n"
        ")\n");
 
   eval("(define lineedit-keytable\n"
-       "  (let ((seq lineedit-keyseq))\n"
-       "    (eq-hashtable\n"
+       "  (eq-hashtable\n"
        "(cons 1 lineedit-key-bol)\n"             /* CTRL+A */
        "(cons 2 lineedit-key-left)\n"            /* CTRL+B */
        "(cons 3 lineedit-key-break)\n"           /* CTRL+C */
@@ -139,39 +137,73 @@ void define_lineedit_functions(void) {
        "(cons 20 lineedit-key-transpose-char)\n" /* CTRL+T         */
        "(cons 21 lineedit-key-del-line)\n"       /* CTRL+U         */
        "(cons 23 lineedit-key-del-word-left)\n"  /* CTRL+W         */
+       "(cons 31 lineedit-key-del-word-left)\n"  /* CTRL+BACKSPACE */
+       "(cons 127 lineedit-key-del-char-left)\n" /* BACKSPACE     */
+       /**/
+       "(cons 27\n" /* all sequences starting with ESC */
+       "  (eq-hashtable\n"
+       "(cons 66  lineedit-key-word-left)\n"      /* ALT+B         */
+       "(cons 98  lineedit-key-word-left)\n"      /* ALT+b         */
+       "(cons 68  lineedit-key-del-word-right)\n" /* ALT+D         */
+       "(cons 100 lineedit-key-del-word-right)\n" /* ALT+d         */
+       "(cons 70  lineedit-key-word-right)\n"     /* ALT+F         */
+       "(cons 102 lineedit-key-word-right)\n"     /* ALT+f         */
+       "(cons 127 lineedit-key-del-word-left)\n"  /* ALT+BACKSPACE */
+       /**/
+       "(cons 79\n" /* all sequences starting with ESC O */
+       "  (eq-hashtable\n"
+       "    (cons 70 lineedit-key-eol)\n"   /* END    \eOF  */
+       "    (cons 72 lineedit-key-bol)))\n" /* HOME   \eOH  */
+       /**/
+       "(cons 91\n" /* all sequences starting with ESC [ */
+       "  (eq-hashtable\n"
+       "(cons 65 lineedit-key-up)\n"    /* UP     \e[A  */
+       "(cons 66 lineedit-key-down)\n"  /* DOWN   \e[B  */
+       "(cons 67 lineedit-key-right)\n" /* RIGHT  \e[C  */
+       "(cons 68 lineedit-key-left)\n"  /* LEFT   \e[D  */
+       "(cons 70 lineedit-key-eol)\n"   /* END    \e[F  */
+       "(cons 72 lineedit-key-bol)\n"   /* HOME   \e[H  */
+       /**/
+       "(cons 49\n" /* all sequences starting with ESC [ 1 */
+       "  (eq-hashtable\n"
+       "    (cons 126 lineedit-key-bol)))\n" /* HOME \e[1~ */
 #if 0
-        "(cons 31 lineedit-key-del-word-left)\n"  /* CTRL+BACKSPACE */
+       /**/
+       "(cons 50\n" /* all sequences starting with ESC [ 2 */
+       "  (eq-hashtable\n"
+       "    (cons 126 lineedit-key-toggle-insert)))\n" /* INSERT \e[2~ */
 #endif
-       "(cons 127 lineedit-key-del-char-left)\n"           /* BACKSPACE     */
-       "(cons (seq 27 66)  lineedit-key-word-left)\n"      /* ALT+B         */
-       "(cons (seq 27 98)  lineedit-key-word-left)\n"      /* ALT+b         */
-       "(cons (seq 27 68)  lineedit-key-del-word-right)\n" /* ALT+D         */
-       "(cons (seq 27 100) lineedit-key-del-word-right)\n" /* ALT+d         */
-       "(cons (seq 27 70)  lineedit-key-word-right)\n"     /* ALT+F         */
-       "(cons (seq 27 102) lineedit-key-word-right)\n"     /* ALT+f         */
-       "(cons (seq 27 127) lineedit-key-del-word-left)\n"  /* ALT+BACKSPACE */
+       /**/
+       "(cons 51\n" /* all sequences starting with ESC [ 3 */
+       "  (eq-hashtable\n"
+       "    (cons 126 lineedit-key-del-char-right)))\n" /* DELETE \e[3~ */
+       /**/
+       "(cons 52\n" /* all sequences starting with ESC [ 4 */
+       "  (eq-hashtable\n"
+       "    (cons 126 lineedit-key-eol)))\n" /* END \e[4~ */
+       /**/
+       "    ))))))\n");
 
-       "(cons (seq 27 79 70) lineedit-key-eol)\n"   /* END    \eOF  */
-       "(cons (seq 27 79 72) lineedit-key-bol)\n"   /* HOME   \eOH  */
-       "(cons (seq 27 91 65) lineedit-key-up)\n"    /* UP     \e[A  */
-       "(cons (seq 27 91 66) lineedit-key-down)\n"  /* DOWN   \e[B  */
-       "(cons (seq 27 91 67) lineedit-key-right)\n" /* RIGHT  \e[C  */
-       "(cons (seq 27 91 68) lineedit-key-left)\n"  /* LEFT   \e[D  */
-       "(cons (seq 27 91 70) lineedit-key-eol)\n"   /* END    \e[F  */
-       "(cons (seq 27 91 72) lineedit-key-bol)\n"   /* HOME   \e[H  */
+  eval("(define (lineedit-keytable-find rbuf rpos)\n"
+       "  (assert (bytespan? rbuf))\n"
+       "  (let find ((htable lineedit-keytable)\n"
+       "             (rpos rpos))\n"
+       "    (let* ((ch (bytespan-u8-ref rbuf rpos))\n"
+       "           (entry (hashtable-ref htable ch #f))\n"
+       "           (rpos+1 (fx1+ rpos)))\n"
+       "      (cond\n"
+       "        ((procedure? entry) (values entry rpos+1))\n"
+       "        ((hashtable? entry) (find   entry rpos+1))\n"
+       "        (#t                 (values #f    rpos+1))))))\n");
 
-       "(cons (seq 27 91 49 126) lineedit-key-bol)\n" /* HOME \e[1~    */
-#if 0
-       "(cons (seq 27 91 50 126) lineedit-key-toggle-insert)\n" /* INSERT \e[2~   */
-#endif
-       "(cons (seq 27 91 51 126) lineedit-key-del-char-right)\n" /* DELETE \e[3~ */
-       "(cons (seq 27 91 52 126) lineedit-key-eol)\n"            /* END    \e[4~ */
-
-       "    )))\n");
-
-  eval("(define (lineedit-keytable-apply ctx)\n"
+  eval("(define (lineedit-keytable-apply ctx rstart)\n"
        "  (assert (lineedit? ctx))\n"
-       "  (void))\n");
+       "  (let-values (((proc rpos) (lineedit-keytable-find (linectx-rbuf ctx) rstart)))\n"
+       "    (if (procedure? proc)\n"
+       "      (begin\n"
+       "        (proc ctx)\n"
+       "        rpos)\n"
+       "      (lineedit-insert-rbuf ctx rstart rpos))))\n");
 
   eval("(define (lineedit-readsome ctx timeout-milliseconds)\n"
        "  (assert (linectx? ctx))\n"
@@ -183,7 +215,7 @@ void define_lineedit_functions(void) {
        "    (bytespan-length-set! rbuf (fx+ rlen delta))\n"
        "    (bytespan-length-set! rbuf delta)\n"
        "    (when (eq? 'read (fd-select 0 'read timeout-milliseconds))\n"
-       "      (let ((got (fd-read 0 (bytespan-underlying rbuf) rlen)))\n"
+       "      (let ((got (fd-read 0 (bytespan-underlying rbuf) 0 rlen)))\n"
        "        (assert (fixnum? got))\n"
        "        (assert (fx>=? got 0))\n"
        "        (bytespan-length-set! rbuf (fx+ rlen got)))\n"
