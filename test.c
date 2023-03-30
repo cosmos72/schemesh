@@ -31,12 +31,16 @@ static const struct {
     {"(span-empty? (span 'x))", "#f"},
     {"(span-last (span 'x 'y))", "y"},
     {"(span-ref (span 'a 'b 'c) 1)", "b"},
-    {"(let ((arr (span 'foo)))\n"
-     "  (span-append! arr 'bar 'qux)\n"
-     "  arr)",
+    {"(let ((sp (span 'foo)))\n"
+     "  (span-append! sp 'bar 'qux)\n"
+     "  sp)",
      "(span foo bar qux)"},
-    {"(let ((arr (span 'a 'b 'c 'd)))\n"
-     "  (span-find arr 0 999 (lambda (elem) (eq? 'c elem))))\n",
+    {"(let ((sp (span 'a 'b 'c 'd)))\n"
+     "  (span-erase-front! sp 3)\n"
+     "  sp)",
+     "(span d)"},
+    {"(let ((sp (span 'a 'b 'c 'd)))\n"
+     "  (span-find sp 0 999 (lambda (elem) (eq? 'c elem))))\n",
      "2"},
     {"(bytespan 1 2 3)", "(bytespan 1 2 3)"},
     {"(list->bytespan '(56 12 0 46))", "(bytespan 56 12 0 46)"},
@@ -48,12 +52,12 @@ static const struct {
     {"(bytespan-empty? (bytespan 250))", "#f"},
     {"(bytespan-u8-last (bytespan 251))", "251"},
     {"(bytespan-u8-ref (bytespan 252 253 254 255) 2)", "254"},
-    {"(let ((arr (bytespan 4 5 6)))\n"
-     "  (bytespan-u8-append! arr 7 8)\n"
-     "  arr)",
+    {"(let ((sp (bytespan 4 5 6)))\n"
+     "  (bytespan-u8-append! sp 7 8)\n"
+     "  sp)",
      "(bytespan 4 5 6 7 8)"},
-    {"(let ((arr (bytespan 9 10 11 12)))\n"
-     "  (bytespan-u8-find arr 0 999 (lambda (elem) (eq? 11 elem))))\n",
+    {"(let ((sp (bytespan 9 10 11 12)))\n"
+     "  (bytespan-u8-find sp 0 999 (lambda (elem) (eq? 11 elem))))\n",
      "2"},
     {"(charspan #\\1 #\\2 #\\3)", "(string->charspan \"123\")"},
     {"(list->charspan '(#\\i #\\j #\\k #\\l))", "(string->charspan \"ijkl\")"},
@@ -65,12 +69,12 @@ static const struct {
     {"(charspan-empty? (charspan #\\~))", "#f"},
     {"(charspan-last (charspan #\\{))", "{"},
     {"(charspan-ref (charspan #\\x #\\y #\\z) 2)", "z"},
-    {"(let ((arr (charspan #\\4 #\\5 #\\6)))\n"
-     "  (charspan-append! arr #\\7 #\\8)\n"
-     "  arr)",
+    {"(let ((sp (charspan #\\4 #\\5 #\\6)))\n"
+     "  (charspan-append! sp #\\7 #\\8)\n"
+     "  sp)",
      "(string->charspan \"45678\")"},
-    {"(let ((arr (charspan #\\@ #\\a #\\b #\\c)))\n"
-     "  (charspan-find arr 0 999 (lambda (elem) (eq? #\\b elem))))\n",
+    {"(let ((sp (charspan #\\@ #\\a #\\b #\\c)))\n"
+     "  (charspan-find sp 0 999 (lambda (elem) (eq? #\\b elem))))\n",
      "2"},
     {"(errno)", "0"},
     {"(let ((ret '()))\n"

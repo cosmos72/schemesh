@@ -95,7 +95,7 @@ static void define_span_functions(void) {
        "  (define span-capacity-set!)\n"
        "  (define span-length-set!)\n"
        "  (define span-append!)\n"
-       "  (define span-erase-start!)\n"
+       "  (define span-erase-front!)\n"
        "  (define span-iterate))\n");
 
   eval("(let ()\n"
@@ -201,6 +201,18 @@ static void define_span_functions(void) {
        "        (lambda (elem)\n"
        "          (span-set! sp pos elem)\n"
        "          (set! pos (fx1+ pos))))))))\n"
+       "\n"
+       /* erase n elements at the front of span */
+       "(set! span-erase-front! (lambda (sp n)\n"
+       "  (assert (fx>= n 0))\n"
+       "  (assert (fx<= n (span-length sp)))\n"
+       "  (cond\n"
+       "    ((fx=? n 0))\n"
+       "    ((fx<? n (span-length sp))\n"
+       "      (span-beg-set! sp (fx+ n (span-beg sp))))\n"
+       "    (#t\n"
+       "      (span-beg-set! sp 0)\n"
+       "      (span-end-set! sp 0)))))\n"
        "\n"
        "(set! span-iterate (lambda (sp proc)\n"
        "  (do ((i (span-beg sp) (fx1+ i))\n"
