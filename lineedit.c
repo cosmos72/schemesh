@@ -14,17 +14,18 @@ void define_lineedit_functions(void) {
   eval("(define-record-type\n"
        "  (linectx %make-linectx linectx?)\n"
        "  (fields\n"
-       "    (mutable rbuf)\n"       /* bytespan, buffer for (fd-read) */
-       "    (mutable wbuf)\n"       /* bytespan, buffer for (fw-write) */
-       "    (mutable lines)\n"      /* span of bytespans, input being edited */
-       "    (mutable state)\n"      /* bytespan, stack of nested ( [ { and " */
-       "    (mutable x)\n"          /* fixnum, cursor x position */
-       "    (mutable y)\n"          /* fixnum, cursor y position */
-       "    (mutable save-x)\n"     /* fixnum, saved cursor x position */
-       "    (mutable save-y)\n"     /* fixnum, saved cursor y position */
-       "    (mutable rows)\n"       /* fixnum, multiline: max number of rows being edited */
-       "    (mutable width)\n"      /* fixnum, terminal width */
-       "    (mutable height)))\n"); /* fixnum, terminal height */
+       "    (mutable rbuf)\n"    /* bytespan, buffer for (fd-read) */
+       "    (mutable wbuf)\n"    /* bytespan, buffer for (fw-write) */
+       "    (mutable lines)\n"   /* span of bytespans, input being edited */
+       "    (mutable state)\n"   /* bytespan, stack of nested ( [ { and " */
+       "    (mutable x)\n"       /* fixnum, cursor x position */
+       "    (mutable y)\n"       /* fixnum, cursor y position */
+       "    (mutable save-x)\n"  /* fixnum, saved cursor x position */
+       "    (mutable save-y)\n"  /* fixnum, saved cursor y position */
+       "    (mutable rows)\n"    /* fixnum, max number of rows being edited */
+       "    (mutable width)\n"   /* fixnum, terminal width */
+       "    (mutable height)\n"  /* fixnum, terminal height */
+       "    (mutable eof)))\n"); /* bool,   set by (lineedit-key-eof) */
 
   eval("(define (make-linectx)\n"
        "  (let ((sz (tty-size))\n"
@@ -38,9 +39,10 @@ void define_lineedit_functions(void) {
        "    (bytespan-length-set! state 0)\n"
        "    (%make-linectx\n"
        "      rbuf wbuf lines state\n"
-       "      -1 -1 -1 -1 +1\n"                   /* x y save-x save-y rows */
-       "      (if (pair? sz) (car sz) 80)\n"      /* width */
-       "      (if (pair? sz) (cdr sz) 24))))\n"); /* height */
+       "      -1 -1 -1 -1 +1\n"              /* x y save-x save-y rows */
+       "      (if (pair? sz) (car sz) 80)\n" /* width  */
+       "      (if (pair? sz) (cdr sz) 24)\n" /* height */
+       "      #f)))\n");                     /* eof    */
 
   eval("(define (lineedit-insert-rbuf ctx start end)\n"
        /** TODO: update linectx-lines */
@@ -76,7 +78,8 @@ void define_lineedit_functions(void) {
        "  (void))\n"
        "\n"
        "(define (lineedit-key-ctrl-d ctx)\n"
-       "  (void))\n"
+       /** FIXME: temporary */
+       "  (linectx-eof-set! #t))\n"
        "\n"
        "(define (lineedit-key-transpose-char ctx)\n"
        "  (void))\n"
@@ -184,10 +187,10 @@ void define_lineedit_functions(void) {
        /**/
        "    ))))))\n");
 
-  eval("(define (lineedit-keytable-find rbuf rpos)\n"
+  eval("(define (lineedit-keytable-find rbuf)\n"
        "  (assert (bytespan? rbuf))\n"
        "  (let find ((htable lineedit-keytable)\n"
-       "             (rpos rpos))\n"
+       "             (rpos 0))\n"
        "    (let* ((ch (bytespan-u8-ref rbuf rpos))\n"
        "           (entry (hashtable-ref htable ch #f))\n"
        "           (rpos+1 (fx1+ rpos)))\n"
@@ -196,9 +199,9 @@ void define_lineedit_functions(void) {
        "        ((hashtable? entry) (find   entry rpos+1))\n"
        "        (#t                 (values #f    rpos+1))))))\n");
 
-  eval("(define (lineedit-keytable-apply ctx rstart)\n"
-       "  (assert (lineedit? ctx))\n"
-       "  (let-values (((proc rpos) (lineedit-keytable-find (linectx-rbuf ctx) rstart)))\n"
+  eval("(define (lineedit-keytable-apply ctx)\n"
+       "  (assert (linectx? ctx))\n"
+       "  (let-values (((proc rpos) (lineedit-keytable-find (linectx-rbuf ctx))))\n"
        "    (if (procedure? proc)\n"
        "      (begin\n"
        "        (proc ctx)\n"
@@ -219,9 +222,17 @@ void define_lineedit_functions(void) {
        "        (assert (fixnum? got))\n"
        "        (assert (fx>=? got 0))\n"
        "        (bytespan-length-set! rbuf (fx+ rlen got)))\n"
-       "      (lineedit-keytable-apply ctx))))\n");
+       "      (lineedit-keytable-apply ctx)\n"
+       "      (not (linectx-eof ctx)))))\n");
 
   eval("(define (sh-lineedit ctx)\n"
-       "  (assert (linectx? ctx))\n"
-       "  (void))\n");
+       "  (lineedit-readsome ctx -1))\n");
+
+  eval("(define (sh-lineedit-repl)\n"
+       "  (let ((ctx (make-linectx)))\n"
+       "    (dynamic-wind\n"
+       "      tty-setraw!\n"                  /* run before body */
+       "      (lambda ()\n"                   /* body            */
+       "        (while (sh-lineedit ctx)))\n" /*                 */
+       "      tty-restore!)))\n");            /* run after body  */
 }
