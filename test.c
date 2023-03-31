@@ -24,12 +24,13 @@ static const struct {
     {"(+ 1 2 3)", "6"},
     {"(* 4 5 6)", "120"},
     {"(subvector '#(aa bb cc dd) 1 3)", "#(bb cc)"},
+    {"(subbytevector '#vu8(44 55 66 77) 2 3)", "B"},
     {"(span 1 2 3)", "(span 1 2 3)"},
     {"(span-length (span 1 2 3))", "3"},
     {"(span-capacity (span 1 2 3))", "3"},
     {"(span-empty? (span))", "#t"},
     {"(span-empty? (span 'x))", "#f"},
-    {"(span-last (span 'x 'y))", "y"},
+    {"(span-back (span 'x 'y))", "y"},
     {"(span-ref (span 'a 'b 'c) 1)", "b"},
     {"(let ((sp (span 'foo)))\n"
      "  (span-append! sp 'bar 'qux)\n"
@@ -50,7 +51,7 @@ static const struct {
     {"(bytespan-capacity (bytespan 1 2 3))", "3"},
     {"(bytespan-empty? (bytespan))", "#t"},
     {"(bytespan-empty? (bytespan 250))", "#f"},
-    {"(bytespan-u8-last (bytespan 251))", "251"},
+    {"(bytespan-u8-back (bytespan 251 252))", "252"},
     {"(bytespan-u8-ref (bytespan 252 253 254 255) 2)", "254"},
     {"(let ((sp (bytespan 4 5 6)))\n"
      "  (bytespan-u8-append! sp 7 8)\n"
@@ -67,7 +68,7 @@ static const struct {
     {"(charspan-capacity (charspan #\\a #\\b #\\c))", "3"},
     {"(charspan-empty? (charspan))", "#t"},
     {"(charspan-empty? (charspan #\\~))", "#f"},
-    {"(charspan-last (charspan #\\{))", "{"},
+    {"(charspan-back (charspan #\\{ #\\\\))", "\\"},
     {"(charspan-ref (charspan #\\x #\\y #\\z) 2)", "z"},
     {"(let ((sp (charspan #\\4 #\\5 #\\6)))\n"
      "  (charspan-append! sp #\\7 #\\8)\n"
