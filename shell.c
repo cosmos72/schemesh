@@ -700,7 +700,7 @@ static void define_shell_functions(void) {
        "  (sh-fg j))\n");
 
   /** Create or remove a file description redirection for cmd or job */
-  eval("(define (sh-redirect-fd! job-id child-fd existing-fd-or-minus-1)\n"
+  eval("(define (sh-fd-redirect! job-id child-fd existing-fd-or-minus-1)\n"
        "  (when (or (not (fixnum? child-fd)) (< child-fd 0))\n"
        "    (error 'job-redirect! \"invalid redirect fd\" child-fd))\n"
        "  (let* ([job (sh-job-ref job-id)]\n"
@@ -716,7 +716,7 @@ static void define_shell_functions(void) {
        "  (vector-set! (job-to-redirect-fds j) child-fd existing-fd-or-minus-1))\n");
 
   /** Create or remove multiple file description redirections for cmd or job */
-  eval("(define (sh-redirect-fds! j child-fds existing-fd-or-minus-1)\n"
+  eval("(define (sh-fds-redirect! j child-fds existing-fd-or-minus-1)\n"
        "  (do ([child-cons child-fds (cdr child-cons)])\n"
        "      ((eq? '() child-cons))"
        "    (job-redirect-fd! j (car child-cons) existing-fd-or-minus-1)))\n");
