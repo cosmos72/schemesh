@@ -468,7 +468,7 @@ static void define_charspan_functions(void) {
        "     (mutable beg charspan-beg charspan-beg-set!)\n"
        "     (mutable end charspan-end charspan-end-set!)\n"
        "     (mutable vec charspan-vec charspan-vec-set!))\n"
-       /* "  (nongenerative #{%charspan ng1h8vurkk5k61p0jsryrbk99-0})"*/ ")\n"
+       "  (nongenerative #{%charspan b847ikzm9lftljwelbq0cknyh-0}))\n"
        "\n"
        "(set! list->charspan (lambda (l)\n"
        "  (let ((vec (list->string l)))\n"
