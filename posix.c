@@ -104,7 +104,7 @@ int c_tty_setraw(void) {
   conf.c_oflag |= OPOST | ONLCR;
   conf.c_cflag &= ~(CSIZE | PARENB);
   conf.c_cflag |= CS8;
-  conf.c_lflag &= ~(/*ECHO | ECHONL | */ ICANON | IEXTEN | ISIG);
+  conf.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
   /* conf.c_lflag |= TOSTOP; */
   for (i = 0; i < NCCS; i++) {
     conf.c_cc[i] = 0;

@@ -277,7 +277,9 @@ static void define_bytespan_functions(void) {
        "  (define bytespan-length)\n"
        "  (define bytespan-capacity)\n"
        "  (define bytespan-empty?)\n"
-       "  (define bytespan-underlying)\n" /* return underlying bytevector */
+       "  (define bytespan-peek-beg)\n"  /* return start offset into underlying bytevector */
+       "  (define bytespan-peek-end)\n"  /* return end offset into underlying bytevector */
+       "  (define bytespan-peek-data)\n" /* return underlying bytevector */
        "  (define bytespan-u8-ref)\n"
        "  (define bytespan-u8-set!)\n"
        "  (define bytespan-u8-back)\n"
@@ -329,7 +331,13 @@ static void define_bytespan_functions(void) {
        "(set! bytespan-empty? (lambda (sp)\n"
        "  (fx>= (bytespan-beg sp) (bytespan-end sp))))\n"
        "\n"
-       "(set! bytespan-underlying (lambda (sp)\n"
+       "(set! bytespan-peek-beg (lambda (sp)\n"
+       "  (bytespan-beg sp)))\n"
+       "\n"
+       "(set! bytespan-peek-end (lambda (sp)\n"
+       "  (bytespan-end sp)))\n"
+       "\n"
+       "(set! bytespan-peek-data (lambda (sp)\n"
        "  (bytespan-vec sp)))\n"
        "\n"
        "(set! bytespan-u8-ref (lambda (sp n)\n"

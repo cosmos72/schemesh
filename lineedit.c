@@ -44,9 +44,13 @@ void define_lineedit_functions(void) {
        "      (if (pair? sz) (cdr sz) 24)\n" /* height */
        "      #f)))\n");                     /* eof    */
 
-  eval("(define (lineedit-insert-rbuf ctx start end)\n"
+  eval("(define (lineedit-write-rbuf ctx n)\n"
        /** TODO: update linectx-lines */
-       "  (fd-write 1 (bytespan-underlying (linectx-rbuf ctx)) start end))\n");
+       "  (let* ((rbuf  (linectx-rbuf ctx))\n"
+       "         (start (bytespan-peek-beg rbuf))\n"
+       "         (end   (fx+ start n)))\n"
+       "    (fd-write 1 (bytespan-peek-data rbuf) start end)\n"
+       "    (bytespan-erase-front! rbuf n)))\n");
 
   eval("(begin\n"
        "\n"
@@ -201,12 +205,17 @@ void define_lineedit_functions(void) {
 
   eval("(define (lineedit-keytable-apply ctx)\n"
        "  (assert (linectx? ctx))\n"
+#if 1
+       "  (lineedit-write-rbuf ctx (bytespan-length (linectx-rbuf ctx)))\n"
+#else
        "  (let-values (((proc rpos) (lineedit-keytable-find (linectx-rbuf ctx))))\n"
        "    (if (procedure? proc)\n"
        "      (begin\n"
        "        (proc ctx)\n"
        "        rpos)\n"
-       "      (lineedit-insert-rbuf ctx rstart rpos))))\n");
+       "      (lineedit-insert-rbuf ctx rstart rpos)))\n"
+#endif
+       ")\n");
 
   eval("(define (lineedit-readsome ctx timeout-milliseconds)\n"
        "  (assert (linectx? ctx))\n"
@@ -216,19 +225,20 @@ void define_lineedit_functions(void) {
        "         (delta 1024))\n"
        /*   ensure bytespan-capacity is large enough */
        "    (bytespan-length-set! rbuf (fx+ rlen delta))\n"
-       "    (bytespan-length-set! rbuf delta)\n"
+       "    (bytespan-length-set! rbuf rlen)\n"
        "    (when (eq? 'read (fd-select 0 'read timeout-milliseconds))\n"
-       "      (let ((got (fd-read 0 (bytespan-underlying rbuf) 0 rlen)))\n"
+       "      (let ((got (fd-read 0 (bytespan-peek-data rbuf) (bytespan-peek-end rbuf) delta)))\n"
        "        (assert (fixnum? got))\n"
-       "        (assert (fx>=? got 0))\n"
-       "        (bytespan-length-set! rbuf (fx+ rlen got)))\n"
-       "      (lineedit-keytable-apply ctx)\n"
-       "      (not (linectx-eof ctx)))))\n");
+       "        (assert (fx<=? 0 got delta))\n"
+       "        (when (fx>? got 0)\n"
+       "          (bytespan-length-set! rbuf (fx+ rlen got))\n"
+       "          (lineedit-keytable-apply ctx)\n"
+       "          (not (linectx-eof ctx)))))))\n");
 
   eval("(define (sh-lineedit ctx)\n"
        "  (lineedit-readsome ctx -1))\n");
 
-  eval("(define (sh-lineedit-repl)\n"
+  eval("(define (sh-repl)\n"
        "  (let ((ctx (make-linectx)))\n"
        "    (dynamic-wind\n"
        "      tty-setraw!\n"                  /* run before body */
