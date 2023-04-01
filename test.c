@@ -27,13 +27,13 @@ static const struct {
     {"(subbytevector '#vu8(44 55 66 77) 2 3)", "B"},
     {"(span 1 2 3)", "(span 1 2 3)"},
     {"(span-length (span 1 2 3))", "3"},
-    {"(span-capacity (span 1 2 3))", "3"},
+    {"(span-capacity-back (span 1 2 3))", "3"},
     {"(span-empty? (span))", "#t"},
     {"(span-empty? (span 'x))", "#f"},
     {"(span-back (span 'x 'y))", "y"},
     {"(span-ref (span 'a 'b 'c) 1)", "b"},
     {"(let ((sp (span 'foo)))\n"
-     "  (span-append! sp 'bar 'qux)\n"
+     "  (span-insert-back! sp 'bar 'qux)\n"
      "  sp)",
      "(span foo bar qux)"},
     {"(let ((sp (span 'a 'b 'c 'd)))\n"
@@ -48,13 +48,13 @@ static const struct {
     {"(bytevector->bytespan #vu8(7 19 88 255))", "(bytespan 7 19 88 255)"},
     {"(bytespan->bytevector (bytespan 65 66 67))", "ABC"},
     {"(bytespan-length (bytespan 1 2 3))", "3"},
-    {"(bytespan-capacity (bytespan 1 2 3))", "3"},
+    {"(bytespan-capacity-back (bytespan 1 2 3))", "3"},
     {"(bytespan-empty? (bytespan))", "#t"},
     {"(bytespan-empty? (bytespan 250))", "#f"},
     {"(bytespan-u8-back (bytespan 251 252))", "252"},
     {"(bytespan-u8-ref (bytespan 252 253 254 255) 2)", "254"},
     {"(let ((sp (bytespan 4 5 6)))\n"
-     "  (bytespan-u8-append! sp 7 8)\n"
+     "  (bytespan-u8-insert-back! sp 7 8)\n"
      "  sp)",
      "(bytespan 4 5 6 7 8)"},
     {"(let ((sp (bytespan 9 10 11 12)))\n"
@@ -65,13 +65,13 @@ static const struct {
     {"(string->charspan \"pqrst\")", "(string->charspan \"pqrst\")"},
     {"(charspan->string (string->charspan \"pqrst\"))", "pqrst"},
     {"(charspan-length (charspan #\\a #\\b #\\c))", "3"},
-    {"(charspan-capacity (charspan #\\a #\\b #\\c))", "3"},
+    {"(charspan-capacity-back (charspan #\\a #\\b #\\c))", "3"},
     {"(charspan-empty? (charspan))", "#t"},
     {"(charspan-empty? (charspan #\\~))", "#f"},
     {"(charspan-back (charspan #\\{ #\\\\))", "\\"},
     {"(charspan-ref (charspan #\\x #\\y #\\z) 2)", "z"},
     {"(let ((sp (charspan #\\4 #\\5 #\\6)))\n"
-     "  (charspan-append! sp #\\7 #\\8)\n"
+     "  (charspan-insert-back! sp #\\7 #\\8)\n"
      "  sp)",
      "(string->charspan \"45678\")"},
     {"(let ((sp (charspan #\\@ #\\a #\\b #\\c)))\n"

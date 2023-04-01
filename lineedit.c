@@ -33,10 +33,10 @@ void define_lineedit_functions(void) {
        "        (wbuf  (make-bytespan 2048))\n"
        "        (lines (make-span     10))\n"
        "        (state (make-bytespan 32)))\n"
-       "    (bytespan-length-set! rbuf 0)\n"
-       "    (bytespan-length-set! wbuf 0)\n"
-       "    (span-length-set!     lines 0)\n"
-       "    (bytespan-length-set! state 0)\n"
+       "    (bytespan-resize-back! rbuf 0)\n"
+       "    (bytespan-resize-back! wbuf 0)\n"
+       "    (span-resize-back!     lines 0)\n"
+       "    (bytespan-resize-back! state 0)\n"
        "    (%make-linectx\n"
        "      rbuf wbuf lines state\n"
        "      -1 -1 -1 -1 +1\n"              /* x y save-x save-y rows */
@@ -226,16 +226,15 @@ void define_lineedit_functions(void) {
        "  (let* ((rbuf (linectx-rbuf ctx))\n"
        "         (rlen (bytespan-length rbuf))\n"
        "         (delta 1024))\n"
-       /*   ensure bytespan-capacity is large enough */
-       "    (bytespan-length-set! rbuf (fx+ rlen delta))\n"
-       "    (bytespan-length-set! rbuf rlen)\n"
+       /*   ensure bytespan-capacity-back is large enough */
+       "    (bytespan-reserve-back! rbuf (fx+ (bytespan-length) delta))\n"
        "    (flush-output-port)\n"
        "    (when (eq? 'read (fd-select 0 'read timeout-milliseconds))\n"
        "      (let ((got (fd-read 0 (bytespan-peek-data rbuf) (bytespan-peek-end rbuf) delta)))\n"
        "        (assert (fixnum? got))\n"
        "        (assert (fx<=? 0 got delta))\n"
        "        (when (fx>? got 0)\n"
-       "          (bytespan-length-set! rbuf (fx+ rlen got))\n"
+       "          (bytespan-resize-back! rbuf (fx+ rlen got))\n"
        "          (lineedit-keytable-iterate ctx)\n"
        "          (not (linectx-eof? ctx)))))))\n");
 

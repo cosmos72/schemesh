@@ -159,7 +159,7 @@ static void define_job_functions(void) {
        "    (if job-id\n"
        "      (span-set! arr job-id j)\n" // found a free job-id
        "      (begin\n"                   // no free job-id, enlarge span
-       "        (span-append! arr j)\n"
+       "        (span-insert-back! arr j)\n"
        "        (set! job-id len)))\n"
        "    (let* ((start   (multijob-next-id mjob))\n"
        "           (len     (span-length arr))\n"
@@ -200,7 +200,7 @@ static void define_job_functions(void) {
        "    (span-iterate src\n"
        "      (lambda (job-id job)\n"
        "        (when (sh-job? job)\n"
-       "          (span-append! dst (cons job-id job)))))\n"
+       "          (span-insert-back! dst (cons job-id job)))))\n"
        "    dst))\n");
 
   /**
