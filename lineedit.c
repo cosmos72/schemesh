@@ -14,20 +14,25 @@ void define_lineedit_functions(void) {
   eval("(define-record-type\n"
        "  (linectx %make-linectx linectx?)\n"
        "  (fields\n"
-       "    (mutable rbuf)\n"   /* bytespan, buffer for (fd-read) */
-       "    (mutable wbuf)\n"   /* bytespan, buffer for (fw-write) */
-       "    (mutable lines)\n"  /* span of bytespans, input being edited */
-       "    (mutable state)\n"  /* bytespan, stack of nested ( [ { and " */
-       "    (mutable x)\n"      /* fixnum, cursor x position */
-       "    (mutable y)\n"      /* fixnum, cursor y position */
-       "    (mutable save-x)\n" /* fixnum, saved cursor x position */
-       "    (mutable save-y)\n" /* fixnum, saved cursor y position */
-       "    (mutable rows)\n"   /* fixnum, max number of rows being edited */
-       "    (mutable width)\n"  /* fixnum, terminal width */
-       "    (mutable height)\n" /* fixnum, terminal height */
-       "    (mutable eof? linectx-eof? linectx-eof-set!)))\n"); /* bool */
+       "    (mutable rbuf)\n"         /* bytespan, buffer for (fd-read) */
+       "    (mutable wbuf)\n"         /* bytespan, buffer for (fw-write) */
+       "    (mutable lines)\n"        /* span of bytespans, input being edited */
+       "    (mutable state)\n"        /* bytespan, stack of nested ( [ { and " */
+       "    (mutable x)\n"            /* fixnum, cursor x position */
+       "    (mutable y)\n"            /* fixnum, cursor y position */
+       "    (mutable save-x)\n"       /* fixnum, saved cursor x position */
+       "    (mutable save-y)\n"       /* fixnum, saved cursor y position */
+       "    (mutable rows)\n"         /* fixnum, max number of rows being edited */
+       "    (mutable width)\n"        /* fixnum, terminal width */
+       "    (mutable height)\n"       /* fixnum, terminal height */
+       "    (mutable eof)\n"          /* bool */
+       "    (mutable keytable)))\n"); /* hastable, contains keybindings */
 
-  eval("(define (make-linectx)\n"
+  eval("(begin\n"
+       "\n"
+       "(define lineedit-default-keytable (eq-hashtable))\n"
+       "\n"
+       "(define (make-linectx)\n"
        "  (let ((sz (tty-size))\n"
        "        (rbuf  (make-bytespan 2048))\n"
        "        (wbuf  (make-bytespan 2048))\n"
@@ -39,10 +44,12 @@ void define_lineedit_functions(void) {
        "    (bytespan-resize-back! state 0)\n"
        "    (%make-linectx\n"
        "      rbuf wbuf lines state\n"
-       "      -1 -1 -1 -1 +1\n"              /* x y save-x save-y rows */
-       "      (if (pair? sz) (car sz) 80)\n" /* width  */
-       "      (if (pair? sz) (cdr sz) 24)\n" /* height */
-       "      #f)))\n");                     /* eof    */
+       "      -1 -1 -1 -1 +1\n"                  /* x y save-x save-y rows */
+       "      (if (pair? sz) (car sz) 80)\n"     /* width        */
+       "      (if (pair? sz) (cdr sz) 24)\n"     /* height       */
+       "      #f lineedit-default-keytable)))\n" /* eof keytable */
+       "\n"
+       ")"); // close begin
 
   eval("(define (lineedit-insert! ctx n)\n"
        /** TODO: update linectx-lines */
@@ -124,71 +131,72 @@ void define_lineedit_functions(void) {
        "  (void))\n"
        ")\n");
 
-  eval("(define lineedit-keytable\n"
-       "  (eq-hashtable\n"
-       "(cons 1 lineedit-key-bol)\n"             /* CTRL+A */
-       "(cons 2 lineedit-key-left)\n"            /* CTRL+B */
-       "(cons 3 lineedit-key-break)\n"           /* CTRL+C */
-       "(cons 4 lineedit-key-ctrl-d)\n"          /* CTRL+D */
-       "(cons 5 lineedit-key-eol)\n"             /* CTRL+E */
-       "(cons 6 lineedit-key-right)\n"           /* CTRL+F */
-       "(cons 8 lineedit-key-del-char-left)\n"   /* CTRL+H */
-       "(cons 9 lineedit-key-tab)\n"             /* CTRL+I or TAB  */
-       "(cons 10 lineedit-key-enter)\n"          /* CTRL+J or LF   */
-       "(cons 11 lineedit-key-del-eol)\n"        /* CTRL+K         */
-       "(cons 12 lineedit-key-redraw)\n"         /* CTRL+L         */
-       "(cons 13 lineedit-key-enter)\n"          /* CTRL+M or CR   */
-       "(cons 14 lineedit-key-history-next)\n"   /* CTRL+N         */
-       "(cons 16 lineedit-key-history-prev)\n"   /* CTRL+P         */
-       "(cons 20 lineedit-key-transpose-char)\n" /* CTRL+T         */
-       "(cons 21 lineedit-key-del-line)\n"       /* CTRL+U         */
-       "(cons 23 lineedit-key-del-word-left)\n"  /* CTRL+W         */
-       "(cons 31 lineedit-key-del-word-left)\n"  /* CTRL+BACKSPACE */
-       "(cons 127 lineedit-key-del-char-left)\n" /* BACKSPACE     */
-       /**/
-       "(cons 27\n" /* all sequences starting with ESC */
-       "  (eq-hashtable\n"
-       "(cons 66  lineedit-key-word-left)\n"      /* ALT+B         */
-       "(cons 98  lineedit-key-word-left)\n"      /* ALT+b         */
-       "(cons 68  lineedit-key-del-word-right)\n" /* ALT+D         */
-       "(cons 100 lineedit-key-del-word-right)\n" /* ALT+d         */
-       "(cons 70  lineedit-key-word-right)\n"     /* ALT+F         */
-       "(cons 102 lineedit-key-word-right)\n"     /* ALT+f         */
-       "(cons 127 lineedit-key-del-word-left)\n"  /* ALT+BACKSPACE */
-       /**/
-       "(cons 79\n" /* all sequences starting with ESC O */
-       "  (eq-hashtable\n"
-       "    (cons 70 lineedit-key-eol)\n"   /* END    \eOF  */
-       "    (cons 72 lineedit-key-bol)))\n" /* HOME   \eOH  */
-       /**/
-       "(cons 91\n" /* all sequences starting with ESC [ */
-       "  (eq-hashtable\n"
-       "(cons 65 lineedit-key-up)\n"    /* UP     \e[A  */
-       "(cons 66 lineedit-key-down)\n"  /* DOWN   \e[B  */
-       "(cons 67 lineedit-key-right)\n" /* RIGHT  \e[C  */
-       "(cons 68 lineedit-key-left)\n"  /* LEFT   \e[D  */
-       "(cons 70 lineedit-key-eol)\n"   /* END    \e[F  */
-       "(cons 72 lineedit-key-bol)\n"   /* HOME   \e[H  */
-       /**/
-       "(cons 49\n" /* all sequences starting with ESC [ 1 */
-       "  (eq-hashtable\n"
-       "    (cons 126 lineedit-key-bol)))\n" /* HOME \e[1~ */
+  eval("(define (lineedit-keytable-set! keytable proc . keysequences)\n"
+       "  (letrec\n"
+       "    ((%add-bytelist (lambda (htable bytelist)\n"
+       "      (let ((byte (car bytelist)))\n"
+       "        (if (null? (cdr bytelist))\n"
+       "          (hashtable-set! htable byte proc)\n"
+       "          (let ((inner-htable (hashtable-ref htable byte #f)))\n"
+       "            (unless (hashtable? inner-htable)\n"
+       "              (set! inner-htable (eq-hashtable))\n"
+       "              (hashtable-set! htable byte inner-htable))\n"
+       "            (%add-bytelist inner-htable (cdr bytelist)))))))\n"
+       "     (%any->bytelist (lambda (keyseq)\n"
+       "       (cond\n"
+       "         ((fixnum?     keyseq) (list keyseq))\n"
+       "         ((pair?       keyseq) keyseq)\n"
+       "         ((bytevector? keyseq) (bytevector->u8-list keyseq))\n"
+       "         ((string?     keyseq) (bytevector->u8-list (string->utf8 keyseq)))\n"
+       "         (#t (assert\n"
+       "               (or (finuxm? keyseq) (pair? keyseq)\n"
+       "                   (bytevector? keyseq) (string? keyseq))))))))\n"
+       "\n"
+       "    (do ((l keysequences (cdr l)))\n"
+       "        ((null? l))\n"
+       "      (%add-bytelist keytable (%any->bytelist (car l))))))\n");
+
+  eval("(let ((t lineedit-default-keytable)\n"
+       "      (%add lineedit-keytable-set!))\n"
+       "(%add t lineedit-key-bol 1)\n"               /* CTRL+A           */
+       "(%add t lineedit-key-left 2)\n"              /* CTRL+B           */
+       "(%add t lineedit-key-break 3)\n"             /* CTRL+C           */
+       "(%add t lineedit-key-ctrl-d 4)\n"            /* CTRL+D           */
+       "(%add t lineedit-key-eol 5)\n"               /* CTRL+E           */
+       "(%add t lineedit-key-right 6)\n"             /* CTRL+F           */
+       "(%add t lineedit-key-del-char-left 8 127)\n" /* CTRL+H BACKSPACE */
+       "(%add t lineedit-key-tab 9)\n"               /* CTRL+I or TAB    */
+       "(%add t lineedit-key-enter 10 13)\n"         /* CTRL+J or LF, CTRL+M or CR */
+       "(%add t lineedit-key-del-eol 11)\n"          /* CTRL+K           */
+       "(%add t lineedit-key-redraw 12)\n"           /* CTRL+L           */
+       "(%add t lineedit-key-history-next 14)\n"     /* CTRL+N           */
+       "(%add t lineedit-key-history-prev 16)\n"     /* CTRL+P           */
+       "(%add t lineedit-key-transpose-char 20)\n"   /* CTRL+T           */
+       "(%add t lineedit-key-del-line 21)\n"         /* CTRL+U           */
+                                                     /* CTRL+W, CTRL+BACKSPACE, ALT+BACKSPACE */
+       "(%add t lineedit-key-del-word-left 23 31 '(27 127))\n"
+       /* sequences starting with ESC */
+       "(%add t lineedit-key-word-left '(27 66) '(27 98))\n"       /* ALT+B, ALT+b */
+       "(%add t lineedit-key-del-word-right '(27 68) '(27 100))\n" /* ALT+D, ALT+d */
+       "(%add t lineedit-key-word-right '(27 70) '(27 102))\n"     /* ALT+F, ALT+f */
+       /* sequences starting with ESC O */
+       "(%add t lineedit-key-eol   '(27 79 70))\n"     /* END   \eOF  */
+       "(%add t lineedit-key-bol   '(27 79 72))\n"     /* HOME  \eOH  */
+       /* sequences starting with ESC [ */             /*             */
+       "(%add t lineedit-key-up    '(27 91 65))\n"     /* UP    \e[A  */
+       "(%add t lineedit-key-down  '(27 91 66))\n"     /* DOWN  \e[B  */
+       "(%add t lineedit-key-right '(27 91 67))\n"     /* RIGHT \e[C  */
+       "(%add t lineedit-key-left  '(27 91 68))\n"     /* LEFT  \e[D  */
+       "(%add t lineedit-key-eol   '(27 91 70))\n"     /* END   \e[F  */
+       "(%add t lineedit-key-bol   '(27 91 72))\n"     /* HOME  \e[H  */
+       "(%add t lineedit-key-bol   '(27 91 49 126))\n" /* HOME  \e[1~ */
 #if 0
-       /**/
-       "(cons 50\n" /* all sequences starting with ESC [ 2 */
-       "  (eq-hashtable\n"
-       "    (cons 126 lineedit-key-toggle-insert)))\n" /* INSERT \e[2~ */
+       "(%add t lineedit-key-toggle-insert '(27 91 50 126))\n" /* INSERT \e[2~ */
 #endif
+       "(%add t lineedit-key-del-char-right '(27 91 51 126))\n" /* DELETE \e[3~ */
+       "(%add t lineedit-key-eol   '(27 91 52 126))\n"          /* END    \e[4~ */
        /**/
-       "(cons 51\n" /* all sequences starting with ESC [ 3 */
-       "  (eq-hashtable\n"
-       "    (cons 126 lineedit-key-del-char-right)))\n" /* DELETE \e[3~ */
-       /**/
-       "(cons 52\n" /* all sequences starting with ESC [ 4 */
-       "  (eq-hashtable\n"
-       "    (cons 126 lineedit-key-eol)))\n" /* END \e[4~ */
-       /**/
-       "    ))))))\n");
+       ")\n"); /* close let */
 
   eval("(define (lineedit-keytable-find rbuf)\n"
        "  (assert (bytespan? rbuf))\n"
@@ -218,7 +226,7 @@ void define_lineedit_functions(void) {
   /** repeatedly call (lineedit-keytable-call) until no more matches are found */
   eval("(define (lineedit-keytable-iterate ctx)\n"
        "  (do ()\n"
-       "      ((or (linectx-eof? ctx) (fx=? 0 (lineedit-keytable-call ctx))))))\n");
+       "      ((or (linectx-eof ctx) (fx=? 0 (lineedit-keytable-call ctx))))))\n");
 
   eval("(define (lineedit-readsome ctx timeout-milliseconds)\n"
        "  (assert (linectx? ctx))\n"
@@ -227,7 +235,7 @@ void define_lineedit_functions(void) {
        "         (rlen (bytespan-length rbuf))\n"
        "         (delta 1024))\n"
        /*   ensure bytespan-capacity-back is large enough */
-       "    (bytespan-reserve-back! rbuf (fx+ (bytespan-length) delta))\n"
+       "    (bytespan-reserve-back! rbuf (fx+ rlen delta))\n"
        "    (flush-output-port)\n"
        "    (when (eq? 'read (fd-select 0 'read timeout-milliseconds))\n"
        "      (let ((got (fd-read 0 (bytespan-peek-data rbuf) (bytespan-peek-end rbuf) delta)))\n"
@@ -236,7 +244,7 @@ void define_lineedit_functions(void) {
        "        (when (fx>? got 0)\n"
        "          (bytespan-resize-back! rbuf (fx+ rlen got))\n"
        "          (lineedit-keytable-iterate ctx)\n"
-       "          (not (linectx-eof? ctx)))))))\n");
+       "          (not (linectx-eof ctx)))))))\n");
 
   eval("(define (sh-lineedit ctx)\n"
        "  (lineedit-readsome ctx -1))\n");
