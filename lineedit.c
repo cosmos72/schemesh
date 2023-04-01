@@ -60,6 +60,9 @@ void define_lineedit_functions(void) {
 
   eval("(begin\n"
        "\n"
+       "(define (lineedit-key-nop ctx)\n"
+       "  (void))\n"
+       "\n"
        "(define (lineedit-key-left ctx)\n"
        "  (display \"<-\"))\n"
        "\n"
@@ -198,9 +201,9 @@ void define_lineedit_functions(void) {
        /**/
        ")\n"); /* close let */
 
-  eval("(define (lineedit-keytable-find rbuf)\n"
+  eval("(define (lineedit-keytable-find keytable rbuf)\n"
        "  (assert (bytespan? rbuf))\n"
-       "  (let %find ((htable lineedit-keytable)\n"
+       "  (let %find ((htable keytable)\n"
        "              (rpos 0))\n"
        "    (if (fx>= rpos (bytespan-length rbuf))\n"
        "      (values htable rpos)\n"
@@ -210,12 +213,13 @@ void define_lineedit_functions(void) {
        "        (cond\n"
        "          ((procedure? entry) (values entry rpos+1))\n"
        "          ((hashtable? entry) (%find  entry rpos+1))\n"
-       "          (#t                 (values #f    1)))))))\n");
+       "          (#t                 (values #f    rpos+1)))))))\n");
 
   /** find one key sequence in lineedit-keytable matching rbuf and execute it */
   eval("(define (lineedit-keytable-call ctx)\n"
        "  (assert (linectx? ctx))\n"
-       "  (let-values (((proc n) (lineedit-keytable-find (linectx-rbuf ctx))))\n"
+       "  (let-values (((proc n) (lineedit-keytable-find\n"
+       "                           (linectx-keytable ctx) (linectx-rbuf ctx))))\n"
        "    (cond\n"
        "      ((procedure? proc) (proc ctx))\n"
        "      ((hashtable? proc) (set! n 0))\n" /* incomplete sequence, wait for more keystrokes */
