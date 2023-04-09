@@ -706,7 +706,7 @@ static void define_shell_functions(void) {
        "  (let* ([job (sh-job-ref job-id)]\n"
        "         [old-fds (job-to-redirect-fds j)]\n"
        "         [old-n (vector-length old-fds)])\n"
-       "    (when (<= old-n child-fd)\n"
+       "    (when (fx<=? old-n child-fd)\n"
        "      (let* ([new-n (max (+ 1 child-fd) (* 2 old-n))]\n"
        "             [new-fds (make-vector new-n -1)])\n" /* fill with -1 i.e. no redirection */
        "        (do ([i 0 (+ 1 i)])\n"

@@ -15,7 +15,7 @@ void define_lineedit_functions(void) {
        "  (linectx %make-linectx linectx?)\n"
        "  (fields\n"
        "    (mutable rbuf)\n"         /* bytespan, buffer for (fd-read) */
-       "    (mutable wbuf)\n"         /* bytespan, buffer for (fw-write) */
+       "    (mutable wbuf)\n"         /* bytespan, buffer for (fd-write) */
        "    (mutable lines)\n"        /* span of bytespans, input being edited */
        "    (mutable state)\n"        /* bytespan, stack of nested ( [ { and " */
        "    (mutable x)\n"            /* fixnum, cursor x position */

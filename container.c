@@ -7,16 +7,49 @@
  * (at your option) any later version.
  */
 
+#include <string.h> // memmove()
+
 #include "eval.h"
+
+/** C backend implementation of (vectory-copy!) */
+static void c_vector_copy(ptr src, iptr src_start, ptr dst, iptr dst_start, iptr n) {
+  if (Svectorp(src) && Svectorp(dst) && src_start >= 0 && dst_start >= 0 && n > 0 &&
+      src_start <= Svector_length(src) && dst_start <= Svector_length(dst) &&
+      n <= Svector_length(src) - src_start && n <= Svector_length(dst) - dst_start) {
+
+    ptr* src_ptr = &Svector_ref(src, src_start);
+    ptr* dst_ptr = &Svector_ref(dst, dst_start);
+    if (src_ptr != dst_ptr) {
+      memmove(dst_ptr, src_ptr, n * sizeof(ptr));
+    }
+  }
+}
 
 /** define some additional vector functions */
 static void define_vector_functions(void) {
-  /** copy a portion of vector src into dst */
-  eval("(define (vector-copy! src src-start dst dst-start n)\n"
-       "  (do ((i 0 (fx1+ i)))\n"
-       "      ((fx>=? i n))\n"
-       "    (let ((elem (vector-ref src (fx+ i src-start))))\n"
-       "      (vector-set! dst (fx+ i dst-start) elem))))\n");
+  Sregister_symbol("c_vector_copy", &c_vector_copy);
+
+  /**
+   * copy a portion of vector src into dst.
+   * works even if src are the same vector and the two ranges overlap.
+   */
+  eval("(define vector-copy!\n"
+       "  (let ((c-vector-copy (foreign-procedure \"c_vector_copy\"\n"
+       "     (scheme-object fixnum scheme-object fixnum fixnum)"
+       "     void)))\n"
+       "    (lambda (src src-start dst dst-start n)\n"
+       "      (assert (vector? src))\n"
+       "      (assert (vector? dst))\n"
+       "      (assert (fixnum? src-start))\n"
+       "      (assert (fixnum? dst-start))\n"
+       "      (assert (fixnum? n))\n"
+       "      (assert (fx>=? src-start 0))\n"
+       "      (assert (fx>=? dst-start 0))\n"
+       "      (assert (fx>=? n 0))\n"
+       "      (assert (fx<=? (fx+ src-start n) (vector-length src)))\n"
+       "      (assert (fx<=? (fx+ dst-start n) (vector-length dst)))\n"
+       "      (when (fx>? n 0)"
+       "        (c-vector-copy src src-start dst dst-start n)))))\n");
 
   /**
    * return a copy of vector vec containing only elements
@@ -102,6 +135,9 @@ static void define_span_functions(void) {
        "  (define span)\n"
        "  (define span?)\n"
        "  (define span-length)\n"
+       /* return length of internal vector, i.e. maximum number of elements
+        * that can be stored without reallocating */
+       "  (define span-capacity)\n"
        "  (define span-empty?)\n"
        "  (define span-ref)\n"
        "  (define span-set!)\n"
@@ -110,17 +146,34 @@ static void define_span_functions(void) {
        "  (define span-fill-range!)\n"
        "  (define span-copy)\n"
        "  (define span-copy!)\n"
+       /* return distance between begin of internal vector and last element */
+       "  (define span-capacity-front)\n"
        /* return distance between first element and end of internal vector */
        "  (define span-capacity-back)\n"
-       /* ensure distance between first element and end of internal vector is >= n */
+       /* ensure distance between begin of internal vector and last element is >= n.
+        * does NOT change the length */
+       "  (define span-reserve-front!)\n"
+       /* ensure distance between first element and end of internal vector is >= n.
+        * does NOT change the length */
        "  (define span-reserve-back!)\n"
+       /* grow or shrink span on the left (front), set length to n */
+       "  (define span-resize-front!)\n"
        /* grow or shrink span on the right (back), set length to n */
        "  (define span-resize-back!)\n"
+       "  (define span-insert-front!)\n"
        "  (define span-insert-back!)\n"
+       /* prefix a portion of another span to this span */
+       "  (define span-sp-insert-front!)\n"
+       /* append a portion of another span to this span */
+       "  (define span-sp-insert-back!)\n"
+       /* erase n elements at the left (front) of span */
        "  (define span-erase-front!)\n"
+       /* erase n elements at the right (back) of span */
+       "  (define span-erase-back!)\n"
        "  (define span-iterate))\n");
 
-  eval("(let ((span-reallocate-back! (void)))\n"
+  eval("(let ((span-reallocate-front! (void))\n"
+       "      (span-reallocate-back! (void)))\n"
        "\n"
        "(define-record-type\n"
        "  (%span %make-span %span?)\n"
@@ -171,9 +224,7 @@ static void define_span_functions(void) {
        "  (vector-ref (span-vec sp) (fx1- (span-end sp)))))\n"
        "\n"
        "(set! span-fill! (lambda (sp val)\n"
-       /* no optimized function to fill only between span-beg and span-end,
-        * so fill the whole vector */
-       "  (vector-fill! (span-vec sp) val)))\n"
+       "  (vector-fill-range! (span-vec sp) (span-beg sp) (span-length sp) val)))\n"
        "\n"
        "(set! span-fill-range! (lambda (sp start n val)\n"
        "  (assert (fx>=? start 0))\n"
@@ -197,6 +248,18 @@ static void define_span_functions(void) {
        "  (vector-copy! (span-vec src) (fx+ src-start (span-beg src))\n"
        "                (span-vec dst) (fx+ dst-start (span-beg dst)) n)))\n"
        "\n"
+       "(set! span-reallocate-front! (lambda (sp len cap)\n"
+       "  (assert (fx>=? len 0))\n"
+       "  (assert (fx>=? cap len))\n"
+       "  (let ((copy-len (fxmin len (span-length sp)))\n"
+       "        (old-vec (span-vec sp))\n"
+       "        (new-vec (make-vector cap))\n"
+       "        (new-beg (fx- cap len)))\n"
+       "    (vector-copy! old-vec (span-beg sp) new-vec new-beg copy-len)\n"
+       "    (span-beg-set! sp new-beg)\n"
+       "    (span-end-set! sp cap)\n"
+       "    (span-vec-set! sp new-vec))))\n"
+       "\n"
        "(set! span-reallocate-back! (lambda (sp len cap)\n"
        "  (assert (fx>=? len 0))\n"
        "  (assert (fx>=? cap len))\n"
@@ -208,42 +271,108 @@ static void define_span_functions(void) {
        "    (span-end-set! sp len)\n"
        "    (span-vec-set! sp new-vec))))\n"
        "\n"
+       "(set! span-capacity-front (lambda (sp)\n"
+       "  (span-end sp)))\n"
+       "\n"
        "(set! span-capacity-back (lambda (sp)\n"
        "  (fx- (vector-length (span-vec sp)) (span-beg sp))))\n"
        "\n"
+       "(set! span-reserve-front! (lambda (sp len)\n"
+       "  (assert (fx>=? len 0))\n"
+       "  (let ((vec (span-vec sp))\n"
+       "        (cap-front (span-capacity-front sp)))\n"
+       "    (cond\n"
+       "      ((fx<= len cap-front)\n"
+       /*      nothing to do */
+       "       (void))\n"
+       "      ((fx<= len (vector-length vec))\n"
+       /*       vector is large enough, move elements to the back */
+       "        (let* ((cap (span-capacity sp))\n"
+       "               (len (span-length sp))\n"
+       "               (new-beg (fx- cap old-len)))\n"
+       "          (vector-copy! vec (span-beg sp) vec new-beg old-len)\n"
+       "          (span-beg-set! sp new-beg)\n"
+       "          (span-end-set! sp cap)))\n"
+       "      (#t\n"
+       /*       vector is too small, reallocate it */
+       "       (let ((new-cap (fxmax 8 len (fx* 2 cap-front))))\n"
+       "         (span-reallocate-front! sp (span-length sp) new-cap)))))))\n"
+       "\n"
        "(set! span-reserve-back! (lambda (sp len)\n"
        "  (assert (fx>=? len 0))\n"
-       "  (let ((cap-back (span-capacity-back sp)))\n"
-       "    (when (fx> len cap-back)\n"
-       "      (let ((new-cap (fxmax 8 len (fx* 2 cap-back))))\n"
-       "        (span-reallocate-back! sp (span-length sp) new-cap))))))\n"
+       "  (let ((vec (span-vec sp))\n"
+       "        (cap-back (span-capacity-back sp)))\n"
+       "    (cond\n"
+       "      ((fx<= len cap-back)\n"
+       /*      nothing to do */
+       "       (void))\n"
+       "      ((fx<= len (vector-length vec))\n"
+       /*       vector is large enough, move elements to the front */
+       "        (let ((len (span-length sp)))\n"
+       "          (vector-copy! vec (span-beg sp) vec 0 len)\n"
+       "          (span-beg-set! sp 0)\n"
+       "          (span-end-set! sp len)))\n"
+       "      (#t\n"
+       /*       vector is too small, reallocate it */
+       "       (let ((new-cap (fxmax 8 len (fx* 2 cap-back))))\n"
+       "         (span-reallocate-back! sp (span-length sp) new-cap)))))))\n"
+       "\n"
+       "(set! span-resize-front! (lambda (sp len)\n"
+       "  (assert (fx>=? len 0))\n"
+       "  (span-reserve-front! sp len)\n"
+       "  (assert (fx>= (span-capacity-front sp) len))\n"
+       "  (span-beg-set! sp (fx- (span-end sp) len))))\n"
        "\n"
        "(set! span-resize-back! (lambda (sp len)\n"
        "  (assert (fx>=? len 0))\n"
        "  (span-reserve-back! sp len)\n"
+       "  (assert (fx>= (span-capacity-back sp) len))\n"
        "  (span-end-set! sp (fx+ len (span-beg sp)))))\n"
        "\n"
-       "(set! span-insert-back! (lambda (sp . vals)\n"
+       "(set! span-insert-front! (lambda (sp . vals)\n"
        "  (unless (null? vals)\n"
-       "    (let ((n   (length vals))\n"
-       "          (pos (span-length sp)))\n"
-       "      (span-resize-back! sp (fx+ pos n))\n"
+       "    (let ((pos 0)\n"
+       "          (new-len (fx+ (span-length sp) (length vals))))\n"
+       "      (span-resize-front! sp new-len)\n"
        "      (list-iterate vals\n"
        "        (lambda (elem)\n"
        "          (span-set! sp pos elem)\n"
        "          (set! pos (fx1+ pos))))))))\n"
        "\n"
-       /* erase n elements at the front of span */
+       "(set! span-insert-back! (lambda (sp . vals)\n"
+       "  (unless (null? vals)\n"
+       "    (let* ((pos (span-length sp))\n"
+       "           (new-len (fx+ pos (length vals))))\n"
+       "      (span-resize-back! sp new-len)\n"
+       "      (list-iterate vals\n"
+       "        (lambda (elem)\n"
+       "          (span-set! sp pos elem)\n"
+       "          (set! pos (fx1+ pos))))))))\n"
+       "\n"
+       "(set! span-sp-insert-front! (lambda (sp-dst sp-src src-start src-n)\n"
+       "  (unless (fxzero? src-n)\n"
+       "    (let ((len (span-length sp-dst)))\n"
+       "      (span-resize-front! sp-dst (fx+ len src-n))\n"
+       "      (span-copy! sp-src src-start sp-dst 0 src-n)))))\n"
+       "\n"
+       "(set! span-sp-insert-back! (lambda (sp-dst sp-src src-start src-n)\n"
+       "  (assert (not (eq? sp-dst sp-src)))\n"
+       "  (unless (fxzero? src-n)\n"
+       "    (let ((pos (span-length sp-dst)))\n"
+       "      (span-resize-back! sp-dst (fx+ pos src-n))\n"
+       "      (span-copy! sp-src src-start sp-dst pos src-n)))))\n"
+       "\n"
        "(set! span-erase-front! (lambda (sp n)\n"
        "  (assert (fx>=? n 0))\n"
        "  (assert (fx<=? n (span-length sp)))\n"
-       "  (cond\n"
-       "    ((fx=? n 0))\n"
-       "    ((fx<? n (span-length sp))\n"
-       "      (span-beg-set! sp (fx+ n (span-beg sp))))\n"
-       "    (#t\n"
-       "      (span-beg-set! sp 0)\n"
-       "      (span-end-set! sp 0)))))\n"
+       "  (unless (fxzero? n)\n"
+       "    (span-beg-set! sp (fx+ n (span-beg sp))))))\n"
+       "\n"
+       "(set! span-erase-back! (lambda (sp n)\n"
+       "  (assert (fx>=? n 0))\n"
+       "  (assert (fx<=? n (span-length sp)))\n"
+       "  (unless (fxzero? n)\n"
+       "    (span-end-set! sp (fx- (span-end sp) n)))))\n"
        "\n"
        "(set! span-iterate (lambda (sp proc)\n"
        "  (do ((i (span-beg sp) (fx1+ i))\n"
@@ -304,7 +433,9 @@ static void define_bytespan_functions(void) {
        "  (define bytespan-reserve-back!)\n"
        /* grow or shrink span on the right (back), set length to n */
        "  (define bytespan-resize-back!)\n"
-       "  (define bytespan-insert-back!)\n"
+       "  (define bytespan-u8-insert-back!)\n"
+       /* append a portion of another bytespan to this bytespan */
+       "  (define bytespan-bsp-insert-back!)\n"
        "  (define bytespan-erase-front!)\n"
        "  (define bytespan-iterate))\n");
 
@@ -425,6 +556,12 @@ static void define_bytespan_functions(void) {
        "          (bytespan-u8-set! sp pos elem)\n"
        "          (set! pos (fx1+ pos))))))))\n"
        "\n"
+       "(set! bytespan-sp-insert-back! (lambda (sp-dst sp-src src-start src-n)\n"
+       "  (unless (fxzero? src-n)\n"
+       "    (let ((pos (bytespan-length sp-dst)))\n"
+       "      (bytespan-resize-back! sp-dst (fx+ pos src-n))\n"
+       "      (bytespan-copy! sp-src src-start sp-dst pos src-n)))))\n"
+       "\n"
        /* erase n elements at the front of bytespan */
        "(set! bytespan-erase-front! (lambda (sp n)\n"
        "  (assert (fx>=? n 0))\n"
@@ -493,6 +630,8 @@ static void define_charspan_functions(void) {
        /* grow or shrink span on the right (back), set length to n */
        "  (define charspan-resize-back!)\n"
        "  (define charspan-insert-back!)\n"
+       /* append a portion of another charspan to this charspan */
+       "  (define charspan-csp-insert-back!)\n"
        "  (define charspan-erase-front!)\n"
        "  (define charspan-iterate))\n");
 
@@ -606,6 +745,12 @@ static void define_charspan_functions(void) {
        "          (charspan-set! sp pos elem)\n"
        "          (set! pos (fx1+ pos))))))))\n"
        "\n"
+       "(set! charspan-csp-insert-back! (lambda (sp-dst sp-src src-start src-n)\n"
+       "  (unless (fxzero? src-n)\n"
+       "    (let ((pos (charspan-length sp-dst)))\n"
+       "      (charspan-resize-back! sp-dst (fx+ pos src-n))\n"
+       "      (charspan-copy! sp-src src-start sp-dst pos src-n)))))\n"
+       "\n"
        /* erase n elements at the front of charspan */
        "(set! charspan-erase-front! (lambda (sp n)\n"
        "  (assert (fx>=? n 0))\n"
@@ -644,6 +789,170 @@ static void define_charspan_functions(void) {
        "        ((or ret (fx>=? i end)) ret)\n"
        "      (when (predicate (charspan-ref sp i))\n"
        "        (set! ret i)))))\n");
+}
+
+/**
+ * Define Scheme type "gbuffer", a gap buffer.
+ * Implementation: contains two spans, a "left" and a "right" ones
+ */
+static void define_gbuffer_functions(void) {
+  eval("(begin\n"
+       "  (define list->gbuffer)\n"
+       "  (define span->gbuffer)\n"
+       "  (define make-gbuffer)\n"
+       "  (define gbuffer->span)\n"
+       "  (define gbuffer)\n"
+       "  (define gbuffer?)\n"
+       "  (define gbuffer-length)\n"
+       "  (define gbuffer-empty?)\n"
+       "  (define gbuffer-ref)\n"
+       "  (define gbuffer-split-at!)\n"
+       "  (define gbuffer-insert-at!)\n"
+       "  (define gbuffer-erase-at!)\n"
+       "  (define gbuffer-iterate))\n");
+
+  eval("(let ()\n"
+       "\n"
+       "(define-record-type\n"
+       "  (%gbuffer %make-gbuffer %gbuffer?)\n"
+       "  (fields\n"
+       "     (mutable left  gbuffer-left  gbuffer-left-set!)\n"
+       "     (mutable right gbuffer-right gbuffer-right-set!))\n"
+       /*  "  (nongenerative #{%gbuffer ng1h8vurkk5k61p0jsryrbk99-0})" */ ")\n"
+       "\n"
+       "(set! list->gbuffer (lambda (l)\n"
+       "  (%make-gbuffer (make-span 0) (list->span vec))))\n"
+       "\n"
+       "(set! span->gbuffer (lambda (sp)\n"
+       "  (%make-gbuffer (make-span 0) (copy-span sp))))\n"
+       "\n"
+       "(set! make-gbuffer (lambda (n . val)\n"
+       "  (%make-gbuffer (make-span 0) (apply make-span n val))))\n"
+       "\n"
+       "(set! gbuffer->span (lambda (gb)\n"
+       "  (let* ((left  (gbuffer-left  gb))\n"
+       "         (right (gbuffer-right gb))\n"
+       "         (left-n  (span-length left))\n"
+       "         (right-n (span-length right))\n"
+       "         (dst (make-span (fx+ left-n right-n))))\n"
+       "    (span-copy! left  0 dst 0 left-n)\n"
+       "    (span-copy! right 0 dst left-n right-n))))\n"
+       "\n"
+       "(set! gbuffer (lambda vals\n"
+       "  (list->gbuffer vals)))\n"
+       "\n"
+       "(set! gbuffer? (lambda (gb)\n"
+       "  (%gbuffer? gb)))\n"
+       "\n"
+       "(set! gbuffer-length (lambda (gb)\n"
+       "  (fx+ (span-length (gbuffer-left gb)) (span-length (gbuffer-right gb)))))\n"
+       "\n"
+       "(set! gbuffer-empty? (lambda (gb)\n"
+       "  (and (span-empty? (gbuffer-left gb)) (span-empty? (gbuffer-right gb)))))\n"
+       "\n"
+       "(set! gbuffer-ref (lambda (gb n)\n"
+       "  (assert (fx>=? n 0))\n"
+       "  (assert (fx<? n (gbuffer-length gb)))\n"
+       "  (let ((left-n (span-length (gbuffer-left gb))))\n"
+       "    (if (fx<? n left-n)\n"
+       "      (span-ref (gbuffer-left  gb) n)\n"
+       "      (span-ref (gbuffer-right gb) (fx- n left-n))))))\n"
+       "\n"
+       "(set! gbuffer-split-at! (lambda (gb n)\n"
+       "  (assert (fx>=? n 0))\n"
+       "  (assert (fx<=? n (gbuffer-length gb)))\n"
+       "  (let* ((left  (gbuffer-left  gb))\n"
+       "         (right (gbuffer-right gb))\n"
+       "         (left-n  (span-length left))\n"
+       "         (right-n (span-length right)))\n"
+       "    (vector-copy! (gbuffer-vec src) (gbuffer-beg src)\n"
+       "                  (gbuffer-vec dst) (gbuffer-beg dst) n)\n"
+       "    dst)))\n"
+       "\n"
+       "(set! gbuffer-insert-at! (lambda (gb n val)\n"
+       "  (assert (fx>=? n 0))\n"
+       "  (assert (fx<=? n (gbuffer-length gb)))\n"
+       "  (let* ((n (gbuffer-length src))\n"
+       "         (dst (make-gbuffer n)))\n"
+       "    (vector-copy! (gbuffer-vec src) (gbuffer-beg src)\n"
+       "                  (gbuffer-vec dst) (gbuffer-beg dst) n)\n"
+       "    dst)))\n"
+       "\n"
+       "(set! gbuffer-copy! (lambda (src src-start dst dst-start n)\n"
+       "  (assert (fx>=? src-start 0))\n"
+       "  (assert (fx>=? dst-start 0))\n"
+       "  (assert (fx>=? n 0))\n"
+       "  (assert (fx<=? (fx+ src-start n) (gbuffer-length src)))\n"
+       "  (assert (fx<=? (fx+ dst-start n) (gbuffer-length dst)))\n"
+       "  (vector-copy! (gbuffer-vec src) (fx+ src-start (gbuffer-beg src))\n"
+       "                (gbuffer-vec dst) (fx+ dst-start (gbuffer-beg dst)) n)))\n"
+       "\n"
+       "(set! gbuffer-reallocate-back! (lambda (sp len cap)\n"
+       "  (assert (fx>=? len 0))\n"
+       "  (assert (fx>=? cap len))\n"
+       "  (let ((copy-len (fxmin len (gbuffer-length sp)))\n"
+       "        (old-vec (gbuffer-vec sp))\n"
+       "        (new-vec (make-vector cap)))\n"
+       "    (vector-copy! old-vec (gbuffer-beg sp) new-vec 0 copy-len)\n"
+       "    (gbuffer-beg-set! sp 0)\n"
+       "    (gbuffer-end-set! sp len)\n"
+       "    (gbuffer-vec-set! sp new-vec))))\n"
+       "\n"
+       "(set! gbuffer-capacity-back (lambda (sp)\n"
+       "  (fx- (vector-length (gbuffer-vec sp)) (gbuffer-beg sp))))\n"
+       "\n"
+       "(set! gbuffer-reserve-back! (lambda (sp len)\n"
+       "  (assert (fx>=? len 0))\n"
+       "  (let ((cap-back (gbuffer-capacity-back sp)))\n"
+       "    (when (fx> len cap-back)\n"
+       "      (let ((new-cap (fxmax 8 len (fx* 2 cap-back))))\n"
+       "        (gbuffer-reallocate-back! sp (gbuffer-length sp) new-cap))))))\n"
+       "\n"
+       "(set! gbuffer-resize-back! (lambda (sp len)\n"
+       "  (assert (fx>=? len 0))\n"
+       "  (gbuffer-reserve-back! sp len)\n"
+       "  (gbuffer-end-set! sp (fx+ len (gbuffer-beg sp)))))\n"
+       "\n"
+       "(set! gbuffer-insert-back! (lambda (sp . vals)\n"
+       "  (unless (null? vals)\n"
+       "    (let ((n   (length vals))\n"
+       "          (pos (gbuffer-length sp)))\n"
+       "      (gbuffer-resize-back! sp (fx+ pos n))\n"
+       "      (list-iterate vals\n"
+       "        (lambda (elem)\n"
+       "          (gbuffer-set! sp pos elem)\n"
+       "          (set! pos (fx1+ pos))))))))\n"
+       "\n"
+       /* erase n elements at the front of gbuffer */
+       "(set! gbuffer-erase-front! (lambda (sp n)\n"
+       "  (assert (fx>=? n 0))\n"
+       "  (assert (fx<=? n (gbuffer-length sp)))\n"
+       "  (cond\n"
+       "    ((fx=? n 0))\n"
+       "    ((fx<? n (gbuffer-length sp))\n"
+       "      (gbuffer-beg-set! sp (fx+ n (gbuffer-beg sp))))\n"
+       "    (#t\n"
+       "      (gbuffer-beg-set! sp 0)\n"
+       "      (gbuffer-end-set! sp 0)))))\n"
+       "\n"
+       "(set! gbuffer-iterate (lambda (sp proc)\n"
+       "  (do ((i (gbuffer-beg sp) (fx1+ i))\n"
+       "       (n (gbuffer-end sp))\n"
+       "       (v (gbuffer-vec sp)))\n"
+       "    ((or (fx>=? i n) (not (proc i (vector-ref v i))))))))\n"
+       "\n"
+#if 0
+       /** customize how "gbuffer" objects are printed */
+       "(record-writer (record-type-descriptor %gbuffer)\n"
+       "  (lambda (sp port writer)\n"
+       "    (display \"(gbuffer\" port)\n"
+       "    (gbuffer-iterate sp"
+       "      (lambda (i elem)"
+       "        (display #\\space port)\n"
+       "        (writer elem port)))\n"
+       "    (display #\\) port)))\n"
+#endif
+       ")\n");
 }
 
 static void define_list_functions(void) {

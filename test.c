@@ -27,19 +27,38 @@ static const struct {
     {"(subbytevector '#vu8(44 55 66 77) 2 3)", "B"},
     {"(span 1 2 3)", "(span 1 2 3)"},
     {"(span-length (span 1 2 3))", "3"},
+    {"(span-capacity-front (span 1 2 3))", "3"},
     {"(span-capacity-back (span 1 2 3))", "3"},
     {"(span-empty? (span))", "#t"},
     {"(span-empty? (span 'x))", "#f"},
     {"(span-back (span 'x 'y))", "y"},
     {"(span-ref (span 'a 'b 'c) 1)", "b"},
+    {"(let ((sp (span 'p 'q 'r)))\n"
+     "  (span-insert-front! sp 'i 'j)\n"
+     "  sp)",
+     "(span i j p q r)"},
     {"(let ((sp (span 'foo)))\n"
      "  (span-insert-back! sp 'bar 'qux)\n"
      "  sp)",
      "(span foo bar qux)"},
+    {"(let ((sp (span 1 2 3))"
+     "      (sp2 (span -1 0)))\n"
+     "  (span-sp-insert-front! sp sp2 0 2)\n"
+     "  sp)",
+     "(span -1 0 1 2 3)"},
+    {"(let ((sp (span 1 2 3))"
+     "      (sp2 (span -1 0)))\n"
+     "  (span-sp-insert-back! sp sp2 0 2)\n"
+     "  sp)",
+     "(span 1 2 3 -1 0)"},
     {"(let ((sp (span 'a 'b 'c 'd)))\n"
      "  (span-erase-front! sp 3)\n"
      "  sp)",
      "(span d)"},
+    {"(let ((sp (span 'a 'b 'c 'd)))\n"
+     "  (span-erase-back! sp 1)\n"
+     "  sp)",
+     "(span a b c)"},
     {"(let ((sp (span 'a 'b 'c 'd)))\n"
      "  (span-find sp 0 999 (lambda (elem) (eq? 'c elem))))\n",
      "2"},
