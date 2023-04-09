@@ -23,6 +23,10 @@ static const struct {
 } tests[] = {
     {"(+ 1 2 3)", "6"},
     {"(* 4 5 6)", "120"},
+    {"(let ((x 0))\n"
+     "  (repeat 5 (set! x (fx1+ x)))\n"
+     "  x)",
+     "5"},
     {"(subvector '#(aa bb cc dd) 1 3)", "#(bb cc)"},
     {"(subbytevector '#vu8(44 55 66 77) 2 3)", "B"},
     {"(span 1 2 3)", "(span 1 2 3)"},

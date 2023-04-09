@@ -57,6 +57,10 @@ void define_eval_macros(void) {
   minimal_eval("(define (eval-string str)\n"
                "  (eval (read (open-input-string str))))\n");
 
+  eval("(define-syntax repeat\n"
+       "  (syntax-rules ()\n"
+       "    ((_ n body ...) (do ((i n (fx1- i))) ((fx<=? i 0)) body ...))))\n");
+
   eval("(define-syntax while\n"
        "  (syntax-rules ()\n"
        "    ((_ pred)          (do () ((not pred))))\n"

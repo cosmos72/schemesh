@@ -13,9 +13,12 @@
 
 /** C backend implementation of (vectory-copy!) */
 static void c_vector_copy(ptr src, iptr src_start, ptr dst, iptr dst_start, iptr n) {
+#if 0 /* redundant, already checked by Scheme function (vector-copy!) */
   if (Svectorp(src) && Svectorp(dst) && src_start >= 0 && dst_start >= 0 && n > 0 &&
       src_start <= Svector_length(src) && dst_start <= Svector_length(dst) &&
-      n <= Svector_length(src) - src_start && n <= Svector_length(dst) - dst_start) {
+      n <= Svector_length(src) - src_start && n <= Svector_length(dst) - dst_start)
+#endif
+  {
 
     ptr* src_ptr = &Svector_ref(src, src_start);
     ptr* dst_ptr = &Svector_ref(dst, dst_start);
@@ -33,23 +36,33 @@ static void define_vector_functions(void) {
    * copy a portion of vector src into dst.
    * works even if src are the same vector and the two ranges overlap.
    */
-  eval("(define vector-copy!\n"
+  eval("(begin\n"
+       "\n"
+       "(define vector-copy!)\n"
+       "\n"
+       "(parameterize ((optimize-level 3))\n"
+       "\n"
+       "(set! vector-copy!\n"
        "  (let ((c-vector-copy (foreign-procedure \"c_vector_copy\"\n"
        "     (scheme-object fixnum scheme-object fixnum fixnum)"
        "     void)))\n"
        "    (lambda (src src-start dst dst-start n)\n"
-       "      (assert (vector? src))\n"
-       "      (assert (vector? dst))\n"
-       "      (assert (fixnum? src-start))\n"
-       "      (assert (fixnum? dst-start))\n"
-       "      (assert (fixnum? n))\n"
-       "      (assert (fx>=? src-start 0))\n"
-       "      (assert (fx>=? dst-start 0))\n"
-       "      (assert (fx>=? n 0))\n"
-       "      (assert (fx<=? (fx+ src-start n) (vector-length src)))\n"
-       "      (assert (fx<=? (fx+ dst-start n) (vector-length dst)))\n"
-       "      (when (fx>? n 0)"
-       "        (c-vector-copy src src-start dst dst-start n)))))\n");
+       "      (assert (and (vector? src) (vector? dst)))\n"
+       "      (assert (and (fixnum? src-start) (fixnum? dst-start) (fixnum? n)))\n"
+       "      (assert (and (fx>=? src-start 0) (fx>=? dst-start 0) (fx>=? n 0)))\n"
+       "      (assert (fx<=? src-start (vector-length src)))\n"
+       "      (assert (fx<=? dst-start (vector-length dst)))\n"
+       "      (assert (fx<=? n (fx- (vector-length src) src-start)))\n"
+       "      (assert (fx<=? n (fx- (vector-length dst) dst-start)))\n"
+       "      (cond\n"
+       "       ((fx>=? n 2)\n"
+       "         (c-vector-copy src src-start dst dst-start n))\n"
+       "       ((fx=? n 1)\n"
+       "         (let ((elem (vector-ref src src-start)))\n"
+       "           (vector-set! dst dst-start elem)))\n"
+       "       (#t\n"
+       "         (assert (fx>=? n 0)))))))\n"
+       "))\n");
 
   /**
    * return a copy of vector vec containing only elements
@@ -350,6 +363,7 @@ static void define_span_functions(void) {
        "          (set! pos (fx1+ pos))))))))\n"
        "\n"
        "(set! span-sp-insert-front! (lambda (sp-dst sp-src src-start src-n)\n"
+       "  (assert (not (eq? sp-dst sp-src)))\n"
        "  (unless (fxzero? src-n)\n"
        "    (let ((len (span-length sp-dst)))\n"
        "      (span-resize-front! sp-dst (fx+ len src-n))\n"
@@ -427,19 +441,34 @@ static void define_bytespan_functions(void) {
        "  (define bytespan-fill-range!)\n"
        "  (define bytespan-copy)\n"
        "  (define bytespan-copy!)\n"
+       /* return distance between begin of internal bytevector and last element */
+       "  (define bytespan-capacity-front)\n"
        /* return distance between first element and end of internal bytevector */
        "  (define bytespan-capacity-back)\n"
-       /* ensure distance between first element and end of internal bytevector is >= n */
+       /* ensure distance between begin of internal bytevector and last element is >= n.
+        * does NOT change the length */
+       "  (define bytespan-reserve-front!)\n"
+       /* ensure distance between first element and end of internal bytevector is >= n.
+        * does NOT change the length */
        "  (define bytespan-reserve-back!)\n"
-       /* grow or shrink span on the right (back), set length to n */
+       /* grow or shrink bytespan on the left (front), set length to n */
+       "  (define bytespan-resize-front!)\n"
+       /* grow or shrink bytespan on the right (back), set length to n */
        "  (define bytespan-resize-back!)\n"
+       "  (define bytespan-u8-insert-front!)\n"
        "  (define bytespan-u8-insert-back!)\n"
+       /* prefix a portion of another bytespan to this bytespan */
+       "  (define bytespan-bsp-insert-front!)\n"
        /* append a portion of another bytespan to this bytespan */
        "  (define bytespan-bsp-insert-back!)\n"
+       /* erase n elements at the left (front) of bytespan */
        "  (define bytespan-erase-front!)\n"
+       /* erase n elements at the right (back) of bytespan */
+       "  (define bytespan-erase-back!)\n"
        "  (define bytespan-iterate))\n");
 
-  eval("(let ((bytespan-reallocate-back! (void)))\n"
+  eval("(let ((bytespan-reallocate-front! (void))\n"
+       "      (bytespan-reallocate-back! (void)))\n"
        "\n"
        "(define-record-type\n"
        "  (%bytespan %make-bytespan %bytespan?)\n"
@@ -520,6 +549,18 @@ static void define_bytespan_functions(void) {
        "  (bytevector-copy! (bytespan-vec src) (fx+ src-start (bytespan-beg src))\n"
        "                    (bytespan-vec dst) (fx+ dst-start (bytespan-beg dst)) n)))\n"
        "\n"
+       "(set! bytespan-reallocate-front! (lambda (sp len cap)\n"
+       "  (assert (fx>=? len 0))\n"
+       "  (assert (fx>=? cap len))\n"
+       "  (let ((copy-len (fxmin len (bytespan-length sp)))\n"
+       "        (old-vec (bytespan-vec sp))\n"
+       "        (new-vec (make-bytevector cap))\n"
+       "        (new-beg (fx- cap len)))\n"
+       "    (bytevector-copy! old-vec (bytespan-beg sp) new-vec new-beg copy-len)\n"
+       "    (bytespan-beg-set! sp new-beg)\n"
+       "    (bytespan-end-set! sp cap)\n"
+       "    (bytespan-vec-set! sp new-vec))))\n"
+       "\n"
        "(set! bytespan-reallocate-back! (lambda (sp len cap)\n"
        "  (assert (fx>=? len 0))\n"
        "  (assert (fx>=? cap len))\n"
@@ -531,48 +572,109 @@ static void define_bytespan_functions(void) {
        "    (bytespan-end-set! sp len)\n"
        "    (bytespan-vec-set! sp new-vec))))\n"
        "\n"
+       "(set! bytespan-capacity-front (lambda (sp)\n"
+       "  (bytespan-end sp)))\n"
+       "\n"
        "(set! bytespan-capacity-back (lambda (sp)\n"
        "  (fx- (bytevector-length (bytespan-vec sp)) (bytespan-beg sp))))\n"
        "\n"
+       "(set! bytespan-reserve-front! (lambda (sp len)\n"
+       "  (assert (fx>=? len 0))\n"
+       "  (let ((vec (bytespan-vec sp))\n"
+       "        (cap-front (bytespan-capacity-front sp)))\n"
+       "    (cond\n"
+       "      ((fx<= len cap-front)\n"
+       /*      nothing to do */
+       "       (void))\n"
+       "      ((fx<= len (bytevector-length vec))\n"
+       /*       bytevector is large enough, move elements to the back */
+       "        (let* ((cap (bytespan-capacity sp))\n"
+       "               (len (bytespan-length sp))\n"
+       "               (new-beg (fx- cap old-len)))\n"
+       "          (bytevector-copy! vec (bytespan-beg sp) vec new-beg old-len)\n"
+       "          (bytespan-beg-set! sp new-beg)\n"
+       "          (bytespan-end-set! sp cap)))\n"
+       "      (#t\n"
+       /*       bytevector is too small, reallocate it */
+       "       (let ((new-cap (fxmax 8 len (fx* 2 cap-front))))\n"
+       "         (bytespan-reallocate-front! sp (bytespan-length sp) new-cap)))))))\n"
+       "\n"
        "(set! bytespan-reserve-back! (lambda (sp len)\n"
        "  (assert (fx>=? len 0))\n"
-       "  (let ((cap-back (bytespan-capacity-back sp)))\n"
-       "    (when (fx> len cap-back)\n"
-       "      (let ((new-cap (fxmax 8 len (fx* 2 cap-back))))\n"
-       "        (bytespan-reallocate-back! sp (bytespan-length sp) new-cap))))))\n"
+       "  (let ((vec (bytespan-vec sp))\n"
+       "        (cap-back (bytespan-capacity-back sp)))\n"
+       "    (cond\n"
+       "      ((fx<= len cap-back)\n"
+       /*      nothing to do */
+       "       (void))\n"
+       "      ((fx<= len (bytevector-length vec))\n"
+       /*       bytevector is large enough, move elements to the front */
+       "        (let ((len (bytespan-length sp)))\n"
+       "          (bytevector-copy! vec (bytespan-beg sp) vec 0 len)\n"
+       "          (bytespan-beg-set! sp 0)\n"
+       "          (bytespan-end-set! sp len)))\n"
+       "      (#t\n"
+       /*       bytevector is too small, reallocate it */
+       "       (let ((new-cap (fxmax 8 len (fx* 2 cap-back))))\n"
+       "         (bytespan-reallocate-back! sp (bytespan-length sp) new-cap)))))))\n"
+       "\n"
+       "(set! bytespan-resize-front! (lambda (sp len)\n"
+       "  (assert (fx>=? len 0))\n"
+       "  (bytespan-reserve-front! sp len)\n"
+       "  (assert (fx>= (bytespan-capacity-front sp) len))\n"
+       "  (bytespan-beg-set! sp (fx- (bytespan-end sp) len))))\n"
        "\n"
        "(set! bytespan-resize-back! (lambda (sp len)\n"
        "  (assert (fx>=? len 0))\n"
        "  (bytespan-reserve-back! sp len)\n"
+       "  (assert (fx>= (bytespan-capacity-back sp) len))\n"
        "  (bytespan-end-set! sp (fx+ len (bytespan-beg sp)))))\n"
        "\n"
-       "(set! bytespan-u8-insert-back! (lambda (sp . vals)\n"
+       "(set! bytespan-u8-insert-front! (lambda (sp . vals)\n"
        "  (unless (null? vals)\n"
-       "    (let ((n   (length vals))\n"
-       "          (pos (bytespan-length sp)))\n"
-       "      (bytespan-resize-back! sp (fx+ pos n))\n"
+       "    (let ((pos 0)\n"
+       "          (new-len (fx+ (bytespan-length sp) (length vals))))\n"
+       "      (bytespan-resize-front! sp new-len)\n"
        "      (list-iterate vals\n"
        "        (lambda (elem)\n"
        "          (bytespan-u8-set! sp pos elem)\n"
        "          (set! pos (fx1+ pos))))))))\n"
        "\n"
-       "(set! bytespan-sp-insert-back! (lambda (sp-dst sp-src src-start src-n)\n"
+       "(set! bytespan-u8-insert-back! (lambda (sp . vals)\n"
+       "  (unless (null? vals)\n"
+       "    (let* ((pos (bytespan-length sp))\n"
+       "           (new-len (fx+ pos (length vals))))\n"
+       "      (bytespan-resize-back! sp new-len)\n"
+       "      (list-iterate vals\n"
+       "        (lambda (elem)\n"
+       "          (bytespan-u8-set! sp pos elem)\n"
+       "          (set! pos (fx1+ pos))))))))\n"
+       "\n"
+       "(set! bytespan-bsp-insert-front! (lambda (sp-dst sp-src src-start src-n)\n"
+       "  (assert (not (eq? sp-dst sp-src)))\n"
+       "  (unless (fxzero? src-n)\n"
+       "    (let ((len (bytespan-length sp-dst)))\n"
+       "      (bytespan-resize-front! sp-dst (fx+ len src-n))\n"
+       "      (bytespan-copy! sp-src src-start sp-dst 0 src-n)))))\n"
+       "\n"
+       "(set! bytespan-bsp-insert-back! (lambda (sp-dst sp-src src-start src-n)\n"
+       "  (assert (not (eq? sp-dst sp-src)))\n"
        "  (unless (fxzero? src-n)\n"
        "    (let ((pos (bytespan-length sp-dst)))\n"
        "      (bytespan-resize-back! sp-dst (fx+ pos src-n))\n"
        "      (bytespan-copy! sp-src src-start sp-dst pos src-n)))))\n"
        "\n"
-       /* erase n elements at the front of bytespan */
        "(set! bytespan-erase-front! (lambda (sp n)\n"
        "  (assert (fx>=? n 0))\n"
        "  (assert (fx<=? n (bytespan-length sp)))\n"
-       "  (cond\n"
-       "    ((fx=? n 0))\n"
-       "    ((fx<? n (bytespan-length sp))\n"
-       "      (bytespan-beg-set! sp (fx+ n (bytespan-beg sp))))\n"
-       "    (#t\n"
-       "      (bytespan-beg-set! sp 0)\n"
-       "      (bytespan-end-set! sp 0)))))\n"
+       "  (unless (fxzero? n)\n"
+       "    (bytespan-beg-set! sp (fx+ n (bytespan-beg sp))))))\n"
+       "\n"
+       "(set! bytespan-erase-back! (lambda (sp n)\n"
+       "  (assert (fx>=? n 0))\n"
+       "  (assert (fx<=? n (bytespan-length sp)))\n"
+       "  (unless (fxzero? n)\n"
+       "    (bytespan-end-set! sp (fx- (bytespan-end sp) n)))))\n"
        "\n"
        "(set! bytespan-iterate (lambda (sp proc)\n"
        "  (do ((i (bytespan-beg sp) (fx1+ i))\n"
