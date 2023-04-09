@@ -725,16 +725,30 @@ static void define_charspan_functions(void) {
        "  (define charspan-fill-range!)\n"
        "  (define charspan-copy)\n"
        "  (define charspan-copy!)\n"
+       /* return distance between begin of internal string and last element */
+       "  (define charspan-capacity-front)\n"
        /* return distance between first element and end of internal string */
        "  (define charspan-capacity-back)\n"
-       /* ensure distance between first element and end of internal string is >= n */
+       /* ensure distance between begin of internal string and last element is >= n.
+        * does NOT change the length */
+       "  (define charspan-reserve-front!)\n"
+       /* ensure distance between first element and end of internal string is >= n.
+        * does NOT change the length */
        "  (define charspan-reserve-back!)\n"
-       /* grow or shrink span on the right (back), set length to n */
+       /* grow or shrink charspan on the left (front), set length to n */
+       "  (define charspan-resize-front!)\n"
+       /* grow or shrink charspan on the right (back), set length to n */
        "  (define charspan-resize-back!)\n"
+       "  (define charspan-insert-front!)\n"
        "  (define charspan-insert-back!)\n"
+       /* prefix a portion of another charspan to this charspan */
+       "  (define charspan-sp-insert-front!)\n"
        /* append a portion of another charspan to this charspan */
-       "  (define charspan-csp-insert-back!)\n"
+       "  (define charspan-sp-insert-back!)\n"
+       /* erase n elements at the left (front) of charspan */
        "  (define charspan-erase-front!)\n"
+       /* erase n elements at the right (back) of charspan */
+       "  (define charspan-erase-back!)\n"
        "  (define charspan-iterate))\n");
 
   eval("(let ((charspan-reallocate! (void)))\n"
@@ -811,6 +825,18 @@ static void define_charspan_functions(void) {
        "  (string-copy! (charspan-vec src) (fx+ src-start (charspan-beg src))\n"
        "                (charspan-vec dst) (fx+ dst-start (charspan-beg dst)) n)))\n"
        "\n"
+       "(set! charspan-reallocate-front! (lambda (sp len cap)\n"
+       "  (assert (fx>=? len 0))\n"
+       "  (assert (fx>=? cap len))\n"
+       "  (let ((copy-len (fxmin len (charspan-length sp)))\n"
+       "        (old-vec (charspan-vec sp))\n"
+       "        (new-vec (make-string cap))\n"
+       "        (new-beg (fx- cap len)))\n"
+       "    (string-copy! old-vec (charspan-beg sp) new-vec new-beg copy-len)\n"
+       "    (charspan-beg-set! sp new-beg)\n"
+       "    (charspan-end-set! sp cap)\n"
+       "    (charspan-vec-set! sp new-vec))))\n"
+       "\n"
        "(set! charspan-reallocate-back! (lambda (sp len cap)\n"
        "  (assert (fx>=? len 0))\n"
        "  (assert (fx>=? cap len))\n"
@@ -822,48 +848,109 @@ static void define_charspan_functions(void) {
        "    (charspan-end-set! sp len)\n"
        "    (charspan-vec-set! sp new-vec))))\n"
        "\n"
+       "(set! charspan-capacity-front (lambda (sp)\n"
+       "  (charspan-end sp)))\n"
+       "\n"
        "(set! charspan-capacity-back (lambda (sp)\n"
        "  (fx- (string-length (charspan-vec sp)) (charspan-beg sp))))\n"
        "\n"
+       "(set! charspan-reserve-front! (lambda (sp len)\n"
+       "  (assert (fx>=? len 0))\n"
+       "  (let ((vec (charspan-vec sp))\n"
+       "        (cap-front (charspan-capacity-front sp)))\n"
+       "    (cond\n"
+       "      ((fx<= len cap-front)\n"
+       /*      nothing to do */
+       "       (void))\n"
+       "      ((fx<= len (string-length vec))\n"
+       /*       string is large enough, move elements to the back */
+       "        (let* ((cap (charspan-capacity sp))\n"
+       "               (len (charspan-length sp))\n"
+       "               (new-beg (fx- cap old-len)))\n"
+       "          (string-copy! vec (charspan-beg sp) vec new-beg old-len)\n"
+       "          (charspan-beg-set! sp new-beg)\n"
+       "          (charspan-end-set! sp cap)))\n"
+       "      (#t\n"
+       /*       string is too small, reallocate it */
+       "       (let ((new-cap (fxmax 8 len (fx* 2 cap-front))))\n"
+       "         (charspan-reallocate-front! sp (charspan-length sp) new-cap)))))))\n"
+       "\n"
        "(set! charspan-reserve-back! (lambda (sp len)\n"
        "  (assert (fx>=? len 0))\n"
-       "  (let ((cap-back (charspan-capacity-back sp)))\n"
-       "    (when (fx> len cap-back)\n"
-       "      (let ((new-cap (fxmax 8 len (fx* 2 cap-back))))\n"
-       "        (charspan-reallocate-back! sp (charspan-length sp) new-cap))))))\n"
+       "  (let ((vec (charspan-vec sp))\n"
+       "        (cap-back (charspan-capacity-back sp)))\n"
+       "    (cond\n"
+       "      ((fx<= len cap-back)\n"
+       /*      nothing to do */
+       "       (void))\n"
+       "      ((fx<= len (string-length vec))\n"
+       /*       string is large enough, move elements to the front */
+       "        (let ((len (charspan-length sp)))\n"
+       "          (string-copy! vec (charspan-beg sp) vec 0 len)\n"
+       "          (charspan-beg-set! sp 0)\n"
+       "          (charspan-end-set! sp len)))\n"
+       "      (#t\n"
+       /*       string is too small, reallocate it */
+       "       (let ((new-cap (fxmax 8 len (fx* 2 cap-back))))\n"
+       "         (charspan-reallocate-back! sp (charspan-length sp) new-cap)))))))\n"
+       "\n"
+       "(set! charspan-resize-front! (lambda (sp len)\n"
+       "  (assert (fx>=? len 0))\n"
+       "  (charspan-reserve-front! sp len)\n"
+       "  (assert (fx>= (charspan-capacity-front sp) len))\n"
+       "  (charspan-beg-set! sp (fx- (charspan-end sp) len))))\n"
        "\n"
        "(set! charspan-resize-back! (lambda (sp len)\n"
        "  (assert (fx>=? len 0))\n"
        "  (charspan-reserve-back! sp len)\n"
+       "  (assert (fx>= (charspan-capacity-back sp) len))\n"
        "  (charspan-end-set! sp (fx+ len (charspan-beg sp)))))\n"
        "\n"
-       "(set! charspan-insert-back! (lambda (sp . vals)\n"
+       "(set! charspan-insert-front! (lambda (sp . vals)\n"
        "  (unless (null? vals)\n"
-       "    (let ((n   (length vals))\n"
-       "          (pos (charspan-length sp)))\n"
-       "      (charspan-resize-back! sp (fx+ pos n))\n"
+       "    (let ((pos 0)\n"
+       "          (new-len (fx+ (charspan-length sp) (length vals))))\n"
+       "      (charspan-resize-front! sp new-len)\n"
        "      (list-iterate vals\n"
        "        (lambda (elem)\n"
        "          (charspan-set! sp pos elem)\n"
        "          (set! pos (fx1+ pos))))))))\n"
        "\n"
-       "(set! charspan-csp-insert-back! (lambda (sp-dst sp-src src-start src-n)\n"
+       "(set! charspan-insert-back! (lambda (sp . vals)\n"
+       "  (unless (null? vals)\n"
+       "    (let* ((pos (charspan-length sp))\n"
+       "           (new-len (fx+ pos (length vals))))\n"
+       "      (charspan-resize-back! sp new-len)\n"
+       "      (list-iterate vals\n"
+       "        (lambda (elem)\n"
+       "          (charspan-set! sp pos elem)\n"
+       "          (set! pos (fx1+ pos))))))))\n"
+       "\n"
+       "(set! charspan-sp-insert-front! (lambda (sp-dst sp-src src-start src-n)\n"
+       "  (assert (not (eq? sp-dst sp-src)))\n"
+       "  (unless (fxzero? src-n)\n"
+       "    (let ((len (charspan-length sp-dst)))\n"
+       "      (charspan-resize-front! sp-dst (fx+ len src-n))\n"
+       "      (charspan-copy! sp-src src-start sp-dst 0 src-n)))))\n"
+       "\n"
+       "(set! charspan-sp-insert-back! (lambda (sp-dst sp-src src-start src-n)\n"
+       "  (assert (not (eq? sp-dst sp-src)))\n"
        "  (unless (fxzero? src-n)\n"
        "    (let ((pos (charspan-length sp-dst)))\n"
        "      (charspan-resize-back! sp-dst (fx+ pos src-n))\n"
        "      (charspan-copy! sp-src src-start sp-dst pos src-n)))))\n"
        "\n"
-       /* erase n elements at the front of charspan */
        "(set! charspan-erase-front! (lambda (sp n)\n"
        "  (assert (fx>=? n 0))\n"
        "  (assert (fx<=? n (charspan-length sp)))\n"
-       "  (cond\n"
-       "    ((fx=? n 0))\n"
-       "    ((fx<? n (charspan-length sp))\n"
-       "      (charspan-beg-set! sp (fx+ n (charspan-beg sp))))\n"
-       "    (#t\n"
-       "      (charspan-beg-set! sp 0)\n"
-       "      (charspan-end-set! sp 0)))))\n"
+       "  (unless (fxzero? n)\n"
+       "    (charspan-beg-set! sp (fx+ n (charspan-beg sp))))))\n"
+       "\n"
+       "(set! charspan-erase-back! (lambda (sp n)\n"
+       "  (assert (fx>=? n 0))\n"
+       "  (assert (fx<=? n (charspan-length sp)))\n"
+       "  (unless (fxzero? n)\n"
+       "    (charspan-end-set! sp (fx- (charspan-end sp) n)))))\n"
        "\n"
        "(set! charspan-iterate (lambda (sp proc)\n"
        "  (do ((i (charspan-beg sp) (fx1+ i))\n"
@@ -880,9 +967,11 @@ static void define_charspan_functions(void) {
        ")\n");
 
   /**
-   * (charspan-find) iterates on charspan elements from start to (fxmin (fx+ start n)
-   * (charspan-length sp)), and returns the index of first charspan element that causes (predicate
-   * elem) to return non-#f. Returns #f if no such element is found.
+   * (charspan-find) iterates on charspan elements from start
+   * to (fxmin (fx+ start n) (charspan-length sp)),
+   * and returns the index of first charspan element that causes
+   * (predicate elem) to return non-#f.
+   * Returns #f if no such element is found.
    */
   eval("(define (charspan-find sp start n predicate)\n"
        "  (let ((ret #f))\n"

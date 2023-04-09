@@ -93,10 +93,22 @@ static const struct {
     {"(charspan-empty? (charspan #\\~))", "#f"},
     {"(charspan-back (charspan #\\{ #\\\\))", "\\"},
     {"(charspan-ref (charspan #\\x #\\y #\\z) 2)", "z"},
+    {"(let ((sp (charspan #\\A #\\B)))\n"
+     "  (charspan-insert-front! sp #\\{ #\\~)\n"
+     "  sp)",
+     "(string->charspan \"{~AB\")"},
     {"(let ((sp (charspan #\\4 #\\5 #\\6)))\n"
      "  (charspan-insert-back! sp #\\7 #\\8)\n"
      "  sp)",
      "(string->charspan \"45678\")"},
+    {"(let ((sp (string->charspan \"qwerty\")))\n"
+     "  (charspan-erase-front! sp 1)\n"
+     "  sp)",
+     "(string->charspan \"werty\")"},
+    {"(let ((sp (string->charspan \"asdfuiop\")))\n"
+     "  (charspan-erase-back! sp 3)\n"
+     "  sp)",
+     "(string->charspan \"asdfu\")"},
     {"(let ((sp (charspan #\\@ #\\a #\\b #\\c)))\n"
      "  (charspan-find sp 0 999 (lambda (elem) (eq? #\\b elem))))\n",
      "2"},
