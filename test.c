@@ -29,7 +29,9 @@ static const struct {
      "5"},
     {"(subvector '#(aa bb cc dd) 1 3)", "#(bb cc)"},
     {"(subbytevector '#vu8(44 55 66 77) 2 3)", "B"},
+    /* ------------------------- span ----------------------------- */
     {"(span 1 2 3)", "(span 1 2 3)"},
+    {"(list->span '(foo bar baz))", "(span foo bar baz)"},
     {"(span-length (span 1 2 3))", "3"},
     {"(span-capacity-front (span 1 2 3))", "3"},
     {"(span-capacity-back (span 1 2 3))", "3"},
@@ -37,6 +39,16 @@ static const struct {
     {"(span-empty? (span 'x))", "#f"},
     {"(span-back (span 'x 'y))", "y"},
     {"(span-ref (span 'a 'b 'c) 1)", "b"},
+    {"(let* ((v (vector 1 2 3))\n"
+     "       (sp (vector->span v)))\n"
+     "  (vector-set! v 1 7)\n" /* set! does NOT propagate to the span */
+     "  sp)",
+     "(span 1 2 3)"},
+    {"(let* ((v (vector 1 2 3))\n"
+     "       (sp (vector->span* v)))\n"
+     "  (vector-set! v 1 7)\n" /* set! propagates to the span */
+     "  sp)",
+     "(span 1 7 3)"},
     {"(let ((sp (span 'p 'q 'r)))\n"
      "  (span-insert-front! sp 'i 'j)\n"
      "  sp)",
@@ -66,6 +78,7 @@ static const struct {
     {"(let ((sp (span 'a 'b 'c 'd)))\n"
      "  (span-find sp 0 999 (lambda (elem) (eq? 'c elem))))\n",
      "2"},
+    /* ----------------------- bytespan --------------------------- */
     {"(bytespan 1 2 3)", "(bytespan 1 2 3)"},
     {"(list->bytespan '(56 12 0 46))", "(bytespan 56 12 0 46)"},
     {"(bytevector->bytespan #vu8(7 19 88 255))", "(bytespan 7 19 88 255)"},
@@ -76,6 +89,16 @@ static const struct {
     {"(bytespan-empty? (bytespan 250))", "#f"},
     {"(bytespan-u8-back (bytespan 251 252))", "252"},
     {"(bytespan-u8-ref (bytespan 252 253 254 255) 2)", "254"},
+    {"(let* ((v (bytevector 1 2 3))\n"
+     "       (sp (bytevector->bytespan v)))\n"
+     "  (bytevector-u8-set! v 1 7)\n" /* set! does NOT propagate to the bytespan */
+     "  sp)",
+     "(bytespan 1 2 3)"},
+    {"(let* ((v (bytevector 1 2 3))\n"
+     "       (sp (bytevector->bytespan* v)))\n"
+     "  (bytevector-u8-set! v 1 7)\n" /* set! propagates to the bytespan */
+     "  sp)",
+     "(bytespan 1 7 3)"},
     {"(let ((sp (bytespan 4 5 6)))\n"
      "  (bytespan-u8-insert-back! sp 7 8)\n"
      "  sp)",
@@ -83,6 +106,7 @@ static const struct {
     {"(let ((sp (bytespan 9 10 11 12)))\n"
      "  (bytespan-u8-find sp 0 999 (lambda (elem) (eq? 11 elem))))\n",
      "2"},
+    /* ----------------------- charspan --------------------------- */
     {"(charspan #\\1 #\\2 #\\3)", "(string->charspan \"123\")"},
     {"(list->charspan '(#\\i #\\j #\\k #\\l))", "(string->charspan \"ijkl\")"},
     {"(string->charspan \"pqrst\")", "(string->charspan \"pqrst\")"},
@@ -93,6 +117,16 @@ static const struct {
     {"(charspan-empty? (charspan #\\~))", "#f"},
     {"(charspan-back (charspan #\\{ #\\\\))", "\\"},
     {"(charspan-ref (charspan #\\x #\\y #\\z) 2)", "z"},
+    {"(let* ((s \"abc\")\n"
+     "       (sp (string->charspan s)))\n"
+     "  (string-set! s 1 #\\^)\n" /* set! does NOT propagate to the charspan */
+     "  sp)",
+     "(string->charspan \"abc\")"},
+    {"(let* ((s \"abc\")\n"
+     "       (sp (string->charspan* s)))\n"
+     "  (string-set! s 1 #\\^)\n" /* set! propagates to the charspan */
+     "  sp)",
+     "(string->charspan \"a^c\")"},
     {"(let ((sp (charspan #\\A #\\B)))\n"
      "  (charspan-insert-front! sp #\\{ #\\~)\n"
      "  sp)",
@@ -121,6 +155,7 @@ static const struct {
      "      (not (eq? 'b elem))))\n"
      "  ret)\n",
      "(b a)"},
+    /* ----------------------- hashtable --------------------------- */
     {"(hashtable-cells\n"
      "  (eq-hashtable '(3 . C) '(2 . B) '(1 . A)))\n",
      "#((1 . A) (2 . B) (3 . C))"},
@@ -143,6 +178,7 @@ static const struct {
      "      (set! ret (cons cell ret))))\n"
      "  ret)\n",
      "((2.1 . B) (1.0 . A) (3 . C))"},
+    /* -------------------------- tty ------------------------------ */
     {"(let ((sz (tty-size)))\n"
      "  (and (pair? sz)\n"
      "       (integer? (car sz))\n"
@@ -150,6 +186,7 @@ static const struct {
      "       (positive? (car sz))\n"
      "       (positive? (cdr sz))))\n",
      "#t"},
+    /* ------------------------- shell ----------------------------- */
     {"(begin\n"
      "  (sh-env-set! #t \"foo\" \"bar\")\n"
      "  (cons\n"
