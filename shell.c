@@ -157,8 +157,8 @@ static void define_job_functions(void) {
        "         (next-id (multijob-next-id mjob))\n"
        "         (job-id (span-find arr next-id (fx- len next-id) not)))\n"
        "    (if job-id\n"
-       "      (span-set! arr job-id j)\n" // found a free job-id
-       "      (begin\n"                   // no free job-id, enlarge span
+       "      (span-set! arr job-id j)\n" /* found a free job-id */
+       "      (begin\n"                   /* no free job-id, enlarge span */
        "        (span-insert-back! arr j)\n"
        "        (set! job-id len)))\n"
        "    (let* ((start   (multijob-next-id mjob))\n"
@@ -377,7 +377,7 @@ static void define_shell_functions(void) {
        "      (lambda (option)\n"
        "        (when (fixnum? option)\n"
        "          (set! existing-pgid option)\n"
-       "          #f)))\n" // stop iterating on options
+       "          #f)))\n" /* stop iterating on options */
        "    existing-pgid))\n");
 
   /**
@@ -821,7 +821,7 @@ int define_functions(void) {
   int err;
 
   define_eval_macros();
-  define_container_functions();
+  define_library_containers();
   define_eval_functions();
 
   define_env_functions();

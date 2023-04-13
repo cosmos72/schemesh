@@ -15,7 +15,7 @@
 /** must be called before any other define_*() */
 void define_eval_macros(void);
 
-/** requires define_container_functions() */
+/** requires define_library_containers() */
 void define_eval_functions(void);
 
 /**

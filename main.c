@@ -35,7 +35,7 @@ static double diff(const struct timespec start, const struct timespec end) {
   return (end.tv_sec - start.tv_sec) + 1e-9 * (end.tv_nsec - start.tv_nsec);
 }
 
-static void handle_scheme_exception(void) { //
+static void handle_scheme_exception(void) {
   longjmp(jmp_env, on_exception);
 }
 
@@ -53,13 +53,13 @@ int main(int argc, const char* argv[]) {
   struct timespec start, end;
 
   switch (setjmp(jmp_env)) {
-    case NOP: // first call to setjmp: continue initialization
+    case NOP: /* first call to setjmp: continue initialization */
       break;
-    case INIT_FAILED: // init() failed
+    case INIT_FAILED: /* init() failed */
       goto finish;
-    case EVAL_FAILED: // exception in eval()
+    case EVAL_FAILED: /* exception in eval() */
       goto again;
-    case QUIT_FAILED: // exception in quit()
+    case QUIT_FAILED: /* exception in quit() */
       return 1;
   }
   on_exception = INIT_FAILED;
@@ -77,7 +77,7 @@ again:
   (void)&show;
   (void)&diff;
   Senable_expeditor(NULL);
-  c_errno_set(0); // not enough, Scheme (errno) still returns -11
+  c_errno_set(0); /* not enough, Scheme (errno) still returns -11 */
   Sscheme_start(argc, argv);
 #else  /*0*/
   (void)argc;

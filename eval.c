@@ -9,7 +9,7 @@
 
 #include "eval.h"
 
-#include <stddef.h> // NULL
+#include <stddef.h> /* NULL */
 
 /**
  * call global Scheme procedure having specified symbol name

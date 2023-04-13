@@ -10,7 +10,7 @@
 #ifndef SCHEMESH_LINEEDIT_H
 #define SCHEMESH_LINEEDIT_H
 
-/** requires define_container_functions() define_tty_functions() and define_fd_functions() */
+/** requires define_library_containers() define_tty_functions() and define_fd_functions() */
 void define_lineedit_functions(void);
 
 #endif /* SCHEMESH_LINEEDIT_H */

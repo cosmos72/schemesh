@@ -49,7 +49,7 @@ void define_lineedit_functions(void) {
        "      (if (pair? sz) (cdr sz) 24)\n"     /* height       */
        "      #f lineedit-default-keytable)))\n" /* eof keytable */
        "\n"
-       ")"); // close begin
+       ")"); /* close begin */
 
   eval("(define (lineedit-insert! ctx n)\n"
        /** TODO: update linectx-lines */

@@ -7,10 +7,10 @@
  * (at your option) any later version.
  */
 
-#include <errno.h> // EINVAL
+#include <errno.h> /* EINVAL */
 #include <signal.h>
 #include <stdatomic.h>
-#include <stddef.h> // size_t, NULL
+#include <stddef.h> /* size_t, NULL */
 
 #include "eval.h"
 #include "posix.h"
@@ -80,7 +80,7 @@ int c_signal_restore(int sig) {
 
 int c_signal_raise(int sig) {
   (void)c_signal_restore(sig);
-  if (raise(sig) < 0) { // better than kill(getpid(), sig) in multi-threaded-programs
+  if (raise(sig) < 0) { /* better than kill(getpid(), sig) in multi-threaded-programs */
     return c_errno();
   }
   return 0;

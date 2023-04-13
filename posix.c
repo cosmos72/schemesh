@@ -8,20 +8,20 @@
  */
 
 #include "posix.h"
-#include "eval.h" // eval()
+#include "eval.h" /* eval() */
 #include "signal.h"
 
-#include <errno.h> // EINVAL, EIO, errno
+#include <errno.h> /* EINVAL, EIO, errno */
 #include <fcntl.h>
 #include <limits.h>
 #include <poll.h>
 #include <signal.h>
 #include <stdio.h>
-#include <stdlib.h> // getenv(), strtoul
+#include <stdlib.h> /* getenv(), strtoul() */
 #include <string.h>
-#include <sys/ioctl.h> // ioctl(), TIOCGWINSZ
+#include <sys/ioctl.h> /* ioctl(), TIOCGWINSZ */
 #include <sys/wait.h>
-#include <termios.h> // tcgetattr(), tcsetattr()
+#include <termios.h> /* tcgetattr(), tcsetattr() */
 #include <unistd.h>
 
 #define STR_(arg) #arg
@@ -129,7 +129,7 @@ ptr c_tty_size(void) {
     while ((err = ioctl(tty_fd, TIOCGWINSZ, &wsize)) != 0 && errno == EINTR) {
     }
     if (err != 0) {
-      // save ioctl() error
+      /* save ioctl() error */
       err = c_errno();
     } else if (wsize.ws_col > 0 && wsize.ws_row > 0) {
       width  = wsize.ws_col;
@@ -358,7 +358,7 @@ static int c_redirect_fds(ptr vector_redirect_fds) {
       lowest_fd_to_close = i + 1;
     }
   }
-  // close all fds in 0...(lowest_fd_to_close-1) except the redirected ones
+  /* close all fds in 0...(lowest_fd_to_close-1) except the redirected ones */
   for (i = 0; i < lowest_fd_to_close; i++) {
     ptr elem = Svector_ref(vector_redirect_fds, i);
     if (!Sfixnump(elem) || Sfixnum_value(elem) < 0) {
@@ -493,7 +493,8 @@ int define_fd_functions(void) {
        "                            ((member 'write flags) 1)\n"
        "                            ((member 'read  flags) 0)\n"
        "                            (#t (error 'open-file-fd\n"
-       "                                 \"flags must contain one of 'read 'write 'rw\" flags)))]\n"
+       "                                 \"flags must contain one of 'read 'write 'rw\" "
+       "flags)))]\n"
        "             [flag-create   (if (member 'create   flags) 1 0)]\n"
        "             [flag-truncate (if (member 'truncate flags) 1 0)]\n"
        "             [flag-append   (if (member 'append   flags) 1 0)]\n"
@@ -580,16 +581,14 @@ void define_pid_functions(void) {
        "          -" STR(EINVAL) ")))))\n");
 
   /**
-   * (pid-wait pid may-block) calls waitpid(pid, WUNTRACED) i.e. checks if process specified by pid
-   * exited or stopped.
-   * Notes:
-   *   pid ==  0 means "any process in the same process group as the caller".
-   *   pid == -1 means "any child process".
-   *   pid <  -1 means "any process in process group -pid".
+   * (pid-wait pid may-block) calls waitpid(pid, WUNTRACED) i.e. checks if process specified by
+   * pid exited or stopped. Notes: pid ==  0 means "any process in the same process group as the
+   * caller". pid == -1 means "any child process". pid <  -1 means "any process in process group
+   * -pid".
    *
    * Argument may-block must be either 'blocking or 'nonblocking.
-   * If may-block is 'blocking, wait until pid (or any child process, if pid == -1) exits or stops,
-   * otherwise check for such conditions without blocking.
+   * If may-block is 'blocking, wait until pid (or any child process, if pid == -1) exits or
+   * stops, otherwise check for such conditions without blocking.
    *
    * If waitpid() fails with C errno != 0, return < 0.
    * If no child process matches pid, or if may_block is 'nonblocking and no child exited or
@@ -672,7 +671,7 @@ int c_fork_pid(ptr vector_redirect_fds, int existing_pgid_if_positive) {
           }
         }
       }
-      // in case c_set_process_group() or c_redirect_fds() fail
+      /* in case c_set_process_group() or c_redirect_fds() fail */
       exit(255);
     }
     default:
@@ -728,8 +727,8 @@ int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
           }
         }
       }
-      // in case c_set_process_group() or c_redirect_fds() fail,
-      // or execvp() fails and returns
+      /* in case c_set_process_group() or c_redirect_fds() fail,
+       * or execvp() fails and returns */
       exit(255);
     }
     default:

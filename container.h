@@ -10,6 +10,6 @@
 #ifndef SCHEMESH_CONTAINER_H
 #define SCHEMESH_CONTAINER_H
 
-void define_container_functions(void);
+void define_library_containers(void);
 
 #endif /* SCHEMESH_CONTAINER_H */

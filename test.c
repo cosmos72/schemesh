@@ -246,7 +246,7 @@ static unsigned run_test(const char string_to_eval[], const char expected_result
   return 1;
 }
 
-void handle_scheme_exception(void) { //
+void handle_scheme_exception(void) {
   fputs("schemesh_test failed: exception evaluating Scheme code!\n", stdout);
   exit(1);
 }

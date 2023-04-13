@@ -108,7 +108,7 @@ int c_fork_pid(ptr vector_redirect_fds, int existing_pgid_if_positive);
 int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
                 ptr vector_redirect_fds,
                 ptr vector_of_bytevector0_environ,
-                int existing_pgid_if_positive); // if > 0, add process to given process group
+                int existing_pgid_if_positive); /* if > 0, add process to given process group */
 
 /**
  * set the specified pgid i.e. process group id as the foreground process group.
