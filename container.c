@@ -971,88 +971,70 @@ static void define_library_containers_gbuffer(void) {
   /** Implementation: contains two spans, a "left" and a "right" ones */
   /****************************************************************************/
 
-  eval("(begin\n"
-       "\n"
-       "(import (schemesh containers misc)\n"
-       "        (schemesh containers span)\n"
-       "        (schemesh containers bytespan)\n"
-       "        (schemesh containers charspan))\n"
-       "\n"
-       "(define list->gbuffer)\n"
-       "(define span->gbuffer)\n"
-       "(define span->gbuffer*)\n" /* view two spans as gbuffer */
-       "(define make-gbuffer)\n"
-       "(define gbuffer->span)\n"
-       "(define gbuffer)\n"
-       "(define gbuffer?)\n"
-       "(define gbuffer-length)\n"
-       "(define gbuffer-empty?)\n"
-       "(define gbuffer-ref)\n"
-       "(define gbuffer-set!)\n"
-       "(define gbuffer-split-at!)\n"
-       "(define gbuffer-insert-at!)\n"
-       "(define gbuffer-erase-at!)\n"
-       "(define gbuffer-iterate))\n");
+#define SCHEMESH_LIBRARY_CONTAINERS_GBUFFER_EXPORT                                                 \
+  "list->gbuffer span->gbuffer span->gbuffer* make-gbuffer gbuffer->span gbuffer gbuffer? "        \
+  "gbuffer-length gbuffer-empty? gbuffer-ref gbuffer-set! gbuffer-split-at! "                      \
+  "gbuffer-insert-at! " /*gbuffer-erase-at! */ "gbuffer-iterate "
 
-  eval("(let ()\n"
+  eval("(library (schemesh containers gbuffer (0 1))\n"
+       "  (export " SCHEMESH_LIBRARY_CONTAINERS_GBUFFER_EXPORT ")\n"
+       "  (import (chezscheme) (schemesh containers span))\n"
        "\n"
        "(define-record-type\n"
-       "  (%gbuffer %make-gbuffer %gbuffer?)\n"
+       "  (%gbuffer %make-gbuffer gbuffer?)\n"
        "  (fields\n"
        "     (mutable left  gbuffer-left  gbuffer-left-set!)\n"
        "     (mutable right gbuffer-right gbuffer-right-set!))\n"
        "  (nongenerative #{%gbuffer ejch98ka4vi1n9dn4ybq4gzwe-0}))\n"
        "\n"
-       "(set! list->gbuffer (lambda (l)\n"
-       "  (%make-gbuffer (make-span 0) (list->span l))))\n"
+       "(define (list->gbuffer l)\n"
+       "  (%make-gbuffer (make-span 0) (list->span l)))\n"
        "\n"
-       "(set! span->gbuffer (lambda (sp)\n"
-       "  (%make-gbuffer (make-span 0) (copy-span sp))))\n"
+       "(define (span->gbuffer sp)\n"
+       "  (%make-gbuffer (make-span 0) (span-copy sp)))\n"
        "\n"
-       "(set! span->gbuffer* (lambda (sp1 sp2)\n"
-       "  (%make-gbuffer sp1 sp2)))\n"
+       /* view two spans as gbuffer */
+       "(define (span->gbuffer* sp1 sp2)\n"
+       "  (%make-gbuffer sp1 sp2))\n"
        "\n"
-       "(set! make-gbuffer (lambda (n . val)\n"
-       "  (%make-gbuffer (make-span 0) (apply make-span n val))))\n"
+       "(define (make-gbuffer n . val)\n"
+       "  (%make-gbuffer (make-span 0) (apply make-span n val)))\n"
        "\n"
-       "(set! gbuffer->span (lambda (gb)\n"
+       "(define (gbuffer->span gb)\n"
        "  (let* ((left  (gbuffer-left  gb))\n"
        "         (right (gbuffer-right gb))\n"
        "         (left-n  (span-length left))\n"
        "         (right-n (span-length right))\n"
        "         (dst (make-span (fx+ left-n right-n))))\n"
        "    (span-copy! left  0 dst 0 left-n)\n"
-       "    (span-copy! right 0 dst left-n right-n))))\n"
+       "    (span-copy! right 0 dst left-n right-n)))\n"
        "\n"
-       "(set! gbuffer (lambda vals\n"
-       "  (list->gbuffer vals)))\n"
+       "(define (gbuffer . vals)\n"
+       "  (list->gbuffer vals))\n"
        "\n"
-       "(set! gbuffer? (lambda (gb)\n"
-       "  (%gbuffer? gb)))\n"
+       "(define (gbuffer-length gb)\n"
+       "  (fx+ (span-length (gbuffer-left gb)) (span-length (gbuffer-right gb))))\n"
        "\n"
-       "(set! gbuffer-length (lambda (gb)\n"
-       "  (fx+ (span-length (gbuffer-left gb)) (span-length (gbuffer-right gb)))))\n"
+       "(define (gbuffer-empty? gb)\n"
+       "  (and (span-empty? (gbuffer-left gb)) (span-empty? (gbuffer-right gb))))\n"
        "\n"
-       "(set! gbuffer-empty? (lambda (gb)\n"
-       "  (and (span-empty? (gbuffer-left gb)) (span-empty? (gbuffer-right gb)))))\n"
-       "\n"
-       "(set! gbuffer-ref (lambda (gb n)\n"
+       "(define (gbuffer-ref gb n)\n"
        "  (assert (fx>=? n 0))\n"
        "  (assert (fx<? n (gbuffer-length gb)))\n"
        "  (let ((left-n (span-length (gbuffer-left gb))))\n"
        "    (if (fx<? n left-n)\n"
        "      (span-ref (gbuffer-left  gb) n)\n"
-       "      (span-ref (gbuffer-right gb) (fx- n left-n))))))\n"
+       "      (span-ref (gbuffer-right gb) (fx- n left-n)))))\n"
        "\n"
-       "(set! gbuffer-set! (lambda (gb n val)\n"
+       "(define (gbuffer-set! gb n val)\n"
        "  (assert (fx>=? n 0))\n"
        "  (assert (fx<? n (gbuffer-length gb)))\n"
        "  (let ((left-n (span-length (gbuffer-left gb))))\n"
        "    (if (fx<? n left-n)\n"
        "      (span-set! (gbuffer-left  gb) n val)\n"
-       "      (span-set! (gbuffer-right gb) (fx- n left-n) val)))))\n"
+       "      (span-set! (gbuffer-right gb) (fx- n left-n) val))))\n"
        "\n"
-       "(set! gbuffer-split-at! (lambda (gb n)\n"
+       "(define (gbuffer-split-at! gb n)\n"
        "  (assert (fx>=? n 0))\n"
        "  (assert (fx<=? n (gbuffer-length gb)))\n"
        "  (let* ((left  (gbuffer-left  gb))\n"
@@ -1064,9 +1046,9 @@ static void define_library_containers_gbuffer(void) {
        "        (span-erase-front! right delta))\n"
        "      ((fx<? delta 0)\n"
        "        (span-sp-insert-front! right left n (fx- delta))\n"
-       "        (span-erase-back! left (fx- delta)))))))\n"
+       "        (span-erase-back! left (fx- delta))))))\n"
        "\n"
-       "(set! gbuffer-insert-at! (lambda (gb n val)\n"
+       "(define (gbuffer-insert-at! gb n val)\n"
        "  (assert (fx>=? n 0))\n"
        "  (assert (fx<=? n (gbuffer-length gb)))\n"
        "  (let* ((left   (gbuffer-left  gb))\n"
@@ -1080,12 +1062,12 @@ static void define_library_containers_gbuffer(void) {
        "        (span-insert-back! right val))\n"
        "      (#t\n"
        "        (gbuffer-split-at! gb n)\n"
-       "        (span-insert-back! left val))))))\n"
+       "        (span-insert-back! left val)))))\n"
        "\n"
-       "(set! gbuffer-iterate (lambda (gb proc)\n"
+       "(define (gbuffer-iterate gb proc)\n"
        "  (do ((i 0 (fx1+ i))\n"
        "       (n (gbuffer-length gb)))\n"
-       "    ((or (fx>=? i n) (not (proc i (gbuffer-ref gb i))))))))\n"
+       "    ((or (fx>=? i n) (not (proc i (gbuffer-ref gb i)))))))\n"
        "\n"
        /** customize how "gbuffer" objects are printed */
        "(record-writer (record-type-descriptor %gbuffer)\n"
@@ -1096,59 +1078,33 @@ static void define_library_containers_gbuffer(void) {
        "        (display #\\space port)\n"
        "        (writer elem port)))\n"
        "    (display #\\) port)))\n"
-       ")\n");
-
-  /****************************************************************************/
+       "\n"
+       ")\n"); /* close library */
 }
 
+/****************************************************************************/
+/* define Scheme type "hash-iterator" and functions operating on it:        */
+/* they implement traversing hashtable contents without allocating          */
+/****************************************************************************/
 static void define_library_containers_hashtable(void) {
 
-  eval("(begin\n"
-       /** return hash-iterator to first element in hashtable */
-       "(define make-hash-iterator)\n"
-       "  \n"
-       /** return #t if argument is an hash-iterator, otherwise return #f */
-       "(define hash-iterator?)\n"
-       "  \n"
-       /** make a copy of specified hash-iterator */
-       "(define hash-iterator-copy)\n"
-       "  \n"
-       /**
-        * return hashtable element (key . val) corresponding to current position
-        * of hash-iterator, or #f if end of hashtable is reached
-        *
-        * setting the cdr of returned element propagates back to the hashtable,
-        * i.e. it is equivalent to setting the value associated to key in the hashtable
-        *
-        * NEVER set or modify in any way the car of returned element!
-        */
-       "(define hash-iterator-cell))\n"
-       "  \n"
-       /**
-        * modify hash-iterator in place to point to next hashtable element.
-        * return next hashtable element (key . val) if more elements are available,
-        * otherwise return #f
-        *
-        * as (hash-iterator-cell), setting the cdr of returned element propagates back
-        * to the hashtable.
-        */
-       "(define hash-iterator-next!)\n"
-       "  \n"
-       /**
-        * iterate on all elements of given hashtable, and call (proc (cons key value))
-        * on each element. stop iterating if (proc ...) returns #f
-        *
-        * Assigning the (cdr) of an element propagates to the hashtable,
-        * i.e. changes the value associated to key in hashtable.
-        *
-        * Do NOT modify the (car) of an element!
-        */
-       "(define hashtable-iterate)\n"
-       "  \n"
-       ")\n");
+#define SCHEMESH_LIBRARY_CONTAINERS_HASHTABLE_EXPORT_1                                             \
+  "make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-cell hash-iterator-next! "   \
+  "hashtable-iterate hashtable-transpose eq-hashtable eqv-hashtable "
+#define SCHEMESH_LIBRARY_CONTAINERS_HASHTABLE_EXPORT_2 "(rename (%hashtable hashtable))"
 
-  eval("(let ()\n"
+#define SCHEMESH_LIBRARY_CONTAINERS_HASHTABLE_EXPORT                                               \
+  SCHEMESH_LIBRARY_CONTAINERS_HASHTABLE_EXPORT_1 "hashtable "
+
+  eval("(library (schemesh containers hashtable (0 1))\n"
+       "  (export " SCHEMESH_LIBRARY_CONTAINERS_HASHTABLE_EXPORT_1 /*                             */
+           /*    */ SCHEMESH_LIBRARY_CONTAINERS_HASHTABLE_EXPORT_2 ")\n"
+       "  (import (chezscheme) (schemesh containers misc))\n"
        "\n"
+       /* =================================================================== */
+       "; start of hashtable-types.ss: the following code belongs to Chez Scheme\n"
+       /* =================================================================== */
+       ";\n"
        ";;; hashtable-types.ss\n"
        ";;; Copyright 1984-2017 Cisco Systems, Inc.\n"
        ";;; \n"
@@ -1197,156 +1153,179 @@ static void define_library_containers_hashtable(void) {
        "  (nongenerative #{eqv-ht bu811z2onf9o6tfc-4})\n"
        "  (sealed #t))\n"
        "\n"
-       ";;; \n"
-       ";;; end of hashtable-types.ss\n"
-       ";;; \n"
-       ";;; The following code belongs to schemesh\n"
-       ";;; \n"
+       /* =================================================================== */
+       "; end of hashtable-types.ss: the following code no longer belongs to Chez Scheme\n"
+       /* =================================================================== */
        "\n"
        /**
         * Note: eqv hashtables contain two inner hashtables:
         * one for keys comparable with eq, and one for all other keys.
         * We must retrieve both vectors from them and iterate on both.
         */
-       "(define-record-type %hash-iterator\n"
-       "  (fields (mutable index) (mutable bucket) (mutable vec1) (mutable vec2))\n"
+       "(define-record-type\n"
+       "  (%hash-iterator %make-iter hash-iterator?)\n"
+       "  (fields\n"
+       "    (mutable index  iter-index  iter-index-set!)\n"
+       "    (mutable bucket iter-bucket iter-bucket-set!)\n"
+       "    (mutable vec1   iter-vec1   iter-vec1-set!)\n"
+       "    (mutable vec2   iter-vec2   iter-vec2-set!))\n"
        "  (nongenerative #{%hash-iterator lq4zmtggul3p4izcxd4jinmdw-0})\n"
        "  (sealed #t))\n"
        "\n"
-       "(define (hash-bucket-valid? bucket)\n"
+       "(define (bucket-valid? bucket)\n"
        "  (or (pair? bucket) (#3%$tlc? bucket)))\n"
        "\n"
-       "(define (hash-bucket-keyval bucket)\n"
+       "(define (bucket-keyval bucket)\n"
        "  (cond\n"
        "    ((pair? bucket)    (car bucket))\n"
        "    ((#3%$tlc? bucket) (#3%$tlc-keyval bucket))\n"
        "    (else              #f)))\n"
        "\n"
-       "(define (hash-bucket-next bucket)\n"
+       "(define (bucket-next bucket)\n"
        "  (cond\n"
        "    ((pair? bucket)    (cdr bucket))\n"
        "    ((#3%$tlc? bucket) (#3%$tlc-next bucket))\n"
        "    (else              #f)))\n"
        "\n"
-       "(set! hash-iterator?\n"
-       "  (lambda (iter)\n"
-       "    (%hash-iterator? iter)))\n"
+       /** make a copy of specified hash-iterator */
+       "(define (hash-iterator-copy iter)\n"
+       "  (%make-iter (iter-index iter) (iter-bucket iter) (iter-vec1 iter) (iter-vec2 iter)))\n"
        "\n"
-       "(set! hash-iterator-copy\n"
-       "  (lambda (iter)\n"
-       "    (make-%hash-iterator\n"
-       "      (%hash-iterator-index  iter)\n"
-       "      (%hash-iterator-bucket iter)\n"
-       "      (%hash-iterator-vec1   iter)\n"
-       "      (%hash-iterator-vec2   iter))))\n"
+       /**
+        * return hashtable element (key . val) corresponding to current position
+        * of hash-iterator, or #f if end of hashtable is reached
+        *
+        * setting the cdr of returned element propagates back to the hashtable,
+        * i.e. it is equivalent to setting the value associated to key in the hashtable
+        *
+        * NEVER set or modify in any way the car of returned element!
+        */
+       "(define (hash-iterator-cell iter)\n"
+       "  (bucket-keyval (iter-bucket iter)))\n"
        "\n"
-       "(set! hash-iterator-cell\n"
-       "  (lambda (iter)\n"
-       "    (hash-bucket-keyval (%hash-iterator-bucket iter))))\n"
+       /**
+        * modify hash-iterator in place to point to next hashtable element.
+        * return next hashtable element (key . val) if more elements are available,
+        * otherwise return #f
+        *
+        * as (hash-iterator-cell), setting the cdr of returned element propagates back
+        * to the hashtable.
+        */
+       "(define (hash-iterator-next! iter)\n"
+       "  (let* ((index  (iter-index  iter))\n"
+       "         (bucket (bucket-next (iter-bucket iter)))\n"
+       "         (vec1   (iter-vec1   iter))\n"
+       "         (vlen   (vector-length vec1)))\n"
+       "    \n"
+       /*   ; iterate on vec1 until we find a cell */
+       "    (do ()\n"
+       "      ((or (bucket-valid? bucket) (fx>=? index vlen)))\n"
+       "      (set! index (fx1+ index))\n"
+       "      (when (fx<? index vlen)\n"
+       "        (set! bucket (vector-ref vec1 index))))\n"
+       "    (iter-index-set!  iter index)\n"
+       "    (iter-bucket-set! iter bucket)\n"
+       "    \n"
+       "    (let ((vec2   (iter-vec2 iter)))\n"
+       "      (if (or (bucket-valid? bucket) (fxzero? (vector-length vec2)))\n"
+       /*       ; either we found a cell, or vec2 is empty and we reached end of vec1 */
+       "        (bucket-keyval  bucket)\n"
+       /*       ; no cell found, but vec2 is non-empty: switch to it and retry */
+       "        (begin\n"
+       "          (iter-index-set!  iter -1)\n"
+       "          (iter-bucket-set! iter #f)\n"
+       "          (iter-vec1-set!   iter vec2)\n"
+       "          (iter-vec2-set!   iter (vector))\n"
+       "          (hash-iterator-next! iter))))))\n"
        "\n"
-       "(set! make-hash-iterator\n"
-       "  (lambda (h)\n"
-       "    (if (fxzero? (hashtable-size h))\n"
-       /*     ; hashtable is empty, return empty iterator */
-       "      (make-%hash-iterator 0 #f (vector) (vector))\n"
-       /*     ; hashtable is not empty, seek to first bucket */
-       "      (let* ((is-eqv (eqv-ht? h))\n"
-       "             (vec1 (if is-eqv (ht-vec (eqv-ht-eqht h))  (ht-vec h)))\n"
-       "             (vec2 (if is-eqv (ht-vec (eqv-ht-genht h)) (vector)))\n"
-       "             (iter (make-%hash-iterator -1 #f vec1 vec2)))\n"
-       /*       ; advance iterator to first bucket */
-       "        (hash-iterator-next! iter)\n"
-       "        iter))))\n"
+       /** return hash-iterator to first element in hashtable */
+       "(define (make-hash-iterator h)\n"
+       "  (if (fxzero? (hashtable-size h))\n"
+       /*   ; hashtable is empty, return empty iterator */
+       "    (%make-iter 0 #f (vector) (vector))\n"
+       /*   ; hashtable is not empty, seek to first bucket */
+       "    (let* ((is-eqv (eqv-ht? h))\n"
+       "           (vec1 (if is-eqv (ht-vec (eqv-ht-eqht h))  (ht-vec h)))\n"
+       "           (vec2 (if is-eqv (ht-vec (eqv-ht-genht h)) (vector)))\n"
+       "           (iter (%make-iter -1 #f vec1 vec2)))\n"
+       /*     ; advance iterator to first bucket */
+       "      (hash-iterator-next! iter)\n"
+       "      iter)))\n"
        "\n"
-       "(set! hash-iterator-next!\n"
-       "  (lambda (iter)\n"
-       "    (let* ((index  (%hash-iterator-index  iter))\n"
-       "           (bucket (%hash-iterator-bucket iter))\n"
-       "           (vec1   (%hash-iterator-vec1   iter))\n"
-       "           (vlen   (vector-length vec1)))\n"
-       "      (set! bucket (hash-bucket-next bucket))\n"
-       "      \n"
-       /*     ; iterate on vec1 until we find a cell */
-       "      (do ()\n"
-       "        ((or (hash-bucket-valid? bucket) (fx>=? index vlen)))\n"
-       "        (set! index (fx1+ index))\n"
-       "        (when (fx<? index vlen)\n"
-       "          (set! bucket (vector-ref vec1 index))))\n"
-       "      (%hash-iterator-index-set!  iter index)\n"
-       "      (%hash-iterator-bucket-set! iter bucket)\n"
-       "      \n"
-       "      (let ((keyval (hash-bucket-keyval  bucket))\n"
-       "            (vec2   (%hash-iterator-vec2 iter)))\n"
-       "        (if (or keyval (fxzero? (vector-length vec2)))\n"
-       /*         ; either we found a cell, or vec2 is empty and we reached end of vec1 */
-       "          keyval\n"
-       /*         ; no cell found, but vec2 is non-empty: switch to it and retry */
-       "          (begin\n"
-       "            (%hash-iterator-index-set!  iter -1)\n"
-       "            (%hash-iterator-bucket-set! iter #f)\n"
-       "            (%hash-iterator-vec1-set!   iter vec2)\n"
-       "            (%hash-iterator-vec2-set!   iter (vector))\n"
-       "            (hash-iterator-next! iter)))))))\n"
+       /**
+        * iterate on all elements of given hashtable, and call (proc (cons key value))
+        * for each element. stop iterating if (proc ...) returns #f
+        *
+        * Assigning the (cdr) of an element propagates to the hashtable,
+        * i.e. changes the value associated to key in hashtable.
+        *
+        * Do NOT modify the (car) of any element!
+        */
+       "(define (hashtable-iterate htable proc)\n"
+       "  (let ((iter (make-hash-iterator htable)))\n"
+       "    (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter)))\n"
+       "        ((or (not cell) (not (proc cell)))))))\n"
        "\n"
-       "(set! hashtable-iterate\n"
-       "  (lambda (htable proc)\n"
-       "    (let ((iter (make-hash-iterator htable)))\n"
-       "      (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter)))\n"
-       "          ((or (not cell) (not (proc cell))))))))\n"
-       "\n"
-       ")\n");
-
-  /**
-   * (hashtable-transpose src dst) iterates on all (key . value) elements of hashtable src,
-   * and inserts each of them into hashtable dst as transposed (value . key)
-   *
-   * Returns dst.
-   */
-  eval("(define (hashtable-transpose src dst)\n"
+       /**
+        * (hashtable-transpose src dst) iterates on all (key . value) elements of hashtable src,
+        * and inserts each of them into hashtable dst as transposed (value . key)
+        *
+        * Returns dst.
+        */
+       "(define (hashtable-transpose src dst)\n"
        "  (hashtable-iterate src\n"
        "    (lambda (cell)\n"
        "      (hashtable-set! dst (cdr cell) (car cell))))\n"
-       "  dst)\n");
-
-  /**
-   * (eq-hashtable . pairs) iterates on all (key . value) elements of pairs,
-   * and inserts each of them into a new hashtable created with (make-eq-hashtable (length pairs)).
-   *
-   * Returns the new hashtable.
-   */
-  eval("(define (eq-hashtable . pairs)\n"
+       "  dst)\n"
+       "\n"
+       /**
+        * (eq-hashtable . pairs) iterates on all (key . value) elements of pairs,
+        * and inserts each of them into a new hashtable created with (make-eq-hashtable (length
+        * pairs)).
+        *
+        * Returns the new hashtable.
+        */
+       "(define (eq-hashtable . pairs)\n"
        "  (let ((dst (make-eq-hashtable (length pairs))))\n"
        "    (list-iterate pairs\n"
        "      (lambda (cell)\n"
        "        (hashtable-set! dst (car cell) (cdr cell))))\n"
-       "    dst))\n");
-
-  /**
-   * (eqv-hashtable . pairs) iterates on all (key . value) elements of pairs,
-   * and inserts each of them into a new hashtable created with (make-eqv-hashtable (length pairs)).
-   *
-   * Returns the new hashtable.
-   */
-  eval("(define (eqv-hashtable . pairs)\n"
+       "    dst))\n"
+       "\n"
+       /**
+        * (eqv-hashtable . pairs) iterates on all (key . value) elements of pairs,
+        * and inserts each of them into a new hashtable created with (make-eqv-hashtable (length
+        * pairs)).
+        *
+        * Returns the new hashtable.
+        */
+       "(define (eqv-hashtable . pairs)\n"
        "  (let ((dst (make-eqv-hashtable (length pairs))))\n"
        "    (list-iterate pairs\n"
        "      (lambda (cell)\n"
        "        (hashtable-set! dst (car cell) (cdr cell))))\n"
-       "    dst))\n");
-
-  /**
-   * (hashtable hash-proc eq-proc . pairs) iterates on all (key . value) elements of pairs,
-   * and inserts each of them into a new hashtable created with
-   *   (make-hashtable hash-proc eq-proc (length pairs)).
-   *
-   * Returns the new hashtable.
-   */
-  eval("(define (hashtable hash-proc eq-proc . pairs)\n"
+       "    dst))\n"
+       "\n"
+       /**
+        * (hashtable hash-proc eq-proc . pairs) iterates on all (key . value) elements of pairs,
+        * and inserts each of them into a new hashtable created with
+        *   (make-hashtable hash-proc eq-proc (length pairs)).
+        *
+        * Returns the new hashtable.
+        */
+       "(define (%hashtable hash-proc eq-proc . pairs)\n"
        "  (let ((dst (make-hashtable hash-proc eq-proc (length pairs))))\n"
        "    (list-iterate pairs\n"
        "      (lambda (cell)\n"
        "        (hashtable-set! dst (car cell) (cdr cell))))\n"
-       "    dst))\n");
+       "    dst))\n"
+       "\n"
+       /** customize how "hash-iterator" objects are printed */
+       "(record-writer (record-type-descriptor %hash-iterator)\n"
+       "  (lambda (sp port writer)\n"
+       "    (display \"#<hash-iterator>\" port)))\n"
+       "\n"
+       ")\n"); /* close library */
 }
 
 void define_library_containers(void) {
@@ -1356,4 +1335,20 @@ void define_library_containers(void) {
   define_library_containers_charspan();
   define_library_containers_gbuffer();
   define_library_containers_hashtable();
+
+  eval("(library (schemesh containers (0 1))\n"
+       "  (export " SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT ""
+       /*        */ SCHEMESH_LIBRARY_CONTAINERS_SPAN_EXPORT ""
+       /*        */ SCHEMESH_LIBRARY_CONTAINERS_BYTESPAN_EXPORT ""
+       /*        */ SCHEMESH_LIBRARY_CONTAINERS_CHARSPAN_EXPORT ""
+       /*        */ SCHEMESH_LIBRARY_CONTAINERS_GBUFFER_EXPORT ""
+       /*        */ SCHEMESH_LIBRARY_CONTAINERS_HASHTABLE_EXPORT ")\n"
+       "  (import (schemesh containers misc)\n"
+       "          (schemesh containers span)\n"
+       "          (schemesh containers bytespan)\n"
+       "          (schemesh containers charspan)\n"
+       "          (schemesh containers gbuffer)\n"
+       "          (schemesh containers hashtable)))\n");
+
+  eval("(import (schemesh containers))\n");
 }
