@@ -28,24 +28,17 @@ static void c_vector_copy(ptr src, iptr src_start, ptr dst, iptr dst_start, iptr
   }
 }
 
-void define_library_containers(void) {
+static void define_library_containers_misc(void) {
+
+#define SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT                                                    \
+  "list-iterate vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable "       \
+  "list->bytevector subbytevector bytevector-fill-range! bytevector-iterate "                      \
+  "string-fill-range! "
+
   Sregister_symbol("c_vector_copy", &c_vector_copy);
 
-  eval("(library (schemesh containers (0 1))\n"
-       "  (export \n"
-       "    list-iterate\n"
-       "\n"
-       "    vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable\n"
-       "\n"
-       "    list->bytevector subbytevector bytevector-fill-range! bytevector-iterate\n"
-       "\n"
-       "    list->span vector->span vector->span* make-span span->vector span span?\n"
-       "    span-length span-empty? span-capacity span-capacity-front span-capacity-back\n"
-       "    span-ref span-back span-set! span-fill! span-fill-range! span-copy span-copy!\n"
-       "    span-reserve-front! span-reserve-back! span-resize-front! span-resize-back!\n"
-       "    span-insert-front! span-insert-back! span-sp-insert-front! span-sp-insert-back!\n"
-       "    span-erase-front! span-erase-back! span-iterate span-find\n"
-       "  )\n"
+  eval("(library (schemesh containers misc (0 1))\n"
+       "  (export " SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT ")\n"
        "  (import (chezscheme))\n"
        "\n"
        /**
@@ -155,17 +148,39 @@ void define_library_containers(void) {
        "       (n (bytevector-length bvec)))\n"
        "      ((or (fx>=? i n) (not (proc i (bytevector-u8-ref bvec i)))))))\n"
        "\n"
-       /****************************************************************************/
-       /***************  define Scheme type "span", a resizeable vector  ***********/
-       /****************************************************************************/
+       /**
+        * set n elements of string from offset = start with specified value
+        */
+       "(define (string-fill-range! str start n val)\n"
+       "  (do ((i 0 (fx1+ i)))\n"
+       "      ((fx>=? i n))\n"
+       "    (string-set! str (fx+ i start) val)))\n"
+       "\n"
+       ")\n"); /* close library */
+}
+
+/** define Scheme type "span", a resizeable vector */
+static void define_library_containers_span(void) {
+
+#define SCHEMESH_LIBRARY_CONTAINERS_SPAN_EXPORT                                                    \
+  "list->span vector->span vector->span* make-span span->vector span span? "                       \
+  "span-length span-empty? span-capacity span-capacity-front span-capacity-back "                  \
+  "span-ref span-back span-set! span-fill! span-fill-range! span-copy span-copy! "                 \
+  "span-reserve-front! span-reserve-back! span-resize-front! span-resize-back! "                   \
+  "span-insert-front! span-insert-back! span-sp-insert-front! span-sp-insert-back! "               \
+  "span-erase-front! span-erase-back! span-iterate span-find "
+
+  eval("(library (schemesh containers span (0 1))\n"
+       "  (export " SCHEMESH_LIBRARY_CONTAINERS_SPAN_EXPORT ")\n"
+       "  (import (chezscheme) (schemesh containers misc))\n"
+       "\n"
        "(define-record-type\n"
        "  (%span %make-span span?)\n"
        "  (fields\n"
        "     (mutable beg span-beg span-beg-set!)\n"
        "     (mutable end span-end span-end-set!)\n"
        "     (mutable vec span-vec span-vec-set!))\n"
-       "  (nongenerative #{%span ng1h8vurkk5k61p0jsryrbk99-0})\n"
-       "  (sealed #t))\n"
+       "  (nongenerative #{%span ng1h8vurkk5k61p0jsryrbk99-0}))\n"
        "\n"
        "(define (list->span l)\n"
        "  (let ((vec (list->vector l)))\n"
@@ -203,13 +218,13 @@ void define_library_containers(void) {
        "  (assert (fx<? n (span-length sp)))\n"
        "  (vector-ref (span-vec sp) (fx+ n (span-beg sp))))\n"
        "\n"
-       "(define (span-set! sp n val)\n"
-       "  (assert (fx<? n (span-end sp)))\n"
-       "  (vector-set! (span-vec sp) (fx+ n (span-beg sp)) val))\n"
-       "\n"
        "(define (span-back sp)\n"
        "  (assert (not (span-empty? sp)))\n"
        "  (vector-ref (span-vec sp) (fx1- (span-end sp))))\n"
+       "\n"
+       "(define (span-set! sp n val)\n"
+       "  (assert (fx<? n (span-end sp)))\n"
+       "  (vector-set! (span-vec sp) (fx+ n (span-beg sp)) val))\n"
        "\n"
        "(define (span-fill! sp val)\n"
        "  (vector-fill-range! (span-vec sp) (span-beg sp) (span-length sp) val))\n"
@@ -405,146 +420,115 @@ void define_library_containers(void) {
        "    (display #\\) port)))\n"
        "\n"
        ")\n"); /* close library */
+};
 
-  /****************************************************************************/
-  /** Define Scheme type "bytespan", a resizeable bytevector */
-  /****************************************************************************/
+/** define Scheme type "bytespan", a resizeable bytevector */
+static void define_library_containers_bytespan(void) {
 
-  eval("(begin\n"
-       "\n"
-       "(import (schemesh containers))\n"
-       "\n"
-       "(define list->bytespan)\n"
-       "(define bytevector->bytespan)\n"
-       "(define bytevector->bytespan*)\n" /* view bytevector as bytespan */
-       "(define make-bytespan)\n"
-       "(define bytespan->bytevector)\n"
-       "(define bytespan)\n"
-       "(define bytespan?)\n"
-       "(define bytespan-length)\n"
-       "(define bytespan-empty?)\n"
-       "(define bytespan-peek-beg)\n"  /* return start offset into internal bytevector */
-       "(define bytespan-peek-end)\n"  /* return end offset into internal bytevector */
-       "(define bytespan-peek-data)\n" /* return internal bytevector */
-       "(define bytespan-u8-ref)\n"
-       "(define bytespan-u8-set!)\n"
-       "(define bytespan-u8-back)\n"
-       "(define bytespan-fill!)\n"
-       "(define bytespan-fill-range!)\n"
-       "(define bytespan-copy)\n"
-       "(define bytespan-copy!)\n"
-       /* return distance between begin of internal bytevector and last element */
-       "(define bytespan-capacity-front)\n"
-       /* return distance between first element and end of internal bytevector */
-       "(define bytespan-capacity-back)\n"
-       /* ensure distance between begin of internal bytevector and last element is >= n.
-        * does NOT change the length */
-       "(define bytespan-reserve-front!)\n"
-       /* ensure distance between first element and end of internal bytevector is >= n.
-        * does NOT change the length */
-       "(define bytespan-reserve-back!)\n"
-       /* grow or shrink bytespan on the left (front), set length to n */
-       "(define bytespan-resize-front!)\n"
-       /* grow or shrink bytespan on the right (back), set length to n */
-       "(define bytespan-resize-back!)\n"
-       "(define bytespan-u8-insert-front!)\n"
-       "(define bytespan-u8-insert-back!)\n"
-       /* prefix a portion of another bytespan to this bytespan */
-       "(define bytespan-bsp-insert-front!)\n"
-       /* append a portion of another bytespan to this bytespan */
-       "(define bytespan-bsp-insert-back!)\n"
-       /* erase n elements at the left (front) of bytespan */
-       "(define bytespan-erase-front!)\n"
-       /* erase n elements at the right (back) of bytespan */
-       "(define bytespan-erase-back!)\n"
-       "(define bytespan-iterate))\n");
+#define SCHEMESH_LIBRARY_CONTAINERS_BYTESPAN_EXPORT                                                \
+  "list->bytespan bytevector->bytespan bytevector->bytespan* make-bytespan bytespan->bytevector "  \
+  "bytespan bytespan? bytespan-length bytespan-empty? "                                            \
+  "bytespan-capacity bytespan-capacity-front bytespan-capacity-back "                              \
+  "bytespan-u8-ref bytespan-u8-back bytespan-u8-set! bytespan-fill! bytespan-fill-range! "         \
+  "bytespan-copy bytespan-copy! bytespan-reserve-front! bytespan-reserve-back! "                   \
+  "bytespan-resize-front! bytespan-resize-back! "                                                  \
+  "bytespan-u8-insert-front! bytespan-u8-insert-back! "                                            \
+  "bytespan-bsp-insert-front! bytespan-bsp-insert-back! "                                          \
+  "bytespan-erase-front! bytespan-erase-back! bytespan-iterate bytespan-u8-find "                  \
+  "bytespan-peek-beg bytespan-peek-end bytespan-peek-data "
 
-  eval("(let ((bytespan-reallocate-front! (void))\n"
-       "      (bytespan-reallocate-back! (void)))\n"
+  eval("(library (schemesh containers bytespan (0 1))\n"
+       "  (export " SCHEMESH_LIBRARY_CONTAINERS_BYTESPAN_EXPORT ")\n"
+       "  (import (chezscheme) (schemesh containers misc))\n"
        "\n"
        "(define-record-type\n"
-       "  (%bytespan %make-bytespan %bytespan?)\n"
+       "  (%bytespan %make-bytespan bytespan?)\n"
        "  (fields\n"
        "     (mutable beg bytespan-beg bytespan-beg-set!)\n"
        "     (mutable end bytespan-end bytespan-end-set!)\n"
        "     (mutable vec bytespan-vec bytespan-vec-set!))\n"
        "  (nongenerative #{%bytespan 1j9oboeqc5j4db1bamcd28yz-0}))\n"
        "\n"
-       "(set! list->bytespan (lambda (l)\n"
+       "(define (bytespan-peek-beg sp)\n"
+       "  (bytespan-beg sp))\n"
+       "\n"
+       "(define (bytespan-peek-end sp)\n"
+       "  (bytespan-end sp))\n"
+       "\n"
+       "(define (bytespan-peek-data sp)\n"
+       "  (bytespan-vec sp))\n"
+       "\n"
+       "(define (list->bytespan l)\n"
        "  (let ((vec (list->bytevector l)))\n"
-       "    (%make-bytespan 0 (bytevector-length vec) vec))))\n"
+       "    (%make-bytespan 0 (bytevector-length vec) vec)))\n"
        "\n"
-       "(set! bytevector->bytespan (lambda (vec)\n"
-       "  (%make-bytespan 0 (bytevector-length vec) (bytevector-copy vec))))\n"
+       /* create bytespan copying contents of specified bytevector */
+       "(define (bytevector->bytespan vec)\n"
+       "  (%make-bytespan 0 (bytevector-length vec) (bytevector-copy vec)))\n"
        "\n"
-       "(set! bytevector->bytespan* (lambda (vec)\n"
-       "  (%make-bytespan 0 (bytevector-length vec) vec)))\n"
+       /* view existing bytevector as bytespan */
+       "(define (bytevector->bytespan* vec)\n"
+       "  (%make-bytespan 0 (bytevector-length vec) vec))\n"
        "\n"
-       "(set! make-bytespan (lambda (n . val)\n"
-       "  (%make-bytespan 0 n (apply make-bytevector n val))))\n"
+       "(define (make-bytespan n . val)\n"
+       "  (%make-bytespan 0 n (apply make-bytevector n val)))\n"
        "\n"
-       "(set! bytespan->bytevector (lambda (sp)\n"
-       "  (subbytevector (bytespan-vec sp) (bytespan-beg sp) (bytespan-end sp))))\n"
+       "(define (bytespan->bytevector sp)\n"
+       "  (subbytevector (bytespan-vec sp) (bytespan-beg sp) (bytespan-end sp)))\n"
        "\n"
-       "(set! bytespan (lambda vals\n"
-       "  (list->bytespan vals)))\n"
+       "(define (bytespan . vals)\n"
+       "  (list->bytespan vals))\n"
        "\n"
-       "(set! bytespan? (lambda (sp)\n"
-       "  (%bytespan? sp)))\n"
+       "(define (bytespan-length sp)\n"
+       "  (fx- (bytespan-end sp) (bytespan-beg sp)))\n"
        "\n"
-       "(set! bytespan-length (lambda (sp)\n"
-       "  (fx- (bytespan-end sp) (bytespan-beg sp))))\n"
+       /* return length of internal bytevector, i.e. maximum number of elements
+        * that can be stored without reallocating */
+       "(define (bytespan-capacity sp)\n"
+       "  (bytevector-length (bytespan-vec sp)))\n"
        "\n"
-       "(set! bytespan-empty? (lambda (sp)\n"
-       "  (fx>=? (bytespan-beg sp) (bytespan-end sp))))\n"
+       "(define (bytespan-empty? sp)\n"
+       "  (fx>=? (bytespan-beg sp) (bytespan-end sp)))\n"
        "\n"
-       "(set! bytespan-peek-beg (lambda (sp)\n"
-       "  (bytespan-beg sp)))\n"
-       "\n"
-       "(set! bytespan-peek-end (lambda (sp)\n"
-       "  (bytespan-end sp)))\n"
-       "\n"
-       "(set! bytespan-peek-data (lambda (sp)\n"
-       "  (bytespan-vec sp)))\n"
-       "\n"
-       "(set! bytespan-u8-ref (lambda (sp n)\n"
+       "(define (bytespan-u8-ref sp n)\n"
        "  (assert (fx<? n (bytespan-length sp)))\n"
-       "  (bytevector-u8-ref (bytespan-vec sp) (fx+ n (bytespan-beg sp)))))\n"
+       "  (bytevector-u8-ref (bytespan-vec sp) (fx+ n (bytespan-beg sp))))\n"
        "\n"
-       "(set! bytespan-u8-set! (lambda (sp n val)\n"
-       "  (assert (fx<? n (bytespan-end sp)))\n"
-       "  (bytevector-u8-set! (bytespan-vec sp) (fx+ n (bytespan-beg sp)) val)))\n"
-       "\n"
-       "(set! bytespan-u8-back (lambda (sp)\n"
+       "(define (bytespan-u8-back sp)\n"
        "  (assert (not (bytespan-empty? sp)))\n"
-       "  (bytevector-u8-ref (bytespan-vec sp) (fx1- (bytespan-end sp)))))\n"
+       "  (bytevector-u8-ref (bytespan-vec sp) (fx1- (bytespan-end sp))))\n"
        "\n"
-       "(set! bytespan-fill! (lambda (sp val)\n"
-       "  (bytevector-fill-range! (bytespan-vec sp) (bytespan-beg sp) (bytespan-length sp) val)))\n"
+       "(define (bytespan-u8-set! sp n val)\n"
+       "  (assert (fx<? n (bytespan-end sp)))\n"
+       "  (bytevector-u8-set! (bytespan-vec sp) (fx+ n (bytespan-beg sp)) val))\n"
        "\n"
-       "(set! bytespan-fill-range! (lambda (sp start n val)\n"
+       "(define (bytespan-fill! sp val)\n"
+       "  (bytevector-fill-range! (bytespan-vec sp) (bytespan-beg sp) (bytespan-length sp) "
+       "val))\n"
+       "\n"
+       "(define (bytespan-fill-range! sp start n val)\n"
        "  (assert (fx>=? start 0))\n"
        "  (assert (fx>=? n 0))\n"
        "  (assert (fx<=? (fx+ start n) (bytespan-length sp)))\n"
-       "  (bytevector-fill-range! (bytespan-vec sp) (fx+ start (bytespan-beg sp)) n val)))\n"
+       "  (bytevector-fill-range! (bytespan-vec sp) (fx+ start (bytespan-beg sp)) n val))\n"
        "\n"
-       "(set! bytespan-copy (lambda (src)\n"
+       "(define (bytespan-copy src)\n"
        "  (let* ((n (bytespan-length src))\n"
        "         (dst (make-bytespan n)))\n"
        "    (bytevector-copy! (bytespan-vec src) (bytespan-beg src)\n"
-       "                      (bytespan-vec dst) (bytespan-beg dst) n)\n"
-       "    dst)))\n"
+       "                  (bytespan-vec dst) (bytespan-beg dst) n)\n"
+       "    dst))\n"
        "\n"
-       "(set! bytespan-copy! (lambda (src src-start dst dst-start n)\n"
+       "(define (bytespan-copy! src src-start dst dst-start n)\n"
        "  (assert (fx>=? src-start 0))\n"
        "  (assert (fx>=? dst-start 0))\n"
        "  (assert (fx>=? n 0))\n"
        "  (assert (fx<=? (fx+ src-start n) (bytespan-length src)))\n"
        "  (assert (fx<=? (fx+ dst-start n) (bytespan-length dst)))\n"
        "  (bytevector-copy! (bytespan-vec src) (fx+ src-start (bytespan-beg src))\n"
-       "                    (bytespan-vec dst) (fx+ dst-start (bytespan-beg dst)) n)))\n"
+       "                (bytespan-vec dst) (fx+ dst-start (bytespan-beg dst)) n))\n"
        "\n"
-       "(set! bytespan-reallocate-front! (lambda (sp len cap)\n"
+       "(define (bytespan-reallocate-front! sp len cap)\n"
        "  (assert (fx>=? len 0))\n"
        "  (assert (fx>=? cap len))\n"
        "  (let ((copy-len (fxmin len (bytespan-length sp)))\n"
@@ -554,9 +538,9 @@ void define_library_containers(void) {
        "    (bytevector-copy! old-vec (bytespan-beg sp) new-vec new-beg copy-len)\n"
        "    (bytespan-beg-set! sp new-beg)\n"
        "    (bytespan-end-set! sp cap)\n"
-       "    (bytespan-vec-set! sp new-vec))))\n"
+       "    (bytespan-vec-set! sp new-vec)))\n"
        "\n"
-       "(set! bytespan-reallocate-back! (lambda (sp len cap)\n"
+       "(define (bytespan-reallocate-back! sp len cap)\n"
        "  (assert (fx>=? len 0))\n"
        "  (assert (fx>=? cap len))\n"
        "  (let ((copy-len (fxmin len (bytespan-length sp)))\n"
@@ -565,15 +549,19 @@ void define_library_containers(void) {
        "    (bytevector-copy! old-vec (bytespan-beg sp) new-vec 0 copy-len)\n"
        "    (bytespan-beg-set! sp 0)\n"
        "    (bytespan-end-set! sp len)\n"
-       "    (bytespan-vec-set! sp new-vec))))\n"
+       "    (bytespan-vec-set! sp new-vec)))\n"
        "\n"
-       "(set! bytespan-capacity-front (lambda (sp)\n"
-       "  (bytespan-end sp)))\n"
+       /* return distance between begin of internal bytevector and last element */
+       "(define (bytespan-capacity-front sp)\n"
+       "  (bytespan-end sp))\n"
        "\n"
-       "(set! bytespan-capacity-back (lambda (sp)\n"
-       "  (fx- (bytevector-length (bytespan-vec sp)) (bytespan-beg sp))))\n"
+       /* return distance between first element and end of internal bytevector */
+       "(define (bytespan-capacity-back sp)\n"
+       "  (fx- (bytevector-length (bytespan-vec sp)) (bytespan-beg sp)))\n"
        "\n"
-       "(set! bytespan-reserve-front! (lambda (sp len)\n"
+       /* ensure distance between begin of internal bytevector and last element is >= n.
+        * does NOT change the length */
+       "(define (bytespan-reserve-front! sp len)\n"
        "  (assert (fx>=? len 0))\n"
        "  (let ((vec (bytespan-vec sp))\n"
        "        (cap-front (bytespan-capacity-front sp)))\n"
@@ -592,9 +580,11 @@ void define_library_containers(void) {
        "      (#t\n"
        /*       bytevector is too small, reallocate it */
        "       (let ((new-cap (fxmax 8 len (fx* 2 cap-front))))\n"
-       "         (bytespan-reallocate-front! sp (bytespan-length sp) new-cap)))))))\n"
+       "         (bytespan-reallocate-front! sp (bytespan-length sp) new-cap))))))\n"
        "\n"
-       "(set! bytespan-reserve-back! (lambda (sp len)\n"
+       /* ensure distance between first element and end of internal bytevector is >= n.
+        * does NOT change the length */
+       "(define (bytespan-reserve-back! sp len)\n"
        "  (assert (fx>=? len 0))\n"
        "  (let ((vec (bytespan-vec sp))\n"
        "        (cap-back (bytespan-capacity-back sp)))\n"
@@ -611,21 +601,23 @@ void define_library_containers(void) {
        "      (#t\n"
        /*       bytevector is too small, reallocate it */
        "       (let ((new-cap (fxmax 8 len (fx* 2 cap-back))))\n"
-       "         (bytespan-reallocate-back! sp (bytespan-length sp) new-cap)))))))\n"
+       "         (bytespan-reallocate-back! sp (bytespan-length sp) new-cap))))))\n"
        "\n"
-       "(set! bytespan-resize-front! (lambda (sp len)\n"
+       /* grow or shrink bytespan on the left (front), set length to n */
+       "(define (bytespan-resize-front! sp len)\n"
        "  (assert (fx>=? len 0))\n"
        "  (bytespan-reserve-front! sp len)\n"
        "  (assert (fx>= (bytespan-capacity-front sp) len))\n"
-       "  (bytespan-beg-set! sp (fx- (bytespan-end sp) len))))\n"
+       "  (bytespan-beg-set! sp (fx- (bytespan-end sp) len)))\n"
        "\n"
-       "(set! bytespan-resize-back! (lambda (sp len)\n"
+       /* grow or shrink bytespan on the right (back), set length to n */
+       "(define (bytespan-resize-back! sp len)\n"
        "  (assert (fx>=? len 0))\n"
        "  (bytespan-reserve-back! sp len)\n"
        "  (assert (fx>= (bytespan-capacity-back sp) len))\n"
-       "  (bytespan-end-set! sp (fx+ len (bytespan-beg sp)))))\n"
+       "  (bytespan-end-set! sp (fx+ len (bytespan-beg sp))))\n"
        "\n"
-       "(set! bytespan-u8-insert-front! (lambda (sp . vals)\n"
+       "(define (bytespan-u8-insert-front! sp . vals)\n"
        "  (unless (null? vals)\n"
        "    (let ((pos 0)\n"
        "          (new-len (fx+ (bytespan-length sp) (length vals))))\n"
@@ -633,9 +625,9 @@ void define_library_containers(void) {
        "      (list-iterate vals\n"
        "        (lambda (elem)\n"
        "          (bytespan-u8-set! sp pos elem)\n"
-       "          (set! pos (fx1+ pos))))))))\n"
+       "          (set! pos (fx1+ pos)))))))\n"
        "\n"
-       "(set! bytespan-u8-insert-back! (lambda (sp . vals)\n"
+       "(define (bytespan-u8-insert-back! sp . vals)\n"
        "  (unless (null? vals)\n"
        "    (let* ((pos (bytespan-length sp))\n"
        "           (new-len (fx+ pos (length vals))))\n"
@@ -643,39 +635,56 @@ void define_library_containers(void) {
        "      (list-iterate vals\n"
        "        (lambda (elem)\n"
        "          (bytespan-u8-set! sp pos elem)\n"
-       "          (set! pos (fx1+ pos))))))))\n"
+       "          (set! pos (fx1+ pos)))))))\n"
        "\n"
-       "(set! bytespan-bsp-insert-front! (lambda (sp-dst sp-src src-start src-n)\n"
+       /* prefix a portion of another bytespan to this bytespan */
+       "(define (bytespan-bsp-insert-front! sp-dst sp-src src-start src-n)\n"
        "  (assert (not (eq? sp-dst sp-src)))\n"
        "  (unless (fxzero? src-n)\n"
        "    (let ((len (bytespan-length sp-dst)))\n"
        "      (bytespan-resize-front! sp-dst (fx+ len src-n))\n"
-       "      (bytespan-copy! sp-src src-start sp-dst 0 src-n)))))\n"
+       "      (bytespan-copy! sp-src src-start sp-dst 0 src-n))))\n"
        "\n"
-       "(set! bytespan-bsp-insert-back! (lambda (sp-dst sp-src src-start src-n)\n"
+       /* append a portion of another bytespan to this bytespan */
+       "(define (bytespan-bsp-insert-back! sp-dst sp-src src-start src-n)\n"
        "  (assert (not (eq? sp-dst sp-src)))\n"
        "  (unless (fxzero? src-n)\n"
        "    (let ((pos (bytespan-length sp-dst)))\n"
        "      (bytespan-resize-back! sp-dst (fx+ pos src-n))\n"
-       "      (bytespan-copy! sp-src src-start sp-dst pos src-n)))))\n"
+       "      (bytespan-copy! sp-src src-start sp-dst pos src-n))))\n"
        "\n"
-       "(set! bytespan-erase-front! (lambda (sp n)\n"
+       /* erase n elements at the left (front) of bytespan */
+       "(define (bytespan-erase-front! sp n)\n"
        "  (assert (fx>=? n 0))\n"
        "  (assert (fx<=? n (bytespan-length sp)))\n"
        "  (unless (fxzero? n)\n"
-       "    (bytespan-beg-set! sp (fx+ n (bytespan-beg sp))))))\n"
+       "    (bytespan-beg-set! sp (fx+ n (bytespan-beg sp)))))\n"
        "\n"
-       "(set! bytespan-erase-back! (lambda (sp n)\n"
+       /* erase n elements at the right (back) of bytespan */
+       "(define (bytespan-erase-back! sp n)\n"
        "  (assert (fx>=? n 0))\n"
        "  (assert (fx<=? n (bytespan-length sp)))\n"
        "  (unless (fxzero? n)\n"
-       "    (bytespan-end-set! sp (fx- (bytespan-end sp) n)))))\n"
+       "    (bytespan-end-set! sp (fx- (bytespan-end sp) n))))\n"
        "\n"
-       "(set! bytespan-iterate (lambda (sp proc)\n"
+       "(define (bytespan-iterate sp proc)\n"
        "  (do ((i (bytespan-beg sp) (fx1+ i))\n"
        "       (n (bytespan-end sp))\n"
        "       (v (bytespan-vec sp)))\n"
-       "    ((or (fx>=? i n) (not (proc i (bytevector-u8-ref v i))))))))\n"
+       "    ((or (fx>=? i n) (not (proc i (bytevector-u8-ref v i)))))))\n"
+       "\n"
+       /**
+        * (bytespan-find) iterates on bytespan elements from start to (fxmin (fx+ start n)
+        * (bytespan-length sp)), and returns the index of first bytespan element that causes
+        * (predicate elem) to return non-#f. Returns #f if no such element is found.
+        */
+       "(define (bytespan-u8-find sp start n predicate)\n"
+       "  (let ((ret #f))\n"
+       "    (do ((i   start (fx1+ i))\n"
+       "         (end (fxmin (fx+ start n) (bytespan-length sp))))\n"
+       "        ((or ret (fx>=? i end)) ret)\n"
+       "      (when (predicate (bytespan-u8-ref sp i))\n"
+       "        (set! ret i)))))\n"
        "\n"
        /** customize how "bytespan" objects are printed */
        "(record-writer (record-type-descriptor %bytespan)\n"
@@ -686,146 +695,108 @@ void define_library_containers(void) {
        "        (display #\\space port)\n"
        "        (writer elem port)))\n"
        "    (display #\\) port)))\n"
-       ")\n");
+       "\n"
+       ")\n"); /* close library */
+}
 
-  /**
-   * (bytespan-find) iterates on bytespan elements from start to (fxmin (fx+ start n)
-   * (bytespan-length sp)), and returns the index of first bytespan element that causes (predicate
-   * elem) to return non-#f. Returns #f if no such element is found.
-   */
-  eval("(define (bytespan-u8-find sp start n predicate)\n"
-       "  (let ((ret #f))\n"
-       "    (do ((i   start (fx1+ i))\n"
-       "         (end (fxmin (fx+ start n) (bytespan-length sp))))\n"
-       "        ((or ret (fx>=? i end)) ret)\n"
-       "      (when (predicate (bytespan-u8-ref sp i))\n"
-       "        (set! ret i)))))\n");
+static void define_library_containers_charspan(void) {
 
   /****************************************************************************/
   /** Define Scheme type "charspan", a resizeable string */
   /****************************************************************************/
 
-  eval("(begin\n"
-       "(define list->charspan)\n"
-       "(define string->charspan)\n"
-       "(define string->charspan*)\n" /* view string as charspan */
-       "(define make-charspan)\n"
-       "(define charspan->string)\n"
-       "(define charspan)\n"
-       "(define charspan?)\n"
-       "(define charspan-length)\n"
-       "(define charspan-empty?)\n"
-       "(define charspan-ref)\n"
-       "(define charspan-set!)\n"
-       "(define charspan-back)\n"
-       "(define charspan-fill!)\n"
-       "(define charspan-fill-range!)\n"
-       "(define charspan-copy)\n"
-       "(define charspan-copy!)\n"
-       /* return distance between begin of internal string and last element */
-       "(define charspan-capacity-front)\n"
-       /* return distance between first element and end of internal string */
-       "(define charspan-capacity-back)\n"
-       /* ensure distance between begin of internal string and last element is >= n.
-        * does NOT change the length */
-       "(define charspan-reserve-front!)\n"
-       /* ensure distance between first element and end of internal string is >= n.
-        * does NOT change the length */
-       "(define charspan-reserve-back!)\n"
-       /* grow or shrink charspan on the left (front), set length to n */
-       "(define charspan-resize-front!)\n"
-       /* grow or shrink charspan on the right (back), set length to n */
-       "(define charspan-resize-back!)\n"
-       "(define charspan-insert-front!)\n"
-       "(define charspan-insert-back!)\n"
-       /* prefix a portion of another charspan to this charspan */
-       "(define charspan-sp-insert-front!)\n"
-       /* append a portion of another charspan to this charspan */
-       "(define charspan-sp-insert-back!)\n"
-       /* erase n elements at the left (front) of charspan */
-       "(define charspan-erase-front!)\n"
-       /* erase n elements at the right (back) of charspan */
-       "(define charspan-erase-back!)\n"
-       "(define charspan-iterate))\n");
+#define SCHEMESH_LIBRARY_CONTAINERS_CHARSPAN_EXPORT                                                \
+  "list->charspan string->charspan string->charspan* make-charspan charspan->string "              \
+  "charspan charspan? charspan-length charspan-empty? charspan-capacity "                          \
+  "charspan-capacity-front charspan-capacity-back charspan-ref charspan-back charspan-set! "       \
+  "charspan-fill! charspan-fill-range! charspan-copy charspan-copy! "                              \
+  "charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back! "   \
+  "charspan-insert-front! charspan-insert-back!  "                                                 \
+  "charspan-csp-insert-front! charspan-csp-insert-back! "                                          \
+  "charspan-erase-front! charspan-erase-back! charspan-iterate charspan-find "
 
-  eval("(let ((charspan-reallocate! (void)))\n"
+  eval("(library (schemesh containers charspan (0 1))\n"
+       "  (export " SCHEMESH_LIBRARY_CONTAINERS_CHARSPAN_EXPORT ")\n"
+       "  (import (chezscheme) (schemesh containers misc))\n"
        "\n"
        "(define-record-type\n"
-       "  (%charspan %make-charspan %charspan?)\n"
+       "  (%charspan %make-charspan charspan?)\n"
        "  (fields\n"
        "     (mutable beg charspan-beg charspan-beg-set!)\n"
        "     (mutable end charspan-end charspan-end-set!)\n"
        "     (mutable vec charspan-vec charspan-vec-set!))\n"
        "  (nongenerative #{%charspan b847ikzm9lftljwelbq0cknyh-0}))\n"
        "\n"
-       "(set! list->charspan (lambda (l)\n"
+       "(define (list->charspan l)\n"
        "  (let ((vec (list->string l)))\n"
-       "    (%make-charspan 0 (string-length vec) vec))))\n"
+       "    (%make-charspan 0 (string-length vec) vec)))\n"
        "\n"
-       "(set! string->charspan (lambda (vec)\n"
-       "  (%make-charspan 0 (string-length vec) (string-copy vec))))\n"
+       /* create charspan copying contents of specified string */
+       "(define (string->charspan vec)\n"
+       "  (%make-charspan 0 (string-length vec) (string-copy vec)))\n"
        "\n"
-       "(set! string->charspan* (lambda (vec)\n"
-       "  (%make-charspan 0 (string-length vec) vec)))\n"
+       /* view existing string as charspan */
+       "(define (string->charspan* vec)\n"
+       "  (%make-charspan 0 (string-length vec) vec))\n"
        "\n"
-       "(set! make-charspan (lambda (n . val)\n"
-       "  (%make-charspan 0 n (apply make-string n val))))\n"
+       "(define (make-charspan n . val)\n"
+       "  (%make-charspan 0 n (apply make-string n val)))\n"
        "\n"
-       "(set! charspan->string (lambda (sp)\n"
-       "  (substring (charspan-vec sp) (charspan-beg sp) (charspan-end sp))))\n"
+       "(define (charspan->string sp)\n"
+       "  (substring (charspan-vec sp) (charspan-beg sp) (charspan-end sp)))\n"
        "\n"
-       "(set! charspan (lambda vals\n"
-       "  (list->charspan vals)))\n"
+       "(define (charspan . vals)\n"
+       "  (list->charspan vals))\n"
        "\n"
-       "(set! charspan? (lambda (sp)\n"
-       "  (%charspan? sp)))\n"
+       "(define (charspan-length sp)\n"
+       "  (fx- (charspan-end sp) (charspan-beg sp)))\n"
        "\n"
-       "(set! charspan-length (lambda (sp)\n"
-       "  (fx- (charspan-end sp) (charspan-beg sp))))\n"
+       /* return length of internal string, i.e. maximum number of elements
+        * that can be stored without reallocating */
+       "(define (charspan-capacity sp)\n"
+       "  (string-length (charspan-vec sp)))\n"
        "\n"
-       "(set! charspan-empty? (lambda (sp)\n"
-       "  (fx>=? (charspan-beg sp) (charspan-end sp))))\n"
+       "(define (charspan-empty? sp)\n"
+       "  (fx>=? (charspan-beg sp) (charspan-end sp)))\n"
        "\n"
-       "(set! charspan-ref (lambda (sp n)\n"
+       "(define (charspan-ref sp n)\n"
        "  (assert (fx<? n (charspan-length sp)))\n"
-       "  (string-ref (charspan-vec sp) (fx+ n (charspan-beg sp)))))\n"
+       "  (string-ref (charspan-vec sp) (fx+ n (charspan-beg sp))))\n"
        "\n"
-       "(set! charspan-set! (lambda (sp n val)\n"
-       "  (assert (fx<? n (charspan-end sp)))\n"
-       "  (string-set! (charspan-vec sp) (fx+ n (charspan-beg sp)) val)))\n"
-       "\n"
-       "(set! charspan-back (lambda (sp)\n"
+       "(define (charspan-back sp)\n"
        "  (assert (not (charspan-empty? sp)))\n"
-       "  (string-ref (charspan-vec sp) (fx1- (charspan-end sp)))))\n"
+       "  (string-ref (charspan-vec sp) (fx1- (charspan-end sp))))\n"
        "\n"
-       "(set! charspan-fill! (lambda (sp val)\n"
-       /* no optimized function to fill only between charspan-beg and charspan-end,
-        * so fill the whole string */
-       "  (string-fill! (charspan-vec sp) val)))\n"
+       "(define (charspan-set! sp n val)\n"
+       "  (assert (fx<? n (charspan-end sp)))\n"
+       "  (string-set! (charspan-vec sp) (fx+ n (charspan-beg sp)) val))\n"
        "\n"
-       "(set! charspan-fill-range! (lambda (sp start n val)\n"
+       "(define (charspan-fill! sp val)\n"
+       "  (string-fill-range! (charspan-vec sp) (charspan-beg sp) (charspan-length sp) val))\n"
+       "\n"
+       "(define (charspan-fill-range! sp start n val)\n"
        "  (assert (fx>=? start 0))\n"
        "  (assert (fx>=? n 0))\n"
        "  (assert (fx<=? (fx+ start n) (charspan-length sp)))\n"
-       "  (string-fill-range! (charspan-vec sp) (fx+ start (charspan-beg sp)) n val)))\n"
+       "  (string-fill-range! (charspan-vec sp) (fx+ start (charspan-beg sp)) n val))\n"
        "\n"
-       "(set! charspan-copy (lambda (src)\n"
+       "(define (charspan-copy src)\n"
        "  (let* ((n (charspan-length src))\n"
        "         (dst (make-charspan n)))\n"
        "    (string-copy! (charspan-vec src) (charspan-beg src)\n"
        "                  (charspan-vec dst) (charspan-beg dst) n)\n"
-       "    dst)))\n"
+       "    dst))\n"
        "\n"
-       "(set! charspan-copy! (lambda (src src-start dst dst-start n)\n"
+       "(define (charspan-copy! src src-start dst dst-start n)\n"
        "  (assert (fx>=? src-start 0))\n"
        "  (assert (fx>=? dst-start 0))\n"
        "  (assert (fx>=? n 0))\n"
        "  (assert (fx<=? (fx+ src-start n) (charspan-length src)))\n"
        "  (assert (fx<=? (fx+ dst-start n) (charspan-length dst)))\n"
        "  (string-copy! (charspan-vec src) (fx+ src-start (charspan-beg src))\n"
-       "                (charspan-vec dst) (fx+ dst-start (charspan-beg dst)) n)))\n"
+       "                (charspan-vec dst) (fx+ dst-start (charspan-beg dst)) n))\n"
        "\n"
-       "(set! charspan-reallocate-front! (lambda (sp len cap)\n"
+       "(define (charspan-reallocate-front! sp len cap)\n"
        "  (assert (fx>=? len 0))\n"
        "  (assert (fx>=? cap len))\n"
        "  (let ((copy-len (fxmin len (charspan-length sp)))\n"
@@ -835,9 +806,9 @@ void define_library_containers(void) {
        "    (string-copy! old-vec (charspan-beg sp) new-vec new-beg copy-len)\n"
        "    (charspan-beg-set! sp new-beg)\n"
        "    (charspan-end-set! sp cap)\n"
-       "    (charspan-vec-set! sp new-vec))))\n"
+       "    (charspan-vec-set! sp new-vec)))\n"
        "\n"
-       "(set! charspan-reallocate-back! (lambda (sp len cap)\n"
+       "(define (charspan-reallocate-back! sp len cap)\n"
        "  (assert (fx>=? len 0))\n"
        "  (assert (fx>=? cap len))\n"
        "  (let ((copy-len (fxmin len (charspan-length sp)))\n"
@@ -846,15 +817,19 @@ void define_library_containers(void) {
        "    (string-copy! old-vec (charspan-beg sp) new-vec 0 copy-len)\n"
        "    (charspan-beg-set! sp 0)\n"
        "    (charspan-end-set! sp len)\n"
-       "    (charspan-vec-set! sp new-vec))))\n"
+       "    (charspan-vec-set! sp new-vec)))\n"
        "\n"
-       "(set! charspan-capacity-front (lambda (sp)\n"
-       "  (charspan-end sp)))\n"
+       /* return distance between begin of internal string and last element */
+       "(define (charspan-capacity-front sp)\n"
+       "  (charspan-end sp))\n"
        "\n"
-       "(set! charspan-capacity-back (lambda (sp)\n"
-       "  (fx- (string-length (charspan-vec sp)) (charspan-beg sp))))\n"
+       /* return distance between first element and end of internal string */
+       "(define (charspan-capacity-back sp)\n"
+       "  (fx- (string-length (charspan-vec sp)) (charspan-beg sp)))\n"
        "\n"
-       "(set! charspan-reserve-front! (lambda (sp len)\n"
+       /* ensure distance between begin of internal string and last element is >= n.
+        * does NOT change the length */
+       "(define (charspan-reserve-front! sp len)\n"
        "  (assert (fx>=? len 0))\n"
        "  (let ((vec (charspan-vec sp))\n"
        "        (cap-front (charspan-capacity-front sp)))\n"
@@ -873,9 +848,11 @@ void define_library_containers(void) {
        "      (#t\n"
        /*       string is too small, reallocate it */
        "       (let ((new-cap (fxmax 8 len (fx* 2 cap-front))))\n"
-       "         (charspan-reallocate-front! sp (charspan-length sp) new-cap)))))))\n"
+       "         (charspan-reallocate-front! sp (charspan-length sp) new-cap))))))\n"
        "\n"
-       "(set! charspan-reserve-back! (lambda (sp len)\n"
+       /* ensure distance between first element and end of internal string is >= n.
+        * does NOT change the length */
+       "(define (charspan-reserve-back! sp len)\n"
        "  (assert (fx>=? len 0))\n"
        "  (let ((vec (charspan-vec sp))\n"
        "        (cap-back (charspan-capacity-back sp)))\n"
@@ -892,21 +869,23 @@ void define_library_containers(void) {
        "      (#t\n"
        /*       string is too small, reallocate it */
        "       (let ((new-cap (fxmax 8 len (fx* 2 cap-back))))\n"
-       "         (charspan-reallocate-back! sp (charspan-length sp) new-cap)))))))\n"
+       "         (charspan-reallocate-back! sp (charspan-length sp) new-cap))))))\n"
        "\n"
-       "(set! charspan-resize-front! (lambda (sp len)\n"
+       /* grow or shrink charspan on the left (front), set length to n */
+       "(define (charspan-resize-front! sp len)\n"
        "  (assert (fx>=? len 0))\n"
        "  (charspan-reserve-front! sp len)\n"
        "  (assert (fx>= (charspan-capacity-front sp) len))\n"
-       "  (charspan-beg-set! sp (fx- (charspan-end sp) len))))\n"
+       "  (charspan-beg-set! sp (fx- (charspan-end sp) len)))\n"
        "\n"
-       "(set! charspan-resize-back! (lambda (sp len)\n"
+       /* grow or shrink charspan on the right (back), set length to n */
+       "(define (charspan-resize-back! sp len)\n"
        "  (assert (fx>=? len 0))\n"
        "  (charspan-reserve-back! sp len)\n"
        "  (assert (fx>= (charspan-capacity-back sp) len))\n"
-       "  (charspan-end-set! sp (fx+ len (charspan-beg sp)))))\n"
+       "  (charspan-end-set! sp (fx+ len (charspan-beg sp))))\n"
        "\n"
-       "(set! charspan-insert-front! (lambda (sp . vals)\n"
+       "(define (charspan-insert-front! sp . vals)\n"
        "  (unless (null? vals)\n"
        "    (let ((pos 0)\n"
        "          (new-len (fx+ (charspan-length sp) (length vals))))\n"
@@ -914,9 +893,9 @@ void define_library_containers(void) {
        "      (list-iterate vals\n"
        "        (lambda (elem)\n"
        "          (charspan-set! sp pos elem)\n"
-       "          (set! pos (fx1+ pos))))))))\n"
+       "          (set! pos (fx1+ pos)))))))\n"
        "\n"
-       "(set! charspan-insert-back! (lambda (sp . vals)\n"
+       "(define (charspan-insert-back! sp . vals)\n"
        "  (unless (null? vals)\n"
        "    (let* ((pos (charspan-length sp))\n"
        "           (new-len (fx+ pos (length vals))))\n"
@@ -924,62 +903,68 @@ void define_library_containers(void) {
        "      (list-iterate vals\n"
        "        (lambda (elem)\n"
        "          (charspan-set! sp pos elem)\n"
-       "          (set! pos (fx1+ pos))))))))\n"
+       "          (set! pos (fx1+ pos)))))))\n"
        "\n"
-       "(set! charspan-sp-insert-front! (lambda (sp-dst sp-src src-start src-n)\n"
+       /* prefix a portion of another charspan to this charspan */
+       "(define (charspan-csp-insert-front! sp-dst sp-src src-start src-n)\n"
        "  (assert (not (eq? sp-dst sp-src)))\n"
        "  (unless (fxzero? src-n)\n"
        "    (let ((len (charspan-length sp-dst)))\n"
        "      (charspan-resize-front! sp-dst (fx+ len src-n))\n"
-       "      (charspan-copy! sp-src src-start sp-dst 0 src-n)))))\n"
+       "      (charspan-copy! sp-src src-start sp-dst 0 src-n))))\n"
        "\n"
-       "(set! charspan-sp-insert-back! (lambda (sp-dst sp-src src-start src-n)\n"
+       /* append a portion of another charspan to this charspan */
+       "(define (charspan-csp-insert-back! sp-dst sp-src src-start src-n)\n"
        "  (assert (not (eq? sp-dst sp-src)))\n"
        "  (unless (fxzero? src-n)\n"
        "    (let ((pos (charspan-length sp-dst)))\n"
        "      (charspan-resize-back! sp-dst (fx+ pos src-n))\n"
-       "      (charspan-copy! sp-src src-start sp-dst pos src-n)))))\n"
+       "      (charspan-copy! sp-src src-start sp-dst pos src-n))))\n"
        "\n"
-       "(set! charspan-erase-front! (lambda (sp n)\n"
+       /* erase n elements at the left (front) of charspan */
+       "(define (charspan-erase-front! sp n)\n"
        "  (assert (fx>=? n 0))\n"
        "  (assert (fx<=? n (charspan-length sp)))\n"
        "  (unless (fxzero? n)\n"
-       "    (charspan-beg-set! sp (fx+ n (charspan-beg sp))))))\n"
+       "    (charspan-beg-set! sp (fx+ n (charspan-beg sp)))))\n"
        "\n"
-       "(set! charspan-erase-back! (lambda (sp n)\n"
+       /* erase n elements at the right (back) of charspan */
+       "(define (charspan-erase-back! sp n)\n"
        "  (assert (fx>=? n 0))\n"
        "  (assert (fx<=? n (charspan-length sp)))\n"
        "  (unless (fxzero? n)\n"
-       "    (charspan-end-set! sp (fx- (charspan-end sp) n)))))\n"
+       "    (charspan-end-set! sp (fx- (charspan-end sp) n))))\n"
        "\n"
-       "(set! charspan-iterate (lambda (sp proc)\n"
+       "(define (charspan-iterate sp proc)\n"
        "  (do ((i (charspan-beg sp) (fx1+ i))\n"
        "       (n (charspan-end sp))\n"
        "       (v (charspan-vec sp)))\n"
-       "    ((or (fx>=? i n) (not (proc i (string-ref v i))))))))\n"
+       "    ((or (fx>=? i n) (not (proc i (string-ref v i)))))))\n"
        "\n"
-       /** customize how "charspan" objects are printed */
-       "(record-writer (record-type-descriptor %charspan)\n"
-       "  (lambda (sp port writer)\n"
-       "    (display \"(string->charspan \" port)\n"
-       "    (write (substring (charspan-vec sp) (charspan-beg sp) (charspan-end sp)) port)\n"
-       "    (display #\\) port)))\n"
-       ")\n");
-
-  /**
-   * (charspan-find) iterates on charspan elements from start
-   * to (fxmin (fx+ start n) (charspan-length sp)),
-   * and returns the index of first charspan element that causes
-   * (predicate elem) to return non-#f.
-   * Returns #f if no such element is found.
-   */
-  eval("(define (charspan-find sp start n predicate)\n"
+       /**
+        * (charspan-find) iterates on charspan elements from start to (fxmin (fx+ start n)
+        * (charspan-length sp)), and returns the index of first charspan element that causes
+        * (predicate elem) to return non-#f. Returns #f if no such element is found.
+        */
+       "(define (charspan-find sp start n predicate)\n"
        "  (let ((ret #f))\n"
        "    (do ((i   start (fx1+ i))\n"
        "         (end (fxmin (fx+ start n) (charspan-length sp))))\n"
        "        ((or ret (fx>=? i end)) ret)\n"
        "      (when (predicate (charspan-ref sp i))\n"
-       "        (set! ret i)))))\n");
+       "        (set! ret i)))))\n"
+       "\n"
+       /** customize how "charspan" objects are printed */
+       "(record-writer (record-type-descriptor %charspan)\n"
+       "  (lambda (sp port writer)\n"
+       "    (display \"(string->charspan* \" port)\n"
+       "    (write (charspan->string sp) port)\n"
+       "    (display #\\) port)))\n"
+       "\n"
+       ")\n"); /* close library */
+}
+
+static void define_library_containers_gbuffer(void) {
 
   /****************************************************************************/
   /** Define Scheme type "gbuffer", a gap buffer. */
@@ -987,6 +972,12 @@ void define_library_containers(void) {
   /****************************************************************************/
 
   eval("(begin\n"
+       "\n"
+       "(import (schemesh containers misc)\n"
+       "        (schemesh containers span)\n"
+       "        (schemesh containers bytespan)\n"
+       "        (schemesh containers charspan))\n"
+       "\n"
        "(define list->gbuffer)\n"
        "(define span->gbuffer)\n"
        "(define span->gbuffer*)\n" /* view two spans as gbuffer */
@@ -1108,6 +1099,9 @@ void define_library_containers(void) {
        ")\n");
 
   /****************************************************************************/
+}
+
+static void define_library_containers_hashtable(void) {
 
   eval("(begin\n"
        /** return hash-iterator to first element in hashtable */
@@ -1353,4 +1347,13 @@ void define_library_containers(void) {
        "      (lambda (cell)\n"
        "        (hashtable-set! dst (car cell) (cdr cell))))\n"
        "    dst))\n");
+}
+
+void define_library_containers(void) {
+  define_library_containers_misc();
+  define_library_containers_span();
+  define_library_containers_bytespan();
+  define_library_containers_charspan();
+  define_library_containers_gbuffer();
+  define_library_containers_hashtable();
 }

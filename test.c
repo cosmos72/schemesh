@@ -107,9 +107,10 @@ static const struct {
      "  (bytespan-u8-find sp 0 999 (lambda (elem) (eq? 11 elem))))\n",
      "2"},
     /* ----------------------- charspan --------------------------- */
-    {"(charspan #\\1 #\\2 #\\3)", "(string->charspan \"123\")"},
-    {"(list->charspan '(#\\i #\\j #\\k #\\l))", "(string->charspan \"ijkl\")"},
-    {"(string->charspan \"pqrst\")", "(string->charspan \"pqrst\")"},
+    {"(charspan #\\1 #\\2 #\\3)", "(string->charspan* \"123\")"},
+    {"(list->charspan '(#\\i #\\j #\\k #\\l))", "(string->charspan* \"ijkl\")"},
+    {"(string->charspan \"pqrst\")", "(string->charspan* \"pqrst\")"},
+    {"(string->charspan* \"ouh[()&*U\")", "(string->charspan* \"ouh[()&*U\")"},
     {"(charspan->string (string->charspan \"pqrst\"))", "pqrst"},
     {"(charspan-length (charspan #\\a #\\b #\\c))", "3"},
     {"(charspan-capacity-back (charspan #\\a #\\b #\\c))", "3"},
@@ -121,28 +122,28 @@ static const struct {
      "       (sp (string->charspan s)))\n"
      "  (string-set! s 1 #\\^)\n" /* set! does NOT propagate to the charspan */
      "  sp)",
-     "(string->charspan \"abc\")"},
+     "(string->charspan* \"abc\")"},
     {"(let* ((s \"abc\")\n"
      "       (sp (string->charspan* s)))\n"
      "  (string-set! s 1 #\\^)\n" /* set! propagates to the charspan */
      "  sp)",
-     "(string->charspan \"a^c\")"},
+     "(string->charspan* \"a^c\")"},
     {"(let ((sp (charspan #\\A #\\B)))\n"
      "  (charspan-insert-front! sp #\\{ #\\~)\n"
      "  sp)",
-     "(string->charspan \"{~AB\")"},
+     "(string->charspan* \"{~AB\")"},
     {"(let ((sp (charspan #\\4 #\\5 #\\6)))\n"
      "  (charspan-insert-back! sp #\\7 #\\8)\n"
      "  sp)",
-     "(string->charspan \"45678\")"},
+     "(string->charspan* \"45678\")"},
     {"(let ((sp (string->charspan \"qwerty\")))\n"
      "  (charspan-erase-front! sp 1)\n"
      "  sp)",
-     "(string->charspan \"werty\")"},
+     "(string->charspan* \"werty\")"},
     {"(let ((sp (string->charspan \"asdfuiop\")))\n"
      "  (charspan-erase-back! sp 3)\n"
      "  sp)",
-     "(string->charspan \"asdfu\")"},
+     "(string->charspan* \"asdfu\")"},
     {"(let ((sp (charspan #\\@ #\\a #\\b #\\c)))\n"
      "  (charspan-find sp 0 999 (lambda (elem) (eq? #\\b elem))))\n",
      "2"},
