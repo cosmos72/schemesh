@@ -147,6 +147,19 @@ static const struct {
     {"(let ((sp (charspan #\\@ #\\a #\\b #\\c)))\n"
      "  (charspan-find sp 0 999 (lambda (elem) (eq? #\\b elem))))\n",
      "2"},
+    {"(gbuffer 'a 2 3.7)", "(gbuffer a 2 3.7)"},
+    {"(span->gbuffer* (span 0 1 2) (span 3 4 5))", "(gbuffer 0 1 2 3 4 5)"},
+    {"(let ((gb (make-gbuffer 5 #f)))\n"
+     "  (gbuffer-iterate gb\n"
+     "    (lambda (i elem)\n"
+     "      (gbuffer-set! gb i (fx- i))))\n"
+     "  gb)\n",
+     "(gbuffer 0 -1 -2 -3 -4)"},
+    {"(let ((gb (gbuffer 'a 'b 'c 'd 'e)))\n"
+     "  (gbuffer-erase-at! gb 2 2)\n"
+     "  (gbuffer-insert-at! gb 1 'x)\n"
+     "  gb)\n",
+     "(gbuffer a x b e)"},
     {"(errno)", "0"},
     {"(let ((ret '()))\n"
      "  (list-iterate '(a b c)\n"
