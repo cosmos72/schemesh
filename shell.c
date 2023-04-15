@@ -359,8 +359,8 @@ static void c_environ_to_sh_env(char** env) {
     if (namelen == 0 || inamelen < 0 || namelen != (size_t)inamelen) {
       continue;
     }
-    call3("sh-env-set!", Strue, Sstring_of_length(entry, inamelen), Sstring(separator + 1));
-    call3("sh-env-export!", Strue, Sstring_of_length(entry, inamelen), Strue);
+    call3("sh-env-set!", Strue, Sstring_utf8(entry, inamelen), Sstring_utf8(separator + 1, -1));
+    call3("sh-env-export!", Strue, Sstring_utf8(entry, inamelen), Strue);
   }
 }
 
@@ -822,7 +822,7 @@ int define_functions(void) {
 
   define_eval_macros();
   define_library_containers();
-  define_eval_functions();
+  define_library_eval();
 
   define_env_functions();
 

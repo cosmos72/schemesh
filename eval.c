@@ -39,18 +39,18 @@ ptr call3(const char symbol_name[], ptr arg1, ptr arg2, ptr arg3) {
 }
 
 /**
- * call Scheme (eval (read (open-input-string str))) on a C string
+ * call Scheme (eval (read (open-input-string str))) on a C UTF-8 string
  * and return the resulting Scheme value
  */
 static ptr minimal_eval(const char str[]) {
-  return call1("eval", call1("read", call1("open-input-string", Sstring(str))));
+  return call1("eval", call1("read", call1("open-input-string", Sstring_utf8(str, -1))));
 }
 
 /**
- * call Scheme (eval-string str) on a C string and return the resulting Scheme value
+ * call Scheme (eval-string str) on a C UTF-8 string and return the resulting Scheme value
  */
 ptr eval(const char str[]) {
-  return call1("eval-string", Sstring(str));
+  return call1("eval-string", Sstring_utf8(str, -1));
 }
 
 void define_eval_macros(void) {
@@ -87,67 +87,74 @@ void define_eval_macros(void) {
        "                  (datum->syntax (syntax l) e))))))))))\n");
 }
 
-static void define_display_any(void) {
-  eval("(define (display-condition x port)\n"
+void define_library_eval(void) {
+  eval("(library (schemesh eval (0 1))\n"
+       "  (export\n"
+       "    display-condition* display-any write-bytevector0\n"
+       "    any->bytevector any->bytevector0 any->string string->bytevector0\n"
+       "    list->cmd-argv string-hashtable->vector-of-bytevector0 eval->bytevector)\n"
+       "  (import (chezscheme)\n"
+       "          (schemesh containers misc)\n"
+       "          (schemesh containers hashtable))\n"
+       "\n"
+       "(define (display-condition* x port)\n"
        "  (when (condition? x)\n"
        "    (put-string port \"#<condition\")\n"
        "    (do ((clist (simple-conditions x) (cdr clist)))\n"
        "        ((null? clist) (void))\n"
        "      (let ((c (car clist)))\n"
-       "        (cond ((assertion-violation? c)       (put-string port \" &assertion\"))\n"
-       "              ((non-continuable-violation? c) (put-string port \" &non-continuable\"))"
-       "              ((implementation-restriction-violation? c)\n"
-       "                         (put-string \" &implementation-restriction \"))\n"
-       "              ((lexical-violation? c)   (put-string port \" &lexical\"))\n"
-       "              ((syntax-violation? c)    (put-string port \" &syntax \")\n"
-       "                                        (put-datum  port (syntax-violation-form c))\n"
-       "                                        (put-string port \" \")\n"
-       "                                        (put-datum  port (syntax-violation-subform c)))\n"
-       "              ((undefined-violation? c) (put-string port \" &undefined\"))\n"
-       "              ((violation? c)           (put-string port \" &violation\"))\n"
-       "              ((i/o-read-error? c)      (put-string port \" &i/o-read\"))\n"
-       "              ((i/o-write-error? c)     (put-string port \" &i/o-write\"))\n"
-       "              ((i/o-invalid-position-error? c)\n"
+       "        (cond\n"
+       "          ((assertion-violation? c)       (put-string port \" &assertion\"))\n"
+       "          ((non-continuable-violation? c) (put-string port \" &non-continuable\"))"
+       "          ((implementation-restriction-violation? c)\n"
+       "              (put-string \" &implementation-restriction \"))\n"
+       "          ((lexical-violation? c)   (put-string port \" &lexical\"))\n"
+       "          ((syntax-violation? c)    (put-string port \" &syntax \")\n"
+       "                                    (put-datum  port (syntax-violation-form c))\n"
+       "                                    (put-string port \" \")\n"
+       "                                    (put-datum  port (syntax-violation-subform c)))\n"
+       "          ((undefined-violation? c) (put-string port \" &undefined\"))\n"
+       "          ((violation? c)           (put-string port \" &violation\"))\n"
+       "          ((i/o-read-error? c)      (put-string port \" &i/o-read\"))\n"
+       "          ((i/o-write-error? c)     (put-string port \" &i/o-write\"))\n"
+       "          ((i/o-invalid-position-error? c)\n"
        "                         (put-string port \" &i/o-invalid-position\"))\n"
-       /* more i/o errors ... */
-       "              ((i/o-error? c)           (put-string port \" &i/o\"))\n"
-       "              ((error? c)               (put-string port \" &error\"))\n"
-       "              ((warning? c)             (put-string port \" &warning\"))\n"
-       "              ((message-condition? c)   (put-string port \" &message \")\n"
-       "                                        (put-datum  port (condition-message c)))\n"
-       "              ((irritants-condition? c) (put-string port \" &irritants \")\n"
-       "                                        (put-datum  port (condition-irritants c)))\n"
-       "              ((who-condition? c)       (put-string port \" &who \")\n"
-       "                                        (put-datum  port (condition-who c)))\n"
-       "              ((serious-condition? c)   (put-string port \" &serious\")))))\n"
-       "    (put-string port \">\")))\n");
-
-  eval("(define (display-any x port)\n"
+       /*         more i/o errors ... */
+       "          ((i/o-error? c)           (put-string port \" &i/o\"))\n"
+       "          ((error? c)               (put-string port \" &error\"))\n"
+       "          ((warning? c)             (put-string port \" &warning\"))\n"
+       "          ((message-condition? c)   (put-string port \" &message \")\n"
+       "                                    (put-datum  port (condition-message c)))\n"
+       "          ((irritants-condition? c) (put-string port \" &irritants \")\n"
+       "                                    (put-datum  port (condition-irritants c)))\n"
+       "          ((who-condition? c)       (put-string port \" &who \")\n"
+       "                                    (put-datum  port (condition-who c)))\n"
+       "          ((serious-condition? c)   (put-string port \" &serious\")))))\n"
+       "    (put-string port \">\")))\n"
+       "\n"
+       "(define (display-any x port)\n"
        "  (if (condition? x)\n"
-       "    (display-condition x port)\n"
-       "    (display x port)))\n");
-
-  /* convert bytevector0 to string and print it quoted, i.e. surrounded by " */
-  eval("(define (write-bytevector0 x port)\n"
+       "    (display-condition* x port)\n"
+       "    (display x port)))\n"
+       "\n"
+       /** convert bytevector0 containing UTF-8 to string
+        * and print it quoted, i.e. surrounded by " */
+       "(define (write-bytevector0 x port)\n"
        "  (let ((str (utf8->string x)))\n"
-       "    (write (substring str 0 (fx1- (string-length str))) port)))\n");
-}
-
-static void define_any_to_string(void) {
-  /* convert any value to a string */
-  eval("(define (any->string x)\n"
+       "    (write (substring str 0 (fx1- (string-length str))) port)))\n"
+       "\n"
+       /* convert any value to a string */
+       "(define (any->string x)\n"
        "  (cond ((string? x) x)\n"
        "        ((bytevector? x) (utf8->string x))\n"
        "        ((eq? (void) x) \"\")\n"
        "        (#t (let-values (((port get-string)\n"
        "                          (open-string-output-port)))\n"
        "              (display-any x port)\n"
-       "              (get-string)))))\n");
-}
-
-static void define_any_to_bytevector(void) {
-  /* convert any value to a bytevector */
-  eval("(define any->bytevector\n"
+       "              (get-string)))))\n"
+       "\n"
+       /* convert any value to a bytevector */
+       "(define any->bytevector\n"
        "  (let ((transcoder (make-transcoder (utf-8-codec) (eol-style lf)\n"
        "                                     (error-handling-mode raise))))\n"
        "    (lambda (x)\n"
@@ -157,10 +164,10 @@ static void define_any_to_bytevector(void) {
        "            (#t (let-values (((port get-bytevector)\n"
        "                              (open-bytevector-output-port transcoder)))\n"
        "                  (display-any x port)\n"
-       "                  (get-bytevector)))))))\n");
-
-  /* convert any sequence of values to #\nul terminated bytevector */
-  eval("(define any->bytevector0\n"
+       "                  (get-bytevector)))))))\n"
+       "\n"
+       /* convert any sequence of values to #\nul terminated bytevector */
+       "(define any->bytevector0\n"
        "  (let ((transcoder (make-transcoder (utf-8-codec) (eol-style lf)\n"
        "                                     (error-handling-mode raise))))\n"
        "    (lambda args\n"
@@ -168,29 +175,29 @@ static void define_any_to_bytevector(void) {
        "                    (open-bytevector-output-port transcoder)))\n"
        "        (list-iterate args (lambda (e) (display-any e port)))\n"
        "        (display #\\nul port)\n"
-       "        (get-bytevector)))))\n");
-
-  /* convert string to bytevector0 i.e. #\nul terminated UTF-8 bytevector */
-  eval("(define (string->bytevector0 x)\n"
+       "        (get-bytevector)))))\n"
+       "\n"
+       /* convert string to #\nul terminated bytevector containing UTF-8 */
+       "(define (string->bytevector0 x)\n"
        "  (assert (or (string? x) (bytevector? x)))\n"
-       "  (any->bytevector0 x))\n");
-
-  /**
-   * convert a list of strings or bytevectors to vector-of-bytevector0
-   * i.e. to a vector of #\nul terminated UTF-8 bytevectors
-   */
-  eval("(define (list->cmd-argv l)\n"
+       "  (any->bytevector0 x))\n"
+       "\n"
+       /**
+        * convert a list of strings or bytevectors to vector-of-bytevector0
+        * i.e. to a vector of #\nul terminated UTF-8 bytevectors
+        */
+       "(define (list->cmd-argv l)\n"
        "  (let ((argv (list->vector l)))\n"
        "    (do ([i 0 (+ 1 i)])\n"
        "        ((>= i (vector-length argv)))\n"
        "      (vector-set! argv i (string->bytevector0 (vector-ref argv i))))\n"
-       "    argv))\n");
-
-  /**
-   * convert a hashtable containing string keys and string values
-   * to a vector of bytevector0, where each element is key=value\x0;
-   */
-  eval("(define (string-hashtable->vector-of-bytevector0 htable)\n"
+       "    argv))\n"
+       "\n"
+       /**
+        * convert a hashtable containing string keys and string values
+        * to a vector of bytevector0, where each element is key=value\x0;
+        */
+       "(define (string-hashtable->vector-of-bytevector0 htable)\n"
        "  (let* ((i 0)\n"
        "         (n (hashtable-size htable))\n"
        "         (out (make-vector n)))\n"
@@ -200,12 +207,14 @@ static void define_any_to_bytevector(void) {
        "              (val (cdr cell)))\n"
        "          (vector-set! out i (any->bytevector0 key \"=\" val))\n"
        "          (set! i (fx1+ i)))))\n"
-       "    out))\n");
-}
+       "    out))\n"
+       "\n"
+       "(define (eval->bytevector str)\n"
+       "  (any->bytevector (eval (read (open-input-string str)))))\n"
+       "\n"
+       ")\n"); // close library
 
-static void define_eval_to_bytevector(void) {
-  eval("(define (eval->bytevector str)\n"
-       "  (any->bytevector (eval (read (open-input-string str)))))\n");
+  eval("(import (schemesh eval))\n");
 }
 
 /**
@@ -217,14 +226,7 @@ static void define_eval_to_bytevector(void) {
  * because it may be moved or garbage collected.
  */
 bytes eval_to_bytevector(const char str[]) {
-  ptr   bytevec = call1("eval->bytevector", Sstring(str));
+  ptr   bytevec = call1("eval->bytevector", Sstring_utf8(str, -1));
   bytes ret     = {Sbytevector_length(bytevec), Sbytevector_data(bytevec)};
   return ret;
-}
-
-void define_eval_functions(void) {
-  define_display_any();
-  define_any_to_string();
-  define_any_to_bytevector();
-  define_eval_to_bytevector();
 }

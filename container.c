@@ -1300,6 +1300,7 @@ static void define_library_containers_gbuffer(void) {
        "        (span-sp-insert-front! right left idx (fx- delta))\n"
        "        (span-erase-back! left (fx- delta))))))\n"
        "\n"
+       /** insert val into gbuffer at position idx */
        "(define (gbuffer-insert-at! gb idx val)\n"
        "  (assert (fx>=? idx 0))\n"
        "  (assert (fx<=? idx (gbuffer-length gb)))\n"
@@ -1316,7 +1317,30 @@ static void define_library_containers_gbuffer(void) {
        "        (gbuffer-split-at! gb idx)\n"
        "        (span-insert-back! left val)))))\n"
        "\n"
-       /* remove n elements starting at start */
+       /**
+        * read src-n elements from span sp-src starting from src-start
+        * and insert them into gbuffer at position idx
+        */
+       "(define (gbuffer-sp-insert-at! gb idx sp-src src-start src-n)\n"
+       "  (assert (fx>=? idx 0))\n"
+       "  (assert (fx<=? idx (gbuffer-length gb)))\n"
+       "  (let* ((left   (gbuffer-left  gb))\n"
+       "         (right  (gbuffer-right gb))\n"
+       "         (left-n (span-length left))\n"
+       "         (delta  (fx- idx left-n)))\n"
+       "    (cond\n"
+       "      ((fxzero? src-n)\n" /* nothing to do */
+       "        (assert (fx>=? src-start 0))\n"
+       "        (assert (fx<=? src-start (span-length sp-src))))\n"
+       "      ((fxzero? idx)\n"
+       "        (span-sp-insert-front! left sp-src src-start src-n))\n"
+       "      ((fx=? idx (gbuffer-length gb))\n"
+       "        (span-sp-insert-back! right sp-src src-start src-n))\n"
+       "      (#t\n"
+       "        (gbuffer-split-at! gb idx)\n"
+       "        (span-sp-insert-back! left sp-src src-start src-n)))))\n"
+       "\n"
+       /* remove n elements from gbuffer starting at start */
        "(define (gbuffer-erase-at! gb start n)\n"
        "  (let* ((left    (gbuffer-left  gb))\n"
        "         (right   (gbuffer-right gb))\n"

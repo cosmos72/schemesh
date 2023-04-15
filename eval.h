@@ -16,7 +16,7 @@
 void define_eval_macros(void);
 
 /** requires define_library_containers() */
-void define_eval_functions(void);
+void define_library_eval(void);
 
 /**
  * call global Scheme procedure having specified symbol name
