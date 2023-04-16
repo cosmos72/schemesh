@@ -27,7 +27,6 @@
 
 /**
  * Define the record types "job" "cmd" and functions sh-globals (sh-cmd ...)
- * Requires the function (sh-global-env)
  */
 static void define_job_functions(void) {
 
@@ -820,21 +819,21 @@ void scheme_init(void (*on_scheme_exception)(void)) {
 int define_functions(void) {
   int err;
 
-  define_eval_macros();
+  define_library_bootstrap();
   define_library_containers();
-  define_library_eval();
+  define_library_conversions();
 
-  define_env_functions();
-
-  if ((err = define_fd_functions()) < 0) {
+  if ((err = define_library_fd()) < 0) {
     return err;
   }
-  define_signal_functions();
-  define_tty_functions();
-  define_pid_functions();
-  define_lineedit_functions();
+  define_library_signal();
+  define_library_tty();
+  define_library_pid();
 
   define_job_functions();
+  define_env_functions();
+  define_lineedit_functions();
+
   define_shell_functions();
   define_multijob_functions();
 

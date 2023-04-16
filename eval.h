@@ -13,10 +13,10 @@
 #include <scheme.h>
 
 /** must be called before any other define_*() */
-void define_eval_macros(void);
+void define_library_bootstrap(void);
 
 /** requires define_library_containers() */
-void define_library_eval(void);
+void define_library_conversions(void);
 
 /**
  * call global Scheme procedure having specified symbol name

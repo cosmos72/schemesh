@@ -42,7 +42,7 @@ ptr call3(const char symbol_name[], ptr arg1, ptr arg2, ptr arg3) {
  * call Scheme (eval (read (open-input-string str))) on a C UTF-8 string
  * and return the resulting Scheme value
  */
-static ptr minimal_eval(const char str[]) {
+static ptr boot_eval(const char str[]) {
   return call1("eval", call1("read", call1("open-input-string", Sstring_utf8(str, -1))));
 }
 
@@ -53,46 +53,68 @@ ptr eval(const char str[]) {
   return call1("eval-string", Sstring_utf8(str, -1));
 }
 
-void define_eval_macros(void) {
-  minimal_eval("(define (eval-string str)\n"
-               "  (eval (read (open-input-string str))))\n");
-
-  eval("(define-syntax repeat\n"
-       "  (syntax-rules ()\n"
-       "    ((_ n body ...) (do ((i n (fx1- i))) ((fx<=? i 0)) body ...))))\n");
-
-  eval("(define-syntax while\n"
-       "  (syntax-rules ()\n"
-       "    ((_ pred)          (do () ((not pred))))\n"
-       "    ((_ pred body ...) (do () ((not pred)) body ...))))\n");
-
-  eval("(define-syntax until\n"
-       "  (syntax-rules ()\n"
-       "    ((_ pred)          (do () (pred)))\n"
-       "    ((_ pred body ...) (do () (pred) body ...))))\n");
-
-  eval("(define-syntax define-macro\n"
-       "  (syntax-rules ()\n"
-       "    ((_ (name . args) body ...)\n"
-       "     (define-macro name (lambda args body ...)))\n"
-       "    ((_ name transformer)\n"
-       "     (define-syntax name\n"
-       "       (lambda (stx)\n"
-       "         (syntax-case stx ()\n"
-       "           ((l . sv)\n"
-       "            (let* ((v (syntax->datum (syntax sv)))\n"
-       "                   (e (apply transformer v)))\n"
-       "              (if (eq? (void) e)\n"
-       "                  (syntax (void))\n"
-       "                  (datum->syntax (syntax l) e))))))))))\n");
+/**
+ * call Scheme (eval) on a C string, and convert returned Scheme value to
+ * bytevector with (any->bytevector).
+ * @return length and pointer to memory of a Scheme-allocated bytevector.
+ *
+ * Returned pointer CANNOT be dereferenced anymore after calling further Scheme code,
+ * because it may be moved or garbage collected.
+ */
+bytes eval_to_bytevector(const char str[]) {
+  ptr   bytevec = call1("eval->bytevector", Sstring_utf8(str, -1));
+  bytes ret     = {Sbytevector_length(bytevec), Sbytevector_data(bytevec)};
+  return ret;
 }
 
-void define_library_eval(void) {
-  eval("(library (schemesh eval (0 1))\n"
+void define_library_bootstrap(void) {
+  boot_eval("(library (schemesh bootstrap)\n"
+            "  (export eval-string repeat while until define-macro)\n"
+            "  (import (chezscheme))\n"
+            "\n"
+            "(define (eval-string str)\n"
+            "  (eval (read (open-input-string str))))\n"
+            "\n"
+            "(define-syntax repeat\n"
+            "  (syntax-rules ()\n"
+            "    ((_ n body ...) (do ((i n (fx1- i))) ((fx<=? i 0)) body ...))))\n"
+            "\n"
+            "(define-syntax while\n"
+            "  (syntax-rules ()\n"
+            "    ((_ pred)          (do () ((not pred))))\n"
+            "    ((_ pred body ...) (do () ((not pred)) body ...))))\n"
+            "\n"
+            "(define-syntax until\n"
+            "  (syntax-rules ()\n"
+            "    ((_ pred)          (do () (pred)))\n"
+            "    ((_ pred body ...) (do () (pred) body ...))))\n"
+            "\n"
+            "(define-syntax define-macro\n"
+            "  (syntax-rules ()\n"
+            "    ((_ (name . args) body ...)\n"
+            "     (define-macro name (lambda args body ...)))\n"
+            "    ((_ name transformer)\n"
+            "     (define-syntax name\n"
+            "       (lambda (stx)\n"
+            "         (syntax-case stx ()\n"
+            "           ((l . sv)\n"
+            "            (let* ((v (syntax->datum (syntax sv)))\n"
+            "                   (e (apply transformer v)))\n"
+            "              (if (eq? (void) e)\n"
+            "                  (syntax (void))\n"
+            "                  (datum->syntax (syntax l) e))))))))))\n"
+            "\n)"); /* close library */
+
+  boot_eval("(import (schemesh bootstrap))\n");
+}
+
+void define_library_conversions(void) {
+  eval("(library (schemesh conversions (0 1))\n"
        "  (export\n"
        "    display-condition* display-any write-bytevector0\n"
        "    any->bytevector any->bytevector0 any->string string->bytevector0\n"
-       "    list->cmd-argv string-hashtable->vector-of-bytevector0 eval->bytevector)\n"
+       "    list->cmd-argv string-hashtable->vector-of-bytevector0\n"
+       "    eval->bytevector)\n"
        "  (import (chezscheme)\n"
        "          (schemesh containers misc)\n"
        "          (schemesh containers hashtable))\n"
@@ -212,21 +234,7 @@ void define_library_eval(void) {
        "(define (eval->bytevector str)\n"
        "  (any->bytevector (eval (read (open-input-string str)))))\n"
        "\n"
-       ")\n"); // close library
+       ")\n"); /* close library */
 
-  eval("(import (schemesh eval))\n");
-}
-
-/**
- * call Scheme (eval) on a C string, and convert returned Scheme value to
- * bytevector with (any->bytevector).
- * @return length and pointer to memory of a Scheme-allocated bytevector.
- *
- * Returned pointer CANNOT be dereferenced anymore after calling further Scheme code,
- * because it may be moved or garbage collected.
- */
-bytes eval_to_bytevector(const char str[]) {
-  ptr   bytevec = call1("eval->bytevector", Sstring_utf8(str, -1));
-  bytes ret     = {Sbytevector_length(bytevec), Sbytevector_data(bytevec)};
-  return ret;
+  eval("(import (schemesh conversions))\n");
 }

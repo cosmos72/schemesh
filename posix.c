@@ -26,6 +26,8 @@
 
 #define STR_(arg) #arg
 #define STR(arg) STR_(arg)
+#define STR_EIO STR(EIO)
+#define STR_EINVAL STR(EINVAL)
 
 /******************************************************************************/
 /*                                                                            */
@@ -163,18 +165,26 @@ static unsigned long c_parse_unsigned_long(const char* str) {
   return 0;
 }
 
-void define_tty_functions(void) {
+void define_library_tty(void) {
   Sregister_symbol("c_tty_restore", &c_tty_restore);
   Sregister_symbol("c_tty_setraw", &c_tty_setraw);
   Sregister_symbol("c_tty_size", &c_tty_size);
 
-  /**
-   * (tty-size) calls C functions c_tty_size(),
-   * which returns controlling tty's (width . height), or c_errno() on error
-   */
-  eval("(define tty-restore! (foreign-procedure \"c_tty_restore\" () int))\n");
-  eval("(define tty-setraw! (foreign-procedure \"c_tty_setraw\" () int))\n");
-  eval("(define tty-size   (foreign-procedure \"c_tty_size\" () scheme-object))\n");
+  eval("(library (schemesh tty (0 1))\n"
+       "  (export tty-setraw! tty-restore! tty-size)\n"
+       "  (import (chezscheme))\n"
+       "\n"
+       "(define tty-setraw! (foreign-procedure \"c_tty_setraw\" () int))\n"
+       "\n"
+       "(define tty-restore! (foreign-procedure \"c_tty_restore\" () int))\n"
+       /**
+        * (tty-size) calls C functions c_tty_size(),
+        * which returns controlling tty's (width . height), or c_errno() on error
+        */
+       "(define tty-size   (foreign-procedure \"c_tty_size\" () scheme-object))\n"
+       ")\n"); /* close library */
+
+  eval("(import (schemesh tty))\n");
 }
 
 /******************************************************************************/
@@ -384,7 +394,7 @@ int c_exit(int status) {
   return -EINVAL;
 }
 
-int define_fd_functions(void) {
+int define_library_fd(void) {
   int err;
   if ((err = c_tty_init()) < 0) {
     return err;
@@ -403,65 +413,82 @@ int define_fd_functions(void) {
   Sregister_symbol("c_open_file_fd", &c_open_file_fd);
   Sregister_symbol("c_open_pipe_fds", &c_open_pipe_fds);
 
-  eval("(define errno\n"
-       "  (foreign-procedure \"c_errno\" () int))\n");
-  eval("(define (make-errno-condition who c-errno)\n"
+  eval("(library (schemesh fd (0 1))\n"
+       "  (export\n"
+       "    errno make-errno-condition raise-errno-condition\n"
+       "    fd-close fd-close-list fd-dup fd-dup2 fd-read fd-write fd-select fd-setnonblock\n"
+       "    open-file-fd open-pipe-fds)\n"
+       "  (import (chezscheme)\n"
+       "          (only (schemesh containers misc) list-iterate)\n"
+       "          (only (schemesh conversions) string->bytevector0))\n"
+       "\n"
+       "(define errno\n"
+       "  (foreign-procedure \"c_errno\" () int))\n"
+       "\n"
+       "(define (make-errno-condition who c-errno)\n"
        "  (condition\n"
        "    (make-error)\n"
        "    (make-who-condition who)\n"
        "    (make-message-condition \"error in C function\")\n"
-       "    (make-irritants-condition c-errno)))\n");
-  eval("(define (raise-errno-condition who c-errno)\n"
-       "  (raise (make-errno-condition who c-errno)))\n");
-
-  eval("(define fd-close\n"
+       "    (make-irritants-condition c-errno)))\n"
+       "\n"
+       "(define (raise-errno-condition who c-errno)\n"
+       "  (raise (make-errno-condition who c-errno)))\n"
+       "\n"
+       "(define fd-close\n"
        "  (let ((c-fd-close (foreign-procedure \"c_fd_close\" (int) int)))\n"
        "    (lambda (x)\n"
        "      (let ((ret (c-fd-close x)))\n"
        "        (if (>= ret 0)\n"
        "          (void)\n"
-       "          (make-errno-condition 'fd-close ret))))))\n");
-  eval("(define (fd-close-list fd-list)\n"
-       "  (list-iterate fd-list fd-close))\n");
-  eval("(define fd-dup\n"
+       "          (make-errno-condition 'fd-close ret))))))\n"
+       "\n"
+       "(define (fd-close-list fd-list)\n"
+       "  (list-iterate fd-list fd-close))\n"
+       "\n"
+       "(define fd-dup\n"
        "  (let ((c-fd-dup (foreign-procedure \"c_fd_dup\" (int) int)))\n"
        "    (lambda (old-fd)\n"
        "      (let ((ret (c-fd-dup old-fd)))\n"
        "        (if (>= ret 0)\n"
        "          ret\n"
-       "          (raise-errno-condition 'fd-dup ret))))))\n");
-  eval("(define fd-dup2\n"
+       "          (raise-errno-condition 'fd-dup ret))))))\n"
+       "\n"
+       "(define fd-dup2\n"
        "  (let ((c-fd-dup2 (foreign-procedure \"c_fd_dup2\" (int int) int)))\n"
        "    (lambda (old-fd new-fd)\n"
        "      (let ((ret (c-fd-dup2 old-fd new-fd)))\n"
        "        (if (>= ret 0)\n"
        "          (void)\n"
-       "          (raise-errno-condition 'fd-dup2 ret))))))\n");
-  eval("(define fd-read\n"
+       "          (raise-errno-condition 'fd-dup2 ret))))))\n"
+       "\n"
+       "(define fd-read\n"
        "  (let ((c-fd-read (foreign-procedure \"c_fd_read\" (int ptr iptr iptr) iptr)))\n"
        "    (lambda (fd bytevector-result start end)\n"
        "      (let ((ret (c-fd-read fd bytevector-result start end)))\n"
        "        (if (>= ret 0)\n"
        "          ret\n"
-       "          (raise-errno-condition 'fd-read ret))))))\n");
-  eval("(define fd-write\n"
+       "          (raise-errno-condition 'fd-read ret))))))\n"
+       "\n"
+       "(define fd-write\n"
        "  (let ((c-fd-write (foreign-procedure \"c_fd_write\" (int ptr iptr iptr) iptr)))\n"
        "    (lambda (fd bytevector-towrite start end)\n"
        "      (let ((ret (c-fd-write fd bytevector-towrite start end)))\n"
        "        (if (>= ret 0)\n"
        "          ret\n"
-       "          (raise-errno-condition 'fd-write ret))))))\n");
-  /**
-   * (fd-select fd direction timeout-milliseconds) waits up to timeout-milliseconds
-   * for file descriptor fd to become ready for input, output or both.
-   *
-   * direction must be one of: 'read 'write 'rw
-   * timeout-milliseconds < 0 means infinite timeout
-   *
-   * On success, returns one of: 'timeout 'read 'write 'rw
-   * On error, raises condition.
-   */
-  eval("(define fd-select\n"
+       "          (raise-errno-condition 'fd-write ret))))))\n"
+       "\n"
+       /**
+        * (fd-select fd direction timeout-milliseconds) waits up to timeout-milliseconds
+        * for file descriptor fd to become ready for input, output or both.
+        *
+        * direction must be one of: 'read 'write 'rw
+        * timeout-milliseconds < 0 means infinite timeout
+        *
+        * On success, returns one of: 'timeout 'read 'write 'rw
+        * On error, raises condition.
+        */
+       "(define fd-select\n"
        "  (let ((c-fd-select (foreign-procedure \"c_fd_select\" (int int int) int)))\n"
        "    (lambda (fd direction timeout-milliseconds)\n"
        "      (assert (member direction '(read write rw)))\n"
@@ -475,16 +502,17 @@ int define_fd_functions(void) {
        "          ((< ret 0) (raise-errno-condition 'fd-select ret))\n"
        "          ((< ret 4) (vector-ref '#(timeout read write rw) ret))\n"
        /*                     c_fd_select() called poll() which set (revents & POLLERR) */
-       "          (#t        (raise-errno-condition 'fd-select " STR(EIO) ")))))))\n");
-  eval("(define fd-setnonblock\n"
+       "          (#t        (raise-errno-condition 'fd-select -" STR_EIO ")))))))\n"
+       "\n"
+       "(define fd-setnonblock\n"
        "  (let ((c-fd-setnonblock (foreign-procedure \"c_fd_setnonblock\" (int) int)))\n"
        "    (lambda (fd)\n"
        "      (let ((ret (c-fd-setnonblock fd)))\n"
        "        (if (>= ret 0)\n"
        "          ret\n"
-       "          (raise-errno-condition 'fd-setnonblock ret))))))\n");
-
-  eval("(define open-file-fd\n"
+       "          (raise-errno-condition 'fd-setnonblock ret))))))\n"
+       "\n"
+       "(define open-file-fd\n"
        "  (let ((c-open-file-fd (foreign-procedure \"c_open_file_fd\""
        "                          (scheme-object int int int int) int)))\n"
        "    (lambda (filepath . flags)\n"
@@ -502,19 +530,24 @@ int define_fd_functions(void) {
        "                    flag-truncate flag-append)])\n"
        "        (if (>= ret 0)\n"
        "          ret\n"
-       "          (raise-errno-condition 'open-file-fd ret))))))\n");
-  eval("(define open-pipe-fds\n"
-       "  (let ((c-open-pipe-fds (foreign-procedure \"c_open_pipe_fds\" () scheme-object)))\n"
+       "          (raise-errno-condition 'open-file-fd ret))))))\n"
+       "\n"
+       "(define open-pipe-fds\n"
+       "  (let ((c-open-pipe-fds (foreign-procedure \"c_open_pipe_fds\" () "
+       "scheme-object)))\n"
        "    (lambda ()\n"
        "      (let ((ret (c-open-pipe-fds)))\n"
        "        (if (pair? ret)\n"
        "          ret\n"
-       "          (raise-errno-condition 'open-pipe-fds ret))))))\n");
+       "          (raise-errno-condition 'open-pipe-fds ret))))))\n"
+       ")\n"); /* close library */
+
+  eval("(import (schemesh fd))\n");
 
   return 0;
 }
 
-void define_pid_functions(void) {
+void define_library_pid(void) {
   Sregister_symbol("c_get_pid", &c_get_pid);
   Sregister_symbol("c_get_pgid", &c_get_pgid);
   Sregister_symbol("c_fork_pid", &c_fork_pid);
@@ -524,93 +557,98 @@ void define_pid_functions(void) {
   Sregister_symbol("c_pid_kill", &c_pid_kill);
   Sregister_symbol("c_exit", &c_exit);
 
-  /** (get-pid) returns pid of current process */
-  eval("(define get-pid"
+  eval("(library (schemesh pid (0 1))\n"
+       "  (export get-pid get-pgid spawn-pid pid-kill pid-wait exit-with-job-status)\n"
+       "  (import (chezscheme)\n"
+       "          (schemesh fd)\n"
+       "          (only (schemesh conversions) list->cmd-argv)\n"
+       "          (only (schemesh signal) signal-name->number signal-raise))\n"
+       /** (get-pid) returns pid of current process */
+       "(define get-pid"
        "  (let ((c-get-pid (foreign-procedure \"c_get_pid\" () int)))\n"
        "    (lambda ()\n"
        "      (let ((ret (c-get-pid)))\n"
        "        (when (< ret 0)\n"
        "          (raise-errno-condition 'get-pid ret))\n"
-       "        ret))))\n");
-
-  /** (get-pgid) returns process group of specified process (0 = current process) */
-  eval("(define get-pgid"
+       "        ret))))\n"
+       "\n"
+       /** (get-pgid) returns process group of specified process (0 = current process) */
+       "(define get-pgid"
        "  (let ((c-get-pgid (foreign-procedure \"c_get_pgid\" (int) int)))\n"
        "    (lambda (pid)\n"
        "      (let ((ret (c-get-pgid pid)))\n"
        "        (when (< ret 0)\n"
        "          (raise-errno-condition 'get-pgid ret))\n"
-       "        ret))))\n");
-
-  /**
-   * Spawn an external program in a new background process group (pgid) and return its pid.
-   *
-   * Parameter program is the program path to spawn;
-   * Parameter args is the list of arguments to pass to the program;
-   * The parameter program and each element in args must be either a string or a bytevector.
-   */
-  eval("(define spawn-pid\n"
+       "        ret))))\n"
+       "\n"
+       /**
+        * Spawn an external program in a new background process group (pgid) and return its pid.
+        *
+        * Parameter program is the program path to spawn;
+        * Parameter args is the list of arguments to pass to the program;
+        * The parameter program and each element in args must be either a string or a bytevector.
+        */
+       "(define spawn-pid\n"
        "  (let ((c-spawn-pid (foreign-procedure \"c_spawn_pid\""
        "                        (scheme-object scheme-object scheme-object int) int)))\n"
        "    (lambda (program . args)\n"
        "      (let ((ret (c-spawn-pid\n"
        "                   (list->cmd-argv (cons program args))\n"
        "                   (vector 0 1 2)\n"
-       "                   (sh-env->vector-of-bytevector0 #t 'exported)\n"
+       "                   #f\n" /* no environment override */
        "                   0)))\n"
        "        (when (< ret 0)\n"
        "          (raise-errno-condition 'spawn-pid ret))\n"
-       "        ret))))\n");
-
-  /**
-   * (pid-kill pid signal-name) calls C function kill(pid, sig) i.e. sends specified signal
-   * to the process(es) identified by pid.
-   * Notes:
-   *   pid ==  0 means "all processes in the same process group as the caller".
-   *   pid == -1 means "all processes".
-   *   pid <  -1 means "all processes in process group -pid"
-   *
-   * Returns < 0 if signal-name is unknown, or if C function kill() fails with C errno != 0.
-   */
-  eval("(define pid-kill"
+       "        ret))))\n"
+       "\n"
+       /**
+        * (pid-kill pid signal-name) calls C function kill(pid, sig) i.e. sends specified signal
+        * to the process(es) identified by pid.
+        * Notes:
+        *   pid ==  0 means "all processes in the same process group as the caller".
+        *   pid == -1 means "all processes".
+        *   pid <  -1 means "all processes in process group -pid"
+        *
+        * Returns < 0 if signal-name is unknown, or if C function kill() fails with C errno != 0.
+        */
+       "(define pid-kill"
        "  (let ((c-pid-kill (foreign-procedure \"c_pid_kill\" (int int) int)))\n"
        "    (lambda (pid signal-name)\n"
        "      (let ((signal-number (signal-name->number signal-name)))\n"
        "        (if (fixnum? signal-number)\n"
        "          (c-pid-kill pid signal-number)\n"
-       "          -" STR(EINVAL) ")))))\n");
-
-  /**
-   * (pid-wait pid may-block) calls waitpid(pid, WUNTRACED) i.e. checks if process specified by
-   * pid exited or stopped. Notes: pid ==  0 means "any process in the same process group as the
-   * caller". pid == -1 means "any child process". pid <  -1 means "any process in process group
-   * -pid".
-   *
-   * Argument may-block must be either 'blocking or 'nonblocking.
-   * If may-block is 'blocking, wait until pid (or any child process, if pid == -1) exits or
-   * stops, otherwise check for such conditions without blocking.
-   *
-   * If waitpid() fails with C errno != 0, return < 0.
-   * If no child process matches pid, or if may_block is 'nonblocking and no child exited or
-   * stopped, return '().
-   * Otherwise return a Scheme cons (pid . exit_flag), where exit_flag is one of:
-   * process_exit_status, or 256 + signal, or 512 + stop_signal.
-   */
-  eval("(define pid-wait"
+       "          -" STR_EINVAL ")))))\n"
+       "\n"
+       /**
+        * (pid-wait pid may-block) calls waitpid(pid, WUNTRACED) i.e. checks if process specified by
+        * pid exited or stopped. Notes: pid ==  0 means "any process in the same process group as
+        * the caller". pid == -1 means "any child process". pid <  -1 means "any process in process
+        * group -pid".
+        *
+        * Argument may-block must be either 'blocking or 'nonblocking.
+        * If may-block is 'blocking, wait until pid (or any child process, if pid == -1) exits or
+        * stops, otherwise check for such conditions without blocking.
+        *
+        * If waitpid() fails with C errno != 0, return < 0.
+        * If no child process matches pid, or if may_block is 'nonblocking and no child exited or
+        * stopped, return '().
+        * Otherwise return a Scheme cons (pid . exit_flag), where exit_flag is one of:
+        * process_exit_status, or 256 + signal, or 512 + stop_signal.
+        */
+       "(define pid-wait"
        "  (let ((c-pid-wait (foreign-procedure \"c_pid_wait\" (int int) scheme-object)))\n"
        "    (lambda (pid may-block)\n"
        "      (assert (member may-block '(blocking nonblocking)))\n"
-       "      (c-pid-wait pid (if (eq? may-block 'blocking) 1 0)))))\n");
-
-  /**
-   * Call kill() or exit() to terminate current process with job-status, which can be one of:
-   *   (cons 'exited  exit-status)  ; will call C function exit(exit_status)
-   *   (cons 'killed  signal-name)  ; will call C function kill(getpid(), signal_number)
-   *               ; unless signal-name is one of: 'sigstop 'sigtstp 'sigcont 'sigttin 'sigttou
-   *               ; if kill() returns, will call C function exit(128 + signal_number)
-   *   ... any other value ... ;  will call C function exit(255)
-   */
-  eval("(define exit-with-job-status\n"
+       "      (c-pid-wait pid (if (eq? may-block 'blocking) 1 0)))))\n"
+       /**
+        * Call kill() or exit() to terminate current process with job-status, which can be one of:
+        *   (cons 'exited  exit-status)  ; will call C function exit(exit_status)
+        *   (cons 'killed  signal-name)  ; will call C function kill(getpid(), signal_number)
+        *               ; unless signal-name is one of: 'sigstop 'sigtstp 'sigcont 'sigttin 'sigttou
+        *               ; if kill() returns, will call C function exit(128 + signal_number)
+        *   ... any other value ... ;  will call C function exit(255)
+        */
+       "(define exit-with-job-status\n"
        "  (let ((c-exit (foreign-procedure \"c_exit\" (int) int)))\n"
        "    (lambda (status)\n"
        "      (let ((exit-status\n"
@@ -635,7 +673,10 @@ void define_pid_functions(void) {
        "                    (set! exit-status (fx+ 128 signal-number)))))))\n"
        /*         after body */
        "          (lambda ()\n"
-       "            (c-exit exit-status)))))))\n");
+       "            (c-exit exit-status)))))))\n"
+       ")\n"); /* close library */
+
+  eval("(import (schemesh pid))\n");
 }
 
 int c_get_pid(void) {
@@ -699,7 +740,7 @@ int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
   }
   envp = vector_to_c_argz(vector_of_bytevector0_environ);
   argv = vector_to_c_argz(vector_of_bytevector0_cmdline);
-  if (!envp || !argv) {
+  if (!argv || (!envp && Svectorp(vector_of_bytevector0_environ))) {
     pid = -ENOMEM;
     goto out;
   }
@@ -722,7 +763,9 @@ int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
           int lowest_fd_to_close = c_redirect_fds(vector_redirect_fds);
           if (lowest_fd_to_close >= 0) {
             (void)c_fd_close_all(lowest_fd_to_close);
-            environ = envp;
+            if (envp) {
+              environ = envp;
+            }
             (void)execvp(argv[0], argv);
           }
         }

@@ -89,11 +89,16 @@ int c_signal_raise(int sig) {
 #define STR_(arg) #arg
 #define STR(arg) STR_(arg)
 
-void define_signal_functions(void) {
+void define_library_signal(void) {
   Sregister_symbol("c_signal_raise", &c_signal_raise);
 
-  /* clang-format off */
-  eval("(define signal-table-number->name\n"
+  eval("(library (schemesh signal (0 1))\n"
+       "  (export signal-number->name signal-name->number signal-raise)\n"
+       "  (import (chezscheme)\n"
+       "          (only (schemesh containers hashtable) eq-hashtable hashtable-transpose))\n"
+       "\n"
+       "(define signal-table-number->name\n"
+       /* clang-format off */
        "  (eq-hashtable"
        "'(" STR(SIGHUP)  " . sighup)"
        "'(" STR(SIGINT)  " . sigint)"
@@ -125,32 +130,35 @@ void define_signal_functions(void) {
        "'(" STR(SIGWINCH) " . sigwinch)"
        "'(" STR(SIGIO)   " . sigio)"
        "'(" STR(SIGPWR)  " . sigpwr)"
-       "'(" STR(SIGSYS)  " . sigsys)))\n");
-  /* clang-format on */
-
-  eval("(define signal-table-name->number\n"
+       "'(" STR(SIGSYS)  " . sigsys)))\n"
+       "\n"
+       "(define signal-table-name->number\n"
        "  (hashtable-transpose\n"
        "    signal-table-number->name\n"
-       "    (make-eq-hashtable)))\n");
-
-  eval("(define (signal-number->name number)\n"
-       "  (hashtable-ref signal-table-number->name number #f))\n");
-
-  eval("(define (signal-name->number name)\n"
-       "  (hashtable-ref signal-table-name->number name #f)))\n");
-
-  /**
-   * (signal-raise signal-name) calls C functions sigaction(sig, SIG_DFL),
-   * then calls C function kill(getpid(), sig)
-   * i.e. sends specified signal to the process itself.
-   *
-   * Returns < 0 if signal-name is unknown, or if C function raise() fails with C errno != 0.
-   */
-  eval("(define signal-raise"
+       "    (make-eq-hashtable)))\n"
+       "\n"
+       "(define (signal-number->name number)\n"
+       "  (hashtable-ref signal-table-number->name number #f))\n"
+       "\n"
+       "(define (signal-name->number name)\n"
+       "  (hashtable-ref signal-table-name->number name #f))\n"
+       "\n"
+       /**
+        * (signal-raise signal-name) calls C functions sigaction(sig, SIG_DFL),
+        * then calls C function kill(getpid(), sig)
+        * i.e. sends specified signal to the process itself.
+        *
+        * Returns < 0 if signal-name is unknown, or if C function raise() fails with C errno != 0.
+        */
+       "(define signal-raise"
        "  (let ((c-signal-raise (foreign-procedure \"c_signal_raise\" (int) int)))\n"
        "    (lambda (signal-name)\n"
        "      (let ((signal-number (signal-name->number signal-name)))\n"
        "        (if (fixnum? signal-number)\n"
        "          (c-signal-raise signal-number)\n"
-       "          -" STR(EINVAL) ")))))\n");
+       "          -" STR(EINVAL) ")))))\n"
+       ")\n"); /* close library */
+  /* clang-format on */
+
+  eval("(import (schemesh signal))\n");
 }
