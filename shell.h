@@ -14,8 +14,10 @@
 
 void scheme_init(void (*on_scheme_exception)(void));
 
-/** define all functions. return < 0 if failed */
-int define_functions(void);
+void define_library_sh_job(void);
+
+/** define all libraries. return < 0 if failed */
+int define_libraries(void);
 
 void scheme_quit(void);
 

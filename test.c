@@ -210,9 +210,9 @@ static const struct {
     {"(sh-cmd \"echo\" \"foo\" \" bar \")", "(sh-cmd \"echo\" \"foo\" \" bar \")"},
     {"(sh-run (sh-cmd \"true\"))", "(exited . 0)"},
     {"(sh-run (sh-cmd \"false\"))", "(exited . 1)"},
-    {"(make-multijob 'hello (lambda (j) '(exited . 42)))", "(sh-hello)"},
-    {"(sh-run (make-multijob 'hello (lambda (j) '(exited . 42))))", "(exited . 42)"},
-    {"(sh-run (make-multijob 'hello (lambda (j) '(killed . sigsegv))))", "(killed . sigsegv)"},
+    {"(sh-multijob 'hello (lambda (j) '(exited . 42)))", "(sh-hello)"},
+    {"(sh-run (sh-multijob 'hello (lambda (j) '(exited . 42))))", "(exited . 42)"},
+    {"(sh-run (sh-multijob 'hello (lambda (j) '(killed . sigsegv))))", "(killed . sigsegv)"},
     {"(let ((j (sh-vec (sh-cmd \"false\") (sh-cmd \"true\"))))\n"
      "  (sh-start j)\n"
      "  (sh-wait j))\n",
@@ -271,7 +271,7 @@ int main(int argc, const char* argv[]) {
   (void)argv;
 
   scheme_init(&handle_scheme_exception);
-  if ((err = define_functions()) < 0) {
+  if ((err = define_libraries()) < 0) {
     return err;
   }
 

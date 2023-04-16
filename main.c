@@ -64,7 +64,7 @@ int main(int argc, const char* argv[]) {
   }
   on_exception = INIT_FAILED;
   scheme_init(&handle_scheme_exception);
-  if ((err = define_functions()) < 0) {
+  if ((err = define_libraries()) < 0) {
     return err;
   }
 
