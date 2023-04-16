@@ -833,9 +833,7 @@ int define_libraries(void) {
   define_library_signal();
   define_library_tty();
   define_library_pid();
-
-  define_lineedit_functions();
-
+  define_library_lineedit();
   define_library_shell();
 
   c_environ_to_sh_env(environ);

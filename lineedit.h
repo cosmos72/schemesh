@@ -11,6 +11,6 @@
 #define SCHEMESH_LINEEDIT_H
 
 /** requires define_library_containers() define_library_tty() and define_library_fd() */
-void define_lineedit_functions(void);
+void define_library_lineedit(void);
 
 #endif /* SCHEMESH_LINEEDIT_H */
