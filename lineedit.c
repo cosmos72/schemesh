@@ -110,7 +110,7 @@ void define_library_lineedit(void) {
        "\n"
        "(define (lineedit-key-right ctx)\n"
        "  (let ((x+1 (fx1+ (linectx-x ctx))))\n"
-       /**  TODO: compare against length of current line */
+       /**  TODO: compare against length of current line instead */
        "    (unless (fx>=? x+1 (linectx-width ctx))\n"
        "      (linectx-x-set! ctx x+1)\n"
        "      (linectx-write! ctx #vu8(27 91 67) 0 3))))\n" /* ESC [ C */
