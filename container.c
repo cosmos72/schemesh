@@ -410,7 +410,7 @@ static void define_library_containers_span(void) {
 
 #define SCHEMESH_LIBRARY_CONTAINERS_SPAN_EXPORT                                                    \
   "list->span vector->span vector->span* make-span span->vector span span? "                       \
-  "span-length span-empty? span-capacity span-capacity-front span-capacity-back "                  \
+  "span-length span-empty? span-clear! span-capacity span-capacity-front span-capacity-back "      \
   "span-ref span-back span-set! span-fill! span-fill-range! span-copy span-copy! "                 \
   "span-reserve-front! span-reserve-back! span-resize-front! span-resize-back! "                   \
   "span-insert-front! span-insert-back! span-sp-insert-front! span-sp-insert-back! "               \
@@ -459,6 +459,10 @@ static void define_library_containers_span(void) {
        "\n"
        "(define (span-empty? sp)\n"
        "  (fx>=? (span-beg sp) (span-end sp)))\n"
+       "\n"
+       "(define (span-clear! sp)\n"
+       "  (span-beg-set! sp 0)\n"
+       "  (span-end-set! sp 0))\n"
        "\n"
        "(define (span-ref sp idx)\n"
        "  (assert (fx>=? idx 0))\n"
@@ -675,13 +679,14 @@ static void define_library_containers_bytespan(void) {
 
 #define SCHEMESH_LIBRARY_CONTAINERS_BYTESPAN_EXPORT                                                \
   "list->bytespan bytevector->bytespan bytevector->bytespan* make-bytespan bytespan->bytevector "  \
-  "bytespan bytespan? bytespan-length bytespan-empty? "                                            \
+  "bytespan bytespan? bytespan-length bytespan-empty? bytespan-clear! "                            \
   "bytespan-capacity bytespan-capacity-front bytespan-capacity-back "                              \
   "bytespan-u8-ref bytespan-u8-back bytespan-u8-set! bytespan-fill! bytespan-fill-range! "         \
   "bytespan-copy bytespan-copy! bytespan-reserve-front! bytespan-reserve-back! "                   \
   "bytespan-resize-front! bytespan-resize-back! "                                                  \
   "bytespan-u8-insert-front! bytespan-u8-insert-back! "                                            \
   "bytespan-bsp-insert-front! bytespan-bsp-insert-back! "                                          \
+  "bytespan-bv-insert-front! bytespan-bv-insert-back! "                                            \
   "bytespan-erase-front! bytespan-erase-back! bytespan-iterate bytespan-u8-find "                  \
   "bytespan-peek-beg bytespan-peek-end bytespan-peek-data "
 
@@ -737,6 +742,10 @@ static void define_library_containers_bytespan(void) {
        "\n"
        "(define (bytespan-empty? sp)\n"
        "  (fx>=? (bytespan-beg sp) (bytespan-end sp)))\n"
+       "\n"
+       "(define (bytespan-clear! sp)\n"
+       "  (bytespan-beg-set! sp 0)\n"
+       "  (bytespan-end-set! sp 0))\n"
        "\n"
        "(define (bytespan-u8-ref sp idx)\n"
        "  (assert (fx>=? idx 0))\n"
@@ -895,6 +904,11 @@ static void define_library_containers_bytespan(void) {
        "      (bytespan-resize-front! sp-dst (fx+ len src-n))\n"
        "      (bytespan-copy! sp-src src-start sp-dst 0 src-n))))\n"
        "\n"
+       /* prefix a portion of a bytevector to this bytespan */
+       "(define (bytespan-bv-insert-front! sp-dst bv-src src-start src-n)\n"
+       "  (unless (fxzero? src-n)\n"
+       "    (bytespan-bsp-insert-front! sp-dst (bytevector->bytespan* bv-src) src-start src-n)))\n"
+       "\n"
        /* append a portion of another bytespan to this bytespan */
        "(define (bytespan-bsp-insert-back! sp-dst sp-src src-start src-n)\n"
        "  (assert (not (eq? sp-dst sp-src)))\n"
@@ -902,6 +916,11 @@ static void define_library_containers_bytespan(void) {
        "    (let ((pos (bytespan-length sp-dst)))\n"
        "      (bytespan-resize-back! sp-dst (fx+ pos src-n))\n"
        "      (bytespan-copy! sp-src src-start sp-dst pos src-n))))\n"
+       "\n"
+       /* append a portion of another bytespan to this bytespan */
+       "(define (bytespan-bv-insert-back! sp-dst bv-src src-start src-n)\n"
+       "  (unless (fxzero? src-n)\n"
+       "    (bytespan-bsp-insert-back! sp-dst (bytevector->bytespan* bv-src) src-start src-n)))\n"
        "\n"
        /* erase n elements at the left (front) of bytespan */
        "(define (bytespan-erase-front! sp n)\n"
@@ -957,7 +976,7 @@ static void define_library_containers_charspan(void) {
 
 #define SCHEMESH_LIBRARY_CONTAINERS_CHARSPAN_EXPORT                                                \
   "list->charspan string->charspan string->charspan* make-charspan charspan->string "              \
-  "charspan charspan? charspan-length charspan-empty? charspan-capacity "                          \
+  "charspan charspan? charspan-length charspan-empty? charspan-clear! charspan-capacity "          \
   "charspan-capacity-front charspan-capacity-back charspan-ref charspan-back charspan-set! "       \
   "charspan-fill! charspan-fill-range! charspan-copy charspan-copy! "                              \
   "charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back! "   \
@@ -1008,6 +1027,10 @@ static void define_library_containers_charspan(void) {
        "\n"
        "(define (charspan-empty? sp)\n"
        "  (fx>=? (charspan-beg sp) (charspan-end sp)))\n"
+       "\n"
+       "(define (charspan-clear! sp)\n"
+       "  (charspan-beg-set! sp 0)\n"
+       "  (charspan-end-set! sp 0))\n"
        "\n"
        "(define (charspan-ref sp idx)\n"
        "  (assert (fx>=? idx 0))\n"
@@ -1225,7 +1248,7 @@ static void define_library_containers_gbuffer(void) {
 
 #define SCHEMESH_LIBRARY_CONTAINERS_GBUFFER_EXPORT                                                 \
   "list->gbuffer span->gbuffer span->gbuffer* make-gbuffer gbuffer->span gbuffer gbuffer? "        \
-  "gbuffer-length gbuffer-empty? gbuffer-ref gbuffer-set! gbuffer-split-at! "                      \
+  "gbuffer-length gbuffer-empty? gbuffer-ref gbuffer-set! gbuffer-clear! gbuffer-split-at! "       \
   "gbuffer-insert-at! gbuffer-erase-at! gbuffer-iterate "
 
   eval("(library (schemesh containers gbuffer (0 1))\n"
@@ -1285,6 +1308,10 @@ static void define_library_containers_gbuffer(void) {
        "    (if (fx<? idx left-n)\n"
        "      (span-set! (gbuffer-left  gb) idx val)\n"
        "      (span-set! (gbuffer-right gb) (fx- idx left-n) val))))\n"
+       "\n"
+       "(define (gbuffer-clear! gb)\n"
+       "  (span-resize-back!  (gbuffer-left  gb) 0)\n"
+       "  (span-resize-front! (gbuffer-right gb) 0))\n"
        "\n"
        "(define (gbuffer-split-at! gb idx)\n"
        "  (assert (fx>=? idx 0))\n"

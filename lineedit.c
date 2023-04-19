@@ -14,7 +14,7 @@ void define_library_lineedit(void) {
   eval("(library (schemesh lineedit (0 1))\n"
        "  (export\n"
        "    make-linectx linectx? lineedit-default-keytable\n"
-       "    lineedit-insert!\n"
+       "    lineedit-init! lineedit-insert!\n"
        "    lineedit-key-nop lineedit-key-left lineedit-key-right lineedit-key-up lineedit-key-down"
        "    lineedit-key-word-left lineedit-key-word-right lineedit-key-bol lineedit-key-eol\n"
        "    lineedit-key-break lineedit-key-ctrl-d lineedit-key-transpose-char\n"
@@ -30,6 +30,7 @@ void define_library_lineedit(void) {
        "    (schemesh bootstrap)\n"
        "    (schemesh containers span)\n"
        "    (schemesh containers bytespan)\n"
+       "    (schemesh containers gbuffer)\n"
        "    (schemesh containers hashtable)\n"
        "    (schemesh fd)\n"
        "    (schemesh tty))\n"
@@ -39,7 +40,7 @@ void define_library_lineedit(void) {
        "  (fields\n"
        "    (mutable rbuf)\n"       /* bytespan, buffer for (fd-read) */
        "    (mutable wbuf)\n"       /* bytespan, buffer for (fd-write) */
-       "    (mutable lines)\n"      /* span of bytespans, input being edited */
+       "    (mutable lines)\n"      /* gbuffer of gbytebuffers, input being edited */
        "    (mutable state)\n"      /* bytespan, stack of nested ( [ { and " */
        "    (mutable x)\n"          /* fixnum, cursor x position */
        "    (mutable y)\n"          /* fixnum, cursor y position */
@@ -54,37 +55,65 @@ void define_library_lineedit(void) {
        "(define lineedit-default-keytable (eq-hashtable))\n"
        "\n"
        "(define (make-linectx)\n"
-       "  (let ((sz (tty-size))\n"
+       "  (let ((sz    (tty-size))\n"
        "        (rbuf  (make-bytespan 2048))\n"
        "        (wbuf  (make-bytespan 2048))\n"
-       "        (lines (make-span     10))\n"
+       "        (lines (make-gbuffer  0))\n"
        "        (state (make-bytespan 32)))\n"
        "    (bytespan-resize-back! rbuf 0)\n"
        "    (bytespan-resize-back! wbuf 0)\n"
-       "    (span-resize-back!     lines 0)\n"
        "    (bytespan-resize-back! state 0)\n"
        "    (%make-linectx\n"
        "      rbuf wbuf lines state\n"
-       "      -1 -1 -1 -1 +1\n"                  /* x y save-x save-y rows */
+       "      0 0 0 0 +1\n"                      /* x y save-x save-y rows */
        "      (if (pair? sz) (car sz) 80)\n"     /* width        */
        "      (if (pair? sz) (cdr sz) 24)\n"     /* height       */
        "      #f lineedit-default-keytable)))\n" /* eof keytable */
+       "\n"
+       "(define (linectx-write! ctx bv start end)\n"
+       "  (bytespan-bv-insert-back! (linectx-wbuf ctx) bv start end))\n"
+       "\n"
+       "(define (linectx-flush! ctx)\n"
+       "  (let* ((wbuf  (linectx-wbuf ctx))\n"
+       "         (start (bytespan-peek-beg wbuf))\n"
+       "         (end   (bytespan-peek-end wbuf)))\n"
+       "    (unless (fx>=? start end)\n"
+       "      (fd-write 1 (bytespan-peek-data wbuf) start end)\n"
+       "      (bytespan-resize-back! wbuf 0))))\n"
+       "\n"
+       "(define (lineedit-init! ctx)\n"
+       "  (linectx-x-set! ctx 0)\n"
+       "  (linectx-y-set! ctx (fx1- (linectx-height ctx)))\n"
+       "  (gbuffer-clear! (linectx-lines ctx))\n"
+       /* \r ESC [ 999 B ESC [ K */
+       "  (linectx-write! ctx #vu8(13 27 91 57 57 57 66 27 91 75) 0 10)\n"
+       "  (linectx-flush! ctx))\n"
+       "\n"
        "\n"
        "(define (lineedit-insert! ctx n)\n"
        /** TODO: update linectx-lines */
        "  (let* ((rbuf  (linectx-rbuf ctx))\n"
        "         (start (bytespan-peek-beg rbuf))\n"
        "         (end   (fx+ start n)))\n"
-       "    (fd-write 1 (bytespan-peek-data rbuf) start end)))\n"
+       /** TODO: handle lines longer than tty width */
+       "    (linectx-x-set! ctx (fx+ n (linectx-x ctx)))\n"
+       "    (linectx-write! ctx (bytespan-peek-data rbuf) start end)))\n"
        "\n"
        "(define (lineedit-key-nop ctx)\n"
        "  (void))\n"
        "\n"
        "(define (lineedit-key-left ctx)\n"
-       "  (display \"<-\"))\n"
+       "  (let ((x (linectx-x ctx)))\n"
+       "    (unless (fx<=? x 0)\n"
+       "      (linectx-x-set! ctx (fx1- x))\n"
+       "      (linectx-write! ctx #vu8(27 91 68) 0 3))))\n" /* ESC [ D */
        "\n"
        "(define (lineedit-key-right ctx)\n"
-       "  (display \"->\"))\n"
+       "  (let ((x+1 (fx1+ (linectx-x ctx))))\n"
+       /**  TODO: compare against length of current line */
+       "    (unless (fx>=? x+1 (linectx-width ctx))\n"
+       "      (linectx-x-set! ctx x+1)\n"
+       "      (linectx-write! ctx #vu8(27 91 67) 0 3))))\n" /* ESC [ C */
        "\n"
        "(define (lineedit-key-up ctx)\n"
        "  (display \"^^\"))\n"
@@ -196,7 +225,10 @@ void define_library_lineedit(void) {
        "      ((procedure? proc) (proc ctx))\n"
        "      ((hashtable? proc) (set! n 0))\n" /* incomplete sequence, wait for more keystrokes */
        "      (#t                (lineedit-insert! ctx n)))\n"
-       "    (bytespan-erase-front! (linectx-rbuf ctx) n)\n"
+       "    (let ((rbuf (linectx-rbuf ctx)))\n"
+       "      (bytespan-erase-front! rbuf n)\n"
+       "      (when (bytespan-empty? rbuf)\n"
+       "        (bytespan-clear! rbuf)))\n" /* set begin, end to 0 */
        "    n))\n"
        "\n"
        /** repeatedly call (lineedit-keytable-call) until no more matches are found */
@@ -227,12 +259,14 @@ void define_library_lineedit(void) {
        "\n"
        "(define (sh-repl)\n"
        "  (let ((ctx (make-linectx)))\n"
+       "    (lineedit-init! ctx)"
        "    (dynamic-wind\n"
-       "      tty-setraw!\n"                  /* run before body */
-       "      (lambda ()\n"                   /* body            */
-       "        (while (sh-lineedit ctx)))\n" /*                 */
-       "      (lambda ()\n"                   /* run after body  */
-       "        (flush-output-port)\n"
+       "      tty-setraw!\n"                /* run before body */
+       "      (lambda ()\n"                 /* body            */
+       "        (while (sh-lineedit ctx)\n" /*                 */
+       "          (linectx-flush! ctx)))\n" /*                 */
+       "      (lambda ()\n"                 /* run after body  */
+       "        (linectx-flush! ctx)\n"
        "        (tty-restore!)))))\n"
        "\n"
        "(let ((t lineedit-default-keytable)\n"
