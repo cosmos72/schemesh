@@ -147,8 +147,10 @@ static const struct {
     {"(let ((sp (charspan #\\@ #\\a #\\b #\\c)))\n"
      "  (charspan-find sp 0 999 (lambda (elem) (eq? #\\b elem))))\n",
      "2"},
+    /* ----------------------- gbuffer --------------------------- */
     {"(gbuffer 'a 2 3.7)", "(gbuffer a 2 3.7)"},
-    {"(span->gbuffer* (span 0 1 2) (span 3 4 5))", "(gbuffer 0 1 2 3 4 5)"},
+    {"(vector->gbuffer* (vector 0 1 2))", "(gbuffer 0 1 2)"},
+    {"(span->gbuffer* (span 0 1 2))", "(gbuffer 0 1 2)"},
     {"(let ((gb (make-gbuffer 5 #f)))\n"
      "  (gbuffer-iterate gb\n"
      "    (lambda (i elem)\n"
@@ -160,7 +162,23 @@ static const struct {
      "  (gbuffer-insert-at! gb 1 'x)\n"
      "  gb)\n",
      "(gbuffer a x b e)"},
-    {"(errno)", "0"},
+    /* ----------------------- chargbuffer --------------------------- */
+    {"(chargbuffer #\\X #\\Y #\\Z)", "(string->chargbuffer* \"XYZ\")"},
+    {"(string->chargbuffer* \"qwerty\")", "(string->chargbuffer* \"qwerty\")"},
+    {"(charspan->chargbuffer* (string->charspan* \"abcdef\"))",
+     "(string->chargbuffer* \"abcdef\")"},
+    {"(let ((gb (make-chargbuffer 5 #\\@)))\n"
+     "  (chargbuffer-iterate gb\n"
+     "    (lambda (i elem)\n"
+     "      (chargbuffer-set! gb i (integer->char (fx+ i 64)))))\n"
+     "  gb)\n",
+     "(string->chargbuffer* \"@ABCD\")"},
+    {"(let ((gb (chargbuffer #\\a #\\b #\\c #\\d #\\e)))\n"
+     "  (chargbuffer-erase-at! gb 2 2)\n"
+     "  (chargbuffer-insert-at! gb 1 #\\x)\n"
+     "  gb)\n",
+     "(string->chargbuffer* \"axbe\")"},
+    /* ----------------------- list --------------------------- */
     {"(let ((ret '()))\n"
      "  (list-iterate '(a b c)\n"
      "    (lambda (elem)\n"
@@ -200,6 +218,8 @@ static const struct {
      "       (positive? (car sz))\n"
      "       (positive? (cdr sz))))\n",
      "#t"},
+    /* ------------------------- posix ----------------------------- */
+    {"(errno)", "0"},
     /* ------------------------- shell ----------------------------- */
     {"(begin\n"
      "  (sh-env-set! #t \"foo\" \"bar\")\n"

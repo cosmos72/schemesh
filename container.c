@@ -399,7 +399,7 @@ static void define_library_containers_hashtable(void) {
        "\n"
        /** customize how "hash-iterator" objects are printed */
        "(record-writer (record-type-descriptor %hash-iterator)\n"
-       "  (lambda (sp port writer)\n"
+       "  (lambda (iter port writer)\n"
        "    (display \"#<hash-iterator>\" port)))\n"
        "\n"
        ")\n"); /* close library */
@@ -414,7 +414,8 @@ static void define_library_containers_span(void) {
   "span-ref span-back span-set! span-fill! span-fill-range! span-copy span-copy! "                 \
   "span-reserve-front! span-reserve-back! span-resize-front! span-resize-back! "                   \
   "span-insert-front! span-insert-back! span-sp-insert-front! span-sp-insert-back! "               \
-  "span-erase-front! span-erase-back! span-iterate span-find "
+  "span-erase-front! span-erase-back! span-iterate span-find "                                     \
+  "span-peek-beg span-peek-end span-peek-data "
 
   eval("(library (schemesh containers span (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_CONTAINERS_SPAN_EXPORT ")\n"
@@ -427,6 +428,15 @@ static void define_library_containers_span(void) {
        "     (mutable end span-end span-end-set!)\n"
        "     (mutable vec span-vec span-vec-set!))\n"
        "  (nongenerative #{%span ng1h8vurkk5k61p0jsryrbk99-0}))\n"
+       "\n"
+       "(define (span-peek-beg sp)\n"
+       "  (span-beg sp))\n"
+       "\n"
+       "(define (span-peek-end sp)\n"
+       "  (span-end sp))\n"
+       "\n"
+       "(define (span-peek-data sp)\n"
+       "  (span-vec sp))\n"
        "\n"
        "(define (list->span l)\n"
        "  (let ((vec (list->vector l)))\n"
@@ -982,7 +992,8 @@ static void define_library_containers_charspan(void) {
   "charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back! "   \
   "charspan-insert-front! charspan-insert-back!  "                                                 \
   "charspan-csp-insert-front! charspan-csp-insert-back! "                                          \
-  "charspan-erase-front! charspan-erase-back! charspan-iterate charspan-find "
+  "charspan-erase-front! charspan-erase-back! charspan-iterate charspan-find "                     \
+  "charspan-peek-data charspan-peek-beg charspan-peek-end "
 
   eval("(library (schemesh containers charspan (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_CONTAINERS_CHARSPAN_EXPORT ")\n"
@@ -995,6 +1006,15 @@ static void define_library_containers_charspan(void) {
        "     (mutable end charspan-end charspan-end-set!)\n"
        "     (mutable vec charspan-vec charspan-vec-set!))\n"
        "  (nongenerative #{%charspan b847ikzm9lftljwelbq0cknyh-0}))\n"
+       "\n"
+       "(define (charspan-peek-beg sp)\n"
+       "  (charspan-beg sp))\n"
+       "\n"
+       "(define (charspan-peek-end sp)\n"
+       "  (charspan-end sp))\n"
+       "\n"
+       "(define (charspan-peek-data sp)\n"
+       "  (charspan-vec sp))\n"
        "\n"
        "(define (list->charspan l)\n"
        "  (let ((vec (list->string l)))\n"
@@ -1247,13 +1267,14 @@ static void define_library_containers_gbuffer(void) {
   /****************************************************************************/
 
 #define SCHEMESH_LIBRARY_CONTAINERS_GBUFFER_EXPORT                                                 \
-  "list->gbuffer span->gbuffer span->gbuffer* make-gbuffer gbuffer->span gbuffer gbuffer? "        \
+  "list->gbuffer vector->gbuffer vector->gbuffer* span->gbuffer span->gbuffer* "                   \
+  "gbuffer->vector gbuffer->span make-gbuffer gbuffer gbuffer? "                                   \
   "gbuffer-length gbuffer-empty? gbuffer-ref gbuffer-set! gbuffer-clear! gbuffer-split-at! "       \
   "gbuffer-insert-at! gbuffer-erase-at! gbuffer-iterate "
 
   eval("(library (schemesh containers gbuffer (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_CONTAINERS_GBUFFER_EXPORT ")\n"
-       "  (import (chezscheme) (schemesh containers span))\n"
+       "  (import (chezscheme) (schemesh containers misc) (schemesh containers span))\n"
        "\n"
        "(define-record-type\n"
        "  (%gbuffer %make-gbuffer gbuffer?)\n"
@@ -1265,15 +1286,29 @@ static void define_library_containers_gbuffer(void) {
        "(define (list->gbuffer l)\n"
        "  (%make-gbuffer (make-span 0) (list->span l)))\n"
        "\n"
+       "(define (vector->gbuffer str)\n"
+       "  (%make-gbuffer (make-span 0) (vector->span str)))\n"
+       "\n"
+       /* view a vector as gbuffer */
+       "(define (vector->gbuffer* str)\n"
+       "  (%make-gbuffer (make-span 0) (vector->span* str)))\n"
+       "\n"
        "(define (span->gbuffer sp)\n"
        "  (%make-gbuffer (make-span 0) (span-copy sp)))\n"
        "\n"
-       /* view two spans as gbuffer */
-       "(define (span->gbuffer* sp1 sp2)\n"
-       "  (%make-gbuffer sp1 sp2))\n"
+       /* view a span as gbuffer */
+       "(define (span->gbuffer* sp)\n"
+       "  (%make-gbuffer (make-span 0) sp))\n"
        "\n"
-       "(define (make-gbuffer n . val)\n"
-       "  (%make-gbuffer (make-span 0) (apply make-span n val)))\n"
+       "(define (gbuffer->vector gb)\n"
+       "  (let* ((left  (gbuffer-left  gb))\n"
+       "         (right (gbuffer-right gb))\n"
+       "         (left-n  (span-length left))\n"
+       "         (right-n (span-length right))\n"
+       "         (dst (make-vector (fx+ left-n right-n))))\n"
+       "    (vector-copy! (span-peek-data left)  (span-peek-beg left)  dst 0 left-n)\n"
+       "    (vector-copy! (span-peek-data right) (span-peek-beg right) dst left-n right-n)\n"
+       "    dst))\n"
        "\n"
        "(define (gbuffer->span gb)\n"
        "  (let* ((left  (gbuffer-left  gb))\n"
@@ -1282,7 +1317,11 @@ static void define_library_containers_gbuffer(void) {
        "         (right-n (span-length right))\n"
        "         (dst (make-span (fx+ left-n right-n))))\n"
        "    (span-copy! left  0 dst 0 left-n)\n"
-       "    (span-copy! right 0 dst left-n right-n)))\n"
+       "    (span-copy! right 0 dst left-n right-n)\n"
+       "    dst))\n"
+       "\n"
+       "(define (make-gbuffer n . val)\n"
+       "  (%make-gbuffer (make-span 0) (apply make-span n val)))\n"
        "\n"
        "(define (gbuffer . vals)\n"
        "  (list->gbuffer vals))\n"
@@ -1310,8 +1349,8 @@ static void define_library_containers_gbuffer(void) {
        "      (span-set! (gbuffer-right gb) (fx- idx left-n) val))))\n"
        "\n"
        "(define (gbuffer-clear! gb)\n"
-       "  (span-resize-back!  (gbuffer-left  gb) 0)\n"
-       "  (span-resize-front! (gbuffer-right gb) 0))\n"
+       "  (span-clear! (gbuffer-left  gb) 0)\n"
+       "  (span-clear! (gbuffer-right gb) 0))\n"
        "\n"
        "(define (gbuffer-split-at! gb idx)\n"
        "  (assert (fx>=? idx 0))\n"
@@ -1415,6 +1454,202 @@ static void define_library_containers_gbuffer(void) {
        ")\n"); /* close library */
 }
 
+static void define_library_containers_chargbuffer(void) {
+
+  /****************************************************************************/
+  /** Define Scheme type "chargbuffer", a gap buffer containing chars. */
+  /** Implementation: contains two bytespans, a "left" and a "right" ones */
+  /****************************************************************************/
+
+#define SCHEMESH_LIBRARY_CONTAINERS_CHARGBUFFER_EXPORT                                             \
+  "list->chargbuffer string->chargbuffer string->chargbuffer* "                                    \
+  "charspan->chargbuffer charspan->chargbuffer* make-chargbuffer "                                 \
+  "chargbuffer->charspan chargbuffer->string chargbuffer chargbuffer? chargbuffer-length "         \
+  "chargbuffer-empty? "                                                                            \
+  "chargbuffer-ref chargbuffer-set! chargbuffer-clear! chargbuffer-split-at! "                     \
+  "chargbuffer-insert-at! chargbuffer-erase-at! chargbuffer-iterate "
+
+  eval("(library (schemesh containers chargbuffer (0 1))\n"
+       "  (export " SCHEMESH_LIBRARY_CONTAINERS_CHARGBUFFER_EXPORT ")\n"
+       "  (import (chezscheme) (schemesh containers charspan))\n"
+       "\n"
+       "(define-record-type\n"
+       "  (%chargbuffer %make-chargbuffer chargbuffer?)\n"
+       "  (fields\n"
+       "     (mutable left  chargbuffer-left  chargbuffer-left-set!)\n"
+       "     (mutable right chargbuffer-right chargbuffer-right-set!))\n"
+       "  (nongenerative #{%chargbuffer itah4n3k0nl66ucaakkpqk55m-16}))\n"
+       "\n"
+       "(define (list->chargbuffer l)\n"
+       "  (%make-chargbuffer (make-charspan 0) (list->charspan l)))\n"
+       "\n"
+       "(define (string->chargbuffer str)\n"
+       "  (%make-chargbuffer (make-charspan 0) (string->charspan str)))\n"
+       "\n"
+       /* view a string as chargbuffer */
+       "(define (string->chargbuffer* str)\n"
+       "  (%make-chargbuffer (make-charspan 0) (string->charspan* str)))\n"
+       "\n"
+       "(define (charspan->chargbuffer sp)\n"
+       "  (%make-chargbuffer (make-charspan 0) (charspan-copy sp)))\n"
+       "\n"
+       /* view a charspan as chargbuffer */
+       "(define (charspan->chargbuffer* sp)\n"
+       "  (%make-chargbuffer (make-charspan 0) sp))\n"
+       "\n"
+       "(define (make-chargbuffer n . val)\n"
+       "  (%make-chargbuffer (make-charspan 0) (apply make-charspan n val)))\n"
+       "\n"
+       "(define (chargbuffer->string gb)\n"
+       "  (let* ((left    (chargbuffer-left  gb))\n"
+       "         (right   (chargbuffer-right gb))\n"
+       "         (left-n  (charspan-length left))\n"
+       "         (right-n (charspan-length right))\n"
+       "         (dst (make-string (fx+ left-n right-n))))\n"
+       "    (string-copy! (charspan-peek-data left)  (charspan-peek-beg left)\n"
+       "                  dst 0 left-n)\n"
+       "    (string-copy! (charspan-peek-data right) (charspan-peek-beg right)\n"
+       "                  dst left-n right-n)\n"
+       "    dst))\n"
+       "\n"
+       "(define (chargbuffer->charspan gb)\n"
+       "  (let* ((left  (chargbuffer-left  gb))\n"
+       "         (right (chargbuffer-right gb))\n"
+       "         (left-n  (charspan-length left))\n"
+       "         (right-n (charspan-length right))\n"
+       "         (dst (make-charspan (fx+ left-n right-n))))\n"
+       "    (charspan-copy! left  0 dst 0 left-n)\n"
+       "    (charspan-copy! right 0 dst left-n right-n)\n"
+       "    dst))\n"
+       "\n"
+       "(define (chargbuffer . vals)\n"
+       "  (list->chargbuffer vals))\n"
+       "\n"
+       "(define (chargbuffer-length gb)\n"
+       "  (fx+ (charspan-length (chargbuffer-left gb)) (charspan-length (chargbuffer-right gb))))\n"
+       "\n"
+       "(define (chargbuffer-empty? gb)\n"
+       "  (and (charspan-empty? (chargbuffer-left gb)) (charspan-empty? (chargbuffer-right gb))))\n"
+       "\n"
+       "(define (chargbuffer-ref gb n)\n"
+       "  (assert (fx>=? n 0))\n"
+       "  (assert (fx<? n (chargbuffer-length gb)))\n"
+       "  (let ((left-n (charspan-length (chargbuffer-left gb))))\n"
+       "    (if (fx<? n left-n)\n"
+       "      (charspan-ref (chargbuffer-left  gb) n)\n"
+       "      (charspan-ref (chargbuffer-right gb) (fx- n left-n)))))\n"
+       "\n"
+       "(define (chargbuffer-set! gb idx val)\n"
+       "  (assert (fx>=? idx 0))\n"
+       "  (assert (fx<? idx (chargbuffer-length gb)))\n"
+       "  (let ((left-n (charspan-length (chargbuffer-left gb))))\n"
+       "    (if (fx<? idx left-n)\n"
+       "      (charspan-set! (chargbuffer-left  gb) idx val)\n"
+       "      (charspan-set! (chargbuffer-right gb) (fx- idx left-n) val))))\n"
+       "\n"
+       "(define (chargbuffer-clear! gb)\n"
+       "  (charspan-clear! (chargbuffer-left  gb) 0)\n"
+       "  (charspan-clear! (chargbuffer-right gb) 0))\n"
+       "\n"
+       "(define (chargbuffer-split-at! gb idx)\n"
+       "  (assert (fx>=? idx 0))\n"
+       "  (assert (fx<=? idx (chargbuffer-length gb)))\n"
+       "  (let* ((left  (chargbuffer-left  gb))\n"
+       "         (right (chargbuffer-right gb))\n"
+       "         (delta (fx- idx (charspan-length left))))\n"
+       "    (cond\n"
+       "      ((fx>? delta 0)\n"
+       "        (charspan-csp-insert-back! left right 0 delta)\n"
+       "        (charspan-erase-front! right delta))\n"
+       "      ((fx<? delta 0)\n"
+       "        (charspan-csp-insert-front! right left idx (fx- delta))\n"
+       "        (charspan-erase-back! left (fx- delta))))))\n"
+       "\n"
+       /** insert val into chargbuffer at position idx */
+       "(define (chargbuffer-insert-at! gb idx val)\n"
+       "  (assert (fx>=? idx 0))\n"
+       "  (assert (fx<=? idx (chargbuffer-length gb)))\n"
+       "  (let* ((left   (chargbuffer-left  gb))\n"
+       "         (right  (chargbuffer-right gb))\n"
+       "         (left-n (charspan-length left))\n"
+       "         (delta  (fx- idx left-n)))\n"
+       "    (cond\n"
+       "      ((fxzero? idx)\n"
+       "        (charspan-insert-front! left val))\n"
+       "      ((fx=? idx (chargbuffer-length gb))\n"
+       "        (charspan-insert-back! right val))\n"
+       "      (#t\n"
+       "        (chargbuffer-split-at! gb idx)\n"
+       "        (charspan-insert-back! left val)))))\n"
+       "\n"
+       /**
+        * read src-n elements from charspan sp-src starting from src-start
+        * and insert them into chargbuffer at position idx
+        */
+       "(define (chargbuffer-sp-insert-at! gb idx sp-src src-start src-n)\n"
+       "  (assert (fx>=? idx 0))\n"
+       "  (assert (fx<=? idx (chargbuffer-length gb)))\n"
+       "  (let* ((left   (chargbuffer-left  gb))\n"
+       "         (right  (chargbuffer-right gb))\n"
+       "         (left-n (charspan-length left))\n"
+       "         (delta  (fx- idx left-n)))\n"
+       "    (cond\n"
+       "      ((fxzero? src-n)\n" /* nothing to do */
+       "        (assert (fx>=? src-start 0))\n"
+       "        (assert (fx<=? src-start (charspan-length sp-src))))\n"
+       "      ((fxzero? idx)\n"
+       "        (charspan-csp-insert-front! left sp-src src-start src-n))\n"
+       "      ((fx=? idx (chargbuffer-length gb))\n"
+       "        (charspan-csp-insert-back! right sp-src src-start src-n))\n"
+       "      (#t\n"
+       "        (chargbuffer-split-at! gb idx)\n"
+       "        (charspan-csp-insert-back! left sp-src src-start src-n)))))\n"
+       "\n"
+       /* remove n elements from chargbuffer starting at start */
+       "(define (chargbuffer-erase-at! gb start n)\n"
+       "  (let* ((left    (chargbuffer-left  gb))\n"
+       "         (right   (chargbuffer-right gb))\n"
+       "         (left-n  (charspan-length left))\n"
+       "         (right-n (charspan-length right))\n"
+       "         (len     (fx+ left-n right-n))\n"
+       "         (end     (fx+ start n)))\n"
+       "    (assert (fx>=? start 0))\n"
+       "    (assert (fx<=? start len))\n"
+       "    (assert (fx>=? n 0))\n"
+       "    (assert (fx<=? n (fx- len start)))\n"
+       "    (cond\n"
+       "      ((fxzero? n) (void))\n" /* nothing to do */
+       "      ((fxzero? start)\n"
+       "        (let ((head (fxmin n left-n)))"
+       "          (charspan-erase-front! left head)\n"
+       "          (charspan-erase-front! right (fx- n head))))\n"
+       "      ((fx=? end left-n)\n"
+       "        (charspan-erase-back! left n))\n"
+       "      ((fx=? start left-n)\n"
+       "        (charspan-erase-front! right n))\n"
+       "      ((fx=? end len)\n"
+       "        (let ((tail (fxmin n right-n)))"
+       "          (charspan-erase-back! right tail)\n"
+       "          (charspan-erase-back! left (fx- n tail))))\n"
+       "      (#t\n"
+       "        (chargbuffer-split-at! gb end)\n"
+       "        (charspan-erase-back! left n)))))\n"
+       "\n"
+       "(define (chargbuffer-iterate gb proc)\n"
+       "  (do ((i 0 (fx1+ i))\n"
+       "       (n (chargbuffer-length gb)))\n"
+       "    ((or (fx>=? i n) (not (proc i (chargbuffer-ref gb i)))))))\n"
+       "\n"
+       /** customize how "chargbuffer" objects are printed */
+       "(record-writer (record-type-descriptor %chargbuffer)\n"
+       "  (lambda (gb port writer)\n"
+       "    (display \"(string->chargbuffer* \" port)\n"
+       "    (write (chargbuffer->string gb) port)\n"
+       "    (display #\\) port)))\n"
+       "\n"
+       ")\n"); /* close library */
+}
+
 void define_library_containers(void) {
   define_library_containers_misc();
   define_library_containers_hashtable();
@@ -1422,6 +1657,7 @@ void define_library_containers(void) {
   define_library_containers_bytespan();
   define_library_containers_charspan();
   define_library_containers_gbuffer();
+  define_library_containers_chargbuffer();
 
   eval("(library (schemesh containers (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT ""
@@ -1429,13 +1665,15 @@ void define_library_containers(void) {
        /*        */ SCHEMESH_LIBRARY_CONTAINERS_SPAN_EXPORT ""
        /*        */ SCHEMESH_LIBRARY_CONTAINERS_BYTESPAN_EXPORT ""
        /*        */ SCHEMESH_LIBRARY_CONTAINERS_CHARSPAN_EXPORT ""
-       /*        */ SCHEMESH_LIBRARY_CONTAINERS_GBUFFER_EXPORT ")\n"
+       /*        */ SCHEMESH_LIBRARY_CONTAINERS_GBUFFER_EXPORT ""
+       /*        */ SCHEMESH_LIBRARY_CONTAINERS_CHARGBUFFER_EXPORT ")\n"
        "  (import (schemesh containers misc)\n"
        "          (schemesh containers hashtable)\n"
        "          (schemesh containers span)\n"
        "          (schemesh containers bytespan)\n"
        "          (schemesh containers charspan)\n"
-       "          (schemesh containers gbuffer)))\n");
+       "          (schemesh containers gbuffer)\n"
+       "          (schemesh containers chargbuffer)))\n");
 
   eval("(import (schemesh containers))\n");
 }
