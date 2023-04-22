@@ -40,9 +40,9 @@ static void define_library_containers_misc(void) {
   eval("(library (schemesh containers misc (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT ")\n"
        "  (import\n"
-       "    (rnrs)\n"
+       "    (rename (rnrs) (fxarithmetic-shift-left fxshl))\n"
        "    (rnrs mutable-strings)\n"
-       "    (only (chezscheme) ash bytevector foreign-procedure fx1+ fxlogand fxlogior))\n"
+       "    (only (chezscheme) bytevector foreign-procedure fx1+))\n"
        "\n"
        /**
         * (list-iterate l proc) iterates on all elements of given list l,
@@ -129,10 +129,10 @@ static void define_library_containers_misc(void) {
         * b0 is assumed to be in the range #xc0 (inclusive) to #xe0 (exclusive)
         */
        "(define (utf8-pair->char b0 b1)\n"
-       "  (if (fx=? #x80 (fxlogand #xc0 b1))\n" /* is b1 valid continuation byte ? */
-       "    (let ((n (fxlogior\n"
-       "               (ash (fxlogand #x1f b0) 6)\n"
-       "               (ash (fxlogand #x3f b1) 0))))\n"
+       "  (if (fx=? #x80 (fxand #xc0 b1))\n" /* is b1 valid continuation byte ? */
+       "    (let ((n (fxior\n"
+       "               (fxshl (fxand #x1f b0) 6)\n"
+       "               (fxshl (fxand #x3f b1) 0))))\n"
        "      (if (fx<=? #x80 n #x7ff)\n"
        "        (integer->char n)\n"
        "        #f))\n" /* overlong UTF-8 sequence */
@@ -143,12 +143,12 @@ static void define_library_containers_misc(void) {
         * b0 is assumed to be in the range #xe0 (inclusive) to #xf0 (exclusive)
         */
        "(define (utf8-triple->char b0 b1 b2)\n"
-       "  (if (and (fx=? #x80 (fxlogand #xc0 b1))\n"  /* is b1 valid continuation byte ? */
-       "           (fx=? #x80 (fxlogand #xc0 b2)))\n" /* is b2 valid continuation byte ? */
-       "    (let ((n (fxlogior\n"
-       "               (ash (fxlogand #x0f b0) 12)\n"
-       "               (ash (fxlogand #x3f b1)  6)\n"
-       "               (ash (fxlogand #x3f b2)  0))))\n"
+       "  (if (and (fx=? #x80 (fxand #xc0 b1))\n"  /* is b1 valid continuation byte ? */
+       "           (fx=? #x80 (fxand #xc0 b2)))\n" /* is b2 valid continuation byte ? */
+       "    (let ((n (fxior\n"
+       "               (fxshl (fxand #x0f b0) 12)\n"
+       "               (fxshl (fxand #x3f b1)  6)\n"
+       "               (fxshl (fxand #x3f b2)  0))))\n"
        "      (if (or (fx<=? #x800 n #xd7ff) (fx<=? #xe000 n #xffff))\n"
        "        (integer->char n)\n"
        "        #f))\n" /* surrogate half, or overlong UTF-8 sequence */
@@ -159,14 +159,14 @@ static void define_library_containers_misc(void) {
         * b0 is assumed to be in the range #xf0 (inclusive) to #xf5 (exclusive)
         */
        "(define (utf8-quadruple->char b0 b1 b2 b3)\n"
-       "  (if (and (fx=? #x80 (fxlogand #xc0 b1))\n"  /* is b1 valid continuation byte ? */
-       "           (fx=? #x80 (fxlogand #xc0 b2))\n"  /* is b2 valid continuation byte ? */
-       "           (fx=? #x80 (fxlogand #xc0 b3)))\n" /* is b3 valid continuation byte ? */
-       "    (let ((n (fxlogior\n"
-       "               (ash (fxlogand #x07 b0) 18)\n"
-       "               (ash (fxlogand #x3f b1) 12)\n"
-       "               (ash (fxlogand #x3f b2)  6)\n"
-       "               (ash (fxlogand #x3f b3)  0))))\n"
+       "  (if (and (fx=? #x80 (fxand #xc0 b1))\n"  /* is b1 valid continuation byte ? */
+       "           (fx=? #x80 (fxand #xc0 b2))\n"  /* is b2 valid continuation byte ? */
+       "           (fx=? #x80 (fxand #xc0 b3)))\n" /* is b3 valid continuation byte ? */
+       "    (let ((n (fxior\n"
+       "               (fxshl (fxand #x07 b0) 18)\n"
+       "               (fxshl (fxand #x3f b1) 12)\n"
+       "               (fxshl (fxand #x3f b2)  6)\n"
+       "               (fxshl (fxand #x3f b3)  0))))\n"
        "      (if (fx<=? #x10000 n #x10ffff)\n"
        "        (integer->char n)\n"
        "        #f))\n" /* overlong UTF-8 sequence, or beyond #x10ffff */

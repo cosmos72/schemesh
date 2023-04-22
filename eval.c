@@ -72,6 +72,8 @@ void define_library_bootstrap(void) {
             "  (export eval-string repeat while until list->values values->list define-macro)\n"
             "  (import\n"
             "    (rnrs)\n"
+            /* Unlike R6RS (eval obj environment), Chez Scheme's (eval obj)
+             * uses interactive-environment and can modify it */
             "    (only (chezscheme) eval))\n"
             "\n"
             "(define (eval-string str)\n"
