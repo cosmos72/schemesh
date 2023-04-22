@@ -32,8 +32,8 @@ static void define_library_containers_misc(void) {
 
 #define SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT                                                    \
   "list-iterate vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable "       \
-  "list->bytevector bytevector-utf8-ref subbytevector bytevector-fill-range! bytevector-iterate "  \
-  "string-fill-range! "
+  "list->bytevector bytevector-utf8-ref bytevector-utf8-set! char->utf8-length "                   \
+  "subbytevector bytevector-fill-range! bytevector-iterate string-fill-range! "
 
   Sregister_symbol("c_vector_copy", &c_vector_copy);
 
@@ -128,7 +128,7 @@ static void define_library_containers_misc(void) {
        "\n"
        /**
         * interpret two bytes as UTF-8 sequence and return corresponding char.
-        * b0 is assumed to be in the range #xc0 (inclusive) to #xe0 (exclusive)
+        * b0 is assumed to be in the range #xc0 <= b0 < #xe0
         */
        "(define (utf8-pair->char b0 b1)\n"
        "  (if (fx=? #x80 (fxand #xc0 b1))\n" /* is b1 valid continuation byte ? */
@@ -141,18 +141,8 @@ static void define_library_containers_misc(void) {
        "    #f))"       /* invalid continuation byte b1 */
        "\n"
        /**
-        * convert char to 2-byte UTF-8 sequence and return two values: the two converted bytes.
-        * ch is assumed to be in the range #x80 (inclusive) to #x800 (exclusive)
-        */
-       "(define (char->utf8-pair ch)\n"
-       "  (let ((n (char->integer ch)))\n"
-       "    (values\n"
-       "      (fxior #xc0 (fxand #x3f (fxshr n 6)))\n"
-       "      (fxior #x80 (fxand #x3f n)))))\n"
-       "\n"
-       /**
         * interpret three bytes as UTF-8 sequence and return corresponding char.
-        * b0 is assumed to be in the range #xe0 (inclusive) to #xf0 (exclusive)
+        * b0 is assumed to be in the range #xe0 <= b0 < #xf0
         */
        "(define (utf8-triplet->char b0 b1 b2)\n"
        "  (if (and (fx=? #x80 (fxand #xc0 b1))\n"  /* is b1 valid continuation byte ? */
@@ -168,7 +158,7 @@ static void define_library_containers_misc(void) {
        "\n"
        /**
         * interpret four bytes as UTF-8 sequence and return corresponding char.
-        * b0 is assumed to be in the range #xf0 (inclusive) to #xf5 (exclusive)
+        * b0 is assumed to be in the range #xf0 <= b0 < #xf5
         */
        "(define (utf8-quadruplet->char b0 b1 b2 b3)\n"
        "  (if (and (fx=? #x80 (fxand #xc0 b1))\n"  /* is b1 valid continuation byte ? */
@@ -222,7 +212,86 @@ static void define_library_containers_misc(void) {
        "            (values (utf8-quadruplet->char b0 b1 b2 b3) 4))\n"
        "          (values #t (fxmin 3 max-n))))\n" /* < 4 bytes available */
        "      (#t (values #f 1)))))\n"
-
+       "\n"
+       /**
+        * convert char to 2-byte UTF-8 sequence and return two values: the two converted bytes.
+        * ch is assumed to be in the range #x80 <= ch < #x800
+        */
+       "(define (char->utf8-pair ch)\n"
+       "  (let ((n (char->integer ch)))\n"
+       "    (values\n"
+       "      (fxior #xc0 (fxand #x3f (fxshr n 6)))\n"
+       "      (fxior #x80 (fxand #x3f n)))))\n"
+       "\n"
+       /**
+        * convert char to 3-byte UTF-8 sequence and return three values: the three converted bytes.
+        * ch is assumed to be in the range #x800 <= ch < #x1000
+        */
+       "(define (char->utf8-triplet ch)\n"
+       "  (let ((n (char->integer ch)))\n"
+       "    (values\n"
+       "      (fxior #xe0 (fxand #x0f (fxshr n 12)))\n"
+       "      (fxior #x80 (fxand #x3f (fxshr n 6)))\n"
+       "      (fxior #x80 (fxand #x3f n)))))\n"
+       "\n"
+       /**
+        * convert char to 4-byte UTF-8 sequence and return four values: the four converted bytes.
+        * ch is assumed to be in the range #x1000 <= ch < #x110000
+        */
+       "(define (char->utf8-quadruplet ch)\n"
+       "  (let ((n (char->integer ch)))\n"
+       "    (values\n"
+       "      (fxior #xf0 (fxand #x07 (fxshr n 18)))\n"
+       "      (fxior #x80 (fxand #x3f (fxshr n 12)))\n"
+       "      (fxior #x80 (fxand #x3f (fxshr n 6)))\n"
+       "      (fxior #x80 (fxand #x3f n)))))\n"
+       "\n"
+       /**
+        * convert a char to UTF-8 sequence and write it into given bytevector.
+        * Returns one value: the length in bytes of UTF-8 sequence.
+        * Raises condition if (fx- (bytevector-length) start) is smaller
+        * than length in bytes of UTF-8 sequence
+        */
+       "(define (bytevector-utf8-set! vec start ch)\n"
+       "  (assert (fx>=? start 0))\n"
+       "  (assert (fx<?  start (bytevector-length vec)))\n"
+       "  (let ((n (char->integer ch)))\n"
+       "    (cond\n"
+       "      ((fx<? n 0) 0)\n" /* should not happen */
+       "      ((fx<? n #x80)\n"
+       "        (bytevector-u8-set! vec start n)\n"
+       "        1)\n"
+       "      ((fx<? n #x800)\n"
+       "        (let-values (((b0 b1) (char->utf8-pair ch)))\n"
+       "          (bytevector-u8-set! vec start b0)\n"
+       "          (bytevector-u8-set! vec (fx1+ start) b1))\n"
+       "        2)\n"
+       "      ((fx<? n #x10000)\n"
+       "        (let-values (((b0 b1 b2) (char->utf8-triplet ch)))\n"
+       "          (bytevector-u8-set! vec start b0)\n"
+       "          (bytevector-u8-set! vec (fx+ 1 start) b1)\n"
+       "          (bytevector-u8-set! vec (fx+ 2 start) b2))\n"
+       "        3)\n"
+       "      ((fx<? n #x110000)\n"
+       "        (let-values (((b0 b1 b2 b3) (char->utf8-quadruplet ch)))\n"
+       "          (bytevector-u8-set! vec start b0)\n"
+       "          (bytevector-u8-set! vec (fx+ 1 start) b1)\n"
+       "          (bytevector-u8-set! vec (fx+ 2 start) b2)\n"
+       "          (bytevector-u8-set! vec (fx+ 3 start) b3))\n"
+       "        4)\n"
+       "      (#t 0))))\n" /* should not happen */
+       "\n"
+       /* convert a char to UTF-8 sequence and return the length in bytes of UTF-8 sequence. */
+       "(define (char->utf8-length ch)\n"
+       "  (let ((n (char->integer ch)))\n"
+       "    (cond\n"
+       "      ((fx<? n   0) 0)\n" /* should not happen */
+       "      ((fx<? n #x80) 1)\n"
+       "      ((fx<? n #x800) 2)\n"
+       "      ((fx<? n #x10000) 3)\n"
+       "      ((fx<? n #x110000) 4)\n"
+       "      (#t 0))))\n" /* should not happen */
+       "\n"
        /**
         * return a copy of bytevector vec containing only elements
         * from start (inclusive) to end (exclusive)

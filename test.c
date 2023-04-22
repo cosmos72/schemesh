@@ -82,6 +82,28 @@ static const struct {
     {"(values->list (bytevector-utf8-ref #vu8(#xf6) 0 1))", "(#f 1)"}, /* invalid #xf6 */
     {"(values->list (bytevector-utf8-ref #vu8(#xfe) 0 1))", "(#f 1)"}, /* invalid #xfe */
     {"(values->list (bytevector-utf8-ref #vu8(#xff) 0 1))", "(#f 1)"}, /* invalid #xff */
+    {"(let ((bv (make-bytevector 1)))\n"
+     "  (bytevector-utf8-set! bv 0 #\\~)\n"
+     "  bv)\n",
+     "~"},
+    {"(list\n"
+     "  (char->utf8-length #\\~)\n"
+     "  (char->utf8-length (integer->char #xa3))\n"   /* pound sign */
+     "  (char->utf8-length (integer->char #x20ac))\n" /* euro sign */
+     "  (char->utf8-length (integer->char #x10348)))\n",
+     "(1 2 3 4)"},
+    {"(let ((bv (make-bytevector 2)))\n"
+     "  (bytevector-utf8-set! bv 0 (integer->char #xa3))\n" /* pound sign */
+     "  bv)\n",
+     "\xc2\xa3"},
+    {"(let ((bv (make-bytevector 3)))\n"
+     "  (bytevector-utf8-set! bv 0 (integer->char #x20ac))\n" /* euro sign */
+     "  bv)\n",
+     "\xe2\x82\xac"},
+    {"(let ((bv (make-bytevector 4)))\n"
+     "  (bytevector-utf8-set! bv 0 (integer->char #x10348))\n"
+     "  bv)\n",
+     "\xf0\x90\x8d\x88"},
     /* ------------------------- span ----------------------------- */
     {"(span 1 2 3)", "(span 1 2 3)"},
     {"(list->span '(foo bar baz))", "(span foo bar baz)"},
