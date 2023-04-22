@@ -39,11 +39,11 @@ ptr call3(const char symbol_name[], ptr arg1, ptr arg2, ptr arg3) {
 }
 
 /**
- * call Scheme (eval (read (open-input-string str))) on a C UTF-8 string
+ * call Scheme (eval (read (open-string-input-port str))) on a C UTF-8 string
  * and return the resulting Scheme value
  */
 static ptr boot_eval(const char str[]) {
-  return call1("eval", call1("read", call1("open-input-string", Sstring_utf8(str, -1))));
+  return call1("eval", call1("read", call1("open-string-input-port", Sstring_utf8(str, -1))));
 }
 
 /**
@@ -69,15 +69,17 @@ bytes eval_to_bytevector(const char str[]) {
 
 void define_library_bootstrap(void) {
   boot_eval("(library (schemesh bootstrap)\n"
-            "  (export eval-string repeat while until define-macro)\n"
-            "  (import (chezscheme))\n"
+            "  (export eval-string repeat while until list->values values->list define-macro)\n"
+            "  (import\n"
+            "    (rnrs)\n"
+            "    (only (chezscheme) eval))\n"
             "\n"
             "(define (eval-string str)\n"
-            "  (eval (read (open-input-string str))))\n"
+            "  (eval (read (open-string-input-port str))))\n"
             "\n"
             "(define-syntax repeat\n"
             "  (syntax-rules ()\n"
-            "    ((_ n body ...) (do ((i n (fx1- i))) ((fx<=? i 0)) body ...))))\n"
+            "    ((_ n body ...) (do ((i n (fx- i 1))) ((fx<=? i 0)) body ...))))\n"
             "\n"
             "(define-syntax while\n"
             "  (syntax-rules ()\n"
@@ -88,6 +90,13 @@ void define_library_bootstrap(void) {
             "  (syntax-rules ()\n"
             "    ((_ pred)          (do () (pred)))\n"
             "    ((_ pred body ...) (do () (pred) body ...))))\n"
+            "\n"
+            "(define (list->values l)\n"
+            "  (apply values l))\n"
+            "\n"
+            "(define-syntax values->list\n"
+            "  (syntax-rules ()\n"
+            "    ((_ pred)    (call-with-values (lambda () pred) list))))\n"
             "\n"
             "(define-syntax define-macro\n"
             "  (syntax-rules ()\n"
@@ -115,9 +124,12 @@ void define_library_conversions(void) {
        "    any->bytevector any->bytevector0 any->string string->bytevector0\n"
        "    list->cmd-argv string-hashtable->vector-of-bytevector0\n"
        "    eval->bytevector)\n"
-       "  (import (chezscheme)\n"
-       "          (schemesh containers misc)\n"
-       "          (schemesh containers hashtable))\n"
+       "  (import\n"
+       "    (rnrs)\n"
+       "    (only (chezscheme)              fx1+ fx1- void)\n"
+       "    (only (schemesh bootstrap)        eval-string)\n"
+       "    (only (schemesh containers misc)    list-iterate)\n"
+       "    (only (schemesh containers hashtable) hashtable-iterate))\n"
        "\n"
        "(define (display-condition* x port)\n"
        "  (when (condition? x)\n"
@@ -232,7 +244,7 @@ void define_library_conversions(void) {
        "    out))\n"
        "\n"
        "(define (eval->bytevector str)\n"
-       "  (any->bytevector (eval (read (open-input-string str)))))\n"
+       "  (any->bytevector (eval-string str)))\n"
        "\n"
        ")\n"); /* close library */
 

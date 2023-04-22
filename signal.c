@@ -94,8 +94,10 @@ void define_library_signal(void) {
 
   eval("(library (schemesh signal (0 1))\n"
        "  (export signal-number->name signal-name->number signal-raise)\n"
-       "  (import (chezscheme)\n"
-       "          (only (schemesh containers hashtable) eq-hashtable hashtable-transpose))\n"
+       "  (import\n"
+       "    (rnrs)\n"
+       "    (only (chezscheme) foreign-procedure)\n"
+       "    (only (schemesh containers hashtable) eq-hashtable hashtable-transpose))\n"
        "\n"
        "(define signal-table-number->name\n"
        /* clang-format off */

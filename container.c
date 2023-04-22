@@ -32,14 +32,17 @@ static void define_library_containers_misc(void) {
 
 #define SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT                                                    \
   "list-iterate vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable "       \
-  "list->bytevector subbytevector bytevector-fill-range! bytevector-iterate "                      \
+  "list->bytevector bytevector-utf8-ref subbytevector bytevector-fill-range! bytevector-iterate "  \
   "string-fill-range! "
 
   Sregister_symbol("c_vector_copy", &c_vector_copy);
 
   eval("(library (schemesh containers misc (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT ")\n"
-       "  (import (chezscheme))\n"
+       "  (import\n"
+       "    (rnrs)\n"
+       "    (rnrs mutable-strings)\n"
+       "    (only (chezscheme) ash bytevector foreign-procedure fx1+ fxlogand fxlogior))\n"
        "\n"
        /**
         * (list-iterate l proc) iterates on all elements of given list l,
@@ -122,6 +125,93 @@ static void define_library_containers_misc(void) {
        "  (apply bytevector l))\n"
        "\n"
        /**
+        * interpret two bytes as UTF-8 sequence and return corresponding char.
+        * b0 is assumed to be in the range #xc0 (inclusive) to #xe0 (exclusive)
+        */
+       "(define (utf8-pair->char b0 b1)\n"
+       "  (if (fx=? #x80 (fxlogand #xc0 b1))\n" /* is b1 valid continuation byte ? */
+       "    (let ((n (fxlogior\n"
+       "               (ash (fxlogand #x1f b0) 6)\n"
+       "               (ash (fxlogand #x3f b1) 0))))\n"
+       "      (if (fx<=? #x80 n #x7ff)\n"
+       "        (integer->char n)\n"
+       "        #f))\n" /* overlong UTF-8 sequence */
+       "    #f))"       /* invalid continuation byte b1 */
+       "\n"
+       /**
+        * interpret three bytes as UTF-8 sequence and return corresponding char.
+        * b0 is assumed to be in the range #xe0 (inclusive) to #xf0 (exclusive)
+        */
+       "(define (utf8-triple->char b0 b1 b2)\n"
+       "  (if (and (fx=? #x80 (fxlogand #xc0 b1))\n"  /* is b1 valid continuation byte ? */
+       "           (fx=? #x80 (fxlogand #xc0 b2)))\n" /* is b2 valid continuation byte ? */
+       "    (let ((n (fxlogior\n"
+       "               (ash (fxlogand #x0f b0) 12)\n"
+       "               (ash (fxlogand #x3f b1)  6)\n"
+       "               (ash (fxlogand #x3f b2)  0))))\n"
+       "      (if (or (fx<=? #x800 n #xd7ff) (fx<=? #xe000 n #xffff))\n"
+       "        (integer->char n)\n"
+       "        #f))\n" /* surrogate half, or overlong UTF-8 sequence */
+       "    #f))"       /* invalid continuation byte b0 or b1 */
+       "\n"
+       /**
+        * interpret four bytes as UTF-8 sequence and return corresponding char.
+        * b0 is assumed to be in the range #xf0 (inclusive) to #xf5 (exclusive)
+        */
+       "(define (utf8-quadruple->char b0 b1 b2 b3)\n"
+       "  (if (and (fx=? #x80 (fxlogand #xc0 b1))\n"  /* is b1 valid continuation byte ? */
+       "           (fx=? #x80 (fxlogand #xc0 b2))\n"  /* is b2 valid continuation byte ? */
+       "           (fx=? #x80 (fxlogand #xc0 b3)))\n" /* is b3 valid continuation byte ? */
+       "    (let ((n (fxlogior\n"
+       "               (ash (fxlogand #x07 b0) 18)\n"
+       "               (ash (fxlogand #x3f b1) 12)\n"
+       "               (ash (fxlogand #x3f b2)  6)\n"
+       "               (ash (fxlogand #x3f b3)  0))))\n"
+       "      (if (fx<=? #x10000 n #x10ffff)\n"
+       "        (integer->char n)\n"
+       "        #f))\n" /* overlong UTF-8 sequence, or beyond #x10ffff */
+       "    #f))"       /* invalid continuation byte b0, b1 or b2 */
+       "\n"
+       /**
+        * read up to max-n bytes from bytevector at offset start, interpret
+        * them as UTF-8 sequence and convert them to the corresponding char.
+        *
+        * Returns two values: converted char, and length in bytes of UTF-8 sequence.
+        * If UTF-8 sequence is incomplete, return #t instead of converted char.
+        * If UTF-8 sequence is invalid, return #f instead of converted char.
+        */
+       "(define (bytevector-utf8-ref vec start max-n)\n"
+       "  (assert (fx>=? start 0))\n"
+       "  (assert (fx>=? max-n 0))\n"
+       "  (assert (fx<=? start (bytevector-length vec)))\n"
+       "  (let* ((len (bytevector-length vec))\n"
+       "         (max-n (fxmin max-n (fx- len start)))\n"
+       "         (b0  (if (fx>? max-n 0) (bytevector-u8-ref vec start) -1)))\n"
+       "    (cond\n"
+       "      ((fx<? b0    0) (values #t 0))\n" /* 0 bytes available */
+       "      ((fx<? b0 #x80) (values (integer->char b0) 1))\n"
+       "      ((fx<? b0 #xc0) (values #f 1))\n"
+       "      ((fx<? b0 #xe0)\n"
+       "        (if (fx>? max-n 1)\n"
+       "          (let ((b1 (bytevector-u8-ref vec (fx1+ start))))\n"
+       "            (values (utf8-pair->char b0 b1) 2))\n"
+       "          (values #t 1)))\n" /* < 2 bytes available */
+       "      ((fx<? b0 #xf0)\n"
+       "        (if (fx>? max-n 2)\n"
+       "          (let ((b1 (bytevector-u8-ref vec (fx+ 1 start)))\n"
+       "                (b2 (bytevector-u8-ref vec (fx+ 2 start))))\n"
+       "            (values (utf8-triple->char b0 b1 b2) 3))\n"
+       "          (values #t (fxmin 2 max-n))))\n" /* < 3 bytes available */
+       "      ((fx<? b0 #xf5)\n"
+       "        (if (fx>? max-n 3)\n"
+       "          (let ((b1 (bytevector-u8-ref vec (fx+ 1 start)))\n"
+       "                (b2 (bytevector-u8-ref vec (fx+ 2 start)))\n"
+       "                (b3 (bytevector-u8-ref vec (fx+ 3 start))))\n"
+       "            (values (utf8-quadruple->char b0 b1 b2 b3) 4))\n"
+       "          (values #t (fxmin 3 max-n))))\n" /* < 4 bytes available */
+       "      (#t (values #f 1)))))\n"
+
+       /**
         * return a copy of bytevector vec containing only elements
         * from start (inclusive) to end (exclusive)
         */
@@ -176,7 +266,10 @@ static void define_library_containers_hashtable(void) {
   eval("(library (schemesh containers hashtable (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_CONTAINERS_HASHTABLE_EXPORT_1 /*                             */
            /*    */ SCHEMESH_LIBRARY_CONTAINERS_HASHTABLE_EXPORT_2 ")\n"
-       "  (import (chezscheme) (schemesh containers misc))\n"
+       "  (import\n"
+       "    (rnrs)\n"
+       "    (only (chezscheme) $primitive fx1+ record-writer)\n"
+       "    (schemesh containers misc))\n"
        "\n"
        /* =================================================================== */
        "; start of hashtable-types.ss: the following code belongs to Chez Scheme\n"
@@ -419,7 +512,10 @@ static void define_library_containers_span(void) {
 
   eval("(library (schemesh containers span (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_CONTAINERS_SPAN_EXPORT ")\n"
-       "  (import (chezscheme) (schemesh containers misc))\n"
+       "  (import\n"
+       "    (rnrs)\n"
+       "    (only (chezscheme) fx1+ fx1- record-writer vector-copy void)\n"
+       "    (schemesh containers misc))\n"
        "\n"
        "(define-record-type\n"
        "  (%span %make-span span?)\n"
@@ -551,10 +647,10 @@ static void define_library_containers_span(void) {
        "  (let ((vec (span-vec sp))\n"
        "        (cap-front (span-capacity-front sp)))\n"
        "    (cond\n"
-       "      ((fx<= len cap-front)\n"
+       "      ((fx<=? len cap-front)\n"
        /*      nothing to do */
        "       (void))\n"
-       "      ((fx<= len (vector-length vec))\n"
+       "      ((fx<=? len (vector-length vec))\n"
        /*       vector is large enough, move elements to the back */
        "        (let* ((cap (span-capacity sp))\n"
        "               (old-len (span-length sp))\n"
@@ -574,10 +670,10 @@ static void define_library_containers_span(void) {
        "  (let ((vec (span-vec sp))\n"
        "        (cap-back (span-capacity-back sp)))\n"
        "    (cond\n"
-       "      ((fx<= len cap-back)\n"
+       "      ((fx<=? len cap-back)\n"
        /*      nothing to do */
        "       (void))\n"
-       "      ((fx<= len (vector-length vec))\n"
+       "      ((fx<=? len (vector-length vec))\n"
        /*       vector is large enough, move elements to the front */
        "        (let ((len (span-length sp)))\n"
        "          (vector-copy! vec (span-beg sp) vec 0 len)\n"
@@ -592,14 +688,14 @@ static void define_library_containers_span(void) {
        "(define (span-resize-front! sp len)\n"
        "  (assert (fx>=? len 0))\n"
        "  (span-reserve-front! sp len)\n"
-       "  (assert (fx>= (span-capacity-front sp) len))\n"
+       "  (assert (fx>=? (span-capacity-front sp) len))\n"
        "  (span-beg-set! sp (fx- (span-end sp) len)))\n"
        "\n"
        /* grow or shrink span on the right (back), set length to n */
        "(define (span-resize-back! sp len)\n"
        "  (assert (fx>=? len 0))\n"
        "  (span-reserve-back! sp len)\n"
-       "  (assert (fx>= (span-capacity-back sp) len))\n"
+       "  (assert (fx>=? (span-capacity-back sp) len))\n"
        "  (span-end-set! sp (fx+ len (span-beg sp))))\n"
        "\n"
        "(define (span-insert-front! sp . vals)\n"
@@ -702,7 +798,10 @@ static void define_library_containers_bytespan(void) {
 
   eval("(library (schemesh containers bytespan (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_CONTAINERS_BYTESPAN_EXPORT ")\n"
-       "  (import (chezscheme) (schemesh containers misc))\n"
+       "  (import\n"
+       "    (rnrs)\n"
+       "    (only (chezscheme) fx1+ fx1- record-writer void)\n"
+       "    (schemesh containers misc))\n"
        "\n"
        "(define-record-type\n"
        "  (%bytespan %make-bytespan bytespan?)\n"
@@ -835,10 +934,10 @@ static void define_library_containers_bytespan(void) {
        "  (let ((vec (bytespan-vec sp))\n"
        "        (cap-front (bytespan-capacity-front sp)))\n"
        "    (cond\n"
-       "      ((fx<= len cap-front)\n"
+       "      ((fx<=? len cap-front)\n"
        /*      nothing to do */
        "       (void))\n"
-       "      ((fx<= len (bytevector-length vec))\n"
+       "      ((fx<=? len (bytevector-length vec))\n"
        /*       bytevector is large enough, move elements to the back */
        "        (let* ((cap (bytespan-capacity sp))\n"
        "               (old-len (bytespan-length sp))\n"
@@ -858,10 +957,10 @@ static void define_library_containers_bytespan(void) {
        "  (let ((vec (bytespan-vec sp))\n"
        "        (cap-back (bytespan-capacity-back sp)))\n"
        "    (cond\n"
-       "      ((fx<= len cap-back)\n"
+       "      ((fx<=? len cap-back)\n"
        /*      nothing to do */
        "       (void))\n"
-       "      ((fx<= len (bytevector-length vec))\n"
+       "      ((fx<=? len (bytevector-length vec))\n"
        /*       bytevector is large enough, move elements to the front */
        "        (let ((len (bytespan-length sp)))\n"
        "          (bytevector-copy! vec (bytespan-beg sp) vec 0 len)\n"
@@ -876,14 +975,14 @@ static void define_library_containers_bytespan(void) {
        "(define (bytespan-resize-front! sp len)\n"
        "  (assert (fx>=? len 0))\n"
        "  (bytespan-reserve-front! sp len)\n"
-       "  (assert (fx>= (bytespan-capacity-front sp) len))\n"
+       "  (assert (fx>=? (bytespan-capacity-front sp) len))\n"
        "  (bytespan-beg-set! sp (fx- (bytespan-end sp) len)))\n"
        "\n"
        /* grow or shrink bytespan on the right (back), set length to n */
        "(define (bytespan-resize-back! sp len)\n"
        "  (assert (fx>=? len 0))\n"
        "  (bytespan-reserve-back! sp len)\n"
-       "  (assert (fx>= (bytespan-capacity-back sp) len))\n"
+       "  (assert (fx>=? (bytespan-capacity-back sp) len))\n"
        "  (bytespan-end-set! sp (fx+ len (bytespan-beg sp))))\n"
        "\n"
        "(define (bytespan-u8-insert-front! sp . vals)\n"
@@ -997,7 +1096,11 @@ static void define_library_containers_charspan(void) {
 
   eval("(library (schemesh containers charspan (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_CONTAINERS_CHARSPAN_EXPORT ")\n"
-       "  (import (chezscheme) (schemesh containers misc))\n"
+       "  (import\n"
+       "    (rnrs)\n"
+       "    (rnrs mutable-strings)\n"
+       "    (only (chezscheme) fx1+ fx1- record-writer string-copy! void)\n"
+       "    (schemesh containers misc))\n"
        "\n"
        "(define-record-type\n"
        "  (%charspan %make-charspan charspan?)\n"
@@ -1129,10 +1232,10 @@ static void define_library_containers_charspan(void) {
        "  (let ((vec (charspan-vec sp))\n"
        "        (cap-front (charspan-capacity-front sp)))\n"
        "    (cond\n"
-       "      ((fx<= len cap-front)\n"
+       "      ((fx<=? len cap-front)\n"
        /*      nothing to do */
        "       (void))\n"
-       "      ((fx<= len (string-length vec))\n"
+       "      ((fx<=? len (string-length vec))\n"
        /*       string is large enough, move elements to the back */
        "        (let* ((cap (charspan-capacity sp))\n"
        "               (old-len (charspan-length sp))\n"
@@ -1152,10 +1255,10 @@ static void define_library_containers_charspan(void) {
        "  (let ((vec (charspan-vec sp))\n"
        "        (cap-back (charspan-capacity-back sp)))\n"
        "    (cond\n"
-       "      ((fx<= len cap-back)\n"
+       "      ((fx<=? len cap-back)\n"
        /*      nothing to do */
        "       (void))\n"
-       "      ((fx<= len (string-length vec))\n"
+       "      ((fx<=? len (string-length vec))\n"
        /*       string is large enough, move elements to the front */
        "        (let ((len (charspan-length sp)))\n"
        "          (string-copy! vec (charspan-beg sp) vec 0 len)\n"
@@ -1170,14 +1273,14 @@ static void define_library_containers_charspan(void) {
        "(define (charspan-resize-front! sp len)\n"
        "  (assert (fx>=? len 0))\n"
        "  (charspan-reserve-front! sp len)\n"
-       "  (assert (fx>= (charspan-capacity-front sp) len))\n"
+       "  (assert (fx>=? (charspan-capacity-front sp) len))\n"
        "  (charspan-beg-set! sp (fx- (charspan-end sp) len)))\n"
        "\n"
        /* grow or shrink charspan on the right (back), set length to n */
        "(define (charspan-resize-back! sp len)\n"
        "  (assert (fx>=? len 0))\n"
        "  (charspan-reserve-back! sp len)\n"
-       "  (assert (fx>= (charspan-capacity-back sp) len))\n"
+       "  (assert (fx>=? (charspan-capacity-back sp) len))\n"
        "  (charspan-end-set! sp (fx+ len (charspan-beg sp))))\n"
        "\n"
        "(define (charspan-insert-front! sp . vals)\n"
@@ -1274,7 +1377,11 @@ static void define_library_containers_gbuffer(void) {
 
   eval("(library (schemesh containers gbuffer (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_CONTAINERS_GBUFFER_EXPORT ")\n"
-       "  (import (chezscheme) (schemesh containers misc) (schemesh containers span))\n"
+       "  (import\n"
+       "   (rnrs)\n"
+       "   (only (chezscheme) fx1+ record-writer void)\n"
+       "   (schemesh containers misc)\n"
+       "   (schemesh containers span))\n"
        "\n"
        "(define-record-type\n"
        "  (%gbuffer %make-gbuffer gbuffer?)\n"
@@ -1471,7 +1578,10 @@ static void define_library_containers_chargbuffer(void) {
 
   eval("(library (schemesh containers chargbuffer (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_CONTAINERS_CHARGBUFFER_EXPORT ")\n"
-       "  (import (chezscheme) (schemesh containers charspan))\n"
+       "  (import\n"
+       "   (rnrs)\n"
+       "   (only (chezscheme) fx1+ record-writer string-copy! void)\n"
+       "   (schemesh containers charspan))\n"
        "\n"
        "(define-record-type\n"
        "  (%chargbuffer %make-chargbuffer chargbuffer?)\n"

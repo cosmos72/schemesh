@@ -27,8 +27,61 @@ static const struct {
      "  (repeat 5 (set! x (fx1+ x)))\n"
      "  x)",
      "5"},
+    {"(values->list (values 1 2 3))", "(1 2 3)"},
     {"(subvector '#(aa bb cc dd) 1 3)", "#(bb cc)"},
     {"(subbytevector '#vu8(44 55 66 77) 2 3)", "B"},
+    /* ------------------------- utf8 ----------------------------- */
+    {"(values->list (bytevector-utf8-ref #vu8() 0 1))", "(#t 0)"}, /* incomplete */
+    {"(values->list (bytevector-utf8-ref #vu8(1) 0 1))", "(\x01 1)"},
+    {"(values->list (bytevector-utf8-ref #vu8(33) 0 1))", "(! 1)"},
+    {"(values->list (bytevector-utf8-ref #vu8(#x7e) 0 1))", "(~ 1)"},
+    {"(values->list (bytevector-utf8-ref #vu8(#x7f) 0 1))", "(\x7f 1)"},
+    {"(values->list (bytevector-utf8-ref #vu8(#x80) 0 1))", "(#f 1)"},
+    {"(values->list (bytevector-utf8-ref #vu8(#xc0 #x80) 0 1))", "(#t 1)"}, /* incomplete */
+    {"(values->list (bytevector-utf8-ref #vu8(#xc0 #x80) 0 2))", "(#f 2)"}, /* overlong */
+    {"(values->list (bytevector-utf8-ref #vu8(#xc1 #xbf) 0 2))", "(#f 2)"}, /* overlong */
+    {"(values->list (bytevector-utf8-ref #vu8(#xc2 #x7f) 0 2))", "(#f 2)"}, /* bad continuation */
+    {"(values->list (bytevector-utf8-ref #vu8(#xc2 #x80) 0 2))", "(\xc2\x80 2)"},
+    {"(values->list (bytevector-utf8-ref #vu8(#xc2 #xa3) 0 2))", "(\xc2\xa3 2)"}, /* UK pound */
+    {"(values->list (bytevector-utf8-ref #vu8(#xc2 #xbf) 0 2))", "(\xc2\xbf 2)"},
+    {"(values->list (bytevector-utf8-ref #vu8(#xc2 #xc0) 0 2))", "(#f 2)"}, /* bad continuation */
+    {"(values->list (bytevector-utf8-ref #vu8(#xdf #xbf) 0 2))", "(\xdf\xbf 2)"}, /* U+07FF */
+    {"(values->list (bytevector-utf8-ref #vu8(#xe0 #x80 #x80) 0 2))", "(#t 2)"},  /* incomplete */
+    {"(values->list (bytevector-utf8-ref #vu8(#xe0 #x80 #x80) 0 3))", "(#f 3)"},  /* overlong */
+    {"(values->list (bytevector-utf8-ref #vu8(#xe0 #x9f #xbf) 0 3))", "(#f 3)"},  /* overlong */
+    {"(values->list (bytevector-utf8-ref #vu8(#xe0 #xa0 #x80) 0 3))",
+     "(\xe0\xa0\x80 3)"}, /* U+0800 */
+    {"(values->list (bytevector-utf8-ref #vu8(#xed #x80 #x80) 0 3))",
+     "(\xed\x80\x80 3)"}, /* U+D000 */
+    {"(values->list (bytevector-utf8-ref #vu8(#xed #x9f #xbf) 0 3))",
+     "(\xed\x9f\xbf 3)"}, /* U+D7FF */
+    {"(values->list (bytevector-utf8-ref #vu8(#xed #xa0 #x80) 0 3))",
+     "(#f 3)"}, /* invalid U+D800, is surrogate half */
+    {"(values->list (bytevector-utf8-ref #vu8(#xed #xbf #xbf) 0 3))",
+     "(#f 3)"}, /* invalid U+DFFF, is surrogate half */
+    {"(values->list (bytevector-utf8-ref #vu8(#xee #x80 #x80) 0 3))",
+     "(\xee\x80\x80 3)"}, /* U+E000 */
+    {"(values->list (bytevector-utf8-ref #vu8(#xef #xbf #xbf) 0 3))",
+     "(\xef\xbf\xbf 3)"}, /* U+FFFF */
+    {"(values->list (bytevector-utf8-ref #vu8(#xf0 #x80 #x80 #x80) 0 3))",
+     "(#t 3)"}, /* incomplete */
+    {"(values->list (bytevector-utf8-ref #vu8(#xf0 #x80 #x80 #x80) 0 4))",
+     "(#f 4)"}, /*   overlong */
+    {"(values->list (bytevector-utf8-ref #vu8(#xf0 #x8f #xbf #xbf) 0 4))",
+     "(#f 4)"}, /*   overlong */
+    {"(values->list (bytevector-utf8-ref #vu8(#xf0 #x90 #x80 #x80) 0 4))",
+     "(\xf0\x90\x80\x80 4)"}, /* U+10000 */
+    {"(values->list (bytevector-utf8-ref #vu8(#xf4 #x8f #xbf #xbf) 0 4))",
+     "(\xf4\x8f\xbf\xbf 4)"}, /* U+10FFFF */
+    {"(values->list (bytevector-utf8-ref #vu8(#xf4 #x90 #x80 #x80) 0 4))",
+     "(#f 4)"}, /* invalid U+110000, exceeds U+10FFFF */
+    {"(values->list (bytevector-utf8-ref #vu8(#xf4 #xbf #xbf #xbf) 0 4))",
+     "(#f 4)"}, /* invalid, exceeds U+10FFFF */
+    {"(values->list (bytevector-utf8-ref #vu8(#xf5 #x80 #x80 #x80) 0 4))",
+     "(#f 1)"}, /* invalid, UTF-8 sequences cannot contain #xf5 .. #xff */
+    {"(values->list (bytevector-utf8-ref #vu8(#xf6) 0 1))", "(#f 1)"}, /* invalid #xf6 */
+    {"(values->list (bytevector-utf8-ref #vu8(#xfe) 0 1))", "(#f 1)"}, /* invalid #xfe */
+    {"(values->list (bytevector-utf8-ref #vu8(#xff) 0 1))", "(#f 1)"}, /* invalid #xff */
     /* ------------------------- span ----------------------------- */
     {"(span 1 2 3)", "(span 1 2 3)"},
     {"(list->span '(foo bar baz))", "(span foo bar baz)"},
