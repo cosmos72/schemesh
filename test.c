@@ -41,8 +41,8 @@ static const struct {
     {"(values->list (bytevector-utf8-ref #vu8(#xc0 #x80) 0 2))", "(#f 2)"}, /* overlong */
     {"(values->list (bytevector-utf8-ref #vu8(#xc1 #xbf) 0 2))", "(#f 2)"}, /* overlong */
     {"(values->list (bytevector-utf8-ref #vu8(#xc2 #x7f) 0 2))", "(#f 2)"}, /* bad continuation */
-    {"(values->list (bytevector-utf8-ref #vu8(#xc2 #x80) 0 2))", "(\xc2\x80 2)"},
-    {"(values->list (bytevector-utf8-ref #vu8(#xc2 #xa3) 0 2))", "(\xc2\xa3 2)"}, /* UK pound */
+    {"(values->list (bytevector-utf8-ref #vu8(#xc2 #x80) 0 2))", "(\xc2\x80 2)"}, /* U+0080 */
+    {"(values->list (bytevector-utf8-ref #vu8(#xc2 #xa3) 0 2))", "(\xc2\xa3 2)"}, /* pound sign */
     {"(values->list (bytevector-utf8-ref #vu8(#xc2 #xbf) 0 2))", "(\xc2\xbf 2)"},
     {"(values->list (bytevector-utf8-ref #vu8(#xc2 #xc0) 0 2))", "(#f 2)"}, /* bad continuation */
     {"(values->list (bytevector-utf8-ref #vu8(#xdf #xbf) 0 2))", "(\xdf\xbf 2)"}, /* U+07FF */
@@ -56,9 +56,9 @@ static const struct {
     {"(values->list (bytevector-utf8-ref #vu8(#xed #x9f #xbf) 0 3))",
      "(\xed\x9f\xbf 3)"}, /* U+D7FF */
     {"(values->list (bytevector-utf8-ref #vu8(#xed #xa0 #x80) 0 3))",
-     "(#f 3)"}, /* invalid U+D800, is surrogate half */
+     "(#f 3)"}, /* invalid, U+D800 is surrogate half */
     {"(values->list (bytevector-utf8-ref #vu8(#xed #xbf #xbf) 0 3))",
-     "(#f 3)"}, /* invalid U+DFFF, is surrogate half */
+     "(#f 3)"}, /* invalid, U+DFFF is surrogate half */
     {"(values->list (bytevector-utf8-ref #vu8(#xee #x80 #x80) 0 3))",
      "(\xee\x80\x80 3)"}, /* U+E000 */
     {"(values->list (bytevector-utf8-ref #vu8(#xef #xbf #xbf) 0 3))",

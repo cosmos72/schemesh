@@ -40,7 +40,9 @@ static void define_library_containers_misc(void) {
   eval("(library (schemesh containers misc (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT ")\n"
        "  (import\n"
-       "    (rename (rnrs) (fxarithmetic-shift-left fxshl))\n"
+       "    (rename (rnrs)\n"
+       "      (fxarithmetic-shift-left  fxshl)\n"
+       "      (fxarithmetic-shift-right fxshr))\n"
        "    (rnrs mutable-strings)\n"
        "    (only (chezscheme) bytevector foreign-procedure fx1+))\n"
        "\n"
@@ -139,10 +141,20 @@ static void define_library_containers_misc(void) {
        "    #f))"       /* invalid continuation byte b1 */
        "\n"
        /**
+        * convert char to 2-byte UTF-8 sequence and return two values: the two converted bytes.
+        * ch is assumed to be in the range #x80 (inclusive) to #x800 (exclusive)
+        */
+       "(define (char->utf8-pair ch)\n"
+       "  (let ((n (char->integer ch)))\n"
+       "    (values\n"
+       "      (fxior #xc0 (fxand #x3f (fxshr n 6)))\n"
+       "      (fxior #x80 (fxand #x3f n)))))\n"
+       "\n"
+       /**
         * interpret three bytes as UTF-8 sequence and return corresponding char.
         * b0 is assumed to be in the range #xe0 (inclusive) to #xf0 (exclusive)
         */
-       "(define (utf8-triple->char b0 b1 b2)\n"
+       "(define (utf8-triplet->char b0 b1 b2)\n"
        "  (if (and (fx=? #x80 (fxand #xc0 b1))\n"  /* is b1 valid continuation byte ? */
        "           (fx=? #x80 (fxand #xc0 b2)))\n" /* is b2 valid continuation byte ? */
        "    (let ((n (fxior\n"
@@ -158,7 +170,7 @@ static void define_library_containers_misc(void) {
         * interpret four bytes as UTF-8 sequence and return corresponding char.
         * b0 is assumed to be in the range #xf0 (inclusive) to #xf5 (exclusive)
         */
-       "(define (utf8-quadruple->char b0 b1 b2 b3)\n"
+       "(define (utf8-quadruplet->char b0 b1 b2 b3)\n"
        "  (if (and (fx=? #x80 (fxand #xc0 b1))\n"  /* is b1 valid continuation byte ? */
        "           (fx=? #x80 (fxand #xc0 b2))\n"  /* is b2 valid continuation byte ? */
        "           (fx=? #x80 (fxand #xc0 b3)))\n" /* is b3 valid continuation byte ? */
@@ -200,14 +212,14 @@ static void define_library_containers_misc(void) {
        "        (if (fx>? max-n 2)\n"
        "          (let ((b1 (bytevector-u8-ref vec (fx+ 1 start)))\n"
        "                (b2 (bytevector-u8-ref vec (fx+ 2 start))))\n"
-       "            (values (utf8-triple->char b0 b1 b2) 3))\n"
+       "            (values (utf8-triplet->char b0 b1 b2) 3))\n"
        "          (values #t (fxmin 2 max-n))))\n" /* < 3 bytes available */
        "      ((fx<? b0 #xf5)\n"
        "        (if (fx>? max-n 3)\n"
        "          (let ((b1 (bytevector-u8-ref vec (fx+ 1 start)))\n"
        "                (b2 (bytevector-u8-ref vec (fx+ 2 start)))\n"
        "                (b3 (bytevector-u8-ref vec (fx+ 3 start))))\n"
-       "            (values (utf8-quadruple->char b0 b1 b2 b3) 4))\n"
+       "            (values (utf8-quadruplet->char b0 b1 b2 b3) 4))\n"
        "          (values #t (fxmin 3 max-n))))\n" /* < 4 bytes available */
        "      (#t (values #f 1)))))\n"
 
