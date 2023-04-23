@@ -32,6 +32,7 @@ void define_library_lineedit(void) {
        "    (schemesh containers span)\n"
        "    (schemesh containers bytespan)\n"
        "    (schemesh containers gbuffer)\n"
+       "    (schemesh containers chargbuffer)\n"
        "    (schemesh containers hashtable)\n"
        "    (schemesh fd)\n"
        "    (schemesh tty))\n"
@@ -41,10 +42,11 @@ void define_library_lineedit(void) {
        "  (fields\n"
        "    (mutable rbuf)\n"       /* bytespan, buffer for (fd-read) */
        "    (mutable wbuf)\n"       /* bytespan, buffer for (fd-write) */
-       "    (mutable lines)\n"      /* gbuffer of gbytebuffers, input being edited */
+       "    (mutable line)\n"       /* chargbuffer, input's current line being edited */
+       "    (mutable lines)\n"      /* gbuffer of chargbuffers, input being edited */
        "    (mutable state)\n"      /* bytespan, stack of nested ( [ { and " */
-       "    (mutable x)\n"          /* fixnum, cursor x position */
-       "    (mutable y)\n"          /* fixnum, cursor y position */
+       "    (mutable x)\n"          /* fixnum, cursor x position in line */
+       "    (mutable y)\n"          /* fixnum, cursor y position in lines*/
        "    (mutable save-x)\n"     /* fixnum, saved cursor x position */
        "    (mutable save-y)\n"     /* fixnum, saved cursor y position */
        "    (mutable rows)\n"       /* fixnum, max number of rows being edited */
@@ -56,17 +58,18 @@ void define_library_lineedit(void) {
        "(define lineedit-default-keytable (eq-hashtable))\n"
        "\n"
        "(define (make-linectx)\n"
-       "  (let ((sz    (tty-size))\n"
-       "        (rbuf  (make-bytespan 2048))\n"
-       "        (wbuf  (make-bytespan 2048))\n"
-       "        (lines (make-gbuffer  0))\n"
-       "        (state (make-bytespan 32)))\n"
-       "    (bytespan-resize-back! rbuf 0)\n"
-       "    (bytespan-resize-back! wbuf 0)\n"
-       "    (bytespan-resize-back! state 0)\n"
+       "  (let* ((sz    (tty-size))\n"
+       "         (rbuf  (bytespan))\n"
+       "         (wbuf  (bytespan))\n"
+       "         (line  (chargbuffer))\n"
+       "         (lines (gbuffer line))\n"
+       "         (state (bytespan)))\n"
+       "    (bytespan-reserve-back! rbuf 1024)\n"
+       "    (bytespan-reserve-back! wbuf 1024)\n"
+       "    (bytespan-reserve-back! state 32)\n"
        "    (%make-linectx\n"
-       "      rbuf wbuf lines state\n"
-       "      0 0 0 0 +1\n"                      /* x y save-x save-y rows */
+       "      rbuf wbuf line lines state\n"
+       "      0 0 0 0 1\n"                       /* x y save-x save-y rows */
        "      (if (pair? sz) (car sz) 80)\n"     /* width        */
        "      (if (pair? sz) (cdr sz) 24)\n"     /* height       */
        "      #f lineedit-default-keytable)))\n" /* eof keytable */
@@ -80,17 +83,21 @@ void define_library_lineedit(void) {
        "         (end   (bytespan-peek-end wbuf)))\n"
        "    (unless (fx>=? start end)\n"
        "      (fd-write 1 (bytespan-peek-data wbuf) start end)\n"
-       "      (bytespan-resize-back! wbuf 0))))\n"
+       "      (bytespan-clear! wbuf))))\n"
        "\n"
        "(define (lineedit-init! ctx)\n"
        "  (linectx-x-set! ctx 0)\n"
-       "  (linectx-y-set! ctx (fx1- (linectx-height ctx)))\n"
-       "  (gbuffer-clear! (linectx-lines ctx))\n"
-       /* \r ESC [ 999 B ESC [ K */
-       "  (linectx-write! ctx #vu8(13 27 91 57 57 57 66 27 91 75) 0 10)\n"
+       "  (linectx-y-set! ctx 0)\n"
+       "  (let ((line  (linectx-line ctx))\n"
+       "        (lines (linectx-lines ctx)))\n"
+       "    (chargbuffer-clear! line)\n"
+       "    (gbuffer-clear! lines)\n"
+       "    (gbuffer-insert-at! lines 0 line))\n"
+       /* \r ESC [ K */
+       "  (linectx-write! ctx #vu8(13 27 91 75) 0 4)\n"
        "  (linectx-flush! ctx))\n"
        "\n"
-       "\n"
+       /* consume n bytes from rbuf and insert them into current line */
        "(define (lineedit-insert! ctx n)\n"
        /** TODO: update linectx-lines */
        "  (let* ((rbuf  (linectx-rbuf ctx))\n"
