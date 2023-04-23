@@ -247,10 +247,11 @@ static void define_library_containers_misc(void) {
        "      (fxior #x80 (fxand #x3f n)))))\n"
        "\n"
        /**
-        * convert a char to UTF-8 sequence and write it into given bytevector.
-        * Returns one value: the length in bytes of UTF-8 sequence.
-        * Raises condition if (fx- (bytevector-length) start) is smaller
-        * than length in bytes of UTF-8 sequence
+        * convert a char to UTF-8 sequence and write it into given bytevector
+        * from offset = start.
+        * Returns one value: the length in bytes of written UTF-8 sequence.
+        * Raises condition if writing the UTF-8 sequence into bytevector starting
+        * from offset = start exceeds bytevector's length.
         */
        "(define (bytevector-utf8-set! vec start ch)\n"
        "  (assert (fx>=? start 0))\n"
@@ -263,21 +264,21 @@ static void define_library_containers_misc(void) {
        "        1)\n"
        "      ((fx<? n #x800)\n"
        "        (let-values (((b0 b1) (char->utf8-pair ch)))\n"
-       "          (bytevector-u8-set! vec start b0)\n"
-       "          (bytevector-u8-set! vec (fx1+ start) b1))\n"
+       "          (bytevector-u8-set! vec (fx1+ start) b1)"
+       "          (bytevector-u8-set! vec start b0))\n"
        "        2)\n"
        "      ((fx<? n #x10000)\n"
        "        (let-values (((b0 b1 b2) (char->utf8-triplet ch)))\n"
-       "          (bytevector-u8-set! vec start b0)\n"
+       "          (bytevector-u8-set! vec (fx+ 2 start) b2)\n"
        "          (bytevector-u8-set! vec (fx+ 1 start) b1)\n"
-       "          (bytevector-u8-set! vec (fx+ 2 start) b2))\n"
+       "          (bytevector-u8-set! vec start b0))\n"
        "        3)\n"
        "      ((fx<? n #x110000)\n"
        "        (let-values (((b0 b1 b2 b3) (char->utf8-quadruplet ch)))\n"
-       "          (bytevector-u8-set! vec start b0)\n"
-       "          (bytevector-u8-set! vec (fx+ 1 start) b1)\n"
+       "          (bytevector-u8-set! vec (fx+ 3 start) b3)\n"
        "          (bytevector-u8-set! vec (fx+ 2 start) b2)\n"
-       "          (bytevector-u8-set! vec (fx+ 3 start) b3))\n"
+       "          (bytevector-u8-set! vec (fx+ 1 start) b1)\n"
+       "          (bytevector-u8-set! vec start b0))\n"
        "        4)\n"
        "      (#t 0))))\n" /* should not happen */
        "\n"
@@ -868,10 +869,11 @@ static void define_library_containers_bytespan(void) {
   "list->bytespan bytevector->bytespan bytevector->bytespan* make-bytespan bytespan->bytevector "  \
   "bytespan bytespan? bytespan-length bytespan-empty? bytespan-clear! "                            \
   "bytespan-capacity bytespan-capacity-front bytespan-capacity-back "                              \
-  "bytespan-u8-ref bytespan-u8-back bytespan-u8-set! bytespan-fill! bytespan-fill-range! "         \
-  "bytespan-copy bytespan-copy! bytespan-reserve-front! bytespan-reserve-back! "                   \
-  "bytespan-resize-front! bytespan-resize-back! "                                                  \
+  "bytespan-u8-ref bytespan-u8-back bytespan-u8-set! bytespan-utf8-ref bytespan-utf8-set! "        \
+  "bytespan-fill! bytespan-fill-range! bytespan-copy bytespan-copy! "                              \
+  "bytespan-reserve-front! bytespan-reserve-back! bytespan-resize-front! bytespan-resize-back! "   \
   "bytespan-u8-insert-front! bytespan-u8-insert-back! "                                            \
+  "bytespan-utf8-insert-front! bytespan-utf8-insert-back! "                                        \
   "bytespan-bsp-insert-front! bytespan-bsp-insert-back! "                                          \
   "bytespan-bv-insert-front! bytespan-bv-insert-back! "                                            \
   "bytespan-erase-front! bytespan-erase-back! bytespan-iterate bytespan-u8-find "                  \
@@ -950,6 +952,27 @@ static void define_library_containers_bytespan(void) {
        "  (assert (fx>=? idx 0))\n"
        "  (assert (fx<? idx (bytespan-length sp)))\n"
        "  (bytevector-u8-set! (bytespan-vec sp) (fx+ idx (bytespan-beg sp)) val))\n"
+       "\n"
+       /**
+        * read up to max-n bytes from bytespan at offset idx, interpret
+        * them as UTF-8 sequence and convert them to the corresponding char.
+        *
+        * Returns two values: converted char, and length in bytes of UTF-8 sequence.
+        * If UTF-8 sequence is incomplete, return #t instead of converted char.
+        * If UTF-8 sequence is invalid, return #f instead of converted char.
+        */
+       "(define (bytespan-utf8-ref sp idx max-n)\n"
+       "  (assert (fx>=? idx 0))\n"
+       "  (assert (fx<=? idx (bytespan-length sp)))\n"
+       "  (bytevector-utf8-ref (bytespan-vec sp)\n"
+       "    (fx+ idx (bytespan-beg sp))\n"
+       "    (fxmin max-n (fx- (bytespan-length sp) idx))))\n"
+       "\n"
+       /* convert char to UTF-8 sequence and write it into bytespan starting at offset idx */
+       "(define (bytespan-utf8-set! sp idx ch)\n"
+       "  (assert (fx>=? idx 0))\n"
+       "  (assert (fx<=? idx (fx+ (bytespan-length sp) (char->utf8-length ch))))\n"
+       "  (bytevector-utf8-set! (bytespan-vec sp) (fx+ idx (bytespan-beg sp)) ch))\n"
        "\n"
        "(define (bytespan-fill! sp val)\n"
        "  (bytevector-fill-range! (bytespan-vec sp) (bytespan-beg sp)\n"
@@ -1085,6 +1108,19 @@ static void define_library_containers_bytespan(void) {
        "        (lambda (elem)\n"
        "          (bytespan-u8-set! sp pos elem)\n"
        "          (set! pos (fx1+ pos)))))))\n"
+       "\n"
+       /* returns length in bytes of inserted UTF-8 sequence */
+       "(define (bytespan-utf8-insert-front! sp ch)\n"
+       "  (let ((new-len (fx+ (bytespan-length sp) (char->utf8-length ch))))\n"
+       "    (bytespan-resize-front! sp new-len)\n"
+       "    (bytespan-utf8-set! sp 0 ch)))\n"
+       "\n"
+       /* returns length in bytes of inserted UTF-8 sequence */
+       "(define (bytespan-utf8-insert-back! sp ch)\n"
+       "  (let* ((old-len (bytespan-length sp))\n"
+       "         (new-len (fx+ old-len (char->utf8-length ch))))\n"
+       "    (bytespan-resize-back! sp new-len)\n"
+       "    (bytespan-utf8-set! sp old-len ch)))\n"
        "\n"
        /* prefix a portion of another bytespan to this bytespan */
        "(define (bytespan-bsp-insert-front! sp-dst sp-src src-start src-n)\n"

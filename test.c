@@ -30,7 +30,7 @@ static const struct {
     {"(values->list (values 1 2 3))", "(1 2 3)"},
     {"(subvector '#(aa bb cc dd) 1 3)", "#(bb cc)"},
     {"(subbytevector '#vu8(44 55 66 77) 2 3)", "B"},
-    /* ------------------------- utf8 ----------------------------- */
+    /* ----------------- bytevector-utf8 ----------------------------- */
     {"(values->list (bytevector-utf8-ref #vu8() 0 1))", "(#t 0)"}, /* incomplete */
     {"(values->list (bytevector-utf8-ref #vu8(1) 0 1))", "(\x01 1)"},
     {"(values->list (bytevector-utf8-ref #vu8(33) 0 1))", "(! 1)"},
@@ -87,11 +87,19 @@ static const struct {
      "  bv)\n",
      "~"},
     {"(list\n"
-     "  (char->utf8-length #\\~)\n"
-     "  (char->utf8-length (integer->char #xa3))\n"   /* pound sign */
-     "  (char->utf8-length (integer->char #x20ac))\n" /* euro sign */
-     "  (char->utf8-length (integer->char #x10348)))\n",
-     "(1 2 3 4)"},
+     "  (char->utf8-length (integer->char 0))\n"
+     "  (char->utf8-length (integer->char #x7f))\n"
+     "  (char->utf8-length (integer->char #x80))\n"
+     "  (char->utf8-length (integer->char #x7ff))\n"
+     "  (char->utf8-length (integer->char #x800))\n"
+     "  (char->utf8-length (integer->char #xffff))\n"
+     "  (char->utf8-length (integer->char #x10000))\n"
+     "  (char->utf8-length (integer->char #x10ffff)))\n",
+     "(1 1 2 2 3 3 4 4)"},
+    {"(let ((bv (make-bytevector 1)))\n"
+     "  (bytevector-utf8-set! bv 0 #\\~)\n"
+     "  bv)\n",
+     "~"},
     {"(let ((bv (make-bytevector 2)))\n"
      "  (bytevector-utf8-set! bv 0 (integer->char #xa3))\n" /* pound sign */
      "  bv)\n",
@@ -104,6 +112,53 @@ static const struct {
      "  (bytevector-utf8-set! bv 0 (integer->char #x10348))\n"
      "  bv)\n",
      "\xf0\x90\x8d\x88"},
+    {"(let ((bv (make-bytevector 4)))\n"
+     "  (bytevector-utf8-set! bv 0 (integer->char #x10ffff))\n"
+     "  bv)\n",
+     "\xf4\x8f\xbf\xbf"},
+    /* ----------------- bytespan-utf8 ----------------------------- */
+    {"(values->list (bytespan-utf8-ref (bytespan) 0 1))", "(#t 0)"}, /* incomplete */
+    {"(values->list (bytespan-utf8-ref (bytespan 1) 0 1))", "(\x01 1)"},
+    {"(values->list (bytespan-utf8-ref (bytespan #x7f) 0 1))", "(\x7f 1)"},
+    {"(values->list (bytespan-utf8-ref (bytespan #x80) 0 1))", "(#f 1)"},
+    {"(values->list (bytespan-utf8-ref (bytespan #xc2 #x80) 0 2))", "(\xc2\x80 2)"}, /* U+0080 */
+    {"(values->list (bytespan-utf8-ref (bytespan #xdf #xbf) 0 2))", "(\xdf\xbf 2)"}, /* U+07FF */
+    {"(values->list (bytespan-utf8-ref (bytespan #xe0 #xa0 #x80) 0 3))",
+     "(\xe0\xa0\x80 3)"}, /* U+0800 */
+    {"(values->list (bytespan-utf8-ref (bytespan #xed #x80 #x80) 0 3))",
+     "(\xed\x80\x80 3)"}, /* U+D000 */
+    {"(values->list (bytespan-utf8-ref (bytespan #xed #xa0 #x80) 0 3))",
+     "(#f 3)"}, /* invalid, U+D800 is surrogate half */
+    {"(values->list (bytespan-utf8-ref (bytespan #xed #xbf #xbf) 0 3))",
+     "(#f 3)"}, /* invalid, U+DFFF is surrogate half */
+    {"(values->list (bytespan-utf8-ref (bytespan #xed #x9f #xbf) 0 3))",
+     "(\xed\x9f\xbf 3)"}, /* U+D7FF */
+    {"(values->list (bytespan-utf8-ref (bytespan #xef #xbf #xbf) 0 3))",
+     "(\xef\xbf\xbf 3)"}, /* U+FFFF */
+    {"(values->list (bytespan-utf8-ref (bytespan #xf0 #x90 #x80 #x80) 0 4))",
+     "(\xf0\x90\x80\x80 4)"}, /* U+10000 */
+    {"(values->list (bytespan-utf8-ref (bytespan #xf4 #x8f #xbf #xbf) 0 4))",
+     "(\xf4\x8f\xbf\xbf 4)"}, /* U+10FFFF */
+    {"(let ((sp (bytespan)))\n"
+     "  (bytespan-utf8-insert-back! sp #\\~)\n"
+     "  sp)\n",
+     "(bytespan 126)"},
+    {"(let ((sp (bytespan)))\n"
+     "  (bytespan-utf8-insert-back! sp (integer->char #xa3))\n" /* pound sign */
+     "  sp)\n",
+     "(bytespan 194 163)"},
+    {"(let ((sp (bytespan)))\n"
+     "  (bytespan-utf8-insert-back! sp (integer->char #x20ac))\n" /* euro sign */
+     "  sp)\n",
+     "(bytespan 226 130 172)"},
+    {"(let ((sp (bytespan)))\n"
+     "  (bytespan-utf8-insert-front! sp (integer->char #x10348))\n"
+     "  sp)\n",
+     "(bytespan 240 144 141 136)"},
+    {"(let ((sp (bytespan)))\n"
+     "  (bytespan-utf8-insert-front! sp (integer->char #x10ffff))\n"
+     "  sp)\n",
+     "(bytespan 244 143 191 191)"},
     /* ------------------------- span ----------------------------- */
     {"(span 1 2 3)", "(span 1 2 3)"},
     {"(list->span '(foo bar baz))", "(span foo bar baz)"},
