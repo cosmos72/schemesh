@@ -32,17 +32,14 @@ static void define_library_containers_misc(void) {
 
 #define SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT                                                    \
   "list-iterate vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable "       \
-  "list->bytevector bytevector-utf8-ref bytevector-utf8-set! char->utf8-length "                   \
-  "subbytevector bytevector-fill-range! bytevector-iterate string-fill-range! "
+  "list->bytevector subbytevector bytevector-fill-range! bytevector-iterate string-fill-range! "
 
   Sregister_symbol("c_vector_copy", &c_vector_copy);
 
   eval("(library (schemesh containers misc (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT ")\n"
        "  (import\n"
-       "    (rename (rnrs)\n"
-       "      (fxarithmetic-shift-left  fxshl)\n"
-       "      (fxarithmetic-shift-right fxshr))\n"
+       "    (rnrs)\n"
        "    (rnrs mutable-strings)\n"
        "    (only (chezscheme) bytevector foreign-procedure fx1+))\n"
        "\n"
@@ -126,172 +123,6 @@ static void define_library_containers_misc(void) {
        "(define (list->bytevector l)\n"
        "  (apply bytevector l))\n"
        "\n"
-       /**
-        * interpret two bytes as UTF-8 sequence and return corresponding char.
-        * b0 is assumed to be in the range #xc0 <= b0 < #xe0
-        */
-       "(define (utf8-pair->char b0 b1)\n"
-       "  (if (fx=? #x80 (fxand #xc0 b1))\n" /* is b1 valid continuation byte ? */
-       "    (let ((n (fxior\n"
-       "               (fxshl (fxand #x1f b0) 6)\n"
-       "               (fxshl (fxand #x3f b1) 0))))\n"
-       "      (if (fx<=? #x80 n #x7ff)\n"
-       "        (integer->char n)\n"
-       "        #f))\n" /* overlong UTF-8 sequence */
-       "    #f))"       /* invalid continuation byte b1 */
-       "\n"
-       /**
-        * interpret three bytes as UTF-8 sequence and return corresponding char.
-        * b0 is assumed to be in the range #xe0 <= b0 < #xf0
-        */
-       "(define (utf8-triplet->char b0 b1 b2)\n"
-       "  (if (and (fx=? #x80 (fxand #xc0 b1))\n"  /* is b1 valid continuation byte ? */
-       "           (fx=? #x80 (fxand #xc0 b2)))\n" /* is b2 valid continuation byte ? */
-       "    (let ((n (fxior\n"
-       "               (fxshl (fxand #x0f b0) 12)\n"
-       "               (fxshl (fxand #x3f b1)  6)\n"
-       "               (fxshl (fxand #x3f b2)  0))))\n"
-       "      (if (or (fx<=? #x800 n #xd7ff) (fx<=? #xe000 n #xffff))\n"
-       "        (integer->char n)\n"
-       "        #f))\n" /* surrogate half, or overlong UTF-8 sequence */
-       "    #f))"       /* invalid continuation byte b0 or b1 */
-       "\n"
-       /**
-        * interpret four bytes as UTF-8 sequence and return corresponding char.
-        * b0 is assumed to be in the range #xf0 <= b0 < #xf5
-        */
-       "(define (utf8-quadruplet->char b0 b1 b2 b3)\n"
-       "  (if (and (fx=? #x80 (fxand #xc0 b1))\n"  /* is b1 valid continuation byte ? */
-       "           (fx=? #x80 (fxand #xc0 b2))\n"  /* is b2 valid continuation byte ? */
-       "           (fx=? #x80 (fxand #xc0 b3)))\n" /* is b3 valid continuation byte ? */
-       "    (let ((n (fxior\n"
-       "               (fxshl (fxand #x07 b0) 18)\n"
-       "               (fxshl (fxand #x3f b1) 12)\n"
-       "               (fxshl (fxand #x3f b2)  6)\n"
-       "               (fxshl (fxand #x3f b3)  0))))\n"
-       "      (if (fx<=? #x10000 n #x10ffff)\n"
-       "        (integer->char n)\n"
-       "        #f))\n" /* overlong UTF-8 sequence, or beyond #x10ffff */
-       "    #f))"       /* invalid continuation byte b0, b1 or b2 */
-       "\n"
-       /**
-        * read up to max-n bytes from bytevector at offset start, interpret
-        * them as UTF-8 sequence and convert them to the corresponding char.
-        *
-        * Returns two values: converted char, and length in bytes of UTF-8 sequence.
-        * If UTF-8 sequence is incomplete, return #t instead of converted char.
-        * If UTF-8 sequence is invalid, return #f instead of converted char.
-        */
-       "(define (bytevector-utf8-ref vec start max-n)\n"
-       "  (assert (fx>=? start 0))\n"
-       "  (assert (fx>=? max-n 0))\n"
-       "  (assert (fx<=? start (bytevector-length vec)))\n"
-       "  (let* ((len (bytevector-length vec))\n"
-       "         (max-n (fxmin max-n (fx- len start)))\n"
-       "         (b0  (if (fx>? max-n 0) (bytevector-u8-ref vec start) -1)))\n"
-       "    (cond\n"
-       "      ((fx<? b0    0) (values #t 0))\n" /* 0 bytes available */
-       "      ((fx<? b0 #x80) (values (integer->char b0) 1))\n"
-       "      ((fx<? b0 #xc0) (values #f 1))\n"
-       "      ((fx<? b0 #xe0)\n"
-       "        (if (fx>? max-n 1)\n"
-       "          (let ((b1 (bytevector-u8-ref vec (fx1+ start))))\n"
-       "            (values (utf8-pair->char b0 b1) 2))\n"
-       "          (values #t 1)))\n" /* < 2 bytes available */
-       "      ((fx<? b0 #xf0)\n"
-       "        (if (fx>? max-n 2)\n"
-       "          (let ((b1 (bytevector-u8-ref vec (fx+ 1 start)))\n"
-       "                (b2 (bytevector-u8-ref vec (fx+ 2 start))))\n"
-       "            (values (utf8-triplet->char b0 b1 b2) 3))\n"
-       "          (values #t (fxmin 2 max-n))))\n" /* < 3 bytes available */
-       "      ((fx<? b0 #xf5)\n"
-       "        (if (fx>? max-n 3)\n"
-       "          (let ((b1 (bytevector-u8-ref vec (fx+ 1 start)))\n"
-       "                (b2 (bytevector-u8-ref vec (fx+ 2 start)))\n"
-       "                (b3 (bytevector-u8-ref vec (fx+ 3 start))))\n"
-       "            (values (utf8-quadruplet->char b0 b1 b2 b3) 4))\n"
-       "          (values #t (fxmin 3 max-n))))\n" /* < 4 bytes available */
-       "      (#t (values #f 1)))))\n"
-       "\n"
-       /**
-        * convert char to 2-byte UTF-8 sequence and return two values: the two converted bytes.
-        * ch is assumed to be in the range #x80 <= ch < #x800
-        */
-       "(define (char->utf8-pair ch)\n"
-       "  (let ((n (char->integer ch)))\n"
-       "    (values\n"
-       "      (fxior #xc0 (fxand #x3f (fxshr n 6)))\n"
-       "      (fxior #x80 (fxand #x3f n)))))\n"
-       "\n"
-       /**
-        * convert char to 3-byte UTF-8 sequence and return three values: the three converted bytes.
-        * ch is assumed to be in the range #x800 <= ch < #x1000
-        */
-       "(define (char->utf8-triplet ch)\n"
-       "  (let ((n (char->integer ch)))\n"
-       "    (values\n"
-       "      (fxior #xe0 (fxand #x0f (fxshr n 12)))\n"
-       "      (fxior #x80 (fxand #x3f (fxshr n 6)))\n"
-       "      (fxior #x80 (fxand #x3f n)))))\n"
-       "\n"
-       /**
-        * convert char to 4-byte UTF-8 sequence and return four values: the four converted bytes.
-        * ch is assumed to be in the range #x1000 <= ch < #x110000
-        */
-       "(define (char->utf8-quadruplet ch)\n"
-       "  (let ((n (char->integer ch)))\n"
-       "    (values\n"
-       "      (fxior #xf0 (fxand #x07 (fxshr n 18)))\n"
-       "      (fxior #x80 (fxand #x3f (fxshr n 12)))\n"
-       "      (fxior #x80 (fxand #x3f (fxshr n 6)))\n"
-       "      (fxior #x80 (fxand #x3f n)))))\n"
-       "\n"
-       /**
-        * convert a char to UTF-8 sequence and write it into given bytevector
-        * from offset = start.
-        * Returns one value: the length in bytes of written UTF-8 sequence.
-        * Raises condition if writing the UTF-8 sequence into bytevector starting
-        * from offset = start exceeds bytevector's length.
-        */
-       "(define (bytevector-utf8-set! vec start ch)\n"
-       "  (assert (fx>=? start 0))\n"
-       "  (assert (fx<?  start (bytevector-length vec)))\n"
-       "  (let ((n (char->integer ch)))\n"
-       "    (cond\n"
-       "      ((fx<? n 0) 0)\n" /* should not happen */
-       "      ((fx<? n #x80)\n"
-       "        (bytevector-u8-set! vec start n)\n"
-       "        1)\n"
-       "      ((fx<? n #x800)\n"
-       "        (let-values (((b0 b1) (char->utf8-pair ch)))\n"
-       "          (bytevector-u8-set! vec (fx1+ start) b1)"
-       "          (bytevector-u8-set! vec start b0))\n"
-       "        2)\n"
-       "      ((fx<? n #x10000)\n"
-       "        (let-values (((b0 b1 b2) (char->utf8-triplet ch)))\n"
-       "          (bytevector-u8-set! vec (fx+ 2 start) b2)\n"
-       "          (bytevector-u8-set! vec (fx+ 1 start) b1)\n"
-       "          (bytevector-u8-set! vec start b0))\n"
-       "        3)\n"
-       "      ((fx<? n #x110000)\n"
-       "        (let-values (((b0 b1 b2 b3) (char->utf8-quadruplet ch)))\n"
-       "          (bytevector-u8-set! vec (fx+ 3 start) b3)\n"
-       "          (bytevector-u8-set! vec (fx+ 2 start) b2)\n"
-       "          (bytevector-u8-set! vec (fx+ 1 start) b1)\n"
-       "          (bytevector-u8-set! vec start b0))\n"
-       "        4)\n"
-       "      (#t 0))))\n" /* should not happen */
-       "\n"
-       /* convert a char to UTF-8 sequence and return the length in bytes of UTF-8 sequence. */
-       "(define (char->utf8-length ch)\n"
-       "  (let ((n (char->integer ch)))\n"
-       "    (cond\n"
-       "      ((fx<? n   0) 0)\n" /* should not happen */
-       "      ((fx<? n #x80) 1)\n"
-       "      ((fx<? n #x800) 2)\n"
-       "      ((fx<? n #x10000) 3)\n"
-       "      ((fx<? n #x110000) 4)\n"
-       "      (#t 0))))\n" /* should not happen */
        "\n"
        /**
         * return a copy of bytevector vec containing only elements
@@ -607,14 +438,9 @@ static void define_library_containers_span(void) {
        "     (mutable vec span-vec span-vec-set!))\n"
        "  (nongenerative #{%span ng1h8vurkk5k61p0jsryrbk99-0}))\n"
        "\n"
-       "(define (span-peek-beg sp)\n"
-       "  (span-beg sp))\n"
-       "\n"
-       "(define (span-peek-end sp)\n"
-       "  (span-end sp))\n"
-       "\n"
-       "(define (span-peek-data sp)\n"
-       "  (span-vec sp))\n"
+       "(define span-peek-beg span-beg)\n"
+       "(define span-peek-end span-end)\n"
+       "(define span-peek-data span-vec)\n"
        "\n"
        "(define (list->span l)\n"
        "  (let ((vec (list->vector l)))\n"
@@ -869,11 +695,10 @@ static void define_library_containers_bytespan(void) {
   "list->bytespan bytevector->bytespan bytevector->bytespan* make-bytespan bytespan->bytevector "  \
   "bytespan bytespan? bytespan-length bytespan-empty? bytespan-clear! "                            \
   "bytespan-capacity bytespan-capacity-front bytespan-capacity-back "                              \
-  "bytespan-u8-ref bytespan-u8-back bytespan-u8-set! bytespan-utf8-ref bytespan-utf8-set! "        \
+  "bytespan-u8-ref bytespan-u8-back bytespan-u8-set! "                                             \
   "bytespan-fill! bytespan-fill-range! bytespan-copy bytespan-copy! "                              \
   "bytespan-reserve-front! bytespan-reserve-back! bytespan-resize-front! bytespan-resize-back! "   \
   "bytespan-u8-insert-front! bytespan-u8-insert-back! "                                            \
-  "bytespan-utf8-insert-front! bytespan-utf8-insert-back! "                                        \
   "bytespan-bsp-insert-front! bytespan-bsp-insert-back! "                                          \
   "bytespan-bv-insert-front! bytespan-bv-insert-back! "                                            \
   "bytespan-erase-front! bytespan-erase-back! bytespan-iterate bytespan-u8-find "                  \
@@ -894,14 +719,9 @@ static void define_library_containers_bytespan(void) {
        "     (mutable vec bytespan-vec bytespan-vec-set!))\n"
        "  (nongenerative #{%bytespan 1j9oboeqc5j4db1bamcd28yz-0}))\n"
        "\n"
-       "(define (bytespan-peek-beg sp)\n"
-       "  (bytespan-beg sp))\n"
-       "\n"
-       "(define (bytespan-peek-end sp)\n"
-       "  (bytespan-end sp))\n"
-       "\n"
-       "(define (bytespan-peek-data sp)\n"
-       "  (bytespan-vec sp))\n"
+       "(define bytespan-peek-beg bytespan-beg)\n"
+       "(define bytespan-peek-end bytespan-end)\n"
+       "(define bytespan-peek-data bytespan-vec)\n"
        "\n"
        "(define (list->bytespan l)\n"
        "  (let ((vec (list->bytevector l)))\n"
@@ -952,27 +772,6 @@ static void define_library_containers_bytespan(void) {
        "  (assert (fx>=? idx 0))\n"
        "  (assert (fx<? idx (bytespan-length sp)))\n"
        "  (bytevector-u8-set! (bytespan-vec sp) (fx+ idx (bytespan-beg sp)) val))\n"
-       "\n"
-       /**
-        * read up to max-n bytes from bytespan at offset idx, interpret
-        * them as UTF-8 sequence and convert them to the corresponding char.
-        *
-        * Returns two values: converted char, and length in bytes of UTF-8 sequence.
-        * If UTF-8 sequence is incomplete, return #t instead of converted char.
-        * If UTF-8 sequence is invalid, return #f instead of converted char.
-        */
-       "(define (bytespan-utf8-ref sp idx max-n)\n"
-       "  (assert (fx>=? idx 0))\n"
-       "  (assert (fx<=? idx (bytespan-length sp)))\n"
-       "  (bytevector-utf8-ref (bytespan-vec sp)\n"
-       "    (fx+ idx (bytespan-beg sp))\n"
-       "    (fxmin max-n (fx- (bytespan-length sp) idx))))\n"
-       "\n"
-       /* convert char to UTF-8 sequence and write it into bytespan starting at offset idx */
-       "(define (bytespan-utf8-set! sp idx ch)\n"
-       "  (assert (fx>=? idx 0))\n"
-       "  (assert (fx<=? idx (fx+ (bytespan-length sp) (char->utf8-length ch))))\n"
-       "  (bytevector-utf8-set! (bytespan-vec sp) (fx+ idx (bytespan-beg sp)) ch))\n"
        "\n"
        "(define (bytespan-fill! sp val)\n"
        "  (bytevector-fill-range! (bytespan-vec sp) (bytespan-beg sp)\n"
@@ -1109,19 +908,6 @@ static void define_library_containers_bytespan(void) {
        "          (bytespan-u8-set! sp pos elem)\n"
        "          (set! pos (fx1+ pos)))))))\n"
        "\n"
-       /* returns length in bytes of inserted UTF-8 sequence */
-       "(define (bytespan-utf8-insert-front! sp ch)\n"
-       "  (let ((new-len (fx+ (bytespan-length sp) (char->utf8-length ch))))\n"
-       "    (bytespan-resize-front! sp new-len)\n"
-       "    (bytespan-utf8-set! sp 0 ch)))\n"
-       "\n"
-       /* returns length in bytes of inserted UTF-8 sequence */
-       "(define (bytespan-utf8-insert-back! sp ch)\n"
-       "  (let* ((old-len (bytespan-length sp))\n"
-       "         (new-len (fx+ old-len (char->utf8-length ch))))\n"
-       "    (bytespan-resize-back! sp new-len)\n"
-       "    (bytespan-utf8-set! sp old-len ch)))\n"
-       "\n"
        /* prefix a portion of another bytespan to this bytespan */
        "(define (bytespan-bsp-insert-front! sp-dst sp-src src-start src-n)\n"
        "  (assert (not (eq? sp-dst sp-src)))\n"
@@ -1227,14 +1013,9 @@ static void define_library_containers_charspan(void) {
        "     (mutable vec charspan-vec charspan-vec-set!))\n"
        "  (nongenerative #{%charspan b847ikzm9lftljwelbq0cknyh-0}))\n"
        "\n"
-       "(define (charspan-peek-beg sp)\n"
-       "  (charspan-beg sp))\n"
-       "\n"
-       "(define (charspan-peek-end sp)\n"
-       "  (charspan-end sp))\n"
-       "\n"
-       "(define (charspan-peek-data sp)\n"
-       "  (charspan-vec sp))\n"
+       "(define charspan-peek-beg charspan-beg)\n"
+       "(define charspan-peek-end charspan-end)\n"
+       "(define charspan-peek-data charspan-vec)\n"
        "\n"
        "(define (list->charspan l)\n"
        "  (let ((vec (list->string l)))\n"
@@ -1753,10 +1534,12 @@ static void define_library_containers_chargbuffer(void) {
        "  (list->chargbuffer vals))\n"
        "\n"
        "(define (chargbuffer-length gb)\n"
-       "  (fx+ (charspan-length (chargbuffer-left gb)) (charspan-length (chargbuffer-right gb))))\n"
+       "  (fx+ (charspan-length (chargbuffer-left gb)) (charspan-length (chargbuffer-right "
+       "gb))))\n"
        "\n"
        "(define (chargbuffer-empty? gb)\n"
-       "  (and (charspan-empty? (chargbuffer-left gb)) (charspan-empty? (chargbuffer-right gb))))\n"
+       "  (and (charspan-empty? (chargbuffer-left gb)) (charspan-empty? (chargbuffer-right "
+       "gb))))\n"
        "\n"
        "(define (chargbuffer-ref gb n)\n"
        "  (assert (fx>=? n 0))\n"
@@ -1877,6 +1660,230 @@ static void define_library_containers_chargbuffer(void) {
        ")\n"); /* close library */
 }
 
+/** define Scheme functions converting chars from/to UTF8 and reading/writing them
+ * into "bytevector" and "bytespan" */
+static void define_library_containers_utf8(void) {
+
+#define SCHEMESH_LIBRARY_CONTAINERS_UTF8_EXPORT                                                    \
+  "bytevector-utf8-ref bytevector-utf8-set! char->utf8-length "                                    \
+  "bytespan-utf8-ref bytespan-utf8-set! bytespan-utf8-insert-front! bytespan-utf8-insert-back! "
+
+  eval("(library (schemesh containers utf8 (0 1))\n"
+       "  (export " SCHEMESH_LIBRARY_CONTAINERS_UTF8_EXPORT ")\n"
+       "  (import\n"
+       "    (rename (rnrs)\n"
+       "      (fxarithmetic-shift-left  fxshl)\n"
+       "      (fxarithmetic-shift-right fxshr))\n"
+       "    (only (chezscheme) fx1+)\n"
+       "    (schemesh containers misc)\n"
+       "    (schemesh containers bytespan))\n"
+       "\n"
+       /**
+        * interpret two bytes as UTF-8 sequence and return corresponding char.
+        * b0 is assumed to be in the range #xc0 <= b0 < #xe0
+        */
+       "(define (utf8-pair->char b0 b1)\n"
+       "  (if (fx=? #x80 (fxand #xc0 b1))\n" /* is b1 valid continuation byte ? */
+       "    (let ((n (fxior\n"
+       "               (fxshl (fxand #x1f b0) 6)\n"
+       "               (fxshl (fxand #x3f b1) 0))))\n"
+       "      (if (fx<=? #x80 n #x7ff)\n"
+       "        (integer->char n)\n"
+       "        #f))\n" /* overlong UTF-8 sequence */
+       "    #f))"       /* invalid continuation byte b1 */
+       "\n"
+       /**
+        * interpret three bytes as UTF-8 sequence and return corresponding char.
+        * b0 is assumed to be in the range #xe0 <= b0 < #xf0
+        */
+       "(define (utf8-triplet->char b0 b1 b2)\n"
+       "  (if (and (fx=? #x80 (fxand #xc0 b1))\n"  /* is b1 valid continuation byte ? */
+       "           (fx=? #x80 (fxand #xc0 b2)))\n" /* is b2 valid continuation byte ? */
+       "    (let ((n (fxior\n"
+       "               (fxshl (fxand #x0f b0) 12)\n"
+       "               (fxshl (fxand #x3f b1)  6)\n"
+       "               (fxshl (fxand #x3f b2)  0))))\n"
+       "      (if (or (fx<=? #x800 n #xd7ff) (fx<=? #xe000 n #xffff))\n"
+       "        (integer->char n)\n"
+       "        #f))\n" /* surrogate half, or overlong UTF-8 sequence */
+       "    #f))"       /* invalid continuation byte b0 or b1 */
+       "\n"
+       /**
+        * interpret four bytes as UTF-8 sequence and return corresponding char.
+        * b0 is assumed to be in the range #xf0 <= b0 < #xf5
+        */
+       "(define (utf8-quadruplet->char b0 b1 b2 b3)\n"
+       "  (if (and (fx=? #x80 (fxand #xc0 b1))\n"  /* is b1 valid continuation byte ? */
+       "           (fx=? #x80 (fxand #xc0 b2))\n"  /* is b2 valid continuation byte ? */
+       "           (fx=? #x80 (fxand #xc0 b3)))\n" /* is b3 valid continuation byte ? */
+       "    (let ((n (fxior\n"
+       "               (fxshl (fxand #x07 b0) 18)\n"
+       "               (fxshl (fxand #x3f b1) 12)\n"
+       "               (fxshl (fxand #x3f b2)  6)\n"
+       "               (fxshl (fxand #x3f b3)  0))))\n"
+       "      (if (fx<=? #x10000 n #x10ffff)\n"
+       "        (integer->char n)\n"
+       "        #f))\n" /* overlong UTF-8 sequence, or beyond #x10ffff */
+       "    #f))"       /* invalid continuation byte b0, b1 or b2 */
+       "\n"
+       /**
+        * read up to max-n bytes from bytevector at offset start, interpret
+        * them as UTF-8 sequence and convert them to the corresponding char.
+        *
+        * Returns two values: converted char, and length in bytes of UTF-8 sequence.
+        * If UTF-8 sequence is incomplete, return #t instead of converted char.
+        * If UTF-8 sequence is invalid, return #f instead of converted char.
+        */
+       "(define (bytevector-utf8-ref vec start max-n)\n"
+       "  (assert (fx>=? start 0))\n"
+       "  (assert (fx>=? max-n 0))\n"
+       "  (assert (fx<=? start (bytevector-length vec)))\n"
+       "  (let* ((len (bytevector-length vec))\n"
+       "         (max-n (fxmin max-n (fx- len start)))\n"
+       "         (b0  (if (fx>? max-n 0) (bytevector-u8-ref vec start) -1)))\n"
+       "    (cond\n"
+       "      ((fx<? b0    0) (values #t 0))\n" /* 0 bytes available */
+       "      ((fx<? b0 #x80) (values (integer->char b0) 1))\n"
+       "      ((fx<? b0 #xc0) (values #f 1))\n"
+       "      ((fx<? b0 #xe0)\n"
+       "        (if (fx>? max-n 1)\n"
+       "          (let ((b1 (bytevector-u8-ref vec (fx1+ start))))\n"
+       "            (values (utf8-pair->char b0 b1) 2))\n"
+       "          (values #t 1)))\n" /* < 2 bytes available */
+       "      ((fx<? b0 #xf0)\n"
+       "        (if (fx>? max-n 2)\n"
+       "          (let ((b1 (bytevector-u8-ref vec (fx+ 1 start)))\n"
+       "                (b2 (bytevector-u8-ref vec (fx+ 2 start))))\n"
+       "            (values (utf8-triplet->char b0 b1 b2) 3))\n"
+       "          (values #t (fxmin 2 max-n))))\n" /* < 3 bytes available */
+       "      ((fx<? b0 #xf5)\n"
+       "        (if (fx>? max-n 3)\n"
+       "          (let ((b1 (bytevector-u8-ref vec (fx+ 1 start)))\n"
+       "                (b2 (bytevector-u8-ref vec (fx+ 2 start)))\n"
+       "                (b3 (bytevector-u8-ref vec (fx+ 3 start))))\n"
+       "            (values (utf8-quadruplet->char b0 b1 b2 b3) 4))\n"
+       "          (values #t (fxmin 3 max-n))))\n" /* < 4 bytes available */
+       "      (#t (values #f 1)))))\n"
+       "\n"
+       /**
+        * convert char to 2-byte UTF-8 sequence and return two values: the two converted bytes.
+        * ch is assumed to be in the range #x80 <= ch < #x800
+        */
+       "(define (char->utf8-pair ch)\n"
+       "  (let ((n (char->integer ch)))\n"
+       "    (values\n"
+       "      (fxior #xc0 (fxand #x3f (fxshr n 6)))\n"
+       "      (fxior #x80 (fxand #x3f n)))))\n"
+       "\n"
+       /**
+        * convert char to 3-byte UTF-8 sequence and return three values: the three converted bytes.
+        * ch is assumed to be in the range #x800 <= ch < #x1000
+        */
+       "(define (char->utf8-triplet ch)\n"
+       "  (let ((n (char->integer ch)))\n"
+       "    (values\n"
+       "      (fxior #xe0 (fxand #x0f (fxshr n 12)))\n"
+       "      (fxior #x80 (fxand #x3f (fxshr n 6)))\n"
+       "      (fxior #x80 (fxand #x3f n)))))\n"
+       "\n"
+       /**
+        * convert char to 4-byte UTF-8 sequence and return four values: the four converted bytes.
+        * ch is assumed to be in the range #x1000 <= ch < #x110000
+        */
+       "(define (char->utf8-quadruplet ch)\n"
+       "  (let ((n (char->integer ch)))\n"
+       "    (values\n"
+       "      (fxior #xf0 (fxand #x07 (fxshr n 18)))\n"
+       "      (fxior #x80 (fxand #x3f (fxshr n 12)))\n"
+       "      (fxior #x80 (fxand #x3f (fxshr n 6)))\n"
+       "      (fxior #x80 (fxand #x3f n)))))\n"
+       "\n"
+       /**
+        * convert a char to UTF-8 sequence and write it into given bytevector
+        * from offset = start.
+        * Returns one value: the length in bytes of written UTF-8 sequence.
+        * Raises condition if writing the UTF-8 sequence into bytevector starting
+        * from offset = start exceeds bytevector's length.
+        */
+       "(define (bytevector-utf8-set! vec start ch)\n"
+       "  (assert (fx>=? start 0))\n"
+       "  (assert (fx<?  start (bytevector-length vec)))\n"
+       "  (let ((n (char->integer ch)))\n"
+       "    (cond\n"
+       "      ((fx<? n 0) 0)\n" /* should not happen */
+       "      ((fx<? n #x80)\n"
+       "        (bytevector-u8-set! vec start n)\n"
+       "        1)\n"
+       "      ((fx<? n #x800)\n"
+       "        (let-values (((b0 b1) (char->utf8-pair ch)))\n"
+       "          (bytevector-u8-set! vec (fx1+ start) b1)"
+       "          (bytevector-u8-set! vec start b0))\n"
+       "        2)\n"
+       "      ((fx<? n #x10000)\n"
+       "        (let-values (((b0 b1 b2) (char->utf8-triplet ch)))\n"
+       "          (bytevector-u8-set! vec (fx+ 2 start) b2)\n"
+       "          (bytevector-u8-set! vec (fx+ 1 start) b1)\n"
+       "          (bytevector-u8-set! vec start b0))\n"
+       "        3)\n"
+       "      ((fx<? n #x110000)\n"
+       "        (let-values (((b0 b1 b2 b3) (char->utf8-quadruplet ch)))\n"
+       "          (bytevector-u8-set! vec (fx+ 3 start) b3)\n"
+       "          (bytevector-u8-set! vec (fx+ 2 start) b2)\n"
+       "          (bytevector-u8-set! vec (fx+ 1 start) b1)\n"
+       "          (bytevector-u8-set! vec start b0))\n"
+       "        4)\n"
+       "      (#t 0))))\n" /* should not happen */
+       "\n"
+       /* convert a char to UTF-8 sequence and return the length in bytes of UTF-8 sequence. */
+       "(define (char->utf8-length ch)\n"
+       "  (let ((n (char->integer ch)))\n"
+       "    (cond\n"
+       "      ((fx<? n   0) 0)\n" /* should not happen */
+       "      ((fx<? n #x80) 1)\n"
+       "      ((fx<? n #x800) 2)\n"
+       "      ((fx<? n #x10000) 3)\n"
+       "      ((fx<? n #x110000) 4)\n"
+       "      (#t 0))))\n" /* should not happen */
+       "\n"
+       /**
+        * read up to max-n bytes from bytespan at offset idx, interpret
+        * them as UTF-8 sequence and convert them to the corresponding char.
+        *
+        * Returns two values: converted char, and length in bytes of UTF-8 sequence.
+        * If UTF-8 sequence is incomplete, return #t instead of converted char.
+        * If UTF-8 sequence is invalid, return #f instead of converted char.
+        */
+       "(define (bytespan-utf8-ref sp idx max-n)\n"
+       "  (assert (fx>=? idx 0))\n"
+       "  (assert (fx<=? idx (bytespan-length sp)))\n"
+       "  (bytevector-utf8-ref (bytespan-peek-data sp)\n"
+       "    (fx+ idx (bytespan-peek-beg sp))\n"
+       "    (fxmin max-n (fx- (bytespan-length sp) idx))))\n"
+       "\n"
+       /* convert char to UTF-8 sequence and write it into bytespan starting at offset idx */
+       "(define (bytespan-utf8-set! sp idx ch)\n"
+       "  (assert (fx>=? idx 0))\n"
+       "  (assert (fx<=? idx (fx+ (bytespan-length sp) (char->utf8-length ch))))\n"
+       "  (bytevector-utf8-set! (bytespan-peek-data sp) (fx+ idx (bytespan-peek-beg sp)) ch))\n"
+       "\n"
+       /* returns length in bytes of inserted UTF-8 sequence */
+       "(define (bytespan-utf8-insert-front! sp ch)\n"
+       "  (let ((new-len (fx+ (bytespan-length sp) (char->utf8-length ch))))\n"
+       "    (bytespan-resize-front! sp new-len)\n"
+       "    (bytespan-utf8-set! sp 0 ch)))\n"
+       "\n"
+       /* returns length in bytes of inserted UTF-8 sequence */
+       "(define (bytespan-utf8-insert-back! sp ch)\n"
+       "  (let* ((old-len (bytespan-length sp))\n"
+       "         (new-len (fx+ old-len (char->utf8-length ch))))\n"
+       "    (bytespan-resize-back! sp new-len)\n"
+       "    (bytespan-utf8-set! sp old-len ch)))\n"
+       "\n"
+       ")\n"); /* close library */
+
+  eval("(import (schemesh containers utf8))\n");
+}
+
 void define_library_containers(void) {
   define_library_containers_misc();
   define_library_containers_hashtable();
@@ -1885,6 +1892,7 @@ void define_library_containers(void) {
   define_library_containers_charspan();
   define_library_containers_gbuffer();
   define_library_containers_chargbuffer();
+  define_library_containers_utf8();
 
   eval("(library (schemesh containers (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT ""
@@ -1893,14 +1901,16 @@ void define_library_containers(void) {
        /*        */ SCHEMESH_LIBRARY_CONTAINERS_BYTESPAN_EXPORT ""
        /*        */ SCHEMESH_LIBRARY_CONTAINERS_CHARSPAN_EXPORT ""
        /*        */ SCHEMESH_LIBRARY_CONTAINERS_GBUFFER_EXPORT ""
-       /*        */ SCHEMESH_LIBRARY_CONTAINERS_CHARGBUFFER_EXPORT ")\n"
+       /*        */ SCHEMESH_LIBRARY_CONTAINERS_CHARGBUFFER_EXPORT ""
+       /*        */ SCHEMESH_LIBRARY_CONTAINERS_UTF8_EXPORT ")\n"
        "  (import (schemesh containers misc)\n"
        "          (schemesh containers hashtable)\n"
        "          (schemesh containers span)\n"
        "          (schemesh containers bytespan)\n"
        "          (schemesh containers charspan)\n"
        "          (schemesh containers gbuffer)\n"
-       "          (schemesh containers chargbuffer)))\n");
+       "          (schemesh containers chargbuffer)\n"
+       "          (schemesh containers utf8)))\n");
 
   eval("(import (schemesh containers))\n");
 }
