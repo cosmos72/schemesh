@@ -1347,8 +1347,8 @@ static void define_library_containers_gbuffer(void) {
        "      (span-set! (gbuffer-right gb) (fx- idx left-n) val))))\n"
        "\n"
        "(define (gbuffer-clear! gb)\n"
-       "  (span-clear! (gbuffer-left  gb) 0)\n"
-       "  (span-clear! (gbuffer-right gb) 0))\n"
+       "  (span-clear! (gbuffer-left  gb))\n"
+       "  (span-clear! (gbuffer-right gb)))\n"
        "\n"
        "(define (gbuffer-split-at! gb idx)\n"
        "  (assert (fx>=? idx 0))\n"
@@ -1544,8 +1544,8 @@ static void define_library_containers_chargbuffer(void) {
        "      (charspan-set! (chargbuffer-right gb) (fx- idx left-n) val))))\n"
        "\n"
        "(define (chargbuffer-clear! gb)\n"
-       "  (charspan-clear! (chargbuffer-left  gb) 0)\n"
-       "  (charspan-clear! (chargbuffer-right gb) 0))\n"
+       "  (charspan-clear! (chargbuffer-left  gb))\n"
+       "  (charspan-clear! (chargbuffer-right gb)))\n"
        "\n"
        "(define (chargbuffer-split-at! gb idx)\n"
        "  (assert (fx>=? idx 0))\n"
@@ -1646,21 +1646,25 @@ static void define_library_containers_chargbuffer(void) {
        ")\n"); /* close library */
 }
 
-/** define Scheme functions converting chars from/to UTF8 and reading/writing them
- * into "bytevector" and "bytespan" */
-static void define_library_containers_utf8(void) {
+/**
+ * define Scheme utility functions on containers:
+ * a. converting chars from/to UTF8 and reading/writing them into "bytevector" and "bytespan"
+ * b. converting integers to decimal and writing them into "bytevector" and "bytespan"
+ */
+static void define_library_containers_utils(void) {
 
-#define SCHEMESH_LIBRARY_CONTAINERS_UTF8_EXPORT                                                    \
+#define SCHEMESH_LIBRARY_CONTAINERS_UTILS_EXPORT                                                   \
   "bytevector-utf8-ref bytevector-utf8-set! char->utf8-length "                                    \
-  "bytespan-utf8-ref bytespan-utf8-set! bytespan-utf8-insert-front! bytespan-utf8-insert-back! "
+  "bytespan-utf8-ref bytespan-utf8-set! bytespan-utf8-insert-front! bytespan-utf8-insert-back! "   \
+  "bytespan-fixnum-display-back! "
 
-  eval("(library (schemesh containers utf8 (0 1))\n"
-       "  (export " SCHEMESH_LIBRARY_CONTAINERS_UTF8_EXPORT ")\n"
+  eval("(library (schemesh containers utils (0 1))\n"
+       "  (export " SCHEMESH_LIBRARY_CONTAINERS_UTILS_EXPORT ")\n"
        "  (import\n"
        "    (rename (rnrs)\n"
        "      (fxarithmetic-shift-left  fxshl)\n"
        "      (fxarithmetic-shift-right fxshr))\n"
-       "    (only (chezscheme) fx1+)\n"
+       "    (only (chezscheme) fx1+ fx1-)\n"
        "    (schemesh containers misc)\n"
        "    (schemesh containers bytespan))\n"
        "\n"
@@ -1865,9 +1869,36 @@ static void define_library_containers_utf8(void) {
        "    (bytespan-resize-back! sp new-len)\n"
        "    (bytespan-utf8-set! sp old-len ch)))\n"
        "\n"
+       /* convert a fixnum to decimal digits and append the digits to bytespan */
+       "(define (bytespan-fixnum-display-back! sp n)\n"
+       "  (when (fx<? n 0)\n"
+       "    (bytespan-u8-insert-back! sp 45)" /* - */
+       "    (set! n (fx- n)))\n"              /* hope it does not overflow */
+       "  (if (fxzero? n)\n"
+       "    (bytespan-u8-insert-back! sp 48))\n" /* 0 */
+       "    (let ((max-digit-n (fx1+ (fxdiv (fx* (bitwise-length n) 3) 10)))\n"
+       "          (len (bytespan-length sp)))\n"
+       "      (bytespan-reserve-back! sp (fx+ len max-digit-n))\n"
+       "      (let* ((beg (bytespan-peek-end sp))\n" /* we write after bytespan-peek-end */
+       "             (end (fx+ beg max-digit-n))\n"
+       "             (pos end)\n"
+       "             (bv  (bytespan-peek-data sp)))\n" /* bytevector */
+       "        (do ()\n"
+       "            ((fxzero? n))\n"
+       "          (let-values (((n/10 n%10) (fxdiv-and-mod n 10)))\n"
+       "            (set! pos (fx1- pos))\n"
+       //"            (format #t \"beg = ~s, pos = ~s, end = ~s, n = ~s~%\" beg pos end n)\n"
+       "            (assert (fx>=? pos beg))\n"
+       "            (bytevector-u8-set! bv pos (fx+ 48 n%10))\n"
+       "            (set! n n/10)))\n"
+       "        (let ((digit-n (fx- end pos)))\n"
+       "          (when (fx>? pos beg)\n"
+       "            (bytevector-copy! bv pos bv beg digit-n))\n"
+       "          (bytespan-resize-back! sp (fx+ len digit-n))))))))\n"
+       "\n"
        ")\n"); /* close library */
 
-  eval("(import (schemesh containers utf8))\n");
+  eval("(import (schemesh containers utils))\n");
 }
 
 void define_library_containers(void) {
@@ -1878,7 +1909,7 @@ void define_library_containers(void) {
   define_library_containers_charspan();
   define_library_containers_gbuffer();
   define_library_containers_chargbuffer();
-  define_library_containers_utf8();
+  define_library_containers_utils();
 
   eval("(library (schemesh containers (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT ""
@@ -1888,7 +1919,7 @@ void define_library_containers(void) {
        /*        */ SCHEMESH_LIBRARY_CONTAINERS_CHARSPAN_EXPORT ""
        /*        */ SCHEMESH_LIBRARY_CONTAINERS_GBUFFER_EXPORT ""
        /*        */ SCHEMESH_LIBRARY_CONTAINERS_CHARGBUFFER_EXPORT ""
-       /*        */ SCHEMESH_LIBRARY_CONTAINERS_UTF8_EXPORT ")\n"
+       /*        */ SCHEMESH_LIBRARY_CONTAINERS_UTILS_EXPORT ")\n"
        "  (import (schemesh containers misc)\n"
        "          (schemesh containers hashtable)\n"
        "          (schemesh containers span)\n"
@@ -1896,7 +1927,7 @@ void define_library_containers(void) {
        "          (schemesh containers charspan)\n"
        "          (schemesh containers gbuffer)\n"
        "          (schemesh containers chargbuffer)\n"
-       "          (schemesh containers utf8)))\n");
+       "          (schemesh containers utils)))\n");
 
   eval("(import (schemesh containers))\n");
 }

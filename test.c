@@ -159,6 +159,16 @@ static const struct {
      "  (bytespan-utf8-insert-front! sp (integer->char #x10ffff))\n"
      "  sp)\n",
      "(bytespan 244 143 191 191)"},
+    /* ----------------- bytespan-fixnum-display ------------------ */
+    {"(let ((sp (bytespan)))\n"
+     "  (list-iterate '(0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000 "
+     "                  9999998 10000000 12345678 -1 -9 -10 -87654321)\n"
+     "    (lambda (n)\n"
+     "      (bytespan-fixnum-display-back! sp n)\n"
+     "      (bytespan-u8-insert-back! sp 32)))\n"
+     "  (bytespan->bytevector sp))\n",
+     "0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000 "
+     "9999998 10000000 12345678 -1 -9 -10 -87654321 "},
     /* ------------------------- span ----------------------------- */
     {"(span 1 2 3)", "(span 1 2 3)"},
     {"(list->span '(foo bar baz))", "(span foo bar baz)"},
