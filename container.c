@@ -1875,8 +1875,8 @@ static void define_library_containers_utils(void) {
        "    (bytespan-u8-insert-back! sp 45)\n" /* append '-' */
        "    (set! n (fx- n)))\n"                /* always work with negative fixnum: wider range */
        "  (if (fx>=? n -9)\n"
-       "    (bytespan-u8-insert-back! sp (fx- 48 n))\n" /* |n| + '0' */
-       "    (let ((max-digit-n (fx1+ (fxdiv (fx* (bitwise-length n) 3) 10)))\n"
+       "    (bytespan-u8-insert-back! sp (fx- 48 n))\n"                         /* |n| + '0' */
+       "    (let ((max-digit-n (fx1+ (fxdiv (fx* (bitwise-length n) 3) 10)))\n" /* upper bound */
        "          (len (bytespan-length sp)))\n"
        "      (bytespan-reserve-back! sp (fx+ len max-digit-n))\n"
        "      (let* ((beg (bytespan-peek-end sp))\n" /* we write after bytespan-peek-end */
