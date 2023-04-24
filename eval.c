@@ -12,6 +12,14 @@
 #include <stddef.h> /* NULL */
 
 /**
+ * call global Scheme procedure with no arguments.
+ * Return the resulting Scheme value.
+ */
+ptr call0(const char symbol_name[]) {
+  return Scall0(Stop_level_value(Sstring_to_symbol(symbol_name)));
+}
+
+/**
  * call global Scheme procedure having specified symbol name
  * passing a single Scheme argument to it.
  * Return the resulting Scheme value.

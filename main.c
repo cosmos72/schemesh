@@ -71,6 +71,16 @@ int main(int argc, const char* argv[]) {
   on_exception = EVAL_FAILED;
 again:
 #if 1
+  (void)argc;
+  (void)argv;
+  (void)buf;
+  (void)start;
+  (void)end;
+  (void)&show;
+  (void)&diff;
+  c_errno_set(0);
+  call0("sh-repl");
+#elif 1
   (void)buf;
   (void)start;
   (void)end;
@@ -79,7 +89,7 @@ again:
   Senable_expeditor(NULL);
   c_errno_set(0); /* not enough, Scheme (errno) still returns -11 */
   Sscheme_start(argc, argv);
-#else  /*0*/
+#else
   (void)argc;
   (void)argv;
   c_errno_set(0);
