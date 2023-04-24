@@ -1871,11 +1871,11 @@ static void define_library_containers_utils(void) {
        "\n"
        /* convert a fixnum to decimal digits and append the digits to bytespan */
        "(define (bytespan-fixnum-display-back! sp n)\n"
-       "  (when (fx<? n 0)\n"
-       "    (bytespan-u8-insert-back! sp 45)" /* - */
-       "    (set! n (fx- n)))\n"              /* hope it does not overflow */
-       "  (if (fxzero? n)\n"
-       "    (bytespan-u8-insert-back! sp 48))\n" /* 0 */
+       "  (if (fx<? n 0)\n"
+       "    (bytespan-u8-insert-back! sp 45)\n" /* append '-' */
+       "    (set! n (fx- n)))\n"                /* always work with negative fixnum: wider range */
+       "  (if (fx>=? n -9)\n"
+       "    (bytespan-u8-insert-back! sp (fx- 48 n))\n" /* |n| + '0' */
        "    (let ((max-digit-n (fx1+ (fxdiv (fx* (bitwise-length n) 3) 10)))\n"
        "          (len (bytespan-length sp)))\n"
        "      (bytespan-reserve-back! sp (fx+ len max-digit-n))\n"
@@ -1886,15 +1886,15 @@ static void define_library_containers_utils(void) {
        "        (do ()\n"
        "            ((fxzero? n))\n"
        "          (let-values (((n/10 n%10) (fxdiv-and-mod n 10)))\n"
+       "            (set! n%10 (if (fxzero? n%10) 0 (fx- 10 n%10)))\n"
        "            (set! pos (fx1- pos))\n"
-       //"            (format #t \"beg = ~s, pos = ~s, end = ~s, n = ~s~%\" beg pos end n)\n"
        "            (assert (fx>=? pos beg))\n"
        "            (bytevector-u8-set! bv pos (fx+ 48 n%10))\n"
-       "            (set! n n/10)))\n"
+       "            (set! n (if (fxzero? n%10) n/10 (fx1+ n/10)))))\n\n"
        "        (let ((digit-n (fx- end pos)))\n"
        "          (when (fx>? pos beg)\n"
        "            (bytevector-copy! bv pos bv beg digit-n))\n"
-       "          (bytespan-resize-back! sp (fx+ len digit-n))))))))\n"
+       "          (bytespan-resize-back! sp (fx+ len digit-n)))))))\n"
        "\n"
        ")\n"); /* close library */
 
