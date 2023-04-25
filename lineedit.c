@@ -21,9 +21,10 @@ void define_library_lineedit(void) {
        "    lineedit-key-del-char-left lineedit-key-del-char-right\n"
        "    lineedit-key-del-word-left lineedit-key-del-word-right\n"
        "    lineedit-key-del-line lineedit-key-del-bol lineedit-key-del-eol\n"
-       "    lineedit-key-enter lineedit-key-redraw lineedit-key-tab\n"
+       "    lineedit-key-enter lineedit-key-newline-left lineedit-key-newline-right\n"
+       "    lineedit-key-redraw lineedit-key-tab\n"
        "    lineedit-key-history-next lineedit-key-history-prev\n"
-       "    lineedit-keytable-set! lineedit-keytable-find lineedit-timed\n"
+       "    lineedit-keytable-set! lineedit-keytable-find lineedit-read\n"
        "    sh-lineedit sh-repl)\n"
        "  (import\n"
        "    (rnrs)\n"
@@ -36,21 +37,23 @@ void define_library_lineedit(void) {
        "(define-record-type\n"
        "  (linectx %make-linectx linectx?)\n"
        "  (fields\n"
-       "    (mutable rbuf)\n"       /* bytespan, buffer for (fd-read) */
-       "    (mutable wbuf)\n"       /* bytespan, buffer for (fd-write) */
-       "    (mutable line)\n"       /* chargbuffer, input's current line being edited */
-       "    (mutable lines)\n"      /* gbuffer of chargbuffers, input being edited */
-       "    (mutable state)\n"      /* bytespan, stack of nested ( [ { and " */
-       "    (mutable x)\n"          /* fixnum, cursor x position in line */
-       "    (mutable y)\n"          /* fixnum, cursor y position in lines*/
-       "    (mutable save-x)\n"     /* fixnum, saved cursor x position */
-       "    (mutable save-y)\n"     /* fixnum, saved cursor y position */
-       "    (mutable rows)\n"       /* fixnum, max number of rows being edited */
-       "    (mutable width)\n"      /* fixnum, terminal width */
-       "    (mutable height)\n"     /* fixnum, terminal height */
-       "    (mutable stdin)\n"      /* input file descriptor, or binary input port */
-       "    (mutable stdout)\n"     /* output file descriptor, or binary output port */
-       "    (mutable eof)\n"        /* bool */
+       "    (mutable rbuf)\n"   /* bytespan, buffer for (fd-read) */
+       "    (mutable wbuf)\n"   /* bytespan, buffer for (fd-write) */
+       "    (mutable line)\n"   /* chargbuffer, input's current line being edited */
+       "    (mutable lines)\n"  /* gbuffer of chargbuffers, input being edited */
+       "    (mutable state)\n"  /* bytespan, stack of nested ( [ { and " */
+       "    (mutable x)\n"      /* fixnum, cursor x position in line */
+       "    (mutable y)\n"      /* fixnum, cursor y position in lines*/
+       "    (mutable save-x)\n" /* fixnum, saved cursor x position */
+       "    (mutable save-y)\n" /* fixnum, saved cursor y position */
+       "    (mutable rows)\n"   /* fixnum, max number of rows being edited */
+       "    (mutable width)\n"  /* fixnum, terminal width */
+       "    (mutable height)\n" /* fixnum, terminal height */
+       "    (mutable stdin)\n"  /* input file descriptor, or binary input port */
+       "    (mutable stdout)\n" /* output file descriptor, or binary output port */
+       "    (mutable read-timeout-milliseconds)\n"                  /* -1 means unlimited timeout */
+       "    (mutable return linectx-return? linectx-return-set!)\n" /* bool */
+       "    (mutable eof linectx-eof? linectx-eof-set!)\n"          /* bool */
        "    (mutable keytable)))\n" /* hastable, contains keybindings */
        "\n"
        "(define lineedit-default-keytable (eq-hashtable))\n"
@@ -67,10 +70,15 @@ void define_library_lineedit(void) {
        "    (bytespan-reserve-back! state 32)\n"
        "    (%make-linectx\n"
        "      rbuf wbuf line lines state\n"
-       "      0 0 -1 -1 1\n"                         /* x y save-x save-y rows    */
-       "      (if (pair? sz) (car sz) 80)\n"         /* width                     */
-       "      (if (pair? sz) (cdr sz) 24)\n"         /* height                    */
-       "      0 1 #f lineedit-default-keytable)))\n" /* stdin stdout eof keytable */
+       "      0 0 -1 -1 1\n"                  /* x y save-x save-y rows    */
+       "      (if (pair? sz) (car sz) 80)\n"  /* width                     */
+       "      (if (pair? sz) (cdr sz) 24)\n"  /* height                    */
+       "      0 1 -1 #f #f \n"                /* stdin stdout timeout return eof  */
+       "      lineedit-default-keytable)))\n" /* keytable */
+       "\n"
+       /* write a byte to wbuf */
+       "(define (linectx-u8-write ctx val)\n"
+       "  (bytespan-u8-insert-back! (linectx-wbuf ctx) val))\n"
        "\n"
        /* write a portion of given bytevector to wbuf */
        "(define (linectx-bv-write ctx bv start end)\n"
@@ -198,10 +206,10 @@ void define_library_lineedit(void) {
        "      (linectx-bv-write ctx #vu8(27 91 67) 0 3))))\n" /* ESC [ C */
        "\n"
        "(define (lineedit-key-up ctx)\n"
-       "  (display \"^^\"))\n"
+       "  (void))\n"
        "\n"
        "(define (lineedit-key-down ctx)\n"
-       "  (display \"vv\"))\n"
+       "  (void))\n"
        "\n"
        "(define (lineedit-key-word-left ctx)\n"
        "  (void))\n"
@@ -258,8 +266,15 @@ void define_library_lineedit(void) {
        "(define (lineedit-key-del-eol ctx)\n"
        "  (void))\n"
        "\n"
-       "(define (lineedit-key-enter ctx)\n"
+       "(define (lineedit-key-newline-left ctx)\n"
        "  (void))\n"
+       "\n"
+       "(define (lineedit-key-newline-right ctx)\n"
+       "  (void))\n"
+       "\n"
+       "(define (lineedit-key-enter ctx)\n"
+       "  (linectx-return-set! ctx #t)\n"
+       "  (linectx-u8-write ctx 10))\n"
        "\n"
        "(define (lineedit-key-history-next ctx)\n"
        "  (void))\n"
@@ -328,10 +343,6 @@ void define_library_lineedit(void) {
        "  (assert (linectx? ctx))\n"
        "  (let-values (((proc n) (lineedit-keytable-find\n"
        "                           (linectx-keytable ctx) (linectx-rbuf ctx))))\n"
-#if 0
-       "    (format #t \"lineedit-keytable-call: rbuf = ~s, proc = ~s, n = ~s~%\"\n"
-       "      (linectx-rbuf ctx) proc n)\n"
-#endif
        "    (cond\n"
        "      ((procedure? proc) (proc ctx))\n"
        "      ((hashtable? proc) (set! n 0))\n" /* incomplete sequence, wait for more keystrokes */
@@ -344,12 +355,14 @@ void define_library_lineedit(void) {
        "\n"
        /** repeatedly call (lineedit-keytable-call) until no more matches are found */
        "(define (lineedit-keytable-iterate ctx)\n"
+       "  (linectx-return-set! ctx #f)\n"
        "  (do ()\n"
-       "      ((or (linectx-eof ctx)\n"
+       "      ((or (linectx-return? ctx)\n"
+       "           (linectx-eof? ctx)\n"
        "           (bytespan-empty? (linectx-rbuf ctx))\n"
        "           (fxzero? (lineedit-keytable-call ctx))))))\n"
        "\n"
-       "(define (linectx-read-timed ctx timeout-milliseconds)\n"
+       "(define (linectx-read ctx)\n"
        "  (let* ((rbuf (linectx-rbuf ctx))\n"
        "         (rlen (bytespan-length rbuf))\n"
        "         (max-n 1024)\n"
@@ -358,7 +371,7 @@ void define_library_lineedit(void) {
        /*   ensure bytespan-capacity-back is large enough */
        "    (bytespan-reserve-back! rbuf (fx+ rlen max-n))\n"
        "    (if (fixnum? stdin)\n"
-       "      (when (eq? 'read (fd-select stdin 'read timeout-milliseconds))\n"
+       "      (when (eq? 'read (fd-select stdin 'read (linectx-read-timeout-milliseconds ctx)))\n"
        "        (set! got (fd-read stdin (bytespan-peek-data rbuf)\n"
        "                           (bytespan-peek-end rbuf) max-n)))\n"
        "      (let ((n (get-bytevector-n! stdin (bytespan-peek-data rbuf)\n"
@@ -370,47 +383,85 @@ void define_library_lineedit(void) {
        "    (assert (fx<=? 0 got max-n))\n"
        "    got))\n"
        "\n"
-       "(define (lineedit-timed ctx timeout-milliseconds)\n"
+       /**
+        * if user pressed ENTER, return a reference to internal chargbuffer.
+        * if waiting for more keypresses, return #t
+        * if got end-of-file, return #f
+        */
+       "(define (lineedit-read ctx)\n"
        "  (assert (linectx? ctx))\n"
-       "  (assert (fixnum? timeout-milliseconds))\n"
        "  (flush-output-port (current-output-port))\n"
-       "  (let ((got (linectx-read-timed ctx timeout-milliseconds)))\n"
-       "    (when (fx>? got 0)\n"
-       "      (lineedit-keytable-iterate ctx)\n"
-       "      (not (linectx-eof ctx)))))\n"
+       /** TODO: if rbuf is non-empty, call (lineedit-keytable-iterate) before reading more bytes */
+       "  (let ((got (linectx-read ctx)))\n"
+       "    (if (fx<=? got 0)\n"
+       "      #f\n"
+       "      (begin\n"
+       "        (lineedit-keytable-iterate ctx)\n"
+       "        (linectx-flush ctx)\n"
+       "        (cond\n"
+       "          ((linectx-return? ctx) (linectx-lines ctx))\n"
+       "          ((linectx-eof?    ctx) #f)\n"
+       "          (#t #t))))))\n"
        "\n"
+       /** parse gbuffer of chargbuffers, return corresponding shell commands */
+       "(define (sh-parse gb)\n"
+#if 1
+       "  (display gb)\n"
+       "  (display #\\newline)\n"
+#else
+       "  (assert (gbuffer? gb))\n"
+       "  (write (chargbuffer->string gb))\n"
+       "  (display #\\newline)\n"
+#endif
+       /** TODO: implement */
+       "  '())\n"
+       "\n"
+       /** execute parsed shell commands and return their exit status */
+       "(define (sh-exec commands)\n"
+       "  (assert (or (pair? commands) (null? commands)))\n"
+       /** TODO: implement */
+       "  0)\n"
+       /**
+        * if user pressed ENTER, execute entered commands and return their exit status.
+        * if waiting for more keypresses, return #t
+        * if got end-of-file, return #f
+        */
        "(define (sh-lineedit ctx)\n"
-       "  (lineedit-timed ctx -1))\n"
+       "  (let ((gb (lineedit-read ctx)))\n"
+       "    (if (boolean? gb)\n"
+       "      gb\n"
+       "      (sh-exec (sh-parse gb)))))\n"
        "\n"
        "(define (sh-repl)\n"
        "  (let ((ctx (make-linectx)))\n"
        "    (lineedit-init! ctx)"
        "    (dynamic-wind\n"
        "      tty-setraw!\n"                /* run before body */
-       "      (lambda ()\n"                 /* body            */
-       "        (while (sh-lineedit ctx)\n" /*                 */
-       "          (linectx-flush ctx)))\n"  /*                 */
+       "      (lambda ()\n"                 /*                 */
+       "        (while (sh-lineedit ctx)\n" /* body            */
+       "          (void)))\n"               /*                 */
        "      (lambda ()\n"                 /* run after body  */
        "        (linectx-flush ctx)\n"
        "        (tty-restore!)))))\n"
        "\n"
        "(let ((t lineedit-default-keytable)\n"
        "      (%add lineedit-keytable-set!))\n"
-       "(%add t lineedit-key-bol 1)\n"                   /* CTRL+A           */
-       "(%add t lineedit-key-left 2)\n"                  /* CTRL+B           */
-       "(%add t lineedit-key-break 3)\n"                 /* CTRL+C           */
-       "(%add t lineedit-key-ctrl-d 4)\n"                /* CTRL+D           */
-       "(%add t lineedit-key-eol 5)\n"                   /* CTRL+E           */
-       "(%add t lineedit-key-right 6)\n"                 /* CTRL+F           */
-       "(%add t lineedit-key-del-char-left 8 127)\n"     /* CTRL+H or BACKSPACE */
-       "(%add t lineedit-key-tab 9)\n"                   /* CTRL+I or TAB    */
-       "(%add t lineedit-key-enter 10 13 '(27 79 77))\n" /* CTRL+J or ENTER, CTRL+M, KP-ENTER */
-       "(%add t lineedit-key-del-eol 11)\n"              /* CTRL+K           */
-       "(%add t lineedit-key-redraw 12)\n"               /* CTRL+L           */
-       "(%add t lineedit-key-history-next 14)\n"         /* CTRL+N           */
-       "(%add t lineedit-key-history-prev 16)\n"         /* CTRL+P           */
-       "(%add t lineedit-key-transpose-char 20)\n"       /* CTRL+T           */
-       "(%add t lineedit-key-del-line 21)\n"             /* CTRL+U           */
+       "(%add t lineedit-key-bol 1)\n"               /* CTRL+A        */
+       "(%add t lineedit-key-left 2)\n"              /* CTRL+B        */
+       "(%add t lineedit-key-break 3)\n"             /* CTRL+C        */
+       "(%add t lineedit-key-ctrl-d 4)\n"            /* CTRL+D        */
+       "(%add t lineedit-key-eol 5)\n"               /* CTRL+E        */
+       "(%add t lineedit-key-right 6)\n"             /* CTRL+F        */
+       "(%add t lineedit-key-del-char-left 8 127)\n" /* CTRL+H or BACKSPACE */
+       "(%add t lineedit-key-tab 9)\n"               /* CTRL+I or TAB */
+       "(%add t lineedit-key-enter 10 13)\n"         /* CTRL+J or ENTER, CTRL+M */
+       "(%add t lineedit-key-del-eol 11)\n"          /* CTRL+K        */
+       "(%add t lineedit-key-redraw 12)\n"           /* CTRL+L        */
+       "(%add t lineedit-key-history-next 14)\n"     /* CTRL+N        */
+       "(%add t lineedit-key-newline-right 15)\n"    /* CTRL+O        */
+       "(%add t lineedit-key-history-prev 16)\n"     /* CTRL+P        */
+       "(%add t lineedit-key-transpose-char 20)\n"   /* CTRL+T        */
+       "(%add t lineedit-key-del-line 21)\n"         /* CTRL+U        */
        /* CTRL+W, CTRL+BACKSPACE, ALT+BACKSPACE */
        "(%add t lineedit-key-del-word-left 23 31 '(27 127))\n"
        /* sequences starting with ESC */
@@ -424,6 +475,7 @@ void define_library_lineedit(void) {
        "(%add t lineedit-key-left  '(27 79 68))\n"            /* LEFT  \eOD  */
        "(%add t lineedit-key-eol   '(27 79 70))\n"            /* END   \eOF  */
        "(%add t lineedit-key-bol   '(27 79 72))\n"            /* HOME  \eOH  */
+       "(%add t lineedit-key-newline-left '(27 79 77))\n"     /* KPRET \eOM  */
        "(%add t lineedit-key-nop   '(27 79 80) \n"            /* NUM-LOCK    */
        "   '(27 79 81) '(27 79 82) '(27 79 83))\n"            /* KP/ KP* KP- */
        /* sequences starting with ESC [ */                    /*             */
@@ -436,6 +488,9 @@ void define_library_lineedit(void) {
        "(%add t lineedit-key-bol   '(27 91 49 126))\n"        /* HOME  \e[1~ */
        "(%add t lineedit-key-history-prev '(27 91 53 126))\n" /* PGUP  \e[5~ */
        "(%add t lineedit-key-history-next '(27 91 54 126))\n" /* PGDWN \e[6~ */
+       /* */
+       "(%add t lineedit-key-nop   '(27 79 80) '(27 79 81) '(27 79 82)\n" /* F1..F3 */
+       "    '(27 79 82) '(27 91 49 53 126))\n"                            /* F4..F5 */
        /* */
        "(%add t lineedit-key-nop   '(27 91 91 65) '(27 91 91 66) '(27 91 91 67)\n" /* F1..F3 */
        "    '(27 91 91 68) '(27 91 91 69) '(27 91 49 55 126) '(27 91 49 56 126)\n" /* F4..F7 */
