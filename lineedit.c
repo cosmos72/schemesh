@@ -14,7 +14,7 @@ void define_library_lineedit(void) {
   eval("(library (schemesh lineedit (0 1))\n"
        "  (export\n"
        "    make-linectx linectx? lineedit-default-keytable\n"
-       "    lineedit-init! linectx-stdin-set! linectx-stdout-set! linectx-rbuf-insert!\n"
+       "    lineedit-clear! linectx-stdin-set! linectx-stdout-set! linectx-rbuf-insert!\n"
        "    lineedit-key-nop lineedit-key-left lineedit-key-right lineedit-key-up lineedit-key-down"
        "    lineedit-key-word-left lineedit-key-word-right lineedit-key-bol lineedit-key-eol\n"
        "    lineedit-key-break lineedit-key-ctrl-d lineedit-key-transpose-char\n"
@@ -75,6 +75,19 @@ void define_library_lineedit(void) {
        "      (if (pair? sz) (cdr sz) 24)\n"  /* height                    */
        "      0 1 -1 #f #f \n"                /* stdin stdout timeout return eof  */
        "      lineedit-default-keytable)))\n" /* keytable */
+       "\n"
+       /* clear lines and line: they have been parsed and executed */
+       "(define (linectx-clear! ctx)\n"
+       "  (let ((line (linectx-line ctx))\n"
+       "        (lines (linectx-lines ctx)))\n"
+       "    (linectx-x-set! ctx 0)\n"
+       "    (linectx-y-set! ctx 0)\n"
+       "    (linectx-save-x-set! ctx -1)\n"
+       "    (linectx-save-y-set! ctx -1)\n"
+       "    (chargbuffer-clear! line)\n"
+       "    (gbuffer-clear! lines)\n"
+       "    (gbuffer-insert-at! lines 0 line)\n"
+       "    (linectx-return-set! ctx #f)))\n"
        "\n"
        /* write a byte to wbuf */
        "(define (linectx-u8-write ctx val)\n"
@@ -148,14 +161,8 @@ void define_library_lineedit(void) {
        "          (put-bytevector stdout bv beg n))\n"
        "        (bytespan-clear! wbuf)))))\n"
        "\n"
-       "(define (lineedit-init! ctx)\n"
-       "  (linectx-x-set! ctx 0)\n"
-       "  (linectx-y-set! ctx 0)\n"
-       "  (let ((line  (linectx-line ctx))\n"
-       "        (lines (linectx-lines ctx)))\n"
-       "    (chargbuffer-clear! line)\n"
-       "    (gbuffer-clear! lines)\n"
-       "    (gbuffer-insert-at! lines 0 line))\n"
+       "(define (lineedit-clear! ctx)\n"
+       "  (linectx-clear! ctx)\n"
        /* \r ESC [ K */
        "  (linectx-bv-write ctx #vu8(13 27 91 75) 0 4)\n"
        "  (linectx-flush ctx))\n"
@@ -249,7 +256,11 @@ void define_library_lineedit(void) {
        "         (len  (chargbuffer-length line)))\n"
        "    (when (fx<? x len)\n"
        "      (chargbuffer-erase-at! line x 1)\n"
+#if 1
+       "      (linectx-bv-write ctx #vu8(27 91 80) 0 3))))\n" /* VT102 sequence: ESC [ P */
+#else
        "      (linectx-redraw-to-eol ctx 'clear-line-right))))\n"
+#endif
        "\n"
        "(define (lineedit-key-del-word-left ctx)\n"
        "  (void))\n"
@@ -339,7 +350,7 @@ void define_library_lineedit(void) {
        "          (#t                 (values #f    (bytespan-length rbuf))))))))\n"
        "\n"
        /** find one key sequence in lineedit-keytable matching rbuf and execute it */
-       "(define (lineedit-keytable-call ctx)\n"
+       "(define (linectx-keytable-call ctx)\n"
        "  (assert (linectx? ctx))\n"
        "  (let-values (((proc n) (lineedit-keytable-find\n"
        "                           (linectx-keytable ctx) (linectx-rbuf ctx))))\n"
@@ -353,15 +364,29 @@ void define_library_lineedit(void) {
        "        (bytespan-clear! rbuf)))\n" /* set begin, end to 0 */
        "    n))\n"
        "\n"
-       /** repeatedly call (lineedit-keytable-call) until no more matches are found */
-       "(define (lineedit-keytable-iterate ctx)\n"
-       "  (linectx-return-set! ctx #f)\n"
+       /**
+        * repeatedly call (linectx-keytable-call) until ENTER is found and processed,
+        * or until no more keytable matches are found.
+        * if user pressed ENTER, return a reference to internal chargbuffer.
+        * if waiting for more keypresses, return #t
+        * if got end-of-file, return #f
+        */
+       "(define (linectx-keytable-iterate ctx)\n"
+       "  (when (linectx-return? ctx)\n"
+       "    (linectx-clear! ctx))\n"
        "  (do ()\n"
        "      ((or (linectx-return? ctx)\n"
        "           (linectx-eof? ctx)\n"
        "           (bytespan-empty? (linectx-rbuf ctx))\n"
-       "           (fxzero? (lineedit-keytable-call ctx))))))\n"
+       "           (fxzero? (linectx-keytable-call ctx)))))\n"
+       "  (linectx-flush ctx)\n"
+       "  (cond\n"
+       "    ((linectx-return? ctx) (linectx-lines ctx))\n"
+       "    ((linectx-eof?    ctx) #f)\n"
+       "    (#t #t)))\n"
        "\n"
+       /* read some bytes from (linectx-stdin ctx) and append them to (linectx-rbuf ctx).
+        * return number of read bytes */
        "(define (linectx-read ctx)\n"
        "  (let* ((rbuf (linectx-rbuf ctx))\n"
        "         (rlen (bytespan-length rbuf))\n"
@@ -391,17 +416,18 @@ void define_library_lineedit(void) {
        "(define (lineedit-read ctx)\n"
        "  (assert (linectx? ctx))\n"
        "  (flush-output-port (current-output-port))\n"
-       /** TODO: if rbuf is non-empty, call (lineedit-keytable-iterate) before reading more bytes */
-       "  (let ((got (linectx-read ctx)))\n"
-       "    (if (fx<=? got 0)\n"
-       "      #f\n"
-       "      (begin\n"
-       "        (lineedit-keytable-iterate ctx)\n"
-       "        (linectx-flush ctx)\n"
-       "        (cond\n"
-       "          ((linectx-return? ctx) (linectx-lines ctx))\n"
-       "          ((linectx-eof?    ctx) #f)\n"
-       "          (#t #t))))))\n"
+       "  (let ((ret (if (bytespan-empty? (linectx-rbuf ctx))\n"
+       "               #t\n"
+       /*              some bytes already in rbuf, try to consume them */
+       "               (linectx-keytable-iterate))))\n"
+       "    (if (eq? #t ret)\n"
+       "      (if (fx>? (linectx-read ctx) 0)\n"
+       /*       got some bytes, call again (linectx-keytable-iterate) and return its value */
+       "        (linectx-keytable-iterate ctx)\n"
+       /*       got end-of-file, return #f */
+       "        #f)\n"
+       /*     propagate return value of first (linectx-keytable-iterate) */
+       "      ret)))\n"
        "\n"
        /** parse gbuffer of chargbuffers, return corresponding shell commands */
        "(define (sh-parse gb)\n"
@@ -434,7 +460,7 @@ void define_library_lineedit(void) {
        "\n"
        "(define (sh-repl)\n"
        "  (let ((ctx (make-linectx)))\n"
-       "    (lineedit-init! ctx)"
+       "    (lineedit-clear! ctx)"
        "    (dynamic-wind\n"
        "      tty-setraw!\n"                /* run before body */
        "      (lambda ()\n"                 /*                 */
