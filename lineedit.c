@@ -18,9 +18,9 @@ void define_library_lineedit(void) {
        "    lineedit-key-nop lineedit-key-left lineedit-key-right lineedit-key-up lineedit-key-down"
        "    lineedit-key-word-left lineedit-key-word-right lineedit-key-bol lineedit-key-eol\n"
        "    lineedit-key-break lineedit-key-ctrl-d lineedit-key-transpose-char\n"
-       "    lineedit-key-del-char-left lineedit-key-del-char-right\n"
+       "    lineedit-key-del-left lineedit-key-del-right\n"
        "    lineedit-key-del-word-left lineedit-key-del-word-right\n"
-       "    lineedit-key-del-line lineedit-key-del-bol lineedit-key-del-eol\n"
+       "    lineedit-key-del-line lineedit-key-del-line-left lineedit-key-del-line-right\n"
        "    lineedit-key-enter lineedit-key-newline-left lineedit-key-newline-right\n"
        "    lineedit-key-redraw lineedit-key-tab\n"
        "    lineedit-key-history-next lineedit-key-history-prev\n"
@@ -112,9 +112,9 @@ void define_library_lineedit(void) {
        "      (linectx-bv-write ctx #vu8(27 91 68) 0 3))\n" /* ESC [ D */
        "    (#t\n"
        "      (let ((wbuf (linectx-wbuf ctx)))\n"
-       "        (bytespan-u8-insert-back! wbuf 27 91)\n" /* ESC [ */
-       "        (bytespan-fixnum-display-back! wbuf n)\n"
-       "        (bytespan-u8-insert-back! wbuf 68)))))" /* D */
+       "        (bytespan-u8-insert-back! wbuf 27 91)\n"  /* ESC [ */
+       "        (bytespan-fixnum-display-back! wbuf n)\n" /* n     */
+       "        (bytespan-u8-insert-back! wbuf 68)))))"   /* D     */
        "\n"
        /* send escape sequence "move cursor right by n", without checking or updating linectx-x */
        "(define (linectx-tty-move-right-n ctx n)\n"
@@ -124,18 +124,19 @@ void define_library_lineedit(void) {
        "      (linectx-bv-write ctx #vu8(27 91 67) 0 3))\n" /* ESC [ C */
        "    (#t\n"
        "      (let ((wbuf (linectx-wbuf ctx)))\n"
-       "        (bytespan-u8-insert-back! wbuf 27 91)\n" /* ESC [ */
-       "        (bytespan-fixnum-display-back! wbuf n)\n"
-       "        (bytespan-u8-insert-back! wbuf 67)))))" /* C */
+       "        (bytespan-u8-insert-back! wbuf 27 91)\n"  /* ESC [ */
+       "        (bytespan-fixnum-display-back! wbuf n)\n" /* n     */
+       "        (bytespan-u8-insert-back! wbuf 67)))))"   /* C     */
        "\n"
        /* send escape sequence "move to begin-of-line" */
        "(define (linectx-tty-move-to-bol ctx)\n"
-       "  (linectx-bv-write ctx #vu8(13) 0 1))\n" /* CTRL+M */
+       "  (linectx-u8-write ctx 13))\n" /* CTRL+M i.e. '\r' */
        "\n"
        /* send escape sequence "clear from cursor to end-of-line" */
        "(define (linectx-tty-clear-to-eol ctx)\n"
        "  (linectx-bv-write ctx #vu8(27 91 75) 0 3))\n" /* ESC [ K */
        "\n"
+       /* clear-line-right must be either 'clear-line-right or 'dont-clear-line-right*/
        "(define (linectx-redraw-to-eol ctx clear-line-right)\n"
        "  (let* ((line (linectx-line ctx))\n"
        "         (beg  (linectx-x ctx))\n"
@@ -163,8 +164,8 @@ void define_library_lineedit(void) {
        "\n"
        "(define (lineedit-clear! ctx)\n"
        "  (linectx-clear! ctx)\n"
-       /* \r ESC [ K */
-       "  (linectx-bv-write ctx #vu8(13 27 91 75) 0 4)\n"
+       "  (linectx-tty-move-to-bol ctx)\n"
+       "  (linectx-tty-clear-to-eol ctx)\n"
        "  (linectx-flush ctx))\n"
        "\n"
        /* consume up to n bytes from rbuf and insert them into current line.
@@ -226,35 +227,52 @@ void define_library_lineedit(void) {
        "\n"
        "(define (lineedit-key-bol ctx)\n"
        "  (when (fx>? (linectx-x ctx) 0)\n"
-       "    (linectx-tty-move-to-bol ctx)\n"
-       "    (linectx-x-set! ctx 0)))\n"
+       "    (linectx-x-set! ctx 0)\n"
+       "    (linectx-tty-move-to-bol ctx)))\n"
        "\n"
        "(define (lineedit-key-eol ctx)\n"
        "  (let ((x    (linectx-x ctx))\n"
        "        (len  (chargbuffer-length (linectx-line ctx))))\n"
        "    (when (fx<? x len)\n"
-       "      (linectx-tty-move-right-n ctx (fx- len x))\n"
-       "      (linectx-x-set! ctx len))))\n"
+       "      (linectx-x-set! ctx len)\n"
+       "      (linectx-tty-move-right-n ctx (fx- len x)))))\n"
        "\n"
        "(define (lineedit-key-break ctx)\n"
        "  (void))\n"
        "\n"
        "(define (lineedit-key-ctrl-d ctx)\n"
-       "  (linectx-eof-set! ctx #t))\n" /** FIXME: temporary */
+       "  (if (and (fx=? 0 (chargbuffer-length (linectx-line ctx)))\n"
+       "           (fx=? 1 (gbuffer-length (linectx-lines ctx))))\n"
+       "    (linectx-eof-set! ctx #t)\n"
+       "    (lineedit-key-del-right ctx)))\n"
        "\n"
        "(define (lineedit-key-transpose-char ctx)\n"
-       "  (void))\n"
-       "\n"
-       "(define (lineedit-key-del-char-left ctx)\n"
-       "  (when (fx>? (linectx-x ctx) 0)\n"
-       "    (lineedit-key-left ctx)\n"
-       "    (lineedit-key-del-char-right ctx)))\n"
-       "\n"
-       "(define (lineedit-key-del-char-right ctx)\n"
        "  (let* ((x    (linectx-x ctx))\n"
        "         (line (linectx-line ctx))\n"
        "         (len  (chargbuffer-length line)))\n"
-       "    (when (fx<? x len)\n"
+       "    (when (and (fx>? x 0) (fx>? len 1))\n"
+       "      (let ((eol (fx=? x len)))\n"
+       "        (linectx-tty-move-left-n ctx (if eol 2 1))\n"
+       "        (when eol\n"
+       "          (set! x (fx1- x))))\n"
+       "      (let ((ch1  (chargbuffer-ref line (fx1- x)))\n"
+       "            (ch2  (chargbuffer-ref line x))\n"
+       "            (wbuf (linectx-wbuf ctx)))\n"
+       "        (bytespan-utf8-insert-back! wbuf ch2)\n"
+       "        (bytespan-utf8-insert-back! wbuf ch1)\n"
+       "        (chargbuffer-set! line (fx1- x) ch2)\n"
+       "        (chargbuffer-set! line x ch1)\n"
+       "        (linectx-x-set! ctx (fx1+ x))))))\n"
+       "\n"
+       "(define (lineedit-key-del-left ctx)\n"
+       "  (when (fx>? (linectx-x ctx) 0)\n"
+       "    (lineedit-key-left ctx)\n"
+       "    (lineedit-key-del-right ctx)))\n"
+       "\n"
+       "(define (lineedit-key-del-right ctx)\n"
+       "  (let ((x    (linectx-x ctx))\n"
+       "        (line (linectx-line ctx)))\n"
+       "    (when (fx<? x (chargbuffer-length line))\n"
        "      (chargbuffer-erase-at! line x 1)\n"
 #if 1
        "      (linectx-bv-write ctx #vu8(27 91 80) 0 3))))\n" /* VT102 sequence: ESC [ P */
@@ -271,11 +289,23 @@ void define_library_lineedit(void) {
        "(define (lineedit-key-del-line ctx)\n"
        "  (void))\n"
        "\n"
-       "(define (lineedit-key-del-bol ctx)\n"
-       "  (void))\n"
+       "(define (lineedit-key-del-line-left ctx)\n"
+       "  (let* ((x    (linectx-x ctx))\n"
+       "         (line (linectx-line ctx))\n"
+       "         (len  (chargbuffer-length line)))\n"
+       "    (when (and (fx>? x 0) (fx>? len 0))\n"
+       "      (chargbuffer-erase-at! line 0 x)\n"
+       "      (linectx-x-set! ctx 0)\n"
+       "      (linectx-tty-move-to-bol ctx)\n"
+       "      (linectx-redraw-to-eol ctx 'clear-line-right))))\n"
        "\n"
-       "(define (lineedit-key-del-eol ctx)\n"
-       "  (void))\n"
+       "(define (lineedit-key-del-line-right ctx)\n"
+       "  (let* ((x    (linectx-x ctx))\n"
+       "         (line (linectx-line ctx))\n"
+       "         (len  (chargbuffer-length line)))\n"
+       "    (when (fx<? x len)\n"
+       "      (chargbuffer-erase-at! line x (fx- len x))\n"
+       "      (linectx-tty-clear-to-eol ctx))))\n"
        "\n"
        "(define (lineedit-key-newline-left ctx)\n"
        "  (void))\n"
@@ -383,11 +413,13 @@ void define_library_lineedit(void) {
        "  (cond\n"
        "    ((linectx-return? ctx) (linectx-lines ctx))\n"
        "    ((linectx-eof?    ctx) #f)\n"
-       "    (#t #t)))\n"
+       "    (#t                    #t)))\n"
        "\n"
-       /* read some bytes from (linectx-stdin ctx) and append them to (linectx-rbuf ctx).
+       /*
+        * read some bytes within read-timeout-milliseconds (0 = non-blocking, -1 = unlimited
+        * timeout) from (linectx-stdin ctx) and append them to (linectx-rbuf ctx).
         * return number of read bytes */
-       "(define (linectx-read ctx)\n"
+       "(define (linectx-read ctx read-timeout-milliseconds)\n"
        "  (let* ((rbuf (linectx-rbuf ctx))\n"
        "         (rlen (bytespan-length rbuf))\n"
        "         (max-n 1024)\n"
@@ -396,7 +428,7 @@ void define_library_lineedit(void) {
        /*   ensure bytespan-capacity-back is large enough */
        "    (bytespan-reserve-back! rbuf (fx+ rlen max-n))\n"
        "    (if (fixnum? stdin)\n"
-       "      (when (eq? 'read (fd-select stdin 'read (linectx-read-timeout-milliseconds ctx)))\n"
+       "      (when (eq? 'read (fd-select stdin 'read read-timeout-milliseconds))\n"
        "        (set! got (fd-read stdin (bytespan-peek-data rbuf)\n"
        "                           (bytespan-peek-end rbuf) max-n)))\n"
        "      (let ((n (get-bytevector-n! stdin (bytespan-peek-data rbuf)\n"
@@ -413,18 +445,18 @@ void define_library_lineedit(void) {
         * if waiting for more keypresses, return #t
         * if got end-of-file, return #f
         */
-       "(define (lineedit-read ctx)\n"
+       "(define (lineedit-read ctx timeout-milliseconds)\n"
        "  (assert (linectx? ctx))\n"
        "  (flush-output-port (current-output-port))\n"
        "  (let ((ret (if (bytespan-empty? (linectx-rbuf ctx))\n"
-       "               #t\n"
+       "               #t\n" /* need more input */
        /*              some bytes already in rbuf, try to consume them */
        "               (linectx-keytable-iterate))))\n"
        "    (if (eq? #t ret)\n"
-       "      (if (fx>? (linectx-read ctx) 0)\n"
+       "      (if (fx>? (linectx-read ctx timeout-milliseconds) 0)\n"
        /*       got some bytes, call again (linectx-keytable-iterate) and return its value */
        "        (linectx-keytable-iterate ctx)\n"
-       /*       got end-of-file, return #f */
+       /*       got end-of-file, return #f  */
        "        #f)\n"
        /*     propagate return value of first (linectx-keytable-iterate) */
        "      ret)))\n"
@@ -448,15 +480,17 @@ void define_library_lineedit(void) {
        /** TODO: implement */
        "  0)\n"
        /**
-        * if user pressed ENTER, execute entered commands and return their exit status.
+        * read user input and process it.
+        * if user pressed ENTER, execute entered commands then
+        *   return a list containing their exit status
         * if waiting for more keypresses, return #t
         * if got end-of-file, return #f
         */
        "(define (sh-lineedit ctx)\n"
-       "  (let ((gb (lineedit-read ctx)))\n"
-       "    (if (boolean? gb)\n"
-       "      gb\n"
-       "      (sh-exec (sh-parse gb)))))\n"
+       "  (let ((ret (lineedit-read ctx -1)))\n"
+       "    (if (boolean? ret)\n"
+       "      ret\n"
+       "      (list (sh-exec (sh-parse ret))))))\n"
        "\n"
        "(define (sh-repl)\n"
        "  (let ((ctx (make-linectx)))\n"
@@ -472,22 +506,22 @@ void define_library_lineedit(void) {
        "\n"
        "(let ((t lineedit-default-keytable)\n"
        "      (%add lineedit-keytable-set!))\n"
-       "(%add t lineedit-key-bol 1)\n"               /* CTRL+A        */
-       "(%add t lineedit-key-left 2)\n"              /* CTRL+B        */
-       "(%add t lineedit-key-break 3)\n"             /* CTRL+C        */
-       "(%add t lineedit-key-ctrl-d 4)\n"            /* CTRL+D        */
-       "(%add t lineedit-key-eol 5)\n"               /* CTRL+E        */
-       "(%add t lineedit-key-right 6)\n"             /* CTRL+F        */
-       "(%add t lineedit-key-del-char-left 8 127)\n" /* CTRL+H or BACKSPACE */
-       "(%add t lineedit-key-tab 9)\n"               /* CTRL+I or TAB */
-       "(%add t lineedit-key-enter 10 13)\n"         /* CTRL+J or ENTER, CTRL+M */
-       "(%add t lineedit-key-del-eol 11)\n"          /* CTRL+K        */
-       "(%add t lineedit-key-redraw 12)\n"           /* CTRL+L        */
-       "(%add t lineedit-key-history-next 14)\n"     /* CTRL+N        */
-       "(%add t lineedit-key-newline-right 15)\n"    /* CTRL+O        */
-       "(%add t lineedit-key-history-prev 16)\n"     /* CTRL+P        */
-       "(%add t lineedit-key-transpose-char 20)\n"   /* CTRL+T        */
-       "(%add t lineedit-key-del-line 21)\n"         /* CTRL+U        */
+       "(%add t lineedit-key-bol 1)\n"             /* CTRL+A        */
+       "(%add t lineedit-key-left 2)\n"            /* CTRL+B        */
+       "(%add t lineedit-key-break 3)\n"           /* CTRL+C        */
+       "(%add t lineedit-key-ctrl-d 4)\n"          /* CTRL+D        */
+       "(%add t lineedit-key-eol 5)\n"             /* CTRL+E        */
+       "(%add t lineedit-key-right 6)\n"           /* CTRL+F        */
+       "(%add t lineedit-key-del-left 8 127)\n"    /* CTRL+H or BACKSPACE */
+       "(%add t lineedit-key-tab 9)\n"             /* CTRL+I or TAB */
+       "(%add t lineedit-key-enter 10 13)\n"       /* CTRL+J or ENTER, CTRL+M */
+       "(%add t lineedit-key-del-line-right 11)\n" /* CTRL+K        */
+       "(%add t lineedit-key-redraw 12)\n"         /* CTRL+L        */
+       "(%add t lineedit-key-history-next 14)\n"   /* CTRL+N        */
+       "(%add t lineedit-key-newline-right 15)\n"  /* CTRL+O        */
+       "(%add t lineedit-key-history-prev 16)\n"   /* CTRL+P        */
+       "(%add t lineedit-key-transpose-char 20)\n" /* CTRL+T        */
+       "(%add t lineedit-key-del-line-left 21)\n"  /* CTRL+U        */
        /* CTRL+W, CTRL+BACKSPACE, ALT+BACKSPACE */
        "(%add t lineedit-key-del-word-left 23 31 '(27 127))\n"
        /* sequences starting with ESC */
@@ -510,23 +544,21 @@ void define_library_lineedit(void) {
        "(%add t lineedit-key-right '(27 91 67))\n"            /* RIGHT \e[C  */
        "(%add t lineedit-key-left  '(27 91 68))\n"            /* LEFT  \e[D  */
        "(%add t lineedit-key-eol   '(27 91 70))\n"            /* END   \e[F  */
-       "(%add t lineedit-key-bol   '(27 91 72))\n"            /* HOME  \e[H  */
-       "(%add t lineedit-key-bol   '(27 91 49 126))\n"        /* HOME  \e[1~ */
+       "(%add t lineedit-key-bol   '(27 91 72)\n"             /* HOME  \e[H  */
+       /*                    */ "  '(27 91 49 126))\n"        /* HOME  \e[1~ */
        "(%add t lineedit-key-history-prev '(27 91 53 126))\n" /* PGUP  \e[5~ */
        "(%add t lineedit-key-history-next '(27 91 54 126))\n" /* PGDWN \e[6~ */
        /* */
-       "(%add t lineedit-key-nop   '(27 79 80) '(27 79 81) '(27 79 82)\n" /* F1..F3 */
-       "    '(27 79 82) '(27 91 49 53 126))\n"                            /* F4..F5 */
-       /* */
-       "(%add t lineedit-key-nop   '(27 91 91 65) '(27 91 91 66) '(27 91 91 67)\n" /* F1..F3 */
-       "    '(27 91 91 68) '(27 91 91 69) '(27 91 49 55 126) '(27 91 49 56 126)\n" /* F4..F7 */
-       "    '(27 91 49 57 126) '(27 91 50 48 126) '(27 91 50 49 126)\n"            /* F8..F10 */
-       "    '(27 91 50 50 126) '(27 91 50 51 126) '(27 91 50 52 126))\n"           /* F?..F12 */
+       "(%add t lineedit-key-nop   '(27 91 91 65) '(27 91 91 66)\n"      /* F1..F2  */
+       "    '(27 91 91 67) '(27 91 91 68) '(27 91 91 69)\n"              /* F3..F4  */
+       "    '(27 91 49 53 126) '(27 91 49 55 126) '(27 91 49 56 126)\n"  /* F4..F7  */
+       "    '(27 91 49 57 126) '(27 91 50 48 126) '(27 91 50 49 126)\n"  /* F8..F10 */
+       "    '(27 91 50 50 126) '(27 91 50 51 126) '(27 91 50 52 126))\n" /* F?..F12 */
 #if 1
        "(%add t lineedit-key-toggle-insert '(27 91 50 126))\n" /* INSERT \e[2~ */
 #endif
-       "(%add t lineedit-key-del-char-right '(27 91 51 126))\n" /* DELETE \e[3~ */
-       "(%add t lineedit-key-eol   '(27 91 52 126))\n"          /* END    \e[4~ */
+       "(%add t lineedit-key-del-right '(27 91 51 126))\n" /* DELETE \e[3~ */
+       "(%add t lineedit-key-eol   '(27 91 52 126))\n"     /* END    \e[4~ */
        /**/
        ")\n"   /* close let */
        ")\n"); /* close library */
