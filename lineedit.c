@@ -13,6 +13,7 @@
 void define_library_lineedit(void) {
   eval("(library (schemesh lineedit (0 1))\n"
        "  (export\n"
+       "    chargbuffernl\n"
        "    make-linectx linectx? lineedit-default-keytable\n"
        "    lineedit-clear! linectx-stdin-set! linectx-stdout-set! linectx-rbuf-insert!\n"
        "    lineedit-key-nop lineedit-key-left lineedit-key-right lineedit-key-up lineedit-key-down"
@@ -34,13 +35,38 @@ void define_library_lineedit(void) {
        "    (schemesh fd)\n"
        "    (schemesh tty))\n"
        "\n"
+       /* copy-pasted from container.c */
+       "(define-record-type\n"
+       "  (%chargbuffer %make-chargbuffer %chargbuffer?)\n"
+       "  (fields\n"
+       "     (mutable left  chargbuffer-left  chargbuffer-left-set!)\n"
+       "     (mutable right chargbuffer-right chargbuffer-right-set!))\n"
+       "  (nongenerative #{%chargbuffer itah4n3k0nl66ucaakkpqk55m-16}))\n"
+       "\n"
+       /* a char gap-buffer with additional newline? flag, indicating whether the buffer
+        * logically ends with a #\newline */
+       "(define-record-type\n"
+       "  (%chargbuffernl %make-chargbuffernl chargbuffernl?)\n"
+       "  (parent %chargbuffer)\n"
+       "  (fields\n"
+       "    (mutable newline chargbuffer-newline? chargbuffer-newline-set!))\n"
+       "  (nongenerative #{%chargbuffernl khrzb9gxkq3znw7ij98a189ca-17}))\n"
+       "\n"
+       "(define (chargbuffernl)\n"
+       "  (%make-chargbuffernl (charspan) (charspan) #f))\n"
+       "\n"
+       "(define (chargbuffernl-clear! gb)\n"
+       "  (chargbuffer-clear! gb)\n"
+       "  (chargbuffer-newline-set! gb #f))\n"
+       "\n"
+       /* linectx is the top-level object used by most lineedit functions */
        "(define-record-type\n"
        "  (linectx %make-linectx linectx?)\n"
        "  (fields\n"
        "    (mutable rbuf)\n"   /* bytespan, buffer for (fd-read) */
        "    (mutable wbuf)\n"   /* bytespan, buffer for (fd-write) */
        "    (mutable line)\n"   /* chargbuffer, input's current line being edited */
-       "    (mutable lines)\n"  /* gbuffer of chargbuffers, input being edited */
+       "    (mutable lines)\n"  /* gbuffer of chargbuffernl, input being edited */
        "    (mutable state)\n"  /* bytespan, stack of nested ( [ { and " */
        "    (mutable x)\n"      /* fixnum, cursor x position in line */
        "    (mutable y)\n"      /* fixnum, cursor y position in lines*/
@@ -62,7 +88,7 @@ void define_library_lineedit(void) {
        "  (let* ((sz    (tty-size))\n"
        "         (rbuf  (bytespan))\n"
        "         (wbuf  (bytespan))\n"
-       "         (line  (chargbuffer))\n"
+       "         (line  (chargbuffernl))\n"
        "         (lines (gbuffer line))\n"
        "         (state (bytespan)))\n"
        "    (bytespan-reserve-back! rbuf 1024)\n"
@@ -84,7 +110,7 @@ void define_library_lineedit(void) {
        "    (linectx-y-set! ctx 0)\n"
        "    (linectx-save-x-set! ctx -1)\n"
        "    (linectx-save-y-set! ctx -1)\n"
-       "    (chargbuffer-clear! line)\n"
+       "    (chargbuffernl-clear! line)\n"
        "    (gbuffer-clear! lines)\n"
        "    (gbuffer-insert-at! lines 0 line)\n"
        "    (linectx-return-set! ctx #f)))\n"
@@ -128,7 +154,7 @@ void define_library_lineedit(void) {
        "        (bytespan-fixnum-display-back! wbuf n)\n" /* n     */
        "        (bytespan-u8-insert-back! wbuf 67)))))"   /* C     */
        "\n"
-       /* send escape sequence "move to begin-of-line" */
+       /* send escape sequence "move to begin-of-line". Moves at beginning of prompt! */
        "(define (linectx-tty-move-to-bol ctx)\n"
        "  (linectx-u8-write ctx 13))\n" /* CTRL+M i.e. '\r' */
        "\n"
@@ -163,8 +189,10 @@ void define_library_lineedit(void) {
        "        (bytespan-clear! wbuf)))))\n"
        "\n"
        "(define (lineedit-clear! ctx)\n"
-       "  (linectx-clear! ctx)\n"
-       "  (linectx-tty-move-to-bol ctx)\n"
+       "  (let ((x (linectx-x ctx)))\n"
+       "    (linectx-clear! ctx)\n"
+       /*   do not use (linectx-tty-move-to-bol), there will be a prompt at bol */
+       "    (linectx-tty-move-left-n ctx x))\n"
        "  (linectx-tty-clear-to-eol ctx)\n"
        "  (linectx-flush ctx))\n"
        "\n"
@@ -226,9 +254,11 @@ void define_library_lineedit(void) {
        "  (void))\n"
        "\n"
        "(define (lineedit-key-bol ctx)\n"
-       "  (when (fx>? (linectx-x ctx) 0)\n"
-       "    (linectx-x-set! ctx 0)\n"
-       "    (linectx-tty-move-to-bol ctx)))\n"
+       "  (let ((x (linectx-x ctx)))\n"
+       "    (when (fx>? x 0)\n"
+       /*     do not use (linectx-tty-move-to-bol), there will be a prompt at bol */
+       "      (linectx-x-set! ctx 0)\n"
+       "      (linectx-tty-move-left-n ctx x))))\n"
        "\n"
        "(define (lineedit-key-eol ctx)\n"
        "  (let ((x    (linectx-x ctx))\n"
@@ -296,7 +326,7 @@ void define_library_lineedit(void) {
        "    (when (and (fx>? x 0) (fx>? len 0))\n"
        "      (chargbuffer-erase-at! line 0 x)\n"
        "      (linectx-x-set! ctx 0)\n"
-       "      (linectx-tty-move-to-bol ctx)\n"
+       "      (linectx-tty-move-left-n ctx x)\n"
        "      (linectx-redraw-to-eol ctx 'clear-line-right))))\n"
        "\n"
        "(define (lineedit-key-del-line-right ctx)\n"
@@ -328,6 +358,7 @@ void define_library_lineedit(void) {
        "         (len (chargbuffer-length line))\n"
        "         (x (linectx-x ctx)))\n"
        "    (linectx-tty-move-to-bol ctx)\n"
+       /**  TODO: also write prompt */
        "    (linectx-cgb-write ctx line 0 len)\n"
        "    (linectx-tty-clear-to-eol ctx)\n"
        "    (linectx-tty-move-left-n ctx (fx- len x))))\n"
@@ -394,6 +425,15 @@ void define_library_lineedit(void) {
        "        (bytespan-clear! rbuf)))\n" /* set begin, end to 0 */
        "    n))\n"
        "\n"
+       /** add final #\newline to lines as needed, and return them */
+       "(define (linectx-return-lines ctx)\n"
+       "  (let ((lines (linectx-lines ctx)))\n"
+       "    (gbuffer-iterate lines\n"
+       "      (lambda (y line)\n"
+       "        (when (chargbuffer-newline? line)\n"
+       "          (chargbuffer-insert-at! line (chargbuffer-length line) #\\newline))))\n"
+       "     lines))\n"
+       "\n"
        /**
         * repeatedly call (linectx-keytable-call) until ENTER is found and processed,
         * or until no more keytable matches are found.
@@ -411,13 +451,14 @@ void define_library_lineedit(void) {
        "           (fxzero? (linectx-keytable-call ctx)))))\n"
        "  (linectx-flush ctx)\n"
        "  (cond\n"
-       "    ((linectx-return? ctx) (linectx-lines ctx))\n"
+       "    ((linectx-return? ctx) (linectx-return-lines ctx))\n"
        "    ((linectx-eof?    ctx) #f)\n"
        "    (#t                    #t)))\n"
        "\n"
-       /*
-        * read some bytes within read-timeout-milliseconds (0 = non-blocking, -1 = unlimited
-        * timeout) from (linectx-stdin ctx) and append them to (linectx-rbuf ctx).
+       /**
+        * read some bytes, blocking at most for read-timeout-milliseconds
+        *   (0 = non-blocking, -1 = unlimited timeout)
+        * from (linectx-stdin ctx) and append them to (linectx-rbuf ctx).
         * return number of read bytes */
        "(define (linectx-read ctx read-timeout-milliseconds)\n"
        "  (let* ((rbuf (linectx-rbuf ctx))\n"
@@ -481,8 +522,8 @@ void define_library_lineedit(void) {
        "  0)\n"
        /**
         * read user input and process it.
-        * if user pressed ENTER, execute entered commands then
-        *   return a list containing their exit status
+        * if user pressed ENTER, execute entered expression or commands
+        *   and return a list containing their value or exit status
         * if waiting for more keypresses, return #t
         * if got end-of-file, return #f
         */
