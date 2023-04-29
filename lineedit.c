@@ -131,7 +131,7 @@ void define_library_lineedit(void) {
        "    (bytespan-utf8-insert-back! wbuf (chargbuffer-ref cgb pos))))\n"
        "\n"
        /* send escape sequence "move cursor left by n", without checking or updating linectx-x */
-       "(define (linectx-tty-move-left-n ctx n)\n"
+       "(define (term-move-left-n ctx n)\n"
        "  (cond\n"
        "    ((fx<=? n 0) (void))\n" /* nop */
        "    ((fx=? n 1)\n"
@@ -142,8 +142,8 @@ void define_library_lineedit(void) {
        "        (bytespan-fixnum-display-back! wbuf n)\n" /* n     */
        "        (bytespan-u8-insert-back! wbuf 68)))))"   /* D     */
        "\n"
-       /* send escape sequence "move cursor right by n", without checking or updating linectx-x */
-       "(define (linectx-tty-move-right-n ctx n)\n"
+       /* send escape sequence "move cursor right by n", without checking or updating linectx */
+       "(define (term-move-right-n ctx n)\n"
        "  (cond\n"
        "    ((fx<=? n 0) (void))\n" /* nop */
        "    ((fx=? n 1)\n"
@@ -154,25 +154,67 @@ void define_library_lineedit(void) {
        "        (bytespan-fixnum-display-back! wbuf n)\n" /* n     */
        "        (bytespan-u8-insert-back! wbuf 67)))))"   /* C     */
        "\n"
+       /* send escape sequence "delete n chars at right", without checking or updating linectx */
+       "(define (term-del-right-n ctx n)\n"
+       "  (cond\n"
+       "    ((fx<=? n 0) (void))\n" /* nop */
+       "    ((fx=? n 1)\n"
+       "      (linectx-bv-write ctx #vu8(27 91 80) 0 3))\n" /* VT102 sequence: ESC [ P */
+       "    (#t\n"
+       "      (let ((wbuf (linectx-wbuf ctx)))\n"
+       "        (bytespan-u8-insert-back! wbuf 27 91)\n"  /* ESC [ */
+       "        (bytespan-fixnum-display-back! wbuf n)\n" /* n     */
+       "        (bytespan-u8-insert-back! wbuf 80)))))"   /* P     */
+       "\n"
        /* send escape sequence "move to begin-of-line". Moves at beginning of prompt! */
-       "(define (linectx-tty-move-to-bol ctx)\n"
+       "(define (term-move-to-bol ctx)\n"
        "  (linectx-u8-write ctx 13))\n" /* CTRL+M i.e. '\r' */
        "\n"
        /* send escape sequence "clear from cursor to end-of-line" */
-       "(define (linectx-tty-clear-to-eol ctx)\n"
+       "(define (term-clear-to-eol ctx)\n"
        "  (linectx-bv-write ctx #vu8(27 91 75) 0 3))\n" /* ESC [ K */
        "\n"
        /* clear-line-right must be either 'clear-line-right or 'dont-clear-line-right*/
-       "(define (linectx-redraw-to-eol ctx clear-line-right)\n"
+       "(define (term-redraw-to-eol ctx clear-line-right)\n"
        "  (let* ((line (linectx-line ctx))\n"
        "         (beg  (linectx-x ctx))\n"
        "         (end  (chargbuffer-length line)))\n"
        "    (when (fx<? beg end)\n"
        "      (linectx-cgb-write ctx line beg end))\n"
        "    (when (eq? clear-line-right 'clear-line-right)\n"
-       "      (linectx-tty-clear-to-eol ctx))\n"
+       "      (term-clear-to-eol ctx))\n"
        "    (when (fx<? beg end)\n"
-       "      (linectx-tty-move-left-n ctx (fx- end beg)))))\n"
+       "      (term-move-left-n ctx (fx- end beg)))))\n"
+       "\n"
+       /* return index of first character before pos in line that satisfies (pred ch).
+        * return -1 if no character before pos in line satisfies (pred ch) */
+       "(define (char-find-left line pos pred)\n"
+       "  (assert (fx<=? pos (chargbuffer-length line)))\n"
+       "  (do ((x (fx1- pos) (fx1- x)))\n"
+       "      ((or (fx<? x 0) (pred (chargbuffer-ref line x)))\n"
+       "        x)))\n"
+       "\n"
+       /* return index of first character at pos or later in line that satisfies (pred ch).
+        * return (chargbuffer-length line) if no character at pos or later in line
+        * satisfies (pred ch) */
+       "(define (char-find-right line pos pred)\n"
+       "  (assert (fx>=? pos 0))\n"
+       "  (do ((x pos (fx1+ x))\n"
+       "       (len (chargbuffer-length line)))\n"
+       "      ((or (fx>=? x len) (pred (chargbuffer-ref line x)))\n"
+       "        x)))\n"
+       "\n"
+       /* return index of beginning of word before pos in line */
+       "(define (word-find-begin-left line pos)\n"
+       "  (let* ((pos1 (fx1+ (char-find-left line pos  (lambda (ch) (char>? ch #\\space)))))\n"
+       "         (pos2 (fx1+ (char-find-left line pos1 (lambda (ch) (char<=? ch #\\space))))))\n"
+       "    pos2))\n"
+       "\n"
+       /* return index of end of word at pos or later in line */
+       "(define (word-find-end-right line pos)\n"
+       "  (let* ((pos1 (char-find-right line pos  (lambda (ch) (char>? ch #\\space))))\n"
+       "         (pos2 (char-find-right line pos1 (lambda (ch) (char<=? ch #\\space)))))\n"
+       "    pos2))\n"
        "\n"
        "(define (linectx-flush ctx)\n"
        "  (let* ((wbuf (linectx-wbuf ctx))\n"
@@ -191,9 +233,9 @@ void define_library_lineedit(void) {
        "(define (lineedit-clear! ctx)\n"
        "  (let ((x (linectx-x ctx)))\n"
        "    (linectx-clear! ctx)\n"
-       /*   do not use (linectx-tty-move-to-bol), there will be a prompt at bol */
-       "    (linectx-tty-move-left-n ctx x))\n"
-       "  (linectx-tty-clear-to-eol ctx)\n"
+       /*   do not use (term-move-to-bol), there will be a prompt at bol */
+       "    (term-move-left-n ctx x))\n"
+       "  (term-clear-to-eol ctx)\n"
        "  (linectx-flush ctx))\n"
        "\n"
        /* consume up to n bytes from rbuf and insert them into current line.
@@ -222,7 +264,7 @@ void define_library_lineedit(void) {
        "          (bytespan-utf8-insert-back! wbuf ch)\n"
        "          (set! x (fx1+ x)))))\n"
        "    (linectx-x-set! ctx x)\n"
-       "    (linectx-redraw-to-eol ctx 'dont-clear-line-right)\n"
+       "    (term-redraw-to-eol ctx 'dont-clear-line-right)\n"
        "    (fx- pos beg)))\n" /* return number of bytes actually consumed */
        "\n"
        "(define (lineedit-key-nop ctx)\n"
@@ -233,13 +275,13 @@ void define_library_lineedit(void) {
        "  (let ((x (linectx-x ctx)))\n"
        "    (when (fx>? x 0)\n"
        "      (linectx-x-set! ctx (fx1- x))\n"
-       "      (linectx-bv-write ctx #vu8(27 91 68) 0 3))))\n" /* ESC [ D */
+       "      (term-move-left-n ctx 1))))\n"
        "\n"
        "(define (lineedit-key-right ctx)\n"
        "  (let ((x (linectx-x ctx)))\n"
-       "    (unless (fx>=? x (chargbuffer-length (linectx-line ctx)))\n"
+       "    (when (fx<? x (chargbuffer-length (linectx-line ctx)))\n"
        "      (linectx-x-set! ctx (fx1+ x))\n"
-       "      (linectx-bv-write ctx #vu8(27 91 67) 0 3))))\n" /* ESC [ C */
+       "      (term-move-right-n ctx 1))))\n"
        "\n"
        "(define (lineedit-key-up ctx)\n"
        "  (void))\n"
@@ -248,24 +290,34 @@ void define_library_lineedit(void) {
        "  (void))\n"
        "\n"
        "(define (lineedit-key-word-left ctx)\n"
-       "  (void))\n"
+       "  (let* ((x    (linectx-x ctx))\n"
+       "         (pos   (word-find-begin-left (linectx-line ctx) x))\n"
+       "         (move-n (fx- x pos)))\n"
+       "    (when (fx>? move-n 0)\n"
+       "      (linectx-x-set! ctx pos)\n"
+       "      (term-move-left-n ctx move-n))))\n"
        "\n"
        "(define (lineedit-key-word-right ctx)\n"
-       "  (void))\n"
+       "  (let* ((x    (linectx-x ctx))\n"
+       "         (pos   (word-find-end-right (linectx-line ctx) x))\n"
+       "         (move-n (fx- pos x)))\n"
+       "    (when (fx>? move-n 0)\n"
+       "      (linectx-x-set! ctx pos)\n"
+       "      (term-move-right-n ctx move-n))))\n"
        "\n"
        "(define (lineedit-key-bol ctx)\n"
        "  (let ((x (linectx-x ctx)))\n"
        "    (when (fx>? x 0)\n"
-       /*     do not use (linectx-tty-move-to-bol), there will be a prompt at bol */
+       /*     do not use (term-move-to-bol), there will be a prompt at bol */
        "      (linectx-x-set! ctx 0)\n"
-       "      (linectx-tty-move-left-n ctx x))))\n"
+       "      (term-move-left-n ctx x))))\n"
        "\n"
        "(define (lineedit-key-eol ctx)\n"
        "  (let ((x    (linectx-x ctx))\n"
        "        (len  (chargbuffer-length (linectx-line ctx))))\n"
        "    (when (fx<? x len)\n"
        "      (linectx-x-set! ctx len)\n"
-       "      (linectx-tty-move-right-n ctx (fx- len x)))))\n"
+       "      (term-move-right-n ctx (fx- len x)))))\n"
        "\n"
        "(define (lineedit-key-break ctx)\n"
        "  (void))\n"
@@ -282,7 +334,7 @@ void define_library_lineedit(void) {
        "         (len  (chargbuffer-length line)))\n"
        "    (when (and (fx>? x 0) (fx>? len 1))\n"
        "      (let ((eol (fx=? x len)))\n"
-       "        (linectx-tty-move-left-n ctx (if eol 2 1))\n"
+       "        (term-move-left-n ctx (if eol 2 1))\n"
        "        (when eol\n"
        "          (set! x (fx1- x))))\n"
        "      (let ((ch1  (chargbuffer-ref line (fx1- x)))\n"
@@ -304,17 +356,27 @@ void define_library_lineedit(void) {
        "        (line (linectx-line ctx)))\n"
        "    (when (fx<? x (chargbuffer-length line))\n"
        "      (chargbuffer-erase-at! line x 1)\n"
-#if 1
-       "      (linectx-bv-write ctx #vu8(27 91 80) 0 3))))\n" /* VT102 sequence: ESC [ P */
-#else
-       "      (linectx-redraw-to-eol ctx 'clear-line-right))))\n"
-#endif
+       "      (term-del-right-n ctx 1))))\n"
        "\n"
        "(define (lineedit-key-del-word-left ctx)\n"
-       "  (void))\n"
+       "  (let* ((x     (linectx-x ctx))\n"
+       "         (line  (linectx-line ctx))\n"
+       "         (pos   (word-find-begin-left line x))\n"
+       "         (del-n (fx- x pos)))\n"
+       "    (when (fx>? del-n 0)\n"
+       "      (chargbuffer-erase-at! line pos del-n)\n"
+       "      (linectx-x-set! ctx pos)\n"
+       "      (term-move-left-n ctx del-n)\n"
+       "      (term-del-right-n ctx del-n))))\n"
        "\n"
        "(define (lineedit-key-del-word-right ctx)\n"
-       "  (void))\n"
+       "  (let* ((x     (linectx-x ctx))\n"
+       "         (line  (linectx-line ctx))\n"
+       "         (pos   (word-find-end-right line x))\n"
+       "         (del-n (fx- pos x)))\n"
+       "    (when (fx>? del-n 0)\n"
+       "      (chargbuffer-erase-at! line x del-n)\n"
+       "      (term-del-right-n ctx del-n))))\n"
        "\n"
        "(define (lineedit-key-del-line ctx)\n"
        "  (void))\n"
@@ -326,8 +388,8 @@ void define_library_lineedit(void) {
        "    (when (and (fx>? x 0) (fx>? len 0))\n"
        "      (chargbuffer-erase-at! line 0 x)\n"
        "      (linectx-x-set! ctx 0)\n"
-       "      (linectx-tty-move-left-n ctx x)\n"
-       "      (linectx-redraw-to-eol ctx 'clear-line-right))))\n"
+       "      (term-move-left-n ctx x)\n"
+       "      (term-redraw-to-eol ctx 'clear-line-right))))\n"
        "\n"
        "(define (lineedit-key-del-line-right ctx)\n"
        "  (let* ((x    (linectx-x ctx))\n"
@@ -335,7 +397,7 @@ void define_library_lineedit(void) {
        "         (len  (chargbuffer-length line)))\n"
        "    (when (fx<? x len)\n"
        "      (chargbuffer-erase-at! line x (fx- len x))\n"
-       "      (linectx-tty-clear-to-eol ctx))))\n"
+       "      (term-clear-to-eol ctx))))\n"
        "\n"
        "(define (lineedit-key-newline-left ctx)\n"
        "  (void))\n"
@@ -357,11 +419,11 @@ void define_library_lineedit(void) {
        "  (let* ((line (linectx-line ctx))\n"
        "         (len (chargbuffer-length line))\n"
        "         (x (linectx-x ctx)))\n"
-       "    (linectx-tty-move-to-bol ctx)\n"
+       "    (term-move-to-bol ctx)\n"
        /**  TODO: also write prompt */
        "    (linectx-cgb-write ctx line 0 len)\n"
-       "    (linectx-tty-clear-to-eol ctx)\n"
-       "    (linectx-tty-move-left-n ctx (fx- len x))))\n"
+       "    (term-clear-to-eol ctx)\n"
+       "    (term-move-left-n ctx (fx- len x))))\n"
        "\n"
        "(define (lineedit-key-tab ctx)\n"
        "  (void))\n"
@@ -515,15 +577,15 @@ void define_library_lineedit(void) {
        /** TODO: implement */
        "  '())\n"
        "\n"
-       /** execute parsed shell commands and return their exit status */
+       /** execute parsed shell commands and return a list contain their exit status */
        "(define (sh-exec commands)\n"
        "  (assert (or (pair? commands) (null? commands)))\n"
        /** TODO: implement */
-       "  0)\n"
+       "  (list 0))\n"
        /**
         * read user input and process it.
-        * if user pressed ENTER, execute entered expression or commands
-        *   and return a list containing their value or exit status
+        * if user pressed ENTER, execute entered expressions or commands
+        *   and return a list containing their values or exit statuses
         * if waiting for more keypresses, return #t
         * if got end-of-file, return #f
         */
@@ -531,7 +593,7 @@ void define_library_lineedit(void) {
        "  (let ((ret (lineedit-read ctx -1)))\n"
        "    (if (boolean? ret)\n"
        "      ret\n"
-       "      (list (sh-exec (sh-parse ret))))))\n"
+       "      (sh-exec (sh-parse ret)))))\n"
        "\n"
        "(define (sh-repl)\n"
        "  (let ((ctx (make-linectx)))\n"
