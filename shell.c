@@ -44,22 +44,23 @@ static void c_environ_to_sh_env(char** env) {
 
 /**
  * Define the record types "job" "cmd" "multijob" and functions operating on them.
- * Define the functions (sh-env...)
+ * Define the functions (sh-env...) and (sh-fd...)
  */
-void define_library_shell(void) {
+static void define_library_shell_jobs(void) {
+
+#define SCHEMESH_LIBRARY_SHELL_JOBS_EXPORT                                                         \
+  "sh-job? sh-job-ref sh-job-span sh-job-status sh-cmd sh-cmd? sh-multijob sh-multijob? "          \
+  "sh-globals sh-global-env sh-env-copy sh-env-get sh-env-set! sh-env-unset! "                     \
+  "sh-env-exported? sh-env-export! sh-env->vector-of-bytevector0 "                                 \
+  "sh-start sh-bg sh-fg sh-run sh-wait sh-and sh-or sh-vec sh-fd-redirect! sh-fds-redirect! "
+
   eval(
-      "(library (schemesh shell (0 1))\n"
-      "  (export\n"
-      "    sh-job? sh-job-ref sh-job-span sh-job-status\n"
-      "    sh-cmd sh-cmd? sh-multijob sh-multijob? sh-globals\n"
-      "    sh-global-env sh-env-copy sh-env-get sh-env-set! sh-env-unset!\n"
-      "    sh-env-exported? sh-env-export! sh-env->vector-of-bytevector0\n"
-      "    sh-start sh-bg sh-fg sh-run sh-wait sh-and sh-or sh-vec\n"
-      "    sh-fd-redirect! sh-fds-redirect!)\n"
+      "(library (schemesh shell jobs (0 1))\n"
+      "  (export " SCHEMESH_LIBRARY_SHELL_JOBS_EXPORT ")\n"
       "  (import\n"
       "    (rnrs)\n"
       "    (rnrs mutable-pairs)\n"
-      "    (only (chezscheme) foreign-procedure record-writer reverse!)\n"
+      "    (only (chezscheme) foreign-procedure record-writer reverse! void)\n"
       "    (schemesh containers misc)\n"
       "    (schemesh containers span)\n"
       "    (schemesh containers hashtable)\n"
@@ -464,8 +465,9 @@ void define_library_shell(void) {
       "  (fd-close-list (job-to-close-fds j))\n"
       "  (job-last-status-set! j '(running . 0))\n" /* job can now be waited-for */
       "  (pid->job-set! (job-pid j) j)\n"           /* add job to pid->job table */
-      "  (when (eq? sh-globals (job-parent j))\n"
-      "    (multijob-child-put! sh-globals j)))"
+      "  (if (eq? sh-globals (job-parent j))\n"
+      "    (multijob-child-put! sh-globals j)\n"
+      "    (void)))\n"
       "\n"
       /**
        * Convert pid-wait-result to a symbolic job-status:
@@ -811,6 +813,74 @@ void define_library_shell(void) {
       "         (display child port)))\n"
       "    (display #\\) port)))\n"
       ")\n"); /* close library */
+}
+
+static void define_library_shell_repl(void) {
+#define SCHEMESH_LIBRARY_SHELL_REPL_EXPORT "sh-exec sh-lineedit sh-parse sh-repl "
+
+  eval("(library (schemesh shell repl (0 1))\n"
+       "  (export " SCHEMESH_LIBRARY_SHELL_REPL_EXPORT ")\n"
+       "  (import\n"
+       "    (rnrs)\n"
+       "    (only (chezscheme) eval void)\n"
+       "    (schemesh bootstrap)\n"
+       "    (schemesh lineedit)\n"
+       "    (schemesh tty))\n"
+       "\n"
+       /** parse gbuffer of chargbuffers, return Scheme code to evaluate */
+       "(define (sh-parse gb)\n"
+       /** TODO: implement */
+       "  (display gb)\n"
+       "  (display #\\newline)\n"
+       "  '())\n"
+       "\n"
+       /**
+        * execute parsed expressions or shell commands,
+        * and return a list containing their values or exit statuses
+        */
+       "(define (sh-exec commands)\n"
+       "  (cond\n"
+       "    ((pair? commands) (eval commands))\n"
+       "    ((null? commands) '())\n"
+       "    (#t (assert (or (pair? commands) (null? commands))))))\n"
+       /**
+        * read user input and process it.
+        * if user pressed ENTER, execute entered expressions or commands
+        *   and return a list containing their values or exit statuses
+        * if waiting for more keypresses, return #t
+        * if got end-of-file, return #f
+        */
+       "(define (sh-lineedit ctx)\n"
+       "  (let ((ret (lineedit-read ctx -1)))\n"
+       "    (if (boolean? ret)\n"
+       "      ret\n"
+       "      (sh-exec (sh-parse ret)))))\n"
+       "\n"
+       /** top-level interactive shell loop */
+       "(define (sh-repl)\n"
+       "  (let ((ctx (make-linectx)))\n"
+       "    (lineedit-clear! ctx)"
+       "    (dynamic-wind\n"
+       "      tty-setraw!\n"                /* run before body */
+       "      (lambda ()\n"                 /*                 */
+       "        (while (sh-lineedit ctx)\n" /* body            */
+       "          (void)))\n"               /*                 */
+       "      (lambda ()\n"                 /* run after body  */
+       "        (lineedit-flush ctx)\n"
+       "        (tty-restore!)))))\n"
+       "\n"
+       ")\n"); /* close library */
+}
+
+static void define_library_shell(void) {
+  define_library_shell_jobs();
+  define_library_shell_repl();
+
+  eval("(library (schemesh shell (0 1))\n"
+       "  (export " SCHEMESH_LIBRARY_SHELL_JOBS_EXPORT ""
+       /*        */ SCHEMESH_LIBRARY_SHELL_REPL_EXPORT ")\n"
+       "  (import (schemesh shell jobs)\n"
+       "          (schemesh shell repl)))\n");
 
   eval("(import (schemesh shell))\n");
 }

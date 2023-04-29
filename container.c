@@ -1897,8 +1897,6 @@ static void define_library_containers_utils(void) {
        "          (bytespan-resize-back! sp (fx+ len digit-n)))))))\n"
        "\n"
        ")\n"); /* close library */
-
-  eval("(import (schemesh containers utils))\n");
 }
 
 void define_library_containers(void) {

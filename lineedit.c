@@ -25,8 +25,7 @@ void define_library_lineedit(void) {
        "    lineedit-key-enter lineedit-key-newline-left lineedit-key-newline-right\n"
        "    lineedit-key-redraw lineedit-key-tab\n"
        "    lineedit-key-history-next lineedit-key-history-prev\n"
-       "    lineedit-keytable-set! lineedit-keytable-find lineedit-read\n"
-       "    sh-lineedit sh-repl)\n"
+       "    lineedit-keytable-set! lineedit-keytable-find lineedit-read lineedit-flush)\n"
        "  (import\n"
        "    (rnrs)\n"
        "    (only (chezscheme) format fx1+ fx1- inspect void)\n"
@@ -216,7 +215,7 @@ void define_library_lineedit(void) {
        "         (pos2 (char-find-right line pos1 (lambda (ch) (char<=? ch #\\space)))))\n"
        "    pos2))\n"
        "\n"
-       "(define (linectx-flush ctx)\n"
+       "(define (lineedit-flush ctx)\n"
        "  (let* ((wbuf (linectx-wbuf ctx))\n"
        "         (beg  (bytespan-peek-beg wbuf))\n"
        "         (end  (bytespan-peek-end wbuf)))\n"
@@ -236,7 +235,7 @@ void define_library_lineedit(void) {
        /*   do not use (term-move-to-bol), there will be a prompt at bol */
        "    (term-move-left-n ctx x))\n"
        "  (term-clear-to-eol ctx)\n"
-       "  (linectx-flush ctx))\n"
+       "  (lineedit-flush ctx))\n"
        "\n"
        /* consume up to n bytes from rbuf and insert them into current line.
         * return number of bytes actually consumed */
@@ -511,7 +510,7 @@ void define_library_lineedit(void) {
        "           (linectx-eof? ctx)\n"
        "           (bytespan-empty? (linectx-rbuf ctx))\n"
        "           (fxzero? (linectx-keytable-call ctx)))))\n"
-       "  (linectx-flush ctx)\n"
+       "  (lineedit-flush ctx)\n"
        "  (cond\n"
        "    ((linectx-return? ctx) (linectx-return-lines ctx))\n"
        "    ((linectx-eof?    ctx) #f)\n"
@@ -563,49 +562,6 @@ void define_library_lineedit(void) {
        "        #f)\n"
        /*     propagate return value of first (linectx-keytable-iterate) */
        "      ret)))\n"
-       "\n"
-       /** parse gbuffer of chargbuffers, return corresponding shell commands */
-       "(define (sh-parse gb)\n"
-#if 1
-       "  (display gb)\n"
-       "  (display #\\newline)\n"
-#else
-       "  (assert (gbuffer? gb))\n"
-       "  (write (chargbuffer->string gb))\n"
-       "  (display #\\newline)\n"
-#endif
-       /** TODO: implement */
-       "  '())\n"
-       "\n"
-       /** execute parsed shell commands and return a list contain their exit status */
-       "(define (sh-exec commands)\n"
-       "  (assert (or (pair? commands) (null? commands)))\n"
-       /** TODO: implement */
-       "  (list 0))\n"
-       /**
-        * read user input and process it.
-        * if user pressed ENTER, execute entered expressions or commands
-        *   and return a list containing their values or exit statuses
-        * if waiting for more keypresses, return #t
-        * if got end-of-file, return #f
-        */
-       "(define (sh-lineedit ctx)\n"
-       "  (let ((ret (lineedit-read ctx -1)))\n"
-       "    (if (boolean? ret)\n"
-       "      ret\n"
-       "      (sh-exec (sh-parse ret)))))\n"
-       "\n"
-       "(define (sh-repl)\n"
-       "  (let ((ctx (make-linectx)))\n"
-       "    (lineedit-clear! ctx)"
-       "    (dynamic-wind\n"
-       "      tty-setraw!\n"                /* run before body */
-       "      (lambda ()\n"                 /*                 */
-       "        (while (sh-lineedit ctx)\n" /* body            */
-       "          (void)))\n"               /*                 */
-       "      (lambda ()\n"                 /* run after body  */
-       "        (linectx-flush ctx)\n"
-       "        (tty-restore!)))))\n"
        "\n"
        "(let ((t lineedit-default-keytable)\n"
        "      (%add lineedit-keytable-set!))\n"
