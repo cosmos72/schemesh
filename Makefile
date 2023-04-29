@@ -20,21 +20,24 @@ lineedit.o: lineedit.c lineedit.h eval.h posix.h
 main.o: main.c main.h eval.h shell.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
+io.o: io.c io.h eval.h
+	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
+
 posix.o: posix.c posix.h eval.h signal.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
 signal.o: signal.c signal.h eval.h posix.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
-shell.o: shell.c shell.h container.h eval.h lineedit.h posix.h signal.h
+shell.o: shell.c shell.h container.h eval.h io.h lineedit.h posix.h signal.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR) -DCHEZ_SCHEME_DIR="$(CHEZ_SCHEME_DIR)"
 
 test.o: test.c test.h shell.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
 
-schemesh: main.o container.o eval.o lineedit.o posix.o shell.o signal.o
+schemesh: main.o container.o eval.o io.o lineedit.o posix.o shell.o signal.o
 	$(CC) -o $@ $^ -L$(CHEZ_SCHEME_DIR) -lkernel -lz -llz4 -lm -lncurses -luuid
 
-schemesh_test: test.o container.o eval.o lineedit.o posix.o shell.o signal.o
+schemesh_test: test.o container.o eval.o io.o lineedit.o posix.o shell.o signal.o
 	$(CC) -o $@ $^ -L$(CHEZ_SCHEME_DIR) -lkernel -lz -llz4 -lm -lncurses -luuid

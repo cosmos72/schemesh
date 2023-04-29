@@ -10,6 +10,7 @@
 #include "shell.h"
 #include "container.h"
 #include "eval.h"
+#include "io.h"
 #include "lineedit.h"
 #include "posix.h"
 #include "signal.h"
@@ -822,17 +823,23 @@ static void define_library_shell_repl(void) {
        "  (export " SCHEMESH_LIBRARY_SHELL_REPL_EXPORT ")\n"
        "  (import\n"
        "    (rnrs)\n"
-       "    (only (chezscheme) eval void)\n"
+       "    (only (chezscheme) eval reverse! void)\n"
        "    (schemesh bootstrap)\n"
+       "    (schemesh io)\n"
        "    (schemesh lineedit)\n"
        "    (schemesh tty))\n"
        "\n"
        /** parse gbuffer of chargbuffers, return Scheme code to evaluate */
        "(define (sh-parse gb)\n"
-       /** TODO: implement */
-       "  (display gb)\n"
-       "  (display #\\newline)\n"
-       "  '())\n"
+       /** TODO: implement parsing shell syntax, the following only parses Scheme syntax! */
+       "  (let ((in (make-chargbuffer-input-port gb))\n"
+       "        (forms '()))\n"
+       "    (do ((form (read in) (read in)))\n"
+       "        ((eq? form (eof-object)))\n"
+       "      (set! forms (cons form forms)))\n"
+       "    (if (or (null? forms) (null? (cdr forms)))\n"
+       "      (car forms)\n"
+       "      (cons 'begin (reverse! forms)))))\n"
        "\n"
        /**
         * execute parsed expressions or shell commands,
@@ -840,8 +847,8 @@ static void define_library_shell_repl(void) {
         */
        "(define (sh-exec commands)\n"
        "  (cond\n"
-       "    ((pair? commands) (eval commands))\n"
-       "    ((null? commands) '())\n"
+       "    ((pair? commands) (eval commands))\n" /* may return multiple values */
+       "    ((null? commands) (void))\n"
        "    (#t (assert (or (pair? commands) (null? commands))))))\n"
        /**
         * read user input and process it.
@@ -898,6 +905,7 @@ int define_libraries(void) {
   define_library_bootstrap();
   define_library_containers();
   define_library_conversions();
+  define_library_io();
 
   if ((err = define_library_fd()) < 0) {
     return err;

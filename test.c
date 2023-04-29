@@ -302,7 +302,7 @@ static const struct {
      "  (gbuffer-insert-at! gb 1 'x)\n"
      "  gb)\n",
      "(gbuffer a x b e)"},
-    /* ----------------------- chargbuffer --------------------------- */
+    /* --------------------- chargbuffer ------------------------------------ */
     {"(chargbuffer #\\X #\\Y #\\Z)", "(string->chargbuffer* \"XYZ\")"},
     {"(string->chargbuffer* \"qwerty\")", "(string->chargbuffer* \"qwerty\")"},
     {"(charspan->chargbuffer* (string->charspan* \"abcdef\"))",
@@ -318,7 +318,12 @@ static const struct {
      "  (chargbuffer-insert-at! gb 1 #\\x)\n"
      "  gb)\n",
      "(string->chargbuffer* \"axbe\")"},
-    /* ----------------------- list --------------------------- */
+    /* --------------------- chargbuffer-input-port-------------------------- */
+    {"(read\n"
+     "  (make-chargbuffer-input-port\n"
+     "    (string->chargbuffer* \"(re8u (+ -) [* /] 'foo bar . baz)\"))))",
+     "(re8u (+ -) (* /) 'foo bar . baz)"},
+    /* --------------------- list ------------------------------------------- */
     {"(let ((ret '()))\n"
      "  (list-iterate '(a b c)\n"
      "    (lambda (elem)\n"
@@ -327,7 +332,7 @@ static const struct {
      "      (not (eq? 'b elem))))\n"
      "  ret)\n",
      "(b a)"},
-    /* ----------------------- hashtable --------------------------- */
+    /* --------------------- hashtable -------------------------------------- */
     {"(hashtable-cells\n"
      "  (eq-hashtable '(3 . C) '(2 . B) '(1 . A)))\n",
      "#((1 . A) (2 . B) (3 . C))"},
@@ -360,7 +365,7 @@ static const struct {
      "#t"},
     /* ------------------------- posix ----------------------------- */
     {"(errno)", "0"},
-    /* ------------------------- shell ----------------------------- */
+    /* ------------------------- shell jobs ------------------------ */
     {"(begin\n"
      "  (sh-env-set! #t \"foo\" \"bar\")\n"
      "  (cons\n"
@@ -383,6 +388,9 @@ static const struct {
      "(exited . 1)"},
     {"(sh-run (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 1)"},
     {"(sh-run (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 0)"},
+    /* ------------------------- shell repl ------------------------ */
+    {"(sh-parse (string->chargbuffer* \"(+ 2 3) (values 7 (cons 'a 'b))\"))",
+     "(begin (+ 2 3) (values 7 (cons 'a 'b)))"},
 };
 
 static int run_tests(void) {
