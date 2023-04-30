@@ -829,10 +829,10 @@ static void define_library_shell_repl(void) {
        "    (schemesh lineedit)\n"
        "    (schemesh tty))\n"
        "\n"
-       /** parse gbuffer of chargbuffers, return Scheme code to evaluate */
+       /** parse gbuffer of chargbuffers containing shell syntax, return Scheme code to evaluate */
        "(define (sh-parse gb)\n"
        /** TODO: implement parsing shell syntax, the following only parses Scheme syntax! */
-       "  (let ((in (make-chargbuffer-input-port gb))\n"
+       "  (let ((in (open-chargbuffer-input-port gb))\n"
        "        (forms '()))\n"
        "    (do ((form (read in) (read in)))\n"
        "        ((eq? form (eof-object)))\n"
