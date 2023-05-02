@@ -177,12 +177,66 @@ static void define_library_parser_shell(void) {
        "      (syntax-violation 'parse-shell \"unexpected end-of-file\" 'eof))\n"
        "    value))\n"
        "\n"
+       /**
+        * Given textual input port 'in', read shell forms from it, until a token ) or ] or }
+        * matching the specified begin-type token is found, and return a list containing such forms.
+        * Raise error if mismatched end token is found, as for example ']' instead of ')'
+        */
+       "(define (parse-list begin-type begin-value in)\n"
+       "  '())\n"
+       "\n"
        ")\n"); /* close library */
 }
 
 void define_library_parser(void) {
   define_library_parser_scheme();
   define_library_parser_shell();
+
+#if 0
+#define SCHEMESH_LIBRARY_PARSER_EXPORT                                                             \
+  "make-parser parser? parser-table-ref parser-table-set! parser-table parser-table-iterate "
+
+  eval("(library (schemesh parser registry (0 1))\n"
+       "  (export " SCHEMESH_LIBRARY_PARSER_REGISTRY_EXPORT ")\n"
+       "  (import\n"
+       "    (rnrs)\n"
+       "    (only (schemesh containers hashtable) hashtable-iterate))\n"
+       "\n"
+       "(define-record-type\n"
+       "  (parser %make-parser parser?)\n"
+       "  (fields parse-form parse-list))\n"
+       "\n"
+       "(define (make-parser parse-form parse-list)\n"
+       "  (assert (procedure? parse-form))\n"
+       "  (assert (procedure? parse-list))\n"
+       "  (%make-parser parse-form parse-list))\n"
+       "\n"
+       "(define parser-table (make-eq-hashtable))\n"
+       "\n"
+       "(define (parser-table-ref name)\n"
+       "  (hashtable-ref parser-table name #f))\n"
+       "\n"
+       "(define (parser-table-set! name parser-obj)\n"
+       "  (assert (symbol? name))\n"
+       "  (assert (fxpositive? (string-length (symbol->string name))))\n"
+       "  (assert (char=? #\\$ (string-ref (symbol->string name) 0)))\n"
+       "  (assert (parser? parser-obj))\n"
+#if 1
+       "  (display \"parser-table-set! \")"
+       "  (display #\\space)"
+       "  (display name)"
+       "  (display #\\space)"
+       "  (display parser-obj)"
+       "  (display #\\linefeed)"
+#endif
+       "  (hashtable-set! parser-table name parser-obj))\n"
+       "\n"
+       /* call (proc name parser) on each registered parser */
+       "(define (parser-table-iterate proc)\n"
+       "  (hashtable-iterate parser-table proc))\n"
+       "\n"
+       ")\n"); /* close library */
+#endif
 
   eval("(library (schemesh parser (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_PARSER_SCHEME_EXPORT ""
