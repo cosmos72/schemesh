@@ -12,6 +12,7 @@
 #include "eval.h"
 #include "io.h"
 #include "lineedit.h"
+#include "parse.h"
 #include "posix.h"
 #include "signal.h"
 
@@ -827,16 +828,20 @@ static void define_library_shell_repl(void) {
        "    (schemesh bootstrap)\n"
        "    (schemesh io)\n"
        "    (schemesh lineedit)\n"
+       "    (schemesh parser)\n"
        "    (schemesh tty))\n"
        "\n"
        /** parse gbuffer of chargbuffers containing shell syntax, return Scheme code to evaluate */
        "(define (sh-parse gb)\n"
        /** TODO: implement parsing shell syntax, the following only parses Scheme syntax! */
-       "  (let ((in (open-chargbuffer-input-port gb))\n"
-       "        (forms '()))\n"
-       "    (do ((form (read in) (read in)))\n"
-       "        ((eq? form (eof-object)))\n"
-       "      (set! forms (cons form forms)))\n"
+       "  (let ((in (open-gbuffer-of-chargbuffers-input-port gb))\n"
+       "        (forms '())\n"
+       "        (again #t))\n"
+       "    (while again\n"
+       "      (let-values (((form ok) (parse-scheme in)))\n"
+       "        (if ok\n"
+       "          (set! forms (cons form forms))\n"
+       "          (set! again #f))))\n"
        "    (if (or (null? forms) (null? (cdr forms)))\n"
        "      (car forms)\n"
        "      (cons 'begin (reverse! forms)))))\n"
@@ -906,6 +911,7 @@ int define_libraries(void) {
   define_library_containers();
   define_library_conversions();
   define_library_io();
+  define_library_parser();
 
   if ((err = define_library_fd()) < 0) {
     return err;
