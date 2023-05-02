@@ -831,14 +831,14 @@ static void define_library_shell_repl(void) {
        "    (schemesh parser)\n"
        "    (schemesh tty))\n"
        "\n"
-       /** parse gbuffer of chargbuffers containing shell syntax, return Scheme code to evaluate */
-       "(define (sh-parse gb)\n"
-       /** TODO: implement parsing shell syntax, the following only parses Scheme syntax! */
-       "  (let ((in (open-gbuffer-of-chargbuffers-input-port gb))\n"
-       "        (forms '())\n"
+       /**
+        * parse textual input stream containing shell syntax and/or Scheme syntax,
+        * and return Scheme code to evaluate */
+       "(define (sh-parse in)\n"
+       "  (let ((forms '())\n"
        "        (again #t))\n"
        "    (while again\n"
-       "      (let-values (((form ok) (parse-scheme in)))\n"
+       "      (let-values (((form ok) (parse-form in)))\n"
        "        (if ok\n"
        "          (set! forms (cons form forms))\n"
        "          (set! again #f))))\n"
@@ -866,7 +866,7 @@ static void define_library_shell_repl(void) {
        "  (let ((ret (lineedit-read ctx -1)))\n"
        "    (if (boolean? ret)\n"
        "      ret\n"
-       "      (sh-exec (sh-parse ret)))))\n"
+       "      (sh-exec (sh-parse (open-gbuffer-of-chargbuffers-input-port ret))))))\n"
        "\n"
        /** top-level interactive shell loop */
        "(define (sh-repl)\n"

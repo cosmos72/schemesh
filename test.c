@@ -397,7 +397,7 @@ static const struct {
     {"(sh-run (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 1)"},
     {"(sh-run (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 0)"},
     /* ------------------------- shell repl ------------------------ */
-    {"(sh-parse (gbuffer (string->chargbuffer* \"(+ 2 3) (values 7 (cons 'a 'b))\")))",
+    {"(sh-parse (open-string-input-port \"(+ 2 3) (values 7 (cons 'a 'b))\"))",
      "(begin (+ 2 3) (values 7 (cons 'a 'b)))"},
 };
 
