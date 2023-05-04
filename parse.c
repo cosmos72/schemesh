@@ -11,7 +11,8 @@
 
 static void define_library_parser_base(void) {
 
-#define SCHEMESH_LIBRARY_PARSER_BASE_EXPORT "make-parser parser? parser-parse parser-parse-list "
+#define SCHEMESH_LIBRARY_PARSER_BASE_EXPORT                                                        \
+  "make-parser parser? parser-parse parser-parse* parser-parse-list "
 
   eval("(library (schemesh parser base (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_PARSER_BASE_EXPORT ")\n"
@@ -25,14 +26,19 @@ static void define_library_parser_base(void) {
         */
        "(define-record-type\n"
        "  (parser %make-parser parser?)\n"
-       "  (fields parse parse-list)\n"
+       "  (fields parse parse* parse-list)\n"
+#if 1
+       ")\n"
+#else
        "  (nongenerative #{parser btmw0cvtuon53q6e5r7vaeaux-24}))\n"
+#endif
        "\n"
        /** create a new parser */
-       "(define (make-parser parse parse-list)\n"
+       "(define (make-parser parse parse* parse-list)\n"
        "  (assert (procedure? parse))\n"
+       "  (assert (procedure? parse*))\n"
        "  (assert (procedure? parse-list))\n"
-       "  (%make-parser parse parse-list))\n"
+       "  (%make-parser parse parse* parse-list))\n"
        "\n"
        ")\n"); /* close library */
 }
@@ -50,6 +56,7 @@ static void define_library_parser_scheme(void) {
        "       fxvector fxvector-set! make-fxvector\n"
        "       read-token reverse!)\n"
        "    (only (schemesh bootstrap) while)\n"
+       "    (only (schemesh containers misc) reverse*!)\n"
        "    (schemesh parser base))\n"
        "\n"
        /**
@@ -83,7 +90,7 @@ static void define_library_parser_scheme(void) {
        "(define (parse-scheme* in enabled-parsers)\n"
        "  (let-values (((value ok) (parse-scheme in enabled-parsers)))\n"
        "    (unless ok"
-       "      (syntax-violation 'parse-scheme* \"unexpected end-of-file\" 'eof))\n"
+       "      (syntax-violation 'parse-scheme \"unexpected end-of-file\" 'eof))\n"
        "    value))\n"
        "\n"
        /**
@@ -112,21 +119,38 @@ static void define_library_parser_scheme(void) {
         */
        "(define (parse-scheme-list begin-type in already-parsed-reverse enabled-parsers)\n"
        "  (let ((ret already-parsed-reverse)\n"
-       "        (end-type (if (eq? 'lbrack begin-type) 'rbrack 'rparen))\n"
        "        (again? #t)\n"
-       "        (reverse? #t))\n"
+       "        (reverse? #t)\n"
+       "        (check-rparen-or-rbrack (lambda (type)\n"
+       "          (let ((end-type (if (eq? 'lbrack begin-type) 'rbrack 'rparen)))\n"
+       "             (unless (eq? type end-type)\n"
+       "               (if (eq? end-type 'rbrack)\n"
+       "                 (syntax-violation 'parse-scheme \"unexpected token ], expecting )\"\n"
+       "                   type)\n"
+       "                 (syntax-violation 'parse-scheme \"unexpected token ), expecting ]\"\n"
+       "                   type)))))))\n"
        "    (while again?\n"
        "      (let-values (((type value start end) (read-token in)))\n"
        "        (case type\n"
        "          ((eof)     (syntax-violation 'parse-scheme \"unexpected\" type))\n"
-       "          ((rbrack)\n"
-       "            (unless (eq? type end-type)\n"
-       "              (syntax-violation 'parse-scheme \"unexpected token ], expecting )\" type))\n"
+       "          ((rparen rbrack)\n"
+       "            (check-rparen-or-rbrack type)\n"
        "            (set! again? #f))\n"
-       "          ((rparen)\n"
-       "            (unless (eq? type end-type)\n"
-       "              (syntax-violation 'parse-scheme \"unexpected token ), expecting ]\" type))\n"
-       "            (set! again? #f))\n"
+       "          ((dot)\n"
+       /*           parse one more value */
+       "            (let* ((value-i (parse-scheme* in enabled-parsers))\n"
+       "                   (other-parser (and (symbol? value-i) enabled-parsers\n"
+       "                                      (hashtable-ref enabled-parsers value-i #f))))\n"
+       "              (when other-parser\n"
+       /*               switch to other-parser */
+       "                (let ((other-parse* (parser-parse* other-parser)))\n"
+       "                  (set! value-i (other-parse* in enabled-parsers))))\n"
+       "              (set! ret (reverse*! (cons value-i ret)))\n"
+       "              (set! reverse? #f)\n"
+       "              (set! again? #f))\n"
+       /*           then parse ) or ] */
+       "            (let-values (((type value start end) (read-token in)))\n"
+       "              (check-rparen-or-rbrack type)))\n"
        "          (else\n"
        "            (let ((other-parser (and (symbol? value) enabled-parsers\n"
        "                                     (hashtable-ref enabled-parsers value #f))))\n"
@@ -197,7 +221,7 @@ static void define_library_parser_scheme(void) {
        "          (set! elem (car values)))))))\n"
        "\n"
        "(define parser-scheme\n"
-       "  (let ((ret (make-parser parse-scheme parse-scheme-list)))\n"
+       "  (let ((ret (make-parser parse-scheme parse-scheme* parse-scheme-list)))\n"
        "    (lambda ()\n"
        "      ret)))\n"
        "\n"
@@ -247,7 +271,7 @@ static void define_library_parser_shell(void) {
        "  (reverse! already-parsed-reverse))\n"
        "\n"
        "(define parser-shell\n"
-       "  (let ((ret (make-parser parse-shell parse-scheme-list)))\n"
+       "  (let ((ret (make-parser parse-shell parse-shell* parse-scheme-list)))\n"
        "    (lambda ()\n"
        "      ret)))\n"
        "\n"

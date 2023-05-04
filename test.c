@@ -340,6 +340,10 @@ static const struct {
      "      (not (eq? 'b elem))))\n"
      "  ret)\n",
      "(b a)"},
+    {"(reverse*! (list))", "()"},
+    {"(reverse*! (list 1))", "(1)"},
+    {"(reverse*! (list 1 2))", "(2 . 1)"},
+    {"(reverse*! (list 1 2 3 4 5 6))", "(6 5 4 3 2 . 1)"},
     /* --------------------- hashtable -------------------------------------- */
     {"(hashtable-cells\n"
      "  (eq-hashtable '(3 . C) '(2 . B) '(1 . A)))\n",
@@ -365,6 +369,7 @@ static const struct {
      "((2.1 . B) (1.0 . A) (3 . C))"},
     /* ------------------------ parser ----------------------------- */
     {"(parse-scheme* (open-string-input-port \"(foo bar) '(a b)\") #f)", "(foo bar)"},
+    {"(parse-scheme* (open-string-input-port \"(a (b c . d) . e)\") #f)", "(a (b c . d) . e)"},
     {"(values->list\n"
      "  (parse-forms\n"
      "    (open-string-input-port \"(foo bar) '(a b)\")\n"

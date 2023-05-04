@@ -31,7 +31,8 @@ static void c_vector_copy(ptr src, iptr src_start, ptr dst, iptr dst_start, iptr
 static void define_library_containers_misc(void) {
 
 #define SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT                                                    \
-  "list-iterate vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable "       \
+  "list-iterate reverse*! "                                                                        \
+  "vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable "                    \
   "list->bytevector subbytevector bytevector-fill-range! bytevector-iterate string-fill-range! "
 
   Sregister_symbol("c_vector_copy", &c_vector_copy);
@@ -40,6 +41,7 @@ static void define_library_containers_misc(void) {
        "  (export " SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT ")\n"
        "  (import\n"
        "    (rnrs)\n"
+       "    (rnrs mutable-pairs)\n"
        "    (rnrs mutable-strings)\n"
        "    (only (chezscheme) bytevector foreign-procedure fx1+))\n"
        "\n"
@@ -50,6 +52,30 @@ static void define_library_containers_misc(void) {
        "(define (list-iterate l proc)\n"
        "  (do ((tail l (cdr tail)))\n"
        "      ((or (null? tail) (not (proc (car tail)))))))\n"
+       "\n"
+       /**
+        * (reverse*! l) destructively reverses list l,
+        * creating an improper list - unless (car l) is itself a list.
+        *
+        * Example: (reverse*! (list a b c)) returns '(c b . a)
+        */
+       "(define (reverse*! l)\n"
+       "  (if (or (null? l) (null? (cdr l)))\n"
+       "    l\n"
+       "    (let* ((tail (if (pair? (cdr l)) (cddr l) '()))\n"
+       "           (head (let ((first  (car l))\n"
+       "                       (second (cadr l)))\n"
+       "                   (set-car! l second)\n"
+       "                   (set-cdr! l first)\n"
+       "                   l)))\n"
+       "      (let %step ((head head)\n"
+       "                  (tail tail))\n"
+       "        (if (null? tail)\n"
+       "          head\n"
+       "          (let ((new-head tail)\n"
+       "                (new-tail (cdr tail)))\n"
+       "            (set-cdr! new-head head)\n"
+       "            (%step new-head new-tail)))))))\n"
        "\n"
        /**
         * copy a portion of vector src into dst.
