@@ -818,13 +818,14 @@ static void define_library_shell_jobs(void) {
 }
 
 static void define_library_shell_repl(void) {
-#define SCHEMESH_LIBRARY_SHELL_REPL_EXPORT "sh-exec sh-lineedit sh-parse sh-repl "
+#define SCHEMESH_LIBRARY_SHELL_REPL_EXPORT                                                         \
+  "sh-exec sh-lineedit sh-parse-scheme sh-parse-shell sh-parse sh-repl "
 
   eval("(library (schemesh shell repl (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_SHELL_REPL_EXPORT ")\n"
        "  (import\n"
        "    (rnrs)\n"
-       "    (only (chezscheme) eval reverse! void)\n"
+       "    (only (chezscheme) eval void)\n"
        "    (schemesh bootstrap)\n"
        "    (schemesh io)\n"
        "    (schemesh lineedit)\n"
@@ -832,19 +833,36 @@ static void define_library_shell_repl(void) {
        "    (schemesh tty))\n"
        "\n"
        /**
-        * parse textual input stream containing shell syntax and/or Scheme syntax,
-        * and return Scheme code to evaluate */
+        * parse textual input stream until eof, parsing shell syntax and temporarily switching
+        * to other parsers if a symbol present in enabled-parsers is found in a (possibly nested)
+        * list being parsed.
+        *
+        * Return Scheme code to evaluate.
+        */
+       "(define (sh-parse-scheme in enabled-parsers)\n"
+       "  (let-values (((ret parser-name) (parse-forms in '%!scheme enabled-parsers)))\n"
+       "    ret))\n"
+       "\n"
+       /**
+        * parse textual input stream until eof, parsing shell syntax and temporarily switching
+        * to other parsers if a symbol present in enabled-parsers is found in a (possibly nested)
+        * list being parsed.
+        *
+        * Return Scheme code to evaluate.
+        */
+       "(define (sh-parse-shell in enabled-parsers)\n"
+       "  (let-values (((ret parser-name) (parse-forms in '%!shell enabled-parsers)))\n"
+       "    ret))\n"
+       "\n"
+       /**
+        * parse textual input stream until eof, parsing shell syntax and temporarily switching
+        * to other parsers if a symbol present in enabled-parsers is found in a (possibly nested)
+        * list being parsed.
+        *
+        * Return Scheme code to evaluate.
+        */
        "(define (sh-parse in)\n"
-       "  (let ((forms '())\n"
-       "        (again #t))\n"
-       "    (while again\n"
-       "      (let-values (((form ok) (parse-form in)))\n"
-       "        (if ok\n"
-       "          (set! forms (cons form forms))\n"
-       "          (set! again #f))))\n"
-       "    (if (or (null? forms) (null? (cdr forms)))\n"
-       "      (car forms)\n"
-       "      (cons 'begin (reverse! forms)))))\n"
+       "  (sh-parse-shell in (parsers)))\n"
        "\n"
        /**
         * execute parsed expressions or shell commands,

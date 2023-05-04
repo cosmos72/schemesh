@@ -363,6 +363,13 @@ static const struct {
      "      (set! ret (cons cell ret))))\n"
      "  ret)\n",
      "((2.1 . B) (1.0 . A) (3 . C))"},
+    /* ------------------------ parser ----------------------------- */
+    {"(parse-scheme* (open-string-input-port \"(foo bar) '(a b)\") #f)", "(foo bar)"},
+    {"(values->list\n"
+     "  (parse-forms\n"
+     "    (open-string-input-port \"(foo bar) '(a b)\")\n"
+     "    '%!scheme (parsers)))\n",
+     "((begin (foo bar) '(a b)) %!scheme)"},
     /* -------------------------- tty ------------------------------ */
     {"(let ((sz (tty-size)))\n"
      "  (and (pair? sz)\n"
@@ -397,7 +404,9 @@ static const struct {
     {"(sh-run (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 1)"},
     {"(sh-run (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 0)"},
     /* ------------------------- shell repl ------------------------ */
-    {"(sh-parse (open-string-input-port \"(+ 2 3) (values 7 (cons 'a 'b))\"))",
+    {"(sh-parse-scheme\n"
+     "  (open-string-input-port \"(+ 2 3) (values 7 (cons 'a 'b))\")\n"
+     "  (parsers))\n",
      "(begin (+ 2 3) (values 7 (cons 'a 'b)))"},
 };
 
