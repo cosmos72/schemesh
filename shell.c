@@ -840,7 +840,7 @@ static void define_library_shell_repl(void) {
         * Return Scheme code to evaluate.
         */
        "(define (sh-parse-scheme in enabled-parsers)\n"
-       "  (let-values (((ret parser-name) (parse-forms in '%!scheme enabled-parsers)))\n"
+       "  (let-values (((ret parser-name) (parse-forms in 'scheme enabled-parsers)))\n"
        "    ret))\n"
        "\n"
        /**
@@ -851,7 +851,7 @@ static void define_library_shell_repl(void) {
         * Return Scheme code to evaluate.
         */
        "(define (sh-parse-shell in enabled-parsers)\n"
-       "  (let-values (((ret parser-name) (parse-forms in '%!shell enabled-parsers)))\n"
+       "  (let-values (((ret parser-name) (parse-forms in 'shell enabled-parsers)))\n"
        "    ret))\n"
        "\n"
        /**
