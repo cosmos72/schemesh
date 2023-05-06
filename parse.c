@@ -150,7 +150,7 @@ static void define_library_parser_scheme(void) {
        "    (schemesh parser base))\n"
        "\n"
        /**
-        * Given textual input port 'in', read a single Scheme token from it.
+        * Read a single Scheme token from textual input port 'in.
         * Internally uses Chez Scheme (read-token) for simplicity, but could be reimplemented
         * in pure R6RS.
         *
@@ -199,18 +199,12 @@ static void define_library_parser_scheme(void) {
        "    ((vu8nparen) \"#Nvu8\") ((vu8paren) \"#vu8\")\n"
        "    (else \"???\")))\n"
        /**
-        * Given textual input port 'in', repeatedly read Scheme tokens from it with
-        * (lex-scheme) and construct a Scheme form.
+        * Read Scheme tokens from textual input port 'in'
+        * by repeatedly calling (lex-scheme) and construct a Scheme form.
+        * Automatically change parser when directive #!... is found.
         *
-        * Return two values: parsed Scheme form, and #t.
+        * Return two values: parsed form, and #t.
         * If end-of-file is reached, return (eof-object) and #f.
-        *
-        * enabled-parsers must be either #f or an hashtable whose keys are symbols, and whose
-        * values are be parser objects. When a symbol present in the hashtable is found in textual
-        * input port while parsing a list, the rest of the list will be parsed by invoking the
-        * parser corresponding to the symbol: this effectively allows changing the parser, and thus
-        * the syntax, at any point in a list being parsed from the stream and until the current list
-        * is finished.
         */
        "(define (parse-scheme in enabled-parsers)\n"
        "  (let-values (((value type) (lex-scheme in enabled-parsers)))\n"
@@ -218,12 +212,12 @@ static void define_library_parser_scheme(void) {
        "      (values ret-value (not (eq? 'eof ret-type))))))"
        "\n"
        /**
-        * Given textual input port 'in', repeatedly read from it with (lex-scheme) and construct a
-        * Scheme form. Return parsed Scheme form. Raise error if end-of-file is reached before
-        * completely reading a form.
+        * Read Scheme tokens from textual input port 'in'
+        * by repeatedly calling (lex-scheme) and construct a Scheme form.
+        * Automatically change parser when directive #!... is found.
         *
-        * enabled-parsers must be either #f or an hashtable whose keys are symbols, and whose
-        * values are be parser objects - see (parse-scheme) for its effects.
+        * Return parsed form.
+        * Raises syntax-violation if end of file is reached before reading a complete form.
         */
        "(define (parse-scheme* in enabled-parsers)\n"
        "  (let-values (((value ok) (parse-scheme in enabled-parsers)))\n"
@@ -236,8 +230,12 @@ static void define_library_parser_scheme(void) {
        "    value))\n"
        "\n"
        /**
-        * Given textual input port 'in', repeatedly read from it with (lex-scheme) and construct a
-        * single Scheme form. Return two values: the form, and its type.
+        * Common back-end of (parse-scheme) and (parse-scheme*)
+        * Read Scheme tokens from textual input port 'in'
+        * by repeatedly calling (lex-scheme) and construct a Scheme form.
+        * Automatically change parser when directive #!... is found.
+        *
+        * Return two values: the parsed form, and its type.
         */
        "(define (parse-impl value type in enabled-parsers)\n"
        "  (values\n"
@@ -263,9 +261,12 @@ static void define_library_parser_scheme(void) {
        "    type))\n"
        "\n"
        /**
-        * Given textual input port 'in', read Scheme forms from it, until a token ) or ] matching
-        * the specified begin-type token is found, and return a list containing such forms.
-        * Raise error if mismatched end token is found, as for example ']' instead of ')'
+        * Read Scheme forms from textual input port 'in', until a token ) or ] or } matching
+        * the specified begin-type token is found.
+        * Automatically change parser when directive #!... is found.
+        *
+        * Return return a list containing parsed forms.
+        * Raise syntax-violation if mismatched end token is found, as for example ']' instead of ')'
         *
         * The argument already-parsed-reverse will be reversed and prefixed to the returned list.
         */
@@ -318,8 +319,10 @@ static void define_library_parser_scheme(void) {
        "    (if reverse? (reverse! ret) ret)))\n"
        "\n"
        /**
-        * Given textual input port 'in', repeatedly read Scheme forms from it, until a token ) is
-        * found, and return a vector, fxvector or bytevector containing such forms.
+        * Read Scheme forms from textual input port 'in' until a token ) is found.
+        * Automatically change parser when directive #!... is found.
+        *
+        * Return a vector, fxvector or bytevector containing parsed forms.
         * Raise error if mismatched end token is found, as for example ']' instead of ')'
         */
        "(define (parse-vector vec-type length in enabled-parsers)\n"
@@ -380,17 +383,86 @@ static void define_library_parser_scheme(void) {
 static void define_library_parser_shell(void) {
 
 #define SCHEMESH_LIBRARY_PARSER_SHELL_EXPORT                                                       \
-  "peek-shell-char lex-shell parse-shell parse-shell* parser-shell "
+  "read-shell-char lex-shell parse-shell parse-shell* parse-shell-list parser-shell "
 
   eval("(library (schemesh parser shell (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_PARSER_SHELL_EXPORT ")\n"
        "  (import\n"
        "    (rnrs)\n"
-       "    (only (chezscheme) reverse!)\n"
+       "    (only (chezscheme) reverse! unread-char)\n"
        "    (only (schemesh bootstrap) while)\n"
        "    (schemesh containers charspan)\n"
        "    (schemesh parser base))\n"
        "\n"
+       /**
+        * Read a single character from textual input port 'in',
+        * and categorize it according to shell syntax.
+        * Return two values: character value (or eof) and its type.
+        */
+       "(define (read-shell-char in)\n"
+       "  (let ((ch (read-char in)))\n"
+       "    (values ch\n"
+       "      (if (eof-object? ch)\n"
+       "        'eof\n"
+       "        (case ch\n"
+       "          ((#\\newline #\\; #\\&) 'separator)\n"
+       /**        TODO: complete this list */
+       "          ((#\\! #\\# #\\< #\\> #\\| #\\~) 'op)\n"
+       "          ((#\\\") 'dquote)\n"
+       "          ((#\\' ) 'quote)\n"
+       "          ((#\\\\) 'backslash)\n"
+       "          ((#\\` ) 'backquote)\n"
+       "          ((#\\( ) 'lparen)\n"
+       "          ((#\\) ) 'rparen)\n"
+       "          ((#\\[ ) 'lbrack)\n"
+       "          ((#\\] ) 'rbrack)\n"
+       "          ((#\\{ ) 'lbrace)\n"
+       "          ((#\\} ) 'rbrace)\n"
+       "          (else    (if (char<=? ch #\\space) 'space 'char)))))))\n"
+       "\n"
+       /* read a string inside double quotes, as for example "some text" */
+       "(define (read-shell-dquote in)\n"
+       /** TODO: implement */
+       "  (values \"\" 'string))\n"
+       "\n"
+       /* read a string inside single quotes, as for example 'some text' */
+       "(define (read-shell-quote in)\n"
+       /** TODO: implement */
+       "  (values \"\" 'quoted-string))\n"
+       "\n"
+       /* read a character after backslash, as for example \$ */
+       "(define (read-shell-backslash in)\n"
+       /** TODO: implement */
+       "  (values \"\" 'quoted-string))\n"
+       "\n"
+       /**
+        * Read a single shell token from textual input port 'in'.
+        * Return two values: token value and its type.
+        * Does not skip initial whitespace, and does not recognize parser directives #!...
+        * use (lex-shell) for that.
+        *
+        * The definition of shell token is adapted from
+        * https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_03
+        */
+       "(define (lex-shell-impl in)\n"
+       "  (let-values (((ch type) (read-shell-char in)))\n"
+       "    (case type\n"
+       /**    TODO: also handle multi-character operators as && || N> N< >> << etc. */
+       "      ((eof separator op lparen rparen lbrack rbrack lbrace rbrace)\n"
+       "        (values ch type))\n"
+       "      ((char)\n"
+       "        (let ((str (charspan ch))\n"
+       "              (again? #t))\n"
+       "          (while again?\n"
+       "            (let-values (((ch-i type-i) (read-shell-char in)))\n"
+       "              (if (eq? 'char type-i)\n"
+       "                (charspan-insert-back! str ch-i)\n"
+       "                (begin\n"
+       "                  (unread-char ch-i in)\n"
+       "                  (set! again? #f)))))\n"
+       "          (values (charspan->string str) 'string)))"
+       "      (else\n"
+       "        (syntax-violation 'lex-shell \"unimplemented character type:\" type)))))\n"
        /**
         * Given textual input port 'in', read a single shell token from it.
         * Return two values: token value and its type.
@@ -410,83 +482,54 @@ static void define_library_parser_shell(void) {
        "      (lex-shell-impl in))))\n"
        "\n"
        /**
-        * Given textual input port 'in', read a single shell token from it.
-        * Return two values: token value and its type.
-        * Does not skip initial whitespace, and does not recognize parser directives #!...
-        * use (lex-shell) for that.
+        * Repeatedly read from textual input port 'in' using (lex-shell)
+        * and construct corresponding shell form.
+        * Automatically change parser when directive #!... is found.
         *
-        " The definition of shell token is adapted from
-        * https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_03
-        */
-       "(define (lex-shell-impl in)\n"
-       "  (let-values (((ch type) (peek-shell-char in)))\n"
-       "    (unless (eq? 'eof type)\n"
-       "      (read-char in))\n" /* consume character */
-       "    (case type\n"
-       /**    TODO: also handle multi-character operators as && || N> N< >> << etc. */
-       "      ((eof op lparen rparen lbrack rbrack lbrace rbrace)\n"
-       "        (values ch type))\n"
-       "      ((char)\n"
-       "        (let ((str (charspan ch))\n"
-       "              (again? #t))\n"
-       "          (while again?\n"
-       "            (let-values (((ch-i type-i) (peek-shell-char in)))\n"
-       "              (if (eq? 'char type-i)\n"
-       "                (charspan-insert-back! str (read-char in))\n"
-       "                (set! again? #f))))\n"
-       "          (values (charspan->string str) 'string)))"
-       "      (else\n"
-       "        (syntax-violation 'parse-shell \"unimplemented character type:\" type)))))\n"
-       "\n"
-       /**
-        * Peek a single character from textual input port 'in',
-        * and categorize it according to shell syntax.
-        * Return two values: character value (or eof) and its type.
-        */
-       "(define (peek-shell-char in)\n"
-       "  (let ((ch (peek-char in)))\n"
-       "    (if (eof-object? ch)\n"
-       "      (values ch 'eof)\n"
-       "      (case ch\n"
-       /**      TODO: complete this list */
-       "        ((#\\newline #\\! #\\# #\\& #\\; #\\< #\\> #\\| #\\~) (values ch 'op))\n"
-       "        ((#\\\") (values #f 'dquote))\n"
-       "        ((#\\' ) (values #f 'quote))\n"
-       "        ((#\\\\) (values #f 'backslash))\n"
-       "        ((#\\` ) (values #f 'backquote))\n"
-       "        ((#\\( ) (values #f 'lparen))\n"
-       "        ((#\\) ) (values #f 'rparen))\n"
-       "        ((#\\[ ) (values #f 'lbrack))\n"
-       "        ((#\\] ) (values #f 'rbrack))\n"
-       "        ((#\\{ ) (values #f 'lbrace))\n"
-       "        ((#\\} ) (values #f 'rbrace))\n"
-       "        (else    (values ch (if (char<=? ch #\\space) 'space 'char)))))))\n"
-       "\n"
-       /* read a string inside double quotes, as for example "some text" */
-       "(define (lex-shell-dquote in)\n"
-       /** TODO: implement */
-       "  (values \"\" 'string))\n"
-       "\n"
-       /* read a string inside single quotes, as for example 'some text' */
-       "(define (lex-shell-quote in)\n"
-       /** TODO: implement */
-       "  (values \"\" 'quoted-string))\n"
-       "\n"
-       /* read a character after backslash, as for example \$ */
-       "(define (lex-shell-backslash in)\n"
-       /** TODO: implement */
-       "  (values \"\" 'quoted-string))\n"
-       "\n"
-       /**
-        * TODO: implement
-        *
-        * Given textual input port 'in', repeatedly read from it using (read-shell-token)
-        * and construct corresponding Scheme form.
-        * Return two values: parsed Scheme form, and #t.
+        * Return two values: parsed form, and #t.
         * If end-of-file is reached, return (eof-object) and #f.
         */
        "(define (parse-shell in enabled-parsers)\n"
-       "  (lex-shell in enabled-parsers))\n"
+       "  (let ((ret '())\n"
+       "        (again? #t)"
+       "        (reverse? #t)\n"
+       "        (eof? #f))\n"
+       "    (while again?\n"
+       "      (let-values (((value type) (lex-shell in enabled-parsers)))\n"
+       /* "        (format #t \"parse-shell: value = ~s, type = ~s~%\" value type)\n" */
+       "        (case type\n"
+       "          ((eof separator)\n"
+       "            (set! eof? (eq? 'eof type))\n"
+       "            (when (eq? #\\& value)\n" /* append final & to command */
+       "              (set! ret (cons value ret)))\n"
+       "            (set! again? #f))\n"
+       /**        TODO: handle operators precedence and associativity */
+       "          ((op string)     (set! ret (cons value ret)))\n"
+       "          ((quoted-string) (set! ret (cons (list 'quote value) ret)))\n"
+       "          ((backquote lbrack lbrace)\n"
+       /*           read a shell list surrounded by `...` or by [...] or by {...} */
+       "            (set! ret (cons (parse-shell-list type in '() enabled-parsers) ret)))\n"
+       "          ((lparen)\n"
+       /*           switch to Scheme parser for a single form */
+       "            (let ((other-parse-list (parser-parse-list\n"
+       "                    (get-parser 'scheme enabled-parsers 'parse-shell))))\n"
+       "              (set! ret (cons (other-parse-list type in '() enabled-parsers) ret))))\n"
+       "          ((rparen rbrack rbrace)\n"
+       /*           we read one token too much - try to unread it */
+       "            (unread-char value in)\n"
+       "            (assert (eq? value (peek-char in)))\n"
+       "            (set! again? #f))\n"
+       "          ((parser)\n"
+       "            (unless (null? ret)\n"
+       "              (syntax-violation 'parse-shell \"parser directive #!... can only appear "
+       "before or after a shell command, not in the middle of it: #!\" (parser-name value)))\n"
+       /*           cannot switch to other parser here: just return it and let caller switch */
+       "            (values (get-parser value enabled-parsers 'parse-shell) 'parser))\n"
+       "          (else\n"
+       "            (syntax-violation 'parse-shell \"unimplemented token type\" type)))))\n"
+       "    (when reverse?\n"
+       "      (set! ret (reverse! ret)))\n"
+       "    (values ret (not (and eof? (null? ret))))))\n"
        "\n"
        /**
         * Given textual input port 'in', repeatedly read from it using (read-shell-token)
@@ -505,11 +548,11 @@ static void define_library_parser_shell(void) {
         * matching the specified begin-type token is found, and return a list containing such
         * forms. Raise error if mismatched end token is found, as for example ']' instead of ')'
         */
-       "(define (parse-scheme-list begin-type in already-parsed-reverse enabled-parsers)\n"
+       "(define (parse-shell-list begin-type in already-parsed-reverse enabled-parsers)\n"
        "  (reverse! already-parsed-reverse))\n"
        "\n"
        "(define parser-shell\n"
-       "  (let ((ret (make-parser 'shell parse-shell parse-shell* parse-scheme-list)))\n"
+       "  (let ((ret (make-parser 'shell parse-shell parse-shell* parse-shell-list)))\n"
        "    (lambda ()\n"
        "      ret)))\n"
        "\n"
@@ -539,6 +582,7 @@ void define_library_parser(void) {
        "\n"
        /**
         * Call parse-scheme, parse-shell or whatever is the parser specified as initial-parser.
+        * Automatically change parser when directive #!... is found.
         *
         * Return two values: parsed form, and #t. If
         * end-of-file is reached, return (eof-object) and #f.
@@ -582,19 +626,19 @@ void define_library_parser(void) {
         */
        "(define (parse-forms in initial-parser enabled-parsers)\n"
        "  (let ((current-parser (to-parser initial-parser enabled-parsers 'parse-forms))\n"
-       "        (forms '())\n"
-       "        (again #t))\n"
-       "    (while again\n"
+       "        (ret '())\n"
+       "        (again? #t))\n"
+       "    (while again?\n"
        "      (let-values (((form ok) (parse-form in current-parser enabled-parsers)))\n"
        "        (if ok\n"
        "          (if (parser? form)\n"
        "            (set! current-parser form)\n"
-       "            (set! forms (cons form forms)))\n"
-       "          (set! again #f))))\n"
+       "            (set! ret (cons form ret)))\n"
+       "          (set! again? #f))))\n"
        "    (values\n"
-       "      (if (or (null? forms) (null? (cdr forms)))\n"
-       "        (car forms)\n"
-       "        (cons 'begin (reverse! forms)))\n"
+       "      (if (or (null? ret) (null? (cdr ret)))\n"
+       "        (car ret)\n"
+       "        (cons 'begin (reverse! ret)))\n"
        "      current-parser)))\n"
        /**
         * Return mutable hashtable containing all known parsers.

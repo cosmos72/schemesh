@@ -367,9 +367,12 @@ static const struct {
      "      (set! ret (cons cell ret))))\n"
      "  ret)\n",
      "((2.1 . B) (1.0 . A) (3 . C))"},
-    /* ------------------------ parser ----------------------------- */
+    /* ------------------------ parser scheme ------------------------------- */
     {"(parse-scheme* (open-string-input-port \"(foo bar) '(a b)\") #f)", "(foo bar)"},
     {"(parse-scheme* (open-string-input-port \"(a (b c . d) . e)\") #f)", "(a (b c . d) . e)"},
+    /* ------------------------ parser shell -------------------------------- */
+    {"(parse-shell* (open-string-input-port \"ls -l>/dev/null&\") #f)", "(ls -l > /dev/null &)"},
+    /* ------------------------ parser -------------------------------------- */
     {"(values->list (parse-forms\n"
      "  (open-string-input-port \"(foo bar) #!eof '(a . b)\")\n"
      "  'scheme (parsers)))\n",
@@ -382,7 +385,7 @@ static const struct {
      "  (open-string-input-port \"`('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)\")\n"
      "  'scheme (parsers)))\n",
      "((begin `('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)) #<parser scheme>)"},
-    /* -------------------------- tty ------------------------------ */
+    /* -------------------------- tty --------------------------------------- */
     {"(let ((sz (tty-size)))\n"
      "  (and (pair? sz)\n"
      "       (integer? (car sz))\n"
@@ -390,9 +393,9 @@ static const struct {
      "       (positive? (car sz))\n"
      "       (positive? (cdr sz))))\n",
      "#t"},
-    /* ------------------------- posix ----------------------------- */
+    /* ------------------------- posix -------------------------------------- */
     {"(errno)", "0"},
-    /* ------------------------- shell jobs ------------------------ */
+    /* ------------------------- shell jobs --------------------------------- */
     {"(begin\n"
      "  (sh-env-set! #t \"foo\" \"bar\")\n"
      "  (cons\n"
@@ -415,7 +418,7 @@ static const struct {
      "(exited . 1)"},
     {"(sh-run (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 1)"},
     {"(sh-run (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 0)"},
-    /* ------------------------- shell repl ------------------------ */
+    /* ------------------------- shell repl --------------------------------- */
     {"(sh-parse-scheme\n"
      "  (open-string-input-port \"(+ 2 3) (values 7 (cons 'a 'b))\")\n"
      "  (parsers))\n",
