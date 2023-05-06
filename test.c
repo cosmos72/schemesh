@@ -370,16 +370,18 @@ static const struct {
     /* ------------------------ parser ----------------------------- */
     {"(parse-scheme* (open-string-input-port \"(foo bar) '(a b)\") #f)", "(foo bar)"},
     {"(parse-scheme* (open-string-input-port \"(a (b c . d) . e)\") #f)", "(a (b c . d) . e)"},
-    {"(values->list\n"
-     "  (parse-forms\n"
-     "    (open-string-input-port \"(foo bar) '(a b)\")\n"
-     "    'scheme (parsers)))\n",
-     "((begin (foo bar) '(a b)) #<parser scheme>)"},
-    {"(values->list\n"
-     "  (parse-forms\n"
-     "    (open-string-input-port \"uiop asdf #!scheme (xyz %%a)\")\n"
-     "    'scheme (parsers)))\n",
+    {"(values->list (parse-forms\n"
+     "  (open-string-input-port \"(foo bar) #!eof '(a . b)\")\n"
+     "  'scheme (parsers)))\n",
+     "((begin (foo bar) #!eof '(a . b)) #<parser scheme>)"},
+    {"(values->list (parse-forms\n"
+     "  (open-string-input-port \"uiop asdf #!scheme (xyz %%a)\")\n"
+     "  'scheme (parsers)))\n",
      "((begin uiop asdf (xyz %%a)) #<parser scheme>)"},
+    {"(values->list (parse-forms\n"
+     "  (open-string-input-port \"`('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)\")\n"
+     "  'scheme (parsers)))\n",
+     "((begin `('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)) #<parser scheme>)"},
     /* -------------------------- tty ------------------------------ */
     {"(let ((sz (tty-size)))\n"
      "  (and (pair? sz)\n"

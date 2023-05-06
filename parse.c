@@ -13,14 +13,15 @@ static void define_library_parser_base(void) {
 
 #define SCHEMESH_LIBRARY_PARSER_BASE_EXPORT                                                        \
   "make-parser parser? parser-name parser-parse parser-parse* parser-parse-list "                  \
-  "get-parser to-parser skip-whitespace "
+  "get-parser to-parser skip-whitespace try-read-parser-directive "
 
   eval("(library (schemesh parser base (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_PARSER_BASE_EXPORT ")\n"
        "  (import\n"
        "    (rnrs)\n"
-       "    (only (chezscheme) record-writer)\n"
-       "    (only (schemesh bootstrap) while))\n"
+       "    (only (chezscheme) record-writer unread-char)\n"
+       "    (only (schemesh bootstrap) while)\n"
+       "    (schemesh containers charspan))\n"
        "\n"
        /**
         * parser is an object containing two functions:
@@ -78,33 +79,6 @@ static void define_library_parser_base(void) {
        "  (while (is-whitespace-char? (peek-char in))\n"
        "    (read-char in)))\n"
        "\n"
-       /** customize how "parser" objects are printed */
-       "(record-writer (record-type-descriptor parser)\n"
-       "  (lambda (p port writer)\n"
-       "    (display \"#<parser \" port)\n"
-       "    (display (parser-name p) port)\n"
-       "    (display \">\" port)))\n"
-       "\n"
-       ")\n"); /* close library */
-}
-
-static void define_library_parser_scheme(void) {
-
-#define SCHEMESH_LIBRARY_PARSER_SCHEME_EXPORT "lex-scheme parse-scheme parse-scheme* parser-scheme "
-
-  eval("(library (schemesh parser scheme (0 1))\n"
-       "  (export " SCHEMESH_LIBRARY_PARSER_SCHEME_EXPORT ")\n"
-       "  (import\n"
-       "    (rnrs)\n"
-       "    (only (chezscheme)\n"
-       "       box bytevector fx1+\n"
-       "       fxvector fxvector-set! make-fxvector\n"
-       "       read-token reverse! unread-char)\n"
-       "    (only (schemesh bootstrap) while)\n"
-       "    (only (schemesh containers misc) reverse*!)\n"
-       "    (schemesh containers charspan)\n"
-       "    (schemesh parser base))\n"
-       "\n"
        /**
         * return #t if ch1 and ch2 are both chars and they are equal.
         * otherwise return #f if
@@ -126,14 +100,16 @@ static void define_library_parser_scheme(void) {
        "           (char>? ch #\\delete))))\n"
        "\n"
        /**
-        * First, skip whitespace in textual input port 'in'.
-        * Then, if first token in textual input port 'in' is a parser-change token #!identifier
+        * try to read a parser directive #!... from textual input port 'in'
+        *
+        * First, skip whitespace in input port.
+        * Then, if port's first token is a parser directive token #!identifier
         * then read it and return it as a symbol, skipping the "#!" prefix.
         *
         * Otherwise do nothing and return #f i.e. do not consume any token or part of it
         * (will still skip whitespace).
         */
-       "(define (try-read-parser-change in)\n"
+       "(define (try-read-parser-directive in)\n"
        "  (skip-whitespace in)\n"
        "  (let ((ret #f))\n"
        "    (when (is-char=? #\\# (peek-char in))\n"
@@ -148,6 +124,32 @@ static void define_library_parser_scheme(void) {
        "        (unread-char #\\# in)))\n"
        "    ret))\n"
        "\n"
+       /** customize how "parser" objects are printed */
+       "(record-writer (record-type-descriptor parser)\n"
+       "  (lambda (p port writer)\n"
+       "    (display \"#<parser \" port)\n"
+       "    (display (parser-name p) port)\n"
+       "    (display \">\" port)))\n"
+       "\n"
+       ")\n"); /* close library */
+}
+
+static void define_library_parser_scheme(void) {
+
+#define SCHEMESH_LIBRARY_PARSER_SCHEME_EXPORT "lex-scheme parse-scheme parse-scheme* parser-scheme "
+
+  eval("(library (schemesh parser scheme (0 1))\n"
+       "  (export " SCHEMESH_LIBRARY_PARSER_SCHEME_EXPORT ")\n"
+       "  (import\n"
+       "    (rnrs)\n"
+       "    (only (chezscheme)\n"
+       "       box bytevector fx1+\n"
+       "       fxvector fxvector-set! make-fxvector\n"
+       "       read-token reverse!)\n"
+       "    (only (schemesh bootstrap) while)\n"
+       "    (only (schemesh containers misc) reverse*!)\n"
+       "    (schemesh parser base))\n"
+       "\n"
        /**
         * Given textual input port 'in', read a single Scheme token from it.
         * Internally uses Chez Scheme (read-token) for simplicity, but could be reimplemented
@@ -156,13 +158,46 @@ static void define_library_parser_scheme(void) {
         * Return two values: token value and its type.
         */
        "(define (lex-scheme in enabled-parsers)\n"
-       "  (let ((value (try-read-parser-change in)))\n"
+       "  (let ((value (try-read-parser-directive in)))\n"
        "    (if (symbol? value)\n"
-       /*     cannot switch to other parser here: just return it and let caller switch */
-       "      (values (get-parser value enabled-parsers 'parse-scheme) 'parser)\n"
+       "      (if (eq? 'eof value)"
+       /*       yes, #!eof is an allowed directive:
+        *       it injects (eof-object) in token stream, with type 'atomic */
+       "        (values (eof-object) 'atomic)\n"
+       /*       cannot switch to other parser here: just return it and let caller switch */
+       "        (values (get-parser value enabled-parsers 'parse-scheme) 'parser))\n"
+       /*     read a single token with Chez Scheme (read-token),
+        *     then replace (values '{ 'atomic) with (values #f 'lbrace)
+        *     and replace (values '} 'atomic) with (values #f 'rbrace)
+        *     because we use them to switch to shell parser. For example,
+        *        {ls -l > log.txt}
+        *     is equivalent to
+        *        (#!shell ls -l > log.txt)
+        */
        "      (let-values (((type value start end) (read-token in)))\n"
-       "        (values value type)))))\n"
+       "        (if (eq? 'atomic type)\n"
+       "          (case value\n"
+       "            ((\\x7B;) (values #f 'lbrace))\n"
+       "            ((\\x7D;) (values #f 'rbrace))\n"
+       "            (else     (values value type)))\n"
+       "          (values value type))))))\n"
        "\n"
+       /**
+        * Return the symbol, converted to string,
+        * of most token types returned by Chez Scheme (read-token),
+        *
+        * Also recognizes and converts to string the additional types
+        * 'lbrace and 'rbrace introduced by (lex-scheme)
+        */
+       "(define (lex-type->string type)\n"
+       "  (case type\n"
+       "    ((box) \"#&\")   ((dot) \".\")    ((fasl) \"#@\")  ((insert) \"#N#\")\n"
+       "    ((lbrace) \"{\") ((lbrack) \"[\") ((lparen) \"(\") ((mark) \"#N=\") ((quote) \"'\")\n"
+       "    ((rbrace) \"}\") ((rbrack) \"]\") ((rparen) \")\") ((record-brack) \"#[\")\n"
+       "    ((vfxnparen) \"#Nvfx\") ((vfxparen) \"#vfx\")\n"
+       "    ((vnparen)   \"#Nv\")   ((vparen)   \"#v\")\n"
+       "    ((vu8nparen) \"#Nvu8\") ((vu8paren) \"#vu8\")\n"
+       "    (else \"???\")))\n"
        /**
         * Given textual input port 'in', repeatedly read Scheme tokens from it with
         * (lex-scheme) and construct a Scheme form.
@@ -192,8 +227,12 @@ static void define_library_parser_scheme(void) {
         */
        "(define (parse-scheme* in enabled-parsers)\n"
        "  (let-values (((value ok) (parse-scheme in enabled-parsers)))\n"
+       /*   cannot switch to other parser here, and caller does not expect it => raise */
        "    (unless ok"
        "      (syntax-violation 'parse-scheme \"unexpected end-of-file\" 'eof))\n"
+       "    (when (parser? value)"
+       "      (syntax-violation 'parse-scheme \"parser directive #!... can only appear in lists, "
+       "not in single-form contexts: #!\" (parser-name value)))\n"
        "    value))\n"
        "\n"
        /**
@@ -205,11 +244,21 @@ static void define_library_parser_scheme(void) {
        "    (case type\n"
        /*     cannot switch to other parser here: just return it and let caller switch */
        "      ((atomic eof parser) value)\n"
-       "      ((box)               (box (parse-scheme* in enabled-parsers)))\n"
+       "      ((box)               (list 'box  (parse-scheme* in enabled-parsers)))\n"
+       /*     if type = 'quote, value can be one of:
+        *        'quote  'quasiquote  'unquote  'unquote-splicing
+        *        'synyax 'quasisyntax 'unsyntax 'unsyntax-splicing */
+       "      ((quote)             (list value (parse-scheme* in enabled-parsers)))\n"
        "      ((lbrack lparen)     (parse-scheme-list type in '() enabled-parsers))\n"
-       "      ((quote)             (list 'quote (parse-scheme* in enabled-parsers)))\n"
+       /*     lbrace i.e. { switches to shell parser until corresponding rbrace i.e. } */
+       "      ((lbrace)\n"
+       "        (let ((other-parse-list (parser-parse-list\n"
+       "                (get-parser 'shell enabled-parsers 'parse-scheme))))\n"
+       "          (other-parse-list type in '() enabled-parsers)))\n"
+       /*     parse the various vector types, with or without explicit length */
        "      ((vfxnparen vfxparen vnparen vparen vu8nparen vu8paren)\n"
        "        (parse-vector type value in enabled-parsers))\n"
+       /*     TODO: ((record-brack) ... ) */
        "      (else   (syntax-violation 'parse-scheme \"unimplemented token type\" type)))\n"
        "    type))\n"
        "\n"
@@ -221,23 +270,25 @@ static void define_library_parser_scheme(void) {
         * The argument already-parsed-reverse will be reversed and prefixed to the returned list.
         */
        "(define (parse-scheme-list begin-type in already-parsed-reverse enabled-parsers)\n"
-       "  (let ((ret already-parsed-reverse)\n"
-       "        (again? #t)\n"
-       "        (reverse? #t)\n"
-       "        (check-rparen-or-rbrack (lambda (type)\n"
-       "          (let ((end-type (if (eq? 'lbrack begin-type) 'rbrack 'rparen)))\n"
-       "             (unless (eq? type end-type)\n"
-       "               (if (eq? end-type 'rbrack)\n"
-       "                 (syntax-violation 'parse-scheme \"unexpected token ], expecting )\"\n"
-       "                   type)\n"
-       "                 (syntax-violation 'parse-scheme \"unexpected token ), expecting ]\"\n"
-       "                   type)))))))\n"
+       "  (let* ((ret already-parsed-reverse)\n"
+       "         (again? #t)\n"
+       "         (reverse? #t)\n"
+       "         (end-type (case begin-type\n"
+       "                     ((lbrace) 'rbrace) ((lbrack) 'rbrack) (else 'rparen)))\n"
+       "         (check-list-end (lambda (type)\n"
+       "           (unless (eq? type end-type)\n"
+       "             (syntax-violation\n"
+       "               'parse-scheme\n"
+       "               (string-append \"unexpected token \" (lex-type->string type)\n"
+       "                  \", expecting \" (lex-type->string end-type))\n"
+       "               type)))))\n"
        "    (while again?\n"
        "      (let-values (((value type) (lex-scheme in enabled-parsers)))\n"
        "        (case type\n"
-       "          ((eof)     (syntax-violation 'parse-scheme \"unexpected\" type))\n"
-       "          ((rparen rbrack)\n"
-       "            (check-rparen-or-rbrack type)\n"
+       "          ((eof)\n"
+       "            (syntax-violation 'parse-scheme \"unexpected\" type))\n"
+       "          ((rparen rbrack rbrace)\n"
+       "            (check-list-end type)\n"
        "            (set! again? #f))\n"
        "          ((dot)\n"
        "            (let-values (((value-i type-i) (parse-scheme in enabled-parsers)))\n"
@@ -248,16 +299,17 @@ static void define_library_parser_scheme(void) {
        "              (set! ret (reverse*! (cons value-i ret)))\n"
        "              (set! reverse? #f)\n"
        "              (set! again? #f))\n"
-       /*           then parse ) or ] */
+       /*           then parse ) or ] or } */
        "            (let-values (((value type) (lex-scheme in enabled-parsers)))\n"
-       "              (check-rparen-or-rbrack type)))\n"
+       "              (check-list-end type)))\n"
        "          ((parser)\n"
-       /*           switch to other parser */
+       /*           switch to other parser until the end of current list */
        "            (let ((other-parse-list (parser-parse-list value)))\n"
        "              (set! ret (other-parse-list begin-type in ret enabled-parsers))\n"
        "              (set! reverse? #f)\n"
        "              (set! again? #f)))\n"
        "          (else\n"
+       /*           parse a single form and append it */
        "            (let-values (((value-i type-i)\n"
        "                            (parse-impl value type in enabled-parsers)))\n"
        "              (when (eq? 'eof type-i)\n"
@@ -460,7 +512,8 @@ void define_library_parser(void) {
         */
        "(define parsers\n"
        "  (let ((ret (make-eq-hashtable)))\n"
-       "    (hashtable-set! ret 'scheme (parser-scheme))\n"
+       "    (hashtable-set! ret 'chezscheme (parser-scheme))\n"
+       "    (hashtable-set! ret 'scheme   (parser-scheme))\n"
        "    (hashtable-set! ret 'shell  (parser-shell))\n"
        "    (lambda ()\n"
        "      ret)))\n"
