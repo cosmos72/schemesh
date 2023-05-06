@@ -490,7 +490,7 @@ static void define_library_parser_shell(void) {
         * If end-of-file is reached, return (eof-object) and #f.
         */
        "(define (parse-shell in enabled-parsers)\n"
-       "  (let ((ret '())\n"
+       "  (let ((ret (list 'shell))\n"
        "        (again? #t)"
        "        (reverse? #t)\n"
        "        (eof? #f))\n"
@@ -529,7 +529,7 @@ static void define_library_parser_shell(void) {
        "            (syntax-violation 'parse-shell \"unimplemented token type\" type)))))\n"
        "    (when reverse?\n"
        "      (set! ret (reverse! ret)))\n"
-       "    (values ret (not (and eof? (null? ret))))))\n"
+       "    (values ret (not (and eof? (or (null? ret) (null? (cdr ret))))))))\n"
        "\n"
        /**
         * Given textual input port 'in', repeatedly read from it using (read-shell-token)

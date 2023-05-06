@@ -371,7 +371,9 @@ static const struct {
     {"(parse-scheme* (open-string-input-port \"(foo bar) '(a b)\") #f)", "(foo bar)"},
     {"(parse-scheme* (open-string-input-port \"(a (b c . d) . e)\") #f)", "(a (b c . d) . e)"},
     /* ------------------------ parser shell -------------------------------- */
-    {"(parse-shell* (open-string-input-port \"ls -l>/dev/null&\") #f)", "(ls -l > /dev/null &)"},
+    {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
+     "  \"ls -l>/dev/null&\") #f))",
+     "(shell \"ls\" \"-l\" #\\> \"/dev/null\" #\\&)"},
     /* ------------------------ parser -------------------------------------- */
     {"(values->list (parse-forms\n"
      "  (open-string-input-port \"(foo bar) #!eof '(a . b)\")\n"
