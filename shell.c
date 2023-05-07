@@ -47,6 +47,9 @@ static void c_environ_to_sh_env(char** env) {
 /**
  * Define the record types "job" "cmd" "multijob" and functions operating on them.
  * Define the functions (sh-env...) and (sh-fd...)
+ *
+ * Convention: (sh) and (sh-...) are functions
+ *             (shell) and (shell-...) are macros
  */
 static void define_library_shell_jobs(void) {
 

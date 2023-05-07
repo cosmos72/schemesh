@@ -550,7 +550,7 @@ static void define_library_parser_shell(void) {
        "\n"
        /** Common backend of (parse-shell) (parse-shell*) and (parse-shell-list) */
        "(define (parse-shell-impl value type in enabled-parsers)\n"
-       "  (let ((ret (list 'sh-macro))\n"
+       "  (let ((ret (list 'shell))\n"
        "        (again? #t)\n"
        "        (reverse? #t))\n"
        "    (while again?\n"
@@ -597,12 +597,12 @@ static void define_library_parser_shell(void) {
         * Read shell forms from textual input port 'in' until a token } or ] or )
         * matching the specified begin-type token is found.
         * Automatically change parser when directive #!... is found.
-
-        * Return a list containing 'sh-list followed by such forms.
+        *
+        * Return a list containing 'shell-list followed by such forms.
         * Raise syntax-violation if mismatched end token is found, as for example ')' instead of '}'
         */
        "(define (parse-shell-list begin-type in already-parsed-reverse enabled-parsers)\n"
-       "  (let* ((ret already-parsed-reverse)\n"
+       "  (let* ((ret (cons 'shell-list already-parsed-reverse))\n"
        "         (again? #t)\n"
        "         (reverse? #t)\n"
        "         (end-type (case begin-type\n"
@@ -636,9 +636,7 @@ static void define_library_parser_shell(void) {
        /*           parse a single shell form and accumulate it into ret */
        "            (let ((value (parse-shell-impl value type in enabled-parsers)))\n"
        "              (set! ret (cons value ret)))))))\n"
-       "    (when reverse?\n"
-       "      (set! ret (reverse! ret)))\n"
-       "    (cons 'sh-list ret)))\n"
+       "    (if reverse? (reverse! ret) ret)))\n"
        "\n"
        "(define parser-shell\n"
        "  (let ((ret (make-parser 'shell parse-shell parse-shell* parse-shell-list)))\n"

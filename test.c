@@ -372,18 +372,18 @@ static const struct {
     {"(parse-scheme* (open-string-input-port \"(a (b c . d) . e)\") #f)", "(a (b c . d) . e)"},
     /* ------------------------ parser shell -------------------------------- */
     {"(values->list (parse-shell (open-string-input-port \"\") #f))", "(#!eof #f)"},
-    {"(parse-shell* (open-string-input-port \"{}\") #f)", "(sh-list)"},
+    {"(parse-shell* (open-string-input-port \"{}\") #f)", "(shell-list)"},
     {"(parse-shell* (open-string-input-port \"ls   -l>/dev/null&\") #f)",
-     "(sh-macro ls -l > /dev/null &)"},
+     "(shell ls -l > /dev/null &)"},
     {"(parse-shell* (open-string-input-port\n"
      "  \"{echo  foo  bar|wc -l;  }\") #f)",
-     "(sh-list (sh-macro echo foo bar | wc -l))"},
+     "(shell-list (shell echo foo bar | wc -l))"},
     {"(parse-shell* (open-string-input-port\n"
      "  \"{echo|{cat\n}}\") #f)",
-     "(sh-list (sh-macro echo | (sh-list (sh-macro cat))))"},
+     "(shell-list (shell echo | (shell-list (shell cat))))"},
     {"(parse-shell* (open-string-input-port\n"
      "  \"a>>/dev/null||b>|/dev/zero&&!c>&log\") #f)",
-     "(sh-macro a >> /dev/null || b >| /dev/zero && ! c >& log)"},
+     "(shell a >> /dev/null || b >| /dev/zero && ! c >& log)"},
     /* ------------------------ parser -------------------------------------- */
     {"(values->list (parse-forms\n"
      "  (open-string-input-port \"\")\n"
@@ -405,23 +405,23 @@ static const struct {
     {"(parse-form*\n" /* { switches to shell parser */
      "  (open-string-input-port \"{ls -l >& log.txt}\")\n"
      "  'scheme (parsers)))",
-     "(sh-list (sh-macro ls -l >& log.txt))"},
+     "(shell-list (shell ls -l >& log.txt))"},
     {"(parse-form*\n" /* directive #!shell switches to shell parser too */
      "  (open-string-input-port \"(#!shell ls -al >> log.txt)\")\n"
      "  'scheme (parsers)))",
-     "(sh-list (sh-macro ls -al >> log.txt))"},
+     "(shell-list (shell ls -al >> log.txt))"},
     {"(parse-form*\n" /* ( switches to Scheme parser */
      "  (open-string-input-port \"(apply + a `(,@b))\")\n"
      "  'shell (parsers)))",
-     "(sh-macro (apply + a `(,@b)))"},
+     "(shell (apply + a `(,@b)))"},
     {"(parse-form*\n"
      "  (open-string-input-port \"ls (my-dir) >> log.txt\")\n"
      "  'shell (parsers)))",
-     "(sh-macro ls (my-dir) >> log.txt)"},
+     "(shell ls (my-dir) >> log.txt)"},
     {"(values->list (parse-forms\n" /* directive #!scheme switches to Scheme parser too */
      "  (open-string-input-port \"ls ~; #!scheme (my-cmd)\")\n"
      "  'shell (parsers)))",
-     "((begin (sh-macro ls ~) (my-cmd)) #<parser scheme>)"},
+     "((begin (shell ls ~) (my-cmd)) #<parser scheme>)"},
     /* -------------------------- tty --------------------------------------- */
     {"(let ((sz (tty-size)))\n"
      "  (and (pair? sz)\n"
