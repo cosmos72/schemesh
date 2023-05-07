@@ -382,17 +382,18 @@ static const struct {
      "  \"{echo|{cat\n}}\") #f)",
      "(sh-list (sh-macro echo | (sh-list (sh-macro cat))))"},
     {"(parse-shell* (open-string-input-port\n"
-     "  \"a>>/dev/null||b>|/dev/zero&&!c\") #f)",
-     "(sh-macro a >> /dev/null || b >| /dev/zero && ! c)"},
+     "  \"a>>/dev/null||b>|/dev/zero&&!c>&log\") #f)",
+     "(sh-macro a >> /dev/null || b >| /dev/zero && ! c >& log)"},
     /* ------------------------ parser -------------------------------------- */
     {"(values->list (parse-forms\n"
      "  (open-string-input-port \"\")\n"
      "  'scheme (parsers)))",
      "(() #<parser scheme>)"},
     {"(values->list (parse-forms\n"
-     "  (open-string-input-port \"(foo bar) #!eof '(a . b)\")\n"
+     /* #!eof is equivalent to end-of-file in the input port */
+     "  (open-string-input-port \"'(a . b) c #!eof . ) syntax error\")\n"
      "  'scheme (parsers)))",
-     "((begin (foo bar) #!eof '(a . b)) #<parser scheme>)"},
+     "((begin '(a . b) c) #<parser scheme>)"},
     {"(values->list (parse-forms\n"
      "  (open-string-input-port \"uiop asdf #!scheme (xyz %%a)\")\n"
      "  'scheme (parsers)))",

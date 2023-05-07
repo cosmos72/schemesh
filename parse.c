@@ -163,8 +163,10 @@ static void define_library_parser_scheme(void) {
       "    (if (symbol? value)\n"
       "      (if (eq? 'eof value)\n"
       /*       yes, #!eof is an allowed directive:
-       *       it injects (eof-object) in token stream, with type 'atomic */
-      "        (values (eof-object) 'atomic)\n"
+       *       it injects (eof-object) in token stream, with type 'eof
+       *       thus simulating an actual end-of-file in input port.
+       *       Reason: historically used to disable the rest of a file, to help debugging */
+      "        (values (eof-object) 'eof)\n"
       /*       cannot switch to other parser here: just return it and let caller switch */
       "        (values (get-parser value enabled-parsers 'parse-scheme) 'parser))\n"
       /*     read a single token with Chez Scheme (read-token),
@@ -464,9 +466,13 @@ static void define_library_parser_shell(void) {
        "      ((op)\n"
        "        (let ((ch2 (peek-char in)))\n"
        "          (case ch\n"
-       "            ((#\\&) (if (eq? ch2 #\\&) (set! ch '&&) (set! type 'separator)))\n"
-       "            ((#\\|) (when (eq? ch2 #\\|) (set! ch '\\x7C;\\x7C;)))\n"
+       "            ((#\\&) (if (eq? ch2 #\\&)\n"
+       "                      (set! ch '&&)\n"
+       "                      (set! type 'separator)))\n"
+       "            ((#\\|) (cond ((eq? ch2 #\\&) (set! ch '\\x7C;&))\n"
+       "                          ((eq? ch2 #\\|) (set! ch '\\x7C;\\x7C;))))\n"
        "            ((#\\>) (cond ((eq? ch2 #\\>) (set! ch '>>))\n"
+       "                          ((eq? ch2 #\\&) (set! ch '>&))\n"
        "                          ((eq? ch2 #\\|) (set! ch '>\\x7C;))))))\n"
        "        (when (symbol? ch)\n"
        "          (read-char in))\n" /* consume peeked character */
@@ -485,7 +491,7 @@ static void define_library_parser_shell(void) {
        "      (else\n"
        "        (syntax-violation 'lex-shell \"unimplemented character type:\" type)))))\n"
        /**
-        * Given textual input port 'in', read a single shell token from it.
+        * Read a single shell token from textual input port 'in'.
         * Return two values: token value and its type.
         * Also recognizes parser directives #!... and returns them with type 'parser.
         */
@@ -495,8 +501,10 @@ static void define_library_parser_shell(void) {
        "    (if (symbol? value)\n"
        "      (if (eq? 'eof value)\n"
        /*       yes, #!eof is an allowed directive:
-        *       it injects (eof-object) in token stream, with type 'atomic */
-       "        (values (eof-object) 'atomic)\n"
+        *       it injects (eof-object) in token stream, with type 'eof
+        *       thus simulating an actual end-of-file in input port.
+        *       Reason: historically used to disable the rest of a file, to help debugging */
+       "        (values (eof-object) 'eof)\n"
        /*       cannot switch to other parser here: just return it and let caller switch */
        "        (values (get-parser value enabled-parsers 'parse-shell) 'parser))\n"
        /*     read a single shell token */
