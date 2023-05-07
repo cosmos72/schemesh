@@ -402,6 +402,26 @@ static const struct {
      "  (open-string-input-port \"`('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)\")\n"
      "  'scheme (parsers)))",
      "((begin `('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)) #<parser scheme>)"},
+    {"(parse-form*\n" /* { switches to shell parser */
+     "  (open-string-input-port \"{ls -l >& log.txt}\")\n"
+     "  'scheme (parsers)))",
+     "(sh-list (sh-macro ls -l >& log.txt))"},
+    {"(parse-form*\n" /* directive #!shell switches to shell parser too */
+     "  (open-string-input-port \"(#!shell ls -al >> log.txt)\")\n"
+     "  'scheme (parsers)))",
+     "(sh-list (sh-macro ls -al >> log.txt))"},
+    {"(parse-form*\n" /* ( switches to Scheme parser */
+     "  (open-string-input-port \"(apply + a `(,@b))\")\n"
+     "  'shell (parsers)))",
+     "(sh-macro (apply + a `(,@b)))"},
+    {"(parse-form*\n"
+     "  (open-string-input-port \"ls (my-dir) >> log.txt\")\n"
+     "  'shell (parsers)))",
+     "(sh-macro ls (my-dir) >> log.txt)"},
+    {"(values->list (parse-forms\n" /* directive #!scheme switches to Scheme parser too */
+     "  (open-string-input-port \"ls ~; #!scheme (my-cmd)\")\n"
+     "  'shell (parsers)))",
+     "((begin (sh-macro ls ~) (my-cmd)) #<parser scheme>)"},
     /* -------------------------- tty --------------------------------------- */
     {"(let ((sz (tty-size)))\n"
      "  (and (pair? sz)\n"
