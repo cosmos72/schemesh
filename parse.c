@@ -415,7 +415,9 @@ static void define_library_parser_shell(void) {
        "        'eof\n"
        "        (case ch\n"
        "          ((#\\newline #\\;) 'separator)\n"
-       /**        TODO: complete this list */
+       /**        TODO: complete this list.
+        *         Note: (lex-shell-impl) will change type of #\& to 'separator
+        *               unless it's followed by another #\& */
        "          ((#\\! #\\& #\\# #\\< #\\> #\\| #\\~) 'op)\n"
        "          ((#\\\") 'dquote)\n"
        "          ((#\\' ) 'quote)\n"
@@ -458,7 +460,7 @@ static void define_library_parser_shell(void) {
        "    (case type\n"
        "      ((eof separator lparen rparen lbrack rbrack lbrace rbrace)\n"
        "        (values ch type))\n"
-       /**    TODO: also handle multi-character operators #... N> N< N>| << N>> $( etc. */
+       /**    TODO: handle missing multi-character operators #... N> N< N>| << N>> $( etc. */
        "      ((op)\n"
        "        (let ((ch2 (peek-char in)))\n"
        "          (case ch\n"
