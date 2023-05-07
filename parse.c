@@ -82,7 +82,7 @@ static void define_library_parser_base(void) {
        "\n"
        /**
         * return #t if ch1 and ch2 are both chars and they are equal.
-        * otherwise return #f if
+        * otherwise return #f
         */
        "(define (is-char=? ch1 ch2)\n"
        "  (and (char? ch1) (char? ch2) (char=? ch1 ch2)))\n"
@@ -257,7 +257,7 @@ static void define_library_parser_scheme(void) {
       /*     parse the various vector types, with or without explicit length */
       "      ((vfxnparen vfxparen vnparen vparen vu8nparen vu8paren)\n"
       "        (parse-vector type value in enabled-parsers))\n"
-      /*     TODO: ((record-brack) ... ) */
+      /**    TODO: ((record-brack) ... ) */
       "      (else   (syntax-violation 'parse-scheme \"unimplemented token type\" type)))\n"
       "    type))\n"
       "\n"
@@ -391,7 +391,7 @@ static void define_library_parser_shell(void) {
        "  (export " SCHEMESH_LIBRARY_PARSER_SHELL_EXPORT ")\n"
        "  (import\n"
        "    (rnrs)\n"
-       "    (only (chezscheme) reverse! unread-char)\n"
+       "    (only (chezscheme) " /* "format " */ "reverse! unread-char)\n"
        "    (only (schemesh bootstrap) while)\n"
        "    (schemesh containers charspan)\n"
        "    (schemesh parser base))\n"
@@ -414,9 +414,9 @@ static void define_library_parser_shell(void) {
        "      (if (eof-object? ch)\n"
        "        'eof\n"
        "        (case ch\n"
-       "          ((#\\newline #\\; #\\&) 'separator)\n"
+       "          ((#\\newline #\\;) 'separator)\n"
        /**        TODO: complete this list */
-       "          ((#\\! #\\# #\\< #\\> #\\| #\\~) 'op)\n"
+       "          ((#\\! #\\& #\\# #\\< #\\> #\\| #\\~) 'op)\n"
        "          ((#\\\") 'dquote)\n"
        "          ((#\\' ) 'quote)\n"
        "          ((#\\\\) 'backslash)\n"
@@ -456,8 +456,18 @@ static void define_library_parser_shell(void) {
        "(define (lex-shell-impl in)\n"
        "  (let-values (((ch type) (read-shell-char in)))\n"
        "    (case type\n"
-       /**    TODO: also handle multi-character operators as && || N> N< >> << etc. */
-       "      ((eof separator op lparen rparen lbrack rbrack lbrace rbrace)\n"
+       "      ((eof separator lparen rparen lbrack rbrack lbrace rbrace)\n"
+       "        (values ch type))\n"
+       /**    TODO: also handle multi-character operators #... N> N< N>| << N>> $( etc. */
+       "      ((op)\n"
+       "        (let ((ch2 (peek-char in)))\n"
+       "          (case ch\n"
+       "            ((#\\&) (if (eq? ch2 #\\&) (set! ch '&&) (set! type 'separator)))\n"
+       "            ((#\\|) (when (eq? ch2 #\\|) (set! ch '\\x7C;\\x7C;)))\n"
+       "            ((#\\>) (cond ((eq? ch2 #\\>) (set! ch '>>))\n"
+       "                          ((eq? ch2 #\\|) (set! ch '>\\x7C;))))))\n"
+       "        (when (symbol? ch)\n"
+       "          (read-char in))\n" /* consume peeked character */
        "        (values ch type))\n"
        "      ((char)\n"
        "        (let ((str (charspan ch))\n"
@@ -534,10 +544,10 @@ static void define_library_parser_shell(void) {
        "        (again? #t)\n"
        "        (reverse? #t))\n"
        "    (while again?\n"
-       /* "   (format #t \"parse-shell-impl: value = ~s, type = ~s~%\" value type)\n" */
+       /* "    (format #t \"parse-shell-impl: value = ~s, type = ~s~%\" value type)\n" */
        "      (case type\n"
        "        ((eof)\n"
-       "          (syntax-violation 'parse-shell \"unexpected end-of-file\" 'eof))\n"
+       "          (set! again? #f))\n"
        "        ((parser)\n"
        "          (syntax-violation 'parse-shell \"parser directive #!... can only appear "
        "before or after a shell command, not in the middle of it: #!\" (parser-name value)))\n"
@@ -706,7 +716,7 @@ void define_library_parser(void) {
        "          (set! again? #f))))\n"
        "    (values\n"
        "      (if (or (null? ret) (null? (cdr ret)))\n"
-       "        (car ret)\n"
+       "        ret\n"
        "        (cons 'begin (reverse! ret)))\n"
        "      current-parser)))\n"
        /**

@@ -84,7 +84,7 @@ static const struct {
     {"(values->list (bytevector-utf8-ref #vu8(#xff) 0 1))", "(#f 1)"}, /* invalid #xff */
     {"(let ((bv (make-bytevector 1)))\n"
      "  (bytevector-utf8-set! bv 0 #\\~)\n"
-     "  bv)\n",
+     "  bv)",
      "~"},
     {"(list\n"
      "  (char->utf8-length (integer->char 0))\n"
@@ -94,27 +94,27 @@ static const struct {
      "  (char->utf8-length (integer->char #x800))\n"
      "  (char->utf8-length (integer->char #xffff))\n"
      "  (char->utf8-length (integer->char #x10000))\n"
-     "  (char->utf8-length (integer->char #x10ffff)))\n",
+     "  (char->utf8-length (integer->char #x10ffff)))",
      "(1 1 2 2 3 3 4 4)"},
     {"(let ((bv (make-bytevector 1)))\n"
      "  (bytevector-utf8-set! bv 0 #\\~)\n"
-     "  bv)\n",
+     "  bv)",
      "~"},
     {"(let ((bv (make-bytevector 2)))\n"
      "  (bytevector-utf8-set! bv 0 (integer->char #xa3))\n" /* pound sign */
-     "  bv)\n",
+     "  bv)",
      "\xc2\xa3"},
     {"(let ((bv (make-bytevector 3)))\n"
      "  (bytevector-utf8-set! bv 0 (integer->char #x20ac))\n" /* euro sign */
-     "  bv)\n",
+     "  bv)",
      "\xe2\x82\xac"},
     {"(let ((bv (make-bytevector 4)))\n"
      "  (bytevector-utf8-set! bv 0 (integer->char #x10348))\n"
-     "  bv)\n",
+     "  bv)",
      "\xf0\x90\x8d\x88"},
     {"(let ((bv (make-bytevector 4)))\n"
      "  (bytevector-utf8-set! bv 0 (integer->char #x10ffff))\n"
-     "  bv)\n",
+     "  bv)",
      "\xf4\x8f\xbf\xbf"},
     /* ----------------- bytespan-utf8 ----------------------------- */
     {"(values->list (bytespan-utf8-ref (bytespan) 0 1))", "(#t 0)"}, /* incomplete */
@@ -141,23 +141,23 @@ static const struct {
      "(\xf4\x8f\xbf\xbf 4)"}, /* U+10FFFF */
     {"(let ((sp (bytespan)))\n"
      "  (bytespan-utf8-insert-back! sp #\\~)\n"
-     "  sp)\n",
+     "  sp)",
      "(bytespan 126)"},
     {"(let ((sp (bytespan)))\n"
      "  (bytespan-utf8-insert-back! sp (integer->char #xa3))\n" /* pound sign */
-     "  sp)\n",
+     "  sp)",
      "(bytespan 194 163)"},
     {"(let ((sp (bytespan)))\n"
      "  (bytespan-utf8-insert-back! sp (integer->char #x20ac))\n" /* euro sign */
-     "  sp)\n",
+     "  sp)",
      "(bytespan 226 130 172)"},
     {"(let ((sp (bytespan)))\n"
      "  (bytespan-utf8-insert-front! sp (integer->char #x10348))\n"
-     "  sp)\n",
+     "  sp)",
      "(bytespan 240 144 141 136)"},
     {"(let ((sp (bytespan)))\n"
      "  (bytespan-utf8-insert-front! sp (integer->char #x10ffff))\n"
-     "  sp)\n",
+     "  sp)",
      "(bytespan 244 143 191 191)"},
     /* ----------------- bytespan-fixnum-display ------------------ */
     {"(let ((sp (bytespan)))\n"
@@ -166,7 +166,7 @@ static const struct {
      "    (lambda (n)\n"
      "      (bytespan-fixnum-display-back! sp n)\n"
      "      (bytespan-u8-insert-back! sp 32)))\n"
-     "  (bytespan->bytevector sp))\n",
+     "  (bytespan->bytevector sp))",
      "0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000 "
      "9999998 10000000 12345678 -1 -9 -10 -87654321 "},
     /* ------------------------- span ----------------------------- */
@@ -216,7 +216,7 @@ static const struct {
      "  sp)",
      "(span a b c)"},
     {"(let ((sp (span 'a 'b 'c 'd)))\n"
-     "  (span-find sp 0 999 (lambda (elem) (eq? 'c elem))))\n",
+     "  (span-find sp 0 999 (lambda (elem) (eq? 'c elem))))",
      "2"},
     /* ----------------------- bytespan --------------------------- */
     {"(bytespan 1 2 3)", "(bytespan 1 2 3)"},
@@ -244,7 +244,7 @@ static const struct {
      "  sp)",
      "(bytespan 4 5 6 7 8)"},
     {"(let ((sp (bytespan 9 10 11 12)))\n"
-     "  (bytespan-u8-find sp 0 999 (lambda (elem) (eq? 11 elem))))\n",
+     "  (bytespan-u8-find sp 0 999 (lambda (elem) (eq? 11 elem))))",
      "2"},
     /* ----------------------- charspan --------------------------- */
     {"(charspan #\\1 #\\2 #\\3)", "(string->charspan* \"123\")"},
@@ -285,7 +285,7 @@ static const struct {
      "  sp)",
      "(string->charspan* \"asdfu\")"},
     {"(let ((sp (charspan #\\@ #\\a #\\b #\\c)))\n"
-     "  (charspan-find sp 0 999 (lambda (elem) (eq? #\\b elem))))\n",
+     "  (charspan-find sp 0 999 (lambda (elem) (eq? #\\b elem))))",
      "2"},
     /* ----------------------- gbuffer --------------------------- */
     {"(gbuffer 'a 2 3.7)", "(gbuffer a 2 3.7)"},
@@ -295,12 +295,12 @@ static const struct {
      "  (gbuffer-iterate gb\n"
      "    (lambda (i elem)\n"
      "      (gbuffer-set! gb i (fx- i))))\n"
-     "  gb)\n",
+     "  gb)",
      "(gbuffer 0 -1 -2 -3 -4)"},
     {"(let ((gb (gbuffer 'a 'b 'c 'd 'e)))\n"
      "  (gbuffer-erase-at! gb 2 2)\n"
      "  (gbuffer-insert-at! gb 1 'x)\n"
-     "  gb)\n",
+     "  gb)",
      "(gbuffer a x b e)"},
     /* --------------------- chargbuffer ------------------------------------ */
     {"(chargbuffer #\\X #\\Y #\\Z)", "(string->chargbuffer* \"XYZ\")"},
@@ -311,12 +311,12 @@ static const struct {
      "  (chargbuffer-iterate gb\n"
      "    (lambda (i elem)\n"
      "      (chargbuffer-set! gb i (integer->char (fx+ i 64)))))\n"
-     "  gb)\n",
+     "  gb)",
      "(string->chargbuffer* \"@ABCD\")"},
     {"(let ((gb (chargbuffer #\\a #\\b #\\c #\\d #\\e)))\n"
      "  (chargbuffer-erase-at! gb 2 2)\n"
      "  (chargbuffer-insert-at! gb 1 #\\x)\n"
-     "  gb)\n",
+     "  gb)",
      "(string->chargbuffer* \"axbe\")"},
     /* --------------------- chargbuffer-input-port-------------------------- */
     {"(read\n"
@@ -329,7 +329,7 @@ static const struct {
      "    (gbuffer\n"
      "      (string->chargbuffer* \"(urehg* (a . 'b) 12\")\n"
      "      (chargbuffer)\n"
-     "      (string->chargbuffer* \"3.45e3 . #\\\\m)\"))))\n",
+     "      (string->chargbuffer* \"3.45e3 . #\\\\m)\"))))",
      "(urehg* (a quote b) 123450.0 . m)"},
     /* --------------------- list ------------------------------------------- */
     {"(let ((ret '()))\n"
@@ -338,7 +338,7 @@ static const struct {
      "      (set! ret (cons elem ret))\n"
      /*     stop iterating if (eq? 'b elem) */
      "      (not (eq? 'b elem))))\n"
-     "  ret)\n",
+     "  ret)",
      "(b a)"},
     {"(reverse*! (list))", "()"},
     {"(reverse*! (list 1))", "(1)"},
@@ -346,26 +346,26 @@ static const struct {
     {"(reverse*! (list 1 2 3 4 5 6))", "(6 5 4 3 2 . 1)"},
     /* --------------------- hashtable -------------------------------------- */
     {"(hashtable-cells\n"
-     "  (eq-hashtable '(3 . C) '(2 . B) '(1 . A)))\n",
+     "  (eq-hashtable '(3 . C) '(2 . B) '(1 . A)))",
      "#((1 . A) (2 . B) (3 . C))"},
     {"(hashtable-cells\n"
-     "  (eqv-hashtable '(1.0 . A) '(2.1 . B) '(3 . C)))\n",
+     "  (eqv-hashtable '(1.0 . A) '(2.1 . B) '(3 . C)))",
      "#((3 . C) (1.0 . A) (2.1 . B))"},
     {"(hashtable-cells\n"
-     "  (eqv-hashtable '(3.1 . C) '(2 . B) '(1 . A)))\n",
+     "  (eqv-hashtable '(3.1 . C) '(2 . B) '(1 . A)))",
      "#((1 . A) (2 . B) (3.1 . C))"},
     {"(hashtable-cells\n"
-     "  (hashtable string-hash string=? '(\"a\" . 1) '(\"B\" . 2) '(\"+\" . 3)))\n",
+     "  (hashtable string-hash string=? '(\"a\" . 1) '(\"B\" . 2) '(\"+\" . 3)))",
      "#((+ . 3) (B . 2) (a . 1))"},
     {"(string-hashtable->vector-of-bytevector0\n"
      "  (hashtable string-hash string=?\n"
-     "             '(\"A\" . \"X\") '(\"B\" . \"Y\") '(\"C\" . \"Z\")))\n",
+     "             '(\"A\" . \"X\") '(\"B\" . \"Y\") '(\"C\" . \"Z\")))",
      "#(#vu8(67 61 90 0) #vu8(66 61 89 0) #vu8(65 61 88 0))"},
     {"(let ((ret '()))\n"
      "  (hashtable-iterate (eqv-hashtable '(1.0 . A) '(2.1 . B) '(3 . C))\n"
      "    (lambda (cell)\n"
      "      (set! ret (cons cell ret))))\n"
-     "  ret)\n",
+     "  ret)",
      "((2.1 . B) (1.0 . A) (3 . C))"},
     /* ------------------------ parser scheme ------------------------------- */
     {"(parse-scheme* (open-string-input-port \"(foo bar) '(a b)\") #f)", "(foo bar)"},
@@ -381,18 +381,25 @@ static const struct {
     {"(parse-shell* (open-string-input-port\n"
      "  \"{echo|{cat\n}}\") #f)",
      "(sh-list (sh-macro echo | (sh-list (sh-macro cat))))"},
+    {"(parse-shell* (open-string-input-port\n"
+     "  \"a>>/dev/null||b>|/dev/zero&&!c\") #f)",
+     "(sh-macro a >> /dev/null || b >| /dev/zero && ! c)"},
     /* ------------------------ parser -------------------------------------- */
     {"(values->list (parse-forms\n"
+     "  (open-string-input-port \"\")\n"
+     "  'scheme (parsers)))",
+     "(() #<parser scheme>)"},
+    {"(values->list (parse-forms\n"
      "  (open-string-input-port \"(foo bar) #!eof '(a . b)\")\n"
-     "  'scheme (parsers)))\n",
+     "  'scheme (parsers)))",
      "((begin (foo bar) #!eof '(a . b)) #<parser scheme>)"},
     {"(values->list (parse-forms\n"
      "  (open-string-input-port \"uiop asdf #!scheme (xyz %%a)\")\n"
-     "  'scheme (parsers)))\n",
+     "  'scheme (parsers)))",
      "((begin uiop asdf (xyz %%a)) #<parser scheme>)"},
     {"(values->list (parse-forms\n"
      "  (open-string-input-port \"`('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)\")\n"
-     "  'scheme (parsers)))\n",
+     "  'scheme (parsers)))",
      "((begin `('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)) #<parser scheme>)"},
     /* -------------------------- tty --------------------------------------- */
     {"(let ((sz (tty-size)))\n"
@@ -400,7 +407,7 @@ static const struct {
      "       (integer? (car sz))\n"
      "       (integer? (cdr sz))\n"
      "       (positive? (car sz))\n"
-     "       (positive? (cdr sz))))\n",
+     "       (positive? (cdr sz))))",
      "#t"},
     /* ------------------------- posix -------------------------------------- */
     {"(errno)", "0"},
@@ -409,7 +416,7 @@ static const struct {
      "  (sh-env-set! #t \"foo\" \"bar\")\n"
      "  (cons\n"
      "    (sh-env-get       #t \"foo\")\n"
-     "    (sh-env-exported? #t \"foo\")))\n",
+     "    (sh-env-exported? #t \"foo\")))",
      "(bar . #f)"},
     {"(sh-cmd \"echo\" \"foo\" \" bar \")", "(sh-cmd \"echo\" \"foo\" \" bar \")"},
     {"(sh-run (sh-cmd \"true\"))", "(exited . 0)"},
@@ -419,18 +426,18 @@ static const struct {
     {"(sh-run (sh-multijob 'hello (lambda (j) '(killed . sigsegv))))", "(killed . sigsegv)"},
     {"(let ((j (sh-list (sh-cmd \"false\") (sh-cmd \"true\"))))\n"
      "  (sh-start j)\n"
-     "  (sh-wait j))\n",
+     "  (sh-wait j))",
      "(exited . 0)"},
     {"(let ((j (sh-list (sh-cmd \"true\") (sh-cmd \"false\"))))\n"
      "  (sh-start j)\n"
-     "  (sh-wait j))\n",
+     "  (sh-wait j))",
      "(exited . 1)"},
     {"(sh-run (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 1)"},
     {"(sh-run (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 0)"},
     /* ------------------------- shell repl --------------------------------- */
     {"(sh-parse-scheme\n"
      "  (open-string-input-port \"(+ 2 3) (values 7 (cons 'a 'b))\")\n"
-     "  (parsers))\n",
+     "  (parsers))",
      "(begin (+ 2 3) (values 7 (cons 'a 'b)))"},
 };
 
