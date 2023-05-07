@@ -371,9 +371,16 @@ static const struct {
     {"(parse-scheme* (open-string-input-port \"(foo bar) '(a b)\") #f)", "(foo bar)"},
     {"(parse-scheme* (open-string-input-port \"(a (b c . d) . e)\") #f)", "(a (b c . d) . e)"},
     /* ------------------------ parser shell -------------------------------- */
-    {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
-     "  \"ls -l>/dev/null&\") #f))",
-     "(shell \"ls\" \"-l\" #\\> \"/dev/null\" #\\&)"},
+    {"(values->list (parse-shell (open-string-input-port \"\") #f))", "(#!eof #f)"},
+    {"(parse-shell* (open-string-input-port \"{}\") #f)", "(sh-list)"},
+    {"(parse-shell* (open-string-input-port \"ls   -l>/dev/null&\") #f)",
+     "(sh-macro ls -l > /dev/null &)"},
+    {"(parse-shell* (open-string-input-port\n"
+     "  \"{echo  foo  bar|wc -l;  }\") #f)",
+     "(sh-list (sh-macro echo foo bar | wc -l))"},
+    {"(parse-shell* (open-string-input-port\n"
+     "  \"{echo|{cat\n}}\") #f)",
+     "(sh-list (sh-macro echo | (sh-list (sh-macro cat))))"},
     /* ------------------------ parser -------------------------------------- */
     {"(values->list (parse-forms\n"
      "  (open-string-input-port \"(foo bar) #!eof '(a . b)\")\n"
@@ -410,11 +417,11 @@ static const struct {
     {"(sh-multijob 'hello (lambda (j) '(exited . 42)))", "(sh-hello)"},
     {"(sh-run (sh-multijob 'hello (lambda (j) '(exited . 42))))", "(exited . 42)"},
     {"(sh-run (sh-multijob 'hello (lambda (j) '(killed . sigsegv))))", "(killed . sigsegv)"},
-    {"(let ((j (sh-vec (sh-cmd \"false\") (sh-cmd \"true\"))))\n"
+    {"(let ((j (sh-list (sh-cmd \"false\") (sh-cmd \"true\"))))\n"
      "  (sh-start j)\n"
      "  (sh-wait j))\n",
      "(exited . 0)"},
-    {"(let ((j (sh-vec (sh-cmd \"true\") (sh-cmd \"false\"))))\n"
+    {"(let ((j (sh-list (sh-cmd \"true\") (sh-cmd \"false\"))))\n"
      "  (sh-start j)\n"
      "  (sh-wait j))\n",
      "(exited . 1)"},

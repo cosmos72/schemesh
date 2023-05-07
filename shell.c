@@ -54,7 +54,7 @@ static void define_library_shell_jobs(void) {
   "sh-job? sh-job-ref sh-job-span sh-job-status sh-cmd sh-cmd? sh-multijob sh-multijob? "          \
   "sh-globals sh-global-env sh-env-copy sh-env-get sh-env-set! sh-env-unset! "                     \
   "sh-env-exported? sh-env-export! sh-env->vector-of-bytevector0 "                                 \
-  "sh-start sh-bg sh-fg sh-run sh-wait sh-and sh-or sh-vec sh-fd-redirect! sh-fds-redirect! "
+  "sh-start sh-bg sh-fg sh-run sh-wait sh-and sh-or sh-list sh-fd-redirect! sh-fds-redirect! "
 
   eval(
       "(library (schemesh shell jobs (0 1))\n"
@@ -765,7 +765,7 @@ static void define_library_shell_jobs(void) {
       "\n"
       /**
        * Run a multijob containing a sequence of children jobs.
-       * Used by (sh-vec), implements runtime behavior of shell syntax foo; bar; baz
+       * Used by (sh-list), implements runtime behavior of shell syntax foo; bar; baz
        */
       "(define (%multijob-run-vec mj)\n"
       "  (let ((jobs   (multijob-children mj))\n"
@@ -784,7 +784,7 @@ static void define_library_shell_jobs(void) {
       "(define (sh-or . children-jobs)\n"
       "  (apply sh-multijob 'or  %multijob-run-or  children-jobs))\n"
       "\n"
-      "(define (sh-vec . children-jobs)\n"
+      "(define (sh-list . children-jobs)\n"
       "  (apply sh-multijob 'vec %multijob-run-vec children-jobs))\n"
       "\n"
       /** customize how "job" objects are printed */
@@ -844,9 +844,8 @@ static void define_library_shell_repl(void) {
        "    ret))\n"
        "\n"
        /**
-        * parse textual input stream until eof, parsing shell syntax and temporarily switching
-        * to other parsers if a symbol present in enabled-parsers is found in a (possibly nested)
-        * list being parsed.
+        * parse shell forms from textual input stream 'in'
+        * Automatically change parser when directive #!... is found.
         *
         * Return Scheme code to evaluate.
         */
