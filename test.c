@@ -408,7 +408,7 @@ static const struct {
      "  (open-string-input-port \"`('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)\")\n"
      "  'scheme (parsers)))",
      "((begin `('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)) #<parser scheme>)"},
-    {"(parse-form*\n" /* { switches to shell parser */
+    {"(parse-form*\n" /* character { switches to shell parser */
      "  (open-string-input-port \"{ls -l >& log.txt}\")\n"
      "  'scheme (parsers)))",
      "(shell-list (shell ls -l >& log.txt))"},
