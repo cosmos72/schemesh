@@ -384,6 +384,12 @@ static const struct {
     {"(parse-shell* (open-string-input-port\n"
      "  \"a>>/dev/null||b>|/dev/zero&&!c>&log\") #f)",
      "(shell a >> /dev/null || b >| /dev/zero && ! c >& log)"},
+    {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
+     "  \"ls \\\"-l\\\" '.'\") #f))",
+     "(shell \"ls\" \"-l\" \".\")"},
+    {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
+     "  \"ls $var1 \\\"$var2\\\" '$var3'\") #f))",
+     "(shell \"ls\" (shell-interpolate \"$var1\") (shell-interpolate \"$var2\") \"$var3\")"},
     /* ------------------------ parser -------------------------------------- */
     {"(values->list (parse-forms\n"
      "  (open-string-input-port \"\")\n"

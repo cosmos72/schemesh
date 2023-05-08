@@ -13,7 +13,7 @@ static void define_library_parser_base(void) {
 
 #define SCHEMESH_LIBRARY_PARSER_BASE_EXPORT                                                        \
   "make-parser parser? parser-name parser-parse parser-parse* parser-parse-list "                  \
-  "get-parser to-parser skip-whitespace try-read-parser-directive "
+  "get-parser to-parser skip-whitespace try-unread-char try-read-parser-directive "
 
   eval("(library (schemesh parser base (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_PARSER_BASE_EXPORT ")\n"
@@ -81,13 +81,6 @@ static void define_library_parser_base(void) {
        "    (read-char in)))\n"
        "\n"
        /**
-        * return #t if ch1 and ch2 are both chars and they are equal.
-        * otherwise return #f
-        */
-       "(define (is-char=? ch1 ch2)\n"
-       "  (and (char? ch1) (char? ch2) (char=? ch1 ch2)))\n"
-       "\n"
-       /**
         * return truthy if ch is a character whose value is a number,
         * or an ASCII letter, or '_', or greater than (integer->char 127).
         * Otherwise return #f
@@ -101,6 +94,16 @@ static void define_library_parser_base(void) {
        "           (char>? ch #\\delete))))\n"
        "\n"
        /**
+        * Try to unread a character from textual input port 'in'.
+        *
+        * Raise condition if Chez Scheme (unread-char ch in) fails:
+        * it will happen ch is different from last character read from input port.
+        */
+       "(define (try-unread-char ch in)\n"
+       "  (unread-char ch in)\n"
+       "  (assert (eqv? ch (peek-char in))))\n"
+       "\n"
+       /**
         * Try to read a parser directive #!... from textual input port 'in'
         * Does NOT skip whitespace in input port.
         *
@@ -111,16 +114,16 @@ static void define_library_parser_base(void) {
         */
        "(define (try-read-parser-directive in)\n"
        "  (let ((ret #f))\n"
-       "    (when (is-char=? #\\# (peek-char in))\n"
+       "    (when (eqv? #\\# (peek-char in))\n"
        "      (read-char in)\n"
-       "      (if (is-char=? #\\! (peek-char in))\n"
+       "      (if (eqv? #\\! (peek-char in))\n"
        "        (let ((str (charspan)))\n"
        "          (charspan-reserve-back! str 10)\n"
        "          (read-char in)\n"
        "          (while (is-simple-identifier-char? (peek-char in))\n"
        "            (charspan-insert-back! str (read-char in)))\n"
        "          (set! ret (string->symbol (charspan->string str))))\n"
-       "        (unread-char #\\# in)))\n"
+       "        (try-unread-char #\\# in)))\n"
        "    ret))\n"
        "\n"
        /** customize how "parser" objects are printed */
@@ -417,10 +420,10 @@ static void define_library_parser_shell(void) {
        "        'eof\n"
        "        (case ch\n"
        "          ((#\\newline #\\;) 'separator)\n"
-       /**        TODO: complete this list.
+       /**        TODO: is this list complete?
         *         Note: (lex-shell-impl) will change type of #\& to 'separator
         *               unless it's followed by another #\& */
-       "          ((#\\! #\\& #\\# #\\< #\\> #\\| #\\~) 'op)\n"
+       "          ((#\\! #\\& #\\# #\\< #\\> #\\|) 'op)\n"
        "          ((#\\\") 'dquote)\n"
        "          ((#\\' ) 'quote)\n"
        "          ((#\\\\) 'backslash)\n"
@@ -433,20 +436,107 @@ static void define_library_parser_shell(void) {
        "          ((#\\} ) 'rbrace)\n"
        "          (else    (if (char<=? ch #\\space) 'space 'char)))))))\n"
        "\n"
-       /* read a string inside double quotes, as for example "some text" */
-       "(define (read-shell-dquote in)\n"
-       /** TODO: implement */
-       "  (values \"\" 'string))\n"
+       /** Read a single character, suppressing any special meaning it may have */
+       "(define (read-char-after-backslash in csp-already-read)\n"
+       "  (let ((ch (read-char in)))\n"
+       "    (cond\n"
+       "      ((eof-object? ch)\n"
+       "        (syntax-violation 'lex-shell\n"
+       "          \"unexpected end-of-file after backslash\"\n"
+       "          (charspan->string csp-already-read) 'eof))\n"
+       "      ((eqv? ch #\\newline)\n"
+       /*       backslash followed by newline -> ignore both */
+       "        #f)\n"
+       "      (#t ch))))\n"
        "\n"
-       /* read a string inside single quotes, as for example 'some text' */
-       "(define (read-shell-quote in)\n"
-       /** TODO: implement */
-       "  (values \"\" 'quoted-string))\n"
+       /* Read a string inside single quotes, as for example 'some text' */
+       "(define (read-shell-quoted-string in)\n"
+       "  (let ((ch (read-char in)))\n"
+       "    (assert (eqv? ch #\\')))\n"
+       "  (let ((str (charspan))\n"
+       "        (again? #t))\n"
+       "    (while again?\n"
+       "      (let ((ch (read-char in)))\n"
+       "        (cond\n"
+       "          ((eof-object? ch)\n"
+       "            (syntax-violation 'lex-shell \"unexpected end-of-file inside quoted string:\"\n"
+       "              (charspan->string str)))\n"
+       "          ((eqv? ch #\\')\n"
+       "            (set! again? #f))\n" /* end of string reached  */
+       "          (#t\n"
+       "            (charspan-insert-back! str ch)))))\n"
+       "    (values (charspan->string str) 'quoted-string)))\n"
        "\n"
-       /* read a character after backslash, as for example \$ */
-       "(define (read-shell-backslash in)\n"
-       /** TODO: implement */
-       "  (values \"\" 'quoted-string))\n"
+       /* Read a string inside double quotes, as for example "some text" */
+       "(define (read-shell-dquoted-string in)\n"
+       "  (let ((ch (read-char in)))\n"
+       "    (assert (eqv? ch #\\\")))\n"
+       "  (let ((str (charspan))\n"
+       "        (again? #t)\n"
+       "        (has-dollar? #f))\n"
+       "    (while again?\n"
+       "      (let ((ch (read-char in)))\n"
+       "        (cond\n"
+       "          ((eof-object? ch)\n"
+       "            (syntax-violation 'lex-shell \"unexpected end-of-file inside double-quoted "
+       "string:\"\n"
+       "              (charspan->string str)))\n"
+       "          ((eqv? ch #\\\")\n"
+       "            (set! again? #f))\n" /* end of string reached  */
+       "          ((eqv? ch #\\\\)\n"
+       /*           read next char, suppressing any special meaning it may have */
+       "            (let ((ch-i (read-char-after-backslash in str)))\n"
+       "              (when ch-i (charspan-insert-back! str ch))))\n"
+       "          (#t\n"
+       "            (when (eqv? ch #\\$)\n"
+       /*             unescaped dollar marks environment variable expansion */
+       "              (set! has-dollar? #t))\n"
+       "            (charspan-insert-back! str ch)))))\n"
+       /*
+        *   Optimization: if no unescaped dollar sign was found, the parsed string does not have
+        *   environment variables to be expanded.
+        *   Thus, we can pretend the string was inside single quotes.
+        */
+       "    (values (charspan->string str) (if has-dollar? 'dquoted-string 'quoted-string))))\n"
+       "\n"
+       /* Read a string not inside quotes nor double quotes */
+       "(define (read-shell-string in)\n"
+       "  (let ((str (charspan))\n"
+       "        (again? #t)\n"
+       "        (has-dollar? #f))\n"
+       "    (while again?\n"
+       "      (let-values (((ch type) (read-shell-char in)))\n"
+       "        (cond\n"
+       "          ((eqv? ch #\\\\)\n"
+       /*           read next char, suppressing any special meaning it may have */
+       "            (let ((ch-i (read-char-after-backslash in str)))\n"
+       "              (when ch-i (charspan-insert-back! str ch))))\n"
+       "          ((eq? type 'char)\n"
+       "            (when (eqv? ch #\\$)\n"
+       /*             unescaped dollar marks environment variable expansion */
+       "              (set! has-dollar? #t))\n"
+       "            (charspan-insert-back! str ch))\n"
+       "          (#t\n"
+       /*
+        *           treat anything else as string delimiter. This means in our shell parser the
+        *           characters ( ) [ ] { } retain their meaning when found inside an unquoted
+        *           string.
+        *           Reason: we want to allow writing things like {ls -l | wc} without users having
+        *           to worry whether semicolons are needed or not before the }.
+        *
+        *           That's intentionally different from posix shell,
+        *           where [ ] { } inside a string are treated as regular characters,
+        *           and where ( ) inside a string are a syntax error.
+        */
+       "            (set! again? #f)\n"
+       "            (unless (eq? 'eof type)\n"
+       "              (try-unread-char ch in))))))\n"
+       /*
+        *   Optimization: if no unescaped dollar sign was found, the parsed string does not have
+        *   environment variables to be expanded.
+        *   Thus, we can pretend the string was inside single quotes.
+        */
+       "    (values (charspan->string str) (if has-dollar? 'string 'quoted-string))))\n"
        "\n"
        /**
         * Read a single shell token from textual input port 'in'.
@@ -466,28 +556,27 @@ static void define_library_parser_shell(void) {
        "      ((op)\n"
        "        (let ((ch2 (peek-char in)))\n"
        "          (case ch\n"
-       "            ((#\\&) (if (eq? ch2 #\\&)\n"
+       "            ((#\\&) (if (eqv? ch2 #\\&)\n"
        "                      (set! ch '&&)\n"
        "                      (set! type 'separator)))\n"
-       "            ((#\\|) (cond ((eq? ch2 #\\&) (set! ch '\\x7C;&))\n"
-       "                          ((eq? ch2 #\\|) (set! ch '\\x7C;\\x7C;))))\n"
-       "            ((#\\>) (cond ((eq? ch2 #\\>) (set! ch '>>))\n"
-       "                          ((eq? ch2 #\\&) (set! ch '>&))\n"
-       "                          ((eq? ch2 #\\|) (set! ch '>\\x7C;))))))\n"
+       "            ((#\\|) (cond ((eqv? ch2 #\\&) (set! ch '\\x7C;&))\n"
+       "                          ((eqv? ch2 #\\|) (set! ch '\\x7C;\\x7C;))))\n"
+       "            ((#\\>) (cond ((eqv? ch2 #\\>) (set! ch '>>))\n"
+       "                          ((eqv? ch2 #\\&) (set! ch '>&))\n"
+       "                          ((eqv? ch2 #\\|) (set! ch '>\\x7C;))))))\n"
        "        (when (symbol? ch)\n"
        "          (read-char in))\n" /* consume peeked character */
        "        (values ch type))\n"
-       "      ((char)\n"
-       "        (let ((str (charspan ch))\n"
-       "              (again? #t))\n"
-       "          (while again?\n"
-       "            (let-values (((ch-i type-i) (read-shell-char in)))\n"
-       "              (if (eq? 'char type-i)\n"
-       "                (charspan-insert-back! str ch-i)\n"
-       "                (begin\n"
-       "                  (unread-char ch-i in)\n"
-       "                  (set! again? #f)))))\n"
-       "          (values (charspan->string str) 'string)))\n"
+       "      ((dquote)\n"
+       "        (try-unread-char ch in)\n"
+       "        (read-shell-dquoted-string in))\n"
+       "      ((quote)\n"
+       "        (try-unread-char ch in)\n"
+       "        (read-shell-quoted-string in))\n"
+       "      ((char backslash)\n"
+       /**      TODO: handle ~ */
+       "        (try-unread-char ch in)\n"
+       "        (read-shell-string in))\n"
        "      (else\n"
        "        (syntax-violation 'lex-shell \"unimplemented character type:\" type)))))\n"
        /**
@@ -562,13 +651,15 @@ static void define_library_parser_shell(void) {
        "          (syntax-violation 'parse-shell \"parser directive #!... can only appear "
        "before or after a shell command, not in the middle of it: #!\" (parser-name value)))\n"
        "        ((separator)\n"
-       "          (when (eq? #\\& value)\n" /* append final & to command */
+       "          (when (eqv? value #\\&)\n" /* append final & to command */
        "            (set! ret (cons value ret)))\n"
        "          (set! again? #f))\n"
        /**      TODO: consecutive strings or quoted-strings not separated by whitespace must be
         *       converted to (sh-concat ...) or something like that */
-       "        ((op string)     (set! ret (cons value ret)))\n"
-       "        ((quoted-string) (set! ret (cons (list 'quote value) ret)))\n"
+       "        ((op quoted-string)\n"
+       "          (set! ret (cons value ret)))\n"
+       "        ((string dquoted-string)\n"
+       "          (set! ret (cons (list 'shell-interpolate value) ret)))\n"
        "        ((backquote lbrace)\n"
        /*         parse nested shell list surrounded by `...` or by {...} */
        "          (set! ret (cons (parse-shell-list type in '() enabled-parsers) ret)))\n"
@@ -579,9 +670,8 @@ static void define_library_parser_shell(void) {
        "            (set! ret (cons (other-parse-list type in '() enabled-parsers) ret))))\n"
        "        ((rparen rbrack rbrace)\n"
        /*         we read one token too much - try to unread it */
-       "          (unread-char value in)\n"
-       "          (assert (eq? value (peek-char in)))\n"
-       "          (set! again? #f))\n"
+       "          (set! again? #f)\n"
+       "          (try-unread-char value in))\n"
        "        (else\n"
        "          (syntax-violation 'parse-shell \"unimplemented token type\"\n"
        "            (reverse! ret) type)))\n"
@@ -618,7 +708,8 @@ static void define_library_parser_shell(void) {
        "      (let-values (((value type) (lex-shell in enabled-parsers)))\n"
        "        (case type\n"
        "          ((eof)\n"
-       "            (syntax-violation 'parse-shell-list \"unexpected end-of-file\" type))\n"
+       "            (syntax-violation 'parse-shell-list \"unexpected end-of-file after\"\n"
+       "              (if reverse? (reverse! ret) ret)))\n"
        "          ((parser)\n"
        /*           switch to other parser until the end of current list */
        "            (let ((other-parse-list (parser-parse-list value)))\n"

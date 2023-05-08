@@ -268,7 +268,7 @@ static void define_library_shell_jobs(void) {
        *   'all : unexported variables are returned too.
        */
       "(define (sh-env-copy job-id which)\n"
-      "  (assert (member which '(exported all)))\n"
+      "  (assert (memq which '(exported all)))\n"
       "  (let* ((jlist (job-parents-revlist job-id))\n"
       "         (vars (make-hashtable string-hash string=?))\n"
       "         (also-unexported? (eq? 'all which))\n"
@@ -509,7 +509,7 @@ static void define_library_shell_jobs(void) {
        */
       "(define (job-status-member? job-status allowed-list)\n"
       "  (and (pair? job-status)\n"
-      "       (member (car job-status) allowed-list)))\n"
+      "       (memq (car job-status) allowed-list)))\n"
       "\n"
       /**
        * Wait for a cmd or job to exit or stop and return its status, which can be one of:
@@ -525,7 +525,7 @@ static void define_library_shell_jobs(void) {
        * consider calling (sh-fg j) instead.
        */
       "(define (job-wait j may-block)\n"
-      "  (assert (member may-block '(blocking nonblocking)))\n"
+      "  (assert (memq may-block '(blocking nonblocking)))\n"
       "  (cond\n"
       "    ((job-status-member? (job-last-status j) '(exited killed unknown))\n"
       "      (job-last-status j))\n" /* job exited, and exit status already available */
