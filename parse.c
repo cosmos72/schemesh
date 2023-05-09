@@ -396,7 +396,7 @@ static void define_library_parser_shell(void) {
        "  (export " SCHEMESH_LIBRARY_PARSER_SHELL_EXPORT ")\n"
        "  (import\n"
        "    (rnrs)\n"
-       "    (only (chezscheme) " /* "format " */ "reverse! unread-char)\n"
+       "    (only (chezscheme)" /* format */ " reverse! unread-char)\n"
        "    (only (schemesh bootstrap) while)\n"
        "    (schemesh containers charspan)\n"
        "    (schemesh parser base))\n"
@@ -405,7 +405,7 @@ static void define_library_parser_shell(void) {
        "  (case type\n"
        "    ((lparen) \"(\") ((lbrack) \"[\") ((lbrace) \"{\")\n"
        "    ((rparen) \")\") ((rbrack) \"]\") ((rbrace) \"}\")\n"
-       "    ((backquote) \"`\")\n"
+       "    ((backquote) \"`\") ((dollar+lparen) \"$(\")\n"
        "    (else \"???\")))\n"
        "\n"
        /**
@@ -552,7 +552,7 @@ static void define_library_parser_shell(void) {
        "    (case type\n"
        "      ((eof separator lparen rparen lbrack rbrack lbrace rbrace)\n"
        "        (values ch type))\n"
-       /**    TODO: handle missing multi-character operators #... N> N< N>| << N>> $( etc. */
+       /**    TODO: handle missing multi-character operators #... N> N< N>| << N>> etc. */
        "      ((op)\n"
        "        (let ((ch2 (peek-char in)))\n"
        "          (case ch\n"
@@ -573,10 +573,17 @@ static void define_library_parser_shell(void) {
        "      ((quote)\n"
        "        (try-unread-char ch in)\n"
        "        (read-shell-quoted-string in))\n"
+       "      ((backquote)\n"
+       "        (values ch type))\n"
        "      ((char backslash)\n"
        /**      TODO: handle ~ */
-       "        (try-unread-char ch in)\n"
-       "        (read-shell-string in))\n"
+       "        (cond\n"
+       "          ((and (eqv? #\\$ ch) (eqv? #\\( (peek-char in)))\n"
+       "            (read-char in)\n" /* consume ( after $ */
+       "            (values ch 'dollar+lparen))\n"
+       "          (#t\n"
+       "            (try-unread-char ch in)\n"
+       "            (read-shell-string in))))\n"
        "      (else\n"
        "        (syntax-violation 'lex-shell \"unimplemented character type:\" type)))))\n"
        /**
@@ -617,7 +624,7 @@ static void define_library_parser_shell(void) {
        /*         read a shell list surrounded by {...} */
        "          (parse-shell-list type in '() enabled-parsers))\n"
        "        (else\n"
-       "          (parse-shell-impl value type in enabled-parsers)))\n"
+       "          (parse-shell-impl value type in enabled-parsers #f)))\n"
        "      (not (eq? 'eof type)))))\n"
        "\n"
        /**
@@ -638,12 +645,12 @@ static void define_library_parser_shell(void) {
        "    value))\n"
        "\n"
        /** Common backend of (parse-shell) (parse-shell*) and (parse-shell-list) */
-       "(define (parse-shell-impl value type in enabled-parsers)\n"
+       "(define (parse-shell-impl value type in enabled-parsers is-inside-backquote?)\n"
        "  (let ((ret (list 'shell))\n"
        "        (again? #t)\n"
        "        (reverse? #t))\n"
        "    (while again?\n"
-       /* "    (format #t \"parse-shell-impl: value = ~s, type = ~s~%\" value type)\n" */
+       /* "   (format #t \"parse-shell-impl: value = ~s, type = ~s~%\" value type)\n" */
        "      (case type\n"
        "        ((eof)\n"
        "          (set! again? #f))\n"
@@ -660,9 +667,14 @@ static void define_library_parser_shell(void) {
        "          (set! ret (cons value ret)))\n"
        "        ((string dquoted-string)\n"
        "          (set! ret (cons (list 'shell-interpolate value) ret)))\n"
-       "        ((backquote lbrace)\n"
-       /*         parse nested shell list surrounded by `...` or by {...} */
-       "          (set! ret (cons (parse-shell-list type in '() enabled-parsers) ret)))\n"
+       "        ((backquote dollar+lparen lbrace)\n"
+       "          (if (and is-inside-backquote? (eq? 'backquote type))\n"
+       /*           we read one token too much - try to unread it */
+       "            (begin\n"
+       "              (set! again? #f)\n"
+       "              (try-unread-char value in))\n"
+       /*           parse nested shell list surrounded by `...` or $(...) or {...} */
+       "            (set! ret (cons (parse-shell-list type in '() enabled-parsers) ret))))\n"
        "        ((lparen lbrack)\n"
        /*         switch to Scheme parser for a single form */
        "          (let ((other-parse-list (parser-parse-list\n"
@@ -692,11 +704,15 @@ static void define_library_parser_shell(void) {
         * Raise syntax-violation if mismatched end token is found, as for example ')' instead of '}'
         */
        "(define (parse-shell-list begin-type in already-parsed-reverse enabled-parsers)\n"
-       "  (let* ((ret (cons 'shell-list already-parsed-reverse))\n"
+       "  (let* ((first-token (case begin-type\n"
+       "          ((backquote dollar+lparen) 'shell-list-backquote)\n"
+       "          (else 'shell-list)))\n"
+       "         (ret (cons first-token already-parsed-reverse))\n"
        "         (again? #t)\n"
        "         (reverse? #t)\n"
        "         (end-type (case begin-type\n"
-       "                     ((lbrace) 'rbrace) ((lbrack) 'rbrack) (else 'rparen)))\n"
+       "                     ((lbrace) 'rbrace) ((lbrack) 'rbrack)\n"
+       "                     ((backquote) 'backquote) (else 'rparen)))\n"
        "         (check-list-end (lambda (type)\n"
        "           (unless (eq? type end-type)\n"
        "             (syntax-violation\n"
@@ -706,6 +722,7 @@ static void define_library_parser_shell(void) {
        "               type)))))\n"
        "    (while again?\n"
        "      (let-values (((value type) (lex-shell in enabled-parsers)))\n"
+       /* "     (format #t \"parse-shell-list ret=~s value=~s type=~s~%\" ret value type)\n" */
        "        (case type\n"
        "          ((eof)\n"
        "            (syntax-violation 'parse-shell-list \"unexpected end-of-file after\"\n"
@@ -724,9 +741,15 @@ static void define_library_parser_shell(void) {
        "            (let ((nested-list (parse-shell-list type in '() enabled-parsers)))\n"
        "              (set! ret (cons nested-list ret))))\n"
        "          (else\n"
-       /*           parse a single shell form and accumulate it into ret */
-       "            (let ((value (parse-shell-impl value type in enabled-parsers)))\n"
-       "              (set! ret (cons value ret)))))))\n"
+       "            (if (and (eq? 'backquote begin-type) (eq? 'backquote type))\n"
+       /*             end of backquote reached */
+       "              (begin\n"
+       "                (check-list-end type)\n"
+       "                (set! again? #f))\n"
+       /*             parse a single shell form and accumulate it into ret */
+       "              (let ((value (parse-shell-impl value type in enabled-parsers\n"
+       "                             (eq? 'backquote begin-type))))\n"
+       "                (set! ret (cons value ret))))))))\n"
        "    (if reverse? (reverse! ret) ret)))\n"
        "\n"
        "(define parser-shell\n"

@@ -390,6 +390,10 @@ static const struct {
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"ls $var1 \\\"$var2\\\" '$var3'\") #f))",
      "(shell \"ls\" (shell-interpolate \"$var1\") (shell-interpolate \"$var2\") \"$var3\")"},
+    {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
+     "  \"{ls `cmd1 && cmd2 || cmd3 -arg3`}\") #f)))",
+     "(shell-list (shell \"ls\" (shell-list-backquote (shell \"cmd1\" && \"cmd2\" \\x7C;\\x7C; "
+     "\"cmd3\" \"-arg3\"))))"},
     /* ------------------------ parser -------------------------------------- */
     {"(values->list (parse-forms\n"
      "  (open-string-input-port \"\")\n"
