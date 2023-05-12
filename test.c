@@ -387,15 +387,28 @@ static const struct {
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"ls \\\"-l\\\" '.'\") #f))",
      "(shell \"ls\" \"-l\" \".\")"},
-#if 0 /* parsing $ is not implemented yet */
-    {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
-     "  \"ls $var1 \\\"$var2\\\" '$var3'\") #f))",
-     "(shell \"ls\" (shell-env \"$var1\") (shell-env \"$var2\") \"$var3\")"},
-#endif
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"{ls `cmd1 && cmd2 || cmd3 -arg3`}\") #f)))",
      "(shell-list (shell \"ls\" (shell-list-backquote (shell \"cmd1\" && \"cmd2\" \\x7C;\\x7C; "
      "\"cmd3\" \"-arg3\"))))"},
+
+    {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
+     "  \"ls $var1 \\\"$var2\\\" '$var3'\") #f))",
+     "(shell \"ls\" (shell-env-get \"var1\") (shell-env-get \"var2\") \"$var3\")"},
+    {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
+     "  \"ls ${v 1} \\\"${ v 2 }\\\" '${ v 3 }'\") #f))",
+     "(shell \"ls\" (shell-env-get \"v 1\") (shell-env-get \" v 2 \") \"${ v 3 }\")"},
+    {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
+     "  \"ls $(cmd arg $var)\") #f))",
+     "(shell \"ls\" (shell-list-backquote (shell \"cmd\" \"arg\" (shell-env-get \"var\"))))"},
+#if 0 /* does not work yet */
+    {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
+     "  \"ls \\\"$(cmd arg $var)\\\"\") #f))",
+     "(shell \"ls\" (shell-list-backquote (shell \"cmd\" \"arg\" (shell-env-get \"var\"))))"},
+#endif
+    {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
+     "  \"ls '$(cmd arg $var)'\") #f))",
+     "(shell \"ls\" \"$(cmd arg $var)\")"},
     /* ------------------------ parser -------------------------------------- */
     {"(values->list (parse-forms\n"
      "  (open-string-input-port \"\")\n"

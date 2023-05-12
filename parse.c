@@ -50,7 +50,7 @@ static void define_library_parser_base(void) {
        "  (let ((parser (and enabled-parsers\n"
        "                     (hashtable-ref enabled-parsers parser-name #f))))\n"
        "    (unless parser\n"
-       "      (syntax-violation caller \"no parser found for #!\" parser-name))\n"
+       "      (syntax-violation caller \"no parser found for directive #!\" parser-name))\n"
        "    parser))\n"
        "\n"
        /**
@@ -444,6 +444,7 @@ static void define_library_parser_shell(void) {
        "  (let ((ch (peek-char in)))\n"
        "    (values ch (char->type ch))))\n"
        "\n"
+       "\n"
        /**
         * Read a single character from textual input port 'in',
         * and categorize it according to shell syntax.
@@ -452,6 +453,7 @@ static void define_library_parser_shell(void) {
        "(define (read-shell-char in)\n"
        "  (let ((ch (read-char in)))\n"
        "    (values ch (char->type ch))))\n"
+       "\n"
        "\n"
        /** Read a single character, suppressing any special meaning it may have */
        "(define (read-char-after-backslash in csp-already-read)\n"
@@ -467,8 +469,68 @@ static void define_library_parser_shell(void) {
        "        #f)\n"
        "      (#t ch))))\n"
        "\n"
-       /** Read a single-quoted subword, stopping after the matching single quote.
-        * Example: 'some text' */
+       "\n"
+       /** Read a subword starting with ${ */
+       "(define (read-subword-dollar-braced in)\n"
+       "  (assert (eqv? #\\{ (read-char in)))\n"
+       "  (let ((csp (charspan))\n"
+       "        (again? #t))\n"
+       "    (while again?\n"
+       "      (let-values (((ch type) (read-shell-char in)))\n"
+       "        (case type\n"
+       "          ((eof)\n"
+       "            (syntax-violation 'parse-shell\n"
+       "              \"unexpected end-of-file after ${\" type))\n"
+       "          ((rbrace)\n"
+       "            (set! again? #f))\n"
+       "          (else\n"
+       "            (charspan-insert-back! csp ch)))))\n"
+       "    (list 'shell-env-get (charspan->string csp))))\n"
+       "\n"
+       "\n"
+       /** Read an unquoted subword starting with $ */
+       "(define (read-subword-dollar-unquoted in)\n"
+       "  (let ((csp (charspan))\n"
+       "        (again? #t))\n"
+       "    (while again?\n"
+       "      (let ((ch (read-char in)))\n"
+       "        (cond\n"
+       "          ((eof-object? ch)\n"
+       "            (set! again? #f))\n"
+       "          ((char=? #\\\\ ch)\n"
+       /*           read next char, suppressing any special meaning it may have */
+       "            (let ((ch-i (read-char-after-backslash in csp)))\n"
+       "              (when ch-i (charspan-insert-back! csp ch-i))))\n"
+       "          ((or (char<=? #\\0 ch #\\9)\n"
+       "               (char<=? #\\A ch #\\Z)\n"
+       "               (char<=? #\\a ch #\\z)\n"
+       "               (char=?  #\\_ ch))\n"
+       "            (charspan-insert-back! csp ch))\n"
+       "          (#t\n"
+       "            (set! again? #f)\n"
+       "            (try-unread-char ch in)))))\n"
+       "    (list 'shell-env-get (charspan->string csp))))\n"
+       "\n"
+       "\n"
+       /** Read a subword starting with $ */
+       "(define (read-subword-dollar in enabled-parsers)\n"
+       "  (assert (eqv? #\\$ (read-char in)))\n"
+       /** TODO: implement. Also handle $(...) and ${...} */
+       "  (let-values (((ch type) (peek-shell-char in)))\n"
+       "    (case type\n"
+       "      ((eof)\n"
+       "        (syntax-violation 'parse-shell \"unexpected end-of-file after $\"))\n"
+       "      ((lparen)\n"
+       "        (parse-shell-list 'dollar+lparen in '() enabled-parsers))\n"
+       "      ((lbrace)\n"
+       "        (read-subword-dollar-braced in))\n"
+       "      (else\n"
+       "        (read-subword-dollar-unquoted in)))))\n"
+       "\n"
+       /**
+        * Read a single-quoted subword, stopping after the matching single quote.
+        * Example: 'some text'
+        */
        "(define (read-subword-quoted in)\n"
        "  (assert (eqv? #\\' (read-char in)))\n"
        "  (let ((csp (charspan))\n"
@@ -485,8 +547,10 @@ static void define_library_parser_shell(void) {
        "            (charspan-insert-back! csp ch)))))\n"
        "    (charspan->string csp)))\n"
        "\n"
-       /** Read a subword AFTER double quotes, stopping BEFORE the matching double quote.
-        * Example: "some text" */
+       /**
+        * Read a subword AFTER double quotes, stopping BEFORE the matching double quote.
+        * Example: "some text"
+        */
        "(define (read-subword-inside-dquotes in)\n"
        "  (let ((csp (charspan))\n"
        "        (again? #t))\n"
@@ -508,10 +572,6 @@ static void define_library_parser_shell(void) {
        "            (charspan-insert-back! csp ch)))))\n"
        "    (charspan->string csp)))\n"
        "\n"
-       /** Read a subword starting with $ */
-       "(define (read-subword-dollar in)\n"
-       "  (assert (eqv? #\\$ (read-char in)))\n"
-       "  \"\")\n" /** TODO: implement. Also handle $(...) and ${...} */
        "\n"
        /* Read an unquoted subword: a portion of a word, not inside single or double quotes */
        "(define (read-subword-noquote in)\n"
@@ -542,9 +602,9 @@ static void define_library_parser_shell(void) {
        "            (try-unread-char ch in)))))\n"
        "    (charspan->string csp)))\n"
        "\n"
-       /* Read a word, possibly containing single or double quotes,
-        * as for example some' text'"other text " */
-       "(define (parse-shell-word in)\n"
+       /* Read a word, possibly containing single or double quotes and shell variables,
+        * as for example: some$foo' text'"other text ${bar} " */
+       "(define (parse-shell-word in enabled-parsers)\n"
        "  (let* ((ret '())\n"
        "         (again? #t)\n"
        "         (dquote? #f)\n"
@@ -566,7 +626,7 @@ static void define_library_parser_shell(void) {
        "            (set! dquote? (not dquote?))\n"
        "            (read-char in))\n"
        "          ((dollar)\n"
-       "            (%append (read-subword-dollar in)))\n"
+       "            (%append (read-subword-dollar in enabled-parsers)))\n"
        "          (else\n"
        "            (cond\n"
        "              (dquote?\n"
@@ -600,7 +660,7 @@ static void define_library_parser_shell(void) {
         * The definition of shell token is adapted from
         * https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_03
         */
-       "(define (lex-shell-impl in)\n"
+       "(define (lex-shell-impl in enabled-parsers)\n"
        "  (let-values (((ch type) (read-shell-char in)))\n"
        "    (case type\n"
        "      ((eof separator lparen rparen lbrack rbrack lbrace rbrace)\n"
@@ -625,13 +685,13 @@ static void define_library_parser_shell(void) {
        "          (values (read-char in) 'dollar+lparen)\n"
        "          (begin\n"
        "            (try-unread-char ch in)\n"
-       "            (values (parse-shell-word in) 'string))))\n"
+       "            (values (parse-shell-word in enabled-parsers) 'string))))\n"
        "      ((backquote)\n"
        "        (values ch type))\n"
        "      ((char quote dquote backslash)\n"
        /**      TODO: handle ~ */
        "        (try-unread-char ch in)\n"
-       "        (values (parse-shell-word in) 'string))\n"
+       "        (values (parse-shell-word in enabled-parsers) 'string))\n"
        "      (else\n"
        "        (syntax-violation 'lex-shell \"unimplemented character type:\" type)))))\n"
        /**
@@ -652,7 +712,7 @@ static void define_library_parser_shell(void) {
        /*       cannot switch to other parser here: just return it and let caller switch */
        "        (values (get-parser value enabled-parsers 'parse-shell) 'parser))\n"
        /*     read a single shell token */
-       "      (lex-shell-impl in))))\n"
+       "      (lex-shell-impl in enabled-parsers))))\n"
        "\n"
        /**
         * Repeatedly read from textual input port 'in' using (lex-shell)
