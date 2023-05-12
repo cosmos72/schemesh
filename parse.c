@@ -689,7 +689,7 @@ static void define_library_parser_shell(void) {
        "      ((backquote)\n"
        "        (values ch type))\n"
        "      ((char quote dquote backslash)\n"
-       /**      TODO: handle ~ */
+       /**      TODO: handle ~ and wildcards */
        "        (try-unread-char ch in)\n"
        "        (values (parse-shell-word in enabled-parsers) 'string))\n"
        "      (else\n"
