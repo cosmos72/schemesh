@@ -103,7 +103,7 @@ static void define_library_shell_jobs(void) {
       "  (parent job)"
       "  (fields\n"
       "    kind\n"                /* symbol: one of 'and 'or 'vec 'global */
-      "    children\n"            /* span:  children jobs */
+      "    children\n"            /* span:   children jobs */
       "    (mutable next-id)))\n" /* fixnum: first available index in span of children jobs */
       "\n"
       /**

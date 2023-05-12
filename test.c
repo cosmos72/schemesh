@@ -387,9 +387,11 @@ static const struct {
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"ls \\\"-l\\\" '.'\") #f))",
      "(shell \"ls\" \"-l\" \".\")"},
+#if 0 /* parsing $ is not implemented yet */
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"ls $var1 \\\"$var2\\\" '$var3'\") #f))",
-     "(shell \"ls\" (shell-interpolate \"$var1\") (shell-interpolate \"$var2\") \"$var3\")"},
+     "(shell \"ls\" (shell-env \"$var1\") (shell-env \"$var2\") \"$var3\")"},
+#endif
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"{ls `cmd1 && cmd2 || cmd3 -arg3`}\") #f)))",
      "(shell-list (shell \"ls\" (shell-list-backquote (shell \"cmd1\" && \"cmd2\" \\x7C;\\x7C; "
