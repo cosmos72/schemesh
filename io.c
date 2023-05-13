@@ -139,6 +139,4 @@ void define_library_io(void) {
        "          #f)))))\n" /* nothing to do on (close-input-port) */
        "\n"
        ")\n"); /* close library */
-
-  eval("(import (schemesh io))\n");
 }

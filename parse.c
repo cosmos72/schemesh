@@ -880,7 +880,7 @@ void define_library_parser(void) {
        "  (import\n"
        "    (rnrs)\n"
        "    (rnrs mutable-pairs)\n"
-       "    (only (chezscheme) reverse!)\n"
+       "    (only (chezscheme) reverse! void)\n"
        "    (only (schemesh bootstrap) while)\n"
        "    (schemesh parser base)\n"
        "    (schemesh parser scheme)\n"
@@ -928,7 +928,9 @@ void define_library_parser(void) {
         * and temporarily switching to other parsers every time the directive #!... is found
         * in a (possibly nested) list being parsed.
         *
-        * Return two values: parsed form and final value of current-parser
+        * Return two values.
+        * First value is parsed forms: each element in the list is a parsed form.
+        * Second value is updated parser to use.
         */
        "(define (parse-forms in initial-parser enabled-parsers)\n"
        "  (let ((current-parser (to-parser initial-parser enabled-parsers 'parse-forms))\n"
@@ -942,9 +944,7 @@ void define_library_parser(void) {
        "            (set! ret (cons form ret)))\n"
        "          (set! again? #f))))\n"
        "    (values\n"
-       "      (if (or (null? ret) (null? (cdr ret)))\n"
-       "        ret\n"
-       "        (cons 'begin (reverse! ret)))\n"
+       "      (reverse! ret)\n"
        "      current-parser)))\n"
        /**
         * Return mutable hashtable containing all known parsers.
@@ -958,6 +958,4 @@ void define_library_parser(void) {
        "      ret)))\n"
        "\n"
        ")\n"); /* close library */
-
-  eval("(import (schemesh parser))\n");
 }

@@ -161,6 +161,4 @@ void define_library_signal(void) {
        "          -" STR(EINVAL) ")))))\n"
        ")\n"); /* close library */
   /* clang-format on */
-
-  eval("(import (schemesh signal))\n");
 }

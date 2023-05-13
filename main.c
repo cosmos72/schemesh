@@ -67,6 +67,7 @@ int main(int argc, const char* argv[]) {
   if ((err = define_libraries()) < 0) {
     return err;
   }
+  import_libraries();
 
   on_exception = EVAL_FAILED;
 again:
@@ -78,8 +79,9 @@ again:
   (void)end;
   (void)&show;
   (void)&diff;
+  Senable_expeditor(NULL);
   c_errno_set(0);
-  call0("sh-repl");
+  call0("repl");
 #elif 1
   (void)buf;
   (void)start;

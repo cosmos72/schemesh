@@ -14,10 +14,13 @@
 
 void scheme_init(void (*on_scheme_exception)(void));
 
-void define_library_sh_job(void);
+void define_library_shell(void);
 
-/** define all libraries. return < 0 if failed */
+/** define all schemesh libraries. return < 0 if failed */
 int define_libraries(void);
+
+/** import all schemesh libraries */
+void import_libraries(void);
 
 void scheme_quit(void);
 

@@ -621,6 +621,4 @@ void define_library_lineedit(void) {
        /**/
        ")\n"   /* close let */
        ")\n"); /* close library */
-
-  eval("(import (schemesh lineedit))\n");
 }

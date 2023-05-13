@@ -416,15 +416,15 @@ static const struct {
      /* #!eof is equivalent to end-of-file in the input port */
      "  (open-string-input-port \"'(a . b) c #!eof . ) syntax error\")\n"
      "  'scheme (parsers)))",
-     "((begin '(a . b) c) #<parser scheme>)"},
+     "(('(a . b) c) #<parser scheme>)"},
     {"(values->list (parse-forms\n"
      "  (open-string-input-port \"uiop asdf #!scheme (xyz %%a)\")\n"
      "  'scheme (parsers)))",
-     "((begin uiop asdf (xyz %%a)) #<parser scheme>)"},
+     "((uiop asdf (xyz %%a)) #<parser scheme>)"},
     {"(values->list (parse-forms\n"
      "  (open-string-input-port \"`('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)\")\n"
      "  'scheme (parsers)))",
-     "((begin `('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)) #<parser scheme>)"},
+     "((`('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)) #<parser scheme>)"},
     {"(parse-form*\n" /* character { switches to shell parser */
      "  (open-string-input-port \"{ls -l >& log.txt}\")\n"
      "  'scheme (parsers)))",
@@ -444,7 +444,7 @@ static const struct {
     {"(values->list (parse-forms\n" /* directive #!scheme switches to Scheme parser too */
      "  (open-string-input-port \"ls ~; #!scheme (my-cmd)\")\n"
      "  'shell (parsers)))",
-     "((begin (shell ls ~) (my-cmd)) #<parser scheme>)"},
+     "(((shell ls ~) (my-cmd)) #<parser scheme>)"},
     /* -------------------------- tty --------------------------------------- */
     {"(let ((sz (tty-size)))\n"
      "  (and (pair? sz)\n"
@@ -478,11 +478,12 @@ static const struct {
      "(exited . 1)"},
     {"(sh-run (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 1)"},
     {"(sh-run (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 0)"},
-    /* ------------------------- shell repl --------------------------------- */
-    {"(sh-parse-scheme\n"
+    /* ------------------------- repl --------------------------------------- */
+    {"(values->list (repl-parse\n"
      "  (open-string-input-port \"(+ 2 3) (values 7 (cons 'a 'b))\")\n"
-     "  (parsers))",
-     "(begin (+ 2 3) (values 7 (cons 'a 'b)))"},
+     "  'scheme\n"
+     "  (parsers)))\n",
+     "(((+ 2 3) (values 7 (cons 'a 'b))) #<parser scheme>)"},
 };
 
 static int run_tests(void) {
@@ -534,6 +535,7 @@ int main(int argc, const char* argv[]) {
   if ((err = define_libraries()) < 0) {
     return err;
   }
+  import_libraries();
 
   errno = 0;
   err   = run_tests();

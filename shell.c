@@ -14,6 +14,7 @@
 #include "lineedit.h"
 #include "parse.h"
 #include "posix.h"
+#include "repl.h"
 #include "signal.h"
 
 #include <string.h>
@@ -820,108 +821,12 @@ static void define_library_shell_jobs(void) {
       ")\n"); /* close library */
 }
 
-static void define_library_shell_repl(void) {
-#define SCHEMESH_LIBRARY_SHELL_REPL_EXPORT                                                         \
-  "sh-exec sh-lineedit sh-parse-scheme sh-parse-shell sh-parse sh-repl "
-
-  eval("(library (schemesh shell repl (0 1))\n"
-       "  (export " SCHEMESH_LIBRARY_SHELL_REPL_EXPORT ")\n"
-       "  (import\n"
-       "    (rnrs)\n"
-       "    (only (chezscheme) eval void)\n"
-       "    (schemesh bootstrap)\n"
-       "    (schemesh io)\n"
-       "    (schemesh lineedit)\n"
-       "    (schemesh parser)\n"
-       "    (schemesh tty))\n"
-       "\n"
-       /**
-        * parse textual input stream until eof, parsing shell syntax and temporarily switching
-        * to other parsers if a symbol present in enabled-parsers is found in a (possibly nested)
-        * list being parsed.
-        *
-        * Return Scheme code to evaluate.
-        */
-       "(define (sh-parse-scheme in enabled-parsers)\n"
-       "  (let-values (((ret parser-name) (parse-forms in 'scheme enabled-parsers)))\n"
-       "    ret))\n"
-       "\n"
-       /**
-        * parse shell forms from textual input stream 'in'
-        * Automatically change parser when directive #!... is found.
-        *
-        * Return Scheme code to evaluate.
-        */
-       "(define (sh-parse-shell in enabled-parsers)\n"
-       "  (let-values (((ret parser-name) (parse-forms in 'shell enabled-parsers)))\n"
-       "    ret))\n"
-       "\n"
-       /**
-        * parse textual input stream until eof, parsing shell syntax and temporarily switching
-        * to other parsers if a symbol present in enabled-parsers is found in a (possibly nested)
-        * list being parsed.
-        *
-        * Return Scheme code to evaluate.
-        */
-       "(define (sh-parse in)\n"
-       "  (sh-parse-shell in (parsers)))\n"
-       "\n"
-       /**
-        * execute parsed expressions or shell commands,
-        * and return a list containing their values or exit statuses
-        */
-       "(define (sh-exec commands)\n"
-       "  (cond\n"
-       "    ((pair? commands) (eval commands))\n" /* may return multiple values */
-       "    ((null? commands) (void))\n"
-       "    (#t (assert (or (pair? commands) (null? commands))))))\n"
-       /**
-        * read user input and process it.
-        * if user pressed ENTER, execute entered expressions or commands
-        *   and return a list containing their values or exit statuses
-        * if waiting for more keypresses, return #t
-        * if got end-of-file, return #f
-        */
-       "(define (sh-lineedit ctx)\n"
-       "  (let ((ret (lineedit-read ctx -1)))\n"
-       "    (if (boolean? ret)\n"
-       "      ret\n"
-       "      (sh-exec (sh-parse (open-gbuffer-of-chargbuffers-input-port ret))))))\n"
-       "\n"
-       /** top-level interactive shell loop */
-       "(define (sh-repl)\n"
-       "  (let ((ctx (make-linectx)))\n"
-       "    (lineedit-clear! ctx)"
-       "    (dynamic-wind\n"
-       "      tty-setraw!\n"                /* run before body */
-       "      (lambda ()\n"                 /*                 */
-       "        (while (sh-lineedit ctx)\n" /* body            */
-       "          (void)))\n"               /*                 */
-       "      (lambda ()\n"                 /* run after body  */
-       "        (lineedit-flush ctx)\n"
-       "        (tty-restore!)))))\n"
-       "\n"
-       ")\n"); /* close library */
-}
-
-static void define_library_shell(void) {
+void define_library_shell(void) {
   define_library_shell_jobs();
-  define_library_shell_repl();
 
   eval("(library (schemesh shell (0 1))\n"
-       "  (export " SCHEMESH_LIBRARY_SHELL_JOBS_EXPORT ""
-       /*        */ SCHEMESH_LIBRARY_SHELL_REPL_EXPORT ")\n"
-       "  (import (schemesh shell jobs)\n"
-       "          (schemesh shell repl)))\n");
-
-  eval("(import (schemesh shell))\n");
-}
-
-void scheme_init(void (*on_scheme_exception)(void)) {
-  Sscheme_init(on_scheme_exception);
-  Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/petite.boot");
-  Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/scheme.boot");
-  Sbuild_heap(NULL, NULL);
+       "  (export " SCHEMESH_LIBRARY_SHELL_JOBS_EXPORT ")\n"
+       "  (import (schemesh shell jobs)))\n");
 }
 
 int define_libraries(void) {
@@ -941,9 +846,35 @@ int define_libraries(void) {
   define_library_pid();
   define_library_lineedit();
   define_library_shell();
+  define_library_repl();
 
-  c_environ_to_sh_env(environ);
   return err;
+}
+
+void import_libraries(void) {
+  eval("(begin\n"
+       "  (import (schemesh bootstrap))\n"
+       "  (import (schemesh containers))\n"
+       "  (import (schemesh conversions))\n"
+       "  (import (schemesh io))\n"
+       "  (import (schemesh parser))\n"
+       "  (import (schemesh fd))\n"
+       "  (import (schemesh signal))\n"
+       "  (import (schemesh tty))\n"
+       "  (import (schemesh pid))\n"
+       "  (import (schemesh lineedit))\n"
+       "  (import (schemesh shell))\n"
+       "  (import (schemesh repl)))\n");
+
+  /* requires (import (schemesh shell)) */
+  c_environ_to_sh_env(environ);
+}
+
+void scheme_init(void (*on_scheme_exception)(void)) {
+  Sscheme_init(on_scheme_exception);
+  Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/petite.boot");
+  Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/scheme.boot");
+  Sbuild_heap(NULL, NULL);
 }
 
 void scheme_quit(void) {

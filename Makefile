@@ -29,6 +29,9 @@ parse.o: parse.c parse.h eval.h
 posix.o: posix.c posix.h eval.h signal.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
+repl.o: repl.c repl.h eval.h
+	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
+
 signal.o: signal.c signal.h eval.h posix.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
@@ -39,8 +42,8 @@ test.o: test.c test.h shell.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
 
-schemesh: main.o container.o eval.o io.o lineedit.o parse.o posix.o shell.o signal.o
+schemesh: main.o container.o eval.o io.o lineedit.o parse.o posix.o repl.o shell.o signal.o
 	$(CC) -o $@ $^ -L$(CHEZ_SCHEME_DIR) -lkernel -lz -llz4 -lm -lncurses -luuid
 
-schemesh_test: test.o container.o eval.o io.o lineedit.o parse.o posix.o shell.o signal.o
+schemesh_test: test.o container.o eval.o io.o lineedit.o parse.o posix.o repl.o shell.o signal.o
 	$(CC) -o $@ $^ -L$(CHEZ_SCHEME_DIR) -lkernel -lz -llz4 -lm -lncurses -luuid

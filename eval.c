@@ -257,6 +257,4 @@ void define_library_conversions(void) {
        "  (any->bytevector (eval-string str)))\n"
        "\n"
        ")\n"); /* close library */
-
-  eval("(import (schemesh conversions))\n");
 }

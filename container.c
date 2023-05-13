@@ -1964,6 +1964,4 @@ void define_library_containers(void) {
        "          (schemesh containers gbuffer)\n"
        "          (schemesh containers chargbuffer)\n"
        "          (schemesh containers utils)))\n");
-
-  eval("(import (schemesh containers))\n");
 }

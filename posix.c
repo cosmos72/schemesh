@@ -185,8 +185,6 @@ void define_library_tty(void) {
         */
        "(define tty-size   (foreign-procedure \"c_tty_size\" () scheme-object))\n"
        ")\n"); /* close library */
-
-  eval("(import (schemesh tty))\n");
 }
 
 /******************************************************************************/
@@ -546,8 +544,6 @@ int define_library_fd(void) {
        "          (raise-errno-condition 'open-pipe-fds ret))))))\n"
        ")\n"); /* close library */
 
-  eval("(import (schemesh fd))\n");
-
   return 0;
 }
 
@@ -681,8 +677,6 @@ void define_library_pid(void) {
        "          (lambda ()\n"
        "            (c-exit exit-status)))))))\n"
        ")\n"); /* close library */
-
-  eval("(import (schemesh pid))\n");
 }
 
 int c_get_pid(void) {
