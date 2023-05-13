@@ -397,7 +397,7 @@ static void define_library_parser_shell(void) {
        "  (export " SCHEMESH_LIBRARY_PARSER_SHELL_EXPORT ")\n"
        "  (import\n"
        "    (rnrs)\n"
-       "    (only (chezscheme)" /* format */ " reverse! unread-char)\n"
+       "    (only (chezscheme) " /*format*/ "reverse! unread-char)\n"
        "    (only (schemesh bootstrap) while)\n"
        "    (schemesh containers charspan)\n"
        "    (schemesh parser base))\n"
@@ -515,12 +515,13 @@ static void define_library_parser_shell(void) {
        /** Read a subword starting with $ */
        "(define (read-subword-dollar in enabled-parsers)\n"
        "  (assert (eqv? #\\$ (read-char in)))\n"
-       /** TODO: implement. Also handle $(...) and ${...} */
        "  (let-values (((ch type) (peek-shell-char in)))\n"
        "    (case type\n"
        "      ((eof)\n"
        "        (syntax-violation 'parse-shell \"unexpected end-of-file after $\"))\n"
        "      ((lparen)\n"
+       "        (read-char in)\n" /* consume ( */
+       /*       read a shell list surrounded by $(...) */
        "        (parse-shell-list 'dollar+lparen in '() enabled-parsers))\n"
        "      ((lbrace)\n"
        "        (read-subword-dollar-braced in))\n"
@@ -689,7 +690,7 @@ static void define_library_parser_shell(void) {
        "      ((backquote)\n"
        "        (values ch type))\n"
        "      ((char quote dquote backslash)\n"
-       /**      TODO: handle ~ and wildcards */
+       /**      TODO: handle ~ and path-based wildcards */
        "        (try-unread-char ch in)\n"
        "        (values (parse-shell-word in enabled-parsers) 'string))\n"
        "      (else\n"
@@ -769,8 +770,6 @@ static void define_library_parser_shell(void) {
        "          (when (eqv? value #\\&)\n" /* append final & to command */
        "            (set! ret (cons value ret)))\n"
        "          (set! again? #f))\n"
-       /**      TODO: consecutive strings or quoted-strings not separated by whitespace must be
-        *       converted to (sh-concat ...) or something like that */
        "        ((op string)\n"
        "          (set! ret (cons value ret)))\n"
        "        ((backquote dollar+lparen lbrace)\n"
@@ -828,7 +827,7 @@ static void define_library_parser_shell(void) {
        "               type)))))\n"
        "    (while again?\n"
        "      (let-values (((value type) (lex-shell in enabled-parsers)))\n"
-       /* "     (format #t \"parse-shell-list ret=~s value=~s type=~s~%\" ret value type)\n" */
+       /* "(format #t \"parse-shell-list ret=~s value=~s type=~s~%\" (reverse ret) value type)\n" */
        "        (case type\n"
        "          ((eof)\n"
        "            (syntax-violation 'parse-shell-list \"unexpected end-of-file after\"\n"

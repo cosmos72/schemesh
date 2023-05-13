@@ -401,11 +401,9 @@ static const struct {
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"ls $(cmd arg $var)\") #f))",
      "(shell \"ls\" (shell-list-backquote (shell \"cmd\" \"arg\" (shell-env-get \"var\"))))"},
-#if 0 /* does not work yet */
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"ls \\\"$(cmd arg $var)\\\"\") #f))",
      "(shell \"ls\" (shell-list-backquote (shell \"cmd\" \"arg\" (shell-env-get \"var\"))))"},
-#endif
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"ls '$(cmd arg $var)'\") #f))",
      "(shell \"ls\" \"$(cmd arg $var)\")"},
