@@ -397,7 +397,11 @@ static void define_library_parser_shell(void) {
        "  (export " SCHEMESH_LIBRARY_PARSER_SHELL_EXPORT ")\n"
        "  (import\n"
        "    (rnrs)\n"
-       "    (only (chezscheme) " /*format*/ "reverse! unread-char)\n"
+       "    (only (chezscheme)\n"
+#ifdef SCHEMESH_DEBUG_PARSE_SHELL
+       "      format\n"
+#endif
+       "      reverse! unread-char)\n"
        "    (only (schemesh bootstrap) while)\n"
        "    (schemesh containers charspan)\n"
        "    (schemesh parser base))\n"
@@ -759,7 +763,9 @@ static void define_library_parser_shell(void) {
        "        (again? #t)\n"
        "        (reverse? #t))\n"
        "    (while again?\n"
-       /* "   (format #t \"parse-shell-impl: value = ~s, type = ~s~%\" value type)\n" */
+#ifdef SCHEMESH_DEBUG_PARSE_SHELL
+       "      (format #t \"parse-shell-impl: value = ~s, type = ~s~%\" value type)\n"
+#endif
        "      (case type\n"
        "        ((eof)\n"
        "          (set! again? #f))\n"
@@ -772,19 +778,28 @@ static void define_library_parser_shell(void) {
        "          (set! again? #f))\n"
        "        ((op string)\n"
        "          (set! ret (cons value ret)))\n"
-       "        ((backquote dollar+lparen lbrace)\n"
+       "        ((backquote dollar+lparen)\n"
        "          (if (and is-inside-backquote? (eq? 'backquote type))\n"
        /*           we read one token too much - try to unread it */
        "            (begin\n"
        "              (set! again? #f)\n"
        "              (try-unread-char value in))\n"
-       /*           parse nested shell list surrounded by `...` or $(...) or {...} */
+       /*           parse nested shell list surrounded by `...` or $(...) */
        "            (set! ret (cons (parse-shell-list type in '() enabled-parsers) ret))))\n"
        "        ((lparen lbrack)\n"
        /*         switch to Scheme parser for a single form */
        "          (let ((other-parse-list (parser-parse-list\n"
        "                  (get-parser 'scheme enabled-parsers 'parse-shell))))\n"
        "            (set! ret (cons (other-parse-list type in '() enabled-parsers) ret))))\n"
+       "        ((lbrace)\n"
+       "          (if (or (null? (cdr ret)) (memv (car ret) '(#\\! #\\| #\\& && \\x7C;\\x7C;)))\n"
+       /*           parse nested shell list surrounded by {...} */
+       "            (begin\n"
+       "              (set! again? #f)\n"
+       "              (set! ret (cons (parse-shell-list type in '() enabled-parsers) ret)))\n"
+       /*           character { is not allowed in the middle of a shell command */
+       "            (syntax-violation 'parse-shell \"misplaced { in the middle of shell command, "
+       "can only be at the beginning:\" (reverse! (cons value ret)) type)))\n"
        "        ((rparen rbrack rbrace)\n"
        /*         we read one token too much - try to unread it */
        "          (set! again? #f)\n"
@@ -827,7 +842,9 @@ static void define_library_parser_shell(void) {
        "               type)))))\n"
        "    (while again?\n"
        "      (let-values (((value type) (lex-shell in enabled-parsers)))\n"
-       /* "(format #t \"parse-shell-list ret=~s value=~s type=~s~%\" (reverse ret) value type)\n" */
+#ifdef SCHEMESH_DEBUG_PARSE_SHELL
+       "      (format #t \"parse-shell-list ret=~s value=~s type=~s~%\" (reverse ret) value type)\n"
+#endif
        "        (case type\n"
        "          ((eof)\n"
        "            (syntax-violation 'parse-shell-list \"unexpected end-of-file after\"\n"

@@ -76,6 +76,10 @@ void define_library_repl(void) {
         *
         * Note: if a form in list is (shell ...), which would create a job but NOT run it,
         *       eval instead (sh-run (shell ...)) that also runs the job.
+        *
+        * This has two effects:
+        * 1. when using shell parser, top-level commands will be executed immediately.
+        * 2. when using scheme parser, top-level (shell ...) will be executed immediately.
         */
        "(define (repl-eval form)\n"
        "  (let ((arg (if (and (pair? form) (eq? 'shell (car form)))\n"
