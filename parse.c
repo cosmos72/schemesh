@@ -9,6 +9,8 @@
 
 #include "eval.h"
 
+#undef SCHEMESH_DEBUG_PARSE_SHELL
+
 static void define_library_parser_base(void) {
 
 #define SCHEMESH_LIBRARY_PARSER_BASE_EXPORT                                                        \
@@ -439,6 +441,18 @@ static void define_library_parser_shell(void) {
        "      ((#\\} ) 'rbrace)\n"
        "      (else    (if (char<=? ch #\\space) 'space 'char)))))\n"
        "\n"
+       /** Convert a character whose type is 'op or 'separator to corresponding symbol */
+       "(define (op->symbol ch)\n"
+       "  (case ch\n"
+       "    ((#\\newline #\\;) '\\x3c;)\n"
+       "    ((#\\!) '!)\n"
+       "    ((#\\&) '&)\n"
+       "    ((#\\<) '<)\n"
+       "    ((#\\>) '>)\n"
+       "    ((#\\|) '\\x7c;)\n"
+       "    (else (syntax-violation 'lex-shell\n"
+       "            \"unexpected operator character, cannot convert to symbol\" ch))))\n"
+       "\n"
        /**
         * Peek a single character from textual input port 'in',
         * and categorize it according to shell syntax.
@@ -677,13 +691,14 @@ static void define_library_parser_shell(void) {
        "            ((#\\&) (if (eqv? ch2 #\\&)\n"
        "                      (set! ch '&&)\n"
        "                      (set! type 'separator)))\n"
-       "            ((#\\|) (cond ((eqv? ch2 #\\&) (set! ch '\\x7C;&))\n"
-       "                          ((eqv? ch2 #\\|) (set! ch '\\x7C;\\x7C;))))\n"
+       "            ((#\\|) (cond ((eqv? ch2 #\\&) (set! ch '\\x7c;&))\n"
+       "                          ((eqv? ch2 #\\|) (set! ch '\\x7c;\\x7c;))))\n"
        "            ((#\\>) (cond ((eqv? ch2 #\\>) (set! ch '>>))\n"
        "                          ((eqv? ch2 #\\&) (set! ch '>&))\n"
-       "                          ((eqv? ch2 #\\|) (set! ch '>\\x7C;))))))\n"
-       "        (when (symbol? ch)\n"
-       "          (read-char in))\n" /* consume peeked character */
+       "                          ((eqv? ch2 #\\|) (set! ch '>\\x7c;))))))\n"
+       "        (if (symbol? ch)\n"
+       "          (read-char in)\n"             /* consume peeked character */
+       "          (set! ch (op->symbol ch)))\n" /* convert character to symbol */
        "        (values ch type))\n"
        "      ((dollar)\n"
        "        (if (eqv? #\\( (peek-char in))\n"
@@ -773,7 +788,7 @@ static void define_library_parser_shell(void) {
        "          (syntax-violation 'parse-shell \"parser directive #!... can only appear "
        "before or after a shell command, not in the middle of it: #!\" (parser-name value)))\n"
        "        ((separator)\n"
-       "          (when (eqv? value #\\&)\n" /* append final & to command */
+       "          (when (eq? value '&)\n" /* append final & to command */
        "            (set! ret (cons value ret)))\n"
        "          (set! again? #f))\n"
        "        ((op string)\n"
@@ -792,7 +807,7 @@ static void define_library_parser_shell(void) {
        "                  (get-parser 'scheme enabled-parsers 'parse-shell))))\n"
        "            (set! ret (cons (other-parse-list type in '() enabled-parsers) ret))))\n"
        "        ((lbrace)\n"
-       "          (if (or (null? (cdr ret)) (memv (car ret) '(#\\! #\\| #\\& && \\x7C;\\x7C;)))\n"
+       "          (if (or (null? (cdr ret)) (memq (car ret) '(! & && \\x7c; \\x7c;\\x7c;)))\n"
        /*           parse nested shell list surrounded by {...} */
        "            (begin\n"
        "              (set! again? #f)\n"
@@ -825,7 +840,7 @@ static void define_library_parser_shell(void) {
         */
        "(define (parse-shell-list begin-type in already-parsed-reverse enabled-parsers)\n"
        "  (let* ((first-token (case begin-type\n"
-       "          ((backquote dollar+lparen) 'shell-list-backquote)\n"
+       "          ((backquote dollar+lparen) 'shell-backquote)\n"
        "          (else 'shell-list)))\n"
        "         (ret (cons first-token already-parsed-reverse))\n"
        "         (again? #t)\n"

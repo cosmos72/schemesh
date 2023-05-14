@@ -818,15 +818,135 @@ static void define_library_shell_jobs(void) {
       "         (display #\\space port)\n"
       "         (display child port)))\n"
       "    (display #\\) port)))\n"
+      "\n"
       ")\n"); /* close library */
+}
+
+/**
+ * Define the functions (sh) (sh-expand)
+ *
+ * Convention: (sh) and (sh-...) are functions
+ *             (shell) and (shell-...) are macros
+ */
+static void define_library_shell_syntax(void) {
+
+#define SCHEMESH_LIBRARY_SHELL_SYNTAX_EXPORT "sh sh-expand "
+
+  eval("(library (schemesh shell syntax (0 1))\n"
+       "  (export " SCHEMESH_LIBRARY_SHELL_SYNTAX_EXPORT ")\n"
+       "  (import\n"
+       "    (rnrs)\n"
+       "    (only (chezscheme) eval format reverse!)\n"
+       "    (only (schemesh bootstrap)       until)\n"
+       "    (only (schemesh containers misc) list-iterate)\n"
+       "    (schemesh shell jobs))\n"
+       "\n"
+       /**
+        * Parse args using shell syntax, and return corresponding sh-cmd or sh-multijob object.
+        *
+        * Each element in args must be a symbol, string, closure or form:
+        * 1. symbols are operators. Recognized symbols are: ! && || > >> >& < | |& &
+        *    TODO: implement N>> N< etc.
+        * 2. strings stand for themselves. for example (sh "ls" "-l")
+        *    is equivalent to (sh-cmd "ls" "-l")
+        * 3. closures must accept a single argument and return a string.
+        *    TODO: implement support for them.
+        * 4. forms are evaluated with (eval) and must return a string or closure.
+        */
+       "(define (sh . args)\n"
+       /* implementation: use sh-expand for converting shell commands to Scheme forms,
+        * then (eval) such forms */
+       "  (eval (apply sh-expand args)))\n"
+       "\n"
+       /**
+        * Parse args for a single shell command.
+        * Return two values:
+        *   A list containing parsed args, until an operator is found in args.
+        *   The remaining, unparsed args.
+        */
+       "(define (sh-expand-cmd args)\n"
+       "  (let ((ret '())\n"
+       "        (tail args))"
+       "    (list-iterate args\n"
+       "      (lambda (arg)\n"
+       "        (if (symbol? arg)\n"
+       "          #f\n"
+       "          (begin\n"
+       "            (set! ret (cons arg ret))\n"
+       "            (set! tail (cdr tail))))))\n"
+       "    (values (cons 'sh-cmd (reverse! ret)) tail)))\n"
+       "\n"
+       /**
+        * Parse args containing shell syntax, and return Scheme forms
+        * for creating corresponding sh-cmd or sh-multijob object.
+        *
+        * Each element in args must be a symbol, string, form, or closure
+        * as described in function (sh).
+        */
+       "(define (sh-expand . args)\n"
+       "  (let ((forms-and-ops '()))\n"
+       "    (until (null? args)\n"
+       /**    FIXME: token after a redirection operator is a path, not a command to parse */
+       "      (if (symbol? (car args))"
+       "        (begin\n"
+       "          (set! forms-and-ops (cons (car args) forms-and-ops))\n"
+       "          (set! args (cdr args)))\n"
+       "        (let-values (((form tail) (sh-expand-cmd args)))\n"
+       "          (set! forms-and-ops (cons form forms-and-ops))\n"
+       "          (set! args tail))))\n"
+       /**  TODO: parse operators and their precedence */
+       "    (reverse! forms-and-ops)))\n"
+       "\n"
+       ")\n"); /* close library */
+}
+
+/**
+ * Define the macros (shell) (shell-list) (shell-backquote) etc.
+ *
+ * Convention: (sh) and (sh-...) are functions
+ *             (shell) and (shell-...) are macros
+ */
+static void define_library_shell_macros(void) {
+
+#define SCHEMESH_LIBRARY_SHELL_MACROS_EXPORT "shell shell-list shell-backquote "
+
+  eval("(library (schemesh shell macros (0 1))\n"
+       "  (export " SCHEMESH_LIBRARY_SHELL_MACROS_EXPORT ")\n"
+       "  (import\n"
+       "    (rnrs)\n"
+       "    (schemesh bootstrap)\n"
+       "    (schemesh shell jobs)\n"
+       "    (schemesh shell syntax))\n"
+       "\n"
+       "(define-macro (shell . args)\n"
+       "  (apply sh-expand args))\n"
+       "\n"
+       "(define-syntax shell-list\n"
+       "  (syntax-rules ()\n"
+       "    ((_ args ...)\n"
+       "      (sh-list args ...))))\n"
+       "\n"
+       "(define-syntax shell-backquote\n"
+       "  (syntax-rules ()\n"
+       "    ((_ args ...)\n"
+       "      (sh-run-capture-output (sh-backquote args ...)))))\n"
+       "\n"
+       ")\n"); /* close library */
 }
 
 void define_library_shell(void) {
   define_library_shell_jobs();
+  define_library_shell_syntax();
+  define_library_shell_macros();
 
   eval("(library (schemesh shell (0 1))\n"
-       "  (export " SCHEMESH_LIBRARY_SHELL_JOBS_EXPORT ")\n"
-       "  (import (schemesh shell jobs)))\n");
+       "  (export " SCHEMESH_LIBRARY_SHELL_JOBS_EXPORT ""
+       /*        */ SCHEMESH_LIBRARY_SHELL_SYNTAX_EXPORT ""
+       /*        */ SCHEMESH_LIBRARY_SHELL_MACROS_EXPORT ")\n"
+       "  (import\n"
+       "    (schemesh shell jobs)\n"
+       "    (schemesh shell syntax)\n"
+       "    (schemesh shell macros)))\n");
 }
 
 int define_libraries(void) {

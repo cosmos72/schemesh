@@ -82,7 +82,7 @@ void define_library_bootstrap(void) {
             "    (rnrs)\n"
             /* Unlike R6RS (eval obj environment), Chez Scheme's (eval obj)
              * uses interactive-environment and can modify it */
-            "    (only (chezscheme) eval))\n"
+            "    (only (chezscheme) eval void))\n"
             "\n"
             "(define (eval-string str)\n"
             "  (eval (read (open-string-input-port str))))\n"
@@ -117,11 +117,11 @@ void define_library_bootstrap(void) {
             "       (lambda (stx)\n"
             "         (syntax-case stx ()\n"
             "           ((l . sv)\n"
-            "            (let* ((v (syntax->datum (syntax sv)))\n"
-            "                   (e (apply transformer v)))\n"
-            "              (if (eq? (void) e)\n"
-            "                  (syntax (void))\n"
-            "                  (datum->syntax (syntax l) e))))))))))\n"
+            "             (let* ((v (syntax->datum (syntax sv)))\n"
+            "                    (e (apply transformer v)))\n"
+            "               (if (eq? (void) e)\n"
+            "                   (syntax (void))\n"
+            "                   (datum->syntax (syntax l) e))))))))))\n"
             "\n)"); /* close library */
 
   boot_eval("(import (schemesh bootstrap))\n");

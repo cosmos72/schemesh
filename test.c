@@ -389,7 +389,7 @@ static const struct {
      "(shell \"ls\" \"-l\" \".\")"},
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"{ls `cmd1 && cmd2 || cmd3 -arg3`}\") #f)))",
-     "(shell-list (shell \"ls\" (shell-list-backquote (shell \"cmd1\" && \"cmd2\" \\x7C;\\x7C; "
+     "(shell-list (shell \"ls\" (shell-backquote (shell \"cmd1\" && \"cmd2\" \\x7C;\\x7C; "
      "\"cmd3\" \"-arg3\"))))"},
 
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
@@ -400,10 +400,10 @@ static const struct {
      "(shell \"ls\" (shell-env-get \"v 1\") (shell-env-get \" v 2 \") \"${ v 3 }\")"},
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"ls $(cmd arg $var)\") #f))",
-     "(shell \"ls\" (shell-list-backquote (shell \"cmd\" \"arg\" (shell-env-get \"var\"))))"},
+     "(shell \"ls\" (shell-backquote (shell \"cmd\" \"arg\" (shell-env-get \"var\"))))"},
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"ls \\\"$(cmd arg $var)\\\"\") #f))",
-     "(shell \"ls\" (shell-list-backquote (shell \"cmd\" \"arg\" (shell-env-get \"var\"))))"},
+     "(shell \"ls\" (shell-backquote (shell \"cmd\" \"arg\" (shell-env-get \"var\"))))"},
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"ls '$(cmd arg $var)'\") #f))",
      "(shell \"ls\" \"$(cmd arg $var)\")"},
@@ -478,6 +478,13 @@ static const struct {
      "(exited . 1)"},
     {"(sh-run (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 1)"},
     {"(sh-run (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 0)"},
+    /* ------------------------- shell syntax ------------------------------- */
+    {"(sh-expand \"wc\" \"-l\" \"myfile\" '> \"mylog\" '\\x3b; \"echo\" \"done\")",
+     "((sh-cmd wc -l myfile) > (sh-cmd mylog) ; (sh-cmd echo done))"},
+    /* ------------------------- shell macros ------------------------------- */
+    {"(expand '(shell \"ls\" \"-l\" && \"wc\" \"-b\" &))",
+     "(begin (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"
+     " ((sh-cmd ls -l) && (sh-cmd wc -b) &))"},
     /* ------------------------- repl --------------------------------------- */
     {"(values->list (repl-parse\n"
      "  (open-string-input-port \"(+ 2 3) (values 7 (cons 'a 'b))\")\n"
