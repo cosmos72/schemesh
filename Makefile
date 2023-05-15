@@ -3,6 +3,10 @@ CFLAGS=-g -Wall -W
 
 CHEZ_SCHEME_DIR=/usr/local/lib/csv9.5.8/ta6le
 
+OBJS=container.o eval.o io.o lineedit.o parse.o posix.o repl.o shell.o signal.o
+
+LIBS=-lkernel -lz -llz4 -lncurses -ldl -lm -lpthread -luuid
+
 all: schemesh schemesh_test
 
 clean:
@@ -42,8 +46,8 @@ test.o: test.c test.h shell.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
 
-schemesh: main.o container.o eval.o io.o lineedit.o parse.o posix.o repl.o shell.o signal.o
-	$(CC) -o $@ $^ -L$(CHEZ_SCHEME_DIR) -lkernel -lz -llz4 -lm -lncurses -luuid
+schemesh: main.o $(OBJS)
+	$(CC) -o $@ $^ -L$(CHEZ_SCHEME_DIR) $(LIBS)
 
-schemesh_test: test.o container.o eval.o io.o lineedit.o parse.o posix.o repl.o shell.o signal.o
-	$(CC) -o $@ $^ -L$(CHEZ_SCHEME_DIR) -lkernel -lz -llz4 -lm -lncurses -luuid
+schemesh_test: test.o $(OBJS)
+	$(CC) -o $@ $^ -L$(CHEZ_SCHEME_DIR) $(LIBS)
