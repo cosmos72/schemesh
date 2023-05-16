@@ -823,14 +823,14 @@ static void define_library_shell_jobs(void) {
 }
 
 /**
- * Define the functions (sh) (sh-expand)
+ * Define the functions (sh) (sh-parse) (sh-parse-ops)
  *
  * Convention: (sh) and (sh-...) are functions
  *             (shell) and (shell-...) are macros
  */
 static void define_library_shell_syntax(void) {
 
-#define SCHEMESH_LIBRARY_SHELL_SYNTAX_EXPORT "sh sh-expand "
+#define SCHEMESH_LIBRARY_SHELL_SYNTAX_EXPORT "sh sh-parse sh-parse-ops "
 
   eval("(library (schemesh shell syntax (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_SHELL_SYNTAX_EXPORT ")\n"
@@ -841,11 +841,15 @@ static void define_library_shell_syntax(void) {
        "    (only (schemesh containers misc) list-iterate)\n"
        "    (schemesh shell jobs))\n"
        "\n"
+       /** Return #t if token is a shell command separator: ; & && | |& || */
+       "(define (sh-separator? token)\n"
+       "  (memv token '(\\x3b; & && \\x7c; \\x7c;& \\x7c;\\x7c;)))\n"
+       "\n"
        /**
         * Parse args using shell syntax, and return corresponding sh-cmd or sh-multijob object.
         *
         * Each element in args must be a symbol, string, closure or form:
-        * 1. symbols are operators. Recognized symbols are: ! && || > >> >& < | |& &
+        * 1. symbols are operators. Recognized symbols are: ; & && | |& || < > >> >&
         *    TODO: implement N>> N< etc.
         * 2. strings stand for themselves. for example (sh "ls" "-l")
         *    is equivalent to (sh-cmd "ls" "-l")
@@ -854,9 +858,9 @@ static void define_library_shell_syntax(void) {
         * 4. forms are evaluated with (eval) and must return a string or closure.
         */
        "(define (sh . args)\n"
-       /* implementation: use sh-expand for converting shell commands to Scheme forms,
+       /* implementation: use sh-parse for converting shell commands to Scheme forms,
         * then (eval) such forms */
-       "  (eval (apply sh-expand args)))\n"
+       "  (eval (apply sh-parse args)))\n"
        "\n"
        /**
         * Parse args for a single shell command.
@@ -864,51 +868,116 @@ static void define_library_shell_syntax(void) {
         *   A list containing parsed args, until an operator is found in args.
         *   The remaining, unparsed args.
         */
-       "(define (sh-expand-cmd args)\n"
+       "(define (sh-parse-cmd args)\n"
        "  (let ((ret '())\n"
        "        (tail args))"
        "    (list-iterate args\n"
        "      (lambda (arg)\n"
-       "        (if (symbol? arg)\n"
+       "        (if (sh-separator? arg)\n"
        "          #f\n"
        "          (begin\n"
        "            (set! ret (cons arg ret))\n"
        "            (set! tail (cdr tail))))))\n"
-       "    (values (cons 'sh-cmd (reverse! ret)) tail)))\n"
+       "    (values (cons 'shell-cmd (reverse! ret)) tail)))\n"
        "\n"
        /**
-        * Parse args containing shell syntax, and return Scheme forms
-        * for creating corresponding sh-cmd or sh-multijob object.
+        * Parse a list containing shell syntax, and return a Scheme form for creating
+        * corresponding sh-cmd or sh-multijob object.
         *
         * Each element in args must be a symbol, string, form, or closure
         * as described in function (sh).
         */
-       "(define (sh-expand . args)\n"
-       "  (let ((forms-and-ops '()))\n"
+       "(define (sh-parse . args)\n"
+       "  (let ((l '()))\n"
        "    (until (null? args)\n"
-       /**    FIXME: token after a redirection operator is a path, not a command to parse */
-       "      (if (symbol? (car args))"
+       "      (if (sh-separator? (car args))"
        "        (begin\n"
-       "          (set! forms-and-ops (cons (car args) forms-and-ops))\n"
+       "          (set! l (cons (car args) l))\n"
        "          (set! args (cdr args)))\n"
-       "        (let-values (((form tail) (sh-expand-cmd args)))\n"
-       "          (set! forms-and-ops (cons form forms-and-ops))\n"
+       "        (let-values (((form tail) (sh-parse-cmd args)))\n"
+       "          (set! l (cons form l))\n"
        "          (set! args tail))))\n"
        /**  TODO: parse operators and their precedence */
-       "    (reverse! forms-and-ops)))\n"
+       "    (sh-parse-ops (reverse! l))))\n"
+       "\n"
+       /**
+        * Parse a list containing pairs (assumed to be shell commands)
+        * and ONLY the following shell operators ; & && | |& ||
+        * Apply operators' precedence
+        */
+       "(define (sh-parse-ops l)\n"
+       /* "  (format #t \"sh-parse-ops: ~s~%\" l)\n" */
+       "  (cond\n"
+       "    ((null? l) '(sh-true))\n"
+       "    ((null? (cdr l)) (car l))\n"
+#if 1
+       "    (#t (cons 'sh-list l))))\n"
+  /// TODO: finish implementing
+#else
+       "    (#t (cons 'sh-list (%parse-ops l)))))\n"
+       "\n"
+       /* */
+       "(define (%parse-ops l)\n"
+       "  (let loop ((ret '())\n"
+       "             (l l))\n"
+       "    (if (null? l)\n"
+       "      (%finish 'sh-list ret)\n"
+       "      (let-values (((cmd tail) (%parse-and-or l)))\n"
+       "        (loop (cons cmd ret) tail)))))\n"
+       "\n"
+       "(define (%parse-and-or l)\n"
+       "  (let loop ((ret '())\n"
+       "             (l l))\n"
+       "    (if (null? l)\n"
+       "      (%return 'sh-and-or ret l)\n"
+       "      (let-values (((cmd tail) (%parse-pipe l)))\n"
+       "        (if (null? tail)\n"
+       "          (%return 'sh-and-or ret l)\n"
+       "          (let ((op   (car tail))\n"
+       "                (rest (cdr tail)))\n"
+       "            (if (memq op '(&& \\x7c;\\x7c;))\n"
+       "              (loop (cons op (cons cmd ret)) rest)\n"
+       "              (%return 'sh-and-or (cons cmd ret) tail))))))))\n"
+       "\n"
+       "(define (%parse-pipe l)\n"
+       "    (let loop ((ret '())\n"
+       "               (l l))\n"
+       "      (if (null? l)\n"
+       "        (%finish 'sh-pipe ret l)\n"
+       "        (let ((cmd (car l))\n"
+       "              (op  (cdr l)))\n"
+       "          (unless (pair? cmd)\n"
+       "            (syntax-violation 'sh-parse\n"
+       "              \"unexpected object parsing shell syntax, expecting a cons\""
+       "              l (car l)))\n"
+       "          (if (memq op '(\\x7c; \\x7c;&))\n"
+       "            (loop (cons op (cons cmd ret)) (cddr l))\n"
+       "            (%return 'sh-pipe (cons cmd ret) op))))))\n"
+       "\n"
+       "(define (%return head ret tail)\n"
+       "  (when (null? ret)\n"
+       "    (syntax-violation 'sh-parse \"unexpected object parsing shell syntax\" ret tail))\n"
+       "  (values (%finish head ret) tail))\n"
+       "\n"
+       "(define (%finish head ret)\n"
+       "  (assert (not (null? ret)))\n"
+       "  (if (null? (cdr ret))\n"
+       "    ret\n"
+       "    (cons head (reverse! ret))))\n"
+#endif
        "\n"
        ")\n"); /* close library */
 }
 
 /**
- * Define the macros (shell) (shell-list) (shell-backquote) etc.
+ * Define the macros (shell) (shell-backquote) etc.
  *
  * Convention: (sh) and (sh-...) are functions
  *             (shell) and (shell-...) are macros
  */
 static void define_library_shell_macros(void) {
 
-#define SCHEMESH_LIBRARY_SHELL_MACROS_EXPORT "shell shell-list shell-backquote "
+#define SCHEMESH_LIBRARY_SHELL_MACROS_EXPORT "shell shell-backquote "
 
   eval("(library (schemesh shell macros (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_SHELL_MACROS_EXPORT ")\n"
@@ -919,17 +988,15 @@ static void define_library_shell_macros(void) {
        "    (schemesh shell syntax))\n"
        "\n"
        "(define-macro (shell . args)\n"
-       "  (apply sh-expand args))\n"
+       "  (apply sh-parse args))\n"
        "\n"
-       "(define-syntax shell-list\n"
-       "  (syntax-rules ()\n"
-       "    ((_ args ...)\n"
-       "      (sh-list args ...))))\n"
+       "(define-macro (shell-list . args)\n"
+       "  (apply sh-parse-ops args))\n"
        "\n"
        "(define-syntax shell-backquote\n"
        "  (syntax-rules ()\n"
        "    ((_ args ...)\n"
-       "      (sh-run-capture-output (sh-backquote args ...)))))\n"
+       "      (sh-run-capture-output (sh-backquote (shell args ...))))))\n"
        "\n"
        ")\n"); /* close library */
 }

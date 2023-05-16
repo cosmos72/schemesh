@@ -479,12 +479,12 @@ static const struct {
     {"(sh-run (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 1)"},
     {"(sh-run (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 0)"},
     /* ------------------------- shell syntax ------------------------------- */
-    {"(sh-expand \"wc\" \"-l\" \"myfile\" '> \"mylog\" '\\x3b; \"echo\" \"done\")",
-     "((sh-cmd wc -l myfile) > (sh-cmd mylog) ; (sh-cmd echo done))"},
+    {"(sh-parse \"wc\" \"-l\" \"myfile\" '> \"mylog\" '\\x3b; \"echo\" \"done\")",
+     "(sh-list (shell-cmd wc -l myfile > mylog) ; (shell-cmd echo done))"},
     /* ------------------------- shell macros ------------------------------- */
     {"(expand '(shell \"ls\" \"-l\" && \"wc\" \"-b\" &))",
      "(begin (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"
-     " ((sh-cmd ls -l) && (sh-cmd wc -b) &))"},
+     " (sh-list (shell-cmd ls -l) && (shell-cmd wc -b) &))"},
     /* ------------------------- repl --------------------------------------- */
     {"(values->list (repl-parse\n"
      "  (open-string-input-port \"(+ 2 3) (values 7 (cons 'a 'b))\")\n"
