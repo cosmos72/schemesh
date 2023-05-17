@@ -1,7 +1,8 @@
 
 CFLAGS=-g -Wall -W
 
-CHEZ_SCHEME_DIR=/usr/local/lib/csv9.5.8/ta6le
+#CHEZ_SCHEME_DIR=/usr/local/lib/csv9.5.9/ta6le
+CHEZ_SCHEME_DIR:=$(shell ./utils/find_chez_scheme_dir.sh)
 
 OBJS=container.o eval.o io.o lineedit.o parse.o posix.o repl.o shell.o signal.o
 
