@@ -830,7 +830,8 @@ static void define_library_shell_jobs(void) {
  */
 static void define_library_shell_syntax(void) {
 
-#define SCHEMESH_LIBRARY_SHELL_SYNTAX_EXPORT "sh sh-parse sh-parse-ops "
+#define SCHEMESH_LIBRARY_SHELL_SYNTAX_EXPORT                                                       \
+  "sh sh-parse sh-parse-ops sh-operator-precedence sh-operators-precedence "
 
   eval("(library (schemesh shell syntax (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_SHELL_SYNTAX_EXPORT ")\n"
@@ -839,6 +840,7 @@ static void define_library_shell_syntax(void) {
        "    (only (chezscheme) eval format reverse!)\n"
        "    (only (schemesh bootstrap)       until)\n"
        "    (only (schemesh containers misc) list-iterate)\n"
+       "    (only (schemesh containers hashtable) eq-hashtable)\n"
        "    (schemesh shell jobs))\n"
        "\n"
        /** Return #t if token is a shell command separator: ; & && | |& || */
@@ -900,72 +902,73 @@ static void define_library_shell_syntax(void) {
        /**  TODO: parse operators and their precedence */
        "    (sh-parse-ops (reverse! l))))\n"
        "\n"
+       "(define sh-operators-precedence\n"
+       "  (let ((htable (eq-hashtable\n"
+       "         '(\\x3b; . 0) '(& . 0)\n"          /* command separators ;  & */
+       "         '(&& . 1) '(\\x7c;\\x7c; . 1)\n"   /* and-or separators && || */
+       "         '(\\x7c; . 2) '(\\x7c;& . 2))))\n" /* pipe separators   |  |& */
+       "    (lambda () htable)))\n"
+       "\n"
+       /** Return precedence of symbol e. Return #f if not found, or #t if e is a pair. */
+       "(define (sh-operator-precedence e)\n"
+       "  (if (pair? e) #t (hashtable-ref (sh-operators-precedence) e #f)))\n"
+       "\n"
        /**
         * Parse a list containing pairs (assumed to be shell commands)
-        * and ONLY the following shell operators ; & && | |& ||
-        * Apply operators' precedence
+        * and ONLY the shell operators in hashtable sh-operators-precedence,
+        * (initially ; & && || | |& )
+        * apply operators' precedence, and return a list containing
+        * 'sh-list followed by appropriate (sh-and-or ...) (sh-pipe ... ) etc.
         */
        "(define (sh-parse-ops l)\n"
-       /* "  (format #t \"sh-parse-ops: ~s~%\" l)\n" */
-       "  (cond\n"
-       "    ((null? l) '(sh-true))\n"
-       "    ((null? (cdr l)) (car l))\n"
-#if 1
-       "    (#t (cons 'sh-list l))))\n"
-  /// TODO: finish implementing
+       "  (format #t \"sh-parse-ops: ~s~%\" l)\n"
+       "  (let* ((semicolon-prec (sh-operator-precedence '\\x3b;))\n"
+       "         (ret '())\n"
+       "         (last-prec (greatest-fixnum))\n"
+       "         (%reduce (lambda (op op-prec)\n"
+       "           (let-values (((new-ret new-prec) (sh-reduce-ops op op-prec ret last-prec)))\n"
+       "             (set! ret       new-ret)\n"
+       "             (set! last-prec new-prec)))))\n"
+       "    (list-iterate l (lambda (e)\n"
+       "      (let ((prec (sh-operator-precedence e)))\n"
+       "        (unless prec\n"
+       "          (syntax-violation 'sh-parse-ops \"unexpected element, expecting a list "
+       "or one of the symbols ; & && | |& || :\" l e))\n"
+       "        (if (eq? #t prec)\n"
+       "          (begin\n"
+       "            (when (and (not (null? ret)) (pair? (car ret)))\n"
+       /*             consecutive lists (a ...) (b ...) are treated as separated by ; */
+       "              (%reduce '\\x3b; semicolon-prec))\n"
+       "            (set! ret (cons e ret)))\n"
+       "          (%reduce e prec)))))\n"
+       "    (unless (or (null? ret) (null? (cdr ret)))\n"
+       "      (%reduce #f (least-fixnum)))\n"
+       "    (cons 'sh-list (reverse! ret))))\n"
+       "\n"
+       /**
+        * Given the list l of partially parsed pairs and operators
+        * whose last precedence is last-prec,
+        * and an additional operator op, whose precedence is op-prec,
+        * shift or reduce the list l of partially parsed pairs and operators.
+        *
+        * Special case: if op is #f, do not append it: it's used to mark the end of list.
+        *
+        * Return two values: updated list, and updated last-prec.
+        */
+       "(define (sh-reduce-ops op op-prec l last-prec)\n"
+#if 1 /** TODO: implement */
+       "  (values (if op (cons op l) l) last-prec))\n"
 #else
-       "    (#t (cons 'sh-list (%parse-ops l)))))\n"
-       "\n"
-       /* */
-       "(define (%parse-ops l)\n"
-       "  (let loop ((ret '())\n"
-       "             (l l))\n"
-       "    (if (null? l)\n"
-       "      (%finish 'sh-list ret)\n"
-       "      (let-values (((cmd tail) (%parse-and-or l)))\n"
-       "        (loop (cons cmd ret) tail)))))\n"
-       "\n"
-       "(define (%parse-and-or l)\n"
-       "  (let loop ((ret '())\n"
-       "             (l l))\n"
-       "    (if (null? l)\n"
-       "      (%return 'sh-and-or ret l)\n"
-       "      (let-values (((cmd tail) (%parse-pipe l)))\n"
-       "        (if (null? tail)\n"
-       "          (%return 'sh-and-or ret l)\n"
-       "          (let ((op   (car tail))\n"
-       "                (rest (cdr tail)))\n"
-       "            (if (memq op '(&& \\x7c;\\x7c;))\n"
-       "              (loop (cons op (cons cmd ret)) rest)\n"
-       "              (%return 'sh-and-or (cons cmd ret) tail))))))))\n"
-       "\n"
-       "(define (%parse-pipe l)\n"
-       "    (let loop ((ret '())\n"
-       "               (l l))\n"
-       "      (if (null? l)\n"
-       "        (%finish 'sh-pipe ret l)\n"
-       "        (let ((cmd (car l))\n"
-       "              (op  (cdr l)))\n"
-       "          (unless (pair? cmd)\n"
-       "            (syntax-violation 'sh-parse\n"
-       "              \"unexpected object parsing shell syntax, expecting a cons\""
-       "              l (car l)))\n"
-       "          (if (memq op '(\\x7c; \\x7c;&))\n"
-       "            (loop (cons op (cons cmd ret)) (cddr l))\n"
-       "            (%return 'sh-pipe (cons cmd ret) op))))))\n"
-       "\n"
-       "(define (%return head ret tail)\n"
-       "  (when (null? ret)\n"
-       "    (syntax-violation 'sh-parse \"unexpected object parsing shell syntax\" ret tail))\n"
-       "  (values (%finish head ret) tail))\n"
-       "\n"
-       "(define (%finish head ret)\n"
-       "  (assert (not (null? ret)))\n"
-       "  (if (null? (cdr ret))\n"
-       "    ret\n"
-       "    (cons head (reverse! ret))))\n"
+       "  (if (fx<=? op-prec last-prec)\n"
+       /*   op has low precedence, reduce preceding operator */
+       "    (let ((sublist '())\n"
+       "      (list-iterate l (lambda (e)\n"
+       "        (let ((e-prec (operator-precedence e)))\n"
+       "          (assert e-prec)\n"
+       "          (if (eq? #t e-prec)"
+       /*   op has high precedence, shift it */
+       "    (values (cons op l) last-prec)\n"
 #endif
-       "\n"
        ")\n"); /* close library */
 }
 
