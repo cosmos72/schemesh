@@ -58,7 +58,8 @@ static void schemesh_define_library_shell_jobs(void) {
   "sh-job? sh-job-ref sh-job-span sh-job-status sh-cmd sh-cmd? sh-multijob sh-multijob? "          \
   "sh-globals sh-global-env sh-env-copy sh-env-get sh-env-set! sh-env-unset! "                     \
   "sh-env-exported? sh-env-export! sh-env->vector-of-bytevector0 "                                 \
-  "sh-start sh-bg sh-fg sh-run sh-wait sh-and sh-or sh-list sh-fd-redirect! sh-fds-redirect! "
+  "sh-start sh-bg sh-fg sh-run sh-run-capture-output sh-wait sh-and sh-or sh-and-or sh-list "      \
+  "sh-fd-redirect! sh-fds-redirect! "
 
   eval(
       "(library (schemesh shell jobs (0 1))\n"
@@ -103,7 +104,7 @@ static void schemesh_define_library_shell_jobs(void) {
       "  (multijob %make-multijob sh-multijob?)\n"
       "  (parent job)"
       "  (fields\n"
-      "    kind\n"                /* symbol: one of 'and 'or 'vec 'global */
+      "    kind\n"                /* symbol: one of 'and 'or 'and-or 'list 'global */
       "    children\n"            /* span:   children jobs */
       "    (mutable next-id)))\n" /* fixnum: first available index in span of children jobs */
       "\n"
@@ -768,10 +769,28 @@ static void schemesh_define_library_shell_jobs(void) {
       "    status))\n"
       "\n"
       /**
+       * Run a multijob containing children jobs separated by & |
+       * Used by (sh-and-and), implements runtime behavior of shell syntax foo && bar || baz
+       */
+      "(define (%multijob-run-and-or mj)\n"
+      /** TODO: check for && || among mj and implement them */
+      "  (let ((jobs   (multijob-children mj))\n"
+      "        (pgid   (job-pgid mj))\n"
+      "        (status '(exited . 1)))\n"
+      "    (span-iterate jobs\n"
+      "      (lambda (i job)\n"
+      "        (sh-start job pgid)\n"         /* run child job in parent's process group     */
+      "        (set! status (sh-wait job))\n" /* wait for child job to exit                  */
+      "        (not (equal? status '(exited . 0)))))\n" /* keep iterating only if job failed */
+      "    status))\n"
+      "\n"
+
+      /**
        * Run a multijob containing a sequence of children jobs.
        * Used by (sh-list), implements runtime behavior of shell syntax foo; bar; baz
        */
-      "(define (%multijob-run-vec mj)\n"
+      "(define (%multijob-run-list mj)\n"
+      /** TODO: check for && || among mj and implement them */
       "  (let ((jobs   (multijob-children mj))\n"
       "        (pgid   (job-pgid mj))\n"
       "        (status '(exited . 0)))\n"
@@ -788,8 +807,17 @@ static void schemesh_define_library_shell_jobs(void) {
       "(define (sh-or . children-jobs)\n"
       "  (apply sh-multijob 'or  %multijob-run-or  children-jobs))\n"
       "\n"
-      "(define (sh-list . children-jobs)\n"
-      "  (apply sh-multijob 'vec %multijob-run-vec children-jobs))\n"
+      "(define (sh-and-or . children-jobs-with-and-or)\n"
+      /** TODO: check for && || among mj and implement them */
+      "  (apply sh-multijob 'and-or %multijob-run-and-or children-jobs-with-and-or))\n"
+      "\n"
+      "(define (sh-list . children-jobs-with-colon-ampersand)\n"
+      /** TODO: check for ; & among mj and implement them */
+      "  (apply sh-multijob 'list %multijob-run-list children-jobs-with-colon-ampersand))\n"
+      "\n"
+      "(define (sh-run-capture-output job)\n"
+      /** TODO: implement */
+      "  \"\")\n"
       "\n"
       /** customize how "job" objects are printed */
       "(record-writer (record-type-descriptor job)\n"
@@ -1015,7 +1043,7 @@ static void schemesh_define_library_shell_parse(void) {
  */
 static void schemesh_define_library_shell_macros(void) {
 
-#define SCHEMESH_LIBRARY_SHELL_MACROS_EXPORT "shell shell-backquote "
+#define SCHEMESH_LIBRARY_SHELL_MACROS_EXPORT "shell shell-list shell-backquote "
 
   eval("(library (schemesh shell macros (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_SHELL_MACROS_EXPORT ")\n"
@@ -1028,10 +1056,15 @@ static void schemesh_define_library_shell_macros(void) {
        "(define-macro (shell . args)\n"
        "  (sh-parse args))\n"
        "\n"
+       "(define-syntax shell-list\n"
+       "  (syntax-rules ()\n"
+       "    ((_ args ...)\n"
+       "      (sh-list args ...))))\n"
+       "\n"
        "(define-syntax shell-backquote\n"
        "  (syntax-rules ()\n"
        "    ((_ args ...)\n"
-       "      (sh-run-capture-output (sh-backquote (shell args ...))))))\n"
+       "      (sh-run-capture-output (shell args ...)))))\n"
        "\n"
        ")\n"); /* close library */
 }
