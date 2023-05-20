@@ -13,16 +13,16 @@
 #include <scheme.h>
 
 /** define tty-related functions. */
-void define_library_tty(void);
+void schemesh_define_library_tty(void);
 
 /** define fd-related functions. return < 0 if some C system call failed */
-int define_library_fd(void);
+int schemesh_define_library_fd(void);
 
 /**
  * define functions (fork-pid) (spawn-pid) (pid-wait)
  * requires functions (sh-env...)
  */
-void define_library_pid(void);
+void schemesh_define_library_pid(void);
 
 /** return current (-errno) value */
 int c_errno(void);

@@ -479,12 +479,14 @@ static const struct {
     {"(sh-run (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 1)"},
     {"(sh-run (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 0)"},
     /* ------------------------- shell syntax ------------------------------- */
-    {"(sh-parse \"wc\" \"-l\" \"myfile\" '> \"mylog\" '\\x3b; \"echo\" \"done\")",
-     "(sh-list (shell-cmd wc -l myfile > mylog) ; (shell-cmd echo done))"},
+    {"(sh-parse '(\"wc\" \"-l\" \"myfile\" > \"mylog\" \\x3b; \"echo\" \"done\"))",
+     "(sh-list (sh-cmd wc -l myfile > mylog) ; (sh-cmd echo done))"},
+    {"(sh-parse '(\"find\" \"-type\" \"f\" \\x7c; \"wc\" &))",
+     "(sh-list (sh-pipe (sh-cmd find -type f) | (sh-cmd wc)) &)"},
     /* ------------------------- shell macros ------------------------------- */
     {"(expand '(shell \"ls\" \"-l\" && \"wc\" \"-b\" &))",
      "(begin (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"
-     " (sh-list (shell-cmd ls -l) && (shell-cmd wc -b) &))"},
+     " (sh-list (sh-and-or (sh-cmd ls -l) && (sh-cmd wc -b)) &))"},
     /* ------------------------- repl --------------------------------------- */
     {"(values->list (repl-parse\n"
      "  (open-string-input-port \"(+ 2 3) (values 7 (cons 'a 'b))\")\n"
@@ -528,7 +530,7 @@ static unsigned run_test(const char string_to_eval[], const char expected_result
   return 1;
 }
 
-void handle_scheme_exception(void) {
+static void handle_scheme_exception(void) {
   fputs("schemesh_test failed: exception evaluating Scheme code!\n", stdout);
   exit(1);
 }
@@ -538,16 +540,16 @@ int main(int argc, const char* argv[]) {
   (void)argc;
   (void)argv;
 
-  scheme_init(&handle_scheme_exception);
-  if ((err = define_libraries()) < 0) {
+  schemesh_init(&handle_scheme_exception);
+  if ((err = schemesh_define_libraries()) < 0) {
     return err;
   }
-  import_libraries();
+  schemesh_import_libraries();
 
   errno = 0;
   err   = run_tests();
 
-  scheme_quit();
+  schemesh_quit();
 
   return err;
 }

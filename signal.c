@@ -89,7 +89,7 @@ int c_signal_raise(int sig) {
 #define STR_(arg) #arg
 #define STR(arg) STR_(arg)
 
-void define_library_signal(void) {
+void schemesh_define_library_signal(void) {
   Sregister_symbol("c_signal_raise", &c_signal_raise);
 
   eval("(library (schemesh signal (0 1))\n"

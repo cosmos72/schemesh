@@ -75,7 +75,7 @@ bytes eval_to_bytevector(const char str[]) {
   return ret;
 }
 
-void define_library_bootstrap(void) {
+void schemesh_define_library_bootstrap(void) {
   boot_eval("(library (schemesh bootstrap)\n"
             "  (export eval-string repeat while until list->values values->list define-macro)\n"
             "  (import\n"
@@ -127,7 +127,7 @@ void define_library_bootstrap(void) {
   boot_eval("(import (schemesh bootstrap))\n");
 }
 
-void define_library_conversions(void) {
+void schemesh_define_library_conversions(void) {
   eval("(library (schemesh conversions (0 1))\n"
        "  (export\n"
        "    display-condition* display-any write-bytevector0\n"

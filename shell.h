@@ -12,16 +12,25 @@
 
 #include "eval.h"
 
-void scheme_init(void (*on_scheme_exception)(void));
-
-void define_library_shell(void);
+/**
+ * initialize Chez Scheme. calls in sequence:
+ *   Sscheme_init(on_scheme_exception);
+ *   Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/petite.boot");
+ *   Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/scheme.boot");
+ *   Sbuild_heap(NULL, NULL);
+ */
+void schemesh_init(void (*on_scheme_exception)(void));
 
 /** define all schemesh libraries. return < 0 if failed */
-int define_libraries(void);
+int schemesh_define_libraries(void);
 
 /** import all schemesh libraries */
-void import_libraries(void);
+void schemesh_import_libraries(void);
 
-void scheme_quit(void);
+/**
+ * quit Chez Scheme. calls:
+ *   Sscheme_deinit()
+ */
+void schemesh_quit(void);
 
 #endif /* SCHEMESH_SHELL_H */

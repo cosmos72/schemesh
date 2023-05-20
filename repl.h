@@ -10,7 +10,7 @@
 #ifndef SCHEMESH_REPL_H
 #define SCHEMESH_REPL_H
 
-/** requires define_library_parse() */
-void define_library_repl(void);
+/** requires schemesh_define_library_parse() */
+void schemesh_define_library_repl(void);
 
 #endif /* SCHEMESH_REPL_H */

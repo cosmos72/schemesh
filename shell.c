@@ -52,7 +52,7 @@ static void c_environ_to_sh_env(char** env) {
  * Convention: (sh) and (sh-...) are functions
  *             (shell) and (shell-...) are macros
  */
-static void define_library_shell_jobs(void) {
+static void schemesh_define_library_shell_jobs(void) {
 
 #define SCHEMESH_LIBRARY_SHELL_JOBS_EXPORT                                                         \
   "sh-job? sh-job-ref sh-job-span sh-job-status sh-cmd sh-cmd? sh-multijob sh-multijob? "          \
@@ -828,147 +828,182 @@ static void define_library_shell_jobs(void) {
  * Convention: (sh) and (sh-...) are functions
  *             (shell) and (shell-...) are macros
  */
-static void define_library_shell_syntax(void) {
+static void schemesh_define_library_shell_parse(void) {
 
-#define SCHEMESH_LIBRARY_SHELL_SYNTAX_EXPORT                                                       \
-  "sh sh-parse sh-parse-ops sh-operator-precedence sh-operators-precedence "
+#define SCHEMESH_LIBRARY_SHELL_PARSE_EXPORT "sh sh-parse "
 
-  eval("(library (schemesh shell syntax (0 1))\n"
-       "  (export " SCHEMESH_LIBRARY_SHELL_SYNTAX_EXPORT ")\n"
+  eval("(library (schemesh shell parse (0 1))\n"
+       "  (export " SCHEMESH_LIBRARY_SHELL_PARSE_EXPORT ")\n"
        "  (import\n"
        "    (rnrs)\n"
-       "    (only (chezscheme) eval format reverse!)\n"
+       "    (only (chezscheme) eval\n"
+#ifdef SCHEMESH_LIBRARY_SHELL_PARSE_DEBUG
+       "      format\n"
+#endif
+       "      reverse!)\n"
        "    (only (schemesh bootstrap)       until)\n"
        "    (only (schemesh containers misc) list-iterate)\n"
        "    (only (schemesh containers hashtable) eq-hashtable)\n"
        "    (schemesh shell jobs))\n"
        "\n"
-       /** Return #t if token is a shell command separator: ; & && | |& || */
+       /** Return #t if token is a shell command separator: ; & && || | |& */
        "(define (sh-separator? token)\n"
-       "  (memv token '(\\x3b; & && \\x7c; \\x7c;& \\x7c;\\x7c;)))\n"
+       "  (and (symbol? token)\n"
+       "       (memq token '(\\x3b; & && \\x7c;\\x7c; \\x7c; \\x7c;&))))\n"
+       "\n"
+       /** Return #t if token is a shell redirection operator: < > >& */
+       "(define (sh-redirect-operator? token)\n"
+       "  (and (symbol? token)\n"
+       "       (memq token '(< > >&))))\n"
        "\n"
        /**
         * Parse args using shell syntax, and return corresponding sh-cmd or sh-multijob object.
         *
-        * Each element in args must be a symbol, string, closure or form:
-        * 1. symbols are operators. Recognized symbols are: ; & && | |& || < > >> >&
+        * Each element in args must be a symbol, string, closure or pair:
+        * 1. symbols are operators. Recognized symbols are: ; & && || | |& < > >> >&
         *    TODO: implement N>> N< etc.
         * 2. strings stand for themselves. for example (sh "ls" "-l")
         *    is equivalent to (sh-cmd "ls" "-l")
         * 3. closures must accept a single argument and return a string.
         *    TODO: implement support for them.
-        * 4. forms are evaluated with (eval) and must return a string or closure.
+        * 4. pairs TBD
         */
        "(define (sh . args)\n"
        /* implementation: use sh-parse for converting shell commands to Scheme forms,
         * then (eval) such forms */
-       "  (eval (apply sh-parse args)))\n"
+       "  (eval sh-parse args))\n"
        "\n"
        /**
-        * Parse args for a single shell command.
-        * Return two values:
-        *   A list containing parsed args, until an operator is found in args.
-        *   The remaining, unparsed args.
+        * Parse list containing a sequence of shell commands separated by ; & && || | |&
+        * Return list containing parsed args.
         */
-       "(define (sh-parse-cmd args)\n"
-       "  (let ((ret '())\n"
-       "        (tail args))"
-       "    (list-iterate args\n"
-       "      (lambda (arg)\n"
-       "        (if (sh-separator? arg)\n"
-       "          #f\n"
-       "          (begin\n"
-       "            (set! ret (cons arg ret))\n"
-       "            (set! tail (cdr tail))))))\n"
-       "    (values (cons 'shell-cmd (reverse! ret)) tail)))\n"
-       "\n"
-       /**
-        * Parse a list containing shell syntax, and return a Scheme form for creating
-        * corresponding sh-cmd or sh-multijob object.
-        *
-        * Each element in args must be a symbol, string, form, or closure
-        * as described in function (sh).
-        */
-       "(define (sh-parse . args)\n"
-       "  (let ((l '()))\n"
+       "(define (sh-parse args)\n"
+       "  (let ((saved-args args)\n"
+       "        (ret '()))\n"
        "    (until (null? args)\n"
-       "      (if (sh-separator? (car args))"
-       "        (begin\n"
-       "          (set! l (cons (car args) l))\n"
-       "          (set! args (cdr args)))\n"
-       "        (let-values (((form tail) (sh-parse-cmd args)))\n"
-       "          (set! l (cons form l))\n"
-       "          (set! args tail))))\n"
-       /**  TODO: parse operators and their precedence */
-       "    (sh-parse-ops (reverse! l))))\n"
-       "\n"
-       "(define sh-operators-precedence\n"
-       "  (let ((htable (eq-hashtable\n"
-       "         '(\\x3b; . 0) '(& . 0)\n"          /* command separators ;  & */
-       "         '(&& . 1) '(\\x7c;\\x7c; . 1)\n"   /* and-or separators && || */
-       "         '(\\x7c; . 2) '(\\x7c;& . 2))))\n" /* pipe separators   |  |& */
-       "    (lambda () htable)))\n"
-       "\n"
-       /** Return precedence of symbol e. Return #f if not found, or #t if e is a pair. */
-       "(define (sh-operator-precedence e)\n"
-       "  (if (pair? e) #t (hashtable-ref (sh-operators-precedence) e #f)))\n"
-       "\n"
-       /**
-        * Parse a list containing pairs (assumed to be shell commands)
-        * and ONLY the shell operators in hashtable sh-operators-precedence,
-        * (initially ; & && || | |& )
-        * apply operators' precedence, and return a list containing
-        * 'sh-list followed by appropriate (sh-and-or ...) (sh-pipe ... ) etc.
-        */
-       "(define (sh-parse-ops l)\n"
-       "  (format #t \"sh-parse-ops: ~s~%\" l)\n"
-       "  (let* ((semicolon-prec (sh-operator-precedence '\\x3b;))\n"
-       "         (ret '())\n"
-       "         (last-prec (greatest-fixnum))\n"
-       "         (%reduce (lambda (op op-prec)\n"
-       "           (let-values (((new-ret new-prec) (sh-reduce-ops op op-prec ret last-prec)))\n"
-       "             (set! ret       new-ret)\n"
-       "             (set! last-prec new-prec)))))\n"
-       "    (list-iterate l (lambda (e)\n"
-       "      (let ((prec (sh-operator-precedence e)))\n"
-       "        (unless prec\n"
-       "          (syntax-violation 'sh-parse-ops \"unexpected element, expecting a list "
-       "or one of the symbols ; & && | |& || :\" l e))\n"
-       "        (if (eq? #t prec)\n"
-       "          (begin\n"
-       "            (when (and (not (null? ret)) (pair? (car ret)))\n"
-       /*             consecutive lists (a ...) (b ...) are treated as separated by ; */
-       "              (%reduce '\\x3b; semicolon-prec))\n"
-       "            (set! ret (cons e ret)))\n"
-       "          (%reduce e prec)))))\n"
-       "    (unless (or (null? ret) (null? (cdr ret)))\n"
-       "      (%reduce #f (least-fixnum)))\n"
+       "      (let-values (((parsed tail) (sh-parse-and-or args)))\n"
+       "        (set! ret (cons parsed ret))\n"
+       "        (set! args tail)\n"
+#ifdef SCHEMESH_LIBRARY_SHELL_PARSE_DEBUG
+       "        (format #t \"sh-parse          iterate: ret = ~s, args = ~s~%\"\n"
+       "(reverse ret) args)\n"
+#endif
+       "        (cond\n"
+       "          ((null? args) #f)\n"
+       "          ((not (symbol? (car args)))\n"
+       "            (set! ret (cons '\\x3b; ret)))\n"
+       "          ((memq (car args) '(\\x3b; &))\n"
+       "            (set! ret (cons (car args) ret))\n"
+       "            (set! args (cdr args)))\n"
+       "          (#t\n"
+       "            (syntax-violation 'sh-parse \"syntax error, unknown shell operator:\"\n"
+       "              saved-args (car args))))))\n"
+#ifdef SCHEMESH_LIBRARY_SHELL_PARSE_DEBUG
+       "    (format #t \"sh-parse           return: ret = ~s, args = ~s~%\"\n"
+       "(reverse ret) args)\n"
+#endif
        "    (cons 'sh-list (reverse! ret))))\n"
        "\n"
        /**
-        * Given the list l of partially parsed pairs and operators
-        * whose last precedence is last-prec,
-        * and an additional operator op, whose precedence is op-prec,
-        * shift or reduce the list l of partially parsed pairs and operators.
-        *
-        * Special case: if op is #f, do not append it: it's used to mark the end of list.
-        *
-        * Return two values: updated list, and updated last-prec.
+        * Parse list containing a sequence of shell commands separated by && || | |&
+        * Return two values:
+        *   A list containing parsed args;
+        *   The remaining, unparsed args.
         */
-       "(define (sh-reduce-ops op op-prec l last-prec)\n"
-#if 1 /** TODO: implement */
-       "  (values (if op (cons op l) l) last-prec))\n"
-#else
-       "  (if (fx<=? op-prec last-prec)\n"
-       /*   op has low precedence, reduce preceding operator */
-       "    (let ((sublist '())\n"
-       "      (list-iterate l (lambda (e)\n"
-       "        (let ((e-prec (operator-precedence e)))\n"
-       "          (assert e-prec)\n"
-       "          (if (eq? #t e-prec)"
-       /*   op has high precedence, shift it */
-       "    (values (cons op l) last-prec)\n"
+       "(define (sh-parse-and-or args)\n"
+       "  (let ((ret '())\n"
+       "        (done? (null? args)))\n"
+       "    (until done?\n"
+       "      (let-values (((parsed tail) (sh-parse-pipe args)))\n"
+       "        (set! ret (cons parsed ret))\n"
+       "        (set! args tail))\n"
+#ifdef SCHEMESH_LIBRARY_SHELL_PARSE_DEBUG
+       "      (format #t \"sh-parse-and-or iterate: ret = ~s, args = ~s~%\" (reverse ret) args)\n"
 #endif
+       "      (cond\n"
+       "        ((null? args) (set! done? #t))\n"
+       "        ((memq (car args) '(&& \\x7c;\\x7c;))\n"
+       "          (set! ret (cons (car args) ret))\n"
+       "          (set! args (cdr args))\n"
+       "          (set! done? (null? args)))\n"
+       "        (#t   (set! done? #t))))\n" /* unhandled token => exit loop */
+#ifdef SCHEMESH_LIBRARY_SHELL_PARSE_DEBUG
+       "    (format #t \"sh-parse-and-or  return: ret = ~s, args = ~s~%\" (reverse ret) args)\n"
+#endif
+       "    (values\n"
+       "      (cond\n"
+       "        ((null? ret) ret)\n"
+       "        ((null? (cdr ret)) (car ret))\n"
+       "        (#t (cons 'sh-and-or (reverse! ret))))\n"
+       "      args)))\n"
+       "\n"
+       /**
+        * Parse list containing a sequence of shell commands separated by | |&
+        * Return two values:
+        *   A list containing parsed args;
+        *   The remaining, unparsed args.
+        */
+       "(define (sh-parse-pipe args)\n"
+       "  (let ((ret '())\n"
+       "        (done? (null? args)))\n"
+       "    (until done?\n"
+       "      (let-values (((parsed tail) (sh-parse-cmd args)))\n"
+       "        (set! ret (cons parsed ret))\n"
+       "        (set! args tail))\n"
+#ifdef SCHEMESH_LIBRARY_SHELL_PARSE_DEBUG
+       "      (format #t \"sh-parse-pipe  iterate: ret = ~s, args = ~s~%\" (reverse ret) args)\n"
+#endif
+       "      (cond\n"
+       "        ((null? args) (set! done? #t))\n"
+       "        ((memq (car args) '(\\x7c; \\x7c;&))\n"
+       "          (set! ret (cons (car args) ret))\n"
+       "          (set! args (cdr args))\n"
+       "          (set! done? (null? args)))\n"
+       "        (#t   (set! done? #t))))\n" /* unhandled token => exit loop */
+#ifdef SCHEMESH_LIBRARY_SHELL_PARSE_DEBUG
+       "    (format #t \"sh-parse-pipe   return: ret = ~s, args = ~s~%\" (reverse ret) args)\n"
+#endif
+       "    (values\n"
+       "      (cond\n"
+       "        ((null? ret) ret)\n"
+       "        ((null? (cdr ret)) (car ret))\n"
+       "        (#t (cons 'sh-pipe (reverse! ret))))\n"
+       "      args)))\n"
+       "\n"
+       /**
+        * Parse args for a single shell command, i.e. everything before the first ; & && || | |&
+        * Return two values:
+        *   A list containing parsed args;
+        *   The remaining, unparsed args.
+        */
+       "(define (sh-parse-cmd args)\n"
+       "  (let ((saved-args args)\n"
+       "        (ret '())\n"
+       "        (done? (null? args)))\n"
+       "    (until done?\n"
+#ifdef SCHEMESH_LIBRARY_SHELL_PARSE_DEBUG
+       "      (format #t \"sh-parse-cmd iterate: ret = ~s, args = ~s~%\" (reverse ret) args)\n"
+#endif
+       "      (if (null? args)\n"
+       "        (set! done? #t)\n"
+       "        (let ((arg (car args)))\n"
+       "          (cond\n"
+       "            ((sh-separator? arg)\n"
+       "              (set! done? #t))\n" /* separator => exit loop */
+       "            ((or (sh-redirect-operator? arg) (pair? arg) (string? arg) (procedure? arg))\n"
+       "              (set! ret (cons arg ret))\n"
+       "              (set! args (cdr args)))\n"
+       "            (#t\n"
+       "              (syntax-violation 'sh-parse \"syntax error, expecting a redirection "
+       "operator, string, pair or procedure, found:\"\n"
+       "                saved-args arg))))))\n"
+#ifdef SCHEMESH_LIBRARY_SHELL_PARSE_DEBUG
+       "    (format #t \"sh-parse-cmd  return: ret = ~s, args = ~s~%\" (reverse ret) args)\n"
+#endif
+       "    (values\n"
+       "      (cons 'sh-cmd (reverse! ret))\n"
+       "      args)))\n"
+       "\n"
        ")\n"); /* close library */
 }
 
@@ -978,7 +1013,7 @@ static void define_library_shell_syntax(void) {
  * Convention: (sh) and (sh-...) are functions
  *             (shell) and (shell-...) are macros
  */
-static void define_library_shell_macros(void) {
+static void schemesh_define_library_shell_macros(void) {
 
 #define SCHEMESH_LIBRARY_SHELL_MACROS_EXPORT "shell shell-backquote "
 
@@ -988,13 +1023,10 @@ static void define_library_shell_macros(void) {
        "    (rnrs)\n"
        "    (schemesh bootstrap)\n"
        "    (schemesh shell jobs)\n"
-       "    (schemesh shell syntax))\n"
+       "    (schemesh shell parse))\n"
        "\n"
        "(define-macro (shell . args)\n"
-       "  (apply sh-parse args))\n"
-       "\n"
-       "(define-macro (shell-list . args)\n"
-       "  (apply sh-parse-ops args))\n"
+       "  (sh-parse args))\n"
        "\n"
        "(define-syntax shell-backquote\n"
        "  (syntax-rules ()\n"
@@ -1004,44 +1036,44 @@ static void define_library_shell_macros(void) {
        ")\n"); /* close library */
 }
 
-void define_library_shell(void) {
-  define_library_shell_jobs();
-  define_library_shell_syntax();
-  define_library_shell_macros();
+static void schemesh_define_library_shell(void) {
+  schemesh_define_library_shell_jobs();
+  schemesh_define_library_shell_parse();
+  schemesh_define_library_shell_macros();
 
   eval("(library (schemesh shell (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_SHELL_JOBS_EXPORT ""
-       /*        */ SCHEMESH_LIBRARY_SHELL_SYNTAX_EXPORT ""
+       /*        */ SCHEMESH_LIBRARY_SHELL_PARSE_EXPORT ""
        /*        */ SCHEMESH_LIBRARY_SHELL_MACROS_EXPORT ")\n"
        "  (import\n"
        "    (schemesh shell jobs)\n"
-       "    (schemesh shell syntax)\n"
+       "    (schemesh shell parse)\n"
        "    (schemesh shell macros)))\n");
 }
 
-int define_libraries(void) {
+int schemesh_define_libraries(void) {
   int err;
 
-  define_library_bootstrap();
-  define_library_containers();
-  define_library_conversions();
-  define_library_io();
-  define_library_parser();
+  schemesh_define_library_bootstrap();
+  schemesh_define_library_containers();
+  schemesh_define_library_conversions();
+  schemesh_define_library_io();
+  schemesh_define_library_parser();
 
-  if ((err = define_library_fd()) < 0) {
+  if ((err = schemesh_define_library_fd()) < 0) {
     return err;
   }
-  define_library_signal();
-  define_library_tty();
-  define_library_pid();
-  define_library_lineedit();
-  define_library_shell();
-  define_library_repl();
+  schemesh_define_library_signal();
+  schemesh_define_library_tty();
+  schemesh_define_library_pid();
+  schemesh_define_library_lineedit();
+  schemesh_define_library_shell();
+  schemesh_define_library_repl();
 
   return err;
 }
 
-void import_libraries(void) {
+void schemesh_import_libraries(void) {
   eval("(begin\n"
        "  (import (schemesh bootstrap))\n"
        "  (import (schemesh containers))\n"
@@ -1060,13 +1092,13 @@ void import_libraries(void) {
   c_environ_to_sh_env(environ);
 }
 
-void scheme_init(void (*on_scheme_exception)(void)) {
+void schemesh_init(void (*on_scheme_exception)(void)) {
   Sscheme_init(on_scheme_exception);
   Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/petite.boot");
   Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/scheme.boot");
   Sbuild_heap(NULL, NULL);
 }
 
-void scheme_quit(void) {
+void schemesh_quit(void) {
   Sscheme_deinit();
 }

@@ -28,7 +28,7 @@ static void c_vector_copy(ptr src, iptr src_start, ptr dst, iptr dst_start, iptr
   }
 }
 
-static void define_library_containers_misc(void) {
+static void schemesh_define_library_containers_misc(void) {
 
 #define SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT                                                    \
   "list-iterate reverse*! "                                                                        \
@@ -192,7 +192,7 @@ static void define_library_containers_misc(void) {
 /* define Scheme type "hash-iterator" and functions operating on it:        */
 /* they implement traversing hashtable contents without allocating          */
 /****************************************************************************/
-static void define_library_containers_hashtable(void) {
+static void schemesh_define_library_containers_hashtable(void) {
 
 #define SCHEMESH_LIBRARY_CONTAINERS_HASHTABLE_EXPORT_1                                             \
   "make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-cell hash-iterator-next! "   \
@@ -438,7 +438,7 @@ static void define_library_containers_hashtable(void) {
 }
 
 /** define Scheme type "span", a resizeable vector */
-static void define_library_containers_span(void) {
+static void schemesh_define_library_containers_span(void) {
 
 #define SCHEMESH_LIBRARY_CONTAINERS_SPAN_EXPORT                                                    \
   "list->span vector->span vector->span* make-span span->vector span span? "                       \
@@ -719,7 +719,7 @@ static void define_library_containers_span(void) {
 };
 
 /** define Scheme type "bytespan", a resizeable bytevector */
-static void define_library_containers_bytespan(void) {
+static void schemesh_define_library_containers_bytespan(void) {
 
 #define SCHEMESH_LIBRARY_CONTAINERS_BYTESPAN_EXPORT                                                \
   "list->bytespan bytevector->bytespan bytevector->bytespan* make-bytespan bytespan->bytevector "  \
@@ -1014,7 +1014,7 @@ static void define_library_containers_bytespan(void) {
        ")\n"); /* close library */
 }
 
-static void define_library_containers_charspan(void) {
+static void schemesh_define_library_containers_charspan(void) {
 
   /****************************************************************************/
   /** Define Scheme type "charspan", a resizeable string */
@@ -1298,7 +1298,7 @@ static void define_library_containers_charspan(void) {
        ")\n"); /* close library */
 }
 
-static void define_library_containers_gbuffer(void) {
+static void schemesh_define_library_containers_gbuffer(void) {
 
   /****************************************************************************/
   /** Define Scheme type "gbuffer", a gap buffer. */
@@ -1490,7 +1490,7 @@ static void define_library_containers_gbuffer(void) {
        ")\n"); /* close library */
 }
 
-static void define_library_containers_chargbuffer(void) {
+static void schemesh_define_library_containers_chargbuffer(void) {
 
   /****************************************************************************/
   /** Define Scheme type "chargbuffer", a gap buffer containing chars. */
@@ -1689,7 +1689,7 @@ static void define_library_containers_chargbuffer(void) {
  * a. converting chars from/to UTF8 and reading/writing them into "bytevector" and "bytespan"
  * b. converting integers to decimal and writing them into "bytevector" and "bytespan"
  */
-static void define_library_containers_utils(void) {
+static void schemesh_define_library_containers_utils(void) {
 
 #define SCHEMESH_LIBRARY_CONTAINERS_UTILS_EXPORT                                                   \
   "bytevector-utf8-ref bytevector-utf8-set! char->utf8-length "                                    \
@@ -1937,15 +1937,15 @@ static void define_library_containers_utils(void) {
        ")\n"); /* close library */
 }
 
-void define_library_containers(void) {
-  define_library_containers_misc();
-  define_library_containers_hashtable();
-  define_library_containers_span();
-  define_library_containers_bytespan();
-  define_library_containers_charspan();
-  define_library_containers_gbuffer();
-  define_library_containers_chargbuffer();
-  define_library_containers_utils();
+void schemesh_define_library_containers(void) {
+  schemesh_define_library_containers_misc();
+  schemesh_define_library_containers_hashtable();
+  schemesh_define_library_containers_span();
+  schemesh_define_library_containers_bytespan();
+  schemesh_define_library_containers_charspan();
+  schemesh_define_library_containers_gbuffer();
+  schemesh_define_library_containers_chargbuffer();
+  schemesh_define_library_containers_utils();
 
   eval("(library (schemesh containers (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT ""

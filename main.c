@@ -63,11 +63,11 @@ int main(int argc, const char* argv[]) {
       return 1;
   }
   on_exception = INIT_FAILED;
-  scheme_init(&handle_scheme_exception);
-  if ((err = define_libraries()) < 0) {
+  schemesh_init(&handle_scheme_exception);
+  if ((err = schemesh_define_libraries()) < 0) {
     return err;
   }
-  import_libraries();
+  schemesh_import_libraries();
 
   on_exception = EVAL_FAILED;
 again:
@@ -109,7 +109,7 @@ again:
 #endif /*0*/
 finish:
   on_exception = QUIT_FAILED;
-  scheme_quit();
+  schemesh_quit();
 
   return 0;
 }

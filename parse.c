@@ -11,7 +11,7 @@
 
 #undef SCHEMESH_DEBUG_PARSE_SHELL
 
-static void define_library_parser_base(void) {
+static void schemesh_define_library_parser_base(void) {
 
 #define SCHEMESH_LIBRARY_PARSER_BASE_EXPORT                                                        \
   "make-parser parser? parser-name parser-parse parser-parse* parser-parse-list "                  \
@@ -138,7 +138,7 @@ static void define_library_parser_base(void) {
        ")\n"); /* close library */
 }
 
-static void define_library_parser_scheme(void) {
+static void schemesh_define_library_parser_scheme(void) {
 
 #define SCHEMESH_LIBRARY_PARSER_SCHEME_EXPORT "lex-scheme parse-scheme parse-scheme* parser-scheme "
 
@@ -389,7 +389,7 @@ static void define_library_parser_scheme(void) {
       ")\n"); /* close library */
 }
 
-static void define_library_parser_shell(void) {
+static void schemesh_define_library_parser_shell(void) {
 
 #define SCHEMESH_LIBRARY_PARSER_SHELL_EXPORT                                                       \
   "read-shell-char lex-shell parse-shell-word "                                                    \
@@ -897,10 +897,10 @@ static void define_library_parser_shell(void) {
        ")\n"); /* close library */
 }
 
-void define_library_parser(void) {
-  define_library_parser_base();
-  define_library_parser_scheme();
-  define_library_parser_shell();
+void schemesh_define_library_parser(void) {
+  schemesh_define_library_parser_base();
+  schemesh_define_library_parser_scheme();
+  schemesh_define_library_parser_shell();
 
 #define SCHEMESH_LIBRARY_PARSER_EXPORT "parse-form parse-form* parse-form-list parse-forms parsers "
 

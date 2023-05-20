@@ -165,7 +165,7 @@ static unsigned long c_parse_unsigned_long(const char* str) {
   return 0;
 }
 
-void define_library_tty(void) {
+void schemesh_define_library_tty(void) {
   Sregister_symbol("c_tty_restore", &c_tty_restore);
   Sregister_symbol("c_tty_setraw", &c_tty_setraw);
   Sregister_symbol("c_tty_size", &c_tty_size);
@@ -394,7 +394,7 @@ int c_exit(int status) {
   return -EINVAL;
 }
 
-int define_library_fd(void) {
+int schemesh_define_library_fd(void) {
   int err;
   if ((err = c_tty_init()) < 0) {
     return err;
@@ -547,7 +547,7 @@ int define_library_fd(void) {
   return 0;
 }
 
-void define_library_pid(void) {
+void schemesh_define_library_pid(void) {
   Sregister_symbol("c_get_pid", &c_get_pid);
   Sregister_symbol("c_get_pgid", &c_get_pgid);
   Sregister_symbol("c_fork_pid", &c_fork_pid);

@@ -10,7 +10,7 @@
 #include "lineedit.h"
 #include "eval.h"
 
-void define_library_lineedit(void) {
+void schemesh_define_library_lineedit(void) {
   eval("(library (schemesh lineedit (0 1))\n"
        "  (export\n"
        "    chargbuffernl\n"

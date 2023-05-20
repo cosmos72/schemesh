@@ -10,6 +10,6 @@
 #ifndef SCHEMESH_PARSE_SCHEME_H
 #define SCHEMESH_PARSE_SCHEME_H
 
-void define_library_parser(void);
+void schemesh_define_library_parser(void);
 
 #endif /* SCHEMESH_PARSE_SCHEME_H */

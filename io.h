@@ -10,7 +10,7 @@
 #ifndef SCHEMESH_IO_H
 #define SCHEMESH_IO_H
 
-/** requires define_library_containers() */
-void define_library_io(void);
+/** requires schemesh_define_library_containers() */
+void schemesh_define_library_io(void);
 
 #endif /* SCHEMESH_IO_H */

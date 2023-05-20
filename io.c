@@ -9,7 +9,7 @@
 
 #include "eval.h"
 
-void define_library_io(void) {
+void schemesh_define_library_io(void) {
 
 #define SCHEMESH_LIBRARY_IO_EXPORT                                                                 \
   "open-chargbuffer-input-port open-gbuffer-of-chargbuffers-input-port "

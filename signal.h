@@ -23,6 +23,6 @@ int c_signal_restore(int sig);
 int c_sigchld_consume(void);
 
 /** define functions (signal-number->name) (signal-name->number) */
-void define_library_signal(void);
+void schemesh_define_library_signal(void);
 
 #endif /* SCHEMESH_SIGNAL_H */

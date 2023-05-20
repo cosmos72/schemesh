@@ -10,7 +10,8 @@
 #ifndef SCHEMESH_LINEEDIT_H
 #define SCHEMESH_LINEEDIT_H
 
-/** requires define_library_containers() define_library_tty() and define_library_fd() */
-void define_library_lineedit(void);
+/** requires schemesh_define_library_containers() schemesh_define_library_tty() and
+ * schemesh_define_library_fd() */
+void schemesh_define_library_lineedit(void);
 
 #endif /* SCHEMESH_LINEEDIT_H */
