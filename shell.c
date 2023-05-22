@@ -939,10 +939,10 @@ static void schemesh_define_library_shell_parse(void) {
        "  (and (symbol? token)\n"
        "       (memq token '(\\x3b; & && \\x7c;\\x7c; \\x7c; \\x7c;&))))\n"
        "\n"
-       /** Return #t if token is a shell redirection operator: < > >& */
+       /** Return #t if token is a shell redirection operator: < > >> >& */
        "(define (sh-redirect-operator? token)\n"
        "  (and (symbol? token)\n"
-       "       (memq token '(< > >&))))\n"
+       "       (memq token '(< > >> >&))))\n"
        "\n"
        /**
         * Parse args using shell syntax, and return corresponding sh-cmd or sh-multijob object.
@@ -1169,13 +1169,15 @@ static void schemesh_define_library_shell_macros(void) {
        "\n"
        "(define-syntax shell-list\n"
        "  (syntax-rules ()\n"
-       "    ((_ args ...)\n"
-       "      (sh-list args ...))))\n"
+       "    ((_)           '(sh-true))\n"
+       "    ((_ arg)          arg)\n"
+       "    ((_ arg0 arg1 ...) (sh-list arg0 arg1 ...))))\n"
        "\n"
        "(define-syntax shell-backquote\n"
        "  (syntax-rules ()\n"
-       "    ((_ args ...)\n"
-       "      (sh-run-capture-output (shell args ...)))))\n"
+       "    ((_)           \"\")\n"
+       "    ((_ arg)         (sh-run-capture-output arg))\n"
+       "    ((_ arg0 arg1 ...) (sh-run-capture-output (sh-list arg0 arg1 ...)))))\n"
        "\n"
        ")\n"); /* close library */
 }

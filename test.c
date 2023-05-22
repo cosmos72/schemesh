@@ -391,7 +391,6 @@ static const struct {
      "  \"{ls `cmd1 && cmd2 || cmd3 -arg3`}\") #f)))",
      "(shell-list (shell \"ls\" (shell-backquote (shell \"cmd1\" && \"cmd2\" \\x7C;\\x7C; "
      "\"cmd3\" \"-arg3\"))))"},
-
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"ls $var1 \\\"$var2\\\" '$var3'\") #f))",
      "(shell \"ls\" (shell-env-get \"var1\") (shell-env-get \"var2\") \"$var3\")"},
@@ -500,6 +499,11 @@ static const struct {
      "  'scheme\n"
      "  (parsers)))\n",
      "(((+ 2 3) (values 7 (cons 'a 'b))) #<parser scheme>)"},
+    {"(values->list (repl-parse\n"
+     "  (open-string-input-port \"ls -l | wc -b && echo ok || echo error &\")\n"
+     "  'shell\n"
+     "  (parsers)))\n",
+     "(((shell ls -l | wc -b && echo ok || echo error &)) #<parser shell>)"},
 };
 
 static int run_tests(void) {
