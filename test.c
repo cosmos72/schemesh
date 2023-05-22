@@ -480,13 +480,20 @@ static const struct {
     {"(sh-run (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 0)"},
     /* ------------------------- shell syntax ------------------------------- */
     {"(sh-parse '(\"wc\" \"-l\" \"myfile\" > \"mylog\" \\x3b; \"echo\" \"done\"))",
-     "(sh-list (sh-cmd wc -l myfile > mylog) ; (sh-cmd echo done))"},
+     "(sh-list* (sh-cmd<> wc -l myfile > mylog) ; (sh-cmd echo done))"},
     {"(sh-parse '(\"find\" \"-type\" \"f\" \\x7c; \"wc\" &))",
-     "(sh-list (sh-pipe (sh-cmd find -type f) | (sh-cmd wc)) &)"},
+     "(sh-list* (sh-pipe* (sh-cmd find -type f) | (sh-cmd wc)) &)"},
+
+#define INVOKELIB_SHELL_BUILTINS                                                                   \
+  "(begin (($primitive 3 $invoke-library) '(schemesh shell builtins) '(0 1) 'builtins)"
+#define INVOKELIB_SHELL_JOBS                                                                       \
+  "(begin (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"
+
     /* ------------------------- shell macros ------------------------------- */
-    {"(expand '(shell \"ls\" \"-l\" && \"wc\" \"-b\" &))",
-     "(begin (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"
-     " (sh-list (sh-and-or (sh-cmd ls -l) && (sh-cmd wc -b)) &))"},
+    {"(expand '(shell))", INVOKELIB_SHELL_BUILTINS " (sh-true))"},
+    {"(expand '(shell \"ls\" \"-l\" && \"wc\" \"-b\" \\x7c;\\x7c; \"echo\" \"error\" &))",
+     INVOKELIB_SHELL_JOBS
+     " (sh-list* (sh-and-or* (sh-cmd ls -l) && (sh-cmd wc -b) || (sh-cmd echo error)) &))"},
     /* ------------------------- repl --------------------------------------- */
     {"(values->list (repl-parse\n"
      "  (open-string-input-port \"(+ 2 3) (values 7 (cons 'a 'b))\")\n"
@@ -501,6 +508,7 @@ static int run_tests(void) {
   unsigned long       failed_n = 0;
 
   for (i = 0; i < n; i++) {
+    errno = 0;
     failed_n += run_test(tests[i].string_to_eval, tests[i].expected_result);
   }
   if (failed_n == 0) {
@@ -546,8 +554,7 @@ int main(int argc, const char* argv[]) {
   }
   schemesh_import_libraries();
 
-  errno = 0;
-  err   = run_tests();
+  err = run_tests();
 
   schemesh_quit();
 

@@ -55,11 +55,11 @@ static void c_environ_to_sh_env(char** env) {
 static void schemesh_define_library_shell_jobs(void) {
 
 #define SCHEMESH_LIBRARY_SHELL_JOBS_EXPORT                                                         \
-  "sh-job? sh-job-ref sh-job-span sh-job-status sh-cmd sh-cmd? sh-multijob sh-multijob? "          \
+  "sh-job? sh-job-ref sh-job-span sh-job-status sh-cmd sh-cmd<> sh-cmd? sh-multijob sh-multijob? " \
   "sh-globals sh-global-env sh-env-copy sh-env-get sh-env-set! sh-env-unset! "                     \
   "sh-env-exported? sh-env-export! sh-env->vector-of-bytevector0 "                                 \
-  "sh-start sh-bg sh-fg sh-run sh-run-capture-output sh-wait sh-and sh-or sh-and-or sh-list "      \
-  "sh-fd-redirect! sh-fds-redirect! "
+  "sh-start sh-bg sh-fg sh-run sh-run-capture-output sh-wait sh-and sh-or sh-and-or* "             \
+  "sh-list sh-list* sh-fd-redirect! sh-fds-redirect! "
 
   eval(
       "(library (schemesh shell jobs (0 1))\n"
@@ -237,13 +237,25 @@ static void schemesh_define_library_shell_jobs(void) {
       "(define (job-parents-list job-id)\n"
       "  (reverse! (job-parents-revlist job-id)))\n"
       "\n"
-      /** Create a cmd to later spawn it. */
+      /**
+       * Create a cmd to later spawn it. Each argument must be a string or bytevector.
+       * TODO: also support closures (lambda (job) ...) that return a string or bytevector.
+       */
       "(define (sh-cmd program . args)\n"
       "  (%make-cmd -1 -1 '(new . 0) (vector 0 1 2) (vector) '()\n"
       "    #f\n"         /* subshell-func */
       "    '()\n"        /* overridden environment variables - initially none */
       "    sh-globals\n" /* parent job - initially the global job */
       "    (list->cmd-argv (cons program args))))\n"
+      "\n"
+      /**
+       * Create a cmd to later spawn it. Each argument must be a string, bytevector or symbol.
+       * Each symbols indicates a redirection and must be followed by a string or bytevector.
+       * TODO: also support closures (lambda (job) ...) that return a string or bytevector.
+       */
+      "(define (sh-cmd<> program . args)\n"
+      /** FIXME: implement allowed symbols: < > >> >& N< N> N>> N>& */
+      "  (apply sh-cmd program args))\n"
       "\n"
       /** return global environment variables */
       "(define (sh-global-env)\n"
@@ -807,13 +819,22 @@ static void schemesh_define_library_shell_jobs(void) {
       "(define (sh-or . children-jobs)\n"
       "  (apply sh-multijob 'or  %multijob-run-or  children-jobs))\n"
       "\n"
-      "(define (sh-and-or . children-jobs-with-and-or)\n"
-      /** TODO: check for && || among mj and implement them */
+      /**
+       * Odd arguments must be sh-job
+       * Even arguments must be a symbol && ||
+       */
+      "(define (sh-and-or* . children-jobs-with-and-or)\n"
+      /** TODO: check for && || among args and implement them */
       "  (apply sh-multijob 'and-or %multijob-run-and-or children-jobs-with-and-or))\n"
       "\n"
-      "(define (sh-list . children-jobs-with-colon-ampersand)\n"
-      /** TODO: check for ; & among mj and implement them */
-      "  (apply sh-multijob 'list %multijob-run-list children-jobs-with-colon-ampersand))\n"
+      /** Each argument must be a sh-job */
+      "(define (sh-list . children-jobs)\n"
+      "  (apply sh-multijob 'list %multijob-run-list children-jobs))\n"
+      "\n"
+      /** Each argument must be a sh-job, possibly followed by a symbol ; & */
+      "(define (sh-list* . children-jobs-with-colon-ampersand)\n"
+      /** TODO: check for ; & among args and implement them */
+      "  (apply sh-list children-jobs-with-colon-ampersand))\n"
       "\n"
       "(define (sh-run-capture-output job)\n"
       /** TODO: implement */
@@ -868,7 +889,7 @@ static void schemesh_define_library_shell_parse(void) {
 #ifdef SCHEMESH_LIBRARY_SHELL_PARSE_DEBUG
        "      format\n"
 #endif
-       "      reverse!)\n"
+       "      remq! reverse!)\n"
        "    (only (schemesh bootstrap)       until)\n"
        "    (only (schemesh containers misc) list-iterate)\n"
        "    (only (schemesh containers hashtable) eq-hashtable)\n"
@@ -930,7 +951,10 @@ static void schemesh_define_library_shell_parse(void) {
        "    (format #t \"sh-parse           return: ret = ~s, args = ~s~%\"\n"
        "(reverse ret) args)\n"
 #endif
-       "    (cons 'sh-list (reverse! ret))))\n"
+       "    (cond\n"
+       "      ((null? ret) '(sh-true))\n"
+       "      ((null? (cdr ret)) (car ret))\n"
+       "      (#t (cons 'sh-list* (reverse! ret))))))\n"
        "\n"
        /**
         * Parse list containing a sequence of shell commands separated by && || | |&
@@ -940,7 +964,9 @@ static void schemesh_define_library_shell_parse(void) {
         */
        "(define (sh-parse-and-or args)\n"
        "  (let ((ret '())\n"
-       "        (done? (null? args)))\n"
+       "        (done? (null? args))\n"
+       "        (and? #f)\n"
+       "        (or? #f))\n"
        "    (until done?\n"
        "      (let-values (((parsed tail) (sh-parse-pipe args)))\n"
        "        (set! ret (cons parsed ret))\n"
@@ -951,6 +977,9 @@ static void schemesh_define_library_shell_parse(void) {
        "      (cond\n"
        "        ((null? args) (set! done? #t))\n"
        "        ((memq (car args) '(&& \\x7c;\\x7c;))\n"
+       "          (if (eq? '&& (car args))\n"
+       "            (set! and? #t)\n"
+       "            (set! or?  #t))\n"
        "          (set! ret (cons (car args) ret))\n"
        "          (set! args (cdr args))\n"
        "          (set! done? (null? args)))\n"
@@ -962,7 +991,9 @@ static void schemesh_define_library_shell_parse(void) {
        "      (cond\n"
        "        ((null? ret) ret)\n"
        "        ((null? (cdr ret)) (car ret))\n"
-       "        (#t (cons 'sh-and-or (reverse! ret))))\n"
+       "        ((and and? or?) (cons 'sh-and-or* (reverse! ret)))\n"
+       "        (and? (cons 'sh-and (reverse! (remq! '&& ret))))\n"
+       "        (#t   (cons 'sh-or  (reverse! (remq! '\\x7c;\\x7c; ret)))))\n"
        "      args)))\n"
        "\n"
        /**
@@ -995,7 +1026,7 @@ static void schemesh_define_library_shell_parse(void) {
        "      (cond\n"
        "        ((null? ret) ret)\n"
        "        ((null? (cdr ret)) (car ret))\n"
-       "        (#t (cons 'sh-pipe (reverse! ret))))\n"
+       "        (#t (cons 'sh-pipe* (reverse! ret))))\n"
        "      args)))\n"
        "\n"
        /**
@@ -1007,6 +1038,7 @@ static void schemesh_define_library_shell_parse(void) {
        "(define (sh-parse-cmd args)\n"
        "  (let ((saved-args args)\n"
        "        (ret '())\n"
+       "        (redirections? #f)"
        "        (done? (null? args)))\n"
        "    (until done?\n"
 #ifdef SCHEMESH_LIBRARY_SHELL_PARSE_DEBUG
@@ -1020,7 +1052,9 @@ static void schemesh_define_library_shell_parse(void) {
        "              (set! done? #t))\n" /* separator => exit loop */
        "            ((or (sh-redirect-operator? arg) (pair? arg) (string? arg) (procedure? arg))\n"
        "              (set! ret (cons arg ret))\n"
-       "              (set! args (cdr args)))\n"
+       "              (set! args (cdr args))\n"
+       "              (when (sh-redirect-operator? arg)\n"
+       "                (set! redirections? #t)))\n"
        "            (#t\n"
        "              (syntax-violation 'sh-parse \"syntax error, expecting a redirection "
        "operator, string, pair or procedure, found:\"\n"
@@ -1029,12 +1063,40 @@ static void schemesh_define_library_shell_parse(void) {
        "    (format #t \"sh-parse-cmd  return: ret = ~s, args = ~s~%\" (reverse ret) args)\n"
 #endif
        "    (values\n"
-       "      (cons 'sh-cmd (reverse! ret))\n"
+       "      (cons (if redirections? 'sh-cmd<> 'sh-cmd) (reverse! ret))\n"
        "      args)))\n"
        "\n"
        ")\n"); /* close library */
 }
 
+/**
+ * Define the funcstion (sh-true) (sh-false) (sh-cd) (sh-pwd) etc.
+ */
+static void schemesh_define_library_shell_builtins(void) {
+
+#define SCHEMESH_LIBRARY_SHELL_BUILTINS_EXPORT "sh-true sh-false sh-cd sh-pwd "
+
+  eval("(library (schemesh shell builtins (0 1))\n"
+       "  (export " SCHEMESH_LIBRARY_SHELL_BUILTINS_EXPORT ")\n"
+       "  (import\n"
+       "    (rnrs)\n"
+       "    (only (chezscheme) void)\n"
+       "    (schemesh shell jobs))\n"
+       "\n"
+       "(define (sh-true . ignored-args)\n"
+       "  (void))\n" /** TODO: implement */
+       "\n"
+       "(define (sh-false . ignored-args)\n"
+       "  (void))\n" /** TODO: implement */
+       "\n"
+       "(define (sh-cd path)\n"
+       "  (void))\n" /** TODO: implement */
+       "\n"
+       "(define (sh-pwd . ignored-args)\n"
+       "  (void))\n" /** TODO: implement */
+       "\n"
+       ")\n"); /* close library */
+}
 /**
  * Define the macros (shell) (shell-backquote) etc.
  *
@@ -1071,15 +1133,18 @@ static void schemesh_define_library_shell_macros(void) {
 
 static void schemesh_define_library_shell(void) {
   schemesh_define_library_shell_jobs();
+  schemesh_define_library_shell_builtins();
   schemesh_define_library_shell_parse();
   schemesh_define_library_shell_macros();
 
   eval("(library (schemesh shell (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_SHELL_JOBS_EXPORT ""
+       /*        */ SCHEMESH_LIBRARY_SHELL_BUILTINS_EXPORT ""
        /*        */ SCHEMESH_LIBRARY_SHELL_PARSE_EXPORT ""
        /*        */ SCHEMESH_LIBRARY_SHELL_MACROS_EXPORT ")\n"
        "  (import\n"
        "    (schemesh shell jobs)\n"
+       "    (schemesh shell builtins)\n"
        "    (schemesh shell parse)\n"
        "    (schemesh shell macros)))\n");
 }
