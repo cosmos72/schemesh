@@ -28,6 +28,8 @@
 #define STR(arg) STR_(arg)
 #define CHEZ_SCHEME_DIR_STR STR(CHEZ_SCHEME_DIR)
 
+#undef SCHEMESH_LIBRARY_SHELL_PARSE_DEBUG
+
 static void c_environ_to_sh_env(char** env) {
   const char* entry;
   if (!env) {
@@ -768,10 +770,9 @@ static void schemesh_define_library_shell_jobs(void) {
       "        (status '(exited . 0)))\n"
       "    (span-iterate jobs\n"
       "      (lambda (i job)\n"
-      "        (sh-start job pgid)\n"         /* run child job in parent's process group        */
-      "        (set! status (sh-wait job))\n" /* wait for child job to exit                     */
-      /*                                         keep iterating only if job exited successfully */
-      "        (equal? status '(exited . 0))))\n"
+      "        (sh-start job pgid)\n"             /* run child job in parent's process group */
+      "        (set! status (sh-wait job))\n"     /* wait for child job to exit              */
+      "        (equal? status '(exited . 0))))\n" /* keep iterating only if job succeeded    */
       "    status))\n"
       "\n"
       /**
@@ -797,12 +798,18 @@ static void schemesh_define_library_shell_jobs(void) {
       /** TODO: check for && || among mj and implement them */
       "  (let ((jobs   (multijob-children mj))\n"
       "        (pgid   (job-pgid mj))\n"
-      "        (status '(exited . 1)))\n"
+      "        (status '(exited . 0)))\n"
       "    (span-iterate jobs\n"
       "      (lambda (i job)\n"
-      "        (sh-start job pgid)\n"         /* run child job in parent's process group     */
-      "        (set! status (sh-wait job))\n" /* wait for child job to exit                  */
-      "        (not (equal? status '(exited . 0)))))\n" /* keep iterating only if job failed */
+      "        (if (bitwise-bit-set? i 0)\n"
+      "          (let ((success? (equal? status '(exited . 0))))\n"
+      "            (case job\n"
+      "              ((&&)           success?)\n"       /* keep iterating only if job succeeded */
+      "              ((\\x7c;\\x7c;) (not success?))\n" /* keep iterating only if job failed */
+      "              (else (assert (memq job '(&& \\x7c;\\x7c;))))))\n"
+      "          (begin\n"
+      "            (sh-start job pgid)\n"             /* run child job in parent's process group */
+      "            (set! status (sh-wait job))))))\n" /* wait for child job to exit              */
       "    status))\n"
       "\n"
       /**
@@ -839,14 +846,20 @@ static void schemesh_define_library_shell_jobs(void) {
        * Even arguments must be a symbol && ||
        */
       "(define (sh-and-or* . children-jobs-with-and-or)\n"
+      "  (when (null? children-jobs-with-and-or)\n"
+      "    (assertion-violation 'sh-and-or* \"requires at least one argument\" '()))\n"
       "  (let ((expect-job? #t))\n"
-      "    (list-iterate children-jobs-with-and-or\n"
-      "      (lambda (j)\n"
-      "        (if expect-job?\n"
-      "          (assert (sh-job? j))\n"
-      "          (assert (memq j '(&& \\x7c;\\x7c;))))\n"
-      "        (set! expect-job? (not expect-job?))))\n"
-      "    (assert (not expect-job?)))\n" // list length must be odd
+      "    (list-iterate children-jobs-with-and-or (lambda (j)\n"
+      "      (if expect-job?\n"
+      "        (unless (sh-job? j)\n"
+      "          (assertion-violation 'sh-and-or* \"even arguments must be sh-job\" j))\n"
+      "        (unless (memq j '(&& \\x7c;\\x7c;))\n"
+      "            (assertion-violation 'sh-and-or* \"odd arguments must be one of the "
+      "symbols && ||\" j)))\n"
+      "      (set! expect-job? (not expect-job?))))\n"
+      "    (when expect-job?\n"
+      "      (assertion-violation 'sh-and-or* \"number of arguments must odd\" "
+      "children-jobs-with-and-or)))\n"
       "  (apply make-multijob 'and-or #f %multijob-run-and-or children-jobs-with-and-or))\n"
       "\n"
       /** Each argument must be a sh-job */
@@ -910,13 +923,14 @@ static void schemesh_define_library_shell_parse(void) {
        "  (export " SCHEMESH_LIBRARY_SHELL_PARSE_EXPORT ")\n"
        "  (import\n"
        "    (rnrs)\n"
+       "    (rnrs mutable-pairs)\n"
        "    (only (chezscheme) eval\n"
 #ifdef SCHEMESH_LIBRARY_SHELL_PARSE_DEBUG
        "      format\n"
 #endif
        "      remq! reverse!)\n"
        "    (only (schemesh bootstrap)       until)\n"
-       "    (only (schemesh containers misc) list-iterate)\n"
+       "    (only (schemesh containers misc) list-iterate list-quoteq!)\n"
        "    (only (schemesh containers hashtable) eq-hashtable)\n"
        "    (schemesh shell jobs))\n"
        "\n"
@@ -979,7 +993,7 @@ static void schemesh_define_library_shell_parse(void) {
        "    (cond\n"
        "      ((null? ret) '(sh-true))\n"
        "      ((null? (cdr ret)) (car ret))\n"
-       "      (#t (cons 'sh-list* (reverse! ret))))))\n"
+       "      (#t (cons 'sh-list* (reverse! (list-quoteq! '(& \\x3b;) ret)))))))\n"
        "\n"
        /**
         * Parse list containing a sequence of shell commands separated by && || | |&
@@ -1016,7 +1030,8 @@ static void schemesh_define_library_shell_parse(void) {
        "      (cond\n"
        "        ((null? ret) ret)\n"
        "        ((null? (cdr ret)) (car ret))\n"
-       "        ((and and? or?) (cons 'sh-and-or* (reverse! ret)))\n"
+       "        ((and and? or?)\n"
+       "          (cons 'sh-and-or* (reverse! (list-quoteq! '(&& \\x7c;\\x7c;) ret))))\n"
        "        (and? (cons 'sh-and (reverse! (remq! '&& ret))))\n"
        "        (#t   (cons 'sh-or  (reverse! (remq! '\\x7c;\\x7c; ret)))))\n"
        "      args)))\n"
@@ -1051,7 +1066,7 @@ static void schemesh_define_library_shell_parse(void) {
        "      (cond\n"
        "        ((null? ret) ret)\n"
        "        ((null? (cdr ret)) (car ret))\n"
-       "        (#t (cons 'sh-pipe* (reverse! ret))))\n"
+       "        (#t (cons 'sh-pipe* (reverse! (list-quoteq! '(\\x7c; \\x7c;&) ret)))))\n"
        "      args)))\n"
        "\n"
        /**
@@ -1076,10 +1091,12 @@ static void schemesh_define_library_shell_parse(void) {
        "            ((sh-separator? arg)\n"
        "              (set! done? #t))\n" /* separator => exit loop */
        "            ((or (sh-redirect-operator? arg) (pair? arg) (string? arg) (procedure? arg))\n"
-       "              (set! ret (cons arg ret))\n"
-       "              (set! args (cdr args))\n"
        "              (when (sh-redirect-operator? arg)\n"
-       "                (set! redirections? #t)))\n"
+       "                (set! redirections? #t)\n"
+       /*               quote redirection operator (a symbol) to use its name, not its value */
+       "                (set! arg (list 'quote arg)))\n"
+       "              (set! ret (cons arg ret))\n"
+       "              (set! args (cdr args)))\n"
        "            (#t\n"
        "              (syntax-violation 'sh-parse \"syntax error, expecting a redirection "
        "operator, string, pair or procedure, found:\"\n"
@@ -1136,12 +1153,19 @@ static void schemesh_define_library_shell_macros(void) {
        "  (export " SCHEMESH_LIBRARY_SHELL_MACROS_EXPORT ")\n"
        "  (import\n"
        "    (rnrs)\n"
+#ifdef SCHEMESH_LIBRARY_SHELL_PARSE_DEBUG
+       "    (only (chezscheme) format)\n"
+#endif
        "    (schemesh bootstrap)\n"
        "    (schemesh shell jobs)\n"
        "    (schemesh shell parse))\n"
        "\n"
        "(define-macro (shell . args)\n"
-       "  (sh-parse args))\n"
+       "  (let ((ret (sh-parse args)))\n"
+#ifdef SCHEMESH_LIBRARY_SHELL_PARSE_DEBUG
+       "    (format #t \"; expanded to: ~s~%\" ret)\n"
+#endif
+       "    ret))\n"
        "\n"
        "(define-syntax shell-list\n"
        "  (syntax-rules ()\n"

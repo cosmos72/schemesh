@@ -33,7 +33,8 @@ static void schemesh_define_library_containers_misc(void) {
 #define SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT                                                    \
   "list-iterate reverse*! "                                                                        \
   "vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable "                    \
-  "list->bytevector subbytevector bytevector-fill-range! bytevector-iterate string-fill-range! "
+  "list->bytevector list-quoteq! "                                                                 \
+  "subbytevector bytevector-fill-range! bytevector-iterate string-fill-range! "
 
   Sregister_symbol("c_vector_copy", &c_vector_copy);
 
@@ -52,6 +53,18 @@ static void schemesh_define_library_containers_misc(void) {
        "(define (list-iterate l proc)\n"
        "  (do ((tail l (cdr tail)))\n"
        "      ((or (null? tail) (not (proc (car tail)))))))\n"
+       "\n"
+       /**
+        * For each item in items (which must be a list), when found in list l destructively
+        * replace it with (list 'quote item).
+        * Comparison between items is performed with eq?
+        */
+       "(define (list-quoteq! items l)\n"
+       "  (do ((tail l (cdr tail)))\n"
+       "      ((null? tail) l)\n"
+       "    (let ((item (car tail)))\n"
+       "      (when (memq item items)\n"
+       "        (set-car! tail (list 'quote item))))))\n"
        "\n"
        /**
         * (reverse*! l) destructively reverses list l,
