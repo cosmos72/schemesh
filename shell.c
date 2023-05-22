@@ -105,7 +105,7 @@ static void schemesh_define_library_shell_jobs(void) {
       "  (parent job)"
       "  (fields\n"
       "    kind\n"                /* symbol: one of 'and 'or 'and-or 'list 'global */
-      "    children\n"            /* span:   children jobs */
+      "    children\n"            /* span:   children jobs. May also contain symbols && || & ; */
       "    (mutable next-id)))\n" /* fixnum: first available index in span of children jobs */
       "\n"
       /**
@@ -120,7 +120,7 @@ static void schemesh_define_library_shell_jobs(void) {
       "  (%make-multijob (get-pid) (get-pgid 0) '(unknown . 0) (vector 0 1 2) (vector) '()\n"
       "    #f\n" /* subshell-func */
       "    (make-hashtable string-hash string=?) #f\n"
-      "    'global (span #t) 1))\n"
+      "    'global (span #t) 1))\n" /* skip job-id 0 */
       "\n"
       /** Define the global hashtable pid -> job */
       "(define %table-pid->job (make-eq-hashtable))\n"
@@ -734,13 +734,15 @@ static void schemesh_define_library_shell_jobs(void) {
       "      (#t 255))\n" /* (car job-status) is 'new 'running 'stopped etc */
       "    255))\n"       /* job-status is not a cons */
       "\n"
-      /** Create a multijob to later start it. */
-      "(define (sh-multijob kind subshell-func . children-jobs)\n"
+      /**
+       * Create a multijob to later start it.
+       * Internal function, accepts an optional function to validate each element in children-jobs
+       */
+      "(define (make-multijob kind validate-job-proc subshell-func . children-jobs)\n"
       "  (assert (symbol? kind))\n"
       "  (assert (or (not subshell-func) (procedure? subshell-func)))\n"
-      "  (list-iterate children-jobs\n"
-      "    (lambda (j)\n"
-      "      (assert (sh-job? j))))\n"
+      "  (when validate-job-proc\n"
+      "    (list-iterate children-jobs validate-job-proc))\n"
       "  (%make-multijob -1 -1 '(new . 0) (vector 0 1 2) (vector) '()\n"
       "    subshell-func\n"
       "    '()\n"        /* overridden environment variables - initially none */
@@ -748,6 +750,13 @@ static void schemesh_define_library_shell_jobs(void) {
       "    kind\n"
       "    (list->span children-jobs)\n"
       "    0))\n"
+      "\n"
+      "(define (assert-is-job j)\n"
+      "  (assert (sh-job? j)))\n"
+      "\n"
+      /** Create a multijob to later start it. Each argument must be a sh-job or subtype. */
+      "(define (sh-multijob kind subshell-func . children-jobs)\n"
+      "  (apply make-multijob kind assert-is-job subshell-func children-jobs))\n"
       "\n"
       /**
        * Run a multijob containing an "and" of children jobs.
@@ -796,13 +805,11 @@ static void schemesh_define_library_shell_jobs(void) {
       "        (not (equal? status '(exited . 0)))))\n" /* keep iterating only if job failed */
       "    status))\n"
       "\n"
-
       /**
        * Run a multijob containing a sequence of children jobs.
        * Used by (sh-list), implements runtime behavior of shell syntax foo; bar; baz
        */
       "(define (%multijob-run-list mj)\n"
-      /** TODO: check for && || among mj and implement them */
       "  (let ((jobs   (multijob-children mj))\n"
       "        (pgid   (job-pgid mj))\n"
       "        (status '(exited . 0)))\n"
@@ -813,28 +820,46 @@ static void schemesh_define_library_shell_jobs(void) {
       "        #t))\n"                        /* keep iterating */
       "    status))\n"
       "\n"
+      /**
+       * Run a multijob containing a sequence of children jobs optionally followed by & ;
+       * Used by (sh-list*), implements runtime behavior of shell syntax foo; bar & baz
+       */
+      "(define (%multijob-run-list* mj)\n"
+      /** TODO: check for && || among mj and implement them */
+      "  (%multijob-run-list mj))\n"
+      "\n"
       "(define (sh-and . children-jobs)\n"
-      "  (apply sh-multijob 'and %multijob-run-and children-jobs))\n"
+      "  (apply make-multijob 'and assert-is-job %multijob-run-and children-jobs))\n"
       "\n"
       "(define (sh-or . children-jobs)\n"
-      "  (apply sh-multijob 'or  %multijob-run-or  children-jobs))\n"
+      "  (apply make-multijob 'or  assert-is-job %multijob-run-or  children-jobs))\n"
       "\n"
       /**
        * Odd arguments must be sh-job
        * Even arguments must be a symbol && ||
        */
       "(define (sh-and-or* . children-jobs-with-and-or)\n"
-      /** TODO: check for && || among args and implement them */
-      "  (apply sh-multijob 'and-or %multijob-run-and-or children-jobs-with-and-or))\n"
+      "  (let ((expect-job? #t))\n"
+      "    (list-iterate children-jobs-with-and-or\n"
+      "      (lambda (j)\n"
+      "        (if expect-job?\n"
+      "          (assert (sh-job? j))\n"
+      "          (assert (memq j '(&& \\x7c;\\x7c;))))\n"
+      "        (set! expect-job? (not expect-job?))))\n"
+      "    (assert (not expect-job?)))\n" // list length must be odd
+      "  (apply make-multijob 'and-or #f %multijob-run-and-or children-jobs-with-and-or))\n"
       "\n"
       /** Each argument must be a sh-job */
       "(define (sh-list . children-jobs)\n"
-      "  (apply sh-multijob 'list %multijob-run-list children-jobs))\n"
+      "  (apply make-multijob 'list assert-is-job %multijob-run-list children-jobs))\n"
       "\n"
       /** Each argument must be a sh-job, possibly followed by a symbol ; & */
       "(define (sh-list* . children-jobs-with-colon-ampersand)\n"
-      /** TODO: check for ; & among args and implement them */
-      "  (apply sh-list children-jobs-with-colon-ampersand))\n"
+      "  (apply make-multijob 'list\n"
+      "    (lambda (j)\n" // validate-job-proc
+      "      (unless (memq j '(& \\x3b;))\n"
+      "        (assert (sh-job? j))))\n"
+      "    %multijob-run-list* children-jobs-with-colon-ampersand))\n"
       "\n"
       "(define (sh-run-capture-output job)\n"
       /** TODO: implement */
@@ -872,7 +897,7 @@ static void schemesh_define_library_shell_jobs(void) {
 }
 
 /**
- * Define the functions (sh) (sh-parse) (sh-parse-ops)
+ * Define the functions (sh) (sh-parse)
  *
  * Convention: (sh) and (sh-...) are functions
  *             (shell) and (shell-...) are macros
