@@ -82,11 +82,14 @@ int c_tty_fd(void) {
 }
 
 static struct termios saved_conf;
+static int            have_saved_conf = 0;
 
 int c_tty_restore(void) {
-  while (tcsetattr(tty_fd, TCSADRAIN, &saved_conf) != 0) {
-    if (errno != EINTR) {
-      return c_errno();
+  if (have_saved_conf) {
+    while (tcsetattr(tty_fd, TCSADRAIN, &saved_conf) != 0) {
+      if (errno != EINTR) {
+        return c_errno();
+      }
     }
   }
   return 0;
@@ -96,10 +99,13 @@ int c_tty_setraw(void) {
   struct termios conf;
   size_t         i;
 
-  while (tcgetattr(tty_fd, &saved_conf) != 0) {
-    if (errno != EINTR) {
-      return c_errno();
+  if (!have_saved_conf) {
+    while (tcgetattr(tty_fd, &saved_conf) != 0) {
+      if (errno != EINTR) {
+        return c_errno();
+      }
     }
+    have_saved_conf = 1;
   }
   conf = saved_conf;
   conf.c_iflag &= ~(BRKINT | ICRNL | IGNBRK | IGNCR | INLCR | ISTRIP | IXOFF | IXON | PARMRK);
@@ -561,7 +567,7 @@ void schemesh_define_library_pid(void) {
        "  (export get-pid get-pgid spawn-pid pid-kill pid-wait exit-with-job-status)\n"
        "  (import\n"
        "    (rnrs)\n"
-       "    (only (chezscheme) foreign-procedure)\n"
+       "    (only (chezscheme) foreign-procedure void)\n"
        "    (schemesh fd)\n"
        "    (only (schemesh conversions) list->cmd-argv)\n"
        "    (only (schemesh signal) signal-name->number signal-raise))\n"
@@ -660,10 +666,8 @@ void schemesh_define_library_pid(void) {
        "               (cdr status)\n"
        "               255)))\n"
        "        (dynamic-wind\n"
-       /*         before body */
-       "          (lambda () #f)\n"
-       /*         body */
-       "          (lambda ()\n"
+       "          void\n"       /* before body */
+       "          (lambda ()\n" /* body */
        "            (when (and (pair? status) (eq? 'killed (car status)))\n"
        "              (let ((signal-name (cdr status)))\n"
        "                (unless (memq signal-name '(sigstop sigtstp sigcont\n"
@@ -673,8 +677,7 @@ void schemesh_define_library_pid(void) {
        "                (let ((signal-number (signal-name->number signal-name)))\n"
        "                  (when (fixnum? signal-number)\n"
        "                    (set! exit-status (fx+ 128 signal-number)))))))\n"
-       /*         after body */
-       "          (lambda ()\n"
+       "          (lambda ()\n" /* after body */
        "            (c-exit exit-status)))))))\n"
        ")\n"); /* close library */
 }

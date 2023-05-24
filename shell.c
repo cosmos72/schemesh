@@ -445,8 +445,8 @@ static void schemesh_define_library_shell_jobs(void) {
       "          ((= ret 0)\n"                               /* child */
       "            (let ((status '(exited . 255)))\n"
       "              (dynamic-wind\n"
-      "                (lambda () #f)\n" /* run before body */
-      "                (lambda ()\n"     /* body */
+      "                void\n"       /* run before body */
+      "                (lambda ()\n" /* body */
       "                  (job-pid-set!  j (get-pid))\n"
       "                  (job-pgid-set! j (get-pgid 0))\n"
       /*                 this process now "is" the job j => update sh-globals' pid and pgid */
@@ -455,7 +455,7 @@ static void schemesh_define_library_shell_jobs(void) {
       /*                 cannot wait on our own process */
       "                  (job-last-status-set! j '(unknown . 0))\n"
       "                  (set! status ((job-subshell-func j) j)))\n"
-      "                (lambda ()\n" /* run after body, even if it raised exception */
+      "                (lambda ()\n" /* run after body, even if it raised a condition */
       "                  (exit-with-job-status status)))))\n"
       "          ((> ret 0)\n" /* parent */
       "            (job-pid-set! j ret)\n"
@@ -637,14 +637,14 @@ static void schemesh_define_library_shell_jobs(void) {
       "              (when (< ret 0)\n"
       "                (raise-errno-condition 'sh-fg ret)))\n"
       "            (dynamic-wind\n"
-      "              (lambda () #f)\n" /* run before body */
-      "              (lambda ()\n"     /* body */
+      "              void\n"       /* run before body */
+      "              (lambda ()\n" /* body */
       /**              send SIGCONT to job's process group. may raise error */
       "                (pid-kill (fx- (job-pgid j)) 'sigcont)\n"
       /**              blocking wait for job's pid to exit or stop.
        *               TODO: wait for ALL pids in process group? */
       "                (job-wait j 'blocking))\n"
-      /*             run after body, even if it raised exception:
+      /*             run after body, even if it raised a condition:
        *             restore sh-globals as the foreground process group */
       "              (lambda ()\n"
       "                (c-pgid-foreground (job-pgid sh-globals))))))))))\n"
@@ -678,13 +678,13 @@ static void schemesh_define_library_shell_jobs(void) {
       "              (when (< ret 0)\n"
       "                (raise-errno-condition 'sh-wait ret)))\n"
       "            (dynamic-wind\n"
-      "              (lambda () #f)\n" /* run before body */
-      "              (lambda ()\n"     /* body */
+      "              void\n"       /* run before body */
+      "              (lambda ()\n" /* body */
       /*              blocking wait for job's pid to exit. */
       /*              TODO: wait for ALL pids in process group? */
       "                (do ((status #f (job-wait j 'blocking)))\n"
       "                    ((job-status-member? status '(exited killed unknown)) status)))\n"
-      /*             run after body, even if it raised exception: */
+      /*             run after body, even if it raised a condition: */
       /*             restore sh-globals as the foreground process group */
       "              (lambda ()\n"
       "                (c-pgid-foreground (job-pgid sh-globals))))))))))\n"
