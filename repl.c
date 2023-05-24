@@ -177,7 +177,7 @@ void schemesh_define_library_repl(void) {
        "                (with-exception-handler\n"
        "                  (lambda (cond)\n"
 #ifdef SCHEMESH_LIBRARY_REPL_DEBUG
-       "                    (format #t \"repl got exception ~s~%\" cond)\n"
+       "                    (format #t \"repl handling condition ~s~%\" cond)\n"
 #endif
        "                    ((base-exception-handler) cond))\n"
        "                  (lambda ()\n"
