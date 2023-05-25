@@ -376,11 +376,17 @@ static const struct {
     {"(parse-shell* (open-string-input-port \"ls   -l>/dev/null&\") #f)",
      "(shell ls -l > /dev/null &)"},
     {"(parse-shell* (open-string-input-port\n"
-     "  \"{echo  foo  bar|wc -l;  }\") #f)",
-     "(shell-list (shell echo foo bar | wc -l))"},
+     "  \"echo  foo  bar|wc -l\") #f)",
+     "(shell echo foo bar | wc -l)"},
     {"(parse-shell* (open-string-input-port\n"
-     "  \"{echo|{cat\n}}\") #f)",
-     "(shell-list (shell echo | (shell-list (shell cat))))"},
+     "  \"{echo  foo  bar|wc -l; ; }\") #f)",
+     "(shell-list (shell echo foo bar | wc -l) (shell))"},
+    {"(parse-shell* (open-string-input-port\n"
+     "  \"{echo|{cat;{true}\n}}\") #f)",
+     "(shell-list (shell echo | (shell-list (shell cat) (shell-list (shell true)) (shell))))"},
+    {"(parse-shell* (open-string-input-port\n"
+     "  \"{{{{echo|cat}}}}\") #f)",
+     "(shell-list (shell-list (shell-list (shell-list (shell echo | cat)))))"},
     {"(parse-shell* (open-string-input-port\n"
      "  \"a>>/dev/null||b>|/dev/zero&&!c>&log\") #f)",
      "(shell a >> /dev/null || b >| /dev/zero && ! c >& log)"},
@@ -428,10 +434,14 @@ static const struct {
      "  (open-string-input-port \"{ls -l >& log.txt}\")\n"
      "  'scheme (parsers)))",
      "(shell-list (shell ls -l >& log.txt))"},
-    {"(parse-form*\n" /* directive #!shell switches to shell parser too */
+    {"(parse-form*\n" /* directive #!shell switches to shell parser also inside (...) */
      "  (open-string-input-port \"(#!shell ls -al >> log.txt)\")\n"
      "  'scheme (parsers)))",
      "(shell-list (shell ls -al >> log.txt))"},
+    {"(parse-form*\n"
+     "  (open-string-input-port \"(foo << bar #!shell baz >> log.txt)\")\n"
+     "  'scheme (parsers)))",
+     "(foo << bar (shell baz >> log.txt))"},
     {"(parse-form*\n" /* ( switches to Scheme parser */
      "  (open-string-input-port \"(apply + a `(,@b))\")\n"
      "  'shell (parsers)))",
@@ -441,9 +451,13 @@ static const struct {
      "  'shell (parsers)))",
      "(shell ls (my-dir) >> log.txt)"},
     {"(values->list (parse-forms\n" /* directive #!scheme switches to Scheme parser too */
-     "  (open-string-input-port \"ls ~; #!scheme (my-cmd)\")\n"
+     "  (open-string-input-port \"ls ~; #!scheme (f a b)\")\n"
      "  'shell (parsers)))",
-     "(((shell ls ~) (my-cmd)) #<parser scheme>)"},
+     "(((shell ls ~) (f a b)) #<parser scheme>)"},
+    {"(values->list (parse-forms\n" /* directive #!shell switches to shell parser */
+     "  (open-string-input-port \"(+ a b) #!shell ls -al >> log.txt; #!scheme foo bar\")\n"
+     "  'scheme (parsers)))",
+     "(((+ a b) (shell ls -al >> log.txt) foo bar) #<parser scheme>)"},
     /* -------------------------- tty --------------------------------------- */
     {"(let ((sz (tty-size)))\n"
      "  (and (pair? sz)\n"
@@ -487,12 +501,33 @@ static const struct {
   "(begin (($primitive 3 $invoke-library) '(schemesh shell builtins) '(0 1) 'builtins)"
 #define INVOKELIB_SHELL_JOBS                                                                       \
   "(begin (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"
+#define INVOKELIB_SHELL_BUILTINS_JOBS                                                              \
+  "(begin"                                                                                         \
+  " (($primitive 3 $invoke-library) '(schemesh shell builtins) '(0 1) 'builtins)"                  \
+  " (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"
 
     /* ------------------------- shell macros ------------------------------- */
     {"(expand '(shell))", INVOKELIB_SHELL_BUILTINS " (sh-true))"},
     {"(expand '(shell \"ls\" \"-l\" && \"wc\" \"-b\" \\x7c;\\x7c; \"echo\" \"error\" &))",
      INVOKELIB_SHELL_JOBS
      " (sh-list* (sh-and-or* (sh-cmd ls -l) '&& (sh-cmd wc -b) '|| (sh-cmd echo error)) '&))"},
+    {"(expand '(shell-list (shell \"ls\" \"-al\" >> \"log.txt\")))",
+     INVOKELIB_SHELL_JOBS " (sh-cmd<> ls -al '>> log.txt))"},
+    {"(expand (parse-shell* (open-string-input-port\n"
+     "  \"{{{{echo|cat}}}}\") #f))",
+     /*
+      * parses to
+      * (shell-list (shell-list (shell-list (shell-list (shell echo | cat)))))
+      */
+     INVOKELIB_SHELL_JOBS " (sh-pipe* (sh-cmd echo) '| (sh-cmd cat)))"},
+    {"(expand (parse-shell* (open-string-input-port\n"
+     "  \"{echo|{cat;{true}}}\") #f))",
+     /*
+      * parses to
+      * (shell-list (shell echo | (shell-list (shell cat) (shell-list (shell true)))))
+      */
+     INVOKELIB_SHELL_JOBS
+     " (sh-pipe* (sh-cmd echo) '| (sh-cmd (sh-list (sh-cmd cat) (sh-cmd true)))))"},
     /* ------------------------- repl --------------------------------------- */
     {"(values->list (repl-parse\n"
      "  (open-string-input-port \"(+ 2 3) (values 7 (cons 'a 'b))\")\n"

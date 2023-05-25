@@ -795,7 +795,6 @@ static void schemesh_define_library_shell_jobs(void) {
        * Used by (sh-and-and), implements runtime behavior of shell syntax foo && bar || baz
        */
       "(define (%multijob-run-and-or mj)\n"
-      /** TODO: check for && || among mj and implement them */
       "  (let ((jobs   (multijob-children mj))\n"
       "        (pgid   (job-pgid mj))\n"
       "        (status '(exited . 0)))\n"
@@ -852,9 +851,9 @@ static void schemesh_define_library_shell_jobs(void) {
       "    (list-iterate children-jobs-with-and-or (lambda (j)\n"
       "      (if expect-job?\n"
       "        (unless (sh-job? j)\n"
-      "          (assertion-violation 'sh-and-or* \"even arguments must be sh-job\" j))\n"
+      "          (assertion-violation 'sh-and-or* \"odd arguments must be sh-job\" j))\n"
       "        (unless (memq j '(&& \\x7c;\\x7c;))\n"
-      "            (assertion-violation 'sh-and-or* \"odd arguments must be one of the "
+      "            (assertion-violation 'sh-and-or* \"even arguments must be one of the "
       "symbols && ||\" j)))\n"
       "      (set! expect-job? (not expect-job?))))\n"
       "    (when expect-job?\n"
@@ -1161,11 +1160,13 @@ static void schemesh_define_library_shell_macros(void) {
        "    (schemesh shell parse))\n"
        "\n"
        "(define-macro (shell . args)\n"
-       "  (let ((ret (sh-parse args)))\n"
 #ifdef SCHEMESH_LIBRARY_SHELL_PARSE_DEBUG
+       "  (let ((ret (sh-parse args)))\n"
        "    (format #t \"; expanded to: ~s~%\" ret)\n"
-#endif
        "    ret))\n"
+#else
+       "  (sh-parse args))\n"
+#endif
        "\n"
        "(define-syntax shell-list\n"
        "  (syntax-rules ()\n"
