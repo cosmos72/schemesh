@@ -29,7 +29,7 @@ void schemesh_define_library_repl(void) {
        "  (import\n"
        "    (rnrs)\n"
        "    (only (chezscheme)\n"
-       "      base-exception-handler debug eval exit-handler format\n"
+       "      base-exception-handler debug eval exit-handler format inspect\n"
        "      parameterize reset-handler void)\n"
        "    (schemesh bootstrap)\n"
        "    (only (schemesh containers) list-iterate)\n"
@@ -39,24 +39,19 @@ void schemesh_define_library_repl(void) {
        "    (schemesh tty))\n"
        "\n"
        /** wrapper around Chez Scheme (debug) that also calls restore/setraw on the tty */
-       "(define (repl-debug ctx)\n"
-       "  (lineedit-flush ctx)\n"
-#ifdef SCHEMESH_LIBRARY_REPL_DEBUG
-       "  (dynamic-wind"
-       "    (lambda ()\n"
-       "      (tty-restore!)\n"
-       "      (format #t \"repl-debug starting, called tty-restore!~%\"))\n"
-       "    debug\n"
-       "    (lambda ()\n"
-       "      (tty-setraw!)\n"
-       "      (format #t \"repl-debug exiting, called tty-setraw!~%\")))\n"
-#else
+       "(define (repl-debug)\n"
        "  (dynamic-wind"
        "    tty-restore!\n"
        "    debug\n"
-       "    tty-setraw!)\n"
-#endif
-       "  )\n"
+       "    tty-setraw!))\n"
+       "\n"
+       /** wrapper around Chez Scheme (inspect) that also calls restore/setraw on the tty */
+       "(define (repl-inspect val)\n"
+       "  (dynamic-wind"
+       "    tty-restore!\n"
+       "    (lambda ()\n"
+       "      (inspect val))\n"
+       "    tty-setraw!))\n"
        "\n"
        /**
         * Read user input.
@@ -113,9 +108,14 @@ void schemesh_define_library_repl(void) {
        "  (cond\n"
        "    ((and (pair? form) (memq (car form) '(shell shell-list)))\n"
        "      (eval (list 'sh-run form)))\n"
+       "    ((and (pair? form) (eq? 'inspect (car form)) (not (null? (cdr form))))\n"
+       "      (lineedit-flush ctx)\n"
+       /*     we must use our own (repl-inspect) to restore/setraw the tty */
+       "      (repl-inspect (eval (cadr form))))\n"
        "    ((equal? '(debug) form)\n"
+       "      (lineedit-flush ctx)\n"
        /*     we must use our own (repl-debug) to restore/setraw the tty */
-       "      (repl-debug ctx))\n"
+       "      (repl-debug))\n"
        "    (#t (eval form))))\n"
        "\n"
        /**
@@ -206,8 +206,9 @@ void schemesh_define_library_repl(void) {
        "\n"
        /**
         * top-level interactive repl with optional arguments:
-        * initial-parser, defaults to 'scheme
+        * initial-parser,  defaults to 'scheme
         * enabled-parsers, defaults to (parsers)
+        * eval-func,       defaults to repl-eval
         */
        "(define repl\n"
        "  (case-lambda\n"
