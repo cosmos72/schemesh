@@ -684,7 +684,7 @@ static void schemesh_define_library_parser_shell(void) {
        "    (case type\n"
        "      ((eof separator lparen rparen lbrack rbrack lbrace rbrace)\n"
        "        (values ch type))\n"
-       /**    TODO: handle missing multi-character operators #... N> N< N>| << N>> etc. */
+       /**    TODO: handle missing multi-character operators #... N< N<> N<& N> N>> N>| N>& */
        "      ((op)\n"
        "        (let ((ch2 (peek-char in)))\n"
        "          (case ch\n"
@@ -693,6 +693,8 @@ static void schemesh_define_library_parser_shell(void) {
        "                      (set! type 'separator)))\n"
        "            ((#\\|) (cond ((eqv? ch2 #\\&) (set! ch '\\x7c;&))\n"
        "                          ((eqv? ch2 #\\|) (set! ch '\\x7c;\\x7c;))))\n"
+       "            ((#\\<) (cond ((eqv? ch2 #\\>) (set! ch '<>))\n"
+       "                          ((eqv? ch2 #\\&) (set! ch '<&))))\n"
        "            ((#\\>) (cond ((eqv? ch2 #\\>) (set! ch '>>))\n"
        "                          ((eqv? ch2 #\\&) (set! ch '>&))\n"
        "                          ((eqv? ch2 #\\|) (set! ch '>\\x7c;))))))\n"

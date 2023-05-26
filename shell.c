@@ -256,7 +256,7 @@ static void schemesh_define_library_shell_jobs(void) {
        * TODO: also support closures (lambda (job) ...) that return a string or bytevector.
        */
       "(define (sh-cmd<> program . args)\n"
-      /** FIXME: implement allowed symbols: < > >> >& N< N> N>> N>& */
+      /** FIXME: implement redirections: [N]< [N]<> [N]<&M [N]> [N]>> [N]>| [N]>&M */
       "  (apply sh-cmd program args))\n"
       "\n"
       /** return global environment variables */
@@ -938,17 +938,18 @@ static void schemesh_define_library_shell_parse(void) {
        "  (and (symbol? token)\n"
        "       (memq token '(\\x3b; & && \\x7c;\\x7c; \\x7c; \\x7c;&))))\n"
        "\n"
-       /** Return #t if token is a shell redirection operator: < > >> >& */
+       /** Return #t if token is a shell redirection operator: < <> <& > >> >| >& */
+       /** TODO: recognize optional fd number [N] before redirection operator */
        "(define (sh-redirect-operator? token)\n"
        "  (and (symbol? token)\n"
-       "       (memq token '(< > >> >&))))\n"
+       "       (memq token '(< <> <& > >> >\\x7c; >&))))\n"
        "\n"
        /**
         * Parse args using shell syntax, and return corresponding sh-cmd or sh-multijob object.
         *
         * Each element in args must be a symbol, string, closure or pair:
-        * 1. symbols are operators. Recognized symbols are: ; & && || | |& < > >> >&
-        *    TODO: implement N>> N< etc.
+        * 1. symbols are operators. Recognized symbols are: ; & && || | |& < <> <& > >> >| >&
+        *    TODO: implement fd number [N] before redirection operator
         * 2. strings stand for themselves. for example (sh "ls" "-l")
         *    is equivalent to (sh-cmd "ls" "-l")
         * 3. closures must accept a single argument and return a string.
