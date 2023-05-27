@@ -617,13 +617,16 @@ static void schemesh_define_library_shell_jobs(void) {
        *   (cons 'stopped signal-name)
        *   (cons 'unknown ...)
        *
-       * Note: upon invocation, sets the job as fg process group.
-       * Before returning, restores the sh-globals as fg process group.
+       * Note: if this process is in the fg process group,
+       *   upon invocation, sets the job as fg process group.
+       *   And before returning, restores this process as fg process group.
        */
       "(define sh-fg\n"
-      "  (let ((c-pgid-foreground (foreign-procedure \"c_pgid_foreground\" (int) int)))\n"
+      "  (let ((c-pgid-foreground (foreign-procedure \"c_pgid_foreground\" (int int) int)))\n"
       "    (lambda (job-id)\n"
-      "      (let ((j (sh-job-ref job-id)))\n"
+      "      (let* ((j (sh-job-ref job-id))\n"
+      "             (j-pgid      (job-pgid j))\n"
+      "             (global-pgid (job-pgid sh-globals)))\n"
       "        (cond\n"
       /**        if job already exited, return its exit status.
        *         if job is stopped, consider as running: we'll send SIGCONT to it below */
@@ -632,8 +635,8 @@ static void schemesh_define_library_shell_jobs(void) {
       "          ((not (job-started? j))\n"
       "            (error 'sh-fg \"job not started yet\" j))\n"
       "          (#t\n"
-      /**          set job's process group as the foreground process group */
-      "            (let ((ret (c-pgid-foreground (job-pgid j))))\n"
+      /**          try to set job's process group as the foreground process group */
+      "            (let ((ret (c-pgid-foreground global-pgid j-pgid)))\n"
       "              (when (< ret 0)\n"
       "                (raise-errno-condition 'sh-fg ret)))\n"
       "            (dynamic-wind\n"
@@ -645,9 +648,9 @@ static void schemesh_define_library_shell_jobs(void) {
        *               TODO: wait for ALL pids in process group? */
       "                (job-wait j 'blocking))\n"
       /*             run after body, even if it raised a condition:
-       *             restore sh-globals as the foreground process group */
+       *             try to restore sh-globals as the foreground process group */
       "              (lambda ()\n"
-      "                (c-pgid-foreground (job-pgid sh-globals))))))))))\n"
+      "                (c-pgid-foreground j-pgid global-pgid)))))))))\n"
       "\n"
       /**
        * Wait for a job or job-id to exit. Does NOT send SIGCONT to it in case it's already stopped,
@@ -658,13 +661,16 @@ static void schemesh_define_library_shell_jobs(void) {
        *   (cons 'killed  signal-name)
        *   (cons 'unknown ...)
        *
-       * Note: upon invocation, sets the job as fg process group.
-       * Before returning, restores sh-globals as fg process group.
+       * Note: if this process is in the fg process group,
+       *   upon invocation, sets the job as fg process group.
+       *   And before returning, restores this process as fg process group.
        */
       "(define sh-wait\n"
-      "  (let ((c-pgid-foreground (foreign-procedure \"c_pgid_foreground\" (int) int)))\n"
+      "  (let ((c-pgid-foreground (foreign-procedure \"c_pgid_foreground\" (int int) int)))\n"
       "    (lambda (job-id)\n"
-      "      (let ((j (sh-job-ref job-id)))\n"
+      "      (let* ((j (sh-job-ref job-id))\n"
+      "             (j-pgid      (job-pgid j))\n"
+      "             (global-pgid (job-pgid sh-globals)))\n"
       "        (cond\n"
       /*         if job already exited, return its exit status. */
       /*         if job is stopped, consider as running */
@@ -673,8 +679,8 @@ static void schemesh_define_library_shell_jobs(void) {
       "          ((not (job-started? j))\n"
       "            (error 'sh-wait \"job not started yet\" j))\n"
       "          (#t\n"
-      /*           set job's process group as the foreground process group */
-      "            (let ((ret (c-pgid-foreground (job-pgid j))))\n"
+      /*           try to set job's process group as the foreground process group */
+      "            (let ((ret (c-pgid-foreground global-pgid j-pgid)))\n"
       "              (when (< ret 0)\n"
       "                (raise-errno-condition 'sh-wait ret)))\n"
       "            (dynamic-wind\n"
@@ -685,9 +691,9 @@ static void schemesh_define_library_shell_jobs(void) {
       "                (do ((status #f (job-wait j 'blocking)))\n"
       "                    ((job-status-member? status '(exited killed unknown)) status)))\n"
       /*             run after body, even if it raised a condition: */
-      /*             restore sh-globals as the foreground process group */
+      /*             try to restore sh-globals as the foreground process group */
       "              (lambda ()\n"
-      "                (c-pgid-foreground (job-pgid sh-globals))))))))))\n"
+      "                (c-pgid-foreground j-pgid global-pgid)))))))))\n"
       "\n"
       /**
        * Start a job and wait for it to exit or stop.
@@ -868,7 +874,7 @@ static void schemesh_define_library_shell_jobs(void) {
       /** Each argument must be a sh-job, possibly followed by a symbol ; & */
       "(define (sh-list* . children-jobs-with-colon-ampersand)\n"
       "  (apply make-multijob 'list\n"
-      "    (lambda (j)\n" // validate-job-proc
+      "    (lambda (j)\n" /* validate-job-proc */
       "      (unless (memq j '(& \\x3b;))\n"
       "        (assert (sh-job? j))))\n"
       "    %multijob-run-list* children-jobs-with-colon-ampersand))\n"

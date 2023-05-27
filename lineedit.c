@@ -520,27 +520,38 @@ void schemesh_define_library_lineedit(void) {
         * read some bytes, blocking at most for read-timeout-milliseconds
         *   (0 = non-blocking, -1 = unlimited timeout)
         * from (linectx-stdin ctx) and append them to (linectx-rbuf ctx).
-        * return number of read bytes */
+        * return number of read bytes.
+        * return 0 on timeout
+        * return -1 on eof
+        */
        "(define (linectx-read ctx read-timeout-milliseconds)\n"
        "  (let* ((rbuf (linectx-rbuf ctx))\n"
        "         (rlen (bytespan-length rbuf))\n"
        "         (max-n 1024)\n"
        "         (stdin (linectx-stdin ctx))\n"
-       "         (got 0))\n"
+       "         (got 0)\n"
+       "         (eof? #f))\n"
        /*   ensure bytespan-capacity-back is large enough */
        "    (bytespan-reserve-back! rbuf (fx+ rlen max-n))\n"
        "    (if (fixnum? stdin)\n"
+       /*     stdin is a file descriptor, call (fd-select) then (fd-read) */
        "      (when (eq? 'read (fd-select stdin 'read read-timeout-milliseconds))\n"
        "        (set! got (fd-read stdin (bytespan-peek-data rbuf)\n"
-       "                           (bytespan-peek-end rbuf) max-n)))\n"
+       "                     (bytespan-peek-end rbuf) max-n))\n"
+       /*       (fxzero? got) means end of file */
+       "        (set! eof? (fxzero? got)))\n"
+       /*     stdin is a binary input port, call (get-bytevector-n!) */
        "      (let ((n (get-bytevector-n! stdin (bytespan-peek-data rbuf)\n"
        "                                  (bytespan-peek-end rbuf) max-n)))\n"
        "        (when (fixnum? n)\n"
-       "          (set! got n))))\n"
+       "          (set! got n)\n"
+       /*         (fxzero? n) means end of file */
+       "          (set! eof? (fxzero? n)))))\n"
+       "    (assert (fx>=? got 0))\n"
        "    (bytespan-resize-back! rbuf (fx+ rlen got))\n"
        "    (assert (fixnum? got))\n"
        "    (assert (fx<=? 0 got max-n))\n"
-       "    got))\n"
+       "    (if eof? -1 got)))\n"
        "\n"
        /**
         * if user pressed ENTER, return a reference to internal chargbuffer.
@@ -555,11 +566,13 @@ void schemesh_define_library_lineedit(void) {
        /*              some bytes already in rbuf, try to consume them */
        "               (linectx-keytable-iterate))))\n"
        "    (if (eq? #t ret)\n"
-       "      (if (fx>? (linectx-read ctx timeout-milliseconds) 0)\n"
-       /*       got some bytes, call again (linectx-keytable-iterate) and return its value */
-       "        (linectx-keytable-iterate ctx)\n"
-       /*       got end-of-file, return #f  */
-       "        #f)\n"
+       /*     need more input */
+       "      (let ((n (linectx-read ctx timeout-milliseconds)))\n"
+       "        (cond\n"
+       /*         got some bytes, call again (linectx-keytable-iterate) and return its value */
+       "          ((fx>? n 0)  (linectx-keytable-iterate ctx))\n"
+       "          ((fxzero? n) #t)\n"   /* read timed out, return #t */
+       "          (#t          #f)))\n" /* end-of-file, return #f  */
        /*     propagate return value of first (linectx-keytable-iterate) */
        "      ret)))\n"
        "\n"

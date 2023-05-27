@@ -24,9 +24,12 @@
 #include <termios.h> /* tcgetattr(), tcsetattr() */
 #include <unistd.h>
 
+#undef SCHEMESH_LIBRARY_FD_DEBUG
+
 #define STR_(arg) #arg
 #define STR(arg) STR_(arg)
 #define STR_EIO STR(EIO)
+#define STR_EINTR STR(EINTR)
 #define STR_EINVAL STR(EINVAL)
 
 /******************************************************************************/
@@ -293,7 +296,7 @@ int c_fd_select(int fd, int rw_mask, int timeout_milliseconds) {
                  (rw_mask & mask_WRITE ? POLLOUT : 0);
   entry.revents = 0;
   if (poll(&entry, 1, timeout_milliseconds) < 0) {
-    /** TODO: retry on EINTR ? */
+    /** do NOT retry on EINTR, return it instead */
     return c_errno();
   }
   return (entry.revents & POLLIN ? mask_READ : 0) |   /*                                         */
@@ -426,7 +429,11 @@ int schemesh_define_library_fd(void) {
        "    open-file-fd open-pipe-fds)\n"
        "  (import\n"
        "    (rnrs)\n"
-       "    (only (chezscheme)               foreign-procedure void)\n"
+       "    (only (chezscheme) foreign-procedure void\n"
+#ifdef SCHEMESH_LIBRARY_FD_DEBUG
+       "      format\n"
+#endif
+       "      )\n"
        "    (only (schemesh containers misc) list-iterate)\n"
        "    (only (schemesh conversions)     string->bytevector0))\n"
        "\n"
@@ -441,6 +448,9 @@ int schemesh_define_library_fd(void) {
        "    (make-irritants-condition c-errno)))\n"
        "\n"
        "(define (raise-errno-condition who c-errno)\n"
+#ifdef SCHEMESH_LIBRARY_FD_DEBUG
+       "  (format #t \"raise-errno-condition ~s ~s~%\" who c-errno)\n"
+#endif
        "  (raise (make-errno-condition who c-errno)))\n"
        "\n"
        "(define fd-close\n"
@@ -507,9 +517,12 @@ int schemesh_define_library_fd(void) {
        "                                \"direction must be one of 'read 'write 'rw\"))))\n"
        "              (ret (c-fd-select fd rw-mask timeout-milliseconds)))\n"
        "        (cond\n"
+       /*         if c_fd_select() returns EINTR, consider it a timeout */
+       "          ((eqv? ret -" STR_EINTR ") 'timeout)\n"
        "          ((< ret 0) (raise-errno-condition 'fd-select ret))\n"
        "          ((< ret 4) (vector-ref '#(timeout read write rw) ret))\n"
-       /*                     c_fd_select() called poll() which set (revents & POLLERR) */
+       /*                     c_fd_select() called poll() which set (revents & POLLERR)
+        */
        "          (#t        (raise-errno-condition 'fd-select -" STR_EIO ")))))))\n"
        "\n"
        "(define fd-setnonblock\n"
@@ -567,7 +580,11 @@ void schemesh_define_library_pid(void) {
        "  (export get-pid get-pgid spawn-pid pid-kill pid-wait exit-with-job-status)\n"
        "  (import\n"
        "    (rnrs)\n"
-       "    (only (chezscheme) foreign-procedure void)\n"
+       "    (only (chezscheme) foreign-procedure void\n"
+#ifdef SCHEMESH_LIBRARY_FD_DEBUG
+       "      format\n"
+#endif
+       "      )"
        "    (schemesh fd)\n"
        "    (only (schemesh conversions) list->cmd-argv)\n"
        "    (only (schemesh signal) signal-name->number signal-raise))\n"
@@ -659,6 +676,9 @@ void schemesh_define_library_pid(void) {
        "(define exit-with-job-status\n"
        "  (let ((c-exit (foreign-procedure \"c_exit\" (int) int)))\n"
        "    (lambda (status)\n"
+#if 0 && defined(SCHEMESH_LIBRARY_FD_DEBUG)
+       "      (format #t \"exit-with-job-status ~s~%\" status)\n"
+#endif
        "      (let ((exit-status\n"
        "             (if (and (pair? status) (eq? 'exited (car status))\n"
        "                      (fixnum? (cdr status)) (fx=? (cdr status)\n"
@@ -790,8 +810,18 @@ out:
   return pid;
 }
 
-int c_pgid_foreground(int pgid) {
-  return tcsetpgrp(tty_fd, pgid) >= 0 ? 0 : c_errno();
+int c_pgid_foreground(int expected_pgid, int new_pgid) {
+  int actual_pgid;
+  if (expected_pgid == new_pgid) {
+    return 0; /* nothing to do */
+  }
+  actual_pgid = tcgetpgrp(tty_fd);
+  if (actual_pgid < 0) {
+    return c_errno();
+  } else if (actual_pgid != expected_pgid) {
+    return 0; /* fg process group is not the expected one: do nothing */
+  }
+  return tcsetpgrp(tty_fd, new_pgid) >= 0 ? 0 : c_errno();
 }
 
 ptr c_pid_wait(int pid, int may_block) {

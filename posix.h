@@ -63,7 +63,7 @@ iptr c_fd_write(int fd, ptr bytevector_towrite, iptr start, iptr end);
 /**
  * call select() or poll() on file descriptor.
  * Returns rw_mask of operations available on file descriptor,
- * or c_errno() < 0 on error.
+ * or c_errno() < 0 on error - which may also be EINTR.
  *
  * argument rw_mask and return value are a bitwise-or of:
  *   1 => fd is readable
@@ -111,9 +111,10 @@ int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
                 int existing_pgid_if_positive); /* if > 0, add process to given process group */
 
 /**
- * set the specified pgid i.e. process group id as the foreground process group.
+ * if expected_pgid i.e. process group id is the foreground process group,
+ * then set new_pgid as the foreground process group.
  */
-int c_pgid_foreground(int pgid);
+int c_pgid_foreground(int expected_pgid, int new_pgid);
 
 /**
  * call kill(pid, sig) i.e. send signal number sig to specified process id.

@@ -393,9 +393,10 @@ static const struct {
     {"(parse-shell* (open-string-input-port\n"
      "  \"a<>/dev/null||b>|/dev/zero&&!c>&2\") #f)",
      "(shell a <> /dev/null || b >| /dev/zero && ! c >& 2)"},
+    /** FIXME: recognize fd number [N] before redirection */
     {"(parse-shell* (open-string-input-port\n"
      "  \"foo 2>& 1 <& -\") #f)",
-     "(shell foo 2 >& 1 <& -)"}, // FIXME: recognize fd number [N] before redirection
+     "(shell foo 2 >& 1 <& -)"},
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"ls \\\"-l\\\" '.'\") #f))",
      "(shell \"ls\" \"-l\" \".\")"},

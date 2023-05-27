@@ -21,15 +21,17 @@
 #undef SCHEMESH_LIBRARY_REPL_DEBUG
 
 void schemesh_define_library_repl(void) {
-#define SCHEMESH_LIBRARY_REPL_EXPORT                                                               \
-  "repl-debug repl-lineedit repl-parse repl-eval repl-eval-list repl repl* "
+#define SCHEMESH_LIBRARY_REPL_EXPORT "repl-lineedit repl-parse repl-eval repl-eval-list repl repl* "
 
   eval("(library (schemesh repl (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_REPL_EXPORT ")\n"
        "  (import\n"
        "    (rnrs)\n"
        "    (only (chezscheme)\n"
-       "      base-exception-handler debug eval exit-handler format inspect\n"
+       "      base-exception-handler debug eval exit-handler inspect\n"
+#ifdef SCHEMESH_LIBRARY_REPL_DEBUG
+       "      format\n"
+#endif
        "      parameterize reset-handler void)\n"
        "    (schemesh bootstrap)\n"
        "    (only (schemesh containers) list-iterate)\n"
@@ -37,22 +39,6 @@ void schemesh_define_library_repl(void) {
        "    (schemesh lineedit)\n"
        "    (schemesh parser)\n"
        "    (schemesh tty))\n"
-       "\n"
-       /** wrapper around Chez Scheme (debug) that also calls restore/setraw on the tty */
-       "(define (repl-debug)\n"
-       "  (dynamic-wind"
-       "    tty-restore!\n"
-       "    debug\n"
-       "    tty-setraw!))\n"
-       "\n"
-       /** wrapper around Chez Scheme (inspect) that also calls restore/setraw on the tty */
-       "(define (repl-inspect val)\n"
-       "  (dynamic-wind"
-       "    tty-restore!\n"
-       "    (lambda ()\n"
-       "      (inspect val))\n"
-       "    tty-setraw!))\n"
-       "\n"
        /**
         * Read user input.
         * If user pressed ENTER, return textual input port containing entered text.
@@ -61,6 +47,10 @@ void schemesh_define_library_repl(void) {
         * #f if got end-of-file
         * #t if waiting for more keypresses
         * a textual input port if user pressed ENTER.
+        *
+        *
+        * FIXME: also call c_sigchld_consume() and (pid-wait) to reap zombies and collect exit
+        * status of exited subprocesses
         */
        "(define (repl-lineedit ctx)\n"
        "  (let ((ret (lineedit-read ctx -1)))\n"
@@ -102,21 +92,13 @@ void schemesh_define_library_repl(void) {
         * 2. when using scheme parser, top-level (shell ...) will be executed immediately.
         */
        "(define (repl-eval ctx form)\n"
+       "  (lineedit-flush ctx)\n"
 #ifdef SCHEMESH_LIBRARY_REPL_DEBUG
        "  (format #t \"; evaluating: ~s~%\" form)\n"
 #endif
-       "  (cond\n"
-       "    ((and (pair? form) (memq (car form) '(shell shell-list)))\n"
-       "      (eval (list 'sh-run form)))\n"
-       "    ((and (pair? form) (eq? 'inspect (car form)) (not (null? (cdr form))))\n"
-       "      (lineedit-flush ctx)\n"
-       /*     we must use our own (repl-inspect) to restore/setraw the tty */
-       "      (repl-inspect (eval (cadr form))))\n"
-       "    ((equal? '(debug) form)\n"
-       "      (lineedit-flush ctx)\n"
-       /*     we must use our own (repl-debug) to restore/setraw the tty */
-       "      (repl-debug))\n"
-       "    (#t (eval form))))\n"
+       "  (if (and (pair? form) (memq (car form) '(shell shell-list)))\n"
+       "    (eval (list 'sh-run form))\n"
+       "    (eval form)))\n"
        "\n"
        /**
         * Execute with (eval-func form) each form in list of forms containing parsed expressions
@@ -127,10 +109,22 @@ void schemesh_define_library_repl(void) {
 #ifdef SCHEMESH_LIBRARY_REPL_DEBUG
        "  (format #t \"; evaluating list: ~s~%\" forms)\n"
 #endif
-       "  (do ((tail forms (cdr tail)))\n"
-       "      ((or (null? tail) (null? (cdr tail)))\n"
-       "        (if (null? tail) (values) (repl-eval ctx (car tail))))\n"
-       "    (eval-func ctx (car tail))))\n"
+       /**
+        * Some procedures we may eval, as (break) (debug) (inspect) ...
+        * expect the tty to be in canonical mode, not in raw mode.
+        *
+        * Also, we need tty to be in canonical mode for CTRL+C to generate SIGINT,
+        * which causes Chez Scheme to suspend long/infinite evaluations
+        * and call (break) - a feature we want to preserve.
+        */
+       "  (dynamic-wind\n"
+       "    tty-restore!\n"
+       "    (lambda ()\n"
+       "      (do ((tail forms (cdr tail)))\n"
+       "          ((or (null? tail) (null? (cdr tail)))\n"
+       "            (if (null? tail) (values) (eval-func ctx (car tail))))\n"
+       "        (eval-func ctx (car tail))))\n"
+       "    tty-setraw!))\n"
        /**
         * Print values or exit statuses.
         */
@@ -170,39 +164,40 @@ void schemesh_define_library_repl(void) {
        "  (let ((parser (to-parser initial-parser enabled-parsers 'repl))\n"
        "        (ctx (make-linectx)))\n"
        "    (lineedit-clear! ctx)\n"
-       "    (dynamic-wind\n"
+       "    (call/cc\n"
+       "      (lambda (k-exit)\n"
+       "        (parameterize ((exit-handler k-exit) (reset-handler (reset-handler)))\n"
+       "          (let ((k-reset k-exit))\n"
+       "            (reset-handler (lambda () (k-reset)))\n"
+       "            (call/cc (lambda (k) (set! k-reset k)))\n"
+       /*           when the (reset-handler) we installed is called, resume from here */
+       "            (with-exception-handler\n"
+       "              (lambda (cond)\n"
 #ifdef SCHEMESH_LIBRARY_REPL_DEBUG
-       "      (lambda ()\n"
-       "        (tty-setraw!)\n"
-       "        (format #t \"repl entering loop, called tty-setraw!~%\"))\n"
+       "                (format #t \"repl handling condition ~s~%\" cond)\n"
+#endif
+       "                ((base-exception-handler) cond))\n"
+       "              (lambda ()\n"
+       "                (dynamic-wind\n"
+#ifdef SCHEMESH_LIBRARY_REPL_DEBUG
+       "                  (lambda ()\n"
+       "                    (tty-setraw!)\n"
+       "                    (format #t \"repl starting, called tty-setraw!~%\"))\n"
 #else
-       "      tty-setraw!\n"
+       "                  tty-setraw!\n"
 #endif
-       "      (lambda ()\n"
-       "        (call/cc\n"
-       "          (lambda (k-exit)\n"
-       "            (parameterize ((exit-handler k-exit) (reset-handler (reset-handler)))\n"
-       "              (let ((k-reset k-exit))\n"
-       "                (reset-handler (lambda () (k-reset)))\n"
-       "                (call/cc (lambda (k) (set! k-reset k)))\n"
-       /*               when the (reset-handler) we installed is called, resume from here */
-       "                (with-exception-handler\n"
-       "                  (lambda (cond)\n"
-#ifdef SCHEMESH_LIBRARY_REPL_DEBUG
-       "                    (format #t \"repl handling condition ~s~%\" cond)\n"
-#endif
-       "                    ((base-exception-handler) cond))\n"
        "                  (lambda ()\n"
        "                    (while parser\n"
        "                      (set! parser (repl-once ctx parser\n"
-       "                                     enabled-parsers eval-func))))))))))\n"
-       "      (lambda ()\n"
-       "        (lineedit-flush ctx)\n"
-       "        (tty-restore!)\n"
+       "                                     enabled-parsers eval-func))))\n"
 #ifdef SCHEMESH_LIBRARY_REPL_DEBUG
-       "        (format #t \"repl exiting, called tty-restore!~%\")\n"
+       "                  (lambda ()\n"
+       "                    (tty-restore!)\n"
+       "                    (format #t \"repl finishing,called tty-restore!~%\"))\n"
+#else
+       "                  tty-restore!\n"
 #endif
-       "        ))))\n"
+       "                  )))))))))\n"
        "\n"
        /**
         * top-level interactive repl with optional arguments:
