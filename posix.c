@@ -88,6 +88,7 @@ static struct termios saved_conf;
 static int            have_saved_conf = 0;
 
 int c_tty_restore(void) {
+  /* (void)write(1, "; c_tty_restore\r\n", 17); */
   if (have_saved_conf) {
     while (tcsetattr(tty_fd, TCSADRAIN, &saved_conf) != 0) {
       if (errno != EINTR) {
@@ -101,6 +102,7 @@ int c_tty_restore(void) {
 int c_tty_setraw(void) {
   struct termios conf;
   size_t         i;
+  /* (void)write(1, "; c_tty_setraw\r\n", 16); */
 
   if (!have_saved_conf) {
     while (tcgetattr(tty_fd, &saved_conf) != 0) {

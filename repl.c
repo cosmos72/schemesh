@@ -18,7 +18,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#undef SCHEMESH_LIBRARY_REPL_DEBUG
+#define SCHEMESH_LIBRARY_REPL_DEBUG
 
 void schemesh_define_library_repl(void) {
 #define SCHEMESH_LIBRARY_REPL_EXPORT "repl-lineedit repl-parse repl-eval repl-eval-list repl repl* "
@@ -49,8 +49,8 @@ void schemesh_define_library_repl(void) {
         * a textual input port if user pressed ENTER.
         *
         *
-        * FIXME: also call c_sigchld_consume() and (pid-wait) to reap zombies and collect exit
-        * status of exited subprocesses
+        * FIXME: also call c_sigchld_consume() and (pid-wait) to reap zombies
+        *        and collect exit status of child processes
         */
        "(define (repl-lineedit ctx)\n"
        "  (let ((ret (lineedit-read ctx -1)))\n"
@@ -104,27 +104,31 @@ void schemesh_define_library_repl(void) {
         * Execute with (eval-func form) each form in list of forms containing parsed expressions
         * or shell commands, and return value or exit status of last form in list.
         * May return multiple values.
+        *
+        * Implementation note:
+        *   some procedures we may eval, as (break) (debug) (inspect) ...
+        *   expect the tty to be in canonical mode, not in raw mode.
+        *
+        *   Also, we need tty to be in canonical mode for CTRL+C to generate SIGINT,
+        *   which causes Chez Scheme to suspend long/infinite evaluations
+        *   and call (break) - a feature we want to preserve.
+        *
+        *   For these reasons, the loop (do ... (eval-func ...))
+        *   is wrapped inside (dynamic-wind tty-restore! (lambda () ...) tty-setraw!)
         */
        "(define (repl-eval-list ctx forms eval-func)\n"
 #ifdef SCHEMESH_LIBRARY_REPL_DEBUG
        "  (format #t \"; evaluating list: ~s~%\" forms)\n"
 #endif
-       /**
-        * Some procedures we may eval, as (break) (debug) (inspect) ...
-        * expect the tty to be in canonical mode, not in raw mode.
-        *
-        * Also, we need tty to be in canonical mode for CTRL+C to generate SIGINT,
-        * which causes Chez Scheme to suspend long/infinite evaluations
-        * and call (break) - a feature we want to preserve.
-        */
-       "  (dynamic-wind\n"
-       "    tty-restore!\n"
-       "    (lambda ()\n"
-       "      (do ((tail forms (cdr tail)))\n"
-       "          ((or (null? tail) (null? (cdr tail)))\n"
-       "            (if (null? tail) (values) (eval-func ctx (car tail))))\n"
-       "        (eval-func ctx (car tail))))\n"
-       "    tty-setraw!))\n"
+       "  (unless (null? forms)\n"
+       "    (dynamic-wind\n"
+       "      tty-restore!\n"
+       "      (lambda ()\n"
+       "        (do ((tail forms (cdr tail)))\n"
+       "            ((or (null? tail) (null? (cdr tail)))\n"
+       "              (if (null? tail) (values) (eval-func ctx (car tail))))\n"
+       "          (eval-func ctx (car tail))))\n"
+       "      tty-setraw!)))\n"
        /**
         * Print values or exit statuses.
         */
@@ -179,25 +183,12 @@ void schemesh_define_library_repl(void) {
        "                ((base-exception-handler) cond))\n"
        "              (lambda ()\n"
        "                (dynamic-wind\n"
-#ifdef SCHEMESH_LIBRARY_REPL_DEBUG
-       "                  (lambda ()\n"
-       "                    (tty-setraw!)\n"
-       "                    (format #t \"repl starting, called tty-setraw!~%\"))\n"
-#else
        "                  tty-setraw!\n"
-#endif
        "                  (lambda ()\n"
        "                    (while parser\n"
        "                      (set! parser (repl-once ctx parser\n"
        "                                     enabled-parsers eval-func))))\n"
-#ifdef SCHEMESH_LIBRARY_REPL_DEBUG
-       "                  (lambda ()\n"
-       "                    (tty-restore!)\n"
-       "                    (format #t \"repl finishing,called tty-restore!~%\"))\n"
-#else
-       "                  tty-restore!\n"
-#endif
-       "                  )))))))))\n"
+       "                  tty-restore!)))))))))\n"
        "\n"
        /**
         * top-level interactive repl with optional arguments:
