@@ -57,7 +57,7 @@ static void c_environ_to_sh_env(char** env) {
 static void schemesh_define_library_shell_jobs(void) {
 
 #define SCHEMESH_LIBRARY_SHELL_JOBS_EXPORT                                                         \
-  "sh-job? sh-job-ref sh-job-span sh-job-status sh-cmd sh-cmd<> sh-cmd? sh-multijob sh-multijob? " \
+  "sh-job? sh-job-ref sh-job-status sh-jobs sh-cmd sh-cmd<> sh-cmd? sh-multijob sh-multijob? "     \
   "sh-globals sh-global-env sh-env-copy sh-env-get sh-env-set! sh-env-unset! "                     \
   "sh-env-exported? sh-env-export! sh-env->vector-of-bytevector0 "                                 \
   "sh-start sh-bg sh-fg sh-run sh-run-capture-output sh-wait sh-and sh-or sh-and-or* "             \
@@ -201,10 +201,10 @@ static void schemesh_define_library_shell_jobs(void) {
       "    (#t (error 'sh-job-ref \"not a job-id:\" job-id))))\n"
       "\n"
       /**
-       * Define the function (sh-job-span), returns currently running jobs
+       * Define the function (sh-jobs), returns currently running jobs
        * as an span of pairs (job-id . job) sorted by job-id
        */
-      "(define (sh-job-span)\n"
+      "(define (sh-jobs)\n"
       "  (let ((src (multijob-children sh-globals))\n"
       "        (dst (span)))\n"
       "    (span-iterate src\n"

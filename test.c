@@ -455,10 +455,22 @@ static const struct {
      "  (open-string-input-port \"(foo << bar #!shell baz >> log.txt)\")\n"
      "  'scheme (parsers)))",
      "(foo << bar (shell baz >> log.txt))"},
-    {"(parse-form*\n" /* ( switches to Scheme parser */
-     "  (open-string-input-port \"(apply + a `(,@b))\")\n"
+    /* ( in the middle of a shell command switches to Scheme parser for a single Scheme form,
+     * then continues parsing shell syntax */
+    {"(parse-form*\n"
+     "  (open-string-input-port \"ls (apply + a `(,@b)) &\")\n"
      "  'shell (parsers)))",
-     "(shell (apply + a `(,@b)))"},
+     "(shell ls (apply + a `(,@b)) &)"},
+    /* ( at the beginning of a shell command switches to Scheme parser,
+     * parses a single Scheme form, and omits the initial (shell ...) */
+    {"(values->list (parse-shell\n"
+     "  (open-string-input-port \"(+ 1 2) not_parsed_yet\") (parsers)))",
+     "((+ 1 2) #t)"},
+    /* idem */
+    {"(parse-form*\n"
+     "  (open-string-input-port \"(+ 1 2) not_parsed_yet\")\n"
+     "  'shell (parsers)))",
+     "(+ 1 2)"},
     {"(parse-form*\n"
      "  (open-string-input-port \"ls (my-dir) >> log.txt\")\n"
      "  'shell (parsers)))",

@@ -18,7 +18,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#define SCHEMESH_LIBRARY_REPL_DEBUG
+#undef SCHEMESH_LIBRARY_REPL_DEBUG
 
 void schemesh_define_library_repl(void) {
 #define SCHEMESH_LIBRARY_REPL_EXPORT "repl-lineedit repl-parse repl-eval repl-eval-list repl repl* "

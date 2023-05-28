@@ -564,7 +564,7 @@ void schemesh_define_library_lineedit(void) {
        "  (let ((ret (if (bytespan-empty? (linectx-rbuf ctx))\n"
        "               #t\n" /* need more input */
        /*              some bytes already in rbuf, try to consume them */
-       "               (linectx-keytable-iterate))))\n"
+       "               (linectx-keytable-iterate ctx))))\n"
        "    (if (eq? #t ret)\n"
        /*     need more input */
        "      (let ((n (linectx-read ctx timeout-milliseconds)))\n"

@@ -9,7 +9,7 @@
 
 #include "eval.h"
 
-#undef SCHEMESH_DEBUG_PARSE_SHELL
+#undef SCHEMESH_LIBRARY_PARSE_DEBUG
 
 static void schemesh_define_library_parser_base(void) {
 
@@ -400,7 +400,7 @@ static void schemesh_define_library_parser_shell(void) {
        "  (import\n"
        "    (rnrs)\n"
        "    (only (chezscheme)\n"
-#ifdef SCHEMESH_DEBUG_PARSE_SHELL
+#ifdef SCHEMESH_LIBRARY_PARSE_DEBUG
        "      format\n"
 #endif
        "      reverse! unread-char)\n"
@@ -780,7 +780,7 @@ static void schemesh_define_library_parser_shell(void) {
        "        (again? #t)\n"
        "        (reverse? #t))\n"
        "    (while again?\n"
-#ifdef SCHEMESH_DEBUG_PARSE_SHELL
+#ifdef SCHEMESH_LIBRARY_PARSE_DEBUG
        "      (format #t \"parse-shell-impl: value = ~s, type = ~s~%\" value type)\n"
 #endif
        "      (case type\n"
@@ -804,10 +804,18 @@ static void schemesh_define_library_parser_shell(void) {
        /*           parse nested shell list surrounded by `...` or $(...) */
        "            (set! ret (cons (parse-shell-list type in '() enabled-parsers) ret))))\n"
        "        ((lparen lbrack)\n"
-       /*         switch to Scheme parser for a single form */
-       "          (let ((other-parse-list (parser-parse-list\n"
-       "                  (get-parser 'scheme enabled-parsers 'parse-shell))))\n"
-       "            (set! ret (cons (other-parse-list type in '() enabled-parsers) ret))))\n"
+       /*         switch to Scheme parser for a single form.
+        *         Convenience: if the first word is #\(, omit the initial (shell ...)
+        *         and set again? to #f. This allows entering Scheme forms from shell syntax */
+       "          (when (equal? '(shell) ret)\n"
+       "            (set! ret '())\n"
+       "            (set! again? #f)\n"
+       /*           forms returned by (parser-parse-list) are already reversed */
+       "            (set! reverse? #f))\n"
+       "          (let* ((other-parse-list (parser-parse-list\n"
+       "                   (get-parser 'scheme enabled-parsers 'parse-shell)))\n"
+       "                 (form (other-parse-list type in '() enabled-parsers)))\n"
+       "            (set! ret (if (null? ret) form (cons form ret)))))\n"
        "        ((lbrace)\n"
        "          (if (or (null? (cdr ret)) (memq (car ret) '(! & && \\x7c; \\x7c;\\x7c;)))\n"
        /*           parse nested shell list surrounded by {...} */
@@ -866,7 +874,7 @@ static void schemesh_define_library_parser_shell(void) {
        "               type)))))\n"
        "    (while again?\n"
        "      (let-values (((value type) (lex-shell in enabled-parsers)))\n"
-#ifdef SCHEMESH_DEBUG_PARSE_SHELL
+#ifdef SCHEMESH_LIBRARY_PARSE_DEBUG
        "      (format #t \"parse-shell-list ret=~s value=~s type=~s~%\" (reverse ret) value type)\n"
 #endif
        "        (case type\n"

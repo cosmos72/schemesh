@@ -19,10 +19,11 @@
 #include <stdio.h>
 #include <stdlib.h> /* getenv(), strtoul() */
 #include <string.h>
+#include <string.h>    /* strlen() */
 #include <sys/ioctl.h> /* ioctl(), TIOCGWINSZ */
 #include <sys/wait.h>
 #include <termios.h> /* tcgetattr(), tcsetattr() */
-#include <unistd.h>
+#include <unistd.h>  /* write() */
 
 #undef SCHEMESH_LIBRARY_FD_DEBUG
 
@@ -754,6 +755,8 @@ int c_fork_pid(ptr vector_redirect_fds, int existing_pgid_if_positive) {
  */
 static char** vector_to_c_argz(ptr vector_of_bytevector0);
 
+static void write_command_not_found(const char arg0[]);
+
 int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
                 ptr vector_redirect_fds,
                 ptr vector_of_bytevector0_environ,
@@ -792,6 +795,7 @@ int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
               environ = envp;
             }
             (void)execvp(argv[0], argv);
+            write_command_not_found(argv[0]);
           }
         }
       }
@@ -882,4 +886,11 @@ static char** vector_to_c_argz(ptr vector_of_bytevector0) {
   }
   c_argz[n] = NULL;
   return c_argz;
+}
+
+static void write_command_not_found(const char arg0[]) {
+  /* writev() is less portable */
+  (void)write(2, "schemesh: ", 10);
+  (void)write(2, arg0, strlen(arg0));
+  (void)write(2, ": command not found\n", 20);
 }
