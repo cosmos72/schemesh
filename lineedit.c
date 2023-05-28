@@ -13,9 +13,11 @@
 void schemesh_define_library_lineedit(void) {
   eval("(library (schemesh lineedit (0 1))\n"
        "  (export\n"
-       "    chargbuffernl\n"
-       "    make-linectx linectx? lineedit-default-keytable\n"
-       "    lineedit-clear! linectx-stdin-set! linectx-stdout-set! linectx-rbuf-insert!\n"
+       "    chargbuffernl chargbuffernl? string->chargbuffernl chargbuffernl-clear!\n"
+       "    chargbuffer-newline? chargbuffer-newline-set!\n"
+       ""
+       "    make-linectx linectx? lineedit-default-keytable lineedit-clear!\n"
+       "    lineedit-lines-set! linectx-stdin-set! linectx-stdout-set! linectx-rbuf-insert!\n"
        "    lineedit-key-nop lineedit-key-left lineedit-key-right lineedit-key-up lineedit-key-down"
        "    lineedit-key-word-left lineedit-key-word-right lineedit-key-bol lineedit-key-eol\n"
        "    lineedit-key-break lineedit-key-ctrl-d lineedit-key-transpose-char\n"
@@ -54,6 +56,14 @@ void schemesh_define_library_lineedit(void) {
        "(define (chargbuffernl)\n"
        "  (%make-chargbuffernl (charspan) (charspan) #f))\n"
        "\n"
+       "(define (string->chargbuffernl str)\n"
+       "  (let ((gb (%make-chargbuffernl (charspan) (string->charspan str) #f))\n"
+       "        (last (fx1- (string-length str))))\n"
+       "    (when (and (fx>=? last 0) (char=? #\\newline (string-ref str last)))\n"
+       "      (chargbuffer-erase-at! gb last 1)\n"
+       "      (chargbuffer-newline-set! gb #t))\n"
+       "    gb))\n"
+       "\n"
        "(define (chargbuffernl-clear! gb)\n"
        "  (chargbuffer-clear! gb)\n"
        "  (chargbuffer-newline-set! gb #f))\n"
@@ -66,7 +76,7 @@ void schemesh_define_library_lineedit(void) {
        "    (mutable wbuf)\n"   /* bytespan, buffer for (fd-write) */
        "    (mutable line)\n"   /* chargbuffer, input's current line being edited */
        "    (mutable lines)\n"  /* gbuffer of chargbuffernl, input being edited */
-       "    (mutable state)\n"  /* bytespan, stack of nested ( [ { and " */
+       "    (mutable state)\n"  /* bytespan, stack of nested ( [ { " and ' */
        "    (mutable x)\n"      /* fixnum, cursor x position in line */
        "    (mutable y)\n"      /* fixnum, cursor y position in lines*/
        "    (mutable save-x)\n" /* fixnum, saved cursor x position */
@@ -79,7 +89,10 @@ void schemesh_define_library_lineedit(void) {
        "    (mutable read-timeout-milliseconds)\n"                  /* -1 means unlimited timeout */
        "    (mutable return linectx-return? linectx-return-set!)\n" /* bool */
        "    (mutable eof linectx-eof? linectx-eof-set!)\n"          /* bool */
-       "    (mutable keytable)))\n" /* hastable, contains keybindings */
+       "    (mutable keytable)\n"      /* hashtable, contains keybindings */
+       "    (mutable history-index)\n" /* index of last used item in history */
+       /*   span of vector of string, history of entered commands */
+       "    history))\n"
        "\n"
        "(define lineedit-default-keytable (eq-hashtable))\n"
        "\n"
@@ -95,11 +108,12 @@ void schemesh_define_library_lineedit(void) {
        "    (bytespan-reserve-back! state 32)\n"
        "    (%make-linectx\n"
        "      rbuf wbuf line lines state\n"
-       "      0 0 -1 -1 1\n"                  /* x y save-x save-y rows    */
-       "      (if (pair? sz) (car sz) 80)\n"  /* width                     */
-       "      (if (pair? sz) (cdr sz) 24)\n"  /* height                    */
-       "      0 1 -1 #f #f \n"                /* stdin stdout timeout return eof  */
-       "      lineedit-default-keytable)))\n" /* keytable */
+       "      0 0 -1 -1 1\n"                 /* x y save-x save-y rows    */
+       "      (if (pair? sz) (car sz) 80)\n" /* width                     */
+       "      (if (pair? sz) (cdr sz) 24)\n" /* height                    */
+       "      0 1 -1 #f #f \n"               /* stdin stdout timeout return eof  */
+       "      lineedit-default-keytable\n"   /* keytable */
+       "      -1 (span))))\n"                /* history  */
        "\n"
        /* clear lines and line: they have been parsed and executed */
        "(define (linectx-clear! ctx)\n"
@@ -237,6 +251,22 @@ void schemesh_define_library_lineedit(void) {
        "  (term-clear-to-eol ctx)\n"
        "  (lineedit-flush ctx))\n"
        "\n"
+       /** replace current lines with specified vector of strings */
+       "(define (lineedit-lines-set! ctx vector-of-strings)\n"
+       "  (lineedit-clear! ctx)\n" /* leaves a single, empty line in lines */
+       "  (let ((lines (linectx-lines ctx)))\n"
+       "    (unless (fxzero? (vector-length vector-of-strings))\n"
+       "      (gbuffer-erase-at! lines 0 1)\n"
+       "      (vector-iterate vector-of-strings\n"
+       "        (lambda (i str)\n"
+       "          (let ((line (string->chargbuffernl str)))\n"
+       "            (gbuffer-insert-at! lines i line)\n"
+       "            (linectx-cgb-write ctx line 0 (chargbuffer-length line))))))\n"
+       "    (let ((line (gbuffer-ref lines (fx1- (gbuffer-length lines)))))\n"
+       "      (linectx-line-set! ctx line)\n"
+       "      (linectx-x-set! ctx (chargbuffer-length line))\n"
+       "      (linectx-y-set! ctx (gbuffer-length lines)))))\n"
+       "\n"
        /* consume up to n bytes from rbuf and insert them into current line.
         * return number of bytes actually consumed */
        "(define (linectx-rbuf-insert! ctx n)\n"
@@ -283,10 +313,12 @@ void schemesh_define_library_lineedit(void) {
        "      (term-move-right-n ctx 1))))\n"
        "\n"
        "(define (lineedit-key-up ctx)\n"
-       "  (void))\n"
+       /** TODO: multiline editing */
+       "  (lineedit-navigate-history ctx -1))\n"
        "\n"
        "(define (lineedit-key-down ctx)\n"
-       "  (void))\n"
+       /** TODO: multiline editing */
+       "  (lineedit-navigate-history ctx +1))\n"
        "\n"
        "(define (lineedit-key-word-left ctx)\n"
        "  (let* ((x    (linectx-x ctx))\n"
@@ -319,7 +351,7 @@ void schemesh_define_library_lineedit(void) {
        "      (term-move-right-n ctx (fx- len x)))))\n"
        "\n"
        "(define (lineedit-key-break ctx)\n"
-       "  (void))\n"
+       "  (lineedit-clear! ctx))\n"
        "\n"
        "(define (lineedit-key-ctrl-d ctx)\n"
        "  (if (and (fx=? 0 (chargbuffer-length (linectx-line ctx)))\n"
@@ -409,10 +441,10 @@ void schemesh_define_library_lineedit(void) {
        "  (linectx-u8-write ctx 10))\n"
        "\n"
        "(define (lineedit-key-history-next ctx)\n"
-       "  (void))\n"
+       "  (lineedit-navigate-history ctx +1))\n"
        "\n"
        "(define (lineedit-key-history-prev ctx)\n"
-       "  (void))\n"
+       "  (lineedit-navigate-history ctx -1))\n"
        "\n"
        "(define (lineedit-key-redraw ctx)\n"
        "  (let* ((line (linectx-line ctx))\n"
@@ -420,6 +452,7 @@ void schemesh_define_library_lineedit(void) {
        "         (x (linectx-x ctx)))\n"
        "    (term-move-to-bol ctx)\n"
        /**  TODO: also write prompt */
+       /**  TODO: support multiline */
        "    (linectx-cgb-write ctx line 0 len)\n"
        "    (term-clear-to-eol ctx)\n"
        "    (term-move-left-n ctx (fx- len x))))\n"
@@ -432,6 +465,16 @@ void schemesh_define_library_lineedit(void) {
        "    tty-restore!\n"              /* run before body */
        "    (lambda () (inspect ctx))\n" /* body */
        "    tty-setraw!))"               /* run after body */
+       "\n"
+       "(define (lineedit-navigate-history ctx delta-y)\n"
+       /** TODO: save current line to history at position (linectx-history-index ctx) */
+       "  (let ((y (fx+ delta-y (linectx-history-index ctx)))\n"
+       "        (history (linectx-history ctx)))\n"
+       /** TODO: when delta-y < 0, move cursor to end of first line */
+       "    (when (fx<? -1 y (span-length history))\n"
+       "      (lineedit-lines-set! ctx (span-ref history y))\n"
+       "      (linectx-history-index-set! ctx y))))\n"
+       "\n"
        "\n"
        "(define (lineedit-keytable-set! keytable proc . keysequences)\n"
        "  (letrec\n"
@@ -486,14 +529,25 @@ void schemesh_define_library_lineedit(void) {
        "        (bytespan-clear! rbuf)))\n" /* set begin, end to 0 */
        "    n))\n"
        "\n"
-       /** add final #\newline to lines as needed, and return them */
+       /**
+        * add final #\newline to lines as needed, append them to history, and return them.
+        * the returned gbuffer of chargbuffernl can be used and modified until the next call to
+        * (lineedit-clear!) or (lineedit-read), because linectx will reuse it.
+        */
        "(define (linectx-return-lines ctx)\n"
-       "  (let ((lines (linectx-lines ctx)))\n"
+       "  (let* ((lines (linectx-lines ctx))\n"
+       "         (lines-n (gbuffer-length lines))\n"
+       "         (saved-lines (make-vector lines-n))\n"
+       "         (history (linectx-history ctx)))\n"
        "    (gbuffer-iterate lines\n"
        "      (lambda (y line)\n"
        "        (when (chargbuffer-newline? line)\n"
-       "          (chargbuffer-insert-at! line (chargbuffer-length line) #\\newline))))\n"
-       "     lines))\n"
+       "          (chargbuffer-insert-at! line (chargbuffer-length line) #\\newline))\n"
+       "        (vector-set! saved-lines y (chargbuffer->string line))))\n"
+       /**  TODO: do not insert duplicates in history */
+       "    (span-insert-back! history saved-lines)\n"
+       "    (linectx-history-index-set! ctx (span-length history))\n"
+       "    lines))\n"
        "\n"
        /**
         * repeatedly call (linectx-keytable-call) until ENTER is found and processed,
