@@ -520,6 +520,7 @@ static void schemesh_define_library_containers_span(void) {
        "  (fx>=? (span-beg sp) (span-end sp)))\n"
        "\n"
        "(define (span-clear! sp)\n"
+       "  (span-fill! sp 0)\n" /** slower, but helps GC */
        "  (span-beg-set! sp 0)\n"
        "  (span-end-set! sp 0))\n"
        "\n"
@@ -692,6 +693,7 @@ static void schemesh_define_library_containers_span(void) {
        "  (assert (fx>=? n 0))\n"
        "  (assert (fx<=? n (span-length sp)))\n"
        "  (unless (fxzero? n)\n"
+       /**  TODO: zero-fill erased range? Helps GC */
        "    (span-beg-set! sp (fx+ n (span-beg sp)))))\n"
        "\n"
        /* erase n elements at the right (back) of span */
@@ -699,6 +701,7 @@ static void schemesh_define_library_containers_span(void) {
        "  (assert (fx>=? n 0))\n"
        "  (assert (fx<=? n (span-length sp)))\n"
        "  (unless (fxzero? n)\n"
+       /**  TODO: zero-fill erased range? Helps GC */
        "    (span-end-set! sp (fx- (span-end sp) n))))\n"
        "\n"
        "(define (span-iterate sp proc)\n"
@@ -1608,7 +1611,8 @@ static void schemesh_define_library_containers_chargbuffer(void) {
        "\n"
        "(define (chargbuffer-split-at! gb idx)\n"
        "  (assert (fx>=? idx 0))\n"
-       "  (assert (fx<=? idx (chargbuffer-length gb)))\n"
+       "  (unless (fx<=? idx (chargbuffer-length gb))\n"
+       "    (assert #f))\n"
        "  (let* ((left  (chargbuffer-left  gb))\n"
        "         (right (chargbuffer-right gb))\n"
        "         (delta (fx- idx (charspan-length left))))\n"

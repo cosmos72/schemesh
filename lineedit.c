@@ -68,6 +68,10 @@ void schemesh_define_library_lineedit(void) {
        "  (chargbuffer-clear! gb)\n"
        "  (chargbuffer-newline-set! gb #f))\n"
        "\n"
+       /** return a copy of specified chargbuffernl */
+       "(define (chargbuffernl-copy gb)\n"
+       "  (%make-chargbuffernl (charspan) (chargbuffer->charspan gb) (chargbuffer-newline? gb)))\n"
+       "\n"
        /* linectx is the top-level object used by most lineedit functions */
        "(define-record-type\n"
        "  (linectx %make-linectx linectx?)\n"
@@ -91,7 +95,7 @@ void schemesh_define_library_lineedit(void) {
        "    (mutable eof linectx-eof? linectx-eof-set!)\n"          /* bool */
        "    (mutable keytable)\n"      /* hashtable, contains keybindings */
        "    (mutable history-index)\n" /* index of last used item in history */
-       /*   span of vector of string, history of entered commands */
+       /*   span of gbuffer of chargbuffernl, history of entered commands */
        "    history))\n"
        "\n"
        "(define lineedit-default-keytable (eq-hashtable))\n"
@@ -113,7 +117,7 @@ void schemesh_define_library_lineedit(void) {
        "      (if (pair? sz) (cdr sz) 24)\n" /* height                    */
        "      0 1 -1 #f #f \n"               /* stdin stdout timeout return eof  */
        "      lineedit-default-keytable\n"   /* keytable */
-       "      -1 (span))))\n"                /* history  */
+       "      0 (span))))\n"                 /* history  */
        "\n"
        /* clear lines and line: they have been parsed and executed */
        "(define (linectx-clear! ctx)\n"
@@ -142,6 +146,33 @@ void schemesh_define_library_lineedit(void) {
        "       (pos start (fx1+ pos)))\n"
        "      ((fx>=? pos end))\n"
        "    (bytespan-utf8-insert-back! wbuf (chargbuffer-ref cgb pos))))\n"
+       "\n"
+       /** return a deep copy of linectx-lines */
+       "(define (linectx-lines-copy ctx)\n"
+       // "  (format #t \"linectx-lines-copy~%\")"
+       // "  (dynamic-wind tty-restore! break tty-setraw!)\n"
+       "  (let* ((lines (linectx-lines ctx))\n"
+       "         (copy (make-gbuffer (gbuffer-length lines))))\n"
+       "    (gbuffer-iterate lines\n"
+       "      (lambda (i line)\n"
+       "        (gbuffer-set! copy i (chargbuffernl-copy line))))\n"
+       "    copy))\n"
+       "\n"
+       /** save a copy of linectx-lines to history, and return such copy */
+       "(define (linectx-copy-lines-to-history ctx)\n"
+       /**  TODO: do not insert duplicates in history */
+       "  (let* ((y (linectx-history-index ctx))\n"
+       "         (history (linectx-history ctx))\n"
+       "         (history-len (span-length history)))\n"
+       "    (when (fx>=? y history-len)\n"
+       "      (span-resize-back! history (fx1+ y))\n"
+       "      (do ((i history-len (fx1+ i)))\n"
+       "          ((fx>=? i y))\n"
+       "        (span-set! history i (gbuffer (chargbuffernl)))))\n"
+       /* make a deep copy of linectx-lines, because they may belong to another history slot */
+       "    (let ((copy (linectx-lines-copy ctx)))\n"
+       "      (span-set! history y copy)\n"
+       "      copy)))"
        "\n"
        /* send escape sequence "move cursor left by n", without checking or updating linectx-x */
        "(define (term-move-left-n ctx n)\n"
@@ -251,18 +282,21 @@ void schemesh_define_library_lineedit(void) {
        "  (term-clear-to-eol ctx)\n"
        "  (lineedit-flush ctx))\n"
        "\n"
-       /** replace current lines with specified vector of strings */
-       "(define (lineedit-lines-set! ctx vector-of-strings)\n"
+       /**
+        * save current linectx-lines to history, then replace current lines with specified
+        * gbuffer-of-chargbuffernl - which is retained, do NOT modify it after calling this function
+        */
+       "(define (lineedit-lines-set! ctx gbuffer-of-chargbuffernl)\n"
+       "  (linectx-copy-lines-to-history ctx)\n"
        "  (lineedit-clear! ctx)\n" /* leaves a single, empty line in lines */
-       "  (let ((lines (linectx-lines ctx)))\n"
-       "    (unless (fxzero? (vector-length vector-of-strings))\n"
-       "      (gbuffer-erase-at! lines 0 1)\n"
-       "      (vector-iterate vector-of-strings\n"
-       "        (lambda (i str)\n"
-       "          (let ((line (string->chargbuffernl str)))\n"
-       "            (gbuffer-insert-at! lines i line)\n"
-       "            (linectx-cgb-write ctx line 0 (chargbuffer-length line))))))\n"
+       "  (let ((lines gbuffer-of-chargbuffernl))\n"
+       "    (when (gbuffer-empty? lines)\n"
+       "      (gbuffer-insert-at! lines 0 (chargbuffernl)))\n"
+       "    (gbuffer-iterate lines\n"
+       "      (lambda (i line)\n"
+       "        (linectx-cgb-write ctx line 0 (chargbuffer-length line))))\n"
        "    (let ((line (gbuffer-ref lines (fx1- (gbuffer-length lines)))))\n"
+       "      (linectx-lines-set! ctx lines)\n"
        "      (linectx-line-set! ctx line)\n"
        "      (linectx-x-set! ctx (chargbuffer-length line))\n"
        "      (linectx-y-set! ctx (gbuffer-length lines)))))\n"
@@ -467,11 +501,11 @@ void schemesh_define_library_lineedit(void) {
        "    tty-setraw!))"               /* run after body */
        "\n"
        "(define (lineedit-navigate-history ctx delta-y)\n"
-       /** TODO: save current line to history at position (linectx-history-index ctx) */
-       "  (let ((y (fx+ delta-y (linectx-history-index ctx)))\n"
+       "  (let ((y       (fx+ delta-y (linectx-history-index ctx)))\n"
        "        (history (linectx-history ctx)))\n"
-       /** TODO: when delta-y < 0, move cursor to end of first line */
+       /**  TODO: when delta-y < 0, move cursor to end of first line */
        "    (when (fx<? -1 y (span-length history))\n"
+       /*     also saves a copy of linectx-lines to history */
        "      (lineedit-lines-set! ctx (span-ref history y))\n"
        "      (linectx-history-index-set! ctx y))))\n"
        "\n"
@@ -530,35 +564,35 @@ void schemesh_define_library_lineedit(void) {
        "    n))\n"
        "\n"
        /**
-        * add final #\newline to lines as needed, append them to history, and return them.
-        * the returned gbuffer of chargbuffernl can be used and modified until the next call to
-        * (lineedit-clear!) or (lineedit-read), because linectx will reuse it.
+        * add final #\newline to lines as needed, append a copy of them to history, and return such
+        * copy.
+        * the returned gbuffer of chargbuffernl MUST NOT be modified, not even temporarily,
+        * because linectx still references it.
         */
        "(define (linectx-return-lines ctx)\n"
-       "  (let* ((lines (linectx-lines ctx))\n"
-       "         (lines-n (gbuffer-length lines))\n"
-       "         (saved-lines (make-vector lines-n))\n"
-       "         (history (linectx-history ctx)))\n"
-       "    (gbuffer-iterate lines\n"
-       "      (lambda (y line)\n"
-       "        (when (chargbuffer-newline? line)\n"
-       "          (chargbuffer-insert-at! line (chargbuffer-length line) #\\newline))\n"
-       "        (vector-set! saved-lines y (chargbuffer->string line))))\n"
-       /**  TODO: do not insert duplicates in history */
-       "    (span-insert-back! history saved-lines)\n"
-       "    (linectx-history-index-set! ctx (span-length history))\n"
-       "    lines))\n"
+       /* clear flag "user pressed ENTER " */
+       "  (linectx-return-set! ctx #f)\n"
+       "  (let* ((y (linectx-history-index ctx))\n"
+       "         (history (linectx-history ctx))\n"
+       "         (history-len (span-length history)))\n"
+       /*   always overwrite last history slot */
+       "    (linectx-history-index-set! ctx (fxmax 0 y (fx1- history-len)))\n"
+       "    (let* ((lines (linectx-copy-lines-to-history ctx))\n"
+       "           (empty-line (chargbuffernl)))\n"
+       "      (linectx-history-index-set! ctx (span-length history))\n"
+       /*     lines may still be referenced by history - allocate new ones */
+       "      (linectx-lines-set! ctx (gbuffer empty-line))\n"
+       "      (linectx-line-set! ctx empty-line)\n"
+       "      lines)))\n"
        "\n"
        /**
         * repeatedly call (linectx-keytable-call) until ENTER is found and processed,
         * or until no more keytable matches are found.
-        * if user pressed ENTER, return a reference to internal chargbuffer.
+        * if user pressed ENTER, return a reference to internal gbuffer.
         * if waiting for more keypresses, return #t
         * if got end-of-file, return #f
         */
        "(define (linectx-keytable-iterate ctx)\n"
-       "  (when (linectx-return? ctx)\n"
-       "    (linectx-clear! ctx))\n"
        "  (do ()\n"
        "      ((or (linectx-return? ctx)\n"
        "           (linectx-eof? ctx)\n"

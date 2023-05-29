@@ -18,7 +18,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#undef SCHEMESH_LIBRARY_REPL_DEBUG
+#define SCHEMESH_LIBRARY_REPL_DEBUG
 
 void schemesh_define_library_repl(void) {
 #define SCHEMESH_LIBRARY_REPL_EXPORT "repl-lineedit repl-parse repl-eval repl-eval-list repl repl* "
@@ -96,9 +96,17 @@ void schemesh_define_library_repl(void) {
 #ifdef SCHEMESH_LIBRARY_REPL_DEBUG
        "  (format #t \"; evaluating: ~s~%\" form)\n"
 #endif
-       "  (if (and (pair? form) (memq (car form) '(shell shell-list)))\n"
-       "    (eval (list 'sh-run form))\n"
-       "    (eval form)))\n"
+       "  (with-exception-handler\n"
+       "    (lambda (cond)\n"
+#ifdef SCHEMESH_LIBRARY_REPL_DEBUG
+       "      (format #t \"repl-eval handling condition ~s~%\" cond)\n"
+#endif
+       "      ((base-exception-handler) cond))\n"
+       "    (lambda ()\n"
+       "      (eval\n"
+       "        (if (and (pair? form) (memq (car form) '(shell shell-list)))\n"
+       "          (list 'sh-run form)\n"
+       "          form)))))\n"
        "\n"
        /**
         * Execute with (eval-func form) each form in list of forms containing parsed expressions
@@ -125,8 +133,8 @@ void schemesh_define_library_repl(void) {
        "      tty-restore!\n"
        "      (lambda ()\n"
        "        (do ((tail forms (cdr tail)))\n"
-       "            ((or (null? tail) (null? (cdr tail)))\n"
-       "              (if (null? tail) (values) (eval-func ctx (car tail))))\n"
+       "            ((null? (cdr tail))\n"
+       "              (eval-func ctx (car tail)))\n"
        "          (eval-func ctx (car tail))))\n"
        "      tty-setraw!)))\n"
        /**
@@ -162,11 +170,10 @@ void schemesh_define_library_repl(void) {
        "          updated-parser)))))\n"
        "\n"
        /** top-level interactive repl with all arguments mandatory */
-       "(define (repl* initial-parser enabled-parsers eval-func)\n"
+       "(define (repl* initial-parser enabled-parsers eval-func ctx)\n"
        "  (assert (procedure? eval-func))\n"
        /* (to-parser) also checks initial-parser's validity */
-       "  (let ((parser (to-parser initial-parser enabled-parsers 'repl))\n"
-       "        (ctx (make-linectx)))\n"
+       "  (let ((parser (to-parser initial-parser enabled-parsers 'repl)))\n"
        "    (lineedit-clear! ctx)\n"
        "    (call/cc\n"
        "      (lambda (k-exit)\n"
@@ -175,36 +182,32 @@ void schemesh_define_library_repl(void) {
        "            (reset-handler (lambda () (k-reset)))\n"
        "            (call/cc (lambda (k) (set! k-reset k)))\n"
        /*           when the (reset-handler) we installed is called, resume from here */
-       "            (with-exception-handler\n"
-       "              (lambda (cond)\n"
-#ifdef SCHEMESH_LIBRARY_REPL_DEBUG
-       "                (format #t \"repl handling condition ~s~%\" cond)\n"
-#endif
-       "                ((base-exception-handler) cond))\n"
+       "            (dynamic-wind\n"
+       "              tty-setraw!\n"
        "              (lambda ()\n"
-       "                (dynamic-wind\n"
-       "                  tty-setraw!\n"
-       "                  (lambda ()\n"
-       "                    (while parser\n"
-       "                      (set! parser (repl-once ctx parser\n"
-       "                                     enabled-parsers eval-func))))\n"
-       "                  tty-restore!)))))))))\n"
+       "                (while parser\n"
+       "                  (set! parser (repl-once ctx parser\n"
+       "                                 enabled-parsers eval-func))))\n"
+       "              tty-restore!)))))))\n"
        "\n"
        /**
         * top-level interactive repl with optional arguments:
         * initial-parser,  defaults to 'scheme
         * enabled-parsers, defaults to (parsers)
         * eval-func,       defaults to repl-eval
+        * ctx,             defaults to (make-linectx)
         */
        "(define repl\n"
        "  (case-lambda\n"
        "    (()\n"
-       "      (repl* 'scheme (parsers) repl-eval))\n"
+       "      (repl* 'scheme (parsers) repl-eval (make-linectx)))\n"
        "    ((initial-parser)\n"
-       "      (repl* initial-parser (parsers) repl-eval))\n"
+       "      (repl* initial-parser (parsers) repl-eval (make-linectx)))\n"
        "    ((initial-parser enabled-parsers)\n"
-       "      (repl* initial-parser enabled-parsers repl-eval))\n"
+       "      (repl* initial-parser enabled-parsers repl-eval (make-linectx)))\n"
        "    ((initial-parser enabled-parsers eval-func)\n"
-       "      (repl* initial-parser enabled-parsers eval-func))))\n"
+       "      (repl* initial-parser enabled-parsers eval-func (make-linectx)))\n"
+       "    ((initial-parser enabled-parsers eval-func ctx)\n"
+       "      (repl* initial-parser enabled-parsers eval-func ctx))))\n"
        ")\n"); /* close library */
 }
