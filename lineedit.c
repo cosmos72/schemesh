@@ -10,15 +10,17 @@
 #include "lineedit.h"
 #include "eval.h"
 
-static void schemesh_define_library_lineedit_history(void) {
-  eval("(library (schemesh lineedit history (0 1))\n"
+static void schemesh_define_library_lineedit_base(void) {
+  eval("(library (schemesh lineedit base (0 1))\n"
        "  (export\n"
        "    charline charline? string->charline string->charline* charline->string\n"
        "    charline-nl? charline-nl-set! charline-length charline-ref charline-set!\n"
        "    charline-clear! charline-copy charline-erase-at! charline-insert-at!\n"
        "\n"
        "    charlines charlines? charlines-iterate charlines-length\n"
-       "    charlines-clear! charlines-copy charlines-erase-at! charlines-insert-at!)\n"
+       "    charlines-clear! charlines-deep-copy charlines-erase-at! charlines-insert-at!\n"
+       "\n"
+       "    linehistory linehistory? make-linehistory)\n"
        "  (import\n"
        "    (rnrs)\n"
        "    (only (rnrs mutable-strings) string-set!)\n"
@@ -33,8 +35,10 @@ static void schemesh_define_library_lineedit_history(void) {
        "     (mutable right chargbuffer-right chargbuffer-right-set!))\n"
        "  (nongenerative #{%chargbuffer itah4n3k0nl66ucaakkpqk55m-16}))\n"
        "\n"
-       /* a char gap-buffer with additional charline-nl? flag, indicating whether
-        * the buffer logically ends with a #\newline */
+       /**
+        * type charline is a char gap-buffer with additional charline-nl? flag,
+        * indicating whether the gap buffer logically ends with a #\newline
+        */
        "(define-record-type\n"
        "  (%charline %make-charline charline?)\n"
        "  (parent %chargbuffer)\n"
@@ -99,25 +103,70 @@ static void schemesh_define_library_lineedit_history(void) {
        "     (mutable right gbuffer-right gbuffer-right-set!))\n"
        "  (nongenerative #{%gbuffer ejch98ka4vi1n9dn4ybq4gzwe-0}))\n"
        "\n"
-       /* a gap-buffer of charlines */
+       /**
+        * type charlines is a gap-buffer, containing charline elements
+        */
        "(define-record-type\n"
        "  (%charlines %make-charlines charlines?)\n"
        "  (parent %gbuffer)\n"
        "  (nongenerative #{%charlines g2x4legjl16y9nnoua5c9y1u9-28}))\n"
        "\n"
+       "(define (assert-charline? line)\n"
+       "  (unless (charline? line)\n"
+       "    (assertion-violation 'charlines \"argument is not a charline\" line)))\n"
+       "\n"
        "(define (charlines . vals)\n"
-       "  (list-iterate vals\n"
-       "    (lambda (line)\n"
-       "      (assert (charline? line))))\n"
+       "  (list-iterate vals assert-charline?)\n"
        "  (%make-charlines (span) (list->span vals)))\n"
        "\n"
        "(define charlines-iterate    gbuffer-iterate)\n"
        "(define charlines-length     gbuffer-length)\n"
        "(define charlines-clear!     gbuffer-clear!)\n"
-       "(define charlines-copy       (lambda (lines) #f))\n"
-       /* "(define charlines-copy    gbuffer-copy)\n" */
        "(define charlines-erase-at!  gbuffer-erase-at!)\n"
        "(define charlines-insert-at! gbuffer-insert-at!)\n"
+       "\n"
+       /** make a deep copy of charlines. Also calls (charline-copy) on each line */
+       "(define (charlines-deep-copy lines)\n"
+       "  (let ((dst (make-span (charlines-length lines))))\n"
+       "    (charlines-iterate lines\n"
+       "      (lambda (i line)\n"
+       "        (span-set! dst i (charline-copy line))))\n"
+       "    (%make-charlines (span) dst)))\n"
+       "\n"
+       /* copy-pasted from container.c */
+       "(define-record-type\n"
+       "  (%span %make-span %span?)\n"
+       "  (fields\n"
+       "     (mutable beg span-beg span-beg-set!)\n"
+       "     (mutable end span-end span-end-set!)\n"
+       "     (mutable vec span-vec span-vec-set!))\n"
+       "  (nongenerative #{%span ng1h8vurkk5k61p0jsryrbk99-0}))\n"
+       "\n"
+       /**
+        * type linehistory is a span containing immutable charlines elements (the history itself),
+        * plus an hashtable with fixnum keys and charlines values,
+        * containing a mutable copy of edited history lines.
+        */
+       "(define-record-type\n"
+       "  (%linehistory %make-linehistory linehistory?)\n"
+       "  (parent %span)\n"
+       "  (fields\n"
+       /*   index of last edited charlines */
+       "    (mutable lastidx linehistory-lastidx linehistory-lastidx-set!)\n"
+       "    (immutable htable linehistory-htable))\n" /* eqv-hashtable: fixnum -> charlines */
+       "  (nongenerative #{%linehistory c4x7a3avz4f9dhl58ur9plmnz-28}))\n"
+       "\n"
+       "(define (assert-charlines? lines)\n"
+       "  (unless (charlines? lines)\n"
+       "    (assertion-violation 'linehistory \"argument is not a charlines\" lines)))\n"
+       "\n"
+       "(define (linehistory . vals)\n"
+       "  (list-iterate vals assert-charlines?)\n"
+       "  (let ((vec (list->vector vals)))\n"
+       "    (%make-linehistory 0 (vector-length vec) vec 0 (make-eqv-hashtable))))\n"
+       "\n"
+       "(define (make-linehistory n)\n"
+       "  (%make-linehistory 0 n (make-vector n) (make-eqv-hashtable)))\n"
        "\n"
        /** customize how "charline" objects are printed */
        "(record-writer (record-type-descriptor %charline)\n"
@@ -136,11 +185,22 @@ static void schemesh_define_library_lineedit_history(void) {
        "        (writer elem port)))\n"
        "    (display #\\) port)))\n"
        "\n"
+       /** customize how "linehistory" objects are printed */
+       "(record-writer (record-type-descriptor %linehistory)\n"
+       "  (lambda (hist port writer)\n"
+       "    (display \"(linehistory\" port)\n"
+       "    (let ((htable (linehistory-htable hist)))\n"
+       "      (span-iterate hist"
+       "        (lambda (i elem)"
+       "          (display #\\space port)\n"
+       "          (writer (hashtable-ref htable i elem) port))))\n"
+       "    (display #\\) port)))\n"
+       "\n"
        ")\n"); // close library
 }
 
 void schemesh_define_library_lineedit(void) {
-  schemesh_define_library_lineedit_history();
+  schemesh_define_library_lineedit_base();
 
   eval("(library (schemesh lineedit (0 1))\n"
        "  (export\n"
@@ -162,7 +222,7 @@ void schemesh_define_library_lineedit(void) {
        "    (schemesh bootstrap)\n"
        "    (schemesh containers)\n"
        "    (schemesh fd)\n"
-       "    (schemesh lineedit history)\n"
+       "    (schemesh lineedit base)\n"
        "    (schemesh tty))\n"
        "\n"
        "\n"
@@ -189,8 +249,7 @@ void schemesh_define_library_lineedit(void) {
        "    (mutable eof linectx-eof? linectx-eof-set!)\n"          /* bool */
        "    (mutable keytable)\n"      /* hashtable, contains keybindings */
        "    (mutable history-index)\n" /* index of last used item in history */
-       /*   span of charlines, history of entered commands */
-       "    history))\n"
+       "    history))\n"               /* linehistory, history of entered commands */
        "\n"
        "(define lineedit-default-keytable (eq-hashtable))\n"
        "\n"
