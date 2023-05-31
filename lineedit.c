@@ -10,12 +10,140 @@
 #include "lineedit.h"
 #include "eval.h"
 
+static void schemesh_define_library_lineedit_history(void) {
+  eval("(library (schemesh lineedit history (0 1))\n"
+       "  (export\n"
+       "    charline charline? string->charline string->charline* charline->string\n"
+       "    charline-nl? charline-nl-set! charline-length charline-ref charline-set!\n"
+       "    charline-clear! charline-copy charline-erase-at! charline-insert-at!\n"
+       "\n"
+       "    charlines charlines? charlines-iterate charlines-length\n"
+       "    charlines-clear! charlines-copy charlines-erase-at! charlines-insert-at!)\n"
+       "  (import\n"
+       "    (rnrs)\n"
+       "    (only (rnrs mutable-strings) string-set!)\n"
+       "    (only (chezscheme) fx1+ fx1- record-writer string-copy!)\n"
+       "    (schemesh containers))\n"
+       "\n"
+       /* copy-pasted from container.c */
+       "(define-record-type\n"
+       "  (%chargbuffer %make-chargbuffer %chargbuffer?)\n"
+       "  (fields\n"
+       "     (mutable left  chargbuffer-left  chargbuffer-left-set!)\n"
+       "     (mutable right chargbuffer-right chargbuffer-right-set!))\n"
+       "  (nongenerative #{%chargbuffer itah4n3k0nl66ucaakkpqk55m-16}))\n"
+       "\n"
+       /* a char gap-buffer with additional charline-nl? flag, indicating whether
+        * the buffer logically ends with a #\newline */
+       "(define-record-type\n"
+       "  (%charline %make-charline charline?)\n"
+       "  (parent %chargbuffer)\n"
+       "  (fields\n"
+       "    (mutable newline charline-nl? charline-nl-set!))\n"
+       "  (nongenerative #{%charline n5x8ii2d62820z0y03ceojtut-28}))\n"
+       "\n"
+       "(define charline-ref        chargbuffer-ref)\n"
+       "(define charline-set!       chargbuffer-set!)\n"
+       "(define charline-length     chargbuffer-length)\n"
+       "(define charline-insert-at! chargbuffer-insert-at!)\n"
+       "(define charline-erase-at!  chargbuffer-erase-at!)\n"
+       "\n"
+       "(define (charline-clear! line)\n"
+       "  (chargbuffer-clear! line)\n"
+       "  (charline-nl-set! line #f))\n"
+       "\n"
+       "(define (charline)\n"
+       "  (%make-charline (charspan) (charspan) #f))\n"
+       "\n"
+       /** return a copy of specified charline */
+       "(define (charline-copy line)\n"
+       "  (%make-charline (charspan) (chargbuffer->charspan line) (charline-nl? line)))\n"
+       "\n"
+       "(define (string->charline str)\n"
+       "  (let ((line (%make-charline (charspan) (string->charspan str) #f))\n"
+       "        (last (fx1- (string-length str))))\n"
+       "    (when (and (fx>=? last 0) (char=? #\\newline (string-ref str last)))\n"
+       "      (charline-erase-at! line last 1)\n"
+       "      (charline-nl-set! line #t))\n"
+       "    line))\n"
+       "\n"
+       "(define (string->charline* str)\n"
+       "  (let ((line (%make-charline (charspan) (string->charspan* str) #f))\n"
+       "        (last (fx1- (string-length str))))\n"
+       "    (when (and (fx>=? last 0) (char=? #\\newline (string-ref str last)))\n"
+       "      (charline-erase-at! line last 1)\n"
+       "      (charline-nl-set! line #t))\n"
+       "    line))\n"
+       "\n"
+       "(define (charline->string line)\n"
+       "  (if (charline-nl? line)\n"
+       "    (let* ((left    (chargbuffer-left  line))\n"
+       "           (right   (chargbuffer-right line))\n"
+       "           (left-n  (charspan-length left))\n"
+       "           (right-n (charspan-length right))\n"
+       "           (n       (fx+ left-n right-n))\n"
+       "           (dst     (make-string (fx1+ n))))\n"
+       "      (string-copy! (charspan-peek-data left)  (charspan-peek-beg left)\n"
+       "                    dst 0 left-n)\n"
+       "      (string-copy! (charspan-peek-data right) (charspan-peek-beg right)\n"
+       "                    dst left-n right-n)\n"
+       "      (string-set! dst n #\\newline)\n"
+       "      dst)\n"
+       "    (chargbuffer->string line)))\n"
+       "\n"
+       /* copy-pasted from container.c */
+       "(define-record-type\n"
+       "  (%gbuffer %make-gbuffer %gbuffer?)\n"
+       "  (fields\n"
+       "     (mutable left  gbuffer-left  gbuffer-left-set!)\n"
+       "     (mutable right gbuffer-right gbuffer-right-set!))\n"
+       "  (nongenerative #{%gbuffer ejch98ka4vi1n9dn4ybq4gzwe-0}))\n"
+       "\n"
+       /* a gap-buffer of charlines */
+       "(define-record-type\n"
+       "  (%charlines %make-charlines charlines?)\n"
+       "  (parent %gbuffer)\n"
+       "  (nongenerative #{%charlines g2x4legjl16y9nnoua5c9y1u9-28}))\n"
+       "\n"
+       "(define (charlines . vals)\n"
+       "  (list-iterate vals\n"
+       "    (lambda (line)\n"
+       "      (assert (charline? line))))\n"
+       "  (%make-charlines (span) (list->span vals)))\n"
+       "\n"
+       "(define charlines-iterate    gbuffer-iterate)\n"
+       "(define charlines-length     gbuffer-length)\n"
+       "(define charlines-clear!     gbuffer-clear!)\n"
+       "(define charlines-copy       (lambda (lines) #f))\n"
+       /* "(define charlines-copy    gbuffer-copy)\n" */
+       "(define charlines-erase-at!  gbuffer-erase-at!)\n"
+       "(define charlines-insert-at! gbuffer-insert-at!)\n"
+       "\n"
+       /** customize how "charline" objects are printed */
+       "(record-writer (record-type-descriptor %charline)\n"
+       "  (lambda (line port writer)\n"
+       "    (display \"(string->charline* \" port)\n"
+       "    (write (charline->string line) port)\n"
+       "    (display #\\) port)))\n"
+       "\n"
+       /** customize how "charlines" objects are printed */
+       "(record-writer (record-type-descriptor %charlines)\n"
+       "  (lambda (sp port writer)\n"
+       "    (display \"(charlines\" port)\n"
+       "    (charlines-iterate sp"
+       "      (lambda (i elem)"
+       "        (display #\\space port)\n"
+       "        (writer elem port)))\n"
+       "    (display #\\) port)))\n"
+       "\n"
+       ")\n"); // close library
+}
+
 void schemesh_define_library_lineedit(void) {
+  schemesh_define_library_lineedit_history();
+
   eval("(library (schemesh lineedit (0 1))\n"
        "  (export\n"
-       "    chargbuffernl chargbuffernl? string->chargbuffernl chargbuffernl-clear!\n"
-       "    chargbuffer-newline? chargbuffer-newline-set!\n"
-       ""
        "    make-linectx linectx? lineedit-default-keytable lineedit-clear!\n"
        "    lineedit-lines-set! linectx-stdin-set! linectx-stdout-set! linectx-rbuf-insert!\n"
        "    lineedit-key-nop lineedit-key-left lineedit-key-right lineedit-key-up lineedit-key-down"
@@ -34,43 +162,9 @@ void schemesh_define_library_lineedit(void) {
        "    (schemesh bootstrap)\n"
        "    (schemesh containers)\n"
        "    (schemesh fd)\n"
+       "    (schemesh lineedit history)\n"
        "    (schemesh tty))\n"
        "\n"
-       /* copy-pasted from container.c */
-       "(define-record-type\n"
-       "  (%chargbuffer %make-chargbuffer %chargbuffer?)\n"
-       "  (fields\n"
-       "     (mutable left  chargbuffer-left  chargbuffer-left-set!)\n"
-       "     (mutable right chargbuffer-right chargbuffer-right-set!))\n"
-       "  (nongenerative #{%chargbuffer itah4n3k0nl66ucaakkpqk55m-16}))\n"
-       "\n"
-       /* a char gap-buffer with additional newline? flag, indicating whether the buffer
-        * logically ends with a #\newline */
-       "(define-record-type\n"
-       "  (%chargbuffernl %make-chargbuffernl chargbuffernl?)\n"
-       "  (parent %chargbuffer)\n"
-       "  (fields\n"
-       "    (mutable newline chargbuffer-newline? chargbuffer-newline-set!))\n"
-       "  (nongenerative #{%chargbuffernl khrzb9gxkq3znw7ij98a189ca-17}))\n"
-       "\n"
-       "(define (chargbuffernl)\n"
-       "  (%make-chargbuffernl (charspan) (charspan) #f))\n"
-       "\n"
-       "(define (string->chargbuffernl str)\n"
-       "  (let ((gb (%make-chargbuffernl (charspan) (string->charspan str) #f))\n"
-       "        (last (fx1- (string-length str))))\n"
-       "    (when (and (fx>=? last 0) (char=? #\\newline (string-ref str last)))\n"
-       "      (chargbuffer-erase-at! gb last 1)\n"
-       "      (chargbuffer-newline-set! gb #t))\n"
-       "    gb))\n"
-       "\n"
-       "(define (chargbuffernl-clear! gb)\n"
-       "  (chargbuffer-clear! gb)\n"
-       "  (chargbuffer-newline-set! gb #f))\n"
-       "\n"
-       /** return a copy of specified chargbuffernl */
-       "(define (chargbuffernl-copy gb)\n"
-       "  (%make-chargbuffernl (charspan) (chargbuffer->charspan gb) (chargbuffer-newline? gb)))\n"
        "\n"
        /* linectx is the top-level object used by most lineedit functions */
        "(define-record-type\n"
@@ -78,8 +172,8 @@ void schemesh_define_library_lineedit(void) {
        "  (fields\n"
        "    (mutable rbuf)\n"   /* bytespan, buffer for (fd-read) */
        "    (mutable wbuf)\n"   /* bytespan, buffer for (fd-write) */
-       "    (mutable line)\n"   /* chargbuffer, input's current line being edited */
-       "    (mutable lines)\n"  /* gbuffer of chargbuffernl, input being edited */
+       "    (mutable line)\n"   /* charline, input's current line being edited */
+       "    (mutable lines)\n"  /* charlines, input being edited */
        "    (mutable state)\n"  /* bytespan, stack of nested ( [ { " and ' */
        "    (mutable x)\n"      /* fixnum, cursor x position in line */
        "    (mutable y)\n"      /* fixnum, cursor y position in lines*/
@@ -95,7 +189,7 @@ void schemesh_define_library_lineedit(void) {
        "    (mutable eof linectx-eof? linectx-eof-set!)\n"          /* bool */
        "    (mutable keytable)\n"      /* hashtable, contains keybindings */
        "    (mutable history-index)\n" /* index of last used item in history */
-       /*   span of gbuffer of chargbuffernl, history of entered commands */
+       /*   span of charlines, history of entered commands */
        "    history))\n"
        "\n"
        "(define lineedit-default-keytable (eq-hashtable))\n"
@@ -104,7 +198,7 @@ void schemesh_define_library_lineedit(void) {
        "  (let* ((sz    (tty-size))\n"
        "         (rbuf  (bytespan))\n"
        "         (wbuf  (bytespan))\n"
-       "         (line  (chargbuffernl))\n"
+       "         (line  (charline))\n"
        "         (lines (gbuffer line))\n"
        "         (state (bytespan)))\n"
        "    (bytespan-reserve-back! rbuf 1024)\n"
@@ -127,7 +221,7 @@ void schemesh_define_library_lineedit(void) {
        "    (linectx-y-set! ctx 0)\n"
        "    (linectx-save-x-set! ctx -1)\n"
        "    (linectx-save-y-set! ctx -1)\n"
-       "    (chargbuffernl-clear! line)\n"
+       "    (charline-clear! line)\n"
        "    (gbuffer-clear! lines)\n"
        "    (gbuffer-insert-at! lines 0 line)\n"
        "    (linectx-return-set! ctx #f)))\n"
@@ -155,7 +249,7 @@ void schemesh_define_library_lineedit(void) {
        "         (copy (make-gbuffer (gbuffer-length lines))))\n"
        "    (gbuffer-iterate lines\n"
        "      (lambda (i line)\n"
-       "        (gbuffer-set! copy i (chargbuffernl-copy line))))\n"
+       "        (gbuffer-set! copy i (charline-copy line))))\n"
        "    copy))\n"
        "\n"
        /** save a copy of linectx-lines to history, and return such copy */
@@ -168,7 +262,7 @@ void schemesh_define_library_lineedit(void) {
        "      (span-resize-back! history (fx1+ y))\n"
        "      (do ((i history-len (fx1+ i)))\n"
        "          ((fx>=? i y))\n"
-       "        (span-set! history i (gbuffer (chargbuffernl)))))\n"
+       "        (span-set! history i (gbuffer (charline)))))\n"
        /* make a deep copy of linectx-lines, because they may belong to another history slot */
        "    (let ((copy (linectx-lines-copy ctx)))\n"
        "      (span-set! history y copy)\n"
@@ -222,7 +316,7 @@ void schemesh_define_library_lineedit(void) {
        "(define (term-redraw-to-eol ctx clear-line-right)\n"
        "  (let* ((line (linectx-line ctx))\n"
        "         (beg  (linectx-x ctx))\n"
-       "         (end  (chargbuffer-length line)))\n"
+       "         (end  (charline-length line)))\n"
        "    (when (fx<? beg end)\n"
        "      (linectx-cgb-write ctx line beg end))\n"
        "    (when (eq? clear-line-right 'clear-line-right)\n"
@@ -233,19 +327,19 @@ void schemesh_define_library_lineedit(void) {
        /* return index of first character before pos in line that satisfies (pred ch).
         * return -1 if no character before pos in line satisfies (pred ch) */
        "(define (char-find-left line pos pred)\n"
-       "  (assert (fx<=? pos (chargbuffer-length line)))\n"
+       "  (assert (fx<=? pos (charline-length line)))\n"
        "  (do ((x (fx1- pos) (fx1- x)))\n"
-       "      ((or (fx<? x 0) (pred (chargbuffer-ref line x)))\n"
+       "      ((or (fx<? x 0) (pred (charline-ref line x)))\n"
        "        x)))\n"
        "\n"
        /* return index of first character at pos or later in line that satisfies (pred ch).
-        * return (chargbuffer-length line) if no character at pos or later in line
+        * return (charline-length line) if no character at pos or later in line
         * satisfies (pred ch) */
        "(define (char-find-right line pos pred)\n"
        "  (assert (fx>=? pos 0))\n"
        "  (do ((x pos (fx1+ x))\n"
-       "       (len (chargbuffer-length line)))\n"
-       "      ((or (fx>=? x len) (pred (chargbuffer-ref line x)))\n"
+       "       (len (charline-length line)))\n"
+       "      ((or (fx>=? x len) (pred (charline-ref line x)))\n"
        "        x)))\n"
        "\n"
        /* return index of beginning of word before pos in line */
@@ -284,21 +378,21 @@ void schemesh_define_library_lineedit(void) {
        "\n"
        /**
         * save current linectx-lines to history, then replace current lines with specified
-        * gbuffer-of-chargbuffernl - which is retained, do NOT modify it after calling this function
+        * gbuffer-of-charline - which is retained, do NOT modify it after calling this function
         */
-       "(define (lineedit-lines-set! ctx gbuffer-of-chargbuffernl)\n"
+       "(define (lineedit-lines-set! ctx gbuffer-of-charline)\n"
        "  (linectx-copy-lines-to-history ctx)\n"
        "  (lineedit-clear! ctx)\n" /* leaves a single, empty line in lines */
-       "  (let ((lines gbuffer-of-chargbuffernl))\n"
+       "  (let ((lines gbuffer-of-charline))\n"
        "    (when (gbuffer-empty? lines)\n"
-       "      (gbuffer-insert-at! lines 0 (chargbuffernl)))\n"
+       "      (gbuffer-insert-at! lines 0 (charline)))\n"
        "    (gbuffer-iterate lines\n"
        "      (lambda (i line)\n"
-       "        (linectx-cgb-write ctx line 0 (chargbuffer-length line))))\n"
+       "        (linectx-cgb-write ctx line 0 (charline-length line))))\n"
        "    (let ((line (gbuffer-ref lines (fx1- (gbuffer-length lines)))))\n"
        "      (linectx-lines-set! ctx lines)\n"
        "      (linectx-line-set! ctx line)\n"
-       "      (linectx-x-set! ctx (chargbuffer-length line))\n"
+       "      (linectx-x-set! ctx (charline-length line))\n"
        "      (linectx-y-set! ctx (gbuffer-length lines)))))\n"
        "\n"
        /* consume up to n bytes from rbuf and insert them into current line.
@@ -323,7 +417,7 @@ void schemesh_define_library_lineedit(void) {
        "          (set! incomplete #t))\n"
        "        (set! pos (fxmin end (fx+ pos len)))"
        "        (when (and (char? ch) (char>=? ch #\\space))\n"
-       "          (chargbuffer-insert-at! line x ch)\n"
+       "          (charline-insert-at! line x ch)\n"
        "          (bytespan-utf8-insert-back! wbuf ch)\n"
        "          (set! x (fx1+ x)))))\n"
        "    (linectx-x-set! ctx x)\n"
@@ -342,7 +436,7 @@ void schemesh_define_library_lineedit(void) {
        "\n"
        "(define (lineedit-key-right ctx)\n"
        "  (let ((x (linectx-x ctx)))\n"
-       "    (when (fx<? x (chargbuffer-length (linectx-line ctx)))\n"
+       "    (when (fx<? x (charline-length (linectx-line ctx)))\n"
        "      (linectx-x-set! ctx (fx1+ x))\n"
        "      (term-move-right-n ctx 1))))\n"
        "\n"
@@ -379,7 +473,7 @@ void schemesh_define_library_lineedit(void) {
        "\n"
        "(define (lineedit-key-eol ctx)\n"
        "  (let ((x    (linectx-x ctx))\n"
-       "        (len  (chargbuffer-length (linectx-line ctx))))\n"
+       "        (len  (charline-length (linectx-line ctx))))\n"
        "    (when (fx<? x len)\n"
        "      (linectx-x-set! ctx len)\n"
        "      (term-move-right-n ctx (fx- len x)))))\n"
@@ -388,7 +482,7 @@ void schemesh_define_library_lineedit(void) {
        "  (lineedit-clear! ctx))\n"
        "\n"
        "(define (lineedit-key-ctrl-d ctx)\n"
-       "  (if (and (fx=? 0 (chargbuffer-length (linectx-line ctx)))\n"
+       "  (if (and (fx=? 0 (charline-length (linectx-line ctx)))\n"
        "           (fx=? 1 (gbuffer-length (linectx-lines ctx))))\n"
        "    (linectx-eof-set! ctx #t)\n"
        "    (lineedit-key-del-right ctx)))\n"
@@ -396,19 +490,19 @@ void schemesh_define_library_lineedit(void) {
        "(define (lineedit-key-transpose-char ctx)\n"
        "  (let* ((x    (linectx-x ctx))\n"
        "         (line (linectx-line ctx))\n"
-       "         (len  (chargbuffer-length line)))\n"
+       "         (len  (charline-length line)))\n"
        "    (when (and (fx>? x 0) (fx>? len 1))\n"
        "      (let ((eol (fx=? x len)))\n"
        "        (term-move-left-n ctx (if eol 2 1))\n"
        "        (when eol\n"
        "          (set! x (fx1- x))))\n"
-       "      (let ((ch1  (chargbuffer-ref line (fx1- x)))\n"
-       "            (ch2  (chargbuffer-ref line x))\n"
+       "      (let ((ch1  (charline-ref line (fx1- x)))\n"
+       "            (ch2  (charline-ref line x))\n"
        "            (wbuf (linectx-wbuf ctx)))\n"
        "        (bytespan-utf8-insert-back! wbuf ch2)\n"
        "        (bytespan-utf8-insert-back! wbuf ch1)\n"
-       "        (chargbuffer-set! line (fx1- x) ch2)\n"
-       "        (chargbuffer-set! line x ch1)\n"
+       "        (charline-set! line (fx1- x) ch2)\n"
+       "        (charline-set! line x ch1)\n"
        "        (linectx-x-set! ctx (fx1+ x))))))\n"
        "\n"
        "(define (lineedit-key-del-left ctx)\n"
@@ -419,8 +513,8 @@ void schemesh_define_library_lineedit(void) {
        "(define (lineedit-key-del-right ctx)\n"
        "  (let ((x    (linectx-x ctx))\n"
        "        (line (linectx-line ctx)))\n"
-       "    (when (fx<? x (chargbuffer-length line))\n"
-       "      (chargbuffer-erase-at! line x 1)\n"
+       "    (when (fx<? x (charline-length line))\n"
+       "      (charline-erase-at! line x 1)\n"
        "      (term-del-right-n ctx 1))))\n"
        "\n"
        "(define (lineedit-key-del-word-left ctx)\n"
@@ -429,7 +523,7 @@ void schemesh_define_library_lineedit(void) {
        "         (pos   (word-find-begin-left line x))\n"
        "         (del-n (fx- x pos)))\n"
        "    (when (fx>? del-n 0)\n"
-       "      (chargbuffer-erase-at! line pos del-n)\n"
+       "      (charline-erase-at! line pos del-n)\n"
        "      (linectx-x-set! ctx pos)\n"
        "      (term-move-left-n ctx del-n)\n"
        "      (term-del-right-n ctx del-n))))\n"
@@ -440,7 +534,7 @@ void schemesh_define_library_lineedit(void) {
        "         (pos   (word-find-end-right line x))\n"
        "         (del-n (fx- pos x)))\n"
        "    (when (fx>? del-n 0)\n"
-       "      (chargbuffer-erase-at! line x del-n)\n"
+       "      (charline-erase-at! line x del-n)\n"
        "      (term-del-right-n ctx del-n))))\n"
        "\n"
        "(define (lineedit-key-del-line ctx)\n"
@@ -449,9 +543,9 @@ void schemesh_define_library_lineedit(void) {
        "(define (lineedit-key-del-line-left ctx)\n"
        "  (let* ((x    (linectx-x ctx))\n"
        "         (line (linectx-line ctx))\n"
-       "         (len  (chargbuffer-length line)))\n"
+       "         (len  (charline-length line)))\n"
        "    (when (and (fx>? x 0) (fx>? len 0))\n"
-       "      (chargbuffer-erase-at! line 0 x)\n"
+       "      (charline-erase-at! line 0 x)\n"
        "      (linectx-x-set! ctx 0)\n"
        "      (term-move-left-n ctx x)\n"
        "      (term-redraw-to-eol ctx 'clear-line-right))))\n"
@@ -459,9 +553,9 @@ void schemesh_define_library_lineedit(void) {
        "(define (lineedit-key-del-line-right ctx)\n"
        "  (let* ((x    (linectx-x ctx))\n"
        "         (line (linectx-line ctx))\n"
-       "         (len  (chargbuffer-length line)))\n"
+       "         (len  (charline-length line)))\n"
        "    (when (fx<? x len)\n"
-       "      (chargbuffer-erase-at! line x (fx- len x))\n"
+       "      (charline-erase-at! line x (fx- len x))\n"
        "      (term-clear-to-eol ctx))))\n"
        "\n"
        "(define (lineedit-key-newline-left ctx)\n"
@@ -482,7 +576,7 @@ void schemesh_define_library_lineedit(void) {
        "\n"
        "(define (lineedit-key-redraw ctx)\n"
        "  (let* ((line (linectx-line ctx))\n"
-       "         (len (chargbuffer-length line))\n"
+       "         (len (charline-length line))\n"
        "         (x (linectx-x ctx)))\n"
        "    (term-move-to-bol ctx)\n"
        /**  TODO: also write prompt */
@@ -566,7 +660,7 @@ void schemesh_define_library_lineedit(void) {
        /**
         * add final #\newline to lines as needed, append a copy of them to history, and return such
         * copy.
-        * the returned gbuffer of chargbuffernl MUST NOT be modified, not even temporarily,
+        * the returned gbuffer of charline MUST NOT be modified, not even temporarily,
         * because linectx still references it.
         */
        "(define (linectx-return-lines ctx)\n"
@@ -578,7 +672,7 @@ void schemesh_define_library_lineedit(void) {
        /*   always overwrite last history slot */
        "    (linectx-history-index-set! ctx (fxmax 0 y (fx1- history-len)))\n"
        "    (let* ((lines (linectx-copy-lines-to-history ctx))\n"
-       "           (empty-line (chargbuffernl)))\n"
+       "           (empty-line (charline)))\n"
        "      (linectx-history-index-set! ctx (span-length history))\n"
        /*     lines may still be referenced by history - allocate new ones */
        "      (linectx-lines-set! ctx (gbuffer empty-line))\n"
@@ -642,7 +736,7 @@ void schemesh_define_library_lineedit(void) {
        "    (if eof? -1 got)))\n"
        "\n"
        /**
-        * if user pressed ENTER, return a reference to internal chargbuffer.
+        * if user pressed ENTER, return a reference to internal gbuffer-of-charline.
         * if waiting for more keypresses, return #t
         * if got end-of-file, return #f
         */

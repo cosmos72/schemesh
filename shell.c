@@ -1241,6 +1241,7 @@ void schemesh_import_libraries(void) {
        "  (import (schemesh signal))\n"
        "  (import (schemesh tty))\n"
        "  (import (schemesh pid))\n"
+       "  (import (schemesh lineedit history))\n"
        "  (import (schemesh lineedit))\n"
        "  (import (schemesh shell))\n"
        "  (import (schemesh repl)))\n");

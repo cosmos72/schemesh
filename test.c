@@ -344,7 +344,7 @@ static const struct {
     {"(reverse*! (list 1))", "(1)"},
     {"(reverse*! (list 1 2))", "(2 . 1)"},
     {"(reverse*! (list 1 2 3 4 5 6))", "(6 5 4 3 2 . 1)"},
-    /* --------------------- hashtable -------------------------------------- */
+    /* ------------------------ hashtable ----------------------------------- */
     {"(hashtable-cells\n"
      "  (eq-hashtable '(3 . C) '(2 . B) '(1 . A)))",
      "#((1 . A) (2 . B) (3 . C))"},
@@ -367,6 +367,13 @@ static const struct {
      "      (set! ret (cons cell ret))))\n"
      "  ret)",
      "((2.1 . B) (1.0 . A) (3 . C))"},
+    /* ------------------------ lineedit history ---------------------------- */
+    {"(string->charline \"abc 123\")", "(string->charline* \"abc 123\")"},
+    {"(string->charline* \"echo \\n\")", "(string->charline* \"echo \\n\")"},
+    {"(charline-nl? (string->charline \"echo \\n\"))", "#t"},
+    {"(charline-length (string->charline \"echo \\n\"))", "5"}, // final #\newline is not counted
+    {"(charlines (string->charline* \"foo/bar\") (string->charline \"\\n\"))",
+     "(charlines (string->charline* \"foo/bar\") (string->charline* \"\\n\"))"},
     /* ------------------------ parser scheme ------------------------------- */
     {"(parse-scheme* (open-string-input-port \"(foo bar) '(a b)\") #f)", "(foo bar)"},
     {"(parse-scheme* (open-string-input-port \"(a (b c . d) . e)\") #f)", "(a (b c . d) . e)"},
