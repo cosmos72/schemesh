@@ -14,12 +14,12 @@ static void schemesh_define_library_lineedit_base(void) {
   eval("(library (schemesh lineedit base (0 1))\n"
        "  (export\n"
        "    charline charline? string->charline string->charline* charline->string\n"
-       "    charline-nl? charline-nl?-set! charline-mutable? charline-mutable?-set!\n"
+       "    charline-nl? charline-nl?-set! charline-copy-on-write\n"
        "    charline-empty? charline-length charline-ref charline-set!\n"
-       "    charline-clear! charline-copy charline-erase-at! charline-insert-at!\n"
+       "    charline-clear! charline-erase-at! charline-insert-at!\n"
        "\n"
-       "    charlines charlines? charlines-iterate charlines-length\n"
-       "    charlines-clear! charlines-deep-copy charlines-erase-at! charlines-insert-at!\n"
+       "    charlines charlines? charlines-iterate charlines-length charlines-copy-on-write\n"
+       "    charlines-clear! charlines-erase-at! charlines-insert-at!\n"
        "\n"
        "    linehistory linehistory? make-linehistory)\n"
        "  (import\n"
@@ -39,63 +39,58 @@ static void schemesh_define_library_lineedit_base(void) {
        /**
         * type charline is a char gap-buffer with two additional flags:
         * - charline-nl? true if the gap buffer logically ends with a #\newline
-        * - charline-mutable? true if the gab buffer can be modified
+        * - charline-cow? true if the gab buffer is copy-on-write i.e. its content
+        *   will be automatically cloned at the first attempt to modify it.
         */
        "(define-record-type\n"
        "  (%charline %make-charline charline?)\n"
        "  (parent %chargbuffer)\n"
        "  (fields\n"
-       "    (mutable newline charline-nl? %charline-nl?-set!)\n"
-       "    (mutable mutable? charline-mutable? %charline-mutable?-set!))\n"
-       "  (nongenerative #{%charline dsnyti7xvgjo5xbayeuikwlju-28}))\n"
+       "    (mutable newline charline-nl?  charline-nl?-set!)\n"
+       "    (mutable cow?    charline-cow? charline-cow?-set!))\n"
+       //"  (nongenerative #{%charline dsnyti7xvgjo5xbayeuikwlju-28}))\n"
+       "  )\n"
        "\n"
        "(define (charline)\n"
-       "  (%make-charline (charspan) (charspan) #f #t))\n"
+       "  (%make-charline (charspan) (charspan) #f #f))\n"
        "\n"
-       /** implementation of charline-copy, all fields are mandatory */
-       "(define (%charline-copy line mutable?)\n"
-       "  (%make-charline (charspan) (chargbuffer->charspan line) (charline-nl? line) mutable?))\n"
+       /**
+        * Return a copy-on-write clone of specified charline.
+        * Marks both line and the returned clone with copy-on-write flag.
+        */
+       "(define (charline-copy-on-write line)\n"
+       "  (charline-cow?-set! line #t)\n"
+       "  (%make-charline (chargbuffer-left line) (chargbuffer-right line)\n"
+       "                  (charline-nl? line) #t))\n"
        "\n"
-       /** return a copy of specified charline */
-       "(define charline-copy\n"
-       "  (case-lambda\n"
-       "    ((line)          (%charline-copy line #f))\n"
-       "    ((line mutable?) (%charline-copy line mutable?))))\n"
-       "\n"
-       "(define (assert-charline-mutable? who line)\n"
-       "  (unless (charline-mutable? line)\n"
-       "    (assertion-violation who \"charline is not mutable\" line)))\n"
-       "\n"
-       "(define (charline-nl?-set! line nl?)\n"
-       "  (assert-charline-mutable? 'charline-nl?-set! line)\n"
-       "  (%charline-nl?-set! line nl?))\n"
-       "\n"
-       "(define (charline-mutable?-set! line mutable?)\n"
-       "  (assert-charline-mutable? 'charline-mutable?-set! line)\n"
-       "  (%charline-mutable?-set! line mutable?))\n"
+       "(define (charline-unshare! line)\n"
+       "  (when (charline-cow? line)\n"
+       "    (chargbuffer-left-set!  line (charspan-copy (chargbuffer-left line)))\n"
+       "    (chargbuffer-right-set! line (charspan-copy (chargbuffer-right line)))\n"
+       "    (charline-cow?-set! line #f)))\n"
        "\n"
        "(define charline-empty?     chargbuffer-empty?)\n"
        "(define charline-length     chargbuffer-length)\n"
        "(define charline-ref        chargbuffer-ref)\n"
        "\n"
-       "(define (charline-set! line idx val)\n"
-       "  (assert-charline-mutable? 'charline-set! line)\n"
-       "  (chargbuffer-set! line idx val))\n"
+       "(define (charline-set! line idx ch)\n"
+       "  (charline-unshare! line)\n"
+       "  (chargbuffer-set! line idx ch))\n"
        "\n"
-       "(define (charline-insert-at! line idx val)\n"
-       "  (assert-charline-mutable? 'charline-insert-at! line)\n"
-       "  (chargbuffer-insert-at! line idx val))\n"
+       "(define (charline-insert-at! line idx ch)\n"
+       "  (charline-unshare! line)\n"
+       "  (chargbuffer-insert-at! line idx ch))\n"
        "\n"
        "(define (charline-erase-at! line start n)\n"
-       "  (assert-charline-mutable? 'charline-erase-at! line)\n"
+       "  (charline-unshare! line)\n"
        "  (chargbuffer-erase-at! line start n))\n"
        "\n"
        "(define (charline-clear! line)\n"
-       "  (assert-charline-mutable? 'charline-clear! line)\n"
+       "  (charline-unshare! line)\n"
        "  (chargbuffer-clear! line))\n"
        "\n"
        "(define (string->charline str)\n"
-       "  (let ((line (%make-charline (charspan) (string->charspan str) #f #t))\n"
+       "  (let ((line (%make-charline (charspan) (string->charspan str) #f #f))\n"
        "        (last (fx1- (string-length str))))\n"
        "    (when (and (fx>=? last 0) (char=? #\\newline (string-ref str last)))\n"
        "      (charline-erase-at! line last 1)\n"
@@ -103,7 +98,7 @@ static void schemesh_define_library_lineedit_base(void) {
        "    line))\n"
        "\n"
        "(define (string->charline* str)\n"
-       "  (let ((line (%make-charline (charspan) (string->charspan* str) #f #t))\n"
+       "  (let ((line (%make-charline (charspan) (string->charspan* str) #f #f))\n"
        "        (last (fx1- (string-length str))))\n"
        "    (when (and (fx>=? last 0) (char=? #\\newline (string-ref str last)))\n"
        "      (charline-erase-at! line last 1)\n"
@@ -156,12 +151,15 @@ static void schemesh_define_library_lineedit_base(void) {
        "(define charlines-erase-at!  gbuffer-erase-at!)\n"
        "(define charlines-insert-at! gbuffer-insert-at!)\n"
        "\n"
-       /** make a deep copy of charlines. Also calls (charline-copy) on each line */
-       "(define (charlines-deep-copy lines)\n"
+       /**
+        * Make a copy-on-write clone of charlines.
+        * Also calls (charline-copy-on-write) on each line.
+        */
+       "(define (charlines-copy-on-write lines)\n"
        "  (let ((dst (make-span (charlines-length lines))))\n"
        "    (charlines-iterate lines\n"
        "      (lambda (i line)\n"
-       "        (span-set! dst i (charline-copy line))))\n"
+       "        (span-set! dst i (charline-copy-on-write line))))\n"
        "    (%make-charlines (span) dst)))\n"
        "\n"
        /* copy-pasted from container.c */
@@ -176,7 +174,7 @@ static void schemesh_define_library_lineedit_base(void) {
        /**
         * type linehistory is a span containing immutable charlines elements (the history itself),
         * plus an hashtable with fixnum keys and charlines values,
-        * containing a mutable copy of edited history lines.
+        * containing a mutable copy (actually copy-on-write) of edited history lines.
         */
        "(define-record-type\n"
        "  (%linehistory %make-linehistory linehistory?)\n"
@@ -317,8 +315,8 @@ void schemesh_define_library_lineedit(void) {
        "    (linectx-return-set! ctx #f)))\n"
        "\n"
        /* write a byte to wbuf */
-       "(define (linectx-u8-write ctx val)\n"
-       "  (bytespan-u8-insert-back! (linectx-wbuf ctx) val))\n"
+       "(define (linectx-u8-write ctx u8)\n"
+       "  (bytespan-u8-insert-back! (linectx-wbuf ctx) u8))\n"
        "\n"
        /* write a portion of given bytevector to wbuf */
        "(define (linectx-bv-write ctx bv start end)\n"
@@ -331,16 +329,11 @@ void schemesh_define_library_lineedit(void) {
        "      ((fx>=? pos end))\n"
        "    (bytespan-utf8-insert-back! wbuf (chargbuffer-ref cgb pos))))\n"
        "\n"
-       /** return a deep copy of linectx-lines */
+       /** return a copy-on-write clone of linectx-lines */
        "(define (linectx-lines-copy ctx)\n"
        // "  (format #t \"linectx-lines-copy~%\")"
        // "  (dynamic-wind tty-restore! break tty-setraw!)\n"
-       "  (let* ((lines (linectx-lines ctx))\n"
-       "         (copy (make-gbuffer (gbuffer-length lines))))\n"
-       "    (gbuffer-iterate lines\n"
-       "      (lambda (i line)\n"
-       "        (gbuffer-set! copy i (charline-copy line))))\n"
-       "    copy))\n"
+       "  (charlines-copy-on-write (linectx-lines ctx)))\n"
        "\n"
        /** save a copy of linectx-lines to history, and return such copy */
        "(define (linectx-copy-lines-to-history ctx)\n"

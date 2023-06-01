@@ -367,11 +367,17 @@ static const struct {
      "      (set! ret (cons cell ret))))\n"
      "  ret)",
      "((2.1 . B) (1.0 . A) (3 . C))"},
-    /* ------------------------ lineedit history ---------------------------- */
+    /* ------------------------ lineedit base ------------------------------- */
     {"(string->charline \"abc 123\")", "(string->charline* \"abc 123\")"},
     {"(string->charline* \"echo \\n\")", "(string->charline* \"echo \\n\")"},
     {"(charline-nl? (string->charline \"echo \\n\"))", "#t"},
     {"(charline-length (string->charline \"echo \\n\"))", "5"}, // final #\newline is not counted
+    {"(let* ((l1 (string->charline* \"foo/bar\"))\n"
+     "       (l2 (charline-copy-on-write l1)))\n"
+     "  (charline-erase-at! l1 3 1)\n"
+     "  (charline-insert-at! l2 3 #\\~)\n"
+     "  (list l1 l2))",
+     "((string->charline* \"foobar\") (string->charline* \"foo~/bar\"))"},
     {"(charlines (string->charline* \"foo/bar\") (string->charline \"\\n\"))",
      "(charlines (string->charline* \"foo/bar\") (string->charline* \"\\n\"))"},
     /* ------------------------ parser scheme ------------------------------- */

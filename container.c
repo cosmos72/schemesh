@@ -1134,6 +1134,7 @@ static void schemesh_define_library_containers_charspan(void) {
        "  (assert (fx<=? (fx+ start n) (charspan-length sp)))\n"
        "  (string-fill-range! (charspan-vec sp) (fx+ start (charspan-beg sp)) n val))\n"
        "\n"
+       /* make a copy of charspan and return it */
        "(define (charspan-copy src)\n"
        "  (let* ((n (charspan-length src))\n"
        "         (dst (make-charspan n)))\n"
