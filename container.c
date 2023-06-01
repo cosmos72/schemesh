@@ -1524,7 +1524,7 @@ static void schemesh_define_library_containers_chargbuffer(void) {
   "charspan->chargbuffer charspan->chargbuffer* make-chargbuffer "                                 \
   "chargbuffer->charspan chargbuffer->string chargbuffer chargbuffer? chargbuffer-length "         \
   "chargbuffer-empty? "                                                                            \
-  "chargbuffer-ref chargbuffer-set! chargbuffer-clear! chargbuffer-split-at! "                     \
+  "chargbuffer-ref chargbuffer-set! chargbuffer-clear! "                                           \
   "chargbuffer-insert-at! chargbuffer-erase-at! chargbuffer-iterate "
 
   eval("(library (schemesh containers chargbuffer (0 1))\n"
@@ -1582,20 +1582,18 @@ static void schemesh_define_library_containers_chargbuffer(void) {
        "  (list->chargbuffer vals))\n"
        "\n"
        "(define (chargbuffer-length gb)\n"
-       "  (fx+ (charspan-length (chargbuffer-left gb)) (charspan-length (chargbuffer-right "
-       "gb))))\n"
+       "  (fx+ (charspan-length (chargbuffer-left gb)) (charspan-length (chargbuffer-right gb))))\n"
        "\n"
        "(define (chargbuffer-empty? gb)\n"
-       "  (and (charspan-empty? (chargbuffer-left gb)) (charspan-empty? (chargbuffer-right "
-       "gb))))\n"
+       "  (and (charspan-empty? (chargbuffer-left gb)) (charspan-empty? (chargbuffer-right gb))))\n"
        "\n"
-       "(define (chargbuffer-ref gb n)\n"
-       "  (assert (fx>=? n 0))\n"
-       "  (assert (fx<? n (chargbuffer-length gb)))\n"
+       "(define (chargbuffer-ref gb idx)\n"
+       "  (assert (fx>=? idx 0))\n"
+       "  (assert (fx<? idx (chargbuffer-length gb)))\n"
        "  (let ((left-n (charspan-length (chargbuffer-left gb))))\n"
-       "    (if (fx<? n left-n)\n"
-       "      (charspan-ref (chargbuffer-left  gb) n)\n"
-       "      (charspan-ref (chargbuffer-right gb) (fx- n left-n)))))\n"
+       "    (if (fx<? idx left-n)\n"
+       "      (charspan-ref (chargbuffer-left  gb) idx)\n"
+       "      (charspan-ref (chargbuffer-right gb) (fx- idx left-n)))))\n"
        "\n"
        "(define (chargbuffer-set! gb idx val)\n"
        "  (assert (fx>=? idx 0))\n"
