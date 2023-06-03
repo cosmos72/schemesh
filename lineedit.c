@@ -322,12 +322,47 @@ void schemesh_define_library_lineedit(void) {
        "    (mutable height)\n"      /* fixnum, terminal height                     */
        "    (mutable stdin)\n"       /* input file descriptor, or binary input port */
        "    (mutable stdout)\n"      /* output file descriptor, or binary output port */
-       "    (mutable read-timeout-milliseconds)\n" /* -1 means unlimited timeout */
-       "    (mutable return? linectx-return? linectx-return-set!)\n" /* bool */
-       "    (mutable eof? linectx-eof? linectx-eof-set!)\n"          /* bool */
+       "    (mutable read-timeout-milliseconds)\n" /* -1 means unlimited timeout      */
+       /*   bitwise or of: flag-eof? flag-return? flag-sigwinch? flag-update-prompt?  */
+       "    (mutable flags)\n"
        "    (mutable keytable)\n"      /* hashtable, contains keybindings */
        "    (mutable history-index)\n" /* index of last used item in history */
        "    history))\n"               /* charhistory, history of entered commands */
+       "\n"
+       "(define flag-eof? 1)\n"
+       "(define flag-return? 2)\n"
+       "(define flag-sigwinch? 4)\n"
+       "(define flag-update-prompt? 8)\n"
+       "\n"
+       "(define (linectx-flag? ctx bit)\n"
+       "  (not (fxzero? (fxand bit (linectx-flags ctx)))))\n"
+       "\n"
+       "(define (linectx-flag-set! ctx bit flag?)\n"
+       "  (assert (boolean? flag?))\n"
+       "  (let ((flags (linectx-flags ctx)))\n"
+       "    (linectx-flags-set! ctx\n"
+       "      (if flag?\n"
+       "        (fxior flags bit)\n"
+       "        (fxand flags (fxnot bit))))))\n"
+       /*"    (format #t \"linectx-flag-set! ~s -> ~s~%\" flags (linectx-flags ctx))))\n"*/
+       "\n"
+       "(define (linectx-eof? ctx)\n"
+       "  (linectx-flag? ctx flag-eof?))\n"
+       "(define (linectx-return? ctx)\n"
+       "  (linectx-flag? ctx flag-return?))\n"
+       "(define (linectx-sigwinch? ctx)\n"
+       "  (linectx-flag? ctx flag-sigwinch?))\n"
+       "(define (linectx-update-prompt? ctx)\n"
+       "  (linectx-flag? ctx flag-update-prompt?))\n"
+       "\n"
+       "(define (linectx-eof-set! ctx flag?)\n"
+       "  (linectx-flag-set! ctx flag-eof? flag?))\n"
+       "(define (linectx-return-set! ctx flag?)\n"
+       "  (linectx-flag-set! ctx flag-return? flag?))\n"
+       "(define (linectx-sigwinch-set! ctx flag?)\n"
+       "  (linectx-flag-set! ctx flag-sigwinch? flag?))\n"
+       "(define (linectx-update-prompt-set! ctx flag?)\n"
+       "  (linectx-flag-set! ctx flag-update-prompt? flag?))\n"
        "\n"
        "(define lineedit-default-keytable (eq-hashtable))\n"
        "\n"
@@ -347,7 +382,7 @@ void schemesh_define_library_lineedit(void) {
        "      #f prompt-func\n"              /* prompt prompt-func       */
        "      (if (pair? sz) (car sz) 80)\n" /* width                    */
        "      (if (pair? sz) (cdr sz) 24)\n" /* height                   */
-       "      0 1 -1 #f #f \n"               /* stdin stdout read-timeout return? eof? */
+       "      0 1 -1 flag-update-prompt? \n" /* stdin stdout read-timeout flags */
        "      lineedit-default-keytable\n"   /* keytable */
        "      0 (charhistory))))\n"          /* history  */
        "\n"
@@ -535,8 +570,7 @@ void schemesh_define_library_lineedit(void) {
        "    (linectx-clear! ctx)\n"
        /*   do not use (term-move-to-bol), there will be a prompt at bol */
        "    (term-move-left-n ctx x))\n"
-       "  (term-clear-to-eol ctx)\n"
-       "  (lineedit-flush ctx))\n"
+       "  (term-clear-to-eol ctx))\n"
        "\n"
        /**
         * save current linectx-lines to history, then replace current lines with specified
@@ -842,8 +876,8 @@ void schemesh_define_library_lineedit(void) {
         * because linectx-history still references it.
         */
        "(define (linectx-return-lines ctx)\n"
-       "  (linectx-return-set! ctx #f)\n" /* clear flag "user pressed ENTER" */
-       "  (linectx-prompt-set! ctx #f)\n" /* set flag "update prompt" */
+       "  (linectx-return-set! ctx #f)\n"        /* clear flag "user pressed ENTER" */
+       "  (linectx-update-prompt-set! ctx #t)\n" /* set flag "update prompt" */
        "  (let* ((y (linectx-history-index ctx))\n"
        "         (hist (linectx-history ctx))\n"
        "         (hist-len (charhistory-length hist)))\n"
@@ -872,7 +906,6 @@ void schemesh_define_library_lineedit(void) {
        "           (linectx-eof? ctx)\n"
        "           (bytespan-empty? (linectx-rbuf ctx))\n"
        "           (fxzero? (linectx-keytable-call ctx)))))\n"
-       "  (lineedit-flush ctx)\n"
        "  (cond\n"
        "    ((linectx-return? ctx) (linectx-return-lines ctx))\n"
        "    ((linectx-eof?    ctx) #f)\n"
@@ -887,6 +920,7 @@ void schemesh_define_library_lineedit(void) {
         * return -1 on eof
         */
        "(define (linectx-read ctx read-timeout-milliseconds)\n"
+       "  (lineedit-flush ctx)\n"
        "  (let* ((rbuf (linectx-rbuf ctx))\n"
        "         (rlen (bytespan-length rbuf))\n"
        "         (max-n 1024)\n"
@@ -915,19 +949,13 @@ void schemesh_define_library_lineedit(void) {
        "    (assert (fx<=? 0 got max-n))\n"
        "    (if eof? -1 got)))\n"
        "\n"
-       /**
-        * if user pressed ENTER, return a reference to internal linectx-lines.
-        * if waiting for more keypresses, return #t
-        * if got end-of-file, return #f
-        */
-       "(define (lineedit-read ctx timeout-milliseconds)\n"
+       "(define (%lineedit-read ctx timeout-milliseconds)\n"
        "  (assert (linectx? ctx))\n"
-       "  (flush-output-port (current-output-port))\n"
        /* update prompt if needed */
-       "  (unless (charspan? (linectx-prompt ctx))\n"
+       "  (when (linectx-update-prompt? ctx)\n"
        "    (linectx-prompt-set! ctx ((linectx-prompt-func ctx) ctx))\n"
-       "    (lineedit-key-redraw ctx)\n"
-       "    (lineedit-flush ctx))\n"
+       "    (linectx-update-prompt-set! ctx #f)\n"
+       "    (lineedit-key-redraw ctx))\n"
        "  (let ((ret (if (bytespan-empty? (linectx-rbuf ctx))\n"
        "               #t\n" /* need more input */
        /*              some bytes already in rbuf, try to consume them */
@@ -942,6 +970,22 @@ void schemesh_define_library_lineedit(void) {
        "          (#t          #f)))\n" /* end-of-file, return #f  */
        /*     propagate return value of first (linectx-keytable-iterate) */
        "      ret)))\n"
+       "\n"
+       /**
+        * Main entry point of lineedit library.
+        * Reads user input from linectx-stdin and processes it.
+        *
+        * if user pressed ENTER, return a reference to internal linectx-lines.
+        * if waiting for more keypresses, return #t
+        * if got end-of-file, return #f
+        */
+       "(define (lineedit-read ctx timeout-milliseconds)\n"
+       "  (dynamic-wind\n"
+       /*   write current-output-port buffered output before entering read loop */
+       "    (lambda () (flush-output-port (current-output-port)))\n"
+       "    (lambda () (%lineedit-read ctx timeout-milliseconds))\n"
+       /*   write linectx buffered output before returning */
+       "    (lambda () (lineedit-flush ctx))))\n"
        "\n"
        "(let ((t lineedit-default-keytable)\n"
        "      (%add lineedit-keytable-set!))\n"
