@@ -24,6 +24,7 @@ static void schemesh_define_library_lineedit_base(void) {
        "    charhistory charhistory? make-charhistory)\n"
        "  (import\n"
        "    (rnrs)\n"
+       "    (only (rnrs mutable-pairs)   set-car!)\n"
        "    (only (rnrs mutable-strings) string-set!)\n"
        "    (only (chezscheme) fx1+ fx1- record-writer string-copy!)\n"
        "    (schemesh containers))\n"
@@ -37,37 +38,59 @@ static void schemesh_define_library_lineedit_base(void) {
        "  (nongenerative #{%chargbuffer itah4n3k0nl66ucaakkpqk55m-16}))\n"
        "\n"
        /**
-        * type charline is a char gap-buffer with two additional flags:
-        * - charline-nl? true if the gap buffer logically ends with a #\newline
-        * - charline-cow? true if the gab buffer is copy-on-write i.e. its content
-        *   will be automatically cloned at the first attempt to modify it.
+        * type charline is a char gap-buffer with two additional fields:
+        * - charline-newline? true if the gap buffer logically ends with a #\newline
+        * - charline-share a cons. its car will be > 0 if the gab buffer is shared copy-on-write
+        *   between two or more charlines: its content will be automatically cloned at the first
+        *   attempt to modify it.
         */
        "(define-record-type\n"
        "  (%charline %make-charline charline?)\n"
        "  (parent %chargbuffer)\n"
        "  (fields\n"
-       "    (mutable newline charline-nl?  charline-nl?-set!)\n"
-       "    (mutable cow?    charline-cow? charline-cow?-set!))\n"
-       //"  (nongenerative #{%charline dsnyti7xvgjo5xbayeuikwlju-28}))\n"
-       "  )\n"
+       "    (mutable newline? charline-nl? charline-nl?-set!)\n"
+       "    (mutable share))\n"
+       "  (nongenerative #{%charline i81qf0lqcmlgj68ai4ihn68w3-28}))\n"
+       "\n"
+       "(define (make-charline left-span right-span nl?)\n"
+       "  (assert (charspan? left-span))\n"
+       "  (assert (charspan? right-span))\n"
+       "  (assert (boolean? nl?))\n"
+       "  (%make-charline left-span right-span nl? (cons 0 #f)))\n"
+       "\n"
+       /** increment charline share count by 1.
+        * return pair containing share count */
+       "(define (charline-share-inc! line)\n"
+       "  (let ((pair (%charline-share line)))\n"
+       "    (set-car! pair (fx1+ (car pair)))\n"
+       "    pair))\n"
+       "\n"
+       /** decrement charline share count by 1.
+        * return #t if charline was shared, otherwise return #f */
+       "(define (charline-share-dec! line)\n"
+       "  (let* ((pair (%charline-share line))\n"
+       "         (count (car pair))\n"
+       "         (shared? (fx>? count 0)))\n"
+       "    (when shared?\n"
+       "      (set-car! pair (fx1- count)))\n"
+       "    shared?))\n"
        "\n"
        "(define (charline)\n"
-       "  (%make-charline (charspan) (charspan) #f #f))\n"
+       "  (make-charline (charspan) (charspan) #f))\n"
        "\n"
        /**
         * Return a copy-on-write clone of specified charline.
-        * Marks both line and the returned clone with copy-on-write flag.
         */
        "(define (charline-copy-on-write line)\n"
-       "  (charline-cow?-set! line #t)\n"
        "  (%make-charline (chargbuffer-left line) (chargbuffer-right line)\n"
-       "                  (charline-nl? line) #t))\n"
+       "                  (charline-nl? line) (charline-share-inc! line)))\n"
        "\n"
+       /** if charline was a copy-on-write clone, actually clone it. */
        "(define (charline-unshare! line)\n"
-       "  (when (charline-cow? line)\n"
+       "  (when (charline-share-dec! line)\n"
        "    (chargbuffer-left-set!  line (charspan-copy (chargbuffer-left line)))\n"
        "    (chargbuffer-right-set! line (charspan-copy (chargbuffer-right line)))\n"
-       "    (charline-cow?-set! line #f)))\n"
+       "    (%charline-share-set! line (cons 0 #f))))\n"
        "\n"
        "(define charline-empty?     chargbuffer-empty?)\n"
        "(define charline-length     chargbuffer-length)\n"
@@ -90,7 +113,7 @@ static void schemesh_define_library_lineedit_base(void) {
        "  (chargbuffer-clear! line))\n"
        "\n"
        "(define (string->charline str)\n"
-       "  (let ((line (%make-charline (charspan) (string->charspan str) #f #f))\n"
+       "  (let ((line (make-charline (charspan) (string->charspan str) #f))\n"
        "        (last (fx1- (string-length str))))\n"
        "    (when (and (fx>=? last 0) (char=? #\\newline (string-ref str last)))\n"
        "      (charline-erase-at! line last 1)\n"
@@ -98,7 +121,7 @@ static void schemesh_define_library_lineedit_base(void) {
        "    line))\n"
        "\n"
        "(define (string->charline* str)\n"
-       "  (let ((line (%make-charline (charspan) (string->charspan* str) #f #f))\n"
+       "  (let ((line (make-charline (charspan) (string->charspan* str) #f))\n"
        "        (last (fx1- (string-length str))))\n"
        "    (when (and (fx>=? last 0) (char=? #\\newline (string-ref str last)))\n"
        "      (charline-erase-at! line last 1)\n"
@@ -152,7 +175,7 @@ static void schemesh_define_library_lineedit_base(void) {
        "(define charlines-insert-at! gbuffer-insert-at!)\n"
        "\n"
        /**
-        * Make a copy-on-write clone of charlines.
+        * Return a copy-on-write clone of charlines.
         * Also calls (charline-copy-on-write) on each line.
         */
        "(define (charlines-copy-on-write lines)\n"
@@ -172,18 +195,17 @@ static void schemesh_define_library_lineedit_base(void) {
        "  (nongenerative #{%span ng1h8vurkk5k61p0jsryrbk99-0}))\n"
        "\n"
        /**
-        * type charhistory is a span containing immutable charlines elements (the history itself),
-        * plus an hashtable with fixnum keys and charlines values,
-        * containing a mutable copy (actually copy-on-write) of edited history lines.
+        * type charhistory is a span containing charlines elements (the history itself)
+        * plus an index indicating the current charlines being edited.
         */
        "(define-record-type\n"
        "  (%charhistory %make-charhistory charhistory?)\n"
        "  (parent %span)\n"
        "  (fields\n"
        /*   index of current charlines being edited  */
-       "    (mutable curridx charhistory-curridx charhistory-curridx-set!)\n"
-       "    (immutable htable charhistory-htable))\n" /* eqv-hashtable: fixnum -> charlines */
-       "  (nongenerative #{%charhistory ra3d47b433rpus4d35xualta-28}))\n"
+       "    (mutable curridx charhistory-curridx charhistory-curridx-set!))\n"
+       //"  (nongenerative #{%charhistory ra3d47b433rpus4d35xualta-28}))\n"
+       "  )\n"
        "\n"
        "(define (assert-charlines? lines)\n"
        "  (unless (charlines? lines)\n"
@@ -191,11 +213,12 @@ static void schemesh_define_library_lineedit_base(void) {
        "\n"
        "(define (charhistory . vals)\n"
        "  (list-iterate vals assert-charlines?)\n"
-       "  (let ((vec (list->vector vals)))\n"
-       "    (%make-charhistory 0 (vector-length vec) vec 0 (make-eqv-hashtable))))\n"
+       "  (let* ((vec (list->vector vals))\n"
+       "         (n (vector-length vec)))\n"
+       "    (%make-charhistory 0 n vec n)))\n"
        "\n"
        "(define (make-charhistory n)\n"
-       "  (%make-charhistory 0 n (make-vector n) 0 (make-eqv-hashtable)))\n"
+       "  (%make-charhistory 0 n (make-vector n) n))\n"
        "\n"
        /** customize how "charline" objects are printed */
        "(record-writer (record-type-descriptor %charline)\n"
@@ -218,11 +241,10 @@ static void schemesh_define_library_lineedit_base(void) {
        "(record-writer (record-type-descriptor %charhistory)\n"
        "  (lambda (hist port writer)\n"
        "    (display \"(charhistory\" port)\n"
-       "    (let ((htable (charhistory-htable hist)))\n"
-       "      (span-iterate hist"
-       "        (lambda (i elem)"
-       "          (display #\\space port)\n"
-       "          (writer (hashtable-ref htable i elem) port))))\n"
+       "    (span-iterate hist"
+       "      (lambda (i elem)"
+       "        (display #\\space port)\n"
+       "        (writer elem port)))\n"
        "    (display #\\) port)))\n"
        "\n"
        ")\n"); // close library
