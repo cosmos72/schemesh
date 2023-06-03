@@ -21,7 +21,7 @@ static void schemesh_define_library_lineedit_base(void) {
        "    charlines charlines? charlines-iterate charlines-length charlines-copy-on-write\n"
        "    charlines-clear! charlines-erase-at! charlines-insert-at!\n"
        "\n"
-       "    linehistory linehistory? make-linehistory)\n"
+       "    charhistory charhistory? make-charhistory)\n"
        "  (import\n"
        "    (rnrs)\n"
        "    (only (rnrs mutable-strings) string-set!)\n"
@@ -172,30 +172,30 @@ static void schemesh_define_library_lineedit_base(void) {
        "  (nongenerative #{%span ng1h8vurkk5k61p0jsryrbk99-0}))\n"
        "\n"
        /**
-        * type linehistory is a span containing immutable charlines elements (the history itself),
+        * type charhistory is a span containing immutable charlines elements (the history itself),
         * plus an hashtable with fixnum keys and charlines values,
         * containing a mutable copy (actually copy-on-write) of edited history lines.
         */
        "(define-record-type\n"
-       "  (%linehistory %make-linehistory linehistory?)\n"
+       "  (%charhistory %make-charhistory charhistory?)\n"
        "  (parent %span)\n"
        "  (fields\n"
-       /*   index of last edited charlines */
-       "    (mutable lastidx linehistory-lastidx linehistory-lastidx-set!)\n"
-       "    (immutable htable linehistory-htable))\n" /* eqv-hashtable: fixnum -> charlines */
-       "  (nongenerative #{%linehistory c4x7a3avz4f9dhl58ur9plmnz-28}))\n"
+       /*   index of current charlines being edited  */
+       "    (mutable curridx charhistory-curridx charhistory-curridx-set!)\n"
+       "    (immutable htable charhistory-htable))\n" /* eqv-hashtable: fixnum -> charlines */
+       "  (nongenerative #{%charhistory ra3d47b433rpus4d35xualta-28}))\n"
        "\n"
        "(define (assert-charlines? lines)\n"
        "  (unless (charlines? lines)\n"
-       "    (assertion-violation 'linehistory \"argument is not a charlines\" lines)))\n"
+       "    (assertion-violation 'charhistory \"argument is not a charlines\" lines)))\n"
        "\n"
-       "(define (linehistory . vals)\n"
+       "(define (charhistory . vals)\n"
        "  (list-iterate vals assert-charlines?)\n"
        "  (let ((vec (list->vector vals)))\n"
-       "    (%make-linehistory 0 (vector-length vec) vec 0 (make-eqv-hashtable))))\n"
+       "    (%make-charhistory 0 (vector-length vec) vec 0 (make-eqv-hashtable))))\n"
        "\n"
-       "(define (make-linehistory n)\n"
-       "  (%make-linehistory 0 n (make-vector n) (make-eqv-hashtable)))\n"
+       "(define (make-charhistory n)\n"
+       "  (%make-charhistory 0 n (make-vector n) 0 (make-eqv-hashtable)))\n"
        "\n"
        /** customize how "charline" objects are printed */
        "(record-writer (record-type-descriptor %charline)\n"
@@ -214,11 +214,11 @@ static void schemesh_define_library_lineedit_base(void) {
        "        (writer elem port)))\n"
        "    (display #\\) port)))\n"
        "\n"
-       /** customize how "linehistory" objects are printed */
-       "(record-writer (record-type-descriptor %linehistory)\n"
+       /** customize how "charhistory" objects are printed */
+       "(record-writer (record-type-descriptor %charhistory)\n"
        "  (lambda (hist port writer)\n"
-       "    (display \"(linehistory\" port)\n"
-       "    (let ((htable (linehistory-htable hist)))\n"
+       "    (display \"(charhistory\" port)\n"
+       "    (let ((htable (charhistory-htable hist)))\n"
        "      (span-iterate hist"
        "        (lambda (i elem)"
        "          (display #\\space port)\n"
@@ -278,7 +278,7 @@ void schemesh_define_library_lineedit(void) {
        "    (mutable eof linectx-eof? linectx-eof-set!)\n"          /* bool */
        "    (mutable keytable)\n"      /* hashtable, contains keybindings */
        "    (mutable history-index)\n" /* index of last used item in history */
-       "    history))\n"               /* linehistory, history of entered commands */
+       "    history))\n"               /* charhistory, history of entered commands */
        "\n"
        "(define lineedit-default-keytable (eq-hashtable))\n"
        "\n"

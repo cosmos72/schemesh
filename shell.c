@@ -30,21 +30,23 @@
 
 #undef SCHEMESH_LIBRARY_SHELL_PARSE_DEBUG
 
-static void c_environ_to_sh_env(char** env) {
-  const char* entry;
-  if (!env) {
-    return;
-  }
-  for (; (entry = *env) != NULL; ++env) {
+/**
+ * return i-th environment variable i.e. environ[i]
+ * converted to a cons containing two Scheme strings: (key . value)
+ *
+ * if environ[i] is NULL, return #f
+ */
+static ptr c_environ_ref(uptr i) {
+  const char* entry = environ[i];
+  if (entry) {
     const char* separator = strchr(entry, '=');
     size_t      namelen   = separator ? separator - entry : 0;
     iptr        inamelen  = Sfixnum_value(Sfixnum(namelen));
-    if (namelen == 0 || inamelen < 0 || namelen != (size_t)inamelen) {
-      continue;
+    if (namelen > 0 && inamelen > 0 && namelen == (size_t)inamelen) {
+      return Scons(Sstring_utf8(entry, inamelen), Sstring_utf8(separator + 1, -1));
     }
-    call3("sh-env-set!", Strue, Sstring_utf8(entry, inamelen), Sstring_utf8(separator + 1, -1));
-    call3("sh-env-export!", Strue, Sstring_utf8(entry, inamelen), Strue);
   }
+  return Sfalse;
 }
 
 /**
@@ -55,11 +57,12 @@ static void c_environ_to_sh_env(char** env) {
  *             (shell) and (shell-...) are macros
  */
 static void schemesh_define_library_shell_jobs(void) {
+  Sregister_symbol("c_environ_ref", &c_environ_ref);
 
 #define SCHEMESH_LIBRARY_SHELL_JOBS_EXPORT                                                         \
   "sh-job? sh-job-ref sh-job-status sh-jobs sh-cmd sh-cmd<> sh-cmd? sh-multijob sh-multijob? "     \
   "sh-globals sh-global-env sh-env-copy sh-env-get sh-env-set! sh-env-unset! "                     \
-  "sh-env-exported? sh-env-export! sh-env->vector-of-bytevector0 "                                 \
+  "sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0 "              \
   "sh-start sh-bg sh-fg sh-run sh-run-capture-output sh-wait sh-and sh-or sh-and-or* "             \
   "sh-list sh-list* sh-fd-redirect! sh-fds-redirect! "
 
@@ -181,7 +184,7 @@ static void schemesh_define_library_shell_jobs(void) {
       /**
        * Define the function (sh-job-ref), converts job-id to job.
        * Job-id can be either a job,
-       * or #t which means sh-globals - needed by C function c_environ_to_sh_env()
+       * or #t which means sh-globals,
        * or a fixnum indicating one of the running jobs stored in (multijob-children sh-globals)
        *
        * Raises error if no job matches job-id.
@@ -359,6 +362,28 @@ static void schemesh_define_library_shell_jobs(void) {
       "" /* (job-direct-env j) creates job environment if not yet present */
       "    (hashtable-set! (job-direct-env j) name (cons export val))))\n"
       "\n"
+      /* combined sh-env-set! and sh-env-export! */
+      "(define (sh-env-set+export! job-id name val exported?)\n"
+      "  (assert (boolean? exported?))\n"
+      "  (let* ((vars (job-direct-env job-id))\n"
+      "         (export (if exported? 'export 'private)))\n"
+      "    (hashtable-set! vars name (cons export val))))\n"
+      "\n"
+      /*
+       * Repeatedly call C function c_environ_ref() and store returned (key . value)
+       * environment variables into (sh-global-env).
+       *
+       * This function is usually only called once, during initialization of Scheme library
+       * (schemesh shell) below.
+       */
+      "(define c-environ->sh-global-env"
+      "  (let ((c-environ-ref (foreign-procedure \"c_environ_ref\" (uptr) scheme-object)))\n"
+      "    (lambda ()\n"
+      "      (do ((i 1 (+ i 1))\n"
+      "           (entry (c-environ-ref 0) (c-environ-ref i)))\n"
+      "          ((not (pair? entry)))\n"
+      "        (sh-env-set+export! sh-globals (car entry) (cdr entry) #t)))))\n"
+      "\n"
       /**
        * Extract environment variables from specified job and all its parents,
        * and convert them to a vector of bytevector0.
@@ -385,8 +410,8 @@ static void schemesh_define_library_shell_jobs(void) {
        * into global (pid->job) table nor into global job-id table.
        *
        * Description:
-       * Start a cmd i.e. fork() and exec() an external process, optionally inserting it into an
-       * existing process group.
+       * Start a cmd i.e. fork() and exec() an external process, optionally inserting it into
+       * an existing process group.
        *
        * The new process is started in background, i.e. the foreground process group is NOT set
        * to the process group of the newly created process.
@@ -911,6 +936,9 @@ static void schemesh_define_library_shell_jobs(void) {
       "         (display child port)))\n"
       "    (display #\\) port)))\n"
       "\n"
+      "(begin\n"
+      "  (c-environ->sh-global-env))\n"
+      "\n"
       ")\n"); /* close library */
 }
 
@@ -1245,9 +1273,6 @@ void schemesh_import_libraries(void) {
        "  (import (schemesh lineedit))\n"
        "  (import (schemesh shell))\n"
        "  (import (schemesh repl)))\n");
-
-  /* requires (import (schemesh shell)) */
-  c_environ_to_sh_env(environ);
 }
 
 void schemesh_init(void (*on_scheme_exception)(void)) {
