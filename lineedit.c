@@ -342,25 +342,23 @@ void schemesh_define_library_lineedit(void) {
        "    (bytespan-reserve-back! state 32)\n"
        "    (%make-linectx\n"
        "      rbuf wbuf line lines state\n"
-       "      0 0 -1 -1 1\n"                 /* x y match-x match-y rows    */
-       "      (if (pair? sz) (car sz) 80)\n" /* width                     */
-       "      (if (pair? sz) (cdr sz) 24)\n" /* height                    */
-       "      0 1 -1 #f #f \n"               /* stdin stdout timeout return eof  */
+       "      0 0 -1 -1 1\n"                 /* x y match-x match-y rows */
+       "      (if (pair? sz) (car sz) 80)\n" /* width                    */
+       "      (if (pair? sz) (cdr sz) 24)\n" /* height                   */
+       "      0 1 -1 #f #f \n"               /* stdin stdout timeout return eof */
        "      lineedit-default-keytable\n"   /* keytable */
        "      0 (charhistory))))\n"          /* history  */
        "\n"
-       /* clear lines and line: they have been parsed and executed */
+       /* also recreate line and lines: they have been saved to history, which retains them */
        "(define (linectx-clear! ctx)\n"
-       "  (let ((line (linectx-line ctx))\n"
-       "        (lines (linectx-lines ctx)))\n"
-       "    (linectx-x-set! ctx 0)\n"
-       "    (linectx-y-set! ctx 0)\n"
-       "    (linectx-match-x-set! ctx -1)\n"
-       "    (linectx-match-y-set! ctx -1)\n"
-       "    (charline-clear! line)\n"
-       "    (charlines-clear! lines)\n"
-       "    (charlines-insert-at! lines 0 line)\n"
-       "    (linectx-return-set! ctx #f)))\n"
+       "  (linectx-x-set! ctx 0)\n"
+       "  (linectx-y-set! ctx 0)\n"
+       "  (linectx-match-x-set! ctx -1)\n"
+       "  (linectx-match-y-set! ctx -1)\n"
+       "  (linectx-return-set!  ctx #f)\n"
+       "  (let ((line (charline)))\n"
+       "    (linectx-line-set!  ctx line)\n"
+       "    (linectx-lines-set! ctx (charlines line))))\n"
        "\n"
        /* write a byte to wbuf */
        "(define (linectx-u8-write ctx u8)\n"
@@ -377,7 +375,7 @@ void schemesh_define_library_lineedit(void) {
        "      ((fx>=? pos end))\n"
        "    (bytespan-utf8-insert-back! wbuf (chargbuffer-ref cgb pos))))\n"
        "\n"
-       /** return a copy-on-write clone of linectx-lines */
+       /** return a copy-on-write clone of current lines being edited */
        "(define (linectx-lines-copy ctx)\n"
        /* "  (format #t \"linectx-lines-copy~%\")" */
        /* "  (dynamic-wind tty-restore! break tty-setraw!)\n" */
@@ -507,14 +505,14 @@ void schemesh_define_library_lineedit(void) {
        "  (linectx-to-history ctx)\n"
        "  (lineedit-clear! ctx)\n" /* leaves a single, empty line in lines */
        "  (when (charlines-empty? lines)\n"
-       "    (charlines-insert-at! lines 0 (charline)))\n"
+       "    (set! lines (linectx-lines ctx)))\n"
        "  (charlines-iterate lines\n"
        "    (lambda (i line)\n"
        "      (linectx-cgb-write ctx line 0 (charline-length line))))\n"
        "  (let* ((lines-n (charlines-length lines))\n"
        "         (line    (charlines-ref lines (fx1- lines-n))))\n"
-       "    (linectx-lines-set! ctx lines)\n"
        "    (linectx-line-set!  ctx line)\n"
+       "    (linectx-lines-set! ctx lines)\n"
        "    (linectx-x-set! ctx (charline-length line))\n"
        "    (linectx-y-set! ctx lines-n)))\n"
        "\n"
@@ -797,8 +795,8 @@ void schemesh_define_library_lineedit(void) {
        "           (empty-line (charline)))\n"
        "      (linectx-history-index-set! ctx (charhistory-length hist))\n"
        /*     lines are referenced by history - allocate new ones */
-       "      (linectx-lines-set! ctx (charlines empty-line))\n"
        "      (linectx-line-set! ctx empty-line)\n"
+       "      (linectx-lines-set! ctx (charlines empty-line))\n"
        "      lines)))\n"
        "\n"
        /**
