@@ -1044,7 +1044,7 @@ static void schemesh_define_library_containers_charspan(void) {
   "list->charspan string->charspan string->charspan* make-charspan charspan->string "              \
   "charspan charspan? charspan-length charspan-empty? charspan-clear! charspan-capacity "          \
   "charspan-capacity-front charspan-capacity-back charspan-ref charspan-back charspan-set! "       \
-  "charspan-fill! charspan-fill-range! charspan-copy charspan-copy! "                              \
+  "charspan-fill! charspan-fill-range! charspan-copy charspan-copy! charspan=? "                   \
   "charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back! "   \
   "charspan-insert-front! charspan-insert-back!  "                                                 \
   "charspan-csp-insert-front! charspan-csp-insert-back! "                                          \
@@ -1150,6 +1150,14 @@ static void schemesh_define_library_containers_charspan(void) {
        "  (assert (fx<=? (fx+ dst-start n) (charspan-length dst)))\n"
        "  (string-copy! (charspan-vec src) (fx+ src-start (charspan-beg src))\n"
        "                (charspan-vec dst) (fx+ dst-start (charspan-beg dst)) n))\n"
+       "\n"
+       "(define (charspan=? left right)\n"
+       "  (let* ((n1 (charspan-length left))\n"
+       "         (n2 (charspan-length right))\n"
+       "         (equal (fx=? n1 n2)))\n"
+       "    (do ((i 0 (fx1+ i)))\n"
+       "        ((or (not equal) (fx>=? i n1)) equal)\n"
+       "      (set! equal (char=? (charspan-ref left i) (charspan-ref right i))))))\n"
        "\n"
        "(define (charspan-reallocate-front! sp len cap)\n"
        "  (assert (fx>=? len 0))\n"

@@ -292,7 +292,8 @@ void schemesh_define_library_lineedit(void) {
        "    lineedit-key-enter lineedit-key-newline-left lineedit-key-newline-right\n"
        "    lineedit-key-redraw lineedit-key-tab\n"
        "    lineedit-key-history-next lineedit-key-history-prev\n"
-       "    lineedit-keytable-set! lineedit-keytable-find lineedit-read lineedit-flush)\n"
+       "    lineedit-keytable-set! lineedit-keytable-find lineedit-read\n"
+       "    lineedit-flush lineedit-finish)\n"
        "  (import\n"
        "    (rnrs)\n"
        "    (only (chezscheme) " /*format*/ " fx1+ fx1- inspect void)\n"
@@ -366,7 +367,7 @@ void schemesh_define_library_lineedit(void) {
        "\n"
        "(define lineedit-default-keytable (eq-hashtable))\n"
        "\n"
-       /** prompt-func must be a procedure accepting a linectx and returning a charspan,
+       /** prompt-func must be a procedure returning a charspan,
         * which will be used as prompt */
        "(define (make-linectx* prompt-func)\n"
        "  (let* ((sz    (tty-size))\n"
@@ -390,7 +391,7 @@ void schemesh_define_library_lineedit(void) {
        "  (case-lambda\n"
        "    (()\n"
        "      (let ((prompt (string->charspan* \"$ \")))\n"
-       "        (make-linectx* (lambda (ctx) prompt))))\n"
+       "        (make-linectx* (lambda () prompt))))\n"
        "    ((prompt-func)\n"
        "      (make-linectx* prompt-func))))\n"
        "\n"
@@ -572,6 +573,10 @@ void schemesh_define_library_lineedit(void) {
        "    (term-move-left-n ctx x))\n"
        "  (term-clear-to-eol ctx))\n"
        "\n"
+       /* write #\newline before returning from (repl) */
+       "(define (lineedit-finish ctx)\n"
+       "  (linectx-u8-write ctx 10)\n"
+       "  (lineedit-flush ctx))\n"
        /**
         * save current linectx-lines to history, then replace current lines with specified
         * charlines - which are retained, do NOT modify them after calling this function
@@ -911,6 +916,16 @@ void schemesh_define_library_lineedit(void) {
        "    ((linectx-eof?    ctx) #f)\n"
        "    (#t                    #t)))\n"
        "\n"
+       /* update prompt if needed */
+       "(define (linectx-update-prompt-if-needed ctx)\n"
+       "  (when (linectx-update-prompt? ctx)\n"
+       "    (let ((old-prompt (linectx-prompt ctx))\n"
+       "          (new-prompt ((linectx-prompt-func ctx))))\n"
+       "      (unless (and (span? old-prompt) (charspan=? old-prompt new-prompt))\n"
+       "        (linectx-prompt-set! ctx new-prompt)\n"
+       "        (lineedit-key-redraw ctx)))\n"
+       "    (linectx-update-prompt-set! ctx #f)))\n"
+       "\n"
        /**
         * read some bytes, blocking at most for read-timeout-milliseconds
         *   (0 = non-blocking, -1 = unlimited timeout)
@@ -950,12 +965,7 @@ void schemesh_define_library_lineedit(void) {
        "    (if eof? -1 got)))\n"
        "\n"
        "(define (%lineedit-read ctx timeout-milliseconds)\n"
-       "  (assert (linectx? ctx))\n"
-       /* update prompt if needed */
-       "  (when (linectx-update-prompt? ctx)\n"
-       "    (linectx-prompt-set! ctx ((linectx-prompt-func ctx) ctx))\n"
-       "    (linectx-update-prompt-set! ctx #f)\n"
-       "    (lineedit-key-redraw ctx))\n"
+       "  (linectx-update-prompt-if-needed ctx)\n"
        "  (let ((ret (if (bytespan-empty? (linectx-rbuf ctx))\n"
        "               #t\n" /* need more input */
        /*              some bytes already in rbuf, try to consume them */

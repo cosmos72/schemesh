@@ -17,6 +17,8 @@
 #include "repl.h"
 #include "signal.h"
 
+#include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -50,6 +52,34 @@ static ptr c_environ_ref(uptr i) {
 }
 
 /**
+ * return current working directory
+ */
+static ptr c_get_cwd(void) {
+  {
+    char dir[256];
+    if (getcwd(dir, sizeof(dir)) == dir) {
+      return Sstring_utf8(dir, -1);
+    } else if (c_errno() != -ERANGE) {
+      return Sstring_utf8("", 0);
+    }
+  }
+  {
+    size_t maxlen = 1024;
+    char*  dir    = NULL;
+    while (maxlen && (dir = malloc(maxlen)) != NULL) {
+      if (getcwd(dir, maxlen) == dir) {
+        ptr ret = Sstring_utf8(dir, -1);
+        free(dir);
+        return ret;
+      }
+      free(dir);
+      maxlen *= 4;
+    }
+  }
+  return Sstring_utf8("", 0);
+}
+
+/**
  * Define the record types "job" "cmd" "multijob" and functions operating on them.
  * Define the functions (sh-env...) and (sh-fd...)
  *
@@ -58,11 +88,13 @@ static ptr c_environ_ref(uptr i) {
  */
 static void schemesh_define_library_shell_jobs(void) {
   Sregister_symbol("c_environ_ref", &c_environ_ref);
+  Sregister_symbol("c_get_cwd", &c_get_cwd);
 
 #define SCHEMESH_LIBRARY_SHELL_JOBS_EXPORT                                                         \
   "sh-job? sh-job-ref sh-job-status sh-jobs sh-cmd sh-cmd<> sh-cmd? sh-multijob sh-multijob? "     \
   "sh-globals sh-global-env sh-env-copy sh-env-get sh-env-set! sh-env-unset! "                     \
   "sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0 "              \
+  "sh-cwd sh-expand-ps1 "                                                                          \
   "sh-start sh-bg sh-fg sh-run sh-run-capture-output sh-wait sh-and sh-or sh-and-or* "             \
   "sh-list sh-list* sh-fd-redirect! sh-fds-redirect! "
 
@@ -75,6 +107,7 @@ static void schemesh_define_library_shell_jobs(void) {
       "    (only (chezscheme) foreign-procedure record-writer reverse! void)\n"
       "    (schemesh containers misc)\n"
       "    (schemesh containers span)\n"
+      "    (schemesh containers charspan)\n"
       "    (schemesh containers hashtable)\n"
       "    (schemesh conversions)\n"
       "    (schemesh pid)\n"
@@ -95,6 +128,7 @@ static void schemesh_define_library_shell_jobs(void) {
       "    subshell-func\n"               /* procedure to run in fork()ed child.
                                              receives job as only argument, and its return
                                              value is passed to (exit-with-job-status)   */
+      "    (mutable cwd)\n"               /* charspan: working directory                 */
       "    (mutable env)\n"               /* hashtable: overridden env variables, or '() */
       "    (mutable parent)))\n"          /* parent job, contains default values of env variables */
       "\n"                                /* and default redirections */
@@ -124,6 +158,8 @@ static void schemesh_define_library_shell_jobs(void) {
        * pretend it already exited with unknown exit status */
       "  (%make-multijob (get-pid) (get-pgid 0) '(unknown . 0) (vector 0 1 2) (vector) '()\n"
       "    #f\n" /* subshell-func */
+      /*   current directory */
+      "    (string->charspan* ((foreign-procedure \"c_get_cwd\" () scheme-object)))\n"
       "    (make-hashtable string-hash string=?) #f\n"
       "    'global (span #t) 1))\n" /* skip job-id 0 */
       "\n"
@@ -203,6 +239,11 @@ static void schemesh_define_library_shell_jobs(void) {
       "    ((sh-job? job-id) job-id)\n"
       "    (#t (error 'sh-job-ref \"not a job-id:\" job-id))))\n"
       "\n"
+      "(define sh-cwd\n"
+      "  (case-lambda\n"
+      "    (()       (job-cwd sh-globals))\n"
+      "    ((job-id) (job-cwd (sh-job-ref job-id)))))\n"
+      "\n"
       /**
        * Define the function (sh-jobs), returns currently running jobs
        * as an span of pairs (job-id . job) sorted by job-id
@@ -249,6 +290,7 @@ static void schemesh_define_library_shell_jobs(void) {
       "(define (sh-cmd program . args)\n"
       "  (%make-cmd -1 -1 '(new . 0) (vector 0 1 2) (vector) '()\n"
       "    #f\n"         /* subshell-func */
+      "    (sh-cwd)\n"   /* job working directory - initially current directory */
       "    '()\n"        /* overridden environment variables - initially none */
       "    sh-globals\n" /* parent job - initially the global job */
       "    (list->cmd-argv (cons program args))))\n"
@@ -402,6 +444,10 @@ static void schemesh_define_library_shell_jobs(void) {
       "          (set! existing-pgid option)\n"
       "          #f)))\n" /* stop iterating on options */
       "    existing-pgid))\n"
+      "\n"
+      "(define (sh-expand-ps1)\n"
+      /** TODO: implement */
+      "  (sh-cwd))\n"
       "\n"
       /**
        * NOTE: this is an internal implementation function, use (sh-start) instead.
@@ -778,6 +824,7 @@ static void schemesh_define_library_shell_jobs(void) {
       "    (list-iterate children-jobs validate-job-proc))\n"
       "  (%make-multijob -1 -1 '(new . 0) (vector 0 1 2) (vector) '()\n"
       "    subshell-func\n"
+      "    (sh-cwd)\n"   /* job working directory - initially current directory */
       "    '()\n"        /* overridden environment variables - initially none */
       "    sh-globals\n" /* parent job - initially the global job */
       "    kind\n"
@@ -831,7 +878,7 @@ static void schemesh_define_library_shell_jobs(void) {
       "        (status '(exited . 0)))\n"
       "    (span-iterate jobs\n"
       "      (lambda (i job)\n"
-      "        (if (bitwise-bit-set? i 0)\n"
+      "        (if (fxbit-set? i 0)\n"
       "          (let ((success? (equal? status '(exited . 0))))\n"
       "            (case job\n"
       "              ((&&)           success?)\n"       /* keep iterating only if job succeeded */

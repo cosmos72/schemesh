@@ -38,7 +38,8 @@ void schemesh_define_library_repl(void) {
        "    (schemesh io)\n"
        "    (schemesh lineedit)\n"
        "    (schemesh parser)\n"
-       "    (schemesh tty))\n"
+       "    (schemesh tty)\n"
+       "    (only (schemesh shell) sh-expand-ps1))\n"
        /**
         * Read user input.
         * If user pressed ENTER, return textual input port containing entered text.
@@ -188,25 +189,27 @@ void schemesh_define_library_repl(void) {
        "                (while parser\n"
        "                  (set! parser (repl-once ctx parser\n"
        "                                 enabled-parsers eval-func))))\n"
-       "              tty-restore!)))))))\n"
+       "              tty-restore!))))))\n"
+       /* write #\newline before returning from (repl*) */
+       "  (lineedit-finish ctx))\n"
        "\n"
        /**
         * top-level interactive repl with optional arguments:
         * initial-parser,  defaults to 'scheme
         * enabled-parsers, defaults to (parsers)
         * eval-func,       defaults to repl-eval
-        * ctx,             defaults to (make-linectx)
+        * ctx,             defaults to (make-linectx sh-expand-ps1)
         */
        "(define repl\n"
        "  (case-lambda\n"
        "    (()\n"
-       "      (repl* 'scheme (parsers) repl-eval (make-linectx)))\n"
+       "      (repl* 'scheme (parsers) repl-eval (make-linectx sh-expand-ps1)))\n"
        "    ((initial-parser)\n"
-       "      (repl* initial-parser (parsers) repl-eval (make-linectx)))\n"
+       "      (repl* initial-parser (parsers) repl-eval (make-linectx sh-expand-ps1)))\n"
        "    ((initial-parser enabled-parsers)\n"
-       "      (repl* initial-parser enabled-parsers repl-eval (make-linectx)))\n"
+       "      (repl* initial-parser enabled-parsers repl-eval (make-linectx sh-expand-ps1)))\n"
        "    ((initial-parser enabled-parsers eval-func)\n"
-       "      (repl* initial-parser enabled-parsers eval-func (make-linectx)))\n"
+       "      (repl* initial-parser enabled-parsers eval-func (make-linectx sh-expand-ps1)))\n"
        "    ((initial-parser enabled-parsers eval-func ctx)\n"
        "      (repl* initial-parser enabled-parsers eval-func ctx))))\n"
        ")\n"); /* close library */
