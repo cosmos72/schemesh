@@ -371,7 +371,7 @@ static const struct {
     {"(string->charline \"abc 123\")", "(string->charline* \"abc 123\")"},
     {"(string->charline* \"echo \\n\")", "(string->charline* \"echo \\n\")"},
     {"(charline-nl? (string->charline \"echo \\n\"))", "#t"},
-    {"(charline-length (string->charline \"echo \\n\"))", "5"}, // final #\newline is not counted
+    {"(charline-length (string->charline \"echo \\n\"))", "5"}, /* final #\newline is not counted */
     {"(let* ((l1 (string->charline* \"foo/bar\"))\n"
      "       (l2 (charline-copy-on-write l1)))\n"
      "  (charline-erase-at! l1 3 1)\n"
