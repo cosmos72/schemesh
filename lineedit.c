@@ -842,8 +842,6 @@ void schemesh_define_library_lineedit(void) {
         * because linectx-history still references it.
         */
        "(define (linectx-return-lines ctx)\n"
-       "  (linectx-x-set! ctx 0)\n"
-       "  (linectx-y-set! ctx 0)\n"
        "  (linectx-return-set! ctx #f)\n" /* clear flag "user pressed ENTER" */
        "  (linectx-prompt-set! ctx #f)\n" /* set flag "update prompt" */
        "  (let* ((y (linectx-history-index ctx))\n"
@@ -857,6 +855,8 @@ void schemesh_define_library_lineedit(void) {
        /*     lines are referenced by history - allocate new ones */
        "      (linectx-line-set! ctx empty-line)\n"
        "      (linectx-lines-set! ctx (charlines empty-line))\n"
+       "      (linectx-x-set! ctx 0)\n"
+       "      (linectx-y-set! ctx 0)\n"
        "      lines)))\n"
        "\n"
        /**
