@@ -281,7 +281,7 @@ void schemesh_define_library_lineedit(void) {
 
   eval("(library (schemesh lineedit (0 1))\n"
        "  (export\n"
-       "    make-linectx linectx? lineedit-default-keytable lineedit-clear!\n"
+       "    make-linectx make-linectx* linectx? lineedit-default-keytable lineedit-clear!\n"
        "    lineedit-lines-set! linectx-stdin-set! linectx-stdout-set! linectx-rbuf-insert!\n"
        "    lineedit-key-nop lineedit-key-left lineedit-key-right lineedit-key-up lineedit-key-down"
        "    lineedit-key-word-left lineedit-key-word-right lineedit-key-bol lineedit-key-eol\n"
@@ -295,7 +295,7 @@ void schemesh_define_library_lineedit(void) {
        "    lineedit-keytable-set! lineedit-keytable-find lineedit-read lineedit-flush)\n"
        "  (import\n"
        "    (rnrs)\n"
-       "    (only (chezscheme) format fx1+ fx1- inspect void)\n"
+       "    (only (chezscheme) " /*format*/ " fx1+ fx1- inspect void)\n"
        "    (schemesh bootstrap)\n"
        "    (schemesh containers)\n"
        "    (schemesh fd)\n"
@@ -307,20 +307,21 @@ void schemesh_define_library_lineedit(void) {
        "(define-record-type\n"
        "  (linectx %make-linectx linectx?)\n"
        "  (fields\n"
-       "    (mutable rbuf)\n"    /* bytespan, buffer for (fd-read)              */
-       "    (mutable wbuf)\n"    /* bytespan, buffer for (fd-write)             */
-       "    (mutable line)\n"    /* charline, input's current line being edited */
-       "    (mutable lines)\n"   /* charlines, input being edited               */
-       "    (mutable state)\n"   /* bytespan, stack of nested ( [ { " and '     */
-       "    (mutable x)\n"       /* fixnum, cursor x position in line           */
-       "    (mutable y)\n"       /* fixnum, cursor y position in lines          */
-       "    (mutable match-x)\n" /* fixnum, x position of matching parenthesis  */
-       "    (mutable match-y)\n" /* fixnum, y position of matching parenthesis  */
-       "    (mutable rows)\n"    /* fixnum, max number of rows being edited     */
-       "    (mutable width)\n"   /* fixnum, terminal width                      */
-       "    (mutable height)\n"  /* fixnum, terminal height                     */
-       "    (mutable stdin)\n"   /* input file descriptor, or binary input port */
-       "    (mutable stdout)\n"  /* output file descriptor, or binary output port */
+       "    (mutable rbuf)\n"        /* bytespan, buffer for (fd-read)              */
+       "    (mutable wbuf)\n"        /* bytespan, buffer for (fd-write)             */
+       "    (mutable line)\n"        /* charline, input's current line being edited */
+       "    (mutable lines)\n"       /* charlines, input being edited               */
+       "    (mutable x)\n"           /* fixnum, cursor x position in line           */
+       "    (mutable y)\n"           /* fixnum, cursor y position in lines          */
+       "    (mutable match-x)\n"     /* fixnum, x position of matching parenthesis  */
+       "    (mutable match-y)\n"     /* fixnum, y position of matching parenthesis  */
+       "    (mutable rows)\n"        /* fixnum, max number of rows being edited     */
+       "    (mutable prompt)\n"      /* charspan, prompt                            */
+       "    (mutable prompt-func)\n" /* procedure, returns new prompt as charspan   */
+       "    (mutable width)\n"       /* fixnum, terminal width                      */
+       "    (mutable height)\n"      /* fixnum, terminal height                     */
+       "    (mutable stdin)\n"       /* input file descriptor, or binary input port */
+       "    (mutable stdout)\n"      /* output file descriptor, or binary output port */
        "    (mutable read-timeout-milliseconds)\n" /* -1 means unlimited timeout */
        "    (mutable return? linectx-return? linectx-return-set!)\n" /* bool */
        "    (mutable eof? linectx-eof? linectx-eof-set!)\n"          /* bool */
@@ -330,26 +331,36 @@ void schemesh_define_library_lineedit(void) {
        "\n"
        "(define lineedit-default-keytable (eq-hashtable))\n"
        "\n"
-       "(define (make-linectx)\n"
+       /** prompt-func must be a procedure accepting a linectx and returning a charspan,
+        * which will be used as prompt */
+       "(define (make-linectx* prompt-func)\n"
        "  (let* ((sz    (tty-size))\n"
        "         (rbuf  (bytespan))\n"
        "         (wbuf  (bytespan))\n"
        "         (line  (charline))\n"
-       "         (lines (charlines line))\n"
-       "         (state (bytespan)))\n"
+       "         (lines (charlines line)))\n"
        "    (bytespan-reserve-back! rbuf 1024)\n"
        "    (bytespan-reserve-back! wbuf 1024)\n"
-       "    (bytespan-reserve-back! state 32)\n"
        "    (%make-linectx\n"
-       "      rbuf wbuf line lines state\n"
+       "      rbuf wbuf line lines\n"
        "      0 0 -1 -1 1\n"                 /* x y match-x match-y rows */
+       "      #f prompt-func\n"              /* prompt prompt-func       */
        "      (if (pair? sz) (car sz) 80)\n" /* width                    */
        "      (if (pair? sz) (cdr sz) 24)\n" /* height                   */
-       "      0 1 -1 #f #f \n"               /* stdin stdout timeout return eof */
+       "      0 1 -1 #f #f \n"               /* stdin stdout read-timeout return? eof? */
        "      lineedit-default-keytable\n"   /* keytable */
        "      0 (charhistory))))\n"          /* history  */
        "\n"
-       /* also recreate line and lines: they have been saved to history, which retains them */
+       "(define make-linectx\n"
+       "  (case-lambda\n"
+       "    (()\n"
+       "      (let ((prompt (string->charspan* \"$ \")))\n"
+       "        (make-linectx* (lambda (ctx) prompt))))\n"
+       "    ((prompt-func)\n"
+       "      (make-linectx* prompt-func))))\n"
+       "\n"
+       /* also recreate line and lines: they have been saved to history, which retains them
+        * also update prompt */
        "(define (linectx-clear! ctx)\n"
        "  (linectx-x-set! ctx 0)\n"
        "  (linectx-y-set! ctx 0)\n"
@@ -367,6 +378,13 @@ void schemesh_define_library_lineedit(void) {
        /* write a portion of given bytevector to wbuf */
        "(define (linectx-bv-write ctx bv start end)\n"
        "  (bytespan-bv-insert-back! (linectx-wbuf ctx) bv start end))\n"
+       "\n"
+       /* write a portion of given chargspan to wbuf */
+       "(define (linectx-csp-write ctx csp start end)\n"
+       "  (do ((wbuf (linectx-wbuf ctx))\n"
+       "       (pos start (fx1+ pos)))\n"
+       "      ((fx>=? pos end))\n"
+       "    (bytespan-utf8-insert-back! wbuf (charspan-ref csp pos))))\n"
        "\n"
        /* write a portion of given chargbuffer to wbuf */
        "(define (linectx-cgb-write ctx cgb start end)\n"
@@ -387,6 +405,30 @@ void schemesh_define_library_lineedit(void) {
        "  (let ((lines (linectx-lines ctx)))\n"
        "    (charhistory-set! (linectx-history ctx) (linectx-history-index ctx) lines)\n"
        "    lines))\n"
+       "\n"
+       /* send escape sequence "move cursor up by n", without checking or updating linectx */
+       "(define (term-move-up-n ctx n)\n"
+       "  (cond\n"
+       "    ((fx<=? n 0) (void))\n" /* nop */
+       "    ((fx=? n 1)\n"
+       "      (linectx-bv-write ctx #vu8(27 91 65) 0 3))\n" /* ESC [ A */
+       "    (#t\n"
+       "      (let ((wbuf (linectx-wbuf ctx)))\n"
+       "        (bytespan-u8-insert-back! wbuf 27 91)\n"  /* ESC [ */
+       "        (bytespan-fixnum-display-back! wbuf n)\n" /* n     */
+       "        (bytespan-u8-insert-back! wbuf 65)))))"   /* A     */
+       "\n"
+       /* send escape sequence "move cursor up by n", without checking or updating linectx */
+       "(define (term-move-down-n ctx n)\n"
+       "  (cond\n"
+       "    ((fx<=? n 0) (void))\n" /* nop */
+       "    ((fx=? n 1)\n"
+       "      (linectx-bv-write ctx #vu8(27 91 66) 0 3))\n" /* ESC [ B */
+       "    (#t\n"
+       "      (let ((wbuf (linectx-wbuf ctx)))\n"
+       "        (bytespan-u8-insert-back! wbuf 27 91)\n"  /* ESC [ */
+       "        (bytespan-fixnum-display-back! wbuf n)\n" /* n     */
+       "        (bytespan-u8-insert-back! wbuf 66)))))"   /* B     */
        "\n"
        /* send escape sequence "move cursor left by n", without checking or updating linectx-x */
        "(define (term-move-left-n ctx n)\n"
@@ -444,33 +486,33 @@ void schemesh_define_library_lineedit(void) {
        "    (when (fx<? beg end)\n"
        "      (term-move-left-n ctx (fx- end beg)))))\n"
        "\n"
-       /* return index of first character before pos in line that satisfies (pred ch).
-        * return -1 if no character before pos in line satisfies (pred ch) */
-       "(define (char-find-left line pos pred)\n"
-       "  (assert (fx<=? pos (charline-length line)))\n"
-       "  (do ((x (fx1- pos) (fx1- x)))\n"
+       /* return index of first character before position = end in line that satisfies (pred ch).
+        * return -1 if no character before position = end in line satisfies (pred ch) */
+       "(define (char-find-left line end pred)\n"
+       "  (assert (fx<=? end (charline-length line)))\n"
+       "  (do ((x (fx1- end) (fx1- x)))\n"
        "      ((or (fx<? x 0) (pred (charline-ref line x)))\n"
        "        x)))\n"
        "\n"
-       /* return index of first character at pos or later in line that satisfies (pred ch).
-        * return (charline-length line) if no character at pos or later in line
-        * satisfies (pred ch) */
-       "(define (char-find-right line pos pred)\n"
-       "  (assert (fx>=? pos 0))\n"
-       "  (do ((x pos (fx1+ x))\n"
+       /* return index of first character at position = start or later in line that satisfies
+        * (pred ch). return (charline-length line) if no character at position = start or later in
+        * line satisfies (pred ch) */
+       "(define (char-find-right line start pred)\n"
+       "  (assert (fx>=? start 0))\n"
+       "  (do ((x start (fx1+ x))\n"
        "       (len (charline-length line)))\n"
        "      ((or (fx>=? x len) (pred (charline-ref line x)))\n"
        "        x)))\n"
        "\n"
-       /* return index of beginning of word before pos in line */
-       "(define (word-find-begin-left line pos)\n"
-       "  (let* ((pos1 (fx1+ (char-find-left line pos  (lambda (ch) (char>? ch #\\space)))))\n"
+       /* return index of beginning of word before position = end in line */
+       "(define (word-find-begin-left line end)\n"
+       "  (let* ((pos1 (fx1+ (char-find-left line end  (lambda (ch) (char>? ch #\\space)))))\n"
        "         (pos2 (fx1+ (char-find-left line pos1 (lambda (ch) (char<=? ch #\\space))))))\n"
        "    pos2))\n"
        "\n"
-       /* return index of end of word at pos or later in line */
-       "(define (word-find-end-right line pos)\n"
-       "  (let* ((pos1 (char-find-right line pos  (lambda (ch) (char>? ch #\\space))))\n"
+       /* return index of end of word at position = start or later in line */
+       "(define (word-find-end-right line start)\n"
+       "  (let* ((pos1 (char-find-right line start  (lambda (ch) (char>? ch #\\space))))\n"
        "         (pos2 (char-find-right line pos1 (lambda (ch) (char<=? ch #\\space)))))\n"
        "    pos2))\n"
        "\n"
@@ -696,15 +738,31 @@ void schemesh_define_library_lineedit(void) {
        "  (lineedit-navigate-history ctx -1))\n"
        "\n"
        "(define (lineedit-key-redraw ctx)\n"
-       "  (let* ((line (linectx-line ctx))\n"
-       "         (len (charline-length line))\n"
-       "         (x (linectx-x ctx)))\n"
+       "  (let* ((lines (linectx-lines ctx))\n"
+       "         (lines-n-1 (fx1- (charlines-length lines)))\n"
+       "         (prompt (linectx-prompt ctx))\n"
+       "         (x (linectx-x ctx))\n"
+       "         (y (linectx-y ctx))\n"
+       "         (nl? #f))\n"
+       /* " (format #t \"lineedit-key-redraw: prompt = ~s~%\" prompt)\n" */
        "    (term-move-to-bol ctx)\n"
-       /**  TODO: also write prompt */
-       /**  TODO: support multiline */
-       "    (linectx-cgb-write ctx line 0 len)\n"
-       "    (term-clear-to-eol ctx)\n"
-       "    (term-move-left-n ctx (fx- len x))))\n"
+       "    (term-move-up-n ctx y)\n"
+       "    (linectx-csp-write ctx prompt 0 (charspan-length prompt))\n"
+       "    (charlines-iterate lines\n"
+       "      (lambda (i line)\n"
+       "        (when nl?\n"
+       "          (linectx-u8-write ctx 10))\n"
+       "        (linectx-cgb-write ctx line 0 (charline-length line))\n"
+       "        (term-clear-to-eol ctx)\n"
+       "        (set! nl? #t)))\n"
+       "    (term-move-up-n ctx (fx- lines-n-1 y))\n"
+       "    (let* ((last-line (charlines-ref lines lines-n-1))\n"
+       "           (delta-x   (fx- x (charline-length last-line))))\n"
+       "      (when (and (fxzero? y) (not (fxzero? lines-n-1)))\n"
+       "        (set! delta-x (fx+ delta-x (charspan-length prompt))))\n"
+       "      (if (fx<? delta-x 0)\n"
+       "        (term-move-left-n ctx (fx- delta-x))\n"
+       "        (term-move-right-n ctx delta-x)))))\n"
        "\n"
        "(define (lineedit-key-tab ctx)\n"
        "  (void))\n"
@@ -784,8 +842,10 @@ void schemesh_define_library_lineedit(void) {
         * because linectx-history still references it.
         */
        "(define (linectx-return-lines ctx)\n"
-       /* clear flag "user pressed ENTER " */
-       "  (linectx-return-set! ctx #f)\n"
+       "  (linectx-x-set! ctx 0)\n"
+       "  (linectx-y-set! ctx 0)\n"
+       "  (linectx-return-set! ctx #f)\n" /* clear flag "user pressed ENTER" */
+       "  (linectx-prompt-set! ctx #f)\n" /* set flag "update prompt" */
        "  (let* ((y (linectx-history-index ctx))\n"
        "         (hist (linectx-history ctx))\n"
        "         (hist-len (charhistory-length hist)))\n"
@@ -863,6 +923,11 @@ void schemesh_define_library_lineedit(void) {
        "(define (lineedit-read ctx timeout-milliseconds)\n"
        "  (assert (linectx? ctx))\n"
        "  (flush-output-port (current-output-port))\n"
+       /* update prompt if needed */
+       "  (unless (charspan? (linectx-prompt ctx))\n"
+       "    (linectx-prompt-set! ctx ((linectx-prompt-func ctx) ctx))\n"
+       "    (lineedit-key-redraw ctx)\n"
+       "    (lineedit-flush ctx))\n"
        "  (let ((ret (if (bytespan-empty? (linectx-rbuf ctx))\n"
        "               #t\n" /* need more input */
        /*              some bytes already in rbuf, try to consume them */
