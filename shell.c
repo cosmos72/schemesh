@@ -73,7 +73,7 @@ static ptr c_get_cwd(void) {
         return ret;
       }
       free(dir);
-      maxlen *= 4;
+      maxlen *= 2;
     }
   }
   return Sstring_utf8("", 0);
