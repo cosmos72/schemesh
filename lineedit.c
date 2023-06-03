@@ -995,6 +995,7 @@ void schemesh_define_library_lineedit(void) {
        "    (lambda () (flush-output-port (current-output-port)))\n"
        "    (lambda () (%lineedit-read ctx timeout-milliseconds))\n"
        /*   write linectx buffered output before returning */
+       /**  TODO: call (signal-consume-sigwinch) and react to tty window resize */
        "    (lambda () (lineedit-flush ctx))))\n"
        "\n"
        "(let ((t lineedit-default-keytable)\n"

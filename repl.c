@@ -38,8 +38,10 @@ void schemesh_define_library_repl(void) {
        "    (schemesh io)\n"
        "    (schemesh lineedit)\n"
        "    (schemesh parser)\n"
+       "    (schemesh signals)\n"
        "    (schemesh tty)\n"
-       "    (only (schemesh shell) sh-expand-ps1))\n"
+       "    (only (schemesh shell) sh-consume-sigchld sh-expand-ps1))\n"
+       "\n"
        /**
         * Read user input.
         * If user pressed ENTER, return textual input port containing entered text.
@@ -48,10 +50,6 @@ void schemesh_define_library_repl(void) {
         * #f if got end-of-file
         * #t if waiting for more keypresses
         * a textual input port if user pressed ENTER.
-        *
-        *
-        * FIXME: also call c_sigchld_consume() and (pid-wait) to reap zombies
-        *        and collect exit status of child processes
         */
        "(define (repl-lineedit ctx)\n"
        "  (let ((ret (lineedit-read ctx -1)))\n"
@@ -156,6 +154,7 @@ void schemesh_define_library_repl(void) {
         */
        "(define (repl-once ctx initial-parser enabled-parsers eval-func)\n"
        "  (let ((in (repl-lineedit ctx)))\n"
+       "    (sh-consume-sigchld)\n"
        "    (case in\n"
        /*     got end-of-file */
        "      ((#f) #f)\n"
@@ -168,30 +167,40 @@ void schemesh_define_library_repl(void) {
        "            (call-with-values\n"
        "              (lambda () (repl-eval-list ctx form eval-func))\n"
        "              repl-print))\n"
+       "            (sh-consume-sigchld)\n"
        "          updated-parser)))))\n"
+       "\n"
+       /**
+        * main loop of (repl) and (repl*)
+        */
+       "(define (repl-loop parser enabled-parsers eval-func ctx)\n"
+       "  (call/cc\n"
+       "    (lambda (k-exit)\n"
+       "      (parameterize ((exit-handler k-exit) (reset-handler (reset-handler)))\n"
+       "        (let ((k-reset k-exit))\n"
+       "          (reset-handler (lambda () (k-reset)))\n"
+       "          (call/cc (lambda (k) (set! k-reset k)))\n"
+       /*         when the (reset-handler) we installed is called, resume from here */
+       "          (dynamic-wind\n"
+       "            tty-setraw!\n"
+       "            (lambda ()\n"
+       "              (while parser\n"
+       "                (set! parser (repl-once ctx parser\n"
+       "                               enabled-parsers eval-func))))\n"
+       "            tty-restore!))))))\n"
        "\n"
        /** top-level interactive repl with all arguments mandatory */
        "(define (repl* initial-parser enabled-parsers eval-func ctx)\n"
        "  (assert (procedure? eval-func))\n"
        /* (to-parser) also checks initial-parser's validity */
        "  (let ((parser (to-parser initial-parser enabled-parsers 'repl)))\n"
-       "    (lineedit-clear! ctx)\n"
-       "    (call/cc\n"
-       "      (lambda (k-exit)\n"
-       "        (parameterize ((exit-handler k-exit) (reset-handler (reset-handler)))\n"
-       "          (let ((k-reset k-exit))\n"
-       "            (reset-handler (lambda () (k-reset)))\n"
-       "            (call/cc (lambda (k) (set! k-reset k)))\n"
-       /*           when the (reset-handler) we installed is called, resume from here */
-       "            (dynamic-wind\n"
-       "              tty-setraw!\n"
-       "              (lambda ()\n"
-       "                (while parser\n"
-       "                  (set! parser (repl-once ctx parser\n"
-       "                                 enabled-parsers eval-func))))\n"
-       "              tty-restore!))))))\n"
-       /* write #\newline before returning from (repl*) */
-       "  (lineedit-finish ctx))\n"
+       "    (dynamic-wind\n"
+       "      (lambda ()\n"
+       "        (lineedit-clear! ctx) (signal-init-sigwinch))\n"
+       "      (lambda ()\n"
+       "        (repl-loop parser enabled-parsers eval-func ctx))\n"
+       "      (lambda ()\n"
+       "        (signal-restore-sigwinch) (lineedit-finish ctx)))))\n"
        "\n"
        /**
         * top-level interactive repl with optional arguments:

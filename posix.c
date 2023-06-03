@@ -413,7 +413,6 @@ int schemesh_define_library_fd(void) {
   } else if ((err = c_signals_init()) < 0) {
     return err;
   }
-
   Sregister_symbol("c_errno", &c_errno);
   Sregister_symbol("c_fd_close", &c_fd_close);
   Sregister_symbol("c_fd_dup", &c_fd_dup);
@@ -590,7 +589,7 @@ void schemesh_define_library_pid(void) {
        "      )"
        "    (schemesh fd)\n"
        "    (only (schemesh conversions) list->cmd-argv)\n"
-       "    (only (schemesh signal) signal-name->number signal-raise))\n"
+       "    (only (schemesh signals) signal-name->number signal-raise))\n"
        /** (get-pid) returns pid of current process */
        "(define get-pid"
        "  (let ((c-get-pid (foreign-procedure \"c_get_pid\" () int)))\n"
@@ -730,7 +729,7 @@ int c_fork_pid(ptr vector_redirect_fds, int existing_pgid_if_positive) {
       /* child */
       int err = c_set_process_group((pid_t)existing_pgid_if_positive);
       if (err >= 0) {
-        err = c_signal_restore(SIGTSTP);
+        err = c_signal_setdefault(SIGTSTP);
         if (err >= 0) {
           int lowest_fd_to_close = c_redirect_fds(vector_redirect_fds);
           if (lowest_fd_to_close >= 0) {
@@ -786,7 +785,7 @@ int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
       /* child */
       int err = c_set_process_group((pid_t)existing_pgid_if_positive);
       if (err >= 0) {
-        err = c_signals_restore();
+        err = c_signals_setdefault();
         if (err >= 0) {
           int lowest_fd_to_close = c_redirect_fds(vector_redirect_fds);
           if (lowest_fd_to_close >= 0) {

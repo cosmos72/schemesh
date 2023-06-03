@@ -94,7 +94,7 @@ static void schemesh_define_library_shell_jobs(void) {
   "sh-job? sh-job-ref sh-job-status sh-jobs sh-cmd sh-cmd<> sh-cmd? sh-multijob sh-multijob? "     \
   "sh-globals sh-global-env sh-env-copy sh-env-get sh-env-set! sh-env-unset! "                     \
   "sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0 "              \
-  "sh-cwd sh-expand-ps1 "                                                                          \
+  "sh-cwd sh-expand-ps1 sh-consume-sigchld "                                                       \
   "sh-start sh-bg sh-fg sh-run sh-run-capture-output sh-wait sh-and sh-or sh-and-or* "             \
   "sh-list sh-list* sh-fd-redirect! sh-fds-redirect! "
 
@@ -112,7 +112,7 @@ static void schemesh_define_library_shell_jobs(void) {
       "    (schemesh conversions)\n"
       "    (schemesh pid)\n"
       "    (schemesh fd)\n"
-      "    (schemesh signal))\n"
+      "    (schemesh signals))\n"
       "\n"
       /** Define the record type "job" */
       "(define-record-type\n"
@@ -448,6 +448,13 @@ static void schemesh_define_library_shell_jobs(void) {
       "(define (sh-expand-ps1)\n"
       /** TODO: implement */
       "  (sh-cwd))\n"
+      "\n"
+      "(define (sh-consume-sigchld)\n"
+      /**
+       * TODO: call (signal-consume-sigchld) and (pid-wait) to reap zombies
+       *        and collect exit status of child processes
+       */
+      "  (void))\n"
       "\n"
       /**
        * NOTE: this is an internal implementation function, use (sh-start) instead.
@@ -1295,7 +1302,7 @@ int schemesh_define_libraries(void) {
   if ((err = schemesh_define_library_fd()) < 0) {
     return err;
   }
-  schemesh_define_library_signal();
+  schemesh_define_library_signals();
   schemesh_define_library_tty();
   schemesh_define_library_pid();
   schemesh_define_library_lineedit();
@@ -1313,7 +1320,7 @@ void schemesh_import_libraries(void) {
        "  (import (schemesh io))\n"
        "  (import (schemesh parser))\n"
        "  (import (schemesh fd))\n"
-       "  (import (schemesh signal))\n"
+       "  (import (schemesh signals))\n"
        "  (import (schemesh tty))\n"
        "  (import (schemesh pid))\n"
        "  (import (schemesh lineedit base))\n"
