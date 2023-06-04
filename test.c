@@ -159,6 +159,8 @@ static const struct {
      "  (bytespan-utf8-insert-front! sp (integer->char #x10ffff))\n"
      "  sp)",
      "(bytespan 244 143 191 191)"},
+    {"(charspan->utf8 (string->charspan* \"\x7c \xce\x98 \xe0\xa4\xb9 \xf0\x90\x8d\x88\"))",
+     "(bytespan 124 32 206 152 32 224 164 185 32 240 144 141 136)"},
     /* ----------------- bytespan-fixnum-display ------------------ */
     {"(let ((sp (bytespan)))\n"
      "  (list-iterate '(0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000 "

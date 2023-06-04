@@ -109,6 +109,7 @@ static void schemesh_define_library_shell_jobs(void) {
       "    (schemesh containers span)\n"
       "    (schemesh containers charspan)\n"
       "    (schemesh containers hashtable)\n"
+      "    (only (schemesh containers utils) charspan->utf8)\n"
       "    (schemesh conversions)\n"
       "    (schemesh pid)\n"
       "    (schemesh fd)\n"
@@ -447,7 +448,8 @@ static void schemesh_define_library_shell_jobs(void) {
       "\n"
       "(define (sh-expand-ps1)\n"
       /** TODO: implement */
-      "  (sh-cwd))\n"
+      "  (let ((prompt (sh-cwd)))\n"
+      "    (values (charspan->utf8 prompt) (charspan-length prompt))))\n"
       "\n"
       "(define (sh-consume-sigchld)\n"
       /**

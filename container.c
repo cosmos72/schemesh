@@ -744,7 +744,7 @@ static void schemesh_define_library_containers_bytespan(void) {
   "bytespan bytespan? bytespan-length bytespan-empty? bytespan-clear! "                            \
   "bytespan-capacity bytespan-capacity-front bytespan-capacity-back "                              \
   "bytespan-u8-ref bytespan-u8-back bytespan-u8-set! "                                             \
-  "bytespan-fill! bytespan-fill-range! bytespan-copy bytespan-copy! "                              \
+  "bytespan-fill! bytespan-fill-range! bytespan-copy bytespan-copy! bytespan=? "                   \
   "bytespan-reserve-front! bytespan-reserve-back! bytespan-resize-front! bytespan-resize-back! "   \
   "bytespan-u8-insert-front! bytespan-u8-insert-back! "                                            \
   "bytespan-bsp-insert-front! bytespan-bsp-insert-back! "                                          \
@@ -845,13 +845,21 @@ static void schemesh_define_library_containers_bytespan(void) {
        "    dst))\n"
        "\n"
        "(define (bytespan-copy! src src-start dst dst-start n)\n"
-       "  (assert (fx>=? src-start 0))\n"
-       "  (assert (fx>=? dst-start 0))\n"
-       "  (assert (fx>=? n 0))\n"
-       "  (assert (fx<=? (fx+ src-start n) (bytespan-length src)))\n"
-       "  (assert (fx<=? (fx+ dst-start n) (bytespan-length dst)))\n"
+       "  (assert (fx<=? 0 src-start (fx+ src-start n) (bytespan-length src)))\n"
+       "  (assert (fx<=? 0 dst-start (fx+ dst-start n) (bytespan-length dst)))\n"
        "  (bytevector-copy! (bytespan-vec src) (fx+ src-start (bytespan-beg src))\n"
        "                (bytespan-vec dst) (fx+ dst-start (bytespan-beg dst)) n))\n"
+       "\n"
+       "(define (bytespan=? left right)\n"
+       "  (or (and (eq?  (bytespan-vec left) (bytespan-vec right))\n"
+       "           (fx=? (bytespan-beg left) (bytespan-beg right))\n"
+       "           (fx=? (bytespan-end left) (bytespan-end right)))\n"
+       "    (let* ((n1 (bytespan-length left))\n"
+       "           (n2 (bytespan-length right))\n"
+       "           (equal (fx=? n1 n2)))\n"
+       "      (do ((i 0 (fx1+ i)))\n"
+       "          ((or (not equal) (fx>=? i n1)) equal)\n"
+       "        (set! equal (fx=? (bytespan-u8-ref left i) (bytespan-u8-ref right i)))))))\n"
        "\n"
        "(define (bytespan-reallocate-front! sp len cap)\n"
        "  (assert (fx>=? len 0))\n"
@@ -964,7 +972,8 @@ static void schemesh_define_library_containers_bytespan(void) {
        "\n"
        /* prefix a portion of another bytespan to this bytespan */
        "(define (bytespan-bsp-insert-front! sp-dst sp-src src-start src-n)\n"
-       "  (assert (not (eq? sp-dst sp-src)))\n"
+       "  (assert (not (eq? (bytespan-vec sp-dst) (bytespan-vec sp-src))))\n"
+       "  (assert (fx<=? 0 src-start (fx+ src-start src-n) (bytespan-length sp-src)))\n"
        "  (unless (fxzero? src-n)\n"
        "    (let ((len (bytespan-length sp-dst)))\n"
        "      (bytespan-resize-front! sp-dst (fx+ len src-n))\n"
@@ -972,12 +981,15 @@ static void schemesh_define_library_containers_bytespan(void) {
        "\n"
        /* prefix a portion of a bytevector to this bytespan */
        "(define (bytespan-bv-insert-front! sp-dst bv-src src-start src-n)\n"
+       "  (assert (not (eq? (bytespan-vec sp-dst) bv-src)))\n"
+       "  (assert (fx<=? 0 src-start (fx+ src-start src-n) (bytevector-length bv-src)))\n"
        "  (unless (fxzero? src-n)\n"
        "    (bytespan-bsp-insert-front! sp-dst (bytevector->bytespan* bv-src) src-start src-n)))\n"
        "\n"
        /* append a portion of another bytespan to this bytespan */
        "(define (bytespan-bsp-insert-back! sp-dst sp-src src-start src-n)\n"
-       "  (assert (not (eq? sp-dst sp-src)))\n"
+       "  (assert (not (eq? (bytespan-vec sp-dst) (bytespan-vec sp-src))))\n"
+       "  (assert (fx<=? 0 src-start (fx+ src-start src-n) (bytespan-length sp-src)))\n"
        "  (unless (fxzero? src-n)\n"
        "    (let ((pos (bytespan-length sp-dst)))\n"
        "      (bytespan-resize-back! sp-dst (fx+ pos src-n))\n"
@@ -990,15 +1002,13 @@ static void schemesh_define_library_containers_bytespan(void) {
        "\n"
        /* erase n elements at the left (front) of bytespan */
        "(define (bytespan-erase-front! sp n)\n"
-       "  (assert (fx>=? n 0))\n"
-       "  (assert (fx<=? n (bytespan-length sp)))\n"
+       "  (assert (fx<=? 0 n (bytespan-length sp)))\n"
        "  (unless (fxzero? n)\n"
        "    (bytespan-beg-set! sp (fx+ n (bytespan-beg sp)))))\n"
        "\n"
        /* erase n elements at the right (back) of bytespan */
        "(define (bytespan-erase-back! sp n)\n"
-       "  (assert (fx>=? n 0))\n"
-       "  (assert (fx<=? n (bytespan-length sp)))\n"
+       "  (assert (fx<=? 0 n (bytespan-length sp)))\n"
        "  (unless (fxzero? n)\n"
        "    (bytespan-end-set! sp (fx- (bytespan-end sp) n))))\n"
        "\n"
@@ -1152,12 +1162,15 @@ static void schemesh_define_library_containers_charspan(void) {
        "                (charspan-vec dst) (fx+ dst-start (charspan-beg dst)) n))\n"
        "\n"
        "(define (charspan=? left right)\n"
-       "  (let* ((n1 (charspan-length left))\n"
-       "         (n2 (charspan-length right))\n"
-       "         (equal (fx=? n1 n2)))\n"
-       "    (do ((i 0 (fx1+ i)))\n"
-       "        ((or (not equal) (fx>=? i n1)) equal)\n"
-       "      (set! equal (char=? (charspan-ref left i) (charspan-ref right i))))))\n"
+       "  (or (and (eq?  (charspan-vec left) (charspan-vec right))\n"
+       "           (fx=? (charspan-beg left) (charspan-beg right))\n"
+       "           (fx=? (charspan-end left) (charspan-end right)))\n"
+       "    (let* ((n1 (charspan-length left))\n"
+       "           (n2 (charspan-length right))\n"
+       "           (equal (fx=? n1 n2)))\n"
+       "      (do ((i 0 (fx1+ i)))\n"
+       "          ((or (not equal) (fx>=? i n1)) equal)\n"
+       "        (set! equal (char=? (charspan-ref left i) (charspan-ref right i)))))))\n"
        "\n"
        "(define (charspan-reallocate-front! sp len cap)\n"
        "  (assert (fx>=? len 0))\n"
@@ -1726,7 +1739,8 @@ static void schemesh_define_library_containers_utils(void) {
 #define SCHEMESH_LIBRARY_CONTAINERS_UTILS_EXPORT                                                   \
   "bytevector-utf8-ref bytevector-utf8-set! char->utf8-length "                                    \
   "bytespan-utf8-ref bytespan-utf8-set! bytespan-utf8-insert-front! bytespan-utf8-insert-back! "   \
-  "bytespan-fixnum-display-back! "
+  "bytespan-fixnum-display-back! "                                                                 \
+  "charspan->utf8 "
 
   eval("(library (schemesh containers utils (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_CONTAINERS_UTILS_EXPORT ")\n"
@@ -1736,7 +1750,8 @@ static void schemesh_define_library_containers_utils(void) {
        "      (fxarithmetic-shift-right fxshr))\n"
        "    (only (chezscheme) fx1+ fx1-)\n"
        "    (schemesh containers misc)\n"
-       "    (schemesh containers bytespan))\n"
+       "    (schemesh containers bytespan)\n"
+       "    (schemesh containers charspan))\n"
        "\n"
        /**
         * interpret two bytes as UTF-8 sequence and return corresponding char.
@@ -1938,6 +1953,15 @@ static void schemesh_define_library_containers_utils(void) {
        "         (new-len (fx+ old-len (char->utf8-length ch))))\n"
        "    (bytespan-resize-back! sp new-len)\n"
        "    (bytespan-utf8-set! sp old-len ch)))\n"
+       "\n"
+       /* convert charspan to UTF-8 bytespan */
+       "(define (charspan->utf8 sp)\n"
+       "  (let ((ret (make-bytespan 0)))\n"
+       "    (bytespan-reserve-back! ret (charspan-length sp))\n"
+       "    (charspan-iterate sp\n"
+       "      (lambda (i ch)\n"
+       "        (bytespan-utf8-insert-back! ret ch)))\n"
+       "    ret))\n"
        "\n"
        /* convert a fixnum to decimal digits and append the digits to bytespan */
        "(define (bytespan-fixnum-display-back! sp n)\n"
