@@ -327,7 +327,7 @@ void schemesh_define_library_lineedit(void) {
        "    (mutable stdin)\n"  /* input file descriptor, or binary input port      */
        "    (mutable stdout)\n" /* output file descriptor, or binary output port    */
        "    (mutable read-timeout-milliseconds)\n" /* -1 means unlimited timeout    */
-       /*   bitwise or of: flag-eof? flag-return? flag-sigwinch? flag-write-prompt? */
+       /*   bitwise or of: flag-eof? flag-return? flag-sigwinch? flag-redisplay? */
        "    (mutable flags)\n"
        "    (mutable keytable)\n"      /* hashtable, contains keybindings           */
        "    (mutable history-index)\n" /* index of last used item in history        */
@@ -336,7 +336,7 @@ void schemesh_define_library_lineedit(void) {
        "(define flag-eof? 1)\n"
        "(define flag-return? 2)\n"
        "(define flag-sigwinch? 4)\n"
-       "(define flag-write-prompt? 8)\n"
+       "(define flag-redisplay? 8)\n"
        "\n"
        "(define (linectx-flag? ctx bit)\n"
        "  (not (fxzero? (fxand bit (linectx-flags ctx)))))\n"
@@ -356,8 +356,8 @@ void schemesh_define_library_lineedit(void) {
        "  (linectx-flag? ctx flag-return?))\n"
        "(define (linectx-sigwinch? ctx)\n"
        "  (linectx-flag? ctx flag-sigwinch?))\n"
-       "(define (linectx-write-prompt? ctx)\n"
-       "  (linectx-flag? ctx flag-write-prompt?))\n"
+       "(define (linectx-redisplay? ctx)\n"
+       "  (linectx-flag? ctx flag-redisplay?))\n"
        "\n"
        "(define (linectx-eof-set! ctx flag?)\n"
        "  (linectx-flag-set! ctx flag-eof? flag?))\n"
@@ -365,8 +365,8 @@ void schemesh_define_library_lineedit(void) {
        "  (linectx-flag-set! ctx flag-return? flag?))\n"
        "(define (linectx-sigwinch-set! ctx flag?)\n"
        "  (linectx-flag-set! ctx flag-sigwinch? flag?))\n"
-       "(define (linectx-write-prompt-set! ctx flag?)\n"
-       "  (linectx-flag-set! ctx flag-write-prompt? flag?))\n"
+       "(define (linectx-redisplay-set! ctx flag?)\n"
+       "  (linectx-flag-set! ctx flag-redisplay? flag?))\n"
        "\n"
        "(define lineedit-default-keytable (eq-hashtable))\n"
        "\n"
@@ -386,7 +386,7 @@ void schemesh_define_library_lineedit(void) {
        "      #f 0 prompt-func\n"            /* prompt prompt-length prompt-func */
        "      (if (pair? sz) (car sz) 80)\n" /* width                    */
        "      (if (pair? sz) (cdr sz) 24)\n" /* height                   */
-       "      0 1 -1 flag-write-prompt? \n"  /* stdin stdout read-timeout flags */
+       "      0 1 -1 flag-redisplay? \n"     /* stdin stdout read-timeout flags */
        "      lineedit-default-keytable\n"   /* keytable */
        "      0 (charhistory))))\n"          /* history  */
        "\n"
@@ -776,32 +776,9 @@ void schemesh_define_library_lineedit(void) {
        "  (lineedit-navigate-history ctx -1))\n"
        "\n"
        "(define (lineedit-key-redraw ctx)\n"
-       "  (let* ((lines (linectx-lines ctx))\n"
-       "         (lines-n-1 (fx1- (charlines-length lines)))\n"
-       "         (prompt        (linectx-prompt ctx))\n"
-       "         (prompt-length (linectx-prompt-length ctx))\n"
-       "         (x (linectx-x ctx))\n"
-       "         (y (linectx-y ctx))\n"
-       "         (nl? #f))\n"
-       /* " (format #t \"lineedit-key-redraw: prompt = ~s~%\" prompt)\n" */
-       "    (term-move-to-bol ctx)\n"
-       "    (term-move-up-n ctx y)\n"
-       "    (linectx-bsp-write ctx prompt 0 (bytespan-length prompt))\n"
-       "    (charlines-iterate lines\n"
-       "      (lambda (i line)\n"
-       "        (when nl?\n"
-       "          (linectx-u8-write ctx 10))\n"
-       "        (linectx-cgb-write ctx line 0 (charline-length line))\n"
-       "        (term-clear-to-eol ctx)\n"
-       "        (set! nl? #t)))\n"
-       "    (term-move-up-n ctx (fx- lines-n-1 y))\n"
-       "    (let* ((last-line (charlines-ref lines lines-n-1))\n"
-       "           (delta-x   (fx- x (charline-length last-line))))\n"
-       "      (when (and (fxzero? y) (not (fxzero? lines-n-1)))\n"
-       "        (set! delta-x (fx+ delta-x prompt-length)))\n"
-       "      (if (fx<? delta-x 0)\n"
-       "        (term-move-left-n ctx (fx- delta-x))\n"
-       "        (term-move-right-n ctx delta-x)))))\n"
+       "  (term-move-to-bol ctx)\n"
+       "  (term-move-up-n ctx (linectx-y ctx))\n"
+       "  (linectx-display-if-needed ctx 'force))\n"
        "\n"
        "(define (lineedit-key-tab ctx)\n"
        "  (void))\n"
@@ -881,8 +858,8 @@ void schemesh_define_library_lineedit(void) {
         * because linectx-history still references it.
         */
        "(define (linectx-return-lines ctx)\n"
-       "  (linectx-return-set! ctx #f)\n"       /* clear flag "user pressed ENTER" */
-       "  (linectx-write-prompt-set! ctx #t)\n" /* set flag "update prompt" */
+       "  (linectx-return-set! ctx #f)\n"    /* clear flag "user pressed ENTER" */
+       "  (linectx-redisplay-set! ctx #t)\n" /* set flag "redisplay prompt and lines" */
        "  (let* ((y (linectx-history-index ctx))\n"
        "         (hist (linectx-history ctx))\n"
        "         (hist-len (charhistory-length hist)))\n"
@@ -916,6 +893,7 @@ void schemesh_define_library_lineedit(void) {
        "    ((linectx-eof?    ctx) #f)\n"
        "    (#t                    #t)))\n"
        "\n"
+       /* if tty size changed, redraw */
        "(define (linectx-reflow ctx width height)\n"
        /** TODO: reflow lines, update x and y */
        "  (unless (and (fx=? width (linectx-width ctx))\n"
@@ -931,16 +909,50 @@ void schemesh_define_library_lineedit(void) {
        "      (when (pair? sz)\n"
        "        (linectx-reflow ctx (car sz) (cdr sz))))))\n"
        "\n"
-       /* write new prompt if needed */
-       "(define (linectx-write-prompt-if-needed ctx)\n"
-       "  (when (linectx-write-prompt? ctx)\n"
+       /* unconditionally display prompt */
+       "(define (linectx-display-prompt ctx)\n"
+       "  (let ((prompt (linectx-prompt ctx)))\n"
+       /* " (format #t \"linectx-display-prompt: prompt = ~s~%\" prompt)\n" */
+       "    (linectx-bsp-write ctx prompt 0 (bytespan-length prompt))))\n"
+       "\n"
+       /* unconditionally display lines */
+       "(define (linectx-display-lines ctx)\n"
+       "  (let* ((lines (linectx-lines ctx))\n"
+       "         (lines-n-1 (fx1- (charlines-length lines)))\n"
+       "         (x (linectx-x ctx))\n"
+       "         (y (linectx-y ctx))\n"
+       "         (nl? #f))\n"
+       "    (charlines-iterate lines\n"
+       "      (lambda (i line)\n"
+       "        (when nl?\n"
+       "          (linectx-u8-write ctx 10))\n"
+       "        (linectx-cgb-write ctx line 0 (charline-length line))\n"
+       "        (term-clear-to-eol ctx)\n"
+       "        (set! nl? #t)))\n"
+       "    (term-move-up-n ctx (fx- lines-n-1 y))\n"
+       "    (let* ((last-line (charlines-ref lines lines-n-1))\n"
+       "           (delta-x   (fx- x (charline-length last-line))))\n"
+       "      (when (and (fxzero? y) (not (fxzero? lines-n-1)))\n"
+       "        (set! delta-x (fx+ delta-x (linectx-prompt-length ctx))))\n"
+       "      (if (fx<? delta-x 0)\n"
+       "        (term-move-left-n ctx (fx- delta-x))\n"
+       "        (term-move-right-n ctx delta-x)))))\n"
+       "\n"
+       /* unconditionally display prompt and lines */
+       "(define (linectx-display ctx)\n"
+       "  (linectx-display-prompt ctx)\n"
+       "  (linectx-display-lines  ctx))\n"
+       "\n"
+       /* if needed, display new prompt and lines */
+       "(define (linectx-display-if-needed ctx force?)\n"
+       "  (when (or force? (linectx-redisplay? ctx))\n"
        "    (let-values (((prompt prompt-length) ((linectx-prompt-func ctx))))\n"
        "      (assert (bytespan? prompt))\n"
        "      (assert (fx<=? 0 prompt-length (bytespan-length prompt)))\n"
        "      (linectx-prompt-set!        ctx prompt)\n"
        "      (linectx-prompt-length-set! ctx prompt-length)\n"
-       "      (linectx-bsp-write ctx prompt 0 (bytespan-length prompt))\n"
-       "      (linectx-write-prompt-set! ctx #f))))\n"
+       "      (linectx-display ctx)\n"
+       "      (linectx-redisplay-set! ctx #f))))\n"
        "\n"
        /**
         * read some bytes, blocking at most for read-timeout-milliseconds
@@ -982,7 +994,7 @@ void schemesh_define_library_lineedit(void) {
        "\n"
        "(define (%lineedit-read ctx timeout-milliseconds)\n"
        "  (linectx-consume-sigwinch ctx)\n"
-       "  (linectx-write-prompt-if-needed ctx)\n"
+       "  (linectx-display-if-needed ctx #f)\n"
        "  (let ((ret (if (bytespan-empty? (linectx-rbuf ctx))\n"
        "               #t\n" /* need more input */
        /*              some bytes already in rbuf, try to consume them */
