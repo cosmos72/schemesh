@@ -90,8 +90,7 @@ void schemesh_define_library_repl(void) {
         * 1. when using shell parser, top-level commands will be executed immediately.
         * 2. when using scheme parser, top-level (shell ...) will be executed immediately.
         */
-       "(define (repl-eval ctx form)\n"
-       "  (lineedit-flush ctx)\n"
+       "(define (repl-eval form)\n"
 #ifdef SCHEMESH_LIBRARY_REPL_DEBUG
        "  (format #t \"; evaluating: ~s~%\" form)\n"
 #endif
@@ -123,7 +122,7 @@ void schemesh_define_library_repl(void) {
         *   For these reasons, the loop (do ... (eval-func ...))
         *   is wrapped inside (dynamic-wind tty-restore! (lambda () ...) tty-setraw!)
         */
-       "(define (repl-eval-list ctx forms eval-func)\n"
+       "(define (repl-eval-list forms eval-func)\n"
 #ifdef SCHEMESH_LIBRARY_REPL_DEBUG
        "  (format #t \"; evaluating list: ~s~%\" forms)\n"
 #endif
@@ -133,8 +132,8 @@ void schemesh_define_library_repl(void) {
        "      (lambda ()\n"
        "        (do ((tail forms (cdr tail)))\n"
        "            ((null? (cdr tail))\n"
-       "              (eval-func ctx (car tail)))\n"
-       "          (eval-func ctx (car tail))))\n"
+       "              (eval-func (car tail)))\n"
+       "          (eval-func (car tail))))\n"
        "      tty-setraw!)))\n"
        /**
         * Print values or exit statuses.
@@ -164,7 +163,7 @@ void schemesh_define_library_repl(void) {
        "                        (repl-parse in initial-parser enabled-parsers)))\n"
        "          (unless (eq? (void) form)\n"
        "            (call-with-values\n"
-       "              (lambda () (repl-eval-list ctx form eval-func))\n"
+       "              (lambda () (repl-eval-list form eval-func))\n"
        "              repl-print))\n"
        "          updated-parser)))))\n"
        "\n"
