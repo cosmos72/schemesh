@@ -92,7 +92,7 @@ static void schemesh_define_library_shell_jobs(void) {
 
 #define SCHEMESH_LIBRARY_SHELL_JOBS_EXPORT                                                         \
   "sh-job? sh-job-ref sh-job-status sh-jobs sh-cmd sh-cmd<> sh-cmd? sh-multijob sh-multijob? "     \
-  "sh-globals sh-global-env sh-env-copy sh-env-get sh-env-set! sh-env-unset! "                     \
+  "sh-globals sh-global-env sh-env-copy sh-env-ref sh-env-set! sh-env-unset! "                     \
   "sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0 "              \
   "sh-current-time sh-cwd sh-expand-ps1 sh-consume-sigchld "                                       \
   "sh-start sh-bg sh-fg sh-run sh-run-capture-output sh-wait sh-and sh-or sh-and-or* "             \
@@ -245,6 +245,8 @@ static void schemesh_define_library_shell_jobs(void) {
       "    ((sh-job? job-id) job-id)\n"
       "    (#t (error 'sh-job-ref \"not a job-id:\" job-id))))\n"
       "\n"
+      /** return charspan containing current directory,
+       * or charspan containing current directory of specified job-id. */
       "(define sh-cwd\n"
       "  (case-lambda\n"
       "    (()       (job-cwd sh-globals))\n"
@@ -360,21 +362,34 @@ static void schemesh_define_library_shell_jobs(void) {
       "\n"
       /**
        * Return string environment variable named "name" of specified job.
-       * If name is not found in job's environment, also search in environment
+       * If name is not found in job's direct environment, also search in environment
        * inherited from parent jobs.
+       * If name is not found, return default
        */
-      "(define (sh-env-get job-id name)\n"
-      "  (let ((ret \"\"))\n"
-      "    (job-parents-iterate job-id\n"
-      "      (lambda (j)\n"
-      "        (let* ((vars (job-env j))\n"
-      "               (elem (if (hashtable? vars) (hashtable-ref vars name #f) #f)))\n"
-      "          (when (pair? elem)\n"
-      "            (set! ret (cdr elem))\n"
-      "            #f))))\n" /* name found, stop iterating */
-      "    ret))\n"
+      "(define (sh-env-ref* job-id name default)\n"
+      "  (job-parents-iterate job-id\n"
+      "    (lambda (j)\n"
+      "      (let* ((vars (job-env j))\n"
+      "             (elem (if (hashtable? vars) (hashtable-ref vars name #f) #f)))\n"
+      "        (when (pair? elem)\n"
+      "          (unless (eq? 'delete (car elem))\n"
+      "            (set! default (cdr elem)))\n"
+      "          #f))))\n" /* name found, stop iterating */
+      "  default)\n"
+      "\n"
+      /**
+       * Return string environment variable named "name" of specified job.
+       * If name is not found in job's direct environment, also search in environment
+       * inherited from parent jobs.
+       * If name is not found, return default if specified - otherwise return ""
+       */
+      "(define sh-env-ref\n"
+      "  (case-lambda\n"
+      "    ((job-id name)         (sh-env-ref* job-id name \"\"))\n"
+      "    ((job-id name default) (sh-env-ref* job-id name default))))\n"
       "\n"
       "(define (sh-env-set! job-id name val)\n"
+      "  (assert (string? val))\n"
       "  (let* ((vars (job-direct-env job-id))\n"
       "         (elem (hashtable-ref vars name #f)))\n"
       "    (if (pair? elem)\n"
@@ -405,13 +420,14 @@ static void schemesh_define_library_shell_jobs(void) {
       "  (assert (boolean? exported?))\n"
       "  (let* ((j (sh-job-ref job-id))\n"
       /*        val may be in a parent environment */
-      "         (val (sh-env-get j name))\n"
+      "         (val (sh-env-ref j name))\n"
       "         (export (if exported? 'export 'private)))\n"
       "" /* (job-direct-env j) creates job environment if not yet present */
       "    (hashtable-set! (job-direct-env j) name (cons export val))))\n"
       "\n"
       /* combined sh-env-set! and sh-env-export! */
       "(define (sh-env-set+export! job-id name val exported?)\n"
+      "  (assert (string? val))\n"
       "  (assert (boolean? exported?))\n"
       "  (let* ((vars (job-direct-env job-id))\n"
       "         (export (if exported? 'export 'private)))\n"
@@ -460,7 +476,7 @@ static void schemesh_define_library_shell_jobs(void) {
       "\n"
       /** return string containing current time in 24-hour HH:MM:SS format.
        * return number of appended bytes */
-      "(define (sh-current-time)\n"
+      "(define (sh-current-time ch)\n"
       "  (let ((%display (lambda (str pos val)\n"
       "          (let-values (((hi lo) (div-and-mod val 10)))\n"
       "            (string-set! str pos        (integer->char (fx+ 48 (fxmod hi 10))))\n"
@@ -473,7 +489,7 @@ static void schemesh_define_library_shell_jobs(void) {
       "    str))\n"
       "\n"
       "(define (sh-expand-ps1)\n"
-      "  (let* ((src (sh-env-get sh-globals \"PS1\"))\n" /* string */
+      "  (let* ((src (sh-env-ref sh-globals \"PS1\"))\n" /* string */
       "         (dst (bytespan))\n"
       "         (displen 0)\n"
       "         (hidden  0)"
@@ -496,17 +512,36 @@ static void schemesh_define_library_shell_jobs(void) {
       "            (case ch\n"
       "              ((#\\[) (set! hidden (fx1+ hidden)))\n"
       "              ((#\\]) (set! hidden (fx1- hidden)))\n"
+      "              ((#\\a) (%append-char     #\\x07))\n"
       "              ((#\\e) (%append-char     #\\x1b))\n"
-      "              ((#\\h) (%append-string   (c-hostname)))\n"
-      "              ((#\\t) (%append-string   (sh-current-time)))\n"
-      "              ((#\\u) (%append-string   (sh-env-get sh-globals \"USER\")))\n"
-      "              ((#\\w) (%append-charspan (sh-cwd)))\n"
+      "              ((#\\h #\\H) (%append-string (c-hostname)))\n"
+#if 0
+      "              ((#\\n) (%append-char     #\\newline))\n"
+      "              ((#\\r) (%append-char     #\\return))\n"
+#endif
+      "              ((#\\s) (%append-string   \"schemesh\"))\n"
+      "              ((#\\@ #\\A #\\T #\\t)    (%append-string (sh-current-time ch)))\n"
+      "              ((#\\u) (%append-string   (sh-env-ref sh-globals \"USER\")))\n"
+      "              ((#\\w) (%append-charspan (sh-home->~ (sh-cwd))))\n"
       "              (else   (%append-char     ch)))\n"
       "            (set! escape? #f))\n"
       "          (case ch\n"
       "            ((#\\\\) (set! escape? #t))\n"
       "            (else    (%append-char ch))))))\n"
       "    (values dst displen)))\n"
+      "\n"
+      /* if charspan path begins with user's $HOME, replace it with ~ */
+      "(define (sh-home->~ path)\n"
+      "  (let ((ret path)\n"
+      "        (home (sh-env-ref sh-globals \"HOME\" #f)))\n"
+      "    (when (string? home)\n"
+      "      (let ((home-len (string-length home))\n"
+      "            (path-len (charspan-length path)))\n"
+      "        (when (and (fx<=? home-len path-len)\n"
+      "                   (charspan-range=? (string->charspan* home) 0 path 0 home-len))\n"
+      "          (set! ret (string->charspan \"~\"))\n"
+      "          (charspan-csp-insert-back! ret path home-len (fx- path-len home-len)))))\n"
+      "    ret))\n"
       "\n"
       /**
        * NOTE: this is an internal implementation function, use (sh-start) instead.

@@ -35,7 +35,7 @@ static void schemesh_define_library_containers_misc(void) {
   "vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable "                    \
   "list->bytevector list-quoteq! "                                                                 \
   "subbytevector bytevector-fill-range! bytevector-iterate "                                       \
-  "string-fill-range! string-iterate "
+  "string-fill-range! string-range=? string-iterate "
 
   Sregister_symbol("c_vector_copy", &c_vector_copy);
 
@@ -198,6 +198,15 @@ static void schemesh_define_library_containers_misc(void) {
        "  (do ((i 0 (fx1+ i)))\n"
        "      ((fx>=? i n))\n"
        "    (string-set! str (fx+ i start) val)))\n"
+       "\n"
+       "(define (string-range=? left left-start right right-start n)\n"
+       "  (or\n"
+       "    (and (eq? left right) (fx=? left-start right-start))\n"
+       "    (let ((equal #t))\n"
+       "      (do ((i 0 (fx1+ i)))\n"
+       "          ((or (not equal) (fx>=? i n)) equal)\n"
+       "        (set! equal (char=? (string-ref left (fx+ i left-start))\n"
+       "                            (string-ref right (fx+ i right-start))))))))\n"
        "\n"
        /**
         * (string-iterate l proc) iterates on all elements of given string src,
@@ -1064,7 +1073,7 @@ static void schemesh_define_library_containers_charspan(void) {
   "list->charspan string->charspan string->charspan* make-charspan charspan->string "              \
   "charspan charspan? charspan-length charspan-empty? charspan-clear! charspan-capacity "          \
   "charspan-capacity-front charspan-capacity-back charspan-ref charspan-back charspan-set! "       \
-  "charspan-fill! charspan-fill-range! charspan-copy charspan-copy! charspan=? "                   \
+  "charspan-fill! charspan-fill-range! charspan-copy charspan-copy! charspan=? charspan-range=? "  \
   "charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back! "   \
   "charspan-insert-front! charspan-insert-back!  "                                                 \
   "charspan-csp-insert-front! charspan-csp-insert-back! "                                          \
@@ -1163,24 +1172,24 @@ static void schemesh_define_library_containers_charspan(void) {
        "    dst))\n"
        "\n"
        "(define (charspan-copy! src src-start dst dst-start n)\n"
-       "  (assert (fx>=? src-start 0))\n"
-       "  (assert (fx>=? dst-start 0))\n"
-       "  (assert (fx>=? n 0))\n"
-       "  (assert (fx<=? (fx+ src-start n) (charspan-length src)))\n"
-       "  (assert (fx<=? (fx+ dst-start n) (charspan-length dst)))\n"
+       "  (assert (fx<=? 0 src-start (fx+ src-start n) (charspan-length src)))\n"
+       "  (assert (fx<=? 0 dst-start (fx+ dst-start n) (charspan-length dst)))\n"
        "  (string-copy! (charspan-vec src) (fx+ src-start (charspan-beg src))\n"
        "                (charspan-vec dst) (fx+ dst-start (charspan-beg dst)) n))\n"
        "\n"
        "(define (charspan=? left right)\n"
-       "  (or (and (eq?  (charspan-vec left) (charspan-vec right))\n"
-       "           (fx=? (charspan-beg left) (charspan-beg right))\n"
-       "           (fx=? (charspan-end left) (charspan-end right)))\n"
-       "    (let* ((n1 (charspan-length left))\n"
-       "           (n2 (charspan-length right))\n"
-       "           (equal (fx=? n1 n2)))\n"
-       "      (do ((i 0 (fx1+ i)))\n"
-       "          ((or (not equal) (fx>=? i n1)) equal)\n"
-       "        (set! equal (char=? (charspan-ref left i) (charspan-ref right i)))))))\n"
+       "  (let ((n1 (charspan-length left))\n"
+       "        (n2 (charspan-length right)))\n"
+       "    (and (fx=? n1 n2)\n"
+       "         (charspan-range=? left 0 right 0 n1))))\n"
+       "\n"
+       "(define (charspan-range=? left left-start right right-start n)\n"
+       "  (assert (fx<=? 0 left-start  (fx+ left-start n)  (charspan-length left)))\n"
+       "  (assert (fx<=? 0 right-start (fx+ right-start n) (charspan-length right)))\n"
+       "  (string-range=?\n"
+       "    (charspan-vec left)  (fx+ left-start  (charspan-beg left))\n"
+       "    (charspan-vec right) (fx+ right-start (charspan-beg right))\n"
+       "    n))\n"
        "\n"
        "(define (charspan-reallocate-front! sp len cap)\n"
        "  (assert (fx>=? len 0))\n"

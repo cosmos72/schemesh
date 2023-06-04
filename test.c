@@ -260,6 +260,8 @@ static const struct {
     {"(charspan-empty? (charspan #\\~))", "#f"},
     {"(charspan-back (charspan #\\{ #\\\\))", "\\"},
     {"(charspan-ref (charspan #\\x #\\y #\\z) 2)", "z"},
+    {"(charspan-range=? (string->charspan* \"abcdef\") 2 (string->charspan* \"1cde34\") 1 3)",
+     "#t"},
     {"(let* ((s \"abc\")\n"
      "       (sp (string->charspan s)))\n"
      "  (string-set! s 1 #\\^)\n" /* set! does NOT propagate to the charspan */
@@ -512,7 +514,7 @@ static const struct {
     {"(begin\n"
      "  (sh-env-set! #t \"foo\" \"bar\")\n"
      "  (cons\n"
-     "    (sh-env-get       #t \"foo\")\n"
+     "    (sh-env-ref       #t \"foo\")\n"
      "    (sh-env-exported? #t \"foo\")))",
      "(bar . #f)"},
     {"(sh-cmd \"echo\" \"foo\" \" bar \")", "(sh-cmd \"echo\" \"foo\" \" bar \")"},
