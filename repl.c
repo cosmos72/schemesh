@@ -154,7 +154,6 @@ void schemesh_define_library_repl(void) {
         */
        "(define (repl-once ctx initial-parser enabled-parsers eval-func)\n"
        "  (let ((in (repl-lineedit ctx)))\n"
-       "    (sh-consume-sigchld)\n"
        "    (case in\n"
        /*     got end-of-file */
        "      ((#f) #f)\n"
@@ -167,12 +166,9 @@ void schemesh_define_library_repl(void) {
        "            (call-with-values\n"
        "              (lambda () (repl-eval-list ctx form eval-func))\n"
        "              repl-print))\n"
-       "            (sh-consume-sigchld)\n"
        "          updated-parser)))))\n"
        "\n"
-       /**
-        * main loop of (repl) and (repl*)
-        */
+       /** main loop of (repl) and (repl*) */
        "(define (repl-loop parser enabled-parsers eval-func ctx)\n"
        "  (call/cc\n"
        "    (lambda (k-exit)\n"
@@ -181,13 +177,10 @@ void schemesh_define_library_repl(void) {
        "          (reset-handler (lambda () (k-reset)))\n"
        "          (call/cc (lambda (k) (set! k-reset k)))\n"
        /*         when the (reset-handler) we installed is called, resume from here */
-       "          (dynamic-wind\n"
-       "            tty-setraw!\n"
-       "            (lambda ()\n"
-       "              (while parser\n"
-       "                (set! parser (repl-once ctx parser\n"
-       "                               enabled-parsers eval-func))))\n"
-       "            tty-restore!))))))\n"
+       "          (while parser\n"
+       "            (set! parser (repl-once ctx parser\n"
+       "                           enabled-parsers eval-func))\n"
+       "            (sh-consume-sigchld)))))))\n"
        "\n"
        /** top-level interactive repl with all arguments mandatory */
        "(define (repl* initial-parser enabled-parsers eval-func ctx)\n"
@@ -196,11 +189,11 @@ void schemesh_define_library_repl(void) {
        "  (let ((parser (to-parser initial-parser enabled-parsers 'repl)))\n"
        "    (dynamic-wind\n"
        "      (lambda ()\n"
-       "        (lineedit-clear! ctx) (signal-init-sigwinch))\n"
+       "        (lineedit-clear! ctx) (signal-init-sigwinch) (tty-setraw!))\n"
        "      (lambda ()\n"
        "        (repl-loop parser enabled-parsers eval-func ctx))\n"
        "      (lambda ()\n"
-       "        (signal-restore-sigwinch) (lineedit-finish ctx)))))\n"
+       "        (tty-restore!) (signal-restore-sigwinch) (lineedit-finish ctx)))))\n"
        "\n"
        /**
         * top-level interactive repl with optional arguments:

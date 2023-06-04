@@ -301,7 +301,8 @@ void schemesh_define_library_lineedit(void) {
        "    (schemesh containers)\n"
        "    (schemesh fd)\n"
        "    (schemesh lineedit base)\n"
-       "    (schemesh tty))\n"
+       "    (schemesh tty)\n"
+       "    (only (schemesh signals) signal-consume-sigwinch))\n"
        "\n"
        "\n"
        /* linectx is the top-level object used by most lineedit functions */
@@ -916,6 +917,21 @@ void schemesh_define_library_lineedit(void) {
        "    ((linectx-eof?    ctx) #f)\n"
        "    (#t                    #t)))\n"
        "\n"
+       "(define (linectx-reflow ctx width height)\n"
+       /** TODO: reflow lines, update x and y */
+       "  (unless (and (fx=? width (linectx-width ctx))\n"
+       "               (fx=? height (linectx-height ctx)))\n"
+       "    (linectx-width-set! ctx width)\n"
+       "    (linectx-height-set! ctx height)\n"
+       "    (lineedit-key-redraw ctx)))\n"
+       "\n"
+       /* react to SIGWINCH */
+       "(define (linectx-consume-sigwinch ctx)\n"
+       "  (when (signal-consume-sigwinch)\n"
+       "    (let ((sz (tty-size)))\n"
+       "      (when (pair? sz)\n"
+       "        (linectx-reflow ctx (car sz) (cdr sz))))))\n"
+       "\n"
        /* update prompt if needed */
        "(define (linectx-update-prompt-if-needed ctx)\n"
        "  (when (linectx-update-prompt? ctx)\n"
@@ -965,6 +981,7 @@ void schemesh_define_library_lineedit(void) {
        "    (if eof? -1 got)))\n"
        "\n"
        "(define (%lineedit-read ctx timeout-milliseconds)\n"
+       "  (linectx-consume-sigwinch ctx)\n"
        "  (linectx-update-prompt-if-needed ctx)\n"
        "  (let ((ret (if (bytespan-empty? (linectx-rbuf ctx))\n"
        "               #t\n" /* need more input */
@@ -974,10 +991,16 @@ void schemesh_define_library_lineedit(void) {
        /*     need more input */
        "      (let ((n (linectx-read ctx timeout-milliseconds)))\n"
        "        (cond\n"
-       /*         got some bytes, call again (linectx-keytable-iterate) and return its value */
-       "          ((fx>? n 0)  (linectx-keytable-iterate ctx))\n"
-       "          ((fxzero? n) #t)\n"   /* read timed out, return #t */
-       "          (#t          #f)))\n" /* end-of-file, return #f  */
+       "          ((fx>? n 0)\n"
+       /*            got some bytes, call again (linectx-keytable-iterate) and return its value */
+       "             (linectx-keytable-iterate ctx))\n"
+       "          ((fxzero? n)\n"
+       /*            read timed out, return #t */
+       "             (linectx-consume-sigwinch ctx)\n"
+       "             #t)\n"
+       "          (else\n"
+       /*            end-of-file, return #f  */
+       "             #f)))\n"
        /*     propagate return value of first (linectx-keytable-iterate) */
        "      ret)))\n"
        "\n"
@@ -995,7 +1018,6 @@ void schemesh_define_library_lineedit(void) {
        "    (lambda () (flush-output-port (current-output-port)))\n"
        "    (lambda () (%lineedit-read ctx timeout-milliseconds))\n"
        /*   write linectx buffered output before returning */
-       /**  TODO: call (signal-consume-sigwinch) and react to tty window resize */
        "    (lambda () (lineedit-flush ctx))))\n"
        "\n"
        "(let ((t lineedit-default-keytable)\n"
