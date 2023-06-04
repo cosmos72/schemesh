@@ -199,7 +199,11 @@ static void schemesh_define_library_containers_misc(void) {
        "      ((fx>=? i n))\n"
        "    (string-set! str (fx+ i start) val)))\n"
        "\n"
+       /* return #t if range [left-start, left-start + n) of left string contains
+        * the same characters as range [right-start, right-start + n) of right string. */
        "(define (string-range=? left left-start right right-start n)\n"
+       "  (assert (fx<=? 0 left-start (string-length left)))\n"
+       "  (assert (fx<=? 0 right-start (string-length right)))\n"
        "  (or\n"
        "    (and (eq? left right) (fx=? left-start right-start))\n"
        "    (let ((equal #t))\n"
@@ -1181,7 +1185,10 @@ static void schemesh_define_library_containers_charspan(void) {
        "  (let ((n1 (charspan-length left))\n"
        "        (n2 (charspan-length right)))\n"
        "    (and (fx=? n1 n2)\n"
-       "         (charspan-range=? left 0 right 0 n1))))\n"
+       "         (string-range=?\n"
+       "           (charspan-vec left) (charspan-beg left)\n"
+       "           (charspan-vec right) (charspan-beg right)\n"
+       "           n1))))\n"
        "\n"
        "(define (charspan-range=? left left-start right right-start n)\n"
        "  (assert (fx<=? 0 left-start  (fx+ left-start n)  (charspan-length left)))\n"
