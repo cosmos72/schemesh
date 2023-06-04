@@ -18,8 +18,11 @@ void schemesh_define_library_tty(void);
 /** define fd-related functions. return < 0 if some C system call failed */
 int schemesh_define_library_fd(void);
 
+/** define miscellaneous posix functions */
+void schemesh_define_library_posix(void);
+
 /**
- * define functions (fork-pid) (spawn-pid) (pid-wait)
+ * define process-related functions (fork-pid) (spawn-pid) (pid-wait)
  * requires functions (sh-env...)
  */
 void schemesh_define_library_pid(void);

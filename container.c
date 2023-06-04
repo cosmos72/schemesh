@@ -34,7 +34,8 @@ static void schemesh_define_library_containers_misc(void) {
   "list-iterate reverse*! "                                                                        \
   "vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable "                    \
   "list->bytevector list-quoteq! "                                                                 \
-  "subbytevector bytevector-fill-range! bytevector-iterate string-fill-range! "
+  "subbytevector bytevector-fill-range! bytevector-iterate "                                       \
+  "string-fill-range! string-iterate "
 
   Sregister_symbol("c_vector_copy", &c_vector_copy);
 
@@ -197,6 +198,15 @@ static void schemesh_define_library_containers_misc(void) {
        "  (do ((i 0 (fx1+ i)))\n"
        "      ((fx>=? i n))\n"
        "    (string-set! str (fx+ i start) val)))\n"
+       "\n"
+       /**
+        * (string-iterate l proc) iterates on all elements of given string src,
+        * and calls (proc index ch) on each character. stops iterating if (proc ...) returns #f
+        */
+       "(define (string-iterate str proc)\n"
+       "  (do ((i 0 (fx1+ i))\n"
+       "       (n (string-length str)))\n"
+       "      ((or (fx>=? i n) (not (proc i (string-ref str i)))))))\n"
        "\n"
        ")\n"); /* close library */
 }
@@ -1739,7 +1749,7 @@ static void schemesh_define_library_containers_utils(void) {
 #define SCHEMESH_LIBRARY_CONTAINERS_UTILS_EXPORT                                                   \
   "bytevector-utf8-ref bytevector-utf8-set! char->utf8-length "                                    \
   "bytespan-utf8-ref bytespan-utf8-set! bytespan-utf8-insert-front! bytespan-utf8-insert-back! "   \
-  "bytespan-fixnum-display-back! "                                                                 \
+  "bytespan-csp-insert-back! bytespan-fixnum-display-back! "                                       \
   "charspan->utf8 "
 
   eval("(library (schemesh containers utils (0 1))\n"
@@ -1935,35 +1945,41 @@ static void schemesh_define_library_containers_utils(void) {
        "    (fx+ idx (bytespan-peek-beg sp))\n"
        "    (fxmin max-n (fx- (bytespan-length sp) idx))))\n"
        "\n"
-       /* convert char to UTF-8 sequence and write it into bytespan starting at offset idx */
+       /** convert char to UTF-8 sequence and write it into bytespan starting at offset idx */
        "(define (bytespan-utf8-set! sp idx ch)\n"
        "  (assert (fx>=? idx 0))\n"
        "  (assert (fx<=? idx (fx+ (bytespan-length sp) (char->utf8-length ch))))\n"
        "  (bytevector-utf8-set! (bytespan-peek-data sp) (fx+ idx (bytespan-peek-beg sp)) ch))\n"
        "\n"
-       /* returns length in bytes of inserted UTF-8 sequence */
+       /** convert a character to UTF-8 sequence and prefix it to bytespan.
+        * Return length in bytes of inserted UTF-8 sequence */
        "(define (bytespan-utf8-insert-front! sp ch)\n"
        "  (let ((new-len (fx+ (bytespan-length sp) (char->utf8-length ch))))\n"
        "    (bytespan-resize-front! sp new-len)\n"
        "    (bytespan-utf8-set! sp 0 ch)))\n"
        "\n"
-       /* returns length in bytes of inserted UTF-8 sequence */
+       /** convert a character to UTF-8 sequence and append it to bytespan.
+        * Return length in bytes of inserted UTF-8 sequence */
        "(define (bytespan-utf8-insert-back! sp ch)\n"
        "  (let* ((old-len (bytespan-length sp))\n"
        "         (new-len (fx+ old-len (char->utf8-length ch))))\n"
        "    (bytespan-resize-back! sp new-len)\n"
        "    (bytespan-utf8-set! sp old-len ch)))\n"
        "\n"
-       /* convert charspan to UTF-8 bytespan */
+       /** convert a charspan to UTF-8 sequences and append it to bytespan. */
+       "(define (bytespan-csp-insert-back! sp csp)\n"
+       "  (bytespan-reserve-back! sp (fx+ (bytespan-length sp) (charspan-length csp)))\n"
+       "  (charspan-iterate csp\n"
+       "    (lambda (i ch)\n"
+       "      (bytespan-utf8-insert-back! sp ch))))\n"
+       "\n"
+       /** convert a charspan to UTF-8 bytespan. */
        "(define (charspan->utf8 sp)\n"
        "  (let ((ret (make-bytespan 0)))\n"
-       "    (bytespan-reserve-back! ret (charspan-length sp))\n"
-       "    (charspan-iterate sp\n"
-       "      (lambda (i ch)\n"
-       "        (bytespan-utf8-insert-back! ret ch)))\n"
+       "    (bytespan-csp-insert-back! ret sp)\n"
        "    ret))\n"
        "\n"
-       /* convert a fixnum to decimal digits and append the digits to bytespan */
+       /** convert a fixnum to decimal digits and append the digits to bytespan. */
        "(define (bytespan-fixnum-display-back! sp n)\n"
        "  (if (fx<? n 0)\n"
        "    (bytespan-u8-insert-back! sp 45)\n" /* append '-' */

@@ -400,12 +400,6 @@ int c_pid_kill(int pid, int sig) {
   return kill(pid, sig) >= 0 ? 0 : c_errno();
 }
 
-int c_exit(int status) {
-  /* printf("c_exit(%d) invoked\n", status); */
-  exit(status);
-  return -EINVAL;
-}
-
 int schemesh_define_library_fd(void) {
   int err;
   if ((err = c_tty_init()) < 0) {
@@ -568,6 +562,41 @@ int schemesh_define_library_fd(void) {
   return 0;
 }
 
+static int c_exit(int status) {
+  /* printf("c_exit(%d) invoked\n", status); */
+  exit(status);
+  return -EINVAL;
+}
+
+static ptr c_get_hostname(void) {
+  char buf[HOST_NAME_MAX + 1];
+  if (gethostname(buf, sizeof(buf)) != 0) {
+    return Sinteger(c_errno());
+  }
+  return Sstring_utf8(buf, -1);
+}
+
+void schemesh_define_library_posix(void) {
+  Sregister_symbol("c_get_hostname", &c_get_hostname);
+  Sregister_symbol("c_exit", &c_exit);
+
+  eval("(library (schemesh posix (0 1))\n"
+       "  (export c-hostname c-exit)\n"
+       "  (import\n"
+       "    (rnrs)\n"
+       "    (only (chezscheme) foreign-procedure))\n"
+       "\n"
+       "(define c-exit (foreign-procedure \"c_exit\" (int) int))\n"
+       "\n"
+       "(define c-hostname\n"
+       "  (let* ((hostname-or-error ((foreign-procedure \"c_get_hostname\" () scheme-object)))\n"
+       "         (hostname (if (string? hostname-or-error) hostname-or-error \"???\")))\n"
+       "    (lambda ()\n"
+       "      hostname)))\n"
+       "\n"
+       ")\n"); /* close library */
+}
+
 void schemesh_define_library_pid(void) {
   Sregister_symbol("c_get_pid", &c_get_pid);
   Sregister_symbol("c_get_pgid", &c_get_pgid);
@@ -576,7 +605,6 @@ void schemesh_define_library_pid(void) {
   Sregister_symbol("c_pid_wait", &c_pid_wait);
   Sregister_symbol("c_pgid_foreground", &c_pgid_foreground);
   Sregister_symbol("c_pid_kill", &c_pid_kill);
-  Sregister_symbol("c_exit", &c_exit);
 
   eval("(library (schemesh pid (0 1))\n"
        "  (export get-pid get-pgid spawn-pid pid-kill pid-wait exit-with-job-status)\n"
@@ -589,7 +617,9 @@ void schemesh_define_library_pid(void) {
        "      )"
        "    (schemesh fd)\n"
        "    (only (schemesh conversions) list->cmd-argv)\n"
-       "    (only (schemesh signals) signal-name->number signal-raise))\n"
+       "    (only (schemesh signals) signal-name->number signal-raise)\n"
+       "    (only (schemesh posix) c-exit))\n"
+       "\n"
        /** (get-pid) returns pid of current process */
        "(define get-pid"
        "  (let ((c-get-pid (foreign-procedure \"c_get_pid\" () int)))\n"
@@ -675,32 +705,30 @@ void schemesh_define_library_pid(void) {
         *               ; if kill() returns, will call C function exit(128 + signal_number)
         *   ... any other value ... ;  will call C function exit(255)
         */
-       "(define exit-with-job-status\n"
-       "  (let ((c-exit (foreign-procedure \"c_exit\" (int) int)))\n"
-       "    (lambda (status)\n"
+       "(define (exit-with-job-status status)\n"
 #if 0 && defined(SCHEMESH_LIBRARY_FD_DEBUG)
-       "      (format #t \"exit-with-job-status ~s~%\" status)\n"
+       "  (format #t \"exit-with-job-status ~s~%\" status)\n"
 #endif
-       "      (let ((exit-status\n"
-       "             (if (and (pair? status) (eq? 'exited (car status))\n"
-       "                      (fixnum? (cdr status)) (fx=? (cdr status)\n"
-       "                                                   (fxand 255 (cdr status))))\n"
-       "               (cdr status)\n"
-       "               255)))\n"
-       "        (dynamic-wind\n"
-       "          void\n"       /* before body */
-       "          (lambda ()\n" /* body */
-       "            (when (and (pair? status) (eq? 'killed (car status)))\n"
-       "              (let ((signal-name (cdr status)))\n"
-       "                (unless (memq signal-name '(sigstop sigtstp sigcont\n"
-       "                                              sigttin sigttou))\n"
-       "                  (signal-raise signal-name))\n"
+       "  (let ((exit-status\n"
+       "         (if (and (pair? status) (eq? 'exited (car status))\n"
+       "                  (fixnum? (cdr status)) (fx=? (cdr status)\n"
+       "                                               (fxand 255 (cdr status))))\n"
+       "           (cdr status)\n"
+       "           255)))\n"
+       "    (dynamic-wind\n"
+       "      void\n"       /* before body */
+       "      (lambda ()\n" /* body */
+       "        (when (and (pair? status) (eq? 'killed (car status)))\n"
+       "          (let ((signal-name (cdr status)))\n"
+       "            (unless (memq signal-name '(sigstop sigtstp sigcont\n"
+       "                                          sigttin sigttou))\n"
+       "              (signal-raise signal-name))\n"
        /*               process did not die with (signal-raise) */
-       "                (let ((signal-number (signal-name->number signal-name)))\n"
-       "                  (when (fixnum? signal-number)\n"
-       "                    (set! exit-status (fx+ 128 signal-number)))))))\n"
-       "          (lambda ()\n" /* after body */
-       "            (c-exit exit-status)))))))\n"
+       "            (let ((signal-number (signal-name->number signal-name)))\n"
+       "              (when (fixnum? signal-number)\n"
+       "                (set! exit-status (fx+ 128 signal-number)))))))\n"
+       "      (lambda ()\n" /* after body */
+       "        (c-exit exit-status)))))\n"
        ")\n"); /* close library */
 }
 

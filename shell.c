@@ -94,7 +94,7 @@ static void schemesh_define_library_shell_jobs(void) {
   "sh-job? sh-job-ref sh-job-status sh-jobs sh-cmd sh-cmd<> sh-cmd? sh-multijob sh-multijob? "     \
   "sh-globals sh-global-env sh-env-copy sh-env-get sh-env-set! sh-env-unset! "                     \
   "sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0 "              \
-  "sh-cwd sh-expand-ps1 sh-consume-sigchld "                                                       \
+  "sh-current-time sh-cwd sh-expand-ps1 sh-consume-sigchld "                                       \
   "sh-start sh-bg sh-fg sh-run sh-run-capture-output sh-wait sh-and sh-or sh-and-or* "             \
   "sh-list sh-list* sh-fd-redirect! sh-fds-redirect! "
 
@@ -104,15 +104,20 @@ static void schemesh_define_library_shell_jobs(void) {
       "  (import\n"
       "    (rnrs)\n"
       "    (rnrs mutable-pairs)\n"
-      "    (only (chezscheme) foreign-procedure record-writer reverse! void)\n"
+      "    (rnrs mutable-strings)\n"
+      "    (only (chezscheme)\n"
+      "      current-date date-hour date-minute date-second\n"
+      "      foreign-procedure fx1+ fx1- record-writer reverse! void)\n"
       "    (schemesh containers misc)\n"
       "    (schemesh containers span)\n"
+      "    (schemesh containers bytespan)\n"
       "    (schemesh containers charspan)\n"
       "    (schemesh containers hashtable)\n"
-      "    (only (schemesh containers utils) charspan->utf8)\n"
+      "    (schemesh containers utils)\n"
       "    (schemesh conversions)\n"
-      "    (schemesh pid)\n"
       "    (schemesh fd)\n"
+      "    (schemesh pid)\n"
+      "    (schemesh posix)\n"
       "    (schemesh signals))\n"
       "\n"
       /** Define the record type "job" */
@@ -126,9 +131,9 @@ static void schemesh_define_library_shell_jobs(void) {
                                              (subshell-func)                             */
       "    (mutable to-redirect-files)\n" /* vector of files to open before fork()       */
       "    (mutable to-close-fds)\n"      /* list: fds to close after spawn              */
-      "    subshell-func\n"               /* procedure to run in fork()ed child.
-                                             receives job as only argument, and its return
-                                             value is passed to (exit-with-job-status)   */
+      "    subshell-func\n"               /* procedure to run in fork()ed child.         *
+                                           * receives job as only argument, and its return
+                                           * value is passed to (exit-with-job-status)   */
       "    (mutable cwd)\n"               /* charspan: working directory                 */
       "    (mutable env)\n"               /* hashtable: overridden env variables, or '() */
       "    (mutable parent)))\n"          /* parent job, contains default values of env variables */
@@ -354,7 +359,7 @@ static void schemesh_define_library_shell_jobs(void) {
       "    vars))\n"
       "\n"
       /**
-       * Return environment variable named "name" of specified job.
+       * Return string environment variable named "name" of specified job.
        * If name is not found in job's environment, also search in environment
        * inherited from parent jobs.
        */
@@ -446,17 +451,62 @@ static void schemesh_define_library_shell_jobs(void) {
       "          #f)))\n" /* stop iterating on options */
       "    existing-pgid))\n"
       "\n"
-      "(define (sh-expand-ps1)\n"
-      /** TODO: implement */
-      "  (let ((prompt (sh-cwd)))\n"
-      "    (values (charspan->utf8 prompt) (charspan-length prompt))))\n"
-      "\n"
       "(define (sh-consume-sigchld)\n"
       /**
        * TODO: call (signal-consume-sigchld) and (pid-wait) to reap zombies
        *        and collect exit status of child processes
        */
       "  (void))\n"
+      "\n"
+      /** return string containing current time in 24-hour HH:MM:SS format.
+       * return number of appended bytes */
+      "(define (sh-current-time)\n"
+      "  (let ((%display (lambda (str pos val)\n"
+      "          (let-values (((hi lo) (div-and-mod val 10)))\n"
+      "            (string-set! str pos        (integer->char (fx+ 48 (fxmod hi 10))))\n"
+      "            (string-set! str (fx1+ pos) (integer->char (fx+ 48 (fxmod lo 10)))))))\n"
+      "        (d (current-date))\n"
+      "        (str (make-string 8 #\\:)))\n"
+      "    (%display str 0 (date-hour d))\n"
+      "    (%display str 3 (date-minute d))\n"
+      "    (%display str 6 (date-second d))\n"
+      "    str))\n"
+      "\n"
+      "(define (sh-expand-ps1)\n"
+      "  (let* ((src (sh-env-get sh-globals \"PS1\"))\n" /* string */
+      "         (dst (bytespan))\n"
+      "         (displen 0)\n"
+      "         (hidden  0)"
+      "         (escape? #f)\n"
+      "         (%append-char (lambda (ch)\n"
+      "           (bytespan-utf8-insert-back! dst ch)\n"
+      "           (when (fx<=? hidden 0)\n"
+      "             (set! displen (fx1+ displen)))))\n"
+      "         (%append-charspan (lambda (csp)\n"
+      "           (bytespan-csp-insert-back! dst csp)\n"
+      "           (when (fx<=? hidden 0)\n"
+      "             (set! displen (fx+ displen (charspan-length csp))))))\n"
+      "         (%append-string (lambda (str)\n"
+      "           (%append-charspan (string->charspan* str)))))\n"
+      "    (bytespan-reserve-back! dst (string-length src))\n"
+      "    (string-iterate src\n"
+      "      (lambda (i ch)\n"
+      "        (if escape?\n"
+      "          (begin\n"
+      "            (case ch\n"
+      "              ((#\\[) (set! hidden (fx1+ hidden)))\n"
+      "              ((#\\]) (set! hidden (fx1- hidden)))\n"
+      "              ((#\\e) (%append-char     #\\x1b))\n"
+      "              ((#\\h) (%append-string   (c-hostname)))\n"
+      "              ((#\\t) (%append-string   (sh-current-time)))\n"
+      "              ((#\\u) (%append-string   (sh-env-get sh-globals \"USER\")))\n"
+      "              ((#\\w) (%append-charspan (sh-cwd)))\n"
+      "              (else   (%append-char     ch)))\n"
+      "            (set! escape? #f))\n"
+      "          (case ch\n"
+      "            ((#\\\\) (set! escape? #t))\n"
+      "            (else    (%append-char ch))))))\n"
+      "    (values dst displen)))\n"
       "\n"
       /**
        * NOTE: this is an internal implementation function, use (sh-start) instead.
@@ -1306,6 +1356,7 @@ int schemesh_define_libraries(void) {
   }
   schemesh_define_library_signals();
   schemesh_define_library_tty();
+  schemesh_define_library_posix();
   schemesh_define_library_pid();
   schemesh_define_library_lineedit();
   schemesh_define_library_shell();
@@ -1324,6 +1375,7 @@ void schemesh_import_libraries(void) {
        "  (import (schemesh fd))\n"
        "  (import (schemesh signals))\n"
        "  (import (schemesh tty))\n"
+       "  (import (schemesh posix))\n"
        "  (import (schemesh pid))\n"
        "  (import (schemesh lineedit base))\n"
        "  (import (schemesh lineedit))\n"
