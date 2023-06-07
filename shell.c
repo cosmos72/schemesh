@@ -496,7 +496,8 @@ static void schemesh_define_library_shell_jobs(void) {
       "      (%display str 6 (date-second d)))\n"
       "    str))\n"
       "\n"
-      "(define (sh-expand-ps1)\n"
+      /** return two values: bytespan containing prompt, and its display length */
+      "(define (sh-expand-ps1 current-parser-name)\n"
       "  (let* ((src (sh-env-ref sh-globals \"SCHEMESH_PS1\"))\n" /* string */
       "         (dst (bytespan))\n"
       "         (displen 0)\n"
@@ -527,7 +528,7 @@ static void schemesh_define_library_shell_jobs(void) {
       "              ((#\\n) (%append-char     #\\newline))\n"
       "              ((#\\r) (%append-char     #\\return))\n"
 #endif
-      "              ((#\\s) (%append-string   \"schemesh\"))\n"
+      "              ((#\\s) (%append-string   (symbol->string current-parser-name)))\n"
       "              ((#\\@ #\\A #\\T #\\t)    (%append-string (sh-current-time ch)))\n"
       "              ((#\\u) (%append-string   (sh-env-ref sh-globals \"USER\")))\n"
       "              ((#\\w) (%append-charspan (sh-home->~ (sh-cwd))))\n"

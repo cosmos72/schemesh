@@ -32,7 +32,7 @@ void schemesh_define_library_repl(void) {
 #ifdef SCHEMESH_LIBRARY_REPL_DEBUG
        "      format\n"
 #endif
-       "      parameterize reset-handler void)\n"
+       "      parameterize pretty-print reset-handler void)\n"
        "    (schemesh bootstrap)\n"
        "    (only (schemesh containers) list-iterate)\n"
        "    (schemesh io)\n"
@@ -142,8 +142,7 @@ void schemesh_define_library_repl(void) {
        "  (list-iterate values\n"
        "    (lambda (value)\n"
        "      (unless (eq? (void) value)\n"
-       "        (write value)\n"
-       "        (write-char #\\newline)))))\n"
+       "        (pretty-print value)))))\n"
        "\n"
        /**
         * Parse and execute user input.
@@ -152,6 +151,7 @@ void schemesh_define_library_repl(void) {
         * Returns updated parser to use, or #f if got end-of-file.
         */
        "(define (repl-once ctx initial-parser enabled-parsers eval-func)\n"
+       "  (linectx-parser-name-set! ctx (parser-name initial-parser))\n"
        "  (let ((in (repl-lineedit ctx)))\n"
        "    (case in\n"
        /*     got end-of-file */
@@ -172,14 +172,16 @@ void schemesh_define_library_repl(void) {
        "  (call/cc\n"
        "    (lambda (k-exit)\n"
        "      (parameterize ((exit-handler k-exit) (reset-handler (reset-handler)))\n"
-       "        (let ((k-reset k-exit))\n"
+       "        (let ((k-reset k-exit)\n"
+       "              (updated-parser parser))\n"
        "          (reset-handler (lambda () (k-reset)))\n"
        "          (call/cc (lambda (k) (set! k-reset k)))\n"
        /*         when the (reset-handler) we installed is called, resume from here */
-       "          (while parser\n"
-       "            (set! parser (repl-once ctx parser\n"
-       "                           enabled-parsers eval-func))\n"
-       "            (sh-consume-sigchld)))))))\n"
+       "          (while updated-parser\n"
+       "            (set! parser updated-parser)\n"
+       "            (set! updated-parser (repl-once ctx parser enabled-parsers eval-func))\n"
+       "            (sh-consume-sigchld))))))\n"
+       "  parser)\n"
        "\n"
        /** top-level interactive repl with all arguments mandatory */
        "(define (repl* initial-parser enabled-parsers eval-func ctx)\n"
@@ -196,15 +198,17 @@ void schemesh_define_library_repl(void) {
        "\n"
        /**
         * top-level interactive repl with optional arguments:
-        * initial-parser,  defaults to 'scheme
+        * initial-parser,  defaults to 'shell
         * enabled-parsers, defaults to (parsers)
         * eval-func,       defaults to repl-eval
         * ctx,             defaults to (make-linectx sh-expand-ps1)
+        *
+        * Returns updated parser to use for further calls to (repl)
         */
        "(define repl\n"
        "  (case-lambda\n"
        "    (()\n"
-       "      (repl* 'scheme (parsers) repl-eval (make-linectx sh-expand-ps1)))\n"
+       "      (repl* 'shell (parsers) repl-eval (make-linectx sh-expand-ps1)))\n"
        "    ((initial-parser)\n"
        "      (repl* initial-parser (parsers) repl-eval (make-linectx sh-expand-ps1)))\n"
        "    ((initial-parser enabled-parsers)\n"

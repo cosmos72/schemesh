@@ -265,7 +265,7 @@ static void schemesh_define_library_parser_scheme(void) {
       "      ((vfxnparen vfxparen vnparen vparen vu8nparen vu8paren)\n"
       "        (parse-vector type value in enabled-parsers))\n"
       /**    TODO: ((record-brack) ... ) */
-      "      (else   (syntax-violation 'parse-scheme \"unimplemented token type\" type)))\n"
+      "      (else   (syntax-violation 'parse-scheme \"unexpected token type\" type)))\n"
       "    type))\n"
       "\n"
       /**
@@ -830,7 +830,7 @@ static void schemesh_define_library_parser_shell(void) {
        "          (set! again? #f)\n"
        "          (try-unread-char value in))\n"
        "        (else\n"
-       "          (syntax-violation 'parse-shell \"unimplemented token type\"\n"
+       "          (syntax-violation 'parse-shell \"unexpected token type\"\n"
        "            (reverse! ret) type)))\n"
        /*     if needed, read another token and iterate */
        "      (when again?\n"

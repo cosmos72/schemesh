@@ -11,7 +11,8 @@
 #include "eval.h" /* eval() */
 #include "signal.h"
 
-#include <errno.h> /* EINVAL, EIO, errno */
+#include <dirent.h> /* opendir(), readdir(), closedir() */
+#include <errno.h>  /* EINVAL, EIO, errno */
 #include <fcntl.h>
 #include <limits.h>
 #include <poll.h>
@@ -320,7 +321,7 @@ int c_open_file_fd(ptr bytevector0_filepath,
   }
   filepath = (const char*)Sbytevector_data(bytevector0_filepath);
   len      = Sbytevector_length(bytevector0_filepath);
-  if (len == 0 || filepath[len - 1] != '\0') {
+  if (len <= 0 || filepath[len - 1] != '\0') {
     return c_errno_set(EINVAL);
   }
   flags = (flag_read_write == 0 ? O_RDONLY :
@@ -568,6 +569,7 @@ static int c_exit(int status) {
   return -EINVAL;
 }
 
+/** return Scheme string, or Scheme integer on error */
 static ptr c_get_hostname(void) {
   char buf[HOST_NAME_MAX + 1];
   if (gethostname(buf, sizeof(buf)) != 0) {
@@ -576,15 +578,94 @@ static ptr c_get_hostname(void) {
   return Sstring_utf8(buf, -1);
 }
 
+/**
+ * Convert struct dirent.d_type to Scheme integer:
+ *   DT_UNKNOWN -> 0
+ *   DT_BLK     -> 1
+ *   DT_CHR     -> 2
+ *   DT_DIR     -> 3
+ *   DT_FIFO    -> 4
+ *   DT_REG     -> 5
+ *   DT_SOCK    -> 6
+ *   DT_LNK     -> 7
+ */
+static ptr c_readdir_type(unsigned char d_type) {
+  unsigned char type;
+  switch (d_type) {
+    case DT_BLK:
+      type = 1;
+      break;
+    case DT_CHR:
+      type = 2;
+      break;
+    case DT_DIR:
+      type = 3;
+      break;
+    case DT_FIFO:
+      type = 4;
+      break;
+    case DT_LNK:
+      type = 7;
+      break;
+    case DT_REG:
+      type = 5;
+      break;
+    case DT_SOCK:
+      type = 6;
+      break;
+    case DT_UNKNOWN:
+    default:
+      type = 0;
+      break;
+  }
+  return Sfixnum(type);
+}
+
+/**
+ * return Scheme list with directory contents as pairs (filename . type)
+ * where filename is a Scheme string, and type is a Scheme integer documented in c_readdir_type()
+ *
+ * on error, return Scheme integer -errno
+ */
+static ptr c_readdir(ptr bytevector0_dirpath) {
+  ptr            ret = Snil;
+  const char*    dirpath;
+  iptr           len;
+  DIR*           dir;
+  struct dirent* entry;
+  if (!Sbytevectorp(bytevector0_dirpath)) {
+    return Sinteger(c_errno_set(EINVAL));
+  }
+  dirpath = (const char*)Sbytevector_data(bytevector0_dirpath);
+  len     = Sbytevector_length(bytevector0_dirpath);
+  if (len <= 0 || dirpath[len - 1] != '\0') {
+    return Sinteger(c_errno_set(EINVAL));
+  }
+  dir = opendir(dirpath);
+  if (!dir) {
+    return Sinteger(c_errno());
+  }
+  while ((entry = readdir(dir)) != NULL) {
+    ret = Scons(Scons(Sstring_utf8(entry->d_name, -1), c_readdir_type(entry->d_type)), ret);
+  }
+  (void)closedir(dir);
+  return ret;
+}
+
 void schemesh_define_library_posix(void) {
   Sregister_symbol("c_get_hostname", &c_get_hostname);
   Sregister_symbol("c_exit", &c_exit);
+  Sregister_symbol("c_readdir", &c_readdir);
 
   eval("(library (schemesh posix (0 1))\n"
-       "  (export c-hostname c-exit)\n"
+       "  (export c-hostname c-exit directory-list*)\n"
        "  (import\n"
        "    (rnrs)\n"
-       "    (only (chezscheme) foreign-procedure))\n"
+       "    (rnrs mutable-pairs)\n"
+       "    (only (chezscheme) foreign-procedure sort!)\n"
+       "    (only (schemesh containers misc) list-iterate)\n"
+       "    (only (schemesh conversions) string->bytevector0)\n"
+       "    (only (schemesh fd) raise-errno-condition))\n"
        "\n"
        "(define c-exit (foreign-procedure \"c_exit\" (int) int))\n"
        "\n"
@@ -593,6 +674,28 @@ void schemesh_define_library_posix(void) {
        "         (hostname (if (string? hostname-or-error) hostname-or-error \"???\")))\n"
        "    (lambda ()\n"
        "      hostname)))\n"
+       "\n"
+       /**
+        * List contents of a filesystem directory; argument dirpath must be a string.
+        * Returns a sorted list of pairs (filename . type) where filename is a string,
+        * and type is one of: 'unknown 'blockdev 'chardev 'dir 'fifo 'file 'socket 'symlink
+        */
+       "(define directory-list*\n"
+       "  (let ((c-readdir (foreign-procedure \"c_readdir\" (scheme-object) scheme-object))\n"
+       "        (types '#(unknown blockdev chardev dir fifo file socket symlink)))\n"
+       "    (lambda (dirpath)\n"
+       "      (let ((ret (c-readdir (string->bytevector0 dirpath))))\n"
+       "        (unless (or (null? ret) (pair? ret))\n"
+       "          (raise-errno-condition 'directory-list* ret))\n"
+       "        (list-iterate ret\n"
+       "          (lambda (entry)\n"
+       "            (let ((c-type (cdr entry)))\n"
+       "              (set-cdr! entry\n"
+       "                (if (fx<=? 0 c-type 7) (vector-ref types c-type) 'unknown)))))\n"
+       "        (sort!\n"
+       "          (lambda (entry1 entry2)\n"
+       "            (string<? (car entry1) (car entry2)))"
+       "          ret)))))\n"
        "\n"
        ")\n"); /* close library */
 }

@@ -281,7 +281,8 @@ void schemesh_define_library_lineedit(void) {
 
   eval("(library (schemesh lineedit (0 1))\n"
        "  (export\n"
-       "    make-linectx make-linectx* linectx? lineedit-default-keytable lineedit-clear!\n"
+       "    make-linectx make-linectx* linectx? linectx-parser-name linectx-parser-name-set!\n"
+       "    lineedit-default-keytable lineedit-clear!\n"
        "    lineedit-lines-set! linectx-stdin-set! linectx-stdout-set! linectx-rbuf-insert!\n"
        "    lineedit-key-nop lineedit-key-left lineedit-key-right lineedit-key-up lineedit-key-down"
        "    lineedit-key-word-left lineedit-key-word-right lineedit-key-bol lineedit-key-eol\n"
@@ -318,6 +319,7 @@ void schemesh_define_library_lineedit(void) {
        "    (mutable match-x)\n"       /* fixnum, x position of matching parenthesis  */
        "    (mutable match-y)\n"       /* fixnum, y position of matching parenthesis  */
        "    (mutable rows)\n"          /* fixnum, max number of rows being edited     */
+       "    (mutable parser-name)\n"   /* symbol                                      */
        "    (mutable prompt)\n"        /* bytespan, prompt                            */
        "    (mutable prompt-length)\n" /* fixnum, prompt display length               */
        /* procedure, returns two values: new prompt as bytespan and its display length */
@@ -370,7 +372,8 @@ void schemesh_define_library_lineedit(void) {
        "\n"
        "(define lineedit-default-keytable (eq-hashtable))\n"
        "\n"
-       /** prompt-func must be a procedure returning two values: a bytespan and it display length.
+       /** prompt-func must be a procedure accepting parser-name (a symbol)
+        * and returning two values: a bytespan and it display length.
         * the bytespan will be used as prompt */
        "(define (make-linectx* prompt-func)\n"
        "  (let* ((sz    (tty-size))\n"
@@ -383,6 +386,7 @@ void schemesh_define_library_lineedit(void) {
        "    (%make-linectx\n"
        "      rbuf wbuf line lines\n"
        "      0 0 -1 -1 1\n"                 /* x y match-x match-y rows */
+       "      '|| \n"                        /* parser-name              */
        "      #f 0 prompt-func\n"            /* prompt prompt-length prompt-func */
        "      (if (pair? sz) (car sz) 80)\n" /* width                    */
        "      (if (pair? sz) (cdr sz) 24)\n" /* height                   */
@@ -390,12 +394,16 @@ void schemesh_define_library_lineedit(void) {
        "      lineedit-default-keytable\n"   /* keytable */
        "      0 (charhistory))))\n"          /* history  */
        "\n"
+       "(define (default-prompt-func parser-name)\n"
+       "  (let* ((str (symbol->string parser-name))\n"
+       "         (bsp (bytevector->bytespan* (string->utf8 str))))\n"
+       "    (bytespan-u8-insert-back! bsp 58 32)\n" /* append colon and space after parser name */
+       "    (values bsp (fx+ 2 (string-length str)))))\n"
+       "\n"
        "(define make-linectx\n"
-       "  (let* ((default-prompt (bytespan 36 32))\n" /* "$ " */
-       "         (default-prompt-func (lambda () (values default-prompt 2))))\n"
-       "    (case-lambda\n"
-       "      (()            (make-linectx* default-prompt-func))\n"
-       "      ((prompt-func) (make-linectx* prompt-func)))))\n"
+       "  (case-lambda\n"
+       "    (()            (make-linectx* default-prompt-func))\n"
+       "    ((prompt-func) (make-linectx* prompt-func))))\n"
        "\n"
        /* also recreate line and lines: they have been saved to history, which retains them
         * also update prompt */
@@ -946,7 +954,8 @@ void schemesh_define_library_lineedit(void) {
        /* if needed, display new prompt and lines */
        "(define (linectx-display-if-needed ctx force?)\n"
        "  (when (or force? (linectx-redisplay? ctx))\n"
-       "    (let-values (((prompt prompt-length) ((linectx-prompt-func ctx))))\n"
+       "    (let-values (((prompt prompt-length)\n"
+       "                   ((linectx-prompt-func ctx) (linectx-parser-name ctx))))\n"
        "      (assert (bytespan? prompt))\n"
        "      (assert (fx<=? 0 prompt-length (bytespan-length prompt)))\n"
        "      (linectx-prompt-set!        ctx prompt)\n"
