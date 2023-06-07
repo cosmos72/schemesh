@@ -1018,7 +1018,7 @@ static void schemesh_define_library_containers_bytespan(void) {
        "      (bytespan-resize-back! sp-dst (fx+ pos src-n))\n"
        "      (bytespan-copy! sp-src src-start sp-dst pos src-n))))\n"
        "\n"
-       /* append a portion of another bytespan to this bytespan */
+       /* append a portion of a bytevector to this bytespan */
        "(define (bytespan-bv-insert-back! sp-dst bv-src src-start src-n)\n"
        "  (unless (fxzero? src-n)\n"
        "    (bytespan-bsp-insert-back! sp-dst (bytevector->bytespan* bv-src) src-start src-n)))\n"

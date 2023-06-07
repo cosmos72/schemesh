@@ -181,13 +181,17 @@ void schemesh_define_library_repl(void) {
        "            (set! parser updated-parser)\n"
        "            (set! updated-parser (repl-once ctx parser enabled-parsers eval-func))\n"
        "            (sh-consume-sigchld))))))\n"
-       "  parser)\n"
+       "  ctx)\n"
        "\n"
-       /** top-level interactive repl with all arguments mandatory */
+       /**
+        * top-level interactive repl with all arguments mandatory
+        * Returns linectx, usable for further calls to (repl) or (repl*)
+        */
        "(define (repl* initial-parser enabled-parsers eval-func ctx)\n"
-       "  (assert (procedure? eval-func))\n"
-       /* (to-parser) also checks initial-parser's validity */
+       /* (to-parser) also checks initial-parser's and enabled-parser's validity */
        "  (let ((parser (to-parser initial-parser enabled-parsers 'repl)))\n"
+       "    (assert (procedure? eval-func))\n"
+       "    (assert (linectx? ctx))\n"
        "    (dynamic-wind\n"
        "      (lambda ()\n"
        "        (lineedit-clear! ctx) (signal-init-sigwinch) (tty-setraw!))\n"
@@ -198,24 +202,33 @@ void schemesh_define_library_repl(void) {
        "\n"
        /**
         * top-level interactive repl with optional arguments:
-        * initial-parser,  defaults to 'shell
-        * enabled-parsers, defaults to (parsers)
-        * eval-func,       defaults to repl-eval
-        * ctx,             defaults to (make-linectx sh-expand-ps1)
+        * 'parser initial-parser   - defaults to 'shell
+        * 'parsers enabled-parsers - defaults to (parsers)
+        * 'eval eval-func          - defaults to repl-eval
+        * 'linectx ctx             - defaults to (make-linectx sh-expand-ps1)
         *
-        * Returns updated parser to use for further calls to (repl)
+        * Returns linectx, usable for further calls to (repl)
         */
-       "(define repl\n"
-       "  (case-lambda\n"
-       "    (()\n"
-       "      (repl* 'shell (parsers) repl-eval (make-linectx sh-expand-ps1)))\n"
-       "    ((initial-parser)\n"
-       "      (repl* initial-parser (parsers) repl-eval (make-linectx sh-expand-ps1)))\n"
-       "    ((initial-parser enabled-parsers)\n"
-       "      (repl* initial-parser enabled-parsers repl-eval (make-linectx sh-expand-ps1)))\n"
-       "    ((initial-parser enabled-parsers eval-func)\n"
-       "      (repl* initial-parser enabled-parsers eval-func (make-linectx sh-expand-ps1)))\n"
-       "    ((initial-parser enabled-parsers eval-func ctx)\n"
-       "      (repl* initial-parser enabled-parsers eval-func ctx))))\n"
+       "(define (repl . args)\n"
+       "  (let ((initial-parser #f)  (initial-parser? #f)\n"
+       "        (enabled-parsers #f) (enabled-parsers? #f)\n"
+       "        (eval-func #f)       (eval-func? #f)\n"
+       "        (ctx #f)             (ctx? #f))\n"
+       "    (do ((args-left args (cddr args)))\n"
+       "        ((null? args-left))\n"
+       "      (assert (not (null? (cdr args-left))))\n"
+       "      (let ((opt (car args-left))\n"
+       "            (val (cadr args-left)))\n"
+       "        (case opt\n"
+       "          ((parser)  (set! initial-parser val)  (set! initial-parser? #t))\n"
+       "          ((parsers) (set! enabled-parsers val) (set! enabled-parsers? #t))\n"
+       "          ((eval)    (set! eval-func val)       (set! eval-func? #t))\n"
+       "          ((linectx) (set! ctx val)             (set! ctx? #t))\n"
+       "          (else     (syntax-violation 'repl \"unexpected argument:\" opt)))))\n"
+       "    (repl* (if initial-parser?  initial-parser 'shell)\n"
+       "           (if enabled-parsers? enabled-parsers (parsers))\n"
+       "           (if eval-func? eval-func repl-eval)\n"
+       "           (if ctx? ctx (make-linectx sh-expand-ps1)))))\n"
+       "\n"
        ")\n"); /* close library */
 }
