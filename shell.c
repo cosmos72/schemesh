@@ -94,7 +94,7 @@ static void schemesh_define_library_shell_jobs(void) {
   "sh-job? sh-job-ref sh-job-status sh-jobs sh-cmd sh-cmd<> sh-cmd? sh-multijob sh-multijob? "     \
   "sh-globals sh-global-env sh-env-copy sh-env-ref sh-env-set! sh-env-unset! "                     \
   "sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0 "              \
-  "sh-current-time sh-cwd sh-expand-ps1 sh-consume-sigchld "                                       \
+  "sh-current-time sh-cwd sh-autocomplete sh-expand-ps1 sh-consume-sigchld "                       \
   "sh-start sh-bg sh-fg sh-run sh-run-capture-output sh-wait sh-and sh-or sh-and-or* "             \
   "sh-list sh-list* sh-fd-redirect! sh-fds-redirect! "
 
@@ -106,8 +106,12 @@ static void schemesh_define_library_shell_jobs(void) {
       "    (rnrs mutable-pairs)\n"
       "    (rnrs mutable-strings)\n"
       "    (only (chezscheme)\n"
+#ifdef SCHEMESH_DEBUG_AUTOCOMPLETE
+      "      break\n"
+#endif
       "      current-date date-hour date-minute date-second\n"
       "      foreign-procedure fx1+ fx1- record-writer reverse! void)\n"
+      "    (only (schemesh bootstrap) while)\n"
       "    (schemesh containers misc)\n"
       "    (schemesh containers span)\n"
       "    (schemesh containers bytespan)\n"
@@ -119,6 +123,10 @@ static void schemesh_define_library_shell_jobs(void) {
       "    (schemesh pid)\n"
       "    (schemesh posix)\n"
       "    (schemesh signals)\n"
+#ifdef SCHEMESH_DEBUG_AUTOCOMPLETE
+      "    (schemesh tty)\n" /* only for wrapping (break) */
+#endif
+      "    (only (schemesh lineedit base) charline-ref)\n"
       "    (schemesh lineedit))\n"
       "\n"
       /** Define the record type "job" */
@@ -497,6 +505,25 @@ static void schemesh_define_library_shell_jobs(void) {
       "      (%display str 6 (date-second d)))\n"
       "    str))\n"
       "\n"
+      /** update linectx-completions and linectx-completion-stem with possible completions */
+      "(define (sh-autocomplete ctx)\n"
+      "  (linectx-completion-stem-set! ctx 0)\n"
+      /** TODO: handle lines longer than tty width */
+      "  (let* ((line  (linectx-line ctx))\n"
+      "         (end   (linectx-x ctx))\n"
+      "         (start end)\n"
+      "         (buf   (charspan))\n"
+      "         (completions (linectx-completions ctx)))\n"
+      "    (span-clear! completions)\n"
+      "    (while (and (fx>? start 0) (char>=? (charline-ref line (fx1- start)) #\\space))\n"
+      "      (charspan-insert-front! buf (charline-ref line (fx1- start)))\n"
+      "      (set! start (fx1- start)))\n"
+      "    (when (fx<? start end)\n"
+      "      (linectx-completion-stem-set! ctx (fx- end start))\n"
+      "      (list-iterate (directory-list* (charspan->string (sh-cwd)) (charspan->string buf))\n"
+      "        (lambda (elem)\n"
+      "          (span-insert-back! completions (string->charspan* (car elem))))))))\n"
+      "\n"
       /** update linectx-prompt and linectx-prompt-length with new prompt */
       "(define (sh-expand-ps1 ctx)\n"
       "  (let* ((src (sh-env-ref sh-globals \"SCHEMESH_PS1\"))\n" /* string */
@@ -539,7 +566,6 @@ static void schemesh_define_library_shell_jobs(void) {
       "          (case ch\n"
       "            ((#\\\\) (set! escape? #t))\n"
       "            (else    (%append-char ch))))))\n"
-      "    (linectx-prompt-set! ctx prompt)\n"
       "    (linectx-prompt-length-set! ctx prompt-len)))\n"
       "\n"
       /* if charspan path begins with user's $HOME, replace it with ~ */
@@ -863,8 +889,8 @@ static void schemesh_define_library_shell_jobs(void) {
       "            (dynamic-wind\n"
       "              void\n"       /* run before body */
       "              (lambda ()\n" /* body */
-      /*              blocking wait for job's pid to exit. */
-      /*              TODO: wait for ALL pids in process group? */
+      /*               blocking wait for job's pid to exit. */
+      /**              TODO: wait for ALL pids in process group? */
       "                (do ((status #f (job-wait j 'blocking)))\n"
       "                    ((job-status-member? status '(exited killed unknown)) status)))\n"
       /*             run after body, even if it raised a condition: */

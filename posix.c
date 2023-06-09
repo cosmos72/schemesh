@@ -856,7 +856,7 @@ void schemesh_define_library_pid(void) {
        "            (unless (memq signal-name '(sigstop sigtstp sigcont\n"
        "                                          sigttin sigttou))\n"
        "              (signal-raise signal-name))\n"
-       /*               process did not die with (signal-raise) */
+       /*           process did not die with (signal-raise) */
        "            (let ((signal-number (signal-name->number signal-name)))\n"
        "              (when (fixnum? signal-number)\n"
        "                (set! exit-status (fx+ 128 signal-number)))))))\n"

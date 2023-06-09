@@ -77,7 +77,7 @@ bytes eval_to_bytevector(const char str[]) {
 
 void schemesh_define_library_bootstrap(void) {
   boot_eval("(library (schemesh bootstrap)\n"
-            "  (export eval-string repeat while until list->values values->list define-macro)\n"
+            "  (export eval-string repeat while until try list->values values->list define-macro)\n"
             "  (import\n"
             "    (rnrs)\n"
             /* Unlike R6RS (eval obj environment), Chez Scheme's (eval obj)
@@ -100,6 +100,17 @@ void schemesh_define_library_bootstrap(void) {
             "  (syntax-rules ()\n"
             "    ((_ pred)          (do () (pred)))\n"
             "    ((_ pred body ...) (do () (pred) body ...))))\n"
+            "\n"
+            "(define-syntax try\n"
+            "  (syntax-rules (catch)\n"
+            "    ((_ try-body (catch (cond) handler-form ...))\n"
+            "      (call/cc\n"
+            "        (lambda (k-exit)\n"
+            "          (with-exception-handler"
+            "            (lambda (cond)\n"
+            "              (k-exit (begin handler-form ...)))\n"
+            "            (lambda ()\n"
+            "              try-body)))))))\n"
             "\n"
             "(define (list->values l)\n"
             "  (apply values l))\n"

@@ -281,8 +281,10 @@ void schemesh_define_library_lineedit(void) {
 
   eval("(library (schemesh lineedit (0 1))\n"
        "  (export\n"
-       "    make-linectx make-linectx* linectx? linectx-parser-name linectx-parser-name-set!\n"
-       "    linectx-prompt linectx-prompt-set! linectx-prompt-length linectx-prompt-length-set!\n"
+       "    make-linectx make-linectx* linectx? linectx-line linectx-lines linectx-x linectx-y\n"
+       "    linectx-completions linectx-completion-stem-set!\n"
+       "    linectx-parser-name linectx-parser-name-set!\n"
+       "    linectx-prompt linectx-prompt-length linectx-prompt-length-set!\n"
        "    lineedit-default-keytable lineedit-clear!\n"
        "    lineedit-lines-set! linectx-stdin-set! linectx-stdout-set! linectx-rbuf-insert!\n"
        "    lineedit-key-nop lineedit-key-left lineedit-key-right lineedit-key-up lineedit-key-down"
@@ -298,7 +300,8 @@ void schemesh_define_library_lineedit(void) {
        "    lineedit-flush lineedit-finish)\n"
        "  (import\n"
        "    (rnrs)\n"
-       "    (only (chezscheme) " /*format*/ " fx1+ fx1- inspect record-writer void)\n"
+       "    (only (chezscheme) display-condition " /*format*/ ""
+       "      fx1+ fx1- inspect record-writer void)\n"
        "    (schemesh bootstrap)\n"
        "    (schemesh containers)\n"
        "    (schemesh fd)\n"
@@ -311,27 +314,31 @@ void schemesh_define_library_lineedit(void) {
        "(define-record-type\n"
        "  (linectx %make-linectx linectx?)\n"
        "  (fields\n"
-       "    (mutable rbuf)\n"          /* bytespan, buffer for (fd-read)              */
-       "    (mutable wbuf)\n"          /* bytespan, buffer for (fd-write)             */
-       "    (mutable line)\n"          /* charline, input's current line being edited */
-       "    (mutable lines)\n"         /* charlines, input being edited               */
-       "    (mutable x)\n"             /* fixnum, cursor x position in line           */
-       "    (mutable y)\n"             /* fixnum, cursor y position in lines          */
-       "    (mutable match-x)\n"       /* fixnum, x position of matching parenthesis  */
-       "    (mutable match-y)\n"       /* fixnum, y position of matching parenthesis  */
-       "    (mutable rows)\n"          /* fixnum, max number of rows being edited     */
-       "    (mutable parser-name)\n"   /* symbol                                      */
-       "    (mutable prompt)\n"        /* bytespan, prompt                            */
+       "    (mutable rbuf)\n"    /* bytespan, buffer for (fd-read)                */
+       "    (mutable wbuf)\n"    /* bytespan, buffer for (fd-write)               */
+       "    (mutable line)\n"    /* charline, input's current line being edited   */
+       "    (mutable lines)\n"   /* charlines, input being edited                 */
+       "    (mutable x)\n"       /* fixnum, cursor x position in line             */
+       "    (mutable y)\n"       /* fixnum, cursor y position in lines            */
+       "    (mutable match-x)\n" /* fixnum, x position of matching parenthesis    */
+       "    (mutable match-y)\n" /* fixnum, y position of matching parenthesis    */
+       "    (mutable rows)\n"    /* fixnum, max number of rows being edited       */
+       "    (mutable width)\n"   /* fixnum, terminal width                        */
+       "    (mutable height)\n"  /* fixnum, terminal height                       */
+       "    (mutable stdin)\n"   /* input file descriptor, or binary input port   */
+       "    (mutable stdout)\n"  /* output file descriptor, or binary output port */
+       "    (mutable read-timeout-milliseconds)\n" /* -1 means unlimited timeout  */
+       /*   bitwise or of: flag-eof? flag-return? flag-sigwinch? flag-redisplay?  */
+       "    (mutable flags)\n"
+       "    (mutable parser-name)\n"   /* symbol, name of current parser              */
+       "    (immutable prompt)\n"      /* bytespan, prompt                            */
        "    (mutable prompt-length)\n" /* fixnum, prompt display length               */
        /* procedure, receives linectx as argument and should update prompt and prompt-length  */
        "    (mutable prompt-func)\n"
-       "    (mutable width)\n"  /* fixnum, terminal width                           */
-       "    (mutable height)\n" /* fixnum, terminal height                          */
-       "    (mutable stdin)\n"  /* input file descriptor, or binary input port      */
-       "    (mutable stdout)\n" /* output file descriptor, or binary output port    */
-       "    (mutable read-timeout-milliseconds)\n" /* -1 means unlimited timeout    */
-       /*   bitwise or of: flag-eof? flag-return? flag-sigwinch? flag-redisplay? */
-       "    (mutable flags)\n"
+       "    (immutable completions)\n"   /* span of charspans, possible completions   */
+       "    (mutable completion-stem)\n" /* fixnum, # of chars from lines used as stem */
+       /* procedure, receives linectx as argument and should update completions     */
+       "    (mutable completion-func)\n"
        "    (mutable keytable)\n"      /* hashtable, contains keybindings           */
        "    (mutable history-index)\n" /* index of last used item in history        */
        "    history))\n"               /* charhistory, history of entered commands  */
@@ -373,9 +380,17 @@ void schemesh_define_library_lineedit(void) {
        "\n"
        "(define lineedit-default-keytable (eq-hashtable))\n"
        "\n"
-       /** prompt-func must be a procedure accepting linectx
-        * and updating linectx-prompt and linectx-prompt-length */
-       "(define (make-linectx* prompt-func)\n"
+       /**
+        * argument prompt-func must be a procedure accepting linectx
+        * and updating linectx-prompt and linectx-prompt-length.
+        *
+        * argument prompt-func must be #f or a procedure accepting linectx
+        * and updating linectx-completions
+        */
+       "(define (make-linectx* prompt-func completion-func)\n"
+       "  (assert (procedure? prompt-func))\n"
+       "  (when completion-func\n"
+       "    (assert (procedure? completion-func)))\n"
        "  (let* ((sz    (tty-size))\n"
        "         (rbuf  (bytespan))\n"
        "         (wbuf  (bytespan))\n"
@@ -385,12 +400,13 @@ void schemesh_define_library_lineedit(void) {
        "    (bytespan-reserve-back! wbuf 1024)\n"
        "    (%make-linectx\n"
        "      rbuf wbuf line lines\n"
-       "      0 0 -1 -1 1\n"                 /* x y match-x match-y rows */
-       "      'shell \n"                     /* parser-name              */
+       "      0 0 -1 -1 1\n"                 /* x y match-x match-y rows         */
+       "      (if (pair? sz) (car sz) 80)\n" /* width                            */
+       "      (if (pair? sz) (cdr sz) 24)\n" /* height                           */
+       "      0 1 -1 flag-redisplay? \n"     /* stdin stdout read-timeout flags  */
+       "      'shell \n"                     /* parser-name                      */
        "      (bytespan) 0 prompt-func\n"    /* prompt prompt-length prompt-func */
-       "      (if (pair? sz) (car sz) 80)\n" /* width                    */
-       "      (if (pair? sz) (cdr sz) 24)\n" /* height                   */
-       "      0 1 -1 flag-redisplay? \n"     /* stdin stdout read-timeout flags */
+       "      (span) 0 completion-func\n"    /* completions stem completion-func */
        "      lineedit-default-keytable\n"   /* keytable */
        "      0 (charhistory))))\n"          /* history  */
        "\n"
@@ -402,13 +418,16 @@ void schemesh_define_library_lineedit(void) {
        "    (bytespan-bv-insert-back! prompt bv 0 (bytevector-length bv))\n"
        /*   append colon and space after parser name */
        "    (bytespan-u8-insert-back! prompt 58 32)\n"
-       "    (linectx-prompt-set! ctx prompt)\n"
        "    (linectx-prompt-length-set! ctx (fx+ 2 (string-length str)))))\n"
        "\n"
        "(define make-linectx\n"
        "  (case-lambda\n"
-       "    (()            (make-linectx* default-prompt-func))\n"
-       "    ((prompt-func) (make-linectx* prompt-func))))\n"
+       "    (()\n"
+       "       (make-linectx* default-prompt-func #f))\n"
+       "    ((prompt-func)\n"
+       "       (make-linectx* prompt-func #f))\n"
+       "    ((prompt-func completion-func)\n"
+       "       (make-linectx* prompt-func completion-func))))\n"
        "\n"
        /* also recreate line and lines: they have been saved to history, which retains them
         * also update prompt */
@@ -609,11 +628,33 @@ void schemesh_define_library_lineedit(void) {
        "    (linectx-x-set! ctx (charline-length line))\n"
        "    (linectx-y-set! ctx lines-n)))\n"
        "\n"
-       /* consume up to n bytes from rbuf and insert them into current line.
+       /* consume n chars from charspan csp, starting at offset = start
+        * and insert them into current line. */
+       "(define (linectx-csp-insert! ctx csp start n)\n"
+       "  (assert (fx<=? 0 start (fx+ start n) (charspan-length csp)))\n"
+       "  (let* ((beg   (fx+ start (charspan-peek-beg csp)))\n"
+       "         (pos   beg)\n"
+       "         (end   (fx+ pos n))\n"
+       "         (line  (linectx-line ctx))\n"
+       "         (x     (linectx-x ctx))\n"
+       "         (wbuf  (linectx-wbuf ctx)))\n"
+       /**  TODO: handle lines longer than tty width */
+       "    (do ()\n"
+       "        ((fx>=? pos end))\n"
+       "      (let ((ch (charspan-ref csp pos)))\n"
+       "        (set! pos (fx1+ pos))\n"
+       "        (charline-insert-at! line x ch)\n"
+       "        (bytespan-utf8-insert-back! wbuf ch)\n"
+       "        (set! x (fx1+ x))))\n"
+       "    (linectx-x-set! ctx x)\n"
+       "    (term-redraw-to-eol ctx 'dont-clear-line-right)))\n"
+       "\n"
+       /* consume up to n bytes from bytespan bsp, starting at offset = start
+        * and insert them into current line.
         * return number of bytes actually consumed */
-       "(define (linectx-rbuf-insert! ctx n)\n"
-       "  (let* ((rbuf  (linectx-rbuf ctx))\n"
-       "         (beg   (bytespan-peek-beg rbuf))\n"
+       "(define (linectx-bsp-insert! ctx bsp start n)\n"
+       "  (assert (fx<=? 0 start (fx+ start n) (bytespan-length bsp)))\n"
+       "  (let* ((beg   (fx+ start (bytespan-peek-beg bsp)))\n"
        "         (pos   beg)\n"
        "         (end   (fx+ pos n))\n"
        "         (line  (linectx-line ctx))\n"
@@ -625,8 +666,8 @@ void schemesh_define_library_lineedit(void) {
        "        ((or incomplete\n"
        "             (fx>=? pos end)\n"
        /*            stop at any byte < 32, unless it's the first byte (which we skip) */
-       "             (and (fx>? pos beg) (fx<? (bytespan-u8-ref rbuf pos) 32))))\n"
-       "      (let-values (((ch len) (bytespan-utf8-ref rbuf pos (fx- end pos))))\n"
+       "             (and (fx>? pos beg) (fx<? (bytespan-u8-ref bsp pos) 32))))\n"
+       "      (let-values (((ch len) (bytespan-utf8-ref bsp pos (fx- end pos))))\n"
        "        (when (eq? #t ch)\n"
        "          (set! incomplete #t))\n"
        "        (set! pos (fxmin end (fx+ pos len)))"
@@ -637,6 +678,11 @@ void schemesh_define_library_lineedit(void) {
        "    (linectx-x-set! ctx x)\n"
        "    (term-redraw-to-eol ctx 'dont-clear-line-right)\n"
        "    (fx- pos beg)))\n" /* return number of bytes actually consumed */
+       "\n"
+       /* consume up to n bytes from rbuf and insert them into current line.
+        * return number of bytes actually consumed */
+       "(define (linectx-rbuf-insert! ctx n)\n"
+       "  (linectx-bsp-insert! ctx (linectx-rbuf ctx) 0 n))\n"
        "\n"
        "(define (lineedit-key-nop ctx)\n"
        "  (void))\n"
@@ -794,13 +840,29 @@ void schemesh_define_library_lineedit(void) {
        "  (linectx-display-if-needed ctx 'force))\n"
        "\n"
        "(define (lineedit-key-tab ctx)\n"
-       "  (void))\n"
+       "  (let ((completions (linectx-completions ctx))\n"
+       "        (func (linectx-completion-func ctx)))\n"
+       "    (when func\n"
+       /*     protect against exceptions in linectx-completion-func */
+       "      (try (func ctx)\n"
+       "        (catch (cond)\n"
+       "          (span-clear! completions)))\n"
+       "      (when (fx=? 1 (span-length completions))\n"
+       "        (let* ((completion (span-ref completions 0))\n"
+       "               (start (linectx-completion-stem ctx))\n"
+       "               (len (fx- (charspan-length completion) start)))\n"
+       "          (when (fx>? len 0)\n"
+       "            (linectx-csp-insert! ctx completion start len)))))))\n"
        "\n"
        "(define (lineedit-key-toggle-insert ctx)\n"
+#if 1
+       "  (error 'toggle-insert \"test error\"))\n"
+#else
        "  (dynamic-wind\n"
        "    tty-restore!\n"              /* run before body */
        "    (lambda () (inspect ctx))\n" /* body */
-       "    tty-setraw!))"               /* run after body */
+       "    tty-setraw!))\n"             /* run after body */
+#endif
        "\n"
        "(define (lineedit-navigate-history ctx delta-y)\n"
        "  (let ((y    (fx+ delta-y (linectx-history-index ctx)))\n"
@@ -1005,6 +1067,18 @@ void schemesh_define_library_lineedit(void) {
        "    (assert (fx<=? 0 got max-n))\n"
        "    (if eof? -1 got)))\n"
        "\n"
+       /** invoked when some function called by lineedit-read raises a condition */
+       "(define (%lineedit-error ctx cond)\n"
+       /* remove offending input that triggered the condition */
+       "  (bytespan-clear! (linectx-rbuf ctx))\n"
+       /* display the condition */
+       "  (let ((port (current-output-port)))\n"
+       "    (display #\\newline port)\n"
+       "    (display \"Exception in lineedit-read: \" port)\n"
+       "    (display-condition cond port)\n"
+       "    (display #\\newline port)))\n"
+       "\n"
+       /** implementation of (lineedit-read ) */
        "(define (%lineedit-read ctx timeout-milliseconds)\n"
        "  (linectx-consume-sigwinch ctx)\n"
        "  (linectx-display-if-needed ctx #f)\n"
@@ -1038,12 +1112,17 @@ void schemesh_define_library_lineedit(void) {
         * if got end-of-file, return #f
         */
        "(define (lineedit-read ctx timeout-milliseconds)\n"
-       "  (dynamic-wind\n"
-       /*   write current-output-port buffered output before entering read loop */
-       "    (lambda () (flush-output-port (current-output-port)))\n"
-       "    (lambda () (%lineedit-read ctx timeout-milliseconds))\n"
-       /*   write linectx buffered output before returning */
-       "    (lambda () (lineedit-flush ctx))))\n"
+       "  (try\n"
+       "    (begin\n"
+       /*     write current-output-port buffered output before entering read loop */
+       "      (flush-output-port (current-output-port))\n"
+       "      (let ((ret (%lineedit-read ctx timeout-milliseconds)))\n"
+       /*       write linectx buffered output before returning */
+       "        (lineedit-flush ctx)\n"
+       "        ret))\n"
+       "    (catch (cond)\n"
+       "      (%lineedit-error ctx cond)\n"
+       "      #t)))\n" /* return "waiting for more keypresses" */
        "\n"
        "(let ((t lineedit-default-keytable)\n"
        "      (%add lineedit-keytable-set!))\n"

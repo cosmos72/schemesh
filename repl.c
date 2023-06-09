@@ -40,7 +40,7 @@ void schemesh_define_library_repl(void) {
        "    (schemesh parser)\n"
        "    (schemesh signals)\n"
        "    (schemesh tty)\n"
-       "    (only (schemesh shell) sh-consume-sigchld sh-expand-ps1))\n"
+       "    (only (schemesh shell) sh-consume-sigchld sh-expand-ps1 sh-autocomplete))\n"
        "\n"
        /**
         * Read user input.
@@ -94,17 +94,16 @@ void schemesh_define_library_repl(void) {
 #ifdef SCHEMESH_LIBRARY_REPL_DEBUG
        "  (format #t \"; evaluating: ~s~%\" form)\n"
 #endif
-       "  (with-exception-handler\n"
-       "    (lambda (cond)\n"
+       "  (try\n"
+       "    (eval\n"
+       "      (if (and (pair? form) (memq (car form) '(shell shell-list)))\n"
+       "        (list 'sh-run form)\n"
+       "        form))\n"
+       "    (catch (cond)\n"
 #ifdef SCHEMESH_LIBRARY_REPL_DEBUG
        "      (format #t \"repl-eval handling condition ~s~%\" cond)\n"
 #endif
-       "      ((base-exception-handler) cond))\n"
-       "    (lambda ()\n"
-       "      (eval\n"
-       "        (if (and (pair? form) (memq (car form) '(shell shell-list)))\n"
-       "          (list 'sh-run form)\n"
-       "          form)))))\n"
+       "      ((base-exception-handler) cond))))\n"
        "\n"
        /**
         * Execute with (eval-func form) each form in list of forms containing parsed expressions
@@ -205,7 +204,7 @@ void schemesh_define_library_repl(void) {
         * 'parser initial-parser   - defaults to 'shell
         * 'parsers enabled-parsers - defaults to (parsers)
         * 'eval eval-func          - defaults to repl-eval
-        * 'linectx ctx             - defaults to (make-linectx sh-expand-ps1)
+        * 'linectx ctx             - defaults to (make-linectx sh-expand-ps1 sh-autocomplete)
         *
         * Returns linectx, usable for further calls to (repl)
         */
@@ -228,7 +227,7 @@ void schemesh_define_library_repl(void) {
        "    (repl* (if initial-parser?  initial-parser 'shell)\n"
        "           (if enabled-parsers? enabled-parsers (parsers))\n"
        "           (if eval-func? eval-func repl-eval)\n"
-       "           (if ctx? ctx (make-linectx sh-expand-ps1)))))\n"
+       "           (if ctx? ctx (make-linectx sh-expand-ps1 sh-autocomplete)))))\n"
        "\n"
        ")\n"); /* close library */
 }
