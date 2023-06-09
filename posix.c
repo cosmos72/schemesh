@@ -530,6 +530,11 @@ int schemesh_define_library_fd(void) {
        "          ret\n"
        "          (raise-errno-condition 'fd-setnonblock ret))))))\n"
        "\n"
+       /**
+        * filepath must be string or bytevector.
+        * each flag must be one of: 'read 'write 'rw 'create 'truncate 'append
+        * at least one of 'read 'write 'rw must be present
+        */
        "(define open-file-fd\n"
        "  (let ((c-open-file-fd (foreign-procedure \"c_open_file_fd\""
        "                          (scheme-object int int int int) int)))\n"
@@ -539,8 +544,7 @@ int schemesh_define_library_fd(void) {
        "                            ((memq 'write flags) 1)\n"
        "                            ((memq 'read  flags) 0)\n"
        "                            (#t (error 'open-file-fd\n"
-       "                                 \"flags must contain one of 'read 'write 'rw\" "
-       "flags)))]\n"
+       "                                 \"flags must contain one of 'read 'write 'rw\" flags)))]\n"
        "             [flag-create   (if (memq 'create   flags) 1 0)]\n"
        "             [flag-truncate (if (memq 'truncate flags) 1 0)]\n"
        "             [flag-append   (if (memq 'append   flags) 1 0)]\n"
@@ -622,23 +626,31 @@ static ptr c_readdir_type(unsigned char d_type) {
 }
 
 /**
- * return Scheme list with directory contents as pairs (filename . type)
- * where filename is a Scheme string, and type is a Scheme integer documented in c_readdir_type()
+ * Scan directory bytevector0_dirpath and return Scheme list with its contents as pairs
+ * (filename . type) where filename is a Scheme string,
+ * and type is a Scheme integer documented in c_readdir_type()
+ *
+ * If bytevector_filter_prefix is not empty,
+ * only returns filenames that start with bytevector_filter_prefix.
  *
  * on error, return Scheme integer -errno
  */
-static ptr c_readdir(ptr bytevector0_dirpath) {
+static ptr c_readdir_filter(ptr bytevector0_dirpath, ptr bytevector_filter_prefix) {
   ptr            ret = Snil;
   const char*    dirpath;
-  iptr           len;
+  const char*    prefix;
+  iptr           dirlen;
+  iptr           prefixlen;
   DIR*           dir;
   struct dirent* entry;
-  if (!Sbytevectorp(bytevector0_dirpath)) {
+  if (!Sbytevectorp(bytevector0_dirpath) || !Sbytevectorp(bytevector_filter_prefix)) {
     return Sinteger(c_errno_set(EINVAL));
   }
-  dirpath = (const char*)Sbytevector_data(bytevector0_dirpath);
-  len     = Sbytevector_length(bytevector0_dirpath);
-  if (len <= 0 || dirpath[len - 1] != '\0') {
+  dirpath   = (const char*)Sbytevector_data(bytevector0_dirpath);
+  dirlen    = Sbytevector_length(bytevector0_dirpath); /* including final '\0' */
+  prefix    = (const char*)Sbytevector_data(bytevector_filter_prefix);
+  prefixlen = Sbytevector_length(bytevector_filter_prefix);
+  if (prefixlen < 0 || dirlen <= 0 || dirpath[dirlen - 1] != '\0') {
     return Sinteger(c_errno_set(EINVAL));
   }
   dir = opendir(dirpath);
@@ -646,7 +658,11 @@ static ptr c_readdir(ptr bytevector0_dirpath) {
     return Sinteger(c_errno());
   }
   while ((entry = readdir(dir)) != NULL) {
-    ret = Scons(Scons(Sstring_utf8(entry->d_name, -1), c_readdir_type(entry->d_type)), ret);
+    const char*  name = entry->d_name;
+    const size_t len  = strlen(name);
+    if (!prefixlen || (len >= (size_t)prefixlen && memcmp(name, prefix, prefixlen) == 0)) {
+      ret = Scons(Scons(Sstring_utf8(name, len), c_readdir_type(entry->d_type)), ret);
+    }
   }
   (void)closedir(dir);
   return ret;
@@ -655,7 +671,7 @@ static ptr c_readdir(ptr bytevector0_dirpath) {
 void schemesh_define_library_posix(void) {
   Sregister_symbol("c_get_hostname", &c_get_hostname);
   Sregister_symbol("c_exit", &c_exit);
-  Sregister_symbol("c_readdir", &c_readdir);
+  Sregister_symbol("c_readdir_filter", &c_readdir_filter);
 
   eval("(library (schemesh posix (0 1))\n"
        "  (export c-hostname c-exit directory-list*)\n"
@@ -675,16 +691,15 @@ void schemesh_define_library_posix(void) {
        "    (lambda ()\n"
        "      hostname)))\n"
        "\n"
-       /**
-        * List contents of a filesystem directory; argument dirpath must be a string.
-        * Returns a sorted list of pairs (filename . type) where filename is a string,
-        * and type is one of: 'unknown 'blockdev 'chardev 'dir 'fifo 'file 'socket 'symlink
-        */
-       "(define directory-list*\n"
-       "  (let ((c-readdir (foreign-procedure \"c_readdir\" (scheme-object) scheme-object))\n"
+       "(define %directory-list*\n"
+       "  (let ((c-readdir-filter (foreign-procedure \"c_readdir_filter\"\n"
+       "                     (scheme-object scheme-object) scheme-object))\n"
        "        (types '#(unknown blockdev chardev dir fifo file socket symlink)))\n"
-       "    (lambda (dirpath)\n"
-       "      (let ((ret (c-readdir (string->bytevector0 dirpath))))\n"
+       "    (lambda (dirpath filter-prefix)\n"
+       "      (let ((ret (c-readdir-filter (string->bytevector0 dirpath)\n"
+       "                   (if (bytevector? filter-prefix)\n"
+       "                     filter-prefix\n"
+       "                     (string->utf8 filter-prefix)))))\n"
        "        (unless (or (null? ret) (pair? ret))\n"
        "          (raise-errno-condition 'directory-list* ret))\n"
        "        (list-iterate ret\n"
@@ -696,6 +711,21 @@ void schemesh_define_library_posix(void) {
        "          (lambda (entry1 entry2)\n"
        "            (string<? (car entry1) (car entry2)))"
        "          ret)))))\n"
+       "\n"
+       /**
+        * List contents of a filesystem directory;
+        * mandatory first argument dirpath must be a string or bytevector.
+        * optional second argument filter-prefix must be a string or bytevector.
+        *
+        * Returns a sorted list of pairs (filename . type) where filename is a string,
+        * and type is one of: 'unknown 'blockdev 'chardev 'dir 'fifo 'file 'socket 'symlink
+        *
+        * If filter-prefix is not empty, only returns filenames that start with filter-prefix
+        */
+       "(define directory-list*\n"
+       "  (case-lambda\n"
+       "    ((dirpath)               (%directory-list* dirpath \"\"))\n"
+       "    ((dirpath filter-prefix) (%directory-list* dirpath filter-prefix))))\n"
        "\n"
        ")\n"); /* close library */
 }
