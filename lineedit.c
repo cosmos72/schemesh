@@ -338,7 +338,7 @@ void schemesh_define_library_lineedit(void) {
        "    (mutable prompt-func)\n"
        "    completions\n"     /*         span of charspans, possible completions   */
        "    completion-stem\n" /*         charspan, chars from lines used as stem   */
-       /* procedure, receives linectx as argument and should update completions     */
+       /* procedure, receives linectx as argument and should update completions and stem */
        "    (mutable completion-func)\n"
        "    (mutable keytable)\n"      /* hashtable, contains keybindings           */
        "    (mutable history-index)\n" /* index of last used item in history        */
@@ -572,13 +572,13 @@ void schemesh_define_library_lineedit(void) {
        "      ((or (fx>=? x len) (pred (charline-ref line x)))\n"
        "        x)))\n"
        "\n"
-       /* return index of beginning of word before position = end in line */
+       /* return index of beginning of word at position < end in line */
        "(define (word-find-begin-left line end)\n"
        "  (let* ((pos1 (fx1+ (char-find-left line end  (lambda (ch) (char>? ch #\\space)))))\n"
        "         (pos2 (fx1+ (char-find-left line pos1 (lambda (ch) (char<=? ch #\\space))))))\n"
        "    pos2))\n"
        "\n"
-       /* return index of end of word at position = start or later in line */
+       /* return index of end of word at position >= start in line */
        "(define (word-find-end-right line start)\n"
        "  (let* ((pos1 (char-find-right line start  (lambda (ch) (char>? ch #\\space))))\n"
        "         (pos2 (char-find-right line pos1 (lambda (ch) (char<=? ch #\\space)))))\n"
@@ -599,11 +599,22 @@ void schemesh_define_library_lineedit(void) {
        "        (bytespan-clear! wbuf)))))\n"
        "\n"
        "(define (lineedit-clear! ctx)\n"
-       "  (let ((x (linectx-x ctx)))\n"
+       "  (let ((x-prompt (linectx-prompt-length ctx))\n"
+       "        (x  (linectx-x ctx))\n"
+       "        (y  (linectx-y ctx))\n"
+       "        (y-max (fx1- (charlines-length (linectx-lines ctx)))))\n"
        "    (linectx-clear! ctx)\n"
-       /*   do not use (term-move-to-bol), there will be a prompt at bol */
-       "    (term-move-left-n ctx x))\n"
-       "  (term-clear-to-eol ctx))\n"
+       "    (if (fx>? y-max 0)\n"
+       "      (begin\n" /* clear all lines at y > 0 */
+       "        (term-move-down-n ctx (fx- y-max y))\n"
+       "        (term-move-to-bol ctx)\n"
+       "        (repeat y-max\n"
+       "          (term-clear-to-eol ctx)\n"
+       "          (term-move-up-n ctx 1))\n"
+       "        (term-move-right-n ctx x-prompt))\n"
+       /*     move to start of line i.e. after prompt */
+       "      (term-move-left-n ctx x)))\n"
+       "  (term-clear-to-eol ctx))\n" /* clear line at y = 0, preserving prompt */
        "\n"
        /* write #\newline before returning from (repl) */
        "(define (lineedit-finish ctx)\n"
@@ -728,7 +739,7 @@ void schemesh_define_library_lineedit(void) {
        "(define (lineedit-key-bol ctx)\n"
        "  (let ((x (linectx-x ctx)))\n"
        "    (when (fx>? x 0)\n"
-       /*     do not use (term-move-to-bol), there will be a prompt at bol */
+       /*     do not use (term-move-to-bol), there may be prompt at bol */
        "      (linectx-x-set! ctx 0)\n"
        "      (term-move-left-n ctx x))))\n"
        "\n"

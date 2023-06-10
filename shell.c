@@ -1306,7 +1306,7 @@ static void schemesh_define_library_shell_utils(void) {
        "    (schemesh posix)\n"
        "    (schemesh shell jobs))\n"
        "\n"
-       /** update linectx-completions and linectx-completion-stem with possible completions */
+       /** update linectx-completion-stem and linectx-completions with possible completions */
        "(define (sh-autocomplete ctx)\n"
        /** TODO: handle lines longer than tty width */
        "  (let ((line  (linectx-line ctx))\n"
