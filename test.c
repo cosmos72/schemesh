@@ -29,7 +29,11 @@ static const struct {
      "5"},
     {"(values->list (values 1 2 3))", "(1 2 3)"},
     {"(subvector '#(aa bb cc dd) 1 3)", "#(bb cc)"},
-    {"(subbytevector '#vu8(44 55 66 77) 2 3)", "B"},
+    {"(subbytevector #vu8(44 55 66 77) 2 3)", "B"},
+    {"(bytevector-compare #vu8(44 55) #vu8(44 55))", "0"},
+    {"(bytevector-compare #vu8(66 77) #vu8(66 77 0))", "-1"},
+    {"(bytevector-compare #vu8(66 77) #vu8(66 78))", "-1"},
+    {"(bytevector-compare #vu8(79) #vu8(78 0))", "1"},
     /* ----------------- bytevector-utf8 ----------------------------- */
     {"(values->list (bytevector-utf8-ref #vu8() 0 1))", "(#t 0)"}, /* incomplete */
     {"(values->list (bytevector-utf8-ref #vu8(1) 0 1))", "(\x01 1)"},

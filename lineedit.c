@@ -282,7 +282,7 @@ void schemesh_define_library_lineedit(void) {
   eval("(library (schemesh lineedit (0 1))\n"
        "  (export\n"
        "    make-linectx make-linectx* linectx? linectx-line linectx-lines linectx-x linectx-y\n"
-       "    linectx-completions linectx-completion-stem-set!\n"
+       "    linectx-completions linectx-completion-stem\n"
        "    linectx-parser-name linectx-parser-name-set!\n"
        "    linectx-prompt linectx-prompt-length linectx-prompt-length-set!\n"
        "    lineedit-default-keytable lineedit-clear!\n"
@@ -294,8 +294,9 @@ void schemesh_define_library_lineedit(void) {
        "    lineedit-key-del-word-left lineedit-key-del-word-right\n"
        "    lineedit-key-del-line lineedit-key-del-line-left lineedit-key-del-line-right\n"
        "    lineedit-key-enter lineedit-key-newline-left lineedit-key-newline-right\n"
-       "    lineedit-key-redraw lineedit-key-tab\n"
        "    lineedit-key-history-next lineedit-key-history-prev\n"
+       "    lineedit-key-redraw lineedit-key-tab lineedit-key-toggle-insert\n"
+       "    lineedit-key-inspect\n"
        "    lineedit-keytable-set! lineedit-keytable-find lineedit-read\n"
        "    lineedit-flush lineedit-finish)\n"
        "  (import\n"
@@ -330,13 +331,13 @@ void schemesh_define_library_lineedit(void) {
        "    (mutable read-timeout-milliseconds)\n" /* -1 means unlimited timeout  */
        /*   bitwise or of: flag-eof? flag-return? flag-sigwinch? flag-redisplay?  */
        "    (mutable flags)\n"
-       "    (mutable parser-name)\n"   /* symbol, name of current parser              */
-       "    (immutable prompt)\n"      /* bytespan, prompt                            */
-       "    (mutable prompt-length)\n" /* fixnum, prompt display length               */
+       "    (mutable parser-name)\n"   /* symbol, name of current parser            */
+       "    prompt\n"                  /* bytespan, prompt                          */
+       "    (mutable prompt-length)\n" /* fixnum, prompt display length             */
        /* procedure, receives linectx as argument and should update prompt and prompt-length  */
        "    (mutable prompt-func)\n"
-       "    (immutable completions)\n"   /* span of charspans, possible completions   */
-       "    (mutable completion-stem)\n" /* fixnum, # of chars from lines used as stem */
+       "    completions\n"     /*         span of charspans, possible completions   */
+       "    completion-stem\n" /*         charspan, chars from lines used as stem   */
        /* procedure, receives linectx as argument and should update completions     */
        "    (mutable completion-func)\n"
        "    (mutable keytable)\n"      /* hashtable, contains keybindings           */
@@ -400,15 +401,15 @@ void schemesh_define_library_lineedit(void) {
        "    (bytespan-reserve-back! wbuf 1024)\n"
        "    (%make-linectx\n"
        "      rbuf wbuf line lines\n"
-       "      0 0 -1 -1 1\n"                 /* x y match-x match-y rows         */
-       "      (if (pair? sz) (car sz) 80)\n" /* width                            */
-       "      (if (pair? sz) (cdr sz) 24)\n" /* height                           */
-       "      0 1 -1 flag-redisplay? \n"     /* stdin stdout read-timeout flags  */
-       "      'shell \n"                     /* parser-name                      */
-       "      (bytespan) 0 prompt-func\n"    /* prompt prompt-length prompt-func */
-       "      (span) 0 completion-func\n"    /* completions stem completion-func */
-       "      lineedit-default-keytable\n"   /* keytable */
-       "      0 (charhistory))))\n"          /* history  */
+       "      0 0 -1 -1 1\n"                       /* x y match-x match-y rows         */
+       "      (if (pair? sz) (car sz) 80)\n"       /* width                            */
+       "      (if (pair? sz) (cdr sz) 24)\n"       /* height                           */
+       "      0 1 -1 flag-redisplay? \n"           /* stdin stdout read-timeout flags  */
+       "      'shell \n"                           /* parser-name                      */
+       "      (bytespan) 0 prompt-func\n"          /* prompt prompt-length prompt-func */
+       "      (span) (charspan) completion-func\n" /* completions stem completion-func */
+       "      lineedit-default-keytable\n"         /* keytable */
+       "      0 (charhistory))))\n"                /* history  */
        "\n"
        "(define (default-prompt-func ctx)\n"
        "  (let* ((str    (symbol->string (linectx-parser-name ctx)))\n"
@@ -849,20 +850,23 @@ void schemesh_define_library_lineedit(void) {
        "          (span-clear! completions)))\n"
        "      (when (fx=? 1 (span-length completions))\n"
        "        (let* ((completion (span-ref completions 0))\n"
-       "               (start (linectx-completion-stem ctx))\n"
-       "               (len (fx- (charspan-length completion) start)))\n"
+       "               (stem-len (charspan-length (linectx-completion-stem ctx)))\n"
+       "               (len (fx- (charspan-length completion) stem-len)))\n"
        "          (when (fx>? len 0)\n"
-       "            (linectx-csp-insert! ctx completion start len)))))))\n"
+       "            (linectx-csp-insert! ctx completion stem-len len)))))))\n"
        "\n"
        "(define (lineedit-key-toggle-insert ctx)\n"
-#if 1
+#if 0
        "  (error 'toggle-insert \"test error\"))\n"
 #else
+       "  (lineedit-key-inspect ctx))\n"
+#endif
+       "\n"
+       "(define (lineedit-key-inspect ctx)\n"
        "  (dynamic-wind\n"
        "    tty-restore!\n"              /* run before body */
        "    (lambda () (inspect ctx))\n" /* body */
        "    tty-setraw!))\n"             /* run after body */
-#endif
        "\n"
        "(define (lineedit-navigate-history ctx delta-y)\n"
        "  (let ((y    (fx+ delta-y (linectx-history-index ctx)))\n"
@@ -1018,14 +1022,21 @@ void schemesh_define_library_lineedit(void) {
        "  (linectx-display-prompt ctx)\n"
        "  (linectx-display-lines  ctx))\n"
        "\n"
+       "(define bv-prompt-error (string->utf8 \"error expanding prompt $ \"))\n"
+       "\n"
        /* if needed, display new prompt and lines */
        "(define (linectx-display-if-needed ctx force?)\n"
        "  (when (or force? (linectx-redisplay? ctx))\n"
-       "    ((linectx-prompt-func ctx) ctx)\n"
-       "    (let ((prompt        (linectx-prompt ctx))\n"
-       "          (prompt-length (linectx-prompt-length ctx)))\n"
+       "    (let ((prompt (linectx-prompt ctx)))\n"
        "      (assert (bytespan? prompt))\n"
-       "      (assert (fx<=? 0 prompt-length (bytespan-length prompt))))\n"
+       "      (try ((linectx-prompt-func ctx) ctx)\n"
+       "        (catch (cond)\n"
+       "          (bytespan-clear! prompt)\n"
+       "          (let ((err-len (bytevector-length bv-prompt-error)))\n"
+       "            (bytespan-bv-insert-back! prompt bv-prompt-error 0 err-len)\n"
+       "            (linectx-prompt-length-set! ctx err-len))))\n"
+       "      (let ((prompt-length (linectx-prompt-length ctx)))\n"
+       "        (assert (fx<=? 0 prompt-length (bytespan-length prompt)))))\n"
        "    (linectx-display ctx)\n"
        "    (linectx-redisplay-set! ctx #f)))\n"
        "\n"

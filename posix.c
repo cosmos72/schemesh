@@ -625,9 +625,22 @@ static ptr c_readdir_type(unsigned char d_type) {
   return Sfixnum(type);
 }
 
+/* convert a C char[] to Scheme bytevector */
+static ptr c_chars_to_bytevector(const char chars[], const size_t len) {
+  /* Smake_bytevector() wants iptr length */
+  iptr slen = (int)len;
+  if (slen < 0 || (size_t)slen != len) {
+    /** raises condition in Smake_bytevector() */
+    slen = -1;
+  }
+  ptr bvec = Smake_bytevector(slen, 0);
+  memcpy(Sbytevector_data(bvec), chars, len);
+  return bvec;
+}
+
 /**
  * Scan directory bytevector0_dirpath and return Scheme list with its contents as pairs
- * (filename . type) where filename is a Scheme string,
+ * (type . filename) where filename is a Scheme bytevector,
  * and type is a Scheme integer documented in c_readdir_type()
  *
  * If bytevector_filter_prefix is not empty,
@@ -635,7 +648,7 @@ static ptr c_readdir_type(unsigned char d_type) {
  *
  * on error, return Scheme integer -errno
  */
-static ptr c_readdir_filter(ptr bytevector0_dirpath, ptr bytevector_filter_prefix) {
+static ptr c_directory_u8_list(ptr bytevector0_dirpath, ptr bytevector_filter_prefix) {
   ptr            ret = Snil;
   const char*    dirpath;
   const char*    prefix;
@@ -661,7 +674,8 @@ static ptr c_readdir_filter(ptr bytevector0_dirpath, ptr bytevector_filter_prefi
     const char*  name = entry->d_name;
     const size_t len  = strlen(name);
     if (!prefixlen || (len >= (size_t)prefixlen && memcmp(name, prefix, prefixlen) == 0)) {
-      ret = Scons(Scons(Sstring_utf8(name, len), c_readdir_type(entry->d_type)), ret);
+      ptr pair = Scons(c_readdir_type(entry->d_type), c_chars_to_bytevector(name, len));
+      ret      = Scons(pair, ret);
     }
   }
   (void)closedir(dir);
@@ -671,15 +685,15 @@ static ptr c_readdir_filter(ptr bytevector0_dirpath, ptr bytevector_filter_prefi
 void schemesh_define_library_posix(void) {
   Sregister_symbol("c_get_hostname", &c_get_hostname);
   Sregister_symbol("c_exit", &c_exit);
-  Sregister_symbol("c_readdir_filter", &c_readdir_filter);
+  Sregister_symbol("c_directory_u8_list", &c_directory_u8_list);
 
   eval("(library (schemesh posix (0 1))\n"
-       "  (export c-hostname c-exit directory-list*)\n"
+       "  (export c-hostname c-exit directory-u8-list)\n"
        "  (import\n"
        "    (rnrs)\n"
        "    (rnrs mutable-pairs)\n"
        "    (only (chezscheme) foreign-procedure sort!)\n"
-       "    (only (schemesh containers misc) list-iterate)\n"
+       "    (only (schemesh containers misc) bytevector<? list-iterate)\n"
        "    (only (schemesh conversions) string->bytevector0)\n"
        "    (only (schemesh fd) raise-errno-condition))\n"
        "\n"
@@ -691,25 +705,26 @@ void schemesh_define_library_posix(void) {
        "    (lambda ()\n"
        "      hostname)))\n"
        "\n"
-       "(define %directory-list*\n"
-       "  (let ((c-readdir-filter (foreign-procedure \"c_readdir_filter\"\n"
+       /** implementation of (directory-u8-list) */
+       "(define %directory-u8-list\n"
+       "  (let ((c-directory-u8-list (foreign-procedure \"c_directory_u8_list\"\n"
        "                     (scheme-object scheme-object) scheme-object))\n"
        "        (types '#(unknown blockdev chardev dir fifo file socket symlink)))\n"
        "    (lambda (dirpath filter-prefix)\n"
-       "      (let ((ret (c-readdir-filter (string->bytevector0 dirpath)\n"
+       "      (let ((ret (c-directory-u8-list (string->bytevector0 dirpath)\n"
        "                   (if (bytevector? filter-prefix)\n"
        "                     filter-prefix\n"
        "                     (string->utf8 filter-prefix)))))\n"
        "        (unless (or (null? ret) (pair? ret))\n"
-       "          (raise-errno-condition 'directory-list* ret))\n"
+       "          (raise-errno-condition 'directory-u8-list ret))\n"
        "        (list-iterate ret\n"
        "          (lambda (entry)\n"
-       "            (let ((c-type (cdr entry)))\n"
-       "              (set-cdr! entry\n"
+       "            (let ((c-type (car entry)))\n"
+       "              (set-car! entry\n"
        "                (if (fx<=? 0 c-type 7) (vector-ref types c-type) 'unknown)))))\n"
        "        (sort!\n"
        "          (lambda (entry1 entry2)\n"
-       "            (string<? (car entry1) (car entry2)))"
+       "            (bytevector<? (cdr entry1) (cdr entry2)))"
        "          ret)))))\n"
        "\n"
        /**
@@ -717,15 +732,16 @@ void schemesh_define_library_posix(void) {
         * mandatory first argument dirpath must be a string or bytevector.
         * optional second argument filter-prefix must be a string or bytevector.
         *
-        * Returns a sorted list of pairs (filename . type) where filename is a string,
+        * Returns a sorted list of pairs (type . filename) where filename is a bytevector
+        * (because Unix filenames can contain arbitrary bytes, not just UTF-8)
         * and type is one of: 'unknown 'blockdev 'chardev 'dir 'fifo 'file 'socket 'symlink
         *
         * If filter-prefix is not empty, only returns filenames that start with filter-prefix
         */
-       "(define directory-list*\n"
+       "(define directory-u8-list\n"
        "  (case-lambda\n"
-       "    ((dirpath)               (%directory-list* dirpath \"\"))\n"
-       "    ((dirpath filter-prefix) (%directory-list* dirpath filter-prefix))))\n"
+       "    ((dirpath)               (%directory-u8-list dirpath #vu8()))\n"
+       "    ((dirpath filter-prefix) (%directory-u8-list dirpath filter-prefix))))\n"
        "\n"
        ")\n"); /* close library */
 }

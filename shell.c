@@ -94,7 +94,7 @@ static void schemesh_define_library_shell_jobs(void) {
   "sh-job? sh-job-ref sh-job-status sh-jobs sh-cmd sh-cmd<> sh-cmd? sh-multijob sh-multijob? "     \
   "sh-globals sh-global-env sh-env-copy sh-env-ref sh-env-set! sh-env-unset! "                     \
   "sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0 "              \
-  "sh-current-time sh-cwd sh-autocomplete sh-expand-ps1 sh-consume-sigchld "                       \
+  "sh-cwd sh-consume-sigchld "                                                                     \
   "sh-start sh-bg sh-fg sh-run sh-run-capture-output sh-wait sh-and sh-or sh-and-or* "             \
   "sh-list sh-list* sh-fd-redirect! sh-fds-redirect! "
 
@@ -104,12 +104,7 @@ static void schemesh_define_library_shell_jobs(void) {
       "  (import\n"
       "    (rnrs)\n"
       "    (rnrs mutable-pairs)\n"
-      "    (rnrs mutable-strings)\n"
       "    (only (chezscheme)\n"
-#ifdef SCHEMESH_DEBUG_AUTOCOMPLETE
-      "      break\n"
-#endif
-      "      current-date date-hour date-minute date-second\n"
       "      foreign-procedure fx1+ fx1- record-writer reverse! void)\n"
       "    (only (schemesh bootstrap) while)\n"
       "    (schemesh containers misc)\n"
@@ -121,13 +116,7 @@ static void schemesh_define_library_shell_jobs(void) {
       "    (schemesh conversions)\n"
       "    (schemesh fd)\n"
       "    (schemesh pid)\n"
-      "    (schemesh posix)\n"
-      "    (schemesh signals)\n"
-#ifdef SCHEMESH_DEBUG_AUTOCOMPLETE
-      "    (schemesh tty)\n" /* only for wrapping (break) */
-#endif
-      "    (only (schemesh lineedit base) charline-ref)\n"
-      "    (schemesh lineedit))\n"
+      "    (schemesh signals))\n"
       "\n"
       /** Define the record type "job" */
       "(define-record-type\n"
@@ -482,104 +471,6 @@ static void schemesh_define_library_shell_jobs(void) {
        *        and collect exit status of child processes
        */
       "  (void))\n"
-      "\n"
-      /** return string containing current time in 24-hour HH:MM:SS format.
-       * return number of appended bytes */
-      "(define (sh-current-time ch)\n"
-      "  (let* ((%display (lambda (str pos val)\n"
-      "           (let-values (((hi lo) (div-and-mod val 10)))\n"
-      "             (string-set! str pos        (integer->char (fx+ 48 (fxmod hi 10))))\n"
-      "             (string-set! str (fx1+ pos) (integer->char (fx+ 48 (fxmod lo 10)))))))\n"
-      "         (d (current-date))\n"
-      "         (hh (date-hour d))\n"
-      "         (len (case ch ((#\\T #\\t) 8) (else 5)))\n"
-      "         (str (make-string len #\\:)))\n"
-      "    (%display str 0\n"
-      "      (case ch\n"
-      "        ((#\\@ #\\T)\n"
-      "           (let ((hh12 (fxmod hh 12)))\n"
-      "             (if (fxzero? hh12) 12 hh12)))"
-      "        (else hh)))\n"
-      "    (%display str 3 (date-minute d))\n"
-      "    (when (fx>=? len 8)\n"
-      "      (%display str 6 (date-second d)))\n"
-      "    str))\n"
-      "\n"
-      /** update linectx-completions and linectx-completion-stem with possible completions */
-      "(define (sh-autocomplete ctx)\n"
-      "  (linectx-completion-stem-set! ctx 0)\n"
-      /** TODO: handle lines longer than tty width */
-      "  (let* ((line  (linectx-line ctx))\n"
-      "         (end   (linectx-x ctx))\n"
-      "         (start end)\n"
-      "         (buf   (charspan))\n"
-      "         (completions (linectx-completions ctx)))\n"
-      "    (span-clear! completions)\n"
-      "    (while (and (fx>? start 0) (char>=? (charline-ref line (fx1- start)) #\\space))\n"
-      "      (charspan-insert-front! buf (charline-ref line (fx1- start)))\n"
-      "      (set! start (fx1- start)))\n"
-      "    (when (fx<? start end)\n"
-      "      (linectx-completion-stem-set! ctx (fx- end start))\n"
-      "      (list-iterate (directory-list* (charspan->string (sh-cwd)) (charspan->string buf))\n"
-      "        (lambda (elem)\n"
-      "          (span-insert-back! completions (string->charspan* (car elem))))))))\n"
-      "\n"
-      /** update linectx-prompt and linectx-prompt-length with new prompt */
-      "(define (sh-expand-ps1 ctx)\n"
-      "  (let* ((src (sh-env-ref sh-globals \"SCHEMESH_PS1\"))\n" /* string */
-      "         (prompt (linectx-prompt ctx))\n"
-      "         (prompt-len 0)\n"
-      "         (hidden  0)"
-      "         (escape? #f)\n"
-      "         (%append-char (lambda (ch)\n"
-      "           (bytespan-utf8-insert-back! prompt ch)\n"
-      "           (when (fx<=? hidden 0)\n"
-      "             (set! prompt-len (fx1+ prompt-len)))))\n"
-      "         (%append-charspan (lambda (csp)\n"
-      "           (bytespan-csp-insert-back! prompt csp)\n"
-      "           (when (fx<=? hidden 0)\n"
-      "             (set! prompt-len (fx+ prompt-len (charspan-length csp))))))\n"
-      "         (%append-string (lambda (str)\n"
-      "           (%append-charspan (string->charspan* str)))))\n"
-      "    (bytespan-clear! prompt)\n"
-      "    (bytespan-reserve-back! prompt (string-length src))\n"
-      "    (string-iterate src\n"
-      "      (lambda (i ch)\n"
-      "        (if escape?\n"
-      "          (begin\n"
-      "            (case ch\n"
-      "              ((#\\[) (set! hidden (fx1+ hidden)))\n"
-      "              ((#\\]) (set! hidden (fx1- hidden)))\n"
-      "              ((#\\a) (%append-char     #\\x07))\n"
-      "              ((#\\e) (%append-char     #\\x1b))\n"
-      "              ((#\\h #\\H) (%append-string (c-hostname)))\n"
-#if 0
-      "              ((#\\n) (%append-char     #\\newline))\n"
-      "              ((#\\r) (%append-char     #\\return))\n"
-#endif
-      "              ((#\\s) (%append-string   (symbol->string (linectx-parser-name ctx))))\n"
-      "              ((#\\@ #\\A #\\T #\\t)    (%append-string (sh-current-time ch)))\n"
-      "              ((#\\u) (%append-string   (sh-env-ref sh-globals \"USER\")))\n"
-      "              ((#\\w) (%append-charspan (sh-home->~ (sh-cwd))))\n"
-      "              (else   (%append-char     ch)))\n"
-      "            (set! escape? #f))\n"
-      "          (case ch\n"
-      "            ((#\\\\) (set! escape? #t))\n"
-      "            (else    (%append-char ch))))))\n"
-      "    (linectx-prompt-length-set! ctx prompt-len)))\n"
-      "\n"
-      /* if charspan path begins with user's $HOME, replace it with ~ */
-      "(define (sh-home->~ path)\n"
-      "  (let ((ret path)\n"
-      "        (home (sh-env-ref sh-globals \"HOME\" #f)))\n"
-      "    (when (string? home)\n"
-      "      (let ((home-len (string-length home))\n"
-      "            (path-len (charspan-length path)))\n"
-      "        (when (and (fx<=? home-len path-len)\n"
-      "                   (charspan-range=? (string->charspan* home) 0 path 0 home-len))\n"
-      "          (set! ret (string->charspan \"~\"))\n"
-      "          (charspan-csp-insert-back! ret path home-len (fx- path-len home-len)))))\n"
-      "    ret))\n"
       "\n"
       /**
        * NOTE: this is an internal implementation function, use (sh-start) instead.
@@ -1397,22 +1288,142 @@ static void schemesh_define_library_shell_macros(void) {
        ")\n"); /* close library */
 }
 
+static void schemesh_define_library_shell_utils(void) {
+
+#define SCHEMESH_LIBRARY_SHELL_UTILS_EXPORT                                                        \
+  "sh-autocomplete sh-current-time sh-expand-ps1 sh-home->~ "
+
+  eval("(library (schemesh shell utils (0 1))\n"
+       "  (export " SCHEMESH_LIBRARY_SHELL_UTILS_EXPORT ")\n"
+       "  (import\n"
+       "    (rnrs)\n"
+       "    (rnrs mutable-strings)\n"
+       "    (only (chezscheme) current-date date-hour date-minute date-second fx1+ fx1-)\n"
+       "    (schemesh bootstrap)\n"
+       "    (schemesh containers)\n"
+       "    (only (schemesh lineedit base) charline-ref)\n"
+       "    (schemesh lineedit)\n"
+       "    (schemesh posix)\n"
+       "    (schemesh shell jobs))\n"
+       "\n"
+       /** update linectx-completions and linectx-completion-stem with possible completions */
+       "(define (sh-autocomplete ctx)\n"
+       /** TODO: handle lines longer than tty width */
+       "  (let ((line  (linectx-line ctx))\n"
+       "        (pos   (linectx-x ctx))\n"
+       "        (stem  (linectx-completion-stem ctx))\n"
+       "        (completions (linectx-completions ctx)))\n"
+       "    (charspan-clear! stem)\n"
+       "    (span-clear! completions)\n"
+       "    (while (and (fx>? pos 0) (char>=? (charline-ref line (fx1- pos)) #\\space))\n"
+       "      (charspan-insert-front! stem (charline-ref line (fx1- pos)))\n"
+       "      (set! pos (fx1- pos)))\n"
+       "    (unless (charspan-empty? stem)\n"
+       "      (list-iterate (directory-u8-list #vu8(46) (charspan->string stem))\n"
+       "        (lambda (elem)\n"
+       "          (span-insert-back! completions\n"
+       "            (string->charspan* (utf8->string (cdr elem)))))))))\n"
+       "\n"
+       /** return string containing current time in 24-hour HH:MM:SS format.
+        * return number of appended bytes */
+       "(define (sh-current-time ch)\n"
+       "  (let* ((%display (lambda (str pos val)\n"
+       "           (let-values (((hi lo) (div-and-mod val 10)))\n"
+       "             (string-set! str pos        (integer->char (fx+ 48 (fxmod hi 10))))\n"
+       "             (string-set! str (fx1+ pos) (integer->char (fx+ 48 (fxmod lo 10)))))))\n"
+       "         (d (current-date))\n"
+       "         (hh (date-hour d))\n"
+       "         (len (case ch ((#\\T #\\t) 8) (else 5)))\n"
+       "         (str (make-string len #\\:)))\n"
+       "    (%display str 0\n"
+       "      (case ch\n"
+       "        ((#\\@ #\\T)\n"
+       "           (let ((hh12 (fxmod hh 12)))\n"
+       "             (if (fxzero? hh12) 12 hh12)))"
+       "        (else hh)))\n"
+       "    (%display str 3 (date-minute d))\n"
+       "    (when (fx>=? len 8)\n"
+       "      (%display str 6 (date-second d)))\n"
+       "    str))\n"
+       "\n"
+       /** update linectx-prompt and linectx-prompt-length with new prompt */
+       "(define (sh-expand-ps1 ctx)\n"
+       "  (let* ((src (sh-env-ref sh-globals \"SCHEMESH_PS1\"))\n" /* string */
+       "         (prompt (linectx-prompt ctx))\n"
+       "         (prompt-len 0)\n"
+       "         (hidden  0)"
+       "         (escape? #f)\n"
+       "         (%append-char (lambda (ch)\n"
+       "           (bytespan-utf8-insert-back! prompt ch)\n"
+       "           (when (fx<=? hidden 0)\n"
+       "             (set! prompt-len (fx1+ prompt-len)))))\n"
+       "         (%append-charspan (lambda (csp)\n"
+       "           (bytespan-csp-insert-back! prompt csp)\n"
+       "           (when (fx<=? hidden 0)\n"
+       "             (set! prompt-len (fx+ prompt-len (charspan-length csp))))))\n"
+       "         (%append-string (lambda (str)\n"
+       "           (%append-charspan (string->charspan* str)))))\n"
+       "    (bytespan-clear! prompt)\n"
+       "    (bytespan-reserve-back! prompt (string-length src))\n"
+       "    (string-iterate src\n"
+       "      (lambda (i ch)\n"
+       "        (if escape?\n"
+       "          (begin\n"
+       "            (case ch\n"
+       "              ((#\\[) (set! hidden (fx1+ hidden)))\n"
+       "              ((#\\]) (set! hidden (fx1- hidden)))\n"
+       "              ((#\\a) (%append-char     #\\x07))\n"
+       "              ((#\\e) (%append-char     #\\x1b))\n"
+       "              ((#\\h #\\H) (%append-string (c-hostname)))\n"
+#if 0
+      "              ((#\\n) (%append-char     #\\newline))\n"
+      "              ((#\\r) (%append-char     #\\return))\n"
+#endif
+       "              ((#\\s) (%append-string   (symbol->string (linectx-parser-name ctx))))\n"
+       "              ((#\\@ #\\A #\\T #\\t)    (%append-string (sh-current-time ch)))\n"
+       "              ((#\\u) (%append-string   (sh-env-ref sh-globals \"USER\")))\n"
+       "              ((#\\w) (%append-charspan (sh-home->~ (sh-cwd))))\n"
+       "              (else   (%append-char     ch)))\n"
+       "            (set! escape? #f))\n"
+       "          (case ch\n"
+       "            ((#\\\\) (set! escape? #t))\n"
+       "            (else    (%append-char ch))))))\n"
+       "    (linectx-prompt-length-set! ctx prompt-len)))\n"
+       "\n"
+       /* if charspan path begins with user's $HOME, replace it with ~ */
+       "(define (sh-home->~ path)\n"
+       "  (let ((ret path)\n"
+       "        (home (sh-env-ref sh-globals \"HOME\" #f)))\n"
+       "    (when (string? home)\n"
+       "      (let ((home-len (string-length home))\n"
+       "            (path-len (charspan-length path)))\n"
+       "        (when (and (fx<=? home-len path-len)\n"
+       "                   (charspan-range=? (string->charspan* home) 0 path 0 home-len))\n"
+       "          (set! ret (string->charspan \"~\"))\n"
+       "          (charspan-csp-insert-back! ret path home-len (fx- path-len home-len)))))\n"
+       "    ret))\n"
+       "\n"
+       ")\n"); /* close library */
+}
 static void schemesh_define_library_shell(void) {
   schemesh_define_library_shell_jobs();
   schemesh_define_library_shell_builtins();
   schemesh_define_library_shell_parse();
   schemesh_define_library_shell_macros();
+  schemesh_define_library_shell_utils();
 
   eval("(library (schemesh shell (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_SHELL_JOBS_EXPORT ""
        /*        */ SCHEMESH_LIBRARY_SHELL_BUILTINS_EXPORT ""
        /*        */ SCHEMESH_LIBRARY_SHELL_PARSE_EXPORT ""
-       /*        */ SCHEMESH_LIBRARY_SHELL_MACROS_EXPORT ")\n"
+       /*        */ SCHEMESH_LIBRARY_SHELL_MACROS_EXPORT ""
+       /*        */ SCHEMESH_LIBRARY_SHELL_UTILS_EXPORT ")\n"
        "  (import\n"
        "    (schemesh shell jobs)\n"
        "    (schemesh shell builtins)\n"
        "    (schemesh shell parse)\n"
-       "    (schemesh shell macros)))\n");
+       "    (schemesh shell macros)\n"
+       "    (schemesh shell utils)))\n");
 }
 
 int schemesh_define_libraries(void) {

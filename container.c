@@ -7,7 +7,7 @@
  * (at your option) any later version.
  */
 
-#include <string.h> /* memmove() */
+#include <string.h> /* memcmp(), memmove() */
 
 #include "eval.h"
 
@@ -28,16 +28,35 @@ static void c_vector_copy(ptr src, iptr src_start, ptr dst, iptr dst_start, iptr
   }
 }
 
+static signed char c_bytevector_compare(ptr left, ptr right) {
+#if 0 /* redundant, already checked by Scheme function (bytevector-compare) */
+  if (Sbytevectorp(left) && Sbytevectorp(right))
+#endif
+  {
+    const iptr left_n  = Sbytevector_length(left);
+    const iptr right_n = Sbytevector_length(right);
+    const iptr n       = left_n < right_n ? left_n : right_n;
+    const int cmp = n <= 0 ? 0 : memcmp(Sbytevector_data(left), Sbytevector_data(right), (size_t)n);
+    if (cmp != 0) {
+      return cmp < 0 ? -1 : 1;
+    }
+    /* common prefix matches -> shorter bytevector is smaller */
+    return left_n < right_n ? -1 : left_n > right_n ? 1 : 0;
+  }
+}
+
 static void schemesh_define_library_containers_misc(void) {
 
 #define SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT                                                    \
   "list-iterate reverse*! "                                                                        \
   "vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable "                    \
   "list->bytevector list-quoteq! "                                                                 \
-  "subbytevector bytevector-fill-range! bytevector-iterate "                                       \
+  "subbytevector bytevector-fill-range! bytevector-iterate bytevector-compare "                    \
+  "bytevector<=? bytevector<? bytevector>=? bytevector>? "                                         \
   "string-fill-range! string-range=? string-iterate "
 
   Sregister_symbol("c_vector_copy", &c_vector_copy);
+  Sregister_symbol("c_bytevector_compare", &c_bytevector_compare);
 
   eval("(library (schemesh containers misc (0 1))\n"
        "  (export " SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT ")\n"
@@ -190,6 +209,32 @@ static void schemesh_define_library_containers_misc(void) {
        "  (do ((i 0 (fx1+ i))\n"
        "       (n (bytevector-length bvec)))\n"
        "      ((or (fx>=? i n) (not (proc i (bytevector-u8-ref bvec i)))))))\n"
+       "\n"
+       /**
+        * compare the two bytevectors bvec1 and bvec2.
+        * return -1 if bvec1 is lexicographically lesser than bvec2,
+        * return 0 if they are equal,
+        * return 1 if bvec1 is lexicographically greater than bvec2
+        */
+       "(define bytevector-compare\n"
+       "  (let ((c-bytevector-compare (foreign-procedure \"c_bytevector_compare\"\n"
+       "          (scheme-object scheme-object) integer-8)))\n"
+       "    (lambda (bvec1 bvec2)\n"
+       "      (assert (bytevector? bvec1))\n"
+       "      (assert (bytevector? bvec2))\n"
+       "      (c-bytevector-compare bvec1 bvec2))))\n"
+       "\n"
+       "(define (bytevector<=? bvec1 bvec2)\n"
+       "  (fx<=? (bytevector-compare bvec1 bvec2) 0))\n"
+       "\n"
+       "(define (bytevector<? bvec1 bvec2)\n"
+       "  (fx<? (bytevector-compare bvec1 bvec2) 0))\n"
+       "\n"
+       "(define (bytevector>=? bvec1 bvec2)\n"
+       "  (fx>=? (bytevector-compare bvec1 bvec2) 0))\n"
+       "\n"
+       "(define (bytevector>? bvec1 bvec2)\n"
+       "  (fx>? (bytevector-compare bvec1 bvec2) 0))\n"
        "\n"
        /**
         * set n elements of string from offset = start with specified value
