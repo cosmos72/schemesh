@@ -648,12 +648,12 @@ void schemesh_define_library_lineedit(void) {
        "  (charlines-iterate lines\n"
        "    (lambda (i line)\n"
        "      (linectx-cgb-write ctx line 0 (charline-length line))))\n"
-       "  (let* ((lines-n (charlines-length lines))\n"
-       "         (line    (charlines-ref lines (fx1- lines-n))))\n"
+       "  (let* ((lines-n-1 (fx1- (charlines-length lines)))\n"
+       "         (line      (charlines-ref lines lines-n-1)))\n"
        "    (linectx-line-set!  ctx line)\n"
        "    (linectx-lines-set! ctx lines)\n"
        "    (linectx-x-set! ctx (charline-length line))\n"
-       "    (linectx-y-set! ctx lines-n)))\n"
+       "    (linectx-y-set! ctx lines-n-1)))\n"
        "\n"
        /* consume n chars from charspan csp, starting at offset = start
         * and insert them into current line. */
