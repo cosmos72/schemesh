@@ -333,6 +333,8 @@ void schemesh_define_library_lineedit(void) {
        "    (mutable flags)\n"
        "    (mutable parser-name)\n"   /* symbol, name of current parser            */
        "    prompt\n"                  /* bytespan, prompt                          */
+       "    (mutable prompt-end-x)\n"  /* fixnum, tty x column where prompt ends    */
+       "    (mutable prompt-end-y)\n"  /* fixnum, tty y row where prompt ends       */
        "    (mutable prompt-length)\n" /* fixnum, prompt display length             */
        /* procedure, receives linectx as argument and should update prompt and prompt-length  */
        "    (mutable prompt-func)\n"
@@ -406,7 +408,8 @@ void schemesh_define_library_lineedit(void) {
        "      (if (pair? sz) (cdr sz) 24)\n"       /* height                           */
        "      0 1 -1 flag-redisplay? \n"           /* stdin stdout read-timeout flags  */
        "      'shell \n"                           /* parser-name                      */
-       "      (bytespan) 0 prompt-func\n"          /* prompt prompt-length prompt-func */
+       "      (bytespan) 0 0\n"                    /* prompt prompt-end-x prompt-end-y */
+       "      0 prompt-func\n"                     /* prompt-length prompt-func        */
        "      (span) (charspan) completion-func\n" /* completions stem completion-func */
        "      lineedit-default-keytable\n"         /* keytable */
        "      0 (charhistory))))\n"                /* history  */
@@ -533,13 +536,13 @@ void schemesh_define_library_lineedit(void) {
        "(define (linectx-move-from ctx from-x from-y)\n"
        "  (let ((x (linectx-x ctx))\n"
        "        (y (linectx-y ctx))\n"
-       "        (prompt-len (linectx-prompt-length ctx)))\n"
+       "        (prompt-x (linectx-prompt-end-x ctx)))\n"
        "    (term-move-dy ctx (fx- y from-y))\n"
        /**  we may move from/to first line, which is prefixed by the prompt: adjust x and from-x */
        "    (when (fxzero? y)\n"
-       "      (set! x (fx+ x prompt-len)))\n"
+       "      (set! x (fx+ x prompt-x)))\n"
        "    (when (fxzero? from-y)\n"
-       "      (set! from-x (fx+ from-x prompt-len)))\n"
+       "      (set! from-x (fx+ from-x prompt-x)))\n"
        "    (term-move-dx ctx (fx- x from-x))))\n"
        "\n"
        /* send escape sequence "delete n chars at right", without checking or updating linectx */
@@ -1053,7 +1056,14 @@ void schemesh_define_library_lineedit(void) {
        "            (bytespan-bv-insert-back! prompt bv-prompt-error 0 err-len)\n"
        "            (linectx-prompt-length-set! ctx err-len))))\n"
        "      (let ((prompt-length (linectx-prompt-length ctx)))\n"
-       "        (assert (fx<=? 0 prompt-length (bytespan-length prompt)))))\n"
+       "        (assert (fx<=? 0 prompt-length (bytespan-length prompt)))\n"
+       "        (let-values (((x y) (fxdiv-and-mod prompt-length (linectx-width ctx))))\n"
+       "          (when (and (fxzero? x) (not (fxzero? y)))\n"
+       /*           prompt actually ends at rightmost column*/
+       "            (set! x (linectx-width ctx))\n"
+       "            (set! y (fx1- y)))\n"
+       "          (linectx-prompt-end-x-set! ctx x)\n"
+       "          (linectx-prompt-end-y-set! ctx y))))\n"
        "    (linectx-display ctx)\n"
        "    (linectx-redisplay-set! ctx #f)))\n"
        "\n"
