@@ -266,7 +266,7 @@ void schemesh_define_library_conversions(void) {
         */
        "(define (list->cmd-argv l)\n"
        "  (let ((argv (list->vector l)))\n"
-       "    (do ([i 0 (+ 1 i)])\n"
+       "    (do ([i 0 (fx1+ i)])\n"
        "        ((>= i (vector-length argv)))\n"
        "      (vector-set! argv i (string->bytevector0 (vector-ref argv i))))\n"
        "    argv))\n"

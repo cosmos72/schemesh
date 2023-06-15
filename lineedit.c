@@ -488,22 +488,22 @@ void schemesh_define_library_lineedit(void) {
         */
        "(define (term-move-dy ctx dy)\n"
        "  (cond\n"
-       "    ((fxzero? dy)\n" /* do nothing */                  /*         */
-       "      (void))\n"                                       /*         */
-       "    ((fx=? dy 1)\n" /* move down by 1 */               /*         */
-       "      (linectx-bv-write ctx #vu8(27 91 66) 0 3))\n"    /* ESC [ B */
-       "    ((fx=? dy -1)\n" /* move up by 1 */                /*         */
-       "      (linectx-bv-write ctx #vu8(27 91 65) 0 3))\n"    /* ESC [ A */
-       "    ((fx>? dy 1)\n" /* move down by n */               /*         */
-       "      (let ((wbuf (linectx-wbuf ctx)))\n"              /*         */
-       "        (bytespan-u8-insert-back! wbuf 27 91)\n"       /* ESC [   */
-       "        (bytespan-fixnum-display-back! wbuf dy)\n"     /* n       */
-       "        (bytespan-u8-insert-back! wbuf 66)))\n"        /* B       */
-       "    ((fx<? dy -1)\n" /* move up by -dy */              /*         */
-       "      (let ((wbuf (linectx-wbuf ctx)))\n"              /*         */
-       "        (bytespan-u8-insert-back! wbuf 27 91)\n"       /* ESC [   */
-       "        (bytespan-fixnum-display-back! wbuf (- dy))\n" /* n       */
-       "        (bytespan-u8-insert-back! wbuf 65)))))\n"      /* A       */
+       "    ((fxzero? dy)\n" /* do nothing */                    /*         */
+       "      (void))\n"                                         /*         */
+       "    ((fx=? dy 1)\n" /* move down by 1 */                 /*         */
+       "      (linectx-bv-write ctx #vu8(27 91 66) 0 3))\n"      /* ESC [ B */
+       "    ((fx=? dy -1)\n" /* move up by 1 */                  /*         */
+       "      (linectx-bv-write ctx #vu8(27 91 65) 0 3))\n"      /* ESC [ A */
+       "    ((fx>? dy 1)\n" /* move down by n */                 /*         */
+       "      (let ((wbuf (linectx-wbuf ctx)))\n"                /*         */
+       "        (bytespan-u8-insert-back! wbuf 27 91)\n"         /* ESC [   */
+       "        (bytespan-fixnum-display-back! wbuf dy)\n"       /* n       */
+       "        (bytespan-u8-insert-back! wbuf 66)))\n"          /* B       */
+       "    ((fx<? dy -1)\n" /* move up by -dy */                /*         */
+       "      (let ((wbuf (linectx-wbuf ctx)))\n"                /*         */
+       "        (bytespan-u8-insert-back! wbuf 27 91)\n"         /* ESC [   */
+       "        (bytespan-fixnum-display-back! wbuf (fx- dy))\n" /* n       */
+       "        (bytespan-u8-insert-back! wbuf 65)))))\n"        /* A       */
        "\n"
        /**
         * Move tty cursor horizontally.
@@ -513,22 +513,22 @@ void schemesh_define_library_lineedit(void) {
         */
        "(define (term-move-dx ctx dx)\n"
        "  (cond\n"
-       "    ((fxzero? dx)\n" /* do nothing */                  /*         */
-       "      (void))\n"                                       /*         */
-       "    ((fx=? dx 1)\n" /* move right by 1 */              /*         */
-       "      (linectx-bv-write ctx #vu8(27 91 67) 0 3))\n"    /* ESC [ C */
-       "    ((fx=? dx -1)\n" /* move left by 1 */              /*         */
-       "      (linectx-bv-write ctx #vu8(27 91 68) 0 3))\n"    /* ESC [ D */
-       "    ((fx>? dx 1)\n" /* move right by n */              /*         */
-       "      (let ((wbuf (linectx-wbuf ctx)))\n"              /*         */
-       "        (bytespan-u8-insert-back! wbuf 27 91)\n"       /* ESC [   */
-       "        (bytespan-fixnum-display-back! wbuf dx)\n"     /* n       */
-       "        (bytespan-u8-insert-back! wbuf 67)))\n"        /* C       */
-       "    ((fx<? dx -1)\n" /* move left by -dx */            /*         */
-       "      (let ((wbuf (linectx-wbuf ctx)))\n"              /*         */
-       "        (bytespan-u8-insert-back! wbuf 27 91)\n"       /* ESC [   */
-       "        (bytespan-fixnum-display-back! wbuf (- dx))\n" /* n       */
-       "        (bytespan-u8-insert-back! wbuf 68)))))\n"      /* D       */
+       "    ((fxzero? dx)\n" /* do nothing */                    /*         */
+       "      (void))\n"                                         /*         */
+       "    ((fx=? dx 1)\n" /* move right by 1 */                /*         */
+       "      (linectx-bv-write ctx #vu8(27 91 67) 0 3))\n"      /* ESC [ C */
+       "    ((fx=? dx -1)\n" /* move left by 1 */                /*         */
+       "      (linectx-bv-write ctx #vu8(27 91 68) 0 3))\n"      /* ESC [ D */
+       "    ((fx>? dx 1)\n" /* move right by n */                /*         */
+       "      (let ((wbuf (linectx-wbuf ctx)))\n"                /*         */
+       "        (bytespan-u8-insert-back! wbuf 27 91)\n"         /* ESC [   */
+       "        (bytespan-fixnum-display-back! wbuf dx)\n"       /* n       */
+       "        (bytespan-u8-insert-back! wbuf 67)))\n"          /* C       */
+       "    ((fx<? dx -1)\n" /* move left by -dx */              /*         */
+       "      (let ((wbuf (linectx-wbuf ctx)))\n"                /*         */
+       "        (bytespan-u8-insert-back! wbuf 27 91)\n"         /* ESC [   */
+       "        (bytespan-fixnum-display-back! wbuf (fx- dx))\n" /* n       */
+       "        (bytespan-u8-insert-back! wbuf 68)))))\n"        /* D       */
        "\n"
        /**
         * move tty cursor back to linectx-x, linectx-y from its current position at from-x, from-y
@@ -756,7 +756,7 @@ void schemesh_define_library_lineedit(void) {
        "    (when (fx>? x 0)\n"
        /*     do not use (term-move-to-bol), there may be prompt at bol */
        "      (linectx-x-set! ctx 0)\n"
-       "      (term-move-dx ctx (- x)))))\n"
+       "      (term-move-dx ctx (fx- x)))))\n"
        "\n"
        "(define (lineedit-key-eol ctx)\n"
        "  (let ((x    (linectx-x ctx))\n"
@@ -812,7 +812,7 @@ void schemesh_define_library_lineedit(void) {
        "    (when (fx>? del-n 0)\n"
        "      (charline-erase-at! line pos del-n)\n"
        "      (linectx-x-set! ctx pos)\n"
-       "      (term-move-dx ctx (- del-n))\n"
+       "      (term-move-dx ctx (fx- del-n))\n"
        "      (term-del-right-n ctx del-n))))\n"
        "\n"
        "(define (lineedit-key-del-word-right ctx)\n"
@@ -834,7 +834,7 @@ void schemesh_define_library_lineedit(void) {
        "    (when (and (fx>? x 0) (fx>? len 0))\n"
        "      (charline-erase-at! line 0 x)\n"
        "      (linectx-x-set! ctx 0)\n"
-       "      (term-move-dx ctx (- x))\n"
+       "      (term-move-dx ctx (fx- x))\n"
        "      (term-redraw-to-eol ctx 'clear-line-right))))\n"
        "\n"
        "(define (lineedit-key-del-line-right ctx)\n"
@@ -863,7 +863,7 @@ void schemesh_define_library_lineedit(void) {
        "\n"
        "(define (lineedit-key-redraw ctx)\n"
        "  (term-move-to-bol ctx)\n"
-       "  (term-move-dy ctx (- (linectx-y ctx)))\n"
+       "  (term-move-dy ctx (fx- (fx+ (linectx-y ctx) (linectx-prompt-end-y ctx))))\n"
        "  (linectx-display-if-needed ctx 'force))\n"
        "\n"
        "(define (lineedit-key-tab ctx)\n"
@@ -1057,7 +1057,7 @@ void schemesh_define_library_lineedit(void) {
        "            (linectx-prompt-length-set! ctx err-len))))\n"
        "      (let ((prompt-length (linectx-prompt-length ctx)))\n"
        "        (assert (fx<=? 0 prompt-length (bytespan-length prompt)))\n"
-       "        (let-values (((x y) (fxdiv-and-mod prompt-length (linectx-width ctx))))\n"
+       "        (let-values (((y x) (fxdiv-and-mod prompt-length (linectx-width ctx))))\n"
        "          (when (and (fxzero? x) (not (fxzero? y)))\n"
        /*           prompt actually ends at rightmost column*/
        "            (set! x (linectx-width ctx))\n"
