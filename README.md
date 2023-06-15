@@ -1,7 +1,9 @@
-## schemesh - Unix shell embedded in a Chez Scheme REPL
+# schemesh
+## Unix shell embedded in a Chez Scheme REPL
 
-# Current status: ALPHA. Some features work, many others are
-incomplete or missing. Use at your own risk!
+### Current status: ALPHA.
+### Some features work, many others are incomplete or missing.
+### Use at your own risk!
 
 Schemesh is a Unix shell, compatible with POSIX shell syntax
 and powered by a Lisp REPL.
@@ -23,10 +25,10 @@ Examples:
 
 ```shell
 find /usr/lib -type f | grep ^lib | wc -l
+```
 
-
+```lisp
 (define job {ls -l | grep some-file-name})
 (sh-start job)
 (sh-fg job)
 ```
-
