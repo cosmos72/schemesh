@@ -1230,16 +1230,16 @@ static void schemesh_define_library_shell_builtins(void) {
        "    (schemesh shell jobs))\n"
        "\n"
        "(define (sh-true . ignored-args)\n"
-       "  (void))\n" /** TODO: implement */
+       "  (error 'sh-true \"unimplemented\"))\n" /** TODO: implement, must return a job */
        "\n"
        "(define (sh-false . ignored-args)\n"
-       "  (void))\n" /** TODO: implement */
+       "  (error 'sh-false \"unimplemented\"))\n" /** TODO: implement, must return a job */
        "\n"
        "(define (sh-cd path)\n"
-       "  (void))\n" /** TODO: implement */
+       "  (error 'sh-cd \"unimplemented\"))\n" /** TODO: implement, must return a job */
        "\n"
        "(define (sh-pwd . ignored-args)\n"
-       "  (void))\n" /** TODO: implement */
+       "  (error 'sh-pwd \"unimplemented\"))\n" /** TODO: implement, must return a job */
        "\n"
        ")\n"); /* close library */
 }
