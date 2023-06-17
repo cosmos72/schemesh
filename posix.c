@@ -303,9 +303,9 @@ int c_fd_select(int fd, int rw_mask, int timeout_milliseconds) {
     /** do NOT retry on EINTR, return it instead */
     return c_errno();
   }
-  return (entry.revents & POLLIN ? mask_READ : 0) |   /*                                         */
+  return (entry.revents & (POLLIN | POLLHUP) ? mask_READ : 0) | /*                               */
          (entry.revents & POLLOUT ? mask_WRITE : 0) | /*                                         */
-         (entry.revents & POLLERR ? mask_ERR : 0);
+         (entry.revents & (POLLERR | POLLNVAL) ? mask_ERR : 0);
 }
 
 int c_open_file_fd(ptr bytevector0_filepath,
