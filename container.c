@@ -1087,7 +1087,7 @@ static void schemesh_define_library_containers_bytespan(void) {
        "    ((or (fx>=? i n) (not (proc i (bytevector-u8-ref v i)))))))\n"
        "\n"
        /**
-        * (bytespan-find) iterates on bytespan elements from start to (fxmin (fx+ start n)
+        * (bytespan-u8-find) iterates on bytespan elements from start to (fxmin (fx+ start n)
         * (bytespan-length sp)), and returns the index of first bytespan element that causes
         * (predicate elem) to return non-#f. Returns #f if no such element is found.
         */
@@ -2000,16 +2000,14 @@ static void schemesh_define_library_containers_utils(void) {
         * If UTF-8 sequence is invalid, return #f instead of converted char.
         */
        "(define (bytespan-utf8-ref sp idx max-n)\n"
-       "  (assert (fx>=? idx 0))\n"
-       "  (assert (fx<=? idx (bytespan-length sp)))\n"
+       "  (assert (fx<=? 0 idx (bytespan-length sp)))\n"
        "  (bytevector-utf8-ref (bytespan-peek-data sp)\n"
        "    (fx+ idx (bytespan-peek-beg sp))\n"
        "    (fxmin max-n (fx- (bytespan-length sp) idx))))\n"
        "\n"
        /** convert char to UTF-8 sequence and write it into bytespan starting at offset idx */
        "(define (bytespan-utf8-set! sp idx ch)\n"
-       "  (assert (fx>=? idx 0))\n"
-       "  (assert (fx<=? idx (fx+ (bytespan-length sp) (char->utf8-length ch))))\n"
+       "  (assert (fx<=? 0 idx (fx+ (bytespan-length sp) (char->utf8-length ch))))\n"
        "  (bytevector-utf8-set! (bytespan-peek-data sp) (fx+ idx (bytespan-peek-beg sp)) ch))\n"
        "\n"
        /** convert a character to UTF-8 sequence and prefix it to bytespan.
