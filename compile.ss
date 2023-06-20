@@ -16,5 +16,6 @@
                "containers/charspan.ss"
                "containers/gbuffer.ss"
                "containers/chargbuffer.ss"
+               "containers/utils.ss"
                "conversions/conversions.ss")))
   (for-each compile-and-load files))
