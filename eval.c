@@ -81,7 +81,7 @@ void schemesh_define_library_bootstrap(void) {
             "  (import\n"
             "    (rnrs)\n"
             /* Unlike R6RS (eval obj environment), Chez Scheme's (eval obj)
-             * uses interactive-environment and can modify it */
+             * uses interaction-environment and can modify it */
             "    (only (chezscheme) eval void))\n"
             "\n"
             "(define (eval-string str)\n"
