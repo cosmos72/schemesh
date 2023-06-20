@@ -57,6 +57,18 @@ int c_errno_print(const char label[]) {
   return -err;
 }
 
+static int c_errno_eio() {
+  return -EIO;
+}
+
+static int c_errno_eintr() {
+  return -EINTR;
+}
+
+static int c_errno_einval() {
+  return -EINVAL;
+}
+
 /******************************************************************************/
 /*                                                                            */
 /*                           tty-related functions                            */
@@ -409,6 +421,9 @@ int schemesh_define_library_fd(void) {
     return err;
   }
   Sregister_symbol("c_errno", &c_errno);
+  Sregister_symbol("c_errno_eio", &c_errno_eio);
+  Sregister_symbol("c_errno_eintr", &c_errno_eintr);
+  Sregister_symbol("c_errno_einval", &c_errno_einval);
   Sregister_symbol("c_fd_close", &c_fd_close);
   Sregister_symbol("c_fd_dup", &c_fd_dup);
   Sregister_symbol("c_fd_dup2", &c_fd_dup2);

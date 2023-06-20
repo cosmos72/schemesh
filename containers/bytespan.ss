@@ -9,19 +9,6 @@
 ;;;;;;;;;  define Scheme type "bytespan", a resizeable bytevector  ;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;#define SCHEMESH_LIBRARY_CONTAINERS_BYTESPAN_EXPORT                                                \
-;  "list->bytespan bytevector->bytespan bytevector->bytespan* make-bytespan bytespan->bytevector "  \
-;  "bytespan bytespan? bytespan-length bytespan-empty? bytespan-clear! "                            \
-;  "bytespan-capacity bytespan-capacity-front bytespan-capacity-back "                              \
-;  "bytespan-u8-ref bytespan-u8-back bytespan-u8-set! "                                             \
-;  "bytespan-fill! bytespan-fill-range! bytespan-copy bytespan-copy! bytespan=? "                   \
-;  "bytespan-reserve-front! bytespan-reserve-back! bytespan-resize-front! bytespan-resize-back! "   \
-;  "bytespan-u8-insert-front! bytespan-u8-insert-back! "                                            \
-;  "bytespan-bsp-insert-front! bytespan-bsp-insert-back! "                                          \
-;  "bytespan-bv-insert-front! bytespan-bv-insert-back! "                                            \
-;  "bytespan-erase-front! bytespan-erase-back! bytespan-iterate bytespan-u8-find "                  \
-;  "bytespan-peek-beg bytespan-peek-end bytespan-peek-data "
-
 (library (schemesh containers bytespan (0 1))
   (export
     list->bytespan bytevector->bytespan bytevector->bytespan* make-bytespan bytespan->bytevector

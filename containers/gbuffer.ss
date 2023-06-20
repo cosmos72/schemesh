@@ -11,16 +11,10 @@
 ;;;;;;; Implementation: contains two spans, a "left" and a "right" ones ;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;#define SCHEMESH_LIBRARY_CONTAINERS_GBUFFER_EXPORT                                                 \
-;  "list->gbuffer vector->gbuffer vector->gbuffer* span->gbuffer span->gbuffer* "                   \
-;  "gbuffer->vector gbuffer->span make-gbuffer gbuffer gbuffer? "                                   \
-;  "gbuffer-length gbuffer-empty? gbuffer-ref gbuffer-set! gbuffer-clear! gbuffer-split-at! "       \
-;  "gbuffer-insert-at! gbuffer-erase-at! gbuffer-iterate "
-
 (library (schemesh containers gbuffer (0 1))
   (export
     list->gbuffer vector->gbuffer vector->gbuffer* span->gbuffer span->gbuffer*
-    gbuffer->vector gbuffer->span make-gbuffer gbuffer gbuffer?
+    make-gbuffer gbuffer gbuffer? gbuffer->vector gbuffer->span
     gbuffer-length gbuffer-empty? gbuffer-ref gbuffer-set! gbuffer-clear! gbuffer-split-at!
     gbuffer-insert-at! gbuffer-erase-at! gbuffer-iterate)
   (import

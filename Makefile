@@ -11,7 +11,7 @@ LIBS=-lkernel -lz -llz4 -lncurses -ldl -lm -lpthread -luuid
 all: schemesh schemesh_test
 
 clean:
-	rm -f *~ *.o schemesh schemesh_test
+	rm -f *~ *.o *.so */*.so schemesh schemesh_test
 
 container.o: container.c container.h eval.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)

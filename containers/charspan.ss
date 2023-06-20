@@ -10,17 +10,6 @@
 ;;;;;;;;;;;  define Scheme type "charspan", a resizeable string  ;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;#define SCHEMESH_LIBRARY_CONTAINERS_CHARSPAN_EXPORT                                                \
-;  "list->charspan string->charspan string->charspan* make-charspan charspan->string "              \
-;  "charspan charspan? charspan-length charspan-empty? charspan-clear! charspan-capacity "          \
-;  "charspan-capacity-front charspan-capacity-back charspan-ref charspan-back charspan-set! "       \
-;  "charspan-fill! charspan-fill-range! charspan-copy charspan-copy! charspan=? charspan-range=? "  \
-;  "charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back! "   \
-;  "charspan-insert-front! charspan-insert-back!  "                                                 \
-;  "charspan-csp-insert-front! charspan-csp-insert-back! "                                          \
-;  "charspan-erase-front! charspan-erase-back! charspan-iterate charspan-find "                     \
-;  "charspan-peek-data charspan-peek-beg charspan-peek-end "
-
 (library (schemesh containers charspan (0 1))
   (export
     list->charspan string->charspan string->charspan* make-charspan charspan->string

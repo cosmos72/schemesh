@@ -11,12 +11,6 @@
 ;;; b. converting integers to decimal and writing them into "bytevector" and "bytespan"
 
 
-;#define SCHEMESH_LIBRARY_CONTAINERS_UTILS_EXPORT                                                   \
-;  "bytevector-utf8-ref bytevector-utf8-set! char->utf8-length "                                    \
-;  "bytespan-utf8-ref bytespan-utf8-set! bytespan-utf8-insert-front! bytespan-utf8-insert-back! "   \
-;  "bytespan-csp-insert-back! bytespan-fixnum-display-back! "                                       \
-;  "charspan->utf8 "
-
 (library (schemesh containers utils (0 1))
   (export
     bytevector-utf8-ref bytevector-utf8-set! char->utf8-length

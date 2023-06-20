@@ -430,19 +430,19 @@ static const struct {
      "\"cmd3\" \"-arg3\"))))"},
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"ls $var1 \\\"$var2\\\" '$var3'\") #f))",
-     "(shell \"ls\" (shell-env-get \"var1\") (shell-env-get \"var2\") \"$var3\")"},
+     "(shell \"ls\" (shell-env-ref \"var1\") (shell-env-ref \"var2\") \"$var3\")"},
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"ls ${v 1} \\\"${ v 2 }\\\" '${ v 3 }'\") #f))",
-     "(shell \"ls\" (shell-env-get \"v 1\") (shell-env-get \" v 2 \") \"${ v 3 }\")"},
+     "(shell \"ls\" (shell-env-ref \"v 1\") (shell-env-ref \" v 2 \") \"${ v 3 }\")"},
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"ls \\\"$var1\\\"'$var2'$var3\") #f))",
-     "(shell \"ls\" (shell-concat (shell-env-get \"var1\") \"$var2\" (shell-env-get \"var3\")))"},
+     "(shell \"ls\" (shell-concat (shell-env-ref \"var1\") \"$var2\" (shell-env-ref \"var3\")))"},
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"ls $(cmd arg $var)\") #f))",
-     "(shell \"ls\" (shell-backquote (shell \"cmd\" \"arg\" (shell-env-get \"var\"))))"},
+     "(shell \"ls\" (shell-backquote (shell \"cmd\" \"arg\" (shell-env-ref \"var\"))))"},
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"ls \\\"$(cmd arg $var)\\\"\") #f))",
-     "(shell \"ls\" (shell-backquote (shell \"cmd\" \"arg\" (shell-env-get \"var\"))))"},
+     "(shell \"ls\" (shell-backquote (shell \"cmd\" \"arg\" (shell-env-ref \"var\"))))"},
     {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
      "  \"ls '$(cmd arg $var)'\") #f))",
      "(shell \"ls\" \"$(cmd arg $var)\")"},

@@ -11,20 +11,12 @@
 ;;;;; Implementation: contains two charspans, a "left" and a "right" ones ;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;#define SCHEMESH_LIBRARY_CONTAINERS_CHARGBUFFER_EXPORT                                             \
-;  "list->chargbuffer string->chargbuffer string->chargbuffer* "                                    \
-;  "charspan->chargbuffer charspan->chargbuffer* make-chargbuffer "                                 \
-;  "chargbuffer->charspan chargbuffer->string chargbuffer chargbuffer? chargbuffer-length "         \
-;  "chargbuffer-empty? "                                                                            \
-;  "chargbuffer-ref chargbuffer-set! chargbuffer-clear! "                                           \
-;  "chargbuffer-insert-at! chargbuffer-erase-at! chargbuffer-iterate "
-
 (library (schemesh containers chargbuffer (0 1))
   (export
-    list->chargbuffer string->chargbuffer string->chargbuffer*
-    charspan->chargbuffer charspan->chargbuffer* make-chargbuffer
-    chargbuffer->charspan chargbuffer->string chargbuffer chargbuffer? chargbuffer-length chargbuffer-empty?
-    chargbuffer-ref chargbuffer-set! chargbuffer-clear!
+    list->chargbuffer string->chargbuffer string->chargbuffer* charspan->chargbuffer charspan->chargbuffer*
+    make-chargbuffer chargbuffer chargbuffer? chargbuffer->charspan chargbuffer->string
+    chargbuffer-length chargbuffer-empty?
+    chargbuffer-ref chargbuffer-set! chargbuffer-clear! chargbuffer-split-at!
     chargbuffer-insert-at! chargbuffer-erase-at! chargbuffer-iterate)
   (import
    (rnrs)

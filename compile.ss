@@ -17,5 +17,16 @@
                "containers/gbuffer.ss"
                "containers/chargbuffer.ss"
                "containers/utils.ss"
-               "conversions/conversions.ss")))
+               "containers/containers.ss"
+               "conversions/conversions.ss"
+               "io/io.ss"
+               "parser/base.ss"
+               "parser/scheme.ss"
+               "parser/shell.ss"
+               "parser/parser.ss"
+               "fd/fd.ss"
+               ; "signals/signals.ss"
+               "tty/tty.ss"
+               "posix/posix.ss"
+               "pid/pid.ss")))
   (for-each compile-and-load files))

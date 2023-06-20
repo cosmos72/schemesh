@@ -503,7 +503,7 @@ static void schemesh_define_library_parser_shell(void) {
        "            (set! again? #f))\n"
        "          (else\n"
        "            (charspan-insert-back! csp ch)))))\n"
-       "    (list 'shell-env-get (charspan->string csp))))\n"
+       "    (list 'shell-env-ref (charspan->string csp))))\n"
        "\n"
        "\n"
        /** Read an unquoted subword starting with $ */
@@ -527,7 +527,7 @@ static void schemesh_define_library_parser_shell(void) {
        "          (#t\n"
        "            (set! again? #f)\n"
        "            (try-unread-char ch in)))))\n"
-       "    (list 'shell-env-get (charspan->string csp))))\n"
+       "    (list 'shell-env-ref (charspan->string csp))))\n"
        "\n"
        "\n"
        /** Read a subword starting with $ */

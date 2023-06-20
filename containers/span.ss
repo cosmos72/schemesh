@@ -9,15 +9,6 @@
 ;;;;;;;;;;;;;  define Scheme type "span", a resizeable vector  ;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;#define SCHEMESH_LIBRARY_CONTAINERS_SPAN_EXPORT                                                    \
-;  "list->span vector->span vector->span* make-span span->vector span span? "                       \
-;  "span-length span-empty? span-clear! span-capacity span-capacity-front span-capacity-back "      \
-;  "span-ref span-back span-set! span-fill! span-fill-range! span-copy span-copy! "                 \
-;  "span-reserve-front! span-reserve-back! span-resize-front! span-resize-back! "                   \
-;  "span-insert-front! span-insert-back! span-sp-insert-front! span-sp-insert-back! "               \
-;  "span-erase-front! span-erase-back! span-iterate span-find "                                     \
-;  "span-peek-beg span-peek-end span-peek-data "
-
 (library (schemesh containers span (0 1))
   (export
     list->span vector->span vector->span* make-span span->vector span span?
