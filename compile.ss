@@ -6,6 +6,6 @@
 ;;; (at your option) any later version.
 
 (let ((compile-and-load (lambda (path)
-         (compile-file path)
-         (load path))))
+        (compile-file path)
+        (load path))))
   (compile-and-load "all_libraries.ss"))

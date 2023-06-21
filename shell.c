@@ -1058,7 +1058,7 @@ static void schemesh_define_library_shell_parse(void) {
        "(define (sh . args)\n"
        /* implementation: use sh-parse for converting shell commands to Scheme forms,
         * then (eval) such forms */
-       "  (eval sh-parse args))\n"
+       "  (eval (sh-parse args)))\n"
        "\n"
        /**
         * Parse list containing a sequence of shell commands separated by ; & && || | |&
