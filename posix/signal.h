@@ -20,6 +20,6 @@ int c_signals_setdefault(void);
 int c_signal_setdefault(int sig);
 
 /** define functions (signal-number->name) (signal-name->number) */
-void schemesh_define_library_signals(void);
+void schemesh_register_c_functions_signals(void);
 
 #endif /* SCHEMESH_SIGNAL_H */

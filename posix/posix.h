@@ -12,20 +12,20 @@
 
 #include <scheme.h>
 
-/** define tty-related functions. */
-void schemesh_define_library_tty(void);
-
 /** define fd-related functions. return < 0 if some C system call failed */
-int schemesh_define_library_fd(void);
+int schemesh_register_c_functions_fd(void);
+
+/** define tty-related functions. */
+void schemesh_register_c_functions_tty(void);
 
 /** define miscellaneous posix functions */
-void schemesh_define_library_posix(void);
+void schemesh_register_c_functions_posix(void);
 
 /**
  * define process-related functions (fork-pid) (spawn-pid) (pid-wait)
  * requires functions (sh-env...)
  */
-void schemesh_define_library_pid(void);
+void schemesh_register_c_functions_pid(void);
 
 /** return current (-errno) value */
 int c_errno(void);
@@ -97,51 +97,6 @@ int c_open_file_fd(ptr bytevector0_filepath,
 
 /** call pipe() and return a Scheme cons (pipe_read_fd . pipe_write_fd), or c_errno() on error */
 ptr c_open_pipe_fds(void);
-
-/** return pid of current process, or c_errno() on error */
-int c_get_pid(void);
-
-/** return process group of specified process (0 = current process), or c_errno() on error */
-int c_get_pgid(int pid);
-
-/** fork() and return pid, or c_errno() on error */
-int c_fork_pid(ptr vector_redirect_fds, int existing_pgid_if_positive);
-
-/** fork() and exec() an external program, return pid */
-int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
-                ptr vector_redirect_fds,
-                ptr vector_of_bytevector0_environ,
-                int existing_pgid_if_positive); /* if > 0, add process to given process group */
-
-/**
- * if expected_pgid i.e. process group id is the foreground process group,
- * then set new_pgid as the foreground process group.
- */
-int c_pgid_foreground(int expected_pgid, int new_pgid);
-
-/**
- * call kill(pid, sig) i.e. send signal number sig to specified process id.
- * Notes:
- * pid ==  0 means "all processes in the same process group as the caller".
- * pid == -1 means "all processes".
- * pid <  -1 means "all processes in process group -pid"
- *
- * Return 0 on success, otherwise return c_errno()
- */
-int c_pid_kill(int pid, int sig);
-
-/**
- * call waitpid(pid, WUNTRACED) i.e. check if process specified by pid exited or stopped.
- * Note: pid == -1 means "any child process".
- * If may_block != 0, wait until pid (or any child process, if pid == -1) exits or stops,
- * otherwise check for such conditions without blocking.
- *
- * If no child process matches pid, or if may_block == 0 and no child exited or
- * stopped, return Scheme empty list '().
- * Otherwise return a Scheme cons (pid . exit_flag), or c_errno() on error.
- * Exit flag is one of: process exit status, or 256 + signal, or 512 + stop signal.
- */
-ptr c_pid_wait(int pid, int may_block);
 
 /** print label and current errno value to stderr. return -errno */
 int c_errno_print(const char label[]);

@@ -6,6 +6,12 @@
 ;;; (at your option) any later version.
 
 
+; Define the record types "job" "cmd" "multijob" and functions operating on them.
+; Define the functions (sh-env...) and (sh-fd...)
+;
+; Convention: (sh) and (sh-...) are functions
+;             (shell) and (shell-...) are macros
+
 (library (schemesh shell jobs (0 1))
   (export
     sh-job? sh-job-ref sh-job-status sh-jobs sh-cmd sh-cmd<> sh-cmd? sh-multijob sh-multijob?

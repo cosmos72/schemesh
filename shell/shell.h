@@ -10,7 +10,7 @@
 #ifndef SCHEMESH_SHELL_H
 #define SCHEMESH_SHELL_H
 
-#include "eval.h"
+#include "../eval.h"
 
 /**
  * initialize Chez Scheme. calls in sequence:
@@ -21,8 +21,11 @@
  */
 void schemesh_init(void (*on_scheme_exception)(void));
 
-/** define all schemesh libraries. return < 0 if failed */
-int schemesh_define_libraries(void);
+/** register all C functions needed by schemesh libraries. return < 0 if failed */
+int schemesh_register_c_functions(void);
+
+/** compile and load all schemesh libraries */
+void schemesh_compile_and_load_libraries(void);
 
 /** import all schemesh libraries */
 void schemesh_import_libraries(void);

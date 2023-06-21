@@ -7,7 +7,7 @@
  * (at your option) any later version.
  */
 
-#include "shell.h"
+#include "shell/shell.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -634,9 +634,10 @@ int main(int argc, const char* argv[]) {
   (void)argv;
 
   schemesh_init(&handle_scheme_exception);
-  if ((err = schemesh_define_libraries()) < 0) {
+  if ((err = schemesh_register_c_functions()) < 0) {
     return err;
   }
+  schemesh_compile_and_load_libraries();
   schemesh_import_libraries();
 
   err = run_tests();

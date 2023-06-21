@@ -7,14 +7,14 @@
  * (at your option) any later version.
  */
 
+#include "signal.h"
+#include "../eval.h"
+#include "posix.h"
+
 #include <errno.h> /* EINVAL */
 #include <signal.h>
 #include <stdatomic.h>
 #include <stddef.h> /* size_t, NULL */
-
-#include "eval.h"
-#include "posix.h"
-#include "signal.h"
 
 #define N_OF(span) (sizeof(span) / sizeof((span)[0]))
 
@@ -144,64 +144,11 @@ static ptr c_signals_list(void) {
   return ret;
 }
 
-#define STR_(arg) #arg
-#define STR(arg) STR_(arg)
-
-void schemesh_define_library_signals(void) {
+void schemesh_register_c_functions_signals(void) {
   Sregister_symbol("c_signals_list", &c_signals_list);
   Sregister_symbol("c_signal_raise", &c_signal_raise);
   Sregister_symbol("c_sigchld_consume", &c_sigchld_consume);
   Sregister_symbol("c_sigwinch_consume", &c_sigwinch_consume);
   Sregister_symbol("c_sigwinch_init", &c_sigwinch_init);
   Sregister_symbol("c_sigwinch_restore", &c_sigwinch_restore);
-
-  eval("(library (schemesh posix signal (0 1))\n"
-       "  (export signal-raise signal-number->name signal-name->number\n"
-       "          signal-consume-sigchld signal-consume-sigwinch signal-init-sigwinch\n"
-       "          signal-restore-sigwinch)\n"
-       "  (import\n"
-       "    (rnrs)\n"
-       "    (only (chezscheme) foreign-procedure)\n"
-       "    (only (schemesh containers hashtable) eq-hashtable hashtable-transpose))\n"
-       "\n"
-       "(define signal-table-number->name\n"
-       /* clang-format off */
-       "  (apply eq-hashtable ((foreign-procedure \"c_signals_list\" () scheme-object))))\n"
-       "\n"
-       "(define signal-table-name->number\n"
-       "  (hashtable-transpose signal-table-number->name (make-eq-hashtable)))\n"
-       "\n"
-       "(define (signal-number->name number)\n"
-       "  (hashtable-ref signal-table-number->name number #f))\n"
-       "\n"
-       "(define (signal-name->number name)\n"
-       "  (hashtable-ref signal-table-name->number name #f))\n"
-       "\n"
-       /**
-        * (signal-raise signal-name) calls C functions sigaction(sig, SIG_DFL),
-        * then calls C function kill(getpid(), sig)
-        * i.e. sends specified signal to the process itself.
-        *
-        * Returns < 0 if signal-name is unknown, or if C function raise() fails with C errno != 0.
-        */
-       "(define signal-raise"
-       "  (let ((c-signal-raise (foreign-procedure \"c_signal_raise\" (int) int)))\n"
-       "    (lambda (signal-name)\n"
-       "      (let ((signal-number (signal-name->number signal-name)))\n"
-       "        (if (fixnum? signal-number)\n"
-       "          (c-signal-raise signal-number)\n"
-       "          -" STR(EINVAL) ")))))\n"
-       "\n"
-       "(define signal-consume-sigchld  (foreign-procedure \"c_sigchld_consume\" () scheme-object))\n"
-       "(define signal-consume-sigwinch (foreign-procedure \"c_sigwinch_consume\" () scheme-object))\n"
-       "\n"
-       "(define signal-init-sigwinch\n"
-       "  (let ((c-signal-init-sigwinch (foreign-procedure \"c_sigwinch_init\" () int)))\n"
-       "    (lambda ()\n"
-       "      (assert (fxzero? (c-signal-init-sigwinch))))))\n"
-       "\n"
-       "(define signal-restore-sigwinch (foreign-procedure \"c_sigwinch_restore\" () int))\n"
-       "\n"
-       ")\n"); /* close library */
-  /* clang-format on */
 }

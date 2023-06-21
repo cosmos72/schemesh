@@ -27,6 +27,7 @@
   (include "posix/tty.ss")
   (include "posix/misc.ss")
   (include "posix/pid.ss")
+  (include "posix/posix.ss")
   (include "lineedit/base.ss")
   (include "lineedit/lineedit.ss")
   (include "shell/jobs.ss")

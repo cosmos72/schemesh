@@ -8,8 +8,8 @@
  */
 
 #include "main.h"
-#include "posix.h"
-#include "shell.h"
+#include "posix/posix.h"
+#include "shell/shell.h"
 
 #include <setjmp.h>
 #include <stdio.h>
@@ -64,9 +64,10 @@ int main(int argc, const char* argv[]) {
   }
   on_exception = INIT_FAILED;
   schemesh_init(&handle_scheme_exception);
-  if ((err = schemesh_define_libraries()) < 0) {
+  if ((err = schemesh_register_c_functions()) < 0) {
     return err;
   }
+  schemesh_compile_and_load_libraries();
   schemesh_import_libraries();
 
   on_exception = EVAL_FAILED;

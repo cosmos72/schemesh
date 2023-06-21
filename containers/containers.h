@@ -7,10 +7,9 @@
  * (at your option) any later version.
  */
 
-#ifndef SCHEMESH_IO_H
-#define SCHEMESH_IO_H
+#ifndef SCHEMESH_CONTAINER_H
+#define SCHEMESH_CONTAINER_H
 
-/** requires schemesh_define_library_containers() */
-void schemesh_define_library_io(void);
+void schemesh_register_c_functions_containers(void);
 
-#endif /* SCHEMESH_IO_H */
+#endif /* SCHEMESH_CONTAINER_H */

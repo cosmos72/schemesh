@@ -12,12 +12,6 @@
 
 #include <scheme.h>
 
-/** must be called before any other define_*() */
-void schemesh_define_library_bootstrap(void);
-
-/** requires schemesh_define_library_containers() */
-void schemesh_define_library_conversions(void);
-
 /**
  * call global Scheme procedure with no arguments.
  * Return the resulting Scheme value.

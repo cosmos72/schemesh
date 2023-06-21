@@ -25,7 +25,7 @@
     (only (chezscheme) fx1+ fx1- record-writer string-copy!)
     (schemesh containers))
 
-; copy-pasted from container.c
+; copy-pasted from containers/chargbuffer.ss
 (define-record-type
   (%chargbuffer %make-chargbuffer %chargbuffer?)
   (fields
@@ -142,7 +142,7 @@
       dst)
     (chargbuffer->string line)))
 
-; copy-pasted from container.c
+; copy-pasted from containers/buffer.ss
 (define-record-type
   (%gbuffer %make-gbuffer %gbuffer?)
   (fields
@@ -187,7 +187,7 @@
         (span-set! dst i (charline-copy-on-write line))))
     (%make-charlines (span) dst)))
 
-; copy-pasted from container.c
+; copy-pasted from containers/span.ss
 (define-record-type
   (%span %make-span %span?)
   (fields

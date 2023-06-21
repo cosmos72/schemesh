@@ -15,8 +15,7 @@
     (schemesh shell parse))
 
 (define-macro (shell . args)
-  ; FIXME: remove quasiquote, requires Sregister_symbol() of all C functions
-  `(sh-parse ,args))
+  (sh-parse args))
 
 (define-syntax shell-list
   (syntax-rules ()
