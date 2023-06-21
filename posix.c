@@ -195,7 +195,7 @@ void schemesh_define_library_tty(void) {
   Sregister_symbol("c_tty_setraw", &c_tty_setraw);
   Sregister_symbol("c_tty_size", &c_tty_size);
 
-  eval("(library (schemesh tty (0 1))\n"
+  eval("(library (schemesh posix tty (0 1))\n"
        "  (export tty-setraw! tty-restore! tty-size)\n"
        "  (import\n"
        "    (rnrs)\n"
@@ -434,7 +434,7 @@ int schemesh_define_library_fd(void) {
   Sregister_symbol("c_open_file_fd", &c_open_file_fd);
   Sregister_symbol("c_open_pipe_fds", &c_open_pipe_fds);
 
-  eval("(library (schemesh fd (0 1))\n"
+  eval("(library (schemesh posix fd (0 1))\n"
        "  (export\n"
        "    errno make-errno-condition raise-errno-condition\n"
        "    fd-close fd-close-list fd-dup fd-dup2 fd-read fd-write fd-select fd-setnonblock\n"
@@ -702,7 +702,7 @@ void schemesh_define_library_posix(void) {
   Sregister_symbol("c_exit", &c_exit);
   Sregister_symbol("c_directory_u8_list", &c_directory_u8_list);
 
-  eval("(library (schemesh posix (0 1))\n"
+  eval("(library (schemesh posix misc (0 1))\n"
        "  (export c-hostname c-exit directory-u8-list)\n"
        "  (import\n"
        "    (rnrs)\n"
@@ -710,7 +710,7 @@ void schemesh_define_library_posix(void) {
        "    (only (chezscheme) foreign-procedure sort!)\n"
        "    (only (schemesh containers misc) bytevector<? list-iterate)\n"
        "    (only (schemesh conversions) string->bytevector0)\n"
-       "    (only (schemesh fd) raise-errno-condition))\n"
+       "    (only (schemesh posix fd) raise-errno-condition))\n"
        "\n"
        "(define c-exit (foreign-procedure \"c_exit\" (int) int))\n"
        "\n"
@@ -770,7 +770,7 @@ void schemesh_define_library_pid(void) {
   Sregister_symbol("c_pgid_foreground", &c_pgid_foreground);
   Sregister_symbol("c_pid_kill", &c_pid_kill);
 
-  eval("(library (schemesh pid (0 1))\n"
+  eval("(library (schemesh posix pid (0 1))\n"
        "  (export get-pid get-pgid spawn-pid pid-kill pid-wait exit-with-job-status)\n"
        "  (import\n"
        "    (rnrs)\n"
@@ -779,10 +779,10 @@ void schemesh_define_library_pid(void) {
        "      format\n"
 #endif
        "      )"
-       "    (schemesh fd)\n"
+       "    (schemesh posix fd)\n"
        "    (only (schemesh conversions) list->cmd-argv)\n"
-       "    (only (schemesh signals) signal-name->number signal-raise)\n"
-       "    (only (schemesh posix) c-exit))\n"
+       "    (only (schemesh posix signal) signal-name->number signal-raise)\n"
+       "    (only (schemesh posix misc) c-exit))\n"
        "\n"
        /** (get-pid) returns pid of current process */
        "(define get-pid"

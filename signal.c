@@ -90,7 +90,7 @@ int c_sigwinch_init(void) {
   return 0;
 }
 
-int c_sigwinch_restore(void) {
+static int c_sigwinch_restore(void) {
   if (sigaction(SIGWINCH, &c_sigwinch_saved_action, NULL) < 0) {
     return c_errno();
   }
@@ -115,20 +115,50 @@ int c_signal_raise(int sig) {
   return 0;
 }
 
+/**
+ * return a Scheme list containing pairs (sig_num . sig_name)
+ * where sig_num is a fixnum and sig_name is a symbol
+ */
+static ptr c_signals_list(void) {
+  static const struct {
+    int         sig_num;
+    const char* sig_name;
+  } sigtable[] = {{SIGHUP, "sighup"},       {SIGINT, "sigint"},       {SIGQUIT, "sigquit"},
+                  {SIGILL, "sigill"},       {SIGTRAP, "sigtrap"},     {SIGABRT, "sigabrt"},
+                  {SIGBUS, "sigbus"},       {SIGFPE, "sigfpe"},       {SIGKILL, "sigkill"},
+                  {SIGUSR1, "sigusr1"},     {SIGSEGV, "sigsegv"},     {SIGUSR2, "sigusr2"},
+                  {SIGPIPE, "sigpipe"},     {SIGALRM, "sigalrm"},     {SIGTERM, "sigterm"},
+                  {SIGSTKFLT, "sigstkflt"}, {SIGCHLD, "sigchld"},     {SIGCONT, "sigcont"},
+                  {SIGSTOP, "sigstop"},     {SIGTSTP, "sigtstp"},     {SIGTTIN, "sigttin"},
+                  {SIGTTOU, "sigttou"},     {SIGURG, "sigurg"},       {SIGXCPU, "sigxcpu"},
+                  {SIGXFSZ, "sigxfsz"},     {SIGVTALRM, "sigvtalrm"}, {SIGPROF, "sigprof"},
+                  {SIGWINCH, "sigwinch"},   {SIGIO, "sigio"},         {SIGPWR, "sigpwr"},
+                  {SIGSYS, "sigsys"}};
+
+  ptr ret = Snil;
+  for (size_t i = 0; i < sizeof(sigtable) / sizeof(sigtable[0]); i++) {
+    ptr name = Sstring_to_symbol(sigtable[i].sig_name);
+    ptr num  = Sfixnum(sigtable[i].sig_num);
+    ret      = Scons(Scons(num, name), ret);
+  }
+  return ret;
+}
+
 #define STR_(arg) #arg
 #define STR(arg) STR_(arg)
 
 void schemesh_define_library_signals(void) {
+  Sregister_symbol("c_signals_list", &c_signals_list);
   Sregister_symbol("c_signal_raise", &c_signal_raise);
   Sregister_symbol("c_sigchld_consume", &c_sigchld_consume);
   Sregister_symbol("c_sigwinch_consume", &c_sigwinch_consume);
   Sregister_symbol("c_sigwinch_init", &c_sigwinch_init);
   Sregister_symbol("c_sigwinch_restore", &c_sigwinch_restore);
 
-  eval("(library (schemesh signals (0 1))\n"
+  eval("(library (schemesh posix signal (0 1))\n"
        "  (export signal-raise signal-number->name signal-name->number\n"
-       "          signal-consume-sigchld signal-consume-sigwinch signal-init-sigwinch "
-       "signal-restore-sigwinch)\n"
+       "          signal-consume-sigchld signal-consume-sigwinch signal-init-sigwinch\n"
+       "          signal-restore-sigwinch)\n"
        "  (import\n"
        "    (rnrs)\n"
        "    (only (chezscheme) foreign-procedure)\n"
@@ -136,43 +166,10 @@ void schemesh_define_library_signals(void) {
        "\n"
        "(define signal-table-number->name\n"
        /* clang-format off */
-       "  (eq-hashtable"
-       "'(" STR(SIGHUP)  " . sighup)"
-       "'(" STR(SIGINT)  " . sigint)"
-       "'(" STR(SIGQUIT) " . sigquit)"
-       "'(" STR(SIGILL)  " . sigill)"
-       "'(" STR(SIGTRAP) " . sigtrap)"
-       "'(" STR(SIGABRT) " . sigabrt)"
-       "'(" STR(SIGBUS)  " . sigbus)"
-       "'(" STR(SIGFPE)  " . sigfpe)"
-       "'(" STR(SIGKILL) " . sigkill)"
-       "'(" STR(SIGUSR1) " . sigusr1)"
-       "'(" STR(SIGSEGV) " . sigsegv)"
-       "'(" STR(SIGUSR2) " . sigusr2)"
-       "'(" STR(SIGPIPE) " . sigpipe)"
-       "'(" STR(SIGALRM) " . sigalrm)"
-       "'(" STR(SIGTERM) " . sigterm)"
-       "'(" STR(SIGSTKFLT) " . sigstkflt)"
-       "'(" STR(SIGCHLD) " . sigchld)"
-       "'(" STR(SIGCONT) " . sigcont)"
-       "'(" STR(SIGSTOP) " . sigstop)"
-       "'(" STR(SIGTSTP) " . sigtstp)"
-       "'(" STR(SIGTTIN) " . sigttin)"
-       "'(" STR(SIGTTOU) " . sigttou)"
-       "'(" STR(SIGURG)  " . sigurg)"
-       "'(" STR(SIGXCPU) " . sigxcpu)"
-       "'(" STR(SIGXFSZ) " . sigxfsz)"
-       "'(" STR(SIGVTALRM) " . sigvtalrm)"
-       "'(" STR(SIGPROF) " . sigprof)"
-       "'(" STR(SIGWINCH) " . sigwinch)"
-       "'(" STR(SIGIO)   " . sigio)"
-       "'(" STR(SIGPWR)  " . sigpwr)"
-       "'(" STR(SIGSYS)  " . sigsys)))\n"
+       "  (apply eq-hashtable ((foreign-procedure \"c_signals_list\" () scheme-object))))\n"
        "\n"
        "(define signal-table-name->number\n"
-       "  (hashtable-transpose\n"
-       "    signal-table-number->name\n"
-       "    (make-eq-hashtable)))\n"
+       "  (hashtable-transpose signal-table-number->name (make-eq-hashtable)))\n"
        "\n"
        "(define (signal-number->name number)\n"
        "  (hashtable-ref signal-table-number->name number #f))\n"

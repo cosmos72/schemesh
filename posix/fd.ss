@@ -5,15 +5,14 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh fd (0 1))
+(library (schemesh posix fd (0 1))
   (export
     errno make-errno-condition raise-errno-condition
     fd-close fd-close-list fd-dup fd-dup2 fd-read fd-write fd-select fd-setnonblock
     open-file-fd open-pipe-fds)
   (import
     (rnrs)
-    (only (chezscheme) foreign-procedure void
-      )
+    (only (chezscheme) foreign-procedure void)
     (only (schemesh containers misc) list-iterate)
     (only (schemesh conversions)     string->bytevector0))
 

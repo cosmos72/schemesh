@@ -6,15 +6,15 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh pid (0 1))
+(library (schemesh posix pid (0 1))
   (export get-pid get-pgid spawn-pid pid-kill pid-wait exit-with-job-status)
   (import
     (rnrs)
     (only (chezscheme) foreign-procedure void)
-    (schemesh fd)
+    (schemesh posix fd)
     (only (schemesh conversions) list->cmd-argv)
-    (only (schemesh signals) signal-name->number signal-raise)
-    (only (schemesh posix) c-exit))
+    (only (schemesh posix signal) signal-name->number signal-raise)
+    (only (schemesh posix misc) c-exit))
 
 ; (get-pid) returns pid of current process
 (define get-pid

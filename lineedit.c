@@ -304,10 +304,10 @@ void schemesh_define_library_lineedit(void) {
        "    (only (chezscheme) display-condition fx1+ fx1- inspect record-writer void)\n"
        "    (schemesh bootstrap)\n"
        "    (schemesh containers)\n"
-       "    (schemesh fd)\n"
+       "    (schemesh posix fd)\n"
        "    (schemesh lineedit base)\n"
-       "    (schemesh tty)\n"
-       "    (only (schemesh signals) signal-consume-sigwinch))\n"
+       "    (schemesh posix tty)\n"
+       "    (only (schemesh posix signal) signal-consume-sigwinch))\n"
        "\n"
        "\n"
        /* linectx is the top-level object used by most lineedit functions */

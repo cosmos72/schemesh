@@ -38,8 +38,8 @@ void schemesh_define_library_repl(void) {
        "    (schemesh io)\n"
        "    (schemesh lineedit)\n"
        "    (schemesh parser)\n"
-       "    (schemesh signals)\n"
-       "    (schemesh tty)\n"
+       "    (schemesh posix signal)\n"
+       "    (schemesh posix tty)\n"
        "    (only (schemesh shell) sh-consume-sigchld sh-expand-ps1 sh-autocomplete))\n"
        "\n"
        /**
