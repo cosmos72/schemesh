@@ -8,9 +8,11 @@
  */
 
 #include "main.h"
+#include "eval.h"
 #include "posix/posix.h"
 #include "shell/shell.h"
 
+#include <scheme.h>
 #include <setjmp.h>
 #include <stdio.h>
 #include <time.h>

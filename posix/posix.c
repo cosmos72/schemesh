@@ -101,7 +101,8 @@ int c_tty_fd(void) {
 static struct termios saved_conf;
 static int            have_saved_conf = 0;
 
-int c_tty_restore(void) {
+/** restore controlling tty to saved config */
+static int c_tty_restore(void) {
   /* (void)write(1, "; c_tty_restore\r\n", 17); */
   if (have_saved_conf) {
     while (tcsetattr(tty_fd, TCSADRAIN, &saved_conf) != 0) {
@@ -113,7 +114,8 @@ int c_tty_restore(void) {
   return 0;
 }
 
-int c_tty_setraw(void) {
+/** save controlling tty config, then set it to raw mode */
+static int c_tty_setraw(void) {
   struct termios conf;
   size_t         i;
   /* (void)write(1, "; c_tty_setraw\r\n", 16); */
@@ -147,7 +149,8 @@ int c_tty_setraw(void) {
 
 static unsigned long c_parse_unsigned_long(const char* str);
 
-ptr c_tty_size(void) {
+/** return a cons (width . height), or c_errno() on error */
+static ptr c_tty_size(void) {
   unsigned long width = 0, height = 0;
   int           err = 0;
 #ifdef TIOCGWINSZ
@@ -190,24 +193,20 @@ static unsigned long c_parse_unsigned_long(const char* str) {
   return 0;
 }
 
-void schemesh_register_c_functions_tty(void) {
-  Sregister_symbol("c_tty_restore", &c_tty_restore);
-  Sregister_symbol("c_tty_setraw", &c_tty_setraw);
-  Sregister_symbol("c_tty_size", &c_tty_size);
-}
-
 /******************************************************************************/
 /*                                                                            */
 /*                            fd-related functions                            */
 /*                                                                            */
 /******************************************************************************/
 
-int c_fd_close(int fd) {
+/** close specified file descriptor */
+static int c_fd_close(int fd) {
   int ret = close(fd);
   return ret >= 0 ? ret : c_errno();
 }
 
-void c_fd_close_all(int lowest_fd_to_close) {
+/** close all file descriptors >= lowest_fd_to_close */
+static void c_fd_close_all(int lowest_fd_to_close) {
   int i       = lowest_fd_to_close >= 0 ? lowest_fd_to_close : 0;
   int last_ok = i - 1;
   for (; i < INT_MAX && i - 32 <= last_ok; i++) {
@@ -217,17 +216,24 @@ void c_fd_close_all(int lowest_fd_to_close) {
   }
 }
 
-int c_fd_dup(int old_fd) {
+/** call dup() */
+static int c_fd_dup(int old_fd) {
   int ret = dup(old_fd);
   return ret >= 0 ? ret : c_errno();
 }
 
-int c_fd_dup2(int old_fd, int new_fd) {
+/** call dup2() */
+static int c_fd_dup2(int old_fd, int new_fd) {
   int ret = dup2(old_fd, new_fd);
   return ret >= 0 ? ret : c_errno();
 }
 
-int c_fd_setnonblock(int fd) {
+/**
+ * call fcntl(fd, FD_SETFL, O_NONBLOCK | fcntl(fd, FD_GETFL))
+ * to set file descriptor to non-blocking mode.
+ * returns >= 0 on success, or c_errno() on error
+ */
+static int c_fd_setnonblock(int fd) {
   int flags;
   while ((flags = fcntl(fd, F_GETFL)) < 0 && errno == EINTR) {
     if (errno != EINTR) {
@@ -243,8 +249,8 @@ int c_fd_setnonblock(int fd) {
   return 0;
 }
 
-/** call read(). returns number of bytes received, or c_errno() < 0 on error */
-iptr c_fd_read(int fd, ptr bytevector_read, iptr start, iptr end) {
+/** call read(). returns number of bytes read, or c_errno() < 0 on error */
+static iptr c_fd_read(int fd, ptr bytevector_read, iptr start, iptr end) {
   char*   buf;
   iptr    len;
   ssize_t got_n;
@@ -264,7 +270,7 @@ iptr c_fd_read(int fd, ptr bytevector_read, iptr start, iptr end) {
 }
 
 /** call write(). returns number of bytes written, or c_errno() < 0 on error */
-iptr c_fd_write(int fd, ptr bytevector_towrite, iptr start, iptr end) {
+static iptr c_fd_write(int fd, ptr bytevector_towrite, iptr start, iptr end) {
   const char* buf;
   iptr        len;
   ssize_t     sent_n;
@@ -289,7 +295,17 @@ enum read_write_mask {
   mask_ERR   = 4,
 };
 
-int c_fd_select(int fd, int rw_mask, int timeout_milliseconds) {
+/**
+ * call select() or poll() on file descriptor.
+ * Returns rw_mask of operations available on file descriptor,
+ * or c_errno() < 0 on error - which may also be EINTR.
+ *
+ * argument rw_mask and return value are a bitwise-or of:
+ *   1 => fd is readable
+ *   2 => fd is writable
+ *   4 => fd is in error (only in return value)
+ */
+static int c_fd_select(int fd, int rw_mask, int timeout_milliseconds) {
   struct pollfd entry;
   entry.fd     = fd;
   entry.events = (rw_mask & mask_READ ? POLLIN : 0) | /*                                         */
@@ -304,11 +320,18 @@ int c_fd_select(int fd, int rw_mask, int timeout_milliseconds) {
          (entry.revents & (POLLERR | POLLNVAL) ? mask_ERR : 0);
 }
 
-int c_open_file_fd(ptr bytevector0_filepath,
-                   int flag_read_write,
-                   int flag_create,
-                   int flag_truncate,
-                   int flag_append) {
+/**
+ * call open() and return fd of newly opened file, or c_errno() on error
+ * flag_read_write can be one of:
+ *   0 => open readonly
+ *   1 => open writeonly
+ *   2 => open readwrite
+ */
+static int c_open_file_fd(ptr bytevector0_filepath,
+                          int flag_read_write,
+                          int flag_create,
+                          int flag_truncate,
+                          int flag_append) {
   const char* filepath;
   iptr        len;
   int         flags, ret;
@@ -331,7 +354,8 @@ int c_open_file_fd(ptr bytevector0_filepath,
   return ret >= 0 ? ret : c_errno();
 }
 
-ptr c_open_pipe_fds(void) {
+/** call pipe() and return a Scheme cons (pipe_read_fd . pipe_write_fd), or c_errno() on error */
+static ptr c_open_pipe_fds(void) {
   int fds[2];
   int ret = pipe(fds);
   if (ret < 0) {
@@ -404,30 +428,6 @@ static int c_redirect_fds(ptr vector_redirect_fds) {
  */
 static int c_pid_kill(int pid, int sig) {
   return kill(pid, sig) >= 0 ? 0 : c_errno();
-}
-
-int schemesh_register_c_functions_fd(void) {
-  int err;
-  if ((err = c_tty_init()) < 0) {
-    return err;
-  } else if ((err = c_signals_init()) < 0) {
-    return err;
-  }
-  Sregister_symbol("c_errno", &c_errno);
-  Sregister_symbol("c_errno_eio", &c_errno_eio);
-  Sregister_symbol("c_errno_eintr", &c_errno_eintr);
-  Sregister_symbol("c_errno_einval", &c_errno_einval);
-  Sregister_symbol("c_fd_close", &c_fd_close);
-  Sregister_symbol("c_fd_dup", &c_fd_dup);
-  Sregister_symbol("c_fd_dup2", &c_fd_dup2);
-  Sregister_symbol("c_fd_read", &c_fd_read);
-  Sregister_symbol("c_fd_write", &c_fd_write);
-  Sregister_symbol("c_fd_select", &c_fd_select);
-  Sregister_symbol("c_fd_setnonblock", &c_fd_setnonblock);
-  Sregister_symbol("c_open_file_fd", &c_open_file_fd);
-  Sregister_symbol("c_open_pipe_fds", &c_open_pipe_fds);
-
-  return 0;
 }
 
 static int c_exit(int status) {
@@ -543,12 +543,6 @@ static ptr c_directory_u8_list(ptr bytevector0_dirpath, ptr bytevector_filter_pr
   }
   (void)closedir(dir);
   return ret;
-}
-
-void schemesh_register_c_functions_posix(void) {
-  Sregister_symbol("c_get_hostname", &c_get_hostname);
-  Sregister_symbol("c_exit", &c_exit);
-  Sregister_symbol("c_directory_u8_list", &c_directory_u8_list);
 }
 
 /** return pid of current process, or c_errno() on error */
@@ -761,7 +755,32 @@ static void write_command_not_found(const char arg0[]) {
   (void)write(2, ": command not found\n", 20);
 }
 
-void schemesh_register_c_functions_pid(void) {
+int schemesh_register_c_functions_posix(void) {
+  int err;
+  if ((err = c_tty_init()) < 0) {
+    return err;
+  } else if ((err = c_signals_init()) < 0) {
+    return err;
+  }
+
+  Sregister_symbol("c_errno", &c_errno);
+  Sregister_symbol("c_errno_eio", &c_errno_eio);
+  Sregister_symbol("c_errno_eintr", &c_errno_eintr);
+  Sregister_symbol("c_errno_einval", &c_errno_einval);
+  Sregister_symbol("c_fd_close", &c_fd_close);
+  Sregister_symbol("c_fd_dup", &c_fd_dup);
+  Sregister_symbol("c_fd_dup2", &c_fd_dup2);
+  Sregister_symbol("c_fd_read", &c_fd_read);
+  Sregister_symbol("c_fd_write", &c_fd_write);
+  Sregister_symbol("c_fd_select", &c_fd_select);
+  Sregister_symbol("c_fd_setnonblock", &c_fd_setnonblock);
+  Sregister_symbol("c_open_file_fd", &c_open_file_fd);
+  Sregister_symbol("c_open_pipe_fds", &c_open_pipe_fds);
+
+  Sregister_symbol("c_tty_restore", &c_tty_restore);
+  Sregister_symbol("c_tty_setraw", &c_tty_setraw);
+  Sregister_symbol("c_tty_size", &c_tty_size);
+
   Sregister_symbol("c_get_pid", &c_get_pid);
   Sregister_symbol("c_get_pgid", &c_get_pgid);
   Sregister_symbol("c_fork_pid", &c_fork_pid);
@@ -769,4 +788,11 @@ void schemesh_register_c_functions_pid(void) {
   Sregister_symbol("c_pid_wait", &c_pid_wait);
   Sregister_symbol("c_pgid_foreground", &c_pgid_foreground);
   Sregister_symbol("c_pid_kill", &c_pid_kill);
+
+  Sregister_symbol("c_get_hostname", &c_get_hostname);
+  Sregister_symbol("c_exit", &c_exit);
+  Sregister_symbol("c_directory_u8_list", &c_directory_u8_list);
+
+  schemesh_register_c_functions_posix_signals();
+  return 0;
 }

@@ -7,8 +7,8 @@
  * (at your option) any later version.
  */
 
-#ifndef SCHEMESH_SIGNAL_H
-#define SCHEMESH_SIGNAL_H
+#ifndef SCHEMESH_POSIX_SIGNAL_H
+#define SCHEMESH_POSIX_SIGNAL_H
 
 /** install signal handlers */
 int c_signals_init(void);
@@ -20,6 +20,6 @@ int c_signals_setdefault(void);
 int c_signal_setdefault(int sig);
 
 /** define functions (signal-number->name) (signal-name->number) */
-void schemesh_register_c_functions_signals(void);
+void schemesh_register_c_functions_posix_signals(void);
 
-#endif /* SCHEMESH_SIGNAL_H */
+#endif /* SCHEMESH_SIGNAL_POSIX_H */

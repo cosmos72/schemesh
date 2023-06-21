@@ -78,13 +78,9 @@ int schemesh_register_c_functions(void) {
 
   schemesh_register_c_functions_containers();
 
-  if ((err = schemesh_register_c_functions_fd()) < 0) {
+  if ((err = schemesh_register_c_functions_posix()) < 0) {
     return err;
   }
-  schemesh_register_c_functions_signals();
-  schemesh_register_c_functions_tty();
-  schemesh_register_c_functions_posix();
-  schemesh_register_c_functions_pid();
 
   Sregister_symbol("c_environ_ref", &c_environ_ref);
   Sregister_symbol("c_get_cwd", &c_get_cwd);

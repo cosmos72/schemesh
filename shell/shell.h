@@ -7,10 +7,8 @@
  * (at your option) any later version.
  */
 
-#ifndef SCHEMESH_SHELL_H
-#define SCHEMESH_SHELL_H
-
-#include "../eval.h"
+#ifndef SCHEMESH_SHELL_SHELL_H
+#define SCHEMESH_SHELL_SHELL_H
 
 /**
  * initialize Chez Scheme. calls in sequence:
@@ -36,4 +34,4 @@ void schemesh_import_libraries(void);
  */
 void schemesh_quit(void);
 
-#endif /* SCHEMESH_SHELL_H */
+#endif /* SCHEMESH_SHELL_SHELL_H */

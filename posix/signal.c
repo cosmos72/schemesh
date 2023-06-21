@@ -144,7 +144,7 @@ static ptr c_signals_list(void) {
   return ret;
 }
 
-void schemesh_register_c_functions_signals(void) {
+void schemesh_register_c_functions_posix_signals(void) {
   Sregister_symbol("c_signals_list", &c_signals_list);
   Sregister_symbol("c_signal_raise", &c_signal_raise);
   Sregister_symbol("c_sigchld_consume", &c_sigchld_consume);
