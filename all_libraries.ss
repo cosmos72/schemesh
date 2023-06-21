@@ -28,3 +28,4 @@
 (include "posix/pid.ss")
 (include "lineedit/base.ss")
 (include "lineedit/lineedit.ss")
+(include "shell/jobs.ss")
