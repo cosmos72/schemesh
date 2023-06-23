@@ -30,14 +30,14 @@ else
 fi
 ```
 
-Schemesh can be used as:
-* a replacement for traditional interactive Unix shell, as for example bash/ksh/zsh etc.
-
-* a Unix shell scriptable in Lisp
-
-* a Lisp REPL with additional syntax and functions to start, redirect and manage Unix processes
-
-* a Lisp library for starting, redirecting and managing Unix processes
+Switching between shell syntax and Lisp syntax is extremely simple, and can be done basically everywhere:
+* ( i.e. open parenthesis switches to Lisp syntax until the corresponding closed parenthesis i.e. )
+* { i.e. open brace switches to shell syntax until the corresponding closed brace i.e. }
+* directives #!scheme #!chezscheme #!r6rs switch to Lisp syntax (with the appropriate flavor)
+  until the end of current list inside { } or ( ).
+  if entered at top level, it is effective until another directive is entered at top level.
+* directive #!shell switches to shell syntax until the end of current list inside { } or ( ).
+  if entered at top level, it is effective until another directive is entered at top level.
 
 Examples:
 
@@ -50,3 +50,12 @@ find (lisp-function-returning-some-path) -type f | grep ^lib | wc -l
 (sh-start job)
 (sh-fg job)
 ```
+
+Schemesh can be used as:
+* a replacement for traditional interactive Unix shell, as for example bash/ksh/zsh etc.
+
+* a Unix shell scriptable in Lisp
+
+* a Lisp REPL with additional syntax and functions to start, redirect and manage Unix processes
+
+* a Lisp library for starting, redirecting and managing Unix processes
