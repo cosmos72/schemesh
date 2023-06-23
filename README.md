@@ -36,9 +36,9 @@ Switching between shell syntax and Lisp syntax is extremely simple, and can be d
 * open brace i.e. `{` switches to shell syntax until the corresponding closed brace i.e. `}`
 * the directives `#!scheme` `#!chezscheme` and `#!r6rs` switch to Lisp syntax (with the appropriate flavor)
   until the end of current list inside `{ }` or `( )`.
-  if entered at top level, it is effective until another directive is entered at top level.
+  if entered at top level, they change the default syntax another directive is entered at top level.
 * the directive `#!shell` switches to shell syntax until the end of current list inside `{ }` or `( )`.
-  if entered at top level, it is effective until another directive is entered at top level.
+  if entered at top level, it changes the default syntax another directive is entered at top level.
 
 Examples:
 
