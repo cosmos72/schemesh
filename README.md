@@ -32,12 +32,12 @@ fi
 ```
 
 Switching between shell syntax and Lisp syntax is extremely simple, and can be done basically everywhere:
-* open parenthesis i.e. ( switches to Lisp syntax until the corresponding ) i.e. closed parenthesis
-* open brace i.e. { switches to shell syntax until the corresponding } i.e. closed brace
-* the directives #!scheme #!chezscheme #!r6rs switch to Lisp syntax (with the appropriate flavor)
-  until the end of current list inside { } or ( ).
+* open parenthesis i.e. `(` switches to Lisp syntax until the corresponding closed parenthesis i.e. `)`
+* open brace i.e. `{` switches to shell syntax until the corresponding closed brace i.e. `}`
+* the directives `#!scheme` `#!chezscheme` and `#!r6rs` switch to Lisp syntax (with the appropriate flavor)
+  until the end of current list inside `{ }` or `( )`.
   if entered at top level, it is effective until another directive is entered at top level.
-* the directive #!shell switches to shell syntax until the end of current list inside { } or ( ).
+* the directive `#!shell` switches to shell syntax until the end of current list inside `{ }` or `( )`.
   if entered at top level, it is effective until another directive is entered at top level.
 
 Examples:
