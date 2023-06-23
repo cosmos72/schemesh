@@ -19,6 +19,8 @@
   (include "conversions/conversions.ss")
   (include "io/io.ss")
   (include "parser/base.ss")
+  (include "parser/lisp.ss")
+  (include "parser/r6rs.ss")
   (include "parser/scheme.ss")
   (include "parser/shell.ss")
   (include "parser/parser.ss")

@@ -6,11 +6,11 @@
 ;;; (at your option) any later version.
 
 ;;;
-;;; Lexer and parser for Chez Scheme syntax.
+;;; Lexer and parser for r6rs Scheme syntax.
 ;;;
-(library (schemesh parser scheme (0 1))
+(library (schemesh parser r6rs (0 1))
   (export
-    lex-scheme parse-scheme parse-scheme* parser-scheme)
+    lex-r6rs parse-r6rs parse-r6rs* parser-r6rs)
   (import
     (rnrs)
     (only (chezscheme)
@@ -27,28 +27,28 @@
 ; in pure R6RS.
 ;
 ; Return two values: token value and its type.
-(define (lex-scheme in enabled-parsers)
-  (lex-lisp in enabled-parsers 'scheme))
+(define (lex-r6rs in enabled-parsers)
+  (lex-lisp in enabled-parsers 'r6rs))
 
 
 ; Read Scheme tokens from textual input port 'in'
-; by repeatedly calling (lex-scheme) and construct a Scheme form.
+; by repeatedly calling (lex-r6rs) and construct a Scheme form.
 ; Automatically change parser when directive #!... is found.
 ;
 ; Return two values: parsed form, and #t.
 ; If end-of-file is reached, return (eof-object) and #f.
-(define (parse-scheme in enabled-parsers)
-  (parse-lisp in enabled-parsers 'scheme))
+(define (parse-r6rs in enabled-parsers)
+  (parse-lisp in enabled-parsers 'r6rs))
 
 
 ; Read Scheme tokens from textual input port 'in'
-; by repeatedly calling (lex-scheme) and construct a Scheme form.
+; by repeatedly calling (lex-r6rs) and construct a Scheme form.
 ; Automatically change parser when directive #!... is found.
 ;
 ; Return parsed form.
 ; Raises syntax-violation if end of file is reached before reading a complete form.
-(define (parse-scheme* in enabled-parsers)
-  (parse-lisp* in enabled-parsers 'scheme))
+(define (parse-r6rs* in enabled-parsers)
+  (parse-lisp* in enabled-parsers 'r6rs))
 
 
 ; Read Scheme forms from textual input port 'in', until a token ) or ] or } matching
@@ -59,12 +59,12 @@
 ; Raise syntax-violation if mismatched end token is found, as for example ']' instead of ')'
 ;
 ; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
-(define (parse-scheme-list begin-type in already-parsed-reverse enabled-parsers)
-  (parse-lisp-list begin-type in already-parsed-reverse enabled-parsers 'scheme))
+(define (parse-r6rs-list begin-type in already-parsed-reverse enabled-parsers)
+  (parse-lisp-list begin-type in already-parsed-reverse enabled-parsers 'r6rs))
 
 
-(define parser-scheme
-  (let ((ret (make-parser 'scheme parse-scheme parse-scheme* parse-scheme-list)))
+(define parser-r6rs
+  (let ((ret (make-parser 'r6rs parse-r6rs parse-r6rs* parse-r6rs-list)))
     (lambda ()
       ret)))
 

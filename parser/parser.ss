@@ -12,6 +12,9 @@
     make-parser parser? parser-name parser-parse parser-parse* parser-parse-list
     get-parser to-parser skip-whitespace try-unread-char try-read-parser-directive
 
+    ; r6rs.ss
+    lex-r6rs parse-r6rs parse-r6rs* parser-r6rs
+
     ; scheme.ss
     lex-scheme parse-scheme parse-scheme* parser-scheme
 
@@ -27,6 +30,7 @@
     (only (chezscheme) reverse! void)
     (only (schemesh bootstrap) while)
     (schemesh parser base)
+    (schemesh parser r6rs)
     (schemesh parser scheme)
     (schemesh parser shell))
 
@@ -89,9 +93,10 @@
 ; Return mutable hashtable containing all known parsers.
 (define parsers
   (let ((ret (make-eq-hashtable)))
+    (hashtable-set! ret 'r6rs       (parser-r6rs))
+    (hashtable-set! ret 'scheme     (parser-scheme))
     (hashtable-set! ret 'chezscheme (parser-scheme))
-    (hashtable-set! ret 'scheme   (parser-scheme))
-    (hashtable-set! ret 'shell  (parser-shell))
+    (hashtable-set! ret 'shell      (parser-shell))
     (lambda ()
       ret)))
 
