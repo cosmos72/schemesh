@@ -42,7 +42,7 @@ Schemesh can be used as:
 Examples:
 
 ```shell
-find /usr/lib -type f | grep ^lib | wc -l
+find (lisp-function-returning-some-path) -type f | grep ^lib | wc -l
 ```
 
 ```lisp
