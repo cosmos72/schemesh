@@ -7,8 +7,9 @@
 
 Schemesh is a fusion between a Unix shell and a Lisp REPL - Chez Scheme REPL, to be exact.
 
-It supports familiar POSIX shell syntax for starting commands, including redirections, pipelines,
-job concatenation with && ||, groups surrounded by { }, and managing foreground/background jobs.
+It supports interactive line editing and familiar POSIX shell syntax for starting commands,
+including redirections, pipelines, job concatenation with && ||, groups surrounded by { },
+and managing foreground/background jobs.
 
 For scripting and serious programming, it completely replaces the clumsy scripting language
 of a traditional shell (yes, the author has opinions) with a full-featured Lisp REPL.
@@ -31,12 +32,12 @@ fi
 ```
 
 Switching between shell syntax and Lisp syntax is extremely simple, and can be done basically everywhere:
-* ( i.e. open parenthesis switches to Lisp syntax until the corresponding closed parenthesis i.e. )
-* { i.e. open brace switches to shell syntax until the corresponding closed brace i.e. }
-* directives #!scheme #!chezscheme #!r6rs switch to Lisp syntax (with the appropriate flavor)
+* open parenthesis i.e. ( switches to Lisp syntax until the corresponding ) i.e. closed parenthesis
+* open brace i.e. { switches to shell syntax until the corresponding } i.e. closed brace
+* the directives #!scheme #!chezscheme #!r6rs switch to Lisp syntax (with the appropriate flavor)
   until the end of current list inside { } or ( ).
   if entered at top level, it is effective until another directive is entered at top level.
-* directive #!shell switches to shell syntax until the end of current list inside { } or ( ).
+* the directive #!shell switches to shell syntax until the end of current list inside { } or ( ).
   if entered at top level, it is effective until another directive is entered at top level.
 
 Examples:
