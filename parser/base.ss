@@ -177,24 +177,26 @@
 
 ; update parse-ctx position (x . y) after reading ch from textual input port
 (define (ctx-increment-pos ctx ch)
-  (let ((pos (parse-ctx-pos ctx)))
-    (if (eqv? ch #\newline)
-      (begin ; newline -> set x to 0, increment y
-        (set-car! pos 0)
-        (set-cdr! pos (fx1+ (cdr pos))))
-      ; only increment x
-      (set-car! pos (fx1+ (car pos))))))
+  (when (char? ch) ; do not advance after reading #!eof
+    (let ((pos (parse-ctx-pos ctx)))
+      (if (char=? ch #\newline)
+        (begin ; newline -> set x to 0, increment y
+          (set-car! pos 0)
+          (set-cdr! pos (fx1+ (cdr pos))))
+        ; only increment x
+        (set-car! pos (fx1+ (car pos)))))))
 
 
 ; update parse-ctx position (x . y) after unreading ch from textual input port
 (define (ctx-decrement-pos ctx ch)
-  (let ((pos (parse-ctx-pos ctx)))
-    (if (eqv? ch #\newline)
-      (begin ; newline -> set x to (greatest-fixnum), decrement y
-        (set-car! pos (greatest-fixnum))
-        (set-cdr! pos (fx1- (cdr pos))))
-      ; only decrement x
-      (set-car! pos (fx1- (car pos))))))
+  (when (char? ch) ; do not rewind after reading #!eof
+    (let ((pos (parse-ctx-pos ctx)))
+      (if (char=? ch #\newline)
+        (begin ; newline -> set x to (greatest-fixnum), decrement y
+          (set-car! pos (greatest-fixnum))
+          (set-cdr! pos (fx1- (cdr pos))))
+        ; only decrement x
+        (set-car! pos (fx1- (car pos)))))))
 
 
 ; Peek a character from textual input port (parse-ctx-in ctx)
