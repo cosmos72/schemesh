@@ -38,7 +38,7 @@
       ;   unless it's followed by another #\&
       ((#\! #\& #\# #\< #\> #\|) 'op)
       ((#\" ) 'dquote)
-      ((#\' ) 'quote)
+      ((#\' ) 'squote)
       ((#\$ ) 'dollar)
       ((#\\ ) 'backslash)
       ((#\` ) 'backquote)
@@ -155,7 +155,7 @@
 
 ; Read a single-quoted subword, stopping after the matching single quote.
 ; Example: 'some text'
-(define (read-subword-quoted in)
+(define (read-subword-single-quoted in)
   (assert (eqv? #\' (read-char in)))
   (let ((csp (charspan))
         (again? #t))
@@ -174,7 +174,7 @@
 
 ; Read a subword AFTER double quotes, stopping BEFORE the matching double quote.
 ; Example: "some text"
-(define (read-subword-inside-dquotes in)
+(define (read-subword-in-double-quotes in)
   (let ((csp (charspan))
         (again? #t))
     (while again?
@@ -223,6 +223,7 @@
             (try-unread-char ch in)))))
     (charspan->string csp)))
 
+
 ; Read a word, possibly containing single or double quotes and shell variables,
 ; as for example: some$foo' text'"other text ${bar} "
 (define (parse-shell-word in enabled-parsers)
@@ -240,9 +241,9 @@
               (syntax-violation 'parse-shell
                 "unexpected end-of-file inside quoted string" (reverse! ret) type))
             (set! again? #f))
-          ((quote)
-            (%append (if dquote? (read-subword-inside-dquotes in)
-                                 (read-subword-quoted in))))
+          ((squote)
+            (%append (if dquote? (read-subword-in-double-quotes in)
+                                 (read-subword-single-quoted in))))
           ((dquote)
             (set! dquote? (not dquote?))
             (read-char in))
@@ -251,7 +252,7 @@
           (else
             (cond
               (dquote?
-                (%append (read-subword-inside-dquotes in)))
+                (%append (read-subword-in-double-quotes in)))
               ((memq type '(backslash char))
                 (%append (read-subword-noquote in)))
               ; treat anything else as string delimiter. This means in our shell parser the
@@ -310,7 +311,7 @@
             (values (parse-shell-word in enabled-parsers) 'string))))
       ((backquote)
         (values ch type))
-      ((char quote dquote backslash)
+      ((char squote dquote backslash)
      ;  TODO: handle ~ and path-based wildcards
         (try-unread-char ch in)
         (values (parse-shell-word in enabled-parsers) 'string))
@@ -441,6 +442,7 @@
     ; shell form is complete, return it
     (if reverse? (reverse! ret) ret)))
 
+
 ; Read shell forms from textual input port 'in' until a token } or ] or )
 ; matching the specified begin-type token is found.
 ; Automatically change parser when directive #!... is found.
@@ -504,8 +506,23 @@
                 (set! ret (cons value ret))))))))
     (if reverse? (reverse! ret) ret)))
 
+
+; Read shell forms from textual input port 'in', until a token ) or ] or } matching
+; the specified begin-type token is found.
+; Automatically change parser when directive #!... is found.
+;
+; Return a list of parens objects, each containing the position and type of
+; matching parentheses/brackets/braces/quotes
+; Should not raise any condition for invalid input.
+;
+; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
+(define (parse-shell-parens begin-type in pos already-parsed-reverse enabled-parsers flavor)
+  ; TODO: implement
+  #f)
+
+
 (define parser-shell
-  (let ((ret (make-parser 'shell parse-shell parse-shell* parse-shell-list)))
+  (let ((ret (make-parser 'shell parse-shell parse-shell* parse-shell-list parse-shell-parens)))
     (lambda ()
       ret)))
 

@@ -22,7 +22,7 @@
     (schemesh parser base)
     (schemesh parser lisp))
 
-; Read a single Scheme token from textual input port 'in.
+; Read a single Chez Scheme token from textual input port 'in.
 ; Internally uses Chez Scheme (read-token) for simplicity, but could be reimplemented
 ; in pure R6RS.
 ;
@@ -31,8 +31,8 @@
   (lex-lisp in enabled-parsers 'scheme))
 
 
-; Read Scheme tokens from textual input port 'in'
-; by repeatedly calling (lex-scheme) and construct a Scheme form.
+; Read Chez Scheme tokens from textual input port 'in'
+; by repeatedly calling (lex-scheme) and construct a Chez Scheme form.
 ; Automatically change parser when directive #!... is found.
 ;
 ; Return two values: parsed form, and #t.
@@ -41,8 +41,8 @@
   (parse-lisp in enabled-parsers 'scheme))
 
 
-; Read Scheme tokens from textual input port 'in'
-; by repeatedly calling (lex-scheme) and construct a Scheme form.
+; Read Chez Scheme tokens from textual input port 'in'
+; by repeatedly calling (lex-scheme) and construct a Chez Scheme form.
 ; Automatically change parser when directive #!... is found.
 ;
 ; Return parsed form.
@@ -51,11 +51,11 @@
   (parse-lisp* in enabled-parsers 'scheme))
 
 
-; Read Scheme forms from textual input port 'in', until a token ) or ] or } matching
+; Read Chez Scheme forms from textual input port 'in', until a token ) or ] or } matching
 ; the specified begin-type token is found.
 ; Automatically change parser when directive #!... is found.
 ;
-; Return return a list containing parsed forms.
+; Return a list containing parsed forms.
 ; Raise syntax-violation if mismatched end token is found, as for example ']' instead of ')'
 ;
 ; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
@@ -63,8 +63,21 @@
   (parse-lisp-list begin-type in already-parsed-reverse enabled-parsers 'scheme))
 
 
+; Read Chez Scheme forms from textual input port 'in', until a token ) or ] or } matching
+; the specified begin-type token is found.
+; Automatically change parser when directive #!... is found.
+;
+; Return a list of parens objects, each containing the position and type of
+; matching parentheses/brackets/braces/quotes
+; Should not raise any condition for invalid input.
+;
+; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
+(define (parse-scheme-parens begin-type in pos already-parsed-reverse enabled-parsers)
+  (parse-lisp-parens begin-type in pos already-parsed-reverse enabled-parsers 'scheme))
+
+
 (define parser-scheme
-  (let ((ret (make-parser 'scheme parse-scheme parse-scheme* parse-scheme-list)))
+  (let ((ret (make-parser 'scheme parse-scheme parse-scheme* parse-scheme-list parse-scheme-parens)))
     (lambda ()
       ret)))
 

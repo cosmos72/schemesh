@@ -10,7 +10,7 @@
 ;;;
 (library (schemesh parser lisp (0 1))
   (export
-    lex-lisp parse-lisp parse-lisp* parse-lisp-list)
+    lex-lisp parse-lisp parse-lisp* parse-lisp-list parse-lisp-parens)
   (import
     (rnrs)
     (only (chezscheme) format
@@ -146,7 +146,7 @@
 ; the specified begin-type token is found.
 ; Automatically change parser when directive #!... is found.
 ;
-; Return return a list containing parsed forms.
+; Return a list containing parsed forms.
 ; Raise syntax-violation if mismatched end token is found, as for example ']' instead of ')'
 ;
 ; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
@@ -198,7 +198,7 @@
               (set! ret (cons value-i ret)))))))
     (if reverse? (reverse! ret) ret)))
 
-;
+
 ; Read Scheme forms from textual input port 'in' until a token ) or ] or } matching vec-type
 ; is found.
 ; Automatically change parser when directive #!... is found.
@@ -251,6 +251,21 @@
         (set! values (cdr values))
         (unless (null? values)
           (set! elem (car values)))))))
+
+
+; Read Scheme forms from textual input port 'in', until a token ) or ] or } matching
+; the specified begin-type token is found.
+; Automatically change parser when directive #!... is found.
+;
+; Return a list of parens objects, each containing the position and type of
+; matching parentheses/brackets/braces/quotes
+; Should not raise any condition for invalid input.
+;
+; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
+(define (parse-lisp-parens begin-type in pos already-parsed-reverse enabled-parsers flavor)
+  ; TODO: implement
+  #f)
+
 
 (define (caller-for flavor)
   (if (eq? flavor 'r6rs)

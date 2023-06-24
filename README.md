@@ -7,7 +7,7 @@
 
 Schemesh is a fusion between a Unix shell and a Lisp REPL - Chez Scheme REPL, to be exact.
 
-It supports interactive line editing and familiar POSIX shell syntax for starting commands,
+It supports interactive line editing and familiar Unix shell syntax for starting commands,
 including redirections, pipelines, job concatenation with `&&` `||`, groups surrounded by `{ }`,
 and managing foreground/background jobs.
 
