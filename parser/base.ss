@@ -18,10 +18,12 @@
 
     make-parser parser?
     parser-name parser-parse parser-parse* parser-parse-list parser-match-parens
-    get-parser to-parser skip-whitespace try-unread-char try-read-parser-directive)
+    get-parser to-parser ctx-skip-whitespace ctx-peek-char ctx-read-char ctx-unread-char
+    try-read-parser-directive)
   (import
     (rnrs)
-    (only (chezscheme) record-writer unread-char)
+    (rnrs mutable-pairs)
+    (only (chezscheme) fx1+ fx1- record-writer unread-char)
     (only (schemesh bootstrap) while)
     (only (schemesh containers misc) list-iterate)
     (only (schemesh containers hashtable) hashtable-iterate)
@@ -116,8 +118,8 @@
 (define-record-type
   (parse-ctx %make-parse-ctx parse-ctx?)
   (fields
-    in  ; textual input port to read from
-    pos ; pair (x . y) containing two fixnums: current x and y position in the input port
+    in    ; textual input port to read from
+    pos   ; pair (x . y) containing two fixnums: current x and y position in the input port
     enabled-parsers) ; #f or an hashtable name -> parser
   (nongenerative #{parse-ctx ghczmwc88jnt51nkrv9gaocnv-423}))
 
@@ -152,34 +154,84 @@
           (assert (parser? parser))))))
   (%make-parse-ctx in (cons x y) enabled-parsers))
 
+
 ; create a new parse-ctx. Arguments are
 ;   str: mandatory, the string to read from
 ;   enabled-parsers: optional, #f or an hashtable name -> parser containing enabled parsers.
 ;                    see (parsers) in parser/parser.ss
 (define make-parse-ctx-from-string
   (case-lambda
-    ((str)               (make-parse-ctx* (open-string-input-port str) #f 0 0))
+    ((str)                 (make-parse-ctx* (open-string-input-port str) #f 0 0))
     ((str enabled-parsers) (make-parse-ctx* (open-string-input-port str) enabled-parsers 0 0))))
+
+
+; update parse-ctx position (x . y) after reading ch from textual input port
+(define (ctx-increment-pos ctx ch)
+  (let ((pos (parse-ctx-pos ctx)))
+    (if (eqv? ch #\newline)
+      (begin ; newline -> set x to 0, increment y
+        (set-car! pos 0)
+        (set-cdr! pos (fx1+ (cdr pos))))
+      ; only increment x
+      (set-car! pos (fx1+ (car pos))))))
+
+
+; update parse-ctx position (x . y) after unreading ch from textual input port
+(define (ctx-decrement-pos ctx ch)
+  (let ((pos (parse-ctx-pos ctx)))
+    (if (eqv? ch #\newline)
+      (begin ; newline -> set x to (greatest-fixnum), decrement y
+        (set-car! pos (greatest-fixnum))
+        (set-cdr! pos (fx1- (cdr pos))))
+      ; only decrement x
+      (set-car! pos (fx1- (car pos))))))
+
+
+; Peek a character from textual input port (parse-ctx-in ctx)
+(define (ctx-peek-char ctx)
+  (peek-char (parse-ctx-in ctx)))
+
+
+; Read a character from textual input port (parse-ctx-in ctx)
+;
+; also updates (parse-ctx-pos ctx)
+(define (ctx-read-char ctx)
+  (let ((ch (read-char (parse-ctx-in ctx))))
+    (ctx-increment-pos ctx ch)
+    ch))
+
+
+; Try to unread a character from textual input port (parse-ctx-in ctx)
+;
+; Raise condition if Chez Scheme (unread-char ch in) fails:
+; it will happen ch is different from last character read from input port,
+; or if attempting to unread multiple characters without reading them back first.
+(define (ctx-unread-char ctx ch)
+  (let ((in (parse-ctx-in ctx)))
+    (unread-char ch in)
+    (assert (eqv? ch (peek-char in)))
+    (ctx-decrement-pos ctx ch)))
+
 
 ; return #t if ch is a character and is <= ' '.
 ; otherwise return #f
-;/
 (define (is-whitespace-char? ch newline-is-whitespace?)
   (and (char? ch) (char<=? ch #\space)
        (or newline-is-whitespace? (not (char=? ch #\newline)))))
 
-;
-; read and discard all initial whitespace in textual input port 'in'.
-; characters are considered whitespace if they are <= ' '
-(define (skip-whitespace in newline-is-whitespace?)
-  (while (is-whitespace-char? (peek-char in) newline-is-whitespace?)
-    (read-char in)))
 
+; read and discard all initial whitespace in textual input port (parse-ctx-in ctx)
+; characters are considered whitespace if they are <= ' '
 ;
+; also updates (parse-ctx-pos ctx)
+(define (ctx-skip-whitespace ctx newline-is-whitespace?)
+  (while (is-whitespace-char? (ctx-peek-char ctx) newline-is-whitespace?)
+    (ctx-read-char ctx)))
+
+
 ; return truthy if ch is a character whose value is a number,
 ; or an ASCII letter, or '_', or greater than (integer->char 127).
 ; Otherwise return #f
-;/
 (define (is-simple-identifier-char? ch)
   (and (char? ch)
        (or (and (char>=? ch #\0) (char<=? ch #\9))
@@ -188,17 +240,8 @@
            (char=? ch #\_)
            (char>? ch #\delete))))
 
-;
-; Try to unread a character from textual input port 'in'.
-;
-; Raise condition if Chez Scheme (unread-char ch in) fails:
-; it will happen ch is different from last character read from input port.
-;/
-(define (try-unread-char ch in)
-  (unread-char ch in)
-  (assert (eqv? ch (peek-char in))))
 
-;
+
 ; Try to read a parser directive #!... from textual input port 'in'
 ; Does NOT skip whitespace in input port.
 ;
@@ -206,19 +249,18 @@
 ; then read the symbol after it, and return such symbol.
 ;
 ; Otherwise do nothing and return #f i.e. do not consume any character or part of it.
-;/
-(define (try-read-parser-directive in)
+(define (try-read-parser-directive ctx)
   (let ((ret #f))
-    (when (eqv? #\# (peek-char in))
-      (read-char in)
-      (if (eqv? #\! (peek-char in))
+    (when (eqv? #\# (ctx-peek-char ctx))
+      (ctx-read-char ctx)
+      (if (eqv? #\! (ctx-peek-char ctx))
         (let ((csp (charspan)))
           (charspan-reserve-back! csp 10)
-          (read-char in)
-          (while (is-simple-identifier-char? (peek-char in))
-            (charspan-insert-back! csp (read-char in)))
+          (ctx-read-char ctx)
+          (while (is-simple-identifier-char? (ctx-peek-char ctx))
+            (charspan-insert-back! csp (ctx-read-char ctx)))
           (set! ret (string->symbol (charspan->string csp))))
-        (try-unread-char #\# in)))
+        (ctx-unread-char ctx #\#)))
     ret))
 
 ; customize how "parser" objects are printed

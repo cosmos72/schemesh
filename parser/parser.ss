@@ -10,7 +10,7 @@
   (export
     ; base.ss
     make-parser parser? parser-name parser-parse parser-parse* parser-parse-list
-    get-parser to-parser skip-whitespace try-unread-char try-read-parser-directive
+    get-parser to-parser ctx-skip-whitespace ctx-unread-char try-read-parser-directive
 
     ; r6rs.ss
     lex-r6rs parse-r6rs parse-r6rs* parser-r6rs

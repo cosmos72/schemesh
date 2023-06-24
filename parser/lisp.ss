@@ -28,8 +28,8 @@
 ;
 ; Return two values: token value and its type.
 (define (lex-lisp ctx flavor)
-  (skip-whitespace (parse-ctx-in ctx) 'also-skip-newlines)
-  (let ((value (try-read-parser-directive (parse-ctx-in ctx))))
+  (ctx-skip-whitespace ctx 'also-skip-newlines)
+  (let ((value (try-read-parser-directive ctx)))
     (if (symbol? value)
       (if (eq? 'eof value)
         ; yes, #!eof is an allowed directive:
