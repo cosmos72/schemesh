@@ -13,6 +13,9 @@
     parens-end-x   parens-end-x-set!   parens-end-y   parens-end-y-set!
     parens-inner   parens-inner-append!
 
+    make-parse-ctx parse-ctx?
+    parse-ctx-in parse-ctx-pos parse-ctx-enabled-parsers
+
     make-parser parser?
     parser-name parser-parse parser-parse* parser-parse-list parser-match-parens
     get-parser to-parser skip-whitespace try-unread-char try-read-parser-directive)
@@ -21,6 +24,7 @@
     (only (chezscheme) record-writer unread-char)
     (only (schemesh bootstrap) while)
     (only (schemesh containers misc) list-iterate)
+    (only (schemesh containers hashtable) hashtable-iterate)
     (schemesh containers span)
     (schemesh containers charspan))
 
@@ -58,6 +62,7 @@
         (parens-inner-set! parens (list->span nested-parens-list))))))
 
 
+
 ; parser is an object containing four procedures:
 ;   parser-parse and parser-parse* will parse a single form,
 ;   parser-parse-list will parse a list of forms,
@@ -72,6 +77,7 @@
     match-parens)
   (nongenerative #{parser cd39kg38a9c4cnwzwhghs827-24}))
 
+
 ; create a new parser
 (define (make-parser name parse parse* parse-list match-parens)
   (assert (symbol?    name))
@@ -81,11 +87,10 @@
   (assert (procedure? match-parens))
   (%make-parser name parse parse* parse-list match-parens))
 
-;
+
 ; Find and return the parser corresponding to given parser-name (which must be a symbol)
 ; in enabled-parsers.
 ; Raise (syntax-violation caller ...) if not found.
-;/
 (define (get-parser parser-name enabled-parsers caller)
   (let ((parser (and enabled-parsers
                      (hashtable-ref enabled-parsers parser-name #f))))
@@ -93,18 +98,50 @@
       (syntax-violation caller "no parser found for directive #!" parser-name))
     parser))
 
-;
+
 ; Convert a parser name to parser:
 ; if p is a parser, return p
 ; if p is a symbol, return (get-parser p enabled-parsers caller)
-; otherwise raise condition
-;/
+; otherwise raise (syntax-violation caller ...)
 (define (to-parser p enabled-parsers caller)
   (if (parser? p)
     p
     (get-parser p enabled-parsers caller)))
 
-;
+
+; parse-ctx contains arguments common to most parsing procedures contained in a parser:
+;   parse-ctx-in is the textual input port to read from
+;   parse-ctx-pos is a pair (x . y) representing the position in the input port
+;   parse-ctx-enabled-parsers is #f or an hashtable name -> parser containing enabled parsers - see (parsers) in parser/parser.ss
+(define-record-type
+  (parse-ctx %make-parse-ctx parse-ctx?)
+  (fields
+    in  ; textual input port to read from
+    pos ; pair (x . y) containing two fixnums: current x and y position in the input port
+    enabled-parsers) ; #f or an hashtable name -> parser
+  (nongenerative #{parse-ctx ghczmwc88jnt51nkrv9gaocnv-423}))
+
+
+; create a new parse-ctx. Arguments are
+;   in: the textual input port to read from
+;   x: a fixnum representing the initial x position in the input port
+;   y: a fixnum representing the initial y position in the input port
+;   enabled-parsers: #f or an hashtable name -> parser containing enabled parsers - see (parsers) in parser/parser.ss
+(define (make-parse-ctx in x y enabled-parsers)
+  (assert (input-port? in))
+  (assert (textual-port? in))
+  (assert (fixnum? x))
+  (assert (fixnum? y))
+  (when enabled-parsers
+    (hashtable-iterate enabled-parsers
+      (lambda (cell)
+        (let ((name  (car cell))
+              (parser (cdr cell)))
+          (assert (symbol? name))
+          (assert (parser? parser))))))
+  (%make-parse-ctx in (cons x y) enabled-parsers))
+
+
 ; return #t if ch is a character and is <= ' '.
 ; otherwise return #f
 ;/
@@ -113,7 +150,7 @@
        (or newline-is-whitespace? (not (char=? ch #\newline)))))
 
 ;
-; read and discard all initial whitespace in textual input stream 'in'.
+; read and discard all initial whitespace in textual input port 'in'.
 ; characters are considered whitespace if they are <= ' '
 (define (skip-whitespace in newline-is-whitespace?)
   (while (is-whitespace-char? (peek-char in) newline-is-whitespace?)

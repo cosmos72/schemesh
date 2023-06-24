@@ -55,7 +55,7 @@
     value))
 
 
-; Parse textual input stream until the end of current list, using the parser specified by
+; Parse textual input port until the end of current list, using the parser specified by
 ; initial-parser, and temporarily switching to other parsers if the directive #!...
 ; is found in a (possibly nested) list being parsed.
 ;
@@ -68,7 +68,7 @@
     (proc begin-type in enabled-parsers)))
 
 
-; Parse textual input stream until eof, using the parser specified by initial-parser,
+; Parse textual input port until eof, using the parser specified by initial-parser,
 ; and temporarily switching to other parsers every time the directive #!... is found
 ; in a (possibly nested) list being parsed.
 ;

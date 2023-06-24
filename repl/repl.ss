@@ -38,7 +38,7 @@
 
 ;
 ; Parse user input.
-; First argument is a textual input stream containing user input.
+; First argument is a textual input port containing user input.
 ; Second argument is initial parser to use, or a symbol containing the parser's name.
 ; Third argument is #f or a hashtable containing enabled parsers.
 ;
@@ -47,7 +47,7 @@
 ;
 ; Returns two values: parsed forms, and update parser to use.
 ; Arguments:
-;   in - textual input stream
+;   in - textual input port
 ;   initial-parser - initial parser to use: a symbol or parser
 ;   enabled-parsers - #f or hashtable of enabled parsers
 ;
