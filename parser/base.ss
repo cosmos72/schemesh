@@ -13,7 +13,7 @@
     parens-end-x   parens-end-x-set!   parens-end-y   parens-end-y-set!
     parens-inner   parens-inner-append!
 
-    make-parse-ctx parse-ctx?
+    make-parse-ctx make-parse-ctx* make-parse-ctx-from-string parse-ctx?
     parse-ctx-in parse-ctx-pos parse-ctx-enabled-parsers
 
     make-parser parser?
@@ -123,11 +123,22 @@
 
 
 ; create a new parse-ctx. Arguments are
-;   in: the textual input port to read from
-;   x: a fixnum representing the initial x position in the input port
-;   y: a fixnum representing the initial y position in the input port
-;   enabled-parsers: #f or an hashtable name -> parser containing enabled parsers - see (parsers) in parser/parser.ss
-(define (make-parse-ctx in x y enabled-parsers)
+;   in: mandatory, the textual input port to read from
+;   enabled-parsers: optional, #f or an hashtable name -> parser containing enabled parsers.
+;                    see (parsers) in parser/parser.ss
+;   x: optional, a fixnum representing the initial x position in the input port
+;   y: optional, a fixnum representing the initial y position in the input port
+(define make-parse-ctx
+  (case-lambda
+    ((in)               (make-parse-ctx* in #f 0 0))
+    ((in enabled-parsers) (make-parse-ctx* in enabled-parsers 0 0))
+    ((in enabled-parsers x) (make-parse-ctx* in enabled-parsers x 0))
+    ((in enabled-parsers x y) (make-parse-ctx* in enabled-parsers x y))))
+
+
+; create a new parse-ctx. Arguments are the same as (make-parse-ctx)
+; with the difference that they are all mandatory
+(define (make-parse-ctx* in enabled-parsers x y)
   (assert (input-port? in))
   (assert (textual-port? in))
   (assert (fixnum? x))
@@ -141,6 +152,14 @@
           (assert (parser? parser))))))
   (%make-parse-ctx in (cons x y) enabled-parsers))
 
+; create a new parse-ctx. Arguments are
+;   str: mandatory, the string to read from
+;   enabled-parsers: optional, #f or an hashtable name -> parser containing enabled parsers.
+;                    see (parsers) in parser/parser.ss
+(define make-parse-ctx-from-string
+  (case-lambda
+    ((str)               (make-parse-ctx* (open-string-input-port str) #f 0 0))
+    ((str enabled-parsers) (make-parse-ctx* (open-string-input-port str) enabled-parsers 0 0))))
 
 ; return #t if ch is a character and is <= ' '.
 ; otherwise return #f

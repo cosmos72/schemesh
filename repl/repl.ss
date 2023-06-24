@@ -17,6 +17,7 @@
     (only (schemesh containers) list-iterate)
     (schemesh io)
     (schemesh lineedit)
+    (only (schemesh parser base) make-parse-ctx*)
     (schemesh parser)
     (schemesh posix signal)
     (schemesh posix tty)
@@ -38,18 +39,13 @@
 
 ;
 ; Parse user input.
-; First argument is a textual input port containing user input.
-; Second argument is initial parser to use, or a symbol containing the parser's name.
-; Third argument is #f or a hashtable containing enabled parsers.
+; Arguments:
+;   ctx - a parse-ctx containing textual input port to parse, its position
+;         and a hashtable of enabled parsers (can be #f)
+;   initial-parser - initial parser to use: a symbol or parser
 ;
 ; Automatically switches to other parsers if a directive #!... is found in a (possibly
 ; nested) list being parsed.
-;
-; Returns two values: parsed forms, and update parser to use.
-; Arguments:
-;   in - textual input port
-;   initial-parser - initial parser to use: a symbol or parser
-;   enabled-parsers - #f or hashtable of enabled parsers
 ;
 ; Return two values:
 ;   list of forms containing Scheme code to evaluate,
@@ -125,7 +121,7 @@
       ((#t) initial-parser) ; nothing to execute: waiting for more user input
       (else
         (let-values (((form updated-parser)
-                        (repl-parse in initial-parser enabled-parsers)))
+                        (repl-parse (make-parse-ctx* in enabled-parsers 0 0) initial-parser)))
           (unless (eq? (void) form)
             (call-with-values
               (lambda () (repl-eval-list form eval-func))

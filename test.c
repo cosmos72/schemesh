@@ -391,120 +391,130 @@ static const struct {
     {"(charlines (string->charline* \"foo/bar\") (string->charline \"\\n\"))",
      "(charlines (string->charline* \"foo/bar\") (string->charline* \"\\n\"))"},
     /* ------------------------ parser scheme ------------------------------- */
-    {"(parse-scheme* (open-string-input-port \"(foo bar) '(a b)\") #f)", "(foo bar)"},
-    {"(parse-scheme* (open-string-input-port \"(a (b c . d) . e)\") #f)", "(a (b c . d) . e)"},
+    {"(parse-scheme* (make-parse-ctx-from-string"
+     "  \"(foo bar) '(a b)\"))",
+     "(foo bar)"},
+    {"(parse-scheme* (make-parse-ctx-from-string"
+     "  \"(a (b c . d) . e)\"))",
+     "(a (b c . d) . e)"},
     /* ------------------------ parser shell -------------------------------- */
-    {"(values->list (parse-shell (open-string-input-port \"\") #f))", "(#!eof #f)"},
-    {"(parse-shell* (open-string-input-port \"{}\") #f)", "(shell-list)"},
-    {"(parse-shell* (open-string-input-port \"ls   -l>/dev/null&\") #f)",
+    {"(values->list (parse-shell (make-parse-ctx-from-string"
+     "  \"\")))",
+     "(#!eof #f)"},
+    {"(parse-shell* (make-parse-ctx-from-string"
+     "  \"{}\"))",
+     "(shell-list)"},
+    {"(parse-shell* (make-parse-ctx-from-string"
+     "  \"ls   -l>/dev/null&\"))",
      "(shell ls -l > /dev/null &)"},
-    {"(parse-shell* (open-string-input-port\n"
-     "  \"echo  foo  bar|wc -l\") #f)",
+    {"(parse-shell* (make-parse-ctx-from-string"
+     "  \"echo  foo  bar|wc -l\"))",
      "(shell echo foo bar | wc -l)"},
-    {"(parse-shell* (open-string-input-port\n"
-     "  \"echo  foo  bar|wc -l ; \") #f)",
+    {"(parse-shell* (make-parse-ctx-from-string"
+     "  \"echo  foo  bar|wc -l ; \"))",
      "(shell echo foo bar | wc -l)"},
-    {"(parse-shell* (open-string-input-port\n"
-     "  \"{echo  foo  bar|wc -l; ; }\") #f)",
+    {"(parse-shell* (make-parse-ctx-from-string"
+     "  \"{echo  foo  bar|wc -l; ; }\"))",
      "(shell-list (shell echo foo bar | wc -l) (shell))"},
-    {"(parse-shell* (open-string-input-port\n"
-     "  \"{echo|{cat;{true}\n}}\") #f)",
+    {"(parse-shell* (make-parse-ctx-from-string\n"
+     "  \"{echo|{cat;{true}\n}}\"))",
      "(shell-list (shell echo | (shell-list (shell cat) (shell-list (shell true)) (shell))))"},
-    {"(parse-shell* (open-string-input-port\n"
-     "  \"{{{{echo|cat}}}}\") #f)",
+    {"(parse-shell* (make-parse-ctx-from-string\n"
+     "  \"{{{{echo|cat}}}}\"))",
      "(shell-list (shell-list (shell-list (shell-list (shell echo | cat)))))"},
-    {"(parse-shell* (open-string-input-port\n"
-     "  \"a<>/dev/null||b>|/dev/zero&&!c>&2\") #f)",
+    {"(parse-shell* (make-parse-ctx-from-string\n"
+     "  \"a<>/dev/null||b>|/dev/zero&&!c>&2\"))",
      "(shell a <> /dev/null || b >| /dev/zero && ! c >& 2)"},
     /** FIXME: recognize fd number [N] before redirection */
-    {"(parse-shell* (open-string-input-port\n"
-     "  \"foo 2>& 1 <& -\") #f)",
+    {"(parse-shell* (make-parse-ctx-from-string\n"
+     "  \"foo 2>& 1 <& -\"))",
      "(shell foo 2 >& 1 <& -)"},
-    {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
-     "  \"ls \\\"-l\\\" '.'\") #f))",
+    {"(format #f \"~s\" (parse-shell* (make-parse-ctx-from-string\n"
+     "  \"ls \\\"-l\\\" '.'\")))",
      "(shell \"ls\" \"-l\" \".\")"},
-    {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
-     "  \"ls \\\"some\\\"'file'path\") #f))",
+    {"(format #f \"~s\" (parse-shell* (make-parse-ctx-from-string\n"
+     "  \"ls \\\"some\\\"'file'path\")))",
      "(shell \"ls\" (shell-concat \"some\" \"file\" \"path\"))"},
-    {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
-     "  \"{ls `cmd1 && cmd2 || cmd3 -arg3`}\") #f)))",
+    {"(format #f \"~s\" (parse-shell* (make-parse-ctx-from-string\n"
+     "  \"{ls `cmd1 && cmd2 || cmd3 -arg3`}\"))))",
      "(shell-list (shell \"ls\" (shell-backquote (shell \"cmd1\" && \"cmd2\" \\x7C;\\x7C; "
      "\"cmd3\" \"-arg3\"))))"},
-    {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
-     "  \"ls $var1 \\\"$var2\\\" '$var3'\") #f))",
+    {"(format #f \"~s\" (parse-shell* (make-parse-ctx-from-string\n"
+     "  \"ls $var1 \\\"$var2\\\" '$var3'\")))",
      "(shell \"ls\" (shell-env-ref \"var1\") (shell-env-ref \"var2\") \"$var3\")"},
-    {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
-     "  \"ls ${v 1} \\\"${ v 2 }\\\" '${ v 3 }'\") #f))",
+    {"(format #f \"~s\" (parse-shell* (make-parse-ctx-from-string\n"
+     "  \"ls ${v 1} \\\"${ v 2 }\\\" '${ v 3 }'\")))",
      "(shell \"ls\" (shell-env-ref \"v 1\") (shell-env-ref \" v 2 \") \"${ v 3 }\")"},
-    {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
-     "  \"ls \\\"$var1\\\"'$var2'$var3\") #f))",
+    {"(format #f \"~s\" (parse-shell* (make-parse-ctx-from-string\n"
+     "  \"ls \\\"$var1\\\"'$var2'$var3\")))",
      "(shell \"ls\" (shell-concat (shell-env-ref \"var1\") \"$var2\" (shell-env-ref \"var3\")))"},
-    {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
-     "  \"ls $(cmd arg $var)\") #f))",
+    {"(format #f \"~s\" (parse-shell* (make-parse-ctx-from-string\n"
+     "  \"ls $(cmd arg $var)\")))",
      "(shell \"ls\" (shell-backquote (shell \"cmd\" \"arg\" (shell-env-ref \"var\"))))"},
-    {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
-     "  \"ls \\\"$(cmd arg $var)\\\"\") #f))",
+    {"(format #f \"~s\" (parse-shell* (make-parse-ctx-from-string\n"
+     "  \"ls \\\"$(cmd arg $var)\\\"\")))",
      "(shell \"ls\" (shell-backquote (shell \"cmd\" \"arg\" (shell-env-ref \"var\"))))"},
-    {"(format #f \"~s\" (parse-shell* (open-string-input-port\n"
-     "  \"ls '$(cmd arg $var)'\") #f))",
+    {"(format #f \"~s\" (parse-shell* (make-parse-ctx-from-string\n"
+     "  \"ls '$(cmd arg $var)'\")))",
      "(shell \"ls\" \"$(cmd arg $var)\")"},
     /* ------------------------ parser -------------------------------------- */
     {"(values->list (parse-forms\n"
-     "  (open-string-input-port \"\")\n"
-     "  'scheme (parsers)))",
+     "  (make-parse-ctx-from-string \"\" (parsers))\n"
+     "  'scheme))",
      "(() #<parser scheme>)"},
     {"(values->list (parse-forms\n"
      /* #!eof is equivalent to end-of-file in the input port */
-     "  (open-string-input-port \"'(a . b) c #!eof . ) syntax error\")\n"
-     "  'scheme (parsers)))",
+     "  (make-parse-ctx-from-string \"'(a . b) c #!eof . ) syntax error\" (parsers))\n"
+     "  'scheme))",
      "(('(a . b) c) #<parser scheme>)"},
     {"(values->list (parse-forms\n"
-     "  (open-string-input-port \"uiop asdf #!scheme (xyz %%a)\")\n"
-     "  'scheme (parsers)))",
+     "  (make-parse-ctx-from-string \"uiop asdf #!scheme (xyz %%a)\" (parsers))\n"
+     "  'scheme))",
      "((uiop asdf (xyz %%a)) #<parser scheme>)"},
     {"(values->list (parse-forms\n"
-     "  (open-string-input-port \"`('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)\")\n"
-     "  'scheme (parsers)))",
+     "  (make-parse-ctx-from-string \"`('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)\" (parsers))\n"
+     "  'scheme))",
      "((`('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)) #<parser scheme>)"},
     {"(parse-form*\n" /* character { switches to shell parser */
-     "  (open-string-input-port \"{ls -l >& log.txt}\")\n"
-     "  'scheme (parsers)))",
+     "  (make-parse-ctx-from-string \"{ls -l >& log.txt}\" (parsers))\n"
+     "  'scheme))",
      "(shell-list (shell ls -l >& log.txt))"},
     {"(parse-form*\n" /* directive #!shell switches to shell parser also inside (...) */
-     "  (open-string-input-port \"(#!shell ls -al >> log.txt)\")\n"
-     "  'scheme (parsers)))",
+     "  (make-parse-ctx-from-string \"(#!shell ls -al >> log.txt)\" (parsers))\n"
+     "  'scheme))",
      "(shell-list (shell ls -al >> log.txt))"},
     {"(parse-form*\n"
-     "  (open-string-input-port \"(foo << bar #!shell baz >> log.txt)\")\n"
-     "  'scheme (parsers)))",
+     "  (make-parse-ctx-from-string \"(foo << bar #!shell baz >> log.txt)\" (parsers))\n"
+     "  'scheme))",
      "(foo << bar (shell baz >> log.txt))"},
     /* ( in the middle of a shell command switches to Scheme parser for a single Scheme form,
      * then continues parsing shell syntax */
     {"(parse-form*\n"
-     "  (open-string-input-port \"ls (apply + a `(,@b)) &\")\n"
-     "  'shell (parsers)))",
+     "  (make-parse-ctx-from-string \"ls (apply + a `(,@b)) &\" (parsers))\n"
+     "  'shell))",
      "(shell ls (apply + a `(,@b)) &)"},
     /* ( at the beginning of a shell command switches to Scheme parser,
      * parses a single Scheme form, and omits the initial (shell ...) */
     {"(values->list (parse-shell\n"
-     "  (open-string-input-port \"(+ 1 2) not_parsed_yet\") (parsers)))",
+     "  (make-parse-ctx-from-string \"(+ 1 2) not_parsed_yet\" (parsers))))",
      "((+ 1 2) #t)"},
     /* idem */
     {"(parse-form*\n"
-     "  (open-string-input-port \"(+ 1 2) not_parsed_yet\")\n"
-     "  'shell (parsers)))",
+     "  (make-parse-ctx-from-string \"(+ 1 2) not_parsed_yet\" (parsers))\n"
+     "  'shell))",
      "(+ 1 2)"},
     {"(parse-form*\n"
-     "  (open-string-input-port \"ls (my-dir) >> log.txt\")\n"
-     "  'shell (parsers)))",
+     "  (make-parse-ctx-from-string \"ls (my-dir) >> log.txt\" (parsers))\n"
+     "  'shell))",
      "(shell ls (my-dir) >> log.txt)"},
     {"(values->list (parse-forms\n" /* directive #!scheme switches to Scheme parser too */
-     "  (open-string-input-port \"ls ~; #!scheme (f a b)\")\n"
-     "  'shell (parsers)))",
+     "  (make-parse-ctx-from-string \"ls ~; #!scheme (f a b)\" (parsers))\n"
+     "  'shell))",
      "(((shell ls ~) (f a b)) #<parser scheme>)"},
     {"(values->list (parse-forms\n" /* directive #!shell switches to shell parser */
-     "  (open-string-input-port \"(+ a b) #!shell ls -al >> log.txt; #!scheme foo bar\")\n"
-     "  'scheme (parsers)))",
+     "  (make-parse-ctx-from-string \"(+ a b) #!shell ls -al >> log.txt; #!scheme foo bar\""
+     "    (parsers))\n"
+     "  'scheme))",
      "(((+ a b) (shell ls -al >> log.txt) foo bar) #<parser scheme>)"},
     /* -------------------------- tty --------------------------------------- */
     {"(let ((sz (tty-size)))\n"
@@ -561,15 +571,15 @@ static const struct {
      " (sh-list* (sh-and-or* (sh-cmd ls -l) '&& (sh-cmd wc -b) '|| (sh-cmd echo error)) '&))"},
     {"(expand '(shell-list (shell \"ls\" \"-al\" >> \"log.txt\")))",
      INVOKELIB_SHELL_JOBS " (sh-cmd<> ls -al '>> log.txt))"},
-    {"(expand (parse-shell* (open-string-input-port\n"
-     "  \"{{{{echo|cat}}}}\") #f))",
+    {"(expand (parse-shell* (make-parse-ctx-from-string\n"
+     "  \"{{{{echo|cat}}}}\")))",
      /*
       * parses to
       * (shell-list (shell-list (shell-list (shell-list (shell echo | cat)))))
       */
      INVOKELIB_SHELL_JOBS " (sh-pipe* (sh-cmd echo) '| (sh-cmd cat)))"},
-    {"(expand (parse-shell* (open-string-input-port\n"
-     "  \"{echo|{cat;{true}}}\") #f))",
+    {"(expand (parse-shell* (make-parse-ctx-from-string\n"
+     "  \"{echo|{cat;{true}}}\")))",
      /*
       * parses to
       * (shell-list (shell echo | (shell-list (shell cat) (shell-list (shell true)))))
@@ -578,14 +588,12 @@ static const struct {
      " (sh-pipe* (sh-cmd echo) '| (sh-cmd (sh-list (sh-cmd cat) (sh-cmd true)))))"},
     /* ------------------------- repl --------------------------------------- */
     {"(values->list (repl-parse\n"
-     "  (open-string-input-port \"(+ 2 3) (values 7 (cons 'a 'b))\")\n"
-     "  'scheme\n"
-     "  (parsers)))\n",
+     "  (make-parse-ctx-from-string \"(+ 2 3) (values 7 (cons 'a 'b))\" (parsers))\n"
+     "  'scheme))\n",
      "(((+ 2 3) (values 7 (cons 'a 'b))) #<parser scheme>)"},
     {"(values->list (repl-parse\n"
-     "  (open-string-input-port \"ls -l | wc -b && echo ok || echo error &\")\n"
-     "  'shell\n"
-     "  (parsers)))\n",
+     "  (make-parse-ctx-from-string \"ls -l | wc -b && echo ok || echo error &\" (parsers))\n"
+     "  'shell))\n",
      "(((shell ls -l | wc -b && echo ok || echo error &)) #<parser shell>)"},
 };
 

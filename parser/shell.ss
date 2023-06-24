@@ -24,10 +24,9 @@
     ((backquote) "`") ((dollar+lparen) "$(")
     (else "???")))
 
-;
+
 ; Categorize a single character according to shell syntax.
 ; Return the character's type.
-;/
 (define (char->type ch)
   (if (eof-object? ch)
     'eof
@@ -66,22 +65,22 @@
 ; Peek a single character from textual input port 'in',
 ; and categorize it according to shell syntax.
 ; Return two values: character value (or eof) and its type.
-(define (peek-shell-char in)
-  (let ((ch (peek-char in)))
+(define (peek-shell-char ctx)
+  (let ((ch (peek-char (parse-ctx-in ctx))))
     (values ch (char->type ch))))
 
 
 ; Read a single character from textual input port 'in',
 ; and categorize it according to shell syntax.
 ; Return two values: character value (or eof) and its type.
-(define (read-shell-char in)
-  (let ((ch (read-char in)))
+(define (read-shell-char ctx)
+  (let ((ch (read-char (parse-ctx-in ctx))))
     (values ch (char->type ch))))
 
 
 ; Read a single character, suppressing any special meaning it may have
-(define (read-char-after-backslash in csp-already-read)
-  (let ((ch (read-char in)))
+(define (read-char-after-backslash ctx csp-already-read)
+  (let ((ch (read-char (parse-ctx-in ctx))))
     (cond
       ((eof-object? ch)
         (syntax-violation 'lex-shell
@@ -95,12 +94,12 @@
 
 
 ; Read a subword starting with ${
-(define (read-subword-dollar-braced in)
-  (assert (eqv? #\{ (read-char in)))
+(define (read-subword-dollar-braced ctx)
+  (assert (eqv? #\{ (read-char (parse-ctx-in ctx))))
   (let ((csp (charspan))
         (again? #t))
     (while again?
-      (let-values (((ch type) (read-shell-char in)))
+      (let-values (((ch type) (read-shell-char ctx)))
         (case type
           ((eof)
             (syntax-violation 'parse-shell
@@ -113,8 +112,9 @@
 
 
 ; Read an unquoted subword starting with $
-(define (read-subword-dollar-unquoted in)
-  (let ((csp (charspan))
+(define (read-subword-dollar-unquoted ctx)
+  (let ((in (parse-ctx-in ctx))
+        (csp (charspan))
         (again? #t))
     (while again?
       (let ((ch (read-char in)))
@@ -123,7 +123,7 @@
             (set! again? #f))
           ((char=? #\\ ch)
             ; read next char, suppressing any special meaning it may have
-            (let ((ch-i (read-char-after-backslash in csp)))
+            (let ((ch-i (read-char-after-backslash ctx csp)))
               (when ch-i (charspan-insert-back! csp ch-i))))
           ((or (char<=? #\0 ch #\9)
                (char<=? #\A ch #\Z)
@@ -137,30 +137,30 @@
 
 
 ; Read a subword starting with $
-(define (read-subword-dollar in enabled-parsers)
-  (assert (eqv? #\$ (read-char in)))
-  (let-values (((ch type) (peek-shell-char in)))
+(define (read-subword-dollar ctx)
+  (assert (eqv? #\$ (read-char (parse-ctx-in ctx))))
+  (let-values (((ch type) (peek-shell-char ctx)))
     (case type
       ((eof)
         (syntax-violation 'parse-shell "unexpected end-of-file after $" 'eof))
       ((lparen)
-        (read-char in) ; consume (
+        (read-char (parse-ctx-in ctx)) ; consume (
         ; read a shell list surrounded by $(...)
-        (parse-shell-list 'dollar+lparen in '() enabled-parsers))
+        (parse-shell-list ctx 'dollar+lparen '()))
       ((lbrace)
-        (read-subword-dollar-braced in))
+        (read-subword-dollar-braced ctx))
       (else
-        (read-subword-dollar-unquoted in)))))
+        (read-subword-dollar-unquoted ctx)))))
 
 
 ; Read a single-quoted subword, stopping after the matching single quote.
 ; Example: 'some text'
-(define (read-subword-single-quoted in)
-  (assert (eqv? #\' (read-char in)))
+(define (read-subword-single-quoted ctx)
+  (assert (eqv? #\' (read-char (parse-ctx-in ctx))))
   (let ((csp (charspan))
         (again? #t))
     (while again?
-      (let ((ch (read-char in)))
+      (let ((ch (read-char (parse-ctx-in ctx))))
         (cond
           ((eof-object? ch)
             (syntax-violation 'lex-shell "unexpected end-of-file inside quoted string:"
@@ -174,20 +174,20 @@
 
 ; Read a subword AFTER double quotes, stopping BEFORE the matching double quote.
 ; Example: "some text"
-(define (read-subword-in-double-quotes in)
+(define (read-subword-in-double-quotes ctx)
   (let ((csp (charspan))
         (again? #t))
     (while again?
-      (let-values (((ch type) (read-shell-char in)))
+      (let-values (((ch type) (read-shell-char ctx)))
         (case type
           ((eof)
             (set! again? #f))
           ((dquote dollar backquote)
-            (try-unread-char ch in)
+            (try-unread-char ch (parse-ctx-in ctx))
             (set! again? #f))
           ((backslash)
             ; read next char, suppressing any special meaning it may have
-            (let ((ch-i (read-char-after-backslash in csp)))
+            (let ((ch-i (read-char-after-backslash ctx csp)))
               (when ch-i (charspan-insert-back! csp ch-i))))
           (else
             ; single quote, newline, semicolon, operators and parentheses
@@ -197,15 +197,15 @@
 
 
 ; Read an unquoted subword: a portion of a word, not inside single or double quotes
-(define (read-subword-noquote in)
+(define (read-subword-noquote ctx)
   (let ((csp (charspan))
         (again? #t))
     (while again?
-      (let-values (((ch type) (read-shell-char in)))
+      (let-values (((ch type) (read-shell-char ctx)))
         (case type
           ((backslash)
           ; read next char, suppressing any special meaning it may have
-            (let ((ch-i (read-char-after-backslash in csp)))
+            (let ((ch-i (read-char-after-backslash ctx csp)))
               (when ch-i (charspan-insert-back! csp ch-i))))
           ((char)
             (charspan-insert-back! csp ch))
@@ -220,13 +220,13 @@
             ; where characters [ ] { } inside a string have no special meaning,
             ; and where characters ( ) inside a string are a syntax error.
             (set! again? #f)
-            (try-unread-char ch in)))))
+            (try-unread-char ch (parse-ctx-in ctx))))))
     (charspan->string csp)))
 
 
 ; Read a word, possibly containing single or double quotes and shell variables,
 ; as for example: some$foo' text'"other text ${bar} "
-(define (parse-shell-word in enabled-parsers)
+(define (parse-shell-word ctx)
   (let* ((ret '())
          (again? #t)
          (dquote? #f)
@@ -234,7 +234,7 @@
            (unless (and (string? subword) (fxzero? (string-length subword)))
              (set! ret (cons subword ret))))))
     (while again?
-      (let-values (((ch type) (peek-shell-char in)))
+      (let-values (((ch type) (peek-shell-char ctx)))
         (case type
           ((eof)
             (when dquote?
@@ -242,19 +242,19 @@
                 "unexpected end-of-file inside quoted string" (reverse! ret) type))
             (set! again? #f))
           ((squote)
-            (%append (if dquote? (read-subword-in-double-quotes in)
-                                 (read-subword-single-quoted in))))
+            (%append (if dquote? (read-subword-in-double-quotes ctx)
+                                 (read-subword-single-quoted ctx))))
           ((dquote)
             (set! dquote? (not dquote?))
-            (read-char in))
+            (read-char (parse-ctx-in ctx)))
           ((dollar)
-            (%append (read-subword-dollar in enabled-parsers)))
+            (%append (read-subword-dollar ctx)))
           (else
             (cond
               (dquote?
-                (%append (read-subword-in-double-quotes in)))
+                (%append (read-subword-in-double-quotes ctx)))
               ((memq type '(backslash char))
-                (%append (read-subword-noquote in)))
+                (%append (read-subword-noquote ctx)))
               ; treat anything else as string delimiter. This means in our shell parser the
               ; characters ( ) [ ] { } retain their meaning when found inside an unquoted
               ; string.
@@ -280,14 +280,14 @@
 ; The definition of shell token is adapted from
 ; https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_03
 ;
-(define (lex-shell-impl in enabled-parsers)
-  (let-values (((ch type) (read-shell-char in)))
+(define (lex-shell-impl ctx)
+  (let-values (((ch type) (read-shell-char ctx)))
     (case type
       ((eof separator lparen rparen lbrack rbrack lbrace rbrace)
         (values ch type))
       ; TODO: also handle multi-character operators #... N< N<> N<& N> N>> N>| N>&
       ((op)
-        (let ((ch2 (peek-char in)))
+        (let ((ch2 (peek-char (parse-ctx-in ctx))))
           (case ch
             ((#\&) (if (eqv? ch2 #\&)
                       (set! ch '&&)
@@ -300,74 +300,72 @@
                           ((eqv? ch2 #\&) (set! ch '>&))
                           ((eqv? ch2 #\|) (set! ch '>\x7c;))))))
         (if (symbol? ch)
-          (read-char in); consume peeked character
+          (read-char (parse-ctx-in ctx)); consume peeked character
           (set! ch (op->symbol ch))) ; convert character to symbol
         (values ch type))
       ((dollar)
-        (if (eqv? #\( (peek-char in))
-          (values (read-char in) 'dollar+lparen)
+        (if (eqv? #\( (peek-char (parse-ctx-in ctx)))
+          (values (read-char (parse-ctx-in ctx)) 'dollar+lparen)
           (begin
-            (try-unread-char ch in)
-            (values (parse-shell-word in enabled-parsers) 'string))))
+            (try-unread-char ch (parse-ctx-in ctx))
+            (values (parse-shell-word ctx) 'string))))
       ((backquote)
         (values ch type))
       ((char squote dquote backslash)
      ;  TODO: handle ~ and path-based wildcards
-        (try-unread-char ch in)
-        (values (parse-shell-word in enabled-parsers) 'string))
+        (try-unread-char ch (parse-ctx-in ctx))
+        (values (parse-shell-word ctx) 'string))
       (else
         (syntax-violation 'lex-shell "unimplemented character type:" type)))))
-;
+
+
 ; Read a single shell token from textual input port 'in'.
 ; Return two values: token value and its type.
 ; Also recognizes parser directives #!... and returns them with type 'parser.
-;/
-(define (lex-shell in enabled-parsers)
-  (skip-whitespace in #f) ; don't skip newlines
-  (let ((value (try-read-parser-directive in)))
+(define (lex-shell ctx)
+  (skip-whitespace (parse-ctx-in ctx) #f) ; don't skip newlines
+  (let ((value (try-read-parser-directive (parse-ctx-in ctx))))
     (if (symbol? value)
       (if (eq? 'eof value)
-     ;   yes, #!eof is an allowed directive:
-     ;   it injects (eof-object) in token stream, with type 'eof
-     ;   thus simulating an actual end-of-file in input port.
-     ;   Reason: historically used to disable the rest of a file, to help debugging
+        ; yes, #!eof is an allowed directive:
+        ; it injects (eof-object) in token stream, with type 'eof
+        ; thus simulating an actual end-of-file in input port.
+        ; Reason: historically used to disable the rest of a file, to help debugging
         (values (eof-object) 'eof)
-     ;   cannot switch to other parser here: just return it and let caller switch
-        (values (get-parser value enabled-parsers 'parse-shell) 'parser))
-     ; read a single shell token
-      (lex-shell-impl in enabled-parsers))))
+        ; cannot switch to other parser here: just return it and let caller switch
+        (values (get-parser value (parse-ctx-enabled-parsers ctx) 'parse-shell) 'parser))
+      ; read a single shell token
+      (lex-shell-impl ctx))))
 
-;
+
 ; Repeatedly read from textual input port 'in' using (lex-shell)
 ; and construct corresponding shell form.
 ; Automatically change parser when directive #!... is found in a nested list.
 ;
 ; Return two values: parsed form, and #t.
 ; If end-of-file is reached, return (eof-object) and #f.
-;/
-(define (parse-shell in enabled-parsers)
-  (let-values (((value type) (lex-shell in enabled-parsers)))
+(define (parse-shell ctx)
+  (let-values (((value type) (lex-shell ctx)))
     (values
       (case type
-     ;   cannot switch to other parser here: just return it and let caller switch
+        ; cannot switch to other parser here: just return it and let caller switch
         ((eof parser) value)
         ((lbrace)
           ; read a shell list surrounded by {...}
-          (parse-shell-list type in '() enabled-parsers))
+          (parse-shell-list ctx type '()))
         (else
-          (parse-shell-impl value type in enabled-parsers #f)))
+          (parse-shell-impl ctx value type #f)))
       (not (eq? 'eof type)))))
 
-;
+
 ; Repeatedly read shell tokens from textual input port 'in' using (lex-shell)
 ; and construct corresponding form.
 ; Automatically change parser when directive #!... is found in a nested list.
 ;
 ; Return parsed form.
 ; Raise syntax-violation if end-of-file is reached before completely reading a form.
-;/
-(define (parse-shell* in enabled-parsers)
-  (let-values (((value ok) (parse-shell in enabled-parsers)))
+(define (parse-shell* ctx)
+  (let-values (((value ok) (parse-shell ctx)))
     (unless ok
       (syntax-violation 'parse-shell* "unexpected end-of-file" 'eof))
     (when (parser? value)
@@ -377,7 +375,7 @@
     value))
 
 ; Common backend of (parse-shell) (parse-shell*) and (parse-shell-list)
-(define (parse-shell-impl value type in enabled-parsers is-inside-backquote?)
+(define (parse-shell-impl ctx value type is-inside-backquote?)
   (let ((ret (list 'shell))
         (again? #t)
         (reverse? #t))
@@ -401,9 +399,9 @@
             ; we read one token too much - try to unread it
             (begin
               (set! again? #f)
-              (try-unread-char value in))
+              (try-unread-char value (parse-ctx-in ctx)))
             ; parse nested shell list surrounded by `...` or $(...)
-            (set! ret (cons (parse-shell-list type in '() enabled-parsers) ret))))
+            (set! ret (cons (parse-shell-list ctx type '()) ret))))
         ((lparen lbrack)
           ; switch to Scheme parser for a single form.
           ; Convenience: if the first word is #\(, omit the initial (shell ...)
@@ -414,15 +412,15 @@
           ;   forms returned by (parser-parse-list) are already reversed
             (set! reverse? #f))
           (let* ((other-parse-list (parser-parse-list
-                   (get-parser 'scheme enabled-parsers 'parse-shell)))
-                 (form (other-parse-list type in '() enabled-parsers)))
+                   (get-parser 'scheme (parse-ctx-enabled-parsers ctx) 'parse-shell)))
+                 (form (other-parse-list ctx type '())))
             (set! ret (if (null? ret) form (cons form ret)))))
         ((lbrace)
           (if (or (null? (cdr ret)) (memq (car ret) '(! & && \x7c; \x7c;\x7c;)))
             ; parse nested shell list surrounded by {...}
             (begin
               (set! again? #f)
-              (set! ret (cons (parse-shell-list type in '() enabled-parsers) ret)))
+              (set! ret (cons (parse-shell-list ctx type '()) ret)))
             ; character { is not allowed in the middle of a shell command
             (syntax-violation 'parse-shell
               "misplaced { in the middle of shell command, can only be at the beginning:"
@@ -430,13 +428,13 @@
         ((rparen rbrack rbrace)
           ; we read one token too much - try to unread it
           (set! again? #f)
-          (try-unread-char value in))
+          (try-unread-char value (parse-ctx-in ctx)))
         (else
           (syntax-violation 'parse-shell "unexpected token type"
             (reverse! ret) type)))
       ; if needed, read another token and iterate
       (when again?
-        (let-values (((value-i type-i) (lex-shell in enabled-parsers)))
+        (let-values (((value-i type-i) (lex-shell ctx)))
           (set! value value-i)
           (set! type type-i))))
     ; shell form is complete, return it
@@ -450,7 +448,7 @@
 ; Return a list containing 'shell-list followed by such forms.
 ; Raise syntax-violation if mismatched end token is found, as for example ')' instead of '}'
 ;
-(define (parse-shell-list begin-type in already-parsed-reverse enabled-parsers)
+(define (parse-shell-list ctx begin-type already-parsed-reverse)
   (let* ((first-token (case begin-type
            ((backquote dollar+lparen)
              (unless (null? already-parsed-reverse)
@@ -475,7 +473,7 @@
                   ", expecting " (paren-type->string end-type))
                type)))))
     (while again?
-      (let-values (((value type) (lex-shell in enabled-parsers)))
+      (let-values (((value type) (lex-shell ctx)))
         ; (format #t "parse-shell-list ret=~s value=~s type=~s~%" (reverse ret) value type)
         (case type
           ((eof)
@@ -484,7 +482,7 @@
           ((parser)
             ; switch to other parser until the end of current list
             (let ((other-parse-list (parser-parse-list value)))
-              (set! ret (other-parse-list begin-type in ret enabled-parsers)))
+              (set! ret (other-parse-list ctx begin-type ret)))
             (set! reverse? #f)
             (set! again? #f))
           ((rparen rbrack rbrace)
@@ -492,7 +490,7 @@
             (set! again? #f))
           ((lbrace)
             ; parse nested shell list
-            (let ((nested-list (parse-shell-list type in '() enabled-parsers)))
+            (let ((nested-list (parse-shell-list ctx type '())))
               (set! ret (cons nested-list ret))))
           (else
             (if (and (eq? 'backquote begin-type) (eq? 'backquote type))
@@ -501,7 +499,7 @@
                 (check-list-end type)
                 (set! again? #f))
               ; parse a single shell form and accumulate it into ret
-              (let ((value (parse-shell-impl value type in enabled-parsers
+              (let ((value (parse-shell-impl ctx value type
                              (eq? 'backquote begin-type))))
                 (set! ret (cons value ret))))))))
     (if reverse? (reverse! ret) ret)))
@@ -516,7 +514,7 @@
 ; Should not raise any condition for invalid input.
 ;
 ; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
-(define (parse-shell-parens begin-type in pos already-parsed-reverse enabled-parsers flavor)
+(define (parse-shell-parens ctx begin-type already-parsed-reverse flavor)
   ; TODO: implement
   #f)
 

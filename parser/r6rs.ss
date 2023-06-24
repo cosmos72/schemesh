@@ -27,8 +27,8 @@
 ; in pure R6RS.
 ;
 ; Return two values: token value and its type.
-(define (lex-r6rs in enabled-parsers)
-  (lex-lisp in enabled-parsers 'r6rs))
+(define (lex-r6rs ctx)
+  (lex-lisp ctx 'r6rs))
 
 
 ; Read r6rs Scheme tokens from textual input port 'in'
@@ -37,8 +37,8 @@
 ;
 ; Return two values: parsed form, and #t.
 ; If end-of-file is reached, return (eof-object) and #f.
-(define (parse-r6rs in enabled-parsers)
-  (parse-lisp in enabled-parsers 'r6rs))
+(define (parse-r6rs ctx)
+  (parse-lisp ctx 'r6rs))
 
 
 ; Read r6rs Scheme tokens from textual input port 'in'
@@ -47,8 +47,8 @@
 ;
 ; Return parsed form.
 ; Raises syntax-violation if end of file is reached before reading a complete form.
-(define (parse-r6rs* in enabled-parsers)
-  (parse-lisp* in enabled-parsers 'r6rs))
+(define (parse-r6rs* ctx)
+  (parse-lisp* ctx 'r6rs))
 
 
 ; Read r6rs Scheme forms from textual input port 'in', until a token ) or ] or } matching
@@ -59,8 +59,8 @@
 ; Raise syntax-violation if mismatched end token is found, as for example ']' instead of ')'
 ;
 ; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
-(define (parse-r6rs-list begin-type in already-parsed-reverse enabled-parsers)
-  (parse-lisp-list begin-type in already-parsed-reverse enabled-parsers 'r6rs))
+(define (parse-r6rs-list ctx begin-type already-parsed-reverse)
+  (parse-lisp-list ctx begin-type already-parsed-reverse 'r6rs))
 
 
 ; Read r6rs Scheme forms from textual input port 'in', until a token ) or ] or } matching
@@ -72,8 +72,8 @@
 ; Should not raise any condition for invalid input.
 ;
 ; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
-(define (parse-r6rs-parens begin-type in pos already-parsed-reverse enabled-parsers)
-  (parse-lisp-parens begin-type in pos already-parsed-reverse enabled-parsers 'r6rs))
+(define (parse-r6rs-parens ctx begin-type already-parsed-reverse)
+  (parse-lisp-parens ctx begin-type already-parsed-reverse 'r6rs))
 
 
 (define parser-r6rs

@@ -27,9 +27,9 @@
 ; in pure R6RS.
 ;
 ; Return two values: token value and its type.
-(define (lex-lisp in enabled-parsers flavor)
-  (skip-whitespace in 'also-skip-newlines)
-  (let ((value (try-read-parser-directive in)))
+(define (lex-lisp ctx flavor)
+  (skip-whitespace (parse-ctx-in ctx) 'also-skip-newlines)
+  (let ((value (try-read-parser-directive (parse-ctx-in ctx))))
     (if (symbol? value)
       (if (eq? 'eof value)
         ; yes, #!eof is an allowed directive:
@@ -38,7 +38,7 @@
         ; Reason: historically used to disable the rest of a file, to help debugging
         (values (eof-object) 'eof)
         ; cannot switch to other parser here: just return it and let caller switch
-        (values (get-parser value enabled-parsers (caller-for flavor)) 'parser))
+        (values (get-parser value (parse-ctx-enabled-parsers ctx) (caller-for flavor)) 'parser))
       ; read a single token with Chez Scheme (read-token),
       ; then replace (values '{ 'atomic) with (values #f 'lbrace)
       ; and replace (values '} 'atomic) with (values #f 'rbrace)
@@ -46,7 +46,7 @@
       ;    {ls -l > log.txt}
       ; is equivalent to
       ;    (#!shell ls -l > log.txt)
-      (let-values (((type value start end) (read-token in)))
+      (let-values (((type value start end) (read-token (parse-ctx-in ctx))))
         (if (eq? 'atomic type)
           (case value
             (({)  (values #f 'lbrace))
@@ -77,9 +77,9 @@
 ;
 ; Return two values: parsed form, and #t.
 ; If end-of-file is reached, return (eof-object) and #f.
-(define (parse-lisp in enabled-parsers flavor)
-  (let-values (((value type) (lex-lisp in enabled-parsers flavor)))
-    (let-values (((ret-value ret-type) (parse-lisp-impl value type in enabled-parsers flavor)))
+(define (parse-lisp ctx flavor)
+  (let-values (((value type) (lex-lisp ctx flavor)))
+    (let-values (((ret-value ret-type) (parse-lisp-impl ctx value type flavor)))
       (values ret-value (not (eq? 'eof ret-type))))))
 
 ;
@@ -89,8 +89,8 @@
 ;
 ; Return parsed form.
 ; Raises syntax-violation if end of file is reached before reading a complete form.
-(define (parse-lisp* in enabled-parsers flavor)
-  (let-values (((value ok) (parse-lisp in enabled-parsers flavor)))
+(define (parse-lisp* ctx flavor)
+  (let-values (((value ok) (parse-lisp ctx flavor)))
 ;   cannot switch to other parser here, and caller does not expect it => raise
     (unless ok
       (syntax-violation (caller-for flavor) "unexpected end-of-file" 'eof))
@@ -107,7 +107,7 @@
 ; Automatically change parser when directive #!... is found.
 ;
 ; Return two values: the parsed form, and its type.
-(define (parse-lisp-impl value type in enabled-parsers flavor)
+(define (parse-lisp-impl ctx value type flavor)
   (values
     (case type
       ; cannot switch to other parser here: just return it and let caller switch
@@ -117,26 +117,26 @@
           (syntax-violation (caller-for flavor)
             "invalid token in #!r6rs syntax, only allowed in #!scheme syntax:"
             (lex-type->string type)))
-        (list 'box  (parse-lisp* in enabled-parsers flavor)))
+        (list 'box  (parse-lisp* ctx flavor)))
       ; if type = 'quote, value can be one of:
       ;    'quote  'quasiquote  'unquote  'unquote-splicing
       ;    'synyax 'quasisyntax 'unsyntax 'unsyntax-splicing
-      ((quote)             (list value (parse-lisp* in enabled-parsers flavor)))
-      ((lbrack lparen)     (parse-lisp-list type in '() enabled-parsers flavor))
+      ((quote)             (list value (parse-lisp* ctx flavor)))
+      ((lbrack lparen)     (parse-lisp-list ctx type '() flavor))
       ; lbrace i.e. { switches to shell parser until corresponding rbrace i.e. }
       ((lbrace)
         (let ((other-parse-list (parser-parse-list
-                (get-parser 'shell enabled-parsers (caller-for flavor)))))
-          (other-parse-list type in '() enabled-parsers)))
+                (get-parser 'shell (parse-ctx-enabled-parsers ctx) (caller-for flavor)))))
+          (other-parse-list ctx type '())))
       ; parse the various vector types, with or without explicit length
       ((vparen vu8paren)
-        (parse-vector type value in enabled-parsers flavor))
+        (parse-vector ctx type value flavor))
       ((vfxnparen vfxparen vnparen vu8nparen)
         (unless (eq? 'scheme flavor)
           (syntax-violation (caller-for flavor)
             "invalid token in #!r6rs syntax, only allowed in #!scheme syntax:"
             (lex-type->string type)))
-        (parse-vector type value in enabled-parsers flavor))
+        (parse-vector ctx type value flavor))
       ; TODO: implement types record-brack fasl insert mark
       (else   (syntax-violation (caller-for flavor) "unexpected token type" type)))
     type))
@@ -150,7 +150,7 @@
 ; Raise syntax-violation if mismatched end token is found, as for example ']' instead of ')'
 ;
 ; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
-(define (parse-lisp-list begin-type in already-parsed-reverse enabled-parsers flavor)
+(define (parse-lisp-list ctx begin-type already-parsed-reverse flavor)
   (let* ((ret already-parsed-reverse)
          (again? #t)
          (reverse? #t)
@@ -164,35 +164,35 @@
                   ", expecting " (lex-type->string end-type))
                type)))))
     (while again?
-      (let-values (((value type) (lex-lisp in enabled-parsers flavor)))
+      (let-values (((value type) (lex-lisp ctx flavor)))
         (case type
           ((eof)
             (syntax-violation (caller-for flavor) "unexpected" type))
           ((parser)
             ; switch to other parser until the end of current list
             (let ((other-parse-list (parser-parse-list value)))
-              (set! ret (other-parse-list begin-type in ret enabled-parsers))
+              (set! ret (other-parse-list ctx begin-type ret))
               (set! reverse? #f)
               (set! again? #f)))
           ((rparen rbrack rbrace)
             (check-list-end type)
             (set! again? #f))
           ((dot)
-            (let-values (((value-i type-i) (parse-lisp in enabled-parsers flavor)))
+            (let-values (((value-i type-i) (parse-lisp ctx flavor)))
               (when (eq? 'parser type-i)
                 ; switch to other parser
                 (let ((other-parse* (parser-parse* value-i)))
-                  (set! value-i (other-parse* in enabled-parsers))))
+                  (set! value-i (other-parse* ctx))))
               (set! ret (reverse*! (cons value-i ret)))
               (set! reverse? #f)
               (set! again? #f))
             ; then parse ) or ] or }
-            (let-values (((value type) (lex-lisp in enabled-parsers flavor)))
+            (let-values (((value type) (lex-lisp ctx flavor)))
               (check-list-end type)))
           (else
             ; parse a single form and append it
             (let-values (((value-i type-i)
-                            (parse-lisp-impl value type in enabled-parsers flavor)))
+                            (parse-lisp-impl ctx value type flavor)))
               (when (eq? 'eof type-i)
                 (syntax-violation (caller-for flavor) "unexpected" type-i))
               (set! ret (cons value-i ret)))))))
@@ -205,8 +205,8 @@
 ;
 ; Return a vector, fxvector or bytevector containing parsed forms.
 ; Raise syntax-violation if mismatched end token is found, as for example ] instead of )
-(define (parse-vector vec-type length in enabled-parsers flavor)
-  (let ((values (parse-lisp-list vec-type in '() enabled-parsers flavor)))
+(define (parse-vector ctx vec-type length flavor)
+  (let ((values (parse-lisp-list ctx vec-type '() flavor)))
     (case vec-type
       ((vfxnparen) (create-fxvector   length values))
       ((vnparen)   (create-vector     length values))
@@ -262,7 +262,7 @@
 ; Should not raise any condition for invalid input.
 ;
 ; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
-(define (parse-lisp-parens begin-type in pos already-parsed-reverse enabled-parsers flavor)
+(define (parse-lisp-parens ctx begin-type already-parsed-reverse flavor)
   ; TODO: implement
   #f)
 
