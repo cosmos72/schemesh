@@ -41,20 +41,18 @@
 ; Return two values: parsed form, and #t.
 ; If end-of-file is reached, return (eof-object) and #f.
 (define (parse-form ctx initial-parser)
-  (let* ((enabled-parsers (parse-ctx-enabled-parsers ctx))
-         (parser (to-parser initial-parser enabled-parsers 'parse-form))
-         (proc (parser-parse parser)))
+  (let ((proc (parser-parse (to-parser ctx initial-parser 'parse-form))))
     (proc ctx)))
 
 
 ; Call parse-scheme*, parse-shell* or whatever is the parser specified as initial-parser.
 ;
 ; Return parsed form.
-; Raise syntax-violation if end-of-file is reached before completely reading a form.
+; Raise syntax-errorf if end-of-file is reached before completely reading a form.
 (define (parse-form* ctx initial-parser)
   (let-values (((value ok) (parse-form ctx initial-parser)))
     (unless ok
-      (syntax-violation 'parse-form* "unexpected end-of-file" 'eof))
+      (syntax-errorf ctx 'parse-form* "unexpected end-of-file"))
     value))
 
 
@@ -63,10 +61,10 @@
 ; is found in a (possibly nested) list being parsed.
 ;
 ; Return parsed list.
-; Raise syntax-violation if mismatched end token is found, as for example ']' instead of ')'
+; Raise syntax-errorf if mismatched end token is found, as for example ']' instead of ')'
 (define (parse-form-list ctx begin-type already-parsed-reverse initial-parser)
   (let ((proc (parser-parse-list
-                (to-parser initial-parser (parse-ctx-enabled-parsers ctx) 'parse-form-list))))
+                (to-parser ctx initial-parser 'parse-form-list))))
     (proc ctx begin-type already-parsed-reverse)))
 
 
@@ -78,7 +76,7 @@
 ; First value is parsed forms: each element in the list is a parsed form.
 ; Second value is updated parser to use.
 (define (parse-forms ctx initial-parser)
-  (let ((current-parser (to-parser initial-parser (parse-ctx-enabled-parsers ctx) 'parse-forms))
+  (let ((current-parser (to-parser ctx initial-parser 'parse-forms))
         (ret '())
         (again? #t))
     (while again?

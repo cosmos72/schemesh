@@ -50,7 +50,7 @@
       (else   (if (char<=? ch #\space) 'space 'char)))))
 
 ; Convert a character whose type is 'op or 'separator to corresponding symbol
-(define (op->symbol ch)
+(define (op->symbol ctx ch)
   (case ch
     ((#\newline #\;) '\x3c;)
     ((#\!) '!)
@@ -58,7 +58,7 @@
     ((#\<) '<)
     ((#\>) '>)
     ((#\|) '\x7c;)
-    (else (syntax-violation 'lex-shell
+    (else (syntax-errorf ctx 'lex-shell
             "unexpected operator character, cannot convert to symbol" ch))))
 
 
@@ -83,10 +83,12 @@
   (let ((ch (ctx-read-char ctx)))
     (cond
       ((eof-object? ch)
-        (syntax-violation 'lex-shell
-          "unexpected end-of-file after backslash"
-          (if csp-already-read (charspan->string csp-already-read) "")
-          'eof))
+        (if csp-already-read
+          (syntax-errorf ctx 'lex-shell
+            "unexpected end-of-file after backslash ~a"
+            (charspan->string csp-already-read))
+          (syntax-errorf ctx 'lex-shell
+            "unexpected end-of-file after backslash")))
       ((eqv? ch #\newline)
         ; backslash followed by newline -> ignore both
         #f)
@@ -102,8 +104,8 @@
       (let-values (((ch type) (read-shell-char ctx)))
         (case type
           ((eof)
-            (syntax-violation 'parse-shell
-              "unexpected end-of-file after ${" type))
+            (syntax-errorf ctx 'parse-shell
+              "unexpected end-of-file after ${"))
           ((rbrace)
             (set! again? #f))
           (else
@@ -141,7 +143,7 @@
   (let-values (((ch type) (peek-shell-char ctx)))
     (case type
       ((eof)
-        (syntax-violation 'parse-shell "unexpected end-of-file after $" 'eof))
+        (syntax-errorf ctx 'parse-shell "unexpected end-of-file after $"))
       ((lparen)
         (ctx-read-char ctx) ; consume (
         ; read a shell list surrounded by $(...)
@@ -162,7 +164,7 @@
       (let ((ch (ctx-read-char ctx)))
         (cond
           ((eof-object? ch)
-            (syntax-violation 'lex-shell "unexpected end-of-file inside quoted string:"
+            (syntax-errorf ctx 'lex-shell "unexpected end-of-file inside single-quoted string '~a'"
               (charspan->string csp)))
           ((eqv? ch #\')
             (set! again? #f)) ; end of string reached
@@ -237,8 +239,8 @@
         (case type
           ((eof)
             (when dquote?
-              (syntax-violation 'parse-shell
-                "unexpected end-of-file inside quoted string" (reverse! ret) type))
+              (syntax-errorf ctx 'parse-shell
+                "unexpected end-of-file inside double-quoted string ~s" (reverse! ret)))
             (set! again? #f))
           ((squote)
             (%append (if dquote? (read-subword-in-double-quotes ctx)
@@ -300,7 +302,7 @@
                           ((eqv? ch2 #\|) (set! ch '>\x7c;))))))
         (if (symbol? ch)
           (ctx-read-char ctx); consume peeked character
-          (set! ch (op->symbol ch))) ; convert character to symbol
+          (set! ch (op->symbol ctx ch))) ; convert character to symbol
         (values ch type))
       ((dollar)
         (if (eqv? #\( (ctx-peek-char ctx))
@@ -315,7 +317,7 @@
         (ctx-unread-char ctx ch)
         (values (parse-shell-word ctx) 'string))
       (else
-        (syntax-violation 'lex-shell "unimplemented character type:" type)))))
+        (syntax-errorf ctx 'lex-shell "unimplemented character type: ~a" type)))))
 
 
 ; Read a single shell token from textual input port 'in'.
@@ -332,7 +334,7 @@
         ; Reason: historically used to disable the rest of a file, to help debugging
         (values (eof-object) 'eof)
         ; cannot switch to other parser here: just return it and let caller switch
-        (values (get-parser value (parse-ctx-enabled-parsers ctx) 'parse-shell) 'parser))
+        (values (get-parser ctx value 'parse-shell) 'parser))
       ; read a single shell token
       (lex-shell-impl ctx))))
 
@@ -362,15 +364,15 @@
 ; Automatically change parser when directive #!... is found in a nested list.
 ;
 ; Return parsed form.
-; Raise syntax-violation if end-of-file is reached before completely reading a form.
+; Raise syntax-errorf if end-of-file is reached before completely reading a form.
 (define (parse-shell* ctx)
   (let-values (((value ok) (parse-shell ctx)))
     (unless ok
-      (syntax-violation 'parse-shell* "unexpected end-of-file" 'eof))
+      (syntax-errorf ctx 'parse-shell "unexpected end-of-file"))
     (when (parser? value)
-      (syntax-violation 'parse-shell
-        "parser directive #!... can only appear in lists, not in single-form contexts: #!"
-        (parser-name value)))
+      (syntax-errorf ctx 'parse-shell
+        "parser directive #!... can only appear in shell command lists, not in single-command contexts: ~a"
+        (string-append "#!" (symbol->string (parser-name value)))))
     value))
 
 ; Common backend of (parse-shell) (parse-shell*) and (parse-shell-list)
@@ -384,9 +386,9 @@
         ((eof)
           (set! again? #f))
         ((parser)
-          (syntax-violation 'parse-shell
-            "parser directive #!... can only appear before or after a shell command, not in the middle of it: #!"
-            (parser-name value)))
+          (syntax-errorf ctx 'parse-shell
+            "parser directive #!... can only appear before or after a shell command, not in the middle of it: ~a"
+            (string-append "#!" (symbol->string (parser-name value)))))
         ((separator)
           (when (eq? value '&) ; append final & to command
             (set! ret (cons value ret)))
@@ -411,7 +413,7 @@
           ;   forms returned by (parser-parse-list) are already reversed
             (set! reverse? #f))
           (let* ((other-parse-list (parser-parse-list
-                   (get-parser 'scheme (parse-ctx-enabled-parsers ctx) 'parse-shell)))
+                   (get-parser ctx 'scheme 'parse-shell)))
                  (form (other-parse-list ctx type '())))
             (set! ret (if (null? ret) form (cons form ret)))))
         ((lbrace)
@@ -421,16 +423,16 @@
               (set! again? #f)
               (set! ret (cons (parse-shell-list ctx type '()) ret)))
             ; character { is not allowed in the middle of a shell command
-            (syntax-violation 'parse-shell
-              "misplaced { in the middle of shell command, can only be at the beginning:"
-              (reverse! (cons value ret)) type)))
+            (syntax-errorf ctx 'parse-shell
+              "misplaced { in the middle of shell command, can only be at the beginning: ~a"
+              (reverse! (cons value ret)))))
         ((rparen rbrack rbrace)
           ; we read one token too much - try to unread it
           (set! again? #f)
           (ctx-unread-char ctx value))
         (else
-          (syntax-violation 'parse-shell "unexpected token type"
-            (reverse! ret) type)))
+          (syntax-errorf ctx 'parse-shell "unexpected token type ~a after ~a"
+            type (reverse! ret))))
       ; if needed, read another token and iterate
       (when again?
         (let-values (((value-i type-i) (lex-shell ctx)))
@@ -445,15 +447,15 @@
 ; Automatically change parser when directive #!... is found.
 ;
 ; Return a list containing 'shell-list followed by such forms.
-; Raise syntax-violation if mismatched end token is found, as for example ')' instead of '}'
+; Raise syntax-errorf if mismatched end token is found, as for example ')' instead of '}'
 ;
 (define (parse-shell-list ctx begin-type already-parsed-reverse)
   (let* ((first-token (case begin-type
            ((backquote dollar+lparen)
              (unless (null? already-parsed-reverse)
-               (syntax-violation 'parse-shell
-                 "unimplemented backquote in the middle of non-shell commands, it currently can only be inside shell commands:"
-                 (reverse! (cons begin-type already-parsed-reverse)) begin-type))
+               (syntax-errorf ctx 'parse-shell
+                 "unimplemented backquote in the middle of non-shell commands, it currently can only be inside shell commands: ~a"
+                 (reverse! (cons begin-type already-parsed-reverse))))
              'shell-backquote)
            (else 'shell-list)))
          (ret (if (null? already-parsed-reverse)
@@ -466,17 +468,14 @@
                      ((backquote) 'backquote) (else 'rparen)))
          (check-list-end (lambda (type)
            (unless (eq? type end-type)
-             (syntax-violation
-               'parse-shell
-               (string-append "unexpected token " (paren-type->string type)
-                  ", expecting " (paren-type->string end-type))
-               type)))))
+             (syntax-errorf ctx 'parse-shell "unexpected token ~a, expecting ~a"
+               paren-type->string type) (paren-type->string end-type)))))
     (while again?
       (let-values (((value type) (lex-shell ctx)))
         ; (format #t "parse-shell-list ret=~s value=~s type=~s~%" (reverse ret) value type)
         (case type
           ((eof)
-            (syntax-violation 'parse-shell-list "unexpected end-of-file after"
+            (syntax-errorf ctx 'parse-shell-list "unexpected end-of-file after ~a"
               (if reverse? (reverse! ret) ret)))
           ((parser)
             ; switch to other parser until the end of current list

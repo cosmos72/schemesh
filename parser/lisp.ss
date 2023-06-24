@@ -38,7 +38,7 @@
         ; Reason: historically used to disable the rest of a file, to help debugging
         (values (eof-object) 'eof)
         ; cannot switch to other parser here: just return it and let caller switch
-        (values (get-parser value (parse-ctx-enabled-parsers ctx) (caller-for flavor)) 'parser))
+        (values (get-parser ctx value (caller-for flavor)) 'parser))
       ; read a single token with Chez Scheme (read-token),
       ; then replace (values '{ 'atomic) with (values #f 'lbrace)
       ; and replace (values '} 'atomic) with (values #f 'rbrace)
@@ -88,16 +88,16 @@
 ; Automatically change parser when directive #!... is found.
 ;
 ; Return parsed form.
-; Raises syntax-violation if end of file is reached before reading a complete form.
+; Raises syntax-errorf if end of file is reached before reading a complete form.
 (define (parse-lisp* ctx flavor)
   (let-values (((value ok) (parse-lisp ctx flavor)))
-;   cannot switch to other parser here, and caller does not expect it => raise
+    ; cannot switch to other parser here, and caller does not expect it => raise
     (unless ok
-      (syntax-violation (caller-for flavor) "unexpected end-of-file" 'eof))
+      (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file"))
     (when (parser? value)
-      (syntax-violation (caller-for flavor)
-        "parser directive #!... can only appear in lists, not in single-form contexts: #!"
-        (parser-name value)))
+      (syntax-errorf ctx (caller-for flavor)
+        "parser directive #!... can only appear in lists, not in single-form contexts: ~a"
+        (string-append "#!" (symbol->string (parser-name value)))))
     value))
 
 ;
@@ -114,8 +114,8 @@
       ((atomic eof parser) value)
       ((box)
         (unless (eq? 'scheme flavor)
-          (syntax-violation (caller-for flavor)
-            "invalid token in #!r6rs syntax, only allowed in #!scheme syntax:"
+          (syntax-errorf ctx (caller-for flavor)
+            "invalid token in #!r6rs syntax, only allowed in #!scheme syntax: ~a"
             (lex-type->string type)))
         (list 'box  (parse-lisp* ctx flavor)))
       ; if type = 'quote, value can be one of:
@@ -126,19 +126,19 @@
       ; lbrace i.e. { switches to shell parser until corresponding rbrace i.e. }
       ((lbrace)
         (let ((other-parse-list (parser-parse-list
-                (get-parser 'shell (parse-ctx-enabled-parsers ctx) (caller-for flavor)))))
+                (get-parser ctx 'shell (caller-for flavor)))))
           (other-parse-list ctx type '())))
       ; parse the various vector types, with or without explicit length
       ((vparen vu8paren)
         (parse-vector ctx type value flavor))
       ((vfxnparen vfxparen vnparen vu8nparen)
         (unless (eq? 'scheme flavor)
-          (syntax-violation (caller-for flavor)
-            "invalid token in #!r6rs syntax, only allowed in #!scheme syntax:"
+          (syntax-errorf ctx (caller-for flavor)
+            "invalid token in #!r6rs syntax, only allowed in #!scheme syntax: ~a"
             (lex-type->string type)))
         (parse-vector ctx type value flavor))
       ; TODO: implement types record-brack fasl insert mark
-      (else   (syntax-violation (caller-for flavor) "unexpected token type" type)))
+      (else   (syntax-errorf ctx (caller-for flavor) "unexpected token type: ~a" type)))
     type))
 
 ;
@@ -147,7 +147,7 @@
 ; Automatically change parser when directive #!... is found.
 ;
 ; Return a list containing parsed forms.
-; Raise syntax-violation if mismatched end token is found, as for example ']' instead of ')'
+; Raise syntax-errorf if mismatched end token is found, as for example ']' instead of ')'
 ;
 ; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
 (define (parse-lisp-list ctx begin-type already-parsed-reverse flavor)
@@ -158,16 +158,13 @@
                      ((lbrace) 'rbrace) ((lbrack) 'rbrack) (else 'rparen)))
          (check-list-end (lambda (type)
            (unless (eq? type end-type)
-             (syntax-violation
-               (caller-for flavor)
-               (string-append "unexpected token " (lex-type->string type)
-                  ", expecting " (lex-type->string end-type))
-               type)))))
+             (syntax-errorf ctx (caller-for flavor) "unexpected token ~a, expecting ~a"
+               (lex-type->string type) (lex-type->string end-type))))))
     (while again?
       (let-values (((value type) (lex-lisp ctx flavor)))
         (case type
           ((eof)
-            (syntax-violation (caller-for flavor) "unexpected" type))
+            (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file"))
           ((parser)
             ; switch to other parser until the end of current list
             (let ((other-parse-list (parser-parse-list value)))
@@ -194,7 +191,7 @@
             (let-values (((value-i type-i)
                             (parse-lisp-impl ctx value type flavor)))
               (when (eq? 'eof type-i)
-                (syntax-violation (caller-for flavor) "unexpected" type-i))
+                (syntax-errorf ctx (caller-for flavor) "unexpected ~a" type-i))
               (set! ret (cons value-i ret)))))))
     (if reverse? (reverse! ret) ret)))
 
@@ -204,7 +201,7 @@
 ; Automatically change parser when directive #!... is found.
 ;
 ; Return a vector, fxvector or bytevector containing parsed forms.
-; Raise syntax-violation if mismatched end token is found, as for example ] instead of )
+; Raise syntax-errorf if mismatched end token is found, as for example ] instead of )
 (define (parse-vector ctx vec-type length flavor)
   (let ((values (parse-lisp-list ctx vec-type '() flavor)))
     (case vec-type
@@ -214,7 +211,7 @@
       ((vfxparen)  (apply fxvector   values))
       ((vparen)    (apply vector     values))
       ((vu8paren)  (apply bytevector values))
-      (else  (syntax-violation (caller-for flavor) "unexpected" vec-type)))))
+      (else  (syntax-errorf ctx (caller-for flavor) "unexpected ~a" vec-type)))))
 
 (define (create-fxvector length values)
   (let ((vec (make-fxvector length))

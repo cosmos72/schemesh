@@ -46,7 +46,7 @@
 ; Automatically change parser when directive #!... is found.
 ;
 ; Return parsed form.
-; Raises syntax-violation if end of file is reached before reading a complete form.
+; Raises syntax-errorf if end of file is reached before reading a complete form.
 (define (parse-r6rs* ctx)
   (parse-lisp* ctx 'r6rs))
 
@@ -56,7 +56,7 @@
 ; Automatically change parser when directive #!... is found.
 ;
 ; Return a list containing parsed forms.
-; Raise syntax-violation if mismatched end token is found, as for example ']' instead of ')'
+; Raise syntax-errorf if mismatched end token is found, as for example ']' instead of ')'
 ;
 ; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
 (define (parse-r6rs-list ctx begin-type already-parsed-reverse)

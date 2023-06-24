@@ -150,7 +150,7 @@
 ; Returns linectx, usable for further calls to (repl) or (repl*)
 (define (repl* initial-parser enabled-parsers eval-func ctx)
   ; (to-parser) also checks initial-parser's and enabled-parser's validity
-  (let ((parser (to-parser initial-parser enabled-parsers 'repl)))
+  (let ((parser (to-parser enabled-parsers initial-parser 'repl)))
     (assert (procedure? eval-func))
     (assert (linectx? ctx))
     (dynamic-wind

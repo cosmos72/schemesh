@@ -19,11 +19,13 @@
     make-parser parser?
     parser-name parser-parse parser-parse* parser-parse-list parser-match-parens
     get-parser to-parser ctx-skip-whitespace ctx-peek-char ctx-read-char ctx-unread-char
-    try-read-parser-directive)
+    try-read-parser-directive
+
+    syntax-errorf)
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) fx1+ fx1- record-writer unread-char)
+    (only (chezscheme) fx1+ fx1- make-format-condition record-writer unread-char)
     (only (schemesh bootstrap) while)
     (only (schemesh containers misc) list-iterate)
     (only (schemesh containers hashtable) hashtable-iterate)
@@ -92,23 +94,31 @@
 
 ; Find and return the parser corresponding to given parser-name (which must be a symbol)
 ; in enabled-parsers.
-; Raise (syntax-violation caller ...) if not found.
-(define (get-parser parser-name enabled-parsers caller)
-  (let ((parser (and enabled-parsers
+;
+; Argument ctx must be one of: #f, a parse-ctx or a hashtable name -> parser
+;
+; Raise (syntax-errorf ctx who ...) if not found.
+(define (get-parser ctx parser-name who)
+  (let* ((enabled-parsers
+           (if (parse-ctx? ctx) (parse-ctx-enabled-parsers ctx) ctx))
+         (parser (and enabled-parsers
                      (hashtable-ref enabled-parsers parser-name #f))))
     (unless parser
-      (syntax-violation caller "no parser found for directive #!" parser-name))
+      (syntax-errorf ctx who "no parser found for directive ~a"
+        (string-append "#!" (symbol->string parser-name))))
     parser))
 
 
 ; Convert a parser name to parser:
 ; if p is a parser, return p
-; if p is a symbol, return (get-parser p enabled-parsers caller)
-; otherwise raise (syntax-violation caller ...)
-(define (to-parser p enabled-parsers caller)
+; if p is a symbol, return (get-parser ctx p who)
+; otherwise raise (syntax-errorf ctx who ...)
+;
+; Argument ctx must be one of: #f, a parse-ctx or a hashtable name -> parser
+(define (to-parser ctx p who)
   (if (parser? p)
     p
-    (get-parser p enabled-parsers caller)))
+    (get-parser ctx p who)))
 
 
 ; parse-ctx contains arguments common to most parsing procedures contained in a parser:
@@ -262,6 +272,33 @@
           (set! ret (string->symbol (charspan->string csp))))
         (ctx-unread-char ctx #\#)))
     ret))
+
+
+; Raise a condition describing a syntax error
+(define (syntax-errorf ctx who format-string . format-args)
+  (raise
+    (if (parse-ctx? ctx)
+      (condition
+        (make-lexical-violation)
+        (make-i/o-read-error)
+        (make-who-condition who)
+        (make-format-condition)
+        (make-i/o-port-error (parse-ctx-in ctx))
+        (make-message-condition (string-append format-string " at line ~a, char ~a of ~a"))
+        (make-irritants-condition
+          (append format-args
+           (list (fx1+ (cdr (parse-ctx-pos ctx)))
+                 (car (parse-ctx-pos ctx))
+                 (parse-ctx-in ctx)))))
+      (condition
+        (make-lexical-violation)
+        (make-i/o-read-error)
+        (make-who-condition who)
+        (make-format-condition)
+        (make-message-condition format-string)
+        (make-irritants-condition format-args)))))
+
+
 
 ; customize how "parser" objects are printed
 (record-writer (record-type-descriptor parser)
