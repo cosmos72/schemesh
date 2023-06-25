@@ -274,16 +274,39 @@
       (let ((ch (ctx-read-char ctx)))
         (case ch
 	  ((#\( #\) #\[ #\] #\{ #\} #\") (set! ret ch))
-          ((#\#)  (skip-lisp-sharp ctx))
+          ((#\#)  (set! ret (skip-lisp-sharp ctx)))
           ((#\;)  (ctx-skip-line ctx))
           (else (when (eof-object? ch) (set! ret ch))))))
     ret))
 
 
-;; skip a word after #
+;; skip a token after # (the # character was already consumed)
 (define (skip-lisp-sharp ctx)
-  ;; TODO implement
-  #f)
+  (let ((ch (ctx-read-char ctx)))
+    (case ch
+      ((#\\) (ctx-read-char ctx) #f) ; consume one char after #\
+      ((#\( #\[ #\{) ch)
+      ((#\|) (skip-lisp-comment ctx))
+      (else #f))))
+
+
+;; skip all characters until |#
+(define (skip-lisp-comment ctx)
+  (let ((done? #f))
+    (until done?
+      (let ((ch (ctx-read-char ctx)))
+	(cond
+	  ((eof-object? ch) (set! done? #f))
+	  ((and (eqv? #\| ch) (eqv? #\# (ctx-peek-char ch)))
+	    (ctx-read-char ch)
+	    (set! done? t)))))))
+
+
+;; skip characters until the end of double-quoted string
+;; (the initial " character was already consumed)
+;; do NOT consume the final "
+(define (skip-lisp-double-quotes ctx)
+  #f) ; TODO implement
 
 
 ;; Read Scheme forms from textual input port 'in', until a token ) or ] or } matching
