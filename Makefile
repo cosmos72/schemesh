@@ -1,5 +1,5 @@
 
-CFLAGS=-O2 -s -Wall -W -Wextra
+CFLAGS=-O2 -s -pipe -Wall -W -Wextra
 LDFLAGS=-s
 
 #CHEZ_SCHEME_DIR=/usr/local/lib/csv9.5.9/ta6le

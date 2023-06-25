@@ -18,7 +18,9 @@
 
     make-parser parser?
     parser-name parser-parse parser-parse* parser-parse-list parser-match-parens
-    get-parser to-parser ctx-skip-whitespace ctx-peek-char ctx-read-char ctx-unread-char
+    get-parser to-parser
+
+    ctx-peek-char ctx-read-char ctx-unread-char ctx-skip-whitespace ctx-skip-line
     try-read-parser-directive
 
     syntax-errorf)
@@ -33,8 +35,8 @@
     (schemesh containers charspan))
 
 
-; parens is an object containing information about the matching parentheses/brackets/braces/quotes
-; in some text to be parsed
+;; parens is an object containing information about the matching parentheses/brackets/braces/quotes
+;; in some text to be parsed
 (define-record-type
   (parens %make-parens parens?)
   (fields
@@ -54,7 +56,7 @@
   (%make-parens name type 0 0 0 0 #f))
 
 
-; append a list of nested parens to specified parens
+;; append a list of nested parens to specified parens
 (define (parens-inner-append! parens . nested-parens-list)
   (unless (null? nested-parens-list)
     (list-iterate nested-parens-list
@@ -67,10 +69,10 @@
 
 
 
-; parser is an object containing four procedures:
-;   parser-parse and parser-parse* will parse a single form,
-;   parser-parse-list will parse a list of forms,
-;   parser-match-parens will scan a list of forms and find matching parentheses/brackets/braces/quotes
+;; parser is an object containing four procedures:
+;;   parser-parse and parser-parse* will parse a single form,
+;;   parser-parse-list will parse a list of forms,
+;;   parser-match-parens will scan a list of forms and find matching parentheses/brackets/braces/quotes
 (define-record-type
   (parser %make-parser parser?)
   (fields
@@ -82,7 +84,7 @@
   (nongenerative #{parser cd39kg38a9c4cnwzwhghs827-24}))
 
 
-; create a new parser
+;; create a new parser
 (define (make-parser name parse parse* parse-list match-parens)
   (assert (symbol?    name))
   (assert (procedure? parse))
@@ -92,12 +94,12 @@
   (%make-parser name parse parse* parse-list match-parens))
 
 
-; Find and return the parser corresponding to given parser-name (which must be a symbol)
-; in enabled-parsers.
-;
-; Argument ctx must be one of: #f, a parse-ctx or a hashtable name -> parser
-;
-; Raise (syntax-errorf ctx who ...) if not found.
+;; Find and return the parser corresponding to given parser-name (which must be a symbol)
+;; in enabled-parsers.
+;;
+;; Argument ctx must be one of: #f, a parse-ctx or a hashtable name -> parser
+;;
+;; Raise (syntax-errorf ctx who ...) if not found.
 (define (get-parser ctx parser-name who)
   (let* ((enabled-parsers
            (if (parse-ctx? ctx) (parse-ctx-enabled-parsers ctx) ctx))
@@ -109,22 +111,22 @@
     parser))
 
 
-; Convert a parser name to parser:
-; if p is a parser, return p
-; if p is a symbol, return (get-parser ctx p who)
-; otherwise raise (syntax-errorf ctx who ...)
-;
-; Argument ctx must be one of: #f, a parse-ctx or a hashtable name -> parser
+;; Convert a parser name to parser:
+;; if p is a parser, return p
+;; if p is a symbol, return (get-parser ctx p who)
+;; otherwise raise (syntax-errorf ctx who ...)
+;;
+;; Argument ctx must be one of: #f, a parse-ctx or a hashtable name -> parser
 (define (to-parser ctx p who)
   (if (parser? p)
     p
     (get-parser ctx p who)))
 
 
-; parse-ctx contains arguments common to most parsing procedures contained in a parser:
-;   parse-ctx-in is the textual input port to read from
-;   parse-ctx-pos is a pair (x . y) representing the position in the input port
-;   parse-ctx-enabled-parsers is #f or an hashtable name -> parser containing enabled parsers - see (parsers) in parser/parser.ss
+;; parse-ctx contains arguments common to most parsing procedures contained in a parser:
+;;   parse-ctx-in is the textual input port to read from
+;;   parse-ctx-pos is a pair (x . y) representing the position in the input port
+;;   parse-ctx-enabled-parsers is #f or an hashtable name -> parser containing enabled parsers - see (parsers) in parser/parser.ss
 (define-record-type
   (parse-ctx %make-parse-ctx parse-ctx?)
   (fields
@@ -134,12 +136,12 @@
   (nongenerative #{parse-ctx ghczmwc88jnt51nkrv9gaocnv-423}))
 
 
-; create a new parse-ctx. Arguments are
-;   in: mandatory, the textual input port to read from
-;   enabled-parsers: optional, #f or an hashtable name -> parser containing enabled parsers.
-;                    see (parsers) in parser/parser.ss
-;   x: optional, a fixnum representing the initial x position in the input port
-;   y: optional, a fixnum representing the initial y position in the input port
+;; create a new parse-ctx. Arguments are
+;;   in: mandatory, the textual input port to read from
+;;   enabled-parsers: optional, #f or an hashtable name -> parser containing enabled parsers.
+;;                    see (parsers) in parser/parser.ss
+;;   x: optional, a fixnum representing the initial x position in the input port
+;;   y: optional, a fixnum representing the initial y position in the input port
 (define make-parse-ctx
   (case-lambda
     ((in)               (make-parse-ctx* in #f 0 0))
@@ -148,8 +150,8 @@
     ((in enabled-parsers x y) (make-parse-ctx* in enabled-parsers x y))))
 
 
-; create a new parse-ctx. Arguments are the same as (make-parse-ctx)
-; with the difference that they are all mandatory
+;; create a new parse-ctx. Arguments are the same as (make-parse-ctx)
+;; with the difference that they are all mandatory
 (define (make-parse-ctx* in enabled-parsers x y)
   (assert (input-port? in))
   (assert (textual-port? in))
@@ -165,17 +167,17 @@
   (%make-parse-ctx in (cons x y) enabled-parsers))
 
 
-; create a new parse-ctx. Arguments are
-;   str: mandatory, the string to read from
-;   enabled-parsers: optional, #f or an hashtable name -> parser containing enabled parsers.
-;                    see (parsers) in parser/parser.ss
+;; create a new parse-ctx. Arguments are
+;;   str: mandatory, the string to read from
+;;   enabled-parsers: optional, #f or an hashtable name -> parser containing enabled parsers.
+;;                    see (parsers) in parser/parser.ss
 (define make-parse-ctx-from-string
   (case-lambda
     ((str)                 (make-parse-ctx* (open-string-input-port str) #f 0 0))
     ((str enabled-parsers) (make-parse-ctx* (open-string-input-port str) enabled-parsers 0 0))))
 
 
-; update parse-ctx position (x . y) after reading ch from textual input port
+;; update parse-ctx position (x . y) after reading ch from textual input port
 (define (ctx-increment-pos ctx ch)
   (when (char? ch) ; do not advance after reading #!eof
     (let ((pos (parse-ctx-pos ctx)))
@@ -187,7 +189,7 @@
         (set-car! pos (fx1+ (car pos)))))))
 
 
-; update parse-ctx position (x . y) after unreading ch from textual input port
+;; update parse-ctx position (x . y) after unreading ch from textual input port
 (define (ctx-decrement-pos ctx ch)
   (when (char? ch) ; do not rewind after reading #!eof
     (let ((pos (parse-ctx-pos ctx)))
@@ -199,25 +201,25 @@
         (set-car! pos (fx1- (car pos)))))))
 
 
-; Peek a character from textual input port (parse-ctx-in ctx)
+;; Peek a character from textual input port (parse-ctx-in ctx)
 (define (ctx-peek-char ctx)
   (peek-char (parse-ctx-in ctx)))
 
 
-; Read a character from textual input port (parse-ctx-in ctx)
-;
-; also updates (parse-ctx-pos ctx)
+;; Read a character from textual input port (parse-ctx-in ctx)
+;;
+;; also updates (parse-ctx-pos ctx)
 (define (ctx-read-char ctx)
   (let ((ch (read-char (parse-ctx-in ctx))))
     (ctx-increment-pos ctx ch)
     ch))
 
 
-; Try to unread a character from textual input port (parse-ctx-in ctx)
-;
-; Raise condition if Chez Scheme (unread-char ch in) fails:
-; it will happen ch is different from last character read from input port,
-; or if attempting to unread multiple characters without reading them back first.
+;; Try to unread a character from textual input port (parse-ctx-in ctx)
+;;
+;; Raise condition if Chez Scheme (unread-char ch in) fails:
+;; it will happen ch is different from last character read from input port,
+;; or if attempting to unread multiple characters without reading them back first.
 (define (ctx-unread-char ctx ch)
   (let ((in (parse-ctx-in ctx)))
     (unread-char ch in)
@@ -225,25 +227,45 @@
     (ctx-decrement-pos ctx ch)))
 
 
-; return #t if ch is a character and is <= ' '.
-; otherwise return #f
+;; return #t if ch is a character and is <= ' '.
+;; otherwise return #f
 (define (is-whitespace-char? ch newline-is-whitespace?)
   (and (char? ch) (char<=? ch #\space)
        (or newline-is-whitespace? (not (char=? ch #\newline)))))
 
 
-; read and discard all initial whitespace in textual input port (parse-ctx-in ctx)
-; characters are considered whitespace if they are <= ' '
-;
-; also updates (parse-ctx-pos ctx)
+;; read and discard all initial whitespace in textual input port (parse-ctx-in ctx)
+;; characters are considered whitespace if they are <= ' '
+;;
+;; also updates (parse-ctx-pos ctx)
 (define (ctx-skip-whitespace ctx newline-is-whitespace?)
   (while (is-whitespace-char? (ctx-peek-char ctx) newline-is-whitespace?)
     (ctx-read-char ctx)))
 
 
-; return truthy if ch is a character whose value is a number,
-; or an ASCII letter, or '_', or greater than (integer->char 127).
-; Otherwise return #f
+;; read and discard all characters in textual input port (parse-ctx-in ctx)
+;; until the first occurrence of find-ch (which is discarded too)
+;;
+;; also updates (parse-ctx-pos ctx)
+(define (ctx-skip-until-char ctx find-ch)
+  (let ((again? #t))
+    (while again?
+      (let ((ch (ctx-read-char ctx)))
+	(when (or (eqv? (eof-object) ch) (eqv? find-ch ch))
+	  (set! again? #f))))))
+
+
+;; read and discard all characters in textual input port (parse-ctx-in ctx)
+;; until the first #\newline (which is discarded too)
+;;
+;; also updates (parse-ctx-pos ctx)
+(define (ctx-skip-line ctx)
+  (ctx-skip-until-char ctx #\newline))
+
+
+;; return truthy if ch is a character whose value is a number,
+;; or an ASCII letter, or '_', or greater than (integer->char 127).
+;; Otherwise return #f
 (define (is-simple-identifier-char? ch)
   (and (char? ch)
        (or (and (char>=? ch #\0) (char<=? ch #\9))
@@ -254,13 +276,13 @@
 
 
 
-; Try to read a parser directive #!... from textual input port 'in'
-; Does NOT skip whitespace in input port.
-;
-; If port's first two characters are a parser directive #!
-; then read the symbol after it, and return such symbol.
-;
-; Otherwise do nothing and return #f i.e. do not consume any character or part of it.
+;; Try to read a parser directive #!... from textual input port 'in'
+;; Does NOT skip whitespace in input port.
+;;
+;; If port's first two characters are a parser directive #!
+;; then read the symbol after it, and return such symbol.
+;;
+;; Otherwise do nothing and return #f i.e. do not consume any character or part of it
 (define (try-read-parser-directive ctx)
   (let ((ret #f))
     (when (eqv? #\# (ctx-peek-char ctx))
@@ -276,7 +298,7 @@
     ret))
 
 
-; Raise a condition describing a syntax error
+;; Raise a condition describing a syntax error
 (define (syntax-errorf ctx who format-string . format-args)
   (raise
     (if (parse-ctx? ctx)
@@ -302,7 +324,7 @@
 
 
 
-; customize how "parser" objects are printed
+;; customize how "parser" objects are printed
 (record-writer (record-type-descriptor parser)
   (lambda (p port writer)
     (display "#<parser " port)
