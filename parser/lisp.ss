@@ -32,20 +32,20 @@
   (let ((value (try-read-parser-directive ctx)))
     (if (symbol? value)
       (if (eq? 'eof value)
-        ; yes, #!eof is an allowed directive:
-        ; it injects (eof-object) in token stream, with type 'eof
-        ; thus simulating an actual end-of-file in input port.
-        ; Reason: historically used to disable the rest of a file, to help debugging
+        ;; yes, #!eof is an allowed directive:
+        ;; it injects (eof-object) in token stream, with type 'eof
+        ;; thus simulating an actual end-of-file in input port.
+        ;; Reason: historically used to disable the rest of a file, to help debugging
         (values (eof-object) 'eof)
-        ; cannot switch to other parser here: just return it and let caller switch
+        ;; cannot switch to other parser here: just return it and let caller switch
         (values (get-parser ctx value (caller-for flavor)) 'parser))
-      ; read a single token with Chez Scheme (read-token),
-      ; then replace (values '{ 'atomic) with (values #f 'lbrace)
-      ; and replace (values '} 'atomic) with (values #f 'rbrace)
-      ; because we use them to switch to shell parser. For example,
-      ;    {ls -l > log.txt}
-      ; is equivalent to
-      ;    (#!shell ls -l > log.txt)
+      ;; read a single token with Chez Scheme (read-token),
+      ;; then replace (values '{ 'atomic) with (values #f 'lbrace)
+      ;; and replace (values '} 'atomic) with (values #f 'rbrace)
+      ;; because we use them to switch to shell parser. For example,
+      ;;    {ls -l > log.txt}
+      ;; is equivalent to
+      ;;    (#!shell ls -l > log.txt)
       (let-values (((type value start end) (read-token (parse-ctx-in ctx))))
         (if (eq? 'atomic type)
           (case value
@@ -91,7 +91,7 @@
 ;; Raises syntax-errorf if end of file is reached before reading a complete form.
 (define (parse-lisp* ctx flavor)
   (let-values (((value ok) (parse-lisp ctx flavor)))
-    ; cannot switch to other parser here, and caller does not expect it => raise
+    ;; cannot switch to other parser here, and caller does not expect it => raise
     (unless ok
       (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file"))
     (when (parser? value)
@@ -110,7 +110,7 @@
 (define (parse-lisp-impl ctx value type flavor)
   (values
     (case type
-      ; cannot switch to other parser here: just return it and let caller switch
+      ;; cannot switch to other parser here: just return it and let caller switch
       ((atomic eof parser) value)
       ((box)
         (unless (eq? 'scheme flavor)
@@ -118,17 +118,17 @@
             "invalid token in #!r6rs syntax, only allowed in #!scheme syntax: ~a"
             (lex-type->string type)))
         (list 'box  (parse-lisp* ctx flavor)))
-      ; if type = 'quote, value can be one of:
-      ;    'quote  'quasiquote  'unquote  'unquote-splicing
-      ;    'synyax 'quasisyntax 'unsyntax 'unsyntax-splicing
+      ;; if type = 'quote, value can be one of:
+      ;;    'quote  'quasiquote  'unquote  'unquote-splicing
+      ;;    'synyax 'quasisyntax 'unsyntax 'unsyntax-splicing
       ((quote)             (list value (parse-lisp* ctx flavor)))
       ((lbrack lparen)     (parse-lisp-list ctx type '() flavor))
-      ; lbrace i.e. { switches to shell parser until corresponding rbrace i.e. }
+      ;; lbrace i.e. { switches to shell parser until corresponding rbrace i.e. }
       ((lbrace)
         (let ((other-parse-list (parser-parse-list
                 (get-parser ctx 'shell (caller-for flavor)))))
           (other-parse-list ctx type '())))
-      ; parse the various vector types, with or without explicit length
+      ;; parse the various vector types, with or without explicit length
       ((vparen vu8paren)
         (parse-vector ctx type value flavor))
       ((vfxnparen vfxparen vnparen vu8nparen)
@@ -137,7 +137,7 @@
             "invalid token in #!r6rs syntax, only allowed in #!scheme syntax: ~a"
             (lex-type->string type)))
         (parse-vector ctx type value flavor))
-      ; TODO: implement types record-brack fasl insert mark
+      ;; TODO: implement types record-brack fasl insert mark
       (else   (syntax-errorf ctx (caller-for flavor) "unexpected token type: ~a" type)))
     type))
 
@@ -166,7 +166,7 @@
           ((eof)
             (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file"))
           ((parser)
-            ; switch to other parser until the end of current list
+            ;; switch to other parser until the end of current list
             (let ((other-parse-list (parser-parse-list value)))
               (set! ret (other-parse-list ctx begin-type ret))
               (set! reverse? #f)
@@ -177,17 +177,17 @@
           ((dot)
             (let-values (((value-i type-i) (parse-lisp ctx flavor)))
               (when (eq? 'parser type-i)
-                ; switch to other parser
+                ;; switch to other parser
                 (let ((other-parse* (parser-parse* value-i)))
                   (set! value-i (other-parse* ctx))))
               (set! ret (reverse*! (cons value-i ret)))
               (set! reverse? #f)
               (set! again? #f))
-            ; then parse ) or ] or }
+            ;; then parse ) or ] or }
             (let-values (((value type) (lex-lisp ctx flavor)))
               (check-list-end type)))
           (else
-            ; parse a single form and append it
+            ;; parse a single form and append it
             (let-values (((value-i type-i)
                             (parse-lisp-impl ctx value type flavor)))
               (when (eq? 'eof type-i)
@@ -220,7 +220,7 @@
         ((fx>=? i length) vec)
       (fxvector-set! vec i elem)
       (unless (null? values)
-        ; if we run out of values, fill remainder with last element in values
+        ;; if we run out of values, fill remainder with last element in values
         (set! values (cdr values))
         (unless (null? values)
           (set! elem (car values)))))))
@@ -232,7 +232,7 @@
         ((fx>=? i length) vec)
       (vector-set! vec i elem)
       (unless (null? values)
-        ; if we run out of values, fill remainder with last element in values
+        ;; if we run out of values, fill remainder with last element in values
         (set! values (cdr values))
         (unless (null? values)
           (set! elem (car values)))))))
@@ -244,7 +244,7 @@
         ((fx>=? i length) vec)
       (bytevector-u8-set! vec i elem)
       (unless (null? values)
-        ; if we run out of values, fill remainder with last element in values
+        ;; if we run out of values, fill remainder with last element in values
         (set! values (cdr values))
         (unless (null? values)
           (set! elem (car values)))))))
@@ -258,7 +258,7 @@
   ;; thus simulating an actual end-of-file in input port.
   ;; Reason: historically used to disable the rest of a file, to help debugging
   ;;
-  ;; cannot switch to other parser here: just return its name and let caller switch      value
+  ;; cannot switch to other parser here: just return its name and let caller switch
   (or (try-read-parser-directive ctx)
       (scan-lisp-parens ctx)))
 
@@ -296,10 +296,11 @@
     (until done?
       (let ((ch (ctx-read-char ctx)))
 	(cond
-	  ((eof-object? ch) (set! done? #f))
+	  ((eof-object? ch)
+        (set! done? #t))
 	  ((and (eqv? #\| ch) (eqv? #\# (ctx-peek-char ch)))
 	    (ctx-read-char ch)
-	    (set! done? t)))))))
+	    (set! done? #t)))))))
 
 
 ;; skip characters until the end of double-quoted string
