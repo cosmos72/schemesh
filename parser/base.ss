@@ -20,15 +20,16 @@
     parser-name parser-parse parser-parse* parser-parse-list parser-match-parens
     get-parser to-parser
 
-    ctx-peek-char ctx-read-char ctx-unread-char ctx-skip-whitespace ctx-skip-line
+    ctx-peek-char ctx-read-char ctx-unread-char ctx-skip-whitespace
+    ctx-skip-line ctx-skip-until-char
     try-read-parser-directive
 
     syntax-errorf)
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) fx1+ fx1- make-format-condition record-writer unread-char)
-    (only (schemesh bootstrap) while)
+    (only (chezscheme) fx1+ fx1- make-format-condition record-writer unread-char void)
+    (only (schemesh bootstrap) until while)
     (only (schemesh containers misc) list-iterate)
     (only (schemesh containers hashtable) hashtable-iterate)
     (schemesh containers span)
@@ -41,7 +42,7 @@
   (parens %make-parens parens?)
   (fields
     name ; symbol, name of parser that created this parens object (may differ in sub-objects)
-    type ; symbol, one of: lparen lbrack lbrace backquote dollar+lparen dquote squote
+    type ; character, one of: ( [ { " ' ` |
     (mutable start-x) ; fixnum, x position of start parenthesis/bracket/brace/quote
     (mutable start-y) ; fixnum, y position of start parenthesis/bracket/brace/quote
     (mutable end-x)   ; fixnum, x position of end parenthesis/bracket/brace/quote
@@ -244,23 +245,28 @@
 
 
 ;; read and discard all characters in textual input port (parse-ctx-in ctx)
-;; until the first occurrence of find-ch (which is discarded too)
+;; until the first occurrence of find-ch, which is discarded too and returned.
+;;
+;; if end-of-file is reached before the first occurence of find-ch,
+;; return (eof-object)
 ;;
 ;; also updates (parse-ctx-pos ctx)
 (define (ctx-skip-until-char ctx find-ch)
-  (let ((again? #t))
-    (while again?
+  (let ((ret #f))
+    (until ret
       (let ((ch (ctx-read-char ctx)))
-	(when (or (eqv? (eof-object) ch) (eqv? find-ch ch))
-	  (set! again? #f))))))
+        (when (or (eqv? (eof-object) ch) (eqv? find-ch ch))
+          (set! ret ch))))
+    ret))
 
 
 ;; read and discard all characters in textual input port (parse-ctx-in ctx)
-;; until the first #\newline (which is discarded too)
+;; until the first #\newline, which is discarded too
 ;;
 ;; also updates (parse-ctx-pos ctx)
 (define (ctx-skip-line ctx)
-  (ctx-skip-until-char ctx #\newline))
+  (ctx-skip-until-char ctx #\newline)
+  (void))
 
 
 ;; return truthy if ch is a character whose value is a number,
@@ -276,7 +282,7 @@
 
 
 
-;; Try to read a parser directive #!... from textual input port 'in'
+;; Try to read a parser directive #!... from textual input port (parse-ctx-in ctx)
 ;; Does NOT skip whitespace in input port.
 ;;
 ;; If port's first two characters are a parser directive #!

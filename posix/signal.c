@@ -18,8 +18,14 @@
 
 #define N_OF(span) (sizeof(span) / sizeof((span)[0]))
 
-static volatile int c_sigchld_received  = 0;
-static volatile int c_sigwinch_received = 0;
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L && !defined(__STDC_NO_ATOMICS__)
+#define ATOMIC _Atomic
+#else
+#define ATOMIC
+#endif
+
+static ATOMIC volatile int c_sigchld_received  = 0;
+static ATOMIC volatile int c_sigwinch_received = 0;
 
 static void c_sigchld_handler(int sig_num) {
   (void)sig_num;

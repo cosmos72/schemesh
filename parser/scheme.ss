@@ -22,58 +22,54 @@
     (schemesh parser base)
     (schemesh parser lisp))
 
-; Read a single Chez Scheme token from textual input port 'in.
-; Internally uses Chez Scheme (read-token) for simplicity, but could be reimplemented
-; in pure R6RS.
-;
-; Return two values: token value and its type.
+;; Read a single Chez Scheme token from textual input port 'in.
+;; Internally uses Chez Scheme (read-token) for simplicity, but could be reimplemented
+;; in pure R6RS.
+;;
+;; Return two values: token value and its type.
 (define (lex-scheme ctx)
   (lex-lisp ctx 'scheme))
 
 
-; Read Chez Scheme tokens from textual input port 'in'
-; by repeatedly calling (lex-scheme) and construct a Chez Scheme form.
-; Automatically change parser when directive #!... is found.
-;
-; Return two values: parsed form, and #t.
-; If end-of-file is reached, return (eof-object) and #f.
+;; Read Chez Scheme tokens from textual input port 'in'
+;; by repeatedly calling (lex-scheme) and construct a Chez Scheme form.
+;; Automatically change parser when directive #!... is found.
+;;
+;; Return two values: parsed form, and #t.
+;; If end-of-file is reached, return (eof-object) and #f.
 (define (parse-scheme ctx)
   (parse-lisp ctx 'scheme))
 
 
-; Read Chez Scheme tokens from textual input port 'in'
-; by repeatedly calling (lex-scheme) and construct a Chez Scheme form.
-; Automatically change parser when directive #!... is found.
-;
-; Return parsed form.
-; Raises syntax-errorf if end of file is reached before reading a complete form.
+;; Read Chez Scheme tokens from textual input port 'in'
+;; by repeatedly calling (lex-scheme) and construct a Chez Scheme form.
+;; Automatically change parser when directive #!... is found.
+;;
+;; Return parsed form.
+;; Raises syntax-errorf if end of file is reached before reading a complete form.
 (define (parse-scheme* ctx)
   (parse-lisp* ctx 'scheme))
 
 
-; Read Chez Scheme forms from textual input port 'in', until a token ) or ] or } matching
-; the specified begin-type token is found.
-; Automatically change parser when directive #!... is found.
-;
-; Return a list containing parsed forms.
-; Raise syntax-errorf if mismatched end token is found, as for example ']' instead of ')'
-;
-; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
+;; Read Chez Scheme forms from textual input port 'in', until a token ) or ] or } matching
+;; the specified begin-type token is found.
+;; Automatically change parser when directive #!... is found.
+;;
+;; Return a list containing parsed forms.
+;; Raise syntax-errorf if mismatched end token is found, as for example ']' instead of ')'
+;;
+;; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
 (define (parse-scheme-list ctx begin-type already-parsed-reverse)
   (parse-lisp-list ctx begin-type already-parsed-reverse 'scheme))
 
 
-; Read Chez Scheme forms from textual input port 'in', until a token ) or ] or } matching
-; the specified begin-type token is found.
-; Automatically change parser when directive #!... is found.
-;
-; Return a list of parens objects, each containing the position and type of
-; matching parentheses/brackets/braces/quotes
-; Should not raise any condition for invalid input.
-;
-; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
-(define (parse-scheme-parens ctx begin-type already-parsed-reverse)
-  (parse-lisp-parens ctx begin-type already-parsed-reverse 'scheme))
+;; Read Scheme forms from textual input port (parse-ctx-in ctx),
+;; until a grouping token is found i.e. ( ) [ ] { } | | or " " and return it.
+;; As second value, return the updated parser state, which is one of
+;; 'default 'pipe or 'dquote
+;; As third value, return the next parser to use
+(define (parse-scheme-parens ctx state)
+  (parse-lisp-parens ctx state 'scheme))
 
 
 (define parser-scheme

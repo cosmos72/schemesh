@@ -137,7 +137,7 @@
             "invalid token in #!r6rs syntax, only allowed in #!scheme syntax: ~a"
             (lex-type->string type)))
         (parse-vector ctx type value flavor))
-      ;; TODO: implement types record-brack fasl insert mark
+      ;; TODO implement types: record-brack fasl insert mark
       (else   (syntax-errorf ctx (caller-for flavor) "unexpected token type: ~a" type)))
     type))
 
@@ -249,7 +249,8 @@
         (unless (null? values)
           (set! elem (car values)))))))
 
-;; consume text input port until one of ( ) [ ] { } " and return it.
+
+;; consume text input port until one of the characters ( ) [ ] { } " and return it.
 ;; also recognize and return parser directives #!... and return them
 (define (scan-lisp-parens-or-directive ctx)
   (ctx-skip-whitespace ctx 'also-skip-newlines)
@@ -263,7 +264,7 @@
       (scan-lisp-parens ctx)))
 
 
-;; read until one of ( ) [ ] { } " is found. ignore them if they are preceded
+;; read until one of ( ) [ ] { } " | is found. ignore them if they are preceded
 ;; by #\ and also ignore comments
 ;; consume text input port until one of ( ) [ ] { } " and return it.
 ;; Does not recognize parser directives #!... use (scan-lisp-parens-or-directive)
@@ -273,7 +274,7 @@
     (until ret
       (let ((ch (ctx-read-char ctx)))
         (case ch
-	  ((#\( #\) #\[ #\] #\{ #\} #\") (set! ret ch))
+          ((#\( #\) #\[ #\] #\{ #\} #\" #\|) (set! ret ch))
           ((#\#)  (set! ret (skip-lisp-sharp ctx)))
           ((#\;)  (ctx-skip-line ctx))
           (else (when (eof-object? ch) (set! ret ch))))))
@@ -285,42 +286,58 @@
   (let ((ch (ctx-read-char ctx)))
     (case ch
       ((#\\) (ctx-read-char ctx) #f) ; consume one char after #\
-      ((#\( #\[ #\{) ch)
-      ((#\|) (skip-lisp-comment ctx))
+      ((#\( #\[ #\{) ch) ; treat #( #[ #{ respectively as ( [ {
+      ((#\|) (skip-lisp-block-comment ctx))
       (else #f))))
 
 
 ;; skip all characters until |#
-(define (skip-lisp-comment ctx)
+(define (skip-lisp-block-comment ctx)
   (let ((done? #f))
     (until done?
       (let ((ch (ctx-read-char ctx)))
-	(cond
-	  ((eof-object? ch)
+        (cond
+          ((eof-object? ch)
         (set! done? #t))
-	  ((and (eqv? #\| ch) (eqv? #\# (ctx-peek-char ch)))
-	    (ctx-read-char ch)
-	    (set! done? #t)))))))
+          ((and (eqv? #\| ch) (eqv? #\# (ctx-peek-char ch)))
+            (ctx-read-char ch)
+            (set! done? #t)))))))
 
 
 ;; skip characters until the end of double-quoted string
 ;; (the initial " character was already consumed)
 ;; do NOT consume the final "
-(define (skip-lisp-double-quotes ctx)
-  #f) ; TODO implement
+(define (scan-lisp-double-quotes ctx)
+  (let ((done? #f))
+    (until done?
+      (let ((ch (ctx-peek-char ctx)))
+        (cond
+          ((or (eqv? #\" ch) (eof-object? ch)) (set! done? #t))
+          ((eqv? #\\ ch) (ctx-read-char ch)))
+        (unless done?
+          (ctx-read-char ch))))))
 
 
-;; Read Scheme forms from textual input port 'in', until a token ) or ] or } matching
-;; the specified begin-type token is found.
-;; Automatically change parser when directive #!... is found.
+;; Read Scheme forms from textual input port (parse-ctx-in ctx), until
+;; a grouping token is found i.e. ( ) [ ] { } " | and return it as character.
 ;;
-;; Return a list of parens objects, each containing the position and type of
-;; matching parentheses/brackets/braces/quotes
-;; Should not raise any condition for invalid input.
+;; If instead a parser directive #!... is found, return it as symbol.
 ;;
-;; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
-(define (parse-lisp-parens ctx begin-type already-parsed-reverse flavor)
-  #f)
+;; As second value, return the updated parser state, which is one of
+;; 'default 'pipe or 'dquote
+(define (parse-lisp-parens ctx state flavor)
+  (case state
+    ((pipe)
+      (values (ctx-skip-until-char ctx #\|) 'default))
+    ((dquote)
+      (scan-lisp-double-quotes ctx)
+      (values (ctx-read-char ctx) 'default))
+    (else
+      (let ((ret (scan-lisp-parens-or-directive ctx)))
+        (cond
+          ((eqv? ret #\") (values ret 'dquote))
+          ((eqv? ret #\|) (values ret 'pipe))
+          (#t             (values ret 'default))))))) ; found ( ) [ ] { } or parser directive
 
 
 (define (caller-for flavor)

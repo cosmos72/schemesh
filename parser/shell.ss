@@ -503,16 +503,11 @@
     (if reverse? (reverse! ret) ret)))
 
 
-; Read shell forms from textual input port 'in', until a token ) or ] or } matching
-; the specified begin-type token is found.
-; Automatically change parser when directive #!... is found.
-;
-; Return a list of parens objects, each containing the position and type of
-; matching parentheses/brackets/braces/quotes
-; Should not raise any condition for invalid input.
-;
-; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
-(define (parse-shell-parens ctx begin-type already-parsed-reverse flavor)
+;; Read Chez Scheme forms from textual input port (parse-ctx-in ctx),
+;; until a grouping token is found i.e. ( ) [ ] { } ' or " and return it.
+;; As second value, return the updated parser state, which is one of 'default 'dquote or 'squote
+;; As third value, return the next parser to use
+(define (parse-shell-parens ctx state)
   ; TODO: implement
   #f)
 
