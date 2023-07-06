@@ -23,32 +23,32 @@
     parse-shell parse-shell* parse-shell-list parser-shell
 
     ; parser.ss
-    parse-form parse-form* parse-form-list parse-forms parsers)
+    parse-form parse-form* parse-form-list parse-forms parse-parens parsers)
   (import
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) reverse! void)
-    (only (schemesh bootstrap) while)
+    (only (schemesh bootstrap) until while)
     (schemesh parser base)
     (schemesh parser r6rs)
     (schemesh parser scheme)
     (schemesh parser shell))
 
 
-; Call parse-scheme, parse-shell or whatever is the parser specified as initial-parser.
-; Automatically change parser when directive #!... is found.
-;
-; Return two values: parsed form, and #t.
-; If end-of-file is reached, return (eof-object) and #f.
+;; Call parse-scheme, parse-shell or whatever is the parser specified as initial-parser.
+;; Automatically change parser when directive #!... is found.
+;;
+;; Return two values: parsed form, and #t.
+;; If end-of-file is reached, return (eof-object) and #f.
 (define (parse-form ctx initial-parser)
   (let ((proc (parser-parse (to-parser ctx initial-parser 'parse-form))))
     (proc ctx)))
 
 
-; Call parse-scheme*, parse-shell* or whatever is the parser specified as initial-parser.
-;
-; Return parsed form.
-; Raise syntax-errorf if end-of-file is reached before completely reading a form.
+;; Call parse-scheme*, parse-shell* or whatever is the parser specified as initial-parser.
+;;
+;; Return parsed form.
+;; Raise syntax-errorf if end-of-file is reached before completely reading a form.
 (define (parse-form* ctx initial-parser)
   (let-values (((value ok) (parse-form ctx initial-parser)))
     (unless ok
@@ -56,25 +56,25 @@
     value))
 
 
-; Parse textual input port until the end of current list, using the parser specified by
-; initial-parser, and temporarily switching to other parsers if the directive #!...
-; is found in a (possibly nested) list being parsed.
-;
-; Return parsed list.
-; Raise syntax-errorf if mismatched end token is found, as for example ']' instead of ')'
+;; Parse textual input port until the end of current list, using the parser specified by
+;; initial-parser, and temporarily switching to other parsers if the directive #!...
+;; is found in a (possibly nested) list being parsed.
+;;
+;; Return parsed list.
+;; Raise syntax-errorf if mismatched end token is found, as for example ']' instead of ')'
 (define (parse-form-list ctx begin-type already-parsed-reverse initial-parser)
   (let ((proc (parser-parse-list
                 (to-parser ctx initial-parser 'parse-form-list))))
     (proc ctx begin-type already-parsed-reverse)))
 
 
-; Parse textual input port until eof, using the parser specified by initial-parser,
-; and temporarily switching to other parsers every time the directive #!... is found
-; in a (possibly nested) list being parsed.
-;
-; Return two values.
-; First value is parsed forms: each element in the list is a parsed form.
-; Second value is updated parser to use.
+;; Parse textual input port until eof, using the parser specified by initial-parser,
+;; and temporarily switching to other parsers every time the directive #!... is found
+;; in a (possibly nested) list being parsed.
+;;
+;; Return two values.
+;; First value is parsed forms: each element in the list is a parsed form.
+;; Second value is updated parser to use.
 (define (parse-forms ctx initial-parser)
   (let ((current-parser (to-parser ctx initial-parser 'parse-forms))
         (ret '())
@@ -90,7 +90,24 @@
       (reverse! ret)
       current-parser)))
 
-; Return mutable hashtable containing all known parsers.
+
+;; Parse textual input port until eof, using the parser specified by initial-parser,
+;; and temporarily switching to other parsers every time the directive #!... is found
+;; in a (possibly nested) list being parsed.
+;;
+;; Return two values.
+;; First value is a parens, describing the ( [ { " ' ` | characters in input stream,
+;; their position, and the position of their matching ) ] } " ' ` |
+;; Second value is updated parser to use.
+(define (parse-parens ctx initial-parser)
+  (let ((current-parser (to-parser ctx initial-parser 'parse-parens))
+        (ret (make-parens initial-parser #f)))
+    (until (eof-object? (ctx-peek-char ctx))
+      (set! current-parser ((parser-parse-parens current-parser) ctx ret)))
+    (values ret current-parser)))
+
+
+;; Return mutable hashtable containing all known parsers.
 (define parsers
   (let ((ret (make-eq-hashtable)))
     (hashtable-set! ret 'r6rs       (parser-r6rs))

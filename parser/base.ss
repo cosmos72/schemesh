@@ -8,7 +8,7 @@
 
 (library (schemesh parser base (0 1))
   (export
-    make-parens parens? parens-name parens-type
+    make-parens parens? parens-name parens-token
     parens-start-x parens-start-x-set! parens-start-y parens-start-y-set!
     parens-end-x   parens-end-x-set!   parens-end-y   parens-end-y-set!
     parens-inner   parens-inner-append!
@@ -17,7 +17,7 @@
     parse-ctx-in parse-ctx-pos parse-ctx-enabled-parsers
 
     make-parser parser?
-    parser-name parser-parse parser-parse* parser-parse-list parser-match-parens
+    parser-name parser-parse parser-parse* parser-parse-list parser-parse-parens
     get-parser to-parser
 
     ctx-peek-char ctx-read-char ctx-unread-char ctx-skip-whitespace
@@ -28,8 +28,8 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) fx1+ fx1- make-format-condition record-writer unread-char void)
-    (only (schemesh bootstrap) until while)
+    (only (chezscheme) break fx1+ fx1- make-format-condition record-writer unread-char void)
+    (only (schemesh bootstrap) try until while)
     (only (schemesh containers misc) list-iterate)
     (only (schemesh containers hashtable) hashtable-iterate)
     (schemesh containers span)
@@ -41,8 +41,8 @@
 (define-record-type
   (parens %make-parens parens?)
   (fields
-    name ; symbol, name of parser that created this parens object (may differ in sub-objects)
-    type ; character, one of: ( [ { " ' ` |
+    name  ; symbol, name of parser that created this parens object (may differ in sub-objects)
+    token ; character, one of: ( [ { " ' ` |
     (mutable start-x) ; fixnum, x position of start parenthesis/bracket/brace/quote
     (mutable start-y) ; fixnum, y position of start parenthesis/bracket/brace/quote
     (mutable end-x)   ; fixnum, x position of end parenthesis/bracket/brace/quote
@@ -51,10 +51,11 @@
   (nongenerative #{parens e1s38b5dr3myvj5mwxrpzkl27-400}))
 
 
-(define (make-parens name type)
+(define (make-parens name token)
   (assert (symbol? name))
-  (assert (symbol? type))
-  (%make-parens name type 0 0 0 0 #f))
+  (when token
+    (assert (char? token)))
+  (%make-parens name token 0 0 (greatest-fixnum) (greatest-fixnum) #f))
 
 
 ;; append a list of nested parens to specified parens
@@ -73,7 +74,7 @@
 ;; parser is an object containing four procedures:
 ;;   parser-parse and parser-parse* will parse a single form,
 ;;   parser-parse-list will parse a list of forms,
-;;   parser-match-parens will scan a list of forms and find matching parentheses/brackets/braces/quotes
+;;   parser-parse-parens will scan a list of forms and return matching parentheses/brackets/braces/quotes
 (define-record-type
   (parser %make-parser parser?)
   (fields
@@ -81,18 +82,18 @@
     parse
     parse*
     parse-list
-    match-parens)
+    parse-parens)
   (nongenerative #{parser cd39kg38a9c4cnwzwhghs827-24}))
 
 
 ;; create a new parser
-(define (make-parser name parse parse* parse-list match-parens)
+(define (make-parser name parse parse* parse-list parse-parens)
   (assert (symbol?    name))
   (assert (procedure? parse))
   (assert (procedure? parse*))
   (assert (procedure? parse-list))
-  (assert (procedure? match-parens))
-  (%make-parser name parse parse* parse-list match-parens))
+  (assert (procedure? parse-parens))
+  (%make-parser name parse parse* parse-list parse-parens))
 
 
 ;; Find and return the parser corresponding to given parser-name (which must be a symbol)
@@ -204,6 +205,8 @@
 
 ;; Peek a character from textual input port (parse-ctx-in ctx)
 (define (ctx-peek-char ctx)
+  (unless (parse-ctx? ctx)
+    (break))
   (peek-char (parse-ctx-in ctx)))
 
 
@@ -211,6 +214,8 @@
 ;;
 ;; also updates (parse-ctx-pos ctx)
 (define (ctx-read-char ctx)
+  (unless (parse-ctx? ctx)
+    (break))
   (let ((ch (read-char (parse-ctx-in ctx))))
     (ctx-increment-pos ctx ch)
     ch))
@@ -329,12 +334,39 @@
         (make-irritants-condition format-args)))))
 
 
+(define (show-parens obj port)
+  (try
+    (let ((token (parens-token obj)))
+      (display (if token token #\_) port)
+      (let ((inner-span (parens-inner obj)))
+        (when (span? inner-span)
+          (span-iterate inner-span
+            (lambda (i inner)
+              (unless (fxzero? i)
+                (display #\space port))
+              (show-parens inner port)))))
+      (display (close-token-for token) port))
+    (catch (cond)
+      (display cond port))))
+
+(define (close-token-for token)
+  (case token
+    ((#\() #\)) ((#\[) #\]) ((#\{) #\})
+    ((#\") #\") ((#\') #\') ((#\`) #\`) ((#\|) #\|)
+    (else #\_)))
+
+;; customize how "parens" objects are printed
+(record-writer (record-type-descriptor parens)
+  (lambda (obj port writer)
+    (display "#<parens " port)
+    (show-parens obj port)
+    (display ">" port)))
 
 ;; customize how "parser" objects are printed
 (record-writer (record-type-descriptor parser)
-  (lambda (p port writer)
+  (lambda (obj port writer)
     (display "#<parser " port)
-    (display (parser-name p) port)
+    (display (parser-name obj) port)
     (display ">" port)))
 
 ) ; close library

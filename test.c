@@ -477,7 +477,7 @@ static const struct {
     {"(format #f \"~s\" (parse-shell* (make-parse-ctx-from-string\n"
      "  \"ls '$(cmd arg $var)'\")))",
      "(shell \"ls\" \"$(cmd arg $var)\")"},
-    /* ------------------------ parser -------------------------------------- */
+    /* ------------------------ parse-forms --------------------------------- */
     {"(values->list (parse-forms\n"
      "  (make-parse-ctx-from-string \"\" (parsers))\n"
      "  'scheme))",
@@ -536,6 +536,13 @@ static const struct {
      "    (parsers))\n"
      "  'scheme))",
      "(((+ a b) (shell ls -al >> log.txt) foo bar) #<parser scheme>)"},
+    /* ------------------------ parse-parens -------------------------------- */
+    {"(values->list (parse-parens\n"
+     "  (make-parse-ctx-from-string \"(string-concat \\\"a\\\" \\\"b\\\" [* |2| 3])\""
+     "    (parsers))\n"
+     "  'scheme))",
+     "(#<parens _(\"\" \"\" [||])_> #<parser scheme>)"},
+
     /* -------------------------- tty --------------------------------------- */
     {"(let ((sz (tty-size)))\n"
      "  (and (pair? sz)\n"

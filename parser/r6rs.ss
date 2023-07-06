@@ -64,12 +64,17 @@
 
 
 ;; Read Scheme forms from textual input port (parse-ctx-in ctx),
-;; until a grouping token is found i.e. ( ) [ ] { } | | or " " and return it.
-;; As second value, return the updated parser state, which is one of
-;; 'default 'pipe or 'dquote
-;; As third value, return the next parser to use
-(define (parse-r6rs-parens ctx state)
-  (parse-lisp-parens ctx state 'r6rs))
+;; collecting grouping tokens i.e. ( ) [ ] { } " | and filling paren with them.
+;;
+;; If a parser directive #!... is found, switch to the corresponding parser
+;; until the end of current group.
+;;
+;; Stops on end-of-file, or when a closing token matching the opening token
+;; (parens-token paren) is found. Such closing token is consumed too.
+;;
+;; Return the updated parser to use.
+(define (parse-r6rs-parens ctx paren)
+  (parse-lisp-parens ctx paren (parser-r6rs)))
 
 
 (define parser-r6rs

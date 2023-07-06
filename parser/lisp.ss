@@ -14,7 +14,7 @@
   (import
     (rnrs)
     (only (chezscheme) format
-       box bytevector fx1+
+       box bytevector fx1+ fx1-
        fxvector fxvector-set! make-fxvector
        read-token reverse!)
     (only (schemesh bootstrap) while until)
@@ -213,6 +213,11 @@
       ((vu8paren)  (apply bytevector values))
       (else  (syntax-errorf ctx (caller-for flavor) "unexpected ~a" vec-type)))))
 
+(define (caller-for flavor)
+  (if (eq? flavor 'r6rs)
+    'parse-r6rs
+    'parse-scheme))
+
 (define (create-fxvector length values)
   (let ((vec (make-fxvector length))
         (elem (if (null? values) 0 (car values))))
@@ -315,34 +320,81 @@
           ((or (eqv? #\" ch) (eof-object? ch)) (set! done? #t))
           ((eqv? #\\ ch) (ctx-read-char ch)))
         (unless done?
-          (ctx-read-char ch))))))
+          (ctx-read-char ctx))))))
 
 
-;; Read Scheme forms from textual input port (parse-ctx-in ctx), until
-;; a grouping token is found i.e. ( ) [ ] { } " | and return it as character.
+;; Read Scheme forms from textual input port (parse-ctx-in ctx),
+;; collecting grouping tokens i.e. ( ) [ ] { } " | and filling paren with them.
 ;;
-;; If instead a parser directive #!... is found, return it as symbol.
+;; If a parser directive #!... is found, switch to the corresponding parser
+;; until the end of current group.
 ;;
-;; As second value, return the updated parser state, which is one of
-;; 'default 'pipe or 'dquote
-(define (parse-lisp-parens ctx state flavor)
-  (case state
-    ((pipe)
-      (values (ctx-skip-until-char ctx #\|) 'default))
-    ((dquote)
-      (scan-lisp-double-quotes ctx)
-      (values (ctx-read-char ctx) 'default))
-    (else
-      (let ((ret (scan-lisp-parens-or-directive ctx)))
+;; Stops on end-of-file, or when a closing token matching the opening token
+;; (parens-token paren) is found. Such closing token is consumed too.
+;;
+;; Return the updated parser to use.
+(define (parse-lisp-parens ctx paren parser)
+  (assert (parse-ctx? ctx))
+  (assert (parens? paren))
+  (assert (parser? parser))
+  (let* ((start (parens-token paren))
+         (end (case start ((#\() #\)) ((#\[) #\]) (else #f)))
+         (pos (parse-ctx-pos ctx))
+         (done? #f)
+         (fill-end? #t)
+         (%paren-fill-end! (lambda (paren)
+           (parens-end-x-set! paren (fx1- (car pos)))
+           (parens-end-y-set! paren (cdr pos)))))
+    (until done?
+      (let ((token (scan-lisp-parens-or-directive ctx)))
         (cond
-          ((eqv? ret #\") (values ret 'dquote))
-          ((eqv? ret #\|) (values ret 'pipe))
-          (#t             (values ret 'default))))))) ; found ( ) [ ] { } or parser directive
+          ((symbol? token)
+             ; switch to other parser until end of current list
+             (set! parser (get-parser ctx 'shell (paren-caller-for parser)))
+             (set! done? #t)
+             (set! fill-end? #f))
+
+          ((memv token '(#\( #\[ #\{ #\" #\|))           #| make vscode happy: #\) |#
+             ; found opening token, create and fill nested parens object
+             (let ((inner (make-parens (parser-name parser) token)))
+               (parens-start-x-set! inner (fx1- (car pos)))
+               (parens-start-y-set! inner (cdr pos))
+               (parens-inner-append! paren inner)
+               (cond
+                 ((eqv? token #\{)
+                   ; switch to shell parser until matching #\}
+                   (let ((other-parser (get-parser ctx 'shell (paren-caller-for parser))))
+                     ((parser-parse-parens other-parser) ctx inner)))
+                 ((eqv? token #\")
+                   ; parse "some string"
+                   (scan-lisp-double-quotes ctx) ; skip content of double-quoted string
+                   (ctx-read-char ctx)           ; consume final double quotes
+                   (%paren-fill-end! inner))
+                 ((eqv? token #\|)
+                   ; parse |identifier|
+                   (ctx-skip-until-char ctx #\|)
+                   (%paren-fill-end! inner))
+                 (#t
+                   ; recursion: call lisp parser on nested list
+                   (parse-lisp-parens ctx inner parser)))))
+
+           ((eqv? token end) ; found matching close token
+              (set! done? #t))
+
+           ((eof-object? token)
+             (set! done? #t))
+
+           (#t ; ignore unexpected token
+              #f))))
+
+    (when fill-end?
+      (%paren-fill-end! paren))
+    parser))
 
 
-(define (caller-for flavor)
-  (if (eq? flavor 'r6rs)
-    'parse-r6rs
-    'parse-scheme))
+(define (paren-caller-for parser)
+  (if (eq? (parser-name parser) 'r6rs)
+    'parse-r6rs-parens
+    'parse-scheme-parens))
 
 ) ; close library

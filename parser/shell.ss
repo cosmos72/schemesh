@@ -503,13 +503,19 @@
     (if reverse? (reverse! ret) ret)))
 
 
-;; Read Chez Scheme forms from textual input port (parse-ctx-in ctx),
-;; until a grouping token is found i.e. ( ) [ ] { } ' or " and return it.
-;; As second value, return the updated parser state, which is one of 'default 'dquote or 'squote
-;; As third value, return the next parser to use
-(define (parse-shell-parens ctx state)
-  ; TODO: implement
-  #f)
+;; Read shell forms from textual input port (parse-ctx-in ctx),
+;; collecting grouping tokens i.e. ( ) [ ] { } " ' ` and filling paren with them.
+;;
+;; If a parser directive #!... is found, switch to the corresponding parser
+;; until the end of current group.
+;;
+;; Stops on end-of-file, or when a closing token matching the opening token
+;; (parens-token paren) is found. Such closing token is consumed too.
+;;
+;; Return the updated parser to use.
+(define (parse-shell-parens ctx paren)
+  (ctx-read-char ctx)
+  (parser-shell))
 
 
 (define parser-shell
