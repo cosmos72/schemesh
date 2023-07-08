@@ -63,18 +63,19 @@
   (parse-lisp-list ctx begin-type already-parsed-reverse 'r6rs))
 
 
-;; Read Scheme forms from textual input port (parse-ctx-in ctx),
-;; collecting grouping tokens i.e. ( ) [ ] { } " | and filling paren with them.
+;; Read r6rs Scheme forms from textual input port (parse-ctx-in ctx),
+;; collecting grouping tokens i.e. ( ) [ ] { } |# #| " " | |
+;; and filling paren with them.
 ;;
 ;; If a parser directive #!... is found, switch to the corresponding parser
 ;; until the end of current group.
 ;;
-;; Stops on end-of-file, or when a closing token matching the opening token
-;; (parens-token paren) is found. Such closing token is consumed too.
+;; Stops on end-of-file, or when closing token matching start-token is found.
+;; Such closing token is consumed too.
 ;;
-;; Return the updated parser to use.
-(define (parse-r6rs-parens ctx paren)
-  (parse-lisp-parens ctx paren (parser-r6rs)))
+;; Return a parens containing the collected grouping tokens.
+(define (parse-r6rs-parens ctx start-token)
+  (parse-lisp-parens ctx start-token 'r6rs))
 
 
 (define parser-r6rs

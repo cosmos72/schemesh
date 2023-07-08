@@ -58,16 +58,13 @@
   (%make-parens name token 0 0 (greatest-fixnum) (greatest-fixnum) #f))
 
 
-;; append a list of nested parens to specified parens
-(define (parens-inner-append! parens . nested-parens-list)
-  (unless (null? nested-parens-list)
-    (list-iterate nested-parens-list
-      (lambda (nested-parens)
-        (assert (parens? nested-parens))))
-    (let ((inner (parens-inner parens)))
-      (if (span? inner)
-        (apply span-insert-back! inner nested-parens-list)
-        (parens-inner-set! parens (list->span nested-parens-list))))))
+;; append one nested parens to specified parens
+(define (parens-inner-append! parens nested-parens)
+  (assert (parens? nested-parens))
+  (let ((inner (parens-inner parens)))
+    (if (span? inner)
+      (span-insert-back! inner nested-parens)
+      (parens-inner-set! parens (span nested-parens)))))
 
 
 
@@ -322,9 +319,9 @@
         (make-message-condition (string-append format-string " at line ~a, char ~a of ~a"))
         (make-irritants-condition
           (append format-args
-           (list (fx1+ (cdr (parse-ctx-pos ctx)))
-                 (car (parse-ctx-pos ctx))
-                 (parse-ctx-in ctx)))))
+            (list (fx1+ (cdr (parse-ctx-pos ctx)))
+                  (car (parse-ctx-pos ctx))
+                  (parse-ctx-in ctx)))))
       (condition
         (make-lexical-violation)
         (make-i/o-read-error)

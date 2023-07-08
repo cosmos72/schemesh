@@ -23,7 +23,8 @@
     parse-shell parse-shell* parse-shell-list parser-shell
 
     ; parser.ss
-    parse-form parse-form* parse-form-list parse-forms parse-parens parsers)
+    parse-form parse-form* parse-form-list parse-forms parse-parens parse-parens-from-string
+    parsers)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -91,20 +92,24 @@
       current-parser)))
 
 
-;; Parse textual input port until eof, using the parser specified by initial-parser,
+;; Parse textual input port until closing token matching start-token is found
+;; (or until end-of-file if start-token is #f) using the parser specified by initial-parser,
 ;; and temporarily switching to other parsers every time the directive #!... is found
 ;; in a (possibly nested) list being parsed.
 ;;
-;; Return two values.
-;; First value is a parens, describing the ( [ { " ' ` | characters in input stream,
+;; Return a parens describing the ( [ { " ' ` | characters in input stream,
 ;; their position, and the position of their matching ) ] } " ' ` |
-;; Second value is updated parser to use.
-(define (parse-parens ctx initial-parser)
-  (let ((current-parser (to-parser ctx initial-parser 'parse-parens))
-        (ret (make-parens initial-parser #f)))
-    (until (eof-object? (ctx-peek-char ctx))
-      (set! current-parser ((parser-parse-parens current-parser) ctx ret)))
-    (values ret current-parser)))
+(define (parse-parens ctx start-token initial-parser)
+  (let* ((current-parser (to-parser ctx initial-parser 'parse-parens))
+         (current-parse-parens (parser-parse-parens current-parser)))
+    (current-parse-parens ctx start-token)))
+
+
+;; Simple wrapper around parse-parens, useful for testing
+(define parse-parens-from-string
+  (case-lambda
+    ((str)                (parse-parens (make-parse-ctx-from-string str (parsers)) #f 'scheme))
+    ((str initial-parser) (parse-parens (make-parse-ctx-from-string str (parsers)) #f initial-parser))))
 
 
 ;; Return mutable hashtable containing all known parsers.

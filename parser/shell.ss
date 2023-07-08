@@ -12,8 +12,8 @@
     parse-shell parse-shell* parse-shell-list parser-shell)
   (import
     (rnrs)
-    (only (chezscheme) reverse! unread-char)
-    (only (schemesh bootstrap) while)
+    (only (chezscheme) fx1- reverse! unread-char)
+    (only (schemesh bootstrap) until while)
     (schemesh containers charspan)
     (schemesh parser base))
 
@@ -513,9 +513,30 @@
 ;; (parens-token paren) is found. Such closing token is consumed too.
 ;;
 ;; Return the updated parser to use.
-(define (parse-shell-parens ctx paren)
-  (ctx-read-char ctx)
-  (parser-shell))
+(define (parse-shell-parens ctx start-token)
+  (let* ((paren     (make-parens 'shell start-token))
+         (end-token (case start-token ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else #f)))
+         (pos       (parse-ctx-pos ctx))
+         (done?     #f)
+         (fill-end? #t)
+         (%paren-fill-end! (lambda (paren)
+           (parens-end-x-set! paren (fx1- (car pos)))
+           (parens-end-y-set! paren (cdr pos)))))
+    (parens-start-x-set! paren (fx- (car pos) (if start-token 1 0)))
+    (parens-start-y-set! paren (cdr pos))
+    (until done?
+      (let ((token (ctx-read-char ctx)))
+        (cond
+          ;; TODO: implement!
+          ((eqv? token end-token) ; found matching close token
+             (set! done? #t))
+          ((eof-object? token)
+             (set! done? #t))
+          ; ignore unexpected tokens
+          )))
+    (when fill-end?
+      (%paren-fill-end! paren))
+    paren))
 
 
 (define parser-shell
