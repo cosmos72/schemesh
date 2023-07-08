@@ -26,7 +26,7 @@
     shell shell-list shell-backquote
 
     ; utils.ss
-    sh-autocomplete sh-current-time sh-expand-ps1 sh-home->~)
+    sh-autocomplete sh-current-time sh-expand-ps1 sh-home->~ sh-make-linectx)
 
   (import
     (schemesh shell jobs)

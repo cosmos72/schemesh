@@ -9,6 +9,7 @@
 (library (schemesh parser (0 1))
   (export
     ; base.ss
+    make-parse-ctx make-parse-ctx* parse-ctx?
     make-parser parser? parser-name parser-parse parser-parse* parser-parse-list
     get-parser to-parser ctx-skip-whitespace ctx-unread-char try-read-parser-directive
 
@@ -41,19 +42,19 @@
 ;;
 ;; Return two values: parsed form, and #t.
 ;; If end-of-file is reached, return (eof-object) and #f.
-(define (parse-form ctx initial-parser)
-  (let ((proc (parser-parse (to-parser ctx initial-parser 'parse-form))))
-    (proc ctx)))
+(define (parse-form pctx initial-parser)
+  (let ((func (parser-parse (to-parser pctx initial-parser 'parse-form))))
+    (func pctx)))
 
 
 ;; Call parse-scheme*, parse-shell* or whatever is the parser specified as initial-parser.
 ;;
 ;; Return parsed form.
 ;; Raise syntax-errorf if end-of-file is reached before completely reading a form.
-(define (parse-form* ctx initial-parser)
-  (let-values (((value ok) (parse-form ctx initial-parser)))
+(define (parse-form* pctx initial-parser)
+  (let-values (((value ok) (parse-form pctx initial-parser)))
     (unless ok
-      (syntax-errorf ctx 'parse-form* "unexpected end-of-file"))
+      (syntax-errorf pctx 'parse-form* "unexpected end-of-file"))
     value))
 
 
@@ -63,10 +64,10 @@
 ;;
 ;; Return parsed list.
 ;; Raise syntax-errorf if mismatched end token is found, as for example ']' instead of ')'
-(define (parse-form-list ctx begin-type already-parsed-reverse initial-parser)
-  (let ((proc (parser-parse-list
-                (to-parser ctx initial-parser 'parse-form-list))))
-    (proc ctx begin-type already-parsed-reverse)))
+(define (parse-form-list pctx begin-type already-parsed-reverse initial-parser)
+  (let ((func (parser-parse-list
+                (to-parser pctx initial-parser 'parse-form-list))))
+    (func pctx begin-type already-parsed-reverse)))
 
 
 ;; Parse textual input port until eof, using the parser specified by initial-parser,
@@ -76,12 +77,12 @@
 ;; Return two values.
 ;; First value is parsed forms: each element in the list is a parsed form.
 ;; Second value is updated parser to use.
-(define (parse-forms ctx initial-parser)
-  (let ((current-parser (to-parser ctx initial-parser 'parse-forms))
+(define (parse-forms pctx initial-parser)
+  (let ((current-parser (to-parser pctx initial-parser 'parse-forms))
         (ret '())
         (again? #t))
     (while again?
-      (let-values (((form ok) (parse-form ctx current-parser)))
+      (let-values (((form ok) (parse-form pctx current-parser)))
         (if ok
           (if (parser? form)
             (set! current-parser form)
@@ -99,10 +100,10 @@
 ;;
 ;; Return a parens describing the ( [ { " ' ` | characters in input stream,
 ;; their position, and the position of their matching ) ] } " ' ` |
-(define (parse-parens ctx start-token initial-parser)
-  (let* ((current-parser (to-parser ctx initial-parser 'parse-parens))
+(define (parse-parens pctx start-token initial-parser)
+  (let* ((current-parser (to-parser pctx initial-parser 'parse-parens))
          (current-parse-parens (parser-parse-parens current-parser)))
-    (current-parse-parens ctx start-token)))
+    (current-parse-parens pctx start-token)))
 
 
 ;; Simple wrapper around parse-parens, useful for testing

@@ -7,7 +7,7 @@
 
 
 (library (schemesh shell utils (0 1))
-  (export sh-autocomplete sh-current-time sh-expand-ps1 sh-home->~)
+  (export sh-autocomplete sh-current-time sh-expand-ps1 sh-home->~ sh-make-linectx)
   (import
     (rnrs)
     (rnrs mutable-strings)
@@ -15,17 +15,20 @@
     (schemesh bootstrap)
     (schemesh containers)
     (only (schemesh lineedit base) charline-ref)
+    (schemesh io)
     (schemesh lineedit)
     (schemesh posix misc)
+    (schemesh parser base)
+    (schemesh parser)
     (schemesh shell jobs))
 
 ; update linectx-completion-stem and linectx-completions with possible completions
-(define (sh-autocomplete ctx)
+(define (sh-autocomplete lctx)
   ; TODO: handle lines longer than tty width
-  (let ((line  (linectx-line ctx))
-        (pos   (linectx-x ctx))
-        (stem  (linectx-completion-stem ctx))
-        (completions (linectx-completions ctx)))
+  (let ((line  (linectx-line lctx))
+        (pos   (linectx-x lctx))
+        (stem  (linectx-completion-stem lctx))
+        (completions (linectx-completions lctx)))
     (charspan-clear! stem)
     (span-clear! completions)
     (while (and (fx>? pos 0) (char>=? (charline-ref line (fx1- pos)) #\space))
@@ -60,9 +63,9 @@
     str))
 
 ; update linectx-prompt and linectx-prompt-length with new prompt
-(define (sh-expand-ps1 ctx)
+(define (sh-expand-ps1 lctx)
   (let* ((src (sh-env-ref sh-globals "SCHEMESH_PS1")) ; string
-         (prompt (linectx-prompt ctx))
+         (prompt (linectx-prompt lctx))
          (prompt-len 0)
          (hidden  0)
          (escape? #f)
@@ -90,7 +93,7 @@
               ((#\h #\H) (%append-string (c-hostname)))
               ; ((#\n)   (%append-char     #\newline)) ; breaks computing prompt-end-x/y
               ; ((#\r)   (%append-char     #\return))  ; breaks computing prompt-end-x/y
-              ((#\s)     (%append-string   (symbol->string (linectx-parser-name ctx))))
+              ((#\s)     (%append-string   (symbol->string (linectx-parser-name lctx))))
               ((#\@ #\A #\T #\t)    (%append-string (sh-current-time ch)))
               ((#\u)     (%append-string   (sh-env-ref sh-globals "USER")))
               ((#\w)     (%append-charspan (sh-home->~ (sh-cwd))))
@@ -99,7 +102,7 @@
           (case ch
             ((#\\)   (set! escape? #t))
             (else    (%append-char ch))))))
-    (linectx-prompt-length-set! ctx prompt-len)))
+    (linectx-prompt-length-set! lctx prompt-len)))
 
 ; if charspan path begins with user's $HOME, replace it with ~
 (define (sh-home->~ path)
@@ -113,5 +116,27 @@
           (set! ret (string->charspan "~"))
           (charspan-csp-insert-back! ret path home-len (fx- path-len home-len)))))
     ret))
+
+;; recreate (linectx-parens lctx) if it's #f, then find match for character at cursor
+;; and update (linectx-match-x) (linectx-match-y) to its position,
+;; or to -1 -1 if no match is found.
+(define (sh-parse-parens lctx enabled-parsers)
+  (let ((parens (sh-update-parens lctx enabled-parsers)))
+    (let-values (((x y) (parens-find-match parens (linectx-x lctx) (linectx-y lctx))))
+      (linectx-match-x-set! lctx x)
+      (linectx-match-y-set! lctx y))))
+
+;; recreate (linectx-parens lctx) if it's #f, and return it
+(define (sh-update-parens lctx enabled-parsers)
+  (let ((parens (linectx-parens lctx)))
+    (unless parens
+      (let* ((in (open-gbuffer-of-chargbuffers-input-port (linectx-lines lctx)))
+             (pctx (make-parse-ctx enabled-parsers 0 0)))
+        (set! parens (parse-parens pctx #f (linectx-parser-name lctx)))
+        (linectx-parens-set! lctx parens)))
+    parens))
+
+(define (sh-make-linectx)
+  (make-linectx* sh-expand-ps1 sh-parse-parens sh-autocomplete))
 
 ) ; close library

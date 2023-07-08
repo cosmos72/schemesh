@@ -17,11 +17,10 @@
     (only (schemesh containers) list-iterate)
     (schemesh io)
     (schemesh lineedit)
-    (only (schemesh parser base) make-parse-ctx*)
     (schemesh parser)
     (schemesh posix signal)
     (schemesh posix tty)
-    (only (schemesh shell) sh-consume-sigchld sh-expand-ps1 sh-autocomplete))
+    (only (schemesh shell) sh-consume-sigchld sh-make-linectx))
 
 ;
 ; Read user input.
@@ -166,7 +165,7 @@
 ; 'parser initial-parser   - defaults to 'shell
 ; 'parsers enabled-parsers - defaults to (parsers)
 ; 'eval eval-func          - defaults to repl-eval
-; 'linectx ctx             - defaults to (make-linectx sh-expand-ps1 sh-autocomplete)
+; 'linectx ctx             - defaults to (sh-make-linectx)
 ;
 ; Returns linectx, usable for further calls to (repl)
 (define (repl . args)
@@ -188,6 +187,6 @@
     (repl* (if initial-parser?  initial-parser 'shell)
            (if enabled-parsers? enabled-parsers (parsers))
            (if eval-func? eval-func repl-eval)
-           (if ctx? ctx (make-linectx sh-expand-ps1 sh-autocomplete)))))
+           (if ctx? ctx (sh-make-linectx)))))
 
 ) ; close library

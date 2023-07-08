@@ -11,7 +11,7 @@
     make-parens parens? parens-name parens-token
     parens-start-x parens-start-x-set! parens-start-y parens-start-y-set!
     parens-end-x   parens-end-x-set!   parens-end-y   parens-end-y-set!
-    parens-inner   parens-inner-append!
+    parens-find-match   parens-inner   parens-inner-append!
 
     make-parse-ctx make-parse-ctx* make-parse-ctx-from-string parse-ctx?
     parse-ctx-in parse-ctx-pos parse-ctx-enabled-parsers
@@ -66,6 +66,12 @@
       (span-insert-back! inner nested-parens)
       (parens-inner-set! parens (span nested-parens)))))
 
+
+;; traverse parens and find match for character at (x . y), if any.
+;; return two values: x and y of match, or -1 and -1.
+(define (parens-find-match parens x y)
+  ; TODO: implement (parens-find-match)
+  (values -1 -1))
 
 
 ;; parser is an object containing four procedures:

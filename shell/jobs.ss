@@ -857,7 +857,7 @@
     %multijob-run-list* children-jobs-with-colon-ampersand))
 
 (define (sh-run-capture-output job)
-  ; TODO: implement
+  ; TODO: implement (sh-run-capture-output)
   "")
 
 ; customize how "job" objects are printed

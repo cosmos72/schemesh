@@ -137,7 +137,7 @@
             "invalid token in #!r6rs syntax, only allowed in #!scheme syntax: ~a"
             (lex-type->string type)))
         (parse-vector ctx type value flavor))
-      ;; TODO implement types: record-brack fasl insert mark
+      ; TODO implement types: record-brack fasl insert mark
       (else   (syntax-errorf ctx (caller-for flavor) "unexpected token type: ~a" type)))
     type))
 
@@ -279,6 +279,7 @@
         (case ch
           ((#\( #\) #\[ #\] #\{ #\} #\" #\|) (set! ret ch))
           ((#\#)  (set! ret (scan-lisp-sharp ctx)))
+          ((#\\)  (ctx-read-char ctx)) ; consume one char after \
           ((#\;)  (ctx-skip-line ctx))
           (else (when (eof-object? ch) (set! ret ch))))))
     ret))
