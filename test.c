@@ -537,11 +537,23 @@ static const struct {
      "  'scheme))",
      "(((+ a b) (shell ls -al >> log.txt) foo bar) #<parser scheme>)"},
     /* ------------------------ parse-parens -------------------------------- */
-    {"(parse-parens-from-string \"(foo \\\"a\\\" \\\"b\\\" [* |2| 3])\")",
-     "#<parens _(\"\" \"\" [||])_>"},
+    {"(parse-parens-from-string \"(foo \\\"a()\\\" \\\"b[]\\\" \\\"c{}\\\" [* |2| 3])\")",
+     "#<parens _(\"\" \"\" \"\" [||])_>"},
     {"(parse-parens-from-string \"#\\newline #\\\\( #\\\\) #\\\\[ #\\\\] #\\\\{ #\\\\} #\\\\#\")",
      "#<parens __>"},
     {"(parse-parens-from-string \"#| comment . , \\\\ |#\")", "#<parens _##_>"},
+    /* [] are not special in shell syntax, and `` are not special in lisp syntax */
+    {"(parse-parens-from-string \"{[(``)]}\")", "#<parens _{()}_>"},
+    /* [] are grouping tokens in lisp syntaxm and `` are grouping tokens in shell syntax */
+    {"(parse-parens-from-string \"([{``}])\")", "#<parens _([{``}])_>"},
+    /* test $( shell syntax )*/
+    {"(parse-parens-from-string \"{$(`{}()`)}\")", "#<parens _{(`{} ()`)}_>"},
+    /* test single-quoted strings in shell syntax */
+    {"(parse-parens-from-string \"{'foo\\\"bar{}[]()``baz'}\")", "#<parens _{''}_>"},
+    /* test double-quoted strings in shell syntax */
+    {"(parse-parens-from-string \"{\\\"foobar{}[]``baz\\\"}\")", "#<parens _{\"{} ``\"}_>"},
+    /** parens are not special in shell syntax inside double quoted string */
+    {"(parse-parens-from-string \"{\\\"()\\\"}\")", "#<parens _{\"\"}_>"},
 
     /* -------------------------- tty --------------------------------------- */
     {"(let ((sz (tty-size)))\n"

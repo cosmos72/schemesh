@@ -503,6 +503,42 @@
     (if reverse? (reverse! ret) ret)))
 
 
+;; Read until one of ( ) { } ' " ` $( is found, and return it.
+;; ignore them if they are preceded by \
+;; if $( is found, return $
+;; Also recognize and return parser directives #!... and return them
+(define (scan-shell-parens-or-directive ctx)
+  (ctx-skip-whitespace ctx 'also-skip-newlines)
+  ;; cannot switch to other parser here: just return its name and let caller switch
+  (or (try-read-parser-directive ctx)
+      (scan-shell-parens ctx)))
+
+
+;; Read until one of ( ) { } ' " ` $( is found, and return it.
+;; ignore them if they are preceded by \
+;; if $( is found, return $
+;; Does not recognize parser directives #!... use (scan-shell-parens-or-directive)
+;; for that
+(define (scan-shell-parens ctx)
+  (let ((ret #f)
+        (prev-char #f))
+    (until ret
+      (let ((ch (ctx-read-char ctx)))
+        (case ch
+          ((#\()  #| make vscode happy: #\) |#
+             (set! ret (if (eqv? prev-char #\$) prev-char ch)))
+
+          #| make vscode happy: #\( |#
+          ((#\) #\{ #\} #\" #\' #\`) (set! ret ch))
+
+          ((#\\)  (ctx-read-char ctx)) ; consume one character after backslash
+
+          ((#\#)  (ctx-skip-whitespace ctx #f))
+          (else (when (eof-object? ch) (set! ret ch))))
+        (set! prev-char ch)))
+    ret))
+
+
 ;; Read shell forms from textual input port (parse-ctx-in ctx),
 ;; collecting grouping tokens i.e. ( ) [ ] { } " ' ` and filling paren with them.
 ;;
@@ -515,27 +551,50 @@
 ;; Return the updated parser to use.
 (define (parse-shell-parens ctx start-token)
   (let* ((paren     (make-parens 'shell start-token))
-         (end-token (case start-token ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else #f)))
+         (end-token (case start-token ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else start-token)))
          (pos       (parse-ctx-pos ctx))
          (done?     #f)
-         (fill-end? #t)
          (%paren-fill-end! (lambda (paren)
            (parens-end-x-set! paren (fx1- (car pos)))
            (parens-end-y-set! paren (cdr pos)))))
     (parens-start-x-set! paren (fx- (car pos) (if start-token 1 0)))
     (parens-start-y-set! paren (cdr pos))
     (until done?
-      (let ((token (ctx-read-char ctx)))
+      (let ((token (scan-shell-parens-or-directive ctx)))
         (cond
-          ;; TODO: implement!
+          ((not token) ; not a grouping token
+             #f)
+
           ((eqv? token end-token) ; found matching close token
              (set! done? #t))
+
+          ((memv token '(#\{ #\" #\` #\$))
+             ; recursion: call shell parser on nested list
+             (parens-inner-append! paren (parse-shell-parens ctx (if (eqv? token #\$) #\( token))))
+             #| make vscode happy: #\) |#
+
+          ((eqv? token #\()                  #| make vscode happy: #\) |#
+             (unless (eqv? start-token #\")
+               ; parens not inside double quotes, switch to scheme parser
+               ; recursion: call scheme parser on nested list
+               (let* ((other-parser (get-parser ctx 'scheme 'parse-shell-parens))
+                      (other-parse-parens (parser-parse-parens other-parser)))
+                 (parens-inner-append! paren (other-parse-parens ctx token)))))
+
+          ((eqv? token #\')       ; found single-quoted string
+             (unless (eqv? start-token #\")
+               (let ((inner (make-parens 'shell token)))
+                 (parens-start-x-set! paren (fx- (car pos) 1))
+                 (parens-start-y-set! paren (cdr pos))
+                 (ctx-skip-until-char ctx #\')
+                 (%paren-fill-end! inner)
+                 (parens-inner-append! paren inner))))
+
           ((eof-object? token)
              (set! done? #t))
           ; ignore unexpected tokens
           )))
-    (when fill-end?
-      (%paren-fill-end! paren))
+    (%paren-fill-end! paren)
     paren))
 
 

@@ -284,7 +284,7 @@
     ret))
 
 
-;; scan a token after # (the # character was already consumed)
+;; scan a token after # (the # character was already consumed) and return it
 (define (scan-lisp-sharp ctx)
   (let ((ch (ctx-read-char ctx)))
     (case ch
@@ -343,7 +343,6 @@
          (end-token (case start-token ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else #f)))
          (pos       (parse-ctx-pos ctx))
          (done?     #f)
-         (fill-end? #t)
          (%paren-fill-end! (lambda (paren)
            (parens-end-x-set! paren (fx1- (car pos)))
            (parens-end-y-set! paren (cdr pos)))))
@@ -355,7 +354,7 @@
           ((not token) ; not a grouping token
              #f)
 
-          ((memv token '(#\( #\[))               #| make vscode happy #\) |#
+          ((memv token '(#\( #\[))               #| make vscode happy: #\) |#
              ; recursion: call lisp parser on nested list
              (parens-inner-append! paren (parse-lisp-parens ctx token flavor)))
 
@@ -397,8 +396,7 @@
           ; ignore unexpected tokens
           )))
 
-    (when fill-end?
-      (%paren-fill-end! paren))
+    (%paren-fill-end! paren)
     paren))
 
 
