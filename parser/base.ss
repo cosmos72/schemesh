@@ -202,8 +202,7 @@
 
 ;; Peek a character from textual input port (parse-ctx-in ctx)
 (define (ctx-peek-char ctx)
-  (unless (parse-ctx? ctx)
-    (break))
+  (assert (parse-ctx? ctx))
   (peek-char (parse-ctx-in ctx)))
 
 
@@ -211,8 +210,7 @@
 ;;
 ;; also updates (parse-ctx-pos ctx)
 (define (ctx-read-char ctx)
-  (unless (parse-ctx? ctx)
-    (break))
+  (assert (parse-ctx? ctx))
   (let ((ch (read-char (parse-ctx-in ctx))))
     (ctx-increment-pos ctx ch)
     ch))
@@ -349,8 +347,8 @@
 (define (close-token-for token)
   (case token
     ((#\() #\)) ((#\[) #\]) ((#\{) #\})
-    ((#\") #\") ((#\') #\') ((#\`) #\`) ((#\|) #\|)
-    (else #\_)))
+    ((#\") #\") ((#\') #\') ((#\`) #\`)
+    ((#\|) #\|) ((#\#) #\#) (else #\_)))
 
 ;; customize how "parens" objects are printed
 (record-writer (record-type-descriptor parens)

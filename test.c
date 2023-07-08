@@ -537,8 +537,11 @@ static const struct {
      "  'scheme))",
      "(((+ a b) (shell ls -al >> log.txt) foo bar) #<parser scheme>)"},
     /* ------------------------ parse-parens -------------------------------- */
-    {"(parse-parens-from-string \"(string-concat \\\"a\\\" \\\"b\\\" [* |2| 3])\")",
+    {"(parse-parens-from-string \"(foo \\\"a\\\" \\\"b\\\" [* |2| 3])\")",
      "#<parens _(\"\" \"\" [||])_>"},
+    {"(parse-parens-from-string \"#\\newline #\\\\( #\\\\) #\\\\[ #\\\\] #\\\\{ #\\\\} #\\\\#\")",
+     "#<parens __>"},
+    {"(parse-parens-from-string \"#| comment . , \\\\ |#\")", "#<parens _##_>"},
 
     /* -------------------------- tty --------------------------------------- */
     {"(let ((sz (tty-size)))\n"

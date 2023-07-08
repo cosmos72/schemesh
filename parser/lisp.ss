@@ -290,7 +290,7 @@
     (case ch
       ((#\\) (ctx-read-char ctx) #f) ; consume one char after #\
       ((#\( #\[ #\{) ch) ; treat #( #[ #{ respectively as ( [ {
-      ((#\|) #\#) ; return # if start of block comment #| is found
+      ((#\|) #\#) ; found start of block comment #| thus return #
       (else #f))))
 
 
@@ -302,8 +302,8 @@
         (cond
           ((eof-object? ch)
         (set! done? #t))
-          ((and (eqv? #\| ch) (eqv? #\# (ctx-peek-char ch)))
-            (ctx-read-char ch)
+          ((and (eqv? #\| ch) (eqv? #\# (ctx-peek-char ctx)))
+            (ctx-read-char ctx)
             (set! done? #t)))))))
 
 
@@ -352,6 +352,9 @@
     (until done?
       (let ((token (scan-lisp-parens-or-directive ctx)))
         (cond
+          ((not token) ; not a grouping token
+             #f)
+
           ((memv token '(#\( #\[))               #| make vscode happy #\) |#
              ; recursion: call lisp parser on nested list
              (parens-inner-append! paren (parse-lisp-parens ctx token flavor)))
