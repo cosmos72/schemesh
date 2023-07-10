@@ -24,17 +24,30 @@
     parse-shell parse-shell* parse-shell-list parser-shell
 
     ; parser.ss
-    parse-form parse-form* parse-form-list parse-forms parse-parens parse-parens-from-string
+    parse-form parse-form* parse-form-list parse-forms
+    parse-parens parse-parens-from-string make-parenmatcher
     parsers)
   (import
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) reverse! void)
     (only (schemesh bootstrap) until while)
+    (only (schemesh lineedit parenmatcher) make-custom-parenmatcher)
     (schemesh parser base)
     (schemesh parser r6rs)
     (schemesh parser scheme)
     (schemesh parser shell))
+
+
+;; Return mutable hashtable containing all known parsers.
+(define parsers
+  (let ((ret (make-eq-hashtable)))
+    (hashtable-set! ret 'r6rs       (parser-r6rs))
+    (hashtable-set! ret 'scheme     (parser-scheme))
+    (hashtable-set! ret 'chezscheme (parser-scheme))
+    (hashtable-set! ret 'shell      (parser-shell))
+    (lambda ()
+      ret)))
 
 
 ;; Call parse-scheme, parse-shell or whatever is the parser specified as initial-parser.
@@ -113,14 +126,19 @@
     ((str initial-parser) (parse-parens (make-parse-ctx-from-string str (parsers)) #f initial-parser))))
 
 
-;; Return mutable hashtable containing all known parsers.
-(define parsers
-  (let ((ret (make-eq-hashtable)))
-    (hashtable-set! ret 'r6rs       (parser-r6rs))
-    (hashtable-set! ret 'scheme     (parser-scheme))
-    (hashtable-set! ret 'chezscheme (parser-scheme))
-    (hashtable-set! ret 'shell      (parser-shell))
-    (lambda ()
-      ret)))
+;; Create a parenmatcher that uses parse-parens to find matching parenthesis and grouping tokens
+(define (make-parenmatcher)
+  (make-custom-parenmatcher parse-parens-update parens-hashtable-lookup))
+
+;; Stored by (make-parenmatcher) in returned parenmatcher:
+;;
+;; actually parse textual input port for matching parenthesis and grouping tokens,
+;; and create corresponding parenmatcher state, which is a hashtable (+ x (* y 65536)) -> parens
+(define (parse-parens-update in initial-parser enabled-parsers)
+  (let* ((pctx (make-parse-ctx in enabled-parsers 0 0))
+         (parens (parse-parens pctx #f initial-parser)))
+    (parens->hashtable parens)))
+
+
 
 ) ; close library

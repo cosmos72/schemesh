@@ -11,7 +11,8 @@
     make-parens parens? parens-name parens-token
     parens-start-x parens-start-x-set! parens-start-y parens-start-y-set!
     parens-end-x   parens-end-x-set!   parens-end-y   parens-end-y-set!
-    parens-find-match   parens-inner   parens-inner-append!
+    parens-inner   parens-inner-append!
+    parens->hashtable parens-hashtable-lookup
 
     make-parse-ctx make-parse-ctx* make-parse-ctx-from-string parse-ctx?
     parse-ctx-in parse-ctx-pos parse-ctx-enabled-parsers
@@ -66,12 +67,36 @@
       (span-insert-back! inner nested-parens)
       (parens-inner-set! parens (span nested-parens)))))
 
+;; traverse parens and convert it to a hashtable (+ x (* y 65536)) -> parens
+(define (parens->hashtable parens)
+  (%parens->hashtable parens (make-eqv-hashtable)))
 
-;; traverse parens and find match for character at (x . y), if any.
-;; return two values: x and y of match, or -1 and -1.
-(define (parens-find-match parens x y)
-  ; TODO: implement (parens-find-match)
-  (values -1 -1))
+;; traverse parens and convert it to a hashtable (+ x (* y 65536)) -> parens
+(define (%parens->hashtable parens htable)
+  (let ((inner-span (parens-inner parens)))
+    (when inner-span
+      (span-iterate inner-span
+        (lambda (i inner)
+          (%parens->hashtable inner htable))))
+    (%hashtable-put-parens htable parens)))
+
+;; add parens to hashtable, using both positions start-x start-y and end-x end-y
+(define (%hashtable-put-parens htable parens)
+  (hashtable-set! htable (xy->key (parens-start-x parens) (parens-start-y parens)) parens)
+  (hashtable-set! htable (xy->key (parens-end-x parens)   (parens-end-y parens))   parens)
+  htable)
+
+(define (xy->key x y)
+  (fx+ x (fx* y 65536)))
+
+(define (parens-hashtable-lookup htable x y)
+  (let ((parens (hashtable-ref htable (xy->key x y) #f)))
+    (if parens
+      (if (and (fx=? x (parens-start-x parens))
+               (fx=? y (parens-start-y parens)))
+        (values (parens-end-x parens)   (parens-end-y parens))
+        (values (parens-start-x parens) (parens-start-y parens)))
+      (values -1 -1))))
 
 
 ;; parser is an object containing four procedures:

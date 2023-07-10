@@ -9,7 +9,7 @@
   (export
     make-linectx make-linectx* linectx? linectx-line linectx-lines
     linectx-x linectx-y linectx-match-x-set! linectx-match-y-set!
-    linectx-parens linectx-parens-set!
+    linectx-parenmatcher
     linectx-completions linectx-completion-stem
     linectx-parser-name linectx-parser-name-set!
     linectx-prompt linectx-prompt-length linectx-prompt-length-set!
@@ -34,7 +34,9 @@
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh posix fd)
-    (schemesh lineedit base)
+    (schemesh lineedit charlines)
+    (schemesh lineedit charhistory)
+    (schemesh lineedit parenmatcher)
     (schemesh posix tty)
     (only (schemesh posix signal) signal-consume-sigwinch))
 
@@ -66,11 +68,7 @@
     (mutable prompt-length) ; fixnum, prompt display length
     ; procedure, receives linectx as argument and should update prompt and prompt-length
     (mutable prompt-func)
-    ; procedure, receives linectx as argument and should update parens if #f
-    ; and return position of parenthesis, bracket, brace, single quote, double quote,
-    ; backquote or sharp sign matching the one at current cursor position
-    (mutable parse-parens-func)
-    (mutable parens)
+    parenmatcher
     completions     ;         span of charspans, possible completions
     completion-stem ;         charspan, chars from lines used as stem
     ; procedure, receives linectx as argument and should update completions and stem
@@ -124,10 +122,10 @@
 ;;
 ;; argument prompt-func must be #f or a procedure accepting linectx,
 ;; and updating linectx-completions
-(define (make-linectx* prompt-func parse-parens-func completion-func)
+(define (make-linectx* prompt-func parenmatcher completion-func)
   (assert (procedure? prompt-func))
-  (when parse-parens-func
-    (assert (procedure? parse-parens-func)))
+  (when parenmatcher
+    (assert (parenmatcher? parenmatcher)))
   (when completion-func
     (assert (procedure? completion-func)))
   (let* ((sz    (tty-size))
@@ -146,7 +144,7 @@
       'shell                     ; parser-name
       (bytespan) 0 0             ; prompt prompt-end-x prompt-end-y
       0 prompt-func              ; prompt-length prompt-func
-      parse-parens-func #f       ; parse-parens-func parens
+      parenmatcher               ; parenmatcher
       (span) (charspan) completion-func ; completions stem completion-func
       lineedit-default-keytable  ; keytable
       0 (charhistory))))         ; history
@@ -167,10 +165,10 @@
        (make-linectx* default-prompt-func #f #f))
     ((prompt-func)
        (make-linectx* prompt-func #f #f))
-    ((prompt-func parse-parens-func)
-       (make-linectx* prompt-func parse-parens-func #f))
-    ((prompt-func parse-parens-func completion-func)
-       (make-linectx* prompt-func parse-parens-func completion-func))))
+    ((prompt-func parenmatcher)
+       (make-linectx* prompt-func parenmatcher #f))
+    ((prompt-func parenmatcher completion-func)
+       (make-linectx* prompt-func parenmatcher completion-func))))
 
 ;; Clear and recreate line and lines: they may have been saved to history,
 ;; which retains them.

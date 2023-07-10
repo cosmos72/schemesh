@@ -7,15 +7,17 @@
 
 
 (library (schemesh shell utils (0 1))
-  (export sh-autocomplete sh-current-time sh-expand-ps1 sh-home->~ sh-make-linectx)
+  (export
+    sh-autocomplete sh-current-time sh-expand-ps1 sh-home->~ sh-make-linectx)
   (import
     (rnrs)
     (rnrs mutable-strings)
     (only (chezscheme) current-date date-hour date-minute date-second fx1+ fx1-)
     (schemesh bootstrap)
     (schemesh containers)
-    (only (schemesh lineedit base) charline-ref)
+    (only (schemesh lineedit charlines) charline-ref)
     (schemesh lineedit io)
+    (schemesh lineedit parenmatcher)
     (schemesh lineedit)
     (schemesh posix misc)
     (schemesh parser base)
@@ -117,26 +119,8 @@
           (charspan-csp-insert-back! ret path home-len (fx- path-len home-len)))))
     ret))
 
-;; recreate (linectx-parens lctx) if it's #f, then find match for character at cursor
-;; and update (linectx-match-x) (linectx-match-y) to its position,
-;; or to -1 -1 if no match is found.
-(define (sh-parse-parens lctx enabled-parsers)
-  (let ((parens (sh-update-parens lctx enabled-parsers)))
-    (let-values (((x y) (parens-find-match parens (linectx-x lctx) (linectx-y lctx))))
-      (linectx-match-x-set! lctx x)
-      (linectx-match-y-set! lctx y))))
-
-;; recreate (linectx-parens lctx) if it's #f, and return it
-(define (sh-update-parens lctx enabled-parsers)
-  (let ((parens (linectx-parens lctx)))
-    (unless parens
-      (let* ((in (open-charlines-input-port (linectx-lines lctx)))
-             (pctx (make-parse-ctx enabled-parsers 0 0)))
-        (set! parens (parse-parens pctx #f (linectx-parser-name lctx)))
-        (linectx-parens-set! lctx parens)))
-    parens))
 
 (define (sh-make-linectx)
-  (make-linectx* sh-expand-ps1 sh-parse-parens sh-autocomplete))
+  (make-linectx* sh-expand-ps1 (make-parenmatcher) sh-autocomplete))
 
 ) ; close library

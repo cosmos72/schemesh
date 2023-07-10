@@ -13,7 +13,7 @@
     (rnrs mutable-strings)
     (only (chezscheme) fx1+)
     (schemesh bootstrap)      ; until
-    (schemesh lineedit base)) ; charline charlines
+    (schemesh lineedit charlines))
 
 ; helper for input port wrapping a charline
 (define-record-type icport
@@ -140,14 +140,14 @@
       (iport-x-set! p x)
       (iport-y-set! p y))))
 
-; create an input port wrapping a charlines containing chargbuffers
+; create an input port wrapping a charlines
 (define open-charlines-input-port
-  (let ((empty-gb (charlines (charline))))
-    (lambda (gb)
-      (charlines-iterate gb
+  (let ((empty-lines (charlines (charline))))
+    (lambda (lines)
+      (charlines-iterate lines
         (lambda (i elem)
           (assert (charline? elem))))
-      (let ((p (make-iport 0 0 (if (charlines-empty? gb) empty-gb gb))))
+      (let ((p (make-iport 0 0 (if (charlines-empty? lines) empty-lines lines))))
         (make-custom-textual-input-port
           "charlines-input-port"
           (lambda (str start n) (iport-read-string p str start n))
