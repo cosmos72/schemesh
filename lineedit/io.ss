@@ -83,21 +83,25 @@
 ; helper for input port wrapping a charlines
 (define-record-type iport
   (fields
-    (mutable   x)        ; position in y-th charline
-    (mutable   y)        ; position in charlines
-    (immutable sources)) ; charlines to read from
+    (mutable   x)      ; position in y-th charline
+    (mutable   y)      ; position in charlines
+    (immutable lines)) ; charlines to read from
   (nongenerative #{iport cy8auoivds3jpsu99eergcoco-20}))
 
 (define (iport-read-char p)
   (let* ((x (iport-x p))
          (y (iport-y p))
-         (sources (iport-sources p))
-         (line  (charlines-ref sources y)))
+         (lines     (iport-lines p))
+         (line      (charlines-ref lines y))
+         (line-len  (charline-length line)))
     (cond
-      ((fx<? x (charline-length line))
+      ((fx<? x line-len)
         (iport-x-set! p (fx1+ x))
         (charline-ref line x))
-      ((fx<? (fx1+ y) (charlines-length sources))
+      ((and (fx=? x line-len) (charline-nl? line))
+        (iport-x-set! p (fx1+ x))
+        #\newline)
+      ((fx<? (fx1+ y) (charlines-length lines))
         ; end-of-line reached, go to next line
         (iport-x-set! p 0)
         (iport-y-set! p (fx1+ y))
@@ -126,11 +130,11 @@
   (unless (and (pair? pos) (fixnum? (car pos)) (fixnum? (cdr pos)))
     (raise (make-i/o-invalid-position-error pos)))
   (let ((y (cdr pos))
-        (sources (iport-sources p)))
+        (lines (iport-lines p)))
     (assert (fx>=? y 0))
-    (assert (fx<? y (charlines-length sources)))
+    (assert (fx<? y (charlines-length lines)))
     (let ((x (car pos))
-          (line (charlines-ref sources y)))
+          (line (charlines-ref lines y)))
       (assert (fx>=? x 0))
       (assert (fx<=? x (charline-length line)))
       (iport-x-set! p x)

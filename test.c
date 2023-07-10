@@ -402,6 +402,11 @@ static const struct {
      "  (open-charline-input-port\n"
      "    (string->charline* \"58gu405gu*(&)\\n\"))))",
      "58gu405gu*(&)\n"},
+    {"(get-string-all\n"
+     "  (open-charlines-input-port\n"
+     "    (charlines\n"
+     "      (string->charline* \"085ug&^%\\n\")))))",
+     "085ug&^%\n"},
     {"(read\n"
      "  (open-charline-input-port\n"
      "    (string->charline* \"(re8u (+ -) [* /] 'foo bar . baz)\"))))",
