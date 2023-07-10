@@ -212,7 +212,7 @@
 
 ;; save current linectx-lines to history, and return them
 (define (linectx-to-history ctx)
-;;  TODO: do not insert duplicates in history
+  ;; TODO: do not insert duplicates in history
   (let ((lines (linectx-lines ctx)))
     (charhistory-set! (linectx-history ctx) (linectx-history-index ctx) lines)
     lines))
@@ -699,7 +699,7 @@
     (let* ((lines (linectx-to-history ctx))
            (empty-line (charline)))
       (linectx-history-index-set! ctx (charhistory-length hist))
-      ; lines are referenced by history - allocate new ones
+      ; lines are referenced by history - allocate new ones and store them into linectx-lines
       (linectx-line-set! ctx empty-line)
       (linectx-lines-set! ctx (charlines empty-line))
       (linectx-x-set! ctx 0)

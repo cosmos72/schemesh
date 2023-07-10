@@ -6,77 +6,98 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh io (0 1))
-  (export open-chargbuffer-input-port open-gbuffer-of-chargbuffers-input-port)
+(library (schemesh lineedit io (0 1))
+  (export open-charline-input-port open-charlines-input-port)
   (import
     (rnrs)
     (rnrs mutable-strings)
     (only (chezscheme) fx1+)
-    (schemesh bootstrap) ; until
-    (schemesh containers))
+    (schemesh bootstrap)      ; until
+    (schemesh lineedit base)) ; charline charlines
 
-; helper for input port wrapping a chargbuffer
+; helper for input port wrapping a charline
 (define-record-type icport
   (fields
-    (immutable source) ; chargbuffer to read from
-    (mutable   pos))   ; position in chargbuffer
+    (immutable line)  ; charline to read from
+    (mutable   pos))  ; position in charline
   (nongenerative #{icport do8t0druatc9fhaize8s4a1wd-20}))
+
+;; Read logical #\newline from a charline wrapped inside an icport:
+;;
+;; if (charline-length line) equals line-pos, and (charline-nl? line) is true,
+;; and str-pos is smaller than (string-length str),
+;;
+;; then write #\newline into str at index str-pos, update position of icport and return #t;
+;; otherwise do nothing and return #f.
+(define (icport-maybe-read-newline p str str-pos line line-pos)
+  (if (and (charline-nl? line)
+           (fx=? line-pos (charline-length line))
+           (fx<? str-pos (string-length str)))
+    (begin
+      (string-set! str str-pos #\newline)
+      (icport-pos-set! p (fx1+ line-pos))
+      #t)
+    #f))
+
 
 (define (icport-read-string p str start n)
   (assert (fx>=? start 0))
   (assert (fx>=? n 0))
   (assert (fx<=? (fx+ start n) (string-length str)))
-  (let* ((source     (icport-source p))
-         (source-pos (icport-pos p))
-         (source-len (chargbuffer-length source))
-         (ret-n  (fxmin n (fx- source-len source-pos))))
-    (if (fx<=? ret-n 0)
-      0
+  (let* ((line     (icport-line p))
+         (line-pos (icport-pos p))
+         (line-len (charline-length line))
+         (ret-n    (fxmin n (fx- line-len line-pos))))
+    (when (fx>? ret-n 0)
       (do ((i 0 (fx1+ i)))
-           ((fx>=? i ret-n)
-             (icport-pos-set! p (fx+ ret-n source-pos))
-             ret-n)
-        (string-set! str (fx+ i start) (chargbuffer-ref source (fx+ i source-pos)))))))
+          ((fx>=? i ret-n)
+            (icport-pos-set! p (fx+ ret-n line-pos)))
+        (string-set! str (fx+ i start) (charline-ref line (fx+ i line-pos)))))
+    (when (and (fx>=? ret-n 0)
+               (icport-maybe-read-newline p str (fx+ start ret-n) line line-pos))
+      (set! ret-n (fx1+ ret-n)))
+    (fxmax 0 ret-n)))
+
 
 (define icport-position icport-pos)
 
 (define (icport-position-set! p pos)
   (unless (and (fixnum? pos)
                (fx>=? pos 0)
-               (fx<=? pos (chargbuffer-length (icport-source p))))
+               (fx<=? pos (charline-length (icport-line p))))
     (raise (make-i/o-invalid-position-error pos)))
   (icport-pos-set! p pos))
 
-; create an input port wrapping a chargbuffer
-(define (open-chargbuffer-input-port cgb)
-  (assert (chargbuffer? cgb))
+; create an input port wrapping a charline
+(define (open-charline-input-port cgb)
+  (assert (charline? cgb))
   (let ((p (make-icport cgb 0)))
     (make-custom-textual-input-port
-      "chargbuffer-input-port"
+      "charline-input-port"
       (lambda (str start n) (icport-read-string p str start n))
       (lambda ()            (icport-position     p))
       (lambda (pos)         (icport-position-set! p pos))
       #f))) ; nothing to do on (close-input-port)
 
 
-; helper for input port wrapping a gbuffer of chargbuffers
+; helper for input port wrapping a charlines
 (define-record-type iport
   (fields
-    (mutable   x)        ; position in y-th chargbuffer
-    (mutable   y)        ; position in gbuffer
-    (immutable sources)) ; gbuffer of chargbuffers to read from
+    (mutable   x)        ; position in y-th charline
+    (mutable   y)        ; position in charlines
+    (immutable sources)) ; charlines to read from
   (nongenerative #{iport cy8auoivds3jpsu99eergcoco-20}))
 
 (define (iport-read-char p)
   (let* ((x (iport-x p))
          (y (iport-y p))
          (sources (iport-sources p))
-         (source  (gbuffer-ref sources y)))
+         (line  (charlines-ref sources y)))
     (cond
-      ((fx<? x (chargbuffer-length source))
+      ((fx<? x (charline-length line))
         (iport-x-set! p (fx1+ x))
-        (chargbuffer-ref source x))
-      ((fx<? (fx1+ y) (gbuffer-length sources))
+        (charline-ref line x))
+      ((fx<? (fx1+ y) (charlines-length sources))
         ; end-of-line reached, go to next line
         (iport-x-set! p 0)
         (iport-y-set! p (fx1+ y))
@@ -107,24 +128,24 @@
   (let ((y (cdr pos))
         (sources (iport-sources p)))
     (assert (fx>=? y 0))
-    (assert (fx<? y (gbuffer-length sources)))
+    (assert (fx<? y (charlines-length sources)))
     (let ((x (car pos))
-          (source (gbuffer-ref sources y)))
+          (line (charlines-ref sources y)))
       (assert (fx>=? x 0))
-      (assert (fx<=? x (chargbuffer-length source)))
+      (assert (fx<=? x (charline-length line)))
       (iport-x-set! p x)
       (iport-y-set! p y))))
 
-; create an input port wrapping a gbuffer containing chargbuffers
-(define open-gbuffer-of-chargbuffers-input-port
-  (let ((empty-gb (gbuffer (chargbuffer))))
+; create an input port wrapping a charlines containing chargbuffers
+(define open-charlines-input-port
+  (let ((empty-gb (charlines (charline))))
     (lambda (gb)
-      (gbuffer-iterate gb
+      (charlines-iterate gb
         (lambda (i elem)
-          (assert (chargbuffer? elem))))
-      (let ((p (make-iport 0 0 (if (gbuffer-empty? gb) empty-gb gb))))
+          (assert (charline? elem))))
+      (let ((p (make-iport 0 0 (if (charlines-empty? gb) empty-gb gb))))
         (make-custom-textual-input-port
-          "gbuffer-input-port"
+          "charlines-input-port"
           (lambda (str start n) (iport-read-string p str start n))
           (lambda ()            (iport-position     p))
           (lambda (pos)         (iport-position-set! p pos))

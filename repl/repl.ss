@@ -15,7 +15,7 @@
       parameterize pretty-print reset-handler void)
     (schemesh bootstrap)
     (only (schemesh containers) list-iterate)
-    (schemesh io)
+    (schemesh lineedit io)
     (schemesh lineedit)
     (schemesh parser)
     (schemesh posix signal)
@@ -34,7 +34,7 @@
   (let ((ret (lineedit-read ctx -1)))
     (if (boolean? ret)
       ret
-      (open-gbuffer-of-chargbuffers-input-port ret))))
+      (open-charlines-input-port ret))))
 
 ;
 ; Parse user input.

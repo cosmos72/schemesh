@@ -328,19 +328,6 @@ static const struct {
      "  (chargbuffer-insert-at! gb 1 #\\x)\n"
      "  gb)",
      "(string->chargbuffer* \"axbe\")"},
-    /* --------------------- chargbuffer-input-port-------------------------- */
-    {"(read\n"
-     "  (open-chargbuffer-input-port\n"
-     "    (string->chargbuffer* \"(re8u (+ -) [* /] 'foo bar . baz)\"))))",
-     "(re8u (+ -) (* /) 'foo bar . baz)"},
-    /* --------------------- gbuffer-input-port-------------------------- */
-    {"(read\n"
-     "  (open-gbuffer-of-chargbuffers-input-port\n"
-     "    (gbuffer\n"
-     "      (string->chargbuffer* \"(urehg* (a . 'b) 12\")\n"
-     "      (chargbuffer)\n"
-     "      (string->chargbuffer* \"3.45e3 . #\\\\m)\"))))",
-     "(urehg* (a quote b) 123450.0 . m)"},
     /* --------------------- list ------------------------------------------- */
     {"(let ((ret '()))\n"
      "  (list-iterate '(a b c)\n"
@@ -410,6 +397,22 @@ static const struct {
      "((string->charline* \"foobar\") (string->charline* \"foo~/bar\"))"},
     {"(charlines (string->charline* \"foo/bar\") (string->charline \"\\n\"))",
      "(charlines (string->charline* \"foo/bar\") (string->charline* \"\\n\"))"},
+    /* ------------------------ lineedit io --------------------------------- */
+    {"(get-string-all\n"
+     "  (open-charline-input-port\n"
+     "    (string->charline* \"58gu405gu*(&)\\n\"))))",
+     "58gu405gu*(&)\n"},
+    {"(read\n"
+     "  (open-charline-input-port\n"
+     "    (string->charline* \"(re8u (+ -) [* /] 'foo bar . baz)\"))))",
+     "(re8u (+ -) (* /) 'foo bar . baz)"},
+    {"(read\n"
+     "  (open-charlines-input-port\n"
+     "    (charlines\n"
+     "      (string->charline* \"(urehg* (a . 'b) 12\")\n"
+     "      (charline)\n"
+     "      (string->charline* \"3.45e3 . #\\\\m\\n)\"))))",
+     "(urehg* (a quote b) 123450.0 . m)"},
     /* ------------------------ parser scheme ------------------------------- */
     {"(parse-scheme* (make-parse-ctx-from-string"
      "  \"(foo bar) '(a b)\"))",

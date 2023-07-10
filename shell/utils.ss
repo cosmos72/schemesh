@@ -15,7 +15,7 @@
     (schemesh bootstrap)
     (schemesh containers)
     (only (schemesh lineedit base) charline-ref)
-    (schemesh io)
+    (schemesh lineedit io)
     (schemesh lineedit)
     (schemesh posix misc)
     (schemesh parser base)
@@ -130,7 +130,7 @@
 (define (sh-update-parens lctx enabled-parsers)
   (let ((parens (linectx-parens lctx)))
     (unless parens
-      (let* ((in (open-gbuffer-of-chargbuffers-input-port (linectx-lines lctx)))
+      (let* ((in (open-charlines-input-port (linectx-lines lctx)))
              (pctx (make-parse-ctx enabled-parsers 0 0)))
         (set! parens (parse-parens pctx #f (linectx-parser-name lctx)))
         (linectx-parens-set! lctx parens)))
