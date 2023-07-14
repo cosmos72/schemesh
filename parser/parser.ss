@@ -128,16 +128,15 @@
 
 ;; Create a parenmatcher that uses parse-parens to find matching parenthesis and grouping tokens
 (define (make-parenmatcher)
-  (make-custom-parenmatcher parse-parens-update parens-hashtable-lookup))
+  (make-custom-parenmatcher parse-parens-update parens-hashtable-lookup #f))
 
-;; Stored by (make-parenmatcher) in returned parenmatcher:
+;; Function stored by (make-parenmatcher) into created parenmatcher:
 ;;
 ;; actually parse textual input port for matching parenthesis and grouping tokens,
 ;; and create corresponding parenmatcher state, which is a hashtable (+ x (* y 65536)) -> parens
-(define (parse-parens-update in initial-parser enabled-parsers)
-  (let* ((pctx (make-parse-ctx in enabled-parsers 0 0))
-         (parens (parse-parens pctx #f initial-parser)))
-    (parens->hashtable parens)))
+(define (parse-parens-update pctx initial-parser)
+  (assert (parse-ctx? pctx))
+  (parens->hashtable (parse-parens pctx #f initial-parser)))
 
 
 

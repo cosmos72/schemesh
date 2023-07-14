@@ -78,7 +78,9 @@
       (span-iterate inner-span
         (lambda (i inner)
           (%parens->hashtable inner htable))))
-    (%hashtable-put-parens htable parens)))
+    (when (parens-token parens)
+      (%hashtable-put-parens htable parens)))
+  htable)
 
 ;; add parens to hashtable, using both positions start-x start-y and end-x end-y
 (define (%hashtable-put-parens htable parens)
@@ -87,16 +89,19 @@
   htable)
 
 (define (xy->key x y)
-  (fx+ x (fx* y 65536)))
+  (fxior x (fxarithmetic-shift-left y 16)))
 
+;; function to be used as lookup-func in a parenmatcher
+;; returns three values: parser-name match-x match-y
+;; or #f -1 -1
 (define (parens-hashtable-lookup htable x y)
   (let ((parens (hashtable-ref htable (xy->key x y) #f)))
     (if parens
       (if (and (fx=? x (parens-start-x parens))
                (fx=? y (parens-start-y parens)))
-        (values (parens-end-x parens)   (parens-end-y parens))
-        (values (parens-start-x parens) (parens-start-y parens)))
-      (values -1 -1))))
+        (values (parens-name parens) (parens-end-x parens)   (parens-end-y parens))
+        (values (parens-name parens) (parens-start-x parens) (parens-start-y parens)))
+      (values #f -1 -1))))
 
 
 ;; parser is an object containing four procedures:

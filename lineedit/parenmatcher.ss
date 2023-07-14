@@ -7,7 +7,7 @@
 
 (library (schemesh lineedit parenmatcher (0 1))
   (export
-    parenmatcher? make-custom-parenmatcher)
+    parenmatcher? make-custom-parenmatcher parenmatcher-lookup)
   (import
     (rnrs)
     (only (chezscheme) record-writer))
@@ -19,14 +19,14 @@
 (define-record-type
   (parenmatcher %make-parenmatcher parenmatcher?)
   (fields
-    update-func       ; procedure
-    lookup-func       ; procedure
+    update-func       ; procedure (parse-ctx initial-parser) -> state
+    lookup-func       ; procedure (state x y) -> parser-name match-x match-y
     (mutable state)) ; #f or some state indexable by x and y
   (nongenerative #{parenmatcher mjy8nva9hgl7vh7srl6427u98-521}))
 
 ;; Create a parenmatcher containing user-specified procedures.
 ;;
-;; update-func must be a procedure accepting two argument: textual-input-port enabled-parsers
+;; update-func must be a procedure accepting two argument: parse-ctx initial-parsers
 ;; and returning one value: an opaque state.
 ;; it should parse textual-input-port, find matching parenthesis or grouping tokens,
 ;; and return an opaque state representing them.
@@ -53,11 +53,11 @@
 ;; then call (parenmatcher-lookup-func pm) to find parenthesis or grouping token
 ;; matching position x y and return such match-x match-y
 ;; or -1 -1 if no matching parenthesis or grouping token was found
-(define (parenmatcher-lookup pm in enabled-parsers x y)
+(define (parenmatcher-lookup pm pctx initial-parser x y)
   (if pm
     (let ((state (parenmatcher-state pm)))
       (unless state
-        (set! state ((parenmatcher-update-func pm) in enabled-parsers))
+        (set! state ((parenmatcher-update-func pm) pctx initial-parser))
         (parenmatcher-state-set! pm state))
       ((parenmatcher-lookup-func pm) state x y))
     (values -1 -1)))

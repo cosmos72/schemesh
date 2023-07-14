@@ -562,7 +562,14 @@ static const struct {
     {"(parse-parens-from-string \"{\\\"foobar{}[]``baz\\\"}\")", "#<parens _{\"{} ``\"}_>"},
     /** parens are not special in shell syntax inside double quoted string */
     {"(parse-parens-from-string \"{\\\"()\\\"}\")", "#<parens _{\"\"}_>"},
-
+    /* -------------------------- make-parenmatcher --------------------------*/
+    {"(values->list\n"
+     "  (parenmatcher-lookup\n"
+     "    (make-parenmatcher)\n"
+     "    (make-parse-ctx-from-string \"([{``}] #| |# )\" (parsers))\n"
+     "    'scheme\n"
+     "    6 0))",
+     "(scheme 1 0)"},
     /* -------------------------- tty --------------------------------------- */
     {"(let ((sz (tty-size)))\n"
      "  (and (pair? sz)\n"
