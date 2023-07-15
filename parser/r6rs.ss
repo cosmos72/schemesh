@@ -19,7 +19,7 @@
        read-token reverse!)
     (only (schemesh bootstrap) while)
     (only (schemesh containers misc) reverse*!)
-    (schemesh parser base)
+    (schemesh lineedit parser)
     (schemesh parser lisp))
 
 ; Read a single r6rs Scheme token from textual input port 'in.

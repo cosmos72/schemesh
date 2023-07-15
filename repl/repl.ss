@@ -30,8 +30,8 @@
 ; #f if got end-of-file
 ; #t if waiting for more keypresses
 ; a textual input port if user pressed ENTER.
-(define (repl-lineedit ctx)
-  (let ((ret (lineedit-read ctx -1)))
+(define (repl-lineedit lctx)
+  (let ((ret (lineedit-read lctx -1)))
     (if (boolean? ret)
       ret
       (open-charlines-input-port ret))))
@@ -39,8 +39,8 @@
 ;
 ; Parse user input.
 ; Arguments:
-;   ctx - a parsectx containing textual input port to parse, its position
-;         and a hashtable of enabled parsers (can be #f)
+;   pctx - a parsectx containing textual input port to parse, its position
+;          and a hashtable of enabled parsers (can be #f)
 ;   initial-parser - initial parser to use: a symbol or parser
 ;
 ; Automatically switches to other parsers if a directive #!... is found in a (possibly
@@ -112,9 +112,10 @@
 ; Calls in sequence (repl-lineedit) (repl-parse) (repl-eval-list) and (repl-print)
 ;
 ; Returns updated parser to use, or #f if got end-of-file.
-(define (repl-once ctx initial-parser enabled-parsers eval-func)
-  (linectx-parser-name-set! ctx (parser-name initial-parser))
-  (let ((in (repl-lineedit ctx)))
+(define (repl-once lctx initial-parser enabled-parsers eval-func)
+  (linectx-parser-name-set! lctx (parser-name initial-parser))
+  (linectx-parsers-set! lctx enabled-parsers)
+  (let ((in (repl-lineedit lctx)))
     (case in
       ((#f) #f)             ; got end-of-file
       ((#t) initial-parser) ; nothing to execute: waiting for more user input
@@ -129,7 +130,7 @@
 
 
 ; main loop of (repl) and (repl*)
-(define (repl-loop parser enabled-parsers eval-func ctx)
+(define (repl-loop parser enabled-parsers eval-func lctx)
   (call/cc
     (lambda (k-exit)
       (parameterize ((exit-handler k-exit) (reset-handler (reset-handler)))
@@ -140,39 +141,39 @@
           ; when the (reset-handler) we installed is called, resume from here
           (while updated-parser
             (set! parser updated-parser)
-            (set! updated-parser (repl-once ctx parser enabled-parsers eval-func))
+            (set! updated-parser (repl-once lctx parser enabled-parsers eval-func))
             (sh-consume-sigchld))))))
-  ctx)
+  lctx)
 
 ;
 ; top-level interactive repl with all arguments mandatory
 ; Returns linectx, usable for further calls to (repl) or (repl*)
-(define (repl* initial-parser enabled-parsers eval-func ctx)
+(define (repl* initial-parser enabled-parsers eval-func lctx)
   ; (to-parser) also checks initial-parser's and enabled-parser's validity
   (let ((parser (to-parser enabled-parsers initial-parser 'repl)))
     (assert (procedure? eval-func))
-    (assert (linectx? ctx))
+    (assert (linectx? lctx))
     (dynamic-wind
       (lambda ()
-        (lineedit-clear! ctx) (signal-init-sigwinch) (tty-setraw!))
+        (lineedit-clear! lctx) (signal-init-sigwinch) (tty-setraw!))
       (lambda ()
-        (repl-loop parser enabled-parsers eval-func ctx))
+        (repl-loop parser enabled-parsers eval-func lctx))
       (lambda ()
-        (tty-restore!) (signal-restore-sigwinch) (lineedit-finish ctx)))))
+        (tty-restore!) (signal-restore-sigwinch) (lineedit-finish lctx)))))
 
 ;
 ; top-level interactive repl with optional arguments:
 ; 'parser initial-parser   - defaults to 'shell
 ; 'parsers enabled-parsers - defaults to (parsers)
 ; 'eval eval-func          - defaults to repl-eval
-; 'linectx ctx             - defaults to (sh-make-linectx)
+; 'linectx lctx            - defaults to (sh-make-linectx)
 ;
 ; Returns linectx, usable for further calls to (repl)
 (define (repl . args)
   (let ((initial-parser #f)  (initial-parser? #f)
         (enabled-parsers #f) (enabled-parsers? #f)
         (eval-func #f)       (eval-func? #f)
-        (ctx #f)             (ctx? #f))
+        (lctx #f)             (lctx? #f))
     (do ((args-left args (cddr args)))
         ((null? args-left))
       (assert (not (null? (cdr args-left))))
@@ -182,11 +183,11 @@
           ((parser)  (set! initial-parser val)  (set! initial-parser? #t))
           ((parsers) (set! enabled-parsers val) (set! enabled-parsers? #t))
           ((eval)    (set! eval-func val)       (set! eval-func? #t))
-          ((linectx) (set! ctx val)             (set! ctx? #t))
+          ((linectx) (set! lctx val)             (set! lctx? #t))
           (else     (syntax-violation 'repl "unexpected argument:" opt)))))
     (repl* (if initial-parser?  initial-parser 'shell)
            (if enabled-parsers? enabled-parsers (parsers))
            (if eval-func? eval-func repl-eval)
-           (if ctx? ctx (sh-make-linectx)))))
+           (if lctx? lctx (sh-make-linectx)))))
 
 ) ; close library

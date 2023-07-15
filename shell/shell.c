@@ -114,13 +114,14 @@ void schemesh_import_libraries(void) {
        "  (import (schemesh containers))\n"
        "  (import (schemesh conversions))\n"
        "  (import (schemesh lineedit io))\n"
-       "  (import (schemesh parser base))\n"
-       "  (import (schemesh parser))\n"
-       "  (import (schemesh posix))\n"
+       "  (import (schemesh lineedit parser))\n"
        "  (import (schemesh lineedit charlines))\n"
        "  (import (schemesh lineedit charhistory))\n"
+       "  (import (schemesh lineedit parens))\n"
        "  (import (schemesh lineedit parenmatcher))\n"
        "  (import (schemesh lineedit))\n"
+       "  (import (schemesh parser))\n"
+       "  (import (schemesh posix))\n"
        "  (import (schemesh shell))\n"
        "  (import (schemesh repl)))\n");
 }

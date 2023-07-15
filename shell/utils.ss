@@ -18,9 +18,9 @@
     (only (schemesh lineedit charlines) charline-ref)
     (schemesh lineedit io)
     (schemesh lineedit parenmatcher)
+    (schemesh lineedit parser)
     (schemesh lineedit)
     (schemesh posix misc)
-    (schemesh parser base)
     (schemesh parser)
     (schemesh shell jobs))
 
@@ -121,6 +121,6 @@
 
 
 (define (sh-make-linectx)
-  (make-linectx* sh-expand-ps1 (make-parenmatcher) sh-autocomplete))
+  (make-linectx* sh-expand-ps1 (make-parenmatcher) sh-autocomplete #f))
 
 ) ; close library

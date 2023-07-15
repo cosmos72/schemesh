@@ -20,7 +20,7 @@
     (only (schemesh bootstrap) while until)
     (only (schemesh containers misc) reverse*!)
     (schemesh lineedit parens)
-    (schemesh parser base))
+    (schemesh lineedit parser))
 
 
 ;; Read a single r6rs or Chez Scheme token from textual input port 'in.
@@ -29,7 +29,7 @@
 ;;
 ;; Return two values: token value and its type.
 (define (lex-lisp ctx flavor)
-  (ctx-skip-whitespace ctx 'also-skip-newlines)
+  (parsectx-skip-whitespace ctx 'also-skip-newlines)
   (let ((value (try-read-parser-directive ctx)))
     (if (symbol? value)
       (if (eq? 'eof value)
@@ -259,7 +259,7 @@
 ;; consume text input port until one of the characters ( ) [ ] { } | " #| and return it.
 ;; also recognize and return parser directives #!... and return them
 (define (scan-lisp-parens-or-directive ctx)
-  (ctx-skip-whitespace ctx 'also-skip-newlines)
+  (parsectx-skip-whitespace ctx 'also-skip-newlines)
   ;; yes, #!eof is an allowed directive:
   ;; it injects (eof-object) in token stream, with type 'eof
   ;; thus simulating an actual end-of-file in input port.
@@ -276,21 +276,21 @@
 (define (scan-lisp-parens ctx)
   (let ((ret #f))
     (until ret
-      (let ((ch (ctx-read-char ctx)))
+      (let ((ch (parsectx-read-char ctx)))
         (case ch
           ((#\( #\) #\[ #\] #\{ #\} #\" #\|) (set! ret ch))
           ((#\#)  (set! ret (scan-lisp-sharp ctx)))
-          ((#\\)  (ctx-read-char ctx)) ; consume one char after \
-          ((#\;)  (ctx-skip-line ctx))
+          ((#\\)  (parsectx-read-char ctx)) ; consume one char after \
+          ((#\;)  (parsectx-skip-line ctx))
           (else (when (eof-object? ch) (set! ret ch))))))
     ret))
 
 
 ;; scan a token after # (the # character was already consumed) and return it
 (define (scan-lisp-sharp ctx)
-  (let ((ch (ctx-read-char ctx)))
+  (let ((ch (parsectx-read-char ctx)))
     (case ch
-      ((#\\) (ctx-read-char ctx) #f) ; consume one char after #\
+      ((#\\) (parsectx-read-char ctx) #f) ; consume one char after #\
       ((#\( #\[ #\{) ch) ; treat #( #[ #{ respectively as ( [ {
       ((#\|) #\#) ; found start of block comment #| thus return #
       (else #f))))
@@ -300,12 +300,12 @@
 (define (skip-lisp-block-comment ctx)
   (let ((done? #f))
     (until done?
-      (let ((ch (ctx-read-char ctx)))
+      (let ((ch (parsectx-read-char ctx)))
         (cond
           ((eof-object? ch)
         (set! done? #t))
-          ((and (eqv? #\| ch) (eqv? #\# (ctx-peek-char ctx)))
-            (ctx-read-char ctx)
+          ((and (eqv? #\| ch) (eqv? #\# (parsectx-peek-char ctx)))
+            (parsectx-read-char ctx)
             (set! done? #t)))))))
 
 
@@ -315,10 +315,10 @@
 (define (skip-lisp-double-quotes ctx)
   (let ((done? #f))
     (until done?
-      (let ((ch (ctx-read-char ctx)))
+      (let ((ch (parsectx-read-char ctx)))
         (case ch
           ((#\") (set! done? #t))
-          ((#\\) (ctx-read-char ctx))
+          ((#\\) (parsectx-read-char ctx))
           (else (when (eof-object? ch)
                   (set! done? #t))))))))
 
@@ -376,7 +376,7 @@
                  ((eqv? token #\")               ; parse "some string"
                    (skip-lisp-double-quotes ctx))
                  ((eqv? token #\|)               ; parse |identifier|
-                   (ctx-skip-until-char ctx #\|))
+                   (parsectx-skip-until-char ctx #\|))
                  (#t                             ; parse #| block comment |#
                    (skip-lisp-block-comment ctx)))
                (%paren-fill-end! inner)

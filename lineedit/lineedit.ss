@@ -7,17 +7,12 @@
 
 (library (schemesh lineedit (0 1))
   (export
-    make-parens parens? parens-name parens-token
-    parens-start-x parens-start-x-set! parens-start-y parens-start-y-set!
-    parens-end-x   parens-end-x-set!   parens-end-y   parens-end-y-set!
-    parens-inner   parens-inner-append!
-    parens->values parens->hashtable parens-hashtable-lookup
-
     make-linectx make-linectx* linectx? linectx-line linectx-lines
     linectx-x linectx-y linectx-match-x-set! linectx-match-y-set!
     linectx-parenmatcher
     linectx-completions linectx-completion-stem
     linectx-parser-name linectx-parser-name-set!
+    linectx-parsers     linectx-parsers-set!
     linectx-prompt linectx-prompt-length linectx-prompt-length-set!
 
     lineedit-default-keytable lineedit-clear!
@@ -69,6 +64,7 @@
     ; bitwise or of: flag-eof? flag-return? flag-sigwinch? flag-redisplay?
     (mutable flags)
     (mutable parser-name)   ; symbol, name of current parser
+    (mutable parsers)       ; #f or hashtable symbol -> parser, table of enabled parsers
     prompt                  ; bytespan, prompt
     (mutable prompt-end-x)  ; fixnum, tty x column where prompt ends
     (mutable prompt-end-y)  ; fixnum, tty y row where prompt ends
@@ -121,20 +117,23 @@
 
 (define lineedit-default-keytable (eq-hashtable))
 
+;; Variant of (make-linectx) where all arguments are mandatory
+;;
 ;; argument prompt-func must be a procedure accepting linectx,
 ;; and updating linectx-prompt and linectx-prompt-length.
 ;;
-;; argument parse-parens-func must be #f or a procedure accepting linectx followed by enabled-parsers,
-;; and updating linectx-match-x and linectx-match-y
+;; argument parenmatcher must be #f or a parenmatcher
 ;;
 ;; argument prompt-func must be #f or a procedure accepting linectx,
 ;; and updating linectx-completions
-(define (make-linectx* prompt-func parenmatcher completion-func)
+(define (make-linectx* prompt-func parenmatcher completion-func enabled-parsers)
   (assert (procedure? prompt-func))
   (when parenmatcher
     (assert (parenmatcher? parenmatcher)))
   (when completion-func
     (assert (procedure? completion-func)))
+  (when enabled-parsers
+    (assert (hashtable? enabled-parsers)))
   (let* ((sz    (tty-size))
          (rbuf  (bytespan))
          (wbuf  (bytespan))
@@ -148,7 +147,7 @@
       (if (pair? sz) (car sz) 80); width
       (if (pair? sz) (cdr sz) 24); height
       0 1 -1 flag-redisplay?     ; stdin stdout read-timeout flags
-      'shell                     ; parser-name
+      'shell enabled-parsers     ; parser-name parsers
       (bytespan) 0 0             ; prompt prompt-end-x prompt-end-y
       0 prompt-func              ; prompt-length prompt-func
       parenmatcher               ; parenmatcher
@@ -166,16 +165,21 @@
     (bytespan-u8-insert-back! prompt 58 32)
     (linectx-prompt-length-set! ctx (fx+ 2 (string-length str)))))
 
+
+;; Create and return a linectx
 (define make-linectx
   (case-lambda
     (()
-       (make-linectx* default-prompt-func #f #f))
+       (make-linectx* default-prompt-func #f #f #f))
     ((prompt-func)
-       (make-linectx* prompt-func #f #f))
+       (make-linectx* prompt-func #f #f #f))
     ((prompt-func parenmatcher)
-       (make-linectx* prompt-func parenmatcher #f))
+       (make-linectx* prompt-func parenmatcher #f #f))
     ((prompt-func parenmatcher completion-func)
-       (make-linectx* prompt-func parenmatcher completion-func))))
+       (make-linectx* prompt-func parenmatcher completion-func #f))
+    ((prompt-func parenmatcher completion-func enabled-parsers)
+       (make-linectx* prompt-func parenmatcher completion-func enabled-parsers))))
+
 
 ;; Clear and recreate line and lines: they may have been saved to history,
 ;; which retains them.

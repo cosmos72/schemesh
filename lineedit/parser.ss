@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh parser base (0 1))
+(library (schemesh lineedit parser (0 1))
   (export
     make-parsectx make-parsectx* make-parsectx-from-string parsectx?
     parsectx-in parsectx-pos parsectx-enabled-parsers
@@ -15,8 +15,8 @@
     parser-name parser-parse parser-parse* parser-parse-list parser-parse-parens
     get-parser to-parser
 
-    ctx-peek-char ctx-read-char ctx-unread-char ctx-skip-whitespace
-    ctx-skip-line ctx-skip-until-char
+    parsectx-peek-char parsectx-read-char parsectx-unread-char parsectx-skip-whitespace
+    parsectx-skip-line parsectx-skip-until-char
     try-read-parser-directive
 
     syntax-errorf)
@@ -59,7 +59,7 @@
 ;; Find and return the parser corresponding to given parser-name (which must be a symbol)
 ;; in enabled-parsers.
 ;;
-;; Argument ctx must be one of: #f, a parsectx or a hashtable name -> parser
+;; Argument ctx must be one of: #f, a parsectx or a hashtable symbol -> parser
 ;;
 ;; Raise (syntax-errorf ctx who ...) if not found.
 (define (get-parser ctx parser-name who)
@@ -141,7 +141,7 @@
 
 
 ;; update parsectx position (x . y) after reading ch from textual input port
-(define (ctx-increment-pos ctx ch)
+(define (parsectx-increment-pos ctx ch)
   (when (char? ch) ; do not advance after reading #!eof
     (let ((pos (parsectx-pos ctx)))
       (if (char=? ch #\newline)
@@ -153,7 +153,7 @@
 
 
 ;; update parsectx position (x . y) after unreading ch from textual input port
-(define (ctx-decrement-pos ctx ch)
+(define (parsectx-decrement-pos ctx ch)
   (when (char? ch) ; do not rewind after reading #!eof
     (let ((pos (parsectx-pos ctx)))
       (if (char=? ch #\newline)
@@ -165,7 +165,7 @@
 
 
 ;; Peek a character from textual input port (parsectx-in ctx)
-(define (ctx-peek-char ctx)
+(define (parsectx-peek-char ctx)
   (assert (parsectx? ctx))
   (peek-char (parsectx-in ctx)))
 
@@ -173,10 +173,10 @@
 ;; Read a character from textual input port (parsectx-in ctx)
 ;;
 ;; also updates (parsectx-pos ctx)
-(define (ctx-read-char ctx)
+(define (parsectx-read-char ctx)
   (assert (parsectx? ctx))
   (let ((ch (read-char (parsectx-in ctx))))
-    (ctx-increment-pos ctx ch)
+    (parsectx-increment-pos ctx ch)
     ch))
 
 
@@ -185,11 +185,11 @@
 ;; Raise condition if Chez Scheme (unread-char ch in) fails:
 ;; it will happen ch is different from last character read from input port,
 ;; or if attempting to unread multiple characters without reading them back first.
-(define (ctx-unread-char ctx ch)
+(define (parsectx-unread-char ctx ch)
   (let ((in (parsectx-in ctx)))
     (unread-char ch in)
     (assert (eqv? ch (peek-char in)))
-    (ctx-decrement-pos ctx ch)))
+    (parsectx-decrement-pos ctx ch)))
 
 
 ;; return #t if ch is a character and is <= ' '.
@@ -203,9 +203,9 @@
 ;; characters are considered whitespace if they are <= ' '
 ;;
 ;; also updates (parsectx-pos ctx)
-(define (ctx-skip-whitespace ctx newline-is-whitespace?)
-  (while (is-whitespace-char? (ctx-peek-char ctx) newline-is-whitespace?)
-    (ctx-read-char ctx)))
+(define (parsectx-skip-whitespace ctx newline-is-whitespace?)
+  (while (is-whitespace-char? (parsectx-peek-char ctx) newline-is-whitespace?)
+    (parsectx-read-char ctx)))
 
 
 ;; read and discard all characters in textual input port (parsectx-in ctx)
@@ -215,10 +215,10 @@
 ;; return (eof-object)
 ;;
 ;; also updates (parsectx-pos ctx)
-(define (ctx-skip-until-char ctx find-ch)
+(define (parsectx-skip-until-char ctx find-ch)
   (let ((ret #f))
     (until ret
-      (let ((ch (ctx-read-char ctx)))
+      (let ((ch (parsectx-read-char ctx)))
         (when (or (eqv? (eof-object) ch) (eqv? find-ch ch))
           (set! ret ch))))
     ret))
@@ -228,8 +228,8 @@
 ;; until the first #\newline, which is discarded too
 ;;
 ;; also updates (parsectx-pos ctx)
-(define (ctx-skip-line ctx)
-  (ctx-skip-until-char ctx #\newline)
+(define (parsectx-skip-line ctx)
+  (parsectx-skip-until-char ctx #\newline)
   (void))
 
 
@@ -255,16 +255,16 @@
 ;; Otherwise do nothing and return #f i.e. do not consume any character or part of it
 (define (try-read-parser-directive ctx)
   (let ((ret #f))
-    (when (eqv? #\# (ctx-peek-char ctx))
-      (ctx-read-char ctx)
-      (if (eqv? #\! (ctx-peek-char ctx))
+    (when (eqv? #\# (parsectx-peek-char ctx))
+      (parsectx-read-char ctx)
+      (if (eqv? #\! (parsectx-peek-char ctx))
         (let ((csp (charspan)))
           (charspan-reserve-back! csp 10)
-          (ctx-read-char ctx)
-          (while (is-simple-identifier-char? (ctx-peek-char ctx))
-            (charspan-insert-back! csp (ctx-read-char ctx)))
+          (parsectx-read-char ctx)
+          (while (is-simple-identifier-char? (parsectx-peek-char ctx))
+            (charspan-insert-back! csp (parsectx-read-char ctx)))
           (set! ret (string->symbol (charspan->string csp))))
-        (ctx-unread-char ctx #\#)))
+        (parsectx-unread-char ctx #\#)))
     ret))
 
 

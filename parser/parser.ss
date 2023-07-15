@@ -8,10 +8,10 @@
 
 (library (schemesh parser (0 1))
   (export
-    ; base.ss
+    ; lineedit/parser.ss
     make-parsectx make-parsectx* parsectx?
-    make-parser parser? parser-name parser-parse parser-parse* parser-parse-list
-    get-parser to-parser ctx-skip-whitespace ctx-unread-char try-read-parser-directive
+    parsectx-skip-whitespace parsectx-unread-char try-read-parser-directive
+    get-parser to-parser make-parser parser? parser-name parser-parse parser-parse* parser-parse-list
 
     ; r6rs.ss
     lex-r6rs parse-r6rs parse-r6rs* parser-r6rs
@@ -34,7 +34,7 @@
     (only (schemesh bootstrap) until while)
     (schemesh lineedit parens)
     (only (schemesh lineedit parenmatcher) make-custom-parenmatcher)
-    (schemesh parser base)
+    (schemesh lineedit parser)
     (schemesh parser r6rs)
     (schemesh parser scheme)
     (schemesh parser shell))
