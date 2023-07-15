@@ -23,7 +23,7 @@
     update-func       ; procedure (parsectx initial-parser) -> state
     (mutable parens)  ; #f or outermost parens object
     (mutable htable)) ; #f or hashtable (+ x (* y 65536)) -> parens
-  #| (nongenerative #{parenmatcher mjy8nva9hgl7vh7srl6427u98-521}) |# )
+  (nongenerative #{parenmatcher oy6xm1zt7ltnfh0bwpj3pu0mh-559}))
 
 ;; Create a parenmatcher containing user-specified procedure.
 ;;
@@ -42,9 +42,10 @@
 ;; if (parenmatcher-htable pm) is #f then parse (parsectx-in pctx)
 ;; by calling (parenmatcher-update-func pm) and store the created parens and hashtable
 ;; into parenmatcher pm
-(define (parenmatcher-maybe-update pm pctx initial-parser x y)
+(define (parenmatcher-maybe-update! pm pctx-or-func initial-parser x y)
   (unless (parenmatcher-htable pm)
-    (let ((parens ((parenmatcher-update-func pm) pctx initial-parser)))
+    (let* ((pctx   (if (procedure? pctx-or-func) (pctx-or-func) pctx-or-func))
+           (parens ((parenmatcher-update-func pm) pctx initial-parser)))
       (parenmatcher-parens-set! pm parens)
       (parenmatcher-htable-set! pm (parens->hashtable parens)))))
 
@@ -53,17 +54,17 @@
 ;;
 ;; In detail:
 ;;
-;; first, call (parenmatcher-maybe-update) to update parenmatcher if needed,
-;; then call (parens-hashtable-lookup) to find parenthesis or grouping token
+;; first, call (parenmatcher-maybe-update!) to update parenmatcher if needed,
+;; then call (parens-hashtable-ref) to find parenthesis or grouping token
 ;; matching position x y.
 ;;
 ;; Return such matching parens,
 ;; or #f no parenthesis or grouping token matches position x y
-(define (parenmatcher-find-match pm pctx initial-parser x y)
+(define (parenmatcher-find-match pm pctx-or-func initial-parser x y)
   (if pm
     (begin
-      (parenmatcher-maybe-update pm pctx initial-parser x y)
-      (parens-hashtable-lookup (parenmatcher-htable pm) x y))
+      (parenmatcher-maybe-update! pm pctx-or-func initial-parser x y)
+      (parens-hashtable-ref (parenmatcher-htable pm) x y))
     #f))
 
 
@@ -76,10 +77,6 @@
 ; customize how "parenmatcher" objects are printed
 (record-writer (record-type-descriptor parenmatcher)
   (lambda (pm port writer)
-    (display "#<parenmatcher " port)
-    (display (parenmatcher-update-func pm) port)
-    (display " " port)
-    (display (parenmatcher-parens pm) port)
-    (display ">" port)))
+    (display "#<parenmatcher>" port)))
 
 ) ; close library

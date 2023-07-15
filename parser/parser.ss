@@ -115,31 +115,35 @@
 ;; Return a parens describing the ( [ { " ' ` | characters in input stream,
 ;; their position, and the position of their matching ) ] } " ' ` |
 (define (parse-parens pctx start-token initial-parser)
+  (assert (parsectx? pctx))
   (let* ((current-parser (to-parser pctx initial-parser 'parse-parens))
          (current-parse-parens (parser-parse-parens current-parser)))
     (current-parse-parens pctx start-token)))
 
 
-;; Simple wrapper around parse-parens, useful for testing
+
+;; Function stored by (make-parenmatcher) into created parenmatcher:
+;;
+;; parse textual input port (parsectx-in pctx) until end-of-file
+;; for matching parenthesis and grouping tokens,
+;; and return corresponding parens object
+;;
+;; Equivalent to (parse-parens pctx #f initial-parser)
+(define (parse-parens-until-eof pctx initial-parser)
+  (parse-parens pctx #f initial-parser))
+
+
+;; Simple wrapper around parse-parens-until-eof, useful for testing
 (define parse-parens-from-string
   (case-lambda
-    ((str)                (parse-parens (make-parsectx-from-string str (parsers)) #f 'scheme))
-    ((str initial-parser) (parse-parens (make-parsectx-from-string str (parsers)) #f initial-parser))))
+    ((str)                (parse-parens-until-eof (make-parsectx-from-string str (parsers)) 'scheme))
+    ((str initial-parser) (parse-parens-until-eof (make-parsectx-from-string str (parsers)) initial-parser))))
 
 
 ;; Create a parenmatcher that uses parse-parens to find matching parenthesis and grouping tokens
 (define (make-parenmatcher)
-  (make-custom-parenmatcher parse-parens-update))
+  (make-custom-parenmatcher parse-parens-until-eof))
 
-;; Function stored by (make-parenmatcher) into created parenmatcher:
-;;
-;; actually parse textual input port for matching parenthesis and grouping tokens,
-;; and return corresponding parens object
-;;
-;; internally calls (parse-parens)
-(define (parse-parens-update pctx initial-parser)
-  (assert (parsectx? pctx))
-  (parse-parens pctx #f initial-parser))
 
 
 

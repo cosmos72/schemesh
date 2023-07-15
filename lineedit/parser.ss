@@ -300,4 +300,14 @@
     (display (parser-name obj) port)
     (display ">" port)))
 
+
+;; customize how "parsectx" objects are printed
+(record-writer (record-type-descriptor parsectx)
+  (lambda (obj port writer)
+    (display "#<parsectx " port)
+    (display (car (parsectx-pos obj)) port)
+    (display " " port)
+    (display (cdr (parsectx-pos obj)) port)
+    (display ">" port)))
+
 ) ; close library

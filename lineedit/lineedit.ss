@@ -39,6 +39,8 @@
     (schemesh lineedit charhistory)
     (schemesh lineedit parens)
     (schemesh lineedit parenmatcher)
+    (only (schemesh lineedit parser) make-parsectx*)
+    (only (schemesh lineedit io) open-charlines-input-port)
     (schemesh posix tty)
     (only (schemesh posix signal) signal-consume-sigwinch))
 
@@ -800,6 +802,31 @@
     (linectx-display ctx)
     (linectx-redisplay-set! ctx #f)))
 
+
+(define (linectx-highlight-parens ctx)
+  (let ((line    (linectx-line  ctx))
+        (lines   (linectx-lines ctx))
+        (x       (linectx-x ctx))
+        (y       (linectx-y ctx))
+        (parsers (linectx-parsers ctx))
+        (parenmatcher (linectx-parenmatcher ctx)))
+    (when (and parsers parenmatcher
+               (fx<? -1 x (charline-length line))
+               (fx<? -1 y (charlines-length lines))
+               (is-parens-char? (charline-ref line x)))
+      (let ((parens (parenmatcher-find-match
+                      parenmatcher
+                      (lambda () (make-parsectx* (open-charlines-input-port lines) parsers 0 0))
+                      (linectx-parser-name ctx)
+                      x y)))
+        (when parens
+          (let ((match-end? (and (fx=? x (parens-end-x parens))
+                                 (fx=? y (parens-end-y parens)))))
+            (linectx-match-x-set! ctx (if match-end? (parens-end-x parens) (parens-start-x parens)))
+            (linectx-match-y-set! ctx (if match-end? (parens-end-y parens) (parens-start-y parens)))))))))
+
+
+
 ;; read some bytes, blocking at most for read-timeout-milliseconds
 ;;   (0 = non-blocking, -1 = unlimited timeout)
 ;; from (linectx-stdin ctx) and append them to (linectx-rbuf ctx).
@@ -847,7 +874,7 @@
     (display-condition cond port)
     (display #\newline port)))
 
-;; implementation of (lineedit-read )
+;; implementation of (lineedit-read)
 (define (%lineedit-read ctx timeout-milliseconds)
   (linectx-consume-sigwinch ctx)
   (linectx-display-if-needed ctx #f)
@@ -885,6 +912,7 @@
       (flush-output-port (current-output-port))
       (let ((ret (%lineedit-read ctx timeout-milliseconds)))
         ; write linectx buffered output before returning
+        (linectx-highlight-parens ctx)
         (lineedit-flush ctx)
         ret))
     (catch (cond)
