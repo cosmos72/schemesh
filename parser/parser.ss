@@ -107,7 +107,7 @@
       current-parser)))
 
 
-;; Parse textual input port until closing token matching start-token is found
+;; Parse textual input port (parsectx-in pctx) until closing token matching start-token is found
 ;; (or until end-of-file if start-token is #f) using the parser specified by initial-parser,
 ;; and temporarily switching to other parsers every time the directive #!... is found
 ;; in a (possibly nested) list being parsed.

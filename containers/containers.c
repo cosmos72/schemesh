@@ -11,23 +11,6 @@
 
 #include <string.h> /* memcmp(), memmove() */
 
-/** C backend implementation of (vectory-copy!) */
-static void c_vector_copy(ptr src, iptr src_start, ptr dst, iptr dst_start, iptr n) {
-#if 0 /* redundant, already checked by Scheme function (vector-copy!) */
-  if (Svectorp(src) && Svectorp(dst) && src_start >= 0 && dst_start >= 0 && n > 0 &&
-      src_start <= Svector_length(src) && dst_start <= Svector_length(dst) &&
-      n <= Svector_length(src) - src_start && n <= Svector_length(dst) - dst_start)
-#endif
-  {
-
-    ptr* src_ptr = &Svector_ref(src, src_start);
-    ptr* dst_ptr = &Svector_ref(dst, dst_start);
-    if (src_ptr != dst_ptr) {
-      memmove(dst_ptr, src_ptr, n * sizeof(ptr));
-    }
-  }
-}
-
 static signed char c_bytevector_compare(ptr left, ptr right) {
 #if 0 /* redundant, already checked by Scheme function (bytevector-compare) */
   if (Sbytevectorp(left) && Sbytevectorp(right))
@@ -46,6 +29,5 @@ static signed char c_bytevector_compare(ptr left, ptr right) {
 }
 
 void schemesh_register_c_functions_containers(void) {
-  Sregister_symbol("c_vector_copy", &c_vector_copy);
   Sregister_symbol("c_bytevector_compare", &c_bytevector_compare);
 }

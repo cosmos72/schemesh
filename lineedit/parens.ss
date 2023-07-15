@@ -12,7 +12,9 @@
     parens-start-x parens-start-x-set! parens-start-y parens-start-y-set!
     parens-end-x   parens-end-x-set!   parens-end-y   parens-end-y-set!
     parens-inner   parens-inner-append!
-    parens->values parens->hashtable parens-hashtable-lookup)
+    parens->values parens->hashtable parens-hashtable-lookup
+
+    is-parens-char?)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -116,6 +118,12 @@
     ((#\() #\)) ((#\[) #\]) ((#\{) #\})
     ((#\") #\") ((#\') #\') ((#\`) #\`)
     ((#\|) #\|) ((#\#) #\#) (else #\_)))
+
+(define (is-parens-char? ch)
+  (let ((vec '#(#\( #\) #\[ #\] #\{ #\} #\" #\' #\` #\| #\#)))
+    (do ((i 0 (fx1+ i))
+         (n (vector-length vec)))
+        ((or (fx>=? i n) (eqv? ch (vector-ref vec i))) (fx<? i n)))))
 
 
 ;; customize how "parens" objects are printed

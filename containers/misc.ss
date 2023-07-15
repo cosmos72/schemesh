@@ -26,7 +26,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme) bytevector foreign-procedure fx1+))
+    (only (chezscheme) bytevector foreign-procedure fx1+ fx1-))
 
 ; (list-iterate l proc) iterates on all elements of given list l,
 ; and calls (proc elem) on each element. Stops iterating if (proc ...) returns #f
@@ -69,24 +69,17 @@
 
 ; copy a portion of vector src into dst.
 ; works even if src are the same vector and the two ranges overlap.
-(define vector-copy!
-  (let ((c-vector-copy (foreign-procedure "c_vector_copy"
-     (scheme-object fixnum scheme-object fixnum fixnum)
-     void)))
-    (lambda (src src-start dst dst-start n)
-      (if (fx=? n 1)
-        (vector-set! dst dst-start (vector-ref src src-start))
-        (begin
-          (assert (and (vector? src) (vector? dst)))
-          (assert (and (fixnum? src-start) (fixnum? dst-start) (fixnum? n)))
-          (assert (and (fx>=? src-start 0) (fx>=? dst-start 0) (fx>=? n 0)))
-          (assert (fx<=? src-start (vector-length src)))
-          (assert (fx<=? dst-start (vector-length dst)))
-          (assert (fx<=? n (fx- (vector-length src) src-start)))
-          (assert (fx<=? n (fx- (vector-length dst) dst-start)))
-          (if (fx>=? n 2)
-            (c-vector-copy src src-start dst dst-start n))
-            (assert (fx>=? n 0)))))))
+(define (vector-copy! src src-start dst dst-start n)
+  (if (and (eq? src dst) (fx<? src-start dst-start))
+    ; copy backward
+    (do ((i (fx1- n) (fx1- i)))
+        ((fx<? i 0))
+      (vector-set! dst (fx+ i dst-start) (vector-ref src (fx+ i src-start))))
+    ; copy forward
+    (do ((i 0 (fx1+ i)))
+        ((fx>=? i n))
+      (vector-set! dst (fx+ i dst-start) (vector-ref src (fx+ i src-start))))))
+
 
 ; return a copy of vector vec containing only elements
 ; from start (inclusive) to end (exclusive)
