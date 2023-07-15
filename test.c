@@ -419,128 +419,128 @@ static const struct {
      "      (string->charline* \"3.45e3 . #\\\\m\\n)\"))))",
      "(urehg* (a quote b) 123450.0 . m)"},
     /* ------------------------ parser scheme ------------------------------- */
-    {"(parse-scheme* (make-parse-ctx-from-string"
+    {"(parse-scheme* (make-parsectx-from-string"
      "  \"(foo bar) '(a b)\"))",
      "(foo bar)"},
-    {"(parse-scheme* (make-parse-ctx-from-string"
+    {"(parse-scheme* (make-parsectx-from-string"
      "  \"(a (b c . d) . e)\"))",
      "(a (b c . d) . e)"},
     /* ------------------------ parser shell -------------------------------- */
-    {"(values->list (parse-shell (make-parse-ctx-from-string"
+    {"(values->list (parse-shell (make-parsectx-from-string"
      "  \"\")))",
      "(#!eof #f)"},
-    {"(parse-shell* (make-parse-ctx-from-string"
+    {"(parse-shell* (make-parsectx-from-string"
      "  \"{}\"))",
      "(shell-list)"},
-    {"(parse-shell* (make-parse-ctx-from-string"
+    {"(parse-shell* (make-parsectx-from-string"
      "  \"ls   -l>/dev/null&\"))",
      "(shell ls -l > /dev/null &)"},
-    {"(parse-shell* (make-parse-ctx-from-string"
+    {"(parse-shell* (make-parsectx-from-string"
      "  \"echo  foo  bar|wc -l\"))",
      "(shell echo foo bar | wc -l)"},
-    {"(parse-shell* (make-parse-ctx-from-string"
+    {"(parse-shell* (make-parsectx-from-string"
      "  \"echo  foo  bar|wc -l ; \"))",
      "(shell echo foo bar | wc -l)"},
-    {"(parse-shell* (make-parse-ctx-from-string"
+    {"(parse-shell* (make-parsectx-from-string"
      "  \"{echo  foo  bar|wc -l; ; }\"))",
      "(shell-list (shell echo foo bar | wc -l) (shell))"},
-    {"(parse-shell* (make-parse-ctx-from-string\n"
+    {"(parse-shell* (make-parsectx-from-string\n"
      "  \"{echo|{cat;{true}\n}}\"))",
      "(shell-list (shell echo | (shell-list (shell cat) (shell-list (shell true)) (shell))))"},
-    {"(parse-shell* (make-parse-ctx-from-string\n"
+    {"(parse-shell* (make-parsectx-from-string\n"
      "  \"{{{{echo|cat}}}}\"))",
      "(shell-list (shell-list (shell-list (shell-list (shell echo | cat)))))"},
-    {"(parse-shell* (make-parse-ctx-from-string\n"
+    {"(parse-shell* (make-parsectx-from-string\n"
      "  \"a<>/dev/null||b>|/dev/zero&&!c>&2\"))",
      "(shell a <> /dev/null || b >| /dev/zero && ! c >& 2)"},
     /** FIXME: recognize fd number [N] before redirection */
-    {"(parse-shell* (make-parse-ctx-from-string\n"
+    {"(parse-shell* (make-parsectx-from-string\n"
      "  \"foo 2>& 1 <& -\"))",
      "(shell foo 2 >& 1 <& -)"},
-    {"(format #f \"~s\" (parse-shell* (make-parse-ctx-from-string\n"
+    {"(format #f \"~s\" (parse-shell* (make-parsectx-from-string\n"
      "  \"ls \\\"-l\\\" '.'\")))",
      "(shell \"ls\" \"-l\" \".\")"},
-    {"(format #f \"~s\" (parse-shell* (make-parse-ctx-from-string\n"
+    {"(format #f \"~s\" (parse-shell* (make-parsectx-from-string\n"
      "  \"ls \\\"some\\\"'file'path\")))",
      "(shell \"ls\" (shell-concat \"some\" \"file\" \"path\"))"},
-    {"(format #f \"~s\" (parse-shell* (make-parse-ctx-from-string\n"
+    {"(format #f \"~s\" (parse-shell* (make-parsectx-from-string\n"
      "  \"{ls `cmd1 && cmd2 || cmd3 -arg3`}\"))))",
      "(shell-list (shell \"ls\" (shell-backquote (shell \"cmd1\" && \"cmd2\" \\x7C;\\x7C; "
      "\"cmd3\" \"-arg3\"))))"},
-    {"(format #f \"~s\" (parse-shell* (make-parse-ctx-from-string\n"
+    {"(format #f \"~s\" (parse-shell* (make-parsectx-from-string\n"
      "  \"ls $var1 \\\"$var2\\\" '$var3'\")))",
      "(shell \"ls\" (shell-env-ref \"var1\") (shell-env-ref \"var2\") \"$var3\")"},
-    {"(format #f \"~s\" (parse-shell* (make-parse-ctx-from-string\n"
+    {"(format #f \"~s\" (parse-shell* (make-parsectx-from-string\n"
      "  \"ls ${v 1} \\\"${ v 2 }\\\" '${ v 3 }'\")))",
      "(shell \"ls\" (shell-env-ref \"v 1\") (shell-env-ref \" v 2 \") \"${ v 3 }\")"},
-    {"(format #f \"~s\" (parse-shell* (make-parse-ctx-from-string\n"
+    {"(format #f \"~s\" (parse-shell* (make-parsectx-from-string\n"
      "  \"ls \\\"$var1\\\"'$var2'$var3\")))",
      "(shell \"ls\" (shell-concat (shell-env-ref \"var1\") \"$var2\" (shell-env-ref \"var3\")))"},
-    {"(format #f \"~s\" (parse-shell* (make-parse-ctx-from-string\n"
+    {"(format #f \"~s\" (parse-shell* (make-parsectx-from-string\n"
      "  \"ls $(cmd arg $var)\")))",
      "(shell \"ls\" (shell-backquote (shell \"cmd\" \"arg\" (shell-env-ref \"var\"))))"},
-    {"(format #f \"~s\" (parse-shell* (make-parse-ctx-from-string\n"
+    {"(format #f \"~s\" (parse-shell* (make-parsectx-from-string\n"
      "  \"ls \\\"$(cmd arg $var)\\\"\")))",
      "(shell \"ls\" (shell-backquote (shell \"cmd\" \"arg\" (shell-env-ref \"var\"))))"},
-    {"(format #f \"~s\" (parse-shell* (make-parse-ctx-from-string\n"
+    {"(format #f \"~s\" (parse-shell* (make-parsectx-from-string\n"
      "  \"ls '$(cmd arg $var)'\")))",
      "(shell \"ls\" \"$(cmd arg $var)\")"},
     /* ------------------------ parse-forms --------------------------------- */
     {"(values->list (parse-forms\n"
-     "  (make-parse-ctx-from-string \"\" (parsers))\n"
+     "  (make-parsectx-from-string \"\" (parsers))\n"
      "  'scheme))",
      "(() #<parser scheme>)"},
     {"(values->list (parse-forms\n"
      /* #!eof is equivalent to end-of-file in the input port */
-     "  (make-parse-ctx-from-string \"'(a . b) c #!eof . ) syntax error\" (parsers))\n"
+     "  (make-parsectx-from-string \"'(a . b) c #!eof . ) syntax error\" (parsers))\n"
      "  'scheme))",
      "(('(a . b) c) #<parser scheme>)"},
     {"(values->list (parse-forms\n"
-     "  (make-parse-ctx-from-string \"uiop asdf #!scheme (xyz %%a)\" (parsers))\n"
+     "  (make-parsectx-from-string \"uiop asdf #!scheme (xyz %%a)\" (parsers))\n"
      "  'scheme))",
      "((uiop asdf (xyz %%a)) #<parser scheme>)"},
     {"(values->list (parse-forms\n"
-     "  (make-parse-ctx-from-string \"`('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)\" (parsers))\n"
+     "  (make-parsectx-from-string \"`('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)\" (parsers))\n"
      "  'scheme))",
      "((`('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)) #<parser scheme>)"},
     {"(parse-form*\n" /* character { switches to shell parser */
-     "  (make-parse-ctx-from-string \"{ls -l >& log.txt}\" (parsers))\n"
+     "  (make-parsectx-from-string \"{ls -l >& log.txt}\" (parsers))\n"
      "  'scheme))",
      "(shell-list (shell ls -l >& log.txt))"},
     {"(parse-form*\n" /* directive #!shell switches to shell parser also inside (...) */
-     "  (make-parse-ctx-from-string \"(#!shell ls -al >> log.txt)\" (parsers))\n"
+     "  (make-parsectx-from-string \"(#!shell ls -al >> log.txt)\" (parsers))\n"
      "  'scheme))",
      "(shell-list (shell ls -al >> log.txt))"},
     {"(parse-form*\n"
-     "  (make-parse-ctx-from-string \"(foo << bar #!shell baz >> log.txt)\" (parsers))\n"
+     "  (make-parsectx-from-string \"(foo << bar #!shell baz >> log.txt)\" (parsers))\n"
      "  'scheme))",
      "(foo << bar (shell baz >> log.txt))"},
     /* ( in the middle of a shell command switches to Scheme parser for a single Scheme form,
      * then continues parsing shell syntax */
     {"(parse-form*\n"
-     "  (make-parse-ctx-from-string \"ls (apply + a `(,@b)) &\" (parsers))\n"
+     "  (make-parsectx-from-string \"ls (apply + a `(,@b)) &\" (parsers))\n"
      "  'shell))",
      "(shell ls (apply + a `(,@b)) &)"},
     /* ( at the beginning of a shell command switches to Scheme parser,
      * parses a single Scheme form, and omits the initial (shell ...) */
     {"(values->list (parse-shell\n"
-     "  (make-parse-ctx-from-string \"(+ 1 2) not_parsed_yet\" (parsers))))",
+     "  (make-parsectx-from-string \"(+ 1 2) not_parsed_yet\" (parsers))))",
      "((+ 1 2) #t)"},
     /* idem */
     {"(parse-form*\n"
-     "  (make-parse-ctx-from-string \"(+ 1 2) not_parsed_yet\" (parsers))\n"
+     "  (make-parsectx-from-string \"(+ 1 2) not_parsed_yet\" (parsers))\n"
      "  'shell))",
      "(+ 1 2)"},
     {"(parse-form*\n"
-     "  (make-parse-ctx-from-string \"ls (my-dir) >> log.txt\" (parsers))\n"
+     "  (make-parsectx-from-string \"ls (my-dir) >> log.txt\" (parsers))\n"
      "  'shell))",
      "(shell ls (my-dir) >> log.txt)"},
     {"(values->list (parse-forms\n" /* directive #!scheme switches to Scheme parser too */
-     "  (make-parse-ctx-from-string \"ls ~; #!scheme (f a b)\" (parsers))\n"
+     "  (make-parsectx-from-string \"ls ~; #!scheme (f a b)\" (parsers))\n"
      "  'shell))",
      "(((shell ls ~) (f a b)) #<parser scheme>)"},
     {"(values->list (parse-forms\n" /* directive #!shell switches to shell parser */
-     "  (make-parse-ctx-from-string \"(+ a b) #!shell ls -al >> log.txt; #!scheme foo bar\""
+     "  (make-parsectx-from-string \"(+ a b) #!shell ls -al >> log.txt; #!scheme foo bar\""
      "    (parsers))\n"
      "  'scheme))",
      "(((+ a b) (shell ls -al >> log.txt) foo bar) #<parser scheme>)"},
@@ -562,14 +562,14 @@ static const struct {
     {"(parse-parens-from-string \"{\\\"foobar{}[]``baz\\\"}\")", "#<parens _{\"{} ``\"}_>"},
     /** parens are not special in shell syntax inside double quoted string */
     {"(parse-parens-from-string \"{\\\"()\\\"}\")", "#<parens _{\"\"}_>"},
-    /* -------------------------- make-parenmatcher --------------------------*/
-    {"(values->list\n"
-     "  (parenmatcher-lookup\n"
+    /* -------------------------- parenmatcher -------------------------------*/
+    {"(values->list (parens->values\n"
+     "  (parenmatcher-find-match\n"
      "    (make-parenmatcher)\n"
-     "    (make-parse-ctx-from-string \"([{``}] #| |# )\" (parsers))\n"
+     "    (make-parsectx-from-string \"([{``}] #| |# )\" (parsers))\n"
      "    'scheme\n"
-     "    6 0))",
-     "(scheme 1 0)"},
+     "    6 0)))",
+     "(scheme [ 1 0 6 0)"},
     /* -------------------------- tty --------------------------------------- */
     {"(let ((sz (tty-size)))\n"
      "  (and (pair? sz)\n"
@@ -625,14 +625,14 @@ static const struct {
      " (sh-list* (sh-and-or* (sh-cmd ls -l) '&& (sh-cmd wc -b) '|| (sh-cmd echo error)) '&))"},
     {"(expand '(shell-list (shell \"ls\" \"-al\" >> \"log.txt\")))",
      INVOKELIB_SHELL_JOBS " (sh-cmd<> ls -al '>> log.txt))"},
-    {"(expand (parse-shell* (make-parse-ctx-from-string\n"
+    {"(expand (parse-shell* (make-parsectx-from-string\n"
      "  \"{{{{echo|cat}}}}\")))",
      /*
       * parses to
       * (shell-list (shell-list (shell-list (shell-list (shell echo | cat)))))
       */
      INVOKELIB_SHELL_JOBS " (sh-pipe* (sh-cmd echo) '| (sh-cmd cat)))"},
-    {"(expand (parse-shell* (make-parse-ctx-from-string\n"
+    {"(expand (parse-shell* (make-parsectx-from-string\n"
      "  \"{echo|{cat;{true}}}\")))",
      /*
       * parses to
@@ -642,11 +642,11 @@ static const struct {
      " (sh-pipe* (sh-cmd echo) '| (sh-cmd (sh-list (sh-cmd cat) (sh-cmd true)))))"},
     /* ------------------------- repl --------------------------------------- */
     {"(values->list (repl-parse\n"
-     "  (make-parse-ctx-from-string \"(+ 2 3) (values 7 (cons 'a 'b))\" (parsers))\n"
+     "  (make-parsectx-from-string \"(+ 2 3) (values 7 (cons 'a 'b))\" (parsers))\n"
      "  'scheme))\n",
      "(((+ 2 3) (values 7 (cons 'a 'b))) #<parser scheme>)"},
     {"(values->list (repl-parse\n"
-     "  (make-parse-ctx-from-string \"ls -l | wc -b && echo ok || echo error &\" (parsers))\n"
+     "  (make-parsectx-from-string \"ls -l | wc -b && echo ok || echo error &\" (parsers))\n"
      "  'shell))\n",
      "(((shell ls -l | wc -b && echo ok || echo error &)) #<parser shell>)"},
 };

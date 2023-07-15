@@ -7,10 +7,11 @@
 
 (library (schemesh lineedit parenmatcher (0 1))
   (export
-    parenmatcher? make-custom-parenmatcher parenmatcher-lookup)
+    parenmatcher? make-custom-parenmatcher parenmatcher-find-match)
   (import
     (rnrs)
-    (only (chezscheme) record-writer))
+    (only (chezscheme) record-writer)
+    (schemesh lineedit parens))
 
 ;; type parenmatcher contains bookkeeping information,
 ;; to be filled by an actual function that matches parenthesis
@@ -19,52 +20,57 @@
 (define-record-type
   (parenmatcher %make-parenmatcher parenmatcher?)
   (fields
-    update-func       ; procedure (parse-ctx initial-parser) -> state
-    lookup-func       ; procedure (state x y) -> parser-name match-x match-y
-    (mutable state)) ; #f or some state indexable by x and y
-  (nongenerative #{parenmatcher mjy8nva9hgl7vh7srl6427u98-521}))
+    update-func       ; procedure (parsectx initial-parser) -> state
+    (mutable parens)  ; #f or outermost parens object
+    (mutable htable)) ; #f or hashtable (+ x (* y 65536)) -> parens
+  #| (nongenerative #{parenmatcher mjy8nva9hgl7vh7srl6427u98-521}) |# )
 
-;; Create a parenmatcher containing user-specified procedures.
+;; Create a parenmatcher containing user-specified procedure.
 ;;
-;; update-func must be a procedure accepting two argument: parse-ctx initial-parsers
-;; and returning one value: an opaque state.
-;; it should parse textual-input-port, find matching parenthesis or grouping tokens,
-;; and return an opaque state representing them.
-;;
-;; opaque state will be stored in parenmatcher-state to avoid calling update-func
-;; multiple times on the same input.
-;;
-;; lookup-func must be a procedure accepting three arguments: state x y
-;; and returning two values: match-x match-y
-;; or -1 -1 if no matching parenthesis or grouping token was found
-(define (make-custom-parenmatcher update-func lookup-func state)
+;; update-func must be a procedure accepting two argument: parsectx initial-parsers
+;; and returning one value: the outermost parens object.
+;; it should parse the textual input port (parsectx-in parsectx),
+;; find matching parenthesis or grouping tokens,
+;; and return the corresponding parens object,
+;; which will be stored in parenmatcher-parens
+;; to avoid calling update-func multiple times on the same input.
+(define (make-custom-parenmatcher update-func)
   (assert (procedure? update-func))
-  (assert (procedure? lookup-func))
-  (%make-parenmatcher update-func lookup-func state))
+  (%make-parenmatcher update-func #f #f))
+
+
+;; if (parenmatcher-htable pm) is #f then parse (parsectx-in pctx)
+;; by calling (parenmatcher-update-func pm) and store the created parens and hashtable
+;; into parenmatcher pm
+(define (parenmatcher-maybe-update pm pctx initial-parser x y)
+  (unless (parenmatcher-htable pm)
+    (let ((parens ((parenmatcher-update-func pm) pctx initial-parser)))
+      (parenmatcher-parens-set! pm parens)
+      (parenmatcher-htable-set! pm (parens->hashtable parens)))))
 
 
 ;; Find parenthesis or grouping token matching position x y.
 ;;
 ;; In detail:
 ;;
-;; first, if needed (i.e. if (parenmatcher-state pm) is #f) then parse textual-input-port
-;; by calling (parenmatcher-update-func pm) to produce an opaque state,
+;; first, call (parenmatcher-maybe-update) to update parenmatcher if needed,
+;; then call (parens-hashtable-lookup) to find parenthesis or grouping token
+;; matching position x y.
 ;;
-;; then call (parenmatcher-lookup-func pm) to find parenthesis or grouping token
-;; matching position x y and return such match-x match-y
-;; or -1 -1 if no matching parenthesis or grouping token was found
-(define (parenmatcher-lookup pm pctx initial-parser x y)
+;; Return such matching parens,
+;; or #f no parenthesis or grouping token matches position x y
+(define (parenmatcher-find-match pm pctx initial-parser x y)
   (if pm
-    (let ((state (parenmatcher-state pm)))
-      (unless state
-        (set! state ((parenmatcher-update-func pm) pctx initial-parser))
-        (parenmatcher-state-set! pm state))
-      ((parenmatcher-lookup-func pm) state x y))
-    (values -1 -1)))
+    (begin
+      (parenmatcher-maybe-update pm pctx initial-parser x y)
+      (parens-hashtable-lookup (parenmatcher-htable pm) x y))
+    #f))
+
 
 (define (parenmatcher-clear! pm)
   (when pm
-    (parenmatcher-state-set! pm #f)))
+    (parenmatcher-parens-set! pm #f)
+    (parenmatcher-htable-set! pm #f)))
 
 
 ; customize how "parenmatcher" objects are printed
@@ -73,9 +79,7 @@
     (display "#<parenmatcher " port)
     (display (parenmatcher-update-func pm) port)
     (display " " port)
-    (display (parenmatcher-lookup-func pm) port)
-    (display " " port)
-    (display (parenmatcher-state pm) port)
+    (display (parenmatcher-parens pm) port)
     (display ">" port)))
 
 ) ; close library

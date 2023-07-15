@@ -63,7 +63,7 @@
   (parse-lisp-list ctx begin-type already-parsed-reverse 'r6rs))
 
 
-;; Read r6rs Scheme forms from textual input port (parse-ctx-in ctx),
+;; Read r6rs Scheme forms from textual input port (parsectx-in ctx),
 ;; collecting grouping tokens i.e. ( ) [ ] { } |# #| " " | |
 ;; and filling paren with them.
 ;;

@@ -9,7 +9,7 @@
 (library (schemesh parser (0 1))
   (export
     ; base.ss
-    make-parse-ctx make-parse-ctx* parse-ctx?
+    make-parsectx make-parsectx* parsectx?
     make-parser parser? parser-name parser-parse parser-parse* parser-parse-list
     get-parser to-parser ctx-skip-whitespace ctx-unread-char try-read-parser-directive
 
@@ -32,6 +32,7 @@
     (rnrs mutable-pairs)
     (only (chezscheme) reverse! void)
     (only (schemesh bootstrap) until while)
+    (schemesh lineedit parens)
     (only (schemesh lineedit parenmatcher) make-custom-parenmatcher)
     (schemesh parser base)
     (schemesh parser r6rs)
@@ -122,21 +123,23 @@
 ;; Simple wrapper around parse-parens, useful for testing
 (define parse-parens-from-string
   (case-lambda
-    ((str)                (parse-parens (make-parse-ctx-from-string str (parsers)) #f 'scheme))
-    ((str initial-parser) (parse-parens (make-parse-ctx-from-string str (parsers)) #f initial-parser))))
+    ((str)                (parse-parens (make-parsectx-from-string str (parsers)) #f 'scheme))
+    ((str initial-parser) (parse-parens (make-parsectx-from-string str (parsers)) #f initial-parser))))
 
 
 ;; Create a parenmatcher that uses parse-parens to find matching parenthesis and grouping tokens
 (define (make-parenmatcher)
-  (make-custom-parenmatcher parse-parens-update parens-hashtable-lookup #f))
+  (make-custom-parenmatcher parse-parens-update))
 
 ;; Function stored by (make-parenmatcher) into created parenmatcher:
 ;;
 ;; actually parse textual input port for matching parenthesis and grouping tokens,
-;; and create corresponding parenmatcher state, which is a hashtable (+ x (* y 65536)) -> parens
+;; and return corresponding parens object
+;;
+;; internally calls (parse-parens)
 (define (parse-parens-update pctx initial-parser)
-  (assert (parse-ctx? pctx))
-  (parens->hashtable (parse-parens pctx #f initial-parser)))
+  (assert (parsectx? pctx))
+  (parse-parens pctx #f initial-parser))
 
 
 

@@ -8,14 +8,8 @@
 
 (library (schemesh parser base (0 1))
   (export
-    make-parens parens? parens-name parens-token
-    parens-start-x parens-start-x-set! parens-start-y parens-start-y-set!
-    parens-end-x   parens-end-x-set!   parens-end-y   parens-end-y-set!
-    parens-inner   parens-inner-append!
-    parens->hashtable parens-hashtable-lookup
-
-    make-parse-ctx make-parse-ctx* make-parse-ctx-from-string parse-ctx?
-    parse-ctx-in parse-ctx-pos parse-ctx-enabled-parsers
+    make-parsectx make-parsectx* make-parsectx-from-string parsectx?
+    parsectx-in parsectx-pos parsectx-enabled-parsers
 
     make-parser parser?
     parser-name parser-parse parser-parse* parser-parse-list parser-parse-parens
@@ -35,73 +29,6 @@
     (only (schemesh containers hashtable) hashtable-iterate)
     (schemesh containers span)
     (schemesh containers charspan))
-
-
-;; parens is an object containing information about the matching parentheses/brackets/braces/quotes
-;; in some text to be parsed
-(define-record-type
-  (parens %make-parens parens?)
-  (fields
-    name  ; symbol, name of parser that created this parens object (may differ in sub-objects)
-    token ; character, one of: ( [ { " ' ` |
-    (mutable start-x) ; fixnum, x position of start parenthesis/bracket/brace/quote
-    (mutable start-y) ; fixnum, y position of start parenthesis/bracket/brace/quote
-    (mutable end-x)   ; fixnum, x position of end parenthesis/bracket/brace/quote
-    (mutable end-y)   ; fixnum, y position of end parenthesis/bracket/brace/quote
-    (mutable inner))  ; #f or span of nested parens appearing between start and end
-  (nongenerative #{parens e1s38b5dr3myvj5mwxrpzkl27-400}))
-
-
-(define (make-parens name token)
-  (assert (symbol? name))
-  (when token
-    (assert (char? token)))
-  (%make-parens name token 0 0 (greatest-fixnum) (greatest-fixnum) #f))
-
-
-;; append one nested parens to specified parens
-(define (parens-inner-append! parens nested-parens)
-  (assert (parens? nested-parens))
-  (let ((inner (parens-inner parens)))
-    (if (span? inner)
-      (span-insert-back! inner nested-parens)
-      (parens-inner-set! parens (span nested-parens)))))
-
-;; traverse parens and convert it to a hashtable (+ x (* y 65536)) -> parens
-(define (parens->hashtable parens)
-  (%parens->hashtable parens (make-eqv-hashtable)))
-
-;; traverse parens and convert it to a hashtable (+ x (* y 65536)) -> parens
-(define (%parens->hashtable parens htable)
-  (let ((inner-span (parens-inner parens)))
-    (when inner-span
-      (span-iterate inner-span
-        (lambda (i inner)
-          (%parens->hashtable inner htable))))
-    (when (parens-token parens)
-      (%hashtable-put-parens htable parens)))
-  htable)
-
-;; add parens to hashtable, using both positions start-x start-y and end-x end-y
-(define (%hashtable-put-parens htable parens)
-  (hashtable-set! htable (xy->key (parens-start-x parens) (parens-start-y parens)) parens)
-  (hashtable-set! htable (xy->key (parens-end-x parens)   (parens-end-y parens))   parens)
-  htable)
-
-(define (xy->key x y)
-  (fxior x (fxarithmetic-shift-left y 16)))
-
-;; function to be used as lookup-func in a parenmatcher
-;; returns three values: parser-name match-x match-y
-;; or #f -1 -1
-(define (parens-hashtable-lookup htable x y)
-  (let ((parens (hashtable-ref htable (xy->key x y) #f)))
-    (if parens
-      (if (and (fx=? x (parens-start-x parens))
-               (fx=? y (parens-start-y parens)))
-        (values (parens-name parens) (parens-end-x parens)   (parens-end-y parens))
-        (values (parens-name parens) (parens-start-x parens) (parens-start-y parens)))
-      (values #f -1 -1))))
 
 
 ;; parser is an object containing four procedures:
@@ -132,12 +59,12 @@
 ;; Find and return the parser corresponding to given parser-name (which must be a symbol)
 ;; in enabled-parsers.
 ;;
-;; Argument ctx must be one of: #f, a parse-ctx or a hashtable name -> parser
+;; Argument ctx must be one of: #f, a parsectx or a hashtable name -> parser
 ;;
 ;; Raise (syntax-errorf ctx who ...) if not found.
 (define (get-parser ctx parser-name who)
   (let* ((enabled-parsers
-           (if (parse-ctx? ctx) (parse-ctx-enabled-parsers ctx) ctx))
+           (if (parsectx? ctx) (parsectx-enabled-parsers ctx) ctx))
          (parser (and enabled-parsers
                      (hashtable-ref enabled-parsers parser-name #f))))
     (unless parser
@@ -151,43 +78,44 @@
 ;; if p is a symbol, return (get-parser ctx p who)
 ;; otherwise raise (syntax-errorf ctx who ...)
 ;;
-;; Argument ctx must be one of: #f, a parse-ctx or a hashtable name -> parser
+;; Argument ctx must be one of: #f, a parsectx or a hashtable name -> parser
 (define (to-parser ctx p who)
   (if (parser? p)
     p
     (get-parser ctx p who)))
 
 
-;; parse-ctx contains arguments common to most parsing procedures contained in a parser:
-;;   parse-ctx-in is the textual input port to read from
-;;   parse-ctx-pos is a pair (x . y) representing the position in the input port
-;;   parse-ctx-enabled-parsers is #f or an hashtable name -> parser containing enabled parsers - see (parsers) in parser/parser.ss
+;; parsectx contains arguments common to most parsing procedures contained in a parser:
+;;   parsectx-in is the textual input port to read from
+;;   parsectx-pos is a pair (x . y) representing the position in the input port
+;;   parsectx-enabled-parsers is #f or an hashtable symbol -> parser containing enabled parsers,
+;;     see (parsers) in parser/parser.ss
 (define-record-type
-  (parse-ctx %make-parse-ctx parse-ctx?)
+  (parsectx %make-parsectx parsectx?)
   (fields
     in    ; textual input port to read from
     pos   ; pair (x . y) containing two fixnums: current x and y position in the input port
-    enabled-parsers) ; #f or an hashtable name -> parser
-  (nongenerative #{parse-ctx ghczmwc88jnt51nkrv9gaocnv-423}))
+    enabled-parsers) ; #f or an hashtable symbol -> parser
+  (nongenerative #{parsectx ghczmwc88jnt51nkrv9gaocnv-423}))
 
 
-;; create a new parse-ctx. Arguments are
+;; create a new parsectx. Arguments are
 ;;   in: mandatory, the textual input port to read from
 ;;   enabled-parsers: optional, #f or an hashtable name -> parser containing enabled parsers.
 ;;                    see (parsers) in parser/parser.ss
 ;;   x: optional, a fixnum representing the initial x position in the input port
 ;;   y: optional, a fixnum representing the initial y position in the input port
-(define make-parse-ctx
+(define make-parsectx
   (case-lambda
-    ((in)               (make-parse-ctx* in #f 0 0))
-    ((in enabled-parsers) (make-parse-ctx* in enabled-parsers 0 0))
-    ((in enabled-parsers x) (make-parse-ctx* in enabled-parsers x 0))
-    ((in enabled-parsers x y) (make-parse-ctx* in enabled-parsers x y))))
+    ((in)               (make-parsectx* in #f 0 0))
+    ((in enabled-parsers) (make-parsectx* in enabled-parsers 0 0))
+    ((in enabled-parsers x) (make-parsectx* in enabled-parsers x 0))
+    ((in enabled-parsers x y) (make-parsectx* in enabled-parsers x y))))
 
 
-;; create a new parse-ctx. Arguments are the same as (make-parse-ctx)
+;; create a new parsectx. Arguments are the same as (make-parsectx)
 ;; with the difference that they are all mandatory
-(define (make-parse-ctx* in enabled-parsers x y)
+(define (make-parsectx* in enabled-parsers x y)
   (assert (input-port? in))
   (assert (textual-port? in))
   (assert (fixnum? x))
@@ -199,23 +127,23 @@
               (parser (cdr cell)))
           (assert (symbol? name))
           (assert (parser? parser))))))
-  (%make-parse-ctx in (cons x y) enabled-parsers))
+  (%make-parsectx in (cons x y) enabled-parsers))
 
 
-;; create a new parse-ctx. Arguments are
+;; create a new parsectx. Arguments are
 ;;   str: mandatory, the string to read from
 ;;   enabled-parsers: optional, #f or an hashtable name -> parser containing enabled parsers.
 ;;                    see (parsers) in parser/parser.ss
-(define make-parse-ctx-from-string
+(define make-parsectx-from-string
   (case-lambda
-    ((str)                 (make-parse-ctx* (open-string-input-port str) #f 0 0))
-    ((str enabled-parsers) (make-parse-ctx* (open-string-input-port str) enabled-parsers 0 0))))
+    ((str)                 (make-parsectx* (open-string-input-port str) #f 0 0))
+    ((str enabled-parsers) (make-parsectx* (open-string-input-port str) enabled-parsers 0 0))))
 
 
-;; update parse-ctx position (x . y) after reading ch from textual input port
+;; update parsectx position (x . y) after reading ch from textual input port
 (define (ctx-increment-pos ctx ch)
   (when (char? ch) ; do not advance after reading #!eof
-    (let ((pos (parse-ctx-pos ctx)))
+    (let ((pos (parsectx-pos ctx)))
       (if (char=? ch #\newline)
         (begin ; newline -> set x to 0, increment y
           (set-car! pos 0)
@@ -224,10 +152,10 @@
         (set-car! pos (fx1+ (car pos)))))))
 
 
-;; update parse-ctx position (x . y) after unreading ch from textual input port
+;; update parsectx position (x . y) after unreading ch from textual input port
 (define (ctx-decrement-pos ctx ch)
   (when (char? ch) ; do not rewind after reading #!eof
-    (let ((pos (parse-ctx-pos ctx)))
+    (let ((pos (parsectx-pos ctx)))
       (if (char=? ch #\newline)
         (begin ; newline -> set x to (greatest-fixnum), decrement y
           (set-car! pos (greatest-fixnum))
@@ -236,29 +164,29 @@
         (set-car! pos (fx1- (car pos)))))))
 
 
-;; Peek a character from textual input port (parse-ctx-in ctx)
+;; Peek a character from textual input port (parsectx-in ctx)
 (define (ctx-peek-char ctx)
-  (assert (parse-ctx? ctx))
-  (peek-char (parse-ctx-in ctx)))
+  (assert (parsectx? ctx))
+  (peek-char (parsectx-in ctx)))
 
 
-;; Read a character from textual input port (parse-ctx-in ctx)
+;; Read a character from textual input port (parsectx-in ctx)
 ;;
-;; also updates (parse-ctx-pos ctx)
+;; also updates (parsectx-pos ctx)
 (define (ctx-read-char ctx)
-  (assert (parse-ctx? ctx))
-  (let ((ch (read-char (parse-ctx-in ctx))))
+  (assert (parsectx? ctx))
+  (let ((ch (read-char (parsectx-in ctx))))
     (ctx-increment-pos ctx ch)
     ch))
 
 
-;; Try to unread a character from textual input port (parse-ctx-in ctx)
+;; Try to unread a character from textual input port (parsectx-in ctx)
 ;;
 ;; Raise condition if Chez Scheme (unread-char ch in) fails:
 ;; it will happen ch is different from last character read from input port,
 ;; or if attempting to unread multiple characters without reading them back first.
 (define (ctx-unread-char ctx ch)
-  (let ((in (parse-ctx-in ctx)))
+  (let ((in (parsectx-in ctx)))
     (unread-char ch in)
     (assert (eqv? ch (peek-char in)))
     (ctx-decrement-pos ctx ch)))
@@ -271,22 +199,22 @@
        (or newline-is-whitespace? (not (char=? ch #\newline)))))
 
 
-;; read and discard all initial whitespace in textual input port (parse-ctx-in ctx)
+;; read and discard all initial whitespace in textual input port (parsectx-in ctx)
 ;; characters are considered whitespace if they are <= ' '
 ;;
-;; also updates (parse-ctx-pos ctx)
+;; also updates (parsectx-pos ctx)
 (define (ctx-skip-whitespace ctx newline-is-whitespace?)
   (while (is-whitespace-char? (ctx-peek-char ctx) newline-is-whitespace?)
     (ctx-read-char ctx)))
 
 
-;; read and discard all characters in textual input port (parse-ctx-in ctx)
+;; read and discard all characters in textual input port (parsectx-in ctx)
 ;; until the first occurrence of find-ch, which is discarded too and returned.
 ;;
 ;; if end-of-file is reached before the first occurence of find-ch,
 ;; return (eof-object)
 ;;
-;; also updates (parse-ctx-pos ctx)
+;; also updates (parsectx-pos ctx)
 (define (ctx-skip-until-char ctx find-ch)
   (let ((ret #f))
     (until ret
@@ -296,10 +224,10 @@
     ret))
 
 
-;; read and discard all characters in textual input port (parse-ctx-in ctx)
+;; read and discard all characters in textual input port (parsectx-in ctx)
 ;; until the first #\newline, which is discarded too
 ;;
-;; also updates (parse-ctx-pos ctx)
+;; also updates (parsectx-pos ctx)
 (define (ctx-skip-line ctx)
   (ctx-skip-until-char ctx #\newline)
   (void))
@@ -318,7 +246,7 @@
 
 
 
-;; Try to read a parser directive #!... from textual input port (parse-ctx-in ctx)
+;; Try to read a parser directive #!... from textual input port (parsectx-in ctx)
 ;; Does NOT skip whitespace in input port.
 ;;
 ;; If port's first two characters are a parser directive #!
@@ -343,19 +271,19 @@
 ;; Raise a condition describing a syntax error
 (define (syntax-errorf ctx who format-string . format-args)
   (raise
-    (if (parse-ctx? ctx)
+    (if (parsectx? ctx)
       (condition
         (make-lexical-violation)
         (make-i/o-read-error)
         (make-who-condition who)
         (make-format-condition)
-        (make-i/o-port-error (parse-ctx-in ctx))
+        (make-i/o-port-error (parsectx-in ctx))
         (make-message-condition (string-append format-string " at line ~a, char ~a of ~a"))
         (make-irritants-condition
           (append format-args
-            (list (fx1+ (cdr (parse-ctx-pos ctx)))
-                  (car (parse-ctx-pos ctx))
-                  (parse-ctx-in ctx)))))
+            (list (fx1+ (cdr (parsectx-pos ctx)))
+                  (car (parsectx-pos ctx))
+                  (parsectx-in ctx)))))
       (condition
         (make-lexical-violation)
         (make-i/o-read-error)
@@ -364,34 +292,6 @@
         (make-message-condition format-string)
         (make-irritants-condition format-args)))))
 
-
-(define (show-parens obj port)
-  (try
-    (let ((token (parens-token obj)))
-      (display (if token token #\_) port)
-      (let ((inner-span (parens-inner obj)))
-        (when (span? inner-span)
-          (span-iterate inner-span
-            (lambda (i inner)
-              (unless (fxzero? i)
-                (display #\space port))
-              (show-parens inner port)))))
-      (display (close-token-for token) port))
-    (catch (cond)
-      (display cond port))))
-
-(define (close-token-for token)
-  (case token
-    ((#\() #\)) ((#\[) #\]) ((#\{) #\})
-    ((#\") #\") ((#\') #\') ((#\`) #\`)
-    ((#\|) #\|) ((#\#) #\#) (else #\_)))
-
-;; customize how "parens" objects are printed
-(record-writer (record-type-descriptor parens)
-  (lambda (obj port writer)
-    (display "#<parens " port)
-    (show-parens obj port)
-    (display ">" port)))
 
 ;; customize how "parser" objects are printed
 (record-writer (record-type-descriptor parser)

@@ -25,6 +25,7 @@
   (include "posix/posix.ss")
   (include "lineedit/charlines.ss")
   (include "lineedit/charhistory.ss")
+  (include "lineedit/parens.ss")
   (include "lineedit/parenmatcher.ss")
   (include "lineedit/io.ss")
   (include "lineedit/lineedit.ss")

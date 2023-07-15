@@ -19,6 +19,7 @@
        read-token reverse!)
     (only (schemesh bootstrap) while until)
     (only (schemesh containers misc) reverse*!)
+    (schemesh lineedit parens)
     (schemesh parser base))
 
 
@@ -46,7 +47,7 @@
       ;;    {ls -l > log.txt}
       ;; is equivalent to
       ;;    (#!shell ls -l > log.txt)
-      (let-values (((type value start end) (read-token (parse-ctx-in ctx))))
+      (let-values (((type value start end) (read-token (parsectx-in ctx))))
         (if (eq? 'atomic type)
           (case value
             (({)  (values #f 'lbrace))
@@ -322,7 +323,7 @@
                   (set! done? #t))))))))
 
 
-;; Read Scheme forms from textual input port (parse-ctx-in ctx),
+;; Read Scheme forms from textual input port (parsectx-in ctx),
 ;; collecting grouping tokens i.e. ( ) [ ] { } |# #| " " | |
 ;; and filling paren with them.
 ;;
@@ -336,13 +337,13 @@
 ;;
 ;; Return a parens containing the collected grouping tokens.
 (define (parse-lisp-parens ctx start-token flavor)
-  (assert (parse-ctx? ctx))
+  (assert (parsectx? ctx))
   (when start-token
     (assert (char? start-token)))
   (assert (symbol? flavor))
   (let* ((paren     (make-parens flavor start-token))
          (end-token (case start-token ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else #f)))
-         (pos       (parse-ctx-pos ctx))
+         (pos       (parsectx-pos ctx))
          (done?     #f)
          (%paren-fill-end! (lambda (paren)
            (parens-end-x-set! paren (fx1- (car pos)))

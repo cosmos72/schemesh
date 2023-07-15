@@ -15,6 +15,7 @@
     (only (chezscheme) fx1- reverse! unread-char)
     (only (schemesh bootstrap) until while)
     (schemesh containers charspan)
+    (schemesh lineedit parens)
     (schemesh parser base))
 
 (define (paren-type->string type)
@@ -539,7 +540,7 @@
     ret))
 
 
-;; Read shell forms from textual input port (parse-ctx-in ctx),
+;; Read shell forms from textual input port (parsectx-in ctx),
 ;; collecting grouping tokens i.e. ( ) [ ] { } " ' ` and filling paren with them.
 ;;
 ;; If a parser directive #!... is found, switch to the corresponding parser
@@ -552,7 +553,7 @@
 (define (parse-shell-parens ctx start-token)
   (let* ((paren     (make-parens 'shell start-token))
          (end-token (case start-token ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else start-token)))
-         (pos       (parse-ctx-pos ctx))
+         (pos       (parsectx-pos ctx))
          (done?     #f)
          (%paren-fill-end! (lambda (paren)
            (parens-end-x-set! paren (fx1- (car pos)))

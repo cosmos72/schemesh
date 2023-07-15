@@ -39,7 +39,7 @@
 ;
 ; Parse user input.
 ; Arguments:
-;   ctx - a parse-ctx containing textual input port to parse, its position
+;   ctx - a parsectx containing textual input port to parse, its position
 ;         and a hashtable of enabled parsers (can be #f)
 ;   initial-parser - initial parser to use: a symbol or parser
 ;
@@ -120,7 +120,7 @@
       ((#t) initial-parser) ; nothing to execute: waiting for more user input
       (else
         (let-values (((form updated-parser)
-                        (repl-parse (make-parse-ctx* in enabled-parsers 0 0) initial-parser)))
+                        (repl-parse (make-parsectx* in enabled-parsers 0 0) initial-parser)))
           (unless (eq? (void) form)
             (call-with-values
               (lambda () (repl-eval-list form eval-func))

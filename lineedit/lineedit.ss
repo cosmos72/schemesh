@@ -7,6 +7,12 @@
 
 (library (schemesh lineedit (0 1))
   (export
+    make-parens parens? parens-name parens-token
+    parens-start-x parens-start-x-set! parens-start-y parens-start-y-set!
+    parens-end-x   parens-end-x-set!   parens-end-y   parens-end-y-set!
+    parens-inner   parens-inner-append!
+    parens->values parens->hashtable parens-hashtable-lookup
+
     make-linectx make-linectx* linectx? linectx-line linectx-lines
     linectx-x linectx-y linectx-match-x-set! linectx-match-y-set!
     linectx-parenmatcher
@@ -36,6 +42,7 @@
     (schemesh posix fd)
     (schemesh lineedit charlines)
     (schemesh lineedit charhistory)
+    (schemesh lineedit parens)
     (schemesh lineedit parenmatcher)
     (schemesh posix tty)
     (only (schemesh posix signal) signal-consume-sigwinch))
