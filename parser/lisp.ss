@@ -345,6 +345,7 @@
          (end-token (case start-token ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else #f)))
          (pos       (parsectx-pos ctx))
          (done?     #f)
+         (err?      #f)
          (%paren-fill-end! (lambda (paren)
            (parens-end-x-set! paren (fx1- (car pos)))
            (parens-end-y-set! paren (cdr pos)))))
@@ -388,17 +389,25 @@
           ((symbol? token)
              ; recurse to other parser until end of current list
              (let* ((other-parser (get-parser ctx token (paren-caller-for flavor)))
-                    (other-parse-parens (parser-parse-parens other-parser)))
-               (parens-inner-append! paren (other-parse-parens ctx start-token))
+                    (other-parse-parens (parser-parse-parens other-parser))
+                    (other-parens (other-parse-parens ctx start-token)))
+               (if other-parens
+                 (parens-inner-append! paren other-parens)
+                 (set! err? #t))
                (set! done? #t)))
 
           ((eof-object? token)
+             (set! err? #t)
              (set! done? #t))
 
           ; ignore unexpected tokens
           )))
 
-    (%paren-fill-end! paren)
+    (if (and start-token err?)
+      (when (parens-inner-empty? paren)
+        (set! paren #f))
+      (%paren-fill-end! paren))
+
     paren))
 
 

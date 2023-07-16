@@ -77,6 +77,7 @@
 ;; Return a copy-on-write clone of specified charline.
 
 (define (charline-copy-on-write line)
+  (assert (charline? line))
   (%make-charline (chargbuffer-left line) (chargbuffer-right line)
                   (charline-nl? line) (charline-share-inc! line)))
 

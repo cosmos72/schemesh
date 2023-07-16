@@ -74,7 +74,7 @@ int main(int argc, const char* argv[]) {
 
   on_exception = EVAL_FAILED;
 again:
-#if 0
+#if 1
   (void)argc;
   (void)argv;
   (void)buf;

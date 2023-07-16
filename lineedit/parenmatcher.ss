@@ -7,7 +7,7 @@
 
 (library (schemesh lineedit parenmatcher (0 1))
   (export
-    parenmatcher? make-custom-parenmatcher parenmatcher-find-match)
+    parenmatcher? make-custom-parenmatcher parenmatcher-clear! parenmatcher-find-match)
   (import
     (rnrs)
     (only (chezscheme) record-writer)

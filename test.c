@@ -562,6 +562,8 @@ static const struct {
     {"(parse-parens-from-string \"{\\\"foobar{}[]``baz\\\"}\")", "#<parens _{\"{} ``\"}_>"},
     /** parens are not special in shell syntax inside double quoted string */
     {"(parse-parens-from-string \"{\\\"()\\\"}\")", "#<parens _{\"\"}_>"},
+    /** parse mismatched parens */
+    {"(parse-parens-from-string \"([{)]}\")", "#<parens _([{}])_>"},
     /* -------------------------- parenmatcher -------------------------------*/
     {"(values->list (parens->values\n"
      "  (parenmatcher-find-match\n"

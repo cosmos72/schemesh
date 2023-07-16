@@ -555,6 +555,7 @@
          (end-token (case start-token ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else start-token)))
          (pos       (parsectx-pos ctx))
          (done?     #f)
+         (err?      #f)
          (%paren-fill-end! (lambda (paren)
            (parens-end-x-set! paren (fx1- (car pos)))
            (parens-end-y-set! paren (cdr pos)))))
@@ -569,6 +570,17 @@
           ((eqv? token end-token) ; found matching close token
              (set! done? #t))
 
+          ((symbol? token)
+            (unless (eqv? start-token #\")
+               ; recurse to other parser until end of current list
+               (let* ((other-parser (get-parser ctx token 'parse-shell-parens))
+                      (other-parse-parens (parser-parse-parens other-parser))
+                      (other-parens (other-parse-parens ctx start-token)))
+                 (if other-parens
+                   (parens-inner-append! paren other-parens)
+                   (set! err? #t))
+                 (set! done? #t))))
+
           ((memv token '(#\{ #\" #\` #\$))
              ; recursion: call shell parser on nested list
              (parens-inner-append! paren (parse-shell-parens ctx (if (eqv? token #\$) #\( token))))
@@ -579,8 +591,9 @@
                ; parens not inside double quotes, switch to scheme parser
                ; recursion: call scheme parser on nested list
                (let* ((other-parser (get-parser ctx 'scheme 'parse-shell-parens))
-                      (other-parse-parens (parser-parse-parens other-parser)))
-                 (parens-inner-append! paren (other-parse-parens ctx token)))))
+                      (other-parse-parens (parser-parse-parens other-parser))
+                      (other-parens (other-parse-parens ctx token)))
+                 (parens-inner-append! paren other-parens))))
 
           ((eqv? token #\')       ; found single-quoted string
              (unless (eqv? start-token #\")
@@ -592,10 +605,16 @@
                  (parens-inner-append! paren inner))))
 
           ((eof-object? token)
+             (set! err? #t)
              (set! done? #t))
+
           ; ignore unexpected tokens
           )))
-    (%paren-fill-end! paren)
+
+    (if (and start-token err?)
+      (when (parens-inner-empty? paren)
+        (set! paren #f))
+      (%paren-fill-end! paren))
     paren))
 
 
