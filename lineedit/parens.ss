@@ -11,6 +11,7 @@
     make-parens parens? parens-name parens-token
     parens-start-x parens-start-x-set! parens-start-y parens-start-y-set!
     parens-end-x   parens-end-x-set!   parens-end-y   parens-end-y-set!
+    parens-valid-start-end?
     parens-inner   parens-inner-empty? parens-inner-append!
     parens->values parens->hashtable parens-hashtable-ref
 
@@ -46,6 +47,17 @@
   (when token
     (assert (char? token)))
   (%make-parens name token 0 0 (greatest-fixnum) (greatest-fixnum) #f))
+
+
+;; return #t if both start and end positions of parens are valid
+(define (parens-valid-start-end? parens)
+  (let ((start-x (parens-start-x parens))
+        (start-y (parens-start-y parens))
+        (end-x   (parens-end-x parens))
+        (end-y   (parens-end-y parens))
+        (bad     (greatest-fixnum)))
+    (and (fx<? -1 start-x bad) (fx<? -1 start-y bad)
+         (fx<? start-x end-x bad) (fx<=? start-y end-y) (fx<? end-y bad))))
 
 
 (define (parens-inner-empty? parens)

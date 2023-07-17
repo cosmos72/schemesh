@@ -515,9 +515,13 @@
       (scan-shell-parens ctx)))
 
 
-;; Read until one of ( ) { } ' " ` $( is found, and return it.
+(define dollar+lparen 1)
+(define dollar+lbrace 2)
+
+;; Read until one of ( ) { } ' " ` $( ${ is found, and return it.
 ;; ignore them if they are preceded by \
-;; if $( is found, return $
+;; if $( is found, return value of global constant dollar+lparen
+;; if ${ is found, return value of global constant dollar+lbrace
 ;; Does not recognize parser directives #!... use (scan-shell-parens-or-directive)
 ;; for that
 (define (scan-shell-parens ctx)
@@ -526,11 +530,15 @@
     (until ret
       (let ((ch (parsectx-read-char ctx)))
         (case ch
-          ((#\()  #| make vscode happy: #\) |#
-             (set! ret (if (eqv? prev-char #\$) prev-char ch)))
+          ((#\()
+             (set! ret (if (eqv? prev-char #\$) dollar+lparen ch)))
+             #| make vscode happy: #\) |#
+
+          ((#\{)
+             (set! ret (if (eqv? prev-char #\$) dollar+lbrace ch)))
 
           #| make vscode happy: #\( |#
-          ((#\) #\{ #\} #\" #\' #\`) (set! ret ch))
+          ((#\) #\} #\" #\' #\`) (set! ret ch))
 
           ((#\\)  (parsectx-read-char ctx)) ; consume one character after backslash
 
@@ -581,10 +589,15 @@
                      (set! ret #t))
                    (set! ret 'err)))))
 
-          ((memv token '(#\{ #\" #\` #\$))
-             ; recursion: call shell parser on nested list
-             (parens-inner-append! paren (parse-shell-parens ctx (if (eqv? token #\$) #\( token))))
-             #| make vscode happy: #\) |#
+          ((or (fixnum? token) (memv token '(#\{ #\" #\`)))
+             ;; inside double quotes, ${ is special but plain { isn't.
+             ;; " inside double quotes is handled above by (eqv? token end-token)
+             (unless (and (eqv? token #\{) (eqv? start-token #\"))
+               ;; recursion: call shell parser on nested list
+               (let ((start-inner (cond ((eqv? token dollar+lparen) #\() #|)|#
+                                        ((eqv? token dollar+lbrace) #\{)
+                                        (#t                       token))))
+                 (parens-inner-append! paren (parse-shell-parens ctx start-inner)))))
 
           ((eqv? token #\()                  #| make vscode happy: #\) |#
              (unless (eqv? start-token #\")

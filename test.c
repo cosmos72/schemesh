@@ -559,7 +559,7 @@ static const struct {
     /* test single-quoted strings in shell syntax */
     {"(parse-parens-from-string \"{'foo\\\"bar{}[]()``baz'}\")", "#<parens _{''}_>"},
     /* test double-quoted strings in shell syntax */
-    {"(parse-parens-from-string \"{\\\"foobar{}[]``baz\\\"}\")", "#<parens _{\"{} ``\"}_>"},
+    {"(parse-parens-from-string \"{\\\"foobar{}[]``${baz}\\\"}\")", "#<parens _{\"`` {}\"}_>"},
     /** parens are not special in shell syntax inside double quoted string */
     {"(parse-parens-from-string \"{\\\"()\\\"}\")", "#<parens _{\"\"}_>"},
     /** parse mismatched parens */
