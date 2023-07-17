@@ -564,6 +564,7 @@ static const struct {
     {"(parse-parens-from-string \"{\\\"()\\\"}\")", "#<parens _{\"\"}_>"},
     /** parse mismatched parens */
     {"(parse-parens-from-string \"([{)]}\")", "#<parens _([{}])_>"},
+    {"(parse-parens-from-string \"(\\\" a\\\"\")", "#<parens _(\"\")_>"},
     /* -------------------------- parenmatcher -------------------------------*/
     {"(values->list (parens->values\n"
      "  (parenmatcher-find-match\n"

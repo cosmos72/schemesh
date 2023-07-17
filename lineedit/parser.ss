@@ -211,8 +211,8 @@
 ;; read and discard all characters in textual input port (parsectx-in ctx)
 ;; until the first occurrence of find-ch, which is discarded too and returned.
 ;;
-;; if end-of-file is reached before the first occurence of find-ch,
-;; return (eof-object)
+;; if find-ch is found before end-of-file, return #t
+;; otherwise return #f
 ;;
 ;; also updates (parsectx-pos ctx)
 (define (parsectx-skip-until-char ctx find-ch)
@@ -221,7 +221,7 @@
       (let ((ch (parsectx-read-char ctx)))
         (when (or (eqv? (eof-object) ch) (eqv? find-ch ch))
           (set! ret ch))))
-    ret))
+    (char? ret)))
 
 
 ;; read and discard all characters in textual input port (parsectx-in ctx)

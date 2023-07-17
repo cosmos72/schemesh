@@ -296,31 +296,36 @@
       (else #f))))
 
 
-;; skip all characters until |# which is consumed too
+;; skip all characters until sequence |# which is consumed too
+;; return #t if |# is found before end-of-file, otherwise return #f
 (define (skip-lisp-block-comment ctx)
-  (let ((done? #f))
-    (until done?
+  (let ((ret #f))
+    (until ret
       (let ((ch (parsectx-read-char ctx)))
         (cond
           ((eof-object? ch)
-        (set! done? #t))
+            (set! ret ch))
           ((and (eqv? #\| ch) (eqv? #\# (parsectx-peek-char ctx)))
-            (parsectx-read-char ctx)
-            (set! done? #t)))))))
+            (set! ret (parsectx-read-char ctx))))))
+    (char? ret)))
+
 
 
 ;; skip characters until the end of double-quoted string
 ;; (the initial " character was already consumed)
-;; Also consume the final "
+;; Also consume the final #\"
+;;
+;; return #t if #\" is found before end-of-file, otherwise return #f
 (define (skip-lisp-double-quotes ctx)
-  (let ((done? #f))
-    (until done?
+  (let ((ret #f))
+    (until ret
       (let ((ch (parsectx-read-char ctx)))
         (case ch
-          ((#\") (set! done? #t))
+          ((#\") (set! ret ch))
           ((#\\) (parsectx-read-char ctx))
           (else (when (eof-object? ch)
-                  (set! done? #t))))))))
+                  (set! ret ch))))))
+    (char? ret)))
 
 
 ;; Read Scheme forms from textual input port (parsectx-in ctx),
@@ -344,14 +349,13 @@
   (let* ((paren     (make-parens flavor start-token))
          (end-token (case start-token ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else #f)))
          (pos       (parsectx-pos ctx))
-         (done?     #f)
-         (err?      #f)
+         (ret       #f)
          (%paren-fill-end! (lambda (paren)
            (parens-end-x-set! paren (fx1- (car pos)))
            (parens-end-y-set! paren (cdr pos)))))
     (parens-start-x-set! paren (fx- (car pos) (if start-token 1 0)))
     (parens-start-y-set! paren (cdr pos))
-    (until done?
+    (until ret
       (let ((token (scan-lisp-parens-or-directive ctx)))
         (cond
           ((not token) ; not a grouping token
@@ -371,43 +375,43 @@
              ; found quoted string, quoted symbol or block comment.
              ; create and fill nested parens object
              (let ((inner (make-parens flavor token)))
-               (parens-start-x-set! paren (fx- (car pos) (if (eqv? token #\#) 2 1)))
-               (parens-start-y-set! paren (cdr pos))
-               (cond
-                 ((eqv? token #\")               ; parse "some string"
-                   (skip-lisp-double-quotes ctx))
-                 ((eqv? token #\|)               ; parse |identifier|
-                   (parsectx-skip-until-char ctx #\|))
-                 (#t                             ; parse #| block comment |#
-                   (skip-lisp-block-comment ctx)))
-               (%paren-fill-end! inner)
-               (parens-inner-append! paren inner)))
+               (parens-start-x-set! inner (fx- (car pos) (if (eqv? token #\#) 2 1)))
+               (parens-start-y-set! inner (cdr pos))
+               (when (cond
+                       ((eqv? token #\")               ; parse "some string"
+                         (skip-lisp-double-quotes ctx))
+                       ((eqv? token #\|)               ; parse |identifier|
+                         (parsectx-skip-until-char ctx #\|))
+                       (#t                             ; parse #| block comment |#
+                         (skip-lisp-block-comment ctx)))
+                 (%paren-fill-end! inner)
+                 (parens-inner-append! paren inner))))
 
           ((eqv? token end-token) ; found matching close token
-             (set! done? #t))
+             (set! ret #t))
 
           ((symbol? token)
              ; recurse to other parser until end of current list
              (let* ((other-parser (get-parser ctx token (paren-caller-for flavor)))
                     (other-parse-parens (parser-parse-parens other-parser))
                     (other-parens (other-parse-parens ctx start-token)))
-               (if other-parens
-                 (parens-inner-append! paren other-parens)
-                 (set! err? #t))
-               (set! done? #t)))
+               (set! ret
+                 (if other-parens
+                   (begin
+                     (parens-inner-append! paren other-parens)
+                     #t)
+                   'err))))
 
           ((eof-object? token)
-             (set! err? #t)
-             (set! done? #t))
+             (set! ret 'err))
 
           ; ignore unexpected tokens
           )))
 
-    (if (and start-token err?)
+    (if (or (eq? #t ret) (not start-token))
+      (%paren-fill-end! paren)
       (when (parens-inner-empty? paren)
-        (set! paren #f))
-      (%paren-fill-end! paren))
-
+        (set! paren #f)))
     paren))
 
 

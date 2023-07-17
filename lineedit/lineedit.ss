@@ -880,8 +880,16 @@
 
 (define (linectx-draw-parens ctx parens style)
   (when parens
-    (linectx-draw-char-at ctx (parens-start-x parens) (parens-start-y parens) style)
-    (linectx-draw-char-at ctx (parens-end-x parens)   (parens-end-y parens)   style)))
+    (let ((start-x (parens-start-x parens))
+          (start-y (parens-start-y parens))
+          (end-x   (parens-end-x parens))
+          (end-y   (parens-end-y parens))
+          (bad     (greatest-fixnum)))
+      ;; draw parens only if both start and end positions are valid
+      (when (and (fx<? -1 start-x bad) (fx<? -1 start-y bad)
+                 (fx<? start-x end-x bad) (fx<=? start-y end-y) (fx<? end-y bad))
+        (linectx-draw-char-at ctx start-x start-y style)
+        (linectx-draw-char-at ctx end-x   end-y   style)))))
 
 
 (define (linectx-parens-find ctx)

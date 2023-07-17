@@ -554,21 +554,20 @@
   (let* ((paren     (make-parens 'shell start-token))
          (end-token (case start-token ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else start-token)))
          (pos       (parsectx-pos ctx))
-         (done?     #f)
-         (err?      #f)
+         (ret       #f)
          (%paren-fill-end! (lambda (paren)
            (parens-end-x-set! paren (fx1- (car pos)))
            (parens-end-y-set! paren (cdr pos)))))
     (parens-start-x-set! paren (fx- (car pos) (if start-token 1 0)))
     (parens-start-y-set! paren (cdr pos))
-    (until done?
+    (until ret
       (let ((token (scan-shell-parens-or-directive ctx)))
         (cond
           ((not token) ; not a grouping token
              #f)
 
           ((eqv? token end-token) ; found matching close token
-             (set! done? #t))
+             (set! ret #t))
 
           ((symbol? token)
             (unless (eqv? start-token #\")
@@ -577,9 +576,10 @@
                       (other-parse-parens (parser-parse-parens other-parser))
                       (other-parens (other-parse-parens ctx start-token)))
                  (if other-parens
-                   (parens-inner-append! paren other-parens)
-                   (set! err? #t))
-                 (set! done? #t))))
+                   (begin
+                     (parens-inner-append! paren other-parens)
+                     (set! ret #t))
+                   (set! ret 'err)))))
 
           ((memv token '(#\{ #\" #\` #\$))
              ; recursion: call shell parser on nested list
@@ -598,23 +598,22 @@
           ((eqv? token #\')       ; found single-quoted string
              (unless (eqv? start-token #\")
                (let ((inner (make-parens 'shell token)))
-                 (parens-start-x-set! paren (fx- (car pos) 1))
-                 (parens-start-y-set! paren (cdr pos))
-                 (parsectx-skip-until-char ctx #\')
-                 (%paren-fill-end! inner)
-                 (parens-inner-append! paren inner))))
+                 (parens-start-x-set! inner (fx- (car pos) 1))
+                 (parens-start-y-set! inner (cdr pos))
+                 (when (parsectx-skip-until-char ctx #\')
+                   (%paren-fill-end! inner)
+                   (parens-inner-append! paren inner)))))
 
           ((eof-object? token)
-             (set! err? #t)
-             (set! done? #t))
+             (set! ret 'err))
 
           ; ignore unexpected tokens
           )))
 
-    (if (and start-token err?)
+    (if (or (eq? #t ret) (not start-token))
+      (%paren-fill-end! paren)
       (when (parens-inner-empty? paren)
-        (set! paren #f))
-      (%paren-fill-end! paren))
+        (set! paren #f)))
     paren))
 
 
