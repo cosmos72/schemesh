@@ -641,8 +641,7 @@
   (void))
 
 (define (lineedit-key-enter ctx)
-  (linectx-return-set! ctx #t)
-  (linectx-u8-write ctx 10))
+  (linectx-return-set! ctx #t))
 
 (define (lineedit-key-history-next ctx)
   (lineedit-navigate-history ctx +1)
@@ -752,8 +751,10 @@
 ;; the returned charlines MUST NOT be modified, not even temporarily,
 ;; because linectx-history still references it.
 (define (linectx-return-lines ctx)
-  (linectx-return-set! ctx #f)    ; clear flag "user pressed ENTER"
+  (linectx-return-set! ctx #f) ; clear flag "user pressed ENTER"
   (linectx-redraw-set! ctx #t) ; set flag "redraw prompt and lines"
+  (linectx-draw-parens ctx (linectx-parens ctx) 'plain) ; unhighlight parentheses
+  (linectx-u8-write ctx 10) ; advance to next line. TODO: handle multiline input
   (let* ((y (linectx-history-index ctx))
          (hist (linectx-history ctx))
          (hist-len (charhistory-length hist)))
