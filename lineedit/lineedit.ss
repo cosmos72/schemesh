@@ -881,7 +881,7 @@
 
 (define (linectx-draw-parens ctx parens style)
   ;; draw parens only if both start and end positions are valid
-  (when (and parens (parens-valid-start-end? parens))
+  (when (parens-valid? parens)
     (linectx-draw-char-at ctx (parens-start-x parens) (parens-start-y parens) style)
     (linectx-draw-char-at ctx (parens-end-x parens)   (parens-end-y parens)   style)))
 

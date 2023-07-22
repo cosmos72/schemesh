@@ -11,15 +11,14 @@
     make-parens parens? parens-name parens-token
     parens-start-x parens-start-x-set! parens-start-y parens-start-y-set!
     parens-end-x   parens-end-x-set!   parens-end-y   parens-end-y-set!
-    parens-valid-start-end?
-    parens-inner   parens-inner-empty? parens-inner-append!
+    parens-valid?  parens-inner  parens-inner-empty?  parens-inner-append!
     parens->values parens->hashtable parens-hashtable-ref
 
     is-parens-char?)
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) fx1+ fx1- make-format-condition record-writer unread-char void)
+    (only (chezscheme) fx1+ fx1- record-writer unread-char void)
     (only (schemesh bootstrap) try until while)
     (only (schemesh containers misc) list-iterate)
     (only (schemesh containers hashtable) hashtable-iterate)
@@ -49,15 +48,12 @@
   (%make-parens name token 0 0 (greatest-fixnum) (greatest-fixnum) #f))
 
 
-;; return #t if both start and end positions of parens are valid
-(define (parens-valid-start-end? parens)
-  (let ((start-x (parens-start-x parens))
-        (start-y (parens-start-y parens))
-        (end-x   (parens-end-x parens))
-        (end-y   (parens-end-y parens))
-        (bad     (greatest-fixnum)))
-    (and (fx<? -1 start-x bad) (fx<? -1 start-y bad)
-         (fx<? start-x end-x bad) (fx<=? start-y end-y) (fx<? end-y bad))))
+;; return #t if parens' token is truish and both start and end positions of parens are valid
+(define (parens-valid? parens)
+  (and (parens? parens) (parens-token parens)
+    (let ((start-xy (xy->key (parens-start-x parens) (parens-start-y parens)))
+          (end-xy   (xy->key (parens-end-x parens)   (parens-end-y parens))))
+      (fx<? -1 start-xy end-xy))))
 
 
 (define (parens-inner-empty? parens)
@@ -82,13 +78,14 @@
 
 ;; traverse parens and convert it to a hashtable (+ x (* y 65536)) -> parens
 (define (%parens->hashtable parens htable)
+  ;; (format #t "(%parens->hashtable ~s)~%" parens)
+  (when (parens-valid? parens)
+    (%hashtable-put-parens htable parens))
   (let ((inner-span (parens-inner parens)))
     (when inner-span
       (span-iterate inner-span
         (lambda (i inner)
-          (%parens->hashtable inner htable))))
-    (when (parens-token parens)
-      (%hashtable-put-parens htable parens)))
+          (%parens->hashtable inner htable)))))
   htable)
 
 ;; add parens to hashtable, using both positions start-x start-y and end-x end-y

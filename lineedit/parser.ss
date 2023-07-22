@@ -23,8 +23,8 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) break fx1+ fx1- make-format-condition record-writer unread-char void)
-    (only (schemesh bootstrap) try until while)
+    (only (chezscheme) fx1+ fx1- make-format-condition record-writer unread-char void)
+    (only (schemesh bootstrap) until while)
     (only (schemesh containers misc) list-iterate)
     (only (schemesh containers hashtable) hashtable-iterate)
     (schemesh containers span)
