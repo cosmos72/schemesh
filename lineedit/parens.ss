@@ -32,7 +32,7 @@
   (parens %make-parens parens?)
   (fields
     name  ; symbol, name of parser that created this parens object (may differ in sub-objects)
-    token ; character, one of: ( [ { " ' ` |
+    token ; character, one of: # ( [ { " ' ` |
     (mutable start-x) ; fixnum, x position of start parenthesis/bracket/brace/quote
     (mutable start-y) ; fixnum, y position of start parenthesis/bracket/brace/quote
     (mutable end-x)   ; fixnum, x position of end parenthesis/bracket/brace/quote

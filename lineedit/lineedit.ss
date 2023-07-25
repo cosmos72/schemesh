@@ -301,9 +301,18 @@
     (term-move-dy ctx (fx- to-y from-y))
     (term-move-dx ctx (fx- to-x from-x))))
 
+;; if current x position is at tty right border or exceeds it, move to next line
+(define (linectx-xy-wraparound ctx)
+  (let* ((x (linectx-x ctx))
+         (y (linectx-y ctx))
+         (prompt-len (if (fxzero? y) (linectx-prompt-length ctx) 0)))
+    ;; TODO: implement
+    #f))
+
+
 ;; return absolute x y position corresponding to relative dx dy position,
 ;; clamping returned values to current charlines
-(define (linectx-pos-dx-dy ctx dx dy)
+(define (linectx-dxdy->xy ctx dx dy)
   (let* ((x (fx+ dx (linectx-x ctx)))
      (y (fx+ dy (linectx-y ctx)))
      (lines (linectx-lines ctx))
@@ -409,13 +418,15 @@
     (linectx-move-from ctx x y)
     (term-clear-to-eos ctx))) ; erase all lines, preserving prompt
 
+
 ;; write #\newline before returning from (repl)
 (define (lineedit-finish ctx)
   (linectx-u8-write ctx 10)
   (lineedit-flush ctx))
+
+
 ;; save current linectx-lines to history, then replace current lines with specified
 ;; charlines - which are retained, do NOT modify them after calling this function
-
 (define (lineedit-lines-set! ctx lines)
   (assert-charlines? 'lineedit-lines-set! lines)
   (linectx-to-history ctx)
@@ -433,6 +444,64 @@
     (linectx-x-set! ctx (charline-length line))
     (linectx-y-set! ctx lines-n-1)))
 
+
+;; return number of excess characters of y-th line that overflow tty right border
+;; return <= 0 if no excess character
+(define (linectx-line-excess ctx y)
+  (let* ((prompt-len (if (fxzero? y) (linectx-prompt-length ctx) 0))
+         (line-len (charline-length (linectx-line ctx))))
+    (fx- (fx+ prompt-len line-len) (linectx-width ctx))))
+
+;; return #t if y-th line reaches tty right border
+;; otherwise return #f
+(define (linectx-line-full? ctx y)
+  (fx>=? (linectx-line-excess ctx y) 0))
+
+;; move the last n characters of y-th line to next line.
+(define (linectx-line-overflow! ctx y n)
+  (let* ((lines   (linectx-lines ctx))
+         (lines-n (charlines-length lines))
+         (src     (charlines-ref lines y))
+         (dst     (if (fx<? (fx1+ y) lines-n) (charlines-ref lines (fx1+ y)))))
+    (assert (fx<=? 0 n (charline-length src)))
+    ; create a new line if needed
+    (unless dst
+      (set! dst (charline))
+      (charlines-insert-at! lines n dst))
+    (do ((i 0 (fx1+ i)))
+        ((fx>=? i n))
+      (let* ((src-pos (fx1- (charline-length src)))
+             (ch (charline-ref src src-pos)))
+        (charline-erase-at! src src-pos 1)
+        (charline-insert-at! dst 0 ch)))))
+
+
+;; move the last n characters of y-th input line to next line.
+;; if next line becomes full, move the overflowing characters to the following line,
+;; and so on until the last line
+(define (linectx-lines-overflow! ctx y n)
+  (linectx-line-overflow! ctx y n)
+  (let* ((y+1 (fx1+ y))
+         (excess (linectx-line-excess ctx y+1)))
+    (when (fx>? excess 0)
+      (linectx-lines-overflow! ctx y+1 excess))))
+
+
+;; insert a single character into current line.
+;; return #t if insertion caused some character to move to the next line(s)
+;; otherwise return #f
+(define (linectx-ch-insert! ctx ch)
+  (let* ((y (linectx-y ctx))
+         (overflow? (linectx-line-full? ctx y)))
+    (when overflow?
+      (linectx-lines-overflow! ctx y 1))
+    (charline-insert-at! (linectx-line ctx) (linectx-x ctx) ch)
+    (bytespan-utf8-insert-back! (linectx-wbuf ctx) ch)
+    (linectx-x-set! ctx (fx1+ (linectx-x ctx)))
+    (linectx-xy-wraparound ctx)
+    overflow?))
+
+
 ;; consume n chars from charspan csp, starting at offset = start
 ;; and insert them into current line.
 (define (linectx-csp-insert! ctx csp start n)
@@ -440,19 +509,15 @@
   (let* ((beg   (fx+ start (charspan-peek-beg csp)))
          (pos   beg)
          (end   (fx+ pos n))
-         (line  (linectx-line ctx))
-         (x     (linectx-x ctx))
-         (wbuf  (linectx-wbuf ctx)))
-    ; TODO: handle lines longer than tty width
+         (overflow? #f))
     (do ()
         ((fx>=? pos end))
-      (let ((ch (charspan-ref csp pos)))
-        (set! pos (fx1+ pos))
-        (charline-insert-at! line x ch)
-        (bytespan-utf8-insert-back! wbuf ch)
-        (set! x (fx1+ x))))
-    (linectx-x-set! ctx x)
-    (term-redraw-to-eol ctx 'dont-clear-line-right)))
+      (when (linectx-ch-insert! ctx (charspan-ref csp pos))
+        (set! overflow? #t)))
+    (if overflow?
+      (linectx-redraw-set! ctx #t)
+      (term-redraw-to-eol ctx 'dont-clear-line-right))))
+
 
 ;; consume up to n bytes from bytespan bsp, starting at offset = start
 ;; and insert them into current line.
@@ -462,26 +527,24 @@
   (let ((beg   start)
         (pos   start)
         (end   (fx+ start n))
-        (line  (linectx-line ctx))
-        (x     (linectx-x ctx))
-        (incomplete #f)
-        (wbuf  (linectx-wbuf ctx)))
-;;  TODO: handle lines longer than tty width
+        (incomplete-utf8? #f)
+        (overflow? #f)) ; #t if inserting caused some chars to move to next line
     (do ((iter 0 (fx1+ iter)))
-        ((or incomplete
+        ((or incomplete-utf8?
              (fx>=? pos end)
-;;            stop at any byte < 32, unless it's the first byte (which we skip)
+             ; stop at any byte < 32, unless it's the first byte (which we skip)
              (and (fx>? pos beg) (fx<? (bytespan-u8-ref bsp pos) 32))))
       (let-values (((ch len) (bytespan-utf8-ref bsp pos (fx- end pos))))
-        (when (eq? #t ch)
-          (set! incomplete #t))
         (set! pos (fxmin end (fx+ pos len)))
-        (when (and (char? ch) (char>=? ch #\space))
-          (charline-insert-at! line x ch)
-          (bytespan-utf8-insert-back! wbuf ch)
-          (set! x (fx1+ x)))))
-    (linectx-x-set! ctx x)
-    (term-redraw-to-eol ctx 'dont-clear-line-right)
+        (cond
+          ((eq? #t ch)
+            (set! incomplete-utf8? #t))
+          ((and (char? ch) (char>=? ch #\space))
+            (when (linectx-ch-insert! ctx ch)
+              (set! overflow? #t))))))
+    (if overflow?
+      (linectx-redraw-set! ctx #t)
+      (term-redraw-to-eol ctx 'dont-clear-line-right))
     (fx- pos beg))) ; return number of bytes actually consumed
 
 ;; consume up to n bytes from rbuf and insert them into current line.
@@ -754,7 +817,9 @@
   (linectx-return-set! ctx #f) ; clear flag "user pressed ENTER"
   (linectx-redraw-set! ctx #t) ; set flag "redraw prompt and lines"
   (linectx-draw-parens ctx (linectx-parens ctx) 'plain) ; unhighlight parentheses
-  (linectx-u8-write ctx 10) ; advance to next line. TODO: handle multiline input
+  (term-move-dy ctx (fx- (charlines-length (linectx-lines ctx))
+                         (linectx-y ctx))) ; move to last input line
+  (linectx-u8-write ctx 10) ; advance to next line.
   (let* ((y (linectx-history-index ctx))
          (hist (linectx-history ctx))
          (hist-len (charhistory-length hist)))
@@ -891,7 +956,7 @@
         (parsers (linectx-parsers ctx))
         (parenmatcher (linectx-parenmatcher ctx)))
     (when (and parsers parenmatcher)
-      (let-values (((x y) (linectx-pos-dx-dy ctx -1 0)))
+      (let-values (((x y) (linectx-dxdy->xy ctx -1 0)))
         (let* ((lines (linectx-lines ctx))
                (line  (charlines-ref lines y)))
           ;; (format #t "(linectx-parens-find) x = ~s, y = ~s~%" x y)

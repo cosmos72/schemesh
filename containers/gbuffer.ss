@@ -108,10 +108,10 @@
         (span-sp-insert-front! right left idx (fx- delta))
         (span-erase-back! left (fx- delta))))))
 
-; insert val into gbuffer at position idx
+;; insert val into gbuffer at position idx
+;; prerequisite: (fx<=? 0 idx (gbuffer-length gb))
 (define (gbuffer-insert-at! gb idx val)
-  (assert (fx>=? idx 0))
-  (assert (fx<=? idx (gbuffer-length gb)))
+  (assert (fx<=? 0 idx (gbuffer-length gb)))
   (let* ((left   (gbuffer-left  gb))
          (right  (gbuffer-right gb))
          (left-n (span-length left))
