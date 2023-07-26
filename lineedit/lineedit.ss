@@ -16,7 +16,7 @@
     linectx-prompt linectx-prompt-length linectx-prompt-length-set!
 
     lineedit-default-keytable lineedit-clear!
-    lineedit-lines-set! linectx-stdin-set! linectx-stdout-set! linectx-rbuf-insert!
+    lineedit-lines-set! linectx-stdin-set! linectx-stdout-set! linectx-insert/rbuf!
     lineedit-key-nop lineedit-key-left lineedit-key-right lineedit-key-up lineedit-key-down
     lineedit-key-word-left lineedit-key-word-right lineedit-key-bol lineedit-key-eol
     lineedit-key-break lineedit-key-ctrl-d lineedit-key-transpose-char
@@ -356,6 +356,8 @@
 (define (term-clear-to-eos ctx)
   (linectx-bv-write ctx #vu8(27 91 74) 0 3)) ; ESC [ J
 
+
+;; redraw from cursor to end of line.
 ;; clear-line-right must be either 'clear-line-right or 'dont-clear-line-right*/
 (define (term-redraw-to-eol ctx clear-line-right)
   (let* ((line (linectx-line ctx))
@@ -366,6 +368,24 @@
     (when (eq? clear-line-right 'clear-line-right)
       (term-clear-to-eol ctx))
     (term-move-dx ctx (fx- beg end))))
+
+
+;; redraw from cursor to end of screen.
+(define (term-redraw-to-eos ctx)
+  (term-redraw-to-eol ctx 'dont-clear-line-right)
+  (let* ((lines (linectx-lines ctx))
+         (lines-n-1 (fx1- (charlines-length lines))))
+    (do ((y (fx1+ (linectx-y ctx)) (fx1+ y)))
+        ((fx>? y lines-n-1))
+      (let ((line (charlines-ref lines y)))
+        (term-clear-to-eol ctx)
+        (linectx-u8-write ctx 10)
+        (linectx-cgb-write ctx line 0 (charline-length line))))
+    (term-clear-to-eos ctx)
+    (linectx-move-from ctx
+      (charline-length (charlines-ref lines lines-n-1))
+      lines-n-1)))
+
 
 ;; return index of first character before position = end in line that satisfies (pred ch).
 ;; return -1 if no character before position = end in line satisfies (pred ch)
@@ -445,35 +465,58 @@
     (linectx-y-set! ctx lines-n-1)))
 
 
+;; return number of excess characters of cursor position that overflow tty right border
+;; return <= 0 if no excess characters
+(define (linectx-cursor-excess ctx)
+  (let* ((x (linectx-x ctx))
+         (y (linectx-y ctx))
+         (prompt-len (if (fxzero? y) (linectx-prompt-length ctx) 0)))
+    (fx- (fx+ prompt-len x) (linectx-width ctx))))
+
+
 ;; return number of excess characters of y-th line that overflow tty right border
-;; return <= 0 if no excess character
+;; return <= 0 if no excess characters
 (define (linectx-line-excess ctx y)
   (let* ((prompt-len (if (fxzero? y) (linectx-prompt-length ctx) 0))
          (line-len (charline-length (linectx-line ctx))))
     (fx- (fx+ prompt-len line-len) (linectx-width ctx))))
 
-;; return #t if y-th line reaches tty right border
-;; otherwise return #f
-(define (linectx-line-full? ctx y)
-  (fx>=? (linectx-line-excess ctx y) 0))
 
-;; move the last n characters of y-th line to next line.
+;; move the last n characters of y-th line to next line,
+;; or to a new line if y-th line has nl? flag set.
+;;
+;; also move the cursor down if needed.
 (define (linectx-line-overflow! ctx y n)
   (let* ((lines   (linectx-lines ctx))
          (lines-n (charlines-length lines))
+         (y+1     (fx1+ y))
          (src     (charlines-ref lines y))
-         (dst     (if (fx<? (fx1+ y) lines-n) (charlines-ref lines (fx1+ y)))))
+         (dst     (if (and (not (charline-nl? src)) (fx<? y+1 lines-n))
+                    (charlines-ref lines y+1)
+                    #f)))
     (assert (fx<=? 0 n (charline-length src)))
     ; create a new line if needed
     (unless dst
       (set! dst (charline))
-      (charlines-insert-at! lines n dst))
-    (do ((i 0 (fx1+ i)))
-        ((fx>=? i n))
-      (let* ((src-pos (fx1- (charline-length src)))
-             (ch (charline-ref src src-pos)))
+      (when (charline-nl? src)
+        (charline-nl?-set! src #f)
+        (charline-nl?-set! dst #t))
+      (charlines-insert-at! lines y+1 dst))
+    (do ((i 0 (fx1+ i))
+         (src-pos (fx1- (charline-length src)) (fx1- src-pos)))
+        ((or (fx>=? i n) (fx<? src-pos 0))
+         (set! n i))
+      (let ((ch (charline-ref src src-pos)))
         (charline-erase-at! src src-pos 1)
-        (charline-insert-at! dst 0 ch)))))
+        (charline-insert-at! dst 0 ch)))
+    (when (fx=? y (linectx-y ctx))
+      (let ((excess (linectx-cursor-excess ctx)))
+        (when (fx>=? excess 0)
+          (linectx-y-set! ctx y+1)
+          (linectx-x-set! ctx excess)
+          (linectx-line-set! ctx dst) ; advance lines to next line.
+          (linectx-u8-write ctx 10) ; advance cursor to next line.
+          (term-move-dx ctx n))))))
 
 
 ;; move the last n characters of y-th input line to next line.
@@ -488,48 +531,57 @@
 
 
 ;; insert a single character into current line.
+;;
 ;; return #t if insertion caused some character to move to the next line(s)
+;; (in such case, caller must also invoke (term-redraw-to-eos ctx))
+;;
 ;; otherwise return #f
-(define (linectx-ch-insert! ctx ch)
-  (let* ((y (linectx-y ctx))
-         (overflow? (linectx-line-full? ctx y)))
-    (when overflow?
-      (linectx-lines-overflow! ctx y 1))
-    (charline-insert-at! (linectx-line ctx) (linectx-x ctx) ch)
+;; (in such case, caller must also invoke (term-redraw-to-eol ctx 'dont-clear-line-right))
+;;
+;; in all cases, caller must also invoke (linectx-lines-changed ctx)
+(define (%linectx-insert/char! ctx ch)
+  (let ((x (linectx-x ctx))
+        (y (linectx-y ctx)))
+    (charline-insert-at! (linectx-line ctx) x ch)
     (bytespan-utf8-insert-back! (linectx-wbuf ctx) ch)
-    (linectx-x-set! ctx (fx1+ (linectx-x ctx)))
-    (linectx-xy-wraparound ctx)
-    overflow?))
+    (linectx-x-set! ctx (fx1+ x))
+    (let* ((excess (linectx-line-excess ctx y))
+           (overflow? (fx>=? excess 0)))
+      (when overflow?
+        (linectx-lines-overflow! ctx y excess))
+      overflow?)))
 
 
 ;; consume n chars from charspan csp, starting at offset = start
 ;; and insert them into current line.
-(define (linectx-csp-insert! ctx csp start n)
+(define (linectx-insert/charspan! ctx csp start n)
   (assert (fx<=? 0 start (fx+ start n) (charspan-length csp)))
-  (let* ((beg   (fx+ start (charspan-peek-beg csp)))
-         (pos   beg)
-         (end   (fx+ pos n))
-         (overflow? #f))
-    (do ()
-        ((fx>=? pos end))
-      (when (linectx-ch-insert! ctx (charspan-ref csp pos))
-        (set! overflow? #t)))
-    (if overflow?
-      (linectx-redraw-set! ctx #t)
-      (term-redraw-to-eol ctx 'dont-clear-line-right))))
+  (when (fx>? n 0)
+    (let* ((beg   (fx+ start (charspan-peek-beg csp)))
+           (end   (fx+ beg n))
+           (overflow? #f))
+      (do ((pos beg (fx1+ pos)))
+          ((fx>=? pos end))
+        (when (%linectx-insert/char! ctx (charspan-ref csp pos))
+          (set! overflow? #t)))
+      (linectx-lines-changed ctx)
+      (if overflow?
+        (term-redraw-to-eos ctx)
+        (term-redraw-to-eol ctx 'dont-clear-line-right)))))
 
 
 ;; consume up to n bytes from bytespan bsp, starting at offset = start
 ;; and insert them into current line.
 ;; return number of bytes actually consumed
-(define (linectx-bsp-insert! ctx bsp start n)
+(define (linectx-insert/bytespan! ctx bsp start n)
   (assert (fx<=? 0 start (fx+ start n) (bytespan-length bsp)))
   (let ((beg   start)
         (pos   start)
         (end   (fx+ start n))
+        (inserted-some? #f)
         (incomplete-utf8? #f)
         (overflow? #f)) ; #t if inserting caused some chars to move to next line
-    (do ((iter 0 (fx1+ iter)))
+    (do ()
         ((or incomplete-utf8?
              (fx>=? pos end)
              ; stop at any byte < 32, unless it's the first byte (which we skip)
@@ -540,20 +592,20 @@
           ((eq? #t ch)
             (set! incomplete-utf8? #t))
           ((and (char? ch) (char>=? ch #\space))
-            (when (linectx-ch-insert! ctx ch)
-              (set! overflow? #t))))))
-    (if overflow?
-      (linectx-redraw-set! ctx #t)
-      (term-redraw-to-eol ctx 'dont-clear-line-right))
+            (when (%linectx-insert/char! ctx ch)
+              (set! overflow? #t))
+            (set! inserted-some? #t)))))
+    (when inserted-some?
+      (if overflow?
+        (term-redraw-to-eos ctx)
+        (term-redraw-to-eol ctx 'dont-clear-line-right))
+      (linectx-lines-changed ctx))
     (fx- pos beg))) ; return number of bytes actually consumed
 
 ;; consume up to n bytes from rbuf and insert them into current line.
 ;; return number of bytes actually consumed
-(define (linectx-rbuf-insert! ctx n)
-  (when (fx>? n 0)
-    (linectx-bsp-insert! ctx (linectx-rbuf ctx) 0 n)
-    (linectx-lines-changed ctx))
-  n)
+(define (linectx-insert/rbuf! ctx n)
+  (linectx-insert/bytespan! ctx (linectx-rbuf ctx) 0 n))
 
 
 (define (lineedit-key-nop ctx)
@@ -561,16 +613,43 @@
 
 ;; move cursor left by 1
 (define (lineedit-key-left ctx)
-  (let ((x (linectx-x ctx)))
-    (when (fx>? x 0)
-      (linectx-x-set! ctx (fx1- x))
-      (term-move-dx ctx -1))))
+  (let ((x (linectx-x ctx))
+        (y (linectx-y ctx)))
+    (cond
+      ((fx>? x 0)
+        (linectx-x-set! ctx (fx1- x))
+        (term-move-dx ctx -1))
+      ((fx>? y 0)
+        (let* ((y-1 (fx1- y))
+               (line (charlines-ref (linectx-lines ctx) y-1))
+               (line-len (charline-length line))
+               (x    (if (fx>? line-len 0) (fx1- line-len) 0)))
+          (linectx-line-set! ctx line)
+          (linectx-x-set!    ctx x)
+          (linectx-y-set!    ctx y-1)
+          (term-move-dy ctx -1)
+          (term-move-dx ctx (if (fxzero? y-1)
+                              (fx+ x (linectx-prompt-length ctx))
+                              x)))))))
 
+
+;; move cursor right by 1
 (define (lineedit-key-right ctx)
-  (let ((x (linectx-x ctx)))
-    (when (fx<? x (charline-length (linectx-line ctx)))
-      (linectx-x-set! ctx (fx1+ x))
-      (term-move-dx ctx 1))))
+  (let ((x (linectx-x ctx))
+        (y (linectx-y ctx))
+        (line-len charline-length (linectx-line ctx)))
+    (cond
+      ((fx<? x line-len)
+        (linectx-x-set! ctx (fx1+ x))
+        (term-move-dx ctx 1))
+      ((fx<? y (fx1- (charlines-length (linectx-lines ctx))))
+        (let* ((y+1 (fx1+ y))
+               (line (charlines-ref (linectx-lines ctx) y+1)))
+          (linectx-line-set! ctx line)
+          (linectx-x-set! ctx 0)
+          (linectx-y-set! ctx y+1)
+          (linectx-u8-write ctx 10))))))
+
 
 (define (lineedit-key-up ctx)
   ; TODO: multiline editing
@@ -733,7 +812,7 @@
                (stem-len (charspan-length (linectx-completion-stem ctx)))
                (len (fx- (charspan-length completion) stem-len)))
           (when (fx>? len 0)
-            (linectx-csp-insert! ctx completion stem-len len)
+            (linectx-insert/charspan! ctx completion stem-len len)
             (linectx-lines-changed ctx)))))))
 
 (define (lineedit-key-toggle-insert ctx)
@@ -802,8 +881,8 @@
     (cond
       ((procedure? proc) (proc ctx))
       ((hashtable? proc) (set! n 0)) ; incomplete sequence, wait for more keystrokes
-      (#t  ; just insert received bytes into lines
-        (set! n (linectx-rbuf-insert! ctx n))))
+      (#t  ; insert received bytes into current line
+        (set! n (linectx-insert/rbuf! ctx n))))
     (let ((rbuf (linectx-rbuf ctx)))
       (bytespan-erase-front! rbuf n)
       (when (bytespan-empty? rbuf)
