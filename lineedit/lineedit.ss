@@ -637,7 +637,7 @@
 (define (lineedit-key-right ctx)
   (let ((x (linectx-x ctx))
         (y (linectx-y ctx))
-        (line-len charline-length (linectx-line ctx)))
+        (line-len (charline-length (linectx-line ctx))))
     (cond
       ((fx<? x line-len)
         (linectx-x-set! ctx (fx1+ x))
