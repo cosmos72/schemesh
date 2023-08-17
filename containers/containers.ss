@@ -35,9 +35,9 @@
     bytespan-u8-ref bytespan-u8-back bytespan-u8-set!
     bytespan-fill! bytespan-fill-range! bytespan-copy bytespan-copy! bytespan=?
     bytespan-reserve-front! bytespan-reserve-back! bytespan-resize-front! bytespan-resize-back!
-    bytespan-u8-insert-front! bytespan-u8-insert-back!
-    bytespan-bsp-insert-front! bytespan-bsp-insert-back!
-    bytespan-bv-insert-front! bytespan-bv-insert-back!
+    bytespan-insert-front/u8! bytespan-insert-back/u8!
+    bytespan-insert-front/bspan! bytespan-insert-back/bspan!
+    bytespan-insert-front/bvector! bytespan-insert-back/bvector!
     bytespan-erase-front! bytespan-erase-back! bytespan-iterate bytespan-u8-find
     bytespan-peek-beg bytespan-peek-end bytespan-peek-data
 
@@ -48,7 +48,7 @@
     charspan-fill! charspan-fill-range! charspan-copy charspan-copy! charspan=? charspan-range=?
     charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back!
     charspan-insert-front! charspan-insert-back!
-    charspan-csp-insert-front! charspan-csp-insert-back!
+    charspan-insert-front/cspan! charspan-insert-back/cspan!
     charspan-erase-front! charspan-erase-back! charspan-iterate charspan-find
     charspan-peek-data charspan-peek-beg charspan-peek-end
 

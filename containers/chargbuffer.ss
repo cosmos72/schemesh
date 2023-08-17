@@ -105,10 +105,10 @@
          (delta (fx- idx (charspan-length left))))
     (cond
       ((fx>? delta 0)
-        (charspan-csp-insert-back! left right 0 delta)
+        (charspan-insert-back/cspan! left right 0 delta)
         (charspan-erase-front! right delta))
       ((fx<? delta 0)
-        (charspan-csp-insert-front! right left idx (fx- delta))
+        (charspan-insert-front/cspan! right left idx (fx- delta))
         (charspan-erase-back! left (fx- delta))))))
 
 ; insert val into chargbuffer at position idx
@@ -142,12 +142,12 @@
         (assert (fx>=? src-start 0))
         (assert (fx<=? src-start (charspan-length sp-src))))
       ((fxzero? idx)
-        (charspan-csp-insert-front! left sp-src src-start src-n))
+        (charspan-insert-front/cspan! left sp-src src-start src-n))
       ((fx=? idx (chargbuffer-length gb))
-        (charspan-csp-insert-back! right sp-src src-start src-n))
+        (charspan-insert-back/cspan! right sp-src src-start src-n))
       (#t
         (chargbuffer-split-at! gb idx)
-        (charspan-csp-insert-back! left sp-src src-start src-n)))))
+        (charspan-insert-back/cspan! left sp-src src-start src-n)))))
 
 ; remove n elements from chargbuffer starting at start
 (define (chargbuffer-erase-at! gb start n)

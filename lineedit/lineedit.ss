@@ -162,9 +162,9 @@
          (bv     (string->utf8 str))
          (prompt (linectx-prompt ctx)))
     (bytespan-clear! prompt)
-    (bytespan-bv-insert-back! prompt bv 0 (bytevector-length bv))
+    (bytespan-insert-back/bvector! prompt bv 0 (bytevector-length bv))
     ; append colon and space after parser name
-    (bytespan-u8-insert-back! prompt 58 32)
+    (bytespan-insert-back/u8! prompt 58 32)
     (linectx-prompt-length-set! ctx (fx+ 2 (string-length str)))))
 
 
@@ -201,16 +201,16 @@
 
 
 ;; write a byte to wbuf
-(define (term-write/byte ctx u8)
-  (bytespan-u8-insert-back! (linectx-wbuf ctx) u8))
+(define (term-write/u8 ctx u8)
+  (bytespan-insert-back/u8! (linectx-wbuf ctx) u8))
 
 ;; write a portion of given bytevector to wbuf
-(define (term-write/bytevector ctx bv start n)
-  (bytespan-bv-insert-back! (linectx-wbuf ctx) bv start n))
+(define (term-write/bvector ctx bv start n)
+  (bytespan-insert-back/bvector! (linectx-wbuf ctx) bv start n))
 
 ;; write a portion of given bytespan to wbuf
-(define (term-write/bytespan ctx bsp start n)
-  (bytespan-bsp-insert-back! (linectx-wbuf ctx) bsp start n))
+(define (term-write/bspan ctx bsp start n)
+  (bytespan-insert-back/bspan! (linectx-wbuf ctx) bsp start n))
 
 ;; write a portion of given chargbuffer to wbuf
 (define (term-write/chargbuffer ctx cgb start end)
@@ -242,19 +242,19 @@
     ((fxzero? dy) ; do nothing
       (void))
     ((fx=? dy 1)  ; move down by 1
-      (term-write/bytevector ctx #vu8(27 91 66) 0 3))  ; ESC [ B
+      (term-write/bvector ctx #vu8(27 91 66) 0 3))  ; ESC [ B
     ((fx=? dy -1) ; move up by 1
-      (term-write/bytevector ctx #vu8(27 91 65) 0 3))  ; ESC [ A
+      (term-write/bvector ctx #vu8(27 91 65) 0 3))  ; ESC [ A
     ((fx>? dy 1) ; move down by dy
       (let ((wbuf (linectx-wbuf ctx)))
-        (bytespan-u8-insert-back! wbuf 27 91)     ; ESC [
+        (bytespan-insert-back/u8! wbuf 27 91)     ; ESC [
         (bytespan-fixnum-display-back! wbuf dy)   ; n
-        (bytespan-u8-insert-back! wbuf 66)))      ; B
+        (bytespan-insert-back/u8! wbuf 66)))      ; B
     ((fx<? dy -1) ; move up by -dy
       (let ((wbuf (linectx-wbuf ctx)))
-        (bytespan-u8-insert-back! wbuf 27 91)     ; ESC [
+        (bytespan-insert-back/u8! wbuf 27 91)     ; ESC [
         (bytespan-fixnum-display-back! wbuf (fx- dy)) ; n
-        (bytespan-u8-insert-back! wbuf 65)))))    ; A
+        (bytespan-insert-back/u8! wbuf 65)))))    ; A
 
 ;; Move tty cursor horizontally.
 ;; If dx > 0, send escape sequence "move cursor right by dx".
@@ -265,19 +265,19 @@
     ((fxzero? dx) ; do nothing             ;
       (void))                                  ;
     ((fx=? dx 1) ; move right by 1         ;
-      (term-write/bytevector ctx #vu8(27 91 67) 0 3))      ; ESC [ C
+      (term-write/bvector ctx #vu8(27 91 67) 0 3))      ; ESC [ C
     ((fx=? dx -1) ; move left by 1         ;
-      (term-write/bytevector ctx #vu8(27 91 68) 0 3))      ; ESC [ D
+      (term-write/bvector ctx #vu8(27 91 68) 0 3))      ; ESC [ D
     ((fx>? dx 1) ; move right by n         ;
       (let ((wbuf (linectx-wbuf ctx)))         ;
-        (bytespan-u8-insert-back! wbuf 27 91)  ; ESC [
+        (bytespan-insert-back/u8! wbuf 27 91)  ; ESC [
         (bytespan-fixnum-display-back! wbuf dx); n
-        (bytespan-u8-insert-back! wbuf 67)))   ; C
+        (bytespan-insert-back/u8! wbuf 67)))   ; C
     ((fx<? dx -1) ; move left by -dx       ;
       (let ((wbuf (linectx-wbuf ctx)))         ;
-        (bytespan-u8-insert-back! wbuf 27 91)  ; ESC [
+        (bytespan-insert-back/u8! wbuf 27 91)  ; ESC [
         (bytespan-fixnum-display-back! wbuf (fx- dx)) ; n
-        (bytespan-u8-insert-back! wbuf 68))))) ; D
+        (bytespan-insert-back/u8! wbuf 68))))) ; D
 
 ;; move tty cursor from its current position at from-x, from-y
 ;; back to linectx-x, linectx-y
@@ -337,24 +337,24 @@
   (cond
     ((fx<=? n 0) (void)) ; nop
     ((fx=? n 1)
-      (term-write/bytevector ctx #vu8(27 91 80) 0 3)) ; VT102 sequence: ESC [ P
+      (term-write/bvector ctx #vu8(27 91 80) 0 3)) ; VT102 sequence: ESC [ P
     (#t
       (let ((wbuf (linectx-wbuf ctx)))
-        (bytespan-u8-insert-back! wbuf 27 91)   ; ESC [
+        (bytespan-insert-back/u8! wbuf 27 91)   ; ESC [
         (bytespan-fixnum-display-back! wbuf n)  ; n
-        (bytespan-u8-insert-back! wbuf 80)))))  ; P
+        (bytespan-insert-back/u8! wbuf 80)))))  ; P
 
 ;; send escape sequence "move to begin-of-line". Moves at beginning of prompt!
 (define (term-move-to-bol ctx)
-  (term-write/byte ctx 13)) ; CTRL+M i.e. '\r'
+  (term-write/u8 ctx 13)) ; CTRL+M i.e. '\r'
 
 ;; send escape sequence "clear from cursor to end-of-line"
 (define (term-clear-to-eol ctx)
-  (term-write/bytevector ctx #vu8(27 91 75) 0 3)) ; ESC [ K
+  (term-write/bvector ctx #vu8(27 91 75) 0 3)) ; ESC [ K
 
 ;; send escape sequence "clear from cursor to end-of-screen"
 (define (term-clear-to-eos ctx)
-  (term-write/bytevector ctx #vu8(27 91 74) 0 3)) ; ESC [ J
+  (term-write/bvector ctx #vu8(27 91 74) 0 3)) ; ESC [ J
 
 
 ;; redraw from cursor to end of line.
@@ -379,7 +379,7 @@
         ((fx>? y lines-n-1))
       (let ((line (charlines-ref lines y)))
         (term-clear-to-eol ctx)
-        (term-write/byte ctx 10)
+        (term-write/u8 ctx 10)
         (term-write/chargbuffer ctx line 0 (charline-length line))))
     (term-clear-to-eos ctx)
     (linectx-move-from ctx
@@ -441,7 +441,7 @@
 
 ;; write #\newline before returning from (repl)
 (define (lineedit-finish ctx)
-  (term-write/byte ctx 10)
+  (term-write/u8 ctx 10)
   (lineedit-flush ctx))
 
 
@@ -515,7 +515,7 @@
           (linectx-y-set! ctx y+1)
           (linectx-x-set! ctx excess)
           (linectx-line-set! ctx dst) ; advance lines to next line.
-          (term-write/byte ctx 10) ; advance cursor to next line.
+          (term-write/u8 ctx 10) ; advance cursor to next line.
           (term-move-dx ctx n))))))
 
 
@@ -573,7 +573,7 @@
 ;; consume up to n bytes from bytespan bsp, starting at offset = start
 ;; and insert them into current line.
 ;; return number of bytes actually consumed
-(define (linectx-insert/bytespan! ctx bsp start n)
+(define (linectx-insert/bspan! ctx bsp start n)
   (assert (fx<=? 0 start (fx+ start n) (bytespan-length bsp)))
   (let ((beg   start)
         (pos   start)
@@ -605,7 +605,7 @@
 ;; consume up to n bytes from rbuf and insert them into current line.
 ;; return number of bytes actually consumed
 (define (linectx-insert/rbuf! ctx n)
-  (linectx-insert/bytespan! ctx (linectx-rbuf ctx) 0 n))
+  (linectx-insert/bspan! ctx (linectx-rbuf ctx) 0 n))
 
 
 (define (lineedit-key-nop ctx)
@@ -648,7 +648,7 @@
           (linectx-line-set! ctx line)
           (linectx-x-set! ctx 0)
           (linectx-y-set! ctx y+1)
-          (term-write/byte ctx 10))))))
+          (term-write/u8 ctx 10))))))
 
 
 (define (lineedit-key-up ctx)
@@ -898,7 +898,7 @@
   (linectx-draw-parens ctx (linectx-parens ctx) 'plain) ; unhighlight parentheses
   (term-move-dy ctx (fx- (charlines-length (linectx-lines ctx))
                          (linectx-y ctx))) ; move to last input line
-  (term-write/byte ctx 10) ; advance to next line.
+  (term-write/u8 ctx 10) ; advance to next line.
   (let* ((y (linectx-history-index ctx))
          (hist (linectx-history ctx))
          (hist-len (charhistory-length hist)))
@@ -951,7 +951,7 @@
 (define (linectx-draw-prompt ctx)
   (let ((prompt (linectx-prompt ctx)))
     ;; (format #t "linectx-draw-prompt: prompt = ~s~%" prompt)
-    (term-write/bytespan ctx prompt 0 (bytespan-length prompt))))
+    (term-write/bspan ctx prompt 0 (bytespan-length prompt))))
 
 ;; unconditionally draw lines
 (define (linectx-draw-lines ctx)
@@ -962,7 +962,7 @@
       (lambda (i line)
         (when nl?
           (term-clear-to-eol ctx)
-          (term-write/byte ctx 10))
+          (term-write/u8 ctx 10))
         (term-write/chargbuffer ctx line 0 (charline-length line))
         (set! nl? #t)))
     (term-clear-to-eos ctx)
@@ -987,7 +987,7 @@
         (catch (cond)
           (bytespan-clear! prompt)
           (let ((err-len (bytevector-length bv-prompt-error)))
-            (bytespan-bv-insert-back! prompt bv-prompt-error 0 err-len)
+            (bytespan-insert-back/bvector! prompt bv-prompt-error 0 err-len)
             (linectx-prompt-length-set! ctx err-len))))
       (let ((prompt-length (linectx-prompt-length ctx)))
         (assert (fx<=? 0 prompt-length (bytespan-length prompt)))
@@ -1016,10 +1016,10 @@
     (when ch
       (linectx-move-to ctx x y)
       (when (eq? 'highlight style)
-        (bytespan-bv-insert-back! wbuf '#vu8(27 91 49 59 51 54 109) 0 7)) ; ESC[1;36m
+        (bytespan-insert-back/bvector! wbuf '#vu8(27 91 49 59 51 54 109) 0 7)) ; ESC[1;36m
       (bytespan-utf8-insert-back! wbuf ch)
       (when (eq? 'highlight style)
-        (bytespan-bv-insert-back! wbuf '#vu8(27 91 109) 0 3)) ; ESC[m
+        (bytespan-insert-back/bvector! wbuf '#vu8(27 91 109) 0 3)) ; ESC[m
       (linectx-move-from ctx (fx1+ x) y))))
 
 

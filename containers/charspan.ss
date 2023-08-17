@@ -18,7 +18,7 @@
     charspan-fill! charspan-fill-range! charspan-copy charspan-copy! charspan=? charspan-range=?
     charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back!
     charspan-insert-front! charspan-insert-back!
-    charspan-csp-insert-front! charspan-csp-insert-back!
+    charspan-insert-front/cspan! charspan-insert-back/cspan!
     charspan-erase-front! charspan-erase-back! charspan-iterate charspan-find
     charspan-peek-data charspan-peek-beg charspan-peek-end )
   (import
@@ -243,7 +243,7 @@
           (set! pos (fx1+ pos)))))))
 
 ; prefix a portion of another charspan to this charspan
-(define (charspan-csp-insert-front! sp-dst sp-src src-start src-n)
+(define (charspan-insert-front/cspan! sp-dst sp-src src-start src-n)
   (assert (not (eq? sp-dst sp-src)))
   (unless (fxzero? src-n)
     (let ((len (charspan-length sp-dst)))
@@ -251,7 +251,7 @@
       (charspan-copy! sp-src src-start sp-dst 0 src-n))))
 
 ; append a portion of another charspan to this charspan
-(define (charspan-csp-insert-back! sp-dst sp-src src-start src-n)
+(define (charspan-insert-back/cspan! sp-dst sp-src src-start src-n)
   (assert (not (eq? sp-dst sp-src)))
   (unless (fxzero? src-n)
     (let ((pos (charspan-length sp-dst)))

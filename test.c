@@ -173,7 +173,7 @@ static const struct {
      "                  9999998 10000000 12345678 -1 -9 -10 -87654321)\n"
      "    (lambda (n)\n"
      "      (bytespan-fixnum-display-back! sp n)\n"
-     "      (bytespan-u8-insert-back! sp 32)))\n"
+     "      (bytespan-insert-back/u8! sp 32)))\n"
      "  (bytespan->bytevector sp))",
      "0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000 "
      "9999998 10000000 12345678 -1 -9 -10 -87654321 "},
@@ -248,7 +248,7 @@ static const struct {
      "  sp)",
      "(bytespan 1 7 3)"},
     {"(let ((sp (bytespan 4 5 6)))\n"
-     "  (bytespan-u8-insert-back! sp 7 8)\n"
+     "  (bytespan-insert-back/u8! sp 7 8)\n"
      "  sp)",
      "(bytespan 4 5 6 7 8)"},
     {"(let ((sp (bytespan 9 10 11 12)))\n"

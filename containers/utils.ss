@@ -226,10 +226,10 @@
 ; convert a fixnum to decimal digits and append the digits to bytespan.
 (define (bytespan-fixnum-display-back! sp n)
   (if (fx<? n 0)
-    (bytespan-u8-insert-back! sp 45) ; append '-'
+    (bytespan-insert-back/u8! sp 45) ; append '-'
     (set! n (fx- n)))                ; always work with negative fixnum: wider range
   (if (fx>=? n -9)
-    (bytespan-u8-insert-back! sp (fx- 48 n))                         ; |n| + '0'
+    (bytespan-insert-back/u8! sp (fx- 48 n))                         ; |n| + '0'
     (let ((max-digit-n (fx1+ (fxdiv (fx* (bitwise-length n) 3) 10))) ; upper bound
           (len (bytespan-length sp)))
       (bytespan-reserve-back! sp (fx+ len max-digit-n))
