@@ -213,7 +213,7 @@
   (bytespan-insert-back/bspan! (linectx-wbuf ctx) bsp start n))
 
 ;; write a portion of given chargbuffer to wbuf
-(define (term-write/chargbuffer ctx cgb start end)
+(define (term-write/cbuffer ctx cgb start end)
   (do ((wbuf (linectx-wbuf ctx))
        (pos start (fx1+ pos)))
       ((fx>=? pos end))
@@ -364,7 +364,7 @@
          (beg  (linectx-x ctx))
          (end  (charline-length line)))
     (when (fx<? beg end)
-      (term-write/chargbuffer ctx line beg end))
+      (term-write/cbuffer ctx line beg end))
     (when (eq? clear-line-right 'clear-line-right)
       (term-clear-to-eol ctx))
     (term-move-dx ctx (fx- beg end))))
@@ -380,7 +380,7 @@
       (let ((line (charlines-ref lines y)))
         (term-clear-to-eol ctx)
         (term-write/u8 ctx 10)
-        (term-write/chargbuffer ctx line 0 (charline-length line))))
+        (term-write/cbuffer ctx line 0 (charline-length line))))
     (term-clear-to-eos ctx)
     (linectx-move-from ctx
       (charline-length (charlines-ref lines lines-n-1))
@@ -456,7 +456,7 @@
     (set! lines (linectx-lines ctx)))
   (charlines-iterate lines
     (lambda (i line)
-      (term-write/chargbuffer ctx line 0 (charline-length line))))
+      (term-write/cbuffer ctx line 0 (charline-length line))))
   (let* ((lines-n-1 (fx1- (charlines-length lines)))
          (line      (charlines-ref lines lines-n-1)))
     (linectx-line-set!  ctx line)
@@ -963,7 +963,7 @@
         (when nl?
           (term-clear-to-eol ctx)
           (term-write/u8 ctx 10))
-        (term-write/chargbuffer ctx line 0 (charline-length line))
+        (term-write/cbuffer ctx line 0 (charline-length line))
         (set! nl? #t)))
     (term-clear-to-eos ctx)
     (linectx-move-from ctx
