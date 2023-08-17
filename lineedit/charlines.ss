@@ -16,7 +16,7 @@
     charlines charlines? assert-charlines?
     charlines-iterate charlines-empty? charlines-length charlines-ref
     charlines-clear! charlines-copy-on-write charlines-erase-at! charlines-insert-at!
-    charlines-dirty-y-start charlines-dirty-y-end charlines-dirty-y-unset!)
+    charlines-dirty-y-start charlines-dirty-y-end charlines-dirty-xy-unset!)
   (import
     (rnrs)
     (only (rnrs mutable-pairs)   set-car!)
@@ -193,10 +193,12 @@
   (charlines-dirty-y-start-set! lines (fxmin (charlines-dirty-y-start lines)))
   (charlines-dirty-y-end-set!   lines (fxmax (charlines-dirty-y-end   lines))))
 
-(define (charlines-dirty-y-unset! lines)
+(define (charlines-dirty-xy-unset! lines)
   (charlines-dirty-y-start-set! lines (greatest-fixnum))
-  (charlines-dirty-y-end-set!   lines 0))
-
+  (charlines-dirty-y-end-set!   lines 0)
+  (charlines-iterate lines
+    (lambda (i line)
+      (charline-dirty-x-unset! line))))
 
 (define (charlines-clear! lines)
   (charlines-dirty-y-add! lines 0 (charlines-length lines))

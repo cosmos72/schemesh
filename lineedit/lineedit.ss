@@ -201,19 +201,19 @@
 
 
 ;; write a byte to wbuf
-(define (linectx-u8-write ctx u8)
+(define (term-write/byte ctx u8)
   (bytespan-u8-insert-back! (linectx-wbuf ctx) u8))
 
 ;; write a portion of given bytevector to wbuf
-(define (linectx-bv-write ctx bv start n)
+(define (term-write/bytevector ctx bv start n)
   (bytespan-bv-insert-back! (linectx-wbuf ctx) bv start n))
 
 ;; write a portion of given bytespan to wbuf
-(define (linectx-bsp-write ctx bsp start n)
+(define (term-write/bytespan ctx bsp start n)
   (bytespan-bsp-insert-back! (linectx-wbuf ctx) bsp start n))
 
 ;; write a portion of given chargbuffer to wbuf
-(define (linectx-cgb-write ctx cgb start end)
+(define (term-write/chargbuffer ctx cgb start end)
   (do ((wbuf (linectx-wbuf ctx))
        (pos start (fx1+ pos)))
       ((fx>=? pos end))
@@ -242,9 +242,9 @@
     ((fxzero? dy) ; do nothing
       (void))
     ((fx=? dy 1)  ; move down by 1
-      (linectx-bv-write ctx #vu8(27 91 66) 0 3))  ; ESC [ B
+      (term-write/bytevector ctx #vu8(27 91 66) 0 3))  ; ESC [ B
     ((fx=? dy -1) ; move up by 1
-      (linectx-bv-write ctx #vu8(27 91 65) 0 3))  ; ESC [ A
+      (term-write/bytevector ctx #vu8(27 91 65) 0 3))  ; ESC [ A
     ((fx>? dy 1) ; move down by dy
       (let ((wbuf (linectx-wbuf ctx)))
         (bytespan-u8-insert-back! wbuf 27 91)     ; ESC [
@@ -265,9 +265,9 @@
     ((fxzero? dx) ; do nothing             ;
       (void))                                  ;
     ((fx=? dx 1) ; move right by 1         ;
-      (linectx-bv-write ctx #vu8(27 91 67) 0 3))      ; ESC [ C
+      (term-write/bytevector ctx #vu8(27 91 67) 0 3))      ; ESC [ C
     ((fx=? dx -1) ; move left by 1         ;
-      (linectx-bv-write ctx #vu8(27 91 68) 0 3))      ; ESC [ D
+      (term-write/bytevector ctx #vu8(27 91 68) 0 3))      ; ESC [ D
     ((fx>? dx 1) ; move right by n         ;
       (let ((wbuf (linectx-wbuf ctx)))         ;
         (bytespan-u8-insert-back! wbuf 27 91)  ; ESC [
@@ -337,7 +337,7 @@
   (cond
     ((fx<=? n 0) (void)) ; nop
     ((fx=? n 1)
-      (linectx-bv-write ctx #vu8(27 91 80) 0 3)) ; VT102 sequence: ESC [ P
+      (term-write/bytevector ctx #vu8(27 91 80) 0 3)) ; VT102 sequence: ESC [ P
     (#t
       (let ((wbuf (linectx-wbuf ctx)))
         (bytespan-u8-insert-back! wbuf 27 91)   ; ESC [
@@ -346,15 +346,15 @@
 
 ;; send escape sequence "move to begin-of-line". Moves at beginning of prompt!
 (define (term-move-to-bol ctx)
-  (linectx-u8-write ctx 13)) ; CTRL+M i.e. '\r'
+  (term-write/byte ctx 13)) ; CTRL+M i.e. '\r'
 
 ;; send escape sequence "clear from cursor to end-of-line"
 (define (term-clear-to-eol ctx)
-  (linectx-bv-write ctx #vu8(27 91 75) 0 3)) ; ESC [ K
+  (term-write/bytevector ctx #vu8(27 91 75) 0 3)) ; ESC [ K
 
 ;; send escape sequence "clear from cursor to end-of-screen"
 (define (term-clear-to-eos ctx)
-  (linectx-bv-write ctx #vu8(27 91 74) 0 3)) ; ESC [ J
+  (term-write/bytevector ctx #vu8(27 91 74) 0 3)) ; ESC [ J
 
 
 ;; redraw from cursor to end of line.
@@ -364,7 +364,7 @@
          (beg  (linectx-x ctx))
          (end  (charline-length line)))
     (when (fx<? beg end)
-      (linectx-cgb-write ctx line beg end))
+      (term-write/chargbuffer ctx line beg end))
     (when (eq? clear-line-right 'clear-line-right)
       (term-clear-to-eol ctx))
     (term-move-dx ctx (fx- beg end))))
@@ -379,8 +379,8 @@
         ((fx>? y lines-n-1))
       (let ((line (charlines-ref lines y)))
         (term-clear-to-eol ctx)
-        (linectx-u8-write ctx 10)
-        (linectx-cgb-write ctx line 0 (charline-length line))))
+        (term-write/byte ctx 10)
+        (term-write/chargbuffer ctx line 0 (charline-length line))))
     (term-clear-to-eos ctx)
     (linectx-move-from ctx
       (charline-length (charlines-ref lines lines-n-1))
@@ -441,7 +441,7 @@
 
 ;; write #\newline before returning from (repl)
 (define (lineedit-finish ctx)
-  (linectx-u8-write ctx 10)
+  (term-write/byte ctx 10)
   (lineedit-flush ctx))
 
 
@@ -456,7 +456,7 @@
     (set! lines (linectx-lines ctx)))
   (charlines-iterate lines
     (lambda (i line)
-      (linectx-cgb-write ctx line 0 (charline-length line))))
+      (term-write/chargbuffer ctx line 0 (charline-length line))))
   (let* ((lines-n-1 (fx1- (charlines-length lines)))
          (line      (charlines-ref lines lines-n-1)))
     (linectx-line-set!  ctx line)
@@ -515,7 +515,7 @@
           (linectx-y-set! ctx y+1)
           (linectx-x-set! ctx excess)
           (linectx-line-set! ctx dst) ; advance lines to next line.
-          (linectx-u8-write ctx 10) ; advance cursor to next line.
+          (term-write/byte ctx 10) ; advance cursor to next line.
           (term-move-dx ctx n))))))
 
 
@@ -648,7 +648,7 @@
           (linectx-line-set! ctx line)
           (linectx-x-set! ctx 0)
           (linectx-y-set! ctx y+1)
-          (linectx-u8-write ctx 10))))))
+          (term-write/byte ctx 10))))))
 
 
 (define (lineedit-key-up ctx)
@@ -898,7 +898,7 @@
   (linectx-draw-parens ctx (linectx-parens ctx) 'plain) ; unhighlight parentheses
   (term-move-dy ctx (fx- (charlines-length (linectx-lines ctx))
                          (linectx-y ctx))) ; move to last input line
-  (linectx-u8-write ctx 10) ; advance to next line.
+  (term-write/byte ctx 10) ; advance to next line.
   (let* ((y (linectx-history-index ctx))
          (hist (linectx-history ctx))
          (hist-len (charhistory-length hist)))
@@ -951,7 +951,7 @@
 (define (linectx-draw-prompt ctx)
   (let ((prompt (linectx-prompt ctx)))
     ;; (format #t "linectx-draw-prompt: prompt = ~s~%" prompt)
-    (linectx-bsp-write ctx prompt 0 (bytespan-length prompt))))
+    (term-write/bytespan ctx prompt 0 (bytespan-length prompt))))
 
 ;; unconditionally draw lines
 (define (linectx-draw-lines ctx)
@@ -962,8 +962,8 @@
       (lambda (i line)
         (when nl?
           (term-clear-to-eol ctx)
-          (linectx-u8-write ctx 10))
-        (linectx-cgb-write ctx line 0 (charline-length line))
+          (term-write/byte ctx 10))
+        (term-write/chargbuffer ctx line 0 (charline-length line))
         (set! nl? #t)))
     (term-clear-to-eos ctx)
     (linectx-move-from ctx
