@@ -84,7 +84,7 @@
   (assert (charline? line))
   (%make-charline (chargbuffer-left line) (chargbuffer-right line)
                   (charline-nl? line) (charline-share-inc! line)
-		  (charline-dirty-x-start line) (charline-dirty-x-end line)))
+                  (charline-dirty-x-start line) (charline-dirty-x-end line)))
 
 ;; if charline was a copy-on-write clone, actually clone it.
 (define (charline-unshare! line)
@@ -159,7 +159,7 @@
       dst)
     (chargbuffer->string line)))
 
-;; copy-pasted from containers/buffer.ss
+;; copy-pasted from containers/gbuffer.ss
 (define-record-type
   (%gbuffer %make-gbuffer %gbuffer?)
   (fields
@@ -229,8 +229,8 @@
       (lambda (i line)
         (span-set! dst i (charline-copy-on-write line))))
     (%make-charlines (span) dst
-		     (charlines-dirty-y-start lines)
-		     (charlines-dirty-y-end   lines))))
+      (charlines-dirty-y-start lines)
+      (charlines-dirty-y-end   lines))))
 
 
 ;; customize how "charline" objects are printed
