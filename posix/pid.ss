@@ -94,6 +94,7 @@
 
 
 ; Call kill() or exit() to terminate current process with job-status, which can be one of:
+;   (void)                       ; will call C function exit(0)
 ;   (cons 'exited  exit-status)  ; will call C function exit(exit_status)
 ;   (cons 'killed  signal-name)  ; will call C function kill(getpid(), signal_number)
 ;               ; unless signal-name is one of: 'sigstop 'sigtstp 'sigcont 'sigttin 'sigttou
@@ -102,11 +103,13 @@
 (define (exit-with-job-status status)
   ; (format #t "exit-with-job-status ~s~%" status)
   (let ((exit-status
-         (if (and (pair? status) (eq? 'exited (car status))
+         (cond
+            ((eq? (void) status) 0)
+            ((and (pair? status) (eq? 'exited (car status))
                   (fixnum? (cdr status)) (fx=? (cdr status)
                                                (fxand 255 (cdr status))))
-           (cdr status)
-           255)))
+               (cdr status))
+            (#t 255))))
     (dynamic-wind
       void       ; before body
       (lambda () ; body

@@ -480,7 +480,8 @@
 ;
 ; If pid-wait-result is a pair (pid . exit-status) where exit-status is:
 ;   not a fixnum, or < 0 => return (cons 'unknown exit-status)
-;   0..255               => return (cons 'exited  exit-status)
+;   0                    => return (void)
+;   1..255               => return (cons 'exited  exit-status)
 ;   256 + kill_signal    => return (cons 'killed  signal-name)
 ;   512 + stop_signal    => return (cons 'stopped signal-name)
 ;   >= 768               => return (cons 'unknown (fx- exit-status 768))
@@ -494,26 +495,31 @@
     ((pair? pid-wait-result)
       (let ((num (cdr pid-wait-result)))
         (cond ((or (not (fixnum? num)) (fx<? num 0)) (cons 'unknown num))
+              ((fx=? num   0) (void))
               ((fx<? num 256) (cons 'exited  num))
               ((fx<? num 512) (cons 'killed  (signal-number->name (fxand num 255))))
               ((fx<? num 768) (cons 'stopped (signal-number->name (fxand num 255))))
-              (#t            (cons 'unknown (fx- num 768))))))
+              (#t             (cons 'unknown (fx- num 768))))))
     ((null? pid-wait-result)
       '(running . 0))
     (#t
       (cons 'unknown pid-wait-result))))
 
 
-; Return #t if job-status is a pair whose car is in allowed-list:
-; otherwise return #f
-
+; Return #t if job-status is a pair whose car is in allowed-list,
+; otherwise return #f;
+;
+; if job-status is (void) and allowed-list also contains 'exited
+; then return #t because (void) is a shortcut for '(exited . 0)
 (define (job-status-member? job-status allowed-list)
-  (and (pair? job-status)
-       (memq (car job-status) allowed-list)))
+  (cond ((eq? (void) job-status) (memq 'exited allowed-list))
+        ((pair? job-status)      (memq (car job-status) allowed-list))
+        (#t #f)))
 
 
 ; Wait for a cmd or job to exit or stop and return its status, which can be one of:
 ;   (cons 'running ...)   ; may happen only if may-block is 'nonblocking
+;   (void)                ; if process exited with exit-status = 0
 ;   (cons 'exited  exit-status)
 ;   (cons 'killed  signal-name)
 ;   (cons 'stopped signal-name)
@@ -531,14 +537,14 @@
     ((not (job-started? j))
       (error 'job-wait "job not started yet" j))
     (#t
-;    TODO: wait for ALL processes in job's process group?
+      ; TODO: wait for ALL processes in job's process group?
       (let* ((ret    (pid-wait (job-pid j) may-block))
              (status (pid-wait->job-status ret)))
-      ;       if may-block is 'non-blocking, ret may be '() and status will be '(running . 0)
-;       indicating job status did not change i.e. it's (expected to be) still running
+      ; if may-block is 'non-blocking, ret may be '() and status will be '(running . 0)
+      ; indicating job status did not change i.e. it's (expected to be) still running
         (job-last-status-set! j status)
         (when (job-status-member? status '(exited killed unknown))
-      ;         job exited. it can now be spawned again
+      ;   job exited. it can now be spawned again
           (when (eq? sh-globals (job-parent j))
             (multijob-child-delete! sh-globals j))
           (pid->job-delete! (job-pid j))
@@ -550,6 +556,7 @@
 ; Return up-to-date status of a job or job-id, which can be one of:
 ;   (cons 'new     0)
 ;   (cons 'running 0)
+;   (void)                      ; if process exited with exit-status = 0
 ;   (cons 'exited  exit-status)
 ;   (cons 'killed  signal-name)
 ;   (cons 'stopped signal-name)
@@ -569,6 +576,7 @@
 ; Return job status, which can be one of:
 ;
 ;   (cons 'running 0)
+;   (void)                      ; if process exited with exit-status = 0
 ;   (cons 'exited  exit-status)
 ;   (cons 'killed  signal-name)
 ;   (cons 'stopped signal-name)
@@ -593,6 +601,7 @@
 ; Continue a job or job-id by sending SIGCONT to it, wait for it to exit or stop,
 ; and finally return its status, which can be one of:
 ;
+;   (void)                      ; if process exited with exit-status = 0
 ;   (cons 'exited  exit-status)
 ;   (cons 'killed  signal-name)
 ;   (cons 'stopped signal-name)
@@ -637,6 +646,7 @@
 ; and does NOT return if the job gets stopped.
 ; Return job status, which can be one of:
 ;
+;   (void)                      ; if process exited with exit-status = 0
 ;   (cons 'exited  exit-status)
 ;   (cons 'killed  signal-name)
 ;   (cons 'unknown ...)
@@ -706,19 +716,22 @@
 
 
 ; convert job-status to 8-bit exit status suitable for C function exit().
+; if job-status is (void) return 0
 ; if job-status is '(exited . n) return n
 ; if job-status is '(killed . signal_name) return 128 + signal_number
 ; otherwise return 255
 
 (define (job-approx-exit-status job-status)
-  (if (pair? job-status)
-    (cond
-      ((eq? 'exited (car job-status))
-        (cdr job-status))
-      ((eq? 'killed (car job-status))
-        (fx+ 128 (signal-name->number (cdr job-status))))
-      (#t 255)) ; (car job-status) is 'new 'running 'stopped etc
-    255))       ; job-status is not a cons
+  (cond
+    ((eq? (void) job-status) 0)
+    ((pair? job-status)
+      (cond
+        ((eq? 'exited (car job-status))
+          (cdr job-status))
+        ((eq? 'killed (car job-status))
+          (fx+ 128 (signal-name->number (cdr job-status))))
+        (#t 255))) ; (car job-status) is 'new 'running 'stopped etc
+    (#t 255)))     ; job-status is not (void) nor a cons
 
 
 ; Create a multijob to later start it.
@@ -752,12 +765,12 @@
 (define (%multijob-run-and mj)
   (let ((jobs   (multijob-children mj))
         (pgid   (job-pgid mj))
-        (status '(exited . 0)))
+        (status (void)))
     (span-iterate jobs
       (lambda (i job)
-        (sh-start job pgid)             ; run child job in parent's process group
-        (set! status (sh-wait job))     ; wait for child job to exit
-        (equal? status '(exited . 0)))) ; keep iterating only if job succeeded
+        (sh-start job pgid)         ; run child job in parent's process group
+        (set! status (sh-wait job)) ; wait for child job to exit
+        (eq? (void) status)))       ; keep iterating only if job succeeded
     status))
 
 
@@ -772,7 +785,7 @@
       (lambda (i job)
         (sh-start job pgid)         ; run child job in parent's process group
         (set! status (sh-wait job)) ; wait for child job to exit
-        (not (equal? status '(exited . 0))))) ; keep iterating only if job failed
+        (not (eq? (void) status)))) ; keep iterating only if job failed
     status))
 
 
@@ -781,11 +794,11 @@
 (define (%multijob-run-and-or mj)
   (let ((jobs   (multijob-children mj))
         (pgid   (job-pgid mj))
-        (status '(exited . 0)))
+        (status (void)))
     (span-iterate jobs
       (lambda (i job)
         (if (fxbit-set? i 0)
-          (let ((success? (equal? status '(exited . 0))))
+          (let ((success? (eq? (void) status)))
             (case job
               ((&&)         success?)       ; && -> keep iterating only if job succeeded
               ((\x7c;\x7c;
@@ -803,7 +816,7 @@
 (define (%multijob-run-list mj)
   (let ((jobs   (multijob-children mj))
         (pgid   (job-pgid mj))
-        (status '(exited . 0)))
+        (status (void)))
     (span-iterate jobs
       (lambda (i job)
         (sh-start job pgid)         ; run child job in parent's process group
