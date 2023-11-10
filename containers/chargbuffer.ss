@@ -130,7 +130,7 @@
 
 ; read src-n elements from charspan sp-src starting from src-start
 ; and insert them into chargbuffer at position idx
-(define (chargbuffer-sp-insert-at! gb idx sp-src src-start src-n)
+(define (chargbuffer-insert-at/cspan! gb idx sp-src src-start src-n)
   (assert (fx>=? idx 0))
   (assert (fx<=? idx (chargbuffer-length gb)))
   (let* ((left   (chargbuffer-left  gb))

@@ -24,7 +24,7 @@
     span-length span-empty? span-clear! span-capacity span-capacity-front span-capacity-back
     span-ref span-back span-set! span-fill! span-fill-range! span-copy span-copy!
     span-reserve-front! span-reserve-back! span-resize-front! span-resize-back!
-    span-insert-front! span-insert-back! span-sp-insert-front! span-sp-insert-back!
+    span-insert-front! span-insert-back! span-insert-front/span! span-insert-back/span!
     span-erase-front! span-erase-back! span-iterate span-find
     span-peek-beg span-peek-end span-peek-data
 
@@ -32,13 +32,13 @@
     list->bytespan bytevector->bytespan bytevector->bytespan* make-bytespan bytespan->bytevector
     bytespan bytespan? bytespan-length bytespan-empty? bytespan-clear!
     bytespan-capacity bytespan-capacity-front bytespan-capacity-back
-    bytespan-u8-ref bytespan-u8-back bytespan-u8-set!
+    bytespan-ref/u8 bytespan-back/u8 bytespan-set/u8!
     bytespan-fill! bytespan-fill-range! bytespan-copy bytespan-copy! bytespan=?
     bytespan-reserve-front! bytespan-reserve-back! bytespan-resize-front! bytespan-resize-back!
     bytespan-insert-front/u8! bytespan-insert-back/u8!
     bytespan-insert-front/bspan! bytespan-insert-back/bspan!
     bytespan-insert-front/bvector! bytespan-insert-back/bvector!
-    bytespan-erase-front! bytespan-erase-back! bytespan-iterate bytespan-u8-find
+    bytespan-erase-front! bytespan-erase-back! bytespan-iterate bytespan-find/u8
     bytespan-peek-beg bytespan-peek-end bytespan-peek-data
 
     ; charspan.ss

@@ -102,10 +102,10 @@
          (delta (fx- idx (span-length left))))
     (cond
       ((fx>? delta 0)
-        (span-sp-insert-back! left right 0 delta)
+        (span-insert-back/span! left right 0 delta)
         (span-erase-front! right delta))
       ((fx<? delta 0)
-        (span-sp-insert-front! right left idx (fx- delta))
+        (span-insert-front/span! right left idx (fx- delta))
         (span-erase-back! left (fx- delta))))))
 
 ;; insert val into gbuffer at position idx
@@ -127,7 +127,7 @@
 
 ; read src-n elements from span sp-src starting from src-start
 ; and insert them into gbuffer at position idx
-(define (gbuffer-sp-insert-at! gb idx sp-src src-start src-n)
+(define (gbuffer-insert-at/span! gb idx sp-src src-start src-n)
   (assert (fx>=? idx 0))
   (assert (fx<=? idx (gbuffer-length gb)))
   (let* ((left   (gbuffer-left  gb))
@@ -139,12 +139,12 @@
         (assert (fx>=? src-start 0))
         (assert (fx<=? src-start (span-length sp-src))))
       ((fxzero? idx)
-        (span-sp-insert-front! left sp-src src-start src-n))
+        (span-insert-front/span! left sp-src src-start src-n))
       ((fx=? idx (gbuffer-length gb))
-        (span-sp-insert-back! right sp-src src-start src-n))
+        (span-insert-back/span! right sp-src src-start src-n))
       (#t
         (gbuffer-split-at! gb idx)
-        (span-sp-insert-back! left sp-src src-start src-n)))))
+        (span-insert-back/span! left sp-src src-start src-n)))))
 
 ; remove n elements from gbuffer starting at start
 (define (gbuffer-erase-at! gb start n)

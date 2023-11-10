@@ -15,7 +15,7 @@
     span-length span-empty? span-clear! span-capacity span-capacity-front span-capacity-back
     span-ref span-back span-set! span-fill! span-fill-range! span-copy span-copy!
     span-reserve-front! span-reserve-back! span-resize-front! span-resize-back!
-    span-insert-front! span-insert-back! span-sp-insert-front! span-sp-insert-back!
+    span-insert-front! span-insert-back! span-insert-front/span! span-insert-back/span!
     span-erase-front! span-erase-back! span-iterate span-find
     span-peek-beg span-peek-end span-peek-data)
   (import
@@ -227,7 +227,7 @@
           (set! pos (fx1+ pos)))))))
 
 ; prefix a portion of another span to this span
-(define (span-sp-insert-front! sp-dst sp-src src-start src-n)
+(define (span-insert-front/span! sp-dst sp-src src-start src-n)
   (assert (not (eq? sp-dst sp-src)))
   (unless (fxzero? src-n)
     (let ((len (span-length sp-dst)))
@@ -235,7 +235,7 @@
       (span-copy! sp-src src-start sp-dst 0 src-n))))
 
 ; append a portion of another span to this span
-(define (span-sp-insert-back! sp-dst sp-src src-start src-n)
+(define (span-insert-back/span! sp-dst sp-src src-start src-n)
   (assert (not (eq? sp-dst sp-src)))
   (unless (fxzero? src-n)
     (let ((pos (span-length sp-dst)))

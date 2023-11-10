@@ -585,7 +585,7 @@
         ((or incomplete-utf8?
              (fx>=? pos end)
              ; stop at any byte < 32, unless it's the first byte (which we skip)
-             (and (fx>? pos beg) (fx<? (bytespan-u8-ref bsp pos) 32))))
+             (and (fx>? pos beg) (fx<? (bytespan-ref/u8 bsp pos) 32))))
       (let-values (((ch len) (bytespan-utf8-ref bsp pos (fx- end pos))))
         (set! pos (fxmin end (fx+ pos len)))
         (cond
@@ -865,7 +865,7 @@
               (rpos 0))
     (if (fx>=? rpos (bytespan-length rbuf))
       (values htable rpos)
-      (let* ((ch (bytespan-u8-ref rbuf rpos))
+      (let* ((ch (bytespan-ref/u8 rbuf rpos))
              (entry (hashtable-ref htable ch #f))
              (rpos+1 (fx1+ rpos)))
         (cond

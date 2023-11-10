@@ -207,12 +207,12 @@ static const struct {
      "(span foo bar qux)"},
     {"(let ((sp (span 1 2 3))"
      "      (sp2 (span -1 0)))\n"
-     "  (span-sp-insert-front! sp sp2 0 2)\n"
+     "  (span-insert-front/span! sp sp2 0 2)\n"
      "  sp)",
      "(span -1 0 1 2 3)"},
     {"(let ((sp (span 1 2 3))"
      "      (sp2 (span -1 0)))\n"
-     "  (span-sp-insert-back! sp sp2 0 2)\n"
+     "  (span-insert-back/span! sp sp2 0 2)\n"
      "  sp)",
      "(span 1 2 3 -1 0)"},
     {"(let ((sp (span 'a 'b 'c 'd)))\n"
@@ -235,8 +235,8 @@ static const struct {
     {"(bytespan-capacity-back (bytespan 1 2 3))", "3"},
     {"(bytespan-empty? (bytespan))", "#t"},
     {"(bytespan-empty? (bytespan 250))", "#f"},
-    {"(bytespan-u8-back (bytespan 251 252))", "252"},
-    {"(bytespan-u8-ref (bytespan 252 253 254 255) 2)", "254"},
+    {"(bytespan-back/u8 (bytespan 251 252))", "252"},
+    {"(bytespan-ref/u8 (bytespan 252 253 254 255) 2)", "254"},
     {"(let* ((v (bytevector 1 2 3))\n"
      "       (sp (bytevector->bytespan v)))\n"
      "  (bytevector-u8-set! v 1 7)\n" /* set! does NOT propagate to the bytespan */
@@ -252,7 +252,7 @@ static const struct {
      "  sp)",
      "(bytespan 4 5 6 7 8)"},
     {"(let ((sp (bytespan 9 10 11 12)))\n"
-     "  (bytespan-u8-find sp 0 999 (lambda (elem) (eq? 11 elem))))",
+     "  (bytespan-find/u8 sp 0 999 (lambda (elem) (eq? 11 elem))))",
      "2"},
     /* ----------------------- charspan --------------------------- */
     {"(charspan #\\1 #\\2 #\\3)", "(string->charspan* \"123\")"},

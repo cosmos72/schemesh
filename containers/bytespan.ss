@@ -14,13 +14,13 @@
     list->bytespan bytevector->bytespan bytevector->bytespan* make-bytespan bytespan->bytevector
     bytespan bytespan? bytespan-length bytespan-empty? bytespan-clear!
     bytespan-capacity bytespan-capacity-front bytespan-capacity-back
-    bytespan-u8-ref bytespan-u8-back bytespan-u8-set!
+    bytespan-ref/u8 bytespan-back/u8 bytespan-set/u8!
     bytespan-fill! bytespan-fill-range! bytespan-copy bytespan-copy! bytespan=?
     bytespan-reserve-front! bytespan-reserve-back! bytespan-resize-front! bytespan-resize-back!
     bytespan-insert-front/u8! bytespan-insert-back/u8!
     bytespan-insert-front/bspan! bytespan-insert-back/bspan!
     bytespan-insert-front/bvector! bytespan-insert-back/bvector!
-    bytespan-erase-front! bytespan-erase-back! bytespan-iterate bytespan-u8-find
+    bytespan-erase-front! bytespan-erase-back! bytespan-iterate bytespan-find/u8
     bytespan-peek-beg bytespan-peek-end bytespan-peek-data)
   (import
     (rnrs)
@@ -81,29 +81,29 @@
   (bytespan-beg-set! sp 0)
   (bytespan-end-set! sp 0))
 
-(define (bytespan-u8-ref sp idx)
+(define (bytespan-ref/u8 sp idx)
   (assert (fx>=? idx 0))
   (assert (fx<? idx (bytespan-length sp)))
   (bytevector-u8-ref (bytespan-vec sp) (fx+ idx (bytespan-beg sp))))
 
-(define (bytespan-u8-back sp)
+(define (bytespan-back/u8 sp)
   (assert (not (bytespan-empty? sp)))
   (bytevector-u8-ref (bytespan-vec sp) (fx1- (bytespan-end sp))))
 
-(define (bytespan-u8-set! sp idx val)
+(define (bytespan-set/u8! sp idx u8)
   (assert (fx>=? idx 0))
   (assert (fx<? idx (bytespan-length sp)))
-  (bytevector-u8-set! (bytespan-vec sp) (fx+ idx (bytespan-beg sp)) val))
+  (bytevector-u8-set! (bytespan-vec sp) (fx+ idx (bytespan-beg sp)) u8))
 
-(define (bytespan-fill! sp val)
+(define (bytespan-fill! sp u8)
   (bytevector-fill-range! (bytespan-vec sp) (bytespan-beg sp)
-                          (bytespan-length sp) val))
+                          (bytespan-length sp) u8))
 
-(define (bytespan-fill-range! sp start n val)
+(define (bytespan-fill-range! sp start n u8)
   (assert (fx>=? start 0))
   (assert (fx>=? n 0))
   (assert (fx<=? (fx+ start n) (bytespan-length sp)))
-  (bytevector-fill-range! (bytespan-vec sp) (fx+ start (bytespan-beg sp)) n val))
+  (bytevector-fill-range! (bytespan-vec sp) (fx+ start (bytespan-beg sp)) n u8))
 
 (define (bytespan-copy src)
   (let* ((n (bytespan-length src))
@@ -127,7 +127,7 @@
            (equal (fx=? n1 n2)))
       (do ((i 0 (fx1+ i)))
           ((or (not equal) (fx>=? i n1)) equal)
-        (set! equal (fx=? (bytespan-u8-ref left i) (bytespan-u8-ref right i)))))))
+        (set! equal (fx=? (bytespan-ref/u8 left i) (bytespan-ref/u8 right i)))))))
 
 (define (bytespan-reallocate-front! sp len cap)
   (assert (fx>=? len 0))
@@ -225,7 +225,7 @@
       (bytespan-resize-front! sp new-len)
       (list-iterate vals
         (lambda (elem)
-          (bytespan-u8-set! sp pos elem)
+          (bytespan-set/u8! sp pos elem)
           (set! pos (fx1+ pos)))))))
 
 (define (bytespan-insert-back/u8! sp . vals)
@@ -235,7 +235,7 @@
       (bytespan-resize-back! sp new-len)
       (list-iterate vals
         (lambda (elem)
-          (bytespan-u8-set! sp pos elem)
+          (bytespan-set/u8! sp pos elem)
           (set! pos (fx1+ pos)))))))
 
 ;  prefix a portion of another bytespan to this bytespan
@@ -286,18 +286,19 @@
        (v (bytespan-vec sp)))
     ((or (fx>=? i n) (not (proc i (bytevector-u8-ref v i)))))))
 
-; (bytespan-u8-find) iterates on bytespan elements from start to (fxmin (fx+ start n)
-; (bytespan-length sp)), and returns the index of first bytespan element that causes
+; (bytespan-find/u8) iterates on bytespan u8 elements
+; from start to (fxmin (fx+ start n) (bytespan-length sp)),
+; and returns the index of first bytespan u8 element that causes
 ; (predicate elem) to return non-#f. Returns #f if no such element is found.
-(define (bytespan-u8-find sp start n predicate)
+(define (bytespan-find/u8 sp start n predicate)
   (let ((ret #f))
     (do ((i   start (fx1+ i))
          (end (fxmin (fx+ start n) (bytespan-length sp))))
         ((or ret (fx>=? i end)) ret)
-      (when (predicate (bytespan-u8-ref sp i))
+      (when (predicate (bytespan-ref/u8 sp i))
         (set! ret i)))))
 
-; * customize how "bytespan" objects are printed
+; customize how "bytespan" objects are printed
 (record-writer (record-type-descriptor %bytespan)
   (lambda (sp port writer)
     (display "(bytespan" port)

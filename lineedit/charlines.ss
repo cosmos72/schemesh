@@ -127,6 +127,8 @@
   (charline-dirty-x-add! line 0 (charline-length line))
   (chargbuffer-clear! line))
 
+;; make a copy of string str and store it into a newly created charline
+;; return the new charline
 (define (string->charline str)
   (let ((line (make-charline (charspan) (string->charspan str) #f))
         (last (fx1- (string-length str))))
@@ -135,6 +137,8 @@
       (charline-nl?-set! line #t))
     line))
 
+;; store a reference to string str into a newly created charline
+;; return the new charline
 (define (string->charline* str)
   (let ((line (make-charline (charspan) (string->charspan* str) #f))
         (last (fx1- (string-length str))))
