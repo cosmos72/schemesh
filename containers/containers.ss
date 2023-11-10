@@ -66,9 +66,9 @@
     chargbuffer-insert-at! chargbuffer-erase-at! chargbuffer-iterate
 
     ; utils.ss
-    bytevector-utf8-ref bytevector-utf8-set! char->utf8-length
-    bytespan-utf8-ref bytespan-utf8-set! bytespan-utf8-insert-front! bytespan-utf8-insert-back!
-    bytespan-csp-insert-back! bytespan-fixnum-display-back!
+    bytevector-ref/utf8 bytevector-set/utf8! char->utf8-length
+    bytespan-ref/utf8 bytespan-set/utf8! bytespan-insert-front/utf8! bytespan-insert-back/utf8!
+    bytespan-insert-back/cspan! bytespan-display-back/fixnum!
     charspan->utf8)
 
   (import (schemesh containers misc)

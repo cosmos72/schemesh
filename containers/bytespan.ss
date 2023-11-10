@@ -43,11 +43,11 @@
   (let ((vec (list->bytevector l)))
     (%make-bytespan 0 (bytevector-length vec) vec)))
 
-;  create bytespan copying contents of specified bytevector
+; create bytespan copying contents of specified bytevector
 (define (bytevector->bytespan vec)
   (%make-bytespan 0 (bytevector-length vec) (bytevector-copy vec)))
 
-;  view existing bytevector as bytespan
+; view existing bytevector as bytespan
 (define (bytevector->bytespan* vec)
   (%make-bytespan 0 (bytevector-length vec) vec))
 
@@ -63,13 +63,13 @@
       #vu8()
       (subbytevector (bytespan-vec sp) beg end))))
 
-(define (bytespan . vals)
-  (list->bytespan vals))
+(define (bytespan . u8vals)
+  (list->bytespan u8vals))
 
 (define (bytespan-length sp)
   (fx- (bytespan-end sp) (bytespan-beg sp)))
 
-;  return length of internal bytevector, i.e. maximum number of elements
+; return length of internal bytevector, i.e. maximum number of elements
 ; that can be stored without reallocating
 (define (bytespan-capacity sp)
   (bytevector-length (bytespan-vec sp)))
@@ -218,22 +218,22 @@
   (assert (fx>=? (bytespan-capacity-back sp) len))
   (bytespan-end-set! sp (fx+ len (bytespan-beg sp))))
 
-(define (bytespan-insert-front/u8! sp . vals)
-  (unless (null? vals)
+(define (bytespan-insert-front/u8! sp . u8vals)
+  (unless (null? u8vals)
     (let ((pos 0)
-          (new-len (fx+ (bytespan-length sp) (length vals))))
+          (new-len (fx+ (bytespan-length sp) (length u8vals))))
       (bytespan-resize-front! sp new-len)
-      (list-iterate vals
+      (list-iterate u8vals
         (lambda (elem)
           (bytespan-set/u8! sp pos elem)
           (set! pos (fx1+ pos)))))))
 
-(define (bytespan-insert-back/u8! sp . vals)
-  (unless (null? vals)
+(define (bytespan-insert-back/u8! sp . u8vals)
+  (unless (null? u8vals)
     (let* ((pos (bytespan-length sp))
-           (new-len (fx+ pos (length vals))))
+           (new-len (fx+ pos (length u8vals))))
       (bytespan-resize-back! sp new-len)
-      (list-iterate vals
+      (list-iterate u8vals
         (lambda (elem)
           (bytespan-set/u8! sp pos elem)
           (set! pos (fx1+ pos)))))))

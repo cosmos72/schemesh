@@ -36,60 +36,60 @@ static const struct {
     {"(bytevector-compare #vu8(66 77) #vu8(66 77 0))", "-1"},
     {"(bytevector-compare #vu8(66 77) #vu8(66 78))", "-1"},
     {"(bytevector-compare #vu8(79) #vu8(78 0))", "1"},
-    /* ----------------- bytevector-utf8 ----------------------------- */
-    {"(values->list (bytevector-utf8-ref #vu8() 0 1))", "(#t 0)"}, /* incomplete */
-    {"(values->list (bytevector-utf8-ref #vu8(1) 0 1))", "(\x01 1)"},
-    {"(values->list (bytevector-utf8-ref #vu8(33) 0 1))", "(! 1)"},
-    {"(values->list (bytevector-utf8-ref #vu8(#x7e) 0 1))", "(~ 1)"},
-    {"(values->list (bytevector-utf8-ref #vu8(#x7f) 0 1))", "(\x7f 1)"},
-    {"(values->list (bytevector-utf8-ref #vu8(#x80) 0 1))", "(#f 1)"},
-    {"(values->list (bytevector-utf8-ref #vu8(#xc0 #x80) 0 1))", "(#t 1)"}, /* incomplete */
-    {"(values->list (bytevector-utf8-ref #vu8(#xc0 #x80) 0 2))", "(#f 2)"}, /* overlong */
-    {"(values->list (bytevector-utf8-ref #vu8(#xc1 #xbf) 0 2))", "(#f 2)"}, /* overlong */
-    {"(values->list (bytevector-utf8-ref #vu8(#xc2 #x7f) 0 2))", "(#f 2)"}, /* bad continuation */
-    {"(values->list (bytevector-utf8-ref #vu8(#xc2 #x80) 0 2))", "(\xc2\x80 2)"}, /* U+0080 */
-    {"(values->list (bytevector-utf8-ref #vu8(#xc2 #xa3) 0 2))", "(\xc2\xa3 2)"}, /* pound sign */
-    {"(values->list (bytevector-utf8-ref #vu8(#xc2 #xbf) 0 2))", "(\xc2\xbf 2)"},
-    {"(values->list (bytevector-utf8-ref #vu8(#xc2 #xc0) 0 2))", "(#f 2)"}, /* bad continuation */
-    {"(values->list (bytevector-utf8-ref #vu8(#xdf #xbf) 0 2))", "(\xdf\xbf 2)"}, /* U+07FF */
-    {"(values->list (bytevector-utf8-ref #vu8(#xe0 #x80 #x80) 0 2))", "(#t 2)"},  /* incomplete */
-    {"(values->list (bytevector-utf8-ref #vu8(#xe0 #x80 #x80) 0 3))", "(#f 3)"},  /* overlong */
-    {"(values->list (bytevector-utf8-ref #vu8(#xe0 #x9f #xbf) 0 3))", "(#f 3)"},  /* overlong */
-    {"(values->list (bytevector-utf8-ref #vu8(#xe0 #xa0 #x80) 0 3))",
+    /* ----------------- bytevector/utf8 ----------------------------- */
+    {"(values->list (bytevector-ref/utf8 #vu8() 0 1))", "(#t 0)"}, /* incomplete */
+    {"(values->list (bytevector-ref/utf8 #vu8(1) 0 1))", "(\x01 1)"},
+    {"(values->list (bytevector-ref/utf8 #vu8(33) 0 1))", "(! 1)"},
+    {"(values->list (bytevector-ref/utf8 #vu8(#x7e) 0 1))", "(~ 1)"},
+    {"(values->list (bytevector-ref/utf8 #vu8(#x7f) 0 1))", "(\x7f 1)"},
+    {"(values->list (bytevector-ref/utf8 #vu8(#x80) 0 1))", "(#f 1)"},
+    {"(values->list (bytevector-ref/utf8 #vu8(#xc0 #x80) 0 1))", "(#t 1)"}, /* incomplete */
+    {"(values->list (bytevector-ref/utf8 #vu8(#xc0 #x80) 0 2))", "(#f 2)"}, /* overlong */
+    {"(values->list (bytevector-ref/utf8 #vu8(#xc1 #xbf) 0 2))", "(#f 2)"}, /* overlong */
+    {"(values->list (bytevector-ref/utf8 #vu8(#xc2 #x7f) 0 2))", "(#f 2)"}, /* bad continuation */
+    {"(values->list (bytevector-ref/utf8 #vu8(#xc2 #x80) 0 2))", "(\xc2\x80 2)"}, /* U+0080 */
+    {"(values->list (bytevector-ref/utf8 #vu8(#xc2 #xa3) 0 2))", "(\xc2\xa3 2)"}, /* pound sign */
+    {"(values->list (bytevector-ref/utf8 #vu8(#xc2 #xbf) 0 2))", "(\xc2\xbf 2)"},
+    {"(values->list (bytevector-ref/utf8 #vu8(#xc2 #xc0) 0 2))", "(#f 2)"}, /* bad continuation */
+    {"(values->list (bytevector-ref/utf8 #vu8(#xdf #xbf) 0 2))", "(\xdf\xbf 2)"}, /* U+07FF */
+    {"(values->list (bytevector-ref/utf8 #vu8(#xe0 #x80 #x80) 0 2))", "(#t 2)"},  /* incomplete */
+    {"(values->list (bytevector-ref/utf8 #vu8(#xe0 #x80 #x80) 0 3))", "(#f 3)"},  /* overlong */
+    {"(values->list (bytevector-ref/utf8 #vu8(#xe0 #x9f #xbf) 0 3))", "(#f 3)"},  /* overlong */
+    {"(values->list (bytevector-ref/utf8 #vu8(#xe0 #xa0 #x80) 0 3))",
      "(\xe0\xa0\x80 3)"}, /* U+0800 */
-    {"(values->list (bytevector-utf8-ref #vu8(#xed #x80 #x80) 0 3))",
+    {"(values->list (bytevector-ref/utf8 #vu8(#xed #x80 #x80) 0 3))",
      "(\xed\x80\x80 3)"}, /* U+D000 */
-    {"(values->list (bytevector-utf8-ref #vu8(#xed #x9f #xbf) 0 3))",
+    {"(values->list (bytevector-ref/utf8 #vu8(#xed #x9f #xbf) 0 3))",
      "(\xed\x9f\xbf 3)"}, /* U+D7FF */
-    {"(values->list (bytevector-utf8-ref #vu8(#xed #xa0 #x80) 0 3))",
+    {"(values->list (bytevector-ref/utf8 #vu8(#xed #xa0 #x80) 0 3))",
      "(#f 3)"}, /* invalid, U+D800 is surrogate half */
-    {"(values->list (bytevector-utf8-ref #vu8(#xed #xbf #xbf) 0 3))",
+    {"(values->list (bytevector-ref/utf8 #vu8(#xed #xbf #xbf) 0 3))",
      "(#f 3)"}, /* invalid, U+DFFF is surrogate half */
-    {"(values->list (bytevector-utf8-ref #vu8(#xee #x80 #x80) 0 3))",
+    {"(values->list (bytevector-ref/utf8 #vu8(#xee #x80 #x80) 0 3))",
      "(\xee\x80\x80 3)"}, /* U+E000 */
-    {"(values->list (bytevector-utf8-ref #vu8(#xef #xbf #xbf) 0 3))",
+    {"(values->list (bytevector-ref/utf8 #vu8(#xef #xbf #xbf) 0 3))",
      "(\xef\xbf\xbf 3)"}, /* U+FFFF */
-    {"(values->list (bytevector-utf8-ref #vu8(#xf0 #x80 #x80 #x80) 0 3))",
+    {"(values->list (bytevector-ref/utf8 #vu8(#xf0 #x80 #x80 #x80) 0 3))",
      "(#t 3)"}, /* incomplete */
-    {"(values->list (bytevector-utf8-ref #vu8(#xf0 #x80 #x80 #x80) 0 4))",
+    {"(values->list (bytevector-ref/utf8 #vu8(#xf0 #x80 #x80 #x80) 0 4))",
      "(#f 4)"}, /*   overlong */
-    {"(values->list (bytevector-utf8-ref #vu8(#xf0 #x8f #xbf #xbf) 0 4))",
+    {"(values->list (bytevector-ref/utf8 #vu8(#xf0 #x8f #xbf #xbf) 0 4))",
      "(#f 4)"}, /*   overlong */
-    {"(values->list (bytevector-utf8-ref #vu8(#xf0 #x90 #x80 #x80) 0 4))",
+    {"(values->list (bytevector-ref/utf8 #vu8(#xf0 #x90 #x80 #x80) 0 4))",
      "(\xf0\x90\x80\x80 4)"}, /* U+10000 */
-    {"(values->list (bytevector-utf8-ref #vu8(#xf4 #x8f #xbf #xbf) 0 4))",
+    {"(values->list (bytevector-ref/utf8 #vu8(#xf4 #x8f #xbf #xbf) 0 4))",
      "(\xf4\x8f\xbf\xbf 4)"}, /* U+10FFFF */
-    {"(values->list (bytevector-utf8-ref #vu8(#xf4 #x90 #x80 #x80) 0 4))",
+    {"(values->list (bytevector-ref/utf8 #vu8(#xf4 #x90 #x80 #x80) 0 4))",
      "(#f 4)"}, /* invalid U+110000, exceeds U+10FFFF */
-    {"(values->list (bytevector-utf8-ref #vu8(#xf4 #xbf #xbf #xbf) 0 4))",
+    {"(values->list (bytevector-ref/utf8 #vu8(#xf4 #xbf #xbf #xbf) 0 4))",
      "(#f 4)"}, /* invalid, exceeds U+10FFFF */
-    {"(values->list (bytevector-utf8-ref #vu8(#xf5 #x80 #x80 #x80) 0 4))",
+    {"(values->list (bytevector-ref/utf8 #vu8(#xf5 #x80 #x80 #x80) 0 4))",
      "(#f 1)"}, /* invalid, UTF-8 sequences cannot contain #xf5 .. #xff */
-    {"(values->list (bytevector-utf8-ref #vu8(#xf6) 0 1))", "(#f 1)"}, /* invalid #xf6 */
-    {"(values->list (bytevector-utf8-ref #vu8(#xfe) 0 1))", "(#f 1)"}, /* invalid #xfe */
-    {"(values->list (bytevector-utf8-ref #vu8(#xff) 0 1))", "(#f 1)"}, /* invalid #xff */
+    {"(values->list (bytevector-ref/utf8 #vu8(#xf6) 0 1))", "(#f 1)"}, /* invalid #xf6 */
+    {"(values->list (bytevector-ref/utf8 #vu8(#xfe) 0 1))", "(#f 1)"}, /* invalid #xfe */
+    {"(values->list (bytevector-ref/utf8 #vu8(#xff) 0 1))", "(#f 1)"}, /* invalid #xff */
     {"(let ((bv (make-bytevector 1)))\n"
-     "  (bytevector-utf8-set! bv 0 #\\~)\n"
+     "  (bytevector-set/utf8! bv 0 #\\~)\n"
      "  bv)",
      "~"},
     {"(list\n"
@@ -103,66 +103,66 @@ static const struct {
      "  (char->utf8-length (integer->char #x10ffff)))",
      "(1 1 2 2 3 3 4 4)"},
     {"(let ((bv (make-bytevector 1)))\n"
-     "  (bytevector-utf8-set! bv 0 #\\~)\n"
+     "  (bytevector-set/utf8! bv 0 #\\~)\n"
      "  bv)",
      "~"},
     {"(let ((bv (make-bytevector 2)))\n"
-     "  (bytevector-utf8-set! bv 0 (integer->char #xa3))\n" /* pound sign */
+     "  (bytevector-set/utf8! bv 0 (integer->char #xa3))\n" /* pound sign */
      "  bv)",
      "\xc2\xa3"},
     {"(let ((bv (make-bytevector 3)))\n"
-     "  (bytevector-utf8-set! bv 0 (integer->char #x20ac))\n" /* euro sign */
+     "  (bytevector-set/utf8! bv 0 (integer->char #x20ac))\n" /* euro sign */
      "  bv)",
      "\xe2\x82\xac"},
     {"(let ((bv (make-bytevector 4)))\n"
-     "  (bytevector-utf8-set! bv 0 (integer->char #x10348))\n"
+     "  (bytevector-set/utf8! bv 0 (integer->char #x10348))\n"
      "  bv)",
      "\xf0\x90\x8d\x88"},
     {"(let ((bv (make-bytevector 4)))\n"
-     "  (bytevector-utf8-set! bv 0 (integer->char #x10ffff))\n"
+     "  (bytevector-set/utf8! bv 0 (integer->char #x10ffff))\n"
      "  bv)",
      "\xf4\x8f\xbf\xbf"},
     /* ----------------- bytespan-utf8 ----------------------------- */
-    {"(values->list (bytespan-utf8-ref (bytespan) 0 1))", "(#t 0)"}, /* incomplete */
-    {"(values->list (bytespan-utf8-ref (bytespan 1) 0 1))", "(\x01 1)"},
-    {"(values->list (bytespan-utf8-ref (bytespan #x7f) 0 1))", "(\x7f 1)"},
-    {"(values->list (bytespan-utf8-ref (bytespan #x80) 0 1))", "(#f 1)"},
-    {"(values->list (bytespan-utf8-ref (bytespan #xc2 #x80) 0 2))", "(\xc2\x80 2)"}, /* U+0080 */
-    {"(values->list (bytespan-utf8-ref (bytespan #xdf #xbf) 0 2))", "(\xdf\xbf 2)"}, /* U+07FF */
-    {"(values->list (bytespan-utf8-ref (bytespan #xe0 #xa0 #x80) 0 3))",
+    {"(values->list (bytespan-ref/utf8 (bytespan) 0 1))", "(#t 0)"}, /* incomplete */
+    {"(values->list (bytespan-ref/utf8 (bytespan 1) 0 1))", "(\x01 1)"},
+    {"(values->list (bytespan-ref/utf8 (bytespan #x7f) 0 1))", "(\x7f 1)"},
+    {"(values->list (bytespan-ref/utf8 (bytespan #x80) 0 1))", "(#f 1)"},
+    {"(values->list (bytespan-ref/utf8 (bytespan #xc2 #x80) 0 2))", "(\xc2\x80 2)"}, /* U+0080 */
+    {"(values->list (bytespan-ref/utf8 (bytespan #xdf #xbf) 0 2))", "(\xdf\xbf 2)"}, /* U+07FF */
+    {"(values->list (bytespan-ref/utf8 (bytespan #xe0 #xa0 #x80) 0 3))",
      "(\xe0\xa0\x80 3)"}, /* U+0800 */
-    {"(values->list (bytespan-utf8-ref (bytespan #xed #x80 #x80) 0 3))",
+    {"(values->list (bytespan-ref/utf8 (bytespan #xed #x80 #x80) 0 3))",
      "(\xed\x80\x80 3)"}, /* U+D000 */
-    {"(values->list (bytespan-utf8-ref (bytespan #xed #xa0 #x80) 0 3))",
+    {"(values->list (bytespan-ref/utf8 (bytespan #xed #xa0 #x80) 0 3))",
      "(#f 3)"}, /* invalid, U+D800 is surrogate half */
-    {"(values->list (bytespan-utf8-ref (bytespan #xed #xbf #xbf) 0 3))",
+    {"(values->list (bytespan-ref/utf8 (bytespan #xed #xbf #xbf) 0 3))",
      "(#f 3)"}, /* invalid, U+DFFF is surrogate half */
-    {"(values->list (bytespan-utf8-ref (bytespan #xed #x9f #xbf) 0 3))",
+    {"(values->list (bytespan-ref/utf8 (bytespan #xed #x9f #xbf) 0 3))",
      "(\xed\x9f\xbf 3)"}, /* U+D7FF */
-    {"(values->list (bytespan-utf8-ref (bytespan #xef #xbf #xbf) 0 3))",
+    {"(values->list (bytespan-ref/utf8 (bytespan #xef #xbf #xbf) 0 3))",
      "(\xef\xbf\xbf 3)"}, /* U+FFFF */
-    {"(values->list (bytespan-utf8-ref (bytespan #xf0 #x90 #x80 #x80) 0 4))",
+    {"(values->list (bytespan-ref/utf8 (bytespan #xf0 #x90 #x80 #x80) 0 4))",
      "(\xf0\x90\x80\x80 4)"}, /* U+10000 */
-    {"(values->list (bytespan-utf8-ref (bytespan #xf4 #x8f #xbf #xbf) 0 4))",
+    {"(values->list (bytespan-ref/utf8 (bytespan #xf4 #x8f #xbf #xbf) 0 4))",
      "(\xf4\x8f\xbf\xbf 4)"}, /* U+10FFFF */
     {"(let ((sp (bytespan)))\n"
-     "  (bytespan-utf8-insert-back! sp #\\~)\n"
+     "  (bytespan-insert-back/utf8! sp #\\~)\n"
      "  sp)",
      "(bytespan 126)"},
     {"(let ((sp (bytespan)))\n"
-     "  (bytespan-utf8-insert-back! sp (integer->char #xa3))\n" /* pound sign */
+     "  (bytespan-insert-back/utf8! sp (integer->char #xa3))\n" /* pound sign */
      "  sp)",
      "(bytespan 194 163)"},
     {"(let ((sp (bytespan)))\n"
-     "  (bytespan-utf8-insert-back! sp (integer->char #x20ac))\n" /* euro sign */
+     "  (bytespan-insert-back/utf8! sp (integer->char #x20ac))\n" /* euro sign */
      "  sp)",
      "(bytespan 226 130 172)"},
     {"(let ((sp (bytespan)))\n"
-     "  (bytespan-utf8-insert-front! sp (integer->char #x10348))\n"
+     "  (bytespan-insert-front/utf8! sp (integer->char #x10348))\n"
      "  sp)",
      "(bytespan 240 144 141 136)"},
     {"(let ((sp (bytespan)))\n"
-     "  (bytespan-utf8-insert-front! sp (integer->char #x10ffff))\n"
+     "  (bytespan-insert-front/utf8! sp (integer->char #x10ffff))\n"
      "  sp)",
      "(bytespan 244 143 191 191)"},
     {"(charspan->utf8 (string->charspan* \"\x7c \xce\x98 \xe0\xa4\xb9 \xf0\x90\x8d\x88\"))",
@@ -172,7 +172,7 @@ static const struct {
      "  (list-iterate '(0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000 "
      "                  9999998 10000000 12345678 -1 -9 -10 -87654321)\n"
      "    (lambda (n)\n"
-     "      (bytespan-fixnum-display-back! sp n)\n"
+     "      (bytespan-display-back/fixnum! sp n)\n"
      "      (bytespan-insert-back/u8! sp 32)))\n"
      "  (bytespan->bytevector sp))",
      "0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000 "

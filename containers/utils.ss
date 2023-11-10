@@ -13,9 +13,9 @@
 
 (library (schemesh containers utils (0 1))
   (export
-    bytevector-utf8-ref bytevector-utf8-set! char->utf8-length
-    bytespan-utf8-ref bytespan-utf8-set! bytespan-utf8-insert-front! bytespan-utf8-insert-back!
-    bytespan-csp-insert-back! bytespan-fixnum-display-back!
+    bytevector-ref/utf8 bytevector-set/utf8! char->utf8-length
+    bytespan-ref/utf8 bytespan-set/utf8! bytespan-insert-front/utf8! bytespan-insert-back/utf8!
+    bytespan-insert-back/cspan! bytespan-display-back/fixnum!
     charspan->utf8)
   (import
     (rename (rnrs)
@@ -75,7 +75,7 @@
 ; Returns two values: converted char, and length in bytes of UTF-8 sequence.
 ; If UTF-8 sequence is incomplete, return #t instead of converted char.
 ; If UTF-8 sequence is invalid, return #f instead of converted char.
-(define (bytevector-utf8-ref vec start max-n)
+(define (bytevector-ref/utf8 vec start max-n)
   (assert (fx>=? start 0))
   (assert (fx>=? max-n 0))
   (assert (fx<=? start (bytevector-length vec)))
@@ -138,7 +138,7 @@
 ; Returns one value: the length in bytes of written UTF-8 sequence.
 ; Raises condition if writing the UTF-8 sequence into bytevector starting
 ; from offset = start exceeds bytevector's length.
-(define (bytevector-utf8-set! vec start ch)
+(define (bytevector-set/utf8! vec start ch)
   (assert (fx>=? start 0))
   (assert (fx<?  start (bytevector-length vec)))
   (let ((n (char->integer ch)))
@@ -184,47 +184,47 @@
 ; Returns two values: converted char, and length in bytes of UTF-8 sequence.
 ; If UTF-8 sequence is incomplete, return #t instead of converted char.
 ; If UTF-8 sequence is invalid, return #f instead of converted char.
-(define (bytespan-utf8-ref sp idx max-n)
+(define (bytespan-ref/utf8 sp idx max-n)
   (assert (fx<=? 0 idx (bytespan-length sp)))
-  (bytevector-utf8-ref (bytespan-peek-data sp)
+  (bytevector-ref/utf8 (bytespan-peek-data sp)
     (fx+ idx (bytespan-peek-beg sp))
     (fxmin max-n (fx- (bytespan-length sp) idx))))
 
 ; convert char to UTF-8 sequence and write it into bytespan starting at offset idx
-(define (bytespan-utf8-set! sp idx ch)
+(define (bytespan-set/utf8! sp idx ch)
   (assert (fx<=? 0 idx (fx+ (bytespan-length sp) (char->utf8-length ch))))
-  (bytevector-utf8-set! (bytespan-peek-data sp) (fx+ idx (bytespan-peek-beg sp)) ch))
+  (bytevector-set/utf8! (bytespan-peek-data sp) (fx+ idx (bytespan-peek-beg sp)) ch))
 
 ; convert a character to UTF-8 sequence and prefix it to bytespan.
 ; Return length in bytes of inserted UTF-8 sequence
-(define (bytespan-utf8-insert-front! sp ch)
+(define (bytespan-insert-front/utf8! sp ch)
   (let ((new-len (fx+ (bytespan-length sp) (char->utf8-length ch))))
     (bytespan-resize-front! sp new-len)
-    (bytespan-utf8-set! sp 0 ch)))
+    (bytespan-set/utf8! sp 0 ch)))
 
 ; convert a character to UTF-8 sequence and append it to bytespan.
 ; Return length in bytes of inserted UTF-8 sequence
-(define (bytespan-utf8-insert-back! sp ch)
+(define (bytespan-insert-back/utf8! sp ch)
   (let* ((old-len (bytespan-length sp))
          (new-len (fx+ old-len (char->utf8-length ch))))
     (bytespan-resize-back! sp new-len)
-    (bytespan-utf8-set! sp old-len ch)))
+    (bytespan-set/utf8! sp old-len ch)))
 
 ; convert a charspan to UTF-8 sequences and append it to bytespan.
-(define (bytespan-csp-insert-back! sp csp)
+(define (bytespan-insert-back/cspan! sp csp)
   (bytespan-reserve-back! sp (fx+ (bytespan-length sp) (charspan-length csp)))
   (charspan-iterate csp
     (lambda (i ch)
-      (bytespan-utf8-insert-back! sp ch))))
+      (bytespan-insert-back/utf8! sp ch))))
 
 ; convert a charspan to UTF-8 bytespan.
 (define (charspan->utf8 sp)
   (let ((ret (make-bytespan 0)))
-    (bytespan-csp-insert-back! ret sp)
+    (bytespan-insert-back/cspan! ret sp)
     ret))
 
 ; convert a fixnum to decimal digits and append the digits to bytespan.
-(define (bytespan-fixnum-display-back! sp n)
+(define (bytespan-display-back/fixnum! sp n)
   (if (fx<? n 0)
     (bytespan-insert-back/u8! sp 45) ; append '-'
     (set! n (fx- n)))                ; always work with negative fixnum: wider range

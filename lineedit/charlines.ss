@@ -15,7 +15,7 @@
 
     charlines charlines? assert-charlines?
     charlines-iterate charlines-empty? charlines-length charlines-ref
-    charlines-clear! charlines-copy-on-write charlines-erase-at! charlines-insert-at!
+    charlines-clear! charlines-copy-on-write charlines-erase-at/cline! charlines-insert-at/cline!
     charlines-dirty-y-start charlines-dirty-y-end charlines-dirty-xy-unset!)
   (import
     (rnrs)
@@ -208,20 +208,23 @@
   (charlines-dirty-y-add! lines 0 (charlines-length lines))
   (gbuffer-clear! lines))
 
-(define (charlines-erase-at! lines start n)
+; erase n charline from lines, beginning from position start
+(define (charlines-erase-at/cline! lines start n)
   (when (fx>? n 0)
     (charlines-dirty-y-add! lines start (charlines-length lines))
     (gbuffer-erase-at! start n)))
 
-(define (charlines-insert-at! lines idx line)
-  (assert-charline? 'charlines-insert-at! line)
+; insert a charline into lines at position idx
+(define (charlines-insert-at/cline! lines idx line)
+  (assert-charline? 'charlines-insert-at/cline! line)
   (charlines-dirty-y-add! lines idx (fx1+ (charlines-length lines)))
   (gbuffer-insert-at! lines idx line))
 
 (define charlines-ref   gbuffer-ref)
 
-(define (charlines-set! lines idx line)
-  (assert-charline?  'charlines-set! line)
+; replace a charline in lines at position idx
+(define (charlines-set/cline! lines idx line)
+  (assert-charline?  'charlines-set/cline! line)
   (charlines-dirty-y-add! idx (fx1+ idx))
   (gbuffer-set! lines idx line))
 
