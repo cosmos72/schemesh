@@ -17,7 +17,8 @@
     make-chargbuffer chargbuffer chargbuffer? chargbuffer->charspan chargbuffer->string
     chargbuffer-length chargbuffer-empty?
     chargbuffer-ref chargbuffer-set! chargbuffer-clear! chargbuffer-split-at!
-    chargbuffer-insert-at! chargbuffer-erase-at! chargbuffer-iterate)
+    chargbuffer-insert-at! chargbuffer-insert-at/cspan!
+    chargbuffer-erase-at! chargbuffer-iterate)
   (import
    (rnrs)
    (only (chezscheme) fx1+ record-writer string-copy! void)
@@ -40,12 +41,12 @@
 (define (string->chargbuffer* str)
   (%make-chargbuffer (charspan) (string->charspan* str)))
 
-(define (charspan->chargbuffer sp)
-  (%make-chargbuffer (charspan) (charspan-copy sp)))
+(define (charspan->chargbuffer csp)
+  (%make-chargbuffer (charspan) (charspan-copy csp)))
 
 ; view a charspan as chargbuffer
-(define (charspan->chargbuffer* sp)
-  (%make-chargbuffer (charspan) sp))
+(define (charspan->chargbuffer* csp)
+  (%make-chargbuffer (charspan) csp))
 
 (define make-chargbuffer
   (case-lambda
@@ -128,9 +129,9 @@
         (chargbuffer-split-at! gb idx)
         (charspan-insert-back! left val)))))
 
-; read src-n elements from charspan sp-src starting from src-start
+; read src-n elements from charspan csp-src starting from src-start
 ; and insert them into chargbuffer at position idx
-(define (chargbuffer-insert-at/cspan! gb idx sp-src src-start src-n)
+(define (chargbuffer-insert-at/cspan! gb idx csp-src src-start src-n)
   (assert (fx>=? idx 0))
   (assert (fx<=? idx (chargbuffer-length gb)))
   (let* ((left   (chargbuffer-left  gb))
@@ -140,14 +141,14 @@
     (cond
       ((fxzero? src-n) ; nothing to do
         (assert (fx>=? src-start 0))
-        (assert (fx<=? src-start (charspan-length sp-src))))
+        (assert (fx<=? src-start (charspan-length csp-src))))
       ((fxzero? idx)
-        (charspan-insert-front/cspan! left sp-src src-start src-n))
+        (charspan-insert-front/cspan! left csp-src src-start src-n))
       ((fx=? idx (chargbuffer-length gb))
-        (charspan-insert-back/cspan! right sp-src src-start src-n))
+        (charspan-insert-back/cspan! right csp-src src-start src-n))
       (#t
         (chargbuffer-split-at! gb idx)
-        (charspan-insert-back/cspan! left sp-src src-start src-n)))))
+        (charspan-insert-back/cspan! left csp-src src-start src-n)))))
 
 ; remove n elements from chargbuffer starting at start
 (define (chargbuffer-erase-at! gb start n)
@@ -189,6 +190,6 @@
   (lambda (gb port writer)
     (display "(string->chargbuffer* " port)
     (write (chargbuffer->string gb) port)
-    (display #\) port)))
+    (display ")" port)))
 
 ) ; close library

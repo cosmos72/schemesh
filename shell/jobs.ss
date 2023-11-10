@@ -878,7 +878,7 @@
   (lambda (obj port writer)
     (display "(sh-job " port)
     (writer (job-subshell-func obj) port)
-    (display #\) port)))
+    (display ")" port)))
 
 ; customize how "cmd" objects are printed
 (record-writer (record-type-descriptor cmd)
@@ -888,7 +888,7 @@
        (lambda (i arg)
          (display #\space port)
          (write-bytevector0 arg port)))
-    (display #\) port)))
+    (display ")" port)))
 
 ; customize how "multijob" objects are printed
 (record-writer (record-type-descriptor multijob)
@@ -899,7 +899,7 @@
        (lambda (i child)
          (display #\space port)
          (display child port)))
-    (display #\) port)))
+    (display ")" port)))
 
 (begin
   (c-environ->sh-global-env))

@@ -35,7 +35,6 @@
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh posix fd)
-    (schemesh lineedit charlines)
     (schemesh lineedit charhistory)
     (schemesh lineedit parens)
     (schemesh lineedit parenmatcher)

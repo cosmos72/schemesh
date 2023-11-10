@@ -296,6 +296,6 @@
   (lambda (sp port writer)
     (display "(string->charspan* " port)
     (write (charspan->string sp) port)
-    (display #\) port)))
+    (display ")" port)))
 
 ) ; close library

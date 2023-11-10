@@ -12,7 +12,6 @@
   (import
     (rnrs)
     (only (chezscheme) fx1+ record-writer)
-    (schemesh lineedit charlines)
     (schemesh containers))
 
 ;; copy-pasted from containers/span.ss
@@ -71,6 +70,6 @@
       (lambda (i elem)
         (display #\space port)
         (writer elem port)))
-    (display #\) port)))
+    (display ")" port)))
 
 ) ; close library

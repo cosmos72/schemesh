@@ -15,7 +15,6 @@
     (only (chezscheme) current-date date-hour date-minute date-second fx1+ fx1-)
     (schemesh bootstrap)
     (schemesh containers)
-    (only (schemesh lineedit charlines) charline-ref)
     (schemesh lineedit io)
     (schemesh lineedit parenmatcher)
     (schemesh lineedit parser)

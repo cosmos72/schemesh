@@ -13,7 +13,8 @@
     (rnrs mutable-strings)
     (only (chezscheme) fx1+)
     (schemesh bootstrap)      ; until
-    (schemesh lineedit charlines))
+    (schemesh containers charline)
+    (schemesh containers charlines))
 
 ; helper for input port wrapping a charline
 (define-record-type icport

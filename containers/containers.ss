@@ -65,6 +65,19 @@
     chargbuffer-ref chargbuffer-set! chargbuffer-clear! chargbuffer-split-at!
     chargbuffer-insert-at! chargbuffer-erase-at! chargbuffer-iterate
 
+    ; charline.ss
+    charline charline? assert-charline? string->charline string->charline* charline->string
+    charline-nl? charline-nl?-set! charline-copy-on-write
+    charline-empty? charline-length charline-ref charline-set!
+    charline-clear! charline-erase-at! charline-insert-at!
+    charline-dirty-x-start charline-dirty-x-end charline-dirty-x-unset!
+
+    ; charlines.ss
+    charlines charlines? assert-charlines?
+    charlines-iterate charlines-empty? charlines-length charlines-ref
+    charlines-clear! charlines-copy-on-write charlines-erase-at/cline! charlines-insert-at/cline!
+    charlines-dirty-y-start charlines-dirty-y-end charlines-dirty-xy-unset!
+
     ; utils.ss
     bytevector-ref/utf8 bytevector-set/utf8! char->utf8-length
     bytespan-ref/utf8 bytespan-set/utf8! bytespan-insert-front/utf8! bytespan-insert-back/utf8!
@@ -78,6 +91,8 @@
           (schemesh containers charspan)
           (schemesh containers gbuffer)
           (schemesh containers chargbuffer)
+          (schemesh containers charline)
+          (schemesh containers charlines)
           (schemesh containers utils))
 
 ) ; close library

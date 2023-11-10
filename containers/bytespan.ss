@@ -306,6 +306,6 @@
       (lambda (i elem)
         (display #\space port)
         (writer elem port)))
-    (display #\) port)))
+    (display ")" port)))
 
 ) ; close library
