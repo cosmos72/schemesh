@@ -49,6 +49,7 @@ static ptr c_environ_ref(uptr i) {
  * return current working directory
  */
 static ptr c_get_cwd(void) {
+  // call getcwd() with a small buffer on the stack
   {
     char dir[256];
     if (getcwd(dir, sizeof(dir)) == dir) {
@@ -57,6 +58,7 @@ static ptr c_get_cwd(void) {
       return Sstring_utf8("", 0);
     }
   }
+  // call getcwd() with progressively larger buffers on the heap
   {
     size_t maxlen = 1024;
     char*  dir    = NULL;
