@@ -17,11 +17,11 @@
     make-chargbuffer chargbuffer chargbuffer? chargbuffer->charspan chargbuffer->string
     chargbuffer-length chargbuffer-empty?
     chargbuffer-ref chargbuffer-set! chargbuffer-clear! chargbuffer-split-at!
-    chargbuffer-insert-at! chargbuffer-insert-at/cspan!
+    chargbuffer-insert-at! chargbuffer-insert-at/cspan! chargbuffer-insert-at/cbuf!
     chargbuffer-erase-at! chargbuffer-iterate)
   (import
    (rnrs)
-   (only (chezscheme) fx1+ record-writer string-copy! void)
+   (only (chezscheme) format fx1+ record-writer string-copy! void)
    (schemesh containers charspan))
 
 (define-record-type
@@ -85,13 +85,13 @@
       (charspan-ref (chargbuffer-left  gb) idx)
       (charspan-ref (chargbuffer-right gb) (fx- idx left-n)))))
 
-(define (chargbuffer-set! gb idx val)
+(define (chargbuffer-set! gb idx ch)
   (assert (fx>=? idx 0))
   (assert (fx<? idx (chargbuffer-length gb)))
   (let ((left-n (charspan-length (chargbuffer-left gb))))
     (if (fx<? idx left-n)
-      (charspan-set! (chargbuffer-left  gb) idx val)
-      (charspan-set! (chargbuffer-right gb) (fx- idx left-n) val))))
+      (charspan-set! (chargbuffer-left  gb) idx ch)
+      (charspan-set! (chargbuffer-right gb) (fx- idx left-n) ch))))
 
 (define (chargbuffer-clear! gb)
   (charspan-clear! (chargbuffer-left  gb))
@@ -112,36 +112,35 @@
         (charspan-insert-front/cspan! right left idx (fx- delta))
         (charspan-erase-back! left (fx- delta))))))
 
-; insert val into chargbuffer at position idx
-(define (chargbuffer-insert-at! gb idx val)
-  (assert (fx>=? idx 0))
-  (assert (fx<=? idx (chargbuffer-length gb)))
+; insert one char into chargbuffer at position idx
+(define (chargbuffer-insert-at! gb idx ch)
+  (assert (fx<=? 0 idx (chargbuffer-length gb)))
   (let* ((left   (chargbuffer-left  gb))
          (right  (chargbuffer-right gb))
          (left-n (charspan-length left))
          (delta  (fx- idx left-n)))
     (cond
       ((fxzero? idx)
-        (charspan-insert-front! left val))
+        (charspan-insert-front! left ch))
       ((fx=? idx (chargbuffer-length gb))
-        (charspan-insert-back! right val))
+        (charspan-insert-back! right ch))
       (#t
         (chargbuffer-split-at! gb idx)
-        (charspan-insert-back! left val)))))
+        (charspan-insert-back! left ch)))))
 
 ; read src-n elements from charspan csp-src starting from src-start
 ; and insert them into chargbuffer at position idx
 (define (chargbuffer-insert-at/cspan! gb idx csp-src src-start src-n)
-  (assert (fx>=? idx 0))
-  (assert (fx<=? idx (chargbuffer-length gb)))
+  (assert (fx<=? 0 idx       (chargbuffer-length gb)))
+  (assert (fx<=? 0 src-start (charspan-length csp-src)))
+  (assert (fx<=? 0 (fx+ src-start src-n) (charspan-length csp-src)))
   (let* ((left   (chargbuffer-left  gb))
          (right  (chargbuffer-right gb))
          (left-n (charspan-length left))
          (delta  (fx- idx left-n)))
     (cond
       ((fxzero? src-n) ; nothing to do
-        (assert (fx>=? src-start 0))
-        (assert (fx<=? src-start (charspan-length csp-src))))
+        (void))
       ((fxzero? idx)
         (charspan-insert-front/cspan! left csp-src src-start src-n))
       ((fx=? idx (chargbuffer-length gb))
@@ -149,6 +148,24 @@
       (#t
         (chargbuffer-split-at! gb idx)
         (charspan-insert-back/cspan! left csp-src src-start src-n)))))
+
+; read src-n elements from chargbuffer gb-src starting from src-start
+; and insert them into chargbuffer at position idx
+(define (chargbuffer-insert-at/cbuf! gb idx gb-src src-start src-n)
+  (assert (fx<=? 0 idx       (chargbuffer-length gb)))
+  (assert (fx<=? 0 src-start (chargbuffer-length gb-src)))
+  (assert (fx<=? 0 (fx+ src-start src-n) (chargbuffer-length gb-src)))
+  (when (fx>? src-n 0)
+    (let* ((left   (chargbuffer-left  gb-src))
+           (right  (chargbuffer-right gb-src))
+           (left-n (charspan-length left)))
+      (when (fx<? src-start left-n)
+        (let ((delta (fxmin src-n (fx- left-n src-start))))
+          (chargbuffer-insert-at/cspan! gb idx left src-start delta)
+          (set! src-start (fx+ src-start delta))
+          (set! src-n (fx- src-n delta))))
+      (when (fx>? src-n 0)
+        (chargbuffer-insert-at/cspan! gb idx right (fx- src-start left-n) src-n)))))
 
 ; remove n elements from chargbuffer starting at start
 (define (chargbuffer-erase-at! gb start n)

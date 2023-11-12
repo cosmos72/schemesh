@@ -328,6 +328,37 @@ static const struct {
      "  (chargbuffer-insert-at! gb 1 #\\x)\n"
      "  gb)",
      "(string->chargbuffer* \"axbe\")"},
+    /* ------------------------ charline ------------------------------------ */
+    {"(string->charline \"abc 123\")", "(string->charline* \"abc 123\")"},
+    {"(string->charline* \"echo \\n\")", "(string->charline* \"echo \\n\")"},
+    {"(charline-nl? (string->charline \"echo \\n\"))", "#t"},
+    {"(charline-length (string->charline \"echo \\n\"))", "5"}, /* final #\newline is not counted */
+    {"(let* ((l1 (string->charline* \"foo/bar\"))\n"
+     "       (l2 (charline-copy-on-write l1)))\n"
+     "  (charline-erase-at! l1 3 1)\n"
+     "  (charline-insert-at! l2 3 #\\~)\n"
+     "  (list l1 l2))",
+     "((string->charline* \"foobar\") (string->charline* \"foo~/bar\"))"},
+    {"(let* ((l1 (string->charline* \"abcdefgh\"))\n"
+     "       (l2 (charline-copy-on-write l1)))\n"
+     "  (charline-insert-at/cbuf! l1 5 (string->charline* \"012345\") 2 3)\n"
+     "  (list l1 l2))",
+     "((string->charline* \"abcde234fgh\") (string->charline* \"abcdefgh\"))"},
+    /* ------------------------ charlines ----------------------------------- */
+    {"(charlines (string->charline* \"foo/bar\") (string->charline \"\\n\"))",
+     "(strings->charlines* \"foo/bar\" \"\\n\")"},
+    {"(let ((lines (strings->charlines* \"abcdef\\n\" \"01234\")))\n"
+     "  (charlines-merge-line! lines 0)\n"
+     "  lines)",
+     "(strings->charlines* \"abcdef01234\")"},
+    {"(let ((lines (strings->charlines* \"abcdef\\n\" \"01234\")))\n"
+     "  (cons lines (values->list (charlines-erase-left! lines 0 1))))",
+     "((strings->charlines* \"abcdef01234\") 6 0)"},
+    {"(let ((lines (strings->charlines* \"abcdef\\n\" \"01234\")))\n"
+     "  (charlines-erase-right! lines 0 1)\n"
+     "  (charlines-erase-right! lines 6 0)\n"
+     "  lines)",
+     "(strings->charlines* \"abcdef1234\")"},
     /* --------------------- list ------------------------------------------- */
     {"(let ((ret '()))\n"
      "  (list-iterate '(a b c)\n"
@@ -384,19 +415,6 @@ static const struct {
      "((2.1 . B) (1.0 . A) (3 . C))"
 #endif
     },
-    /* ------------------------ lineedit base ------------------------------- */
-    {"(string->charline \"abc 123\")", "(string->charline* \"abc 123\")"},
-    {"(string->charline* \"echo \\n\")", "(string->charline* \"echo \\n\")"},
-    {"(charline-nl? (string->charline \"echo \\n\"))", "#t"},
-    {"(charline-length (string->charline \"echo \\n\"))", "5"}, /* final #\newline is not counted */
-    {"(let* ((l1 (string->charline* \"foo/bar\"))\n"
-     "       (l2 (charline-copy-on-write l1)))\n"
-     "  (charline-erase-at! l1 3 1)\n"
-     "  (charline-insert-at! l2 3 #\\~)\n"
-     "  (list l1 l2))",
-     "((string->charline* \"foobar\") (string->charline* \"foo~/bar\"))"},
-    {"(charlines (string->charline* \"foo/bar\") (string->charline \"\\n\"))",
-     "(charlines (string->charline* \"foo/bar\") (string->charline* \"\\n\"))"},
     /* ------------------------ lineedit io --------------------------------- */
     {"(get-string-all\n"
      "  (open-charline-input-port\n"

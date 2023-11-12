@@ -8,10 +8,10 @@
 (library (schemesh containers charline (0 1))
   (export
     charline charline? string->charline string->charline* charline->string
-    charline-nl? charline-nl?-set! charline-copy-on-write
-    charline-empty? charline-length charline-ref charline-set!
-    charline-clear! charline-erase-at! charline-insert-at! assert-charline?
-    charline-dirty-x-start charline-dirty-x-end charline-dirty-x-unset!)
+    assert-charline? charline-nl? charline-nl?-set! charline-copy-on-write
+    charline-empty? charline-length charline-ref charline-set! charline-clear!
+    charline-erase-at! charline-insert-at! charline-insert-at/cspan! charline-insert-at/cbuf!
+    charline-dirty-x-start charline-dirty-x-end charline-dirty-x-add! charline-dirty-x-unset!)
 
   (import
     (rnrs)
@@ -85,6 +85,7 @@
 
 ;; if charline was a copy-on-write clone, actually clone it.
 (define (charline-unshare! line)
+  (assert (charline? line))
   (when (charline-share-dec! line)
     (chargbuffer-left-set!  line (charspan-copy (chargbuffer-left line)))
     (chargbuffer-right-set! line (charspan-copy (chargbuffer-right line)))
@@ -103,37 +104,47 @@
   (charline-dirty-x-start-set! line (greatest-fixnum))
   (charline-dirty-x-end-set!   line 0))
 
-(define (charline-set! line idx ch)
+(define (charline-set! line x ch)
   (charline-unshare! line)
-  (charline-dirty-x-add! line idx (fx1+ idx))
-  (chargbuffer-set! line idx ch))
+  (chargbuffer-set! line x ch)
+  (charline-dirty-x-add! line x (fx1+ x)))
 
-;; insert one char into line at position idx
-(define (charline-insert-at! line idx ch)
+;; insert one char into line at position x
+(define (charline-insert-at! line x ch)
   (charline-unshare! line)
-  (charline-dirty-x-add! line idx (fx1+ (charline-length line)))
-  (chargbuffer-insert-at! line idx ch))
+  (charline-dirty-x-add! line x (fx1+ (charline-length line)))
+  (chargbuffer-insert-at! line x ch))
 
 ; read src-n elements from charspan csp-src starting from src-start
-; and insert them into charline at position idx
-(define (charline-insert-at/cspan! line idx csp-src src-start src-n)
+; and insert them into charline at position x
+(define (charline-insert-at/cspan! line x csp-src src-start src-n)
   (charline-unshare! line)
-  (charline-dirty-x-add! line idx (fx+ src-n (charline-length line)))
-  (chargbuffer-insert-at/cspan! line idx csp-src src-start src-n))
+  (chargbuffer-insert-at/cspan! line x csp-src src-start src-n)
+  (charline-dirty-x-add! line x (charline-length line)))
 
-(define (charline-erase-at! line start n)
+
+; read src-n elements from charbuffer csp-src starting from src-start
+; and insert them into charline at position x
+(define (charline-insert-at/cbuf! line x csp-src src-start src-n)
+  (charline-unshare! line)
+  (chargbuffer-insert-at/cbuf! line x csp-src src-start src-n)
+  (charline-dirty-x-add! line x (charline-length line)))
+
+; erase n chars from charline starting at position x
+(define (charline-erase-at! line x n)
   (when (fx>? n 0)
     (charline-unshare! line)
-    (charline-dirty-x-add! line start (charline-length line))
-    (chargbuffer-erase-at! line start n)))
+    (chargbuffer-erase-at! line x n)
+    (charline-dirty-x-add! line x (fx+ n (charline-length line)))))
 
 (define (charline-clear! line)
   (charline-unshare! line)
-  (charline-dirty-x-add! line 0 (charline-length line))
-  (chargbuffer-clear! line))
+  (let ((n (charline-length line)))
+    (chargbuffer-clear! line)
+    (charline-dirty-x-add! line 0 n)))
 
 ;; make a copy of string str and store it into a newly created charline
-;; return the new charline
+;; return the created charline
 (define (string->charline str)
   (let ((line (make-charline (charspan) (string->charspan str) #f))
         (last (fx1- (string-length str))))
@@ -143,7 +154,7 @@
     line))
 
 ;; store a reference to string str into a newly created charline
-;; return the new charline
+;; return the created charline
 (define (string->charline* str)
   (let ((line (make-charline (charspan) (string->charspan* str) #f))
         (last (fx1- (string-length str))))
@@ -153,7 +164,8 @@
     line))
 
 (define (charline->string line)
-  (if (charline-nl? line)
+  (if (not (charline-nl? line))
+    (chargbuffer->string line)
     (let* ((left    (chargbuffer-left  line))
            (right   (chargbuffer-right line))
            (left-n  (charspan-length left))
@@ -165,8 +177,7 @@
       (string-copy! (charspan-peek-data right) (charspan-peek-beg right)
                     dst left-n right-n)
       (string-set! dst n #\newline)
-      dst)
-    (chargbuffer->string line)))
+      dst)))
 
 
 ;; customize how "charline" objects are printed
