@@ -5,12 +5,12 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh lineedit term (0 1))
+(library (schemesh lineedit lineterm (0 1))
   (export
-    term-write/u8 term-write/bvector term-write/bspan term-write/cbuffer
-    term-move-dx term-move-dy term-move-to-bol term-clear-to-eol term-clear-to-eos
-    term-del-right-n
-    term-redraw-to-eol term-redraw-to-eos
+    lineterm-write/u8 lineterm-write/bvector lineterm-write/bspan lineterm-write/cbuffer
+    lineterm-move-dx lineterm-move-dy lineterm-move-to-bol lineterm-clear-to-eol lineterm-clear-to-eos
+    lineterm-del-right-n
+    lineterm-redraw-to-eol lineterm-redraw-to-eos
     linectx-move linectx-move-from linectx-move-to)
 
   (import
@@ -24,19 +24,19 @@
 
 
 ;; write a byte to wbuf
-(define (term-write/u8 ctx u8)
+(define (lineterm-write/u8 ctx u8)
   (bytespan-insert-back/u8! (linectx-wbuf ctx) u8))
 
 ;; write a portion of given bytevector to wbuf
-(define (term-write/bvector ctx bv start n)
+(define (lineterm-write/bvector ctx bv start n)
   (bytespan-insert-back/bvector! (linectx-wbuf ctx) bv start n))
 
 ;; write a portion of given bytespan to wbuf
-(define (term-write/bspan ctx bsp start n)
+(define (lineterm-write/bspan ctx bsp start n)
   (bytespan-insert-back/bspan! (linectx-wbuf ctx) bsp start n))
 
 ;; write a portion of given chargbuffer to wbuf
-(define (term-write/cbuffer ctx cgb start end)
+(define (lineterm-write/cbuffer ctx cgb start end)
   (do ((wbuf (linectx-wbuf ctx))
        (pos start (fx1+ pos)))
       ((fx>=? pos end))
@@ -46,14 +46,14 @@
 ;; If dx > 0, send escape sequence "move cursor right by dx".
 ;; If dx < 0, send escape sequence "move cursor left by -dx".
 ;; Does not check or update linectx.
-(define (term-move-dx ctx dx)
+(define (lineterm-move-dx ctx dx)
   (cond
     ((fxzero? dx) ; do nothing             ;
       (void))                                  ;
     ((fx=? dx 1) ; move right by 1         ;
-      (term-write/bvector ctx #vu8(27 91 67) 0 3))      ; ESC [ C
+      (lineterm-write/bvector ctx #vu8(27 91 67) 0 3))      ; ESC [ C
     ((fx=? dx -1) ; move left by 1         ;
-      (term-write/bvector ctx #vu8(27 91 68) 0 3))      ; ESC [ D
+      (lineterm-write/bvector ctx #vu8(27 91 68) 0 3))      ; ESC [ D
     ((fx>? dx 1) ; move right by n         ;
       (let ((wbuf (linectx-wbuf ctx)))         ;
         (bytespan-insert-back/u8! wbuf 27 91)  ; ESC [
@@ -71,14 +71,14 @@
 ;; If dy < 0, send escape sequence "move cursor up by -dy".
 ;; Does not check or update linectx.
 
-(define (term-move-dy ctx dy)
+(define (lineterm-move-dy ctx dy)
   (cond
     ((fxzero? dy) ; do nothing
       (void))
     ((fx=? dy 1)  ; move down by 1
-      (term-write/bvector ctx #vu8(27 91 66) 0 3))  ; ESC [ B
+      (lineterm-write/bvector ctx #vu8(27 91 66) 0 3))  ; ESC [ B
     ((fx=? dy -1) ; move up by 1
-      (term-write/bvector ctx #vu8(27 91 65) 0 3))  ; ESC [ A
+      (lineterm-write/bvector ctx #vu8(27 91 65) 0 3))  ; ESC [ A
     ((fx>? dy 1) ; move down by dy
       (let ((wbuf (linectx-wbuf ctx)))
         (bytespan-insert-back/u8! wbuf 27 91)     ; ESC [
@@ -91,22 +91,22 @@
         (bytespan-insert-back/u8! wbuf 65)))))    ; A
 
 ;; send escape sequence "move to begin-of-line". Moves at beginning of prompt!
-(define (term-move-to-bol ctx)
-  (term-write/u8 ctx 13)) ; CTRL+M i.e. '\r'
+(define (lineterm-move-to-bol ctx)
+  (lineterm-write/u8 ctx 13)) ; CTRL+M i.e. '\r'
 
 ;; send escape sequence "clear from cursor to end-of-line"
-(define (term-clear-to-eol ctx)
-  (term-write/bvector ctx #vu8(27 91 75) 0 3)) ; ESC [ K
+(define (lineterm-clear-to-eol ctx)
+  (lineterm-write/bvector ctx #vu8(27 91 75) 0 3)) ; ESC [ K
 
 ;; send escape sequence "clear from cursor to end-of-screen"
-(define (term-clear-to-eos ctx)
-  (term-write/bvector ctx #vu8(27 91 74) 0 3)) ; ESC [ J
+(define (lineterm-clear-to-eos ctx)
+  (lineterm-write/bvector ctx #vu8(27 91 74) 0 3)) ; ESC [ J
 
-(define (term-del-right-n ctx n)
+(define (lineterm-del-right-n ctx n)
   (cond
     ((fx<=? n 0) (void)) ; nop
     ((fx=? n 1)
-      (term-write/bvector ctx #vu8(27 91 80) 0 3)) ; VT102 sequence: ESC [ P
+      (lineterm-write/bvector ctx #vu8(27 91 80) 0 3)) ; VT102 sequence: ESC [ P
     (#t
       (let ((wbuf (linectx-wbuf ctx)))
         (bytespan-insert-back/u8! wbuf 27 91)   ; ESC [
@@ -115,29 +115,29 @@
 
 ;; redraw from cursor to end of line.
 ;; clear-line-right must be either 'clear-line-right or 'dont-clear-line-right*/
-(define (term-redraw-to-eol ctx clear-line-right)
+(define (lineterm-redraw-to-eol ctx clear-line-right)
   (let* ((line (linectx-line ctx))
          (beg  (linectx-x ctx))
          (end  (charline-length line)))
     (when (fx<? beg end)
-      (term-write/cbuffer ctx line beg end))
+      (lineterm-write/cbuffer ctx line beg end))
     (when (eq? clear-line-right 'clear-line-right)
-      (term-clear-to-eol ctx))
-    (term-move-dx ctx (fx- beg end))))
+      (lineterm-clear-to-eol ctx))
+    (lineterm-move-dx ctx (fx- beg end))))
 
 
 ;; redraw from cursor to end of screen.
-(define (term-redraw-to-eos ctx)
-  (term-redraw-to-eol ctx 'dont-clear-line-right)
+(define (lineterm-redraw-to-eos ctx)
+  (lineterm-redraw-to-eol ctx 'dont-clear-line-right)
   (let* ((lines (linectx-lines ctx))
          (lines-n-1 (fx1- (charlines-length lines))))
     (do ((y (fx1+ (linectx-y ctx)) (fx1+ y)))
         ((fx>? y lines-n-1))
       (let ((line (charlines-ref lines y)))
-        (term-clear-to-eol ctx)
-        (term-write/u8 ctx 10)
-        (term-write/cbuffer ctx line 0 (charline-length line))))
-    (term-clear-to-eos ctx)
+        (lineterm-clear-to-eol ctx)
+        (lineterm-write/u8 ctx 10)
+        (lineterm-write/cbuffer ctx line 0 (charline-length line))))
+    (lineterm-clear-to-eos ctx)
     (linectx-move-from ctx
       (charline-length (charlines-ref lines lines-n-1))
       lines-n-1)))
@@ -152,8 +152,8 @@
       (set! from-x (fx+ from-x prompt-x)))
     (when (fxzero? to-y)
       (set! to-x (fx+ to-x prompt-x)))
-    (term-move-dy ctx (fx- to-y from-y))
-    (term-move-dx ctx (fx- to-x from-x))))
+    (lineterm-move-dy ctx (fx- to-y from-y))
+    (lineterm-move-dx ctx (fx- to-x from-x))))
 
 ;; move tty cursor from its current position at from-x, from-y
 ;; back to linectx-x, linectx-y

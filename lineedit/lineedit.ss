@@ -31,7 +31,7 @@
     (schemesh lineedit parens)
     (schemesh lineedit parenmatcher)
     (schemesh lineedit linectx)
-    (schemesh lineedit term)
+    (schemesh lineedit lineterm)
     (only (schemesh lineedit parser) make-parsectx*)
     (only (schemesh lineedit io) open-charlines-input-port)
     (schemesh posix tty)
@@ -149,12 +149,12 @@
         (y  (linectx-y ctx)))
     (linectx-clear! ctx)
     (linectx-move-from ctx x y)
-    (term-clear-to-eos ctx))) ; erase all lines, preserving prompt
+    (lineterm-clear-to-eos ctx))) ; erase all lines, preserving prompt
 
 
 ;; write #\newline before returning from (repl)
 (define (lineedit-finish ctx)
-  (term-write/u8 ctx 10)
+  (lineterm-write/u8 ctx 10)
   (lineedit-flush ctx))
 
 
@@ -169,7 +169,7 @@
     (set! lines (linectx-lines ctx)))
   (charlines-iterate lines
     (lambda (i line)
-      (term-write/cbuffer ctx line 0 (charline-length line))))
+      (lineterm-write/cbuffer ctx line 0 (charline-length line))))
   (let* ((lines-n-1 (fx1- (charlines-length lines)))
          (line      (charlines-ref lines lines-n-1)))
     (linectx-line-set!  ctx line)
@@ -228,8 +228,8 @@
           (linectx-y-set! ctx y+1)
           (linectx-x-set! ctx excess)
           (linectx-line-set! ctx dst) ; advance lines to next line.
-          (term-write/u8 ctx 10) ; advance cursor to next line.
-          (term-move-dx ctx n))))))
+          (lineterm-write/u8 ctx 10) ; advance cursor to next line.
+          (lineterm-move-dx ctx n))))))
 
 
 ;; move the last n characters of y-th input line to next line.
@@ -246,10 +246,10 @@
 ;; insert a single character into current line.
 ;;
 ;; return #t if insertion caused some character to move to the next line(s)
-;; (in such case, caller must also invoke (term-redraw-to-eos ctx))
+;; (in such case, caller must also invoke (lineterm-redraw-to-eos ctx))
 ;;
 ;; otherwise return #f
-;; (in such case, caller must also invoke (term-redraw-to-eol ctx 'dont-clear-line-right))
+;; (in such case, caller must also invoke (lineterm-redraw-to-eol ctx 'dont-clear-line-right))
 ;;
 ;; in all cases, caller must also invoke (linectx-lines-changed ctx)
 (define (%linectx-insert/char! ctx ch)
@@ -279,8 +279,8 @@
           (set! overflow? #t)))
       (linectx-lines-changed ctx)
       (if overflow?
-        (term-redraw-to-eos ctx)
-        (term-redraw-to-eol ctx 'dont-clear-line-right)))))
+        (lineterm-redraw-to-eos ctx)
+        (lineterm-redraw-to-eol ctx 'dont-clear-line-right)))))
 
 
 ;; consume up to n bytes from bytespan bsp, starting at offset = start
@@ -310,8 +310,8 @@
             (set! inserted-some? #t)))))
     (when inserted-some?
       (if overflow?
-        (term-redraw-to-eos ctx)
-        (term-redraw-to-eol ctx 'dont-clear-line-right))
+        (lineterm-redraw-to-eos ctx)
+        (lineterm-redraw-to-eol ctx 'dont-clear-line-right))
       (linectx-lines-changed ctx))
     (fx- pos beg))) ; return number of bytes actually consumed
 
@@ -331,7 +331,7 @@
     (cond
       ((fx>? x 0)
         (linectx-x-set! ctx (fx1- x))
-        (term-move-dx ctx -1))
+        (lineterm-move-dx ctx -1))
       ((fx>? y 0)
         (let* ((y-1 (fx1- y))
                (line (charlines-ref (linectx-lines ctx) y-1))
@@ -340,8 +340,8 @@
           (linectx-line-set! ctx line)
           (linectx-x-set!    ctx x)
           (linectx-y-set!    ctx y-1)
-          (term-move-dy ctx -1)
-          (term-move-dx ctx (if (fxzero? y-1)
+          (lineterm-move-dy ctx -1)
+          (lineterm-move-dx ctx (if (fxzero? y-1)
                               (fx+ x (linectx-prompt-length ctx))
                               x)))))))
 
@@ -354,14 +354,14 @@
     (cond
       ((fx<? x line-len)
         (linectx-x-set! ctx (fx1+ x))
-        (term-move-dx ctx 1))
+        (lineterm-move-dx ctx 1))
       ((fx<? y (fx1- (charlines-length (linectx-lines ctx))))
         (let* ((y+1 (fx1+ y))
                (line (charlines-ref (linectx-lines ctx) y+1)))
           (linectx-line-set! ctx line)
           (linectx-x-set! ctx 0)
           (linectx-y-set! ctx y+1)
-          (term-write/u8 ctx 10))))))
+          (lineterm-write/u8 ctx 10))))))
 
 
 (define (lineedit-key-up ctx)
@@ -378,7 +378,7 @@
          (dx  (fx- pos x)))
     (when (fx<? dx 0)
       (linectx-x-set! ctx pos)
-      (term-move-dx ctx dx))))
+      (lineterm-move-dx ctx dx))))
 
 (define (lineedit-key-word-right ctx)
   (let* ((x    (linectx-x ctx))
@@ -386,21 +386,21 @@
          (move-n (fx- pos x)))
     (when (fx>? move-n 0)
       (linectx-x-set! ctx pos)
-      (term-move-dx ctx move-n))))
+      (lineterm-move-dx ctx move-n))))
 
 (define (lineedit-key-bol ctx)
   (let ((x (linectx-x ctx)))
     (when (fx>? x 0)
       (linectx-x-set! ctx 0)
-      ; do not use (term-move-to-bol), there may be prompt at bol
-      (term-move-dx ctx (fx- x)))))
+      ; do not use (lineterm-move-to-bol), there may be prompt at bol
+      (lineterm-move-dx ctx (fx- x)))))
 
 (define (lineedit-key-eol ctx)
   (let ((x    (linectx-x ctx))
         (len  (charline-length (linectx-line ctx))))
     (when (fx<? x len)
       (linectx-x-set! ctx len)
-      (term-move-dx ctx (fx- len x)))))
+      (lineterm-move-dx ctx (fx- len x)))))
 
 (define (lineedit-key-break ctx)
   (lineedit-clear! ctx))
@@ -417,7 +417,7 @@
          (len  (charline-length line)))
     (when (and (fx>? x 0) (fx>? len 1))
       (let ((eol (fx=? x len)))
-        (term-move-dx ctx (if eol -2 -1))
+        (lineterm-move-dx ctx (if eol -2 -1))
         (when eol
           (set! x (fx1- x))))
       (let ((ch1  (charline-ref line (fx1- x)))
@@ -439,7 +439,7 @@
 (define (lineedit-key-del-right ctx)
   (charlines-erase-right! (linectx-lines ctx) (linectx-x ctx) (linectx-y ctx))
   (linectx-lines-changed ctx)
-  (term-del-right-n ctx 1))
+  (lineterm-del-right-n ctx 1))
 
 (define (lineedit-key-del-word-left ctx)
   (let* ((x     (linectx-x ctx))
@@ -450,8 +450,8 @@
       (charline-erase-at! line pos del-n)
       (linectx-lines-changed ctx)
       (linectx-x-set! ctx pos)
-      (term-move-dx ctx (fx- del-n))
-      (term-del-right-n ctx del-n))))
+      (lineterm-move-dx ctx (fx- del-n))
+      (lineterm-del-right-n ctx del-n))))
 
 (define (lineedit-key-del-word-right ctx)
   (let* ((x     (linectx-x ctx))
@@ -461,7 +461,7 @@
     (when (fx>? del-n 0)
       (charline-erase-at! line x del-n)
       (linectx-lines-changed ctx)
-      (term-del-right-n ctx del-n))))
+      (lineterm-del-right-n ctx del-n))))
 
 (define (lineedit-key-del-line ctx)
   (void))
@@ -474,8 +474,8 @@
       (charline-erase-at! line 0 x)
       (linectx-lines-changed ctx)
       (linectx-x-set! ctx 0)
-      (term-move-dx ctx (fx- x))
-      (term-redraw-to-eol ctx 'clear-line-right))))
+      (lineterm-move-dx ctx (fx- x))
+      (lineterm-redraw-to-eol ctx 'clear-line-right))))
 
 (define (lineedit-key-del-line-right ctx)
   (let* ((x    (linectx-x ctx))
@@ -484,7 +484,7 @@
     (when (fx<? x len)
       (charline-erase-at! line x (fx- len x))
       (linectx-lines-changed ctx)
-      (term-clear-to-eol ctx))))
+      (lineterm-clear-to-eol ctx))))
 
 (define (lineedit-key-newline-left ctx)
   (void))
@@ -504,8 +504,8 @@
   (linectx-lines-changed ctx))
 
 (define (lineedit-key-redraw ctx)
-  (term-move-to-bol ctx)
-  (term-move-dy ctx (fx- (fx+ (linectx-y ctx) (linectx-prompt-end-y ctx))))
+  (lineterm-move-to-bol ctx)
+  (lineterm-move-dy ctx (fx- (fx+ (linectx-y ctx) (linectx-prompt-end-y ctx))))
   (linectx-lines-changed ctx)
   (linectx-draw-if-needed ctx 'force))
 
@@ -553,9 +553,9 @@
   (linectx-return-set! ctx #f) ; clear flag "user pressed ENTER"
   (linectx-redraw-set! ctx #t) ; set flag "redraw prompt and lines"
   (linectx-draw-parens ctx (linectx-parens ctx) 'plain) ; unhighlight parentheses
-  (term-move-dy ctx (fx- (charlines-length (linectx-lines ctx))
+  (lineterm-move-dy ctx (fx- (charlines-length (linectx-lines ctx))
                          (linectx-y ctx))) ; move to last input line
-  (term-write/u8 ctx 10) ; advance to next line.
+  (lineterm-write/u8 ctx 10) ; advance to next line.
   (let* ((y (linectx-history-index ctx))
          (hist (linectx-history ctx))
          (hist-len (charhistory-length hist)))
@@ -608,7 +608,7 @@
 (define (linectx-draw-prompt ctx)
   (let ((prompt (linectx-prompt ctx)))
     ;; (format #t "linectx-draw-prompt: prompt = ~s~%" prompt)
-    (term-write/bspan ctx prompt 0 (bytespan-length prompt))))
+    (lineterm-write/bspan ctx prompt 0 (bytespan-length prompt))))
 
 ;; unconditionally draw lines
 (define (linectx-draw-lines ctx)
@@ -618,11 +618,11 @@
     (charlines-iterate lines
       (lambda (i line)
         (when nl?
-          (term-clear-to-eol ctx)
-          (term-write/u8 ctx 10))
-        (term-write/cbuffer ctx line 0 (charline-length line))
+          (lineterm-clear-to-eol ctx)
+          (lineterm-write/u8 ctx 10))
+        (lineterm-write/cbuffer ctx line 0 (charline-length line))
         (set! nl? #t)))
-    (term-clear-to-eos ctx)
+    (lineterm-clear-to-eos ctx)
     (linectx-move-from ctx
       (charline-length (charlines-ref lines lines-n-1))
       lines-n-1))
