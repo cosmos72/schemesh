@@ -10,7 +10,7 @@
     charlines charlines? strings->charlines strings->charlines*
     assert-charlines? charlines-copy-on-write charlines-iterate
     charlines-empty? charlines-length charlines-ref charlines-set/cline! charlines-clear!
-    charlines-dirty-y-start charlines-dirty-y-end charlines-dirty-xy-unset!
+    charlines-dirty-y-start charlines-dirty-y-end charlines-dirty-y-add! charlines-dirty-xy-unset!
     charlines-erase-left! charlines-erase-right!
     charlines-insert-at! charlines-insert-at/cspan! charlines-insert-at/cline!
     charlines-merge-line!)
@@ -83,6 +83,29 @@
 ; get n-th line
 (define charlines-ref   gbuffer-ref)
 
+; get char in lines at position x and y.
+; if lines are empty, return #f
+; y is clamped to the available range [0, length of charlines - 1]
+; x is clamped to the available range [0, length of y-th charline]
+; if clamped x is == length of y-th charline:
+;   if an implicit newline is present, return #\newline
+;   otherwise if line is not empty, return the last char of the line
+;   otherwise return #f
+(define (charlines-ref/xy lines x y)
+  (if (charlines-empty? lines)
+    #f
+    (let* ((yn   (charlines-length lines))
+           (y    (fxmax 0 (fxmin y (fx1- yn))))
+           (line (charline-ref lines y))
+           (xn   (charline-length line))
+           (x    (fxmax 0 (fxmin x xn))))
+      (cond
+        ((fx<? x xn)         (charline-ref line x))
+        ((charline-nl? line) #\newline)
+        ((fx>? xn 0)         (charline-ref line (fx1- xn)))
+        (#t                  #f)))))
+
+
 ; replace a charline in lines at y
 (define (charlines-set/cline! lines y line)
   (assert-charline? 'charlines-set/cline! line)
@@ -95,18 +118,18 @@
 
 ; merge the two lines at y and y+1
 (define (charlines-merge-line! lines y)
-  (let ((ny (charlines-length lines)))
-    (when (fx<? -1 y ny)
+  (let ((yn (charlines-length lines)))
+    (when (fx<? -1 y yn)
       (let* ((y+1 (fx1+ y))
              (line1 (charlines-ref lines y))
              (line2 (charlines-ref lines y+1)))
         (charline-insert-at/cbuf! line1 (charline-length line1) line2 0 (charline-length line2))
         (charline-nl?-set! line1 (charline-nl? line2))
         (gbuffer-erase-at! lines y+1 1)
-        (charlines-dirty-y-add! lines y+1 ny)))))
+        (charlines-dirty-y-add! lines y+1 yn)))))
 
 
-; erase one char to the left, starting from specified x and y
+; erase one char to the left of specified x and y
 ; if x = 0 and line at y - 1 ends with implicit newline,
 ; remove the implicit newline and merge the two lines at y and y - 1
 ; return two values: updated x and updated y
@@ -131,7 +154,7 @@
         (#t
           (values x y))))))
 
-; erase one char to the right, starting from specified x and y.
+; erase one char to the right of specified specified x and y.
 ; if line at y has length <= x and ends with implicit newline,
 ; remove the implicit newline and merge the two lines at y and y + 1
 (define (charlines-erase-right! lines x y)

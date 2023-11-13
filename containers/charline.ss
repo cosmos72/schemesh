@@ -21,7 +21,7 @@
     (schemesh containers charspan)
     (schemesh containers chargbuffer))
 
-;; copy-pasted from containers/chargbuffer.ss
+;; copy-pasted from containers/cbuffer.ss
 (define-record-type
   (%chargbuffer %make-chargbuffer %chargbuffer?)
   (fields

@@ -16,6 +16,7 @@
     (schemesh bootstrap)
     (only (schemesh containers) list-iterate)
     (schemesh lineedit io)
+    (schemesh lineedit linectx)
     (schemesh lineedit)
     (schemesh parser)
     (schemesh posix signal)

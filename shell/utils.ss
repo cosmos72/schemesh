@@ -18,6 +18,7 @@
     (schemesh lineedit io)
     (schemesh lineedit parenmatcher)
     (schemesh lineedit parser)
+    (schemesh lineedit linectx)
     (schemesh lineedit)
     (schemesh posix misc)
     (schemesh parser)

@@ -76,7 +76,7 @@
     charlines charlines? strings->charlines strings->charlines*
     assert-charlines? charlines-copy-on-write charlines-iterate
     charlines-empty? charlines-length charlines-ref charlines-set/cline! charlines-clear!
-    charlines-dirty-y-start charlines-dirty-y-end charlines-dirty-xy-unset!
+    charlines-dirty-y-start charlines-dirty-y-end charlines-dirty-y-add! charlines-dirty-xy-unset!
     charlines-erase-left! charlines-erase-right!
     charlines-insert-at! charlines-insert-at/cspan! charlines-insert-at/cline!
     charlines-merge-line!

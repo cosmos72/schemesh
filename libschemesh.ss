@@ -30,6 +30,8 @@
   (include "lineedit/parenmatcher.ss")
   (include "lineedit/parser.ss")
   (include "lineedit/io.ss")
+  (include "lineedit/linectx.ss")
+  (include "lineedit/term.ss")
   (include "lineedit/lineedit.ss")
   (include "parser/lisp.ss")
   (include "parser/r6rs.ss")
