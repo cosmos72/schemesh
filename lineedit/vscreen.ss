@@ -11,7 +11,7 @@
     vscreen-cursor-x   vscreen-cursor-x-set!   vscreen-cursor-y   vscreen-cursor-y-set!
     vscreen-width      vscreen-width-set!      vscreen-height     vscreen-height-set!
     vscreen-prompt-len vscreen-prompt-len-set!
-    vscreen-cursor-move/left! vscreen-cursor-move/right!
+    vscreen-cursor-move/left! vscreen-cursor-move/right! vscreen-cursor-move/up! vscreen-cursor-move/down!
     vscreen-erase/left!       vscreen-erase/right!       vscreen-erase-at/xy!
     write-vscreen)
 
@@ -132,6 +132,8 @@
          (ymax (fx1- (charlines-length screen)))
          (xmax (fx1- (vscreen-length-at-y screen ymax)))
          (saved-n n))
+    (assert (fx>=? ymax 0))
+    (assert (fx>=? xmax 0))
     (while (and (fx>? n 0) (fx<=? y ymax) (or (fx<? y ymax) (fx<? x xmax)))
       (let* ((linemax (fx1- (vscreen-length-at-y screen y)))
              (delta   (fxmax 0 (fxmin n (fx- linemax x)))))
@@ -150,6 +152,41 @@
     (vscreen-cursor-x-set! screen x)
     (vscreen-cursor-y-set! screen y)
     (fx- saved-n n)))
+
+
+;; move vscreen cursor n characters up.
+(define (vscreen-cursor-move/up! screen n)
+  (when (fx>? n 0)
+    (let* ((y          (vscreen-cursor-y screen))
+           (ynew       (fxmax 0 (fx- y n)))
+           (xmax       (fx1- (vscreen-length-at-y screen ynew)))
+           (prompt-len (vscreen-prompt-len screen))
+           (x          (fx+ (vscreen-cursor-x screen) (if (fxzero? y) prompt-len 0)))
+           (xnew       (fxmin x xmax)))
+      (assert (fx>=? xmax 0))
+      (when (fxzero? ynew)
+        (set! x (fxmax 0 (fx- x prompt-len))))
+      (vscreen-cursor-x-set! screen xnew)
+      (vscreen-cursor-y-set! screen ynew))))
+
+
+;; move vscreen cursor n characters down.
+(define (vscreen-cursor-move/down! screen n)
+  (when (fx>? n 0)
+    (let* ((y          (vscreen-cursor-y screen))
+           (ymax       (fx1- (charlines-length screen)))
+           (ynew       (fxmin ymax (fx+ y n)))
+           (prompt-len (vscreen-prompt-len screen))
+           (x          (fx+ (vscreen-cursor-x screen) (if (fxzero? y) prompt-len 0)))
+           (line       (charlines-ref screen ynew))
+           (len        (charline-length line))
+           (xmax       (fx- len (if (or (fx=? ymax ynew) (charline-nl? line)) 0 1)))
+           (xnew       (fxmin x xmax)))
+      (assert (fx>=? ymax 0))
+      (when (fxzero? ynew)
+        (set! x (fxmax 0 (fx- x prompt-len))))
+      (vscreen-cursor-x-set! screen xnew)
+      (vscreen-cursor-y-set! screen ynew))))
 
 
 ;; append characters to vscreen line at y removing them from the beginning of line at y+1

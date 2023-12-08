@@ -368,6 +368,14 @@ static const struct {
      "    (vscreen-cursor-x screen)\n"
      "    (vscreen-cursor-y screen)))\n",
      "(6 . 1)"},
+    {"(let ((screen (vscreen* 8 30 \"qwerty\\n\" \"asdfghjkl\")))\n"
+     "  (vscreen-cursor-x-set! screen 9)\n"
+     "  (vscreen-cursor-y-set! screen 1)\n"
+     "  (vscreen-cursor-move/up! screen 1)\n"
+     "  (cons\n"
+     "    (vscreen-cursor-x screen)\n"
+     "    (vscreen-cursor-y screen)))\n",
+     "(6 . 0)"},
     /* --------------------- list ------------------------------------------- */
     {"(let ((ret '()))\n"
      "  (list-iterate '(a b c)\n"
