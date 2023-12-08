@@ -41,7 +41,7 @@
   (parent %chargbuffer)
   (fields
     (mutable newline? charline-nl? charline-nl?-set!)
-    (mutable share)
+    (mutable share) ; a cons (share-count . #f)
     (mutable dirty-x-start charline-dirty-x-start charline-dirty-x-start-set!)
     (mutable dirty-x-end   charline-dirty-x-end   charline-dirty-x-end-set!))
   (nongenerative #{%charline bptainzyb6dz0fmgkz7a0ic6v-439}))
@@ -89,7 +89,7 @@
   (when (charline-share-dec! line)
     (chargbuffer-left-set!  line (charspan-copy (chargbuffer-left line)))
     (chargbuffer-right-set! line (charspan-copy (chargbuffer-right line)))
-    (%charline-share-set! line (cons 0 #f))))
+    (%charline-share-set!   line (cons 0 #f))))
 
 (define charline-empty?     chargbuffer-empty?)
 (define charline-length     chargbuffer-length)

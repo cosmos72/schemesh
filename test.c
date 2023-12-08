@@ -347,16 +347,27 @@ static const struct {
     /* ------------------------ charlines ----------------------------------- */
     {"(charlines (string->charline* \"foo/bar\") (string->charline \"\\n\"))",
      "(strings->charlines* \"foo/bar\" \"\\n\")"},
-#if 0
-    {"(let ((lines (strings->charlines* \"abcdef\\n\" \"01234\")))\n"
-     "  (cons lines (values->list (charlines-erase-left! lines 0 1))))",
-     "((strings->charlines* \"abcdef01234\") 6 0)"},
-    {"(let ((lines (strings->charlines* \"abcdef\\n\" \"01234\")))\n"
-     "  (charlines-erase-right! lines 0 1)\n"
-     "  (charlines-erase-right! lines 6 0)\n"
-     "  lines)",
-     "(strings->charlines* \"abcdef1234\")"},
-#endif // 0
+    /* ------------------------ vscreen ------------------------------------- */
+    {"(let ((screen (vscreen* 8 30 \"abcdef\\n\" \"0123456\")))\n"
+     "  (vscreen-erase-at/xy! screen 5 0 3)\n"
+     "  screen)",
+     "(vscreen* 8 30 \"abcde123\" \"456\")"},
+    {"(let ((screen (vscreen* 8 30 \"qwerty\\n\" \"asdfgh\")))\n"
+     "  (vscreen-cursor-x-set! screen 3)\n"
+     "  (vscreen-cursor-y-set! screen 1)\n"
+     "  (vscreen-cursor-move/left! screen 6)\n"
+     "  (cons\n"
+     "    (vscreen-cursor-x screen)\n"
+     "    (vscreen-cursor-y screen)))\n",
+     "(4 . 0)"},
+    {"(let ((screen (vscreen* 8 30 \"qwertyuiop\\n\" \"asdfgh\")))\n"
+     "  (vscreen-cursor-x-set! screen 5)\n"
+     "  (vscreen-cursor-y-set! screen 0)\n"
+     "  (vscreen-cursor-move/right! screen 13)\n"
+     "  (cons\n"
+     "    (vscreen-cursor-x screen)\n"
+     "    (vscreen-cursor-y screen)))\n",
+     "(6 . 1)"},
     /* --------------------- list ------------------------------------------- */
     {"(let ((ret '()))\n"
      "  (list-iterate '(a b c)\n"

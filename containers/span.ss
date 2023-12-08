@@ -39,11 +39,11 @@
   (let ((vec (list->vector l)))
     (%make-span 0 (vector-length vec) vec)))
 
-; create span copying contents of specified vector
+;; create span copying contents of specified vector
 (define (vector->span vec)
   (%make-span 0 (vector-length vec) (vector-copy vec)))
 
-; view existing vector as span
+;; view existing vector as span
 (define (vector->span* vec)
   (%make-span 0 (vector-length vec) vec))
 
@@ -65,7 +65,7 @@
 (define (span-length sp)
   (fx- (span-end sp) (span-beg sp)))
 
-; return length of internal vector, i.e. maximum number of elements
+;; return length of internal vector, i.e. maximum number of elements
 ; that can be stored without reallocating
 (define (span-capacity sp)
   (vector-length (span-vec sp)))
@@ -140,16 +140,16 @@
     (span-end-set! sp len)
     (span-vec-set! sp new-vec)))
 
-; return distance between begin of internal vector and last element
+;; return distance between begin of internal vector and last element
 (define (span-capacity-front sp)
   (span-end sp))
 
-; return distance between first element and end of internal vector
+;; return distance between first element and end of internal vector
 (define (span-capacity-back sp)
   (fx- (vector-length (span-vec sp)) (span-beg sp)))
 
-; ensure distance between begin of internal vector and last element is >= n.
-; does NOT change the length
+;; ensure distance between begin of internal vector and last element is >= n.
+;; does NOT change the length
 (define (span-reserve-front! sp len)
   (assert (fx>=? len 0))
   (let ((vec (span-vec sp))
@@ -171,8 +171,8 @@
        (let ((new-cap (fxmax 8 len (fx* 2 cap-front))))
          (span-reallocate-front! sp (span-length sp) new-cap))))))
 
-; ensure distance between first element and end of internal vector is >= n.
-; does NOT change the length
+;; ensure distance between first element and end of internal vector is >= n.
+;; does NOT change the length
 (define (span-reserve-back! sp len)
   (assert (fx>=? len 0))
   (let ((vec (span-vec sp))
@@ -192,14 +192,14 @@
        (let ((new-cap (fxmax 8 len (fx* 2 cap-back))))
          (span-reallocate-back! sp (span-length sp) new-cap))))))
 
-; grow or shrink span on the left (front), set length to n
+;; grow or shrink span on the left (front), set length to n
 (define (span-resize-front! sp len)
   (assert (fx>=? len 0))
   (span-reserve-front! sp len)
   (assert (fx>=? (span-capacity-front sp) len))
   (span-beg-set! sp (fx- (span-end sp) len)))
 
-; grow or shrink span on the right (back), set length to n
+;; grow or shrink span on the right (back), set length to n
 (define (span-resize-back! sp len)
   (assert (fx>=? len 0))
   (span-reserve-back! sp len)
@@ -226,7 +226,7 @@
           (span-set! sp pos elem)
           (set! pos (fx1+ pos)))))))
 
-; prefix a portion of another span to this span
+;; prefix a portion of another span to this span
 (define (span-insert-front/span! sp-dst sp-src src-start src-n)
   (assert (not (eq? sp-dst sp-src)))
   (unless (fxzero? src-n)
@@ -234,7 +234,7 @@
       (span-resize-front! sp-dst (fx+ len src-n))
       (span-copy! sp-src src-start sp-dst 0 src-n))))
 
-; append a portion of another span to this span
+;; append a portion of another span to this span
 (define (span-insert-back/span! sp-dst sp-src src-start src-n)
   (assert (not (eq? sp-dst sp-src)))
   (unless (fxzero? src-n)
@@ -242,7 +242,7 @@
       (span-resize-back! sp-dst (fx+ pos src-n))
       (span-copy! sp-src src-start sp-dst pos src-n))))
 
-; erase n elements at the left (front) of span
+;; erase n elements at the left (front) of span
 (define (span-erase-front! sp n)
   (assert (fx>=? n 0))
   (assert (fx<=? n (span-length sp)))
@@ -250,7 +250,7 @@
     ; TODO: zero-fill erased range? Helps GC
     (span-beg-set! sp (fx+ n (span-beg sp)))))
 
-; erase n elements at the right (back) of span
+;; erase n elements at the right (back) of span
 (define (span-erase-back! sp n)
   (assert (fx>=? n 0))
   (assert (fx<=? n (span-length sp)))
@@ -258,13 +258,21 @@
     ; TODO: zero-fill erased range? Helps GC
     (span-end-set! sp (fx- (span-end sp) n))))
 
+;; iterate on span elements, and call (proc i elem) on each one.
+;; Stops iterating if (proc ...) returns #f.
+;;
+;; The implementation of (proc ...) can call directly or indirectly functions
+;; that inspect the span without modifying it, and can also call (span-set! sp ...).
+;;
+;; It must NOT call any other function that modifies the span (insert or erase elements,
+;; change the span size or capacity, etc).
 (define (span-iterate sp proc)
   (do ((i (span-beg sp) (fx1+ i))
        (n (span-end sp))
        (v (span-vec sp)))
     ((or (fx>=? i n) (not (proc i (vector-ref v i)))))))
 
-; (span-find) iterates on span elements from start to (fxmin (fx+ start n) (span-length
+;; (span-find) iterates on span elements from start to (fxmin (fx+ start n) (span-length
 ; sp)), and returns the index of first span element that causes (predicate elem) to return
 ; non-#f. Returns #f if no such element is found.
 (define (span-find sp start n predicate)
@@ -275,7 +283,7 @@
       (when (predicate (span-ref sp i))
         (set! ret i)))))
 
-;  customize how "span" objects are printed
+;;  customize how "span" objects are printed
 (record-writer (record-type-descriptor %span)
   (lambda (sp port writer)
     (display "(span" port)

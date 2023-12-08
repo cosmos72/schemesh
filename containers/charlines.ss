@@ -11,7 +11,8 @@
     assert-charlines? charlines-copy-on-write charlines-iterate
     charlines-empty? charlines-length charlines-ref charlines-set/cline! charlines-clear!
     charlines-dirty-y-start charlines-dirty-y-end charlines-dirty-y-add! charlines-dirty-xy-unset!
-    charlines-erase-at/cline! charlines-insert-at/cline! charlines-insert-at/ch!)
+    charlines-erase-at/cline! charlines-insert-at/cline! charlines-insert-at/ch!
+    write-charlines)
 
   (import
     (rnrs)
@@ -142,14 +143,19 @@
 (define (strings->charlines* . str)
   (apply charlines (map string->charline* str)))
 
+;; write a textual representation of charlines to output port
+(define (write-charlines lines port)
+  (assert-charlines? "write-charlines" lines)
+  (display "(strings->charlines*" port)
+  (charlines-iterate lines
+    (lambda (i line)
+      (display #\space port)
+      (write (charline->string line) port)))
+  (display ")" port))
+
 ;; customize how "charlines" objects are printed
 (record-writer (record-type-descriptor %charlines)
-  (lambda (sp port writer)
-    (display "(strings->charlines*" port)
-    (charlines-iterate sp
-      (lambda (i cline)
-        (display #\space port)
-        (write (charline->string cline) port)))
-    (display ")" port)))
+  (lambda (lines port writer)
+    (write-charlines lines port)))
 
 ) ; close library

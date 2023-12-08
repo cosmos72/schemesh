@@ -117,6 +117,7 @@ void schemesh_import_libraries(void) {
        "  (import (schemesh bootstrap))\n"
        "  (import (schemesh containers))\n"
        "  (import (schemesh conversions))\n"
+       "  (import (schemesh lineedit vscreen))\n"
        "  (import (schemesh lineedit io))\n"
        "  (import (schemesh lineedit parser))\n"
        "  (import (schemesh lineedit charhistory))\n"

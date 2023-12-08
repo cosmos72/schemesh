@@ -32,24 +32,24 @@
   (fields
      (mutable beg charspan-beg charspan-beg-set!)
      (mutable end charspan-end charspan-end-set!)
-     (mutable vec charspan-vec charspan-vec-set!))
+     (mutable str charspan-str charspan-str-set!))
   (nongenerative #{%charspan b847ikzm9lftljwelbq0cknyh-0}))
 
 (define charspan-peek-beg charspan-beg)
 (define charspan-peek-end charspan-end)
-(define charspan-peek-data charspan-vec)
+(define charspan-peek-data charspan-str)
 
 (define (list->charspan l)
-  (let ((vec (list->string l)))
-    (%make-charspan 0 (string-length vec) vec)))
+  (let ((str (list->string l)))
+    (%make-charspan 0 (string-length str) str)))
 
 ; create charspan copying contents of specified string
-(define (string->charspan vec)
-  (%make-charspan 0 (string-length vec) (string-copy vec)))
+(define (string->charspan str)
+  (%make-charspan 0 (string-length str) (string-copy str)))
 
 ; view existing string as charspan
-(define (string->charspan* vec)
-  (%make-charspan 0 (string-length vec) vec))
+(define (string->charspan* str)
+  (%make-charspan 0 (string-length str) str))
 
 (define (make-charspan n . val)
   (%make-charspan 0 n (apply make-string n val)))
@@ -59,7 +59,7 @@
         (end (charspan-end sp)))
     (if (fx>=? beg end)
       ""
-      (substring (charspan-vec sp) beg end))))
+      (substring (charspan-str sp) beg end))))
 
 (define (charspan . vals)
   (list->charspan vals))
@@ -70,7 +70,7 @@
 ; return length of internal string, i.e. maximum number of elements
  ; that can be stored without reallocating
 (define (charspan-capacity sp)
-  (string-length (charspan-vec sp)))
+  (string-length (charspan-str sp)))
 
 (define (charspan-empty? sp)
   (fx>=? (charspan-beg sp) (charspan-end sp)))
@@ -82,79 +82,79 @@
 (define (charspan-ref sp idx)
   (assert (fx>=? idx 0))
   (assert (fx<? idx (charspan-length sp)))
-  (string-ref (charspan-vec sp) (fx+ idx (charspan-beg sp))))
+  (string-ref (charspan-str sp) (fx+ idx (charspan-beg sp))))
 
 (define (charspan-back sp)
   (assert (not (charspan-empty? sp)))
-  (string-ref (charspan-vec sp) (fx1- (charspan-end sp))))
+  (string-ref (charspan-str sp) (fx1- (charspan-end sp))))
 
 (define (charspan-set! sp idx val)
   (assert (fx>=? idx 0))
   (assert (fx<? idx (charspan-length sp)))
-  (string-set! (charspan-vec sp) (fx+ idx (charspan-beg sp)) val))
+  (string-set! (charspan-str sp) (fx+ idx (charspan-beg sp)) val))
 
 (define (charspan-fill! sp val)
-  (string-fill-range! (charspan-vec sp) (charspan-beg sp) (charspan-length sp) val))
+  (string-fill-range! (charspan-str sp) (charspan-beg sp) (charspan-length sp) val))
 
 (define (charspan-fill-range! sp start n val)
   (assert (fx>=? start 0))
   (assert (fx>=? n 0))
   (assert (fx<=? (fx+ start n) (charspan-length sp)))
-  (string-fill-range! (charspan-vec sp) (fx+ start (charspan-beg sp)) n val))
+  (string-fill-range! (charspan-str sp) (fx+ start (charspan-beg sp)) n val))
 
 ; make a copy of charspan and return it
 (define (charspan-copy src)
   (let* ((n (charspan-length src))
          (dst (make-charspan n)))
-    (string-copy! (charspan-vec src) (charspan-beg src)
-                  (charspan-vec dst) (charspan-beg dst) n)
+    (string-copy! (charspan-str src) (charspan-beg src)
+                  (charspan-str dst) (charspan-beg dst) n)
     dst))
 
 (define (charspan-copy! src src-start dst dst-start n)
   (assert (fx<=? 0 src-start (fx+ src-start n) (charspan-length src)))
   (assert (fx<=? 0 dst-start (fx+ dst-start n) (charspan-length dst)))
-  (string-copy! (charspan-vec src) (fx+ src-start (charspan-beg src))
-                (charspan-vec dst) (fx+ dst-start (charspan-beg dst)) n))
+  (string-copy! (charspan-str src) (fx+ src-start (charspan-beg src))
+                (charspan-str dst) (fx+ dst-start (charspan-beg dst)) n))
 
 (define (charspan=? left right)
   (let ((n1 (charspan-length left))
         (n2 (charspan-length right)))
     (and (fx=? n1 n2)
          (string-range=?
-           (charspan-vec left) (charspan-beg left)
-           (charspan-vec right) (charspan-beg right)
+           (charspan-str left) (charspan-beg left)
+           (charspan-str right) (charspan-beg right)
            n1))))
 
 (define (charspan-range=? left left-start right right-start n)
   (assert (fx<=? 0 left-start  (fx+ left-start n)  (charspan-length left)))
   (assert (fx<=? 0 right-start (fx+ right-start n) (charspan-length right)))
   (string-range=?
-    (charspan-vec left)  (fx+ left-start  (charspan-beg left))
-    (charspan-vec right) (fx+ right-start (charspan-beg right))
+    (charspan-str left)  (fx+ left-start  (charspan-beg left))
+    (charspan-str right) (fx+ right-start (charspan-beg right))
     n))
 
 (define (charspan-reallocate-front! sp len cap)
   (assert (fx>=? len 0))
   (assert (fx>=? cap len))
   (let ((copy-len (fxmin len (charspan-length sp)))
-        (old-vec (charspan-vec sp))
-        (new-vec (make-string cap))
+        (old-str (charspan-str sp))
+        (new-str (make-string cap))
         (new-beg (fx- cap len)))
-    (string-copy! old-vec (charspan-beg sp) new-vec new-beg copy-len)
+    (string-copy! old-str (charspan-beg sp) new-str new-beg copy-len)
     (charspan-beg-set! sp new-beg)
     (charspan-end-set! sp cap)
-    (charspan-vec-set! sp new-vec)))
+    (charspan-str-set! sp new-str)))
 
 (define (charspan-reallocate-back! sp len cap)
   (assert (fx>=? len 0))
   (assert (fx>=? cap len))
   (let ((copy-len (fxmin len (charspan-length sp)))
-        (old-vec (charspan-vec sp))
-        (new-vec (make-string cap)))
-    (string-copy! old-vec (charspan-beg sp) new-vec 0 copy-len)
+        (old-str (charspan-str sp))
+        (new-str (make-string cap)))
+    (string-copy! old-str (charspan-beg sp) new-str 0 copy-len)
     (charspan-beg-set! sp 0)
     (charspan-end-set! sp len)
-    (charspan-vec-set! sp new-vec)))
+    (charspan-str-set! sp new-str)))
 
 ; return distance between begin of internal string and last element
 (define (charspan-capacity-front sp)
@@ -162,24 +162,24 @@
 
 ; return distance between first element and end of internal string
 (define (charspan-capacity-back sp)
-  (fx- (string-length (charspan-vec sp)) (charspan-beg sp)))
+  (fx- (string-length (charspan-str sp)) (charspan-beg sp)))
 
 ; ensure distance between begin of internal string and last element is >= n.
  ; does NOT change the length
 (define (charspan-reserve-front! sp len)
   (assert (fx>=? len 0))
-  (let ((vec (charspan-vec sp))
+  (let ((str (charspan-str sp))
         (cap-front (charspan-capacity-front sp)))
     (cond
       ((fx<=? len cap-front)
 ;      nothing to do
        (void))
-      ((fx<=? len (string-length vec))
+      ((fx<=? len (string-length str))
 ;       string is large enough, move elements to the back
         (let* ((cap (charspan-capacity sp))
                (old-len (charspan-length sp))
                (new-beg (fx- cap old-len)))
-          (string-copy! vec (charspan-beg sp) vec new-beg old-len)
+          (string-copy! str (charspan-beg sp) str new-beg old-len)
           (charspan-beg-set! sp new-beg)
           (charspan-end-set! sp cap)))
       (#t
@@ -191,16 +191,16 @@
  ; does NOT change the length
 (define (charspan-reserve-back! sp len)
   (assert (fx>=? len 0))
-  (let ((vec (charspan-vec sp))
+  (let ((str (charspan-str sp))
         (cap-back (charspan-capacity-back sp)))
     (cond
       ((fx<=? len cap-back)
 ;      nothing to do
        (void))
-      ((fx<=? len (string-length vec))
+      ((fx<=? len (string-length str))
 ;       string is large enough, move elements to the front
         (let ((len (charspan-length sp)))
-          (string-copy! vec (charspan-beg sp) vec 0 len)
+          (string-copy! str (charspan-beg sp) str 0 len)
           (charspan-beg-set! sp 0)
           (charspan-end-set! sp len)))
       (#t
@@ -275,7 +275,7 @@
 (define (charspan-iterate sp proc)
   (do ((i (charspan-beg sp) (fx1+ i))
        (n (charspan-end sp))
-       (v (charspan-vec sp)))
+       (v (charspan-str sp)))
     ((or (fx>=? i n) (not (proc i (string-ref v i)))))))
 
 ;*
