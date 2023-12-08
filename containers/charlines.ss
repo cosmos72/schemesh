@@ -11,9 +11,7 @@
     assert-charlines? charlines-copy-on-write charlines-iterate
     charlines-empty? charlines-length charlines-ref charlines-set/cline! charlines-clear!
     charlines-dirty-y-start charlines-dirty-y-end charlines-dirty-y-add! charlines-dirty-xy-unset!
-    charlines-erase-left! charlines-erase-right!
-    charlines-insert-at! charlines-insert-at/cspan! charlines-insert-at/cline!
-    charlines-merge-line!)
+    charlines-erase-at/cline! charlines-insert-at/cline! charlines-insert-at/ch!)
 
   (import
     (rnrs)
@@ -31,8 +29,8 @@
 (define-record-type
   (%gbuffer %make-gbuffer %gbuffer?)
   (fields
-     (mutable left  gbuffer-left  gbuffer-left-set!)
-     (mutable right gbuffer-right gbuffer-right-set!))
+     (mutable left)
+     (mutable right))
   (nongenerative #{%gbuffer ejch98ka4vi1n9dn4ybq4gzwe-0}))
 
 ;; type charlines is a gap-buffer, containing charline elements
@@ -116,74 +114,23 @@
   (charlines-dirty-y-add! lines 0 (charlines-length lines))
   (gbuffer-clear! lines))
 
-; merge the two lines at y and y+1
-(define (charlines-merge-line! lines y)
+; erase a charline from lines at y
+(define (charlines-erase-at/cline! lines y)
   (let ((yn (charlines-length lines)))
     (when (fx<? -1 y yn)
-      (let* ((y+1 (fx1+ y))
-             (line1 (charlines-ref lines y))
-             (line2 (charlines-ref lines y+1)))
-        (charline-insert-at/cbuf! line1 (charline-length line1) line2 0 (charline-length line2))
-        (charline-nl?-set! line1 (charline-nl? line2))
-        (gbuffer-erase-at! lines y+1 1)
-        (charlines-dirty-y-add! lines y+1 yn)))))
-
-
-; erase one char to the left of specified x and y
-; if x = 0 and line at y - 1 ends with implicit newline,
-; remove the implicit newline and merge the two lines at y and y - 1
-; return two values: updated x and updated y
-(define (charlines-erase-left! lines x y)
-  (when (fx<? -1 y (charlines-length lines))
-    (let* ((line1 (charlines-ref lines y))
-           (len1 (charline-length line1)))
-      (cond
-        ((fx>? x 0)
-          (let ((x-1 (fx1- x)))
-            (charline-erase-at! line1 x-1 1)
-            (values x-1 y)))
-        ((fx>? y 0)
-          (let* ((y-1 (fx1- y))
-                 (line0 (charlines-ref lines y-1))
-                 (len0  (charline-length line0)))
-            (if (charline-nl? line0)
-              (begin
-                (charlines-merge-line! lines y-1)
-                (values len0 y-1))
-              (charlines-erase-left! lines len0 y-1))))
-        (#t
-          (values x y))))))
-
-; erase one char to the right of specified specified x and y.
-; if line at y has length <= x and ends with implicit newline,
-; remove the implicit newline and merge the two lines at y and y + 1
-(define (charlines-erase-right! lines x y)
-  (when (fx<? -1 y (charlines-length lines))
-    (let* ((line (charlines-ref lines y))
-           (len (charline-length line)))
-      (cond
-        ((fx<? x len)
-          (charline-erase-at! line x 1))
-        ((charline-nl? line)
-          (charlines-merge-line! lines y))
-        (#t
-          (charlines-erase-right! lines 0 (fx1+ y)))))))
-
-; insert a char into lines at specified x and y
-(define (charlines-insert-at! lines x y ch)
-  (let ((line (charlines-ref lines y)))
-    (charline-insert-at! line x ch)))
-
-; insert a charspan into lines starting at specified x and y
-(define (charlines-insert-at/cspan! lines x y csp)
-  (let ((line (charlines-ref lines y)))
-    (charline-insert-at/cspan! line x csp)))
+      (charlines-dirty-y-add! lines y yn)
+      (gbuffer-erase-at! lines y 1))))
 
 ; insert a charline into lines at y
 (define (charlines-insert-at/cline! lines y line)
   (assert-charline? 'charlines-insert-at/cline! line)
   (gbuffer-insert-at! lines y line)
   (charlines-dirty-y-add! lines y (fx1+ (charlines-length lines))))
+
+; insert a char into lines at specified x and y
+(define (charlines-insert-at/ch! lines x y ch)
+  (let ((line (charlines-ref lines y)))
+    (charline-insert-at! line x ch)))
 
 ;; make a copy of strings str and store them into a newly created charlines
 ;; return the created charlines

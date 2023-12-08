@@ -437,7 +437,7 @@
     (linectx-lines-changed ctx)))
 
 (define (lineedit-key-del-right ctx)
-  (charlines-erase-right! (linectx-lines ctx) (linectx-x ctx) (linectx-y ctx))
+  ; FIXME (charlines-erase-right! (linectx-lines ctx) (linectx-x ctx) (linectx-y ctx))
   (linectx-lines-changed ctx)
   (lineterm-del-right-n ctx 1))
 

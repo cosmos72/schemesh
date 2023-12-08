@@ -347,10 +347,7 @@ static const struct {
     /* ------------------------ charlines ----------------------------------- */
     {"(charlines (string->charline* \"foo/bar\") (string->charline \"\\n\"))",
      "(strings->charlines* \"foo/bar\" \"\\n\")"},
-    {"(let ((lines (strings->charlines* \"abcdef\\n\" \"01234\")))\n"
-     "  (charlines-merge-line! lines 0)\n"
-     "  lines)",
-     "(strings->charlines* \"abcdef01234\")"},
+#if 0
     {"(let ((lines (strings->charlines* \"abcdef\\n\" \"01234\")))\n"
      "  (cons lines (values->list (charlines-erase-left! lines 0 1))))",
      "((strings->charlines* \"abcdef01234\") 6 0)"},
@@ -359,6 +356,7 @@ static const struct {
      "  (charlines-erase-right! lines 6 0)\n"
      "  lines)",
      "(strings->charlines* \"abcdef1234\")"},
+#endif // 0
     /* --------------------- list ------------------------------------------- */
     {"(let ((ret '()))\n"
      "  (list-iterate '(a b c)\n"

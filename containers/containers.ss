@@ -69,7 +69,7 @@
     charline charline? string->charline string->charline* charline->string
     assert-charline? charline-nl? charline-nl?-set! charline-copy-on-write
     charline-empty? charline-length charline-ref charline-set! charline-clear!
-    charline-erase-at! charline-insert-at! charline-insert-at/cspan! charline-insert-at/cbuf!
+    charline-erase-at! charline-insert-at! charline-insert-at/cbuf!
     charline-dirty-x-start charline-dirty-x-end charline-dirty-x-add! charline-dirty-x-unset!
 
     ; charlines.ss
@@ -77,9 +77,7 @@
     assert-charlines? charlines-copy-on-write charlines-iterate
     charlines-empty? charlines-length charlines-ref charlines-set/cline! charlines-clear!
     charlines-dirty-y-start charlines-dirty-y-end charlines-dirty-y-add! charlines-dirty-xy-unset!
-    charlines-erase-left! charlines-erase-right!
-    charlines-insert-at! charlines-insert-at/cspan! charlines-insert-at/cline!
-    charlines-merge-line!
+    charlines-erase-at/cline! charlines-insert-at/cline! charlines-insert-at/ch!
 
     ; utils.ss
     bytevector-ref/utf8 bytevector-set/utf8! char->utf8-length
