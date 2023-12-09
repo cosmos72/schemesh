@@ -82,29 +82,6 @@
 ; get n-th line
 (define charlines-ref   gbuffer-ref)
 
-; get char in lines at position x and y.
-; if lines are empty, return #f
-; y is clamped to the available range [0, length of charlines - 1]
-; x is clamped to the available range [0, length of y-th charline]
-; if clamped x is == length of y-th charline:
-;   if an implicit newline is present, return #\newline
-;   otherwise if line is not empty, return the last char of the line
-;   otherwise return #f
-(define (charlines-ref/xy lines x y)
-  (if (charlines-empty? lines)
-    #f
-    (let* ((yn   (charlines-length lines))
-           (y    (fxmax 0 (fxmin y (fx1- yn))))
-           (line (charline-ref lines y))
-           (xn   (charline-length line))
-           (x    (fxmax 0 (fxmin x xn))))
-      (cond
-        ((fx<? x xn)         (charline-ref line x))
-        ((charline-nl? line) #\newline)
-        ((fx>? xn 0)         (charline-ref line (fx1- xn)))
-        (#t                  #f)))))
-
-
 ; replace a charline in lines at y
 (define (charlines-set/cline! lines y line)
   (assert-charline? 'charlines-set/cline! line)

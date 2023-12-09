@@ -8,7 +8,7 @@
 (library (schemesh containers charline (0 1))
   (export
     charline charline? string->charline string->charline* charline->string
-    assert-charline? charline-nl? charline-nl?-set! charline-copy-on-write
+    assert-charline? charline-nl? charline-copy-on-write
     charline-empty? charline-length charline-ref charline-set! charline-clear!
     charline-erase-at! charline-insert-at! charline-insert-at/cbuf!
     charline-dirty-x-start charline-dirty-x-end charline-dirty-x-add! charline-dirty-x-unset!)
@@ -30,17 +30,17 @@
   (nongenerative #{%chargbuffer itah4n3k0nl66ucaakkpqk55m-16}))
 
 ;; type charline is a char gap-buffer with additional fields:
-;; - charline-newline? true if the gap buffer logically ends with a #\newline
+;;
 ;; - charline-share a cons. its car will be > 0 if the charline is shared copy-on-write
 ;;   between two or more charlines: its content will be automatically cloned at the first
 ;;   attempt to modify it.
-;; - charline-dirty-x-start and charline-dirty-x-end fixnums indicating the range of characters that were recently modified and not yet redrawn
+;; - charline-dirty-x-start and charline-dirty-x-end fixnums indicating the range of characters
+;;   that were recently modified and not yet redrawn
 
 (define-record-type
   (%charline %make-charline charline?)
   (parent %chargbuffer)
   (fields
-    (mutable newline? charline-nl? charline-nl?-set!)
     (mutable share) ; a cons (share-count . #f)
     (mutable dirty-x-start charline-dirty-x-start charline-dirty-x-start-set!)
     (mutable dirty-x-end   charline-dirty-x-end   charline-dirty-x-end-set!))
@@ -50,11 +50,10 @@
   (unless (charline? line)
     (assertion-violation who "not a charline" line)))
 
-(define (make-charline left-span right-span nl?)
+(define (make-charline left-span right-span)
   (assert (charspan? left-span))
   (assert (charspan? right-span))
-  (assert (boolean? nl?))
-  (%make-charline left-span right-span nl? (cons 0 #f) (greatest-fixnum) 0))
+  (%make-charline left-span right-span (cons 0 #f) (greatest-fixnum) 0))
 
 ;; increment charline share count by 1.
 ;; return pair containing share count
@@ -74,13 +73,12 @@
     shared?))
 
 (define (charline)
-  (make-charline (charspan) (charspan) #f))
+  (make-charline (charspan) (charspan)))
 
 ;; Return a copy-on-write clone of specified charline.
 (define (charline-copy-on-write line)
   (assert (charline? line))
-  (%make-charline (chargbuffer-left line) (chargbuffer-right line)
-                  (charline-nl? line) (charline-share-inc! line)
+  (%make-charline (chargbuffer-left line) (chargbuffer-right line) (charline-share-inc! line)
                   (charline-dirty-x-start line) (charline-dirty-x-end line)))
 
 ;; if charline was a copy-on-write clone, actually clone it.
@@ -94,6 +92,11 @@
 (define charline-empty?     chargbuffer-empty?)
 (define charline-length     chargbuffer-length)
 (define charline-ref        chargbuffer-ref)
+
+;; return #t if charline ends with #\newline, otherwise return #f
+(define (charline-nl? line)
+  (let ((last (fx1- (charline-length line))))
+    (and (fx>=? last 0) (char=? #\newline (chargbuffer-ref line last)))))
 
 (define (charline-dirty-x-add! line start end)
   (charline-dirty-x-start-set! line (fxmin start (charline-dirty-x-start line)))
@@ -138,39 +141,15 @@
 ;; make a copy of string str and store it into a newly created charline
 ;; return the created charline
 (define (string->charline str)
-  (let ((line (make-charline (charspan) (string->charspan str) #f))
-        (last (fx1- (string-length str))))
-    (when (and (fx>=? last 0) (char=? #\newline (string-ref str last)))
-      (charline-erase-at! line last 1)
-      (charline-nl?-set! line #t))
-    line))
+  (make-charline (charspan) (string->charspan str)))
 
 ;; store a reference to string str into a newly created charline
 ;; return the created charline
 (define (string->charline* str)
-  (let ((line (make-charline (charspan) (string->charspan* str) #f))
-        (last (fx1- (string-length str))))
-    (when (and (fx>=? last 0) (char=? #\newline (string-ref str last)))
-      (charline-erase-at! line last 1)
-      (charline-nl?-set! line #t))
-    line))
+  (make-charline (charspan) (string->charspan* str)))
 
 (define (charline->string line)
-  (if (not (charline-nl? line))
-    (chargbuffer->string line)
-    (let* ((left    (chargbuffer-left  line))
-           (right   (chargbuffer-right line))
-           (left-n  (charspan-length left))
-           (right-n (charspan-length right))
-           (n       (fx+ left-n right-n))
-           (dst     (make-string (fx1+ n))))
-      (string-copy! (charspan-peek-data left)  (charspan-peek-beg left)
-                    dst 0 left-n)
-      (string-copy! (charspan-peek-data right) (charspan-peek-beg right)
-                    dst left-n right-n)
-      (string-set! dst n #\newline)
-      dst)))
-
+  (chargbuffer->string line))
 
 ;; customize how "charline" objects are printed
 (record-writer (record-type-descriptor %charline)

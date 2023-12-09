@@ -7,10 +7,10 @@
 
 (library (schemesh lineedit vscreen (0 1))
   (export
-    vscreen  vscreen*  vscreen?
-    vscreen-cursor-x   vscreen-cursor-x-set!   vscreen-cursor-y   vscreen-cursor-y-set!
-    vscreen-width      vscreen-width-set!      vscreen-height     vscreen-height-set!
-    vscreen-prompt-len vscreen-prompt-len-set!
+    vscreen  vscreen*  vscreen?  assert-vscreen?
+    vscreen-width-height  vscreen-width-height-set!
+    vscreen-vcursor-xy    vscreen-vcursor-xy-set!
+    vscreen-prompt-len    vscreen-prompt-len-set!
     vscreen-cursor-move/left! vscreen-cursor-move/right! vscreen-cursor-move/up! vscreen-cursor-move/down!
     vscreen-erase/left!       vscreen-erase/right!       vscreen-erase-at/xy!
     write-vscreen)
@@ -43,8 +43,8 @@
   (nongenerative #{%charlines lf2lr8d65f8atnffcpi1ja7l0-439}))
 
 
-;; vscreen is an in-memory representation of user-typed input
-;; and how it is split in multiple lines, each limited by screen width
+;; vscreen is an in-memory representation of user-typed input and how it is split
+;; in multiple lines, each limited either by a newline or by screen width
 (define-record-type
   (%vscreen %make-vscreen vscreen?)
   (parent %charlines)
@@ -75,20 +75,15 @@
         (span-set! sp i (string->charline* elem))))
     (%make-vscreen (span) sp (greatest-fixnum) 0 0 0 width height 0)))
 
+;; return two values: vscreen width and height
+(define (vscreen-width-height screen)
+  (values (vscreen-width screen)
+          (vscreen-height screen)))
 
-;; return vscreen line at specified y, or #f if y is out of range
-(define (vscreen-line-at-y screen y)
-  (if (fx<? -1 y (charlines-length screen))
-    (charlines-ref screen y)
-    #f))
-
-;; return vscreen line length at specified y, or 0 if y is out of range.
-;; implicit newline is counted as a character i.e. increases returned value by one.
-(define (vscreen-length-at-y screen y)
-  (let ((line (vscreen-line-at-y screen y)))
-    (if line
-      (fx+ (charline-length line) (if (charline-nl? line) 1 0))
-      0)))
+;; set vscreen width and height
+(define (vscreen-width-height-set! screen width height)
+  (vscreen-width-set! screen (fxmax 1 width))
+  (vscreen-height-set! screen (fxmax 1 height)))
 
 
 ;; return vscreen width i.e. maximum charline length at specified y
@@ -96,6 +91,53 @@
 (define (vscreen-width-at-y screen y)
   (fx- (vscreen-width screen)
        (if (fxzero? y) (vscreen-prompt-len screen) 0)))
+
+
+;; return vscreen line at specified y, or #f if y is out of range
+(define (vscreen-line-at-y screen y)
+  (if (fx<? -1 y (charlines-length screen))
+    (charlines-ref screen y)
+    #f))
+
+;; return charline length at specified y, or 0 if y is out of range.
+(define (vscreen-length-at-y screen y)
+  (if (fx<? -1 y (charlines-length screen))
+    (charline-length (charlines-ref screen y))
+    0))
+
+;; return visual cursor x position. it is equal to vscreen-cursor-x,
+;; except for first line where vscreen-prompt-len must be added.
+(define (vscreen-vcursor-x screen)
+  (fx+ (vscreen-cursor-x screen)
+       (if (fxzero? (vscreen-cursor-y screen))
+         (vscreen-prompt-len screen)
+         0)))
+
+;; return visual cursor y position. it is equal to vscreen-cursor-y.
+(define vscreen-vcursor-y vscreen-cursor-y)
+
+;; return two values: visual cursor x, y position
+(define (vscreen-vcursor-xy screen)
+  (values (vscreen-cursor-x screen)
+          (vscreen-cursor-y screen)))
+
+;; set visual cursor x and y position.
+;; equivalent to calling separately vscreen-cursor-x-set! and vscreen-cursor-y-set!,
+;; with the following differences:
+;; * x and y values will be clamped to existing charlines and their lengths
+;; * if clamped y is 0, vscreen-prompt-len will be subtracted from x
+;; * x can also be set to immediately after the end of *last* charline
+(define (vscreen-vcursor-xy-set! screen x y)
+  (let* ((ymax  (fx1- (charlines-length screen)))
+         (y     (fxmax 0 (fxmin y ymax)))
+         ;; allow positioning cursor after end of line only for *last* charline
+         (xmax  (fx- (vscreen-length-at-y screen y)
+                     (if (fx=? y ymax) 0 1)))
+         ;; subtract prompt length only for *first* charline
+         (xreal (fx- x (if (fxzero? y) (vscreen-prompt-len screen) 0)))
+         (x     (fxmax 0 (fxmin xreal xmax))))
+    (vscreen-cursor-y-set! screen y)
+    (vscreen-cursor-x-set! screen x)))
 
 
 ;; move vscreen cursor n characters to the left.
@@ -144,8 +186,7 @@
           (set! n (fx1- n))
           (set! y (fx1+ y))
           (set! x 0))))
-    (when (and (fx>? n 0) (fx=? y ymax) (fx=? x xmax)
-               (not (charline-nl? (charlines-ref screen y))))
+    (when (and (fx>? n 0) (fx=? y ymax) (fx=? x xmax))
       ;; allow moving cursor immediately after last character of last line
       (set! n (fx1- n))
       (set! x (fx1+ x)))
@@ -156,37 +197,15 @@
 
 ;; move vscreen cursor n characters up.
 (define (vscreen-cursor-move/up! screen n)
-  (when (fx>? n 0)
-    (let* ((y          (vscreen-cursor-y screen))
-           (ynew       (fxmax 0 (fx- y n)))
-           (xmax       (fx1- (vscreen-length-at-y screen ynew)))
-           (prompt-len (vscreen-prompt-len screen))
-           (x          (fx+ (vscreen-cursor-x screen) (if (fxzero? y) prompt-len 0)))
-           (xnew       (fxmin x xmax)))
-      (assert (fx>=? xmax 0))
-      (when (fxzero? ynew)
-        (set! x (fxmax 0 (fx- x prompt-len))))
-      (vscreen-cursor-x-set! screen xnew)
-      (vscreen-cursor-y-set! screen ynew))))
-
+  (vscreen-vcursor-xy-set! screen
+    (vscreen-vcursor-x screen)
+    (fx- (vscreen-vcursor-y screen) n)))
 
 ;; move vscreen cursor n characters down.
 (define (vscreen-cursor-move/down! screen n)
-  (when (fx>? n 0)
-    (let* ((y          (vscreen-cursor-y screen))
-           (ymax       (fx1- (charlines-length screen)))
-           (ynew       (fxmin ymax (fx+ y n)))
-           (prompt-len (vscreen-prompt-len screen))
-           (x          (fx+ (vscreen-cursor-x screen) (if (fxzero? y) prompt-len 0)))
-           (line       (charlines-ref screen ynew))
-           (len        (charline-length line))
-           (xmax       (fx- len (if (or (fx=? ymax ynew) (charline-nl? line)) 0 1)))
-           (xnew       (fxmin x xmax)))
-      (assert (fx>=? ymax 0))
-      (when (fxzero? ynew)
-        (set! x (fxmax 0 (fx- x prompt-len))))
-      (vscreen-cursor-x-set! screen xnew)
-      (vscreen-cursor-y-set! screen ynew))))
+  (vscreen-vcursor-xy-set! screen
+    (vscreen-vcursor-x screen)
+    (fx+ (vscreen-vcursor-y screen) n)))
 
 
 ;; append characters to vscreen line at y removing them from the beginning of line at y+1
@@ -198,6 +217,7 @@
       (let ((n (fx- (vscreen-width-at-y screen y) (charline-length line1))))
         (while (and (fx>? n 0) (fx<? (fx1+ y) (charlines-length screen)))
           (let* ((line2 (vscreen-line-at-y screen (fx1+ y)))
+                 (line2-nl? (charline-nl? line2))
                  (i     (fxmin n (charline-length line2))))
             (assert-charline? "vscreen-erase/..." line2)
             ;; insert chars into line1
@@ -206,8 +226,7 @@
             (charline-erase-at! line2 0 i)
             (set! n (fx- n i))
             (when (charline-empty? line2)
-              (when (charline-nl? line2)
-                (charline-nl?-set! line1 #t)
+              (when line2-nl?
                 (set! n 0)) ;; newline found, stop refilling line1
               ;; we consumed all chars from line2, erase it
               (charlines-erase-at/cline! screen (fx1+ y)))))))))
@@ -228,13 +247,9 @@
             (charline-erase-at! line x i)
             (set! n (fx- n i))
             (set! len (fx- len i)))
-          (when (and (fx>? n 0) (charline-nl? line))
-            ;; also erase the implicit newline
-            (charline-nl?-set! line #f)
-            (set! n (fx1- n)))
           (when (fx>=? x len)
             ;; erased until the end of line, continue with next line
-            (if (and (fxzero? len) (not (charline-nl? line)))
+            (if (fxzero? len)
               ;; line is now empty, remove it
               (charlines-erase-at/cline! screen y)
               ;; line is not empty, move to next line

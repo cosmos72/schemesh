@@ -23,24 +23,6 @@
     (mutable   pos))  ; position in charline
   (nongenerative #{icport do8t0druatc9fhaize8s4a1wd-20}))
 
-;; Read logical #\newline from a charline wrapped inside an icport:
-;;
-;; if (charline-length line) equals line-pos, and (charline-nl? line) is true,
-;; and str-pos is smaller than (string-length str),
-;;
-;; then write #\newline into str at index str-pos, update position of icport and return #t;
-;; otherwise do nothing and return #f.
-(define (icport-maybe-read-newline p str str-pos line line-pos)
-  (if (and (charline-nl? line)
-           (fx=? line-pos (charline-length line))
-           (fx<? str-pos (string-length str)))
-    (begin
-      (string-set! str str-pos #\newline)
-      (icport-pos-set! p (fx1+ line-pos))
-      #t)
-    #f))
-
-
 (define (icport-read-string p str start n)
   (assert (fx>=? start 0))
   (assert (fx>=? n 0))
@@ -54,9 +36,6 @@
           ((fx>=? i ret-n)
             (icport-pos-set! p (fx+ ret-n line-pos)))
         (string-set! str (fx+ i start) (charline-ref line (fx+ i line-pos)))))
-    (when (and (fx>=? ret-n 0)
-               (icport-maybe-read-newline p str (fx+ start ret-n) line line-pos))
-      (set! ret-n (fx1+ ret-n)))
     (fxmax 0 ret-n)))
 
 
@@ -99,9 +78,6 @@
       ((fx<? x line-len)
         (iport-x-set! p (fx1+ x))
         (charline-ref line x))
-      ((and (fx=? x line-len) (charline-nl? line))
-        (iport-x-set! p (fx1+ x))
-        #\newline)
       ((fx<? (fx1+ y) (charlines-length lines))
         ; end-of-line reached, go to next line
         (iport-x-set! p 0)

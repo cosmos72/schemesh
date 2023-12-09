@@ -211,9 +211,6 @@
     ; create a new line if needed
     (unless dst
       (set! dst (charline))
-      (when (charline-nl? src)
-        (charline-nl?-set! src #f)
-        (charline-nl?-set! dst #t))
       (charlines-insert-at/cline! lines y+1 dst))
     (do ((i 0 (fx1+ i))
          (src-pos (fx1- (charline-length src)) (fx1- src-pos)))
@@ -437,9 +434,11 @@
     (linectx-lines-changed ctx)))
 
 (define (lineedit-key-del-right ctx)
-  ; FIXME (charlines-erase-right! (linectx-lines ctx) (linectx-x ctx) (linectx-y ctx))
-  (linectx-lines-changed ctx)
-  (lineterm-del-right-n ctx 1))
+  ; FIXME reimplement
+  ; (charlines-erase-right! (linectx-lines ctx) (linectx-x ctx) (linectx-y ctx))
+  ; (linectx-lines-changed ctx)
+  ; (lineterm-del-right-n ctx 1))
+  (void))
 
 (define (lineedit-key-del-word-left ctx)
   (let* ((x     (linectx-x ctx))

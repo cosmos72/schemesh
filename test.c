@@ -332,7 +332,7 @@ static const struct {
     {"(string->charline \"abc 123\")", "(string->charline* \"abc 123\")"},
     {"(string->charline* \"echo \\n\")", "(string->charline* \"echo \\n\")"},
     {"(charline-nl? (string->charline \"echo \\n\"))", "#t"},
-    {"(charline-length (string->charline \"echo \\n\"))", "5"}, /* final #\newline is not counted */
+    {"(charline-length (string->charline \"echo \\n\"))", "6"},
     {"(let* ((l1 (string->charline* \"foo/bar\"))\n"
      "       (l2 (charline-copy-on-write l1)))\n"
      "  (charline-erase-at! l1 3 1)\n"
@@ -353,29 +353,23 @@ static const struct {
      "  screen)",
      "(vscreen* 8 30 \"abcde123\" \"456\")"},
     {"(let ((screen (vscreen* 8 30 \"qwerty\\n\" \"asdfgh\")))\n"
-     "  (vscreen-cursor-x-set! screen 3)\n"
-     "  (vscreen-cursor-y-set! screen 1)\n"
+     "  (vscreen-vcursor-xy-set! screen 3 1)\n"
      "  (vscreen-cursor-move/left! screen 6)\n"
-     "  (cons\n"
-     "    (vscreen-cursor-x screen)\n"
-     "    (vscreen-cursor-y screen)))\n",
-     "(4 . 0)"},
+     "  (values->list\n"
+     "    (vscreen-vcursor-xy screen)))\n",
+     "(4 0)"},
     {"(let ((screen (vscreen* 8 30 \"qwertyuiop\\n\" \"asdfgh\")))\n"
-     "  (vscreen-cursor-x-set! screen 5)\n"
-     "  (vscreen-cursor-y-set! screen 0)\n"
+     "  (vscreen-vcursor-xy-set! screen 5 0)\n"
      "  (vscreen-cursor-move/right! screen 13)\n"
-     "  (cons\n"
-     "    (vscreen-cursor-x screen)\n"
-     "    (vscreen-cursor-y screen)))\n",
-     "(6 . 1)"},
+     "  (values->list\n"
+     "    (vscreen-vcursor-xy screen)))\n",
+     "(6 1)"},
     {"(let ((screen (vscreen* 8 30 \"qwerty\\n\" \"asdfghjkl\")))\n"
-     "  (vscreen-cursor-x-set! screen 9)\n"
-     "  (vscreen-cursor-y-set! screen 1)\n"
+     "  (vscreen-vcursor-xy-set! screen 9 1)\n"
      "  (vscreen-cursor-move/up! screen 1)\n"
-     "  (cons\n"
-     "    (vscreen-cursor-x screen)\n"
-     "    (vscreen-cursor-y screen)))\n",
-     "(6 . 0)"},
+     "  (values->list\n"
+     "    (vscreen-vcursor-xy screen)))\n",
+     "(6 0)"},
     /* --------------------- list ------------------------------------------- */
     {"(let ((ret '()))\n"
      "  (list-iterate '(a b c)\n"
