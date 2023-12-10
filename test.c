@@ -348,10 +348,6 @@ static const struct {
     {"(charlines (string->charline* \"foo/bar\") (string->charline \"\\n\"))",
      "(strings->charlines* \"foo/bar\" \"\\n\")"},
     /* ------------------------ vscreen ------------------------------------- */
-    {"(let ((screen (vscreen* 8 30 \"abcdef\\n\" \"0123456\")))\n"
-     "  (vscreen-erase-at/xy! screen 5 0 3)\n"
-     "  screen)",
-     "(vscreen* 8 30 \"abcde123\" \"456\")"},
     {"(let ((screen (vscreen* 8 30 \"qwerty\\n\" \"asdfgh\")))\n"
      "  (vscreen-vcursor-xy-set! screen 3 1)\n"
      "  (vscreen-cursor-move/left! screen 6)\n"
@@ -370,6 +366,20 @@ static const struct {
      "  (values->list\n"
      "    (vscreen-vcursor-xy screen)))\n",
      "(6 0)"},
+    {"(let ((screen (vscreen* 8 30 \"abcdef\\n\" \"0123456\")))\n"
+     "  (vscreen-erase-at-xy! screen 5 0 3)\n"
+     "  screen)",
+     "(vscreen* 8 30 \"abcde123\" \"456\")"},
+    {"(let ((screen (vscreen* 8 30 \"{[()]}\\n\" \"abcdef\" \"0123456\")))\n"
+     "  (vscreen-vcursor-xy-set! screen 3 2)\n"
+     "  (vscreen-erase-left/to-nl! screen)\n"
+     "  screen)",
+     "(vscreen* 8 30 \"{[()]}\\n\" \"3456\")"},
+    {"(let ((screen (vscreen* 8 30 \"abcdef\" \"012\\n\" \"{[()]}\\n\")))\n"
+     "  (vscreen-vcursor-xy-set! screen 4 0)\n"
+     "  (vscreen-erase-right/to-nl! screen)\n"
+     "  screen)",
+     "(vscreen* 8 30 \"abcd\\n\" \"{[()]}\\n\")"},
     /* --------------------- list ------------------------------------------- */
     {"(let ((ret '()))\n"
      "  (list-iterate '(a b c)\n"

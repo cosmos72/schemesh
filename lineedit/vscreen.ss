@@ -11,8 +11,9 @@
     vscreen-width-height  vscreen-width-height-set!
     vscreen-vcursor-xy    vscreen-vcursor-xy-set!
     vscreen-prompt-len    vscreen-prompt-len-set!
-    vscreen-cursor-move/left! vscreen-cursor-move/right! vscreen-cursor-move/up! vscreen-cursor-move/down!
-    vscreen-erase/left!       vscreen-erase/right!       vscreen-erase-at/xy!
+    vscreen-cursor-move/left!  vscreen-cursor-move/right!  vscreen-cursor-move/up! vscreen-cursor-move/down!
+    vscreen-erase-left/n!      vscreen-erase-right/n!      vscreen-erase-at-xy!
+    vscreen-erase-left/to-nl!  vscreen-erase-right/to-nl!
     write-vscreen)
 
   (import
@@ -235,7 +236,7 @@
 ;; erase n characters of vscreen starting from specified x and y and moving rightward.
 ;; if the implicit newline of a charline is erased, the following line(s)
 ;; are merged into the current charline and reflowed according to vscreen width
-(define (vscreen-erase-at/xy! screen x y n)
+(define (vscreen-erase-at-xy! screen x y n)
   (when (fx>? n 0)
     (let ((saved-y y))
       (while (and (fx>? n 0) (fx<? -1 y (charlines-length screen)))
@@ -259,19 +260,64 @@
       (vscreen-underflow-at-y screen saved-y))))
 
 
-;; erase n characters from vscreen, starting at cursor and moving rightward.
-;; if the implicit newline of a charline is erased, the following line(s)
-;; are merged into the current charline and reflowed according to vscreen width
-(define (vscreen-erase/right! screen n)
-  (vscreen-erase-at/xy! screen (vscreen-cursor-x screen) (vscreen-cursor-y screen) n))
-
-
 ;; erase n characters from vscreen, starting 1 char left of cursor and moving leftward.
-;; if the implicit newline of a charline is erased, the following line(s)
+;; if the newline of a charline is erased, the following line(s)
 ;; are merged into the current charline and reflowed according to vscreen width
-(define (vscreen-erase/left! screen n)
+(define (vscreen-erase-left/n! screen n)
   (let ((n (vscreen-cursor-move/left! screen n)))
-    (vscreen-erase-at/xy! screen (vscreen-cursor-x screen) (vscreen-cursor-y screen) n)))
+    (vscreen-erase-at-xy! screen (vscreen-cursor-x screen) (vscreen-cursor-y screen) n)))
+
+
+;; erase n characters from vscreen, starting at cursor and moving rightward.
+;; if the newline of a charline is erased, the following line(s)
+;; are merged into the current charline and reflowed according to vscreen width
+(define (vscreen-erase-right/n! screen n)
+  (vscreen-erase-at-xy! screen (vscreen-cursor-x screen) (vscreen-cursor-y screen) n))
+
+
+;; erase leftward, starting 1 char left of vscreen cursor and continuing
+;; (possibly to previous lines) until a newline is found.
+;; The newline is not erased.
+(define (vscreen-erase-left/to-nl! screen)
+  (let* ((y    (vscreen-cursor-y screen))
+         (line (vscreen-line-at-y screen y)))
+    (when line
+      (charline-erase-at! line 0 (vscreen-cursor-x screen))
+      (vscreen-cursor-x-set! screen 0)
+      (set! y    (fx1- y))
+      (set! line (vscreen-line-at-y screen y))
+      (while (and line (not (charline-nl? line)))
+        (charlines-erase-at/cline! screen y)
+        (set! y    (fx1- y))
+        (set! line (vscreen-line-at-y screen y)))
+      (vscreen-cursor-x-set! screen (fx1+ y)))))
+
+
+;; erase rightward, starting at vscreen cursor and continuing
+;; (possibly to next lines) until a newline is found.
+;; The newline is not erased.
+(define (vscreen-erase-right/to-nl! screen)
+  (let* ((y    (vscreen-cursor-y screen))
+         (line (vscreen-line-at-y screen y))
+         (nl?  #f))
+    (when line
+      (set! nl? (charline-nl? line))
+      (let* ((x (vscreen-cursor-x screen))
+             (avail-n (fx- (charline-length line) x)))
+        ;; don't erase the newline, if present
+        (charline-erase-at! line x (fxmax 0 (fx- avail-n (if nl? 1 0)))))
+      (while (and line (not nl?))
+        (set! y    (fx1+ y))
+        (set! line (vscreen-line-at-y screen y))
+        (when line
+          (set! nl? (charline-nl? line))
+          ;; also erase the newline, if present
+          (charlines-erase-at/cline! screen y)))
+      (set! y (vscreen-cursor-y screen))
+      (set! line (vscreen-line-at-y screen y))
+      (when (and nl? line (not (charline-nl? line)))
+        ;; move the erased newline to current charline
+        (charline-insert-at! line (charline-length line) #\newline)))))
 
 
 ;; write a textual representation of vscreen to output port
