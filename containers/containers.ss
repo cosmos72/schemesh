@@ -67,8 +67,8 @@
 
     ; charline.ss
     charline charline? string->charline string->charline* charline->string
-    assert-charline? charline-nl? charline-copy-on-write
-    charline-empty? charline-length charline-ref charline-set! charline-clear!
+    assert-charline? charline-nl? charline-copy-on-write charline-empty?
+    charline-length charline-ref charline-at charline-set! charline-clear!
     charline-erase-at! charline-insert-at! charline-insert-at/cbuf!
     charline-dirty-x-start charline-dirty-x-end charline-dirty-x-add! charline-dirty-x-unset!
 

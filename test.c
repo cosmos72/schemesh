@@ -372,12 +372,12 @@ static const struct {
      "(vscreen* 8 30 \"abcde123\" \"456\")"},
     {"(let ((screen (vscreen* 8 30 \"{[()]}\\n\" \"abcdef\" \"0123456\")))\n"
      "  (vscreen-vcursor-xy-set! screen 3 2)\n"
-     "  (vscreen-erase-left/to-nl! screen)\n"
+     "  (vscreen-erase-left/line! screen)\n"
      "  screen)",
      "(vscreen* 8 30 \"{[()]}\\n\" \"3456\")"},
     {"(let ((screen (vscreen* 8 30 \"abcdef\" \"012\\n\" \"{[()]}\\n\")))\n"
      "  (vscreen-vcursor-xy-set! screen 4 0)\n"
-     "  (vscreen-erase-right/to-nl! screen)\n"
+     "  (vscreen-erase-right/line! screen)\n"
      "  screen)",
      "(vscreen* 8 30 \"abcd\\n\" \"{[()]}\\n\")"},
     /* --------------------- list ------------------------------------------- */

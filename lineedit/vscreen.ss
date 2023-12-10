@@ -12,8 +12,8 @@
     vscreen-vcursor-xy    vscreen-vcursor-xy-set!
     vscreen-prompt-len    vscreen-prompt-len-set!
     vscreen-cursor-move/left!  vscreen-cursor-move/right!  vscreen-cursor-move/up! vscreen-cursor-move/down!
-    vscreen-erase-left/n!      vscreen-erase-right/n!      vscreen-erase-at-xy!
-    vscreen-erase-left/to-nl!  vscreen-erase-right/to-nl!
+    vscreen-erase-left/n!    vscreen-erase-right/n!     vscreen-erase-at-xy!
+    vscreen-erase-left/line! vscreen-erase-right/line!
     write-vscreen)
 
   (import
@@ -318,6 +318,28 @@
       (when (and nl? line (not (charline-nl? line)))
         ;; move the erased newline to current charline
         (charline-insert-at! line (charline-length line) #\newline)))))
+
+
+;; erase leftward, starting 1 char left of vscreen cursor and continuing
+;; (possibly to previous lines) until a newline is found.
+;; The newline is only erased if it's the first character found.
+(define (vscreen-erase-left/line! screen)
+  (let ((x    (vscreen-cursor-x screen))
+        (line (vscreen-line-at-y screen (fx1- (vscreen-cursor-y screen)))))
+    (if (and (fxzero? x) line (charline-nl? line))
+      (vscreen-erase-left/n! screen 1)
+      (vscreen-erase-left/to-nl! screen))))
+
+
+;; erase rightward, starting at vscreen cursor and continuing
+;; (possibly to next lines) until a newline is found.
+;; The newline is only erased if it's the first character found.
+(define (vscreen-erase-right/line! screen)
+  (let ((x    (vscreen-cursor-x screen))
+        (line (vscreen-line-at-y screen (vscreen-cursor-y screen))))
+    (if (and line (eqv? #\newline (charline-at line x)))
+      (vscreen-erase-right/n! screen 1)
+      (vscreen-erase-right/to-nl! screen))))
 
 
 ;; write a textual representation of vscreen to output port

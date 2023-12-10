@@ -8,8 +8,8 @@
 (library (schemesh containers charline (0 1))
   (export
     charline charline? string->charline string->charline* charline->string
-    assert-charline? charline-nl? charline-copy-on-write
-    charline-empty? charline-length charline-ref charline-set! charline-clear!
+    assert-charline? charline-nl? charline-copy-on-write charline-empty?
+    charline-length charline-ref charline-at charline-set! charline-clear!
     charline-erase-at! charline-insert-at! charline-insert-at/cbuf!
     charline-dirty-x-start charline-dirty-x-end charline-dirty-x-add! charline-dirty-x-unset!)
 
@@ -92,6 +92,12 @@
 (define charline-empty?     chargbuffer-empty?)
 (define charline-length     chargbuffer-length)
 (define charline-ref        chargbuffer-ref)
+
+;; return character at position x, or #f if x is out of range
+(define (charline-at line x)
+  (if (fx<? -1 x (charline-length line))
+    (charline-ref line x)
+    #f))
 
 ;; return #t if charline ends with #\newline, otherwise return #f
 (define (charline-nl? line)
