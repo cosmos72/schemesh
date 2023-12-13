@@ -10,6 +10,7 @@
     charlines charlines? strings->charlines strings->charlines*
     assert-charlines? charlines-copy-on-write charlines-iterate
     charlines-empty? charlines-length charlines-ref charlines-set/cline! charlines-clear!
+    charlines-count-left charlines-count-right
     charlines-dirty-y-start charlines-dirty-y-end charlines-dirty-y-add! charlines-dirty-xy-unset!
     charlines-erase-at/cline! charlines-insert-at/cline! charlines-insert-at/ch!
     write-charlines)
@@ -79,10 +80,10 @@
       (charlines-dirty-y-start lines)
       (charlines-dirty-y-end   lines))))
 
-; get n-th line
+;; get n-th line
 (define charlines-ref   gbuffer-ref)
 
-; replace a charline in lines at y
+;; replace a charline in lines at y
 (define (charlines-set/cline! lines y line)
   (assert-charline? 'charlines-set/cline! line)
   (charlines-dirty-y-add! lines y (fx1+ y))
@@ -92,23 +93,90 @@
   (charlines-dirty-y-add! lines 0 (charlines-length lines))
   (gbuffer-clear! lines))
 
-; erase a charline from lines at y
+;; erase a charline from lines at y
 (define (charlines-erase-at/cline! lines y)
   (let ((yn (charlines-length lines)))
     (when (fx<? -1 y yn)
       (charlines-dirty-y-add! lines y yn)
       (gbuffer-erase-at! lines y 1))))
 
-; insert a charline into lines at y
+;; insert a charline into lines at y
 (define (charlines-insert-at/cline! lines y line)
   (assert-charline? 'charlines-insert-at/cline! line)
   (gbuffer-insert-at! lines y line)
   (charlines-dirty-y-add! lines y (fx1+ (charlines-length lines))))
 
-; insert a char into lines at specified x and y
+;; insert a char into lines at specified x and y
 (define (charlines-insert-at/ch! lines x y ch)
   (let ((line (charlines-ref lines y)))
     (charline-insert-at! line x ch)))
+
+
+;; search leftward starting from one character left of specified x and y,
+;; find first character that satisfies (pred ch)
+;; and return number of characters to skip until such character.
+;; return #f if no character satisfies (pred ch)
+;;
+;; notes: if y < 0 returns #f
+;;        if y >= (charlines-length lines)
+;;                it is truncated to charlines-length - 1
+;;        if x < 0 it is truncated to 0
+;;        if x > (charline-length (charlines-ref lines y))
+;;               it is truncated to charline-length
+(define (charlines-count-left lines x y pred)
+  (let ((ny (charlines-length lines))
+        (ret 0))
+    (set! y (fxmin y (fx1- ny)))
+    (while (fx>=? y 0)
+      (let* ((line (charlines-ref lines y))
+             (len  (charline-length line))
+             (xx   (fxmax 0 (fxmin x len)))
+             (pos  (charline-find-left line xx pred)))
+        (if pos
+          (begin ;; match found
+            (set! ret (fx+ ret (fx- xx pos)))
+            (set! y -1)) ; finishes (while) loop
+          (begin ;; match not found yet
+            (set! x (greatest-fixnum))
+            (set! y (fx1- y))
+            (if (fx>=? y 0)
+              (set! ret (fx+ ret xx))
+              (set! ret #f)))))) ; (while) loop finished, no char found
+      ret))
+
+
+;; search rightward starting from specified x and y,
+;; find first character that satisfies (pred ch)
+;; and return number of characters to skip until such character.
+;; return #f if no character satisfies (pred ch)
+;;
+;; notes: if y < 0 it is truncated to 0
+;;        if y >= (charlines-length lines) returns #f
+;;        if x < 0 it is truncated to 0
+;;        if x > (charline-length (charlines-ref lines y))
+;;               it is truncated to charline-length
+(define (charlines-count-right lines x y pred)
+  (let ((ny (charlines-length lines))
+        (ret 0))
+    (set! y (fxmax 0 y))
+    (while (fx<? y ny)
+      (let* ((line (charlines-ref lines y))
+             (len  (charline-length line))
+             (xx   (fxmax 0 (fxmin x len)))
+             (pos  (charline-find-right line xx pred)))
+        (if pos
+          (begin ;; match found
+            (set! ret (fx+ ret (fx- pos xx)))
+            (set! y ny)) ; finishes (while) loop
+          (begin ;; match not found yet
+            (set! x 0)
+            (set! y (fx1+ y))
+            (if (fx<? y ny)
+              (set! ret (fx+ ret (fx- len xx)))
+              (set! ret #f)))))) ; (while) loop finished, no char found
+      ret))
+
+
 
 ;; make a copy of strings str and store them into a newly created charlines
 ;; return the created charlines

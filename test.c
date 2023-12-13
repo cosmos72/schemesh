@@ -333,6 +333,12 @@ static const struct {
     {"(string->charline* \"echo \\n\")", "(string->charline* \"echo \\n\")"},
     {"(charline-nl? (string->charline \"echo \\n\"))", "#t"},
     {"(charline-length (string->charline \"echo \\n\"))", "6"},
+    {"(charline-find-left (string->charline* \"qwerty=<>\") 999\n"
+     "  (lambda (ch) (char=? ch #\\=)))",
+     "6"},
+    {"(charline-find-right (string->charline* \"foo/bar\") -10\n"
+     "  (lambda (ch) (char=? ch #\\b)))",
+     "4"},
     {"(let* ((l1 (string->charline* \"foo/bar\"))\n"
      "       (l2 (charline-copy-on-write l1)))\n"
      "  (charline-erase-at! l1 3 1)\n"
@@ -347,6 +353,16 @@ static const struct {
     /* ------------------------ charlines ----------------------------------- */
     {"(charlines (string->charline* \"foo/bar\") (string->charline \"\\n\"))",
      "(strings->charlines* \"foo/bar\" \"\\n\")"},
+    {"(charlines-count-left (charlines (string->charline* \"qwerty@$%\")\n"
+     "                                (string->charline* \"asdf\"))\n"
+     "  999 1\n"
+     "  (lambda (ch) (char=? ch #\\@)))",
+     "7"},
+    {"(charlines-count-right (charlines (string->charline* \"IOHPR$\n\")\n"
+     "                                  (string->charline* \"ORJZX\"))\n"
+     "  -999 0\n"
+     "  (lambda (ch) (char=? ch #\\Z)))",
+     "10"},
     /* ------------------------ vscreen ------------------------------------- */
     {"(let ((screen (vscreen* 8 30 \"qwerty\\n\" \"asdfgh\")))\n"
      "  (vscreen-vcursor-xy-set! screen 3 1)\n"

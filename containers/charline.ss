@@ -11,6 +11,7 @@
     assert-charline? charline-nl? charline-copy-on-write charline-empty?
     charline-length charline-ref charline-at charline-set! charline-clear!
     charline-erase-at! charline-insert-at! charline-insert-at/cbuf!
+    charline-find-left charline-find-right
     charline-dirty-x-start charline-dirty-x-end charline-dirty-x-add! charline-dirty-x-unset!)
 
   (import
@@ -143,6 +144,29 @@
   (let ((n (charline-length line)))
     (chargbuffer-clear! line)
     (charline-dirty-x-add! line 0 n)))
+
+;; search leftward starting from x - 1,
+;; find first character that satisfies (pred ch)
+;; and return position of such character.
+;; return #f if no character satisfies (pred ch)
+;;
+;; note: if x > (charline-length line), it is truncated to (charline-length line)
+(define (charline-find-left line x pred)
+  (do ((i (fx1- (fxmin x (charline-length line))) (fx1- i)))
+      ((or (fx<? i 0) (pred (charline-ref line i)))
+        (if (fx<? i 0) #f i))))
+
+;; search rightward starting from specified x,
+;; find first character that satisfies (pred ch)
+;; and return position of such character.
+;; return #f if no character satisfies (pred ch).
+;;
+;; note: if x < 0, it is truncated to 0
+(define (charline-find-right line x pred)
+  (let ((len (charline-length line)))
+    (do ((i (fxmax x 0) (fx1+ i)))
+        ((or (fx>=? i len) (pred (charline-ref line i)))
+          (if (fx>=? i len) #f i)))))
 
 ;; make a copy of string str and store it into a newly created charline
 ;; return the created charline
