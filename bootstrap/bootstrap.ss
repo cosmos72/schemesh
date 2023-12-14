@@ -6,12 +6,14 @@
 ;;; (at your option) any later version.
 
 (library (schemesh bootstrap)
-  (export eval-string repeat while until try list->values values->list define-macro)
+  (export
+     eval-string repeat while until try list->values values->list
+     define-macro let-macro with-object)
   (import
     (rnrs)
     ; Unlike R6RS (eval obj environment), Chez Scheme's (eval obj)
     ; uses interaction-environment and can modify it
-    (only (chezscheme) eval void))
+    (only (chezscheme) eval gensym void))
 
 (define (eval-string str)
   (eval (read (open-string-input-port str))))
@@ -48,6 +50,20 @@
   (syntax-rules ()
     ((_ pred)    (call-with-values (lambda () pred) list))))
 
+;; Scheme implementation of Common Lisp defmacro, defines a global macro.
+;; Usage:
+;;   (define-macro (name arg ...) body)
+;; or:
+;;   (define-macro (name . args) body)
+;; or:
+;;   (define-macro name (lambda (arg ...) body))
+;; or:
+;;   (define-macro name (lambda args body))
+;; then, each subsequent occurrence of (name expr ...)
+;; evaluates body at macroexpansion time,
+;; with each arg bound to the corresponding UNEVALUATED expr,
+;; and returned value must be a list containing source code
+;; that will be compiled in place of (name expr ...)
 (define-syntax define-macro
   (syntax-rules ()
     ((_ (name . args) body ...)
@@ -62,5 +78,67 @@
                (if (eq? (void) e)
                    (syntax (void))
                    (datum->syntax (syntax l) e))))))))))
+
+;; Scheme implementation of Common Lisp macrolet, defines a local macro.
+;; Usage:
+;;   (let-macro ((name arg ...) body)
+;;      forms ...)
+;; or:
+;;   (let-macro ((name . args) body)
+;;      forms ...)
+;; or:
+;;   (let-macro name (lambda (arg ...) body)
+;;      forms ...)
+;; or:
+;;   (let-macro name (lambda args body)
+;;      forms ...)
+;; then, each occurrence of (name expr ...) inside forms - and only there -
+;; evaluates body at macroexpansion time,
+;; with each arg bound to the corresponding UNEVALUATED expr,
+;; and returned value must be a list containing source code
+;; that will be compiled in place of (name expr ...)
+(define-syntax let-macro
+  (syntax-rules ()
+    ((_ ((name . args) body ...) form1 form2 ...)
+     (let-macro name (lambda args body ...) form1 form2 ...))
+    ((_ name transformer form1 form2 ...)
+     (let-syntax ((name
+       (lambda (stx)
+         (syntax-case stx ()
+           ((l . sv)
+             (let* ((v (syntax->datum (syntax sv)))
+                    (e (apply transformer v)))
+               (if (eq? (void) e)
+                   (syntax (void))
+                   (datum->syntax (syntax l) e))))))))
+       form1 form2 ...))))
+
+;; redefine obj as a local macro, simplifying repeated calls to verbose functions
+;; with obj as first argument.
+;; Usage:
+;;   (with-object x function-prefix
+;;      forms ...)
+;; where x and function-prefix are symbols.
+;; then, each occurrence of (x function-suffix args ...) inside forms - and only there -
+;; is expanded to (function-name x args ... )
+;; where function-name is the concatenation of function-prefix, a literal "-", and function-suffix.
+;; Note: x is evaluated only once, immediately before forms ...
+;;
+;; Example:
+;;   (let ((str "foo"))
+;;     (string-append str "bar"))
+;; can be rewritten as follows using with-object:
+;;   (let ((str "foo"))
+;;     (with-object str string
+;;       (str append "bar")))
+;; which is shorter when calling lots of functions whose name starts with "string-"
+;; and their first argument is str.
+(define-macro (with-object obj type . body)
+  (let ((sym (gensym (symbol->string obj))))
+    `(let ((,sym ,obj))
+       (let-macro ((,obj method . args)
+                       (cons* (string->symbol (string-append (symbol->string ',type) "-" (symbol->string method)))
+                              ',sym args))
+        ,@body))))
 
 ) ; close library

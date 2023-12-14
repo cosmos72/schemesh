@@ -25,18 +25,30 @@ static const struct {
 } tests[] = {
     {"(+ 1 2 3)", "6"},
     {"(* 4 5 6)", "120"},
+    /* ----------------- bootstrap ------------------------------------------ */
     {"(let ((x 0))\n"
      "  (repeat 5 (set! x (fx1+ x)))\n"
      "  x)",
      "5"},
     {"(values->list (values 1 2 3))", "(1 2 3)"},
+    {"(let-macro ((plus . args) `(+ ,@args))\n"
+     "  (plus 3 4 5))",
+     "12"},
+    {"(let-macro ((plus arg0 . args) `(+ ,arg0 ,@args))\n"
+     "  (plus 3 4 5))",
+     "12"},
+    {"(let ((str \"foo\"))\n"
+     "  (with-object str string\n"
+     "    (str append \"bar\")))", /* expands to (string-append str "bar") */
+     "foobar"},
+    /* ----------------- containers/misc ------------------------------------ */
     {"(subvector '#(aa bb cc dd) 1 3)", "#(bb cc)"},
     {"(subbytevector #vu8(44 55 66 77) 2 3)", "B"},
     {"(bytevector-compare #vu8(44 55) #vu8(44 55))", "0"},
     {"(bytevector-compare #vu8(66 77) #vu8(66 77 0))", "-1"},
     {"(bytevector-compare #vu8(66 77) #vu8(66 78))", "-1"},
     {"(bytevector-compare #vu8(79) #vu8(78 0))", "1"},
-    /* ----------------- bytevector/utf8 ----------------------------- */
+    /* ----------------- bytevector/utf8 ------------------------------------ */
     {"(values->list (bytevector-ref/utf8 #vu8() 0 1))", "(#t 0)"}, /* incomplete */
     {"(values->list (bytevector-ref/utf8 #vu8(1) 0 1))", "(\x01 1)"},
     {"(values->list (bytevector-ref/utf8 #vu8(33) 0 1))", "(! 1)"},
@@ -122,7 +134,7 @@ static const struct {
      "  (bytevector-set/utf8! bv 0 (integer->char #x10ffff))\n"
      "  bv)",
      "\xf4\x8f\xbf\xbf"},
-    /* ----------------- bytespan-utf8 ----------------------------- */
+    /* ----------------- bytespan-utf8 -------------------------------------- */
     {"(values->list (bytespan-ref/utf8 (bytespan) 0 1))", "(#t 0)"}, /* incomplete */
     {"(values->list (bytespan-ref/utf8 (bytespan 1) 0 1))", "(\x01 1)"},
     {"(values->list (bytespan-ref/utf8 (bytespan #x7f) 0 1))", "(\x7f 1)"},
@@ -167,7 +179,7 @@ static const struct {
      "(bytespan 244 143 191 191)"},
     {"(charspan->utf8 (string->charspan* \"\x7c \xce\x98 \xe0\xa4\xb9 \xf0\x90\x8d\x88\"))",
      "(bytespan 124 32 206 152 32 224 164 185 32 240 144 141 136)"},
-    /* ----------------- bytespan-fixnum-display ------------------ */
+    /* ----------------- bytespan-fixnum-display ---------------------------- */
     {"(let ((sp (bytespan)))\n"
      "  (list-iterate '(0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000 "
      "                  9999998 10000000 12345678 -1 -9 -10 -87654321)\n"
@@ -177,7 +189,7 @@ static const struct {
      "  (bytespan->bytevector sp))",
      "0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000 "
      "9999998 10000000 12345678 -1 -9 -10 -87654321 "},
-    /* ------------------------- span ----------------------------- */
+    /* ------------------------- span --------------------------------------- */
     {"(span 1 2 3)", "(span 1 2 3)"},
     {"(list->span '(foo bar baz))", "(span foo bar baz)"},
     {"(span-length (span 1 2 3))", "3"},
@@ -226,7 +238,7 @@ static const struct {
     {"(let ((sp (span 'a 'b 'c 'd)))\n"
      "  (span-find sp 0 999 (lambda (elem) (eq? 'c elem))))",
      "2"},
-    /* ----------------------- bytespan --------------------------- */
+    /* ----------------------- bytespan ------------------------------------- */
     {"(bytespan 1 2 3)", "(bytespan 1 2 3)"},
     {"(list->bytespan '(56 12 0 46))", "(bytespan 56 12 0 46)"},
     {"(bytevector->bytespan #vu8(7 19 88 255))", "(bytespan 7 19 88 255)"},
@@ -254,7 +266,7 @@ static const struct {
     {"(let ((sp (bytespan 9 10 11 12)))\n"
      "  (bytespan-find/u8 sp 0 999 (lambda (elem) (eq? 11 elem))))",
      "2"},
-    /* ----------------------- charspan --------------------------- */
+    /* ----------------------- charspan ------------------------------------- */
     {"(charspan #\\1 #\\2 #\\3)", "(string->charspan* \"123\")"},
     {"(list->charspan '(#\\i #\\j #\\k #\\l))", "(string->charspan* \"ijkl\")"},
     {"(string->charspan \"pqrst\")", "(string->charspan* \"pqrst\")"},
