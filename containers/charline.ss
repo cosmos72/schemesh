@@ -10,7 +10,7 @@
     charline charline? string->charline string->charline* charline->string
     assert-charline? charline-nl? charline-copy-on-write charline-empty?
     charline-length charline-ref charline-at charline-set! charline-clear!
-    charline-erase-at! charline-insert-at! charline-insert-at/cbuf!
+    charline-erase-at! charline-insert-at! charline-insert-at/cspan! charline-insert-at/cbuf!
     charline-find-left charline-find-right
     charline-dirty-x-start charline-dirty-x-end charline-dirty-x-add! charline-dirty-x-unset!)
 
@@ -122,15 +122,26 @@
 ;; insert one char into line at position x
 (define (charline-insert-at! line x ch)
   (charline-unshare! line)
-  (charline-dirty-x-add! line x (fx1+ (charline-length line)))
-  (chargbuffer-insert-at! line x ch))
+  (chargbuffer-insert-at! line x ch)
+  (charline-dirty-x-add! line x (fx1+ (charline-length line))))
 
-; read src-n elements from charbuffer or charline csp-src,
+
+; read src-n elements from charspan csp-src,
 ; starting from src-start, and insert them into charline at position x
-(define (charline-insert-at/cbuf! line x csp-src src-start src-n)
-  (charline-unshare! line)
-  (chargbuffer-insert-at/cbuf! line x csp-src src-start src-n)
-  (charline-dirty-x-add! line x (charline-length line)))
+(define (charline-insert-at/cspan! line x csp-src src-start src-n)
+  (when (fx>? src-n 0)
+    (charline-unshare! line)
+    (chargbuffer-insert-at/cspan! line x csp-src src-start src-n)
+    (charline-dirty-x-add! line x (charline-length line))))
+
+; read src-n elements from charbuffer or charline cbuf-src,
+; starting from src-start, and insert them into charline at position x
+(define (charline-insert-at/cbuf! line x cbuf-src src-start src-n)
+  (when (fx>? src-n 0)
+    (charline-unshare! line)
+    (chargbuffer-insert-at/cbuf! line x cbuf-src src-start src-n)
+    (charline-dirty-x-add! line x (charline-length line))))
+
 
 ; erase n chars from charline starting at position x
 (define (charline-erase-at! line x n)

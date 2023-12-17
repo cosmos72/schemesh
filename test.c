@@ -408,6 +408,18 @@ static const struct {
      "  (vscreen-erase-right/line! screen)\n"
      "  screen)",
      "(vscreen* 8 30 \"abcd\\n\" \"{[()]}\\n\")"},
+    {"(let ((screen (vscreen* 8 30 \"abcdef\" \"012\\n\")))\n"
+     "  (vscreen-insert-at-xy/ch! screen 4 1 #\\space)\n"
+     "  screen)",
+     "(vscreen* 8 30 \"abcdef\" \"012\\n\" \" \")"},
+    {"(let ((screen (vscreen* 8 30 \"abcdef\" \"012\\n\")))\n"
+     "  (vscreen-insert-at-xy/newline! screen 4 0)\n"
+     "  screen)",
+     "(vscreen* 8 30 \"abcd\\n\" \"ef012\\n\")"},
+    {"(let ((screen (vscreen* 8 30 \"abcdefgh\" \"012\\n\")))\n"
+     "  (vscreen-insert-at-xy/cspan! screen 4 0 (string->charspan* \"uwxyz\") 0 5)\n"
+     "  screen)",
+     "(vscreen* 8 30 \"abcduwxy\" \"zefgh012\" \"\\n\")"},
     /* --------------------- list ------------------------------------------- */
     {"(let ((ret '()))\n"
      "  (list-iterate '(a b c)\n"

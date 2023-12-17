@@ -21,7 +21,7 @@
     chargbuffer-erase-at! chargbuffer-iterate)
   (import
    (rnrs)
-   (only (chezscheme) format fx1+ record-writer string-copy! void)
+   (only (chezscheme) fx1+ record-writer string-copy! void)
    (schemesh containers charspan))
 
 (define-record-type
@@ -162,6 +162,7 @@
       (when (fx<? src-start left-n)
         (let ((delta (fxmin src-n (fx- left-n src-start))))
           (chargbuffer-insert-at/cspan! gb idx left src-start delta)
+          (set! idx (fx+ idx delta))
           (set! src-start (fx+ src-start delta))
           (set! src-n (fx- src-n delta))))
       (when (fx>? src-n 0)

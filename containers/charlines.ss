@@ -12,7 +12,7 @@
     charlines-empty? charlines-length charlines-ref charlines-set/cline! charlines-clear!
     charlines-count-left charlines-count-right
     charlines-dirty-y-start charlines-dirty-y-end charlines-dirty-y-add! charlines-dirty-xy-unset!
-    charlines-erase-at/cline! charlines-insert-at/cline! charlines-insert-at/ch!
+    charlines-erase-at/cline! charlines-insert-at/cline!
     write-charlines)
 
   (import
@@ -105,11 +105,6 @@
   (assert-charline? 'charlines-insert-at/cline! line)
   (gbuffer-insert-at! lines y line)
   (charlines-dirty-y-add! lines y (fx1+ (charlines-length lines))))
-
-;; insert a char into lines at specified x and y
-(define (charlines-insert-at/ch! lines x y ch)
-  (let ((line (charlines-ref lines y)))
-    (charline-insert-at! line x ch)))
 
 
 ;; search leftward starting from one character left of specified x and y,
