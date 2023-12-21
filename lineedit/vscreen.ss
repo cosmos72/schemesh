@@ -8,13 +8,16 @@
 (library (schemesh lineedit vscreen (0 1))
   (export
     vscreen  vscreen*  vscreen?  assert-vscreen?
-    vscreen-width-height  vscreen-width-height-set!
+    vscreen-width         vscreen-height      vscreen-width-height-set!
+    vscreen-cursor-x      vscreen-cursor-y    vscreen-cursor-xy-set!
     vscreen-vcursor-xy    vscreen-vcursor-xy-set!
-    vscreen-prompt-len    vscreen-prompt-len-set!
-    vscreen-cursor-move/left!  vscreen-cursor-move/right!  vscreen-cursor-move/up! vscreen-cursor-move/down!
-    vscreen-erase-left/n!    vscreen-erase-right/n!        vscreen-erase-at-xy!
+    vscreen-prompt-end-x  vscreen-prompt-end-x-set!
+    vscreen-clear!        vscreen-empty?
+    vscreen-cursor-move/left! vscreen-cursor-move/right!  vscreen-cursor-move/up! vscreen-cursor-move/down!
+    vscreen-erase-left/n!    vscreen-erase-right/n!       vscreen-erase-at-xy!
     vscreen-erase-left/line! vscreen-erase-right/line!
     vscreen-insert-at-xy/ch! vscreen-insert-at-xy/newline! vscreen-insert-at-xy/cspan!
+    vscreen-insert/ch!       vscreen-insert/cspan!
     write-vscreen)
 
   (import
@@ -55,7 +58,7 @@
     (mutable cursor-y   vscreen-cursor-y   vscreen-cursor-y-set!  )  ;; cursor y position
     (mutable width      vscreen-width      vscreen-width-set!     )  ;; screen width
     (mutable height     vscreen-height     vscreen-height-set!    )  ;; screen height
-    (mutable prompt-len vscreen-prompt-len vscreen-prompt-len-set!)) ;; prompt length
+    (mutable prompt-end-x vscreen-prompt-end-x vscreen-prompt-end-x-set!)) ;; prompt length
   (nongenerative #{%vscreen jrk9oih6lhpsih9dh3qu06xvo-525}))
 
 
@@ -77,12 +80,9 @@
         (span-set! sp i (string->charline* elem))))
     (%make-vscreen (span) sp (greatest-fixnum) 0 0 0 width height 0)))
 
-;; return two values: vscreen width and height
-(define (vscreen-width-height screen)
-  (values (vscreen-width screen)
-          (vscreen-height screen)))
 
-;; set vscreen width and height
+;; set vscreen width and height.
+;; TODO: reflow screen!
 (define (vscreen-width-height-set! screen width height)
   (vscreen-width-set! screen (fxmax 1 width))
   (vscreen-height-set! screen (fxmax 1 height)))
@@ -92,7 +92,7 @@
 ;; it is equal (vscreen-width), except when y = 0 where prompt length must be subtracted
 (define (vscreen-width-at-y screen y)
   (fx- (vscreen-width screen)
-       (if (fxzero? y) (vscreen-prompt-len screen) 0)))
+       (if (fxzero? y) (vscreen-prompt-end-x screen) 0)))
 
 
 ;; return vscreen line at specified y, or #f if y is out of range
@@ -107,12 +107,25 @@
     (charline-length (charlines-ref screen y))
     0))
 
+;; set cursor x and y position. notes:
+;; * x and y values will be clamped to existing charlines and their lengths
+;; * x can also be set to immediately after the end of *last* charline
+(define (vscreen-cursor-xy-set! screen x y)
+  (let* ((ymax  (fx1- (charlines-length screen)))
+         (y     (fxmax 0 (fxmin y ymax)))
+         ;; allow positioning cursor after end of line only for *last* charline
+         (xmax  (fx- (vscreen-length-at-y screen y)
+                     (if (fx=? y ymax) 0 1)))
+         (x     (fxmax 0 (fxmin x xmax))))
+    (vscreen-cursor-y-set! screen y)
+    (vscreen-cursor-x-set! screen x)))
+
 ;; return visual cursor x position. it is equal to vscreen-cursor-x,
-;; except for first line where vscreen-prompt-len must be added.
+;; except for first line where vscreen-prompt-end-x must be added.
 (define (vscreen-vcursor-x screen)
   (fx+ (vscreen-cursor-x screen)
        (if (fxzero? (vscreen-cursor-y screen))
-         (vscreen-prompt-len screen)
+         (vscreen-prompt-end-x screen)
          0)))
 
 ;; return visual cursor y position. it is equal to vscreen-cursor-y.
@@ -120,15 +133,12 @@
 
 ;; return two values: visual cursor x, y position
 (define (vscreen-vcursor-xy screen)
-  (values (vscreen-cursor-x screen)
-          (vscreen-cursor-y screen)))
+  (values (vscreen-vcursor-x screen)
+          (vscreen-vcursor-y screen)))
 
-;; set visual cursor x and y position.
-;; equivalent to calling separately vscreen-cursor-x-set! and vscreen-cursor-y-set!,
-;; with the following differences:
-;; * x and y values will be clamped to existing charlines and their lengths
-;; * if clamped y is 0, vscreen-prompt-len will be subtracted from x
-;; * x can also be set to immediately after the end of *last* charline
+;; set visual cursor x and y position. equivalent to calling vscreen-cursor-xy-set!,
+;; with the following difference:
+;; * if clamped y is 0, vscreen-prompt-end-x will be subtracted from x
 (define (vscreen-vcursor-xy-set! screen x y)
   (let* ((ymax  (fx1- (charlines-length screen)))
          (y     (fxmax 0 (fxmin y ymax)))
@@ -136,10 +146,26 @@
          (xmax  (fx- (vscreen-length-at-y screen y)
                      (if (fx=? y ymax) 0 1)))
          ;; subtract prompt length only for *first* charline
-         (xreal (fx- x (if (fxzero? y) (vscreen-prompt-len screen) 0)))
+         (xreal (fx- x (if (fxzero? y) (vscreen-prompt-end-x screen) 0)))
          (x     (fxmax 0 (fxmin xreal xmax))))
     (vscreen-cursor-y-set! screen y)
     (vscreen-cursor-x-set! screen x)))
+
+
+;; remove all lines from screen, and set cursor to 0 0
+(define (vscreen-clear! screen)
+  (charlines-clear! screen)
+  (charlines-insert-at/cline! screen 0 (charline))
+  (vscreen-cursor-x-set! screen 0)
+  (vscreen-cursor-y-set! screen 0))
+
+
+;; return #t if vscreen is empty i.e. it contains at most a single charline having zero length
+(define (vscreen-empty? screen)
+  (case (charlines-length screen)
+    ((0) #t)
+    ((1) (fxzero? (charline-length (charlines-ref screen 0))))
+    (else #f)))
 
 
 ;; move vscreen cursor n characters to the left.
@@ -346,6 +372,43 @@
       (vscreen-erase-right/until-nl! screen))))
 
 
+;; return number of characters to move left in vscreen starting at position x0 y0
+;; before finding a character that satisfies (pred ch).
+;; return #f if no character before position x0 y0 satisfies (pred ch).
+;; Note: never returns 0, because position x0 y0 is *not* examined.
+(define (vscreen-find-at-xy/left screen x0 y0 pred)
+  (let ((found? #f)
+        (count 1))
+    (do ((y (fxmin y0 (fx1- (charlines-length screen))) (fx1- y)))
+        ((or (found? (fx<? y 0))) (if found? count #f))
+      (let ((line (charlines-ref screen y)))
+        (do ((x (fx1- (fxmin x0 (charline-length line))) (fx1- x)))
+            ((or found? (fx<? x 0)))
+          (if (pred (charline-ref line x))
+            (set! found? #t)
+            (set! count (fx1+ count))))
+        (set! x0 (greatest-fixnum))))))
+
+
+;; return number of characters to move right in vscreen starting at position x0 y0
+;; before finding a character that satisfies (pred ch).
+;; return #f if no character after position x0 y0 satisfies (pred ch).
+;; Note: may also return 0, because position x0 y0 is examined.
+(define (vscreen-find-at-xy/right screen x0 y0 pred)
+  (let ((found? #f)
+        (count 0)
+        (yn (charlines-length screen)))
+    (do ((y (fxmax y0 0) (fx1+ y)))
+        ((or (found? (fx>=? y yn))) (if found? count #f))
+      (let* ((line (charlines-ref screen y))
+             (xn   (charline-length line)))
+        (do ((x (fxmax x0 0) (fx1+ x)))
+            ((or found? (fx>=? x xn)))
+          (if (pred (charline-ref line x))
+            (set! found? #t)
+            (set! count (fx1+ count))))
+        (set! x0 0)))))
+
 
 ;; move characters from end of vscreen line at y to the beginning of line at y+1
 ;; and repeat with lines *without* an implicit newline at y+2...
@@ -453,6 +516,26 @@
     (let-values (((x y line) (vscreen-insert-at-xy/before! screen x y)))
       (charline-insert-at/cspan! line x csp csp-start csp-n)
       (vscreen-overflow-at-y screen y))))
+
+
+;; insert a char, which can be a #\newline, into vscreen at cursor position
+;; then move cursor right by one.
+(define (vscreen-insert/ch! screen ch)
+  (let ((x (vscreen-cursor-x screen))
+        (y (vscreen-cursor-y screen)))
+    (if (char=? ch #\newline)
+      (vscreen-insert-at-xy/newline! screen x y)
+      (vscreen-insert-at-xy/ch! screen x y ch))
+    (vscreen-cursor-move/right! screen 1)))
+
+
+;; insert part of a charspan into vscreen at cursor position,
+;; then move cursor right by csp-n.
+(define (vscreen-insert/cspan! screen csp csp-start csp-n)
+  (when (fx>? csp-n 0)
+    (vscreen-insert-at-xy/cspan! screen (vscreen-cursor-x screen) (vscreen-cursor-y screen)
+                                 csp csp-start csp-n)
+    (vscreen-cursor-move/right! screen csp-n)))
 
 
 ;; write a textual representation of vscreen to output port

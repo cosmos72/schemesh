@@ -27,7 +27,7 @@
 ; update linectx-completion-stem and linectx-completions with possible completions
 (define (sh-autocomplete lctx)
   ; TODO: handle lines longer than tty width
-  (let ((line  (linectx-line lctx))
+  (let ((line  #f) ; (linectx-line lctx))
         (pos   (linectx-x lctx))
         (stem  (linectx-completion-stem lctx))
         (completions (linectx-completions lctx)))

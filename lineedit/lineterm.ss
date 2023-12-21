@@ -116,7 +116,7 @@
 ;; redraw from cursor to end of line.
 ;; clear-line-right must be either 'clear-line-right or 'dont-clear-line-right*/
 (define (lineterm-redraw-to-eol ctx clear-line-right)
-  (let* ((line (linectx-line ctx))
+  (let* ((line #f) ; (linectx-line ctx))
          (beg  (linectx-x ctx))
          (end  (charline-length line)))
     (when (fx<? beg end)
@@ -129,7 +129,7 @@
 ;; redraw from cursor to end of screen.
 (define (lineterm-redraw-to-eos ctx)
   (lineterm-redraw-to-eol ctx 'dont-clear-line-right)
-  (let* ((lines (linectx-lines ctx))
+  (let* ((lines (linectx-vscreen ctx))
          (lines-n-1 (fx1- (charlines-length lines))))
     (do ((y (fx1+ (linectx-y ctx)) (fx1+ y)))
         ((fx>? y lines-n-1))

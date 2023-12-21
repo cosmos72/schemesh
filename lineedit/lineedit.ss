@@ -27,6 +27,7 @@
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh posix fd)
+    (schemesh lineedit vscreen)
     (schemesh lineedit charhistory)
     (schemesh lineedit parens)
     (schemesh lineedit parenmatcher)
@@ -37,35 +38,26 @@
     (schemesh posix tty)
     (only (schemesh posix signal) signal-consume-sigwinch))
 
-;; return a copy-on-write clone of current lines being edited
-(define (linectx-lines-copy ctx)
-  ;; (format #t "linectx-lines-copy~%")
+;; return a copy-on-write clone of current charlines being edited
+(define (linectx-lines-copy-on-write ctx)
+  ;; (format #t "linectx-lines-copy-on-write~%")
   ;; (dynamic-wind tty-restore! break tty-setraw!)
-  (charlines-copy-on-write (linectx-lines ctx)))
+  (charlines-copy-on-write (linectx-vscreen ctx)))
 
-;; save current linectx-lines to history, and return them
+;; save current linectx-vscreen to history, and return it
 (define (linectx-to-history ctx)
   ;; TODO: do not insert duplicates in history
-  (let ((lines (linectx-lines ctx)))
-    (charhistory-set! (linectx-history ctx) (linectx-history-index ctx) lines)
-    lines))
+  (let ((screen (linectx-vscreen ctx)))
+    (charhistory-set! (linectx-history ctx) (linectx-history-index ctx) screen)
+    screen))
 
 
-;; if current x position is at tty right border or exceeds it, move to next line
-(define (linectx-xy-wraparound ctx)
-  (let* ((x (linectx-x ctx))
-         (y (linectx-y ctx))
-         (prompt-len (if (fxzero? y) (linectx-prompt-length ctx) 0)))
-    ;; TODO: implement
-    #f))
-
-
-;; return absolute x y position corresponding to relative dx dy position,
+;; return absolute x y position corresponding to position dx dy relative to cursor,
 ;; clamping returned values to current charlines
 (define (linectx-dxdy->xy ctx dx dy)
   (let* ((x (fx+ dx (linectx-x ctx)))
      (y (fx+ dy (linectx-y ctx)))
-     (lines (linectx-lines ctx))
+     (lines (linectx-vscreen ctx))
      (last-y (fx1- (charlines-length lines))))
     (cond
      ((fx<? x 0)
@@ -100,35 +92,20 @@
     n))
 
 
-;; return index of first character before position = end in line that satisfies (pred ch).
-;; return -1 if no character before position = end in line satisfies (pred ch)
-(define (char-find-left line end pred)
-  (assert (fx<=? end (charline-length line)))
-  (do ((x (fx1- end) (fx1- x)))
-      ((or (fx<? x 0) (pred (charline-ref line x)))
-        x)))
-
-;; return index of first character at position = start or later in line that satisfies
-;; (pred ch). return (charline-length line) if no character at position = start or later in
-;; line satisfies (pred ch)
-(define (char-find-right line start pred)
-  (assert (fx>=? start 0))
-  (do ((x start (fx1+ x))
-       (len (charline-length line)))
-      ((or (fx>=? x len) (pred (charline-ref line x)))
-        x)))
 
 ;; return index of beginning of word at position < end in line
 (define (word-find-begin-left line end)
-  (let* ((pos1 (fx1+ (char-find-left line end  (lambda (ch) (char>? ch #\space)))))
-         (pos2 (fx1+ (char-find-left line pos1 (lambda (ch) (char<=? ch #\space))))))
-    pos2))
+  0)
+  ; (let* ((pos1 (fx1+ (char-find-left line end  (lambda (ch) (char>? ch #\space)))))
+  ;        (pos2 (fx1+ (char-find-left line pos1 (lambda (ch) (char<=? ch #\space))))))
+  ;  pos2))
 
 ;; return index of end of word at position >= start in line
 (define (word-find-end-right line start)
-  (let* ((pos1 (char-find-right line start  (lambda (ch) (char>? ch #\space))))
-         (pos2 (char-find-right line pos1 (lambda (ch) (char<=? ch #\space)))))
-    pos2))
+  0)
+  ; (let* ((pos1 (char-find-right line start  (lambda (ch) (char>? ch #\space))))
+  ;        (pos2 (char-find-right line pos1 (lambda (ch) (char<=? ch #\space)))))
+  ;  pos2))
 
 (define (lineedit-flush ctx)
   (let* ((wbuf (linectx-wbuf ctx))
@@ -158,86 +135,21 @@
   (lineedit-flush ctx))
 
 
-;; save current linectx-lines to history, then replace current lines with specified
+;; save current linectx-vscreen to history, then replace current lines with
+;; a copy-on-write  specified
 ;; charlines - which are retained, do NOT modify them after calling this function
 (define (lineedit-lines-set! ctx lines)
   (assert-charlines? 'lineedit-lines-set! lines)
   (linectx-to-history ctx)
-  (lineedit-clear! ctx) ; leaves a single, empty line in lines
-  (linectx-lines-changed ctx)
+  (lineedit-clear! ctx) ; leaves a single, empty line in vscreen
+  (linectx-vscreen-changed ctx)
   (when (charlines-empty? lines)
-    (set! lines (linectx-lines ctx)))
+    (set! lines (linectx-vscreen ctx)))
   (charlines-iterate lines
     (lambda (i line)
       (lineterm-write/cbuffer ctx line 0 (charline-length line))))
-  (let* ((lines-n-1 (fx1- (charlines-length lines)))
-         (line      (charlines-ref lines lines-n-1)))
-    (linectx-line-set!  ctx line)
-    (linectx-lines-set! ctx lines)
-    (linectx-x-set! ctx (charline-length line))
-    (linectx-y-set! ctx lines-n-1)))
-
-
-;; return number of excess characters of cursor position that overflow tty right border
-;; return <= 0 if no excess characters
-(define (linectx-cursor-excess ctx)
-  (let* ((x (linectx-x ctx))
-         (y (linectx-y ctx))
-         (prompt-len (if (fxzero? y) (linectx-prompt-length ctx) 0)))
-    (fx- (fx+ prompt-len x) (linectx-width ctx))))
-
-
-;; return number of excess characters of y-th line that overflow tty right border
-;; return <= 0 if no excess characters
-(define (linectx-line-excess ctx y)
-  (let* ((prompt-len (if (fxzero? y) (linectx-prompt-length ctx) 0))
-         (line-len (charline-length (linectx-line ctx))))
-    (fx- (fx+ prompt-len line-len) (linectx-width ctx))))
-
-
-;; move the last n characters of y-th line to next line,
-;; or to a new line if y-th line has nl? flag set.
-;;
-;; also move the cursor down if needed.
-(define (linectx-line-overflow! ctx y n)
-  (let* ((lines   (linectx-lines ctx))
-         (lines-n (charlines-length lines))
-         (y+1     (fx1+ y))
-         (src     (charlines-ref lines y))
-         (dst     (if (and (not (charline-nl? src)) (fx<? y+1 lines-n))
-                    (charlines-ref lines y+1)
-                    #f)))
-    (assert (fx<=? 0 n (charline-length src)))
-    ; create a new line if needed
-    (unless dst
-      (set! dst (charline))
-      (charlines-insert-at/cline! lines y+1 dst))
-    (do ((i 0 (fx1+ i))
-         (src-pos (fx1- (charline-length src)) (fx1- src-pos)))
-        ((or (fx>=? i n) (fx<? src-pos 0))
-         (set! n i))
-      (let ((ch (charline-ref src src-pos)))
-        (charline-erase-at! src src-pos 1)
-        (charline-insert-at! dst 0 ch)))
-    (when (fx=? y (linectx-y ctx))
-      (let ((excess (linectx-cursor-excess ctx)))
-        (when (fx>=? excess 0)
-          (linectx-y-set! ctx y+1)
-          (linectx-x-set! ctx excess)
-          (linectx-line-set! ctx dst) ; advance lines to next line.
-          (lineterm-write/u8 ctx 10) ; advance cursor to next line.
-          (lineterm-move-dx ctx n))))))
-
-
-;; move the last n characters of y-th input line to next line.
-;; if next line becomes full, move the overflowing characters to the following line,
-;; and so on until the last line
-(define (linectx-lines-overflow! ctx y n)
-  (linectx-line-overflow! ctx y n)
-  (let* ((y+1 (fx1+ y))
-         (excess (linectx-line-excess ctx y+1)))
-    (when (fx>? excess 0)
-      (linectx-lines-overflow! ctx y+1 excess))))
+  ; (linectx-lines-set! ctx lines)
+  (linectx-xy-set! ctx (greatest-fixnum) (greatest-fixnum)))
 
 
 ;; insert a single character into current line.
@@ -248,18 +160,9 @@
 ;; otherwise return #f
 ;; (in such case, caller must also invoke (lineterm-redraw-to-eol ctx 'dont-clear-line-right))
 ;;
-;; in all cases, caller must also invoke (linectx-lines-changed ctx)
+;; in all cases, caller must also invoke (linectx-vscreen-changed ctx)
 (define (%linectx-insert/char! ctx ch)
-  (let ((x (linectx-x ctx))
-        (y (linectx-y ctx)))
-    (charline-insert-at! (linectx-line ctx) x ch)
-    (bytespan-insert-back/utf8! (linectx-wbuf ctx) ch)
-    (linectx-x-set! ctx (fx1+ x))
-    (let* ((excess (linectx-line-excess ctx y))
-           (overflow? (fx>=? excess 0)))
-      (when overflow?
-        (linectx-lines-overflow! ctx y excess))
-      overflow?)))
+  (void))
 
 
 ;; consume n chars from charspan csp, starting at position = start
@@ -274,7 +177,7 @@
           ((fx>=? pos end))
         (when (%linectx-insert/char! ctx (charspan-ref csp pos))
           (set! overflow? #t)))
-      (linectx-lines-changed ctx)
+      (linectx-vscreen-changed ctx)
       (if overflow?
         (lineterm-redraw-to-eos ctx)
         (lineterm-redraw-to-eol ctx 'dont-clear-line-right)))))
@@ -309,7 +212,7 @@
       (if overflow?
         (lineterm-redraw-to-eos ctx)
         (lineterm-redraw-to-eol ctx 'dont-clear-line-right))
-      (linectx-lines-changed ctx))
+      (linectx-vscreen-changed ctx))
     (fx- pos beg))) ; return number of bytes actually consumed
 
 ;; consume up to n bytes from rbuf and insert them into current line.
@@ -323,42 +226,12 @@
 
 ;; move cursor left by 1
 (define (lineedit-key-left ctx)
-  (let ((x (linectx-x ctx))
-        (y (linectx-y ctx)))
-    (cond
-      ((fx>? x 0)
-        (linectx-x-set! ctx (fx1- x))
-        (lineterm-move-dx ctx -1))
-      ((fx>? y 0)
-        (let* ((y-1 (fx1- y))
-               (line (charlines-ref (linectx-lines ctx) y-1))
-               (line-len (charline-length line))
-               (x    (if (fx>? line-len 0) (fx1- line-len) 0)))
-          (linectx-line-set! ctx line)
-          (linectx-x-set!    ctx x)
-          (linectx-y-set!    ctx y-1)
-          (lineterm-move-dy ctx -1)
-          (lineterm-move-dx ctx (if (fxzero? y-1)
-                              (fx+ x (linectx-prompt-length ctx))
-                              x)))))))
+  (void))
 
 
 ;; move cursor right by 1
 (define (lineedit-key-right ctx)
-  (let ((x (linectx-x ctx))
-        (y (linectx-y ctx))
-        (line-len (charline-length (linectx-line ctx))))
-    (cond
-      ((fx<? x line-len)
-        (linectx-x-set! ctx (fx1+ x))
-        (lineterm-move-dx ctx 1))
-      ((fx<? y (fx1- (charlines-length (linectx-lines ctx))))
-        (let* ((y+1 (fx1+ y))
-               (line (charlines-ref (linectx-lines ctx) y+1)))
-          (linectx-line-set! ctx line)
-          (linectx-x-set! ctx 0)
-          (linectx-y-set! ctx y+1)
-          (lineterm-write/u8 ctx 10))))))
+  (void))
 
 
 (define (lineedit-key-up ctx)
@@ -370,47 +243,41 @@
   (lineedit-navigate-history ctx +1))
 
 (define (lineedit-key-word-left ctx)
-  (let* ((x   (linectx-x ctx))
-         (pos (word-find-begin-left (linectx-line ctx) x))
-         (dx  (fx- pos x)))
+  (let ((dx 0)) ; (word-find-begin-left ...)
     (when (fx<? dx 0)
-      (linectx-x-set! ctx pos)
+      ;(linectx-x-set! ctx pos)
       (lineterm-move-dx ctx dx))))
 
 (define (lineedit-key-word-right ctx)
-  (let* ((x    (linectx-x ctx))
-         (pos   (word-find-end-right (linectx-line ctx) x))
-         (move-n (fx- pos x)))
-    (when (fx>? move-n 0)
-      (linectx-x-set! ctx pos)
-      (lineterm-move-dx ctx move-n))))
+  (let* ((dx 0)) ; (word-find-end-right ...)
+    (when (fx>? dx 0)
+      ; (linectx-x-set! ctx pos)
+      (lineterm-move-dx ctx dx))))
 
 (define (lineedit-key-bol ctx)
   (let ((x (linectx-x ctx)))
     (when (fx>? x 0)
-      (linectx-x-set! ctx 0)
+      ;(linectx-x-set! ctx 0)
       ; do not use (lineterm-move-to-bol), there may be prompt at bol
       (lineterm-move-dx ctx (fx- x)))))
 
 (define (lineedit-key-eol ctx)
-  (let ((x    (linectx-x ctx))
-        (len  (charline-length (linectx-line ctx))))
-    (when (fx<? x len)
-      (linectx-x-set! ctx len)
-      (lineterm-move-dx ctx (fx- len x)))))
+  (let ((dx 0)) ; (charline-length ...)
+    (when (fx>? dx 0)
+      ;(linectx-x-set! ctx len)
+      (lineterm-move-dx ctx dx))))
 
 (define (lineedit-key-break ctx)
   (lineedit-clear! ctx))
 
 (define (lineedit-key-ctrl-d ctx)
-  (if (and (fx=? 0 (charline-length (linectx-line ctx)))
-           (fx=? 1 (charlines-length (linectx-lines ctx))))
+  (if (vscreen-empty? (linectx-vscreen ctx))
     (linectx-eof-set! ctx #t)
     (lineedit-key-del-right ctx)))
 
 (define (lineedit-key-transpose-char ctx)
   (let* ((x    (linectx-x ctx))
-         (line (linectx-line ctx))
+         (line #f) ; (linectx-line ctx))
          (len  (charline-length line)))
     (when (and (fx>? x 0) (fx>? len 1))
       (let ((eol (fx=? x len)))
@@ -424,42 +291,43 @@
         (bytespan-insert-back/utf8! wbuf ch1)
         (charline-set! line (fx1- x) ch2)
         (charline-set! line x ch1)
-        (linectx-lines-changed ctx)
-        (linectx-x-set! ctx (fx1+ x))))))
+        (linectx-vscreen-changed ctx)
+        ; (linectx-x-set! ctx (fx1+ x))
+        ))))
 
 (define (lineedit-key-del-left ctx)
   (when (fx>? (linectx-x ctx) 0)
     (lineedit-key-left ctx)
     (lineedit-key-del-right ctx)
-    (linectx-lines-changed ctx)))
+    (linectx-vscreen-changed ctx)))
 
 (define (lineedit-key-del-right ctx)
   ; FIXME reimplement
-  ; (charlines-erase-right! (linectx-lines ctx) (linectx-x ctx) (linectx-y ctx))
-  ; (linectx-lines-changed ctx)
+  ; (charlines-erase-right! (linectx-vscreen ctx) (linectx-x ctx) (linectx-y ctx))
+  ; (linectx-vscreen-changed ctx)
   ; (lineterm-del-right-n ctx 1))
   (void))
 
 (define (lineedit-key-del-word-left ctx)
   (let* ((x     (linectx-x ctx))
-         (line  (linectx-line ctx))
+         (line  #f) ; (linectx-line ctx))
          (pos   (word-find-begin-left line x))
          (del-n (fx- x pos)))
     (when (fx>? del-n 0)
       (charline-erase-at! line pos del-n)
-      (linectx-lines-changed ctx)
-      (linectx-x-set! ctx pos)
+      (linectx-vscreen-changed ctx)
+      ; (linectx-x-set! ctx pos)
       (lineterm-move-dx ctx (fx- del-n))
       (lineterm-del-right-n ctx del-n))))
 
 (define (lineedit-key-del-word-right ctx)
   (let* ((x     (linectx-x ctx))
-         (line  (linectx-line ctx))
+         (line  #f) ; (linectx-line ctx))
          (pos   (word-find-end-right line x))
          (del-n (fx- pos x)))
     (when (fx>? del-n 0)
       (charline-erase-at! line x del-n)
-      (linectx-lines-changed ctx)
+      (linectx-vscreen-changed ctx)
       (lineterm-del-right-n ctx del-n))))
 
 (define (lineedit-key-del-line ctx)
@@ -467,22 +335,22 @@
 
 (define (lineedit-key-del-line-left ctx)
   (let* ((x    (linectx-x ctx))
-         (line (linectx-line ctx))
+         (line #f) ; (linectx-line ctx))
          (len  (charline-length line)))
     (when (and (fx>? x 0) (fx>? len 0))
       (charline-erase-at! line 0 x)
-      (linectx-lines-changed ctx)
-      (linectx-x-set! ctx 0)
+      (linectx-vscreen-changed ctx)
+      ; (linectx-x-set! ctx 0)
       (lineterm-move-dx ctx (fx- x))
       (lineterm-redraw-to-eol ctx 'clear-line-right))))
 
 (define (lineedit-key-del-line-right ctx)
   (let* ((x    (linectx-x ctx))
-         (line (linectx-line ctx))
+         (line #f) ; (linectx-line ctx))
          (len  (charline-length line)))
     (when (fx<? x len)
       (charline-erase-at! line x (fx- len x))
-      (linectx-lines-changed ctx)
+      (linectx-vscreen-changed ctx)
       (lineterm-clear-to-eol ctx))))
 
 (define (lineedit-key-newline-left ctx)
@@ -496,16 +364,16 @@
 
 (define (lineedit-key-history-next ctx)
   (lineedit-navigate-history ctx +1)
-  (linectx-lines-changed ctx))
+  (linectx-vscreen-changed ctx))
 
 (define (lineedit-key-history-prev ctx)
   (lineedit-navigate-history ctx -1)
-  (linectx-lines-changed ctx))
+  (linectx-vscreen-changed ctx))
 
 (define (lineedit-key-redraw ctx)
   (lineterm-move-to-bol ctx)
   (lineterm-move-dy ctx (fx- (fx+ (linectx-y ctx) (linectx-prompt-end-y ctx))))
-  (linectx-lines-changed ctx)
+  (linectx-vscreen-changed ctx)
   (linectx-draw-if-needed ctx 'force))
 
 (define (lineedit-key-tab ctx)
@@ -522,7 +390,7 @@
                (len (fx- (charspan-length completion) stem-len)))
           (when (fx>? len 0)
             (linectx-insert/cspan! ctx completion stem-len len)
-            (linectx-lines-changed ctx)))))))
+            (linectx-vscreen-changed ctx)))))))
 
 (define (lineedit-key-toggle-insert ctx)
   ; (error 'toggle-insert "test error"))
@@ -539,20 +407,20 @@
         (hist (linectx-history ctx)))
     ; TODO: when delta-y < 0, move cursor to end of first line
     (when (fx<? -1 y (charhistory-length hist))
-      ; also saves a copy of current linectx-lines to history
+      ; also saves a copy of current linectx-vscreen to history
       (lineedit-lines-set! ctx (charhistory-cow-ref hist y))
       (linectx-history-index-set! ctx y))))
 
 
 
-;; append linectx-lines to history, and return them.
+;; append linectx-vscreen to history, and return them.
 ;; the returned charlines MUST NOT be modified, not even temporarily,
 ;; because linectx-history still references it.
 (define (linectx-return-lines ctx)
   (linectx-return-set! ctx #f) ; clear flag "user pressed ENTER"
   (linectx-redraw-set! ctx #t) ; set flag "redraw prompt and lines"
   (linectx-draw-parens ctx (linectx-parens ctx) 'plain) ; unhighlight parentheses
-  (lineterm-move-dy ctx (fx- (charlines-length (linectx-lines ctx))
+  (lineterm-move-dy ctx (fx- (charlines-length (linectx-vscreen ctx))
                          (linectx-y ctx))) ; move to last input line
   (lineterm-write/u8 ctx 10) ; advance to next line.
   (let* ((y (linectx-history-index ctx))
@@ -563,17 +431,13 @@
     (let* ((lines (linectx-to-history ctx))
            (empty-line (charline)))
       (linectx-history-index-set! ctx (charhistory-length hist))
-      ; lines are referenced by history - allocate new ones and store them into linectx-lines
-      (linectx-line-set! ctx empty-line)
-      (linectx-lines-set! ctx (charlines empty-line))
-      (linectx-lines-changed ctx)
-      (linectx-x-set! ctx 0)
-      (linectx-y-set! ctx 0)
+      ; lines are referenced by history - allocate new ones and store them into linectx-vscreen
+      (linectx-clear! ctx)
       lines)))
 
 ;; repeatedly call (linectx-keytable-call) until ENTER is found and processed,
 ;; or until no more keytable matches are found.
-;; if user pressed ENTER, return a reference to internal charlines (linectx-lines)
+;; if user pressed ENTER, return a reference to internal charlines (linectx-vscreen)
 ;; if waiting for more keypresses, return #t
 ;; if got end-of-file, return #f
 (define (linectx-keytable-iterate ctx)
@@ -590,11 +454,11 @@
 ;; if tty size changed, redraw
 (define (linectx-reflow ctx width height)
   ; TODO: reflow lines, update x and y
-  (unless (and (fx=? width (linectx-width ctx))
-               (fx=? height (linectx-height ctx)))
-    (linectx-width-set! ctx width)
-    (linectx-height-set! ctx height)
-    (lineedit-key-redraw ctx)))
+  (let ((screen (linectx-vscreen ctx)))
+    (unless (and (fx=? width (vscreen-width ctx))
+                 (fx=? height (vscreen-height ctx)))
+      (vscreen-width-height-set! ctx width height)
+      (lineedit-key-redraw ctx))))
 
 ;; react to SIGWINCH
 (define (linectx-consume-sigwinch ctx)
@@ -611,7 +475,7 @@
 
 ;; unconditionally draw lines
 (define (linectx-draw-lines ctx)
-  (let* ((lines (linectx-lines ctx))
+  (let* ((lines (linectx-vscreen ctx))
          (lines-n-1 (fx1- (charlines-length lines)))
          (nl? #f))
     (charlines-iterate lines
@@ -658,10 +522,10 @@
     (linectx-redraw-set! ctx #f)))
 
 
-;; if position x y is inside linectx-lines, redraw char at x y with specified style.
+;; if position x y is inside linectx-vscreen, redraw char at x y with specified style.
 ;; used to (un)highlight parentheses
 (define (linectx-draw-char-at ctx x y style)
-  (let* ((lines (linectx-lines ctx))
+  (let* ((lines (linectx-vscreen ctx))
          (line  (if (fx<? -1 y (charlines-length lines))
                   (charlines-ref lines y)
                   #f))
@@ -692,7 +556,7 @@
         (parenmatcher (linectx-parenmatcher ctx)))
     (when (and parsers parenmatcher)
       (let-values (((x y) (linectx-dxdy->xy ctx -1 0)))
-        (let* ((lines (linectx-lines ctx))
+        (let* ((lines (linectx-vscreen ctx))
                (line  (charlines-ref lines y)))
           ;; (format #t "(linectx-parens-find) x = ~s, y = ~s~%" x y)
           (when (and (fx<? -1 x (charline-length line))
@@ -819,7 +683,7 @@
 ;; Main entry point of lineedit library.
 ;; Reads user input from linectx-stdin and processes it.
 ;;
-;; if user pressed ENTER, return a reference to internal linectx-lines.
+;; if user pressed ENTER, return a reference to internal linectx-vscreen.
 ;; if waiting for more keypresses, return #t
 ;; if got end-of-file, return #f
 (define (lineedit-read ctx timeout-milliseconds)

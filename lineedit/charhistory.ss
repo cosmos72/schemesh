@@ -37,8 +37,8 @@
     (%make-charhistory 0 n vec)))
 
 (define (make-charhistory n)
-;; optimization: (charhistory-cow-ref) returns a copy-on-write clone of i-th
-; charline, thus we can reuse the same empty (charlines) for all elements
+  ;; optimization: (charhistory-cow-ref) returns a copy-on-write clone of i-th
+  ; charline, thus we can reuse the same empty (charlines) for all elements
   (%make-charhistory 0 n (make-vector n (charlines))))
 
 (define charhistory-empty? span-empty?)
