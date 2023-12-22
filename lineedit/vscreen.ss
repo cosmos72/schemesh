@@ -8,7 +8,7 @@
 (library (schemesh lineedit vscreen (0 1))
   (export
     vscreen  vscreen*  vscreen?  assert-vscreen?
-    vscreen-width        vscreen-height    vscreen-width-height-set!
+    vscreen-width        vscreen-height    vscreen-resize!
     vscreen-cursor-x     vscreen-cursor-y  vscreen-cursor-xy   vscreen-cursor-xy-set!
     vscreen-vcursor-xy   vscreen-vcursor-xy-set!
     vscreen-prompt-end-x vscreen-prompt-end-x-set! vscreen-end-y
@@ -84,19 +84,6 @@
 ;; return number of charlines in vscreen
 (define vscreen-end-y charlines-length)
 
-;; set vscreen width and height. Also reflows screen.
-(define (vscreen-width-height-set! screen width height)
-  (let* ((old-width (vscreen-width screen))
-         (reflow-func (cond ((fx<? width old-width) vscreen-overflow-at-y)
-                            ((fx>? width old-width) vscreen-underflow-at-y)
-                            (else #f))))
-    (vscreen-width-set! screen (fxmax 1 width))
-    (vscreen-height-set! screen (fxmax 1 height))
-    (when reflow-func
-      (let ((y 0))
-        (while (fx<? y (fx1- (vscreen-end-y screen)))
-          (set! y (fx1+ (reflow-func screen y))))))))
-
 
 ;; return vscreen width i.e. maximum charline length at specified y
 ;; it is equal (vscreen-width), except when y = 0 where prompt length must be subtracted
@@ -165,6 +152,40 @@
          (x     (fxmax 0 (fxmin xreal xmax))))
     (vscreen-cursor-y-set! screen y)
     (vscreen-cursor-x-set! screen x)))
+
+
+
+;; return total number of characters in vscreen before cursor,
+;; including characters in previous lines if cursor y > 0.
+(define (vscreen-cursor-count/left screen)
+  (let ((n     (vscreen-cursor-x screen))
+        (y     (vscreen-cursor-y screen))
+        (end-y (vscreen-end-y screen)))
+    (while (fx<? 0 y end-y)
+      (set! y (fx1- y))
+      (set! n (fx+ n (charline-length (charlines-ref screen y)))))
+    n))
+
+;; change vscreen width and height. Also reflows screen.
+;; moves cursor to preserve total # of characters before cursor.
+(define (vscreen-resize! screen width height)
+  (let ((width (fxmax 1 width))
+        (height (fxmax 1 height))
+        (old-width (vscreen-width screen))
+        (old-height (vscreen-height screen)))
+    (unless (and (fx=? width old-width) (fx=? height old-height))
+      (let ((reflow-func (if (fx<? width old-width)
+                            vscreen-overflow-at-y
+                            vscreen-underflow-at-y))
+            (n (vscreen-cursor-count/left screen))
+            (y 0))
+        (vscreen-width-set! screen width)
+        (vscreen-height-set! screen height)
+        (while (fx<? y (fx1- (vscreen-end-y screen)))
+          (set! y (fx1+ (reflow-func screen y))))
+        (vscreen-cursor-xy-set! screen 0 0)
+        (vscreen-cursor-move/right! screen n)))))
+
 
 
 ;; remove all lines from screen, and set cursor to 0 0

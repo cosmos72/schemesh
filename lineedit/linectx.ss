@@ -212,18 +212,13 @@
 (define (linectx-vscreen-changed ctx)
   (parenmatcher-clear! (linectx-parenmatcher ctx)))
 
-;; return a copy-on-write clone of current vscreen being edited
-(define (linectx-vscreen-copy ctx)
-  ;; (format #t "linectx-vscreen-copy~%")
-  ;; (dynamic-wind tty-restore! break tty-setraw!)
-  (charlines-copy-on-write (linectx-vscreen ctx)))
-
-;; save current linectx-vscreen to history, and return it
+;; save to history a copy-on-write clone of charlines in linectx-vscreen,
+;; and return such clone
 (define (linectx-to-history ctx)
   ;; TODO: do not insert duplicates in history
-  (let ((screen (linectx-vscreen ctx)))
-    (charhistory-set! (linectx-history ctx) (linectx-history-index ctx) screen)
-    screen))
+  (let ((lines (charlines-copy-on-write (linectx-vscreen ctx))))
+    (charhistory-set! (linectx-history ctx) (linectx-history-index ctx) lines)
+    lines))
 
 ;; return a copy-on-write clone of current charlines being edited
 (define (linectx-lines-copy-on-write ctx)

@@ -426,6 +426,16 @@ static const struct {
     {"(let ((screen (vscreen* 8 30 \"abcdefgh\" \"012\\n\")))\n"
      "  (values->list (vscreen-find-at-xy/right screen 4 0 (lambda (ch) (char=? ch #\\newline)))))",
      "(3 1 7)"},
+    {"(let ((screen (vscreen* 8 30 \"abcdefgh\" \"012\\n\" \"qwerty\")))\n"
+     "  (vscreen-cursor-xy-set! screen 3 1)\n" /* move the cursor to the char '\n' */
+     "  (vscreen-resize! screen 5 30)\n"
+     "  (list (vscreen-cursor-x screen) (vscreen-cursor-y screen) screen))",
+     "(1 2 (vscreen* 5 30 \"abcde\" \"fgh01\" \"2\\n\" \"qwerty\"))"},
+    {"(let ((screen (vscreen* 8 30 \"abcdefgh\" \"012\\n\" \"qwerty\")))\n"
+     "  (vscreen-cursor-xy-set! screen 3 1)\n" /* move the cursor to the char '\n' */
+     "  (vscreen-resize! screen 9 30)\n"
+     "  (list (vscreen-cursor-x screen) (vscreen-cursor-y screen) screen))",
+     "(2 1 (vscreen* 9 30 \"abcdefgh0\" \"12\\n\" \"qwerty\"))"},
     /* --------------------- list ------------------------------------------- */
     {"(let ((ret '()))\n"
      "  (list-iterate '(a b c)\n"

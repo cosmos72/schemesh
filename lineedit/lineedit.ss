@@ -281,33 +281,21 @@
       (linectx-vscreen-changed ctx))))
 
 (define (lineedit-key-del-line ctx)
-  (void))
+  (void)) ;; TODO: implement
 
 (define (lineedit-key-del-line-left ctx)
-  (let* ((x    (linectx-x ctx))
-         (line #f) ; (linectx-line ctx))
-         (len  (charline-length line)))
-    (when (and (fx>? x 0) (fx>? len 0))
-      (charline-erase-at! line 0 x)
-      (linectx-vscreen-changed ctx)
-      ; (linectx-x-set! ctx 0)
-      (lineterm-move-dx ctx (fx- x))
-      (lineterm-redraw-to-eol ctx 'clear-line-right))))
+  (vscreen-erase-left/line! (linectx-vscreen ctx)
+  (linectx-vscreen-changed ctx)))
 
 (define (lineedit-key-del-line-right ctx)
-  (let* ((x    (linectx-x ctx))
-         (line #f) ; (linectx-line ctx))
-         (len  (charline-length line)))
-    (when (fx<? x len)
-      (charline-erase-at! line x (fx- len x))
-      (linectx-vscreen-changed ctx)
-      (lineterm-clear-to-eol ctx))))
+  (vscreen-erase-right/line! (linectx-vscreen ctx)
+  (linectx-vscreen-changed ctx)))
 
 (define (lineedit-key-newline-left ctx)
-  (void))
+  (void)) ;; TODO: implement
 
 (define (lineedit-key-newline-right ctx)
-  (void))
+  (void)) ;; TODO: implement
 
 (define (lineedit-key-enter ctx)
   (linectx-return-set! ctx #t))
@@ -321,10 +309,8 @@
   (linectx-vscreen-changed ctx))
 
 (define (lineedit-key-redraw ctx)
-  (lineterm-move-to-bol ctx)
-  (lineterm-move-dy ctx (fx- (fx+ (linectx-y ctx) (linectx-prompt-end-y ctx))))
-  (linectx-vscreen-changed ctx)
-  (linectx-draw-if-needed ctx 'force))
+  (let ((screen (linectx-vscreen ctx)))
+    (charlines-dirty-y-add! screen 0 (charlines-length screen))))
 
 (define (lineedit-key-tab ctx)
   (let ((completions (linectx-completions ctx))
@@ -363,9 +349,8 @@
 
 
 
-;; append linectx-vscreen to history, and return them.
-;; the returned charlines MUST NOT be modified, not even temporarily,
-;; because linectx-history still references it.
+;; append a copy-on-write clone of linectx-vscreen to history, and return such clone
+;; which must NOT be modified - not even temporarily - because history references it
 (define (linectx-return-lines ctx)
   (linectx-return-set! ctx #f) ; clear flag "user pressed ENTER"
   (linectx-redraw-set! ctx #t) ; set flag "redraw prompt and lines"
@@ -378,11 +363,9 @@
          (hist-len (charhistory-length hist)))
     ; always overwrite last history slot
     (linectx-history-index-set! ctx (fxmax 0 y (fx1- hist-len)))
-    (let* ((lines (linectx-to-history ctx))
-           (empty-line (charline)))
+    (let ((lines (linectx-to-history ctx)))
       (linectx-history-index-set! ctx (charhistory-length hist))
-      ; lines are referenced by history - allocate new ones and store them into linectx-vscreen
-      (linectx-clear! ctx)
+      (linectx-clear! ctx) ;; clear vscreen
       lines)))
 
 ;; repeatedly call (linectx-keytable-call) until ENTER is found and processed,
@@ -401,21 +384,21 @@
     ((linectx-eof?    ctx) #f)
     (#t                    #t)))
 
-;; if tty size changed, redraw
-(define (linectx-reflow ctx width height)
-  ; TODO: reflow lines, update x and y
+;; if tty size changed, resize and reflow vscreen
+(define (linectx-resize ctx width height)
   (let ((screen (linectx-vscreen ctx)))
-    (unless (and (fx=? width (vscreen-width ctx))
-                 (fx=? height (vscreen-height ctx)))
-      (vscreen-width-height-set! ctx width height)
-      (lineedit-key-redraw ctx))))
+    (vscreen-resize! screen width height)))
 
 ;; react to SIGWINCH
 (define (linectx-consume-sigwinch ctx)
   (when (signal-consume-sigwinch)
     (let ((sz (tty-size)))
       (when (pair? sz)
-        (linectx-reflow ctx (car sz) (cdr sz))))))
+        (linectx-resize ctx (car sz) (cdr sz))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;         TO DO: REFACTOR ALL CODE BELOW THIS POINT      ;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; unconditionally draw prompt
 (define (linectx-draw-prompt ctx)
