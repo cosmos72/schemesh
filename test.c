@@ -420,6 +420,12 @@ static const struct {
      "  (vscreen-insert-at-xy/cspan! screen 4 0 (string->charspan* \"uwxyz\") 0 5)\n"
      "  screen)",
      "(vscreen* 8 30 \"abcduwxy\" \"zefgh012\" \"\\n\")"},
+    {"(let ((screen (vscreen* 8 30 \"abcdefgh\" \"012\\n\")))\n"
+     "  (values->list (vscreen-find-at-xy/left screen 4 1 (lambda (ch) (char=? ch #\\d)))))",
+     "(3 0 9)"},
+    {"(let ((screen (vscreen* 8 30 \"abcdefgh\" \"012\\n\")))\n"
+     "  (values->list (vscreen-find-at-xy/right screen 4 0 (lambda (ch) (char=? ch #\\newline)))))",
+     "(3 1 7)"},
     /* --------------------- list ------------------------------------------- */
     {"(let ((ret '()))\n"
      "  (list-iterate '(a b c)\n"
