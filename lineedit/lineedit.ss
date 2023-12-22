@@ -38,37 +38,24 @@
     (schemesh posix tty)
     (only (schemesh posix signal) signal-consume-sigwinch))
 
-;; return a copy-on-write clone of current charlines being edited
-(define (linectx-lines-copy-on-write ctx)
-  ;; (format #t "linectx-lines-copy-on-write~%")
-  ;; (dynamic-wind tty-restore! break tty-setraw!)
-  (charlines-copy-on-write (linectx-vscreen ctx)))
-
-;; save current linectx-vscreen to history, and return it
-(define (linectx-to-history ctx)
-  ;; TODO: do not insert duplicates in history
-  (let ((screen (linectx-vscreen ctx)))
-    (charhistory-set! (linectx-history ctx) (linectx-history-index ctx) screen)
-    screen))
-
 
 ;; return absolute x y position corresponding to position dx dy relative to cursor,
 ;; clamping returned values to current charlines
 (define (linectx-dxdy->xy ctx dx dy)
   (let* ((x (fx+ dx (linectx-x ctx)))
-     (y (fx+ dy (linectx-y ctx)))
-     (lines (linectx-vscreen ctx))
-     (last-y (fx1- (charlines-length lines))))
+         (y (fx+ dy (linectx-y ctx)))
+         (lines (linectx-vscreen ctx))
+         (last-y (fx1- (charlines-length lines))))
     (cond
      ((fx<? x 0)
-      ;; move to previous line
-      (set! x (greatest-fixnum))
-      (set! y (fx1- y)))
+       ;; move to previous line
+       (set! x (greatest-fixnum))
+       (set! y (fx1- y)))
      ((and (fx<? -1 y last-y)
-       (fx>? x (charline-length (charlines-ref lines y))))
-      ;; move to next line
-      (set! x 0)
-      (set! y (fx1+ y))))
+           (fx>? x (charline-length (charlines-ref lines y))))
+       ;; move to next line
+       (set! x 0)
+       (set! y (fx1+ y))))
     (set! y (fxmax 0 (fxmin y last-y)))
     (set! x (fxmax 0 (fxmin x (charline-length (charlines-ref lines y)))))
     (values x y)))
@@ -122,11 +109,7 @@
         (bytespan-clear! wbuf)))))
 
 (define (lineedit-clear! ctx)
-  (let ((x  (linectx-x ctx))
-        (y  (linectx-y ctx)))
-    (linectx-clear! ctx)
-    (linectx-move-from ctx x y)
-    (lineterm-clear-to-eos ctx))) ; erase all lines, preserving prompt
+  (linectx-clear! ctx))
 
 
 ;; write #\newline before returning from (repl)
@@ -255,20 +238,13 @@
       (lineterm-move-dx ctx dx))))
 
 (define (lineedit-key-bol ctx)
-  (let ((x (linectx-x ctx)))
-    (when (fx>? x 0)
-      ;(linectx-x-set! ctx 0)
-      ; do not use (lineterm-move-to-bol), there may be prompt at bol
-      (lineterm-move-dx ctx (fx- x)))))
+  (linectx-xy-set! ctx 0 (linectx-y ctx)))
 
 (define (lineedit-key-eol ctx)
-  (let ((dx 0)) ; (charline-length ...)
-    (when (fx>? dx 0)
-      ;(linectx-x-set! ctx len)
-      (lineterm-move-dx ctx dx))))
+  (linectx-xy-set! ctx (greatest-fixnum) (linectx-y ctx)))
 
 (define (lineedit-key-break ctx)
-  (lineedit-clear! ctx))
+  (linectx-clear! ctx))
 
 (define (lineedit-key-ctrl-d ctx)
   (if (vscreen-empty? (linectx-vscreen ctx))

@@ -16,6 +16,7 @@
     vscreen-cursor-move/left! vscreen-cursor-move/right!  vscreen-cursor-move/up! vscreen-cursor-move/down!
     vscreen-erase-left/n!    vscreen-erase-right/n!       vscreen-erase-at-xy!
     vscreen-erase-left/line! vscreen-erase-right/line!
+    vscreen-find-at-xy/left  vscreen-find-at-xy/right
     vscreen-insert-at-xy/ch! vscreen-insert-at-xy/newline! vscreen-insert-at-xy/cspan!
     vscreen-insert/ch!       vscreen-insert/cspan!
     write-vscreen)
@@ -84,8 +85,16 @@
 ;; set vscreen width and height.
 ;; TODO: reflow screen!
 (define (vscreen-width-height-set! screen width height)
-  (vscreen-width-set! screen (fxmax 1 width))
-  (vscreen-height-set! screen (fxmax 1 height)))
+  (let* ((old-width (vscreen-width screen))
+         (reflow-func (cond ((fx<? width old-width) vscreen-overflow-at-y)
+                            ((fx>? width old-width) vscreen-underflow-at-y)
+                            (else #f))))
+    (vscreen-width-set! screen (fxmax 1 width))
+    (vscreen-height-set! screen (fxmax 1 height))
+    (when reflow-func
+      (let ((y 0))
+        (while (fx<? y (fx1- (charlines-length screen)))
+          (set! y (fx1+ (reflow-func screen y))))))))
 
 
 ;; return vscreen width i.e. maximum charline length at specified y
@@ -171,8 +180,8 @@
 ;; move vscreen cursor n characters to the left.
 ;; Each time the beginning of a line is reached, moving further left
 ;;   means moving to the end of previous line.
-;; Every implicit newline counts as a character.
-;; Return number of characters skipped/moved, including implicit newlines.
+;; Every newline counts as a character.
+;; Return number of characters skipped/moved, including newlines.
 (define (vscreen-cursor-move/left! screen n)
   (let ((x (vscreen-cursor-x screen))
         (y (vscreen-cursor-y screen))
@@ -194,8 +203,8 @@
 ;; move vscreen cursor n characters to the right.
 ;; Each time the end of a line is reached, moving further right
 ;;   means moving to the beginning of next line.
-;; Every implicit newline counts as a character.
-;; Return number of characters skipped/moved, including implicit newlines.
+;; Every newline counts as a character.
+;; Return number of characters skipped/moved, including newlines.
 (define (vscreen-cursor-move/right! screen n)
   (let* ((x (vscreen-cursor-x screen))
          (y (vscreen-cursor-y screen))
@@ -237,8 +246,9 @@
 
 
 ;; append characters to vscreen line at y removing them from the beginning of line at y+1
-;; and repeat with lines *without* an implicit newline at y+2... until line is refilled
-;; up to vscreen width.
+;; and repeat with subsequent lines *without* a newline at y+2...
+;; until line is refilled up to vscreen width.
+;; stops when a modified line has a newline or has length = vscreen width.
 ;; return y of last modified line.
 (define (vscreen-underflow-at-y screen y)
   (let ((line1 (vscreen-line-at-y screen y)))
@@ -264,7 +274,7 @@
 
 
 ;; erase n characters of vscreen starting from specified x and y and moving rightward.
-;; if the implicit newline of a charline is erased, the following line(s)
+;; if the newline of a charline is erased, the following line(s)
 ;; are merged into the current charline and reflowed according to vscreen width
 (define (vscreen-erase-at-xy! screen x y n)
   (when (fx>? n 0)
@@ -372,47 +382,58 @@
       (vscreen-erase-right/until-nl! screen))))
 
 
-;; return number of characters to move left in vscreen starting at position x0 y0
-;; before finding a character that satisfies (pred ch).
-;; return #f if no character before position x0 y0 satisfies (pred ch).
-;; Note: never returns 0, because position x0 y0 is *not* examined.
+;; return three values:
+;; position x y of rightmost character that is at position < x0 y0 and satisfies (pred ch),
+;; and number of characters between x y and x0 y0.
+;; return #f #f #f if no character before position x0 y0 satisfies (pred ch).
+;; Note: never returns x0 y0 0, because position x0 y0 is *not* examined.
 (define (vscreen-find-at-xy/left screen x0 y0 pred)
   (let ((found? #f)
+        (xret (fx1- x0))
         (count 1))
     (do ((y (fxmin y0 (fx1- (charlines-length screen))) (fx1- y)))
-        ((or (found? (fx<? y 0))) (if found? count #f))
+        ((or (found? (fx<? y 0)))
+          (if found? (values xret y count) (values #f #f #f)))
       (let ((line (charlines-ref screen y)))
         (do ((x (fx1- (fxmin x0 (charline-length line))) (fx1- x)))
             ((or found? (fx<? x 0)))
           (if (pred (charline-ref line x))
-            (set! found? #t)
+            (begin
+              (set! found? #t)
+              (set! xret x))
             (set! count (fx1+ count))))
         (set! x0 (greatest-fixnum))))))
 
 
-;; return number of characters to move right in vscreen starting at position x0 y0
-;; before finding a character that satisfies (pred ch).
-;; return #f if no character after position x0 y0 satisfies (pred ch).
-;; Note: may also return 0, because position x0 y0 is examined.
+;; return three values:
+;; position x y of leftmost character that is at position >= x0 y0 and satisfies (pred ch),
+;; and number of characters between x y and x0 y0.
+;; return #f #f #f if no character at position x0 y0 or right of it satisfies (pred ch).
+;; Note: may also return x0 y0 0, because position x0 y0 is examined.
 (define (vscreen-find-at-xy/right screen x0 y0 pred)
   (let ((found? #f)
-        (count 0)
-        (yn (charlines-length screen)))
+        (xret x0)
+        (yn (charlines-length screen))
+        (count 0))
     (do ((y (fxmax y0 0) (fx1+ y)))
-        ((or (found? (fx>=? y yn))) (if found? count #f))
+        ((or (found? (fx>=? y yn)))
+           (if found? (values xret y count) (values #f #f #f)))
       (let* ((line (charlines-ref screen y))
              (xn   (charline-length line)))
         (do ((x (fxmax x0 0) (fx1+ x)))
             ((or found? (fx>=? x xn)))
           (if (pred (charline-ref line x))
-            (set! found? #t)
+            (begin
+              (set! found? #t)
+              (set! xret x))
             (set! count (fx1+ count))))
         (set! x0 0)))))
 
 
 ;; move characters from end of vscreen line at y to the beginning of line at y+1
-;; and repeat with lines *without* an implicit newline at y+2...
+;; and repeat on subsequent lines *without* a newline at y+2...
 ;; until lengths of modified lines are all <= vscreen width.
+;; stops when a modified line has length <= vscreen width.
 ;; return y of last modified line.
 (define (vscreen-overflow-at-y screen y)
   ; (format #t "before overflow at ~s: ~s~%" y screen)

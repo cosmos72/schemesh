@@ -19,6 +19,7 @@
     linectx-parser-name linectx-parser-name-set!
     linectx-parsers   linectx-parsers-set!
     linectx-history linectx-history-index linectx-history-index-set!
+    linectx-to-history linectx-lines-copy-on-write
     linectx-clear! linectx-vscreen-changed
     linectx-eof? linectx-eof-set! linectx-redraw? linectx-redraw-set! linectx-return? linectx-return-set!
     linectx-default-keytable linectx-keytable-set! linectx-keytable-find)
@@ -43,8 +44,8 @@
 (define-record-type
   (linectx %make-linectx linectx?)
   (fields
-    (mutable rbuf)    ; bytespan, buffer for (fd-read)
-    (mutable wbuf)    ; bytespan, buffer for (fd-write)
+    (mutable rbuf)    ; bytespan, buffer for stdin
+    (mutable wbuf)    ; bytespan, buffer for stdout
     (mutable vscreen) ; vscreen, input being edited
     (mutable stdin)   ; input file descriptor, or binary input port
     (mutable stdout)  ; output file descriptor, or binary output port
@@ -215,6 +216,12 @@
   (let ((screen (linectx-vscreen ctx)))
     (charhistory-set! (linectx-history ctx) (linectx-history-index ctx) screen)
     screen))
+
+;; return a copy-on-write clone of current charlines being edited
+(define (linectx-lines-copy-on-write ctx)
+  ;; (format #t "linectx-lines-copy-on-write~%")
+  ;; (dynamic-wind tty-restore! break tty-setraw!)
+  (charlines-copy-on-write (linectx-vscreen ctx)))
 
 
 (define (linectx-keytable-set! keytable proc . keysequences)
