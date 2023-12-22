@@ -8,8 +8,8 @@
 (library (schemesh lineedit linectx (0 1))
   (export
     make-linectx make-linectx* linectx? linectx-rbuf linectx-wbuf
-    linectx-vscreen     linectx-x     linectx-y      linectx-xy-set!
-    linectx-width
+    linectx-vscreen   linectx-x     linectx-y   linectx-xy   linectx-xy-set!
+    linectx-width     linectx-end-y
     linectx-stdin linectx-stdin-set! linectx-stdout linectx-stdout-set!
     linectx-prompt-end-x linectx-prompt-end-x-set! linectx-prompt-end-y linectx-prompt-end-y-set!
     linectx-prompt linectx-prompt-length linectx-prompt-length-set! linectx-prompt-func
@@ -104,13 +104,21 @@
 (define (linectx-redraw-set! ctx flag?)
   (linectx-flag-set! ctx flag-redraw? flag?))
 
+;; return number of charlines
+(define (linectx-end-y ctx)
+  (vscreen-end-y (linectx-vscreen ctx)))
+
 ;; return cursor x position
 (define (linectx-x ctx)
   (vscreen-cursor-x (linectx-vscreen ctx)))
 
-;; return cursor x position
+;; return cursor y position
 (define (linectx-y ctx)
   (vscreen-cursor-y (linectx-vscreen ctx)))
+
+;; return two values: cursor x and y position
+(define (linectx-xy ctx)
+  (vscreen-cursor-xy (linectx-vscreen ctx)))
 
 ;; set cursor x and y position
 (define (linectx-xy-set! ctx x y)

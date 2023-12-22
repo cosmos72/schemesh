@@ -8,11 +8,11 @@
 (library (schemesh lineedit vscreen (0 1))
   (export
     vscreen  vscreen*  vscreen?  assert-vscreen?
-    vscreen-width         vscreen-height      vscreen-width-height-set!
-    vscreen-cursor-x      vscreen-cursor-y    vscreen-cursor-xy-set!
-    vscreen-vcursor-xy    vscreen-vcursor-xy-set!
-    vscreen-prompt-end-x  vscreen-prompt-end-x-set!
-    vscreen-clear!        vscreen-empty?
+    vscreen-width        vscreen-height    vscreen-width-height-set!
+    vscreen-cursor-x     vscreen-cursor-y  vscreen-cursor-xy   vscreen-cursor-xy-set!
+    vscreen-vcursor-xy   vscreen-vcursor-xy-set!
+    vscreen-prompt-end-x vscreen-prompt-end-x-set! vscreen-end-y
+    vscreen-clear!       vscreen-empty?
     vscreen-cursor-move/left! vscreen-cursor-move/right!  vscreen-cursor-move/up! vscreen-cursor-move/down!
     vscreen-erase-left/n!    vscreen-erase-right/n!       vscreen-erase-at-xy!
     vscreen-erase-left/line! vscreen-erase-right/line!
@@ -81,9 +81,10 @@
         (span-set! sp i (string->charline* elem))))
     (%make-vscreen (span) sp (greatest-fixnum) 0 0 0 width height 0)))
 
+;; return number of charlines in vscreen
+(define vscreen-end-y charlines-length)
 
-;; set vscreen width and height.
-;; TODO: reflow screen!
+;; set vscreen width and height. Also reflows screen.
 (define (vscreen-width-height-set! screen width height)
   (let* ((old-width (vscreen-width screen))
          (reflow-func (cond ((fx<? width old-width) vscreen-overflow-at-y)
@@ -93,7 +94,7 @@
     (vscreen-height-set! screen (fxmax 1 height))
     (when reflow-func
       (let ((y 0))
-        (while (fx<? y (fx1- (charlines-length screen)))
+        (while (fx<? y (fx1- (vscreen-end-y screen)))
           (set! y (fx1+ (reflow-func screen y))))))))
 
 
@@ -106,21 +107,26 @@
 
 ;; return vscreen line at specified y, or #f if y is out of range
 (define (vscreen-line-at-y screen y)
-  (if (fx<? -1 y (charlines-length screen))
+  (if (fx<? -1 y (vscreen-end-y screen))
     (charlines-ref screen y)
     #f))
 
 ;; return charline length at specified y, or 0 if y is out of range.
 (define (vscreen-length-at-y screen y)
-  (if (fx<? -1 y (charlines-length screen))
+  (if (fx<? -1 y (vscreen-end-y screen))
     (charline-length (charlines-ref screen y))
     0))
+
+;; return tow values: cursor x and y position
+(define (vscreen-cursor-xy screen)
+  (values (vscreen-cursor-x screen) (vscreen-cursor-y screen)))
+
 
 ;; set cursor x and y position. notes:
 ;; * x and y values will be clamped to existing charlines and their lengths
 ;; * x can also be set to immediately after the end of *last* charline
 (define (vscreen-cursor-xy-set! screen x y)
-  (let* ((ymax  (fx1- (charlines-length screen)))
+  (let* ((ymax  (fx1- (vscreen-end-y screen)))
          (y     (fxmax 0 (fxmin y ymax)))
          ;; allow positioning cursor after end of line only for *last* charline
          (xmax  (fx- (vscreen-length-at-y screen y)
@@ -149,7 +155,7 @@
 ;; with the following difference:
 ;; * if clamped y is 0, vscreen-prompt-end-x will be subtracted from x
 (define (vscreen-vcursor-xy-set! screen x y)
-  (let* ((ymax  (fx1- (charlines-length screen)))
+  (let* ((ymax  (fx1- (vscreen-end-y screen)))
          (y     (fxmax 0 (fxmin y ymax)))
          ;; allow positioning cursor after end of line only for *last* charline
          (xmax  (fx- (vscreen-length-at-y screen y)
@@ -171,7 +177,7 @@
 
 ;; return #t if vscreen is empty i.e. it contains at most a single charline having zero length
 (define (vscreen-empty? screen)
-  (case (charlines-length screen)
+  (case (vscreen-end-y screen)
     ((0) #t)
     ((1) (fxzero? (charline-length (charlines-ref screen 0))))
     (else #f)))
@@ -208,7 +214,7 @@
 (define (vscreen-cursor-move/right! screen n)
   (let* ((x (vscreen-cursor-x screen))
          (y (vscreen-cursor-y screen))
-         (ymax (fx1- (charlines-length screen)))
+         (ymax (fx1- (vscreen-end-y screen)))
          (xmax (fx1- (vscreen-length-at-y screen ymax)))
          (saved-n n))
     (assert (fx>=? ymax 0))
@@ -255,7 +261,7 @@
     (if (and line1 (not (charline-nl? line1)))
       (let ((n (fx- (vscreen-width-at-y screen y) (charline-length line1)))
             (y+1 (fx1+ y)))
-        (while (and (fx>? n 0) (fx<? y+1 (charlines-length screen)))
+        (while (and (fx>? n 0) (fx<? y+1 (vscreen-end-y screen)))
           (let* ((line2 (charlines-ref screen y+1))
                  (line2-nl? (charline-nl? line2))
                  (i     (fxmin n (charline-length line2))))
@@ -275,34 +281,39 @@
 
 ;; erase n characters of vscreen starting from specified x and y and moving rightward.
 ;; if the newline of a charline is erased, the following line(s)
-;; are merged into the current charline and reflowed according to vscreen width
+;; are merged into the current charline and reflowed according to vscreen width.
+;; return number of characters actually erased.
 (define (vscreen-erase-at-xy! screen x y n)
-  (when (fx>? n 0)
-    (let ((saved-y y))
-      (while (and (fx>? n 0) (fx<? -1 y (charlines-length screen)))
-        (let* ((line (charlines-ref screen y))
-               (len  (charline-length line))
-               (i    (fxmin n (fx- len x))))
-          (when (fx>? i 0)
-            ;; erase i characters
-            (charline-erase-at! line x i)
-            (set! n (fx- n i))
-            (set! len (fx- len i)))
-          (when (fx>=? x len)
-            ;; erased until the end of line, continue with next line
-            (if (fxzero? len)
-              ;; line is now empty, remove it
-              (charlines-erase-at/cline! screen y)
-              ;; line is not empty, move to next line
-              (begin
-                (set! x 0)
-                (set! y (fx1+ y)))))))
-      (vscreen-underflow-at-y screen saved-y))))
+  (let ((saved-n n))
+    (when (fx>? n 0)
+      (let ((saved-y y))
+        (while (and (fx>? n 0) (fx<? -1 y (vscreen-end-y screen)))
+          (let* ((line (charlines-ref screen y))
+                 (len  (charline-length line))
+                 (i    (fxmin n (fx- len x))))
+            (when (fx>? i 0)
+              ;; erase i characters
+              (charline-erase-at! line x i)
+              (set! n (fx- n i))
+              (set! len (fx- len i)))
+            (when (fx>=? x len)
+              ;; erased until the end of line, continue with next line
+              (if (fxzero? len)
+                ;; line is now empty, remove it
+                (charlines-erase-at/cline! screen y)
+                ;; line is not empty, move to next line
+                (begin
+                  (set! x 0)
+                  (set! y (fx1+ y)))))))
+        (unless (fx=? saved-n n)
+          (vscreen-underflow-at-y screen saved-y))))
+    (fx- saved-n n)))
 
 
 ;; erase n characters from vscreen, starting 1 char left of cursor and moving leftward.
 ;; if the newline of a charline is erased, the following line(s)
-;; are merged into the current charline and reflowed according to vscreen width
+;; are merged into the current charline and reflowed according to vscreen width.
+;; return number of characters actually erased.
 (define (vscreen-erase-left/n! screen n)
   (let ((n (vscreen-cursor-move/left! screen n)))
     (vscreen-erase-at-xy! screen (vscreen-cursor-x screen) (vscreen-cursor-y screen) n)))
@@ -310,7 +321,8 @@
 
 ;; erase n characters from vscreen, starting at cursor and moving rightward.
 ;; if the newline of a charline is erased, the following line(s)
-;; are merged into the current charline and reflowed according to vscreen width
+;; are merged into the current charline and reflowed according to vscreen width.
+;; return number of characters actually erased.
 (define (vscreen-erase-right/n! screen n)
   (vscreen-erase-at-xy! screen (vscreen-cursor-x screen) (vscreen-cursor-y screen) n))
 
@@ -392,7 +404,7 @@
         (xret (fx1- x0))
         (yret y0)
         (count 1))
-    (do ((y (fxmin y0 (fx1- (charlines-length screen))) (fx1- y)))
+    (do ((y (fxmin y0 (fx1- (vscreen-end-y screen))) (fx1- y)))
         ((or found? (fx<? y 0))
           (if found? (values xret yret count) (values #f #f #f)))
       (let ((line (charlines-ref screen y)))
@@ -416,7 +428,7 @@
   (let ((found? #f)
         (xret x0)
         (yret y0)
-        (yn (charlines-length screen))
+        (yn (vscreen-end-y screen))
         (count 0))
     (do ((y (fxmax y0 0) (fx1+ y)))
         ((or found? (fx>=? y yn))
@@ -443,14 +455,14 @@
   ; (format #t "before overflow at ~s: ~s~%" y screen)
   (let ((line1 (vscreen-line-at-y screen y)))
     (when line1
-      (while (and (fx<? y (charlines-length screen))
+      (while (and (fx<? y (vscreen-end-y screen))
                   (fx>? (charline-length line1) (vscreen-width-at-y screen y)))
         (let* ((line1-nl?  (charline-nl? line1))
                (line1-len  (charline-length line1))
                (n          (fx- line1-len (vscreen-width-at-y screen y)))
                (line1-pos  (fx- line1-len n))
                (y+1        (fx1+ y))
-               (line2-new? (or line1-nl? (fx=? y+1 (charlines-length screen))))
+               (line2-new? (or line1-nl? (fx=? y+1 (vscreen-end-y screen))))
                (line2      (if line2-new?
                              (charline)
                              (charlines-ref screen y+1)))
@@ -475,7 +487,7 @@
 (define (vscreen-insert-at-xy/before! screen x y)
   (when (charlines-empty? screen) ;; should not happen
     (charlines-insert-at/cline! screen 0 (charline)))
-  (let* ((ylen (charlines-length screen))
+  (let* ((ylen (vscreen-end-y screen))
          (y    (fxmax 0 (fxmin y (fx1- ylen))))
          (line (charlines-ref screen y))
          (xlen (charline-length line))
@@ -512,7 +524,7 @@
            (y+1   (fx1+ y))
            (n     (fx- (charline-length line1) x)) ;; # of chars to move to line2
            (create-line2? (or (charline-nl? line1)
-                              (fx=? y+1 (charlines-length screen))))
+                              (fx=? y+1 (vscreen-end-y screen))))
            (line2 (if create-line2? (charline) (charlines-ref screen y+1))))
       (charline-insert-at! line1 x #\newline)
       (when create-line2?

@@ -79,20 +79,27 @@
     n))
 
 
+;; common implementation of (linectx-find-left/word-begin) and (linectx-find-right/word-end)
+(define (%linectx-find-left-or-right ctx %vscreen-find-func)
+  (let ((screen (linectx-vscreen ctx)))
+    (let-values (((x0 y0) (vscreen-cursor-xy screen)))
+      (let-values (((x1 y1 n1) (%vscreen-find-func screen x0 y0 (lambda (ch) (char>? ch #\space)))))
+        (let-values (((x2 y2 n2) (if (and x1 y1 n1) (values x1 y1 n1) (values x0 y0 0))))
+          (let-values (((x3 y3 n3) (%vscreen-find-func screen x2 y2 (lambda (ch) (char<=? ch #\space)))))
+            (if (and x3 y3 n3)
+              (values x3 y3 n3)
+              (values x2 y2 n2))))))))
 
-;; return index of beginning of word at position < end in line
-(define (word-find-begin-left line end)
-  0)
-  ; (let* ((pos1 (fx1+ (char-find-left line end  (lambda (ch) (char>? ch #\space)))))
-  ;        (pos2 (fx1+ (char-find-left line pos1 (lambda (ch) (char<=? ch #\space))))))
-  ;  pos2))
+;; return three values: position x y of start of word under cursor,
+;; and number of characters between cursor and word start.
+(define (linectx-find-left/word-begin ctx)
+  (%linectx-find-left-or-right ctx vscreen-find-at-xy/left))
 
-;; return index of end of word at position >= start in line
-(define (word-find-end-right line start)
-  0)
-  ; (let* ((pos1 (char-find-right line start  (lambda (ch) (char>? ch #\space))))
-  ;        (pos2 (char-find-right line pos1 (lambda (ch) (char<=? ch #\space)))))
-  ;  pos2))
+;; return three values: position x y of end of word under cursor,
+;; and number of characters between cursor and word end and.
+(define (linectx-find-right/word-end ctx)
+  (%linectx-find-left-or-right ctx vscreen-find-at-xy/right))
+
 
 (define (lineedit-flush ctx)
   (let* ((wbuf (linectx-wbuf ctx))
@@ -118,65 +125,52 @@
   (lineedit-flush ctx))
 
 
-;; save current linectx-vscreen to history, then replace current lines with
-;; a copy-on-write  specified
-;; charlines - which are retained, do NOT modify them after calling this function
+;; save current linectx-vscreen to history, then replace them
+;; with a copy-on-write of specified charlines.
+;; Does not update cursor x and y position.
 (define (lineedit-lines-set! ctx lines)
   (assert-charlines? 'lineedit-lines-set! lines)
   (linectx-to-history ctx)
   (lineedit-clear! ctx) ; leaves a single, empty line in vscreen
   (linectx-vscreen-changed ctx)
-  (when (charlines-empty? lines)
-    (set! lines (linectx-vscreen ctx)))
-  (charlines-iterate lines
-    (lambda (i line)
-      (lineterm-write/cbuffer ctx line 0 (charline-length line))))
-  ; (linectx-lines-set! ctx lines)
-  (linectx-xy-set! ctx (greatest-fixnum) (greatest-fixnum)))
+  (unless (charlines-empty? lines)
+    (let ((screen (linectx-vscreen ctx)))
+      (charlines-clear! screen) ; removes the single, empty line from vscreen
+      (charlines-iterate lines
+        (lambda (y line)
+          (charlines-insert-at/cline! screen y (charline-copy-on-write line)))))))
 
 
-;; insert a single character into current line.
+;; insert a single character into vscreen at cursor.
+;; Also moves cursor one character to the right, and reflows vscreen as needed.
 ;;
-;; return #t if insertion caused some character to move to the next line(s)
-;; (in such case, caller must also invoke (lineterm-redraw-to-eos ctx))
-;;
-;; otherwise return #f
-;; (in such case, caller must also invoke (lineterm-redraw-to-eol ctx 'dont-clear-line-right))
-;;
-;; in all cases, caller must also invoke (linectx-vscreen-changed ctx)
-(define (%linectx-insert/char! ctx ch)
-  (void))
+;; caller must also invoke (linectx-vscreen-changed ctx)
+(define (linectx-insert/ch! ctx ch)
+  (vscreen-insert/ch! (linectx-vscreen ctx) ch))
 
 
-;; consume n chars from charspan csp, starting at position = start
-;; and insert them into current line.
+;; read n chars from charspan csp, starting at position = start
+;; and insert them into vscreen at cursor.
+;; Also moves cursor n characters to the right, and reflows vscreen as needed.
 (define (linectx-insert/cspan! ctx csp start n)
   (assert (fx<=? 0 start (fx+ start n) (charspan-length csp)))
   (when (fx>? n 0)
-    (let* ((beg   (fx+ start (charspan-peek-beg csp)))
-           (end   (fx+ beg n))
-           (overflow? #f))
-      (do ((pos beg (fx1+ pos)))
-          ((fx>=? pos end))
-        (when (%linectx-insert/char! ctx (charspan-ref csp pos))
-          (set! overflow? #t)))
-      (linectx-vscreen-changed ctx)
-      (if overflow?
-        (lineterm-redraw-to-eos ctx)
-        (lineterm-redraw-to-eol ctx 'dont-clear-line-right)))))
+    (vscreen-insert/cspan! (linectx-vscreen ctx) csp start n)))
 
 
-;; consume up to n bytes from bytespan bsp, starting at offset = start
-;; and insert them into current line.
-;; return number of bytes actually consumed
+;; read up to n bytes from bytespan bsp, starting at offset = start,
+;; assume they are utf-8, convert them to characters and insert them into vscreen at cursor.
+;; stops at any byte < 32, unless it's the first byte (which is skipped).
+;; Also stops at incomplete utf-8 sequences.
+;; Moves cursor appropriately to the right, and reflows vscreen as needed.
+;; return number of bytes actually read from bytespan.
 (define (linectx-insert/bspan! ctx bsp start n)
   (assert (fx<=? 0 start (fx+ start n) (bytespan-length bsp)))
   (let ((beg   start)
         (pos   start)
         (end   (fx+ start n))
         (inserted-some? #f)
-        (incomplete-utf8? #f)
-        (overflow? #f)) ; #t if inserting caused some chars to move to next line
+        (incomplete-utf8? #f))
     (do ()
         ((or incomplete-utf8?
              (fx>=? pos end)
@@ -188,13 +182,9 @@
           ((eq? #t ch)
             (set! incomplete-utf8? #t))
           ((and (char? ch) (char>=? ch #\space))
-            (when (%linectx-insert/char! ctx ch)
-              (set! overflow? #t))
+            (linectx-insert/ch! ctx ch)
             (set! inserted-some? #t)))))
     (when inserted-some?
-      (if overflow?
-        (lineterm-redraw-to-eos ctx)
-        (lineterm-redraw-to-eol ctx 'dont-clear-line-right))
       (linectx-vscreen-changed ctx))
     (fx- pos beg))) ; return number of bytes actually consumed
 
@@ -207,104 +197,88 @@
 (define (lineedit-key-nop ctx)
   (void))
 
-;; move cursor left by 1
+;; move cursor left by 1, moving to previous line if cursor x is 0
 (define (lineedit-key-left ctx)
-  (void))
+  (vscreen-cursor-move/left! (linectx-vscreen ctx) 1))
 
 
-;; move cursor right by 1
+;; move cursor right by 1, moving to next line if cursor x is at end of current line
 (define (lineedit-key-right ctx)
-  (void))
+  (vscreen-cursor-move/right! (linectx-vscreen ctx) 1))
 
 
+;; move cursor up by 1, moving to previous history entry if cursor y is 0
 (define (lineedit-key-up ctx)
-  ; TODO: multiline editing
-  (lineedit-navigate-history ctx -1))
+  (if (fx>? (linectx-y ctx) 0)
+    (vscreen-cursor-move/up! (linectx-vscreen ctx) 1)
+    (lineedit-navigate-history ctx -1)))
 
+;; move cursor up by 1, moving to next history entry if cursor y is at end of vscreen
 (define (lineedit-key-down ctx)
-  ; TODO: multiline editing
-  (lineedit-navigate-history ctx +1))
+  (if (fx<? (linectx-y ctx) (linectx-end-y ctx))
+    (vscreen-cursor-move/down! (linectx-vscreen ctx) 1)
+    (lineedit-navigate-history ctx +1)))
 
+;; move to start of word under cursor
 (define (lineedit-key-word-left ctx)
-  (let ((dx 0)) ; (word-find-begin-left ...)
-    (when (fx<? dx 0)
-      ;(linectx-x-set! ctx pos)
-      (lineterm-move-dx ctx dx))))
+  (let-values (((x y n) (linectx-find-left/word-begin ctx)))
+    (when (and x y n (fx>? n 0))
+      (linectx-xy-set! ctx x y))))
 
+;; move to end of word under cursor
 (define (lineedit-key-word-right ctx)
-  (let* ((dx 0)) ; (word-find-end-right ...)
-    (when (fx>? dx 0)
-      ; (linectx-x-set! ctx pos)
-      (lineterm-move-dx ctx dx))))
+  (let-values (((x y n) (linectx-find-right/word-end ctx)))
+    (when (and x y n (fx>? n 0))
+      (linectx-xy-set! ctx x y))))
 
+;; move to start of line
 (define (lineedit-key-bol ctx)
   (linectx-xy-set! ctx 0 (linectx-y ctx)))
 
+;; move to end of line
 (define (lineedit-key-eol ctx)
   (linectx-xy-set! ctx (greatest-fixnum) (linectx-y ctx)))
 
 (define (lineedit-key-break ctx)
   (linectx-clear! ctx))
 
+;; delete one character to the right.
+;; acts as end-of-file if vscreen is empty.
 (define (lineedit-key-ctrl-d ctx)
   (if (vscreen-empty? (linectx-vscreen ctx))
     (linectx-eof-set! ctx #t)
     (lineedit-key-del-right ctx)))
 
 (define (lineedit-key-transpose-char ctx)
-  (let* ((x    (linectx-x ctx))
-         (line #f) ; (linectx-line ctx))
-         (len  (charline-length line)))
-    (when (and (fx>? x 0) (fx>? len 1))
-      (let ((eol (fx=? x len)))
-        (lineterm-move-dx ctx (if eol -2 -1))
-        (when eol
-          (set! x (fx1- x))))
-      (let ((ch1  (charline-ref line (fx1- x)))
-            (ch2  (charline-ref line x))
-            (wbuf (linectx-wbuf ctx)))
-        (bytespan-insert-back/utf8! wbuf ch2)
-        (bytespan-insert-back/utf8! wbuf ch1)
-        (charline-set! line (fx1- x) ch2)
-        (charline-set! line x ch1)
-        (linectx-vscreen-changed ctx)
-        ; (linectx-x-set! ctx (fx1+ x))
-        ))))
+  (void)) ;; TODO: implement
 
+;; delete one character to the left of cursor.
+;; moves cursor one character to the left.
 (define (lineedit-key-del-left ctx)
-  (when (fx>? (linectx-x ctx) 0)
-    (lineedit-key-left ctx)
-    (lineedit-key-del-right ctx)
+  (unless (fxzero? (vscreen-erase-left/n! (linectx-vscreen ctx) 1))
     (linectx-vscreen-changed ctx)))
 
+;; delete one character under cursor.
+;; does not move cursor.
 (define (lineedit-key-del-right ctx)
-  ; FIXME reimplement
-  ; (charlines-erase-right! (linectx-vscreen ctx) (linectx-x ctx) (linectx-y ctx))
-  ; (linectx-vscreen-changed ctx)
-  ; (lineterm-del-right-n ctx 1))
-  (void))
+  (unless (fxzero? (vscreen-erase-left/n! (linectx-vscreen ctx) 1))
+    (linectx-vscreen-changed ctx)))
 
+;; delete from cursor to start of word under cursor.
+;; moves cursor n characters to the left, where n is the number of deleted characters.
 (define (lineedit-key-del-word-left ctx)
-  (let* ((x     (linectx-x ctx))
-         (line  #f) ; (linectx-line ctx))
-         (pos   (word-find-begin-left line x))
-         (del-n (fx- x pos)))
-    (when (fx>? del-n 0)
-      (charline-erase-at! line pos del-n)
-      (linectx-vscreen-changed ctx)
-      ; (linectx-x-set! ctx pos)
-      (lineterm-move-dx ctx (fx- del-n))
-      (lineterm-del-right-n ctx del-n))))
+  (let-values (((x y n) (linectx-find-left/word-begin ctx)))
+    (when (and x y n (fx>? n 0))
+      (vscreen-erase-left/n! (linectx-vscreen ctx) n)
+      (linectx-vscreen-changed ctx))))
 
+;; delete from cursor to end of word under cursor.
+;; does not move cursor.
 (define (lineedit-key-del-word-right ctx)
-  (let* ((x     (linectx-x ctx))
-         (line  #f) ; (linectx-line ctx))
-         (pos   (word-find-end-right line x))
-         (del-n (fx- pos x)))
-    (when (fx>? del-n 0)
-      (charline-erase-at! line x del-n)
-      (linectx-vscreen-changed ctx)
-      (lineterm-del-right-n ctx del-n))))
+  (let-values (((x y n) (linectx-find-right/word-end ctx)))
+    (when (and x y n (fx>? n 0))
+      (vscreen-erase-left/n! (linectx-vscreen ctx) n)
+      (linectx-vscreen-changed ctx))))
 
 (define (lineedit-key-del-line ctx)
   (void))
