@@ -8,8 +8,10 @@
 (library (schemesh lineedit linectx (0 1))
   (export
     make-linectx make-linectx* linectx? linectx-rbuf linectx-wbuf
-    linectx-vscreen   linectx-x     linectx-y   linectx-xy   linectx-xy-set!
-    linectx-vx        linectx-vy    linectx-width     linectx-end-y
+    linectx-vscreen linectx-width linectx-end-y
+    linectx-ix     linectx-iy     linectx-ixy  linectx-ixy-set!
+    linectx-vx     linectx-vy     linectx-vxy  linectx-vxy-set!
+    linectx-term-x linectx-term-y
     linectx-stdin linectx-stdin-set! linectx-stdout linectx-stdout-set!
     linectx-prompt-end-x linectx-prompt-end-x-set! linectx-prompt-end-y linectx-prompt-end-y-set!
     linectx-prompt linectx-prompt-length linectx-prompt-length-set! linectx-prompt-func
@@ -20,8 +22,8 @@
     linectx-parsers   linectx-parsers-set!
     linectx-history linectx-history-index linectx-history-index-set!
     linectx-to-history linectx-lines-copy-on-write
-    linectx-clear! linectx-vscreen-changed
-    linectx-eof? linectx-eof-set! linectx-redraw? linectx-redraw-set! linectx-return? linectx-return-set!
+    linectx-clear!   linectx-eof? linectx-eof-set! linectx-redraw? linectx-redraw-set!
+    linectx-return? linectx-return-set!
     linectx-default-keytable linectx-keytable-set! linectx-keytable-find)
 
   (import
@@ -47,6 +49,8 @@
     (mutable rbuf)    ; bytespan, buffer for stdin
     (mutable wbuf)    ; bytespan, buffer for stdout
     (mutable vscreen) ; vscreen, input being edited
+    (mutable term-x)  ; fixnum, cursor x position in tty
+    (mutable term-y)  ; fixnum, cursor y position in tty
     (mutable stdin)   ; input file descriptor, or binary input port
     (mutable stdout)  ; output file descriptor, or binary output port
     (mutable read-timeout-milliseconds) ; -1 means unlimited timeout
@@ -108,30 +112,39 @@
 (define (linectx-end-y ctx)
   (vscreen-end-y (linectx-vscreen ctx)))
 
-;; return cursor x position
-(define (linectx-x ctx)
+;; return vscreen cursor x position
+(define (linectx-ix ctx)
   (vscreen-cursor-x (linectx-vscreen ctx)))
 
-;; return cursor y position
-(define (linectx-y ctx)
+;; return vscreen cursor y position
+(define (linectx-iy ctx)
   (vscreen-cursor-y (linectx-vscreen ctx)))
 
-;; return two values: cursor x and y position
-(define (linectx-xy ctx)
+;; return two values: vscreen cursor x and y position
+(define (linectx-ixy ctx)
   (vscreen-cursor-xy (linectx-vscreen ctx)))
 
-;; set cursor x and y position
-(define (linectx-xy-set! ctx x y)
+;; set vscreen cursor x and y position
+(define (linectx-ixy-set! ctx x y)
   (vscreen-cursor-xy-set! (linectx-vscreen ctx) x y))
 
-;; return cursor x visual position. It is equal to linectx-x,
+;; return vscreen cursor x visual position. It is equal to linectx-ix,
 ;; unless cursor y = 0, where prompt-end-x is added.
 (define (linectx-vx ctx)
   (vscreen-vcursor-x (linectx-vscreen ctx)))
 
-;; return cursor y visual position. It is equal to linectx-y.
+;; return vscreen cursor y visual position. It is equal to linectx-iy.
 (define (linectx-vy ctx)
   (vscreen-vcursor-y (linectx-vscreen ctx)))
+
+;; return vscreen cursor x and y visual position.
+(define (linectx-vxy ctx)
+  (vscreen-vcursor-xy (linectx-vscreen ctx)))
+
+;; set vscreen cursor x and y visual position.
+(define (linectx-vxy-set! ctx vx vy)
+  (vscreen-vcursor-xy-set! (linectx-vscreen ctx) vx vy))
+
 
 ;; return screen width
 (define (linectx-width ctx)
@@ -173,6 +186,7 @@
     (%make-linectx
       rbuf wbuf
       (vscreen* (if (pair? sz) (car sz) 80) (if (pair? sz) (cdr sz) 24) "")
+      0 0                        ; term-x term-y
       0 1 -1 flag-redraw?        ; stdin stdout read-timeout flags
       'shell enabled-parsers     ; parser-name parsers
       (bytespan) 0               ; prompt prompt-end-y
@@ -213,13 +227,10 @@
 ;; Does NOT write anything to the tty
 (define (linectx-clear! ctx)
   (vscreen-clear! (linectx-vscreen ctx))
-  (linectx-vscreen-changed ctx)
   (linectx-parens-set! ctx #f)
   (linectx-return-set! ctx #f))
 
 
-(define (linectx-vscreen-changed ctx)
-  (parenmatcher-clear! (linectx-parenmatcher ctx)))
 
 ;; save to history a copy-on-write clone of charlines in linectx-vscreen,
 ;; and return such clone

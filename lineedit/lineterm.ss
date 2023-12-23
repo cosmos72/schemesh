@@ -9,8 +9,6 @@
   (export
     lineterm-write/u8 lineterm-write/bvector lineterm-write/bspan lineterm-write/cbuffer
     lineterm-move-dx lineterm-move-dy lineterm-move-to-bol lineterm-clear-to-eol lineterm-clear-to-eos
-    lineterm-del-right-n
-    lineterm-redraw-to-eol lineterm-redraw-to-eos
     lineterm-move lineterm-move-from lineterm-move-to)
 
   (import
@@ -70,7 +68,6 @@
 ;; If dy > 0, send escape sequence "move cursor down by dy".
 ;; If dy < 0, send escape sequence "move cursor up by -dy".
 ;; Does not check or update linectx.
-
 (define (lineterm-move-dy ctx dy)
   (cond
     ((fxzero? dy) ; do nothing
@@ -102,68 +99,20 @@
 (define (lineterm-clear-to-eos ctx)
   (lineterm-write/bvector ctx #vu8(27 91 74) 0 3)) ; ESC [ J
 
-(define (lineterm-del-right-n ctx n)
-  (cond
-    ((fx<=? n 0) (void)) ; nop
-    ((fx=? n 1)
-      (lineterm-write/bvector ctx #vu8(27 91 80) 0 3)) ; VT102 sequence: ESC [ P
-    (#t
-      (let ((wbuf (linectx-wbuf ctx)))
-        (bytespan-insert-back/u8! wbuf 27 91)   ; ESC [
-        (bytespan-display-back/fixnum! wbuf n)  ; n
-        (bytespan-insert-back/u8! wbuf 80)))))  ; P
+;; move tty cursor from visual position from-vx from-vy to visual position to-vx to-vy
+(define (lineterm-move ctx from-vx from-vy to-vx to-vy)
+  (lineterm-move-dy ctx (fx- to-vy from-vy))
+  (lineterm-move-dx ctx (fx- to-vx from-vx)))
 
-;; redraw from cursor to end of line.
-;; clear-line-right must be either 'clear-line-right or 'dont-clear-line-right*/
-(define (lineterm-redraw-to-eol ctx clear-line-right)
-  (let* ((line #f) ; (linectx-line ctx))
-         (beg  (linectx-x ctx))
-         (end  (charline-length line)))
-    (when (fx<? beg end)
-      (lineterm-write/cbuffer ctx line beg end))
-    (when (eq? clear-line-right 'clear-line-right)
-      (lineterm-clear-to-eol ctx))
-    (lineterm-move-dx ctx (fx- beg end))))
+;; move tty cursor from its current visual position at from-vx, from-vy
+;; back to linectx-term-x linectx-term-y
+(define (lineterm-move-from ctx from-vx from-vy)
+  (lineterm-move ctx from-vx from-vy (linectx-term-x ctx) (linectx-term-y ctx)))
 
-
-;; redraw from cursor to end of screen.
-(define (lineterm-redraw-to-eos ctx)
-  (lineterm-redraw-to-eol ctx 'dont-clear-line-right)
-  (let* ((lines (linectx-vscreen ctx))
-         (lines-n-1 (fx1- (charlines-length lines))))
-    (do ((y (fx1+ (linectx-y ctx)) (fx1+ y)))
-        ((fx>? y lines-n-1))
-      (let ((line (charlines-ref lines y)))
-        (lineterm-clear-to-eol ctx)
-        (lineterm-write/u8 ctx 10)
-        (lineterm-write/cbuffer ctx line 0 (charline-length line))))
-    (lineterm-clear-to-eos ctx)
-    (lineterm-move-from ctx
-      (charline-length (charlines-ref lines lines-n-1))
-      lines-n-1)))
-
-
-;; move tty cursor from position from-x from-y to position to-x to-y
-(define (lineterm-move ctx from-x from-y to-x to-y)
-  (let ((prompt-x (linectx-prompt-end-x ctx)))
-    ; we may move from/to first line, which is prefixed by the prompt:
-    ; adjust from-x and to-x
-    (when (fxzero? from-y)
-      (set! from-x (fx+ from-x prompt-x)))
-    (when (fxzero? to-y)
-      (set! to-x (fx+ to-x prompt-x)))
-    (lineterm-move-dy ctx (fx- to-y from-y))
-    (lineterm-move-dx ctx (fx- to-x from-x))))
-
-;; move tty cursor from its current position at from-x, from-y
-;; back to linectx-vx, linectx-vy
-(define (lineterm-move-from ctx from-x from-y)
-  (lineterm-move ctx from-x from-y (linectx-vx ctx) (linectx-vy ctx)))
-
-;; move tty cursor from its current position at linectx-vx linectx-vy
-;; to specified position to-x to-y
-(define (lineterm-move-to ctx to-x to-y)
-  (lineterm-move ctx (linectx-vx ctx) (linectx-vy ctx) to-x to-y))
+;; move tty cursor from its current position at linectx-term-x linectx-term-y
+;; to specified visual position to-vx to-vy
+(define (lineterm-move-to ctx to-vx to-vy)
+  (lineterm-move ctx (linectx-term-x ctx) (linectx-term-y ctx) to-vx to-vy))
 
 
 

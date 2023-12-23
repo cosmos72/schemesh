@@ -139,8 +139,7 @@
 ; Raises condition if writing the UTF-8 sequence into bytevector starting
 ; from offset = start exceeds bytevector's length.
 (define (bytevector-set/utf8! vec start ch)
-  (assert (fx>=? start 0))
-  (assert (fx<?  start (bytevector-length vec)))
+  (assert (fx<? -1 start (bytevector-length vec)))
   (let ((n (char->integer ch)))
     (cond
       ((fx<? n 0) 0) ; should not happen

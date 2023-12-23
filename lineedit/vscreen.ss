@@ -9,6 +9,7 @@
   (export
     vscreen  vscreen*  vscreen?  assert-vscreen?
     vscreen-width        vscreen-height    vscreen-resize!
+    vscreen-dirty?       vscreen-dirty-set!
     vscreen-cursor-x     vscreen-cursor-y  vscreen-cursor-xy   vscreen-cursor-xy-set!
     vscreen-vcursor-x    vscreen-vcursor-y vscreen-vcursor-xy  vscreen-vcursor-xy-set!
     vscreen-prompt-end-x vscreen-prompt-end-x-set! vscreen-length-at-y vscreen-end-y
@@ -44,8 +45,10 @@
   (%charlines %make-charlines %charlines?)
   (parent %gbuffer)
   (fields
-    (mutable dirty-y-start)
-    (mutable dirty-y-end))
+    ;; lines between y >= dirty-y-start and y < dirty-y-end
+    ;; are completely dirty i.e. must be fully redrawn on screen
+    (mutable dirty-y-start) ;; fixnum
+    (mutable dirty-y-end))  ;; fixnum
   (nongenerative #{%charlines lf2lr8d65f8atnffcpi1ja7l0-439}))
 
 
@@ -55,11 +58,12 @@
   (%vscreen %make-vscreen vscreen?)
   (parent %charlines)
   (fields
-    (mutable cursor-x   vscreen-cursor-x   vscreen-cursor-x-set!  )  ;; cursor x position
-    (mutable cursor-y   vscreen-cursor-y   vscreen-cursor-y-set!  )  ;; cursor y position
-    (mutable width      vscreen-width      vscreen-width-set!     )  ;; screen width
-    (mutable height     vscreen-height     vscreen-height-set!    )  ;; screen height
-    (mutable prompt-end-x vscreen-prompt-end-x vscreen-prompt-end-x-set!)) ;; prompt length
+    (mutable dirty?     vscreen-dirty?     %vscreen-dirty-set!  )  ;; boolean, #t if some line is dirty
+    (mutable width      vscreen-width      vscreen-width-set!   )  ;; screen width
+    (mutable height     vscreen-height     vscreen-height-set!  )  ;; screen height
+    (mutable prompt-end-x vscreen-prompt-end-x vscreen-prompt-end-x-set!) ;; prompt length
+    (mutable cursor-x   vscreen-cursor-x   vscreen-cursor-x-set!)  ;; cursor x position
+    (mutable cursor-y   vscreen-cursor-y   vscreen-cursor-y-set!)) ;; cursor y position
   (nongenerative #{%vscreen jrk9oih6lhpsih9dh3qu06xvo-525}))
 
 
@@ -70,7 +74,7 @@
 
 ;; create a vscreen
 (define (vscreen)
-  (%make-vscreen (span) (span (charline)) (greatest-fixnum) 0 0 0 80 24 0))
+  (%make-vscreen (span) (span (charline)) (greatest-fixnum) 0 #f 80 24 0 0 0))
 
 
 ;; create a vscreen referencing specified strings, one per charline
@@ -79,11 +83,15 @@
     (span-iterate sp
       (lambda (i elem)
         (span-set! sp i (string->charline* elem))))
-    (%make-vscreen (span) sp (greatest-fixnum) 0 0 0 width height 0)))
+    (%make-vscreen (span) sp (greatest-fixnum) 0 #f width height 0 0 0)))
 
 ;; return number of charlines in vscreen
 (define vscreen-end-y charlines-length)
 
+(define (vscreen-dirty-set! screen flag?)
+  (unless flag?
+    (charlines-dirty-xy-unset! screen))
+  (%vscreen-dirty-set! screen flag?))
 
 ;; return vscreen width i.e. maximum charline length at specified y
 ;; it is equal (vscreen-width), except when y = 0 where prompt length is subtracted
@@ -189,6 +197,7 @@
                             vscreen-underflow-at-y))
             (n (vscreen-cursor-count/left screen))
             (y 0))
+        (vscreen-dirty-set! screen #t)
         (vscreen-width-set! screen width)
         (vscreen-height-set! screen height)
         (while (fx<? y (fx1- (vscreen-end-y screen)))
@@ -200,6 +209,7 @@
 
 ;; remove all lines from screen, and set cursor to 0 0
 (define (vscreen-clear! screen)
+  (vscreen-dirty-set! screen #t)
   (charlines-clear! screen)
   (charlines-insert-at/cline! screen 0 (charline))
   (vscreen-cursor-x-set! screen 0)
@@ -248,25 +258,24 @@
          (ymax (fx1- (vscreen-end-y screen)))
          (xmax (fx1- (vscreen-length-at-y screen ymax)))
          (saved-n n))
-    (assert (fx>=? ymax 0))
-    (assert (fx>=? xmax 0))
-    (while (and (fx>? n 0) (fx<=? y ymax) (or (fx<? y ymax) (fx<? x xmax)))
-      (let* ((linemax (fx1- (vscreen-length-at-y screen y)))
-             (delta   (fxmax 0 (fxmin n (fx- linemax x)))))
-        (set! n (fx- n delta))
-        (set! x (fx+ x delta))
-        (when (and (fx>? n 0) (fx=? x linemax) (fx<? y ymax))
-          ;; move to beginning of next line
-          (set! n (fx1- n))
-          (set! y (fx1+ y))
-          (set! x 0))))
-    (when (and (fx>? n 0) (fx=? y ymax) (fx=? x xmax))
-      ;; allow moving cursor immediately after last character of last line
-      (set! n (fx1- n))
-      (set! x (fx1+ x)))
-    (vscreen-cursor-x-set! screen x)
-    (vscreen-cursor-y-set! screen y)
-    (fx- saved-n n)))
+    (when (and (fx>=? ymax 0) (fx>=? xmax 0))
+      (while (and (fx>? n 0) (fx<=? y ymax) (or (fx<? y ymax) (fx<? x xmax)))
+        (let* ((linemax (fx1- (vscreen-length-at-y screen y)))
+               (delta   (fxmax 0 (fxmin n (fx- linemax x)))))
+          (set! n (fx- n delta))
+          (set! x (fx+ x delta))
+          (when (and (fx>? n 0) (fx=? x linemax) (fx<? y ymax))
+            ;; move to beginning of next line
+            (set! n (fx1- n))
+            (set! y (fx1+ y))
+            (set! x 0))))
+      (when (and (fx>? n 0) (fx=? y ymax) (fx=? x xmax))
+        ;; allow moving cursor immediately after last character of last line
+        (set! n (fx1- n))
+        (set! x (fx1+ x)))
+      (vscreen-cursor-x-set! screen x)
+      (vscreen-cursor-y-set! screen y)
+      (fx- saved-n n))))
 
 
 ;; move vscreen cursor n characters up.
@@ -296,15 +305,18 @@
           (let* ((line2 (charlines-ref screen y+1))
                  (line2-nl? (charline-nl? line2))
                  (i     (fxmin n (charline-length line2))))
-            ;; insert chars into line1
-            (charline-insert-at/cbuf! line1 (charline-length line1) line2 0 i)
-            ;; remove chars from line2
-            (charline-erase-at! line2 0 i)
-            (set! n (fx- n i))
+            (when (fx>? i 0)
+              (vscreen-dirty-set! screen #t)
+              ;; insert chars into line1
+              (charline-insert-at/cbuf! line1 (charline-length line1) line2 0 i)
+              ;; remove chars from line2
+              (charline-erase-at! line2 0 i)
+              (set! n (fx- n i)))
             (when (charline-empty? line2)
               (when line2-nl?
                 (set! n 0)) ;; newline found, stop refilling line1
               ;; we consumed all chars from line2, erase it
+              (vscreen-dirty-set! screen #t)
               (charlines-erase-at/cline! screen y+1))))
         y+1)
       y)))
@@ -317,6 +329,7 @@
 (define (vscreen-erase-at-xy! screen x y n)
   (let ((saved-n n))
     (when (fx>? n 0)
+      (vscreen-dirty-set! screen #t)
       (let ((saved-y y))
         (while (and (fx>? n 0) (fx<? -1 y (vscreen-end-y screen)))
           (let* ((line (charlines-ref screen y))
@@ -365,6 +378,7 @@
   (let* ((y    (vscreen-cursor-y screen))
          (line (vscreen-line-at-y screen y)))
     (when line
+      (vscreen-dirty-set! screen #t)
       (charline-erase-at! line 0 (vscreen-cursor-x screen))
       (vscreen-cursor-x-set! screen 0)
       (set! y    (fx1- y))
@@ -384,6 +398,7 @@
          (line (vscreen-line-at-y screen y))
          (nl?  #f))
     (when line
+      (vscreen-dirty-set! screen #t)
       (set! nl? (charline-nl? line))
       (let* ((x (vscreen-cursor-x screen))
              (avail-n (fx- (charline-length line) x)))
@@ -488,6 +503,7 @@
     (when line1
       (while (and (fx<? y (vscreen-end-y screen))
                   (fx>? (charline-length line1) (vscreen-width-at-y screen y)))
+        (vscreen-dirty-set! screen #t)
         (let* ((line1-nl?  (charline-nl? line1))
                (line1-len  (charline-length line1))
                (n          (fx- line1-len (vscreen-width-at-y screen y)))
@@ -542,6 +558,7 @@
 (define (vscreen-insert-at-xy/ch! screen x y ch)
   (assert (char>=? ch #\space))
   (let-values (((x y line) (vscreen-insert-at-xy/before! screen x y)))
+    (vscreen-dirty-set! screen #t)
     (charline-insert-at! line x ch)
     (vscreen-overflow-at-y screen y)))
 
@@ -557,6 +574,7 @@
            (create-line2? (or (charline-nl? line1)
                               (fx=? y+1 (vscreen-end-y screen))))
            (line2 (if create-line2? (charline) (charlines-ref screen y+1))))
+      (vscreen-dirty-set! screen #t)
       (charline-insert-at! line1 x #\newline)
       (when create-line2?
         (charlines-insert-at/cline! screen y+1 line2))
@@ -582,6 +600,7 @@
 (define (vscreen-insert-at-xy/cspan! screen x y csp csp-start csp-n)
   (when (fx>? csp-n 0)
     (let-values (((x y line) (vscreen-insert-at-xy/before! screen x y)))
+      (vscreen-dirty-set! screen #t)
       (charline-insert-at/cspan! line x csp csp-start csp-n)
       (vscreen-overflow-at-y screen y))))
 

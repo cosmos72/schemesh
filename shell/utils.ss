@@ -28,7 +28,7 @@
 (define (sh-autocomplete lctx)
   ; TODO: handle lines longer than tty width
   (let ((line  #f) ; (linectx-line lctx))
-        (pos   (linectx-x lctx))
+        (pos   (linectx-ix lctx))
         (stem  (linectx-completion-stem lctx))
         (completions (linectx-completions lctx)))
     (charspan-clear! stem)

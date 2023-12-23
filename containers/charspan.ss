@@ -80,8 +80,7 @@
   (charspan-end-set! sp 0))
 
 (define (charspan-ref sp idx)
-  (assert (fx>=? idx 0))
-  (assert (fx<? idx (charspan-length sp)))
+  (assert (fx<? -1 idx (charspan-length sp)))
   (string-ref (charspan-str sp) (fx+ idx (charspan-beg sp))))
 
 (define (charspan-back sp)
@@ -89,8 +88,7 @@
   (string-ref (charspan-str sp) (fx1- (charspan-end sp))))
 
 (define (charspan-set! sp idx val)
-  (assert (fx>=? idx 0))
-  (assert (fx<? idx (charspan-length sp)))
+  (assert (fx<? -1 idx (charspan-length sp)))
   (string-set! (charspan-str sp) (fx+ idx (charspan-beg sp)) val))
 
 (define (charspan-fill! sp val)
@@ -134,8 +132,7 @@
     n))
 
 (define (charspan-reallocate-front! sp len cap)
-  (assert (fx>=? len 0))
-  (assert (fx>=? cap len))
+  (assert (fx<=? 0 len cap))
   (let ((copy-len (fxmin len (charspan-length sp)))
         (old-str (charspan-str sp))
         (new-str (make-string cap))
@@ -146,8 +143,7 @@
     (charspan-str-set! sp new-str)))
 
 (define (charspan-reallocate-back! sp len cap)
-  (assert (fx>=? len 0))
-  (assert (fx>=? cap len))
+  (assert (fx<=? 0 len cap))
   (let ((copy-len (fxmin len (charspan-length sp)))
         (old-str (charspan-str sp))
         (new-str (make-string cap)))
@@ -260,15 +256,13 @@
 
 ; erase n elements at the left (front) of charspan
 (define (charspan-erase-front! sp n)
-  (assert (fx>=? n 0))
-  (assert (fx<=? n (charspan-length sp)))
+  (assert (fx<=? 0 n (charspan-length sp)))
   (unless (fxzero? n)
     (charspan-beg-set! sp (fx+ n (charspan-beg sp)))))
 
 ; erase n elements at the right (back) of charspan
 (define (charspan-erase-back! sp n)
-  (assert (fx>=? n 0))
-  (assert (fx<=? n (charspan-length sp)))
+  (assert (fx<=? 0 n (charspan-length sp)))
   (unless (fxzero? n)
     (charspan-end-set! sp (fx- (charspan-end sp) n))))
 

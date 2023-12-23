@@ -75,16 +75,14 @@
   (and (span-empty? (gbuffer-left gb)) (span-empty? (gbuffer-right gb))))
 
 (define (gbuffer-ref gb n)
-  (assert (fx>=? n 0))
-  (assert (fx<? n (gbuffer-length gb)))
+  (assert (fx<? -1 n (gbuffer-length gb)))
   (let ((left-n (span-length (gbuffer-left gb))))
     (if (fx<? n left-n)
       (span-ref (gbuffer-left  gb) n)
       (span-ref (gbuffer-right gb) (fx- n left-n)))))
 
 (define (gbuffer-set! gb idx val)
-  (assert (fx>=? idx 0))
-  (assert (fx<? idx (gbuffer-length gb)))
+  (assert (fx<? -1 idx (gbuffer-length gb)))
   (let ((left-n (span-length (gbuffer-left gb))))
     (if (fx<? idx left-n)
       (span-set! (gbuffer-left  gb) idx val)
@@ -95,8 +93,7 @@
   (span-clear! (gbuffer-right gb)))
 
 (define (gbuffer-split-at! gb idx)
-  (assert (fx>=? idx 0))
-  (assert (fx<=? idx (gbuffer-length gb)))
+  (assert (fx<=? 0 idx (gbuffer-length gb)))
   (let* ((left  (gbuffer-left  gb))
          (right (gbuffer-right gb))
          (delta (fx- idx (span-length left))))
@@ -128,16 +125,14 @@
 ; read src-n elements from span sp-src starting from src-start
 ; and insert them into gbuffer at position idx
 (define (gbuffer-insert-at/span! gb idx sp-src src-start src-n)
-  (assert (fx>=? idx 0))
-  (assert (fx<=? idx (gbuffer-length gb)))
+  (assert (fx<=? 0 idx (gbuffer-length gb)))
   (let* ((left   (gbuffer-left  gb))
          (right  (gbuffer-right gb))
          (left-n (span-length left))
          (delta  (fx- idx left-n)))
     (cond
       ((fxzero? src-n) ; nothing to do
-        (assert (fx>=? src-start 0))
-        (assert (fx<=? src-start (span-length sp-src))))
+        (assert (fx<=? 0 src-start (span-length sp-src))))
       ((fxzero? idx)
         (span-insert-front/span! left sp-src src-start src-n))
       ((fx=? idx (gbuffer-length gb))
@@ -154,10 +149,8 @@
          (right-n (span-length right))
          (len     (fx+ left-n right-n))
          (end     (fx+ start n)))
-    (assert (fx>=? start 0))
-    (assert (fx<=? start len))
-    (assert (fx>=? n 0))
-    (assert (fx<=? n (fx- len start)))
+    (assert (fx<=? 0 start len))
+    (assert (fx<=? 0 n (fx- len start)))
     (cond
       ((fxzero? n) (void)) ; nothing to do
       ((fxzero? start)

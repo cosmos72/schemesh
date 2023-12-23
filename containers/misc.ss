@@ -84,9 +84,7 @@
 ; return a copy of vector vec containing only elements
 ; from start (inclusive) to end (exclusive)
 (define (subvector vec start end)
-  (assert (fx>=? start 0))
-  (assert (fx>=? end 0))
-  (assert (fx<=? start end))
+  (assert (fx<=? 0 start end))
   (let* ((n (fx- end start))
          (dst (make-vector n)))
     (vector-copy! vec start dst 0 n)
@@ -127,9 +125,7 @@
 ; return a copy of bytevector vec containing only elements
 ; from start (inclusive) to end (exclusive)
 (define (subbytevector vec start end)
-  (assert (fx>=? start 0))
-  (assert (fx>=? end 0))
-  (assert (fx<=? start end))
+  (assert (fx<=? 0 start end))
   (let* ((n (fx- end start))
          (dst (make-bytevector n)))
     (bytevector-copy! vec start dst 0 n)

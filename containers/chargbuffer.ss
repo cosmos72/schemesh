@@ -78,16 +78,14 @@
   (and (charspan-empty? (chargbuffer-left gb)) (charspan-empty? (chargbuffer-right gb))))
 
 (define (chargbuffer-ref gb idx)
-  (assert (fx>=? idx 0))
-  (assert (fx<? idx (chargbuffer-length gb)))
+  (assert (fx<? -1 idx (chargbuffer-length gb)))
   (let ((left-n (charspan-length (chargbuffer-left gb))))
     (if (fx<? idx left-n)
       (charspan-ref (chargbuffer-left  gb) idx)
       (charspan-ref (chargbuffer-right gb) (fx- idx left-n)))))
 
 (define (chargbuffer-set! gb idx ch)
-  (assert (fx>=? idx 0))
-  (assert (fx<? idx (chargbuffer-length gb)))
+  (assert (fx<? -1 idx (chargbuffer-length gb)))
   (let ((left-n (charspan-length (chargbuffer-left gb))))
     (if (fx<? idx left-n)
       (charspan-set! (chargbuffer-left  gb) idx ch)
@@ -98,9 +96,7 @@
   (charspan-clear! (chargbuffer-right gb)))
 
 (define (chargbuffer-split-at! gb idx)
-  (assert (fx>=? idx 0))
-  (unless (fx<=? idx (chargbuffer-length gb))
-    (assert #f))
+  (assert (fx<=? 0 idx (chargbuffer-length gb)))
   (let* ((left  (chargbuffer-left  gb))
          (right (chargbuffer-right gb))
          (delta (fx- idx (charspan-length left))))
@@ -176,10 +172,8 @@
          (right-n (charspan-length right))
          (len     (fx+ left-n right-n))
          (end     (fx+ start n)))
-    (assert (fx>=? start 0))
-    (assert (fx<=? start len))
-    (assert (fx>=? n 0))
-    (assert (fx<=? n (fx- len start)))
+    (assert (fx<=? 0 start len))
+    (assert (fx<=? 0 n (fx- len start)))
     (cond
       ((fxzero? n) (void)) ; nothing to do
       ((fxzero? start)

@@ -82,8 +82,7 @@
   (bytespan-end-set! sp 0))
 
 (define (bytespan-ref/u8 sp idx)
-  (assert (fx>=? idx 0))
-  (assert (fx<? idx (bytespan-length sp)))
+  (assert (fx<? -1 idx (bytespan-length sp)))
   (bytevector-u8-ref (bytespan-vec sp) (fx+ idx (bytespan-beg sp))))
 
 (define (bytespan-back/u8 sp)
@@ -91,8 +90,7 @@
   (bytevector-u8-ref (bytespan-vec sp) (fx1- (bytespan-end sp))))
 
 (define (bytespan-set/u8! sp idx u8)
-  (assert (fx>=? idx 0))
-  (assert (fx<? idx (bytespan-length sp)))
+  (assert (fx<? -1 idx (bytespan-length sp)))
   (bytevector-u8-set! (bytespan-vec sp) (fx+ idx (bytespan-beg sp)) u8))
 
 (define (bytespan-fill! sp u8)
@@ -130,8 +128,7 @@
         (set! equal (fx=? (bytespan-ref/u8 left i) (bytespan-ref/u8 right i)))))))
 
 (define (bytespan-reallocate-front! sp len cap)
-  (assert (fx>=? len 0))
-  (assert (fx>=? cap len))
+  (assert (fx<=? 0 len cap))
   (let ((copy-len (fxmin len (bytespan-length sp)))
         (old-vec (bytespan-vec sp))
         (new-vec (make-bytevector cap))
@@ -142,8 +139,7 @@
     (bytespan-vec-set! sp new-vec)))
 
 (define (bytespan-reallocate-back! sp len cap)
-  (assert (fx>=? len 0))
-  (assert (fx>=? cap len))
+  (assert (fx<=? 0 len cap))
   (let ((copy-len (fxmin len (bytespan-length sp)))
         (old-vec (bytespan-vec sp))
         (new-vec (make-bytevector cap)))

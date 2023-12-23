@@ -79,8 +79,7 @@
   (span-end-set! sp 0))
 
 (define (span-ref sp idx)
-  (assert (fx>=? idx 0))
-  (assert (fx<? idx (span-length sp)))
+  (assert (fx<? -1 idx (span-length sp)))
   (vector-ref (span-vec sp) (fx+ idx (span-beg sp))))
 
 (define (span-back sp)
@@ -88,8 +87,7 @@
   (vector-ref (span-vec sp) (fx1- (span-end sp))))
 
 (define (span-set! sp idx val)
-  (assert (fx>=? idx 0))
-  (assert (fx<? idx (span-length sp)))
+  (assert (fx<? -1 idx (span-length sp)))
   (vector-set! (span-vec sp) (fx+ idx (span-beg sp)) val))
 
 (define (span-fill! sp val)
@@ -118,8 +116,7 @@
                 (span-vec dst) (fx+ dst-start (span-beg dst)) n))
 
 (define (span-reallocate-front! sp len cap)
-  (assert (fx>=? len 0))
-  (assert (fx>=? cap len))
+  (assert (fx<=? 0 len cap))
   (let ((copy-len (fxmin len (span-length sp)))
         (old-vec (span-vec sp))
         (new-vec (make-vector cap))
@@ -130,8 +127,7 @@
     (span-vec-set! sp new-vec)))
 
 (define (span-reallocate-back! sp len cap)
-  (assert (fx>=? len 0))
-  (assert (fx>=? cap len))
+  (assert (fx<=? 0 len cap))
   (let ((copy-len (fxmin len (span-length sp)))
         (old-vec (span-vec sp))
         (new-vec (make-vector cap)))
@@ -244,16 +240,14 @@
 
 ;; erase n elements at the left (front) of span
 (define (span-erase-front! sp n)
-  (assert (fx>=? n 0))
-  (assert (fx<=? n (span-length sp)))
+  (assert (fx<=? 0 n (span-length sp)))
   (unless (fxzero? n)
     ; TODO: zero-fill erased range? Helps GC
     (span-beg-set! sp (fx+ n (span-beg sp)))))
 
 ;; erase n elements at the right (back) of span
 (define (span-erase-back! sp n)
-  (assert (fx>=? n 0))
-  (assert (fx<=? n (span-length sp)))
+  (assert (fx<=? 0 n (span-length sp)))
   (unless (fxzero? n)
     ; TODO: zero-fill erased range? Helps GC
     (span-end-set! sp (fx- (span-end sp) n))))

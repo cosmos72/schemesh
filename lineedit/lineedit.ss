@@ -111,7 +111,6 @@
   (assert-charlines? 'lineedit-lines-set! lines)
   (linectx-to-history ctx)
   (lineedit-clear! ctx) ; leaves a single, empty line in vscreen
-  (linectx-vscreen-changed ctx)
   (unless (charlines-empty? lines)
     (let ((screen (linectx-vscreen ctx)))
       (charlines-clear! screen) ; removes the single, empty line from vscreen
@@ -121,9 +120,7 @@
 
 
 ;; insert a single character into vscreen at cursor.
-;; Also moves cursor one character to the right, and reflows vscreen as needed.
-;;
-;; caller must also invoke (linectx-vscreen-changed ctx)
+;; Also moves vscreen cursor one character to the right, and reflows vscreen as needed.
 (define (linectx-insert/ch! ctx ch)
   (vscreen-insert/ch! (linectx-vscreen ctx) ch))
 
@@ -148,7 +145,6 @@
   (let ((beg   start)
         (pos   start)
         (end   (fx+ start n))
-        (inserted-some? #f)
         (incomplete-utf8? #f))
     (do ()
         ((or incomplete-utf8?
@@ -161,10 +157,7 @@
           ((eq? #t ch)
             (set! incomplete-utf8? #t))
           ((and (char? ch) (char>=? ch #\space))
-            (linectx-insert/ch! ctx ch)
-            (set! inserted-some? #t)))))
-    (when inserted-some?
-      (linectx-vscreen-changed ctx))
+            (linectx-insert/ch! ctx ch)))))
     (fx- pos beg))) ; return number of bytes actually consumed
 
 ;; consume up to n bytes from rbuf and insert them into current line.
@@ -188,13 +181,13 @@
 
 ;; move cursor up by 1, moving to previous history entry if cursor y is 0
 (define (lineedit-key-up ctx)
-  (if (fx>? (linectx-y ctx) 0)
+  (if (fx>? (linectx-iy ctx) 0)
     (vscreen-cursor-move/up! (linectx-vscreen ctx) 1)
     (lineedit-navigate-history ctx -1)))
 
 ;; move cursor up by 1, moving to next history entry if cursor y is at end of vscreen
 (define (lineedit-key-down ctx)
-  (if (fx<? (linectx-y ctx) (linectx-end-y ctx))
+  (if (fx<? (linectx-iy ctx) (linectx-end-y ctx))
     (vscreen-cursor-move/down! (linectx-vscreen ctx) 1)
     (lineedit-navigate-history ctx +1)))
 
@@ -202,21 +195,21 @@
 (define (lineedit-key-word-left ctx)
   (let-values (((x y n) (linectx-find-left/word-begin ctx)))
     (when (and x y n (fx>? n 0))
-      (linectx-xy-set! ctx x y))))
+      (linectx-ixy-set! ctx x y))))
 
 ;; move to end of word under cursor
 (define (lineedit-key-word-right ctx)
   (let-values (((x y n) (linectx-find-right/word-end ctx)))
     (when (and x y n (fx>? n 0))
-      (linectx-xy-set! ctx x y))))
+      (linectx-ixy-set! ctx x y))))
 
 ;; move to start of line
 (define (lineedit-key-bol ctx)
-  (linectx-xy-set! ctx 0 (linectx-y ctx)))
+  (linectx-ixy-set! ctx 0 (linectx-iy ctx)))
 
 ;; move to end of line
 (define (lineedit-key-eol ctx)
-  (linectx-xy-set! ctx (greatest-fixnum) (linectx-y ctx)))
+  (linectx-ixy-set! ctx (greatest-fixnum) (linectx-iy ctx)))
 
 (define (lineedit-key-break ctx)
   (linectx-clear! ctx))
@@ -234,14 +227,14 @@
 ;; delete one character to the left of cursor.
 ;; moves cursor one character to the left.
 (define (lineedit-key-del-left ctx)
-  (unless (fxzero? (vscreen-erase-left/n! (linectx-vscreen ctx) 1))
-    (linectx-vscreen-changed ctx)))
+  (vscreen-erase-left/n! (linectx-vscreen ctx) 1)
+  (void))
 
 ;; delete one character under cursor.
 ;; does not move cursor.
 (define (lineedit-key-del-right ctx)
-  (unless (fxzero? (vscreen-erase-left/n! (linectx-vscreen ctx) 1))
-    (linectx-vscreen-changed ctx)))
+  (vscreen-erase-right/n! (linectx-vscreen ctx) 1)
+  (void))
 
 ;; delete from cursor to start of word under cursor.
 ;; moves cursor n characters to the left, where n is the number of deleted characters.
@@ -249,7 +242,7 @@
   (let-values (((x y n) (linectx-find-left/word-begin ctx)))
     (when (and x y n (fx>? n 0))
       (vscreen-erase-left/n! (linectx-vscreen ctx) n)
-      (linectx-vscreen-changed ctx))))
+      (void))))
 
 ;; delete from cursor to end of word under cursor.
 ;; does not move cursor.
@@ -257,18 +250,16 @@
   (let-values (((x y n) (linectx-find-right/word-end ctx)))
     (when (and x y n (fx>? n 0))
       (vscreen-erase-left/n! (linectx-vscreen ctx) n)
-      (linectx-vscreen-changed ctx))))
+      (void))))
 
 (define (lineedit-key-del-line ctx)
   (void)) ;; TODO: implement
 
 (define (lineedit-key-del-line-left ctx)
-  (vscreen-erase-left/line! (linectx-vscreen ctx)
-  (linectx-vscreen-changed ctx)))
+  (vscreen-erase-left/line! (linectx-vscreen ctx)))
 
 (define (lineedit-key-del-line-right ctx)
-  (vscreen-erase-right/line! (linectx-vscreen ctx)
-  (linectx-vscreen-changed ctx)))
+  (vscreen-erase-right/line! (linectx-vscreen ctx)))
 
 (define (lineedit-key-newline-left ctx)
   (void)) ;; TODO: implement
@@ -280,12 +271,10 @@
   (linectx-return-set! ctx #t))
 
 (define (lineedit-key-history-next ctx)
-  (lineedit-navigate-history ctx +1)
-  (linectx-vscreen-changed ctx))
+  (lineedit-navigate-history ctx +1))
 
 (define (lineedit-key-history-prev ctx)
-  (lineedit-navigate-history ctx -1)
-  (linectx-vscreen-changed ctx))
+  (lineedit-navigate-history ctx -1))
 
 (define (lineedit-key-redraw ctx)
   (let ((screen (linectx-vscreen ctx)))
@@ -304,8 +293,7 @@
                (stem-len (charspan-length (linectx-completion-stem ctx)))
                (len (fx- (charspan-length completion) stem-len)))
           (when (fx>? len 0)
-            (linectx-insert/cspan! ctx completion stem-len len)
-            (linectx-vscreen-changed ctx)))))))
+            (linectx-insert/cspan! ctx completion stem-len len)))))))
 
 (define (lineedit-key-toggle-insert ctx)
   ; (error 'toggle-insert "test error"))
@@ -335,7 +323,7 @@
   (linectx-redraw-set! ctx #t) ; set flag "redraw prompt and lines"
   (linectx-draw-parens ctx (linectx-parens ctx) 'plain) ; unhighlight parentheses
   (lineterm-move-dy ctx (fx- (charlines-length (linectx-vscreen ctx))
-                         (linectx-y ctx))) ; move to last input line
+                         (linectx-iy ctx))) ; move to last input line
   (lineterm-write/u8 ctx 10) ; advance to next line.
   (let* ((y (linectx-history-index ctx))
          (hist (linectx-history ctx))
@@ -398,35 +386,41 @@
       (lineterm-move-from ctx xmax ymax)))
   (linectx-draw-parens ctx (linectx-parens ctx) 'highlight))
 
-;; unconditionally draw prompt and lines
-(define (linectx-draw ctx)
-  (linectx-draw-prompt ctx)
-  (linectx-draw-lines  ctx))
 
 (define bv-prompt-error (string->utf8 "error expanding prompt $ "))
 
+;; update prompt
+(define (linectx-update-prompt ctx)
+  (let ((prompt (linectx-prompt ctx)))
+    (assert (bytespan? prompt))
+    (try ((linectx-prompt-func ctx) ctx)
+      (catch (cond)
+        (bytespan-clear! prompt)
+        (let ((err-len (bytevector-length bv-prompt-error)))
+          (bytespan-insert-back/bvector! prompt bv-prompt-error 0 err-len)
+          (linectx-prompt-length-set! ctx err-len))))
+    (let ((prompt-length (linectx-prompt-length ctx)))
+      (assert (fx<=? 0 prompt-length (bytespan-length prompt)))
+      (let-values (((y x) (fxdiv-and-mod prompt-length (linectx-width ctx))))
+        (when (and (fxzero? x) (not (fxzero? y)))
+          ; prompt actually ends at rightmost column
+          (set! x (linectx-width ctx))
+          (set! y (fx1- y)))
+        (linectx-prompt-end-x-set! ctx x)
+        (linectx-prompt-end-y-set! ctx y)))))
+
+
 ;; if needed, draw new prompt and lines
 (define (linectx-draw-if-needed ctx)
-  (when (linectx-redraw? ctx)
-    (let ((prompt (linectx-prompt ctx)))
-      (assert (bytespan? prompt))
-      (try ((linectx-prompt-func ctx) ctx)
-        (catch (cond)
-          (bytespan-clear! prompt)
-          (let ((err-len (bytevector-length bv-prompt-error)))
-            (bytespan-insert-back/bvector! prompt bv-prompt-error 0 err-len)
-            (linectx-prompt-length-set! ctx err-len))))
-      (let ((prompt-length (linectx-prompt-length ctx)))
-        (assert (fx<=? 0 prompt-length (bytespan-length prompt)))
-        (let-values (((y x) (fxdiv-and-mod prompt-length (linectx-width ctx))))
-          (when (and (fxzero? x) (not (fxzero? y)))
-            ; prompt actually ends at rightmost column
-            (set! x (linectx-width ctx))
-            (set! y (fx1- y)))
-          (linectx-prompt-end-x-set! ctx x)
-          (linectx-prompt-end-y-set! ctx y))))
-    (linectx-draw ctx)
-    (linectx-redraw-set! ctx #f)))
+  (when #t ; (linectx-redraw? ctx)
+    (parenmatcher-clear! (linectx-parenmatcher ctx)))
+    (lineterm-move-dy ctx (fx- (linectx-prompt-end-y ctx)))
+    (lineterm-move-to-bol ctx)
+    (linectx-update-prompt ctx)
+    (linectx-draw-prompt ctx)
+    (linectx-draw-lines  ctx)
+    (linectx-redraw-set! ctx #f)
+    (vscreen-dirty-set! (linectx-vscreen ctx) #f))
 
 
 ;; if position x y is inside linectx-vscreen, redraw char at x y with specified style.
@@ -453,8 +447,8 @@
 
 ;; return x y position immediately to the left of cursor.
 ;; Returned position will be in the previous line if cursor x = 0 and y > 0.
-;; Returns -1 -1 if cursor x = 0 and y = 0.
-(define (linectx-xy-before-cursor ctx)
+;; Returns 0 0 if cursor x = 0 and y = 0.
+(define (linectx-ixy-before-cursor ctx)
   (let* ((screen (linectx-vscreen ctx))
          (x      (vscreen-cursor-x screen))
          (y      (vscreen-cursor-x screen))
@@ -462,7 +456,7 @@
     (cond
       ((fx>? x 0) (values (fx1- x) y))
       ((fx>? y 0) (values (fx1- (vscreen-length-at-y screen (fx1- y))) (fx1- y)))
-      (else       (values -1 -1)))))
+      (else       (values 0 0)))))
 
 
 ;; return #f or a parens object containing matching parentheses immediately to the left of cursor.
@@ -471,19 +465,17 @@
         (parsers (linectx-parsers ctx))
         (parenmatcher (linectx-parenmatcher ctx)))
     (when (and parsers parenmatcher)
-      (let-values (((x y) (linectx-xy-before-cursor ctx)))
-        (let* ((lines (linectx-vscreen ctx))
-               (line  (charlines-ref lines y)))
-          ;; (format #t "(linectx-parens-find) x = ~s, y = ~s~%" x y)
-          (when (and (fx<? -1 x (charline-length line))
-                     (is-parens-char? (charline-ref line x)))
-            ;; (format #t "(linectx-parens-find) ch = ~s~%" (charline-ref line x))
+      (let-values (((x y) (linectx-ixy-before-cursor ctx)))
+        (let* ((screen (linectx-vscreen ctx))
+               (ch     (vscreen-char-at-xy screen x y)))
+          ;; (format #t "(linectx-parens-find) x = ~s, y = ~s, ch = ~s~%" x y ch)
+          (when (and ch (is-parens-char? ch))
             ;; protect against exceptions in linectx-completion-func
             (try
               (set! ret
                 (parenmatcher-find-match
                   parenmatcher
-                  (lambda () (make-parsectx* (open-charlines-input-port lines) parsers 0 0))
+                  (lambda () (make-parsectx* (open-charlines-input-port screen) parsers 0 0))
                   (linectx-parser-name ctx)
                   x y))
               (catch (cond)
