@@ -11,7 +11,7 @@
     lineterm-move-dx lineterm-move-dy lineterm-move-to-bol lineterm-clear-to-eol lineterm-clear-to-eos
     lineterm-del-right-n
     lineterm-redraw-to-eol lineterm-redraw-to-eos
-    linectx-move linectx-move-from linectx-move-to)
+    lineterm-move lineterm-move-from lineterm-move-to)
 
   (import
     (rnrs)
@@ -138,13 +138,13 @@
         (lineterm-write/u8 ctx 10)
         (lineterm-write/cbuffer ctx line 0 (charline-length line))))
     (lineterm-clear-to-eos ctx)
-    (linectx-move-from ctx
+    (lineterm-move-from ctx
       (charline-length (charlines-ref lines lines-n-1))
       lines-n-1)))
 
 
 ;; move tty cursor from position from-x from-y to position to-x to-y
-(define (linectx-move ctx from-x from-y to-x to-y)
+(define (lineterm-move ctx from-x from-y to-x to-y)
   (let ((prompt-x (linectx-prompt-end-x ctx)))
     ; we may move from/to first line, which is prefixed by the prompt:
     ; adjust from-x and to-x
@@ -156,14 +156,14 @@
     (lineterm-move-dx ctx (fx- to-x from-x))))
 
 ;; move tty cursor from its current position at from-x, from-y
-;; back to linectx-x, linectx-y
-(define (linectx-move-from ctx from-x from-y)
-  (linectx-move ctx from-x from-y (linectx-x ctx) (linectx-y ctx)))
+;; back to linectx-vx, linectx-vy
+(define (lineterm-move-from ctx from-x from-y)
+  (lineterm-move ctx from-x from-y (linectx-vx ctx) (linectx-vy ctx)))
 
-;; move tty cursor from its current position at linectx-x linectx-y
+;; move tty cursor from its current position at linectx-vx linectx-vy
 ;; to specified position to-x to-y
-(define (linectx-move-to ctx to-x to-y)
-  (linectx-move ctx (linectx-x ctx) (linectx-y ctx) to-x to-y))
+(define (lineterm-move-to ctx to-x to-y)
+  (lineterm-move ctx (linectx-vx ctx) (linectx-vy ctx) to-x to-y))
 
 
 

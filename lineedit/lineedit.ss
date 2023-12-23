@@ -39,27 +39,6 @@
     (only (schemesh posix signal) signal-consume-sigwinch))
 
 
-;; return absolute x y position corresponding to position dx dy relative to cursor,
-;; clamping returned values to current charlines
-(define (linectx-dxdy->xy ctx dx dy)
-  (let* ((x (fx+ dx (linectx-x ctx)))
-         (y (fx+ dy (linectx-y ctx)))
-         (lines (linectx-vscreen ctx))
-         (last-y (fx1- (charlines-length lines))))
-    (cond
-     ((fx<? x 0)
-       ;; move to previous line
-       (set! x (greatest-fixnum))
-       (set! y (fx1- y)))
-     ((and (fx<? -1 y last-y)
-           (fx>? x (charline-length (charlines-ref lines y))))
-       ;; move to next line
-       (set! x 0)
-       (set! y (fx1+ y))))
-    (set! y (fxmax 0 (fxmin y last-y)))
-    (set! x (fxmax 0 (fxmin x (charline-length (charlines-ref lines y)))))
-    (values x y)))
-
 
 
 ;; find one key sequence in linectx-keytable matching rbuf and execute it
@@ -396,10 +375,6 @@
       (when (pair? sz)
         (linectx-resize ctx (car sz) (cdr sz))))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;         TO DO: REFACTOR ALL CODE BELOW THIS POINT      ;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 ;; unconditionally draw prompt
 (define (linectx-draw-prompt ctx)
   (let ((prompt (linectx-prompt ctx)))
@@ -408,20 +383,19 @@
 
 ;; unconditionally draw lines
 (define (linectx-draw-lines ctx)
-  (let* ((lines (linectx-vscreen ctx))
-         (lines-n-1 (fx1- (charlines-length lines)))
-         (nl? #f))
-    (charlines-iterate lines
-      (lambda (i line)
-        (when nl?
-          (lineterm-clear-to-eol ctx)
-          (lineterm-write/u8 ctx 10))
+  (let* ((screen (linectx-vscreen ctx))
+         (width  (vscreen-width screen))
+         (ymax   (fx1- (vscreen-end-y screen)))
+         (nl?    #f))
+    (charlines-iterate screen
+      (lambda (y line)
         (lineterm-write/cbuffer ctx line 0 (charline-length line))
-        (set! nl? #t)))
+        (unless (or (fx=? y ymax) (charline-nl? line))
+          (lineterm-write/u8 ctx 10))))
     (lineterm-clear-to-eos ctx)
-    (linectx-move-from ctx
-      (charline-length (charlines-ref lines lines-n-1))
-      lines-n-1))
+    (let ((xmax (fx+ (vscreen-length-at-y screen ymax)
+                     (if (fxzero? ymax) (vscreen-prompt-end-x screen) 0))))
+      (lineterm-move-from ctx xmax ymax)))
   (linectx-draw-parens ctx (linectx-parens ctx) 'highlight))
 
 ;; unconditionally draw prompt and lines
@@ -432,8 +406,8 @@
 (define bv-prompt-error (string->utf8 "error expanding prompt $ "))
 
 ;; if needed, draw new prompt and lines
-(define (linectx-draw-if-needed ctx force?)
-  (when (or force? (linectx-redraw? ctx))
+(define (linectx-draw-if-needed ctx)
+  (when (linectx-redraw? ctx)
     (let ((prompt (linectx-prompt ctx)))
       (assert (bytespan? prompt))
       (try ((linectx-prompt-func ctx) ctx)
@@ -456,39 +430,48 @@
 
 
 ;; if position x y is inside linectx-vscreen, redraw char at x y with specified style.
-;; used to (un)highlight parentheses
-(define (linectx-draw-char-at ctx x y style)
-  (let* ((lines (linectx-vscreen ctx))
-         (line  (if (fx<? -1 y (charlines-length lines))
-                  (charlines-ref lines y)
-                  #f))
-         (ch    (if (and line (fx<? -1 x (charline-length line)))
-                  (charline-ref line x)
-                  #f))
-         (wbuf  (linectx-wbuf  ctx)))
-    (when ch
-      (linectx-move-to ctx x y)
+;; used to highlight/unhighlight parentheses, brackes, braces and quotes
+(define (linectx-draw-char-at-xy ctx x y style)
+  (let ((ch    (vscreen-char-at-xy (linectx-vscreen ctx) x y))
+        (wbuf  (linectx-wbuf  ctx)))
+    (when (and ch (char>=? ch #\space))
+      (lineterm-move-to ctx x y)
       (when (eq? 'highlight style)
         (bytespan-insert-back/bvector! wbuf '#vu8(27 91 49 59 51 54 109) 0 7)) ; ESC[1;36m
       (bytespan-insert-back/utf8! wbuf ch)
       (when (eq? 'highlight style)
         (bytespan-insert-back/bvector! wbuf '#vu8(27 91 109) 0 3)) ; ESC[m
-      (linectx-move-from ctx (fx1+ x) y))))
+      (lineterm-move-from ctx (fx1+ x) y))))
 
 
 (define (linectx-draw-parens ctx parens style)
   ;; draw parens only if both start and end positions are valid
   (when (parens-valid? parens)
-    (linectx-draw-char-at ctx (parens-start-x parens) (parens-start-y parens) style)
-    (linectx-draw-char-at ctx (parens-end-x parens)   (parens-end-y parens)   style)))
+    (linectx-draw-char-at-xy ctx (parens-start-x parens) (parens-start-y parens) style)
+    (linectx-draw-char-at-xy ctx (parens-end-x parens)   (parens-end-y parens)   style)))
 
 
+;; return x y position immediately to the left of cursor.
+;; Returned position will be in the previous line if cursor x = 0 and y > 0.
+;; Returns -1 -1 if cursor x = 0 and y = 0.
+(define (linectx-xy-before-cursor ctx)
+  (let* ((screen (linectx-vscreen ctx))
+         (x      (vscreen-cursor-x screen))
+         (y      (vscreen-cursor-x screen))
+         (ymax   (fx1- (vscreen-end-y screen))))
+    (cond
+      ((fx>? x 0) (values (fx1- x) y))
+      ((fx>? y 0) (values (fx1- (vscreen-length-at-y screen (fx1- y))) (fx1- y)))
+      (else       (values -1 -1)))))
+
+
+;; return #f or a parens object containing matching parentheses immediately to the left of cursor.
 (define (linectx-parens-find ctx)
   (let ((ret     #f)
         (parsers (linectx-parsers ctx))
         (parenmatcher (linectx-parenmatcher ctx)))
     (when (and parsers parenmatcher)
-      (let-values (((x y) (linectx-dxdy->xy ctx -1 0)))
+      (let-values (((x y) (linectx-xy-before-cursor ctx)))
         (let* ((lines (linectx-vscreen ctx))
                (line  (charlines-ref lines y)))
           ;; (format #t "(linectx-parens-find) x = ~s, y = ~s~%" x y)
@@ -572,6 +555,7 @@
     (assert (fx<=? 0 got max-n))
     (if eof? -1 got)))
 
+
 ;; invoked when some function called by lineedit-read raises a condition
 (define (%lineedit-error ctx cond)
   ; remove offending input that triggered the condition
@@ -591,7 +575,7 @@
 ;; implementation of (lineedit-read)
 (define (%lineedit-read ctx timeout-milliseconds)
   (linectx-consume-sigwinch ctx)
-  (linectx-draw-if-needed ctx #f)
+  (linectx-draw-if-needed ctx)
   (let ((ret (if (bytespan-empty? (linectx-rbuf ctx))
                #t ; need more input
                ; some bytes already in rbuf, try to consume them

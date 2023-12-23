@@ -10,9 +10,9 @@
     vscreen  vscreen*  vscreen?  assert-vscreen?
     vscreen-width        vscreen-height    vscreen-resize!
     vscreen-cursor-x     vscreen-cursor-y  vscreen-cursor-xy   vscreen-cursor-xy-set!
-    vscreen-vcursor-xy   vscreen-vcursor-xy-set!
-    vscreen-prompt-end-x vscreen-prompt-end-x-set! vscreen-end-y
-    vscreen-clear!       vscreen-empty?
+    vscreen-vcursor-x    vscreen-vcursor-y vscreen-vcursor-xy  vscreen-vcursor-xy-set!
+    vscreen-prompt-end-x vscreen-prompt-end-x-set! vscreen-length-at-y vscreen-end-y
+    vscreen-char-at-xy   vscreen-clear!       vscreen-empty?
     vscreen-cursor-move/left! vscreen-cursor-move/right!  vscreen-cursor-move/up! vscreen-cursor-move/down!
     vscreen-erase-left/n!    vscreen-erase-right/n!       vscreen-erase-at-xy!
     vscreen-erase-left/line! vscreen-erase-right/line!
@@ -86,7 +86,7 @@
 
 
 ;; return vscreen width i.e. maximum charline length at specified y
-;; it is equal (vscreen-width), except when y = 0 where prompt length must be subtracted
+;; it is equal (vscreen-width), except when y = 0 where prompt length is subtracted
 (define (vscreen-width-at-y screen y)
   (fx- (vscreen-width screen)
        (if (fxzero? y) (vscreen-prompt-end-x screen) 0)))
@@ -103,6 +103,16 @@
   (if (fx<? -1 y (vscreen-end-y screen))
     (charline-length (charlines-ref screen y))
     0))
+
+;; return vscreen char at specified x y, or #f if x y are out of range
+(define (vscreen-char-at-xy screen x y)
+  (if (fx<? -1 y (vscreen-end-y screen))
+    (let* ((line (charlines-ref screen y))
+           (len  (charline-length line)))
+      (if (fx<? -1 x len)
+        (charline-ref line x)
+        #f))
+    #f))
 
 ;; return tow values: cursor x and y position
 (define (vscreen-cursor-xy screen)

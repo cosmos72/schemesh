@@ -9,7 +9,7 @@
   (export
     make-linectx make-linectx* linectx? linectx-rbuf linectx-wbuf
     linectx-vscreen   linectx-x     linectx-y   linectx-xy   linectx-xy-set!
-    linectx-width     linectx-end-y
+    linectx-vx        linectx-vy    linectx-width     linectx-end-y
     linectx-stdin linectx-stdin-set! linectx-stdout linectx-stdout-set!
     linectx-prompt-end-x linectx-prompt-end-x-set! linectx-prompt-end-y linectx-prompt-end-y-set!
     linectx-prompt linectx-prompt-length linectx-prompt-length-set! linectx-prompt-func
@@ -123,6 +123,15 @@
 ;; set cursor x and y position
 (define (linectx-xy-set! ctx x y)
   (vscreen-cursor-xy-set! (linectx-vscreen ctx) x y))
+
+;; return cursor x visual position. It is equal to linectx-x,
+;; unless cursor y = 0, where prompt-end-x is added.
+(define (linectx-vx ctx)
+  (vscreen-vcursor-x (linectx-vscreen ctx)))
+
+;; return cursor y visual position. It is equal to linectx-y.
+(define (linectx-vy ctx)
+  (vscreen-vcursor-y (linectx-vscreen ctx)))
 
 ;; return screen width
 (define (linectx-width ctx)
