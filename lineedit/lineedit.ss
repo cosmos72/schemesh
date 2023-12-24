@@ -59,26 +59,26 @@
     n))
 
 
-;; common implementation of (linectx-find-left/word-begin) and (linectx-find-right/word-end)
-(define (%linectx-find-left-or-right ctx %vscreen-find-func)
-  (let ((screen (linectx-vscreen ctx)))
-    (let-values (((x0 y0) (vscreen-cursor-xy screen)))
-      (let-values (((x1 y1 n1) (%vscreen-find-func screen x0 y0 (lambda (ch) (char>? ch #\space)))))
-        (let-values (((x2 y2 n2) (if (and x1 y1 n1) (values x1 y1 n1) (values x0 y0 0))))
-          (let-values (((x3 y3 n3) (%vscreen-find-func screen x2 y2 (lambda (ch) (char<=? ch #\space)))))
-            (if (and x3 y3 n3)
-              (values x3 y3 n3)
-              (values x2 y2 n2))))))))
-
 ;; return three values: position x y of start of word under cursor,
 ;; and number of characters between cursor and word start.
 (define (linectx-find-left/word-begin ctx)
-  (%linectx-find-left-or-right ctx vscreen-find-at-xy/left))
+  (let ((screen (linectx-vscreen ctx)))
+    (let-values (((x y) (vscreen-cursor-xy screen)))
+      (let-values (((x y nsp) (vscreen-count-at-xy/left screen x y (lambda (ch) (char<=? ch #\space)))))
+        (let-values (((x y nw) (vscreen-count-at-xy/left screen x y (lambda (ch) (char>? ch #\space)))))
+          (values x y (fx+ nsp nw)))))))
+
 
 ;; return three values: position x y of end of word under cursor,
-;; and number of characters between cursor and word end and.
+;; and number of characters between cursor and word end.
 (define (linectx-find-right/word-end ctx)
-  (%linectx-find-left-or-right ctx vscreen-find-at-xy/right))
+  (let ((screen (linectx-vscreen ctx)))
+    (let-values (((x y) (vscreen-cursor-xy screen)))
+      (let-values (((x y nsp) (vscreen-count-at-xy/right screen x y (lambda (ch) (char<=? ch #\space)))))
+        (let-values (((x y nsp) (vscreen-next-xy/or-self screen x y nsp)))
+          (let-values (((x y nw) (vscreen-count-at-xy/right screen x y (lambda (ch) (char>? ch #\space)))))
+            (let-values (((x y nw) (vscreen-next-xy/or-self screen x y nw)))
+              (values x y (fx+ nsp nw)))))))))
 
 
 (define (lineedit-flush ctx)
@@ -250,7 +250,7 @@
 (define (lineedit-key-del-word-right ctx)
   (let-values (((x y n) (linectx-find-right/word-end ctx)))
     (when (and x y n (fx>? n 0))
-      (vscreen-erase-left/n! (linectx-vscreen ctx) n)
+      (vscreen-erase-right/n! (linectx-vscreen ctx) n)
       (void))))
 
 (define (lineedit-key-del-line ctx)

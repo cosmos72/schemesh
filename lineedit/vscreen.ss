@@ -13,19 +13,21 @@
     vscreen-cursor-x     vscreen-cursor-y  vscreen-cursor-xy   vscreen-cursor-xy-set!
     vscreen-vcursor-x    vscreen-vcursor-y vscreen-vcursor-xy  vscreen-vcursor-xy-set!
     vscreen-prompt-end-x vscreen-prompt-end-x-set! vscreen-length-at-y vscreen-end-y
-    vscreen-char-at-xy   vscreen-clear!       vscreen-empty?
-    vscreen-cursor-move/left! vscreen-cursor-move/right!  vscreen-cursor-move/up! vscreen-cursor-move/down!
-    vscreen-erase-left/n!    vscreen-erase-right/n!       vscreen-erase-at-xy!
-    vscreen-erase-left/line! vscreen-erase-right/line!
-    vscreen-find-at-xy/left  vscreen-find-at-xy/right
-    vscreen-insert-at-xy/ch! vscreen-insert-at-xy/newline! vscreen-insert-at-xy/cspan!
-    vscreen-insert/ch!       vscreen-insert/cspan!
+    vscreen-char-at-xy   vscreen-char-before-xy  vscreen-char-after-xy
+    vscreen-next-xy      vscreen-prev-xy   vscreen-next-xy/or-self  vscreen-prev-xy/or-self
+    vscreen-count-at-xy/left  vscreen-count-at-xy/right
+    vscreen-clear!       vscreen-empty?
+    vscreen-cursor-move/left! vscreen-cursor-move/right!  vscreen-cursor-move/up!  vscreen-cursor-move/down!
+    vscreen-erase-left/n!     vscreen-erase-right/n!       vscreen-erase-at-xy!
+    vscreen-erase-left/line!  vscreen-erase-right/line!
+    vscreen-insert-at-xy/ch!  vscreen-insert-at-xy/newline! vscreen-insert-at-xy/cspan!
+    vscreen-insert/ch!        vscreen-insert/cspan!
     write-vscreen)
 
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx1- record-writer)
-    (schemesh bootstrap)       ;; while
+    (only (schemesh bootstrap) while)
     (schemesh containers span)
     (schemesh containers charline)
     (schemesh containers charlines))
@@ -124,6 +126,7 @@
         #f))
     #f))
 
+
 ;; return tow values: cursor x and y position
 (define (vscreen-cursor-xy screen)
   (values (vscreen-cursor-x screen) (vscreen-cursor-y screen)))
@@ -174,16 +177,28 @@
     (vscreen-cursor-x-set! screen x)))
 
 
-
-;; return total number of characters in vscreen before cursor,
-;; including characters in previous lines if cursor y > 0.
-(define (vscreen-cursor-count/left screen)
-  (let ((n     (vscreen-cursor-x screen))
-        (y     (vscreen-cursor-y screen))
+;; return total number of characters in vscreen before position x y,
+;; including characters in previous lines if y > 0.
+(define (vscreen-count-to-start screen x y)
+  (let ((n     x)
         (end-y (vscreen-end-y screen)))
     (while (fx<? 0 y end-y)
       (set! y (fx1- y))
       (set! n (fx+ n (charline-length (charlines-ref screen y)))))
+    n))
+
+
+;; return total number of characters in vscreen at position x y or after it,
+;; including characters in next lines if y < maximum y.
+(define (vscreen-count-to-end screen x y)
+  (let ((n     0)
+        (end-y (vscreen-end-y screen)))
+    (while (fx<? 0 y end-y)
+      (let* ((len (charline-length (charlines-ref screen y)))
+             (xx  (fxmax 0 (fxmin x len))))
+        (set! n (fx+ n (fx- len xx)))
+        (set! x 0)
+        (set! y (fx1- y))))
     n))
 
 ;; change vscreen width and height. Also reflows screen.
@@ -197,7 +212,7 @@
       (let ((reflow-func (if (fx<? width old-width)
                             vscreen-overflow-at-y
                             vscreen-underflow-at-y))
-            (n (vscreen-cursor-count/left screen))
+            (n (vscreen-count-to-start screen (vscreen-cursor-x screen) (vscreen-cursor-y screen)))
             (y 0))
         (vscreen-dirty-set! screen #t)
         (vscreen-width-set! screen width)
@@ -450,58 +465,6 @@
       (vscreen-erase-right/until-nl! screen))))
 
 
-;; return three values:
-;; position x y of rightmost character that is at position < x0 y0 and satisfies (pred ch),
-;; and number of characters between x y and x0 y0.
-;; return #f #f #f if no character before position x0 y0 satisfies (pred ch).
-;; Note: never returns x0 y0 0, because position x0 y0 is *not* examined.
-(define (vscreen-find-at-xy/left screen x0 y0 pred)
-  (let ((found? #f)
-        (xret (fx1- x0))
-        (yret y0)
-        (count 1))
-    (do ((y (fxmin y0 (fx1- (vscreen-end-y screen))) (fx1- y)))
-        ((or found? (fx<? y 0))
-          (if found? (values xret yret count) (values #f #f #f)))
-      (let ((line (charlines-ref screen y)))
-        (do ((x (fx1- (fxmin x0 (charline-length line))) (fx1- x)))
-            ((or found? (fx<? x 0)))
-          (if (pred (charline-ref line x))
-            (begin
-              (set! found? #t)
-              (set! xret x)
-              (set! yret y))
-            (set! count (fx1+ count))))
-        (set! x0 (greatest-fixnum))))))
-
-
-;; return three values:
-;; position x y of leftmost character that is at position >= x0 y0 and satisfies (pred ch),
-;; and number of characters between x y and x0 y0.
-;; return #f #f #f if no character at position x0 y0 or right of it satisfies (pred ch).
-;; Note: may also return x0 y0 0, because position x0 y0 is examined.
-(define (vscreen-find-at-xy/right screen x0 y0 pred)
-  (let ((found? #f)
-        (xret x0)
-        (yret y0)
-        (yn (vscreen-end-y screen))
-        (count 0))
-    (do ((y (fxmax y0 0) (fx1+ y)))
-        ((or found? (fx>=? y yn))
-           (if found? (values xret yret count) (values #f #f #f)))
-      (let* ((line (charlines-ref screen y))
-             (xn   (charline-length line)))
-        (do ((x (fxmax x0 0) (fx1+ x)))
-            ((or found? (fx>=? x xn)))
-          (if (pred (charline-ref line x))
-            (begin
-              (set! found? #t)
-              (set! xret x)
-              (set! yret y))
-            (set! count (fx1+ count))))
-        (set! x0 0)))))
-
-
 ;; move characters from end of vscreen line at y to the beginning of line at y+1
 ;; and repeat on subsequent lines *without* a newline at y+2...
 ;; until lengths of modified lines are all <= vscreen width.
@@ -633,6 +596,113 @@
     (vscreen-insert-at-xy/cspan! screen (vscreen-cursor-x screen) (vscreen-cursor-y screen)
                                  csp csp-start csp-n)
     (vscreen-cursor-move/right! screen csp-n)))
+
+
+;; return position one character to the left of x y.
+;; returned position may be on the previous line.
+;; return #f #f if x y is out of range or is the first valid position.
+(define (vscreen-prev-xy screen x y)
+  (let ((ymax  (fx1- (vscreen-end-y screen))))
+    (if (fx<=? 0 y ymax)
+      ;; allow positioning cursor after end of line only if it's the last line
+      (let ((xmax (fx- (charline-length (charlines-ref screen y))
+                       (if (fx=? y ymax) 0 1))))
+        ;; (format #t "; vscreen-prev-xy xy = (~s ~s), xmax = ~s~%" x y xmax)
+        (if (fx<=? 1 x xmax)
+          (values (fx1- x) y) ;; (x-1 y) is a valid position, return it
+          (if (fx>? y 0)
+            ;; return last position in previous line
+            (values (fx1- (charline-length (charlines-ref screen (fx1- y)))) (fx1- y))
+            (values #f #f))))
+      (values #f #f))))
+
+
+;; return position one character to the right of x y.
+;; returned position may be on the next line.
+;; return #f #f if x y is out of range or is the last valid position.
+(define (vscreen-next-xy screen x y)
+  (let ((ymax  (fx1- (vscreen-end-y screen))))
+    (if (fx<=? 0 y ymax)
+      ;; allow positioning cursor after end of line only if it's the last line
+      (let ((xmax (fx- (charline-length (charlines-ref screen y))
+                       (if (fx=? y ymax) 0 1))))
+        ;; (format #t "; vscreen-next-xy xy = (~s ~s), xmax = ~s~%" x y xmax)
+        (if (fx<? -1 x xmax)
+          (values (fx1+ x ) y) ;; (x+1 y) is a valid position, return it
+          (if (fx<? y ymax)
+            (values 0 (fx1+ y)) ;; return beginning of next line
+            (values #f #f))))
+      (values #f #f))))
+
+
+;; return position one character to the left of x y, and n+1.
+;; returned position may be on the previous line.
+;; if position x y is are out of range or is the first valid position, return unmodified x y n.
+(define (vscreen-prev-xy/or-self screen x y n)
+  (let-values (((x1 y1) (vscreen-prev-xy screen x y)))
+    (if (and x1 y1)
+      (values x1 y1 (fx1+ n))
+      (values x y n))))
+
+;; return position one character to the right of x y and n+1.
+;; returned position may be on the next line.
+;; if position x y is are out of range or is the last valid position, return unmodified x y n.
+(define (vscreen-next-xy/or-self screen x y n)
+  (let-values (((x1 y1) (vscreen-next-xy screen x y)))
+    (if (and x1 y1)
+      (values x1 y1 (fx1+ n))
+      (values x y n))))
+
+
+;; return position immediately before x y, and char at such position.
+;; return #f #f #f if x y are out of range or 0 0.
+(define (vscreen-char-before-xy screen x y)
+  (let-values (((x y) (vscreen-prev-xy screen x y)))
+    (if (and x y)
+      (values x y (vscreen-char-at-xy screen x y))
+      (values #f #f #f))))
+
+
+;; return position immediately after x y, and char at such position.
+;; return #f #f #f if x y are out of range.
+;; return x+1 y #f if x y correspond to the last character in the last line
+(define (vscreen-char-after-xy screen x y)
+  (let-values (((x y) (vscreen-next-xy screen x y)))
+    (if (and x y)
+      (values x y (vscreen-char-at-xy screen x y))
+      (values #f #f #f))))
+
+
+;; return count of consecutive characters before x y that satisfy (pred ch), and their position.
+;; return x y 0 if either x y are out of range, or character before x y does not satisfy (pred ch)
+(define (vscreen-count-at-xy/left screen x y pred)
+  (let ((n 0)
+        (continue? #t))
+    (while continue?
+      (let-values (((x1 y1 ch) (vscreen-char-before-xy screen x y)))
+        (set! continue? (and x1 y1 ch (pred ch)))
+        (when continue?
+          (set! x x1)
+          (set! y y1)
+          (set! n (fx1+ n)))))
+    (values x y n)))
+
+
+;; return count of consecutive characters at x y or afterwards that satisfy (pred ch), and their position.
+;; return x y 0 if either x y are out of range, or character at x y does not satisfy (pred ch)
+(define (vscreen-count-at-xy/right screen x y pred)
+  (let ((n 0)
+        (continue? (let ((ch (vscreen-char-at-xy screen x y)))
+                     (and ch (pred ch)))))
+    (while continue?
+      (let-values (((x1 y1 ch) (vscreen-char-after-xy screen x y)))
+        ;; (format #t "; vscreen-count-at-xy/right xy = (~s ~s), ch = ~s~%" x1 y1 ch)
+        (set! continue? (and x1 y1 ch (pred ch)))
+        (when continue?
+          (set! x x1)
+          (set! y y1)
+          (set! n (fx1+ n)))))
+    (values x y n)))
 
 
 ;; write a textual representation of vscreen to output port
