@@ -53,7 +53,9 @@
 
 
 ;; vscreen is an in-memory representation of user-typed input and how it is split
-;; in multiple lines, each limited either by a newline or by screen width
+;; in multiple lines, each limited either by a newline or by screen width.
+;;
+;; vscreen must always contain at least one (possibly empty) charline.
 (define-record-type
   (%vscreen %make-vscreen vscreen?)
   (parent %charlines)
@@ -224,6 +226,14 @@
     (else #f)))
 
 
+;; remove a line from screen. Last line cannot be removed, it will be cleared instead.
+(define (vscreen-erase-at/cline! screen y)
+  (if (and (fxzero? y) (fx=? 1 (vscreen-end-y screen)))
+    (charline-clear! (charlines-ref screen 0))
+    (charlines-erase-at/cline! screen y)))
+
+
+
 ;; move vscreen cursor n characters to the left.
 ;; Each time the beginning of a line is reached, moving further left
 ;;   means moving to the end of previous line.
@@ -317,7 +327,7 @@
                 (set! n 0)) ;; newline found, stop refilling line1
               ;; we consumed all chars from line2, erase it
               (vscreen-dirty-set! screen #t)
-              (charlines-erase-at/cline! screen y+1))))
+              (vscreen-erase-at/cline! screen y+1))))
         y+1)
       y)))
 
@@ -332,6 +342,7 @@
       (vscreen-dirty-set! screen #t)
       (let ((saved-y y))
         (while (and (fx>? n 0) (fx<? -1 y (vscreen-end-y screen)))
+          ;; (format #t "; vscreen-erase-at-xy! ~s chars to delete at y = ~s~%" n y)
           (let* ((line (charlines-ref screen y))
                  (len  (charline-length line))
                  (i    (fxmin n (fx- len x))))
@@ -342,13 +353,12 @@
               (set! len (fx- len i)))
             (when (fx>=? x len)
               ;; erased until the end of line, continue with next line
-              (if (fxzero? len)
-                ;; line is now empty, remove it
-                (charlines-erase-at/cline! screen y)
+              (set! x 0)
+              (if (and (fxzero? len) (not (vscreen-empty? screen)))
+                ;; line is empty, remove it
+                (vscreen-erase-at/cline! screen y)
                 ;; line is not empty, move to next line
-                (begin
-                  (set! x 0)
-                  (set! y (fx1+ y)))))))
+                (set! y (fx1+ y))))))
         (unless (fx=? saved-n n)
           (vscreen-underflow-at-y screen saved-y))))
     (fx- saved-n n)))
@@ -384,7 +394,7 @@
       (set! y    (fx1- y))
       (set! line (vscreen-line-at-y screen y))
       (while (and line (not (charline-nl? line)))
-        (charlines-erase-at/cline! screen y)
+        (vscreen-erase-at/cline! screen y)
         (set! y    (fx1- y))
         (set! line (vscreen-line-at-y screen y)))
       (vscreen-cursor-x-set! screen (fx1+ y)))))
@@ -410,7 +420,7 @@
         (when line
           (set! nl? (charline-nl? line))
           ;; also erase the newline, if present
-          (charlines-erase-at/cline! screen y)))
+          (vscreen-erase-at/cline! screen y)))
       (set! y (vscreen-cursor-y screen))
       (set! line (vscreen-line-at-y screen y))
       (when (and nl? line (not (charline-nl? line)))

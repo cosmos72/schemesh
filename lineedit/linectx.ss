@@ -10,8 +10,8 @@
     make-linectx make-linectx* linectx? linectx-rbuf linectx-wbuf
     linectx-vscreen linectx-width linectx-end-y
     linectx-ix     linectx-iy     linectx-ixy  linectx-ixy-set!
-    linectx-vx     linectx-vy     linectx-vxy  linectx-vxy-set!
-    linectx-term-x linectx-term-y
+    linectx-vx     linectx-vy
+    linectx-term-x linectx-term-y linectx-term-xy-set!
     linectx-stdin linectx-stdin-set! linectx-stdout linectx-stdout-set!
     linectx-prompt-end-x linectx-prompt-end-x-set! linectx-prompt-end-y linectx-prompt-end-y-set!
     linectx-prompt linectx-prompt-length linectx-prompt-length-set! linectx-prompt-func
@@ -28,7 +28,7 @@
 
   (import
     (rnrs)
-    (only (chezscheme) display-condition fx1+ fx1- inspect record-writer void)
+    (only (chezscheme) fx1+ fx1- record-writer void)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh posix fd)
@@ -137,14 +137,11 @@
 (define (linectx-vy ctx)
   (vscreen-vcursor-y (linectx-vscreen ctx)))
 
-;; return vscreen cursor x and y visual position.
-(define (linectx-vxy ctx)
-  (vscreen-vcursor-xy (linectx-vscreen ctx)))
-
-;; set vscreen cursor x and y visual position.
-(define (linectx-vxy-set! ctx vx vy)
-  (vscreen-vcursor-xy-set! (linectx-vscreen ctx) vx vy))
-
+;; set tty cursor x and y position.
+;; Only updates linectx-term-x and linectx-term-y, does *not* write anything to the tty.
+(define (linectx-term-xy-set! ctx x y)
+  (linectx-term-x-set! ctx x)
+  (linectx-term-y-set! ctx y))
 
 ;; return screen width
 (define (linectx-width ctx)

@@ -46,6 +46,7 @@
   (assert (linectx? ctx))
   (let-values (((proc n) (linectx-keytable-find
                            (linectx-ktable ctx) (linectx-rbuf ctx))))
+    ;; (format #t "; linectx-keytable-call consume ~s chars, call ~s~%" n proc)
     (cond
       ((procedure? proc) (proc ctx))
       ((hashtable? proc) (set! n 0)) ; incomplete sequence, wait for more keystrokes
@@ -369,11 +370,12 @@
     ;; (format #t "linectx-draw-prompt: prompt = ~s~%" prompt)
     (lineterm-write/bspan ctx prompt 0 (bytespan-length prompt))))
 
-;; unconditionally draw lines
-(define (linectx-draw-lines ctx)
+;; unconditionally draw all lines, then move tty cursor to its expected tty position,
+;; finally draw matching parentheses.
+(define (linectx-draw-lines+move+parens ctx)
   (let* ((screen (linectx-vscreen ctx))
          (width  (vscreen-width screen))
-         (ymax   (fx1- (vscreen-end-y screen)))
+         (ymax   (fxmax 0 (fx1- (vscreen-end-y screen))))
          (nl?    #f))
     (charlines-iterate screen
       (lambda (y line)
@@ -383,6 +385,7 @@
     (lineterm-clear-to-eos ctx)
     (let ((xmax (fx+ (vscreen-length-at-y screen ymax)
                      (if (fxzero? ymax) (vscreen-prompt-end-x screen) 0))))
+      ;; (format #t "; linectx-draw-lines+move+parens xmax = ~s, ymax = ~s~%" xmax ymax)
       (lineterm-move-from ctx xmax ymax)))
   (linectx-draw-parens ctx (linectx-parens ctx) 'highlight))
 
@@ -418,16 +421,20 @@
     (lineterm-move-to-bol ctx)
     (linectx-update-prompt ctx)
     (linectx-draw-prompt ctx)
-    (linectx-draw-lines  ctx)
+    ;; set term-x and term-y to the desired position
+    (linectx-term-xy-set! ctx (linectx-vx ctx) (linectx-vy ctx))
+    (linectx-draw-lines+move+parens ctx)
     (linectx-redraw-set! ctx #f)
     (vscreen-dirty-set! (linectx-vscreen ctx) #f))
 
 
 ;; if position x y is inside linectx-vscreen, redraw char at x y with specified style.
-;; used to highlight/unhighlight parentheses, brackes, braces and quotes
+;; used to highlight/unhighlight parentheses, brackes, braces and quotes.
+;; assumes tty cursor is at term-x term-y, and moves it back there after drawing char.
 (define (linectx-draw-char-at-xy ctx x y style)
   (let ((ch    (vscreen-char-at-xy (linectx-vscreen ctx) x y))
         (wbuf  (linectx-wbuf  ctx)))
+    ;; (format #t "; linectx-draw-char-at-xy at (~s ~s) char ~s~%" x y ch)
     (when (and ch (char>=? ch #\space))
       (lineterm-move-to ctx x y)
       (when (eq? 'highlight style)

@@ -99,20 +99,21 @@
 (define (lineterm-clear-to-eos ctx)
   (lineterm-write/bvector ctx #vu8(27 91 74) 0 3)) ; ESC [ J
 
-;; move tty cursor from visual position from-vx from-vy to visual position to-vx to-vy
-(define (lineterm-move ctx from-vx from-vy to-vx to-vy)
-  (lineterm-move-dy ctx (fx- to-vy from-vy))
-  (lineterm-move-dx ctx (fx- to-vx from-vx)))
+;; move tty cursor from tty position from-x from-y to tty position to-x to-y
+(define (lineterm-move ctx from-x from-y to-x to-y)
+  (lineterm-move-dy ctx (fx- to-y from-y))
+  (lineterm-move-dx ctx (fx- to-x from-x)))
 
-;; move tty cursor from its current visual position at from-vx, from-vy
+;; move tty cursor from its current tty position at from-x, from-y
 ;; back to linectx-term-x linectx-term-y
-(define (lineterm-move-from ctx from-vx from-vy)
-  (lineterm-move ctx from-vx from-vy (linectx-term-x ctx) (linectx-term-y ctx)))
+(define (lineterm-move-from ctx from-x from-y)
+  ;; (format #t "; lineterm-move-from (~s ~s)~%" from-x from-y)
+  (lineterm-move ctx from-x from-y (linectx-term-x ctx) (linectx-term-y ctx)))
 
-;; move tty cursor from its current position at linectx-term-x linectx-term-y
-;; to specified visual position to-vx to-vy
-(define (lineterm-move-to ctx to-vx to-vy)
-  (lineterm-move ctx (linectx-term-x ctx) (linectx-term-y ctx) to-vx to-vy))
+;; move tty cursor from its current tty position at linectx-term-x linectx-term-y
+;; to specified tty position to-x to-y
+(define (lineterm-move-to ctx to-x to-y)
+  (lineterm-move ctx (linectx-term-x ctx) (linectx-term-y ctx) to-x to-y))
 
 
 
