@@ -392,15 +392,13 @@
 
           ((symbol? token)
              ; recurse to other parser until end of current list
-             (let* ((other-parser (get-parser ctx token (paren-caller-for flavor)))
-                    (other-parse-parens (parser-parse-parens other-parser))
-                    (other-parens (other-parse-parens ctx start-token)))
-               (set! ret
-                 (if other-parens
-                   (begin
-                     (parens-inner-append! paren other-parens)
-                     #t)
-                   'err))))
+             (let* ((other-parser (get-parser-or-false ctx token))
+                    (other-parens (if other-parser
+                                    ((parser-parse-parens other-parser) ctx start-token)
+                                    (parse-lisp-parens ctx start-token flavor))))
+               (when other-parens
+                 (parens-inner-append! paren other-parens))
+               (set! ret (if other-parens #t 'err))))
 
           ((eof-object? token)
              (set! ret 'err))

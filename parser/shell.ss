@@ -580,14 +580,13 @@
           ((symbol? token)
             (unless (eqv? start-token #\")
                ; recurse to other parser until end of current list
-               (let* ((other-parser (get-parser ctx token 'parse-shell-parens))
-                      (other-parse-parens (parser-parse-parens other-parser))
-                      (other-parens (other-parse-parens ctx start-token)))
-                 (if other-parens
-                   (begin
-                     (parens-inner-append! paren other-parens)
-                     (set! ret #t))
-                   (set! ret 'err)))))
+               (let* ((other-parser (get-parser-or-false ctx token))
+                      (other-parens (if other-parser
+                                      ((parser-parse-parens other-parser) ctx start-token)
+                                      (parse-shell-parens ctx start-token))))
+                 (when other-parens
+                   (parens-inner-append! paren other-parens))
+                 (set! ret (if other-parens #t 'err)))))
 
           ((or (fixnum? token) (memv token '(#\{ #\" #\`)))
              ;; inside double quotes, ${ is special but plain { isn't.

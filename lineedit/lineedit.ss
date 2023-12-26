@@ -23,7 +23,7 @@
     lineedit-flush lineedit-finish)
   (import
     (rnrs)
-    (only (chezscheme) display-condition fx1+ fx1- inspect record-writer void)
+    (only (chezscheme) display-condition format fx1+ fx1- inspect record-writer void)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh posix fd)
@@ -433,16 +433,18 @@
 ;; assumes tty cursor is at term-x term-y, and moves it back there after drawing char.
 (define (linectx-draw-char-at-xy ctx x y style)
   (let ((ch    (vscreen-char-at-xy (linectx-vscreen ctx) x y))
-        (wbuf  (linectx-wbuf  ctx)))
+        (wbuf  (linectx-wbuf  ctx))
+        (vx    (if (fxzero? y) (fx+ x (linectx-prompt-end-x ctx)) x)) ;; also count prompt length!
+        (vy    y))
     ;; (format #t "; linectx-draw-char-at-xy at (~s ~s) char ~s~%" x y ch)
     (when (and ch (char>=? ch #\space))
-      (lineterm-move-to ctx x y)
+      (lineterm-move-to ctx vx vy)
       (when (eq? 'highlight style)
         (bytespan-insert-back/bvector! wbuf '#vu8(27 91 49 59 51 54 109) 0 7)) ; ESC[1;36m
       (bytespan-insert-back/utf8! wbuf ch)
       (when (eq? 'highlight style)
         (bytespan-insert-back/bvector! wbuf '#vu8(27 91 109) 0 3)) ; ESC[m
-      (lineterm-move-from ctx (fx1+ x) y))))
+      (lineterm-move-from ctx (fx1+ vx) vy))))
 
 
 (define (linectx-draw-parens ctx parens style)
@@ -454,16 +456,16 @@
 
 ;; return x y position immediately to the left of cursor.
 ;; Returned position will be in the previous line if cursor x = 0 and y > 0.
-;; Returns 0 0 if cursor x = 0 and y = 0.
+;; Returns 0 -1 if cursor x = 0 and y = 0.
 (define (linectx-ixy-before-cursor ctx)
   (let* ((screen (linectx-vscreen ctx))
          (x      (vscreen-cursor-x screen))
-         (y      (vscreen-cursor-x screen))
+         (y      (vscreen-cursor-y screen))
          (ymax   (fx1- (vscreen-end-y screen))))
     (cond
       ((fx>? x 0) (values (fx1- x) y))
       ((fx>? y 0) (values (fx1- (vscreen-length-at-y screen (fx1- y))) (fx1- y)))
-      (else       (values 0 0)))))
+      (else       (values 0 -1))))) ;; x y is at start of input, there's no previous position
 
 
 ;; return #f or a parens object containing matching parentheses immediately to the left of cursor.
@@ -473,8 +475,8 @@
         (parenmatcher (linectx-parenmatcher ctx)))
     (when (and parsers parenmatcher)
       (let-values (((x y) (linectx-ixy-before-cursor ctx)))
-        (let* ((screen (linectx-vscreen ctx))
-               (ch     (vscreen-char-at-xy screen x y)))
+        (let* ((screen  (linectx-vscreen ctx))
+               (ch (vscreen-char-at-xy screen x y)))
           ;; (format #t "(linectx-parens-find) x = ~s, y = ~s, ch = ~s~%" x y ch)
           (when (and ch (is-parens-char? ch))
             ;; protect against exceptions in linectx-completion-func
@@ -487,10 +489,9 @@
                   x y))
               (catch (cond)
                 (let ((port (current-output-port)))
-                  (display #\newline port)
-                  (display "Exception in parenmatcher: " port)
+                  (put-string port "\nexception in parenmatcher: ")
                   (display-condition cond port)
-                  (display #\newline port))))))))
+                  (put-char port #\newline))))))))
     ret))
 
 ;; return #t if both old-parens and new-parens are #f
@@ -561,10 +562,9 @@
   (bytespan-clear! (linectx-rbuf ctx))
   ; display the condition
   (let ((port (current-output-port)))
-    (display #\newline port)
-    (display "Exception in lineedit-read: " port)
+    (put-string port "\nexception in lineedit-read: ")
     (display-condition cond port)
-    (display #\newline port))
+    (put-char port #\newline))
   (dynamic-wind
     tty-restore!
     (lambda () (inspect cond))

@@ -13,7 +13,7 @@
 
     make-parser parser?
     parser-name parser-parse parser-parse* parser-parse-list parser-parse-parens
-    get-parser to-parser
+    get-parser-or-false get-parser to-parser
 
     parsectx-peek-char parsectx-read-char parsectx-unread-char parsectx-skip-whitespace
     parsectx-skip-line parsectx-skip-until-char
@@ -61,12 +61,22 @@
 ;;
 ;; Argument ctx must be one of: #f, a parsectx or a hashtable symbol -> parser
 ;;
+;; Return #f if not found.
+(define (get-parser-or-false ctx parser-name)
+  (let ((enabled-parsers
+           (if (parsectx? ctx) (parsectx-enabled-parsers ctx) ctx)))
+    (and enabled-parsers
+         (hashtable-ref enabled-parsers parser-name #f))))
+
+
+;; Find and return the parser corresponding to given parser-name (which must be a symbol)
+;; in enabled-parsers.
+;;
+;; Argument ctx must be one of: #f, a parsectx or a hashtable symbol -> parser
+;;
 ;; Raise (syntax-errorf ctx who ...) if not found.
 (define (get-parser ctx parser-name who)
-  (let* ((enabled-parsers
-           (if (parsectx? ctx) (parsectx-enabled-parsers ctx) ctx))
-         (parser (and enabled-parsers
-                     (hashtable-ref enabled-parsers parser-name #f))))
+  (let ((parser (get-parser-or-false ctx parser-name)))
     (unless parser
       (syntax-errorf ctx who "no parser found for directive ~a"
         (string-append "#!" (symbol->string parser-name))))

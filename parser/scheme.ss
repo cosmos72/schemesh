@@ -18,7 +18,6 @@
        fxvector fxvector-set! make-fxvector
        read-token reverse!)
     (only (schemesh bootstrap) while)
-    (only (schemesh containers misc) reverse*!)
     (schemesh lineedit parser)
     (schemesh parser lisp))
 
