@@ -7,12 +7,13 @@
 
 
 (library (schemesh repl (0 1))
-  (export repl-lineedit repl-parse repl-eval repl-eval-list repl repl* )
+  (export repl-lineedit repl-parse repl-eval repl-eval-list repl repl* repl-interrupt-handler)
   (import
     (rnrs)
     (only (chezscheme)
-      base-exception-handler debug eval exit-handler inspect
-      parameterize pretty-print reset-handler void)
+      abort base-exception-handler break-handler console-input-port console-output-port
+      eval exit-handler inspect keyboard-interrupt-handler parameterize pretty-print
+      read-token reset reset-handler void)
     (schemesh bootstrap)
     (only (schemesh containers) list-iterate)
     (schemesh lineedit io)
@@ -134,7 +135,13 @@
 (define (repl-loop parser enabled-parsers eval-func lctx)
   (call/cc
     (lambda (k-exit)
-      (parameterize ((exit-handler k-exit) (reset-handler (reset-handler)))
+      (parameterize ((break-handler (lambda args (repl-interrupt-handler lctx args)))
+                     (exit-handler k-exit)
+                     (keyboard-interrupt-handler
+                       (lambda ()
+                         (put-string (console-output-port) "\ninterrupted\n")
+                         (repl-interrupt-handler lctx '())))
+                     (reset-handler (reset-handler)))
         (let ((k-reset k-exit)
               (updated-parser parser))
           (reset-handler (lambda () (k-reset)))
@@ -190,5 +197,63 @@
            (if enabled-parsers? enabled-parsers (parsers))
            (if eval-func? eval-func repl-eval)
            (if lctx? lctx (sh-make-linectx)))))
+
+
+;; React to keyboard CTRL+C and calls to (break): enter the debugger.
+(define (repl-interrupt-handler lctx args)
+  (call/cc
+    (lambda (k)
+      (parameterize ((break-handler void) (keyboard-interrupt-handler void))
+        (repl-interrupt-show-who-msg-irritants args)
+        (while (repl-interrupt-handler-once lctx k (console-output-port)))))))
+
+
+;; Print (break ...) arguments
+(define (repl-interrupt-show-who-msg-irritants args)
+  (when (pair? args)
+    (let* ((who  (car args))
+           (tail (cdr args))
+           (msg  (if (pair? tail) (car tail) ""))
+           (irritants (if (pair? tail) (cdr tail) '()))
+           (out  (console-output-port)))
+     (put-string out "break in " )
+     (put-datum  out who)
+     (put-string out ": ")
+     (put-string out msg)
+     (list-iterate irritants
+       (lambda (value)
+         (put-char   out #\space)
+         (put-datum  out value)))
+     (put-char   out #\newline))))
+
+
+;; Single iteration of (repl-interrupt-handler)
+(define (repl-interrupt-handler-once lctx k out)
+  (put-string out "break> ")
+  (flush-output-port out)
+  (case (let-values (((type token start end) (read-token (console-input-port))))
+          (cond
+            ((eq? 'eof type)
+              (put-char out #\newline)
+              (flush-output-port out)
+              'exit)
+            (else token)))
+    ((a abort)        (abort) #f)
+    ((e exit)         #f)
+    ((i inspect)      (inspect k) #t)
+    ((n new-repl)     (repl) #t)
+    ((r q reset quit) (reset) #f)
+    ((? help)
+      (put-string out "
+Type e to exit interrupt handler and continue
+     r or q to reset scheme
+     a to abort scheme
+     n to enter new repl
+     i to inspect current continuation\n\n")
+      (flush-output-port out)
+      #t)
+    (else (put-string out "Invalid command.  Type ? for options.\n")
+      (flush-output-port out)
+      #t)))
 
 ) ; close library
