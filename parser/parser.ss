@@ -107,18 +107,18 @@
       current-parser)))
 
 
-;; Parse textual input port (parsectx-in pctx) until closing token matching start-token is found
-;; (or until end-of-file if start-token is #f) using the parser specified by initial-parser,
+;; Parse textual input port (parsectx-in pctx) until closing token matching start-ch is found
+;; (or until end-of-file if start-ch is #f) using the parser specified by initial-parser,
 ;; and temporarily switching to other parsers every time the directive #!... is found
 ;; in a (possibly nested) list being parsed.
 ;;
 ;; Return a parens describing the ( [ { " ' ` | characters in input stream,
 ;; their position, and the position of their matching ) ] } " ' ` |
-(define (parse-parens pctx start-token initial-parser)
+(define (parse-parens pctx start-ch initial-parser)
   (assert (parsectx? pctx))
   (let* ((current-parser (to-parser pctx initial-parser 'parse-parens))
          (current-parse-parens (parser-parse-parens current-parser)))
-    (current-parse-parens pctx start-token)))
+    (current-parse-parens pctx start-ch)))
 
 
 

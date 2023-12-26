@@ -1,6 +1,6 @@
 
-CFLAGS=-O2 -pipe -Wall -W -Wextra
-LDFLAGS=-s
+CFLAGS=-g -pipe -Wall -W -Wextra
+LDFLAGS=-g
 
 #CHEZ_SCHEME_DIR=/usr/local/lib/csv9.5.9/ta6le
 CHEZ_SCHEME_DIR:=$(shell ./utils/find_chez_scheme_dir.sh)

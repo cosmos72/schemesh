@@ -12,7 +12,7 @@
     parse-shell parse-shell* parse-shell-list parser-shell)
   (import
     (rnrs)
-    (only (chezscheme) fx1- reverse! unread-char)
+    (only (chezscheme) format fx1- inspect reverse! unread-char)
     (only (schemesh bootstrap) until while)
     (schemesh containers charspan)
     (schemesh lineedit parens)
@@ -558,15 +558,20 @@
 ;; (parens-token paren) is found. Such closing token is consumed too.
 ;;
 ;; Return the updated parser to use.
-(define (parse-shell-parens ctx start-token)
-  (let* ((paren     (make-parens 'shell start-token))
-         (end-token (case start-token ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else start-token)))
-         (pos       (parsectx-pos ctx))
-         (ret       #f)
+(define (parse-shell-parens ctx start-ch)
+  (when start-ch
+    (unless (char? start-ch)
+      (format #t "; parse-shell-parens: assertion failed, ~s is not a char~%" start-ch)
+      (call/cc inspect)))
+
+  (let* ((paren  (make-parens 'shell start-ch))
+         (end-ch (case start-ch ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else start-ch)))
+         (pos    (parsectx-pos ctx))
+         (ret    #f)
          (%paren-fill-end! (lambda (paren)
            (parens-end-x-set! paren (fx1- (car pos)))
            (parens-end-y-set! paren (cdr pos)))))
-    (parens-start-x-set! paren (fx- (car pos) (if start-token 1 0)))
+    (parens-start-x-set! paren (fx- (car pos) (if start-ch 1 0)))
     (parens-start-y-set! paren (cdr pos))
     (until ret
       (let ((token (scan-shell-parens-or-directive ctx)))
@@ -574,24 +579,23 @@
           ((not token) ; not a grouping token
              #f)
 
-          ((eqv? token end-token) ; found matching close token
+          ((eqv? token end-ch) ; found matching close token
              (set! ret #t))
 
           ((symbol? token)
-            (unless (eqv? start-token #\")
+            (unless (eqv? start-ch #\")
                ; recurse to other parser until end of current list
-               (let* ((other-parser (get-parser-or-false ctx token))
-                      (other-parens (if other-parser
-                                      ((parser-parse-parens other-parser) ctx start-token)
-                                      (parse-shell-parens ctx start-token))))
-                 (when other-parens
-                   (parens-inner-append! paren other-parens))
-                 (set! ret (if other-parens #t 'err)))))
+               (let* ((other-parser       (get-parser-or-false ctx token))
+                      (other-parse-parens (and other-parser (parser-parse-parens other-parser)))
+                      (other-parens       (and other-parse-parens (other-parse-parens ctx start-ch))))
+                  (when other-parens
+                    (parens-inner-append! paren other-parens)
+                    (set! ret #t)))))
 
           ((or (fixnum? token) (memv token '(#\{ #\" #\`)))
              ;; inside double quotes, ${ is special but plain { isn't.
-             ;; " inside double quotes is handled above by (eqv? token end-token)
-             (unless (and (eqv? token #\{) (eqv? start-token #\"))
+             ;; " inside double quotes is handled above by (eqv? token end-ch)
+             (unless (and (eqv? token #\{) (eqv? start-ch #\"))
                ;; recursion: call shell parser on nested list
                (let ((start-inner (cond ((eqv? token dollar+lparen) #\() #|)|#
                                         ((eqv? token dollar+lbrace) #\{)
@@ -599,16 +603,19 @@
                  (parens-inner-append! paren (parse-shell-parens ctx start-inner)))))
 
           ((eqv? token #\()                  #| make vscode happy: #\) |#
-             (unless (eqv? start-token #\")
+             (unless (eqv? start-ch #\")
                ; parens not inside double quotes, switch to scheme parser
                ; recursion: call scheme parser on nested list
-               (let* ((other-parser (get-parser ctx 'scheme 'parse-shell-parens))
-                      (other-parse-parens (parser-parse-parens other-parser))
-                      (other-parens (other-parse-parens ctx token)))
-                 (parens-inner-append! paren other-parens))))
+               (let* ((other-parser       (get-parser-or-false ctx 'scheme))
+                      (other-parse-parens (and other-parser (parser-parse-parens other-parser)))
+                      (other-parens       (if other-parse-parens
+                                            (other-parse-parens ctx token)
+                                            (parse-shell-parens ctx token))))
+                 (when other-parens
+                   (parens-inner-append! paren other-parens)))))
 
           ((eqv? token #\')       ; found single-quoted string
-             (unless (eqv? start-token #\")
+             (unless (eqv? start-ch #\")
                (let ((inner (make-parens 'shell token)))
                  (parens-start-x-set! inner (fx- (car pos) 1))
                  (parens-start-y-set! inner (cdr pos))
@@ -622,7 +629,7 @@
           ; ignore unexpected tokens
           )))
 
-    (if (or (eq? #t ret) (not start-token))
+    (if (or (eq? #t ret) (not start-ch))
       (%paren-fill-end! paren)
       (when (parens-inner-empty? paren)
         (set! paren #f)))

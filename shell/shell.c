@@ -106,9 +106,13 @@ void schemesh_compile_and_load_libraries(void) {
        "  (unless (try-load \"/usr/local/lib/libschemesh.so\")\n"
        "    (unless (try-load \"/usr/lib/libschemesh.so\")\n"
        "      (unless (try-load \"libschemesh.so\")\n"
+#if !defined(__GNUC__) || defined(__OPTIMIZE__) /* optimized build */
        "        (compile-file \"libschemesh.ss\" \"libschemesh.debug.so\")\n"
        "        (strip-fasl-file \"libschemesh.debug.so\" \"libschemesh.so\"\n"
        "          (fasl-strip-options inspector-source source-annotations profile-source))\n"
+#else /* debug build */
+       "        (compile-file \"libschemesh.ss\" \"libschemesh.so\")\n"
+#endif
        "        (load \"libschemesh.so\")))))\n");
 }
 

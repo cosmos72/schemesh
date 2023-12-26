@@ -256,8 +256,8 @@
           (set! elem (car values)))))))
 
 
-;; consume text input port until one of the characters ( ) [ ] { } | " #| and return it.
-;; also recognize and return parser directives #!... and return them
+;; consume text input port until one of the characters ( ) [ ] { } | " #| and return it as a char.
+;; also recognize and return parser directives #!... and return them as a symbol.
 (define (scan-lisp-parens-or-directive ctx)
   (parsectx-skip-whitespace ctx 'also-skip-newlines)
   ;; yes, #!eof is an allowed directive:
@@ -335,25 +335,25 @@
 ;; If a parser directive #!... is found, switch to the corresponding parser
 ;; until the end of current group.
 ;;
-;; Stops on end-of-file, or when closing token matching start-token is found.
+;; Stops on end-of-file, or when closing token matching start-ch is found.
 ;; Such closing token is consumed too.
 ;;
 ;; Flavor must be either 'r6rs or 'scheme
 ;;
 ;; Return a parens containing the collected grouping tokens.
-(define (parse-lisp-parens ctx start-token flavor)
+(define (parse-lisp-parens ctx start-ch flavor)
   (assert (parsectx? ctx))
-  (when start-token
-    (assert (char? start-token)))
+  (when start-ch
+    (assert (char? start-ch)))
   (assert (symbol? flavor))
-  (let* ((paren     (make-parens flavor start-token))
-         (end-token (case start-token ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else #f)))
-         (pos       (parsectx-pos ctx))
-         (ret       #f)
+  (let* ((paren  (make-parens flavor start-ch))
+         (end-ch (case start-ch ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else #f)))
+         (pos    (parsectx-pos ctx))
+         (ret    #f)
          (%paren-fill-end! (lambda (paren)
            (parens-end-x-set! paren (fx1- (car pos)))
            (parens-end-y-set! paren (cdr pos)))))
-    (parens-start-x-set! paren (fx- (car pos) (if start-token 1 0)))
+    (parens-start-x-set! paren (fx- (car pos) (if start-ch 1 0)))
     (parens-start-y-set! paren (cdr pos))
     (until ret
       (let ((token (scan-lisp-parens-or-directive ctx)))
@@ -361,15 +361,31 @@
           ((not token) ; not a grouping token
              #f)
 
+          ((eqv? token end-ch) ; found matching close token
+             (set! ret #t))
+
+          ((symbol? token)
+             ; recurse to other parser until end of current list
+             (let* ((other-parser       (get-parser-or-false ctx token))
+                    (other-parse-parens (and other-parser (parser-parse-parens other-parser)))
+                    (other-parens       (and other-parse-parens (other-parse-parens ctx start-ch))))
+               (when other-parens
+                 (parens-inner-append! paren other-parens)
+                 (set! ret #t))))
+
           ((memv token '(#\( #\[))               #| make vscode happy: #\) |#
              ; recursion: call lisp parser on nested list
              (parens-inner-append! paren (parse-lisp-parens ctx token flavor)))
 
-          ((or (eqv? token #\{) (symbol? token))
+          ((eqv? token #\{)
              ; recursion: call shell parser on nested list
-             (let* ((other-parser (get-parser ctx 'shell (paren-caller-for flavor)))
-                    (other-parse-parens (parser-parse-parens other-parser)))
-               (parens-inner-append! paren (other-parse-parens ctx token))))
+             (let* ((other-parser (get-parser-or-false ctx 'shell))
+                    (other-parse-parens (and other-parser (parser-parse-parens other-parser)))
+                    (other-parens (if other-parse-parens
+                                    (other-parse-parens ctx token)
+                                    (parse-lisp-parens ctx token flavor))))
+               (when other-parens
+                 (parens-inner-append! paren other-parens))))
 
           ((memv token '(#\" #\| #\#))
              ; found quoted string, quoted symbol or block comment.
@@ -387,26 +403,13 @@
                  (%paren-fill-end! inner)
                  (parens-inner-append! paren inner))))
 
-          ((eqv? token end-token) ; found matching close token
-             (set! ret #t))
-
-          ((symbol? token)
-             ; recurse to other parser until end of current list
-             (let* ((other-parser (get-parser-or-false ctx token))
-                    (other-parens (if other-parser
-                                    ((parser-parse-parens other-parser) ctx start-token)
-                                    (parse-lisp-parens ctx start-token flavor))))
-               (when other-parens
-                 (parens-inner-append! paren other-parens))
-               (set! ret (if other-parens #t 'err))))
-
           ((eof-object? token)
              (set! ret 'err))
 
           ; ignore unexpected tokens
           )))
 
-    (if (or (eq? #t ret) (not start-token))
+    (if (or (eq? #t ret) (not start-ch))
       (%paren-fill-end! paren)
       (when (parens-inner-empty? paren)
         (set! paren #f)))

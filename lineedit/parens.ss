@@ -18,7 +18,7 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) fx1+ fx1- inspect record-writer unread-char void)
+    (only (chezscheme) fx1+ fx1- record-writer unread-char void)
     (only (schemesh bootstrap) try until while)
     (only (schemesh containers misc) list-iterate)
     (only (schemesh containers hashtable) hashtable-iterate)
@@ -44,8 +44,7 @@
 (define (make-parens name token)
   (assert (symbol? name))
   (when token
-    (unless (char? token)
-      (inspect token)))
+    (assert (char? token)))
   (%make-parens name token 0 0 (greatest-fixnum) (greatest-fixnum) #f))
 
 

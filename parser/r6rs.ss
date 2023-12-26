@@ -69,12 +69,12 @@
 ;; If a parser directive #!... is found, switch to the corresponding parser
 ;; until the end of current group.
 ;;
-;; Stops on end-of-file, or when closing token matching start-token is found.
+;; Stops on end-of-file, or when closing token matching start-ch is found.
 ;; Such closing token is consumed too.
 ;;
 ;; Return a parens containing the collected grouping tokens.
-(define (parse-r6rs-parens ctx start-token)
-  (parse-lisp-parens ctx start-token 'r6rs))
+(define (parse-r6rs-parens ctx start-ch)
+  (parse-lisp-parens ctx start-ch 'r6rs))
 
 
 (define parser-r6rs

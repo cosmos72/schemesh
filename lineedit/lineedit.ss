@@ -23,7 +23,7 @@
     lineedit-flush lineedit-finish)
   (import
     (rnrs)
-    (only (chezscheme) display-condition format fx1+ fx1- inspect record-writer void)
+    (only (chezscheme) display-condition fx1+ fx1- inspect record-writer void)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh posix fd)
