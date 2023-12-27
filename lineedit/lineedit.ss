@@ -417,7 +417,7 @@
 (define (linectx-draw-if-needed ctx)
   (when #t ; (linectx-redraw? ctx)
     (parenmatcher-clear! (linectx-parenmatcher ctx)))
-    (lineterm-move-dy ctx (fx- (linectx-prompt-end-y ctx)))
+    (lineterm-move-dy ctx (fx- (fx+ (linectx-term-y ctx) (linectx-prompt-end-y ctx))))
     (lineterm-move-to-bol ctx)
     (linectx-update-prompt ctx)
     (linectx-draw-prompt ctx)

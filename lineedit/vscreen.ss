@@ -26,7 +26,7 @@
 
   (import
     (rnrs)
-    (only (chezscheme) fx1+ fx1- record-writer)
+    (only (chezscheme) format fx1+ fx1- record-writer)
     (only (schemesh bootstrap) while)
     (schemesh containers span)
     (schemesh containers charline)
@@ -281,11 +281,14 @@
   (let* ((x (vscreen-cursor-x screen))
          (y (vscreen-cursor-y screen))
          (ymax (fx1- (vscreen-end-y screen)))
-         (xmax (fx1- (vscreen-length-at-y screen ymax)))
+         ;; x position immediately after last char is allowed
+         (xmax (vscreen-length-at-y screen ymax))
          (saved-n n))
+    ; (format #t "~%; vscreen-cursor-move/right! n ~s, x ~s, xmax ~s, y ~s, ymax ~s~%" n x xmax y ymax)
     (when (and (fx>=? ymax 0) (fx>=? xmax 0))
       (while (and (fx>? n 0) (fx<=? y ymax) (or (fx<? y ymax) (fx<? x xmax)))
-        (let* ((linemax (fx1- (vscreen-length-at-y screen y)))
+        ;; x position immediately after last char is allowed
+        (let* ((linemax (fx- (vscreen-length-at-y screen y) (if (fx=? y ymax) 0 1)))
                (delta   (fxmax 0 (fxmin n (fx- linemax x)))))
           (set! n (fx- n delta))
           (set! x (fx+ x delta))
@@ -294,10 +297,6 @@
             (set! n (fx1- n))
             (set! y (fx1+ y))
             (set! x 0))))
-      (when (and (fx>? n 0) (fx=? y ymax) (fx=? x xmax))
-        ;; allow moving cursor immediately after last character of last line
-        (set! n (fx1- n))
-        (set! x (fx1+ x)))
       (vscreen-cursor-x-set! screen x)
       (vscreen-cursor-y-set! screen y)
       (fx- saved-n n))))
@@ -471,11 +470,12 @@
 ;; stops when a modified line has length <= vscreen width.
 ;; return y of last modified line.
 (define (vscreen-overflow-at-y screen y)
-  ; (format #t "before overflow at ~s: ~s~%" y screen)
+  ; (format #t "~%; before vscreen-overflow-at-y ~s ~s~%" y screen)
   (let ((line1 (vscreen-line-at-y screen y)))
     (when line1
       (while (and (fx<? y (vscreen-end-y screen))
-                  (fx>? (charline-length line1) (vscreen-width-at-y screen y)))
+                  (fx>=? (charline-length line1) (vscreen-width-at-y screen y)))
+        ; (format #t "; while vscreen-overflow-at-y ~s ~s~%" y screen)
         (vscreen-dirty-set! screen #t)
         (let* ((line1-nl?  (charline-nl? line1))
                (line1-len  (charline-length line1))
@@ -489,15 +489,16 @@
                (line2-nl? (charline-nl? line2)))
           (when line2-new?
             (charlines-insert-at/cline! screen y+1 line2))
-          ;; insert chars into line2
-          (charline-insert-at/cbuf! line2 0 line1 line1-pos n)
-          ;; remove chars from line1
-          (charline-erase-at! line1 line1-pos n)
+          (unless (fxzero? n)
+            ;; insert chars into line2
+            (charline-insert-at/cbuf! line2 0 line1 line1-pos n)
+            ;; remove chars from line1
+            (charline-erase-at! line1 line1-pos n))
           ; (format #t "during overflow at ~s: ~s~%" y screen)
-          ;; iterate on line2, as it may now have length > vscreen-width-at-y
+          ;; iterate on line2, as it may now have length >= vscreen-width-at-y
           (set! y y+1)
           (set! line1 line2)))))
-  ; (format #t "after  overflow at ~s: ~s~%" y screen)
+  ; (format #t "; after overflow at ~s: ~s~%" y screen)
   y)
 
 
@@ -512,8 +513,10 @@
          (line (charlines-ref screen y))
          (xlen (charline-length line))
          (x    (fxmax 0 (fxmin x xlen))))
-    (if (and (fx=? x xlen) (charline-nl? line))
-      ;; cannot insert after a newline, return beginning of following line instead
+    (if (or (and (fx=? x xlen) (charline-nl? line))
+            (fx=? x (vscreen-width-at-y screen y)))
+      ;; cannot insert after a newline or at screen width,
+      ;; return beginning of following line instead
       (let ((y+1 (fx1+ y)))
         (when (fx=? y+1 ylen)
           (charlines-insert-at/cline! screen y+1 (charline)))
