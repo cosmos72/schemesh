@@ -75,19 +75,14 @@ static int c_errno_einval() {
 /*                                                                            */
 /******************************************************************************/
 
-/** close-on-exec file descriptor for our controlling tty */
+/** close-on-exec file descriptor for our tty */
 static int tty_fd = -1;
 
 static int c_tty_init(void) {
   int err = 0;
-
-  if ((tty_fd = open("/dev/tty", O_RDWR)) < 0) {
-    err = c_errno_print("open(\"/dev/tty\")");
-  } else if (dup2(tty_fd, 255) < 0) {
-    err = c_errno_print("dup2(tty_fd, 255)");
-  } else if (close(tty_fd) < 0) {
-    err = c_errno_print("close(tty_fd)");
-  } else if (fcntl(tty_fd = 255, F_SETFD, FD_CLOEXEC) < 0) {
+  if (dup2(0, tty_fd = 255) < 0) {
+    err = c_errno_print("dup2(0, tty_fd)");
+  } else if (fcntl(tty_fd, F_SETFD, FD_CLOEXEC) < 0) {
     err = c_errno_print("fcntl(tty_fd, F_SETFD, FD_CLOEXEC)");
   }
   return err;
