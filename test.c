@@ -377,34 +377,34 @@ static const struct {
      "10"},
     /* ------------------------ vscreen ------------------------------------- */
     {"(let ((screen (vscreen* 8 30 \"qwerty\\n\" \"asdfgh\")))\n"
-     "  (vscreen-vcursor-xy-set! screen 3 1)\n"
+     "  (vscreen-cursor-vxy-set! screen 3 1)\n"
      "  (vscreen-cursor-move/left! screen 6)\n"
      "  (values->list\n"
-     "    (vscreen-vcursor-xy screen)))\n",
+     "    (vscreen-cursor-vxy screen)))\n",
      "(4 0)"},
     {"(let ((screen (vscreen* 8 30 \"qwertyuiop\\n\" \"asdfgh\")))\n"
-     "  (vscreen-vcursor-xy-set! screen 5 0)\n"
+     "  (vscreen-cursor-vxy-set! screen 5 0)\n"
      "  (vscreen-cursor-move/right! screen 13)\n"
      "  (values->list\n"
-     "    (vscreen-vcursor-xy screen)))\n",
+     "    (vscreen-cursor-vxy screen)))\n",
      "(6 1)"},
     {"(let ((screen (vscreen* 8 30 \"qwerty\\n\" \"asdfghjkl\")))\n"
-     "  (vscreen-vcursor-xy-set! screen 9 1)\n"
+     "  (vscreen-cursor-vxy-set! screen 9 1)\n"
      "  (vscreen-cursor-move/up! screen 1)\n"
      "  (values->list\n"
-     "    (vscreen-vcursor-xy screen)))\n",
+     "    (vscreen-cursor-vxy screen)))\n",
      "(6 0)"},
     {"(let ((screen (vscreen* 8 30 \"abcdef\\n\" \"0123456\")))\n"
      "  (vscreen-erase-at-xy! screen 5 0 3)\n"
      "  screen)",
      "(vscreen* 8 30 \"abcde123\" \"456\")"},
     {"(let ((screen (vscreen* 8 30 \"{[()]}\\n\" \"abcdef\" \"0123456\")))\n"
-     "  (vscreen-vcursor-xy-set! screen 3 2)\n"
+     "  (vscreen-cursor-vxy-set! screen 3 2)\n"
      "  (vscreen-erase-left/line! screen)\n"
      "  screen)",
      "(vscreen* 8 30 \"{[()]}\\n\" \"3456\")"},
     {"(let ((screen (vscreen* 8 30 \"abcdef\" \"012\\n\" \"{[()]}\\n\")))\n"
-     "  (vscreen-vcursor-xy-set! screen 4 0)\n"
+     "  (vscreen-cursor-vxy-set! screen 4 0)\n"
      "  (vscreen-erase-right/line! screen)\n"
      "  screen)",
      "(vscreen* 8 30 \"abcd\\n\" \"{[()]}\\n\")"},
@@ -429,14 +429,14 @@ static const struct {
      "                  (lambda (ch) (not (char=? ch #\\newline))))))",
      "(2 1 6)"},
     {"(let ((screen (vscreen* 8 30 \"abcdefgh\" \"012\\n\" \"qwerty\")))\n"
-     "  (vscreen-cursor-xy-set! screen 3 1)\n" /* move the cursor to the char '\n' */
+     "  (vscreen-cursor-ixy-set! screen 3 1)\n" /* move the cursor to the char '\n' */
      "  (vscreen-resize! screen 5 30)\n"
-     "  (list (vscreen-cursor-x screen) (vscreen-cursor-y screen) screen))",
+     "  (list (vscreen-cursor-ix screen) (vscreen-cursor-iy screen) screen))",
      "(1 2 (vscreen* 5 30 \"abcde\" \"fgh01\" \"2\\n\" \"qwerty\"))"},
     {"(let ((screen (vscreen* 8 30 \"abcdefgh\" \"012\\n\" \"qwerty\")))\n"
-     "  (vscreen-cursor-xy-set! screen 3 1)\n" /* move the cursor to the char '\n' */
+     "  (vscreen-cursor-ixy-set! screen 3 1)\n" /* move the cursor to the char '\n' */
      "  (vscreen-resize! screen 9 30)\n"
-     "  (list (vscreen-cursor-x screen) (vscreen-cursor-y screen) screen))",
+     "  (list (vscreen-cursor-ix screen) (vscreen-cursor-iy screen) screen))",
      "(2 1 (vscreen* 9 30 \"abcdefgh0\" \"12\\n\" \"qwerty\"))"},
     /* --------------------- list ------------------------------------------- */
     {"(let ((ret '()))\n"

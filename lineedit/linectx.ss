@@ -13,7 +13,7 @@
     linectx-vx     linectx-vy
     linectx-term-x linectx-term-y linectx-term-xy-set!
     linectx-stdin linectx-stdin-set! linectx-stdout linectx-stdout-set!
-    linectx-prompt-end-x linectx-prompt-end-x-set! linectx-prompt-end-y linectx-prompt-end-y-set!
+    linectx-prompt-end-x  linectx-prompt-end-y  linectx-prompt-end-xy-set!
     linectx-prompt linectx-prompt-length linectx-prompt-length-set! linectx-prompt-func
     linectx-parenmatcher linectx-ktable
     linectx-parens linectx-parens-set!
@@ -59,7 +59,6 @@
     (mutable parser-name)   ; symbol, name of current parser
     (mutable parsers)       ; #f or hashtable symbol -> parser, table of enabled parsers
     prompt                  ; bytespan, prompt
-    (mutable prompt-end-y)  ; fixnum, tty y row where prompt ends
     (mutable prompt-length) ; fixnum, prompt draw length
     ; procedure, receives linectx as argument and should update prompt and prompt-length
     (mutable prompt-func)
@@ -114,28 +113,28 @@
 
 ;; return vscreen cursor x position
 (define (linectx-ix ctx)
-  (vscreen-cursor-x (linectx-vscreen ctx)))
+  (vscreen-cursor-ix (linectx-vscreen ctx)))
 
 ;; return vscreen cursor y position
 (define (linectx-iy ctx)
-  (vscreen-cursor-y (linectx-vscreen ctx)))
+  (vscreen-cursor-iy (linectx-vscreen ctx)))
 
 ;; return two values: vscreen cursor x and y position
 (define (linectx-ixy ctx)
-  (vscreen-cursor-xy (linectx-vscreen ctx)))
+  (vscreen-cursor-ixy (linectx-vscreen ctx)))
 
 ;; set vscreen cursor x and y position
 (define (linectx-ixy-set! ctx x y)
-  (vscreen-cursor-xy-set! (linectx-vscreen ctx) x y))
+  (vscreen-cursor-ixy-set! (linectx-vscreen ctx) x y))
 
 ;; return vscreen cursor x visual position. It is equal to linectx-ix,
 ;; unless cursor y = 0, where prompt-end-x is added.
 (define (linectx-vx ctx)
-  (vscreen-vcursor-x (linectx-vscreen ctx)))
+  (vscreen-cursor-vx (linectx-vscreen ctx)))
 
 ;; return vscreen cursor y visual position. It is equal to linectx-iy.
 (define (linectx-vy ctx)
-  (vscreen-vcursor-y (linectx-vscreen ctx)))
+  (vscreen-cursor-vy (linectx-vscreen ctx)))
 
 ;; set tty cursor x and y position.
 ;; Only updates linectx-term-x and linectx-term-y, does *not* write anything to the tty.
@@ -150,8 +149,10 @@
 
 (define (linectx-prompt-end-x ctx)
   (vscreen-prompt-end-x (linectx-vscreen ctx)))
-(define (linectx-prompt-end-x-set! ctx end-x)
-  (vscreen-prompt-end-x-set! (linectx-vscreen ctx) end-x))
+(define (linectx-prompt-end-y ctx)
+  (vscreen-prompt-end-y (linectx-vscreen ctx)))
+(define (linectx-prompt-end-xy-set! ctx x y)
+  (vscreen-prompt-end-xy-set! (linectx-vscreen ctx) x y))
 
 
 
@@ -186,7 +187,7 @@
       0 0                        ; term-x term-y
       0 1 -1 flag-redraw?        ; stdin stdout read-timeout flags
       'shell enabled-parsers     ; parser-name parsers
-      (bytespan) 0               ; prompt prompt-end-y
+      (bytespan)                 ; prompt
       0 prompt-func              ; prompt-length prompt-func
       parenmatcher #f            ; parenmatcher parens
       (span) (charspan) completion-func ; completions stem completion-func

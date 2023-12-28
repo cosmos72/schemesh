@@ -23,9 +23,10 @@
     lineedit-flush lineedit-finish)
   (import
     (rnrs)
-    (only (chezscheme) display-condition fx1+ fx1- inspect record-writer void)
+    (only (chezscheme) fx1+ fx1- inspect record-writer void)
     (schemesh bootstrap)
     (schemesh containers)
+    (only (schemesh conversions) display-condition*)
     (schemesh posix fd)
     (schemesh lineedit vscreen)
     (schemesh lineedit charhistory)
@@ -63,7 +64,7 @@
 ;; and number of characters between cursor and word start.
 (define (linectx-find-left/word-begin ctx)
   (let ((screen (linectx-vscreen ctx)))
-    (let-values (((x y) (vscreen-cursor-xy screen)))
+    (let-values (((x y) (vscreen-cursor-ixy screen)))
       (let-values (((x y nsp) (vscreen-count-at-xy/left screen x y (lambda (ch) (char<=? ch #\space)))))
         (let-values (((x y nw) (vscreen-count-at-xy/left screen x y (lambda (ch) (char>? ch #\space)))))
           (values x y (fx+ nsp nw)))))))
@@ -73,7 +74,7 @@
 ;; and number of characters between cursor and word end.
 (define (linectx-find-right/word-end ctx)
   (let ((screen (linectx-vscreen ctx)))
-    (let-values (((x y) (vscreen-cursor-xy screen)))
+    (let-values (((x y) (vscreen-cursor-ixy screen)))
       (let-values (((x y nsp) (vscreen-count-at-xy/right screen x y (lambda (ch) (char<=? ch #\space)))))
         (let-values (((x y nsp) (vscreen-next-xy/or-self screen x y nsp)))
           (let-values (((x y nw) (vscreen-count-at-xy/right screen x y (lambda (ch) (char>? ch #\space)))))
@@ -370,9 +371,8 @@
     ;; (format #t "linectx-draw-prompt: prompt = ~s~%" prompt)
     (lineterm-write/bspan ctx prompt 0 (bytespan-length prompt))))
 
-;; unconditionally draw all lines, then move tty cursor to its expected tty position,
-;; finally draw matching parentheses.
-(define (linectx-draw-lines+move+parens ctx)
+;; unconditionally draw all lines
+(define (linectx-draw-lines ctx)
   (let* ((screen (linectx-vscreen ctx))
          (width  (vscreen-width screen))
          (ymax   (fxmax 0 (fx1- (vscreen-end-y screen))))
@@ -382,12 +382,17 @@
         (lineterm-write/cbuffer ctx line 0 (charline-length line))
         (unless (or (fx=? y ymax) (charline-nl? line))
           (lineterm-write/u8 ctx 10))))
-    (lineterm-clear-to-eos ctx)
-    (let ((xmax (fx+ (vscreen-length-at-y screen ymax)
-                     (if (fxzero? ymax) (vscreen-prompt-end-x screen) 0))))
-      ;; (format #t "; linectx-draw-lines+move+parens xmax = ~s, ymax = ~s~%" xmax ymax)
-      (lineterm-move-from ctx xmax ymax)))
-  (linectx-draw-parens ctx (linectx-parens ctx) 'highlight))
+    (lineterm-clear-to-eos ctx)))
+
+;; move tty cursor from end of charlines to expected position (term-x term-y)
+(define (linectx-move-from-end-lines ctx)
+  (let* ((screen (linectx-vscreen ctx))
+         (iy (fxmax 0 (fx1- (vscreen-end-y screen))))
+         (ix (vscreen-length-at-y screen iy))
+         (vy (fx+ iy (vscreen-prompt-end-y screen)))
+         (vx (fx+ ix (if (fxzero? iy) (vscreen-prompt-end-x screen) 0))))
+    ;; (format #t "; linectx-move-from-end-lines vx = ~s, vy = ~s~%" vx vy)
+    (lineterm-move-from ctx vx vy)))
 
 
 (define bv-prompt-error (string->utf8 "error expanding prompt $ "))
@@ -405,25 +410,22 @@
     (let ((prompt-length (linectx-prompt-length ctx)))
       (assert (fx<=? 0 prompt-length (bytespan-length prompt)))
       (let-values (((y x) (fxdiv-and-mod prompt-length (linectx-width ctx))))
-        (when (and (fxzero? x) (not (fxzero? y)))
-          ; prompt actually ends at rightmost column
-          (set! x (linectx-width ctx))
-          (set! y (fx1- y)))
-        (linectx-prompt-end-x-set! ctx x)
-        (linectx-prompt-end-y-set! ctx y)))))
+        (linectx-prompt-end-xy-set! ctx x y)))))
 
 
 ;; if needed, draw new prompt and lines
 (define (linectx-draw-if-needed ctx)
   (when #t ; (linectx-redraw? ctx)
     (parenmatcher-clear! (linectx-parenmatcher ctx)))
-    (lineterm-move-dy ctx (fx- (fx+ (linectx-term-y ctx) (linectx-prompt-end-y ctx))))
+    (lineterm-move-dy ctx (fx- (linectx-term-y ctx)))
     (lineterm-move-to-bol ctx)
     (linectx-update-prompt ctx)
     (linectx-draw-prompt ctx)
+    (linectx-draw-lines ctx)
     ;; set term-x and term-y to the desired position
     (linectx-term-xy-set! ctx (linectx-vx ctx) (linectx-vy ctx))
-    (linectx-draw-lines+move+parens ctx)
+    (linectx-move-from-end-lines ctx)
+    (linectx-draw-parens ctx (linectx-parens ctx) 'highlight)
     (linectx-redraw-set! ctx #f)
     (vscreen-dirty-set! (linectx-vscreen ctx) #f))
 
@@ -459,8 +461,8 @@
 ;; Returns 0 -1 if cursor x = 0 and y = 0.
 (define (linectx-ixy-before-cursor ctx)
   (let* ((screen (linectx-vscreen ctx))
-         (x      (vscreen-cursor-x screen))
-         (y      (vscreen-cursor-y screen))
+         (x      (vscreen-cursor-ix screen))
+         (y      (vscreen-cursor-iy screen))
          (ymax   (fx1- (vscreen-end-y screen))))
     (cond
       ((fx>? x 0) (values (fx1- x) y))
@@ -490,7 +492,7 @@
               (catch (cond)
                 (let ((port (current-output-port)))
                   (put-string port "\nexception in parenmatcher: ")
-                  (display-condition cond port)
+                  (display-condition* cond port)
                   (put-char port #\newline))))))))
     ret))
 
@@ -563,7 +565,7 @@
   ; display the condition
   (let ((port (current-output-port)))
     (put-string port "\nexception in lineedit-read: ")
-    (display-condition cond port)
+    (display-condition* cond port)
     (put-char port #\newline))
   (dynamic-wind
     tty-restore!
