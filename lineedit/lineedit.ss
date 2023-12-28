@@ -107,7 +107,7 @@
 
 
 ;; save current linectx-vscreen to history, then replace them
-;; with a copy-on-write of specified charlines.
+;; with a copy-on-write clone of specified charlines.
 ;; Does not update cursor x and y position.
 (define (lineedit-lines-set! ctx lines)
   (assert-charlines? 'lineedit-lines-set! lines)
@@ -189,7 +189,7 @@
 
 ;; move cursor up by 1, moving to next history entry if cursor y is at end of vscreen
 (define (lineedit-key-down ctx)
-  (if (fx<? (linectx-iy ctx) (linectx-end-y ctx))
+  (if (fx<? (fx1+ (linectx-iy ctx)) (linectx-end-y ctx))
     (vscreen-cursor-move/down! (linectx-vscreen ctx) 1)
     (lineedit-navigate-history ctx +1)))
 
@@ -310,23 +310,25 @@
 (define (lineedit-navigate-history ctx delta-y)
   (let ((y    (fx+ delta-y (linectx-history-index ctx)))
         (hist (linectx-history ctx)))
-    ; TODO: when delta-y < 0, move cursor to end of first line
     (when (fx<? -1 y (charhistory-length hist))
       ; also saves a copy of current linectx-vscreen to history
       (lineedit-lines-set! ctx (charhistory-cow-ref hist y))
-      (linectx-history-index-set! ctx y))))
+      (linectx-history-index-set! ctx y)
+      ;; set vscreen cursor to end of first line
+      (linectx-ixy-set! ctx (greatest-fixnum) 0))))
 
 
 
-;; append a copy-on-write clone of linectx-vscreen to history, and return such clone
+;; append a shallow copy of linectx-vscreen to history, and return such copy
 ;; which must NOT be modified - not even temporarily - because history references it
 (define (linectx-return-lines ctx)
   (linectx-return-set! ctx #f) ; clear flag "user pressed ENTER"
   (linectx-redraw-set! ctx #t) ; set flag "redraw prompt and lines"
   (linectx-draw-parens ctx (linectx-parens ctx) 'plain) ; unhighlight parentheses
-  (lineterm-move-dy ctx (fx- (charlines-length (linectx-vscreen ctx))
-                         (linectx-iy ctx))) ; move to last input line
+  (lineterm-move-dy ctx (fx- (vscreen-end-y (linectx-vscreen ctx))
+                             (linectx-iy ctx))) ; move to last input line
   (lineterm-write/u8 ctx 10) ; advance to next line.
+  (linectx-term-xy-set! ctx 0 0) ; set tty cursor to 0 0
   (let* ((y (linectx-history-index ctx))
          (hist (linectx-history ctx))
          (hist-len (charhistory-length hist)))
@@ -643,23 +645,23 @@
   (%add t lineedit-key-del-word-right '(27 68) '(27 100)) ; ALT+D, ALT+d
   (%add t lineedit-key-word-right '(27 70) '(27 102))     ; ALT+F, ALT+f
   ; sequences starting with ESC O
-  (%add t lineedit-key-up    '(27 79 65))     ; UP    \eOA
-  (%add t lineedit-key-down  '(27 79 66))     ; DOWN  \eOB
-  (%add t lineedit-key-right '(27 79 67))     ; RIGHT \eOC
-  (%add t lineedit-key-left  '(27 79 68))     ; LEFT  \eOD
-  (%add t lineedit-key-eol   '(27 79 70))     ; END   \eOF
-  (%add t lineedit-key-bol   '(27 79 72))     ; HOME  \eOH
-  (%add t lineedit-key-newline-left '(27 79 77))     ; KPRET \eOM
-  (%add t lineedit-key-nop   '(27 79 80)      ; NUM-LOCK
-     '(27 79 81) '(27 79 82) '(27 79 83))     ; KP/ KP* KP-
-  ; sequences starting with ESC [             ;
-  (%add t lineedit-key-up    '(27 91 65))     ; UP    \e[A
-  (%add t lineedit-key-down  '(27 91 66))     ; DOWN  \e[B
-  (%add t lineedit-key-right '(27 91 67))     ; RIGHT \e[C
-  (%add t lineedit-key-left  '(27 91 68))     ; LEFT  \e[D
-  (%add t lineedit-key-eol   '(27 91 70))     ; END   \e[F
-  (%add t lineedit-key-bol   '(27 91 72)      ; HOME  \e[H
-                         '(27 91 49 126))     ; HOME  \e[1~
+  (%add t lineedit-key-up    '(27 79 65))        ; UP    \eOA
+  (%add t lineedit-key-down  '(27 79 66))        ; DOWN  \eOB
+  (%add t lineedit-key-right '(27 79 67))        ; RIGHT \eOC
+  (%add t lineedit-key-left  '(27 79 68))        ; LEFT  \eOD
+  (%add t lineedit-key-eol   '(27 79 70))        ; END   \eOF
+  (%add t lineedit-key-bol   '(27 79 72))        ; HOME  \eOH
+  (%add t lineedit-key-newline-left '(27 79 77)) ; KPRET \eOM
+  (%add t lineedit-key-nop   '(27 79 80)         ; NUM-LOCK
+     '(27 79 81) '(27 79 82) '(27 79 83))        ; KP/ KP* KP-
+  ; sequences starting with ESC [                ;
+  (%add t lineedit-key-up    '(27 91 65))        ; UP    \e[A
+  (%add t lineedit-key-down  '(27 91 66))        ; DOWN  \e[B
+  (%add t lineedit-key-right '(27 91 67))        ; RIGHT \e[C
+  (%add t lineedit-key-left  '(27 91 68))        ; LEFT  \e[D
+  (%add t lineedit-key-eol   '(27 91 70))        ; END   \e[F
+  (%add t lineedit-key-bol   '(27 91 72)         ; HOME  \e[H
+                         '(27 91 49 126))        ; HOME  \e[1~
   (%add t lineedit-key-history-prev '(27 91 53 126)) ; PGUP  \e[5~
   (%add t lineedit-key-history-next '(27 91 54 126)) ; PGDWN \e[6~
 

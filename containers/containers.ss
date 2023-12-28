@@ -71,14 +71,14 @@
     charline-length charline-ref charline-at charline-set! charline-clear!
     charline-erase-at! charline-insert-at! charline-insert-at/cspan! charline-insert-at/cbuf!
     charline-find-left charline-find-right
-    charline-dirty-x-start charline-dirty-x-end charline-dirty-x-add! charline-dirty-x-unset!
+    charline-dirty-x-start charline-dirty-end-x charline-dirty-x-add! charline-dirty-x-unset!
 
     ; charlines.ss
     charlines charlines? strings->charlines strings->charlines*
-    assert-charlines? charlines-copy-on-write charlines-iterate
+    assert-charlines? charlines-shallow-copy charlines-copy-on-write charlines-iterate
     charlines-empty? charlines-length charlines-ref charlines-set/cline! charlines-clear!
     charlines-count-left charlines-count-right
-    charlines-dirty-y-start charlines-dirty-y-end charlines-dirty-y-add! charlines-dirty-xy-unset!
+    charlines-dirty-y-start charlines-dirty-end-y charlines-dirty-y-add! charlines-dirty-xy-unset!
     charlines-erase-at/cline! charlines-insert-at/cline!
 
     ; utils.ss

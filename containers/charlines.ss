@@ -8,10 +8,10 @@
 (library (schemesh containers charlines (0 1))
   (export
     charlines charlines? strings->charlines strings->charlines*
-    assert-charlines? charlines-copy-on-write charlines-iterate
+    assert-charlines? charlines-shallow-copy charlines-copy-on-write charlines-iterate
     charlines-empty? charlines-length charlines-ref charlines-set/cline! charlines-clear!
     charlines-count-left charlines-count-right
-    charlines-dirty-y-start charlines-dirty-y-end charlines-dirty-y-add! charlines-dirty-xy-unset!
+    charlines-dirty-y-start charlines-dirty-end-y charlines-dirty-y-add! charlines-dirty-xy-unset!
     charlines-erase-at/cline! charlines-insert-at/cline!
     write-charlines)
 
@@ -41,7 +41,7 @@
   (parent %gbuffer)
   (fields
     (mutable dirty-y-start charlines-dirty-y-start charlines-dirty-y-start-set!)
-    (mutable dirty-y-end   charlines-dirty-y-end   charlines-dirty-y-end-set!))
+    (mutable dirty-end-y   charlines-dirty-end-y   charlines-dirty-end-y-set!))
   (nongenerative #{%charlines lf2lr8d65f8atnffcpi1ja7l0-439}))
 
 
@@ -60,11 +60,11 @@
 
 (define (charlines-dirty-y-add! lines start end)
   (charlines-dirty-y-start-set! lines (fxmin (charlines-dirty-y-start lines)))
-  (charlines-dirty-y-end-set!   lines (fxmax (charlines-dirty-y-end   lines))))
+  (charlines-dirty-end-y-set!   lines (fxmax (charlines-dirty-end-y   lines))))
 
 (define (charlines-dirty-xy-unset! lines)
   (charlines-dirty-y-start-set! lines (greatest-fixnum))
-  (charlines-dirty-y-end-set!   lines 0)
+  (charlines-dirty-end-y-set!   lines 0)
   (charlines-iterate lines
     (lambda (i line)
       (charline-dirty-x-unset! line))))
@@ -78,7 +78,15 @@
         (span-set! dst i (charline-copy-on-write line))))
     (%make-charlines (span) dst
       (charlines-dirty-y-start lines)
-      (charlines-dirty-y-end   lines))))
+      (charlines-dirty-end-y   lines))))
+
+;; Return a shallow clone of charlines, i.e. a new charline referencing
+;; the same left and right internal spans.
+;; Reuses each existing line in charlines, does not call (charline-copy-on-write) on them.
+(define (charlines-shallow-copy lines)
+  (%make-charlines (%gbuffer-left lines) (%gbuffer-right lines)
+      (charlines-dirty-y-start lines)
+      (charlines-dirty-end-y   lines)))
 
 ;; get n-th line
 (define charlines-ref   gbuffer-ref)

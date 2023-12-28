@@ -48,10 +48,10 @@
   (%charlines %make-charlines %charlines?)
   (parent %gbuffer)
   (fields
-    ;; lines between y >= dirty-y-start and y < dirty-y-end
+    ;; lines between y >= dirty-y-start and y < dirty-end-y
     ;; are completely dirty i.e. must be fully redrawn on screen
     (mutable dirty-y-start) ;; fixnum
-    (mutable dirty-y-end))  ;; fixnum
+    (mutable dirty-end-y))  ;; fixnum
   (nongenerative #{%charlines lf2lr8d65f8atnffcpi1ja7l0-439}))
 
 
@@ -215,8 +215,8 @@
         (old-height (vscreen-height screen)))
     (unless (and (fx=? width old-width) (fx=? height old-height))
       (let ((reflow-func (if (fx<? width old-width)
-                            vscreen-overflow-at-y
-                            vscreen-underflow-at-y))
+                           vscreen-overflow-at-y
+                           vscreen-underflow-at-y))
             (n (vscreen-count-to-start screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen)))
             (y 0))
         (vscreen-dirty-set! screen #t)
@@ -228,12 +228,15 @@
         (vscreen-cursor-move/right! screen n)))))
 
 
-
-;; remove all lines from screen, and set cursor to 0 0
+;; remove all existing lines from screen, insert a new empty line, and set cursor to 0 0.
 (define (vscreen-clear! screen)
   (vscreen-dirty-set! screen #t)
-  (charlines-clear! screen)
-  (charlines-insert-at/cline! screen 0 (charline))
+  (charlines-dirty-y-add! screen 0 (vscreen-end-y screen))
+  ;; Implementation note: since linectx-to-history saves a shallow copy of vscreen to history,
+  ;; which references the %gbuffer-left and %gbuffer-right internal spans of vscreen,
+  ;; we cannot continue using them: create new ones
+  (%gbuffer-left-set! screen (span))
+  (%gbuffer-right-set! screen (span (charline)))
   (vscreen-cursor-ix-set! screen 0)
   (vscreen-cursor-iy-set! screen 0))
 
@@ -248,6 +251,7 @@
 
 ;; remove a line from screen. Last line cannot be removed, it will be cleared instead.
 (define (vscreen-erase-at/cline! screen y)
+  (vscreen-dirty-set! screen #t)
   (if (and (fxzero? y) (fx=? 1 (vscreen-end-y screen)))
     (charline-clear! (charlines-ref screen 0))
     (charlines-erase-at/cline! screen y)))

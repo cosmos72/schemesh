@@ -230,13 +230,11 @@
 
 
 
-;; save to history a copy-on-write clone of charlines in linectx-vscreen,
+;; save to history a shallow clone of charlines in linectx-vscreen,
 ;; and return such clone
 (define (linectx-to-history ctx)
   ;; TODO: do not insert duplicates in history
-  (let ((lines (charlines-copy-on-write (linectx-vscreen ctx))))
-    (charhistory-set! (linectx-history ctx) (linectx-history-index ctx) lines)
-    lines))
+  (charhistory-set! (linectx-history ctx) (linectx-history-index ctx) (linectx-vscreen ctx)))
 
 ;; return a copy-on-write clone of current charlines being edited
 (define (linectx-lines-copy-on-write ctx)

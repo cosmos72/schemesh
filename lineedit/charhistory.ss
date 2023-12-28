@@ -12,7 +12,9 @@
   (import
     (rnrs)
     (only (chezscheme) fx1+ record-writer)
-    (schemesh containers))
+    (only (schemesh containers misc) list-iterate)
+    (schemesh containers span)
+    (schemesh containers charlines))
 
 ;; copy-pasted from containers/span.ss
 (define-record-type
@@ -47,7 +49,7 @@
 (define (charhistory-cow-ref hist idx)
   (charlines-copy-on-write (span-ref hist idx)))
 
-;; set i-th charlines in history to a copy-on-write clone of lines.
+;; set i-th charlines in history to a shallow copy of lines, and return such copy
 ;; resizes history if needed.
 (define (charhistory-set! hist idx lines)
   (assert-charlines? 'charhistory-set! lines)
@@ -60,9 +62,11 @@
         (do ((i len (fx1+ i)))
             ((fx>=? i idx))
           (span-set! hist i empty-lines)))))
-  ;; make a copy-on-write clone of lines,
-  ;; in case it's a subclass of charlines - for example a vscreen
-  (span-set! hist idx (charlines-copy-on-write lines)))
+  ;; make a shallow copy of lines. Also helps in case
+  ;; lines is a subclass of charlines - for example a vscreen
+  (let ((lines (charlines-shallow-copy lines)))
+    (span-set! hist idx lines)
+    lines))
 
 
 ;; customize how "charhistory" objects are printed
