@@ -13,7 +13,7 @@
     vscreen-cursor-ix    vscreen-cursor-iy  vscreen-cursor-ixy  vscreen-cursor-ixy-set!
     vscreen-cursor-vx    vscreen-cursor-vy  vscreen-cursor-vxy  vscreen-cursor-vxy-set!
     vscreen-prompt-end-x vscreen-prompt-end-y vscreen-prompt-end-xy-set!
-    vscreen-length-at-y vscreen-end-y
+    vscreen-length-at-y  vscreen-end-y
     vscreen-char-at-xy   vscreen-char-before-xy  vscreen-char-after-xy
     vscreen-next-xy      vscreen-prev-xy   vscreen-next-xy/or-self  vscreen-prev-xy/or-self
     vscreen-count-at-xy/left  vscreen-count-at-xy/right
@@ -728,7 +728,7 @@
 
 
 ;; customize how "vscreen" objects are printed
-(record-writer (record-type-descriptor %charlines)
+(record-writer (record-type-descriptor %vscreen)
   (lambda (screen port writer)
     (write-vscreen screen port)))
 

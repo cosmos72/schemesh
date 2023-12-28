@@ -23,8 +23,8 @@
      (mutable vec span-vec span-vec-set!))
   (nongenerative #{%span ng1h8vurkk5k61p0jsryrbk99-0}))
 
-;; type charhistory is a span containing charlines elements (the history itself)
 
+;; type charhistory is a span containing charlines elements (the history itself)
 (define-record-type
   (%charhistory %make-charhistory charhistory?)
   (parent %span)
@@ -32,9 +32,8 @@
 
 (define (charhistory . vals)
   (list-iterate vals (lambda (val) (assert-charlines? 'charhistory val)))
-  (let* ((vec (list->vector vals))
-         (n (vector-length vec)))
-    (%make-charhistory 0 n vec)))
+  (let ((vec (list->vector vals)))
+    (%make-charhistory 0 (vector-length vec) vec)))
 
 (define (make-charhistory n)
   ;; optimization: (charhistory-cow-ref) returns a copy-on-write clone of i-th
@@ -48,7 +47,8 @@
 (define (charhistory-cow-ref hist idx)
   (charlines-copy-on-write (span-ref hist idx)))
 
-;; set i-th charlines in history. Resizes history if needed
+;; set i-th charlines in history to a copy-on-write clone of lines.
+;; resizes history if needed.
 (define (charhistory-set! hist idx lines)
   (assert-charlines? 'charhistory-set! lines)
   (let ((len (span-length hist)))
@@ -56,11 +56,14 @@
       (span-resize-back! hist (fx1+ idx))
       ; optimization: (charhistory-cow-ref) returns a copy-on-write clone of i-th
       ; charline, thus we can reuse the same empty (charlines) for all elements we add
-      (let ((lines (charlines)))
+      (let ((empty-lines (charlines)))
         (do ((i len (fx1+ i)))
             ((fx>=? i idx))
-          (span-set! hist i lines)))))
-  (span-set! hist idx lines))
+          (span-set! hist i empty-lines)))))
+  ;; make a copy-on-write clone of lines,
+  ;; in case it's a subclass of charlines - for example a vscreen
+  (span-set! hist idx (charlines-copy-on-write lines)))
+
 
 ;; customize how "charhistory" objects are printed
 (record-writer (record-type-descriptor %charhistory)
