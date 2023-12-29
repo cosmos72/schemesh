@@ -63,14 +63,14 @@
     ; procedure, receives linectx as argument and should update prompt and prompt-length
     (mutable prompt-func)
     parenmatcher
-    (mutable parens) ;        #f or parens containing matching parentheses
-    completions      ;        span of charspans, possible completions
-    completion-stem  ;        charspan, chars from vscreen used as stem
+    (mutable parens)        ; #f or parens containing matching parentheses
+    completions             ; span of charspans, possible completions
+    completion-stem         ; charspan, chars from vscreen used as stem
     ; procedure, receives linectx as argument and should update completions and stem
     (mutable completion-func)
     (mutable ktable)        ; hashtable, contains keybindings
     (mutable history-index) ; index of last used item in history
-    history))        ; charhistory, history of entered commands
+    history))               ; charhistory, history of entered commands
 
 (define flag-eof? 1)
 (define flag-return? 2)

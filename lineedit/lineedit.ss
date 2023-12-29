@@ -415,22 +415,16 @@
         (linectx-prompt-end-xy-set! ctx x y)))))
 
 
-;; if needed, draw new prompt and lines
-(define (linectx-draw-as-needed ctx)
-  (let ((screen (linectx-vscreen ctx)))
-    (cond
-      ((linectx-redraw? ctx)   (linectx-draw-all ctx))
-      ((vscreen-dirty? screen) (linectx-draw-dirty ctx))
-      (else
-        ;; only move the cursor to desired position
-        (let ((vx (linectx-vx ctx))
-              (vy (linectx-vy ctx)))
-          (lineterm-move-to ctx vx vy)
-          (linectx-term-xy-set! ctx vx vy))))))
+;; if needed, redraw prompt, lines, cursor and matching parentheses.
+(define (linectx-redraw-as-needed ctx)
+  (cond
+    ((linectx-redraw? ctx)                  (linectx-redraw-all ctx))
+    ((vscreen-dirty? (linectx-vscreen ctx)) (linectx-redraw-dirty ctx))
+    (else                                   (linectx-redraw-cursor+parens ctx))))
 
 
 ;; redraw everything
-(define (linectx-draw-all ctx)
+(define (linectx-redraw-all ctx)
   (lineterm-move-dy ctx (fx- (linectx-term-y ctx)))
   (lineterm-move-to-bol ctx)
   (linectx-update-prompt ctx)
@@ -440,13 +434,12 @@
   (linectx-term-xy-set! ctx (linectx-vx ctx) (linectx-vy ctx))
   (linectx-move-from-end-lines ctx)
   (parenmatcher-clear! (linectx-parenmatcher ctx))
-  (linectx-draw-parens ctx (linectx-parens-update ctx) 'highlight)
+  (linectx-draw-parens ctx (linectx-parens-update! ctx) 'highlight)
   (linectx-redraw-set! ctx #f))
 
 
-
 ;; redraw only dirty parts of vscreen
-(define (linectx-draw-dirty ctx)
+(define (linectx-redraw-dirty ctx)
   (linectx-draw-parens ctx (linectx-parens ctx) 'plain)
   (let* ((screen (linectx-vscreen ctx))
          (ymin   (charlines-dirty-start-y screen))
@@ -470,7 +463,7 @@
                    (xdraw0   (fxmax 0 (fxmin xdirty0 len)))
                    (xdraw1   (fxmax 0 (fxmin xdirty1 len)))
                    (nl       (if (and (charline-nl? line) (fx=? xdraw1 len)) 1 0))) ;; 1 if newline, 0 otherwise
-              ; (format #t "~%; linectx-draw-dirty i = ~s, xdirty0 = ~s -> ~s, xdirty1 = ~s -> ~s, nl = ~s~%"
+              ; (format #t "~%; linectx-redraw-dirty i = ~s, xdirty0 = ~s -> ~s, xdirty1 = ~s -> ~s, nl = ~s~%"
               ;   i xdirty0 xdraw0 xdirty1 xdraw1 nl)
               (lineterm-move ctx vx vy (fx+ xdraw0 vxoffset) vi)
               (lineterm-write/cbuffer ctx line xdraw0 (fx- xdraw1 nl)) ;; do not print the newline yet
@@ -492,7 +485,30 @@
     ;; mark whole screen as not dirty
     (vscreen-dirty-set! screen #f))
   (parenmatcher-clear! (linectx-parenmatcher ctx))
-  (linectx-draw-parens ctx (linectx-parens-update ctx) 'highlight))
+  (linectx-draw-parens ctx (linectx-parens-update! ctx) 'highlight))
+
+
+;; redraw only cursor and parentheses
+(define (linectx-redraw-cursor+parens ctx)
+  ;; move the cursor to desired position
+  (let ((vx (linectx-vx ctx))
+        (vy (linectx-vy ctx)))
+    (lineterm-move-to ctx vx vy)
+    (linectx-term-xy-set! ctx vx vy))
+  (let ((old-parens (linectx-parens ctx))
+        (new-parens (linectx-parens-find ctx)))
+    (unless (parens-equal-xy? old-parens new-parens)
+      (linectx-draw-parens ctx old-parens 'plain)
+      (linectx-draw-parens ctx new-parens 'highlight)
+      (linectx-parens-set! ctx new-parens))))
+
+
+;; draw parentheses using specified style. assumes term-x and term-x are up to date.
+(define (linectx-draw-parens ctx parens style)
+  ;; draw parens only if both start and end positions are valid
+  (when (parens-valid? parens)
+    (linectx-draw-char-at-xy ctx (parens-start-x parens) (parens-start-y parens) style)
+    (linectx-draw-char-at-xy ctx (parens-end-x parens)   (parens-end-y parens)   style)))
 
 
 ;; if position x y is inside linectx-vscreen, redraw char at x y with specified style.
@@ -512,13 +528,6 @@
       (when (eq? 'highlight style)
         (bytespan-insert-back/bvector! wbuf '#vu8(27 91 109) 0 3)) ; ESC[m
       (lineterm-move-from ctx (fx1+ vx) vy))))
-
-
-(define (linectx-draw-parens ctx parens style)
-  ;; draw parens only if both start and end positions are valid
-  (when (parens-valid? parens)
-    (linectx-draw-char-at-xy ctx (parens-start-x parens) (parens-start-y parens) style)
-    (linectx-draw-char-at-xy ctx (parens-end-x parens)   (parens-end-y parens)   style)))
 
 
 ;; return x y position immediately to the left of cursor.
@@ -563,7 +572,7 @@
 
 
 ;; call (linectx-parens-find) and save result into (linectx-parens). Return such result.
-(define (linectx-parens-update ctx)
+(define (linectx-parens-update! ctx)
   (let ((new-parens (linectx-parens-find ctx)))
     (linectx-parens-set! ctx new-parens)
     new-parens))
@@ -572,17 +581,17 @@
 ;; return #t if both old-parens and new-parens are #f
 ;; or if both are parens and contain the same start-x start-y end-x and-y
 (define (parens-equal-xy? old-parens new-parens)
-  (or
-    (and (not old-parens) (not new-parens))
-    (and (parens? old-parens) (parens? new-parens)
-      (fx=? (parens-start-x old-parens)
-            (parens-start-x new-parens))
-      (fx=? (parens-start-y old-parens)
-            (parens-start-y new-parens))
-      (fx=? (parens-end-x old-parens)
-            (parens-end-x new-parens))
-      (fx=? (parens-end-y old-parens)
-            (parens-end-y new-parens)))))
+  (or (eq? old-parens new-parens)
+      (and
+        (parens? old-parens) (parens? new-parens)
+        (fx=? (parens-start-x old-parens)
+              (parens-start-x new-parens))
+        (fx=? (parens-start-y old-parens)
+              (parens-start-y new-parens))
+        (fx=? (parens-end-x old-parens)
+              (parens-end-x new-parens))
+        (fx=? (parens-end-y old-parens)
+              (parens-end-y new-parens)))))
 
 
 
@@ -667,7 +676,7 @@
     (lambda ()
       (flush-output-port (current-output-port))
       (linectx-consume-sigwinch ctx)
-      (linectx-draw-as-needed ctx)
+      (linectx-redraw-as-needed ctx)
       (lineedit-flush ctx))
     (lambda () (%%lineedit-read ctx timeout-milliseconds))
     (lambda () (lineedit-flush ctx))))
