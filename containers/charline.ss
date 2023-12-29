@@ -12,7 +12,7 @@
     charline-length charline-ref charline-at charline-set! charline-clear!
     charline-erase-at! charline-insert-at! charline-insert-at/cspan! charline-insert-at/cbuf!
     charline-find-left charline-find-right
-    charline-dirty-x-start charline-dirty-end-x charline-dirty-x-add! charline-dirty-x-unset!)
+    charline-dirty-start-x charline-dirty-end-x charline-dirty-x-add! charline-dirty-x-unset!)
 
   (import
     (rnrs)
@@ -35,7 +35,7 @@
 ;; - charline-share a cons. its car will be > 0 if the charline is shared copy-on-write
 ;;   between two or more charlines: its content will be automatically cloned at the first
 ;;   attempt to modify it.
-;; - charline-dirty-x-start and charline-dirty-end-x fixnums indicating the range of characters
+;; - charline-dirty-start-x and charline-dirty-end-x fixnums indicating the range of characters
 ;;   that were recently modified and not yet redrawn
 
 (define-record-type
@@ -43,7 +43,7 @@
   (parent %chargbuffer)
   (fields
     (mutable share) ; a cons (share-count . #f)
-    (mutable dirty-x-start charline-dirty-x-start charline-dirty-x-start-set!)
+    (mutable dirty-x-start charline-dirty-start-x charline-dirty-start-x-set!)
     (mutable dirty-end-x   charline-dirty-end-x   charline-dirty-end-x-set!))
   (nongenerative #{%charline bptainzyb6dz0fmgkz7a0ic6v-439}))
 
@@ -80,7 +80,7 @@
 (define (charline-copy-on-write line)
   (assert (charline? line))
   (%make-charline (chargbuffer-left line) (chargbuffer-right line) (charline-share-inc! line)
-                  (charline-dirty-x-start line) (charline-dirty-end-x line)))
+                  (charline-dirty-start-x line) (charline-dirty-end-x line)))
 
 ;; if charline was a copy-on-write clone, actually clone it.
 (define (charline-unshare! line)
@@ -106,12 +106,12 @@
     (and (fx>=? last 0) (char=? #\newline (chargbuffer-ref line last)))))
 
 (define (charline-dirty-x-add! line start end)
-  (charline-dirty-x-start-set! line (fxmin start (charline-dirty-x-start line)))
+  (charline-dirty-start-x-set! line (fxmin start (charline-dirty-start-x line)))
   (charline-dirty-end-x-set!   line (fxmax end   (charline-dirty-end-x   line))))
 
 ;; mark the whole charline as not dirty
 (define (charline-dirty-x-unset! line)
-  (charline-dirty-x-start-set! line (greatest-fixnum))
+  (charline-dirty-start-x-set! line (greatest-fixnum))
   (charline-dirty-end-x-set!   line 0))
 
 (define (charline-set! line x ch)
@@ -123,7 +123,7 @@
 (define (charline-insert-at! line x ch)
   (charline-unshare! line)
   (chargbuffer-insert-at! line x ch)
-  (charline-dirty-x-add! line x (fx1+ (charline-length line))))
+  (charline-dirty-x-add! line x (charline-length line)))
 
 
 ; read src-n elements from charspan csp-src,
@@ -147,14 +147,18 @@
 (define (charline-erase-at! line x n)
   (when (fx>? n 0)
     (charline-unshare! line)
-    (chargbuffer-erase-at! line x n)
-    (charline-dirty-x-add! line x (fx+ n (charline-length line)))))
+    (let ((len (charline-length line)))
+      (chargbuffer-erase-at! line x n)
+      ;; mark as dirty until original end of line
+      (charline-dirty-x-add! line x len))))
 
+;; remove all chars from charline
 (define (charline-clear! line)
-  (charline-unshare! line)
-  (let ((n (charline-length line)))
-    (chargbuffer-clear! line)
-    (charline-dirty-x-add! line 0 n)))
+  (let ((len (charline-length line)))
+    (unless (fxzero? len)
+      (charline-unshare! line)
+      (chargbuffer-clear! line)
+      (charline-dirty-x-add! line 0 len))))
 
 ;; search leftward starting from x - 1,
 ;; find first character that satisfies (pred ch)

@@ -23,7 +23,7 @@
     lineedit-flush lineedit-finish)
   (import
     (rnrs)
-    (only (chezscheme) fx1+ fx1- inspect record-writer void)
+    (only (chezscheme) format fx1+ fx1- inspect record-writer void)
     (schemesh bootstrap)
     (schemesh containers)
     (only (schemesh conversions) display-condition*)
@@ -308,15 +308,14 @@
     tty-setraw!))      ; run after body
 
 (define (lineedit-navigate-history ctx delta-y)
-  (let ((y    (fx+ delta-y (linectx-history-index ctx)))
-        (hist (linectx-history ctx)))
+  (let ((y      (fx+ delta-y (linectx-history-index ctx)))
+        (hist   (linectx-history ctx)))
     (when (fx<? -1 y (charhistory-length hist))
       ; also saves a copy of current linectx-vscreen to history
       (lineedit-lines-set! ctx (charhistory-cow-ref hist y))
       (linectx-history-index-set! ctx y)
       ;; set vscreen cursor to end of first line
       (linectx-ixy-set! ctx (greatest-fixnum) 0))))
-
 
 
 ;; append a shallow copy of linectx-vscreen to history, and return such copy
@@ -384,6 +383,7 @@
         (lineterm-write/cbuffer ctx line 0 (charline-length line))
         (unless (or (fx=? y ymax) (charline-nl? line))
           (lineterm-write/u8 ctx 10))))
+    (vscreen-dirty-set! screen #f)
     (lineterm-clear-to-eos ctx)))
 
 ;; move tty cursor from end of charlines to expected position (term-x term-y)
@@ -416,20 +416,83 @@
 
 
 ;; if needed, draw new prompt and lines
-(define (linectx-draw-if-needed ctx)
-  (when #t ; (linectx-redraw? ctx)
-    (parenmatcher-clear! (linectx-parenmatcher ctx)))
-    (lineterm-move-dy ctx (fx- (linectx-term-y ctx)))
-    (lineterm-move-to-bol ctx)
-    (linectx-update-prompt ctx)
-    (linectx-draw-prompt ctx)
-    (linectx-draw-lines ctx)
+(define (linectx-draw-as-needed ctx)
+  (let ((screen (linectx-vscreen ctx)))
+    (cond
+      ((linectx-redraw? ctx)   (linectx-draw-all ctx))
+      ((vscreen-dirty? screen) (linectx-draw-dirty ctx))
+      (else
+        ;; only move the cursor to desired position
+        (let ((vx (linectx-vx ctx))
+              (vy (linectx-vy ctx)))
+          (lineterm-move-to ctx vx vy)
+          (linectx-term-xy-set! ctx vx vy))))))
+
+
+;; redraw everything
+(define (linectx-draw-all ctx)
+  (lineterm-move-dy ctx (fx- (linectx-term-y ctx)))
+  (lineterm-move-to-bol ctx)
+  (linectx-update-prompt ctx)
+  (linectx-draw-prompt ctx)
+  (linectx-draw-lines ctx)
+  ;; set term-x and term-y to the desired position
+  (linectx-term-xy-set! ctx (linectx-vx ctx) (linectx-vy ctx))
+  (linectx-move-from-end-lines ctx)
+  (parenmatcher-clear! (linectx-parenmatcher ctx))
+  (linectx-draw-parens ctx (linectx-parens-update ctx) 'highlight)
+  (linectx-redraw-set! ctx #f))
+
+
+
+;; redraw only dirty parts of vscreen
+(define (linectx-draw-dirty ctx)
+  (linectx-draw-parens ctx (linectx-parens ctx) 'plain)
+  (let* ((screen (linectx-vscreen ctx))
+         (ymin   (charlines-dirty-start-y screen))
+         (ymax   (fx1- (charlines-dirty-end-y screen)))
+         (vx     (linectx-term-x ctx))
+         (vy     (linectx-term-y ctx))
+         (prompt-x (vscreen-prompt-end-x screen))
+         (prompt-y (vscreen-prompt-end-y screen))
+         (width  (fx1- (vscreen-width screen))))
+    ;; lines with (fx<=? ymin i ymax) are fully dirty
+    (charlines-iterate screen
+      (lambda (i line)
+        (let* ((fully-dirty? (fx<=? ymin i ymax))
+               (len     (charline-length line))
+               (xdirty0 (if fully-dirty? 0   (fxmin len (charline-dirty-start-x line))))
+               (xdirty1 (if fully-dirty? (vscreen-width-at-y screen i) (charline-dirty-end-x line))))
+          (when (fx<? xdirty0 xdirty1)
+            (let* ((vxoffset (if (fxzero? i) prompt-x 0))
+                   (vi       (fx+ i prompt-y))
+                   ;; xdraw0 and xdraw1 are xdirty0 and xdirty1 clamped to line length
+                   (xdraw0   (fxmax 0 (fxmin xdirty0 len)))
+                   (xdraw1   (fxmax 0 (fxmin xdirty1 len)))
+                   (nl       (if (and (charline-nl? line) (fx=? xdraw1 len)) 1 0))) ;; 1 if newline, 0 otherwise
+              ; (format #t "~%; linectx-draw-dirty i = ~s, xdirty0 = ~s -> ~s, xdirty1 = ~s -> ~s, nl = ~s~%"
+              ;   i xdirty0 xdraw0 xdirty1 xdraw1 nl)
+              (lineterm-move ctx vx vy (fx+ xdraw0 vxoffset) vi)
+              (lineterm-write/cbuffer ctx line xdraw0 (fx- xdraw1 nl)) ;; do not print the newline yet
+              (when (fx>? xdirty1 (fx- xdraw1 nl))
+                (lineterm-clear-to-eol ctx))
+              (if (or (fx=? nl 1) ;; newline must be printed as part of charline
+                      (fx<? (fx1+ i) (charlines-length screen))) ; more lines will follow
+                (begin
+                  ;; cursor move down does not scroll, so print a newline.
+                  (lineterm-write/u8 ctx 10)
+                  (set! vx 0)
+                  (set! vy (fx1+ vi)))
+                (begin
+                  (set! vx (fxmin (fx+ xdraw1 vxoffset) (fx1- width))) ;; cursor cannot be at vscreen width
+                  (set! vy vi))))))))
     ;; set term-x and term-y to the desired position
     (linectx-term-xy-set! ctx (linectx-vx ctx) (linectx-vy ctx))
-    (linectx-move-from-end-lines ctx)
-    (linectx-draw-parens ctx (linectx-parens ctx) 'highlight)
-    (linectx-redraw-set! ctx #f)
-    (vscreen-dirty-set! (linectx-vscreen ctx) #f))
+    (lineterm-move-from ctx vx vy)
+    ;; mark whole screen as not dirty
+    (vscreen-dirty-set! screen #f))
+  (parenmatcher-clear! (linectx-parenmatcher ctx))
+  (linectx-draw-parens ctx (linectx-parens-update ctx) 'highlight))
 
 
 ;; if position x y is inside linectx-vscreen, redraw char at x y with specified style.
@@ -498,6 +561,14 @@
                   (put-char port #\newline))))))))
     ret))
 
+
+;; call (linectx-parens-find) and save result into (linectx-parens). Return such result.
+(define (linectx-parens-update ctx)
+  (let ((new-parens (linectx-parens-find ctx)))
+    (linectx-parens-set! ctx new-parens)
+    new-parens))
+
+
 ;; return #t if both old-parens and new-parens are #f
 ;; or if both are parens and contain the same start-x start-y end-x and-y
 (define (parens-equal-xy? old-parens new-parens)
@@ -513,14 +584,6 @@
       (fx=? (parens-end-y old-parens)
             (parens-end-y new-parens)))))
 
-
-(define (linectx-parens-maybe-update-and-redraw ctx)
-  (let* ((old-parens (linectx-parens ctx))
-         (new-parens (linectx-parens-find ctx)))
-    (linectx-parens-set! ctx new-parens)
-    (unless (parens-equal-xy? old-parens new-parens)
-      (linectx-draw-parens ctx old-parens 'plain)
-      (linectx-draw-parens ctx new-parens 'highlight))))
 
 
 ;; read some bytes, blocking at most for read-timeout-milliseconds
@@ -576,9 +639,7 @@
 
 
 ;; implementation of (lineedit-read)
-(define (%lineedit-read ctx timeout-milliseconds)
-  (linectx-consume-sigwinch ctx)
-  (linectx-draw-if-needed ctx)
+(define (%%lineedit-read ctx timeout-milliseconds)
   (let ((ret (if (bytespan-empty? (linectx-rbuf ctx))
                #t ; need more input
                ; some bytes already in rbuf, try to consume them
@@ -600,6 +661,17 @@
       ; propagate return value of first (linectx-keytable-iterate)
       ret)))
 
+;; wrapper around (%%lineedit-read)
+(define (%lineedit-read ctx timeout-milliseconds)
+  (dynamic-wind
+    (lambda ()
+      (flush-output-port (current-output-port))
+      (linectx-consume-sigwinch ctx)
+      (linectx-draw-as-needed ctx)
+      (lineedit-flush ctx))
+    (lambda () (%%lineedit-read ctx timeout-milliseconds))
+    (lambda () (lineedit-flush ctx))))
+
 ;; Main entry point of lineedit library.
 ;; Reads user input from linectx-stdin and processes it.
 ;;
@@ -608,14 +680,7 @@
 ;; if got end-of-file, return #f
 (define (lineedit-read ctx timeout-milliseconds)
   (try
-    (begin
-      ; write current-output-port buffered output before entering read loop
-      (flush-output-port (current-output-port))
-      (let ((ret (%lineedit-read ctx timeout-milliseconds)))
-        ; write linectx buffered output before returning
-        (linectx-parens-maybe-update-and-redraw ctx)
-        (lineedit-flush ctx)
-        ret))
+    (%lineedit-read ctx timeout-milliseconds)
     (catch (cond)
       (%lineedit-error ctx cond)
       #t))) ; return "waiting for more keypresses"

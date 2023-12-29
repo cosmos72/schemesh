@@ -8,7 +8,7 @@
 (library (schemesh lineedit vscreen (0 1))
   (export
     vscreen  vscreen*  vscreen?  assert-vscreen?
-    vscreen-width        vscreen-height    vscreen-resize!
+    vscreen-width        vscreen-height     vscreen-width-at-y  vscreen-resize!
     vscreen-dirty?       vscreen-dirty-set!
     vscreen-cursor-ix    vscreen-cursor-iy  vscreen-cursor-ixy  vscreen-cursor-ixy-set!
     vscreen-cursor-vx    vscreen-cursor-vy  vscreen-cursor-vxy  vscreen-cursor-vxy-set!
@@ -19,7 +19,7 @@
     vscreen-count-at-xy/left  vscreen-count-at-xy/right
     vscreen-clear!       vscreen-empty?
     vscreen-cursor-move/left! vscreen-cursor-move/right!  vscreen-cursor-move/up!  vscreen-cursor-move/down!
-    vscreen-erase-left/n!     vscreen-erase-right/n!       vscreen-erase-at-xy!
+    vscreen-erase-left/n!     vscreen-erase-right/n!      vscreen-erase-at-xy!
     vscreen-erase-left/line!  vscreen-erase-right/line!
     vscreen-insert-at-xy/ch!  vscreen-insert-at-xy/newline! vscreen-insert-at-xy/cspan!
     vscreen-insert/ch!        vscreen-insert/cspan!
@@ -48,9 +48,9 @@
   (%charlines %make-charlines %charlines?)
   (parent %gbuffer)
   (fields
-    ;; lines between y >= dirty-y-start and y < dirty-end-y
+    ;; lines between y >= dirty-start-y and y < dirty-end-y
     ;; are completely dirty i.e. must be fully redrawn on screen
-    (mutable dirty-y-start) ;; fixnum
+    (mutable dirty-start-y) ;; fixnum
     (mutable dirty-end-y))  ;; fixnum
   (nongenerative #{%charlines lf2lr8d65f8atnffcpi1ja7l0-439}))
 

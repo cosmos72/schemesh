@@ -11,7 +11,7 @@
     assert-charlines? charlines-shallow-copy charlines-copy-on-write charlines-iterate
     charlines-empty? charlines-length charlines-ref charlines-set/cline! charlines-clear!
     charlines-count-left charlines-count-right
-    charlines-dirty-y-start charlines-dirty-end-y charlines-dirty-y-add! charlines-dirty-xy-unset!
+    charlines-dirty-start-y charlines-dirty-end-y charlines-dirty-y-add! charlines-dirty-xy-unset!
     charlines-erase-at/cline! charlines-insert-at/cline!
     write-charlines)
 
@@ -40,7 +40,7 @@
   (%charlines %make-charlines charlines?)
   (parent %gbuffer)
   (fields
-    (mutable dirty-y-start charlines-dirty-y-start charlines-dirty-y-start-set!)
+    (mutable dirty-start-y charlines-dirty-start-y charlines-dirty-start-y-set!)
     (mutable dirty-end-y   charlines-dirty-end-y   charlines-dirty-end-y-set!))
   (nongenerative #{%charlines lf2lr8d65f8atnffcpi1ja7l0-439}))
 
@@ -59,11 +59,11 @@
 (define charlines-length     gbuffer-length)
 
 (define (charlines-dirty-y-add! lines start end)
-  (charlines-dirty-y-start-set! lines (fxmin (charlines-dirty-y-start lines)))
-  (charlines-dirty-end-y-set!   lines (fxmax (charlines-dirty-end-y   lines))))
+  (charlines-dirty-start-y-set! lines (fxmin start (charlines-dirty-start-y lines)))
+  (charlines-dirty-end-y-set!   lines (fxmax end   (charlines-dirty-end-y   lines))))
 
 (define (charlines-dirty-xy-unset! lines)
-  (charlines-dirty-y-start-set! lines (greatest-fixnum))
+  (charlines-dirty-start-y-set! lines (greatest-fixnum))
   (charlines-dirty-end-y-set!   lines 0)
   (charlines-iterate lines
     (lambda (i line)
@@ -77,7 +77,7 @@
       (lambda (i line)
         (span-set! dst i (charline-copy-on-write line))))
     (%make-charlines (span) dst
-      (charlines-dirty-y-start lines)
+      (charlines-dirty-start-y lines)
       (charlines-dirty-end-y   lines))))
 
 ;; Return a shallow clone of charlines, i.e. a new charline referencing
@@ -85,7 +85,7 @@
 ;; Reuses each existing line in charlines, does not call (charline-copy-on-write) on them.
 (define (charlines-shallow-copy lines)
   (%make-charlines (%gbuffer-left lines) (%gbuffer-right lines)
-      (charlines-dirty-y-start lines)
+      (charlines-dirty-start-y lines)
       (charlines-dirty-end-y   lines)))
 
 ;; get n-th line
@@ -112,7 +112,7 @@
 (define (charlines-insert-at/cline! lines y line)
   (assert-charline? 'charlines-insert-at/cline! line)
   (gbuffer-insert-at! lines y line)
-  (charlines-dirty-y-add! lines y (fx1+ (charlines-length lines))))
+  (charlines-dirty-y-add! lines y (charlines-length lines)))
 
 
 ;; search leftward starting from one character left of specified x and y,

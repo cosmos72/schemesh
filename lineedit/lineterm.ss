@@ -46,22 +46,22 @@
 ;; Does not check or update linectx.
 (define (lineterm-move-dx ctx dx)
   (cond
-    ((fxzero? dx) ; do nothing             ;
-      (void))                                  ;
-    ((fx=? dx 1) ; move right by 1         ;
-      (lineterm-write/bvector ctx #vu8(27 91 67) 0 3))      ; ESC [ C
-    ((fx=? dx -1) ; move left by 1         ;
-      (lineterm-write/bvector ctx #vu8(27 91 68) 0 3))      ; ESC [ D
-    ((fx>? dx 1) ; move right by n         ;
-      (let ((wbuf (linectx-wbuf ctx)))         ;
-        (bytespan-insert-back/u8! wbuf 27 91)  ; ESC [
-        (bytespan-display-back/fixnum! wbuf dx); n
-        (bytespan-insert-back/u8! wbuf 67)))   ; C
-    ((fx<? dx -1) ; move left by -dx       ;
-      (let ((wbuf (linectx-wbuf ctx)))         ;
-        (bytespan-insert-back/u8! wbuf 27 91)  ; ESC [
-        (bytespan-display-back/fixnum! wbuf (fx- dx)) ; n
-        (bytespan-insert-back/u8! wbuf 68))))) ; D
+    ((fxzero? dx) ; do nothing
+      (void))
+    ((fx=? dx 1) ; move right by 1
+      (lineterm-write/bvector ctx #vu8(27 91 67) 0 3))     ; ESC [ C
+    ((fx>? dx 1) ; move right by dx                        ;
+      (let ((wbuf (linectx-wbuf ctx)))                     ;
+        (bytespan-insert-back/u8! wbuf 27 91)              ; ESC [
+        (bytespan-display-back/fixnum! wbuf dx)            ; n
+        (bytespan-insert-back/u8! wbuf 67)))               ; C
+    ((fx>=? dx -3) ; move left by 1, 2 or 3                ;
+      (lineterm-write/bvector ctx #vu8(8 8 8) 0 (fx- dx))) ; ^H ^H ^H
+    ((fx<? dx -3)  ; move left by -dx                      ;
+      (let ((wbuf (linectx-wbuf ctx)))                     ;
+        (bytespan-insert-back/u8! wbuf 27 91)              ; ESC [
+        (bytespan-display-back/fixnum! wbuf (fx- dx))      ; n
+        (bytespan-insert-back/u8! wbuf 68)))))             ; D
 
 
 ;; Move tty cursor vertically.
