@@ -27,7 +27,7 @@
 
   (import
     (rnrs)
-    (only (chezscheme) format fx1+ fx1- record-writer)
+    (only (chezscheme) fx1+ fx1- record-writer)
     (only (schemesh bootstrap) while)
     (schemesh containers span)
     (schemesh containers charline)
@@ -175,11 +175,11 @@
 ;; * (vscreen-prompt-end-y screen) is subtracted from y
 ;; * if clamped y is 0, vscreen-prompt-end-x will be subtracted from x
 (define (vscreen-cursor-vxy-set! screen x y)
-  (let* ((y (fx- y (vscreen-prompt-end-y screen)))
-         (x (fx- x (if (or (fx<=? y 0) (fx<=? 1 (vscreen-end-y screen)))
+  (let* ((iy (fx- y (vscreen-prompt-end-y screen)))
+         (ix (fx- x (if (or (fx<=? iy 0) (fx<=? (vscreen-end-y screen) 1))
                      (vscreen-prompt-end-x screen)
                      0))))
-    (vscreen-cursor-ixy-set! screen x y)))
+    (vscreen-cursor-ixy-set! screen ix iy)))
 
 
 ;; return total number of characters in vscreen before position x y,
