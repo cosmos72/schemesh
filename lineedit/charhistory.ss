@@ -8,7 +8,7 @@
 (library (schemesh lineedit charhistory (0 1))
   (export
     charhistory charhistory? make-charhistory
-    charhistory-empty? charhistory-length charhistory-cow-ref charhistory-set!)
+    charhistory-empty? charhistory-length charhistory-cow-ref charhistory-set*!)
   (import
     (rnrs)
     (only (chezscheme) fx1+ record-writer)
@@ -51,13 +51,13 @@
 
 ;; set i-th charlines in history to a shallow copy of lines, and return such copy
 ;; resizes history if needed.
-(define (charhistory-set! hist idx lines)
-  (assert-charlines? 'charhistory-set! lines)
+(define (charhistory-set*! hist idx lines)
+  (assert-charlines? 'charhistory-set*! lines)
   (let ((len (span-length hist)))
     (when (fx>=? idx len)
       (span-resize-back! hist (fx1+ idx))
       ; optimization: (charhistory-cow-ref) returns a copy-on-write clone of i-th
-      ; charline, thus we can reuse the same empty (charlines) for all elements we add
+      ; charlines, thus we can reuse the same empty (charlines) for all elements we add
       (let ((empty-lines (charlines)))
         (do ((i len (fx1+ i)))
             ((fx>=? i idx))

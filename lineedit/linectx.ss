@@ -20,8 +20,7 @@
     linectx-completions linectx-completion-stem linectx-completion-func
     linectx-parser-name linectx-parser-name-set!
     linectx-parsers   linectx-parsers-set!
-    linectx-history linectx-history-index linectx-history-index-set!
-    linectx-to-history linectx-lines-copy-on-write
+    linectx-history linectx-history-index linectx-history-index-set! linectx-to-history*
     linectx-clear!   linectx-eof? linectx-eof-set! linectx-redraw? linectx-redraw-set!
     linectx-return? linectx-return-set!
     linectx-default-keytable linectx-keytable-set! linectx-keytable-find)
@@ -232,15 +231,9 @@
 
 ;; save to history a shallow clone of charlines in linectx-vscreen,
 ;; and return such clone
-(define (linectx-to-history ctx)
+(define (linectx-to-history* ctx)
   ;; TODO: do not insert duplicates in history
-  (charhistory-set! (linectx-history ctx) (linectx-history-index ctx) (linectx-vscreen ctx)))
-
-;; return a copy-on-write clone of current charlines being edited
-(define (linectx-lines-copy-on-write ctx)
-  ;; (format #t "linectx-lines-copy-on-write~%")
-  ;; (dynamic-wind tty-restore! break tty-setraw!)
-  (charlines-copy-on-write (linectx-vscreen ctx)))
+  (charhistory-set*! (linectx-history ctx) (linectx-history-index ctx) (linectx-vscreen ctx)))
 
 
 (define (linectx-keytable-set! keytable proc . keysequences)

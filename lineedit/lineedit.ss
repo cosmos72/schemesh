@@ -117,7 +117,7 @@
 ;; Sets vscreen cursor to 0 0.
 (define (lineedit-lines-set! ctx lines)
   (assert-charlines? 'lineedit-lines-set! lines)
-  (linectx-to-history ctx)
+  (linectx-to-history* ctx)
   (vscreen-assign*! (linectx-vscreen ctx) lines))
 
 ;; insert a single character into vscreen at cursor.
@@ -319,7 +319,7 @@
 
 ;; append a shallow copy of linectx-vscreen to history, and return such copy
 ;; which must NOT be modified - not even temporarily - because history references it
-(define (linectx-return-lines ctx)
+(define (linectx-return-lines* ctx)
   (linectx-return-set! ctx #f) ; clear flag "user pressed ENTER"
   (linectx-redraw-set! ctx #t) ; set flag "redraw prompt and lines"
   (linectx-draw-parens ctx (linectx-parens ctx) 'plain) ; unhighlight parentheses
@@ -332,7 +332,7 @@
          (hist-len (charhistory-length hist)))
     ; always overwrite last history slot
     (linectx-history-index-set! ctx (fxmax 0 y (fx1- hist-len)))
-    (let ((lines (linectx-to-history ctx)))
+    (let ((lines (linectx-to-history* ctx)))
       (linectx-history-index-set! ctx (charhistory-length hist))
       (linectx-clear! ctx) ;; clear vscreen
       lines)))
@@ -349,7 +349,7 @@
            (bytespan-empty? (linectx-rbuf ctx))
            (fxzero? (linectx-keytable-call ctx)))))
   (cond
-    ((linectx-return? ctx) (linectx-return-lines ctx))
+    ((linectx-return? ctx) (linectx-return-lines* ctx))
     ((linectx-eof?    ctx) #f)
     (#t                    #t)))
 
