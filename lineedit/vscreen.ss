@@ -427,35 +427,28 @@
         (vscreen-erase-at/cline! screen y)
         (set! y    (fx1- y))
         (set! line (vscreen-line-at-y screen y)))
-      (vscreen-cursor-ix-set! screen (fx1+ y)))))
+      (vscreen-cursor-iy-set! screen (fx1+ y)))))
 
 
 ;; erase rightward, starting at vscreen cursor and continuing
 ;; (possibly to next lines) until a newline is found.
 ;; The newline is not erased.
 (define (vscreen-erase-right/until-nl! screen)
-  (let* ((y    (vscreen-cursor-iy screen))
+  (let* ((x    (vscreen-cursor-ix screen))
+         (y    (vscreen-cursor-iy screen))
          (line (vscreen-line-at-y screen y))
-         (nl?  #f))
-    (when line
-      (vscreen-dirty-set! screen #t)
-      (set! nl? (charline-nl? line))
-      (let* ((x (vscreen-cursor-ix screen))
-             (avail-n (fx- (charline-length line) x)))
-        ;; don't erase the newline, if present
-        (charline-erase-at! line x (fxmax 0 (fx- avail-n (if nl? 1 0)))))
-      (while (and line (not nl?))
-        (set! y    (fx1+ y))
-        (set! line (vscreen-line-at-y screen y))
-        (when line
-          (set! nl? (charline-nl? line))
-          ;; also erase the newline, if present
-          (vscreen-erase-at/cline! screen y)))
-      (set! y (vscreen-cursor-iy screen))
-      (set! line (vscreen-line-at-y screen y))
-      (when (and nl? line (not (charline-nl? line)))
-        ;; move the erased newline to current charline
-        (charline-insert-at! line (charline-length line) #\newline)))))
+         (n    0))
+    (while line
+      (cond
+        ((charline-nl? line)
+          (set! n (fx+ n (fxmax 0 (fx1- (fx- (charline-length line) x)))))
+          (set! line #f))
+        (else
+          (set! n (fx+ n (fxmax 0 (fx- (charline-length line) x))))
+          (set! x 0)
+          (set! y (fx1+ y))
+          (set! line (vscreen-line-at-y screen y)))))
+    (vscreen-erase-right/n! screen n)))
 
 
 ;; erase leftward, starting 1 char left of vscreen cursor and continuing
