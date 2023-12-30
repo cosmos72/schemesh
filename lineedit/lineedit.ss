@@ -446,11 +446,11 @@
   (linectx-draw-parens ctx (linectx-parens-update! ctx) 'highlight)
   (linectx-redraw-set! ctx #f))
 
-(define (linectx-redraw-dirty ctx)
-  (linectx-redraw-all ctx))
+;(define (linectx-redraw-dirty ctx)
+;  (linectx-redraw-all ctx))
 
 ;; redraw only dirty parts of vscreen
-(define (linectx-redraw-dirty/bugged ctx)
+(define (linectx-redraw-dirty ctx)
   (linectx-draw-parens ctx (linectx-parens ctx) 'plain)
   (let* ((screen (linectx-vscreen ctx))
          (ymin   (charlines-dirty-start-y screen))
@@ -459,15 +459,15 @@
          (vy     (linectx-term-y ctx))
          (prompt-x (vscreen-prompt-end-x screen))
          (prompt-y (vscreen-prompt-end-y screen))
-         (width  (fx1- (vscreen-width screen))))
+         (width  (vscreen-width screen)))
     ;; lines with (fx<=? ymin i ymax) are fully dirty
     (charlines-iterate screen
       (lambda (i line)
         (let* ((fully-dirty? (fx<=? ymin i ymax))
-               (len     (charline-length line))
-               (width-at-i (vscreen-width-at-y screen i))
-               (xdirty0 (if fully-dirty? 0 (fxmin width-at-i (charline-dirty-start-x line))))
-               (xdirty1 (if fully-dirty? width-at-i (charline-dirty-end-x line))))
+               (len          (charline-length line))
+               (width-at-i   (vscreen-width-at-y screen i))
+               (xdirty0      (if fully-dirty? 0 (fxmin width-at-i (charline-dirty-start-x line))))
+               (xdirty1      (if fully-dirty? width-at-i (charline-dirty-end-x line))))
           (when (fx<? xdirty0 xdirty1)
             (let* ((vxoffset (if (fxzero? i) prompt-x 0))
                    (vi       (fx+ i prompt-y))
@@ -482,7 +482,12 @@
               |#
               (lineterm-move ctx vx vy (fx+ xdraw0 vxoffset) vi)
               (lineterm-write/cbuffer ctx line xdraw0 (fx- xdraw1 nl)) ;; do not print the newline yet
-              (when (and (fx=? len xdraw1) (fx<? (fx- xdraw1 nl) xdirty1))
+              ;; clear to end-of-line only when
+              ;; * xdirty1 extends beyond end of charline
+              ;; * and charline is shorter than screen width
+              ;; note: cursor cannot be at right of rightmost vscreen char,
+              ;; and printing end-of-line when cursor is *at* rightmost char erases it
+              (when (and (fx>? xdirty1 len) (fx<? len width-at-i))
                 (lineterm-clear-to-eol ctx))
               (if (or (fx=? nl 1) ;; newline must be printed as part of charline
                       (fx<? (fx1+ i) (charlines-length screen))) ; more lines will follow
@@ -494,8 +499,18 @@
                 (begin
                   (set! vx (fxmin (fx+ xdraw1 vxoffset) (fx1- width))) ;; cursor cannot be at vscreen width
                   (set! vy vi))))))))
+
+    ;; if there is a dirty area below the last line, clear it
+    (let ((yn (charlines-length screen)))
+      (when (fx>=? ymax yn)
+        (lineterm-move ctx vx vy 0 yn)
+        (set! vx 0)
+        (set! vy yn)
+        (lineterm-clear-to-eos ctx)))
+
     ;; set term-x and term-y to the desired position
     (linectx-term-xy-set! ctx (linectx-vx ctx) (linectx-vy ctx))
+    ;; move from current position to desired position
     (lineterm-move-from ctx vx vy)
     ;; mark whole screen as not dirty
     (vscreen-dirty-set! screen #f))

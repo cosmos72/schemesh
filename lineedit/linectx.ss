@@ -19,9 +19,9 @@
     linectx-parens linectx-parens-set!
     linectx-completions linectx-completion-stem linectx-completion-func
     linectx-parser-name linectx-parser-name-set!
-    linectx-parsers   linectx-parsers-set!
+    linectx-parsers linectx-parsers-set!
     linectx-history linectx-history-index linectx-history-index-set! linectx-to-history*
-    linectx-clear!   linectx-eof? linectx-eof-set! linectx-redraw? linectx-redraw-set!
+    linectx-clear!  linectx-eof? linectx-eof-set! linectx-redraw? linectx-redraw-set!
     linectx-return? linectx-return-set!
     linectx-default-keytable linectx-keytable-set! linectx-keytable-find)
 

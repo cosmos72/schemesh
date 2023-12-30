@@ -102,7 +102,9 @@
 ;; move tty cursor from tty position from-x from-y to tty position to-x to-y
 (define (lineterm-move ctx from-x from-y to-x to-y)
   (lineterm-move-dy ctx (fx- to-y from-y))
-  (lineterm-move-dx ctx (fx- to-x from-x)))
+  (if (and (fxzero? to-x) (not (fxzero? from-x)))
+    (lineterm-move-to-bol ctx)
+    (lineterm-move-dx ctx (fx- to-x from-x))))
 
 ;; move tty cursor from its current tty position at from-x, from-y
 ;; back to linectx-term-x linectx-term-y
