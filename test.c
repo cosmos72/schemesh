@@ -415,7 +415,7 @@ static const struct {
     {"(let ((screen (vscreen* 8 30 \"abcdef\" \"012\\n\")))\n"
      "  (vscreen-insert-at-xy/newline! screen 4 0)\n"
      "  screen)",
-     "(vscreen* 8 30 \"abcd\\n\" \"ef012\\n\")"},
+     "(vscreen* 8 30 \"abcd\\n\" \"ef012\\n\" \"\")"},
     {"(let ((screen (vscreen* 8 30 \"abcdefgh\" \"012\\n\")))\n"
      "  (vscreen-insert-at-xy/cspan! screen 4 0 (string->charspan* \"uwxyz\") 0 5)\n"
      "  screen)",

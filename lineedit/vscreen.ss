@@ -216,16 +216,11 @@
         (old-width (vscreen-width screen))
         (old-height (vscreen-height screen)))
     (unless (and (fx=? width old-width) (fx=? height old-height))
-      (let ((reflow-func (if (fx<? width old-width)
-                           vscreen-overflow-at-y
-                           vscreen-underflow-at-y))
-            (n (vscreen-count-to-start screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen)))
-            (y 0))
+      (let ((n (vscreen-count-to-start screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen))))
         (vscreen-dirty-set! screen #t)
         (vscreen-width-set! screen width)
         (vscreen-height-set! screen height)
-        (while (fx<? y (fx1- (vscreen-end-y screen)))
-          (set! y (fx1+ (reflow-func screen y))))
+        (vscreen-reflow screen)
         (vscreen-cursor-ixy-set! screen 0 0)
         (vscreen-cursor-move/right! screen n)))))
 
@@ -326,14 +321,16 @@
     (fx+ (vscreen-cursor-vy screen) n)))
 
 
-;; append characters to vscreen line at y removing them from the beginning of line at y+1
-;; and repeat with subsequent lines *without* a newline at y+2...
-;; until line is refilled up to vscreen width.
-;; stops when a modified line has a newline or has length = vscreen width.
-;; return y of last modified line.
+;; append characters to vscreen line at y by removing them from the beginning
+;; of subsequent lines at y+1...
+;; Stop when line at y is refilled up to vscreen width,
+;; or when a newline is found and appended - whatever happens first.
+;;
+;; Warning: does not underflow subsequent lines!
+;; Callers should use (vscreen-underflow) instead
 (define (vscreen-underflow-at-y screen y)
   (let ((line1 (vscreen-line-at-y screen y)))
-    (if (and line1 (not (charline-nl? line1)))
+    (when (and line1 (not (charline-nl? line1)))
       (let ((n (fx- (vscreen-width-at-y screen y) (charline-length line1)))
             (y+1 (fx1+ y)))
         (while (and (fx>? n 0) (fx<? y+1 (vscreen-end-y screen)))
@@ -350,11 +347,19 @@
             (when (charline-empty? line2)
               (when line2-nl?
                 (set! n 0)) ;; newline found, stop refilling line1
-              ;; we consumed all chars from line2, erase it
-              (vscreen-dirty-set! screen #t)
-              (vscreen-erase-at/cline! screen y+1))))
-        y+1)
-      y)))
+              ;; we consumed all chars from line2, erase it unless line1 is full and line2 is last line
+              (unless (and (or (charline-nl? line1)
+                               (fx>=? (charline-length line1) (vscreen-width-at-y screen y)))
+                           (fx>=? y+1 (fx1- (vscreen-end-y screen))))
+                (vscreen-erase-at/cline! screen y+1)))))))))
+
+
+;; for each vscreen line *without* a newline and shorter than vscreen width,
+;; append characters to it removing them from the beginning of next line.
+(define (vscreen-underflow screen)
+  (do ((y 0 (fx1+ y)))
+      ((fx>=? y (vscreen-end-y screen)))
+    (vscreen-underflow-at-y screen y)))
 
 
 ;; erase n characters of vscreen starting from specified x and y and moving rightward.
@@ -385,7 +390,7 @@
                 ;; line is not empty, move to next line
                 (set! y (fx1+ y))))))
         (unless (fx=? saved-n n)
-          (vscreen-underflow-at-y screen saved-y))))
+          (vscreen-underflow screen))))
     (fx- saved-n n)))
 
 
@@ -513,6 +518,23 @@
   y)
 
 
+;; move characters from end of each vscreen to the beginning of next line
+;; and repeat on subsequent lines,
+;; until lengths of each line is <= vscreen width.
+(define (vscreen-overflow screen)
+  (do ((y 0 (fx1+ (vscreen-overflow-at-y screen y))))
+      ((fx>=? y (fx1- (vscreen-end-y screen))))))
+
+
+;; overflow and underflow all lines. add a final empty line if needed.
+(define (vscreen-reflow screen)
+  (vscreen-overflow screen)
+  (vscreen-underflow screen)
+  (let* ((yn (vscreen-end-y screen))
+         (line (vscreen-line-at-y screen (fx1- yn))))
+    (when (or (not line) (charline-nl? line))
+      (charlines-insert-at/cline! screen yn (charline)))))
+
 
 
 ;; prepare vscreen for insertion at specified x and y
@@ -567,18 +589,12 @@
       (charline-insert-at! line1 x #\newline)
       (when create-line2?
         (charlines-insert-at/cline! screen y+1 line2))
-      (if (fx>? n 0)
-        (begin
-          ;; insert into line2 the chars from line1 after inserted newline
-          (charline-insert-at/cbuf! line2 0 line1 x+1 n)
-          ;; remove from line1 the chars after inserted newline
-          (charline-erase-at! line1 x+1 n)
-          (unless (charline-nl? line2)
-            (if create-line2?
-              (vscreen-underflow-at-y screen y+1) ;; created line2 may be too short
-              (vscreen-overflow-at-y screen y+1)))) ;; we appended to existing line2 => may overflow
-        ;; we appended newline to line1 as additional last char => may overflow
-        (vscreen-overflow-at-y screen y)))))
+      (when (fx>? n 0)
+        ;; insert into line2 the chars from line1 after inserted newline
+        (charline-insert-at/cbuf! line2 0 line1 x+1 n)
+        ;; remove from line1 the chars after inserted newline
+        (charline-erase-at! line1 x+1 n))
+      (vscreen-reflow screen))))
 
 
 ;; insert part of a charspan into vscreen at specified x and y.
@@ -721,27 +737,6 @@
     (values x y n)))
 
 
-;; move characters from end of each vscreen to the beginning of next line
-;; and repeat on subsequent lines,
-;; until lengths of each line is <= vscreen width.
-(define (vscreen-overflow screen)
-  (do ((y 0 (fx1+ (vscreen-overflow-at-y screen y))))
-      ((fx>=? y (fx1- (vscreen-end-y screen))))))
-
-;; for each vscreen line *without* a newline and shorter than vscreen width,
-;; append characters to it removing them from the beginning of next line.
-(define (vscreen-underflow screen)
-  (do ((y 0 (fx1+ (vscreen-underflow-at-y screen y))))
-      ((fx>=? y (fx1- (vscreen-end-y screen))))))
-
-;; overflow and underflow all lines. add a final empty line if needed.
-(define (vscreen-reflow screen)
-  (vscreen-overflow screen)
-  (vscreen-underflow screen)
-  (let* ((yn (vscreen-end-y screen))
-         (line (vscreen-line-at-y screen (fx1- yn))))
-    (when (or (not line) (charline-nl? line))
-      (charlines-insert-at/cline! screen yn (charline)))))
 
 ;; completely replace vscreen contents, setting it to specified charlines.
 ;; note: charlines will be retained and modified!

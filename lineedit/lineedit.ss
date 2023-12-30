@@ -377,6 +377,10 @@
          (width  (vscreen-width screen))
          (ymax   (fxmax 0 (fx1- (vscreen-end-y screen))))
          (nl?    #f))
+    #|
+    (format pts1 "~s~%" screen)
+    (flush-output-port pts1)
+    |#
     (charlines-iterate screen
       (lambda (y line)
         (lineterm-write/cbuffer ctx line 0 (charline-length line))
