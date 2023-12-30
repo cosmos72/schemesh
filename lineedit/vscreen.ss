@@ -22,7 +22,7 @@
     vscreen-erase-left/n!     vscreen-erase-right/n!      vscreen-erase-at-xy!
     vscreen-erase-left/line!  vscreen-erase-right/line!
     vscreen-insert-at-xy/ch!  vscreen-insert-at-xy/newline! vscreen-insert-at-xy/cspan!
-    vscreen-insert/ch!        vscreen-insert/cspan!
+    vscreen-insert/ch!        vscreen-insert/cspan!         vscreen-assign*!
     write-vscreen)
 
   (import
@@ -83,13 +83,15 @@
   (%make-vscreen (span) (span (charline)) (greatest-fixnum) 0 #f 80 24 0 0 0 0))
 
 
-;; create a vscreen referencing specified strings, one per charline
+;; create a vscreen referencing specified strings, one per charline.
+;; note: created screen should be reflowed, i.e. caller should invoke (vscreen-reflow screen)
 (define (vscreen* width height . strings)
   (let ((sp (list->span strings)))
     (span-iterate sp
       (lambda (i elem)
         (span-set! sp i (string->charline* elem))))
     (%make-vscreen (span) sp (greatest-fixnum) 0 #f width height 0 0 0 0)))
+
 
 ;; return number of charlines in vscreen
 (define vscreen-end-y charlines-length)
@@ -232,9 +234,9 @@
 (define (vscreen-clear! screen)
   (vscreen-dirty-set! screen #t)
   (charlines-dirty-y-add! screen 0 (vscreen-end-y screen))
-  ;; Implementation note: since linectx-to-history saves a shallow copy of vscreen to history,
+  ;; Implementation note: linectx-to-history saves a shallow copy of vscreen to history,
   ;; which references the %gbuffer-left and %gbuffer-right internal spans of vscreen,
-  ;; we cannot continue using them: create new ones
+  ;; so we cannot continue using them: create new ones
   (%gbuffer-left-set! screen (span))
   (%gbuffer-right-set! screen (span (charline)))
   (vscreen-cursor-ix-set! screen 0)
@@ -511,6 +513,8 @@
   y)
 
 
+
+
 ;; prepare vscreen for insertion at specified x and y
 ;; return three values: x and y clamped to valid range, and charline at clamped y.
 ;; may insert additional lines if needed.
@@ -715,6 +719,45 @@
           (set! y y1)
           (set! n (fx1+ n)))))
     (values x y n)))
+
+
+;; move characters from end of each vscreen to the beginning of next line
+;; and repeat on subsequent lines,
+;; until lengths of each line is <= vscreen width.
+(define (vscreen-overflow screen)
+  (do ((y 0 (fx1+ (vscreen-overflow-at-y screen y))))
+      ((fx>=? y (fx1- (vscreen-end-y screen))))))
+
+;; for each vscreen line *without* a newline and shorter than vscreen width,
+;; append characters to it removing them from the beginning of next line.
+(define (vscreen-underflow screen)
+  (do ((y 0 (fx1+ (vscreen-underflow-at-y screen y))))
+      ((fx>=? y (fx1- (vscreen-end-y screen))))))
+
+;; overflow and underflow all lines. add a final empty line if needed.
+(define (vscreen-reflow screen)
+  (vscreen-overflow screen)
+  (vscreen-underflow screen)
+  (let* ((yn (vscreen-end-y screen))
+         (line (vscreen-line-at-y screen (fx1- yn))))
+    (when (or (not line) (charline-nl? line))
+      (charlines-insert-at/cline! screen yn (charline)))))
+
+;; completely replace vscreen contents, setting it to specified charlines.
+;; note: charlines will be retained and modified!
+;; Sets vscreen cursor to 0 0.
+(define (vscreen-assign*! screen lines)
+  (vscreen-dirty-set! screen #t)
+  (charlines-dirty-y-add! screen 0 (vscreen-end-y screen))
+  ;; Implementation note: linectx-to-history saves a shallow copy of vscreen to history,
+  ;; which references the %gbuffer-left and %gbuffer-right internal spans of vscreen,
+  ;; so we cannot continue using them: create new ones
+  (%gbuffer-left-set! screen (%gbuffer-left lines))
+  (%gbuffer-right-set! screen (%gbuffer-right lines))
+  (vscreen-reflow screen)
+  (vscreen-cursor-ix-set! screen 0)
+  (vscreen-cursor-iy-set! screen 0)
+  (charlines-dirty-y-add! screen 0 (vscreen-end-y screen)))
 
 
 ;; write a textual representation of vscreen to output port

@@ -39,8 +39,14 @@
     (schemesh posix tty)
     (only (schemesh posix signal) signal-consume-sigwinch))
 
-
-
+#|
+(define pts1 (open-file-input/output-port
+               "/dev/pts/1"
+               (file-options no-create no-truncate)
+               (buffer-mode none)
+               (make-transcoder (utf-8-codec) (eol-style lf)
+                                (error-handling-mode raise))))
+|#
 
 ;; find one key sequence in linectx-keytable matching rbuf and execute it
 (define (linectx-keytable-call ctx)
@@ -106,20 +112,13 @@
   (lineedit-flush ctx))
 
 
-;; save current linectx-vscreen to history, then replace them
-;; with a copy-on-write clone of specified charlines.
-;; Does not update cursor x and y position.
+;; save current linectx-vscreen to history,
+;; then replace them with specified charlines.
+;; Sets vscreen cursor to 0 0.
 (define (lineedit-lines-set! ctx lines)
   (assert-charlines? 'lineedit-lines-set! lines)
   (linectx-to-history ctx)
-  (lineedit-clear! ctx) ; leaves a single, empty line in vscreen
-  (unless (charlines-empty? lines)
-    (let ((screen (linectx-vscreen ctx)))
-      (charlines-clear! screen) ; removes the single, empty line from vscreen
-      (charlines-iterate lines
-        (lambda (y line)
-          (charlines-insert-at/cline! screen y (charline-copy-on-write line)))))))
-
+  (vscreen-assign*! (linectx-vscreen ctx) lines))
 
 ;; insert a single character into vscreen at cursor.
 ;; Also moves vscreen cursor one character to the right, and reflows vscreen as needed.
@@ -279,8 +278,7 @@
   (lineedit-navigate-history ctx -1))
 
 (define (lineedit-key-redraw ctx)
-  (let ((screen (linectx-vscreen ctx)))
-    (charlines-dirty-y-add! screen 0 (charlines-length screen))))
+  (linectx-redraw-set! ctx #t))
 
 (define (lineedit-key-tab ctx)
   (let ((completions (linectx-completions ctx))
@@ -298,7 +296,6 @@
             (linectx-insert/cspan! ctx completion stem-len len)))))))
 
 (define (lineedit-key-toggle-insert ctx)
-  ; (error 'toggle-insert "test error"))
   (lineedit-key-inspect ctx))
 
 (define (lineedit-key-inspect ctx)
@@ -314,8 +311,10 @@
       ; also saves a copy of current linectx-vscreen to history
       (lineedit-lines-set! ctx (charhistory-cow-ref hist y))
       (linectx-history-index-set! ctx y)
-      ;; set vscreen cursor to end of first line
-      (linectx-ixy-set! ctx (greatest-fixnum) 0))))
+      ;; if moving up, set vscreen cursor to end of first line
+      ;; if moving down, set vscreen cursor to end of last line
+      (linectx-ixy-set! ctx (greatest-fixnum)
+                            (if (fx<? delta-y 0) 0 (greatest-fixnum))))))
 
 
 ;; append a shallow copy of linectx-vscreen to history, and return such copy
@@ -391,8 +390,14 @@
   (let* ((screen (linectx-vscreen ctx))
          (iy (fxmax 0 (fx1- (vscreen-end-y screen))))
          (ix (vscreen-length-at-y screen iy))
-         (vy (fx+ iy (vscreen-prompt-end-y screen)))
-         (vx (fx+ ix (if (fxzero? iy) (vscreen-prompt-end-x screen) 0))))
+         ;; clamp cursor y to 0 ... height-1
+         (vy (fxmax 0
+                (fxmin (fx1- (vscreen-height screen))
+                       (fx+ iy (vscreen-prompt-end-y screen)))))
+         ;; clamp cursor x to 0 ... width-1
+         (vx (fxmax 0
+                (fxmin (fx1- (vscreen-width screen))
+                       (fx+ ix (if (fxzero? iy) (vscreen-prompt-end-x screen) 0))))))
     ;; (format #t "; linectx-move-from-end-lines vx = ~s, vy = ~s~%" vx vy)
     (lineterm-move-from ctx vx vy)))
 
@@ -437,9 +442,11 @@
   (linectx-draw-parens ctx (linectx-parens-update! ctx) 'highlight)
   (linectx-redraw-set! ctx #f))
 
+(define (linectx-redraw-dirty ctx)
+  (linectx-redraw-all ctx))
 
 ;; redraw only dirty parts of vscreen
-(define (linectx-redraw-dirty ctx)
+(define (linectx-redraw-dirty/bugged ctx)
   (linectx-draw-parens ctx (linectx-parens ctx) 'plain)
   (let* ((screen (linectx-vscreen ctx))
          (ymin   (charlines-dirty-start-y screen))
@@ -454,8 +461,9 @@
       (lambda (i line)
         (let* ((fully-dirty? (fx<=? ymin i ymax))
                (len     (charline-length line))
-               (xdirty0 (if fully-dirty? 0   (fxmin len (charline-dirty-start-x line))))
-               (xdirty1 (if fully-dirty? (vscreen-width-at-y screen i) (charline-dirty-end-x line))))
+               (width-at-i (vscreen-width-at-y screen i))
+               (xdirty0 (if fully-dirty? 0 (fxmin width-at-i (charline-dirty-start-x line))))
+               (xdirty1 (if fully-dirty? width-at-i (charline-dirty-end-x line))))
           (when (fx<? xdirty0 xdirty1)
             (let* ((vxoffset (if (fxzero? i) prompt-x 0))
                    (vi       (fx+ i prompt-y))
@@ -463,11 +471,14 @@
                    (xdraw0   (fxmax 0 (fxmin xdirty0 len)))
                    (xdraw1   (fxmax 0 (fxmin xdirty1 len)))
                    (nl       (if (and (charline-nl? line) (fx=? xdraw1 len)) 1 0))) ;; 1 if newline, 0 otherwise
-              ; (format #t "~%; linectx-redraw-dirty i = ~s, xdirty0 = ~s -> ~s, xdirty1 = ~s -> ~s, nl = ~s~%"
-              ;   i xdirty0 xdraw0 xdirty1 xdraw1 nl)
+              #|
+              (format pts1 "; linectx-redraw-dirty i = ~s, len = ~s, width-at-i = ~s, xdirty0 = ~s -> ~s, xdirty1 = ~s -> ~s, nl = ~s~%"
+                           i len width-at-i xdirty0 xdraw0 xdirty1 xdraw1 nl)
+              (flush-output-port pts1)
+              |#
               (lineterm-move ctx vx vy (fx+ xdraw0 vxoffset) vi)
               (lineterm-write/cbuffer ctx line xdraw0 (fx- xdraw1 nl)) ;; do not print the newline yet
-              (when (fx>? xdirty1 (fx- xdraw1 nl))
+              (when (and (fx=? len xdraw1) (fx<? (fx- xdraw1 nl) xdirty1))
                 (lineterm-clear-to-eol ctx))
               (if (or (fx=? nl 1) ;; newline must be printed as part of charline
                       (fx<? (fx1+ i) (charlines-length screen))) ; more lines will follow
