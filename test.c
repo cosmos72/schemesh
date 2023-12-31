@@ -428,11 +428,11 @@ static const struct {
      "  (values->list (vscreen-count-at-xy/right screen 4 0"
      "                  (lambda (ch) (not (char=? ch #\\newline))))))",
      "(2 1 6)"},
-    {"(let ((screen (vscreen* 8 30 \"abcdefgh\" \"012\\n\" \"qwerty\")))\n"
+    {"(let ((screen (vscreen* 8 30 \"abcdefgh\" \"012\\n\" \"qwert\")))\n"
      "  (vscreen-cursor-ixy-set! screen 3 1)\n" /* move the cursor to the char '\n' */
      "  (vscreen-resize! screen 5 30)\n"
      "  (list (vscreen-cursor-ix screen) (vscreen-cursor-iy screen) screen))",
-     "(1 2 (vscreen* 5 30 \"abcde\" \"fgh01\" \"2\\n\" \"qwerty\"))"},
+     "(1 2 (vscreen* 5 30 \"abcde\" \"fgh01\" \"2\\n\" \"qwert\" \"\"))"},
     {"(let ((screen (vscreen* 8 30 \"abcdefgh\" \"012\\n\" \"qwerty\")))\n"
      "  (vscreen-cursor-ixy-set! screen 3 1)\n" /* move the cursor to the char '\n' */
      "  (vscreen-resize! screen 9 30)\n"

@@ -263,10 +263,13 @@
   (vscreen-erase-right/line! (linectx-vscreen ctx)))
 
 (define (lineedit-key-newline-left ctx)
-  (void)) ;; TODO: implement
+  (let ((screen (linectx-vscreen ctx)))
+    (vscreen-insert-at-xy/newline! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen))
+    (vscreen-cursor-move/right! screen 1)))
 
 (define (lineedit-key-newline-right ctx)
-  (void)) ;; TODO: implement
+  (let ((screen (linectx-vscreen ctx)))
+    (vscreen-insert-at-xy/newline! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen))))
 
 (define (lineedit-key-enter ctx)
   (linectx-return-set! ctx #t))
@@ -323,7 +326,7 @@
   (linectx-return-set! ctx #f) ; clear flag "user pressed ENTER"
   (linectx-redraw-set! ctx #t) ; set flag "redraw prompt and lines"
   (linectx-draw-parens ctx (linectx-parens ctx) 'plain) ; unhighlight parentheses
-  (lineterm-move-dy ctx (fx- (vscreen-end-y (linectx-vscreen ctx))
+  (lineterm-move-dy ctx (fx- (vscreen-length (linectx-vscreen ctx))
                              (linectx-iy ctx))) ; move to last input line
   (lineterm-write/u8 ctx 10) ; advance to next line.
   (linectx-term-xy-set! ctx 0 0) ; set tty cursor to 0 0
@@ -375,7 +378,7 @@
 (define (linectx-draw-lines ctx)
   (let* ((screen (linectx-vscreen ctx))
          (width  (vscreen-width screen))
-         (ymax   (fxmax 0 (fx1- (vscreen-end-y screen))))
+         (ymax   (fxmax 0 (fx1- (vscreen-length screen))))
          (nl?    #f))
     #|
     (format pts1 "~s~%" screen)
@@ -392,7 +395,7 @@
 ;; move tty cursor from end of charlines to expected position (term-x term-y)
 (define (linectx-move-from-end-lines ctx)
   (let* ((screen (linectx-vscreen ctx))
-         (iy (fxmax 0 (fx1- (vscreen-end-y screen))))
+         (iy (fxmax 0 (fx1- (vscreen-length screen))))
          (ix (vscreen-length-at-y screen iy))
          ;; clamp cursor y to 0 ... height-1
          (vy (fxmax 0
@@ -567,7 +570,7 @@
   (let* ((screen (linectx-vscreen ctx))
          (x      (vscreen-cursor-ix screen))
          (y      (vscreen-cursor-iy screen))
-         (ymax   (fx1- (vscreen-end-y screen))))
+         (ymax   (fx1- (vscreen-length screen))))
     (cond
       ((fx>? x 0) (values (fx1- x) y))
       ((fx>? y 0) (values (fx1- (vscreen-length-at-y screen (fx1- y))) (fx1- y)))
@@ -745,7 +748,7 @@
   ; CTRL+W, CTRL+BACKSPACE, ALT+BACKSPACE
   (%add t lineedit-key-del-word-left 23 31 '(27 127))
   ; sequences starting with ESC
-  (%add t lineedit-key-word-left '(27 66) '(27 98)); ALT+B, ALT+b
+  (%add t lineedit-key-word-left '(27 66) '(27 98))       ; ALT+B, ALT+b
   (%add t lineedit-key-del-word-right '(27 68) '(27 100)) ; ALT+D, ALT+d
   (%add t lineedit-key-word-right '(27 70) '(27 102))     ; ALT+F, ALT+f
   ; sequences starting with ESC O

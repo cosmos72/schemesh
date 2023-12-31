@@ -108,7 +108,7 @@
 
 ;; return number of charlines
 (define (linectx-end-y ctx)
-  (vscreen-end-y (linectx-vscreen ctx)))
+  (vscreen-length (linectx-vscreen ctx)))
 
 ;; return vscreen cursor x position
 (define (linectx-ix ctx)
