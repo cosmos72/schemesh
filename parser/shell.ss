@@ -559,11 +559,9 @@
 ;;
 ;; Return the updated parser to use.
 (define (parse-shell-parens ctx start-ch)
+  (assert (parsectx? ctx))
   (when start-ch
-    (unless (char? start-ch)
-      (format #t "; parse-shell-parens: assertion failed, ~s is not a char~%" start-ch)
-      (call/cc inspect)))
-
+    (assert (char? start-ch)))
   (let* ((paren  (make-parens 'shell start-ch))
          (end-ch (case start-ch ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else start-ch)))
          (pos    (parsectx-pos ctx))
@@ -573,6 +571,8 @@
            (parens-end-y-set! paren (cdr pos)))))
     (parens-start-x-set! paren (fx- (car pos) (if start-ch 1 0)))
     (parens-start-y-set! paren (cdr pos))
+    (unless start-ch
+      (parens-ok?-set! paren #t))
     (until ret
       (let ((token (scan-shell-parens-or-directive ctx)))
         (cond
@@ -580,6 +580,7 @@
              #f)
 
           ((eqv? token end-ch) ; found matching close token
+             (parens-ok?-set! paren #t)
              (set! ret #t))
 
           ((symbol? token)
@@ -629,10 +630,8 @@
           ; ignore unexpected tokens
           )))
 
-    (if (or (eq? #t ret) (not start-ch))
-      (%paren-fill-end! paren)
-      (when (parens-inner-empty? paren)
-        (set! paren #f)))
+    (when (or (eq? #t ret) (not start-ch))
+      (%paren-fill-end! paren))
     paren))
 
 

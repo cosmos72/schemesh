@@ -355,6 +355,8 @@
            (parens-end-y-set! paren (cdr pos)))))
     (parens-start-x-set! paren (fx- (car pos) (if start-ch 1 0)))
     (parens-start-y-set! paren (cdr pos))
+    (unless start-ch
+      (parens-ok?-set! paren #t))
     (until ret
       (let ((token (scan-lisp-parens-or-directive ctx)))
         (cond
@@ -362,6 +364,7 @@
              #f)
 
           ((eqv? token end-ch) ; found matching close token
+             (parens-ok?-set! paren #t)
              (set! ret #t))
 
           ((symbol? token)
@@ -409,10 +412,8 @@
           ; ignore unexpected tokens
           )))
 
-    (if (or (eq? #t ret) (not start-ch))
-      (%paren-fill-end! paren)
-      (when (parens-inner-empty? paren)
-        (set! paren #f)))
+    (when (or (eq? #t ret) (not start-ch))
+      (%paren-fill-end! paren))
     paren))
 
 

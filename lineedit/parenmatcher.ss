@@ -7,7 +7,8 @@
 
 (library (schemesh lineedit parenmatcher (0 1))
   (export
-    parenmatcher? make-custom-parenmatcher parenmatcher-clear! parenmatcher-find-match)
+    parenmatcher? make-custom-parenmatcher parenmatcher-clear!
+    parenmatcher-parens parenmatcher-maybe-update! parenmatcher-find-match)
   (import
     (rnrs)
     (only (chezscheme) record-writer)
@@ -42,7 +43,7 @@
 ;; if (parenmatcher-htable pm) is #f then parse (parsectx-in pctx)
 ;; by calling (parenmatcher-update-func pm) and store the created parens and hashtable
 ;; into parenmatcher pm
-(define (parenmatcher-maybe-update! pm pctx-or-func initial-parser x y)
+(define (parenmatcher-maybe-update! pm pctx-or-func initial-parser)
   (unless (parenmatcher-htable pm)
     (let* ((pctx   (if (procedure? pctx-or-func) (pctx-or-func) pctx-or-func))
            (parens ((parenmatcher-update-func pm) pctx initial-parser)))
@@ -63,7 +64,7 @@
 (define (parenmatcher-find-match pm pctx-or-func initial-parser x y)
   (if pm
     (begin
-      (parenmatcher-maybe-update! pm pctx-or-func initial-parser x y)
+      (parenmatcher-maybe-update! pm pctx-or-func initial-parser)
       (parens-hashtable-ref (parenmatcher-htable pm) x y))
     #f))
 

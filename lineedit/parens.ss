@@ -9,6 +9,7 @@
 (library (schemesh lineedit parens (0 1))
   (export
     make-parens parens? parens-name parens-token
+    parens-ok? parens-ok?-set! parens-recursive-ok?
     parens-start-x parens-start-x-set! parens-start-y parens-start-y-set!
     parens-end-x   parens-end-x-set!   parens-end-y   parens-end-y-set!
     parens-valid?  parens-inner  parens-inner-empty?  parens-inner-append!
@@ -18,7 +19,7 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) fx1+ fx1- record-writer unread-char void)
+    (only (chezscheme) format fx1+ fx1- record-writer unread-char void)
     (only (schemesh bootstrap) try until while)
     (only (schemesh containers misc) list-iterate)
     (only (schemesh containers hashtable) hashtable-iterate)
@@ -33,6 +34,7 @@
   (fields
     name  ; symbol, name of parser that created this parens object (may differ in sub-objects)
     token ; character, one of: # ( [ { " ' ` |
+    (mutable ok?)     ; boolean, #t if matching parenthesis/bracket/brace/quote found
     (mutable start-x) ; fixnum, x position of start parenthesis/bracket/brace/quote
     (mutable start-y) ; fixnum, y position of start parenthesis/bracket/brace/quote
     (mutable end-x)   ; fixnum, x position of end parenthesis/bracket/brace/quote
@@ -45,16 +47,24 @@
   (assert (symbol? name))
   (when token
     (assert (char? token)))
-  (%make-parens name token 0 0 (greatest-fixnum) (greatest-fixnum) #f))
+  (%make-parens name token #f 0 0 (greatest-fixnum) (greatest-fixnum) #f))
 
 
-;; return #t if parens' token is truish and both start and end positions of parens are valid
+;; return #t if parens' token is truish, ok? is #t, both start and end positions of parens are valid
 (define (parens-valid? parens)
-  (and (parens? parens) (parens-token parens)
+  (and (parens? parens) (parens-token parens) (parens-ok? parens)
     (let ((start-xy (xy->key (parens-start-x parens) (parens-start-y parens)))
           (end-xy   (xy->key (parens-end-x parens)   (parens-end-y parens))))
       (fx<? -1 start-xy end-xy))))
 
+;; return #t if (parens-ok?) is true in parens and in all its inner parens.
+(define (parens-recursive-ok? parens)
+  (and parens (parens-ok? parens)
+       (let* ((inner (parens-inner parens))
+              (n (if (span? inner) (span-length inner) 0)))
+         (do ((i 0 (fx1+ i)))
+             ((or (fx>=? i n) (not (parens-recursive-ok? (span-ref inner i))))
+              (fx>=? i n))))))
 
 (define (parens-inner-empty? parens)
   (let ((inner (parens-inner parens)))

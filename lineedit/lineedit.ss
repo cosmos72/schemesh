@@ -272,7 +272,10 @@
     (vscreen-insert-at-xy/newline! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen))))
 
 (define (lineedit-key-enter ctx)
-  (linectx-return-set! ctx #t))
+  (linectx-parens-update/force! ctx)
+  (if (linectx-parens-recursive-ok? ctx)
+    (linectx-return-set! ctx #t)
+    (lineedit-key-newline-left ctx)))
 
 (define (lineedit-key-history-next ctx)
   (lineedit-navigate-history ctx +1))
@@ -577,6 +580,8 @@
       (else       (values 0 -1))))) ;; x y is at start of input, there's no previous position
 
 
+
+
 ;; return #f or a parens object containing matching parentheses immediately to the left of cursor.
 (define (linectx-parens-find ctx)
   (let ((ret     #f)
@@ -609,6 +614,25 @@
   (let ((new-parens (linectx-parens-find ctx)))
     (linectx-parens-set! ctx new-parens)
     new-parens))
+
+;; clear cached parentheses and recompute them
+(define (linectx-parens-update/force! ctx)
+  (let ((parsers (linectx-parsers ctx))
+        (parenmatcher (linectx-parenmatcher ctx)))
+    (when parenmatcher
+      (parenmatcher-clear! parenmatcher)
+      (when parsers
+        (parenmatcher-maybe-update!
+          parenmatcher
+          (lambda () (make-parsectx* (open-charlines-input-port (linectx-vscreen ctx)) parsers 0 0))
+          (linectx-parser-name ctx))))))
+
+;; return (parens-recursive-ok? parens) for outermost parens inside parenmatcher
+(define (linectx-parens-recursive-ok? ctx)
+  (let* ((parenmatcher (linectx-parenmatcher ctx))
+         (parens (and parenmatcher (parenmatcher-parens parenmatcher))))
+    (or (not parens)
+        (parens-recursive-ok? parens))))
 
 
 ;; return #t if both old-parens and new-parens are #f
