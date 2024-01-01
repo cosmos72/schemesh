@@ -488,7 +488,7 @@
     (when line1
       (while (and (fx<? y (vscreen-length screen))
                   (fx>? (charline-length line1) (vscreen-width-at-y screen y)))
-        ; (format #t "; while vscreen-overflow-at-y ~s ~s ~s~%" y line1 screen)
+        ; (format #t "; while0 vscreen-overflow-at-y ~s ~s ~s~%" y line1 screen)
         (vscreen-dirty-set! screen #t)
         (let* ((line1-nl?  (charline-nl? line1))
                (line1-len  (charline-length line1))
@@ -507,11 +507,12 @@
             (charline-insert-at/cbuf! line2 0 line1 line1-pos n)
             ;; remove chars from line1
             (charline-erase-at! line1 line1-pos n))
-          ; (format #t "; after vscreen-overflow-at-y ~s ~s ~s~%" y line1 screen)
+          ; (format #t "; while1 vscreen-overflow-at-y ~s ~s ~s~%" y line1 screen)
           ;; iterate on line2, as it may now have length >= vscreen-width-at-y
           (set! y y+1)
           (set! line1 line2)))))
-  ; (format #t "; after overflow at ~s: ~s~%" y screen)
+  (vscreen-append-empty-line-if-needed screen)
+  ; (format #t "; after  vscreen-overflow-at-y at ~s: ~s~%" y screen)
   y)
 
 
@@ -529,7 +530,7 @@
 
 
 ;; add a final empty line if needed.
-(define (vscreen-insert-final-empty-line-if-needed screen)
+(define (vscreen-append-empty-line-if-needed screen)
   (let* ((yn (vscreen-length screen))
          (y  (fx1- yn))
          (line (vscreen-line-at-y screen y)))
@@ -543,7 +544,7 @@
 (define (vscreen-reflow screen)
   (vscreen-overflow screen)
   (vscreen-underflow screen)
-  (vscreen-insert-final-empty-line-if-needed screen))
+  (vscreen-append-empty-line-if-needed screen))
 
 
 ;; prepare vscreen for insertion at specified x and y
