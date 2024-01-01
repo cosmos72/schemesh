@@ -352,11 +352,10 @@
          (ret    #f)
          (%paren-fill-end! (lambda (paren)
            (parens-end-x-set! paren (fx1- (car pos)))
-           (parens-end-y-set! paren (cdr pos)))))
+           (parens-end-y-set! paren (cdr pos))
+           (parens-ok?-set! paren #t))))
     (parens-start-x-set! paren (fx- (car pos) (if start-ch 1 0)))
     (parens-start-y-set! paren (cdr pos))
-    (unless start-ch
-      (parens-ok?-set! paren #t))
     (until ret
       (let ((token (scan-lisp-parens-or-directive ctx)))
         (cond
