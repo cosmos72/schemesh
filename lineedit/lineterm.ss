@@ -17,6 +17,7 @@
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh posix fd)
+    (only (schemesh lineedit vscreen) vscreen-height vscreen-width)
     (schemesh lineedit linectx)
     (schemesh posix tty))
 
@@ -101,10 +102,18 @@
 
 ;; move tty cursor from tty position from-x from-y to tty position to-x to-y
 (define (lineterm-move ctx from-x from-y to-x to-y)
-  (lineterm-move-dy ctx (fx- to-y from-y))
-  (if (and (fxzero? to-x) (not (fxzero? from-x)))
-    (lineterm-move-to-bol ctx)
-    (lineterm-move-dx ctx (fx- to-x from-x))))
+  (let* ((screen (linectx-vscreen ctx))
+         (xmax   (fx1- (vscreen-width screen)))
+         (ymax   (fx1- (vscreen-height screen)))
+         ;; clamp x to 0 ... width-1, and clamp y to 0 ... height-1
+         (from-x (fxmax 0 (fxmin from-x xmax)))
+         (from-y (fxmax 0 (fxmin from-y ymax)))
+         (to-x   (fxmax 0 (fxmin to-x   xmax)))
+         (to-y   (fxmax 0 (fxmin to-y   ymax))))
+    (lineterm-move-dy ctx (fx- to-y from-y))
+    (if (and (fxzero? to-x) (not (fxzero? from-x)))
+      (lineterm-move-to-bol ctx)
+      (lineterm-move-dx ctx (fx- to-x from-x)))))
 
 ;; move tty cursor from its current tty position at from-x, from-y
 ;; back to linectx-term-x linectx-term-y

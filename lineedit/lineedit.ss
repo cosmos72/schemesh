@@ -371,13 +371,13 @@
       (when (pair? sz)
         (linectx-resize ctx (car sz) (cdr sz))))))
 
-;; unconditionally draw prompt
+;; unconditionally draw prompt. does not update term-x, term-y
 (define (linectx-draw-prompt ctx)
   (let ((prompt (linectx-prompt ctx)))
     ;; (format #t "linectx-draw-prompt: prompt = ~s~%" prompt)
     (lineterm-write/bspan ctx prompt 0 (bytespan-length prompt))))
 
-;; unconditionally draw all lines
+;; unconditionally draw all lines. does not update term-x, term-y
 (define (linectx-draw-lines ctx)
   (let* ((screen (linectx-vscreen ctx))
          (width  (vscreen-width screen))
@@ -395,21 +395,15 @@
     (vscreen-dirty-set! screen #f)
     (lineterm-clear-to-eos ctx)))
 
-;; move tty cursor from end of charlines to expected position (term-x term-y)
-(define (linectx-move-from-end-lines ctx)
+;; sett term-x, term-y cursor to end of charlines
+(define (linectx-term-xy-set/end-lines! ctx)
   (let* ((screen (linectx-vscreen ctx))
          (iy (fxmax 0 (fx1- (vscreen-length screen))))
          (ix (vscreen-length-at-y screen iy))
-         ;; clamp cursor y to 0 ... height-1
-         (vy (fxmax 0
-                (fxmin (fx1- (vscreen-height screen))
-                       (fx+ iy (vscreen-prompt-end-y screen)))))
-         ;; clamp cursor x to 0 ... width-1
-         (vx (fxmax 0
-                (fxmin (fx1- (vscreen-width screen))
-                       (fx+ ix (if (fxzero? iy) (vscreen-prompt-end-x screen) 0))))))
+         (vy (fx+ iy (vscreen-prompt-end-y screen)))
+         (vx (fx+ ix (if (fxzero? iy) (vscreen-prompt-end-x screen) 0))))
     ;; (format #t "; linectx-move-from-end-lines vx = ~s, vy = ~s~%" vx vy)
-    (lineterm-move-from ctx vx vy)))
+    (linectx-term-xy-set! ctx vx vy)))
 
 
 (define bv-prompt-error (string->utf8 "error expanding prompt $ "))
@@ -445,15 +439,17 @@
   (linectx-update-prompt ctx)
   (linectx-draw-prompt ctx)
   (linectx-draw-lines ctx)
-  ;; set term-x and term-y to the desired position
-  (linectx-term-xy-set! ctx (linectx-vx ctx) (linectx-vy ctx))
-  (linectx-move-from-end-lines ctx)
+  ;; set term-x and term-y to end of charlines
+  (linectx-term-xy-set/end-lines! ctx)
   (parenmatcher-clear! (linectx-parenmatcher ctx))
   (linectx-draw-parens ctx (linectx-parens-update! ctx) 'highlight)
-  (linectx-redraw-set! ctx #f))
+  (linectx-redraw-set! ctx #f)
+   ;; move the cursor to final position, and update term-x and term-y accordingly
+  (let ((vx (linectx-vx ctx))
+        (vy (linectx-vy ctx)))
+    (lineterm-move-to ctx vx vy)
+    (linectx-term-xy-set! ctx vx vy)))
 
-;(define (linectx-redraw-dirty ctx)
-;  (linectx-redraw-all ctx))
 
 ;; redraw only dirty parts of vscreen
 (define (linectx-redraw-dirty ctx)
@@ -514,32 +510,41 @@
         (set! vy yn)
         (lineterm-clear-to-eos ctx)))
 
-    ;; set term-x and term-y to the desired position
-    (linectx-term-xy-set! ctx (linectx-vx ctx) (linectx-vy ctx))
-    ;; move from current position to desired position
-    (lineterm-move-from ctx vx vy)
     ;; mark whole screen as not dirty
-    (vscreen-dirty-set! screen #f))
-  (parenmatcher-clear! (linectx-parenmatcher ctx))
-  (linectx-draw-parens ctx (linectx-parens-update! ctx) 'highlight))
+    (vscreen-dirty-set! screen #f)
+    ;; set term-x and term-y to the current position
+    (linectx-term-xy-set! ctx vx vy)
+
+    ;; highlight matching parentheses
+    (parenmatcher-clear! (linectx-parenmatcher ctx))
+    (linectx-draw-parens ctx (linectx-parens-update! ctx) 'highlight))
+
+  ;; move the cursor to final position, and update term-x and term-y accordingly
+  (let ((vx (linectx-vx ctx))
+        (vy (linectx-vy ctx)))
+    (lineterm-move-to ctx vx vy)
+    (linectx-term-xy-set! ctx vx vy)))
+
 
 
 ;; redraw only cursor and parentheses
 (define (linectx-redraw-cursor+parens ctx)
-  ;; move the cursor to desired position
-  (let ((vx (linectx-vx ctx))
-        (vy (linectx-vy ctx)))
-    (lineterm-move-to ctx vx vy)
-    (linectx-term-xy-set! ctx vx vy))
   (let ((old-parens (linectx-parens ctx))
         (new-parens (linectx-parens-find ctx)))
     (unless (parens-equal-xy? old-parens new-parens)
       (linectx-draw-parens ctx old-parens 'plain)
       (linectx-draw-parens ctx new-parens 'highlight)
-      (linectx-parens-set! ctx new-parens))))
+      (linectx-parens-set! ctx new-parens)))
+
+  ;; move the cursor to final position, and update term-x and term-y accordingly
+  (let ((vx (linectx-vx ctx))
+        (vy (linectx-vy ctx)))
+    (lineterm-move-to ctx vx vy)
+    (linectx-term-xy-set! ctx vx vy)))
 
 
-;; draw parentheses using specified style. assumes term-x and term-x are up to date.
+;; draw parentheses using specified style. assumes term-x and term-x are up to date
+;; and updates them.
 (define (linectx-draw-parens ctx parens style)
   ;; draw parens only if both start and end positions are valid
   (when (parens-valid? parens)
@@ -549,7 +554,7 @@
 
 ;; if position x y is inside linectx-vscreen, redraw char at x y with specified style.
 ;; used to highlight/unhighlight parentheses, brackes, braces and quotes.
-;; assumes tty cursor is at term-x term-y, and moves it back there after drawing char.
+;; assumes tty cursor is at term-x term-y, and updates term-x term-y.
 (define (linectx-draw-char-at-xy ctx x y style)
   (let ((ch    (vscreen-char-at-xy (linectx-vscreen ctx) x y))
         (wbuf  (linectx-wbuf  ctx))
@@ -563,7 +568,7 @@
       (bytespan-insert-back/utf8! wbuf ch)
       (when (eq? 'highlight style)
         (bytespan-insert-back/bvector! wbuf '#vu8(27 91 109) 0 3)) ; ESC[m
-      (lineterm-move-from ctx (fx1+ vx) vy))))
+      (linectx-term-xy-set! ctx (fx1+ vx) vy))))
 
 
 ;; return x y position immediately to the left of cursor.
