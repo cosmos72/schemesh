@@ -361,8 +361,8 @@
 
 ;; if tty size changed, resize and reflow vscreen
 (define (linectx-resize ctx width height)
-  (let ((screen (linectx-vscreen ctx)))
-    (vscreen-resize! screen width height)))
+  (vscreen-resize! (linectx-vscreen ctx) width height)
+  (linectx-redraw-set! ctx #t))
 
 ;; react to SIGWINCH
 (define (linectx-consume-sigwinch ctx)

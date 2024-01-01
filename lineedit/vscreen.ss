@@ -543,8 +543,7 @@
 ;; overflow and underflow all lines. add a final empty line if needed.
 (define (vscreen-reflow screen)
   (vscreen-overflow screen)
-  (vscreen-underflow screen)
-  (vscreen-append-empty-line-if-needed screen))
+  (vscreen-underflow screen))
 
 
 ;; prepare vscreen for insertion at specified x and y
