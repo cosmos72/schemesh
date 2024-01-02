@@ -26,6 +26,12 @@
 #define STR(arg) STR_(arg)
 #define CHEZ_SCHEME_DIR_STR STR(CHEZ_SCHEME_DIR)
 
+#if !defined(__GNUC__) || defined(__OPTIMIZE__)
+#define SCHEMESH_OPTIMIZE
+#else
+#undef SCHEMESH_OPTIMIZE
+#endif
+
 /**
  * return i-th environment variable i.e. environ[i]
  * converted to a cons containing two Scheme strings: (key . value)
@@ -99,18 +105,22 @@ void schemesh_compile_and_load_libraries(void) {
        "          (lambda (cond)\n"
        "            (k-exit #f))\n"
        "          (lambda ()\n"
+#ifdef SCHEMESH_OPTIMIZE
+       "            (parameterize ((optimize-level 2))\n"
+#else /* !SCHEMESH_OPTIMIZE */
        "            (parameterize ((optimize-level 0)\n"
        "                           (run-cp0 (lambda (cp0 x) x)))\n"
+#endif
        "              (load path))\n"
        "            #t)))))))\n"
        "  (unless (try-load \"/usr/local/lib/libschemesh.so\")\n"
        "    (unless (try-load \"/usr/lib/libschemesh.so\")\n"
        "      (unless (try-load \"libschemesh.so\")\n"
-#if !defined(__GNUC__) || defined(__OPTIMIZE__) /* optimized build */
+#ifdef SCHEMESH_OPTIMIZE
        "        (compile-file \"libschemesh.ss\" \"libschemesh.debug.so\")\n"
        "        (strip-fasl-file \"libschemesh.debug.so\" \"libschemesh.so\"\n"
        "          (fasl-strip-options inspector-source source-annotations profile-source))\n"
-#else /* debug build */
+#else /* !SCHEMESH_OPTIMIZE */
        "        (compile-file \"libschemesh.ss\" \"libschemesh.so\")\n"
 #endif
        "        (load \"libschemesh.so\")))))\n");

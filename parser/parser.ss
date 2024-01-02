@@ -21,10 +21,10 @@
 
     ; shell.ss
     read-shell-char lex-shell parse-shell-word
-    parse-shell parse-shell* parse-shell-list parser-shell
+    parse-shell parse-shell* parse-shell-list parse-shell-list* parser-shell
 
     ; parser.ss
-    parse-form parse-form* parse-form-list parse-forms
+    parse-form parse-form* parse-form-list parse-form-list* parse-forms
     parse-parens parse-parens-from-string make-parenmatcher
     parsers)
   (import
@@ -83,6 +83,17 @@
                 (to-parser pctx initial-parser 'parse-form-list))))
     (func pctx begin-type already-parsed-reverse)))
 
+
+;; Parse textual input port until end-of-file, using the parser specified by
+;; initial-parser, and temporarily switching to other parsers if the directive #!...
+;; is found in a (possibly nested) list being parsed.
+;;
+;; Return parsed list.
+;; Raise syntax-errorf if syntax error is found.
+(define (parse-form-list* pctx initial-parser)
+  (let ((func (parser-parse-list
+                (to-parser pctx initial-parser 'parse-form-list))))
+    (func pctx #f '())))
 
 ;; Parse textual input port until eof, using the parser specified by initial-parser,
 ;; and temporarily switching to other parsers every time the directive #!... is found

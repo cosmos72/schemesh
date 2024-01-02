@@ -9,7 +9,7 @@
 (library (schemesh parser shell (0 1))
   (export
     read-shell-char lex-shell parse-shell-word
-    parse-shell parse-shell* parse-shell-list parser-shell)
+    parse-shell parse-shell* parse-shell-list parse-shell-list* parser-shell)
   (import
     (rnrs)
     (only (chezscheme) format fx1- inspect reverse! unread-char)
@@ -391,8 +391,15 @@
             "parser directive #!... can only appear before or after a shell command, not in the middle of it: ~a"
             (string-append "#!" (symbol->string (parser-name value)))))
         ((separator)
-          (when (eq? value '&) ; append final & to command
-            (set! ret (cons value ret)))
+          (cond
+            ((equal? '(shell) ret)
+              ; return a lone '&
+              (set! ret (if (eq? '& value) value '\x3b;))
+              (set! reverse? #f))
+            (else
+              ; leave & for next call to parse-shell-list or parse-shell-list
+              (when (eq? value '&)
+                (parsectx-unread-char ctx #\&))))
           (set! again? #f))
         ((op string)
           (set! ret (cons value ret)))
@@ -411,14 +418,14 @@
           (when (equal? '(shell) ret)
             (set! ret '())
             (set! again? #f)
-          ;   forms returned by (parser-parse-list) are already reversed
+            ; forms returned by (parser-parse-list) are already reversed
             (set! reverse? #f))
           (let* ((other-parse-list (parser-parse-list
                    (get-parser ctx 'scheme 'parse-shell)))
                  (form (other-parse-list ctx type '())))
             (set! ret (if (null? ret) form (cons form ret)))))
         ((lbrace)
-          (if (or (null? (cdr ret)) (memq (car ret) '(! & && \x7c; \x7c;\x7c;)))
+          (if (or (null? (cdr ret)) (memq (car ret) '(! && \x7c; \x7c;\x7c;)))
             ; parse nested shell list surrounded by {...}
             (begin
               (set! again? #f)
@@ -476,8 +483,10 @@
         ; (format #t "parse-shell-list ret=~s value=~s type=~s~%" (reverse ret) value type)
         (case type
           ((eof)
-            (syntax-errorf ctx 'parse-shell-list "unexpected end-of-file after ~a"
-              (if reverse? (reverse! ret) ret)))
+            (if begin-type
+              (syntax-errorf ctx 'parse-shell-list "unexpected end-of-file after ~a"
+                (if reverse? (reverse! ret) ret)))
+              (set! again? #f))
           ((parser)
             ; switch to other parser until the end of current list
             (let ((other-parse-list (parser-parse-list value)))
@@ -491,6 +500,10 @@
             ; parse nested shell list
             (let ((nested-list (parse-shell-list ctx type '())))
               (set! ret (cons nested-list ret))))
+          ((separator)
+            ; ignore separators, except & that must be honored
+            (when (eq? '& value)
+              (set! ret (cons value ret))))
           (else
             (if (and (eq? 'backquote begin-type) (eq? 'backquote type))
               ; end of backquote reached
@@ -502,6 +515,16 @@
                              (eq? 'backquote begin-type))))
                 (set! ret (cons value ret))))))))
     (if reverse? (reverse! ret) ret)))
+
+
+; Read shell forms from textual input port 'in' until end-of-file is reached.
+; Automatically change parser when directive #!... is found.
+;
+; Return a list containing 'shell-list followed by such forms.
+; Raise syntax-errorf if syntax error is found.
+;
+(define (parse-shell-list* ctx)
+  (parse-shell-list ctx #f '()))
 
 
 ;; Read until one of ( ) { } ' " ` $( is found, and return it.
