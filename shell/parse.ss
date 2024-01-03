@@ -53,7 +53,7 @@
   (let ((saved-args args)
         (ret '()))
     (until (null? args)
-      (let-values (((parsed tail) (sh-parse-and-or args)))
+      (let-values (((parsed tail) (sh-parse-or args)))
         (set! ret (cons parsed ret))
         (set! args tail)
         ; (format #t "sh-parse          iterate: ret = ~s, args = ~s~%" (reverse ret) args)
@@ -76,42 +76,59 @@
                                                     ) ret)))))))
 
 
-; Parse list containing a sequence of shell commands separated by && || | |&
-; Return two values:
-;   A list containing parsed args;
-;   The remaining, unparsed args.
-;/
-(define (sh-parse-and-or args)
+;; Parse list containing a sequence of shell commands separated by || && | |&
+;; Return two values:
+;;   A list containing parsed args;
+;;   The remaining, unparsed args.
+;;
+(define (sh-parse-or args)
   (let ((ret '())
-        (done? (null? args))
-        (and? #f)
-        (or? #f))
+        (done? (null? args)))
+    (until done?
+      (let-values (((parsed tail) (sh-parse-and args)))
+        (set! ret (cons parsed ret))
+        (set! args tail))
+      ; (format #t "sh-parse-or iterate: ret = ~s, args = ~s~%" (reverse ret) args)
+      (cond
+        ((null? args) (set! done? #t))
+        ((eqv? (car args) '\x7c;\x7c;)
+          (set! args  (cdr args))
+          (set! done? (null? args)))
+        (#t   (set! done? #t)))) ; unhandled token => exit loop
+    ; (format #t "sh-parse-or  return: ret = ~s, args = ~s~%" (reverse ret) args)
+    (values
+      (cond
+        ((null? ret)       ret)
+        ((null? (cdr ret)) (car ret))
+        (#t                (cons 'sh-or (reverse! ret))))
+      args)))
+
+
+;; Parse list containing a sequence of shell commands separated by && | |&
+;; Return two values:
+;;   A list containing parsed args;
+;;   The remaining, unparsed args.
+;;
+(define (sh-parse-and args)
+  (let ((ret '())
+        (done? (null? args)))
     (until done?
       (let-values (((parsed tail) (sh-parse-pipe args)))
         (set! ret (cons parsed ret))
         (set! args tail))
-      ; (format #t "sh-parse-and-or iterate: ret = ~s, args = ~s~%" (reverse ret) args)
+      ; (format #t "sh-parse-and iterate: ret = ~s, args = ~s~%" (reverse ret) args)
       (cond
         ((null? args) (set! done? #t))
-        ((memq (car args) '(&& \x7c;\x7c;
-                            ))
-          (if (eq? '&& (car args))
-            (set! and? #t)
-            (set! or?  #t))
-          (set! ret (cons (car args) ret))
-          (set! args (cdr args))
+        ((eqv? (car args) '&&)
+          (set! args  (cdr args))
           (set! done? (null? args)))
         (#t   (set! done? #t)))) ; unhandled token => exit loop
-    ; (format #t "sh-parse-and-or  return: ret = ~s, args = ~s~%" (reverse ret) args)
+    ; (format #t "sh-parse-and  return: ret = ~s, args = ~s~%" (reverse ret) args)
     (values
       (cond
-        ((null? ret) ret)
+        ((null? ret)       ret)
         ((null? (cdr ret)) (car ret))
-        ((and and? or?)
-          (cons 'sh-and-or* (reverse! (list-quoteq! '(&& \x7c;\x7c;
-                                                      ) ret))))
-        (and? (cons 'sh-and (reverse! (remq! '&& ret))))
-        (#t   (cons 'sh-or  (reverse! (remq! '\x7c;\x7c; ret)))))
+        (#t                (cons 'sh-and (reverse! ret))))
       args)))
 
 ;

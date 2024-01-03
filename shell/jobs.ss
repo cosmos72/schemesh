@@ -18,7 +18,7 @@
     sh-globals sh-global-env sh-env-copy sh-env-ref sh-env-set! sh-env-unset!
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0
     sh-cwd sh-consume-sigchld
-    sh-start sh-bg sh-fg sh-run sh-run-capture-output sh-wait sh-and sh-or sh-and-or*
+    sh-start sh-bg sh-fg sh-run sh-run-capture-output sh-wait sh-and sh-or
     sh-list sh-list* sh-fd-redirect! sh-fds-redirect!)
   (import
     (rnrs)
@@ -789,28 +789,6 @@
     status))
 
 
-; Run a multijob containing children jobs separated by & |
-; Used by (sh-and-and), implements runtime behavior of shell syntax foo && bar || baz
-(define (%multijob-run-and-or mj)
-  (let ((jobs   (multijob-children mj))
-        (pgid   (job-pgid mj))
-        (status (void)))
-    (span-iterate jobs
-      (lambda (i job)
-        (if (fxbit-set? i 0)
-          (let ((success? (eq? (void) status)))
-            (case job
-              ((&&)         success?)       ; && -> keep iterating only if job succeeded
-              ((\x7c;\x7c;
-                          ) (not success?)) ; || -> keep iterating only if job failed
-              (else (assert (memq job '(&& \x7c;\x7c;
-                                                     ))))))
-          (begin
-            (sh-start job pgid)             ; run child job in parent's process group
-            (set! status (sh-wait job)))))) ; wait for child job to exit
-    status))
-
-
 ; Run a multijob containing a sequence of children jobs.
 ; Used by (sh-list), implements runtime behavior of shell syntax foo; bar; baz
 (define (%multijob-run-list mj)
@@ -838,24 +816,6 @@
 (define (sh-or . children-jobs)
   (apply make-multijob 'or  assert-is-job %multijob-run-or  children-jobs))
 
-
-; Odd arguments must be sh-job
-; Even arguments must be a symbol && ||
-(define (sh-and-or* . children-jobs-with-and-or)
-  (when (null? children-jobs-with-and-or)
-    (assertion-violation 'sh-and-or* "requires at least one argument" '()))
-  (let ((expect-job? #t))
-    (list-iterate children-jobs-with-and-or (lambda (j)
-      (if expect-job?
-        (unless (sh-job? j)
-          (assertion-violation 'sh-and-or* "odd arguments must be sh-job" j))
-        (unless (memq j '(&& \x7c;\x7c;
-                                       ))
-            (assertion-violation 'sh-and-or* "even arguments must be one of the symbols && ||" j)))
-      (set! expect-job? (not expect-job?))))
-    (when expect-job?
-      (assertion-violation 'sh-and-or* "number of arguments must odd" children-jobs-with-and-or)))
-  (apply make-multijob 'and-or #f %multijob-run-and-or children-jobs-with-and-or))
 
 ; Each argument must be a sh-job
 (define (sh-list . children-jobs)

@@ -729,7 +729,7 @@ static const struct {
     {"(expand '(shell))", INVOKELIB_SHELL_BUILTINS " (sh-true))"},
     {"(expand '(shell \"ls\" \"-l\" && \"wc\" \"-b\" \\x7c;\\x7c; \"echo\" \"error\" &))",
      INVOKELIB_SHELL_JOBS
-     " (sh-list* (sh-and-or* (sh-cmd ls -l) '&& (sh-cmd wc -b) '|| (sh-cmd echo error)) '&))"},
+     " (sh-list* (sh-or (sh-and (sh-cmd ls -l) (sh-cmd wc -b)) (sh-cmd echo error)) '&))"},
     {"(expand '(shell-list (shell \"ls\" \"-al\" >> \"log.txt\")))",
      INVOKELIB_SHELL_JOBS " (sh-cmd<> ls -al '>> log.txt))"},
     {"(expand (parse-shell* (make-parsectx-from-string\n"
