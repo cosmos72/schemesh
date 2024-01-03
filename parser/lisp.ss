@@ -280,10 +280,16 @@
         (case ch
           ((#\( #\) #\[ #\] #\{ #\} #\" #\|) (set! ret ch))
           ((#\#)  (set! ret (scan-lisp-sharp ctx)))
-          ((#\\)  (parsectx-read-char ctx)) ; consume one char after \
+          ((#\\)  (scan-after-backslash ctx))
           ((#\;)  (parsectx-skip-line ctx))
           (else (when (eof-object? ch) (set! ret ch))))))
     ret))
+
+;; recognize scheme syntax after backslash: either a single character, or x...;
+(define (scan-after-backslash ctx)
+  (when (eqv? #\x (parsectx-read-char ctx))
+    (while (let ((ch (parsectx-read-char ctx)))
+              (and (char? ch) (not (char=? ch #\;)))))))
 
 
 ;; scan a token after # (the # character was already consumed) and return it
