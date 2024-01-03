@@ -9,10 +9,10 @@
 (library (schemesh parser shell (0 1))
   (export
     read-shell-char lex-shell parse-shell-word
-    parse-shell parse-shell* parse-shell-list parse-shell-list* parser-shell)
+    parse-shell parse-shell* parse-shell-list parser-shell)
   (import
     (rnrs)
-    (only (chezscheme) format fx1- inspect reverse! unread-char)
+    (only (chezscheme) fx1+ fx1- inspect reverse! unread-char)
     (only (schemesh bootstrap) until while)
     (schemesh containers charspan)
     (schemesh lineedit parens)
@@ -274,39 +274,39 @@
       (#t  (cons 'shell-concat (reverse! ret))))))
 
 
-; Read a single shell token from textual input port 'in'.
-; Return two values: token value and its type.
-; Does not skip initial whitespace, and does not recognize parser directives #!...
-; use (lex-shell) for that.
-;
-; The definition of shell token is adapted from
-; https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_03
-;
+;; Read a single shell token from textual input port 'in'.
+;; Return two values: token value and its type.
+;; Does not skip initial whitespace, does not recognize parser directives #!...
+;; and does not recognize numbers followed by redirection operators N< N<> N<& N> N>> N>| N>&
+;; use (lex-shell) for that.
+;;
+;; The definition of shell token is adapted from
+;; https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_03
+;;
 (define (lex-shell-impl ctx)
   (let-values (((ch type) (read-shell-char ctx)))
     (case type
       ((eof separator lparen rparen lbrack rbrack lbrace rbrace)
         (values ch type))
-      ; TODO: also handle multi-character operators #... N< N<> N<& N> N>> N>| N>&
       ((op)
         (let ((ch2 (parsectx-peek-char ctx)))
           (case ch
             ((#\&) (if (eqv? ch2 #\&)
-                      (set! ch '&&)
-                      (set! type 'separator)))
+                     (set! ch '&&)
+                     (set! type 'separator)))
             ((#\|) (cond ((eqv? ch2 #\&) (set! ch '\x7c;&))
-                          ((eqv? ch2 #\|) (set! ch '\x7c;\x7c;))))
+                         ((eqv? ch2 #\|) (set! ch '\x7c;\x7c;))))
             ((#\<) (cond ((eqv? ch2 #\>) (set! ch '<>))
-                          ((eqv? ch2 #\&) (set! ch '<&))))
+                         ((eqv? ch2 #\&) (set! ch '<&))))
             ((#\>) (cond ((eqv? ch2 #\>) (set! ch '>>))
-                          ((eqv? ch2 #\&) (set! ch '>&))
-                          ((eqv? ch2 #\|) (set! ch '>\x7c;))))))
+                         ((eqv? ch2 #\&) (set! ch '>&))
+                         ((eqv? ch2 #\|) (set! ch '>\x7c;))))))
         (if (symbol? ch)
           (parsectx-read-char ctx); consume peeked character
           (set! ch (op->symbol ctx ch))) ; convert character to symbol
         (values ch type))
       ((dollar)
-        (if (eqv? #\( (parsectx-peek-char ctx))
+        (if (eqv? #\( (parsectx-peek-char ctx)) #| #\) |# ; make vscode happy
           (values (parsectx-read-char ctx) 'dollar+lparen)
           (begin
             (parsectx-unread-char ctx ch)
@@ -314,16 +314,17 @@
       ((backquote)
         (values ch type))
       ((char squote dquote backslash)
-        ; TODO: handle ~ and path-based wildcards
         (parsectx-unread-char ctx ch)
         (values (parse-shell-word ctx) 'string))
       (else
         (syntax-errorf ctx 'lex-shell "unimplemented character type: ~a" type)))))
 
 
-; Read a single shell token from textual input port 'in'.
-; Return two values: token value and its type.
-; Also recognizes parser directives #!... and returns them with type 'parser.
+;; Read a single shell token from textual input port 'in'.
+;; Return two values: token value and its type.
+;; Skips initial whitespace, recognizes parser directives #!... and returns them th type 'parser,
+;; and also recognizes numbers followed by redirection operators N< N<> N<& N> N>> N>| N>&
+;; and returns them as numbers - Joining them with subsequent redirection operator is left to (shell) macro.
 (define (lex-shell ctx)
   (parsectx-skip-whitespace ctx #f) ; don't skip newlines
   (let ((value (try-read-parser-directive ctx)))
@@ -336,8 +337,28 @@
         (values (eof-object) 'eof)
         ; cannot switch to other parser here: just return it and let caller switch
         (values (get-parser ctx value 'parse-shell) 'parser))
+
       ; read a single shell token
-      (lex-shell-impl ctx))))
+      (let-values (((value type) (lex-shell-impl ctx)))
+        (if (and (eq? 'string type)
+                 (string? value) ; type = 'string also allows value = `(shell-concat ...)
+                 (string-contains-only-decimal-digits? value)
+                 (memv (parsectx-peek-char ctx) '(#\< #\>)))
+          (values (string->number value) 'integer) ;; integer followed by redirection operator
+          (values value type))))))
+
+;; return #t if string is non-empty and only contains decimal digits
+(define (string-contains-only-decimal-digits? str)
+  (let ((n (string-length str)))
+    (if (fxzero? n)
+      #f
+      (do ((i 0 (fx1+ i)))
+          ((or (fx>=? i n) (not (decimal-digit? (string-ref str i))))
+             (fx>=? i n))))))
+
+;; return #t if character is a decimal digit 0..9
+(define (decimal-digit? ch)
+  (char<=? #\0 ch #\9))
 
 
 ; Repeatedly read from textual input port 'in' using (lex-shell)
@@ -393,15 +414,14 @@
         ((separator)
           (cond
             ((equal? '(shell) ret)
-              ; return a lone '&
+              ; return a lone '& or ';
               (set! ret (if (eq? '& value) value '\x3b;))
               (set! reverse? #f))
-            (else
-              ; leave & for next call to parse-shell-list or parse-shell-list
-              (when (eq? value '&)
-                (parsectx-unread-char ctx #\&))))
+            ((eq? value '&)
+              ; leave & for next call to parse-shell or parse-shell-list
+              (parsectx-unread-char ctx #\&)))
           (set! again? #f))
-        ((op string)
+        ((op string integer)
           (set! ret (cons value ret)))
         ((backquote dollar+lparen)
           (if (and is-inside-backquote? (eq? 'backquote type))
@@ -425,7 +445,8 @@
                  (form (other-parse-list ctx type '())))
             (set! ret (if (null? ret) form (cons form ret)))))
         ((lbrace)
-          (if (or (null? (cdr ret)) (memq (car ret) '(! && \x7c; \x7c;\x7c;)))
+          (if (or (null? (cdr ret)) (memq (car ret) '(! && \x7c; \x7c;\x7c;
+                                                     )))
             ; parse nested shell list surrounded by {...}
             (begin
               (set! again? #f)
@@ -515,16 +536,6 @@
                              (eq? 'backquote begin-type))))
                 (set! ret (cons value ret))))))))
     (if reverse? (reverse! ret) ret)))
-
-
-; Read shell forms from textual input port 'in' until end-of-file is reached.
-; Automatically change parser when directive #!... is found.
-;
-; Return a list containing 'shell-list followed by such forms.
-; Raise syntax-errorf if syntax error is found.
-;
-(define (parse-shell-list* ctx)
-  (parse-shell-list ctx #f '()))
 
 
 ;; Read until one of ( ) { } ' " ` $( is found, and return it.

@@ -37,17 +37,18 @@
 ;    TODO: implement fd number [N] before redirection operator
 ; 2. strings stand for themselves. for example (sh "ls" "-l")
 ;    is equivalent to (sh-cmd "ls" "-l")
-; 3. closures must accept a single argument and return a string.
+; 3. integers are fd numbers, and must be followed by a redirection operator < <> <& > >> >| >&
+; 4. closures must accept a single argument and return a string.
 ;    TODO: implement support for them.
-; 4. pairs TBD
+; 5. pairs TBD
 (define (sh . args)
   ; implementation: use sh-parse for converting shell commands to Scheme forms,
   ; then (eval) such forms
   (eval (sh-parse args)))
 
 
-; Parse list containing a sequence of shell commands separated by ; & && || | |&
-; Return list containing parsed args.
+;; Parse list containing a sequence of shell commands separated by ; & && || | |&
+;; Return list containing parsed args.
 (define (sh-parse args)
   (let ((saved-args args)
         (ret '()))
@@ -144,12 +145,12 @@
                                                       ) ret)))))
       args)))
 
-;
 ; Parse args for a single shell command, i.e. everything before the first ; & && || | |&
+; TODO: recognize numbers followed by redirection operators N< N<> N<& N> N>> N>| N>&
 ; Return two values:
 ;   A list containing parsed args;
 ;   The remaining, unparsed args.
-;/
+;
 (define (sh-parse-cmd args)
   (let ((saved-args args)
         (ret '())

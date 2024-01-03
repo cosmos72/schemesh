@@ -21,7 +21,7 @@
 
     ; shell.ss
     read-shell-char lex-shell parse-shell-word
-    parse-shell parse-shell* parse-shell-list parse-shell-list* parser-shell
+    parse-shell parse-shell* parse-shell-list parser-shell
 
     ; parser.ss
     parse-form parse-form* parse-form-list parse-form-list* parse-forms

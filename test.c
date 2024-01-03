@@ -529,9 +529,11 @@ static const struct {
     {"(parse-shell* (make-parsectx-from-string"
      "  \"{}\"))",
      "(shell-list)"},
-    {"(parse-shell-list* (make-parsectx-from-string"
-     "  \"ls   -l>/dev/null&\"))",
-     "(shell-list (shell ls -l > /dev/null) &)"},
+    {"(let* ((ctx (make-parsectx-from-string \"ls -l>/dev/null&\"))\n"
+     "       (form1 (parse-shell* ctx))\n"
+     "       (form2 (parse-shell* ctx)))\n"
+     "  (list form1 form2))",
+     "((shell ls -l > /dev/null) &)"},
     {"(parse-shell* (make-parsectx-from-string"
      "  \"echo  foo  bar|wc -l\"))",
      "(shell echo foo bar | wc -l)"},
@@ -539,7 +541,7 @@ static const struct {
      "  \"echo  foo  bar|wc -l ; \"))",
      "(shell echo foo bar | wc -l)"},
     {"(parse-shell* (make-parsectx-from-string"
-     "  \"{echo  foo  bar|wc -l; ; }\"))", /* redundant ; are ignored */
+     "  \"{echo  foo  bar|wc -l; ; }\"))", /* redundant semicolons are ignored */
      "(shell-list (shell echo foo bar | wc -l))"},
     {"(parse-shell* (make-parsectx-from-string\n"
      "  \"{echo|{cat;{true}\n}&}\"))",
@@ -550,10 +552,11 @@ static const struct {
     {"(parse-shell* (make-parsectx-from-string\n"
      "  \"a<>/dev/null||b>|/dev/zero&&!c>&2\"))",
      "(shell a <> /dev/null || b >| /dev/zero && ! c >& 2)"},
-    /** FIXME: recognize fd number [N] before redirection */
-    {"(parse-shell* (make-parsectx-from-string\n"
-     "  \"foo 2>& 1 <& -\"))",
-     "(shell foo 2 >& 1 <& -)"},
+    /** test fd number [N] before redirection */
+    {"(format #f \"~s\" (parse-shell* (make-parsectx-from-string\n"
+     "  \"foo 0</dev/zero 1<>/dev/urandom 2<&- 3>>logfile 4>|otherfile 5>&/dev/null\")))",
+     "(shell \"foo\" 0 < \"/dev/zero\" 1 <> \"/dev/urandom\" 2 <& \"-\" 3 >> \"logfile\""
+     " 4 >\\x7C; \"otherfile\" 5 >& \"/dev/null\")"},
     {"(format #f \"~s\" (parse-shell* (make-parsectx-from-string\n"
      "  \"ls \\\"-l\\\" '.'\")))",
      "(shell \"ls\" \"-l\" \".\")"},
