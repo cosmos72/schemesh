@@ -18,8 +18,8 @@
     sh-globals sh-global-env sh-env-copy sh-env-ref sh-env-set! sh-env-unset!
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0
     sh-cwd sh-consume-sigchld
-    sh-start sh-bg sh-fg sh-run sh-run-capture-output sh-wait sh-and sh-or
-    sh-list sh-list* sh-fd-redirect! sh-fds-redirect!)
+    sh-start sh-bg sh-fg sh-run sh-run-capture-output sh-wait sh-and sh-or sh-list
+    sh-fd-redirect! sh-fds-redirect!)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -789,9 +789,10 @@
     status))
 
 
-; Run a multijob containing a sequence of children jobs.
-; Used by (sh-list), implements runtime behavior of shell syntax foo; bar; baz
+; Run a multijob containing a sequence of children jobs optionally followed by & ;
+; Used by (sh-list), implements runtime behavior of shell syntax foo; bar & baz
 (define (%multijob-run-list mj)
+  ; TODO: check for & among mj and implement them
   (let ((jobs   (multijob-children mj))
         (pgid   (job-pgid mj))
         (status (void)))
@@ -802,14 +803,6 @@
         #t))                        ; keep iterating
     status))
 
-
-; Run a multijob containing a sequence of children jobs optionally followed by & ;
-; Used by (sh-list*), implements runtime behavior of shell syntax foo; bar & baz
-
-(define (%multijob-run-list* mj)
-; TODO: check for && || among mj and implement them
-  (%multijob-run-list mj))
-
 (define (sh-and . children-jobs)
   (apply make-multijob 'and assert-is-job %multijob-run-and children-jobs))
 
@@ -817,17 +810,14 @@
   (apply make-multijob 'or  assert-is-job %multijob-run-or  children-jobs))
 
 
-; Each argument must be a sh-job
-(define (sh-list . children-jobs)
-  (apply make-multijob 'list assert-is-job %multijob-run-list children-jobs))
-
 ; Each argument must be a sh-job, possibly followed by a symbol ; &
-(define (sh-list* . children-jobs-with-colon-ampersand)
+(define (sh-list . children-jobs-with-colon-ampersand)
   (apply make-multijob 'list
     (lambda (j) ; validate-job-proc
-      (unless (memq j '(& \x3b;))
+      (unless (memq j '(& \x3b;
+                       ))
         (assert (sh-job? j))))
-    %multijob-run-list* children-jobs-with-colon-ampersand))
+    %multijob-run-list children-jobs-with-colon-ampersand))
 
 (define (sh-run-capture-output job)
   ; TODO: implement (sh-run-capture-output)

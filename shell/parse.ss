@@ -72,8 +72,8 @@
     (cond
       ((null? ret) '(sh-true))
       ((null? (cdr ret)) (car ret))
-      (#t (cons 'sh-list* (reverse! (list-quoteq! '(& \x3b;
-                                                    ) ret)))))))
+      (#t (cons 'sh-list (reverse! (list-quoteq! '(& \x3b;
+                                                  ) ret)))))))
 
 
 ;; Parse list containing a sequence of shell commands separated by || && | |&

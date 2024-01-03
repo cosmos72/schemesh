@@ -712,9 +712,9 @@ static const struct {
     {"(sh-run (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", ""},
     /* ------------------------- shell syntax ------------------------------- */
     {"(sh-parse '(\"wc\" \"-l\" \"myfile\" > \"mylog\" \\x3b; \"echo\" \"done\"))",
-     "(sh-list* (sh-cmd<> wc -l myfile '> mylog) '; (sh-cmd echo done))"},
+     "(sh-list (sh-cmd<> wc -l myfile '> mylog) '; (sh-cmd echo done))"},
     {"(sh-parse '(\"find\" \"-type\" \"f\" \\x7c; \"wc\" &))",
-     "(sh-list* (sh-pipe* (sh-cmd find -type f) '| (sh-cmd wc)) '&)"},
+     "(sh-list (sh-pipe* (sh-cmd find -type f) '| (sh-cmd wc)) '&)"},
 
 #define INVOKELIB_SHELL_BUILTINS                                                                   \
   "(begin (($primitive 3 $invoke-library) '(schemesh shell builtins) '(0 1) 'builtins)"
@@ -729,7 +729,7 @@ static const struct {
     {"(expand '(shell))", INVOKELIB_SHELL_BUILTINS " (sh-true))"},
     {"(expand '(shell \"ls\" \"-l\" && \"wc\" \"-b\" \\x7c;\\x7c; \"echo\" \"error\" &))",
      INVOKELIB_SHELL_JOBS
-     " (sh-list* (sh-or (sh-and (sh-cmd ls -l) (sh-cmd wc -b)) (sh-cmd echo error)) '&))"},
+     " (sh-list (sh-or (sh-and (sh-cmd ls -l) (sh-cmd wc -b)) (sh-cmd echo error)) '&))"},
     {"(expand '(shell-list (shell \"ls\" \"-al\" >> \"log.txt\")))",
      INVOKELIB_SHELL_JOBS " (sh-cmd<> ls -al '>> log.txt))"},
     {"(expand (parse-shell* (make-parsectx-from-string\n"
