@@ -603,7 +603,12 @@
               (set! ret
                 (parenmatcher-find-match
                   parenmatcher
-                  (lambda () (make-parsectx* (open-charlines-input-port screen) parsers 0 0))
+                  (lambda () (make-parsectx* (open-charlines-input-port screen)
+                                             parsers
+                                             (vscreen-width screen)
+                                             (vscreen-prompt-end-x screen)
+                                             0
+                                             0))
                   (linectx-parser-name ctx)
                   x y))
               (catch (cond)
@@ -622,14 +627,20 @@
 
 ;; clear cached parentheses and recompute them
 (define (linectx-parens-update/force! ctx)
-  (let ((parsers (linectx-parsers ctx))
-        (parenmatcher (linectx-parenmatcher ctx)))
+  (let ((parenmatcher (linectx-parenmatcher ctx))
+        (parsers      (linectx-parsers ctx))
+        (screen       (linectx-vscreen ctx)))
     (when parenmatcher
       (parenmatcher-clear! parenmatcher)
       (when parsers
         (parenmatcher-maybe-update!
           parenmatcher
-          (lambda () (make-parsectx* (open-charlines-input-port (linectx-vscreen ctx)) parsers 0 0))
+          (lambda () (make-parsectx* (open-charlines-input-port screen)
+                                     parsers
+                                     (vscreen-width screen)
+                                     (vscreen-prompt-end-x screen)
+                                     0
+                                     0))
           (linectx-parser-name ctx))))))
 
 ;; return (parens-recursive-ok? parens) for outermost parens inside parenmatcher

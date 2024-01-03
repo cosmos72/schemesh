@@ -103,8 +103,10 @@
 (define-record-type
   (parsectx %make-parsectx parsectx?)
   (fields
-    in    ; textual input port to read from
-    pos   ; pair (x . y) containing two fixnums: current x and y position in the input port
+    in           ; textual input port to read from
+    width        ; fixnum, screen width
+    prompt-end-x ; fixnum, column where prompt ends
+    pos          ; pair (x . y) containing two fixnums: current x and y position in the input port
     enabled-parsers) ; #f or an hashtable symbol -> parser
   (nongenerative #{parsectx ghczmwc88jnt51nkrv9gaocnv-423}))
 
@@ -113,23 +115,33 @@
 ;;   in: mandatory, the textual input port to read from
 ;;   enabled-parsers: optional, #f or an hashtable name -> parser containing enabled parsers.
 ;;                    see (parsers) in parser/parser.ss
+;;   width: optional, a fixnum representing screen width
+;;   prompt-end-x: optional, a fixnum representing column where prompt ends
 ;;   x: optional, a fixnum representing the initial x position in the input port
 ;;   y: optional, a fixnum representing the initial y position in the input port
 (define make-parsectx
   (case-lambda
-    ((in)               (make-parsectx* in #f 0 0))
-    ((in enabled-parsers) (make-parsectx* in enabled-parsers 0 0))
-    ((in enabled-parsers x) (make-parsectx* in enabled-parsers x 0))
-    ((in enabled-parsers x y) (make-parsectx* in enabled-parsers x y))))
+    ((in)                                        (make-parsectx* in #f              (greatest-fixnum) 0 0 0))
+    ((in enabled-parsers)                        (make-parsectx* in enabled-parsers (greatest-fixnum) 0 0 0))
+    ((in enabled-parsers width)                  (make-parsectx* in enabled-parsers width 0 0 0))
+    ((in enabled-parsers width prompt-end-x)     (make-parsectx* in enabled-parsers width prompt-end-x 0 0))
+    ((in enabled-parsers width prompt-end-x x)   (make-parsectx* in enabled-parsers width prompt-end-x x 0))
+    ((in enabled-parsers width prompt-end-x x y) (make-parsectx* in enabled-parsers width prompt-end-x x y))))
 
 
 ;; create a new parsectx. Arguments are the same as (make-parsectx)
 ;; with the difference that they are all mandatory
-(define (make-parsectx* in enabled-parsers x y)
+(define (make-parsectx* in enabled-parsers width prompt-end-x x y)
   (assert (input-port? in))
   (assert (textual-port? in))
+  (assert (fixnum? width))
+  (assert (fixnum? prompt-end-x))
   (assert (fixnum? x))
   (assert (fixnum? y))
+  (assert (fx>? width 0))
+  (assert (fx>=? prompt-end-x 0))
+  (assert (fx>=? x 0))
+  (assert (fx>=? y 0))
   (when enabled-parsers
     (hashtable-iterate enabled-parsers
       (lambda (cell)
@@ -137,7 +149,7 @@
               (parser (cdr cell)))
           (assert (symbol? name))
           (assert (parser? parser))))))
-  (%make-parsectx in (cons x y) enabled-parsers))
+  (%make-parsectx in width prompt-end-x (cons x y) enabled-parsers))
 
 
 ;; create a new parsectx. Arguments are
@@ -146,20 +158,26 @@
 ;;                    see (parsers) in parser/parser.ss
 (define make-parsectx-from-string
   (case-lambda
-    ((str)                 (make-parsectx* (open-string-input-port str) #f 0 0))
-    ((str enabled-parsers) (make-parsectx* (open-string-input-port str) enabled-parsers 0 0))))
+    ((str)                 (make-parsectx (open-string-input-port str)))
+    ((str enabled-parsers) (make-parsectx (open-string-input-port str) enabled-parsers))))
 
 
 ;; update parsectx position (x . y) after reading ch from textual input port
 (define (parsectx-increment-pos ctx ch)
   (when (char? ch) ; do not advance after reading #!eof
-    (let ((pos (parsectx-pos ctx)))
-      (if (char=? ch #\newline)
-        (begin ; newline -> set x to 0, increment y
+    (let* ((pos (parsectx-pos ctx))
+           (x   (car pos))
+           (y   (cdr pos)))
+      (cond
+        ((or (char=? ch #\newline)
+             (fx>=? (fx+ (fx1+ x) (if (fxzero? y) (parsectx-prompt-end-x ctx) 0))
+                    (parsectx-width ctx)))
+          ; newline or screen width wraparound -> set x to 0, increment y
           (set-car! pos 0)
-          (set-cdr! pos (fx1+ (cdr pos))))
-        ; only increment x
-        (set-car! pos (fx1+ (car pos)))))))
+          (set-cdr! pos (fx1+ y)))
+        (else
+          ; only increment x
+          (set-car! pos (fx1+ x)))))))
 
 
 ;; update parsectx position (x . y) after unreading ch from textual input port
