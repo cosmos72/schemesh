@@ -277,7 +277,7 @@
 ;; Read a single shell token from textual input port 'in'.
 ;; Return two values: token value and its type.
 ;; Does not skip initial whitespace, does not recognize parser directives #!...
-;; and does not recognize numbers followed by redirection operators N< N<> N<& N> N>> N>| N>&
+;; and does not recognize numbers followed by redirection operators N< N<> N<& N> N>> N>&
 ;; use (lex-shell) for that.
 ;;
 ;; The definition of shell token is adapted from
@@ -299,8 +299,7 @@
             ((#\<) (cond ((eqv? ch2 #\>) (set! ch '<>))
                          ((eqv? ch2 #\&) (set! ch '<&))))
             ((#\>) (cond ((eqv? ch2 #\>) (set! ch '>>))
-                         ((eqv? ch2 #\&) (set! ch '>&))
-                         ((eqv? ch2 #\|) (set! ch '>\x7c;))))))
+                         ((eqv? ch2 #\&) (set! ch '>&))))))
         (if (symbol? ch)
           (parsectx-read-char ctx); consume peeked character
           (set! ch (op->symbol ctx ch))) ; convert character to symbol
@@ -323,7 +322,7 @@
 ;; Read a single shell token from textual input port 'in'.
 ;; Return two values: token value and its type.
 ;; Skips initial whitespace, recognizes parser directives #!... and returns them th type 'parser,
-;; and also recognizes numbers followed by redirection operators N< N<> N<& N> N>> N>| N>&
+;; and also recognizes numbers followed by redirection operators N< N<> N<& N> N>> N>&
 ;; and returns them as numbers - Joining them with subsequent redirection operator is left to (shell) macro.
 (define (lex-shell ctx)
   (parsectx-skip-whitespace ctx #f) ; don't skip newlines

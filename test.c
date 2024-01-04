@@ -550,13 +550,13 @@ static const struct {
      "  \"{{{{echo|cat}}}}\"))",
      "(shell-list (shell-list (shell-list (shell-list (shell echo | cat)))))"},
     {"(parse-shell* (make-parsectx-from-string\n"
-     "  \"a<>/dev/null||b>|/dev/zero&&!c>&2\"))",
-     "(shell a <> /dev/null || b >| /dev/zero && ! c >& 2)"},
+     "  \"a<>/dev/null||b>/dev/zero&&!c>&2\"))",
+     "(shell a <> /dev/null || b > /dev/zero && ! c >& 2)"},
     /** test fd number [N] before redirection */
     {"(format #f \"~s\" (parse-shell* (make-parsectx-from-string\n"
-     "  \"foo 0</dev/zero 1<>/dev/urandom 2<&- 3>>logfile 4>|otherfile 5>&/dev/null\")))",
+     "  \"foo 0</dev/zero 1<>/dev/urandom 2<&- 3>>logfile 4>otherfile 5>&/dev/null\")))",
      "(shell \"foo\" 0 < \"/dev/zero\" 1 <> \"/dev/urandom\" 2 <& \"-\" 3 >> \"logfile\""
-     " 4 >\\x7C; \"otherfile\" 5 >& \"/dev/null\")"},
+     " 4 > \"otherfile\" 5 >& \"/dev/null\")"},
     {"(format #f \"~s\" (parse-shell* (make-parsectx-from-string\n"
      "  \"ls \\\"-l\\\" '.'\")))",
      "(shell \"ls\" \"-l\" \".\")"},

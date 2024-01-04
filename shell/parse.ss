@@ -23,21 +23,20 @@
        (memq token '(& && \x3b; \x7c;\x7c; \x7c; \x7c;&
                      ))))
 
-; Return #t if token is a shell redirection operator: < <> <& > >> >| >&
+; Return #t if token is a shell redirection operator: < <> <& > >> >&
 ; TODO: recognize optional fd number [N] before redirection operator
 (define (sh-redirect-operator? token)
   (and (symbol? token)
-       (memq token '(< <> <& > >> >& >\x7c;
-                     ))))
+       (memq token '(< <> <& > >> >&))))
 
 ; Parse args using shell syntax, and return corresponding sh-cmd or sh-multijob object.
 ;
 ; Each element in args must be a symbol, string, closure or pair:
-; 1. symbols are operators. Recognized symbols are: ; & && || | |& < <> <& > >> >| >&
+; 1. symbols are operators. Recognized symbols are: ; & && || | |& < <> <& > >> >&
 ;    TODO: implement fd number [N] before redirection operator
 ; 2. strings stand for themselves. for example (sh "ls" "-l")
 ;    is equivalent to (sh-cmd "ls" "-l")
-; 3. integers are fd numbers, and must be followed by a redirection operator < <> <& > >> >| >&
+; 3. integers are fd numbers, and must be followed by a redirection operator < <> <& > >> >&
 ; 4. closures must accept a single argument and return a string.
 ;    TODO: implement support for them.
 ; 5. pairs TBD
@@ -163,7 +162,6 @@
       args)))
 
 ; Parse args for a single shell command, i.e. everything before the first ; & && || | |&
-; TODO: recognize numbers followed by redirection operators N< N<> N<& N> N>> N>| N>&
 ; Return two values:
 ;   A list containing parsed args;
 ;   The remaining, unparsed args.
@@ -181,7 +179,7 @@
           (cond
             ((sh-separator? arg)
               (set! done? #t)) ; separator => exit loop
-            ((or (sh-redirect-operator? arg) (pair? arg) (string? arg) (procedure? arg))
+            ((or (string? arg) (integer? arg) (pair? arg) (procedure? arg) (sh-redirect-operator? arg))
               (when (sh-redirect-operator? arg)
                 (set! redirections? #t)
                 ; quote redirection operator (a symbol) to use its name, not its value
@@ -190,7 +188,7 @@
               (set! args (cdr args)))
             (#t
               (syntax-violation 'sh-parse
-                "syntax error, expecting a redirection operator, string, pair or procedure, found:"
+                "syntax error, expecting a string, integer, pair, redirection operator or procedure, found:"
                 saved-args arg))))))
     ; (format #t "sh-parse-cmd  return: ret = ~s, args = ~s~%" (reverse ret) args)
     (values

@@ -212,7 +212,7 @@
 ; Each symbols indicates a redirection and must be followed by a string or bytevector.
 ; TODO: also support closures (lambda (job) ...) that return a string or bytevector.
 (define (sh-cmd<> program . args)
-; FIXME: implement redirections: [N]< [N]<> [N]<&M [N]> [N]>> [N]>| [N]>&M
+; FIXME: implement redirections: [N]< [N]<> [N]<&M [N]> [N]>> [N]>&M
   (apply sh-cmd program args))
 
 ; return global environment variables
