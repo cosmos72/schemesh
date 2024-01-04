@@ -55,8 +55,8 @@ static ptr c_environ_ref(uptr i) {
  * return current working directory
  */
 static ptr c_get_cwd(void) {
-  // call getcwd() with a small stack buffer
   {
+    // call getcwd() with a small stack buffer
     char dir[256];
     if (getcwd(dir, sizeof(dir)) == dir) {
       return Sstring_utf8(dir, -1);
@@ -64,8 +64,8 @@ static ptr c_get_cwd(void) {
       return Sstring_utf8("", 0);
     }
   }
-  // call getcwd() with progressively larger heap buffers
   {
+    // call getcwd() with progressively larger heap buffers
     size_t maxlen = 1024;
     char*  dir    = NULL;
     while (maxlen && (dir = malloc(maxlen)) != NULL) {
@@ -96,6 +96,12 @@ int schemesh_register_c_functions(void) {
   return err;
 }
 
+#ifdef SCHEMESH_OPTIMIZE
+#define LIBSCHEMESH_SO "libschemesh.so"
+#else /* !SCHEMESH_OPTIMIZE */
+#define LIBSCHEMESH_SO "libschemesh_debug.so"
+#endif
+
 void schemesh_compile_and_load_libraries(void) {
   eval("(let ((try-load\n"
        "  (lambda (path)\n"
@@ -113,17 +119,13 @@ void schemesh_compile_and_load_libraries(void) {
 #endif
        "              (load path))\n"
        "            #t)))))))\n"
-       "  (unless (try-load \"/usr/local/lib/libschemesh.so\")\n"
-       "    (unless (try-load \"/usr/lib/libschemesh.so\")\n"
-       "      (unless (try-load \"libschemesh.so\")\n"
-#ifdef SCHEMESH_OPTIMIZE
-       "        (compile-file \"libschemesh.ss\" \"libschemesh.debug.so\")\n"
-       "        (strip-fasl-file \"libschemesh.debug.so\" \"libschemesh.so\"\n"
+       "  (unless (try-load \"/usr/local/lib/" LIBSCHEMESH_SO "\")\n"
+       "    (unless (try-load \"/usr/lib/" LIBSCHEMESH_SO "\")\n"
+       "      (unless (try-load \"" LIBSCHEMESH_SO "\")\n"
+       "        (compile-file \"libschemesh.ss\" \"libschemesh_debug.so\")\n"
+       "        (strip-fasl-file \"libschemesh_debug.so\" \"libschemesh.so\"\n"
        "          (fasl-strip-options inspector-source source-annotations profile-source))\n"
-#else /* !SCHEMESH_OPTIMIZE */
-       "        (compile-file \"libschemesh.ss\" \"libschemesh.so\")\n"
-#endif
-       "        (load \"libschemesh.so\")))))\n");
+       "        (load \"" LIBSCHEMESH_SO "\")))))\n");
 }
 
 void schemesh_import_libraries(void) {

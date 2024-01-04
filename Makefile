@@ -1,13 +1,28 @@
 
+# C compiler
+CC=cc
+
+# debug build
 CFLAGS=-g -pipe -Wall -W -Wextra
 LDFLAGS=-g
 
-#CHEZ_SCHEME_DIR=/usr/local/lib/csv9.5.9/ta6le
+# optimized build
+#  CFLAGS=-O2 -pipe -Wall -W -Wextra
+#  LDFLAGS=-s
+
+# Autodetect Chez Scheme installation.
+# Alternatively, you can manually specify it, as for example:
+#  CHEZ_SCHEME_DIR=/usr/local/lib/csv9.5.9/ta6le
+#  CHEZ_SCHEME_KERNEL=/usr/local/lib/csv9.5.9/ta6le/kernel.o
 CHEZ_SCHEME_DIR:=$(shell ./utils/find_chez_scheme_dir.sh)
+CHEZ_SCHEME_KERNEL:=$(shell ./utils/find_chez_scheme_kernel.sh $(CHEZ_SCHEME_DIR))
 
+LIBS=$(CHEZ_SCHEME_KERNEL) -lz -llz4 -lncurses -ldl -lm -lpthread -luuid
+
+#
+# no user-serviceable parts below this line
+#
 OBJS=containers.o eval.o posix.o shell.o signal.o
-
-LIBS=-lkernel -lz -llz4 -lncurses -ldl -lm -lpthread -luuid
 
 all: schemesh schemesh_test
 
