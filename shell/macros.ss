@@ -7,7 +7,7 @@
 
 
 (library (schemesh shell macros (0 1))
-  (export shell shell-list shell-backquote)
+  (export shell shell-list shell-backquote shell-subshell)
   (import
     (rnrs)
     (schemesh bootstrap)
@@ -22,6 +22,11 @@
     ((_)           '(sh-true))
     ((_ arg)          arg)
     ((_ arg0 arg1 ...) (sh-list arg0 arg1 ...))))
+
+(define-syntax shell-subshell
+  (syntax-rules ()
+    ((_)          '(sh-true))
+    ((_ arg0 ...) (sh-subshell arg0 ...))))
 
 (define-syntax shell-backquote
   (syntax-rules ()

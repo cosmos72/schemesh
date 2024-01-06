@@ -18,7 +18,7 @@
     sh-globals sh-global-env sh-env-copy sh-env-ref sh-env-set! sh-env-unset!
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0
     sh-cwd sh-consume-sigchld
-    sh-start sh-bg sh-fg sh-run sh-run-capture-output sh-wait sh-and sh-or sh-list
+    sh-start sh-bg sh-fg sh-run sh-run-capture-output sh-wait sh-and sh-or sh-list sh-subshell
     sh-fd-redirect! sh-fds-redirect!)
   (import
     (rnrs)
@@ -62,7 +62,7 @@
   (parent job)
   (fields
     kind                ; symbol: one of 'and 'or 'and-or 'list 'global
-    children            ; span:   children jobs. May also contain symbols && || & ;
+    children            ; span:   children jobs.
     (mutable next-id))) ; fixnum: first available index in span of children jobs
 
 
@@ -382,7 +382,7 @@
 ; Options is a list of zero or more of the following:
 ;   process-group-id: a fixnum, if present and > 0 the new process will be inserted
 ;     into the corresponding process group id - which must already exist.
-(define %cmd-start
+(define %cmd-spawn
   (let ((c-spawn-pid (foreign-procedure "c_spawn_pid"
                         (scheme-object scheme-object scheme-object int) int)))
     (lambda (c . options)
@@ -417,7 +417,7 @@
 ; Options is a list of zero or more of the following:
 ;   process-group-id: a fixnum, if present and > 0 the new subshell will be inserted
 ;     into the corresponding process group id - which must already exist.
-(define %job-start
+(define %job-spawn
   (let ((c-fork-pid (foreign-procedure "c_fork_pid" (scheme-object int) int)))
     (lambda (j . options)
       (assert (procedure? (job-subshell-func j)))
@@ -463,9 +463,9 @@
     (error 'sh-start "job already started" (job-pid j)))
   (cond
     ((sh-cmd? j)
-      (apply %cmd-start j options))
+      (apply %cmd-spawn j options))
     ((procedure? (job-subshell-func j))
-      (apply %job-start j options))
+      (apply %job-spawn j options))
     (#t
       (error 'sh-start "cannot start job, it has bad or missing subshell-func" j)))
   (fd-close-list (job-to-close-fds j))
@@ -790,7 +790,7 @@
 
 
 ; Run a multijob containing a sequence of children jobs optionally followed by & ;
-; Used by (sh-list), implements runtime behavior of shell syntax foo; bar & baz
+; Used by (sh-list) and (sh-subshhell), implements runtime behavior of shell syntax foo; bar & baz
 (define (%multijob-run-list mj)
   ; TODO: check for & among mj and implement them
   (let ((jobs   (multijob-children mj))
@@ -812,7 +812,17 @@
 
 ; Each argument must be a sh-job, possibly followed by a symbol ; &
 (define (sh-list . children-jobs-with-colon-ampersand)
+  ; TODO: do not fork a subshell to run children jobs
   (apply make-multijob 'list
+    (lambda (j) ; validate-job-proc
+      (unless (memq j '(& \x3b;
+                       ))
+        (assert (sh-job? j))))
+    %multijob-run-list children-jobs-with-colon-ampersand))
+
+; Each argument must be a sh-job, possibly followed by a symbol ; &
+(define (sh-subshell . children-jobs-with-colon-ampersand)
+  (apply make-multijob 'subshell
     (lambda (j) ; validate-job-proc
       (unless (memq j '(& \x3b;
                        ))

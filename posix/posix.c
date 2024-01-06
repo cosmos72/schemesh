@@ -580,6 +580,8 @@ static int c_fork_pid(ptr vector_redirect_fds, int existing_pgid_if_positive) {
       exit(255);
     }
     default:
+      fprintf(stdout, "c_fork_pid %d -> %d\n", getpid(), pid);
+      fflush(stdout);
       return pid;
   }
 }
@@ -616,6 +618,9 @@ static int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
     pid = -EINVAL;
     goto out;
   }
+  fprintf(stdout, "c_spawn_pid %s ...\n", argv[0]);
+  fflush(stdout);
+
   pid = fork();
   switch (pid) {
     case -1:

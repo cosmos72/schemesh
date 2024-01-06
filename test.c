@@ -619,7 +619,21 @@ static const struct {
      "  (make-parsectx-from-string \"(foo << bar #!shell baz >> log.txt)\" (parsers))\n"
      "  'scheme))",
      "(foo << bar (shell baz >> log.txt))"},
-    /* ( in the middle of a shell command switches to Scheme parser for a single Scheme form,
+    /* ( inside shell syntax switches to Scheme parser for a single Scheme form,
+     * then continues parsing shell syntax */
+    {"(parse-form*\n"
+     "  (make-parsectx-from-string \"()\" (parsers))\n"
+     "  'shell)",
+     "()"},
+    {"(parse-form*\n"
+     "  (make-parsectx-from-string \"{}\" (parsers))\n"
+     "  'shell)",
+     "(shell-list)"},
+    {"(parse-form*\n"
+     "  (make-parsectx-from-string \"[]\" (parsers))\n"
+     "  'shell)",
+     "(shell-subshell)"},
+    /* ( inside shell syntax switches to Scheme parser for a single Scheme form,
      * then continues parsing shell syntax */
     {"(parse-form-list*\n"
      "  (make-parsectx-from-string \"ls (apply + a `(,@b)) &\" (parsers))\n"

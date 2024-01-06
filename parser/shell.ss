@@ -372,8 +372,8 @@
       (case type
         ; cannot switch to other parser here: just return it and let caller switch
         ((eof parser) value)
-        ((lbrace)
-          ; read a shell list surrounded by {...}
+        ((lbrack lbrace)
+          ; read a shell list surrounded by {...} or [...]
           (parse-shell-list ctx type '()))
         (else
           (parse-shell-impl ctx value type #f)))
@@ -430,9 +430,9 @@
               (parsectx-unread-char ctx value))
             ; parse nested shell list surrounded by `...` or $(...)
             (set! ret (cons (parse-shell-list ctx type '()) ret))))
-        ((lparen lbrack)
+        ((lparen)
           ; switch to Scheme parser for a single form.
-          ; Convenience: if the first word is #\(, omit the initial (shell ...)
+          ; Convenience: if ( is the first token, omit the initial (shell ...)
           ; and set again? to #f. This allows entering Scheme forms from shell syntax
           (when (equal? '(shell) ret)
             (set! ret '())
@@ -443,17 +443,17 @@
                    (get-parser ctx 'scheme 'parse-shell)))
                  (form (other-parse-list ctx type '())))
             (set! ret (if (null? ret) form (cons form ret)))))
-        ((lbrace)
+        ((lbrack lbrace)
           (if (or (null? (cdr ret)) (memq (car ret) '(! && \x7c; \x7c;\x7c;
                                                      )))
-            ; parse nested shell list surrounded by {...}
+            ; parse nested shell list surrounded by {...} or [...]
             (begin
               (set! again? #f)
               (set! ret (cons (parse-shell-list ctx type '()) ret)))
-            ; character { is not allowed in the middle of a shell command
+            ; characters [ { are not allowed in the middle of a shell command
             (syntax-errorf ctx 'parse-shell
-              "misplaced { in the middle of shell command, can only be at the beginning: ~a"
-              (reverse! (cons value ret)))))
+              "misplaced ~a in the middle of shell command, can only be at the beginning: ~a"
+              value (reverse! (cons value ret)))))
         ((rparen rbrack rbrace)
           ; we read one token too much - try to unread it
           (set! again? #f)
@@ -474,7 +474,7 @@
 ; matching the specified begin-type token is found.
 ; Automatically change parser when directive #!... is found.
 ;
-; Return a list containing 'shell-list followed by such forms.
+; Return a list containing 'shell-list 'shell-subshell or 'shell-backquote followed by such forms.
 ; Raise syntax-errorf if mismatched end token is found, as for example ')' instead of '}'
 ;
 (define (parse-shell-list ctx begin-type already-parsed-reverse)
@@ -485,19 +485,22 @@
                  "unimplemented backquote in the middle of non-shell commands, it currently can only be inside shell commands: ~a"
                  (reverse! (cons begin-type already-parsed-reverse))))
              'shell-backquote)
-           (else 'shell-list)))
+           ((lbrack) 'shell-subshell)
+           (else     'shell-list)))
          (ret (if (null? already-parsed-reverse)
                 (cons first-token already-parsed-reverse)
                 already-parsed-reverse))
          (again? #t)
          (reverse? #t)
          (end-type (case begin-type
-                     ((lbrace) 'rbrace) ((lbrack) 'rbrack)
-                     ((backquote) 'backquote) (else 'rparen)))
+                     ((lbrace) 'rbrace)
+                     ((lbrack) 'rbrack)
+                     ((backquote) 'backquote)
+                     (else 'rparen)))
          (check-list-end (lambda (type)
            (unless (eq? type end-type)
              (syntax-errorf ctx 'parse-shell "unexpected token ~a, expecting ~a"
-               paren-type->string type) (paren-type->string end-type)))))
+               (paren-type->string type) (paren-type->string end-type))))))
     (while again?
       (let-values (((value type) (lex-shell ctx)))
         ; (format #t "parse-shell-list ret=~s value=~s type=~s~%" (reverse ret) value type)
@@ -516,7 +519,7 @@
           ((rparen rbrack rbrace)
             (check-list-end type)
             (set! again? #f))
-          ((lbrace)
+          ((lbrace lbrack)
             ; parse nested shell list
             (let ((nested-list (parse-shell-list ctx type '())))
               (set! ret (cons nested-list ret))))
@@ -551,7 +554,7 @@
 (define dollar+lparen 1)
 (define dollar+lbrace 2)
 
-;; Read until one of ( ) { } ' " ` $( ${ is found, and return it.
+;; Read until one of ( ) [ ] { } ' " ` $( ${ is found, and return it.
 ;; ignore them if they are preceded by \
 ;; if $( is found, return value of global constant dollar+lparen
 ;; if ${ is found, return value of global constant dollar+lbrace
@@ -571,11 +574,11 @@
              (set! ret (if (eqv? prev-char #\$) dollar+lbrace ch)))
 
           #| make vscode happy: #\( |#
-          ((#\) #\} #\" #\' #\`) (set! ret ch))
+          ((#\) #\} #\[ #\] #\" #\' #\`) (set! ret ch))
 
           ((#\\)  (parsectx-read-char ctx)) ; consume one character after backslash
 
-          ((#\#)  (parsectx-skip-whitespace ctx #f))
+          ((#\#)  (parsectx-skip-line ctx))
           (else (when (eof-object? ch) (set! ret ch))))
         (set! prev-char ch)))
     ret))
