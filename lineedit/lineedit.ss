@@ -417,11 +417,7 @@
         (bytespan-clear! prompt)
         (let ((err-len (bytevector-length bv-prompt-error)))
           (bytespan-insert-back/bvector! prompt bv-prompt-error 0 err-len)
-          (linectx-prompt-length-set! ctx err-len))))
-    (let ((prompt-length (linectx-prompt-length ctx)))
-      (assert (fx<=? 0 prompt-length (bytespan-length prompt)))
-      (let-values (((y x) (fxdiv-and-mod prompt-length (linectx-width ctx))))
-        (linectx-prompt-end-xy-set! ctx x y)))))
+          (linectx-prompt-length-set! ctx err-len))))))
 
 
 ;; if needed, redraw prompt, lines, cursor and matching parentheses.

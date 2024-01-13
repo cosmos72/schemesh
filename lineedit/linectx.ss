@@ -12,9 +12,9 @@
     linectx-ix     linectx-iy     linectx-ixy  linectx-ixy-set!
     linectx-vx     linectx-vy
     linectx-term-x linectx-term-y linectx-term-xy-set!
-    linectx-stdin linectx-stdin-set! linectx-stdout linectx-stdout-set!
-    linectx-prompt-end-x  linectx-prompt-end-y  linectx-prompt-end-xy-set!
-    linectx-prompt linectx-prompt-length linectx-prompt-length-set! linectx-prompt-func
+    linectx-stdin  linectx-stdin-set! linectx-stdout linectx-stdout-set!
+    linectx-prompt      linectx-prompt-end-x  linectx-prompt-end-y
+    linectx-prompt-func linectx-prompt-length linectx-prompt-length-set!
     linectx-parenmatcher linectx-ktable
     linectx-parens linectx-parens-set!
     linectx-completions linectx-completion-stem linectx-completion-func
@@ -58,7 +58,6 @@
     (mutable parser-name)   ; symbol, name of current parser
     (mutable parsers)       ; #f or hashtable symbol -> parser, table of enabled parsers
     prompt                  ; bytespan, prompt
-    (mutable prompt-length) ; fixnum, prompt draw length
     ; procedure, receives linectx as argument and should update prompt and prompt-length
     (mutable prompt-func)
     parenmatcher
@@ -150,8 +149,10 @@
   (vscreen-prompt-end-x (linectx-vscreen ctx)))
 (define (linectx-prompt-end-y ctx)
   (vscreen-prompt-end-y (linectx-vscreen ctx)))
-(define (linectx-prompt-end-xy-set! ctx x y)
-  (vscreen-prompt-end-xy-set! (linectx-vscreen ctx) x y))
+(define (linectx-prompt-length ctx)
+  (vscreen-prompt-length (linectx-vscreen ctx)))
+(define (linectx-prompt-length-set! ctx prompt-len)
+  (vscreen-prompt-length-set! (linectx-vscreen ctx) prompt-len))
 
 
 
@@ -187,7 +188,7 @@
       0 1 -1 flag-redraw?        ; stdin stdout read-timeout flags
       'shell enabled-parsers     ; parser-name parsers
       (bytespan)                 ; prompt
-      0 prompt-func              ; prompt-length prompt-func
+      prompt-func                ; prompt-func
       parenmatcher #f            ; parenmatcher parens
       (span) (charspan) completion-func ; completions stem completion-func
       linectx-default-keytable   ; keytable

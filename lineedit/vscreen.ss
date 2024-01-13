@@ -12,7 +12,7 @@
     vscreen-dirty?       vscreen-dirty-set!
     vscreen-cursor-ix    vscreen-cursor-iy  vscreen-cursor-ixy  vscreen-cursor-ixy-set!
     vscreen-cursor-vx    vscreen-cursor-vy  vscreen-cursor-vxy  vscreen-cursor-vxy-set!
-    vscreen-prompt-end-x vscreen-prompt-end-y vscreen-prompt-end-xy-set!
+    vscreen-prompt-end-x vscreen-prompt-end-y vscreen-prompt-length  vscreen-prompt-length-set!
     vscreen-length-at-y  vscreen-length
     vscreen-char-at-xy   vscreen-char-before-xy  vscreen-char-after-xy
     vscreen-next-xy      vscreen-prev-xy   vscreen-next-xy/or-self  vscreen-prev-xy/or-self
@@ -96,9 +96,22 @@
 ;; return number of charlines in vscreen
 (define vscreen-length charlines-length)
 
-(define (vscreen-prompt-end-xy-set! screen x y)
-  (vscreen-prompt-end-x-set! screen (fxmax 0 (fxmin x (fx1- (vscreen-width screen)))))
-  (vscreen-prompt-end-y-set! screen (fxmax 0 (fxmin y (fx1- (vscreen-height screen))))))
+;; return prompt length in characters
+(define (vscreen-prompt-length screen)
+  (fx+ (vscreen-prompt-end-x screen)
+       (fx* (vscreen-prompt-end-y screen)
+            (vscreen-width screen))))
+
+;; set prompt length in characters.
+;; also updates vscreen-prompt-end-x and vscreen-prompt-end-y
+(define (vscreen-prompt-length-set! screen prompt-length)
+  (let ((width (vscreen-width screen)))
+    (assert (fx>=? prompt-length 0))
+    (assert (fx>? width 0))
+    (let-values (((y x) (div-and-mod prompt-length width)))
+      (assert (fx<? -1 x width))
+      (vscreen-prompt-end-x-set! screen x)
+      (vscreen-prompt-end-y-set! screen (fxmin y (fx1- (vscreen-height screen)))))))
 
 
 (define (vscreen-dirty-set! screen flag?)
@@ -220,9 +233,18 @@
         (vscreen-dirty-set! screen #t)
         (vscreen-width-set! screen width)
         (vscreen-height-set! screen height)
+        (vscreen-reflow-prompt screen old-width)
         (vscreen-reflow screen)
         (vscreen-cursor-ixy-set! screen 0 0)
         (vscreen-cursor-move/right! screen n)))))
+
+
+;; update prompt-end-x and prompt-end-y after screen resize
+(define (vscreen-reflow-prompt screen old-width)
+  (assert (fx>? old-width 0))
+  (let ((len (fx+ (vscreen-prompt-end-x screen) (fx* old-width (vscreen-prompt-end-y screen)))))
+    (vscreen-prompt-length-set! screen len)))
+
 
 
 ;; remove all existing lines from screen, insert a new empty line, and set cursor to 0 0.
@@ -492,8 +514,8 @@
         (vscreen-dirty-set! screen #t)
         (let* ((line1-nl?  (charline-nl? line1))
                (line1-len  (charline-length line1))
-               (n          (fx- line1-len (vscreen-width-at-y screen y)))
-               (line1-pos  (fx- line1-len n))
+               (line1-pos  (vscreen-width-at-y screen y))
+               (n          (fx- line1-len line1-pos))
                (y+1        (fx1+ y))
                (line2-new? (or line1-nl? (fx=? y+1 (vscreen-length screen))))
                (line2      (if line2-new?
