@@ -548,14 +548,14 @@
     (linectx-draw-char-at-xy ctx (parens-end-x parens)   (parens-end-y parens)   style)))
 
 
-;; if position x y is inside linectx-vscreen, redraw char at x y with specified style.
+;; if position x y is inside current charlines, redraw char at x y with specified style.
 ;; used to highlight/unhighlight parentheses, brackes, braces and quotes.
-;; assumes tty cursor is at term-x term-y, and updates term-x term-y.
+;; assumes tty cursor is at linectx-term-x linectx-term-y, and updates them.
 (define (linectx-draw-char-at-xy ctx x y style)
   (let ((ch    (vscreen-char-at-xy (linectx-vscreen ctx) x y))
         (wbuf  (linectx-wbuf  ctx))
         (vx    (if (fxzero? y) (fx+ x (linectx-prompt-end-x ctx)) x)) ;; also count prompt length!
-        (vy    y))
+        (vy    (fx+ y (linectx-prompt-end-y ctx))))                   ;; also count prompt length!
     ;; (format #t "; linectx-draw-char-at-xy at (~s ~s) char ~s~%" x y ch)
     (when (and ch (char>=? ch #\space))
       (lineterm-move-to ctx vx vy)
