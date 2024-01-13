@@ -583,6 +583,14 @@
         (set! prev-char ch)))
     ret))
 
+#|
+(define pts1 (open-file-output-port
+               "/dev/pts/1"
+               (file-options no-create no-truncate)
+               (buffer-mode none)
+               (make-transcoder (utf-8-codec) (eol-style lf)
+                                (error-handling-mode raise))))
+|#
 
 ;; Read shell forms from textual input port (parsectx-in ctx),
 ;; collecting grouping tokens i.e. ( ) [ ] { } " ' ` and filling paren with them.
@@ -600,14 +608,14 @@
     (assert (char? start-ch)))
   (let* ((paren  (make-parens 'shell start-ch))
          (end-ch (case start-ch ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else start-ch)))
-         (pos    (parsectx-pos ctx))
          (ret    #f)
          (%paren-fill-end! (lambda (paren)
-           (parens-end-x-set! paren (fx1- (car pos)))
-           (parens-end-y-set! paren (cdr pos))
+            (let-values (((x y) (parsectx-previous-pos ctx 1)))
+             (parens-end-xy-set! paren x y))
            (parens-ok?-set! paren #t))))
-    (parens-start-x-set! paren (fx- (car pos) (if start-ch 1 0)))
-    (parens-start-y-set! paren (cdr pos))
+
+    (let-values (((x y) (parsectx-previous-pos ctx (if start-ch 1 0))))
+      (parens-start-xy-set! paren x y))
     (until ret
       (let ((token (scan-shell-parens-or-directive ctx)))
         (cond
@@ -652,8 +660,8 @@
           ((eqv? token #\')       ; found single-quoted string
              (unless (eqv? start-ch #\")
                (let ((inner (make-parens 'shell token)))
-                 (parens-start-x-set! inner (fx- (car pos) 1))
-                 (parens-start-y-set! inner (cdr pos))
+                 (let-values (((x y) (parsectx-previous-pos ctx 1)))
+                   (parens-start-xy-set! inner x y))
                  (when (parsectx-skip-until-char ctx #\')
                    (%paren-fill-end! inner)
                    (parens-inner-append! paren inner)))))

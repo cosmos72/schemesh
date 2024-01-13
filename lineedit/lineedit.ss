@@ -596,7 +596,6 @@
       (let-values (((x y) (linectx-ixy-before-cursor ctx)))
         (let* ((screen  (linectx-vscreen ctx))
                (ch (vscreen-char-at-xy screen x y)))
-          ;; (format #t "(linectx-parens-find) x = ~s, y = ~s, ch = ~s~%" x y ch)
           (when (and ch (is-parens-char? ch))
             ;; protect against exceptions in linectx-completion-func
             (try

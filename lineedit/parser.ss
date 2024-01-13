@@ -9,7 +9,7 @@
 (library (schemesh lineedit parser (0 1))
   (export
     make-parsectx make-parsectx* make-parsectx-from-string parsectx?
-    parsectx-in parsectx-pos parsectx-enabled-parsers
+    parsectx-in parsectx-current-pos parsectx-previous-pos parsectx-enabled-parsers
 
     make-parser parser?
     parser-name parser-parse parser-parse* parser-parse-list parser-parse-parens
@@ -59,12 +59,12 @@
 ;; Find and return the parser corresponding to given parser-name (which must be a symbol)
 ;; in enabled-parsers.
 ;;
-;; Argument ctx must be one of: #f, a parsectx or a hashtable symbol -> parser
+;; Argument pctx must be one of: #f, a parsectx or a hashtable symbol -> parser
 ;;
 ;; Return #f if not found.
-(define (get-parser-or-false ctx parser-name)
+(define (get-parser-or-false pctx parser-name)
   (let ((enabled-parsers
-           (if (parsectx? ctx) (parsectx-enabled-parsers ctx) ctx)))
+           (if (parsectx? pctx) (parsectx-enabled-parsers pctx) pctx)))
     (and enabled-parsers
          (hashtable-ref enabled-parsers parser-name #f))))
 
@@ -72,32 +72,32 @@
 ;; Find and return the parser corresponding to given parser-name (which must be a symbol)
 ;; in enabled-parsers.
 ;;
-;; Argument ctx must be one of: #f, a parsectx or a hashtable symbol -> parser
+;; Argument pctx must be one of: #f, a parsectx or a hashtable symbol -> parser
 ;;
-;; Raise (syntax-errorf ctx who ...) if not found.
-(define (get-parser ctx parser-name who)
-  (let ((parser (get-parser-or-false ctx parser-name)))
+;; Raise (syntax-errorf pctx who ...) if not found.
+(define (get-parser pctx parser-name who)
+  (let ((parser (get-parser-or-false pctx parser-name)))
     (unless parser
-      (syntax-errorf ctx who "no parser found for directive ~a"
+      (syntax-errorf pctx who "no parser found for directive ~a"
         (string-append "#!" (symbol->string parser-name))))
     parser))
 
 
 ;; Convert a parser name to parser:
 ;; if p is a parser, return p
-;; if p is a symbol, return (get-parser ctx p who)
-;; otherwise raise (syntax-errorf ctx who ...)
+;; if p is a symbol, return (get-parser pctx p who)
+;; otherwise raise (syntax-errorf pctx who ...)
 ;;
-;; Argument ctx must be one of: #f, a parsectx or a hashtable name -> parser
-(define (to-parser ctx p who)
+;; Argument pctx must be one of: #f, a parsectx or a hashtable name -> parser
+(define (to-parser pctx p who)
   (if (parser? p)
     p
-    (get-parser ctx p who)))
+    (get-parser pctx p who)))
 
 
 ;; parsectx contains arguments common to most parsing procedures contained in a parser:
 ;;   parsectx-in is the textual input port to read from
-;;   parsectx-pos is a pair (x . y) representing the position in the input port
+;;   parsectx-pos is a pair (x . y) representing the current position in the input port
 ;;   parsectx-enabled-parsers is #f or an hashtable symbol -> parser containing enabled parsers,
 ;;     see (parsers) in parser/parser.ss
 (define-record-type
@@ -107,6 +107,8 @@
     width        ; fixnum, screen width
     prompt-end-x ; fixnum, column where prompt ends
     pos          ; pair (x . y) containing two fixnums: current x and y position in the input port
+    prev-pos     ; pair (x . y) containing two fixnums: previous x and y position in the input port
+    pprev-pos    ; pair (x . y) containing two fixnums: previous previous x and y position in the input port
     enabled-parsers) ; #f or an hashtable symbol -> parser
   (nongenerative #{parsectx ghczmwc88jnt51nkrv9gaocnv-423}))
 
@@ -149,7 +151,7 @@
               (parser (cdr cell)))
           (assert (symbol? name))
           (assert (parser? parser))))))
-  (%make-parsectx in width prompt-end-x (cons x y) enabled-parsers))
+  (%make-parsectx in width prompt-end-x (cons x y) (cons -1 -1) (cons -1 -1) enabled-parsers))
 
 
 ;; create a new parsectx. Arguments are
@@ -162,62 +164,103 @@
     ((str enabled-parsers) (make-parsectx (open-string-input-port str) enabled-parsers))))
 
 
+;; return two values: parsectx current position x and y
+(define (parsectx-current-pos pctx)
+  (let ((pos (parsectx-pos pctx)))
+    (values (car pos) (cdr pos))))
+
+
+;; return two values: parsectx position x - delta and y,
+;; i.e. delta character to the left of current position,
+;; which may wrap around to previous lines.
+;;
+;; Implementation limit: delta must be 0, 1 or 2
+(define (parsectx-previous-pos pctx delta)
+  (let ((pair (case delta
+                ((0) (parsectx-pos pctx))
+                ((1) (parsectx-prev-pos pctx))
+                ((2) (parsectx-pprev-pos pctx))
+                (else (assert (fx<=? 0 delta 2))))))
+    (values (car pair) (cdr pair))))
+
+
+(define (parsectx-width-at-y pctx y)
+  (let ((width (parsectx-width pctx)))
+    (if (fxzero? y)
+      (fx- width (parsectx-prompt-end-x pctx))
+      width)))
+
 ;; update parsectx position (x . y) after reading ch from textual input port
-(define (parsectx-increment-pos ctx ch)
+(define (parsectx-increment-pos pctx ch)
   (when (char? ch) ; do not advance after reading #!eof
-    (let* ((pos (parsectx-pos ctx))
+    (let* ((pos (parsectx-pos pctx))
            (x   (car pos))
            (y   (cdr pos)))
       (cond
         ((or (char=? ch #\newline)
-             (fx>=? (fx+ (fx1+ x) (if (fxzero? y) (parsectx-prompt-end-x ctx) 0))
-                    (parsectx-width ctx)))
+             (fx>=? (fx+ (fx1+ x) (if (fxzero? y) (parsectx-prompt-end-x pctx) 0))
+                    (parsectx-width pctx)))
           ; newline or screen width wraparound -> set x to 0, increment y
+          (parsectx-pos-set! pctx 0 (fx1+ y))
           (set-car! pos 0)
           (set-cdr! pos (fx1+ y)))
         (else
-          ; only increment x
-          (set-car! pos (fx1+ x)))))))
+          (parsectx-pos-set! pctx (fx1+ x) y))))))
+
+
+;; update parsectx position (x . y) after reading a character from textual input port
+(define (parsectx-pos-set! pctx x y)
+  (let ((pos  (parsectx-pos pctx))
+        (prev (parsectx-prev-pos pctx))
+        (pprev (parsectx-prev-pos pctx)))
+    (set-car! pprev (car prev))
+    (set-cdr! pprev (cdr prev))
+    (set-car! prev (car pos))
+    (set-cdr! prev (cdr pos))
+    (set-car! pos x)
+    (set-cdr! pos y)))
 
 
 ;; update parsectx position (x . y) after unreading ch from textual input port
-(define (parsectx-decrement-pos ctx ch)
+(define (parsectx-decrement-pos pctx ch)
   (when (char? ch) ; do not rewind after reading #!eof
-    (let ((pos (parsectx-pos ctx)))
-      (if (char=? ch #\newline)
-        (begin ; newline -> set x to (greatest-fixnum), decrement y
-          (set-car! pos (greatest-fixnum))
-          (set-cdr! pos (fx1- (cdr pos))))
-        ; only decrement x
-        (set-car! pos (fx1- (car pos)))))))
+    (let ((pos  (parsectx-pos pctx))
+          (prev (parsectx-prev-pos pctx))
+          (pprev (parsectx-prev-pos pctx)))
+      (set-car! pos (car prev))
+      (set-cdr! pos (cdr prev))
+      (set-car! prev (car pprev))
+      (set-cdr! prev (cdr pprev))
+      (set-car! pprev -1)
+      (set-cdr! pprev -1))))
 
 
-;; Peek a character from textual input port (parsectx-in ctx)
-(define (parsectx-peek-char ctx)
-  (assert (parsectx? ctx))
-  (peek-char (parsectx-in ctx)))
+;; Peek a character from textual input port (parsectx-in pctx)
+(define (parsectx-peek-char pctx)
+  (assert (parsectx? pctx))
+  (peek-char (parsectx-in pctx)))
 
 
-;; Read a character from textual input port (parsectx-in ctx)
+;; Read a character from textual input port (parsectx-in pctx)
 ;;
-;; also updates (parsectx-pos ctx)
-(define (parsectx-read-char ctx)
-  (assert (parsectx? ctx))
-  (let ((ch (read-char (parsectx-in ctx))))
-    (parsectx-increment-pos ctx ch)
+;; also updates (parsectx-pos pctx)
+(define (parsectx-read-char pctx)
+  (assert (parsectx? pctx))
+  (let ((ch (read-char (parsectx-in pctx))))
+    (parsectx-increment-pos pctx ch)
     ch))
 
 
-;; Try to unread a character from textual input port (parsectx-in ctx)
+;; Try to unread a character from textual input port (parsectx-in pctx)
 ;;
 ;; Raise condition if Chez Scheme (unread-char ch in) fails:
 ;; it will happen ch is different from last character read from input port,
 ;; or if attempting to unread multiple characters without reading them back first.
-(define (parsectx-unread-char ctx ch)
-  (let ((in (parsectx-in ctx)))
+(define (parsectx-unread-char pctx ch)
+  (let ((in (parsectx-in pctx)))
     (unread-char ch in)
     (assert (eqv? ch (peek-char in)))
-    (parsectx-decrement-pos ctx ch)))
+    (parsectx-decrement-pos pctx ch)))
 
 
 ;; return #t if ch is a character and is <= ' '.
@@ -227,37 +270,37 @@
        (or newline-is-whitespace? (not (char=? ch #\newline)))))
 
 
-;; read and discard all initial whitespace in textual input port (parsectx-in ctx)
+;; read and discard all initial whitespace in textual input port (parsectx-in pctx)
 ;; characters are considered whitespace if they are <= ' '
 ;;
-;; also updates (parsectx-pos ctx)
-(define (parsectx-skip-whitespace ctx newline-is-whitespace?)
-  (while (is-whitespace-char? (parsectx-peek-char ctx) newline-is-whitespace?)
-    (parsectx-read-char ctx)))
+;; also updates (parsectx-pos pctx)
+(define (parsectx-skip-whitespace pctx newline-is-whitespace?)
+  (while (is-whitespace-char? (parsectx-peek-char pctx) newline-is-whitespace?)
+    (parsectx-read-char pctx)))
 
 
-;; read and discard all characters in textual input port (parsectx-in ctx)
+;; read and discard all characters in textual input port (parsectx-in pctx)
 ;; until the first occurrence of find-ch, which is discarded too and returned.
 ;;
 ;; if find-ch is found before end-of-file, return #t
 ;; otherwise return #f
 ;;
-;; also updates (parsectx-pos ctx)
-(define (parsectx-skip-until-char ctx find-ch)
+;; also updates (parsectx-pos pctx)
+(define (parsectx-skip-until-char pctx find-ch)
   (let ((ret #f))
     (until ret
-      (let ((ch (parsectx-read-char ctx)))
+      (let ((ch (parsectx-read-char pctx)))
         (when (or (eqv? (eof-object) ch) (eqv? find-ch ch))
           (set! ret ch))))
     (char? ret)))
 
 
-;; read and discard all characters in textual input port (parsectx-in ctx)
+;; read and discard all characters in textual input port (parsectx-in pctx)
 ;; until the first #\newline, which is discarded too
 ;;
-;; also updates (parsectx-pos ctx)
-(define (parsectx-skip-line ctx)
-  (parsectx-skip-until-char ctx #\newline)
+;; also updates (parsectx-pos pctx)
+(define (parsectx-skip-line pctx)
+  (parsectx-skip-until-char pctx #\newline)
   (void))
 
 
@@ -274,44 +317,44 @@
 
 
 
-;; Try to read a parser directive #!... from textual input port (parsectx-in ctx)
+;; Try to read a parser directive #!... from textual input port (parsectx-in pctx)
 ;; Does NOT skip whitespace in input port.
 ;;
 ;; If port's first two characters are a parser directive #!
 ;; then read the symbol after it, and return such symbol.
 ;;
 ;; Otherwise do nothing and return #f i.e. do not consume any character or part of it
-(define (try-read-parser-directive ctx)
+(define (try-read-parser-directive pctx)
   (let ((ret #f))
-    (when (eqv? #\# (parsectx-peek-char ctx))
-      (parsectx-read-char ctx)
-      (if (eqv? #\! (parsectx-peek-char ctx))
+    (when (eqv? #\# (parsectx-peek-char pctx))
+      (parsectx-read-char pctx)
+      (if (eqv? #\! (parsectx-peek-char pctx))
         (let ((csp (charspan)))
           (charspan-reserve-back! csp 10)
-          (parsectx-read-char ctx)
-          (while (is-simple-identifier-char? (parsectx-peek-char ctx))
-            (charspan-insert-back! csp (parsectx-read-char ctx)))
+          (parsectx-read-char pctx)
+          (while (is-simple-identifier-char? (parsectx-peek-char pctx))
+            (charspan-insert-back! csp (parsectx-read-char pctx)))
           (set! ret (string->symbol (charspan->string csp))))
-        (parsectx-unread-char ctx #\#)))
+        (parsectx-unread-char pctx #\#)))
     ret))
 
 
 ;; Raise a condition describing a syntax error
-(define (syntax-errorf ctx who format-string . format-args)
+(define (syntax-errorf pctx who format-string . format-args)
   (raise
-    (if (parsectx? ctx)
+    (if (parsectx? pctx)
       (condition
         (make-lexical-violation)
         (make-i/o-read-error)
         (make-who-condition who)
         (make-format-condition)
-        (make-i/o-port-error (parsectx-in ctx))
+        (make-i/o-port-error (parsectx-in pctx))
         (make-message-condition (string-append format-string " at line ~a, char ~a of ~a"))
         (make-irritants-condition
           (append format-args
-            (list (fx1+ (cdr (parsectx-pos ctx)))
-                  (car (parsectx-pos ctx))
-                  (parsectx-in ctx)))))
+            (list (fx1+ (cdr (parsectx-pos pctx)))
+                  (car (parsectx-pos pctx))
+                  (parsectx-in pctx)))))
       (condition
         (make-lexical-violation)
         (make-i/o-read-error)

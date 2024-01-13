@@ -354,14 +354,14 @@
   (assert (symbol? flavor))
   (let* ((paren  (make-parens flavor start-ch))
          (end-ch (case start-ch ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else #f)))
-         (pos    (parsectx-pos ctx))
          (ret    #f)
          (%paren-fill-end! (lambda (paren)
-           (parens-end-x-set! paren (fx1- (car pos)))
-           (parens-end-y-set! paren (cdr pos))
+           (let-values (((x y) (parsectx-previous-pos ctx 1)))
+             (parens-end-xy-set! paren x y))
            (parens-ok?-set! paren #t))))
-    (parens-start-x-set! paren (fx- (car pos) (if start-ch 1 0)))
-    (parens-start-y-set! paren (cdr pos))
+
+    (let-values (((x y) (parsectx-previous-pos ctx (if start-ch 1 0))))
+      (parens-start-xy-set! paren x y))
     (until ret
       (let ((token (scan-lisp-parens-or-directive ctx)))
         (cond
@@ -399,8 +399,8 @@
              ; found quoted string, quoted symbol or block comment.
              ; create and fill nested parens object
              (let ((inner (make-parens flavor token)))
-               (parens-start-x-set! inner (fx- (car pos) (if (eqv? token #\#) 2 1)))
-               (parens-start-y-set! inner (cdr pos))
+               (let-values (((x y) (parsectx-previous-pos ctx (if (eqv? token #\#) 2 1))))
+                 (parens-start-xy-set! inner x y))
                (when (cond
                        ((eqv? token #\")               ; parse "some string"
                          (skip-lisp-double-quotes ctx))

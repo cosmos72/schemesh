@@ -10,9 +10,9 @@
   (export
     make-parens parens? parens-name parens-token
     parens-ok? parens-ok?-set! parens-recursive-ok?
-    parens-start-x parens-start-x-set! parens-start-y parens-start-y-set!
-    parens-end-x   parens-end-x-set!   parens-end-y   parens-end-y-set!
-    parens-valid?  parens-inner  parens-inner-empty?  parens-inner-append!
+    parens-start-x parens-start-y parens-start-xy-set!
+    parens-end-x   parens-end-y   parens-end-xy-set!
+    parens-valid?  parens-inner   parens-inner-empty?  parens-inner-append!
     parens->values parens->hashtable parens-hashtable-ref
 
     is-parens-char?)
@@ -103,6 +103,14 @@
   (hashtable-set! htable (xy->key (parens-start-x parens) (parens-start-y parens)) parens)
   (hashtable-set! htable (xy->key (parens-end-x parens)   (parens-end-y parens))   parens)
   htable)
+
+(define (parens-start-xy-set! parens x y)
+  (parens-start-x-set! parens x)
+  (parens-start-y-set! parens y))
+
+(define (parens-end-xy-set! parens x y)
+  (parens-end-x-set! parens x)
+  (parens-end-y-set! parens y))
 
 (define (xy->key x y)
   (if (and (fx<=? 0 x 65535) (fx<=? 0 y 65535))

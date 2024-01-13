@@ -26,8 +26,6 @@
 #include <termios.h> /* tcgetattr(), tcsetattr() */
 #include <unistd.h>  /* write() */
 
-#undef SCHEMESH_LIBRARY_FD_DEBUG
-
 #define STR_(arg) #arg
 #define STR(arg) STR_(arg)
 #define STR_EIO STR(EIO)
