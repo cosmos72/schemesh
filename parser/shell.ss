@@ -402,7 +402,7 @@
         (again? #t)
         (reverse? #t))
     (while again?
-      ; (format #t "parse-shell-impl: value = ~s, type = ~s~%" value type)
+      ; (debugf "parse-shell-impl: value = ~s, type = ~s~%" value type)
       (case type
         ((eof)
           (set! again? #f))
@@ -503,7 +503,7 @@
                (paren-type->string type) (paren-type->string end-type))))))
     (while again?
       (let-values (((value type) (lex-shell ctx)))
-        ; (format #t "parse-shell-list ret=~s value=~s type=~s~%" (reverse ret) value type)
+        ; (debugf "parse-shell-list ret=~s value=~s type=~s~%" (reverse ret) value type)
         (case type
           ((eof)
             (if begin-type
@@ -582,15 +582,6 @@
           (else (when (eof-object? ch) (set! ret ch))))
         (set! prev-char ch)))
     ret))
-
-#|
-(define pts1 (open-file-output-port
-               "/dev/pts/1"
-               (file-options no-create no-truncate)
-               (buffer-mode none)
-               (make-transcoder (utf-8-codec) (eol-style lf)
-                                (error-handling-mode raise))))
-|#
 
 ;; Read shell forms from textual input port (parsectx-in ctx),
 ;; collecting grouping tokens i.e. ( ) [ ] { } " ' ` and filling paren with them.

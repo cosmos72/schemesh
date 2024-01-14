@@ -27,7 +27,7 @@
     (make-irritants-condition c-errno)))
 
 (define (raise-errno-condition who c-errno)
-  ; (format #t "raise-errno-condition ~s ~s~%" who c-errno)
+  ; (debugf "raise-errno-condition ~s ~s~%" who c-errno)
   (raise (make-errno-condition who c-errno)))
 
 (define fd-close

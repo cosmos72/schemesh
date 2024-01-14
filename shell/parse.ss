@@ -55,7 +55,7 @@
       (let-values (((parsed tail) (sh-parse-or args)))
         (set! ret (cons parsed ret))
         (set! args tail)
-        ; (format #t "sh-parse          iterate: ret = ~s, args = ~s~%" (reverse ret) args)
+        ; (debugf "sh-parse          iterate: ret = ~s, args = ~s~%" (reverse ret) args)
         (cond
           ((null? args) #f)
           ((not (symbol? (car args)))
@@ -67,7 +67,7 @@
           (#t
             (syntax-violation 'sh-parse "syntax error, unknown shell operator:"
               saved-args (car args))))))
-    ; (format #t "sh-parse           return: ret = ~s, args = ~s~%" (reverse ret) args)
+    ; (debugf "sh-parse           return: ret = ~s, args = ~s~%" (reverse ret) args)
     (cond
       ((null? ret) '(sh-true))
       ((null? (cdr ret)) (car ret))
@@ -87,14 +87,14 @@
       (let-values (((parsed tail) (sh-parse-and args)))
         (set! ret (cons parsed ret))
         (set! args tail))
-      ; (format #t "sh-parse-or iterate: ret = ~s, args = ~s~%" (reverse ret) args)
+      ; (debugf "sh-parse-or iterate: ret = ~s, args = ~s~%" (reverse ret) args)
       (cond
         ((null? args) (set! done? #t))
         ((eqv? (car args) '\x7c;\x7c;)
           (set! args  (cdr args))
           (set! done? (null? args)))
         (#t   (set! done? #t)))) ; unhandled token => exit loop
-    ; (format #t "sh-parse-or  return: ret = ~s, args = ~s~%" (reverse ret) args)
+    ; (debugf "sh-parse-or  return: ret = ~s, args = ~s~%" (reverse ret) args)
     (values
       (cond
         ((null? ret)       ret)
@@ -115,14 +115,14 @@
       (let-values (((parsed tail) (sh-parse-pipe args)))
         (set! ret (cons parsed ret))
         (set! args tail))
-      ; (format #t "sh-parse-and iterate: ret = ~s, args = ~s~%" (reverse ret) args)
+      ; (debugf "sh-parse-and iterate: ret = ~s, args = ~s~%" (reverse ret) args)
       (cond
         ((null? args) (set! done? #t))
         ((eqv? (car args) '&&)
           (set! args  (cdr args))
           (set! done? (null? args)))
         (#t   (set! done? #t)))) ; unhandled token => exit loop
-    ; (format #t "sh-parse-and  return: ret = ~s, args = ~s~%" (reverse ret) args)
+    ; (debugf "sh-parse-and  return: ret = ~s, args = ~s~%" (reverse ret) args)
     (values
       (cond
         ((null? ret)       ret)
@@ -143,7 +143,7 @@
       (let-values (((parsed tail) (sh-parse-cmd args)))
         (set! ret (cons parsed ret))
         (set! args tail))
-      ; (format #t "sh-parse-pipe  iterate: ret = ~s, args = ~s~%" (reverse ret) args)
+      ; (debugf "sh-parse-pipe  iterate: ret = ~s, args = ~s~%" (reverse ret) args)
       (cond
         ((null? args) (set! done? #t))
         ((memq (car args) '(\x7c; \x7c;&
@@ -152,7 +152,7 @@
           (set! args (cdr args))
           (set! done? (null? args)))
         (#t   (set! done? #t)))) ; unhandled token => exit loop
-    ; (format #t "sh-parse-pipe   return: ret = ~s, args = ~s~%" (reverse ret) args)
+    ; (debugf "sh-parse-pipe   return: ret = ~s, args = ~s~%" (reverse ret) args)
     (values
       (cond
         ((null? ret) ret)
@@ -172,7 +172,7 @@
         (redirections? #f)
         (done? (null? args)))
     (until done?
-      ; (format #t "sh-parse-cmd iterate: ret = ~s, args = ~s~%" (reverse ret) args)
+      ; (debugf "sh-parse-cmd iterate: ret = ~s, args = ~s~%" (reverse ret) args)
       (if (null? args)
         (set! done? #t)
         (let ((arg (car args)))
@@ -190,7 +190,7 @@
               (syntax-violation 'sh-parse
                 "syntax error, expecting a string, integer, pair, redirection operator or procedure, found:"
                 saved-args arg))))))
-    ; (format #t "sh-parse-cmd  return: ret = ~s, args = ~s~%" (reverse ret) args)
+    ; (debugf "sh-parse-cmd  return: ret = ~s, args = ~s~%" (reverse ret) args)
     (values
       (cons (if redirections? 'sh-cmd<> 'sh-cmd) (reverse! ret))
       args)))

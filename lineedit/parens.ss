@@ -88,7 +88,7 @@
 
 ;; traverse parens and convert it to a hashtable (+ x (* y 65536)) -> parens
 (define (%parens->hashtable parens htable)
-  ;; (format #t "(%parens->hashtable ~s)~%" parens)
+  ;; (debugf "(%parens->hashtable ~s)~%" parens)
   (when (parens-valid? parens)
     (%hashtable-put-parens htable parens))
   (let ((inner-span (parens-inner parens)))

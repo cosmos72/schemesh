@@ -101,7 +101,7 @@
 ;               ; if kill() returns, will call C function exit(128 + signal_number)
 ;   ... any other value ... ;  will call C function exit(255)
 (define (exit-with-job-status status)
-  ; (format #t "exit-with-job-status ~s~%" status)
+  ; (debugf "exit-with-job-status ~s~%" status)
   (let ((exit-status
          (cond
             ((eq? (void) status) 0)

@@ -7,13 +7,28 @@
 
 (library (schemesh bootstrap)
   (export
-     eval-string repeat while until try list->values values->list
+     debugf eval-string repeat while until try list->values values->list
      define-macro let-macro with-object)
   (import
     (rnrs)
     ; Unlike R6RS (eval obj environment), Chez Scheme's (eval obj)
     ; uses interaction-environment and can modify it
-    (only (chezscheme) eval gensym void))
+    (only (chezscheme) eval format gensym void))
+
+
+(define debugf
+  (let ((pts1 #f))
+    (lambda (format-string . args)
+      (unless pts1
+        (set! pts1 (open-file-output-port
+                     "/dev/pts/1"
+                     (file-options no-create no-truncate)
+                     (buffer-mode none)
+                     (make-transcoder (utf-8-codec) (eol-style lf)
+                                      (error-handling-mode raise)))))
+      (apply format pts1 format-string args)
+      (flush-output-port pts1))))
+
 
 (define (eval-string str)
   (eval (read (open-string-input-port str))))

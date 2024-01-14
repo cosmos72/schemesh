@@ -39,21 +39,13 @@
     (schemesh posix tty)
     (only (schemesh posix signal) signal-consume-sigwinch))
 
-#|
-(define pts1 (open-file-input/output-port
-               "/dev/pts/1"
-               (file-options no-create no-truncate)
-               (buffer-mode none)
-               (make-transcoder (utf-8-codec) (eol-style lf)
-                                (error-handling-mode raise))))
-|#
 
 ;; find one key sequence in linectx-keytable matching rbuf and execute it
 (define (linectx-keytable-call ctx)
   (assert (linectx? ctx))
   (let-values (((proc n) (linectx-keytable-find
                            (linectx-ktable ctx) (linectx-rbuf ctx))))
-    ;; (format #t "; linectx-keytable-call consume ~s chars, call ~s~%" n proc)
+    ;; (debugf "; linectx-keytable-call consume ~s chars, call ~s~%" n proc)
     (cond
       ((procedure? proc) (proc ctx))
       ((hashtable? proc) (set! n 0)) ; incomplete sequence, wait for more keystrokes
@@ -374,7 +366,7 @@
 ;; unconditionally draw prompt. does not update term-x, term-y
 (define (linectx-draw-prompt ctx)
   (let ((prompt (linectx-prompt ctx)))
-    ;; (format #t "linectx-draw-prompt: prompt = ~s~%" prompt)
+    ;; (debugf "linectx-draw-prompt: prompt = ~s~%" prompt)
     (lineterm-write/bspan ctx prompt 0 (bytespan-length prompt))))
 
 ;; unconditionally draw all lines. does not update term-x, term-y
@@ -402,7 +394,7 @@
          (ix (vscreen-length-at-y screen iy))
          (vy (fx+ iy (vscreen-prompt-end-y screen)))
          (vx (fx+ ix (if (fxzero? iy) (vscreen-prompt-end-x screen) 0))))
-    ;; (format #t "; linectx-move-from-end-lines vx = ~s, vy = ~s~%" vx vy)
+    ;; (debugf "; linectx-move-from-end-lines vx = ~s, vy = ~s~%" vx vy)
     (linectx-term-xy-set! ctx vx vy)))
 
 
@@ -473,11 +465,8 @@
                    (xdraw0   (fxmax 0 (fxmin xdirty0 len)))
                    (xdraw1   (fxmax 0 (fxmin xdirty1 len)))
                    (nl       (if (and (charline-nl? line) (fx=? xdraw1 len)) 1 0))) ;; 1 if newline, 0 otherwise
-              #|
-              (format pts1 "; linectx-redraw-dirty i = ~s, len = ~s, width-at-i = ~s, xdirty0 = ~s -> ~s, xdirty1 = ~s -> ~s, nl = ~s~%"
-                           i len width-at-i xdirty0 xdraw0 xdirty1 xdraw1 nl)
-              (flush-output-port pts1)
-              |#
+              ; (debugf "; linectx-redraw-dirty i = ~s, len = ~s, width-at-i = ~s, xdirty0 = ~s -> ~s, xdirty1 = ~s -> ~s, nl = ~s~%"
+              ;         i len width-at-i xdirty0 xdraw0 xdirty1 xdraw1 nl)
               (lineterm-move ctx vx vy (fx+ xdraw0 vxoffset) vi)
               (lineterm-write/cbuffer ctx line xdraw0 (fx- xdraw1 nl)) ;; do not print the newline yet
               ;; clear to end-of-line only when
@@ -501,10 +490,12 @@
     ;; if there is a dirty area below the last line, clear it
     (let ((yn (charlines-length screen)))
       (when (fx>=? ymax yn)
-        (lineterm-move ctx vx vy 0 yn)
-        (set! vx 0)
-        (set! vy yn)
-        (lineterm-clear-to-eos ctx)))
+        (let ((vyn (fx+ prompt-y yn)))
+          ; (debugf "; linectx-redraw-dirty move (~s . ~s) -> (~s . ~s) then clear-to-eos~%" vx vy 0 vyn)
+          (lineterm-move ctx vx vy 0 vyn)
+          (set! vx 0)
+          (set! vy vyn)
+          (lineterm-clear-to-eos ctx))))
 
     ;; mark whole screen as not dirty
     (vscreen-dirty-set! screen #f)
@@ -556,7 +547,7 @@
         (wbuf  (linectx-wbuf  ctx))
         (vx    (if (fxzero? y) (fx+ x (linectx-prompt-end-x ctx)) x)) ;; also count prompt length!
         (vy    (fx+ y (linectx-prompt-end-y ctx))))                   ;; also count prompt length!
-    ;; (format #t "; linectx-draw-char-at-xy at (~s ~s) char ~s~%" x y ch)
+    ;; (debugf "; linectx-draw-char-at-xy at (~s ~s) char ~s~%" x y ch)
     (when (and ch (char>=? ch #\space))
       (lineterm-move-to ctx vx vy)
       (when (eq? 'highlight style)
