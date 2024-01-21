@@ -68,7 +68,7 @@
   ; (debugf "; evaluating: ~s~%" form)
   (try
     (eval
-      (if (and (pair? form) (memq (car form) '(shell shell-list shell-subshell)))
+      (if (and (pair? form) (memq (car form) '(shell shell-subshell)))
         (list 'sh-run form)
         form))
     (catch (cond)

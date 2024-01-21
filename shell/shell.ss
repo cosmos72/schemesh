@@ -10,7 +10,7 @@
   (export
     ; jobs.ss
     sh-job? sh-job-ref sh-job-status sh-jobs sh-cmd sh-cmd<> sh-cmd? sh-multijob sh-multijob?
-    sh-globals sh-global-env sh-env-copy sh-env-ref sh-env-set! sh-env-unset!
+    sh-globals sh-global-env sh-env-copy sh-env sh-env! sh-env-unset!
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0
     sh-cwd sh-consume-sigchld
     sh-start sh-bg sh-fg sh-run sh-run-capture-output sh-wait sh-and sh-or sh-list sh-subshell

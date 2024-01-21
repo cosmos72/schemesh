@@ -15,7 +15,7 @@
 (library (schemesh shell jobs (0 1))
   (export
     sh-job? sh-job-ref sh-job-status sh-jobs sh-cmd sh-cmd<> sh-cmd? sh-multijob sh-multijob?
-    sh-globals sh-global-env sh-env-copy sh-env-ref sh-env-set! sh-env-unset!
+    sh-globals sh-global-env sh-env-copy sh-env sh-env! sh-env-unset!
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0
     sh-cwd sh-consume-sigchld
     sh-start sh-bg sh-fg sh-run sh-run-capture-output sh-wait sh-and sh-or sh-list sh-subshell
@@ -267,7 +267,7 @@
 ; inherited from parent jobs.
 ; If name is not found, return default
 
-(define (sh-env-ref* job-id name default)
+(define (sh-env* job-id name default)
   (job-parents-iterate job-id
     (lambda (j)
       (let* ((vars (job-env j))
@@ -283,12 +283,12 @@
 ; If name is not found in job's direct environment, also search in environment
 ; inherited from parent jobs.
 ; If name is not found, return default if specified - otherwise return ""
-(define sh-env-ref
+(define sh-env
   (case-lambda
-    ((job-id name)         (sh-env-ref* job-id name ""))
-    ((job-id name default) (sh-env-ref* job-id name default))))
+    ((job-id name)         (sh-env* job-id name ""))
+    ((job-id name default) (sh-env* job-id name default))))
 
-(define (sh-env-set! job-id name val)
+(define (sh-env! job-id name val)
   (assert (string? val))
   (let* ((vars (job-direct-env job-id))
          (elem (hashtable-ref vars name #f)))
@@ -319,12 +319,12 @@
   (assert (boolean? exported?))
   (let* ((j (sh-job-ref job-id))
          ; val may be in a parent environment
-         (val (sh-env-ref j name))
+         (val (sh-env j name))
          (export (if exported? 'export 'private)))
     ; (job-direct-env j) creates job environment if not yet present
     (hashtable-set! (job-direct-env j) name (cons export val))))
 
-; combined sh-env-set! and sh-env-export!
+; combined sh-env! and sh-env-export!
 (define (sh-env-set+export! job-id name val exported?)
   (assert (string? val))
   (assert (boolean? exported?))

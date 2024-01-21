@@ -123,8 +123,10 @@ void schemesh_compile_and_load_libraries(void) {
        "    (unless (try-load \"/usr/lib/" LIBSCHEMESH_SO "\")\n"
        "      (unless (try-load \"" LIBSCHEMESH_SO "\")\n"
        "        (compile-file \"libschemesh.ss\" \"libschemesh_debug.so\")\n"
+#ifdef SCHEMESH_OPTIMIZE
        "        (strip-fasl-file \"libschemesh_debug.so\" \"libschemesh.so\"\n"
        "          (fasl-strip-options inspector-source source-annotations profile-source))\n"
+#endif
        "        (load \"" LIBSCHEMESH_SO "\")))))\n");
 }
 

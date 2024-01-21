@@ -33,10 +33,13 @@ fi
 ```
 
 Switching between shell syntax and Lisp syntax is extremely simple, and can be done basically everywhere:
-* open parenthesis `(` or open bracket `[` temporarily switch to Lisp syntax until the corresponding
-  closed parenthesis `)` or closed bracket `]`
+* open parenthesis `(` temporarily switches to Lisp syntax until the corresponding closed parenthesis `)`
 
 * open brace i.e. `{` temporarily switches to shell syntax until the corresponding closed brace i.e. `}`
+
+* open bracked i.e. `[` starts a new sub-form in current syntax until the corresponding closed bracket i.e. `]`
+  If found in Lisp syntax, it is equivalent to `(`
+  If found in shell syntax, it is similar to `{` with the difference that commands will be executed in a subshell.
 
 * the directives `#!scheme` `#!chezscheme` and `#!r6rs` temporarily switch to Lisp syntax
   (with the appropriate flavor) until the end of current list or group inside `( )`, `[ ]` or `{ }`.

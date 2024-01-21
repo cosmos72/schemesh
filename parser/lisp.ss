@@ -17,7 +17,7 @@
        box bytevector fx1+ fx1-
        fxvector fxvector-set! make-fxvector
        read-token reverse!)
-    (only (schemesh bootstrap) while until)
+    (only (schemesh bootstrap) debugf while until)
     (only (schemesh containers misc) reverse*!)
     (schemesh lineedit parens)
     (schemesh lineedit parser))
@@ -161,11 +161,15 @@
            (unless (eq? type end-type)
              (syntax-errorf ctx (caller-for flavor) "unexpected token ~a, expecting ~a"
                (lex-type->string type) (lex-type->string end-type))))))
+    ; (debugf "parse-lisp-list begin-type=~s already-parsed-reverse=~s~%" begin-type already-parsed-reverse)
     (while again?
       (let-values (((value type) (lex-lisp ctx flavor)))
+        ; (debugf "... parse-lisp-list ret=~s value=~s type=~s~%" (reverse ret) value type)
         (case type
           ((eof)
-            (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file"))
+            (if begin-type
+              (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file"))
+              (set! again? #f))
           ((parser)
             ;; switch to other parser until the end of current list
             (let ((other-parse-list (parser-parse-list value)))

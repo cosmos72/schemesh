@@ -205,7 +205,8 @@
   (linectx-ixy-set! ctx (greatest-fixnum) (linectx-iy ctx)))
 
 (define (lineedit-key-break ctx)
-  (linectx-clear! ctx))
+  (linectx-clear! ctx)
+  (linectx-return-set! ctx #t))
 
 ;; delete one character to the right.
 ;; acts as end-of-file if vscreen is empty.

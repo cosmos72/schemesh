@@ -528,27 +528,20 @@ static const struct {
      "(#!eof #f)"},
     {"(parse-shell* (make-parsectx-from-string"
      "  \"{}\"))",
-     "(shell-list)"},
-    {"(let* ((ctx (make-parsectx-from-string \"ls -l>/dev/null&\"))\n"
-     "       (form1 (parse-shell* ctx))\n"
-     "       (form2 (parse-shell* ctx)))\n"
-     "  (list form1 form2))",
-     "((shell ls -l > /dev/null) &)"},
-    {"(parse-shell* (make-parsectx-from-string"
-     "  \"echo  foo  bar|wc -l\"))",
+     "(shell)"},
+    {"(parse-shell* (make-parsectx-from-string \"ls -l>/dev/null&\"))\n",
+     "(shell ls -l > /dev/null &)"},
+    {"(parse-shell* (make-parsectx-from-string \"echo  foo  bar|wc -l\"))",
      "(shell echo foo bar | wc -l)"},
-    {"(parse-shell* (make-parsectx-from-string"
-     "  \"echo  foo  bar|wc -l ; \"))",
-     "(shell echo foo bar | wc -l)"},
-    {"(parse-shell* (make-parsectx-from-string"
-     "  \"{echo  foo  bar|wc -l; ; }\"))", /* redundant semicolons are ignored */
-     "(shell-list (shell echo foo bar | wc -l))"},
-    {"(parse-shell* (make-parsectx-from-string\n"
-     "  \"{echo|{cat;{true}\n}&}\"))",
-     "(shell-list (shell echo | (shell-list (shell cat) (shell-list (shell true)))) &)"},
+    {"(parse-shell* (make-parsectx-from-string \"echo  foo  bar|wc -l ; \"))",
+     "(shell echo foo bar | wc -l ;)"},
+    {"(parse-shell* (make-parsectx-from-string \"{echo  foo  bar|wc -l; ; }\"))",
+     "(shell echo foo bar | wc -l ; ;)"},
+    {"(parse-shell* (make-parsectx-from-string \"{echo|{cat;{true}\n}&}\"))",
+     "(shell echo | (shell cat ; true ;) &)"},
     {"(parse-shell* (make-parsectx-from-string\n"
      "  \"{{{{echo|cat}}}}\"))",
-     "(shell-list (shell-list (shell-list (shell-list (shell echo | cat)))))"},
+     "(shell echo | cat)"},
     {"(parse-shell* (make-parsectx-from-string\n"
      "  \"a<>/dev/null||b>/dev/zero&&!c>&2\"))",
      "(shell a <> /dev/null || b > /dev/zero && ! c >& 2)"},
@@ -565,23 +558,22 @@ static const struct {
      "(shell \"ls\" (shell-concat \"some\" \"file\" \"path\"))"},
     {"(format #f \"~s\" (parse-shell* (make-parsectx-from-string\n"
      "  \"{ls `cmd1 && cmd2 || cmd3 -arg3`}\"))))",
-     "(shell-list (shell \"ls\" (shell-backquote (shell \"cmd1\" && \"cmd2\" \\x7C;\\x7C; "
-     "\"cmd3\" \"-arg3\"))))"},
+     "(shell \"ls\" (shell-backquote \"cmd1\" && \"cmd2\" \\x7C;\\x7C; \"cmd3\" \"-arg3\"))"},
     {"(format #f \"~s\" (parse-shell* (make-parsectx-from-string\n"
      "  \"ls $var1 \\\"$var2\\\" '$var3'\")))",
-     "(shell \"ls\" (shell-env-ref \"var1\") (shell-env-ref \"var2\") \"$var3\")"},
+     "(shell \"ls\" (shell-env \"var1\") (shell-env \"var2\") \"$var3\")"},
     {"(format #f \"~s\" (parse-shell* (make-parsectx-from-string\n"
      "  \"ls ${v 1} \\\"${ v 2 }\\\" '${ v 3 }'\")))",
-     "(shell \"ls\" (shell-env-ref \"v 1\") (shell-env-ref \" v 2 \") \"${ v 3 }\")"},
+     "(shell \"ls\" (shell-env \"v 1\") (shell-env \" v 2 \") \"${ v 3 }\")"},
     {"(format #f \"~s\" (parse-shell* (make-parsectx-from-string\n"
      "  \"ls \\\"$var1\\\"'$var2'$var3\")))",
-     "(shell \"ls\" (shell-concat (shell-env-ref \"var1\") \"$var2\" (shell-env-ref \"var3\")))"},
+     "(shell \"ls\" (shell-concat (shell-env \"var1\") \"$var2\" (shell-env \"var3\")))"},
     {"(format #f \"~s\" (parse-shell* (make-parsectx-from-string\n"
      "  \"ls $(cmd arg $var)\")))",
-     "(shell \"ls\" (shell-backquote (shell \"cmd\" \"arg\" (shell-env-ref \"var\"))))"},
+     "(shell \"ls\" (shell-backquote \"cmd\" \"arg\" (shell-env \"var\")))"},
     {"(format #f \"~s\" (parse-shell* (make-parsectx-from-string\n"
      "  \"ls \\\"$(cmd arg $var)\\\"\")))",
-     "(shell \"ls\" (shell-backquote (shell \"cmd\" \"arg\" (shell-env-ref \"var\"))))"},
+     "(shell \"ls\" (shell-backquote \"cmd\" \"arg\" (shell-env \"var\")))"},
     {"(format #f \"~s\" (parse-shell* (make-parsectx-from-string\n"
      "  \"ls '$(cmd arg $var)'\")))",
      "(shell \"ls\" \"$(cmd arg $var)\")"},
@@ -606,15 +598,15 @@ static const struct {
     {"(values->list (parse-forms\n"
      "  (make-parsectx-from-string \"foo && bar || baz &\" (parsers))\n"
      "  'shell))",
-     "(((shell foo && bar || baz) &) #<parser shell>)"},
+     "(((shell foo && bar || baz &)) #<parser shell>)"},
     {"(parse-form*\n" /* character { switches to shell parser */
      "  (make-parsectx-from-string \"{ls -l >& log.txt}\" (parsers))\n"
      "  'scheme))",
-     "(shell-list (shell ls -l >& log.txt))"},
+     "(shell ls -l >& log.txt)"},
     {"(parse-form*\n" /* directive #!shell switches to shell parser also inside (...) */
      "  (make-parsectx-from-string \"(#!shell ls -al >> log.txt)\" (parsers))\n"
      "  'scheme))",
-     "(shell-list (shell ls -al >> log.txt))"},
+     "(shell ls -al >> log.txt)"},
     {"(parse-form*\n"
      "  (make-parsectx-from-string \"(foo << bar #!shell baz >> log.txt)\" (parsers))\n"
      "  'scheme))",
@@ -628,7 +620,7 @@ static const struct {
     {"(parse-form*\n"
      "  (make-parsectx-from-string \"{}\" (parsers))\n"
      "  'shell)",
-     "(shell-list)"},
+     "(shell)"},
     {"(parse-form*\n"
      "  (make-parsectx-from-string \"[]\" (parsers))\n"
      "  'shell)",
@@ -638,7 +630,7 @@ static const struct {
     {"(parse-form-list*\n"
      "  (make-parsectx-from-string \"ls (apply + a `(,@b)) &\" (parsers))\n"
      "  'shell))",
-     "(shell-list (shell ls (apply + a `(,@b))) &)"},
+     "(shell ls (apply + a `(,@b)) &)"},
     /* ( at the beginning of a shell command switches to Scheme parser,
      * parses a single Scheme form, and omits the initial (shell ...) */
     {"(values->list (parse-shell\n"
@@ -703,9 +695,9 @@ static const struct {
     {"(errno)", "0"},
     /* ------------------------- shell jobs --------------------------------- */
     {"(begin\n"
-     "  (sh-env-set! #t \"foo\" \"bar\")\n"
+     "  (sh-env! #t \"foo\" \"bar\")\n"
      "  (cons\n"
-     "    (sh-env-ref       #t \"foo\")\n"
+     "    (sh-env       #t \"foo\")\n"
      "    (sh-env-exported? #t \"foo\")))",
      "(bar . #f)"},
     {"(sh-cmd \"echo\" \"foo\" \" bar \")", "(sh-cmd \"echo\" \"foo\" \" bar \")"},
@@ -760,7 +752,7 @@ static const struct {
       * (shell-list (shell echo | (shell-list (shell cat) (shell-list (shell true)))))
       */
      INVOKELIB_SHELL_JOBS
-     " (sh-pipe* (sh-cmd echo) '| (sh-cmd (sh-list (sh-cmd cat) (sh-cmd true)))))"},
+     " (sh-pipe* (sh-cmd echo) '| (sh-cmd (sh-list (sh-cmd cat) '; (sh-cmd true)))))"},
     /* ------------------------- repl --------------------------------------- */
     {"(values->list (repl-parse\n"
      "  (make-parsectx-from-string \"(+ 2 3) (values 7 (cons 'a 'b))\" (parsers))\n"
@@ -769,7 +761,7 @@ static const struct {
     {"(values->list (repl-parse\n"
      "  (make-parsectx-from-string \"ls -l | wc -b && echo ok || echo error &\" (parsers))\n"
      "  'shell))\n",
-     "(((shell ls -l | wc -b && echo ok || echo error) &) #<parser shell>)"},
+     "(((shell ls -l | wc -b && echo ok || echo error &)) #<parser shell>)"},
 };
 
 static int run_tests(void) {
