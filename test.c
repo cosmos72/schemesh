@@ -523,12 +523,8 @@ static const struct {
      "  \"(a (b c . d) . e)\"))",
      "(a (b c . d) . e)"},
     /* ------------------------ parser shell -------------------------------- */
-    {"(values->list (parse-shell (make-parsectx-from-string"
-     "  \"\")))",
-     "(#!eof #f)"},
-    {"(parse-shell* (make-parsectx-from-string"
-     "  \"{}\"))",
-     "(shell)"},
+    {"(parse-shell (make-parsectx-from-string \"\")))", "#!eof"},
+    {"(parse-shell* (make-parsectx-from-string \"{}\"))", "(shell)"},
     {"(parse-shell* (make-parsectx-from-string \"ls -l>/dev/null&\"))\n",
      "(shell ls -l > /dev/null &)"},
     {"(parse-shell* (make-parsectx-from-string \"echo  foo  bar|wc -l\"))",
@@ -627,15 +623,15 @@ static const struct {
      "(shell-subshell)"},
     /* ( inside shell syntax switches to Scheme parser for a single Scheme form,
      * then continues parsing shell syntax */
-    {"(parse-form-list*\n"
+    {"(values->list (parse-forms\n"
      "  (make-parsectx-from-string \"ls (apply + a `(,@b)) &\" (parsers))\n"
-     "  'shell))",
-     "(shell ls (apply + a `(,@b)) &)"},
+     "  'shell)))",
+     "(((shell ls (apply + a `(,@b)) &)) #<parser shell>)"},
     /* ( at the beginning of a shell command switches to Scheme parser,
      * parses a single Scheme form, and omits the initial (shell ...) */
-    {"(values->list (parse-shell\n"
-     "  (make-parsectx-from-string \"(+ 1 2) not_parsed_yet\" (parsers))))",
-     "((+ 1 2) #t)"},
+    {"(parse-shell\n"
+     "  (make-parsectx-from-string \"(+ 1 2) not_parsed_yet\" (parsers)))",
+     "(+ 1 2)"},
     /* idem */
     {"(parse-form*\n"
      "  (make-parsectx-from-string \"(+ 1 2) not_parsed_yet\" (parsers))\n"
@@ -648,12 +644,12 @@ static const struct {
     {"(values->list (parse-forms\n" /* directive #!scheme switches to Scheme parser too */
      "  (make-parsectx-from-string \"ls ~; #!scheme (f a b)\" (parsers))\n"
      "  'shell))",
-     "(((shell ls ~) (f a b)) #<parser scheme>)"},
+     "(((shell ls ~ ;) (f a b)) #<parser scheme>)"},
     {"(values->list (parse-forms\n" /* directive #!shell switches to shell parser */
      "  (make-parsectx-from-string \"(+ a b) #!shell ls -al >> log.txt; #!scheme foo bar\""
      "    (parsers))\n"
      "  'scheme))",
-     "(((+ a b) (shell ls -al >> log.txt) foo bar) #<parser scheme>)"},
+     "(((+ a b) (shell ls -al >> log.txt ;) foo bar) #<parser scheme>)"},
     /* ------------------------ parse-parens -------------------------------- */
     {"(parse-parens-from-string \"(foo \\\"a()\\\" \\\"b[]\\\" \\\"c{}\\\" [* |2| 3])\")",
      "#<parens _(\"\" \"\" \"\" [||])_>"},

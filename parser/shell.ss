@@ -12,7 +12,7 @@
     parse-shell parse-shell* parse-shell-list parser-shell)
   (import
     (rnrs)
-    (only (chezscheme) append! fx1+ fx1- inspect reverse! unread-char)
+    (only (chezscheme) append! fx1+ fx1- inspect reverse! unread-char void)
     (only (schemesh bootstrap) debugf until while)
     (schemesh containers charspan)
     (schemesh lineedit parens)
@@ -26,8 +26,8 @@
     (else "???")))
 
 
-; Categorize a single character according to shell syntax.
-; Return the character's type.
+;; Categorize a single character according to shell syntax.
+;; Return the character's type.
 (define (char->type ch)
   (if (eof-object? ch)
     'eof
@@ -50,7 +50,7 @@
       ((#\} ) 'rbrace)
       (else   (if (char<=? ch #\space) 'space 'char)))))
 
-; Convert a character whose type is 'op or 'separator to corresponding symbol
+;; Convert a character whose type is 'op or 'separator to corresponding symbol
 (define (op->symbol ctx ch)
   (case ch
     ((#\newline #\;) '\x3b;)
@@ -63,23 +63,23 @@
             "unexpected operator character, cannot convert to symbol" ch))))
 
 
-; Peek a single character from textual input port 'in',
-; and categorize it according to shell syntax.
-; Return two values: character value (or eof) and its type.
+;; Peek a single character from textual input port 'in',
+;; and categorize it according to shell syntax.
+;; Return two values: character value (or eof) and its type.
 (define (peek-shell-char ctx)
   (let ((ch (parsectx-peek-char ctx)))
     (values ch (char->type ch))))
 
 
-; Read a single character from textual input port 'in',
-; and categorize it according to shell syntax.
-; Return two values: character value (or eof) and its type.
+;; Read a single character from textual input port 'in',
+;; and categorize it according to shell syntax.
+;; Return two values: character value (or eof) and its type.
 (define (read-shell-char ctx)
   (let ((ch (parsectx-read-char ctx)))
     (values ch (char->type ch))))
 
 
-; Read a single character, suppressing any special meaning it may have
+;; Read a single character, suppressing any special meaning it may have
 (define (read-char-after-backslash ctx csp-already-read)
   (let ((ch (parsectx-read-char ctx)))
     (cond
@@ -96,7 +96,7 @@
       (#t ch))))
 
 
-; Read a subword starting with ${
+;; Read a subword starting with ${
 (define (read-subword-dollar-braced ctx)
   (assert (eqv? #\{ (parsectx-read-char ctx)))
   (let ((csp (charspan))
@@ -114,7 +114,7 @@
     (list 'shell-env (charspan->string csp))))
 
 
-; Read an unquoted subword starting with $
+;; Read an unquoted subword starting with $
 (define (read-subword-dollar-unquoted ctx)
   (let ((csp (charspan))
         (again? #t))
@@ -138,7 +138,7 @@
     (list 'shell-env (charspan->string csp))))
 
 
-; Read a subword starting with $
+;; Read a subword starting with $
 (define (read-subword-dollar ctx)
   (assert (eqv? #\$ (parsectx-read-char ctx)))
   (let-values (((ch type) (peek-shell-char ctx)))
@@ -155,8 +155,8 @@
         (read-subword-dollar-unquoted ctx)))))
 
 
-; Read a single-quoted subword, stopping after the matching single quote.
-; Example: 'some text'
+;; Read a single-quoted subword, stopping after the matching single quote.
+;; Example: 'some text'
 (define (read-subword-single-quoted ctx)
   (assert (eqv? #\' (parsectx-read-char ctx)))
   (let ((csp (charspan))
@@ -174,8 +174,8 @@
     (charspan->string csp)))
 
 
-; Read a subword AFTER double quotes, stopping BEFORE the matching double quote.
-; Example: "some text"
+;; Read a subword AFTER double quotes, stopping BEFORE the matching double quote.
+;; Example: "some text"
 (define (read-subword-in-double-quotes ctx)
   (let ((csp (charspan))
         (again? #t))
@@ -198,7 +198,7 @@
     (charspan->string csp)))
 
 
-; Read an unquoted subword: a portion of a word, not inside single or double quotes
+;; Read an unquoted subword: a portion of a word, not inside single or double quotes
 (define (read-subword-noquote ctx)
   (let ((csp (charspan))
         (again? #t))
@@ -226,8 +226,8 @@
     (charspan->string csp)))
 
 
-; Read a word, possibly containing single or double quotes and shell variables,
-; as for example: some$foo' text'"other text ${bar} "
+;; Read a word, possibly containing single or double quotes and shell variables,
+;; as for example: some$foo' text'"other text ${bar} "
 (define (parse-shell-word ctx)
   (let* ((ret '())
          (again? #t)
@@ -360,19 +360,17 @@
   (char<=? #\0 ch #\9))
 
 
-; Repeatedly read from textual input port 'in' using (lex-shell)
-; and construct corresponding shell form.
-; Automatically change parser when directive #!... is found in a nested list.
-;
-; Return two values: parsed form, and #t.
-; If end-of-file is reached, return (eof-object) and #f.
+;; Repeatedly read from textual input port 'in' using (lex-shell)
+;; and construct corresponding shell form.
+;; Automatically change parser when directive #!... is found.
+;;
+;; Return parsed form, or new parser to use, or (eof-object) if end-of-file is reached
 (define (parse-shell ctx)
   (parsectx-skip-whitespace ctx #f) ; don't skip newlines
   (let-values (((value type) (peek-shell-char ctx)))
     (case type
-      ((eof) (values value #f))
       ; cannot switch to other parser here, just return it and let caller switch
-      ((parser) (values value #t))
+      ((eof parser) value)
       ((lparen)
         ; switch to Scheme parser until corresponding )
         (let ((other-parse (parser-parse (get-parser ctx 'scheme 'parse-shell))))
@@ -381,44 +379,60 @@
         ; consume { or [
         (parsectx-read-char ctx)
         ; read a shell list surrounded by {...} or [...]
-        (values (parse-shell-list ctx type '()) #t))
+        (parse-shell-list ctx type '()))
       (else
-        (values (parse-shell-list ctx #f '()) #t)))))
+        ; read a shell form
+        (let-values (((value type) (lex-shell ctx)))
+          (parse-shell-impl ctx value type #f))))))
 
 
-; Repeatedly read shell tokens from textual input port 'in' using (lex-shell)
-; and construct corresponding form.
-; Automatically change parser when directive #!... is found in a nested list.
-;
-; Return parsed form.
-; Raise syntax-errorf if end-of-file is reached before completely reading a form.
+;; Repeatedly read shell tokens from textual input port 'in' using (lex-shell)
+;; and construct corresponding form.
+;; Automatically change parser when directive #!... is found.
+;;
+;; Return parsed form, or new parser to use.
+;;
+;; Raise syntax-errorf if end-of-file is reached before completely reading a form.
 (define (parse-shell* ctx)
-  (let-values (((value ok) (parse-shell ctx)))
-    (unless ok
+  (let ((value (parse-shell ctx)))
+    (when (eof-object? value)
       (syntax-errorf ctx 'parse-shell "unexpected end-of-file"))
-    (when (parser? value)
-      (syntax-errorf ctx 'parse-shell
-        "parser directive #!... can only appear in shell command lists, not in single-command contexts: ~a"
-        (string-append "#!" (symbol->string (parser-name value)))))
     value))
 
-; Common backend of (parse-shell) (parse-shell*) and (parse-shell-list)
-(define (parse-shell% ctx value type is-inside-backquote?)
-  (let ((ret (list 'shell))
-        (again? #t)
-        (reverse? #t))
+
+;; Common backend of (parse-shell) (parse-shell*) and (parse-shell-list)
+;; Does NOT support changing parser when directive #!... is found.
+;;
+;; Return parsed form.
+(define (parse-shell-impl ctx value type is-inside-backquote?)
+  (let* ((ret0 (list 'shell))
+         (ret ret0)
+         (again? #t)
+         (reverse? #t)
+         (%merge (lambda (retlist ret2)
+           (cond
+             ((null? retlist)    ret2)
+             ((eof-object? ret2) retlist) ;; ignore (eof-object)
+             (else (cons ret2 retlist))))))
     (while again?
-      ; (debugf "parse-shell%: value = ~s, type = ~s~%" value type)
+      ; (debugf "parse-shell-impl: value = ~s, type = ~s, ret = ~s~%" value type (if reverse? (reverse ret) ret))
       (case type
         ((eof)
           (set! again? #f))
         ((parser)
-          (syntax-errorf ctx 'parse-shell
-            "parser directive #!... can only appear before or after a shell command, not in the middle of it: ~a"
-            (string-append "#!" (symbol->string (parser-name value)))))
+          (unless (eq? ret ret0)
+            (syntax-errorf ctx 'parse-shell
+              "parser directive #!... can only appear before or after a shell command, not in the middle of it: ~a"
+              (string-append "#!" (symbol->string (parser-name value)))))
+          ; return parser directive #!...
+          (set! ret value)
+          (set! reverse? #f)
+          (set! again? #f))
         ((separator)
-          ; leave separator for next call to (parse-shell) or (parse-shell-list)
-          (parsectx-unread-char ctx (if (eq? '& value) #\& value))
+          ; value can be '& #\newline or #\; consume it and finish
+          (case value
+            ((&)   (set! ret (cons '&     ret)))
+            ((#\;) (set! ret (cons '\x3b; ret))))
           (set! again? #f))
         ((op string integer)
           (set! ret (cons value ret)))
@@ -434,22 +448,21 @@
           ; switch to Scheme parser for a single form.
           ; Convenience: if ( is the first token, omit the initial (shell ...)
           ; and set again? to #f. This allows entering Scheme forms from shell syntax
-          (when (equal? '(shell) ret)
+          (when (eq? ret ret0)
             (set! ret '())
             (set! again? #f)
             ; forms returned by (parser-parse-list) are already reversed
             (set! reverse? #f))
-          (let* ((other-parse-list (parser-parse-list
-                   (get-parser ctx 'scheme 'parse-shell)))
-                 (form (other-parse-list ctx type '())))
-            (set! ret (if (null? ret) form (cons form ret)))))
+          (let ((other-parse-list (parser-parse-list (get-parser ctx 'scheme 'parse-shell))))
+            (let ((other-ret (other-parse-list ctx type '())))
+              (set! ret (%merge ret other-ret)))))
         ((lbrack lbrace)
-          (if (or (null? (cdr ret)) (memq (car ret) '(! && \x7c; \x7c;\x7c;
-                                                     )))
+          (if (or (eq? ret ret0) (memq (car ret) '(! && \x7c; \x7c;\x7c;
+                                                  )))
             ; parse nested shell list surrounded by {...} or [...]
-            (begin
-              (set! again? #f)
-              (set! ret (cons (parse-shell-list ctx type '()) ret)))
+            (let ((other-ret (parse-shell-list ctx type '())))
+              (set! ret (%merge ret other-ret))
+              (set! again? #f))
             ; characters [ { are not allowed in the middle of a shell command
             (syntax-errorf ctx 'parse-shell
               "misplaced ~a in the middle of shell command, can only be at the beginning: ~a"
@@ -486,10 +499,12 @@
                  (reverse! (cons begin-type already-parsed-reverse))))
              'shell-backquote)
            ((lbrack) 'shell-subshell)
-           (else     'shell)))
-         (ret (if (null? already-parsed-reverse)
-                (list first-token)
-                already-parsed-reverse))
+           ((lparen lbrace) 'shell) ; lparen may happen when parsing "(#!shell ...)"
+           (else (syntax-errorf ctx 'parse-shell "unsupported list delimiter type ~a" begin-type))))
+         (ret0 (if (null? already-parsed-reverse)
+                 (list first-token)
+                 already-parsed-reverse))
+         (ret ret0)
          (again? #t)
          (reverse? #t)
          (end-type (case begin-type
@@ -501,34 +516,33 @@
            (unless (eq? type end-type)
              (syntax-errorf ctx 'parse-shell "unexpected token ~a, expecting ~a"
                (paren-type->string type) (paren-type->string end-type)))))
-         (merge% (lambda (form)
-           ; (debugf "parse-shell-list merge ret=~s form=~s~%" (reverse ret) form)
+         (%%merge (lambda (form)
            ; append ; if needed
-           (unless (or (eq? ret already-parsed-reverse)
+           (unless (or (eq? ret ret0)
                        (null? (cdr ret))
                        (memq (car ret) '(& \x3b;
-                                        )))
+                                         )))
              (set! ret (cons '\x3b; ret)))
-           (if (and (not (eq? ret already-parsed-reverse))
-                    (pair? form)
-                    (eq? 'shell (car form))
-                    (not (memq '& form))
-                    (not (memq '\x3b; form)))
-             ; if form is a single shell command, i.e. it starts with 'shell
-             ; and does not contain '& or '\x3b; then flatten it into ret
+           (if (and (pair? form)
+                    (eq? 'shell (car form)))
+             ; if form is a shell command, i.e. it starts with 'shell then flatten it into ret
              (let ((form (reverse! (cdr form))))
                (set! ret (append! form ret)))
-             ; otherwise insert form as nested
+             ; otherwise insert form as nested list
+             (set! ret (cons form ret)))))
+         (%merge (lambda (form)
+           (assert reverse?)
+           ; (debugf "parse-shell-list merge ret=~s form=~s~%" (reverse ret) form)
+           (if (null? already-parsed-reverse)
+             (%%merge form)
              (set! ret (cons form ret))))))
     (while again?
       (let-values (((value type) (lex-shell ctx)))
         ; (debugf "parse-shell-list ret=~s value=~s type=~s~%" (reverse ret) value type)
         (case type
           ((eof)
-            (if begin-type
-              (syntax-errorf ctx 'parse-shell-list "unexpected end-of-file after ~a"
-                (if reverse? (reverse! ret) ret)))
-              (set! again? #f))
+            (syntax-errorf ctx 'parse-shell-list "unexpected end-of-file after ~a"
+              (if reverse? (reverse! ret) ret)))
           ((parser)
             ; switch to other parser until the end of current list
             (let ((other-parse-list (parser-parse-list value)))
@@ -540,7 +554,7 @@
             (set! again? #f))
           ((lbrace lbrack)
             ; parse nested shell list
-            (merge% (parse-shell-list ctx type '())))
+            (%merge (parse-shell-list ctx type '())))
           ((separator)
             ; value can be '& #\newline or #\;
             (let ((value (if (eq? '& value) value '\x3b;)))
@@ -552,7 +566,7 @@
                 (check-list-end type)
                 (set! again? #f))
               ; parse a single shell form and accumulate it into ret
-              (merge% (parse-shell% ctx value type
+              (%merge (parse-shell-impl ctx value type
                              (eq? 'backquote begin-type))))))))
     (if reverse? (reverse! ret) ret)))
 

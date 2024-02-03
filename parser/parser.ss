@@ -24,7 +24,7 @@
     parse-shell parse-shell* parse-shell-list parser-shell
 
     ; parser.ss
-    parse-form parse-form* parse-form-list parse-form-list* parse-forms
+    parse-form parse-form* parse-forms
     parse-parens parse-parens-from-string make-parenmatcher
     parsers)
   (import
@@ -66,34 +66,10 @@
 ;; Return parsed form.
 ;; Raise syntax-errorf if end-of-file is reached before completely reading a form.
 (define (parse-form* pctx initial-parser)
-  (let-values (((value ok) (parse-form pctx initial-parser)))
-    (unless ok
+  (let ((value (parse-form pctx initial-parser)))
+    (when (eof-object? value)
       (syntax-errorf pctx 'parse-form* "unexpected end-of-file"))
     value))
-
-
-;; Parse textual input port until the end of current list, using the parser specified by
-;; initial-parser, and temporarily switching to other parsers if the directive #!...
-;; is found in a (possibly nested) list being parsed.
-;;
-;; Return parsed list.
-;; Raise syntax-errorf if mismatched end token is found, as for example ']' instead of ')'
-(define (parse-form-list pctx begin-type already-parsed-reverse initial-parser)
-  (let ((func (parser-parse-list
-                (to-parser pctx initial-parser 'parse-form-list))))
-    (func pctx begin-type already-parsed-reverse)))
-
-
-;; Parse textual input port until end-of-file, using the parser specified by
-;; initial-parser, and temporarily switching to other parsers if the directive #!...
-;; is found in a (possibly nested) list being parsed.
-;;
-;; Return parsed list.
-;; Raise syntax-errorf if syntax error is found.
-(define (parse-form-list* pctx initial-parser)
-  (let ((func (parser-parse-list
-                (to-parser pctx initial-parser 'parse-form-list))))
-    (func pctx #f '())))
 
 ;; Parse textual input port until eof, using the parser specified by initial-parser,
 ;; and temporarily switching to other parsers every time the directive #!... is found
@@ -107,12 +83,11 @@
         (ret '())
         (again? #t))
     (while again?
-      (let-values (((form ok) (parse-form pctx current-parser)))
-        (if ok
-          (if (parser? form)
-            (set! current-parser form)
-            (set! ret (cons form ret)))
-          (set! again? #f))))
+      (let ((form (parse-form pctx current-parser)))
+        (cond
+          ((eof-object? form) (set! again? #f))
+          ((parser? form)     (set! current-parser form))
+          (else               (set! ret (cons form ret))))))
     (values
       (reverse! ret)
       current-parser)))
