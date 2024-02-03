@@ -657,10 +657,10 @@
                     (parens-inner-append! paren other-parens)
                     (set! ret #t)))))
 
-          ((or (fixnum? token) (memv token '(#\{ #\" #\`)))
-             ;; inside double quotes, ${ is special but plain { isn't.
+          ((or (fixnum? token) (memv token '(#\{ #\[ #\" #\`)))
+             ;; inside double quotes, ${ is special but plain { or [ aren't.
              ;; " inside double quotes is handled above by (eqv? token end-ch)
-             (unless (and (eqv? token #\{) (eqv? start-ch #\"))
+             (unless (and (eqv? start-ch #\") (memv token '(#\{ #\[)))
                ;; recursion: call shell parser on nested list
                (let ((start-inner (cond ((eqv? token dollar+lparen) #\() #|)|#
                                         ((eqv? token dollar+lbrace) #\{)

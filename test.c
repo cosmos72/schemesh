@@ -656,9 +656,9 @@ static const struct {
     {"(parse-parens-from-string \"#\\newline #\\\\( #\\\\) #\\\\[ #\\\\] #\\\\{ #\\\\} #\\\\#\")",
      "#<parens __>"},
     {"(parse-parens-from-string \"#| comment . , \\\\ |#\")", "#<parens _##_>"},
-    /* [] are not special in shell syntax, and `` are not special in lisp syntax */
-    {"(parse-parens-from-string \"{[(``)]}\")", "#<parens _{()}_>"},
-    /* [] are grouping tokens in lisp syntaxm and `` are grouping tokens in shell syntax */
+    /* [] are grouping tokens in shell syntax, and `` are not special in lisp syntax */
+    {"(parse-parens-from-string \"{[(``)]}\")", "#<parens _{[()]}_>"},
+    /* [] are grouping tokens in lisp syntax and `` are grouping tokens in shell syntax */
     {"(parse-parens-from-string \"([{``}])\")", "#<parens _([{``}])_>"},
     /* test $( shell syntax )*/
     {"(parse-parens-from-string \"{$(`{}()`)}\")", "#<parens _{(`{} ()`)}_>"},
