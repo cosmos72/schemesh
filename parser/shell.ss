@@ -409,11 +409,11 @@
          (ret ret0)
          (again? #t)
          (reverse? #t)
-         (%merge (lambda (retlist ret2)
+         (%merge! (lambda (form)
            (cond
-             ((null? retlist)    ret2)
-             ((eof-object? ret2) retlist) ;; ignore (eof-object)
-             (else (cons ret2 retlist))))))
+             ((eof-object? form) #f) ;; ignore (eof-object)
+             ((null? ret)        (set! ret form))
+             (else               (set! ret (cons form ret)))))))
     (while again?
       ; (debugf "parse-shell-impl: value = ~s, type = ~s, ret = ~s~%" value type (if reverse? (reverse ret) ret))
       (case type
@@ -429,10 +429,8 @@
           (set! reverse? #f)
           (set! again? #f))
         ((separator)
-          ; value can be '& #\newline or #\; consume it and finish
-          (case value
-            ((&)   (set! ret (cons '&     ret)))
-            ((#\;) (set! ret (cons '\x3b; ret))))
+          ; value can be '& #\newline or #\;
+          (%merge! (if (eq? value '&) '& '\x3b;))
           (set! again? #f))
         ((op string integer)
           (set! ret (cons value ret)))
@@ -440,10 +438,10 @@
           (if (and is-inside-backquote? (eq? 'backquote type))
             ; we read one token too much - try to unread it
             (begin
-              (set! again? #f)
-              (parsectx-unread-char ctx value))
+              (parsectx-unread-char ctx value)
+              (set! again? #f))
             ; parse nested shell list surrounded by `...` or $(...)
-            (set! ret (cons (parse-shell-list ctx type '()) ret))))
+            (%merge! (parse-shell-list ctx type '()))))
         ((lparen)
           ; switch to Scheme parser for a single form.
           ; Convenience: if ( is the first token, omit the initial (shell ...)
@@ -455,18 +453,19 @@
             (set! reverse? #f))
           (let ((other-parse-list (parser-parse-list (get-parser ctx 'scheme 'parse-shell))))
             (let ((other-ret (other-parse-list ctx type '())))
-              (set! ret (%merge ret other-ret)))))
+              (%merge! other-ret))))
         ((lbrack lbrace)
-          (if (or (eq? ret ret0) (memq (car ret) '(! && \x7c; \x7c;\x7c;
-                                                  )))
-            ; parse nested shell list surrounded by {...} or [...]
-            (let ((other-ret (parse-shell-list ctx type '())))
-              (set! ret (%merge ret other-ret))
-              (set! again? #f))
+          (unless (or (eq? ret ret0)
+                      (null? ret)
+                      (memq (car ret) '(! && \x7c; \x7c;\x7c;
+                                        )))
             ; characters [ { are not allowed in the middle of a shell command
             (syntax-errorf ctx 'parse-shell
-              "misplaced ~a in the middle of shell command, can only be at the beginning: ~a"
-              value (reverse! (cons value ret)))))
+              "grouping token ~a can only appear before or after a shell command, not the middle of it: ~a"
+              value (reverse! (cons value ret))))
+          ; parse nested shell list surrounded by {...} or [...]
+          (%merge! (parse-shell-list ctx type '()))
+          (set! again? #f))
         ((rparen rbrack rbrace)
           ; we read one token too much - try to unread it
           (set! again? #f)
@@ -516,26 +515,26 @@
            (unless (eq? type end-type)
              (syntax-errorf ctx 'parse-shell "unexpected token ~a, expecting ~a"
                (paren-type->string type) (paren-type->string end-type)))))
-         (%%merge (lambda (form)
-           ; append ; if needed
-           (unless (or (eq? ret ret0)
-                       (null? (cdr ret))
-                       (memq (car ret) '(& \x3b;
-                                         )))
-             (set! ret (cons '\x3b; ret)))
-           (if (and (pair? form)
-                    (eq? 'shell (car form)))
-             ; if form is a shell command, i.e. it starts with 'shell then flatten it into ret
-             (let ((form (reverse! (cdr form))))
-               (set! ret (append! form ret)))
-             ; otherwise insert form as nested list
-             (set! ret (cons form ret)))))
-         (%merge (lambda (form)
-           (assert reverse?)
-           ; (debugf "parse-shell-list merge ret=~s form=~s~%" (reverse ret) form)
-           (if (null? already-parsed-reverse)
-             (%%merge form)
-             (set! ret (cons form ret))))))
+         (%merge! (lambda (kind form)
+           ; (debugf "parse-shell-list %merge! ~s ret=~s form=~s~%" kind (reverse ret) form)
+           (if (and (null? already-parsed-reverse)
+                    (pair? form)
+                    (eq? 'shell (car form))
+                    ; By construction, a single-form (shell ...) can only contain & ; as last token
+                    ; and is not parsed from {...} or [...]
+                    ;
+                    ; Instead, a form list (shell ...) may contain & ; anywhere
+                    ; and is parsed from {...} or [...]
+                    ; If it contains & or ; then it cannot be flattened, because it may be followed by &
+                    ; which must be applied to the entire form list.
+                    (or (eq? 'form kind)
+                        (and (not (memq '& form))
+                             (not (memq '\x3b; form)))))
+              ; flatten form into ret
+              (set! ret (append! (reverse! (cdr form)) ret))
+              ; add nested form to ret
+              (set! ret (cons form ret))))))
+
     (while again?
       (let-values (((value type) (lex-shell ctx)))
         ; (debugf "parse-shell-list ret=~s value=~s type=~s~%" (reverse ret) value type)
@@ -554,11 +553,10 @@
             (set! again? #f))
           ((lbrace lbrack)
             ; parse nested shell list
-            (%merge (parse-shell-list ctx type '())))
+            (%merge! 'list (parse-shell-list ctx type '())))
           ((separator)
             ; value can be '& #\newline or #\;
-            (let ((value (if (eq? '& value) value '\x3b;)))
-              (set! ret (cons value ret))))
+            (%merge! 'form (if (eq? '& value) '& '\x3b;)))
           (else
             (if (and (eq? 'backquote begin-type) (eq? 'backquote type))
               ; end of backquote reached
@@ -566,8 +564,8 @@
                 (check-list-end type)
                 (set! again? #f))
               ; parse a single shell form and accumulate it into ret
-              (%merge (parse-shell-impl ctx value type
-                             (eq? 'backquote begin-type))))))))
+              (%merge! 'form (parse-shell-impl ctx value type
+                               (eq? 'backquote begin-type))))))))
     (if reverse? (reverse! ret) ret)))
 
 

@@ -535,6 +535,8 @@ static const struct {
      "(shell echo foo bar | wc -l ; ;)"},
     {"(parse-shell* (make-parsectx-from-string \"{echo|{cat;{true}\n}&}\"))",
      "(shell echo | (shell cat ; true ;) &)"},
+    {"(parse-shell* (make-parsectx-from-string \"{ls; {foo ; bar} & echo}\"))",
+     "(shell ls ; (shell foo ; bar) & echo)"},
     {"(parse-shell* (make-parsectx-from-string\n"
      "  \"{{{{echo|cat}}}}\"))",
      "(shell echo | cat)"},
