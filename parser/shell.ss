@@ -515,21 +515,13 @@
            (unless (eq? type end-type)
              (syntax-errorf ctx 'parse-shell "unexpected token ~a, expecting ~a"
                (paren-type->string type) (paren-type->string end-type)))))
-         (%merge! (lambda (kind form)
-           ; (debugf "parse-shell-list %merge! ~s ret=~s form=~s~%" kind (reverse ret) form)
+         (%merge! (lambda (form)
+           ; (debugf "parse-shell-list %merge! ret=~s form=~s~%" (reverse ret) form)
+           ; By construction, a single-form (shell ...) can only contain & ; as last token
+           ; and is not parsed from {...} or [...]
            (if (and (null? already-parsed-reverse)
                     (pair? form)
-                    (eq? 'shell (car form))
-                    ; By construction, a single-form (shell ...) can only contain & ; as last token
-                    ; and is not parsed from {...} or [...]
-                    ;
-                    ; Instead, a form list (shell ...) may contain & ; anywhere
-                    ; and is parsed from {...} or [...]
-                    ; If it contains & or ; then it cannot be flattened, because it may be followed by &
-                    ; which must be applied to the entire form list.
-                    (or (eq? 'form kind)
-                        (and (not (memq '& form))
-                             (not (memq '\x3b; form)))))
+                    (eq? 'shell (car form)))
               ; flatten form into ret
               (set! ret (append! (reverse! (cdr form)) ret))
               ; add nested form to ret
@@ -553,10 +545,10 @@
             (set! again? #f))
           ((lbrace lbrack)
             ; parse nested shell list
-            (%merge! 'list (parse-shell-list ctx type '())))
+            (set! ret (cons (parse-shell-list ctx type '()) ret)))
           ((separator)
             ; value can be '& #\newline or #\;
-            (%merge! 'form (if (eq? '& value) '& '\x3b;)))
+            (%merge! (if (eq? '& value) '& '\x3b;)))
           (else
             (if (and (eq? 'backquote begin-type) (eq? 'backquote type))
               ; end of backquote reached
@@ -564,8 +556,8 @@
                 (check-list-end type)
                 (set! again? #f))
               ; parse a single shell form and accumulate it into ret
-              (%merge! 'form (parse-shell-impl ctx value type
-                               (eq? 'backquote begin-type))))))))
+              (%merge! (parse-shell-impl ctx value type
+                         (eq? 'backquote begin-type))))))))
     (if reverse? (reverse! ret) ret)))
 
 

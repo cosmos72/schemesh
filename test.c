@@ -534,12 +534,12 @@ static const struct {
     {"(parse-shell* (make-parsectx-from-string \"{echo  foo  bar|wc -l; ; }\"))",
      "(shell echo foo bar | wc -l ; ;)"},
     {"(parse-shell* (make-parsectx-from-string \"{echo|{cat;{true}\n}&}\"))",
-     "(shell echo | (shell cat ; true ;) &)"},
+     "(shell echo | (shell cat ; (shell true) ;) &)"},
     {"(parse-shell* (make-parsectx-from-string \"{ls; {foo ; bar} & echo}\"))",
      "(shell ls ; (shell foo ; bar) & echo)"},
     {"(parse-shell* (make-parsectx-from-string\n"
      "  \"{{{{echo|cat}}}}\"))",
-     "(shell echo | cat)"},
+     "(shell (shell (shell (shell echo | cat))))"},
     {"(parse-shell* (make-parsectx-from-string\n"
      "  \"a<>/dev/null||b>/dev/zero&&!c>&2\"))",
      "(shell a <> /dev/null || b > /dev/zero && ! c >& 2)"},
@@ -738,19 +738,11 @@ static const struct {
      INVOKELIB_SHELL_JOBS " (sh-cmd<> ls -al '>> log.txt))"},
     {"(expand (parse-shell* (make-parsectx-from-string\n"
      "  \"{{{{echo|cat}}}}\")))",
-     /*
-      * parses to
-      * (shell-list (shell-list (shell-list (shell-list (shell echo | cat)))))
-      */
-     INVOKELIB_SHELL_JOBS " (sh-pipe* (sh-cmd echo) '| (sh-cmd cat)))"},
+     INVOKELIB_SHELL_JOBS " (sh-cmd (sh-cmd (sh-cmd (sh-pipe* (sh-cmd echo) '| (sh-cmd cat))))))"},
     {"(expand (parse-shell* (make-parsectx-from-string\n"
      "  \"{echo|{cat;{true}}}\")))",
-     /*
-      * parses to
-      * (shell-list (shell echo | (shell-list (shell cat) (shell-list (shell true)))))
-      */
      INVOKELIB_SHELL_JOBS
-     " (sh-pipe* (sh-cmd echo) '| (sh-cmd (sh-list (sh-cmd cat) '; (sh-cmd true)))))"},
+     " (sh-pipe* (sh-cmd echo) '| (sh-cmd (sh-list (sh-cmd cat) '; (sh-cmd (sh-cmd true))))))"},
     /* ------------------------- repl --------------------------------------- */
     {"(values->list (repl-parse\n"
      "  (make-parsectx-from-string \"(+ 2 3) (values 7 (cons 'a 'b))\" (parsers))\n"
