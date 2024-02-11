@@ -44,15 +44,12 @@
 ;; Return parsed list, which typically consists of Scheme source forms
 ;; that will create sh-cmd or sh-multijob objects if evaluated.
 ;;
-;; Each element in args must be a symbol, string, integer, closure or pair:
+;; Each element in args must be a symbol, string, integer or pair:
 ;; 1. symbols are operators. Recognized symbols are: ; & && || | |& < <> <& > >> >&
 ;; 2. strings stand for themselves. for example (sh-parse '("ls" "-l"))
 ;;    returns the Scheme source form '(sh-cmd "ls" "-l")
 ;; 3. integers are fd numbers, and must be followed by a redirection operator < <> <& > >> >&
-;; 4. closures must accept either no arguments or a single sh-job argument,
-;;    and must return a string or a list of strings.
-;;    TODO: implement support for them.
-;; 5. pairs are not parsed: they are inserted verbatim into returned list.
+;; 4. pairs are not parsed: they are copied verbatim into returned list.
 (define (sh-parse args)
   (let ((saved-args args)
         (ret '()))
@@ -190,7 +187,7 @@
               (set! args (cdr args))
               (set! done? #t)
               (set! prefix #f))
-            ((or (string? arg) (integer? arg) (pair? arg) (procedure? arg) (sh-redirect-operator? arg))
+            ((or (string? arg) (integer? arg) (pair? arg) (sh-redirect-operator? arg))
               (when (sh-redirect-operator? arg)
                 (set! prefix 'sh-cmd<>)
                 ; quote redirection operator (a symbol) to use its name, not its value
@@ -199,7 +196,7 @@
               (set! args (cdr args)))
             (#t
               (syntax-violation 'sh-parse
-                "syntax error, expecting a string, integer, pair, redirection operator or procedure, found:"
+                "syntax error, expecting a string, integer, pair or redirection operator, found:"
                 saved-args arg))))))
     ; (debugf "sh-parse-job  return: ret = ~s, args = ~s~%" (reverse ret) args)
     (values
