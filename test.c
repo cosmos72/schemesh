@@ -597,32 +597,35 @@ static const struct {
      "  (make-parsectx-from-string \"foo && bar || baz &\" (parsers))\n"
      "  'shell))",
      "(((shell foo && bar || baz &)) #<parser shell>)"},
-    {"(parse-form*\n" /* character { switches to shell parser */
+    /* character { switches to shell parser */
+    {"(parse-form*\n"
      "  (make-parsectx-from-string \"{ls -l >& log.txt}\" (parsers))\n"
      "  'scheme))",
      "(shell ls -l >& log.txt)"},
-    {"(parse-form*\n" /* directive #!shell switches to shell parser also inside (...) */
+    /* directive #!shell switches to shell parser also inside (...) */
+    {"(parse-form*\n"
      "  (make-parsectx-from-string \"(#!shell ls -al >> log.txt)\" (parsers))\n"
      "  'scheme))",
      "(shell ls -al >> log.txt)"},
     {"(parse-form*\n"
-     "  (make-parsectx-from-string \"(foo << bar #!shell baz >> log.txt)\" (parsers))\n"
+     "  (make-parsectx-from-string \"(foo << bar #!shell baz >> log.txt; wc -l log.txt)\""
+     " (parsers))\n"
      "  'scheme))",
-     "(foo << bar (shell baz >> log.txt))"},
+     "(foo << bar (shell baz >> log.txt ;) (shell wc -l log.txt))"},
     /* ( inside shell syntax switches to Scheme parser for a single Scheme form,
      * then continues parsing shell syntax */
     {"(parse-form*\n"
-     "  (make-parsectx-from-string \"()\" (parsers))\n"
+     "  (make-parsectx-from-string \"(+ 1 2)\" (parsers))\n"
      "  'shell)",
-     "()"},
+     "(+ 1 2)"},
     {"(parse-form*\n"
-     "  (make-parsectx-from-string \"{}\" (parsers))\n"
+     "  (make-parsectx-from-string \"{foo; bar}\" (parsers))\n"
      "  'shell)",
-     "(shell)"},
+     "(shell foo ; bar)"},
     {"(parse-form*\n"
-     "  (make-parsectx-from-string \"[]\" (parsers))\n"
+     "  (make-parsectx-from-string \"[foo; bar]\" (parsers))\n"
      "  'shell)",
-     "(shell-subshell)"},
+     "(shell-subshell foo ; bar)"},
     /* ( inside shell syntax switches to Scheme parser for a single Scheme form,
      * then continues parsing shell syntax */
     {"(values->list (parse-forms\n"
@@ -738,11 +741,10 @@ static const struct {
      INVOKELIB_SHELL_JOBS " (sh-cmd<> ls -al '>> log.txt))"},
     {"(expand (parse-shell* (make-parsectx-from-string\n"
      "  \"{{{{echo|cat}}}}\")))",
-     INVOKELIB_SHELL_JOBS " (sh-cmd (sh-cmd (sh-cmd (sh-pipe* (sh-cmd echo) '| (sh-cmd cat))))))"},
+     INVOKELIB_SHELL_JOBS " (sh-pipe* (sh-cmd echo) '| (sh-cmd cat)))"},
     {"(expand (parse-shell* (make-parsectx-from-string\n"
      "  \"{echo|{cat;{true}}}\")))",
-     INVOKELIB_SHELL_JOBS
-     " (sh-pipe* (sh-cmd echo) '| (sh-cmd (sh-list (sh-cmd cat) '; (sh-cmd (sh-cmd true))))))"},
+     INVOKELIB_SHELL_JOBS " (sh-pipe* (sh-cmd echo) '| (sh-list (sh-cmd cat) '; (sh-cmd true))))"},
     /* ------------------------- repl --------------------------------------- */
     {"(values->list (repl-parse\n"
      "  (make-parsectx-from-string \"(+ 2 3) (values 7 (cons 'a 'b))\" (parsers))\n"

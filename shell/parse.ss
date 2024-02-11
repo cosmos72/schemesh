@@ -12,42 +12,47 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) eval remq! reverse!)
-    (only (schemesh bootstrap)       until)
+    (only (schemesh bootstrap)       debugf until)
     (only (schemesh containers misc) list-iterate list-quoteq!)
     (only (schemesh containers hashtable) eq-hashtable)
     (schemesh shell jobs))
 
-; Return #t if token is a shell command separator: ; & && || | |&
+;; Return #t if token is a shell command separator: ; & && || | |&
 (define (sh-separator? token)
   (and (symbol? token)
        (memq token '(& && \x3b; \x7c;\x7c; \x7c; \x7c;&
                      ))))
 
-; Return #t if token is a shell redirection operator: < <> <& > >> >&
-; TODO: recognize optional fd number [N] before redirection operator
+;; Return #t if token is a shell redirection operator: < <> <& > >> >&
+;; TODO: recognize optional fd number [N] before redirection operator
 (define (sh-redirect-operator? token)
   (and (symbol? token)
        (memq token '(< <> <& > >> >&))))
 
-; Parse args using shell syntax, and return corresponding sh-cmd or sh-multijob object.
-;
-; Each element in args must be a symbol, string, closure or pair:
-; 1. symbols are operators. Recognized symbols are: ; & && || | |& < <> <& > >> >&
-;    TODO: implement fd number [N] before redirection operator
-; 2. strings stand for themselves. for example (sh "ls" "-l")
-;    is equivalent to (sh-cmd "ls" "-l")
-; 3. integers are fd numbers, and must be followed by a redirection operator < <> <& > >> >&
-; 4. closures must accept a single argument and return a string.
-;    TODO: implement support for them.
-; 5. pairs TBD
+;; Parse args using shell syntax, and return corresponding sh-cmd or sh-multijob object.
+;; Current implementation is (eval (sh-parse args)), which uses (sh-parse)
+;; for converting shell commands to Scheme source forms, then (eval) such forms.
+;;
+;; See (sh-parse) for allowed args.
 (define (sh . args)
-  ; implementation: use sh-parse for converting shell commands to Scheme forms,
+  ; implementation: use (sh-parse) for converting shell commands to Scheme forms,
   ; then (eval) such forms
   (eval (sh-parse args)))
 
 
 ;; Parse list containing a sequence of shell commands separated by ; & && || | |&
-;; Return list containing parsed args.
+;; Return parsed list, which typically consists of Scheme source forms
+;; that will create sh-cmd or sh-multijob objects if evaluated.
+;;
+;; Each element in args must be a symbol, string, integer, closure or pair:
+;; 1. symbols are operators. Recognized symbols are: ; & && || | |& < <> <& > >> >&
+;; 2. strings stand for themselves. for example (sh-parse '("ls" "-l"))
+;;    returns the Scheme source form '(sh-cmd "ls" "-l")
+;; 3. integers are fd numbers, and must be followed by a redirection operator < <> <& > >> >&
+;; 4. closures must accept either no arguments or a single sh-job argument,
+;;    and must return a string or a list of strings.
+;;    TODO: implement support for them.
+;; 5. pairs are not parsed: they are inserted verbatim into returned list.
 (define (sh-parse args)
   (let ((saved-args args)
         (ret '()))
@@ -131,16 +136,16 @@
       args)))
 
 ;
-; Parse list containing a sequence of shell commands separated by | |&
-; Return two values:
-;   A list containing parsed args;
-;   The remaining, unparsed args.
+;; Parse list containing a sequence of shell commands separated by | |&
+;; Return two values:
+;;   A list containing parsed args;
+;;   The remaining, unparsed args.
 ;/
 (define (sh-parse-pipe args)
   (let ((ret '())
         (done? (null? args)))
     (until done?
-      (let-values (((parsed tail) (sh-parse-cmd args)))
+      (let-values (((parsed tail) (sh-parse-job args)))
         (set! ret (cons parsed ret))
         (set! args tail))
       ; (debugf "sh-parse-pipe  iterate: ret = ~s, args = ~s~%" (reverse ret) args)
@@ -161,27 +166,33 @@
                                                       ) ret)))))
       args)))
 
-; Parse args for a single shell command, i.e. everything before the first ; & && || | |&
-; Return two values:
-;   A list containing parsed args;
-;   The remaining, unparsed args.
+;; Parse args for a single shell command, i.e. everything before the first ; & && || | |&
+;; Return two values:
+;;   A list containing parsed args;
+;;   The remaining, unparsed args.
 ;
-(define (sh-parse-cmd args)
+(define (sh-parse-job args)
   (let ((saved-args args)
         (ret '())
-        (redirections? #f)
+        (prefix 'sh-cmd)
         (done? (null? args)))
     (until done?
-      ; (debugf "sh-parse-cmd iterate: ret = ~s, args = ~s~%" (reverse ret) args)
+      ; (debugf "sh-parse-job iterate: ret = ~s, args = ~s~%" (reverse ret) args)
       (if (null? args)
         (set! done? #t)
         (let ((arg (car args)))
           (cond
             ((sh-separator? arg)
               (set! done? #t)) ; separator => exit loop
+            ((and (null? ret) (pair? arg))
+              ; Scheme form at the beginning of a shell command: return it as-is
+              (set! ret arg)
+              (set! args (cdr args))
+              (set! done? #t)
+              (set! prefix #f))
             ((or (string? arg) (integer? arg) (pair? arg) (procedure? arg) (sh-redirect-operator? arg))
               (when (sh-redirect-operator? arg)
-                (set! redirections? #t)
+                (set! prefix 'sh-cmd<>)
                 ; quote redirection operator (a symbol) to use its name, not its value
                 (set! arg (list 'quote arg)))
               (set! ret (cons arg ret))
@@ -190,9 +201,9 @@
               (syntax-violation 'sh-parse
                 "syntax error, expecting a string, integer, pair, redirection operator or procedure, found:"
                 saved-args arg))))))
-    ; (debugf "sh-parse-cmd  return: ret = ~s, args = ~s~%" (reverse ret) args)
+    ; (debugf "sh-parse-job  return: ret = ~s, args = ~s~%" (reverse ret) args)
     (values
-      (cons (if redirections? 'sh-cmd<> 'sh-cmd) (reverse! ret))
+      (if prefix (cons prefix (reverse! ret)) ret)
       args)))
 
 ) ; close library
