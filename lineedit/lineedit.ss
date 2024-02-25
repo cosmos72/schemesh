@@ -285,7 +285,7 @@
     (when func
       ;; protect against exceptions in linectx-completion-func
       (try (func ctx)
-        (catch (cond)
+        (else (condition)
           (span-clear! completions)))
       (when (fx=? 1 (span-length completions))
         (let* ((completion (span-ref completions 0))
@@ -406,7 +406,7 @@
   (let ((prompt (linectx-prompt ctx)))
     (assert (bytespan? prompt))
     (try ((linectx-prompt-func ctx) ctx)
-      (catch (cond)
+      (else (condition)
         (bytespan-clear! prompt)
         (let ((err-len (bytevector-length bv-prompt-error)))
           (bytespan-insert-back/bvector! prompt bv-prompt-error 0 err-len)
@@ -598,10 +598,10 @@
                                              0))
                   (linectx-parser-name ctx)
                   x y))
-              (catch (cond)
+              (else (condition)
                 (let ((port (current-output-port)))
                   (put-string port "\nexception in parenmatcher: ")
-                  (display-condition* cond port)
+                  (display-condition* condition port)
                   (put-char port #\newline))))))))
     ret))
 
@@ -693,17 +693,17 @@
 
 
 ;; invoked when some function called by lineedit-read raises a condition
-(define (%lineedit-error ctx cond)
+(define (%lineedit-error ctx condition)
   ; remove offending input that triggered the condition
   (bytespan-clear! (linectx-rbuf ctx))
   ; display the condition
   (let ((port (current-output-port)))
     (put-string port "\nexception in lineedit-read: ")
-    (display-condition* cond port)
+    (display-condition* condition port)
     (put-char port #\newline))
   (dynamic-wind
     tty-restore!
-    (lambda () (inspect cond))
+    (lambda () (inspect condition))
     tty-setraw!))
 
 
@@ -750,8 +750,8 @@
 (define (lineedit-read ctx timeout-milliseconds)
   (try
     (%lineedit-read ctx timeout-milliseconds)
-    (catch (cond)
-      (%lineedit-error ctx cond)
+    (else (condition)
+      (%lineedit-error ctx condition)
       #t))) ; return "waiting for more keypresses"
 
 (let ((t linectx-default-keytable)

@@ -7,13 +7,15 @@
 
 (library (schemesh bootstrap)
   (export
-     debugf eval-string repeat while until try list->values values->list
-     define-macro let-macro with-object)
+     catch debugf eval-string repeat while until try try* list->values values->list
+     define-macro let-macro)
   (import
     (rnrs)
+    (rnrs base)
+    (rnrs exceptions)
     ; Unlike R6RS (eval obj environment), Chez Scheme's (eval obj)
     ; uses interaction-environment and can modify it
-    (only (chezscheme) eval format gensym void))
+    (only (chezscheme) eval format gensym syntax-error void))
 
 
 (define debugf
@@ -48,15 +50,30 @@
     ((_ pred body ...) (do () (pred) body ...))))
 
 (define-syntax try
-  (syntax-rules (catch)
-    ((_ try-body (catch (cond) handler-form ...))
+  (syntax-rules (else)
+    ((_ try-body (else (exception) catcher-form1 catcher-form2 ...))
       (call/cc
         (lambda (k-exit)
           (with-exception-handler
-            (lambda (cond)
-              (k-exit (begin handler-form ...)))
+            (lambda (exception)
+              (k-exit (begin catcher-form1 catcher-form2 ...)))
             (lambda ()
               try-body)))))))
+
+(define-syntax try*
+  (syntax-rules (catch)
+    ((_ try-body (catch (exception) catcher-form1 catcher-form2 ...))
+      (call/cc
+        (lambda (k-exit)
+          (with-exception-handler
+            (lambda (exception)
+              (k-exit (begin catcher-form1 catcher-form2 ...)))
+            (lambda ()
+              try-body)))))))
+
+;; export aux keyword catch, needed by try
+(define (catch . args)
+  (syntax-error args "catch"))
 
 (define (list->values l)
   (apply values l))
@@ -128,6 +145,7 @@
                    (datum->syntax (syntax l) e))))))))
        form1 form2 ...))))
 
+#|
 ;; redefine obj as a local macro, simplifying repeated calls to verbose functions
 ;; with obj as first argument.
 ;; Usage:
@@ -155,5 +173,6 @@
                        (cons* (string->symbol (string-append (symbol->string ',type) "-" (symbol->string method)))
                               ',sym args))
         ,@body))))
+|#
 
 ) ; close library

@@ -31,7 +31,7 @@
 (define-syntax shell-backquote
   (syntax-rules ()
     ((_)               "")
-    ((_ arg)           (sh-run-capture-output arg))
-    ((_ arg0 arg1 ...) (sh-run-capture-output (sh-list arg0 arg1 ...)))))
+    ((_ arg)           (sh-run/string arg))
+    ((_ arg0 arg1 ...) (sh-run/string (sh-list arg0 arg1 ...)))))
 
 ) ; close library

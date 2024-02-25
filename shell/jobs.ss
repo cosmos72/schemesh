@@ -6,10 +6,10 @@
 ;;; (at your option) any later version.
 
 
-; Define the record types "job" "cmd" "multijob" and functions operating on them.
-; Define the functions (sh-env...) and (sh-fd...)
+;; Define the record types "job" "cmd" "multijob" and functions operating on them.
+;; Define the functions (sh-env...) and (sh-fd...)
 ;
-; Convention: (sh) and (sh-...) are functions
+;; Convention: (sh) and (sh-...) are functions
 ;             (shell) and (shell-...) are macros
 
 (library (schemesh shell jobs (0 1))
@@ -18,7 +18,7 @@
     sh-globals sh-global-env sh-env-copy sh-env sh-env! sh-env-unset!
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0
     sh-cwd sh-consume-sigchld
-    sh-start sh-bg sh-fg sh-run sh-run-capture-output sh-wait sh-and sh-or sh-list sh-subshell
+    sh-start sh-bg sh-fg sh-run sh-run/string sh-wait sh-and sh-or sh-list sh-subshell
     sh-fd-redirect! sh-fds-redirect!)
   (import
     (rnrs)
@@ -32,7 +32,7 @@
     (schemesh posix pid)
     (schemesh posix signal))
 
-; Define the record type "job"
+;; Define the record type "job"
 (define-record-type
   (job %make-job sh-job?)
   (fields
@@ -56,7 +56,7 @@
   (parent job)
   (fields argv)) ; vector of bytevectors, each #\nul terminated
 
-; Define the record type "multijob"
+;; Define the record type "multijob"
 (define-record-type
   (multijob %make-multijob sh-multijob?)
   (parent job)
@@ -66,13 +66,13 @@
     (mutable next-id))) ; fixnum: first available index in span of children jobs
 
 
-; Define the variable sh-globals, contains the global job.
-; Jobs started with (sh-start) will be children of sh-globals.
+;; Define the variable sh-globals, contains the global job.
+;; Jobs started with (sh-start) will be children of sh-globals.
 ;
-; Variable may be set! to a different value in subshells.
+;; Variable may be set! to a different value in subshells.
 (define sh-globals
       ; waiting for sh-globals to exit is not useful:
-; pretend it already exited with unknown exit status
+;; pretend it already exited with unknown exit status
   (%make-multijob (get-pid) (get-pgid 0) '(unknown . 0) (vector 0 1 2) (vector) '()
     #f ; subshell-func
       ;   current directory
@@ -80,26 +80,26 @@
     (make-hashtable string-hash string=?) #f
     'global (span #t) 1)) ; skip job-id 0
 
-; Define the global hashtable pid -> job
+;; Define the global hashtable pid -> job
 (define %table-pid->job (make-eq-hashtable))
 
-; Define function (pid->job) to convert pid to job, return #f if job not found
+;; Define function (pid->job) to convert pid to job, return #f if job not found
 (define (pid->job pid)
   (assert (fixnum? pid))
   (hashtable-ref %table-pid->job pid #f))
 
-; Define function (pid->job-set!) adds entries to the global hashtable pid -> job
+;; Define function (pid->job-set!) adds entries to the global hashtable pid -> job
 (define (pid->job-set! pid job)
   (assert (fixnum? pid))
   (assert (sh-job? job))
   (hashtable-set! %table-pid->job pid job))
 
-; Define function (pid->job-delete!) removes entries from the global hashtable pid -> job
+;; Define function (pid->job-delete!) removes entries from the global hashtable pid -> job
 (define (pid->job-delete! pid)
   (assert (fixnum? pid))
   (hashtable-delete! %table-pid->job pid))
 
-; Define the function (multijob-child-delete!), removes a job-id from a multijob
+;; Define the function (multijob-child-delete!), removes a job-id from a multijob
 (define (multijob-child-delete! globals job-id)
   (let* ((arr (multijob-children globals))
          (job-id
@@ -113,9 +113,9 @@
                               (fxmin job-id (multijob-next-id globals))))))
 
 
-; Define the function (multijob-child-put!), adds a job to a multijob
+;; Define the function (multijob-child-put!), adds a job to a multijob
 ; extending (multijob-span globals) as needed.
-; Return job-id assigned to job.
+;; Return job-id assigned to job.
 (define (multijob-child-put! mjob j)
   (let* ((arr     (multijob-children mjob))
          (len     (span-length arr))
@@ -134,12 +134,12 @@
     job-id))
 
 
-; Define the function (sh-job-ref), converts job-id to job.
-; Job-id can be either a job,
-; or #t which means sh-globals,
-; or a fixnum indicating one of the running jobs stored in (multijob-children sh-globals)
+;; Define the function (sh-job-ref), converts job-id to job.
+;; Job-id can be either a job,
+;; or #t which means sh-globals,
+;; or a fixnum indicating one of the running jobs stored in (multijob-children sh-globals)
 ;
-; Raises error if no job matches job-id.
+;; Raises error if no job matches job-id.
 (define (sh-job-ref job-id)
   (cond
     ((eq? #t job-id) sh-globals)
@@ -154,15 +154,15 @@
     ((sh-job? job-id) job-id)
     (#t (error 'sh-job-ref "not a job-id:" job-id))))
 
-; return charspan containing current directory,
-; or charspan containing current directory of specified job-id.
+;; return charspan containing current directory,
+;; or charspan containing current directory of specified job-id.
 (define sh-cwd
   (case-lambda
     (()       (job-cwd sh-globals))
     ((job-id) (job-cwd (sh-job-ref job-id)))))
 
 
-; Define the function (sh-jobs), returns currently running jobs
+;; Define the function (sh-jobs), returns currently running jobs
 ; as an span of pairs (job-id . job) sorted by job-id
 (define (sh-jobs)
   (let ((src (multijob-children sh-globals))
@@ -174,15 +174,15 @@
     dst))
 
 
-; Define the function (job-parents-iterate), calls (proc j) on given job and each of its
+;; Define the function (job-parents-iterate), calls (proc j) on given job and each of its
 ; parents. Stops iterating if (proc) returns #f.
 (define (job-parents-iterate job-id proc)
   (do ((parent (sh-job-ref job-id) (job-parent parent)))
       ((or (not (sh-job? parent)) (not (proc parent))))))
 
 
-; Define the function (job-parents-list), returns list containing all job's parents,
-; starting from sh-globals, until job itself.
+;; Define the function (job-parents-list), returns list containing all job's parents,
+;; starting from sh-globals, until job itself.
 (define (job-parents-revlist job-id)
   (let ((jlist '()))
     (job-parents-iterate job-id
@@ -191,14 +191,14 @@
     jlist))
 
 
-; Define the function (job-parents-list), returns list containing job
+;; Define the function (job-parents-list), returns list containing job
 ; followed by all its parents.
 (define (job-parents-list job-id)
   (reverse! (job-parents-revlist job-id)))
 
 
-; Create a cmd to later spawn it. Each argument must be a string or bytevector.
-; TODO: also support closures (lambda (job) ...) that return a string or bytevector.
+;; Create a cmd to later spawn it. Each argument must be a string or bytevector.
+;; TODO: also support closures (lambda (job) ...) that return a string or bytevector.
 (define (sh-cmd program . args)
   (%make-cmd -1 -1 '(new . 0) (vector 0 1 2) (vector) '()
     #f         ; subshell-func
@@ -208,21 +208,21 @@
     (list->cmd-argv (cons program args))))
 
 
-; Create a cmd to later spawn it. Each argument must be a string, bytevector or symbol.
-; Each symbols indicates a redirection and must be followed by a string or bytevector.
-; TODO: also support closures (lambda (job) ...) that return a string or bytevector.
+;; Create a cmd to later spawn it. Each argument must be a string, bytevector or symbol.
+;; Each symbols indicates a redirection and must be followed by a string or bytevector.
+;; TODO: also support closures (lambda (job) ...) that return a string or bytevector.
 (define (sh-cmd<> program . args)
-; FIXME: implement redirections: [N]< [N]<> [N]<&M [N]> [N]>> [N]>&M
+;; FIXME: implement redirections: [N]< [N]<> [N]<&M [N]> [N]>> [N]>&M
   (apply sh-cmd program args))
 
-; return global environment variables
+;; return global environment variables
 (define (sh-global-env)
   (job-env sh-globals))
 
 
-; Return direct environment variables of job, creating them if needed.
-; Returned hashtable does not include default variables,
-; i.e. the ones inherited from parent jobs.
+;; Return direct environment variables of job, creating them if needed.
+;; Returned hashtable does not include default variables,
+;; i.e. the ones inherited from parent jobs.
 (define (job-direct-env job-id)
   (let* ((job (sh-job-ref job-id))
          (vars (job-env job)))
@@ -232,11 +232,11 @@
     vars))
 
 
-; Return a copy of job's environment variables,
-; including default variables inherited from parent jobs.
-; Argument which must be one of:
-;   'exported: only exported variables are returned.
-;   'all : unexported variables are returned too.
+;; Return a copy of job's environment variables,
+;; including default variables inherited from parent jobs.
+;; Argument which must be one of:
+;;   'exported: only exported variables are returned.
+;;   'all : unexported variables are returned too.
 (define (sh-env-copy job-id which)
   (assert (memq which '(exported all)))
   (let* ((jlist (job-parents-revlist job-id))
@@ -262,10 +262,10 @@
     vars))
 
 
-; Return string environment variable named "name" of specified job.
-; If name is not found in job's direct environment, also search in environment
+;; Return string environment variable named "name" of specified job.
+;; If name is not found in job's direct environment, also search in environment
 ; inherited from parent jobs.
-; If name is not found, return default
+;; If name is not found, return default
 
 (define (sh-env* job-id name default)
   (job-parents-iterate job-id
@@ -279,10 +279,10 @@
   default)
 
 
-; Return string environment variable named "name" of specified job.
-; If name is not found in job's direct environment, also search in environment
+;; Return string environment variable named "name" of specified job.
+;; If name is not found in job's direct environment, also search in environment
 ; inherited from parent jobs.
-; If name is not found, return default if specified - otherwise return ""
+;; If name is not found, return default if specified - otherwise return ""
 (define sh-env
   (case-lambda
     ((job-id name)         (sh-env* job-id name ""))
@@ -297,8 +297,8 @@
       (hashtable-set! vars name (cons 'private val)))))
 
 
-; Note: (sh-env-unset!) inserts an entry that means "deleted",
-; in order to override any parent job's environment variable
+;; Note: (sh-env-unset!) inserts an entry that means "deleted",
+;; in order to override any parent job's environment variable
 ; with the same name.
 (define (sh-env-unset! job-id name)
   (let ((vars (job-direct-env job-id)))
@@ -324,7 +324,7 @@
     ; (job-direct-env j) creates job environment if not yet present
     (hashtable-set! (job-direct-env j) name (cons export val))))
 
-; combined sh-env! and sh-env-export!
+;; combined sh-env! and sh-env-export!
 (define (sh-env-set+export! job-id name val exported?)
   (assert (string? val))
   (assert (boolean? exported?))
@@ -332,10 +332,10 @@
          (export (if exported? 'export 'private)))
     (hashtable-set! vars name (cons export val))))
 
-; Repeatedly call C function c_environ_ref() and store returned (key . value)
-; environment variables into (sh-global-env).
+;; Repeatedly call C function c_environ_ref() and store returned (key . value)
+;; environment variables into (sh-global-env).
 
-; This function is usually only called once, during initialization of Scheme library
+;; This function is usually only called once, during initialization of Scheme library
 ; (schemesh shell) below.
 (define c-environ->sh-global-env
   (let ((c-environ-ref (foreign-procedure "c_environ_ref" (uptr) scheme-object)))
@@ -344,11 +344,11 @@
            (entry (c-environ-ref 0) (c-environ-ref i)))
           ((not (pair? entry)))
         (sh-env-set+export! sh-globals (car entry) (cdr entry) #t)))))
-; Extract environment variables from specified job and all its parents,
-; and convert them to a vector of bytevector0.
-; Argument which must be one of:
-; 'exported: only exported variables are returned.
-; 'all : unexported variables are returned too.
+;; Extract environment variables from specified job and all its parents,
+;; and convert them to a vector of bytevector0.
+;; Argument which must be one of:
+;; 'exported: only exported variables are returned.
+;; 'all : unexported variables are returned too.
 (define (sh-env->vector-of-bytevector0 job-id which)
   (string-hashtable->vector-of-bytevector0 (sh-env-copy job-id which)))
 
@@ -367,20 +367,20 @@
   (void))
 
 
-; NOTE: this is an internal implementation function, use (sh-start) instead.
-; This function does not update job's status, does not close (job-to-close-fds j)
-; - thus calling it manually leaks file descriptors - and does not register job
+;; NOTE: this is an internal implementation function, use (sh-start) instead.
+;; This function does not update job's status, does not close (job-to-close-fds j)
+;; - thus calling it manually leaks file descriptors - and does not register job
 ; into global (pid->job) table nor into global job-id table.
 ;
-; Description:
-; Start a cmd i.e. fork() and exec() an external process, optionally inserting it into
+;; Description:
+;; Start a cmd i.e. fork() and exec() an external process, optionally inserting it into
 ; an existing process group.
 
-; The new process is started in background, i.e. the foreground process group is NOT set
+;; The new process is started in background, i.e. the foreground process group is NOT set
 ; to the process group of the newly created process.
 
-; Options is a list of zero or more of the following:
-;   process-group-id: a fixnum, if present and > 0 the new process will be inserted
+;; Options is a list of zero or more of the following:
+;;   process-group-id: a fixnum, if present and > 0 the new process will be inserted
 ;     into the corresponding process group id - which must already exist.
 (define %cmd-spawn
   (let ((c-spawn-pid (foreign-procedure "c_spawn_pid"
@@ -399,23 +399,23 @@
         (job-pgid-set! c (if (> process-group-id 0) process-group-id ret))))))
 
 
-; NOTE: this is an internal implementation function, use (sh-start) instead.
-; This function does not update job's status, does not close (job-to-close-fds j)
-; - thus calling it manually leaks file descriptors - and does not register job
+;; NOTE: this is an internal implementation function, use (sh-start) instead.
+;; This function does not update job's status, does not close (job-to-close-fds j)
+;; - thus calling it manually leaks file descriptors - and does not register job
 ; into global (pid->job) table nor into global job-id table.
 ;
-; Description:
-; Start a generic job, optionally inserting it into an existing process group.
+;; Description:
+;; Start a generic job, optionally inserting it into an existing process group.
 ;
-; Forks a new subshell process in background, i.e. the foreground process group is NOT set
+;; Forks a new subshell process in background, i.e. the foreground process group is NOT set
 ; to the process group of the newly created process.
 ;
-; The subshell process will execute the Scheme function (job-subshell-func j)
-; passing the job j as only argument,
-; then will call (exit-with-job-status) with the value returned by (job-subshell-func j)
+;; The subshell process will execute the Scheme function (job-subshell-func j)
+;; passing the job j as only argument,
+;; then will call (exit-with-job-status) with the value returned by (job-subshell-func j)
 ;
-; Options is a list of zero or more of the following:
-;   process-group-id: a fixnum, if present and > 0 the new subshell will be inserted
+;; Options is a list of zero or more of the following:
+;;   process-group-id: a fixnum, if present and > 0 the new subshell will be inserted
 ;     into the corresponding process group id - which must already exist.
 (define %job-spawn
   (let ((c-fork-pid (foreign-procedure "c_fork_pid" (scheme-object int) int)))
@@ -447,16 +447,16 @@
             (job-pid-set! j ret)
             (job-pgid-set! j (if (> process-group-id 0) process-group-id ret))))))))
 
-; Return #t if job was already started, otherwise return #f
+;; Return #t if job was already started, otherwise return #f
 (define (job-started? j)
   (and (fx>=? (job-pid j) 0) (fx>=? (job-pgid j) 0)))
 
-; Start a cmd or a job.
-; If job parent is sh-globals, return job-id assigned to job.
-; Otherwise return (void).
+;; Start a cmd or a job.
+;; If job parent is sh-globals, return job-id assigned to job.
+;; Otherwise return (void).
 ;
-; Options is a list of zero or more of the following:
-;   process-group-id: a fixnum, if present and > 0 the new process will be inserted
+;; Options is a list of zero or more of the following:
+;;   process-group-id: a fixnum, if present and > 0 the new process will be inserted
 ;     into the corresponding process group id - which must already exist.
 (define (sh-start j . options)
   (when (fx>=? (job-pid j) 0)
@@ -476,20 +476,20 @@
     (void)))
 
 
-; Convert pid-wait-result to a symbolic job-status:
+;; Convert pid-wait-result to a symbolic job-status:
 ;
-; If pid-wait-result is a pair (pid . exit-status) where exit-status is:
-;   not a fixnum, or < 0 => return (cons 'unknown exit-status)
-;   0                    => return (void)
-;   1..255               => return (cons 'exited  exit-status)
-;   256 + kill_signal    => return (cons 'killed  signal-name)
-;   512 + stop_signal    => return (cons 'stopped signal-name)
-;   >= 768               => return (cons 'unknown (fx- exit-status 768))
+;; If pid-wait-result is a pair (pid . exit-status) where exit-status is:
+;;   not a fixnum, or < 0 => return (cons 'unknown exit-status)
+;;   0                    => return (void)
+;;   1..255               => return (cons 'exited  exit-status)
+;;   256 + kill_signal    => return (cons 'killed  signal-name)
+;;   512 + stop_signal    => return (cons 'stopped signal-name)
+;;   >= 768               => return (cons 'unknown (fx- exit-status 768))
 ;
-; If pid-wait-result is '() i.e. process status did not change,
-; return '(running . 0) indicating process is still running.
+;; If pid-wait-result is '() i.e. process status did not change,
+;; return '(running . 0) indicating process is still running.
 ;
-; Otherwise return (cons 'unknown pid-wait-result)
+;; Otherwise return (cons 'unknown pid-wait-result)
 (define (pid-wait->job-status pid-wait-result)
   (cond
     ((pair? pid-wait-result)
@@ -506,10 +506,10 @@
       (cons 'unknown pid-wait-result))))
 
 
-; Return #t if job-status is a pair whose car is in allowed-list,
-; otherwise return #f;
+;; Return #t if job-status is a pair whose car is in allowed-list,
+;; otherwise return #f;
 ;
-; if job-status is (void) and allowed-list also contains 'exited
+;; if job-status is (void) and allowed-list also contains 'exited
 ; then return #t because (void) is a shortcut for '(exited . 0)
 (define (job-status-member? job-status allowed-list)
   (cond ((eq? (void) job-status) (memq 'exited allowed-list))
@@ -517,18 +517,18 @@
         (#t #f)))
 
 
-; Wait for a cmd or job to exit or stop and return its status, which can be one of:
-;   (cons 'running ...)   ; may happen only if may-block is 'nonblocking
+;; Wait for a cmd or job to exit or stop and return its status, which can be one of:
+;;   (cons 'running ...)   ; may happen only if may-block is 'nonblocking
 ;   (void)                ; if process exited with exit-status = 0
 ;   (cons 'exited  exit-status)
-;   (cons 'killed  signal-name)
-;   (cons 'stopped signal-name)
-;   (cons 'unknown ...)
+;;   (cons 'killed  signal-name)
+;;   (cons 'stopped signal-name)
+;;   (cons 'unknown ...)
 ;
-; Argument may-block must be one of: 'blocking 'nonblocking
+;; Argument may-block must be one of: 'blocking 'nonblocking
 ;
-; Warning: does not set the job as foreground process group,
-; consider calling (sh-fg j) instead.
+;; Warning: does not set the job as foreground process group,
+;; consider calling (sh-fg j) instead.
 (define (job-wait j may-block)
   (assert (memq may-block '(blocking nonblocking)))
   (cond
@@ -553,39 +553,39 @@
         status))))
 
 
-; Return up-to-date status of a job or job-id, which can be one of:
-;   (cons 'new     0)
-;   (cons 'running 0)
-;   (void)                      ; if process exited with exit-status = 0
+;; Return up-to-date status of a job or job-id, which can be one of:
+;;   (cons 'new     0)
+;;   (cons 'running 0)
+;;   (void)                      ; if process exited with exit-status = 0
 ;   (cons 'exited  exit-status)
-;   (cons 'killed  signal-name)
-;   (cons 'stopped signal-name)
-;   (cons 'unknown ...)
+;;   (cons 'killed  signal-name)
+;;   (cons 'stopped signal-name)
+;;   (cons 'unknown ...)
 ;
-; Note: this function also non-blocking checks if job status changed.
+;; Note: this function also non-blocking checks if job status changed.
 (define (sh-job-status job-id)
   (let ((j (sh-job-ref job-id)))
     (when (job-status-member? (job-last-status j) '(running))
-;    nonblocking wait for job's pid to exit or stop.
-;     TODO: wait for ALL pids in process group?
+;;    nonblocking wait for job's pid to exit or stop.
+;;     TODO: wait for ALL pids in process group?
       (job-wait j 'nonblocking))
     (job-last-status j)))
 
 
-; Continue a job or job-id in background by sending SIGCONT to it.
-; Return job status, which can be one of:
+;; Continue a job or job-id in background by sending SIGCONT to it.
+;; Return job status, which can be one of:
 ;
-;   (cons 'running 0)
-;   (void)                      ; if process exited with exit-status = 0
+;;   (cons 'running 0)
+;;   (void)                      ; if process exited with exit-status = 0
 ;   (cons 'exited  exit-status)
-;   (cons 'killed  signal-name)
-;   (cons 'stopped signal-name)
-;   (cons 'unknown ...)
+;;   (cons 'killed  signal-name)
+;;   (cons 'stopped signal-name)
+;;   (cons 'unknown ...)
 (define (sh-bg job-id)
   (let ((j (sh-job-ref job-id)))
     (cond
 ;    if job already exited, return its exit status.
-;     if job is stopped, consider as running: we'll send SIGCONT to it below
+;;     if job is stopped, consider as running: we'll send SIGCONT to it below
       ((job-status-member? (job-last-status j) '(exited killed unknown))
         (job-last-status j))
       ((not (job-started? j))
@@ -593,23 +593,23 @@
       (#t
 ;      send SIGCONT to job's process group. may raise error
         (pid-kill (fx- (job-pgid j)) 'sigcont)
-;      nonblocking wait for job's pid to exit or stop.
-;       TODO: wait for ALL pids in process group?
+;;      nonblocking wait for job's pid to exit or stop.
+;;       TODO: wait for ALL pids in process group?
         (job-wait j 'nonblocking)))))
 
 
-; Continue a job or job-id by sending SIGCONT to it, wait for it to exit or stop,
-; and finally return its status, which can be one of:
+;; Continue a job or job-id by sending SIGCONT to it, wait for it to exit or stop,
+;; and finally return its status, which can be one of:
 ;
-;   (void)                      ; if process exited with exit-status = 0
+;;   (void)                      ; if process exited with exit-status = 0
 ;   (cons 'exited  exit-status)
-;   (cons 'killed  signal-name)
-;   (cons 'stopped signal-name)
-;   (cons 'unknown ...)
+;;   (cons 'killed  signal-name)
+;;   (cons 'stopped signal-name)
+;;   (cons 'unknown ...)
 ;
-; Note: if this process is in the fg process group,
-;   upon invocation, sets the job as fg process group.
-;   And before returning, restores this process as fg process group.
+;; Note: if this process is in the fg process group,
+;;   upon invocation, sets the job as fg process group.
+;;   And before returning, restores this process as fg process group.
 (define sh-fg
   (let ((c-pgid-foreground (foreign-procedure "c_pgid_foreground" (int int) int)))
     (lambda (job-id)
@@ -618,7 +618,7 @@
              (global-pgid (job-pgid sh-globals)))
         (cond
 ;        if job already exited, return its exit status.
-;         if job is stopped, consider as running: we'll send SIGCONT to it below
+;;         if job is stopped, consider as running: we'll send SIGCONT to it below
           ((job-status-member? (job-last-status j) '(exited killed unknown))
             (job-last-status j))
           ((not (job-started? j))
@@ -633,27 +633,27 @@
               (lambda () ; body
 ;              send SIGCONT to job's process group. may raise error
                 (pid-kill (fx- (job-pgid j)) 'sigcont)
-;              blocking wait for job's pid to exit or stop.
-;               TODO: wait for ALL pids in process group?
+;;              blocking wait for job's pid to exit or stop.
+;;               TODO: wait for ALL pids in process group?
                 (job-wait j 'blocking))
       ;             run after body, even if it raised a condition:
-;             try to restore sh-globals as the foreground process group
+;;             try to restore sh-globals as the foreground process group
               (lambda ()
                 (c-pgid-foreground j-pgid global-pgid)))))))))
 
 
-; Wait for a job or job-id to exit. Does NOT send SIGCONT to it in case it's already stopped,
-; and does NOT return if the job gets stopped.
-; Return job status, which can be one of:
+;; Wait for a job or job-id to exit. Does NOT send SIGCONT to it in case it's already stopped,
+;; and does NOT return if the job gets stopped.
+;; Return job status, which can be one of:
 ;
-;   (void)                      ; if process exited with exit-status = 0
+;;   (void)                      ; if process exited with exit-status = 0
 ;   (cons 'exited  exit-status)
-;   (cons 'killed  signal-name)
-;   (cons 'unknown ...)
+;;   (cons 'killed  signal-name)
+;;   (cons 'unknown ...)
 ;
-; Note: if this process is in the fg process group,
-;   upon invocation, sets the job as fg process group.
-;   And before returning, restores this process as fg process group.
+;; Note: if this process is in the fg process group,
+;;   upon invocation, sets the job as fg process group.
+;;   And before returning, restores this process as fg process group.
 (define sh-wait
   (let ((c-pgid-foreground (foreign-procedure "c_pgid_foreground" (int int) int)))
     (lambda (job-id)
@@ -676,7 +676,7 @@
               void       ; run before body
               (lambda () ; body
       ;               blocking wait for job's pid to exit.
-;              TODO: wait for ALL pids in process group?
+;;              TODO: wait for ALL pids in process group?
                 (do ((status #f (job-wait j 'blocking)))
                     ((job-status-member? status '(exited killed unknown)) status)))
       ;             run after body, even if it raised a condition:
@@ -685,14 +685,14 @@
                 (c-pgid-foreground j-pgid global-pgid)))))))))
 
 
-; Start a job and wait for it to exit or stop.
-; Options are the same as (sh-start)
-; Return job status, possible values are the same as (sh-fg)
+;; Start a job and wait for it to exit or stop.
+;; Options are the same as (sh-start)
+;; Return job status, possible values are the same as (sh-fg)
 (define (sh-run j . options)
   (apply sh-start j options)
   (sh-fg j))
 
-; Create or remove a file description redirection for cmd or job
+;; Create or remove a file description redirection for cmd or job
 (define (sh-fd-redirect! job-id child-fd existing-fd-or-minus-1)
   (when (or (not (fixnum? child-fd)) (< child-fd 0))
     (error 'job-redirect! "invalid redirect fd" child-fd))
@@ -708,15 +708,15 @@
         (job-to-redirect-fds-set! j new-fds)))
     (vector-set! (job-to-redirect-fds j) child-fd existing-fd-or-minus-1)))
 
-; Create or remove multiple file description redirections for cmd or job
+;; Create or remove multiple file description redirections for cmd or job
 (define (sh-fds-redirect! j child-fds existing-fd-or-minus-1)
   (do ((child-cons child-fds (cdr child-cons)))
       ((eq? '() child-cons))
     (sh-fd-redirect! j (car child-cons) existing-fd-or-minus-1)))
 
 
-; convert job-status to 8-bit exit status suitable for C function exit().
-; if job-status is (void) return 0
+;; convert job-status to 8-bit exit status suitable for C function exit().
+;; if job-status is (void) return 0
 ; if job-status is '(exited . n) return n
 ; if job-status is '(killed . signal_name) return 128 + signal_number
 ; otherwise return 255
@@ -734,8 +734,8 @@
     (#t 255)))     ; job-status is not (void) nor a cons
 
 
-; Create a multijob to later start it.
-; Internal function, accepts an optional function to validate each element in children-jobs
+;; Create a multijob to later start it.
+;; Internal function, accepts an optional function to validate each element in children-jobs
 
 (define (make-multijob kind validate-job-proc subshell-func . children-jobs)
   (assert (symbol? kind))
@@ -754,13 +754,13 @@
 (define (assert-is-job j)
   (assert (sh-job? j)))
 
-; Create a multijob to later start it. Each argument must be a sh-job or subtype.
+;; Create a multijob to later start it. Each argument must be a sh-job or subtype.
 (define (sh-multijob kind subshell-func . children-jobs)
   (apply make-multijob kind assert-is-job subshell-func children-jobs))
 
 
-; Run a multijob containing an "and" of children jobs.
-; Used by (sh-and), implements runtime behavior of shell syntax foo && bar && baz
+;; Run a multijob containing an "and" of children jobs.
+;; Used by (sh-and), implements runtime behavior of shell syntax foo && bar && baz
 
 (define (%multijob-run-and mj)
   (let ((jobs   (multijob-children mj))
@@ -774,9 +774,8 @@
     status))
 
 
-; Run a multijob containing an "or" of children jobs.
-; Used by (sh-and), implements runtime behavior of shell syntax foo || bar || baz
-
+;; Run a multijob containing an "or" of children jobs.
+;; Used by (sh-and), implements runtime behavior of shell syntax foo || bar || baz
 (define (%multijob-run-or mj)
   (let ((jobs   (multijob-children mj))
         (pgid   (job-pgid mj))
@@ -789,9 +788,10 @@
     status))
 
 
-; Run a multijob containing a sequence of children jobs optionally followed by & ;
-; Used by (sh-list) and (sh-subshhell), implements runtime behavior of shell syntax foo; bar & baz
+;; Run a multijob containing a sequence of children jobs optionally followed by & ;
+;; Used by (sh-list) and (sh-subshhell), implements runtime behavior of shell syntax foo; bar & baz
 (define (%multijob-run-list mj)
+  ; TODO: check for ; among mj and ignore them
   ; TODO: check for & among mj and implement them
   (let ((jobs   (multijob-children mj))
         (pgid   (job-pgid mj))
@@ -810,7 +810,7 @@
   (apply make-multijob 'or  assert-is-job %multijob-run-or  children-jobs))
 
 
-; Each argument must be a sh-job, possibly followed by a symbol ; &
+;; Each argument must be a sh-job, possibly followed by a symbol ; &
 (define (sh-list . children-jobs-with-colon-ampersand)
   ; TODO: do not fork a subshell to run children jobs
   (apply make-multijob 'list
@@ -820,7 +820,7 @@
         (assert (sh-job? j))))
     %multijob-run-list children-jobs-with-colon-ampersand))
 
-; Each argument must be a sh-job, possibly followed by a symbol ; &
+;; Each argument must be a sh-job, possibly followed by a symbol ; &
 (define (sh-subshell . children-jobs-with-colon-ampersand)
   (apply make-multijob 'subshell
     (lambda (j) ; validate-job-proc
@@ -829,18 +829,18 @@
         (assert (sh-job? j))))
     %multijob-run-list children-jobs-with-colon-ampersand))
 
-(define (sh-run-capture-output job)
-  ; TODO: implement (sh-run-capture-output)
+(define (sh-run/string job)
+  ; TODO: implement (sh-run/string)
   "")
 
-; customize how "job" objects are printed
+;; customize how "job" objects are printed
 (record-writer (record-type-descriptor job)
   (lambda (obj port writer)
     (display "(sh-job " port)
     (writer (job-subshell-func obj) port)
     (display ")" port)))
 
-; customize how "cmd" objects are printed
+;; customize how "cmd" objects are printed
 (record-writer (record-type-descriptor cmd)
   (lambda (obj port writer)
     (display "(sh-cmd" port)
@@ -850,7 +850,7 @@
          (write-bytevector0 arg port)))
     (display ")" port)))
 
-; customize how "multijob" objects are printed
+;; customize how "multijob" objects are printed
 (record-writer (record-type-descriptor multijob)
   (lambda (obj port writer)
     (display "(sh-" port)

@@ -30,6 +30,7 @@ static const struct {
      "  (repeat 5 (set! x (fx1+ x)))\n"
      "  x)",
      "5"},
+    {"(try 1 (else (condition) 2))", "1"},
     {"(values->list (values 1 2 3))", "(1 2 3)"},
     {"(let-macro ((plus . args) `(+ ,@args))\n"
      "  (plus 3 4 5))",
@@ -37,10 +38,6 @@ static const struct {
     {"(let-macro ((plus arg0 . args) `(+ ,arg0 ,@args))\n"
      "  (plus 3 4 5))",
      "12"},
-    {"(let ((str \"foo\"))\n"
-     "  (with-object str string\n"
-     "    (str append \"bar\")))", /* expands to (string-append str "bar") */
-     "foobar"},
     /* ----------------- containers/misc ------------------------------------ */
     {"(subvector '#(aa bb cc dd) 1 3)", "#(bb cc)"},
     {"(subbytevector #vu8(44 55 66 77) 2 3)", "B"},

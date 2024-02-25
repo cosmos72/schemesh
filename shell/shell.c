@@ -108,7 +108,7 @@ void schemesh_compile_and_load_libraries(void) {
        "    (call/cc\n"
        "      (lambda (k-exit)\n"
        "        (with-exception-handler\n"
-       "          (lambda (cond)\n"
+       "          (lambda (condition)\n"
        "            (k-exit #f))\n"
        "          (lambda ()\n"
 #ifdef SCHEMESH_OPTIMIZE

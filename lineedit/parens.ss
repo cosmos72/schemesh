@@ -145,8 +145,8 @@
                 (display #\space port))
               (show-parens inner port)))))
       (display (close-token-for token) port))
-    (catch (cond)
-      (display cond port))))
+    (else (condition)
+      (display condition port))))
 
 
 (define (close-token-for token)

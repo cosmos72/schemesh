@@ -71,9 +71,9 @@
       (if (and (pair? form) (memq (car form) '(shell shell-subshell)))
         (list 'sh-run form)
         form))
-    (catch (cond)
-      ; (debugf "repl-eval handling condition ~s~%" cond)
-      ((base-exception-handler) cond))))
+    (else (condition)
+      ; (debugf "repl-eval handling condition ~s~%" condition)
+      ((base-exception-handler) condition))))
 
 ;
 ; Execute with (eval-func form) each form in list of forms containing parsed expressions
