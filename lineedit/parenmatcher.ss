@@ -11,7 +11,8 @@
     parenmatcher-parens parenmatcher-maybe-update! parenmatcher-find-match)
   (import
     (rnrs)
-    (only (chezscheme) record-writer)
+    (only (chezscheme)         record-writer)
+    (only (schemesh bootstrap) assert*)
     (schemesh lineedit parens))
 
 ;; type parenmatcher contains bookkeeping information,
@@ -36,7 +37,7 @@
 ;; which will be stored in parenmatcher-parens
 ;; to avoid calling update-func multiple times on the same input.
 (define (make-custom-parenmatcher update-func)
-  (assert (procedure? update-func))
+  (assert* (procedure? update-func))
   (%make-parenmatcher update-func #f #f))
 
 

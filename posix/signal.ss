@@ -12,6 +12,7 @@
   (import
     (rnrs)
     (only (chezscheme) foreign-procedure)
+    (only (schemesh bootstrap)    assert*)
     (only (schemesh containers hashtable) eq-hashtable hashtable-transpose))
 
 (define signal-table-number->name
@@ -46,7 +47,7 @@
 (define signal-init-sigwinch
   (let ((c-signal-init-sigwinch (foreign-procedure "c_sigwinch_init" () int)))
     (lambda ()
-      (assert (fxzero? (c-signal-init-sigwinch))))))
+      (assert* (fxzero? (c-signal-init-sigwinch))))))
 
 (define signal-restore-sigwinch (foreign-procedure "c_sigwinch_restore" () int))
 

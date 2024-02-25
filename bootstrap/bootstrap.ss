@@ -7,7 +7,7 @@
 
 (library (schemesh bootstrap)
   (export
-     catch debugf eval-string repeat while until try try* list->values values->list
+     assert* catch debugf eval-string repeat while until try list->values values->list
      define-macro let-macro)
   (import
     (rnrs)
@@ -49,18 +49,43 @@
     ((_ pred)          (do () (pred)))
     ((_ pred body ...) (do () (pred) body ...))))
 
-(define-syntax try
-  (syntax-rules (else)
-    ((_ try-body (else (exception) catcher-form1 catcher-form2 ...))
-      (call/cc
-        (lambda (k-exit)
-          (with-exception-handler
-            (lambda (exception)
-              (k-exit (begin catcher-form1 catcher-form2 ...)))
-            (lambda ()
-              try-body)))))))
+;; alternative implementation of (assert (proc arg ...))
+;; requires proc to be a procedure, NOT a syntax or macro
+(define-syntax assert*
+  (lambda (x)
+    (let ((msg (lambda () (format #f "failed assertion ~s" (cadr (syntax->datum x))))))
+      (syntax-case x ()
+        ((_ (proc))
+          #`(let ((tproc proc))
+              (or (tproc)
+                  (assertion-violation #f #,(msg) tproc targ1))))
+        ((_ (proc arg1))
+          #`(let ((tproc proc)
+                  (targ1 arg1))
+              (or (tproc targ1)
+                  (assertion-violation #f #,(msg) tproc targ1))))
+        ((_ (proc arg1 arg2))
+          #`(let ((tproc proc)
+                  (targ1 arg1)
+                  (targ2 arg2))
+              (or (tproc targ1 targ2)
+                  (assertion-violation #f #,(msg) tproc targ1 targ2))))
+        ((_ (proc arg1 arg2 arg3))
+          #`(let ((tproc proc)
+                  (targ1 arg1)
+                  (targ2 arg2)
+                  (targ3 arg3))
+              (or (tproc targ1 targ2 targ3)
+                  (assertion-violation #f #,(msg) tproc targ1 targ2 targ3))))
+        ((_ (proc arg ...))
+          #`(let ((tproc proc)
+                  (targs (list arg ...)))
+              (or (apply tproc targs)
+                  (apply assertion-violation #f #,(msg) tproc targs))))
+        ((_ expr)
+          #`(or expr (assertion-violation #f #,(msg))))))))
 
-(define-syntax try*
+(define-syntax try
   (syntax-rules (catch)
     ((_ try-body (catch (exception) catcher-form1 catcher-form2 ...))
       (call/cc
@@ -69,11 +94,15 @@
             (lambda (exception)
               (k-exit (begin catcher-form1 catcher-form2 ...)))
             (lambda ()
-              try-body)))))))
+              try-body)))))
+    ((_ bad-form ...)
+      (syntax-violation "" "invalid syntax, expecting (try EXPR (catch (IDENT) ...)) in"
+        (list 'try (quote bad-form) ...)))))
 
 ;; export aux keyword catch, needed by try
-(define (catch . args)
-  (syntax-error args "catch"))
+(define-syntax catch
+  (lambda (arg)
+    (syntax-violation "" "misplaced auxiliary keyword" arg)))
 
 (define (list->values l)
   (apply values l))

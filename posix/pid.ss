@@ -11,10 +11,11 @@
   (import
     (rnrs)
     (only (chezscheme) foreign-procedure void)
+    (only (schemesh bootstrap)    assert*)
     (schemesh posix fd)
-    (only (schemesh conversions) list->cmd-argv)
+    (only (schemesh conversions)  list->cmd-argv)
     (only (schemesh posix signal) signal-name->number signal-raise)
-    (only (schemesh posix misc) c-exit))
+    (only (schemesh posix misc)   c-exit))
 
 ; (get-pid) returns pid of current process
 (define get-pid
@@ -89,7 +90,7 @@
 (define pid-wait
   (let ((c-pid-wait (foreign-procedure "c_pid_wait" (int int) scheme-object)))
     (lambda (pid may-block)
-      (assert (memq may-block '(blocking nonblocking)))
+      (assert* (memq may-block '(blocking nonblocking)))
       (c-pid-wait pid (if (eq? may-block 'blocking) 1 0)))))
 
 

@@ -71,7 +71,7 @@
       (if (and (pair? form) (memq (car form) '(shell shell-subshell)))
         (list 'sh-run form)
         form))
-    (else (condition)
+    (catch (condition)
       ; (debugf "repl-eval handling condition ~s~%" condition)
       ((base-exception-handler) condition))))
 
@@ -163,8 +163,8 @@
 (define (repl* initial-parser enabled-parsers eval-func lctx)
   ; (to-parser) also checks initial-parser's and enabled-parser's validity
   (let ((parser (to-parser enabled-parsers initial-parser 'repl)))
-    (assert (procedure? eval-func))
-    (assert (linectx? lctx))
+    (assert* (procedure? eval-func))
+    (assert* (linectx? lctx))
     (dynamic-wind
       (lambda ()
         (lineedit-clear! lctx) (signal-init-sigwinch) (tty-setraw!))
@@ -188,7 +188,7 @@
         (lctx #f)             (lctx? #f))
     (do ((args-left args (cddr args)))
         ((null? args-left))
-      (assert (not (null? (cdr args-left))))
+      (assert* (not (null? (cdr args-left))))
       (let ((opt (car args-left))
             (val (cadr args-left)))
         (case opt

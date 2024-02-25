@@ -24,7 +24,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) fx1+ fx1- make-format-condition record-writer unread-char void)
-    (only (schemesh bootstrap) until while)
+    (only (schemesh bootstrap) assert* until while)
     (only (schemesh containers misc) list-iterate)
     (only (schemesh containers hashtable) hashtable-iterate)
     (schemesh containers span)
@@ -48,11 +48,11 @@
 
 ;; create a new parser
 (define (make-parser name parse parse* parse-list parse-parens)
-  (assert (symbol?    name))
-  (assert (procedure? parse))
-  (assert (procedure? parse*))
-  (assert (procedure? parse-list))
-  (assert (procedure? parse-parens))
+  (assert* (symbol?    name))
+  (assert* (procedure? parse))
+  (assert* (procedure? parse*))
+  (assert* (procedure? parse-list))
+  (assert* (procedure? parse-parens))
   (%make-parser name parse parse* parse-list parse-parens))
 
 
@@ -134,23 +134,23 @@
 ;; create a new parsectx. Arguments are the same as (make-parsectx)
 ;; with the difference that they are all mandatory
 (define (make-parsectx* in enabled-parsers width prompt-end-x x y)
-  (assert (input-port? in))
-  (assert (textual-port? in))
-  (assert (fixnum? width))
-  (assert (fixnum? prompt-end-x))
-  (assert (fixnum? x))
-  (assert (fixnum? y))
-  (assert (fx>? width 0))
-  (assert (fx>=? prompt-end-x 0))
-  (assert (fx>=? x 0))
-  (assert (fx>=? y 0))
+  (assert* (input-port? in))
+  (assert* (textual-port? in))
+  (assert* (fixnum? width))
+  (assert* (fixnum? prompt-end-x))
+  (assert* (fixnum? x))
+  (assert* (fixnum? y))
+  (assert* (fx>? width 0))
+  (assert* (fx>=? prompt-end-x 0))
+  (assert* (fx>=? x 0))
+  (assert* (fx>=? y 0))
   (when enabled-parsers
     (hashtable-iterate enabled-parsers
       (lambda (cell)
         (let ((name  (car cell))
               (parser (cdr cell)))
-          (assert (symbol? name))
-          (assert (parser? parser))))))
+          (assert* (symbol? name))
+          (assert* (parser? parser))))))
   (%make-parsectx in width prompt-end-x (cons x y) (cons -1 -1) (cons -1 -1) enabled-parsers))
 
 
@@ -180,7 +180,7 @@
                 ((0) (parsectx-pos pctx))
                 ((1) (parsectx-prev-pos pctx))
                 ((2) (parsectx-pprev-pos pctx))
-                (else (assert (fx<=? 0 delta 2))))))
+                (else (assert* (fx<=? 0 delta 2))))))
     (values (car pair) (cdr pair))))
 
 
@@ -237,7 +237,7 @@
 
 ;; Peek a character from textual input port (parsectx-in pctx)
 (define (parsectx-peek-char pctx)
-  (assert (parsectx? pctx))
+  (assert* (parsectx? pctx))
   (peek-char (parsectx-in pctx)))
 
 
@@ -245,7 +245,7 @@
 ;;
 ;; also updates (parsectx-pos pctx)
 (define (parsectx-read-char pctx)
-  (assert (parsectx? pctx))
+  (assert* (parsectx? pctx))
   (let ((ch (read-char (parsectx-in pctx))))
     (parsectx-increment-pos pctx ch)
     ch))
@@ -259,7 +259,7 @@
 (define (parsectx-unread-char pctx ch)
   (let ((in (parsectx-in pctx)))
     (unread-char ch in)
-    (assert (eqv? ch (peek-char in)))
+    (assert* (eqv? ch (peek-char in)))
     (parsectx-decrement-pos pctx ch)))
 
 

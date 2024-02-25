@@ -28,7 +28,7 @@
   (import
     (rnrs)
     (only (chezscheme) format fx1+ fx1- record-writer)
-    (only (schemesh bootstrap) while)
+    (only (schemesh bootstrap) assert* while)
     (schemesh containers span)
     (schemesh containers charline)
     (schemesh containers charlines))
@@ -106,10 +106,10 @@
 ;; also updates vscreen-prompt-end-x and vscreen-prompt-end-y
 (define (vscreen-prompt-length-set! screen prompt-length)
   (let ((width (vscreen-width screen)))
-    (assert (fx>=? prompt-length 0))
-    (assert (fx>? width 0))
+    (assert* (fx>=? prompt-length 0))
+    (assert* (fx>? width 0))
     (let-values (((y x) (div-and-mod prompt-length width)))
-      (assert (fx<? -1 x width))
+      (assert* (fx<? -1 x width))
       (vscreen-prompt-end-x-set! screen x)
       (vscreen-prompt-end-y-set! screen (fxmin y (fx1- (vscreen-height screen)))))))
 
@@ -241,7 +241,7 @@
 
 ;; update prompt-end-x and prompt-end-y after screen resize
 (define (vscreen-reflow-prompt screen old-width)
-  (assert (fx>? old-width 0))
+  (assert* (fx>? old-width 0))
   (let ((len (fx+ (vscreen-prompt-end-x screen) (fx* old-width (vscreen-prompt-end-y screen)))))
     (vscreen-prompt-length-set! screen len)))
 
@@ -598,7 +598,7 @@
 ;; i.e. reflow them according to vscreen width.
 ;; Both x and y are clamped to valid range.
 (define (vscreen-insert-at-xy/ch! screen x y ch)
-  (assert (char>=? ch #\space))
+  (assert* (char>=? ch #\space))
   (let-values (((x y line) (vscreen-insert-at-xy/prepare! screen x y)))
     (vscreen-dirty-set! screen #t)
     (charline-insert-at! line x ch)

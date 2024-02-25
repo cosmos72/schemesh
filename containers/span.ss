@@ -21,6 +21,7 @@
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx1- record-writer vector-copy void)
+(only (schemesh bootstrap) assert*)
     (schemesh containers misc))
 
 (define-record-type
@@ -79,24 +80,24 @@
   (span-end-set! sp 0))
 
 (define (span-ref sp idx)
-  (assert (fx<? -1 idx (span-length sp)))
+  (assert* (fx<? -1 idx (span-length sp)))
   (vector-ref (span-vec sp) (fx+ idx (span-beg sp))))
 
 (define (span-back sp)
-  (assert (not (span-empty? sp)))
+  (assert* (not (span-empty? sp)))
   (vector-ref (span-vec sp) (fx1- (span-end sp))))
 
 (define (span-set! sp idx val)
-  (assert (fx<? -1 idx (span-length sp)))
+  (assert* (fx<? -1 idx (span-length sp)))
   (vector-set! (span-vec sp) (fx+ idx (span-beg sp)) val))
 
 (define (span-fill! sp val)
   (vector-fill-range! (span-vec sp) (span-beg sp) (span-length sp) val))
 
 (define (span-fill-range! sp start n val)
-  (assert (fx>=? start 0))
-  (assert (fx>=? n 0))
-  (assert (fx<=? (fx+ start n) (span-length sp)))
+  (assert* (fx>=? start 0))
+  (assert* (fx>=? n 0))
+  (assert* (fx<=? (fx+ start n) (span-length sp)))
   (vector-fill-range! (span-vec sp) (fx+ start (span-beg sp)) n val))
 
 (define (span-copy src)
@@ -107,16 +108,16 @@
     dst))
 
 (define (span-copy! src src-start dst dst-start n)
-  (assert (fx>=? src-start 0))
-  (assert (fx>=? dst-start 0))
-  (assert (fx>=? n 0))
-  (assert (fx<=? (fx+ src-start n) (span-length src)))
-  (assert (fx<=? (fx+ dst-start n) (span-length dst)))
+  (assert* (fx>=? src-start 0))
+  (assert* (fx>=? dst-start 0))
+  (assert* (fx>=? n 0))
+  (assert* (fx<=? (fx+ src-start n) (span-length src)))
+  (assert* (fx<=? (fx+ dst-start n) (span-length dst)))
   (vector-copy! (span-vec src) (fx+ src-start (span-beg src))
                 (span-vec dst) (fx+ dst-start (span-beg dst)) n))
 
 (define (span-reallocate-front! sp len cap)
-  (assert (fx<=? 0 len cap))
+  (assert* (fx<=? 0 len cap))
   (let ((copy-len (fxmin len (span-length sp)))
         (old-vec (span-vec sp))
         (new-vec (make-vector cap))
@@ -127,7 +128,7 @@
     (span-vec-set! sp new-vec)))
 
 (define (span-reallocate-back! sp len cap)
-  (assert (fx<=? 0 len cap))
+  (assert* (fx<=? 0 len cap))
   (let ((copy-len (fxmin len (span-length sp)))
         (old-vec (span-vec sp))
         (new-vec (make-vector cap)))
@@ -147,7 +148,7 @@
 ;; ensure distance between begin of internal vector and last element is >= n.
 ;; does NOT change the length
 (define (span-reserve-front! sp len)
-  (assert (fx>=? len 0))
+  (assert* (fx>=? len 0))
   (let ((vec (span-vec sp))
         (cap-front (span-capacity-front sp)))
     (cond
@@ -170,7 +171,7 @@
 ;; ensure distance between first element and end of internal vector is >= n.
 ;; does NOT change the length
 (define (span-reserve-back! sp len)
-  (assert (fx>=? len 0))
+  (assert* (fx>=? len 0))
   (let ((vec (span-vec sp))
         (cap-back (span-capacity-back sp)))
     (cond
@@ -190,16 +191,16 @@
 
 ;; grow or shrink span on the left (front), set length to n
 (define (span-resize-front! sp len)
-  (assert (fx>=? len 0))
+  (assert* (fx>=? len 0))
   (span-reserve-front! sp len)
-  (assert (fx>=? (span-capacity-front sp) len))
+  (assert* (fx>=? (span-capacity-front sp) len))
   (span-beg-set! sp (fx- (span-end sp) len)))
 
 ;; grow or shrink span on the right (back), set length to n
 (define (span-resize-back! sp len)
-  (assert (fx>=? len 0))
+  (assert* (fx>=? len 0))
   (span-reserve-back! sp len)
-  (assert (fx>=? (span-capacity-back sp) len))
+  (assert* (fx>=? (span-capacity-back sp) len))
   (span-end-set! sp (fx+ len (span-beg sp))))
 
 (define (span-insert-front! sp . vals)
@@ -224,7 +225,7 @@
 
 ;; prefix a portion of another span to this span
 (define (span-insert-front/span! sp-dst sp-src src-start src-n)
-  (assert (not (eq? sp-dst sp-src)))
+  (assert* (not (eq? sp-dst sp-src)))
   (unless (fxzero? src-n)
     (let ((len (span-length sp-dst)))
       (span-resize-front! sp-dst (fx+ len src-n))
@@ -232,7 +233,7 @@
 
 ;; append a portion of another span to this span
 (define (span-insert-back/span! sp-dst sp-src src-start src-n)
-  (assert (not (eq? sp-dst sp-src)))
+  (assert* (not (eq? sp-dst sp-src)))
   (unless (fxzero? src-n)
     (let ((pos (span-length sp-dst)))
       (span-resize-back! sp-dst (fx+ pos src-n))
@@ -240,14 +241,14 @@
 
 ;; erase n elements at the left (front) of span
 (define (span-erase-front! sp n)
-  (assert (fx<=? 0 n (span-length sp)))
+  (assert* (fx<=? 0 n (span-length sp)))
   (unless (fxzero? n)
     ; TODO: zero-fill erased range? Helps GC
     (span-beg-set! sp (fx+ n (span-beg sp)))))
 
 ;; erase n elements at the right (back) of span
 (define (span-erase-back! sp n)
-  (assert (fx<=? 0 n (span-length sp)))
+  (assert* (fx<=? 0 n (span-length sp)))
   (unless (fxzero? n)
     ; TODO: zero-fill erased range? Helps GC
     (span-end-set! sp (fx- (span-end sp) n))))

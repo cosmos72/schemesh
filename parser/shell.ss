@@ -13,7 +13,7 @@
   (import
     (rnrs)
     (only (chezscheme) append! fx1+ fx1- inspect reverse! unread-char void)
-    (only (schemesh bootstrap) debugf until while)
+    (only (schemesh bootstrap) assert* debugf until while)
     (schemesh containers charspan)
     (schemesh lineedit parens)
     (schemesh lineedit parser))
@@ -98,7 +98,7 @@
 
 ;; Read a subword starting with ${
 (define (read-subword-dollar-braced ctx)
-  (assert (eqv? #\{ (parsectx-read-char ctx)))
+  (assert* (eqv? #\{ (parsectx-read-char ctx)))
   (let ((csp (charspan))
         (again? #t))
     (while again?
@@ -140,7 +140,7 @@
 
 ;; Read a subword starting with $
 (define (read-subword-dollar ctx)
-  (assert (eqv? #\$ (parsectx-read-char ctx)))
+  (assert* (eqv? #\$ (parsectx-read-char ctx)))
   (let-values (((ch type) (peek-shell-char ctx)))
     (case type
       ((eof)
@@ -158,7 +158,7 @@
 ;; Read a single-quoted subword, stopping after the matching single quote.
 ;; Example: 'some text'
 (define (read-subword-single-quoted ctx)
-  (assert (eqv? #\' (parsectx-read-char ctx)))
+  (assert* (eqv? #\' (parsectx-read-char ctx)))
   (let ((csp (charspan))
         (again? #t))
     (while again?
@@ -615,9 +615,9 @@
 ;;
 ;; Return the updated parser to use.
 (define (parse-shell-parens ctx start-ch)
-  (assert (parsectx? ctx))
+  (assert* (parsectx? ctx))
   (when start-ch
-    (assert (char? start-ch)))
+    (assert* (char? start-ch)))
   (let* ((paren  (make-parens 'shell start-ch))
          (end-ch (case start-ch ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else start-ch)))
          (ret    #f)

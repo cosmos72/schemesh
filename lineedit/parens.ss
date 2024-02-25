@@ -20,7 +20,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) format fx1+ fx1- record-writer unread-char void)
-    (only (schemesh bootstrap) try until while)
+    (only (schemesh bootstrap) assert* catch try until while)
     (only (schemesh containers misc) list-iterate)
     (only (schemesh containers hashtable) hashtable-iterate)
     (schemesh containers span)
@@ -44,9 +44,9 @@
 
 
 (define (make-parens name token)
-  (assert (symbol? name))
+  (assert* (symbol? name))
   (when token
-    (assert (char? token)))
+    (assert* (char? token)))
   (%make-parens name token #f 0 0 (greatest-fixnum) (greatest-fixnum) #f))
 
 
@@ -75,8 +75,8 @@
 ;; append one nested parens to specified parens
 (define (parens-inner-append! parens nested-parens)
   (when (and parens nested-parens)
-    (assert (parens? parens))
-    (assert (parens? nested-parens))
+    (assert* (parens? parens))
+    (assert* (parens? nested-parens))
     (let ((inner (parens-inner parens)))
       (if (span? inner)
         (span-insert-back! inner nested-parens)
@@ -145,7 +145,7 @@
                 (display #\space port))
               (show-parens inner port)))))
       (display (close-token-for token) port))
-    (else (condition)
+    (catch (condition)
       (display condition port))))
 
 

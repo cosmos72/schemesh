@@ -30,7 +30,8 @@ static const struct {
      "  (repeat 5 (set! x (fx1+ x)))\n"
      "  x)",
      "5"},
-    {"(try 1 (else (condition) 2))", "1"},
+    {"(try (assert* #t) (catch (condition) 1))", "#t"},
+    {"(try (assert* #f) (catch (condition) 2))", "2"},
     {"(values->list (values 1 2 3))", "(1 2 3)"},
     {"(let-macro ((plus . args) `(+ ,@args))\n"
      "  (plus 3 4 5))",

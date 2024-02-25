@@ -19,6 +19,7 @@
     (only (rnrs mutable-pairs)   set-car!)
     (only (rnrs mutable-strings) string-set!)
     (only (chezscheme) fx1+ fx1- record-writer string-copy!)
+    (only (schemesh bootstrap) assert*)
     (schemesh containers charspan)
     (schemesh containers chargbuffer))
 
@@ -52,8 +53,8 @@
     (assertion-violation who "not a charline" line)))
 
 (define (make-charline left-span right-span)
-  (assert (charspan? left-span))
-  (assert (charspan? right-span))
+  (assert* (charspan? left-span))
+  (assert* (charspan? right-span))
   (%make-charline left-span right-span (cons 0 #f) (greatest-fixnum) 0))
 
 ;; increment charline share count by 1.
@@ -78,13 +79,13 @@
 
 ;; Return a copy-on-write clone of specified charline.
 (define (charline-copy-on-write line)
-  (assert (charline? line))
+  (assert* (charline? line))
   (%make-charline (chargbuffer-left line) (chargbuffer-right line) (charline-share-inc! line)
                   (charline-dirty-start-x line) (charline-dirty-end-x line)))
 
 ;; if charline was a copy-on-write clone, actually clone it.
 (define (charline-unshare! line)
-  (assert (charline? line))
+  (assert* (charline? line))
   (when (charline-share-dec! line)
     (chargbuffer-left-set!  line (charspan-copy (chargbuffer-left line)))
     (chargbuffer-right-set! line (charspan-copy (chargbuffer-right line)))

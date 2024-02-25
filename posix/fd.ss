@@ -13,6 +13,7 @@
   (import
     (rnrs)
     (only (chezscheme) foreign-procedure void)
+    (only (schemesh bootstrap)       assert*)
     (only (schemesh containers misc) list-iterate)
     (only (schemesh conversions)     string->bytevector0))
 
@@ -86,7 +87,7 @@
         (c-errno-eio ((foreign-procedure "c_errno_eio" () int)))
         (c-errno-eintr ((foreign-procedure "c_errno_eintr" () int))))
     (lambda (fd direction timeout-milliseconds)
-      (assert (memq direction '(read write rw)))
+      (assert* (memq direction '(read write rw)))
       (let* ((rw-mask (cond ((eq? 'rw    direction) 3)
                             ((eq? 'write direction) 2)
                             ((eq? 'read  direction) 1)

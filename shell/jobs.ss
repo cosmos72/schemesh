@@ -25,7 +25,7 @@
     (rnrs mutable-pairs)
     (only (chezscheme)
       foreign-procedure fx1+ fx1- record-writer reverse! void)
-    (only (schemesh bootstrap) while)
+    (only (schemesh bootstrap) assert* while)
     (schemesh containers)
     (schemesh conversions)
     (schemesh posix fd)
@@ -85,18 +85,18 @@
 
 ;; Define function (pid->job) to convert pid to job, return #f if job not found
 (define (pid->job pid)
-  (assert (fixnum? pid))
+  (assert* (fixnum? pid))
   (hashtable-ref %table-pid->job pid #f))
 
 ;; Define function (pid->job-set!) adds entries to the global hashtable pid -> job
 (define (pid->job-set! pid job)
-  (assert (fixnum? pid))
-  (assert (sh-job? job))
+  (assert* (fixnum? pid))
+  (assert* (sh-job? job))
   (hashtable-set! %table-pid->job pid job))
 
 ;; Define function (pid->job-delete!) removes entries from the global hashtable pid -> job
 (define (pid->job-delete! pid)
-  (assert (fixnum? pid))
+  (assert* (fixnum? pid))
   (hashtable-delete! %table-pid->job pid))
 
 ;; Define the function (multijob-child-delete!), removes a job-id from a multijob
@@ -238,7 +238,7 @@
 ;;   'exported: only exported variables are returned.
 ;;   'all : unexported variables are returned too.
 (define (sh-env-copy job-id which)
-  (assert (memq which '(exported all)))
+  (assert* (memq which '(exported all)))
   (let* ((jlist (job-parents-revlist job-id))
          (vars (make-hashtable string-hash string=?))
          (also-unexported? (eq? 'all which))
@@ -289,7 +289,7 @@
     ((job-id name default) (sh-env* job-id name default))))
 
 (define (sh-env! job-id name val)
-  (assert (string? val))
+  (assert* (string? val))
   (let* ((vars (job-direct-env job-id))
          (elem (hashtable-ref vars name #f)))
     (if (pair? elem)
@@ -316,7 +316,7 @@
     ret))
 
 (define (sh-env-export! job-id name exported?)
-  (assert (boolean? exported?))
+  (assert* (boolean? exported?))
   (let* ((j (sh-job-ref job-id))
          ; val may be in a parent environment
          (val (sh-env j name))
@@ -326,8 +326,8 @@
 
 ;; combined sh-env! and sh-env-export!
 (define (sh-env-set+export! job-id name val exported?)
-  (assert (string? val))
-  (assert (boolean? exported?))
+  (assert* (string? val))
+  (assert* (boolean? exported?))
   (let* ((vars (job-direct-env job-id))
          (export (if exported? 'export 'private)))
     (hashtable-set! vars name (cons export val))))
@@ -386,7 +386,7 @@
   (let ((c-spawn-pid (foreign-procedure "c_spawn_pid"
                         (scheme-object scheme-object scheme-object int) int)))
     (lambda (c . options)
-      (assert (sh-cmd? c))
+      (assert* (sh-cmd? c))
       (let* ((process-group-id (job-start-options->process-group-id options))
              (ret (c-spawn-pid
                     (cmd-argv c)
@@ -420,7 +420,7 @@
 (define %job-spawn
   (let ((c-fork-pid (foreign-procedure "c_fork_pid" (scheme-object int) int)))
     (lambda (j . options)
-      (assert (procedure? (job-subshell-func j)))
+      (assert* (procedure? (job-subshell-func j)))
       (let* ((process-group-id (job-start-options->process-group-id options))
              (ret (c-fork-pid
                     (job-to-redirect-fds j)
@@ -530,7 +530,7 @@
 ;; Warning: does not set the job as foreground process group,
 ;; consider calling (sh-fg j) instead.
 (define (job-wait j may-block)
-  (assert (memq may-block '(blocking nonblocking)))
+  (assert* (memq may-block '(blocking nonblocking)))
   (cond
     ((job-status-member? (job-last-status j) '(exited killed unknown))
       (job-last-status j)) ; job exited, and exit status already available
@@ -738,7 +738,7 @@
 ;; Internal function, accepts an optional function to validate each element in children-jobs
 
 (define (make-multijob kind validate-job-proc subshell-func . children-jobs)
-  (assert (symbol? kind))
+  (assert* (symbol? kind))
   (assert (or (not subshell-func) (procedure? subshell-func)))
   (when validate-job-proc
     (list-iterate children-jobs validate-job-proc))
@@ -752,7 +752,7 @@
     0))
 
 (define (assert-is-job j)
-  (assert (sh-job? j)))
+  (assert* (sh-job? j)))
 
 ;; Create a multijob to later start it. Each argument must be a sh-job or subtype.
 (define (sh-multijob kind subshell-func . children-jobs)
@@ -817,7 +817,7 @@
     (lambda (j) ; validate-job-proc
       (unless (memq j '(& \x3b;
                        ))
-        (assert (sh-job? j))))
+        (assert* (sh-job? j))))
     %multijob-run-list children-jobs-with-colon-ampersand))
 
 ;; Each argument must be a sh-job, possibly followed by a symbol ; &
@@ -826,7 +826,7 @@
     (lambda (j) ; validate-job-proc
       (unless (memq j '(& \x3b;
                        ))
-        (assert (sh-job? j))))
+        (assert* (sh-job? j))))
     %multijob-run-list children-jobs-with-colon-ampersand))
 
 (define (sh-run/string job)

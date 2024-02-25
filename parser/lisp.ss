@@ -16,7 +16,7 @@
     (only (chezscheme)
       box bytevector fx1+ fx1- fxvector fxvector-set! make-fxvector
       read-token reverse! void)
-    (only (schemesh bootstrap) debugf while until)
+    (only (schemesh bootstrap) assert* debugf while until)
     (only (schemesh containers misc) reverse*!)
     (schemesh lineedit parens)
     (schemesh lineedit parser))
@@ -347,10 +347,10 @@
 ;;
 ;; Return a parens containing the collected grouping tokens.
 (define (parse-lisp-parens ctx start-ch flavor)
-  (assert (parsectx? ctx))
+  (assert* (parsectx? ctx))
   (when start-ch
-    (assert (char? start-ch)))
-  (assert (symbol? flavor))
+    (assert* (char? start-ch)))
+  (assert* (symbol? flavor))
   (let* ((paren  (make-parens flavor start-ch))
          (end-ch (case start-ch ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else #f)))
          (ret    #f)

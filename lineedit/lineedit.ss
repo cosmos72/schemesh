@@ -42,7 +42,7 @@
 
 ;; find one key sequence in linectx-keytable matching rbuf and execute it
 (define (linectx-keytable-call ctx)
-  (assert (linectx? ctx))
+  (assert* (linectx? ctx))
   (let-values (((proc n) (linectx-keytable-find
                            (linectx-ktable ctx) (linectx-rbuf ctx))))
     ;; (debugf "; linectx-keytable-call consume ~s chars, call ~s~%" n proc)
@@ -122,7 +122,7 @@
 ;; and insert them into vscreen at cursor.
 ;; Also moves cursor n characters to the right, and reflows vscreen as needed.
 (define (linectx-insert/cspan! ctx csp start n)
-  (assert (fx<=? 0 start (fx+ start n) (charspan-length csp)))
+  (assert* (fx<=? 0 start (fx+ start n) (charspan-length csp)))
   (when (fx>? n 0)
     (vscreen-insert/cspan! (linectx-vscreen ctx) csp start n)))
 
@@ -134,7 +134,7 @@
 ;; Moves cursor appropriately to the right, and reflows vscreen as needed.
 ;; return number of bytes actually read from bytespan.
 (define (linectx-insert/bspan! ctx bsp start n)
-  (assert (fx<=? 0 start (fx+ start n) (bytespan-length bsp)))
+  (assert* (fx<=? 0 start (fx+ start n) (bytespan-length bsp)))
   (let ((beg   start)
         (pos   start)
         (end   (fx+ start n))
@@ -285,7 +285,7 @@
     (when func
       ;; protect against exceptions in linectx-completion-func
       (try (func ctx)
-        (else (condition)
+        (catch (condition)
           (span-clear! completions)))
       (when (fx=? 1 (span-length completions))
         (let* ((completion (span-ref completions 0))
@@ -404,9 +404,9 @@
 ;; update prompt
 (define (linectx-update-prompt ctx)
   (let ((prompt (linectx-prompt ctx)))
-    (assert (bytespan? prompt))
+    (assert* (bytespan? prompt))
     (try ((linectx-prompt-func ctx) ctx)
-      (else (condition)
+      (catch (condition)
         (bytespan-clear! prompt)
         (let ((err-len (bytevector-length bv-prompt-error)))
           (bytespan-insert-back/bvector! prompt bv-prompt-error 0 err-len)
@@ -598,7 +598,7 @@
                                              0))
                   (linectx-parser-name ctx)
                   x y))
-              (else (condition)
+              (catch (condition)
                 (let ((port (current-output-port)))
                   (put-string port "\nexception in parenmatcher: ")
                   (display-condition* condition port)
@@ -685,10 +685,10 @@
           (set! got n)
           ; (fxzero? n) means end of file
           (set! eof? (fxzero? n)))))
-    (assert (fx>=? got 0))
+    (assert* (fx>=? got 0))
     (bytespan-resize-back! rbuf (fx+ rlen got))
-    (assert (fixnum? got))
-    (assert (fx<=? 0 got max-n))
+    (assert* (fixnum? got))
+    (assert* (fx<=? 0 got max-n))
     (if eof? -1 got)))
 
 
@@ -750,7 +750,7 @@
 (define (lineedit-read ctx timeout-milliseconds)
   (try
     (%lineedit-read ctx timeout-milliseconds)
-    (else (condition)
+    (catch (condition)
       (%lineedit-error ctx condition)
       #t))) ; return "waiting for more keypresses"
 
