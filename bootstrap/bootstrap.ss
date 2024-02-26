@@ -53,12 +53,13 @@
 ;; requires proc to be a procedure, NOT a syntax or macro
 (define-syntax assert*
   (lambda (x)
-    (let ((msg (lambda () (format #f "failed assertion ~s" (cadr (syntax->datum x))))))
+    (let ((msg (lambda ()
+                 (format #f "failed assertion ~s" (cadr (syntax->datum x))))))
       (syntax-case x ()
         ((_ (proc))
           #`(let ((tproc proc))
               (or (tproc)
-                  (assertion-violation #f #,(msg) tproc targ1))))
+                  (assertion-violation #f #,(msg) tproc))))
         ((_ (proc arg1))
           #`(let ((tproc proc)
                   (targ1 arg1))

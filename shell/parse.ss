@@ -51,6 +51,8 @@
 ;; 3. integers are fd numbers, and must be followed by a redirection operator < <> <& > >> >&
 ;; 4. pairs are not parsed: they are copied verbatim into returned list.
 (define (sh-parse args)
+  (when (pair? args)
+    (sh-validate args))
   (let ((saved-args args)
         (ret '()))
     (until (null? args)
@@ -75,6 +77,20 @@
       ((null? (cdr ret)) (car ret))
       (#t (cons 'sh-list (reverse! (list-quoteq! '(& \x3b;
                                                   ) ret)))))))
+
+;; validate list containing a sequence of shell commands separated by ; & && || | |&
+(define (sh-validate args)
+  (until (null? args)
+    (unless (null? (cdr args))
+      (let ((arg1 (car args))
+            (arg2 (cadr args)))
+        (when (and (symbol? arg1) (symbol? arg2))
+          (unless (and (eq? arg1 '\x3b;)
+                       (memq arg2 '(& \x3b;
+                                    )))
+            (syntax-violation 'sh-parse "syntax error, invalid consecutive shell operators:"
+              args arg2)))))
+    (set! args (cdr args))))
 
 
 ;; Parse list containing a sequence of shell commands separated by || && | |&
