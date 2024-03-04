@@ -40,12 +40,14 @@
     (mutable pgid)              ; fixnum: process group id, -1 if unknown
     (mutable last-status)       ; cons: last known status
     (mutable to-redirect-fds)   ; vector: fds to redirect between fork() and
-                                ;         (subshell-func)
+                                ;         (subshell-proc)
     (mutable to-redirect-files) ; vector of files to open before fork()
     (mutable to-close-fds)      ; list: fds to close after spawn
-    subshell-func               ; procedure to run in fork()ed child.
-                                ; receives job as only argument, and its return
-                                ; value is passed to (exit-with-job-status)
+    proc                        ; #f or procedure to run in main process.
+                                ; receives as argument job followed by options.
+    subshell-proc               ; #f or procedure to run in fork()ed child.
+                                ; receives as argument job followed by options.
+                                ; its return value is passed to (exit-with-job-status)
     (mutable cwd)               ; charspan: working directory
     (mutable env)               ; hashtable: overridden env variables, or '()
     (mutable parent)))          ; parent job, contains default values of env variables
@@ -61,7 +63,7 @@
   (multijob %make-multijob sh-multijob?)
   (parent job)
   (fields
-    kind                ; symbol: one of 'and 'or 'and-or 'list 'global
+    kind                ; symbol: one of 'and 'or 'list 'subshell 'global
     children            ; span:   children jobs.
     (mutable next-id))) ; fixnum: first available index in span of children jobs
 
@@ -71,11 +73,11 @@
 ;
 ;; Variable may be set! to a different value in subshells.
 (define sh-globals
-      ; waiting for sh-globals to exit is not useful:
-;; pretend it already exited with unknown exit status
+  ;; waiting for sh-globals to exit is not useful:
+  ;; pretend it already exited with unknown exit status
   (%make-multijob (get-pid) (get-pgid 0) '(unknown . 0) (vector 0 1 2) (vector) '()
-    #f ; subshell-func
-      ;   current directory
+    #f #f ; proc subshell-proc
+    ; current directory
     (string->charspan* ((foreign-procedure "c_get_cwd" () scheme-object)))
     (make-hashtable string-hash string=?) #f
     'global (span #t) 1)) ; skip job-id 0
@@ -114,7 +116,7 @@
 
 
 ;; Define the function (multijob-child-put!), adds a job to a multijob
-; extending (multijob-span globals) as needed.
+;; extending (multijob-span globals) as needed.
 ;; Return job-id assigned to job.
 (define (multijob-child-put! mjob j)
   (let* ((arr     (multijob-children mjob))
@@ -138,7 +140,7 @@
 ;; Job-id can be either a job,
 ;; or #t which means sh-globals,
 ;; or a fixnum indicating one of the running jobs stored in (multijob-children sh-globals)
-;
+;;
 ;; Raises error if no job matches job-id.
 (define (sh-job-ref job-id)
   (cond
@@ -162,8 +164,8 @@
     ((job-id) (job-cwd (sh-job-ref job-id)))))
 
 
-;; Define the function (sh-jobs), returns currently running jobs
-; as an span of pairs (job-id . job) sorted by job-id
+;; return currently running jobs
+;; as an span of pairs (job-id . job) sorted by job-id
 (define (sh-jobs)
   (let ((src (multijob-children sh-globals))
         (dst (span)))
@@ -174,14 +176,14 @@
     dst))
 
 
-;; Define the function (job-parents-iterate), calls (proc j) on given job and each of its
-; parents. Stops iterating if (proc) returns #f.
+;; call (proc j) on given job and each of its
+;; parents. Stops iterating if (proc) returns #f.
 (define (job-parents-iterate job-id proc)
   (do ((parent (sh-job-ref job-id) (job-parent parent)))
       ((or (not (sh-job? parent)) (not (proc parent))))))
 
 
-;; Define the function (job-parents-list), returns list containing all job's parents,
+;; return list containing all job's parents,
 ;; starting from sh-globals, until job itself.
 (define (job-parents-revlist job-id)
   (let ((jlist '()))
@@ -191,8 +193,7 @@
     jlist))
 
 
-;; Define the function (job-parents-list), returns list containing job
-; followed by all its parents.
+;; return list containing job followed by all its parents.
 (define (job-parents-list job-id)
   (reverse! (job-parents-revlist job-id)))
 
@@ -201,10 +202,10 @@
 ;; TODO: also support closures (lambda (job) ...) that return a string or bytevector.
 (define (sh-cmd program . args)
   (%make-cmd -1 -1 '(new . 0) (vector 0 1 2) (vector) '()
-    #f         ; subshell-func
-    (sh-cwd)   ; job working directory - initially current directory
-    '()        ; overridden environment variables - initially none
-    sh-globals ; parent job - initially the global job
+    %cmd-spawn #f ; proc subshell-proc
+    (sh-cwd)      ; job working directory - initially current directory
+    '()           ; overridden environment variables - initially none
+    sh-globals    ; parent job - initially the global job
     (list->cmd-argv (cons program args))))
 
 
@@ -264,7 +265,7 @@
 
 ;; Return string environment variable named "name" of specified job.
 ;; If name is not found in job's direct environment, also search in environment
-; inherited from parent jobs.
+;; inherited from parent jobs.
 ;; If name is not found, return default
 
 (define (sh-env* job-id name default)
@@ -281,7 +282,7 @@
 
 ;; Return string environment variable named "name" of specified job.
 ;; If name is not found in job's direct environment, also search in environment
-; inherited from parent jobs.
+;; inherited from parent jobs.
 ;; If name is not found, return default if specified - otherwise return ""
 (define sh-env
   (case-lambda
@@ -299,7 +300,7 @@
 
 ;; Note: (sh-env-unset!) inserts an entry that means "deleted",
 ;; in order to override any parent job's environment variable
-; with the same name.
+;; with the same name.
 (define (sh-env-unset! job-id name)
   (let ((vars (job-direct-env job-id)))
     (hashtable-set! vars name (cons 'delete ""))))
@@ -410,9 +411,9 @@
 ;; Forks a new subshell process in background, i.e. the foreground process group is NOT set
 ; to the process group of the newly created process.
 ;
-;; The subshell process will execute the Scheme function (job-subshell-func j)
+;; The subshell process will execute the Scheme function (job-subshell-proc j)
 ;; passing the job j as only argument,
-;; then will call (exit-with-job-status) with the value returned by (job-subshell-func j)
+;; then will call (exit-with-job-status) with the value returned by (job-subshell-proc j)
 ;
 ;; Options is a list of zero or more of the following:
 ;;   process-group-id: a fixnum, if present and > 0 the new subshell will be inserted
@@ -420,7 +421,7 @@
 (define %job-spawn
   (let ((c-fork-pid (foreign-procedure "c_fork_pid" (scheme-object int) int)))
     (lambda (j . options)
-      (assert* (procedure? (job-subshell-func j)))
+      (assert* (procedure? (job-subshell-proc j)))
       (let* ((process-group-id (job-start-options->process-group-id options))
              (ret (c-fork-pid
                     (job-to-redirect-fds j)
@@ -440,7 +441,7 @@
                   (job-pgid-set! sh-globals (job-pgid j))
       ;                 cannot wait on our own process
                   (job-last-status-set! j '(unknown . 0))
-                  (set! status ((job-subshell-func j) j)))
+                  (set! status ((job-subshell-proc j) j)))
                 (lambda () ; run after body, even if it raised a condition
                   (exit-with-job-status status)))))
           ((> ret 0) ; parent
@@ -461,13 +462,9 @@
 (define (sh-start j . options)
   (when (fx>=? (job-pid j) 0)
     (error 'sh-start "job already started" (job-pid j)))
-  (cond
-    ((sh-cmd? j)
-      (apply %cmd-spawn j options))
-    ((procedure? (job-subshell-func j))
-      (apply %job-spawn j options))
-    (#t
-      (error 'sh-start "cannot start job, it has bad or missing subshell-func" j)))
+  (unless (procedure? (job-proc j))
+    (error 'sh-start "cannot start job, it has bad or missing job-proc" j))
+  (apply (job-proc j) j options)
   (fd-close-list (job-to-close-fds j))
   (job-last-status-set! j '(running . 0)) ; job can now be waited-for
   (pid->job-set! (job-pid j) j)           ; add job to pid->job table
@@ -737,13 +734,13 @@
 ;; Create a multijob to later start it.
 ;; Internal function, accepts an optional function to validate each element in children-jobs
 
-(define (make-multijob kind validate-job-proc subshell-func . children-jobs)
+(define (make-multijob kind validate-job-proc subshell-proc . children-jobs)
   (assert* (symbol? kind))
-  (assert (or (not subshell-func) (procedure? subshell-func)))
+  (assert (or (not subshell-proc) (procedure? subshell-proc)))
   (when validate-job-proc
     (list-iterate children-jobs validate-job-proc))
   (%make-multijob -1 -1 '(new . 0) (vector 0 1 2) (vector) '()
-    subshell-func
+    %job-spawn subshell-proc
     (sh-cwd)   ; job working directory - initially current directory
     '()        ; overridden environment variables - initially none
     sh-globals ; parent job - initially the global job
@@ -755,8 +752,8 @@
   (assert* (sh-job? j)))
 
 ;; Create a multijob to later start it. Each argument must be a sh-job or subtype.
-(define (sh-multijob kind subshell-func . children-jobs)
-  (apply make-multijob kind assert-is-job subshell-func children-jobs))
+(define (sh-multijob kind subshell-proc . children-jobs)
+  (apply make-multijob kind assert-is-job subshell-proc children-jobs))
 
 
 ;; Run a multijob containing an "and" of children jobs.
@@ -837,7 +834,7 @@
 (record-writer (record-type-descriptor job)
   (lambda (obj port writer)
     (display "(sh-job " port)
-    (writer (job-subshell-func obj) port)
+    (writer (job-subshell-proc obj) port)
     (display ")" port)))
 
 ;; customize how "cmd" objects are printed
