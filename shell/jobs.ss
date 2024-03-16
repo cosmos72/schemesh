@@ -24,8 +24,7 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)
-      foreign-procedure fx1+ fx1- record-writer reverse! void)
+    (only (chezscheme) break foreign-procedure format fx1+ fx1- record-writer reverse! void)
     (only (schemesh bootstrap) assert* while)
     (schemesh containers)
     (schemesh conversions)
@@ -137,7 +136,7 @@
     job-id))
 
 
-;; Define the function (sh-job-ref), converts job-id to job.
+;; Converts job-id to job.
 ;; Job-id can be either a job,
 ;; or #t which means sh-globals,
 ;; or a fixnum indicating one of the running jobs stored in (multijob-children sh-globals)
@@ -519,9 +518,9 @@
 
 ;; Return #t if job-status is a pair whose car is in allowed-list,
 ;; otherwise return #f;
-;
+;;
 ;; if job-status is (void) and allowed-list also contains 'exited
-; then return #t because (void) is a shortcut for '(exited . 0)
+;; then return #t because (void) is a shortcut for '(exited . 0)
 (define (job-status-member? job-status allowed-list)
   (cond ((eq? (void) job-status) (memq 'exited allowed-list))
         ((pair? job-status)      (memq (car job-status) allowed-list))
@@ -577,8 +576,8 @@
 (define (sh-job-status job-id)
   (let ((j (sh-job-ref job-id)))
     (when (job-status-member? (job-last-status j) '(running))
-;;    nonblocking wait for job's pid to exit or stop.
-;;     TODO: wait for ALL pids in process group?
+      ; nonblocking wait for job's pid to exit or stop.
+      ; TODO: wait for ALL pids in process group?
       (job-wait j 'nonblocking))
     (job-last-status j)))
 
@@ -608,6 +607,29 @@
 ;;       TODO: wait for ALL pids in process group?
         (job-wait j 'nonblocking)))))
 
+(define %pgid-foreground
+  (let ((c-pgid-foreground (foreign-procedure "c_pgid_foreground" (int int) int)))
+    (lambda (caller expected-pgid new-pgid)
+      (let ((err (c-pgid-foreground expected-pgid new-pgid)))
+        (when (< err 0)
+          (raise-errno-condition caller err))
+        err))))
+
+(define-syntax with-foreground-pgid
+  (syntax-rules ()
+    ((_  caller expected-pgid new-pgid body ...)
+      (let ((_caller caller)
+            (_expected-pgid expected-pgid)
+            (_new-pgid new-pgid))
+        (%pgid-foreground _caller _expected-pgid _new-pgid)
+        (dynamic-wind
+          void       ; run before body
+          (lambda () body ...)
+          (lambda ()
+            ; run after body, even if it raised a condition:
+            ; try to restore sh-globals as the foreground process group
+            (%pgid-foreground _caller _new-pgid _expected-pgid)))))))
+
 
 ;; Continue a job or job-id by sending SIGCONT to it, wait for it to exit or stop,
 ;; and finally return its status, which can be one of:
@@ -621,36 +643,23 @@
 ;; Note: if the current shell is in the fg process group,
 ;;   upon invocation, sets the job as fg process group.
 ;;   And before returning, restores current shell as fg process group.
-(define sh-fg
-  (let ((c-pgid-foreground (foreign-procedure "c_pgid_foreground" (int int) int)))
-    (lambda (job-id)
-      (let* ((j (sh-job-ref job-id))
-             (j-pgid      (job-pgid j))
-             (global-pgid (job-pgid sh-globals)))
-        (cond
-          ; if job already exited, return its exit status.
-          ; if job is stopped, consider as running: we'll send SIGCONT to it below
-          ((job-status-member? (job-last-status j) '(exited killed unknown))
-            (job-last-status j))
-          ((not (job-started? j))
-            (error 'sh-fg "job not started yet" j))
-          (#t
-            ; try to set job's process group as the foreground process group
-            (let ((ret (c-pgid-foreground global-pgid j-pgid)))
-              (when (< ret 0)
-                (raise-errno-condition 'sh-fg ret)))
-            (dynamic-wind
-              void       ; run before body
-              (lambda () ; body
-                ; send SIGCONT to job's process group. may raise error
-                (pid-kill (fx- (job-pgid j)) 'sigcont)
-                ; blocking wait for job's pid to exit or stop.
-                ; TODO: wait for ALL pids in process group?
-                (job-wait j 'blocking))
-              ; run after body, even if it raised a condition:
-              ; try to restore sh-globals as the foreground process group
-              (lambda ()
-                (c-pgid-foreground j-pgid global-pgid)))))))))
+(define (sh-fg job-id)
+  (let* ((j      (sh-job-ref job-id))
+         (j-pgid (job-pgid j)))
+    (cond
+      ; if job already exited, return its exit status.
+      ; if job is stopped, consider as running: we'll send SIGCONT to it below
+      ((job-status-member? (job-last-status j) '(exited killed unknown))
+        (job-last-status j))
+      ((not (job-started? j))
+        (error 'sh-fg "job not started yet" j))
+      (#t
+        (with-foreground-pgid 'sh-fg (job-pgid sh-globals) j-pgid
+          ; send SIGCONT to job's process group. may raise error
+          (pid-kill (fx- j-pgid) 'sigcont)
+          ; blocking wait for job's pid to exit or stop.
+          ; TODO: wait for ALL pids in process group?
+          (job-wait j 'blocking))))))
 
 
 ;; Wait for a job or job-id to exit.
@@ -668,35 +677,32 @@
 ;; Note: if current shell is in the fg process group,
 ;;   upon invocation, sets the job as fg process group.
 ;;   And before returning, restores current shell as fg process group.
-(define sh-wait
-  (let ((c-pgid-foreground (foreign-procedure "c_pgid_foreground" (int int) int)))
-    (lambda (job-id)
-      (let* ((j (sh-job-ref job-id))
-             (j-pgid      (job-pgid j))
-             (global-pgid (job-pgid sh-globals)))
-        (cond
-          ; if job already exited, return its exit status.
-          ; if job is stopped, consider as running
-          ((job-status-member? (job-last-status j) '(exited killed unknown))
-            (job-last-status j))
-          ((not (job-started? j))
-            (error 'sh-wait "job not started yet" j))
-          (#t
-            ; try to set job's process group as the foreground process group
-            (let ((ret (c-pgid-foreground global-pgid j-pgid)))
-              (when (< ret 0)
-                (raise-errno-condition 'sh-wait ret)))
-            (dynamic-wind
-              void       ; run before body
-              (lambda () ; body
-                ; blocking wait for job's pid to exit.
-                ; TODO: wait for ALL pids in process group?
-                (do ((status #f (job-wait j 'blocking)))
-                    ((job-status-member? status '(exited killed unknown)) status)))
-              ; run after body, even if it raised a condition:
-              ; try to restore sh-globals as the foreground process group
-              (lambda ()
-                (c-pgid-foreground j-pgid global-pgid)))))))))
+(define (sh-wait job-id)
+  (let* ((j (sh-job-ref job-id))
+         (j-pgid      (job-pgid j))
+         (global-pgid (job-pgid sh-globals)))
+    (cond
+      ; if job already exited, return its exit status.
+      ; if job is stopped, consider as running
+      ((job-status-member? (job-last-status j) '(exited killed unknown))
+        (job-last-status j))
+      ((not (job-started? j))
+        (error 'sh-wait "job not started yet" j))
+      (#t
+        (with-foreground-pgid 'sh-wait global-pgid j-pgid
+          ; blocking wait for job's pid to exit.
+          ; TODO: wait for ALL pids in process group?
+          (do ((status #f (job-wait j 'blocking)))
+              ((job-status-member? status '(exited killed unknown)) status)
+            (when (and (pair? status) (eq? 'stopped (car status)))
+              (if (fixnum? job-id)
+                (format #t "; ~s pid ~s stopped        ~s~%" job-id (job-pid j) j)
+                (format #t "; pid ~s stopped        ~s~%" (job-pid j) j))
+              (with-foreground-pgid 'sh-wait j-pgid global-pgid
+                (break)
+                ; send SIGCONT to job's process group. may raise error
+                (pid-kill (fx- j-pgid) 'sigcont)))))))))
+
 
 
 ;; Start a job and wait for it to exit or stop.
