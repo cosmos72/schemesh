@@ -17,8 +17,9 @@
     sh-job? sh-job-ref sh-job-status sh-jobs sh-cmd sh-cmd<> sh-cmd? sh-multijob sh-multijob?
     sh-globals sh-global-env sh-env-copy sh-env sh-env! sh-env-unset!
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0
-    sh-cwd sh-consume-sigchld
-    sh-start sh-bg sh-fg sh-run sh-run/string sh-wait sh-and sh-or sh-list sh-subshell
+    sh-cwd sh-consume-sigchld sh-start sh-bg sh-fg sh-wait sh-ok?
+    sh-run sh-run/i sh-run/ok? sh-run/bytes sh-run/string
+    sh-and sh-or sh-list sh-subshell
     sh-fd-redirect! sh-fds-redirect!)
   (import
     (rnrs)
@@ -353,6 +354,23 @@
 (define (sh-env->vector-of-bytevector0 job-id which)
   (string-hashtable->vector-of-bytevector0 (sh-env-copy job-id which)))
 
+(define (sh-consume-sigchld)
+  ; TODO: call (signal-consume-sigchld) and (pid-wait) to reap zombies
+  ;        and collect exit status of child processes
+  (void))
+
+;; return #t if job-status is (void), i.e. if job exited with exit status 0,
+;; otherwise return #f
+;;
+;; job-status must be one of the possible values returned by (sh-fg) or (sh-wait)
+(define (sh-ok? job-status)
+  (cond
+    ((eq? (void) job-status) #t)
+    (else
+      (assert* (pair? job-status))
+      #f)))
+
+
 (define (job-start-options->process-group-id options)
   (let ((existing-pgid -1))
     (list-iterate options
@@ -362,10 +380,6 @@
           #f))) ; stop iterating on options
     existing-pgid))
 
-(define (sh-consume-sigchld)
-  ; TODO: call (signal-consume-sigchld) and (pid-wait) to reap zombies
-  ;        and collect exit status of child processes
-  (void))
 
 
 ;; NOTE: this is an internal implementation function, use (sh-start) instead.
@@ -457,7 +471,7 @@
 ;; Otherwise return (void).
 ;
 ;; Options is a list of zero or more of the following:
-;;   process-group-id: a fixnum, if present and > 0 the new process will be inserted
+;;   process-group-id: a fixnum, if present and > 0 then the new process will be inserted
 ;     into the corresponding process group id - which must already exist.
 (define (sh-start j . options)
   (when (fx>=? (job-pid j) 0)
@@ -516,16 +530,16 @@
 
 ;; Wait for a cmd or job to exit or stop and return its status, which can be one of:
 ;;   (cons 'running ...)   ; may happen only if may-block is 'nonblocking
-;   (void)                ; if process exited with exit-status = 0
-;   (cons 'exited  exit-status)
+;;   (void)                ; if process exited with exit-status = 0
+;;   (cons 'exited  exit-status)
 ;;   (cons 'killed  signal-name)
 ;;   (cons 'stopped signal-name)
 ;;   (cons 'unknown ...)
 ;
 ;; Argument may-block must be one of: 'blocking 'nonblocking
 ;
-;; Warning: does not set the job as foreground process group,
-;; consider calling (sh-fg j) instead.
+;; Warning: this is an internal function, and does not set the job
+;; as foreground process group. consider calling (sh-fg j) or (sh-wait j) instead.
 (define (job-wait j may-block)
   (assert* (memq may-block '(blocking nonblocking)))
   (cond
@@ -537,11 +551,11 @@
       ; TODO: wait for ALL processes in job's process group?
       (let* ((ret    (pid-wait (job-pid j) may-block))
              (status (pid-wait->job-status ret)))
-      ; if may-block is 'non-blocking, ret may be '() and status will be '(running . 0)
-      ; indicating job status did not change i.e. it's (expected to be) still running
+        ; if may-block is 'non-blocking, ret may be '() and status will be '(running . 0)
+        ; indicating job status did not change i.e. it's (expected to be) still running
         (job-last-status-set! j status)
         (when (job-status-member? status '(exited killed unknown))
-      ;   job exited. it can now be spawned again
+          ; job exited. it can now be spawned again
           (when (eq? sh-globals (job-parent j))
             (multijob-child-delete! sh-globals j))
           (pid->job-delete! (job-pid j))
@@ -599,14 +613,14 @@
 ;; and finally return its status, which can be one of:
 ;
 ;;   (void)                      ; if process exited with exit-status = 0
-;   (cons 'exited  exit-status)
+;;   (cons 'exited  exit-status)
 ;;   (cons 'killed  signal-name)
 ;;   (cons 'stopped signal-name)
 ;;   (cons 'unknown ...)
 ;
-;; Note: if this process is in the fg process group,
+;; Note: if the current shell is in the fg process group,
 ;;   upon invocation, sets the job as fg process group.
-;;   And before returning, restores this process as fg process group.
+;;   And before returning, restores current shell as fg process group.
 (define sh-fg
   (let ((c-pgid-foreground (foreign-procedure "c_pgid_foreground" (int int) int)))
     (lambda (job-id)
@@ -614,43 +628,46 @@
              (j-pgid      (job-pgid j))
              (global-pgid (job-pgid sh-globals)))
         (cond
-;        if job already exited, return its exit status.
-;;         if job is stopped, consider as running: we'll send SIGCONT to it below
+          ; if job already exited, return its exit status.
+          ; if job is stopped, consider as running: we'll send SIGCONT to it below
           ((job-status-member? (job-last-status j) '(exited killed unknown))
             (job-last-status j))
           ((not (job-started? j))
             (error 'sh-fg "job not started yet" j))
           (#t
-;          try to set job's process group as the foreground process group
+            ; try to set job's process group as the foreground process group
             (let ((ret (c-pgid-foreground global-pgid j-pgid)))
               (when (< ret 0)
                 (raise-errno-condition 'sh-fg ret)))
             (dynamic-wind
               void       ; run before body
               (lambda () ; body
-;              send SIGCONT to job's process group. may raise error
+                ; send SIGCONT to job's process group. may raise error
                 (pid-kill (fx- (job-pgid j)) 'sigcont)
-;;              blocking wait for job's pid to exit or stop.
-;;               TODO: wait for ALL pids in process group?
+                ; blocking wait for job's pid to exit or stop.
+                ; TODO: wait for ALL pids in process group?
                 (job-wait j 'blocking))
-      ;             run after body, even if it raised a condition:
-;;             try to restore sh-globals as the foreground process group
+              ; run after body, even if it raised a condition:
+              ; try to restore sh-globals as the foreground process group
               (lambda ()
                 (c-pgid-foreground j-pgid global-pgid)))))))))
 
 
-;; Wait for a job or job-id to exit. Does NOT send SIGCONT to it in case it's already stopped,
-;; and does NOT return if the job gets stopped.
+;; Wait for a job or job-id to exit.
+;;
+;; Does NOT send SIGCONT in case the job is already stopped, use (sh-fg) for that.
+;; Does NOT return early if the job gets stopped, use (sh-fg) for that.
+;;
 ;; Return job status, which can be one of:
-;
+;;
 ;;   (void)                      ; if process exited with exit-status = 0
-;   (cons 'exited  exit-status)
+;;   (cons 'exited  exit-status)
 ;;   (cons 'killed  signal-name)
 ;;   (cons 'unknown ...)
-;
-;; Note: if this process is in the fg process group,
+;;
+;; Note: if current shell is in the fg process group,
 ;;   upon invocation, sets the job as fg process group.
-;;   And before returning, restores this process as fg process group.
+;;   And before returning, restores current shell as fg process group.
 (define sh-wait
   (let ((c-pgid-foreground (foreign-procedure "c_pgid_foreground" (int int) int)))
     (lambda (job-id)
@@ -658,36 +675,59 @@
              (j-pgid      (job-pgid j))
              (global-pgid (job-pgid sh-globals)))
         (cond
-      ;         if job already exited, return its exit status.
-      ;         if job is stopped, consider as running
+          ; if job already exited, return its exit status.
+          ; if job is stopped, consider as running
           ((job-status-member? (job-last-status j) '(exited killed unknown))
             (job-last-status j))
           ((not (job-started? j))
             (error 'sh-wait "job not started yet" j))
           (#t
-      ;           try to set job's process group as the foreground process group
+            ; try to set job's process group as the foreground process group
             (let ((ret (c-pgid-foreground global-pgid j-pgid)))
               (when (< ret 0)
                 (raise-errno-condition 'sh-wait ret)))
             (dynamic-wind
               void       ; run before body
               (lambda () ; body
-      ;               blocking wait for job's pid to exit.
-;;              TODO: wait for ALL pids in process group?
+                ; blocking wait for job's pid to exit.
+                ; TODO: wait for ALL pids in process group?
                 (do ((status #f (job-wait j 'blocking)))
                     ((job-status-member? status '(exited killed unknown)) status)))
-      ;             run after body, even if it raised a condition:
-      ;             try to restore sh-globals as the foreground process group
+              ; run after body, even if it raised a condition:
+              ; try to restore sh-globals as the foreground process group
               (lambda ()
                 (c-pgid-foreground j-pgid global-pgid)))))))))
 
 
 ;; Start a job and wait for it to exit or stop.
+;;
 ;; Options are the same as (sh-start)
+;;
 ;; Return job status, possible values are the same as (sh-fg)
-(define (sh-run j . options)
+(define (sh-run/i j . options)
   (apply sh-start j options)
   (sh-fg j))
+
+
+;; Start a job and wait for it to exit.
+;; Does NOT return early if job is stopped, use (sh-run/i) for that.
+;;
+;; Options are the same as (sh-start)
+;;
+;; Return job status, possible values are the same as (sh-wait)
+(define (sh-run j . options)
+  (apply sh-start j options)
+  (sh-wait j))
+
+
+;; Start a job and wait for it to exit.
+;; Does NOT return early if job is stopped, use (sh-run/i) for that.
+;;
+;; Options are the same as (sh-start)
+;;
+;; Return #t if job exited successfully, otherwise return #f.
+(define (sh-run/ok? j . options)
+  (sh-ok? (apply sh-run j options)))
 
 ;; Create or remove a file description redirection for cmd or job
 (define (sh-fd-redirect! job-id child-fd existing-fd-or-minus-1)
@@ -825,6 +865,10 @@
                        ))
         (assert* (sh-job? j))))
     %multijob-run-list children-jobs-with-colon-ampersand))
+
+(define (sh-run/bytes job)
+  ; TODO: implement (sh-run/bytes)
+  #vu8())
 
 (define (sh-run/string job)
   ; TODO: implement (sh-run/string)

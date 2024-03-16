@@ -59,7 +59,7 @@
 ; May return multiple values.
 ;
 ; Note: if a form in list is (shell ...), which would create a job but NOT run it,
-;       eval instead (sh-run (shell ...)) that also runs the job.
+;       eval instead (sh-run/i (shell ...)) that also interruptibly runs the job.
 ;
 ; This has two effects:
 ; 1. when using shell parser, top-level commands will be executed immediately.
@@ -69,7 +69,7 @@
   (try
     (eval
       (if (and (pair? form) (memq (car form) '(shell shell-subshell)))
-        (list 'sh-run form)
+        (list 'sh-run/i form)
         form))
     (catch (condition)
       ; (debugf "repl-eval handling condition ~s~%" condition)

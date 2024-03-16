@@ -700,11 +700,11 @@ static const struct {
      "    (sh-env-exported? #t \"foo\")))",
      "(bar . #f)"},
     {"(sh-cmd \"echo\" \"foo\" \" bar \")", "(sh-cmd \"echo\" \"foo\" \" bar \")"},
-    {"(sh-run (sh-cmd \"true\"))", ""}, /* (void) is displayed as empty string */
-    {"(sh-run (sh-cmd \"false\"))", "(exited . 1)"},
+    {"(sh-run/i (sh-cmd \"true\"))", ""}, /* (void) is displayed as empty string */
+    {"(sh-run/i (sh-cmd \"false\"))", "(exited . 1)"},
     {"(sh-multijob 'hello (lambda (j) '(exited . 42)))", "(sh-hello)"},
-    {"(sh-run (sh-multijob 'hello (lambda (j) '(exited . 42))))", "(exited . 42)"},
-    {"(sh-run (sh-multijob 'hello (lambda (j) '(killed . sigsegv))))", "(killed . sigsegv)"},
+    {"(sh-run/i (sh-multijob 'hello (lambda (j) '(exited . 42))))", "(exited . 42)"},
+    {"(sh-run/i (sh-multijob 'hello (lambda (j) '(killed . sigsegv))))", "(killed . sigsegv)"},
     {"(let ((j (sh-list (sh-cmd \"false\") (sh-cmd \"true\"))))\n"
      "  (sh-start j)\n"
      "  (sh-wait j))",
@@ -713,8 +713,8 @@ static const struct {
      "  (sh-start j)\n"
      "  (sh-wait j))",
      "(exited . 1)"},
-    {"(sh-run (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 1)"},
-    {"(sh-run (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", ""},
+    {"(sh-run/i (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 1)"},
+    {"(sh-run/i (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", ""},
     /* ------------------------- shell syntax ------------------------------- */
     {"(sh-parse '(\"wc\" \"-l\" \"myfile\" > \"mylog\" \\x3b; \"echo\" \"done\"))",
      "(sh-list (sh-cmd<> wc -l myfile '> mylog) '; (sh-cmd echo done))"},

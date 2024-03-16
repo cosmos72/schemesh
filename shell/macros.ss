@@ -25,7 +25,7 @@
 
 (define-syntax shell-subshell
   (syntax-rules ()
-    ((_)          '(sh-true))
+    ((_)         '(sh-true))
     ((_ arg0 ...) (sh-subshell arg0 ...))))
 
 (define-syntax shell-backquote
