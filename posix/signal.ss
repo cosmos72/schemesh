@@ -11,7 +11,7 @@
           signal-consume-sigchld signal-consume-sigwinch signal-init-sigwinch signal-restore-sigwinch)
   (import
     (rnrs)
-    (only (chezscheme) foreign-procedure)
+    (only (chezscheme) break console-output-port foreign-procedure register-signal-handler)
     (only (schemesh bootstrap)    assert*)
     (only (schemesh containers hashtable) eq-hashtable hashtable-transpose))
 
@@ -50,5 +50,11 @@
       (assert* (fxzero? (c-signal-init-sigwinch))))))
 
 (define signal-restore-sigwinch (foreign-procedure "c_sigwinch_restore" () int))
+
+(register-signal-handler
+  (signal-name->number 'sigtstp)
+  (lambda (sig)
+    (put-string (console-output-port) "\n; suspended\n")
+    (break)))
 
 ) ; close library

@@ -137,24 +137,25 @@
 
 ; main loop of (repl) and (repl*)
 (define (repl-loop parser enabled-parsers eval-func lctx)
-  (call/cc
-    (lambda (k-exit)
-      (parameterize ((break-handler (lambda args (repl-interrupt-handler lctx args)))
-                     (exit-handler k-exit)
-                     (keyboard-interrupt-handler
-                       (lambda ()
-                         (put-string (console-output-port) "\ninterrupted\n")
-                         (repl-interrupt-handler lctx '())))
-                     (reset-handler (reset-handler)))
-        (let ((k-reset k-exit)
-              (updated-parser parser))
-          (reset-handler (lambda () (k-reset)))
-          (call/cc (lambda (k) (set! k-reset k)))
-          ; when the (reset-handler) we installed is called, resume from here
-          (while updated-parser
-            (set! parser updated-parser)
-            (set! updated-parser (repl-once lctx parser enabled-parsers eval-func))
-            (sh-consume-sigchld))))))
+  (let ((repl-args (list parser enabled-parsers eval-func lctx)))
+    (call/cc
+      (lambda (k-exit)
+        (parameterize ((break-handler (lambda break-args (repl-interrupt-handler repl-args break-args)))
+                       (exit-handler k-exit)
+                       (keyboard-interrupt-handler
+                         (lambda ()
+                           (put-string (console-output-port) "\n; interrupted\n")
+                           (repl-interrupt-handler repl-args '())))
+                       (reset-handler (reset-handler)))
+          (let ((k-reset k-exit)
+                (updated-parser parser))
+            (reset-handler (lambda () (k-reset)))
+            (call/cc (lambda (k) (set! k-reset k)))
+            ; when the (reset-handler) we installed is called, resume from here
+            (while updated-parser
+              (set! parser updated-parser)
+              (set! updated-parser (repl-once lctx parser enabled-parsers eval-func))
+              (sh-consume-sigchld)))))))
   lctx)
 
 ;
@@ -204,12 +205,12 @@
 
 
 ;; React to keyboard CTRL+C and calls to (break): enter the debugger.
-(define (repl-interrupt-handler lctx args)
+(define (repl-interrupt-handler repl-args break-args)
   (call/cc
     (lambda (k)
       (parameterize ((break-handler void) (keyboard-interrupt-handler void))
-        (repl-interrupt-show-who-msg-irritants args)
-        (while (repl-interrupt-handler-once lctx k (console-output-port)))))))
+        (repl-interrupt-show-who-msg-irritants break-args)
+        (while (repl-interrupt-handler-once repl-args k (console-output-port)))))))
 
 
 ;; Print (break ...) arguments
@@ -232,7 +233,7 @@
 
 
 ;; Single iteration of (repl-interrupt-handler)
-(define (repl-interrupt-handler-once lctx k out)
+(define (repl-interrupt-handler-once repl-args k out)
   (put-string out "break> ")
   (flush-output-port out)
   (case (let-values (((type token start end) (read-token (console-input-port))))
@@ -245,7 +246,7 @@
     ((a abort)        (abort) #f)
     ((e exit)         #f)
     ((i inspect)      (inspect k) #t)
-    ((n new-repl)     (repl) #t)
+    ((n new-repl)     (apply repl* repl-args) #t)
     ((r q reset quit) (reset) #f)
     ((? help)
       (put-string out "
