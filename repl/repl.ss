@@ -225,9 +225,9 @@
           (debug-condition obj) ;; save obj into thread-parameter (debug-condition)
           (if (debug-on-exception)
             (debug)
-            (put-string out "Type (debug) to enter the debugger.\n"))))
+            (put-string out "Type (debug) to enter the debugger.\n"))
+          (flush-output-port out)))
       (lambda () ; after body
-        (flush-output-port out)
         ((reset-handler))))))
 
 
