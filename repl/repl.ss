@@ -69,10 +69,13 @@
 ; 2. when using scheme parser, top-level (shell ...) will be executed immediately.
 (define (repl-eval form)
   ; (debugf "; evaluating: ~s~%" form)
-  (eval
-    (if (and (pair? form) (memq (car form) '(shell shell-subshell)))
-      (list 'sh-run/i form)
-      form)))
+  (try
+    (eval
+      (if (and (pair? form) (memq (car form) '(shell shell-subshell)))
+        (list 'sh-run/i form)
+        form))
+    (catch (condition)
+      (repl-exception-handler condition))))
 
 ;
 ; Execute with (eval-func form) each form in list of forms containing parsed expressions
@@ -139,7 +142,7 @@
   (let ((repl-args (list parser enabled-parsers eval-func lctx)))
     (call/cc
       (lambda (k-exit)
-        (parameterize ((base-exception-handler (base-exception-handler))
+        (parameterize ((base-exception-handler repl-exception-handler)
                        (break-handler
                          (lambda break-args
                            (repl-interrupt-handler repl-args break-args)))
@@ -156,7 +159,6 @@
           (let ((k-reset k-exit)
                 (updated-parser parser))
             (reset-handler (lambda () (k-reset)))
-            (base-exception-handler (lambda (obj) (repl-exception-handler obj) (k-reset)))
             (call/cc (lambda (k) (set! k-reset k)))
             ; when the (reset-handler) we installed is called, resume from here
             (while updated-parser
@@ -213,18 +215,20 @@
 ;; React to uncaught conditions
 (define (repl-exception-handler obj)
   (let ((out (console-error-port)))
-    (display-condition obj out)
-    (put-string out "\n")
-    (flush-output-port out)
-    (when (or (serious-condition? obj) (not (warning? obj)))
-      (debug-condition obj) ;; save obj into thread-parameter (debug-condition)
-      (cond
-        ((debug-on-exception)
-          (debug)
-          ((reset-handler)))
-        (#t
-          (put-string out "Type (debug) to enter the debugger.\n")
-          (flush-output-port out))))))
+    (dynamic-wind
+      (lambda () ; before body
+        (display-condition obj out)
+        (put-string out "\n")
+        (flush-output-port out))
+      (lambda () ; body
+        (when (or (serious-condition? obj) (not (warning? obj)))
+          (debug-condition obj) ;; save obj into thread-parameter (debug-condition)
+          (if (debug-on-exception)
+            (debug)
+            (put-string out "Type (debug) to enter the debugger.\n"))))
+      (lambda () ; after body
+        (flush-output-port out)
+        ((reset-handler))))))
 
 
 ;; React to calls to (break), to keyboard CTRL+C and to SIGTSTP signal: enter the debugger.

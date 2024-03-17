@@ -348,9 +348,16 @@
            (bytespan-empty? (linectx-rbuf ctx))
            (fxzero? (linectx-keytable-call ctx)))))
   (cond
-    ((linectx-return? ctx) (linectx-return-lines* ctx))
-    ((linectx-eof?    ctx) #f)
-    (#t                    #t)))
+    ((linectx-return? ctx)
+      (linectx-return-lines* ctx))
+    ((linectx-eof?    ctx)
+      ;; forget eof in case ctx is used by an outer repl
+      (linectx-eof-set! ctx #f)
+      ;; set flag "redraw prompt and lines" in case ctx is used by an outer repl
+      (linectx-redraw-set! ctx #t)
+      ;; return
+      #f)
+    (#t #t)))
 
 ;; if tty size changed, resize and reflow vscreen
 (define (linectx-resize ctx width height)
