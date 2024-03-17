@@ -11,8 +11,8 @@
           suspend-handler)
   (import
     (rnrs)
-    (only (chezscheme) assertion-violationf break console-output-port foreign-procedure format logbit?
-                       make-thread-parameter procedure-arity-mask register-signal-handler void)
+    (only (chezscheme) assertion-violationf foreign-procedure logbit? make-thread-parameter
+                       procedure-arity-mask register-signal-handler void)
     (only (schemesh bootstrap)    assert*)
     (only (schemesh containers hashtable) eq-hashtable hashtable-transpose))
 
@@ -58,21 +58,12 @@
   (make-thread-parameter
     void
     (lambda (proc)
-      (cond
-        ((and (procedure? proc) (logbit? 0 (procedure-arity-mask proc)))
-          proc)
-        (else
-          (format #t "suspend-handler: ~s is not a procedure accepting zero arguments~%" proc)
-          void)))))
+      (unless (and (procedure? proc) (logbit? 0 (procedure-arity-mask proc)))
+        (assertion-violationf "suspend-handler: ~s is not a procedure accepting zero arguments~%" proc))
+      proc)))
 
 (register-signal-handler
   (signal-name->number 'sigtstp)
-  (lambda (sig)
-    (let ((proc (suspend-handler)))
-      (if (and (procedure? proc)
-                 (logbit? 0 (procedure-arity-mask proc)))
-        (proc)
-        (format #t "SIGTSTP received, but (suspend-handler) = ~s is not a procedure accepting zero arguments~%" proc)))))
-
+  (lambda (sig) ((suspend-handler))))
 
 ) ; close library

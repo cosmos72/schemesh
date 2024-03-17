@@ -455,43 +455,23 @@ static const struct {
      "#((1 . A) (2 . B) (3 . C))"},
     {"(hashtable-cells\n"
      "  (eqv-hashtable '(1.0 . A) '(2.1 . B) '(3 . C)))",
-#ifdef __aarch64__
-     "#((3 . C) (2.1 . B) (1.0 . A))"
-#else
-     "#((3 . C) (1.0 . A) (2.1 . B))"
-#endif
-    },
+     "#((3 . C) (2.1 . B) (1.0 . A))"},
     {"(hashtable-cells\n"
      "  (eqv-hashtable '(3.1 . C) '(2 . B) '(1 . A)))",
      "#((1 . A) (2 . B) (3.1 . C))"},
     {"(hashtable-cells\n"
      "  (hashtable string-hash string=? '(\"a\" . 1) '(\"B\" . 2) '(\"+\" . 3)))",
-#ifdef __aarch64__
-     "#((a . 1) (+ . 3) (B . 2))"
-#else
-     "#((+ . 3) (B . 2) (a . 1))"
-#endif
-    },
+     "#((a . 1) (+ . 3) (B . 2))"},
     {"(string-hashtable->vector-of-bytevector0\n"
      "  (hashtable string-hash string=?\n"
      "             '(\"A\" . \"X\") '(\"B\" . \"Y\") '(\"C\" . \"Z\")))",
-#ifdef __aarch64__
-     "#(#vu8(67 61 90 0) #vu8(65 61 88 0) #vu8(66 61 89 0))"
-#else
-     "#(#vu8(67 61 90 0) #vu8(66 61 89 0) #vu8(65 61 88 0))"
-#endif
-    },
+     "#(#vu8(67 61 90 0) #vu8(65 61 88 0) #vu8(66 61 89 0))"},
     {"(let ((ret '()))\n"
      "  (hashtable-iterate (eqv-hashtable '(1.0 . A) '(2.1 . B) '(3 . C))\n"
      "    (lambda (cell)\n"
      "      (set! ret (cons cell ret))))\n"
      "  ret)",
-#ifdef __aarch64__
-     "((1.0 . A) (2.1 . B) (3 . C))"
-#else
-     "((2.1 . B) (1.0 . A) (3 . C))"
-#endif
-    },
+     "((1.0 . A) (2.1 . B) (3 . C))"},
     /* ------------------------ lineedit io --------------------------------- */
     {"(get-string-all\n"
      "  (open-charline-input-port\n"
