@@ -167,9 +167,8 @@
               (sh-consume-sigchld)))))))
   lctx)
 
-;
-; top-level interactive repl with all arguments mandatory
-; Returns linectx, usable for further calls to (repl) or (repl*)
+;; top-level interactive repl with all arguments mandatory
+;; Returns linectx, usable for further calls to (repl) or (repl*)
 (define (repl* initial-parser enabled-parsers eval-func lctx)
   ; (to-parser) also checks initial-parser's and enabled-parser's validity
   (let ((parser (to-parser enabled-parsers initial-parser 'repl)))
@@ -183,14 +182,13 @@
       (lambda ()
         (tty-restore!) (signal-restore-sigwinch) (lineedit-finish lctx)))))
 
-;
-; top-level interactive repl with optional arguments:
-; 'parser initial-parser   - defaults to 'shell
-; 'parsers enabled-parsers - defaults to (parsers)
-; 'eval eval-func          - defaults to repl-eval
-; 'linectx lctx            - defaults to (sh-make-linectx)
-;
-; Returns linectx, usable for further calls to (repl)
+;; top-level interactive repl with optional arguments:
+;; 'parser initial-parser   - defaults to 'shell
+;; 'parsers enabled-parsers - defaults to (parsers)
+;; 'eval eval-func          - defaults to repl-eval
+;; 'linectx lctx            - defaults to (sh-make-linectx)
+;;
+;; Returns linectx, usable for further calls to (repl)
 (define (repl . args)
   (let ((initial-parser #f)  (initial-parser? #f)
         (enabled-parsers #f) (enabled-parsers? #f)
