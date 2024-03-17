@@ -5,13 +5,14 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-
 (library (schemesh posix signal (0 1))
   (export signal-raise signal-number->name signal-name->number
-          signal-consume-sigchld signal-consume-sigwinch signal-init-sigwinch signal-restore-sigwinch)
+          signal-consume-sigchld signal-consume-sigwinch signal-init-sigwinch signal-restore-sigwinch
+          suspend-handler)
   (import
     (rnrs)
-    (only (chezscheme) break console-output-port foreign-procedure register-signal-handler)
+    (only (chezscheme) assertion-violationf break console-output-port foreign-procedure format logbit?
+                       make-thread-parameter procedure-arity-mask register-signal-handler void)
     (only (schemesh bootstrap)    assert*)
     (only (schemesh containers hashtable) eq-hashtable hashtable-transpose))
 
@@ -51,10 +52,27 @@
 
 (define signal-restore-sigwinch (foreign-procedure "c_sigwinch_restore" () int))
 
+;; thread parameter (suspend-handler) must be a procedure accepting zero arguments,
+;; and it is invoked when schemesh receives signal SIGTSTP
+(define suspend-handler
+  (make-thread-parameter
+    void
+    (lambda (proc)
+      (cond
+        ((and (procedure? proc) (logbit? 0 (procedure-arity-mask proc)))
+          proc)
+        (else
+          (format #t "suspend-handler: ~s is not a procedure accepting zero arguments~%" proc)
+          void)))))
+
 (register-signal-handler
   (signal-name->number 'sigtstp)
   (lambda (sig)
-    (put-string (console-output-port) "\n; suspended\n")
-    (break)))
+    (let ((proc (suspend-handler)))
+      (if (and (procedure? proc)
+                 (logbit? 0 (procedure-arity-mask proc)))
+        (proc)
+        (format #t "SIGTSTP received, but (suspend-handler) = ~s is not a procedure accepting zero arguments~%" proc)))))
+
 
 ) ; close library

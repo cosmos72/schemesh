@@ -16,6 +16,7 @@
     ; signal.ss
     signal-raise signal-number->name signal-name->number
     signal-consume-sigchld signal-consume-sigwinch signal-init-sigwinch signal-restore-sigwinch
+    suspend-handler
 
     ; tty.ss
     tty-setraw! tty-restore! tty-size

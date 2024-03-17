@@ -7,20 +7,23 @@
 
 
 (library (schemesh repl (0 1))
-  (export repl-lineedit repl-parse repl-eval repl-eval-list repl repl* repl-interrupt-handler)
+  (export repl-lineedit repl-parse repl-eval repl-eval-list repl repl*
+          repl-exception-handler repl-interrupt-handler)
   (import
     (rnrs)
     (only (chezscheme)
-      abort base-exception-handler break-handler console-input-port console-output-port
-      eval exit-handler inspect keyboard-interrupt-handler parameterize pretty-print
-      read-token reset reset-handler void)
+      abort base-exception-handler break-handler
+      console-input-port console-output-port console-error-port
+      debug debug-condition debug-on-exception default-exception-handler display-condition
+      eval exit-handler inspect keyboard-interrupt-handler parameterize
+      pretty-print read-token reset reset-handler void)
     (schemesh bootstrap)
     (only (schemesh containers) list-iterate)
     (schemesh lineedit io)
     (schemesh lineedit linectx)
     (schemesh lineedit)
     (schemesh parser)
-    (schemesh posix signal)
+    (schemesh posix signal) ; also for suspend-handler
     (schemesh posix tty)
     (only (schemesh shell) sh-consume-sigchld sh-make-linectx))
 
@@ -66,14 +69,10 @@
 ; 2. when using scheme parser, top-level (shell ...) will be executed immediately.
 (define (repl-eval form)
   ; (debugf "; evaluating: ~s~%" form)
-  (try
-    (eval
-      (if (and (pair? form) (memq (car form) '(shell shell-subshell)))
-        (list 'sh-run/i form)
-        form))
-    (catch (condition)
-      ; (debugf "repl-eval handling condition ~s~%" condition)
-      ((base-exception-handler) condition))))
+  (eval
+    (if (and (pair? form) (memq (car form) '(shell shell-subshell)))
+      (list 'sh-run/i form)
+      form)))
 
 ;
 ; Execute with (eval-func form) each form in list of forms containing parsed expressions
@@ -140,16 +139,24 @@
   (let ((repl-args (list parser enabled-parsers eval-func lctx)))
     (call/cc
       (lambda (k-exit)
-        (parameterize ((break-handler (lambda break-args (repl-interrupt-handler repl-args break-args)))
+        (parameterize ((base-exception-handler (base-exception-handler))
+                       (break-handler
+                         (lambda break-args
+                           (repl-interrupt-handler repl-args break-args)))
                        (exit-handler k-exit)
                        (keyboard-interrupt-handler
                          (lambda ()
-                           (put-string (console-output-port) "\n; interrupted\n")
+                           (put-string (console-error-port) "\n; interrupted\n")
                            (repl-interrupt-handler repl-args '())))
-                       (reset-handler (reset-handler)))
+                       (reset-handler (reset-handler))
+                       (suspend-handler
+                         (lambda ()
+                           (put-string (console-error-port) "\n; suspended\n")
+                           (repl-interrupt-handler repl-args '()))))
           (let ((k-reset k-exit)
                 (updated-parser parser))
             (reset-handler (lambda () (k-reset)))
+            (base-exception-handler (lambda (obj) (repl-exception-handler obj) (k-reset)))
             (call/cc (lambda (k) (set! k-reset k)))
             ; when the (reset-handler) we installed is called, resume from here
             (while updated-parser
@@ -203,24 +210,42 @@
            (if eval-func? eval-func repl-eval)
            (if lctx? lctx (sh-make-linectx)))))
 
+;; React to uncaught conditions
+(define (repl-exception-handler obj)
+  (let ((out (console-error-port)))
+    (display-condition obj out)
+    (put-string out "\n")
+    (flush-output-port out)
+    (when (or (serious-condition? obj) (not (warning? obj)))
+      (debug-condition obj) ;; save obj into thread-parameter (debug-condition)
+      (cond
+        ((debug-on-exception)
+          (debug)
+          ((reset-handler)))
+        (#t
+          (put-string out "Type (debug) to enter the debugger.\n")
+          (flush-output-port out))))))
 
-;; React to keyboard CTRL+C and calls to (break): enter the debugger.
+
+;; React to calls to (break), to keyboard CTRL+C and to SIGTSTP signal: enter the debugger.
 (define (repl-interrupt-handler repl-args break-args)
   (call/cc
     (lambda (k)
-      (parameterize ((break-handler void) (keyboard-interrupt-handler void))
-        (repl-interrupt-show-who-msg-irritants break-args)
-        (while (repl-interrupt-handler-once repl-args k (console-output-port)))))))
+      (parameterize ((break-handler void)
+                     (keyboard-interrupt-handler void)
+                     (suspend-handler void))
+        (let ((out (console-output-port)))
+          (repl-interrupt-show-who-msg-irritants break-args out)
+          (while (repl-interrupt-handler-once repl-args k out)))))))
 
 
 ;; Print (break ...) arguments
-(define (repl-interrupt-show-who-msg-irritants args)
+(define (repl-interrupt-show-who-msg-irritants args out)
   (when (pair? args)
     (let* ((who  (car args))
            (tail (cdr args))
            (msg  (if (pair? tail) (car tail) ""))
-           (irritants (if (pair? tail) (cdr tail) '()))
-           (out  (console-output-port)))
+           (irritants (if (pair? tail) (cdr tail) '())))
      (put-string out "break in " )
      (put-datum  out who)
      (put-string out ": ")
@@ -244,20 +269,24 @@
               'exit)
             (else token)))
     ((a abort)        (abort) #f)
-    ((e exit)         #f)
+    ((c e cont exit)  #f)
     ((i inspect)      (inspect k) #t)
-    ((n new-repl)     (apply repl* repl-args) #t)
-    ((r q reset quit) (reset) #f)
+    ((n new)          (apply repl* repl-args) #t)
+    ((q r quit reset) (reset) #f)
+    ((t throw)        (error #f "user interrupt") #f)
     ((? help)
       (put-string out "
-Type e to exit interrupt handler and continue
-     r or q to reset scheme
-     a to abort scheme
-     n to enter new repl
-     i to inspect current continuation\n\n")
+Type ? or help for this help.
+     i or inspect to inspect current continuation
+     n or new to enter new repl
+     c or e to exit interrupt handler and continue
+     t or throw to raise an error condition
+     q or r to reset scheme
+     a or abort to abort scheme
+     \n\n")
       (flush-output-port out)
       #t)
-    (else (put-string out "Invalid command.  Type ? for options.\n")
+    (else (put-string out "Invalid command.  Type ? for help.\n")
       (flush-output-port out)
       #t)))
 
