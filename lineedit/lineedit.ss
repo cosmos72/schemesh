@@ -322,7 +322,7 @@
   (linectx-return-set! ctx #f) ; clear flag "user pressed ENTER"
   (linectx-redraw-set! ctx #t) ; set flag "redraw prompt and lines"
   (linectx-draw-parens ctx (linectx-parens ctx) 'plain) ; unhighlight parentheses
-  (lineterm-move-dy ctx (fx- (vscreen-length (linectx-vscreen ctx))
+  (lineterm-move-dy ctx (fx- (fx1- (linectx-end-y ctx))
                              (linectx-iy ctx))) ; move to last input line
   (lineterm-write/u8 ctx 10) ; advance to next line.
   (linectx-term-xy-set! ctx 0 0) ; set tty cursor to 0 0
