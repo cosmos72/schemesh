@@ -26,12 +26,6 @@
 #include <termios.h> /* tcgetattr(), tcsetattr() */
 #include <unistd.h>  /* write() */
 
-#define STR_(arg) #arg
-#define STR(arg) STR_(arg)
-#define STR_EIO STR(EIO)
-#define STR_EINTR STR(EINTR)
-#define STR_EINVAL STR(EINVAL)
-
 /******************************************************************************/
 /*                                                                            */
 /*                          errno-related functions                           */
@@ -228,13 +222,13 @@ static int c_fd_dup2(int old_fd, int new_fd) {
  */
 static int c_fd_setnonblock(int fd) {
   int flags;
-  while ((flags = fcntl(fd, F_GETFL)) < 0 && errno == EINTR) {
+  while ((flags = fcntl(fd, F_GETFL)) < 0) {
     if (errno != EINTR) {
       return c_errno();
     }
   }
   flags |= O_NONBLOCK;
-  while (fcntl(fd, F_SETFL, flags) < 0) {
+  while (fcntl(fd, F_SETFL, flags) != 0) {
     if (errno != EINTR) {
       return c_errno();
     }
