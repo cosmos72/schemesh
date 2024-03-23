@@ -215,6 +215,7 @@
   (let ((out (console-error-port)))
     (dynamic-wind
       (lambda () ; before body
+        (put-string out "; ")
         (display-condition obj out)
         (put-string out "\n")
         (flush-output-port out))
@@ -223,7 +224,7 @@
           (debug-condition obj) ;; save obj into thread-parameter (debug-condition)
           (if (debug-on-exception)
             (debug)
-            (put-string out "Type (debug) to enter the debugger.\n"))
+            (put-string out "; type (debug) to enter the debugger.\n"))
           (flush-output-port out)))
       (lambda () ; after body
         ((reset-handler))))))

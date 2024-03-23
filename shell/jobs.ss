@@ -26,7 +26,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) break foreign-procedure format fx1+ fx1- record-writer reverse! void)
-    (only (schemesh bootstrap) assert* while)
+    (only (schemesh bootstrap) assert* until)
     (schemesh containers)
     (schemesh conversions)
     (schemesh posix fd)
@@ -71,8 +71,7 @@
   (parent job)
   (fields
     kind                ; symbol: one of 'and 'or 'list 'subshell 'global
-    children            ; span:   children jobs.
-    (mutable next-id))) ; fixnum: first available index in span of children jobs
+    children))          ; span:   children jobs.
 
 
 ;; Define the variable sh-globals, contains the global job.
@@ -80,6 +79,8 @@
 ;
 ;; Variable may be set! to a different value in subshells.
 (define sh-globals
+  ;; assign job-id 0 to sh-globals itself.
+  ;;
   ;; waiting for sh-globals to exit is not useful:
   ;; pretend it already exited with unknown exit status
   (%make-multijob 0 (get-pid) (get-pgid 0) '(unknown . 0) (vector 0 1 2) (vector) '()
@@ -87,64 +88,69 @@
     ; current directory
     (string->charspan* ((foreign-procedure "c_get_cwd" () scheme-object)))
     (make-hashtable string-hash string=?) #f
-    'global (span #t) 1)) ; skip job-id 0
+    'global (span #t))) ; skip job-id 0, is used by sh-globals itself
 
-;; Define the global hashtable pid -> job
+;; Global hashtable pid -> job
 (define %table-pid->job (make-eq-hashtable))
 
-;; Define function (pid->job) to convert pid to job, return #f if job not found
+;; Convert pid to job, return #f if job not found
 (define (pid->job pid)
   (assert* (fixnum? pid))
   (hashtable-ref %table-pid->job pid #f))
 
-;; Define function (pid->job-set!) adds entries to the global hashtable pid -> job
+;; Adds an entry to the global hashtable pid -> job
 (define (pid->job-set! pid job)
   (assert* (fixnum? pid))
   (assert* (sh-job? job))
   (hashtable-set! %table-pid->job pid job))
 
-;; Define function (pid->job-delete!) removes entries from the global hashtable pid -> job
+;; Removes an entry from the global hashtable pid -> job
 (define (pid->job-delete! pid)
   (assert* (fixnum? pid))
   (hashtable-delete! %table-pid->job pid))
 
-;; Define the function (multijob-child-delete!), removes a job-id from a multijob
-(define (multijob-child-delete! globals job-id)
-  (let* ((arr (multijob-children globals))
-         (job-id
-           (if (fixnum? job-id)
-             (when (and (fx>=? job-id 0) (fx<? job-id (span-length arr)))
-               job-id)
-             (span-find arr 0 (span-length arr) (lambda (elem) (eq? elem job-id))))))
-    (when job-id
-      (span-set! arr job-id #f)
-      (multijob-next-id-set! globals
-                              (fxmin job-id (multijob-next-id globals))))))
+;; Remove a job or job-id from a multijob
+(define (multijob-child-delete! mjob job-or-id)
+  (let* ((arr (multijob-children mjob))
+         (j   (sh-job job-or-id))
+         (idx
+           (if (fixnum? job-or-id)
+             (when (and (fx>=? job-or-id 0) (fx<? job-or-id (span-length arr)))
+               job-or-id)
+             (span-find arr 0 (span-length arr) (lambda (elem) (eq? elem j))))))
+    (when idx
+      (span-set! arr idx #f)
+      (until (or (span-empty? arr) (span-back arr))
+        (span-erase-back! arr 1))
+      (when (eq? sh-globals mjob)
+        (job-id-set! j #f)))))
 
 
-;; Define the function (multijob-child-put!), adds a job to a multijob
-;; extending (multijob-span globals) as needed.
-;; Return job-id assigned to job.
+;; Add a job to a multijob, extending (multijob-children mjob) as needed.
+;; Return index assigned to job, which is the job-id if mjob is sh-globals.
 (define (multijob-child-put! mjob j)
   (let* ((arr     (multijob-children mjob))
-         (len     (span-length arr))
-         (next-id (multijob-next-id mjob))
-         (job-id  (span-find arr next-id (fx- len next-id) not)))
-    (if job-id
-      (span-set! arr job-id j) ; found a free job-id
-      (begin                   ; no free job-id, enlarge span
-        (span-insert-back! arr j)
-        (set! job-id len)))
-    (let* ((start   (multijob-next-id mjob))
-           (len     (span-length arr))
-           (next-id (span-find arr start (fx- len job-id) not)))
-      (multijob-next-id-set! mjob (or next-id len)))
+         (job-id  (span-length arr)))
+    (span-insert-back! arr j)
     (when (eq? sh-globals mjob)
       (job-id-set! j job-id))
     job-id))
 
 
-;; Converts job-or-id to job.
+;; If job has no job-id, assign a job-id to it, by appending it to (multijob-children sh-globals)
+;; Return index assigned to job, which is the job-id.
+(define (job-id-ensure! j)
+  (assert* (sh-job? j))
+  (or (job-id j) (multijob-child-put! sh-globals j)))
+
+
+;; unset the job-id of a job
+(define (job-id-unset! j)
+  (when (job-id j)
+    (multijob-child-delete! sh-globals (job-id j))))
+
+
+;; Convert job-or-id to job.
 ;; job-or-id can be either a job,
 ;; or #t which means sh-globals,
 ;; or a fixnum indicating the job-id of one of the running jobs
@@ -562,17 +568,18 @@
              (status (pid-wait->job-status ret)))
         ; if may-block is 'non-blocking, ret may be '() and status will be '(running . #f)
         ; indicating job status did not change i.e. it's (expected to be) still running
-        (when (job-status-member? status '(running))
-          (set! status (job-last-status j)))
-        (when (job-status-member? status '(exited killed unknown))
-          ; job exited. it can now be spawned again
-          (when (eq? sh-globals (job-parent j))
-            (multijob-child-delete! sh-globals j))
-          (pid->job-delete! (job-pid j))
-          (job-id-set! j #f)
-          (job-pid-set! j -1)
-          (job-pgid-set! j -1)
-          (job-last-status-set! j status))
+        (cond
+          ((job-status-member? status '(running))
+            (set! status (job-last-status j)))
+          ((job-status-member? status '(exited killed unknown))
+            ; job exited. it can now be spawned again
+            (pid->job-delete! (job-pid j))
+            (job-id-unset! j)
+            (job-pid-set! j -1)
+            (job-pgid-set! j -1)
+            (job-last-status-set! j status))
+          ((job-status-member? status '(stopped))
+            (job-id-ensure! j)))
         status))))
 
 
@@ -586,8 +593,8 @@
 ;;   (cons 'unknown ...)
 ;;
 ;; Note: this function also non-blocking checks if job status changed.
-(define (sh-job-status job-id)
-  (let ((j (sh-job job-id)))
+(define (sh-job-status job-or-id)
+  (let ((j (sh-job job-or-id)))
     (when (job-status-member? (job-last-status j) '(running))
       ; nonblocking wait for job's pid to exit or stop.
       ; TODO: wait for ALL pids in process group?
@@ -604,8 +611,8 @@
 ;;   (cons 'killed  signal-name)
 ;;   (cons 'stopped signal-name)
 ;;   (cons 'unknown ...)
-(define (sh-bg job-id)
-  (let ((j (sh-job job-id)))
+(define (sh-bg job-or-id)
+  (let ((j (sh-job job-or-id)))
     (cond
       ; if job already exited, return its exit status.
       ; if job is stopped, consider as running: we'll send SIGCONT to it below
@@ -644,9 +651,9 @@
             (%pgid-foreground _caller _new-pgid _expected-pgid)))))))
 
 
-;; Continue a job or job-id by sending SIGCONT to it, wait for it to exit or stop,
+;; Continue a job or job-id by sending SIGCONT to it, then wait for it to exit or stop,
 ;; and finally return its status, which can be one of:
-;
+;;
 ;;   (void)                      ; if process exited with exit-status = 0
 ;;   (cons 'exited  exit-status)
 ;;   (cons 'killed  signal-name)
@@ -656,8 +663,8 @@
 ;; Note: if the current shell is in the fg process group,
 ;;   upon invocation, sets the job as fg process group.
 ;;   And before returning, restores current shell as fg process group.
-(define (sh-fg job-id)
-  (let* ((j      (sh-job job-id))
+(define (sh-fg job-or-id)
+  (let* ((j      (sh-job job-or-id))
          (j-pgid (job-pgid j)))
     (cond
       ; if job already exited, return its exit status.
@@ -675,23 +682,21 @@
           (job-wait j 'blocking))))))
 
 
-;; Wait for a job or job-id to exit.
-;;
-;; Does NOT send SIGCONT in case the job is already stopped, use (sh-fg) for that.
-;; Does NOT return early if the job gets stopped, use (sh-fg) for that.
-;;
-;; Return job status, which can be one of:
+;; Continue a job or job-id by sending SIGCONT to it, then wait for it to exit,
+;; and finally return its status, which can be one of:
 ;;
 ;;   (void)                      ; if process exited with exit-status = 0
 ;;   (cons 'exited  exit-status)
 ;;   (cons 'killed  signal-name)
 ;;   (cons 'unknown ...)
 ;;
+;; Does NOT return early if the job gets stopped, use (sh-fg) for that.
+;;
 ;; Note: if current shell is in the fg process group,
 ;;   upon invocation, sets the job as fg process group.
 ;;   And before returning, restores current shell as fg process group.
-(define (sh-wait job-id)
-  (let* ((j (sh-job job-id))
+(define (sh-wait job-or-id)
+  (let* ((j           (sh-job job-or-id))
          (j-pgid      (job-pgid j))
          (global-pgid (job-pgid sh-globals)))
     (cond
@@ -703,14 +708,14 @@
         (error 'sh-wait "job not started yet" j))
       (#t
         (with-foreground-pgid 'sh-wait global-pgid j-pgid
+          ; send SIGCONT to job's process group. may raise error
+          (pid-kill (fx- j-pgid) 'sigcont)
           ; blocking wait for job's pid to exit.
           ; TODO: wait for ALL pids in process group?
           (do ((status #f (job-wait j 'blocking)))
               ((job-status-member? status '(exited killed unknown)) status)
             (when (and (pair? status) (eq? 'stopped (car status)))
-              (if (fixnum? job-id)
-                (format #t "; ~s pid ~s stopped        ~s~%" job-id (job-pid j) j)
-                (format #t "; pid ~s stopped        ~s~%" (job-pid j) j))
+              (format #t "; job ~s pid ~s stopped        ~s~%" (job-id j) (job-pid j) j)
               (with-foreground-pgid 'sh-wait j-pgid global-pgid
                 (break)
                 ; send SIGCONT to job's process group. may raise error
@@ -747,6 +752,7 @@
 ;; Return #t if job exited successfully, otherwise return #f.
 (define (sh-run/ok? j . options)
   (sh-ok? (apply sh-run j options)))
+
 
 ;; Create or remove a file description redirection for cmd or job
 (define (sh-fd-redirect! job-id child-fd existing-fd-or-minus-1)
@@ -804,8 +810,7 @@
     '()        ; overridden environment variables - initially none
     sh-globals ; parent job - initially the global job
     kind
-    (list->span children-jobs)
-    0))
+    (list->span children-jobs)))
 
 (define (assert-is-job j)
   (assert* (sh-job? j)))
