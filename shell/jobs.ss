@@ -641,9 +641,10 @@
       (let ((_caller caller)
             (_expected-pgid expected-pgid)
             (_new-pgid new-pgid))
-        (%pgid-foreground _caller _expected-pgid _new-pgid)
         (dynamic-wind
-          void       ; run before body
+          (lambda ()
+            ; run before body
+            (%pgid-foreground _caller _expected-pgid _new-pgid))
           (lambda () body ...)
           (lambda ()
             ; run after body, even if it raised a condition:
@@ -707,19 +708,36 @@
       ((not (job-started? j))
         (error 'sh-wait "job not started yet" j))
       (#t
-        (with-foreground-pgid 'sh-wait global-pgid j-pgid
-          ; send SIGCONT to job's process group. may raise error
+        (job-wait-loop j j-pgid global-pgid)))))
+
+
+;; internal function used by (sh-wait) to actually wait for a job to exit.
+;; return job exit status.
+(define (job-wait-loop j j-pgid global-pgid)
+  ; blocking wait for job's pid to exit.
+  ; TODO: wait for ALL pids in process group?
+  (dynamic-wind
+    (lambda () ; before body
+      (%pgid-foreground 'sh-wait global-pgid j-pgid))
+    (lambda () ; body
+      (do ((status #f (begin
+                        ; send SIGCONT to job's process group. may raise error
+                        (pid-kill (fx- j-pgid) 'sigcont)
+                        (job-wait j 'blocking))))
+          ((job-status-member? status '(exited killed unknown)) status)
+        (when (and (pair? status) (eq? 'stopped (car status)))
+          (format #t "; job ~s pid ~s stopped        ~s~%" (job-id j) (job-pid j) j)
+            (with-foreground-pgid 'sh-wait j-pgid global-pgid
+              (break)))))
+    (lambda () ; after body
+      (%pgid-foreground 'sh-wait j-pgid global-pgid)
+      (let ((j-pid (job-pid j)))
+        (when (fx>? j-pid 0)
+          ; (break) above or some other function raised an exception,
+          ; or (break) called a continuation, but the job is still running
+          ; -> interrupt the job's whole process group before returning
           (pid-kill (fx- j-pgid) 'sigcont)
-          ; blocking wait for job's pid to exit.
-          ; TODO: wait for ALL pids in process group?
-          (do ((status #f (job-wait j 'blocking)))
-              ((job-status-member? status '(exited killed unknown)) status)
-            (when (and (pair? status) (eq? 'stopped (car status)))
-              (format #t "; job ~s pid ~s stopped        ~s~%" (job-id j) (job-pid j) j)
-              (with-foreground-pgid 'sh-wait j-pgid global-pgid
-                (break)
-                ; send SIGCONT to job's process group. may raise error
-                (pid-kill (fx- j-pgid) 'sigcont)))))))))
+          (pid-kill (fx- j-pgid) 'sigint))))))
 
 
 
