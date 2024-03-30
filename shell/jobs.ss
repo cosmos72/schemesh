@@ -18,20 +18,23 @@
     sh-cmd sh-cmd<> sh-cmd? sh-multijob sh-multijob?
     sh-globals sh-global-env sh-env-copy sh-env sh-env! sh-env-unset!
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0
-    sh-cwd sh-consume-sigchld sh-start sh-bg sh-fg sh-wait sh-ok?
+    sh-cwd sh-cwd-set! sh-cd sh-consume-sigchld sh-start sh-bg sh-fg sh-wait sh-ok?
     sh-run sh-run/i sh-run/ok? sh-run/bytes sh-run/string
     sh-and sh-or sh-list sh-subshell
     sh-fd-redirect! sh-fds-redirect!)
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) break foreign-procedure format fx1+ fx1- record-writer reverse! void)
+    (only (chezscheme) break foreign-procedure format fx1+ fx1-
+                       make-format-condition record-writer reverse! void)
     (only (schemesh bootstrap) assert* until)
     (schemesh containers)
     (schemesh conversions)
     (schemesh posix fd)
     (schemesh posix pid)
-    (schemesh posix signal))
+    (schemesh posix signal)
+    (schemesh shell paths))
+
 
 ;; Define the record type "job"
 (define-record-type
@@ -171,12 +174,49 @@
     ((sh-job? job-or-id) job-or-id)
     (#t (error 'sh-job "not a job-id:" job-or-id))))
 
+
 ;; return charspan containing current directory,
 ;; or charspan containing current directory of specified job-or-id.
 (define sh-cwd
   (case-lambda
     (()          (job-cwd sh-globals))
     ((job-or-id) (job-cwd (sh-job job-or-id)))))
+
+
+;; set the current directory of specified job or job-id to specified path.
+;; path must be a string or charspan.
+;;
+;; if job-or-id resolves to sh-globals, it is equivalent to (sh-cd path).
+;;
+;; in all other cases, path is taken as-is, i.e. it is not normalized
+;; and is not validated against filesystem contents.
+(define (sh-cwd-set! job-or-id path)
+  (let ((j (sh-job job-or-id)))
+    (if (eq? j sh-globals)
+      (sh-cd path)
+      (job-cwd-set! j (if (charspan? path) path (string->charspan* path))))))
+
+
+;; change current directory to specified path.
+;; path must be a string or charspan.
+(define sh-cd
+  (let ((c_chdir (foreign-procedure "c_chdir" (scheme-object) int)))
+    (lambda (path)
+      (let* ((suffix (if (charspan? path) path (string->charspan* path)))
+             (dir (if (sh-path-absolute? suffix)
+                      (sh-path-normalize suffix)
+                      (sh-path-append (sh-cwd) suffix)))
+             (err (c_chdir (string->bytevector0 (charspan->string dir)))))
+        (if (= err 0)
+          (job-cwd-set! sh-globals dir)
+          (raise
+            (condition
+              (make-error)
+              (make-who-condition 'cd)
+              (make-format-condition)
+              (make-message-condition "~a: ~a")
+              (make-irritants-condition (list path (c-errno->string err))))))))))
+
 
 
 ;; return currently running jobs
@@ -915,6 +955,9 @@
 (define (sh-run/string job)
   ; TODO: implement (sh-run/string)
   "")
+
+
+
 
 ;; customize how "job" objects are printed
 (record-writer (record-type-descriptor job)

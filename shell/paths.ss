@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 (library (schemesh shell paths (0 1))
-  (export sh-path sh-path-absolute? sh-path-append! sh-path-concat sh-path-iterate sh-path-normalize)
+  (export sh-path sh-path-absolute? sh-path-append sh-path-append! sh-path-iterate sh-path-normalize)
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx1- void)
@@ -82,7 +82,7 @@
 ;; no element can be "." or ".."
 ;; suffix does not need to be normalized.
 ;; If prefix is not "/" but ends with "/", its final "/" is ignored.
-;; If suffix is "/" or ends with "/", its final "/" is ignored.
+;; Leading and trailing "/" in suffix are ignored.
 ;; returns (void), as usual for setters.
 (define (sh-path-append! prefix suffix)
   (let ((prefix-len (trim-path-prefix-len prefix))
@@ -122,7 +122,7 @@
 ;; If prefix is not "/" but ends with "/", its final "/" is ignored.
 ;; If suffix is "/" or ends with "/", its final "/" is ignored.
 ;; returns a new path, containing the concatenation of prefix and suffix.
-(define (sh-path-concat prefix suffix)
+(define (sh-path-append prefix suffix)
   (let ((result     (make-charspan 0))
         (prefix-len (charspan-length prefix)))
     (charspan-reserve-back! result (fx+ prefix-len (charspan-length suffix)))
@@ -131,14 +131,15 @@
     result))
 
 
-;; normalize filesystem path, represented as charspan.
-;; i.e. it applies the effect of "." and ".." components in path.
+;; normalize a filesystem path, represented as charspan.
+;; i.e. it applies the effect of "." and ".." components in path then removes them.
+;; Note: as a consequence, normalized paths cannot reference ".." or "../.." etc.
 ;; returns a new path, which will end with "/" only if it's the only character
 (define sh-path-normalize
   (let ((root  (string->charspan* "/"))
         (empty (string->charspan* "")))
     (lambda (path)
-      (sh-path-concat (if (sh-path-absolute? path) root empty)
+      (sh-path-append (if (sh-path-absolute? path) root empty)
                       path))))
 
 

@@ -13,8 +13,9 @@
 (library (schemesh containers charspan (0 1))
   (export
     list->charspan string->charspan string->charspan* make-charspan charspan->string
-    charspan charspan? charspan-length charspan-empty? charspan-clear! charspan-capacity
-    charspan-capacity-front charspan-capacity-back charspan-ref charspan-front charspan-back
+    charspan charspan? assert-charspan? charspan-length charspan-empty? charspan-clear!
+    charspan-capacity charspan-capacity-front charspan-capacity-back charspan-ref
+    charspan-front charspan-back
     charspan-set! charspan-fill! charspan-fill-range! charspan-copy charspan-copy!
     charspan=? charspan-range=?
     charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back!
@@ -36,6 +37,10 @@
      (mutable end charspan-end charspan-end-set!)
      (mutable str charspan-str charspan-str-set!))
   (nongenerative #{%charspan b847ikzm9lftljwelbq0cknyh-0}))
+
+(define (assert-charspan? who line)
+  (unless (charspan? line)
+    (assertion-violation who "not a charspan" line)))
 
 (define charspan-peek-beg charspan-beg)
 (define charspan-peek-end charspan-end)

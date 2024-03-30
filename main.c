@@ -92,7 +92,7 @@ again:
   (void)&show;
   (void)&diff;
   Senable_expeditor(NULL);
-  c_errno_set(0); /* not enough, Scheme (errno) still returns -11 */
+  c_errno_set(0); /* not enough, Scheme (c-errno) still returns -11 */
   Sscheme_start(argc, argv);
 #else
   (void)argc;

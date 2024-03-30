@@ -87,7 +87,7 @@ static ptr c_get_cwd(void) {
  * i.e. a bytevector that must already end with a byte = 0.
  * return 0 on success, or c_errno() < 0 on error.
  */
-static int c_set_cwd(ptr bytevec0) {
+static int c_chdir(ptr bytevec0) {
   if (Sbytevectorp(bytevec0)) {
     iptr        len = Sbytevector_length(bytevec0);
     const char* dir = (const char*)Sbytevector_data(bytevec0);
@@ -112,7 +112,7 @@ int schemesh_register_c_functions(void) {
 
   Sregister_symbol("c_environ_ref", &c_environ_ref);
   Sregister_symbol("c_get_cwd", &c_get_cwd);
-  Sregister_symbol("c_set_cwd", &c_set_cwd);
+  Sregister_symbol("c_chdir", &c_chdir);
 
   return err;
 }

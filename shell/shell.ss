@@ -9,20 +9,20 @@
 (library (schemesh shell (0 1))
   (export
     ; paths.ss
-    sh-path sh-path-absolute? sh-path-append! sh-path-concat sh-path-iterate sh-path-normalize
+    sh-path sh-path-absolute? sh-path-append! sh-path-append sh-path-iterate sh-path-normalize
 
     ; jobs.ss
     sh-job? sh-job sh-job-id sh-job-status sh-jobs
     sh-cmd sh-cmd<> sh-cmd? sh-multijob sh-multijob?
     sh-globals sh-global-env sh-env-copy sh-env sh-env! sh-env-unset!
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0
-    sh-cwd sh-consume-sigchld sh-start sh-bg sh-fg sh-wait sh-ok?
+    sh-cwd sh-cwd-set! sh-cd sh-consume-sigchld sh-start sh-bg sh-fg sh-wait sh-ok?
     sh-run sh-run/i sh-run/ok? sh-run/bytes sh-run/string
     sh-and sh-or sh-list sh-subshell
     sh-fd-redirect! sh-fds-redirect!
 
     ; builtins.ss
-    sh-false sh-true sh-cd sh-pwd
+    sh-false sh-true sh-pwd
 
     ; parse.ss
     sh sh-parse

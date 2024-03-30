@@ -671,7 +671,7 @@ static const struct {
      "       (positive? (cdr sz))))",
      "#t"},
     /* ------------------------- posix -------------------------------------- */
-    {"(errno)", "0"},
+    {"(c-errno)", "0"},
     /* ------------------------- shell paths -------------------------------- */
     {"(sh-path-absolute? (string->charspan* \"/foo\"))", "#t"},
     {"(sh-path-absolute? (string->charspan* \"bar/\"))", "#f"},

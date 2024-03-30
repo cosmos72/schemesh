@@ -7,7 +7,7 @@
 
 (library (schemesh posix fd (0 1))
   (export
-    errno make-errno-condition raise-errno-condition
+    c-errno c-errno->string make-errno-condition raise-errno-condition
     fd-close fd-close-list fd-dup fd-dup2 fd-read fd-write fd-select fd-setnonblock
     open-file-fd open-pipe-fds)
   (import
@@ -17,8 +17,11 @@
     (only (schemesh containers misc) list-iterate)
     (only (schemesh conversions)     string->bytevector0))
 
-(define errno
+(define c-errno
   (foreign-procedure "c_errno" () int))
+
+(define c-errno->string
+  (foreign-procedure "c_strerror" (int) ptr))
 
 (define (make-errno-condition who c-errno)
   (condition

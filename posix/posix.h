@@ -20,7 +20,7 @@ int c_errno(void);
 int c_errno_set(int errno_value);
 
 /** print label and current errno value to stderr. return -errno */
-int c_errno_print(const char label[]);
+int c_init_failed(const char label[]);
 
 /** POSIX standard says programs need to declare environ by themselves */
 extern char** environ;

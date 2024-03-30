@@ -40,15 +40,6 @@ int c_errno_set(int errno_value) {
   return -(errno = errno_value);
 }
 
-int c_errno_print(const char label[]) {
-  const int err = errno;
-  fprintf(stderr,
-          "error initializing POSIX subsystem: %s failed with error %s\n",
-          label,
-          strerror(err));
-  return -err;
-}
-
 static int c_errno_eio() {
   return -EIO;
 }
@@ -59,6 +50,19 @@ static int c_errno_eintr() {
 
 static int c_errno_einval() {
   return -EINVAL;
+}
+
+ptr c_strerror(int err) {
+  return Sstring_utf8(strerror(err < 0 ? -err : err), -1);
+}
+
+int c_init_failed(const char label[]) {
+  const int err = errno;
+  fprintf(stderr,
+          "error initializing POSIX subsystem: %s failed with error %s\n",
+          label,
+          strerror(err));
+  return -err;
 }
 
 /******************************************************************************/
@@ -73,9 +77,9 @@ static int tty_fd = -1;
 static int c_tty_init(void) {
   int err = 0;
   if (dup2(0, tty_fd = 255) < 0) {
-    err = c_errno_print("dup2(0, tty_fd)");
+    err = c_init_failed("dup2(0, tty_fd)");
   } else if (fcntl(tty_fd, F_SETFD, FD_CLOEXEC) < 0) {
-    err = c_errno_print("fcntl(tty_fd, F_SETFD, FD_CLOEXEC)");
+    err = c_init_failed("fcntl(tty_fd, F_SETFD, FD_CLOEXEC)");
   }
   return err;
 }
@@ -762,6 +766,7 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_errno_eio", &c_errno_eio);
   Sregister_symbol("c_errno_eintr", &c_errno_eintr);
   Sregister_symbol("c_errno_einval", &c_errno_einval);
+  Sregister_symbol("c_strerror", &c_strerror);
   Sregister_symbol("c_fd_close", &c_fd_close);
   Sregister_symbol("c_fd_dup", &c_fd_dup);
   Sregister_symbol("c_fd_dup2", &c_fd_dup2);
