@@ -675,9 +675,15 @@ static const struct {
     /* ------------------------- shell paths -------------------------------- */
     {"(sh-path-absolute? (string->charspan* \"/foo\"))", "#t"},
     {"(sh-path-absolute? (string->charspan* \"bar/\"))", "#f"},
-    {"(sh-path \"//usr///local////\")", "(string->charspan* \"/usr/local\")"},
-    {"(sh-path \"/usr/local/\" \"/bin/\" \"../lib/scheme/\")",
+    {"(sh-path \"//usr///local////\")", "(string->charspan* \"//usr///local////\")"},
+    {"(sh-subpath \"//usr///local////\")", "(string->charspan* \"/usr/local\")"},
+    {"(sh-subpath \"/usr/local/\" \"/bin/\" \"../lib/scheme/\")",
      "(string->charspan* \"/usr/local/lib/scheme\")"},
+    {"(sh-path? (string->charspan* \"../a//b/\"))", "#t"},
+    {"(sh-path? (string->charspan* \"\\x0;\"))", "#f"},
+    {"(sh-subpath? (string->charspan* \"../a//b/\"))", "#f"},
+    {"(sh-subpath? (string->charspan* \"a//b\"))", "#f"},
+    {"(sh-subpath? (string->charspan* \"a/b/\"))", "#t"},
     /* ------------------------- shell jobs --------------------------------- */
     {"(begin\n"
      "  (sh-env! #t \"foo\" \"bar\")\n"

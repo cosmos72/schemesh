@@ -6,7 +6,9 @@
 ;;; (at your option) any later version.
 
 (library (schemesh shell paths (0 1))
-  (export sh-path sh-path-absolute? sh-path-append sh-path-append! sh-path-iterate sh-path-normalize)
+  (export sh-path sh-path? sh-path-absolute? sh-path-relative?
+          sh-path-append sh-path-append! sh-path-iterate
+          sh-subpath sh-subpath? sh-path->subpath)
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx1- void)
@@ -14,24 +16,63 @@
     (schemesh containers charspan)
     (only (schemesh containers misc) list-iterate))
 
+;; a path is a charspan representing a relative or absolute directory.
+;; It is absolute if starts with "/", otherwise it is relative.
+;; It contains zero or more components, separated by "/"
+;; It cannot contain "\x0;" i.e. codepoint 0, because POSIX uses it as path terminator.
+;;
+;; Each component can be an arbitrary string, including the empty string, "." or ".."
+;; By construction, components cannot contain "/" because it is the component separator.
+;; All other codepoints different from 0 are allowed.
+;;
+;; a subpath is a path with the additional constraint that components
+;; cannot be "." or ".." or the empty string.
+;; As a consequence, a subpath has the following constraints and guarantees:
+;;  * it cannot reference ".." or "../.." etc.
+;;  * it CAN be empty.
+;;  * it is either absolute (if it starts with "/") or relative (in all other cases).
+;;  * it cannot contain two or more consecutive "/"
+;;  * it should end with "/" only if it's the only character.
 
-;; convert a list of strings into paths, and concatenate them into a single normalized path.
-;; returned path will start with "/" if and only if first string starts with "/"
-(define (sh-path . strings)
-  (if (null? strings)
+
+;; concatenate specified strings or charspans and create a path,
+;; inserting a "/" separator between each concatenation.
+;; returned path will start with "/" if and only if first non-empty string or charspan
+;; starts with "/"
+(define (sh-path . strings-or-charspans)
+  (if (null? strings-or-charspans)
     (charspan)
-    (let ((result (sh-path-normalize (string->charspan* (car strings)))))
-      (list-iterate (cdr strings)
-        (lambda (str)
-          (sh-path-append! result (string->charspan* str))))
+    (let* ((first (car strings-or-charspans))
+           (result (if (charspan? first) (charspan-copy first) (string->charspan first))))
+      (list-iterate (cdr strings-or-charspans)
+        (lambda (item)
+          (let* ((next (if (charspan? item) item (string->charspan* item)))
+                 (sep-before? (path-ends-with-sep? result))
+                 (sep-after?  (sh-path-absolute? next)))
+            (cond
+              ((and sep-before? sep-after?)
+                (charspan-erase-back! result 1))
+              ((not (or sep-before? sep-after?))
+                (charspan-insert-back! result #\/)))
+            (charspan-insert-back/cspan! result next 0 (charspan-length next)))))
       result)))
 
 
-;; return #t if path starts with "/" otherwise return #f
+;; return #t if argument is a path i.e. a charspan that does not contain #\nul,
+;; otherwise return #f
+(define (sh-path? obj)
+  (and (charspan? obj)
+       (not (charspan-find obj 0 (charspan-length obj) (lambda (ch) (char=? ch #\nul))))))
+
+
+;; return #t if path is absolute i.e. it starts with "/" otherwise return #f
 (define (sh-path-absolute? path)
   (and (not (charspan-empty? path))
        (char=? #\/ (charspan-front path))))
 
+;; return #t if path is relative i.e. it does NOT start with "/" otherwise return #f
+(define (sh-path-relative? path)
+  (not (sh-path-absolute? path)))
 
 ;; return #t if path ends with "/" otherwise return #f
 (define (path-ends-with-sep? path)
@@ -42,9 +83,10 @@
 (define (char-is-sep? ch)
   (char=? #\/ ch))
 
-;; given a path represented as charspan, split its subset start...start+n
-;; using "/" separator and call (proc path pos len) on each component of the path,
+;; given a path, split its subset start...start+n using "/" as separator
+;; and call (proc path pos len) on each component of the path,
 ;; where pos is the start index of the i-th component in the path, and len is its length.
+;; stop iterating if (proc ...) returns #f.
 (define (sh-path-iterate path start n proc)
   (let* ((clen (charspan-length path))
          (pos  (fxmin clen (fxmax 0 start)))
@@ -52,11 +94,11 @@
     (while (fx<? pos end)
       (let ((sep (or (charspan-find path pos (fx- end pos) char-is-sep?)
                      end)))
-        (proc path pos (fx- sep pos))
-        (set! pos (fx1+ sep))))))
+        (if (proc path pos (fx- sep pos))
+          (set! pos (fx1+ sep))
+          (set! pos end))))))
 
-;; given a path represented as charspan,
-;; return the length of its parent path.
+;; given a path, return the length of its parent path.
 ;; returned length includes the final "/" ONLY if it's the only character.
 (define (path-parent-len path)
   (let ((pos (charspan-rfind path 0 (charspan-length path) char-is-sep?)))
@@ -76,14 +118,11 @@
        (char=? #\. (charspan-ref path (fx1+ start)))))
 
 
-;; append suffix to filesystem path prefix, both represented as charspan.
-;; prefix will be modified in-place.
-;; prefix must be already normalized, i.e. if splitted with "/" separator,
-;; no element can be "." or ".."
-;; suffix does not need to be normalized.
-;; If prefix is not "/" but ends with "/", its final "/" is ignored.
-;; Leading and trailing "/" in suffix are ignored.
+;; in-place concatenate a subpath (prefix) and a path (suffix).
+;; prefix must be a subpath and will be modified in-place.
+;; suffix must be a path and will not be modified.
 ;; returns (void), as usual for setters.
+;; prefix will still be a subpath after this function returns.
 (define (sh-path-append! prefix suffix)
   (let ((prefix-len (trim-path-prefix-len prefix))
         (suffix-len (trim-path-suffix-len suffix)))
@@ -115,13 +154,10 @@
       (fx1- len)
       len)))
 
-;; concatenate filesystem paths prefix and suffix, both represented as charspan.
-;; prefix must be already normalized, i.e. if splitted with "/" separator,
-;; no element can be "." or ".."
-;; suffix does not need to be normalized.
-;; If prefix is not "/" but ends with "/", its final "/" is ignored.
-;; If suffix is "/" or ends with "/", its final "/" is ignored.
-;; returns a new path, containing the concatenation of prefix and suffix.
+;; concatenate a subpath (prefix) and a path (suffix).
+;; prefix must be a subpath and will not be modified.
+;; suffix must be a path and will not be modified.
+;; returns a new subpath containing the concatenation of prefix and suffix.
 (define (sh-path-append prefix suffix)
   (let ((result     (make-charspan 0))
         (prefix-len (charspan-length prefix)))
@@ -130,12 +166,37 @@
     (sh-path-append! result suffix)
     result))
 
+;; concatenate specified strings or charspans and create a sub path,
+;; inserting a "/" separator between each concatenation.
+;; returned subpath will start with "/" if and only if first non-empty string or charspan
+;; starts with "/"
+(define (sh-subpath . strings-or-charspans)
+  (sh-path->subpath (apply sh-path strings-or-charspans)))
 
-;; normalize a filesystem path, represented as charspan.
-;; i.e. it applies the effect of "." and ".." components in path then removes them.
-;; Note: as a consequence, normalized paths cannot reference ".." or "../.." etc.
-;; returns a new path, which will end with "/" only if it's the only character
-(define sh-path-normalize
+
+;; return #t if specified argument is a subpath,
+;; i.e. if it is a charspan, and it does not contain "//",
+;; and if split with "/" as separator, no component is "." or ".."
+(define (sh-subpath? obj)
+  (and
+    (sh-path? obj)
+    (let ((path obj)
+          (ok? #t))
+      (sh-path-iterate path 0 (charspan-length path)
+        (lambda (path start len)
+          ;; only first component can be empty i.e. path can start with "/"
+          (when (or (and (fxzero? len) (not (fxzero? start)))
+                    (path-is-dot? path start len)
+                    (path-is-dot-dot? path start len))
+            (set! ok? #f))
+          ok?)) ; exits early from sh-path-iterate if ok? is #f
+      ok?)))
+
+
+;; convert a path to a subpath.
+;; It applies the effect of "." and ".." components in path and removes them.
+;; returns a new subpath.
+(define sh-path->subpath
   (let ((root  (string->charspan* "/"))
         (empty (string->charspan* "")))
     (lambda (path)

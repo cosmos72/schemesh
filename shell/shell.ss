@@ -9,7 +9,9 @@
 (library (schemesh shell (0 1))
   (export
     ; paths.ss
-    sh-path sh-path-absolute? sh-path-append! sh-path-append sh-path-iterate sh-path-normalize
+    sh-path sh-path? sh-path-absolute? sh-path-relative?
+    sh-path-append sh-path-append! sh-path-iterate
+    sh-subpath sh-subpath? sh-path->subpath
 
     ; jobs.ss
     sh-job? sh-job sh-job-id sh-job-status sh-jobs

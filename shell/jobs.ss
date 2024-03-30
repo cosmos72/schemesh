@@ -204,7 +204,7 @@
     (lambda (path)
       (let* ((suffix (if (charspan? path) path (string->charspan* path)))
              (dir (if (sh-path-absolute? suffix)
-                      (sh-path-normalize suffix)
+                      (sh-path->subpath suffix)
                       (sh-path-append (sh-cwd) suffix)))
              (err (c_chdir (string->bytevector0 (charspan->string dir)))))
         (if (= err 0)
@@ -220,7 +220,7 @@
 
 
 ;; return currently running jobs
-;; as an span of pairs (job-id . job) sorted by job-id
+;; as a span of pairs (job-id . job) sorted by job-id
 (define (sh-jobs)
   (let ((src (multijob-children sh-globals))
         (dst (span)))
