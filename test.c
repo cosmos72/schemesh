@@ -672,6 +672,12 @@ static const struct {
      "#t"},
     /* ------------------------- posix -------------------------------------- */
     {"(errno)", "0"},
+    /* ------------------------- shell paths -------------------------------- */
+    {"(sh-path-absolute? (string->charspan* \"/foo\"))", "#t"},
+    {"(sh-path-absolute? (string->charspan* \"bar/\"))", "#f"},
+    {"(sh-path \"//usr///local////\")", "(string->charspan* \"/usr/local\")"},
+    {"(sh-path \"/usr/local/\" \"/bin/\" \"../lib/scheme/\")",
+     "(string->charspan* \"/usr/local/lib/scheme\")"},
     /* ------------------------- shell jobs --------------------------------- */
     {"(begin\n"
      "  (sh-env! #t \"foo\" \"bar\")\n"

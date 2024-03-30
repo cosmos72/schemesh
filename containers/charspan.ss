@@ -14,12 +14,13 @@
   (export
     list->charspan string->charspan string->charspan* make-charspan charspan->string
     charspan charspan? charspan-length charspan-empty? charspan-clear! charspan-capacity
-    charspan-capacity-front charspan-capacity-back charspan-ref charspan-back charspan-set!
-    charspan-fill! charspan-fill-range! charspan-copy charspan-copy! charspan=? charspan-range=?
+    charspan-capacity-front charspan-capacity-back charspan-ref charspan-front charspan-back
+    charspan-set! charspan-fill! charspan-fill-range! charspan-copy charspan-copy!
+    charspan=? charspan-range=?
     charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back!
     charspan-insert-front! charspan-insert-back!
     charspan-insert-front/cspan! charspan-insert-back/cspan!
-    charspan-erase-front! charspan-erase-back! charspan-iterate charspan-find
+    charspan-erase-front! charspan-erase-back! charspan-iterate charspan-find charspan-rfind
     charspan-peek-data charspan-peek-beg charspan-peek-end )
   (import
     (rnrs)
@@ -44,16 +45,21 @@
   (let ((str (list->string l)))
     (%make-charspan 0 (string-length str) str)))
 
-; create charspan copying contents of specified string
+;; create charspan copying contents of specified string
 (define (string->charspan str)
   (%make-charspan 0 (string-length str) (string-copy str)))
 
-; view existing string as charspan
+;; view existing string as charspan
 (define (string->charspan* str)
   (%make-charspan 0 (string-length str) str))
 
-(define (make-charspan n . val)
-  (%make-charspan 0 n (apply make-string n val)))
+;; create a charspan containing n characters.
+;; If char is specified, the charspan is filled with it.
+;; Otherwise it is filled with #\nul i.e. codepoint 0.
+(define make-charspan
+  (case-lambda
+    ((n)      (%make-charspan 0 n (make-string n #\nul)))
+    ((n char) (%make-charspan 0 n (make-string n char)))))
 
 (define (charspan->string sp)
   (let ((beg (charspan-beg sp))
@@ -83,6 +89,10 @@
 (define (charspan-ref sp idx)
   (assert* (fx<? -1 idx (charspan-length sp)))
   (string-ref (charspan-str sp) (fx+ idx (charspan-beg sp))))
+
+(define (charspan-front sp)
+  (assert* (not (charspan-empty? sp)))
+  (string-ref (charspan-str sp) (charspan-beg sp)))
 
 (define (charspan-back sp)
   (assert* (not (charspan-empty? sp)))
@@ -153,26 +163,26 @@
     (charspan-end-set! sp len)
     (charspan-str-set! sp new-str)))
 
-; return distance between begin of internal string and last element
+;; return distance between begin of internal string and last element
 (define (charspan-capacity-front sp)
   (charspan-end sp))
 
-; return distance between first element and end of internal string
+;; return distance between first element and end of internal string
 (define (charspan-capacity-back sp)
   (fx- (string-length (charspan-str sp)) (charspan-beg sp)))
 
-; ensure distance between begin of internal string and last element is >= n.
- ; does NOT change the length
+;; ensure distance between begin of internal string and last element is >= n.
+;; does NOT change the length
 (define (charspan-reserve-front! sp len)
   (assert* (fx>=? len 0))
   (let ((str (charspan-str sp))
         (cap-front (charspan-capacity-front sp)))
     (cond
       ((fx<=? len cap-front)
-;      nothing to do
+       ; nothing to do
        (void))
       ((fx<=? len (string-length str))
-;       string is large enough, move elements to the back
+        ; string is large enough, move elements to the back
         (let* ((cap (charspan-capacity sp))
                (old-len (charspan-length sp))
                (new-beg (fx- cap old-len)))
@@ -180,28 +190,28 @@
           (charspan-beg-set! sp new-beg)
           (charspan-end-set! sp cap)))
       (#t
-;       string is too small, reallocate it
+       ; string is too small, reallocate it
        (let ((new-cap (fxmax 8 len (fx* 2 cap-front))))
          (charspan-reallocate-front! sp (charspan-length sp) new-cap))))))
 
-; ensure distance between first element and end of internal string is >= n.
- ; does NOT change the length
+;; ensure distance between first element and end of internal string is >= n.
+;; does NOT change the length
 (define (charspan-reserve-back! sp len)
   (assert* (fx>=? len 0))
   (let ((str (charspan-str sp))
         (cap-back (charspan-capacity-back sp)))
     (cond
       ((fx<=? len cap-back)
-;      nothing to do
+       ; nothing to do
        (void))
       ((fx<=? len (string-length str))
-;       string is large enough, move elements to the front
+        ; string is large enough, move elements to the front
         (let ((len (charspan-length sp)))
           (string-copy! str (charspan-beg sp) str 0 len)
           (charspan-beg-set! sp 0)
           (charspan-end-set! sp len)))
       (#t
-;       string is too small, reallocate it
+       ; string is too small, reallocate it
        (let ((new-cap (fxmax 8 len (fx* 2 cap-back))))
          (charspan-reallocate-back! sp (charspan-length sp) new-cap))))))
 
@@ -273,16 +283,29 @@
        (v (charspan-str sp)))
     ((or (fx>=? i n) (not (proc i (string-ref v i)))))))
 
-;*
- ; (charspan-find) iterates on charspan elements from start to (fxmin (fx+ start n)
- ; (charspan-length sp)), and returns the index of first charspan element that causes
- ; (predicate elem) to return non-#f. Returns #f if no such element is found.
-
+;; iterate on charspan elements from start to (fx+ start n)
+;; and return the index of first charspan element that causes
+;; (predicate elem) to return non-#f. Returns #f if no such element is found.
 (define (charspan-find sp start n predicate)
-  (let ((ret #f))
-    (do ((i   start (fx1+ i))
-         (end (fxmin (fx+ start n) (charspan-length sp))))
+  (let* ((clen  (charspan-length sp))
+         (start (fxmin clen (fxmax 0 start)))
+         (end   (fxmin clen (fx+ start n)))
+         (ret #f))
+    (do ((i start (fx1+ i)))
         ((or ret (fx>=? i end)) ret)
+      (when (predicate (charspan-ref sp i))
+        (set! ret i)))))
+
+;; iterate backward on charspan elements from (fx1- (fx+ start n)) to start
+;; and return the index of first (i.e. the highest index) charspan element that causes
+;; (predicate elem) to return non-#f. Returns #f if no such element is found.
+(define (charspan-rfind sp start n predicate)
+  (let* ((clen  (charspan-length sp))
+         (start (fxmin clen (fxmax 0 start)))
+         (end   (fxmin clen (fx+ start n)))
+         (ret #f))
+    (do ((i  (fx1- end) (fx1- i)))
+        ((or ret (fx<? i start)) ret)
       (when (predicate (charspan-ref sp i))
         (set! ret i)))))
 

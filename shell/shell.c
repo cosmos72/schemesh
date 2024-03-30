@@ -52,7 +52,8 @@ static ptr c_environ_ref(uptr i) {
 }
 
 /**
- * return current working directory
+ * return current working directory as Scheme string,
+ * or empty string if an error happens
  */
 static ptr c_get_cwd(void) {
   {
@@ -81,6 +82,25 @@ static ptr c_get_cwd(void) {
   return Sstring_utf8("", 0);
 }
 
+/**
+ * change current working directory to specified Scheme bytevector0,
+ * i.e. a bytevector that must already end with a byte = 0.
+ * return 0 on success, or c_errno() < 0 on error.
+ */
+static int c_set_cwd(ptr bytevec0) {
+  if (Sbytevectorp(bytevec0)) {
+    iptr        len = Sbytevector_length(bytevec0);
+    const char* dir = (const char*)Sbytevector_data(bytevec0);
+    if (len > 0 && dir[len - 1] == 0) {
+      if (chdir(dir) == 0) {
+        return 0;
+      }
+      return c_errno();
+    }
+  }
+  return c_errno_set(EINVAL);
+}
+
 int schemesh_register_c_functions(void) {
   int err;
 
@@ -92,6 +112,7 @@ int schemesh_register_c_functions(void) {
 
   Sregister_symbol("c_environ_ref", &c_environ_ref);
   Sregister_symbol("c_get_cwd", &c_get_cwd);
+  Sregister_symbol("c_set_cwd", &c_set_cwd);
 
   return err;
 }

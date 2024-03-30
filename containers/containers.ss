@@ -44,12 +44,13 @@
     ; charspan.ss
     list->charspan string->charspan string->charspan* make-charspan charspan->string
     charspan charspan? charspan-length charspan-empty? charspan-clear! charspan-capacity
-    charspan-capacity-front charspan-capacity-back charspan-ref charspan-back charspan-set!
-    charspan-fill! charspan-fill-range! charspan-copy charspan-copy! charspan=? charspan-range=?
+    charspan-capacity-front charspan-capacity-back charspan-ref charspan-front charspan-back
+    charspan-set! charspan-fill! charspan-fill-range! charspan-copy charspan-copy!
+    charspan=? charspan-range=?
     charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back!
     charspan-insert-front! charspan-insert-back!
     charspan-insert-front/cspan! charspan-insert-back/cspan!
-    charspan-erase-front! charspan-erase-back! charspan-iterate charspan-find
+    charspan-erase-front! charspan-erase-back! charspan-iterate charspan-find charspan-rfind
     charspan-peek-data charspan-peek-beg charspan-peek-end
 
     ; gbuffer.ss

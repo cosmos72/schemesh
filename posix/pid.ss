@@ -10,7 +10,7 @@
   (export get-pid get-pgid spawn-pid pid-kill pid-wait exit-with-job-status)
   (import
     (rnrs)
-    (only (chezscheme) foreign-procedure void)
+    (only (chezscheme) foreign-procedure format void)
     (only (schemesh bootstrap)    assert*)
     (schemesh posix fd)
     (only (schemesh conversions)  list->cmd-argv)
@@ -67,6 +67,7 @@
   (let ((c-pid-kill (foreign-procedure "c_pid_kill" (int int) int))
         (c-errno-einval ((foreign-procedure "c_errno_einval" () int))))
     (lambda (pid signal-name)
+      ; (format #t "pid-kill ~s ~s~%" pid signal-name)
       (let ((signal-number (signal-name->number signal-name)))
         (if (fixnum? signal-number)
           (c-pid-kill pid signal-number)

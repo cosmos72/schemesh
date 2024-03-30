@@ -8,6 +8,9 @@
 
 (library (schemesh shell (0 1))
   (export
+    ; paths.ss
+    sh-path sh-path-absolute? sh-path-append! sh-path-concat sh-path-iterate sh-path-normalize
+
     ; jobs.ss
     sh-job? sh-job sh-job-id sh-job-status sh-jobs
     sh-cmd sh-cmd<> sh-cmd? sh-multijob sh-multijob?
@@ -19,9 +22,9 @@
     sh-fd-redirect! sh-fds-redirect!
 
     ; builtins.ss
-    sh-true sh-false sh-cd sh-pwd
+    sh-false sh-true sh-cd sh-pwd
 
-    ; parse
+    ; parse.ss
     sh sh-parse
 
     ; macros.ss
@@ -31,6 +34,7 @@
     sh-autocomplete sh-current-time sh-expand-ps1 sh-home->~ sh-make-linectx)
 
   (import
+    (schemesh shell paths)
     (schemesh shell jobs)
     (schemesh shell builtins)
     (schemesh shell parse)
