@@ -17,10 +17,9 @@
     (only (schemesh containers misc) list-iterate))
 
 ;; a path is a charspan representing a relative or absolute directory.
+;; It cannot contain "\x0;" i.e. codepoint 0, because POSIX uses it as path terminator.
 ;; It is absolute if starts with "/", otherwise it is relative.
 ;; It contains zero or more components, separated by "/"
-;; It cannot contain "\x0;" i.e. codepoint 0, because POSIX uses it as path terminator.
-;;
 ;; Each component can be an arbitrary string, including the empty string, "." or ".."
 ;; By construction, components cannot contain "/" because it is the component separator.
 ;; All other codepoints different from 0 are allowed.

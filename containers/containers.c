@@ -9,6 +9,7 @@
 
 #include "../eval.h"
 
+#include <stdint.h> // uint32_t
 #include <string.h> /* memcmp(), memmove() */
 
 static signed char c_bytevector_compare(ptr left, ptr right) {
@@ -28,6 +29,15 @@ static signed char c_bytevector_compare(ptr left, ptr right) {
   }
 }
 
+/**
+ * similar to (integer->char) but integer Unicode codepoint is not checked for validity:
+ * it INTENTIONALLY allows invalid codepoints in the ranges #xD800..#xDFFF and #x10FFFF..#xFFFFFF
+ */
+static ptr c_integer_to_char(uint32_t codepoint) {
+  return Schar(codepoint);
+}
+
 void schemesh_register_c_functions_containers(void) {
   Sregister_symbol("c_bytevector_compare", &c_bytevector_compare);
+  Sregister_symbol("c_integer_to_char", &c_integer_to_char);
 }

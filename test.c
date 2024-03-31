@@ -46,6 +46,10 @@ static const struct {
     {"(bytevector-compare #vu8(66 77) #vu8(66 77 0))", "-1"},
     {"(bytevector-compare #vu8(66 77) #vu8(66 78))", "-1"},
     {"(bytevector-compare #vu8(79) #vu8(78 0))", "1"},
+    {"(do ((i 0 (fx1+ i)))\n"
+     "    ((fx>? i #xFFFFFF))\n"
+     "  (assert* (fx=? i (char->integer (integer->char* i)))))",
+     ""},
     /* ----------------- bytevector/utf8 ------------------------------------ */
     {"(values->list (bytevector-ref/utf8 #vu8() 0 1))", "(#t 0)"}, /* incomplete */
     {"(values->list (bytevector-ref/utf8 #vu8(1) 0 1))", "(\x01 1)"},

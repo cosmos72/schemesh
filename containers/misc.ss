@@ -21,7 +21,7 @@
     list->bytevector list-quoteq!
     subbytevector bytevector-fill-range! bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?
-    string-fill-range! string-range=? string-iterate)
+    string-fill-range! string-range=? string-iterate integer->char*)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -169,6 +169,10 @@
 (define (bytevector>? bvec1 bvec2)
   (fx>? (bytevector-compare bvec1 bvec2) 0))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;; define some additional string functions ;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ; set n elements of string from offset = start to specified value
 (define (string-fill-range! str start n val)
   (do ((i 0 (fx1+ i)))
@@ -194,5 +198,19 @@
   (do ((i 0 (fx1+ i))
        (n (string-length str)))
       ((or (fx>=? i n) (not (proc i (string-ref str i)))))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;; define some additional char functions ;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; similar to (integer->char) but integer Unicode codepoint is not checked for validity:
+;; it INTENTIONALLY allows invalid codepoints in the ranges #xD800..#xDFFF and #x10FFFF..#xFFFFFF
+(define integer->char*
+  (let ((c-integer->char (foreign-procedure "c_integer_to_char" (unsigned-32) scheme-object)))
+    (lambda (codepoint)
+      (if (fx<=? 0 codepoint #xFFFFFF)
+        (c-integer->char codepoint)
+        (integer->char codepoint))))) ; raises exception
 
 ) ; close library
