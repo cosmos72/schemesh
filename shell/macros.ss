@@ -7,7 +7,7 @@
 
 
 (library (schemesh shell macros (0 1))
-  (export shell shell-env! shell-list shell-backquote shell-subshell)
+  (export shell shell-list shell-backquote shell-subshell)
   (import
     (rnrs)
     (schemesh bootstrap)
@@ -16,10 +16,6 @@
 
 (define-macro (shell . args)
   (sh-parse args))
-
-(define-syntax shell-env!
-  (syntax-rules ()
-    ((_ name value)    (lambda (job) (sh-env! job name value)))))
 
 (define-syntax shell-list
   (syntax-rules ()
@@ -35,6 +31,7 @@
 (define-syntax shell-backquote
   (syntax-rules ()
     ((_)               "")
+    ;; FIXME: return a job object instead?
     ((_ arg)           (sh-run/string arg))
     ((_ arg0 arg1 ...) (sh-run/string (sh-list arg0 arg1 ...)))))
 

@@ -232,8 +232,13 @@
 
 
 
-;; Read a word, possibly containing single or double quotes and shell variables,
-;; as for example: some$foo' text'"other text ${bar} "
+;; Read a word, possibly containing single or double quotes, assignment operator =,
+;; and shell variables, as for example:
+;;  FOO=BAR
+;;  some$foo' text'"other text ${bar} "
+;;
+;; return two values: the parsed form, and either 'string or 'rlist
+;; where 'rlist means the parsed form should be reversed then spliced into the command being parsed.
 (define (parse-shell-word ctx)
   (let* ((ret '())
          (again? #t)
@@ -241,7 +246,13 @@
          (dquote? #f)
          (%append (lambda (subword)
            (unless (and (string? subword) (fxzero? (string-length subword)))
-             (set! ret (cons subword ret))))))
+             (set! ret (cons subword ret)))))
+         (%simplify
+           (lambda (l)
+             (cond
+               ((null? l)        "")
+               ((null? (cdr l))  (car l))
+               (#t               (cons 'shell-concat l))))))
     (while again?
       (let-values (((ch type) (peek-shell-char ctx)))
         (case type
@@ -263,13 +274,13 @@
               (dquote?
                 (%append (read-subword-in-double-quotes ctx)))
               ((memq type '(backslash char))
+                ;; FIXME: also consume `...` and $(...) because we must also support FOO=bar`cmd`etc
                 (let-values (((csp assign-pos) (read-subword-noquote ctx)))
                   (cond
                     ((and (null? ret) (not assign?) assign-pos (not (fxzero? assign-pos)))
-                      ; split "FOO=BAR" into "FOO" '= "BAR"
+                      ; split "FOO=BAR" into "FOO" "BAR" and set flag assign?
                       (%append (charspan->string/range csp 0 assign-pos))
-                      (set! ret (cons '= ret))
-                      (set! ret (cons (charspan->string/range csp (fx1+ assign-pos) (charspan-length csp)) ret))
+                      (%append (charspan->string/range csp (fx1+ assign-pos) (charspan-length csp)))
                       (set! assign? #t))
                     (#t
                       (%append (charspan->string csp))))))
@@ -285,16 +296,14 @@
               (#t
                 (set! again? #f)))))))
 
-    (let ((ret (reverse! ret))
-          (%simplify
-            (lambda (l)
-              (cond
-                ((null? l)        "")
-                ((null? (cdr l))  (car l))
-                (#t               (cons 'shell-concat l))))))
-      (if assign?
-         (list 'shell-env! (car ret) (%simplify (cddr ret)))
-         (%simplify ret)))))
+    (set! ret (reverse! ret))
+    (if assign?
+       (values
+         (list (%simplify (cdr ret)) (car ret) '=)
+         'rlist)
+       (values
+         (%simplify ret)
+         'string))))
 
 
 ;; Read a single shell token from textual input port 'in'.
@@ -332,12 +341,12 @@
           (values (parsectx-read-char ctx) 'dollar+lparen)
           (begin
             (parsectx-unread-char ctx ch)
-            (values (parse-shell-word ctx) 'string))))
+            (parse-shell-word ctx))))
       ((backquote)
         (values ch type))
       ((char squote dquote backslash)
         (parsectx-unread-char ctx ch)
-        (values (parse-shell-word ctx) 'string))
+        (parse-shell-word ctx))
       (else
         (syntax-errorf ctx 'lex-shell "unimplemented character type: ~a" type)))))
 
@@ -457,6 +466,8 @@
           (set! again? #f))
         ((op string integer)
           (set! ret (cons value ret)))
+        ((rlist)
+          (set! ret (append! value ret)))
         ((backquote dollar+lparen)
           (if (and is-inside-backquote? (eq? 'backquote type))
             ; we read one token too much - try to unread it

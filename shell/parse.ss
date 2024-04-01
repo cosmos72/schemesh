@@ -203,16 +203,21 @@
               (set! args (cdr args))
               (set! done? #t)
               (set! prefix #f))
-            ((or (string? arg) (integer? arg) (pair? arg) (sh-redirect-operator? arg))
-              (when (sh-redirect-operator? arg)
-                (set! prefix 'sh-cmd<>)
-                ; quote redirection operator (a symbol) to use its name, not its value
+            ((or (string? arg) (integer? arg) (pair? arg) (eq? '= arg) (sh-redirect-operator? arg))
+              (when (symbol? arg)
+                (if (eq? '= arg)
+                  (when (eq? prefix 'sh-cmd)
+                    ; plain (sh-cmd) does not support env assignment use (sh-cmd/env)
+                    (set! prefix 'sh-cmd/env))
+                  ; (sh-cmd) and (sh-cmd/env) do not support redirections, use (sh-cmd<>)
+                  (set! prefix 'sh-cmd<>))
+                ; quote operator (a symbol) to use its name, not its value
                 (set! arg (list 'quote arg)))
               (set! ret (cons arg ret))
               (set! args (cdr args)))
             (#t
               (syntax-violation 'sh-parse
-                "syntax error, expecting a string, integer, pair or redirection operator, found:"
+                "syntax error, expecting a string, integer, pair, := or redirection operator, found:"
                 saved-args arg))))))
     ; (debugf "sh-parse-job  return: ret = ~s, args = ~s~%" (reverse ret) args)
     (values
