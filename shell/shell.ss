@@ -30,7 +30,7 @@
     sh sh-parse
 
     ; macros.ss
-    shell shell-list shell-backquote shell-subshell
+    shell shell-env! shell-list shell-backquote shell-subshell
 
     ; utils.ss
     sh-autocomplete sh-current-time sh-expand-ps1 sh-home->~ sh-make-linectx)

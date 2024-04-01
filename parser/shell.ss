@@ -60,7 +60,7 @@
     ((#\>) '>)
     ((#\|) '\x7c;)
     (else (syntax-errorf ctx 'lex-shell
-            "unexpected operator character, cannot convert to symbol" ch))))
+            "unexpected operator character ~s, cannot convert to symbol" ch))))
 
 
 ;; Peek a single character from textual input port 'in',
@@ -199,17 +199,22 @@
 
 
 ;; Read an unquoted subword: a portion of a word, not inside single or double quotes
+;; return two values: the word as a charspan and the position of first = in word,
+;; or #f if = is not present.
 (define (read-subword-noquote ctx)
   (let ((csp (charspan))
+        (assign-pos #f)
         (again? #t))
     (while again?
       (let-values (((ch type) (read-shell-char ctx)))
         (case type
           ((backslash)
-          ; read next char, suppressing any special meaning it may have
+            ; read next char, suppressing any special meaning it may have
             (let ((ch-i (read-char-after-backslash ctx csp)))
               (when ch-i (charspan-insert-back! csp ch-i))))
           ((char)
+            (when (and (not assign-pos) (char=? ch #\=))
+              (set! assign-pos (charspan-length csp)))
             (charspan-insert-back! csp ch))
           (else
             ; treat anything else as string delimiter. This means in our shell parser the
@@ -223,7 +228,8 @@
             ; and where characters ( ) inside a string are a syntax error.
             (set! again? #f)
             (parsectx-unread-char ctx ch)))))
-    (charspan->string csp)))
+    (values csp assign-pos)))
+
 
 
 ;; Read a word, possibly containing single or double quotes and shell variables,
@@ -231,6 +237,7 @@
 (define (parse-shell-word ctx)
   (let* ((ret '())
          (again? #t)
+         (assign? #f)
          (dquote? #f)
          (%append (lambda (subword)
            (unless (and (string? subword) (fxzero? (string-length subword)))
@@ -256,7 +263,16 @@
               (dquote?
                 (%append (read-subword-in-double-quotes ctx)))
               ((memq type '(backslash char))
-                (%append (read-subword-noquote ctx)))
+                (let-values (((csp assign-pos) (read-subword-noquote ctx)))
+                  (cond
+                    ((and (null? ret) (not assign?) assign-pos (not (fxzero? assign-pos)))
+                      ; split "FOO=BAR" into "FOO" '= "BAR"
+                      (%append (charspan->string/range csp 0 assign-pos))
+                      (set! ret (cons '= ret))
+                      (set! ret (cons (charspan->string/range csp (fx1+ assign-pos) (charspan-length csp)) ret))
+                      (set! assign? #t))
+                    (#t
+                      (%append (charspan->string csp))))))
               ; treat anything else as string delimiter. This means in our shell parser the
               ; characters ( ) [ ] { } retain their meaning when found inside an unquoted
               ; string.
@@ -268,10 +284,17 @@
               ; and where ( ) inside a string are a syntax error.
               (#t
                 (set! again? #f)))))))
-    (cond
-      ((null? ret)       "")
-      ((null? (cdr ret)) (car ret))
-      (#t  (cons 'shell-concat (reverse! ret))))))
+
+    (let ((ret (reverse! ret))
+          (%simplify
+            (lambda (l)
+              (cond
+                ((null? l)        "")
+                ((null? (cdr l))  (car l))
+                (#t               (cons 'shell-concat l))))))
+      (if assign?
+         (list 'shell-env! (car ret) (%simplify (cddr ret)))
+         (%simplify ret)))))
 
 
 ;; Read a single shell token from textual input port 'in'.

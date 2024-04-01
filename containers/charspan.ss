@@ -12,7 +12,7 @@
 
 (library (schemesh containers charspan (0 1))
   (export
-    list->charspan string->charspan string->charspan* make-charspan charspan->string
+    list->charspan string->charspan string->charspan* make-charspan charspan->string charspan->string/range
     charspan charspan? assert-charspan? charspan-length charspan-empty? charspan-clear!
     charspan-capacity charspan-capacity-front charspan-capacity-back charspan-ref
     charspan-front charspan-back
@@ -66,12 +66,25 @@
     ((n)      (%make-charspan 0 n (make-string n #\nul)))
     ((n char) (%make-charspan 0 n (make-string n char)))))
 
+;; convert a charspan to string
 (define (charspan->string sp)
   (let ((beg (charspan-beg sp))
         (end (charspan-end sp)))
     (if (fx>=? beg end)
       ""
       (substring (charspan-str sp) beg end))))
+
+;; convert a portion of charspan to string
+(define (charspan->string/range sp start len)
+  (let ((n (charspan-length sp)))
+    (if (fx<=? n 0)
+      ""
+      (let* ((beg (charspan-beg sp))
+             (i (fxmin n (fxmax 0 start)))
+             (j (fxmin n (fxmax i (fx+ start len)))))
+        (if (fx>=? i j)
+          ""
+          (substring (charspan-str sp) (fx+ i beg) (fx+ j beg)))))))
 
 (define (charspan . vals)
   (list->charspan vals))

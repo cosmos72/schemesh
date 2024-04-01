@@ -739,6 +739,12 @@ static const struct {
     {"(expand (parse-shell* (make-parsectx-from-string\n"
      "  \"{echo|{cat;{true}}}\")))",
      INVOKELIB_SHELL_JOBS " (sh-pipe* (sh-cmd echo) '| (sh-list (sh-cmd cat) '; (sh-cmd true))))"},
+    {"(parse-shell* (make-parsectx-from-string\n"
+     "  \"{A=B ls}\")))",
+     "(shell (shell-env! A B) ls)"},
+    {"(expand (parse-shell* (make-parsectx-from-string\n"
+     "  \"{A=B ls}\")))",
+     INVOKELIB_SHELL_JOBS " (sh-cmd (lambda (job) (sh-env! job A B)) ls))"},
     /* ------------------------- repl --------------------------------------- */
     {"(values->list (repl-parse\n"
      "  (make-parsectx-from-string \"(+ 2 3) (values 7 (cons 'a 'b))\" (parsers))\n"

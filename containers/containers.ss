@@ -42,7 +42,7 @@
     bytespan-peek-beg bytespan-peek-end bytespan-peek-data
 
     ; charspan.ss
-    list->charspan string->charspan string->charspan* make-charspan charspan->string
+    list->charspan string->charspan string->charspan* make-charspan charspan->string charspan->string/range
     charspan charspan? assert-charspan? charspan-length charspan-empty? charspan-clear!
     charspan-capacity charspan-capacity-front charspan-capacity-back charspan-ref
     charspan-front charspan-back

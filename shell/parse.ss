@@ -197,8 +197,8 @@
           (cond
             ((sh-separator? arg)
               (set! done? #t)) ; separator => exit loop
-            ((and (null? ret) (pair? arg))
-              ; Scheme form at the beginning of a shell command: return it as-is
+            ((and (null? ret) (pair? arg) (or (null? (cdr args)) (symbol? (cadr args))))
+              ; shell command contains ONLY a scheme form => return it as-is, without wrapping in (sh-cmd ...)
               (set! ret arg)
               (set! args (cdr args))
               (set! done? #t)
