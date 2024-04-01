@@ -15,7 +15,7 @@
 (library (schemesh shell jobs (0 1))
   (export
     sh-job? sh-job sh-job-id sh-job-status sh-jobs
-    sh-cmd sh-cmd/env sh-cmd<> sh-cmd? sh-multijob sh-multijob?
+    sh-cmd sh-cmd* sh-cmd? sh-multijob sh-multijob?
     sh-globals sh-global-env sh-env-copy sh-env sh-env! sh-env-unset!
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0
     sh-cwd sh-cwd-set! sh-cd sh-consume-sigchld sh-start sh-bg sh-fg sh-wait sh-ok?
@@ -264,18 +264,12 @@
     (list->cmd-argv (cons program args))))
 
 
-;; Create a cmd to later spawn it. Each argument must be a string, bytevector or '=.
-;; Symbol '= indicates an environment variable assignment, and must be followed by the variable name (a string or bytevector)
-;; and its value (a string or bytevector).
-;; TODO: also support closures (lambda (job) ...) that return a string or bytevector.
-(define (sh-cmd/env program . args)
-  ;; FIXME: implement environment variable assignment: = NAME VALUE
-  (apply sh-cmd program args))
-
 ;; Create a cmd to later spawn it. Each argument must be a string, bytevector or symbol.
-;; Each symbol indicates a redirection and must be followed by a string or bytevector.
+;; Symbol '= indicates an environment variable assignment, and must be followed
+;; by the variable name (a string or bytevector) and its value (a string or bytevector).
+;; All other symbols indicates a redirection and must be followed by a string or bytevector.
 ;; TODO: also support closures (lambda (job) ...) that return a string or bytevector.
-(define (sh-cmd<> program . args)
+(define (sh-cmd* program . args)
   ;; FIXME: implement environment variable assignment: = NAME VALUE
   ;; FIXME: implement redirections: [N]< [N]<> [N]<&M [N]> [N]>> [N]>&M
   (apply sh-cmd program args))

@@ -713,7 +713,7 @@ static const struct {
     {"(sh-run/i (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", ""},
     /* ------------------------- shell syntax ------------------------------- */
     {"(sh-parse '(\"wc\" \"-l\" \"myfile\" > \"mylog\" \\x3b; \"echo\" \"done\"))",
-     "(sh-list (sh-cmd<> wc -l myfile '> mylog) '; (sh-cmd echo done))"},
+     "(sh-list (sh-cmd* wc -l myfile '> mylog) '; (sh-cmd echo done))"},
     {"(sh-parse '(\"find\" \"-type\" \"f\" \\x7c; \"wc\" &))",
      "(sh-list (sh-pipe* (sh-cmd find -type f) '| (sh-cmd wc)) '&)"},
 
@@ -732,7 +732,7 @@ static const struct {
      INVOKELIB_SHELL_JOBS
      " (sh-list (sh-or (sh-and (sh-cmd ls -l) (sh-cmd wc -b)) (sh-cmd echo error)) '&))"},
     {"(expand '(shell-list (shell \"ls\" \"-al\" >> \"log.txt\")))",
-     INVOKELIB_SHELL_JOBS " (sh-cmd<> ls -al '>> log.txt))"},
+     INVOKELIB_SHELL_JOBS " (sh-cmd* ls -al '>> log.txt))"},
     {"(expand (parse-shell* (make-parsectx-from-string\n"
      "  \"{{{{echo|cat}}}}\")))",
      INVOKELIB_SHELL_JOBS " (sh-pipe* (sh-cmd echo) '| (sh-cmd cat)))"},
@@ -744,13 +744,13 @@ static const struct {
      "(shell = A B ls)"},
     {"(expand (parse-shell* (make-parsectx-from-string\n"
      "  \"{A=B ls}\")))",
-     INVOKELIB_SHELL_JOBS " (sh-cmd/env '= A B ls))"},
+     INVOKELIB_SHELL_JOBS " (sh-cmd* '= A B ls))"},
     {"(parse-shell* (make-parsectx-from-string\n"
      "  \"{FOO=$BAR/subdir echo}\")))",
      "(shell = FOO (shell-concat (shell-env BAR) /subdir) echo)"},
     {"(expand (parse-shell* (make-parsectx-from-string\n"
      "  \"{FOO=$BAR/subdir echo}\"))))",
-     INVOKELIB_SHELL_JOBS " (sh-cmd/env '= FOO (shell-concat (shell-env BAR) /subdir) echo))"},
+     INVOKELIB_SHELL_JOBS " (sh-cmd* '= FOO (shell-concat (shell-env BAR) /subdir) echo))"},
     /* ------------------------- repl --------------------------------------- */
     {"(values->list (repl-parse\n"
      "  (make-parsectx-from-string \"(+ 2 3) (values 7 (cons 'a 'b))\" (parsers))\n"
