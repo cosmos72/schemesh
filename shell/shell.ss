@@ -16,7 +16,7 @@
     ; jobs.ss
     sh-job? sh-job sh-job-id sh-job-status sh-jobs
     sh-cmd sh-cmd* sh-cmd? sh-multijob sh-multijob?
-    sh-globals sh-global-env sh-env-copy sh-env sh-env! sh-env-unset!
+    sh-concat sh-env-copy sh-env sh-env! sh-env-unset! sh-globals sh-global-env
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0
     sh-cwd sh-cwd-set! sh-cd sh-consume-sigchld sh-start sh-bg sh-fg sh-wait sh-ok?
     sh-run sh-run/i sh-run/ok? sh-run/bytes sh-run/string
@@ -30,7 +30,7 @@
     sh sh-parse
 
     ; macros.ss
-    shell shell-list shell-backquote shell-subshell
+    shell shell-backquote shell-concat shell-env shell-list shell-subshell
 
     ; utils.ss
     sh-autocomplete sh-current-time sh-expand-ps1 sh-home->~ sh-make-linectx)

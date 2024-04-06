@@ -16,7 +16,7 @@
   (export
     sh-job? sh-job sh-job-id sh-job-status sh-jobs
     sh-cmd sh-cmd* sh-cmd? sh-multijob sh-multijob?
-    sh-globals sh-global-env sh-env-copy sh-env sh-env! sh-env-unset!
+    sh-concat sh-env-copy sh-env sh-env! sh-env-unset! sh-globals sh-global-env
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0
     sh-cwd sh-cwd-set! sh-cd sh-consume-sigchld sh-start sh-bg sh-fg sh-wait sh-ok?
     sh-run sh-run/i sh-run/ok? sh-run/bytes sh-run/string
@@ -34,7 +34,6 @@
     (schemesh posix pid)
     (schemesh posix signal)
     (schemesh shell paths))
-
 
 ;; Define the record type "job"
 (define-record-type
@@ -273,6 +272,20 @@
   ;; FIXME: implement environment variable assignment: = NAME VALUE
   ;; FIXME: implement redirections: [N]< [N]<> [N]<&M [N]> [N]>> [N]>&M
   (apply sh-cmd program args))
+
+
+;; concatenate strings and/or closures (lambda (job) ...) that return strings
+(define (sh-concat job . args)
+  (let ((strings '()))
+    (list-iterate args
+      (lambda (arg)
+        (set! strings
+          (cons
+            (if (procedure? arg) (arg job) arg)
+            strings))))
+    (apply string-append (reverse! strings))))
+
+
 
 ;; return global environment variables
 (define (sh-global-env)

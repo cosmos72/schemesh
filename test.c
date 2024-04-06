@@ -741,16 +741,17 @@ static const struct {
      INVOKELIB_SHELL_JOBS " (sh-pipe* (sh-cmd echo) '| (sh-list (sh-cmd cat) '; (sh-cmd true))))"},
     {"(parse-shell* (make-parsectx-from-string\n"
      "  \"{A=B ls}\")))",
-     "(shell = A B ls)"},
+     "(shell A = B ls)"},
     {"(expand (parse-shell* (make-parsectx-from-string\n"
      "  \"{A=B ls}\")))",
-     INVOKELIB_SHELL_JOBS " (sh-cmd* '= A B ls))"},
+     INVOKELIB_SHELL_JOBS " (sh-cmd* A '= B ls))"},
     {"(parse-shell* (make-parsectx-from-string\n"
      "  \"{FOO=$BAR/subdir echo}\")))",
-     "(shell = FOO (shell-concat (shell-env BAR) /subdir) echo)"},
+     "(shell FOO = (shell-concat (shell-env BAR) /subdir) echo)"},
     {"(expand (parse-shell* (make-parsectx-from-string\n"
      "  \"{FOO=$BAR/subdir echo}\"))))",
-     INVOKELIB_SHELL_JOBS " (sh-cmd* '= FOO (shell-concat (shell-env BAR) /subdir) echo))"},
+     INVOKELIB_SHELL_JOBS " (sh-cmd* FOO '= (lambda (job) (sh-concat job"
+                          " (lambda (job) (sh-env job BAR)) /subdir)) echo))"},
     /* ------------------------- repl --------------------------------------- */
     {"(values->list (repl-parse\n"
      "  (make-parsectx-from-string \"(+ 2 3) (values 7 (cons 'a 'b))\" (parsers))\n"

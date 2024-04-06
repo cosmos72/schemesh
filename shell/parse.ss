@@ -11,7 +11,7 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) eval remq! reverse!)
+    (only (chezscheme) eval expand remq! reverse!)
     (only (schemesh bootstrap)       debugf until)
     (only (schemesh containers misc) list-iterate list-quoteq!)
     (only (schemesh containers hashtable) eq-hashtable)
@@ -69,7 +69,7 @@
             (set! ret (cons (car args) ret))
             (set! args (cdr args)))
           (#t
-            (syntax-violation 'sh-parse "syntax error, unknown shell operator:"
+            (syntax-violation 'sh-parse "syntax error, unknown shell DSL operator:"
               saved-args (car args))))))
     ; (debugf "sh-parse           return: ret = ~s, args = ~s~%" (reverse ret) args)
     (cond
@@ -88,7 +88,7 @@
           (unless (and (eq? arg1 '\x3b;)
                        (memq arg2 '(& \x3b;
                                     )))
-            (syntax-violation 'sh-parse "syntax error, invalid consecutive shell operators:"
+            (syntax-violation 'sh-parse "syntax error, invalid consecutive shell DSL operators:"
               args arg2)))))
     (set! args (cdr args))))
 
@@ -158,7 +158,7 @@
   (let ((ret '())
         (done? (null? args)))
     (until done?
-      (let-values (((parsed tail) (sh-parse-job args)))
+      (let-values (((parsed tail) (sh-parse-cmd args)))
         (set! ret (cons parsed ret))
         (set! args tail))
       ; (debugf "sh-parse-pipe  iterate: ret = ~s, args = ~s~%" (reverse ret) args)
@@ -184,40 +184,53 @@
 ;;   A list containing parsed args;
 ;;   The remaining, unparsed args.
 ;
-(define (sh-parse-job args)
+(define (sh-parse-cmd args)
   (let ((saved-args args)
         (ret '())
         (prefix 'sh-cmd)
         (done? (null? args)))
-    (until done?
-      ; (debugf "sh-parse-job iterate: ret = ~s, args = ~s~%" (reverse ret) args)
-      (if (null? args)
-        (set! done? #t)
-        (let ((arg (car args)))
-          (cond
-            ((sh-separator? arg)
-              (set! done? #t)) ; separator => exit loop
-            ((and (null? ret) (pair? arg) (or (null? (cdr args)) (symbol? (cadr args))))
-              ; shell command contains ONLY a scheme form => return it as-is, without wrapping in (sh-cmd ...)
-              (set! ret arg)
-              (set! args (cdr args))
-              (set! done? #t)
-              (set! prefix #f))
-            ((or (string? arg) (integer? arg) (pair? arg) (eq? '= arg) (sh-redirect-operator? arg))
-              (when (symbol? arg)
-                ; (sh-cmd) does not support env assignment and redirections, use (sh-cmd*)
-                (set! prefix 'sh-cmd*)
-                ; quote operator (a symbol) to use its name, not its value
-                (set! arg (list 'quote arg)))
-              (set! ret (cons arg ret))
-              (set! args (cdr args)))
-            (#t
-              (syntax-violation 'sh-parse
-                "syntax error, expecting a string, integer, pair, := or redirection operator, found:"
-                saved-args arg))))))
-    ; (debugf "sh-parse-job  return: ret = ~s, args = ~s~%" (reverse ret) args)
+    (until (or done? (null? args))
+      ; (debugf "sh-parse-cmd iterate: ret = ~s, args = ~s~%" (reverse ret) args)
+      (let ((arg (car args)))
+        ; (debugf "sh-parse-cmd iterate: ret = ~s, arg = ~s, args = ~s~%" (reverse ret) arg (cdr args))
+        (cond
+          ((sh-separator? arg)
+            (set! done? #t)) ; separator => exit loop without consuming it
+          ((and (pair? arg) (memq (car arg) '(shell shell-subshell scheme)))
+            ; shell command contains a Scheme or shell subform
+            (if (and (null? ret) (or (null? (cdr args)) (sh-separator? (cdr args))))
+              (begin
+                ; shell command contains ONLY a Scheme or shell subform => return it as-is, without wrapping in (sh-cmd ...)
+                (set! ret arg)
+                (set! done? #t)
+                (set! prefix #f))
+              (begin
+                ; shell command contains ALSO a Scheme or shell subform => inject it into the current (sh-cmd ...)
+                ; but check that a shell subform is followed by a separator
+                (unless (eq? 'scheme (car arg))
+                  (unless (or (null? (cdr args)) (sh-separator? (cdr args)))
+                    (syntax-violation 'sh-parse
+                      "syntax error, nested shell DSL must be followed by one of ; & && || | |& found instead:"
+                      saved-args (cdr args))))
+                (set! ret (cons arg ret))))
+            (set! args (cdr args)))
+          ((or (string? arg) (integer? arg) (eq? '= arg) (pair? arg) (sh-redirect-operator? arg))
+            (when (symbol? arg)
+              ; quote operator (a symbol) to use its name, not its value
+              (set! arg (list 'quote arg)))
+            (when (or (symbol? arg) (pair? arg))
+              ; (sh-cmd) does not support env assignment, redirections and closures, use (sh-cmd*)
+              (set! prefix 'sh-cmd*))
+            (set! ret (cons arg ret))
+            (set! args (cdr args)))
+          (#t
+            (syntax-violation 'sh-parse
+              "syntax error, shell DSL atom must be a string, integer, pair, := or redirection operator, found:"
+              saved-args arg)))))
+    ; (debugf "sh-parse-cmd  return: ret = ~s, args = ~s~%" (reverse ret) args)
     (values
       (if prefix (cons prefix (reverse! ret)) ret)
       args)))
+
 
 ) ; close library

@@ -299,7 +299,7 @@
     (set! ret (reverse! ret))
     (if assign?
        (values
-         (list (%simplify (cdr ret)) (car ret) '=)
+         (list (%simplify (cdr ret)) '= (car ret))
          'rlist)
        (values
          (%simplify ret)
@@ -372,7 +372,7 @@
       ; read a single shell token
       (let-values (((value type) (lex-shell-impl ctx)))
         (if (and (eq? 'string type)
-                 (string? value) ; type = 'string also allows value = `(shell-concat ...)
+                 (string? value) ; type = 'string also allows value = `(+ ...)
                  (string-contains-only-decimal-digits? value)
                  (memv (parsectx-peek-char ctx) '(#\< #\>)))
           (values (string->number value) 'integer) ;; integer followed by redirection operator

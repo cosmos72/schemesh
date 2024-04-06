@@ -7,13 +7,14 @@
 
 
 (library (schemesh shell macros (0 1))
-  (export shell shell-list shell-backquote shell-subshell)
+  (export shell shell-backquote shell-concat shell-env shell-list shell-subshell)
   (import
     (rnrs)
     (schemesh bootstrap)
     (schemesh shell jobs)
     (schemesh shell parse))
 
+;; wraps shell DSL
 (define-macro (shell . args)
   (sh-parse args))
 
@@ -34,6 +35,16 @@
     ;; FIXME: return a job object instead?
     ((_ arg)           (sh-run/string arg))
     ((_ arg0 arg1 ...) (sh-run/string (sh-list arg0 arg1 ...)))))
+
+(define-syntax shell-concat
+  (syntax-rules ()
+    ((_)          "")
+    ((_ arg)      arg)
+    ((_ arg0 arg1 ...) (lambda (job) (sh-concat job arg0 arg1 ...)))))
+
+(define-syntax shell-env
+  (syntax-rules ()
+    ((_ arg)      (lambda (job) (sh-env job arg)))))
 
 
 ) ; close library
