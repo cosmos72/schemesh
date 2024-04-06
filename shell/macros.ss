@@ -33,8 +33,8 @@
   (syntax-rules ()
     ((_)               "")
     ;; FIXME: return a job object instead?
-    ((_ arg)           (sh-run/string arg))
-    ((_ arg0 arg1 ...) (sh-run/string (sh-list arg0 arg1 ...)))))
+    ((_ arg)           (lambda (job) (sh-run/string arg)))
+    ((_ arg0 arg1 ...) (lambda (job) (sh-run/string (sh-list arg0 arg1 ...))))))
 
 (define-syntax shell-concat
   (syntax-rules ()
