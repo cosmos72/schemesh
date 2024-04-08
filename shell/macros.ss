@@ -32,9 +32,8 @@
 (define-syntax shell-backquote
   (syntax-rules ()
     ((_)               "")
-    ;; FIXME: return a job object instead?
-    ((_ arg)           (lambda (job) (sh-run/string arg)))
-    ((_ arg0 arg1 ...) (lambda (job) (sh-run/string (sh-list arg0 arg1 ...))))))
+    ;; FIXME: (sh-run/string) cannot be stopped - but neither can `...` in POSIX shells
+    ((_ arg ...)       (lambda (job) (sh-run/string (shell arg ...))))))
 
 (define-syntax shell-concat
   (syntax-rules ()

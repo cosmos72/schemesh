@@ -752,9 +752,13 @@ static const struct {
      "  \"{FOO=$BAR/subdir echo}\"))))",
      INVOKELIB_SHELL_JOBS " (sh-cmd* FOO '= (lambda (job) (sh-concat job"
                           " (lambda (job) (sh-env job BAR)) /subdir)) echo))"},
+    {"(parse-shell* (make-parsectx-from-string\n"
+     "  \"{echo $(foo&&bar)}\"))",
+     "(shell echo (shell-backquote foo && bar))"},
     {"(expand (parse-shell* (make-parsectx-from-string\n"
-     "  \"{$(foo&&bar)}\")))",
-     INVOKELIB_SHELL_JOBS " (sh-cmd* (lambda (job) (sh-run/string (sh-list foo && bar)))))"},
+     "  \"{echo $(foo&&bar)}\")))",
+     INVOKELIB_SHELL_JOBS " (sh-cmd* echo (lambda (job) (sh-run/string"
+                          " (sh-and (sh-cmd foo) (sh-cmd bar))))))"},
     /* ------------------------- repl --------------------------------------- */
     {"(values->list (repl-parse\n"
      "  (make-parsectx-from-string \"(+ 2 3) (values 7 (cons 'a 'b))\" (parsers))\n"

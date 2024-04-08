@@ -155,7 +155,8 @@
     (lambda (bvec1 bvec2)
       (assert* (bytevector? bvec1))
       (assert* (bytevector? bvec2))
-      (c-bytevector-compare bvec1 bvec2))))
+      (or (eq bvec1 bvec2)
+          (c-bytevector-compare bvec1 bvec2)))))
 
 (define (bytevector<=? bvec1 bvec2)
   (fx<=? (bytevector-compare bvec1 bvec2) 0))
@@ -184,13 +185,18 @@
 (define (string-range=? left left-start right right-start n)
   (assert* (fx<=? 0 left-start (string-length left)))
   (assert* (fx<=? 0 right-start (string-length right)))
+  (assert* (fx<=? 0 n (fx- (string-length left) left-start)))
+  (assert* (fx<=? 0 n (fx- (string-length right) right-start)))
   (or
+    (fxzero? n)
     (and (eq? left right) (fx=? left-start right-start))
-    (let ((equal #t))
-      (do ((i 0 (fx1+ i)))
-          ((or (not equal) (fx>=? i n)) equal)
-        (set! equal (char=? (string-ref left (fx+ i left-start))
-                            (string-ref right (fx+ i right-start))))))))
+    (do ((i 0 (fx1+ i)))
+        ((or
+           (fx>=? i n)
+           (not (char=? (string-ref left (fx+ i left-start))
+                        (string-ref right (fx+ i right-start)))))
+         (fx>=? i n)))))
+
 
 ; (string-iterate l proc) iterates on all elements of given string src,
 ; and calls (proc index ch) on each character. stops iterating if (proc ...) returns #f
