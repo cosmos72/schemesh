@@ -5,15 +5,6 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-; #define SCHEMESH_LIBRARY_CONTAINERS_MISC_EXPORT                                                    \
-;  "list-iterate reverse*! "                                                                        \
-;  "vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable "                    \
-;  "list->bytevector list-quoteq! "                                                                 \
-;  "subbytevector bytevector-fill-range! bytevector-iterate bytevector-compare "                    \
-;  "bytevector<=? bytevector<? bytevector>=? bytevector>? "                                         \
-;  "string-fill-range! string-range=? string-iterate "
-
-
 (library (schemesh containers misc (0 1))
   (export
     list-iterate reverse*!
@@ -21,7 +12,8 @@
     list->bytevector list-quoteq!
     subbytevector bytevector-fill-range! bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?
-    string-fill-range! string-range=? string-iterate integer->char*)
+    string-fill-range! string-range=? string-iterate
+    string->utf8b string->utf8b/0 integer->char*)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -117,7 +109,7 @@
   htable)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;; define some additional bytevector functions ;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;     some additional bytevector functions    ;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (list->bytevector l)
@@ -155,7 +147,7 @@
     (lambda (bvec1 bvec2)
       (assert* (bytevector? bvec1))
       (assert* (bytevector? bvec2))
-      (or (eq bvec1 bvec2)
+      (or (eq? bvec1 bvec2)
           (c-bytevector-compare bvec1 bvec2)))))
 
 (define (bytevector<=? bvec1 bvec2)
@@ -171,17 +163,17 @@
   (fx>? (bytevector-compare bvec1 bvec2) 0))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;; define some additional string functions ;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;     some additional string functions    ;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; set n elements of string from offset = start to specified value
+;; set n elements of string from offset = start to specified value
 (define (string-fill-range! str start n val)
   (do ((i 0 (fx1+ i)))
       ((fx>=? i n))
     (string-set! str (fx+ i start) val)))
 
-; return #t if range [left-start, left-start + n) of left string contains
-; the same characters as range [right-start, right-start + n) of right string.
+;; return #t if range [left-start, left-start + n) of left string contains
+;; the same characters as range [right-start, right-start + n) of right string.
 (define (string-range=? left left-start right right-start n)
   (assert* (fx<=? 0 left-start (string-length left)))
   (assert* (fx<=? 0 right-start (string-length right)))
@@ -198,16 +190,49 @@
          (fx>=? i n)))))
 
 
-; (string-iterate l proc) iterates on all elements of given string src,
-; and calls (proc index ch) on each character. stops iterating if (proc ...) returns #f
+;; (string-iterate l proc) iterates on all elements of given string src,
+;; and calls (proc index ch) on each character. stops iterating if (proc ...) returns #f
 (define (string-iterate str proc)
   (do ((i 0 (fx1+ i))
        (n (string-length str)))
       ((or (fx>=? i n) (not (proc i (string-ref str i)))))))
 
 
+;; convert a portion of a string to UTF-8b, and return bytevector containing the conversion result.
+;;
+;; For a definition of UTF-8b, see
+;;   https://peps.python.org/pep-0383
+;;   https://web.archive.org/web/20090830064219/http://mail.nl.linux.org/linux-utf8/2000-07/msg00040.html
+(define string-range->utf8b
+  (let ((c-string-range->utf8b (foreign-procedure "c_string_range_to_utf8b"
+                                  (scheme-object fixnum fixnum scheme-object fixnum) scheme-object))
+        (c-string-range->utf8b-length (foreign-procedure "c_string_range_to_utf8b_length"
+                                  (scheme-object fixnum fixnum) fixnum)))
+    (lambda (str start n zeropad-byte-n)
+      (assert* (fx<=? 0 start (string-length str)))
+      (assert* (fx<=? 0 n (fx- (string-length str) start)))
+      (assert* (fx>=? zeropad-byte-n 0))
+      (let ((byte-n (c-string-range->utf8b-length str start n)))
+        (assert* (fixnum? byte-n))
+        (let* ((bvec (make-bytevector (fx+ byte-n zeropad-byte-n)))
+               (written-n (c-string-range->utf8b str start n bvec 0)))
+          (assert* (fixnum? written-n))
+          (assert* (fx=? byte-n written-n))
+          (when (fx>? zeropad-byte-n 0)
+            (bytevector-fill-range! bvec byte-n zeropad-byte-n 0))
+          bvec)))))
+
+;; convert a string to UTF-8b, and return bytevector containing the conversion result.
+(define (string->utf8b str)
+  (string-range->utf8b str 0 (string-length str) 0))
+
+;; convert a string to UTF-8b, append an additional byte 0 to conversion,
+;; and return bytevector containing the conversion result.
+(define (string->utf8b/0 str)
+  (string-range->utf8b str 0 (string-length str) 1))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;; define some additional char functions ;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;     some additional char functions    ;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; similar to (integer->char) but integer Unicode codepoint is not checked for validity:

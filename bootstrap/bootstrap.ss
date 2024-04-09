@@ -15,7 +15,7 @@
     (rnrs exceptions)
     ; Unlike R6RS (eval obj environment), Chez Scheme's (eval obj)
     ; uses interaction-environment and can modify it
-    (only (chezscheme) eval format gensym syntax-error void))
+    (only (chezscheme) eval format fx1- gensym syntax-error void))
 
 
 (define debugf
@@ -37,7 +37,7 @@
 
 (define-syntax repeat
   (syntax-rules ()
-    ((_ n body ...) (do ((i n (fx- i 1))) ((fx<=? i 0)) body ...))))
+    ((_ n body ...) (do ((i n (fx1- i))) ((fx<=? i 0)) body ...))))
 
 (define-syntax while
   (syntax-rules ()

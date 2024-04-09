@@ -56,61 +56,65 @@ static ptr c_integer_to_char(uint32_t codepoint) {
  *   https://web.archive.org/web/20090830064219/http://mail.nl.linux.org/linux-utf8/2000-07/msg00040.html
  */
 static iptr c_codepoint_to_utf8b_length(string_char codepoint) {
-  if (LIKELY(codepoint < 0x80)) {
-    return 1;
-  } else if (LIKELY(codepoint < 0x800)) {
-    return 2;
-  } else if (LIKELY(codepoint < 0x10000)) {
-    if (UNLIKELY(codepoint >= 0xDC80 && codepoint < 0xDD00)) {
-      /*
-       * unpaired low-half surrogate, it is used to represent a single byte
-       * in the range 0x80 - 0xFF that is NOT part of a valid UTF-8 sequence
-       */
-      return 1;
-    } else {
-      return 2;
-    }
-  } else {
-    return 4;
+  if (LIKELY(codepoint < 0x800)) {
+    /*
+     * 0xDC80...0xDCFF is inside the surrogate range.
+     * UTF-8b uses it to represent a single byte in the range 0x80 - 0xFF
+     * that is NOT part of a valid UTF-8 sequence
+     */
+    return (LIKELY(codepoint < 0x80 || (codepoint >= 0xDC80 && codepoint < 0xDD00))) ? 1 : 2;
   }
+  return LIKELY(codepoint < 0x10000) ? 3 : 4;
 }
 
-typedef struct {
-  uint32_t u4;
-} byte4;
-
 /**
- * convert UTF-32 codepoint to UTF-8b sequence, and return such sequence.
+ * convert Unicode codepoint to UTF-8b sequence, and write such sequence into out.
+ * @return number of written bytes
  */
-byte4 c_codepoint_to_utf8b(string_char codepoint) {
-  byte4 ret = {0};
-  if (LIKELY(codepoint < 0x80)) {
-    ret.u4 = codepoint;
-  } else if (codepoint < 0x800) {
-    ret.u4 = 0x80C0 |                    /*                    */
-             ((codepoint >> 6) & 0x1F) | /*                    */
-             ((codepoint & 0x3F)) << 8;
-  } else if (LIKELY(codepoint < 0x10000)) {
-    if (UNLIKELY(codepoint >= 0xDC80 && codepoint < 0xDD00)) {
-      /*
-       * unpaired low-half surrogate, it is used to represent a single byte
-       * in the range 0x80 - 0xFF that is NOT part of a valid UTF-8 sequence
-       */
-      ret.u4 = codepoint & 0xFF;
-    } else {
-      ret.u4 = 0x8080E0 |                    /*                    */
-               ((codepoint >> 12) & 0x0F) |  /*                    */
-               ((codepoint << 2) & 0x3F00) | /*                    */
-               ((codepoint << 16) & 0x3F0000);
+uptr c_codepoint_to_utf8b(string_char codepoint, octet* out, uptr out_len) {
+  if (LIKELY(codepoint < 0x80 || (codepoint >= 0xDC80 && codepoint < 0xDD00))) {
+    /*
+     * 0xDC80...0xDCFF is inside the surrogate range.
+     * UTF-8b uses it to represent a single byte in the range 0x80 - 0xFF
+     * that is NOT part of a valid UTF-8 sequence
+     */
+    if (LIKELY(out_len > 0)) {
+      out[0] = codepoint;
+      return 1;
     }
-  } else {
-    ret.u4 = 0x808080F0 |                     /*                    */
-             ((codepoint >> 18) & 0x07) |     /*                    */
-             ((codepoint >> 4) & 0x3F00) |    /*                    */
-             ((codepoint << 10) & 0x3F0000) | /*                    */
-             (codepoint & 0x3F) << 24;
+    return 0;
   }
-  return ret;
+  if (LIKELY(codepoint < 0x800)) {
+    if (LIKELY(out_len >= 2)) {
+      out[0] = 0xC0 | ((codepoint >> 6) & 0x1F);
+      out[1] = 0x80 | (codepoint & 0x3F);
+      return 2;
+    }
+    return 0;
+  }
+  if (LIKELY(codepoint < 0x10000)) {
+    if (LIKELY(codepoint < 0xD800 || codepoint >= 0xE000)) {
+      if (LIKELY(out_len >= 3)) {
+        out[0] = 0xE0 | ((codepoint >> 12) & 0x0F);
+        out[1] = 0x80 | ((codepoint >> 6) & 0x3F);
+        out[2] = 0x80 | (codepoint & 0x3F);
+        return 3;
+      }
+      return 0;
+    }
+    /* not enough space, or codepoint is in surrogate range: not allowed */
+    return 0;
+  }
+  if (LIKELY(codepoint < 0x110000)) {
+    if (LIKELY(out_len >= 4)) {
+      out[0] = 0xF0 | ((codepoint >> 18) & 0x07);
+      out[1] = 0x80 | ((codepoint >> 12) & 0x3F);
+      out[2] = 0x80 | ((codepoint >> 6) & 0x3F);
+      out[3] = 0x80 | (codepoint & 0x3F);
+      return 4;
+    }
+  }
+  return 0;
 }
 
 /**
@@ -131,32 +135,31 @@ static iptr c_string_range_to_utf8b_length(ptr string, iptr start, iptr n) {
 }
 
 /**
- * convert a portion of Scheme string to UTF-8b bytevector.
- * Caller must provide a large enough bytevector.
+ * convert a portion of Scheme string to UTF-8b,
+ * and write conversion into a caller-provided bytevector,
+ * which must be large enough.
  *
  * Return 1 + position of last byte written in bytevector if successful,
- * or Sfalse if provided bytevector is too small.
+ * or Sfalse if arguments are invalid or provided bytevector is too small.
  */
 static ptr c_string_range_to_utf8b(ptr string, iptr start, iptr n, ptr bvec, iptr ostart) {
-
   if (Sstringp(string) && start >= 0 && n >= 0 && Sbytevectorp(bvec) && ostart >= 0) {
     const iptr ilen = Sstring_length(string);
     iptr       ipos = start < ilen ? start : ilen;
     const iptr iend = (n < ilen - ipos) ? ipos + n : ilen;
+
+    octet*     out  = Sbytevector_data(bvec);
     const iptr oend = Sbytevector_length(bvec);
     iptr       opos = ostart;
     for (; ipos < iend; ++ipos) {
-      byte4    bytes = c_codepoint_to_utf8b(Sstring_ref(string, ipos));
-      unsigned i;
-      for (i = 0; i < 4; i++) {
-        if (UNLIKELY(opos >= oend)) {
-          return Sfalse;
-        }
-        Sbytevector_u8_set(bvec, opos++, bytes.u4 & 0xFF);
-        bytes.u4 >>= 8;
-        if (LIKELY(bytes.u4 == 0)) {
-          break;
-        }
+      if (UNLIKELY(opos >= oend)) {
+        return Sfalse;
+      }
+      const uptr written = c_codepoint_to_utf8b(Sstring_ref(string, ipos), out + opos, oend - opos);
+      if (LIKELY(written != 0)) {
+        opos += written;
+      } else {
+        return Sfalse;
       }
     }
     return Sfixnum(opos);

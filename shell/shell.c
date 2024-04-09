@@ -133,7 +133,8 @@ void schemesh_compile_and_load_libraries(void) {
        "            (k-exit #f))\n"
        "          (lambda ()\n"
 #ifdef SCHEMESH_OPTIMIZE
-       "            (parameterize ((optimize-level 2))\n"
+       "            (parameterize ((optimize-level 2)\n"
+       "                           (run-cp0 (default-run-cp0)))\n"
 #else /* !SCHEMESH_OPTIMIZE */
        "            (parameterize ((optimize-level 0)\n"
        "                           (run-cp0 (lambda (cp0 x) x)))\n"

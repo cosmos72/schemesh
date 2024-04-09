@@ -13,7 +13,8 @@
     list->bytevector list-quoteq!
     subbytevector bytevector-fill-range! bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?
-    string-fill-range! string-range=? string-iterate integer->char*
+    string-fill-range! string-range=? string-iterate
+    string->utf8b string->utf8b/0 integer->char*
 
     ; hashtable.ss
     make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-cell hash-iterator-next!
