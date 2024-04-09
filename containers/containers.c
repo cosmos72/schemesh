@@ -142,7 +142,7 @@ static iptr c_string_range_to_utf8b_length(ptr string, iptr start, iptr n) {
  * Return 1 + position of last byte written in bytevector if successful,
  * or Sfalse if arguments are invalid or provided bytevector is too small.
  */
-static ptr c_string_range_to_utf8b(ptr string, iptr start, iptr n, ptr bvec, iptr ostart) {
+static ptr c_string_range_to_utf8b_append(ptr string, iptr start, iptr n, ptr bvec, iptr ostart) {
   if (Sstringp(string) && start >= 0 && n >= 0 && Sbytevectorp(bvec) && ostart >= 0) {
     const iptr ilen = Sstring_length(string);
     iptr       ipos = start < ilen ? start : ilen;
@@ -167,9 +167,32 @@ static ptr c_string_range_to_utf8b(ptr string, iptr start, iptr n, ptr bvec, ipt
   return Sfalse;
 }
 
+#if 0  /* slower */
+/**
+ * convert a portion of Scheme string to UTF-8b,
+ * and write conversion into a newly created bytevector.
+ *
+ * Return created bytevector,
+ * or Sfalse if arguments are invalid or allocation fails.
+ */
+static ptr c_string_range_to_utf8b(ptr string, iptr start, iptr n, iptr zeropad_n) {
+  if (start >= 0 && n >= 0 && zeropad_n >= 0) {
+    iptr byte_n = c_string_range_to_utf8b_length(string, start, n);
+    ptr  bvec   = Smake_bytevector(byte_n + zeropad_n, 0);
+    if (c_string_range_to_utf8b_append(string, start, n, bvec, 0) != Sfalse) {
+      return bvec;
+    }
+  }
+  return Sfalse;
+}
+#endif /* 0 */
+
 void schemesh_register_c_functions_containers(void) {
   Sregister_symbol("c_bytevector_compare", &c_bytevector_compare);
   Sregister_symbol("c_integer_to_char", &c_integer_to_char);
   Sregister_symbol("c_string_range_to_utf8b_length", &c_string_range_to_utf8b_length);
+  Sregister_symbol("c_string_range_to_utf8b_append", &c_string_range_to_utf8b_append);
+#if 0
   Sregister_symbol("c_string_range_to_utf8b", &c_string_range_to_utf8b);
+#endif /* 0 */
 }

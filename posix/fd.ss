@@ -15,7 +15,7 @@
     (only (chezscheme) foreign-procedure void)
     (only (schemesh bootstrap)       assert*)
     (only (schemesh containers misc) list-iterate)
-    (only (schemesh conversions)     string->bytevector0))
+    (only (schemesh conversions)     text->bytevector0))
 
 (define c-errno
   (foreign-procedure "c_errno" () int))
@@ -119,7 +119,7 @@
   (let ((c-open-file-fd (foreign-procedure "c_open_file_fd"
                           (scheme-object int int int int) int)))
     (lambda (filepath . flags)
-      (let* ([filepath0 (string->bytevector0 filepath)]
+      (let* ([filepath0 (text->bytevector0 filepath)]
              [flag-rw (cond ((memq 'rw    flags) 2)
                             ((memq 'write flags) 1)
                             ((memq 'read  flags) 0)

@@ -8,14 +8,14 @@
 (library (schemesh conversions (0 1))
   (export
     display-condition* display-any write-bytevector0
-    any->bytevector any->bytevector0 bytevector->bytevector0 string->bytevector0
+    any->bytevector any->bytevector0 bytevector->bytevector0 text->bytevector0
     any->string list->cmd-argv string-hashtable->vector-of-bytevector0
     eval->bytevector)
   (import
     (rnrs)
     (only (chezscheme)              fx1+ fx1- void)
     (only (schemesh bootstrap)        eval-string)
-    (only (schemesh containers misc)    list-iterate)
+    (only (schemesh containers misc)    list-iterate string->utf8b string->utf8b/0)
     (only (schemesh containers hashtable) hashtable-iterate))
 
 (define (display-condition* x port)
@@ -81,7 +81,7 @@
 (define (any->bytevector x)
   (cond
     ((bytevector? x) x)
-    ((string? x)     (string->utf8 x))
+    ((string? x)     (string->utf8b x))
     ((eq? (void) x)  #vu8())
     (#t (let-values (((port get-bytevector)
                       (open-bytevector-output-port transcoder-utf8)))
@@ -116,14 +116,14 @@
         ret))))
 
 ; convert string or bytevector to #\nul terminated bytevector containing UTF-8
-(define (string->bytevector0 x)
+(define (text->bytevector0 x)
   (cond
     ((bytevector? x)
        (bytevector->bytevector0 x))
     ((string? x)
        (if (fxzero? (string-length x))
          bv0
-         (any->bytevector0 x)))
+         (string->utf8b/0 x)))
     (#t (assert (or (string? x) (bytevector? x))))))
 
 ; convert a list of strings or bytevectors to vector-of-bytevector0
@@ -132,7 +132,7 @@
   (let ((argv (list->vector l)))
     (do ([i 0 (fx1+ i)])
         ((>= i (vector-length argv)))
-      (vector-set! argv i (string->bytevector0 (vector-ref argv i))))
+      (vector-set! argv i (text->bytevector0 (vector-ref argv i))))
     argv))
 
 ;; convert a hashtable containing string keys and string values

@@ -12,8 +12,8 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) foreign-procedure sort!)
-    (only (schemesh containers misc) bytevector<? list-iterate)
-    (only (schemesh conversions) string->bytevector0)
+    (only (schemesh containers misc) bytevector<? list-iterate string->utf8b)
+    (only (schemesh conversions) text->bytevector0)
     (only (schemesh posix fd) raise-errno-condition))
 
 (define c-exit (foreign-procedure "c_exit" (int) int))
@@ -30,10 +30,10 @@
                      (scheme-object scheme-object) scheme-object))
         (types '#(unknown blockdev chardev dir fifo file socket symlink)))
     (lambda (dirpath filter-prefix)
-      (let ((ret (c-directory-u8-list (string->bytevector0 dirpath)
+      (let ((ret (c-directory-u8-list (text->bytevector0 dirpath)
                    (if (bytevector? filter-prefix)
                      filter-prefix
-                     (string->utf8 filter-prefix)))))
+                     (string->utf8b filter-prefix)))))
         (unless (or (null? ret) (pair? ret))
           (raise-errno-condition 'directory-u8-list ret))
         (list-iterate ret

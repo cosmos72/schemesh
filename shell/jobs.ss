@@ -205,7 +205,7 @@
              (dir (if (sh-path-absolute? suffix)
                       (sh-path->subpath suffix)
                       (sh-path-append (sh-cwd) suffix)))
-             (err (c_chdir (string->bytevector0 (charspan->string dir)))))
+             (err (c_chdir (text->bytevector0 (charspan->string dir)))))
         (if (= err 0)
           (job-cwd-set! sh-globals dir)
           (raise

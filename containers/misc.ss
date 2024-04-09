@@ -204,8 +204,8 @@
 ;;   https://peps.python.org/pep-0383
 ;;   https://web.archive.org/web/20090830064219/http://mail.nl.linux.org/linux-utf8/2000-07/msg00040.html
 (define string-range->utf8b
-  (let ((c-string-range->utf8b (foreign-procedure "c_string_range_to_utf8b"
-                                  (scheme-object fixnum fixnum scheme-object fixnum) scheme-object))
+  (let ((c-string-range->utf8b-append (foreign-procedure "c_string_range_to_utf8b_append"
+                                          (scheme-object fixnum fixnum scheme-object fixnum) scheme-object))
         (c-string-range->utf8b-length (foreign-procedure "c_string_range_to_utf8b_length"
                                   (scheme-object fixnum fixnum) fixnum)))
     (lambda (str start n zeropad-byte-n)
@@ -215,12 +215,24 @@
       (let ((byte-n (c-string-range->utf8b-length str start n)))
         (assert* (fixnum? byte-n))
         (let* ((bvec (make-bytevector (fx+ byte-n zeropad-byte-n)))
-               (written-n (c-string-range->utf8b str start n bvec 0)))
-          (assert* (fixnum? written-n))
+               (written-n (c-string-range->utf8b-append str start n bvec 0)))
           (assert* (fx=? byte-n written-n))
           (when (fx>? zeropad-byte-n 0)
             (bytevector-fill-range! bvec byte-n zeropad-byte-n 0))
           bvec)))))
+
+#| ;; slower
+(define string-range->utf8b
+  (let ((c-string-range->utf8b (foreign-procedure "c_string_range_to_utf8b"
+                                          (scheme-object fixnum fixnum fixnum) scheme-object)))
+    (lambda (str start n zeropad-byte-n)
+      (assert* (fx<=? 0 start (string-length str)))
+      (assert* (fx<=? 0 n (fx- (string-length str) start)))
+      (assert* (fx>=? zeropad-byte-n 0))
+      (let ((bvec (c-string-range->utf8b str start n zeropad-byte-n)))
+        (assert* (bytevector? bvec))
+        bvec))))
+|#
 
 ;; convert a string to UTF-8b, and return bytevector containing the conversion result.
 (define (string->utf8b str)

@@ -12,7 +12,7 @@
     (only (chezscheme) foreign-procedure fx1+ fx1- void)
     (only (schemesh bootstrap) while)
     (schemesh containers charspan)
-    (only (schemesh conversions) string->bytevector0)
+    (only (schemesh conversions) text->bytevector0)
     (only (schemesh posix fd) raise-errno-condition)
     (schemesh shell paths)
     (schemesh shell jobs))

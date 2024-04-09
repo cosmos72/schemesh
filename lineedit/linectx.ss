@@ -196,7 +196,7 @@
 
 (define (default-prompt-func ctx)
   (let* ((str    (symbol->string (linectx-parser-name ctx)))
-         (bv     (string->utf8 str))
+         (bv     (string->utf8b str))
          (prompt (linectx-prompt ctx)))
     (bytespan-clear! prompt)
     (bytespan-insert-back/bvector! prompt bv 0 (bytevector-length bv))
@@ -253,7 +253,7 @@
          ((fixnum?     keyseq) (list keyseq))
          ((pair?       keyseq) keyseq)
          ((bytevector? keyseq) (bytevector->u8-list keyseq))
-         ((string?     keyseq) (bytevector->u8-list (string->utf8 keyseq)))
+         ((string?     keyseq) (bytevector->u8-list (string->utf8b keyseq)))
          (#t (assert
                (or (fixnum? keyseq) (pair? keyseq)
                    (bytevector? keyseq) (string? keyseq))))))))

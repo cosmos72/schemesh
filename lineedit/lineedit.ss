@@ -403,7 +403,7 @@
     (linectx-term-xy-set! ctx vx vy)))
 
 
-(define bv-prompt-error (string->utf8 "error expanding prompt $ "))
+(define bv-prompt-error (string->utf8b "error expanding prompt $ "))
 
 ;; update prompt
 (define (linectx-update-prompt ctx)
