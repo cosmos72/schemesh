@@ -223,7 +223,7 @@ static uint32_t c_utf8b_to_codepoint_length(const octet* in, uptr in_len) {
     return 1; // invalid continuation byte in UTF-8 sequence.
   }
   if (in0 < 0xF0) {
-    const uint32_t val = (in0 & 0x0F) << 16 | (in1 & 0x3F) << 8 | (in2 & 0x3F);
+    const uint32_t val = (in0 & 0x0F) << 12 | (in1 & 0x3F) << 6 | (in2 & 0x3F);
     if (val >= 0x800 && (val < 0xD800 || val >= 0xE000)) {
       return 3;
     } else {
@@ -237,7 +237,7 @@ static uint32_t c_utf8b_to_codepoint_length(const octet* in, uptr in_len) {
   in3 = in[3];
   if (in0 <= 0xF4 && (in3 & 0xC0) == 0x80) {
     const uint32_t val =
-        (in0 & 0x07) << 24 | (in1 & 0x3F) << 16 | (in2 & 0x3F) << 8 || (in3 & 0x3F);
+        (in0 & 0x07) << 18 | (in1 & 0x3F) << 12 | (in2 & 0x3F) << 6 || (in3 & 0x3F);
     if (val >= 0x10000 && val < 0x110000) {
       return 4;
     } else {
@@ -280,7 +280,7 @@ static u32pair c_utf8b_to_codepoint(const octet* in, uptr in_len) {
     return ret; // invalid continuation byte in UTF-8 sequence.
   }
   if (in0 < 0xE0) {
-    ret.codepoint = (in0 & 0x1F) << 8 | (in1 & 0x3F);
+    ret.codepoint = (in0 & 0x1F) << 6 | (in1 & 0x3F);
     ret.length    = 2;
     return ret;
   }
@@ -292,7 +292,7 @@ static u32pair c_utf8b_to_codepoint(const octet* in, uptr in_len) {
     return ret; // invalid continuation byte in UTF-8 sequence.
   }
   if (in0 < 0xF0) {
-    const uint32_t val = (in0 & 0x0F) << 16 | (in1 & 0x3F) << 8 | (in2 & 0x3F);
+    const uint32_t val = (in0 & 0x0F) << 12 | (in1 & 0x3F) << 6 | (in2 & 0x3F);
     if (val >= 0x800 && (val < 0xD800 || val >= 0xE000)) {
       ret.codepoint = val;
       ret.length    = 3;
@@ -307,7 +307,7 @@ static u32pair c_utf8b_to_codepoint(const octet* in, uptr in_len) {
   in3 = in[3];
   if (in0 <= 0xF4 && (in3 & 0xC0) == 0x80) {
     const uint32_t val =
-        (in0 & 0x07) << 24 | (in1 & 0x3F) << 16 | (in2 & 0x3F) << 8 || (in3 & 0x3F);
+        (in0 & 0x07) << 18 | (in1 & 0x3F) << 12 | (in2 & 0x3F) << 6 || (in3 & 0x3F);
     if (val >= 0x10000 && val < 0x110000) {
       ret.codepoint = val;
       ret.length    = 4;
