@@ -13,10 +13,10 @@
     eval->bytevector)
   (import
     (rnrs)
-    (only (chezscheme)              fx1+ fx1- void)
-    (only (schemesh bootstrap)        eval-string)
-    (only (schemesh containers misc)    list-iterate string->utf8b string->utf8b/0)
-    (only (schemesh containers hashtable) hashtable-iterate))
+    (only (chezscheme)            fx1+ fx1- void)
+    (only (schemesh bootstrap)    eval-string)
+    (only (schemesh containers)   hashtable-iterate list-iterate string->utf8b string->utf8b/0))
+
 
 (define (display-condition* x port)
   (when (condition? x)

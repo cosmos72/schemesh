@@ -8,6 +8,7 @@
 (begin
   (include "bootstrap/bootstrap.ss")
   (include "containers/misc.ss")
+  (include "containers/utf8b.ss")
   (include "containers/hashtable.ss")
   (include "containers/span.ss")
   (include "containers/bytespan.ss")

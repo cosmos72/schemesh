@@ -321,16 +321,20 @@ static u32pair c_utf8b_to_codepoint(const octet* in, uptr in_len) {
 }
 
 /**
- * convert an UTF-8b bytevector to UTF-32 string,
+ * convert up to n bytes of UTF-8b bytevector to UTF-32 string.
  * and return ONLY the length of converted string i.e. the number of Unicode codepoints.
  */
-static iptr c_utf8b_to_string_length(ptr bvec, iptr bvec_start) {
+static iptr c_utf8b_to_string_length(ptr bvec, iptr bvec_start, iptr n) {
   iptr ret = 0;
-  if (Sbytevectorp(bvec) && bvec_start >= 0) {
+  if (Sbytevectorp(bvec) && bvec_start >= 0 && n > 0) {
     iptr bvec_len = Sbytevector_length(bvec);
     if (bvec_start < bvec_len) {
       const octet* bvec_data = &Sbytevector_u8_ref(bvec, bvec_start);
-      bvec_len -= bvec_start;
+      if (bvec_len - bvec_start > n) {
+        bvec_len = n;
+      } else {
+        bvec_len -= bvec_start;
+      }
       while (bvec_len > 0) {
         const uint32_t consumed = c_utf8b_to_codepoint_length(bvec_data, bvec_len);
         if (consumed == 0 || consumed > (uptr)bvec_len) {
@@ -346,18 +350,22 @@ static iptr c_utf8b_to_string_length(ptr bvec, iptr bvec_start) {
 }
 
 /**
- * convert an UTF-8b bytevector to UTF-32 string.
+ * convert up to n bytes of UTF-8b bytevector to UTF-32 string.
  * return the length of converted string, i.e. the number of Unicode codepoints written into it,
  * or Sfalse if caller-provided string is too small.
  */
-static ptr c_utf8b_to_string_append(ptr bvec, iptr bvec_start, ptr str, iptr str_start) {
-  if (Sbytevectorp(bvec) && bvec_start >= 0 && Sstringp(str) && str_start >= 0) {
+static ptr c_utf8b_to_string_append(ptr bvec, iptr bvec_start, iptr n, ptr str, iptr str_start) {
+  if (Sbytevectorp(bvec) && bvec_start >= 0 && n >= 0 && Sstringp(str) && str_start >= 0) {
     iptr bvec_len = Sbytevector_length(bvec);
     iptr str_len  = Sstring_length(str);
     if (bvec_start <= bvec_len && str_start <= str_len) {
       iptr   str_pos   = str_start;
       octet* bvec_data = &Sbytevector_u8_ref(bvec, bvec_start);
-      bvec_len -= bvec_start;
+      if (bvec_len - bvec_start > n) {
+        bvec_len = n;
+      } else {
+        bvec_len -= bvec_start;
+      }
       while (bvec_len > 0) {
         const u32pair pair = c_utf8b_to_codepoint(bvec_data, bvec_len);
         if (pair.length == 0 || pair.length > (uptr)bvec_len || str_pos >= str_len) {

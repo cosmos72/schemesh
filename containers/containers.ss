@@ -14,7 +14,9 @@
     subbytevector bytevector-fill-range! bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?
     string-fill-range! string-range=? string-iterate
-    string->utf8b string->utf8b/0 integer->char*
+
+    ; utf8b.ss
+    integer->char* string->utf8b string->utf8b/0 utf8b->string
 
     ; hashtable.ss
     make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-cell hash-iterator-next!
@@ -91,6 +93,7 @@
     charspan->utf8)
 
   (import (schemesh containers misc)
+          (schemesh containers utf8b)
           (schemesh containers hashtable)
           (schemesh containers span)
           (schemesh containers bytespan)
