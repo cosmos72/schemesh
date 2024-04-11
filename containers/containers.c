@@ -126,7 +126,7 @@ static uptr c_codepoint_to_utf8b(string_char codepoint, octet* out, uptr out_len
  * convert a portion of Scheme string to UTF-8b bytevector, and return length of such bytevector.
  * Does not actually create a bytevector - only pretends to.
  */
-static iptr c_string_range_to_utf8b_length(ptr string, iptr start, iptr n) {
+static iptr c_string_to_utf8b_length(ptr string, iptr start, iptr n) {
   iptr result = 0;
   if (Sstringp(string) && start >= 0 && n > 0) {
     const iptr len = Sstring_length(string);
@@ -147,7 +147,7 @@ static iptr c_string_range_to_utf8b_length(ptr string, iptr start, iptr n) {
  * Return 1 + position of last byte written in bytevector if successful,
  * or Sfalse if arguments are invalid or provided bytevector is too small.
  */
-static ptr c_string_range_to_utf8b_append(ptr string, iptr start, iptr n, ptr bvec, iptr ostart) {
+static ptr c_string_to_utf8b_append(ptr string, iptr start, iptr n, ptr bvec, iptr ostart) {
   if (Sstringp(string) && start >= 0 && n >= 0 && Sbytevectorp(bvec) && ostart >= 0) {
     const iptr ilen = Sstring_length(string);
     iptr       ipos = start < ilen ? start : ilen;
@@ -180,11 +180,11 @@ static ptr c_string_range_to_utf8b_append(ptr string, iptr start, iptr n, ptr bv
  * Return created bytevector,
  * or Sfalse if arguments are invalid or allocation fails.
  */
-static ptr c_string_range_to_utf8b(ptr string, iptr start, iptr n, iptr zeropad_n) {
+static ptr c_string_to_utf8b(ptr string, iptr start, iptr n, iptr zeropad_n) {
   if (start >= 0 && n >= 0 && zeropad_n >= 0) {
-    iptr byte_n = c_string_range_to_utf8b_length(string, start, n);
+    iptr byte_n = c_string_to_utf8b_length(string, start, n);
     ptr  bvec   = Smake_bytevector(byte_n + zeropad_n, 0);
-    if (c_string_range_to_utf8b_append(string, start, n, bvec, 0) != Sfalse) {
+    if (c_string_to_utf8b_append(string, start, n, bvec, 0) != Sfalse) {
       return bvec;
     }
   }
@@ -350,7 +350,7 @@ static iptr c_utf8b_to_string_length(ptr bvec, iptr bvec_start) {
  * return the length of converted string, i.e. the number of Unicode codepoints written into it,
  * or Sfalse if caller-provided string is too small.
  */
-static ptr c_utf8b_to_string(ptr bvec, iptr bvec_start, ptr str, iptr str_start) {
+static ptr c_utf8b_to_string_append(ptr bvec, iptr bvec_start, ptr str, iptr str_start) {
   if (Sbytevectorp(bvec) && bvec_start >= 0 && Sstringp(str) && str_start >= 0) {
     iptr bvec_len = Sbytevector_length(bvec);
     iptr str_len  = Sstring_length(str);
@@ -377,11 +377,11 @@ static ptr c_utf8b_to_string(ptr bvec, iptr bvec_start, ptr str, iptr str_start)
 void schemesh_register_c_functions_containers(void) {
   Sregister_symbol("c_bytevector_compare", &c_bytevector_compare);
   Sregister_symbol("c_integer_to_char", &c_integer_to_char);
-  Sregister_symbol("c_string_range_to_utf8b_length", &c_string_range_to_utf8b_length);
-  Sregister_symbol("c_string_range_to_utf8b_append", &c_string_range_to_utf8b_append);
+  Sregister_symbol("c_string_to_utf8b_length", &c_string_to_utf8b_length);
+  Sregister_symbol("c_string_to_utf8b_append", &c_string_to_utf8b_append);
 #if 0
-  Sregister_symbol("c_string_range_to_utf8b", &c_string_range_to_utf8b);
+  Sregister_symbol("c_string_to_utf8b", &c_string_to_utf8b);
 #endif /* 0 */
   Sregister_symbol("c_utf8b_to_string_length", &c_utf8b_to_string_length);
-  Sregister_symbol("c_utf8b_to_string", &c_utf8b_to_string);
+  Sregister_symbol("c_utf8b_to_string_append", &c_utf8b_to_string_append);
 }

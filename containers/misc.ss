@@ -204,9 +204,9 @@
 ;;   https://peps.python.org/pep-0383
 ;;   https://web.archive.org/web/20090830064219/http://mail.nl.linux.org/linux-utf8/2000-07/msg00040.html
 (define string-range->utf8b
-  (let ((c-string-range->utf8b-append (foreign-procedure "c_string_range_to_utf8b_append"
+  (let ((c-string-range->utf8b-append (foreign-procedure "c_string_to_utf8b_append"
                                           (scheme-object fixnum fixnum scheme-object fixnum) scheme-object))
-        (c-string-range->utf8b-length (foreign-procedure "c_string_range_to_utf8b_length"
+        (c-string-range->utf8b-length (foreign-procedure "c_string_to_utf8b_length"
                                   (scheme-object fixnum fixnum) fixnum)))
     (lambda (str start n zeropad-byte-n)
       (assert* (fx<=? 0 start (string-length str)))
