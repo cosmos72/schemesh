@@ -20,6 +20,11 @@
 #define UNLIKELY(pred) (pred)
 #endif
 
+typedef struct {
+  uint32_t codepoint;
+  uint32_t length;
+} u32pair;
+
 static signed char c_bytevector_compare(ptr left, ptr right) {
 #if 0 /* redundant, already checked by Scheme function (bytevector-compare) */
   if (Sbytevectorp(left) && Sbytevectorp(right))
@@ -43,7 +48,7 @@ static signed char c_bytevector_compare(ptr left, ptr right) {
  * similar to (integer->char) but integer Unicode codepoint is not checked for validity:
  * it INTENTIONALLY allows invalid codepoints in the ranges #xD800..#xDFFF and #x10FFFF..#xFFFFFF
  */
-static ptr c_integer_to_char(uint32_t codepoint) {
+static ptr c_integer_to_char(const uint32_t codepoint) {
   return Schar(codepoint);
 }
 
@@ -55,7 +60,7 @@ static ptr c_integer_to_char(uint32_t codepoint) {
  *   https://peps.python.org/pep-0383
  *   https://web.archive.org/web/20090830064219/http://mail.nl.linux.org/linux-utf8/2000-07/msg00040.html
  */
-static iptr c_codepoint_to_utf8b_length(string_char codepoint) {
+static iptr c_codepoint_to_utf8b_length(const uint32_t codepoint) {
   if (LIKELY(codepoint < 0x800)) {
     /*
      * 0xDC80...0xDCFF is inside the surrogate range.
@@ -71,7 +76,7 @@ static iptr c_codepoint_to_utf8b_length(string_char codepoint) {
  * convert Unicode codepoint to UTF-8b sequence, and write such sequence into out.
  * @return number of written bytes
  */
-uptr c_codepoint_to_utf8b(string_char codepoint, octet* out, uptr out_len) {
+static uptr c_codepoint_to_utf8b(string_char codepoint, octet* out, uptr out_len) {
   if (LIKELY(codepoint < 0x80 || (codepoint >= 0xDC80 && codepoint < 0xDD00))) {
     /*
      * 0xDC80...0xDCFF is inside the surrogate range.
@@ -187,6 +192,188 @@ static ptr c_string_range_to_utf8b(ptr string, iptr start, iptr n, iptr zeropad_
 }
 #endif /* 0 */
 
+/**
+ * convert a single UTF-8b sequence to Unicode codepoint,
+ * and return ONLY the number of converted bytes.
+ */
+static uint32_t c_utf8b_to_codepoint_length(const octet* in, uptr in_len) {
+  uint32_t in0, in1, in2, in3;
+  if (UNLIKELY(in_len == 0)) {
+    return 0;
+  }
+  in0 = in[0];
+  if (LIKELY(in0 < 0x80)) {
+    return 1;
+  }
+  if (in0 < 0xC2 || in0 > 0xF4 || in_len == 1) {
+    return 1; // invalid, overlong or truncated UTF-8 sequence.
+  }
+  in1 = in[1];
+  if ((in1 & 0xC0) != 0x80) {
+    return 1; // invalid continuation byte in UTF-8 sequence.
+  }
+  if (in0 < 0xE0) {
+    return 2;
+  }
+  if (in_len == 2) {
+    return 1; // truncated UTF-8 sequence.
+  }
+  in2 = in[2];
+  if ((in2 & 0xC0) != 0x80) {
+    return 1; // invalid continuation byte in UTF-8 sequence.
+  }
+  if (in0 < 0xF0) {
+    const uint32_t val = (in0 & 0x0F) << 16 | (in1 & 0x3F) << 8 | (in2 & 0x3F);
+    if (val >= 0x800 && (val < 0xD800 || val >= 0xE000)) {
+      return 3;
+    } else {
+      // overlong UTF-8 sequence, or invalid codepoint in surrogate range 0xD000...0xDFFF
+    }
+    return 1;
+  }
+  if (in_len == 3) {
+    return 1; // truncated UTF-8 sequence.
+  }
+  in3 = in[3];
+  if (in0 <= 0xF4 && (in3 & 0xC0) == 0x80) {
+    const uint32_t val =
+        (in0 & 0x07) << 24 | (in1 & 0x3F) << 16 | (in2 & 0x3F) << 8 || (in3 & 0x3F);
+    if (val >= 0x10000 && val < 0x110000) {
+      return 4;
+    } else {
+      // overlong UTF-8 sequence, or invalid codepoint > 0x10FFFF
+    }
+  } else {
+    // invalid byte in UTF-8 sequence.
+  }
+  return 1;
+}
+
+/**
+ * convert a single UTF-8b sequence to Unicode codepoint, and return it.
+ * Also return number of converted bytes.
+ */
+static u32pair c_utf8b_to_codepoint(const octet* in, uptr in_len) {
+  u32pair  ret;
+  uint32_t in0, in1, in2, in3;
+  if (UNLIKELY(in_len == 0)) {
+    ret.codepoint = 0;
+    ret.length    = 0;
+    return ret;
+  }
+  in0 = in[0];
+  if (LIKELY(in0 < 0x80)) {
+    ret.codepoint = in0;
+    ret.length    = 1;
+    return ret;
+  }
+  // default: invalid, overlong or truncated UTF-8 sequence.
+  // Encoded by UTF-8b as 0xDC00 | in0 to allow lossless roundtrip of non UTF-8 data.
+  ret.codepoint = 0xDC00 | in0;
+  ret.length    = 1;
+
+  if (in0 < 0xC2 || in0 > 0xF4 || in_len == 1) {
+    return ret; // invalid, overlong or truncated UTF-8 sequence.
+  }
+  in1 = in[1];
+  if ((in1 & 0xC0) != 0x80) {
+    return ret; // invalid continuation byte in UTF-8 sequence.
+  }
+  if (in0 < 0xE0) {
+    ret.codepoint = (in0 & 0x1F) << 8 | (in1 & 0x3F);
+    ret.length    = 2;
+    return ret;
+  }
+  if (in_len == 2) {
+    return ret; // truncated UTF-8 sequence.
+  }
+  in2 = in[2];
+  if ((in2 & 0xC0) != 0x80) {
+    return ret; // invalid continuation byte in UTF-8 sequence.
+  }
+  if (in0 < 0xF0) {
+    const uint32_t val = (in0 & 0x0F) << 16 | (in1 & 0x3F) << 8 | (in2 & 0x3F);
+    if (val >= 0x800 && (val < 0xD800 || val >= 0xE000)) {
+      ret.codepoint = val;
+      ret.length    = 3;
+    } else {
+      // overlong UTF-8 sequence, or invalid codepoint in surrogate range 0xD000...0xDFFF
+    }
+    return ret;
+  }
+  if (in_len == 3) {
+    return ret; // truncated UTF-8 sequence.
+  }
+  in3 = in[3];
+  if (in0 <= 0xF4 && (in3 & 0xC0) == 0x80) {
+    const uint32_t val =
+        (in0 & 0x07) << 24 | (in1 & 0x3F) << 16 | (in2 & 0x3F) << 8 || (in3 & 0x3F);
+    if (val >= 0x10000 && val < 0x110000) {
+      ret.codepoint = val;
+      ret.length    = 4;
+    } else {
+      // overlong UTF-8 sequence, or invalid codepoint > 0x10FFFF
+    }
+  } else {
+    // invalid byte in UTF-8 sequence.
+  }
+  return ret;
+}
+
+/**
+ * convert an UTF-8b bytevector to UTF-32 string,
+ * and return ONLY the length of converted string i.e. the number of Unicode codepoints.
+ */
+static iptr c_utf8b_to_string_length(ptr bvec, iptr bvec_start) {
+  iptr ret = 0;
+  if (Sbytevectorp(bvec) && bvec_start >= 0) {
+    iptr bvec_len = Sbytevector_length(bvec);
+    if (bvec_start < bvec_len) {
+      const octet* bvec_data = &Sbytevector_u8_ref(bvec, bvec_start);
+      bvec_len -= bvec_start;
+      while (bvec_len > 0) {
+        const uint32_t consumed = c_utf8b_to_codepoint_length(bvec_data, bvec_len);
+        if (consumed == 0 || consumed > (uptr)bvec_len) {
+          break; // should not happen
+        }
+        bvec_data += consumed;
+        bvec_len -= consumed;
+        ret++;
+      }
+    }
+  }
+  return ret;
+}
+
+/**
+ * convert an UTF-8b bytevector to UTF-32 string.
+ * return the length of converted string, i.e. the number of Unicode codepoints written into it,
+ * or Sfalse if caller-provided string is too small.
+ */
+static ptr c_utf8b_to_string(ptr bvec, iptr bvec_start, ptr str, iptr str_start) {
+  if (Sbytevectorp(bvec) && bvec_start >= 0 && Sstringp(str) && str_start >= 0) {
+    iptr bvec_len = Sbytevector_length(bvec);
+    iptr str_len  = Sstring_length(str);
+    if (bvec_start <= bvec_len && str_start <= str_len) {
+      iptr   str_pos   = str_start;
+      octet* bvec_data = &Sbytevector_u8_ref(bvec, bvec_start);
+      bvec_len -= bvec_start;
+      while (bvec_len > 0) {
+        const u32pair pair = c_utf8b_to_codepoint(bvec_data, bvec_len);
+        if (pair.length == 0 || pair.length > (uptr)bvec_len || str_pos >= str_len) {
+          return Sfalse;
+        }
+        bvec_data += pair.length;
+        bvec_len -= pair.length;
+        Sstring_set(str, str_pos, pair.codepoint);
+        str_pos++;
+      }
+      return Sfixnum(str_pos - str_start);
+    }
+  }
+  return Sfalse;
+}
+
 void schemesh_register_c_functions_containers(void) {
   Sregister_symbol("c_bytevector_compare", &c_bytevector_compare);
   Sregister_symbol("c_integer_to_char", &c_integer_to_char);
@@ -195,4 +382,6 @@ void schemesh_register_c_functions_containers(void) {
 #if 0
   Sregister_symbol("c_string_range_to_utf8b", &c_string_range_to_utf8b);
 #endif /* 0 */
+  Sregister_symbol("c_utf8b_to_string_length", &c_utf8b_to_string_length);
+  Sregister_symbol("c_utf8b_to_string", &c_utf8b_to_string);
 }
