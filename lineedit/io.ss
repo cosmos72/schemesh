@@ -24,9 +24,9 @@
   (nongenerative #{icport do8t0druatc9fhaize8s4a1wd-20}))
 
 (define (icport-read-string p str start n)
-  (assert* (fx>=? start 0))
-  (assert* (fx>=? n 0))
-  (assert* (fx<=? (fx+ start n) (string-length str)))
+  (assert* 'icport-read-string (fx>=? start 0))
+  (assert* 'icport-read-string (fx>=? n 0))
+  (assert* 'icport-read-string (fx<=? (fx+ start n) (string-length str)))
   (let* ((line     (icport-line p))
          (line-pos (icport-pos p))
          (line-len (charline-length line))
@@ -50,7 +50,7 @@
 
 ; create an input port wrapping a charline
 (define (open-charline-input-port cgb)
-  (assert* (charline? cgb))
+  (assert* 'open-charline-input-port (charline? cgb))
   (let ((p (make-icport cgb 0)))
     (make-custom-textual-input-port
       "charline-input-port"
@@ -86,9 +86,9 @@
       (#t #f)))) ; end-of-file reached
 
 (define (iport-read-string p str start n)
-  (assert* (fx>=? start 0))
-  (assert* (fx>=? n 0))
-  (assert* (fx<=? (fx+ start n) (string-length str)))
+  (assert* 'iport-read-string (fx>=? start 0))
+  (assert* 'iport-read-string (fx>=? n 0))
+  (assert* 'iport-read-string (fx<=? (fx+ start n) (string-length str)))
   (let ((i 0)
         (eof #f))
     (until (or (fx>=? i n) eof)
@@ -108,10 +108,10 @@
     (raise (make-i/o-invalid-position-error pos)))
   (let ((y (cdr pos))
         (lines (iport-lines p)))
-    (assert* (fx<? -1 y (charlines-length lines)))
+    (assert* 'iport-position-set! (fx<? -1 y (charlines-length lines)))
     (let ((x (car pos))
           (line (charlines-ref lines y)))
-      (assert* (fx<=? 0 x (charline-length line)))
+      (assert* 'iport-position-set! (fx<=? 0 x (charline-length line)))
       (iport-x-set! p x)
       (iport-y-set! p y))))
 
@@ -121,7 +121,7 @@
     (lambda (lines)
       (charlines-iterate lines
         (lambda (i elem)
-          (assert* (charline? elem))))
+          (assert* 'open-charlines-input-port (charline? elem))))
       (let ((p (make-iport 0 0 (if (charlines-empty? lines) empty-lines lines))))
         (make-custom-textual-input-port
           "charlines-input-port"

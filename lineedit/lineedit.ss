@@ -42,7 +42,7 @@
 
 ;; find one key sequence in linectx-keytable matching rbuf and execute it
 (define (linectx-keytable-call ctx)
-  (assert* (linectx? ctx))
+  (assert* 'linectx-keytable-call (linectx? ctx))
   (let-values (((proc n) (linectx-keytable-find
                            (linectx-ktable ctx) (linectx-rbuf ctx))))
     ;; (debugf "; linectx-keytable-call consume ~s chars, call ~s~%" n proc)
@@ -122,7 +122,7 @@
 ;; and insert them into vscreen at cursor.
 ;; Also moves cursor n characters to the right, and reflows vscreen as needed.
 (define (linectx-insert/cspan! ctx csp start n)
-  (assert* (fx<=? 0 start (fx+ start n) (charspan-length csp)))
+  (assert* 'linectx-insert/cspan! (fx<=? 0 start (fx+ start n) (charspan-length csp)))
   (when (fx>? n 0)
     (vscreen-insert/cspan! (linectx-vscreen ctx) csp start n)))
 
@@ -134,7 +134,7 @@
 ;; Moves cursor appropriately to the right, and reflows vscreen as needed.
 ;; return number of bytes actually read from bytespan.
 (define (linectx-insert/bspan! ctx bsp start n)
-  (assert* (fx<=? 0 start (fx+ start n) (bytespan-length bsp)))
+  (assert* 'linectx-insert/bspan! (fx<=? 0 start (fx+ start n) (bytespan-length bsp)))
   (let ((beg   start)
         (pos   start)
         (end   (fx+ start n))
@@ -408,7 +408,7 @@
 ;; update prompt
 (define (linectx-update-prompt ctx)
   (let ((prompt (linectx-prompt ctx)))
-    (assert* (bytespan? prompt))
+    (assert* 'linectx-update-prompt (bytespan? prompt))
     (try ((linectx-prompt-func ctx) ctx)
       (catch (condition)
         (bytespan-clear! prompt)
@@ -689,10 +689,9 @@
           (set! got n)
           ; (fxzero? n) means end of file
           (set! eof? (fxzero? n)))))
-    (assert* (fx>=? got 0))
+    (assert* 'linectx-read (fixnum? got))
+    (assert* 'linectx-read (fx<=? 0 got max-n))
     (bytespan-resize-back! rbuf (fx+ rlen got))
-    (assert* (fixnum? got))
-    (assert* (fx<=? 0 got max-n))
     (if eof? -1 got)))
 
 

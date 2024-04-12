@@ -44,7 +44,7 @@ ptr call3(const char symbol_name[], ptr arg1, ptr arg2, ptr arg3);
  */
 ptr eval(const char str[]);
 
-typedef struct bytes_s {
+typedef struct {
   iptr                 size;
   const unsigned char* data;
 } bytes;

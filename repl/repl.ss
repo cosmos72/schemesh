@@ -172,8 +172,8 @@
 (define (repl* initial-parser enabled-parsers eval-func lctx)
   ; (to-parser) also checks initial-parser's and enabled-parser's validity
   (let ((parser (to-parser enabled-parsers initial-parser 'repl)))
-    (assert* (procedure? eval-func))
-    (assert* (linectx? lctx))
+    (assert* 'repl* (procedure? eval-func))
+    (assert* 'repl* (linectx? lctx))
     (dynamic-wind
       (lambda ()
         (lineedit-clear! lctx) (signal-init-sigwinch) (tty-setraw!))
@@ -196,7 +196,7 @@
         (lctx #f)             (lctx? #f))
     (do ((args-left args (cddr args)))
         ((null? args-left))
-      (assert* (not (null? (cdr args-left))))
+      (assert* 'repl (not (null? (cdr args-left))))
       (let ((opt (car args-left))
             (val (cadr args-left)))
         (case opt

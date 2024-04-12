@@ -79,7 +79,7 @@
   (not (fxzero? (fxand bit (linectx-flags ctx)))))
 
 (define (linectx-flag-set! ctx bit flag?)
-  (assert* (boolean? flag?))
+  (assert* 'linectx-flag-set! (boolean? flag?))
   (let ((flags (linectx-flags ctx)))
     (linectx-flags-set! ctx
       (if flag?
@@ -169,13 +169,13 @@
 ;; argument prompt-func must be #f or a procedure accepting linectx,
 ;; and updating linectx-completions
 (define (make-linectx* prompt-func parenmatcher completion-func enabled-parsers)
-  (assert* (procedure? prompt-func))
+  (assert* 'make-linectx* (procedure? prompt-func))
   (when parenmatcher
-    (assert* (parenmatcher? parenmatcher)))
+    (assert* 'make-linectx* (parenmatcher? parenmatcher)))
   (when completion-func
-    (assert* (procedure? completion-func)))
+    (assert* 'make-linectx* (procedure? completion-func)))
   (when enabled-parsers
-    (assert* (hashtable? enabled-parsers)))
+    (assert* 'make-linectx* (hashtable? enabled-parsers)))
   (let* ((sz    (tty-size))
          (rbuf  (bytespan))
          (wbuf  (bytespan)))
@@ -262,7 +262,7 @@
       (%add-bytelist keytable (%any->bytelist (car l))))))
 
 (define (linectx-keytable-find keytable rbuf)
-  (assert* (bytespan? rbuf))
+  (assert* 'linectx-keytable-find (bytespan? rbuf))
   (let %find ((htable keytable)
               (rpos 0))
     (if (fx>=? rpos (bytespan-length rbuf))

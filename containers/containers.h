@@ -7,9 +7,9 @@
  * (at your option) any later version.
  */
 
-#ifndef SCHEMESH_CONTAINER_H
-#define SCHEMESH_CONTAINER_H
+#ifndef SCHEMESH_CONTAINERS_H
+#define SCHEMESH_CONTAINERS_H
 
 void schemesh_register_c_functions_containers(void);
 
-#endif /* SCHEMESH_CONTAINER_H */
+#endif /* SCHEMESH_CONTAINERS_H */

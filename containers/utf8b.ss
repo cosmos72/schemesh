@@ -14,7 +14,7 @@
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
     (only (chezscheme) bytevector foreign-procedure fx1+ fx1-)
-    (only (schemesh bootstrap) assert*)
+    (only (schemesh bootstrap) assert* assert-errorf)
     (only (schemesh containers misc) bytevector-fill-range!))
 
 
@@ -47,28 +47,34 @@
         (c-string->utf8b-length (foreign-procedure "c_string_to_utf8b_length"
                                   (scheme-object fixnum fixnum) fixnum)))
     (lambda (str start n zeropad-byte-n)
-      (assert* (fx<=? 0 start (string-length str)))
-      (assert* (fx<=? 0 n (fx- (string-length str) start)))
-      (assert* (fx>=? zeropad-byte-n 0))
+      (assert* 'string->utf8b (fx<=? 0 start (string-length str)))
+      (assert* 'string->utf8b (fx<=? 0 n (fx- (string-length str) start)))
+      (assert* 'string->utf8b (fx>=? zeropad-byte-n 0))
       (let ((byte-n (c-string->utf8b-length str start n)))
-        (assert* (fixnum? byte-n))
+        (assert* 'string->utf8b (fixnum? byte-n))
         (let* ((bvec (make-bytevector (fx+ byte-n zeropad-byte-n)))
                (written-n (c-string->utf8b-append str start n bvec 0)))
-          (assert* (fx=? byte-n written-n))
+          (unless (and (fixnum? written-n) (fx=? byte-n written-n))
+            (string->utf8b-error written-n))
           (when (fx>? zeropad-byte-n 0)
             (bytevector-fill-range! bvec byte-n zeropad-byte-n 0))
           bvec)))))
+
+(define (string->utf8b-error err)
+  (if (char? err)
+    (assert-errorf 'string->utf8b "~s is not a valid unicode scalar value" (char->integer err))
+    (assert-errorf 'string->utf8b "invalid arguments")))
 
 #| ;; slower
 (define string-range->utf8b
   (let ((c-string->utf8b (foreign-procedure "c_string_range_to_utf8b"
                                           (scheme-object fixnum fixnum fixnum) scheme-object)))
     (lambda (str start n zeropad-byte-n)
-      (assert* (fx<=? 0 start (string-length str)))
-      (assert* (fx<=? 0 n (fx- (string-length str) start)))
-      (assert* (fx>=? zeropad-byte-n 0))
+      (assert* 'string->utf8b (fx<=? 0 start (string-length str)))
+      (assert* 'string->utf8b (fx<=? 0 n (fx- (string-length str) start)))
+      (assert* 'string->utf8b (fx>=? zeropad-byte-n 0))
       (let ((bvec (c-string->utf8b str start n zeropad-byte-n)))
-        (assert* (bytevector? bvec))
+        (assert* 'string->utf8b (bytevector? bvec))
         bvec))))
 |#
 
@@ -96,13 +102,13 @@
         (c-utf8b->string-length (foreign-procedure "c_utf8b_to_string_length"
                                   (scheme-object fixnum fixnum) fixnum)))
     (lambda (bvec start n)
-      (assert* (fx<=? 0 start (bytevector-length bvec)))
-      (assert* (fx<=? 0 n (fx- (bytevector-length bvec) start)))
+      (assert* 'utf8b->string (fx<=? 0 start (bytevector-length bvec)))
+      (assert* 'utf8b->string (fx<=? 0 n (fx- (bytevector-length bvec) start)))
       (let ((char-n (c-utf8b->string-length bvec start n)))
-        (assert* (fixnum? char-n))
+        (assert* 'utf8b->string (fixnum? char-n))
         (let* ((str (make-string char-n))
                (written-n (c-utf8b->string-append bvec start n str 0)))
-          (assert* (fx=? char-n written-n))
+          (assert* 'utf8b->string (fx=? char-n written-n))
           str)))))
 
 ;; convert a bytevector from UTF-8b to string, and return string containing the conversion result.

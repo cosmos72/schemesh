@@ -48,7 +48,7 @@
 (define signal-init-sigwinch
   (let ((c-signal-init-sigwinch (foreign-procedure "c_sigwinch_init" () int)))
     (lambda ()
-      (assert* (fxzero? (c-signal-init-sigwinch))))))
+      (assert* 'signal-init-sigwinch (fxzero? (c-signal-init-sigwinch))))))
 
 (define signal-restore-sigwinch (foreign-procedure "c_sigwinch_restore" () int))
 

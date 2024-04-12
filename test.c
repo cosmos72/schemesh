@@ -16,13 +16,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-static unsigned run_test(const char string_to_eval[], const char expected_result[]);
-static int      run_tests(void);
-
-static const struct {
+typedef struct {
   const char* string_to_eval;
   const char* expected_result;
-} tests[] = {
+} testcase;
+
+static int      run_tests(void);
+static unsigned run_test(const testcase* test);
+static unsigned run_tests_utf8b(void);
+static unsigned run_test_utf8b(ptr string, unsigned first_codepoint);
+static unsigned adjust_codepoint(unsigned codepoint);
+
+static const testcase tests[] = {
     {"(+ 1 2 3)", "6"},
     {"(* 4 5 6)", "120"},
     /* ----------------- bootstrap ------------------------------------------ */
@@ -30,8 +35,8 @@ static const struct {
      "  (repeat 5 (set! x (fx1+ x)))\n"
      "  x)",
      "5"},
-    {"(try (assert* #t) (catch (condition) 1))", "#t"},
-    {"(try (assert* #f) (catch (condition) 2))", "2"},
+    {"(try (assert* 'x #t) (catch (condition) 1))", "#t"},
+    {"(try (assert* 'x #f) (catch (condition) 2))", "2"},
     {"(values->list (values 1 2 3))", "(1 2 3)"},
     {"(let-macro ((plus . args) `(+ ,@args))\n"
      "  (plus 3 4 5))",
@@ -48,7 +53,7 @@ static const struct {
     {"(bytevector-compare #vu8(79) #vu8(78 0))", "1"},
     {"(do ((i 0 (fx1+ i)))\n"
      "    ((fx>? i #xFFFFFF))\n"
-     "  (assert* (fx=? i (char->integer (integer->char* i)))))",
+     "  (assert* 'x (fx=? i (char->integer (integer->char* i)))))",
      ""},
     /* ----------------- bytevector/utf8 ------------------------------------ */
     {"(values->list (bytevector-ref/utf8 #vu8() 0 1))", "(#t 0)"}, /* incomplete */
@@ -771,26 +776,30 @@ static const struct {
 };
 
 static int run_tests(void) {
-  const unsigned long n = sizeof(tests) / sizeof(tests[0]);
-  unsigned long       i;
-  unsigned long       failed_n = 0;
+  unsigned long run_n = sizeof(tests) / sizeof(tests[0]);
+  unsigned long i;
+  unsigned long failed_n = 0;
 
-  for (i = 0; i < n; i++) {
+  for (i = 0; i < run_n; i++) {
     errno = 0;
-    failed_n += run_test(tests[i].string_to_eval, tests[i].expected_result);
+    failed_n += run_test(&tests[i]);
+  }
+  {
+    run_n++;
+    failed_n += run_tests_utf8b();
   }
   if (failed_n == 0) {
-    fprintf(stdout, "all %lu tests passed\n", n);
+    fprintf(stdout, "all %lu tests passed\n", run_n);
     return 0;
   } else {
-    fprintf(stdout, "%lu tests failed out of %lu\n", failed_n, n);
+    fprintf(stdout, "%lu tests failed out of %lu\n", failed_n, run_n);
     return 1;
   }
 }
 
-static unsigned run_test(const char string_to_eval[], const char expected_result[]) {
-  bytes actual   = eval_to_bytevector(string_to_eval);
-  bytes expected = {strlen(expected_result), (const unsigned char*)expected_result};
+static unsigned run_test(const testcase* test) {
+  bytes actual   = eval_to_bytevector(test->string_to_eval);
+  bytes expected = {strlen(test->expected_result), (const unsigned char*)test->expected_result};
   if (actual.size == expected.size && memcmp(actual.data, expected.data, actual.size) == 0) {
     return 0;
   }
@@ -799,11 +808,66 @@ static unsigned run_test(const char string_to_eval[], const char expected_result
           "    Scheme code  %s\n"
           "    evaluated to %.*s\n"
           "    expecting    %s\n",
-          string_to_eval,
+          test->string_to_eval,
           (int)actual.size,
           (const char*)actual.data,
-          expected_result);
+          test->expected_result);
   return 1;
+}
+
+#define MAX_CODEPOINT 0x10FFFF
+
+static unsigned run_tests_utf8b(void) {
+  const unsigned maxlen = 1024;
+  unsigned       first_codepoint;
+  ptr            string = Smake_string(maxlen, 0);
+  for (first_codepoint = 0; first_codepoint <= MAX_CODEPOINT; first_codepoint += maxlen) {
+    if (run_test_utf8b(string, first_codepoint) != 0) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+static unsigned run_test_utf8b(ptr string, unsigned first_codepoint) {
+  const unsigned maxlen = Sstring_length(string);
+  unsigned       pos;
+  unsigned       codepoint = first_codepoint;
+  for (pos = 0; pos < maxlen; ++pos) {
+    codepoint = adjust_codepoint(codepoint);
+    Sstring_set(string, pos, codepoint++);
+  }
+  ptr bvec    = call1("string->utf8b", string);
+  ptr string2 = call1("utf8b->string", bvec);
+
+  codepoint = first_codepoint;
+  for (pos = 0; pos < maxlen; ++pos) {
+    const unsigned codepoint2 = Sstring_ref(string2, pos);
+    codepoint                 = adjust_codepoint(codepoint);
+    if (codepoint != codepoint2) {
+      fprintf(stdout,
+              "test failed:\n"
+              "    (utf8b->string (string->utf8b ...)) \n"
+              "    evaluated to U+%04X\n"
+              "    expecting    U+%04X\n",
+              codepoint2,
+              codepoint);
+      return 1;
+    }
+    codepoint++;
+  }
+  return 0;
+}
+
+static unsigned adjust_codepoint(unsigned codepoint) {
+  if (codepoint >= 0xD800 && codepoint < 0xDC80) {
+    codepoint = 0xDC80;
+  } else if (codepoint >= 0xDD00 && codepoint < 0xE000) {
+    codepoint = 0xE000;
+  } else if (codepoint >= 0x110000) {
+    codepoint = 0;
+  }
+  return codepoint;
 }
 
 static void handle_scheme_exception(void) {

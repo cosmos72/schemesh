@@ -91,7 +91,7 @@
 (define pid-wait
   (let ((c-pid-wait (foreign-procedure "c_pid_wait" (int int) scheme-object)))
     (lambda (pid may-block)
-      (assert* (memq may-block '(blocking nonblocking)))
+      (assert* 'pid-wait (memq may-block '(blocking nonblocking)))
       (c-pid-wait pid (if (eq? may-block 'blocking) 1 0)))))
 
 

@@ -77,7 +77,7 @@
 ; return a copy of vector vec containing only elements
 ; from start (inclusive) to end (exclusive)
 (define (subvector vec start end)
-  (assert* (fx<=? 0 start end))
+  (assert* 'subvector (fx<=? 0 start end))
   (let* ((n (fx- end start))
          (dst (make-vector n)))
     (vector-copy! vec start dst 0 n)
@@ -118,7 +118,7 @@
 ; return a copy of bytevector vec containing only elements
 ; from start (inclusive) to end (exclusive)
 (define (subbytevector vec start end)
-  (assert* (fx<=? 0 start end))
+  (assert* 'subbytevector (fx<=? 0 start end))
   (let* ((n (fx- end start))
          (dst (make-bytevector n)))
     (bytevector-copy! vec start dst 0 n)
@@ -144,8 +144,8 @@
   (let ((c-bytevector-compare (foreign-procedure "c_bytevector_compare"
           (scheme-object scheme-object) integer-8)))
     (lambda (bvec1 bvec2)
-      (assert* (bytevector? bvec1))
-      (assert* (bytevector? bvec2))
+      (assert* 'bytevector-compare (bytevector? bvec1))
+      (assert* 'bytevector-compare (bytevector? bvec2))
       (or (eq? bvec1 bvec2)
           (c-bytevector-compare bvec1 bvec2)))))
 
@@ -174,10 +174,10 @@
 ;; return #t if range [left-start, left-start + n) of left string contains
 ;; the same characters as range [right-start, right-start + n) of right string.
 (define (string-range=? left left-start right right-start n)
-  (assert* (fx<=? 0 left-start (string-length left)))
-  (assert* (fx<=? 0 right-start (string-length right)))
-  (assert* (fx<=? 0 n (fx- (string-length left) left-start)))
-  (assert* (fx<=? 0 n (fx- (string-length right) right-start)))
+  (assert* 'string-range=? (fx<=? 0 left-start (string-length left)))
+  (assert* 'string-range=? (fx<=? 0 right-start (string-length right)))
+  (assert* 'string-range=? (fx<=? 0 n (fx- (string-length left) left-start)))
+  (assert* 'string-range=? (fx<=? 0 n (fx- (string-length right) right-start)))
   (or
     (fxzero? n)
     (and (eq? left right) (fx=? left-start right-start))

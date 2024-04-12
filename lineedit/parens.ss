@@ -44,9 +44,9 @@
 
 
 (define (make-parens name token)
-  (assert* (symbol? name))
+  (assert* 'make-parens (symbol? name))
   (when token
-    (assert* (char? token)))
+    (assert* 'make-parens (char? token)))
   (%make-parens name token #f 0 0 (greatest-fixnum) (greatest-fixnum) #f))
 
 
@@ -75,8 +75,8 @@
 ;; append one nested parens to specified parens
 (define (parens-inner-append! parens nested-parens)
   (when (and parens nested-parens)
-    (assert* (parens? parens))
-    (assert* (parens? nested-parens))
+    (assert* 'parens-inner-append! (parens? parens))
+    (assert* 'parens-inner-append! (parens? nested-parens))
     (let ((inner (parens-inner parens)))
       (if (span? inner)
         (span-insert-back! inner nested-parens)

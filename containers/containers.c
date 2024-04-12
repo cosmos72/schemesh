@@ -7,6 +7,7 @@
  * (at your option) any later version.
  */
 
+#include "containers.h"
 #include "../eval.h"
 
 #include <stdint.h> // uint32_t
@@ -62,19 +63,23 @@ static ptr c_integer_to_char(const uint32_t codepoint) {
  */
 static iptr c_codepoint_to_utf8b_length(const uint32_t codepoint) {
   if (LIKELY(codepoint < 0x800)) {
+    return LIKELY(codepoint < 0x80) ? 1 : 2;
+  } else if (codepoint >= 0xDC80 && codepoint < 0xDD00) {
     /*
      * 0xDC80...0xDCFF is inside the surrogate range.
      * UTF-8b uses it to represent a single byte in the range 0x80 - 0xFF
      * that is NOT part of a valid UTF-8 sequence
      */
-    return (LIKELY(codepoint < 0x80 || (codepoint >= 0xDC80 && codepoint < 0xDD00))) ? 1 : 2;
+    return 1;
+  } else {
+    return LIKELY(codepoint < 0x10000) ? 3 : 4;
   }
-  return LIKELY(codepoint < 0x10000) ? 3 : 4;
 }
 
 /**
  * convert Unicode codepoint to UTF-8b sequence, and write such sequence into out.
- * @return number of written bytes
+ * @return number of written bytes on success,
+ * otherwise 0 if out_len is too small or invalid codepoint is found.
  */
 static uptr c_codepoint_to_utf8b(string_char codepoint, octet* out, uptr out_len) {
   if (LIKELY(codepoint < 0x80 || (codepoint >= 0xDC80 && codepoint < 0xDD00))) {
@@ -145,7 +150,8 @@ static iptr c_string_to_utf8b_length(ptr string, iptr start, iptr n) {
  * which must be large enough.
  *
  * Return 1 + position of last byte written in bytevector if successful,
- * or Sfalse if arguments are invalid or provided bytevector is too small.
+ * otherwise Sfalse if arguments are invalid or provided bytevector is too small.
+ * If an invalid codepoint is found, return it.
  */
 static ptr c_string_to_utf8b_append(ptr string, iptr start, iptr n, ptr bvec, iptr ostart) {
   if (Sstringp(string) && start >= 0 && n >= 0 && Sbytevectorp(bvec) && ostart >= 0) {
@@ -160,11 +166,12 @@ static ptr c_string_to_utf8b_append(ptr string, iptr start, iptr n, ptr bvec, ip
       if (UNLIKELY(opos >= oend)) {
         return Sfalse;
       }
-      const uptr written = c_codepoint_to_utf8b(Sstring_ref(string, ipos), out + opos, oend - opos);
+      const unsigned codepoint = Sstring_ref(string, ipos);
+      const uptr     written   = c_codepoint_to_utf8b(codepoint, out + opos, oend - opos);
       if (LIKELY(written != 0)) {
         opos += written;
       } else {
-        return Sfalse;
+        return Schar(codepoint); // codepoint is invalid
       }
     }
     return Sfixnum(opos);
@@ -236,8 +243,7 @@ static uint32_t c_utf8b_to_codepoint_length(const octet* in, uptr in_len) {
   }
   in3 = in[3];
   if (in0 <= 0xF4 && (in3 & 0xC0) == 0x80) {
-    const uint32_t val =
-        (in0 & 0x07) << 18 | (in1 & 0x3F) << 12 | (in2 & 0x3F) << 6 || (in3 & 0x3F);
+    const uint32_t val = (in0 & 0x07) << 18 | (in1 & 0x3F) << 12 | (in2 & 0x3F) << 6 | (in3 & 0x3F);
     if (val >= 0x10000 && val < 0x110000) {
       return 4;
     } else {
@@ -306,8 +312,7 @@ static u32pair c_utf8b_to_codepoint(const octet* in, uptr in_len) {
   }
   in3 = in[3];
   if (in0 <= 0xF4 && (in3 & 0xC0) == 0x80) {
-    const uint32_t val =
-        (in0 & 0x07) << 18 | (in1 & 0x3F) << 12 | (in2 & 0x3F) << 6 || (in3 & 0x3F);
+    const uint32_t val = (in0 & 0x07) << 18 | (in1 & 0x3F) << 12 | (in2 & 0x3F) << 6 | (in3 & 0x3F);
     if (val >= 0x10000 && val < 0x110000) {
       ret.codepoint = val;
       ret.length    = 4;

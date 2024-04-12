@@ -7,15 +7,15 @@
 
 (library (schemesh bootstrap)
   (export
-     assert* catch debugf eval-string repeat while until try list->values values->list
-     define-macro let-macro)
+     assert* assert-errorf catch debugf eval-string repeat while until
+     try list->values values->list define-macro let-macro)
   (import
     (rnrs)
     (rnrs base)
     (rnrs exceptions)
     ; Unlike R6RS (eval obj environment), Chez Scheme's (eval obj)
     ; uses interaction-environment and can modify it
-    (only (chezscheme) eval format fx1- gensym syntax-error void))
+    (only (chezscheme) eval format fx1- gensym make-format-condition syntax-error void))
 
 
 (define debugf
@@ -49,42 +49,55 @@
     ((_ pred)          (do () (pred)))
     ((_ pred body ...) (do () (pred) body ...))))
 
+
+;; Raise a condition describing an assertion violation
+(define (assert-errorf who format-string . format-args)
+  (raise
+    (condition
+      (make-assertion-violation)
+      (make-who-condition who)
+      (make-format-condition)
+      (make-message-condition format-string)
+      (make-irritants-condition format-args))))
+
+
 ;; alternative implementation of (assert (proc arg ...))
 ;; requires proc to be a procedure, NOT a syntax or macro
 (define-syntax assert*
   (lambda (x)
     (let ((msg (lambda ()
-                 (format #f "failed assertion ~s" (cadr (syntax->datum x))))))
+                 (format #f "failed assertion ~s with arguments ~~s" (cadr (syntax->datum x))))))
       (syntax-case x ()
-        ((_ (proc))
+        ((_ caller (proc))
           #`(let ((tproc proc))
               (or (tproc)
-                  (assertion-violation #f #,(msg) tproc))))
-        ((_ (proc arg1))
+                  (assert-errorf caller #,(msg) (list tproc)))))
+        ((_ caller (proc arg1))
           #`(let ((tproc proc)
                   (targ1 arg1))
               (or (tproc targ1)
-                  (assertion-violation #f #,(msg) tproc targ1))))
-        ((_ (proc arg1 arg2))
+                  (assert-errorf caller #,(msg) (list tproc targ1)))))
+        ((_ caller (proc arg1 arg2))
           #`(let ((tproc proc)
                   (targ1 arg1)
                   (targ2 arg2))
               (or (tproc targ1 targ2)
-                  (assertion-violation #f #,(msg) tproc targ1 targ2))))
-        ((_ (proc arg1 arg2 arg3))
+                  (assert-errorf caller #,(msg) (list tproc targ1 targ2)))))
+        ((_ caller (proc arg1 arg2 arg3))
           #`(let ((tproc proc)
                   (targ1 arg1)
                   (targ2 arg2)
                   (targ3 arg3))
               (or (tproc targ1 targ2 targ3)
-                  (assertion-violation #f #,(msg) tproc targ1 targ2 targ3))))
-        ((_ (proc arg ...))
+                  (assert-errorf caller #,(msg) (list tproc targ1 targ2 targ3)))))
+        ((_ caller (proc arg ...))
           #`(let ((tproc proc)
                   (targs (list arg ...)))
               (or (apply tproc targs)
-                  (apply assertion-violation #f #,(msg) tproc targs))))
-        ((_ expr)
-          #`(or expr (assertion-violation #f #,(msg))))))))
+                  (apply assert-errorf caller #,(msg) (cons tproc targs)))))
+        ((_ caller expr)
+          #`(let ((texpr expr))
+              (or texpr (assert-errorf caller #,(msg) (list texpr)))))))))
 
 (define-syntax try
   (syntax-rules (catch)

@@ -76,14 +76,14 @@
   (and (span-empty? (gbuffer-left gb)) (span-empty? (gbuffer-right gb))))
 
 (define (gbuffer-ref gb n)
-  (assert* (fx<? -1 n (gbuffer-length gb)))
+  (assert* 'gbuffer-ref (fx<? -1 n (gbuffer-length gb)))
   (let ((left-n (span-length (gbuffer-left gb))))
     (if (fx<? n left-n)
       (span-ref (gbuffer-left  gb) n)
       (span-ref (gbuffer-right gb) (fx- n left-n)))))
 
 (define (gbuffer-set! gb idx val)
-  (assert* (fx<? -1 idx (gbuffer-length gb)))
+  (assert* 'gbuffer-set! (fx<? -1 idx (gbuffer-length gb)))
   (let ((left-n (span-length (gbuffer-left gb))))
     (if (fx<? idx left-n)
       (span-set! (gbuffer-left  gb) idx val)
@@ -94,7 +94,7 @@
   (span-clear! (gbuffer-right gb)))
 
 (define (gbuffer-split-at! gb idx)
-  (assert* (fx<=? 0 idx (gbuffer-length gb)))
+  (assert* 'gbuffer-split-at! (fx<=? 0 idx (gbuffer-length gb)))
   (let* ((left  (gbuffer-left  gb))
          (right (gbuffer-right gb))
          (delta (fx- idx (span-length left))))
@@ -109,7 +109,7 @@
 ;; insert val into gbuffer at position idx
 ;; prerequisite: (fx<=? 0 idx (gbuffer-length gb))
 (define (gbuffer-insert-at! gb idx val)
-  (assert* (fx<=? 0 idx (gbuffer-length gb)))
+  (assert* 'gbuffer-insert-at! (fx<=? 0 idx (gbuffer-length gb)))
   (let* ((left   (gbuffer-left  gb))
          (right  (gbuffer-right gb))
          (left-n (span-length left))
@@ -126,14 +126,14 @@
 ; read src-n elements from span sp-src starting from src-start
 ; and insert them into gbuffer at position idx
 (define (gbuffer-insert-at/span! gb idx sp-src src-start src-n)
-  (assert* (fx<=? 0 idx (gbuffer-length gb)))
+  (assert* 'gbuffer-insert-at/span! (fx<=? 0 idx (gbuffer-length gb)))
   (let* ((left   (gbuffer-left  gb))
          (right  (gbuffer-right gb))
          (left-n (span-length left))
          (delta  (fx- idx left-n)))
     (cond
       ((fxzero? src-n) ; nothing to do
-        (assert* (fx<=? 0 src-start (span-length sp-src))))
+        (assert* 'gbuffer-insert-at/span! (fx<=? 0 src-start (span-length sp-src))))
       ((fxzero? idx)
         (span-insert-front/span! left sp-src src-start src-n))
       ((fx=? idx (gbuffer-length gb))
@@ -150,8 +150,8 @@
          (right-n (span-length right))
          (len     (fx+ left-n right-n))
          (end     (fx+ start n)))
-    (assert* (fx<=? 0 start len))
-    (assert* (fx<=? 0 n (fx- len start)))
+    (assert* 'gbuffer-erase-at! (fx<=? 0 start len))
+    (assert* 'gbuffer-erase-at! (fx<=? 0 n (fx- len start)))
     (cond
       ((fxzero? n) (void)) ; nothing to do
       ((fxzero? start)

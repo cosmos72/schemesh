@@ -347,10 +347,10 @@
 ;;
 ;; Return a parens containing the collected grouping tokens.
 (define (parse-lisp-parens ctx start-ch flavor)
-  (assert* (parsectx? ctx))
+  (assert* 'parse-lisp-parens (parsectx? ctx))
   (when start-ch
-    (assert* (char? start-ch)))
-  (assert* (symbol? flavor))
+    (assert* 'parse-lisp-parens (char? start-ch)))
+  (assert* 'parse-lisp-parens (symbol? flavor))
   (let* ((paren  (make-parens flavor start-ch))
          (end-ch (case start-ch ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else #f)))
          (ret    #f)

@@ -37,7 +37,7 @@
 ;; which will be stored in parenmatcher-parens
 ;; to avoid calling update-func multiple times on the same input.
 (define (make-custom-parenmatcher update-func)
-  (assert* (procedure? update-func))
+  (assert* 'make-custom-parenmatcher (procedure? update-func))
   (%make-parenmatcher update-func #f #f))
 
 

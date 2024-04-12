@@ -77,9 +77,9 @@
 ; If UTF-8 sequence is incomplete, return #t instead of converted char.
 ; If UTF-8 sequence is invalid, return #f instead of converted char.
 (define (bytevector-ref/utf8 vec start max-n)
-  (assert* (fx>=? start 0))
-  (assert* (fx>=? max-n 0))
-  (assert* (fx<=? start (bytevector-length vec)))
+  (assert* 'bytevector-ref/utf8 (fx>=? start 0))
+  (assert* 'bytevector-ref/utf8 (fx>=? max-n 0))
+  (assert* 'bytevector-ref/utf8 (fx<=? start (bytevector-length vec)))
   (let* ((len (bytevector-length vec))
          (max-n (fxmin max-n (fx- len start)))
          (b0  (if (fx>? max-n 0) (bytevector-u8-ref vec start) -1)))
@@ -140,7 +140,7 @@
 ; Raises condition if writing the UTF-8 sequence into bytevector starting
 ; from offset = start exceeds bytevector's length.
 (define (bytevector-set/utf8! vec start ch)
-  (assert* (fx<? -1 start (bytevector-length vec)))
+  (assert* 'bytevector-set/utf8! (fx<? -1 start (bytevector-length vec)))
   (let ((n (char->integer ch)))
     (cond
       ((fx<? n 0) 0) ; should not happen
@@ -185,14 +185,14 @@
 ; If UTF-8 sequence is incomplete, return #t instead of converted char.
 ; If UTF-8 sequence is invalid, return #f instead of converted char.
 (define (bytespan-ref/utf8 sp idx max-n)
-  (assert* (fx<=? 0 idx (bytespan-length sp)))
+  (assert* 'bytespan-ref/utf8 (fx<=? 0 idx (bytespan-length sp)))
   (bytevector-ref/utf8 (bytespan-peek-data sp)
     (fx+ idx (bytespan-peek-beg sp))
     (fxmin max-n (fx- (bytespan-length sp) idx))))
 
 ; convert char to UTF-8 sequence and write it into bytespan starting at offset idx
 (define (bytespan-set/utf8! sp idx ch)
-  (assert* (fx<=? 0 idx (fx+ (bytespan-length sp) (char->utf8-length ch))))
+  (assert* 'bytespan-set/utf8! (fx<=? 0 idx (fx+ (bytespan-length sp) (char->utf8-length ch))))
   (bytevector-set/utf8! (bytespan-peek-data sp) (fx+ idx (bytespan-peek-beg sp)) ch))
 
 ; convert a character to UTF-8 sequence and prefix it to bytespan.
@@ -242,7 +242,7 @@
           (let-values (((n/10 n%10) (fxdiv-and-mod n 10)))
             (set! n%10 (if (fxzero? n%10) 0 (fx- 10 n%10)))
             (set! pos (fx1- pos))
-            (assert* (fx>=? pos beg))
+            (assert* 'bytespan-display-back/fixnum! (fx>=? pos beg))
             (bytevector-u8-set! bv pos (fx+ 48 n%10))
             (set! n (if (fxzero? n%10) n/10 (fx1+ n/10)))))\n
         (let ((digit-n (fx- end pos)))
