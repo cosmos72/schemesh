@@ -7,7 +7,7 @@
 
 (library (schemesh bootstrap)
   (export
-     assert* assert-errorf catch debugf eval-string repeat while until
+     assert* assert*-errorf assert-errorf catch debugf eval-string repeat while until
      try list->values values->list define-macro let-macro)
   (import
     (rnrs)
@@ -50,7 +50,8 @@
     ((_ pred body ...) (do () (pred) body ...))))
 
 
-;; Raise a condition describing an assertion violation
+;; Raise a condition describing an assertion violation.
+;; Condition format message and its arguments must be provided by caller.
 (define (assert-errorf who format-string . format-args)
   (raise
     (condition
@@ -60,44 +61,51 @@
       (make-message-condition format-string)
       (make-irritants-condition format-args))))
 
+;; Raise a condition describing an assertion violation evaluating a form.
+;; Condition format message is hardcoded, caller needs to provide:
+;; * form - a string containing source code of the failed assertion
+;; * form-values - values of each subform in form
+(define (assert*-errorf who form . form-values)
+  (assert-errorf who "failed assertion ~a with arguments ~s" form form-values))
+
 
 ;; alternative implementation of (assert (proc arg ...))
 ;; requires proc to be a procedure, NOT a syntax or macro
 (define-syntax assert*
   (lambda (x)
-    (let ((msg (lambda ()
-                 (format #f "failed assertion ~s with arguments ~~s" (cadr (syntax->datum x))))))
+    (let ((form (lambda ()
+                  (format #f "~s" (caddr (syntax->datum x))))))
       (syntax-case x ()
         ((_ caller (proc))
           #`(let ((tproc proc))
               (or (tproc)
-                  (assert-errorf caller #,(msg) (list tproc)))))
+                  (assert*-errorf caller #,(form) tproc))))
         ((_ caller (proc arg1))
           #`(let ((tproc proc)
                   (targ1 arg1))
               (or (tproc targ1)
-                  (assert-errorf caller #,(msg) (list tproc targ1)))))
+                  (assert*-errorf caller #,(form) tproc targ1))))
         ((_ caller (proc arg1 arg2))
           #`(let ((tproc proc)
                   (targ1 arg1)
                   (targ2 arg2))
               (or (tproc targ1 targ2)
-                  (assert-errorf caller #,(msg) (list tproc targ1 targ2)))))
+                  (assert*-errorf caller #,(form) tproc targ1 targ2))))
         ((_ caller (proc arg1 arg2 arg3))
           #`(let ((tproc proc)
                   (targ1 arg1)
                   (targ2 arg2)
                   (targ3 arg3))
               (or (tproc targ1 targ2 targ3)
-                  (assert-errorf caller #,(msg) (list tproc targ1 targ2 targ3)))))
+                  (assert*-errorf caller #,(form) tproc targ1 targ2 targ3))))
         ((_ caller (proc arg ...))
           #`(let ((tproc proc)
                   (targs (list arg ...)))
               (or (apply tproc targs)
-                  (apply assert-errorf caller #,(msg) (cons tproc targs)))))
+                  (apply assert*-errorf caller #,(form) tproc targs))))
         ((_ caller expr)
           #`(let ((texpr expr))
-              (or texpr (assert-errorf caller #,(msg) (list texpr)))))))))
+              (or texpr (assert*-errorf caller #,(form) texpr))))))))
 
 (define-syntax try
   (syntax-rules (catch)
