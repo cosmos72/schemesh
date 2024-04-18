@@ -92,7 +92,6 @@
 (define (bytevector-ref/utf8b vec start max-n)
   (assert* 'bytevector-ref/utf8b (fx<=? 0 start (bytevector-length vec)))
   (assert* 'bytevector-ref/utf8b (fx>=? max-n 0))
-  (debugf "; bytevector-ref/utf8b ~s ~s ~s\n" vec start max-n)
   (let* ((len (bytevector-length vec))
          (max-n (fxmin max-n (fx- len start)))
          (b0  (if (fx>? max-n 0) (bytevector-u8-ref vec start) -1)))
