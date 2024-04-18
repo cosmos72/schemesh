@@ -22,14 +22,15 @@
 ;;;;;;;;;;;;;;;;;     some additional char functions    ;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; similar to (integer->char) but integer Unicode codepoint is not checked for validity:
-;; it INTENTIONALLY allows invalid codepoints in the ranges #xD800..#xDFFF and #x10FFFF..#xFFFFFF
+;; similar to (integer->char) but it INTENTIONALLY allows codepoints
+;; in the range #xDC80..#xDCFF which is used by UTF-8b encoding
+;; to represent raw bytes 0x80..0xFF converted to Unicode codepoints
 (define integer->char*
   (let ((c-integer->char (foreign-procedure "c_integer_to_char" (unsigned-32) scheme-object)))
     (lambda (codepoint)
-      (if (fx<=? 0 codepoint #xFFFFFF)
+      (if (fx<=? #xDC80 codepoint #xDCFF)
         (c-integer->char codepoint)
-        (integer->char codepoint))))) ; raises exception
+        (integer->char codepoint))))) ; may raise exception
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -47,8 +48,7 @@
         (c-string->utf8b-length (foreign-procedure "c_string_to_utf8b_length"
                                   (scheme-object fixnum fixnum) fixnum)))
     (lambda (str start n zeropad-byte-n)
-      (assert* 'string->utf8b (fx<=? 0 start (string-length str)))
-      (assert* 'string->utf8b (fx<=? 0 n (fx- (string-length str) start)))
+      (assert* 'string->utf8b (fx<=? 0 start (fx+ start n) (string-length str)))
       (assert* 'string->utf8b (fx>=? zeropad-byte-n 0))
       (let ((byte-n (c-string->utf8b-length str start n)))
         (assert* 'string->utf8b (fixnum? byte-n))
@@ -70,8 +70,7 @@
   (let ((c-string->utf8b (foreign-procedure "c_string_range_to_utf8b"
                                           (scheme-object fixnum fixnum fixnum) scheme-object)))
     (lambda (str start n zeropad-byte-n)
-      (assert* 'string->utf8b (fx<=? 0 start (string-length str)))
-      (assert* 'string->utf8b (fx<=? 0 n (fx- (string-length str) start)))
+      (assert* 'string->utf8b (fx<=? 0 start (fx+ start n) (string-length str)))
       (assert* 'string->utf8b (fx>=? zeropad-byte-n 0))
       (let ((bvec (c-string->utf8b str start n zeropad-byte-n)))
         (assert* 'string->utf8b (bytevector? bvec))
@@ -102,14 +101,12 @@
         (c-utf8b->string-length (foreign-procedure "c_utf8b_to_string_length"
                                   (scheme-object fixnum fixnum) fixnum)))
     (lambda (bvec start n)
-      (assert* 'utf8b->string (fx<=? 0 start (bytevector-length bvec)))
-      (assert* 'utf8b->string (fx<=? 0 n (fx- (bytevector-length bvec) start)))
-      (let ((char-n (c-utf8b->string-length bvec start n)))
-        (assert* 'utf8b->string (fixnum? char-n))
-        (let* ((str (make-string char-n))
-               (written-n (c-utf8b->string-append bvec start n str 0)))
-          (assert* 'utf8b->string (fx=? char-n written-n))
-          str)))))
+      (assert* 'utf8b->string (fx<=? 0 start (fx+ start n) (bytevector-length bvec)))
+      (let* ((char-n (c-utf8b->string-length bvec start n))
+             (str (make-string char-n))
+             (written-n (c-utf8b->string-append bvec start n str 0)))
+        (assert* 'utf8b->string (fx=? char-n written-n))
+        str))))
 
 ;; convert a bytevector from UTF-8b to string, and return string containing the conversion result.
 (define (utf8b->string bvec)

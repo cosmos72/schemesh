@@ -87,8 +87,8 @@
     charlines-erase-at/cline! charlines-insert-at/cline!
 
     ; utils.ss
-    bytevector-ref/utf8 bytevector-set/utf8! char->utf8-length
-    bytespan-ref/utf8 bytespan-set/utf8! bytespan-insert-front/utf8! bytespan-insert-back/utf8!
+    bytevector-ref/utf8b bytevector-set/utf8b! char->utf8b-length
+    bytespan-ref/utf8b bytespan-set/utf8b! bytespan-insert-front/utf8b! bytespan-insert-back/utf8b!
     bytespan-insert-back/cspan! bytespan-display-back/fixnum!
     charspan->utf8)
 

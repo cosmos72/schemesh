@@ -8,7 +8,7 @@
 (library (schemesh bootstrap)
   (export
      assert* assert*-errorf assert-errorf catch debugf eval-string repeat while until
-     try list->values values->list define-macro let-macro)
+     throws? try list->values values->list first-value define-macro let-macro)
   (import
     (rnrs)
     (rnrs base)
@@ -121,6 +121,14 @@
       (syntax-violation "" "invalid syntax, expecting (try EXPR (catch (IDENT) ...)) in"
         (list 'try (quote bad-form) ...)))))
 
+(define-syntax throws?
+  (syntax-rules ()
+    ((_ expr)
+      (try
+        (begin expr #f)
+        (catch (exception)
+          (or exception #t))))))
+
 ;; export aux keyword catch, needed by try
 (define-syntax catch
   (lambda (arg)
@@ -129,9 +137,15 @@
 (define (list->values l)
   (apply values l))
 
+;; evaluate expr, which may return multiple values, and insert such values into a list.
 (define-syntax values->list
   (syntax-rules ()
-    ((_ pred)    (call-with-values (lambda () pred) list))))
+    ((_ expr)    (call-with-values (lambda () expr) list))))
+
+;; evaluate expr, which may return multiple values, and return the first of such values.
+(define-syntax first-value
+  (syntax-rules ()
+    ((_ expr)    (call-with-values (lambda () expr) (lambda args (car args))))))
 
 ;; Scheme implementation of Common Lisp defmacro, defines a global macro.
 ;; Usage:

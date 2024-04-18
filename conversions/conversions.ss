@@ -15,7 +15,7 @@
     (rnrs)
     (only (chezscheme)            fx1+ fx1- void)
     (only (schemesh bootstrap)    eval-string)
-    (only (schemesh containers)   hashtable-iterate list-iterate string->utf8b string->utf8b/0))
+    (only (schemesh containers)   hashtable-iterate list-iterate string->utf8b string->utf8b/0 utf8b->string))
 
 
 (define (display-condition* x port)
@@ -58,16 +58,16 @@
     (display-condition* x port)
     (display x port)))
 
-; convert bytevector0 containing UTF-8 to string
+; convert bytevector0 containing UTF-8b to string
 ; and print it quoted, i.e. surrounded by ""
 (define (write-bytevector0 x port)
-  (let ((str (utf8->string x)))
+  (let ((str (utf8b->string x)))
     (write (substring str 0 (fx1- (string-length str))) port)))
 
 ; convert any value to a string
 (define (any->string x)
   (cond ((string? x) x)
-        ((bytevector? x) (utf8->string x))
+        ((bytevector? x) (utf8b->string x))
         ((eq? (void) x) "")
         (#t (let-values (((port get-string)
                           (open-string-output-port)))
@@ -82,6 +82,7 @@
   (cond
     ((bytevector? x) x)
     ((string? x)     (string->utf8b x))
+    ((char? x)       (string->utf8b (string x)))
     ((eq? (void) x)  #vu8())
     (#t (let-values (((port get-bytevector)
                       (open-bytevector-output-port transcoder-utf8)))
@@ -95,8 +96,9 @@
     (list-iterate args
       (lambda (e)
         (cond
-;         suboptimal: this requires bytevector to contain valid UTF-8
-          ((bytevector? e) (display (utf8->string e) port))
+          ; suboptimal: this performs a lossless roundtrip
+          ; bytevector -> string -> bytevector using UTF-8b decoding/enconding
+          ((bytevector? e) (display (utf8b->string e) port))
           ((string? e)     (display e port))
           ((eq? (void) e)  #f)
           (#t              (display-any e port)))))
@@ -115,7 +117,7 @@
         (bytevector-u8-set! ret len 0)
         ret))))
 
-; convert string or bytevector to #\nul terminated bytevector containing UTF-8
+; convert string or bytevector to #\nul terminated bytevector containing UTF-8b
 (define (text->bytevector0 x)
   (cond
     ((bytevector? x)
@@ -127,7 +129,7 @@
     (#t (assert (or (string? x) (bytevector? x))))))
 
 ; convert a list of strings or bytevectors to vector-of-bytevector0
-; i.e. to a vector of #\nul terminated UTF-8 bytevectors
+; i.e. to a vector of #\nul terminated UTF-8b bytevectors
 (define (list->cmd-argv l)
   (let ((argv (list->vector l)))
     (do ([i 0 (fx1+ i)])
