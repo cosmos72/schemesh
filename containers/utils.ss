@@ -30,8 +30,7 @@
 
 
 ; encode a single raw byte in the range #x80 ... #xff that is NOT part of a valid UTF-8 sequence
-; as a char in the surrogate range range U+dc80 ... U+dcff
-; according to UTF-8b specifactions
+; as a char in the surrogate range range U+dc80 ... U+dcff according to UTF-8b specifications
 (define (utf8b-singlet->char b0)
   (values (integer->char* (fxior #xdc80 b0)) 1))
 
@@ -59,12 +58,10 @@
                (fxshl (fxand #x0f b0) 12)
                (fxshl (fxand #x3f b1)  6)
                (fxshl (fxand #x3f b2)  0))))
-      (if (or (fx<=? #x800 n #xd7ff) (fx<=? #xe000 n #xffff))
+      (if (or (fx<=? #x800 n #xd7ff) (fx>=? n #xe000))
         (values (integer->char n) 3)
-        ; surrogate half, or overlong UTF-8 sequence
-        (utf8b-singlet->char b0)))
-    ; invalid continuation byte b0 or b1
-    (utf8b-singlet->char b0)))
+        (utf8b-singlet->char b0))) ; invalid surrogate half, or overlong UTF-8 sequence
+    (utf8b-singlet->char b0)))     ; invalid continuation byte b0 or b1
 
 
 ; interpret four bytes as UTF-8 sequence and return corresponding char.
@@ -192,7 +189,7 @@
       ((fx<? n   0) 0) ; should not happen
       ((fx<? n #x80) 1)
       ((fx<? n #x800) 2)
-      ((fx<=?  #xdc80 n #xdcff) 1) ; upaired surrogate half, used by UTF-8b to encode raw bytes into chars
+      ((fx<=?  #xdc80 n #xdcff) 1) ; unpaired surrogate half, used by UTF-8b to encode raw bytes into chars
       ((fx<? n #x10000) 3)
       ((fx<? n #x110000) 4)
       (#t 0)))) ; should not happen
