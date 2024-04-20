@@ -15,7 +15,7 @@
     (rnrs)
     (only (chezscheme)
       box bytevector fx1+ fx1- fxvector fxvector-set! make-fxvector
-      read-token reverse! void)
+      read-token reverse! top-level-value void)
     (only (schemesh bootstrap) assert* debugf while until)
     (only (schemesh containers misc) reverse*!)
     (schemesh lineedit parens)
@@ -65,6 +65,7 @@
     ((box) "#&")   ((dot) ".")    ((fasl) "#@")  ((insert) "#N#")
     ((lbrace) "{") ((lbrack) "[") ((lparen) "(") ((mark) "#N=") ((quote) "'")
     ((rbrace) "}") ((rbrack) "]") ((rparen) ")") ((record-brack) "#[")
+    ((vflnparen) "#Nvfl") ((vflparen) "#vfl")
     ((vfxnparen) "#Nvfx") ((vfxparen) "#vfx")
     ((vnparen)   "#Nv")   ((vparen)   "#v")
     ((vu8nparen) "#Nvu8") ((vu8paren) "#vu8")
@@ -127,7 +128,7 @@
     ;; parse the various vector types, with or without explicit length
     ((vparen vu8paren)
       (parse-vector ctx type value flavor))
-    ((vfxnparen vfxparen vnparen vu8nparen)
+    ((vflnparen vflparen vfxnparen vfxparen vnparen vu8nparen)
       (unless (eq? 'scheme flavor)
         (syntax-errorf ctx (caller-for flavor)
           "invalid token in #!r6rs syntax, only allowed in #!scheme syntax: ~a"
@@ -204,9 +205,11 @@
 (define (parse-vector ctx vec-type length flavor)
   (let ((values (parse-lisp-list ctx vec-type '() flavor)))
     (case vec-type
+      ((vflnparen) (create-flvector   length values))
       ((vfxnparen) (create-fxvector   length values))
       ((vnparen)   (create-vector     length values))
       ((vu8nparen) (create-bytevector length values))
+      ((vflparen)  (apply (top-level-value 'flvector) values))
       ((vfxparen)  (apply fxvector   values))
       ((vparen)    (apply vector     values))
       ((vu8paren)  (apply bytevector values))
@@ -216,6 +219,19 @@
   (if (eq? flavor 'r6rs)
     'parse-r6rs
     'parse-scheme))
+
+(define (create-flvector length values)
+  (let ((vec ((top-level-value 'make-flvector) length))
+        (elem (if (null? values) 0.0 (car values)))
+        (%flvector-set! (top-level-value 'flvector-set!)))
+    (do ((i 0 (fx1+ i)))
+        ((fx>=? i length) vec)
+      (%flvector-set! vec i elem)
+      (unless (null? values)
+        ;; if we run out of values, fill remainder with last element in values
+        (set! values (cdr values))
+        (unless (null? values)
+          (set! elem (car values)))))))
 
 (define (create-fxvector length values)
   (let ((vec (make-fxvector length))
