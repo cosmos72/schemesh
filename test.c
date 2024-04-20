@@ -526,6 +526,9 @@ static const testcase tests[] = {
     {"(parse-scheme* (make-parsectx-from-string"
      "  \"(a (b c . d) . e)\"))",
      "(a (b c . d) . e)"},
+    {"(parse-scheme* (make-parsectx-from-string"
+     "  \"(list '#(a 1.0 2/3) #2(d) #vu8(1 2 3) #4vu8(9) #vfx(-1 0 2) #3vfx(4))\"))",
+     "(list '#(a 1.0 2/3) #(d d) #vu8(1 2 3) #vu8(9 9 9 9) #vfx(-1 0 2) #vfx(4 4 4))"},
     /* ------------------------ parser shell -------------------------------- */
     {"(parse-shell (make-parsectx-from-string \"\")))", "#!eof"},
     {"(parse-shell* (make-parsectx-from-string \"{}\"))", "(shell)"},

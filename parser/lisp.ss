@@ -151,8 +151,7 @@
          (again? #t)
          (reverse? #t)
          (end-type (case begin-type
-                     ((lbrace) 'rbrace) ((lbrack) 'rbrack) ((lparen) 'rparen)
-                     (else (syntax-errorf ctx (caller-for flavor) "unsupported list delimiter type ~a" begin-type))))
+                     ((lbrace) 'rbrace) ((lbrack) 'rbrack) (else 'rparen)))
          (check-list-end (lambda (type)
            (unless (eq? type end-type)
              (syntax-errorf ctx (caller-for flavor) "unexpected token ~a, expecting ~a"
