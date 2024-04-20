@@ -22,6 +22,18 @@
     (schemesh lineedit parser))
 
 
+
+(define (caller-for flavor)
+  (if (eq? flavor 'r6rs)
+    'parse-r6rs
+    'parse-scheme))
+
+
+(define (paren-caller-for flavor)
+  (if (eq? flavor 'r6rs)
+    'parse-r6rs-parens
+    'parse-scheme-parens))
+
 ;; Read a single r6rs or Chez Scheme token from textual input port 'in.
 ;; Internally uses Chez Scheme (read-token) for simplicity, but could be reimplemented
 ;; in pure R6RS.
@@ -215,54 +227,24 @@
       ((vu8paren)  (apply bytevector values))
       (else  (syntax-errorf ctx (caller-for flavor) "unexpected ~a" vec-type)))))
 
-(define (caller-for flavor)
-  (if (eq? flavor 'r6rs)
-    'parse-r6rs
-    'parse-scheme))
-
 (define (create-flvector length values)
-  (let ((vec ((top-level-value 'make-flvector) length))
-        (elem (if (null? values) 0.0 (car values)))
-        (%flvector-set! (top-level-value 'flvector-set!)))
-    (do ((i 0 (fx1+ i)))
-        ((fx>=? i length) vec)
-      (%flvector-set! vec i elem)
-      (unless (null? values)
-        ;; if we run out of values, fill remainder with last element in values
-        (set! values (cdr values))
-        (unless (null? values)
-          (set! elem (car values)))))))
+  (%create-vector length values 0.0 (top-level-value 'make-flvector) (top-level-value 'flvector-set!)))
 
 (define (create-fxvector length values)
-  (let ((vec (make-fxvector length))
-        (elem (if (null? values) 0 (car values))))
-    (do ((i 0 (fx1+ i)))
-        ((fx>=? i length) vec)
-      (fxvector-set! vec i elem)
-      (unless (null? values)
-        ;; if we run out of values, fill remainder with last element in values
-        (set! values (cdr values))
-        (unless (null? values)
-          (set! elem (car values)))))))
+  (%create-vector length values 0 make-fxvector fxvector-set!))
 
 (define (create-vector length values)
-  (let ((vec (make-vector length))
-        (elem (if (null? values) 0 (car values))))
-    (do ((i 0 (fx1+ i)))
-        ((fx>=? i length) vec)
-      (vector-set! vec i elem)
-      (unless (null? values)
-        ;; if we run out of values, fill remainder with last element in values
-        (set! values (cdr values))
-        (unless (null? values)
-          (set! elem (car values)))))))
+  (%create-vector length values 0 make-vector vector-set!))
 
 (define (create-bytevector length values)
-  (let ((vec (make-bytevector length))
-        (elem (if (null? values) 0 (car values))))
+  (%create-vector length values 0 make-bytevector bytevector-u8-set!))
+
+(define (%create-vector length values default-value vector-maker vector-setter!)
+  (let ((vec (vector-maker length))
+        (elem (if (null? values) default-value (car values))))
     (do ((i 0 (fx1+ i)))
         ((fx>=? i length) vec)
-      (bytevector-u8-set! vec i elem)
+      (vector-setter! vec i elem)
       (unless (null? values)
         ;; if we run out of values, fill remainder with last element in values
         (set! values (cdr values))
@@ -435,10 +417,5 @@
       (%paren-fill-end! paren))
     paren))
 
-
-(define (paren-caller-for flavor)
-  (if (eq? flavor 'r6rs)
-    'parse-r6rs-parens
-    'parse-scheme-parens))
 
 ) ; close library
