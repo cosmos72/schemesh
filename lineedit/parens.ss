@@ -8,19 +8,19 @@
 
 (library (schemesh lineedit parens (0 1))
   (export
-    make-parens parens? parens-name parens-token
-    parens-ok? parens-ok?-set! parens-recursive-ok?
-    parens-start-x parens-start-y parens-start-xy-set!
-    parens-end-x   parens-end-y   parens-end-xy-set!
-    parens-valid?  parens-inner   parens-inner-empty?  parens-inner-append!
+    make-parens    parens?   parens-name parens-token
+    parens-ok?     parens-ok?-set!   parens-recursive-ok?
+    parens-start-x parens-start-y    parens-start-xy-set!
+    parens-end-x   parens-end-y      parens-end-xy-set!
+    parens-valid?  parens-inner      parens-inner-empty?  parens-inner-append!
     parens->values parens->hashtable parens-hashtable-ref
 
-    is-parens-char?)
+    is-parens-char? debugf-parens)
   (import
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) format fx1+ fx1- record-writer unread-char void)
-    (only (schemesh bootstrap) assert* catch try until while)
+    (only (schemesh bootstrap) assert* catch debugf try until while)
     (only (schemesh containers misc) list-iterate)
     (only (schemesh containers hashtable) hashtable-iterate)
     (schemesh containers span)
@@ -148,6 +148,13 @@
     (catch (condition)
       (display condition port))))
 
+(define (debugf-parens obj)
+  (try
+    (debugf "; debugf-parens token ~s, ok? ~s, start-x ~s, start-y ~s, end-x ~s, end-y ~s, inner ~s\n"
+      (or (parens-token obj) #\_) (parens-ok? obj) (parens-start-x obj) (parens-start-y obj)
+      (parens-end-x obj) (parens-end-y obj) (parens-inner obj))
+    (catch (condition)
+      (display condition (current-output-port)))))
 
 (define (close-token-for token)
   (case token

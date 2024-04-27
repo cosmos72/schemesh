@@ -297,10 +297,10 @@
 (define (lineedit-key-toggle-insert ctx)
   (lineedit-key-inspect ctx))
 
-(define (lineedit-key-inspect ctx)
+(define (lineedit-key-inspect obj)
   (dynamic-wind
     tty-restore!       ; run before body
-    (lambda () (inspect ctx)) ; body
+    (lambda () (inspect obj)) ; body
     tty-setraw!))      ; run after body
 
 (define (lineedit-navigate-history ctx delta-y)

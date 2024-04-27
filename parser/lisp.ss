@@ -300,7 +300,9 @@
 
 ;; skip all characters until sequence |# which is consumed too
 ;; return #t if |# is found before end-of-file, otherwise return #f
-(define (skip-lisp-block-comment ctx)
+;;
+;; if nested block comments #| |# are found, append them to paren
+(define (skip-lisp-block-comment ctx flavor paren)
   (let ((ret #f))
     (until ret
       (let ((ch (parsectx-read-char ctx)))
@@ -308,7 +310,11 @@
           ((eof-object? ch)
             (set! ret ch))
           ((and (eqv? #\| ch) (eqv? #\# (parsectx-peek-char ctx)))
-            (set! ret (parsectx-read-char ctx))))))
+            (set! ret (parsectx-read-char ctx)))
+          ((and (eqv? #\# ch) (eqv? #\| (parsectx-peek-char ctx)))
+            (parsectx-read-char ctx) ; consume #\|
+            (parens-inner-append! paren
+              (parse-lisp-parens-inner ctx flavor ch))))))
     (char? ret)))
 
 
@@ -331,7 +337,7 @@
 
 
 ;; Read Scheme forms from textual input port (parsectx-in ctx),
-;; collecting grouping tokens i.e. ( ) [ ] { } |# #| " " | |
+;; collecting grouping tokens i.e. ( ) [ ] { } #| |# " " | |
 ;; and filling paren with them.
 ;;
 ;; If a parser directive #!... is found, switch to the corresponding parser
@@ -350,11 +356,7 @@
   (assert* 'parse-lisp-parens (symbol? flavor))
   (let* ((paren  (make-parens flavor start-ch))
          (end-ch (case start-ch ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else #f)))
-         (ret    #f)
-         (%paren-fill-end! (lambda (paren)
-           (let-values (((x y) (parsectx-previous-pos ctx 1)))
-             (parens-end-xy-set! paren x y))
-           (parens-ok?-set! paren #t))))
+         (ret    #f))
 
     (let-values (((x y) (parsectx-previous-pos ctx (if start-ch 1 0))))
       (parens-start-xy-set! paren x y))
@@ -394,18 +396,8 @@
           ((memv token '(#\" #\| #\#))
              ; found quoted string, quoted symbol or block comment.
              ; create and fill nested parens object
-             (let ((inner (make-parens flavor token)))
-               (let-values (((x y) (parsectx-previous-pos ctx (if (eqv? token #\#) 2 1))))
-                 (parens-start-xy-set! inner x y))
-               (when (cond
-                       ((eqv? token #\")               ; parse "some string"
-                         (skip-lisp-double-quotes ctx))
-                       ((eqv? token #\|)               ; parse |identifier|
-                         (parsectx-skip-until-char ctx #\|))
-                       (#t                             ; parse #| block comment |#
-                         (skip-lisp-block-comment ctx)))
-                 (%paren-fill-end! inner)
-                 (parens-inner-append! paren inner))))
+             (parens-inner-append! paren
+               (parse-lisp-parens-inner ctx flavor token)))
 
           ((eof-object? token)
              (set! ret 'err))
@@ -413,9 +405,34 @@
           ; ignore unexpected tokens
           )))
 
-    (when (or (eq? #t ret) (not start-ch))
-      (%paren-fill-end! paren))
-    paren))
+    (paren-fill-end! ctx paren (or (eq? #t ret) (not start-ch)))))
+
+
+(define (paren-fill-end! ctx paren ok?)
+  (let-values (((x y) (parsectx-previous-pos ctx 1)))
+    (parens-end-xy-set! paren x y))
+  (parens-ok?-set! paren ok?)
+  paren)
+
+
+(define (parse-lisp-parens-inner ctx flavor token)
+  (let ((paren (make-parens flavor token)))
+    ; (parsectx-previous-pos ctx 2) may not be set
+    (let-values (((x y) (parsectx-previous-pos ctx 1)))
+      (parens-start-xy-set! paren
+        (if (and (eqv? token #\#) (fx>? x 0)) (fx1- x) x)
+        y))
+    (paren-fill-end! ctx paren
+      (cond
+        ((eqv? token #\")               ; parse "some string"
+           (skip-lisp-double-quotes ctx))
+        ((eqv? token #\|)               ; parse |identifier|
+           (parsectx-skip-until-char ctx #\|))
+        (#t                             ; parse #| block comment |#
+           (skip-lisp-block-comment ctx flavor paren))))
+           ; (debugf "; parse-lisp-parens start-ch ~s, token ~s\n" start-ch token)
+           ; (debugf-parens paren)
+           paren))
 
 
 ) ; close library
