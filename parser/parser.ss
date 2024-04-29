@@ -31,7 +31,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) reverse! void)
-    (only (schemesh bootstrap) assert* until while)
+    (only (schemesh bootstrap) assert* debugf until while)
     (schemesh lineedit paren)
     (only (schemesh lineedit parenmatcher) make-custom-parenmatcher)
     (schemesh lineedit parser)
@@ -99,7 +99,7 @@
 ;; in a (possibly nested) list being parsed.
 ;;
 ;; Return a paren describing the ( [ { " ' ` | characters in input stream,
-;; their position, and the position of their matching ) ] } " ' ` |
+;; their positions, and the positions of their matching ) ] } " ' ` |
 (define (parse-paren pctx start-ch initial-parser)
   (assert* 'parse-paren (parsectx? pctx))
   (let* ((current-parser (to-parser pctx initial-parser 'parse-paren))

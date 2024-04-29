@@ -84,7 +84,10 @@
 
 ;; traverse paren and convert it to a hashtable (+ x (* y 65536)) -> paren
 (define (paren->hashtable paren)
-  (%paren->hashtable paren (make-eqv-hashtable)))
+  ;; (debugf "; (paren->hashtable ~s)~%" paren)
+  (if paren
+    (%paren->hashtable paren (make-eqv-hashtable))
+    #f))
 
 ;; traverse paren and convert it to a hashtable (+ x (* y 65536)) -> paren
 (define (%paren->hashtable paren htable)
@@ -151,7 +154,7 @@
 (define (debugf-paren obj)
   (try
     (debugf "; debugf-paren token ~s, ok? ~s, start-x ~s, start-y ~s, end-x ~s, end-y ~s, inner ~s\n"
-      (or (paren-token obj) #\_) (paren-ok? obj) (paren-start-x obj) (paren-start-y obj)
+      (paren-token obj) (paren-ok? obj) (paren-start-x obj) (paren-start-y obj)
       (paren-end-x obj) (paren-end-y obj) (paren-inner obj))
     (catch (condition)
       (display condition (current-output-port)))))

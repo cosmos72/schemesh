@@ -61,7 +61,7 @@
     ; procedure, receives linectx as argument and should update prompt and prompt-length
     (mutable prompt-func)
     parenmatcher
-    (mutable paren)        ; #f or paren containing matching parentheses
+    (mutable paren)         ; #f or paren containing current parenthes to be highlighted
     completions             ; span of charspans, possible completions
     completion-stem         ; charspan, chars from vscreen used as stem
     ; procedure, receives linectx as argument and should update completions and stem

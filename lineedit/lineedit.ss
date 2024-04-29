@@ -321,7 +321,8 @@
 (define (linectx-return-lines* ctx)
   (linectx-return-set! ctx #f) ; clear flag "user pressed ENTER"
   (linectx-redraw-set! ctx #t) ; set flag "redraw prompt and lines"
-  (linectx-draw-good-paren ctx (linectx-paren ctx) 'plain) ; unhighlight parentheses
+  (linectx-draw-bad-parens ctx 'plain)                     ; unhighlight bad parentheses
+  (linectx-draw-good-paren ctx (linectx-paren ctx) 'plain) ; unhighlight good parentheses
   (lineterm-move-dy ctx (fx- (fx1- (linectx-end-y ctx))
                              (linectx-iy ctx))) ; move to last input line
   (lineterm-write/u8 ctx 10) ; advance to next line.
@@ -435,7 +436,9 @@
   ;; set term-x and term-y to end of charlines
   (linectx-term-xy-set/end-lines! ctx)
   (parenmatcher-clear! (linectx-parenmatcher ctx))
-  (linectx-draw-good-paren ctx (linectx-paren-update! ctx) 'highlight)
+  (linectx-paren-update! ctx)
+  (linectx-draw-bad-parens ctx 'bad)
+  (linectx-draw-good-paren ctx (linectx-paren ctx) 'good)
   (linectx-redraw-set! ctx #f)
    ;; move the cursor to final position, and update term-x and term-y accordingly
   (let ((vx (linectx-vx ctx))
@@ -446,6 +449,7 @@
 
 ;; redraw only dirty parts of vscreen
 (define (linectx-redraw-dirty ctx)
+  (linectx-draw-bad-parens ctx 'plain)
   (linectx-draw-good-paren ctx (linectx-paren ctx) 'plain)
   (let* ((screen (linectx-vscreen ctx))
          (ymin   (charlines-dirty-start-y screen))
@@ -505,11 +509,13 @@
     ;; mark whole screen as not dirty
     (vscreen-dirty-set! screen #f)
     ;; set term-x and term-y to the current position
-    (linectx-term-xy-set! ctx vx vy)
+    (linectx-term-xy-set! ctx vx vy))
 
-    ;; highlight matching parentheses
-    (parenmatcher-clear! (linectx-parenmatcher ctx))
-    (linectx-draw-good-paren ctx (linectx-paren-update! ctx) 'highlight))
+  ;; highlight matching parentheses
+  (parenmatcher-clear! (linectx-parenmatcher ctx))
+  (linectx-paren-update! ctx)
+  (linectx-draw-bad-parens ctx 'bad)
+  (linectx-draw-good-paren ctx (linectx-paren ctx) 'good)
 
   ;; move the cursor to final position, and update term-x and term-y accordingly
   (let ((vx (linectx-vx ctx))
@@ -525,7 +531,7 @@
         (new-paren (linectx-paren-find ctx)))
     (unless (paren-equal-xy? old-paren new-paren)
       (linectx-draw-good-paren ctx old-paren 'plain)
-      (linectx-draw-good-paren ctx new-paren 'highlight)
+      (linectx-draw-good-paren ctx new-paren 'good)
       (linectx-paren-set! ctx new-paren)))
 
   ;; move the cursor to final position, and update term-x and term-y accordingly
@@ -535,8 +541,8 @@
     (linectx-term-xy-set! ctx vx vy)))
 
 
-;; draw parentheses using specified style. assumes term-x and term-x are up to date
-;; and updates them.
+;; draw a single valid parentheses using specified style.
+;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
 (define (linectx-draw-good-paren ctx paren style)
   ;; draw paren only if both start and end positions are valid
   (when (paren-valid? paren)
@@ -544,9 +550,61 @@
     (linectx-draw-char-at-xy ctx (paren-end-x paren)   (paren-end-y paren)   style)))
 
 
+
+;; draw all invalid parentheses using specified style.
+;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
+(define (linectx-draw-bad-parens ctx style)
+  (when #f ;; currently disabled, is broken by optimization in (linectx-paren-find)
+    (let ((paren (parenmatcher-paren (linectx-parenmatcher ctx))))
+      (linectx-draw-bad-paren-recurse/start ctx paren style)
+      (linectx-draw-bad-paren-recurse/end ctx paren style))))
+
+;; draw the start of specified paren and the start of all contained parens using specified style.
+;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
+(define (linectx-draw-bad-paren-recurse/start ctx paren style)
+  (when paren
+    (linectx-draw-bad-paren/start ctx paren style)
+    (let ((inner-span (paren-inner paren)))
+      (when inner-span
+        (span-iterate inner-span
+          (lambda (i inner-paren)
+            (linectx-draw-bad-paren-recurse/start ctx inner-paren style)))))))
+
+
+;; draw the end of specified paren and the start of all contained parens using specified style.
+;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
+(define (linectx-draw-bad-paren-recurse/end ctx paren style)
+  (when paren
+    (let ((inner-span (paren-inner paren)))
+      (when inner-span
+        (span-iterate inner-span
+          (lambda (i inner-paren)
+            (linectx-draw-bad-paren-recurse/end ctx inner-paren style)))))
+    (linectx-draw-bad-paren/end ctx paren style)))
+
+
+;; draw the start of a single invalid parentheses using specified style.
+;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
+(define (linectx-draw-bad-paren/start ctx paren style)
+  (unless (paren-valid? paren)
+    (let ((x (paren-start-x paren))
+          (y (paren-start-y paren)))
+      (when (and (paren-token paren) (fx<=? 0 x 65535) (fx<=? 0 y 65535))
+        (linectx-draw-char-at-xy ctx x y style)))))
+
+;; draw the end of a single invalid parentheses using specified style.
+;; assumes linectx-term-x linectx-term term-x are up to date and updates them.
+(define (linectx-draw-bad-paren/end ctx paren style)
+  (unless (paren-valid? paren)
+    (let ((x (paren-end-x paren))
+          (y (paren-end-y paren)))
+      (when (and (paren-token paren) (fx<=? 0 x 65535) (fx<=? 0 y 65535))
+        (linectx-draw-char-at-xy ctx x y style)))))
+
+
 ;; if position x y is inside current charlines, redraw char at x y with specified style.
 ;; used to highlight/unhighlight parentheses, brackes, braces and quotes.
-;; assumes tty cursor is at linectx-term-x linectx-term-y, and updates them.
+;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
 (define (linectx-draw-char-at-xy ctx x y style)
   (let ((ch    (vscreen-char-at-xy (linectx-vscreen ctx) x y))
         (wbuf  (linectx-wbuf  ctx))
@@ -555,10 +613,13 @@
     ;; (debugf "; linectx-draw-char-at-xy at (~s ~s) char ~s~%" x y ch)
     (when (and ch (char>=? ch #\space))
       (lineterm-move-to ctx vx vy)
-      (when (eq? 'highlight style)
-        (bytespan-insert-back/bvector! wbuf '#vu8(27 91 49 59 51 54 109) 0 7)) ; ESC[1;36m
+      (case style
+        ((good)
+          (bytespan-insert-back/bvector! wbuf '#vu8(27 91 49 59 51 54 109) 0 7))  ; ESC[1;36m
+        ((bad)
+          (bytespan-insert-back/bvector! wbuf '#vu8(27 91 49 59 51 49 109) 0 7))) ; ESC[1;31m
       (bytespan-insert-back/utf8b! wbuf ch)
-      (when (eq? 'highlight style)
+      (when (or (eq? 'good style) (eq? 'bad style))
         (bytespan-insert-back/bvector! wbuf '#vu8(27 91 109) 0 3)) ; ESC[m
       (linectx-term-xy-set! ctx (fx1+ vx) vy))))
 
@@ -586,6 +647,11 @@
         (parenmatcher (linectx-parenmatcher ctx)))
     (when (and parsers parenmatcher)
       (let-values (((x y) (linectx-ixy-before-cursor ctx)))
+        ;; parse parens ONLY if cursor is immediately after a is-paren? char,
+        ;; because we want to only highlight current parentheses and its matching one, if any.
+        ;;
+        ;; this is fast, but breaks (linectx-draw-bad-parens)
+        ;;
         (let* ((screen  (linectx-vscreen ctx))
                (ch (vscreen-char-at-xy screen x y)))
           (when (and ch (is-paren-char? ch))
@@ -608,6 +674,38 @@
                   (display-condition* condition port)
                   (put-char port #\newline))))))))
     ret))
+
+#|
+;; return #f or a paren object containing matching parentheses immediately to the left of cursor.
+(define (linectx-paren-find ctx)
+  (let ((ret     #f)
+        (parsers (linectx-parsers ctx))
+        (parenmatcher (linectx-parenmatcher ctx)))
+    (when (and parsers parenmatcher)
+      (let-values (((x y) (linectx-ixy-before-cursor ctx)))
+        ;; parse parens even if cursor is NOT immediately after a is-paren? char,
+        ;; because we want to also highlight mismatched parentheses.
+        (let ((screen  (linectx-vscreen ctx)))
+          ;; protect against exceptions in linectx-completion-func
+          (try
+            (set! ret
+              (parenmatcher-find-match
+                parenmatcher
+                (lambda () (make-parsectx* (open-charlines-input-port screen)
+                                           parsers
+                                           (vscreen-width screen)
+                                           (vscreen-prompt-end-x screen)
+                                           0
+                                           0))
+                (linectx-parser-name ctx)
+                x y))
+            (catch (condition)
+              (let ((port (current-output-port)))
+                (put-string port "\nexception in parenmatcher: ")
+                (display-condition* condition port)
+                (put-char port #\newline)))))))
+    ret))
+|#
 
 
 ;; call (linectx-paren-find) and save result into (linectx-paren). Return such result.

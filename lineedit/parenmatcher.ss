@@ -12,7 +12,7 @@
   (import
     (rnrs)
     (only (chezscheme)         record-writer)
-    (only (schemesh bootstrap) assert*)
+    (only (schemesh bootstrap) assert* debugf)
     (schemesh lineedit paren))
 
 ;; type parenmatcher contains bookkeeping information,
@@ -23,7 +23,7 @@
   (parenmatcher %make-parenmatcher parenmatcher?)
   (fields
     update-func       ; procedure (parsectx initial-parser) -> state
-    (mutable paren)  ; #f or outermost paren object
+    (mutable paren)   ; #f or outermost paren object
     (mutable htable)) ; #f or hashtable (+ x (* y 65536)) -> paren
   (nongenerative #{parenmatcher oy6xm1zt7ltnfh0bwpj3pu0mh-559}))
 
@@ -46,8 +46,9 @@
 ;; into parenmatcher pm
 (define (parenmatcher-maybe-update! pm pctx-or-func initial-parser)
   (unless (parenmatcher-htable pm)
-    (let* ((pctx   (if (procedure? pctx-or-func) (pctx-or-func) pctx-or-func))
+    (let* ((pctx  (if (procedure? pctx-or-func) (pctx-or-func) pctx-or-func))
            (paren ((parenmatcher-update-func pm) pctx initial-parser)))
+      ; (debugf-paren paren)
       (parenmatcher-paren-set! pm paren)
       (parenmatcher-htable-set! pm (paren->hashtable paren)))))
 
