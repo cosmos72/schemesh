@@ -25,14 +25,14 @@
 
     ; parser.ss
     parse-form parse-form* parse-forms
-    parse-parens parse-parens-from-string make-parenmatcher
+    parse-paren parse-paren-from-string make-parenmatcher
     parsers)
   (import
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) reverse! void)
     (only (schemesh bootstrap) assert* until while)
-    (schemesh lineedit parens)
+    (schemesh lineedit paren)
     (only (schemesh lineedit parenmatcher) make-custom-parenmatcher)
     (schemesh lineedit parser)
     (schemesh parser r6rs)
@@ -98,13 +98,13 @@
 ;; and temporarily switching to other parsers every time the directive #!... is found
 ;; in a (possibly nested) list being parsed.
 ;;
-;; Return a parens describing the ( [ { " ' ` | characters in input stream,
+;; Return a paren describing the ( [ { " ' ` | characters in input stream,
 ;; their position, and the position of their matching ) ] } " ' ` |
-(define (parse-parens pctx start-ch initial-parser)
-  (assert* 'parse-parens (parsectx? pctx))
-  (let* ((current-parser (to-parser pctx initial-parser 'parse-parens))
-         (current-parse-parens (parser-parse-parens current-parser)))
-    (current-parse-parens pctx start-ch)))
+(define (parse-paren pctx start-ch initial-parser)
+  (assert* 'parse-paren (parsectx? pctx))
+  (let* ((current-parser (to-parser pctx initial-parser 'parse-paren))
+         (current-parse-paren (parser-parse-paren current-parser)))
+    (current-parse-paren pctx start-ch)))
 
 
 
@@ -112,23 +112,23 @@
 ;;
 ;; parse textual input port (parsectx-in pctx) until end-of-file
 ;; for matching parenthesis and grouping tokens,
-;; and return corresponding parens object
+;; and return corresponding paren object
 ;;
-;; Equivalent to (parse-parens pctx #f initial-parser)
-(define (parse-parens-until-eof pctx initial-parser)
-  (parse-parens pctx #f initial-parser))
+;; Equivalent to (parse-paren pctx #f initial-parser)
+(define (parse-paren-until-eof pctx initial-parser)
+  (parse-paren pctx #f initial-parser))
 
 
-;; Simple wrapper around parse-parens-until-eof, useful for testing
-(define parse-parens-from-string
+;; Simple wrapper around parse-paren-until-eof, useful for testing
+(define parse-paren-from-string
   (case-lambda
-    ((str)                (parse-parens-until-eof (make-parsectx-from-string str (parsers)) 'scheme))
-    ((str initial-parser) (parse-parens-until-eof (make-parsectx-from-string str (parsers)) initial-parser))))
+    ((str)                (parse-paren-until-eof (make-parsectx-from-string str (parsers)) 'scheme))
+    ((str initial-parser) (parse-paren-until-eof (make-parsectx-from-string str (parsers)) initial-parser))))
 
 
-;; Create a parenmatcher that uses parse-parens to find matching parenthesis and grouping tokens
+;; Create a parenmatcher that uses parse-paren to find matching parenthesis and grouping tokens
 (define (make-parenmatcher)
-  (make-custom-parenmatcher parse-parens-until-eof))
+  (make-custom-parenmatcher parse-paren-until-eof))
 
 
 

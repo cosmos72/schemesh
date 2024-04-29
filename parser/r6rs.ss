@@ -72,13 +72,13 @@
 ;; Stops on end-of-file, or when closing token matching start-ch is found.
 ;; Such closing token is consumed too.
 ;;
-;; Return a parens containing the collected grouping tokens.
-(define (parse-r6rs-parens ctx start-ch)
-  (parse-lisp-parens ctx start-ch 'r6rs))
+;; Return a paren containing the collected grouping tokens.
+(define (parse-r6rs-paren ctx start-ch)
+  (parse-lisp-paren ctx start-ch 'r6rs))
 
 
 (define parser-r6rs
-  (let ((ret (make-parser 'r6rs parse-r6rs parse-r6rs* parse-r6rs-list parse-r6rs-parens)))
+  (let ((ret (make-parser 'r6rs parse-r6rs parse-r6rs* parse-r6rs-list parse-r6rs-paren)))
     (lambda ()
       ret)))
 

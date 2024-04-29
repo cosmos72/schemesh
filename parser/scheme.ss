@@ -72,13 +72,13 @@
 ;; Stops on end-of-file, or when closing token matching start-ch is found.
 ;; Such closing token is consumed too.
 ;;
-;; Return a parens containing the collected grouping tokens.
-(define (parse-scheme-parens ctx start-ch)
-  (parse-lisp-parens ctx start-ch 'scheme))
+;; Return a paren containing the collected grouping tokens.
+(define (parse-scheme-paren ctx start-ch)
+  (parse-lisp-paren ctx start-ch 'scheme))
 
 
 (define parser-scheme
-  (let ((ret (make-parser 'scheme parse-scheme parse-scheme* parse-scheme-list parse-scheme-parens)))
+  (let ((ret (make-parser 'scheme parse-scheme parse-scheme* parse-scheme-list parse-scheme-paren)))
     (lambda ()
       ret)))
 

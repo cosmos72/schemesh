@@ -10,7 +10,7 @@
 ;;;
 (library (schemesh parser lisp (0 1))
   (export
-    lex-lisp parse-lisp parse-lisp* parse-lisp-list parse-lisp-parens)
+    lex-lisp parse-lisp parse-lisp* parse-lisp-list parse-lisp-paren)
   (import
     (rnrs)
     (only (chezscheme)
@@ -18,7 +18,7 @@
       read-token reverse! top-level-value void)
     (only (schemesh bootstrap) assert* debugf while until)
     (only (schemesh containers misc) reverse*!)
-    (schemesh lineedit parens)
+    (schemesh lineedit paren)
     (schemesh lineedit parser))
 
 
@@ -31,8 +31,8 @@
 
 (define (paren-caller-for flavor)
   (if (eq? flavor 'r6rs)
-    'parse-r6rs-parens
-    'parse-scheme-parens))
+    'parse-r6rs-paren
+    'parse-scheme-paren))
 
 ;; Read a single r6rs or Chez Scheme token from textual input port 'in.
 ;; Internally uses Chez Scheme (read-token) for simplicity, but could be reimplemented
@@ -254,7 +254,7 @@
 
 ;; consume text input port until one of the characters ( ) [ ] { } | " #| and return it as a char.
 ;; also recognize and return parser directives #!... and return them as a symbol.
-(define (scan-lisp-parens-or-directive ctx)
+(define (scan-lisp-paren-or-directive ctx)
   (parsectx-skip-whitespace ctx 'also-skip-newlines)
   ;; yes, #!eof is an allowed directive:
   ;; it injects (eof-object) in token stream, with type 'eof
@@ -263,13 +263,13 @@
   ;;
   ;; cannot switch to other parser here: just return its name and let caller switch
   (or (try-read-parser-directive ctx)
-      (scan-lisp-parens ctx)))
+      (scan-lisp-paren ctx)))
 
 
 ;; read until one of ( ) [ ] { } " | #| is found. ignore them if they are preceded by #\
-;; Does not recognize parser directives #!... use (scan-lisp-parens-or-directive)
+;; Does not recognize parser directives #!... use (scan-lisp-paren-or-directive)
 ;; for that
-(define (scan-lisp-parens ctx)
+(define (scan-lisp-paren ctx)
   (let ((ret #f))
     (until ret
       (let ((ch (parsectx-read-char ctx)))
@@ -313,8 +313,8 @@
             (set! ret (parsectx-read-char ctx)))
           ((and (eqv? #\# ch) (eqv? #\| (parsectx-peek-char ctx)))
             (parsectx-read-char ctx) ; consume #\|
-            (parens-inner-append! paren
-              (parse-lisp-parens-inner ctx flavor ch))))))
+            (paren-inner-append! paren
+              (parse-lisp-paren-inner ctx flavor ch))))))
     (char? ret)))
 
 
@@ -348,56 +348,56 @@
 ;;
 ;; Flavor must be either 'r6rs or 'scheme
 ;;
-;; Return a parens containing the collected grouping tokens.
-(define (parse-lisp-parens ctx start-ch flavor)
-  (assert* 'parse-lisp-parens (parsectx? ctx))
+;; Return a paren containing the collected grouping tokens.
+(define (parse-lisp-paren ctx start-ch flavor)
+  (assert* 'parse-lisp-paren (parsectx? ctx))
   (when start-ch
-    (assert* 'parse-lisp-parens (char? start-ch)))
-  (assert* 'parse-lisp-parens (symbol? flavor))
-  (let* ((paren  (make-parens flavor start-ch))
+    (assert* 'parse-lisp-paren (char? start-ch)))
+  (assert* 'parse-lisp-paren (symbol? flavor))
+  (let* ((paren  (make-paren flavor start-ch))
          (end-ch (case start-ch ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else #f)))
          (ret    #f))
 
     (let-values (((x y) (parsectx-previous-pos ctx (if start-ch 1 0))))
-      (parens-start-xy-set! paren x y))
+      (paren-start-xy-set! paren x y))
     (until ret
-      (let ((token (scan-lisp-parens-or-directive ctx)))
+      (let ((token (scan-lisp-paren-or-directive ctx)))
         (cond
           ((not token) ; not a grouping token
              #f)
 
           ((eqv? token end-ch) ; found matching close token
-             (parens-ok?-set! paren #t)
+             (paren-ok?-set! paren #t)
              (set! ret #t))
 
           ((symbol? token)
              ; recurse to other parser until end of current list
              (let* ((other-parser       (get-parser-or-false ctx token))
-                    (other-parse-parens (and other-parser (parser-parse-parens other-parser)))
-                    (other-parens       (and other-parse-parens (other-parse-parens ctx start-ch))))
-               (when other-parens
-                 (parens-inner-append! paren other-parens)
+                    (other-parse-paren (and other-parser (parser-parse-paren other-parser)))
+                    (other-paren       (and other-parse-paren (other-parse-paren ctx start-ch))))
+               (when other-paren
+                 (paren-inner-append! paren other-paren)
                  (set! ret #t))))
 
           ((memv token '(#\( #\[))               #| make vscode happy: #\) |#
              ; recursion: call lisp parser on nested list
-             (parens-inner-append! paren (parse-lisp-parens ctx token flavor)))
+             (paren-inner-append! paren (parse-lisp-paren ctx token flavor)))
 
           ((eqv? token #\{)
              ; recursion: call shell parser on nested list
              (let* ((other-parser (get-parser-or-false ctx 'shell))
-                    (other-parse-parens (and other-parser (parser-parse-parens other-parser)))
-                    (other-parens (if other-parse-parens
-                                    (other-parse-parens ctx token)
-                                    (parse-lisp-parens ctx token flavor))))
-               (when other-parens
-                 (parens-inner-append! paren other-parens))))
+                    (other-parse-paren (and other-parser (parser-parse-paren other-parser)))
+                    (other-paren (if other-parse-paren
+                                    (other-parse-paren ctx token)
+                                    (parse-lisp-paren ctx token flavor))))
+               (when other-paren
+                 (paren-inner-append! paren other-paren))))
 
           ((memv token '(#\" #\| #\#))
              ; found quoted string, quoted symbol or block comment.
-             ; create and fill nested parens object
-             (parens-inner-append! paren
-               (parse-lisp-parens-inner ctx flavor token)))
+             ; create and fill nested paren object
+             (paren-inner-append! paren
+               (parse-lisp-paren-inner ctx flavor token)))
 
           ((eof-object? token)
              (set! ret 'err))
@@ -410,16 +410,16 @@
 
 (define (paren-fill-end! ctx paren ok?)
   (let-values (((x y) (parsectx-previous-pos ctx 1)))
-    (parens-end-xy-set! paren x y))
-  (parens-ok?-set! paren ok?)
+    (paren-end-xy-set! paren x y))
+  (paren-ok?-set! paren ok?)
   paren)
 
 
-(define (parse-lisp-parens-inner ctx flavor token)
-  (let ((paren (make-parens flavor token)))
+(define (parse-lisp-paren-inner ctx flavor token)
+  (let ((paren (make-paren flavor token)))
     ; (parsectx-previous-pos ctx 2) may not be set
     (let-values (((x y) (parsectx-previous-pos ctx 1)))
-      (parens-start-xy-set! paren
+      (paren-start-xy-set! paren
         (if (and (eqv? token #\#) (fx>? x 0)) (fx1- x) x)
         y))
     (paren-fill-end! ctx paren
@@ -429,10 +429,7 @@
         ((eqv? token #\|)               ; parse |identifier|
            (parsectx-skip-until-char ctx #\|))
         (#t                             ; parse #| block comment |#
-           (skip-lisp-block-comment ctx flavor paren))))
-           ; (debugf "; parse-lisp-parens start-ch ~s, token ~s\n" start-ch token)
-           ; (debugf-parens paren)
-           paren))
+           (skip-lisp-block-comment ctx flavor paren))))))
 
 
 ) ; close library

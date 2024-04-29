@@ -527,7 +527,7 @@ static const testcase tests[] = {
      "  \"(a (b c . d) . e)\"))",
      "(a (b c . d) . e)"},
     {"(parse-scheme* (make-parsectx-from-string"
-     "  \"(list #| '\\\" . #| `@# |# |#" /* nested block comments */
+     "  \"(list #| '\\\" . #| ,`@# |# |#" /* nested block comments */
      "      '#(a 1.0 2/3) #2(d) #vu8(1 2 3) #4vu8(9) #vfx(-1 0 2) #3vfx(4))\"))",
      "(list '#(a 1.0 2/3) #(d d) #vu8(1 2 3) #vu8(9 9 9 9) #vfx(-1 0 2) #vfx(4 4 4))"},
     /* ------------------------ parser shell -------------------------------- */
@@ -663,29 +663,29 @@ static const testcase tests[] = {
      "    (parsers))\n"
      "  'scheme))",
      "(((+ a b) (shell ls -al >> log.txt ;) foo bar) #<parser scheme>)"},
-    /* ------------------------ parse-parens -------------------------------- */
-    {"(parse-parens-from-string \"(foo \\\"a()\\\" \\\"b[]\\\" \\\"c{}\\\" [* |2| 3])\")",
-     "#<parens _(\"\" \"\" \"\" [||])_>"},
-    {"(parse-parens-from-string \"#\\newline #\\\\( #\\\\) #\\\\[ #\\\\] #\\\\{ #\\\\} #\\\\#\")",
-     "#<parens __>"},
-    {"(parse-parens-from-string \"#| comment . , \\\\ |#\")", "#<parens _##_>"},
+    /* ------------------------ parse-paren -------------------------------- */
+    {"(parse-paren-from-string \"(foo \\\"a()\\\" \\\"b[]\\\" \\\"c{}\\\" [* |2| 3])\")",
+     "#<paren _(\"\" \"\" \"\" [||])_>"},
+    {"(parse-paren-from-string \"#\\newline #\\\\( #\\\\) #\\\\[ #\\\\] #\\\\{ #\\\\} #\\\\#\")",
+     "#<paren __>"},
+    {"(parse-paren-from-string \"#| comment . , \\\\ |#\")", "#<paren _##_>"},
     /* [] are grouping tokens in shell syntax, and `` are not special in lisp syntax */
-    {"(parse-parens-from-string \"{[(``)]}\")", "#<parens _{[()]}_>"},
+    {"(parse-paren-from-string \"{[(``)]}\")", "#<paren _{[()]}_>"},
     /* [] are grouping tokens in lisp syntax and `` are grouping tokens in shell syntax */
-    {"(parse-parens-from-string \"([{``}])\")", "#<parens _([{``}])_>"},
+    {"(parse-paren-from-string \"([{``}])\")", "#<paren _([{``}])_>"},
     /* test $( shell syntax )*/
-    {"(parse-parens-from-string \"{$(`{}()`)}\")", "#<parens _{(`{} ()`)}_>"},
+    {"(parse-paren-from-string \"{$(`{}()`)}\")", "#<paren _{(`{} ()`)}_>"},
     /* test single-quoted strings in shell syntax */
-    {"(parse-parens-from-string \"{'foo\\\"bar{}[]()``baz'}\")", "#<parens _{''}_>"},
+    {"(parse-paren-from-string \"{'foo\\\"bar{}[]()``baz'}\")", "#<paren _{''}_>"},
     /* test double-quoted strings in shell syntax */
-    {"(parse-parens-from-string \"{\\\"foobar{}[]``${baz}\\\"}\")", "#<parens _{\"`` {}\"}_>"},
-    /** parens are not special in shell syntax inside double quoted string */
-    {"(parse-parens-from-string \"{\\\"()\\\"}\")", "#<parens _{\"\"}_>"},
-    /** parse mismatched parens */
-    {"(parse-parens-from-string \"([{)]}\")", "#<parens _([{}])_>"},
-    {"(parse-parens-from-string \"(\\\" a\\\"\")", "#<parens _(\"\")_>"},
+    {"(parse-paren-from-string \"{\\\"foobar{}[]``${baz}\\\"}\")", "#<paren _{\"`` {}\"}_>"},
+    /** paren are not special in shell syntax inside double quoted string */
+    {"(parse-paren-from-string \"{\\\"()\\\"}\")", "#<paren _{\"\"}_>"},
+    /** parse mismatched paren */
+    {"(parse-paren-from-string \"([{)]}\")", "#<paren _([{}])_>"},
+    {"(parse-paren-from-string \"(\\\" a\\\"\")", "#<paren _(\"\")_>"},
     /* -------------------------- parenmatcher -------------------------------*/
-    {"(values->list (parens->values\n"
+    {"(values->list (paren->values\n"
      "  (parenmatcher-find-match\n"
      "    (make-parenmatcher)\n"
      "    (make-parsectx-from-string \"([{``}] #| |# )\" (parsers))\n"

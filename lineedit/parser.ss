@@ -12,7 +12,7 @@
     parsectx-in parsectx-current-pos parsectx-previous-pos parsectx-enabled-parsers
 
     make-parser parser?
-    parser-name parser-parse parser-parse* parser-parse-list parser-parse-parens
+    parser-name parser-parse parser-parse* parser-parse-list parser-parse-paren
     get-parser-or-false get-parser to-parser
 
     parsectx-peek-char parsectx-read-char parsectx-unread-char parsectx-skip-whitespace
@@ -34,7 +34,7 @@
 ;; parser is an object containing four procedures:
 ;;   parser-parse and parser-parse* will parse a single form,
 ;;   parser-parse-list will parse a list of forms,
-;;   parser-parse-parens will scan a list of forms and return matching parentheses/brackets/braces/quotes
+;;   parser-parse-paren will scan a list of forms and return matching parentheses/brackets/braces/quotes
 (define-record-type
   (parser %make-parser parser?)
   (fields
@@ -42,18 +42,18 @@
     parse
     parse*
     parse-list
-    parse-parens)
+    parse-paren)
   (nongenerative #{parser cd39kg38a9c4cnwzwhghs827-24}))
 
 
 ;; create a new parser
-(define (make-parser name parse parse* parse-list parse-parens)
+(define (make-parser name parse parse* parse-list parse-paren)
   (assert* 'make-parser (symbol?    name))
   (assert* 'make-parser (procedure? parse))
   (assert* 'make-parser (procedure? parse*))
   (assert* 'make-parser (procedure? parse-list))
-  (assert* 'make-parser (procedure? parse-parens))
-  (%make-parser name parse parse* parse-list parse-parens))
+  (assert* 'make-parser (procedure? parse-paren))
+  (%make-parser name parse parse* parse-list parse-paren))
 
 
 ;; Find and return the parser corresponding to given parser-name (which must be a symbol)

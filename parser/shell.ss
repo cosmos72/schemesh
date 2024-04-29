@@ -15,7 +15,7 @@
     (only (chezscheme) append! fx1+ fx1- inspect reverse! unread-char void)
     (only (schemesh bootstrap) assert* debugf until while)
     (schemesh containers charspan)
-    (schemesh lineedit parens)
+    (schemesh lineedit paren)
     (schemesh lineedit parser))
 
 (define (paren-type->string type)
@@ -599,11 +599,11 @@
 ;; ignore them if they are preceded by \
 ;; if $( is found, return $
 ;; Also recognize and return parser directives #!... and return them
-(define (scan-shell-parens-or-directive ctx)
+(define (scan-shell-paren-or-directive ctx)
   (parsectx-skip-whitespace ctx 'also-skip-newlines)
   ;; cannot switch to other parser here: just return its name and let caller switch
   (or (try-read-parser-directive ctx)
-      (scan-shell-parens ctx)))
+      (scan-shell-paren ctx)))
 
 
 (define dollar+lparen 1)
@@ -613,9 +613,9 @@
 ;; ignore them if they are preceded by \
 ;; if $( is found, return value of global constant dollar+lparen
 ;; if ${ is found, return value of global constant dollar+lbrace
-;; Does not recognize parser directives #!... use (scan-shell-parens-or-directive)
+;; Does not recognize parser directives #!... use (scan-shell-paren-or-directive)
 ;; for that
-(define (scan-shell-parens ctx)
+(define (scan-shell-paren ctx)
   (let ((ret #f)
         (prev-char #f))
     (until ret
@@ -645,25 +645,25 @@
 ;; until the end of current group.
 ;;
 ;; Stops on end-of-file, or when a closing token matching the opening token
-;; (parens-token paren) is found. Such closing token is consumed too.
+;; (paren-token paren) is found. Such closing token is consumed too.
 ;;
 ;; Return the updated parser to use.
-(define (parse-shell-parens ctx start-ch)
-  (assert* 'parse-shell-parens (parsectx? ctx))
+(define (parse-shell-paren ctx start-ch)
+  (assert* 'parse-shell-paren (parsectx? ctx))
   (when start-ch
-    (assert* 'parse-shell-parens (char? start-ch)))
-  (let* ((paren  (make-parens 'shell start-ch))
+    (assert* 'parse-shell-paren (char? start-ch)))
+  (let* ((paren  (make-paren 'shell start-ch))
          (end-ch (case start-ch ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else start-ch)))
          (ret    #f)
          (%paren-fill-end! (lambda (paren)
             (let-values (((x y) (parsectx-previous-pos ctx 1)))
-             (parens-end-xy-set! paren x y))
-           (parens-ok?-set! paren #t))))
+             (paren-end-xy-set! paren x y))
+           (paren-ok?-set! paren #t))))
 
     (let-values (((x y) (parsectx-previous-pos ctx (if start-ch 1 0))))
-      (parens-start-xy-set! paren x y))
+      (paren-start-xy-set! paren x y))
     (until ret
-      (let ((token (scan-shell-parens-or-directive ctx)))
+      (let ((token (scan-shell-paren-or-directive ctx)))
         (cond
           ((not token) ; not a grouping token
              #f)
@@ -675,10 +675,10 @@
             (unless (eqv? start-ch #\")
                ; recurse to other parser until end of current list
                (let* ((other-parser       (get-parser-or-false ctx token))
-                      (other-parse-parens (and other-parser (parser-parse-parens other-parser)))
-                      (other-parens       (and other-parse-parens (other-parse-parens ctx start-ch))))
-                  (when other-parens
-                    (parens-inner-append! paren other-parens)
+                      (other-parse-paren (and other-parser (parser-parse-paren other-parser)))
+                      (other-paren       (and other-parse-paren (other-parse-paren ctx start-ch))))
+                  (when other-paren
+                    (paren-inner-append! paren other-paren)
                     (set! ret #t)))))
 
           ((or (fixnum? token) (memv token '(#\{ #\[ #\" #\`)))
@@ -689,28 +689,28 @@
                (let ((start-inner (cond ((eqv? token dollar+lparen) #\() #|)|#
                                         ((eqv? token dollar+lbrace) #\{)
                                         (#t                       token))))
-                 (parens-inner-append! paren (parse-shell-parens ctx start-inner)))))
+                 (paren-inner-append! paren (parse-shell-paren ctx start-inner)))))
 
           ((eqv? token #\()                  #| make vscode happy: #\) |#
              (unless (eqv? start-ch #\")
-               ; parens not inside double quotes, switch to scheme parser
+               ; paren not inside double quotes, switch to scheme parser
                ; recursion: call scheme parser on nested list
                (let* ((other-parser       (get-parser-or-false ctx 'scheme))
-                      (other-parse-parens (and other-parser (parser-parse-parens other-parser)))
-                      (other-parens       (if other-parse-parens
-                                            (other-parse-parens ctx token)
-                                            (parse-shell-parens ctx token))))
-                 (when other-parens
-                   (parens-inner-append! paren other-parens)))))
+                      (other-parse-paren (and other-parser (parser-parse-paren other-parser)))
+                      (other-paren       (if other-parse-paren
+                                            (other-parse-paren ctx token)
+                                            (parse-shell-paren ctx token))))
+                 (when other-paren
+                   (paren-inner-append! paren other-paren)))))
 
           ((eqv? token #\')       ; found single-quoted string
              (unless (eqv? start-ch #\")
-               (let ((inner (make-parens 'shell token)))
+               (let ((inner (make-paren 'shell token)))
                  (let-values (((x y) (parsectx-previous-pos ctx 1)))
-                   (parens-start-xy-set! inner x y))
+                   (paren-start-xy-set! inner x y))
                  (when (parsectx-skip-until-char ctx #\')
                    (%paren-fill-end! inner)
-                   (parens-inner-append! paren inner)))))
+                   (paren-inner-append! paren inner)))))
 
           ((eof-object? token)
              (set! ret 'err))
@@ -724,7 +724,7 @@
 
 
 (define parser-shell
-  (let ((ret (make-parser 'shell parse-shell parse-shell* parse-shell-list parse-shell-parens)))
+  (let ((ret (make-parser 'shell parse-shell parse-shell* parse-shell-list parse-shell-paren)))
     (lambda ()
       ret)))
 

@@ -16,7 +16,7 @@
     linectx-prompt      linectx-prompt-end-x  linectx-prompt-end-y
     linectx-prompt-func linectx-prompt-length linectx-prompt-length-set!
     linectx-parenmatcher linectx-ktable
-    linectx-parens linectx-parens-set!
+    linectx-paren linectx-paren-set!
     linectx-completions linectx-completion-stem linectx-completion-func
     linectx-parser-name linectx-parser-name-set!
     linectx-parsers linectx-parsers-set!
@@ -33,7 +33,7 @@
     (schemesh posix fd)
     (schemesh lineedit vscreen)
     (schemesh lineedit charhistory)
-    (schemesh lineedit parens)
+    (schemesh lineedit paren)
     (schemesh lineedit parenmatcher)
     (only (schemesh lineedit parser) make-parsectx*)
     (only (schemesh lineedit io) open-charlines-input-port)
@@ -61,7 +61,7 @@
     ; procedure, receives linectx as argument and should update prompt and prompt-length
     (mutable prompt-func)
     parenmatcher
-    (mutable parens)        ; #f or parens containing matching parentheses
+    (mutable paren)        ; #f or paren containing matching parentheses
     completions             ; span of charspans, possible completions
     completion-stem         ; charspan, chars from vscreen used as stem
     ; procedure, receives linectx as argument and should update completions and stem
@@ -189,7 +189,7 @@
       'shell enabled-parsers     ; parser-name parsers
       (bytespan)                 ; prompt
       prompt-func                ; prompt-func
-      parenmatcher #f            ; parenmatcher parens
+      parenmatcher #f            ; parenmatcher paren
       (span) (charspan) completion-func ; completions stem completion-func
       linectx-default-keytable   ; keytable
       0 (charhistory))))         ; history
@@ -225,7 +225,7 @@
 ;; Does NOT write anything to the tty
 (define (linectx-clear! ctx)
   (vscreen-clear! (linectx-vscreen ctx))
-  (linectx-parens-set! ctx #f)
+  (linectx-paren-set! ctx #f)
   (linectx-return-set! ctx #f))
 
 

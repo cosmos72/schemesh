@@ -30,7 +30,7 @@
     (schemesh posix fd)
     (schemesh lineedit vscreen)
     (schemesh lineedit charhistory)
-    (schemesh lineedit parens)
+    (schemesh lineedit paren)
     (schemesh lineedit parenmatcher)
     (schemesh lineedit linectx)
     (schemesh lineedit lineterm)
@@ -265,8 +265,8 @@
     (vscreen-insert-at-xy/newline! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen))))
 
 (define (lineedit-key-enter ctx)
-  (linectx-parens-update/force! ctx)
-  (if (linectx-parens-recursive-ok? ctx)
+  (linectx-paren-update/force! ctx)
+  (if (linectx-paren-recursive-ok? ctx)
     (linectx-return-set! ctx #t)
     (lineedit-key-newline-left ctx)))
 
@@ -321,7 +321,7 @@
 (define (linectx-return-lines* ctx)
   (linectx-return-set! ctx #f) ; clear flag "user pressed ENTER"
   (linectx-redraw-set! ctx #t) ; set flag "redraw prompt and lines"
-  (linectx-draw-parens ctx (linectx-parens ctx) 'plain) ; unhighlight parentheses
+  (linectx-draw-good-paren ctx (linectx-paren ctx) 'plain) ; unhighlight parentheses
   (lineterm-move-dy ctx (fx- (fx1- (linectx-end-y ctx))
                              (linectx-iy ctx))) ; move to last input line
   (lineterm-write/u8 ctx 10) ; advance to next line.
@@ -422,7 +422,7 @@
   (cond
     ((linectx-redraw? ctx)                  (linectx-redraw-all ctx))
     ((vscreen-dirty? (linectx-vscreen ctx)) (linectx-redraw-dirty ctx))
-    (else                                   (linectx-redraw-cursor+parens ctx))))
+    (else                                   (linectx-redraw-cursor+paren ctx))))
 
 
 ;; redraw everything
@@ -435,7 +435,7 @@
   ;; set term-x and term-y to end of charlines
   (linectx-term-xy-set/end-lines! ctx)
   (parenmatcher-clear! (linectx-parenmatcher ctx))
-  (linectx-draw-parens ctx (linectx-parens-update! ctx) 'highlight)
+  (linectx-draw-good-paren ctx (linectx-paren-update! ctx) 'highlight)
   (linectx-redraw-set! ctx #f)
    ;; move the cursor to final position, and update term-x and term-y accordingly
   (let ((vx (linectx-vx ctx))
@@ -446,7 +446,7 @@
 
 ;; redraw only dirty parts of vscreen
 (define (linectx-redraw-dirty ctx)
-  (linectx-draw-parens ctx (linectx-parens ctx) 'plain)
+  (linectx-draw-good-paren ctx (linectx-paren ctx) 'plain)
   (let* ((screen (linectx-vscreen ctx))
          (ymin   (charlines-dirty-start-y screen))
          (ymax   (fx1- (charlines-dirty-end-y screen)))
@@ -509,7 +509,7 @@
 
     ;; highlight matching parentheses
     (parenmatcher-clear! (linectx-parenmatcher ctx))
-    (linectx-draw-parens ctx (linectx-parens-update! ctx) 'highlight))
+    (linectx-draw-good-paren ctx (linectx-paren-update! ctx) 'highlight))
 
   ;; move the cursor to final position, and update term-x and term-y accordingly
   (let ((vx (linectx-vx ctx))
@@ -520,13 +520,13 @@
 
 
 ;; redraw only cursor and parentheses
-(define (linectx-redraw-cursor+parens ctx)
-  (let ((old-parens (linectx-parens ctx))
-        (new-parens (linectx-parens-find ctx)))
-    (unless (parens-equal-xy? old-parens new-parens)
-      (linectx-draw-parens ctx old-parens 'plain)
-      (linectx-draw-parens ctx new-parens 'highlight)
-      (linectx-parens-set! ctx new-parens)))
+(define (linectx-redraw-cursor+paren ctx)
+  (let ((old-paren (linectx-paren ctx))
+        (new-paren (linectx-paren-find ctx)))
+    (unless (paren-equal-xy? old-paren new-paren)
+      (linectx-draw-good-paren ctx old-paren 'plain)
+      (linectx-draw-good-paren ctx new-paren 'highlight)
+      (linectx-paren-set! ctx new-paren)))
 
   ;; move the cursor to final position, and update term-x and term-y accordingly
   (let ((vx (linectx-vx ctx))
@@ -537,11 +537,11 @@
 
 ;; draw parentheses using specified style. assumes term-x and term-x are up to date
 ;; and updates them.
-(define (linectx-draw-parens ctx parens style)
-  ;; draw parens only if both start and end positions are valid
-  (when (parens-valid? parens)
-    (linectx-draw-char-at-xy ctx (parens-start-x parens) (parens-start-y parens) style)
-    (linectx-draw-char-at-xy ctx (parens-end-x parens)   (parens-end-y parens)   style)))
+(define (linectx-draw-good-paren ctx paren style)
+  ;; draw paren only if both start and end positions are valid
+  (when (paren-valid? paren)
+    (linectx-draw-char-at-xy ctx (paren-start-x paren) (paren-start-y paren) style)
+    (linectx-draw-char-at-xy ctx (paren-end-x paren)   (paren-end-y paren)   style)))
 
 
 ;; if position x y is inside current charlines, redraw char at x y with specified style.
@@ -579,8 +579,8 @@
 
 
 
-;; return #f or a parens object containing matching parentheses immediately to the left of cursor.
-(define (linectx-parens-find ctx)
+;; return #f or a paren object containing matching parentheses immediately to the left of cursor.
+(define (linectx-paren-find ctx)
   (let ((ret     #f)
         (parsers (linectx-parsers ctx))
         (parenmatcher (linectx-parenmatcher ctx)))
@@ -588,7 +588,7 @@
       (let-values (((x y) (linectx-ixy-before-cursor ctx)))
         (let* ((screen  (linectx-vscreen ctx))
                (ch (vscreen-char-at-xy screen x y)))
-          (when (and ch (is-parens-char? ch))
+          (when (and ch (is-paren-char? ch))
             ;; protect against exceptions in linectx-completion-func
             (try
               (set! ret
@@ -610,14 +610,14 @@
     ret))
 
 
-;; call (linectx-parens-find) and save result into (linectx-parens). Return such result.
-(define (linectx-parens-update! ctx)
-  (let ((new-parens (linectx-parens-find ctx)))
-    (linectx-parens-set! ctx new-parens)
-    new-parens))
+;; call (linectx-paren-find) and save result into (linectx-paren). Return such result.
+(define (linectx-paren-update! ctx)
+  (let ((new-paren (linectx-paren-find ctx)))
+    (linectx-paren-set! ctx new-paren)
+    new-paren))
 
 ;; clear cached parentheses and recompute them
-(define (linectx-parens-update/force! ctx)
+(define (linectx-paren-update/force! ctx)
   (let ((parenmatcher (linectx-parenmatcher ctx))
         (parsers      (linectx-parsers ctx))
         (screen       (linectx-vscreen ctx)))
@@ -634,28 +634,28 @@
                                      0))
           (linectx-parser-name ctx))))))
 
-;; return (parens-recursive-ok? parens) for outermost parens inside parenmatcher
-(define (linectx-parens-recursive-ok? ctx)
+;; return (paren-recursive-ok? paren) for outermost paren inside parenmatcher
+(define (linectx-paren-recursive-ok? ctx)
   (let* ((parenmatcher (linectx-parenmatcher ctx))
-         (parens (and parenmatcher (parenmatcher-parens parenmatcher))))
-    (or (not parens)
-        (parens-recursive-ok? parens))))
+         (paren (and parenmatcher (parenmatcher-paren parenmatcher))))
+    (or (not paren)
+        (paren-recursive-ok? paren))))
 
 
-;; return #t if both old-parens and new-parens are #f
-;; or if both are parens and contain the same start-x start-y end-x and-y
-(define (parens-equal-xy? old-parens new-parens)
-  (or (eq? old-parens new-parens)
+;; return #t if both old-paren and new-paren are #f
+;; or if both are paren and contain the same start-x start-y end-x and-y
+(define (paren-equal-xy? old-paren new-paren)
+  (or (eq? old-paren new-paren)
       (and
-        (parens? old-parens) (parens? new-parens)
-        (fx=? (parens-start-x old-parens)
-              (parens-start-x new-parens))
-        (fx=? (parens-start-y old-parens)
-              (parens-start-y new-parens))
-        (fx=? (parens-end-x old-parens)
-              (parens-end-x new-parens))
-        (fx=? (parens-end-y old-parens)
-              (parens-end-y new-parens)))))
+        (paren? old-paren) (paren? new-paren)
+        (fx=? (paren-start-x old-paren)
+              (paren-start-x new-paren))
+        (fx=? (paren-start-y old-paren)
+              (paren-start-y new-paren))
+        (fx=? (paren-end-x old-paren)
+              (paren-end-x new-paren))
+        (fx=? (paren-end-y old-paren)
+              (paren-end-y new-paren)))))
 
 
 
