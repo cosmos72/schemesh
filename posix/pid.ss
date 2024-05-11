@@ -23,7 +23,7 @@
     (lambda ()
       (let ((ret (c-get-pid)))
         (when (< ret 0)
-          (raise-errno-condition 'get-pid ret))
+          (raise-c-errno 'get-pid 'getpid ret))
         ret))))
 
 ; (get-pgid) returns process group of specified process (0 = current process)
@@ -32,7 +32,7 @@
     (lambda (pid)
       (let ((ret (c-get-pgid pid)))
         (when (< ret 0)
-          (raise-errno-condition 'get-pgid ret))
+          (raise-c-errno 'get-pgid 'getpgid ret))
         ret))))
 
 
@@ -51,7 +51,7 @@
                    #f ; no environment override
                    0)))
         (when (< ret 0)
-          (raise-errno-condition 'spawn-pid ret))
+          (raise-c-errno 'spawn-pid 'fork ret))
         ret))))
 
 

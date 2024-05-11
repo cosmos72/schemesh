@@ -14,7 +14,7 @@
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
     (only (chezscheme) bytevector foreign-procedure fx1+ fx1-)
-    (only (schemesh bootstrap) assert* assert-errorf)
+    (only (schemesh bootstrap) assert* raise-assertf)
     (only (schemesh containers misc) bytevector-fill-range!))
 
 
@@ -62,8 +62,8 @@
 
 (define (string->utf8b-error err)
   (if (char? err)
-    (assert-errorf 'string->utf8b "~s is not a valid unicode scalar value" (char->integer err))
-    (assert-errorf 'string->utf8b "invalid arguments")))
+    (raise-assertf 'string->utf8b "~s is not a valid unicode scalar value" (char->integer err))
+    (raise-assertf 'string->utf8b "invalid arguments")))
 
 #| ;; slower
 (define string-range->utf8b

@@ -27,7 +27,7 @@
     (rnrs mutable-pairs)
     (only (chezscheme) break foreign-procedure format fx1+ fx1-
                        make-format-condition record-writer reverse! void)
-    (only (schemesh bootstrap) assert* until)
+    (only (schemesh bootstrap) assert* debugf raise-errorf until)
     (schemesh containers)
     (schemesh conversions)
     (schemesh posix fd)
@@ -168,10 +168,10 @@
                              (fx<? job-or-id (span-length all-jobs)))
                     (span-ref all-jobs job-or-id))))
         (unless (sh-job? job)
-          (error 'sh-job "job not found:" job-or-id))
+          (raise-errorf 'sh-job "job not found: ~s" job-or-id))
         job))
     ((sh-job? job-or-id) job-or-id)
-    (#t (error 'sh-job "not a job-id:" job-or-id))))
+    (#t (raise-errorf 'sh-job "not a job-id: ~s" job-or-id))))
 
 
 ;; return charspan containing current directory,
@@ -208,13 +208,7 @@
              (err (c_chdir (text->bytevector0 (charspan->string dir)))))
         (if (= err 0)
           (job-cwd-set! sh-globals dir)
-          (raise
-            (condition
-              (make-error)
-              (make-who-condition 'cd)
-              (make-format-condition)
-              (make-message-condition "~a: ~a")
-              (make-irritants-condition (list path (c-errno->string err))))))))))
+          (raise-errorf 'cd "~a: ~a" path (c-errno->string err)))))))
 
 
 
@@ -479,9 +473,35 @@
                     (sh-env->vector-of-bytevector0 c 'exported)
                     process-group-id)))
         (when (< ret 0)
-          (raise-errno-condition 'sh-start ret))
+          (raise-c-errno 'sh-start 'fork ret))
         (job-pid-set! c ret)
         (job-pgid-set! c (if (> process-group-id 0) process-group-id ret))))))
+
+
+;; NOTE: this is an internal implementation function, use (sh-start) instead.
+;; This function does not redirect file descriptors, does not close (job-to-close-fds j)
+;; - thus calling it manually leaks file descriptors - and does not register job
+;; into global (pid->job) table nor into global job-id table.
+;;
+;; Description:
+;; Start a generic job, executing the Scheme function (job-subshell-proc j)
+;; passing the job j as only argument,
+;; then will call (job-last-status-set!) with the value returned by (job-subshell-proc j)
+;;
+;; Options are ignored.
+(define (%job-start j . options)
+  (assert* 'sh-start (procedure? (job-subshell-proc j)))
+  ;; this runs in the main process, not in a subprocess.
+  ;; TODO: how can we redirect file descriptor?
+  (let ((status '(unknown . 0)))
+    (dynamic-wind
+      (lambda () ; run before body
+        ; set job status as running. Do not assign a job-id.
+        (job-last-status-set! j '(running . #f)))
+      (lambda () ; body
+        (set! status ((job-subshell-proc j) j)))
+      (lambda () ; run after body, even if it raised a condition or called a continuation
+        (job-last-status-set! j status)))))
 
 
 ;; NOTE: this is an internal implementation function, use (sh-start) instead.
@@ -493,7 +513,7 @@
 ;; Start a generic job, optionally inserting it into an existing process group.
 ;;
 ;; Forks a new subshell process in background, i.e. the foreground process group is NOT set
-; to the process group of the newly created process.
+;; to the process group of the newly created process.
 ;;
 ;; The subshell process will execute the Scheme function (job-subshell-proc j)
 ;; passing the job j as only argument,
@@ -511,9 +531,9 @@
                     (job-to-redirect-fds j)
                     process-group-id)))
         (cond
-          ((< ret 0)
-            (raise-errno-condition 'sh-start ret)) ; fork() failed
-          ((= ret 0)                               ; child
+          ((< ret 0) ; fork() failed
+            (raise-c-errno 'sh-start 'fork ret))
+          ((= ret 0) ; child
             (let ((status '(exited . 255)))
               (dynamic-wind
                 void       ; run before body
@@ -534,7 +554,12 @@
 
 ;; Return #t if job was already started, otherwise return #f
 (define (job-started? j)
-  (and (fx>=? (job-pid j) 0) (fx>=? (job-pgid j) 0)))
+  (or
+    ;; a cmd with valid pid and valid pgid is surely started
+    (and (fx>=? (job-pid j) 0) (fx>=? (job-pgid j) 0))
+    ;; a job with status 'running or 'stopped is started
+    (job-status-member? (job-last-status j) '(running stopped))))
+
 
 ;; Start a cmd or a job.
 ;; If job parent is sh-globals, return '(running . job-id).
@@ -544,10 +569,17 @@
 ;;   process-group-id: a fixnum, if present and > 0 then the new process will be inserted
 ;;   into the corresponding process group id - which must already exist.
 (define (sh-start j . options)
-  (when (fx>=? (job-pid j) 0)
-    (error 'sh-start "job already started" (job-pid j)))
+  (debugf "; sh-start ~s~%" j)
+  (when (job-started? j)
+    (cond
+      ((fixnum? (job-id j))
+        (raise-errorf 'sh-start "job already started with job id ~s" (job-id j)))
+      ((fx>=? (job-pid j) 0)
+        (raise-errorf 'sh-start "job already started with pid ~s" (job-pid j)))
+      (#t
+        (raise-errorf 'sh-start "job already started"))))
   (unless (procedure? (job-proc j))
-    (error 'sh-start "cannot start job, it has bad or missing job-proc" j))
+    (raise-errorf 'sh-start "cannot start job, it has bad or missing job-proc: ~s" j))
   (apply (job-proc j) j options)
   (fd-close-list (job-to-close-fds j))
   (pid->job-set! (job-pid j) j)           ; add job to pid->job table
@@ -617,7 +649,7 @@
     ((job-status-member? (job-last-status j) '(exited killed unknown))
       (job-last-status j)) ; job exited, and exit status already available
     ((not (job-started? j))
-      (error 'job-wait "job not started yet" j))
+      (raise-errorf 'job-wait "job not started yet: ~s" j))
     (#t
       ; TODO: wait for ALL processes in job's process group?
       (let* ((ret    (pid-wait (job-pid j) may-block))
@@ -675,7 +707,7 @@
       ((job-status-member? (job-last-status j) '(exited killed unknown))
         (job-last-status j))
       ((not (job-started? j))
-        (error 'sh-bg "job not started yet" j))
+        (raise-errorf 'sh-bg "job not started yet: ~s" j))
       (#t
         ; send SIGCONT to job's process group. may raise error
         (pid-kill (fx- (job-pgid j)) 'sigcont)
@@ -688,7 +720,7 @@
     (lambda (caller expected-pgid new-pgid)
       (let ((err (c-pgid-foreground expected-pgid new-pgid)))
         (when (< err 0)
-          (raise-errno-condition caller err))
+          (raise-c-errno caller 'tcsetpgrp err))
         err))))
 
 (define-syntax with-foreground-pgid
@@ -729,7 +761,7 @@
       ((job-status-member? (job-last-status j) '(exited killed unknown))
         (job-last-status j))
       ((not (job-started? j))
-        (error 'sh-fg "job not started yet" j))
+        (raise-errorf 'sh-fg "job not started yet: ~s" j))
       (#t
         (with-foreground-pgid 'sh-fg (job-pgid sh-globals) j-pgid
           ; send SIGCONT to job's process group. may raise error
@@ -756,13 +788,14 @@
   (let* ((j           (sh-job job-or-id))
          (j-pgid      (job-pgid j))
          (global-pgid (job-pgid sh-globals)))
+    (debugf "; sh-wait ~s~%" j)
     (cond
       ; if job already exited, return its exit status.
       ; if job is stopped, consider as running
       ((job-status-member? (job-last-status j) '(exited killed unknown))
         (job-last-status j))
       ((not (job-started? j))
-        (error 'sh-wait "job not started yet" j))
+        (raise-errorf 'sh-wait "job not started yet: " j))
       (#t
         (job-wait-loop j j-pgid global-pgid)))))
 
@@ -831,7 +864,7 @@
 ;; Create or remove a file description redirection for cmd or job
 (define (sh-fd-redirect! job-id child-fd existing-fd-or-minus-1)
   (when (or (not (fixnum? child-fd)) (< child-fd 0))
-    (error 'job-redirect! "invalid redirect fd" child-fd))
+    (raise-errorf 'job-redirect! "invalid redirect fd: ~s" child-fd))
   (let* ((j (sh-job job-id))
          (old-fds (job-to-redirect-fds j))
          (old-n (vector-length old-fds)))
@@ -873,31 +906,31 @@
 ;; Create a multijob to later start it.
 ;; Internal function, accepts an optional function to validate each element in children-jobs
 
-(define (make-multijob kind validate-job-proc subshell-proc . children-jobs)
+(define (make-multijob kind validate-job-proc proc subshell-proc . children-jobs)
   (assert* 'make-multijob (symbol? kind))
   (assert (or (not subshell-proc) (procedure? subshell-proc)))
   (when validate-job-proc
     (list-iterate children-jobs validate-job-proc))
   (%make-multijob #f -1 -1 '(new . 0) (vector 0 1 2) (vector) '()
-    %job-spawn subshell-proc
-    (sh-cwd)   ; job working directory - initially current directory
-    '()        ; overridden environment variables - initially none
-    sh-globals ; parent job - initially the global job
+    proc          ; executed in main process
+    subshell-proc ; executed in a subprocess, if proc spawns it
+    (sh-cwd)      ; job working directory - initially current directory
+    '()           ; overridden environment variables - initially none
+    sh-globals    ; parent job - initially the global job
     kind
     (list->span children-jobs)))
 
 (define (assert-is-job j)
   (assert* 'sh-multijob (sh-job? j)))
 
-;; Create a multijob to later start it. Each argument must be a sh-job or subtype.
-(define (sh-multijob kind subshell-proc . children-jobs)
-  (apply make-multijob kind assert-is-job subshell-proc children-jobs))
+;; Create a multijob to later start it. Each element in children-jobs must be a sh-job or subtype.
+(define (sh-multijob kind proc . children-jobs)
+  (apply make-multijob kind assert-is-job %job-start proc children-jobs))
 
 
-;; Run a multijob containing an "and" of children jobs.
+;; Start a multijob containing an "and" of children jobs.
 ;; Used by (sh-and), implements runtime behavior of shell syntax foo && bar && baz
-
-(define (%multijob-run-and mj)
+(define (%multijob-start-and mj)
   (let ((jobs   (multijob-children mj))
         (pgid   (job-pgid mj))
         (status (void)))
@@ -909,9 +942,9 @@
     status))
 
 
-;; Run a multijob containing an "or" of children jobs.
+;; Start a multijob containing an "or" of children jobs.
 ;; Used by (sh-and), implements runtime behavior of shell syntax foo || bar || baz
-(define (%multijob-run-or mj)
+(define (%multijob-start-or mj)
   (let ((jobs   (multijob-children mj))
         (pgid   (job-pgid mj))
         (status '(exited . 1)))
@@ -923,11 +956,12 @@
     status))
 
 
-;; Run a multijob containing a sequence of children jobs optionally followed by & ;
-;; Used by (sh-list) and (sh-subshhell), implements runtime behavior of shell syntax foo; bar & baz
-(define (%multijob-run-list mj)
+;; Start a multijob containing a sequence of children jobs optionally followed by & ;
+;; Used by (sh-list) and (sh-subshell), implements runtime behavior of shell syntax foo; bar & baz
+(define (%multijob-start-list mj)
   ; TODO: check for ; among mj and ignore them
   ; TODO: check for & among mj and implement them
+  (debugf "; %multijob-start-list ~s status = ~s~%" mj (job-last-status mj))
   (let ((jobs   (multijob-children mj))
         (pgid   (job-pgid mj))
         (status (void)))
@@ -939,21 +973,20 @@
     status))
 
 (define (sh-and . children-jobs)
-  (apply make-multijob 'and assert-is-job %multijob-run-and children-jobs))
+  (apply make-multijob 'and assert-is-job %multijob-start-and #f children-jobs))
 
 (define (sh-or . children-jobs)
-  (apply make-multijob 'or  assert-is-job %multijob-run-or  children-jobs))
+  (apply make-multijob 'or  assert-is-job %multijob-start-or #f children-jobs))
 
 
 ;; Each argument must be a sh-job, possibly followed by a symbol ; &
 (define (sh-list . children-jobs-with-colon-ampersand)
-  ; TODO: do not fork a subshell to run children jobs
   (apply make-multijob 'list
     (lambda (j) ; validate-job-proc
       (unless (memq j '(& \x3b;
                        ))
         (assert* 'sh-list (sh-job? j))))
-    %multijob-run-list children-jobs-with-colon-ampersand))
+    %multijob-start-list #f children-jobs-with-colon-ampersand))
 
 ;; Each argument must be a sh-job, possibly followed by a symbol ; &
 (define (sh-subshell . children-jobs-with-colon-ampersand)
@@ -962,7 +995,7 @@
       (unless (memq j '(& \x3b;
                        ))
         (assert* 'sh-subshell (sh-job? j))))
-    %multijob-run-list children-jobs-with-colon-ampersand))
+    %job-spawn %multijob-start-list children-jobs-with-colon-ampersand))
 
 (define (sh-run/bytes job)
   ; TODO: implement (sh-run/bytes)

@@ -14,7 +14,7 @@
     (only (chezscheme) foreign-procedure sort!)
     (only (schemesh containers) bytevector<? list-iterate string->utf8b)
     (only (schemesh conversions) text->bytevector0)
-    (only (schemesh posix fd) raise-errno-condition))
+    (only (schemesh posix fd) raise-c-errno))
 
 (define c-exit (foreign-procedure "c_exit" (int) int))
 
@@ -35,7 +35,7 @@
                      filter-prefix
                      (string->utf8b filter-prefix)))))
         (unless (or (null? ret) (pair? ret))
-          (raise-errno-condition 'directory-u8-list ret))
+          (raise-c-errno 'directory-u8-list 'opendir ret))
         (list-iterate ret
           (lambda (entry)
             (let ((c-type (car entry)))

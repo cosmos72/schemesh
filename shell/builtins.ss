@@ -13,7 +13,7 @@
     (only (schemesh bootstrap) while)
     (schemesh containers charspan)
     (only (schemesh conversions) text->bytevector0)
-    (only (schemesh posix fd) raise-errno-condition)
+    (only (schemesh posix fd) raise-c-errno)
     (schemesh shell paths)
     (schemesh shell jobs))
 

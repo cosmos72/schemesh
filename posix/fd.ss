@@ -7,13 +7,13 @@
 
 (library (schemesh posix fd (0 1))
   (export
-    c-errno c-errno->string make-errno-condition raise-errno-condition
+    c-errno c-errno->string raise-c-errno
     fd-close fd-close-list fd-dup fd-dup2 fd-read fd-write fd-select fd-setnonblock
     open-file-fd open-pipe-fds)
   (import
     (rnrs)
     (only (chezscheme) foreign-procedure void)
-    (only (schemesh bootstrap)       assert*)
+    (only (schemesh bootstrap)       assert* raise-errorf)
     (only (schemesh containers misc) list-iterate)
     (only (schemesh conversions)     text->bytevector0))
 
@@ -23,24 +23,17 @@
 (define c-errno->string
   (foreign-procedure "c_strerror" (int) ptr))
 
-(define (make-errno-condition who c-errno)
-  (condition
-    (make-error)
-    (make-who-condition who)
-    (make-message-condition "error in C function")
-    (make-irritants-condition c-errno)))
 
-(define (raise-errno-condition who c-errno)
-  ; (debugf "raise-errno-condition ~s ~s~%" who c-errno)
-  (raise (make-errno-condition who c-errno)))
+(define (raise-c-errno who c-who c-errno)
+  ; (debugf "raise-c-errno ~s ~s~%" who c-errno)
+  (raise-errorf who "C function ~s failed with error ~s" c-who c-errno))
 
 (define fd-close
   (let ((c-fd-close (foreign-procedure "c_fd_close" (int) int)))
     (lambda (x)
       (let ((ret (c-fd-close x)))
-        (if (>= ret 0)
-          (void)
-          (make-errno-condition 'fd-close ret))))))
+        (when (< ret 0)
+          (raise-c-errno 'fd-close 'close ret))))))
 
 (define (fd-close-list fd-list)
   (list-iterate fd-list fd-close))
@@ -51,7 +44,7 @@
       (let ((ret (c-fd-dup old-fd)))
         (if (>= ret 0)
           ret
-          (raise-errno-condition 'fd-dup ret))))))
+          (raise-c-errno 'fd-dup 'dup ret))))))
 
 (define fd-dup2
   (let ((c-fd-dup2 (foreign-procedure "c_fd_dup2" (int int) int)))
@@ -59,7 +52,7 @@
       (let ((ret (c-fd-dup2 old-fd new-fd)))
         (if (>= ret 0)
           (void)
-          (raise-errno-condition 'fd-dup2 ret))))))
+          (raise-c-errno 'fd-dup2 'dup2 ret))))))
 
 (define fd-read
   (let ((c-fd-read (foreign-procedure "c_fd_read" (int ptr iptr iptr) iptr)))
@@ -67,7 +60,7 @@
       (let ((ret (c-fd-read fd bytevector-result start end)))
         (if (>= ret 0)
           ret
-          (raise-errno-condition 'fd-read ret))))))
+          (raise-c-errno 'fd-read 'read ret))))))
 
 (define fd-write
   (let ((c-fd-write (foreign-procedure "c_fd_write" (int ptr iptr iptr) iptr)))
@@ -75,7 +68,7 @@
       (let ((ret (c-fd-write fd bytevector-towrite start end)))
         (if (>= ret 0)
           ret
-          (raise-errno-condition 'fd-write ret))))))
+          (raise-c-errno 'fd-write 'write ret))))))
 
 ; (fd-select fd direction timeout-milliseconds) waits up to timeout-milliseconds
 ; for file descriptor fd to become ready for input, output or both.
@@ -99,10 +92,10 @@
         (cond
           ; if c_fd_select() returns EINTR, consider it a timeout
           ((eqv? ret c-errno-eintr) 'timeout)
-          ((< ret 0) (raise-errno-condition 'fd-select ret))
+          ((< ret 0) (raise-c-errno 'fd-select 'select ret))
           ((< ret 4) (vector-ref '#(timeout read write rw) ret))
           ; c_fd_select() called poll() which set (revents & POLLERR)
-          (#t        (raise-errno-condition 'fd-select c-errno-eio)))))))
+          (#t        (raise-c-errno 'fd-select 'select c-errno-eio)))))))
 
 (define fd-setnonblock
   (let ((c-fd-setnonblock (foreign-procedure "c_fd_setnonblock" (int) int)))
@@ -110,7 +103,7 @@
       (let ((ret (c-fd-setnonblock fd)))
         (if (>= ret 0)
           ret
-          (raise-errno-condition 'fd-setnonblock ret))))))
+          (raise-c-errno 'fd-setnonblock 'fcntl ret))))))
 
 ; filepath must be string or bytevector.
 ; each flag must be one of: 'read 'write 'rw 'create 'truncate 'append
@@ -131,7 +124,7 @@
              [ret (c-open-file-fd filepath0 flag-rw flag-create flag-truncate flag-append)])
         (if (>= ret 0)
           ret
-          (raise-errno-condition 'open-file-fd ret))))))
+          (raise-c-errno 'open-file-fd 'open ret))))))
 
 (define open-pipe-fds
   (let ((c-open-pipe-fds (foreign-procedure "c_open_pipe_fds" () scheme-object)))
@@ -139,6 +132,6 @@
       (let ((ret (c-open-pipe-fds)))
         (if (pair? ret)
           ret
-          (raise-errno-condition 'open-pipe-fds ret))))))
+          (raise-c-errno 'open-pipe-fds 'pipe ret))))))
 
 ) ; close library

@@ -32,7 +32,7 @@
 (define-syntax shell-backquote
   (syntax-rules ()
     ((_)               "")
-    ;; FIXME: (sh-run/string) cannot be stopped - but neither can `...` in POSIX shells
+    ;; NOTE: (sh-run/string) cannot be stopped and resumed. But neither can `...` in POSIX shells
     ((_ arg ...)       (lambda (job) (sh-run/string (shell arg ...))))))
 
 (define-syntax shell-concat
