@@ -569,7 +569,7 @@
 ;;   process-group-id: a fixnum, if present and > 0 then the new process will be inserted
 ;;   into the corresponding process group id - which must already exist.
 (define (sh-start j . options)
-  (debugf "; sh-start ~s~%" j)
+  ; (debugf "; sh-start ~s~%" j)
   (when (job-started? j)
     (cond
       ((fixnum? (job-id j))
@@ -730,12 +730,11 @@
             (_expected-pgid expected-pgid)
             (_new-pgid new-pgid))
         (dynamic-wind
-          (lambda ()
-            ; run before body
+          (lambda () ; run before body
             (%pgid-foreground _caller _expected-pgid _new-pgid))
-          (lambda () body ...)
           (lambda ()
-            ; run after body, even if it raised a condition:
+            body ...)
+          (lambda () ; run after body
             ; try to restore sh-globals as the foreground process group
             (%pgid-foreground _caller _new-pgid _expected-pgid)))))))
 
@@ -788,7 +787,7 @@
   (let* ((j           (sh-job job-or-id))
          (j-pgid      (job-pgid j))
          (global-pgid (job-pgid sh-globals)))
-    (debugf "; sh-wait ~s~%" j)
+    ; (debugf "; sh-wait ~s~%" j)
     (cond
       ; if job already exited, return its exit status.
       ; if job is stopped, consider as running
@@ -961,7 +960,7 @@
 (define (%multijob-start-list mj)
   ; TODO: check for ; among mj and ignore them
   ; TODO: check for & among mj and implement them
-  (debugf "; %multijob-start-list ~s status = ~s~%" mj (job-last-status mj))
+  ; (debugf "; %multijob-start-list ~s status = ~s~%" mj (job-last-status mj))
   (let ((jobs   (multijob-children mj))
         (pgid   (job-pgid mj))
         (status (void)))
