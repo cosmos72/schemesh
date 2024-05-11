@@ -779,12 +779,22 @@
 ;;   (cons 'killed  signal-name)
 ;;   (cons 'unknown ...)
 ;;
-;; Does NOT return early if the job gets stopped, use (sh-fg) for that.
+;; If job gets stopped does not return early, use (sh-fg) for that.
+;;
+;; Instead if job gets stopped, calls (proc-on-job-stopped)
+;; then waits again for the job to exit.
 ;;
 ;; Note: if current shell is in the fg process group,
 ;;   upon invocation, sets the job as fg process group.
 ;;   And before returning, restores current shell as fg process group.
-(define (sh-wait job-or-id)
+(define sh-wait
+  (case-lambda
+    ((job-or-id)                     (%sh-wait job-or-id break))
+    ((job-or-id proc-on-job-stopped) (%sh-wait job-or-id proc-on-job-stopped))))
+
+(define (%sh-wait job-or-id proc-on-job-stopped)
+  (when proc-on-job-stopped
+    (assert* 'sh-wait (procedure? proc-on-job-stopped)))
   (let* ((j           (sh-job job-or-id))
          (j-pgid      (job-pgid j))
          (global-pgid (job-pgid sh-globals)))
@@ -797,12 +807,12 @@
       ((not (job-started? j))
         (raise-errorf 'sh-wait "job not started yet: " j))
       (#t
-        (job-wait-loop j j-pgid global-pgid)))))
+        (job-wait-loop j j-pgid global-pgid proc-on-job-stopped)))))
 
 
 ;; internal function used by (sh-wait) to actually wait for a job to exit.
 ;; return job exit status.
-(define (job-wait-loop j j-pgid global-pgid)
+(define (job-wait-loop j j-pgid global-pgid proc-on-job-stopped)
   ; blocking wait for job's pid to exit.
   ; TODO: wait for ALL pids in process group?
   (dynamic-wind
@@ -814,16 +824,16 @@
                         (pid-kill (fx- j-pgid) 'sigcont)
                         (job-wait j 'blocking))))
           ((job-status-member? status '(exited killed unknown)) status)
-        (when (and (pair? status) (eq? 'stopped (car status)))
+        (when (and proc-on-job-stopped (pair? status) (eq? 'stopped (car status)))
           (format #t "; job ~s pid ~s stopped        ~s~%" (job-id j) (job-pid j) j)
             (with-foreground-pgid 'sh-wait j-pgid global-pgid
-              (break)))))
+              (proc-on-job-stopped)))))
     (lambda () ; after body
       (%pgid-foreground 'sh-wait j-pgid global-pgid)
       (let ((j-pid (job-pid j)))
         (when (fx>? j-pid 0)
-          ; (break) above or some other function raised an exception,
-          ; or (break) called a continuation, but the job is still running
+          ; (proc-on-job-stopped) above or some other function raised an exception,
+          ; or (proc-on-job-stopped) called a continuation, but the job is still running
           ; -> interrupt the job's whole process group before returning
           (pid-kill (fx- j-pgid) 'sigcont)
           (pid-kill (fx- j-pgid) 'sigint))))))
@@ -951,7 +961,7 @@
       (unless (memq j '(& \x3b;
                        ))
         (assert* 'sh-subshell (sh-job? j))))
-    %job-spawn %multijob-list/run children-jobs-with-colon-ampersand))
+    %job-spawn %multijob-subshell/run children-jobs-with-colon-ampersand))
 
 
 ;; Start a multijob containing an "and" of children jobs.
@@ -993,26 +1003,28 @@
         (status (void)))
     (span-iterate jobs
       (lambda (i job)
-        (sh-start job pgid)         ; run child job in parent's process group
-        (set! status (sh-wait job)) ; wait for child job to exit
-        #t))                        ; keep iterating
+        (when (sh-job? job)
+          (sh-start job pgid)          ; run child job in parent's process group
+          (set! status (sh-wait job))) ; wait for child job to exit
+        #t))                           ; keep iterating
     status))
 
 
 ;; Run a multijob containing a sequence of children jobs optionally followed by & ;
 ;; Used by (sh-subshell), implements runtime behavior of shell syntax [ ... ]
-(define (%multijob-list/run mj)
+(define (%multijob-subshell/run mj)
   ; TODO: check for ; among mj and ignore them
   ; TODO: check for & among mj and implement them
-  ; (debugf "; %multijob-list/run ~s status = ~s~%" mj (job-last-status mj))
+  ; (debugf "; %multijob-subshell/run ~s status = ~s~%" mj (job-last-status mj))
   (let ((jobs   (multijob-children mj))
         (pgid   (job-pgid mj))
         (status (void)))
     (span-iterate jobs
       (lambda (i job)
-        (sh-start job pgid)         ; run child job in parent's process group
-        (set! status (sh-wait job)) ; wait for child job to exit
-        #t))                        ; keep iterating
+        (when (sh-job? job)
+          (sh-start job pgid)          ; run child job in parent's process group
+          (set! status (sh-wait job #f))) ; wait for child job to exit
+        #t))                           ; keep iterating
     status))
 
 
