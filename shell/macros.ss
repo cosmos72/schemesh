@@ -18,16 +18,24 @@
 (define-macro (shell . args)
   (sh-parse args))
 
+(define-macro (shell-subshell . args)
+  (if (null? args)
+    '(sh-cmd "true")
+    (let ((jobs (sh-parse args)))
+      (cond
+        ((null? jobs)
+          '(sh-cmd "true"))
+        ((eq? 'sh-list (car jobs))
+          `(sh-subshell ,@(cdr jobs)))
+        (#t
+          `(sh-subshell ,jobs))))))
+
+
 (define-syntax shell-list
   (syntax-rules ()
-    ((_)           '(sh-true))
-    ((_ arg)          arg)
+    ((_)               (sh-cmd "true"))
+    ((_ arg)           arg)
     ((_ arg0 arg1 ...) (sh-list arg0 arg1 ...))))
-
-(define-syntax shell-subshell
-  (syntax-rules ()
-    ((_)         '(sh-true))
-    ((_ arg0 ...) (sh-subshell arg0 ...))))
 
 (define-syntax shell-backquote
   (syntax-rules ()

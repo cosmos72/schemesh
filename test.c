@@ -758,7 +758,7 @@ static const testcase tests[] = {
   " (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"
 
     /* ------------------------- shell macros ------------------------------- */
-    {"(expand '(shell))", INVOKELIB_SHELL_BUILTINS " (sh-true))"},
+    {"(expand '(shell))", INVOKELIB_SHELL_JOBS " (sh-cmd true))"},
     {"(expand '(shell \"ls\" \"-l\" && \"wc\" \"-b\" \\x7c;\\x7c; \"echo\" \"error\" &))",
      INVOKELIB_SHELL_JOBS
      " (sh-list (sh-or (sh-and (sh-cmd ls -l) (sh-cmd wc -b)) (sh-cmd echo error)) '&))"},

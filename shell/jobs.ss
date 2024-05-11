@@ -72,8 +72,9 @@
   (multijob %make-multijob sh-multijob?)
   (parent job)
   (fields
-    kind                ; symbol: one of 'and 'or 'list 'subshell 'global
-    children))          ; span:   children jobs.
+    kind         ; symbol: one of 'and 'or 'list 'subshell 'global
+    continuation ; procedure or #f, called when a child job changes status
+    children))   ; span:   children jobs.
 
 
 ;; Define the variable sh-globals, contains the global job.
@@ -90,7 +91,7 @@
     ; current directory
     (string->charspan* ((foreign-procedure "c_get_cwd" () scheme-object)))
     (make-hashtable string-hash string=?) #f
-    'global (span #t))) ; skip job-id 0, is used by sh-globals itself
+    'global #f (span #t))) ; skip job-id 0, is used by sh-globals itself
 
 ;; Global hashtable pid -> job
 (define %table-pid->job (make-eq-hashtable))
@@ -917,6 +918,7 @@
     '()           ; overridden environment variables - initially none
     sh-globals    ; parent job - initially the global job
     kind
+    #f
     (list->span children-jobs)))
 
 (define (assert-is-job j)
@@ -924,12 +926,37 @@
 
 ;; Create a multijob to later start it. Each element in children-jobs must be a sh-job or subtype.
 (define (sh-multijob kind proc . children-jobs)
-  (apply make-multijob kind assert-is-job %job-start proc children-jobs))
+  (apply make-multijob kind assert-is-job %job-start proc #f children-jobs))
+
+(define (sh-and . children-jobs)
+  (apply make-multijob 'and assert-is-job %multijob-and/start #f children-jobs))
+
+(define (sh-or . children-jobs)
+  (apply make-multijob 'or  assert-is-job %multijob-or/start #f children-jobs))
+
+;; Each argument must be a sh-job, possibly followed by a symbol ; &
+(define (sh-list . children-jobs-with-colon-ampersand)
+  (apply make-multijob 'list
+    (lambda (j) ; validate-job-proc
+      (unless (memq j '(& \x3b;
+                       ))
+        (assert* 'sh-list (sh-job? j))))
+    %multijob-list/start #f
+    children-jobs-with-colon-ampersand))
+
+;; Each argument must be a sh-job, possibly followed by a symbol ; &
+(define (sh-subshell . children-jobs-with-colon-ampersand)
+  (apply make-multijob 'subshell
+    (lambda (j) ; validate-job-proc
+      (unless (memq j '(& \x3b;
+                       ))
+        (assert* 'sh-subshell (sh-job? j))))
+    %job-spawn %multijob-list/run children-jobs-with-colon-ampersand))
 
 
 ;; Start a multijob containing an "and" of children jobs.
 ;; Used by (sh-and), implements runtime behavior of shell syntax foo && bar && baz
-(define (%multijob-start-and mj)
+(define (%multijob-and/start mj)
   (let ((jobs   (multijob-children mj))
         (pgid   (job-pgid mj))
         (status (void)))
@@ -943,7 +970,7 @@
 
 ;; Start a multijob containing an "or" of children jobs.
 ;; Used by (sh-and), implements runtime behavior of shell syntax foo || bar || baz
-(define (%multijob-start-or mj)
+(define (%multijob-or/start mj)
   (let ((jobs   (multijob-children mj))
         (pgid   (job-pgid mj))
         (status '(exited . 1)))
@@ -956,11 +983,11 @@
 
 
 ;; Start a multijob containing a sequence of children jobs optionally followed by & ;
-;; Used by (sh-list) and (sh-subshell), implements runtime behavior of shell syntax foo; bar & baz
-(define (%multijob-start-list mj)
+;; Used by (sh-list), implements runtime behavior of shell syntax foo; bar & baz
+(define (%multijob-list/start mj)
   ; TODO: check for ; among mj and ignore them
   ; TODO: check for & among mj and implement them
-  ; (debugf "; %multijob-start-list ~s status = ~s~%" mj (job-last-status mj))
+  ; (debugf "; %multijob-list/start ~s status = ~s~%" mj (job-last-status mj))
   (let ((jobs   (multijob-children mj))
         (pgid   (job-pgid mj))
         (status (void)))
@@ -971,30 +998,23 @@
         #t))                        ; keep iterating
     status))
 
-(define (sh-and . children-jobs)
-  (apply make-multijob 'and assert-is-job %multijob-start-and #f children-jobs))
 
-(define (sh-or . children-jobs)
-  (apply make-multijob 'or  assert-is-job %multijob-start-or #f children-jobs))
+;; Run a multijob containing a sequence of children jobs optionally followed by & ;
+;; Used by (sh-subshell), implements runtime behavior of shell syntax [ ... ]
+(define (%multijob-list/run mj)
+  ; TODO: check for ; among mj and ignore them
+  ; TODO: check for & among mj and implement them
+  ; (debugf "; %multijob-list/run ~s status = ~s~%" mj (job-last-status mj))
+  (let ((jobs   (multijob-children mj))
+        (pgid   (job-pgid mj))
+        (status (void)))
+    (span-iterate jobs
+      (lambda (i job)
+        (sh-start job pgid)         ; run child job in parent's process group
+        (set! status (sh-wait job)) ; wait for child job to exit
+        #t))                        ; keep iterating
+    status))
 
-
-;; Each argument must be a sh-job, possibly followed by a symbol ; &
-(define (sh-list . children-jobs-with-colon-ampersand)
-  (apply make-multijob 'list
-    (lambda (j) ; validate-job-proc
-      (unless (memq j '(& \x3b;
-                       ))
-        (assert* 'sh-list (sh-job? j))))
-    %multijob-start-list #f children-jobs-with-colon-ampersand))
-
-;; Each argument must be a sh-job, possibly followed by a symbol ; &
-(define (sh-subshell . children-jobs-with-colon-ampersand)
-  (apply make-multijob 'subshell
-    (lambda (j) ; validate-job-proc
-      (unless (memq j '(& \x3b;
-                       ))
-        (assert* 'sh-subshell (sh-job? j))))
-    %job-spawn %multijob-start-list children-jobs-with-colon-ampersand))
 
 (define (sh-run/bytes job)
   ; TODO: implement (sh-run/bytes)

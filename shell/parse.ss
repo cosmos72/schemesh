@@ -73,7 +73,7 @@
               saved-args (car args))))))
     ; (debugf "sh-parse           return: ret = ~s, args = ~s~%" (reverse ret) args)
     (cond
-      ((null? ret) '(sh-true))
+      ((null? ret) '(sh-cmd "true"))
       ((null? (cdr ret)) (car ret))
       (#t (cons 'sh-list (reverse! (list-quoteq! '(& \x3b;
                                                   ) ret)))))))
