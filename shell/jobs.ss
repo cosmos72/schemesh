@@ -646,13 +646,13 @@
 ;
 ;; Warning: this is an internal function, and does not set the job
 ;; as foreground process group. consider calling (sh-fg j) or (sh-wait j) instead.
-(define (job-wait j may-block)
-  (assert* 'job-wait (memq may-block '(blocking nonblocking)))
+(define (cmd-wait j may-block)
+  (assert* 'cmd-wait (memq may-block '(blocking nonblocking)))
   (cond
     ((job-status-member? (job-last-status j) '(exited killed unknown))
       (job-last-status j)) ; job exited, and exit status already available
     ((not (job-started? j))
-      (raise-errorf 'job-wait "job not started yet: ~s" j))
+      (raise-errorf 'cmd-wait "job not started yet: ~s" j))
     (#t
       ; TODO: wait for ALL processes in job's process group?
       (let* ((ret    (pid-wait (job-pid j) may-block))
@@ -689,7 +689,7 @@
     (when (job-status-member? (job-last-status j) '(running))
       ; nonblocking wait for job's pid to exit or stop.
       ; TODO: wait for ALL pids in process group?
-      (job-wait j 'nonblocking))
+      (cmd-wait j 'nonblocking))
     (job-last-status j)))
 
 
@@ -716,7 +716,7 @@
         (pid-kill (fx- (job-pgid j)) 'sigcont)
         ; nonblocking wait for job's pid to exit or stop.
         ; TODO: wait for ALL pids in process group?
-        (job-wait j 'nonblocking)))))
+        (cmd-wait j 'nonblocking)))))
 
 (define %pgid-foreground
   (let ((c-pgid-foreground (foreign-procedure "c_pgid_foreground" (int int) int)))
@@ -755,8 +755,19 @@
 ;;   upon invocation, sets the job as fg process group.
 ;;   And before returning, restores current shell as fg process group.
 (define (sh-fg job-or-id)
-  (let* ((j      (sh-job job-or-id))
-         (j-pgid (job-pgid j)))
+  (let ((j (sh-job job-or-id)))
+    (cond
+      ((sh-cmd? j)      (sh-fg/cmd j))
+      ((sh-multijob? j) (sh-fg/multijob j))
+      (#t
+        (job-last-status-set! j (void))
+        (void)))))
+
+
+;; Continue a cmd by sending SIGCONT to it, then wait for it to exit or stop,
+;; and finally return its status.
+(define (sh-fg/cmd j)
+  (let ((j-pgid (job-pgid j)))
     (cond
       ; if job already exited, return its exit status.
       ; if job is stopped, consider as running: we'll send SIGCONT to it below
@@ -770,7 +781,14 @@
           (pid-kill (fx- j-pgid) 'sigcont)
           ; blocking wait for job's pid to exit or stop.
           ; TODO: wait for ALL pids in process group?
-          (job-wait j 'blocking))))))
+          (cmd-wait j 'blocking))))))
+
+;; Continue a multijob by sending SIGCONT to it, then wait for it to exit or stop,
+;; and finally return its status.
+(define (sh-fg/multijob j)
+  ;; TODO implement
+  (void))
+
 
 
 ;; Continue a job or job-id by sending SIGCONT to it, then wait for it to exit,
@@ -783,7 +801,7 @@
 ;;
 ;; Does NOT return early if job gets stopped, use (sh-fg) for that.
 ;;
-;; Instead if job gets stopped, calls (proc-on-job-stopped)
+;; Instead if job gets stopped, calls (proc-on-job-stopped), which defaults to (break),
 ;; then waits again for the job to exit.
 ;;
 ;; Note: if current shell is in the fg process group,
@@ -791,30 +809,35 @@
 ;;   And before returning, restores current shell as fg process group.
 (define sh-wait
   (case-lambda
-    ((job-or-id)                     (%sh-wait job-or-id break))
-    ((job-or-id proc-on-job-stopped) (%sh-wait job-or-id proc-on-job-stopped))))
+    ((job-or-id)                     (sh-wait* job-or-id break))
+    ((job-or-id proc-on-job-stopped) (sh-wait* job-or-id proc-on-job-stopped))))
 
-(define (%sh-wait job-or-id proc-on-job-stopped)
+
+;; Same as (sh-wait), but all arguments are mandatory
+(define (sh-wait* job-or-id proc-on-job-stopped)
+  ;; TODO: support multijobs
   (when proc-on-job-stopped
     (assert* 'sh-wait (procedure? proc-on-job-stopped)))
   (let* ((j           (sh-job job-or-id))
          (j-pgid      (job-pgid j))
          (global-pgid (job-pgid sh-globals)))
-    ; (debugf "; sh-wait ~s~%" j)
-    (cond
-      ; if job already exited, return its exit status.
-      ; if job is stopped, consider as running
-      ((job-status-member? (job-last-status j) '(exited killed unknown))
-        (job-last-status j))
-      ((not (job-started? j))
-        (raise-errorf 'sh-wait "job not started yet: " j))
-      (#t
-        (job-wait-loop j j-pgid global-pgid proc-on-job-stopped)))))
+  ; (debugf "; sh-wait ~s~%" j)
+  (cond
+    ; if job already exited, return its exit status.
+    ; if job is stopped, consider as running
+    ((job-status-member? (job-last-status j) '(exited killed unknown))
+      (job-last-status j))
+    ((not (job-started? j))
+      (raise-errorf 'sh-wait "job not started yet: " j))
+    (#t
+      (cmd-wait-loop j j-pgid global-pgid proc-on-job-stopped)))))
 
 
-;; internal function used by (sh-wait) to actually wait for a job to exit.
+
+
+;; internal function used by (sh-wait) to actually wait for a cmd to exit.
 ;; return job exit status.
-(define (job-wait-loop j j-pgid global-pgid proc-on-job-stopped)
+(define (cmd-wait-loop j j-pgid global-pgid proc-on-job-stopped)
   ; blocking wait for job's pid to exit.
   ; TODO: wait for ALL pids in process group?
   (dynamic-wind
@@ -824,7 +847,7 @@
       (do ((status #f (begin
                         ; send SIGCONT to job's process group. may raise error
                         (pid-kill (fx- j-pgid) 'sigcont)
-                        (job-wait j 'blocking))))
+                        (cmd-wait j 'blocking))))
           ((job-status-member? status '(exited killed unknown)) status)
         (when (and proc-on-job-stopped (pair? status) (eq? 'stopped (car status)))
           (format #t "; job ~s pid ~s stopped        ~s~%" (job-id j) (job-pid j) j)
@@ -847,9 +870,9 @@
 ;; Options are the same as (sh-start)
 ;;
 ;; Return job status, possible values are the same as (sh-fg)
-(define (sh-run/i j . options)
-  (apply sh-start j options)
-  (sh-fg j))
+(define (sh-run/i job . options)
+  (apply sh-start job options)
+  (sh-fg job))
 
 
 ;; Start a job and wait for it to exit.
@@ -858,9 +881,9 @@
 ;; Options are the same as (sh-start)
 ;;
 ;; Return job status, possible values are the same as (sh-wait)
-(define (sh-run j . options)
-  (apply sh-start j options)
-  (sh-wait j))
+(define (sh-run job . options)
+  (apply sh-start job options)
+  (sh-wait job))
 
 
 ;; Start a job and wait for it to exit.
@@ -869,8 +892,33 @@
 ;; Options are the same as (sh-start)
 ;;
 ;; Return #t if job exited successfully, otherwise return #f.
-(define (sh-run/ok? j . options)
-  (sh-ok? (apply sh-run j options)))
+(define (sh-run/ok? job . options)
+  (sh-ok? (apply sh-run job options)))
+
+
+;; Start a job and wait for it to exit.
+;; Does NOT return early if job is stopped, use (sh-run/i) for that.
+;;
+;; Options are the same as (sh-start)
+;;
+;; Reads job's standard output and returns it converted to bytevector.
+(define (sh-run/bytes job . options)
+  (apply sh-run job options)
+  ; TODO: implement
+  #vu8())
+
+
+;; Start a job and wait for it to exit.
+;; Does NOT return early if job is stopped, use (sh-run/i) for that.
+;;
+;; Options are the same as (sh-start)
+;;
+;; Reads job's standard output and returns it converted to UTF-8b string.
+(define (sh-run/string job . options)
+  (apply sh-run job options)
+  ; TODO: implement
+  "")
+
 
 
 ;; Create or remove a file description redirection for cmd or job
@@ -894,25 +942,6 @@
   (do ((child-cons child-fds (cdr child-cons)))
       ((eq? '() child-cons))
     (sh-fd-redirect! j (car child-cons) existing-fd-or-minus-1)))
-
-
-;; convert job-status to 8-bit exit status suitable for C function exit().
-;; if job-status is (void) return 0
-; if job-status is '(exited . n) return n
-; if job-status is '(killed . signal_name) return 128 + signal_number
-; otherwise return 255
-
-(define (job-approx-exit-status job-status)
-  (cond
-    ((eq? (void) job-status) 0)
-    ((pair? job-status)
-      (cond
-        ((eq? 'exited (car job-status))
-          (cdr job-status))
-        ((eq? 'killed (car job-status))
-          (fx+ 128 (signal-name->number (cdr job-status))))
-        (#t 255))) ; (car job-status) is 'new 'running 'stopped etc
-    (#t 255)))     ; job-status is not (void) nor a cons
 
 
 ;; Create a multijob to later start it.
@@ -1007,16 +1036,6 @@
           (set! status (sh-wait job #f))) ; wait for child job to exit
         #t))                              ; keep iterating
     status))
-
-
-(define (sh-run/bytes job)
-  ; TODO: implement (sh-run/bytes)
-  #vu8())
-
-(define (sh-run/string job)
-  ; TODO: implement (sh-run/string)
-  "")
-
 
 
 
