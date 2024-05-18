@@ -646,13 +646,13 @@
 ;
 ;; Warning: this is an internal function, and does not set the job
 ;; as foreground process group. consider calling (sh-fg j) or (sh-wait j) instead.
-(define (cmd-wait j may-block)
-  (assert* 'cmd-wait (memq may-block '(blocking nonblocking)))
+(define (job-pid-wait j may-block)
+  (assert* 'job-pid-wait (memq may-block '(blocking nonblocking)))
   (cond
     ((job-status-member? (job-last-status j) '(exited killed unknown))
       (job-last-status j)) ; job exited, and exit status already available
     ((not (job-started? j))
-      (raise-errorf 'cmd-wait "job not started yet: ~s" j))
+      (raise-errorf 'job-pid-wait "job not started yet: ~s" j))
     (#t
       ; TODO: wait for ALL processes in job's process group?
       (let* ((ret    (pid-wait (job-pid j) may-block))
@@ -689,7 +689,7 @@
     (when (job-status-member? (job-last-status j) '(running))
       ; nonblocking wait for job's pid to exit or stop.
       ; TODO: wait for ALL pids in process group?
-      (cmd-wait j 'nonblocking))
+      (job-pid-wait j 'nonblocking))
     (job-last-status j)))
 
 
@@ -716,7 +716,7 @@
         (pid-kill (fx- (job-pgid j)) 'sigcont)
         ; nonblocking wait for job's pid to exit or stop.
         ; TODO: wait for ALL pids in process group?
-        (cmd-wait j 'nonblocking)))))
+        (job-pid-wait j 'nonblocking)))))
 
 (define %pgid-foreground
   (let ((c-pgid-foreground (foreign-procedure "c_pgid_foreground" (int int) int)))
@@ -757,16 +757,19 @@
 (define (sh-fg job-or-id)
   (let ((j (sh-job job-or-id)))
     (cond
-      ((sh-cmd? j)      (sh-fg/cmd j))
-      ((sh-multijob? j) (sh-fg/multijob j))
+      ((fx>=? (job-pid j) 0)
+        ; job is a sh-cmd or a sh-subshell: we have a pid to wait for
+        (sh-fg/job-pid j))
+      ((sh-multijob? j)
+        (sh-fg/multijob j))
       (#t
         (job-last-status-set! j (void))
         (void)))))
 
 
-;; Continue a cmd by sending SIGCONT to it, then wait for it to exit or stop,
+;; Continue subprocess by sending SIGCONT to it, then wait for it to exit or stop,
 ;; and finally return its status.
-(define (sh-fg/cmd j)
+(define (sh-fg/job-pid j)
   (let ((j-pgid (job-pgid j)))
     (cond
       ; if job already exited, return its exit status.
@@ -781,7 +784,7 @@
           (pid-kill (fx- j-pgid) 'sigcont)
           ; blocking wait for job's pid to exit or stop.
           ; TODO: wait for ALL pids in process group?
-          (cmd-wait j 'blocking))))))
+          (job-pid-wait j 'blocking))))))
 
 ;; Continue a multijob by sending SIGCONT to it, then wait for it to exit or stop,
 ;; and finally return its status.
@@ -830,14 +833,14 @@
     ((not (job-started? j))
       (raise-errorf 'sh-wait "job not started yet: " j))
     (#t
-      (cmd-wait-loop j j-pgid global-pgid proc-on-job-stopped)))))
+      (job-pid-wait-loop j j-pgid global-pgid proc-on-job-stopped)))))
 
 
 
 
-;; internal function used by (sh-wait) to actually wait for a cmd to exit.
+;; internal function used by (sh-wait) to actually wait for a subprocess to exit.
 ;; return job exit status.
-(define (cmd-wait-loop j j-pgid global-pgid proc-on-job-stopped)
+(define (job-pid-wait-loop j j-pgid global-pgid proc-on-job-stopped)
   ; blocking wait for job's pid to exit.
   ; TODO: wait for ALL pids in process group?
   (dynamic-wind
@@ -847,7 +850,7 @@
       (do ((status #f (begin
                         ; send SIGCONT to job's process group. may raise error
                         (pid-kill (fx- j-pgid) 'sigcont)
-                        (cmd-wait j 'blocking))))
+                        (job-pid-wait j 'blocking))))
           ((job-status-member? status '(exited killed unknown)) status)
         (when (and proc-on-job-stopped (pair? status) (eq? 'stopped (car status)))
           (format #t "; job ~s pid ~s stopped        ~s~%" (job-id j) (job-pid j) j)
