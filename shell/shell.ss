@@ -15,7 +15,7 @@
 
     ; jobs.ss
     sh-job? sh-job sh-job-id sh-job-status sh-jobs
-    sh-cmd sh-cmd* sh-cmd? sh-multijob sh-multijob?
+    sh-cmd sh-cmd* sh-cmd? sh-multijob?
     sh-concat sh-env-copy sh-env sh-env! sh-env-unset! sh-globals sh-global-env
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0
     sh-cwd sh-cwd-set! sh-cd sh-consume-sigchld sh-start sh-bg sh-fg sh-wait sh-ok?

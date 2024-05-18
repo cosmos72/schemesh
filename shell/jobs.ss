@@ -15,7 +15,7 @@
 (library (schemesh shell jobs (0 1))
   (export
     sh-job? sh-job sh-job-id sh-job-status sh-jobs
-    sh-cmd sh-cmd* sh-cmd? sh-multijob sh-multijob?
+    sh-cmd sh-cmd* sh-cmd? sh-multijob?
     sh-concat sh-env-copy sh-env sh-env! sh-env-unset! sh-globals sh-global-env
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0
     sh-cwd sh-cwd-set! sh-cd sh-consume-sigchld sh-start sh-bg sh-fg sh-wait sh-ok?
@@ -47,11 +47,13 @@
                                 ;         (subshell-proc)
     (mutable to-redirect-files) ; vector of files to open before fork()
     (mutable to-close-fds)      ; list: fds to close after spawn
-    proc                        ; #f or procedure to run in main process.
-                                ; receives as argument job followed by options.
-    subshell-proc               ; #f or procedure to run in fork()ed child.
-                                ; receives as argument job followed by options.
-                                ; its return value is passed to (exit-with-job-status)
+    start-proc      ; #f or procedure to run in main process.
+                    ; receives as argument job followed by options.
+    step-proc       ; #f or procedure.
+                    ; For multijobs, will be called when a child job changes status.
+                    ; For cmds, will be called in fork()ed child process and
+                    ; receives as argument job followed by options.
+                    ; For cmds, its return value is passed to (exit-with-job-status)
     (mutable cwd)               ; charspan: working directory
     (mutable env)               ; hashtable: overridden env variables, or '()
     (mutable parent)))          ; parent job, contains default values of env variables
@@ -72,9 +74,9 @@
   (multijob %make-multijob sh-multijob?)
   (parent job)
   (fields
-    kind         ; symbol: one of 'and 'or 'list 'subshell 'global
-    continuation ; procedure or #f, called when a child job changes status
-    children))   ; span:   children jobs.
+    kind                ; symbol: one of 'sh-and 'sh-or 'sh-list 'sh-subshell 'sh-global
+    (mutable current-child-index) ; #f or index of currently running child job
+    children))          ; span: children jobs.
 
 
 ;; Define the variable sh-globals, contains the global job.
@@ -87,11 +89,11 @@
   ;; waiting for sh-globals to exit is not useful:
   ;; pretend it already exited with unknown exit status
   (%make-multijob 0 (get-pid) (get-pgid 0) '(unknown . 0) (vector 0 1 2) (vector) '()
-    #f #f ; proc subshell-proc
+    #f #f ; start-proc step-proc
     ; current directory
     (string->charspan* ((foreign-procedure "c_get_cwd" () scheme-object)))
     (make-hashtable string-hash string=?) #f
-    'global #f (span #t))) ; skip job-id 0, is used by sh-globals itself
+    'sh-global #f (span #t))) ; skip job-id 0, is used by sh-globals itself
 
 ;; Global hashtable pid -> job
 (define %table-pid->job (make-eq-hashtable))
@@ -251,7 +253,7 @@
 ;; TODO: also support closures (lambda (job) ...) that return a string or bytevector.
 (define (sh-cmd program . args)
   (%make-cmd #f -1 -1 '(new . 0) (vector 0 1 2) (vector) '()
-    %cmd-spawn #f ; proc subshell-proc
+    %cmd-spawn #f ; start-proc step-proc
     (sh-cwd)      ; job working directory - initially current directory
     '()           ; overridden environment variables - initially none
     sh-globals    ; parent job - initially the global job
@@ -485,24 +487,20 @@
 ;; into global (pid->job) table nor into global job-id table.
 ;;
 ;; Description:
-;; Start a generic job, executing the Scheme function (job-subshell-proc j)
-;; passing the job j as only argument,
-;; then will call (job-last-status-set!) with the value returned by (job-subshell-proc j)
+;; Start a generic job. Stored in (job-start-proc j) and called by (sh-start).
 ;;
 ;; Options are ignored.
-(define (%job-start j . options)
-  (assert* 'sh-start (procedure? (job-subshell-proc j)))
+(define (%multijob-start j . options)
   ;; this runs in the main process, not in a subprocess.
   ;; TODO: how can we redirect file descriptor?
-  (let ((status '(unknown . 0)))
-    (dynamic-wind
-      (lambda () ; run before body
+  (let ((children (multijob-children j)))
+    (if (span-empty? children)
+      (job-last-status-set! j (void)) ; no children => nothing to do => job exited successfully
+      (begin
+        (multijob-current-child-index-set! j 0)
+        (job-last-status-set! j '(running . #f))
+        (apply sh-start (span-ref children 0) options)))))
         ; set job status as running. Do not assign a job-id.
-        (job-last-status-set! j '(running . #f)))
-      (lambda () ; body
-        (set! status ((job-subshell-proc j) j)))
-      (lambda () ; run after body, even if it raised a condition or called a continuation
-        (job-last-status-set! j status)))))
 
 
 ;; NOTE: this is an internal implementation function, use (sh-start) instead.
@@ -511,7 +509,7 @@
 ;; into global (pid->job) table nor into global job-id table.
 ;;
 ;; Description:
-;; Start a generic job, optionally inserting it into an existing process group.
+;; Start a subshell job, optionally inserting it into an existing process group.
 ;;
 ;; Forks a new subshell process in background, i.e. the foreground process group is NOT set
 ;; to the process group of the newly created process.
@@ -523,10 +521,10 @@
 ;; Options is a list of zero or more of the following:
 ;;   process-group-id: a fixnum, if present and > 0 the new subshell will be inserted
 ;;     into the corresponding process group id - which must already exist.
-(define %job-spawn
+(define %multijob-spawn-subshell
   (let ((c-fork-pid (foreign-procedure "c_fork_pid" (scheme-object int) int)))
     (lambda (j . options)
-      (assert* 'sh-start (procedure? (job-subshell-proc j)))
+      (assert* 'sh-start (procedure? (job-step-proc j)))
       (let* ((process-group-id (job-start-options->process-group-id options))
              (ret (c-fork-pid
                     (job-to-redirect-fds j)
@@ -537,16 +535,19 @@
           ((= ret 0) ; child
             (let ((status '(exited . 255)))
               (dynamic-wind
-                void       ; run before body
+                (lambda () ; run before body
+                  (let ((pid  (get-pid))
+                        (pgid (get-pgid 0)))
+                    (job-pid-set!  j pid)
+                    (job-pgid-set! j pgid)
+                    ; this process now "is" the job j => update sh-globals' pid and pgid
+                    (job-pid-set!  sh-globals pid)
+                    (job-pgid-set! sh-globals pgid)
+                    ; cannot wait on our own process
+                    (job-last-status-set! j '(unknown . 0))))
                 (lambda () ; body
-                  (job-pid-set!  j (get-pid))
-                  (job-pgid-set! j (get-pgid 0))
-                  ; this process now "is" the job j => update sh-globals' pid and pgid
-                  (job-pid-set!  sh-globals (job-pid j))
-                  (job-pgid-set! sh-globals (job-pgid j))
-                  ; cannot wait on our own process
-                  (job-last-status-set! j '(unknown . 0))
-                  (set! status ((job-subshell-proc j) j)))
+                  ; sh-subshell stores %multijob-run-subshell in (job-step-proc j)
+                  (set! status ((job-step-proc j) j)))
                 (lambda () ; run after body, even if it raised a condition
                   (exit-with-job-status status)))))
           ((> ret 0) ; parent
@@ -579,9 +580,10 @@
         (raise-errorf 'sh-start "job already started with pid ~s" (job-pid j)))
       (#t
         (raise-errorf 'sh-start "job already started"))))
-  (unless (procedure? (job-proc j))
-    (raise-errorf 'sh-start "cannot start job, it has bad or missing job-proc: ~s" j))
-  (apply (job-proc j) j options)
+  (let ((proc (job-start-proc j)))
+    (unless (procedure? proc)
+      (raise-errorf 'sh-start "cannot start job, it has bad or missing job-start-proc: ~s" j))
+    (apply proc j options))
   (fd-close-list (job-to-close-fds j))
   (pid->job-set! (job-pid j) j)           ; add job to pid->job table
   (when (eq? sh-globals (job-parent j))
@@ -779,7 +781,7 @@
 ;;   (cons 'killed  signal-name)
 ;;   (cons 'unknown ...)
 ;;
-;; If job gets stopped does not return early, use (sh-fg) for that.
+;; Does NOT return early if job gets stopped, use (sh-fg) for that.
 ;;
 ;; Instead if job gets stopped, calls (proc-on-job-stopped)
 ;; then waits again for the job to exit.
@@ -916,103 +918,82 @@
 ;; Create a multijob to later start it.
 ;; Internal function, accepts an optional function to validate each element in children-jobs
 
-(define (make-multijob kind validate-job-proc proc subshell-proc . children-jobs)
+(define (make-multijob kind validate-job-proc start-proc next-proc . children-jobs)
   (assert* 'make-multijob (symbol? kind))
-  (assert (or (not subshell-proc) (procedure? subshell-proc)))
+  (assert* 'make-multijob (procedure? start-proc))
+  (when next-proc
+    (assert* 'make-multijob (procedure? next-proc)))
   (when validate-job-proc
-    (list-iterate children-jobs validate-job-proc))
+    (do ((tail children-jobs (cdr tail)))
+        ((null? tail))
+      (validate-job-proc kind (car tail))))
   (%make-multijob #f -1 -1 '(new . 0) (vector 0 1 2) (vector) '()
-    proc          ; executed in main process
-    subshell-proc ; executed in a subprocess, if proc spawns it
+    start-proc    ; executed to start the job
+    next-proc     ; executed when a child job changes status
     (sh-cwd)      ; job working directory - initially current directory
     '()           ; overridden environment variables - initially none
     sh-globals    ; parent job - initially the global job
     kind
-    #f
+    #f            ; no child running yet
     (list->span children-jobs)))
 
-(define (assert-is-job j)
-  (assert* 'sh-multijob (sh-job? j)))
+(define (assert-is-job who j)
+  (assert* who (sh-job? j)))
 
 ;; Create a multijob to later start it. Each element in children-jobs must be a sh-job or subtype.
-(define (sh-multijob kind proc . children-jobs)
-  (apply make-multijob kind assert-is-job %job-start proc #f children-jobs))
 
 (define (sh-and . children-jobs)
-  (apply make-multijob 'and assert-is-job %multijob-and/start #f children-jobs))
+  (apply make-multijob 'sh-and assert-is-job %multijob-start %multijob-step-and children-jobs))
 
 (define (sh-or . children-jobs)
-  (apply make-multijob 'or  assert-is-job %multijob-or/start #f children-jobs))
+  (apply make-multijob 'sh-or  assert-is-job %multijob-start %multijob-step-or children-jobs))
 
-;; Each argument must be a sh-job, possibly followed by a symbol ; &
+;; Each argument must be a sh-job or subtype, possibly followed by a symbol ; &
 (define (sh-list . children-jobs-with-colon-ampersand)
-  (apply make-multijob 'list
-    (lambda (j) ; validate-job-proc
+  (apply make-multijob 'sh-list
+    (lambda (kind j) ; validate-job-proc
       (unless (memq j '(& \x3b;
                        ))
-        (assert* 'sh-list (sh-job? j))))
-    %multijob-list/start #f
+        (assert* kind (sh-job? j))))
+    %multijob-start
+    %multijob-step-list
     children-jobs-with-colon-ampersand))
 
-;; Each argument must be a sh-job, possibly followed by a symbol ; &
+;; Each argument must be a sh-job or subtype, possibly followed by a symbol ; &
 (define (sh-subshell . children-jobs-with-colon-ampersand)
-  (apply make-multijob 'subshell
-    (lambda (j) ; validate-job-proc
+  (apply make-multijob 'sh-subshell
+    (lambda (kind j) ; validate-job-proc
       (unless (memq j '(& \x3b;
                        ))
-        (assert* 'sh-subshell (sh-job? j))))
-    %job-spawn %multijob-subshell/run children-jobs-with-colon-ampersand))
+        (assert* kind (sh-job? j))))
+    %multijob-spawn-subshell
+    %multijob-run-subshell ; executed in child process
+    children-jobs-with-colon-ampersand))
 
 
-;; Start a multijob containing an "and" of children jobs.
+;; Run next child job in a multijob containing an "and" of children jobs.
 ;; Used by (sh-and), implements runtime behavior of shell syntax foo && bar && baz
-(define (%multijob-and/start mj)
-  (let ((jobs   (multijob-children mj))
-        (pgid   (job-pgid mj))
-        (status (void)))
-    (span-iterate jobs
-      (lambda (i job)
-        (sh-start job pgid)         ; run child job in parent's process group
-        (set! status (sh-wait job)) ; wait for child job to exit
-        (eq? (void) status)))       ; keep iterating only if job succeeded
-    status))
+(define (%multijob-step-and mj)
+  (void))
 
-
-;; Start a multijob containing an "or" of children jobs.
+;; Run next child job in a multijob containing an "or" of children jobs.
 ;; Used by (sh-and), implements runtime behavior of shell syntax foo || bar || baz
-(define (%multijob-or/start mj)
-  (let ((jobs   (multijob-children mj))
-        (pgid   (job-pgid mj))
-        (status '(exited . 1)))
-    (span-iterate jobs
-      (lambda (i job)
-        (sh-start job pgid)         ; run child job in parent's process group
-        (set! status (sh-wait job)) ; wait for child job to exit
-        (not (eq? (void) status)))) ; keep iterating only if job failed
-    status))
+(define (%multijob-step-or mj)
+  (void))
 
 
-;; Start a multijob containing a sequence of children jobs optionally followed by & ;
+;; Run next child job in a multijob containing a sequence of children jobs optionally followed by & ;
 ;; Used by (sh-list), implements runtime behavior of shell syntax foo; bar & baz
-(define (%multijob-list/start mj)
+(define (%multijob-step-list mj)
   ; TODO: check for ; among mj and ignore them
   ; TODO: check for & among mj and implement them
-  ; (debugf "; %multijob-list/start ~s status = ~s~%" mj (job-last-status mj))
-  (let ((jobs   (multijob-children mj))
-        (pgid   (job-pgid mj))
-        (status (void)))
-    (span-iterate jobs
-      (lambda (i job)
-        (when (sh-job? job)
-          (sh-start job pgid)          ; run child job in parent's process group
-          (set! status (sh-wait job))) ; wait for child job to exit
-        #t))                           ; keep iterating
-    status))
+  (void))
 
 
-;; Run a multijob containing a sequence of children jobs optionally followed by & ;
+;; Executed in child process:
+;; run a multijob containing a sequence of children jobs optionally followed by & ;
 ;; Used by (sh-subshell), implements runtime behavior of shell syntax [ ... ]
-(define (%multijob-subshell/run mj)
+(define (%multijob-run-subshell mj)
   ; TODO: check for ; among mj and ignore them
   ; TODO: check for & among mj and implement them
   ; (debugf "; %multijob-subshell/run ~s status = ~s~%" mj (job-last-status mj))
@@ -1022,9 +1003,9 @@
     (span-iterate jobs
       (lambda (i job)
         (when (sh-job? job)
-          (sh-start job pgid)          ; run child job in parent's process group
+          (sh-start job pgid)             ; run child job in parent's process group
           (set! status (sh-wait job #f))) ; wait for child job to exit
-        #t))                           ; keep iterating
+        #t))                              ; keep iterating
     status))
 
 
@@ -1043,7 +1024,7 @@
 (record-writer (record-type-descriptor job)
   (lambda (obj port writer)
     (display "(sh-job " port)
-    (writer (job-subshell-proc obj) port)
+    (writer (job-step-proc obj) port)
     (display ")" port)))
 
 ;; customize how "cmd" objects are printed
@@ -1059,13 +1040,13 @@
 ;; customize how "multijob" objects are printed
 (record-writer (record-type-descriptor multijob)
   (lambda (obj port writer)
-    (display "(sh-" port)
+    (display #\( port)
     (display (multijob-kind obj) port)
     (span-iterate (multijob-children obj)
        (lambda (i child)
          (display #\space port)
          (display child port)))
-    (display ")" port)))
+    (display #\) port)))
 
 (begin
   (c-environ->sh-global-env))
