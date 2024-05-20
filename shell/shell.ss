@@ -18,8 +18,8 @@
     sh-cmd sh-cmd* sh-cmd? sh-multijob?
     sh-concat sh-env-copy sh-env sh-env! sh-env-unset! sh-globals sh-global-env
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0
-    sh-cwd sh-cwd-set! sh-cd sh-consume-sigchld sh-start sh-bg sh-fg sh-wait sh-ok?
-    sh-run sh-run/i sh-run/ok? sh-run/bytes sh-run/string
+    sh-cwd sh-cwd-set! sh-cd sh-consume-sigchld sh-multijob-child-ref sh-multijob-child-length
+    sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/ok? sh-run/bytes sh-run/string
     sh-and sh-or sh-list sh-subshell
     sh-fd-redirect! sh-fds-redirect!
 
