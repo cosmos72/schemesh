@@ -872,9 +872,15 @@
 
 
 
-;; Continue a job or job-id by sending SIGCONT to it, then wait for it to exit,
-;; and finally return its status, which can be one of:
+;; Continue a job or job-id by optionally sending SIGCONT to it,
+;; then wait for it to exit, and finally return its status.
 ;;
+;; Arguments are:
+;;   job-or-id           ; a job or job-id
+;;   send-sigcont?       ; if truthy, send SIGCONT to job before waiting for it to exit, default is #t
+;;   proc-on-job-stopped ; procedure to call if jobs gets stopped, default is break
+;;
+;; Returned job status can be one of:
 ;;   (void)                      ; if process exited with exit-status = 0
 ;;   (cons 'exited  exit-status)
 ;;   (cons 'killed  signal-name)
@@ -890,12 +896,16 @@
 ;;   And before returning, restores current shell as fg process group.
 (define sh-wait
   (case-lambda
-    ((job-or-id)                     (sh-wait* job-or-id break))
-    ((job-or-id proc-on-job-stopped) (sh-wait* job-or-id proc-on-job-stopped))))
+    ((job-or-id)
+      (sh-wait* job-or-id #t break))
+    ((job-or-id send-sigcont?)
+      (sh-wait* job-or-id send-sigcont? break))
+    ((job-or-id send-sigcont? proc-on-job-stopped)
+      (sh-wait* job-or-id send-sigcont? proc-on-job-stopped))))
 
 
 ;; Same as (sh-wait), but all arguments are mandatory
-(define (sh-wait* job-or-id proc-on-job-stopped)
+(define (sh-wait* job-or-id send-sigcont? proc-on-job-stopped)
   ;; TODO: support multijobs
   (when proc-on-job-stopped
     (assert* 'sh-wait (procedure? proc-on-job-stopped)))
@@ -909,7 +919,7 @@
     ((not (job-started? j))
       (raise-errorf 'sh-wait "job not started yet: " j))
     (#t
-      (sh-wait-loop j proc-on-job-stopped)))))
+      (sh-wait-loop j send-sigcont? proc-on-job-stopped)))))
 
 
 
@@ -920,18 +930,18 @@
 ;;
 ;; Instead if job gets stopped, calls (proc-on-job-stopped), which defaults to (break),
 ;; then waits again for the job to exit.
-(define (sh-wait-loop j proc-on-job-stopped)
+(define (sh-wait-loop j send-sigcont? proc-on-job-stopped)
   (let ((j-pgid (job-pgid j)))
     (if (fx>=? j-pgid 0)
       ;; job has a process group id, wait on it
-      (sh-wait-loop/pgid     j j-pgid (job-pgid sh-globals) proc-on-job-stopped)
-      (sh-wait-loop/multijob j proc-on-job-stopped))))
+      (sh-wait-loop/pgid     j j-pgid (job-pgid sh-globals) send-sigcont? proc-on-job-stopped)
+      (sh-wait-loop/multijob j send-sigcont? proc-on-job-stopped))))
 
 
 
 ;; internal function used by (sh-wait) to actually wait for a subprocess to exit.
 ;; return job exit status.
-(define (sh-wait-loop/pgid j j-pgid global-pgid proc-on-job-stopped)
+(define (sh-wait-loop/pgid j j-pgid global-pgid send-sigcont? proc-on-job-stopped)
   ; blocking wait for job's process group id to exit.
   ; TODO: wait for ALL pids in process group?
   (dynamic-wind
@@ -939,8 +949,8 @@
       (%pgid-foreground 'sh-wait global-pgid j-pgid))
     (lambda () ; body
       (do ((status #f (begin
-                        ; send SIGCONT to job's process group. may raise error
-                        (pid-kill (fx- j-pgid) 'sigcont)
+                        (when send-sigcont?
+                          (pid-kill (fx- j-pgid) 'sigcont))
                         (job-pid-wait j 'blocking))))
           ((job-status-member? status '(exited killed unknown)) status)
         (when (and proc-on-job-stopped (pair? status) (eq? 'stopped (car status)))
@@ -954,16 +964,19 @@
           ; (proc-on-job-stopped) above or some other function raised an exception,
           ; or (proc-on-job-stopped) called a continuation, but the job is still running
           ; -> interrupt the job's whole process group before returning
-          (pid-kill (fx- j-pgid) 'sigcont)
+          (when send-sigcont?
+            (pid-kill (fx- j-pgid) 'sigcont))
           (pid-kill (fx- j-pgid) 'sigint))))))
 
 
 ;; internal function used by (sh-wait) to actually wait for a multijob to exit.
 ;; return job exit status.
-(define (sh-wait-loop/multijob mj proc-on-job-stopped)
+(define (sh-wait-loop/multijob mj send-sigcont? proc-on-job-stopped)
   (let* ((child (sh-multijob-child-ref mj (multijob-current-child-index mj)))
          ;; call (sh-wait*) on child
-         (child-exit-status (if (sh-job? child) (sh-wait* child proc-on-job-stopped) (void)))
+         (child-exit-status (if (sh-job? child)
+                              (sh-wait* child send-sigcont? proc-on-job-stopped)
+                              (void)))
          (step-proc (job-step-proc mj)))
     (cond
       ((or (not step-proc) (job-status-ends-multijob? child-exit-status))
@@ -976,7 +989,7 @@
         (step-proc mj)
         (if (job-status-member? (job-last-status mj) '(exited killed unknown))
           (job-last-status mj)
-          (sh-wait-loop/multijob mj proc-on-job-stopped))))))
+          (sh-wait-loop/multijob mj send-sigcont? proc-on-job-stopped))))))
 
 
 
@@ -1165,9 +1178,9 @@
     (span-iterate children
       (lambda (i job)
         (when (sh-job? job)
-          (sh-start job pgid)             ; run child job in parent's process group
-          (set! status (sh-wait job #f))) ; wait for child job to exit
-        #t))                              ; keep iterating
+          (sh-start job pgid)                ; run child job in parent's process group
+          (set! status (sh-wait job #f #f))) ; wait for child job to exit
+        #t))                                 ; keep iterating
     status))
 
 
