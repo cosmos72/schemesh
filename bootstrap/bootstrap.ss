@@ -16,7 +16,7 @@
     (rnrs exceptions)
     ; Unlike R6RS (eval obj environment), Chez Scheme's (eval obj)
     ; uses interaction-environment and can modify it
-    (only (chezscheme) eval format fx1- gensym make-format-condition syntax-error void))
+    (only (chezscheme) current-time eval format fx1- gensym make-format-condition syntax-error void))
 
 
 (define debugf
@@ -29,6 +29,7 @@
                      (buffer-mode none)
                      (make-transcoder (utf-8-codec) (eol-style lf)
                                       (error-handling-mode raise)))))
+      (format pts1 "; ~a " (current-time))
       (apply format pts1 format-string args)
       (flush-output-port pts1))))
 

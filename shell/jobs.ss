@@ -602,7 +602,7 @@
 ;;   process-group-id: a fixnum, if present and > 0 then the new process will be inserted
 ;;   into the corresponding process group id - which must already exist.
 (define (sh-start j . options)
-  ; (debugf "; sh-start ~s~%" j)
+  ; (debugf "sh-start ~s~%" j)
   (when (job-started? j)
     (cond
       ((fixnum? (job-id j))
@@ -834,6 +834,19 @@
         (job-last-status-set! j (void))
         (void)))))
 
+#|
+(define (sh-fg/job-pid@debugf j)
+  (debugf "sh-fg/job-pid ~s last status = ~s...~%" j (job-last-status j))
+  (let ((ret (sh-fg/job-pid j)))
+    (debugf "... sh-fg/job-pid ~s = ~s~%" j ret)
+    ret))
+
+(define (sh-fg/multijob@debugf j)
+  (debugf "sh-fg/multijob ~s last status = ~s...~%" j (job-last-status j))
+  (let ((ret (sh-fg/multijob j)))
+    (debugf "... sh-fg/multijob ~s = ~s~%" j ret)
+    ret))
+|#
 
 ;; Continue subprocess by sending SIGCONT to it, then wait for it to exit or stop,
 ;; and finally return its status.
@@ -850,6 +863,8 @@
 ;; Continue a multijob by sending SIGCONT to it, then wait for it to exit or stop,
 ;; and finally return its status.
 (define (sh-fg/multijob mj)
+  (unless (job-status-member? (job-last-status mj) '(running))
+    (job-last-status-set! mj (cons 'running (job-id mj))))
   (let* ((child (sh-multijob-child-ref mj (multijob-current-child-index mj)))
          ;; call (sh-fg) on child
          (child-exit-status (if (sh-job? child) (sh-fg child) (void)))
@@ -860,7 +875,7 @@
         (job-last-status-set! mj child-exit-status)
         child-exit-status)
       (#t
-        ; child exited: notify parent job by calling (job-step-proc)
+        ; child exited: notify multijob by calling (job-step-proc)
         ; then call (sh-fg/multijob) again
         (step-proc mj)
         (if (job-status-member? (job-last-status mj) '(exited killed stopped unknown))
@@ -910,7 +925,7 @@
   (when proc-on-job-stopped
     (assert* 'sh-wait (procedure? proc-on-job-stopped)))
   (let* ((j           (sh-job job-or-id)))
-  ; (debugf "; sh-wait ~s~%" j)
+  ; (debugf "sh-wait ~s~%" j)
   (cond
     ; if job already exited, return its exit status.
     ; if job is stopped, consider as running
@@ -1146,22 +1161,29 @@
 (define (%multijob-step-list mj)
   (let* ((old-idx  (multijob-current-child-index mj))
          (idx      (fx1+ old-idx))
-         (child-status (sh-multijob-child-status mj old-idx)))
-    (while (let ((child (sh-multijob-child-ref mj idx)))
-             (and child (not (sh-job? child))))
-      ; skip ;
-      ; TODO: check for (eq? '& child) and implement it
-      (set! idx (fx1+ idx)))
-    (let ((child (sh-multijob-child-ref mj idx)))
-      (if (sh-job? child)
-        (begin
-           ; start next child job
-          (multijob-current-child-index-set! mj idx)
-          (sh-start child))
-        (begin
-          ; end of children reached. propagate status of last child
-          (multijob-current-child-index-set! mj -1)
-          (job-last-status-set! mj child-status))))))
+         (child-n  (span-length (multijob-children mj)))
+         (child-status (sh-multijob-child-status mj old-idx))
+         (done?    #f))
+    (until (or done? (fx>? idx child-n))
+      (let ((child (sh-multijob-child-ref mj idx)))
+        ; (debugf "multijob-step-list status = ~s, start child ~s = ~s~%" (job-last-status mj) idx child)
+        (cond
+          ((sh-job? child)
+            ; start next child job
+            (multijob-current-child-index-set! mj idx)
+            (sh-start child)
+            (set! idx (fx1+ idx))
+            ; all done, unless job is followed by '&
+            ; in such case, continue spawning jobs
+            (set! done? (not (eq? '& (sh-multijob-child-ref mj idx)))))
+          (child
+            ; child is a symbol, either & or ;
+            (set! idx (fx1+ idx)))
+          (#t
+            ; end of children reached. propagate status of last sync child
+            (multijob-current-child-index-set! mj -1)
+            (job-last-status-set! mj child-status)
+            (set! done? #t)))))))
 
 
 
@@ -1169,9 +1191,7 @@
 ;; run a multijob containing a sequence of children jobs optionally followed by & ;
 ;; Used by (sh-subshell), implements runtime behavior of shell syntax [ ... ]
 (define (%multijob-run-subshell mj)
-  ; TODO: check for ; among mj and ignore them
-  ; TODO: check for & among mj and implement them
-  ; (debugf "; %multijob-subshell/run ~s status = ~s~%" mj (job-last-status mj))
+  ; (debugf "%multijob-subshell/run ~s status = ~s~%" mj (job-last-status mj))
   (let ((children   (multijob-children mj))
         (pgid   (job-pgid mj))
         (status (void)))
@@ -1179,8 +1199,10 @@
       (lambda (i job)
         (when (sh-job? job)
           (sh-start job pgid)                ; run child job in parent's process group
-          (set! status (sh-wait job #f #f))) ; wait for child job to exit
-        #t))                                 ; keep iterating
+          (unless (eq? '& (sh-multijob-child-ref mj (fx1+ i)))
+            ; wait for child job to exit, unless it's followed by '&
+            (set! status (sh-wait job #f #f))))
+        #t)) ; keep iterating
     status))
 
 

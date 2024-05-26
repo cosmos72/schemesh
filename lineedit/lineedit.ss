@@ -45,7 +45,7 @@
   (assert* 'linectx-keytable-call (linectx? ctx))
   (let-values (((proc n) (linectx-keytable-find
                            (linectx-ktable ctx) (linectx-rbuf ctx))))
-    ;; (debugf "; linectx-keytable-call consume ~s chars, call ~s~%" n proc)
+    ;; (debugf "linectx-keytable-call consume ~s chars, call ~s~%" n proc)
     (cond
       ((procedure? proc) (proc ctx))
       ((hashtable? proc) (set! n 0)) ; incomplete sequence, wait for more keystrokes
@@ -400,7 +400,7 @@
          (ix (vscreen-length-at-y screen iy))
          (vy (fx+ iy (vscreen-prompt-end-y screen)))
          (vx (fx+ ix (if (fxzero? iy) (vscreen-prompt-end-x screen) 0))))
-    ;; (debugf "; linectx-move-from-end-lines vx = ~s, vy = ~s~%" vx vy)
+    ;; (debugf "linectx-move-from-end-lines vx = ~s, vy = ~s~%" vx vy)
     (linectx-term-xy-set! ctx vx vy)))
 
 
@@ -474,7 +474,7 @@
                    (xdraw0   (fxmax 0 (fxmin xdirty0 len)))
                    (xdraw1   (fxmax 0 (fxmin xdirty1 len)))
                    (nl       (if (and (charline-nl? line) (fx=? xdraw1 len)) 1 0))) ;; 1 if newline, 0 otherwise
-              ; (debugf "; linectx-redraw-dirty i = ~s, len = ~s, width-at-i = ~s, xdirty0 = ~s -> ~s, xdirty1 = ~s -> ~s, nl = ~s~%"
+              ; (debugf "linectx-redraw-dirty i = ~s, len = ~s, width-at-i = ~s, xdirty0 = ~s -> ~s, xdirty1 = ~s -> ~s, nl = ~s~%"
               ;         i len width-at-i xdirty0 xdraw0 xdirty1 xdraw1 nl)
               (lineterm-move ctx vx vy (fx+ xdraw0 vxoffset) vi)
               (lineterm-write/cbuffer ctx line xdraw0 (fx- xdraw1 nl)) ;; do not print the newline yet
@@ -500,7 +500,7 @@
     (let ((yn (charlines-length screen)))
       (when (fx>=? ymax yn)
         (let ((vyn (fx+ prompt-y yn)))
-          ; (debugf "; linectx-redraw-dirty move (~s . ~s) -> (~s . ~s) then clear-to-eos~%" vx vy 0 vyn)
+          ; (debugf "linectx-redraw-dirty move (~s . ~s) -> (~s . ~s) then clear-to-eos~%" vx vy 0 vyn)
           (lineterm-move ctx vx vy 0 vyn)
           (set! vx 0)
           (set! vy vyn)
@@ -610,7 +610,7 @@
         (wbuf  (linectx-wbuf  ctx))
         (vx    (if (fxzero? y) (fx+ x (linectx-prompt-end-x ctx)) x)) ;; also count prompt length!
         (vy    (fx+ y (linectx-prompt-end-y ctx))))                   ;; also count prompt length!
-    ;; (debugf "; linectx-draw-char-at-xy at (~s ~s) char ~s~%" x y ch)
+    ;; (debugf "linectx-draw-char-at-xy at (~s ~s) char ~s~%" x y ch)
     (when (and ch (char>=? ch #\space))
       (lineterm-move-to ctx vx vy)
       (case style
