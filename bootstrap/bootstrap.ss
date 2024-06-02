@@ -29,10 +29,9 @@
                      (buffer-mode none)
                      (make-transcoder (utf-8-codec) (eol-style lf)
                                       (error-handling-mode raise)))))
-      (format pts1 "; ~a " (current-time))
+      (format pts1 "; ~a " (current-time 'time-monotonic))
       (apply format pts1 format-string args)
       (flush-output-port pts1))))
-
 
 (define (eval-string str)
   (eval (read (open-string-input-port str))))
