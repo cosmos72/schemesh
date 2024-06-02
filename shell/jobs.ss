@@ -881,7 +881,9 @@
       ((job-status-member? child-status '(stopped))
         ; child is stopped. propagate child status and return
         (job-last-status-set! mj child-status)
-        child-status))))
+        child-status)
+      (#t
+        (raise-errorf 'sh-fg "child job not started yet: ~s" child)))))
 
 
 

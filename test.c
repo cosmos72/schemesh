@@ -728,6 +728,11 @@ static const testcase tests[] = {
     {"(sh-run   (sh-list (sh-cmd \"true\") (sh-cmd \"false\")))\n", "(exited . 1)"},
     {"(sh-run/i (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 1)"},
     {"(sh-run   (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", ""},
+    {"(let ((j (sh-and (sh-cmd \"true\") (sh-cmd \"false\"))))\n"
+     "  (sh-start j)\n"
+     "  (sh-bg j)\n"
+     "  (sh-wait j))\n",
+     "(exited . 1)"},
     /* ------------------------- shell syntax ------------------------------- */
     {"(sh-parse '(\"wc\" \"-l\" \"myfile\" > \"mylog\" \\x3b; \"echo\" \"done\"))",
      "(sh-list (sh-cmd* wc -l myfile '> mylog) '; (sh-cmd echo done))"},
