@@ -115,6 +115,69 @@
   (hashtable-delete! %table-pid->job pid))
 
 
+;; return #t if job-status is (void), i.e. if job exited with exit status 0,
+;; otherwise return #f
+;;
+;; job-status must be one of the possible values returned by
+;; (sh-fg) (sh-fg) (sh-wait) or (sh-job-status)
+(define (sh-ok? job-status)
+  (eq? job-status (void)))
+
+
+;; Convert a job-status to one of: 'new 'running 'stopped 'exited 'killed 'unknown
+(define (job-status->kind job-status)
+  ;; job-status is either (void) or a pair
+  (cond
+    ((eq? (void) job-status)  'exited)
+    ((pair? job-status)       (car job-status))
+    (#t                       'unknown)))
+
+
+;; Return #t if job-status is a pair whose car is in allowed-list,
+;; otherwise return #f;
+;;
+;; if job-status is (void) and allowed-list also contains 'exited
+;; then return #t because (void) is a shortcut for '(exited . 0)
+(define (job-status-member? job-status allowed-list)
+  (memq (job-status->kind job-status) allowed-list))
+
+
+;; Return #t if (job-last-status j) is a pair whose car is in allowed-list,
+;; otherwise return #f;
+;;
+;; if (job-last-status j) is (void) and allowed-list also contains 'exited
+;; then return #t because (void) is a shortcut for '(exited . 0)
+(define (job-has-status? j allowed-list)
+  (job-status-member? (job-last-status j) allowed-list))
+
+
+;; Return #t if job-status represents a child job status
+;; that causes a parent multijob to stop or end, i.e. one of:
+;; '(unknown . *)
+;; '(stopped . *)
+;; '(killed  . sigint)
+;; '(killed  . sigquit)
+;;
+(define (job-status-stops-or-ends-multijob? job-status)
+  (let ((kind (job-status->kind job-status)))
+    (or (memq kind '(unknown stopped))
+        (and (eq? kind 'killed)
+             (memq (cdr job-status) '(sigint sigquit))))))
+
+
+;; Return #t if job-status represents a child job status
+;; that causes a parent multijob to end, i.e. one of:
+;; '(unknown . *)
+;; '(killed  . sigint)
+;; '(killed  . sigquit)
+;;
+(define (job-status-ends-multijob? job-status)
+  (let ((kind (job-status->kind job-status)))
+    (or (eq? kind 'unknown)
+        (and (eq? kind 'killed)
+             (memq (cdr job-status) '(sigint sigquit))))))
+
+
 ;; Return number of children in specified multijob.
 ;; Return 0 if mj is not a multijob.
 (define (sh-multijob-child-length mj)
@@ -141,7 +204,6 @@
     (if (sh-job? child)
       (job-last-status child)
       #f)))
-
 
 
 
@@ -188,9 +250,8 @@
 ;; Also replace any job status '(running . #f) -> '(running . job-id)
 ;; Return updated job status.
 (define (job-id-set-or-unset-as-needed! j)
-  (let* ((status (job-last-status j))
-         (kind (if (pair? status) (car status) 'exited)))
-    (case kind
+  (let ((status (job-last-status j)))
+    (case (job-status->kind status)
       ((running stopped)
         (job-id-set! j))
       ((exited killed unknown)
@@ -456,6 +517,8 @@
            (entry (c-environ-ref 0) (c-environ-ref i)))
           ((not (pair? entry)))
         (sh-env-set+export! sh-globals (car entry) (cdr entry) #t)))))
+
+
 ;; Extract environment variables from specified job and all its parents,
 ;; and convert them to a vector of bytevector0.
 ;; Argument which must be one of:
@@ -464,21 +527,11 @@
 (define (sh-env->vector-of-bytevector0 job-or-id which)
   (string-hashtable->vector-of-bytevector0 (sh-env-copy job-or-id which)))
 
+
 (define (sh-consume-sigchld)
   ; TODO: call (signal-consume-sigchld) and (pid-wait) to reap zombies
   ;        and collect exit status of child processes
   (void))
-
-;; return #t if job-status is (void), i.e. if job exited with exit status 0,
-;; otherwise return #f
-;;
-;; job-status must be one of the possible values returned by (sh-fg) or (sh-wait)
-(define (sh-ok? job-status)
-  (cond
-    ((eq? (void) job-status) #t)
-    (else
-      (assert* 'sh-ok? (pair? job-status))
-      #f)))
 
 
 (define (job-start-options->process-group-id options)
@@ -667,61 +720,6 @@
       (cons 'unknown pid-wait-result))))
 
 
-;; Convert a job-status to one of: 'new 'running 'stopped 'exited 'killed 'unknown
-(define (job-status->kind job-status)
-  ;; job-status is either (void) or a pair
-  (cond
-    ((eq? (void) job-status)  'exited)
-    ((pair? job-status)       (car job-status))
-    (#t                       'unknown)))
-
-
-;; Return #t if job-status is a pair whose car is in allowed-list,
-;; otherwise return #f;
-;;
-;; if job-status is (void) and allowed-list also contains 'exited
-;; then return #t because (void) is a shortcut for '(exited . 0)
-(define (job-status-member? job-status allowed-list)
-  (memq (job-status->kind job-status) allowed-list))
-
-
-;; Return #t if (job-last-status j) is a pair whose car is in allowed-list,
-;; otherwise return #f;
-;;
-;; if (job-last-status j) is (void) and allowed-list also contains 'exited
-;; then return #t because (void) is a shortcut for '(exited . 0)
-(define (job-has-status? j allowed-list)
-  (job-status-member? (job-last-status j) allowed-list))
-
-
-;; Return #t if job-status is a pair representing a child job status
-;; that causes a parent multijob to stop or end, i.e. one of:
-;; '(unknown . *)
-;; '(stopped . *)
-;; '(killed  . sigint)
-;; '(killed  . sigquit)
-;;
-(define (job-status-stops-or-ends-multijob? job-status)
-  (if (pair? job-status)
-    (let ((kind   (car job-status)))
-      (or (memq kind '(unknown stopped))
-          (and (eq? kind 'killed)
-               (memq (cdr job-status) '(sigint sigquit)))))
-    #f))
-
-;; Return #t if job-status is a pair representing a child job status
-;; that causes a parent multijob to end, i.e. one of:
-;; '(unknown . *)
-;; '(killed  . sigint)
-;; '(killed  . sigquit)
-;;
-(define (job-status-ends-multijob? job-status)
-  (if (pair? job-status)
-    (let ((kind   (car job-status)))
-      (or (eq? kind 'unknown)
-          (and (eq? kind 'killed)
-               (memq (cdr job-status) '(sigint sigquit)))))
-    #f))
 
 
 ;; Internal function called by (sh-job-status)
