@@ -720,6 +720,129 @@
       (cons 'unknown pid-wait-result))))
 
 
+;; Common implementation of (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
+(define (advance-job-or-id mode job-or-id)
+  (assert* 'advance-job-or-id (memq mode '(sh-fg sh-bg sh-wait sh-subshell sh-job-status)))
+  (let ((j (sh-job job-or-id)))
+    (when (job-has-status? j '(running stopped))
+      (advance-job/any mode j)
+    (job-id-set-or-unset-as-needed! j))))
+
+
+;; Internal function called by (advance-job-or-id) (advance-job/multijob)
+(define (advance-job/any mode j)
+  (cond
+    ((job-has-status? j '(exited killed unknown))
+      (job-last-status j)) ; job exited, and exit status already available
+    ((not (job-started? j))
+      (raise-errorf mode  "job not started yet: ~s" j))
+    ((fx>? (job-pid j) 0)
+      (advance-job/pid mode j))
+    ((sh-multijob? j)
+      (advance-job/multijob mode j))
+    (#t
+      ; unexpected job type or status, just assume it exited successfully
+      (job-last-status-set! j (void))
+      (void))))
+
+
+
+;; Internal function called by (advance-job/any)
+(define (advance-job/pid mode j)
+  ; (debugf "advance-job/pid > ~s ~s~%" mode j)
+  (cond
+    ((job-has-status? j '(exited killed unknown))
+      (job-last-status j)) ; job exited, and exit status already available
+    ((not (job-started? j))
+      (raise-errorf mode "job not started yet: ~s" j))
+    (#t
+      (let ((pid  (job-pid j))
+            (pgid (job-pgid j)))
+        (advance-job/pid/maybe-sigcont mode j pid pgid)
+        (advance-job/pid/wait mode j pid pgid)))))
+
+
+;; Internal function called by (advance-job/pid)
+(define (advance-job/pid/maybe-sigcont mode j pid pgid)
+  (assert* mode (fx>? pid 0))
+  (assert* mode (fx>? pgid 0))
+  (when (memq mode '(sh-fg sh-bg sh-wait))
+    ; send SIGCONT to job's process group, if present.
+    ; otherwise send SIGCONT to job's process id. Both may raise error
+    (pid-kill (if (fx>? pgid 0) (fx- pgid) pid) 'sigcont)))
+
+
+;; Internal function called by (advance-job/pid)
+(define (advance-job/pid/wait mode j pid pgid)
+  ; no need to wait for ALL processes in job's process group:
+  ; the only case where we spawn multiple processes in the same process group
+  ; is a pipe i.e {a | b | c ...} and in such case we separately wait on the process id
+  ; of each spawned process
+  (let* ((may-block (if (memq mode '(sh-fg sh-wait sh-subshell)) 'blocking 'nonblocking))
+         (status    (pid-wait->job-status (pid-wait (job-pid j) may-block)))
+         (kind      (job-status->kind status)))
+    ; if may-block is 'non-blocking, status may be '(running . #f)
+    ; indicating job status did not change i.e. it's (expected to be) still running
+    (case kind
+      ((running)
+        ; if status is '(running . #f), try to return '(running . job-id)
+        (job-last-status j))
+      ((exited killed unknown)
+        ; job exited, clean it up in case user wants to later respawn it
+        (pid->job-delete! (job-pid j))
+        (job-pid-set!  j -1)
+        (job-pgid-set! j -1)
+        (job-last-status-set! j status)
+        ;; returns job status
+        (job-id-unset! j))
+      ((stopped)
+        ; process is stopped.
+        ; if mode is sh-wait or sh-subshell, wait for it again (which blocks until it changes status again)
+        ; otherwise propagate process status and return.
+        (if (memq mode '(sh-wait sh-subshell))
+          (advance-job/pid/wait mode j pid pgid)
+          (begin
+            (job-last-status-set! j status)
+            status)))
+      (else
+        (raise-errorf mode "job not started yet: ~s" j)))))
+
+
+;; Internal function called by (advance-job/any)
+(define (advance-job/multijob mode mj)
+  (let* ((child (sh-multijob-child-ref mj (multijob-current-child-index mj)))
+         ;; call (advance-job/any) on child
+         (child-status (if (sh-job? child) (advance-job/any mode child) (void)))
+         (step-proc (job-step-proc mj)))
+    ; (debugf "advance-job/multijob > ~s ~s child=~s child-status=~s step-proc=~s~%" mj may-block child child-status step-proc)
+    (cond
+      ((or (not step-proc) (job-status-stops-or-ends-multijob? child-status))
+        ; propagate child exit status and return
+        (job-last-status-set! mj child-status)
+        child-status)
+      ((job-status-member? child-status '(exited killed unknown))
+        ; child exited: advance multijob by calling (job-step-proc)
+        ; then call (advance-job/multijob) again
+        (step-proc mj child-status)
+        (if (job-has-status? mj '(running))
+          (advance-job/multijob mode mj)
+          (job-last-status mj)))
+      ((job-status-member? child-status '(running))
+        ; child is still running. propagate child status and return
+        (let ((status (cons 'running (job-id mj)))) ; (job-id mj) may still be #f
+          (job-last-status-set! mj status)
+          status))
+      ((job-status-member? child-status '(stopped))
+        ; child is stopped.
+        ; if mode is sh-wait or sh-subshell, wait for it again.
+        ; otherwise propagate child status and return
+        (if (memq mode '(sh-wait sh-subshell))
+          (advance-job/multijob mode mj)
+          (begin
+            (job-last-status-set! mj child-status)
+            child-status)))
+      (#t
+        (raise-errorf mode "child job not started yet: ~s" child)))))
 
 
 ;; Internal function called by (sh-job-status)
