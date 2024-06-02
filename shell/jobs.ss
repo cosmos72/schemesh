@@ -847,16 +847,21 @@
 ;; call (break) then send 'sigcont to job
 ;; if (break) raises an exception or resets scheme, then send 'sigint to job
 (define (advance-job/pid/break mode j pid pgid)
-  (let ((break-returned-normally? #f))
+  (let ((break-returned-normally? #f)
+        (global-pgid (job-pgid sh-globals)))
     (dynamic-wind
-      void  ; before body
+      (lambda () ; before body
+        (%pgid-foreground mode pgid global-pgid))
       (lambda () ; body
+        (format #t "; job ~s pid ~s stopped        ~s~%" pid pgid j)
         (break)
         (set! break-returned-normally? #t))
       (lambda ()
+        (%pgid-foreground mode global-pgid pgid)
         ; send SIGCONT to job's process group, if present.
         ; otherwise send SIGCONT to job's process id. Both may raise error
-        (pid-kill (if (fx>? pgid 0) (fx- pgid) pid) 'sigcont)
+        (when (eq? mode 'sh-wait+sigcont)
+          (pid-kill (if (fx>? pgid 0) (fx- pgid) pid) 'sigcont))
         (unless break-returned-normally?
           (pid-kill (if (fx>? pgid 0) (fx- pgid) pid) 'sigint))))))
 
