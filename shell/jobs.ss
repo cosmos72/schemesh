@@ -731,6 +731,7 @@
 
 ;; Internal function called by (advance-job-or-id) (advance-job/multijob)
 (define (advance-job/any mode j)
+  ; (debugf "advance-job/any > ~s ~s status=~s~%" mode j (job-last-status j))
   (cond
     ((job-has-status? j '(exited killed unknown))
       (job-last-status j)) ; job exited, and exit status already available
@@ -773,7 +774,7 @@
 
 ;; Internal function called by (advance-job/any)
 (define (advance-job/pid mode j)
-  ; (debugf "advance-job/pid > ~s ~s~%" mode j)
+  ; (debugf "advance-job/pid > ~s ~s status=~s~%" mode j (job-last-status j))
   (cond
     ((job-has-status? j '(exited killed unknown))
       (job-last-status j)) ; job exited, and exit status already available
@@ -798,6 +799,7 @@
   (when (memq mode '(sh-fg sh-bg sh-wait+sigcont))
     ; send SIGCONT to job's process group, if present.
     ; otherwise send SIGCONT to job's process id. Both may raise error
+    ; (debugf "advance-job/pid/sigcont > ~s ~s~%" mode j)
     (pid-kill (if (fx>? pgid 0) (fx- pgid) pid) 'sigcont)))
 
 
@@ -808,21 +810,22 @@
   ; the only case where we spawn multiple processes in the same process group
   ; is a pipe i.e {a | b | c ...} and in such case we separately wait on the process id
   ; of each spawned process
-  (let* ((may-block (if (memq mode '(sh-bg sh-job-status)) 'nonblocking 'blocking))
-         (status    (pid-wait->job-status (pid-wait (job-pid j) may-block)))
-         (kind      (job-status->kind status)))
-    ; if may-block is 'non-blocking, status may be '(running . #f)
+  (let* ((may-block   (if (memq mode '(sh-bg sh-job-status)) 'nonblocking 'blocking))
+         (wait-status (pid-wait->job-status (pid-wait (job-pid j) may-block)))
+         (kind        (job-status->kind wait-status)))
+    ; (debugf "advance-job/pid/wait > ~s ~s wait-status=~s~%" mode j wait-status)
+    ; if may-block is 'non-blocking, wait-status may be '(running . #f)
     ; indicating job status did not change i.e. it's (expected to be) still running
     (case kind
       ((running)
-        ; if status is '(running . #f), try to return '(running . job-id)
+        ; if wait-status is '(running . #f), try to return '(running . job-id)
         (job-last-status j))
       ((exited killed unknown)
         ; job exited, clean it up in case user wants to later respawn it
         (pid->job-delete! (job-pid j))
         (job-pid-set!  j -1)
         (job-pgid-set! j -1)
-        (job-last-status-set! j status)
+        (job-last-status-set! j wait-status)
         ;; returns job status
         (job-id-unset! j))
       ((stopped)
@@ -836,8 +839,8 @@
               (advance-job/pid/break mode j pid pgid))
             (advance-job/pid/wait mode j pid pgid))
           (begin
-            (job-last-status-set! j status)
-            status)))
+            (job-last-status-set! j wait-status)
+            wait-status)))
       (else
         (raise-errorf mode "job not started yet: ~s" j)))))
 
@@ -860,8 +863,7 @@
         (%pgid-foreground mode global-pgid pgid)
         ; send SIGCONT to job's process group, if present.
         ; otherwise send SIGCONT to job's process id. Both may raise error
-        (when (eq? mode 'sh-wait+sigcont)
-          (pid-kill (if (fx>? pgid 0) (fx- pgid) pid) 'sigcont))
+        (pid-kill (if (fx>? pgid 0) (fx- pgid) pid) 'sigcont)
         (unless break-returned-normally?
           (pid-kill (if (fx>? pgid 0) (fx- pgid) pid) 'sigint))))))
 
@@ -869,11 +871,14 @@
 
 ;; Internal function called by (advance-job/any)
 (define (advance-job/multijob mode mj)
+  (unless (job-has-status? mj '(running))
+    (let ((id (job-id mj)))
+      (job-last-status-set! mj (if id (cons 'running id) '(running . #f)))))
   (let* ((child (sh-multijob-child-ref mj (multijob-current-child-index mj)))
          ;; call (advance-job/any) on child
          (child-status (if (sh-job? child) (advance-job/any mode child) (void)))
          (step-proc (job-step-proc mj)))
-    ; (debugf "advance-job/multijob > ~s ~s child=~s child-status=~s step-proc=~s~%" mj may-block child child-status step-proc)
+    ; (debugf "advance-job/multijob > ~s ~s child=~s child-status=~s~%" mode mj child child-status)
     (cond
       ((or (not step-proc) (job-status-stops-or-ends-multijob? child-status))
         ; propagate child exit status and return
@@ -882,7 +887,9 @@
       ((job-status-member? child-status '(exited killed unknown))
         ; child exited: advance multijob by calling (job-step-proc)
         ; then call (advance-job/multijob) again
+        ; (debugf "step-proc > ~s status=~s~%" mj (job-last-status mj))
         (step-proc mj child-status)
+        ; (debugf "step-proc < ~s status=~s~%" mj (job-last-status mj))
         (if (job-has-status? mj '(running))
           (advance-job/multijob mode mj)
           (job-last-status mj)))
