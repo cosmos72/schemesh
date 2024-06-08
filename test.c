@@ -739,6 +739,7 @@ static const testcase tests[] = {
      "(sh-list (sh-cmd* wc -l myfile '> mylog) '; (sh-cmd echo done))"},
     {"(sh-parse '(\"find\" \"-type\" \"f\" \\x7c; \"wc\" &))",
      "(sh-list (sh-pipe* (sh-cmd find -type f) '| (sh-cmd wc)) '&)"},
+    {"(sh-parse '((shell \"foo\") \\x3b; \"bar\"))", "(sh-list (shell foo) '; (sh-cmd bar))"},
 
 #define INVOKELIB_SHELL_BUILTINS                                                                   \
   "(begin (($primitive 3 $invoke-library) '(schemesh shell builtins) '(0 1) 'builtins)"
@@ -766,7 +767,7 @@ static const testcase tests[] = {
      "  \"{{foo};bar}\"))",
      "(shell (shell foo) ; bar)"},
     {"(expand '(shell (shell \"foo\") \\x3b; \"bar\"))",
-     INVOKELIB_SHELL_JOBS "(sh-list (sh-cmd foo) '; (sh-cmd bar)))"},
+     INVOKELIB_SHELL_JOBS " (sh-list (sh-cmd foo) '; (sh-cmd bar)))"},
     {"(parse-shell* (make-parsectx-from-string\n"
      "  \"{A=B ls}\")))",
      "(shell A = B ls)"},

@@ -196,24 +196,13 @@
         (cond
           ((sh-separator? arg)
             (set! done? #t)) ; separator => exit loop without consuming it
-          ((and (pair? arg) (memq (car arg) '(shell shell-subshell scheme)))
+          ((and (pair? arg) (null? ret))
             ; shell command contains a Scheme or shell subform
-            (if (and (null? ret) (or (null? (cdr args)) (sh-separator? (cdr args))))
-              (begin
-                ; shell command contains ONLY a Scheme or shell subform => return it as-is, without wrapping in (sh-cmd ...)
-                (set! ret arg)
-                (set! done? #t)
-                (set! prefix #f))
-              (begin
-                ; shell command contains ALSO a Scheme or shell subform => inject it into the current (sh-cmd ...)
-                ; but check that a shell subform is followed by a separator
-                (unless (eq? 'scheme (car arg))
-                  (unless (or (null? (cdr args)) (and (pair? (cdr args)) (sh-separator? (cadr args))))
-                    (syntax-violation 'sh-parse
-                      "syntax error, nested shell DSL must be followed by one of ; & && || | |& found instead:"
-                      saved-args (cdr args))))
-                (set! ret (cons arg ret))))
-            (set! args (cdr args)))
+            ; => return it as-is, without wrapping in (sh-cmd ...)
+            (set! ret arg)
+            (set! args (cdr args))
+            (set! done? #t)
+            (set! prefix #f))
           ((or (string? arg) (integer? arg) (eq? '= arg) (pair? arg) (sh-redirect-operator? arg))
             (when (symbol? arg)
               ; quote operator (a symbol) to use its name, not its value
