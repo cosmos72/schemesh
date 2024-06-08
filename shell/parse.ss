@@ -197,7 +197,7 @@
           ((sh-separator? arg)
             (set! done? #t)) ; separator => exit loop without consuming it
           ((and (pair? arg) (null? ret))
-            ; shell command contains a Scheme or shell subform
+            ; shell command starts with a Scheme or shell subform
             ; => return it as-is, without wrapping in (sh-cmd ...)
             (set! ret arg)
             (set! args (cdr args))

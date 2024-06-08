@@ -7,7 +7,7 @@
 
 (library (schemesh containers utf8b (0 1))
   (export
-    integer->char* string->utf8b string->utf8b/0 utf8b->string)
+    integer->char* string->utf8b string->utf8b/0 utf8b->string utf8b-range->string)
 
   (import
     (rnrs)

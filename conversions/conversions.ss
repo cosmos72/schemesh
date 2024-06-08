@@ -7,7 +7,7 @@
 
 (library (schemesh conversions (0 1))
   (export
-    display-condition* display-any write-bytevector0
+    display-condition* display-any display-bytevector0 write-bytevector0
     any->bytevector any->bytevector0 bytevector->bytevector0 text->bytevector0
     any->string list->cmd-argv string-hashtable->vector-of-bytevector0
     eval->bytevector)
@@ -15,7 +15,8 @@
     (rnrs)
     (only (chezscheme)            fx1+ fx1- void)
     (only (schemesh bootstrap)    assert* eval-string)
-    (only (schemesh containers)   hashtable-iterate list-iterate string->utf8b string->utf8b/0 utf8b->string))
+    (only (schemesh containers)
+             hashtable-iterate list-iterate string->utf8b string->utf8b/0 utf8b->string utf8b-range->string))
 
 
 (define (display-condition* x port)
@@ -58,11 +59,17 @@
     (display-condition* x port)
     (display x port)))
 
-; convert bytevector0 containing UTF-8b to string
-; and print it quoted, i.e. surrounded by ""
+; convert to string a bytevector0 containing UTF-8b
+; and print it quoted, i.e. surrounded by "" and with special characters escaped
 (define (write-bytevector0 x port)
-  (let ((str (utf8b->string x)))
-    (write (substring str 0 (fx1- (string-length str))) port)))
+  (let ((str (utf8b-range->string x 0 (fx1- (bytevector-length x)))))
+    (write str port)))
+
+; convert to string a bytevector0 containing UTF-8b
+; and print it unquoted, i.e. surrounded by ""
+(define (display-bytevector0 x port)
+  (let ((str (utf8b-range->string x 0 (fx1- (bytevector-length x)))))
+    (display str port)))
 
 ; convert any value to a string
 (define (any->string x)
