@@ -762,9 +762,11 @@ static const testcase tests[] = {
     {"(expand (parse-shell* (make-parsectx-from-string\n"
      "  \"{echo|{cat;{true}}}\")))",
      INVOKELIB_SHELL_JOBS " (sh-pipe* (sh-cmd echo) '| (sh-list (sh-cmd cat) '; (sh-cmd true))))"},
-    {"(expand (parse-shell* (make-parsectx-from-string\n"
-     "  \"{{foo};bar}\")))",
-     INVOKELIB_SHELL_JOBS " (sh-list (sh-cmd foo) '; (sh-cmd bar)))"},
+    {"(parse-shell* (make-parsectx-from-string\n"
+     "  \"{{foo};bar}\"))",
+     "(shell (shell foo) ; bar)"},
+    {"(expand '(shell (shell \"foo\") \\x3b; \"bar\"))",
+     INVOKELIB_SHELL_JOBS "(sh-list (sh-cmd foo) '; (sh-cmd bar)))"},
     {"(parse-shell* (make-parsectx-from-string\n"
      "  \"{A=B ls}\")))",
      "(shell A = B ls)"},
