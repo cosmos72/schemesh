@@ -132,6 +132,10 @@
     ((pair? job-status)       (car job-status))
     (#t                       'unknown)))
 
+;; Convert job's last-status to one of: 'new 'running 'stopped 'exited 'killed 'unknown
+(define (job-last-status->kind job)
+  (job-status->kind (job-last-status job)))
+
 
 ;; Return #t if job-status is a pair whose car is in allowed-list,
 ;; otherwise return #f;
@@ -259,6 +263,7 @@
       (else
         status))))
 
+
 ;; Convert job-or-id to job.
 ;; job-or-id can be either a job,
 ;; or #t which means sh-globals,
@@ -357,7 +362,7 @@
 ;; TODO: also support closures (lambda (job) ...) that return a string or bytevector.
 (define (sh-cmd . program-and-args)
   (%make-cmd #f -1 -1 '(new . 0) (vector 0 1 2) (vector) '()
-    cmd-spawn #f  ; start-proc step-proc
+    job-start/cmd #f  ; start-proc step-proc
     (sh-cwd)      ; job working directory - initially current directory
     '()           ; overridden environment variables - initially none
     sh-globals    ; parent job - initially the global job
@@ -560,11 +565,13 @@
 ;; Options is a list of zero or more of the following:
 ;;   process-group-id: a fixnum, if present and > 0 the new process will be inserted
 ;;   into the corresponding process group id - which must already exist.
-(define cmd-spawn
+(define job-start/cmd
   (let ((c-spawn-pid (foreign-procedure "c_spawn_pid"
                         (scheme-object scheme-object scheme-object int) int)))
     (lambda (c . options)
-      (assert* 'sh-start (sh-cmd? c))
+      (assert* 'sh-cmd (sh-cmd? c))
+      (assert* 'sh-cmd (eq? 'running (job-last-status->kind c)))
+
       (let* ((process-group-id (job-start-options->process-group-id options))
              (ret (c-spawn-pid
                     (cmd-argv c)
@@ -577,48 +584,67 @@
         (job-pgid-set! c (if (> process-group-id 0) process-group-id ret))))))
 
 
-;; NOTE: this is an internal implementation function, use (sh-start) instead.
-;; This function does not redirect file descriptors, does not close (job-to-close-fds j)
-;; - thus calling it manually leaks file descriptors - and does not register job
-;; into global (pid->job) table nor into global job-id table.
+;; Internal function stored in (job-start-proc j) by (sh-list),
+;; and called by (sh-start) to actually start the multijob.
 ;;
-;; Description:
-;; Start a generic job. Stored in (job-start-proc j) and called by (sh-start).
-;;
-;; Options are ignored.
-(define (multijob-start j . options)
+;; Does not redirect file descriptors. Options are ignored.
+(define (job-start/list j . options)
   ;; this runs in the main process, not in a subprocess.
   ;; TODO: how can we redirect file descriptor?
-  (let ((children (multijob-children j)))
-    (if (span-empty? children)
-      ; FIXME: a lonely (sh-or) with no children should fail with '(exited . 255)
-      (job-last-status-set! j (void)) ; no children => nothing to do => job exited successfully
-      (begin
-        (multijob-current-child-index-set! j 0)
-        (job-last-status-set! j '(running . #f))
-        (apply start/any (span-ref children 0) options)))))
-        ; set job status as running. Do not assign a job-id.
+  (assert* 'sh-list (eq? 'running (job-last-status->kind j)))
+  (assert* 'sh-list (fx=? -1 (multijob-current-child-index j)))
+
+  ; Do not yet assign a job-id.
+  (job-step/list j (void)))
 
 
-;; NOTE: this is an internal implementation function, use (sh-start) instead.
-;; This function does not update job's status, does not close (job-to-close-fds j)
-;; - thus calling it manually leaks file descriptors - and does not register job
-;; into global (pid->job) table nor into global job-id table.
+;; Internal function stored in (job-start-proc j) by (sh-and),
+;; and called by (sh-start) to actually start the multijob.
 ;;
-;; Description:
-;; Start a subshell job, optionally inserting it into an existing process group.
+;; Does not redirect file descriptors. Options are ignored.
+(define (job-start/and j . options)
+  ;; this runs in the main process, not in a subprocess.
+  ;; TODO: how can we redirect file descriptor?
+  (assert* 'sh-and (eq? 'running (job-last-status->kind j)))
+  (assert* 'sh-and (fx=? -1 (multijob-current-child-index j)))
+
+  (if (span-empty? (multijob-children j))
+    ; (sh-and) with zero children -> job completes successfully
+    (job-last-status-set! j (void))
+    ; Do not yet assign a job-id.
+    (job-step/and j (void))))
+
+
+;; Internal function stored in (job-start-proc j) by (sh-or),
+;; and called by (sh-start) to actually start the multijob.
+;;
+;; Does not redirect file descriptors. Options are ignored.
+(define (job-start/or j . options)
+  ;; this runs in the main process, not in a subprocess.
+  ;; TODO: how can we redirect file descriptor?
+  (assert* 'sh-or (eq? 'running (job-last-status->kind j)))
+  (assert* 'sh-or (fx=? -1 (multijob-current-child-index j)))
+
+  ; (debugf "job-start/or ~s empty children? = ~s~%" j (span-empty? (multijob-children j)))
+  (if (span-empty? (multijob-children j))
+    ; (sh-or) with zero children -> job fails with '(exited . 255)
+    (job-last-status-set! j '(exited . 255))
+    ; Do not yet assign a job-id.
+    (job-step/or j (void))))
+
+
+;; internal function stored in (job-start-proc j) by (sh-subshell) multijobs
 ;;
 ;; Forks a new subshell process in background, i.e. the foreground process group is NOT set
 ;; to the process group of the newly created process.
 ;;
-;; The subshell process will execute the Scheme function (job-subshell-proc j)
+;; The subshell process will execute the Scheme function (job-step-proc j)
 ;; passing the job j as only argument,
-;; then will call (exit-with-job-status) with the value returned by (job-subshell-proc j)
 ;;
 ;; Options is a list of zero or more of the following:
 ;;   process-group-id: a fixnum, if present and > 0 the new subshell will be inserted
 ;;     into the corresponding process group id - which must already exist.
-(define multijob-spawn-subshell
+(define job-start/subshell
   (let ((c-fork-pid (foreign-procedure "c_fork_pid" (scheme-object int) int)))
     (lambda (j . options)
       (assert* 'sh-start (procedure? (job-step-proc j)))
@@ -643,7 +669,7 @@
                     ; cannot wait on our own process
                     (job-last-status-set! j '(unknown . 0))))
                 (lambda () ; body
-                  ; sh-subshell stores multijob-run-subshell in (job-step-proc j)
+                  ; sh-subshell stores job-run/subshell in (job-step-proc j)
                   (set! status ((job-step-proc j) j (void))))
                 (lambda () ; run after body, even if it raised a condition
                   (exit-with-job-status status)))))
@@ -682,13 +708,12 @@
   (let ((proc (job-start-proc j)))
     (unless (procedure? proc)
       (raise-errorf 'sh-start "cannot start job, it has bad or missing job-start-proc: ~s" j))
+    (job-last-status-set! j '(running . #f))
     (apply proc j options))
   (fd-close-list (job-to-close-fds j))
   (when (fx>? (job-pid j) 0)
     (pid->job-set! (job-pid j) j))        ; add job to pid->job table
-  (let ((ret (cons 'running (job-id j)))) ; job can now be waited-for
-    (job-last-status-set! j ret)
-    ret))
+  (job-last-status j))
 
 ;; Convert pid-wait-result to a symbolic job-status:
 ;;
@@ -725,22 +750,22 @@
   (assert* 'advance-job-or-id (memq mode '(sh-fg sh-bg sh-wait sh-wait+sigcont sh-subshell sh-job-status)))
   (let ((j (sh-job job-or-id)))
     (when (job-has-status? j '(new running stopped))
-      (advance-job/any mode j)
-    (job-id-set-or-unset-as-needed! j))))
+      (job-advance/any mode j))
+    (job-id-set-or-unset-as-needed! j)))
 
 
-;; Internal function called by (advance-job-or-id) (advance-job/multijob)
-(define (advance-job/any mode j)
-  ; (debugf "advance-job/any > ~s ~s status=~s~%" mode j (job-last-status j))
+;; Internal function called by (advance-job-or-id) (job-advance/multijob)
+(define (job-advance/any mode j)
+  ; (debugf "job-advance/any > ~s ~s status=~s~%" mode j (job-last-status j))
   (cond
     ((job-has-status? j '(exited killed unknown))
       (job-last-status j)) ; job exited, and exit status already available
     ((not (job-started? j))
       (raise-errorf mode  "job not started yet: ~s" j))
     ((fx>? (job-pid j) 0)
-      (advance-job/pid mode j))
+      (job-advance/pid mode j))
     ((sh-multijob? j)
-      (advance-job/multijob mode j))
+      (job-advance/multijob mode j))
     (#t
       ; unexpected job type or status, just assume it exited successfully
       (job-last-status-set! j (void))
@@ -772,9 +797,9 @@
             (%pgid-foreground _caller _new-pgid _expected-pgid)))))))
 
 
-;; Internal function called by (advance-job/any)
-(define (advance-job/pid mode j)
-  ; (debugf "advance-job/pid > ~s ~s status=~s~%" mode j (job-last-status j))
+;; Internal function called by (job-advance/any)
+(define (job-advance/pid mode j)
+  ; (debugf "job-advance/pid > ~s ~s status=~s~%" mode j (job-last-status j))
   (cond
     ((job-has-status? j '(exited killed unknown))
       (job-last-status j)) ; job exited, and exit status already available
@@ -785,27 +810,27 @@
             (pgid (job-pgid j)))
         (if (memq mode '(sh-fg sh-wait sh-wait+sigcont sh-subshell))
           (with-foreground-pgid mode (job-pgid sh-globals) pgid
-            (advance-job/pid/maybe-sigcont mode j pid pgid)
-            (advance-job/pid/wait mode j pid pgid))
+            (job-advance/pid/maybe-sigcont mode j pid pgid)
+            (job-advance/pid/wait mode j pid pgid))
           (begin
-            (advance-job/pid/maybe-sigcont mode j pid pgid)
-            (advance-job/pid/wait mode j pid pgid)))))))
+            (job-advance/pid/maybe-sigcont mode j pid pgid)
+            (job-advance/pid/wait mode j pid pgid)))))))
 
 
-;; Internal function called by (advance-job/pid)
-(define (advance-job/pid/maybe-sigcont mode j pid pgid)
+;; Internal function called by (job-advance/pid)
+(define (job-advance/pid/maybe-sigcont mode j pid pgid)
   (assert* mode (fx>? pid 0))
   (assert* mode (fx>? pgid 0))
   (when (memq mode '(sh-fg sh-bg sh-wait+sigcont))
     ; send SIGCONT to job's process group, if present.
     ; otherwise send SIGCONT to job's process id. Both may raise error
-    ; (debugf "advance-job/pid/sigcont > ~s ~s~%" mode j)
+    ; (debugf "job-advance/pid/sigcont > ~s ~s~%" mode j)
     (pid-kill (if (fx>? pgid 0) (fx- pgid) pid) 'sigcont)))
 
 
 
-;; Internal function called by (advance-job/pid)
-(define (advance-job/pid/wait mode j pid pgid)
+;; Internal function called by (job-advance/pid)
+(define (job-advance/pid/wait mode j pid pgid)
   ; no need to wait for ALL processes in job's process group:
   ; the only case where we spawn multiple processes in the same process group
   ; is a pipe i.e {a | b | c ...} and in such case we separately wait on the process id
@@ -813,7 +838,7 @@
   (let* ((may-block   (if (memq mode '(sh-bg sh-job-status)) 'nonblocking 'blocking))
          (wait-status (pid-wait->job-status (pid-wait (job-pid j) may-block)))
          (kind        (job-status->kind wait-status)))
-    ; (debugf "advance-job/pid/wait > ~s ~s wait-status=~s~%" mode j wait-status)
+    ; (debugf "job-advance/pid/wait > ~s ~s wait-status=~s~%" mode j wait-status)
     ; if may-block is 'non-blocking, wait-status may be '(running . #f)
     ; indicating job status did not change i.e. it's (expected to be) still running
     (case kind
@@ -836,8 +861,8 @@
         (if (memq mode '(sh-wait sh-wait+sigcont sh-subshell))
           (begin
             (when (memq mode '(sh-wait sh-wait+sigcont))
-              (advance-job/pid/break mode j pid pgid))
-            (advance-job/pid/wait mode j pid pgid))
+              (job-advance/pid/break mode j pid pgid))
+            (job-advance/pid/wait mode j pid pgid))
           (begin
             (job-last-status-set! j wait-status)
             wait-status)))
@@ -845,11 +870,11 @@
         (raise-errorf mode "job not started yet: ~s" j)))))
 
 
-;; Internal function called by (advance-job/pid/wait)
+;; Internal function called by (job-advance/pid/wait)
 ;; when job is stopped in mode 'sh-wait or 'sh-wait+sigcont:
 ;; call (break) then send 'sigcont to job
 ;; if (break) raises an exception or resets scheme, then send 'sigint to job
-(define (advance-job/pid/break mode j pid pgid)
+(define (job-advance/pid/break mode j pid pgid)
   (let ((break-returned-normally? #f)
         (global-pgid (job-pgid sh-globals)))
     (dynamic-wind
@@ -869,16 +894,16 @@
 
 
 
-;; Internal function called by (advance-job/any)
-(define (advance-job/multijob mode mj)
+;; Internal function called by (job-advance/any)
+(define (job-advance/multijob mode mj)
   (unless (job-has-status? mj '(running))
     (let ((id (job-id mj)))
       (job-last-status-set! mj (if id (cons 'running id) '(running . #f)))))
   (let* ((child (sh-multijob-child-ref mj (multijob-current-child-index mj)))
-         ;; call (advance-job/any) on child
-         (child-status (if (sh-job? child) (advance-job/any mode child) (void)))
+         ;; call (job-advance/any) on child
+         (child-status (if (sh-job? child) (job-advance/any mode child) (void)))
          (step-proc (job-step-proc mj)))
-    ; (debugf "advance-job/multijob > ~s ~s child=~s child-status=~s~%" mode mj child child-status)
+    ; (debugf "job-advance/multijob > ~s ~s child=~s child-status=~s~%" mode mj child child-status)
     (cond
       ((or (not step-proc) (job-status-stops-or-ends-multijob? child-status))
         ; propagate child exit status and return
@@ -886,12 +911,12 @@
         child-status)
       ((job-status-member? child-status '(exited killed unknown))
         ; child exited: advance multijob by calling (job-step-proc)
-        ; then call (advance-job/multijob) again
+        ; then call (job-advance/multijob) again
         ; (debugf "step-proc > ~s status=~s~%" mj (job-last-status mj))
         (step-proc mj child-status)
         ; (debugf "step-proc < ~s status=~s~%" mj (job-last-status mj))
         (if (job-has-status? mj '(running))
-          (advance-job/multijob mode mj)
+          (job-advance/multijob mode mj)
           (job-last-status mj)))
       ((job-status-member? child-status '(running))
         ; child is still running. propagate child status and return
@@ -903,7 +928,7 @@
         ; if mode is sh-wait or sh-subshell, wait for it again.
         ; otherwise propagate child status and return
         (if (memq mode '(sh-wait sh-wait+sigcont sh-subshell))
-          (advance-job/multijob mode mj)
+          (job-advance/multijob mode mj)
           (begin
             (job-last-status-set! mj child-status)
             child-status)))
@@ -1097,10 +1122,10 @@
 ;; Create a multijob to later start it. Each element in children-jobs must be a sh-job or subtype.
 
 (define (sh-and . children-jobs)
-  (apply make-multijob 'sh-and assert-is-job multijob-start multijob-step/and children-jobs))
+  (apply make-multijob 'sh-and assert-is-job job-start/and job-step/and children-jobs))
 
 (define (sh-or . children-jobs)
-  (apply make-multijob 'sh-or  assert-is-job multijob-start multijob-step/or children-jobs))
+  (apply make-multijob 'sh-or  assert-is-job job-start/or job-step/or children-jobs))
 
 ;; Each argument must be a sh-job or subtype, possibly followed by a symbol ; &
 (define (sh-list . children-jobs-with-colon-ampersand)
@@ -1109,8 +1134,8 @@
       (unless (memq j '(& \x3b;
                        ))
         (assert* caller (sh-job? j))))
-    multijob-start
-    multijob-step/list
+    job-start/list
+    job-step/list
     children-jobs-with-colon-ampersand))
 
 ;; Each argument must be a sh-job or subtype, possibly followed by a symbol ; &
@@ -1120,14 +1145,14 @@
       (unless (memq j '(& \x3b;
                        ))
         (assert* caller (sh-job? j))))
-    multijob-spawn-subshell
-    multijob-run-subshell ; executed in child process
+    job-start/subshell
+    job-run/subshell ; executed in child process
     children-jobs-with-colon-ampersand))
 
 
 ;; Run next child job in a multijob containing an "and" of children jobs.
 ;; Used by (sh-and), implements runtime behavior of shell syntax foo && bar && baz
-(define (multijob-step/and mj prev-child-status)
+(define (job-step/and mj prev-child-status)
   (let* ((idx     (fx1+ (multijob-current-child-index mj)))
          (child-n (span-length (multijob-children mj)))
          (child   (sh-multijob-child-ref mj idx)))
@@ -1147,7 +1172,7 @@
 
 ;; Run next child job in a multijob containing an "or" of children jobs.
 ;; Used by (sh-and), implements runtime behavior of shell syntax foo || bar || baz
-(define (multijob-step/or mj prev-child-status)
+(define (job-step/or mj prev-child-status)
   (let* ((idx     (fx1+ (multijob-current-child-index mj)))
          (child-n (span-length (multijob-children mj)))
          (child   (sh-multijob-child-ref mj idx)))
@@ -1164,18 +1189,19 @@
 
 
 
-;; Run next child job in a multijob containing a sequence of children jobs optionally followed by & ;
+;; Run first or next child job in a multijob containing a sequence of children jobs optionally followed by & ;
 ;; Used by (sh-list), implements runtime behavior of shell syntax foo; bar & baz
-(define (multijob-step/list mj prev-child-status)
+(define (job-step/list mj prev-child-status)
   (let* ((idx     (fx1+ (multijob-current-child-index mj)))
          (child-n (span-length (multijob-children mj)))
          (done?   #f))
-    ; (debugf "multijob-step/list > ~s idx=~s prev-child-status=~s~%" mj (fx1- idx) prev-child-status)
-    (assert* 'multijob-step/list (job-status-member? prev-child-status '(exited killed unknown)))
-    (assert* 'multijob-step/list (fx>? idx 0))
+    ; (debugf "job-step/list > ~s idx=~s prev-child-status=~s~%" mj (fx1- idx) prev-child-status)
+    (assert* 'job-step/list (job-status-member? prev-child-status '(exited killed unknown)))
+    ; idx = 0 if called by (job-start/list)
+    (assert* 'job-step/list (fx>=? idx 0))
     (until (or done? (fx>? idx child-n))
       (let ((child (sh-multijob-child-ref mj idx)))
-        ; (debugf "multijob-step-list status = ~s, start child ~s = ~s~%" (job-last-status mj) idx child)
+        ; (debugf "job-step-list status = ~s, start child ~s = ~s~%" (job-last-status mj) idx child)
         (cond
           ((sh-job? child)
             ; start next child job
@@ -1183,8 +1209,11 @@
             (start/any child)
             (set! idx (fx1+ idx))
             ; all done, unless job is followed by '&
-            ; in such case, continue spawning jobs
-            (set! done? (not (eq? '& (sh-multijob-child-ref mj idx)))))
+            ; in such case, continue spawning jobs after assigning a job-id to child job if it's running or stopped
+            (if (eq? '& (sh-multijob-child-ref mj idx))
+              (when (job-started? child)
+                (job-id-set! child))
+              (set! done? #t)))
           (child
             ; child is a symbol, either & or ;
             (set! idx (fx1+ idx)))
@@ -1199,7 +1228,7 @@
 ;; Executed in child process:
 ;; run a multijob containing a sequence of children jobs optionally followed by & ;
 ;; Used by (sh-subshell), implements runtime behavior of shell syntax [ ... ]
-(define (multijob-run-subshell mj dummy-prev-child-status)
+(define (job-run/subshell mj dummy-prev-child-status)
   ; (debugf "%multijob-subshell/run ~s status = ~s~%" mj (job-last-status mj))
   (let ((children   (multijob-children mj))
         (pgid   (job-pgid mj))
