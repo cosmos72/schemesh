@@ -543,6 +543,7 @@ static const testcase tests[] = {
      "(shell echo foo bar | wc -l ; ;)"},
     {"(parse-shell* (make-parsectx-from-string \"{echo|{cat;{true}\n}&}\"))",
      "(shell echo | (shell cat ; (shell true) ;) &)"},
+    {"(parse-shell* (make-parsectx-from-string \"{{foo} ; bar}\"))", "(shell (shell foo) ; bar)"},
     {"(parse-shell* (make-parsectx-from-string \"{ls; {foo ; bar} & echo}\"))",
      "(shell ls ; (shell foo ; bar) & echo)"},
     {"(parse-shell* (make-parsectx-from-string\n"
@@ -761,6 +762,9 @@ static const testcase tests[] = {
     {"(expand (parse-shell* (make-parsectx-from-string\n"
      "  \"{echo|{cat;{true}}}\")))",
      INVOKELIB_SHELL_JOBS " (sh-pipe* (sh-cmd echo) '| (sh-list (sh-cmd cat) '; (sh-cmd true))))"},
+    {"(expand (parse-shell* (make-parsectx-from-string\n"
+     "  \"{{foo};bar}\")))",
+     INVOKELIB_SHELL_JOBS " (sh-list (sh-cmd foo) '; (sh-cmd bar)))"},
     {"(parse-shell* (make-parsectx-from-string\n"
      "  \"{A=B ls}\")))",
      "(shell A = B ls)"},

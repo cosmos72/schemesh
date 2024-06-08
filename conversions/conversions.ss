@@ -14,7 +14,7 @@
   (import
     (rnrs)
     (only (chezscheme)            fx1+ fx1- void)
-    (only (schemesh bootstrap)    eval-string)
+    (only (schemesh bootstrap)    assert* eval-string)
     (only (schemesh containers)   hashtable-iterate list-iterate string->utf8b string->utf8b/0 utf8b->string))
 
 
@@ -126,7 +126,7 @@
        (if (fxzero? (string-length x))
          bv0
          (string->utf8b/0 x)))
-    (#t (assert (or (string? x) (bytevector? x))))))
+    (#t (assert* 'text->bytevector0 (string? x)))))
 
 ; convert a list of strings or bytevectors to vector-of-bytevector0
 ; i.e. to a vector of #\nul terminated UTF-8b bytevectors

@@ -208,7 +208,7 @@
                 ; shell command contains ALSO a Scheme or shell subform => inject it into the current (sh-cmd ...)
                 ; but check that a shell subform is followed by a separator
                 (unless (eq? 'scheme (car arg))
-                  (unless (or (null? (cdr args)) (sh-separator? (cdr args)))
+                  (unless (or (null? (cdr args)) (and (pair? (cdr args)) (sh-separator? (cadr args))))
                     (syntax-violation 'sh-parse
                       "syntax error, nested shell DSL must be followed by one of ; & && || | |& found instead:"
                       saved-args (cdr args))))

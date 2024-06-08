@@ -15,7 +15,7 @@
 (library (schemesh shell jobs (0 1))
   (export
     sh-job? sh-job sh-job-id sh-job-status sh-jobs
-    sh-cmd sh-cmd* sh-cmd? sh-multijob?
+    sh-cmd sh-cmd* sh-cmd? sh-multijob? sh-display sh-display*
     sh-concat sh-env-copy sh-env sh-env! sh-env-unset! sh-globals sh-global-env
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0
     sh-cwd sh-cwd-set! sh-cd sh-consume-sigchld sh-multijob-child-length sh-multijob-child-ref
@@ -56,8 +56,10 @@
                     ; For cmds, its return value is passed to (exit-with-job-status)
     (mutable cwd)               ; charspan: working directory
     (mutable env)               ; hashtable: overridden env variables, or '()
-    (mutable parent)))          ; parent job, contains default values of env variables
+    (mutable parent))           ; parent job, contains default values of env variables
                                 ; and default redirections
+  (nongenerative #{job ghm1j1xb9o5tkkhhucwauly2c-1175}))
+
 
 ;; return the job-id of a job, or #f if not set
 (define (sh-job-id j)
@@ -67,7 +69,8 @@
 (define-record-type
   (cmd %make-cmd sh-cmd?)
   (parent job)
-  (fields argv)) ; vector of bytevectors, each #\nul terminated
+  (fields argv) ; vector of bytevectors, each #\nul terminated
+  (nongenerative #{cmd ghm1j1xb9o5tkkhhucwauly2c-1176}))
 
 ;; Define the record type "multijob"
 (define-record-type
@@ -76,7 +79,8 @@
   (fields
     kind                ; symbol: one of 'sh-and 'sh-or 'sh-list 'sh-subshell 'sh-global
     (mutable current-child-index) ; -1 or index of currently running child job
-    children))          ; span: children jobs.
+    children)           ; span: children jobs.
+  (nongenerative #{multijob ghm1j1xb9o5tkkhhucwauly2c-1177}))
 
 
 ;; Define the variable sh-globals, contains the global job.
@@ -1244,6 +1248,65 @@
         #t)) ; keep iterating
     status))
 
+(define precedence-lowest 0)
+(define precedence-list   1)
+(define precedence-or     2)
+(define precedence-and    3)
+(define precedence-pipe   4)
+
+;; display a job using terse shell syntax {foo && bar || baz ...}
+(define sh-display
+  (case-lambda
+    ((job-or-id)      (sh-display* job-or-id (current-output-port)))
+    ((job-or-id port) (sh-display* job-or-id port))))
+
+
+;; same as (sh-display), except that all arguments are mandatory
+(define (sh-display* job-or-id port)
+  (display #\{ port)
+  (sh-display/any (sh-job job-or-id) port precedence-lowest)
+  (display #\} port))
+
+
+(define (sh-display/any j port outer-precedence)
+  (cond
+    ((sh-cmd? j)      (sh-display/cmd j port))
+    ((sh-multijob? j) (sh-display/multijob j port outer-precedence))
+    ((sh-job? j)      (display (job-step-proc j) port))
+    (#t               (display j port)))) ; j may be a symbol '& or '\x3b;
+
+
+(define (sh-display/cmd j port)
+  (vector-iterate (cmd-argv j)
+    (lambda (i arg)
+      (unless (fxzero? i)
+        (display #\space port))
+      (write-bytevector0 arg port))))
+
+
+(define (sh-display/multijob j port outer-precedence)
+  (let* ((kind (multijob-kind j))
+         (precedence
+           (case kind
+             ((sh-or)   precedence-or)
+             ((sh-and)  precedence-and)
+             ((sh-pipe) precedence-pipe)
+             (else      precedence-list)))
+         (separator
+           (case kind
+             ((sh-or)   " || ")
+             ((sh-and)  " && ")
+             ((sh-pipe) " | ")
+             (else      " "))))
+    (when (fx<=? precedence outer-precedence)
+      (display #\{ port))
+    (span-iterate (multijob-children j)
+      (lambda (i child)
+        (unless (fxzero? i)
+          (display separator port))
+        (sh-display/any child port precedence)))
+    (when (fx<=? precedence outer-precedence)
+      (display #\} port))))
 
 
 ;; customize how "job" objects are printed
@@ -1258,9 +1321,9 @@
   (lambda (obj port writer)
     (display "(sh-cmd" port)
     (vector-iterate (cmd-argv obj)
-       (lambda (i arg)
-         (display #\space port)
-         (write-bytevector0 arg port)))
+      (lambda (i arg)
+        (display #\space port)
+        (write-bytevector0 arg port)))
     (display ")" port)))
 
 ;; customize how "multijob" objects are printed
@@ -1269,9 +1332,9 @@
     (display #\( port)
     (display (multijob-kind obj) port)
     (span-iterate (multijob-children obj)
-       (lambda (i child)
-         (display #\space port)
-         (display child port)))
+      (lambda (i child)
+        (display #\space port)
+        (display child port)))
     (display #\) port)))
 
 (begin
