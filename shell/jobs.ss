@@ -1323,23 +1323,24 @@
     (lambda (i arg)
       (unless (fxzero? i)
         (display #\space port))
-      (if (bytevector0-is-alphanumeric? arg)
+      (if (bytevector0-is-shell-identifier? arg)
         (display-bytevector0 arg port)
         (write-bytevector0 arg port)))))
 
 
-(define (bytevector0-is-alphanumeric? bvec)
+(define (bytevector0-is-shell-identifier? bvec)
   (do ((i 0 (fx1+ i))
        (n (fx1- (bytevector-length bvec))))
-      ((or (fx>=? i n) (not (u8-is-alphanumeric? (bytevector-u8-ref bvec i))))
+      ((or (fx>=? i n) (not (u8-is-shell-identifier? (bytevector-u8-ref bvec i))))
        (fx>=? i n))))
 
 
-(define (u8-is-alphanumeric? u8)
+(define (u8-is-shell-identifier? u8)
   (or (fx<=? 97 u8 122) ; i.e. (char<=? #\a ch #\z)
       (fx<=? 65 u8 90)  ; i.e. (char<=? #\A ch #\Z)
       (fx<=? 48 u8 57)  ; i.e. (char<=? #\A ch #\Z)
-      (fx=?  95 u8)))    ; i.e. (char=?  #\_ ch)
+      (fx<=? 43 u8 47)  ; i.e. one of #\+ #\, #\- #\. #\/
+      (fx=?  95 u8)))   ; i.e. #\_
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
