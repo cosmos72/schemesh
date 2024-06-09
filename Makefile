@@ -17,7 +17,9 @@ LDFLAGS=-g
 CHEZ_SCHEME_DIR:=$(shell ./utils/find_chez_scheme_dir.sh)
 CHEZ_SCHEME_KERNEL:=$(shell ./utils/find_chez_scheme_kernel.sh $(CHEZ_SCHEME_DIR))
 
-LIBS=$(CHEZ_SCHEME_KERNEL) -lz -llz4 -lncurses -ldl -lm -lpthread -luuid
+LIB_ICONV:=$(shell uname -o | grep -q Android && echo -liconv)
+
+LIBS=$(CHEZ_SCHEME_KERNEL) -lz -llz4 -lncurses -ldl -lm -lpthread -luuid $(LIB_ICONV)
 
 #
 # no user-serviceable parts below this line
