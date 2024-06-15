@@ -6,16 +6,10 @@
 ;;; (at your option) any later version.
 
 (library (schemesh shell builtins (0 1))
-  (export sh-false sh-true sh-pwd)
+  (export sh-builtins sh-find-builtin sh-false sh-true)
   (import
     (rnrs)
-    (only (chezscheme) foreign-procedure fx1+ fx1- void)
-    (only (schemesh bootstrap) while)
-    (schemesh containers charspan)
-    (only (schemesh conversions) text->bytevector0)
-    (only (schemesh posix fd) raise-c-errno)
-    (schemesh shell paths)
-    (schemesh shell jobs))
+    (only (chezscheme) void))
 
 
 (define (sh-false . ignored-args)
@@ -26,13 +20,18 @@
   (void))
 
 
+(define sh-builtins
+  (let ((t (make-hashtable equal-hash equal?)))
+    (hashtable-set! t (string->utf8 "false\x0;") sh-false)
+    (hashtable-set! t (string->utf8 "true\x0;")  sh-true)
+    (lambda () t)))
 
-
-
-
-(define (sh-pwd)
-  (let ((out (current-output-port)))
-    (put-string out (charspan->string (sh-cwd)))
-    (put-string out "\n")))
+;; given a command argv i.e. a vector of bytevector0,
+;; extract the first vector element and return the corresponding builtin.
+;; Return #f if no corresponding builtin is found.
+(define (sh-find-builtin argv)
+  (if (fxzero? (vector-length argv))
+    #f
+    (hashtable-ref (sh-builtins) (vector-ref argv 0) #f)))
 
 ) ; close library

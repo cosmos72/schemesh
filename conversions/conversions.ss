@@ -9,14 +9,15 @@
   (export
     display-condition* display-any display-bytevector0 write-bytevector0
     any->bytevector any->bytevector0 bytevector->bytevector0 text->bytevector0
-    any->string list->cmd-argv string-hashtable->vector-of-bytevector0
+    any->string argv->list list->argv string-hashtable->argv
     eval->bytevector)
   (import
     (rnrs)
-    (only (chezscheme)            fx1+ fx1- void)
-    (only (schemesh bootstrap)    assert* eval-string)
-    (only (schemesh containers)
-             hashtable-iterate list-iterate string->utf8b string->utf8b/0 utf8b->string utf8b-range->string))
+    (only (rnrs mutable-pairs)   set-car!)
+    (only (chezscheme)           fx1+ fx1- void)
+    (only (schemesh bootstrap)   assert* eval-string)
+    (only (schemesh containers)  hashtable-iterate list-iterate string->utf8b string->utf8b/0
+                                 utf8b->string utf8b-range->string))
 
 
 (define (display-condition* x port)
@@ -135,18 +136,33 @@
          (string->utf8b/0 x)))
     (#t (assert* 'text->bytevector0 (string? x)))))
 
+
+; convert a #\nul terminated bytevector containing UTF-8b to string
+(define (bytevector0->string x)
+  (utf8b-range->string x 0 (fx1- (bytevector-length x))))
+
+
 ; convert a list of strings or bytevectors to vector-of-bytevector0
 ; i.e. to a vector of #\nul terminated UTF-8b bytevectors
-(define (list->cmd-argv l)
+(define (list->argv l)
   (let ((argv (list->vector l)))
-    (do ([i 0 (fx1+ i)])
-        ((>= i (vector-length argv)))
-      (vector-set! argv i (text->bytevector0 (vector-ref argv i))))
-    argv))
+    (do ((i 0 (fx1+ i)))
+        ((>= i (vector-length argv)) argv)
+      (vector-set! argv i (text->bytevector0 (vector-ref argv i))))))
+
+
+; convert a vector of #\nul terminated UTF-8b bytevectors
+; to a list of strings
+(define (argv->list argv)
+  (let ((l (vector->list argv)))
+    (do ((tail l (cdr tail)))
+        ((null? tail) l)
+      (set-car! tail (bytevector0->string (car tail))))))
+
 
 ;; convert a hashtable containing string keys and string values
 ;; to a vector of bytevector0, where each element is key=value\x0;
-(define (string-hashtable->vector-of-bytevector0 htable)
+(define (string-hashtable->argv htable)
   (let* ((i 0)
          (n (hashtable-size htable))
          (out (make-vector n)))

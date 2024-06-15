@@ -488,7 +488,7 @@ static const testcase tests[] = {
     {"(hashtable-cells\n"
      "  (hashtable string-hash string=? '(\"a\" . 1) '(\"B\" . 2) '(\"+\" . 3)))",
      "#((a . 1) (+ . 3) (B . 2))"},
-    {"(string-hashtable->vector-of-bytevector0\n"
+    {"(string-hashtable->argv\n"
      "  (hashtable string-hash string=?\n"
      "             '(\"A\" . \"X\") '(\"B\" . \"Y\") '(\"C\" . \"Z\")))",
      "#(#vu8(67 61 90 0) #vu8(65 61 88 0) #vu8(66 61 89 0))"},

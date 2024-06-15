@@ -13,7 +13,7 @@
     (only (chezscheme) foreign-procedure format void)
     (only (schemesh bootstrap)    assert*)
     (schemesh posix fd)
-    (only (schemesh conversions)  list->cmd-argv)
+    (only (schemesh conversions)  list->argv)
     (only (schemesh posix signal) signal-name->number signal-raise)
     (only (schemesh posix misc)   c-exit))
 
@@ -46,7 +46,7 @@
                         (scheme-object scheme-object scheme-object int) int)))
     (lambda (program . args)
       (let ((ret (c-spawn-pid
-                   (list->cmd-argv (cons program args))
+                   (list->argv (cons program args))
                    (vector 0 1 2)
                    #f ; no environment override
                    0)))

@@ -11,21 +11,21 @@
     ; paths.ss
     sh-path sh-path? sh-path-absolute? sh-path-relative?
     sh-path-append sh-path-append! sh-path-iterate
-    sh-subpath sh-subpath? sh-path->subpath
+    sh-subpath sh-subpath? sh-path->subpath text->sh-path
+
+    ; builtins.ss
+    sh-builtins sh-find-builtin sh-false sh-true
 
     ; jobs.ss
-    sh-job? sh-job sh-job-id sh-job-status sh-jobs
-    sh-cmd sh-cmd* sh-cmd? sh-multijob?
+    sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd sh-cmd* sh-cmd? sh-multijob?
     sh-concat sh-env-copy sh-env sh-env! sh-env-unset! sh-globals sh-global-env
-    sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0
-    sh-cwd sh-cwd-set! sh-cd sh-consume-sigchld sh-multijob-child-length sh-multijob-child-ref
+    sh-env-exported? sh-env-export! sh-env-set+export! sh-env->argv
+    sh-cwd sh-cwd-set! sh-cd sh-pwd sh-consume-sigchld
+    sh-multijob-child-length sh-multijob-child-ref
     sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/ok? sh-run/bytes sh-run/string
     sh-and sh-or sh-list sh-subshell sh-fd-redirect! sh-fds-redirect!
     sh-job-display sh-job-display* sh-job-display/string
     sh-job-write sh-job-write* sh-job-write/string
-
-    ; builtins.ss
-    sh-false sh-true sh-pwd
 
     ; parse.ss
     sh sh-parse

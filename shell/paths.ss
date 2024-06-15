@@ -8,7 +8,7 @@
 (library (schemesh shell paths (0 1))
   (export sh-path sh-path? sh-path-absolute? sh-path-relative?
           sh-path-append sh-path-append! sh-path-iterate
-          sh-subpath sh-subpath? sh-path->subpath)
+          sh-subpath sh-subpath? sh-path->subpath text->sh-path)
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx1- void)
@@ -16,8 +16,14 @@
     (schemesh containers charspan)
     (only (schemesh containers misc) list-iterate))
 
+
+;; convert a string or a charspan to charspan
+(define (text->sh-path text)
+  (if (charspan? text) text (string->charspan* text)))
+
+
 ;; a path is a charspan representing a relative or absolute directory.
-;; It cannot contain "\x0;" i.e. codepoint 0, because POSIX uses it as path terminator.
+;; It cannot contain #\nul i.e. codepoint 0, because POSIX uses it as path terminator.
 ;; It is absolute if starts with "/", otherwise it is relative.
 ;; It contains zero or more components, separated by "/"
 ;; Each component can be an arbitrary string, including the empty string, "." or ".."

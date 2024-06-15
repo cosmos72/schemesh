@@ -14,11 +14,11 @@
 
 (library (schemesh shell jobs (0 1))
   (export
-    sh-job? sh-job sh-job-id sh-job-status sh-jobs
-    sh-cmd sh-cmd* sh-cmd? sh-multijob?
+    sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd sh-cmd* sh-cmd? sh-multijob?
     sh-concat sh-env-copy sh-env sh-env! sh-env-unset! sh-globals sh-global-env
-    sh-env-exported? sh-env-export! sh-env-set+export! sh-env->vector-of-bytevector0
-    sh-cwd sh-cwd-set! sh-cd sh-consume-sigchld sh-multijob-child-length sh-multijob-child-ref
+    sh-env-exported? sh-env-export! sh-env-set+export! sh-env->argv
+    sh-cwd sh-cwd-set! sh-cd sh-pwd sh-consume-sigchld
+    sh-multijob-child-length sh-multijob-child-ref
     sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/ok? sh-run/bytes sh-run/string
     sh-and sh-or sh-list sh-subshell sh-fd-redirect! sh-fds-redirect!
     sh-job-display sh-job-display* sh-job-display/string
@@ -34,7 +34,9 @@
     (schemesh posix fd)
     (schemesh posix pid)
     (schemesh posix signal)
-    (schemesh shell paths))
+    (schemesh shell paths)
+    (schemesh shell builtins))
+
 
 ;; Define the record type "job"
 (define-record-type
@@ -313,12 +315,20 @@
       (job-cwd-set! j (if (charspan? path) path (string->charspan* path))))))
 
 
+
 ;; change current directory to specified path.
-;; path must be a string or charspan.
+;; path must be a a string or charspan.
 (define sh-cd
+  (case-lambda
+    (()     (sh-cd* (sh-env sh-globals "HOME")))
+    ((path) (sh-cd* path))
+    ((path . extra-args) (raise-errorf 'cd "too many arguments"))))
+
+;; internal function called by (sh-cd)
+(define sh-cd*
   (let ((c_chdir (foreign-procedure "c_chdir" (scheme-object) int)))
     (lambda (path)
-      (let* ((suffix (if (charspan? path) path (string->charspan* path)))
+      (let* ((suffix (text->sh-path path))
              (dir (if (sh-path-absolute? suffix)
                       (sh-path->subpath suffix)
                       (sh-path-append (sh-cwd) suffix)))
@@ -327,6 +337,11 @@
           (job-cwd-set! sh-globals dir)
           (raise-errorf 'cd "~a: ~a" path (c-errno->string err)))))))
 
+
+(define (sh-pwd)
+  (let ((out (current-output-port)))
+    (put-string out (charspan->string (sh-cwd)))
+    (put-string out "\n")))
 
 
 ;; return currently running jobs
@@ -371,7 +386,7 @@
     (sh-cwd)      ; job working directory - initially current directory
     '()           ; overridden environment variables - initially none
     sh-globals    ; parent job - initially the global job
-    (list->cmd-argv program-and-args)))
+    (list->argv program-and-args)))
 
 
 ;; Create a cmd to later spawn it. Each argument must be a string, bytevector or symbol.
@@ -534,8 +549,8 @@
 ;; Argument which must be one of:
 ;; 'exported: only exported variables are returned.
 ;; 'all : unexported variables are returned too.
-(define (sh-env->vector-of-bytevector0 job-or-id which)
-  (string-hashtable->vector-of-bytevector0 (sh-env-copy job-or-id which)))
+(define (sh-env->argv job-or-id which)
+  (string-hashtable->argv (sh-env-copy job-or-id which)))
 
 
 (define (sh-consume-sigchld)
@@ -577,16 +592,23 @@
       (assert* 'sh-cmd (sh-cmd? c))
       (assert* 'sh-cmd (eq? 'running (job-last-status->kind c)))
 
-      (let* ((process-group-id (job-start-options->process-group-id options))
-             (ret (c-spawn-pid
-                    (cmd-argv c)
-                    (job-to-redirect-fds c)
-                    (sh-env->vector-of-bytevector0 c 'exported)
-                    process-group-id)))
-        (when (< ret 0)
-          (raise-c-errno 'sh-start 'fork ret))
-        (job-pid-set! c ret)
-        (job-pgid-set! c (if (> process-group-id 0) process-group-id ret))))))
+      (let* ((argv (cmd-argv c))
+             (builtin (sh-find-builtin argv)))
+        (if builtin
+          ; argv[0] is a builtin, call it.
+          (job-last-status-set! c (apply builtin (cdr (argv->list argv))))
+
+          ; argv[0] is a not builtin, spawn a subprocess
+          (let* ((process-group-id (job-start-options->process-group-id options))
+                 (ret (c-spawn-pid
+                        argv
+                        (job-to-redirect-fds c)
+                        (sh-env->argv c 'exported)
+                        process-group-id)))
+            (when (< ret 0)
+              (raise-c-errno 'sh-start 'fork ret))
+            (job-pid-set! c ret)
+            (job-pgid-set! c (if (> process-group-id 0) process-group-id ret))))))))
 
 
 ;; Internal function stored in (job-start-proc j) by (sh-list),
@@ -1405,9 +1427,12 @@
       (sh-job-write* obj port)
       (sh-job-display* obj port))))
 
-
 (begin
-  (c-environ->sh-global-env))
+  (c-environ->sh-global-env)
+  (let ((t (sh-builtins)))
+    (hashtable-set! t (string->utf8 "cd\x0;")    sh-cd)
+    (hashtable-set! t (string->utf8 "pwd\x0;")   sh-pwd)))
+
 
 
 ) ; close library
