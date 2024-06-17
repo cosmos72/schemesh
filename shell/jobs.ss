@@ -17,8 +17,8 @@
     sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd sh-cmd* sh-cmd? sh-multijob?
     sh-concat sh-env-copy sh-env sh-env! sh-env-unset! sh-globals sh-global-env
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->argv
-    sh-cwd sh-cwd-set! sh-cd sh-pwd sh-consume-sigchld
-    sh-multijob-child-length sh-multijob-child-ref
+    sh-builtin-command sh-builtin-cd sh-builtin-pwd sh-cwd sh-cwd-set! sh-cd sh-pwd
+    sh-consume-sigchld sh-multijob-child-length sh-multijob-child-ref
     sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/ok? sh-run/bytes sh-run/string
     sh-and sh-or sh-list sh-subshell sh-fd-redirect! sh-fds-redirect!
     sh-job-display sh-job-display* sh-job-display/string
@@ -342,8 +342,18 @@
 (define (sh-pwd)
   (let ((out (current-output-port)))
     (put-string out (charspan->string (sh-cwd)))
-    (put-string out "\n")))
+    (newline out)))
 
+
+;; the "cd" builtin
+(define (sh-builtin-cd cmd prog-and-args)
+  (apply sh-cd (cdr prog-and-args)))
+
+
+;; the "pwd" builtin
+(define (sh-builtin-pwd cmd prog-and-args)
+  ;; TODO: support redirections
+  (sh-pwd))
 
 ;; return currently running jobs
 ;; as a span of pairs (job-id . job) sorted by job-id
@@ -590,22 +600,15 @@
   (assert* 'sh-cmd (sh-cmd? c))
   (assert* 'sh-cmd (eq? 'running (job-last-status->kind c)))
 
-  (let* ((arg-list (cmd-arg-list c))
-         (builtin (sh-find-builtin arg-list)))
+  ; expand aliases. sanity: (sh-alias-expand) ignores aliases for "builtin"
+  (let* ((prog-and-args (sh-alias-expand (cmd-arg-list c)))
+         (builtin  (sh-find-builtin prog-and-args)))
+    ; check for builtins
     (if builtin
-      ; argv[0] is a builtin, call it.
-      (job-last-status-set! c (apply builtin (cdr arg-list)))
-
-      ; expand aliases. sanity: do it AFTER checking for builtins above.
-      (let ((arg-list (sh-expand-alias arg-list))
-            (builtin (sh-find-builtin arg-list)))
-        ; check again for builtins after alias expansion
-        (if builtin
-          ; expanded argv[0] is a builtin, call it.
-          (job-last-status-set! c (apply builtin (cdr arg-list)))
-
-          ; expanded argv[0] is a not builtin or alias, spawn a subprocess
-          (job-start/cmd/spawn c (list->argv arg-list) options))))))
+      ; expanded arg[0] is a builtin, call it.
+      (job-last-status-set! c (builtin c prog-and-args options))
+       ; expanded arg[0] is a not builtin or alias, spawn a subprocess
+      (job-start/cmd/spawn c (list->argv prog-and-args) options))))
 
 
 ;; internal function called by (job-start/cmd) to spawn a subprocess
@@ -623,6 +626,12 @@
           (raise-c-errno 'sh-start 'fork ret))
         (job-pid-set! c ret)
         (job-pgid-set! c (if (> process-group-id 0) process-group-id ret))))))
+
+
+;; the "command" builtin
+(define (sh-builtin-command cmd prog-and-args options)
+  (job-start/cmd/spawn cmd (list->argv (cdr prog-and-args)) options)
+  (job-last-status cmd))
 
 
 ;; Internal function stored in (job-start-proc j) by (sh-list),
@@ -750,7 +759,7 @@
     (unless (procedure? proc)
       (raise-errorf 'sh-start "cannot start job, it has bad or missing job-start-proc: ~s" j))
     (job-last-status-set! j '(running . #f))
-    (proc j options))
+    (proc j options)) ; ignore value returned by job-start-proc
   (fd-close-list (job-to-close-fds j))
   (when (fx>? (job-pid j) 0)
     (pid->job-set! (job-pid j) j))        ; add job to pid->job table
@@ -1446,8 +1455,9 @@
 (begin
   (c-environ->sh-global-env)
   (let ((t (sh-builtins)))
-    (hashtable-set! t "cd"    sh-cd)
-    (hashtable-set! t "pwd"   sh-pwd)))
+    (hashtable-set! t "cd"      sh-builtin-cd)
+    (hashtable-set! t "command" sh-builtin-command)
+    (hashtable-set! t "pwd"     sh-builtin-pwd)))
 
 
 

@@ -14,17 +14,18 @@
     sh-subpath sh-subpath? sh-path->subpath text->sh-path
 
     ; aliases.ss
-    sh-alias-set! sh-aliases sh-expand-alias
+    sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases sh-builtin-alias sh-builtin-unalias
 
     ; builtins.ss
+    sh-builtin sh-builtin-false sh-builtin-true
     sh-builtins sh-find-builtin sh-false sh-true
 
     ; jobs.ss
     sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd sh-cmd* sh-cmd? sh-multijob?
     sh-concat sh-env-copy sh-env sh-env! sh-env-unset! sh-globals sh-global-env
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->argv
-    sh-cwd sh-cwd-set! sh-cd sh-pwd sh-consume-sigchld
-    sh-multijob-child-length sh-multijob-child-ref
+    sh-builtin-command sh-builtin-cd sh-builtin-pwd sh-cwd sh-cwd-set! sh-cd sh-pwd
+    sh-consume-sigchld sh-multijob-child-length sh-multijob-child-ref
     sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/ok? sh-run/bytes sh-run/string
     sh-and sh-or sh-list sh-subshell sh-fd-redirect! sh-fds-redirect!
     sh-job-display sh-job-display* sh-job-display/string

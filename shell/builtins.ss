@@ -6,11 +6,13 @@
 ;;; (at your option) any later version.
 
 (library (schemesh shell builtins (0 1))
-  (export sh-builtin sh-builtins sh-find-builtin sh-false sh-true)
+  (export sh-builtin sh-builtin-false sh-builtin-true
+          sh-builtins sh-find-builtin sh-false sh-true)
   (import
     (rnrs)
     (only (chezscheme) void)
-    (only (schemesh bootstrap) raise-errorf))
+    (only (schemesh bootstrap) raise-errorf)
+    (schemesh shell aliases))
 
 
 (define (sh-false . ignored-args)
@@ -21,28 +23,50 @@
   (void))
 
 
-;; execute a builtin. raises exception if specified builtin is not found.
-(define (sh-builtin . args)
-  (let ((builtin (sh-find-builtin args)))
-    (unless builtin
-      (raise-errorf 'sh-builtin "~a: not a shell builtin" (if (null? args) "" (car args))))
-    (apply builtin (cdr args))))
+;; the "false" builtin
+(define (sh-builtin-false job prog-and-args options)
+  (sh-false))
 
 
-;; given a command arg-list i.e. a list of strings,
+;; the "true" builtin
+(define (sh-builtin-true job prog-and-args options)
+  (sh-true))
+
+
+;; the "builtin" builtin: execute a builtin. raises exception if specified builtin is not found.
+(define (sh-builtin cmd prog-and-args options)
+  ; (debugf "sh-builtin ~s~%" prog-and-args)
+  (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
+    (void)
+    (let* ((args (cdr prog-and-args))
+           (builtin (sh-find-builtin args)))
+      (unless builtin
+        (raise-errorf 'sh-builtin "~a: not a shell builtin" (car args)))
+      (builtin cmd args options))))
+
+
+;; given a command line prog-and-args i.e. a list of strings,
 ;; extract the first string and return the corresponding builtin.
 ;; Return #f if no corresponding builtin is found.
-(define (sh-find-builtin arg-list)
-  (if (null? arg-list)
+(define (sh-find-builtin prog-and-args)
+  (if (null? prog-and-args)
     #f
-    (hashtable-ref (sh-builtins) (car arg-list) #f)))
+    (hashtable-ref (sh-builtins) (car prog-and-args) #f)))
 
-;; function returning the global hashtable name -> builtin
+
+;; function returning the global hashtable name -> builtin.
+;; Each builtin must be a function accepting as arguments:
+;;   a job (actually a cmd)
+;;   an prog-and-args i.e. a list of strings containing the builtin name and its arguments
+;;   a list of options
+;; and returning the job status
 (define sh-builtins
   (let ((t (make-hashtable string-hash string=?)))
+    (hashtable-set! t "alias"   sh-builtin-alias)
     (hashtable-set! t "builtin" sh-builtin)
-    (hashtable-set! t "false"   sh-false)
-    (hashtable-set! t "true"    sh-true)
+    (hashtable-set! t "false"   sh-builtin-false)
+    (hashtable-set! t "true"    sh-builtin-true)
+    (hashtable-set! t "unalias" sh-builtin-unalias)
     (lambda () t)))
 
 ) ; close library

@@ -715,6 +715,11 @@ static const testcase tests[] = {
     {"(sh-subpath? (string->charspan* \"../a//b/\"))", "#f"},
     {"(sh-subpath? (string->charspan* \"a//b\"))", "#f"},
     {"(sh-subpath? (string->charspan* \"a/b/\"))", "#t"},
+    /* ------------------------- shell aliases ------------------------------ */
+    {"(begin\n"
+     "  (sh-alias-set! \"test-alias-foo\" '(\"bar\" \"baz\"))\n"
+     "  (sh-alias-expand '(\"test-alias-foo\" \"123\" \"456\")))\n",
+     "(bar baz 123 456)"},
     /* ------------------------- shell jobs --------------------------------- */
     {"(begin\n"
      "  (sh-env! #t \"foo\" \"bar\")\n"
