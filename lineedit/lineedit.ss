@@ -1,4 +1,4 @@
-;;; Copyright (C) 2023 by Massimiliano Ghilardi
+;;; Copyright (C) 2023-2024 by Massimiliano Ghilardi
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -672,7 +672,7 @@
                 (let ((port (current-output-port)))
                   (put-string port "\nexception in parenmatcher: ")
                   (display-condition* condition port)
-                  (put-char port #\newline))))))))
+                  (newline port))))))))
     ret))
 
 #|
@@ -703,7 +703,7 @@
               (let ((port (current-output-port)))
                 (put-string port "\nexception in parenmatcher: ")
                 (display-condition* condition port)
-                (put-char port #\newline)))))))
+                (newline port)))))))
     ret))
 |#
 
@@ -801,7 +801,7 @@
   (let ((port (current-output-port)))
     (put-string port "\nexception in lineedit-read: ")
     (display-condition* condition port)
-    (put-char port #\newline))
+    (newline port))
   (dynamic-wind
     tty-restore!
     (lambda () (inspect condition))

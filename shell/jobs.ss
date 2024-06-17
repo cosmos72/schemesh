@@ -1,4 +1,4 @@
-;;; Copyright (C) 2023 by Massimiliano Ghilardi
+;;; Copyright (C) 2023-2024 by Massimiliano Ghilardi
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -35,6 +35,7 @@
     (schemesh posix pid)
     (schemesh posix signal)
     (schemesh shell paths)
+    (schemesh shell aliases)
     (schemesh shell builtins))
 
 
@@ -72,9 +73,7 @@
 (define-record-type
   (cmd %make-cmd sh-cmd?)
   (parent job)
-  (fields
-    arg-list ; list of strings
-    argv)    ; vector of bytevector0, i.e. each bytevector is #\nul terminated
+  (fields arg-list) ; list of strings: program-name and args
   (nongenerative #{cmd ghm1j1xb9o5tkkhhucwauly2c-1176}))
 
 ;; Define the record type "multijob"
@@ -388,8 +387,7 @@
     (sh-cwd)      ; job working directory - initially current directory
     '()           ; overridden environment variables - initially none
     sh-globals    ; parent job - initially the global job
-    program-and-args
-    (list->argv program-and-args)))
+    program-and-args))
 
 
 ;; Create a cmd to later spawn it. Each argument must be a string, bytevector or symbol.
@@ -588,37 +586,50 @@
 ;; Options is a list of zero or more of the following:
 ;;   process-group-id: a fixnum, if present and > 0 the new process will be inserted
 ;;   into the corresponding process group id - which must already exist.
-(define job-start/cmd
-  (let ((c-spawn-pid (foreign-procedure "c_spawn_pid"
-                        (scheme-object scheme-object scheme-object int) int)))
-    (lambda (c . options)
-      (assert* 'sh-cmd (sh-cmd? c))
-      (assert* 'sh-cmd (eq? 'running (job-last-status->kind c)))
+(define (job-start/cmd c options)
+  (assert* 'sh-cmd (sh-cmd? c))
+  (assert* 'sh-cmd (eq? 'running (job-last-status->kind c)))
 
-      (let* ((arg-list (cmd-arg-list c))
-             (builtin (sh-find-builtin arg-list)))
+  (let* ((arg-list (cmd-arg-list c))
+         (builtin (sh-find-builtin arg-list)))
+    (if builtin
+      ; argv[0] is a builtin, call it.
+      (job-last-status-set! c (apply builtin (cdr arg-list)))
+
+      ; expand aliases. sanity: do it AFTER checking for builtins above.
+      (let ((arg-list (sh-expand-alias arg-list))
+            (builtin (sh-find-builtin arg-list)))
+        ; check again for builtins after alias expansion
         (if builtin
-          ; argv[0] is a builtin, call it.
+          ; expanded argv[0] is a builtin, call it.
           (job-last-status-set! c (apply builtin (cdr arg-list)))
 
-          ; argv[0] is a not builtin, spawn a subprocess
-          (let* ((process-group-id (job-start-options->process-group-id options))
-                 (ret (c-spawn-pid
-                        (cmd-argv c)
-                        (job-to-redirect-fds c)
-                        (sh-env->argv c 'exported)
-                        process-group-id)))
-            (when (< ret 0)
-              (raise-c-errno 'sh-start 'fork ret))
-            (job-pid-set! c ret)
-            (job-pgid-set! c (if (> process-group-id 0) process-group-id ret))))))))
+          ; expanded argv[0] is a not builtin or alias, spawn a subprocess
+          (job-start/cmd/spawn c (list->argv arg-list) options))))))
+
+
+;; internal function called by (job-start/cmd) to spawn a subprocess
+(define job-start/cmd/spawn
+  (let ((c-spawn-pid (foreign-procedure "c_spawn_pid"
+                        (scheme-object scheme-object scheme-object int) int)))
+    (lambda (c argv options)
+      (let* ((process-group-id (job-start-options->process-group-id options))
+             (ret (c-spawn-pid
+                    argv
+                    (job-to-redirect-fds c)
+                    (sh-env->argv c 'exported)
+                    process-group-id)))
+        (when (< ret 0)
+          (raise-c-errno 'sh-start 'fork ret))
+        (job-pid-set! c ret)
+        (job-pgid-set! c (if (> process-group-id 0) process-group-id ret))))))
 
 
 ;; Internal function stored in (job-start-proc j) by (sh-list),
 ;; and called by (sh-start) to actually start the multijob.
 ;;
 ;; Does not redirect file descriptors. Options are ignored.
-(define (job-start/list j . options)
+(define (job-start/list j options)
   ;; this runs in the main process, not in a subprocess.
   ;; TODO: how can we redirect file descriptor?
   (assert* 'sh-list (eq? 'running (job-last-status->kind j)))
@@ -632,7 +643,7 @@
 ;; and called by (sh-start) to actually start the multijob.
 ;;
 ;; Does not redirect file descriptors. Options are ignored.
-(define (job-start/and j . options)
+(define (job-start/and j options)
   ;; this runs in the main process, not in a subprocess.
   ;; TODO: how can we redirect file descriptor?
   (assert* 'sh-and (eq? 'running (job-last-status->kind j)))
@@ -649,7 +660,7 @@
 ;; and called by (sh-start) to actually start the multijob.
 ;;
 ;; Does not redirect file descriptors. Options are ignored.
-(define (job-start/or j . options)
+(define (job-start/or j options)
   ;; this runs in the main process, not in a subprocess.
   ;; TODO: how can we redirect file descriptor?
   (assert* 'sh-or (eq? 'running (job-last-status->kind j)))
@@ -676,7 +687,7 @@
 ;;     into the corresponding process group id - which must already exist.
 (define job-start/subshell
   (let ((c-fork-pid (foreign-procedure "c_fork_pid" (scheme-object int) int)))
-    (lambda (j . options)
+    (lambda (j options)
       (assert* 'sh-start (procedure? (job-step-proc j)))
       (let* ((process-group-id (job-start-options->process-group-id options))
              (ret (c-fork-pid
@@ -726,10 +737,10 @@
 ;;   into the corresponding process group id - which must already exist.
 (define (sh-start j . options)
   (job-id-set! j)
-  (apply start/any j options))
+  (start/any j options))
 
 ;; Internal functions called by (sh-start)
-(define (start/any j . options)
+(define (start/any j options)
   ; (debugf "start/any ~s ~s~%" j options)
   (when (job-started? j)
     (if (job-id j)
@@ -739,7 +750,7 @@
     (unless (procedure? proc)
       (raise-errorf 'sh-start "cannot start job, it has bad or missing job-start-proc: ~s" j))
     (job-last-status-set! j '(running . #f))
-    (apply proc j options))
+    (proc j options))
   (fd-close-list (job-to-close-fds j))
   (when (fx>? (job-pid j) 0)
     (pid->job-set! (job-pid j) j))        ; add job to pid->job table
@@ -1193,7 +1204,7 @@
       (begin
         ; start next child job
         (multijob-current-child-index-set! mj idx)
-        (start/any child))
+        (start/any child '()))
       (begin
         ; previous child failed, or end of children
         (multijob-current-child-index-set! mj -1)
@@ -1213,7 +1224,7 @@
       (begin
         ; start next child job
         (multijob-current-child-index-set! mj idx)
-        (start/any child))
+        (start/any child '()))
       (begin
         ; previous child successful, or end of children
         (multijob-current-child-index-set! mj -1)
@@ -1239,7 +1250,7 @@
           ((sh-job? child)
             ; start next child job
             (multijob-current-child-index-set! mj idx)
-            (start/any child)
+            (start/any child '())
             (set! idx (fx1+ idx))
             ; all done, unless job is followed by '&
             ; in such case, continue spawning jobs after assigning a job-id to child job if it's running or stopped
@@ -1270,7 +1281,7 @@
       (lambda (i job)
         (when (sh-job? job)
           ; run child job in parent's process group
-          (start/any job pgid)
+          (start/any job (list pgid))
           ; wait for child job to exit, unless it's followed by '&
           (unless (eq? '& (sh-multijob-child-ref mj (fx1+ i)))
             (set! status (advance-job-or-id 'sh-subshell job))))

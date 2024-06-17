@@ -1,4 +1,4 @@
-;;; Copyright (C) 2023 by Massimiliano Ghilardi
+;;; Copyright (C) 2023-2024 by Massimiliano Ghilardi
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -12,6 +12,9 @@
     sh-path sh-path? sh-path-absolute? sh-path-relative?
     sh-path-append sh-path-append! sh-path-iterate
     sh-subpath sh-subpath? sh-path->subpath text->sh-path
+
+    ; aliases.ss
+    sh-alias-set! sh-aliases sh-expand-alias
 
     ; builtins.ss
     sh-builtins sh-find-builtin sh-false sh-true
@@ -38,8 +41,9 @@
 
   (import
     (schemesh shell paths)
-    (schemesh shell jobs)
+    (schemesh shell aliases)
     (schemesh shell builtins)
+    (schemesh shell jobs)
     (schemesh shell parse)
     (schemesh shell macros)
     (schemesh shell utils))

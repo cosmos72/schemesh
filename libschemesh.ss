@@ -1,4 +1,4 @@
-;;; Copyright (C) 2023 by Massimiliano Ghilardi
+;;; Copyright (C) 2023-2024 by Massimiliano Ghilardi
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -41,6 +41,7 @@
   (include "parser/shell.ss")
   (include "parser/parser.ss")
   (include "shell/paths.ss")
+  (include "shell/aliases.ss")
   (include "shell/builtins.ss")
   (include "shell/jobs.ss")
   (include "shell/parse.ss")
