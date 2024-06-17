@@ -26,7 +26,7 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) break foreign-procedure format fx1+ fx1-
+    (only (chezscheme) break display-string foreign-procedure format fx1+ fx1-
                        inspect make-format-condition record-writer reverse! void)
     (only (schemesh bootstrap) assert* debugf raise-errorf until while)
     (schemesh containers)
@@ -72,7 +72,9 @@
 (define-record-type
   (cmd %make-cmd sh-cmd?)
   (parent job)
-  (fields argv) ; vector of bytevectors, each #\nul terminated
+  (fields
+    arg-list ; list of strings
+    argv)    ; vector of bytevector0, i.e. each bytevector is #\nul terminated
   (nongenerative #{cmd ghm1j1xb9o5tkkhhucwauly2c-1176}))
 
 ;; Define the record type "multijob"
@@ -386,6 +388,7 @@
     (sh-cwd)      ; job working directory - initially current directory
     '()           ; overridden environment variables - initially none
     sh-globals    ; parent job - initially the global job
+    program-and-args
     (list->argv program-and-args)))
 
 
@@ -592,16 +595,16 @@
       (assert* 'sh-cmd (sh-cmd? c))
       (assert* 'sh-cmd (eq? 'running (job-last-status->kind c)))
 
-      (let* ((argv (cmd-argv c))
-             (builtin (sh-find-builtin argv)))
+      (let* ((arg-list (cmd-arg-list c))
+             (builtin (sh-find-builtin arg-list)))
         (if builtin
           ; argv[0] is a builtin, call it.
-          (job-last-status-set! c (apply builtin (cdr (argv->list argv))))
+          (job-last-status-set! c (apply builtin (cdr arg-list)))
 
           ; argv[0] is a not builtin, spawn a subprocess
           (let* ((process-group-id (job-start-options->process-group-id options))
                  (ret (c-spawn-pid
-                        argv
+                        (cmd-argv c)
                         (job-to-redirect-fds c)
                         (sh-env->argv c 'exported)
                         process-group-id)))
@@ -911,7 +914,7 @@
         (job-id-set! j)
         (format #t "; job ~s pid ~s stopped        " (job-id j) pid)
         (sh-job-display j)
-        (display "\n")
+        (put-char (current-output-port) #\newline)
         (break)
         (set! break-returned-normally? #t))
       (lambda ()
@@ -1294,9 +1297,9 @@
 
 ;; same as (sh-job-display), except that all arguments are mandatory
 (define (sh-job-display* job-or-id port)
-  (display #\{ port)
+  (put-char port #\{)
   (job-display/any (sh-job job-or-id) port precedence-lowest)
-  (display #\} port))
+  (put-char port #\}))
 
 
 ;; same as (sh-job-display), except that outputs to a string, which is returned
@@ -1310,7 +1313,7 @@
   (cond
     ((sh-multijob? j) (job-display/multijob j port outer-precedence))
     ((sh-cmd? j)      (job-display/cmd j port))
-    (#t               (display "???" port))))
+    (#t               (put-string port "???"))))
 
 
 (define (job-display/multijob j port outer-precedence)
@@ -1328,41 +1331,43 @@
              ((sh-pipe) " | ")
              (else      " "))))
     (when (fx<=? precedence outer-precedence)
-      (display #\{ port))
+      (put-char port #\{))
     (span-iterate (multijob-children j)
       (lambda (i child)
         (unless (fxzero? i)
-          (display separator port))
+          (put-string port separator))
         (if (symbol? child)
           (display child port)
           (job-display/any child port precedence))))
     (when (fx<=? precedence outer-precedence)
-      (display #\} port))))
+      (put-char port #\}))))
 
 
 (define (job-display/cmd j port)
-  (vector-iterate (cmd-argv j)
-    (lambda (i arg)
-      (unless (fxzero? i)
-        (display #\space port))
-      (if (bytevector0-is-shell-identifier? arg)
-        (display-bytevector0 arg port)
-        (write-bytevector0 arg port)))))
+  (do ((tail (cmd-arg-list j) (cdr tail))
+       (first? #t #f))
+      ((null? tail))
+    (unless first?
+      (put-char port #\space))
+    (let ((arg (car tail)))
+      (if (string-is-shell-identifier? arg)
+        (put-string port arg)
+        (put-datum  port arg)))))
 
 
-(define (bytevector0-is-shell-identifier? bvec)
+(define (string-is-shell-identifier? str)
   (do ((i 0 (fx1+ i))
-       (n (fx1- (bytevector-length bvec))))
-      ((or (fx>=? i n) (not (u8-is-shell-identifier? (bytevector-u8-ref bvec i))))
+       (n (fx1- (string-length str))))
+      ((or (fx>=? i n) (not (char-is-shell-identifier? (string-ref str i))))
        (fx>=? i n))))
 
 
-(define (u8-is-shell-identifier? u8)
-  (or (fx<=? 97 u8 122) ; i.e. (char<=? #\a ch #\z)
-      (fx<=? 65 u8 90)  ; i.e. (char<=? #\A ch #\Z)
-      (fx<=? 48 u8 57)  ; i.e. (char<=? #\A ch #\Z)
-      (fx<=? 43 u8 47)  ; i.e. one of #\+ #\, #\- #\. #\/
-      (fx=?  95 u8)))   ; i.e. #\_
+(define (char-is-shell-identifier? ch)
+  (or (char<=? #\a ch #\z)
+      (char<=? #\A ch #\Z)
+      (char<=? #\0 ch #\9)
+      (char<=? #\+ ch #\/)  ; i.e. one of #\+ #\, #\- #\. #\/
+      (char=?  #\_ ch)))   ; i.e. #\_
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1391,28 +1396,28 @@
   (cond
     ((sh-multijob? j) (job-write/multijob j port))
     ((sh-cmd? j)      (job-write/cmd j port))
-    (#t               (display "???" port))))
+    (#t               (put-string port "???"))))
 
 
 (define (job-write/multijob j port)
-  (display #\( port)
+  (put-char port #\()
     (display (multijob-kind j) port)
     (span-iterate (multijob-children j)
       (lambda (i child)
         (if (symbol? child)
-          (display " '" port)
-          (display #\space port))
+          (put-string port " '")
+          (put-char   port #\space))
         (put-datum port child)))
-    (display #\) port))
+    (put-char port #\)))
 
 
 (define (job-write/cmd j port)
-  (display "(sh-cmd" port)
-  (vector-iterate (cmd-argv j)
-    (lambda (i arg)
-      (display #\space port)
-      (write-bytevector0 arg port)))
-  (display ")" port))
+  (put-string port "(sh-cmd")
+  (list-iterate (cmd-arg-list j)
+    (lambda (arg)
+      (put-char port #\space)
+      (put-datum port arg)))
+  (put-string port ")"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1430,8 +1435,8 @@
 (begin
   (c-environ->sh-global-env)
   (let ((t (sh-builtins)))
-    (hashtable-set! t (string->utf8 "cd\x0;")    sh-cd)
-    (hashtable-set! t (string->utf8 "pwd\x0;")   sh-pwd)))
+    (hashtable-set! t "cd"    sh-cd)
+    (hashtable-set! t "pwd"   sh-pwd)))
 
 
 

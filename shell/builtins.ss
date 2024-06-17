@@ -21,17 +21,17 @@
 
 
 (define sh-builtins
-  (let ((t (make-hashtable equal-hash equal?)))
-    (hashtable-set! t (string->utf8 "false\x0;") sh-false)
-    (hashtable-set! t (string->utf8 "true\x0;")  sh-true)
+  (let ((t (make-hashtable string-hash string=?)))
+    (hashtable-set! t "false" sh-false)
+    (hashtable-set! t "true"  sh-true)
     (lambda () t)))
 
-;; given a command argv i.e. a vector of bytevector0,
-;; extract the first vector element and return the corresponding builtin.
+;; given a command arg-list i.e. a list of strings,
+;; extract the first string and return the corresponding builtin.
 ;; Return #f if no corresponding builtin is found.
-(define (sh-find-builtin argv)
-  (if (fxzero? (vector-length argv))
+(define (sh-find-builtin arg-list)
+  (if (null? arg-list)
     #f
-    (hashtable-ref (sh-builtins) (vector-ref argv 0) #f)))
+    (hashtable-ref (sh-builtins) (car arg-list) #f)))
 
 ) ; close library
