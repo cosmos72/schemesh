@@ -10,7 +10,8 @@
   (import
     (rnrs)
     (only (chezscheme) void)
-    (only (schemesh bootstrap) raise-errorf))
+    (only (schemesh bootstrap) raise-errorf)
+    (only (schemesh containers misc) assert-string-list?))
 
 
 
@@ -29,6 +30,7 @@
 
 
 (define (%expand-alias prog-and-args suppressed-name-list)
+  (assert-string-list? 'sh-alias-expand prog-and-args)
   ;; Note: for sanity, ignore aliases for "builtin"
   (if (or (null? prog-and-args) (string=? "builtin" (car prog-and-args)))
     prog-and-args
@@ -56,6 +58,7 @@
 ;; name must be a string; expansion must be a list of strings.
 ;; command line (cons name args) will be expanded to (append expansion args)
 (define (sh-alias-set! name expansion)
+  (assert-string-list? 'sh-alias-set! expansion)
   (hashtable-set! (sh-aliases) name (lambda (args) (append expansion args))))
 
 
@@ -67,6 +70,7 @@
 ;; the "alias" builtin
 (define (sh-builtin-alias cmd prog-and-args options)
   ; (debugf "sh-builtin-alias ~s~%" prog-and-args)
+  (assert-string-list? 'sh-builtin-alias prog-and-args)
   (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
     (void) ;; TODO: a lone "alias" should list aliases
     (sh-alias-set! (cadr prog-and-args) (cddr prog-and-args))))
@@ -74,6 +78,7 @@
 
 ;; the "unalias" builtin
 (define (sh-builtin-unalias cmd prog-and-args options)
+  (assert-string-list? 'sh-builtin-unalias prog-and-args)
   (do ((tail (cdr prog-and-args) (cdr list)))
       ((null? tail))
     (sh-alias-delete! (car tail))))

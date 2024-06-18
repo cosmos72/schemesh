@@ -12,6 +12,7 @@
     (rnrs)
     (only (chezscheme) void)
     (only (schemesh bootstrap) raise-errorf)
+    (only (schemesh containers misc) assert-string-list?)
     (schemesh shell aliases))
 
 
@@ -25,17 +26,20 @@
 
 ;; the "false" builtin
 (define (sh-builtin-false job prog-and-args options)
+  (assert-string-list? 'sh-builtin-false prog-and-args)
   (sh-false))
 
 
 ;; the "true" builtin
 (define (sh-builtin-true job prog-and-args options)
+  (assert-string-list? 'sh-builtin-true prog-and-args)
   (sh-true))
 
 
 ;; the "builtin" builtin: execute a builtin. raises exception if specified builtin is not found.
 (define (sh-builtin cmd prog-and-args options)
   ; (debugf "sh-builtin ~s~%" prog-and-args)
+  (assert-string-list? 'sh-builtin prog-and-args)
   (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
     (void)
     (let* ((args (cdr prog-and-args))

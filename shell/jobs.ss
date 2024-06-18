@@ -347,11 +347,13 @@
 
 ;; the "cd" builtin
 (define (sh-builtin-cd cmd prog-and-args)
+  (assert-string-list? 'sh-builtin-cd prog-and-args)
   (apply sh-cd (cdr prog-and-args)))
 
 
 ;; the "pwd" builtin
 (define (sh-builtin-pwd cmd prog-and-args)
+  (assert-string-list? 'sh-builtin-pwd prog-and-args)
   ;; TODO: support redirections
   (sh-pwd))
 
@@ -630,6 +632,7 @@
 
 ;; the "command" builtin
 (define (sh-builtin-command cmd prog-and-args options)
+  (assert-string-list? 'sh-builtin-command prog-and-args)
   (job-start/cmd/spawn cmd (list->argv (cdr prog-and-args)) options)
   (job-last-status cmd))
 
@@ -1356,9 +1359,9 @@
       (lambda (i child)
         (unless (fxzero? i)
           (put-string port separator))
-        (if (symbol? child)
-          (display child port)
-          (job-display/any child port precedence))))
+        (if (sh-job? child)
+          (job-display/any child port precedence)
+          (display child port))))
     (when (fx<=? precedence outer-precedence)
       (put-char port #\}))))
 

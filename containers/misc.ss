@@ -7,10 +7,10 @@
 
 (library (schemesh containers misc (0 1))
   (export
-    list-iterate reverse*!
+    list-iterate list-quoteq! reverse*! string-list? assert-string-list?
     vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable
-    list->bytevector list-quoteq!
-    subbytevector bytevector-fill-range! bytevector-iterate bytevector-compare
+    list->bytevector subbytevector
+    bytevector-fill-range! bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?
     string-fill-range! string-range=? string-iterate)
   (import
@@ -59,6 +59,17 @@
                 (new-tail (cdr tail)))
             (set-cdr! new-head head)
             (%step new-head new-tail)))))))
+
+;; return #t if l is a (possibly empty) list of strings
+(define (string-list? l)
+  (do ((tail l (cdr tail)))
+      ((or (null? tail) (not (string? (car tail)))) (null? tail))))
+
+
+;; shortcut for (assert* caller (string-list? l)
+(define (assert-string-list? caller l)
+  (assert* caller (string-list? l)))
+
 
 ; copy a portion of vector src into dst.
 ; works even if src are the same vector and the two ranges overlap.

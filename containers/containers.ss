@@ -8,10 +8,10 @@
 (library (schemesh containers (0 1))
   (export
     ; misc.ss
-    list-iterate reverse*!
+    list-iterate list-quoteq! reverse*! string-list? assert-string-list?
     vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable
-    list->bytevector list-quoteq!
-    subbytevector bytevector-fill-range! bytevector-iterate bytevector-compare
+    list->bytevector subbytevector
+    bytevector-fill-range! bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?
     string-fill-range! string-range=? string-iterate
 

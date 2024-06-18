@@ -796,6 +796,12 @@ static const testcase tests[] = {
      INVOKELIB_SHELL_JOBS " (sh-cmd* FOO '= (lambda (job) (sh-concat job"
                           " (lambda (job) (sh-env job BAR)) /subdir)) echo))"},
     {"(parse-shell* (make-parsectx-from-string\n"
+     "  \"{ls A=B}\")))",
+     "(shell ls A=B)"},
+    {"(expand (parse-shell* (make-parsectx-from-string\n"
+     "  \"{ls A=B}\"))))",
+     INVOKELIB_SHELL_JOBS " (sh-cmd ls A=B))"},
+    {"(parse-shell* (make-parsectx-from-string\n"
      "  \"{echo $(foo&&bar)}\"))",
      "(shell echo (shell-backquote foo && bar))"},
     {"(expand (parse-shell* (make-parsectx-from-string\n"

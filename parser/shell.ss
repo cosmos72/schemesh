@@ -239,7 +239,7 @@
 ;;
 ;; return two values: the parsed form, and either 'string or 'rlist
 ;; where 'rlist means the parsed form should be reversed then spliced into the command being parsed.
-(define (parse-shell-word ctx)
+(define (parse-shell-word ctx equal-is-operator?)
   (let* ((ret '())
          (again? #t)
          (assign? #f)
@@ -277,8 +277,9 @@
                 ;; FIXME: also consume `...` and $(...) because we must also support FOO=bar`cmd`etc
                 (let-values (((csp assign-pos) (read-subword-noquote ctx)))
                   (cond
-                    ((and (null? ret) (not assign?) assign-pos (not (fxzero? assign-pos)))
+                    ((and equal-is-operator? (null? ret) (not assign?) assign-pos (not (fxzero? assign-pos)))
                       ; split "FOO=BAR" into "FOO" "BAR" and set flag assign?
+                      ; (debugf "parse-shell-word splitting ~s~%" csp)
                       (%append (charspan->string/range csp 0 assign-pos))
                       (%append (charspan->string/range csp (fx1+ assign-pos) (charspan-length csp)))
                       (set! assign? #t))
@@ -315,7 +316,7 @@
 ;; The definition of shell token is adapted from
 ;; https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_03
 ;;
-(define (lex-shell-impl ctx)
+(define (lex-shell-impl ctx equal-is-operator?)
   (let-values (((ch type) (read-shell-char ctx)))
     (case type
       ((eof separator lparen rparen lbrack rbrack lbrace rbrace)
@@ -341,12 +342,12 @@
           (values (parsectx-read-char ctx) 'dollar+lparen)
           (begin
             (parsectx-unread-char ctx ch)
-            (parse-shell-word ctx))))
+            (parse-shell-word ctx equal-is-operator?))))
       ((backquote)
         (values ch type))
       ((char squote dquote backslash)
         (parsectx-unread-char ctx ch)
-        (parse-shell-word ctx))
+        (parse-shell-word ctx equal-is-operator?))
       (else
         (syntax-errorf ctx 'lex-shell "unimplemented character type: ~a" type)))))
 
@@ -356,7 +357,7 @@
 ;; Skips initial whitespace, recognizes parser directives #!... and returns them th type 'parser,
 ;; and also recognizes numbers followed by redirection operators N< N<> N<& N> N>> N>&
 ;; and returns them as numbers - Joining them with subsequent redirection operator is left to (shell) macro.
-(define (lex-shell ctx)
+(define (lex-shell ctx equal-is-operator?)
   (parsectx-skip-whitespace ctx #f) ; don't skip newlines
   (let ((value (try-read-parser-directive ctx)))
     (if (symbol? value)
@@ -370,13 +371,14 @@
         (values (get-parser ctx value 'parse-shell) 'parser))
 
       ; read a single shell token
-      (let-values (((value type) (lex-shell-impl ctx)))
+      (let-values (((value type) (lex-shell-impl ctx equal-is-operator?)))
         (if (and (eq? 'string type)
                  (string? value) ; type = 'string also allows value = `(+ ...)
                  (string-contains-only-decimal-digits? value)
                  (memv (parsectx-peek-char ctx) '(#\< #\>)))
           (values (string->number value) 'integer) ;; integer followed by redirection operator
           (values value type))))))
+
 
 ;; return #t if string is non-empty and only contains decimal digits
 (define (string-contains-only-decimal-digits? str)
@@ -414,7 +416,7 @@
         (parse-shell-list ctx type '()))
       (else
         ; read a shell form
-        (let-values (((value type) (lex-shell ctx)))
+        (let-values (((value type) (lex-shell ctx 'equal-is-operator?)))
           (parse-shell-impl ctx value type #f))))))
 
 
@@ -441,13 +443,14 @@
          (ret ret0)
          (again? #t)
          (reverse? #t)
+         (equal-is-operator? #t)
          (%merge! (lambda (form)
            (cond
              ((eof-object? form) #f) ;; ignore (eof-object)
              ((null? ret)        (set! ret form))
              (else               (set! ret (cons form ret)))))))
     (while again?
-      ; (debugf "parse-shell-impl: value = ~s, type = ~s, ret = ~s~%" value type (if reverse? (reverse ret) ret))
+      ; (debugf "parse-shell-impl: value = ~s, type = ~s, ret = ~s, equal-is-operator? = ~s~%" value type (if reverse? (reverse ret) ret) equal-is-operator?)
       (case type
         ((eof)
           (set! again? #f))
@@ -465,8 +468,13 @@
           (%merge! (if (eq? value '&) '& '\x3b;))
           (set! again? #f))
         ((op string integer)
+          ; parsed non-assignment, it cannot be followed by further assignments
+          (set! equal-is-operator? #f)
           (set! ret (cons value ret)))
         ((rlist)
+          (when (and equal-is-operator? (not (memq '= value)))
+            ; parsed non-assignment, it cannot be followed by further assignments
+            (set! equal-is-operator? #f))
           (set! ret (append! value ret)))
         ((backquote dollar+lparen)
           (if (and is-inside-backquote? (eq? 'backquote type))
@@ -509,7 +517,7 @@
             type (reverse! ret))))
       ; if needed, read another token and iterate
       (when again?
-        (let-values (((value-i type-i) (lex-shell ctx)))
+        (let-values (((value-i type-i) (lex-shell ctx equal-is-operator?)))
           (set! value value-i)
           (set! type type-i))))
     ; shell form is complete, return it
@@ -550,7 +558,6 @@
              (syntax-errorf ctx 'parse-shell "unexpected token ~a, expecting ~a"
                (paren-type->string type) (paren-type->string end-type)))))
          (%merge! (lambda (form)
-           ; (debugf "parse-shell-list %merge! ret=~s form=~s~%" (reverse ret) form)
            ; By construction, a single-form (shell ...) can only contain & ; as last token
            ; and is not parsed from {...} or [...]
            (if (and (null? already-parsed-reverse)
@@ -562,7 +569,7 @@
               (set! ret (cons form ret))))))
 
     (while again?
-      (let-values (((value type) (lex-shell ctx)))
+      (let-values (((value type) (lex-shell ctx 'equal-is-operator?)))
         ; (debugf "parse-shell-list ret=~s value=~s type=~s~%" (reverse ret) value type)
         (case type
           ((eof)
