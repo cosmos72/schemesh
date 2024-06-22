@@ -235,6 +235,8 @@
           (values (list 'quote arg) -1))
         ((string-contains-only-decimal-digits? next) ; replace "NNN" with NNN
           (values (list 'quote arg) (string->number next)))
+        ((and (fixnum? next) (fx>=? next -1)) ; also accept fixnums >= -1, although (lex-shell) does not produce them
+          (values (list 'quote arg) next))
         (#t
           (syntax-violation 'sh-parse
             "syntax error, redirection operators <& >& must be followed by - or unsigned integer, found:"

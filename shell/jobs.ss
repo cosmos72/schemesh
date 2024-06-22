@@ -14,13 +14,13 @@
 
 (library (schemesh shell jobs (0 1))
   (export
-    sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd sh-cmd* sh-cmd? sh-multijob?
+    sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd sh-cmd? sh-multijob?
     sh-concat sh-env-copy sh-env sh-env! sh-env-unset! sh-globals sh-global-env
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->argv
     sh-builtin-command sh-builtin-cd sh-builtin-pwd sh-cwd sh-cwd-set! sh-cd sh-pwd
     sh-consume-sigchld sh-multijob-child-length sh-multijob-child-ref
     sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/ok? sh-run/bytes sh-run/string
-    sh-and sh-or sh-list sh-subshell sh-fd-redirect! sh-fds-redirect!
+    sh-and sh-or sh-list sh-subshell sh-fd-redirect! sh-file-redirect!
     sh-job-display sh-job-display* sh-job-display/string
     sh-job-write sh-job-write* sh-job-write/string)
   (import
@@ -49,8 +49,8 @@
     (mutable last-status)       ; cons: last known status
     (mutable to-redirect-fds)   ; vector: fds to redirect between fork() and
                                 ;         (subshell-proc)
-    (mutable to-redirect-files) ; vector of lists (fd mode file-path) to open before fork()
-    (mutable to-close-fds)      ; list: fds to close after spawn
+    (mutable to-redirect-files) ; span of lists (fd mode file-path) to open before fork()
+    (mutable to-close-fds)      ; list: fds to close in parent process after spawn
     start-proc      ; #f or procedure to run in main process.
                     ; receives as argument job followed by options.
     step-proc       ; #f or procedure.
@@ -96,7 +96,7 @@
   ;;
   ;; waiting for sh-globals to exit is not useful:
   ;; pretend it already exited with unknown exit status
-  (%make-multijob 0 (get-pid) (get-pgid 0) '(unknown . 0) (vector 0 1 2) (vector) '()
+  (%make-multijob 0 (get-pid) (get-pgid 0) '(unknown . 0) (vector 0 1 2) (span) '()
     #f #f ; start-proc step-proc
     ; current directory
     (string->charspan* ((foreign-procedure "c_get_cwd" () scheme-object)))
@@ -395,26 +395,15 @@
   (reverse! (job-parents-revlist job-or-id)))
 
 
-;; Create a cmd to later spawn it. Each argument must be a string or bytevector.
-;; TODO: also support closures (lambda (job) ...) that return a string or bytevector.
+;; Create a cmd to later spawn it. Each argument must be a string.
 (define (sh-cmd . program-and-args)
-  (%make-cmd #f -1 -1 '(new . 0) (vector 0 1 2) (vector) '()
+  (assert-string-list? 'sh-cmd program-and-args)
+  (%make-cmd #f -1 -1 '(new . 0) (vector 0 1 2) (span) '()
     job-start/cmd #f  ; start-proc step-proc
     (sh-cwd)      ; job working directory - initially current directory
     '()           ; overridden environment variables - initially none
     sh-globals    ; parent job - initially the global job
     program-and-args))
-
-
-;; Create a cmd to later spawn it. Each argument must be a string, bytevector or symbol.
-;; Symbol '= indicates an environment variable assignment, and must be followed
-;; by the variable name (a string or bytevector) and its value (a string or bytevector).
-;; All other symbols indicates a redirection and must be followed by a string or bytevector.
-;; TODO: also support closures (lambda (job) ...) that return a string or bytevector.
-(define (sh-cmd* . program-and-args)
-  ;; FIXME: implement environment variable assignments NAME = VALUE
-  ;; FIXME: implement redirections [N]< [N]<> [N]<&M [N]> [N]>> [N]>&M
-  (apply sh-cmd program-and-args))
 
 
 ;; concatenate strings and/or closures (lambda (job) ...) that return strings
@@ -1132,26 +1121,36 @@
 
 
 ;; Create or remove a file description redirection for cmd or job
-(define (sh-fd-redirect! job-id child-fd existing-fd-or-minus-1)
-  (when (or (not (fixnum? child-fd)) (< child-fd 0))
-    (raise-errorf 'sh-fd-redirect! "invalid redirect fd: ~s" child-fd))
-  (let* ((j (sh-job job-id))
+(define (sh-fd-redirect! job-or-id child-fd existing-fd-or-minus-1)
+  (unless (and (fixnum? child-fd) (fx>=? child-fd 0))
+    (raise-errorf 'sh-fd-redirect! "invalid redirect from fd, must be an unsigned fixnum: ~s" child-fd))
+  ;; TODO: allow closure existing-fd-or-minus-1
+  (unless (and (fixnum? existing-fd-or-minus-1) (fx>=? existing-fd-or-minus-1 -1))
+    (raise-errorf 'sh-fd-redirect! "invalid redirect to fd, must be -1 or an unsigned fixnum: ~s" existing-fd-or-minus-1))
+  (let* ((j (sh-job job-or-id))
          (old-fds (job-to-redirect-fds j))
          (old-n (vector-length old-fds)))
     (when (fx<=? old-n child-fd)
       (let* ((new-n (max (fx1+ child-fd) (fx* 2 old-n)))
              (new-fds (make-vector new-n -1))) ; fill with -1 i.e. no redirection
-        (do ((i 0 (fx1+ i)))
-            ((>= i old-n))
-          (vector-set! new-fds i (vector-ref old-fds i)))
+        (vector-copy! old-fds 0 new-fds 0 old-n)
         (job-to-redirect-fds-set! j new-fds)))
     (vector-set! (job-to-redirect-fds j) child-fd existing-fd-or-minus-1)))
 
-;; Create or remove multiple file description redirections for cmd or job
-(define (sh-fds-redirect! j child-fds existing-fd-or-minus-1)
-  (do ((child-cons child-fds (cdr child-cons)))
-      ((eq? '() child-cons))
-    (sh-fd-redirect! j (car child-cons) existing-fd-or-minus-1)))
+
+;; Create a file path redirection for cmd or job
+;; op must be one of < <> > >>
+(define (sh-file-redirect! job-or-id child-fd op file-path)
+  (unless (and (fixnum? child-fd) (fx>=? child-fd 0))
+    (raise-errorf 'sh-path-redirect! "invalid redirect from fd, must be an unsigned fixnum: ~s" child-fd))
+  (unless (memq op '(< <> > >>))
+    (raise-errorf 'sh-path-redirect! "invalid redirect operator, must be one of < <> > >>: ~s" op))
+  ;; TODO: allow closure file-path
+  (unless (and (string? file-path) (not (fxzero? (string-length file-path))))
+    (raise-errorf 'sh-path-redirect! "invalid redirect file path, must be non-empty string: ~s" file-path))
+  (let ((j (sh-job job-or-id)))
+    (span-insert-back! (job-to-redirect-files j) (list child-fd op file-path))))
+
 
 
 ;; Create a multijob to later start it.
@@ -1166,7 +1165,7 @@
     (do ((tail children-jobs (cdr tail)))
         ((null? tail))
       (validate-job-proc kind (car tail))))
-  (%make-multijob #f -1 -1 '(new . 0) (vector 0 1 2) (vector) '()
+  (%make-multijob #f -1 -1 '(new . 0) (vector 0 1 2) (span) '()
     start-proc    ; executed to start the job
     next-proc     ; executed when a child job changes status
     (sh-cwd)      ; job working directory - initially current directory

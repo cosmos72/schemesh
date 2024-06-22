@@ -59,8 +59,6 @@
         (let ((assignment (cmd-parse-assignment args)))
           (%again (cdddr args) rets (cons assignment assignments) redirections)))
       ((or (string? (car args)) (procedure? (car args)))
-        (unless (null? redirections)
-          (raise-errorf 'sh-cmd* "arguments are not allowed after redirections, found ~s after ~s" args (car redirections)))
         (%again (cdr args) (cons (car args) rets) assignments redirections))
       ((memq (car args) '(< <> <& > >> >&))
         (let ((redirection (cmd-parse-redirection args)))
