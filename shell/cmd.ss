@@ -19,11 +19,21 @@
     (schemesh shell jobs))
 
 
-;; Create a cmd to later spawn it. Each argument must be a string, bytevector or symbol.
-;; Symbol '= indicates an environment variable assignment, and must be followed
-;; by the variable name (a string or bytevector) and its value (a string or bytevector).
-;; All other symbols indicates a redirection and must be followed by a string or bytevector.
-;; TODO: also support closures (lambda (job) ...) that return a string or bytevector.
+;; Create a cmd to later spawn it.
+;; Each argument must be a string, symbol, fixnum or closure that return a string.
+;;
+;; Symbol '= indicates an environment variable assignment, and must be preceded by
+;; the variable name (a non-empty string) and followed by its value (a string).
+;;
+;; Symbols '< '<> '> '>> indicate a file redirection and must be followed by a string or closure that return a string.
+;;
+;; Symbols '<& '>& indicate an fd redirection and must be followed by -1 or and unsigned fixnum.
+;;
+;; All redirection symbols '< '<> '> '>> '<& '>& can optionally be preceded by an unsigned fixnum,
+;; indicating which file descriptor should be redirected.
+;;
+;; Arguments that are not part of an assignment or a redirection
+;; must be strings or closures that return a string.
 (define (sh-cmd* . program-and-args)
   (let-values (((program-and-args assignments redirections)
                   (cmd-parse-assignments-and-redirections program-and-args)))
