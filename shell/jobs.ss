@@ -49,7 +49,7 @@
     (mutable last-status)       ; cons: last known status
     (mutable to-redirect-fds)   ; vector: fds to redirect between fork() and
                                 ;         (subshell-proc)
-    (mutable to-redirect-files) ; vector of files to open before fork()
+    (mutable to-redirect-files) ; vector of lists (fd mode file-path) to open before fork()
     (mutable to-close-fds)      ; list: fds to close after spawn
     start-proc      ; #f or procedure to run in main process.
                     ; receives as argument job followed by options.
@@ -339,10 +339,14 @@
           (raise-errorf 'cd "~a: ~a" path (c-errno->string err)))))))
 
 
-(define (sh-pwd)
-  (let ((out (current-output-port)))
-    (put-string out (charspan->string (sh-cwd)))
-    (newline out)))
+(define sh-pwd
+  (case-lambda
+    (()     (sh-pwd* (current-output-port)))
+    ((port) (sh-pwd* port))))
+
+(define (sh-pwd* port)
+  (put-string port (charspan->string (sh-cwd)))
+  (newline port))
 
 
 ;; the "cd" builtin

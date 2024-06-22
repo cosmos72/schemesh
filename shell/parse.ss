@@ -13,7 +13,7 @@
     (rnrs mutable-pairs)
     (only (chezscheme) eval expand remq! reverse!)
     (only (schemesh bootstrap)       debugf until)
-    (only (schemesh containers misc) list-iterate list-quoteq!)
+    (only (schemesh containers misc) list-iterate list-quoteq! string-contains-only-decimal-digits?)
     (only (schemesh containers hashtable) eq-hashtable)
     (schemesh shell jobs))
 
@@ -204,14 +204,17 @@
             (set! done? #t)
             (set! prefix #f))
           ((or (string? arg) (integer? arg) (eq? '= arg) (pair? arg) (sh-redirect-operator? arg))
-            (when (symbol? arg)
-              ; quote operator (a symbol) to use its name, not its value
-              (set! arg (list 'quote arg)))
             (when (or (symbol? arg) (pair? arg))
               ; (sh-cmd) does not support env assignment, redirections and closures, use (sh-cmd*)
               (set! prefix 'sh-cmd*))
-            (set! ret (cons arg ret))
-            (set! args (cdr args)))
+            (let-values (((arg1 arg2) (parse-operator arg (if (null? (cdr args)) '() (cadr args)))))
+              (if arg2
+                (begin
+                  (set! ret (cons arg2 (cons arg1 ret)))
+                  (set! args (cddr args)))
+                (begin
+                  (set! ret (cons arg1 ret))
+                  (set! args (cdr args))))))
           (#t
             (syntax-violation 'sh-parse
               "syntax error, shell DSL atom must be a string, integer, pair, := or redirection operator, found:"
@@ -221,5 +224,24 @@
       (if prefix (cons prefix (reverse! ret)) ret)
       args)))
 
+
+; quote operator (a symbol) to use its name, not its value
+; also, operators <& >& must be followed by an fd number or "-" (we convert "-" to -1)
+(define (parse-operator arg next)
+  (cond
+    ((or (eq? arg '<&) (eq? arg '>&))
+      (cond
+        ((equal? "-" next) ; replace "-" with -1
+          (values (list 'quote arg) -1))
+        ((string-contains-only-decimal-digits? next) ; replace "NNN" with NNN
+          (values (list 'quote arg) (string->number next)))
+        (#t
+          (syntax-violation 'sh-parse
+            "syntax error, redirection operators <& >& must be followed by - or unsigned integer, found:"
+            (if (null? next) arg (list arg next))))))
+    ((symbol? arg)
+      (values (list 'quote arg) #f))
+    (#t
+      (values arg #f))))
 
 ) ; close library

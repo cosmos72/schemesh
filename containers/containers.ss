@@ -8,7 +8,8 @@
 (library (schemesh containers (0 1))
   (export
     ; misc.ss
-    list-iterate list-quoteq! reverse*! string-list? assert-string-list?
+    list-iterate list-quoteq! reverse*!
+    string-list? assert-string-list? string-contains-only-decimal-digits?
     vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable
     list->bytevector subbytevector
     bytevector-fill-range! bytevector-iterate bytevector-compare

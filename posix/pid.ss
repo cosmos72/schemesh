@@ -47,7 +47,7 @@
     (lambda (program . args)
       (let ((ret (c-spawn-pid
                    (list->argv (cons program args))
-                   (vector 0 1 2)
+                   '#(0 1 2) ; no fd redirections
                    #f ; no environment override
                    0)))
         (when (< ret 0)

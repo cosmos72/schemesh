@@ -7,7 +7,8 @@
 
 (library (schemesh containers misc (0 1))
   (export
-    list-iterate list-quoteq! reverse*! string-list? assert-string-list?
+    list-iterate list-quoteq! reverse*!
+    string-list? assert-string-list? string-contains-only-decimal-digits?
     vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable
     list->bytevector subbytevector
     bytevector-fill-range! bytevector-iterate bytevector-compare
@@ -69,6 +70,20 @@
 ;; shortcut for (assert* caller (string-list? l)
 (define (assert-string-list? caller l)
   (assert* caller (string-list? l)))
+
+
+;; return #t if obj is a non-empty string and only contains decimal digits
+(define (string-contains-only-decimal-digits? obj)
+  (let ((n (if (string? obj) (string-length obj) 0)))
+    (if (fxzero? n)
+      #f
+      (do ((i 0 (fx1+ i)))
+          ((or (fx>=? i n) (not (decimal-digit? (string-ref obj i))))
+             (fx>=? i n))))))
+
+;; return #t if character is a decimal digit 0..9
+(define (decimal-digit? ch)
+  (char<=? #\0 ch #\9))
 
 
 ; copy a portion of vector src into dst.

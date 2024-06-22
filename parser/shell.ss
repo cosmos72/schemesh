@@ -14,6 +14,7 @@
     (rnrs)
     (only (chezscheme) append! fx1+ fx1- inspect reverse! unread-char void)
     (only (schemesh bootstrap) assert* debugf until while)
+    (only (schemesh containers misc) string-contains-only-decimal-digits?)
     (schemesh containers charspan)
     (schemesh lineedit paren)
     (schemesh lineedit parser))
@@ -379,19 +380,6 @@
           (values (string->number value) 'integer) ;; integer followed by redirection operator
           (values value type))))))
 
-
-;; return #t if string is non-empty and only contains decimal digits
-(define (string-contains-only-decimal-digits? str)
-  (let ((n (string-length str)))
-    (if (fxzero? n)
-      #f
-      (do ((i 0 (fx1+ i)))
-          ((or (fx>=? i n) (not (decimal-digit? (string-ref str i))))
-             (fx>=? i n))))))
-
-;; return #t if character is a decimal digit 0..9
-(define (decimal-digit? ch)
-  (char<=? #\0 ch #\9))
 
 
 ;; Repeatedly read from textual input port 'in' using (lex-shell)
