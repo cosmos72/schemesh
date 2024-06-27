@@ -10,7 +10,7 @@
   (export
     ; fd.ss
     c-errno c-errno->string raise-c-errno
-    fd-close fd-close-list fd-dup fd-dup2 fd-read fd-write fd-select fd-setnonblock
+    fd-close fd-dup fd-dup2 fd-read fd-write fd-select fd-setnonblock
     open-file-fd open-pipe-fds
 
     ; signal.ss

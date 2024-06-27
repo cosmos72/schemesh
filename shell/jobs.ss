@@ -47,10 +47,9 @@
     (mutable pid)               ; fixnum: process id,       -1 if unknown
     (mutable pgid)              ; fixnum: process group id, -1 if unknown
     (mutable last-status)       ; cons: last known status
-    (mutable to-redirect-fds)   ; vector: fds to redirect between fork() and
-                                ;         (subshell-proc)
-    (mutable to-redirect-files) ; span of lists (fd mode file-path) to open before fork()
-    (mutable to-close-fds)      ; list: fds to close in parent process after spawn
+    ; span of quadruplets (fd mode to-fd-or-bytevector0 path-or-closure)
+    ; to open and redirect between fork() and exec()
+    (mutable redirects)
     start-proc      ; #f or procedure to run in main process.
                     ; receives as argument job followed by options.
     step-proc       ; #f or procedure.
@@ -96,7 +95,7 @@
   ;;
   ;; waiting for sh-globals to exit is not useful:
   ;; pretend it already exited with unknown exit status
-  (%make-multijob 0 (get-pid) (get-pgid 0) '(unknown . 0) (vector 0 1 2) (span) '()
+  (%make-multijob 0 (get-pid) (get-pgid 0) '(unknown . 0) (span)
     #f #f ; start-proc step-proc
     ; current directory
     (string->charspan* ((foreign-procedure "c_get_cwd" () scheme-object)))
@@ -398,7 +397,7 @@
 ;; Create a cmd to later spawn it. Each argument must be a string.
 (define (sh-cmd . program-and-args)
   (assert-string-list? 'sh-cmd program-and-args)
-  (%make-cmd #f -1 -1 '(new . 0) (vector 0 1 2) (span) '()
+  (%make-cmd #f -1 -1 '(new . 0) (span)
     job-start/cmd #f  ; start-proc step-proc
     (sh-cwd)      ; job working directory - initially current directory
     '()           ; overridden environment variables - initially none
@@ -577,9 +576,8 @@
 
 
 ;; NOTE: this is an internal implementation function, use (sh-start) instead.
-;; This function does not update job's status, does not close (job-to-close-fds j)
-;; - thus calling it manually leaks file descriptors - and does not register job
-;;   into global (pid->job) table nor into global job-id table.
+;; This function does not update job's status, and does not register job
+;; into global (pid->job) table nor into global job-id table.
 ;;
 ;; Description:
 ;; Start a cmd i.e. fork() and exec() an external process, optionally inserting it into
@@ -614,7 +612,7 @@
       (let* ((process-group-id (job-start-options->process-group-id options))
              (ret (c-spawn-pid
                     argv
-                    (job-to-redirect-fds c)
+                    (span->vector (job-redirects c))
                     (sh-env->argv c 'exported)
                     process-group-id)))
         (when (< ret 0)
@@ -696,7 +694,7 @@
       (assert* 'sh-start (procedure? (job-step-proc j)))
       (let* ((process-group-id (job-start-options->process-group-id options))
              (ret (c-fork-pid
-                    (job-to-redirect-fds j)
+                    (span->vector (job-redirects j))
                     process-group-id)))
         (cond
           ((< ret 0) ; fork() failed
@@ -756,7 +754,6 @@
       (raise-errorf 'sh-start "cannot start job, it has bad or missing job-start-proc: ~s" j))
     (job-last-status-set! j '(running . #f))
     (proc j options)) ; ignore value returned by job-start-proc
-  (fd-close-list (job-to-close-fds j))
   (when (fx>? (job-pid j) 0)
     (pid->job-set! (job-pid j) j))        ; add job to pid->job table
   (job-last-status j))
@@ -1165,7 +1162,7 @@
     (do ((tail children-jobs (cdr tail)))
         ((null? tail))
       (validate-job-proc kind (car tail))))
-  (%make-multijob #f -1 -1 '(new . 0) (vector 0 1 2) (span) '()
+  (%make-multijob #f -1 -1 '(new . 0) (span)
     start-proc    ; executed to start the job
     next-proc     ; executed when a child job changes status
     (sh-cwd)      ; job working directory - initially current directory

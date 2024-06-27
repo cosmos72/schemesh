@@ -40,15 +40,15 @@ int c_errno_set(int errno_value) {
   return -(errno = errno_value);
 }
 
-static int c_errno_eio() {
+static int c_errno_eio(void) {
   return -EIO;
 }
 
-static int c_errno_eintr() {
+static int c_errno_eintr(void) {
   return -EINTR;
 }
 
-static int c_errno_einval() {
+static int c_errno_einval(void) {
   return -EINVAL;
 }
 
@@ -63,6 +63,40 @@ int c_init_failed(const char label[]) {
           label,
           strerror(err));
   return -err;
+}
+
+static int write_c_errno(void) {
+  const char* errmsg;
+  const int   err = errno;
+  /* writev() is less portable */
+  (void)write(2, "schemesh: ", 10);
+  errmsg = strerror(err);
+  (void)write(2, errmsg, strlen(errmsg));
+  (void)write(2, "\n", 1);
+  return -err;
+}
+
+static int write_path_c_errno(const char path[], const size_t path_len) {
+  const char* errmsg;
+  const int   err = errno;
+  (void)write(2, "schemesh: ", 10);
+  (void)write(2, path, path_len);
+  (void)write(2, ": ", 2);
+  errmsg = strerror(err);
+  (void)write(2, errmsg, strlen(errmsg));
+  return -err;
+}
+
+static int write_command_not_found(const char arg0[]) {
+  (void)write(2, "schemesh: ", 10);
+  (void)write(2, arg0, strlen(arg0));
+  (void)write(2, ": command not found\n", 20);
+  return -EINVAL;
+}
+
+static int write_invalid_redirection(void) {
+  (void)write(2, "schemesh: invalid redirection\n", 30);
+  return -EINVAL;
 }
 
 /******************************************************************************/
@@ -194,17 +228,6 @@ static unsigned long c_parse_unsigned_long(const char* str) {
 static int c_fd_close(int fd) {
   int ret = close(fd);
   return ret >= 0 ? ret : c_errno();
-}
-
-/** close all file descriptors >= lowest_fd_to_close */
-static void c_fd_close_all(int lowest_fd_to_close) {
-  int i       = lowest_fd_to_close >= 0 ? lowest_fd_to_close : 0;
-  int last_ok = i - 1;
-  for (; i < INT_MAX && i - 32 <= last_ok; i++) {
-    if (close(i) >= 0) {
-      last_ok = i;
-    }
-  }
 }
 
 /** call dup() */
@@ -370,36 +393,87 @@ static int c_check_redirect_fds(ptr vector_redirect_fds) {
   return 0;
 }
 
+/* convert a redirection char < > ≶ (means <>) ≫ (means >>) to open() flags */
+static int c_char_to_open_flags(string_char ch) {
+  switch (ch) {
+    case '<':
+      return O_RDONLY;
+    case '>':
+      return O_WRONLY | O_CREAT;
+    case 0x226B: /* ≫ means >> */
+      return O_WRONLY | O_APPEND | O_CREAT;
+    case 0x2276: /* ≶ means <> */
+      return O_RDWR | O_CREAT;
+    default:
+      return -1;
+  }
+}
+
+/** redirect a single fd as indicated in vector_redirect_fds[i...i+3]. return < 0 on error */
+static int c_redirect_fd(ptr vector_redirect_fds, iptr i) {
+  ptr         elem = Svector_ref(vector_redirect_fds, i);
+  iptr        fd;
+  iptr        to_fd;
+  iptr        path_len = 0;
+  const char* path     = NULL;
+  int         open_flags;
+  int         err;
+
+  if (!Sfixnump(elem) || (fd = Sfixnum_value(elem)) < 0) {
+    /* invalid fd */
+    return write_invalid_redirection();
+  }
+  elem = Svector_ref(vector_redirect_fds, i + 1);
+  if (!Scharp(elem) || (open_flags = c_char_to_open_flags(Schar_value(elem))) < 0) {
+    /* invalid direction */
+    return write_invalid_redirection();
+  }
+
+  elem = Svector_ref(vector_redirect_fds, i + 2);
+  if (Sfixnump(elem) && (to_fd = Sfixnum_value(elem)) >= -1) {
+    /* redirect fd to another file descriptor, or close it */
+    if (to_fd == -1) {
+      close(fd);
+    } else if (dup2(to_fd, fd) < 0) {
+      return write_c_errno();
+    }
+    return 0;
+  }
+  if (!Sbytevectorp(elem) || (path_len = Sbytevector_length(elem)) <= 0 ||
+      Sbytevector_u8_ref(elem, path_len - 1) != 0) {
+    /* invalid path */
+    return write_invalid_redirection();
+  }
+  /* redirect fd from/to a file */
+  path  = (const char*)Sbytevector_data(elem);
+  to_fd = open(path, open_flags);
+  if (to_fd < 0) {
+    return write_path_c_errno(path, path_len);
+  }
+  if (to_fd == fd) {
+    return 0; // lucky :)
+  }
+  if (dup2(to_fd, fd) < 0) {
+    err = write_c_errno();
+  } else {
+    err = 0;
+  }
+  close(to_fd);
+  return err;
+}
+
 /** redirect fds as indicated in vector_redirect_fds. return < 0 on error */
 static int c_redirect_fds(ptr vector_redirect_fds) {
   iptr i, n;
-  int  lowest_fd_to_close = 0;
-  if (!Svectorp(vector_redirect_fds)) {
-    return -1;
+  int  err = 0;
+  if (!Svectorp(vector_redirect_fds) || ((n = Svector_length(vector_redirect_fds)) & 3)) {
+    write_invalid_redirection();
+    return -EINVAL;
   }
-  n = Svector_length(vector_redirect_fds);
-  for (i = 0; i < n; i++) {
-    ptr  elem = Svector_ref(vector_redirect_fds, i);
-    iptr fd;
-    if (!Sfixnump(elem)) {
-      return -1;
-    }
-    fd = Sfixnum_value(elem);
-    if (fd >= 0) {
-      if (fd != i && dup2(fd, i) < 0) {
-        return -1;
-      }
-      lowest_fd_to_close = i + 1;
-    }
+  for (i = 0; err == 0 && i + 4 <= n; i += 4) {
+    err = c_redirect_fd(vector_redirect_fds, i);
   }
-  /* close all fds in 0...(lowest_fd_to_close-1) except the redirected ones */
-  for (i = 0; i < lowest_fd_to_close; i++) {
-    ptr elem = Svector_ref(vector_redirect_fds, i);
-    if (!Sfixnump(elem) || Sfixnum_value(elem) < 0) {
-      (void)close(i);
-    }
-  }
-  return lowest_fd_to_close;
+  return err;
 }
 
 /******************************************************************************/
@@ -554,7 +628,11 @@ static int c_set_process_group(pid_t existing_pgid_if_positive) {
   return err >= 0 ? err : c_errno();
 }
 
-/** fork() and return pid, or c_errno() on error */
+/**
+ * fork() and redirect file descriptors.
+ * parent: return pid, or c_errno() on error
+ * child: return 0, or c_errno() on error
+ */
 static int c_fork_pid(ptr vector_redirect_fds, int existing_pgid_if_positive) {
   const int pid = fork();
   switch (pid) {
@@ -562,18 +640,12 @@ static int c_fork_pid(ptr vector_redirect_fds, int existing_pgid_if_positive) {
       return c_errno(); /* fork() failed */
     case 0: {
       /* child */
-      int err = c_set_process_group((pid_t)existing_pgid_if_positive);
-      if (err >= 0) {
-        err = c_signal_setdefault(SIGTSTP);
-        if (err >= 0) {
-          int lowest_fd_to_close = c_redirect_fds(vector_redirect_fds);
-          if (lowest_fd_to_close >= 0) {
-            return 0;
-          }
-        }
+      int err;
+      if ((err = c_set_process_group((pid_t)existing_pgid_if_positive)) >= 0 &&
+          (err = c_signal_setdefault(SIGTSTP)) >= 0) {
+        err = c_redirect_fds(vector_redirect_fds);
       }
-      /* in case c_set_process_group() or c_redirect_fds() fail */
-      exit(255);
+      return err;
     }
     default:
 #ifdef SCHEMESH_DEBUG_POSIX
@@ -592,8 +664,6 @@ static int c_fork_pid(ptr vector_redirect_fds, int existing_pgid_if_positive) {
  * after any call to Scheme functions.
  */
 static char** vector_to_c_argz(ptr vector_of_bytevector0);
-
-static void write_command_not_found(const char arg0[]);
 
 /** fork() and exec() an external program, return pid.
  * if existing_pgid_if_positive > 0, add process to given pgid i.e. process group */
@@ -628,20 +698,14 @@ static int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
       break;
     case 0: {
       /* child */
-      int err = c_set_process_group((pid_t)existing_pgid_if_positive);
-      if (err >= 0) {
-        err = c_signals_setdefault();
-        if (err >= 0) {
-          int lowest_fd_to_close = c_redirect_fds(vector_redirect_fds);
-          if (lowest_fd_to_close >= 0) {
-            (void)c_fd_close_all(lowest_fd_to_close);
-            if (envp) {
-              environ = envp;
-            }
-            (void)execvp(argv[0], argv);
-            write_command_not_found(argv[0]);
-          }
+      if (c_set_process_group((pid_t)existing_pgid_if_positive) >= 0 &&
+          c_signals_setdefault() >= 0 && /*                                   */
+          c_redirect_fds(vector_redirect_fds) >= 0) {
+        if (envp) {
+          environ = envp;
         }
+        (void)execvp(argv[0], argv);
+        (void)write_command_not_found(argv[0]);
       }
       /* in case c_set_process_group() or c_redirect_fds() fail,
        * or execvp() fails and returns */
@@ -745,13 +809,6 @@ static char** vector_to_c_argz(ptr vector_of_bytevector0) {
   }
   c_argz[n] = NULL;
   return c_argz;
-}
-
-static void write_command_not_found(const char arg0[]) {
-  /* writev() is less portable */
-  (void)write(2, "schemesh: ", 10);
-  (void)write(2, arg0, strlen(arg0));
-  (void)write(2, ": command not found\n", 20);
 }
 
 int schemesh_register_c_functions_posix(void) {
