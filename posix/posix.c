@@ -378,8 +378,8 @@ static ptr c_open_pipe_fds(void) {
   return Scons(Sinteger(fds[0]), Sinteger(fds[1]));
 }
 
-/* convert a redirection char < > ≶ (means <>) ≫ (means >>) to open() flags */
-static int c_char_to_open_flags(string_char ch) {
+/* convert a redirection char < > ≶ (means <>) » (means >>) to open() flags */
+static int c_direction_to_open_flags(string_char ch) {
   switch (ch) {
     case '<':
       return O_RDONLY;
@@ -409,7 +409,7 @@ static int c_redirect_fd(ptr vector_redirect_fds, iptr i) {
     return write_invalid_redirection();
   }
   elem = Svector_ref(vector_redirect_fds, i + 1);
-  if (!Scharp(elem) || (open_flags = c_char_to_open_flags(Schar_value(elem))) < 0) {
+  if (!Scharp(elem) || (open_flags = c_direction_to_open_flags(Schar_value(elem))) < 0) {
     /* invalid direction */
     return write_invalid_redirection();
   }
