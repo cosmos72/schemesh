@@ -118,7 +118,7 @@
 ; convert bytevector to #\nul terminated bytevector
 (define (bytevector->bytevector0 x)
   (let ((len (bytevector-length x)))
-    (if (fxzero? len)
+    (if (or (fxzero? len) (fxzero? (bytevector-u8-ref x (fx1- len))))
       bv0
       (let ((ret (make-bytevector (fx1+ len))))
         (bytevector-copy! x 0 ret 0 len)

@@ -20,7 +20,7 @@
     sh-builtin-command sh-builtin-cd sh-builtin-pwd sh-cwd sh-cwd-set! sh-cd sh-pwd
     sh-consume-sigchld sh-multijob-child-length sh-multijob-child-ref
     sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/ok? sh-run/bytes sh-run/string
-    sh-and sh-or sh-list sh-subshell sh-fd-redirect! sh-file-redirect!
+    sh-and sh-or sh-list sh-subshell sh-redirect!
     sh-job-display sh-job-display* sh-job-display/string
     sh-job-write sh-job-write* sh-job-write/string)
   (import
@@ -1116,43 +1116,60 @@
   "")
 
 
-
-;; Create or remove a file description redirection for cmd or job
-(define (sh-fd-redirect! job-or-id child-fd existing-fd-or-minus-1)
-  (unless (and (fixnum? child-fd) (fx>=? child-fd 0))
-    (raise-errorf 'sh-fd-redirect! "invalid redirect from fd, must be an unsigned fixnum: ~s" child-fd))
-  ;; TODO: allow closure existing-fd-or-minus-1
-  (unless (and (fixnum? existing-fd-or-minus-1) (fx>=? existing-fd-or-minus-1 -1))
-    (raise-errorf 'sh-fd-redirect! "invalid redirect to fd, must be -1 or an unsigned fixnum: ~s" existing-fd-or-minus-1))
-  (let* ((j (sh-job job-or-id))
-         (old-fds (job-to-redirect-fds j))
-         (old-n (vector-length old-fds)))
-    (when (fx<=? old-n child-fd)
-      (let* ((new-n (max (fx1+ child-fd) (fx* 2 old-n)))
-             (new-fds (make-vector new-n -1))) ; fill with -1 i.e. no redirection
-        (vector-copy! old-fds 0 new-fds 0 old-n)
-        (job-to-redirect-fds-set! j new-fds)))
-    (vector-set! (job-to-redirect-fds j) child-fd existing-fd-or-minus-1)))
+;; Create or remove a redirection for cmd or job
+(define (sh-redirect! job-or-id fd direction path-or-existing-fd-or-minus-1)
+  (let ((job (sh-job job-or-id))
+        (to  path-or-existing-fd-or-minus-1))
+    (unless (and (fixnum? fd) (fx>=? fd 0))
+      (raise-errorf 'sh-redirect! "invalid redirect from fd, must be an unsigned fixnum: ~s" fd))
+    (if (fixnum? to)
+      (job-redirect/fd!   job fd direction to)
+      (job-redirect/file! job fd direction to))))
 
 
-;; Create a file path redirection for cmd or job
-;; op must be one of < <> > >>
-(define (sh-file-redirect! job-or-id child-fd op file-path)
-  (unless (and (fixnum? child-fd) (fx>=? child-fd 0))
-    (raise-errorf 'sh-path-redirect! "invalid redirect from fd, must be an unsigned fixnum: ~s" child-fd))
-  (unless (memq op '(< <> > >>))
-    (raise-errorf 'sh-path-redirect! "invalid redirect operator, must be one of < <> > >>: ~s" op))
-  ;; TODO: allow closure file-path
-  (unless (and (string? file-path) (not (fxzero? (string-length file-path))))
-    (raise-errorf 'sh-path-redirect! "invalid redirect file path, must be non-empty string: ~s" file-path))
-  (let ((j (sh-job job-or-id)))
-    (span-insert-back! (job-to-redirect-files j) (list child-fd op file-path))))
+(define (job-redirect/fd! job fd direction to)
+  (unless (fx>=? to -1)
+    (raise-errorf 'sh-redirect! "invalid redirect to fd, must be -1 or an unsigned fixnum: ~a" to))
+  (span-insert-back! (job-redirects job)
+    fd
+    (case direction
+      ((<&) #\<)
+      ((>&) #\>)
+      (else
+        (raise-errorf 'sh-redirect! "invalid redirect to fd direction, must be <& or >&: ~a" to)))
+    #f
+    to))
 
+
+(define (job-redirect/file! job fd direction to)
+  (span-insert-back! (job-redirects job)
+    fd
+    (case direction
+      ((<) #\<)
+      ((>) #\>)
+      ((<>) (integer->char #x2276)) ; #\≶
+      ((>>) (integer->char #x00bb)) ; #\»
+      (else
+        (raise-errorf 'sh-redirect! "invalid redirect to file direction, must be < > <> or >>: ~a" direction)))
+    to
+    (cond
+      ((string? to)
+        (when (fxzero? (string-length to))
+          (raise-errorf 'sh-redirect! "invalid redirect to file, string must be non-empty: ~s" to))
+        (string->utf8b/0 to))
+      ((bytevector? to)
+        (let ((to0 (bytevector->bytevector0)))
+          (when (fxzero? (string-length to0))
+            (raise-errorf 'sh-redirect! "invalid redirect to file, bytevector must be non-empty: ~a" to))
+          to0))
+      ((procedure? to)
+        #f)
+      (#t
+        (raise-errorf 'sh-redirect! "invalid redirect to fd or file, target must be a string, bytevector or procedure: ~s" to)))))
 
 
 ;; Create a multijob to later start it.
 ;; Internal function, accepts an optional function to validate each element in children-jobs
-
 (define (make-multijob kind validate-job-proc start-proc next-proc . children-jobs)
   (assert* 'make-multijob (symbol? kind))
   (assert* 'make-multijob (procedure? start-proc))

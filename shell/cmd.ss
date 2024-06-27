@@ -41,12 +41,7 @@
       ;; FIXME: apply parsed assignments NAME = VALUE
       (list-iterate redirections
         (lambda (redirection)
-          (let ((from (car redirection))
-                (op   (cadr redirection))
-                (to   (caddr redirection)))
-            (if (or (eq? op '<&) (eq? op '>&))
-              (sh-fd-redirect! cmd from to)
-              (sh-file-redirect! cmd from op to)))))
+          (sh-redirect! cmd (car redirection) (cadr redirection) (caddr redirection))))
       cmd)))
 
 

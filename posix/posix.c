@@ -378,21 +378,6 @@ static ptr c_open_pipe_fds(void) {
   return Scons(Sinteger(fds[0]), Sinteger(fds[1]));
 }
 
-static int c_check_redirect_fds(ptr vector_redirect_fds) {
-  iptr i, n;
-  if (!Svectorp(vector_redirect_fds)) {
-    return -EINVAL;
-  }
-  n = Svector_length(vector_redirect_fds);
-  for (i = 0; i < n; i++) {
-    ptr elem = Svector_ref(vector_redirect_fds, i);
-    if (!Sfixnump(elem)) {
-      return -EINVAL;
-    }
-  }
-  return 0;
-}
-
 /* convert a redirection char < > ≶ (means <>) ≫ (means >>) to open() flags */
 static int c_char_to_open_flags(string_char ch) {
   switch (ch) {
@@ -400,7 +385,7 @@ static int c_char_to_open_flags(string_char ch) {
       return O_RDONLY;
     case '>':
       return O_WRONLY | O_CREAT;
-    case 0x226B: /* ≫ means >> */
+    case 0x00bb: /* » means >> */
       return O_WRONLY | O_APPEND | O_CREAT;
     case 0x2276: /* ≶ means <> */
       return O_RDWR | O_CREAT;
@@ -430,7 +415,12 @@ static int c_redirect_fd(ptr vector_redirect_fds, iptr i) {
   }
 
   elem = Svector_ref(vector_redirect_fds, i + 2);
-  if (Sfixnump(elem) && (to_fd = Sfixnum_value(elem)) >= -1) {
+  if (Sfixnump(elem)) {
+    to_fd = Sfixnum_value(elem);
+    if (to_fd < -1) {
+      /* invalid to_fd, must be >= -1 */
+      return write_invalid_redirection();
+    }
     /* redirect fd to another file descriptor, or close it */
     if (to_fd == -1) {
       close(fd);
@@ -439,6 +429,7 @@ static int c_redirect_fd(ptr vector_redirect_fds, iptr i) {
     }
     return 0;
   }
+  elem = Svector_ref(vector_redirect_fds, i + 3);
   if (!Sbytevectorp(elem) || (path_len = Sbytevector_length(elem)) <= 0 ||
       Sbytevector_u8_ref(elem, path_len - 1) != 0) {
     /* invalid path */
@@ -446,9 +437,9 @@ static int c_redirect_fd(ptr vector_redirect_fds, iptr i) {
   }
   /* redirect fd from/to a file */
   path  = (const char*)Sbytevector_data(elem);
-  to_fd = open(path, open_flags);
+  to_fd = open(path, open_flags, 0666);
   if (to_fd < 0) {
-    return write_path_c_errno(path, path_len);
+    return write_path_c_errno(path, path_len - 1);
   }
   if (to_fd == fd) {
     return 0; // lucky :)
@@ -671,13 +662,10 @@ static int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
                        ptr vector_redirect_fds,
                        ptr vector_of_bytevector0_environ,
                        int existing_pgid_if_positive) {
-  char **argv = NULL, **envp = NULL;
+
+  char** argv = vector_to_c_argz(vector_of_bytevector0_cmdline);
+  char** envp = vector_to_c_argz(vector_of_bytevector0_environ);
   int    pid;
-  if ((pid = c_check_redirect_fds(vector_redirect_fds)) < 0) {
-    goto out;
-  }
-  envp = vector_to_c_argz(vector_of_bytevector0_environ);
-  argv = vector_to_c_argz(vector_of_bytevector0_cmdline);
   if (!argv || (!envp && Svectorp(vector_of_bytevector0_environ))) {
     pid = -ENOMEM;
     goto out;
