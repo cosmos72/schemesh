@@ -693,11 +693,12 @@ static int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
           environ = envp;
         }
         (void)execvp(argv[0], argv);
+        /* in case or execvp() fails and returns */
         (void)write_command_not_found(argv[0]);
+        exit(127);
       }
-      /* in case c_set_process_group() or c_redirect_fds() fail,
-       * or execvp() fails and returns */
-      exit(255);
+      /* in case c_set_process_group() or c_redirect_fds() fail */
+      exit(1);
     }
     default:
       /* parent */

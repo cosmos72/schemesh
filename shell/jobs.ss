@@ -1132,25 +1132,16 @@
     (raise-errorf 'sh-redirect! "invalid redirect to fd, must be -1 or an unsigned fixnum: ~a" to))
   (span-insert-back! (job-redirects job)
     fd
-    (case direction
-      ((<&) #\<)
-      ((>&) #\>)
-      (else
-        (raise-errorf 'sh-redirect! "invalid redirect to fd direction, must be <& or >&: ~a" to)))
-    #f
-    to))
+    (redirect/fd-symbol->char 'sh-redirect! direction)
+    to
+    #f))
+
 
 
 (define (job-redirect/file! job fd direction to)
   (span-insert-back! (job-redirects job)
     fd
-    (case direction
-      ((<) #\<)
-      ((>) #\>)
-      ((<>) (integer->char #x2276)) ; #\≶
-      ((>>) (integer->char #x00bb)) ; #\»
-      (else
-        (raise-errorf 'sh-redirect! "invalid redirect to file direction, must be < > <> or >>: ~a" direction)))
+    (redirect/file-symbol->char 'sh-redirect! direction)
     to
     (cond
       ((string? to)
@@ -1166,6 +1157,42 @@
         #f)
       (#t
         (raise-errorf 'sh-redirect! "invalid redirect to fd or file, target must be a string, bytevector or procedure: ~s" to)))))
+
+
+(define (redirect/fd-symbol->char caller symbol)
+  (case symbol
+    ((<&) #\<)
+    ((>&) #\>)
+    (else
+      (raise-errorf caller "invalid redirect to fd direction, must be <& or >&: ~a" symbol))))
+
+
+(define (redirect/file-symbol->char caller symbol)
+  (case symbol
+    ((<) #\<)
+    ((>) #\>)
+    ((<>) (integer->char #x2276)) ; #\≶
+    ((>>) (integer->char #x00bb)) ; #\»
+    (else
+      (raise-errorf caller "invalid redirect to file direction, must be < > <> or >>: ~a" symbol))))
+
+
+(define (redirect/fd-char->symbol caller ch)
+  (case ch
+    ((#\<) '<&)
+    ((#\>) '>&)
+    (else
+      (raise-errorf caller "invalid redirect to fd character, must be <& or >&: ~a" ch))))
+
+
+(define (redirect/file-char->symbol caller ch)
+  (case (char->integer ch)
+    ((#x3c) '<)
+    ((#x3e) '>)
+    ((#x2276) '<>)
+    ((#x00bb) '>>)
+    (else
+      (raise-errorf caller "invalid redirect to file character, must be < <> > or >>: ~a" ch))))
 
 
 ;; Create a multijob to later start it.
@@ -1392,22 +1419,47 @@
     (let ((arg (car tail)))
       (if (string-is-shell-identifier? arg)
         (put-string port arg)
-        (put-datum  port arg)))))
+        (put-datum  port arg))))
+  (job-display/redirects j port))
+
+
+(define (job-display/redirects j port)
+  (let ((redirects (job-redirects j)))
+    (do ((i 0 (fx+ i 4))
+         (n (span-length redirects)))
+        ((fx>? (fx+ i 4) n))
+      (job-display/redirect redirects i port))))
+
+
+(define (job-display/redirect redirects i port)
+  (let ((ch (span-ref redirects (fx1+ i)))
+        (to (span-ref redirects (fx+ i 2))))
+    (put-char port #\space)
+    (put-datum port (span-ref redirects i))
+    (put-string port (symbol->string (if (fixnum? to)
+                                       (redirect/fd-char->symbol 'sh-job-write ch)
+                                       (redirect/file-char->symbol 'sh-job-write ch))))
+    (if (string-is-shell-identifier? to)
+      (put-string port to)
+      (put-datum port to))))
 
 
 (define (string-is-shell-identifier? str)
-  (do ((i 0 (fx1+ i))
-       (n (fx1- (string-length str))))
-      ((or (fx>=? i n) (not (char-is-shell-identifier? (string-ref str i))))
-       (fx>=? i n))))
+  (and
+    (string? str)
+    (do ((i 0 (fx1+ i))
+         (n (fx1- (string-length str))))
+        ((or (fx>=? i n) (not (char-is-shell-identifier? (string-ref str i))))
+         (fx>=? i n)))))
 
 
 (define (char-is-shell-identifier? ch)
-  (or (char<=? #\a ch #\z)
-      (char<=? #\A ch #\Z)
-      (char<=? #\0 ch #\9)
-      (char<=? #\+ ch #\/)  ; i.e. one of #\+ #\, #\- #\. #\/
-      (char=?  #\_ ch)))   ; i.e. #\_
+  (and (char? ch)
+    (or (char<=? #\a ch #\z)
+        (char<=? #\A ch #\Z)
+        (char<=? #\0 ch #\9)
+        (char<=? #\+ ch #\/)  ; i.e. one of #\+ #\, #\- #\. #\/
+        (char=?  #\_ ch))))   ; i.e. #\_
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1452,12 +1504,35 @@
 
 
 (define (job-write/cmd j port)
-  (put-string port "(sh-cmd")
+  (put-string port (if (span-empty? (job-redirects j)) "(sh-cmd" "(sh-cmd*"))
   (list-iterate (cmd-arg-list j)
     (lambda (arg)
       (put-char port #\space)
       (put-datum port arg)))
+  (job-write/redirects j port)
   (put-string port ")"))
+
+
+(define (job-write/redirects j port)
+  (let ((redirects (job-redirects j)))
+    (do ((i 0 (fx+ i 4))
+         (n (span-length redirects)))
+        ((fx>? (fx+ i 4) n))
+      (job-write/redirect redirects i port))))
+
+
+(define (job-write/redirect redirects i port)
+  (let ((ch (span-ref redirects (fx1+ i)))
+        (to (span-ref redirects (fx+ i 2))))
+    (put-char port #\space)
+    (put-datum port (span-ref redirects i))
+    (put-string port " '")
+    (put-string port (symbol->string (if (fixnum? to)
+                                       (redirect/fd-char->symbol 'sh-job-write ch)
+                                       (redirect/file-char->symbol 'sh-job-write ch))))
+    (put-char port #\space)
+    (put-datum port to)))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
