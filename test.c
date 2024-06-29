@@ -535,6 +535,8 @@ static const testcase tests[] = {
     {"(parse-shell* (make-parsectx-from-string \"{}\"))", "(shell)"},
     {"(parse-shell* (make-parsectx-from-string \"ls -l>/dev/null&\"))\n",
      "(shell ls -l > /dev/null &)"},
+    /* (parse-shell*) stops after {} */
+    {"(parse-shell* (make-parsectx-from-string \"{} </dev/null 2>&1\"))", "(shell)"},
     {"(parse-shell* (make-parsectx-from-string \"echo  foo  bar|wc -l\"))",
      "(shell echo foo bar | wc -l)"},
     {"(parse-shell* (make-parsectx-from-string \"echo  foo  bar|wc -l ; \"))",
@@ -543,6 +545,8 @@ static const testcase tests[] = {
      "(shell echo foo bar | wc -l ; ;)"},
     {"(parse-shell* (make-parsectx-from-string \"{echo|{cat;{true}\n}&}\"))",
      "(shell echo | (shell cat ; (shell true) ;) &)"},
+    {"(parse-shell* (make-parsectx-from-string \"{{foo} </dev/null 2>&1 }\"))",
+     "(shell (shell foo) < /dev/null 2 >& 1)"},
     {"(parse-shell* (make-parsectx-from-string \"{{foo} ; bar}\"))", "(shell (shell foo) ; bar)"},
     {"(parse-shell* (make-parsectx-from-string \"{ls; {foo ; bar} & echo}\"))",
      "(shell ls ; (shell foo ; bar) & echo)"},
@@ -754,6 +758,9 @@ static const testcase tests[] = {
     {"(sh-parse '(\"find\" \"-type\" \"f\" \\x7c; \"wc\" &))",
      "(sh-list (sh-pipe* (sh-cmd find -type f) '| (sh-cmd wc)) '&)"},
     {"(sh-parse '((shell \"foo\") \\x3b; \"bar\"))", "(sh-list (shell foo) '; (sh-cmd bar))"},
+#if 0
+    {"(sh-parse '(shell ! \"foo\" \"bar\"))", "(sh-not (sh-cmd foo bar))"},
+#endif
 
 #define INVOKELIB_SHELL_BUILTINS                                                                   \
   "(begin (($primitive 3 $invoke-library) '(schemesh shell builtins) '(0 1) 'builtins)"
@@ -775,6 +782,8 @@ static const testcase tests[] = {
     {"(expand '(shell \"ls\" \"-l\" && \"wc\" \"-b\" \\x7c;\\x7c; \"echo\" \"error\" &))",
      INVOKELIB_SHELL_JOBS
      " (sh-list (sh-or (sh-and (sh-cmd ls -l) (sh-cmd wc -b)) (sh-cmd echo error)) '&))"},
+    {"(expand '(shell \"true\" \\x7c;\\x7c; ! \"false\"))",
+     INVOKELIB_SHELL_JOBS " (sh-or (sh-cmd true) (sh-not (sh-cmd false))))"},
     {"(expand '(shell-list (shell \"ls\" \"-al\" >> \"log.txt\")))",
      INVOKELIB_SHELL_CMD " (sh-cmd* ls -al '>> log.txt))"},
     {"(expand (parse-shell* (make-parsectx-from-string\n"

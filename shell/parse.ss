@@ -17,7 +17,7 @@
     (only (schemesh containers hashtable) eq-hashtable)
     (schemesh shell jobs))
 
-;; Return #t if token is a shell command separator: ; & && || | |&
+;; Return #t if token is a shell command separator: ; & && || |
 (define (sh-separator? token)
   (and (symbol? token)
        (memq token '(& && \x3b; \x7c;\x7c; \x7c; \x7c;&
@@ -40,12 +40,12 @@
   (eval (sh-parse args)))
 
 
-;; Parse list containing a sequence of shell commands separated by ; & && || | |&
+;; Parse list containing a sequence of shell commands separated by ; & && || |
 ;; Return parsed list, which typically consists of Scheme source forms
 ;; that will create sh-cmd or sh-multijob objects if evaluated.
 ;;
 ;; Each element in args must be a symbol, string, integer or pair:
-;; 1. symbols are operators. Recognized symbols are: ; & && || | |& < <> <& > >> >&
+;; 1. symbols are operators. Recognized symbols are: ; & ! && || | < <> > >> <& >&
 ;; 2. strings stand for themselves. for example (sh-parse '("ls" "-l"))
 ;;    returns the Scheme source form '(sh-cmd "ls" "-l")
 ;; 3. integers are fd numbers, and must be followed by a redirection operator < <> <& > >> >&
@@ -78,13 +78,13 @@
       (#t (cons 'sh-list (reverse! (list-quoteq! '(& \x3b;
                                                   ) ret)))))))
 
-;; validate list containing a sequence of shell commands separated by ; & && || | |&
+;; validate list containing a sequence of shell commands separated by ; & ! && || |
 (define (sh-validate args)
   (until (null? args)
     (unless (null? (cdr args))
       (let ((arg1 (car args))
             (arg2 (cadr args)))
-        (when (and (symbol? arg1) (symbol? arg2))
+        (when (and (symbol? arg1) (symbol? arg2) (not (eq? '! arg2)))
           (unless (and (eq? arg1 '\x3b;)
                        (memq arg2 '(& \x3b;
                                     )))
@@ -93,7 +93,7 @@
     (set! args (cdr args))))
 
 
-;; Parse list containing a sequence of shell commands separated by || && | |&
+;; Parse list containing a sequence of shell commands separated by || && |
 ;; Return two values:
 ;;   A list containing parsed args;
 ;;   The remaining, unparsed args.
@@ -121,7 +121,7 @@
       args)))
 
 
-;; Parse list containing a sequence of shell commands separated by && | |&
+;; Parse list containing a sequence of shell commands separated by && |
 ;; Return two values:
 ;;   A list containing parsed args;
 ;;   The remaining, unparsed args.
@@ -148,17 +148,16 @@
         (#t                (cons 'sh-and (reverse! ret))))
       args)))
 
-;
-;; Parse list containing a sequence of shell commands separated by | |&
+;; Parse list containing a sequence of shell commands separated by |
 ;; Return two values:
 ;;   A list containing parsed args;
 ;;   The remaining, unparsed args.
-;/
+;;
 (define (sh-parse-pipe args)
   (let ((ret '())
         (done? (null? args)))
     (until done?
-      (let-values (((parsed tail) (sh-parse-cmd args)))
+      (let-values (((parsed tail) (sh-parse-not args)))
         (set! ret (cons parsed ret))
         (set! args tail))
       ; (debugf "sh-parse-pipe  iterate: ret = ~s, args = ~s~%" (reverse ret) args)
@@ -179,7 +178,27 @@
                                                       ) ret)))))
       args)))
 
-;; Parse args for a single shell command, i.e. everything before the first ; & && || | |&
+
+;; Parse a shell command prefixed by one or more !
+;; Return two values:
+;;   A list containing parsed args;
+;;   The remaining, unparsed args.
+;;
+(define (sh-parse-not args)
+  (let %again ((negate? #f)
+               (args args))
+    ; (debugf "sh-parse-not iterate: ret = ~s, negate? = ~s, args = ~s~%" (reverse ret) negate? args)
+    (cond
+      ((and (not (null? args)) (eq? '! (car args)))
+        (%again (not negate?) (cdr args)))
+      (negate?
+        (let-values (((parsed tail) (sh-parse-cmd args)))
+          (values (list 'sh-not parsed) tail)))
+      (#t
+        (sh-parse-cmd args)))))
+
+
+;; Parse args for a single shell command, i.e. everything before the first ; & && || |
 ;; Return two values:
 ;;   A list containing parsed args;
 ;;   The remaining, unparsed args.
