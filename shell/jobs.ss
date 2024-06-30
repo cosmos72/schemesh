@@ -1302,7 +1302,7 @@
 
 
 
-;; Run the child job in a multijob containing a "not" and one child jobs,
+;; Run the child job in a multijob containing a "not" and one child job,
 ;; or collect the exit status of the child job after it exited.
 ;; Used by (sh-not), implements runtime behavior of shell syntax ! foo
 (define (job-step/not mj prev-child-status)

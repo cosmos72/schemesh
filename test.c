@@ -746,7 +746,13 @@ static const testcase tests[] = {
     {"(sh-run/i (sh-list (sh-cmd \"false\") (sh-cmd \"true\")))\n", ""},
     {"(sh-run   (sh-list (sh-cmd \"true\") (sh-cmd \"false\")))\n", "(exited . 1)"},
     {"(sh-run/i (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 1)"},
+    {"(sh-run   (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 1)"},
+    {"(sh-run/i (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", ""},
     {"(sh-run   (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", ""},
+    {"(sh-run/i (sh-not (sh-cmd \"true\")))", "(exited . 1)"},
+    {"(sh-run   (sh-not (sh-cmd \"true\")))", "(exited . 1)"},
+    {"(sh-run/i (sh-not (sh-cmd \"false\")))", ""},
+    {"(sh-run   (sh-not (sh-cmd \"false\")))", ""},
     {"(let ((j (sh-and (sh-cmd \"true\") (sh-cmd \"false\"))))\n"
      "  (sh-start j)\n"
      "  (sh-bg j)\n"
