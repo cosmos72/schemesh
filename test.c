@@ -802,6 +802,12 @@ static const testcase tests[] = {
     {"(expand (parse-shell* (make-parsectx-from-string\n"
      "  \"{echo|{cat;{true}}}\")))",
      INVOKELIB_SHELL_JOBS " (sh-pipe* (sh-cmd echo) '| (sh-list (sh-cmd cat) '; (sh-cmd true))))"},
+    {"(expand '(shell (shell \"ls\" & \"echo\")))",
+     INVOKELIB_SHELL_JOBS " (sh-list (sh-cmd ls) '& (sh-cmd echo)))"},
+#if 0  /** FIXME: raises Exception in car: () is not a pair */
+    {"(expand '(shell (shell \"ls\" & \"echo\") 2 >& 1))",
+     INVOKELIB_SHELL_JOBS " (sh-list (sh-cmd ls) '& (sh-cmd echo)))"},
+#endif /* 0 */
     {"(parse-shell* (make-parsectx-from-string\n"
      "  \"{{foo};bar}\"))",
      "(shell (shell foo) ; bar)"},
@@ -833,6 +839,12 @@ static const testcase tests[] = {
      "  \"{echo $(foo&&bar)}\")))",
      INVOKELIB_SHELL_JOBS_PARSE " (sh-cmd* echo (lambda (job) (sh-run/string"
                                 " (sh-and (sh-cmd foo) (sh-cmd bar))))))"},
+    {"(expand (parse-shell* (make-parsectx-from-string\n"
+     "  \"{{ls} > log.txt &}\")))",
+     INVOKELIB_SHELL_JOBS_PARSE " (sh-list* (sh-cmd ls) 1 '> log.txt '&))"},
+    {"(eval (parse-shell* (make-parsectx-from-string\n"
+     "  \"{{ls} > log.txt &}\")))",
+     "(sh-list (sh-cmd* \"ls\" 1 '> \"log.txt\") '&)"},
     /* ------------------------- repl --------------------------------------- */
     {"(values->list (repl-parse\n"
      "  (make-parsectx-from-string \"(+ 2 3) (values 7 (cons 'a 'b))\" (parsers))\n"

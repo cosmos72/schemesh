@@ -1134,7 +1134,7 @@
 ; (define (sh-redirects! job-or-id . args)
 
 
-;; Create a redirection for cmd or job
+;; Create a redirection for cmd or job. Return cmd or job.
 (define (sh-redirect! job-or-id fd direction path-or-existing-fd-or-minus-1)
   (let ((job (sh-job job-or-id))
         (to  path-or-existing-fd-or-minus-1))
@@ -1152,7 +1152,8 @@
     fd
     (redirect/fd-symbol->char 'sh-redirect! direction)
     to
-    #f))
+    #f)
+  job)
 
 
 
@@ -1174,7 +1175,8 @@
       ((procedure? to)
         #f)
       (#t
-        (raise-errorf 'sh-redirect! "invalid redirect to fd or file, target must be a string, bytevector or procedure: ~s" to)))))
+        (raise-errorf 'sh-redirect! "invalid redirect to fd or file, target must be a string, bytevector or procedure: ~s" to))))
+  job)
 
 
 (define (redirect/fd-symbol->char caller symbol)
@@ -1239,36 +1241,49 @@
 
 ;; Create a multijob to later start it. Each element in children-jobs must be a sh-job or subtype.
 
+;; Create an "and" multijob
 (define (sh-and . children-jobs)
   (apply make-multijob 'sh-and assert-is-job job-start/and job-step/and children-jobs))
 
+;; Create an "or" multijob
 (define (sh-or . children-jobs)
   (apply make-multijob 'sh-or  assert-is-job job-start/or job-step/or children-jobs))
 
+;; Create a "not" multijob
 (define (sh-not child-job)
   (make-multijob 'sh-not  assert-is-job job-start/not job-step/not child-job))
 
+;; Create a "list" multijob
 ;; Each argument must be a sh-job or subtype, possibly followed by a symbol ; &
 (define (sh-list . children-jobs-with-colon-ampersand)
   (apply make-multijob 'sh-list
     (lambda (caller j) ; validate-job-proc
-      (unless (memq j '(& \x3b;
-                       ))
+      (unless (job-terminator? j)
         (assert* caller (sh-job? j))))
     job-start/list
     job-step/list
     children-jobs-with-colon-ampersand))
 
+
+
+
+
+
 ;; Each argument must be a sh-job or subtype, possibly followed by a symbol ; &
 (define (sh-subshell . children-jobs-with-colon-ampersand)
   (apply make-multijob 'sh-subshell
     (lambda (caller j) ; validate-job-proc
-      (unless (memq j '(& \x3b;
-                       ))
+      (unless (job-terminator? j)
         (assert* caller (sh-job? j))))
     job-start/subshell
     job-run/subshell ; executed in child process
     children-jobs-with-colon-ampersand))
+
+
+;; Return #t if token is a shell job terminator: ; &
+(define (job-terminator? token)
+  (and (symbol? token)
+       (or (eq? token '&) (eq? token '\x3b;))))
 
 
 ;; Run next child job in a multijob containing an "and" of children jobs.

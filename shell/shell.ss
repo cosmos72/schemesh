@@ -32,7 +32,7 @@
     sh-job-write sh-job-write* sh-job-write/string
 
     ; parse.ss
-    sh sh-parse sh-cmd*
+    sh sh-parse sh-cmd* sh-list*
 
     ; macros.ss
     shell shell-backquote shell-concat shell-env shell-list shell-subshell

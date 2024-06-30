@@ -7,7 +7,7 @@
 
 
 (library (schemesh shell parse (0 1))
-  (export sh sh-parse sh-cmd*)
+  (export sh sh-parse sh-cmd* sh-list*)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -87,7 +87,9 @@
             ((or (fixnum? arg) (redirection-sym? arg))
               (let-values (((parsed tail) (parse-redirections args)))
                 (set! ret (append! parsed ret))
-                (set! args tail)))
+                (set! args tail)
+                (when (eq? 'sh-list ret-prefix)
+                  (set! ret-prefix 'sh-list*))))
             (#t
               (syntax-violation 'sh-parse "syntax error, unknown shell DSL operator:"
                 saved-args arg))))))
@@ -144,11 +146,11 @@
         ; consume termination operator ; &
         (values (list arg0) (cdr args) #t))
       ((fixnum? arg0)
-        (let-values (((fd dir to) (parse-redirection3 args)))
-          (values (list to dir fd) (cdddr args) #f)))
+        (let-values (((fd dir to) (parse-redirection3 args pair?)))
+          (values (list to (list 'quote dir) fd) (cdddr args) #f)))
       ((redirection-sym? arg0)
-        (let-values (((fd dir to) (parse-redirection2 args)))
-          (values (list to dir fd) (cddr args) #f)))
+        (let-values (((fd dir to) (parse-redirection2 args pair?)))
+          (values (list to (list 'quote dir) fd) (cddr args) #f)))
       (#t
         (values '() args #t))))) ; no redirection found
 
@@ -156,15 +158,15 @@
 
 ;; parse a single redirection <PATH <>PATH <&M >PATH >>PATH >&M
 ;; return three values: fd direction to-fd-or-path
-(define (parse-redirection2 args)
+(define (parse-redirection2 args verbatim-proc)
   (when (null? (cdr args))
     (raise-errorf 'sh-parse "missing argument after redirection: " args))
   (let ((dir (car args))
         (to  (cadr args)))
     (case dir
       ((< <> > >>)
-        (unless (or (string? to) (pair? to) (procedure? to))
-          (raise-errorf 'sh-parse "expecting string, form or closure after redirection, found: ~s ~s" dir to)))
+        (unless (or (string? to) (verbatim-proc to))
+          (raise-errorf 'sh-parse "expecting string after redirection, found: ~s ~s" dir to)))
       ((<& >&)
         (set! to (parse-redirection-to-fd to))
         (unless (and (fixnum? to) (fx>=? to -1))
@@ -176,7 +178,7 @@
 
 ;; parse a single redirection N<PATH N<>PATH N<&M N>PATH N>>PATH N>&M
 ;; return three values: fd direction to-fd-or-path
-(define (parse-redirection3 args)
+(define (parse-redirection3 args verbatim-proc)
   (when (or (null? (cdr args)) (null? (cddr args)))
     (raise-errorf 'sh-parse "missing argument after redirection: " args))
   (let ((fd  (car args))
@@ -186,8 +188,8 @@
       (raise-errorf 'sh-parse "expecting unsigned fixnum before redirection, found: ~s ~s ~s" fd dir to))
     (case dir
       ((< <> > >>)
-        (unless (or (string? to) (pair? to) (procedure? to))
-          (raise-errorf 'sh-parse "expecting string, form or closure after redirection, found: ~s ~s ~s" fd dir to)))
+        (unless (or (string? to) (verbatim-proc to))
+          (raise-errorf 'sh-parse "expecting string after redirection, found: ~s ~s ~s" fd dir to)))
       ((<& >&)
         (set! to (parse-redirection-to-fd to))
         (unless (and (fixnum? to) (fx>=? to -1))
@@ -343,11 +345,11 @@
               (set! prefix 'sh-cmd*))
             (cond
               ((fixnum? arg)
-                (let-values (((fd dir to) (parse-redirection3 args)))
+                (let-values (((fd dir to) (parse-redirection3 args pair?)))
                   (set! ret (cons to (cons (list 'quote dir) (cons fd ret))))
                   (set! args (cdddr args))))
               ((redirection-sym? arg)
-                (let-values (((fd dir to) (parse-redirection2 args)))
+                (let-values (((fd dir to) (parse-redirection2 args pair?)))
                   (set! ret (cons to (cons (list 'quote dir) (cons fd ret))))
                   (set! args (cddr args))))
               (#t
@@ -412,10 +414,10 @@
       ((or (string? (car args)) (procedure? (car args)))
         (%again (cdr args) (cons (car args) rets) assignments redirections))
       ((redirection-sym? (car args))
-        (let-values (((fd dir to) (parse-redirection2 args)))
+        (let-values (((fd dir to) (parse-redirection2 args procedure?)))
           (%again (cddr args) rets assignments (cons (list fd dir to) redirections))))
       ((fixnum? (car args))
-        (let-values (((fd dir to) (parse-redirection3 args)))
+        (let-values (((fd dir to) (parse-redirection3 args procedure?)))
           (%again (cdddr args) rets assignments (cons (list fd dir to) redirections))))
       (#t
         (raise-errorf 'sh-cmd* "expecting assignment, argument or redirection, found: ~s" args)))))
@@ -437,5 +439,43 @@
     (unless (or (string? value) (procedure? value))
       (raise-errorf 'sh-cmd* "expecting string or closure after assignment, found: ~s ~s ~s" name op value))
     (list name op value)))
+
+
+
+;; Each argument must be a sh-job or subtype,
+;; possibly followed by one or more a triplets describing redirections,
+;; possibly followed by a symbol ; &
+(define (sh-list* . children-jobs-with-redirections-colon-ampersand)
+  (let %again ((jobs '())
+               (args children-jobs-with-redirections-colon-ampersand))
+    (let ((arg (if (null? args) #f (car args))))
+      ; (debugf "sh-list* jobs = ~s, arg = ~s, args = ~s~%" (reverse jobs) arg args)
+      (cond
+        ((null? args)
+          (apply sh-list (reverse! jobs)))
+        ((or (job-terminator? arg) (sh-job? arg))
+          (%again (cons arg jobs) (cdr args)))
+        ((redirection-sym? arg)
+          (%assert-last-is-job jobs arg children-jobs-with-redirections-colon-ampersand)
+          (let-values (((fd dir to) (parse-redirection2 args procedure?)))
+            ; modify last job in-place
+            (sh-redirect! (car jobs) fd dir to)
+            (%again jobs (cddr args))))
+        ((fixnum? arg)
+          (%assert-last-is-job jobs arg children-jobs-with-redirections-colon-ampersand)
+          (let-values (((fd dir to) (parse-redirection3 args procedure?)))
+            ; modify last job in-place
+            (sh-redirect! (car jobs) fd dir to)
+            (%again jobs (cdddr args))))
+        (#t
+          (raise-errorf 'sh-list* "expecting job, redirection or ; &, found:"
+            arg children-jobs-with-redirections-colon-ampersand))))))
+
+
+(define (%assert-last-is-job jobs arg all-args)
+  (when (or (null? jobs) (not (sh-job? (car jobs))))
+    (raise-errorf 'sh-list* "redirections are allowed only after a job, found:"
+      arg all-args)))
+
 
 ) ; close library
