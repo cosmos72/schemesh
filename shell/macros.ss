@@ -16,19 +16,10 @@
 
 ;; wraps shell DSL
 (define-macro (shell . args)
-  (sh-parse args))
+  (sh-parse (cons 'shell args)))
 
 (define-macro (shell-subshell . args)
-  (if (null? args)
-    '(sh-cmd "true")
-    (let ((jobs (sh-parse args)))
-      (cond
-        ((null? jobs)
-          '(sh-cmd "true"))
-        ((eq? 'sh-list (car jobs))
-          `(sh-subshell ,@(cdr jobs)))
-        (#t
-          `(sh-subshell ,jobs))))))
+  (sh-parse (cons 'shell-subshell args)))
 
 
 (define-syntax shell-list

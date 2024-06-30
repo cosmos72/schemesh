@@ -26,13 +26,12 @@
 ;;
 ;; Note: for sanity, (sh-alias-expand) ignores aliases for "builtin"
 (define (sh-alias-expand prog-and-args)
-  (%expand-alias prog-and-args '()))
+  (%expand-alias prog-and-args '("builtin"))) ; suppress alias expansion for "builtin"
 
 
 (define (%expand-alias prog-and-args suppressed-name-list)
   (assert-string-list? 'sh-alias-expand prog-and-args)
-  ;; Note: for sanity, ignore aliases for "builtin"
-  (if (or (null? prog-and-args) (string=? "builtin" (car prog-and-args)))
+  (if (null? prog-and-args)
     prog-and-args
     (let* ((name (car prog-and-args))
            (alias (hashtable-ref (sh-aliases) name #f)))
@@ -41,17 +40,6 @@
         ;; but suppress expansion of already-expanded name
         (%expand-alias (alias (cdr prog-and-args)) (cons name suppressed-name-list))
         prog-and-args))))
-
-
-;; function returning the global hashtable name -> alias
-;; Each alias is a function args -> prog-and-args
-;; i.e. it must accept a list of strings and return a list of strings
-(define sh-aliases
-  (let ((t (make-hashtable string-hash string=?)))
-    ; some initial aliases
-    (hashtable-set! t "l" (lambda (args) (cons "ls" (cons "-l" args))))
-    (hashtable-set! t "ls" (lambda (args) (cons "ls" (cons "--color=auto" args))))
-    (lambda () t)))
 
 
 ;; add an alias to (sh-aliases) table.
@@ -82,6 +70,18 @@
   (do ((tail (cdr prog-and-args) (cdr list)))
       ((null? tail))
     (sh-alias-delete! (car tail))))
+
+
+;; function returning the global hashtable name -> alias
+;; Each alias is a function args -> prog-and-args
+;; i.e. it must accept a list of strings and return a list of strings
+(define sh-aliases
+  (let ((t (make-hashtable string-hash string=?)))
+    ; initial aliases
+    (hashtable-set! t ":"  (lambda (args) (cons "true" args)))
+    (hashtable-set! t "l"  (lambda (args) (cons "ls" (cons "-l" args))))
+    (hashtable-set! t "ls" (lambda (args) (cons "ls" (cons "--color=auto" args))))
+    (lambda () t)))
 
 
 ) ; close library

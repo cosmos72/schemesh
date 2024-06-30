@@ -1582,10 +1582,13 @@
 
 (begin
   (c-environ->sh-global-env)
+
   (let ((t (sh-builtins)))
+    ; additional builtins
     (hashtable-set! t "cd"      sh-builtin-cd)
     (hashtable-set! t "command" sh-builtin-command)
     (hashtable-set! t "pwd"     sh-builtin-pwd)))
+
 
 
 

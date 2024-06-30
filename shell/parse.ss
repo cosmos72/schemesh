@@ -12,8 +12,8 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) eval expand remq! reverse!)
-    (only (schemesh bootstrap)       debugf until)
-    (only (schemesh containers misc) list-iterate list-quoteq! string-contains-only-decimal-digits?)
+    (only (schemesh bootstrap)      assert* debugf until)
+    (only (schemesh containers misc)   list-iterate list-quoteq! string-contains-only-decimal-digits?)
     (only (schemesh containers hashtable) eq-hashtable)
     (schemesh shell jobs))
 
@@ -30,31 +30,42 @@
        (memq token '(< <> <& > >> >&))))
 
 ;; Parse args using shell syntax, and return corresponding sh-cmd or sh-multijob object.
-;; Current implementation is (eval (sh-parse args)), which uses (sh-parse)
+;; Current implementation is (eval (sh-parse (cons 'shell args))), which uses (sh-parse)
 ;; for converting shell commands to Scheme source forms, then (eval) such forms.
 ;;
 ;; See (sh-parse) for allowed args.
 (define (sh . args)
   ; implementation: use (sh-parse) for converting shell commands to Scheme forms,
   ; then (eval) such forms
-  (eval (sh-parse args)))
+  (eval (sh-parse (cons 'shell args))))
 
 
-;; Parse list containing a sequence of shell commands separated by ; & && || |
+;; Parse a list starting with 'shell or 'shell-subshell and containing a sequence
+;; of shell commands separated by ; & ! && || |
 ;; Return parsed list, which typically consists of Scheme source forms
 ;; that will create sh-cmd or sh-multijob objects if evaluated.
 ;;
-;; Each element in args must be a symbol, string, integer or pair:
+;; Each element in (cdr list) must be a symbol, string, integer or pair:
 ;; 1. symbols are operators. Recognized symbols are: ; & ! && || | < <> > >> <& >&
-;; 2. strings stand for themselves. for example (sh-parse '("ls" "-l"))
+;; 2. strings stand for themselves. for example (sh-parse '(shell "ls" "-l"))
 ;;    returns the Scheme source form '(sh-cmd "ls" "-l")
 ;; 3. integers are fd numbers, and must be followed by a redirection operator < <> <& > >> >&
 ;; 4. pairs are not parsed: they are copied verbatim into returned list.
 (define (sh-parse args)
-  (when (pair? args)
-    (sh-validate args))
-  (let ((saved-args args)
-        (ret '()))
+  (assert* 'sh-parse (pair? args))
+  (let* ((arg0       (car args))
+         (saved-args (cdr args))
+         (ret        '())
+         (ret-prefix
+           (cond
+             ((eq? 'shell          arg0) 'sh-list)
+             ((eq? 'shell-subshell arg0) 'sh-subshell)
+             (#t
+               (syntax-violation 'sh-parse "syntax error, shell DSL form should start with 'shell or 'shell-subshell, found:"
+                 args arg0)))))
+    (when (pair? saved-args)
+      (sh-validate saved-args))
+    (set! args saved-args)
     (until (null? args)
       (let-values (((parsed tail) (sh-parse-or args)))
         (set! ret (cons parsed ret))
@@ -74,8 +85,12 @@
     ; (debugf "sh-parse           return: ret = ~s, args = ~s~%" (reverse ret) args)
     (cond
       ((null? ret) '(sh-cmd "true"))
-      ((null? (cdr ret)) (car ret))
-      (#t (cons 'sh-list (reverse! (list-quoteq! '(& \x3b;
+      ((null? (cdr ret))
+        (if (eq? 'sh-list ret-prefix)
+          (car ret)
+          (cons ret-prefix ret)))
+      (#t
+       (cons ret-prefix (reverse! (list-quoteq! '(& \x3b;
                                                   ) ret)))))))
 
 ;; validate list containing a sequence of shell commands separated by ; & ! && || |

@@ -759,14 +759,18 @@ static const testcase tests[] = {
      "  (sh-wait j))\n",
      "(exited . 1)"},
     /* ------------------------- shell syntax ------------------------------- */
-    {"(sh-parse '(\"wc\" \"-l\" \"myfile\" > \"mylog\" \\x3b; \"echo\" \"done\"))",
+    {"(sh-parse '(shell \"wc\" \"-l\" \"myfile\" > \"mylog\" \\x3b; \"echo\" \"done\"))",
      "(sh-list (sh-cmd* wc -l myfile '> mylog) '; (sh-cmd echo done))"},
-    {"(sh-parse '(\"find\" \"-type\" \"f\" \\x7c; \"wc\" &))",
+    {"(sh-parse '(shell \"find\" \"-type\" \"f\" \\x7c; \"wc\" &))",
      "(sh-list (sh-pipe* (sh-cmd find -type f) '| (sh-cmd wc)) '&)"},
-    {"(sh-parse '((shell \"foo\") \\x3b; \"bar\"))", "(sh-list (shell foo) '; (sh-cmd bar))"},
-#if 0
-    {"(sh-parse '(shell ! \"foo\" \"bar\"))", "(sh-not (sh-cmd foo bar))"},
-#endif
+    /* (sh-parse) does not alter nested (shell "foo") and returns it verbatim */
+    {"(sh-parse '(shell (shell \"foo\") \\x3b; \"bar\"))", "(sh-list (shell foo) '; (sh-cmd bar))"},
+    {"(sh-parse '(shell ! \"foo\" && \"bar\"))", "(sh-and (sh-not (sh-cmd foo)) (sh-cmd bar))"},
+    /* double negation is optimized away */
+    {"(sh-parse '(shell ! ! \"true\"))", "(sh-cmd true)"},
+    {"(sh-parse '(shell ! ! ! \"false\"))", "(sh-not (sh-cmd false))"},
+    {"(sh-parse '(shell-subshell \"abc\" && \"def\"))",
+     "(sh-subshell (sh-and (sh-cmd abc) (sh-cmd def)))"},
 
 #define INVOKELIB_SHELL_BUILTINS                                                                   \
   "(begin (($primitive 3 $invoke-library) '(schemesh shell builtins) '(0 1) 'builtins)"
