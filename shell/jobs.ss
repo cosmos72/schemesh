@@ -20,7 +20,7 @@
     sh-builtin-command sh-builtin-cd sh-builtin-pwd sh-cwd sh-cwd-set! sh-cd sh-pwd
     sh-consume-sigchld sh-multijob-child-length sh-multijob-child-ref
     sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/ok? sh-run/bytes sh-run/string
-    sh-and sh-or sh-list sh-subshell sh-redirect!
+    sh-and sh-or sh-not sh-list sh-subshell sh-redirect!
     sh-job-display sh-job-display* sh-job-display/string
     sh-job-write sh-job-write* sh-job-write/string)
   (import
@@ -80,7 +80,7 @@
   (multijob %make-multijob sh-multijob?)
   (parent job)
   (fields
-    kind                ; symbol: one of 'sh-and 'sh-or 'sh-list 'sh-subshell 'sh-global
+    kind                ; symbol: one of 'sh-and 'sh-or 'sh-not 'sh-list 'sh-subshell 'sh-global
     (mutable current-child-index) ; -1 or index of currently running child job
     children)           ; span: children jobs.
   (nongenerative #{multijob ghm1j1xb9o5tkkhhucwauly2c-1177}))
@@ -677,6 +677,20 @@
     (job-step/or j (void))))
 
 
+;; Internal function stored in (job-start-proc j) by (sh-not),
+;; and called by (sh-start) to actually start the multijob.
+;;
+;; Does not redirect file descriptors. Options are ignored.
+(define (job-start/not j options)
+  ;; this runs in the main process, not in a subprocess.
+  ;; TODO: how can we redirect file descriptor?
+  (assert* 'sh-not (eq? 'running (job-last-status->kind j)))
+  (assert* 'sh-not (fx=? -1 (multijob-current-child-index j)))
+
+  ; Do not yet assign a job-id.
+  (job-step/not j (void)))
+
+
 ;; internal function stored in (job-start-proc j) by (sh-subshell) multijobs
 ;;
 ;; Forks a new subshell process in background, i.e. the foreground process group is NOT set
@@ -1227,6 +1241,9 @@
 (define (sh-or . children-jobs)
   (apply make-multijob 'sh-or  assert-is-job job-start/or job-step/or children-jobs))
 
+(define (sh-not child-job)
+  (make-multijob 'sh-not  assert-is-job job-start/not job-step/not child-job))
+
 ;; Each argument must be a sh-job or subtype, possibly followed by a symbol ; &
 (define (sh-list . children-jobs-with-colon-ampersand)
   (apply make-multijob 'sh-list
@@ -1268,13 +1285,10 @@
 
 
 
-
-
 ;; Run next child job in a multijob containing an "or" of children jobs.
 ;; Used by (sh-and), implements runtime behavior of shell syntax foo || bar || baz
 (define (job-step/or mj prev-child-status)
   (let* ((idx     (fx1+ (multijob-current-child-index mj)))
-         (child-n (span-length (multijob-children mj)))
          (child   (sh-multijob-child-ref mj idx)))
     (if (and (not (sh-ok? prev-child-status)) (sh-job? child))
       (begin
@@ -1286,6 +1300,25 @@
         (multijob-current-child-index-set! mj -1)
         (job-last-status-set! mj prev-child-status)))))
 
+
+
+;; Run the child job in a multijob containing a "not" and one child jobs,
+;; or collect the exit status of the child job after it exited.
+;; Used by (sh-not), implements runtime behavior of shell syntax ! foo
+(define (job-step/not mj prev-child-status)
+  (assert* 'sh-not (fx=? 1 (sh-multijob-child-length mj)))
+
+  (let* ((idx     (fx1+ (multijob-current-child-index mj)))
+         (child   (sh-multijob-child-ref mj idx)))
+    (if (sh-job? child)
+      (begin
+        ; start child job
+        (multijob-current-child-index-set! mj idx)
+        (start/any child '()))
+      (begin
+        ; child job exited, negate its exit status
+        (multijob-current-child-index-set! mj -1)
+        (job-last-status-set! mj (if (sh-ok? prev-child-status) '(exited . 1) (void)))))))
 
 
 
