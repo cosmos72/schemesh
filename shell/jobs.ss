@@ -1130,7 +1130,11 @@
   "")
 
 
-;; Create or remove a redirection for cmd or job
+;; Create multiple redirections for cmd or job
+; (define (sh-redirects! job-or-id . args)
+
+
+;; Create a redirection for cmd or job
 (define (sh-redirect! job-or-id fd direction path-or-existing-fd-or-minus-1)
   (let ((job (sh-job job-or-id))
         (to  path-or-existing-fd-or-minus-1))

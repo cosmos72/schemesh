@@ -44,7 +44,6 @@
   (include "shell/aliases.ss")
   (include "shell/builtins.ss")
   (include "shell/jobs.ss")
-  (include "shell/cmd.ss")
   (include "shell/parse.ss")
   (include "shell/macros.ss")
   (include "shell/utils.ss")

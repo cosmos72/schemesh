@@ -31,11 +31,8 @@
     sh-job-display sh-job-display* sh-job-display/string
     sh-job-write sh-job-write* sh-job-write/string
 
-    ; cmd.ss
-    sh-cmd*
-
     ; parse.ss
-    sh sh-parse
+    sh sh-parse sh-cmd*
 
     ; macros.ss
     shell shell-backquote shell-concat shell-env shell-list shell-subshell
@@ -48,7 +45,6 @@
     (schemesh shell aliases)
     (schemesh shell builtins)
     (schemesh shell jobs)
-    (schemesh shell cmd)
     (schemesh shell parse)
     (schemesh shell macros)
     (schemesh shell utils))
