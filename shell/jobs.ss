@@ -1130,21 +1130,44 @@
   "")
 
 
-;; Create multiple redirections for cmd or job
-; (define (sh-redirects! job-or-id . args)
-
-
-;; Create a redirection for cmd or job. Return cmd or job.
-(define (sh-redirect! job-or-id fd direction path-or-existing-fd-or-minus-1)
+;; Add multiple redirections for cmd or job. Return cmd or job.
+;; Each redirection must be a two-argument DIRECTION TO-FD-OR-FILE-PATH
+;; or a three-argument FROM-FD DIRECTION TO-FD-OR-FILE-PATH
+(define (sh-redirect! job-or-id . redirections)
   (let ((job (sh-job job-or-id))
-        (to  path-or-existing-fd-or-minus-1))
-    (unless (and (fixnum? fd) (fx>=? fd 0))
-      (raise-errorf 'sh-redirect! "invalid redirect from fd, must be an unsigned fixnum: ~s" fd))
-    (if (fixnum? to)
-      (job-redirect/fd!   job fd direction to)
-      (job-redirect/file! job fd direction to))))
+        (args redirections))
+    (until (null? args)
+      (when (null? (cdr args))
+        (raise-errorf 'sh-redirect! "invalid redirect, need two or three arguments, found one: ~s" args))
+      (let ((arg (car args)))
+        (cond
+          ((fixnum? arg)
+            (when (null? (cddr args))
+              (raise-errorf 'sh-redirect! "invalid three-argument redirect, found only two arguments: ~s" args))
+            (job-redirect! job arg (cadr args) (caddr args))
+            (set! args (cdddr args)))
+          ((redirection-sym? arg)
+            (job-redirect! job (if (eq? '<& arg) 0 1) arg (cadr args))
+            (set! args (cddr args)))
+          (#t
+            (raise-errorf 'sh-redirect! "invalid redirect, first argument must a fixnum or a redirection symbol: ~s" args)))))
+    job))
 
 
+;; Return #t if token is a shell redirection operator: < <> <& > >> >&
+(define (redirection-sym? token)
+  (and (symbol? token)
+       (memq token '(< <> > >> <& >&))))
+
+
+;; Add a single redirection to a job
+(define (job-redirect! job fd direction to)
+  (if (or (eq? '<& direction) (eq? '>& direction))
+    (job-redirect/fd!   job fd direction to)
+    (job-redirect/file! job fd direction to)))
+
+
+;; Add a single fd redirection to a job
 (define (job-redirect/fd! job fd direction to)
   (unless (fx>=? to -1)
     (raise-errorf 'sh-redirect! "invalid redirect to fd, must be -1 or an unsigned fixnum: ~a" to))
@@ -1152,11 +1175,10 @@
     fd
     (redirect/fd-symbol->char 'sh-redirect! direction)
     to
-    #f)
-  job)
+    #f))
 
 
-
+;; Add a single file redirection to a job
 (define (job-redirect/file! job fd direction to)
   (span-insert-back! (job-redirects job)
     fd
@@ -1175,8 +1197,7 @@
       ((procedure? to)
         #f)
       (#t
-        (raise-errorf 'sh-redirect! "invalid redirect to fd or file, target must be a string, bytevector or procedure: ~s" to))))
-  job)
+        (raise-errorf 'sh-redirect! "invalid redirect to fd or file, target must be a string, bytevector or procedure: ~s" to)))))
 
 
 (define (redirect/fd-symbol->char caller symbol)
@@ -1241,17 +1262,21 @@
 
 ;; Create a multijob to later start it. Each element in children-jobs must be a sh-job or subtype.
 
+
 ;; Create an "and" multijob
 (define (sh-and . children-jobs)
   (apply make-multijob 'sh-and assert-is-job job-start/and job-step/and children-jobs))
+
 
 ;; Create an "or" multijob
 (define (sh-or . children-jobs)
   (apply make-multijob 'sh-or  assert-is-job job-start/or job-step/or children-jobs))
 
+
 ;; Create a "not" multijob
 (define (sh-not child-job)
   (make-multijob 'sh-not  assert-is-job job-start/not job-step/not child-job))
+
 
 ;; Create a "list" multijob
 ;; Each argument must be a sh-job or subtype, possibly followed by a symbol ; &
@@ -1265,10 +1290,7 @@
     children-jobs-with-colon-ampersand))
 
 
-
-
-
-
+;; Create a "subshell" multijob
 ;; Each argument must be a sh-job or subtype, possibly followed by a symbol ; &
 (define (sh-subshell . children-jobs-with-colon-ampersand)
   (apply make-multijob 'sh-subshell
@@ -1544,15 +1566,42 @@
 
 
 (define (job-write/multijob j port)
-  (put-char port #\()
-    (display (multijob-kind j) port)
-    (span-iterate (multijob-children j)
-      (lambda (i child)
-        (if (symbol? child)
-          (put-string port " '")
-          (put-char   port #\space))
-        (put-datum port child)))
-    (put-char port #\)))
+  (let ((kind (multijob-kind j)))
+    (cond
+      ((span-empty? (job-redirects j))
+        (put-char port #\()
+        (display kind port)
+        (job-write/children j port)
+        (put-char port #\)))
+      ((eq? 'sh-list kind)
+        (job-write/list* j port))
+      (#t
+        (job-write/multijob* j port)))))
+
+
+(define (job-write/children j port)
+  (span-iterate (multijob-children j)
+    (lambda (i child)
+      (if (symbol? child)
+        (put-string port " '")
+        (put-char   port #\space))
+      (put-datum port child))))
+
+
+(define (job-write/multijob* j port)
+  (put-string port "(sh-redirect! (")
+  (display (multijob-kind j) port)
+  (job-write/children j port)
+  (put-string port ")")
+  (job-write/redirects j port)
+  (put-string port ")"))
+
+
+(define (job-write/list* j port)
+  (put-string port "(sh-list*")
+  (job-write/children j port)
+  (job-write/redirects j port)
+  (put-string port ")"))
 
 
 (define (job-write/cmd j port)

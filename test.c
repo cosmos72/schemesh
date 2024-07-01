@@ -804,15 +804,17 @@ static const testcase tests[] = {
      INVOKELIB_SHELL_JOBS " (sh-pipe* (sh-cmd echo) '| (sh-list (sh-cmd cat) '; (sh-cmd true))))"},
     {"(expand '(shell (shell \"ls\" & \"echo\")))",
      INVOKELIB_SHELL_JOBS " (sh-list (sh-cmd ls) '& (sh-cmd echo)))"},
-#if 0  /** FIXME: raises Exception in car: () is not a pair */
+    {"(expand '(shell (shell \"foo\") \\x3b; \"bar\"))",
+     INVOKELIB_SHELL_JOBS " (sh-list (sh-cmd foo) '; (sh-cmd bar)))"},
     {"(expand '(shell (shell \"ls\" & \"echo\") 2 >& 1))",
-     INVOKELIB_SHELL_JOBS " (sh-list (sh-cmd ls) '& (sh-cmd echo)))"},
-#endif /* 0 */
+     INVOKELIB_SHELL_JOBS " (sh-redirect! (sh-list (sh-cmd ls) '& (sh-cmd echo)) 2 '>& 1))"},
+    {"(shell (shell \"foo\") \\x3b; \"bar\")",
+     "(sh-list (sh-cmd \"foo\") '\\x3B; (sh-cmd \"bar\"))"},
+    {"(shell (shell \"ls\" & \"echo\") 2 >& 1)",
+     "(sh-list* (sh-cmd \"ls\") '& (sh-cmd \"echo\") 2 '>& 1)"},
     {"(parse-shell* (make-parsectx-from-string\n"
      "  \"{{foo};bar}\"))",
      "(shell (shell foo) ; bar)"},
-    {"(expand '(shell (shell \"foo\") \\x3b; \"bar\"))",
-     INVOKELIB_SHELL_JOBS " (sh-list (sh-cmd foo) '; (sh-cmd bar)))"},
     {"(parse-shell* (make-parsectx-from-string\n"
      "  \"{A=B ls}\")))",
      "(shell A = B ls)"},

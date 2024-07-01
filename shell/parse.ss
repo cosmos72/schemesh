@@ -11,7 +11,7 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) append! eval expand reverse!)
+    (only (chezscheme) append! eval expand fx1+ reverse!)
     (only (schemesh bootstrap)      assert* debugf raise-errorf until)
     (only (schemesh containers misc)   list-iterate list-quoteq! string-contains-only-decimal-digits?)
     (only (schemesh containers hashtable) eq-hashtable)
@@ -29,7 +29,6 @@
                      ))))
 
 ;; Return #t if token is a shell redirection operator: < <> <& > >> >&
-;; TODO: recognize optional fd number [N] before redirection operator
 (define (redirection-sym? token)
   (and (symbol? token)
        (memq token '(< <> > >> <& >&))))
@@ -62,6 +61,9 @@
   (let* ((saved-args args)
          (arg0       (car args))
          (args       (cdr args))
+         (redirections? #f)
+         (terminators? #f)
+         (job-n      0)
          (ret        '())
          (ret-prefix
            (cond
@@ -75,25 +77,32 @@
       (let-values (((parsed tail) (parse-or args)))
         (set! ret (cons parsed ret))
         (set! args tail)
-        ; (debugf "sh-parse          iterate: ret = ~s, args = ~s~%" (reverse ret) args)
-        (let ((arg (if (null? args) #f (car args))))
-          (cond
-            ((null? args) #f)
-            ((not (or (fixnum? arg) (symbol? arg)))
-              (set! ret (cons '\x3b; ret)))
-            ((job-terminator? arg)
-              (set! ret (cons arg ret))
-              (set! args (cdr args)))
-            ((or (fixnum? arg) (redirection-sym? arg))
-              (let-values (((parsed tail) (parse-redirections args)))
-                (set! ret (append! parsed ret))
-                (set! args tail)
-                (when (eq? 'sh-list ret-prefix)
-                  (set! ret-prefix 'sh-list*))))
-            (#t
-              (syntax-violation 'sh-parse "syntax error, unknown shell DSL operator:"
-                saved-args arg))))))
-    ; (debugf "sh-parse           return: ret = ~s, args = ~s~%" (reverse ret) args)
+        (set! job-n (fx1+ job-n))
+        ; (debugf "sh-parse           iterate: ret = ~s, args = ~s~%" (reverse ret) args)
+        (let %again ()
+          (let ((arg (if (null? args) #f (car args))))
+            (cond
+              ((or (null? args) (string? arg) (pair? arg))
+                #f)
+              ((job-terminator? arg)
+                (set! ret (cons arg ret))
+                (set! args (cdr args))
+                (set! terminators? #t)
+                (%again))
+              ((or (fixnum? arg) (redirection-sym? arg))
+                (let-values (((parsed tail) (parse-redirection args)))
+                  (set! ret (append! parsed ret))
+                  (set! args tail))
+                (set! redirections? #t)
+                (%again))
+              (#t
+                (syntax-violation 'sh-parse "syntax error, unknown shell DSL operator:"
+                  saved-args arg)))))))
+    ; (debugf "sh-parse            return: ret = ~s, args = ~s, job-n = ~s, redirections? = ~s, terminators? = ~s~%" (reverse ret) args job-n redirections? terminators?)
+    (when (and redirections? (eq? 'sh-list ret-prefix))
+      (if (and (fx=? job-n 1) (not terminators?))
+        (set! ret-prefix 'sh-redirect!)
+        (set! ret-prefix 'sh-list*)))
     (cond
       ((null? ret) '(sh-cmd "true"))
       ((null? (cdr ret))
@@ -116,43 +125,25 @@
     (validate (cdr args))))
 
 
-;; Parse a list containing redirections. Used only for redirections after a group
-;; i.e. { ... } REDIRECTIONS or [ ... ] REDIRECTIONS
-;; Return two values:
-;;   A list containing parsed redirections, in reverse order;
-;;   The remaining, unparsed args.
-(define (parse-redirections args)
-  (let %again ((ret '())
-               (args args))
-    (let-values (((parsed tail done?) (parse-redirection args)))
-      (let ((ret2 (append! parsed ret)))
-        ; (debugf "parse-redirections iterate: ret2 = ~s, args = ~s, done = ~s~%" (reverse ret2) args done?)
-        (if done?
-          (values ret2 tail)
-          (%again ret2 tail))))))
 
-
-;; Parse a list starting with redirection. Used only for redirections after a group
+;; Parse a list starting with one redirection. Used only for redirections after a group
 ;; i.e. { ... } REDIRECTIONS or [ ... ] REDIRECTIONS
 ;; Return two values:
 ;;   A list containing a single parsed redirection, in reverse order;
 ;;   The remaining, unparsed args.
 (define (parse-redirection args)
-  (let* ((arg0 (car args))
-         (arg1 (if (null? (cdr args)) #f (cadr args)))
+  (let* ((arg0 (if                (null?       args)   #f (car   args)))
+         (arg1 (if (or (not arg0) (null? (cdr  args))) #f (cadr  args)))
          (arg2 (if (or (not arg1) (null? (cddr args))) #f (caddr args))))
     (cond
-      ((job-terminator? arg0)
-        ; consume termination operator ; &
-        (values (list arg0) (cdr args) #t))
       ((fixnum? arg0)
         (let-values (((fd dir to) (parse-redirection3 args pair?)))
-          (values (list to (list 'quote dir) fd) (cdddr args) #f)))
+          (values (list to (list 'quote dir) fd) (cdddr args))))
       ((redirection-sym? arg0)
         (let-values (((fd dir to) (parse-redirection2 args pair?)))
-          (values (list to (list 'quote dir) fd) (cddr args) #f)))
+          (values (list to (list 'quote dir) fd) (cddr args))))
       (#t
-        (values '() args #t))))) ; no redirection found
+        (values '() args))))) ; no redirection found
 
 
 
@@ -222,14 +213,14 @@
       (let-values (((parsed tail) (parse-and args)))
         (set! ret (cons parsed ret))
         (set! args tail))
-      ; (debugf "parse-or iterate: ret = ~s, args = ~s~%" (reverse ret) args)
+      ; (debugf "parse-or  iterate: ret = ~s, args = ~s~%" (reverse ret) args)
       (cond
         ((null? args) (set! done? #t))
         ((eqv? (car args) '\x7c;\x7c;)
           (set! args  (cdr args))
           (set! done? (null? args)))
         (#t   (set! done? #t)))) ; unhandled token => exit loop
-    ; (debugf "parse-or  return: ret = ~s, args = ~s~%" (reverse ret) args)
+    ; (debugf "parse-or   return: ret = ~s, args = ~s~%" (reverse ret) args)
     (values
       (cond
         ((null? ret)       ret)
@@ -277,7 +268,7 @@
       (let-values (((parsed tail) (parse-not args)))
         (set! ret (cons parsed ret))
         (set! args tail))
-      ; (debugf "parse-pipe  iterate: ret = ~s, args = ~s~%" (reverse ret) args)
+      ; (debugf "parse-pipe iterate: ret = ~s, args = ~s~%" (reverse ret) args)
       (cond
         ((null? args) (set! done? #t))
         ((memq (car args) '(\x7c; \x7c;&
@@ -286,7 +277,7 @@
           (set! args (cdr args))
           (set! done? (null? args)))
         (#t   (set! done? #t)))) ; unhandled token => exit loop
-    ; (debugf "parse-pipe   return: ret = ~s, args = ~s~%" (reverse ret) args)
+    ; (debugf "parse-pipe  return: ret = ~s, args = ~s~%" (reverse ret) args)
     (values
       (cond
         ((null? ret) ret)
@@ -304,7 +295,7 @@
 (define (parse-not args)
   (let %again ((negate? #f)
                (args args))
-    ; (debugf "parse-not iterate: ret = ~s, negate? = ~s, args = ~s~%" (reverse ret) negate? args)
+    ; (debugf "parse-not iterate: negate? = ~s, args = ~s~%" negate? args)
     (cond
       ((and (not (null? args)) (eq? '! (car args)))
         (%again (not negate?) (cdr args)))
@@ -442,9 +433,11 @@
 
 
 
-;; Each argument must be a sh-job or subtype,
+;; Arguments must be:
+;; one or more jobs,
 ;; possibly followed by one or more a triplets describing redirections,
 ;; possibly followed by a symbol ; &
+;; Redirections are applied to the WHOLE multijob, not to the single jobs.
 (define (sh-list* . children-jobs-with-redirections-colon-ampersand)
   (let %again ((jobs '())
                (args children-jobs-with-redirections-colon-ampersand))
