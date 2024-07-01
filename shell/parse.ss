@@ -433,11 +433,10 @@
 
 
 
-;; Arguments must be:
-;; one or more jobs,
-;; possibly followed by one or more a triplets describing redirections,
-;; possibly followed by a symbol ; &
-;; Redirections are applied to the WHOLE multijob, not to the single jobs.
+;; Arguments must be jobs,
+;; each possibly followed by one or more a triplets describing redirections,
+;; each possibly followed by a terminator ; &
+;; Redirections are applied to the last preceding job.
 (define (sh-list* . children-jobs-with-redirections-colon-ampersand)
   (let %again ((jobs '())
                (args children-jobs-with-redirections-colon-ampersand))

@@ -1573,8 +1573,6 @@
         (display kind port)
         (job-write/children j port)
         (put-char port #\)))
-      ((eq? 'sh-list kind)
-        (job-write/list* j port))
       (#t
         (job-write/multijob* j port)))))
 
@@ -1593,13 +1591,6 @@
   (display (multijob-kind j) port)
   (job-write/children j port)
   (put-string port ")")
-  (job-write/redirects j port)
-  (put-string port ")"))
-
-
-(define (job-write/list* j port)
-  (put-string port "(sh-list*")
-  (job-write/children j port)
   (job-write/redirects j port)
   (put-string port ")"))
 

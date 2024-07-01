@@ -811,7 +811,7 @@ static const testcase tests[] = {
     {"(shell (shell \"foo\") \\x3b; \"bar\")",
      "(sh-list (sh-cmd \"foo\") '\\x3B; (sh-cmd \"bar\"))"},
     {"(shell (shell \"ls\" & \"echo\") 2 >& 1)",
-     "(sh-list* (sh-cmd \"ls\") '& (sh-cmd \"echo\") 2 '>& 1)"},
+     "(sh-redirect! (sh-list (sh-cmd \"ls\") '& (sh-cmd \"echo\")) 2 '>& 1)"},
     {"(parse-shell* (make-parsectx-from-string\n"
      "  \"{{foo};bar}\"))",
      "(shell (shell foo) ; bar)"},
