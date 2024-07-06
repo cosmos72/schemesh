@@ -11,9 +11,30 @@ It supports interactive line editing and familiar Unix shell syntax for starting
 including redirections, pipelines, job concatenation with `&&` `||`, groups surrounded by `{ }`,
 and managing foreground/background jobs.
 
-For scripting and serious programming, it completely replaces the slow, clumsy scripting language
-of a traditional shell (yes, the author has opinions) with a full-featured Lisp REPL, backed by
-a fast open-source Lisp compiler that generates highly optimized native code.
+Schemesh can be used as:
+* a replacement for traditional interactive Unix shell, as for example bash/ksh/zsh etc.
+
+* a Unix shell scriptable in Lisp
+
+* a Lisp REPL with additional syntax and functions to start, redirect and manage Unix processes
+
+* a Lisp library for starting, redirecting and managing Unix processes
+
+Features:
+- [x] REPL with multi-line editing, history and parentheses highlight.
+- [ ] cut-and-paste
+- [ ] context-sensitive autocompletion
+- [x] dual syntax parsing, allows mixing Scheme and shell expressions
+- [x] shell commands, including `&&` `||` `{` `}` `[` `]`
+- [x] shell job control
+- [x] shell aliases
+- [ ] shell builtins - in progress
+- [ ] shell pipelines `|`
+- [x] shell redirections `<` `>` `>>` `<&` `>&`
+
+For scripting and serious programming, schemesh completely replaces the slow, clumsy and error-prone
+scripting language of a traditional shell (yes, the author has opinions) with a full-featured Lisp REPL,
+backed by a fast open-source Lisp compiler (Chez Scheme) that generates highly optimized native code.
 
 This means you can use Lisp control structures, loops and functions such as
 ```lisp
@@ -49,23 +70,17 @@ Switching between shell syntax and Lisp syntax is extremely simple, and can be d
   inside `( )`, `[ ]` or `{ }`.
   If entered at top level, it changes the default syntax until another directive is entered at top level.
 
+* shell syntax creates Lisp (sh-cmd) objects, which can be started/stopped/managed from both syntaxes
+
 Examples:
 
 ```shell
-find (lisp-function-returning-some-path) -type f | grep ^lib | wc -l
+find (lisp-function-returning-some-path) -type f | grep ^lib | wc -l &
+fg
 ```
 
 ```lisp
-(define job {ls -l | grep some-file-name})
+(define job {ls -l > ls.out || echo "ls failed"})
 (sh-start job)
 (sh-fg job)
 ```
-
-Schemesh can be used as:
-* a replacement for traditional interactive Unix shell, as for example bash/ksh/zsh etc.
-
-* a Unix shell scriptable in Lisp
-
-* a Lisp REPL with additional syntax and functions to start, redirect and manage Unix processes
-
-* a Lisp library for starting, redirecting and managing Unix processes
