@@ -11,17 +11,8 @@ It supports interactive line editing and familiar Unix shell syntax for starting
 including redirections, pipelines, job concatenation with `&&` `||`, groups surrounded by `{ }`,
 and managing foreground/background jobs.
 
-Schemesh can be used as:
-* a replacement for traditional interactive Unix shell, as for example bash/ksh/zsh etc.
-
-* a Unix shell scriptable in Lisp
-
-* a Lisp REPL with additional syntax and functions to start, redirect and manage Unix processes
-
-* a Lisp library for starting, redirecting and managing Unix processes
-
 Features:
-- [x] REPL with multi-line editing, history and parentheses highlight.
+- [x] REPL with multi-line editing, history and parentheses highlight
 - [ ] cut-and-paste
 - [ ] context-sensitive autocompletion
 - [x] dual syntax parsing, allows mixing Scheme and shell expressions
@@ -32,9 +23,18 @@ Features:
 - [ ] shell pipelines `|`
 - [x] shell redirections `<` `>` `>>` `<&` `>&`
 
+Schemesh can be used as:
+* a replacement for traditional interactive Unix shell, as for example bash/ksh/zsh etc.
+
+* a Unix shell scriptable in Lisp - Chez Scheme, to be exact.
+
+* a Lisp REPL with additional syntax and functions to start, redirect and manage Unix processes
+
+* a Lisp library for starting, redirecting and managing Unix processes
+
 For scripting and serious programming, schemesh completely replaces the slow, clumsy and error-prone
 scripting language of a traditional shell (yes, the author has opinions) with a full-featured Lisp REPL,
-backed by a fast open-source Lisp compiler (Chez Scheme) that generates highly optimized native code.
+backed by the fast open-source Chez Scheme compiler that generates highly optimized native code.
 
 This means you can use Lisp control structures, loops and functions such as
 ```lisp
