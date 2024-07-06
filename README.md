@@ -20,6 +20,7 @@ Features:
 - [x] shell job control
 - [x] shell aliases
 - [ ] shell builtins - in progress
+- [ ] shell environment variables
 - [ ] shell pipelines `|`
 - [x] shell redirections `<` `>` `>>` `<&` `>&`
 

@@ -8,7 +8,7 @@
 (library (schemesh posix fd (0 1))
   (export
     c-errno c-errno->string raise-c-errno
-    fd-close fd-dup fd-dup2 fd-read fd-write fd-select fd-setnonblock
+    fd-close fd-close-list fd-dup fd-dup2 fd-read fd-write fd-select fd-setnonblock
     open-file-fd open-pipe-fds)
   (import
     (rnrs)
@@ -30,10 +30,15 @@
 
 (define fd-close
   (let ((c-fd-close (foreign-procedure "c_fd_close" (int) int)))
-    (lambda (x)
-      (let ((ret (c-fd-close x)))
-        (when (< ret 0)
-          (raise-c-errno 'fd-close 'close ret))))))
+    (lambda (fd)
+      (c-fd-close fd)))) ; used in cleanups, do NOT raise exceptions here
+
+(define fd-close-list
+  (let ((c-fd-close-list (foreign-procedure "c_fd_close_list" (ptr) int)))
+    (lambda (fd-list)
+      (if (null? fd-list)
+        0
+        (c-fd-close-list fd-list))))) ; used in cleanups, do NOT raise exceptions here
 
 (define fd-dup
   (let ((c-fd-dup (foreign-procedure "c_fd_dup" (int) int)))

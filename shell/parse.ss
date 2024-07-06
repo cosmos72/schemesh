@@ -433,8 +433,10 @@
 
 
 
+;; Create a list of jobs with redirections.
+;;
 ;; Arguments must be jobs,
-;; each possibly followed by one or more a triplets describing redirections,
+;; each possibly followed by one or more redirections,
 ;; each possibly followed by a terminator ; &
 ;; Redirections are applied to the last preceding job.
 (define (sh-list* . children-jobs-with-redirections-colon-ampersand)

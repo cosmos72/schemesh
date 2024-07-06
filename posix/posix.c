@@ -230,6 +230,26 @@ static int c_fd_close(int fd) {
   return ret >= 0 ? ret : c_errno();
 }
 
+/** close a list of file descriptors */
+static int c_fd_close_list(ptr fd_list) {
+  int ret = 0;
+  while (Spairp(fd_list)) {
+    ptr elem = Scar(fd_list);
+    if (Sfixnump(elem)) {
+      if (close(Sfixnum_value(elem)) != 0 && ret == 0) {
+        ret = c_errno();
+      }
+    } else if (ret == 0) {
+      ret = -EINVAL;
+    }
+    fd_list = Scdr(fd_list);
+  }
+  if (ret == 0 && !Snullp(fd_list)) {
+    ret = -EINVAL;
+  }
+  return ret;
+}
+
 /** call dup() */
 static int c_fd_dup(int old_fd) {
   int ret = dup(old_fd);
@@ -814,6 +834,7 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_errno_einval", &c_errno_einval);
   Sregister_symbol("c_strerror", &c_strerror);
   Sregister_symbol("c_fd_close", &c_fd_close);
+  Sregister_symbol("c_fd_close_list", &c_fd_close_list);
   Sregister_symbol("c_fd_dup", &c_fd_dup);
   Sregister_symbol("c_fd_dup2", &c_fd_dup2);
   Sregister_symbol("c_fd_read", &c_fd_read);

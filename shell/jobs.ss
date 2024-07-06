@@ -46,10 +46,13 @@
     (mutable id job-id %job-id-set!) ; fixnum: job id in (sh-globals), #f if not set
     (mutable pid)               ; fixnum: process id,       -1 if unknown
     (mutable pgid)              ; fixnum: process group id, -1 if unknown
-    (mutable last-status)       ; cons: last known status
+     ; cons: last known status, or (void) if job exited successfully
+    (mutable last-status job-last-status %job-last-status-set!)
     ; span of quadruplets (fd mode to-fd-or-bytevector0 path-or-closure)
     ; to open and redirect between fork() and exec()
     (mutable redirects)
+    (mutable fds-to-remap) ; for builtins, #f or hashmap job-logical-fd -> actual-fd-to-use
+    (mutable fds-to-close) ; for builtins, '() or list of fds to close at job exit
     start-proc      ; #f or procedure to run in main process.
                     ; receives as argument job followed by options.
     step-proc       ; #f or procedure.
@@ -95,7 +98,8 @@
   ;;
   ;; waiting for sh-globals to exit is not useful:
   ;; pretend it already exited with unknown exit status
-  (%make-multijob 0 (get-pid) (get-pgid 0) '(unknown . 0) (span)
+  (%make-multijob 0 (get-pid) (get-pgid 0) '(unknown . 0)
+    (span) #f '() ; redirections
     #f #f ; start-proc step-proc
     ; current directory
     (string->charspan* ((foreign-procedure "c_get_cwd" () scheme-object)))
@@ -189,6 +193,31 @@
              (memq (cdr job-status) '(sigint sigquit))))))
 
 
+
+;; set the status of a job and return it.
+;; if (job-status->kind status) is one of 'exited 'killed 'unknown, also close the job fds
+(define (job-last-status-set! j status)
+  (let ((status (job-status-normalize status)))
+    (%job-last-status-set! j status)
+    (when (job-status-member? status '(exited killed unknown))
+      (let ((fds (job-fds-to-close j)))
+        (unless (null? fds)
+          (fd-close-list fds)
+          (job-fds-to-close-set! j '()))))
+    status))
+
+
+;; normalize job status, converting unexpected status values to '(unknown . 0)
+(define (job-status-normalize status)
+  (cond
+    ((eq? (void) status)
+      status)
+    ((and (pair? status) (memq (car status) '(new running stopped exited killed unknown)))
+      status)
+    (#t
+      '(unknown . 0))))
+
+
 ;; Return number of children in specified multijob.
 ;; Return 0 if mj is not a multijob.
 (define (sh-multijob-child-length mj)
@@ -257,10 +286,10 @@
 
 
 ;; if job is running or stopped, then create a new job-id for it.
-;; if job has terminated, clear its job id.
+;; if job has terminated, clear its job id and close its fds.
 ;; Also replace any job status '(running . #f) -> '(running . job-id)
 ;; Return updated job status.
-(define (job-id-set-or-unset-as-needed! j)
+(define (job-id-update! j)
   (let ((status (job-last-status j)))
     (case (job-status->kind status)
       ((running stopped)
@@ -269,6 +298,8 @@
         (job-id-unset! j))
       (else
         status))))
+
+
 
 
 ;; Convert job-or-id to job.
@@ -397,7 +428,8 @@
 ;; Create a cmd to later spawn it. Each argument must be a string.
 (define (sh-cmd . program-and-args)
   (assert-string-list? 'sh-cmd program-and-args)
-  (%make-cmd #f -1 -1 '(new . 0) (span)
+  (%make-cmd #f -1 -1 '(new . 0)
+    (span) #f '() ; redirections
     job-start/cmd #f  ; start-proc step-proc
     (sh-cwd)      ; job working directory - initially current directory
     '()           ; overridden environment variables - initially none
@@ -804,11 +836,11 @@
 
 ;; Common implementation of (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 (define (advance-job-or-id mode job-or-id)
-  (assert* 'advance-job-or-id (memq mode '(sh-fg sh-bg sh-wait sh-wait+sigcont sh-subshell sh-job-status)))
+  (assert* 'advance-job-or-id (memq mode '(sh-fg sh-bg sh-wait sh-sigcont+wait sh-subshell sh-job-status)))
   (let ((j (sh-job job-or-id)))
     (when (job-has-status? j '(new running stopped))
       (job-advance/any mode j))
-    (job-id-set-or-unset-as-needed! j)))
+    (job-id-update! j)))
 
 
 ;; Internal function called by (advance-job-or-id) (job-advance/multijob)
@@ -865,7 +897,7 @@
     (#t
       (let ((pid  (job-pid j))
             (pgid (job-pgid j)))
-        (if (memq mode '(sh-fg sh-wait sh-wait+sigcont sh-subshell))
+        (if (memq mode '(sh-fg sh-wait sh-sigcont+wait sh-subshell))
           (with-foreground-pgid mode (job-pgid sh-globals) pgid
             (job-advance/pid/maybe-sigcont mode j pid pgid)
             (job-advance/pid/wait mode j pid pgid))
@@ -878,7 +910,7 @@
 (define (job-advance/pid/maybe-sigcont mode j pid pgid)
   (assert* mode (fx>? pid 0))
   (assert* mode (fx>? pgid 0))
-  (when (memq mode '(sh-fg sh-bg sh-wait+sigcont))
+  (when (memq mode '(sh-fg sh-bg sh-sigcont+wait))
     ; send SIGCONT to job's process group, if present.
     ; otherwise send SIGCONT to job's process id. Both may raise error
     ; (debugf "job-advance/pid/sigcont > ~s ~s~%" mode j)
@@ -912,12 +944,12 @@
         (job-id-unset! j))
       ((stopped)
         ; process is stopped.
-        ; if mode is sh-wait or sh-wait+sigcont, call (break)
-        ; then, if mode is sh-wait sh-wait+sigcont or sh-subshell, wait for it again (which blocks until it changes status again)
+        ; if mode is sh-wait or sh-sigcont+wait, call (break)
+        ; then, if mode is sh-wait sh-sigcont+wait or sh-subshell, wait for it again (which blocks until it changes status again)
         ; otherwise propagate process status and return.
-        (if (memq mode '(sh-wait sh-wait+sigcont sh-subshell))
+        (if (memq mode '(sh-wait sh-sigcont+wait sh-subshell))
           (begin
-            (when (memq mode '(sh-wait sh-wait+sigcont))
+            (when (memq mode '(sh-wait sh-sigcont+wait))
               (job-advance/pid/break mode j pid pgid))
             (job-advance/pid/wait mode j pid pgid))
           (begin
@@ -928,7 +960,7 @@
 
 
 ;; Internal function called by (job-advance/pid/wait)
-;; when job is stopped in mode 'sh-wait or 'sh-wait+sigcont:
+;; when job is stopped in mode 'sh-wait or 'sh-sigcont+wait:
 ;; call (break) then send 'sigcont to job
 ;; if (break) raises an exception or resets scheme, then send 'sigint to job
 (define (job-advance/pid/break mode j pid pgid)
@@ -971,7 +1003,7 @@
         child-status)
       ((job-status-member? child-status '(exited killed unknown))
         ; child exited: advance multijob by calling (job-step-proc)
-        ; then call (job-advance/multijob) again
+        ; then call (job-advance/multijob) again multijob job is still running.
         ; (debugf "step-proc > ~s status=~s~%" mj (job-last-status mj))
         (step-proc mj child-status)
         ; (debugf "step-proc < ~s status=~s~%" mj (job-last-status mj))
@@ -980,18 +1012,14 @@
           (job-last-status mj)))
       ((job-status-member? child-status '(running))
         ; child is still running. propagate child status and return
-        (let ((status (cons 'running (job-id mj)))) ; (job-id mj) may still be #f
-          (job-last-status-set! mj status)
-          status))
+        (job-last-status-set! mj (cons 'running (job-id mj)))) ; (job-id mj) may still be #f
       ((job-status-member? child-status '(stopped))
         ; child is stopped.
         ; if mode is sh-wait or sh-subshell, wait for it again.
         ; otherwise propagate child status and return
-        (if (memq mode '(sh-wait sh-wait+sigcont sh-subshell))
+        (if (memq mode '(sh-wait sh-sigcont+wait sh-subshell))
           (job-advance/multijob mode mj)
-          (begin
-            (job-last-status-set! mj child-status)
-            child-status)))
+          (job-last-status-set! mj child-status)))
       (#t
         (raise-errorf mode "child job not started yet: ~s" child)))))
 
@@ -1072,7 +1100,7 @@
 
 ;; Same as (sh-wait), but all arguments are mandatory
 (define (sh-wait* job-or-id send-sigcont?)
-  (advance-job-or-id (if send-sigcont? 'sh-wait+sigcont 'sh-wait) job-or-id))
+  (advance-job-or-id (if send-sigcont? 'sh-sigcont+wait 'sh-wait) job-or-id))
 
 
 ;; Start a job and wait for it to exit or stop.
@@ -1247,7 +1275,8 @@
     (do ((tail children-jobs (cdr tail)))
         ((null? tail))
       (validate-job-proc kind (car tail))))
-  (%make-multijob #f -1 -1 '(new . 0) (span)
+  (%make-multijob #f -1 -1 '(new . 0)
+    (span) #f '() ; redirections
     start-proc    ; executed to start the job
     next-proc     ; executed when a child job changes status
     (sh-cwd)      ; job working directory - initially current directory
@@ -1647,8 +1676,6 @@
     (hashtable-set! t "cd"      sh-builtin-cd)
     (hashtable-set! t "command" sh-builtin-command)
     (hashtable-set! t "pwd"     sh-builtin-pwd)))
-
-
 
 
 ) ; close library
