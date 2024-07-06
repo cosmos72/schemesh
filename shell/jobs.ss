@@ -1275,16 +1275,26 @@
     (do ((tail children-jobs (cdr tail)))
         ((null? tail))
       (validate-job-proc kind (car tail))))
-  (%make-multijob #f -1 -1 '(new . 0)
-    (span) #f '() ; redirections
-    start-proc    ; executed to start the job
-    next-proc     ; executed when a child job changes status
-    (sh-cwd)      ; job working directory - initially current directory
-    '()           ; overridden environment variables - initially none
-    sh-globals    ; parent job - initially the global job
-    kind
-    -1            ; no child running yet
-    (list->span children-jobs)))
+  (let ((mj
+    (%make-multijob #f -1 -1 '(new . 0)
+      (span) #f '() ; redirections
+      start-proc    ; executed to start the job
+      next-proc     ; executed when a child job changes status
+      (sh-cwd)      ; job working directory - initially current directory
+      '()           ; overridden environment variables - initially none
+      sh-globals    ; parent job - initially the global job
+      kind
+      -1            ; no child running yet
+      (list->span children-jobs))))
+
+    ;; set the parent of children-jobs
+    (do ((tail children-jobs (cdr tail)))
+        ((null? tail))
+      (let ((elem (car tail)))
+        (when (sh-job? elem)
+          (job-parent-set! elem mj))))
+    mj))
+
 
 (define (assert-is-job who j)
   (assert* who (sh-job? j)))
