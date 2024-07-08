@@ -70,9 +70,9 @@
 (define (charspan->string sp)
   (let ((beg (charspan-beg sp))
         (end (charspan-end sp)))
-    (if (fx>=? beg end)
-      ""
-      (substring (charspan-str sp) beg end))))
+    (if (fx<? beg end)
+      (substring (charspan-str sp) beg end)
+      "")))
 
 ;; convert a portion of charspan to string
 (define (charspan->string/range sp start len)

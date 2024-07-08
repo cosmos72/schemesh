@@ -22,7 +22,7 @@
   (import
     (rnrs)
     (only (chezscheme) fx1+ record-writer string-copy! void)
-    (only (schemesh bootstrap) assert*)
+    (only (schemesh bootstrap) assert* -> ^)
     (schemesh containers charspan))
 
 (define-record-type
@@ -73,28 +73,28 @@
   (list->chargbuffer vals))
 
 (define (chargbuffer-length gb)
-  (fx+ (charspan-length (chargbuffer-left gb)) (charspan-length (chargbuffer-right gb))))
+  (fx+ (-> gb chargbuffer-left charspan-length) (-> gb chargbuffer-right charspan-length)))
 
 (define (chargbuffer-empty? gb)
-  (and (charspan-empty? (chargbuffer-left gb)) (charspan-empty? (chargbuffer-right gb))))
+  (and (-> gb chargbuffer-left charspan-empty?) (-> gb chargbuffer-right charspan-empty?)))
 
 (define (chargbuffer-ref gb idx)
   (assert* 'chargbuffer-ref (fx<? -1 idx (chargbuffer-length gb)))
-  (let ((left-n (charspan-length (chargbuffer-left gb))))
+  (let ((left-n (-> gb chargbuffer-left charspan-length)))
     (if (fx<? idx left-n)
-      (charspan-ref (chargbuffer-left  gb) idx)
-      (charspan-ref (chargbuffer-right gb) (fx- idx left-n)))))
+      (-> gb chargbuffer-left  (charspan-ref ^ idx))
+      (-> gb chargbuffer-right (charspan-ref ^ (fx- idx left-n))))))
 
 (define (chargbuffer-set! gb idx ch)
   (assert* 'chargbuffer-set! (fx<? -1 idx (chargbuffer-length gb)))
-  (let ((left-n (charspan-length (chargbuffer-left gb))))
+  (let ((left-n (-> gb chargbuffer-left charspan-length)))
     (if (fx<? idx left-n)
-      (charspan-set! (chargbuffer-left  gb) idx ch)
-      (charspan-set! (chargbuffer-right gb) (fx- idx left-n) ch))))
+      (-> gb chargbuffer-left  (charspan-set! ^ idx ch))
+      (-> gb chargbuffer-right (charspan-set! ^ (fx- idx left-n) ch)))))
 
 (define (chargbuffer-clear! gb)
-  (charspan-clear! (chargbuffer-left  gb))
-  (charspan-clear! (chargbuffer-right gb)))
+  (-> gb chargbuffer-left  charspan-clear!)
+  (-> gb chargbuffer-right charspan-clear!))
 
 (define (chargbuffer-split-at! gb idx)
   (assert* 'chargbuffer-split-at! (fx<=? 0 idx (chargbuffer-length gb)))

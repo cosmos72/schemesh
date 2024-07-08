@@ -108,7 +108,7 @@
   (let* ((n (bytespan-length src))
          (dst (make-bytespan n)))
     (bytevector-copy! (bytespan-vec src) (bytespan-beg src)
-                  (bytespan-vec dst) (bytespan-beg dst) n)
+                      (bytespan-vec dst) (bytespan-beg dst) n)
     dst))
 
 (define (bytespan-copy! src src-start dst dst-start n)
@@ -118,9 +118,10 @@
                 (bytespan-vec dst) (fx+ dst-start (bytespan-beg dst)) n))
 
 (define (bytespan=? left right)
-  (or (and (eq?  (bytespan-vec left) (bytespan-vec right))
-           (fx=? (bytespan-beg left) (bytespan-beg right))
-           (fx=? (bytespan-end left) (bytespan-end right)))
+  (or
+    (and (eq?  (bytespan-vec left) (bytespan-vec right))
+         (fx=? (bytespan-beg left) (bytespan-beg right))
+         (fx=? (bytespan-end left) (bytespan-end right)))
     (let* ((n1 (bytespan-length left))
            (n2 (bytespan-length right))
            (equal (fx=? n1 n2)))

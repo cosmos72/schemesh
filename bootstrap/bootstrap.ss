@@ -8,8 +8,8 @@
 (library (schemesh bootstrap)
   (export
      assert* catch define-macro debugf eval-string first-value let-macro
-     raise-assertv raise-assertf raise-errorf
-     repeat while until throws? try list->values values->list)
+     raise-assertv raise-assertf raise-errorf repeat while until
+     throws? try list->values values->list -> ^)
   (import
     (rnrs)
     (rnrs base)
@@ -156,6 +156,32 @@
   (lambda (arg)
     (syntax-violation "" "misplaced auxiliary keyword" arg)))
 
+
+;; symplify chained accessors, allow writing (-> obj accessor1 accessor2 ...)
+;; instead of (accessor2 (accessor1 obj))
+(define-syntax ->
+  (syntax-rules (^)
+    ((_ obj (accessor ^ . args))
+      (accessor obj . args))
+    ((_ obj (accessor arg0 ^ . args))
+      (accessor arg0 obj . args))
+    ((_ obj (accessor arg0 arg1 ^ . args))
+      (accessor arg0 arg1 obj . args))
+    ((_ obj (accessor arg0 arg1 arg2 ^ . args))
+      (accessor arg0 arg1 arg2 obj . args))
+    ((_ obj (accessor . args))
+      (syntax-violation '-> "misplaced or missing auxiliary keyword" (cons accessor args) '^))
+    ((_ obj accessor)
+      (accessor obj))
+    ((_ obj accessor1 accessor2 ...)
+     (-> (-> obj accessor1) accessor2 ...))))
+
+;; export aux keyword ^, needed by ->
+(define-syntax ^
+  (lambda (arg)
+    (syntax-violation "" "misplaced auxiliary keyword" arg)))
+
+
 (define (list->values l)
   (apply values l))
 
@@ -231,6 +257,7 @@
                    (syntax (void))
                    (datum->syntax (syntax l) e))))))))
        form1 form2 ...))))
+
 
 #|
 ;; redefine obj as a local macro, simplifying repeated calls to verbose functions
