@@ -16,7 +16,7 @@
     (rnrs exceptions)
     ; Unlike R6RS (eval obj environment), Chez Scheme's (eval obj)
     ; uses interaction-environment and can modify it
-    (only (chezscheme) current-time eval format fx1- gensym make-format-condition syntax-error void))
+    (only (chezscheme) current-time eval format fx1- gensym make-format-condition meta reverse! syntax-error void))
 
 
 (define debugf
@@ -157,30 +157,6 @@
     (syntax-violation "" "misplaced auxiliary keyword" arg)))
 
 
-;; symplify chained accessors, allow writing (-> obj accessor1 accessor2 ...)
-;; instead of (accessor2 (accessor1 obj))
-(define-syntax ->
-  (syntax-rules (^)
-    ((_ obj (accessor ^ . args))
-      (accessor obj . args))
-    ((_ obj (accessor arg0 ^ . args))
-      (accessor arg0 obj . args))
-    ((_ obj (accessor arg0 arg1 ^ . args))
-      (accessor arg0 arg1 obj . args))
-    ((_ obj (accessor arg0 arg1 arg2 ^ . args))
-      (accessor arg0 arg1 arg2 obj . args))
-    ((_ obj (accessor . args))
-      (syntax-violation '-> "misplaced or missing auxiliary keyword" (cons accessor args) '^))
-    ((_ obj accessor)
-      (accessor obj))
-    ((_ obj accessor1 accessor2 ...)
-     (-> (-> obj accessor1) accessor2 ...))))
-
-;; export aux keyword ^, needed by ->
-(define-syntax ^
-  (lambda (arg)
-    (syntax-violation "" "misplaced auxiliary keyword" arg)))
-
 
 (define (list->values l)
   (apply values l))
@@ -218,8 +194,7 @@
        (lambda (stx)
          (syntax-case stx ()
            ((l . sv)
-             (let* ((v (syntax->datum (syntax sv)))
-                    (e (apply transformer v)))
+             (let ((e (apply transformer (syntax->datum (syntax sv)))))
                (if (eq? (void) e)
                    (syntax (void))
                    (datum->syntax (syntax l) e))))))))))
@@ -258,6 +233,56 @@
                    (datum->syntax (syntax l) e))))))))
        form1 form2 ...))))
 
+
+
+(meta begin
+  ;; helper function used by ->expand
+  ;; traverse list, replacing the first object eq? to old with the object new.
+  ;; does NOT traverse sublists.
+  (define (replace-first new old l)
+    (let %again ((tail l)
+                 (ret  '())
+                 (replace? #t))
+      (cond
+        ((null? tail)
+          (reverse! ret))
+        ((and replace? (eq? old (car tail)))
+          (%again (cdr tail) (cons new ret) #f))
+        (#t
+          (%again (cdr tail) (cons (car tail) ret) replace?)))))
+
+
+  ;; helper function used by -->
+  (define (->expand obj accessor)
+    (unless (and (pair? accessor) (memq '^ accessor))
+      (syntax-violation "" "invalid syntax, missing ^ in nested list after" accessor '->))
+    (replace-first obj '^ accessor))
+
+
+) ; close meta
+
+
+;; symplify chained accessors, allow writing (-> obj accessor1 accessor2 ...)
+;; instead of (... (accessor2 (accessor1 obj)))
+(define-macro (-> . args)
+  (when (or (null? args) (not (pair? (cdr args))))
+    (syntax-violation "" "invalid syntax, need at least two arguments after" (cons '-> args) '->))
+  (let ((obj (car args))
+        (accessor0 (cadr args))
+        (accessors (cddr args)))
+    (cond
+      ((and (null? accessors) (not (pair? accessor0)))
+        (list accessor0 obj))
+      ((and (null? accessors) (pair? accessor0))
+        (->expand obj accessor0))
+      (#t
+        `(-> (-> ,obj ,accessor0) . ,accessors)))))
+
+
+;; export aux keyword ^, needed by ->
+(define-syntax ^
+  (lambda (arg)
+    (syntax-violation "" "misplaced auxiliary keyword" arg)))
 
 #|
 ;; redefine obj as a local macro, simplifying repeated calls to verbose functions

@@ -44,6 +44,7 @@ static const testcase tests[] = {
     {"(let-macro ((plus arg0 . args) `(+ ,arg0 ,@args))\n"
      "  (plus 3 4 5))",
      "12"},
+    {"(expand '(-> a b (c ^ d) (e f ^)))", "(e f (c (b a) d))"},
     /* ----------------- containers/misc ------------------------------------ */
     {"(subvector '#(aa bb cc dd) 1 3)", "#(bb cc)"},
     {"(subbytevector #vu8(44 55 66 77) 2 3)", "B"},
