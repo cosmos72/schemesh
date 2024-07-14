@@ -131,23 +131,24 @@
 
 (define-syntax try
   (syntax-rules (catch)
-    ((_ try-body (catch (exception) catcher-form1 catcher-form2 ...))
+    ((_ try-body1 try-body ... (catch (exception) catch-body1 catch-body ...))
       (call/cc
         (lambda (k-exit)
           (with-exception-handler
             (lambda (exception)
-              (k-exit (begin catcher-form1 catcher-form2 ...)))
+              (k-exit (begin catch-body1 catch-body ...)))
             (lambda ()
-              try-body)))))
-    ((_ bad-form ...)
-      (syntax-violation "" "invalid syntax, expecting (try EXPR (catch (IDENT) ...)) in"
-        (list 'try (quote bad-form) ...)))))
+              try-body1 try-body ...)))))
+    ((_ bad-body ...)
+      (syntax-violation "" "invalid syntax, expecting (try EXPR ... (catch (IDENT) ...)) in"
+        (list 'try (quote bad-body) ...)))))
 
 (define-syntax throws?
   (syntax-rules ()
     ((_ expr)
       (try
-        (begin expr #f)
+        expr
+        #f
         (catch (exception)
           (or exception #t))))))
 
@@ -194,10 +195,9 @@
        (lambda (stx)
          (syntax-case stx ()
            ((l . sv)
-             (let ((e (apply transformer (syntax->datum (syntax sv)))))
-               (if (eq? (void) e)
-                   (syntax (void))
-                   (datum->syntax (syntax l) e))))))))))
+            (datum->syntax (syntax l)
+	      (apply transformer (syntax->datum (syntax sv)))))))))))
+
 
 ;; Scheme implementation of Common Lisp macrolet, defines a local macro.
 ;; Usage:
@@ -219,18 +219,15 @@
 ;; that will be compiled in place of (name expr ...)
 (define-syntax let-macro
   (syntax-rules ()
-    ((_ ((name . args) body ...) form1 form2 ...)
-     (let-macro name (lambda args body ...) form1 form2 ...))
+    ((_ ((name . args) body1 body2 ...) form1 form2 ...)
+     (let-macro name (lambda args body1 body2 ...) form1 form2 ...))
     ((_ name transformer form1 form2 ...)
      (let-syntax ((name
        (lambda (stx)
          (syntax-case stx ()
            ((l . sv)
-             (let* ((v (syntax->datum (syntax sv)))
-                    (e (apply transformer v)))
-               (if (eq? (void) e)
-                   (syntax (void))
-                   (datum->syntax (syntax l) e))))))))
+             (datum->syntax (syntax l)
+	       (apply transformer (syntax->datum (syntax sv)))))))))
        form1 form2 ...))))
 
 
@@ -270,13 +267,11 @@
   (let ((obj (car args))
         (accessor0 (cadr args))
         (accessors (cddr args)))
-    (cond
-      ((and (null? accessors) (not (pair? accessor0)))
-        (list accessor0 obj))
-      ((and (null? accessors) (pair? accessor0))
-        (->expand obj accessor0))
-      (#t
-        `(-> (-> ,obj ,accessor0) . ,accessors)))))
+    (if (null? accessors)
+      (if (pair? accessor0)
+        (->expand obj accessor0)
+	(list accessor0 obj))
+      `(-> (-> ,obj ,accessor0) . ,accessors))))
 
 
 ;; export aux keyword ^, needed by ->
