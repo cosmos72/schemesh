@@ -131,14 +131,14 @@
 
 (define-syntax try
   (syntax-rules (catch)
-    ((_ try-body1 try-body ... (catch (exception) catch-body1 catch-body ...))
+    ((_ try-body1 try-body2 ... (catch (exception) catch-body1 catch-body2 ...))
       (call/cc
         (lambda (k-exit)
           (with-exception-handler
             (lambda (exception)
-              (k-exit (begin catch-body1 catch-body ...)))
+              (k-exit (begin catch-body1 catch-body2 ...)))
             (lambda ()
-              try-body1 try-body ...)))))
+              try-body1 try-body2 ...)))))
     ((_ bad-body ...)
       (syntax-violation "" "invalid syntax, expecting (try EXPR ... (catch (IDENT) ...)) in"
         (list 'try (quote bad-body) ...)))))
@@ -158,11 +158,11 @@
     (syntax-violation "" "misplaced auxiliary keyword" arg)))
 
 
-
+;; convert a list to multiple values
 (define (list->values l)
   (apply values l))
 
-;; evaluate expr, which may return multiple values, and insert such values into a list.
+;; evaluate expr, which may return multiple values, and return a list containing such values.
 (define-syntax values->list
   (syntax-rules ()
     ((_ expr)    (call-with-values (lambda () expr) list))))
@@ -171,6 +171,7 @@
 (define-syntax first-value
   (syntax-rules ()
     ((_ expr)    (call-with-values (lambda () expr) (lambda args (car args))))))
+
 
 ;; Scheme implementation of Common Lisp defmacro, defines a global macro.
 ;; Usage:
@@ -195,8 +196,8 @@
        (lambda (stx)
          (syntax-case stx ()
            ((l . sv)
-            (datum->syntax (syntax l)
-	      (apply transformer (syntax->datum (syntax sv)))))))))))
+             (datum->syntax (syntax l)
+               (apply transformer (syntax->datum (syntax sv)))))))))))
 
 
 ;; Scheme implementation of Common Lisp macrolet, defines a local macro.
@@ -227,7 +228,7 @@
          (syntax-case stx ()
            ((l . sv)
              (datum->syntax (syntax l)
-	       (apply transformer (syntax->datum (syntax sv)))))))))
+               (apply transformer (syntax->datum (syntax sv)))))))))
        form1 form2 ...))))
 
 
@@ -259,7 +260,7 @@
 ) ; close meta
 
 
-;; symplify chained accessors, allow writing (-> obj accessor1 accessor2 ...)
+;; symplify accessors chaining, allows writing (-> obj accessor1 accessor2 ...)
 ;; instead of (... (accessor2 (accessor1 obj)))
 (define-macro (-> . args)
   (when (or (null? args) (not (pair? (cdr args))))
@@ -270,7 +271,7 @@
     (if (null? accessors)
       (if (pair? accessor0)
         (->expand obj accessor0)
-	(list accessor0 obj))
+        (list accessor0 obj))
       `(-> (-> ,obj ,accessor0) . ,accessors))))
 
 
