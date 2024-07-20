@@ -11,10 +11,10 @@
 
 (library (schemesh containers bitmap (0 1))
   (export
-    bitmap make-bitmap bitmap? bitmap-length bitmap-ref bitmap-set!)
+    bitmap make-bitmap bitmap? bitmap-length bitmap-ref bitmap-set! bitmap-first-zero bitmap-last-one)
   (import
     (rnrs)
-    (only (chezscheme) fx1+ fx/ record-writer void)
+    (only (chezscheme) fx1+ fx1- fx/ record-writer void)
     (only (schemesh bootstrap) assert*))
 
 (define-record-type
@@ -26,7 +26,8 @@
      (mutable   last-one   bitmap-last-one   bitmap-last-one-set!))
   (nongenerative #{%bitmap f7pgyor7q9839cgjbgqhv381w-0}))
 
-;; created a zero-filled bitmap with specified bit length.
+
+;; create a zero-filled bitmap with specified bit length.
 (define (make-bitmap bitlength)
   (let ((byte-n (fxarithmetic-shift-right (fx+ bitlength 7) 3)))
     (%make-bitmap
@@ -36,7 +37,7 @@
       -1)))
 
 
-;; created a bitmap containing specified values. each value must be 0 or 1
+;; create a bitmap containing specified values. each value must be 0 or 1
 (define (bitmap . vals)
   (let* ((n (length vals))
          (b (make-bitmap n)))
@@ -67,9 +68,31 @@
              (fxior old-byte bit))))
     (unless (fx=? old-byte new-byte)
       (bytevector-u8-set! data byte-index new-byte)
-      ; (bitmap-first-zero-update! b index set-zero?)
-      ; (bitmap-last-one-update!   b index set-zero?)
-    )))
+      (bitmap-first-zero-update! b index set-zero?)
+      (bitmap-last-one-update!   b index set-zero?))))
+
+
+(define (bitmap-first-zero-update! b index set-zero?)
+  (if set-zero?
+    (when (fx<? index (bitmap-first-zero b))
+      (bitmap-first-zero-set! b index))
+    (when (fx=? index (bitmap-first-zero b))
+      (do ((i (fx1+ index) (fx1+ i))
+           (n (bitmap-length b)))
+          ((or (fx>=? i n)
+               (fxzero? (bitmap-ref b i)))
+           (bitmap-first-zero-set! b i))))))
+
+
+(define (bitmap-last-one-update! b index set-zero?)
+  (if set-zero?
+    (when (fx=? index (bitmap-last-one b))
+      (do ((i (fx1- index) (fx1- i)))
+          ((or (fx<? i 0)
+               (not (fxzero? (bitmap-ref b i))))
+           (bitmap-last-one-set! b i))))
+    (when (fx>? index (bitmap-last-one b))
+      (bitmap-last-one-set! b index))))
 
 
 ; customize how "bitmap" objects are printed

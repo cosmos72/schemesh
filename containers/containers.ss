@@ -24,7 +24,7 @@
     hashtable-iterate hashtable-transpose eq-hashtable eqv-hashtable hashtable
 
     ; bitmap.ss
-    bitmap make-bitmap bitmap? bitmap-length bitmap-ref bitmap-set!
+    bitmap make-bitmap bitmap? bitmap-length bitmap-ref bitmap-set! bitmap-first-zero bitmap-last-one
 
     ; span.ss
     list->span vector->span vector->span* make-span span->vector span span?
