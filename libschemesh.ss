@@ -41,6 +41,7 @@
   (include "parser/scheme.ss")
   (include "parser/shell.ss")
   (include "parser/parser.ss")
+  (include "shell/fds.ss")
   (include "shell/paths.ss")
   (include "shell/aliases.ss")
   (include "shell/builtins.ss")

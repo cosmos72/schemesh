@@ -26,6 +26,8 @@
 #include <termios.h> /* tcgetattr(), tcsetattr() */
 #include <unistd.h>  /* sysconf(), write() */
 
+static int c_fd_open_max(void);
+
 /******************************************************************************/
 /*                                                                            */
 /*                          errno-related functions                           */
@@ -109,11 +111,14 @@ static int write_invalid_redirection(void) {
 static int tty_fd = -1;
 
 static int c_tty_init(void) {
+  int fd = c_fd_open_max() - 1;
   int err = 0;
-  if (dup2(0, tty_fd = 255) < 0) {
+  if (dup2(0, fd) < 0) {
     err = c_init_failed("dup2(0, tty_fd)");
-  } else if (fcntl(tty_fd, F_SETFD, FD_CLOEXEC) < 0) {
+  } else if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0) {
     err = c_init_failed("fcntl(tty_fd, F_SETFD, FD_CLOEXEC)");
+  } else {
+    tty_fd = fd;
   }
   return err;
 }

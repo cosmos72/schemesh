@@ -34,6 +34,7 @@
     (schemesh posix fd)
     (schemesh posix pid)
     (schemesh posix signal)
+    (schemesh shell fds)
     (schemesh shell paths)
     (schemesh shell aliases)
     (schemesh shell builtins))
@@ -1680,6 +1681,8 @@
 
 (begin
   (c-environ->sh-global-env)
+
+  (sh-fd-allocate) ; mark highest fd as reserved: used by tty_fd
 
   (let ((t (sh-builtins)))
     ; additional builtins

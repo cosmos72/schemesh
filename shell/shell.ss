@@ -8,6 +8,9 @@
 
 (library (schemesh shell (0 1))
   (export
+    ; fds.ss
+    sh-fd-allocate sh-fd-release
+
     ; paths.ss
     sh-path sh-path? sh-path-absolute? sh-path-relative?
     sh-path-append sh-path-append! sh-path-iterate
@@ -41,6 +44,7 @@
     sh-autocomplete sh-current-time sh-expand-ps1 sh-home->~ sh-make-linectx)
 
   (import
+    (schemesh shell fds)
     (schemesh shell paths)
     (schemesh shell aliases)
     (schemesh shell builtins)
