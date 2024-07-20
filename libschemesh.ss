@@ -10,6 +10,7 @@
   (include "containers/misc.ss")
   (include "containers/utf8b.ss")
   (include "containers/hashtable.ss")
+  (include "containers/bitmap.ss")
   (include "containers/span.ss")
   (include "containers/bytespan.ss")
   (include "containers/charspan.ss")

@@ -23,6 +23,9 @@
     make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-cell hash-iterator-next!
     hashtable-iterate hashtable-transpose eq-hashtable eqv-hashtable hashtable
 
+    ; bitmap.ss
+    bitmap make-bitmap bitmap? bitmap-length bitmap-ref bitmap-set!
+
     ; span.ss
     list->span vector->span vector->span* make-span span->vector span span?
     span-length span-empty? span-clear! span-capacity span-capacity-front span-capacity-back
@@ -96,6 +99,7 @@
   (import (schemesh containers misc)
           (schemesh containers utf8b)
           (schemesh containers hashtable)
+          (schemesh containers bitmap)
           (schemesh containers span)
           (schemesh containers bytespan)
           (schemesh containers charspan)

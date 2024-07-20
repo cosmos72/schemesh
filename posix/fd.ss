@@ -8,8 +8,8 @@
 (library (schemesh posix fd (0 1))
   (export
     c-errno c-errno->string raise-c-errno
-    fd-close fd-close-list fd-dup fd-dup2 fd-read fd-write fd-select fd-setnonblock
-    open-file-fd open-pipe-fds)
+    fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-read fd-write
+    fd-select fd-setnonblock open-file-fd open-pipe-fds)
   (import
     (rnrs)
     (only (chezscheme) foreign-procedure void)
@@ -27,6 +27,15 @@
 (define (raise-c-errno who c-who c-errno)
   ; (debugf "raise-c-errno ~s ~s~%" who c-errno)
   (raise-errorf who "C function ~s failed with error ~s" c-who c-errno))
+
+;; return the maximum number of open file descriptors for a process
+(define fd-open-max
+  (let ((c-fd-open-max (foreign-procedure "c_fd_open_max" () int)))
+    (lambda ()
+      (let ((ret (c-fd-open-max)))
+        (if (>= ret 0)
+          ret
+          (raise-c-errno 'fd-open-max 'sysconf ret))))))
 
 (define fd-close
   (let ((c-fd-close (foreign-procedure "c_fd_close" (int) int)))

@@ -24,7 +24,7 @@
 #include <sys/ioctl.h> /* ioctl(), TIOCGWINSZ */
 #include <sys/wait.h>
 #include <termios.h> /* tcgetattr(), tcsetattr() */
-#include <unistd.h>  /* write() */
+#include <unistd.h>  /* sysconf(), write() */
 
 /******************************************************************************/
 /*                                                                            */
@@ -223,6 +223,25 @@ static unsigned long c_parse_unsigned_long(const char* str) {
 /*                            fd-related functions                            */
 /*                                                                            */
 /******************************************************************************/
+
+static int c_fd_open_max(void) {
+#ifdef _SC_OPEN_MAX
+  long ret = sysconf(_SC_OPEN_MAX);
+  if (ret > 0) {
+    if (ret == (long)(int)ret) {
+      return (int)ret;
+    }
+    return INT_MAX;
+  }
+#endif
+#if defined(OPEN_MAX)
+  return OPEN_MAX;
+#elif defined(_POSIX_OPEN_MAX)
+  return _POSIX_OPEN_MAX;
+#else
+  return 256; // reasonable? default
+#endif
+}
 
 /** close specified file descriptor */
 static int c_fd_close(int fd) {
@@ -833,6 +852,7 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_errno_eintr", &c_errno_eintr);
   Sregister_symbol("c_errno_einval", &c_errno_einval);
   Sregister_symbol("c_strerror", &c_strerror);
+  Sregister_symbol("c_fd_open_max", &c_fd_open_max);
   Sregister_symbol("c_fd_close", &c_fd_close);
   Sregister_symbol("c_fd_close_list", &c_fd_close_list);
   Sregister_symbol("c_fd_dup", &c_fd_dup);
