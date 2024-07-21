@@ -438,75 +438,79 @@ static int c_direction_to_open_flags(string_char ch) {
   }
 }
 
-/** redirect a single fd as indicated in vector_redirect_fds[i...i+3]. return < 0 on error */
-static int c_redirect_fd(ptr vector_redirect_fds, iptr i) {
-  ptr         elem = Svector_ref(vector_redirect_fds, i);
+/** redirect a single fd as specified */
+static int c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector, ptr close_on_exec) {
   iptr        fd;
   iptr        to_fd;
   iptr        path_len = 0;
   const char* path     = NULL;
   int         open_flags;
-  int         err;
+  int         err = 0;
 
-  if (!Sfixnump(elem) || (fd = Sfixnum_value(elem)) < 0) {
+  if (!Sfixnump(from_fd) || (fd = Sfixnum_value(from_fd)) < 0) {
     /* invalid fd */
     return write_invalid_redirection();
-  }
-  elem = Svector_ref(vector_redirect_fds, i + 1);
-  if (!Scharp(elem) || (open_flags = c_direction_to_open_flags(Schar_value(elem))) < 0) {
+  } else if (!Scharp(direction_ch) || (open_flags = c_direction_to_open_flags(Schar_value(direction_ch))) < 0) {
     /* invalid direction */
     return write_invalid_redirection();
-  }
-
-  elem = Svector_ref(vector_redirect_fds, i + 2);
-  if (Sfixnump(elem)) {
-    to_fd = Sfixnum_value(elem);
+  } else if (Sfixnump(to_fd_or_bytevector)) {
+    to_fd = Sfixnum_value(to_fd_or_bytevector);
     if (to_fd < -1) {
       /* invalid to_fd, must be >= -1 */
       return write_invalid_redirection();
-    }
     /* redirect fd to another file descriptor, or close it */
-    if (to_fd == -1) {
-      close(fd);
+    } else if (to_fd == -1) {
+      (void)close(fd);
+      return 0;
     } else if (dup2(to_fd, fd) < 0) {
       return write_c_errno();
+    } else if (close_on_exec != Sfalse) {
+      (void)fcntl(fd, FD_CLOEXEC);
     }
     return 0;
-  }
-  elem = Svector_ref(vector_redirect_fds, i + 3);
-  if (!Sbytevectorp(elem) || (path_len = Sbytevector_length(elem)) <= 0 ||
-      Sbytevector_u8_ref(elem, path_len - 1) != 0) {
+  } else if (Sbytevectorp(to_fd_or_bytevector)
+	     && (path_len = Sbytevector_length(to_fd_or_bytevector)) > 0
+	     && Sbytevector_u8_ref(to_fd_or_bytevector, path_len - 1) == 0) {
+    /* redirect fd from/to a file */
+    path  = (const char*)Sbytevector_data(to_fd_or_bytevector);
+    to_fd = open(path, open_flags, 0666);
+    if (to_fd < 0) {
+      return write_path_c_errno(path, path_len - 1);
+    } else if (to_fd != fd) {
+      if (dup2(to_fd, fd) < 0) {
+	err = write_c_errno();
+      }
+      (void)close(to_fd);
+    }
+    if (err == 0 && close_on_exec != Sfalse) {
+      (void)fcntl(fd, FD_CLOEXEC);
+    }
+    return err;
+  } else {
     /* invalid path */
     return write_invalid_redirection();
   }
-  /* redirect fd from/to a file */
-  path  = (const char*)Sbytevector_data(elem);
-  to_fd = open(path, open_flags, 0666);
-  if (to_fd < 0) {
-    return write_path_c_errno(path, path_len - 1);
-  }
-  if (to_fd == fd) {
-    return 0; // lucky :)
-  }
-  if (dup2(to_fd, fd) < 0) {
-    err = write_c_errno();
-  } else {
-    err = 0;
-  }
-  close(to_fd);
-  return err;
 }
 
-/** redirect fds as indicated in vector_redirect_fds. return < 0 on error */
-static int c_redirect_fds(ptr vector_redirect_fds) {
+/** redirect a single fd as indicated in vector_fds_redirect[i...i+3]. return < 0 on error */
+static int c_fds_redirect_i(ptr vector_fds_redirect, iptr i, ptr close_on_exec) {
+  return c_fd_redirect(
+    Svector_ref(vector_fds_redirect, i + 0),
+    Svector_ref(vector_fds_redirect, i + 1),
+    Svector_ref(vector_fds_redirect, i + 3),
+    close_on_exec);
+}
+
+/** redirect fds as indicated in vector_fds_redirect. return < 0 on error */
+static int c_fds_redirect(ptr vector_fds_redirect, ptr close_on_exec) {
   iptr i, n;
   int  err = 0;
-  if (!Svectorp(vector_redirect_fds) || ((n = Svector_length(vector_redirect_fds)) & 3)) {
+  if (!Svectorp(vector_fds_redirect) || ((n = Svector_length(vector_fds_redirect)) & 3)) {
     write_invalid_redirection();
     return -EINVAL;
   }
   for (i = 0; err == 0 && i + 4 <= n; i += 4) {
-    err = c_redirect_fd(vector_redirect_fds, i);
+    err = c_fds_redirect_i(vector_fds_redirect, i, close_on_exec);
   }
   return err;
 }
@@ -668,7 +672,7 @@ static int c_set_process_group(pid_t existing_pgid_if_positive) {
  * parent: return pid, or c_errno() on error
  * child: return 0, or c_errno() on error
  */
-static int c_fork_pid(ptr vector_redirect_fds, int existing_pgid_if_positive) {
+static int c_fork_pid(ptr vector_fds_redirect, int existing_pgid_if_positive) {
   const int pid = fork();
   switch (pid) {
     case -1:
@@ -678,7 +682,7 @@ static int c_fork_pid(ptr vector_redirect_fds, int existing_pgid_if_positive) {
       int err;
       if ((err = c_set_process_group((pid_t)existing_pgid_if_positive)) >= 0 &&
           (err = c_signal_setdefault(SIGTSTP)) >= 0) {
-        err = c_redirect_fds(vector_redirect_fds);
+        err = c_fds_redirect(vector_fds_redirect, Sfalse);
       }
       return err;
     }
@@ -703,7 +707,7 @@ static char** vector_to_c_argz(ptr vector_of_bytevector0);
 /** fork() and exec() an external program, return pid.
  * if existing_pgid_if_positive > 0, add process to given pgid i.e. process group */
 static int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
-                       ptr vector_redirect_fds,
+                       ptr vector_fds_redirect,
                        ptr vector_of_bytevector0_environ,
                        int existing_pgid_if_positive) {
 
@@ -732,7 +736,7 @@ static int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
       /* child */
       if (c_set_process_group((pid_t)existing_pgid_if_positive) >= 0 &&
           c_signals_setdefault() >= 0 && /*                                   */
-          c_redirect_fds(vector_redirect_fds) >= 0) {
+          c_fds_redirect(vector_fds_redirect, Sfalse) >= 0) {
         if (envp) {
           environ = envp;
         }
@@ -741,7 +745,7 @@ static int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
         (void)write_command_not_found(argv[0]);
         exit(127);
       }
-      /* in case c_set_process_group() or c_redirect_fds() fail */
+      /* in case c_set_process_group() or c_fds_redirect() fail */
       exit(1);
     }
     default:
@@ -866,6 +870,7 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_fd_write", &c_fd_write);
   Sregister_symbol("c_fd_select", &c_fd_select);
   Sregister_symbol("c_fd_setnonblock", &c_fd_setnonblock);
+  Sregister_symbol("c_fd_redirect", &c_fd_redirect);
   Sregister_symbol("c_open_file_fd", &c_open_file_fd);
   Sregister_symbol("c_open_pipe_fds", &c_open_pipe_fds);
 

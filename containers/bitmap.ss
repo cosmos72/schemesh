@@ -11,7 +11,7 @@
 
 (library (schemesh containers bitmap (0 1))
   (export
-    bitmap make-bitmap bitmap? bitmap-length bitmap-ref bitmap-set! bitmap-first-one bitmap-last-zero)
+    bitmap make-bitmap bitmap? bitmap-length bitmap-ref bitmap-set! bitmap-last-zero)
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx1- record-writer void)
@@ -20,10 +20,11 @@
 (define-record-type
   (%bitmap %make-bitmap bitmap?)
   (fields
-     (immutable data       bitmap-data)   ; bytevector
-     (mutable   length     bitmap-length     bitmap-length-set!) ; unsigned fixnum, length in bits
-     (mutable   last-zero   bitmap-last-zero   bitmap-last-zero-set!)
-     (mutable   first-one  bitmap-first-one bitmap-first-one-set!))
+    (immutable data       bitmap-data)   ; bytevector
+     ; unsigned fixnum, length in bits
+     (mutable   length     bitmap-length     bitmap-length-set!)
+     ; unsigned fixnum, position of last zero, or -1 if all bits are one.
+     (mutable   last-zero  bitmap-last-zero  bitmap-last-zero-set!))
   (nongenerative #{%bitmap f7pgyor7q9839cgjbgqhv381w-0}))
 
 
@@ -33,8 +34,7 @@
     (%make-bitmap
       (make-bytevector byte-n 0)
       bitlength
-      (fx1- bitlength)
-      bitlength)))
+      (fx1- bitlength))))
 
 
 ;; create a bitmap containing specified values. each value must be 0 or 1
@@ -68,20 +68,7 @@
              (fxior old-byte bit))))
     (unless (fx=? old-byte new-byte)
       (bytevector-u8-set! data byte-index new-byte)
-      (bitmap-first-one-update! b index set-zero?)
       (bitmap-last-zero-update! b index set-zero?))))
-
-
-(define (bitmap-first-one-update! b index set-zero?)
-  (if set-zero?
-    (when (fx=? index (bitmap-first-one b))
-      (do ((i (fx1+ index) (fx1+ i))
-           (n (bitmap-length b)))
-          ((or (fx>=? i n)
-               (not (fxzero? (bitmap-ref b i))))
-           (bitmap-first-one-set! b i))))
-    (when (fx<? index (bitmap-first-one b))
-      (bitmap-first-one-set! b index))))
 
 
 (define (bitmap-last-zero-update! b index set-zero?)

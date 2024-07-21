@@ -27,7 +27,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) break display-string foreign-procedure format fx1+ fx1-
-                       inspect make-format-condition record-writer reverse! void)
+                       inspect make-format-condition procedure-arity-mask record-writer reverse! void)
     (only (schemesh bootstrap) assert* debugf raise-errorf until while)
     (schemesh containers)
     (schemesh conversions)
@@ -52,8 +52,8 @@
     ; span of quadruplets (fd mode to-fd-or-bytevector0 path-or-closure)
     ; to open and redirect between fork() and exec()
     (mutable redirects)
-    (mutable fds-to-remap) ; for builtins, #f or hashmap job-logical-fd -> actual-fd-to-use
-    (mutable fds-to-close) ; for builtins, '() or list of fds to close at job exit
+    (mutable fds-to-remap) ; for builtins or multijobs, #f or hashmap job-logical-fd -> actual-fd-to-use
+    (mutable fds-to-close) ; for builtins or multijobs, '() or list of fds to close at job exit
     start-proc      ; #f or procedure to run in main process.
                     ; receives as argument job followed by options.
     step-proc       ; #f or procedure.
@@ -197,15 +197,18 @@
 
 ;; set the status of a job and return it.
 ;; if (job-status->kind status) is one of 'exited 'killed 'unknown, also close the job fds
-(define (job-last-status-set! j status)
+(define (job-status-set! j status)
   (let ((status (job-status-normalize status)))
-    (%job-last-status-set! j status)
-    (when (job-status-member? status '(exited killed unknown))
-      (let ((fds (job-fds-to-close j)))
-        (unless (null? fds)
-          (fd-close-list fds)
-          (job-fds-to-close-set! j '()))))
-    status))
+    (if (job-status-member? status '(running))
+      (job-status-set/running! j)
+      (begin
+	(%job-last-status-set! j status)
+	(when (job-status-member? status '(exited killed unknown))
+          (let ((fds (job-fds-to-close j)))
+            (unless (null? fds)
+              (fd-close-list fds)
+              (job-fds-to-close-set! j '()))))
+	status))))
 
 
 ;; normalize job status, converting unexpected status values to '(unknown . 0)
@@ -217,6 +220,18 @@
       status)
     (#t
       '(unknown . 0))))
+
+
+(define (job-status-set/running! j)
+  (let* ((id     (job-id j))
+         (status (job-last-status j))
+         (kind   (job-status->kind status))
+         (old-id (if (pair? status) (cdr status) #f)))
+    (if (and (eq? 'running status) (eqv? id old-id))
+      status
+      (let ((new-status (cons 'running id)))
+        (%job-last-status-set! j new-status)
+        new-status))))
 
 
 ;; Return number of children in specified multijob.
@@ -282,7 +297,7 @@
       (%job-id-set! j id)
       ;; replace job status '(running . #f) -> '(running . job-id)
       (when (and (eq? kind 'running) (not (eqv? id (cdr status))))
-        (job-last-status-set! j (cons 'running id)))))
+        (job-status-set! j (cons 'running id)))))
   (job-last-status j))
 
 
@@ -607,6 +622,54 @@
     existing-pgid))
 
 
+;; called when starting a builtin or multijob:
+;; create fd redirections and store them into (job-fds-to-remap)
+;;
+;; Reason: builtins and multijobs are executed in main schemesh process,
+;; a redirection may overwrite fds 0 1 2 or some other fd already used
+;; by main schemesh process, and we don't want to alter them:
+;;
+;; we need an additional layer of indirection that keeps track of the job's redirected fds
+;; and to which (private) fds they are actually mapped to
+(define (job-remap-fds! j)
+  (let* ((n (span-length (job-redirects j))))
+    (unless (fxzero? n)
+      (let ((remaps (make-eqv-hashtable n)))
+        (job-fds-to-remap-set! j remaps)
+        (do ((i 0 (fx+ i 4)))
+            ((fx>=? i (fx- n 4)))
+          (job-remap-fd! j i))))))
+
+
+;; called by (job-remap-fds!)
+(define (job-remap-fd! j index)
+  ;; refirects is span of quadruplets (fd mode to-fd-or-bytevector0 path-or-closure)
+  (let* ((redirects           (job-redirects j))
+         (fd                  (span-ref redirects index))
+         (direction-ch        (span-ref redirects (fx1+ index)))
+         (path-or-closure     (span-ref redirects (fx+ 3 index)))
+         (to-fd-or-bytevector
+          (if (procedure? path-or-closure)
+            (if (fxodd? (procedure-arity-mask path-or-closure))
+              (path-or-closure)
+              (path-or-closure j))
+            (span-ref redirects (fx+ 2 index))))
+         (remap-fd (sh-fd-allocate)))
+    (fd-redirect remap-fd direction-ch to-fd-or-bytevector #t) ; #t close-on-exec?
+    (hashtable-set! (job-fds-to-remap j) fd remap-fd)
+    (job-fds-to-close-set! j (cons remap-fd (job-fds-to-close j)))))
+
+
+;; redirect a file descriptor. raises exception on error
+(define fd-redirect 
+  (let ((c-fd-redirect (foreign-procedure "c_fd_redirect" (scheme-object scheme-object scheme-object scheme-object) int)))
+    (lambda (fd direction-ch to-fd-or-bytevector close-on-exec?)
+      (let ((ret (c-fd-redirect fd direction-ch to-fd-or-bytevector close-on-exec?)))
+        (when (< ret 0)
+          (raise-c-errno 'sh-start 'fd-redirect ret))))))
+
+
+
 
 ;; NOTE: this is an internal implementation function, use (sh-start) instead.
 ;; This function does not update job's status, and does not register job
@@ -632,7 +695,7 @@
     ; check for builtins
     (if builtin
       ; expanded arg[0] is a builtin, call it.
-      (job-last-status-set! c (builtin c prog-and-args options))
+      (job-status-set! c (builtin c prog-and-args options))
        ; expanded arg[0] is a not builtin or alias, spawn a subprocess
       (job-start/cmd/spawn c (list->argv prog-and-args) options))))
 
@@ -670,7 +733,7 @@
   ;; TODO: how can we redirect file descriptor?
   (assert* 'sh-list (eq? 'running (job-last-status->kind j)))
   (assert* 'sh-list (fx=? -1 (multijob-current-child-index j)))
-
+  (job-remap-fds! j)
   ; Do not yet assign a job-id.
   (job-step/list j (void)))
 
@@ -684,10 +747,10 @@
   ;; TODO: how can we redirect file descriptor?
   (assert* 'sh-and (eq? 'running (job-last-status->kind j)))
   (assert* 'sh-and (fx=? -1 (multijob-current-child-index j)))
-
+  (job-remap-fds! j)
   (if (span-empty? (multijob-children j))
     ; (sh-and) with zero children -> job completes successfully
-    (job-last-status-set! j (void))
+    (job-status-set! j (void))
     ; Do not yet assign a job-id.
     (job-step/and j (void))))
 
@@ -701,11 +764,11 @@
   ;; TODO: how can we redirect file descriptor?
   (assert* 'sh-or (eq? 'running (job-last-status->kind j)))
   (assert* 'sh-or (fx=? -1 (multijob-current-child-index j)))
-
+  (job-remap-fds! j)
   ; (debugf "job-start/or ~s empty children? = ~s~%" j (span-empty? (multijob-children j)))
   (if (span-empty? (multijob-children j))
     ; (sh-or) with zero children -> job fails with '(exited . 255)
-    (job-last-status-set! j '(exited . 255))
+    (job-status-set! j '(exited . 255))
     ; Do not yet assign a job-id.
     (job-step/or j (void))))
 
@@ -719,7 +782,7 @@
   ;; TODO: how can we redirect file descriptor?
   (assert* 'sh-not (eq? 'running (job-last-status->kind j)))
   (assert* 'sh-not (fx=? -1 (multijob-current-child-index j)))
-
+  (job-remap-fds! j)
   ; Do not yet assign a job-id.
   (job-step/not j (void)))
 
@@ -758,7 +821,7 @@
                     (job-pid-set!  sh-globals pid)
                     (job-pgid-set! sh-globals pgid)
                     ; cannot wait on our own process
-                    (job-last-status-set! j '(unknown . 0))))
+                    (job-status-set! j '(unknown . 0))))
                 (lambda () ; body
                   ; sh-subshell stores job-run/subshell in (job-step-proc j)
                   (set! status ((job-step-proc j) j (void))))
@@ -799,7 +862,7 @@
   (let ((proc (job-start-proc j)))
     (unless (procedure? proc)
       (raise-errorf 'sh-start "cannot start job, it has bad or missing job-start-proc: ~s" j))
-    (job-last-status-set! j '(running . #f))
+    (job-status-set/running! j)
     (proc j options)) ; ignore value returned by job-start-proc
   (when (fx>? (job-pid j) 0)
     (pid->job-set! (job-pid j) j))        ; add job to pid->job table
@@ -858,7 +921,7 @@
       (job-advance/multijob mode j))
     (#t
       ; unexpected job type or status, just assume it exited successfully
-      (job-last-status-set! j (void))
+      (job-status-set! j (void))
       (void))))
 
 
@@ -940,7 +1003,7 @@
         (pid->job-delete! (job-pid j))
         (job-pid-set!  j -1)
         (job-pgid-set! j -1)
-        (job-last-status-set! j wait-status)
+        (job-status-set! j wait-status)
         ;; returns job status
         (job-id-unset! j))
       ((stopped)
@@ -954,7 +1017,7 @@
               (job-advance/pid/break mode j pid pgid))
             (job-advance/pid/wait mode j pid pgid))
           (begin
-            (job-last-status-set! j wait-status)
+            (job-status-set! j wait-status)
             wait-status)))
       (else
         (raise-errorf mode "job not started yet: ~s" j)))))
@@ -989,9 +1052,7 @@
 
 ;; Internal function called by (job-advance/any)
 (define (job-advance/multijob mode mj)
-  (unless (job-has-status? mj '(running))
-    (let ((id (job-id mj)))
-      (job-last-status-set! mj (if id (cons 'running id) '(running . #f)))))
+  (job-status-set/running! mj)
   (let* ((child (sh-multijob-child-ref mj (multijob-current-child-index mj)))
          ;; call (job-advance/any) on child
          (child-status (if (sh-job? child) (job-advance/any mode child) (void)))
@@ -1000,7 +1061,7 @@
     (cond
       ((or (not step-proc) (job-status-stops-or-ends-multijob? child-status))
         ; propagate child exit status and return
-        (job-last-status-set! mj child-status)
+        (job-status-set! mj child-status)
         child-status)
       ((job-status-member? child-status '(exited killed unknown))
         ; child exited: advance multijob by calling (job-step-proc)
@@ -1013,14 +1074,14 @@
           (job-last-status mj)))
       ((job-status-member? child-status '(running))
         ; child is still running. propagate child status and return
-        (job-last-status-set! mj (cons 'running (job-id mj)))) ; (job-id mj) may still be #f
+        (job-status-set! mj (cons 'running (job-id mj)))) ; (job-id mj) may still be #f
       ((job-status-member? child-status '(stopped))
         ; child is stopped.
         ; if mode is sh-wait or sh-subshell, wait for it again.
         ; otherwise propagate child status and return
         (if (memq mode '(sh-wait sh-sigcont+wait sh-subshell))
           (job-advance/multijob mode mj)
-          (job-last-status-set! mj child-status)))
+          (job-status-set! mj child-status)))
       (#t
         (raise-errorf mode "child job not started yet: ~s" child)))))
 
@@ -1203,8 +1264,8 @@
   (span-insert-back! (job-redirects job)
     fd
     (redirect/fd-symbol->char 'sh-redirect! direction)
-    to
-    #f))
+    #f
+    to))
 
 
 ;; Add a single file redirection to a job
@@ -1224,6 +1285,8 @@
             (raise-errorf 'sh-redirect! "invalid redirect to file, bytevector must be non-empty: ~a" to))
           to0))
       ((procedure? to)
+        (when (fxzero? (fxand 3 (procedure-arity-mask to)))
+          (raise-errorf 'sh-redirect! "invalid redirect to procedure, must accept 0 or 1 arguments: ~a" to))
         #f)
       (#t
         (raise-errorf 'sh-redirect! "invalid redirect to fd or file, target must be a string, bytevector or procedure: ~s" to)))))
@@ -1362,7 +1425,7 @@
       (begin
         ; previous child failed, or end of children
         (multijob-current-child-index-set! mj -1)
-        (job-last-status-set! mj prev-child-status)))))
+        (job-status-set! mj prev-child-status)))))
 
 
 
@@ -1379,7 +1442,7 @@
       (begin
         ; previous child successful, or end of children
         (multijob-current-child-index-set! mj -1)
-        (job-last-status-set! mj prev-child-status)))))
+        (job-status-set! mj prev-child-status)))))
 
 
 
@@ -1399,7 +1462,7 @@
       (begin
         ; child job exited, negate its exit status
         (multijob-current-child-index-set! mj -1)
-        (job-last-status-set! mj (if (sh-ok? prev-child-status) '(exited . 1) (void)))))))
+        (job-status-set! mj (if (sh-ok? prev-child-status) '(exited . 1) (void)))))))
 
 
 
@@ -1434,7 +1497,7 @@
           (#t
             ; end of children reached. propagate status of last sync child
             (multijob-current-child-index-set! mj -1)
-            (job-last-status-set! mj prev-child-status)
+            (job-status-set! mj prev-child-status)
             (set! done? #t)))))))
 
 
@@ -1547,7 +1610,7 @@
 
 (define (job-display/redirect redirects i port)
   (let ((ch (span-ref redirects (fx1+ i)))
-        (to (span-ref redirects (fx+ i 2))))
+        (to (span-ref redirects (fx+ i 3))))
     (put-char port #\space)
     (put-datum port (span-ref redirects i))
     (put-string port (symbol->string (if (fixnum? to)
@@ -1655,7 +1718,8 @@
 
 (define (job-write/redirect redirects i port)
   (let ((ch (span-ref redirects (fx1+ i)))
-        (to (span-ref redirects (fx+ i 2))))
+        (to (or (span-ref redirects (fx+ 2 i)) ; string, bytevector or procedure
+		(span-ref redirects (fx+ 3 i))))) ; fd
     (put-char port #\space)
     (put-datum port (span-ref redirects i))
     (put-string port " '")
