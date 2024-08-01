@@ -92,7 +92,7 @@
 
     ; utils.ss
     bytevector-ref/utf8b bytevector-set/utf8b! char->utf8b-length
-    bytespan-ref/utf8b bytespan-set/utf8b! bytespan-insert-front/utf8b! bytespan-insert-back/utf8b!
+    bytespan-ref/char bytespan-set/char! bytespan-insert-front/char! bytespan-insert-back/char!
     bytespan-insert-back/cspan! bytespan-display-back/fixnum!
     charspan->utf8)
 

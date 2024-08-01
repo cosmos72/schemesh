@@ -72,7 +72,7 @@
          (hidden  0)
          (escape? #f)
          (%append-char (lambda (ch)
-           (bytespan-insert-back/utf8b! prompt ch)
+           (bytespan-insert-back/char! prompt ch)
            (when (fx<=? hidden 0)
              (set! prompt-len (fx1+ prompt-len)))))
          (%append-charspan (lambda (csp)

@@ -6,14 +6,32 @@
 ;;; (at your option) any later version.
 
 (library (schemesh shell builtins (0 1))
-  (export sh-builtin sh-builtin-false sh-builtin-true
-          sh-builtins sh-find-builtin sh-false sh-true)
+  (export sh-builtin sh-builtin-echo sh-builtin-false sh-builtin-true
+          sh-builtins sh-find-builtin sh-echo sh-false sh-true)
   (import
     (rnrs)
-    (only (chezscheme) void)
-    (only (schemesh bootstrap) raise-errorf)
+    (only (chezscheme)               void)
+    (only (schemesh bootstrap)       raise-errorf)
     (only (schemesh containers misc) assert-string-list?)
+    (schemesh containers bytespan)
+    (schemesh containers utils)
+    (only (schemesh posix fd)        fd-write)
+    (only (schemesh shell fds)       sh-fd-stdout)
     (schemesh shell aliases))
+
+
+(define (sh-echo . args)
+  (let ((wbuf (make-bytespan 0)))
+    (do ((tail args (cdr tail)))
+        ((null? tail))
+      (unless (eq? args tail)
+        (bytespan-insert-back/u8! wbuf 32)) ; space
+      (bytespan-insert-back/string! wbuf (car tail)))
+    (bytespan-insert-back/u8! wbuf 10) ; newline
+    ; TODO: loop on short writes
+    (fd-write (sh-fd-stdout) (bytespan-peek-data wbuf)
+              (bytespan-peek-beg wbuf) (bytespan-peek-end wbuf)))
+  (void))
 
 
 (define (sh-false . ignored-args)
@@ -22,6 +40,13 @@
 
 (define (sh-true . ignored-args)
   (void))
+
+
+;; the "echo" builtin
+(define (sh-builtin-echo job prog-and-args options)
+  (assert-string-list? 'sh-builtin-echo prog-and-args)
+  ;; TODO: support redirections
+  (apply sh-echo (cdr prog-and-args)))
 
 
 ;; the "false" builtin
@@ -37,7 +62,7 @@
 
 
 ;; the "builtin" builtin: execute a builtin. raises exception if specified builtin is not found.
-(define (sh-builtin cmd prog-and-args options)
+(define (sh-builtin job prog-and-args options)
   ; (debugf "sh-builtin ~s~%" prog-and-args)
   (assert-string-list? 'sh-builtin prog-and-args)
   (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
@@ -46,7 +71,7 @@
            (builtin (sh-find-builtin args)))
       (unless builtin
         (raise-errorf 'sh-builtin "~a: not a shell builtin" (car args)))
-      (builtin cmd args options))))
+      (builtin job args options))))
 
 
 ;; given a command line prog-and-args i.e. a list of strings,
@@ -68,6 +93,7 @@
   (let ((t (make-hashtable string-hash string=?)))
     (hashtable-set! t "alias"   sh-builtin-alias)
     (hashtable-set! t "builtin" sh-builtin)
+    (hashtable-set! t "echo"    sh-builtin-echo)
     (hashtable-set! t "false"   sh-builtin-false)
     (hashtable-set! t "true"    sh-builtin-true)
     (hashtable-set! t "unalias" sh-builtin-unalias)

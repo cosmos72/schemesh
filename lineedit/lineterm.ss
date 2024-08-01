@@ -39,7 +39,7 @@
   (do ((wbuf (linectx-wbuf ctx))
        (pos start (fx1+ pos)))
       ((fx>=? pos end))
-    (bytespan-insert-back/utf8b! wbuf (chargbuffer-ref cgb pos))))
+    (bytespan-insert-back/char! wbuf (chargbuffer-ref cgb pos))))
 
 ;; Move tty cursor horizontally.
 ;; If dx > 0, send escape sequence "move cursor right by dx".

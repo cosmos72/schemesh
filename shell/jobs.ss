@@ -27,7 +27,8 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) break display-string foreign-procedure format fx1+ fx1-
-                       inspect make-format-condition procedure-arity-mask record-writer reverse! void)
+                       inspect logand logbit? make-format-condition procedure-arity-mask
+                       record-writer reverse! void)
     (only (schemesh bootstrap) assert* debugf raise-errorf until while)
     (schemesh containers)
     (schemesh conversions)
@@ -379,7 +380,7 @@
              (dir (if (sh-path-absolute? suffix)
                       (sh-path->subpath suffix)
                       (sh-path-append (sh-cwd) suffix)))
-             (err (c_chdir (text->bytevector0 (charspan->string dir)))))
+             (err (c_chdir (string->utf8b/0 (charspan->string dir)))))
         (if (= err 0)
           (job-cwd-set! sh-globals dir)
           (raise-errorf 'cd "~a: ~a" path (c-errno->string err)))))))
@@ -396,13 +397,13 @@
 
 
 ;; the "cd" builtin
-(define (sh-builtin-cd cmd prog-and-args)
+(define (sh-builtin-cd job prog-and-args options)
   (assert-string-list? 'sh-builtin-cd prog-and-args)
   (apply sh-cd (cdr prog-and-args)))
 
 
 ;; the "pwd" builtin
-(define (sh-builtin-pwd cmd prog-and-args)
+(define (sh-builtin-pwd job prog-and-args options)
   (assert-string-list? 'sh-builtin-pwd prog-and-args)
   ;; TODO: support redirections
   (sh-pwd))
@@ -650,9 +651,9 @@
          (path-or-closure     (span-ref redirects (fx+ 3 index)))
          (to-fd-or-bytevector
           (if (procedure? path-or-closure)
-            (if (fxodd? (procedure-arity-mask path-or-closure))
-              (path-or-closure)
-              (path-or-closure j))
+            (if (logbit? 1 (procedure-arity-mask path-or-closure))
+              (path-or-closure j)
+              (path-or-closure))
             (span-ref redirects (fx+ 2 index))))
          (remap-fd (sh-fd-allocate)))
     (fd-redirect remap-fd direction-ch to-fd-or-bytevector #t) ; #t close-on-exec?
@@ -661,7 +662,7 @@
 
 
 ;; redirect a file descriptor. raises exception on error
-(define fd-redirect 
+(define fd-redirect
   (let ((c-fd-redirect (foreign-procedure "c_fd_redirect" (scheme-object scheme-object scheme-object scheme-object) int)))
     (lambda (fd direction-ch to-fd-or-bytevector close-on-exec?)
       (let ((ret (c-fd-redirect fd direction-ch to-fd-or-bytevector close-on-exec?)))
@@ -718,10 +719,10 @@
 
 
 ;; the "command" builtin
-(define (sh-builtin-command cmd prog-and-args options)
+(define (sh-builtin-command job prog-and-args options)
   (assert-string-list? 'sh-builtin-command prog-and-args)
-  (job-start/cmd/spawn cmd (list->argv (cdr prog-and-args)) options)
-  (job-last-status cmd))
+  (job-start/cmd/spawn job (list->argv (cdr prog-and-args)) options)
+  (job-last-status job))
 
 
 ;; Internal function stored in (job-start-proc j) by (sh-list),
@@ -1285,7 +1286,7 @@
             (raise-errorf 'sh-redirect! "invalid redirect to file, bytevector must be non-empty: ~a" to))
           to0))
       ((procedure? to)
-        (when (fxzero? (fxand 3 (procedure-arity-mask to)))
+        (when (zero? (logand 3 (procedure-arity-mask to)))
           (raise-errorf 'sh-redirect! "invalid redirect to procedure, must accept 0 or 1 arguments: ~a" to))
         #f)
       (#t

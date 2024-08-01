@@ -144,7 +144,7 @@
              (fx>=? pos end)
              ; stop at any byte < 32, unless it's the first byte (which we skip)
              (and (fx>? pos beg) (fx<? (bytespan-ref/u8 bsp pos) 32))))
-      (let-values (((ch len) (bytespan-ref/utf8b bsp pos (fx- end pos))))
+      (let-values (((ch len) (bytespan-ref/char bsp pos (fx- end pos))))
         (set! pos (fxmin end (fx+ pos len)))
         (cond
           ((eq? #t ch)
@@ -618,7 +618,7 @@
           (bytespan-insert-back/bvector! wbuf '#vu8(27 91 49 59 51 54 109) 0 7))  ; ESC[1;36m
         ((bad)
           (bytespan-insert-back/bvector! wbuf '#vu8(27 91 49 59 51 49 109) 0 7))) ; ESC[1;31m
-      (bytespan-insert-back/utf8b! wbuf ch)
+      (bytespan-insert-back/char! wbuf ch)
       (when (or (eq? 'good style) (eq? 'bad style))
         (bytespan-insert-back/bvector! wbuf '#vu8(27 91 109) 0 3)) ; ESC[m
       (linectx-term-xy-set! ctx (fx1+ vx) vy))))

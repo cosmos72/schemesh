@@ -158,48 +158,48 @@ static const testcase tests[] = {
      "  bv)",
      "\xf4\x8f\xbf\xbf"},
     /* ----------------- bytespan-utf8 -------------------------------------- */
-    {"(values->list (bytespan-ref/utf8b (bytespan) 0 1))", "(#t 0)"}, /* incomplete */
-    {"(values->list (bytespan-ref/utf8b (bytespan 1) 0 1))", "(\x01 1)"},
-    {"(values->list (bytespan-ref/utf8b (bytespan #x7f) 0 1))", "(\x7f 1)"},
-    {"(first-value  (bytespan-ref/utf8b (bytespan #x80) 0 1))", "\x80"},
-    {"(values->list (bytespan-ref/utf8b (bytespan #xc2 #x80) 0 2))", "(\xc2\x80 2)"}, /* U+0080 */
-    {"(values->list (bytespan-ref/utf8b (bytespan #xdf #xbf) 0 2))", "(\xdf\xbf 2)"}, /* U+07FF */
-    {"(values->list (bytespan-ref/utf8b (bytespan #xe0 #xa0 #x80) 0 3))",
+    {"(values->list (bytespan-ref/char (bytespan) 0 1))", "(#t 0)"}, /* incomplete */
+    {"(values->list (bytespan-ref/char (bytespan 1) 0 1))", "(\x01 1)"},
+    {"(values->list (bytespan-ref/char (bytespan #x7f) 0 1))", "(\x7f 1)"},
+    {"(first-value  (bytespan-ref/char (bytespan #x80) 0 1))", "\x80"},
+    {"(values->list (bytespan-ref/char (bytespan #xc2 #x80) 0 2))", "(\xc2\x80 2)"}, /* U+0080 */
+    {"(values->list (bytespan-ref/char (bytespan #xdf #xbf) 0 2))", "(\xdf\xbf 2)"}, /* U+07FF */
+    {"(values->list (bytespan-ref/char (bytespan #xe0 #xa0 #x80) 0 3))",
      "(\xe0\xa0\x80 3)"}, /* U+0800 */
-    {"(values->list (bytespan-ref/utf8b (bytespan #xed #x80 #x80) 0 3))",
+    {"(values->list (bytespan-ref/char (bytespan #xed #x80 #x80) 0 3))",
      "(\xed\x80\x80 3)"}, /* U+D000 */
-    {"(values->list (bytespan-ref/utf8b (bytespan #xed #x9f #xbf) 0 3))",
+    {"(values->list (bytespan-ref/char (bytespan #xed #x9f #xbf) 0 3))",
      "(\xed\x9f\xbf 3)"}, /* U+D7FF */
     /* invalid UTF-8 sequences, codepoints U+D800 ... U+DFFF are surrogate half
      * -> only first byte undergoes UTF-8b roundtrip */
-    {"(first-value  (bytespan-ref/utf8b (bytespan #xed #xa0 #x80) 0 3))", "\xed"},
-    {"(first-value  (bytespan-ref/utf8b (bytespan #xed #xbf #xbf) 0 3))", "\xed"},
-    {"(values->list (bytespan-ref/utf8b (bytespan #xee #x80 #x80) 0 3))",
+    {"(first-value  (bytespan-ref/char (bytespan #xed #xa0 #x80) 0 3))", "\xed"},
+    {"(first-value  (bytespan-ref/char (bytespan #xed #xbf #xbf) 0 3))", "\xed"},
+    {"(values->list (bytespan-ref/char (bytespan #xee #x80 #x80) 0 3))",
      "(\xee\x80\x80 3)"}, /* U+E000 */
-    {"(values->list (bytespan-ref/utf8b (bytespan #xef #xbf #xbf) 0 3))",
+    {"(values->list (bytespan-ref/char (bytespan #xef #xbf #xbf) 0 3))",
      "(\xef\xbf\xbf 3)"}, /* U+FFFF */
-    {"(values->list (bytespan-ref/utf8b (bytespan #xf0 #x90 #x80 #x80) 0 4))",
+    {"(values->list (bytespan-ref/char (bytespan #xf0 #x90 #x80 #x80) 0 4))",
      "(\xf0\x90\x80\x80 4)"}, /* U+10000 */
-    {"(values->list (bytespan-ref/utf8b (bytespan #xf4 #x8f #xbf #xbf) 0 4))",
+    {"(values->list (bytespan-ref/char (bytespan #xf4 #x8f #xbf #xbf) 0 4))",
      "(\xf4\x8f\xbf\xbf 4)"}, /* U+10FFFF */
     {"(let ((sp (bytespan)))\n"
-     "  (bytespan-insert-back/utf8b! sp #\\~)\n"
+     "  (bytespan-insert-back/char! sp #\\~)\n"
      "  sp)",
      "(bytespan 126)"},
     {"(let ((sp (bytespan)))\n"
-     "  (bytespan-insert-back/utf8b! sp (integer->char #xa3))\n" /* pound sign */
+     "  (bytespan-insert-back/char! sp (integer->char #xa3))\n" /* pound sign */
      "  sp)",
      "(bytespan 194 163)"},
     {"(let ((sp (bytespan)))\n"
-     "  (bytespan-insert-back/utf8b! sp (integer->char #x20ac))\n" /* euro sign */
+     "  (bytespan-insert-back/char! sp (integer->char #x20ac))\n" /* euro sign */
      "  sp)",
      "(bytespan 226 130 172)"},
     {"(let ((sp (bytespan)))\n"
-     "  (bytespan-insert-front/utf8b! sp (integer->char #x10348))\n"
+     "  (bytespan-insert-front/char! sp (integer->char #x10348))\n"
      "  sp)",
      "(bytespan 240 144 141 136)"},
     {"(let ((sp (bytespan)))\n"
-     "  (bytespan-insert-front/utf8b! sp (integer->char #x10ffff))\n"
+     "  (bytespan-insert-front/char! sp (integer->char #x10ffff))\n"
      "  sp)",
      "(bytespan 244 143 191 191)"},
     {"(charspan->utf8 (string->charspan* \"\x7c \xce\x98 \xe0\xa4\xb9 \xf0\x90\x8d\x88\"))",

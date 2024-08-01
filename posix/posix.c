@@ -23,8 +23,19 @@
 #include <string.h>    /* strlen() */
 #include <sys/ioctl.h> /* ioctl(), TIOCGWINSZ */
 #include <sys/wait.h>
-#include <termios.h> /* tcgetattr(), tcsetattr() */
-#include <unistd.h>  /* sysconf(), write() */
+#include <unistd.h> /* sysconf(), write() */
+
+#ifdef __linux__
+#define SCHEMESH_USE_TTY_IOCTL
+#else
+#undef SCHEMESH_USE_TTY_IOCTL
+#endif
+
+#ifdef SCHEMESH_USE_TTY_IOCTL
+#include <asm/termbits.h> /* struct termios, incompatible with <termios.h> */
+#else
+#include <termios.h> /* struct termios, tcgetattr(), tcsetattr() */
+#endif
 
 static int c_fd_open_max(void);
 
@@ -111,7 +122,7 @@ static int write_invalid_redirection(void) {
 static int tty_fd = -1;
 
 static int c_tty_init(void) {
-  int fd = c_fd_open_max() - 1;
+  int fd  = c_fd_open_max() - 1;
   int err = 0;
   if (dup2(0, fd) < 0) {
     err = c_init_failed("dup2(0, tty_fd)");
@@ -128,6 +139,22 @@ int c_tty_fd(void) {
   return tty_fd;
 }
 
+static int c_tty_getattr(int fd, struct termios* conf) {
+#ifdef SCHEMESH_USE_TTY_IOCTL
+  return ioctl(fd, TCGETS, conf);
+#else
+  return tcgetattr(fd, conf);
+#endif
+}
+
+static int c_tty_setattr(int fd, const struct termios* conf) {
+#ifdef SCHEMESH_USE_TTY_IOCTL
+  return ioctl(fd, TCSETSW, conf);
+#else
+  return tcsetattr(fd, TCSADRAIN, conf);
+#endif
+}
+
 static struct termios saved_conf;
 static int            have_saved_conf = 0;
 
@@ -135,7 +162,7 @@ static int            have_saved_conf = 0;
 static int c_tty_restore(void) {
   /* (void)write(1, "; c_tty_restore\r\n", 17); */
   if (have_saved_conf) {
-    while (tcsetattr(tty_fd, TCSADRAIN, &saved_conf) != 0) {
+    while (c_tty_setattr(tty_fd, &saved_conf) != 0) {
       if (errno != EINTR) {
         return c_errno();
       }
@@ -151,7 +178,7 @@ static int c_tty_setraw(void) {
   /* (void)write(1, "; c_tty_setraw\r\n", 16); */
 
   if (!have_saved_conf) {
-    while (tcgetattr(tty_fd, &saved_conf) != 0) {
+    while (c_tty_getattr(tty_fd, &saved_conf) != 0) {
       if (errno != EINTR) {
         return c_errno();
       }
@@ -169,7 +196,7 @@ static int c_tty_setraw(void) {
     conf.c_cc[i] = 0;
   }
   conf.c_cc[VMIN] = 1;
-  while (tcsetattr(tty_fd, TCSADRAIN, &conf) != 0) {
+  while (c_tty_setattr(tty_fd, &conf) != 0) {
     if (errno != EINTR) {
       return c_errno();
     }
@@ -439,7 +466,8 @@ static int c_direction_to_open_flags(string_char ch) {
 }
 
 /** redirect a single fd as specified */
-static int c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector, ptr close_on_exec) {
+static int
+c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector, ptr close_on_exec) {
   iptr        fd;
   iptr        to_fd;
   iptr        path_len = 0;
@@ -450,7 +478,8 @@ static int c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector,
   if (!Sfixnump(from_fd) || (fd = Sfixnum_value(from_fd)) < 0) {
     /* invalid fd */
     return write_invalid_redirection();
-  } else if (!Scharp(direction_ch) || (open_flags = c_direction_to_open_flags(Schar_value(direction_ch))) < 0) {
+  } else if (!Scharp(direction_ch) ||
+             (open_flags = c_direction_to_open_flags(Schar_value(direction_ch))) < 0) {
     /* invalid direction */
     return write_invalid_redirection();
   } else if (Sfixnump(to_fd_or_bytevector)) {
@@ -458,7 +487,7 @@ static int c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector,
     if (to_fd < -1) {
       /* invalid to_fd, must be >= -1 */
       return write_invalid_redirection();
-    /* redirect fd to another file descriptor, or close it */
+      /* redirect fd to another file descriptor, or close it */
     } else if (to_fd == -1) {
       (void)close(fd);
       return 0;
@@ -468,9 +497,9 @@ static int c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector,
       (void)fcntl(fd, FD_CLOEXEC);
     }
     return 0;
-  } else if (Sbytevectorp(to_fd_or_bytevector)
-	     && (path_len = Sbytevector_length(to_fd_or_bytevector)) > 0
-	     && Sbytevector_u8_ref(to_fd_or_bytevector, path_len - 1) == 0) {
+  } else if (Sbytevectorp(to_fd_or_bytevector) &&
+             (path_len = Sbytevector_length(to_fd_or_bytevector)) > 0 &&
+             Sbytevector_u8_ref(to_fd_or_bytevector, path_len - 1) == 0) {
     /* redirect fd from/to a file */
     path  = (const char*)Sbytevector_data(to_fd_or_bytevector);
     to_fd = open(path, open_flags, 0666);
@@ -478,7 +507,7 @@ static int c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector,
       return write_path_c_errno(path, path_len - 1);
     } else if (to_fd != fd) {
       if (dup2(to_fd, fd) < 0) {
-	err = write_c_errno();
+        err = write_c_errno();
       }
       (void)close(to_fd);
     }
@@ -494,11 +523,10 @@ static int c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector,
 
 /** redirect a single fd as indicated in vector_fds_redirect[i...i+3]. return < 0 on error */
 static int c_fds_redirect_i(ptr vector_fds_redirect, iptr i, ptr close_on_exec) {
-  return c_fd_redirect(
-    Svector_ref(vector_fds_redirect, i + 0),
-    Svector_ref(vector_fds_redirect, i + 1),
-    Svector_ref(vector_fds_redirect, i + 3),
-    close_on_exec);
+  return c_fd_redirect(Svector_ref(vector_fds_redirect, i + 0),
+                       Svector_ref(vector_fds_redirect, i + 1),
+                       Svector_ref(vector_fds_redirect, i + 3),
+                       close_on_exec);
 }
 
 /** redirect fds as indicated in vector_fds_redirect. return < 0 on error */

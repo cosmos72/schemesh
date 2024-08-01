@@ -9,7 +9,7 @@
 (library (schemesh shell (0 1))
   (export
     ; fds.ss
-    sh-fd-allocate sh-fd-release
+    sh-fd-allocate sh-fd-release sh-fd-stdin sh-fd-stdout sh-fd-stderr
 
     ; paths.ss
     sh-path sh-path? sh-path-absolute? sh-path-relative?
@@ -20,8 +20,8 @@
     sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases sh-builtin-alias sh-builtin-unalias
 
     ; builtins.ss
-    sh-builtin sh-builtin-false sh-builtin-true
-    sh-builtins sh-find-builtin sh-false sh-true
+    sh-builtin sh-builtin-echo sh-builtin-false sh-builtin-true
+    sh-builtins sh-find-builtin sh-echo sh-false sh-true
 
     ; jobs.ss
     sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd sh-cmd? sh-multijob?
