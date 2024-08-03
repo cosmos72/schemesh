@@ -61,7 +61,8 @@
   (sh-true))
 
 
-;; the "builtin" builtin: execute a builtin. raises exception if specified builtin is not found.
+;; the "builtin" builtin: find and execute a builtin.
+;; raises exception if specified builtin is not found.
 (define (sh-builtin job prog-and-args options)
   ; (debugf "sh-builtin ~s~%" prog-and-args)
   (assert-string-list? 'sh-builtin prog-and-args)

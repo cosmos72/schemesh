@@ -27,8 +27,8 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) break display-string foreign-procedure format fx1+ fx1-
-                       inspect logand logbit? make-format-condition procedure-arity-mask
-                       record-writer reverse! void)
+                       inspect logand logbit? make-format-condition parameterize
+                       procedure-arity-mask record-writer reverse! void)
     (only (schemesh bootstrap) assert* debugf raise-errorf until while)
     (schemesh containers)
     (schemesh conversions)
@@ -105,7 +105,8 @@
     #f #f ; start-proc step-proc
     ; current directory
     (string->charspan* ((foreign-procedure "c_get_cwd" () scheme-object)))
-    (make-hashtable string-hash string=?) #f
+    (make-hashtable string-hash string=?) ; env variables
+    #f                        ; no parent
     'sh-global -1 (span #t))) ; skip job-id 0, is used by sh-globals itself
 
 ;; Global hashtable pid -> job
@@ -195,7 +196,6 @@
              (memq (cdr job-status) '(sigint sigquit))))))
 
 
-
 ;; set the status of a job and return it.
 ;; if (job-status->kind status) is one of 'exited 'killed 'unknown, also close the job fds
 (define (job-status-set! j status)
@@ -203,13 +203,14 @@
     (if (job-status-member? status '(running))
       (job-status-set/running! j)
       (begin
-	(%job-last-status-set! j status)
-	(when (job-status-member? status '(exited killed unknown))
+        (%job-last-status-set! j status)
+        (when (job-status-member? status '(exited killed unknown))
+          (job-unmap-fds! j)
           (let ((fds (job-fds-to-close j)))
             (unless (null? fds)
               (fd-close-list fds)
               (job-fds-to-close-set! j '()))))
-	status))))
+        status))))
 
 
 ;; normalize job status, converting unexpected status values to '(unknown . 0)
@@ -638,7 +639,7 @@
       (let ((remaps (make-eqv-hashtable n)))
         (job-fds-to-remap-set! j remaps)
         (do ((i 0 (fx+ i 4)))
-            ((fx>=? i (fx- n 4)))
+            ((fx>? i (fx- n 4)))
           (job-remap-fd! j i))))))
 
 
@@ -648,28 +649,47 @@
   (let* ((redirects           (job-redirects j))
          (fd                  (span-ref redirects index))
          (direction-ch        (span-ref redirects (fx1+ index)))
-         (path-or-closure     (span-ref redirects (fx+ 3 index)))
+         (to                  (span-ref redirects (fx+ 3 index)))
          (to-fd-or-bytevector
-          (if (procedure? path-or-closure)
-            (if (logbit? 1 (procedure-arity-mask path-or-closure))
-              (path-or-closure j)
-              (path-or-closure))
-            (span-ref redirects (fx+ 2 index))))
+          (if (procedure? to)
+            (if (logbit? 1 (procedure-arity-mask to))
+              (to j)
+              (to))
+            to))
          (remap-fd (sh-fd-allocate)))
-    (fd-redirect remap-fd direction-ch to-fd-or-bytevector #t) ; #t close-on-exec?
+    ; (debugf "fd-redirect fd=~s dir=~s to=~s~%" remap-fd direction-ch to-fd-or-bytevector)
+    (let ((ret (fd-redirect remap-fd direction-ch to-fd-or-bytevector #t))) ; #t close-on-exec?
+      (when (< ret 0)
+        (sh-fd-release remap-fd)
+        (raise-c-errno 'sh-start 'fd-redirect ret)))
     (hashtable-set! (job-fds-to-remap j) fd remap-fd)
     (job-fds-to-close-set! j (cons remap-fd (job-fds-to-close j)))))
 
 
-;; redirect a file descriptor. raises exception on error
+;; redirect a file descriptor. returns < 0 on error
 (define fd-redirect
-  (let ((c-fd-redirect (foreign-procedure "c_fd_redirect" (scheme-object scheme-object scheme-object scheme-object) int)))
-    (lambda (fd direction-ch to-fd-or-bytevector close-on-exec?)
-      (let ((ret (c-fd-redirect fd direction-ch to-fd-or-bytevector close-on-exec?)))
-        (when (< ret 0)
-          (raise-c-errno 'sh-start 'fd-redirect ret))))))
+  (foreign-procedure "c_fd_redirect" (scheme-object scheme-object scheme-object scheme-object) int))
 
 
+;; return the remapped file descriptor for specified fd,
+;; or fd itself if no remapping was found
+(define (job-find-fd-remap j fd)
+  (while j
+    (let ((remap-fds (job-fds-to-remap j)))
+      (when remap-fds
+        (set! fd (hashtable-ref remap-fds fd fd))))
+    (set! j (job-parent j)))
+  fd)
+
+
+;; release job's remapped fds and unset (job-fds-to-remap j)
+(define (job-unmap-fds! j)
+  (let ((remap-fds (job-fds-to-remap j)))
+    (when remap-fds
+      (hashtable-iterate remap-fds
+        (lambda (cell)
+          (sh-fd-release (cdr cell))))
+      (job-fds-to-remap-set! j #f))))
 
 
 ;; NOTE: this is an internal implementation function, use (sh-start) instead.
@@ -696,9 +716,20 @@
     ; check for builtins
     (if builtin
       ; expanded arg[0] is a builtin, call it.
-      (job-status-set! c (builtin c prog-and-args options))
+      (job-run/builtin builtin c prog-and-args options)
        ; expanded arg[0] is a not builtin or alias, spawn a subprocess
       (job-start/cmd/spawn c (list->argv prog-and-args) options))))
+
+
+;; internal function called by (job-start/cmd) to execute a builtin
+(define (job-run/builtin builtin c prog-and-args options)
+  (job-remap-fds! c)
+  (job-status-set! c
+    (parameterize ((sh-fd-stdin  (job-find-fd-remap c 0))
+                   (sh-fd-stdout (job-find-fd-remap c 1))
+                   (sh-fd-stderr (job-find-fd-remap c 2)))
+      (builtin c prog-and-args options)))
+  (job-id-update! c)) ; returns job status
 
 
 ;; internal function called by (job-start/cmd) to spawn a subprocess
@@ -716,6 +747,7 @@
           (raise-c-errno 'sh-start 'fork ret))
         (job-pid-set! c ret)
         (job-pgid-set! c (if (> process-group-id 0) process-group-id ret))))))
+
 
 
 ;; the "command" builtin
@@ -1720,7 +1752,7 @@
 (define (job-write/redirect redirects i port)
   (let ((ch (span-ref redirects (fx1+ i)))
         (to (or (span-ref redirects (fx+ 2 i)) ; string, bytevector or procedure
-		(span-ref redirects (fx+ 3 i))))) ; fd
+                (span-ref redirects (fx+ 3 i))))) ; fd
     (put-char port #\space)
     (put-datum port (span-ref redirects i))
     (put-string port " '")

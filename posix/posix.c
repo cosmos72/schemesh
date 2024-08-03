@@ -465,11 +465,21 @@ static int c_direction_to_open_flags(string_char ch) {
   }
 }
 
+static int dup2_close_on_exec(int old_fd, int new_fd, ptr close_on_exec) {
+  int err = dup2(old_fd, new_fd);
+  if (err >= 0 && close_on_exec != Sfalse) {
+    err = fcntl(new_fd, F_SETFD, FD_CLOEXEC);
+    if (err < 0) {
+      (void)close(new_fd);
+    }
+  }
+  return err;
+}
+
 /** redirect a single fd as specified */
 static int
 c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector, ptr close_on_exec) {
   iptr        fd;
-  iptr        to_fd;
   iptr        path_len = 0;
   const char* path     = NULL;
   int         open_flags;
@@ -483,7 +493,8 @@ c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector, ptr close_
     /* invalid direction */
     return write_invalid_redirection();
   } else if (Sfixnump(to_fd_or_bytevector)) {
-    to_fd = Sfixnum_value(to_fd_or_bytevector);
+    /* redirect fd to another fd */
+    iptr to_fd = Sfixnum_value(to_fd_or_bytevector);
     if (to_fd < -1) {
       /* invalid to_fd, must be >= -1 */
       return write_invalid_redirection();
@@ -491,30 +502,42 @@ c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector, ptr close_
     } else if (to_fd == -1) {
       (void)close(fd);
       return 0;
-    } else if (dup2(to_fd, fd) < 0) {
+    } else if (dup2_close_on_exec(to_fd, fd, close_on_exec) < 0) {
       return write_c_errno();
-    } else if (close_on_exec != Sfalse) {
-      (void)fcntl(fd, FD_CLOEXEC);
     }
     return 0;
   } else if (Sbytevectorp(to_fd_or_bytevector) &&
              (path_len = Sbytevector_length(to_fd_or_bytevector)) > 0 &&
              Sbytevector_u8_ref(to_fd_or_bytevector, path_len - 1) == 0) {
     /* redirect fd from/to a file */
-    path  = (const char*)Sbytevector_data(to_fd_or_bytevector);
-    to_fd = open(path, open_flags, 0666);
-    if (to_fd < 0) {
+    int temp_fd;
+    path = (const char*)Sbytevector_data(to_fd_or_bytevector);
+
+#ifdef O_CLOEXEC
+    temp_fd = open(path, open_flags | (close_on_exec != Sfalse ? O_CLOEXEC : 0), 0666);
+#else
+    temp_fd = open(path, open_flags, 0666);
+#endif
+
+    if (temp_fd < 0) {
       return write_path_c_errno(path, path_len - 1);
-    } else if (to_fd != fd) {
-      if (dup2(to_fd, fd) < 0) {
-        err = write_c_errno();
+    } else if (temp_fd == fd) {
+#ifndef O_CLOEXEC
+      if (close_on_exec != Sfalse) {
+        err = fcntl(temp_fd, F_SETFD, FD_CLOEXEC);
+        if (err < 0) {
+          (void)close(temp_fd);
+        }
       }
-      (void)close(to_fd);
+#endif
+    } else {
+      err = dup2_close_on_exec(temp_fd, fd, close_on_exec);
+      (void)close(temp_fd);
     }
-    if (err == 0 && close_on_exec != Sfalse) {
-      (void)fcntl(fd, FD_CLOEXEC);
+    if (err < 0) {
+      return write_path_c_errno(path, path_len - 1);
     }
-    return err;
+    return 0;
   } else {
     /* invalid path */
     return write_invalid_redirection();

@@ -52,8 +52,8 @@
   (make-thread-parameter
     0
     (lambda (fd)
-      (unless (and (fixnum? fd) (fx>=? fd 0))
-        (raise-errorf 'sh-fd-stdin "invalid file descriptor, must be an unsigned fixnum: " fd))
+      (unless (and (fixnum? fd) (fx<? -1 fd fd-max))
+        (raise-errorf 'sh-fd-stdin "invalid file descriptor, must be a fixnum in [0, fd-max - 1]: " fd))
       fd)))
 
 
@@ -63,8 +63,8 @@
   (make-thread-parameter
     1
     (lambda (fd)
-      (unless (and (fixnum? fd) (fx>=? fd 0))
-        (raise-errorf 'sh-fd-stdout "invalid file descriptor, must be an unsigned fixnum: " fd))
+      (unless (and (fixnum? fd) (fx<? -1 fd fd-max))
+        (raise-errorf 'sh-fd-stdout "invalid file descriptor, must be a fixnum in [0, fd-max - 1]: " fd))
       fd)))
 
 
@@ -74,8 +74,8 @@
   (make-thread-parameter
     2
     (lambda (fd)
-      (unless (and (fixnum? fd) (fx>=? fd 0))
-        (raise-errorf 'sh-fd-stderr "invalid file descriptor, must be an unsigned fixnum: " fd))
+      (unless (and (fixnum? fd) (fx<? -1 fd fd-max))
+        (raise-errorf 'sh-fd-stderr "invalid file descriptor, must be an fixnum in [0, fd-max - 1]: " fd))
       fd)))
 
 ) ; close library

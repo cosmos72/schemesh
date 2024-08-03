@@ -76,7 +76,7 @@
       (if (fx<=? #x10000 n #x10ffff)
         (values (integer->char n) 4)
         ; overlong UTF-8 sequence, or beyond #x10ffff
-	    (utf8b-singlet->char b0)))
+        (utf8b-singlet->char b0)))
     ; invalid continuation byte b1, b2 or b3
     (utf8b-singlet->char b0)))
 
@@ -164,7 +164,7 @@
         2)
       ((fx<=? #xdc80 n #xdcff)
         ; char is unpaired surrogate half, used by UTF-8b
-	    ; to represent raw bytes in the range #x80 .. #xff
+        ; to represent raw bytes in the range #x80 .. #xff
         (bytevector-u8-set! vec start (fxand n #xff))
         1)
       ((fx<? n #x10000)

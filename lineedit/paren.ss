@@ -148,16 +148,16 @@
                 (display #\space port))
               (show-paren inner port)))))
       (display (close-token-for token) port))
-    (catch (condition)
-      (display condition port))))
+    (catch (ex)
+      (display ex port))))
 
 (define (debugf-paren obj)
   (try
     (debugf "debugf-paren token ~s, ok? ~s, start-x ~s, start-y ~s, end-x ~s, end-y ~s, inner ~s\n"
       (paren-token obj) (paren-ok? obj) (paren-start-x obj) (paren-start-y obj)
       (paren-end-x obj) (paren-end-y obj) (paren-inner obj))
-    (catch (condition)
-      (display condition (current-output-port)))))
+    (catch (ex)
+      (display ex (current-output-port)))))
 
 (define (close-token-for token)
   (case token

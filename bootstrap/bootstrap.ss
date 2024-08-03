@@ -149,8 +149,8 @@
       (try
         expr
         #f
-        (catch (exception)
-          (or exception #t))))))
+        (catch (ex)
+          (or ex #t))))))
 
 ;; export aux keyword catch, needed by try
 (define-syntax catch

@@ -74,8 +74,8 @@
       (if (and (pair? form) (memq (car form) '(shell shell-subshell)))
         (list 'sh-run/i form)
         form))
-    (catch (condition)
-      (repl-exception-handler condition))))
+    (catch (ex)
+      (repl-exception-handler ex))))
 
 ;
 ; Execute with (eval-func form) each form in list of forms containing parsed expressions
