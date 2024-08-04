@@ -9,7 +9,7 @@
 (library (schemesh shell (0 1))
   (export
     ; fds.ss
-    sh-fd-allocate sh-fd-release sh-fd-stdin sh-fd-stdout sh-fd-stderr
+    sh-fd sh-fd* sh-fd? sh-fd->int sh-fd-copy sh-fd-allocate sh-fd-release sh-fd-stdin sh-fd-stdout sh-fd-stderr
 
     ; paths.ss
     sh-path sh-path? sh-path-absolute? sh-path-relative?

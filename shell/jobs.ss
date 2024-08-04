@@ -658,12 +658,11 @@
             to))
          (remap-fd (sh-fd-allocate)))
     ; (debugf "fd-redirect fd=~s dir=~s to=~s~%" remap-fd direction-ch to-fd-or-bytevector)
-    (let ((ret (fd-redirect remap-fd direction-ch to-fd-or-bytevector #t))) ; #t close-on-exec?
+    (let ((ret (fd-redirect (sh-fd->int remap-fd) direction-ch to-fd-or-bytevector #t))) ; #t close-on-exec?
       (when (< ret 0)
         (sh-fd-release remap-fd)
         (raise-c-errno 'sh-start 'fd-redirect ret)))
-    (hashtable-set! (job-fds-to-remap j) fd remap-fd)
-    (job-fds-to-close-set! j (cons remap-fd (job-fds-to-close j)))))
+    (hashtable-set! (job-fds-to-remap j) fd remap-fd)))
 
 
 ;; redirect a file descriptor. returns < 0 on error
@@ -677,7 +676,9 @@
   (while j
     (let ((remap-fds (job-fds-to-remap j)))
       (when remap-fds
-        (set! fd (hashtable-ref remap-fds fd fd))))
+        (let ((remap-fd (hashtable-ref remap-fds fd #f)))
+          (when remap-fd
+            (set! fd (sh-fd->int remap-fd))))))
     (set! j (job-parent j)))
   fd)
 
@@ -688,7 +689,9 @@
     (when remap-fds
       (hashtable-iterate remap-fds
         (lambda (cell)
-          (sh-fd-release (cdr cell))))
+          (let ((fd (cdr cell)))
+            (when (sh-fd-release fd)
+              (fd-close (sh-fd->int fd))))))
       (job-fds-to-remap-set! j #f))))
 
 
