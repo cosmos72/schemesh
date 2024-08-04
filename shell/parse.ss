@@ -75,7 +75,8 @@
     (validate args)
     (until (null? args)
       (let-values (((parsed tail) (parse-or args)))
-        (set! ret (cons parsed ret))
+        (unless (null? parsed)
+          (set! ret (cons parsed ret)))
         (set! args tail)
         (set! job-n (fx1+ job-n))
         ; (debugf "sh-parse           iterate: ret = ~s, args = ~s~%" (reverse ret) args)
@@ -211,7 +212,8 @@
         (done? (null? args)))
     (until done?
       (let-values (((parsed tail) (parse-and args)))
-        (set! ret (cons parsed ret))
+        (unless (null? parsed)
+          (set! ret (cons parsed ret)))
         (set! args tail))
       ; (debugf "parse-or  iterate: ret = ~s, args = ~s~%" (reverse ret) args)
       (cond
@@ -239,7 +241,8 @@
         (done? (null? args)))
     (until done?
       (let-values (((parsed tail) (parse-pipe args)))
-        (set! ret (cons parsed ret))
+        (unless (null? parsed)
+          (set! ret (cons parsed ret)))
         (set! args tail))
       ; (debugf "parse-and iterate: ret = ~s, args = ~s~%" (reverse ret) args)
       (cond
@@ -266,7 +269,8 @@
         (done? (null? args)))
     (until done?
       (let-values (((parsed tail) (parse-not args)))
-        (set! ret (cons parsed ret))
+        (unless (null? parsed)
+          (set! ret (cons parsed ret)))
         (set! args tail))
       ; (debugf "parse-pipe iterate: ret = ~s, args = ~s~%" (reverse ret) args)
       (cond
@@ -353,7 +357,10 @@
               saved-args arg)))))
     ; (debugf "parse-cmd  return: ret = ~s, args = ~s~%" (reverse ret) args)
     (values
-      (if prefix (cons prefix (reverse! ret)) ret)
+      ; optimize away empty (sh-cmd)
+      (if (and prefix (not (and (null? ret) (eq? 'sh-cmd prefix))))
+        (cons prefix (reverse! ret))
+        ret)
       args)))
 
 
