@@ -389,13 +389,18 @@
 
 (define sh-pwd
   (case-lambda
-    (()     (sh-pwd* (current-output-port)))
-    ((port) (sh-pwd* port))))
+    (()   (sh-pwd* (sh-fd-stdout)))
+    ((fd) (sh-pwd* fd))))
 
-(define (sh-pwd* port)
-  (put-string port (charspan->string (sh-cwd)))
-  (newline port))
 
+(define (sh-pwd* fd)
+  (let ((wbuf (make-bytespan 0)))
+    (bytespan-insert-back/cspan! wbuf (sh-cwd))
+    (bytespan-insert-back/u8! wbuf 10) ; newline
+     ; TODO: loop on short writes
+    (fd-write fd (bytespan-peek-data wbuf)
+              (bytespan-peek-beg wbuf) (bytespan-peek-end wbuf))
+    (void)))
 
 ;; the "cd" builtin
 (define (sh-builtin-cd job prog-and-args options)
@@ -406,7 +411,6 @@
 ;; the "pwd" builtin
 (define (sh-builtin-pwd job prog-and-args options)
   (assert-string-list? 'sh-builtin-pwd prog-and-args)
-  ;; TODO: support redirections
   (sh-pwd))
 
 ;; return currently running jobs

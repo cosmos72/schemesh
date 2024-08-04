@@ -45,7 +45,6 @@
 ;; the "echo" builtin
 (define (sh-builtin-echo job prog-and-args options)
   (assert-string-list? 'sh-builtin-echo prog-and-args)
-  ;; TODO: support redirections
   (apply sh-echo (cdr prog-and-args)))
 
 
