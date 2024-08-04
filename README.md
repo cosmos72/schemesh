@@ -12,7 +12,7 @@ including redirections, pipelines, job concatenation with `&&` `||`, groups surr
 and managing foreground/background jobs.
 
 Features:
-- [x] REPL with multi-line editing, history and parentheses highlight
+- [x] REPL with multi-line editing, history and parentheses highlighting
 - [ ] cut-and-paste
 - [ ] context-sensitive autocompletion
 - [x] dual syntax parsing, allows mixing Scheme and shell expressions
@@ -22,7 +22,8 @@ Features:
 - [ ] shell builtins - in progress
 - [ ] shell environment variables
 - [ ] shell pipelines `|`
-- [x] shell redirections `<` `>` `>>` `<&` `>&`
+- [x] shell redirections `<` `>` `<>` `>>` `<&` `>&`
+- [ ] shell wildcard expansion
 
 Schemesh can be used as:
 * a replacement for traditional interactive Unix shell, as for example bash/ksh/zsh etc.

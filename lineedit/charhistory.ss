@@ -12,6 +12,7 @@
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx1- record-writer)
+    (only (schemesh bootstrap) debugf)
     (only (schemesh containers misc) list-iterate)
     (schemesh containers span)
     (only (schemesh containers charline) charline-empty?)
@@ -58,6 +59,7 @@
   (assert-charlines? 'charhistory-set*! lines)
   (let ((insert? (not (charlines-empty-or-duplicate? hist idx lines)))
         (len (span-length hist)))
+    ; (debugf "charhistory-set*! ~s ~s ~s insert?=~s~%" hist idx lines insert?)
     (when (and insert? (fx>=? idx len))
       (span-resize-back! hist (fx1+ idx))
       ; optimization: (charhistory-cow-ref) returns a copy-on-write clone of i-th
@@ -73,11 +75,19 @@
         (span-set! hist idx lines))
       lines)))
 
+
 (define (charlines-empty-or-duplicate? hist idx lines)
+  (or
+    ; do not allow padding the history when inserting empty charlines
+    (and (fx>? idx (span-length hist))
+         (%charlines-empty? lines))
+    (charlines-duplicate? hist idx lines)))
+
+
+(define (%charlines-empty? lines)
   (or (charlines-empty? lines)
       (and (fx=? 1 (charlines-length lines))
-           (charline-empty? (charlines-ref lines 0)))
-      (charlines-duplicate? hist idx lines)))
+           (charline-empty? (charlines-ref lines 0)))))
 
 
 (define (charlines-duplicate? hist idx lines)
