@@ -62,7 +62,7 @@
   (void))
 
 (define (sh-history lctx)
-  (debugf "sh-history ~s~%" lctx)
+  ; (debugf "sh-history ~s~%" lctx)
   (when (linectx? lctx)
     (let ((wbuf (make-bytespan 0)))
       (span-iterate (linectx-history lctx)
@@ -72,9 +72,6 @@
           (bytespan-insert-back/u8! wbuf 9) ; tab
           (charlines-iterate lines
             (lambda (j line)
-              (unless (fxzero? j)
-                ; align subsequent line
-                (bytespan-insert-back/bvector! wbuf #vu8(32 32 9) 0 3))
               (bytespan-insert-back/cbuffer! wbuf line)))
           (bytespan-insert-back/u8! wbuf 10) ; newline
           (when (fx>=? (bytespan-length wbuf) 4096)

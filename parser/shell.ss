@@ -163,21 +163,18 @@
   (let ((csp (charspan))
         (again? #t))
     (while again?
-      (let ((ch (parsectx-read-char ctx)))
-        (cond
-          ((eof-object? ch)
-            (syntax-errorf ctx 'lex-shell "unexpected end-of-file inside single-quoted string '~a'"
-              (charspan->string csp)))
-          ((eqv? ch #\')
-            (set! again? #f)) ; end of string reached
-          (#t
+      (let-values (((ch type) (read-shell-char ctx)))
+        (case type
+          ((eof squote)
+            (set! again? #f)) ; newline, or end of string reached
+          (else
             (charspan-insert-back! csp ch)))))
     (charspan->string csp)))
 
 
 ;; Read a subword AFTER double quotes, stopping BEFORE the matching double quote.
 ;; Example: "some text"
-(define (read-subword-in-double-quotes ctx)
+(define (read-subword-double-quoted ctx)
   (let ((csp (charspan))
         (again? #t))
     (while again?
@@ -263,7 +260,7 @@
                 "unexpected end-of-file inside double-quoted string ~s" (reverse! ret)))
             (set! again? #f))
           ((squote)
-            (%append (if dquote? (read-subword-in-double-quotes ctx)
+            (%append (if dquote? (read-subword-double-quoted ctx)
                                  (read-subword-single-quoted ctx))))
           ((dquote)
             (set! dquote? (not dquote?))
@@ -273,7 +270,7 @@
           (else
             (cond
               (dquote?
-                (%append (read-subword-in-double-quotes ctx)))
+                (%append (read-subword-double-quoted ctx)))
               ((memq type '(backslash char))
                 ;; FIXME: also consume `...` and $(...) because we must also support FOO=bar`cmd`etc
                 (let-values (((csp assign-pos) (read-subword-noquote ctx)))
