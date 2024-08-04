@@ -20,8 +20,8 @@
     sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases sh-builtin-alias sh-builtin-unalias
 
     ; builtins.ss
-    sh-builtin sh-builtin-echo sh-builtin-false sh-builtin-true
-    sh-builtins sh-find-builtin sh-echo sh-false sh-true
+    sh-builtin sh-builtin-echo sh-builtin-false sh-builtin-true sh-builtin-history
+    sh-builtins sh-find-builtin sh-echo sh-false sh-true sh-history sh-repl-args
 
     ; jobs.ss
     sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd sh-cmd? sh-multijob?

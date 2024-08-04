@@ -15,7 +15,8 @@
   (export
     bytevector-ref/utf8b bytevector-set/utf8b! char->utf8b-length
     bytespan-ref/char bytespan-set/char! bytespan-insert-front/char! bytespan-insert-back/char!
-    bytespan-insert-back/cspan! bytespan-display-back/fixnum! bytespan-insert-back/string!
+    bytespan-insert-back/cspan! bytespan-insert-back/cbuffer!
+    bytespan-display-back/fixnum! bytespan-insert-back/string!
     charspan->utf8)
   (import
     (rename (rnrs)
@@ -26,7 +27,8 @@
     (schemesh containers misc)
     (schemesh containers utf8b)
     (schemesh containers bytespan)
-    (schemesh containers charspan))
+    (schemesh containers charspan)
+    (only (schemesh containers chargbuffer) chargbuffer-iterate chargbuffer-length))
 
 
 ;; encode a single raw byte in the range #x80 ... #xff that is NOT part of a valid UTF-8 sequence
@@ -237,6 +239,13 @@
 (define (bytespan-insert-back/cspan! sp csp)
   (bytespan-reserve-back! sp (fx+ (bytespan-length sp) (charspan-length csp)))
   (charspan-iterate csp
+    (lambda (i ch)
+      (bytespan-insert-back/char! sp ch))))
+
+;; convert a chargbuffer to UTF-8/b sequences and append it to bytespan.
+(define (bytespan-insert-back/cbuffer! sp cbuf)
+  (bytespan-reserve-back! sp (fx+ (bytespan-length sp) (chargbuffer-length cbuf)))
+  (chargbuffer-iterate cbuf
     (lambda (i ch)
       (bytespan-insert-back/char! sp ch))))
 

@@ -38,8 +38,8 @@
 (define-record-type
   (%gbuffer %make-gbuffer %gbuffer?)
   (fields
-     (mutable left)
-     (mutable right))
+     (mutable left  gbuffer-left  gbuffer-left-set!)
+     (mutable right gbuffer-right gbuffer-right-set!))
   (nongenerative #{%gbuffer ejch98ka4vi1n9dn4ybq4gzwe-0}))
 
 
@@ -252,10 +252,10 @@
   (vscreen-dirty-set! screen #t)
   (charlines-dirty-y-add! screen 0 (vscreen-length screen))
   ;; Implementation note: linectx-to-history* saves a shallow copy of vscreen to history,
-  ;; which references the %gbuffer-left and %gbuffer-right internal spans of vscreen,
+  ;; which references the gbuffer-left and gbuffer-right internal spans of vscreen,
   ;; so we cannot continue using them: create new ones
-  (%gbuffer-left-set! screen (span))
-  (%gbuffer-right-set! screen (span (charline)))
+  (gbuffer-left-set! screen (span))
+  (gbuffer-right-set! screen (span (charline)))
   (vscreen-cursor-ix-set! screen 0)
   (vscreen-cursor-iy-set! screen 0))
 
@@ -776,10 +776,10 @@
   (vscreen-dirty-set! screen #t)
   (charlines-dirty-y-add! screen 0 (vscreen-length screen))
   ;; Implementation note: linectx-to-history* saves a shallow copy of vscreen to history,
-  ;; which references the %gbuffer-left and %gbuffer-right internal spans of vscreen,
+  ;; which references the gbuffer-left and gbuffer-right internal spans of vscreen,
   ;; so we cannot continue using them: create new ones
-  (%gbuffer-left-set! screen (%gbuffer-left lines))
-  (%gbuffer-right-set! screen (%gbuffer-right lines))
+  (gbuffer-left-set! screen (gbuffer-left lines))
+  (gbuffer-right-set! screen (gbuffer-right lines))
   (vscreen-reflow screen)
   (vscreen-cursor-ix-set! screen 0)
   (vscreen-cursor-iy-set! screen 0)

@@ -9,7 +9,7 @@
   (export
     charline charline? string->charline string->charline* charline->string
     assert-charline? charline-nl? charline-copy-on-write charline-empty?
-    charline-length charline-ref charline-at charline-set! charline-clear!
+    charline-length charline-ref charline-at charline-equal? charline-set! charline-clear!
     charline-erase-at! charline-insert-at! charline-insert-at/cspan! charline-insert-at/cbuf!
     charline-find-left charline-find-right
     charline-dirty-start-x charline-dirty-end-x charline-dirty-x-add! charline-dirty-x-unset!)
@@ -95,16 +95,34 @@
 (define charline-length     chargbuffer-length)
 (define charline-ref        chargbuffer-ref)
 
+
 ;; return character at position x, or #f if x is out of range
 (define (charline-at line x)
   (if (fx<? -1 x (charline-length line))
     (charline-ref line x)
     #f))
 
+
 ;; return #t if charline ends with #\newline, otherwise return #f
 (define (charline-nl? line)
   (let ((last (fx1- (charline-length line))))
-    (and (fx>=? last 0) (char=? #\newline (chargbuffer-ref line last)))))
+    (and (fx>=? last 0) (char=? #\newline (charline-ref line last)))))
+
+
+;; return #t if line1 and line2 contain the same chars
+(define (charline-equal? line1 line2)
+  (assert* 'charline-equal? (charline? line1))
+  (assert* 'charline-equal? (charline? line2))
+  (or (eq? line1 line2)
+      (and (eq? (chargbuffer-left line1)  (chargbuffer-left line2))
+           (eq? (chargbuffer-right line1) (chargbuffer-right line2)))
+      (let ((n1 (charline-length line1)))
+        (and (fx=? n1 (charline-length line2))
+          (do ((i 0 (fx1+ i)))
+              ((or (fx>=? i n1)
+                   (not (char=? (charline-ref line1 i) (charline-ref line2 i))))
+               (fx>=? i n1)))))))
+
 
 (define (charline-dirty-x-add! line start end)
   (charline-dirty-start-x-set! line (fxmin start (charline-dirty-start-x line)))

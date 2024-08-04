@@ -7,7 +7,7 @@
 
 (library (schemesh containers misc (0 1))
   (export
-    list-iterate list-quoteq! reverse*!
+    list-iterate list-nth list-quoteq! reverse*!
     string-list? assert-string-list? string-contains-only-decimal-digits?
     vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable
     list->bytevector subbytevector
@@ -18,20 +18,40 @@
     (rnrs)
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme) bytevector foreign-procedure fx1+ fx1-)
+    (only (chezscheme) bytevector foreign-procedure fx1+ fx1- void)
     (only (schemesh bootstrap) assert*))
 
 
-; (list-iterate l proc) iterates on all elements of given list l,
-; and calls (proc elem) on each element. Stops iterating if (proc ...) returns #f
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;     some additional list functions    ;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; (list-iterate l proc) iterates on all elements of given list l,
+;; and calls (proc elem) on each element. Stops iterating if (proc ...) returns #f
 (define (list-iterate l proc)
   (do ((tail l (cdr tail)))
       ((or (null? tail) (not (proc (car tail)))))))
 
-; For each item in items (which must be a list), when found in list l destructively
-; replace it with (list 'quote item).
-; Comparison between items is performed with eq?
-;/
+
+;; return n-th element of a list, where the car of the list is the "zeroth" element.
+;; return (void) if list contains < n elements
+(define (list-nth n l)
+  (if (null? l)
+    (void)
+    (begin
+      (assert* 'list-nth (pair? l))
+      (do ((i n (fx1- i))
+           (tail l (cdr tail)))
+        ((or (fxzero? i) (null? tail))
+           (if (and (fxzero? i) (not (null? tail)))
+             (car tail)
+             (void)))))))
+
+
+;; For each item in items (which must be a list), when found in list l destructively
+;; replace it with (list 'quote item).
+;; Comparison between items is performed with eq?
 (define (list-quoteq! items l)
   (do ((tail l (cdr tail)))
       ((null? tail) l)
@@ -39,10 +59,12 @@
       (when (memq item items)
         (set-car! tail (list 'quote item))))))
 
-; (reverse*! l) destructively reverses list l,
-; creating an improper list - unless (car l) is itself a list.
+
+
+;; (reverse*! l) destructively reverses list l,
+;; creating an improper list - unless (car l) is itself a list.
 ;
-; Example: (reverse*! (list a b c)) returns '(c b . a)
+;; Example: (reverse*! (list a b c)) returns '(c b . a)
 (define (reverse*! l)
   (if (or (null? l) (null? (cdr l)))
     l
@@ -86,8 +108,8 @@
   (char<=? #\0 ch #\9))
 
 
-; copy a portion of vector src into dst.
-; works even if src are the same vector and the two ranges overlap.
+;; copy a portion of vector src into dst.
+;; works even if src are the same vector and the two ranges overlap.
 (define (vector-copy! src src-start dst dst-start n)
   (if (and (eq? src dst) (fx<? src-start dst-start))
     ; copy backward
@@ -100,8 +122,8 @@
       (vector-set! dst (fx+ i dst-start) (vector-ref src (fx+ i src-start))))))
 
 
-; return a copy of vector vec containing only elements
-; from start (inclusive) to end (exclusive)
+;; return a copy of vector vec containing only elements
+;; from start (inclusive) to end (exclusive)
 (define (subvector vec start end)
   (assert* 'subvector (fx<=? 0 start end))
   (let* ((n (fx- end start))
@@ -109,24 +131,24 @@
     (vector-copy! vec start dst 0 n)
     dst))
 
-; set n elements of vector from offset = start to specified value
+;; set n elements of vector from offset = start to specified value
 (define (vector-fill-range! vec start n val)
   (do ((i 0 (fx1+ i)))
       ((fx>=? i n))
     (vector-set! vec (fx+ i start) val)))
 
-; (vector-iterate l proc) iterates on all elements of given vector vec,
-; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
+;; (vector-iterate l proc) iterates on all elements of given vector vec,
+;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
 (define (vector-iterate vec proc)
   (do ((i 0 (fx1+ i))
        (n (vector-length vec)))
       ((or (fx>=? i n) (not (proc i (vector-ref vec i)))))))
 
-; (vector->hashtable vec htable) iterates on all elements of given vector vec,
-; which must be cons cells, and inserts them into hashtable htable:
-; (car cell) is used as key, and (cdr cell) is used ad value.
+;; (vector->hashtable vec htable) iterates on all elements of given vector vec,
+;; which must be cons cells, and inserts them into hashtable htable:
+;; (car cell) is used as key, and (cdr cell) is used ad value.
 ;
-; Returns htable.
+;; Returns htable.
 (define (vector->hashtable vec htable)
   (vector-iterate vec
     (lambda (i cell)
@@ -141,8 +163,8 @@
   (apply bytevector l))
 
 
-; return a copy of bytevector vec containing only elements
-; from start (inclusive) to end (exclusive)
+;; return a copy of bytevector vec containing only elements
+;; from start (inclusive) to end (exclusive)
 (define (subbytevector vec start end)
   (assert* 'subbytevector (fx<=? 0 start end))
   (let* ((n (fx- end start))
@@ -155,17 +177,17 @@
       ((fx>=? i n))
     (bytevector-u8-set! bvec (fx+ i start) val)))
 
-; (bytevector-iterate l proc) iterates on all elements of given bytevector vec,
-; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
+;; (bytevector-iterate l proc) iterates on all elements of given bytevector vec,
+;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
 (define (bytevector-iterate bvec proc)
   (do ((i 0 (fx1+ i))
        (n (bytevector-length bvec)))
       ((or (fx>=? i n) (not (proc i (bytevector-u8-ref bvec i)))))))
 
-; compare the two bytevectors bvec1 and bvec2.
-; return -1 if bvec1 is lexicographically lesser than bvec2,
-; return 0 if they are equal,
-; return 1 if bvec1 is lexicographically greater than bvec2
+;; compare the two bytevectors bvec1 and bvec2.
+;; return -1 if bvec1 is lexicographically lesser than bvec2,
+;; return 0 if they are equal,
+;; return 1 if bvec1 is lexicographically greater than bvec2
 (define bytevector-compare
   (let ((c-bytevector-compare (foreign-procedure "c_bytevector_compare"
           (scheme-object scheme-object) integer-8)))

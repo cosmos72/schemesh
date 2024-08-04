@@ -8,7 +8,7 @@
 (library (schemesh containers (0 1))
   (export
     ; misc.ss
-    list-iterate list-quoteq! reverse*!
+    list-iterate list-quoteq! list-nth reverse*!
     string-list? assert-string-list? string-contains-only-decimal-digits?
     vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable
     list->bytevector subbytevector
@@ -77,7 +77,7 @@
     ; charline.ss
     charline charline? string->charline string->charline* charline->string
     assert-charline? charline-nl? charline-copy-on-write charline-empty?
-    charline-length charline-ref charline-at charline-set! charline-clear!
+    charline-length charline-ref charline-at charline-equal? charline-set! charline-clear!
     charline-erase-at! charline-insert-at! charline-insert-at/cspan! charline-insert-at/cbuf!
     charline-find-left charline-find-right
     charline-dirty-start-x charline-dirty-end-x charline-dirty-x-add! charline-dirty-x-unset!
@@ -85,15 +85,16 @@
     ; charlines.ss
     charlines charlines? strings->charlines strings->charlines*
     assert-charlines? charlines-shallow-copy charlines-copy-on-write charlines-iterate
-    charlines-empty? charlines-length charlines-ref charlines-set/cline! charlines-clear!
-    charlines-count-left charlines-count-right
+    charlines-empty? charlines-length charlines-equal? charlines-ref charlines-set/cline!
+    charlines-clear! charlines-count-left charlines-count-right
     charlines-dirty-start-y charlines-dirty-end-y charlines-dirty-y-add! charlines-dirty-xy-unset!
     charlines-erase-at/cline! charlines-insert-at/cline!
+    write-charlines
 
     ; utils.ss
     bytevector-ref/utf8b bytevector-set/utf8b! char->utf8b-length
     bytespan-ref/char bytespan-set/char! bytespan-insert-front/char! bytespan-insert-back/char!
-    bytespan-insert-back/cspan! bytespan-display-back/fixnum!
+    bytespan-insert-back/cspan! bytespan-insert-back/cbuffer! bytespan-display-back/fixnum!
     charspan->utf8)
 
   (import (schemesh containers misc)

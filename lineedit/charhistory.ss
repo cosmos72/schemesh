@@ -11,9 +11,10 @@
     charhistory-empty? charhistory-length charhistory-cow-ref charhistory-set*!)
   (import
     (rnrs)
-    (only (chezscheme) fx1+ record-writer)
+    (only (chezscheme) fx1+ fx1- record-writer)
     (only (schemesh containers misc) list-iterate)
     (schemesh containers span)
+    (only (schemesh containers charline) charline-empty?)
     (schemesh containers charlines))
 
 ;; copy-pasted from containers/span.ss
@@ -51,22 +52,39 @@
 
 ;; set i-th charlines in history to a shallow copy of lines, and return such copy
 ;; resizes history if needed.
+;; do NOT insert empty charlines,
+;; do NOT insert lines in history if they are equal to i-1-th charlines, i-th charlines or i+1-th charlines
 (define (charhistory-set*! hist idx lines)
   (assert-charlines? 'charhistory-set*! lines)
-  (let ((len (span-length hist)))
-    (when (fx>=? idx len)
+  (let ((insert? (not (charlines-empty-or-duplicate? hist idx lines)))
+        (len (span-length hist)))
+    (when (and insert? (fx>=? idx len))
       (span-resize-back! hist (fx1+ idx))
       ; optimization: (charhistory-cow-ref) returns a copy-on-write clone of i-th
       ; charlines, thus we can reuse the same empty (charlines) for all elements we add
       (let ((empty-lines (charlines)))
         (do ((i len (fx1+ i)))
             ((fx>=? i idx))
-          (span-set! hist i empty-lines)))))
-  ;; make a shallow copy of lines. Also helps in case
-  ;; lines is a subclass of charlines - for example a vscreen
-  (let ((lines (charlines-shallow-copy lines)))
-    (span-set! hist idx lines)
-    lines))
+          (span-set! hist i empty-lines))))
+    ;; make a shallow copy of lines. Also helps in case
+    ;; lines is a subclass of charlines - for example a vscreen
+    (let ((lines (charlines-shallow-copy lines)))
+      (when insert?
+        (span-set! hist idx lines))
+      lines)))
+
+(define (charlines-empty-or-duplicate? hist idx lines)
+  (or (charlines-empty? lines)
+      (and (fx=? 1 (charlines-length lines))
+           (charline-empty? (charlines-ref lines 0)))
+      (charlines-duplicate? hist idx lines)))
+
+
+(define (charlines-duplicate? hist idx lines)
+  (let ((len (span-length hist)))
+    (do ((i (fxmax 0 (fx1- idx)) (fx1+ i)))
+        ((or (fx>=? i len) (charlines-equal? (span-ref hist i) lines))
+         (fx<? i len)))))
 
 
 ;; customize how "charhistory" objects are printed

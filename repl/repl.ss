@@ -11,6 +11,7 @@
           repl-exception-handler repl-interrupt-handler)
   (import
     (rnrs)
+    (only (rnrs mutable-pairs) set-car!)
     (only (chezscheme)
       abort base-exception-handler break-handler
       console-input-port console-output-port console-error-port
@@ -25,7 +26,7 @@
     (schemesh parser)
     (schemesh posix signal) ; also for suspend-handler
     (schemesh posix tty)
-    (only (schemesh shell) sh-consume-sigchld sh-make-linectx))
+    (only (schemesh shell) sh-consume-sigchld sh-make-linectx sh-repl-args))
 
 ;
 ; Read user input.
@@ -116,7 +117,7 @@
 ; Calls in sequence (repl-lineedit) (repl-parse) (repl-eval-list) and (repl-print)
 ;
 ; Returns updated parser to use, or #f if got end-of-file.
-(define (repl-once lctx initial-parser enabled-parsers eval-func)
+(define (repl-once initial-parser enabled-parsers eval-func lctx)
   (linectx-parser-name-set! lctx (parser-name initial-parser))
   (linectx-parsers-set! lctx enabled-parsers)
   (let ((in (repl-lineedit lctx)))
@@ -142,7 +143,8 @@
   (let ((repl-args (list parser enabled-parsers eval-func lctx)))
     (call/cc
       (lambda (k-exit)
-        (parameterize ((base-exception-handler repl-exception-handler)
+        (parameterize ((sh-repl-args repl-args)
+                       (base-exception-handler repl-exception-handler)
                        (break-handler
                          (lambda break-args
                            (repl-interrupt-handler repl-args break-args)))
@@ -163,7 +165,8 @@
             ; when the (reset-handler) we installed is called, resume from here
             (while updated-parser
               (set! parser updated-parser)
-              (set! updated-parser (repl-once lctx parser enabled-parsers eval-func))
+              (set-car! repl-args updated-parser)
+              (set! updated-parser (repl-once parser enabled-parsers eval-func lctx))
               (sh-consume-sigchld)))))))
   lctx)
 

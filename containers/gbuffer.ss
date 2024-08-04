@@ -27,8 +27,8 @@
 (define-record-type
   (%gbuffer %make-gbuffer gbuffer?)
   (fields
-     (mutable left  gbuffer-left  gbuffer-left-set!)
-     (mutable right gbuffer-right gbuffer-right-set!))
+    (mutable left  gbuffer-left  gbuffer-left-set!)
+    (mutable right gbuffer-right gbuffer-right-set!))
   (nongenerative #{%gbuffer ejch98ka4vi1n9dn4ybq4gzwe-0}))
 
 (define (list->gbuffer l)

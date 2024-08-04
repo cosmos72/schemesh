@@ -9,8 +9,8 @@
   (export
     charlines charlines? strings->charlines strings->charlines*
     assert-charlines? charlines-shallow-copy charlines-copy-on-write charlines-iterate
-    charlines-empty? charlines-length charlines-ref charlines-set/cline! charlines-clear!
-    charlines-count-left charlines-count-right
+    charlines-empty? charlines-length charlines-equal? charlines-ref charlines-set/cline!
+    charlines-clear! charlines-count-left charlines-count-right
     charlines-dirty-start-y charlines-dirty-end-y charlines-dirty-y-add! charlines-dirty-xy-unset!
     charlines-erase-at/cline! charlines-insert-at/cline!
     write-charlines)
@@ -31,8 +31,8 @@
 (define-record-type
   (%gbuffer %make-gbuffer %gbuffer?)
   (fields
-     (mutable left)
-     (mutable right))
+     (mutable left  gbuffer-left  gbuffer-left-set!)
+     (mutable right gbuffer-right gbuffer-right-set!))
   (nongenerative #{%gbuffer ejch98ka4vi1n9dn4ybq4gzwe-0}))
 
 ;; type charlines is a gap-buffer, containing charline elements
@@ -58,9 +58,27 @@
 (define charlines-empty?     gbuffer-empty?)
 (define charlines-length     gbuffer-length)
 
+
+;; return #t if lines1 and lines2 contain the same number of charline
+;; and each charline in lines1 is equal to the corresponding charline in lines2
+(define (charlines-equal? lines1 lines2)
+  (assert* 'charlines-equal? (charlines? lines1))
+  (assert* 'charlines-equal? (charlines? lines2))
+  (or (eq? lines1 lines2)
+      (and (eq? (gbuffer-left lines1)  (gbuffer-left lines2))
+           (eq? (gbuffer-right lines1) (gbuffer-right lines2)))
+      (let ((n1 (charlines-length lines1)))
+        (and (fx=? n1 (charlines-length lines2))
+             (do ((i 0 (fx1+ i)))
+                 ((or (fx>=? i n1)
+                      (not (charline-equal? (charlines-ref lines1 i) (charlines-ref lines2 i))))
+                  (fx>=? i n1)))))))
+
+
 (define (charlines-dirty-y-add! lines start end)
   (charlines-dirty-start-y-set! lines (fxmin start (charlines-dirty-start-y lines)))
   (charlines-dirty-end-y-set!   lines (fxmax end   (charlines-dirty-end-y   lines))))
+
 
 (define (charlines-dirty-xy-unset! lines)
   (charlines-dirty-start-y-set! lines (greatest-fixnum))
@@ -84,7 +102,7 @@
 ;; the same left and right internal spans.
 ;; Reuses each existing line in charlines, does not call (charline-copy-on-write) on them.
 (define (charlines-shallow-copy lines)
-  (%make-charlines (%gbuffer-left lines) (%gbuffer-right lines)
+  (%make-charlines (gbuffer-left lines) (gbuffer-right lines)
       (charlines-dirty-start-y lines)
       (charlines-dirty-end-y   lines)))
 

@@ -6,18 +6,40 @@
 ;;; (at your option) any later version.
 
 (library (schemesh shell builtins (0 1))
-  (export sh-builtin sh-builtin-echo sh-builtin-false sh-builtin-true
-          sh-builtins sh-find-builtin sh-echo sh-false sh-true)
+  (export sh-builtin sh-builtin-echo sh-builtin-false sh-builtin-true sh-builtin-history
+          sh-builtins sh-find-builtin sh-echo sh-false sh-true sh-history sh-repl-args)
   (import
     (rnrs)
-    (only (chezscheme)               void)
-    (only (schemesh bootstrap)       raise-errorf)
-    (only (schemesh containers misc) assert-string-list?)
+    (only (chezscheme)                    fx1+ make-thread-parameter void)
+    (only (schemesh bootstrap)            debugf raise-errorf)
+    (only (schemesh containers misc)      assert-string-list? list-nth)
     (schemesh containers bytespan)
+    (only (schemesh containers span)      span-iterate)
+    (only (schemesh containers charlines) charlines-iterate)
     (schemesh containers utils)
-    (only (schemesh posix fd)        fd-write)
-    (only (schemesh shell fds)       sh-fd-stdout)
+    (only (schemesh posix fd)             fd-write)
+    (schemesh lineedit charhistory)
+    (only (schemesh lineedit linectx)     linectx? linectx-history)
+    (only (schemesh shell fds)            sh-fd-stdout)
     (schemesh shell aliases))
+
+
+(define (flush-bytespan-to-fd-stdout bsp)
+  ; TODO: loop on short writes and call sh-consume-signals
+  (fd-write (sh-fd-stdout) (bytespan-peek-data bsp)
+            (bytespan-peek-beg bsp) (bytespan-peek-end bsp))
+  (bytespan-clear! bsp))
+
+
+;; thread parameter (sh-repl-args) must be empty or a list (parser enabled-parsers eval-func lctx)
+;; containing arguments of current call to (repl) or (repl*)
+(define sh-repl-args
+  (make-thread-parameter
+    '()
+    (lambda (args)
+      (unless (list? args)
+        (raise-errorf 'sh-repl-args "invalid value, must be a list: " args))
+      args)))
 
 
 (define (sh-echo . args)
@@ -28,9 +50,7 @@
         (bytespan-insert-back/u8! wbuf 32)) ; space
       (bytespan-insert-back/string! wbuf (car tail)))
     (bytespan-insert-back/u8! wbuf 10) ; newline
-    ; TODO: loop on short writes
-    (fd-write (sh-fd-stdout) (bytespan-peek-data wbuf)
-              (bytespan-peek-beg wbuf) (bytespan-peek-end wbuf)))
+    (flush-bytespan-to-fd-stdout wbuf))
   (void))
 
 
@@ -40,6 +60,30 @@
 
 (define (sh-true . ignored-args)
   (void))
+
+(define (sh-history lctx)
+  (debugf "sh-history ~s~%" lctx)
+  (when (linectx? lctx)
+    (let ((wbuf (make-bytespan 0)))
+      (span-iterate (linectx-history lctx)
+        (lambda (i lines)
+          (bytespan-insert-back/u8! wbuf 32) ; space
+          (bytespan-display-back/fixnum! wbuf i)
+          (bytespan-insert-back/u8! wbuf 9) ; tab
+          (charlines-iterate lines
+            (lambda (j line)
+              (unless (fxzero? j)
+                ; align subsequent line
+                (bytespan-insert-back/bvector! wbuf #vu8(32 32 9) 0 3))
+              (bytespan-insert-back/cbuffer! wbuf line)))
+          (bytespan-insert-back/u8! wbuf 10) ; newline
+          (when (fx>=? (bytespan-length wbuf) 4096)
+            (flush-bytespan-to-fd-stdout wbuf))))
+      (flush-bytespan-to-fd-stdout wbuf))))
+
+
+
+
 
 
 ;; the "echo" builtin
@@ -58,6 +102,13 @@
 (define (sh-builtin-true job prog-and-args options)
   (assert-string-list? 'sh-builtin-true prog-and-args)
   (sh-true))
+
+
+;; the "history" builtin
+(define (sh-builtin-history job prog-and-args options)
+  (assert-string-list? 'sh-builtin-history prog-and-args)
+  (sh-history (list-nth 3 (sh-repl-args))))
+
 
 
 ;; the "builtin" builtin: find and execute a builtin.
@@ -95,6 +146,7 @@
     (hashtable-set! t "builtin" sh-builtin)
     (hashtable-set! t "echo"    sh-builtin-echo)
     (hashtable-set! t "false"   sh-builtin-false)
+    (hashtable-set! t "history" sh-builtin-history)
     (hashtable-set! t "true"    sh-builtin-true)
     (hashtable-set! t "unalias" sh-builtin-unalias)
     (lambda () t)))
