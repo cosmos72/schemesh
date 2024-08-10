@@ -653,15 +653,8 @@
   (let* ((redirects           (job-redirects j))
          (fd                  (span-ref redirects index))
          (direction-ch        (span-ref redirects (fx1+ index)))
-         (to                  (or (span-ref redirects (fx+ 3 index))
-                                  (span-ref redirects (fx+ 2 index))))
-         (to-fd-or-bytevector
-          (if (procedure? to)
-            (if (logbit? 1 (procedure-arity-mask to))
-              (to j)
-              (to))
-            to))
-         (remap-fd (sh-fd-allocate)))
+         (to-fd-or-bytevector (remap-to-fd-or-bytevector0 j redirects index))
+         (remap-fd            (sh-fd-allocate)))
     ; (debugf "fd-redirect fd=~s dir=~s to=~s~%" remap-fd direction-ch to-fd-or-bytevector)
     (let ((ret (fd-redirect (sh-fd->int remap-fd) direction-ch to-fd-or-bytevector #t))) ; #t close-on-exec?
       (when (< ret 0)
@@ -670,13 +663,22 @@
     (hashtable-set! (job-fds-to-remap j) fd remap-fd)))
 
 
+;; extract the destination fd or bytevector0 from a redirection
+(define (remap-to-fd-or-bytevector0 j redirects index)
+  (or (span-ref redirects (fx+ 3 index))
+      (let ((to (span-ref redirects (fx+ 2 index))))
+        (if (procedure? to)
+          (let ((temp (if (logbit? 1 (procedure-arity-mask to)) (to j) (to))))
+            (if (fixnum? temp)
+              temp
+              (text->bytevector0 temp)))
+          to))))
+
+
 ;; redirect a file descriptor. returns < 0 on error
+;; arguments: fd direction-ch to-fd-or-bytevector close-on-exec?
 (define fd-redirect
-  (let ((c-fd-redirect (foreign-procedure "c_fd_redirect" (scheme-object scheme-object scheme-object scheme-object) int)))
-    (lambda (fd direction-ch to-fd-or-bytevector close-on-exec?)
-      (debugf "fd-redirect fd=~a direction-ch=~a to-fd-or-bytevector=~a close-on-exec?=~a~%"
-        fd direction-ch to-fd-or-bytevector close-on-exec?)
-      (c-fd-redirect fd direction-ch to-fd-or-bytevector close-on-exec?))))
+  (foreign-procedure "c_fd_redirect" (scheme-object scheme-object scheme-object scheme-object) int))
 
 
 ;; return the remapped file descriptor for specified fd,
