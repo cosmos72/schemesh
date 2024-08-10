@@ -50,7 +50,7 @@
     (mutable pgid)              ; fixnum: process group id, -1 if unknown
      ; cons: last known status, or (void) if job exited successfully
     (mutable last-status job-last-status %job-last-status-set!)
-    ; span of quadruplets (fd mode to-fd-or-bytevector0 path-or-closure)
+    ; span of quadruplets (fd mode to-fd-or-path-or-closure bytevector0)
     ; to open and redirect between fork() and exec()
     (mutable redirects)
     (mutable fds-to-remap) ; for builtins or multijobs, #f or hashmap job-logical-fd -> actual-fd-to-use
@@ -649,11 +649,12 @@
 
 ;; called by (job-remap-fds!)
 (define (job-remap-fd! j index)
-  ;; refirects is span of quadruplets (fd mode to-fd-or-bytevector0 path-or-closure)
+  ;; redirects is span of quadruplets (fd mode to-fd-or-path-or-closure bytevector0)
   (let* ((redirects           (job-redirects j))
          (fd                  (span-ref redirects index))
          (direction-ch        (span-ref redirects (fx1+ index)))
-         (to                  (span-ref redirects (fx+ 3 index)))
+         (to                  (or (span-ref redirects (fx+ 3 index))
+                                  (span-ref redirects (fx+ 2 index))))
          (to-fd-or-bytevector
           (if (procedure? to)
             (if (logbit? 1 (procedure-arity-mask to))
@@ -665,13 +666,17 @@
     (let ((ret (fd-redirect (sh-fd->int remap-fd) direction-ch to-fd-or-bytevector #t))) ; #t close-on-exec?
       (when (< ret 0)
         (sh-fd-release remap-fd)
-        (raise-c-errno 'sh-start 'fd-redirect ret)))
+        (raise-c-errno 'sh-start 'c_fd_redirect ret)))
     (hashtable-set! (job-fds-to-remap j) fd remap-fd)))
 
 
 ;; redirect a file descriptor. returns < 0 on error
 (define fd-redirect
-  (foreign-procedure "c_fd_redirect" (scheme-object scheme-object scheme-object scheme-object) int))
+  (let ((c-fd-redirect (foreign-procedure "c_fd_redirect" (scheme-object scheme-object scheme-object scheme-object) int)))
+    (lambda (fd direction-ch to-fd-or-bytevector close-on-exec?)
+      (debugf "fd-redirect fd=~a direction-ch=~a to-fd-or-bytevector=~a close-on-exec?=~a~%"
+        fd direction-ch to-fd-or-bytevector close-on-exec?)
+      (c-fd-redirect fd direction-ch to-fd-or-bytevector close-on-exec?))))
 
 
 ;; return the remapped file descriptor for specified fd,
@@ -1292,6 +1297,8 @@
 
 ;; Add a single redirection to a job
 (define (job-redirect! job fd direction to)
+  (unless (fx>=? fd 0)
+    (raise-errorf 'sh-redirect! "invalid redirect fd, must be an unsigned fixnum: ~a" fd))
   (if (or (eq? '<& direction) (eq? '>& direction))
     (job-redirect/fd!   job fd direction to)
     (job-redirect/file! job fd direction to)))
@@ -1304,8 +1311,8 @@
   (span-insert-back! (job-redirects job)
     fd
     (redirect/fd-symbol->char 'sh-redirect! direction)
-    #f
-    to))
+    to
+    #f))
 
 
 ;; Add a single file redirection to a job
@@ -1320,8 +1327,8 @@
           (raise-errorf 'sh-redirect! "invalid redirect to file, string must be non-empty: ~s" to))
         (string->utf8b/0 to))
       ((bytevector? to)
-        (let ((to0 (bytevector->bytevector0)))
-          (when (fxzero? (string-length to0))
+        (let ((to0 (bytevector->bytevector0 to)))
+          (when (fx<=? (bytevector-length to0) 1)
             (raise-errorf 'sh-redirect! "invalid redirect to file, bytevector must be non-empty: ~a" to))
           to0))
       ((procedure? to)
@@ -1650,7 +1657,7 @@
 
 (define (job-display/redirect redirects i port)
   (let ((ch (span-ref redirects (fx1+ i)))
-        (to (span-ref redirects (fx+ i 3))))
+        (to (span-ref redirects (fx+ i 2))))
     (put-char port #\space)
     (put-datum port (span-ref redirects i))
     (put-string port (symbol->string (if (fixnum? to)
