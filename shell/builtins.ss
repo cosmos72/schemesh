@@ -125,9 +125,10 @@
 ;; given a command line prog-and-args i.e. a list of strings,
 ;; extract the first string and return the corresponding builtin.
 ;; Return #f if no corresponding builtin is found.
+;; Return sh-builtin-true if prog-and-args is the empty list.
 (define (sh-find-builtin prog-and-args)
   (if (null? prog-and-args)
-    sh-builtin-true
+    sh-builtin-true ; empty command line, run it with (sh-builtin-true)
     (hashtable-ref (sh-builtins) (car prog-and-args) #f)))
 
 
