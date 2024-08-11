@@ -127,7 +127,7 @@
 ;; Return #f if no corresponding builtin is found.
 (define (sh-find-builtin prog-and-args)
   (if (null? prog-and-args)
-    #f
+    sh-builtin-true
     (hashtable-ref (sh-builtins) (car prog-and-args) #f)))
 
 

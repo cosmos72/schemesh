@@ -105,7 +105,7 @@
         (set! ret-prefix 'sh-redirect!)
         (set! ret-prefix 'sh-list*)))
     (cond
-      ((null? ret) '(sh-cmd "true"))
+      ((null? ret) '(sh-cmd))
       ((null? (cdr ret))
         (if (eq? 'sh-list ret-prefix)
           (car ret)
@@ -335,7 +335,7 @@
             (set! done? #t)
             (set! prefix #f))
           ((or (string? arg) (fixnum? arg) (eq? '= arg) (pair? arg) (redirection-sym? arg))
-            (when (or (symbol? arg) (pair? arg))
+            (when (or (fixnum? arg) (symbol? arg) (pair? arg))
               ; (sh-cmd) does not support env assignment, redirections and closures, use (sh-cmd*)
               (set! prefix 'sh-cmd*))
             (cond
@@ -355,7 +355,7 @@
             (syntax-violation 'sh-parse
               "syntax error, shell DSL atom must be a string, fixnum, pair, = or redirection operator, found:"
               saved-args arg)))))
-    ; (debugf "parse-cmd  return: ret = ~s, args = ~s~%" (reverse ret) args)
+    ; (debugf "parse-cmd  return: prefix=~s ret=~s, args=~s~%" prefix (reverse ret) args)
     (values
       ; optimize away empty (sh-cmd)
       (if (and prefix (not (and (null? ret) (eq? 'sh-cmd prefix))))

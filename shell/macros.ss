@@ -24,7 +24,7 @@
 
 (define-syntax shell-list
   (syntax-rules ()
-    ((_)               (sh-cmd "true"))
+    ((_)               (sh-cmd))
     ((_ arg)           arg)
     ((_ arg0 arg1 ...) (sh-list arg0 arg1 ...))))
 
