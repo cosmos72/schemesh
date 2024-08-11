@@ -949,7 +949,7 @@
 ;;   into the corresponding process group id - which must already exist.
 (define (sh-start job . options)
   (start/any job options)
-  (job-id-update! job)) ; in case job already finished
+  (job-id-update! job)) ; sets job-id if started, otherwise unsets it
 
 
 ;; Internal functions called by (sh-start)
