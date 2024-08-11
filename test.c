@@ -864,7 +864,7 @@ static const testcase tests[] = {
     {"(shell \"echo\" \"abc\" > \"DEL_ME\" && \"cat\" \"DEL_ME\" && \"rm\" \"DEL_ME\")",
      "(sh-and (sh-cmd* \"echo\" \"abc\" 1 '> \"DEL_ME\")"
      " (sh-cmd \"cat\" \"DEL_ME\") (sh-cmd \"rm\" \"DEL_ME\"))"},
-#if 0  /* (sh-run/string) is unfinished, hangs */
+#if 0  /* (sh-run/string) is unfinished, hangs on multijobs */
     /* ------------------------- job execution ------------------------------ */
     {"(sh-run/string (shell \"echo\" \"abc\" > \"DEL_ME\" && \"cat\" \"DEL_ME\" &&"
      " \"rm\" \"DEL_ME\"))",
