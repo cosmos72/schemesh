@@ -29,7 +29,7 @@
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->argv
     sh-builtin-command sh-builtin-cd sh-builtin-pwd sh-cwd sh-cwd-set! sh-cd sh-pwd
     sh-consume-sigchld sh-multijob-child-length sh-multijob-child-ref
-    sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/ok? sh-run/bytes sh-run/string
+    sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/ok? sh-run/bspan sh-run/string
     sh-and sh-or sh-not sh-list sh-subshell sh-redirect!
     sh-job-display sh-job-display* sh-job-display/string
     sh-job-write sh-job-write* sh-job-write/string

@@ -190,7 +190,7 @@
 ;; return 1 if bvec1 is lexicographically greater than bvec2
 (define bytevector-compare
   (let ((c-bytevector-compare (foreign-procedure "c_bytevector_compare"
-          (scheme-object scheme-object) integer-8)))
+          (ptr ptr) integer-8)))
     (lambda (bvec1 bvec2)
       (assert* 'bytevector-compare (bytevector? bvec1))
       (assert* 'bytevector-compare (bytevector? bvec2))

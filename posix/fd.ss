@@ -9,11 +9,12 @@
   (export
     c-errno c-errno->string raise-c-errno
     fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-read fd-write
-    fd-select fd-setnonblock open-file-fd open-pipe-fds)
+    fd-read-until-eof fd-select fd-setnonblock open-file-fd open-pipe-fds)
   (import
     (rnrs)
     (only (chezscheme) foreign-procedure void)
-    (only (schemesh bootstrap)       assert* raise-errorf)
+    (only (schemesh bootstrap)       assert* raise-errorf until)
+    (schemesh containers bytespan)
     (only (schemesh containers misc) list-iterate)
     (only (schemesh conversions)     text->bytevector0))
 
@@ -64,6 +65,22 @@
         (if (>= ret 0)
           (void)
           (raise-c-errno 'fd-dup2 'dup2 ret))))))
+
+;; read from fd until end-of-file.
+;; return read bytes as a bytespan
+(define (fd-read-until-eof fd)
+  (let ((bsp (make-bytespan 0))
+        (eof? #f))
+    (until eof?
+      (bytespan-reserve-back! bsp 4096)
+      (let* ((beg (bytespan-peek-beg bsp))
+             (end (bytespan-peek-end bsp))
+             (cap (bytespan-capacity-back bsp))
+             (n   (fd-read fd (bytespan-peek-data bsp) end (fx+ beg cap))))
+        (if (fx>? n 0)
+          (bytespan-resize-back! bsp (fx+ (fx- end beg) n))
+          (set! eof? #t))))
+    bsp))
 
 (define fd-read
   (let ((c-fd-read (foreign-procedure "c_fd_read" (int ptr iptr iptr) iptr)))
@@ -121,7 +138,7 @@
 ; at least one of 'read 'write 'rw must be present
 (define open-file-fd
   (let ((c-open-file-fd (foreign-procedure "c_open_file_fd"
-                          (scheme-object int int int int) int)))
+                          (ptr int int int int) int)))
     (lambda (filepath . flags)
       (let* ([filepath0 (text->bytevector0 filepath)]
              [flag-rw (cond ((memq 'rw    flags) 2)
@@ -138,11 +155,11 @@
           (raise-c-errno 'open-file-fd 'open ret))))))
 
 (define open-pipe-fds
-  (let ((c-open-pipe-fds (foreign-procedure "c_open_pipe_fds" () scheme-object)))
-    (lambda ()
-      (let ((ret (c-open-pipe-fds)))
+  (let ((c-open-pipe-fds (foreign-procedure "c_open_pipe_fds" (ptr ptr) ptr)))
+    (lambda (read-fd-close-on-exec? write-fd-close-on-exec?)
+      (let ((ret (c-open-pipe-fds read-fd-close-on-exec? write-fd-close-on-exec?)))
         (if (pair? ret)
-          ret
+          (values (car ret) (cdr ret))
           (raise-c-errno 'open-pipe-fds 'pipe ret))))))
 
 ) ; close library

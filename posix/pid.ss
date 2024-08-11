@@ -43,7 +43,7 @@
 ; The parameter program and each element in args must be either a string or a bytevector.
 (define spawn-pid
   (let ((c-spawn-pid (foreign-procedure "c_spawn_pid"
-                        (scheme-object scheme-object scheme-object int) int)))
+                        (ptr ptr ptr int) int)))
     (lambda (program . args)
       (let ((ret (c-spawn-pid
                    (list->argv (cons program args))
@@ -89,7 +89,7 @@
 ; Otherwise return a Scheme cons (pid . exit_flag), where exit_flag is one of:
 ; process_exit_status, or 256 + signal, or 512 + stop_signal.
 (define pid-wait
-  (let ((c-pid-wait (foreign-procedure "c_pid_wait" (int int) scheme-object)))
+  (let ((c-pid-wait (foreign-procedure "c_pid_wait" (int int) ptr)))
     (lambda (pid may-block)
       (assert* 'pid-wait (memq may-block '(blocking nonblocking)))
       (c-pid-wait pid (if (eq? may-block 'blocking) 1 0)))))

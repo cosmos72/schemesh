@@ -26,7 +26,7 @@
 ;; in the range #xDC80..#xDCFF which is used by UTF-8b encoding
 ;; to represent raw bytes 0x80..0xFF converted to Unicode codepoints
 (define integer->char*
-  (let ((c-integer->char (foreign-procedure "c_integer_to_char" (unsigned-32) scheme-object)))
+  (let ((c-integer->char (foreign-procedure "c_integer_to_char" (unsigned-32) ptr)))
     (lambda (codepoint)
       (if (fx<=? #xDC80 codepoint #xDCFF)
         (c-integer->char codepoint)
@@ -44,9 +44,9 @@
 ;;   https://web.archive.org/web/20090830064219/http://mail.nl.linux.org/linux-utf8/2000-07/msg00040.html
 (define string-range->utf8b
   (let ((c-string->utf8b-append (foreign-procedure "c_string_to_utf8b_append"
-                                  (scheme-object fixnum fixnum scheme-object fixnum) scheme-object))
+                                  (ptr fixnum fixnum ptr fixnum) ptr))
         (c-string->utf8b-length (foreign-procedure "c_string_to_utf8b_length"
-                                  (scheme-object fixnum fixnum) fixnum)))
+                                  (ptr fixnum fixnum) fixnum)))
     (lambda (str start n zeropad-byte-n)
       (assert* 'string->utf8b (fx<=? 0 start (fx+ start n) (string-length str)))
       (assert* 'string->utf8b (fx>=? zeropad-byte-n 0))
@@ -68,7 +68,7 @@
 #| ;; slower
 (define string-range->utf8b
   (let ((c-string->utf8b (foreign-procedure "c_string_range_to_utf8b"
-                                          (scheme-object fixnum fixnum fixnum) scheme-object)))
+                                          (ptr fixnum fixnum fixnum) ptr)))
     (lambda (str start n zeropad-byte-n)
       (assert* 'string->utf8b (fx<=? 0 start (fx+ start n) (string-length str)))
       (assert* 'string->utf8b (fx>=? zeropad-byte-n 0))
@@ -97,9 +97,9 @@
 ;;   https://web.archive.org/web/20090830064219/http://mail.nl.linux.org/linux-utf8/2000-07/msg00040.html
 (define utf8b-range->string
   (let ((c-utf8b->string-append (foreign-procedure "c_utf8b_to_string_append"
-                                  (scheme-object fixnum fixnum scheme-object fixnum) scheme-object))
+                                  (ptr fixnum fixnum ptr fixnum) ptr))
         (c-utf8b->string-length (foreign-procedure "c_utf8b_to_string_length"
-                                  (scheme-object fixnum fixnum) fixnum)))
+                                  (ptr fixnum fixnum) fixnum)))
     (lambda (bvec start n)
       (assert* 'utf8b->string (fx<=? 0 start (fx+ start n) (bytevector-length bvec)))
       (let* ((char-n (c-utf8b->string-length bvec start n))

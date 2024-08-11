@@ -11,7 +11,7 @@
     ; fd.ss
     c-errno c-errno->string raise-c-errno
     fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-read fd-write
-    fd-select fd-setnonblock open-file-fd open-pipe-fds
+    fd-read-until-eof fd-select fd-setnonblock open-file-fd open-pipe-fds
 
     ; signal.ss
     signal-raise signal-number->name signal-name->number

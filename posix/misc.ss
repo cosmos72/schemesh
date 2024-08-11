@@ -19,7 +19,7 @@
 (define c-exit (foreign-procedure "c_exit" (int) int))
 
 (define c-hostname
-  (let* ((hostname-or-error ((foreign-procedure "c_get_hostname" () scheme-object)))
+  (let* ((hostname-or-error ((foreign-procedure "c_get_hostname" () ptr)))
          (hostname (if (string? hostname-or-error) hostname-or-error "???")))
     (lambda ()
       hostname)))
@@ -27,7 +27,7 @@
 ; implementation of (directory-u8-list)
 (define %directory-u8-list
   (let ((c-directory-u8-list (foreign-procedure "c_directory_u8_list"
-                     (scheme-object scheme-object) scheme-object))
+                     (ptr ptr) ptr))
         (types '#(unknown blockdev chardev dir fifo file socket symlink)))
     (lambda (dirpath filter-prefix)
       (let ((ret (c-directory-u8-list (text->bytevector0 dirpath)

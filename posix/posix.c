@@ -440,13 +440,26 @@ static int c_open_file_fd(ptr bytevector0_filepath,
 }
 
 /** call pipe() and return a Scheme cons (pipe_read_fd . pipe_write_fd), or c_errno() on error */
-static ptr c_open_pipe_fds(void) {
+static ptr c_open_pipe_fds(ptr read_fd_close_on_exec, ptr write_fd_close_on_exec) {
   int fds[2];
   int ret = pipe(fds);
   if (ret < 0) {
     return Sinteger(c_errno());
   }
-  return Scons(Sinteger(fds[0]), Sinteger(fds[1]));
+  int err = 0;
+  if (read_fd_close_on_exec != Sfalse) {
+    err = fcntl(fds[0], F_SETFD, FD_CLOEXEC);
+  }
+  if (err == 0 && write_fd_close_on_exec != Sfalse) {
+    err = fcntl(fds[1], F_SETFD, FD_CLOEXEC);
+  }
+  if (err == 0) {
+    return Scons(Sinteger(fds[0]), Sinteger(fds[1]));
+  }
+  err = c_errno();
+  (void)close(fds[0]);
+  (void)close(fds[1]);
+  return Sinteger(err);
 }
 
 /* convert a redirection char < > ≶ (means <>) » (means >>) to open() flags */

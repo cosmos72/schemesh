@@ -17,6 +17,6 @@
 
 ; (tty-size) calls C functions c_tty_size(),
 ; which returns controlling tty size as pair (width . height), or c_errno() on error
-(define tty-size   (foreign-procedure "c_tty_size" () scheme-object))
+(define tty-size   (foreign-procedure "c_tty_size" () ptr))
 
 ) ; close library

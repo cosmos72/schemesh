@@ -17,7 +17,7 @@
     (only (schemesh containers hashtable) eq-hashtable hashtable-transpose))
 
 (define signal-table-number->name
-  (apply eq-hashtable ((foreign-procedure "c_signals_list" () scheme-object))))
+  (apply eq-hashtable ((foreign-procedure "c_signals_list" () ptr))))
 
 (define signal-table-name->number
   (hashtable-transpose signal-table-number->name (make-eq-hashtable)))
@@ -42,8 +42,8 @@
           (c-signal-raise signal-number)
           c-errno-einval)))))
 
-(define signal-consume-sigchld  (foreign-procedure "c_sigchld_consume" () scheme-object))
-(define signal-consume-sigwinch (foreign-procedure "c_sigwinch_consume" () scheme-object))
+(define signal-consume-sigchld  (foreign-procedure "c_sigchld_consume" () ptr))
+(define signal-consume-sigwinch (foreign-procedure "c_sigwinch_consume" () ptr))
 
 (define signal-init-sigwinch
   (let ((c-signal-init-sigwinch (foreign-procedure "c_sigwinch_init" () int)))

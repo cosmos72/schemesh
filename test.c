@@ -789,6 +789,10 @@ static const testcase tests[] = {
   "(begin"                                                                                         \
   " (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"                          \
   " (($primitive 3 $invoke-library) '(schemesh shell parse) '(0 1) 'parse)"
+#define INVOKELIB_SHELL_PARSE_JOBS                                                                 \
+  "(begin"                                                                                         \
+  " (($primitive 3 $invoke-library) '(schemesh shell parse) '(0 1) 'parse)"                        \
+  " (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"
 
     /* ------------------------- shell macros ------------------------------- */
     {"(expand '(shell))", /* */
@@ -853,6 +857,19 @@ static const testcase tests[] = {
     {"(eval (parse-shell* (make-parsectx-from-string\n"
      "  \"{{ls} > log.txt &}\")))",
      "(sh-list (sh-cmd* \"ls\" 1 '> \"log.txt\") '&)"},
+    {"(expand '(shell \"echo\" \"abc\" > \"DEL_ME\" &&"
+     " \"cat\" \"DEL_ME\" && \"rm\" \"DEL_ME\"))",
+     INVOKELIB_SHELL_PARSE_JOBS
+     " (sh-and (sh-cmd* echo abc 1 '> DEL_ME) (sh-cmd cat DEL_ME) (sh-cmd rm DEL_ME)))"},
+    {"(shell \"echo\" \"abc\" > \"DEL_ME\" && \"cat\" \"DEL_ME\" && \"rm\" \"DEL_ME\")",
+     "(sh-and (sh-cmd* \"echo\" \"abc\" 1 '> \"DEL_ME\")"
+     " (sh-cmd \"cat\" \"DEL_ME\") (sh-cmd \"rm\" \"DEL_ME\"))"},
+#if 0  /* (sh-run/string) is unfinished, hangs */
+    /* ------------------------- job execution ------------------------------ */
+    {"(sh-run/string (shell \"echo\" \"abc\" > \"DEL_ME\" && \"cat\" \"DEL_ME\" &&"
+     " \"rm\" \"DEL_ME\"))",
+     ""},
+#endif /* 0 */
     /* ------------------------- repl --------------------------------------- */
     {"(values->list (repl-parse\n"
      "  (make-parsectx-from-string \"(+ 2 3) (values 7 (cons 'a 'b))\" (parsers))\n"

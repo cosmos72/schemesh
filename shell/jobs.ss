@@ -19,7 +19,7 @@
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->argv
     sh-builtin-command sh-builtin-cd sh-builtin-pwd sh-cwd sh-cwd-set! sh-cd sh-pwd
     sh-consume-sigchld sh-multijob-child-length sh-multijob-child-ref
-    sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/ok? sh-run/bytes sh-run/string
+    sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/ok? sh-run/bspan sh-run/string
     sh-and sh-or sh-not sh-list sh-subshell sh-redirect!
     sh-job-display sh-job-display* sh-job-display/string
     sh-job-write sh-job-write* sh-job-write/string)
@@ -104,7 +104,7 @@
     (span) #f '() ; redirections
     #f #f ; start-proc step-proc
     ; current directory
-    (string->charspan* ((foreign-procedure "c_get_cwd" () scheme-object)))
+    (string->charspan* ((foreign-procedure "c_get_cwd" () ptr)))
     (make-hashtable string-hash string=?) ; env variables
     #f                        ; no parent
     'sh-global -1 (span #t))) ; skip job-id 0, is used by sh-globals itself
@@ -375,7 +375,7 @@
 
 ;; internal function called by (sh-cd)
 (define sh-cd*
-  (let ((c_chdir (foreign-procedure "c_chdir" (scheme-object) int)))
+  (let ((c_chdir (foreign-procedure "c_chdir" (ptr) int)))
     (lambda (path)
       (let* ((suffix (text->sh-path path))
              (dir (if (sh-path-absolute? suffix)
@@ -595,7 +595,7 @@
 ;; This function is usually only called once, during initialization of Scheme library
 ; (schemesh shell) below.
 (define c-environ->sh-global-env
-  (let ((c-environ-ref (foreign-procedure "c_environ_ref" (uptr) scheme-object)))
+  (let ((c-environ-ref (foreign-procedure "c_environ_ref" (uptr) ptr)))
     (lambda ()
       (do ((i 1 (fx+ i 1))
            (entry (c-environ-ref 0) (c-environ-ref i)))
@@ -678,7 +678,7 @@
 ;; redirect a file descriptor. returns < 0 on error
 ;; arguments: fd direction-ch to-fd-or-bytevector0 close-on-exec?
 (define fd-redirect
-  (foreign-procedure "c_fd_redirect" (scheme-object scheme-object scheme-object scheme-object) int))
+  (foreign-procedure "c_fd_redirect" (ptr ptr ptr ptr) int))
 
 
 ;; return the remapped file descriptor for specified fd,
@@ -747,7 +747,7 @@
 ;; internal function called by (job-start/cmd) to spawn a subprocess
 (define job-start/cmd/spawn
   (let ((c-spawn-pid (foreign-procedure "c_spawn_pid"
-                        (scheme-object scheme-object scheme-object int) int)))
+                        (ptr ptr ptr int) int)))
     (lambda (c argv options)
       (let* ((process-group-id (job-start-options->process-group-id options))
              (ret (c-spawn-pid
@@ -893,7 +893,7 @@
 ;;   process-group-id: a fixnum, if present and > 0 the new subshell will be inserted
 ;;     into the corresponding process group id - which must already exist.
 (define job-start/subshell
-  (let ((c-fork-pid (foreign-procedure "c_fork_pid" (scheme-object int) int)))
+  (let ((c-fork-pid (foreign-procedure "c_fork_pid" (ptr int) int)))
     (lambda (job options)
       (assert* 'sh-start (procedure? (job-step-proc job)))
       (let* ((process-group-id (job-start-options->process-group-id options))
@@ -1291,27 +1291,53 @@
 
 
 ;; Start a job and wait for it to exit.
+;; Reads job's standard output and returns it converted to bytespan.
+;;
+;; FIXME: unfinished!
+;;
 ;; Does NOT return early if job is stopped, use (sh-run/i) for that.
-;;
 ;; Options are the same as (sh-start)
-;;
-;; Reads job's standard output and returns it converted to bytevector.
-(define (sh-run/bytes job . options)
-  (apply sh-run job options)
-  ; TODO: implement
-  #vu8())
+(define (sh-run/bspan job . options)
+  (let ((redirect-len (span-length (job-redirects job))))
+    ; create pipe fds
+    (let-values (((read-fd write-fd) (open-pipe-fds #t #t))) ; both fds are close-on-exec?
+      (dynamic-wind
+        (lambda ()
+          ; add temporarary redirection 1 >& write-fd
+          (sh-redirect! job 1 '>& write-fd))
+        (lambda ()
+          (apply sh-start job options)
+          ; close our copy of write-fd: needed to detect eof on read-fd
+          (fd-close write-fd)
+          (set! write-fd #f)
+          ;; WARNING: job may internally dup write-fd into (job-fds-to-remap)
+          ;; FIXME: (sh-wait) also advances multijob - we should automatically
+          ;;        do that from (sh-consume-signals) and call it periodically,
+          ;;        including when a syscall returns EINTR
+          (let ((ret (fd-read-until-eof read-fd)))
+            (sh-wait job)
+            ret))
+        (lambda ()
+          ; remove temporary redirection
+          (span-resize-back! (job-redirects job) redirect-len)
+          ; close pipe fds
+          (when write-fd
+            (fd-close write-fd))
+          (fd-close read-fd))))))
 
 
 ;; Start a job and wait for it to exit.
-;; Does NOT return early if job is stopped, use (sh-run/i) for that.
-;;
-;; Options are the same as (sh-start)
-;;
 ;; Reads job's standard output and returns it converted to UTF-8b string.
+;;
+;; FIXME: unfinished!
+;;
+;; Does NOT return early if job is stopped, use (sh-run/i) for that.
+;; Options are the same as (sh-start)
 (define (sh-run/string job . options)
-  (apply sh-run job options)
-  ; TODO: implement
-  "")
+  (let* ((bsp (apply sh-run/bspan job options))
+         (beg (bytespan-peek-beg bsp))
+         (end (bytespan-peek-end bsp)))
+    (utf8b-range->string (bytespan-peek-data bsp) beg (fx- end beg))))
 
 
 ;; Add multiple redirections for cmd or job. Return cmd or job.
