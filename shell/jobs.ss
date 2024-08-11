@@ -942,14 +942,12 @@
 
 ;; Start a cmd or a job and return immediately, without waiting for it to finish.
 ;; If job finishes immediately, return its exit status (happens for builtins).
-;; Otherwise, if job parent is sh-globals, return '(running . job-id).
-;; Otherwise return '(running . #f)
+;; Otherwise, return '(running . job-id)
 ;;
 ;; Options is a list of zero or more of the following:
 ;;   process-group-id: a fixnum, if present and > 0 then the new process will be inserted
 ;;   into the corresponding process group id - which must already exist.
 (define (sh-start job . options)
-  (job-id-set! job)
   (start/any job options)
   (job-id-update! job)) ; in case job already finished
 
