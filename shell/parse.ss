@@ -152,7 +152,7 @@
 ;; return three values: fd direction to-fd-or-path
 (define (parse-redirection2 args verbatim-proc)
   (when (null? (cdr args))
-    (raise-errorf 'sh-parse "missing argument after redirection: " args))
+    (raise-errorf 'sh-parse "missing argument after redirection: ~s" args))
   (let ((dir (car args))
         (to  (cadr args)))
     (case dir
@@ -172,7 +172,7 @@
 ;; return three values: fd direction to-fd-or-path
 (define (parse-redirection3 args verbatim-proc)
   (when (or (null? (cdr args)) (null? (cddr args)))
-    (raise-errorf 'sh-parse "missing argument after redirection: " args))
+    (raise-errorf 'sh-parse "missing argument after redirection: ~s" args))
   (let ((fd  (car args))
         (dir (cadr args))
         (to  (caddr args)))
