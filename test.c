@@ -756,10 +756,15 @@ static const testcase tests[] = {
     {"(sh-run   (sh-not (sh-cmd \"true\")))", "(exited . 1)"},
     {"(sh-run/i (sh-not (sh-cmd \"false\")))", ""},
     {"(sh-run   (sh-not (sh-cmd \"false\")))", ""},
-    {"(let ((j (sh-and (sh-cmd \"true\") (sh-cmd \"false\"))))\n"
+    {"(let ((j (sh-and (sh-cmd \"true\") (sh-cmd \"command\" \"false\"))))\n"
      "  (sh-start j)\n"
      "  (sh-bg j)\n"
      "  (sh-wait j))\n",
+     "(exited . 1)"},
+    /* (sh-start) of a builtin, or a multijob only containing builtins
+     * directly returns their exit status, as (sh-run) would do.
+     * Reason: there is no external process start asynchronously in the background */
+    {"(sh-start (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))\n", /* */
      "(exited . 1)"},
     /* ------------------------- shell syntax ------------------------------- */
     {"(sh-parse '(shell \"wc\" \"-l\" \"myfile\" > \"mylog\" \\x3b; \"echo\" \"done\"))",

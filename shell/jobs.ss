@@ -940,8 +940,9 @@
   (job-has-status? job '(exited killed unknown)))
 
 
-;; Start a cmd or a job.
-;; If job parent is sh-globals, return '(running . job-id).
+;; Start a cmd or a job and return immediately, without waiting for it to finish.
+;; If job finishes immediately, return its exit status (happens for builtins).
+;; Otherwise, if job parent is sh-globals, return '(running . job-id).
 ;; Otherwise return '(running . #f)
 ;;
 ;; Options is a list of zero or more of the following:
@@ -949,7 +950,9 @@
 ;;   into the corresponding process group id - which must already exist.
 (define (sh-start job . options)
   (job-id-set! job)
-  (start/any job options))
+  (start/any job options)
+  (job-id-update! job)) ; in case job already finished
+
 
 ;; Internal functions called by (sh-start)
 (define (start/any job options)
@@ -998,30 +1001,24 @@
 
 
 ;; Common implementation of (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
-(define (advance-job-or-id mode job-or-id)
-  (assert* 'advance-job-or-id (memq mode '(sh-fg sh-bg sh-wait sh-sigcont+wait sh-subshell sh-job-status)))
+;; Also called by (job-advance/multijob)
+(define (job-advance mode job-or-id)
+  (assert* 'job-advance (memq mode '(sh-fg sh-bg sh-wait sh-sigcont+wait sh-subshell sh-job-status)))
   (let ((job (sh-job job-or-id)))
-    (when (job-has-status? job '(new running stopped))
-      (job-advance/any mode job))
+    ; (debugf "job-advance... mode=~s job=~s id=~s status=~s~%" mode job (job-id job) (job-last-status job))
+    (case (job-last-status->kind job)
+      ((exited killed unknown)
+        (void)) ; job finished
+      ((running stopped)
+        (cond
+          ((fx>? (job-pid job) 0)
+            (job-advance/pid mode job))
+          ((sh-multijob? job)
+            (job-advance/multijob mode job))))
+      (else
+        (raise-errorf mode  "job not started yet: ~s" job)))
+    ; returns job status
     (job-id-update! job)))
-
-
-;; Internal function called by (advance-job-or-id) (job-advance/multijob)
-(define (job-advance/any mode job)
-  ; (debugf "job-advance/any > ~s ~s status=~s~%" mode job (job-last-status job))
-  (cond
-    ((job-finished? job)
-      (job-last-status job)) ; job exited, and exit status already available
-    ((not (job-started? job))
-      (raise-errorf mode  "job not started yet: ~s" job))
-    ((fx>? (job-pid job) 0)
-      (job-advance/pid mode job))
-    ((sh-multijob? job)
-      (job-advance/multijob mode job))
-    (#t
-      ; unexpected job type or status, just assume it exited successfully
-      (job-status-set! job (void))
-      (void))))
 
 
 (define %pgid-foreground
@@ -1049,7 +1046,7 @@
             (%pgid-foreground _caller _new-pgid _expected-pgid)))))))
 
 
-;; Internal function called by (job-advance/any)
+;; Internal function called by (job-advance)
 (define (job-advance/pid mode job)
   ; (debugf "job-advance/pid > ~s ~s status=~s~%" mode job (job-last-status job))
   (cond
@@ -1149,12 +1146,12 @@
 
 
 
-;; Internal function called by (job-advance/any)
+;; Internal function called by (job-advance)
 (define (job-advance/multijob mode mj)
   (job-status-set/running! mj)
   (let* ((child (sh-multijob-child-ref mj (multijob-current-child-index mj)))
-         ;; call (job-advance/any) on child
-         (child-status (if (sh-job? child) (job-advance/any mode child) (void)))
+         ;; call (job-advance) on child
+         (child-status (if (sh-job? child) (job-advance mode child) (void)))
          (step-proc (job-step-proc mj)))
     ; (debugf "job-advance/multijob > ~s ~s child=~s child-status=~s~%" mode mj child child-status)
     (cond
@@ -1199,7 +1196,7 @@
   (let ((job (sh-job job-or-id)))
     (if (job-has-status? job '(new))
       (job-last-status job)
-      (advance-job-or-id 'sh-job-status job))))
+      (job-advance 'sh-job-status job))))
 
 
 ;; Continue a job or job-id in background by sending SIGCONT to it.
@@ -1212,7 +1209,7 @@
 ;;   (cons 'stopped signal-name)
 ;;   (cons 'unknown ...)
 (define (sh-bg job-or-id)
-  (advance-job-or-id 'sh-bg job-or-id))
+  (job-advance 'sh-bg job-or-id))
 
 
 ;; Continue a job or job-id by sending SIGCONT to it, then wait for it to exit or stop,
@@ -1228,7 +1225,7 @@
 ;;   upon invocation, sets the job as fg process group.
 ;;   And before returning, restores current shell as fg process group.
 (define (sh-fg job-or-id)
-  (advance-job-or-id 'sh-fg job-or-id))
+  (job-advance 'sh-fg job-or-id))
 
 
 ;; Continue a job or job-id by optionally sending SIGCONT to it,
@@ -1261,7 +1258,7 @@
 
 ;; Same as (sh-wait), but all arguments are mandatory
 (define (sh-wait* job-or-id send-sigcont?)
-  (advance-job-or-id (if send-sigcont? 'sh-sigcont+wait 'sh-wait) job-or-id))
+  (job-advance (if send-sigcont? 'sh-sigcont+wait 'sh-wait) job-or-id))
 
 
 ;; Start a job and wait for it to exit or stop.
@@ -1660,7 +1657,7 @@
           (start/any job (list pgid))
           ; wait for child job to exit, unless it's followed by '&
           (unless (eq? '& (sh-multijob-child-ref mj (fx1+ i)))
-            (set! status (advance-job-or-id 'sh-subshell job))))
+            (set! status (job-advance 'sh-subshell job))))
         #t)) ; keep iterating
     status))
 
