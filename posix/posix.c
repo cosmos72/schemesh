@@ -546,8 +546,10 @@ c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector, ptr close_
 
 /** redirect a single fd as indicated in vector_fds_redirect[i...i+3]. return < 0 on error */
 static int c_fds_redirect_i(ptr vector_fds_redirect, iptr i, ptr close_on_exec) {
+  /* element at i + 3 contains to_bytevector0 or Sfalse  */
   ptr to = Svector_ref(vector_fds_redirect, i + 3);
   if (to == Sfalse) {
+    /* element at i + 2 contains to_fd, string, or closure  */
     to = Svector_ref(vector_fds_redirect, i + 2);
   }
   return c_fd_redirect(Svector_ref(vector_fds_redirect, i + 0),

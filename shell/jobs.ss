@@ -70,8 +70,8 @@
 
 
 ;; return the job-id of a job, or #f if not set
-(define (sh-job-id j)
-  (job-id j))
+(define (sh-job-id job)
+  (job-id job))
 
 ;; Define the record type "cmd"
 (define-record-type
@@ -160,13 +160,13 @@
   (memq (job-status->kind job-status) allowed-list))
 
 
-;; Return #t if (job-last-status j) is a pair whose car is in allowed-list,
+;; Return #t if (job-last-status job) is a pair whose car is in allowed-list,
 ;; otherwise return #f;
 ;;
-;; if (job-last-status j) is (void) and allowed-list also contains 'exited
+;; if (job-last-status job) is (void) and allowed-list also contains 'exited
 ;; then return #t because (void) is a shortcut for '(exited . 0)
-(define (job-has-status? j allowed-list)
-  (job-status-member? (job-last-status j) allowed-list))
+(define (job-has-status? job allowed-list)
+  (job-status-member? (job-last-status job) allowed-list))
 
 
 ;; Return #t if job-status represents a child job status
@@ -198,18 +198,18 @@
 
 ;; set the status of a job and return it.
 ;; if (job-status->kind status) is one of 'exited 'killed 'unknown, also close the job fds
-(define (job-status-set! j status)
+(define (job-status-set! job status)
   (let ((status (job-status-normalize status)))
     (if (job-status-member? status '(running))
-      (job-status-set/running! j)
+      (job-status-set/running! job)
       (begin
-        (%job-last-status-set! j status)
+        (%job-last-status-set! job status)
         (when (job-status-member? status '(exited killed unknown))
-          (job-unmap-fds! j)
-          (let ((fds (job-fds-to-close j)))
+          (job-unmap-fds! job)
+          (let ((fds (job-fds-to-close job)))
             (unless (null? fds)
               (fd-close-list fds)
-              (job-fds-to-close-set! j '()))))
+              (job-fds-to-close-set! job '()))))
         status))))
 
 
@@ -224,15 +224,15 @@
       '(unknown . 0))))
 
 
-(define (job-status-set/running! j)
-  (let* ((id     (job-id j))
-         (status (job-last-status j))
+(define (job-status-set/running! job)
+  (let* ((id     (job-id job))
+         (status (job-last-status job))
          (kind   (job-status->kind status))
          (old-id (if (pair? status) (cdr status) #f)))
     (if (and (eq? 'running status) (eqv? id old-id))
       status
       (let ((new-status (cons 'running id)))
-        (%job-last-status-set! j new-status)
+        (%job-last-status-set! job new-status)
         new-status))))
 
 
@@ -268,18 +268,18 @@
 ;; unset the job-id of a job,
 ;; and remove it from (multijob-children sh-globals).
 ;; Return job status
-(define (job-id-unset! j)
-  (assert* 'job-id-unset! (sh-job? j))
-  (when (job-id j)
+(define (job-id-unset! job)
+  (assert* 'job-id-unset! (sh-job? job))
+  (when (job-id job)
     (let* ((children (multijob-children sh-globals))
            (child-n  (span-length children))
-           (id       (job-id j)))
+           (id       (job-id job)))
       (when (fx<? -1 id child-n)
         (span-set! children id #f)
         (until (or (span-empty? children) (span-back children))
           (span-erase-back! children 1))))
-    (%job-id-set! j #f))
-  (job-last-status j))
+    (%job-id-set! job #f))
+  (job-last-status job))
 
 
 
@@ -287,33 +287,33 @@
 ;; If job has no job-id, assign a job-id to it, by appending it to (multijob-children sh-globals).
 ;; If job status is '(running . #f) update it to '(running . job-id)
 ;; Return updated job status
-(define (job-id-set! j)
-  (assert* 'job-id-set! (sh-job? j))
-  (unless (job-id j)
+(define (job-id-set! job)
+  (assert* 'job-id-set! (sh-job? job))
+  (unless (job-id job)
     (let* ((mjob     sh-globals)
            (children (multijob-children mjob))
            (id       (span-length children))
-           (status   (job-last-status j))
+           (status   (job-last-status job))
            (kind     (if (pair? status) (car status) 'exited)))
-      (span-insert-back! children j)
-      (%job-id-set! j id)
+      (span-insert-back! children job)
+      (%job-id-set! job id)
       ;; replace job status '(running . #f) -> '(running . job-id)
       (when (and (eq? kind 'running) (not (eqv? id (cdr status))))
-        (job-status-set! j (cons 'running id)))))
-  (job-last-status j))
+        (job-status-set! job (cons 'running id)))))
+  (job-last-status job))
 
 
 ;; if job is running or stopped, then create a new job-id for it.
 ;; if job has terminated, clear its job id and close its fds.
 ;; Also replace any job status '(running . #f) -> '(running . job-id)
 ;; Return updated job status.
-(define (job-id-update! j)
-  (let ((status (job-last-status j)))
+(define (job-id-update! job)
+  (let ((status (job-last-status job)))
     (case (job-status->kind status)
       ((running stopped)
-        (job-id-set! j))
+        (job-id-set! job))
       ((exited killed unknown)
-        (job-id-unset! j))
+        (job-id-unset! job))
       (else
         status))))
 
@@ -358,10 +358,10 @@
 ;; in all other cases, path is taken as-is, i.e. it is not normalized
 ;; and is not validated against filesystem contents.
 (define (sh-cwd-set! job-or-id path)
-  (let ((j (sh-job job-or-id)))
-    (if (eq? j sh-globals)
+  (let ((job (sh-job job-or-id)))
+    (if (eq? job sh-globals)
       (sh-cd path)
-      (job-cwd-set! j (if (charspan? path) path (string->charspan* path))))))
+      (job-cwd-set! job (if (charspan? path) path (string->charspan* path))))))
 
 
 
@@ -425,7 +425,7 @@
     dst))
 
 
-;; call (proc j) on given job and each of its
+;; call (proc job) on given job and each of its
 ;; parents. Stops iterating if (proc) returns #f.
 (define (job-parents-iterate job-or-id proc)
   (do ((parent (sh-job job-or-id) (job-parent parent)))
@@ -501,8 +501,8 @@
          (also-unexported? (eq? 'all which))
          (only-exported? (not also-unexported?)))
     (list-iterate jlist
-      (lambda (j)
-        (let ((env (job-env j)))
+      (lambda (job)
+        (let ((env (job-env job)))
           (when (hashtable? env)
             (hashtable-iterate env
               (lambda (cell)
@@ -526,8 +526,8 @@
 
 (define (sh-env* job-or-id name default)
   (job-parents-iterate job-or-id
-    (lambda (j)
-      (let* ((vars (job-env j))
+    (lambda (job)
+      (let* ((vars (job-env job))
              (elem (if (hashtable? vars) (hashtable-ref vars name #f) #f)))
         (when (pair? elem)
           (unless (eq? 'delete (car elem))
@@ -564,8 +564,8 @@
 (define (sh-env-exported? job-or-id name)
   (let ((ret #f))
     (job-parents-iterate job-or-id
-      (lambda (j)
-        (let* ((vars (job-env j))
+      (lambda (job)
+        (let* ((vars (job-env job))
                (elem (if (hashtable? vars) (hashtable-ref vars name #f) #f)))
           (when (pair? elem)
             (set! ret (eq? 'export (car elem)))
@@ -574,12 +574,12 @@
 
 (define (sh-env-export! job-or-id name exported?)
   (assert* 'sh-env-export! (boolean? exported?))
-  (let* ((j (sh-job job-or-id))
+  (let* ((job (sh-job job-or-id))
          ; val may be in a parent environment
-         (val (sh-env j name))
+         (val (sh-env job name))
          (export (if exported? 'export 'private)))
-    ; (job-direct-env j) creates job environment if not yet present
-    (hashtable-set! (job-direct-env j) name (cons export val))))
+    ; (job-direct-env job) creates job environment if not yet present
+    (hashtable-set! (job-direct-env job) name (cons export val))))
 
 ;; combined sh-env! and sh-env-export!
 (define (sh-env-set+export! job-or-id name val exported?)
@@ -637,38 +637,38 @@
 ;;
 ;; we need an additional layer of indirection that keeps track of the job's redirected fds
 ;; and to which (private) fds they are actually mapped to
-(define (job-remap-fds! j)
-  (let* ((n (span-length (job-redirects j))))
+(define (job-remap-fds! job)
+  (let* ((n (span-length (job-redirects job))))
     (unless (fxzero? n)
       (let ((remaps (make-eqv-hashtable n)))
-        (job-fds-to-remap-set! j remaps)
+        (job-fds-to-remap-set! job remaps)
         (do ((i 0 (fx+ i 4)))
             ((fx>? i (fx- n 4)))
-          (job-remap-fd! j i))))))
+          (job-remap-fd! job i))))))
 
 
 ;; called by (job-remap-fds!)
-(define (job-remap-fd! j index)
+(define (job-remap-fd! job index)
   ;; redirects is span of quadruplets (fd mode to-fd-or-path-or-closure bytevector0)
-  (let* ((redirects           (job-redirects j))
-         (fd                  (span-ref redirects index))
-         (direction-ch        (span-ref redirects (fx1+ index)))
-         (to-fd-or-bytevector (remap-to-fd-or-bytevector0 j redirects index))
-         (remap-fd            (sh-fd-allocate)))
-    ; (debugf "fd-redirect fd=~s dir=~s to=~s~%" remap-fd direction-ch to-fd-or-bytevector)
-    (let ((ret (fd-redirect (sh-fd->int remap-fd) direction-ch to-fd-or-bytevector #t))) ; #t close-on-exec?
+  (let* ((redirects            (job-redirects job))
+         (fd                   (span-ref redirects index))
+         (direction-ch         (span-ref redirects (fx1+ index)))
+         (to-fd-or-bytevector0 (job-extract-redirection-to-fd-or-bytevector0 job redirects index))
+         (remap-fd             (sh-fd-allocate)))
+    ; (debugf "fd-redirect fd=~s dir=~s to=~s~%" remap-fd direction-ch to-fd-or-bytevector0)
+    (let ((ret (fd-redirect (sh-fd->int remap-fd) direction-ch to-fd-or-bytevector0 #t))) ; #t close-on-exec?
       (when (< ret 0)
         (sh-fd-release remap-fd)
         (raise-c-errno 'sh-start 'c_fd_redirect ret)))
-    (hashtable-set! (job-fds-to-remap j) fd remap-fd)))
+    (hashtable-set! (job-fds-to-remap job) fd remap-fd)))
 
 
 ;; extract the destination fd or bytevector0 from a redirection
-(define (remap-to-fd-or-bytevector0 j redirects index)
+(define (job-extract-redirection-to-fd-or-bytevector0 job redirects index)
   (or (span-ref redirects (fx+ 3 index))
       (let ((to (span-ref redirects (fx+ 2 index))))
         (if (procedure? to)
-          (let ((temp (if (logbit? 1 (procedure-arity-mask to)) (to j) (to))))
+          (let ((temp (if (logbit? 1 (procedure-arity-mask to)) (to job) (to))))
             (if (fixnum? temp)
               temp
               (text->bytevector0 temp)))
@@ -676,34 +676,32 @@
 
 
 ;; redirect a file descriptor. returns < 0 on error
-;; arguments: fd direction-ch to-fd-or-bytevector close-on-exec?
+;; arguments: fd direction-ch to-fd-or-bytevector0 close-on-exec?
 (define fd-redirect
   (foreign-procedure "c_fd_redirect" (scheme-object scheme-object scheme-object scheme-object) int))
 
 
 ;; return the remapped file descriptor for specified fd,
 ;; or fd itself if no remapping was found
-(define (job-find-fd-remap j fd)
-  (while j
-    (let ((remap-fds (job-fds-to-remap j)))
-      (when remap-fds
-        (let ((remap-fd (hashtable-ref remap-fds fd #f)))
-          (when remap-fd
-            (set! fd (sh-fd->int remap-fd))))))
-    (set! j (job-parent j)))
-  fd)
+(define (job-find-fd-remap job fd)
+  (do ((parent job (job-parent parent)))
+      ((not parent) fd)
+    (let* ((remap-fds (job-fds-to-remap parent))
+           (remap-fd  (and remap-fds (hashtable-ref remap-fds fd #f))))
+      (when remap-fd
+        (set! fd (sh-fd->int remap-fd))))))
 
 
-;; release job's remapped fds and unset (job-fds-to-remap j)
-(define (job-unmap-fds! j)
-  (let ((remap-fds (job-fds-to-remap j)))
+;; release job's remapped fds and unset (job-fds-to-remap job)
+(define (job-unmap-fds! job)
+  (let ((remap-fds (job-fds-to-remap job)))
     (when remap-fds
       (hashtable-iterate remap-fds
         (lambda (cell)
           (let ((fd (cdr cell)))
             (when (sh-fd-release fd)
               (fd-close (sh-fd->int fd))))))
-      (job-fds-to-remap-set! j #f))))
+      (job-fds-to-remap-set! job #f))))
 
 
 ;; NOTE: this is an internal implementation function, use (sh-start) instead.
@@ -754,7 +752,7 @@
       (let* ((process-group-id (job-start-options->process-group-id options))
              (ret (c-spawn-pid
                     argv
-                    (span->vector (job-redirects c))
+                    (job-prepare-c-redirect-vector c)
                     (sh-env->argv c 'exported)
                     process-group-id)))
         (when (< ret 0)
@@ -763,95 +761,144 @@
         (job-pgid-set! c (if (> process-group-id 0) process-group-id ret))))))
 
 
+;; internal function called by (job-start/cmd/spawn)
+;; creates and fills a vector with job's redirections and its parents redirections
+(define (job-prepare-c-redirect-vector job)
+  (let* ((n (job-count-c-redirect-vector job 0))
+         (v (make-vector n)))
+    (do ((parent job (job-parent parent)))
+        ((not parent) v)
+      (set! n (job-fill-c-redirect-vector-norecurse parent v n)))))
+
+
+;; count and return the total number of redirections (* 4) of a job,
+;; including its parents redirections
+(define (job-count-c-redirect-vector job n)
+  (if job
+    ; add job's redirect count to n, and recurse to parent
+    (job-count-c-redirect-vector (job-parent job) (fx+ n (span-length (job-redirects job))))
+    n))
+
+
+;; copy job's redirections to vector v, without recursing to job's parents.
+;; returns (fx- pos (number-of-copied-elements))
+(define (job-fill-c-redirect-vector-norecurse job v end-pos)
+   (let* ((n         (span-length (job-redirects job)))
+          (start-pos (fx- end-pos n)))
+     (do ((index (fx- n 4) (fx- index 4)))
+         ((fx<? index 0) start-pos)
+       (job-fill-c-redirect-vector-at job v index start-pos))))
+
+
+;; copy a single job redirection to vector v
+(define (job-fill-c-redirect-vector-at job v index start-pos)
+  (let* ((redirects     (job-redirects job))
+         (fd            (span-ref redirects index))
+         (direction-ch  (span-ref redirects (fx1+ index)))
+         ;; redirection to file may already be opened on a different file descriptor
+         ;; due to fd remapping
+         (remapped-to   (job-find-fd-remap job fd))
+         (to            (if (fx=? fd remapped-to)
+                          (job-extract-redirection-to-fd-or-bytevector0 job redirects index)
+                          remapped-to)))
+    (vector-set! v start-pos fd)
+    (vector-set! v (fx1+  start-pos) direction-ch)
+    ;; to-fd must be placed at start-pos + 2
+    (vector-set! v (fx+ 2 start-pos) (if (fixnum? to) to #f))
+    ;; to-bytevector0 must be placed at start-pos + 3
+    (vector-set! v (fx+ 3 start-pos) (if (fixnum? to) #f to))))
+
+
 
 ;; the "command" builtin
 (define (sh-builtin-command job prog-and-args options)
   (assert-string-list? 'sh-builtin-command prog-and-args)
+  (assert* 'sh-builtin-command (string=? "command" (car prog-and-args)))
   (job-start/cmd/spawn job (list->argv (cdr prog-and-args)) options)
   (job-last-status job))
 
 
-;; Internal function stored in (job-start-proc j) by (sh-list),
+;; Internal function stored in (job-start-proc job) by (sh-list),
 ;; and called by (sh-start) to actually start the multijob.
 ;;
 ;; Does not redirect file descriptors. Options are ignored.
-(define (job-start/list j options)
+(define (job-start/list job options)
   ;; this runs in the main process, not in a subprocess.
   ;; TODO: how can we redirect file descriptor?
-  (assert* 'sh-list (eq? 'running (job-last-status->kind j)))
-  (assert* 'sh-list (fx=? -1 (multijob-current-child-index j)))
-  (job-remap-fds! j)
+  (assert* 'sh-list (eq? 'running (job-last-status->kind job)))
+  (assert* 'sh-list (fx=? -1 (multijob-current-child-index job)))
+  (job-remap-fds! job)
   ; Do not yet assign a job-id.
-  (job-step/list j (void)))
+  (job-step/list job (void)))
 
 
-;; Internal function stored in (job-start-proc j) by (sh-and),
+;; Internal function stored in (job-start-proc job) by (sh-and),
 ;; and called by (sh-start) to actually start the multijob.
 ;;
 ;; Does not redirect file descriptors. Options are ignored.
-(define (job-start/and j options)
+(define (job-start/and job options)
   ;; this runs in the main process, not in a subprocess.
   ;; TODO: how can we redirect file descriptor?
-  (assert* 'sh-and (eq? 'running (job-last-status->kind j)))
-  (assert* 'sh-and (fx=? -1 (multijob-current-child-index j)))
-  (job-remap-fds! j)
-  (if (span-empty? (multijob-children j))
+  (assert* 'sh-and (eq? 'running (job-last-status->kind job)))
+  (assert* 'sh-and (fx=? -1 (multijob-current-child-index job)))
+  (job-remap-fds! job)
+  (if (span-empty? (multijob-children job))
     ; (sh-and) with zero children -> job completes successfully
-    (job-status-set! j (void))
+    (job-status-set! job (void))
     ; Do not yet assign a job-id.
-    (job-step/and j (void))))
+    (job-step/and job (void))))
 
 
-;; Internal function stored in (job-start-proc j) by (sh-or),
+;; Internal function stored in (job-start-proc job) by (sh-or),
 ;; and called by (sh-start) to actually start the multijob.
 ;;
 ;; Does not redirect file descriptors. Options are ignored.
-(define (job-start/or j options)
+(define (job-start/or job options)
   ;; this runs in the main process, not in a subprocess.
   ;; TODO: how can we redirect file descriptor?
-  (assert* 'sh-or (eq? 'running (job-last-status->kind j)))
-  (assert* 'sh-or (fx=? -1 (multijob-current-child-index j)))
-  (job-remap-fds! j)
-  ; (debugf "job-start/or ~s empty children? = ~s~%" j (span-empty? (multijob-children j)))
-  (if (span-empty? (multijob-children j))
+  (assert* 'sh-or (eq? 'running (job-last-status->kind job)))
+  (assert* 'sh-or (fx=? -1 (multijob-current-child-index job)))
+  (job-remap-fds! job)
+  ; (debugf "job-start/or ~s empty children? = ~s~%" job (span-empty? (multijob-children job)))
+  (if (span-empty? (multijob-children job))
     ; (sh-or) with zero children -> job fails with '(exited . 255)
-    (job-status-set! j '(exited . 255))
+    (job-status-set! job '(exited . 255))
     ; Do not yet assign a job-id.
-    (job-step/or j (void))))
+    (job-step/or job (void))))
 
 
-;; Internal function stored in (job-start-proc j) by (sh-not),
+;; Internal function stored in (job-start-proc job) by (sh-not),
 ;; and called by (sh-start) to actually start the multijob.
 ;;
 ;; Does not redirect file descriptors. Options are ignored.
-(define (job-start/not j options)
+(define (job-start/not job options)
   ;; this runs in the main process, not in a subprocess.
   ;; TODO: how can we redirect file descriptor?
-  (assert* 'sh-not (eq? 'running (job-last-status->kind j)))
-  (assert* 'sh-not (fx=? -1 (multijob-current-child-index j)))
-  (job-remap-fds! j)
+  (assert* 'sh-not (eq? 'running (job-last-status->kind job)))
+  (assert* 'sh-not (fx=? -1 (multijob-current-child-index job)))
+  (job-remap-fds! job)
   ; Do not yet assign a job-id.
-  (job-step/not j (void)))
+  (job-step/not job (void)))
 
 
-;; internal function stored in (job-start-proc j) by (sh-subshell) multijobs
+;; internal function stored in (job-start-proc job) by (sh-subshell) multijobs
 ;;
 ;; Forks a new subshell process in background, i.e. the foreground process group is NOT set
 ;; to the process group of the newly created process.
 ;;
-;; The subshell process will execute the Scheme function (job-step-proc j)
-;; passing the job j as only argument,
+;; The subshell process will execute the Scheme function (job-step-proc job)
+;; passing the job job as only argument,
 ;;
 ;; Options is a list of zero or more of the following:
 ;;   process-group-id: a fixnum, if present and > 0 the new subshell will be inserted
 ;;     into the corresponding process group id - which must already exist.
 (define job-start/subshell
   (let ((c-fork-pid (foreign-procedure "c_fork_pid" (scheme-object int) int)))
-    (lambda (j options)
-      (assert* 'sh-start (procedure? (job-step-proc j)))
+    (lambda (job options)
+      (assert* 'sh-start (procedure? (job-step-proc job)))
       (let* ((process-group-id (job-start-options->process-group-id options))
              (ret (c-fork-pid
-                    (span->vector (job-redirects j))
+                    (span->vector (job-redirects job))
                     process-group-id)))
         (cond
           ((< ret 0) ; fork() failed
@@ -862,30 +909,30 @@
                 (lambda () ; run before body
                   (let ((pid  (get-pid))
                         (pgid (get-pgid 0)))
-                    (job-pid-set!  j pid)
-                    (job-pgid-set! j pgid)
-                    ; this process now "is" the job j => update sh-globals' pid and pgid
+                    (job-pid-set!  job pid)
+                    (job-pgid-set! job pgid)
+                    ; this process now "is" the job job => update sh-globals' pid and pgid
                     (job-pid-set!  sh-globals pid)
                     (job-pgid-set! sh-globals pgid)
                     ; cannot wait on our own process
-                    (job-status-set! j '(unknown . 0))))
+                    (job-status-set! job '(unknown . 0))))
                 (lambda () ; body
-                  ; sh-subshell stores job-run/subshell in (job-step-proc j)
-                  (set! status ((job-step-proc j) j (void))))
+                  ; sh-subshell stores job-run/subshell in (job-step-proc job)
+                  (set! status ((job-step-proc job) job (void))))
                 (lambda () ; run after body, even if it raised a condition
                   (exit-with-job-status status)))))
           ((> ret 0) ; parent
-            (job-pid-set! j ret)
-            (job-pgid-set! j (if (> process-group-id 0) process-group-id ret))))))))
+            (job-pid-set! job ret)
+            (job-pgid-set! job (if (> process-group-id 0) process-group-id ret))))))))
 
 
 ;; Return #t if job was already started, otherwise return #f
-(define (job-started? j)
+(define (job-started? job)
   (or
     ;; a job with valid pid and valid pgid is surely started
-    (and (fx>? (job-pid j) 0) (fx>? (job-pgid j) 0))
+    (and (fx>? (job-pid job) 0) (fx>? (job-pgid job) 0))
     ;; a job with status 'running or 'stopped is started
-    (job-has-status? j '(running stopped))))
+    (job-has-status? job '(running stopped))))
 
 
 ;; Start a cmd or a job.
@@ -895,25 +942,25 @@
 ;; Options is a list of zero or more of the following:
 ;;   process-group-id: a fixnum, if present and > 0 then the new process will be inserted
 ;;   into the corresponding process group id - which must already exist.
-(define (sh-start j . options)
-  (job-id-set! j)
-  (start/any j options))
+(define (sh-start job . options)
+  (job-id-set! job)
+  (start/any job options))
 
 ;; Internal functions called by (sh-start)
-(define (start/any j options)
-  ; (debugf "start/any ~s ~s~%" j options)
-  (when (job-started? j)
-    (if (job-id j)
-      (raise-errorf 'sh-start "job already started with job id ~s" (job-id j))
+(define (start/any job options)
+  ; (debugf "start/any ~s ~s~%" job options)
+  (when (job-started? job)
+    (if (job-id job)
+      (raise-errorf 'sh-start "job already started with job id ~s" (job-id job))
       (raise-errorf 'sh-start "job already started")))
-  (let ((proc (job-start-proc j)))
+  (let ((proc (job-start-proc job)))
     (unless (procedure? proc)
-      (raise-errorf 'sh-start "cannot start job, it has bad or missing job-start-proc: ~s" j))
-    (job-status-set/running! j)
-    (proc j options)) ; ignore value returned by job-start-proc
-  (when (fx>? (job-pid j) 0)
-    (pid->job-set! (job-pid j) j))        ; add job to pid->job table
-  (job-last-status j))
+      (raise-errorf 'sh-start "cannot start job, it has bad or missing job-start-proc: ~s" job))
+    (job-status-set/running! job)
+    (proc job options)) ; ignore value returned by job-start-proc
+  (when (fx>? (job-pid job) 0)
+    (pid->job-set! (job-pid job) job))        ; add job to pid->job table
+  (job-last-status job))
 
 ;; Convert pid-wait-result to a symbolic job-status:
 ;;
@@ -948,27 +995,27 @@
 ;; Common implementation of (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 (define (advance-job-or-id mode job-or-id)
   (assert* 'advance-job-or-id (memq mode '(sh-fg sh-bg sh-wait sh-sigcont+wait sh-subshell sh-job-status)))
-  (let ((j (sh-job job-or-id)))
-    (when (job-has-status? j '(new running stopped))
-      (job-advance/any mode j))
-    (job-id-update! j)))
+  (let ((job (sh-job job-or-id)))
+    (when (job-has-status? job '(new running stopped))
+      (job-advance/any mode job))
+    (job-id-update! job)))
 
 
 ;; Internal function called by (advance-job-or-id) (job-advance/multijob)
-(define (job-advance/any mode j)
-  ; (debugf "job-advance/any > ~s ~s status=~s~%" mode j (job-last-status j))
+(define (job-advance/any mode job)
+  ; (debugf "job-advance/any > ~s ~s status=~s~%" mode job (job-last-status job))
   (cond
-    ((job-has-status? j '(exited killed unknown))
-      (job-last-status j)) ; job exited, and exit status already available
-    ((not (job-started? j))
-      (raise-errorf mode  "job not started yet: ~s" j))
-    ((fx>? (job-pid j) 0)
-      (job-advance/pid mode j))
-    ((sh-multijob? j)
-      (job-advance/multijob mode j))
+    ((job-has-status? job '(exited killed unknown))
+      (job-last-status job)) ; job exited, and exit status already available
+    ((not (job-started? job))
+      (raise-errorf mode  "job not started yet: ~s" job))
+    ((fx>? (job-pid job) 0)
+      (job-advance/pid mode job))
+    ((sh-multijob? job)
+      (job-advance/multijob mode job))
     (#t
       ; unexpected job type or status, just assume it exited successfully
-      (job-status-set! j (void))
+      (job-status-set! job (void))
       (void))))
 
 
@@ -998,61 +1045,61 @@
 
 
 ;; Internal function called by (job-advance/any)
-(define (job-advance/pid mode j)
-  ; (debugf "job-advance/pid > ~s ~s status=~s~%" mode j (job-last-status j))
+(define (job-advance/pid mode job)
+  ; (debugf "job-advance/pid > ~s ~s status=~s~%" mode job (job-last-status job))
   (cond
-    ((job-has-status? j '(exited killed unknown))
-      (job-last-status j)) ; job exited, and exit status already available
-    ((not (job-started? j))
-      (raise-errorf mode "job not started yet: ~s" j))
+    ((job-has-status? job '(exited killed unknown))
+      (job-last-status job)) ; job exited, and exit status already available
+    ((not (job-started? job))
+      (raise-errorf mode "job not started yet: ~s" job))
     (#t
-      (let ((pid  (job-pid j))
-            (pgid (job-pgid j)))
+      (let ((pid  (job-pid job))
+            (pgid (job-pgid job)))
         (if (memq mode '(sh-fg sh-wait sh-sigcont+wait sh-subshell))
           (with-foreground-pgid mode (job-pgid sh-globals) pgid
-            (job-advance/pid/maybe-sigcont mode j pid pgid)
-            (job-advance/pid/wait mode j pid pgid))
+            (job-advance/pid/maybe-sigcont mode job pid pgid)
+            (job-advance/pid/wait mode job pid pgid))
           (begin
-            (job-advance/pid/maybe-sigcont mode j pid pgid)
-            (job-advance/pid/wait mode j pid pgid)))))))
+            (job-advance/pid/maybe-sigcont mode job pid pgid)
+            (job-advance/pid/wait mode job pid pgid)))))))
 
 
 ;; Internal function called by (job-advance/pid)
-(define (job-advance/pid/maybe-sigcont mode j pid pgid)
+(define (job-advance/pid/maybe-sigcont mode job pid pgid)
   (assert* mode (fx>? pid 0))
   (assert* mode (fx>? pgid 0))
   (when (memq mode '(sh-fg sh-bg sh-sigcont+wait))
     ; send SIGCONT to job's process group, if present.
     ; otherwise send SIGCONT to job's process id. Both may raise error
-    ; (debugf "job-advance/pid/sigcont > ~s ~s~%" mode j)
+    ; (debugf "job-advance/pid/sigcont > ~s ~s~%" mode job)
     (pid-kill (if (fx>? pgid 0) (fx- pgid) pid) 'sigcont)))
 
 
 
 ;; Internal function called by (job-advance/pid)
-(define (job-advance/pid/wait mode j pid pgid)
+(define (job-advance/pid/wait mode job pid pgid)
   ; no need to wait for ALL processes in job's process group:
   ; the only case where we spawn multiple processes in the same process group
   ; is a pipe i.e {a | b | c ...} and in such case we separately wait on the process id
   ; of each spawned process
   (let* ((may-block   (if (memq mode '(sh-bg sh-job-status)) 'nonblocking 'blocking))
-         (wait-status (pid-wait->job-status (pid-wait (job-pid j) may-block)))
+         (wait-status (pid-wait->job-status (pid-wait (job-pid job) may-block)))
          (kind        (job-status->kind wait-status)))
-    ; (debugf "job-advance/pid/wait > ~s ~s wait-status=~s~%" mode j wait-status)
+    ; (debugf "job-advance/pid/wait > ~s ~s wait-status=~s~%" mode job wait-status)
     ; if may-block is 'non-blocking, wait-status may be '(running . #f)
     ; indicating job status did not change i.e. it's (expected to be) still running
     (case kind
       ((running)
         ; if wait-status is '(running . #f), try to return '(running . job-id)
-        (job-last-status j))
+        (job-last-status job))
       ((exited killed unknown)
         ; job exited, clean it up in case user wants to later respawn it
-        (pid->job-delete! (job-pid j))
-        (job-pid-set!  j -1)
-        (job-pgid-set! j -1)
-        (job-status-set! j wait-status)
+        (pid->job-delete! (job-pid job))
+        (job-pid-set!  job -1)
+        (job-pgid-set! job -1)
+        (job-status-set! job wait-status)
         ;; returns job status
-        (job-id-unset! j))
+        (job-id-unset! job))
       ((stopped)
         ; process is stopped.
         ; if mode is sh-wait or sh-sigcont+wait, call (break)
@@ -1061,29 +1108,29 @@
         (if (memq mode '(sh-wait sh-sigcont+wait sh-subshell))
           (begin
             (when (memq mode '(sh-wait sh-sigcont+wait))
-              (job-advance/pid/break mode j pid pgid))
-            (job-advance/pid/wait mode j pid pgid))
+              (job-advance/pid/break mode job pid pgid))
+            (job-advance/pid/wait mode job pid pgid))
           (begin
-            (job-status-set! j wait-status)
+            (job-status-set! job wait-status)
             wait-status)))
       (else
-        (raise-errorf mode "job not started yet: ~s" j)))))
+        (raise-errorf mode "job not started yet: ~s" job)))))
 
 
 ;; Internal function called by (job-advance/pid/wait)
 ;; when job is stopped in mode 'sh-wait or 'sh-sigcont+wait:
 ;; call (break) then send 'sigcont to job
 ;; if (break) raises an exception or resets scheme, then send 'sigint to job
-(define (job-advance/pid/break mode j pid pgid)
+(define (job-advance/pid/break mode job pid pgid)
   (let ((break-returned-normally? #f)
         (global-pgid (job-pgid sh-globals)))
     (dynamic-wind
       (lambda () ; before body
         (%pgid-foreground mode pgid global-pgid))
       (lambda () ; body
-        (job-id-set! j)
-        (format #t "; job ~s pid ~s stopped        " (job-id j) pid)
-        (sh-job-display j)
+        (job-id-set! job)
+        (format #t "; job ~s pid ~s stopped        " (job-id job) pid)
+        (sh-job-display job)
         (put-char (current-output-port) #\newline)
         (break)
         (set! break-returned-normally? #t))
@@ -1144,10 +1191,10 @@
 ;;
 ;; Note: this function also non-blocking checks if job status changed.
 (define (sh-job-status job-or-id)
-  (let ((j (sh-job job-or-id)))
-    (if (job-has-status? j '(new))
-      (job-last-status j)
-      (advance-job-or-id 'sh-job-status j))))
+  (let ((job (sh-job job-or-id)))
+    (if (job-has-status? job '(new))
+      (job-last-status job)
+      (advance-job-or-id 'sh-job-status job))))
 
 
 ;; Continue a job or job-id in background by sending SIGCONT to it.
@@ -1409,8 +1456,8 @@
     mj))
 
 
-(define (assert-is-job who j)
-  (assert* who (sh-job? j)))
+(define (assert-is-job who job)
+  (assert* who (sh-job? job)))
 
 ;; Create a multijob to later start it. Each element in children-jobs must be a sh-job or subtype.
 
@@ -1434,9 +1481,9 @@
 ;; Each argument must be a sh-job or subtype, possibly followed by a symbol ; &
 (define (sh-list . children-jobs-with-colon-ampersand)
   (apply make-multijob 'sh-list
-    (lambda (caller j) ; validate-job-proc
-      (unless (job-terminator? j)
-        (assert* caller (sh-job? j))))
+    (lambda (caller job) ; validate-job-proc
+      (unless (job-terminator? job)
+        (assert* caller (sh-job? job))))
     job-start/list
     job-step/list
     children-jobs-with-colon-ampersand))
@@ -1446,9 +1493,9 @@
 ;; Each argument must be a sh-job or subtype, possibly followed by a symbol ; &
 (define (sh-subshell . children-jobs-with-colon-ampersand)
   (apply make-multijob 'sh-subshell
-    (lambda (caller j) ; validate-job-proc
-      (unless (job-terminator? j)
-        (assert* caller (sh-job? j))))
+    (lambda (caller job) ; validate-job-proc
+      (unless (job-terminator? job)
+        (assert* caller (sh-job? job))))
     job-start/subshell
     job-run/subshell ; executed in child process
     children-jobs-with-colon-ampersand))
@@ -1602,15 +1649,15 @@
     (get-string)))
 
 
-(define (job-display/any j port outer-precedence)
+(define (job-display/any job port outer-precedence)
   (cond
-    ((sh-multijob? j) (job-display/multijob j port outer-precedence))
-    ((sh-cmd? j)      (job-display/cmd j port))
+    ((sh-multijob? job) (job-display/multijob job port outer-precedence))
+    ((sh-cmd? job)      (job-display/cmd job port))
     (#t               (put-string port "???"))))
 
 
-(define (job-display/multijob j port outer-precedence)
-  (let* ((kind (multijob-kind j))
+(define (job-display/multijob job port outer-precedence)
+  (let* ((kind (multijob-kind job))
          (precedence
            (case kind
              ((sh-or)   precedence-or)
@@ -1625,7 +1672,7 @@
              (else      " "))))
     (when (fx<=? precedence outer-precedence)
       (put-char port #\{))
-    (span-iterate (multijob-children j)
+    (span-iterate (multijob-children job)
       (lambda (i child)
         (unless (fxzero? i)
           (put-string port separator))
@@ -1636,8 +1683,8 @@
       (put-char port #\}))))
 
 
-(define (job-display/cmd j port)
-  (do ((tail (cmd-arg-list j) (cdr tail))
+(define (job-display/cmd job port)
+  (do ((tail (cmd-arg-list job) (cdr tail))
        (first? #t #f))
       ((null? tail))
     (unless first?
@@ -1646,11 +1693,11 @@
       (if (string-is-shell-identifier? arg)
         (put-string port arg)
         (put-datum  port arg))))
-  (job-display/redirects j port))
+  (job-display/redirects job port))
 
 
-(define (job-display/redirects j port)
-  (let ((redirects (job-redirects j)))
+(define (job-display/redirects job port)
+  (let ((redirects (job-redirects job)))
     (do ((i 0 (fx+ i 4))
          (n (span-length redirects)))
         ((fx>? (fx+ i 4) n))
@@ -1710,27 +1757,27 @@
     (get-string)))
 
 
-(define (job-write/any j port)
+(define (job-write/any job port)
   (cond
-    ((sh-multijob? j) (job-write/multijob j port))
-    ((sh-cmd? j)      (job-write/cmd j port))
-    (#t               (put-string port "???"))))
+    ((sh-multijob? job) (job-write/multijob job port))
+    ((sh-cmd? job)      (job-write/cmd job port))
+    (#t                 (put-string port "???"))))
 
 
-(define (job-write/multijob j port)
-  (let ((kind (multijob-kind j)))
+(define (job-write/multijob job port)
+  (let ((kind (multijob-kind job)))
     (cond
-      ((span-empty? (job-redirects j))
+      ((span-empty? (job-redirects job))
         (put-char port #\()
         (display kind port)
-        (job-write/children j port)
+        (job-write/children job port)
         (put-char port #\)))
       (#t
-        (job-write/multijob* j port)))))
+        (job-write/multijob* job port)))))
 
 
-(define (job-write/children j port)
-  (span-iterate (multijob-children j)
+(define (job-write/children job port)
+  (span-iterate (multijob-children job)
     (lambda (i child)
       (if (symbol? child)
         (put-string port " '")
@@ -1738,27 +1785,27 @@
       (put-datum port child))))
 
 
-(define (job-write/multijob* j port)
+(define (job-write/multijob* job port)
   (put-string port "(sh-redirect! (")
-  (display (multijob-kind j) port)
-  (job-write/children j port)
+  (display (multijob-kind job) port)
+  (job-write/children job port)
   (put-string port ")")
-  (job-write/redirects j port)
+  (job-write/redirects job port)
   (put-string port ")"))
 
 
-(define (job-write/cmd j port)
-  (put-string port (if (span-empty? (job-redirects j)) "(sh-cmd" "(sh-cmd*"))
-  (list-iterate (cmd-arg-list j)
+(define (job-write/cmd job port)
+  (put-string port (if (span-empty? (job-redirects job)) "(sh-cmd" "(sh-cmd*"))
+  (list-iterate (cmd-arg-list job)
     (lambda (arg)
       (put-char port #\space)
       (put-datum port arg)))
-  (job-write/redirects j port)
+  (job-write/redirects job port)
   (put-string port ")"))
 
 
-(define (job-write/redirects j port)
-  (let ((redirects (job-redirects j)))
+(define (job-write/redirects job port)
+  (let ((redirects (job-redirects job)))
     (do ((i 0 (fx+ i 4))
          (n (span-length redirects)))
         ((fx>? (fx+ i 4) n))
