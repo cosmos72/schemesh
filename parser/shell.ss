@@ -392,13 +392,15 @@
       ((eof parser) value)
       ((lparen)
         ; switch to Scheme parser until corresponding )
+        ; also parse optional redirections after (...)
         (let ((other-parse (parser-parse (get-parser ctx 'scheme 'parse-shell))))
-          (other-parse ctx)))
+          (parse-shell-redirections ctx (other-parse ctx))))
       ((lbrack lbrace)
-        ; consume { or [
-        (parsectx-read-char ctx)
+        (parsectx-read-char ctx) ; consume { or [
         ; read a shell list surrounded by {...} or [...]
-        (parse-shell-list ctx type '()))
+        ; also parse optional redirections after {...} or [...]
+        (let ((ret (parse-shell-list ctx type '())))
+          (parse-shell-redirections ctx ret)))
       (else
         ; read a shell form
         (let-values (((value type) (lex-shell ctx 'equal-is-operator?)))
@@ -507,6 +509,49 @@
           (set! type type-i))))
     ; shell form is complete, return it
     (if reverse? (reverse! ret) ret)))
+
+
+;; Read shell redirections from textual input port and append them to form
+(define (parse-shell-redirections ctx form)
+  (let* ((redirs '())
+         (again? #t))
+    (while again?
+      (parsectx-skip-whitespace ctx #f) ; don't skip newlines
+       (let ((ch (parsectx-peek-char ctx)))
+          (if (and (char? ch)
+                   (or (char=? #\< ch)
+                       (char=? #\> ch)
+                       (char<=? #\0 ch #\9)))
+            (set! redirs (parse-shell-redirection ctx redirs))
+            (set! again? #f))))
+    (if (null? redirs)
+      form
+      (cons 'shell (cons form (reverse! redirs))))))
+
+
+;; Read a two- or three- argument shell redirection from textual input port and prefix it to redirs
+(define (parse-shell-redirection ctx redirs)
+  (let-values (((value type) (lex-shell ctx #f))) ; equal-is-operator? = #f
+    (if (eq? 'integer type)
+      (parse-shell-redirection2 ctx (cons value redirs))
+      (parse-shell-redirection1 ctx (cons value redirs)))))
+
+
+;; Read a two-argument shell redirection from textual input port and prefix it to redirs
+(define (parse-shell-redirection2 ctx redirs)
+  (let ((ch (parsectx-peek-char ctx)))
+    (if (and (char? ch)
+             (or (char=? #\< ch)
+                 (char=? #\> ch)))
+      (let-values (((value type) (lex-shell ctx #f))) ; equal-is-operator? = #f
+        (parse-shell-redirection1 ctx (cons value redirs)))
+      redirs)))
+
+
+;; Read the last argument of a shell redirection from textual input port and prefix it to redirs
+(define (parse-shell-redirection1 ctx redirs)
+  (let-values (((value type) (lex-shell ctx #f))) ; equal-is-operator? = #f
+    (cons value redirs)))
 
 
 ;; Read shell forms from textual input port 'in' until a token } or ] or )

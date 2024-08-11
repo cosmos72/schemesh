@@ -533,11 +533,13 @@ static const testcase tests[] = {
      "(list '#(a 1.0 2/3) #(d d) #vu8(1 2 3) #vu8(9 9 9 9) #vfx(-1 0 2) #vfx(4 4 4))"},
     /* ------------------------ parser shell -------------------------------- */
     {"(parse-shell (make-parsectx-from-string \"\")))", "#!eof"},
-    {"(parse-shell* (make-parsectx-from-string \"{}\"))", "(shell)"},
+    {"(parse-shell* (make-parsectx-from-string \"{}\"))", /* */
+     "(shell)"},
     {"(parse-shell* (make-parsectx-from-string \"ls -l>/dev/null&\"))\n",
      "(shell ls -l > /dev/null &)"},
-    /* (parse-shell*) stops after {} */
-    {"(parse-shell* (make-parsectx-from-string \"{} </dev/null 2>&1\"))", "(shell)"},
+    /* (parse-shell*) also parses redirections after {} */
+    {"(parse-shell* (make-parsectx-from-string \"{} </dev/null 2>&1\"))",
+     "(shell (shell) < /dev/null 2 >& 1)"},
     {"(parse-shell* (make-parsectx-from-string \"echo  foo  bar|wc -l\"))",
      "(shell echo foo bar | wc -l)"},
     {"(parse-shell* (make-parsectx-from-string \"echo  foo  bar|wc -l ; \"))",
