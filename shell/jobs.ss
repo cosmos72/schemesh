@@ -295,9 +295,11 @@
       (when (fx<? -1 id child-n)
         (span-set! children id #f)
         (until (or (span-empty? children) (span-back children))
-          (span-erase-back! children 1))))
-    (%job-id-set! job #f))
+          (span-erase-back! children 1)))
+      (job-display-summary job)
+      (%job-id-set! job #f)))
   (job-last-status job))
+
 
 
 
@@ -307,18 +309,27 @@
 ;; Return updated job status
 (define (job-id-set! job)
   (assert* 'job-id-set! (sh-job? job))
-  (let* ((id (or (job-id job)
-                 (let* ((children (multijob-children sh-globals))
-                        (id       (span-length children)))
-                   (span-insert-back! children job)
-                   (%job-id-set! job id)
-                   id)))
+  (let* ((old-id (job-id job))
+         (id     (or old-id (%job-id-assign! job)))
          (status (job-last-status job))
          (kind   (job-status->kind status)))
     (when (and (eq? kind 'running) (not (eqv? id (cdr status))))
       ;; replace job status '(running . #f) -> '(running . job-id)
-      (job-status-set! job (cons 'running id))))
+      (job-status-set! job (cons 'running id)))
+    (unless (eqv? id old-id)
+      (job-display-summary job)))
   (job-last-status job))
+
+
+;; Assumes job has no job-id, and assigns a job-id to it, by appending it to (multijob-children sh-globals).
+;; Return job-id
+(define (%job-id-assign! job)
+  (let* ((children (multijob-children sh-globals))
+         (id       (span-length children)))
+    (span-insert-back! children job)
+    (%job-id-set! job id)
+    id))
+
 
 
 ;; if job is running or stopped, then create a new job-id for it.
@@ -1101,11 +1112,11 @@
       ((exited killed unknown)
         ; job exited, clean it up in case user wants to later respawn it
         (pid->job-delete! (job-pid job))
+        (job-status-set! job wait-status)
+        (job-id-unset! job) ; may show job summary
         (job-pid-set!  job -1)
         (job-pgid-set! job -1)
-        (job-status-set! job wait-status)
-        ;; returns job status
-        (job-id-unset! job))
+        wait-status)
       ((stopped)
         ; process is stopped.
         ; if mode is sh-wait or sh-sigcont+wait, call (break)
@@ -1135,9 +1146,6 @@
         (%pgid-foreground mode pgid global-pgid))
       (lambda () ; body
         (job-id-set! job)
-        (format #t "; job ~s pid ~s stopped        " (job-id job) pid)
-        (sh-job-display job)
-        (put-char (current-output-port) #\newline)
         (break)
         (set! break-returned-normally? #t))
       (lambda ()
@@ -1271,7 +1279,7 @@
 ;;
 ;; Return job status, possible values are the same as (sh-fg)
 (define (sh-run/i job . options)
-  (apply sh-start job options)
+  (start/any job options)
   (sh-fg job))
 
 
@@ -1282,7 +1290,7 @@
 ;;
 ;; Return job status, possible values are the same as (sh-wait)
 (define (sh-run job . options)
-  (apply sh-start job options)
+  (start/any job options)
   (sh-wait job))
 
 
@@ -1312,7 +1320,7 @@
           ; add temporarary redirection 1 >& write-fd
           (sh-redirect! job 1 '>& write-fd))
         (lambda ()
-          (apply sh-start job options)
+          (start/any job options)
           ; close our copy of write-fd: needed to detect eof on read-fd
           (fd-close write-fd)
           (set! write-fd #f)
@@ -1679,6 +1687,23 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(define (job-display-summary job)
+  (let* ((id     (job-id job))
+         (pid    (job-pid job))
+         (job-status (job-last-status job))
+         (status (if (sh-ok? job-status) '(exited . 0) job-status))
+         (port   (current-output-port)))
+    (if id
+      (if (fx>=? pid 0)
+        (format port "; job ~s pid ~s ~s\t    " id pid status)
+        (format port "; job ~s ~s\t    "        id status))
+      (if (fx>=? pid 0)
+        (format port "; job pid ~s ~s\t    " pid status)
+        (format port "; job ~s\t    "        status)))
+    (sh-job-display job port)
+    (put-char port #\newline)))
+
+
 (define precedence-lowest  0)
 (define precedence-list    1)
 (define precedence-or      2)
@@ -1711,7 +1736,7 @@
   (cond
     ((sh-multijob? job) (job-display/multijob job port outer-precedence))
     ((sh-cmd? job)      (job-display/cmd job port))
-    (#t               (put-string port "???"))))
+    (#t                 (put-string port "???"))))
 
 
 (define (job-display/multijob job port outer-precedence)
