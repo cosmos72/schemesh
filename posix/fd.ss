@@ -13,7 +13,7 @@
   (import
     (rnrs)
     (only (chezscheme) foreign-procedure void)
-    (only (schemesh bootstrap)       assert* raise-errorf until)
+    (only (schemesh bootstrap)       assert* raise-errorf while)
     (schemesh containers bytespan)
     (only (schemesh containers misc) list-iterate)
     (only (schemesh conversions)     text->bytevector0))
@@ -66,22 +66,30 @@
           (void)
           (raise-c-errno 'fd-dup2 'dup2 ret))))))
 
+
 ;; read from fd until end-of-file.
 ;; return read bytes as a bytespan
 (define (fd-read-until-eof fd)
-  (let ((bsp (make-bytespan 0))
-        (eof? #f))
-    (until eof?
-      (bytespan-reserve-back! bsp 4096)
-      (let* ((beg (bytespan-peek-beg bsp))
-             (end (bytespan-peek-end bsp))
-             (cap (bytespan-capacity-back bsp))
-             (n   (fd-read fd (bytespan-peek-data bsp) end (fx+ beg cap))))
-        (if (fx>? n 0)
-          (bytespan-resize-back! bsp (fx+ (fx- end beg) n))
-          (set! eof? #t))))
+  (let ((bsp (make-bytespan 0)))
+    (while (fx>? (fd-read-some fd bsp) 0))
     bsp))
 
+
+;; read some bytes from fd and append them to specified bytespan
+;; return number of bytes read
+(define (fd-read-some fd bsp)
+  (bytespan-reserve-back! bsp (fx+ 4096 (bytespan-length bsp)))
+  (let* ((beg (bytespan-peek-beg bsp))
+         (end (bytespan-peek-end bsp))
+         (cap (bytespan-capacity-back bsp))
+         (n   (fd-read fd (bytespan-peek-data bsp) end (fx+ beg cap))))
+     (when (fx>? n 0)
+       (bytespan-resize-back! bsp (fx+ (fx- end beg) n)))
+     n))
+
+
+;; read some bytes from fd and copy them into bytevector
+;; return number of bytes read
 (define fd-read
   (let ((c-fd-read (foreign-procedure "c_fd_read" (int ptr iptr iptr) iptr)))
     (lambda (fd bytevector-result start end)

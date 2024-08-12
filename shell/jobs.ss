@@ -159,6 +159,14 @@
 (define (job-status-member? job-status allowed-list)
   (memq (job-status->kind job-status) allowed-list))
 
+;; Return #t if job-status is started, otherwise return #f
+(define (job-status-started? job-status)
+  (job-status-member? job-status '(running stopped)))
+
+;; Return #t if job-status is finished, otherwise return #f
+(define (job-status-finished? job-status)
+  (job-status-member? job-status '(exited killed unknown)))
+
 
 ;; Return #t if (job-last-status job) is a pair whose car is in allowed-list,
 ;; otherwise return #f;
@@ -167,6 +175,16 @@
 ;; then return #t because (void) is a shortcut for '(exited . 0)
 (define (job-has-status? job allowed-list)
   (job-status-member? (job-last-status job) allowed-list))
+
+;; Return #t if job was already started, otherwise return #f
+(define (job-started? job)
+  (job-status-started? (job-last-status job)))
+
+;; Return #t if job has already finished, otherwise return #f
+(define (job-finished? job)
+  (job-status-finished? (job-last-status job)))
+
+
 
 
 ;; Return #t if job-status represents a child job status
@@ -926,18 +944,6 @@
             (job-pgid-set! job (if (> process-group-id 0) process-group-id ret))))))))
 
 
-;; Return #t if job was already started, otherwise return #f
-(define (job-started? job)
-  (or
-    ;; a job with valid pid and valid pgid is surely started
-    (and (fx>? (job-pid job) 0) (fx>? (job-pgid job) 0))
-    ;; a job with status 'running or 'stopped is started
-    (job-has-status? job '(running stopped))))
-
-
-;; Return #t if job has already finished, otherwise return #f
-(define (job-finished? job)
-  (job-has-status? job '(exited killed unknown)))
 
 
 ;; Start a cmd or a job and return immediately, without waiting for it to finish.
@@ -1544,11 +1550,11 @@
         ; start next child job
         (multijob-current-child-index-set! mj idx)
         (let ((child-status (start/any child '())))
-          (when (job-status-member? child-status '(exited killed unknown))
+          (when (job-status-finished? child-status)
             ; child job already finished, iterate
             (job-step/and mj child-status))))
       (begin
-        ; previous child failed, or end of children
+        ; previous child failed, or interrupted, or end of children
         (multijob-current-child-index-set! mj -1)
         (job-status-set! mj prev-child-status)))))
 
@@ -1559,16 +1565,18 @@
 (define (job-step/or mj prev-child-status)
   (let* ((idx     (fx1+ (multijob-current-child-index mj)))
          (child   (sh-multijob-child-ref mj idx)))
-    (if (and (not (sh-ok? prev-child-status)) (sh-job? child))
+    (if (and (not (sh-ok? prev-child-status))
+             (not (job-status-ends-multijob? prev-child-status))
+             (sh-job? child))
       (begin
         ; start next child job
         (multijob-current-child-index-set! mj idx)
         (let ((child-status (start/any child '())))
-          (when (job-status-member? child-status '(exited killed unknown))
+          (when (job-status-finished? child-status)
             ; child job already finished, iterate
             (job-step/or mj child-status))))
       (begin
-        ; previous child successful, or end of children
+        ; previous child successful, or interrupted, or end of children
         (multijob-current-child-index-set! mj -1)
         (job-status-set! mj prev-child-status)))))
 
@@ -1587,56 +1595,64 @@
         ; start child job
         (multijob-current-child-index-set! mj idx)
         (let ((child-status (start/any child '())))
-          (when (job-status-member? child-status '(exited killed unknown))
+          (when (job-status-finished? child-status)
             ; child job already finished, iterate
             (job-step/not mj child-status))))
       (begin
         ; child job exited, negate its exit status
         (multijob-current-child-index-set! mj -1)
-        (job-status-set! mj (if (sh-ok? prev-child-status) '(exited . 1) (void)))))))
+        (job-status-set! mj
+          (cond
+            ((sh-ok? prev-child-status) '(exited . 1))
+            ((job-status-ends-multijob? prev-child-status) prev-child-status)
+            (#t (void))))))))
 
 
 
 ;; Run first or next child job in a multijob containing a sequence of children jobs optionally followed by & ;
 ;; Used by (sh-list), implements runtime behavior of shell syntax foo; bar & baz
 (define (job-step/list mj prev-child-status)
-  (let* ((idx     (fx1+ (multijob-current-child-index mj)))
-         (child-n (span-length (multijob-children mj)))
-         (done?   #f))
+  (let* ((idx      (fx1+ (multijob-current-child-index mj)))
+         (child-n  (span-length (multijob-children mj)))
+         (iterate? #t)
+         (interrupted? #f))
     ; (debugf "job-step/list > ~s idx=~s prev-child-status=~s~%" mj (fx1- idx) prev-child-status)
     (assert* 'job-step/list (job-status-member? prev-child-status '(exited killed unknown)))
     ; idx = 0 if called by (job-start/list)
     (assert* 'job-step/list (fx>=? idx 0))
-    (until (or done? (fx>? idx child-n))
+    (while (and iterate? (not interrupted?) (fx<=? idx child-n))
       (multijob-current-child-index-set! mj idx)
       (let ((child (sh-multijob-child-ref mj idx)))
         ; (debugf "job-step-list status = ~s, start child ~s = ~s~%" (job-last-status mj) idx child)
         (when (sh-job? child)
           ; start next child job
           (let* ((child-status (start/any child '()))
-                 (child-started? (job-status-member? child-status '(running stopped))))
+                 (child-started? (job-status-started? child-status)))
             ; iterate on subsequent child jobs in two cases:
             ; if child job is followed by '&
             ; if child job has already finished
-            (if (eq? '& (sh-multijob-child-ref mj idx))
+            (if (eq? '& (sh-multijob-child-ref mj (fx1+ idx)))
               ; run child job asynchronously
               (when child-started?
                 ; child job is running or stopped, assign a job-id to it
                 (job-id-set! child))
               ; run child job synchronously:
-              (if child-started?
-                ; stop iterating if child job is still running or is stopped
-                (set! done? #t)
-                ; remember exit status of last sync child
-                (set! prev-child-status child-status))))))
-      ; in any case, advance idx
+              (begin
+                (set! interrupted? (job-status-ends-multijob? child-status))
+                (if child-started?
+                  ; stop iterating if child job is still running or is stopped
+                  (set! iterate? #f)
+                  ; remember exit status of last sync child, and keep iterating
+                  (set! prev-child-status child-status)))))))
+      ; in any case, advance idx after each iteration
       (set! idx (fx1+ idx)))
-    (when (and (fx>? idx child-n)
-               (job-status-member? prev-child-status '(exited killed unknown)))
-      ; end of children reached. propagate status of last sync child
+    (when (or interrupted?
+              (and (fx>? idx child-n)
+                   (job-status-finished? prev-child-status)))
+      ; end of children reached, or sync child interrupted.
+      ; propagate status of last sync child
       (multijob-current-child-index-set! mj -1)
-      (job-status-set! mj prev-child-status)
-      (set! done? #t))))
+      (job-status-set! mj prev-child-status))))
 
 
 
