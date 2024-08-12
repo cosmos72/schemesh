@@ -27,8 +27,8 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) break display-string foreign-procedure format fx1+ fx1-
-                       inspect logand logbit? make-format-condition parameterize
-                       procedure-arity-mask record-writer reverse! void)
+                       inspect logand logbit? make-format-condition open-fd-output-port
+                       parameterize procedure-arity-mask record-writer reverse! void)
     (only (schemesh bootstrap) assert* debugf raise-errorf until while)
     (schemesh containers)
     (schemesh conversions)
@@ -452,6 +452,18 @@
         (when (sh-job? job)
           (span-insert-back! dst (cons job-id job)))))
     dst))
+
+;; the "jobs" builtin: list currently running jobs
+(define (sh-builtin-jobs job prog-and-args options)
+  (assert-string-list? 'sh-builtin-jobs prog-and-args)
+  (let ((src (multijob-children sh-globals)))
+    (unless (span-empty? src)
+      ;; do NOT close port, it would close the fd!
+      (let ((port (open-fd-output-port (sh-fd-stdout) (buffer-mode line) transcoder-utf8)))
+        (span-iterate src
+          (lambda (job-id job)
+            (when (sh-job? job)
+              (job-display-summary* job port))))))))
 
 
 ;; call (proc job) on given job and each of its
@@ -1110,7 +1122,7 @@
         ; if wait-status is '(running . #f), try to return '(running . job-id)
         (job-last-status job))
       ((exited killed unknown)
-        ; job exited, clean it up in case user wants to later respawn it
+        ; job exited, clean it up. Also allows user to later start it again.
         (pid->job-delete! (job-pid job))
         (job-status-set! job wait-status)
         (job-id-unset! job) ; may show job summary
@@ -1687,19 +1699,26 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (job-display-summary job)
-  (let* ((id     (job-id job))
+
+(define job-display-summary
+  (case-lambda
+    ((job-or-id)      (job-display-summary* job-or-id (current-output-port)))
+    ((job-or-id port) (job-display-summary* job-or-id port))))
+
+
+(define (job-display-summary* job-or-id port)
+  (let* ((job    (sh-job job-or-id))
+         (id     (job-id job))
          (pid    (job-pid job))
          (job-status (job-last-status job))
-         (status (if (sh-ok? job-status) '(exited . 0) job-status))
-         (port   (current-output-port)))
+         (status (if (sh-ok? job-status) '(exited . 0) job-status)))
     (if id
       (if (fx>=? pid 0)
         (format port "; job ~s pid ~s ~s\t    " id pid status)
-        (format port "; job ~s ~s\t    "        id status))
+        (format port "; job ~s          ~s\t    " id status))
       (if (fx>=? pid 0)
         (format port "; job pid ~s ~s\t    " pid status)
-        (format port "; job ~s\t    "        status)))
+        (format port "; job          ~s\t    " status)))
     (sh-job-display job port)
     (put-char port #\newline)))
 
@@ -1931,6 +1950,7 @@
     ; additional builtins
     (hashtable-set! t "cd"      sh-builtin-cd)
     (hashtable-set! t "command" sh-builtin-command)
+    (hashtable-set! t "jobs"    sh-builtin-jobs)
     (hashtable-set! t "pwd"     sh-builtin-pwd)))
 
 

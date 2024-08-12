@@ -9,7 +9,7 @@
   (export
     display-condition* display-any display-bytevector0 write-bytevector0
     any->bytevector any->bytevector0 bytevector->bytevector0 text->bytevector0
-    any->string argv->list list->argv string-hashtable->argv
+    any->string argv->list list->argv string-hashtable->argv transcoder-utf8
     eval->bytevector)
   (import
     (rnrs)
