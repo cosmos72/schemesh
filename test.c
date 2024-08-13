@@ -521,73 +521,16 @@ static const testcase tests[] = {
      "      (string->charline* \"3.45e3 . #\\\\m\\n)\"))))",
      "(urehg* (a quote b) 123450.0 . m)"},
     /* ------------------------ parser scheme ------------------------------- */
-    {"(parse-scheme* (string->parsectx"
+    {"(parse-scheme1 (string->parsectx"
      "  \"(foo bar) '(a b)\"))",
      "(foo bar)"},
-    {"(parse-scheme* (string->parsectx"
+    {"(parse-scheme1 (string->parsectx"
      "  \"(a (b c . d) . e)\"))",
      "(a (b c . d) . e)"},
-    {"(parse-scheme* (string->parsectx"
+    {"(parse-scheme1 (string->parsectx"
      "  \"(list #| '\\\" . #| ,`@# |# |#" /* nested block comments */
      "      '#(a 1.0 2/3) #2(d) #vu8(1 2 3) #4vu8(9) #vfx(-1 0 2) #3vfx(4))\"))",
      "(list '#(a 1.0 2/3) #(d d) #vu8(1 2 3) #vu8(9 9 9 9) #vfx(-1 0 2) #vfx(4 4 4))"},
-    /* ------------------------ parser shell -------------------------------- */
-    {"(parse-shell (string->parsectx \"\")))", "#!eof"},
-    {"(parse-shell* (string->parsectx \"{}\"))", /* */
-     "(shell)"},
-    {"(parse-shell* (string->parsectx \"ls -l>/dev/null&\"))\n", "(shell ls -l > /dev/null &)"},
-    /* (parse-shell*) also parses redirections after {} */
-    {"(parse-shell* (string->parsectx \"{} <log 2>&1\"))", "(shell (shell) < log 2 >& 1)"},
-    {"(parse-shell* (string->parsectx \"echo  foo  bar|wc -l\"))", "(shell echo foo bar | wc -l)"},
-    {"(parse-shell* (string->parsectx \"echo  foo  bar|wc -l ; \"))",
-     "(shell echo foo bar | wc -l ;)"},
-    {"(parse-shell* (string->parsectx \"{;echo  foo  bar|wc -l; ; }\"))",
-     "(shell ; echo foo bar | wc -l ; ;)"},
-    {"(parse-shell* (string->parsectx \"{echo|{cat;{true}\n}&}\"))",
-     "(shell echo | (shell cat ; (shell true) ;) &)"},
-    {"(parse-shell* (string->parsectx \"{{foo} </dev/null 2>&1 }\"))",
-     "(shell (shell foo) < /dev/null 2 >& 1)"},
-    {"(parse-shell* (string->parsectx \"{{foo} ; bar}\"))", "(shell (shell foo) ; bar)"},
-    {"(parse-shell* (string->parsectx \"{ls; {foo ; bar} & echo}\"))",
-     "(shell ls ; (shell foo ; bar) & echo)"},
-    {"(parse-shell* (string->parsectx\n"
-     "  \"{{{{echo|cat}}}}\"))",
-     "(shell (shell (shell (shell echo | cat))))"},
-    {"(parse-shell* (string->parsectx\n"
-     "  \"a<>/dev/null||b>/dev/zero&&!c>&2\"))",
-     "(shell a <> /dev/null || b > /dev/zero && ! c >& 2)"},
-    /** test fd number [N] before redirection */
-    {"(format #f \"~s\" (parse-shell* (string->parsectx\n"
-     "  \"foo 0</dev/zero 1<>/dev/urandom 2<&- 3>>logfile 4>otherfile 5>&/dev/null\")))",
-     "(shell \"foo\" 0 < \"/dev/zero\" 1 <> \"/dev/urandom\" 2 <& \"-\" 3 >> \"logfile\""
-     " 4 > \"otherfile\" 5 >& \"/dev/null\")"},
-    {"(format #f \"~s\" (parse-shell* (string->parsectx\n"
-     "  \"ls \\\"-l\\\" '.'\")))",
-     "(shell \"ls\" \"-l\" \".\")"},
-    {"(format #f \"~s\" (parse-shell* (string->parsectx\n"
-     "  \"ls \\\"some\\\"'file'path\")))",
-     "(shell \"ls\" (shell-concat \"some\" \"file\" \"path\"))"},
-    {"(format #f \"~s\" (parse-shell* (string->parsectx\n"
-     "  \"{ls `cmd1 && cmd2 || cmd3 -arg3`}\"))))",
-     "(shell \"ls\" (shell-backquote \"cmd1\" && \"cmd2\" \\x7C;\\x7C; \"cmd3\" \"-arg3\"))"},
-    {"(format #f \"~s\" (parse-shell* (string->parsectx\n"
-     "  \"ls $var1 \\\"$var2\\\" '$var3'\")))",
-     "(shell \"ls\" (shell-env \"var1\") (shell-env \"var2\") \"$var3\")"},
-    {"(format #f \"~s\" (parse-shell* (string->parsectx\n"
-     "  \"ls ${v 1} \\\"${ v 2 }\\\" '${ v 3 }'\")))",
-     "(shell \"ls\" (shell-env \"v 1\") (shell-env \" v 2 \") \"${ v 3 }\")"},
-    {"(format #f \"~s\" (parse-shell* (string->parsectx\n"
-     "  \"ls \\\"$var1\\\"'$var2'$var3\")))",
-     "(shell \"ls\" (shell-concat (shell-env \"var1\") \"$var2\" (shell-env \"var3\")))"},
-    {"(format #f \"~s\" (parse-shell* (string->parsectx\n"
-     "  \"ls $(cmd arg $var)\")))",
-     "(shell \"ls\" (shell-backquote \"cmd\" \"arg\" (shell-env \"var\")))"},
-    {"(format #f \"~s\" (parse-shell* (string->parsectx\n"
-     "  \"ls \\\"$(cmd arg $var)\\\"\")))",
-     "(shell \"ls\" (shell-backquote \"cmd\" \"arg\" (shell-env \"var\")))"},
-    {"(format #f \"~s\" (parse-shell* (string->parsectx\n"
-     "  \"ls '$(cmd arg $var)'\")))",
-     "(shell \"ls\" \"$(cmd arg $var)\")"},
     /* ------------------------ parser shell1 ------------------------------- */
     {"(parse-shell1 (string->parsectx \"\")))", "(shell)"},
     {"(parse-shell1 (string->parsectx \"{}\")))", "(shell)"},
@@ -662,31 +605,31 @@ static const testcase tests[] = {
      "  'shell))",
      "(((shell foo && bar || baz &)) #<parser shell>)"},
     /* character { switches to shell parser */
-    {"(parse-form*\n"
+    {"(parse-form1\n"
      "  (string->parsectx \"{ls -l >& log.txt}\" (parsers))\n"
      "  'scheme))",
      "(shell ls -l >& log.txt)"},
     /* directive #!shell switches to shell parser also inside (...) */
-    {"(parse-form*\n"
+    {"(parse-form1\n"
      "  (string->parsectx \"(#!shell ls -al >> log.txt)\" (parsers))\n"
      "  'scheme))",
      "(shell ls -al >> log.txt)"},
-    {"(parse-form*\n"
+    {"(parse-form1\n"
      "  (string->parsectx \"(foo << bar #!shell baz >> log.txt; wc -l log.txt)\""
      " (parsers))\n"
      "  'scheme))",
      "(foo << bar (shell baz >> log.txt ;) (shell wc -l log.txt))"},
     /* ( inside shell syntax switches to Scheme parser for a single Scheme form,
      * then continues parsing shell syntax */
-    {"(parse-form*\n"
+    {"(parse-form1\n"
      "  (string->parsectx \"(+ 1 2)\" (parsers))\n"
      "  'shell)",
      "(+ 1 2)"},
-    {"(parse-form*\n"
+    {"(parse-form1\n"
      "  (string->parsectx \"{foo; bar}\" (parsers))\n"
      "  'shell)",
      "(shell foo ; bar)"},
-    {"(parse-form*\n"
+    {"(parse-form1\n"
      "  (string->parsectx \"[foo; bar]\" (parsers))\n"
      "  'shell)",
      "(shell-subshell foo ; bar)"},
@@ -702,11 +645,11 @@ static const testcase tests[] = {
      "  (string->parsectx \"(+ 1 2) not_parsed_yet\" (parsers)))",
      "(+ 1 2)"},
     /* idem */
-    {"(parse-form*\n"
+    {"(parse-form1\n"
      "  (string->parsectx \"(+ 1 2) not_parsed_yet\" (parsers))\n"
      "  'shell))",
      "(+ 1 2)"},
-    {"(parse-form*\n"
+    {"(parse-form1\n"
      "  (string->parsectx \"ls (my-dir) >> log.txt\" (parsers))\n"
      "  'shell))",
      "(shell ls (my-dir) >> log.txt)"},

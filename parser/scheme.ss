@@ -10,7 +10,7 @@
 ;;;
 (library (schemesh parser scheme (0 1))
   (export
-    lex-scheme parse-scheme parse-scheme* parser-scheme)
+    lex-scheme parse-scheme parse-scheme1 parse-scheme-forms parser-scheme)
   (import
     (rnrs)
     (only (chezscheme)
@@ -45,9 +45,12 @@
 ;; Automatically change parser when directive #!... is found.
 ;;
 ;; Return parsed form.
-;; Raises syntax-errorf if end of file is reached before reading a complete form.
-(define (parse-scheme* ctx)
-  (parse-lisp* ctx 'scheme))
+;; Raise syntax-errorf if end-of-file is reached before completely reading a form.
+(define (parse-scheme1 ctx)
+  (let ((value (parse-lisp ctx 'scheme)))
+    (when (eof-object? value)
+      (syntax-errorf ctx 'parse-scheme "unexpected end-of-file"))
+    value))
 
 
 ;; Read Chez Scheme forms from textual input port 'in', until a token ) or ] or } matching
@@ -60,6 +63,21 @@
 ;; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
 (define (parse-scheme-list ctx begin-type already-parsed-reverse)
   (parse-lisp-list ctx begin-type already-parsed-reverse 'scheme))
+
+
+; Read Chez Scheme forms from textual input port 'in', until a token ) or ] or } matching
+; the specified begin-type token is found.
+; Automatically change parser when directive #!... is found.
+;
+; Return a list containing parsed forms, usually prefixed by (begin ...)
+; Raise syntax-errorf if mismatched end token is found, as for example ']' instead of ')'
+(define (parse-scheme-forms ctx begin-type)
+  (let ((ret (parse-lisp-list ctx begin-type '() 'scheme)))
+    (values
+      (if (or (not (pair? ret)) (eq? 'begin (car ret)) (null? (cdr ret)))
+        ret
+        (cons 'begin ret))
+      #f)))
 
 
 ;; Read Chez Scheme forms from textual input port (parsectx-in ctx),
@@ -78,7 +96,7 @@
 
 
 (define parser-scheme
-  (let ((ret (make-parser 'scheme parse-scheme parse-scheme* parse-scheme-list parse-scheme-paren)))
+  (let ((ret (make-parser 'scheme parse-scheme parse-scheme-list parse-scheme-forms parse-scheme-paren)))
     (lambda ()
       ret)))
 

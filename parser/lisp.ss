@@ -10,7 +10,7 @@
 ;;;
 (library (schemesh parser lisp (0 1))
   (export
-    lex-lisp parse-lisp parse-lisp* parse-lisp-list parse-lisp-paren)
+    lex-lisp parse-lisp parse-lisp-list parse-lisp-paren)
   (import
     (rnrs)
     (only (chezscheme)
@@ -164,7 +164,10 @@
          (again? #t)
          (reverse? #t)
          (end-type (case begin-type
-                     ((lbrace) 'rbrace) ((lbrack) 'rbrack) (else 'rparen)))
+                     ((eof)    'eof)
+                     ((lbrace) 'rbrace)
+                     ((lbrack) 'rbrack)
+                     (else 'rparen)))
          (check-list-end (lambda (type)
            (unless (eq? type end-type)
              (syntax-errorf ctx (caller-for flavor) "unexpected token ~a, expecting ~a"
@@ -175,7 +178,10 @@
         ; (debugf "... parse-lisp-list ret=~s value=~s type=~s~%" (reverse ret) value type)
         (case type
           ((eof)
-            (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file"))
+            (unless (eq? type end-type)
+              (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file after ~a"
+                (if reverse? (reverse! ret) ret)))
+            (set! again? #f))
           ((parser)
             ;; #!... inside '(' '[' or '{' => switch to other parser until the end of current list
             (let ((other-parse-list (parser-parse-list value)))
@@ -188,13 +194,9 @@
           ((dot)
             ;; parse '.' followed by last form and matching token ) or ] or },
             ;; and create an improper list
-            (let* ((value-i (parse-lisp* ctx flavor))
-                   (value
-                     (if (parser? value-i)
-                       ;; switch to other parser
-                       (let ((other-parse* (parser-parse* value-i)))
-                         (other-parse* ctx))
-                       value-i)))
+            (let ((value (parse-lisp* ctx flavor)))
+              (when (parser? value)
+                (syntax-errorf ctx (caller-for flavor) "unsupported syntax change directive after dot"))
               (set! ret (reverse*! (cons value ret)))
               (set! reverse? #f)
               (set! again? #f))

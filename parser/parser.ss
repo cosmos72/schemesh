@@ -11,20 +11,21 @@
     ; lineedit/parser.ss
     make-parsectx make-parsectx* parsectx?
     parsectx-skip-whitespace parsectx-unread-char try-read-parser-directive
-    get-parser to-parser make-parser parser? parser-name parser-parse parser-parse* parser-parse-list
+    get-parser to-parser make-parser parser? parser-name parser-parse
+    parser-parse-list parser-parse-forms parser-parse-paren
 
     ; r6rs.ss
-    lex-r6rs parse-r6rs parse-r6rs* parser-r6rs
+    lex-r6rs parse-r6rs parse-r6rs-forms parser-r6rs
 
     ; scheme.ss
-    lex-scheme parse-scheme parse-scheme* parser-scheme
+    lex-scheme parse-scheme parse-scheme1 parse-scheme-forms parser-scheme
 
     ; shell.ss
     read-shell-char lex-shell parse-shell-word parse-shell1 parse-shell2
-    parse-shell parse-shell* parse-shell-list parser-shell
+    parse-shell parse-shell-list parse-shell-forms parser-shell
 
     ; parser.ss
-    parse-form parse-form* parse-forms
+    parse-form parse-form1 parse-forms
     parse-paren parse-paren-from-string make-parenmatcher
     parsers)
   (import
@@ -60,37 +61,31 @@
   (let ((func (parser-parse (to-parser pctx initial-parser 'parse-form))))
     (func pctx)))
 
-
-;; Call parse-scheme*, parse-shell* or whatever is the parser specified as initial-parser.
+;; Call parse-scheme, parse-shell or whatever is the parser specified as initial-parser.
+;; Automatically change parser when directive #!... is found.
 ;;
 ;; Return parsed form.
 ;; Raise syntax-errorf if end-of-file is reached before completely reading a form.
-(define (parse-form* pctx initial-parser)
+(define (parse-form1 pctx initial-parser)
   (let ((value (parse-form pctx initial-parser)))
     (when (eof-object? value)
-      (syntax-errorf pctx 'parse-form* "unexpected end-of-file"))
+      (syntax-errorf pctx 'parse-form "unexpected end-of-file"))
     value))
+
 
 ;; Parse textual input port until eof, using the parser specified by initial-parser,
 ;; and temporarily switching to other parsers every time the directive #!... is found
 ;; in a (possibly nested) list being parsed.
 ;;
 ;; Return two values.
-;; First value is parsed forms: each element in the list is a parsed form.
+;; First value is list of parsed forms, prefixed by a suitable variable-length keyword or macro,
+;;    as for example (begin ...) or (shell ...)
 ;; Second value is updated parser to use.
 (define (parse-forms pctx initial-parser)
-  (let ((current-parser (to-parser pctx initial-parser 'parse-forms))
-        (ret '())
-        (again? #t))
-    (while again?
-      (let ((form (parse-form pctx current-parser)))
-        (cond
-          ((eof-object? form) (set! again? #f))
-          ((parser? form)     (set! current-parser form))
-          (else               (set! ret (cons form ret))))))
-    (values
-      (reverse! ret)
-      current-parser)))
+  (let* ((parser (to-parser pctx initial-parser 'parse-forms))
+         (func-parse-forms (parser-parse-forms parser)))
+    (let-values (((form updated-parser) (func-parse-forms pctx 'eof)))
+      (values form (or updated-parser parser)))))
 
 
 ;; Parse textual input port (parsectx-in pctx) until closing token matching start-ch is found
