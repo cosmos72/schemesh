@@ -590,15 +590,17 @@ static const testcase tests[] = {
      "(shell \"ls\" \"$(cmd arg $var)\")"},
     /* ------------------------ parser shell1 ------------------------------- */
     {"(parse-shell1 (string->parsectx \"\")))", "(shell)"},
+    {"(parse-shell1 (string->parsectx \"{}\")))", "(shell)"},
+    {"(parse-shell1 (string->parsectx \"{{}}\")))", "(shell (shell))"},
     {"(parse-shell1 (string->parsectx \"ls -l>/dev/null&\"))", "(shell ls -l > /dev/null &)"},
     {"(parse-shell1 (string->parsectx \"{;foo} <log 2>&1 && bar<>baz|wc -l;;\"))",
      "(shell (shell ; foo) < log 2 >& 1 && bar <> baz | wc -l ; ;)"},
     {"(parse-shell1 (string->parsectx \"echo|{cat;{true}\n}&\"))",
      "(shell echo | (shell cat ; (shell true) ;) &)"},
-    {"(parse-shell1 (string->parsectx \"ls; {foo ; bar} & echo\"))",
-     "(shell ls ; (shell foo ; bar) & echo)"},
+    {"(parse-shell1 (string->parsectx \"ls; [foo || bar &] & echo\"))",
+     "(shell ls ; (shell-subshell foo || bar &) & echo)"},
     {"(parse-shell1 (string->parsectx \"{{{{echo|cat}}}}\"))",
-     "(shell (shell (shell (shell (shell echo | cat)))))"},
+     "(shell (shell (shell (shell echo | cat))))"},
     {"(parse-shell1 (string->parsectx\n"
      "  \"a<>/dev/null||b>/dev/zero&&!c>&2\"))",
      "(shell a <> /dev/null || b > /dev/zero && ! c >& 2)"},
@@ -634,6 +636,9 @@ static const testcase tests[] = {
     {"(format #f \"~s\" (parse-shell1 (string->parsectx\n"
      "  \"ls '$(cmd arg $var)'\")))",
      "(shell \"ls\" \"$(cmd arg $var)\")"},
+    /* test () inside shell syntax */
+    {"(parse-shell1 (string->parsectx \"echo a || (cons 1 2)\" (parsers)))",
+     "(shell echo a || (cons 1 2))"},
     /* ------------------------ parse-forms --------------------------------- */
     {"(values->list (parse-forms\n"
      "  (string->parsectx \"\" (parsers))\n"

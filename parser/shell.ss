@@ -150,7 +150,7 @@
       ((lparen)
         (parsectx-read-char ctx) ; consume (
         ; read a shell list surrounded by $(...)
-        (parse-shell-list ctx 'dollar+lparen '()))
+        (parse-shell1 ctx 'dollar+lparen))
       ((lbrace)
         (read-subword-dollar-braced ctx))
       (else
@@ -429,15 +429,18 @@
 
 ;; Read a simple or compound shell command from textual input port 'in'
 ;;
-;; Return a list containing parsed command, with 'shell... prefix
-(define (parse-shell1 ctx)
-  (first-value (parse-shell2 ctx)))
+;; Return a list containing parsed command, usually with 'shell... prefix
+;; unless the only parsed command is Scheme syntax (...)
+(define parse-shell1
+  (case-lambda
+    ((ctx)            (first-value (parse-shell2* ctx 'eof)))
+    ((ctx begin-type) (first-value (parse-shell2* ctx begin-type)))))
 
 
 ;; Read a simple or compound shell command from textual input port 'in'
 ;;
 ;; Return two values:
-;; 1. a list containing parsed command, with 'shell... prefix
+;; 1. a list containing parsed command, usually with 'shell... prefix
 ;; 2. the new parser to use, or #f to continue using the same parser
 ;;
 (define parse-shell2
@@ -491,15 +494,22 @@
                 (when (pair? form)
                   (set! ret (cons form ret))))))
           ((lparen)
-            ; TODO: implement
-            (syntax-errorf ctx 'parse-shell2
-              "nested scheme syntax (...) not implemented yet"))
-          ((lbrace lbracket dollar+lparen)
+            ; switch to Scheme parser for a single form.
+            ; Convenience: if this is the first token and begin-type is eof,
+            ; omit the initial (shell ...) and set done to #t.
+            ; This allows entering Scheme forms from shell syntax
+            (when (null? ret)
+              (set! prefix #f)
+              (set! done? #t))
+            (let ((other-parse-list (parser-parse-list (get-parser ctx 'scheme 'parse-shell))))
+              (let ((other-ret (other-parse-list ctx type '())))
+                (set! ret (cons other-ret ret)))))
+          ((lbrace lbrack dollar+lparen)
             ; TODO: $(...) may be followed by other words without a space
             (let-values (((form parser) (parse-shell2* ctx type)))
               (when (pair? form)
                 (set! ret (cons form ret)))))
-          ((rbrace rbracket rparen)
+          ((rbrace rbrack rparen)
             (unless (eq? type end-type)
               (syntax-errorf ctx 'parse-shell2 "unexpected token ~a, expecting ~a"
                 (paren-type->string type) (paren-type->string end-type)))
@@ -511,9 +521,22 @@
         (set! can-change-parser? (eq? type 'separator))))
 
     (debugf "...parse-shell2* ret=~s~%" (reverse ret))
-    (values (cons prefix (reverse! ret)) parser)))
+    (values (%simplify-parse-shell2 end-type prefix ret) parser)))
 
 
+
+(define (%simplify-parse-shell2 end-type prefix ret)
+  (cond
+    ((not prefix) (car ret)) ; unwrap single Scheme form
+    ((and (eq? 'eof end-type)
+          (eq? 'shell prefix)
+          (pair? ret)
+          (pair? (car ret))
+          (null? (cdr ret))
+          (eq? prefix (caar ret)))
+      (car ret)) ; simplify (shell (shell ...)) -> (shell ...)
+    (#t
+      (cons prefix (reverse! ret))))) ; add prefix
 
 
 
