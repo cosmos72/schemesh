@@ -8,12 +8,12 @@
 
 (library (schemesh parser shell (0 1))
   (export
-    read-shell-char lex-shell parse-shell-word
+    read-shell-char lex-shell parse-shell-word parse-shell1 parse-shell2
     parse-shell parse-shell* parse-shell-list parser-shell)
   (import
     (rnrs)
     (only (chezscheme) append! fx1+ fx1- inspect reverse! unread-char void)
-    (only (schemesh bootstrap) assert* debugf until while)
+    (only (schemesh bootstrap) assert* debugf first-value until while)
     (only (schemesh containers misc) string-contains-only-decimal-digits?)
     (schemesh containers charspan)
     (schemesh lineedit paren)
@@ -24,6 +24,7 @@
     ((lparen) "(") ((lbrack) "[") ((lbrace) "{")
     ((rparen) ")") ((rbrack) "]") ((rbrace) "}")
     ((backquote) "`") ((dollar+lparen) "$(")
+    ((eof) "#!eof")
     (else "???")))
 
 
@@ -235,8 +236,8 @@
 ;;  FOO=BAR
 ;;  some$foo' text'"other text ${bar} "
 ;;
-;; return two values: the parsed form, and either 'string or 'rlist
-;; where 'rlist means the parsed form should be reversed then spliced into the command being parsed.
+;; return two values: the parsed form, and either 'string or 'rlist-assign
+;; where 'rlist-assign means the parsed form should be reversed then spliced into the command being parsed.
 (define (parse-shell-word ctx equal-is-operator?)
   (let* ((ret '())
          (again? #t)
@@ -299,7 +300,7 @@
     (if assign?
        (values
          (list (%simplify (cdr ret)) '= (car ret))
-         'rlist)
+         'assign)
        (values
          (%simplify ret)
          'string))))
@@ -385,6 +386,11 @@
 ;;
 ;; Return parsed form, or new parser to use, or (eof-object) if end-of-file is reached
 (define (parse-shell ctx)
+  (let ((ret (%parse-shell ctx)))
+    ; (debugf "parse-shell         ret=~s~%" ret)
+    ret))
+
+(define (%parse-shell ctx)
   (parsectx-skip-whitespace ctx #f) ; don't skip newlines
   (let-values (((value type) (peek-shell-char ctx)))
     (case type
@@ -421,6 +427,109 @@
     value))
 
 
+;; Read a simple or compound shell command from textual input port 'in'
+;;
+;; Return a list containing parsed command, with 'shell... prefix
+(define (parse-shell1 ctx)
+  (first-value (parse-shell2 ctx)))
+
+
+;; Read a simple or compound shell command from textual input port 'in'
+;;
+;; Return two values:
+;; 1. a list containing parsed command, with 'shell... prefix
+;; 2. the new parser to use, or #f to continue using the same parser
+;;
+(define parse-shell2
+  (case-lambda
+    ((ctx)            (parse-shell2* ctx 'eof))
+    ((ctx begin-type) (parse-shell2* ctx begin-type))))
+
+(define (parse-shell2* ctx begin-type)
+  (let ((ret '())
+        (end-type (case begin-type
+                    ((lbrace) 'rbrace)
+                    ((lbrack) 'rbrack)
+                    ((backquote) 'backquote)
+                    ((eof)    'eof)
+                    (else     'rparen)))
+        (prefix (case begin-type
+                    ((backquote dollar+lparen) 'shell-backquote)
+                    ((lbrack)                  'shell-subshell)
+                    (else                      'shell)))
+        (can-change-parser? #t)
+        (equal-is-operator? #t)
+        (done? #f)
+        (parser #f))
+    (until done?
+      (let-values (((value type) (lex-shell ctx equal-is-operator?)))
+        (debugf "parse-shell2*... ret=~s value=~s type=~s~%" (reverse ret) value type)
+        (case type
+          ((eof)
+            (unless (eq? type end-type)
+              (syntax-errorf ctx 'parse-shell2 "unexpected end-of-file after ~a" (reverse! ret)))
+            (set! done? #t))
+          ((parser)
+            (unless can-change-parser?
+              (syntax-errorf ctx 'parse-shell2
+                "parser directive #!... can only appear before or after a shell command, not in the middle of it: ~a"
+                (reverse! (cons (string-append "#!" (symbol->string (parser-name value))) ret))))
+            (set! parser value)
+            (set! done?  #t))
+          ((separator)
+            ; value can be #\& #\; or #\newline
+            (set! ret (cons (if (eq? value '&) '& '\x3b;) ret)))
+          ((op string integer)
+            (set! ret (cons value ret)))
+          ((rlist-assign)
+            (set! ret (append! value ret)))
+          ((backquote)
+            (if (eq? type end-type)
+              (set! done? #t)
+              ; TODO: `...` may be followed by other words without a space
+              (let-values (((form parser) (parse-shell2* ctx type)))
+                (when (pair? form)
+                  (set! ret (cons form ret))))))
+          ((lparen)
+            ; TODO: implement
+            (syntax-errorf ctx 'parse-shell2
+              "nested scheme syntax (...) not implemented yet"))
+          ((lbrace lbracket dollar+lparen)
+            ; TODO: $(...) may be followed by other words without a space
+            (let-values (((form parser) (parse-shell2* ctx type)))
+              (when (pair? form)
+                (set! ret (cons form ret)))))
+          ((rbrace rbracket rparen)
+            (unless (eq? type end-type)
+              (syntax-errorf ctx 'parse-shell2 "unexpected token ~a, expecting ~a"
+                (paren-type->string type) (paren-type->string end-type)))
+            (set! done? #t))
+          (else
+            (syntax-errorf ctx 'parse-shell2 "unexpected token ~s after ~a" value (reverse! ret))))
+
+        (set! equal-is-operator? (memq type '(rlist-assign separator)))
+        (set! can-change-parser? (eq? type 'separator))))
+
+    (debugf "...parse-shell2* ret=~s~%" (reverse ret))
+    (values (cons prefix (reverse! ret)) parser)))
+
+
+
+
+
+
+;; return #t if ch is allowed inside a shell compound command
+(define (char-allowed-in-cmd? ch)
+  (case ch
+    ((#\! #\" #\$ #\% #\& #\' #\* #\+ #\, #\- #\. #\/ #\: #\; #\< #\= #\> #\? #\@ #\\ #\^ #\_ #\|#\~) #t)
+    (else
+      (and (char? ch) ; eof terminates shell command
+           (or (char<=? #\0 ch #\9)
+               (char<=? #\A ch #\Z)
+               (char<=? #\a ch #\z)
+               (char>? ch #\delete))))))
+
+
 ;; Common backend of (parse-shell) (parse-shell*) and (parse-shell-list)
 ;; Does NOT support changing parser when directive #!... is found.
 ;;
@@ -437,7 +546,7 @@
              ((null? ret)        (set! ret form))
              (else               (set! ret (cons form ret)))))))
     (while again?
-      ; (debugf "parse-shell-impl: value = ~s, type = ~s, ret = ~s, equal-is-operator? = ~s~%" value type (if reverse? (reverse ret) ret) equal-is-operator?)
+      ; (debugf "parse-shell-impl... value=~s type=~s ret=~s equal-is-operator?=~s~%" value type (if reverse? (reverse ret) ret) equal-is-operator?)
       (case type
         ((eof)
           (set! again? #f))
@@ -458,7 +567,7 @@
           ; parsed non-assignment, it cannot be followed by further assignments
           (set! equal-is-operator? #f)
           (set! ret (cons value ret)))
-        ((rlist)
+        ((rlist-assign)
           (when (and equal-is-operator? (not (memq '= value)))
             ; parsed non-assignment, it cannot be followed by further assignments
             (set! equal-is-operator? #f))
@@ -508,6 +617,7 @@
           (set! value value-i)
           (set! type type-i))))
     ; shell form is complete, return it
+    ; (debugf "...parse-shell-impl ret=~s~%" (if reverse? (reverse ret) ret))
     (if reverse? (reverse! ret) ret)))
 
 
@@ -600,7 +710,7 @@
 
     (while again?
       (let-values (((value type) (lex-shell ctx 'equal-is-operator?)))
-        ; (debugf "parse-shell-list ret=~s value=~s type=~s~%" (reverse ret) value type)
+        ; (debugf "parse-shell-list... ret=~s value=~s type=~s~%" (reverse ret) value type)
         (case type
           ((eof)
             (syntax-errorf ctx 'parse-shell-list "unexpected end-of-file after ~a"
@@ -629,7 +739,10 @@
               ; parse a single shell form and accumulate it into ret
               (%merge! (parse-shell-impl ctx value type
                          (eq? 'backquote begin-type))))))))
+    ; (debugf "...parse-shell-list ret=~s~%" (if reverse? (reverse ret) ret))
     (if reverse? (reverse! ret) ret)))
+
+
 
 
 ;; Read until one of ( ) { } ' " ` $( is found, and return it.

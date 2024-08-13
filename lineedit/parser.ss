@@ -8,7 +8,7 @@
 
 (library (schemesh lineedit parser (0 1))
   (export
-    make-parsectx make-parsectx* make-parsectx-from-string parsectx?
+    make-parsectx make-parsectx* parsectx? string->parsectx
     parsectx-in parsectx-current-pos parsectx-previous-pos parsectx-enabled-parsers
 
     make-parser parser?
@@ -158,7 +158,7 @@
 ;;   str: mandatory, the string to read from
 ;;   enabled-parsers: optional, #f or an hashtable name -> parser containing enabled parsers.
 ;;                    see (parsers) in parser/parser.ss
-(define make-parsectx-from-string
+(define string->parsectx
   (case-lambda
     ((str)                 (make-parsectx (open-string-input-port str)))
     ((str enabled-parsers) (make-parsectx (open-string-input-port str) enabled-parsers))))

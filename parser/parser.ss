@@ -20,7 +20,7 @@
     lex-scheme parse-scheme parse-scheme* parser-scheme
 
     ; shell.ss
-    read-shell-char lex-shell parse-shell-word
+    read-shell-char lex-shell parse-shell-word parse-shell1 parse-shell2
     parse-shell parse-shell* parse-shell-list parser-shell
 
     ; parser.ss
@@ -122,8 +122,8 @@
 ;; Simple wrapper around parse-paren-until-eof, useful for testing
 (define parse-paren-from-string
   (case-lambda
-    ((str)                (parse-paren-until-eof (make-parsectx-from-string str (parsers)) 'scheme))
-    ((str initial-parser) (parse-paren-until-eof (make-parsectx-from-string str (parsers)) initial-parser))))
+    ((str)                (parse-paren-until-eof (string->parsectx str (parsers)) 'scheme))
+    ((str initial-parser) (parse-paren-until-eof (string->parsectx str (parsers)) initial-parser))))
 
 
 ;; Create a parenmatcher that uses parse-paren to find matching parenthesis and grouping tokens
