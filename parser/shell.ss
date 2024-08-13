@@ -466,7 +466,7 @@
         (parser #f))
     (until done?
       (let-values (((value type) (lex-shell ctx equal-is-operator?)))
-        (debugf "parse-shell2*... ret=~s value=~s type=~s~%" (reverse ret) value type)
+        ; (debugf "parse-shell2*... ret=~s value=~s type=~s~%" (reverse ret) value type)
         (case type
           ((eof)
             (unless (eq? type end-type)
@@ -520,7 +520,7 @@
         (set! equal-is-operator? (memq type '(rlist-assign separator)))
         (set! can-change-parser? (eq? type 'separator))))
 
-    (debugf "...parse-shell2* ret=~s~%" (reverse ret))
+    ; (debugf "...parse-shell2* ret=~s~%" (reverse ret))
     (values (%simplify-parse-shell2 end-type prefix ret) parser)))
 
 
