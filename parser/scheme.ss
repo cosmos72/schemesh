@@ -10,7 +10,7 @@
 ;;;
 (library (schemesh parser scheme (0 1))
   (export
-    lex-scheme parse-scheme parse-scheme1 parse-scheme-forms parser-scheme)
+    lex-scheme parse-scheme1 parse-scheme-forms parser-scheme)
   (import
     (rnrs)
     (only (chezscheme)
@@ -34,16 +34,6 @@
 ;; by repeatedly calling (lex-scheme) and construct a Chez Scheme form.
 ;; Automatically change parser when directive #!... is found.
 ;;
-;; Return two values: parsed form, and #t.
-;; If end-of-file is reached, return (eof-object) and #f.
-(define (parse-scheme ctx)
-  (parse-lisp ctx 'scheme))
-
-
-;; Read Chez Scheme tokens from textual input port 'in'
-;; by repeatedly calling (lex-scheme) and construct a Chez Scheme form.
-;; Automatically change parser when directive #!... is found.
-;;
 ;; Return parsed form.
 ;; Raise syntax-errorf if end-of-file is reached before completely reading a form.
 (define (parse-scheme1 ctx)
@@ -52,17 +42,6 @@
       (syntax-errorf ctx 'parse-scheme "unexpected end-of-file"))
     value))
 
-
-;; Read Chez Scheme forms from textual input port 'in', until a token ) or ] or } matching
-;; the specified begin-type token is found.
-;; Automatically change parser when directive #!... is found.
-;;
-;; Return a list containing parsed forms.
-;; Raise syntax-errorf if mismatched end token is found, as for example ']' instead of ')'
-;;
-;; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
-(define (parse-scheme-list ctx begin-type already-parsed-reverse)
-  (parse-lisp-list ctx begin-type already-parsed-reverse 'scheme))
 
 
 ; Read Chez Scheme forms from textual input port 'in', until a token ) or ] or } matching
@@ -96,7 +75,7 @@
 
 
 (define parser-scheme
-  (let ((ret (make-parser 'scheme parse-scheme parse-scheme-list parse-scheme-forms parse-scheme-paren)))
+  (let ((ret (make-parser 'scheme parse-scheme-forms parse-scheme-paren)))
     (lambda ()
       ret)))
 

@@ -134,9 +134,9 @@
       (parse-lisp-list ctx type '() flavor))
     ;; lbrace i.e. { switches to shell parser until corresponding rbrace i.e. }
     ((lbrace)
-      (let ((other-parse-list (parser-parse-list
-              (get-parser ctx 'shell (caller-for flavor)))))
-        (other-parse-list ctx type '())))
+      (let ((other-parse-forms (parser-parse-forms (get-parser ctx 'shell (caller-for flavor)))))
+        (let-values (((other-ret updated-parser) (other-parse-forms ctx type)))
+          other-ret)))
     ;; parse the various vector types, with or without explicit length
     ((vparen vu8paren)
       (parse-vector ctx type value flavor))
@@ -184,10 +184,11 @@
             (set! again? #f))
           ((parser)
             ;; #!... inside '(' '[' or '{' => switch to other parser until the end of current list
-            (let ((other-parse-list (parser-parse-list value)))
-              (set! ret (other-parse-list ctx begin-type ret))
-              (set! reverse? #f)
-              (set! again? #f)))
+            (let ((other-parse-forms (parser-parse-forms value)))
+              (let-values (((other-ret updated-parser) (other-parse-forms ctx type)))
+                (set! ret other-ret)
+                (set! reverse? #f)
+                (set! again? #f))))
           ((rparen rbrack rbrace)
             (check-list-end type)
             (set! again? #f))

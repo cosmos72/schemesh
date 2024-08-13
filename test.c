@@ -605,31 +605,31 @@ static const testcase tests[] = {
      "  'shell))",
      "(((shell foo && bar || baz &)) #<parser shell>)"},
     /* character { switches to shell parser */
-    {"(parse-form1\n"
+    {"(parse-forms1\n"
      "  (string->parsectx \"{ls -l >& log.txt}\" (parsers))\n"
      "  'scheme))",
      "(shell ls -l >& log.txt)"},
     /* directive #!shell switches to shell parser also inside (...) */
-    {"(parse-form1\n"
+    {"(parse-forms1\n"
      "  (string->parsectx \"(#!shell ls -al >> log.txt)\" (parsers))\n"
      "  'scheme))",
      "(shell ls -al >> log.txt)"},
-    {"(parse-form1\n"
+    {"(parse-forms1\n"
      "  (string->parsectx \"(foo << bar #!shell baz >> log.txt; wc -l log.txt)\""
      " (parsers))\n"
      "  'scheme))",
      "(foo << bar (shell baz >> log.txt ;) (shell wc -l log.txt))"},
     /* ( inside shell syntax switches to Scheme parser for a single Scheme form,
      * then continues parsing shell syntax */
-    {"(parse-form1\n"
+    {"(parse-forms1\n"
      "  (string->parsectx \"(+ 1 2)\" (parsers))\n"
      "  'shell)",
      "(+ 1 2)"},
-    {"(parse-form1\n"
+    {"(parse-forms1\n"
      "  (string->parsectx \"{foo; bar}\" (parsers))\n"
      "  'shell)",
      "(shell foo ; bar)"},
-    {"(parse-form1\n"
+    {"(parse-forms1\n"
      "  (string->parsectx \"[foo; bar]\" (parsers))\n"
      "  'shell)",
      "(shell-subshell foo ; bar)"},
@@ -641,15 +641,15 @@ static const testcase tests[] = {
      "(((shell ls (apply + a `(,@b)) &)) #<parser shell>)"},
     /* ( at the beginning of a shell command switches to Scheme parser,
      * parses a single Scheme form, and omits the initial (shell ...) */
-    {"(parse-shell\n"
+    {"(parse-shell1\n"
      "  (string->parsectx \"(+ 1 2) not_parsed_yet\" (parsers)))",
      "(+ 1 2)"},
     /* idem */
-    {"(parse-form1\n"
+    {"(parse-forms1\n"
      "  (string->parsectx \"(+ 1 2) not_parsed_yet\" (parsers))\n"
      "  'shell))",
      "(+ 1 2)"},
-    {"(parse-form1\n"
+    {"(parse-forms1\n"
      "  (string->parsectx \"ls (my-dir) >> log.txt\" (parsers))\n"
      "  'shell))",
      "(shell ls (my-dir) >> log.txt)"},
@@ -663,26 +663,26 @@ static const testcase tests[] = {
      "  'scheme))",
      "(((+ a b) (shell ls -al >> log.txt ;) foo bar) #<parser scheme>)"},
     /* ------------------------ parse-paren -------------------------------- */
-    {"(parse-paren-from-string \"(foo \\\"a()\\\" \\\"b[]\\\" \\\"c{}\\\" [* |2| 3])\")",
+    {"(string->paren \"(foo \\\"a()\\\" \\\"b[]\\\" \\\"c{}\\\" [* |2| 3])\")",
      "#<paren _(\"\" \"\" \"\" [||])_>"},
-    {"(parse-paren-from-string \"#\\newline #\\\\( #\\\\) #\\\\[ #\\\\] #\\\\{ #\\\\} #\\\\#\")",
+    {"(string->paren \"#\\newline #\\\\( #\\\\) #\\\\[ #\\\\] #\\\\{ #\\\\} #\\\\#\")",
      "#<paren __>"},
-    {"(parse-paren-from-string \"#| comment . , \\\\ |#\")", "#<paren _##_>"},
+    {"(string->paren \"#| comment . , \\\\ |#\")", "#<paren _##_>"},
     /* [] are grouping tokens in shell syntax, and `` are not special in lisp syntax */
-    {"(parse-paren-from-string \"{[(``)]}\")", "#<paren _{[()]}_>"},
+    {"(string->paren \"{[(``)]}\")", "#<paren _{[()]}_>"},
     /* [] are grouping tokens in lisp syntax and `` are grouping tokens in shell syntax */
-    {"(parse-paren-from-string \"([{``}])\")", "#<paren _([{``}])_>"},
+    {"(string->paren \"([{``}])\")", "#<paren _([{``}])_>"},
     /* test $( shell syntax )*/
-    {"(parse-paren-from-string \"{$(`{}()`)}\")", "#<paren _{(`{} ()`)}_>"},
+    {"(string->paren \"{$(`{}()`)}\")", "#<paren _{(`{} ()`)}_>"},
     /* test single-quoted strings in shell syntax */
-    {"(parse-paren-from-string \"{'foo\\\"bar{}[]()``baz'}\")", "#<paren _{''}_>"},
+    {"(string->paren \"{'foo\\\"bar{}[]()``baz'}\")", "#<paren _{''}_>"},
     /* test double-quoted strings in shell syntax */
-    {"(parse-paren-from-string \"{\\\"foobar{}[]``${baz}\\\"}\")", "#<paren _{\"`` {}\"}_>"},
+    {"(string->paren \"{\\\"foobar{}[]``${baz}\\\"}\")", "#<paren _{\"`` {}\"}_>"},
     /** paren are not special in shell syntax inside double quoted string */
-    {"(parse-paren-from-string \"{\\\"()\\\"}\")", "#<paren _{\"\"}_>"},
+    {"(string->paren \"{\\\"()\\\"}\")", "#<paren _{\"\"}_>"},
     /** parse mismatched paren */
-    {"(parse-paren-from-string \"([{)]}\")", "#<paren _([{}])_>"},
-    {"(parse-paren-from-string \"(\\\" a\\\"\")", "#<paren _(\"\")_>"},
+    {"(string->paren \"([{)]}\")", "#<paren _([{}])_>"},
+    {"(string->paren \"(\\\" a\\\"\")", "#<paren _(\"\")_>"},
     /* -------------------------- parenmatcher -------------------------------*/
     {"(values->list (paren->values\n"
      "  (parenmatcher-find-match\n"
@@ -802,10 +802,10 @@ static const testcase tests[] = {
      INVOKELIB_SHELL_JOBS " (sh-or (sh-cmd true) (sh-not (sh-cmd false))))"},
     {"(expand '(shell-list (shell \"ls\" \"-al\" >> \"log.txt\")))",
      INVOKELIB_SHELL_PARSE " (sh-cmd* ls -al 1 '>> log.txt))"},
-    {"(expand (parse-shell* (string->parsectx\n"
+    {"(expand (parse-shell1 (string->parsectx\n"
      "  \"{{{{echo|cat}}}}\")))",
      INVOKELIB_SHELL_JOBS " (sh-pipe* (sh-cmd echo) '| (sh-cmd cat)))"},
-    {"(expand (parse-shell* (string->parsectx\n"
+    {"(expand (parse-shell1 (string->parsectx\n"
      "  \"{echo|{cat;{true}}}\")))",
      INVOKELIB_SHELL_JOBS " (sh-pipe* (sh-cmd echo) '| (sh-list (sh-cmd cat) '; (sh-cmd true))))"},
     {"(expand '(shell (shell \"ls\" & \"echo\")))",
@@ -818,41 +818,41 @@ static const testcase tests[] = {
      "(sh-list '\\x3B; (sh-cmd \"foo\") '\\x3B; (sh-cmd \"bar\"))"},
     {"(shell (shell \"ls\" & \"echo\") 2 >& 1)",
      "(sh-redirect! (sh-list (sh-cmd \"ls\") '& (sh-cmd \"echo\")) 2 '>& 1)"},
-    {"(parse-shell* (string->parsectx\n"
+    {"(parse-shell1 (string->parsectx\n"
      "  \"{{foo};bar}\"))",
      "(shell (shell foo) ; bar)"},
 #if 0  /* these currently fail */
-    {"(parse-shell* (string->parsectx\n"
+    {"(parse-shell1 (string->parsectx\n"
      "  \"{A=B ls}\")))",
      "(shell A = B ls)"},
-    {"(expand (parse-shell* (string->parsectx\n"
+    {"(expand (parse-shell1 (string->parsectx\n"
      "  \"{A=B ls}\")))",
      INVOKELIB_SHELL_PARSE " (sh-cmd* A '= B ls))"},
-    {"(parse-shell* (string->parsectx\n"
+    {"(parse-shell1 (string->parsectx\n"
      "  \"{FOO=$BAR/subdir echo}\")))",
      "(shell FOO = (shell-concat (shell-env BAR) /subdir) echo)"},
-    {"(expand (parse-shell* (string->parsectx\n"
+    {"(expand (parse-shell1 (string->parsectx\n"
      "  \"{FOO=$BAR/subdir echo}\"))))",
      INVOKELIB_SHELL_JOBS_PARSE " (sh-cmd* FOO '= (lambda (job) (sh-concat job"
                                 " (lambda (job) (sh-env job BAR)) /subdir)) echo))"},
 #endif /* 0 */
-    {"(parse-shell* (string->parsectx\n"
+    {"(parse-shell1 (string->parsectx\n"
      "  \"{ls A=B}\")))",
      "(shell ls A=B)"},
-    {"(expand (parse-shell* (string->parsectx\n"
+    {"(expand (parse-shell1 (string->parsectx\n"
      "  \"{ls A=B}\"))))",
      INVOKELIB_SHELL_JOBS " (sh-cmd ls A=B))"},
-    {"(parse-shell* (string->parsectx\n"
+    {"(parse-shell1 (string->parsectx\n"
      "  \"{echo $(foo&&bar)}\"))",
      "(shell echo (shell-backquote foo && bar))"},
-    {"(expand (parse-shell* (string->parsectx\n"
+    {"(expand (parse-shell1 (string->parsectx\n"
      "  \"{echo $(foo&&bar)}\")))",
      INVOKELIB_SHELL_JOBS_PARSE " (sh-cmd* echo (lambda (job) (sh-run/string"
                                 " (sh-and (sh-cmd foo) (sh-cmd bar))))))"},
-    {"(expand (parse-shell* (string->parsectx\n"
+    {"(expand (parse-shell1 (string->parsectx\n"
      "  \"{{ls} > log.txt &}\")))",
      INVOKELIB_SHELL_JOBS_PARSE " (sh-list* (sh-cmd ls) 1 '> log.txt '&))"},
-    {"(eval (parse-shell* (string->parsectx\n"
+    {"(eval (parse-shell1 (string->parsectx\n"
      "  \"{{ls} > log.txt &}\")))",
      "(sh-list (sh-cmd* \"ls\" 1 '> \"log.txt\") '&)"},
     {"(expand '(shell \"echo\" \"abc\" > \"DEL_ME\" &&"

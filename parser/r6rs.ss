@@ -10,7 +10,7 @@
 ;;;
 (library (schemesh parser r6rs (0 1))
   (export
-    lex-r6rs parse-r6rs parse-r6rs-forms parser-r6rs)
+    lex-r6rs parse-r6rs-forms parser-r6rs)
   (import
     (rnrs)
     (only (chezscheme)
@@ -29,27 +29,6 @@
 (define (lex-r6rs ctx)
   (lex-lisp ctx 'r6rs))
 
-
-; Read r6rs Scheme tokens from textual input port 'in'
-; by repeatedly calling (lex-r6rs) and construct a r6rs Scheme form.
-; Automatically change parser when directive #!... is found.
-;
-; Return two values: parsed form, and #t.
-; If end-of-file is reached, return (eof-object) and #f.
-(define (parse-r6rs ctx)
-  (parse-lisp ctx 'r6rs))
-
-
-; Read r6rs Scheme forms from textual input port 'in', until a token ) or ] or } matching
-; the specified begin-type token is found.
-; Automatically change parser when directive #!... is found.
-;
-; Return a list containing parsed forms.
-; Raise syntax-errorf if mismatched end token is found, as for example ']' instead of ')'
-;
-; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
-(define (parse-r6rs-list ctx begin-type already-parsed-reverse)
-  (parse-lisp-list ctx begin-type already-parsed-reverse 'r6rs))
 
 
 ; Read r6rs Scheme forms from textual input port 'in', until a token ) or ] or } matching
@@ -83,7 +62,7 @@
 
 
 (define parser-r6rs
-  (let ((ret (make-parser 'r6rs parse-r6rs parse-r6rs-list parse-r6rs-forms parse-r6rs-paren)))
+  (let ((ret (make-parser 'r6rs parse-r6rs-forms parse-r6rs-paren)))
     (lambda ()
       ret)))
 

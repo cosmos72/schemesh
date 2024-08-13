@@ -11,28 +11,28 @@
     ; lineedit/parser.ss
     make-parsectx make-parsectx* parsectx?
     parsectx-skip-whitespace parsectx-unread-char try-read-parser-directive
-    get-parser to-parser make-parser parser? parser-name parser-parse
-    parser-parse-list parser-parse-forms parser-parse-paren
+    get-parser to-parser make-parser parser? parser-name
+    parser-parse-forms parser-parse-paren
 
     ; r6rs.ss
-    lex-r6rs parse-r6rs parse-r6rs-forms parser-r6rs
+    lex-r6rs parse-r6rs-forms parser-r6rs
 
     ; scheme.ss
-    lex-scheme parse-scheme parse-scheme1 parse-scheme-forms parser-scheme
+    lex-scheme parse-scheme1 parse-scheme-forms parser-scheme
 
     ; shell.ss
     read-shell-char lex-shell parse-shell-word parse-shell1 parse-shell2
-    parse-shell parse-shell-list parse-shell-forms parser-shell
+    parse-shell-forms parser-shell
 
     ; parser.ss
-    parse-form parse-form1 parse-forms
-    parse-paren parse-paren-from-string make-parenmatcher
+    parse-forms parse-forms1
+    parse-paren string->paren make-parenmatcher
     parsers)
   (import
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) reverse! void)
-    (only (schemesh bootstrap) assert* debugf until while)
+    (only (schemesh bootstrap) assert* debugf first-value until while)
     (schemesh lineedit paren)
     (only (schemesh lineedit parenmatcher) make-custom-parenmatcher)
     (schemesh lineedit parser)
@@ -52,27 +52,6 @@
       ret)))
 
 
-;; Call parse-scheme, parse-shell or whatever is the parser specified as initial-parser.
-;; Automatically change parser when directive #!... is found.
-;;
-;; Return two values: parsed form, and #t.
-;; If end-of-file is reached, return (eof-object) and #f.
-(define (parse-form pctx initial-parser)
-  (let ((func (parser-parse (to-parser pctx initial-parser 'parse-form))))
-    (func pctx)))
-
-;; Call parse-scheme, parse-shell or whatever is the parser specified as initial-parser.
-;; Automatically change parser when directive #!... is found.
-;;
-;; Return parsed form.
-;; Raise syntax-errorf if end-of-file is reached before completely reading a form.
-(define (parse-form1 pctx initial-parser)
-  (let ((value (parse-form pctx initial-parser)))
-    (when (eof-object? value)
-      (syntax-errorf pctx 'parse-form "unexpected end-of-file"))
-    value))
-
-
 ;; Parse textual input port until eof, using the parser specified by initial-parser,
 ;; and temporarily switching to other parsers every time the directive #!... is found
 ;; in a (possibly nested) list being parsed.
@@ -86,6 +65,16 @@
          (func-parse-forms (parser-parse-forms parser)))
     (let-values (((form updated-parser) (func-parse-forms pctx 'eof)))
       (values form (or updated-parser parser)))))
+
+
+;; Parse textual input port until eof, using the parser specified by initial-parser,
+;; and temporarily switching to other parsers every time the directive #!... is found
+;; in a (possibly nested) list being parsed.
+;;
+;; Return list of parsed forms, prefixed by a suitable variable-length keyword or macro,
+;;    as for example (begin ...) or (shell ...)
+(define (parse-forms1 pctx initial-parser)
+  (first-value (parse-forms pctx initial-parser)))
 
 
 ;; Parse textual input port (parsectx-in pctx) until closing token matching start-ch is found
@@ -115,7 +104,7 @@
 
 
 ;; Simple wrapper around parse-paren-until-eof, useful for testing
-(define parse-paren-from-string
+(define string->paren
   (case-lambda
     ((str)                (parse-paren-until-eof (string->parsectx str (parsers)) 'scheme))
     ((str initial-parser) (parse-paren-until-eof (string->parsectx str (parsers)) initial-parser))))
