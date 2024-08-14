@@ -139,7 +139,9 @@
 (define (show-paren obj port)
   (try
     (let ((token (paren-token obj)))
-      (display (if token token #\_) port)
+      (display (or token #\_) port)
+      (unless (paren-ok? obj)
+        (display #\? port))
       (let ((inner-span (paren-inner obj)))
         (when (span? inner-span)
           (span-iterate inner-span

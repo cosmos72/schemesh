@@ -707,8 +707,8 @@ static const testcase tests[] = {
     /** paren are not special in shell syntax inside double quoted string */
     {"(string->paren \"{\\\"()\\\"}\")", "#<paren _{\"\"}_>"},
     /** parse mismatched paren */
-    {"(string->paren \"([{)]}\")", "#<paren _([{}])_>"},
-    {"(string->paren \"(\\\" a\\\"\")", "#<paren _(\"\")_>"},
+    {"(string->paren \"([{)]}\")", "#<paren _(?[?{}])_>"},
+    {"(string->paren \"(\\\" a\\\"\")", "#<paren _(?\"\")_>"},
     {"(string->paren \"{ls #!scheme 1 2 3}\")", "#<paren _{}_>"},
     {"(string->paren \"(values '{ls; #!scheme 1 2 3})\")", "#<paren _({})_>"},
     /* -------------------------- parenmatcher -------------------------------*/
