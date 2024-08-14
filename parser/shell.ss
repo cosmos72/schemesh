@@ -8,8 +8,8 @@
 
 (library (schemesh parser shell (0 1))
   (export
-    read-shell-char lex-shell parse-shell-word parse-shell1 parse-shell2
-    parse-shell parse-shell* parse-shell-list parser-shell)
+    read-shell-char lex-shell parse-shell-word parse-shell-form1
+    parse-shell-forms parser-shell)
   (import
     (rnrs)
     (only (chezscheme) append! fx1+ fx1- inspect reverse! unread-char void)
@@ -150,7 +150,7 @@
       ((lparen)
         (parsectx-read-char ctx) ; consume (
         ; read a shell list surrounded by $(...)
-        (parse-shell1 ctx 'dollar+lparen))
+        (parse-shell-form1 ctx 'dollar+lparen))
       ((lbrace)
         (read-subword-dollar-braced ctx))
       (else
@@ -300,7 +300,7 @@
     (if assign?
        (values
          (list (%simplify (cdr ret)) '= (car ret))
-         'assign)
+         'rlist-assign)
        (values
          (%simplify ret)
          'string))))
@@ -367,7 +367,7 @@
         ; Reason: historically used to disable the rest of a file, to help debugging
         (values (eof-object) 'eof)
         ; cannot switch to other parser here: just return it and let caller switch
-        (values (get-parser ctx value 'parse-shell) 'parser))
+        (values (get-parser ctx value 'parse-shell-forms) 'parser))
 
       ; read a single shell token
       (let-values (((value type) (lex-shell-impl ctx equal-is-operator?)))
@@ -380,105 +380,70 @@
 
 
 
-;; Repeatedly read from textual input port 'in' using (lex-shell)
-;; and construct corresponding shell form.
-;; Automatically change parser when directive #!... is found.
-;;
-;; Return parsed form, or new parser to use, or (eof-object) if end-of-file is reached
-(define (parse-shell ctx)
-  (let ((ret (%parse-shell ctx)))
-    ; (debugf "parse-shell         ret=~s~%" ret)
-    ret))
-
-(define (%parse-shell ctx)
-  (parsectx-skip-whitespace ctx #f) ; don't skip newlines
-  (let-values (((value type) (peek-shell-char ctx)))
-    (case type
-      ; cannot switch to other parser here, just return it and let caller switch
-      ((eof parser) value)
-      ((lparen)
-        ; switch to Scheme parser until corresponding )
-        ; also parse optional redirections after (...)
-        (let ((other-parse (parser-parse (get-parser ctx 'scheme 'parse-shell))))
-          (parse-shell-redirections ctx (other-parse ctx))))
-      ((lbrack lbrace)
-        (parsectx-read-char ctx) ; consume { or [
-        ; read a shell list surrounded by {...} or [...]
-        ; also parse optional redirections after {...} or [...]
-        (let ((ret (parse-shell-list ctx type '())))
-          (parse-shell-redirections ctx ret)))
-      (else
-        ; read a shell form
-        (let-values (((value type) (lex-shell ctx 'equal-is-operator?)))
-          (parse-shell-impl ctx value type #f))))))
-
-
-;; Repeatedly read shell tokens from textual input port 'in' using (lex-shell)
-;; and construct corresponding form.
-;; Automatically change parser when directive #!... is found.
-;;
-;; Return parsed form, or new parser to use.
-;;
-;; Raise syntax-errorf if end-of-file is reached before completely reading a form.
-(define (parse-shell* ctx)
-  (let ((value (parse-shell ctx)))
-    (when (eof-object? value)
-      (syntax-errorf ctx 'parse-shell "unexpected end-of-file"))
-    value))
-
-
 ;; Read a simple or compound shell command from textual input port 'in'
 ;;
-;; Return a list containing parsed command, usually with 'shell... prefix
+;; Return parsed command, usually with (shell ...) prefix
 ;; unless the only parsed command is Scheme syntax (...)
-(define parse-shell1
+(define parse-shell-form1
   (case-lambda
-    ((ctx)            (first-value (parse-shell2* ctx 'eof)))
-    ((ctx begin-type) (first-value (parse-shell2* ctx begin-type)))))
+    ((ctx)            (parse-shell-form1* ctx 'eof))
+    ((ctx begin-type) (parse-shell-form1* ctx begin-type))))
+
+(define (parse-shell-form1* ctx begin-type)
+  (let-values (((forms _) (parse-shell-forms ctx begin-type)))
+    (if (pair? forms)
+      (car forms)
+      (void))))
 
 
 ;; Read a simple or compound shell command from textual input port 'in'
 ;;
 ;; Return two values:
-;; 1. a list containing parsed command, usually with 'shell... prefix
+;; 1. a list containing parsed commands - at most one, usually with 'shell... prefix
 ;; 2. the new parser to use, or #f to continue using the same parser
-;;
-(define parse-shell2
-  (case-lambda
-    ((ctx)            (parse-shell2* ctx 'eof))
-    ((ctx begin-type) (parse-shell2* ctx begin-type))))
-
-(define (parse-shell2* ctx begin-type)
-  (let ((ret '())
-        (end-type (case begin-type
-                    ((lbrace) 'rbrace)
-                    ((lbrack) 'rbrack)
-                    ((backquote) 'backquote)
-                    ((eof)    'eof)
-                    (else     'rparen)))
-        (prefix (case begin-type
-                    ((backquote dollar+lparen) 'shell-backquote)
-                    ((lbrack)                  'shell-subshell)
-                    (else                      'shell)))
-        (can-change-parser? #t)
-        (equal-is-operator? #t)
-        (done? #f)
-        (parser #f))
+(define (parse-shell-forms ctx begin-type)
+  (let* ((ret '())
+         (end-type (case begin-type
+                     ((lbrace) 'rbrace)
+                     ((lbrack) 'rbrack)
+                     ((backquote) 'backquote)
+                     ((eof)    'eof)
+                     (else     'rparen)))
+         (prefix (case begin-type
+                     ((backquote dollar+lparen) 'shell-backquote)
+                     ((lbrack)                  'shell-subshell)
+                     (else                      'shell)))
+         (can-change-parser? #t)
+         (equal-is-operator? #t)
+         (done? #f)
+         (parser #f)
+         (%merge! (lambda (forms)
+           (let ((%ret (%simplify-parse-shell-forms end-type prefix ret)))
+             ; (debugf "... parse-shell-forms > %merge! ret=~s other-forms=~s~%" %ret forms)
+             (set! ret (if (null? forms) %ret (append! %ret forms)))
+             ; (debugf "... parse-shell-forms < %merge! ret=~s~%" ret)
+             (set! prefix #f)))))
     (until done?
       (let-values (((value type) (lex-shell ctx equal-is-operator?)))
-        ; (debugf "parse-shell2*... ret=~s value=~s type=~s~%" (reverse ret) value type)
+        ; (debugf "parse-shell-forms... ret=~s value=~s type=~s~%" (reverse ret) value type)
         (case type
           ((eof)
             (unless (eq? type end-type)
-              (syntax-errorf ctx 'parse-shell2 "unexpected end-of-file after ~a" (reverse! ret)))
+              (syntax-errorf ctx 'parse-shell-forms "unexpected end-of-file after ~a" (reverse! ret)))
             (set! done? #t))
           ((parser)
+            ; switch to other parser until end of current list
             (unless can-change-parser?
-              (syntax-errorf ctx 'parse-shell2
+              (syntax-errorf ctx 'parse-shell-forms
                 "parser directive #!... can only appear before or after a shell command, not in the middle of it: ~a"
                 (reverse! (cons (string-append "#!" (symbol->string (parser-name value))) ret))))
             (set! parser value)
-            (set! done?  #t))
+            (set! done?  #t)
+            (let ((other-parse-forms (parser-parse-forms value))) ; value is a parser
+              (let-values (((other-forms updated-parser) (other-parse-forms ctx begin-type)))
+                (when updated-parser
+                  (set! parser updated-parser))
+                (%merge! other-forms))))
           ((separator)
             ; value can be #\& #\; or #\newline
             (set! ret (cons (if (eq? value '&) '& '\x3b;) ret)))
@@ -490,280 +455,88 @@
             (if (eq? type end-type)
               (set! done? #t)
               ; TODO: `...` may be followed by other words without a space
-              (let-values (((form parser) (parse-shell2* ctx type)))
+              (let ((form (parse-shell-form1 ctx type)))
                 (when (pair? form)
                   (set! ret (cons form ret))))))
           ((lparen)
             ; switch to Scheme parser for a single form.
-            ; Convenience: if this is the first token and begin-type is eof,
-            ; omit the initial (shell ...) and set done to #t.
-            ; This allows entering Scheme forms from shell syntax
-            (when (null? ret)
-              (set! prefix #f)
-              (set! done? #t))
-            (let ((other-parse-list (parser-parse-list (get-parser ctx 'scheme 'parse-shell))))
-              (let ((other-ret (other-parse-list ctx type '())))
-                (set! ret (cons other-ret ret)))))
+            (let ((other-parse-forms (parser-parse-forms (get-parser ctx 'scheme 'parse-shell-forms))))
+              (let-values (((other-forms _) (other-parse-forms ctx type)))
+                (if (and (null? ret) (eq? 'eof end-type))
+                  ; lparen is the first token at shell top level:
+                  ; allow entering Scheme form
+                  (let-values (((forms updated-parser) (%after-lisp-forms-at-top-level ctx other-forms)))
+                    (set! ret forms)
+                    (when updated-parser
+                      (set! parser updated-parser))
+                    (set! done? #t)
+                    (set! prefix #f))
+                  ; lparen was in the middle of shell syntax:
+                  ; just insert parsed Scheme form into current shell command
+                  (set! ret (cons other-forms ret))))))
           ((lbrace lbrack dollar+lparen)
             ; TODO: $(...) may be followed by other words without a space
-            (let-values (((form parser) (parse-shell2* ctx type)))
+            (let ((form (parse-shell-form1 ctx type)))
               (when (pair? form)
                 (set! ret (cons form ret)))))
           ((rbrace rbrack rparen)
             (unless (eq? type end-type)
-              (syntax-errorf ctx 'parse-shell2 "unexpected token ~a, expecting ~a"
+              (syntax-errorf ctx 'parse-shell-forms "unexpected token ~a, expecting ~a"
                 (paren-type->string type) (paren-type->string end-type)))
             (set! done? #t))
           (else
-            (syntax-errorf ctx 'parse-shell2 "unexpected token ~s after ~a" value (reverse! ret))))
+            (syntax-errorf ctx 'parse-shell-forms "unexpected ~a ~s after ~a" type value (reverse! ret))))
 
-        (set! equal-is-operator? (memq type '(rlist-assign separator)))
-        (set! can-change-parser? (eq? type 'separator))))
+        (set! can-change-parser? (eq? 'separator type))
+        (set! equal-is-operator? (or (eq? 'separator type) (eq? 'rlist-assign type)))))
 
-    ; (debugf "...parse-shell2* ret=~s~%" (reverse ret))
-    (values (%simplify-parse-shell2 end-type prefix ret) parser)))
+    ; (debugf "...parse-shell-forms ret=~s~%" (reverse ret))
+    (values (%simplify-parse-shell-forms end-type prefix ret) parser)))
 
 
 
-(define (%simplify-parse-shell2 end-type prefix ret)
+(define (%simplify-parse-shell-forms end-type prefix ret)
   (cond
-    ((not prefix) (car ret)) ; unwrap single Scheme form
-    ((and (eq? 'eof end-type)
-          (eq? 'shell prefix)
-          (pair? ret)
-          (pair? (car ret))
-          (null? (cdr ret))
-          (eq? prefix (caar ret)))
-      (car ret)) ; simplify (shell (shell ...)) -> (shell ...)
+    ((not prefix) ret) ; return a list containing possibly mixed shell and Scheme form(s)
+    ((and (eq? 'eof end-type) (eq? 'shell prefix) (null? ret))
+      ; simplify top-level (shell) -> nothing
+      '())
+    ((and (eq? 'eof end-type) (eq? 'shell prefix) (pair? ret)
+          (pair? (car ret)) (null? (cdr ret))
+          (memq (caar ret) '(shell shell-subshell)))
+      ; simplify (shell (shell ...)) -> (shell ...)
+      ; simplify (shell (shell-subshell ...)) -> (shell-subshell ...)
+      (list (car ret)))
     (#t
-      (cons prefix (reverse! ret))))) ; add prefix
+      (list (cons prefix (reverse! ret)))))) ; add prefix
 
 
-
-
-;; return #t if ch is allowed inside a shell compound command
-(define (char-allowed-in-cmd? ch)
-  (case ch
-    ((#\! #\" #\$ #\% #\& #\' #\* #\+ #\, #\- #\. #\/ #\: #\; #\< #\= #\> #\? #\@ #\\ #\^ #\_ #\|#\~) #t)
-    (else
-      (and (char? ch) ; eof terminates shell command
-           (or (char<=? #\0 ch #\9)
-               (char<=? #\A ch #\Z)
-               (char<=? #\a ch #\z)
-               (char>? ch #\delete))))))
-
-
-;; Common backend of (parse-shell) (parse-shell*) and (parse-shell-list)
-;; Does NOT support changing parser when directive #!... is found.
+;; Convenience: lparen was the first token and begin-type is eof:
+;; => omit the initial (shell ...)
+;; This allows entering Scheme forms from shell syntax.
+;; We still need to read until eof, and for readability the (...) must be followed by one of:
+;; - eof
+;; - semicolon or newline
+;; - another (...)
 ;;
-;; Return parsed form.
-(define (parse-shell-impl ctx value type is-inside-backquote?)
-  (let* ((ret0 (list 'shell))
-         (ret ret0)
-         (again? #t)
-         (reverse? #t)
-         (equal-is-operator? #t)
-         (%merge! (lambda (form)
-           (cond
-             ((eof-object? form) #f) ;; ignore (eof-object)
-             ((null? ret)        (set! ret form))
-             (else               (set! ret (cons form ret)))))))
-    (while again?
-      ; (debugf "parse-shell-impl... value=~s type=~s ret=~s equal-is-operator?=~s~%" value type (if reverse? (reverse ret) ret) equal-is-operator?)
-      (case type
-        ((eof)
-          (set! again? #f))
-        ((parser)
-          (unless (eq? ret ret0)
-            (syntax-errorf ctx 'parse-shell
-              "parser directive #!... can only appear before or after a shell command, not in the middle of it: ~a"
-              (string-append "#!" (symbol->string (parser-name value)))))
-          ; return parser directive #!...
-          (set! ret value)
-          (set! reverse? #f)
-          (set! again? #f))
-        ((separator)
-          ; value can be '& #\newline or #\;
-          (%merge! (if (eq? value '&) '& '\x3b;))
-          (set! again? #f))
-        ((op string integer)
-          ; parsed non-assignment, it cannot be followed by further assignments
-          (set! equal-is-operator? #f)
-          (set! ret (cons value ret)))
-        ((rlist-assign)
-          (when (and equal-is-operator? (not (memq '= value)))
-            ; parsed non-assignment, it cannot be followed by further assignments
-            (set! equal-is-operator? #f))
-          (set! ret (append! value ret)))
-        ((backquote dollar+lparen)
-          (if (and is-inside-backquote? (eq? 'backquote type))
-            ; we read one token too much - try to unread it
-            (begin
-              (parsectx-unread-char ctx value)
-              (set! again? #f))
-            ; parse nested shell list surrounded by `...` or $(...)
-            (%merge! (parse-shell-list ctx type '()))))
-        ((lparen)
-          ; switch to Scheme parser for a single form.
-          ; Convenience: if ( is the first token, omit the initial (shell ...)
-          ; and set again? to #f. This allows entering Scheme forms from shell syntax
-          (when (eq? ret ret0)
-            (set! ret '())
-            (set! again? #f)
-            ; forms returned by (parser-parse-list) are already reversed
-            (set! reverse? #f))
-          (let ((other-parse-list (parser-parse-list (get-parser ctx 'scheme 'parse-shell))))
-            (let ((other-ret (other-parse-list ctx type '())))
-              (%merge! other-ret))))
-        ((lbrack lbrace)
-          (unless (or (eq? ret ret0)
-                      (null? ret)
-                      (memq (car ret) '(! && \x7c; \x7c;\x7c;
-                                        )))
-            ; characters [ { are not allowed in the middle of a shell command
-            (syntax-errorf ctx 'parse-shell
-              "grouping token ~a can only appear before or after a shell command, not the middle of it: ~a"
-              value (reverse! (cons value ret))))
-          ; parse nested shell list surrounded by {...} or [...]
-          (%merge! (parse-shell-list ctx type '()))
-          (set! again? #f))
-        ((rparen rbrack rbrace)
-          ; we read one token too much - try to unread it
-          (set! again? #f)
-          (parsectx-unread-char ctx value))
-        (else
-          (syntax-errorf ctx 'parse-shell "unexpected token type ~a after ~a"
-            type (reverse! ret))))
-      ; if needed, read another token and iterate
-      (when again?
-        (let-values (((value-i type-i) (lex-shell ctx equal-is-operator?)))
-          (set! value value-i)
-          (set! type type-i))))
-    ; shell form is complete, return it
-    ; (debugf "...parse-shell-impl ret=~s~%" (if reverse? (reverse ret) ret))
-    (if reverse? (reverse! ret) ret)))
-
-
-;; Read shell redirections from textual input port and append them to form
-(define (parse-shell-redirections ctx form)
-  (let* ((redirs '())
-         (again? #t))
-    (while again?
-      (parsectx-skip-whitespace ctx #f) ; don't skip newlines
-       (let ((ch (parsectx-peek-char ctx)))
-          (if (and (char? ch)
-                   (or (char=? #\< ch)
-                       (char=? #\> ch)
-                       (char<=? #\0 ch #\9)))
-            (set! redirs (parse-shell-redirection ctx redirs))
-            (set! again? #f))))
-    (if (null? redirs)
-      form
-      (cons 'shell (cons form (reverse! redirs))))))
-
-
-;; Read a two- or three- argument shell redirection from textual input port and prefix it to redirs
-(define (parse-shell-redirection ctx redirs)
-  (let-values (((value type) (lex-shell ctx #f))) ; equal-is-operator? = #f
-    (if (eq? 'integer type)
-      (parse-shell-redirection2 ctx (cons value redirs))
-      (parse-shell-redirection1 ctx (cons value redirs)))))
-
-
-;; Read a two-argument shell redirection from textual input port and prefix it to redirs
-(define (parse-shell-redirection2 ctx redirs)
-  (let ((ch (parsectx-peek-char ctx)))
-    (if (and (char? ch)
-             (or (char=? #\< ch)
-                 (char=? #\> ch)))
-      (let-values (((value type) (lex-shell ctx #f))) ; equal-is-operator? = #f
-        (parse-shell-redirection1 ctx (cons value redirs)))
-      redirs)))
-
-
-;; Read the last argument of a shell redirection from textual input port and prefix it to redirs
-(define (parse-shell-redirection1 ctx redirs)
-  (let-values (((value type) (lex-shell ctx #f))) ; equal-is-operator? = #f
-    (cons value redirs)))
-
-
-;; Read shell forms from textual input port 'in' until a token } or ] or )
-;; matching the specified begin-type token is found.
-;; Automatically change parser when directive #!... is found.
-;;
-;; Return a list starting with 'shell 'shell-subshell or 'shell-backquote followed by such forms.
-;; Raise syntax-errorf if mismatched end token is found, as for example ')' instead of '}'
-;;
-(define (parse-shell-list ctx begin-type already-parsed-reverse)
-  (let* ((first-token (case begin-type
-           ((backquote dollar+lparen)
-             (unless (null? already-parsed-reverse)
-               (syntax-errorf ctx 'parse-shell
-                 "unimplemented backquote in the middle of non-shell commands, it currently can only be inside shell commands: ~a"
-                 (reverse! (cons begin-type already-parsed-reverse))))
-             'shell-backquote)
-           ((lbrack) 'shell-subshell)
-           ((lparen lbrace) 'shell) ; lparen may happen when parsing "(#!shell ...)"
-           (else (syntax-errorf ctx 'parse-shell "unsupported list delimiter type ~a" begin-type))))
-         (ret0 (if (null? already-parsed-reverse)
-                 (list first-token)
-                 already-parsed-reverse))
-         (ret ret0)
-         (again? #t)
-         (reverse? #t)
-         (end-type (case begin-type
-                     ((lbrace) 'rbrace)
-                     ((lbrack) 'rbrack)
-                     ((backquote) 'backquote)
-                     (else 'rparen)))
-         (check-list-end (lambda (type)
-           (unless (eq? type end-type)
-             (syntax-errorf ctx 'parse-shell "unexpected token ~a, expecting ~a"
-               (paren-type->string type) (paren-type->string end-type)))))
-         (%merge! (lambda (form)
-           ; By construction, a single-form (shell ...) can only contain & ; as last token
-           ; and is not parsed from {...} or [...]
-           (if (and (null? already-parsed-reverse)
-                    (pair? form)
-                    (eq? 'shell (car form)))
-              ; flatten form into ret
-              (set! ret (append! (reverse! (cdr form)) ret))
-              ; add nested form to ret
-              (set! ret (cons form ret))))))
-
-    (while again?
-      (let-values (((value type) (lex-shell ctx 'equal-is-operator?)))
-        ; (debugf "parse-shell-list... ret=~s value=~s type=~s~%" (reverse ret) value type)
-        (case type
-          ((eof)
-            (syntax-errorf ctx 'parse-shell-list "unexpected end-of-file after ~a"
-              (if reverse? (reverse! ret) ret)))
-          ((parser)
-            ; switch to other parser until the end of current list
-            (let ((other-parse-list (parser-parse-list value)))
-              (set! ret (other-parse-list ctx begin-type ret)))
-            (set! reverse? #f)
-            (set! again? #f))
-          ((rparen rbrack rbrace)
-            (check-list-end type)
-            (set! again? #f))
-          ((lbrace lbrack)
-            ; parse nested shell list
-            (set! ret (cons (parse-shell-list ctx type '()) ret)))
-          ((separator)
-            ; value can be '& #\newline or #\;
-            (%merge! (if (eq? '& value) '& '\x3b;)))
-          (else
-            (if (and (eq? 'backquote begin-type) (eq? 'backquote type))
-              ; end of backquote reached
-              (begin
-                (check-list-end type)
-                (set! again? #f))
-              ; parse a single shell form and accumulate it into ret
-              (%merge! (parse-shell-impl ctx value type
-                         (eq? 'backquote begin-type))))))))
-    ; (debugf "...parse-shell-list ret=~s~%" (if reverse? (reverse ret) ret))
-    (if reverse? (reverse! ret) ret)))
+;; return two values:
+;; 1. list of parsed forms
+;; 2. updated parser to use, or #f if parser was not changed
+(define (%after-lisp-forms-at-top-level ctx lisp-forms)
+  (parsectx-skip-whitespace ctx #f) ; do not skip newlines
+  (let-values (((ch type) (peek-shell-char ctx)))
+    (case type
+      ((eof lparen) #t)
+      ((separator) (lex-shell ctx #f)) ; consume semicolon or newline
+      (else
+        (let-values (((value type) (lex-shell ctx #f)))
+          (syntax-errorf ctx 'parse-shell-forms
+            "unexpected token \"~a\" after initial (...) at shell top-level: expecting eof, newline, semicolon or another (...)"
+            value)))))
+  (let-values (((forms updated-parser) (parse-shell-forms ctx 'eof)))
+    (values
+      (cons lisp-forms forms)
+      updated-parser)))
 
 
 
@@ -897,7 +670,7 @@
 
 
 (define parser-shell
-  (let ((ret (make-parser 'shell parse-shell parse-shell* parse-shell-list parse-shell-paren)))
+  (let ((ret (make-parser 'shell parse-shell-forms parse-shell-paren)))
     (lambda ()
       ret)))
 

@@ -10,14 +10,14 @@
 ;;;
 (library (schemesh parser scheme (0 1))
   (export
-    lex-scheme parse-scheme parse-scheme* parser-scheme)
+    lex-scheme parse-scheme-forms1 parse-scheme-forms parser-scheme)
   (import
     (rnrs)
     (only (chezscheme)
        box bytevector fx1+
        fxvector fxvector-set! make-fxvector
        read-token reverse!)
-    (only (schemesh bootstrap) while)
+    (only (schemesh bootstrap) debugf while)
     (schemesh lineedit parser)
     (schemesh parser lisp))
 
@@ -34,32 +34,24 @@
 ;; by repeatedly calling (lex-scheme) and construct a Chez Scheme form.
 ;; Automatically change parser when directive #!... is found.
 ;;
-;; Return two values: parsed form, and #t.
-;; If end-of-file is reached, return (eof-object) and #f.
-(define (parse-scheme ctx)
-  (parse-lisp ctx 'scheme))
+;; Return a list of parsed forms.
+;; Raise syntax-errorf if end-of-file is reached before completely reading a form,
+;; or if mismatched end token is found, as for example ']' instead of ')'
+(define (parse-scheme-forms1 ctx)
+  (let-values (((ret _) (parse-lisp-forms ctx 'eof 'scheme)))
+    ; (debugf "<>  parse-scheme-forms1 ret=~s~%" ret)
+    ret))
 
-
-;; Read Chez Scheme tokens from textual input port 'in'
-;; by repeatedly calling (lex-scheme) and construct a Chez Scheme form.
-;; Automatically change parser when directive #!... is found.
-;;
-;; Return parsed form.
-;; Raises syntax-errorf if end of file is reached before reading a complete form.
-(define (parse-scheme* ctx)
-  (parse-lisp* ctx 'scheme))
 
 
 ;; Read Chez Scheme forms from textual input port 'in', until a token ) or ] or } matching
 ;; the specified begin-type token is found.
 ;; Automatically change parser when directive #!... is found.
 ;;
-;; Return a list containing parsed forms.
+;; Return a list of parsed forms
 ;; Raise syntax-errorf if mismatched end token is found, as for example ']' instead of ')'
-;;
-;; The argument already-parsed-reverse will be reversed and prefixed to the returned list.
-(define (parse-scheme-list ctx begin-type already-parsed-reverse)
-  (parse-lisp-list ctx begin-type already-parsed-reverse 'scheme))
+(define (parse-scheme-forms ctx begin-type)
+  (parse-lisp-forms ctx begin-type 'scheme))
 
 
 ;; Read Chez Scheme forms from textual input port (parsectx-in ctx),
@@ -78,7 +70,7 @@
 
 
 (define parser-scheme
-  (let ((ret (make-parser 'scheme parse-scheme parse-scheme* parse-scheme-list parse-scheme-paren)))
+  (let ((ret (make-parser 'scheme parse-scheme-forms parse-scheme-paren)))
     (lambda ()
       ret)))
 

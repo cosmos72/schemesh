@@ -740,6 +740,7 @@
         (paren-recursive-ok? paren))))
 
 
+
 ;; return #t if both old-paren and new-paren are #f
 ;; or if both are paren and contain the same start-x start-y end-x and-y
 (define (paren-equal-xy? old-paren new-paren)
@@ -802,10 +803,7 @@
     (put-string port "\nexception in lineedit-read: ")
     (display-condition* ex port)
     (newline port))
-  (dynamic-wind
-    tty-restore!
-    (lambda () (inspect ex))
-    tty-setraw!))
+  (lineedit-key-inspect ex))
 
 
 ;; implementation of (lineedit-read)

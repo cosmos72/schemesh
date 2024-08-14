@@ -10,11 +10,11 @@
 ;;;
 (library (schemesh parser lisp (0 1))
   (export
-    lex-lisp parse-lisp parse-lisp* parse-lisp-list parse-lisp-paren)
+    lex-lisp parse-lisp-forms parse-lisp-paren)
   (import
     (rnrs)
     (only (chezscheme)
-      box bytevector fx1+ fx1- fxvector fxvector-set! make-fxvector
+      append! box bytevector fx1+ fx1- fxvector fxvector-set! make-fxvector
       read-token reverse! top-level-value void)
     (only (schemesh bootstrap) assert* debugf while until)
     (only (schemesh containers misc) reverse*!)
@@ -25,8 +25,8 @@
 
 (define (caller-for flavor)
   (if (eq? flavor 'r6rs)
-    'parse-r6rs
-    'parse-scheme))
+    'parse-r6rs-forms
+    'parse-scheme-forms))
 
 
 (define (paren-caller-for flavor)
@@ -88,55 +88,48 @@
 ;; by repeatedly calling (lex-lisp) and construct a Scheme form.
 ;; Automatically change parser when directive #!... is found.
 ;;
-;; Return parsed form, or new parser to use, or (eof-object) if end-of-file is reached
+;; Return parsed form, or new parser to use.
+;;
+;; Raises syntax-errorf if end of file is reached before reading a complete form.
 (define (parse-lisp ctx flavor)
   (let-values (((value type) (lex-lisp ctx flavor)))
     (parse-lisp-impl ctx value type flavor)))
 
 
-;; Read Scheme tokens from textual input port 'in'
-;; by repeatedly calling (lex-lisp) and construct a Scheme form.
-;; Automatically change parser when directive #!... is found.
-;;
-;; Return parsed form, or new parser to use.
-;;
-;; Raises syntax-errorf if end of file is reached before reading a complete form.
-(define (parse-lisp* ctx flavor)
-  (let ((value (parse-lisp ctx flavor)))
-    (when (eof-object? value)
-      (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file"))
-    value))
-
-
-;; Common back-end of (parse-lisp) and (parse-lisp-list)
-;;
 ;; Read Scheme tokens from textual input port 'in', assuming value (and its type) was just read,
-;; repeatedly call (lex-lisp) to read further tokens, and construct a Scheme form.
+;; repeatedly call (lex-lisp) to read further tokens, and construct a single Scheme form.
 ;; Automatically change parser when directive #!... is found.
 ;;
-;; Return parsed form, or new parser to use, or (eof-object) if end-of-file is reached
+;; Return a single parsed form, or new parser to use, or (eof-object) if end-of-file is reached
 (define (parse-lisp-impl ctx value type flavor)
   (case type
     ;; cannot switch to other parser here: just return it and let caller switch
-    ((atomic eof parser) value)
+    ((atomic parser) value)
+    ((eof)
+      (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file"))
     ((box)
       (unless (eq? 'scheme flavor)
         (syntax-errorf ctx (caller-for flavor)
           "invalid token in #!r6rs syntax, only allowed in #!scheme syntax: ~a"
           (lex-type->string type)))
-    (list 'box  (parse-lisp* ctx flavor)))
+      (list 'box  (parse-lisp ctx flavor)))
     ;; if type = 'quote, value can be one of:
     ;;    'quote  'quasiquote  'unquote  'unquote-splicing
     ;;    'syntax 'quasisyntax 'unsyntax 'unsyntax-splicing
     ((quote)
-      (list value (parse-lisp* ctx flavor)))
-    ((lbrack lparen)
-      (parse-lisp-list ctx type '() flavor))
-    ;; lbrace i.e. { switches to shell parser until corresponding rbrace i.e. }
+      (list value (parse-lisp ctx flavor)))
+    ((lparen lbrack)
+      (let-values (((ret _) (parse-lisp-forms ctx type flavor)))
+        ret))
     ((lbrace)
-      (let ((other-parse-list (parser-parse-list
-              (get-parser ctx 'shell (caller-for flavor)))))
-        (other-parse-list ctx type '())))
+      ; happens when parsing '{...} or #&{...}
+      ; => switch to shell parser until corresponding }
+      (let ((other-parse-forms (parser-parse-forms (get-parser ctx 'shell (caller-for flavor)))))
+        (let-values (((other-forms _) (other-parse-forms ctx type)))
+          ; other-forms is a one-element list ((shell...)), unless a syntax change happened inside {...}
+          (if (and (pair? other-forms) (null? (cdr other-forms)))
+            (car other-forms)
+            other-forms))))
     ;; parse the various vector types, with or without explicit length
     ((vparen vu8paren)
       (parse-vector ctx type value flavor))
@@ -147,65 +140,94 @@
           (lex-type->string type)))
       (parse-vector ctx type value flavor))
     ; TODO implement types: record-brack fasl insert mark
-    (else   (syntax-errorf ctx (caller-for flavor) "unexpected token type: ~a" type))))
+    (else
+      (syntax-errorf ctx (caller-for flavor) "unexpected token type: ~a" type))))
 
 
 ;; Read Scheme forms from textual input port 'in', until a token ) or ] or } matching
 ;; the specified begin-type token is found.
 ;; Automatically change parser when directive #!... is found.
 ;;
-;; Return parsed form, or new parser to use.
+;; Return two values:
+;; 1. list of parsed forms
+;; 2. updated parser to use, or #f if parser was not changed
 ;;
-;; Raise syntax-errorf if end-of-file is reached
-;; or a mismatched end token is found, as for example ']' instead of ')'
-(define (parse-lisp-list ctx begin-type already-parsed-reverse flavor)
-  (let* ((ret already-parsed-reverse)
+;; Raise syntax-errorf if a mismatched end token is found, as for example ']' instead of ')'
+(define (parse-lisp-forms ctx begin-type flavor)
+  ; (debugf ">   parse-lisp-forms begin-type=~s~%" begin-type)
+  (let* ((ret '())
          (ret-parser #f)
          (again? #t)
          (reverse? #t)
+         (parser   #f)
          (end-type (case begin-type
-                     ((lbrace) 'rbrace) ((lbrack) 'rbrack) (else 'rparen)))
+                     ((eof)    'eof)
+                     ((lbrace) 'rbrace)
+                     ((lbrack) 'rbrack)
+                     (else 'rparen)))
          (check-list-end (lambda (type)
            (unless (eq? type end-type)
              (syntax-errorf ctx (caller-for flavor) "unexpected token ~a, expecting ~a"
-               (lex-type->string type) (lex-type->string end-type))))))
-    ; (debugf "parse-lisp-list begin-type=~s already-parsed-reverse=~s~%" begin-type already-parsed-reverse)
+               (lex-type->string type) (lex-type->string end-type)))))
+         (%merge! (lambda (forms)
+           ; (debugf "... parse-lisp-forms > %merge! ret=~s other-forms=~s~%" (if reverse? (reverse ret) ret) forms)
+           (if (null? ret)
+             (set! ret forms)
+             (set! ret (append! (if reverse? (reverse! ret) ret) forms)))
+           ; (debugf "... parse-lisp-forms < %merge! ret=~s~%" ret)
+           (set! reverse? #f))))
+    ; (debugf ">   parse-lisp-forms end-type=~s~%" end-type)
     (while again?
       (let-values (((value type) (lex-lisp ctx flavor)))
-        ; (debugf "... parse-lisp-list ret=~s value=~s type=~s~%" (reverse ret) value type)
+        ; (debugf "... parse-lisp-forms ret=~s value=~s type=~s end-type=~s~%" (if reverse? (reverse ret) ret) value type end-type)
         (case type
           ((eof)
-            (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file"))
+            (unless (eq? type end-type)
+              (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file after ~a"
+                (if reverse? (reverse! ret) ret)))
+            (set! again? #f))
           ((parser)
-            ;; #!... inside '(' '[' or '{' => switch to other parser until the end of current list
-            (let ((other-parse-list (parser-parse-list value)))
-              (set! ret (other-parse-list ctx begin-type ret))
-              (set! reverse? #f)
-              (set! again? #f)))
+            (set! parser value)
+            (set! again? #f)
+            ; switch to other parser until the end of current list
+            (let ((other-parse-forms (parser-parse-forms value)))
+              (let-values (((other-forms updated-parser) (other-parse-forms ctx begin-type)))
+                (when updated-parser
+                  (set! parser updated-parser))
+                (%merge! other-forms))))
           ((rparen rbrack rbrace)
             (check-list-end type)
             (set! again? #f))
           ((dot)
             ;; parse '.' followed by last form and matching token ) or ] or },
             ;; and create an improper list
-            (let* ((value-i (parse-lisp* ctx flavor))
-                   (value
-                     (if (parser? value-i)
-                       ;; switch to other parser
-                       (let ((other-parse* (parser-parse* value-i)))
-                         (other-parse* ctx))
-                       value-i)))
+            (let ((value (parse-lisp ctx flavor)))
+              (when (parser? value)
+                (syntax-errorf ctx (caller-for flavor) "unsupported syntax change directive after dot"))
               (set! ret (reverse*! (cons value ret)))
               (set! reverse? #f)
               (set! again? #f))
             ;; then parse ')' ']' or '}'
             (let-values (((value type) (lex-lisp ctx flavor)))
               (check-list-end type)))
+          ((lbrace)
+            ;; lbrace i.e. { switches to shell parser until corresponding rbrace i.e. }
+            (let ((other-parse-forms (parser-parse-forms (get-parser ctx 'shell (caller-for flavor)))))
+              (let-values (((other-forms _) (other-parse-forms ctx type)))
+                ; other-forms is a one-element list, unless a syntax change happened inside {...}
+                (if (null? ret)
+                  (set! ret (reverse! other-forms))
+                  (if (and (pair? other-forms) (null? (cdr other-forms)))
+                    (set! ret (cons (car other-forms) ret))
+                    (set! ret (append! (reverse! other-forms) ret)))))))
           (else
             ;; parse a single form and append it
             (let ((value-i (parse-lisp-impl ctx value type flavor)))
               (set! ret (cons value-i ret)))))))
-    (if reverse? (reverse! ret) ret)))
+    ; (debugf "<   parse-lisp-forms ret=~s~%" (if reverse? (reverse ret) ret))
+    (values
+      (if reverse? (reverse! ret) ret)
+      parser)))
 
 
 ;; Read Scheme forms from textual input port 'in' until a token ) or ] or } matching vec-type
@@ -215,7 +237,7 @@
 ;; Return a vector, fxvector or bytevector containing parsed forms.
 ;; Raise syntax-errorf if mismatched end token is found, as for example ] instead of )
 (define (parse-vector ctx vec-type length flavor)
-  (let ((values (parse-lisp-list ctx vec-type '() flavor)))
+  (let-values (((values _) (parse-lisp-forms ctx vec-type flavor)))
     (case vec-type
       ((vflnparen) (create-flvector   length values))
       ((vfxnparen) (create-fxvector   length values))
