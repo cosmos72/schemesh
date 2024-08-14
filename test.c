@@ -709,6 +709,8 @@ static const testcase tests[] = {
     /** parse mismatched paren */
     {"(string->paren \"([{)]}\")", "#<paren _([{}])_>"},
     {"(string->paren \"(\\\" a\\\"\")", "#<paren _(\"\")_>"},
+    {"(string->paren \"{ls #!scheme 1 2 3}\")", "#<paren _{}_>"},
+    {"(string->paren \"(values '{ls; #!scheme 1 2 3})\")", "#<paren _({})_>"},
     /* -------------------------- parenmatcher -------------------------------*/
     {"(values->list (paren->values\n"
      "  (parenmatcher-find-match\n"
@@ -912,6 +914,14 @@ static const testcase tests[] = {
      "  (string->parsectx \"ls -l | wc -b && echo ok || echo error &\" (parsers))\n"
      "  'shell))\n",
      "(((shell ls -l | wc -b && echo ok || echo error &)) #<parser shell>)"},
+    {"(values->list (repl-parse\n"
+     "  (string->parsectx \"(values '{})\" (parsers))\n"
+     "  'scheme))\n",
+     "(((values '(shell))) #<parser scheme>)"},
+    {"(values->list (repl-parse\n"
+     "  (string->parsectx \"(values '{ls; #!scheme 1 2 3})\" (parsers))\n"
+     "  'scheme))\n",
+     "(((values '((shell ls ;) 1 2 3))) #<parser scheme>)"},
 };
 
 static int run_tests(void) {

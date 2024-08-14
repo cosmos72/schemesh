@@ -25,8 +25,8 @@
 
 (define (caller-for flavor)
   (if (eq? flavor 'r6rs)
-    'parse-r6rs
-    'parse-scheme))
+    'parse-r6rs-forms
+    'parse-scheme-forms))
 
 
 (define (paren-caller-for flavor)
@@ -118,9 +118,18 @@
     ;;    'syntax 'quasisyntax 'unsyntax 'unsyntax-splicing
     ((quote)
       (list value (parse-lisp ctx flavor)))
-    ((lbrack lparen)
+    ((lparen lbrack)
       (let-values (((ret _) (parse-lisp-forms ctx type flavor)))
         ret))
+    ((lbrace)
+      ; happens when parsing '{...} or #&{...}
+      ; => switch to shell parser until corresponding }
+      (let ((other-parse-forms (parser-parse-forms (get-parser ctx 'shell (caller-for flavor)))))
+        (let-values (((other-forms _) (other-parse-forms ctx type)))
+          ; other-forms is a one-element list ((shell...)), unless a syntax change happened inside {...}
+          (if (and (pair? other-forms) (null? (cdr other-forms)))
+            (car other-forms)
+            other-forms))))
     ;; parse the various vector types, with or without explicit length
     ((vparen vu8paren)
       (parse-vector ctx type value flavor))
