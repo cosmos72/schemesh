@@ -18,10 +18,10 @@
     lex-r6rs parse-r6rs-forms parser-r6rs
 
     ; scheme.ss
-    lex-scheme parse-scheme1 parse-scheme-forms parser-scheme
+    lex-scheme parse-scheme-forms1 parse-scheme-forms parser-scheme
 
     ; shell.ss
-    read-shell-char lex-shell parse-shell-word parse-shell1 parse-shell2
+    read-shell-char lex-shell parse-shell-word parse-shell-form1
     parse-shell-forms parser-shell
 
     ; parser.ss
@@ -57,8 +57,7 @@
 ;; in a (possibly nested) list being parsed.
 ;;
 ;; Return two values.
-;; First value is list of parsed forms, prefixed by a suitable variable-length keyword or macro,
-;;    as for example (begin ...) or (shell ...)
+;; First value is list of parsed forms
 ;; Second value is updated parser to use.
 (define (parse-forms pctx initial-parser)
   (let* ((parser (to-parser pctx initial-parser 'parse-forms))
@@ -71,10 +70,10 @@
 ;; and temporarily switching to other parsers every time the directive #!... is found
 ;; in a (possibly nested) list being parsed.
 ;;
-;; Return list of parsed forms, prefixed by a suitable variable-length keyword or macro,
-;;    as for example (begin ...) or (shell ...)
+;; Return list of parsed forms
 (define (parse-forms1 pctx initial-parser)
-  (first-value (parse-forms pctx initial-parser)))
+  (let-values (((ret _) (parse-forms pctx initial-parser)))
+    ret))
 
 
 ;; Parse textual input port (parsectx-in pctx) until closing token matching start-ch is found

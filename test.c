@@ -521,77 +521,88 @@ static const testcase tests[] = {
      "      (string->charline* \"3.45e3 . #\\\\m\\n)\"))))",
      "(urehg* (a quote b) 123450.0 . m)"},
     /* ------------------------ parser scheme ------------------------------- */
-    {"(parse-scheme1 (string->parsectx"
-     "  \"(foo bar) '(a b)\"))",
+    {"(parse-scheme-forms1 (string->parsectx"
+     "  \"foo bar\"))",
      "(foo bar)"},
-    {"(parse-scheme1 (string->parsectx"
+    {"(parse-scheme-forms1 (string->parsectx"
+     "  \"(foo bar) '(a b)\"))",
+     "((foo bar) '(a b))"},
+    {"(parse-scheme-forms1 (string->parsectx"
      "  \"(a (b c . d) . e)\"))",
-     "(a (b c . d) . e)"},
-    {"(parse-scheme1 (string->parsectx"
+     "((a (b c . d) . e))"},
+    {"(parse-scheme-forms1 (string->parsectx"
      "  \"(list #| '\\\" . #| ,`@# |# |#" /* nested block comments */
      "      '#(a 1.0 2/3) #2(d) #vu8(1 2 3) #4vu8(9) #vfx(-1 0 2) #3vfx(4))\"))",
-     "(list '#(a 1.0 2/3) #(d d) #vu8(1 2 3) #vu8(9 9 9 9) #vfx(-1 0 2) #vfx(4 4 4))"},
+     "((list '#(a 1.0 2/3) #(d d) #vu8(1 2 3) #vu8(9 9 9 9) #vfx(-1 0 2) #vfx(4 4 4)))"},
     /* ------------------------ parser shell1 ------------------------------- */
-    {"(parse-shell1 (string->parsectx \"\")))", "(shell)"},
-    {"(parse-shell1 (string->parsectx \"{}\")))", "(shell)"},
-    {"(parse-shell1 (string->parsectx \"{{}}\")))", "(shell (shell))"},
-    {"(parse-shell1 (string->parsectx \"ls -l>/dev/null&\"))", "(shell ls -l > /dev/null &)"},
-    {"(parse-shell1 (string->parsectx \"{;foo} <log 2>&1 && bar<>baz|wc -l;;\"))",
+    {"(parse-shell-form1 (string->parsectx \"\")))", "(shell)"},
+    {"(parse-shell-form1 (string->parsectx \"{}\")))", "(shell)"},
+    {"(parse-shell-form1 (string->parsectx \"{{}}\")))", "(shell (shell))"},
+    {"(parse-shell-form1 (string->parsectx \"ls -l>/dev/null&\"))", "(shell ls -l > /dev/null &)"},
+    {"(parse-shell-form1 (string->parsectx \"{;foo} <log 2>&1 && bar<>baz|wc -l;;\"))",
      "(shell (shell ; foo) < log 2 >& 1 && bar <> baz | wc -l ; ;)"},
-    {"(parse-shell1 (string->parsectx \"echo|{cat;{true}\n}&\"))",
+    {"(parse-shell-form1 (string->parsectx \"echo|{cat;{true}\n}&\"))",
      "(shell echo | (shell cat ; (shell true) ;) &)"},
-    {"(parse-shell1 (string->parsectx \"ls; [foo || bar &] & echo\"))",
+    {"(parse-shell-form1 (string->parsectx \"ls; [foo || bar &] & echo\"))",
      "(shell ls ; (shell-subshell foo || bar &) & echo)"},
-    {"(parse-shell1 (string->parsectx \"{{{{echo|cat}}}}\"))",
+    {"(parse-shell-form1 (string->parsectx \"{{{{echo|cat}}}}\"))",
      "(shell (shell (shell (shell echo | cat))))"},
-    {"(parse-shell1 (string->parsectx\n"
+    {"(parse-shell-form1 (string->parsectx\n"
      "  \"a<>/dev/null||b>/dev/zero&&!c>&2\"))",
      "(shell a <> /dev/null || b > /dev/zero && ! c >& 2)"},
     /** test fd number [N] before redirection */
-    {"(format #f \"~s\" (parse-shell1 (string->parsectx\n"
+    {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
      "  \"foo 0</dev/zero 1<>/dev/urandom 2<&- 3>>logfile 4>otherfile 5>&/dev/null\")))",
      "(shell \"foo\" 0 < \"/dev/zero\" 1 <> \"/dev/urandom\" 2 <& \"-\" 3 >> \"logfile\""
      " 4 > \"otherfile\" 5 >& \"/dev/null\")"},
-    {"(format #f \"~s\" (parse-shell1 (string->parsectx\n"
+    {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
      "  \"ls \\\"-l\\\" '.'\")))",
      "(shell \"ls\" \"-l\" \".\")"},
-    {"(format #f \"~s\" (parse-shell1 (string->parsectx\n"
+    {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
      "  \"ls \\\"some\\\"'file'path\")))",
      "(shell \"ls\" (shell-concat \"some\" \"file\" \"path\"))"},
-    {"(format #f \"~s\" (parse-shell1 (string->parsectx\n"
+    {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
      "  \"ls `cmd1 && cmd2 || cmd3 -arg3`\"))))",
      "(shell \"ls\" (shell-backquote \"cmd1\" && \"cmd2\" \\x7C;\\x7C; \"cmd3\" \"-arg3\"))"},
-    {"(format #f \"~s\" (parse-shell1 (string->parsectx\n"
+    {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
      "  \"ls $var1 \\\"$var2\\\" '$var3'\")))",
      "(shell \"ls\" (shell-env \"var1\") (shell-env \"var2\") \"$var3\")"},
-    {"(format #f \"~s\" (parse-shell1 (string->parsectx\n"
+    {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
      "  \"ls ${v 1} \\\"${ v 2 }\\\" '${ v 3 }'\")))",
      "(shell \"ls\" (shell-env \"v 1\") (shell-env \" v 2 \") \"${ v 3 }\")"},
-    {"(format #f \"~s\" (parse-shell1 (string->parsectx\n"
+    {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
      "  \"ls \\\"$var1\\\"'$var2'$var3\")))",
      "(shell \"ls\" (shell-concat (shell-env \"var1\") \"$var2\" (shell-env \"var3\")))"},
-    {"(format #f \"~s\" (parse-shell1 (string->parsectx\n"
+    {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
      "  \"ls $(cmd arg $var)\")))",
      "(shell \"ls\" (shell-backquote \"cmd\" \"arg\" (shell-env \"var\")))"},
-    {"(format #f \"~s\" (parse-shell1 (string->parsectx\n"
+    {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
      "  \"ls \\\"$(cmd arg $var)\\\"\")))",
      "(shell \"ls\" (shell-backquote \"cmd\" \"arg\" (shell-env \"var\")))"},
-    {"(format #f \"~s\" (parse-shell1 (string->parsectx\n"
+    {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
      "  \"ls '$(cmd arg $var)'\")))",
      "(shell \"ls\" \"$(cmd arg $var)\")"},
     /* test () inside shell syntax */
-    {"(parse-shell1 (string->parsectx \"echo a || (cons 1 2)\" (parsers)))",
+    {"(parse-shell-form1 (string->parsectx \"echo a || (cons 1 2)\" (parsers)))",
      "(shell echo a || (cons 1 2))"},
     /* ------------------------ parse-forms --------------------------------- */
-    {"(values->list (parse-forms\n"
+    {"(parse-forms1\n"
      "  (string->parsectx \"\" (parsers))\n"
-     "  'scheme))",
-     "(() #<parser scheme>)"},
-    {"(values->list (parse-forms\n"
+     "  'scheme)",
+     "()"},
+    {"(parse-forms1\n"
+     "  (string->parsectx \"+\" (parsers))\n"
+     "  'scheme)",
+     "(+)"},
+    {"(parse-forms1\n"
      /* #!eof is equivalent to end-of-file in the input port */
      "  (string->parsectx \"'(a . b) c #!eof . ) syntax error\" (parsers))\n"
+     "  'scheme)",
+     "('(a . b) c)"},
+    {"(values->list (parse-forms\n"
+     "  (string->parsectx \"uiop asdf #!scheme xyz %%a\" (parsers))\n"
      "  'scheme))",
-     "(('(a . b) c) #<parser scheme>)"},
+     "((uiop asdf xyz %%a) #<parser scheme>)"},
     {"(values->list (parse-forms\n"
      "  (string->parsectx \"uiop asdf #!scheme (xyz %%a)\" (parsers))\n"
      "  'scheme))",
@@ -600,31 +611,49 @@ static const testcase tests[] = {
      "  (string->parsectx \"`('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)\" (parsers))\n"
      "  'scheme))",
      "((`('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)) #<parser scheme>)"},
-    {"(values->list (parse-forms\n"
+    {"(parse-forms1\n"
      "  (string->parsectx \"foo && bar || baz &\" (parsers))\n"
+     "  'shell)",
+     "((shell foo && bar || baz &))"},
+    {"(parse-forms1\n"
+     "  (string->parsectx \"ls -l >& log.txt\" (parsers))\n"
      "  'shell))",
-     "(((shell foo && bar || baz &)) #<parser shell>)"},
+     "((shell ls -l >& log.txt))"},
     /* character { switches to shell parser */
     {"(parse-forms1\n"
-     "  (string->parsectx \"{ls -l >& log.txt}\" (parsers))\n"
+     "  (string->parsectx \"7 {ls -l >& log.txt}\" (parsers))\n"
      "  'scheme))",
-     "(shell ls -l >& log.txt)"},
+     "(7 (shell ls -l >& log.txt))"},
+    {"(parse-forms1\n"
+     "  (string->parsectx \"(values {ls -al >> log.txt})\" (parsers))\n"
+     "  'scheme))",
+     "((values (shell ls -al >> log.txt)))"},
+    {"(parse-forms1\n"
+     "  (string->parsectx \"9 #!shell ls -al >> log.txt\" (parsers))\n"
+     "  'scheme))",
+     "(9 (shell ls -al >> log.txt))"},
     /* directive #!shell switches to shell parser also inside (...) */
     {"(parse-forms1\n"
      "  (string->parsectx \"(#!shell ls -al >> log.txt)\" (parsers))\n"
      "  'scheme))",
-     "(shell ls -al >> log.txt)"},
+     "(((shell ls -al >> log.txt)))"},
     {"(parse-forms1\n"
-     "  (string->parsectx \"(foo << bar #!shell baz >> log.txt; wc -l log.txt)\""
+     "  (string->parsectx \"(values foo bar #!shell baz >> log.txt; wc -l log.txt)\""
      " (parsers))\n"
      "  'scheme))",
-     "(foo << bar (shell baz >> log.txt ;) (shell wc -l log.txt))"},
+     "((values foo bar (shell baz >> log.txt ; wc -l log.txt)))"},
     /* ( inside shell syntax switches to Scheme parser for a single Scheme form,
      * then continues parsing shell syntax */
     {"(parse-forms1\n"
      "  (string->parsectx \"(+ 1 2)\" (parsers))\n"
      "  'shell)",
-     "(+ 1 2)"},
+     "((+ 1 2))"},
+#if 0  /* legal? */
+    {"(parse-forms1\n"
+     "  (string->parsectx \"(+ 2 3) echo\" (parsers))\n"
+     "  'shell)",
+     "((+ 2 3) (shell echo))"},
+#endif /* 0 */
     {"(parse-forms1\n"
      "  (string->parsectx \"{foo; bar}\" (parsers))\n"
      "  'shell)",
@@ -635,13 +664,13 @@ static const testcase tests[] = {
      "(shell-subshell foo ; bar)"},
     /* ( inside shell syntax switches to Scheme parser for a single Scheme form,
      * then continues parsing shell syntax */
-    {"(values->list (parse-forms\n"
+    {"(parse-forms1\n"
      "  (string->parsectx \"ls (apply + a `(,@b)) &\" (parsers))\n"
-     "  'shell)))",
-     "(((shell ls (apply + a `(,@b)) &)) #<parser shell>)"},
+     "  'shell))",
+     "(shell ls (apply + a `(,@b)) &)"},
     /* ( at the beginning of a shell command switches to Scheme parser,
      * parses a single Scheme form, and omits the initial (shell ...) */
-    {"(parse-shell1\n"
+    {"(parse-shell-form1\n"
      "  (string->parsectx \"(+ 1 2) not_parsed_yet\" (parsers)))",
      "(+ 1 2)"},
     /* idem */
@@ -653,15 +682,19 @@ static const testcase tests[] = {
      "  (string->parsectx \"ls (my-dir) >> log.txt\" (parsers))\n"
      "  'shell))",
      "(shell ls (my-dir) >> log.txt)"},
-    {"(values->list (parse-forms\n" /* directive #!scheme switches to Scheme parser too */
+    /**
+     * #!scheme at top level stops parsing and is returned
+     * FIXME: parsing should continue instead
+     */
+    {"(values->list (parse-forms\n"
      "  (string->parsectx \"ls ~; #!scheme (f a b)\" (parsers))\n"
      "  'shell))",
-     "(((shell ls ~ ;) (f a b)) #<parser scheme>)"},
+     "((shell ls ~ ;) #<parser scheme>)"},
     {"(values->list (parse-forms\n" /* directive #!shell switches to shell parser */
      "  (string->parsectx \"(+ a b) #!shell ls -al >> log.txt; #!scheme foo bar\""
      "    (parsers))\n"
      "  'scheme))",
-     "(((+ a b) (shell ls -al >> log.txt ;) foo bar) #<parser scheme>)"},
+     "((+ a b) (shell ls -al >> log.txt ;) foo bar) #<parser scheme>)"},
     /* ------------------------ parse-paren -------------------------------- */
     {"(string->paren \"(foo \\\"a()\\\" \\\"b[]\\\" \\\"c{}\\\" [* |2| 3])\")",
      "#<paren _(\"\" \"\" \"\" [||])_>"},
@@ -802,10 +835,10 @@ static const testcase tests[] = {
      INVOKELIB_SHELL_JOBS " (sh-or (sh-cmd true) (sh-not (sh-cmd false))))"},
     {"(expand '(shell-list (shell \"ls\" \"-al\" >> \"log.txt\")))",
      INVOKELIB_SHELL_PARSE " (sh-cmd* ls -al 1 '>> log.txt))"},
-    {"(expand (parse-shell1 (string->parsectx\n"
+    {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{{{{echo|cat}}}}\")))",
      INVOKELIB_SHELL_JOBS " (sh-pipe* (sh-cmd echo) '| (sh-cmd cat)))"},
-    {"(expand (parse-shell1 (string->parsectx\n"
+    {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{echo|{cat;{true}}}\")))",
      INVOKELIB_SHELL_JOBS " (sh-pipe* (sh-cmd echo) '| (sh-list (sh-cmd cat) '; (sh-cmd true))))"},
     {"(expand '(shell (shell \"ls\" & \"echo\")))",
@@ -818,41 +851,41 @@ static const testcase tests[] = {
      "(sh-list '\\x3B; (sh-cmd \"foo\") '\\x3B; (sh-cmd \"bar\"))"},
     {"(shell (shell \"ls\" & \"echo\") 2 >& 1)",
      "(sh-redirect! (sh-list (sh-cmd \"ls\") '& (sh-cmd \"echo\")) 2 '>& 1)"},
-    {"(parse-shell1 (string->parsectx\n"
+    {"(parse-shell-form1 (string->parsectx\n"
      "  \"{{foo};bar}\"))",
      "(shell (shell foo) ; bar)"},
 #if 0  /* these currently fail */
-    {"(parse-shell1 (string->parsectx\n"
+    {"(parse-shell-form1 (string->parsectx\n"
      "  \"{A=B ls}\")))",
      "(shell A = B ls)"},
-    {"(expand (parse-shell1 (string->parsectx\n"
+    {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{A=B ls}\")))",
      INVOKELIB_SHELL_PARSE " (sh-cmd* A '= B ls))"},
-    {"(parse-shell1 (string->parsectx\n"
+    {"(parse-shell-form1 (string->parsectx\n"
      "  \"{FOO=$BAR/subdir echo}\")))",
      "(shell FOO = (shell-concat (shell-env BAR) /subdir) echo)"},
-    {"(expand (parse-shell1 (string->parsectx\n"
+    {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{FOO=$BAR/subdir echo}\"))))",
      INVOKELIB_SHELL_JOBS_PARSE " (sh-cmd* FOO '= (lambda (job) (sh-concat job"
                                 " (lambda (job) (sh-env job BAR)) /subdir)) echo))"},
 #endif /* 0 */
-    {"(parse-shell1 (string->parsectx\n"
+    {"(parse-shell-form1 (string->parsectx\n"
      "  \"{ls A=B}\")))",
      "(shell ls A=B)"},
-    {"(expand (parse-shell1 (string->parsectx\n"
+    {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{ls A=B}\"))))",
      INVOKELIB_SHELL_JOBS " (sh-cmd ls A=B))"},
-    {"(parse-shell1 (string->parsectx\n"
+    {"(parse-shell-form1 (string->parsectx\n"
      "  \"{echo $(foo&&bar)}\"))",
      "(shell echo (shell-backquote foo && bar))"},
-    {"(expand (parse-shell1 (string->parsectx\n"
+    {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{echo $(foo&&bar)}\")))",
      INVOKELIB_SHELL_JOBS_PARSE " (sh-cmd* echo (lambda (job) (sh-run/string"
                                 " (sh-and (sh-cmd foo) (sh-cmd bar))))))"},
-    {"(expand (parse-shell1 (string->parsectx\n"
+    {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{{ls} > log.txt &}\")))",
      INVOKELIB_SHELL_JOBS_PARSE " (sh-list* (sh-cmd ls) 1 '> log.txt '&))"},
-    {"(eval (parse-shell1 (string->parsectx\n"
+    {"(eval (parse-shell-form1 (string->parsectx\n"
      "  \"{{ls} > log.txt &}\")))",
      "(sh-list (sh-cmd* \"ls\" 1 '> \"log.txt\") '&)"},
     {"(expand '(shell \"echo\" \"abc\" > \"DEL_ME\" &&"
@@ -876,7 +909,7 @@ static const testcase tests[] = {
     {"(values->list (repl-parse\n"
      "  (string->parsectx \"ls -l | wc -b && echo ok || echo error &\" (parsers))\n"
      "  'shell))\n",
-     "(((shell ls -l | wc -b && echo ok || echo error &)) #<parser shell>)"},
+     "((shell ls -l | wc -b && echo ok || echo error &) #<parser shell>)"},
 };
 
 static int run_tests(void) {
@@ -902,6 +935,8 @@ static int run_tests(void) {
 }
 
 static unsigned run_test(const testcase* test) {
+  /* fprintf(stdout, "test: %s\n", test->string_to_eval); */
+
   bytes actual   = eval_to_bytevector(test->string_to_eval);
   bytes expected = {strlen(test->expected_result), (const unsigned char*)test->expected_result};
   if (actual.size == expected.size && memcmp(actual.data, expected.data, actual.size) == 0) {

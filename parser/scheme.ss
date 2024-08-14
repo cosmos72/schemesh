@@ -10,14 +10,14 @@
 ;;;
 (library (schemesh parser scheme (0 1))
   (export
-    lex-scheme parse-scheme1 parse-scheme-forms parser-scheme)
+    lex-scheme parse-scheme-forms1 parse-scheme-forms parser-scheme)
   (import
     (rnrs)
     (only (chezscheme)
        box bytevector fx1+
        fxvector fxvector-set! make-fxvector
        read-token reverse!)
-    (only (schemesh bootstrap) while)
+    (only (schemesh bootstrap) debugf while)
     (schemesh lineedit parser)
     (schemesh parser lisp))
 
@@ -34,29 +34,24 @@
 ;; by repeatedly calling (lex-scheme) and construct a Chez Scheme form.
 ;; Automatically change parser when directive #!... is found.
 ;;
-;; Return parsed form.
-;; Raise syntax-errorf if end-of-file is reached before completely reading a form.
-(define (parse-scheme1 ctx)
-  (let ((value (parse-lisp ctx 'scheme)))
-    (when (eof-object? value)
-      (syntax-errorf ctx 'parse-scheme "unexpected end-of-file"))
-    value))
+;; Return a list of parsed forms.
+;; Raise syntax-errorf if end-of-file is reached before completely reading a form,
+;; or if mismatched end token is found, as for example ']' instead of ')'
+(define (parse-scheme-forms1 ctx)
+  (let-values (((ret _) (parse-lisp-forms ctx 'eof 'scheme)))
+    ; (debugf "<>  parse-scheme-forms1 ret=~s~%" ret)
+    ret))
 
 
 
-; Read Chez Scheme forms from textual input port 'in', until a token ) or ] or } matching
-; the specified begin-type token is found.
-; Automatically change parser when directive #!... is found.
-;
-; Return a list containing parsed forms, usually prefixed by (begin ...)
-; Raise syntax-errorf if mismatched end token is found, as for example ']' instead of ')'
+;; Read Chez Scheme forms from textual input port 'in', until a token ) or ] or } matching
+;; the specified begin-type token is found.
+;; Automatically change parser when directive #!... is found.
+;;
+;; Return a list of parsed forms
+;; Raise syntax-errorf if mismatched end token is found, as for example ']' instead of ')'
 (define (parse-scheme-forms ctx begin-type)
-  (let ((ret (parse-lisp-list ctx begin-type '() 'scheme)))
-    (values
-      (if (or (not (pair? ret)) (eq? 'begin (car ret)) (null? (cdr ret)))
-        ret
-        (cons 'begin ret))
-      #f)))
+  (parse-lisp-forms ctx begin-type 'scheme))
 
 
 ;; Read Chez Scheme forms from textual input port (parsectx-in ctx),

@@ -35,15 +35,10 @@
 ; the specified begin-type token is found.
 ; Automatically change parser when directive #!... is found.
 ;
-; Return a list containing parsed forms, usually prefixed by (begin ...)
+; Return a list of parsed forms
 ; Raise syntax-errorf if mismatched end token is found, as for example ']' instead of ')'
 (define (parse-r6rs-forms ctx begin-type)
-  (let ((ret (parse-lisp-list ctx begin-type '() 'r6rs)))
-    (values
-      (if (or (not (pair? ret)) (eq? 'begin (car ret)) (null? (cdr ret)))
-        ret
-        (cons 'begin ret))
-      #f)))
+  (parse-lisp-forms ctx begin-type 'r6rs))
 
 
 ;; Read r6rs Scheme forms from textual input port (parsectx-in ctx),

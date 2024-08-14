@@ -32,8 +32,7 @@
 
 
 ;; parser is an object containing four procedures:
-;;   parser-parse-forms will parse multiple forms,
-;;     and return them prefixed by a suitable (begin ...) or (shell ...) etc
+;;   parser-parse-forms will parse multiple forms, and return them
 ;;   parser-parse-paren will scan a list of forms and return matching parentheses/brackets/braces/quotes
 (define-record-type
   (parser %make-parser parser?)
