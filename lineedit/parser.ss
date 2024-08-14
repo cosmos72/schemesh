@@ -16,7 +16,7 @@
     get-parser-or-false get-parser to-parser
 
     parsectx-peek-char parsectx-read-char parsectx-unread-char parsectx-skip-whitespace
-    parsectx-skip-line parsectx-skip-until-char
+    parsectx-skip-line parsectx-skip-until-char parsectx-read-simple-identifier
     try-read-parser-directive
 
     syntax-errorf)
@@ -299,6 +299,16 @@
   (void))
 
 
+;; read a simple identifier and return corresponding symbol
+(define (parsectx-read-simple-identifier pctx)
+  (let ((csp (charspan)))
+    (charspan-reserve-back! csp 10)
+    (parsectx-read-char pctx)
+    (while (is-simple-identifier-char? (parsectx-peek-char pctx))
+      (charspan-insert-back! csp (parsectx-read-char pctx)))
+    (string->symbol (charspan->string csp))))
+
+
 ;; return truthy if ch is a character whose value is a number,
 ;; or an ASCII letter, or '_', or greater than (integer->char 127).
 ;; Otherwise return #f
@@ -324,12 +334,7 @@
     (when (eqv? #\# (parsectx-peek-char pctx))
       (parsectx-read-char pctx)
       (if (eqv? #\! (parsectx-peek-char pctx))
-        (let ((csp (charspan)))
-          (charspan-reserve-back! csp 10)
-          (parsectx-read-char pctx)
-          (while (is-simple-identifier-char? (parsectx-peek-char pctx))
-            (charspan-insert-back! csp (parsectx-read-char pctx)))
-          (set! ret (string->symbol (charspan->string csp))))
+        (set! ret (parsectx-read-simple-identifier pctx))
         (parsectx-unread-char pctx #\#)))
     ret))
 

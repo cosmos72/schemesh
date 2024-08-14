@@ -380,10 +380,12 @@
          (end-ch (case start-ch ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else #f)))
          (ret    #f))
 
+    (debugf ">   parse-lisp-paren start-ch=~a~%" start-ch)
     (let-values (((x y) (parsectx-previous-pos ctx (if start-ch 1 0))))
       (paren-start-xy-set! paren x y))
     (until ret
       (let ((token (scan-lisp-paren-or-directive ctx)))
+        (debugf "... parse-lisp-paren token=~s paren=~s~%" token paren)
         (cond
           ((not token) ; not a grouping token
              #f)
@@ -394,7 +396,7 @@
 
           ((symbol? token)
              ; recurse to other parser until end of current list
-             (let* ((other-parser       (get-parser-or-false ctx token))
+             (let* ((other-parser      (get-parser-or-false ctx token))
                     (other-parse-paren (and other-parser (parser-parse-paren other-parser)))
                     (other-paren       (and other-parse-paren (other-parse-paren ctx start-ch))))
                (when other-paren
@@ -410,8 +412,8 @@
              (let* ((other-parser (get-parser-or-false ctx 'shell))
                     (other-parse-paren (and other-parser (parser-parse-paren other-parser)))
                     (other-paren (if other-parse-paren
-                                    (other-parse-paren ctx token)
-                                    (parse-lisp-paren ctx token flavor))))
+                                   (other-parse-paren ctx token)
+                                   (parse-lisp-paren ctx token flavor))))
                (when other-paren
                  (paren-inner-append! paren other-paren))))
 
@@ -422,12 +424,14 @@
                (parse-lisp-paren-inner ctx flavor token)))
 
           ((eof-object? token)
-             (set! ret 'err))
+             (set! ret (if start-ch 'err #t)))
 
           ; ignore unexpected tokens
           )))
 
-    (paren-fill-end! ctx paren (or (eq? #t ret) (not start-ch)))))
+    (paren-fill-end! ctx paren (or (eq? #t ret) (not start-ch)))
+    (debugf "<   parse-lisp-paren paren=~s ret=~s~%" paren ret)
+    paren))
 
 
 (define (paren-fill-end! ctx paren ok?)

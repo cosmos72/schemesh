@@ -541,27 +541,14 @@
 
 
 
+(define dollar+lparen 1)
+(define dollar+lbrace 2)
+
 ;; Read until one of ( ) { } ' " ` $( is found, and return it.
 ;; ignore them if they are preceded by \
 ;; if $( is found, return $
 ;; Also recognize and return parser directives #!... and return them
 (define (scan-shell-paren-or-directive ctx)
-  (parsectx-skip-whitespace ctx 'also-skip-newlines)
-  ;; cannot switch to other parser here: just return its name and let caller switch
-  (or (try-read-parser-directive ctx)
-      (scan-shell-paren ctx)))
-
-
-(define dollar+lparen 1)
-(define dollar+lbrace 2)
-
-;; Read until one of ( ) [ ] { } ' " ` $( ${ is found, and return it.
-;; ignore them if they are preceded by \
-;; if $( is found, return value of global constant dollar+lparen
-;; if ${ is found, return value of global constant dollar+lbrace
-;; Does not recognize parser directives #!... use (scan-shell-paren-or-directive)
-;; for that
-(define (scan-shell-paren ctx)
   (let ((ret #f)
         (prev-char #f))
     (until ret
@@ -579,8 +566,14 @@
 
           ((#\\)  (parsectx-read-char ctx)) ; consume one character after backslash
 
-          ((#\#)  (parsectx-skip-line ctx))
-          (else (when (eof-object? ch) (set! ret ch))))
+          ((#\#)
+            (if (eqv? #\! (parsectx-read-char ctx))
+              (set! ret (parsectx-read-simple-identifier ctx))
+              (parsectx-skip-line ctx)))
+
+          (else
+            (when (eof-object? ch)
+              (set! ret ch))))
         (set! prev-char ch)))
     ret))
 
@@ -600,16 +593,14 @@
     (assert* 'parse-shell-paren (char? start-ch)))
   (let* ((paren  (make-paren 'shell start-ch))
          (end-ch (case start-ch ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else start-ch)))
-         (ret    #f)
-         (%paren-fill-end! (lambda (paren)
-            (let-values (((x y) (parsectx-previous-pos ctx 1)))
-             (paren-end-xy-set! paren x y))
-           (paren-ok?-set! paren #t))))
+         (ret    #f))
 
+    (debugf ">   parse-shell-paren start-ch=~a~%" start-ch)
     (let-values (((x y) (parsectx-previous-pos ctx (if start-ch 1 0))))
       (paren-start-xy-set! paren x y))
     (until ret
       (let ((token (scan-shell-paren-or-directive ctx)))
+        (debugf "... parse-shell-paren token=~s paren=~s~%" token paren)
         (cond
           ((not token) ; not a grouping token
              #f)
@@ -619,13 +610,14 @@
 
           ((symbol? token)
             (unless (eqv? start-ch #\")
-               ; recurse to other parser until end of current list
-               (let* ((other-parser       (get-parser-or-false ctx token))
-                      (other-parse-paren (and other-parser (parser-parse-paren other-parser)))
-                      (other-paren       (and other-parse-paren (other-parse-paren ctx start-ch))))
-                  (when other-paren
-                    (paren-inner-append! paren other-paren)
-                    (set! ret #t)))))
+              ; recurse to other parser until end of current list
+              (let* ((other-parser      (get-parser-or-false ctx token))
+                     (other-parse-paren (and other-parser (parser-parse-paren other-parser)))
+                     (other-paren       (and other-parse-paren (other-parse-paren ctx start-ch))))
+                 (debugf "... parse-shell-paren other-paren=~s~%" other-paren)
+                 (when other-paren
+                   (paren-inner-append! paren other-paren)
+                   (set! ret #t)))))
 
           ((or (fixnum? token) (memv token '(#\{ #\[ #\" #\`)))
              ;; inside double quotes, ${ is special but plain { or [ aren't.
@@ -655,18 +647,25 @@
                  (let-values (((x y) (parsectx-previous-pos ctx 1)))
                    (paren-start-xy-set! inner x y))
                  (when (parsectx-skip-until-char ctx #\')
-                   (%paren-fill-end! inner)
+                   (paren-fill-end! ctx inner #t)
                    (paren-inner-append! paren inner)))))
 
           ((eof-object? token)
-             (set! ret 'err))
+             (set! ret (if start-ch 'err #t)))
 
           ; ignore unexpected tokens
           )))
 
-    (when (or (eq? #t ret) (not start-ch))
-      (%paren-fill-end! paren))
+    (paren-fill-end! ctx paren (or (eq? #t ret) (not start-ch)))
+    (debugf "<   parse-shell-paren paren=~s ret=~s~%" paren ret)
     paren))
+
+
+(define (paren-fill-end! ctx paren ok?)
+  (let-values (((x y) (parsectx-previous-pos ctx 1)))
+    (paren-end-xy-set! paren x y))
+  (paren-ok?-set! paren ok?)
+  paren)
 
 
 (define parser-shell

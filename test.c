@@ -709,7 +709,8 @@ static const testcase tests[] = {
     /** parse mismatched paren */
     {"(string->paren \"([{)]}\")", "#<paren _(?[?{}])_>"},
     {"(string->paren \"(\\\" a\\\"\")", "#<paren _(?\"\")_>"},
-    {"(string->paren \"{ls #!scheme 1 2 3}\")", "#<paren _{}_>"},
+    {"(string->paren \"ls #!scheme 1 2 3\" 'shell)", "#<paren __>"},
+    {"(string->paren \"{ls ; #!scheme 1 2 3}\")", "#<paren _{}_>"},
     {"(string->paren \"(values '{ls; #!scheme 1 2 3})\")", "#<paren _({})_>"},
     /* -------------------------- parenmatcher -------------------------------*/
     {"(values->list (paren->values\n"
