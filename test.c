@@ -534,6 +534,14 @@ static const testcase tests[] = {
      "  \"(list #| '\\\" . #| ,`@# |# |#" /* nested block comments */
      "      '#(a 1.0 2/3) #2(d) #vu8(1 2 3) #4vu8(9) #vfx(-1 0 2) #3vfx(4))\"))",
      "((list '#(a 1.0 2/3) #(d d) #vu8(1 2 3) #vu8(9 9 9 9) #vfx(-1 0 2) #vfx(4 4 4)))"},
+
+    /* invariant: {#!scheme ...} is always equivalent to (...) */
+    {"(parse-scheme-forms1 (string->parsectx"
+     "  \"(1 2 3)\" (parsers)))",
+     "((1 2 3))"},
+    {"(parse-scheme-forms1 (string->parsectx"
+     "  \"{#!scheme 1 2 3}\" (parsers)))",
+     "((1 2 3))"},
     /* ------------------------ parser shell1 ------------------------------- */
     {"(parse-shell-form1 (string->parsectx \"\")))", ""},
     {"(parse-shell-form1 (string->parsectx \"{}\")))", "(shell)"},
@@ -636,7 +644,7 @@ static const testcase tests[] = {
     {"(parse-forms1\n"
      "  (string->parsectx \"(#!shell ls -al >> log.txt)\" (parsers))\n"
      "  'scheme))",
-     "(((shell ls -al >> log.txt)))"},
+     "((shell ls -al >> log.txt))"},
     {"(parse-forms1\n"
      "  (string->parsectx \"(values foo bar #!shell baz >> log.txt; wc -l log.txt)\""
      " (parsers))\n"
@@ -919,7 +927,7 @@ static const testcase tests[] = {
      "  (string->parsectx \"(values '{})\" (parsers))\n"
      "  'scheme))\n",
      "(((values '(shell))) #<parser scheme>)"},
-    {"(values->list (repl-parse\n"
+    {"(values->list (repl-parse\n" /* fails */
      "  (string->parsectx \"(values '{ls; #!scheme 1 2 3})\" (parsers))\n"
      "  'scheme))\n",
      "(((values '((shell ls ;) 1 2 3))) #<parser scheme>)"},
@@ -927,14 +935,15 @@ static const testcase tests[] = {
      "  (string->parsectx \"(1 2 3)\" (parsers))\n"
      "  'scheme))\n",
      "(((1 2 3)) #<parser scheme>)"},
-    {"(values->list (repl-parse\n" /* bugged, should be same as previous test */
+    {"(values->list (repl-parse\n"
      "  (string->parsectx \"{#!scheme 1 2 3}\" (parsers))\n"
      "  'scheme))\n",
-     "((1 2 3) #<parser scheme>)"},
-    {"(values->list (repl-parse\n" /* bugged */
+     /* must return the same as previous test */
+     "(((1 2 3)) #<parser scheme>)"},
+    {"(values->list (repl-parse\n" /* fails */
      "  (string->parsectx \"{#!scheme 1 2 3}\" (parsers))\n"
      "  'shell))\n",
-     "(((shell (1 2 3))) #<parser shell>)"},
+     "(((1 2 3)) #<parser shell>)"},
     {"(values->list (repl-parse\n"
      "  (string->parsectx \"{1 2 3}\" (parsers))\n"
      "  'shell))\n",

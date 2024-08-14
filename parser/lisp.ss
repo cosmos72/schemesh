@@ -122,14 +122,10 @@
       (let-values (((ret _) (parse-lisp-forms ctx type flavor)))
         ret))
     ((lbrace)
-      ; happens when parsing '{...} or #&{...}
-      ; => switch to shell parser until corresponding }
+      ; switch to shell parser until corresponding }
       (let ((other-parse-forms (parser-parse-forms (get-parser ctx 'shell (caller-for flavor)))))
         (let-values (((other-forms _) (other-parse-forms ctx type)))
-          ; other-forms is a one-element list ((shell...)), unless a syntax change happened inside {...}
-          (if (and (pair? other-forms) (null? (cdr other-forms)))
-            (car other-forms)
-            other-forms))))
+          other-forms)))
     ;; parse the various vector types, with or without explicit length
     ((vparen vu8paren)
       (parse-vector ctx type value flavor))
@@ -152,9 +148,14 @@
 ;; 1. list of parsed forms
 ;; 2. updated parser to use, or #f if parser was not changed
 ;;
-;; Raise syntax-errorf if a mismatched end token is found, as for example ']' instead of ')'
+;; At top-level (i.e. begin-type is 'eof) usually returns (form1 form2 ...)
+;; i.e. a list containing multiple forms, unless a #!... directive is found
+;;
+;; At nested levels (i.e. if begin-type is not 'eof) usually returns (token1 token2 ...)
+;; i.e. a list containing a single parsed form, unless a #!... directive is found,
+;;
+;; Raise syntax-errorf if a mismatched end token is found, as for example ']' when expecting ')'
 (define (parse-lisp-forms ctx begin-type flavor)
-  ; (debugf ">   parse-lisp-forms begin-type=~s~%" begin-type)
   (let* ((ret '())
          (ret-parser #f)
          (again? #t)
@@ -171,9 +172,13 @@
                (lex-type->string type) (lex-type->string end-type)))))
          (%merge! (lambda (forms)
            ; (debugf "... parse-lisp-forms > %merge! ret=~s other-forms=~s~%" (if reverse? (reverse ret) ret) forms)
-           (if (null? ret)
-             (set! ret forms)
-             (set! ret (append! (if reverse? (reverse! ret) ret) forms)))
+           (cond
+             ((null? ret)
+                (set! ret forms))
+             ((eq? 'eof end-type)
+               (set! ret (append! (if reverse? (reverse! ret) ret) forms)))
+             (#t
+               (set! ret (append! (if reverse? (reverse! ret) ret) (list forms)))))
            ; (debugf "... parse-lisp-forms < %merge! ret=~s~%" ret)
            (set! reverse? #f))))
     ; (debugf ">   parse-lisp-forms end-type=~s~%" end-type)
@@ -210,16 +215,6 @@
             ;; then parse ')' ']' or '}'
             (let-values (((value type) (lex-lisp ctx flavor)))
               (check-list-end type)))
-          ((lbrace)
-            ;; lbrace i.e. { switches to shell parser until corresponding rbrace i.e. }
-            (let ((other-parse-forms (parser-parse-forms (get-parser ctx 'shell (caller-for flavor)))))
-              (let-values (((other-forms _) (other-parse-forms ctx type)))
-                ; other-forms is a one-element list, unless a syntax change happened inside {...}
-                (if (null? ret)
-                  (set! ret (reverse! other-forms))
-                  (if (and (pair? other-forms) (null? (cdr other-forms)))
-                    (set! ret (cons (car other-forms) ret))
-                    (set! ret (append! (reverse! other-forms) ret)))))))
           (else
             ;; parse a single form and append it
             (let ((value-i (parse-lisp-impl ctx value type flavor)))

@@ -150,7 +150,8 @@
       ((lparen)
         (parsectx-read-char ctx) ; consume (
         ; read a shell list surrounded by $(...)
-        (parse-shell-form1 ctx 'dollar+lparen))
+        (let-values (((form _) (parse-shell-forms ctx 'dollar+lparen)))
+          form))
       ((lbrace)
         (read-subword-dollar-braced ctx))
       (else
@@ -380,32 +381,39 @@
 
 
 
-;; Read a simple or compound shell command from textual input port 'in'
+;; Read a single, simple or compound shell command from textual input port 'in'
+;; Stops at end-of-file.
+;; Raises if multiple forms are parsed.
 ;;
 ;; Return parsed command, usually with (shell ...) prefix
 ;; unless the only parsed command is Scheme syntax (...)
-(define parse-shell-form1
-  (case-lambda
-    ((ctx)            (parse-shell-form1* ctx 'eof))
-    ((ctx begin-type) (parse-shell-form1* ctx begin-type))))
-
-(define (parse-shell-form1* ctx begin-type)
-  (let-values (((forms updated-parser) (parse-shell-forms ctx begin-type)))
+(define (parse-shell-form1 ctx)
+  (let-values (((forms _) (parse-shell-forms ctx 'eof)))
     ; forms is a 1-element list, unless #!... was found and parsed
     (cond
       ((null? forms)
         (void))
-      ((and (not updated-parser) (pair? forms) (null? (cdr forms)))
+      ((and (pair? forms) (null? (cdr forms)))
         (car forms))
       (#t
-        forms))))
+        (syntax-errorf ctx 'parse-shell-form1 "expecting a single shell form, parsed ~s" forms)))))
 
 
-;; Read a simple or compound shell command from textual input port 'in'
+;; Read simple or compound shell commands from textual input port 'in' until a token ) or ] or } matching
+;; the specified begin-type token is found.
+;; Automatically change parser when directive #!... is found.
 ;;
 ;; Return two values:
-;; 1. a list containing parsed commands - at most one, usually with 'shell... prefix
+;; 1. a list containing parsed commands
 ;; 2. the new parser to use, or #f to continue using the same parser
+;;
+;; At top-level (i.e. begin-type is 'eof) usually returns ((shell...)) i.e. a list containing one form,
+;; for uniformity with (parse-lisp-forms), unless a #!... directive is found,
+;;
+;; At nested levels (i.e. if begin-type is not 'eof) usually returns (shell...)
+;; for uniformity with (parse-lisp-forms), unless a #!... directive is found,
+;;
+;; Raise syntax-errorf if a mismatched end token is found, as for example ']' when expecting '}'
 (define (parse-shell-forms ctx begin-type)
   (let* ((ret '())
          (end-type (case begin-type
@@ -428,10 +436,10 @@
              (let ((merged (if (null? forms) %ret (append! %ret forms))))
                ; (debugf "... parse-shell-forms < %merge ret=~s~%" merged)
                merged)))))
-    ; (debugf ">   parse-shell-forms prefix=~s~%" prefix)
+    ; (debugf ">   parse-shell-forms end-type=~s prefix=~s~%" end-type prefix)
     (until done?
       (let-values (((value type) (lex-shell ctx equal-is-operator?)))
-        ; (debugf "... parse-shell-forms prefix=~s ret=~s value=~s type=~s~%" prefix (if prefix (reverse ret) ret) value type)
+        ; (debugf "... parse-shell-forms end-type=~s prefix=~s ret=~s value=~s type=~s~%" end-type prefix (if prefix (reverse ret) ret) value type)
         (case type
           ((eof)
             (unless (eq? type end-type)
@@ -460,7 +468,7 @@
             (if (eq? type end-type)
               (set! done? #t)
               ; TODO: `...` may be followed by other words without a space
-              (let ((form (parse-shell-form1 ctx type)))
+              (let-values (((form _) (parse-shell-forms ctx type)))
                 (unless (null? form)
                   (set! ret (cons form ret))))))
           ((lparen)
@@ -481,7 +489,7 @@
                   (set! ret (cons other-forms ret))))))
           ((lbrace lbrack dollar+lparen)
             ; TODO: $(...) may be followed by other words without a space
-            (let ((form (parse-shell-form1 ctx type)))
+            (let-values (((form _) (parse-shell-forms ctx type)))
               ; (debugf "... parse-shell-forms nested_form=~s ret=~s~%" form ret)
               (unless (null? form)
                 (set! ret (cons form ret)))
@@ -498,7 +506,7 @@
         (set! can-change-parser? (eq? 'separator type))
         (set! equal-is-operator? (or (eq? 'separator type) (eq? 'rlist-assign type)))))
 
-    ; (debugf "... parse-shell-forms prefix=~s ret=~s~%" prefix (if prefix (reverse ret) ret))
+    ; (debugf "... parse-shell-forms end-type=~s prefix=~s ret=~s~%" end-type prefix (if prefix (reverse ret) ret))
     (let ((simplified (%simplify-parse-shell-forms end-type prefix ret)))
       ; (debugf "<   parse-shell-forms ret=~s~%" simplified)
       (values simplified parser))))
@@ -512,13 +520,14 @@
       ; simplify top-level (shell) -> nothing
       '())
     ((and (eq? 'eof end-type) (eq? 'shell prefix) (pair? ret)
-          (pair? (car ret)) (null? (cdr ret))
-          (memq (caar ret) '(shell shell-subshell)))
-      ; simplify (shell (shell ...)) -> (shell ...)
-      ; simplify (shell (shell-subshell ...)) -> (shell-subshell ...)
+          (null? (cdr ret)) (pair? (car ret)) (memq (caar ret) '(shell shell-subshell)))
+      ; simplify top-level (shell (shell...)) -> (shell...)
       (list (car ret)))
     (#t
-      (list (cons prefix (reverse! ret)))))) ; add prefix
+      (let ((form (cons prefix (reverse! ret))))
+        (if (eq? 'eof end-type)
+          (list form)
+          form)))))
 
 
 ;; Convenience: lparen was the first token and begin-type is eof:
