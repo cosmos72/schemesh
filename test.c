@@ -923,6 +923,22 @@ static const testcase tests[] = {
      "  (string->parsectx \"(values '{ls; #!scheme 1 2 3})\" (parsers))\n"
      "  'scheme))\n",
      "(((values '((shell ls ;) 1 2 3))) #<parser scheme>)"},
+    {"(values->list (repl-parse\n"
+     "  (string->parsectx \"(1 2 3)\" (parsers))\n"
+     "  'scheme))\n",
+     "(((1 2 3)) #<parser scheme>)"},
+    {"(values->list (repl-parse\n" /* bugged, should be same as previous test */
+     "  (string->parsectx \"{#!scheme 1 2 3}\" (parsers))\n"
+     "  'scheme))\n",
+     "((1 2 3) #<parser scheme>)"},
+    {"(values->list (repl-parse\n" /* bugged */
+     "  (string->parsectx \"{#!scheme 1 2 3}\" (parsers))\n"
+     "  'shell))\n",
+     "(((shell (1 2 3))) #<parser shell>)"},
+    {"(values->list (repl-parse\n"
+     "  (string->parsectx \"{1 2 3}\" (parsers))\n"
+     "  'shell))\n",
+     "(((shell 1 2 3)) #<parser shell>)"},
 };
 
 static int run_tests(void) {

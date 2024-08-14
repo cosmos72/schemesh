@@ -390,10 +390,15 @@
     ((ctx begin-type) (parse-shell-form1* ctx begin-type))))
 
 (define (parse-shell-form1* ctx begin-type)
-  (let-values (((forms _) (parse-shell-forms ctx begin-type)))
-    (if (pair? forms)
-      (car forms)
-      (void))))
+  (let-values (((forms updated-parser) (parse-shell-forms ctx begin-type)))
+    ; forms is a 1-element list, unless #!... was found and parsed
+    (cond
+      ((null? forms)
+        (void))
+      ((and (not updated-parser) (pair? forms) (null? (cdr forms)))
+        (car forms))
+      (#t
+        forms))))
 
 
 ;; Read a simple or compound shell command from textual input port 'in'
@@ -417,15 +422,16 @@
          (equal-is-operator? #t)
          (done? #f)
          (parser #f)
-         (%merge! (lambda (forms)
-           (let ((%ret (%simplify-parse-shell-forms end-type prefix ret)))
-             ; (debugf "... parse-shell-forms > %merge! ret=~s other-forms=~s~%" %ret forms)
-             (set! ret (if (null? forms) %ret (append! %ret forms)))
-             ; (debugf "... parse-shell-forms < %merge! ret=~s~%" ret)
-             (set! prefix #f)))))
+         (%merge (lambda (ret forms)
+           (let ((%ret (if (null? ret) ret (%simplify-parse-shell-forms end-type prefix ret))))
+             ; (debugf "... parse-shell-forms > %merge ret=~s other-forms=~s~%" %ret forms)
+             (let ((merged (if (null? forms) %ret (append! %ret forms))))
+               ; (debugf "... parse-shell-forms < %merge ret=~s~%" merged)
+               merged)))))
+    ; (debugf ">   parse-shell-forms prefix=~s~%" prefix)
     (until done?
       (let-values (((value type) (lex-shell ctx equal-is-operator?)))
-        ; (debugf "parse-shell-forms... ret=~s value=~s type=~s~%" (reverse ret) value type)
+        ; (debugf "... parse-shell-forms prefix=~s ret=~s value=~s type=~s~%" prefix (if prefix (reverse ret) ret) value type)
         (case type
           ((eof)
             (unless (eq? type end-type)
@@ -437,13 +443,12 @@
               (syntax-errorf ctx 'parse-shell-forms
                 "parser directive #!... can only appear before or after a shell command, not in the middle of it: ~a"
                 (reverse! (cons (string-append "#!" (symbol->string (parser-name value))) ret))))
-            (set! parser value)
-            (set! done?  #t)
             (let ((other-parse-forms (parser-parse-forms value))) ; value is a parser
               (let-values (((other-forms updated-parser) (other-parse-forms ctx begin-type)))
-                (when updated-parser
-                  (set! parser updated-parser))
-                (%merge! other-forms))))
+                (set! parser (or updated-parser value))
+                (set! ret (%merge ret other-forms))))
+            (set! done?  #t)
+            (set! prefix #f))
           ((separator)
             ; value can be #\& #\; or #\newline
             (set! ret (cons (if (eq? value '&) '& '\x3b;) ret)))
@@ -456,7 +461,7 @@
               (set! done? #t)
               ; TODO: `...` may be followed by other words without a space
               (let ((form (parse-shell-form1 ctx type)))
-                (when (pair? form)
+                (unless (null? form)
                   (set! ret (cons form ret))))))
           ((lparen)
             ; switch to Scheme parser for a single form.
@@ -477,8 +482,11 @@
           ((lbrace lbrack dollar+lparen)
             ; TODO: $(...) may be followed by other words without a space
             (let ((form (parse-shell-form1 ctx type)))
-              (when (pair? form)
-                (set! ret (cons form ret)))))
+              ; (debugf "... parse-shell-forms nested_form=~s ret=~s~%" form ret)
+              (unless (null? form)
+                (set! ret (cons form ret)))
+              ; (debugf "... parse-shell-forms nested_form    ret=~s~%" ret)
+            ))
           ((rbrace rbrack rparen)
             (unless (eq? type end-type)
               (syntax-errorf ctx 'parse-shell-forms "unexpected token ~a, expecting ~a"
@@ -490,8 +498,10 @@
         (set! can-change-parser? (eq? 'separator type))
         (set! equal-is-operator? (or (eq? 'separator type) (eq? 'rlist-assign type)))))
 
-    ; (debugf "...parse-shell-forms ret=~s~%" (reverse ret))
-    (values (%simplify-parse-shell-forms end-type prefix ret) parser)))
+    ; (debugf "... parse-shell-forms prefix=~s ret=~s~%" prefix (if prefix (reverse ret) ret))
+    (let ((simplified (%simplify-parse-shell-forms end-type prefix ret)))
+      ; (debugf "<   parse-shell-forms ret=~s~%" simplified)
+      (values simplified parser))))
 
 
 
