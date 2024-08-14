@@ -277,34 +277,25 @@
 ;; consume text input port until one of the characters ( ) [ ] { } | " #| and return it as a char.
 ;; also recognize and return parser directives #!... and return them as a symbol.
 (define (scan-lisp-paren-or-directive ctx)
-  (parsectx-skip-whitespace ctx 'also-skip-newlines)
   ;; yes, #!eof is an allowed directive:
   ;; it injects (eof-object) in token stream, with type 'eof
   ;; thus simulating an actual end-of-file in input port.
   ;; Reason: historically used to disable the rest of a file, to help debugging
   ;;
-  ;; cannot switch to other parser here: just return its name and let caller switch
-  (or (try-read-parser-directive ctx)
-      (scan-lisp-paren ctx)))
-
-
-;; read until one of ( ) [ ] { } " | #| is found. ignore them if they are preceded by #\
-;; Does not recognize parser directives #!... use (scan-lisp-paren-or-directive)
-;; for that
-(define (scan-lisp-paren ctx)
   (let ((ret #f))
     (until ret
+      (parsectx-skip-whitespace ctx 'also-skip-newlines)
       (let ((ch (parsectx-read-char ctx)))
         (case ch
           ((#\( #\) #\[ #\] #\{ #\} #\" #\|) (set! ret ch))
           ((#\#)  (set! ret (scan-lisp-sharp ctx)))
-          ((#\\)  (scan-after-backslash ctx))
+          ((#\\)  (scan-lisp-backslash ctx))
           ((#\;)  (parsectx-skip-line ctx))
           (else (when (eof-object? ch) (set! ret ch))))))
     ret))
 
 ;; recognize scheme syntax after backslash: either a single character, or x...;
-(define (scan-after-backslash ctx)
+(define (scan-lisp-backslash ctx)
   (when (eqv? #\x (parsectx-read-char ctx))
     (while (let ((ch (parsectx-read-char ctx)))
               (and (char? ch) (not (char=? ch #\;)))))))
@@ -317,6 +308,7 @@
       ((#\\) (parsectx-read-char ctx) #f) ; consume one char after #\
       ((#\( #\[ #\{) ch) ; treat #( #[ #{ respectively as ( [ {
       ((#\|) #\#) ; found start of block comment #| thus return #
+      ((#\!)        (parsectx-read-simple-identifier ctx)) ; found parser directive
       (else #f))))
 
 
@@ -380,12 +372,12 @@
          (end-ch (case start-ch ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else #f)))
          (ret    #f))
 
-    (debugf ">   parse-lisp-paren start-ch=~a~%" start-ch)
+    ; (debugf ">   parse-lisp-paren start-ch=~a~%" start-ch)
     (let-values (((x y) (parsectx-previous-pos ctx (if start-ch 1 0))))
       (paren-start-xy-set! paren x y))
     (until ret
       (let ((token (scan-lisp-paren-or-directive ctx)))
-        (debugf "... parse-lisp-paren token=~s paren=~s~%" token paren)
+        ; (debugf "... parse-lisp-paren token=~s paren=~s~%" token paren)
         (cond
           ((not token) ; not a grouping token
              #f)
@@ -430,7 +422,7 @@
           )))
 
     (paren-fill-end! ctx paren (or (eq? #t ret) (not start-ch)))
-    (debugf "<   parse-lisp-paren paren=~s ret=~s~%" paren ret)
+    ; (debugf "<   parse-lisp-paren paren=~s ret=~s~%" paren ret)
     paren))
 
 

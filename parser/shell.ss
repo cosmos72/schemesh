@@ -595,12 +595,12 @@
          (end-ch (case start-ch ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else start-ch)))
          (ret    #f))
 
-    (debugf ">   parse-shell-paren start-ch=~a~%" start-ch)
+    ; (debugf ">   parse-shell-paren start-ch=~a~%" start-ch)
     (let-values (((x y) (parsectx-previous-pos ctx (if start-ch 1 0))))
       (paren-start-xy-set! paren x y))
     (until ret
       (let ((token (scan-shell-paren-or-directive ctx)))
-        (debugf "... parse-shell-paren token=~s paren=~s~%" token paren)
+        ; (debugf "... parse-shell-paren token=~s paren=~s~%" token paren)
         (cond
           ((not token) ; not a grouping token
              #f)
@@ -614,7 +614,7 @@
               (let* ((other-parser      (get-parser-or-false ctx token))
                      (other-parse-paren (and other-parser (parser-parse-paren other-parser)))
                      (other-paren       (and other-parse-paren (other-parse-paren ctx start-ch))))
-                 (debugf "... parse-shell-paren other-paren=~s~%" other-paren)
+                 ; (debugf "... parse-shell-paren other-paren=~s~%" other-paren)
                  (when other-paren
                    (paren-inner-append! paren other-paren)
                    (set! ret #t)))))
@@ -657,7 +657,7 @@
           )))
 
     (paren-fill-end! ctx paren (or (eq? #t ret) (not start-ch)))
-    (debugf "<   parse-shell-paren paren=~s ret=~s~%" paren ret)
+    ; (debugf "<   parse-shell-paren paren=~s ret=~s~%" paren ret)
     paren))
 
 
