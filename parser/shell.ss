@@ -300,7 +300,7 @@
     (if assign?
        (values
          (list (%simplify (cdr ret)) '= (car ret))
-         'assign)
+         'rlist-assign)
        (values
          (%simplify ret)
          'string))))
@@ -386,8 +386,14 @@
 ;; unless the only parsed command is Scheme syntax (...)
 (define parse-shell-form1
   (case-lambda
-    ((ctx)            (car (first-value (parse-shell-forms ctx 'eof))))
-    ((ctx begin-type) (car (first-value (parse-shell-forms ctx begin-type))))))
+    ((ctx)            (parse-shell-form1* ctx 'eof))
+    ((ctx begin-type) (parse-shell-form1* ctx begin-type))))
+
+(define (parse-shell-form1* ctx begin-type)
+  (let-values (((forms _) (parse-shell-forms ctx begin-type)))
+    (if (pair? forms)
+      (car forms)
+      (void))))
 
 
 ;; Read a simple or compound shell command from textual input port 'in'
@@ -433,7 +439,7 @@
                 (reverse! (cons (string-append "#!" (symbol->string (parser-name value))) ret))))
             (set! parser value)
             (set! done?  #t)
-            (let ((other-parse-forms (parser-parse-forms (get-parser ctx value 'parse-shell-forms))))
+            (let ((other-parse-forms (parser-parse-forms value))) ; value is a parser
               (let-values (((other-forms updated-parser) (other-parse-forms ctx begin-type)))
                 (when updated-parser
                   (set! parser updated-parser))
@@ -454,16 +460,20 @@
                   (set! ret (cons form ret))))))
           ((lparen)
             ; switch to Scheme parser for a single form.
-            ; Convenience: if this is the first token and begin-type is eof,
-            ; omit the initial (shell ...) and set done to #t.
-            ; This allows entering Scheme forms from shell syntax
-            (when (and (null? ret) (eq? 'eof end-type))
-              ; FIXME: this no longer reads until eof
-              (set! prefix #f)
-              (set! done? #t))
             (let ((other-parse-forms (parser-parse-forms (get-parser ctx 'scheme 'parse-shell-forms))))
-              (let-values (((other-forms updated-parser) (other-parse-forms ctx type)))
-                (set! ret (cons other-forms ret)))))
+              (let-values (((other-forms _) (other-parse-forms ctx type)))
+                (if (and (null? ret) (eq? 'eof end-type))
+                  ; lparen is the first token at shell top level:
+                  ; allow entering Scheme form
+                  (let-values (((forms updated-parser) (%after-lisp-forms-at-top-level ctx other-forms)))
+                    (set! ret forms)
+                    (when updated-parser
+                      (set! parser updated-parser))
+                    (set! done? #t)
+                    (set! prefix #f))
+                  ; lparen was in the middle of shell syntax:
+                  ; just insert parsed Scheme form into current shell command
+                  (set! ret (cons other-forms ret))))))
           ((lbrace lbrack dollar+lparen)
             ; TODO: $(...) may be followed by other words without a space
             (let ((form (parse-shell-form1 ctx type)))
@@ -475,10 +485,10 @@
                 (paren-type->string type) (paren-type->string end-type)))
             (set! done? #t))
           (else
-            (syntax-errorf ctx 'parse-shell-forms "unexpected token ~s after ~a" value (reverse! ret))))
+            (syntax-errorf ctx 'parse-shell-forms "unexpected ~a ~s after ~a" type value (reverse! ret))))
 
-        (set! equal-is-operator? (memq type '(rlist-assign separator)))
-        (set! can-change-parser? (eq? type 'separator))))
+        (set! can-change-parser? (eq? 'separator type))
+        (set! equal-is-operator? (or (eq? 'separator type) (eq? 'rlist-assign type)))))
 
     ; (debugf "...parse-shell-forms ret=~s~%" (reverse ret))
     (values (%simplify-parse-shell-forms end-type prefix ret) parser)))
@@ -488,11 +498,11 @@
 (define (%simplify-parse-shell-forms end-type prefix ret)
   (cond
     ((not prefix) ret) ; return a list containing possibly mixed shell and Scheme form(s)
-    ((and (eq? 'eof end-type)
-          (eq? 'shell prefix)
-          (pair? ret)
-          (pair? (car ret))
-          (null? (cdr ret))
+    ((and (eq? 'eof end-type) (eq? 'shell prefix) (null? ret))
+      ; simplify top-level (shell) -> nothing
+      '())
+    ((and (eq? 'eof end-type) (eq? 'shell prefix) (pair? ret)
+          (pair? (car ret)) (null? (cdr ret))
           (memq (caar ret) '(shell shell-subshell)))
       ; simplify (shell (shell ...)) -> (shell ...)
       ; simplify (shell (shell-subshell ...)) -> (shell-subshell ...)
@@ -501,18 +511,33 @@
       (list (cons prefix (reverse! ret)))))) ; add prefix
 
 
+;; Convenience: lparen was the first token and begin-type is eof:
+;; => omit the initial (shell ...)
+;; This allows entering Scheme forms from shell syntax.
+;; We still need to read until eof, and for readability the (...) must be followed by one of:
+;; - eof
+;; - semicolon or newline
+;; - another (...)
+;;
+;; return two values:
+;; 1. list of parsed forms
+;; 2. updated parser to use, or #f if parser was not changed
+(define (%after-lisp-forms-at-top-level ctx lisp-forms)
+  (parsectx-skip-whitespace ctx #f) ; do not skip newlines
+  (let-values (((ch type) (peek-shell-char ctx)))
+    (case type
+      ((eof lparen) #t)
+      ((separator) (lex-shell ctx #f)) ; consume semicolon or newline
+      (else
+        (let-values (((value type) (lex-shell ctx #f)))
+          (syntax-errorf ctx 'parse-shell-forms
+            "unexpected token \"~a\" after initial (...) at shell top-level: expecting eof, newline, semicolon or another (...)"
+            value)))))
+  (let-values (((forms updated-parser) (parse-shell-forms ctx 'eof)))
+    (values
+      (cons lisp-forms forms)
+      updated-parser)))
 
-
-;; return #t if ch is allowed inside a shell compound command
-(define (char-allowed-in-cmd? ch)
-  (case ch
-    ((#\! #\" #\$ #\% #\& #\' #\* #\+ #\, #\- #\. #\/ #\: #\; #\< #\= #\> #\? #\@ #\\ #\^ #\_ #\|#\~) #t)
-    (else
-      (and (char? ch) ; eof terminates shell command
-           (or (char<=? #\0 ch #\9)
-               (char<=? #\A ch #\Z)
-               (char<=? #\a ch #\z)
-               (char>? ch #\delete))))))
 
 
 

@@ -69,7 +69,7 @@
 ; 1. when using shell parser, top-level commands will be executed immediately.
 ; 2. when using scheme parser, top-level (shell ...) will be executed immediately.
 (define (repl-eval form)
-  ; (debugf "evaluating: ~s~%" form)
+  ; (debugf "repl-eval: ~s~%" form)
   (try
     (eval
       (if (and (pair? form) (memq (car form) '(shell shell-subshell)))
@@ -80,8 +80,7 @@
 
 ;
 ; Execute with (eval-func form) each form in list of forms containing parsed expressions
-; or shell commands, and return value or exit status of last form in list.
-; May return multiple values.
+; or shell commands, and print each returned value(s) or exit status.
 ;
 ; Implementation note:
 ;   some procedures we may eval, as (break) (debug) (inspect) ...
@@ -93,28 +92,34 @@
 ;
 ;   For these reasons, the loop (do ... (eval-func ...))
 ;   is wrapped inside (dynamic-wind tty-restore! (lambda () ...) tty-setraw!)
-(define (repl-eval-list forms eval-func)
+(define (repl-eval-list forms eval-func print-func)
   ; (debugf "evaluating list: ~s~%" forms)
   (unless (null? forms)
     (dynamic-wind
       tty-restore!
       (lambda ()
         (do ((tail forms (cdr tail)))
-            ((null? (cdr tail))
-              (eval-func (car tail)))
-          (eval-func (car tail))))
+            ((null? tail))
+          (if print-func
+            (call-with-values
+              (lambda () (eval-func (car tail)))
+              print-func)
+            (begin
+              (eval-func (car tail))
+              (void)))))
       tty-setraw!)))
 
 
 ; Print values or exit statuses.
 (define (repl-print . values)
-  (list-iterate values
-    (lambda (value)
+  (do ((tail values (cdr tail)))
+      ((null? tail))
+    (let ((value (car tail)))
       (unless (eq? (void) value)
         (pretty-print value)))))
 
 ; Parse and execute user input.
-; Calls in sequence (repl-lineedit) (repl-parse) (repl-eval-list) and (repl-print)
+; Calls in sequence (repl-lineedit) (repl-parse) (repl-eval-list)
 ;
 ; Returns updated parser to use, or #f if got end-of-file.
 (define (repl-once initial-parser enabled-parsers eval-func lctx)
@@ -125,16 +130,14 @@
       ((#f) #f)             ; got end-of-file
       ((#t) initial-parser) ; nothing to execute: waiting for more user input
       (else
-        (let-values (((form updated-parser)
+        (let-values (((forms updated-parser)
                         (repl-parse (make-parsectx* in enabled-parsers
                                                     (linectx-width lctx)
                                                     (linectx-prompt-end-x lctx)
                                                     0 0)
                                     initial-parser)))
-          (unless (eq? (void) form)
-            (call-with-values
-              (lambda () (repl-eval-list form eval-func))
-              repl-print))
+          (unless (eq? (void) forms)
+            (repl-eval-list forms eval-func repl-print))
           updated-parser)))))
 
 
