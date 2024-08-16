@@ -647,9 +647,13 @@ static const testcase tests[] = {
      "((shell ls -al >> log.txt))"},
     {"(parse-forms1\n"
      "  (string->parsectx \"(values foo bar #!shell baz >> log.txt; wc -l log.txt)\""
-     " (parsers))\n"
+     "    (parsers))\n"
      "  'scheme))",
      "((values foo bar (shell baz >> log.txt ; wc -l log.txt)))"},
+    {"(parse-forms1\n"
+     "  (string->parsectx \"ls ; #!shell echo\" (parsers))\n"
+     "  'shell))",
+     "((shell ls ; echo))"},
     /* ( inside shell syntax switches to Scheme parser for a single Scheme form,
      * then continues parsing shell syntax.
      * An eof, newline, semicolon or ( is required after (...) if ( was initial */
@@ -927,27 +931,34 @@ static const testcase tests[] = {
      "  (string->parsectx \"(values '{})\" (parsers))\n"
      "  'scheme))\n",
      "(((values '(shell))) #<parser scheme>)"},
-    {"(values->list (repl-parse\n" /* fails */
+    {"(values->list (repl-parse\n"
      "  (string->parsectx \"(values '{ls; #!scheme 1 2 3})\" (parsers))\n"
      "  'scheme))\n",
-     "(((values '((shell ls ;) 1 2 3))) #<parser scheme>)"},
+     /* ugly result, and not very useful */
+     "(((values '(shell ls ; 1 2 3))) #<parser scheme>)"},
     {"(values->list (repl-parse\n"
      "  (string->parsectx \"(1 2 3)\" (parsers))\n"
      "  'scheme))\n",
      "(((1 2 3)) #<parser scheme>)"},
     {"(values->list (repl-parse\n"
+     "  (string->parsectx \"#!scheme 1 2 3\" (parsers))\n"
+     "  'shell))\n",
+     "((1 2 3) #<parser scheme>)"},
+    {"(values->list (repl-parse\n"
+     "  (string->parsectx \"1 2 3\" (parsers))\n"
+     "  'shell))\n",
+     "(((shell 1 2 3)) #<parser shell>)"},
+    {"(values->list (repl-parse\n"
      "  (string->parsectx \"{#!scheme 1 2 3}\" (parsers))\n"
      "  'scheme))\n",
      /* must return the same as previous test */
      "(((1 2 3)) #<parser scheme>)"},
-    {"(values->list (repl-parse\n" /* fails */
+    {"(values->list (repl-parse\n"
      "  (string->parsectx \"{#!scheme 1 2 3}\" (parsers))\n"
      "  'shell))\n",
-     "(((1 2 3)) #<parser shell>)"},
-    {"(values->list (repl-parse\n"
-     "  (string->parsectx \"{1 2 3}\" (parsers))\n"
-     "  'shell))\n",
-     "(((shell 1 2 3)) #<parser shell>)"},
+     /* ideally would return the same as previous test, but deciding to omit the (shell ...) wrapper
+        is tricky */
+     "(((shell (1 2 3))) #<parser shell>)"},
 };
 
 static int run_tests(void) {

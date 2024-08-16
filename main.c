@@ -82,9 +82,14 @@ again:
   (void)end;
   (void)&show;
   (void)&diff;
-  Senable_expeditor(NULL);
+  /* Senable_expeditor(NULL); */
   c_errno_set(0);
-  call0("repl");
+  {
+    ptr ret = call0("repl");
+    if (Sfixnump(ret)) {
+      err = Sfixnum_value(ret);
+    }
+  }
 #elif 1
   (void)buf;
   (void)start;
@@ -114,5 +119,5 @@ finish:
   on_exception = QUIT_FAILED;
   schemesh_quit();
 
-  return 0;
+  return err;
 }

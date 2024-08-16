@@ -431,11 +431,13 @@
          (done? #f)
          (parser #f)
          (%merge (lambda (ret forms)
-           (let ((%ret (if (null? ret) ret (%simplify-parse-shell-forms end-type prefix ret))))
-             ; (debugf "... parse-shell-forms > %merge ret=~s other-forms=~s~%" %ret forms)
-             (let ((merged (if (null? forms) %ret (append! %ret forms))))
-               ; (debugf "... parse-shell-forms < %merge ret=~s~%" merged)
-               merged)))))
+           ; (debugf "... parse-shell-forms > %merge ret=~s other-forms=~s~%" ret forms)
+           (if (null? ret)
+             forms
+             (let ((simplified (%simplify-parse-shell-forms end-type prefix ret)))
+               (let ((merged (if (null? forms) simplified (append! simplified forms))))
+                 ; (debugf "... parse-shell-forms < %merge ret=~s~%" merged)
+                 merged))))))
     ; (debugf ">   parse-shell-forms end-type=~s prefix=~s~%" end-type prefix)
     (until done?
       (let-values (((value type) (lex-shell ctx equal-is-operator?)))
@@ -452,11 +454,12 @@
                 "parser directive #!... can only appear before or after a shell command, not in the middle of it: ~a"
                 (reverse! (cons (string-append "#!" (symbol->string (parser-name value))) ret))))
             (let ((other-parse-forms (parser-parse-forms value))) ; value is a parser
-              (let-values (((other-forms updated-parser) (other-parse-forms ctx begin-type)))
-                (set! parser (or updated-parser value))
-                (set! ret (%merge ret other-forms))))
-            (set! done?  #t)
-            (set! prefix #f))
+              (unless (eq? parse-shell-forms other-parse-forms)
+                (let-values (((other-forms updated-parser) (other-parse-forms ctx begin-type)))
+                  (set! parser (or updated-parser value))
+                  (set! ret (%merge ret other-forms))
+                  (set! done?  #t)
+                  (set! prefix #f)))))
           ((separator)
             ; value can be #\& #\; or #\newline
             (set! ret (cons (if (eq? value '&) '& '\x3b;) ret)))

@@ -16,7 +16,7 @@
     (rnrs exceptions)
     ; Unlike R6RS (eval obj environment), Chez Scheme's (eval obj)
     ; uses interaction-environment and can modify it
-    (only (chezscheme) current-time eval format fx1- gensym make-format-condition meta reverse! syntax-error void))
+    (only (chezscheme) current-time eval format fx1- gensym make-format-condition meta reverse! syntax-error time-second time-nanosecond void))
 
 
 (define debugf
@@ -29,7 +29,8 @@
                      (buffer-mode none)
                      (make-transcoder (utf-8-codec) (eol-style lf)
                                       (error-handling-mode raise)))))
-      (format pts1 "; ~a " (current-time 'time-monotonic))
+      (let ((t (current-time 'time-monotonic)))
+        (format pts1 "; ~a " (+ (time-second t) (* 1e-9 (time-nanosecond t)))))
       (apply format pts1 format-string args)
       (flush-output-port pts1))))
 

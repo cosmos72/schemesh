@@ -37,7 +37,9 @@
 ; #t if waiting for more keypresses
 ; a textual input port if user pressed ENTER.
 (define (repl-lineedit lctx)
+  (sh-consume-sigchld)
   (let ((ret (lineedit-read lctx -1)))
+    (sh-consume-sigchld)
     (if (boolean? ret)
       ret
       (open-charlines-input-port ret))))
@@ -141,7 +143,9 @@
           updated-parser)))))
 
 
-; main loop of (repl) and (repl*)
+;; main loop of (repl) and (repl*)
+;;
+;; Returns value passed to (exit), or (void) on linectx eof
 (define (repl-loop parser enabled-parsers eval-func lctx)
   (let ((repl-args (list parser enabled-parsers eval-func lctx)))
     (call/cc
@@ -169,12 +173,12 @@
             (while updated-parser
               (set! parser updated-parser)
               (set-car! repl-args updated-parser)
-              (set! updated-parser (repl-once parser enabled-parsers eval-func lctx))
-              (sh-consume-sigchld)))))))
-  lctx)
+              (set! updated-parser (repl-once parser enabled-parsers eval-func lctx)))))))))
+
 
 ;; top-level interactive repl with all arguments mandatory
-;; Returns linectx, usable for further calls to (repl) or (repl*)
+;;
+;; Returns value passed to (exit), or (void) on linectx eof
 (define (repl* initial-parser enabled-parsers eval-func lctx)
   ; (to-parser) also checks initial-parser's and enabled-parser's validity
   (let ((parser (to-parser enabled-parsers initial-parser 'repl)))
@@ -194,15 +198,15 @@
 ;; 'eval eval-func          - defaults to repl-eval
 ;; 'linectx lctx            - defaults to (sh-make-linectx)
 ;;
-;; Returns linectx, usable for further calls to (repl)
+;; Returns value passed to (exit), or (void) on linectx eof
 (define (repl . args)
   (let ((initial-parser #f)  (initial-parser? #f)
         (enabled-parsers #f) (enabled-parsers? #f)
         (eval-func #f)       (eval-func? #f)
         (lctx #f)             (lctx? #f))
-    (do ((args-left args (cddr args)))
+    (do ((args-left args (cddr args-left)))
         ((null? args-left))
-      (assert* 'repl (not (null? (cdr args-left))))
+      (assert* 'repl (pair? (cdr args-left)))
       (let ((opt (car args-left))
             (val (cadr args-left)))
         (case opt
