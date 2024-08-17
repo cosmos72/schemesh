@@ -31,7 +31,7 @@
   (bytespan-clear! bsp))
 
 
-;; thread parameter (sh-repl-args) must be empty or a list (parser enabled-parsers eval-func lctx)
+;; thread parameter (sh-repl-args) must be empty or a list (parser enabled-parsers eval-func print-func lctx)
 ;; containing arguments of current call to (repl) or (repl*)
 (define sh-repl-args
   (make-thread-parameter
@@ -104,7 +104,7 @@
 ;; the "history" builtin
 (define (sh-builtin-history job prog-and-args options)
   (assert-string-list? 'sh-builtin-history prog-and-args)
-  (sh-history (list-nth 3 (sh-repl-args))))
+  (sh-history (list-nth 4 (sh-repl-args))))
 
 
 

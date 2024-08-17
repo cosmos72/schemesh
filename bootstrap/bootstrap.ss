@@ -7,8 +7,8 @@
 
 (library (schemesh bootstrap)
   (export
-     assert* catch define-macro debugf eval-string first-value let-macro
-     raise-assertv raise-assertf raise-errorf repeat while until
+     assert* catch define-macro debugf eval-string first-value first-value-or-void
+     let-macro raise-assertv raise-assertf raise-errorf repeat while until
      throws? try list->values values->list -> ^)
   (import
     (rnrs)
@@ -166,13 +166,20 @@
 ;; evaluate expr, which may return multiple values, and return a list containing such values.
 (define-syntax values->list
   (syntax-rules ()
-    ((_ expr)    (call-with-values (lambda () expr) list))))
+    ((_ expr) (call-with-values (lambda () expr) list))))
 
 ;; evaluate expr, which may return multiple values, and return the first of such values.
 (define-syntax first-value
   (syntax-rules ()
-    ((_ expr)    (call-with-values (lambda () expr) (lambda args (car args))))))
+    ((_ expr) (call-with-values (lambda () expr) (lambda args (car args))))))
 
+;; evaluate expr, which may return multiple values, and return the first of such values.
+;; If expr returns no values, return (void)
+(define-syntax first-value-or-void
+  (syntax-rules ()
+    ((_ expr) (call-with-values
+                (lambda () expr)
+                (lambda args (if (null? args) (void) (car args)))))))
 
 ;; Scheme implementation of Common Lisp defmacro, defines a global macro.
 ;; Usage:

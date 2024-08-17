@@ -124,7 +124,7 @@
 ; Calls in sequence (repl-lineedit) (repl-parse) (repl-eval-list)
 ;
 ; Returns updated parser to use, or #f if got end-of-file.
-(define (repl-once initial-parser enabled-parsers eval-func lctx)
+(define (repl-once initial-parser enabled-parsers eval-func print-func lctx)
   (linectx-parser-name-set! lctx (parser-name initial-parser))
   (linectx-parsers-set! lctx enabled-parsers)
   (let ((in (repl-lineedit lctx)))
@@ -139,47 +139,48 @@
                                                     0 0)
                                     initial-parser)))
           (unless (eq? (void) forms)
-            (repl-eval-list forms eval-func repl-print))
+            (repl-eval-list forms eval-func print-func))
           updated-parser)))))
 
 
 ;; main loop of (repl) and (repl*)
 ;;
 ;; Returns value passed to (exit), or (void) on linectx eof
-(define (repl-loop parser enabled-parsers eval-func lctx)
-  (let ((repl-args (list parser enabled-parsers eval-func lctx)))
-    (call/cc
-      (lambda (k-exit)
-        (parameterize ((sh-repl-args repl-args)
-                       (base-exception-handler repl-exception-handler)
-                       (break-handler
-                         (lambda break-args
-                           (repl-interrupt-handler repl-args break-args)))
-                       (exit-handler k-exit)
-                       (keyboard-interrupt-handler
-                         (lambda ()
-                           (put-string (console-error-port) "\n; interrupted\n")
-                           (repl-interrupt-handler repl-args '())))
-                       (reset-handler (reset-handler))
-                       (suspend-handler
-                         (lambda ()
-                           (put-string (console-error-port) "\n; suspended\n")
-                           (repl-interrupt-handler repl-args '()))))
-          (let ((k-reset k-exit)
-                (updated-parser parser))
-            (reset-handler (lambda () (k-reset)))
-            (call/cc (lambda (k) (set! k-reset k)))
-            ; when the (reset-handler) we installed is called, resume from here
-            (while updated-parser
-              (set! parser updated-parser)
-              (set-car! repl-args updated-parser)
-              (set! updated-parser (repl-once parser enabled-parsers eval-func lctx)))))))))
+(define (repl-loop parser enabled-parsers eval-func print-func lctx)
+  (let ((repl-args (list parser enabled-parsers eval-func print-func lctx)))
+    (first-value-or-void
+      (call/cc
+        (lambda (k-exit)
+          (parameterize ((sh-repl-args repl-args)
+                         (base-exception-handler repl-exception-handler)
+                         (break-handler
+                           (lambda break-args
+                             (repl-interrupt-handler repl-args break-args)))
+                         (exit-handler k-exit)
+                         (keyboard-interrupt-handler
+                           (lambda ()
+                             (put-string (console-error-port) "\n; interrupted\n")
+                             (repl-interrupt-handler repl-args '())))
+                         (reset-handler (reset-handler))
+                         (suspend-handler
+                           (lambda ()
+                             (put-string (console-error-port) "\n; suspended\n")
+                             (repl-interrupt-handler repl-args '()))))
+            (let ((k-reset k-exit)
+                  (updated-parser parser))
+              (reset-handler (lambda () (k-reset)))
+              (call/cc (lambda (k) (set! k-reset k)))
+              ; when the (reset-handler) we installed is called, resume from here
+              (while updated-parser
+                (set! parser updated-parser)
+                (set-car! repl-args updated-parser)
+                (set! updated-parser (repl-once parser enabled-parsers eval-func print-func lctx))))))))))
 
 
 ;; top-level interactive repl with all arguments mandatory
 ;;
 ;; Returns value passed to (exit), or (void) on linectx eof
-(define (repl* initial-parser enabled-parsers eval-func lctx)
+(define (repl* initial-parser enabled-parsers eval-func print-func lctx)
   ; (to-parser) also checks initial-parser's and enabled-parser's validity
   (let ((parser (to-parser enabled-parsers initial-parser 'repl)))
     (assert* 'repl* (procedure? eval-func))
@@ -188,7 +189,7 @@
       (lambda ()
         (lineedit-clear! lctx) (signal-init-sigwinch) (tty-setraw!))
       (lambda ()
-        (repl-loop parser enabled-parsers eval-func lctx))
+        (repl-loop parser enabled-parsers eval-func print-func lctx))
       (lambda ()
         (tty-restore!) (signal-restore-sigwinch) (lineedit-finish lctx)))))
 
@@ -203,7 +204,8 @@
   (let ((initial-parser #f)  (initial-parser? #f)
         (enabled-parsers #f) (enabled-parsers? #f)
         (eval-func #f)       (eval-func? #f)
-        (lctx #f)             (lctx? #f))
+        (print-func #f)      (print-func? #f)
+        (lctx #f)            (lctx? #f))
     (do ((args-left args (cddr args-left)))
         ((null? args-left))
       (assert* 'repl (pair? (cdr args-left)))
@@ -213,11 +215,13 @@
           ((parser)  (set! initial-parser val)  (set! initial-parser? #t))
           ((parsers) (set! enabled-parsers val) (set! enabled-parsers? #t))
           ((eval)    (set! eval-func val)       (set! eval-func? #t))
-          ((linectx) (set! lctx val)             (set! lctx? #t))
-          (else     (syntax-violation 'repl "unexpected argument:" opt)))))
+          ((print)   (set! print-func val)      (set! print-func? #t))
+          ((linectx) (set! lctx val)            (set! lctx? #t))
+          (else      (syntax-violation 'repl "unexpected argument:" opt)))))
     (repl* (if initial-parser?  initial-parser 'shell)
            (if enabled-parsers? enabled-parsers (parsers))
-           (if eval-func? eval-func repl-eval)
+           (if eval-func?       eval-func       repl-eval)
+           (if print-func?      print-func      repl-print)
            (if lctx? lctx (sh-make-linectx)))))
 
 ;; React to uncaught conditions
