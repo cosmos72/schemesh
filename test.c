@@ -778,6 +778,8 @@ static const testcase tests[] = {
     {"(sh-cmd  \"echo\"  \"foo\" \" bar \")", "(sh-cmd \"echo\" \"foo\" \" bar \")"},
     {"(sh-run/i (sh-cmd \"true\"))", ""}, /* (void) is displayed as empty string */
     {"(sh-run   (sh-cmd \"false\"))", "(exited . 1)"},
+    {"(sh-run   (sh-cmd \"error\" \"0\"))", ""},
+    {"(sh-run   (sh-cmd \"error\" \"257\"))", "(exited . 257)"},
     {"(sh-run/i (sh-list (sh-cmd \"false\") (sh-cmd \"true\")))\n", ""},
     {"(sh-run   (sh-list (sh-cmd \"true\") (sh-cmd \"false\")))\n", "(exited . 1)"},
     {"(sh-run/i (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 1)"},

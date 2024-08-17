@@ -6,13 +6,13 @@
 ;;; (at your option) any later version.
 
 (library (schemesh shell builtins (0 1))
-  (export sh-builtin sh-builtin-echo sh-builtin-false sh-builtin-true sh-builtin-history
-          sh-builtins sh-find-builtin sh-echo sh-false sh-true sh-history sh-repl-args)
+  (export sh-builtin sh-builtin-echo sh-builtin-error sh-builtin-false sh-builtin-true sh-builtin-history
+          sh-builtins sh-find-builtin sh-echo sh-error sh-false sh-true sh-history sh-repl-args)
   (import
     (rnrs)
     (only (chezscheme)                    fx1+ make-thread-parameter void)
     (only (schemesh bootstrap)            debugf raise-errorf)
-    (only (schemesh containers misc)      assert-string-list? list-nth)
+    (only (schemesh containers misc)      assert-string-list? list-nth string-contains-only-decimal-digits?)
     (schemesh containers bytespan)
     (only (schemesh containers span)      span-iterate)
     (only (schemesh containers charlines) charlines-iterate)
@@ -54,6 +54,27 @@
   (void))
 
 
+(define (sh-error . args)
+  ; (debugf "sh-error ~s~%" args)
+  (if (pair? args)
+    (let ((arg (car args)))
+      (cond
+        ((fixnum? arg)
+          (if (fxzero? arg)
+            (void) ; '(exited . 0) is always abbreviated to (void)
+            (cons 'exited arg)))
+        ((and (string? arg) (string-contains-only-decimal-digits? arg))
+          (let ((num (string->number arg)))
+            (if (zero? num)
+              (void) ; '(exited . 0) is always abbreviated to (void)
+              (cons 'exited num))))
+        ((and (pair? arg) (symbol? (car arg)) (or (fixnum? (cdr arg)) (symbol? (cdr arg))))
+          arg)
+        (#t
+          '(exited . 1))))
+    '(exited . 1)))
+
+
 (define (sh-false . ignored-args)
   '(exited . 1))
 
@@ -87,6 +108,12 @@
 (define (sh-builtin-echo job prog-and-args options)
   (assert-string-list? 'sh-builtin-echo prog-and-args)
   (apply sh-echo (cdr prog-and-args)))
+
+
+;; the "error" builtin
+(define (sh-builtin-error job prog-and-args options)
+  (assert-string-list? 'sh-builtin-error prog-and-args)
+  (apply sh-error (cdr prog-and-args)))
 
 
 ;; the "false" builtin
@@ -143,6 +170,7 @@
     (hashtable-set! t "alias"   sh-builtin-alias)
     (hashtable-set! t "builtin" sh-builtin)
     (hashtable-set! t "echo"    sh-builtin-echo)
+    (hashtable-set! t "error"   sh-builtin-error)
     (hashtable-set! t "false"   sh-builtin-false)
     (hashtable-set! t "history" sh-builtin-history)
     (hashtable-set! t "true"    sh-builtin-true)
