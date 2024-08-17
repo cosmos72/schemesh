@@ -7,8 +7,8 @@
 
 
 (library (schemesh repl (0 1))
-  (export repl-lineedit repl-parse repl-eval repl-eval-list repl repl*
-          repl-exception-handler repl-interrupt-handler)
+  (export repl repl* repl-eval repl-eval-list repl-lineedit
+          repl-parse repl-print repl-exception-handler repl-interrupt-handler)
   (import
     (rnrs)
     (only (rnrs mutable-pairs) set-car!)
@@ -145,41 +145,40 @@
 
 ;; main loop of (repl) and (repl*)
 ;;
-;; Returns value passed to (exit), or (void) on linectx eof
+;; Returns values passed to (exit), or (void) on linectx eof
 (define (repl-loop parser enabled-parsers eval-func print-func lctx)
   (let ((repl-args (list parser enabled-parsers eval-func print-func lctx)))
-    (first-value-or-void
-      (call/cc
-        (lambda (k-exit)
-          (parameterize ((sh-repl-args repl-args)
-                         (base-exception-handler repl-exception-handler)
-                         (break-handler
-                           (lambda break-args
-                             (repl-interrupt-handler repl-args break-args)))
-                         (exit-handler k-exit)
-                         (keyboard-interrupt-handler
-                           (lambda ()
-                             (put-string (console-error-port) "\n; interrupted\n")
-                             (repl-interrupt-handler repl-args '())))
-                         (reset-handler (reset-handler))
-                         (suspend-handler
-                           (lambda ()
-                             (put-string (console-error-port) "\n; suspended\n")
-                             (repl-interrupt-handler repl-args '()))))
-            (let ((k-reset k-exit)
-                  (updated-parser parser))
-              (reset-handler (lambda () (k-reset)))
-              (call/cc (lambda (k) (set! k-reset k)))
-              ; when the (reset-handler) we installed is called, resume from here
-              (while updated-parser
-                (set! parser updated-parser)
-                (set-car! repl-args updated-parser)
-                (set! updated-parser (repl-once parser enabled-parsers eval-func print-func lctx))))))))))
+    (call/cc
+      (lambda (k-exit)
+        (parameterize ((sh-repl-args repl-args)
+                       (base-exception-handler repl-exception-handler)
+                       (break-handler
+                         (lambda break-args
+                           (repl-interrupt-handler repl-args break-args)))
+                       (exit-handler k-exit)
+                       (keyboard-interrupt-handler
+                         (lambda ()
+                           (put-string (console-error-port) "\n; interrupted\n")
+                           (repl-interrupt-handler repl-args '())))
+                       (reset-handler (reset-handler))
+                       (suspend-handler
+                         (lambda ()
+                           (put-string (console-error-port) "\n; suspended\n")
+                           (repl-interrupt-handler repl-args '()))))
+          (let ((k-reset k-exit)
+                (updated-parser parser))
+            (reset-handler (lambda () (k-reset)))
+            (call/cc (lambda (k) (set! k-reset k)))
+            ; when the (reset-handler) we installed is called, resume from here
+            (while updated-parser
+              (set! parser updated-parser)
+              (set-car! repl-args updated-parser)
+              (set! updated-parser (repl-once parser enabled-parsers eval-func print-func lctx)))))))))
 
 
 ;; top-level interactive repl with all arguments mandatory
 ;;
-;; Returns value passed to (exit), or (void) on linectx eof
+;; Returns values passed to (exit), or (void) on linectx eof
 (define (repl* initial-parser enabled-parsers eval-func print-func lctx)
   ; (to-parser) also checks initial-parser's and enabled-parser's validity
   (let ((parser (to-parser enabled-parsers initial-parser 'repl)))
@@ -193,13 +192,14 @@
       (lambda ()
         (tty-restore!) (signal-restore-sigwinch) (lineedit-finish lctx)))))
 
+
 ;; top-level interactive repl with optional arguments:
 ;; 'parser initial-parser   - defaults to 'shell
 ;; 'parsers enabled-parsers - defaults to (parsers)
 ;; 'eval eval-func          - defaults to repl-eval
 ;; 'linectx lctx            - defaults to (sh-make-linectx)
 ;;
-;; Returns value passed to (exit), or (void) on linectx eof
+;; Returns first value passed to (exit), or (void) on linectx eof
 (define (repl . args)
   (let ((initial-parser #f)  (initial-parser? #f)
         (enabled-parsers #f) (enabled-parsers? #f)
@@ -218,11 +218,13 @@
           ((print)   (set! print-func val)      (set! print-func? #t))
           ((linectx) (set! lctx val)            (set! lctx? #t))
           (else      (syntax-violation 'repl "unexpected argument:" opt)))))
-    (repl* (if initial-parser?  initial-parser 'shell)
-           (if enabled-parsers? enabled-parsers (parsers))
-           (if eval-func?       eval-func       repl-eval)
-           (if print-func?      print-func      repl-print)
-           (if lctx? lctx (sh-make-linectx)))))
+    (first-value-or-void
+      (repl* (if initial-parser?  initial-parser 'shell)
+             (if enabled-parsers? enabled-parsers (parsers))
+             (if eval-func?       eval-func       repl-eval)
+             (if print-func?      print-func      repl-print)
+             (if lctx? lctx (sh-make-linectx))))))
+
 
 ;; React to uncaught conditions
 (define (repl-exception-handler obj)
