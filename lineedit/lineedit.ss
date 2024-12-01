@@ -23,7 +23,7 @@
     lineedit-flush lineedit-finish)
   (import
     (rnrs)
-    (only (chezscheme) format fx1+ fx1- inspect record-writer void)
+    (only (chezscheme) format fx1+ fx1- inspect record-writer top-level-value void)
     (schemesh bootstrap)
     (schemesh containers)
     (only (schemesh conversions) display-condition*)
@@ -302,6 +302,20 @@
     tty-restore!       ; run before body
     (lambda () (inspect obj)) ; body
     tty-setraw!))      ; run after body
+
+(define (lineedit-key-cmd-cd-parent ctx)
+  ((top-level-value 'sh-cd) "..")
+  (linectx-redraw-all ctx))
+
+(define (lineedit-key-cmd-ls ctx)
+  (lineterm-move-to ctx (linectx-prompt-end-x ctx) (linectx-prompt-end-y ctx))
+  (lineterm-write/bvector ctx #vu8(108 115 27 91 74 10) 0 6) ; l s ESC [ J \n
+  (lineedit-flush ctx)
+  ((top-level-value 'sh-run) ((top-level-value 'sh-cmd) "ls"))
+  ; make enough space after command output for prompt and current line(s)
+  (repeat (linectx-vy ctx)
+    (lineterm-write/u8 ctx 10))
+  (linectx-redraw-all ctx))
 
 (define (lineedit-navigate-history ctx delta-y)
   (let ((y      (fx+ delta-y (linectx-history-index ctx)))
@@ -886,7 +900,9 @@
   (%add t lineedit-key-bol   '(27 79 72))        ; HOME  \eOH
   (%add t lineedit-key-newline-left '(27 79 77)) ; KPRET \eOM
   (%add t lineedit-key-nop   '(27 79 80)         ; NUM-LOCK
-     '(27 79 81) '(27 79 82) '(27 79 83))        ; KP/ KP* KP-
+    '(27 79 81) '(27 79 82))                     ; KP/ KP*
+  (%add t lineedit-key-cmd-cd-parent '(27 79 83))  ; KP-
+  (%add t lineedit-key-cmd-ls        '(27 79 108)) ; KP+
   ; sequences starting with ESC [                ;
   (%add t lineedit-key-up    '(27 91 65))        ; UP    \e[A
   (%add t lineedit-key-down  '(27 91 66))        ; DOWN  \e[B

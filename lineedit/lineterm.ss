@@ -101,6 +101,7 @@
   (lineterm-write/bvector ctx #vu8(27 91 74) 0 3)) ; ESC [ J
 
 ;; move tty cursor from tty position from-x from-y to tty position to-x to-y
+;; does not check or update linectx
 (define (lineterm-move ctx from-x from-y to-x to-y)
   (let* ((screen (linectx-vscreen ctx))
          (xmax   (fx1- (vscreen-width screen)))

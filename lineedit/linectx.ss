@@ -130,7 +130,7 @@
 (define (linectx-vx ctx)
   (vscreen-cursor-vx (linectx-vscreen ctx)))
 
-;; return vscreen cursor y visual position. It is equal to linectx-iy.
+;; return vscreen cursor y visual position. It is equal to linectx-iy + linectx-prompt-end-y.
 (define (linectx-vy ctx)
   (vscreen-cursor-vy (linectx-vscreen ctx)))
 
