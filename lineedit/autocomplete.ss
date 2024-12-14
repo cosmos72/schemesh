@@ -60,8 +60,10 @@
   ; (debugf "lineedit-shell-directory-list dir = ~s, filter = ~s~%" dir filter)
   (list-iterate (directory-u8-list dir filter)
     (lambda (elem)
-      (span-insert-back! completions
-        (string->charspan* (utf8b->string (cdr elem))))))
+      (let ((name (string->charspan* (utf8b->string (cdr elem)))))
+        (when (eq? 'dir (car elem))
+          (charspan-insert-back! name #\/))
+        (span-insert-back! completions name))))
   ; (debugf "lineedit-shell-directory-list completions = ~s~%" completions)
   )
 
