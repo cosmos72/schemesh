@@ -42,7 +42,7 @@
 
 ;; fill span-of-charspans completions with file names starting with charspan stem
 (define (lineedit-shell-autocomplete stem completions)
-  (debugf "lineedit-shell-autocomplete stem = ~s~%" stem)
+  ; (debugf "lineedit-shell-autocomplete stem = ~s~%" stem)
   (let* ((n (charspan-length stem))
          (slash-pos (and (not (fxzero? n)) (charspan-find/ch stem 0 n #\/))))
     (cond
@@ -57,7 +57,7 @@
 
 
 (define (%lineedit-shell-directory-list dir filter slash? completions)
-  (debugf "lineedit-shell-directory-list dir = ~s, filter = ~s~%" dir filter)
+  ; (debugf "lineedit-shell-directory-list dir = ~s, filter = ~s~%" dir filter)
   (let* ((dir-len    (string-length dir))
          (dir?       (and slash? (not (fxzero? dir-len))))
          (filter?    (not (fxzero? (string-length filter))))
@@ -71,7 +71,7 @@
             (when (eq? 'dir (car elem))
               (charspan-insert-back! name #\/))
             (span-insert-back! completions name))))))
-  (debugf "lineedit-shell-directory-list completions = ~s~%" completions)
+  ; (debugf "lineedit-shell-directory-list completions = ~s~%" completions)
   )
 
 ) ; close library
