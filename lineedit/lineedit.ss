@@ -281,31 +281,46 @@
   (linectx-redraw-set! ctx #t))
 
 (define (lineedit-key-tab ctx)
-  (let ((completions (linectx-completions ctx))
-        (func (linectx-completion-func ctx)))
-    ; (debugf "lineedit-key-tab autocomplete...~%")
+  (let ((func (linectx-completion-func ctx)))
     (when func
       ;; protect against exceptions in linectx-completion-func
       (try
-        (begin
-          (func ctx)
-          ; (debugf "lineedit-key-tab autocomplete completions = ~s~%" completions)
-          )
+        (func ctx)
         (catch (ex)
           ; (debugf "lineedit-key-tab autocomplete error: ")
           ; (let ((out (debugf-port)))
           ;   (display-condition ex out)
           ;   (put-string out "\n")
           ;   (flush-output-port out))
-          (span-clear! completions)))
-      ;; TODO: if more than one completion, search for a common prefix among them,
-      ;; insert it into linectx, and show all completions
-      (when (fx=? 1 (span-length completions))
-        (let* ((completion (span-ref completions 0))
-               (stem-len (charspan-length (linectx-completion-stem ctx)))
-               (len (fx- (charspan-length completion) stem-len)))
-          (when (fx>? len 0)
-            (linectx-insert/cspan! ctx completion stem-len len)))))))
+          (span-clear! (linectx-completions ctx))))
+      (lineedit-update-with-completions ctx))))
+
+(define (lineedit-update-with-completions ctx)
+  (let* ((stem     (linectx-completion-stem ctx))
+         (stem-len (charspan-length stem))
+         (completions (linectx-completions ctx)))
+    ; (debugf "lineedit-update-with-completions stem = ~s, completions = ~s ...~%" stem completions)
+    (unless (span-empty? completions)
+      (let* ((completion     (span-ref completions 0))
+             (completion-len (charspan-length completion)))
+        ; find the longest common prefix among completions
+        (do ((n (span-length completions))
+             (i 0 (fx1+ i)))
+            ((or (fx>=? i n) (fx<=? completion-len stem-len)))
+          (let* ((completion-i (span-ref completions i))
+                 (completion-i-len (charspan-length completion-i)))
+            ; (debugf "... lineedit-update-with-completions stem-len = ~s, completion-i = ~s ... " stem-len completion-i)
+            (let ((common-prefix-len
+                    (fx+ stem-len
+                         (charspan-range-count= completion stem-len completion-i stem-len
+                                                (fx- (fxmin completion-len completion-i-len) stem-len)))))
+              ; (debugf "common-prefix-len = ~s~%" common-prefix-len)
+              (when (fx<? common-prefix-len completion-len)
+                (set! completion-len common-prefix-len)))))
+        ; (debugf "lineedit-update-with-completions completion = ~s, stem-len = ~s, delta-len = ~s~%" completion stem-len (fx- completion-len stem-len))
+        (when (fx>? completion-len stem-len)
+          (linectx-insert/cspan! ctx completion stem-len (fx- completion-len stem-len)))))))
+
 
 (define (lineedit-key-toggle-insert ctx)
   (lineedit-key-inspect ctx))

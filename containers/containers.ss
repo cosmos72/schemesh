@@ -14,7 +14,7 @@
     list->bytevector subbytevector
     bytevector-fill-range! bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?
-    string-fill-range! string-range=? string-iterate
+    string-fill-range! string-range-count= string-range=? string-iterate
 
     ; utf8b.ss
     integer->char* string->utf8b string->utf8b/0 utf8b->string utf8b-range->string
@@ -49,12 +49,12 @@
     bytespan-peek-beg bytespan-peek-end bytespan-peek-data
 
     ; charspan.ss
-    list->charspan string->charspan string->charspan* make-charspan charspan->string charspan->string/range
+    list->charspan string->charspan string->charspan* make-charspan charspan->string charspan->string-range
     charspan charspan? assert-charspan? charspan-length charspan-empty? charspan-clear!
     charspan-capacity charspan-capacity-front charspan-capacity-back charspan-ref
     charspan-front charspan-back
     charspan-set! charspan-fill! charspan-fill-range! charspan-copy charspan-copy!
-    charspan=? charspan-range=? charspan-range/string=?
+    charspan=? charspan-range-count= charspan-range=? charspan-range/string=?
     charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back!
     charspan-insert-front! charspan-insert-back!
     charspan-insert-front/cspan! charspan-insert-back/cspan!

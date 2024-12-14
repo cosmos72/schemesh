@@ -12,12 +12,12 @@
 
 (library (schemesh containers charspan (0 1))
   (export
-    list->charspan string->charspan string->charspan* make-charspan charspan->string charspan->string/range
+    list->charspan string->charspan string->charspan* make-charspan charspan->string charspan->string-range
     charspan charspan? assert-charspan? charspan-length charspan-empty? charspan-clear!
     charspan-capacity charspan-capacity-front charspan-capacity-back charspan-ref
     charspan-front charspan-back
     charspan-set! charspan-fill! charspan-fill-range! charspan-copy charspan-copy!
-    charspan=? charspan-range=? charspan-range/string=?
+    charspan=? charspan-range-count= charspan-range=? charspan-range/string=?
     charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back!
     charspan-insert-front! charspan-insert-back!
     charspan-insert-front/cspan! charspan-insert-back/cspan!
@@ -76,7 +76,7 @@
       "")))
 
 ;; convert a portion of charspan to string
-(define (charspan->string/range sp start len)
+(define (charspan->string-range sp start len)
   (let ((n (charspan-length sp)))
     (if (fx<=? n 0)
       ""
@@ -93,8 +93,8 @@
 (define (charspan-length sp)
   (fx- (charspan-end sp) (charspan-beg sp)))
 
-; return length of internal string, i.e. maximum number of elements
- ; that can be stored without reallocating
+;; return length of internal string, i.e. maximum number of elements
+;; that can be stored without reallocating
 (define (charspan-capacity sp)
   (string-length (charspan-str sp)))
 
@@ -152,6 +152,20 @@
            (charspan-str left) (charspan-beg left)
            (charspan-str right) (charspan-beg right)
            n1))))
+
+
+;; compare the range [left-start, left-start + n) of left charspan
+;; with the range [right-start, right-start + n) of right charspan.
+;; return the leftmost position, starting from 0, containing different characters,
+;; or n if the two ranges contain the same characters
+(define (charspan-range-count= left left-start right right-start n)
+  (assert* 'charspan-range-count= (fx<=? 0 left-start  (fx+ left-start n)  (charspan-length left)))
+  (assert* 'charspan-range-count= (fx<=? 0 right-start (fx+ right-start n) (charspan-length right)))
+  (string-range-count=
+    (charspan-str left)  (fx+ left-start  (charspan-beg left))
+    (charspan-str right) (fx+ right-start (charspan-beg right))
+    n))
+
 
 ;; compare a range of two charspans
 (define (charspan-range=? left left-start right right-start n)

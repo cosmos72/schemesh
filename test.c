@@ -52,6 +52,7 @@ static const testcase tests[] = {
     {"(bytevector-compare #vu8(66 77) #vu8(66 77 0))", "-1"},
     {"(bytevector-compare #vu8(66 77) #vu8(66 78))", "-1"},
     {"(bytevector-compare #vu8(79) #vu8(78 0))", "1"},
+    {"(string-range-count= \"qwertyuiop\" 2 \"_ertyuio7\" 1 8)", "7"},
     {"(do ((i #x-10000 (fx1+ i)))\n"
      "    ((fx>=? i #x120000))\n"
      "  (if (or (fx<=? #x0000 i #xD7FF)\n"
@@ -303,6 +304,8 @@ static const testcase tests[] = {
     {"(charspan-empty? (charspan #\\~))", "#f"},
     {"(charspan-back (charspan #\\{ #\\\\))", "\\"},
     {"(charspan-ref (charspan #\\x #\\y #\\z) 2)", "z"},
+    {"(charspan-range-count= (string->charspan* \"abcdef\") 2 (string->charspan* \"1cde34\") 1 4)",
+     "3"},
     {"(charspan-range=? (string->charspan* \"abcdef\") 2 (string->charspan* \"1cde34\") 1 3)",
      "#t"},
     {"(let* ((s \"abc\")\n"

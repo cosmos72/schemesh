@@ -34,7 +34,7 @@
     (char=? ch #\_)))
 
 ;; TEMPORARY and APPROXIMATED:
-;; fill charspan (linectx-completion-stem) with word to autocomplete, and also return it.
+;; fill charspan (linectx-completion-stem) with the word to autocomplete, and also return it.
 ;; the correct solution requires parsing parens and finding the longest syntax-aware identifier
 (define (sh-autocomplete-stem lctx)
   (let ((stem (linectx-completion-stem lctx))
@@ -69,7 +69,7 @@
     (span-clear! completions)
     (func stem completions)
     ; (debugf "sh-autocomplete stem = ~s, completions = ~s~%" stem completions)
-    completions))
+    ))
 
 
 ; return string containing current time in 24-hour HH:MM:SS format.

@@ -13,7 +13,7 @@
     list->bytevector subbytevector
     bytevector-fill-range! bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?
-    string-fill-range! string-range=? string-iterate)
+    string-fill-range! string-range-count= string-range=? string-iterate)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -219,30 +219,41 @@
       ((fx>=? i n))
     (string-set! str (fx+ i start) val)))
 
-;; return #t if range [left-start, left-start + n) of left string contains
-;; the same characters as range [right-start, right-start + n) of right string.
-(define (string-range=? left left-start right right-start n)
-  (assert* 'string-range=? (fx<=? 0 left-start (string-length left)))
-  (assert* 'string-range=? (fx<=? 0 right-start (string-length right)))
-  (assert* 'string-range=? (fx<=? 0 n (fx- (string-length left) left-start)))
-  (assert* 'string-range=? (fx<=? 0 n (fx- (string-length right) right-start)))
-  (or
-    (fxzero? n)
-    (and (eq? left right) (fx=? left-start right-start))
-    (do ((i 0 (fx1+ i)))
-        ((or
-           (fx>=? i n)
-           (not (char=? (string-ref left (fx+ i left-start))
-                        (string-ref right (fx+ i right-start)))))
-         (fx>=? i n)))))
-
-
 ;; (string-iterate l proc) iterates on all elements of given string src,
 ;; and calls (proc index ch) on each character. stops iterating if (proc ...) returns #f
 (define (string-iterate str proc)
   (do ((i 0 (fx1+ i))
        (n (string-length str)))
       ((or (fx>=? i n) (not (proc i (string-ref str i)))))))
+
+
+;; compare the range [left-start, left-start + n) of left string
+;; with the range [right-start, right-start + n) of right string.
+;; return the leftmost position, starting from 0, containing different characters,
+;; or n if the two ranges contain the same characters
+(define (string-range-count= left left-start right right-start n)
+  (assert* 'string-range-count= (fx<=? 0 left-start (string-length left)))
+  (assert* 'string-range-count= (fx<=? 0 right-start (string-length right)))
+  (assert* 'string-range-count= (fx<=? 0 n (fx- (string-length left) left-start)))
+  (assert* 'string-range-count= (fx<=? 0 n (fx- (string-length right) right-start)))
+  (cond
+    ((fxzero? n)
+      n)
+    ((and (eq? left right) (fx=? left-start right-start))
+      n)
+    (#t
+      (do ((i 0 (fx1+ i)))
+          ((or
+             (fx>=? i n)
+             (not (char=? (string-ref left (fx+ i left-start))
+                        (string-ref right (fx+ i right-start)))))
+            i)))))
+
+
+;; return #t if range [left-start, left-start + n) of left string contains
+;; the same characters as range [right-start, right-start + n) of right string.
+(define (string-range=? left left-start right right-start n)
+  (fx=? n (string-range-count= left left-start right right-start n)))
 
 
 ) ; close library

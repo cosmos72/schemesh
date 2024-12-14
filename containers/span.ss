@@ -20,7 +20,7 @@
     span-peek-beg span-peek-end span-peek-data)
   (import
     (rnrs)
-    (only (chezscheme) fx1+ fx1- record-writer vector-copy void)
+    (only (chezscheme) break fx1+ fx1- record-writer vector-copy void)
 (only (schemesh bootstrap) assert*)
     (schemesh containers misc))
 

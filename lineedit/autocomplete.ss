@@ -47,8 +47,8 @@
          (slash-pos (and (not (fxzero? n)) (charspan-find/ch stem 0 n #\/))))
     (cond
       (slash-pos ; list contents of a directory
-        (let ((dir    (charspan->string/range stem 0 (fx1+ slash-pos)))
-              (filter (charspan->string/range stem slash-pos n)))
+        (let ((dir    (charspan->string-range stem 0 (fx1+ slash-pos)))
+              (filter (charspan->string-range stem slash-pos n)))
           (%lineedit-shell-directory-list dir filter completions)))
       (#t ; list contents of current directory
           ; FIXME: if stem is the first word in a shell command,
