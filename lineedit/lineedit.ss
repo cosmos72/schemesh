@@ -19,15 +19,16 @@
     lineedit-key-history-next lineedit-key-history-prev
     lineedit-key-redraw lineedit-key-tab lineedit-key-toggle-insert
     lineedit-key-inspect
-    lineedit-read
-    lineedit-flush lineedit-finish)
+    lineedit-read lineedit-flush lineedit-finish
+    lineedit-r6rs-autocomplete lineedit-scheme-autocomplete lineedit-shell-autocomplete)
   (import
     (rnrs)
-    (only (chezscheme) format fx1+ fx1- inspect record-writer top-level-value void)
+    (only (chezscheme) display-condition format fx1+ fx1- inspect record-writer top-level-value void)
     (schemesh bootstrap)
     (schemesh containers)
     (only (schemesh conversions) display-condition*)
     (schemesh posix fd)
+    (schemesh lineedit autocomplete)
     (schemesh lineedit vscreen)
     (schemesh lineedit charhistory)
     (schemesh lineedit paren)
@@ -282,10 +283,20 @@
 (define (lineedit-key-tab ctx)
   (let ((completions (linectx-completions ctx))
         (func (linectx-completion-func ctx)))
+    ; (debugf "lineedit-key-tab autocomplete...~%")
     (when func
       ;; protect against exceptions in linectx-completion-func
-      (try (func ctx)
+      (try
+        (begin
+          (func ctx)
+          ; (debugf "lineedit-key-tab autocomplete completions = ~s~%" completions)
+          )
         (catch (ex)
+          ; (debugf "lineedit-key-tab autocomplete error: ")
+          ; (let ((out (debugf-port)))
+          ;   (display-condition ex out)
+          ;   (put-string out "\n")
+          ;   (flush-output-port out))
           (span-clear! completions)))
       (when (fx=? 1 (span-length completions))
         (let* ((completion (span-ref completions 0))

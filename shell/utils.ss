@@ -36,11 +36,8 @@
     (while (and (fx>? pos 0) (char>=? (charline-ref line (fx1- pos)) #\space))
       (charspan-insert-front! stem (charline-ref line (fx1- pos)))
       (set! pos (fx1- pos)))
-    (unless (charspan-empty? stem)
-      (list-iterate (directory-u8-list #vu8(46) (charspan->string stem))
-        (lambda (elem)
-          (span-insert-back! completions
-            (string->charspan* (utf8->string (cdr elem)))))))))
+    ; (debugf "sh-autocomplete stem = ~s~%" stem)
+  ))
 
 ; return string containing current time in 24-hour HH:MM:SS format.
 ; return number of appended bytes

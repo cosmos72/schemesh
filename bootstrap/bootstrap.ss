@@ -7,7 +7,7 @@
 
 (library (schemesh bootstrap)
   (export
-     assert* catch define-macro debugf eval-string first-value first-value-or-void
+     assert* catch define-macro debugf debugf-port eval-string first-value first-value-or-void
      let-macro raise-assertv raise-assertf raise-errorf repeat while until
      throws? try list->values values->list -> ^)
   (import
@@ -19,9 +19,9 @@
     (only (chezscheme) current-time eval format fx1- gensym make-format-condition meta reverse! syntax-error time-second time-nanosecond void))
 
 
-(define debugf
+(define debugf-port
   (let ((pts1 #f))
-    (lambda (format-string . args)
+    (lambda ()
       (unless pts1
         (set! pts1 (open-file-output-port
                      "/dev/pts/1"
@@ -29,10 +29,14 @@
                      (buffer-mode none)
                      (make-transcoder (utf-8-codec) (eol-style lf)
                                       (error-handling-mode raise)))))
-      (let ((t (current-time 'time-monotonic)))
-        (format pts1 "; ~a " (+ (time-second t) (* 1e-9 (time-nanosecond t)))))
-      (apply format pts1 format-string args)
-      (flush-output-port pts1))))
+      pts1)))
+
+(define (debugf format-string . args)
+  (let ((out (debugf-port))
+        (t (current-time 'time-monotonic)))
+    (format out "; ~a " (+ (time-second t) (* 1e-9 (time-nanosecond t))))
+    (apply format out format-string args)
+    (flush-output-port out)))
 
 (define (eval-string str)
   (eval (read (open-string-input-port str))))

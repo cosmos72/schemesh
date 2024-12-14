@@ -16,6 +16,7 @@
     (only (schemesh bootstrap) assert* debugf first-value until while)
     (only (schemesh containers misc) string-contains-only-decimal-digits?)
     (schemesh containers charspan)
+    (schemesh lineedit autocomplete)
     (schemesh lineedit paren)
     (schemesh lineedit parser))
 
@@ -691,7 +692,7 @@
 
 
 (define parser-shell
-  (let ((ret (make-parser 'shell parse-shell-forms parse-shell-paren)))
+  (let ((ret (make-parser 'shell parse-shell-forms parse-shell-paren lineedit-shell-autocomplete)))
     (lambda ()
       ret)))
 

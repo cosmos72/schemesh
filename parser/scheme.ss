@@ -18,6 +18,7 @@
        fxvector fxvector-set! make-fxvector
        read-token reverse!)
     (only (schemesh bootstrap) debugf while)
+    (schemesh lineedit autocomplete)
     (schemesh lineedit parser)
     (schemesh parser lisp))
 
@@ -70,7 +71,7 @@
 
 
 (define parser-scheme
-  (let ((ret (make-parser 'scheme parse-scheme-forms parse-scheme-paren)))
+  (let ((ret (make-parser 'scheme parse-scheme-forms parse-scheme-paren lineedit-scheme-autocomplete)))
     (lambda ()
       ret)))
 

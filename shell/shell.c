@@ -140,8 +140,8 @@ void schemesh_compile_and_load_libraries(void) {
 #endif
        "              (load path))\n"
        "            #t)))))))\n"
-       "  (unless (try-load \"/usr/local/lib/" LIBSCHEMESH_SO "\")\n"
-       "    (unless (try-load \"/usr/lib/" LIBSCHEMESH_SO "\")\n"
+       "  (unless (try-load \"/usr/local/lib/schemesh/" LIBSCHEMESH_SO "\")\n"
+       "    (unless (try-load \"/usr/lib/schemesh/" LIBSCHEMESH_SO "\")\n"
        "      (unless (try-load \"" LIBSCHEMESH_SO "\")\n"
        "        (compile-file \"libschemesh.ss\" \"libschemesh_debug.so\")\n"
 #ifdef SCHEMESH_OPTIMIZE

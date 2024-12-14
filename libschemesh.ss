@@ -27,6 +27,7 @@
   (include "posix/misc.ss")
   (include "posix/pid.ss")
   (include "posix/posix.ss")
+  (include "lineedit/autocomplete.ss")
   (include "lineedit/vscreen.ss")
   (include "lineedit/charhistory.ss")
   (include "lineedit/paren.ss")

@@ -28,14 +28,14 @@
     (schemesh posix tty)
     (only (schemesh shell) sh-consume-sigchld sh-make-linectx sh-repl-args))
 
-;
-; Read user input.
-; If user pressed ENTER, return textual input port containing entered text.
-;
-; Returns:
-; #f if got end-of-file
-; #t if waiting for more keypresses
-; a textual input port if user pressed ENTER.
+
+;; Read user input.
+;; If user pressed ENTER, return textual input port containing entered text.
+;;
+;; Returns:
+;; #f if got end-of-file
+;; #t if waiting for more keypresses
+;; a textual input port if user pressed ENTER.
 (define (repl-lineedit lctx)
   (sh-consume-sigchld)
   (let ((ret (lineedit-read lctx -1)))
@@ -44,32 +44,32 @@
       ret
       (open-charlines-input-port ret))))
 
-;
-; Parse user input.
-; Arguments:
-;   pctx - a parsectx containing textual input port to parse, its position
-;          and a hashtable of enabled parsers (can be #f)
-;   initial-parser - initial parser to use: a symbol or parser
-;
-; Automatically switches to other parsers if a directive #!... is found in a (possibly
-; nested) list being parsed.
-;
-; Return two values:
-;   list of forms containing Scheme code to evaluate,
-;   and updated parser to use.
+
+;; Parse user input.
+;; Arguments:
+;;   pctx - a parsectx containing textual input port to parse, its position
+;;          and a hashtable of enabled parsers (can be #f)
+;;   initial-parser - initial parser to use: a symbol or parser
+;;
+;; Automatically switches to other parsers if a directive #!... is found in a (possibly
+;; nested) list being parsed.
+;;
+;; Return two values:
+;;   list of forms containing Scheme code to evaluate,
+;;   and updated parser to use.
 (define repl-parse parse-forms)
 
 
-; Eval a single form containing parsed expressions or shell commands,
-; and return value or exit status of executed form.
-; May return multiple values.
-;
-; Note: if a form in list is (shell ...), which would create a job but NOT run it,
-;       eval instead (sh-run/i (shell ...)) that also interruptibly runs the job.
-;
-; This has two effects:
-; 1. when using shell parser, top-level commands will be executed immediately.
-; 2. when using scheme parser, top-level (shell ...) will be executed immediately.
+;; Eval a single form containing parsed expressions or shell commands,
+;; and return value or exit status of executed form.
+;; May return multiple values.
+;;
+;; Note: if a form in list is (shell ...), which would create a job but NOT run it,
+;;       eval instead (sh-run/i (shell ...)) that also interruptibly runs the job.
+;;
+;; This has two effects:
+;; 1. when using shell parser, top-level commands will be executed immediately.
+;; 2. when using scheme parser, top-level (shell ...) will be executed immediately.
 (define (repl-eval form)
   ; (debugf "repl-eval: ~s~%" form)
   (try
@@ -80,20 +80,20 @@
     (catch (ex)
       (repl-exception-handler ex))))
 
-;
-; Execute with (eval-func form) each form in list of forms containing parsed expressions
-; or shell commands, and print each returned value(s) or exit status.
-;
-; Implementation note:
-;   some procedures we may eval, as (break) (debug) (inspect) ...
-;   expect the tty to be in canonical mode, not in raw mode.
-;
-;   Also, we need tty to be in canonical mode for CTRL+C to generate SIGINT,
-;   which causes Chez Scheme to suspend long/infinite evaluations
-;   and call (break) - a feature we want to preserve.
-;
-;   For these reasons, the loop (do ... (eval-func ...))
-;   is wrapped inside (dynamic-wind tty-restore! (lambda () ...) tty-setraw!)
+
+;; Execute with (eval-func form) each form in list of forms containing parsed expressions
+;; or shell commands, and print each returned value(s) or exit status.
+;;
+;; Implementation note:
+;;   some procedures we may eval, as (break) (debug) (inspect) ...
+;;   expect the tty to be in canonical mode, not in raw mode.
+;;
+;;   Also, we need tty to be in canonical mode for CTRL+C to generate SIGINT,
+;;   which causes Chez Scheme to suspend long/infinite evaluations
+;;   and call (break) - a feature we want to preserve.
+;;
+;;   For these reasons, the loop (do ... (eval-func ...))
+;;   is wrapped inside (dynamic-wind tty-restore! (lambda () ...) tty-setraw!)
 (define (repl-eval-list forms eval-func print-func)
   ; (debugf "evaluating list: ~s~%" forms)
   (unless (null? forms)
@@ -112,7 +112,7 @@
       tty-setraw!)))
 
 
-; Print values or exit statuses.
+;; Print values or exit statuses.
 (define (repl-print . values)
   (do ((tail values (cdr tail)))
       ((null? tail))
@@ -120,10 +120,10 @@
       (unless (eq? (void) value)
         (pretty-print value)))))
 
-; Parse and execute user input.
-; Calls in sequence (repl-lineedit) (repl-parse) (repl-eval-list)
-;
-; Returns updated parser to use, or #f if got end-of-file.
+;; Parse and execute user input.
+;; Calls in sequence (repl-lineedit) (repl-parse) (repl-eval-list)
+;;
+;; Returns updated parser to use, or #f if got end-of-file.
 (define (repl-once initial-parser enabled-parsers eval-func print-func lctx)
   (linectx-parser-name-set! lctx (parser-name initial-parser))
   (linectx-parsers-set! lctx enabled-parsers)
