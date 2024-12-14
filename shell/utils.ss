@@ -15,29 +15,62 @@
     (only (chezscheme) current-date date-hour date-minute date-second fx1+ fx1-)
     (schemesh bootstrap)
     (schemesh containers)
+    (schemesh lineedit autocomplete)
     (schemesh lineedit io)
     (schemesh lineedit parenmatcher)
     (schemesh lineedit parser)
     (schemesh lineedit linectx)
+    (schemesh lineedit vscreen)
     (schemesh lineedit)
     (schemesh posix misc)
     (schemesh parser)
     (schemesh shell jobs))
 
+(define (is-alphanumeric? ch)
+  (or
+    (char<=? #\0 ch #\9)
+    (char<=? #\A ch #\Z)
+    (char<=? #\a ch #\z)
+    (char=? ch #\_)))
+
+;; TEMPORARY and APPROXIMATED:
+;; fill charspan (linectx-completion-stem) with word to autocomplete, and also return it.
+;; the correct solution requires parsing parens and finding the longest syntax-aware identifier
+(define (sh-autocomplete-stem lctx)
+  (let ((stem (linectx-completion-stem lctx))
+        (screen (linectx-vscreen lctx)))
+    (charspan-clear! stem)
+    (let %fill-stem ((x (vscreen-cursor-ix screen))
+                     (y (vscreen-cursor-iy screen)))
+      (let-values (((x1 y1 ch) (vscreen-char-before-xy screen x y)))
+        (if (and x1 y1 (char? ch) (is-alphanumeric? ch))
+          (begin
+            (charspan-insert-front! stem ch)
+            (%fill-stem x1 y1))
+          stem)))))
+
+
+;; TEMPORARY and APPROXIMATED:
+;; return the function that lists autocompletions, taken from current parser.
+;; the correct solution requires parsing parens and use the parser name stored in paren at cursor.
+(define (sh-autocomplete-func lctx)
+  (let* ((parsers (linectx-parsers lctx))
+         (parser  (and parsers (hashtable-ref parsers (linectx-parser-name lctx) #f))))
+    (if parser
+      (parser-autocomplete parser)
+      lineedit-shell-autocomplete)))
+
+
 ; update linectx-completion-stem and linectx-completions with possible completions
 (define (sh-autocomplete lctx)
-  ; TODO: handle lines longer than tty width
-  (let ((line  #f) ; (linectx-line lctx))
-        (pos   (linectx-ix lctx))
-        (stem  (linectx-completion-stem lctx))
+  (let ((stem (sh-autocomplete-stem lctx))
+        (func (sh-autocomplete-func lctx))
         (completions (linectx-completions lctx)))
-    (charspan-clear! stem)
     (span-clear! completions)
-    (while (and (fx>? pos 0) (char>=? (charline-ref line (fx1- pos)) #\space))
-      (charspan-insert-front! stem (charline-ref line (fx1- pos)))
-      (set! pos (fx1- pos)))
-    ; (debugf "sh-autocomplete stem = ~s~%" stem)
-  ))
+    (func stem completions)
+    ; (debugf "sh-autocomplete stem = ~s, completions = ~s~%" stem completions)
+    completions))
+
 
 ; return string containing current time in 24-hour HH:MM:SS format.
 ; return number of appended bytes

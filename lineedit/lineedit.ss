@@ -298,6 +298,8 @@
           ;   (put-string out "\n")
           ;   (flush-output-port out))
           (span-clear! completions)))
+      ;; TODO: if more than one completion, search for a common prefix among them,
+      ;; insert it into linectx, and show all completions
       (when (fx=? 1 (span-length completions))
         (let* ((completion (span-ref completions 0))
                (stem-len (charspan-length (linectx-completion-stem ctx)))

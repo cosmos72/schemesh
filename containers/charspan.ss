@@ -17,11 +17,12 @@
     charspan-capacity charspan-capacity-front charspan-capacity-back charspan-ref
     charspan-front charspan-back
     charspan-set! charspan-fill! charspan-fill-range! charspan-copy charspan-copy!
-    charspan=? charspan-range=?
+    charspan=? charspan-range=? charspan-range/string=?
     charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back!
     charspan-insert-front! charspan-insert-back!
     charspan-insert-front/cspan! charspan-insert-back/cspan!
-    charspan-erase-front! charspan-erase-back! charspan-iterate charspan-find charspan-rfind
+    charspan-erase-front! charspan-erase-back! charspan-iterate
+    charspan-find charspan-rfind charspan-find/ch charspan-rfind/ch
     charspan-peek-data charspan-peek-beg charspan-peek-end )
   (import
     (rnrs)
@@ -152,12 +153,22 @@
            (charspan-str right) (charspan-beg right)
            n1))))
 
+;; compare a range of two charspans
 (define (charspan-range=? left left-start right right-start n)
   (assert* 'charspan-range=? (fx<=? 0 left-start  (fx+ left-start n)  (charspan-length left)))
   (assert* 'charspan-range=? (fx<=? 0 right-start (fx+ right-start n) (charspan-length right)))
   (string-range=?
     (charspan-str left)  (fx+ left-start  (charspan-beg left))
     (charspan-str right) (fx+ right-start (charspan-beg right))
+    n))
+
+;; compare a range of a charspan and a string
+(define (charspan-range/string=? left left-start right right-start n)
+  (assert* 'charspan-range=? (fx<=? 0 left-start  (fx+ left-start n)  (charspan-length left)))
+  (assert* 'charspan-range=? (fx<=? 0 right-start (fx+ right-start n) (string-length right)))
+  (string-range=?
+    (charspan-str left)  (fx+ left-start  (charspan-beg left))
+    right right-start
     n))
 
 (define (charspan-reallocate-front! sp len cap)
@@ -326,6 +337,18 @@
         ((or ret (fx<? i start)) ret)
       (when (predicate (charspan-ref sp i))
         (set! ret i)))))
+
+;; iterate on charspan elements from start to (fx+ start n)
+;; and return the index of first charspan element equal to ch.
+;; Returns #f if no such element is found.
+(define (charspan-find/ch sp start n ch)
+  (charspan-find sp start n (lambda (e) (char=? e ch))))
+
+;; iterate backward on charspan elements from (fx1- (fx+ start n)) to start
+;; and return the index of first (i.e. the highest index) charspan element equal to ch.
+;; Returns #f if no such element is found.
+(define (charspan-rfind/ch sp start n ch)
+  (charspan-rfind sp start n (lambda (e) (char=? e ch))))
 
 ; customize how charspan objects are printed
 (record-writer (record-type-descriptor %charspan)

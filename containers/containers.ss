@@ -54,11 +54,12 @@
     charspan-capacity charspan-capacity-front charspan-capacity-back charspan-ref
     charspan-front charspan-back
     charspan-set! charspan-fill! charspan-fill-range! charspan-copy charspan-copy!
-    charspan=? charspan-range=?
+    charspan=? charspan-range=? charspan-range/string=?
     charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back!
     charspan-insert-front! charspan-insert-back!
     charspan-insert-front/cspan! charspan-insert-back/cspan!
-    charspan-erase-front! charspan-erase-back! charspan-iterate charspan-find charspan-rfind
+    charspan-erase-front! charspan-erase-back! charspan-iterate
+    charspan-find charspan-rfind charspan-find/ch charspan-rfind/ch
     charspan-peek-data charspan-peek-beg charspan-peek-end
 
     ; gbuffer.ss
