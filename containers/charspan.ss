@@ -12,7 +12,7 @@
 
 (library (schemesh containers charspan (0 1))
   (export
-    list->charspan string->charspan string->charspan* make-charspan charspan->string charspan->string-range
+    list->charspan string->charspan string->charspan* make-charspan charspan->string charspan-range->string
     charspan charspan? assert-charspan? charspan-length charspan-empty? charspan-clear!
     charspan-capacity charspan-capacity-front charspan-capacity-back charspan-ref
     charspan-front charspan-back
@@ -21,6 +21,7 @@
     charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back!
     charspan-insert-front! charspan-insert-back!
     charspan-insert-front/cspan! charspan-insert-back/cspan!
+    charspan-insert-front/string!
     charspan-erase-front! charspan-erase-back! charspan-iterate
     charspan-find charspan-rfind charspan-find/ch charspan-rfind/ch
     charspan-peek-data charspan-peek-beg charspan-peek-end )
@@ -76,7 +77,7 @@
       "")))
 
 ;; convert a portion of charspan to string
-(define (charspan->string-range sp start len)
+(define (charspan-range->string sp start len)
   (let ((n (charspan-length sp)))
     (if (fx<=? n 0)
       ""
@@ -296,9 +297,8 @@
 (define (charspan-insert-front/cspan! sp-dst sp-src src-start src-n)
   (assert* 'charspan-insert-front/cspan! (not (eq? sp-dst sp-src)))
   (unless (fxzero? src-n)
-    (let ((len (charspan-length sp-dst)))
-      (charspan-resize-front! sp-dst (fx+ len src-n))
-      (charspan-copy! sp-src src-start sp-dst 0 src-n))))
+    (charspan-resize-front! sp-dst (fx+ src-n (charspan-length sp-dst)))
+    (charspan-copy! sp-src src-start sp-dst 0 src-n)))
 
 ; append a portion of another charspan to this charspan
 (define (charspan-insert-back/cspan! sp-dst sp-src src-start src-n)
@@ -307,6 +307,15 @@
     (let ((pos (charspan-length sp-dst)))
       (charspan-resize-back! sp-dst (fx+ pos src-n))
       (charspan-copy! sp-src src-start sp-dst pos src-n))))
+
+; prefix a portion of a string to this charspan
+(define (charspan-insert-front/string! sp-dst str-src src-start src-n)
+  (unless (fxzero? src-n)
+    (charspan-resize-front! sp-dst (fx+ src-n (charspan-length sp-dst)))
+    (string-copy! str-src src-start
+                  (charspan-str sp-dst) (charspan-beg sp-dst)
+                  src-n)))
+
 
 ; erase n elements at the left (front) of charspan
 (define (charspan-erase-front! sp n)

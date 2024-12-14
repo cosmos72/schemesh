@@ -26,12 +26,14 @@
     (schemesh parser)
     (schemesh shell jobs))
 
-(define (is-alphanumeric? ch)
-  (or
-    (char<=? #\0 ch #\9)
-    (char<=? #\A ch #\Z)
-    (char<=? #\a ch #\z)
-    (char=? ch #\_)))
+(define (char-is-scheme-and-shell-identifier? ch)
+  (or (char<=? #\a ch #\z)
+      (char<=? #\< ch #\Z)  ; i.e. one of < = > ? @ A ... Z
+      (char<=? #\* ch #\:)  ; i.e. one of * + , - . / 0 ... 9 :
+      (char<=? #\$ ch #\%)  ; i.e. one of $ %
+      (char=?  #\\ ch)
+      (char<=? #\^ ch #\_)  ; i.e. one of ^ _
+      (char=?  #\~ ch)))
 
 ;; TEMPORARY and APPROXIMATED:
 ;; fill charspan (linectx-completion-stem) with the word to autocomplete, and also return it.
@@ -43,7 +45,7 @@
     (let %fill-stem ((x (vscreen-cursor-ix screen))
                      (y (vscreen-cursor-iy screen)))
       (let-values (((x1 y1 ch) (vscreen-char-before-xy screen x y)))
-        (if (and x1 y1 (char? ch) (is-alphanumeric? ch))
+        (if (and x1 y1 (char? ch) (char-is-scheme-and-shell-identifier? ch))
           (begin
             (charspan-insert-front! stem ch)
             (%fill-stem x1 y1))

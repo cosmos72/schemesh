@@ -42,29 +42,36 @@
 
 ;; fill span-of-charspans completions with file names starting with charspan stem
 (define (lineedit-shell-autocomplete stem completions)
-  ; (debugf "lineedit-shell-autocomplete stem = ~s~%" stem)
+  (debugf "lineedit-shell-autocomplete stem = ~s~%" stem)
   (let* ((n (charspan-length stem))
          (slash-pos (and (not (fxzero? n)) (charspan-find/ch stem 0 n #\/))))
     (cond
       (slash-pos ; list contents of a directory
-        (let ((dir    (charspan->string-range stem 0 (fx1+ slash-pos)))
-              (filter (charspan->string-range stem slash-pos n)))
-          (%lineedit-shell-directory-list dir filter completions)))
+        (let ((dir    (charspan-range->string stem 0 (fx1+ slash-pos)))
+              (filter (charspan-range->string stem (fx1+ slash-pos) n)))
+          (%lineedit-shell-directory-list dir filter slash-pos completions)))
       (#t ; list contents of current directory
           ; FIXME: if stem is the first word in a shell command,
           ;        we should list programs in $PATH instead.
-        (%lineedit-shell-directory-list "." (charspan->string stem) completions)))))
+        (%lineedit-shell-directory-list "." (charspan->string stem) #f completions)))))
 
 
-(define (%lineedit-shell-directory-list dir filter completions)
-  ; (debugf "lineedit-shell-directory-list dir = ~s, filter = ~s~%" dir filter)
-  (list-iterate (directory-u8-list dir filter)
-    (lambda (elem)
-      (let ((name (string->charspan* (utf8b->string (cdr elem)))))
-        (when (eq? 'dir (car elem))
-          (charspan-insert-back! name #\/))
-        (span-insert-back! completions name))))
-  ; (debugf "lineedit-shell-directory-list completions = ~s~%" completions)
+(define (%lineedit-shell-directory-list dir filter slash? completions)
+  (debugf "lineedit-shell-directory-list dir = ~s, filter = ~s~%" dir filter)
+  (let* ((dir-len    (string-length dir))
+         (dir?       (and slash? (not (fxzero? dir-len))))
+         (filter?    (not (fxzero? (string-length filter))))
+         (filter-starts-with-dot? (and filter? (char=? #\. (string-ref filter 0)))))
+    (list-iterate (directory-u8-list dir filter)
+      (lambda (elem)
+        (let ((name (string->charspan* (utf8b->string (cdr elem)))))
+          (when (or filter-starts-with-dot? (not (char=? #\. (charspan-ref name 0))))
+            (when dir?
+              (charspan-insert-front/string! name dir 0 dir-len))
+            (when (eq? 'dir (car elem))
+              (charspan-insert-back! name #\/))
+            (span-insert-back! completions name))))))
+  (debugf "lineedit-shell-directory-list completions = ~s~%" completions)
   )
 
 ) ; close library

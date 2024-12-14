@@ -49,7 +49,7 @@
     bytespan-peek-beg bytespan-peek-end bytespan-peek-data
 
     ; charspan.ss
-    list->charspan string->charspan string->charspan* make-charspan charspan->string charspan->string-range
+    list->charspan string->charspan string->charspan* make-charspan charspan->string charspan-range->string
     charspan charspan? assert-charspan? charspan-length charspan-empty? charspan-clear!
     charspan-capacity charspan-capacity-front charspan-capacity-back charspan-ref
     charspan-front charspan-back
@@ -58,6 +58,7 @@
     charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back!
     charspan-insert-front! charspan-insert-back!
     charspan-insert-front/cspan! charspan-insert-back/cspan!
+    charspan-insert-front/string!
     charspan-erase-front! charspan-erase-back! charspan-iterate
     charspan-find charspan-rfind charspan-find/ch charspan-rfind/ch
     charspan-peek-data charspan-peek-beg charspan-peek-end

@@ -283,17 +283,9 @@
 (define (lineedit-key-tab ctx)
   (let ((func (linectx-completion-func ctx)))
     (when func
-      ;; protect against exceptions in linectx-completion-func
-      (try
-        (func ctx)
-        (catch (ex)
-          ; (debugf "lineedit-key-tab autocomplete error: ")
-          ; (let ((out (debugf-port)))
-          ;   (display-condition ex out)
-          ;   (put-string out "\n")
-          ;   (flush-output-port out))
-          (span-clear! (linectx-completions ctx))))
+      (func ctx)
       (lineedit-update-with-completions ctx))))
+
 
 (define (lineedit-update-with-completions ctx)
   (let* ((stem     (linectx-completion-stem ctx))

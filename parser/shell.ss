@@ -281,8 +281,8 @@
                     ((and equal-is-operator? (null? ret) (not assign?) assign-pos (not (fxzero? assign-pos)))
                       ; split "FOO=BAR" into "FOO" "BAR" and set flag assign?
                       ; (debugf "parse-shell-word splitting ~s~%" csp)
-                      (%append (charspan->string-range csp 0 assign-pos))
-                      (%append (charspan->string-range csp (fx1+ assign-pos) (charspan-length csp)))
+                      (%append (charspan-range->string csp 0 assign-pos))
+                      (%append (charspan-range->string csp (fx1+ assign-pos) (charspan-length csp)))
                       (set! assign? #t))
                     (#t
                       (%append (charspan->string csp))))))
