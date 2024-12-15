@@ -27,28 +27,28 @@
 
 ;; fill span-of-charspans completions with top-level scheme symbols whose name starts with charspan stem
 (define (lineedit-scheme-autocomplete stem completions)
-  (let ((n (charspan-length stem))
+  (let ((stem-len (charspan-length stem))
         (l '()))
     (list-iterate (environment-symbols (interaction-environment))
       (lambda (sym)
         (let* ((name (symbol->string sym))
                (len  (string-length name)))
-          (when (and (fx>=? len n) (charspan-range/string=? stem 0 name 0 (fxmin len n)))
+          (when (and (fx>=? len stem-len) (charspan-range/string=? stem 0 name 0 stem-len))
             (set! l (cons name l))))))
     (list-iterate (sort! string<? l)
       (lambda (name)
-        (span-insert-back! completions (string->charspan* name))))))
+        (span-insert-back! completions (charspan-erase-front! (string->charspan* name) stem-len))))))
 
 
 ;; fill span-of-charspans completions with file names starting with charspan stem
 (define (lineedit-shell-autocomplete stem completions)
   ; (debugf "lineedit-shell-autocomplete stem = ~s~%" stem)
-  (let* ((n (charspan-length stem))
-         (slash-pos (and (not (fxzero? n)) (charspan-find/ch stem 0 n #\/))))
+  (let* ((stem-len (charspan-length stem))
+         (slash-pos (and (not (fxzero? stem-len)) (charspan-rfind/ch stem 0 stem-len #\/))))
     (cond
       (slash-pos ; list contents of a directory
         (let ((dir    (charspan-range->string stem 0 (fx1+ slash-pos)))
-              (filter (charspan-range->string stem (fx1+ slash-pos) n)))
+              (filter (charspan-range->string stem (fx1+ slash-pos) stem-len)))
           (%lineedit-shell-directory-list dir filter slash-pos completions)))
       (#t ; list contents of current directory
           ; FIXME: if stem is the first word in a shell command,
@@ -60,14 +60,14 @@
   ; (debugf "lineedit-shell-directory-list dir = ~s, filter = ~s~%" dir filter)
   (let* ((dir-len    (string-length dir))
          (dir?       (and slash? (not (fxzero? dir-len))))
-         (filter?    (not (fxzero? (string-length filter))))
+         (filter-len (string-length filter))
+         (filter?    (not (fxzero? filter-len)))
          (filter-starts-with-dot? (and filter? (char=? #\. (string-ref filter 0)))))
     (list-iterate (directory-u8-list dir filter)
       (lambda (elem)
         (let ((name (string->charspan* (utf8b->string (cdr elem)))))
           (when (or filter-starts-with-dot? (not (char=? #\. (charspan-ref name 0))))
-            (when dir?
-              (charspan-insert-front/string! name dir 0 dir-len))
+            (charspan-erase-front! name filter-len)
             (when (eq? 'dir (car elem))
               (charspan-insert-back! name #\/))
             (span-insert-back! completions name))))))

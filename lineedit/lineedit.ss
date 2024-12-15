@@ -299,20 +299,18 @@
         ; find the longest common prefix among completions
         (do ((n (span-length completions))
              (i 1 (fx1+ i)))
-            ((or (fx>=? i n) (fx<=? completion-len stem-len)))
+            ((or (fx>=? i n) (fxzero? completion-len)))
           (let* ((completion-i (span-ref completions i))
                  (completion-i-len (charspan-length completion-i)))
             ; (debugf "... lineedit-update-with-completions stem-len = ~s, completion-i = ~s ... " stem-len completion-i)
             (let ((common-prefix-len
-                    (fx+ stem-len
-                         (charspan-range-count= completion stem-len completion-i stem-len
-                                                (fx- (fxmin completion-len completion-i-len) stem-len)))))
+                    (charspan-range-count= completion 0 completion-i 0 (fxmin completion-len completion-i-len))))
               ; (debugf "common-prefix-len = ~s~%" common-prefix-len)
               (when (fx<? common-prefix-len completion-len)
                 (set! completion-len common-prefix-len)))))
         ; (debugf "lineedit-update-with-completions completion = ~s, stem-len = ~s, delta-len = ~s~%" completion stem-len (fx- completion-len stem-len))
-        (when (fx>? completion-len stem-len)
-          (linectx-insert/cspan! ctx completion stem-len (fx- completion-len stem-len))
+        (unless (fxzero? completion-len)
+          (linectx-insert/cspan! ctx completion 0 completion-len)
           (when (and (fx=? 1 completions-n) (not (char=? #\/ (charspan-ref completion (fx1- completion-len)))))
             (linectx-insert/ch! ctx #\space)))))))
 
