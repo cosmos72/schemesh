@@ -246,7 +246,7 @@
           ((or
              (fx>=? i n)
              (not (char=? (string-ref left (fx+ i left-start))
-                        (string-ref right (fx+ i right-start)))))
+                          (string-ref right (fx+ i right-start)))))
             i)))))
 
 

@@ -727,6 +727,20 @@ static const testcase tests[] = {
     {"(string->paren \"ls #!scheme 1 2 3\" 'shell)", "#<paren __>"},
     {"(string->paren \"{ls ; #!scheme 1 2 3}\")", "#<paren _{}_>"},
     {"(string->paren \"(values '{ls; #!scheme 1 2 3})\")", "#<paren _({})_>"},
+    {"(let ((p (string->paren \"{[a] && b]\")))\n"
+     "  (list\n"
+     "    (paren-recursive-lookup p 0 0)\n"
+     "    (paren-recursive-lookup p 1 0)\n"
+     "    (paren-recursive-lookup p 2 0)\n"
+     "    (paren-recursive-lookup p 3 0)\n"
+     "    (paren-recursive-lookup p 4 0)\n"
+     "    (paren-recursive-lookup p 5 0)\n"
+     "    (paren-recursive-lookup p 6 0)\n"
+     "    (paren-recursive-lookup p 7 0)\n"
+     "    (paren-recursive-lookup p 8 0)\n"
+     "    (paren-recursive-lookup p 9 0)))",
+     "(#<paren _{?[]}_> #<paren {?[]}> #<paren []> #<paren []> #<paren {?[]}>"
+     " #<paren {?[]}> #<paren {?[]}> #<paren {?[]}> #<paren {?[]}> #<paren {?[]}>)"},
     /* -------------------------- parenmatcher -------------------------------*/
     {"(values->list (paren->values\n"
      "  (parenmatcher-find-match\n"

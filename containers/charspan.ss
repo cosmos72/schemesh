@@ -179,8 +179,8 @@
 
 ;; compare a range of a charspan and a string
 (define (charspan-range/string=? left left-start right right-start n)
-  (assert* 'charspan-range=? (fx<=? 0 left-start  (fx+ left-start n)  (charspan-length left)))
-  (assert* 'charspan-range=? (fx<=? 0 right-start (fx+ right-start n) (string-length right)))
+  (assert* 'charspan-range/string=? (fx<=? 0 left-start  (fx+ left-start n)  (charspan-length left)))
+  (assert* 'charspan-range/string=? (fx<=? 0 right-start (fx+ right-start n) (string-length right)))
   (string-range=?
     (charspan-str left)  (fx+ left-start  (charspan-beg left))
     right right-start
