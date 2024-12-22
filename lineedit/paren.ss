@@ -35,7 +35,7 @@
   (fields
     name  ; symbol, name of parser that created this paren object (may differ in sub-objects)
     token ; #f or character, one of: # ( [ { " ' ` |
-    (mutable ok?)     ; boolean, #t if matching parenthesis/bracket/brace/quote found
+    (mutable ok?)     ; boolean, #t if matching close parenthesis/bracket/brace/quote found
     (mutable start-x) ; fixnum, x position of start parenthesis/bracket/brace/quote
     (mutable start-y) ; fixnum, y position of start parenthesis/bracket/brace/quote
     (mutable end-x)   ; fixnum, x position of end parenthesis/bracket/brace/quote
@@ -94,8 +94,10 @@
 ;; actual implementation of (paren->hashtable)
 (define (%paren->hashtable paren htable)
   ;; (debugf "(%paren->hashtable ~s)~%" paren)
-  (when (paren-valid? paren)
-    (%hashtable-put-paren htable paren))
+  (when (paren-token paren)
+    (%hashtable-put-paren-start htable paren)
+    (when (paren-ok? paren)
+      (%hashtable-put-paren-end htable paren)))
   (let ((inner-span (paren-inner paren)))
     (when inner-span
       (span-iterate inner-span
@@ -103,12 +105,17 @@
           (%paren->hashtable inner htable)))))
   htable)
 
-;; add paren to hashtable twice, once for positions start-x start-y
-;; and once for position end-x end-y
-(define (%hashtable-put-paren htable paren)
-  (hashtable-set! htable (xy->key (paren-start-x paren) (paren-start-y paren)) paren)
-  (hashtable-set! htable (xy->key (paren-end-x paren)   (paren-end-y paren))   paren)
-  htable)
+;; add paren to hashtable for position start-x start-y
+(define (%hashtable-put-paren-start htable paren)
+  (let ((xy (xy->key (paren-start-x paren) (paren-start-y paren))))
+    (when (fx>=? xy 0)
+      (hashtable-set! htable xy paren))))
+
+;; add paren to hashtable for position end-x end-y
+(define (%hashtable-put-paren-end htable paren)
+  (let ((xy (xy->key (paren-end-x paren) (paren-end-y paren))))
+    (when (fx>=? xy 0)
+      (hashtable-set! htable xy paren))))
 
 (define (paren-start-xy-set! paren x y)
   (paren-start-x-set! paren x)
@@ -183,8 +190,6 @@
   (try
     (let ((token (paren-token obj)))
       (display (or token #\_) port)
-      (unless (paren-ok? obj)
-        (display #\? port))
       (let ((inner-span (paren-inner obj)))
         (when (span? inner-span)
           (span-iterate inner-span
@@ -192,6 +197,9 @@
               (unless (fxzero? i)
                 (display #\space port))
               (show-paren inner port)))))
+      ;; show #\? immediately before the missing close token
+      (unless (paren-ok? obj)
+        (display #\? port))
       (display (close-token-for token) port))
     (catch (ex)
       (display ex port))))

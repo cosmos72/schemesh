@@ -722,8 +722,8 @@ static const testcase tests[] = {
     /** paren are not special in shell syntax inside double quoted string */
     {"(string->paren \"{\\\"()\\\"}\")", "#<paren _{\"\"}_>"},
     /** parse mismatched paren */
-    {"(string->paren \"([{)]}\")", "#<paren _(?[?{}])_>"},
-    {"(string->paren \"(\\\" a\\\"\")", "#<paren _(?\"\")_>"},
+    {"(string->paren \"([{)]}\")", "#<paren _([{}?]?)_>"},
+    {"(string->paren \"(\\\" a\\\"\")", "#<paren _(\"\"?)_>"},
     {"(string->paren \"ls #!scheme 1 2 3\" 'shell)", "#<paren __>"},
     {"(string->paren \"{ls ; #!scheme 1 2 3}\")", "#<paren _{}_>"},
     {"(string->paren \"(values '{ls; #!scheme 1 2 3})\")", "#<paren _({})_>"},
@@ -739,8 +739,8 @@ static const testcase tests[] = {
      "    (paren-recursive-lookup p 7 0)\n"
      "    (paren-recursive-lookup p 8 0)\n"
      "    (paren-recursive-lookup p 9 0)))",
-     "(#<paren _{?[]}_> #<paren {?[]}> #<paren []> #<paren []> #<paren {?[]}>"
-     " #<paren {?[]}> #<paren {?[]}> #<paren {?[]}> #<paren {?[]}> #<paren {?[]}>)"},
+     "(#<paren _{[]?}_> #<paren {[]?}> #<paren []> #<paren []> #<paren {[]?}>"
+     " #<paren {[]?}> #<paren {[]?}> #<paren {[]?}> #<paren {[]?}> #<paren {[]?}>)"},
     /* -------------------------- parenmatcher -------------------------------*/
     {"(values->list (paren->values\n"
      "  (parenmatcher-find-match\n"

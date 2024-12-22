@@ -356,8 +356,8 @@
 (define (linectx-return-lines* ctx)
   (linectx-return-set! ctx #f) ; clear flag "user pressed ENTER"
   (linectx-redraw-set! ctx #t) ; set flag "redraw prompt and lines"
-  (linectx-draw-bad-parens ctx 'plain)                     ; unhighlight bad parentheses
-  (linectx-draw-good-paren ctx (linectx-paren ctx) 'plain) ; unhighlight good parentheses
+  (linectx-draw-bad-parens ctx 'plain)                ; unhighlight bad parentheses
+  (linectx-draw-paren ctx (linectx-paren ctx) 'plain) ; unhighlight current parentheses
   (lineterm-move-dy ctx (fx- (fx1- (linectx-end-y ctx))
                              (linectx-iy ctx))) ; move to last input line
   (lineterm-write/u8 ctx 10) ; advance to next line.
@@ -472,8 +472,8 @@
   (linectx-term-xy-set/end-lines! ctx)
   (parenmatcher-clear! (linectx-parenmatcher ctx))
   (linectx-paren-update! ctx)
-  (linectx-draw-bad-parens ctx 'bad)
-  (linectx-draw-good-paren ctx (linectx-paren ctx) 'good)
+  (linectx-draw-bad-parens ctx 'highlight)
+  (linectx-draw-paren ctx (linectx-paren ctx) 'highlight)
   (linectx-redraw-set! ctx #f)
    ;; move the cursor to final position, and update term-x and term-y accordingly
   (let ((vx (linectx-vx ctx))
@@ -485,7 +485,7 @@
 ;; redraw only dirty parts of vscreen
 (define (linectx-redraw-dirty ctx)
   (linectx-draw-bad-parens ctx 'plain)
-  (linectx-draw-good-paren ctx (linectx-paren ctx) 'plain)
+  (linectx-draw-paren ctx (linectx-paren ctx) 'plain)
   (let* ((screen (linectx-vscreen ctx))
          (ymin   (charlines-dirty-start-y screen))
          (ymax   (fx1- (charlines-dirty-end-y screen)))
@@ -549,8 +549,8 @@
   ;; highlight matching parentheses
   (parenmatcher-clear! (linectx-parenmatcher ctx))
   (linectx-paren-update! ctx)
-  (linectx-draw-bad-parens ctx 'bad)
-  (linectx-draw-good-paren ctx (linectx-paren ctx) 'good)
+  (linectx-draw-bad-parens ctx 'highlight)
+  (linectx-draw-paren ctx (linectx-paren ctx) 'highlight)
 
   ;; move the cursor to final position, and update term-x and term-y accordingly
   (let ((vx (linectx-vx ctx))
@@ -565,8 +565,8 @@
   (let ((old-paren (linectx-paren ctx))
         (new-paren (linectx-paren-find ctx)))
     (unless (paren-equal-xy? old-paren new-paren)
-      (linectx-draw-good-paren ctx old-paren 'plain)
-      (linectx-draw-good-paren ctx new-paren 'good)
+      (linectx-draw-paren ctx old-paren 'plain)
+      (linectx-draw-paren ctx new-paren 'highlight)
       (linectx-paren-set! ctx new-paren)))
 
   ;; move the cursor to final position, and update term-x and term-y accordingly
@@ -578,11 +578,15 @@
 
 ;; draw a single valid parentheses using specified style.
 ;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
-(define (linectx-draw-good-paren ctx paren style)
-  ;; draw paren only if both start and end positions are valid
-  (when (paren-valid? paren)
-    (linectx-draw-char-at-xy ctx (paren-start-x paren) (paren-start-y paren) style)
-    (linectx-draw-char-at-xy ctx (paren-end-x paren)   (paren-end-y paren)   style)))
+(define (linectx-draw-paren ctx paren style)
+  (when (paren? paren)
+    (if (paren-valid? paren)
+      (let ((style (if (eq? style 'highlight) 'good 'plain)))
+        (linectx-draw-char-at-xy ctx (paren-start-x paren) (paren-start-y paren) style)
+        (linectx-draw-char-at-xy ctx (paren-end-x paren)   (paren-end-y paren)   style))
+      (let ((style (if (eq? style 'highlight) 'bad 'plain)))
+        ;; only draw the mismatched paren start
+        (linectx-draw-char-at-xy ctx (paren-start-x paren) (paren-start-y paren) style)))))
 
 
 
@@ -621,7 +625,7 @@
 ;; draw the start of a single invalid parentheses using specified style.
 ;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
 (define (linectx-draw-bad-paren/start ctx paren style)
-  (unless (paren-valid? paren)
+  (when (and (paren? paren) (not (paren-valid? paren)))
     (let ((x (paren-start-x paren))
           (y (paren-start-y paren)))
       (when (and (paren-token paren) (fx<=? 0 x 65535) (fx<=? 0 y 65535))

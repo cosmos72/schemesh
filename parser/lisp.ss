@@ -413,7 +413,7 @@
           ((eof-object? token)
              (set! ret (if start-ch 'err #t)))
 
-          ; ignore unexpected tokens
+          ; ignore unexpected tokens, including mismatched close tokens
           )))
 
     (paren-fill-end! ctx paren (or (eq? #t ret) (not start-ch)))
