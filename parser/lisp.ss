@@ -363,8 +363,9 @@
   (when start-ch
     (assert* 'parse-lisp-paren (char? start-ch)))
   (assert* 'parse-lisp-paren (symbol? flavor))
-  (let* ((paren  (make-paren flavor start-ch))
-         (end-ch (case start-ch ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else #f)))
+  (let* ((paren  (make-paren flavor (or start-ch #t)))
+         (end-ch (case start-ch ((#\() #\)) ((#\[) #\]) ((#\{) #\})
+                                (else (or start-ch #t))))
          (ret    #f))
 
     ; (debugf ">   parse-lisp-paren start-ch=~a~%" start-ch)
@@ -378,7 +379,6 @@
              #f)
 
           ((eqv? token end-ch) ; found matching close token
-             (paren-ok?-set! paren #t)
              (set! ret #t))
 
           ((symbol? token)
@@ -416,16 +416,8 @@
           ; ignore unexpected tokens, including mismatched close tokens
           )))
 
-    (paren-fill-end! ctx paren (or (eq? #t ret) (not start-ch)))
-    ; (debugf "<   parse-lisp-paren paren=~s ret=~s~%" paren ret)
+    (paren-fill-end! ctx paren (and (eq? #t ret) end-ch))
     paren))
-
-
-(define (paren-fill-end! ctx paren ok?)
-  (let-values (((x y) (parsectx-previous-pos ctx 1)))
-    (paren-end-xy-set! paren x y))
-  (paren-ok?-set! paren ok?)
-  paren)
 
 
 (define (parse-lisp-paren-inner ctx flavor token)
@@ -438,11 +430,19 @@
     (paren-fill-end! ctx paren
       (cond
         ((eqv? token #\")               ; parse "some string"
-           (skip-lisp-double-quotes ctx))
+           (and (skip-lisp-double-quotes ctx) #\"))
         ((eqv? token #\|)               ; parse |identifier|
-           (parsectx-skip-until-char ctx #\|))
+           (and (parsectx-skip-until-char ctx #\|) #\|))
         (#t                             ; parse #| block comment |#
-           (skip-lisp-block-comment ctx flavor paren))))))
+           (and (skip-lisp-block-comment ctx flavor paren) #\#))))
+    paren))
 
+
+(define (paren-fill-end! ctx paren end-token)
+  (let-values (((x y) (parsectx-previous-pos ctx 1)))
+    (paren-end-xy-set! paren x y))
+  (paren-end-token-set! paren end-token)
+  ; (debugf "lisp  paren-fill-end! paren=~s end-token=~s~%" paren end-token)
+  )
 
 ) ; close library

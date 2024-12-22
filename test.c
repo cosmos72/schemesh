@@ -16,6 +16,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define RED(str) "\033[31;1m" str "\033[m"
+
 typedef struct {
   const char* string_to_eval;
   const char* expected_result;
@@ -722,8 +724,8 @@ static const testcase tests[] = {
     /** paren are not special in shell syntax inside double quoted string */
     {"(string->paren \"{\\\"()\\\"}\")", "#<paren _{\"\"}_>"},
     /** parse mismatched paren */
-    {"(string->paren \"([{)]}\")", "#<paren _([{}?]?)_>"},
-    {"(string->paren \"(\\\" a\\\"\")", "#<paren _(\"\"?)_>"},
+    {"(string->paren \"([{)]}\")", "#<paren _([{}" RED("]") RED(")") "_>"},
+    {"(string->paren \"(\\\" a\\\"\")", "#<paren _(\"\"" RED(")") "_>"},
     {"(string->paren \"ls #!scheme 1 2 3\" 'shell)", "#<paren __>"},
     {"(string->paren \"{ls ; #!scheme 1 2 3}\")", "#<paren _{}_>"},
     {"(string->paren \"(values '{ls; #!scheme 1 2 3})\")", "#<paren _({})_>"},
@@ -739,8 +741,10 @@ static const testcase tests[] = {
      "    (paren-recursive-lookup p 7 0)\n"
      "    (paren-recursive-lookup p 8 0)\n"
      "    (paren-recursive-lookup p 9 0)))",
-     "(#<paren _{[]?}_> #<paren {[]?}> #<paren []> #<paren []> #<paren {[]?}>"
-     " #<paren {[]?}> #<paren {[]?}> #<paren {[]?}> #<paren {[]?}> #<paren {[]?}>)"},
+     "(#<paren _{[]" RED("}") "_> #<paren {[]" RED(
+         "}") "> #<paren []> #<paren []> #<paren {[]"                           /*            */
+     RED("}") "> #<paren {[]" RED("}") "> #<paren {[]" RED("}") "> #<paren {[]" /*            */
+     RED("}") "> #<paren {[]" RED("}") "> #<paren {[]" RED("}") ">)"},
     /* -------------------------- parenmatcher -------------------------------*/
     {"(values->list (paren->values\n"
      "  (parenmatcher-find-match\n"
@@ -748,7 +752,7 @@ static const testcase tests[] = {
      "    (string->parsectx \"([{``}] #| |# )\" (parsers))\n"
      "    'scheme\n"
      "    6 0)))",
-     "(scheme [ 1 0 6 0)"},
+     "(scheme [ 1 0 ] 6 0)"},
     /* -------------------------- tty --------------------------------------- */
     {"(let ((sz (tty-size)))\n"
      "  (and (pair? sz)\n"

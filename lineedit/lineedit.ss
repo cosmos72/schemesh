@@ -625,21 +625,12 @@
 ;; draw the start of a single invalid parentheses using specified style.
 ;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
 (define (linectx-draw-bad-paren/start ctx paren style)
-  (when (and (paren? paren) (not (paren-valid? paren)))
-    (let ((x (paren-start-x paren))
-          (y (paren-start-y paren)))
-      (when (and (paren-token paren) (fx<=? 0 x 65535) (fx<=? 0 y 65535))
-        (linectx-draw-char-at-xy ctx x y style)))))
+  (void))
 
 ;; draw the end of a single invalid parentheses using specified style.
 ;; assumes linectx-term-x linectx-term term-x are up to date and updates them.
 (define (linectx-draw-bad-paren/end ctx paren style)
-  (unless (paren-valid? paren)
-    (let ((x (paren-end-x paren))
-          (y (paren-end-y paren)))
-      (when (and (paren-token paren) (fx<=? 0 x 65535) (fx<=? 0 y 65535))
-        (linectx-draw-char-at-xy ctx x y style)))))
-
+  (void))
 
 ;; if position x y is inside current charlines, redraw char at x y with specified style.
 ;; used to highlight/unhighlight parentheses, brackes, braces and quotes.

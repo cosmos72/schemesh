@@ -8,10 +8,11 @@
 
 (library (schemesh lineedit paren (0 1))
   (export
-    make-paren    paren?   paren-name paren-token
-    paren-ok?     paren-ok?-set!   paren-recursive-ok?
+    make-paren    paren?           paren-name
+    paren-start-token paren-end-token paren-end-token-set!
     paren-start-x paren-start-y    paren-start-xy-set!
     paren-end-x   paren-end-y      paren-end-xy-set!
+    paren-ok?     paren-recursive-ok?
     paren-valid?  paren-inner      paren-inner-empty?  paren-inner-append!
     paren->values paren->hashtable paren-hashtable-ref
     paren-recursive-lookup
@@ -34,45 +35,54 @@
   (paren %make-paren paren?)
   (fields
     name  ; symbol, name of parser that created this paren object (may differ in sub-objects)
-    token ; #f or character, one of: # ( [ { " ' ` |
-    (mutable ok?)     ; boolean, #t if matching close parenthesis/bracket/brace/quote found
-    (mutable start-x) ; fixnum, x position of start parenthesis/bracket/brace/quote
-    (mutable start-y) ; fixnum, y position of start parenthesis/bracket/brace/quote
-    (mutable end-x)   ; fixnum, x position of end parenthesis/bracket/brace/quote
-    (mutable end-y)   ; fixnum, y position of end parenthesis/bracket/brace/quote
-    (mutable inner))  ; #f or span of nested paren appearing between start and end
+    start-token         ; #f if missing, or #t if not visible, or character - one of: # ( [ { " ' ` |
+    (mutable start-x)   ; fixnum, x position of start parenthesis/bracket/brace/quote
+    (mutable start-y)   ; fixnum, y position of start parenthesis/bracket/brace/quote
+    (mutable end-token) ; #f if missing, or #t if not visible, or character - one of:   ) ] } " ' ` |
+    (mutable end-x)     ; fixnum, x position of end parenthesis/bracket/brace/quote
+    (mutable end-y)     ; fixnum, y position of end parenthesis/bracket/brace/quote
+    (mutable inner))    ; #f or span of nested paren appearing between start and end
   (nongenerative #{paren e1s38b5dr3myvj5mwxrpzkl27-400}))
 
 
-(define (make-paren name token)
+(define (make-paren name start-token)
   (assert* 'make-paren (symbol? name))
-  (when token
-    (assert* 'make-paren (char? token)))
-  (%make-paren name token #f 0 0 (greatest-fixnum) (greatest-fixnum) #f))
+  (unless (boolean? start-token)
+    (assert* 'make-paren (char? start-token)))
+  (%make-paren name start-token 0 0 #f (greatest-fixnum) (greatest-fixnum) #f))
 
 
-;; return #t if paren' token is truish, and ok? is truish,
+;; return truish if paren start-token and end-token are both present,
+;; otherwise return #f
+(define (paren-ok? paren)
+  (and (paren? paren) (paren-start-token paren) (paren-end-token paren)))
+
+
+;; return #t if (paren-ok?) is truish,
 ;; and both start and end positions of paren are valid
 (define (paren-valid? paren)
-  (and (paren? paren) (paren-token paren) (paren-ok? paren)
+  (and (paren-ok? paren)
     (let ((start-xy (xy->key (paren-start-x paren) (paren-start-y paren)))
           (end-xy   (xy->key (paren-end-x paren)   (paren-end-y paren))))
       (fx<? -1 start-xy end-xy))))
 
+
 ;; return #t if (paren-ok?) is truish in paren and in all its inner paren.
 (define (paren-recursive-ok? paren)
-  (and paren (paren-ok? paren)
+  (and (paren-ok? paren)
        (let* ((inner (paren-inner paren))
               (n (if (span? inner) (span-length inner) 0)))
          (do ((i 0 (fx1+ i)))
              ((or (fx>=? i n) (not (paren-recursive-ok? (span-ref inner i))))
               (fx>=? i n))))))
 
+
 (define (paren-inner-empty? paren)
   (let ((inner (paren-inner paren)))
     (if (span? inner)
       (span-empty? inner)
       #t)))
+
 
 ;; append one nested paren to specified paren
 (define (paren-inner-append! paren nested-paren)
@@ -94,10 +104,10 @@
 ;; actual implementation of (paren->hashtable)
 (define (%paren->hashtable paren htable)
   ;; (debugf "(%paren->hashtable ~s)~%" paren)
-  (when (paren-token paren)
-    (%hashtable-put-paren-start htable paren)
-    (when (paren-ok? paren)
-      (%hashtable-put-paren-end htable paren)))
+  (when (paren-start-token paren)
+    (%hashtable-put-paren-start htable paren))
+  (when (paren-end-token paren)
+    (%hashtable-put-paren-end htable paren))
   (let ((inner-span (paren-inner paren)))
     (when inner-span
       (span-iterate inner-span
@@ -141,12 +151,13 @@
 ;; extract fields name token start-x start-y end-x end-y from paren and return them
 (define (paren->values paren)
   (values
-    (paren-name    paren)
-    (paren-token   paren)
-    (paren-start-x paren)
-    (paren-start-y paren)
-    (paren-end-x   paren)
-    (paren-end-y   paren)))
+    (paren-name        paren)
+    (paren-start-token paren)
+    (paren-start-x     paren)
+    (paren-start-y     paren)
+    (paren-end-token   paren)
+    (paren-end-x       paren)
+    (paren-end-y       paren)))
 
 
 ;; find the innermost paren that surrounds position x y and return it.
@@ -168,7 +179,7 @@
 (define (%paren-surrounds? paren xy outer-start-xy outer-end-xy)
   (let ((start-xy (xy->key* (paren-start-x paren) (paren-start-y paren) outer-start-xy))
         (end-xy   (xy->key* (paren-end-x paren)   (paren-end-y paren)   outer-end-xy)))
-    (values start-xy end-xy (fx<=? (if (paren-token paren) (fx1+ start-xy) start-xy)
+    (values start-xy end-xy (fx<=? (if (char? (paren-start-token paren)) (fx1+ start-xy) start-xy)
                                    xy
                                    end-xy))))
 
@@ -188,26 +199,31 @@
 
 (define (show-paren obj port)
   (try
-    (let ((token (paren-token obj)))
-      (display (or token #\_) port)
-      (let ((inner-span (paren-inner obj)))
-        (when (span? inner-span)
-          (span-iterate inner-span
-            (lambda (i inner)
-              (unless (fxzero? i)
-                (display #\space port))
-              (show-paren inner port)))))
-      ;; show #\? immediately before the missing close token
-      (unless (paren-ok? obj)
-        (display #\? port))
-      (display (close-token-for token) port))
+    (let ((start-token (paren-start-token obj))
+          (end-token   (paren-end-token obj))
+          (inner-span  (paren-inner obj)))
+      (when start-token
+        (display (if (char? start-token) start-token #\_) port))
+      (when (span? inner-span)
+        (span-iterate inner-span
+          (lambda (i inner)
+            (unless (fxzero? i)
+              (display #\space port))
+            (show-paren inner port))))
+      (if end-token
+        (display (if (char? end-token) end-token #\_) port)
+        (begin
+          ;; show a missing close token in red
+          (display "\x1B;[31;1m" port)
+          (display (close-token-for start-token) port)
+          (display "\x1B;[m" port))))
     (catch (ex)
       (display ex port))))
 
 (define (debugf-paren obj)
   (try
-    (debugf "debugf-paren token ~s, ok? ~s, start-x ~s, start-y ~s, end-x ~s, end-y ~s, inner ~s\n"
-      (paren-token obj) (paren-ok? obj) (paren-start-x obj) (paren-start-y obj)
+    (debugf "debugf-paren start-token ~s, end-token ~s, start-x ~s, start-y ~s, end-x ~s, end-y ~s, inner ~s\n"
+      (paren-start-token obj) (paren-end-token obj) (paren-start-x obj) (paren-start-y obj)
       (paren-end-x obj) (paren-end-y obj) (paren-inner obj))
     (catch (ex)
       (display ex (current-output-port)))))

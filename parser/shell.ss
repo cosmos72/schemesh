@@ -607,18 +607,19 @@
 ;; until the end of current group.
 ;;
 ;; Stops on end-of-file, or when a closing token matching the opening token
-;; (paren-token paren) is found. Such closing token is consumed too.
+;; (paren-start-token paren) is found. Such closing token is consumed too.
 ;;
 ;; Return the updated parser to use.
 (define (parse-shell-paren ctx start-ch)
   (assert* 'parse-shell-paren (parsectx? ctx))
   (when start-ch
     (assert* 'parse-shell-paren (char? start-ch)))
-  (let* ((paren  (make-paren 'shell start-ch))
-         (end-ch (case start-ch ((#\() #\)) ((#\[) #\]) ((#\{) #\}) (else start-ch)))
+  (let* ((paren  (make-paren 'shell (or start-ch #t)))
+         (end-ch (case start-ch ((#\() #\)) ((#\[) #\]) ((#\{) #\})
+                                (else (or start-ch #t))))
          (ret    #f))
 
-    ; (debugf ">   parse-shell-paren start-ch=~a~%" start-ch)
+    ; (debugf ">   parse-shell-paren start-ch=~a end-ch=~a~%" start-ch end-ch)
     (let-values (((x y) (parsectx-previous-pos ctx (if start-ch 1 0))))
       (paren-start-xy-set! paren x y))
     (until ret
@@ -670,7 +671,7 @@
                  (let-values (((x y) (parsectx-previous-pos ctx 1)))
                    (paren-start-xy-set! inner x y))
                  (when (parsectx-skip-until-char ctx #\')
-                   (paren-fill-end! ctx inner #t)
+                   (paren-fill-end! ctx inner #\')
                    (paren-inner-append! paren inner)))))
 
           ((eof-object? token)
@@ -679,16 +680,16 @@
           ; ignore unexpected tokens
           )))
 
-    (paren-fill-end! ctx paren (or (eq? #t ret) (not start-ch)))
-    ; (debugf "<   parse-shell-paren paren=~s ret=~s~%" paren ret)
+    (paren-fill-end! ctx paren (and (eq? #t ret) end-ch))
     paren))
 
 
-(define (paren-fill-end! ctx paren ok?)
+(define (paren-fill-end! ctx paren end-token)
   (let-values (((x y) (parsectx-previous-pos ctx 1)))
     (paren-end-xy-set! paren x y))
-  (paren-ok?-set! paren ok?)
-  paren)
+  (paren-end-token-set! paren end-token)
+  ; (debugf "shell paren-fill-end! paren=~s end-token=~s~%" paren end-token)
+  )
 
 
 (define parser-shell
