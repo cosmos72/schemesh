@@ -40,10 +40,10 @@
          (func  (%sh-autocomplete-func lctx paren))
          (stem  (%sh-autocomplete-stem lctx))
          (completions-span (linectx-completions lctx)))
-    (debugf "> sh-autocomplete paren = ~s, stem = ~s, func = ~s~%" paren stem func)
+    ; (debugf "> sh-autocomplete paren = ~s, stem = ~s, func = ~s~%" paren stem func)
     (span-clear! completions-span)
     (func stem completions-span)
-    ; (debugf "sh-autocomplete stem = ~s, completions = ~s~%" stem completions)
+    ; (debugf "< sh-autocomplete stem = ~s, completions = ~s~%" stem completions-span)
     ))
 
 

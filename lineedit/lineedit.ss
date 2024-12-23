@@ -297,20 +297,22 @@
          (completions-n (span-length completions)))
     ; (debugf "lineedit-update-with-completions stem = ~s, completions = ~s ...~%" stem completions)
     (unless (fxzero? completions-n)
-      (let* ((completion     (span-ref completions 0))
+      (let* ((completion-0   (span-ref completions 0))
+             (completion     (if (charspan? completion-0) completion-0 (charspan)))
              (completion-len (charspan-length completion)))
         ; find the longest common prefix among completions
         (do ((n (span-length completions))
              (i 1 (fx1+ i)))
             ((or (fx>=? i n) (fxzero? completion-len)))
-          (let* ((completion-i (span-ref completions i))
-                 (completion-i-len (charspan-length completion-i)))
-            ; (debugf "... lineedit-update-with-completions stem-len = ~s, completion-i = ~s ... " stem-len completion-i)
-            (let ((common-prefix-len
-                    (charspan-range-count= completion 0 completion-i 0 (fxmin completion-len completion-i-len))))
-              ; (debugf "common-prefix-len = ~s~%" common-prefix-len)
-              (when (fx<? common-prefix-len completion-len)
-                (set! completion-len common-prefix-len)))))
+          (let ((completion-i (span-ref completions i)))
+            (when (charspan? completion-i) ; sanity
+              ; (debugf "... lineedit-update-with-completions stem-len = ~s, completion-i = ~s ... " stem-len completion-i)
+              (let* ((completion-i-len (charspan-length completion-i))
+                     (common-prefix-len
+                        (charspan-range-count= completion 0 completion-i 0 (fxmin completion-len completion-i-len))))
+                ; (debugf "common-prefix-len = ~s~%" common-prefix-len)
+                (when (fx<? common-prefix-len completion-len)
+                  (set! completion-len common-prefix-len))))))
         ; (debugf "lineedit-update-with-completions completion = ~s, stem-len = ~s, delta-len = ~s~%" completion stem-len (fx- completion-len stem-len))
         (unless (fxzero? completion-len)
           (linectx-insert/cspan! ctx completion 0 completion-len)
@@ -690,7 +692,7 @@
         (let* ((screen  (linectx-vscreen ctx))
                (ch (vscreen-char-at-xy screen x y)))
           (when (and ch (is-paren-char? ch))
-            ;; protect against exceptions in linectx-completion-func
+            ;; protect against exceptions in parenmatcher-find/at
             (try
               (set! ret
                 (parenmatcher-find/at
@@ -706,7 +708,7 @@
               (catch (ex)
                 (let ((port (current-output-port)))
                   (put-string port "\nexception in parenmatcher-find/at: ")
-                  (display-condition* ex port)
+                  (display-condition ex port)
                   (newline port))))))))
     ret))
 
@@ -721,7 +723,7 @@
              (y       (vscreen-cursor-iy screen)))
         ;; parse parens even if cursor is NOT immediately after a is-paren? char,
         ;; because we want the innermost paren than surrounds cursor.
-        ;; protect against exceptions in linectx-completion-func
+        ;; protect against exceptions in parenmatcher-find/surrounds
         (try
           (set! ret
             (parenmatcher-find/surrounds
@@ -737,7 +739,7 @@
           (catch (ex)
             (let ((port (current-output-port)))
               (put-string port "\nexception in parenmatcher-find/surrounds: ")
-              (display-condition* ex port)
+              (display-condition ex port)
               (newline port))))))
     ret))
 
@@ -835,7 +837,7 @@
   ; display the condition
   (let ((port (current-output-port)))
     (put-string port "\nexception in lineedit-read: ")
-    (display-condition* ex port)
+    (display-condition ex port)
     (newline port))
   (lineedit-inspect ex))
 
