@@ -19,6 +19,7 @@
     lineedit-key-history-next lineedit-key-history-prev
     lineedit-key-redraw lineedit-key-tab lineedit-key-toggle-insert
     lineedit-inspect
+    lineedit-paren-find/before-cursor lineedit-paren-find/surrounds-cursor
     lineedit-read lineedit-flush lineedit-finish
     lineedit-r6rs-autocomplete lineedit-scheme-autocomplete lineedit-shell-autocomplete)
   (import
@@ -565,7 +566,7 @@
 ;; redraw only cursor and parentheses
 (define (linectx-redraw-cursor+paren ctx)
   (let ((old-paren (linectx-paren ctx))
-        (new-paren (linectx-paren-find/before-cursor ctx)))
+        (new-paren (lineedit-paren-find/before-cursor ctx)))
     (unless (paren-equal-xy? old-paren new-paren)
       (linectx-draw-paren ctx old-paren 'plain)
       (linectx-draw-paren ctx new-paren 'highlight)
@@ -597,7 +598,7 @@
 ;; draw all invalid parentheses using specified style.
 ;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
 (define (linectx-draw-bad-parens ctx style)
-  (when #f ;; currently disabled, is broken by optimization in (linectx-paren-find/before-cursor)
+  (when #f ;; currently disabled, is broken by optimization in (lineedit-paren-find/before-cursor)
     (let ((paren (parenmatcher-paren (linectx-parenmatcher ctx))))
       (linectx-draw-bad-paren-recurse/start ctx paren style)
       (linectx-draw-bad-paren-recurse/end ctx paren style))))
@@ -675,7 +676,7 @@
 
 
 ;; return #f or a paren object containing matching parentheses immediately to the left of cursor.
-(define (linectx-paren-find/before-cursor ctx)
+(define (lineedit-paren-find/before-cursor ctx)
   (let ((ret     #f)
         (parsers (linectx-parsers ctx))
         (parenmatcher (linectx-parenmatcher ctx)))
@@ -710,7 +711,7 @@
     ret))
 
 ;; return #f or innermost paren object surrounding the cursor.
-(define (linectx-paren-find/surrounds-cursor ctx)
+(define (lineedit-paren-find/surrounds-cursor ctx)
   (let ((ret     #f)
         (parsers (linectx-parsers ctx))
         (parenmatcher (linectx-parenmatcher ctx)))
@@ -741,9 +742,9 @@
     ret))
 
 
-;; call (linectx-paren-find/before-cursor) and save result into (linectx-paren). Return such result.
+;; call (lineedit-paren-find/before-cursor) and save result into (linectx-paren). Return such result.
 (define (linectx-paren-update! ctx)
-  (let ((new-paren (linectx-paren-find/before-cursor ctx)))
+  (let ((new-paren (lineedit-paren-find/before-cursor ctx)))
     (linectx-paren-set! ctx new-paren)
     new-paren))
 

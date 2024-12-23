@@ -8,14 +8,15 @@
 
 (library (schemesh lineedit paren (0 1))
   (export
-    make-paren    paren?           paren-name
+    make-paren      paren?           paren-name
     paren-start-token paren-end-token paren-end-token-set!
-    paren-start-x paren-start-y    paren-start-xy-set!
-    paren-end-x   paren-end-y      paren-end-xy-set!
-    paren-ok?     paren-recursive-ok?
-    paren-valid?  paren-inner      paren-inner-empty?  paren-inner-append!
-    paren->values paren->hashtable paren-hashtable-ref
-    paren-recursive-lookup
+    paren-start-x   paren-start-y    paren-start-xy-set!
+    paren-end-x     paren-end-y      paren-end-xy-set!
+    paren-ok?       paren-recursive-ok?  paren-valid?
+    paren-inner     paren-inner-empty?
+    paren-inner-ref paren-inner-ref* paren-inner-append!
+    paren->values   paren->hashtable paren-hashtable-ref
+    paren-find/surrounds
 
     is-paren-char? debugf-paren)
   (import
@@ -82,6 +83,21 @@
     (if (span? inner)
       (span-empty? inner)
       #t)))
+
+
+;; return the i-th inner paren, or #f if out of range
+(define (paren-inner-ref paren i)
+  (let* ((inner (paren-inner paren))
+         (n     (if (span? inner) (span-length inner) 0)))
+    (if (fx<? -1 i n)
+      (span-ref inner i)
+      #f)))
+
+(define (paren-inner-ref* paren . indexes)
+  (let %recurse ((paren paren) (indexes indexes))
+    (if (and paren (not (null? indexes)))
+      (%recurse (paren-inner-ref paren (car indexes)) (cdr indexes))
+      paren)))
 
 
 ;; append one nested paren to specified paren
@@ -162,16 +178,20 @@
 
 ;; find the innermost paren that surrounds position x y and return it.
 ;; return #f if paren does not surround position x y
-(define (paren-recursive-lookup paren x y)
-  (%paren-recursive-lookup paren (xy->key x y) -1 (greatest-fixnum)))
+(define (paren-find/surrounds paren x y)
+  (let ((ret (%paren-find/surrounds paren (xy->key x y) -1 (greatest-fixnum))))
+    (debugf "  < paren-find/surrounds found paren=~s~%" ret)
+    ret))
 
 
-;; actual implementation of (paren-recursive-lookup)
-(define (%paren-recursive-lookup paren xy outer-start-xy outer-end-xy)
+;; actual implementation of (paren-find/surrounds)
+(define (%paren-find/surrounds paren xy outer-start-xy outer-end-xy)
   (let-values (((start-xy end-xy surrounds?)
                   (%paren-surrounds? paren xy outer-start-xy outer-end-xy)))
+    (debugf "  > paren-find/surrounds paren=~s, xy=~s, start-xy=~s, end-xy=~s, surrounds=~s, outer-start-xy=~s, outer-end-xy=~s~%"
+            paren xy start-xy end-xy surrounds? outer-start-xy outer-end-xy)
     (and surrounds?
-         (%paren-recursive-lookup-inner paren xy start-xy end-xy))))
+         (%paren-find-inner/surrounds paren xy start-xy end-xy))))
 
 
 ;; if paren surrounds position x y, return (values start-xy end-xy #t)
@@ -179,20 +199,20 @@
 (define (%paren-surrounds? paren xy outer-start-xy outer-end-xy)
   (let ((start-xy (xy->key* (paren-start-x paren) (paren-start-y paren) outer-start-xy))
         (end-xy   (xy->key* (paren-end-x paren)   (paren-end-y paren)   outer-end-xy)))
-    (values start-xy end-xy (fx<=? (if (char? (paren-start-token paren)) (fx1+ start-xy) start-xy)
+    (values start-xy end-xy (fx<=? (if (eq? #t (paren-start-token paren)) start-xy (fx1+ start-xy))
                                    xy
-                                   end-xy))))
+                                   (if (boolean? (paren-end-token paren)) (fx1+ end-xy) end-xy)))))
 
 
 ;; among the inner parens of paren, find the innermost one that surrounds position x y and return it.
 ;; return paren if no inner paren surrounds position x y
-(define (%paren-recursive-lookup-inner paren xy outer-start-xy outer-end-xy)
+(define (%paren-find-inner/surrounds paren xy outer-start-xy outer-end-xy)
   (let ((inner-span (paren-inner paren))
         (ret #f))
     (when (span? inner-span)
       (span-iterate inner-span
         (lambda (i inner)
-          (set! ret (%paren-recursive-lookup inner xy outer-start-xy outer-end-xy))
+          (set! ret (%paren-find/surrounds inner xy outer-start-xy outer-end-xy))
           (not ret))))
     (or ret paren)))
 

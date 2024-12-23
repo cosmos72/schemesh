@@ -706,6 +706,12 @@ static const testcase tests[] = {
      "  'scheme))",
      "(((+ a b) (shell ls -al >> log.txt ;) foo bar) #<parser scheme>)"},
     /* ------------------------ parse-paren -------------------------------- */
+    {"(values->list (paren->values (string->paren \"{\")))", "(scheme #t 0 0 #t 0 0)"},
+    {"(values->list (paren->values (string->paren \"{[(\")))", "(scheme #t 0 0 #t 2 0)"},
+    {"(values->list (paren->values (paren-inner-ref (string->paren \"{\") 0)))",
+     "(shell { 0 0 #f 0 0)"},
+    {"(values->list (paren->values (paren-inner-ref* (string->paren \"{[(\") 0 0 0)))",
+     "(scheme ( 2 0 #f 2 0)"},
     {"(string->paren \"(foo \\\"a()\\\" \\\"b[]\\\" \\\"c{}\\\" [* |2| 3])\")",
      "#<paren _(\"\" \"\" \"\" [||])_>"},
     {"(string->paren \"#\\newline #\\\\( #\\\\) #\\\\[ #\\\\] #\\\\{ #\\\\} #\\\\#\")",
@@ -731,20 +737,21 @@ static const testcase tests[] = {
     {"(string->paren \"(values '{ls; #!scheme 1 2 3})\")", "#<paren _({})_>"},
     {"(let ((p (string->paren \"{[a] && b]\")))\n"
      "  (list\n"
-     "    (paren-recursive-lookup p 0 0)\n"
-     "    (paren-recursive-lookup p 1 0)\n"
-     "    (paren-recursive-lookup p 2 0)\n"
-     "    (paren-recursive-lookup p 3 0)\n"
-     "    (paren-recursive-lookup p 4 0)\n"
-     "    (paren-recursive-lookup p 5 0)\n"
-     "    (paren-recursive-lookup p 6 0)\n"
-     "    (paren-recursive-lookup p 7 0)\n"
-     "    (paren-recursive-lookup p 8 0)\n"
-     "    (paren-recursive-lookup p 9 0)))",
+     "    (paren-find/surrounds p 0 0)\n"
+     "    (paren-find/surrounds p 1 0)\n"
+     "    (paren-find/surrounds p 2 0)\n"
+     "    (paren-find/surrounds p 3 0)\n"
+     "    (paren-find/surrounds p 4 0)\n"
+     "    (paren-find/surrounds p 5 0)\n"
+     "    (paren-find/surrounds p 6 0)\n"
+     "    (paren-find/surrounds p 7 0)\n"
+     "    (paren-find/surrounds p 8 0)\n"
+     "    (paren-find/surrounds p 9 0)\n"
+     "    (paren-find/surrounds p 10 0)))",
      "(#<paren _{[]" GRAY("}") "_> #<paren {[]" GRAY(
          "}") "> #<paren []> #<paren []> #<paren {[]"                              /*            */
      GRAY("}") "> #<paren {[]" GRAY("}") "> #<paren {[]" GRAY("}") "> #<paren {[]" /*            */
-     GRAY("}") "> #<paren {[]" GRAY("}") "> #<paren {[]" GRAY("}") ">)"},
+     GRAY("}") "> #<paren {[]" GRAY("}") "> #<paren {[]" GRAY("}") "> #<paren {[]" GRAY("}") ">)"},
     /* -------------------------- parenmatcher -------------------------------*/
     {"(values->list (paren->values\n"
      "  (parenmatcher-find/at\n"

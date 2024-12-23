@@ -87,7 +87,7 @@
     (begin
       (parenmatcher-maybe-update! pm pctx-or-func initial-parser)
       (let ((paren (parenmatcher-paren pm)))
-        (and paren (paren-recursive-lookup paren x y))))
+        (and paren (paren-find/surrounds paren x y))))
     #f))
 
 

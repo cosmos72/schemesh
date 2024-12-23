@@ -15,9 +15,8 @@
     (only (chezscheme) current-date date-hour date-minute date-second fx1+ fx1-)
     (schemesh bootstrap)
     (schemesh containers)
-    (schemesh lineedit autocomplete)
     (schemesh lineedit io)
-    (schemesh lineedit parenmatcher)
+    (only (schemesh lineedit paren) paren-name)
     (schemesh lineedit parser)
     (schemesh lineedit linectx)
     (schemesh lineedit vscreen)
@@ -35,11 +34,35 @@
       (char<=? #\^ ch #\_)  ; i.e. one of ^ _
       (char=?  #\~ ch)))
 
+; update linectx-completion-stem and linectx-completions with possible completions
+(define (sh-autocomplete lctx)
+  (let* ((paren (lineedit-paren-find/surrounds-cursor lctx))
+         (func  (%sh-autocomplete-func lctx paren))
+         (stem  (%sh-autocomplete-stem lctx))
+         (completions-span (linectx-completions lctx)))
+    (debugf "> sh-autocomplete paren = ~s, stem = ~s, func = ~s~%" paren stem func)
+    (span-clear! completions-span)
+    (func stem completions-span)
+    ; (debugf "sh-autocomplete stem = ~s, completions = ~s~%" stem completions)
+    ))
+
+
+;; return the syntax-aware function that lists autocompletions.
+;; The parser name to use is extracted from paren, or from current parser if paren is #f
+(define (%sh-autocomplete-func lctx paren)
+  (let* ((parsers     (linectx-parsers lctx))
+         (parser-name (if paren (paren-name paren) (linectx-parser-name lctx)))
+         (parser      (and parsers (hashtable-ref parsers parser-name #f))))
+    (if parser
+      (parser-autocomplete parser)
+      lineedit-shell-autocomplete)))
+
+
 ;; TEMPORARY and APPROXIMATED:
 ;; fill charspan (linectx-completion-stem) with the word to autocomplete, and also return it.
 ;; the correct solution requires parsing parens and finding the longest syntax-aware identifier
-(define (sh-autocomplete-stem lctx)
-  (let ((stem (linectx-completion-stem lctx))
+(define (%sh-autocomplete-stem lctx)
+  (let ((stem   (linectx-completion-stem lctx))
         (screen (linectx-vscreen lctx)))
     (charspan-clear! stem)
     (let %fill-stem ((x (vscreen-cursor-ix screen))
@@ -50,28 +73,6 @@
             (charspan-insert-front! stem ch)
             (%fill-stem x1 y1))
           stem)))))
-
-
-;; TEMPORARY and APPROXIMATED:
-;; return the function that lists autocompletions, taken from current parser.
-;; the correct solution requires parsing parens and use the parser name stored in paren at cursor.
-(define (sh-autocomplete-func lctx)
-  (let* ((parsers (linectx-parsers lctx))
-         (parser  (and parsers (hashtable-ref parsers (linectx-parser-name lctx) #f))))
-    (if parser
-      (parser-autocomplete parser)
-      lineedit-shell-autocomplete)))
-
-
-; update linectx-completion-stem and linectx-completions with possible completions
-(define (sh-autocomplete lctx)
-  (let ((stem (sh-autocomplete-stem lctx))
-        (func (sh-autocomplete-func lctx))
-        (completions (linectx-completions lctx)))
-    (span-clear! completions)
-    (func stem completions)
-    ; (debugf "sh-autocomplete stem = ~s, completions = ~s~%" stem completions)
-    ))
 
 
 ; return string containing current time in 24-hour HH:MM:SS format.
