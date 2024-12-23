@@ -25,25 +25,16 @@
     (schemesh parser)
     (schemesh shell jobs))
 
-(define (char-is-scheme-and-shell-identifier? ch)
-  (or (char<=? #\a ch #\z)
-      (char<=? #\< ch #\Z)  ; i.e. one of < = > ? @ A ... Z
-      (char<=? #\* ch #\:)  ; i.e. one of * + , - . / 0 ... 9 :
-      (char<=? #\$ ch #\%)  ; i.e. one of $ %
-      (char=?  #\\ ch)
-      (char<=? #\^ ch #\_)  ; i.e. one of ^ _
-      (char=?  #\~ ch)))
 
 ; update linectx-completion-stem and linectx-completions with possible completions
 (define (sh-autocomplete lctx)
   (let* ((paren (lineedit-paren-find/surrounds-cursor lctx))
          (func  (%sh-autocomplete-func lctx paren))
-         (stem  (%sh-autocomplete-stem lctx))
          (completions-span (linectx-completions lctx)))
-    ; (debugf "> sh-autocomplete paren = ~s, stem = ~s, func = ~s~%" paren stem func)
+    ; (debugf "> sh-autocomplete paren = ~s, func = ~s~%" paren func)
     (span-clear! completions-span)
-    (func stem completions-span)
-    ; (debugf "< sh-autocomplete stem = ~s, completions = ~s~%" stem completions-span)
+    (func lctx paren completions-span)
+    ; (debugf "< sh-autocomplete completions = ~s~%" completions-span)
     ))
 
 
@@ -55,24 +46,7 @@
          (parser      (and parsers (hashtable-ref parsers parser-name #f))))
     (if parser
       (parser-autocomplete parser)
-      lineedit-shell-autocomplete)))
-
-
-;; TEMPORARY and APPROXIMATED:
-;; fill charspan (linectx-completion-stem) with the word to autocomplete, and also return it.
-;; the correct solution requires parsing parens and finding the longest syntax-aware identifier
-(define (%sh-autocomplete-stem lctx)
-  (let ((stem   (linectx-completion-stem lctx))
-        (screen (linectx-vscreen lctx)))
-    (charspan-clear! stem)
-    (let %fill-stem ((x (vscreen-cursor-ix screen))
-                     (y (vscreen-cursor-iy screen)))
-      (let-values (((x1 y1 ch) (vscreen-char-before-xy screen x y)))
-        (if (and x1 y1 (char? ch) (char-is-scheme-and-shell-identifier? ch))
-          (begin
-            (charspan-insert-front! stem ch)
-            (%fill-stem x1 y1))
-          stem)))))
+      lineedit-autocomplete/shell)))
 
 
 ; return string containing current time in 24-hour HH:MM:SS format.

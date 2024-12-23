@@ -8,7 +8,7 @@
 (library (schemesh lineedit (0 1))
   (export
     lineedit-clear!
-    lineedit-lines-set! linectx-insert/rbuf!
+    lineedit-lines-set! lineedit-insert/rbuf!
     lineedit-key-nop lineedit-key-left lineedit-key-right lineedit-key-up lineedit-key-down
     lineedit-key-word-left lineedit-key-word-right lineedit-key-bol lineedit-key-eol
     lineedit-key-break lineedit-key-ctrl-d lineedit-key-transpose-char
@@ -21,7 +21,7 @@
     lineedit-inspect
     lineedit-paren-find/before-cursor lineedit-paren-find/surrounds-cursor
     lineedit-read lineedit-flush lineedit-finish
-    lineedit-r6rs-autocomplete lineedit-scheme-autocomplete lineedit-shell-autocomplete)
+    lineedit-autocomplete/r6rs lineedit-autocomplete/scheme lineedit-autocomplete/shell)
   (import
     (rnrs)
     (only (chezscheme) display-condition format fx1+ fx1- inspect record-writer top-level-value void)
@@ -29,13 +29,13 @@
     (schemesh containers)
     (only (schemesh conversions) display-condition*)
     (schemesh posix fd)
-    (schemesh lineedit autocomplete)
     (schemesh lineedit vscreen)
     (schemesh lineedit charhistory)
     (schemesh lineedit paren)
     (schemesh lineedit parenmatcher)
     (schemesh lineedit linectx)
     (schemesh lineedit lineterm)
+    (schemesh lineedit autocomplete)
     (only (schemesh lineedit parser) make-parsectx*)
     (only (schemesh lineedit io) open-charlines-input-port)
     (schemesh posix tty)
@@ -52,7 +52,7 @@
       ((procedure? proc) (proc ctx n))
       ((hashtable? proc) (set! n 0)) ; incomplete sequence, wait for more keystrokes
       (#t  ; insert received bytes into current line
-        (set! n (linectx-insert/rbuf! ctx n))))
+        (set! n (lineedit-insert/rbuf! ctx n))))
     (let ((rbuf (linectx-rbuf ctx)))
       (bytespan-erase-front! rbuf n)
       (when (bytespan-empty? rbuf)
@@ -157,7 +157,7 @@
 
 ;; consume up to n bytes from rbuf and insert them into current line.
 ;; return number of bytes actually consumed
-(define (linectx-insert/rbuf! ctx n)
+(define (lineedit-insert/rbuf! ctx n)
   (linectx-insert/bspan! ctx (linectx-rbuf ctx) 0 n))
 
 ;; n is the number of bytes at the end of (linectx-rbuf)

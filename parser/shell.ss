@@ -693,7 +693,7 @@
 
 
 (define parser-shell
-  (let ((ret (make-parser 'shell parse-shell-forms parse-shell-paren lineedit-shell-autocomplete)))
+  (let ((ret (make-parser 'shell parse-shell-forms parse-shell-paren lineedit-autocomplete/shell)))
     (lambda ()
       ret)))
 

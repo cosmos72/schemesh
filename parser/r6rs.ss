@@ -58,7 +58,7 @@
 
 
 (define parser-r6rs
-  (let ((ret (make-parser 'r6rs parse-r6rs-forms parse-r6rs-paren lineedit-r6rs-autocomplete)))
+  (let ((ret (make-parser 'r6rs parse-r6rs-forms parse-r6rs-paren lineedit-autocomplete/r6rs)))
     (lambda ()
       ret)))
 

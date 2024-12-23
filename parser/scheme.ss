@@ -71,7 +71,7 @@
 
 
 (define parser-scheme
-  (let ((ret (make-parser 'scheme parse-scheme-forms parse-scheme-paren lineedit-scheme-autocomplete)))
+  (let ((ret (make-parser 'scheme parse-scheme-forms parse-scheme-paren lineedit-autocomplete/scheme)))
     (lambda ()
       ret)))
 
