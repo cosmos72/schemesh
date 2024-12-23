@@ -197,32 +197,38 @@
     (or ret paren)))
 
 
-(define (show-paren obj port)
+(define (display-paren obj port)
   (try
     (let ((start-token (paren-start-token obj))
           (end-token   (paren-end-token obj))
           (inner-span  (paren-inner obj)))
-      (when start-token
-        (display (if (char? start-token) start-token #\_) port))
+      (display-paren-token (or start-token (open-token-for end-token)) start-token port)
       (when (span? inner-span)
         (span-iterate inner-span
           (lambda (i inner)
             (unless (fxzero? i)
               (display #\space port))
-            (show-paren inner port))))
-      (if end-token
-        (display (if (char? end-token) end-token #\_) port)
-        (begin
-          ;; show a missing close token in red
-          (display "\x1B;[31;1m" port)
-          (display (close-token-for start-token) port)
-          (display "\x1B;[m" port))))
+            (display-paren inner port))))
+      (display-paren-token (or end-token (close-token-for start-token)) end-token port))
     (catch (ex)
       (display ex port))))
 
+
+(define (display-paren-token token ok? port)
+  ; port can be #t, cannot use (put-string) or (put-char)
+  (let ((token (if (char? token) token #\_)))
+    (if ok?
+      (display token port)
+      (begin
+         ;; show a missing token in dark gray
+         (display "\x1B;[30;1m" port)
+         (display token port)
+         (display "\x1B;[m" port)))))
+
+
 (define (debugf-paren obj)
   (try
-    (debugf "debugf-paren start-token ~s, end-token ~s, start-x ~s, start-y ~s, end-x ~s, end-y ~s, inner ~s\n"
+    (debugf "debugf-paren tokens ~s ~s, start-xy ~s ~s, end-xy ~s ~s, inner ~s\n"
       (paren-start-token obj) (paren-end-token obj) (paren-start-x obj) (paren-start-y obj)
       (paren-end-x obj) (paren-end-y obj) (paren-inner obj))
     (catch (ex)
@@ -231,6 +237,12 @@
 (define (close-token-for token)
   (case token
     ((#\() #\)) ((#\[) #\]) ((#\{) #\})
+    ((#\") #\") ((#\') #\') ((#\`) #\`)
+    ((#\|) #\|) ((#\#) #\#) (else #\_)))
+
+(define (open-token-for token)
+  (case token
+    ((#\)) #\() ((#\]) #\[) ((#\}) #\{)
     ((#\") #\") ((#\') #\') ((#\`) #\`)
     ((#\|) #\|) ((#\#) #\#) (else #\_)))
 
@@ -245,7 +257,7 @@
 (record-writer (record-type-descriptor paren)
   (lambda (obj port writer)
     (display "#<paren " port)
-    (show-paren obj port)
+    (display-paren obj port)
     (display ">" port)))
 
 

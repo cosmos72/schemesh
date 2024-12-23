@@ -18,7 +18,7 @@
     lineedit-key-enter lineedit-key-newline-left lineedit-key-newline-right
     lineedit-key-history-next lineedit-key-history-prev
     lineedit-key-redraw lineedit-key-tab lineedit-key-toggle-insert
-    lineedit-key-inspect
+    lineedit-inspect
     lineedit-read lineedit-flush lineedit-finish
     lineedit-r6rs-autocomplete lineedit-scheme-autocomplete lineedit-shell-autocomplete)
   (import
@@ -48,7 +48,7 @@
                            (linectx-ktable ctx) (linectx-rbuf ctx))))
     ;; (debugf "linectx-keytable-call consume ~s chars, call ~s~%" n proc)
     (cond
-      ((procedure? proc) (proc ctx))
+      ((procedure? proc) (proc ctx n))
       ((hashtable? proc) (set! n 0)) ; incomplete sequence, wait for more keystrokes
       (#t  ; insert received bytes into current line
         (set! n (linectx-insert/rbuf! ctx n))))
@@ -159,81 +159,83 @@
 (define (linectx-insert/rbuf! ctx n)
   (linectx-insert/bspan! ctx (linectx-rbuf ctx) 0 n))
 
-
-(define (lineedit-key-nop ctx)
+;; n is the number of bytes at the end of (linectx-rbuf)
+;; that caused the call to this function.
+;; If needed, such bytes can be read to choose which action will be performed.
+(define (lineedit-key-nop ctx n)
   (void))
 
 ;; move cursor left by 1, moving to previous line if cursor x is 0
-(define (lineedit-key-left ctx)
+(define (lineedit-key-left ctx n)
   (vscreen-cursor-move/left! (linectx-vscreen ctx) 1))
 
 
 ;; move cursor right by 1, moving to next line if cursor x is at end of current line
-(define (lineedit-key-right ctx)
+(define (lineedit-key-right ctx n)
   (vscreen-cursor-move/right! (linectx-vscreen ctx) 1))
 
 
 ;; move cursor up by 1, moving to previous history entry if cursor y is 0
-(define (lineedit-key-up ctx)
+(define (lineedit-key-up ctx n)
   (if (fx>? (linectx-iy ctx) 0)
     (vscreen-cursor-move/up! (linectx-vscreen ctx) 1)
     (lineedit-navigate-history ctx -1)))
 
 ;; move cursor up by 1, moving to next history entry if cursor y is at end of vscreen
-(define (lineedit-key-down ctx)
+(define (lineedit-key-down ctx n)
   (if (fx<? (fx1+ (linectx-iy ctx)) (linectx-end-y ctx))
     (vscreen-cursor-move/down! (linectx-vscreen ctx) 1)
     (lineedit-navigate-history ctx +1)))
 
 ;; move to start of word under cursor
-(define (lineedit-key-word-left ctx)
+(define (lineedit-key-word-left ctx n)
   (let-values (((x y n) (linectx-find-left/word-begin ctx)))
     (when (and x y n (fx>? n 0))
       (linectx-ixy-set! ctx x y))))
 
 ;; move to end of word under cursor
-(define (lineedit-key-word-right ctx)
+(define (lineedit-key-word-right ctx n)
   (let-values (((x y n) (linectx-find-right/word-end ctx)))
     (when (and x y n (fx>? n 0))
       (linectx-ixy-set! ctx x y))))
 
 ;; move to start of line
-(define (lineedit-key-bol ctx)
+(define (lineedit-key-bol ctx n)
   (linectx-ixy-set! ctx 0 (linectx-iy ctx)))
 
 ;; move to end of line
-(define (lineedit-key-eol ctx)
+(define (lineedit-key-eol ctx n)
   (linectx-ixy-set! ctx (greatest-fixnum) (linectx-iy ctx)))
 
-(define (lineedit-key-break ctx)
+(define (lineedit-key-break ctx n)
   (linectx-clear! ctx)
   (linectx-return-set! ctx #t))
 
 ;; delete one character to the right.
 ;; acts as end-of-file if vscreen is empty.
-(define (lineedit-key-ctrl-d ctx)
+(define (lineedit-key-ctrl-d ctx n)
   (if (vscreen-empty? (linectx-vscreen ctx))
     (linectx-eof-set! ctx #t)
-    (lineedit-key-del-right ctx)))
+    (lineedit-key-del-right ctx n)))
 
-(define (lineedit-key-transpose-char ctx)
+(define (lineedit-key-transpose-char ctx n)
   (void)) ;; TODO: implement
 
 ;; delete one character to the left of cursor.
 ;; moves cursor one character to the left.
-(define (lineedit-key-del-left ctx)
+(define (lineedit-key-del-left ctx n)
   (vscreen-erase-left/n! (linectx-vscreen ctx) 1)
   (void))
 
 ;; delete one character under cursor.
 ;; does not move cursor.
-(define (lineedit-key-del-right ctx)
+(define (lineedit-key-del-right ctx n)
   (vscreen-erase-right/n! (linectx-vscreen ctx) 1)
   (void))
 
 ;; delete from cursor to start of word under cursor.
 ;; moves cursor n characters to the left, where n is the number of deleted characters.
-(define (lineedit-key-del-word-left ctx)
+(define (lineedit-key-del-word-left ctx n)
   (let-values (((x y n) (linectx-find-left/word-begin ctx)))
     (when (and x y n (fx>? n 0))
       (vscreen-erase-left/n! (linectx-vscreen ctx) n)
@@ -241,46 +243,46 @@
 
 ;; delete from cursor to end of word under cursor.
 ;; does not move cursor.
-(define (lineedit-key-del-word-right ctx)
+(define (lineedit-key-del-word-right ctx n)
   (let-values (((x y n) (linectx-find-right/word-end ctx)))
     (when (and x y n (fx>? n 0))
       (vscreen-erase-right/n! (linectx-vscreen ctx) n)
       (void))))
 
-(define (lineedit-key-del-line ctx)
+(define (lineedit-key-del-line ctx n)
   (void)) ;; TODO: implement
 
-(define (lineedit-key-del-line-left ctx)
+(define (lineedit-key-del-line-left ctx n)
   (vscreen-erase-left/line! (linectx-vscreen ctx)))
 
-(define (lineedit-key-del-line-right ctx)
+(define (lineedit-key-del-line-right ctx n)
   (vscreen-erase-right/line! (linectx-vscreen ctx)))
 
-(define (lineedit-key-newline-left ctx)
+(define (lineedit-key-newline-left ctx n)
   (let ((screen (linectx-vscreen ctx)))
     (vscreen-insert-at-xy/newline! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen))
     (vscreen-cursor-move/right! screen 1)))
 
-(define (lineedit-key-newline-right ctx)
+(define (lineedit-key-newline-right ctx n)
   (let ((screen (linectx-vscreen ctx)))
     (vscreen-insert-at-xy/newline! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen))))
 
-(define (lineedit-key-enter ctx)
+(define (lineedit-key-enter ctx n)
   (linectx-paren-update/force! ctx)
   (if (linectx-paren-recursive-ok? ctx)
     (linectx-return-set! ctx #t)
-    (lineedit-key-newline-left ctx)))
+    (lineedit-key-newline-left ctx n)))
 
-(define (lineedit-key-history-next ctx)
+(define (lineedit-key-history-next ctx n)
   (lineedit-navigate-history ctx +1))
 
-(define (lineedit-key-history-prev ctx)
+(define (lineedit-key-history-prev ctx n)
   (lineedit-navigate-history ctx -1))
 
-(define (lineedit-key-redraw ctx)
+(define (lineedit-key-redraw ctx n)
   (linectx-redraw-set! ctx #t))
 
-(define (lineedit-key-tab ctx)
+(define (lineedit-key-tab ctx n)
   (let ((func (linectx-completion-func ctx)))
     (when func
       (func ctx)
@@ -315,20 +317,20 @@
             (linectx-insert/ch! ctx #\space)))))))
 
 
-(define (lineedit-key-toggle-insert ctx)
-  (lineedit-key-inspect ctx))
+(define (lineedit-key-toggle-insert ctx n)
+  (lineedit-inspect ctx))
 
-(define (lineedit-key-inspect obj)
+(define (lineedit-inspect obj)
   (dynamic-wind
     tty-restore!       ; run before body
     (lambda () (inspect obj)) ; body
     tty-setraw!))      ; run after body
 
-(define (lineedit-key-cmd-cd-parent ctx)
+(define (lineedit-key-cmd-cd-parent ctx n)
   ((top-level-value 'sh-cd) "..")
   (linectx-redraw-all ctx))
 
-(define (lineedit-key-cmd-ls ctx)
+(define (lineedit-key-cmd-ls ctx n)
   (lineterm-move-to ctx (linectx-prompt-end-x ctx) (linectx-prompt-end-y ctx))
   (lineterm-write/bvector ctx #vu8(108 115 27 91 74 10) 0 6) ; l s ESC [ J \n
   (lineedit-flush ctx)
@@ -576,17 +578,20 @@
     (linectx-term-xy-set! ctx vx vy)))
 
 
-;; draw a single valid parentheses using specified style.
+;; draw a single parentheses using specified style.
 ;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
 (define (linectx-draw-paren ctx paren style)
+  (debugf " linectx-draw-paren paren=~s style=~s~%" paren style)
   (when (paren? paren)
     (if (paren-valid? paren)
       (let ((style (if (eq? style 'highlight) 'good 'plain)))
         (linectx-draw-char-at-xy ctx (paren-start-x paren) (paren-start-y paren) style)
         (linectx-draw-char-at-xy ctx (paren-end-x paren)   (paren-end-y paren)   style))
       (let ((style (if (eq? style 'highlight) 'bad 'plain)))
-        ;; only draw the mismatched paren start
-        (linectx-draw-char-at-xy ctx (paren-start-x paren) (paren-start-y paren) style)))))
+        ;; only draw the mismatched paren start or end
+        (if (paren-start-token paren)
+          (linectx-draw-char-at-xy ctx (paren-start-x paren) (paren-start-y paren) style)
+          (linectx-draw-char-at-xy ctx (paren-end-x paren)   (paren-end-y paren) style))))))
 
 
 
@@ -833,7 +838,7 @@
     (put-string port "\nexception in lineedit-read: ")
     (display-condition* ex port)
     (newline port))
-  (lineedit-key-inspect ex))
+  (lineedit-inspect ex))
 
 
 ;; implementation of (lineedit-read)
