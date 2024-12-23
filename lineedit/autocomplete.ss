@@ -14,14 +14,14 @@
   (import
     (rnrs)
     (only (chezscheme) environment-symbols fx1+ interaction-environment sort! top-level-value void)
-    (only (schemesh bootstrap) debugf)
+    (only (schemesh bootstrap) debugf values->list)
     (only (schemesh containers misc) list-iterate list-remove-consecutive-duplicates! string-split)
     (schemesh containers charspan)
     (schemesh containers span)
     (only (schemesh containers utf8b) utf8b->string)
     (only (schemesh posix misc) directory-u8-list)
     (only (schemesh lineedit vscreen) vscreen-char-before-xy vscreen-cursor-ix vscreen-cursor-iy)
-    (only (schemesh lineedit paren)   paren-start-token paren-start-x paren-start-y)
+    (schemesh lineedit paren)
     (only (schemesh lineedit linectx) linectx-completion-stem linectx-vscreen))
 
 
@@ -76,21 +76,23 @@
 (define (%lineedit-compute-stem lctx paren char-pred)
   (let* ((stem   (linectx-completion-stem lctx))
          (screen (linectx-vscreen lctx))
-         (x-min  (if paren
+         (xmin  (if paren
                    (fx+ (paren-start-x paren)
-                        (if (char? (paren-start-token paren)) 1 0))
+                        (if (char? (paren-start-token paren)) 2 1))
                    0))
-         (y-min  (if paren (paren-start-y paren) 0))
+         (ymin  (if paren (paren-start-y paren) 0))
          (%vscreen-char-before-xy
            (lambda (screen x y)
-             (if (or (fx>=? y y-min)
-                     (and (fx=? y y-min) (fx>=? x x-min)))
+             (if (or (fx>? y ymin)
+                     (and (fx=? y ymin) (fx>=? x xmin)))
                (vscreen-char-before-xy screen x y)
                (values #f #f #f)))))
+    ; (debugf "%lineedit-compute-stem paren=~s, xmin=~s, ymin=~s~%" (values->list (paren->values paren)) xmin ymin)
     (charspan-clear! stem)
     (let %fill-stem ((x (vscreen-cursor-ix screen))
                      (y (vscreen-cursor-iy screen)))
       (let-values (((x1 y1 ch) (%vscreen-char-before-xy screen x y)))
+        ; (debugf "%vscreen-char-before-xy x=~s, y=~s -> x1=~s, y1=~s, ch=~s~%" x y x1 y1 ch)
         (cond
           ((not (and x1 y1 (char? ch))) ; reached start of paren or vscreen
              #t)
