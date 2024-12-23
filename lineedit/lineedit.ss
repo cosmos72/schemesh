@@ -583,15 +583,14 @@
 (define (linectx-draw-paren ctx paren style)
   (debugf " linectx-draw-paren paren=~s style=~s~%" paren style)
   (when (paren? paren)
-    (if (paren-valid? paren)
-      (let ((style (if (eq? style 'highlight) 'good 'plain)))
-        (linectx-draw-char-at-xy ctx (paren-start-x paren) (paren-start-y paren) style)
-        (linectx-draw-char-at-xy ctx (paren-end-x paren)   (paren-end-y paren)   style))
-      (let ((style (if (eq? style 'highlight) 'bad 'plain)))
-        ;; only draw the mismatched paren start or end
-        (if (paren-start-token paren)
-          (linectx-draw-char-at-xy ctx (paren-start-x paren) (paren-start-y paren) style)
-          (linectx-draw-char-at-xy ctx (paren-end-x paren)   (paren-end-y paren) style))))))
+    (let ((style (if (eq? style 'highlight)
+                   (if (paren-valid? paren) 'good 'bad)
+                   'plain)))
+      ; tokens can be a char, or #f which means missing, or #t which means BOF/EOF
+      (when (char? (paren-start-token paren))
+        (linectx-draw-char-at-xy ctx (paren-start-x paren) (paren-start-y paren) style))
+      (when (char? (paren-end-token paren))
+        (linectx-draw-char-at-xy ctx (paren-end-x paren)   (paren-end-y paren)   style)))))
 
 
 
