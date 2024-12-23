@@ -8,7 +8,8 @@
 (library (schemesh lineedit parenmatcher (0 1))
   (export
     parenmatcher? make-custom-parenmatcher parenmatcher-clear!
-    parenmatcher-paren parenmatcher-maybe-update! parenmatcher-find-match)
+    parenmatcher-paren parenmatcher-maybe-update!
+    parenmatcher-find/at parenmatcher-find/surrounds)
   (import
     (rnrs)
     (only (chezscheme)         record-writer)
@@ -53,21 +54,40 @@
       (parenmatcher-htable-set! pm (paren->hashtable paren)))))
 
 
-;; Find parenthesis or grouping token matching position x y.
+;; Find parenthesis or grouping token starting or ending at position x y.
 ;;
 ;; In detail:
 ;;
 ;; first, call (parenmatcher-maybe-update!) to update parenmatcher if needed,
 ;; then call (paren-hashtable-ref) to find parenthesis or grouping token
-;; matching position x y.
+;; starting or ending at position x y.
 ;;
 ;; Return such matching paren,
-;; or #f no parenthesis or grouping token matches position x y
-(define (parenmatcher-find-match pm pctx-or-func initial-parser x y)
+;; or #f no parenthesis or grouping token starts or ends at position x y
+(define (parenmatcher-find/at pm pctx-or-func initial-parser x y)
   (if pm
     (begin
       (parenmatcher-maybe-update! pm pctx-or-func initial-parser)
       (paren-hashtable-ref (parenmatcher-htable pm) x y))
+    #f))
+
+
+;; Find innermost parenthesis or grouping token surrounding position x y.
+;;
+;; In detail:
+;;
+;; first, call (parenmatcher-maybe-update!) to update parenmatcher if needed,
+;; then call (paren-hashtable-ref) to find parenthesis or grouping token
+;; starting or ending at position x y.
+;;
+;; Return such matching paren,
+;; or #f no parenthesis or grouping token surrounds position x y
+(define (parenmatcher-find/surrounds pm pctx-or-func initial-parser x y)
+  (if pm
+    (begin
+      (parenmatcher-maybe-update! pm pctx-or-func initial-parser)
+      (let ((paren (parenmatcher-paren pm)))
+        (and paren (paren-recursive-lookup paren x y))))
     #f))
 
 

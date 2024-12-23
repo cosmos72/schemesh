@@ -565,7 +565,7 @@
 ;; redraw only cursor and parentheses
 (define (linectx-redraw-cursor+paren ctx)
   (let ((old-paren (linectx-paren ctx))
-        (new-paren (linectx-paren-find ctx)))
+        (new-paren (linectx-paren-find/before-cursor ctx)))
     (unless (paren-equal-xy? old-paren new-paren)
       (linectx-draw-paren ctx old-paren 'plain)
       (linectx-draw-paren ctx new-paren 'highlight)
@@ -586,7 +586,7 @@
     (let ((style (if (eq? style 'highlight)
                    (if (paren-valid? paren) 'good 'bad)
                    'plain)))
-      ; tokens can be a char, or #f which means missing, or #t which means BOF/EOF
+      ; each token can be a char, or #f which means missing, or #t which means BOF/EOF
       (when (char? (paren-start-token paren))
         (linectx-draw-char-at-xy ctx (paren-start-x paren) (paren-start-y paren) style))
       (when (char? (paren-end-token paren))
@@ -597,7 +597,7 @@
 ;; draw all invalid parentheses using specified style.
 ;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
 (define (linectx-draw-bad-parens ctx style)
-  (when #f ;; currently disabled, is broken by optimization in (linectx-paren-find)
+  (when #f ;; currently disabled, is broken by optimization in (linectx-paren-find/before-cursor)
     (let ((paren (parenmatcher-paren (linectx-parenmatcher ctx))))
       (linectx-draw-bad-paren-recurse/start ctx paren style)
       (linectx-draw-bad-paren-recurse/end ctx paren style))))
@@ -675,7 +675,7 @@
 
 
 ;; return #f or a paren object containing matching parentheses immediately to the left of cursor.
-(define (linectx-paren-find ctx)
+(define (linectx-paren-find/before-cursor ctx)
   (let ((ret     #f)
         (parsers (linectx-parsers ctx))
         (parenmatcher (linectx-parenmatcher ctx)))
@@ -692,7 +692,7 @@
             ;; protect against exceptions in linectx-completion-func
             (try
               (set! ret
-                (parenmatcher-find-match
+                (parenmatcher-find/at
                   parenmatcher
                   (lambda () (make-parsectx* (open-charlines-input-port screen)
                                              parsers
@@ -704,47 +704,46 @@
                   x y))
               (catch (ex)
                 (let ((port (current-output-port)))
-                  (put-string port "\nexception in parenmatcher: ")
+                  (put-string port "\nexception in parenmatcher-find/at: ")
                   (display-condition* ex port)
                   (newline port))))))))
     ret))
 
-#|
-;; return #f or a paren object containing matching parentheses immediately to the left of cursor.
-(define (linectx-paren-find ctx)
+;; return #f or innermost paren object surrounding the cursor.
+(define (linectx-paren-find/surrounds-cursor ctx)
   (let ((ret     #f)
         (parsers (linectx-parsers ctx))
         (parenmatcher (linectx-parenmatcher ctx)))
     (when (and parsers parenmatcher)
-      (let-values (((x y) (linectx-ixy-before-cursor ctx)))
+      (let* ((screen  (linectx-vscreen ctx))
+             (x       (vscreen-cursor-ix screen))
+             (y       (vscreen-cursor-iy screen)))
         ;; parse parens even if cursor is NOT immediately after a is-paren? char,
-        ;; because we want to also highlight mismatched parentheses.
-        (let ((screen  (linectx-vscreen ctx)))
-          ;; protect against exceptions in linectx-completion-func
-          (try
-            (set! ret
-              (parenmatcher-find-match
-                parenmatcher
-                (lambda () (make-parsectx* (open-charlines-input-port screen)
-                                           parsers
-                                           (vscreen-width screen)
-                                           (vscreen-prompt-end-x screen)
-                                           0
-                                           0))
-                (linectx-parser-name ctx)
-                x y))
-            (catch (ex)
-              (let ((port (current-output-port)))
-                (put-string port "\nexception in parenmatcher: ")
-                (display-condition* ex port)
-                (newline port)))))))
+        ;; because we want the innermost paren than surrounds cursor.
+        ;; protect against exceptions in linectx-completion-func
+        (try
+          (set! ret
+            (parenmatcher-find/surrounds
+              parenmatcher
+              (lambda () (make-parsectx* (open-charlines-input-port screen)
+                                         parsers
+                                         (vscreen-width screen)
+                                         (vscreen-prompt-end-x screen)
+                                         0
+                                         0))
+              (linectx-parser-name ctx)
+              x y))
+          (catch (ex)
+            (let ((port (current-output-port)))
+              (put-string port "\nexception in parenmatcher-find/surrounds: ")
+              (display-condition* ex port)
+              (newline port))))))
     ret))
-|#
 
 
-;; call (linectx-paren-find) and save result into (linectx-paren). Return such result.
+;; call (linectx-paren-find/before-cursor) and save result into (linectx-paren). Return such result.
 (define (linectx-paren-update! ctx)
-  (let ((new-paren (linectx-paren-find ctx)))
+  (let ((new-paren (linectx-paren-find/before-cursor ctx)))
     (linectx-paren-set! ctx new-paren)
     new-paren))
 

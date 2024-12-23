@@ -747,12 +747,19 @@ static const testcase tests[] = {
      GRAY("}") "> #<paren {[]" GRAY("}") "> #<paren {[]" GRAY("}") ">)"},
     /* -------------------------- parenmatcher -------------------------------*/
     {"(values->list (paren->values\n"
-     "  (parenmatcher-find-match\n"
+     "  (parenmatcher-find/at\n"
      "    (make-parenmatcher)\n"
      "    (string->parsectx \"([{``}] #| |# )\" (parsers))\n"
      "    'scheme\n"
      "    6 0)))",
      "(scheme [ 1 0 ] 6 0)"},
+    {"(values->list (paren->values\n"
+     "  (parenmatcher-find/surrounds\n"
+     "    (make-parenmatcher)\n"
+     "    (string->parsectx \"([{``)))\" (parsers))\n"
+     "    'scheme\n"
+     "    6 0)))",
+     "(shell { 2 0 #f 7 0)"},
     /* -------------------------- tty --------------------------------------- */
     {"(let ((sz (tty-size)))\n"
      "  (and (pair? sz)\n"
