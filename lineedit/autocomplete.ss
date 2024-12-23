@@ -35,9 +35,12 @@
                (len  (string-length name)))
           (when (and (fx>=? len stem-len) (charspan-range/string=? stem 0 name 0 stem-len))
             (set! l (cons name l))))))
+    ; (debugf "lineedit-scheme-autocomplete list=~s~%" l)
     (list-iterate (sort! string<? l)
       (lambda (name)
-        (span-insert-back! completions (charspan-erase-front! (string->charspan* name) stem-len))))))
+        (let ((csp (string->charspan* name)))
+          (charspan-erase-front! csp stem-len)
+          (span-insert-back! completions csp))))))
 
 
 ;; fill span-of-charspans completions with file names starting with charspan stem
