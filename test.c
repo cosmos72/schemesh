@@ -55,6 +55,7 @@ static const testcase tests[] = {
     {"(bytevector-compare #vu8(66 77) #vu8(66 78))", "-1"},
     {"(bytevector-compare #vu8(79) #vu8(78 0))", "1"},
     {"(string-range-count= \"qwertyuiop\" 2 \"_ertyuio7\" 1 8)", "7"},
+    {"(string-split \"ab:cdef::g\" 1 1000 #\\:)", "(b cdef  g)"},
     {"(do ((i #x-10000 (fx1+ i)))\n"
      "    ((fx>=? i #x120000))\n"
      "  (if (or (fx<=? #x0000 i #xD7FF)\n"
@@ -477,10 +478,10 @@ static const testcase tests[] = {
      "      (not (eq? 'b elem))))\n"
      "  ret)",
      "(b a)"},
-    {"(reverse*! (list))", "()"},
-    {"(reverse*! (list 1))", "(1)"},
-    {"(reverse*! (list 1 2))", "(2 . 1)"},
-    {"(reverse*! (list 1 2 3 4 5 6))", "(6 5 4 3 2 . 1)"},
+    {"(list-reverse*! (list))", "()"},
+    {"(list-reverse*! (list 1))", "(1)"},
+    {"(list-reverse*! (list 1 2))", "(2 . 1)"},
+    {"(list-reverse*! (list 1 2 3 4 5 6))", "(6 5 4 3 2 . 1)"},
     /* ------------------------ hashtable ----------------------------------- */
     {"(hashtable-cells\n"
      "  (eq-hashtable '(3 . C) '(2 . B) '(1 . A)))",

@@ -17,7 +17,7 @@
       append! box bytevector fx1+ fx1- fxvector fxvector-set! make-fxvector
       read-token reverse! top-level-value void)
     (only (schemesh bootstrap) assert* debugf while until)
-    (only (schemesh containers misc) reverse*!)
+    (only (schemesh containers misc) list-reverse*!)
     (schemesh lineedit paren)
     (schemesh lineedit parser))
 
@@ -209,7 +209,7 @@
             (let ((value (parse-lisp ctx flavor)))
               (when (parser? value)
                 (syntax-errorf ctx (caller-for flavor) "unsupported syntax change directive after dot"))
-              (set! ret (reverse*! (cons value ret)))
+              (set! ret (list-reverse*! (cons value ret)))
               (set! reverse? #f)
               (set! again? #f))
             ;; then parse ')' ']' or '}'

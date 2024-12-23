@@ -8,13 +8,14 @@
 (library (schemesh containers (0 1))
   (export
     ; misc.ss
-    list-iterate list-quoteq! list-nth reverse*!
+    list-iterate list-quoteq! list-nth list-reverse*! list-remove-consecutive-duplicates!
     string-list? assert-string-list? string-contains-only-decimal-digits?
     vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable
     list->bytevector subbytevector
     bytevector-fill-range! bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?
-    string-fill-range! string-range-count= string-range=? string-iterate
+    string-fill-range! string-range-count= string-range=?
+    string-find-char string-split string-iterate
 
     ; utf8b.ss
     integer->char* string->utf8b string->utf8b/0 utf8b->string utf8b-range->string

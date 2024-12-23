@@ -7,19 +7,20 @@
 
 (library (schemesh containers misc (0 1))
   (export
-    list-iterate list-nth list-quoteq! reverse*!
+    list-iterate list-nth list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
     string-list? assert-string-list? string-contains-only-decimal-digits?
     vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable
     list->bytevector subbytevector
     bytevector-fill-range! bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?
-    string-fill-range! string-range-count= string-range=? string-iterate)
+    string-fill-range! string-range-count= string-range=?
+    string-find-char string-split string-iterate)
   (import
     (rnrs)
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme) bytevector foreign-procedure fx1+ fx1- void)
-    (only (schemesh bootstrap) assert*))
+    (only (chezscheme) bytevector foreign-procedure fx1+ fx1- reverse! void)
+    (only (schemesh bootstrap) assert* while))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -61,11 +62,11 @@
 
 
 
-;; (reverse*! l) destructively reverses list l,
+;; (list-reverse*! l) destructively reverses list l,
 ;; creating an improper list - unless (car l) is itself a list.
 ;
-;; Example: (reverse*! (list a b c)) returns '(c b . a)
-(define (reverse*! l)
+;; Example: (list-reverse*! (list a b c)) returns '(c b . a)
+(define (list-reverse*! l)
   (if (or (null? l) (null? (cdr l)))
     l
     (let* ((tail (if (pair? (cdr l)) (cddr l) '()))
@@ -82,6 +83,17 @@
                 (new-tail (cdr tail)))
             (set-cdr! new-head head)
             (%step new-head new-tail)))))))
+
+;; remove consecutive duplicates from a list.
+;; elements are considered duplicates if (equal-pred elem1 elem2) returns truish.
+(define (list-remove-consecutive-duplicates! l equal-pred)
+  (let %recurse ((tail l))
+    (unless (or (null? tail) (null? (cdr tail)))
+      (when (equal-pred (car tail) (cadr tail))
+        (set-cdr! tail (cddr tail)))
+      (%recurse (cdr tail))))
+  l)
+
 
 ;; return #t if l is a (possibly empty) list of strings
 (define (string-list? l)
@@ -219,12 +231,40 @@
       ((fx>=? i n))
     (string-set! str (fx+ i start) val)))
 
+
 ;; (string-iterate l proc) iterates on all elements of given string src,
 ;; and calls (proc index ch) on each character. stops iterating if (proc ...) returns #f
 (define (string-iterate str proc)
   (do ((i 0 (fx1+ i))
        (n (string-length str)))
       ((or (fx>=? i n) (not (proc i (string-ref str i)))))))
+
+
+;; search string range [start, start+n) and return index of first character equal to ch.
+;; returned numerical index will be in the range [start, start+n).
+;; return #f if no such character is found in range.
+(define (string-find-char str start n ch)
+  (assert* 'string-find-char (string? str))
+  (assert* 'string-find-char (fx<=? 0 start (fx+ start n)))
+  (assert* 'string-find-char (char? ch))
+  (do ((i start (fx1+ i))
+       (end (fxmin (fx+ start n) (string-length str))))
+      ((or (fx>=? i end) (char=? ch (string-ref str i)))
+       (if (fx<? i end) i #f))))
+
+
+;; split string range [start, start+n) into a list of strings,
+;; delimited by character delim - which is not included in returned list of strings
+(define (string-split str start n delim)
+  (let ((l '())
+        (prev-pos+1 start)
+        (n (fxmin n (fx- (string-length str) start))))
+    (when (fx>? n 0)
+      (while prev-pos+1
+        (let ((pos (string-find-char str prev-pos+1 n delim)))
+          (set! l (cons (substring str prev-pos+1 (or pos (fx+ start n))) l))
+          (set! prev-pos+1 (if pos (fx1+ pos) #f)))))
+    (reverse! l)))
 
 
 ;; compare the range [left-start, left-start + n) of left string

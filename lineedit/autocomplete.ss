@@ -13,9 +13,9 @@
     lineedit-autocomplete/shell)
   (import
     (rnrs)
-    (only (chezscheme) environment-symbols fx1+ interaction-environment sort! void)
+    (only (chezscheme) environment-symbols fx1+ interaction-environment sort! top-level-value void)
     (only (schemesh bootstrap) debugf)
-    (only (schemesh containers misc) list-iterate)
+    (only (schemesh containers misc) list-iterate list-remove-consecutive-duplicates! string-split)
     (schemesh containers charspan)
     (schemesh containers span)
     (only (schemesh containers utf8b) utf8b->string)
@@ -64,7 +64,7 @@
               (filter (charspan-range->string stem (fx1+ slash-pos) stem-len)))
           (%lineedit-shell-list/directory dir filter slash-pos completions)))
       (stem-is-first-word? ; list programs in $PATH
-        (%lineedit-shell-list/programs-in-path lctx (charspan->string stem) completions))
+        (%lineedit-shell-list/programs-in-$path lctx (charspan->string stem) completions))
       (#t ; list contents of current directory
         (%lineedit-shell-list/directory "." (charspan->string stem) #f completions)))))
 
@@ -138,8 +138,31 @@
   ; (debugf "lineedit-shell-list/directory completions = ~s~%" completions)
   )
 
-(define (%lineedit-shell-list/programs-in-path lctx stem completions)
-  (void))
+(define (%lineedit-shell-list/programs-in-$path lctx stem completions)
+  ; (debugf "lineedit-shell-list/programs-in-$path stem = ~s~%" stem)
+  (let* (($path      ((top-level-value 'sh-env) #t "PATH"))
+         (dirs       (string-split $path 0 (string-length $path) #\:))
+         (filter     stem)
+         (filter-len (string-length filter))
+         (l      '()))
+    (list-iterate dirs
+      (lambda (dir)
+        (list-iterate (directory-u8-list dir filter)
+          (lambda (elem)
+            (let ((type (car elem)))
+              (when (or (eq? 'file type) (eq? 'symlink type))
+                (let ((name (utf8b->string (cdr elem))))
+                  (set! l (cons name l)))))))))
+    (set! l (sort! string<? l))
+    (list-remove-consecutive-duplicates! l string=?)
+    (list-iterate l
+      (lambda (name)
+        (let ((cname (string->charspan* name)))
+          (charspan-erase-front! cname filter-len)
+          (span-insert-back! completions cname)))))
+  ; (debugf "lineedit-shell-list/programs-in-$path completions = ~s~%" completions)
+  )
+
 
 
 ) ; close library
