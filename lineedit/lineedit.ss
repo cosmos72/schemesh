@@ -581,7 +581,7 @@
 ;; draw a single parentheses using specified style.
 ;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
 (define (linectx-draw-paren ctx paren style)
-  (debugf " linectx-draw-paren paren=~s style=~s~%" paren style)
+  ; (debugf " linectx-draw-paren paren=~s style=~s~%" paren style)
   (when (paren? paren)
     (let ((style (if (eq? style 'highlight)
                    (if (paren-valid? paren) 'good 'bad)
