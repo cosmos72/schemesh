@@ -96,11 +96,19 @@
         (cond
           ((not (and x1 y1 (char? ch))) ; reached start of paren or vscreen
              #t)
-          ((char-pred ch)
+          ((char-pred ch) ; found an identifier char, insert it and iterate
              (charspan-insert-front! stem ch)
              (%fill-stem x1 y1))
-          (#t ; found a non-identifier before stem
-             #f))))))
+          (#t ; found a non-identifier char, could be a blank
+            (let %vscreen-contains-only-blanks-before-xy? ((screen screen) (x x) (y y))
+              (let-values (((x1 y1 ch) (%vscreen-char-before-xy screen x y)))
+                (cond
+                  ((not (and x1 y1 (char? ch)))  ; reached start of paren or vscreen, found only blanks
+                    #t)
+                  ((char>? ch #\space)  ; found another word before stem
+                    #f)
+                  (#t ; iterate
+                    (%vscreen-contains-only-blanks-before-xy? screen x1 y1)))))))))))
 
 
 (define (%char-is-scheme-identifier? ch)
