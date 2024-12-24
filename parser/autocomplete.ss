@@ -13,7 +13,7 @@
     parse-shell-autocomplete)
   (import
     (rnrs)
-    (only (chezscheme) display-condition environment-symbols fx1+ interaction-environment sort! top-level-value void)
+    (only (chezscheme) environment-symbols fx1+ interaction-environment sort! top-level-value)
     (only (schemesh bootstrap) debugf values->list)
     (only (schemesh containers misc) list-iterate list-remove-consecutive-duplicates! string-range=? string-split)
     (only (schemesh containers hashtable) hashtable-iterate)
@@ -169,13 +169,14 @@
   ; (debugf "%list-commands completions = ~s~%" completions)
   )
 
-
 ;; find shell aliases starting with prefix, cons them onto list l, and return l
+;; FIXME: pass (top-level-value 'sh-aliases) as argument
 (define (%list-shell-aliases prefix l)
   (%list-htable-keys ((top-level-value 'sh-aliases)) prefix l))
 
 
 ;; find shell builtins starting with prefix, cons them onto list l, and return l
+;; FIXME: pass (top-level-value 'sh-builtins) as argument
 (define (%list-shell-builtins prefix l)
   (%list-htable-keys ((top-level-value 'sh-builtins)) prefix l))
 
@@ -192,6 +193,7 @@
   l)
 
 ;; find programs in $PATH that start with prefix, cons them onto list l, and return l
+;; FIXME: pass ((top-level-value 'sh-env) #t "PATH") as argument
 (define (%list-shell-programs prefix l)
   (let* (($path      ((top-level-value 'sh-env) #t "PATH"))
          (dirs       (string-split $path 0 (string-length $path) #\:))
