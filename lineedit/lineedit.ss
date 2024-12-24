@@ -23,7 +23,7 @@
     lineedit-read lineedit-flush lineedit-finish)
   (import
     (rnrs)
-    (only (chezscheme) display-condition format fx1+ fx1- inspect record-writer top-level-value void)
+    (only (chezscheme) display-condition format fx1+ fx1- fx/ inspect record-writer top-level-value void)
     (schemesh bootstrap)
     (schemesh containers)
     (only (schemesh conversions) display-condition*)
@@ -285,54 +285,96 @@
   (let ((func (linectx-completion-func ctx)))
     (when func
       (func ctx)
-      (lineedit-update-with-completions ctx))))
+      (%lineedit-update-with-completions ctx))))
 
 
-(define (lineedit-update-with-completions ctx)
-  (let* ((stem     (linectx-completion-stem ctx))
-         (stem-len (charspan-length stem))
-         (completions (linectx-completions ctx))
+(define (%lineedit-update-with-completions ctx)
+  (let* ((stem          (linectx-completion-stem ctx))
+         (completions   (linectx-completions ctx))
          (completions-n (span-length completions)))
-    ; (debugf "lineedit-update-with-completions stem = ~s, completions = ~s ...~%" stem completions)
+    ; (debugf "%lineedit-update-with-completions stem=~s, completions=~s ...~%" stem completions)
     (unless (fxzero? completions-n)
-      (let* ((completion-0   (span-ref completions 0))
-             (completion     (if (charspan? completion-0) completion-0 (charspan)))
-             (completion-len (charspan-length completion)))
-        ; find the longest common prefix among completions
-        (do ((n (span-length completions))
-             (i 1 (fx1+ i)))
-            ((or (fx>=? i n) (fxzero? completion-len)))
-          (let ((completion-i (span-ref completions i)))
-            (when (charspan? completion-i) ; sanity
-              ; (debugf "... lineedit-update-with-completions stem-len = ~s, completion-i = ~s ... " stem-len completion-i)
-              (let* ((completion-i-len (charspan-length completion-i))
-                     (common-prefix-len
-                        (charspan-range-count= completion 0 completion-i 0 (fxmin completion-len completion-i-len))))
-                ; (debugf "common-prefix-len = ~s~%" common-prefix-len)
-                (when (fx<? common-prefix-len completion-len)
-                  (set! completion-len common-prefix-len))))))
-        ; (debugf "lineedit-update-with-completions completion = ~s, stem-len = ~s, delta-len = ~s~%" completion stem-len (fx- completion-len stem-len))
+      (let-values (((common-len max-len) (%lineedit-analyze-completions completions)))
+        ; (debugf "%lineedit-update-with-completions stem=~s, common-len=~s, completions=~s~%" stem common-len completions)
         (cond
-          ((not (fxzero? completion-len))
+          ((not (fxzero? common-len))
             ; insert common prefix of all completions
-            (linectx-insert/cspan! ctx completion 0 completion-len)
-            (when (and (fx=? 1 completions-n) (not (char=? #\/ (charspan-ref completion (fx1- completion-len)))))
-              (linectx-insert/ch! ctx #\space)))
-          ((fx>? completions-n 1)
+            (let ((completion-0 (span-ref completions 0)))
+              (linectx-insert/cspan! ctx completion-0 0 common-len)
+              (when (and (fx=? 1 completions-n)
+                         (not (char=? #\/ (charspan-ref completion-0 (fx1- common-len)))))
+                (linectx-insert/ch! ctx #\space))))
+          ((fx<=? 1 completions-n 150)
             ; erase prompt and lines (sets flag "redraw prompt and lines"),
             ; then list all possible completions
             (linectx-undraw ctx)
-            (lineedit-print-completions ctx stem completions)))))))
+            (%lineedit-print-completion-table ctx stem completions max-len)))))))
 
 
-(define (lineedit-print-completions ctx stem completions)
-  (span-iterate completions
-    (lambda (i completion)
-      (lineterm-write/cspan ctx stem)
-      (lineterm-write/cspan ctx completion)
-      (lineterm-write/u8 ctx 32))) ; append space
-  (lineterm-write/u8 ctx 10)) ;; append newline
+;; analyze completions, and return two values:
+;;  the length of longest common prefix among completions,
+;;  and the length of longest completion
+(define (%lineedit-analyze-completions completions)
+  (let* ((completion-0 (span-ref completions 0))
+         (completion   (if (charspan? completion-0) completion-0 (charspan)))
+         (common-len   (charspan-length completion))
+         (max-len      common-len))
+    (do ((n (span-length completions))
+         (i 1 (fx1+ i)))
+        ((fx>=? i n)
+         (values common-len max-len))
+      (let ((completion-i (span-ref completions i)))
+        (when (charspan? completion-i) ; sanity
+          ; (debugf "... %lineedit-analyze-completions stem-len = ~s, completion-i = ~s ... " stem-len completion-i)
+          (let* ((completion-i-len (charspan-length completion-i))
+                 (common-i-len
+                   (if (fxzero? common-len)
+                     0
+                     (charspan-range-count= completion 0 completion-i 0 (fxmin common-len completion-i-len)))))
+            ; (debugf "common-i-len = ~s~%" common-i-len)
+            (when (fx>? common-len common-i-len)
+              (set! common-len common-i-len))
+            (when (fx<? max-len completion-i-len)
+              (set! max-len completion-i-len))))))))
 
+
+(define (%lineedit-print-completion-table ctx stem completions max-len)
+  ; (debugf "%lineedit-print-completion-table stem=~s, completions=~s~%" stem completions)
+  (repeat (linectx-width ctx)
+    (lineterm-write/u8 ctx 45)) ; write a whole line full of #\-
+  (lineterm-write/u8 ctx 10) ; write a newline
+  (let* ((completions-n (span-length completions))
+         (screen-width (linectx-width ctx))
+         (column-width (fx+ 2 (fx+ max-len (charspan-length stem))))
+         (column-n     (fxmax 1 (fx/ screen-width column-width)))
+         (row-n        (fx//round-up completions-n column-n)))
+    (do ((row-i 0 (fx1+ row-i)))
+        ((fx>=? row-i row-n))
+      (%lineedit-print-completion-row ctx stem completions column-width column-n row-n row-i))))
+
+
+(define (%lineedit-print-completion-row ctx stem completions column-width column-n row-n row-i)
+  ; (debugf "%lineedit-print-completion-row column-n=~s, row-i=~s~%" column-n row-i)
+  (do ((completions-n (span-length completions))
+       (completions-i row-i (fx+ row-n completions-i))
+       (column-i      0     (fx1+ column-i)))
+      ((or (fx>=? column-i column-n) (fx>=? completions-i completions-n)))
+    (%lineedit-print-completion-cell ctx stem (span-ref completions completions-i) column-width))
+  (lineterm-write/u8 ctx 10)) ;; append newline after each row
+
+
+(define (%lineedit-print-completion-cell ctx stem completion column-width)
+  (lineterm-write/cspan ctx stem)
+  (lineterm-write/cspan ctx completion)
+  (repeat (fx- column-width (fx+ (charspan-length stem) (charspan-length completion)))
+    (lineterm-write/u8 ctx 32))) ; pad with spaces
+
+
+(define (fx//round-up x1 x2)
+  (let ((q (fx/ x1 x2)))
+    (if (fx=? x1 (fx* q x2))
+      q
+      (fx1+ q))))
 
 (define (lineedit-key-toggle-insert ctx n)
   (lineedit-inspect ctx))
