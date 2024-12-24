@@ -312,10 +312,26 @@
                 (when (fx<? common-prefix-len completion-len)
                   (set! completion-len common-prefix-len))))))
         ; (debugf "lineedit-update-with-completions completion = ~s, stem-len = ~s, delta-len = ~s~%" completion stem-len (fx- completion-len stem-len))
-        (unless (fxzero? completion-len)
-          (linectx-insert/cspan! ctx completion 0 completion-len)
-          (when (and (fx=? 1 completions-n) (not (char=? #\/ (charspan-ref completion (fx1- completion-len)))))
-            (linectx-insert/ch! ctx #\space)))))))
+        (cond
+          ((not (fxzero? completion-len))
+            ; insert common prefix of all completions
+            (linectx-insert/cspan! ctx completion 0 completion-len)
+            (when (and (fx=? 1 completions-n) (not (char=? #\/ (charspan-ref completion (fx1- completion-len)))))
+              (linectx-insert/ch! ctx #\space)))
+          ((fx>? completions-n 1)
+            ; erase prompt and lines (sets flag "redraw prompt and lines"),
+            ; then list all possible completions
+            (linectx-undraw ctx)
+            (lineedit-print-completions ctx stem completions)))))))
+
+
+(define (lineedit-print-completions ctx stem completions)
+  (span-iterate completions
+    (lambda (i completion)
+      (lineterm-write/cspan ctx stem)
+      (lineterm-write/cspan ctx completion)
+      (lineterm-write/u8 ctx 32))) ; append space
+  (lineterm-write/u8 ctx 10)) ;; append newline
 
 
 (define (lineedit-key-toggle-insert ctx n)
@@ -462,6 +478,15 @@
     ((linectx-redraw? ctx)                  (linectx-redraw-all ctx))
     ((vscreen-dirty? (linectx-vscreen ctx)) (linectx-redraw-dirty ctx))
     (else                                   (linectx-redraw-cursor+paren ctx))))
+
+
+;; erase everything, then set flag "redraw prompt and lines"
+(define (linectx-undraw ctx)
+  (lineterm-move-dy ctx (fx- (linectx-term-y ctx)))
+  (lineterm-move-to-bol ctx)
+  (lineterm-clear-to-eos ctx)
+  (linectx-term-xy-set! ctx 0 0)
+  (linectx-redraw-set! ctx #t))
 
 
 ;; redraw everything

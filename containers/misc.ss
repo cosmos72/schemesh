@@ -84,14 +84,18 @@
             (set-cdr! new-head head)
             (%step new-head new-tail)))))))
 
-;; remove consecutive duplicates from a list.
+;; remove consecutive duplicates from a list, and return it.
 ;; elements are considered duplicates if (equal-pred elem1 elem2) returns truish.
 (define (list-remove-consecutive-duplicates! l equal-pred)
   (let %recurse ((tail l))
-    (unless (or (null? tail) (null? (cdr tail)))
-      (when (equal-pred (car tail) (cadr tail))
-        (set-cdr! tail (cddr tail)))
-      (%recurse (cdr tail))))
+    (cond
+      ((or (null? tail) (null? (cdr tail)))
+        (void))
+      ((equal-pred (car tail) (cadr tail))
+        (set-cdr! tail (cddr tail))
+        (%recurse tail))
+      (#t
+        (%recurse (cdr tail)))))
   l)
 
 

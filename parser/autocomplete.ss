@@ -65,7 +65,7 @@
               (prefix (charspan-range->string stem (fx1+ slash-pos) stem-len)))
           (%list-directory dir prefix slash-pos completions)))
       (stem-is-first-word? ; list builtins, aliases and programs in $PATH
-        (%list-commands lctx (charspan->string stem) completions))
+        (%list-shell-commands lctx (charspan->string stem) completions))
       (#t ; list contents of current directory
         (%list-directory "." (charspan->string stem) #f completions)))))
 
@@ -153,20 +153,22 @@
 
 ;; list builtins, aliases and programs in $PATH that start with prefix,
 ;; and append them to completions
-(define (%list-commands lctx prefix completions)
-  ; (debugf "%list-commands stem = ~s~%" stem)
+(define (%list-shell-commands lctx prefix completions)
+  ; (debugf "%list-shell-commands stem = ~s~%" stem)
   (let ((l (%list-shell-programs prefix
              (%list-shell-builtins prefix
                (%list-shell-aliases prefix '()))))
         (prefix-len (string-length prefix)))
     (set! l (sort! string<? l))
+    ; (debugf "%list-shell-commands prefix=~s, list-with-duplicates   =~s~%" prefix l)
     (list-remove-consecutive-duplicates! l string=?)
+    ; (debugf "%list-shell-commands prefix=~s, list-without-duplicates=~s~%" prefix l)
     (list-iterate l
       (lambda (name)
         (let ((cname (string->charspan* name)))
           (charspan-erase-front! cname prefix-len)
           (span-insert-back! completions cname)))))
-  ; (debugf "%list-commands completions = ~s~%" completions)
+  ; (debugf "%list-shell-commands prefix=~s, completions=~s~%" prefix completions)
   )
 
 ;; find shell aliases starting with prefix, cons them onto list l, and return l

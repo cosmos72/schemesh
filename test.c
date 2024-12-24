@@ -56,6 +56,10 @@ static const testcase tests[] = {
     {"(bytevector-compare #vu8(79) #vu8(78 0))", "1"},
     {"(string-range-count= \"qwertyuiop\" 2 \"_ertyuio7\" 1 8)", "7"},
     {"(string-split \"ab:cdef::g\" 1 1000 #\\:)", "(b cdef  g)"},
+    {"(list-remove-consecutive-duplicates!\n"
+     "  (list \"foo\" \"foo\" \"foo\" \"bar\" \"bar\")\n"
+     "  string=?)",
+     "(foo bar)"},
     {"(do ((i #x-10000 (fx1+ i)))\n"
      "    ((fx>=? i #x120000))\n"
      "  (if (or (fx<=? #x0000 i #xD7FF)\n"

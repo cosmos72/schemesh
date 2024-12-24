@@ -27,7 +27,8 @@
     (schemesh shell jobs))
 
 
-; update linectx-completion-stem and linectx-completions with possible completions
+;; update linectx-completion-stem and linectx-completions with possible completions.
+;; usually stored inside linectx as (linectx-completion-func)
 (define (sh-autocomplete lctx)
   (let* ((paren (lineedit-paren-find/surrounds-cursor lctx))
          (func  (%sh-autocomplete-func lctx paren))

@@ -7,7 +7,7 @@
 
 (library (schemesh lineedit lineterm (0 1))
   (export
-    lineterm-write/u8 lineterm-write/bvector lineterm-write/bspan lineterm-write/cbuffer
+    lineterm-write/u8 lineterm-write/bvector lineterm-write/bspan lineterm-write/cspan lineterm-write/cbuffer
     lineterm-move-dx lineterm-move-dy lineterm-move-to-bol lineterm-clear-to-eol lineterm-clear-to-eos
     lineterm-move lineterm-move-from lineterm-move-to)
 
@@ -33,6 +33,10 @@
 ;; write a portion of given bytespan to wbuf
 (define (lineterm-write/bspan ctx bsp start n)
   (bytespan-insert-back/bspan! (linectx-wbuf ctx) bsp start n))
+
+;; write given charspan to wbuf
+(define (lineterm-write/cspan ctx csp)
+  (bytespan-insert-back/cspan! (linectx-wbuf ctx) csp))
 
 ;; write a portion of given chargbuffer to wbuf
 (define (lineterm-write/cbuffer ctx cgb start end)
