@@ -20,8 +20,7 @@
     lineedit-key-redraw lineedit-key-tab lineedit-key-toggle-insert
     lineedit-inspect
     lineedit-paren-find/before-cursor lineedit-paren-find/surrounds-cursor
-    lineedit-read lineedit-flush lineedit-finish
-    lineedit-autocomplete/r6rs lineedit-autocomplete/scheme lineedit-autocomplete/shell)
+    lineedit-read lineedit-flush lineedit-finish)
   (import
     (rnrs)
     (only (chezscheme) display-condition format fx1+ fx1- inspect record-writer top-level-value void)
@@ -35,7 +34,6 @@
     (schemesh lineedit parenmatcher)
     (schemesh lineedit linectx)
     (schemesh lineedit lineterm)
-    (schemesh lineedit autocomplete)
     (only (schemesh lineedit parser) make-parsectx*)
     (only (schemesh lineedit io) open-charlines-input-port)
     (schemesh posix tty)
@@ -707,7 +705,7 @@
                   x y))
               (catch (ex)
                 (let ((port (current-output-port)))
-                  (put-string port "\nexception in parenmatcher-find/at: ")
+                  (put-string port "\n; Exception in parenmatcher-find/at: ")
                   (display-condition ex port)
                   (newline port))))))))
     ret))
@@ -738,7 +736,7 @@
               x y))
           (catch (ex)
             (let ((port (current-output-port)))
-              (put-string port "\nexception in parenmatcher-find/surrounds: ")
+              (put-string port "\n; Exception in parenmatcher-find/surrounds: ")
               (display-condition ex port)
               (newline port))))))
     ret))
@@ -832,11 +830,11 @@
 
 ;; invoked when some function called by lineedit-read raises a condition
 (define (%lineedit-error ctx ex)
-  ; remove offending input that triggered the ex
+  ; remove offending input that triggered the exception
   (bytespan-clear! (linectx-rbuf ctx))
   ; display the condition
   (let ((port (current-output-port)))
-    (put-string port "\nexception in lineedit-read: ")
+    (put-string port "\n; Exception in lineedit-read: ")
     (display-condition ex port)
     (newline port))
   (lineedit-inspect ex))

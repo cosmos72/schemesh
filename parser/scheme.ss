@@ -18,9 +18,9 @@
        fxvector fxvector-set! make-fxvector
        read-token reverse!)
     (only (schemesh bootstrap) debugf while)
-    (schemesh lineedit autocomplete)
     (schemesh lineedit parser)
-    (schemesh parser lisp))
+    (schemesh parser lisp)
+    (only (schemesh parser autocomplete) parse-scheme-autocomplete))
 
 ;; Read a single Chez Scheme token from textual input port 'in.
 ;; Internally uses Chez Scheme (read-token) for simplicity, but could be reimplemented
@@ -71,7 +71,7 @@
 
 
 (define parser-scheme
-  (let ((ret (make-parser 'scheme parse-scheme-forms parse-scheme-paren lineedit-autocomplete/scheme)))
+  (let ((ret (make-parser 'scheme parse-scheme-forms parse-scheme-paren parse-scheme-autocomplete)))
     (lambda ()
       ret)))
 

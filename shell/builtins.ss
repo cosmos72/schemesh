@@ -42,6 +42,7 @@
       args)))
 
 
+;; implementation of "echo" builtin, writes user-specified arguments to file descriptor 1
 (define (sh-echo . args)
   (let ((wbuf (make-bytespan 0)))
     (do ((tail args (cdr tail)))
@@ -54,6 +55,7 @@
   (void))
 
 
+;; implementation of "error" builtin, exits with user-specified exit status
 (define (sh-error . args)
   ; (debugf "sh-error ~s~%" args)
   (if (pair? args)
@@ -75,13 +77,17 @@
     '(exited . 1)))
 
 
+;; implementation of "false" builtin, always exits with failure exit status '(exited . 1)
 (define (sh-false . ignored-args)
   '(exited . 1))
 
 
+;; implementation of "true" builtin, always exits succesfully i.e. with exit status (void)
 (define (sh-true . ignored-args)
   (void))
 
+
+;; ;; implementation of "history" builtin, lists previous commands saved to history
 (define (sh-history lctx)
   ; (debugf "sh-history ~s~%" lctx)
   (when (linectx? lctx)
@@ -162,9 +168,9 @@
 ;; function returning the global hashtable name -> builtin.
 ;; Each builtin must be a function accepting as arguments:
 ;;   a job (actually a cmd)
-;;   an prog-and-args i.e. a list of strings containing the builtin name and its arguments
+;;   a prog-and-args i.e. a list of strings containing the builtin name and its arguments
 ;;   a list of options
-;; and returning the job status
+;; and must execute the builtin then return its exit status
 (define sh-builtins
   (let ((t (make-hashtable string-hash string=?)))
     (hashtable-set! t "alias"   sh-builtin-alias)

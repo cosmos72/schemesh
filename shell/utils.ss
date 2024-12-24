@@ -23,6 +23,7 @@
     (schemesh lineedit)
     (schemesh posix misc)
     (schemesh parser)
+    (only (schemesh parser autocomplete) parse-shell-autocomplete)
     (schemesh shell jobs))
 
 
@@ -46,7 +47,7 @@
          (parser      (and parsers (hashtable-ref parsers parser-name #f))))
     (if parser
       (parser-autocomplete parser)
-      lineedit-autocomplete/shell)))
+      parse-shell-autocomplete)))
 
 
 ; return string containing current time in 24-hour HH:MM:SS format.
