@@ -13,14 +13,14 @@
     parse-shell-autocomplete)
   (import
     (rnrs)
-    (only (chezscheme) environment-symbols fx1+ interaction-environment sort! top-level-value void)
+    (only (chezscheme) display-condition environment-symbols fx1+ interaction-environment sort! top-level-value void)
     (only (schemesh bootstrap) debugf values->list)
     (only (schemesh containers misc) list-iterate list-remove-consecutive-duplicates! string-range=? string-split)
     (only (schemesh containers hashtable) hashtable-iterate)
     (schemesh containers charspan)
     (schemesh containers span)
     (only (schemesh containers utf8b) utf8b->string)
-    (only (schemesh posix misc) directory-u8-list)
+    (only (schemesh posix misc) directory-u8-list/catch)
     (only (schemesh lineedit vscreen) vscreen-char-before-xy vscreen-cursor-ix vscreen-cursor-iy)
     (schemesh lineedit paren)
     (only (schemesh lineedit linectx) linectx-completion-stem linectx-vscreen))
@@ -138,7 +138,7 @@
          (prefix-len (string-length prefix))
          (prefix?    (not (fxzero? prefix-len)))
          (prefix-starts-with-dot? (and prefix? (char=? #\. (string-ref prefix 0)))))
-    (list-iterate (directory-u8-list dir prefix)
+    (list-iterate (directory-u8-list/catch dir prefix)
       (lambda (elem)
         (let ((name (string->charspan* (utf8b->string (cdr elem)))))
           (when (or prefix-starts-with-dot? (not (char=? #\. (charspan-ref name 0))))
@@ -148,6 +148,8 @@
             (span-insert-back! completions name))))))
   ; (debugf "lineedit-shell-list/directory completions = ~s~%" completions)
   )
+
+
 
 
 ;; list builtins, aliases and programs in $PATH that start with prefix,
@@ -197,7 +199,7 @@
          (prefix-len (string-length prefix)))
     (list-iterate dirs
       (lambda (dir)
-        (list-iterate (directory-u8-list dir prefix)
+        (list-iterate (directory-u8-list/catch dir prefix)
           (lambda (elem)
             (let ((type (car elem)))
               (when (or (eq? 'file type) (eq? 'symlink type))

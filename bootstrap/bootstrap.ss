@@ -136,17 +136,23 @@
 
 (define-syntax try
   (syntax-rules (catch)
-    ((_ try-body1 try-body2 ... (catch (exception) catch-body1 catch-body2 ...))
+    ((_ try-body1 try-body2 ... (catch (exception) catch-body ...))
       (call/cc
         (lambda (k-exit)
           (with-exception-handler
             (lambda (exception)
-              (k-exit (begin catch-body1 catch-body2 ...)))
+              (k-exit (begin (void) catch-body ...)))
             (lambda ()
               try-body1 try-body2 ...)))))
     ((_ bad-body ...)
       (syntax-violation "" "invalid syntax, expecting (try EXPR ... (catch (IDENT) ...)) in"
         (list 'try (quote bad-body) ...)))))
+
+;; export aux keyword catch, needed by try
+(define-syntax catch
+  (lambda (arg)
+    (syntax-violation "" "misplaced auxiliary keyword" arg)))
+
 
 (define-syntax throws?
   (syntax-rules ()
@@ -156,11 +162,6 @@
         #f
         (catch (ex)
           (or ex #t))))))
-
-;; export aux keyword catch, needed by try
-(define-syntax catch
-  (lambda (arg)
-    (syntax-violation "" "misplaced auxiliary keyword" arg)))
 
 
 ;; convert a list to multiple values

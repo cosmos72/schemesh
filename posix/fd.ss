@@ -24,10 +24,9 @@
 (define c-errno->string
   (foreign-procedure "c_strerror" (int) ptr))
 
-
-(define (raise-c-errno who c-who c-errno)
+(define (raise-c-errno who c-who c-errno . c-args)
   ; (debugf "raise-c-errno ~s ~s~%" who c-errno)
-  (raise-errorf who "C function ~s failed with error ~s" c-who c-errno))
+  (raise-errorf who "C function ~s~s failed with error ~s" c-who c-args c-errno))
 
 ;; return the maximum number of open file descriptors for a process
 (define fd-open-max

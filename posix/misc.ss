@@ -7,11 +7,12 @@
 
 
 (library (schemesh posix misc (0 1))
-  (export c-hostname c-exit directory-u8-list)
+  (export c-hostname c-exit directory-u8-list directory-u8-list/catch)
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) foreign-procedure sort!)
+    (only (chezscheme) display-condition foreign-procedure sort!)
+    (only (schemesh bootstrap) catch try)
     (only (schemesh containers) bytevector<? list-iterate string->utf8b)
     (only (schemesh conversions) text->bytevector0)
     (only (schemesh posix fd) raise-c-errno))
@@ -24,28 +25,15 @@
     (lambda ()
       hostname)))
 
-; implementation of (directory-u8-list)
-(define %directory-u8-list
-  (let ((c-directory-u8-list (foreign-procedure "c_directory_u8_list"
-                     (ptr ptr) ptr))
-        (types '#(unknown blockdev chardev dir fifo file socket symlink)))
-    (lambda (dirpath filter-prefix)
-      (let ((ret (c-directory-u8-list (text->bytevector0 dirpath)
-                   (if (bytevector? filter-prefix)
-                     filter-prefix
-                     (string->utf8b filter-prefix)))))
-        (unless (or (null? ret) (pair? ret))
-          (raise-c-errno 'directory-u8-list 'opendir ret))
-        (list-iterate ret
-          (lambda (entry)
-            (let ((c-type (car entry)))
-              (set-car! entry
-                (if (fx<=? 0 c-type 7) (vector-ref types c-type) 'unknown)))))
-        (sort!
-          (lambda (entry1 entry2)
-            (bytevector<? (cdr entry1) (cdr entry2)))
-          ret)))))
-
+(define (directory-u8-list/catch dir prefix)
+  (try
+    (directory-u8-list dir prefix)
+    (catch (ex)
+      (let ((port (current-output-port)))
+        (put-string port "\n; ")
+        (display-condition ex port)
+        (newline port)
+        '())))) ; on exception, return empty list
 
 ; List contents of a filesystem directory;
 ; mandatory first argument dirpath must be a string or bytevector.
@@ -60,5 +48,29 @@
   (case-lambda
     ((dirpath)               (%directory-u8-list dirpath #vu8()))
     ((dirpath filter-prefix) (%directory-u8-list dirpath filter-prefix))))
+
+
+; implementation of (directory-u8-list)
+(define %directory-u8-list
+  (let ((c-directory-u8-list (foreign-procedure "c_directory_u8_list"
+                     (ptr ptr) ptr))
+        (types '#(unknown blockdev chardev dir fifo file socket symlink)))
+    (lambda (dirpath filter-prefix)
+      (let ((ret (c-directory-u8-list (text->bytevector0 dirpath)
+                   (if (bytevector? filter-prefix)
+                     filter-prefix
+                     (string->utf8b filter-prefix)))))
+        (unless (or (null? ret) (pair? ret))
+          (raise-c-errno 'directory-u8-list 'opendir ret dirpath))
+        (list-iterate ret
+          (lambda (entry)
+            (let ((c-type (car entry)))
+              (set-car! entry
+                (if (fx<=? 0 c-type 7) (vector-ref types c-type) 'unknown)))))
+        (sort!
+          (lambda (entry1 entry2)
+            (bytevector<? (cdr entry1) (cdr entry2)))
+          ret)))))
+
 
 ) ; close library
