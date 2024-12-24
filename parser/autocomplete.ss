@@ -20,7 +20,7 @@
     (schemesh containers charspan)
     (schemesh containers span)
     (only (schemesh containers utf8b) utf8b->string)
-    (only (schemesh posix misc) directory-u8-list/catch)
+    (only (schemesh posix misc) directory-u8-list)
     (only (schemesh lineedit vscreen) vscreen-char-before-xy vscreen-cursor-ix vscreen-cursor-iy)
     (schemesh lineedit paren)
     (only (schemesh lineedit linectx) linectx-completion-stem linectx-vscreen))
@@ -133,12 +133,11 @@
 
 (define (%list-directory dir prefix slash? completions)
   ; (debugf "lineedit-shell-list/directory dir = ~s, prefix = ~s~%" dir prefix)
-  (let* ((dir-len    (string-length dir))
-         (dir?       (and slash? (not (fxzero? dir-len))))
+  (let* ((dir?       (and slash? (not (fxzero? (string-length dir)))))
          (prefix-len (string-length prefix))
          (prefix?    (not (fxzero? prefix-len)))
          (prefix-starts-with-dot? (and prefix? (char=? #\. (string-ref prefix 0)))))
-    (list-iterate (directory-u8-list/catch dir prefix)
+    (list-iterate (directory-u8-list dir prefix 'sort 'catch)
       (lambda (elem)
         (let ((name (string->charspan* (utf8b->string (cdr elem)))))
           (when (or prefix-starts-with-dot? (not (char=? #\. (charspan-ref name 0))))
@@ -199,7 +198,7 @@
          (prefix-len (string-length prefix)))
     (list-iterate dirs
       (lambda (dir)
-        (list-iterate (directory-u8-list/catch dir prefix)
+        (list-iterate (directory-u8-list dir prefix 'catch) ; don't sort directory list
           (lambda (elem)
             (let ((type (car elem)))
               (when (or (eq? 'file type) (eq? 'symlink type))

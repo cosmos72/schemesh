@@ -7,11 +7,11 @@
 
 
 (library (schemesh posix misc (0 1))
-  (export c-hostname c-exit directory-u8-list directory-u8-list/catch)
+  (export c-hostname c-exit directory-u8-list directory-u8-list*)
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) display-condition foreign-procedure sort!)
+    (only (chezscheme) foreign-procedure sort!)
     (only (schemesh bootstrap) catch try)
     (only (schemesh containers) bytevector<? list-iterate string->utf8b)
     (only (schemesh conversions) text->bytevector0)
@@ -25,52 +25,53 @@
     (lambda ()
       hostname)))
 
-(define (directory-u8-list/catch dir prefix)
-  (try
-    (directory-u8-list dir prefix)
-    (catch (ex)
-      (let ((port (current-output-port)))
-        (put-string port "\n; ")
-        (display-condition ex port)
-        (newline port)
-        '())))) ; on exception, return empty list
 
-; List contents of a filesystem directory;
-; mandatory first argument dirpath must be a string or bytevector.
-; optional second argument filter-prefix must be a string or bytevector.
-;
-; Returns a sorted list of pairs (type . filename) where filename is a bytevector
-; (because Unix filenames can contain arbitrary bytes, not just UTF-8)
-; and type is one of: 'unknown 'blockdev 'chardev 'dir 'fifo 'file 'socket 'symlink
-;
-; If filter-prefix is not empty, only returns filenames that start with filter-prefix
+;; List contents of a filesystem directory;
+;; mandatory first argument dirpath must be a string or bytevector.
+;; optional second argument filter-prefix must be a string or bytevector.
+;; futher optional arguments can contain:
+;;   'sort  - returned list will be sorted
+;;   'catch - errors in C functions will be ignored instead of throwing exceptions
+;;
+;; Returns a list of pairs (type . filename) where filename is a bytevector
+;; (because Unix filenames can contain arbitrary bytes, not just UTF-8)
+;; and type is one of: 'unknown 'blockdev 'chardev 'dir 'fifo 'file 'socket 'symlink
+;;
+;; If filter-prefix is not empty, only returns filenames that start with filter-prefix
 (define directory-u8-list
   (case-lambda
-    ((dirpath)               (%directory-u8-list dirpath #vu8()))
-    ((dirpath filter-prefix) (%directory-u8-list dirpath filter-prefix))))
+    ((dirpath)                         (directory-u8-list* dirpath #vu8()        '()))
+    ((dirpath filter-prefix)           (directory-u8-list* dirpath filter-prefix '()))
+    ((dirpath filter-prefix . options) (directory-u8-list* dirpath filter-prefix options))))
 
 
-; implementation of (directory-u8-list)
-(define %directory-u8-list
+;; implementation of (directory-u8-list)
+(define directory-u8-list*
   (let ((c-directory-u8-list (foreign-procedure "c_directory_u8_list"
                      (ptr ptr) ptr))
         (types '#(unknown blockdev chardev dir fifo file socket symlink)))
-    (lambda (dirpath filter-prefix)
+    (lambda (dirpath filter-prefix options)
       (let ((ret (c-directory-u8-list (text->bytevector0 dirpath)
                    (if (bytevector? filter-prefix)
                      filter-prefix
                      (string->utf8b filter-prefix)))))
-        (unless (or (null? ret) (pair? ret))
-          (raise-c-errno 'directory-u8-list 'opendir ret dirpath))
-        (list-iterate ret
-          (lambda (entry)
-            (let ((c-type (car entry)))
-              (set-car! entry
-                (if (fx<=? 0 c-type 7) (vector-ref types c-type) 'unknown)))))
-        (sort!
-          (lambda (entry1 entry2)
-            (bytevector<? (cdr entry1) (cdr entry2)))
-          ret)))))
+        (cond
+          ((or (null? ret) (pair? ret))
+            (list-iterate ret
+              (lambda (entry)
+                (let ((c-type (car entry)))
+                  (set-car! entry
+                    (if (fx<=? 0 c-type 7) (vector-ref types c-type) 'unknown)))))
+            (if (memq 'sort options)
+              (sort!
+                (lambda (entry1 entry2)
+                  (bytevector<? (cdr entry1) (cdr entry2)))
+                ret)
+              ret))
+          ((memq 'catch options)
+            '())
+          (#t
+            (raise-c-errno 'directory-u8-list 'opendir ret dirpath)))))))
 
 
 ) ; close library

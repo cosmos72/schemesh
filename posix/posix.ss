@@ -22,7 +22,7 @@
     tty-setraw! tty-restore! tty-size
 
     ; misc.ss
-    c-hostname c-exit directory-u8-list directory-u8-list/catch
+    c-hostname c-exit directory-u8-list directory-u8-list*
 
     ; pid.ss
     get-pid get-pgid spawn-pid pid-kill pid-wait exit-with-job-status)
