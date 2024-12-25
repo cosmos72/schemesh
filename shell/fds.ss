@@ -114,7 +114,7 @@
     2
     (lambda (fd)
       (unless (and (fixnum? fd) (fx<? -1 fd fd-max))
-        (raise-errorf 'sh-fd-stderr "invalid file descriptor, must be an fixnum in [0, fd-max - 1]: " fd))
+        (raise-errorf 'sh-fd-stderr "invalid file descriptor, must be a fixnum in [0, fd-max - 1]: " fd))
       fd)))
 
 

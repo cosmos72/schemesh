@@ -8,7 +8,7 @@
 (library (schemesh lineedit linectx (0 1))
   (export
     make-linectx make-linectx* linectx? linectx-rbuf linectx-wbuf
-    linectx-vscreen linectx-width linectx-end-y
+    linectx-vscreen linectx-width linectx-height linectx-end-y
     linectx-ix     linectx-iy     linectx-ixy  linectx-ixy-set!
     linectx-vx     linectx-vy
     linectx-term-x linectx-term-y linectx-term-xy-set!
@@ -144,6 +144,9 @@
 (define (linectx-width ctx)
   (vscreen-width (linectx-vscreen ctx)))
 
+;; return screen height
+(define (linectx-height ctx)
+  (vscreen-height (linectx-vscreen ctx)))
 
 (define (linectx-prompt-end-x ctx)
   (vscreen-prompt-end-x (linectx-vscreen ctx)))
