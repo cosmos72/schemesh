@@ -199,7 +199,10 @@
         (end-xy   (xy->key* (paren-end-x paren)   (paren-end-y paren)   outer-end-xy)))
     (values start-xy end-xy (fx<=? (if (eq? #t (paren-start-token paren)) start-xy (fx1+ start-xy))
                                    xy
-                                   (if (boolean? (paren-end-token paren)) (fx1+ end-xy) end-xy)))))
+                                   (if (or (char? (paren-end-token paren))
+                                           (fx=? end-xy (greatest-fixnum)))
+                                     end-xy
+                                     (fx1+ end-xy))))))
 
 
 ;; among the inner parens of paren, find the innermost one that surrounds position x y and return it.

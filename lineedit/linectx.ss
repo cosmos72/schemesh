@@ -45,8 +45,8 @@
 (define-record-type
   (linectx %make-linectx linectx?)
   (fields
-    (mutable rbuf)    ; bytespan, buffer for stdin
-    (mutable wbuf)    ; bytespan, buffer for stdout
+    rbuf              ; bytespan, buffer for stdin
+    wbuf              ; bytespan, buffer for stdout
     (mutable vscreen) ; vscreen, input being edited
     (mutable term-x)  ; fixnum, cursor x position in tty
     (mutable term-y)  ; fixnum, cursor y position in tty

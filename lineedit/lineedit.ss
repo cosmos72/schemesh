@@ -288,6 +288,21 @@
       (%lineedit-update-with-completions ctx))))
 
 
+(define %linectx-confirm-display-completions?
+  (let ((header (string->utf8 "; display all "))
+        (footer (string->utf8 " possibilities? (y or n) ")))
+    (lambda (ctx completions-n)
+      (let ((wbuf (linectx-wbuf ctx)))
+        (bytespan-insert-back/bvector! wbuf header 0 (bytevector-length header))
+        (bytespan-display-back/fixnum! wbuf completions-n)
+        (bytespan-insert-back/bvector! wbuf footer 0 (bytevector-length footer))
+        (lineedit-flush ctx)
+        (let ((ret (linectx-read-confirm-y-or-n? ctx)))
+          (bytespan-insert-back/u8! wbuf (if ret 121 110))
+          (bytespan-insert-back/u8! wbuf 10)
+          ret)))))
+
+
 (define (%lineedit-update-with-completions ctx)
   (let* ((stem          (linectx-completion-stem ctx))
          (completions   (linectx-completions ctx))
@@ -304,11 +319,13 @@
               (when (and (fx=? 1 completions-n)
                          (not (char=? #\/ (charspan-ref completion-0 (fx1- common-len)))))
                 (linectx-insert/ch! ctx #\space))))
-          ((fx<=? 1 completions-n 150)
+          ((fx>? completions-n 1)
             ; erase prompt and lines (sets flag "redraw prompt and lines"),
             ; then list all possible completions
             (linectx-undraw ctx)
-            (%lineedit-print-completion-table ctx stem completions max-len)))))))
+            (when (or (fx<=? completions-n 150)
+                      (%linectx-confirm-display-completions? ctx completions-n))
+              (%lineedit-print-completion-table ctx stem completions max-len))))))))
 
 
 ;; analyze completions, and return two values:
@@ -862,29 +879,33 @@
 ;; read some bytes, blocking at most for read-timeout-milliseconds
 ;;   (0 = non-blocking, -1 = unlimited timeout)
 ;; from (linectx-stdin ctx) and append them to (linectx-rbuf ctx).
-;; return number of read bytes.
-;; return 0 on timeout
-;; return -1 on eof
+;; return number of read bytes, or 0 on timeout, or -1 on eof
 (define (linectx-read ctx read-timeout-milliseconds)
   (lineedit-flush ctx)
-  (let* ((rbuf (linectx-rbuf ctx))
+  (%linectx-read/some ctx 1024 read-timeout-milliseconds))
+
+
+;; read some bytes, blocking at most for read-timeout-milliseconds
+;;   (0 = non-blocking, -1 = unlimited timeout)
+;; from (linectx-stdin ctx) and append them to (linectx-rbuf ctx).
+;; return number of read bytes, or 0 on timeout, or -1 on eof or I/O error.
+(define (%linectx-read/some ctx max-n read-timeout-milliseconds)
+  (let* ((fd   (linectx-stdin ctx))
+         (rbuf (linectx-rbuf ctx))
          (rlen (bytespan-length rbuf))
-         (max-n 1024)
-         (stdin (linectx-stdin ctx))
-         (got 0)
+         (got  0)
          (eof? #f))
-    ; ensure bytespan-capacity-back is large enough
     (bytespan-reserve-back! rbuf (fx+ rlen max-n))
-    (if (fixnum? stdin)
-      ; stdin is a file descriptor -> call (fd-select) then (fd-read)
-      (when (eq? 'read (fd-select stdin 'read read-timeout-milliseconds))
-        (set! got (fd-read stdin (bytespan-peek-data rbuf)
-                     (bytespan-peek-end rbuf) max-n))
+    (if (fixnum? fd)
+      ; fd is a file descriptor -> call (fd-select) then (fd-read)
+      (when (eq? 'read (fd-select fd 'read read-timeout-milliseconds))
+        (let ((end (bytespan-peek-end rbuf)))
+          (set! got (fd-read fd (bytespan-peek-data rbuf) end (fx+ end max-n))))
         ; (fxzero? got) means end of file
         (set! eof? (fxzero? got)))
-      ; stdin is a binary input port -> call (get-bytevector-n!)
-      (let ((n (get-bytevector-n! stdin (bytespan-peek-data rbuf)
-                                  (bytespan-peek-end rbuf) max-n)))
+      ; fd is a binary input port -> call (get-bytevector-n!)
+      (let ((n (get-bytevector-n! fd (bytespan-peek-data rbuf)
+                                     (bytespan-peek-end rbuf) max-n)))
         (when (fixnum? n)
           (set! got n)
           ; (fxzero? n) means end of file
@@ -895,6 +916,31 @@
     (if eof? -1 got)))
 
 
+;; read a single byte from (linectx-stdin ctx) and return it.
+;; returns #f on eof or I/O error.
+;;
+;; temporarily modifies (linectx-rbuf ctx), restores it before returning.
+(define (%linectx-read-consume/u8 ctx)
+  ; (debugf "> %linectx-read-consume/u8~%")
+  (let ((got (%linectx-read/some ctx 1 -1)))
+    ; (debugf "< %linectx-read-consume/u8 got=~s~%" got)
+    (if (fx<=? got 0)
+      #f
+      (let* ((rbuf (linectx-rbuf ctx))
+             (byte (bytespan-back/u8 rbuf)))
+        (bytespan-erase-back! rbuf got)
+        byte))))
+
+
+;; consume bytes from (linectx-rbuf ctx) and refill it as needed,
+;; until one of #\y #\n or eof is received.
+;; return #t if #\y is received, otherwise return #f
+(define (linectx-read-confirm-y-or-n? ctx)
+  (do ((byte-or-eof (%linectx-read-consume/u8 ctx) (%linectx-read-consume/u8 ctx)))
+    ((memv byte-or-eof '(110 121 #f)) ; #\n #\y or eof
+     (eqv? byte-or-eof 121))))
+
+
 ;; invoked when some function called by lineedit-read raises a condition
 (define (%lineedit-error ctx ex)
   ; remove offending input that triggered the exception
@@ -903,7 +949,8 @@
   (let ((port (current-output-port)))
     (put-string port "\n; Exception in lineedit-read: ")
     (display-condition ex port)
-    (newline port))
+    (newline port)
+    (flush-output-port port))
   (lineedit-inspect ex))
 
 
