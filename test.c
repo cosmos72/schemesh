@@ -69,6 +69,11 @@ static const testcase tests[] = {
      "    (unless (throws? (integer->char* i))\n"
      "      (error 'integer->char* \"should throw\" i))))",
      ""},
+    /* ----------------- containers/sort ------------------------------------ */
+    {"(let ((v (vector 9 8 7 6 5 4 3 2 1 0)))\n"
+     "  (vector-range-sort! v 1 9 fx<?)\n"
+     "  v)",
+     "#(9 1 2 3 4 5 6 7 8 0)"},
     /* ----------------- bytevector/utf8 ------------------------------------ */
     {"(values->list (bytevector-ref/utf8b #vu8() 0 1))", "(#t 0)"}, /* incomplete */
     {"(values->list (bytevector-ref/utf8b #vu8(1) 0 1))", "(\x01 1)"},

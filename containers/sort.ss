@@ -35,6 +35,7 @@
 
 
 (define (%vector-range-sort! v start end is<?)
+  ; (debugf "%vector-range-sort! start=~s end=~s v=~s~%" start end v)
   (let ((n (fx- end start)))
     (cond
       ((fx<=? n 1) (void))
@@ -46,7 +47,7 @@
             (vector-set! v (fx1+ start) e1))))
       (#t
         (let ((partition-i (%vector-partition v start end is<?)))
-          (%vector-range-sort! v start (fx1- partition-i) is<?)
+          (%vector-range-sort! v start partition-i  is<?)
           (%vector-range-sort! v (fx1+ partition-i) end is<?))))))
 
 
@@ -61,6 +62,7 @@
         (%vector-swap v i out-i)
         (set! out-i (fx1+ out-i))))
     (%vector-swap v (fx1- end) out-i)
+    ; (debugf "%vector-partition start=~s end=~s out-i=~s v=~s~%" start end out-i v)
     out-i))
 
 
