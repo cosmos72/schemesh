@@ -319,13 +319,14 @@
                          (not (char=? #\/ (charspan-ref completion-0 (fx1- common-len)))))
                 (linectx-insert/ch! ctx #\space))))
           ((fx>? completions-n 1)
-            ; erase prompt and lines (sets flag "redraw prompt and lines"),
+            ; erase prompt and lines (also sets flag "redraw prompt and lines"),
             ; then list all possible completions
             (linectx-undraw ctx)
             (let ((column-width (fx+ 2 (fx+ max-len (charspan-length stem)))))
-              (when (or (%lineedit-completions-fit-vscreen? ctx completions-n column-width)
-                        (%linectx-confirm-display-completions? ctx completions-n))
-                (%lineedit-print-completion-table ctx stem completions column-width)))))))))
+              (let-values (((column-n row-n) (%lineedit-completions-column-n-row-n ctx completions-n column-width)))
+                (when (or (%lineedit-completions-fit-vscreen? ctx column-n row-n)
+                          (%linectx-confirm-display-completions? ctx completions-n))
+                  (%lineedit-print-completion-table ctx stem completions column-width column-n row-n))))))))))
 
 
 ;; analyze completions, and return two values:
@@ -355,26 +356,29 @@
               (set! max-len completion-i-len))))))))
 
 
-(define (%lineedit-completions-fit-vscreen? ctx completions-n column-width)
+;; return two values: number of screen columns and number screen of rows
+;; needed to list completions
+(define (%lineedit-completions-column-n-row-n ctx completions-n column-width)
   (let* ((screen-width  (linectx-width ctx))
          (screen-height (linectx-height ctx))
          (column-n      (fxmax 1 (fx/ screen-width column-width)))
          (row-n         (fx//round-up completions-n column-n)))
-    (fx<? row-n screen-height)))
+    (values column-n row-n)))
 
 
-(define (%lineedit-print-completion-table ctx stem completions column-width)
+(define (%lineedit-completions-fit-vscreen? ctx column-n row-n)
+  (fx<? row-n (linectx-height ctx)))
+
+
+(define (%lineedit-print-completion-table ctx stem completions column-width column-n row-n)
   ; (debugf "%lineedit-print-completion-table stem=~s, completions=~s~%" stem completions)
   (repeat (linectx-width ctx)
     (lineterm-write/u8 ctx 45)) ; write a whole line full of #\-
   (lineterm-write/u8 ctx 10) ; write a newline
-  (let* ((completions-n (span-length completions))
-         (screen-width (linectx-width ctx))
-         (column-n     (fxmax 1 (fx/ screen-width column-width)))
-         (row-n        (fx//round-up completions-n column-n)))
-    (do ((row-i 0 (fx1+ row-i)))
-        ((fx>=? row-i row-n))
-      (%lineedit-print-completion-row ctx stem completions column-width column-n row-n row-i))))
+  (do ((completions-n (span-length completions))
+       (row-i 0 (fx1+ row-i)))
+      ((fx>=? row-i row-n))
+    (%lineedit-print-completion-row ctx stem completions column-width column-n row-n row-i)))
 
 
 (define (%lineedit-print-completion-row ctx stem completions column-width column-n row-n row-i)
