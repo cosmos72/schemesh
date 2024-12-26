@@ -69,6 +69,7 @@ static const testcase tests[] = {
      "    (unless (throws? (integer->char* i))\n"
      "      (error 'integer->char* \"should throw\" i))))",
      ""},
+    {"(string-range<? \"abcdef\" 1 5 \"_abxyef\" 2 4))\n", "#t"},
     /* ----------------- containers/sort ------------------------------------ */
     {"(let ((v (vector 9 8 7 6 5 4 3 2 1 0)))\n"
      "  (vector-range-sort! v 1 9 fx<?)\n"

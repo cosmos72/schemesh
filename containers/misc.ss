@@ -308,25 +308,30 @@
 
 (define (string-range<? left  left-start  left-end
                         right right-start right-end)
+   ; (debugf "> string-range<? left=~s, left-start=~s, left-end=~s, right=~s, right-start=~s, right-end=~s~%"
+   ;         left left-start left-end right right-start right-end)
    (let ((done? #f)
          (ret   #f))
      (do ((i left-start  (fx1+ i))
           (j right-start (fx1+ j)))
-         (done? ret)
+         (done?)
+       ; (debugf ". string-range<? i=~s, j=~s~%" i j)
        (cond
          ((fx>=? i left-end)
            (set! done? #t))
          ((fx>=? j right-end)
-           (ret  #t)
+           (set! ret   #t)
            (set! done? #t))
          (#t
            (let ((ch1 (string-ref left i))
                  (ch2 (string-ref right j)))
               (cond
                 ((char<? ch1 ch2)
-                  (ret  #t)
+                  (set! ret   #t)
                   (set! done? #t))
                 ((char>? ch1 ch2)
-                  (set! done? #t)))))))))
+                  (set! done? #t)))))))
+     ; (debugf "< string-range<? ret=~s~%" ret)
+     ret))
 
 ) ; close library
