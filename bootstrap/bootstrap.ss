@@ -34,7 +34,7 @@
 (define (debugf format-string . args)
   (let ((out (debugf-port))
         (t (current-time 'time-monotonic)))
-    (format out "; ~a " (+ (time-second t) (* 1e-9 (time-nanosecond t))))
+    (format out "; ~a " (+ (time-second t) (/ (time-nanosecond t) 1e9)))
     (apply format out format-string args)
     (flush-output-port out)))
 
