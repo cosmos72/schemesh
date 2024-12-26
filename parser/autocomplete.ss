@@ -176,9 +176,10 @@
             (let ((cname (string->charspan* name)))
               (charspan-erase-front! cname prefix-len)
               (span-insert-back! completions cname)))))))
-  (debugf "%list-shell-env completions = ~s~%" completions)
+  ; (debugf "%list-shell-env completions = ~s~%" completions)
   (span-range-sort! completions 0 (span-length completions) charspan<?)
-  (debugf "%list-shell-env completions sorted = ~s~%" completions))
+  ; (debugf "%list-shell-env completions sorted = ~s~%" completions)
+  )
 
 
 
