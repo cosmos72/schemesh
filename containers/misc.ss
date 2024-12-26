@@ -13,7 +13,7 @@
     list->bytevector subbytevector
     bytevector-fill-range! bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?
-    string-fill-range! string-range-count= string-range=?
+    string-fill-range! string-range-count= string-range=? string-range<?
     string-find-char string-split string-iterate)
   (import
     (rnrs)
@@ -122,6 +122,11 @@
 ;; return #t if character is a decimal digit 0..9
 (define (decimal-digit? ch)
   (char<=? #\0 ch #\9))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;     some additional vector functions    ;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 ;; copy a portion of vector src into dst.
@@ -299,5 +304,29 @@
 (define (string-range=? left left-start right right-start n)
   (fx=? n (string-range-count= left left-start right right-start n)))
 
+
+
+(define (string-range<? left  left-start  left-end
+                        right right-start right-end)
+   (let ((done? #f)
+         (ret   #f))
+     (do ((i left-start  (fx1+ i))
+          (j right-start (fx1+ j)))
+         (done? ret)
+       (cond
+         ((fx>=? i left-end)
+           (set! done? #t))
+         ((fx>=? j right-end)
+           (ret  #t)
+           (set! done? #t))
+         (#t
+           (let ((ch1 (string-ref left i))
+                 (ch2 (string-ref right j)))
+              (cond
+                ((char<? ch1 ch2)
+                  (ret  #t)
+                  (set! done? #t))
+                ((char>? ch1 ch2)
+                  (set! done? #t)))))))))
 
 ) ; close library

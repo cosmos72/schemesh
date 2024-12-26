@@ -19,6 +19,7 @@
     (only (schemesh containers hashtable) hashtable-iterate)
     (schemesh containers charspan)
     (schemesh containers span)
+    (schemesh containers sort)
     (only (schemesh containers utf8b) utf8b->string)
     (only (schemesh posix misc) directory-u8-list)
     (only (schemesh lineedit vscreen) vscreen-char-before-xy vscreen-cursor-ix vscreen-cursor-iy)
@@ -43,13 +44,10 @@
         (let* ((name (symbol->string sym))
                (len  (string-length name)))
           (when (and (fx>=? len stem-len) (charspan-range/string=? stem 0 name 0 stem-len))
-            (set! l (cons name l))))))
-    ; (debugf "parse-scheme-autocomplete list=~s~%" l)
-    (list-iterate (sort! string<? l)
-      (lambda (name)
-        (let ((csp (string->charspan* name)))
-          (charspan-erase-front! csp stem-len)
-          (span-insert-back! completions csp))))))
+            (let ((csp (string->charspan* name)))
+              (charspan-erase-front! csp stem-len)
+              (span-insert-back! completions csp)))))))
+  (span-range-sort! completions 0 (span-length completions) charspan<?))
 
 
 ;; fill span-of-charspans completions with file names starting with charspan stem
@@ -175,13 +173,10 @@
         (let ((name (car cell)))
           (when (and (fx>=? (string-length name) prefix-len)
                      (string-range=? name 0 prefix 1 prefix-len))
-            (set! l (cons name l))))))
-    (set! l (sort! string<? l))
-    (list-iterate l
-      (lambda (name)
-        (let ((cname (string->charspan* name)))
-          (charspan-erase-front! cname prefix-len)
-          (span-insert-back! completions cname))))))
+            (let ((cname (string->charspan* name)))
+              (charspan-erase-front! cname prefix-len)
+              (span-insert-back! completions cname)))))))
+  (span-range-sort! completions 0 (span-length completions) charspan<?))
 
 
 ;; list builtins, aliases and programs in $PATH that start with prefix,

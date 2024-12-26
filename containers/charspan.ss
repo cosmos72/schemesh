@@ -17,14 +17,14 @@
     charspan-capacity charspan-capacity-front charspan-capacity-back charspan-ref
     charspan-front charspan-back
     charspan-set! charspan-fill! charspan-fill-range! charspan-copy charspan-copy!
-    charspan=? charspan-range-count= charspan-range=? charspan-range/string=?
+    charspan=? charspan<? charspan-range-count= charspan-range=? charspan-range/string=?
     charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back!
     charspan-insert-front! charspan-insert-back!
     charspan-insert-front/cspan! charspan-insert-back/cspan!
     charspan-insert-front/string!
     charspan-erase-front! charspan-erase-back! charspan-iterate
     charspan-find charspan-rfind charspan-find/ch charspan-rfind/ch
-    charspan-peek-data charspan-peek-beg charspan-peek-end )
+    charspan-peek-data charspan-peek-beg charspan-peek-end)
   (import
     (rnrs)
     (rnrs mutable-strings)
@@ -144,6 +144,14 @@
   (assert* 'charspan-copy! (fx<=? 0 dst-start (fx+ dst-start n) (charspan-length dst)))
   (string-copy! (charspan-str src) (fx+ src-start (charspan-beg src))
                 (charspan-str dst) (fx+ dst-start (charspan-beg dst)) n))
+
+
+;; compare two charspans
+(define (charspan<? left right)
+  (string-range<?
+    (charspan-str left)  (charspan-beg left)  (charspan-end left)
+    (charspan-str right) (charspan-beg right) (charspan-end right)))
+
 
 (define (charspan=? left right)
   (let ((n1 (charspan-length left))

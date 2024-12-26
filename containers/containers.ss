@@ -14,7 +14,7 @@
     list->bytevector subbytevector
     bytevector-fill-range! bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?
-    string-fill-range! string-range-count= string-range=?
+    string-fill-range! string-range-count= string-range=? string-range<?
     string-find-char string-split string-iterate
 
     ; utf8b.ss
