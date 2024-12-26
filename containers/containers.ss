@@ -94,6 +94,9 @@
     charlines-erase-at/cline! charlines-insert-at/cline!
     write-charlines
 
+    ; sort.ss
+    span-range-sort! vector-range-sort!
+
     ; utils.ss
     bytevector-ref/utf8b bytevector-set/utf8b! char->utf8b-length
     bytespan-ref/char bytespan-set/char! bytespan-insert-front/char! bytespan-insert-back/char!
@@ -111,6 +114,7 @@
           (schemesh containers chargbuffer)
           (schemesh containers charline)
           (schemesh containers charlines)
+          (schemesh containers sort)
           (schemesh containers utils))
 
 ) ; close library

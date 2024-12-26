@@ -59,7 +59,7 @@
          (stem-len  (charspan-length stem))
          (dollar?   (and (not (fxzero? stem-len)) (char=? #\$ (charspan-ref stem 0))))
          (slash-pos (and (not (fxzero? stem-len)) (not dollar?) (charspan-rfind/ch stem 0 stem-len #\/))))
-    (debugf "parse-shell-autocomplete stem=~s, stem-is-first-word?=~s~%" stem stem-is-first-word?)
+    ; (debugf "parse-shell-autocomplete stem=~s, stem-is-first-word?=~s~%" stem stem-is-first-word?)
     (cond
       (dollar?
         (%list-shell-env lctx (charspan->string stem) completions))

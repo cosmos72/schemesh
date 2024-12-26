@@ -18,6 +18,7 @@
   (include "containers/chargbuffer.ss")
   (include "containers/charline.ss")
   (include "containers/charlines.ss")
+  (include "containers/sort.ss")
   (include "containers/utils.ss")
   (include "containers/containers.ss")
   (include "conversions/conversions.ss")
