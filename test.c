@@ -735,6 +735,7 @@ static const testcase tests[] = {
     /** paren are not special in shell syntax inside double quoted string */
     {"(string->paren \"{\\\"()\\\"}\")", "#<paren _{\"\"}_>"},
     /** parse mismatched paren */
+    {"(string->paren \"'\" 'shell)", "#<paren _'" GRAY("'") "_>"},
     {"(string->paren \"([{)]}\")", "#<paren _([{}" GRAY("]") GRAY(")") "_>"},
     {"(string->paren \"(\\\" a\\\"\")", "#<paren _(\"\"" GRAY(")") "_>"},
     {"(string->paren \"ls #!scheme 1 2 3\" 'shell)", "#<paren __>"},

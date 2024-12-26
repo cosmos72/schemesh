@@ -671,8 +671,8 @@
                  (let-values (((x y) (parsectx-previous-pos ctx 1)))
                    (paren-start-xy-set! inner x y))
                  (when (parsectx-skip-until-char ctx #\')
-                   (paren-fill-end! ctx inner #\')
-                   (paren-inner-append! paren inner)))))
+                   (paren-fill-end! ctx inner #\'))
+                 (paren-inner-append! paren inner))))
 
           ((eof-object? token)
              (set! ret (if start-ch 'err #t)))
