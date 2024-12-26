@@ -20,7 +20,7 @@
     lineedit-key-redraw lineedit-key-tab lineedit-key-toggle-insert
     lineedit-inspect
     lineedit-paren-find/before-cursor lineedit-paren-find/surrounds-cursor
-    lineedit-read lineedit-flush lineedit-finish)
+    lineedit-read lineedit-read-confirm-y-or-n? lineedit-flush lineedit-finish)
   (import
     (rnrs)
     (only (chezscheme) display-condition format fx1+ fx1- fx/ inspect record-writer top-level-value void)
@@ -43,19 +43,23 @@
 ;; find one key sequence in linectx-keytable matching rbuf and execute it
 (define (linectx-keytable-call ctx)
   (assert* 'linectx-keytable-call (linectx? ctx))
-  (let-values (((proc n) (linectx-keytable-find
-                           (linectx-ktable ctx) (linectx-rbuf ctx))))
-    ;; (debugf "linectx-keytable-call consume ~s chars, call ~s~%" n proc)
-    (cond
-      ((procedure? proc) (proc ctx n))
-      ((hashtable? proc) (set! n 0)) ; incomplete sequence, wait for more keystrokes
-      (#t  ; insert received bytes into current line
-        (set! n (lineedit-insert/rbuf! ctx n))))
-    (let ((rbuf (linectx-rbuf ctx)))
-      (bytespan-erase-front! rbuf n)
-      (when (bytespan-empty? rbuf)
-        (bytespan-clear! rbuf))) ; set begin, end to 0
-    n))
+  (let ((rbuf (linectx-rbuf ctx)))
+    (let-values (((proc n) (linectx-keytable-find (linectx-ktable ctx) rbuf)))
+      ;; (debugf "linectx-keytable-call consume ~s bytes, call ~s~%" n proc)
+      (cond
+        ((procedure? proc) (void))     ; proc called below, we update rbuf first
+        ((hashtable? proc) (set! n 0)) ; incomplete sequence, wait for more keystrokes
+        (#t  ; insert received bytes into current line
+          (set! n (lineedit-insert/rbuf! ctx n))))
+      (unless (fxzero? n)
+        (bytespan-erase-front! rbuf n)
+        (when (bytespan-empty? rbuf)
+          (bytespan-clear! rbuf))) ; set begin, end to 0
+      (when (procedure? proc)
+        ; call lineedit-key-... procedure after updating rbuf:
+        ; it may need to read more keystrokes
+        (proc ctx))
+      n)))
 
 
 ;; return three values: position x y of start of word under cursor,
@@ -132,7 +136,7 @@
 ;; stops at any byte < 32, unless it's the first byte (which is skipped).
 ;; Also stops at incomplete utf-8 sequences.
 ;; Moves cursor appropriately to the right, and reflows vscreen as needed.
-;; return number of bytes actually read from bytespan.
+;; return number of bytes actually read from bytespan and inserted.
 (define (linectx-insert/bspan! ctx bsp start n)
   (assert* 'linectx-insert/bspan! (fx<=? 0 start (fx+ start n) (bytespan-length bsp)))
   (let ((beg   start)
@@ -151,90 +155,90 @@
             (set! incomplete-utf8? #t))
           ((and (char? ch) (char>=? ch #\space))
             (linectx-insert/ch! ctx ch)))))
-    (fx- pos beg))) ; return number of bytes actually consumed
+    (fx- pos beg))) ; return number of bytes actually inserted
 
-;; consume up to n bytes from rbuf and insert them into current line.
-;; return number of bytes actually consumed
+;; read up to n bytes from rbuf and insert them into current line.
+;; return number of bytes actually read from rbuf and inserted
 (define (lineedit-insert/rbuf! ctx n)
   (linectx-insert/bspan! ctx (linectx-rbuf ctx) 0 n))
 
 ;; n is the number of bytes at the end of (linectx-rbuf)
 ;; that caused the call to this function.
 ;; If needed, such bytes can be read to choose which action will be performed.
-(define (lineedit-key-nop ctx n)
+(define (lineedit-key-nop ctx)
   (void))
 
 ;; move cursor left by 1, moving to previous line if cursor x is 0
-(define (lineedit-key-left ctx n)
+(define (lineedit-key-left ctx)
   (vscreen-cursor-move/left! (linectx-vscreen ctx) 1))
 
 
 ;; move cursor right by 1, moving to next line if cursor x is at end of current line
-(define (lineedit-key-right ctx n)
+(define (lineedit-key-right ctx)
   (vscreen-cursor-move/right! (linectx-vscreen ctx) 1))
 
 
 ;; move cursor up by 1, moving to previous history entry if cursor y is 0
-(define (lineedit-key-up ctx n)
+(define (lineedit-key-up ctx)
   (if (fx>? (linectx-iy ctx) 0)
     (vscreen-cursor-move/up! (linectx-vscreen ctx) 1)
     (lineedit-navigate-history ctx -1)))
 
 ;; move cursor up by 1, moving to next history entry if cursor y is at end of vscreen
-(define (lineedit-key-down ctx n)
+(define (lineedit-key-down ctx)
   (if (fx<? (fx1+ (linectx-iy ctx)) (linectx-end-y ctx))
     (vscreen-cursor-move/down! (linectx-vscreen ctx) 1)
     (lineedit-navigate-history ctx +1)))
 
 ;; move to start of word under cursor
-(define (lineedit-key-word-left ctx n)
+(define (lineedit-key-word-left ctx)
   (let-values (((x y n) (linectx-find-left/word-begin ctx)))
     (when (and x y n (fx>? n 0))
       (linectx-ixy-set! ctx x y))))
 
 ;; move to end of word under cursor
-(define (lineedit-key-word-right ctx n)
+(define (lineedit-key-word-right ctx)
   (let-values (((x y n) (linectx-find-right/word-end ctx)))
     (when (and x y n (fx>? n 0))
       (linectx-ixy-set! ctx x y))))
 
 ;; move to start of line
-(define (lineedit-key-bol ctx n)
+(define (lineedit-key-bol ctx)
   (linectx-ixy-set! ctx 0 (linectx-iy ctx)))
 
 ;; move to end of line
-(define (lineedit-key-eol ctx n)
+(define (lineedit-key-eol ctx)
   (linectx-ixy-set! ctx (greatest-fixnum) (linectx-iy ctx)))
 
-(define (lineedit-key-break ctx n)
+(define (lineedit-key-break ctx)
   (linectx-clear! ctx)
   (linectx-return-set! ctx #t))
 
 ;; delete one character to the right.
 ;; acts as end-of-file if vscreen is empty.
-(define (lineedit-key-ctrl-d ctx n)
+(define (lineedit-key-ctrl-d ctx)
   (if (vscreen-empty? (linectx-vscreen ctx))
     (linectx-eof-set! ctx #t)
-    (lineedit-key-del-right ctx n)))
+    (lineedit-key-del-right ctx)))
 
-(define (lineedit-key-transpose-char ctx n)
+(define (lineedit-key-transpose-char ctx)
   (void)) ;; TODO: implement
 
 ;; delete one character to the left of cursor.
 ;; moves cursor one character to the left.
-(define (lineedit-key-del-left ctx n)
+(define (lineedit-key-del-left ctx)
   (vscreen-erase-left/n! (linectx-vscreen ctx) 1)
   (void))
 
 ;; delete one character under cursor.
 ;; does not move cursor.
-(define (lineedit-key-del-right ctx n)
+(define (lineedit-key-del-right ctx)
   (vscreen-erase-right/n! (linectx-vscreen ctx) 1)
   (void))
 
 ;; delete from cursor to start of word under cursor.
 ;; moves cursor n characters to the left, where n is the number of deleted characters.
-(define (lineedit-key-del-word-left ctx n)
+(define (lineedit-key-del-word-left ctx)
   (let-values (((x y n) (linectx-find-left/word-begin ctx)))
     (when (and x y n (fx>? n 0))
       (vscreen-erase-left/n! (linectx-vscreen ctx) n)
@@ -242,46 +246,46 @@
 
 ;; delete from cursor to end of word under cursor.
 ;; does not move cursor.
-(define (lineedit-key-del-word-right ctx n)
+(define (lineedit-key-del-word-right ctx)
   (let-values (((x y n) (linectx-find-right/word-end ctx)))
     (when (and x y n (fx>? n 0))
       (vscreen-erase-right/n! (linectx-vscreen ctx) n)
       (void))))
 
-(define (lineedit-key-del-line ctx n)
+(define (lineedit-key-del-line ctx)
   (void)) ;; TODO: implement
 
-(define (lineedit-key-del-line-left ctx n)
+(define (lineedit-key-del-line-left ctx)
   (vscreen-erase-left/line! (linectx-vscreen ctx)))
 
-(define (lineedit-key-del-line-right ctx n)
+(define (lineedit-key-del-line-right ctx)
   (vscreen-erase-right/line! (linectx-vscreen ctx)))
 
-(define (lineedit-key-newline-left ctx n)
+(define (lineedit-key-newline-left ctx)
   (let ((screen (linectx-vscreen ctx)))
     (vscreen-insert-at-xy/newline! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen))
     (vscreen-cursor-move/right! screen 1)))
 
-(define (lineedit-key-newline-right ctx n)
+(define (lineedit-key-newline-right ctx)
   (let ((screen (linectx-vscreen ctx)))
     (vscreen-insert-at-xy/newline! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen))))
 
-(define (lineedit-key-enter ctx n)
+(define (lineedit-key-enter ctx)
   (linectx-paren-update/force! ctx)
   (if (linectx-paren-recursive-ok? ctx)
     (linectx-return-set! ctx #t)
-    (lineedit-key-newline-left ctx n)))
+    (lineedit-key-newline-left ctx)))
 
-(define (lineedit-key-history-next ctx n)
+(define (lineedit-key-history-next ctx)
   (lineedit-navigate-history ctx +1))
 
-(define (lineedit-key-history-prev ctx n)
+(define (lineedit-key-history-prev ctx)
   (lineedit-navigate-history ctx -1))
 
-(define (lineedit-key-redraw ctx n)
+(define (lineedit-key-redraw ctx)
   (linectx-redraw-set! ctx #t))
 
-(define (lineedit-key-tab ctx n)
+(define (lineedit-key-tab ctx)
   (let ((func (linectx-completion-func ctx)))
     (when func
       (func ctx)
@@ -297,7 +301,7 @@
         (bytespan-display-back/fixnum! wbuf completions-n)
         (bytespan-insert-back/bvector! wbuf footer 0 (bytevector-length footer))
         (lineedit-flush ctx)
-        (let ((ok? (linectx-read-confirm-y-or-n? ctx)))
+        (let ((ok? (lineedit-read-confirm-y-or-n? ctx)))
           (bytespan-insert-back/u8! wbuf (if ok? 121 110) 10)
           ok?)))))
 
@@ -404,7 +408,7 @@
       q
       (fx1+ q))))
 
-(define (lineedit-key-toggle-insert ctx n)
+(define (lineedit-key-toggle-insert ctx)
   (lineedit-inspect ctx))
 
 (define (lineedit-inspect obj)
@@ -413,11 +417,11 @@
     (lambda () (inspect obj)) ; body
     tty-setraw!))      ; run after body
 
-(define (lineedit-key-cmd-cd-parent ctx n)
+(define (lineedit-key-cmd-cd-parent ctx)
   ((top-level-value 'sh-cd) "..")
   (linectx-redraw-all ctx))
 
-(define (lineedit-key-cmd-ls ctx n)
+(define (lineedit-key-cmd-ls ctx)
   (lineterm-move-to ctx (linectx-prompt-end-x ctx) (linectx-prompt-end-y ctx))
   (lineterm-write/bvector ctx #vu8(108 115 27 91 74 10) 0 6) ; l s ESC [ J \n
   (lineedit-flush ctx)
@@ -927,26 +931,28 @@
     (if eof? -1 got)))
 
 
-;; read a single byte from (linectx-stdin ctx) and return it.
+;; consume a single byte from (linectx-rbuf ctx) and return it.
 ;; returns #f on eof or I/O error.
 ;;
-;; temporarily modifies (linectx-rbuf ctx), restores it before returning.
+;; if (linectx-rbuf ctx) is empty, refills it first.
+;;
 (define (%linectx-read-consume/u8 ctx)
   ; (debugf "> %linectx-read-consume/u8~%")
-  (let ((got (%linectx-read/some ctx 1 -1)))
-    ; (debugf "< %linectx-read-consume/u8 got=~s~%" got)
-    (if (fx<=? got 0)
+  (let ((rbuf (linectx-rbuf ctx)))
+    (when (bytespan-empty? rbuf)
+      (%linectx-read/some ctx 1 -1))
+    ; (debugf "< %linectx-read-consume/u8 got=~s~%" (bytespan-length rbuf))
+    (if (bytespan-empty? rbuf)
       #f
-      (let* ((rbuf (linectx-rbuf ctx))
-             (byte (bytespan-back/u8 rbuf)))
-        (bytespan-erase-back! rbuf got)
-        byte))))
+      (let ((u8 (bytespan-ref/u8 rbuf 0)))
+        (bytespan-erase-front! rbuf 1)
+        u8))))
 
 
 ;; consume bytes from (linectx-rbuf ctx) and refill it as needed,
 ;; until one of #\y #\n or eof is received.
 ;; return #t if #\y is received, otherwise return #f
-(define (linectx-read-confirm-y-or-n? ctx)
+(define (lineedit-read-confirm-y-or-n? ctx)
   (do ((byte-or-eof (%linectx-read-consume/u8 ctx) (%linectx-read-consume/u8 ctx)))
     ((memv byte-or-eof '(110 121 #f)) ; #\n #\y or eof
      (eqv? byte-or-eof 121))))
