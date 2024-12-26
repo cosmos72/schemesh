@@ -13,7 +13,7 @@
     parse-shell-autocomplete)
   (import
     (rnrs)
-    (only (chezscheme) environment-symbols fx1+ interaction-environment sort! top-level-value)
+    (only (chezscheme) environment-symbols fx1+ fx1- interaction-environment sort! top-level-value)
     (only (schemesh bootstrap) debugf values->list)
     (only (schemesh containers misc) list-iterate list-remove-consecutive-duplicates! string-range=? string-split)
     (only (schemesh containers hashtable) hashtable-iterate)
@@ -33,11 +33,11 @@
 
 ;; fill span-of-charspans completions with top-level scheme symbols whose name starts with charspan stem
 (define (parse-scheme-autocomplete lctx paren completions)
-  (%compute-stem lctx paren %char-is-scheme-identifier?)
+  (%compute-stem lctx paren %char-is-scheme-identifier? %always-false)
   (let* ((stem     (linectx-completion-stem lctx))
          (stem-len (charspan-length stem))
          (l        '()))
-    ; (debugf "parse-shell-autocomplete stem=~s~%" stem)
+    ; (debugf "parse-scheme-autocomplete stem=~s~%" stem)
     (list-iterate (environment-symbols (interaction-environment))
       (lambda (sym)
         (let* ((name (symbol->string sym))
@@ -54,12 +54,15 @@
 
 ;; fill span-of-charspans completions with file names starting with charspan stem
 (define (parse-shell-autocomplete lctx paren completions)
-  (let* ((stem-is-first-word? (%compute-stem lctx paren %char-is-shell-identifier?))
+  (let* ((stem-is-first-word? (%compute-stem lctx paren %char-is-shell-identifier? %char-is-dollar?))
          (stem      (linectx-completion-stem lctx))
          (stem-len  (charspan-length stem))
-         (slash-pos (and (not (fxzero? stem-len)) (charspan-rfind/ch stem 0 stem-len #\/))))
-    ; (debugf "parse-shell-autocomplete stem=~s, stem-is-first-word?=~s~%" stem stem-is-first-word?)
+         (dollar?   (and (not (fxzero? stem-len)) (char=? #\$ (charspan-ref stem 0))))
+         (slash-pos (and (not (fxzero? stem-len)) (not dollar?) (charspan-rfind/ch stem 0 stem-len #\/))))
+    (debugf "parse-shell-autocomplete stem=~s, stem-is-first-word?=~s~%" stem stem-is-first-word?)
     (cond
+      (dollar?
+        (%list-shell-env lctx (charspan->string stem) completions))
       (slash-pos ; list contents of a directory
         (let ((dir    (charspan-range->string stem 0 (fx1+ slash-pos)))
               (prefix (charspan-range->string stem (fx1+ slash-pos) stem-len)))
@@ -74,7 +77,7 @@
 ;; fill charspan (linectx-completion-stem) with the word to autocomplete.
 ;; the correct solution requires parsing parens and finding the longest syntax-aware identifier
 ;; returns #t if stem starts at beginning of paren, otherwise return #f
-(define (%compute-stem lctx paren char-pred)
+(define (%compute-stem lctx paren char-is-ident-pred char-is-start-pred)
   (let* ((stem   (linectx-completion-stem lctx))
          (screen (linectx-vscreen lctx))
          (xmin  (if paren
@@ -97,9 +100,12 @@
         (cond
           ((not (and x1 y1 (char? ch))) ; reached start of paren or vscreen
              #t)
-          ((char-pred ch) ; found an identifier char, insert it and iterate
+          ((char-is-ident-pred ch) ; found an identifier char, insert it and iterate
              (charspan-insert-front! stem ch)
              (%fill-stem x1 y1))
+          ((char-is-start-pred ch) ; found $ or some other char that starts the identifier, insert it and exit
+             (charspan-insert-front! stem ch)
+             #f)
           (#t ; found a non-identifier char, could be a blank
             (let %vscreen-contains-only-blanks-before-xy? ((screen screen) (x x) (y y))
               (let-values (((x1 y1 ch) (%vscreen-char-before-xy screen x y)))
@@ -111,6 +117,12 @@
                   (#t ; iterate
                     (%vscreen-contains-only-blanks-before-xy? screen x1 y1)))))))))))
 
+
+(define (%always-false ch)
+  #f)
+
+(define (%char-is-dollar? ch)
+  (char=? #\$ ch))
 
 (define (%char-is-scheme-identifier? ch)
   (and
@@ -149,12 +161,33 @@
   )
 
 
+;; list environment variables that start with prefix,
+;; and append them to completions
+;; NOTE: prefix always starts with #\$
+(define (%list-shell-env lctx prefix completions)
+  ; (debugf "%list-shell-env prefix = ~s~%" prefix)
+  (let* ((prefix-len (fx1- (string-length prefix)))
+         (htable ((top-level-value 'sh-global-env)))
+         (l      '()))
+    ; (debugf "%list-shell-env htable = ~s~%" htable)
+    (hashtable-iterate htable
+      (lambda (cell)
+        (let ((name (car cell)))
+          (when (and (fx>=? (string-length name) prefix-len)
+                     (string-range=? name 0 prefix 1 prefix-len))
+            (set! l (cons name l))))))
+    (set! l (sort! string<? l))
+    (list-iterate l
+      (lambda (name)
+        (let ((cname (string->charspan* name)))
+          (charspan-erase-front! cname prefix-len)
+          (span-insert-back! completions cname))))))
 
 
 ;; list builtins, aliases and programs in $PATH that start with prefix,
 ;; and append them to completions
 (define (%list-shell-commands lctx prefix completions)
-  ; (debugf "%list-shell-commands stem = ~s~%" stem)
+  ; (debugf "%list-shell-commands prefix = ~s~%" prefix)
   (let ((l (%list-shell-programs prefix
              (%list-shell-builtins prefix
                (%list-shell-aliases prefix '()))))
