@@ -1523,7 +1523,10 @@
 (define (job-display/env-lazy1 env-lazy i port)
   (put-string port (span-ref env-lazy i))
   (put-char port #\=)
-  (put-datum port (span-ref env-lazy (fx1+ i)))
+  (let ((value (span-ref env-lazy (fx1+ i))))
+    (if (string-is-shell-identifier? value)
+      (put-string port value)
+      (put-datum port value)))
   (put-char port #\space))
 
 
