@@ -15,7 +15,8 @@
     (only (schemesh bootstrap)      assert* debugf raise-errorf until)
     (only (schemesh containers misc)   list-iterate list-quoteq! string-contains-only-decimal-digits?)
     (only (schemesh containers hashtable) eq-hashtable)
-    (schemesh shell jobs))
+    (schemesh shell jobs)
+    (schemesh shell redirects))
 
 ;; Return #t if token is a shell job terminator: ; &
 (define (job-terminator? token)

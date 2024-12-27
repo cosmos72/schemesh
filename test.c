@@ -871,6 +871,15 @@ static const testcase tests[] = {
   "(begin"                                                                                         \
   " (($primitive 3 $invoke-library) '(schemesh shell builtins) '(0 1) 'builtins)"                  \
   " (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"
+#define INVOKELIB_SHELL_JOBS_REDIRECTS                                                             \
+  "(begin"                                                                                         \
+  " (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"                          \
+  " (($primitive 3 $invoke-library) '(schemesh shell redirects) '(0 1) 'redirects)"
+#define INVOKELIB_SHELL_JOBS_REDIRECTS_PARSE                                                       \
+  "(begin"                                                                                         \
+  " (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"                          \
+  " (($primitive 3 $invoke-library) '(schemesh shell redirects) '(0 1) 'redirects)"                \
+  " (($primitive 3 $invoke-library) '(schemesh shell parse) '(0 1) 'parse)"
 #define INVOKELIB_SHELL_JOBS_PARSE                                                                 \
   "(begin"                                                                                         \
   " (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"                          \
@@ -903,7 +912,8 @@ static const testcase tests[] = {
     {"(expand '(shell (shell \"foo\") \\x3b; \"bar\"))",
      INVOKELIB_SHELL_JOBS " (sh-list (sh-cmd foo) '; (sh-cmd bar)))"},
     {"(expand '(shell (shell \"ls\" & \"echo\") 2 >& 1))",
-     INVOKELIB_SHELL_JOBS " (sh-redirect! (sh-list (sh-cmd ls) '& (sh-cmd echo)) 2 '>& 1))"},
+     INVOKELIB_SHELL_JOBS_REDIRECTS
+     " (sh-redirect! (sh-list (sh-cmd ls) '& (sh-cmd echo)) 2 '>& 1))"},
     {"(shell \\x3b; (shell \"foo\") \\x3b; \"bar\")",
      "(sh-list '\\x3B; (sh-cmd \"foo\") '\\x3B; (sh-cmd \"bar\"))"},
     {"(shell (shell \"ls\" & \"echo\") 2 >& 1)",
@@ -942,8 +952,8 @@ static const testcase tests[] = {
      "(shell echo (shell-backquote foo && bar))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"echo $(foo&&bar)\")))",
-     INVOKELIB_SHELL_JOBS_PARSE " (sh-cmd* echo (lambda (job) (sh-run/string"
-                                " (sh-and (sh-cmd foo) (sh-cmd bar))))))"},
+     INVOKELIB_SHELL_JOBS_REDIRECTS_PARSE " (sh-cmd* echo (lambda (job) (sh-run/string"
+                                          " (sh-and (sh-cmd foo) (sh-cmd bar))))))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{ls} > log.txt &\")))",
      INVOKELIB_SHELL_JOBS_PARSE " (sh-list* (sh-cmd ls) 1 '> log.txt '&))"},

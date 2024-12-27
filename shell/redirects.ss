@@ -17,21 +17,14 @@
     sh-run/bspan sh-run/string sh-redirect!)
   (import
     (rnrs)
-    (rnrs mutable-pairs)
-    (only (chezscheme) break display-string foreign-procedure format fx1+ fx1-
-                       inspect logand logbit? make-format-condition open-fd-output-port
-                       parameterize procedure-arity-mask record-writer reverse! void)
-    (only (schemesh bootstrap) assert* debugf raise-errorf until while)
-    (schemesh containers)
+    (only (chezscheme) logand procedure-arity-mask)
+    (only (schemesh bootstrap) raise-errorf until)
+    (schemesh containers bytespan)
+    (schemesh containers span)
+    (schemesh containers utf8b)
     (schemesh conversions)
     (schemesh posix fd)
-    (schemesh posix pid)
-    (schemesh posix signal)
-    (schemesh shell fds)
-    (schemesh shell paths)
-    (schemesh shell aliases)
-    (schemesh shell builtins)
-    (schemesh shell jobs)
+    (only (schemesh shell jobs) sh-job sh-start sh-wait)
     (schemesh shell internals))
 
 
