@@ -383,7 +383,7 @@
 (define (sh-cmd* . program-and-args)
   (let-values (((program-and-args assignments redirections)
                   (cmd-parse-assignments-and-redirections program-and-args)))
-    (let ((cmd (apply sh-cmd program-and-args)))
+    (let ((cmd (sh-make-cmd program-and-args)))
       ;; FIXME: apply parsed assignments NAME = VALUE
       (list-iterate redirections
         (lambda (redirection)

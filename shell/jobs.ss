@@ -14,7 +14,7 @@
 
 (library (schemesh shell jobs (0 1))
   (export
-    sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd sh-cmd? sh-multijob?
+    sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd sh-cmd? sh-make-cmd sh-multijob?
     sh-concat sh-env-copy sh-env sh-env! sh-env-unset! sh-globals sh-global-env
     sh-env-exported? sh-env-export! sh-env-set+export! sh-env->argv
     sh-builtin-command sh-builtin-cd sh-builtin-pwd sh-cwd sh-cwd-set! sh-cd sh-pwd
@@ -63,7 +63,8 @@
                     ; receives as argument job followed by options.
                     ; For cmds, its return value is passed to (exit-with-job-status)
     (mutable cwd)               ; charspan: working directory
-    (mutable env)               ; hashtable: overridden env variables, or '()
+    (mutable env)               ; #f or hashtable of overridden env variables: name -> value
+    (mutable env-assignments)   ; #f or span of env variable name followed by #<procedure>
     (mutable parent))           ; parent job, contains default values of env variables
                                 ; and default redirections
   (nongenerative #{job ghm1j1xb9o5tkkhhucwauly2c-1175}))
@@ -106,6 +107,7 @@
     ; current directory
     (string->charspan* ((foreign-procedure "c_get_cwd" () ptr)))
     (make-hashtable string-hash string=?) ; env variables
+    #f                        ; no env var assignments
     #f                        ; no parent
     'sh-global -1 (span #t))) ; skip job-id 0, is used by sh-globals itself
 
@@ -491,11 +493,16 @@
 ;; Create a cmd to later spawn it. Each argument must be a string.
 (define (sh-cmd . program-and-args)
   (assert-string-list? 'sh-cmd program-and-args)
+  (sh-make-cmd program-and-args))
+
+
+(define (sh-make-cmd program-and-args)
   (%make-cmd #f -1 -1 '(new . 0)
     (span) #f '() ; redirections
     job-start/cmd #f  ; start-proc step-proc
     (sh-cwd)      ; job working directory - initially current directory
-    '()           ; overridden environment variables - initially none
+    #f            ; overridden environment variables - initially none
+    #f            ; env var assignments - initially none
     sh-globals    ; parent job - initially the global job
     program-and-args))
 
@@ -524,7 +531,7 @@
 (define (job-direct-env job-or-id)
   (let* ((job (sh-job job-or-id))
          (vars (job-env job)))
-    (unless (hashtable? vars)
+    (unless vars
       (set! vars (make-hashtable string-hash string=?))
       (job-env-set! job vars))
     vars))
@@ -544,7 +551,7 @@
     (list-iterate jlist
       (lambda (job)
         (let ((env (job-env job)))
-          (when (hashtable? env)
+          (when env
             (hashtable-iterate env
               (lambda (cell)
                 (let ((name (car cell))
@@ -569,7 +576,7 @@
   (job-parents-iterate job-or-id
     (lambda (job)
       (let* ((vars (job-env job))
-             (elem (if (hashtable? vars) (hashtable-ref vars name #f) #f)))
+             (elem (if vars (hashtable-ref vars name #f) #f)))
         (when (pair? elem)
           (unless (eq? 'delete (car elem))
             (set! default (cdr elem)))
@@ -607,7 +614,7 @@
     (job-parents-iterate job-or-id
       (lambda (job)
         (let* ((vars (job-env job))
-               (elem (if (hashtable? vars) (hashtable-ref vars name #f) #f)))
+               (elem (if vars (hashtable-ref vars name #f) #f)))
           (when (pair? elem)
             (set! ret (eq? 'export (car elem)))
             #f)))) ; name found, stop iterating
@@ -1493,7 +1500,8 @@
       start-proc    ; executed to start the job
       next-proc     ; executed when a child job changes status
       (sh-cwd)      ; job working directory - initially current directory
-      '()           ; overridden environment variables - initially none
+      #f            ; overridden environment variables - initially none
+      #f            ; env var assignments - initially none
       sh-globals    ; parent job - initially the global job
       kind
       -1            ; no child running yet
