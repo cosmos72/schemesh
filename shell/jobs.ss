@@ -1468,6 +1468,7 @@
 
 
 (define (job-display/multijob job port outer-precedence)
+  (job-display/env-lazy job port)
   (let* ((kind (multijob-kind job))
          (precedence
            (case kind
@@ -1491,10 +1492,13 @@
           (job-display/any child port precedence)
           (display child port))))
     (when (fx<=? precedence outer-precedence)
-      (put-char port #\}))))
+      (put-char port #\})))
+  (job-display/redirects job port))
+
 
 
 (define (job-display/cmd job port)
+  (job-display/env-lazy job port)
   (do ((tail (cmd-arg-list job) (cdr tail))
        (first? #t #f))
       ((null? tail))
@@ -1505,6 +1509,22 @@
         (put-string port arg)
         (put-datum  port arg))))
   (job-display/redirects job port))
+
+
+(define (job-display/env-lazy job port)
+  (let ((env-lazy (job-env-lazy job)))
+    (when env-lazy
+      (do ((i 0 (fx+ i 2))
+           (n (span-length env-lazy)))
+          ((fx>? (fx+ i 2) n))
+        (job-display/env-lazy1 env-lazy i port)))))
+
+
+(define (job-display/env-lazy1 env-lazy i port)
+  (put-string port (span-ref env-lazy i))
+  (put-char port #\=)
+  (put-datum port (span-ref env-lazy (fx1+ i)))
+  (put-char port #\space))
 
 
 (define (job-display/redirects job port)
@@ -1606,13 +1626,32 @@
 
 
 (define (job-write/cmd job port)
-  (put-string port (if (span-empty? (job-redirects job)) "(sh-cmd" "(sh-cmd*"))
+  (put-string port (if (and (span-empty? (job-redirects job)) (not (job-env-lazy job)))
+                     "(sh-cmd"
+                     "(sh-cmd*"))
+  (cmd-write/env-lazy job port)
   (list-iterate (cmd-arg-list job)
     (lambda (arg)
       (put-char port #\space)
       (put-datum port arg)))
   (job-write/redirects job port)
   (put-string port ")"))
+
+
+(define (cmd-write/env-lazy job port)
+  (let ((env-lazy (job-env-lazy job)))
+    (when env-lazy
+      (do ((i 0 (fx+ i 2))
+           (n (span-length env-lazy)))
+          ((fx>? (fx+ i 2) n))
+      (cmd-write/env-lazy1 env-lazy i port)))))
+
+
+(define (cmd-write/env-lazy1 env-lazy i port)
+  (put-char port #\space)
+  (put-datum port (span-ref env-lazy i))
+  (put-string port " '= ")
+  (put-datum port (span-ref env-lazy (fx1+ i))))
 
 
 (define (job-write/redirects job port)
