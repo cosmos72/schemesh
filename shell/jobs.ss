@@ -438,6 +438,8 @@
 ;; Argument which must be one of:
 ;;   'exported: only exported variables are returned.
 ;;   'all : unexported variables are returned too.
+;;
+;; In both cases, job-env-lazy is included too.
 (define (sh-env-copy job-or-id which)
   (assert* 'sh-env-copy (memq which '(exported all)))
   (let* ((jlist (job-parents-revlist job-or-id))
@@ -459,15 +461,24 @@
                       (hashtable-delete! vars name))
                     ((or (eq? 'export flag)
                          (and also-unexported? (eq? 'private flag)))
-                      (hashtable-set! vars name val))))))))))
+                      (hashtable-set! vars name val))))))))
+        (let ((env-lazy (job-env-lazy job)))
+          (when env-lazy
+            (do ((n (span-length env-lazy))
+                 (i 0 (fx+ 2 i)))
+                ((fx>? (fx+ 2 i) n))
+              (hashtable-set! vars (span-ref env-lazy i) (span-ref env-lazy (fx1+ i))))))))
     vars))
 
 
 ;; Extract environment variables from specified job and all its parents,
 ;; and convert them to a vector of bytevector0.
-;; Argument which must be one of:
+;;
+;; Argument "which" must be one of:
 ;; 'exported: only exported variables are returned.
 ;; 'all : unexported variables are returned too.
+;;
+;; In both cases, job-env-lazy is included too.
 (define (sh-env->argv job-or-id which)
   (string-hashtable->argv (sh-env-copy job-or-id which)))
 
@@ -595,7 +606,6 @@
   ; then expand aliases. sanity: (sh-alias-expand) ignores aliases for "builtin"
   (let* ((prog-and-args (sh-alias-expand (cmd-arg-list-expand c)))
          (builtin       (sh-find-builtin prog-and-args)))
-    ; check for builtins
     (if builtin
       ; expanded arg[0] is a builtin, call it.
       (cmd-run/builtin builtin c prog-and-args options)
