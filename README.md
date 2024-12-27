@@ -5,16 +5,20 @@
 ### Some features work, many others are incomplete or missing.
 ### Use at your own risk!
 
-Schemesh is a fusion between a Unix shell and a Lisp REPL - Chez Scheme REPL, to be exact.
+Schemesh is an interactive shell scriptable in Lisp.
 
-It supports interactive line editing and familiar Unix shell syntax for starting commands,
-including redirections, pipelines, job concatenation with `&&` `||`, groups surrounded by `{ }`,
-and managing foreground/background jobs.
+It is primarily intended as a user-friendly Unix login shell, replacing bash, zsh, pdksh etc.
+
+As such, it supports interactive line editing and familiar Unix shell syntax:
+it can start commands, including redirections, pipelines, job concatenation with `&&` `||`,
+groups surrounded by `{ }`, and manage foreground/background jobs.
+
+For more complex tasks, it seamlessly integrates a full Chez Scheme REPL.
 
 Features:
 - [x] REPL with multi-line editing, history and parentheses highlighting
 - [ ] cut-and-paste
-- [ ] context-sensitive autocompletion
+- [x] context-sensitive autocompletion
 - [x] dual syntax parsing, allows mixing Scheme and shell expressions
 - [x] shell commands, including `&&` `||` `{` `}` `[` `]`
 - [x] shell job control
@@ -26,32 +30,32 @@ Features:
 - [ ] shell wildcard expansion
 
 Schemesh can be used as:
-* a replacement for traditional interactive Unix shell, as for example bash/ksh/zsh etc.
+* a replacement for traditional interactive Unix shell, as for example bash/zsh/pdksh etc.
 
-* a Unix shell scriptable in Lisp - Chez Scheme, to be exact.
+* a Unix shell scriptable in Chez Scheme.
 
-* a Lisp REPL with additional syntax and functions to start, redirect and manage Unix processes
+* a Scheme REPL with additional syntax and functions to start, redirect and manage Unix processes
 
-* a Lisp library for starting, redirecting and managing Unix processes
+* a Scheme library for starting, redirecting and managing Unix processes
 
 For scripting and serious programming, schemesh completely replaces the slow, clumsy and error-prone
 scripting language of a traditional shell (yes, the author has opinions) with a full-featured Lisp REPL,
 backed by the fast open-source Chez Scheme compiler that generates highly optimized native code.
 
-This means you can use Lisp control structures, loops and functions such as
+This means you can mix shell command execution with Lisp control structures, loops and functions as for example
 ```lisp
 (if (some_expression arg1 (sub_expression2))
-  (then_run_here)
-  (otherwise_run_here))
+  (sh-run/i {then_run_this_command foo bar $VAR})
+  (sh-run/i {else_run_this_command foo bar $VAR}))
 ```
 instead of typical shell syntax, which is error prone as it's based on string expansion and splitting,
 and geared toward command execution, as for example:
 ```shell
 if some_command "$arg1" "$(sub_command)"
 then
-  then_run_this_command
+  then_run_this_command foo bar $VAR
 else
-  else_run_this_command
+  else_run_this_command foo bar $VAR
 fi
 ```
 
@@ -60,11 +64,11 @@ Switching between shell syntax and Lisp syntax is extremely simple, and can be d
 
 * open brace i.e. `{` temporarily switches to shell syntax until the corresponding closed brace i.e. `}`
 
-* open bracked i.e. `[` starts a new sub-form in current syntax until the corresponding closed bracket i.e. `]`
+* open bracket i.e. `[` starts a new sub-form in current syntax until the corresponding closed bracket i.e. `]`
   If found in Lisp syntax, it is equivalent to `(`
   If found in shell syntax, it is similar to `{` with the difference that commands will be executed in a subshell.
 
-* the directives `#!scheme` `#!chezscheme` and `#!r6rs` temporarily switch to Lisp syntax
+* the directives `#!scheme` `#!chezscheme` and `#!r6rs` temporarily switch to Scheme syntax
   (with the appropriate flavor) until the end of current list or group inside `( )`, `[ ]` or `{ }`.
   If entered at top level, they change the default syntax until another directive is entered at top level.
 
