@@ -15,15 +15,17 @@
 (library (schemesh shell env (0 1))
   (export
     sh-env sh-env! sh-env-unset! sh-env-exported? sh-env-export! sh-env-set+export!
+    sh-env/lazy!
     sh-builtin-cd sh-builtin-pwd sh-cwd-set! sh-cd sh-pwd)
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)               foreign-procedure include void)
+    (only (chezscheme)               foreign-procedure include logand procedure-arity-mask void)
     (only (schemesh bootstrap)       assert* raise-errorf)
     (only (schemesh posix fd)        c-errno->string fd-write)
     (schemesh containers bytespan)
     (schemesh containers charspan)
+    (only (schemesh containers span) span span-insert-back!)
     (only (schemesh containers misc) assert-string-list?)
     (schemesh containers utf8b)
     (schemesh containers utils)
@@ -37,7 +39,7 @@
 (include "shell/internals.ss")
 
 
-;; Return string environment variable named "name" of specified job.
+;; Return string value of environment variable named "name" for specified job.
 ;; If name is not found in job's direct environment, also search in environment
 ;; inherited from parent jobs.
 ;; If name is not found, return default if specified - otherwise return ""
@@ -47,7 +49,7 @@
     ((job-or-id name default) (sh-env* job-or-id name default))))
 
 
-;; Return string environment variable named "name" of specified job.
+;; Return string value of environment variable named "name" for specified job.
 ;; If name is not found in job's direct environment, also search in environment
 ;; inherited from parent jobs.
 ;; If name is not found, return default
@@ -63,6 +65,7 @@
   default)
 
 
+;; Set an environment variable for specified job.
 (define (sh-env! job-or-id name val)
   (assert* 'sh-env! (string? val))
   (let* ((vars (job-direct-env job-or-id))
@@ -72,7 +75,8 @@
       (hashtable-set! vars name (cons 'private val)))))
 
 
-;; Note: (sh-env-unset!) inserts an entry that means "deleted",
+;; Unset an environment variable for specified job.
+;; Implementation note: inserts an entry that means "deleted",
 ;; in order to override any parent job's environment variable
 ;; with the same name.
 (define (sh-env-unset! job-or-id name)
@@ -109,6 +113,28 @@
   (let* ((vars (job-direct-env job-or-id))
          (export (if exported? 'export 'private)))
     (hashtable-set! vars name (cons export val))))
+
+
+;; Set a lazy environment variable for specified job.
+;; Note: lazy environment variables are copied into job's direct environment
+;; only upon starting the job.
+(define (sh-env/lazy! job-or-id name value-or-procedure)
+  (let ((j (sh-job job-or-id)))
+    (assert* 'sh-env/lazy! (string? name))
+    (unless (string? value-or-procedure)
+      (unless (procedure? value-or-procedure)
+        (raise-errorf 'sh-env/lazy!
+          "invalid environment variable value, must be a string or procedure: ~s"
+          value-or-procedure))
+      (when (zero? (logand 3 (procedure-arity-mask value-or-procedure)))
+        (raise-errorf 'sh-env/lazy!
+          "invalid environment variable procedure, must accept 0 or 1 arguments: ~s"
+          value-or-procedure)))
+    (let ((vars (job-env-lazy j)))
+      (unless vars
+        (set! vars (span))
+        (job-env-lazy-set! j vars))
+      (span-insert-back! vars name value-or-procedure))))
 
 
 ;; Return direct environment variables of job, creating them if needed.
