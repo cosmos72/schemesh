@@ -25,7 +25,7 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) break display-string foreign-procedure format fx1+ fx1-
+    (only (chezscheme) break display-string foreign-procedure format fx1+ fx1- include
                        inspect logand logbit? make-format-condition open-fd-output-port
                        parameterize procedure-arity-mask record-writer reverse! void)
     (only (schemesh bootstrap) assert* debugf raise-errorf until while)
@@ -37,37 +37,14 @@
     (schemesh shell fds)
     (schemesh shell paths)
     (schemesh shell aliases)
-    (schemesh shell builtins)
-    (schemesh shell internals))
+    (schemesh shell builtins))
 
 
-;; Define the record type "job"
-(define-record-type
-  (job %make-job sh-job?)
-  (fields
-    (mutable id job-id %job-id-set!) ; fixnum: job id in (sh-globals), #f if not set
-    (mutable pid)               ; fixnum: process id,       -1 if unknown
-    (mutable pgid)              ; fixnum: process group id, -1 if unknown
-     ; cons: last known status, or (void) if job exited successfully
-    (mutable last-status job-last-status %job-last-status-set!)
-    ; span of quadruplets (fd mode to-fd-or-path-or-closure bytevector0)
-    ; to open and redirect between fork() and exec()
-    (mutable redirects)
-    (mutable fds-to-remap) ; for builtins or multijobs, #f or hashmap job-logical-fd -> actual-fd-to-use
-    (mutable fds-to-close) ; for builtins or multijobs, '() or list of fds to close at job exit
-    start-proc      ; #f or procedure to run in main process.
-                    ; receives as argument job followed by options.
-    step-proc       ; #f or procedure.
-                    ; For multijobs, will be called when a child job changes status.
-                    ; For cmds, will be called in fork()ed child process and
-                    ; receives as argument job followed by options.
-                    ; For cmds, its return value is passed to (exit-with-job-status)
-    (mutable cwd)               ; charspan: working directory
-    (mutable env)               ; #f or hashtable of overridden env variables: name -> value
-    (mutable env-assignments)   ; #f or span of env variable name followed by #<procedure>
-    (mutable parent))           ; parent job, contains default values of env variables
-                                ; and default redirections
-  (nongenerative #{job ghm1j1xb9o5tkkhhucwauly2c-1175}))
+;; define the record type "job" and its accessors
+(include "shell/internals.ss")
+
+(define (sh-job? obj)
+  (%job? obj))
 
 
 ;; return the job-id of a job, or #f if not set

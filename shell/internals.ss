@@ -6,13 +6,35 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh shell internals (0 1))
-  (export
-    %sh-redirect/fd-symbol->char  %sh-redirect/file-symbol->char
-    %sh-redirect/fd-char->symbol  %sh-redirect/file-char->symbol)
-  (import
-    (rnrs)
-    (only (schemesh bootstrap) raise-errorf))
+;; this file should only be included inside a (library ...) definition
+
+
+(define-record-type
+  (job %make-job %job?)
+  (fields
+    (mutable id job-id %job-id-set!) ; fixnum: job id in (sh-globals), #f if not set
+    (mutable pid)               ; fixnum: process id,       -1 if unknown
+    (mutable pgid)              ; fixnum: process group id, -1 if unknown
+     ; cons: last known status, or (void) if job exited successfully
+    (mutable last-status job-last-status %job-last-status-set!)
+    ; span of quadruplets (fd mode to-fd-or-path-or-closure bytevector0)
+    ; to open and redirect between fork() and exec()
+    (mutable redirects)
+    (mutable fds-to-remap) ; for builtins or multijobs, #f or hashmap job-logical-fd -> actual-fd-to-use
+    (mutable fds-to-close) ; for builtins or multijobs, '() or list of fds to close at job exit
+    start-proc      ; #f or procedure to run in main process.
+                    ; receives as argument job followed by options.
+    step-proc       ; #f or procedure.
+                    ; For multijobs, will be called when a child job changes status.
+                    ; For cmds, will be called in fork()ed child process and
+                    ; receives as argument job followed by options.
+                    ; For cmds, its return value is passed to (exit-with-job-status)
+    (mutable cwd)        ; charspan: working directory
+    (mutable env)        ; #f or hashtable of overridden env variables: name -> value
+    (mutable env-lazy)   ; #f or span of env variable name each followed by string or procedure
+    (mutable parent))    ; parent job, contains default values of env variables
+                         ; and default redirections
+  (nongenerative #{job ghm1j1xb9o5tkkhhucwauly2c-1175}))
 
 
 (define (%sh-redirect/fd-symbol->char caller symbol)
@@ -49,7 +71,3 @@
     ((#x00bb) '>>)
     (else
       (raise-errorf caller "invalid redirect to file character, must be < <> > or >>: ~a" ch))))
-
-
-
-) ; close library
