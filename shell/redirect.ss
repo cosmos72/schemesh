@@ -12,7 +12,7 @@
 ;; Convention: (sh) and (sh-...) are functions
 ;             (shell) and (shell-...) are macros
 
-(library (schemesh shell redirects (0 1))
+(library (schemesh shell redirect (0 1))
   (export
     sh-run/bspan sh-run/string sh-redirect!)
   (import

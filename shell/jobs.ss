@@ -14,10 +14,9 @@
 
 (library (schemesh shell jobs (0 1))
   (export
-    sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd sh-cmd? sh-make-cmd sh-multijob?
-    sh-concat sh-env-copy sh-env sh-env! sh-env-unset! sh-globals sh-global-env
-    sh-env-exported? sh-env-export! sh-env-set+export! sh-env->argv
-    sh-builtin-command sh-builtin-cd sh-builtin-pwd sh-cwd sh-cwd-set! sh-cd sh-pwd
+    sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd? sh-multijob?
+    sh-concat sh-env-copy sh-env->argv sh-globals sh-global-env
+    sh-builtin-command sh-cmd sh-make-cmd sh-cwd
     sh-consume-sigchld sh-multijob-child-length sh-multijob-child-ref
     sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/ok?
     sh-and sh-or sh-not sh-list sh-subshell
@@ -257,6 +256,24 @@
         new-status))))
 
 
+;; Create a cmd to later spawn it. Each argument must be a string.
+(define (sh-cmd . program-and-args)
+  (assert-string-list? 'sh-cmd program-and-args)
+  (sh-make-cmd program-and-args))
+
+
+(define (sh-make-cmd program-and-args)
+  (%make-cmd #f -1 -1 '(new . 0)
+    (span) #f '() ; redirections
+    job-start/cmd #f  ; start-proc step-proc
+    (sh-cwd)      ; job working directory - initially current directory
+    #f            ; overridden environment variables - initially none
+    #f            ; env var assignments - initially none
+    sh-globals    ; parent job - initially the global job
+    program-and-args))
+
+
+
 ;; Return number of children in specified multijob.
 ;; Return 0 if mj is not a multijob.
 (define (sh-multijob-child-length mj)
@@ -374,77 +391,6 @@
     (#t (raise-errorf 'sh-job "not a job-id: ~s" job-or-id))))
 
 
-;; return charspan containing current directory,
-;; or charspan containing current directory of specified job-or-id.
-(define sh-cwd
-  (case-lambda
-    (()          (job-cwd sh-globals))
-    ((job-or-id) (job-cwd (sh-job job-or-id)))))
-
-
-;; set the current directory of specified job or job-id to specified path.
-;; path must be a string or charspan.
-;;
-;; if job-or-id resolves to sh-globals, it is equivalent to (sh-cd path).
-;;
-;; in all other cases, path is taken as-is, i.e. it is not normalized
-;; and is not validated against filesystem contents.
-(define (sh-cwd-set! job-or-id path)
-  (let ((job (sh-job job-or-id)))
-    (if (eq? job sh-globals)
-      (sh-cd path)
-      (job-cwd-set! job (if (charspan? path) path (string->charspan* path))))))
-
-
-
-;; change current directory to specified path.
-;; path must be a a string or charspan.
-(define sh-cd
-  (case-lambda
-    (()     (sh-cd* (sh-env sh-globals "HOME")))
-    ((path) (sh-cd* path))
-    ((path . extra-args) (raise-errorf 'cd "too many arguments"))))
-
-;; internal function called by (sh-cd)
-(define sh-cd*
-  (let ((c_chdir (foreign-procedure "c_chdir" (ptr) int)))
-    (lambda (path)
-      (let* ((suffix (text->sh-path path))
-             (dir (if (sh-path-absolute? suffix)
-                      (sh-path->subpath suffix)
-                      (sh-path-append (sh-cwd) suffix)))
-             (err (c_chdir (string->utf8b/0 (charspan->string dir)))))
-        (if (= err 0)
-          (job-cwd-set! sh-globals dir)
-          (raise-errorf 'cd "~a: ~a" path (c-errno->string err)))))))
-
-
-(define sh-pwd
-  (case-lambda
-    (()   (sh-pwd* (sh-fd-stdout)))
-    ((fd) (sh-pwd* fd))))
-
-
-(define (sh-pwd* fd)
-  (let ((wbuf (make-bytespan 0)))
-    (bytespan-insert-back/cspan! wbuf (sh-cwd))
-    (bytespan-insert-back/u8! wbuf 10) ; newline
-     ; TODO: loop on short writes
-    (fd-write fd (bytespan-peek-data wbuf)
-              (bytespan-peek-beg wbuf) (bytespan-peek-end wbuf))
-    (void)))
-
-;; the "cd" builtin
-(define (sh-builtin-cd job prog-and-args options)
-  (assert-string-list? 'sh-builtin-cd prog-and-args)
-  (apply sh-cd (cdr prog-and-args)))
-
-
-;; the "pwd" builtin
-(define (sh-builtin-pwd job prog-and-args options)
-  (assert-string-list? 'sh-builtin-pwd prog-and-args)
-  (sh-pwd))
-
 ;; return currently running jobs
 ;; as a span of pairs (job-id . job) sorted by job-id
 (define (sh-jobs)
@@ -491,23 +437,6 @@
   (reverse! (job-parents-revlist job-or-id)))
 
 
-;; Create a cmd to later spawn it. Each argument must be a string.
-(define (sh-cmd . program-and-args)
-  (assert-string-list? 'sh-cmd program-and-args)
-  (sh-make-cmd program-and-args))
-
-
-(define (sh-make-cmd program-and-args)
-  (%make-cmd #f -1 -1 '(new . 0)
-    (span) #f '() ; redirections
-    job-start/cmd #f  ; start-proc step-proc
-    (sh-cwd)      ; job working directory - initially current directory
-    #f            ; overridden environment variables - initially none
-    #f            ; env var assignments - initially none
-    sh-globals    ; parent job - initially the global job
-    program-and-args))
-
-
 ;; concatenate strings and/or closures (lambda (job) ...) that return strings
 (define (sh-concat job . args)
   (let ((strings '()))
@@ -524,18 +453,6 @@
 ;; return global environment variables
 (define (sh-global-env)
   (job-env sh-globals))
-
-
-;; Return direct environment variables of job, creating them if needed.
-;; Returned hashtable does not include default variables,
-;; i.e. the ones inherited from parent jobs.
-(define (job-direct-env job-or-id)
-  (let* ((job (sh-job job-or-id))
-         (vars (job-env job)))
-    (unless vars
-      (set! vars (make-hashtable string-hash string=?))
-      (job-env-set! job vars))
-    vars))
 
 
 ;; Return a copy of job's environment variables,
@@ -568,90 +485,6 @@
     vars))
 
 
-;; Return string environment variable named "name" of specified job.
-;; If name is not found in job's direct environment, also search in environment
-;; inherited from parent jobs.
-;; If name is not found, return default
-
-(define (sh-env* job-or-id name default)
-  (job-parents-iterate job-or-id
-    (lambda (job)
-      (let* ((vars (job-env job))
-             (elem (if vars (hashtable-ref vars name #f) #f)))
-        (when (pair? elem)
-          (unless (eq? 'delete (car elem))
-            (set! default (cdr elem)))
-          #f)))) ; name found, stop iterating
-  default)
-
-
-;; Return string environment variable named "name" of specified job.
-;; If name is not found in job's direct environment, also search in environment
-;; inherited from parent jobs.
-;; If name is not found, return default if specified - otherwise return ""
-(define sh-env
-  (case-lambda
-    ((job-or-id name)         (sh-env* job-or-id name ""))
-    ((job-or-id name default) (sh-env* job-or-id name default))))
-
-(define (sh-env! job-or-id name val)
-  (assert* 'sh-env! (string? val))
-  (let* ((vars (job-direct-env job-or-id))
-         (elem (hashtable-ref vars name #f)))
-    (if (pair? elem)
-      (set-cdr! elem val)
-      (hashtable-set! vars name (cons 'private val)))))
-
-
-;; Note: (sh-env-unset!) inserts an entry that means "deleted",
-;; in order to override any parent job's environment variable
-;; with the same name.
-(define (sh-env-unset! job-or-id name)
-  (let ((vars (job-direct-env job-or-id)))
-    (hashtable-set! vars name (cons 'delete ""))))
-
-(define (sh-env-exported? job-or-id name)
-  (let ((ret #f))
-    (job-parents-iterate job-or-id
-      (lambda (job)
-        (let* ((vars (job-env job))
-               (elem (if vars (hashtable-ref vars name #f) #f)))
-          (when (pair? elem)
-            (set! ret (eq? 'export (car elem)))
-            #f)))) ; name found, stop iterating
-    ret))
-
-(define (sh-env-export! job-or-id name exported?)
-  (assert* 'sh-env-export! (boolean? exported?))
-  (let* ((job (sh-job job-or-id))
-         ; val may be in a parent environment
-         (val (sh-env job name))
-         (export (if exported? 'export 'private)))
-    ; (job-direct-env job) creates job environment if not yet present
-    (hashtable-set! (job-direct-env job) name (cons export val))))
-
-;; combined sh-env! and sh-env-export!
-(define (sh-env-set+export! job-or-id name val exported?)
-  (assert* 'sh-env-set+export! (string? val))
-  (assert* 'sh-env-set+export! (boolean? exported?))
-  (let* ((vars (job-direct-env job-or-id))
-         (export (if exported? 'export 'private)))
-    (hashtable-set! vars name (cons export val))))
-
-;; Repeatedly call C function c_environ_ref() and store returned (key . value)
-;; environment variables into (sh-global-env).
-
-;; This function is usually only called once, during initialization of Scheme library
-; (schemesh shell) below.
-(define c-environ->sh-global-env
-  (let ((c-environ-ref (foreign-procedure "c_environ_ref" (uptr) ptr)))
-    (lambda ()
-      (do ((i 1 (fx+ i 1))
-           (entry (c-environ-ref 0) (c-environ-ref i)))
-          ((not (pair? entry)))
-        (sh-env-set+export! sh-globals (car entry) (cdr entry) #t)))))
-
-
 ;; Extract environment variables from specified job and all its parents,
 ;; and convert them to a vector of bytevector0.
 ;; Argument which must be one of:
@@ -659,6 +492,14 @@
 ;; 'all : unexported variables are returned too.
 (define (sh-env->argv job-or-id which)
   (string-hashtable->argv (sh-env-copy job-or-id which)))
+
+
+;; return charspan containing current directory,
+;; or charspan containing current directory of specified job-or-id.
+(define sh-cwd
+  (case-lambda
+    (()          (job-cwd sh-globals))
+    ((job-or-id) (job-cwd (sh-job job-or-id)))))
 
 
 (define (sh-consume-sigchld)
@@ -1792,16 +1633,12 @@
       (sh-job-display* obj port))))
 
 (begin
-  (c-environ->sh-global-env)
-
   (sh-fd-allocate) ; mark highest fd as reserved: used by tty_fd
 
   (let ((t (sh-builtins)))
     ; additional builtins
-    (hashtable-set! t "cd"      sh-builtin-cd)
     (hashtable-set! t "command" sh-builtin-command)
-    (hashtable-set! t "jobs"    sh-builtin-jobs)
-    (hashtable-set! t "pwd"     sh-builtin-pwd)))
+    (hashtable-set! t "jobs"    sh-builtin-jobs)))
 
 
 ) ; close library

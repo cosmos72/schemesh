@@ -1,0 +1,246 @@
+;;; Copyright (C) 2023-2024 by Massimiliano Ghilardi
+;;;
+;;; This program is free software; you can redistribute it and/or modify
+;;; it under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation; either version 2 of the License, or
+;;; (at your option) any later version.
+
+
+;; Define the record types "job" "cmd" "multijob" and functions operating on them.
+;; Define the functions (sh-env...) and (sh-fd...)
+;
+;; Convention: (sh) and (sh-...) are functions
+;             (shell) and (shell-...) are macros
+
+(library (schemesh shell env (0 1))
+  (export
+    sh-env sh-env! sh-env-unset! sh-env-exported? sh-env-export! sh-env-set+export!
+    sh-builtin-cd sh-builtin-pwd sh-cwd-set! sh-cd sh-pwd)
+  (import
+    (rnrs)
+    (rnrs mutable-pairs)
+    (only (chezscheme)               foreign-procedure void)
+    (only (schemesh bootstrap)       assert* raise-errorf)
+    (only (schemesh posix fd)        c-errno->string fd-write)
+    (schemesh containers bytespan)
+    (schemesh containers charspan)
+    (only (schemesh containers misc) assert-string-list?)
+    (schemesh containers utf8b)
+    (schemesh containers utils)
+    (only (schemesh shell fds)       sh-fd-stdout)
+    (only (schemesh shell builtins)  sh-builtins)
+    (schemesh shell paths)
+    (schemesh shell jobs))
+
+
+
+;; Copy-pasted from jobs.ss: define the record type "job"
+(define-record-type
+  (job %make-job %job?)
+  (fields
+    (mutable id job-id %job-id-set!) ; fixnum: job id in (sh-globals), #f if not set
+    (mutable pid)               ; fixnum: process id,       -1 if unknown
+    (mutable pgid)              ; fixnum: process group id, -1 if unknown
+     ; cons: last known status, or (void) if job exited successfully
+    (mutable last-status job-last-status %job-last-status-set!)
+    ; span of quadruplets (fd mode to-fd-or-path-or-closure bytevector0)
+    ; to open and redirect between fork() and exec()
+    (mutable redirects)
+    (mutable fds-to-remap) ; for builtins or multijobs, #f or hashmap job-logical-fd -> actual-fd-to-use
+    (mutable fds-to-close) ; for builtins or multijobs, '() or list of fds to close at job exit
+    start-proc      ; #f or procedure to run in main process.
+                    ; receives as argument job followed by options.
+    step-proc       ; #f or procedure.
+                    ; For multijobs, will be called when a child job changes status.
+                    ; For cmds, will be called in fork()ed child process and
+                    ; receives as argument job followed by options.
+                    ; For cmds, its return value is passed to (exit-with-job-status)
+    (mutable cwd)               ; charspan: working directory
+    (mutable env)               ; #f or hashtable of overridden env variables: name -> value
+    (mutable env-assignments)   ; #f or span of env variable name followed by #<procedure>
+    (mutable parent))           ; parent job, contains default values of env variables
+                                ; and default redirections
+  (nongenerative #{job ghm1j1xb9o5tkkhhucwauly2c-1175}))
+
+
+;; Return string environment variable named "name" of specified job.
+;; If name is not found in job's direct environment, also search in environment
+;; inherited from parent jobs.
+;; If name is not found, return default if specified - otherwise return ""
+(define sh-env
+  (case-lambda
+    ((job-or-id name)         (sh-env* job-or-id name ""))
+    ((job-or-id name default) (sh-env* job-or-id name default))))
+
+
+;; Return string environment variable named "name" of specified job.
+;; If name is not found in job's direct environment, also search in environment
+;; inherited from parent jobs.
+;; If name is not found, return default
+(define (sh-env* job-or-id name default)
+  (job-parents-iterate job-or-id
+    (lambda (job)
+      (let* ((vars (job-env job))
+             (elem (if vars (hashtable-ref vars name #f) #f)))
+        (when (pair? elem)
+          (unless (eq? 'delete (car elem))
+            (set! default (cdr elem)))
+          #f)))) ; name found, stop iterating
+  default)
+
+
+(define (sh-env! job-or-id name val)
+  (assert* 'sh-env! (string? val))
+  (let* ((vars (job-direct-env job-or-id))
+         (elem (hashtable-ref vars name #f)))
+    (if (pair? elem)
+      (set-cdr! elem val)
+      (hashtable-set! vars name (cons 'private val)))))
+
+
+;; Note: (sh-env-unset!) inserts an entry that means "deleted",
+;; in order to override any parent job's environment variable
+;; with the same name.
+(define (sh-env-unset! job-or-id name)
+  (let ((vars (job-direct-env job-or-id)))
+    (hashtable-set! vars name (cons 'delete ""))))
+
+
+(define (sh-env-exported? job-or-id name)
+  (let ((ret #f))
+    (job-parents-iterate job-or-id
+      (lambda (job)
+        (let* ((vars (job-env job))
+               (elem (if vars (hashtable-ref vars name #f) #f)))
+          (when (pair? elem)
+            (set! ret (eq? 'export (car elem)))
+            #f)))) ; name found, stop iterating
+    ret))
+
+
+(define (sh-env-export! job-or-id name exported?)
+  (assert* 'sh-env-export! (boolean? exported?))
+  (let* ((job (sh-job job-or-id))
+         ; val may be in a parent environment
+         (val (sh-env job name))
+         (export (if exported? 'export 'private)))
+    ; (job-direct-env job) creates job environment if not yet present
+    (hashtable-set! (job-direct-env job) name (cons export val))))
+
+
+;; combined sh-env! and sh-env-export!
+(define (sh-env-set+export! job-or-id name val exported?)
+  (assert* 'sh-env-set+export! (string? val))
+  (assert* 'sh-env-set+export! (boolean? exported?))
+  (let* ((vars (job-direct-env job-or-id))
+         (export (if exported? 'export 'private)))
+    (hashtable-set! vars name (cons export val))))
+
+
+;; Return direct environment variables of job, creating them if needed.
+;; Returned hashtable does not include default variables,
+;; i.e. the ones inherited from parent jobs.
+(define (job-direct-env job-or-id)
+  (let* ((job (sh-job job-or-id))
+         (vars (job-env job)))
+    (unless vars
+      (set! vars (make-hashtable string-hash string=?))
+      (job-env-set! job vars))
+    vars))
+
+
+;; Copy-pasted from shell/jobs.ss:
+;; call (proc job) on given job and each of its
+;; parents. Stops iterating if (proc) returns #f.
+(define (job-parents-iterate job-or-id proc)
+  (do ((parent (sh-job job-or-id) (job-parent parent)))
+      ((or (not (sh-job? parent)) (not (proc parent))))))
+
+
+;; Repeatedly call C function c_environ_ref() and store returned (key . value)
+;; environment variables into (sh-global-env).
+;;
+;; This function is usually only called once, during initialization of Scheme library
+;; (schemesh shell) below.
+(define c-environ->sh-global-env
+  (let ((c-environ-ref (foreign-procedure "c_environ_ref" (uptr) ptr)))
+    (lambda ()
+      (do ((i 1 (fx+ i 1))
+           (entry (c-environ-ref 0) (c-environ-ref i)))
+          ((not (pair? entry)))
+        (sh-env-set+export! sh-globals (car entry) (cdr entry) #t)))))
+
+
+;; set the current directory of specified job or job-id to specified path.
+;; path must be a string or charspan.
+;;
+;; if job-or-id resolves to sh-globals, it is equivalent to (sh-cd path).
+;;
+;; in all other cases, path is taken as-is, i.e. it is not normalized
+;; and is not validated against filesystem contents.
+(define (sh-cwd-set! job-or-id path)
+  (let ((job (sh-job job-or-id)))
+    (if (eq? job sh-globals)
+      (sh-cd path)
+      (job-cwd-set! job (if (charspan? path) path (string->charspan* path))))))
+
+
+
+;; change current directory to specified path.
+;; path must be a a string or charspan.
+(define sh-cd
+  (case-lambda
+    (()     (sh-cd* (sh-env sh-globals "HOME")))
+    ((path) (sh-cd* path))
+    ((path . extra-args) (raise-errorf 'cd "too many arguments"))))
+
+;; internal function called by (sh-cd)
+(define sh-cd*
+  (let ((c_chdir (foreign-procedure "c_chdir" (ptr) int)))
+    (lambda (path)
+      (let* ((suffix (text->sh-path path))
+             (dir (if (sh-path-absolute? suffix)
+                      (sh-path->subpath suffix)
+                      (sh-path-append (sh-cwd) suffix)))
+             (err (c_chdir (string->utf8b/0 (charspan->string dir)))))
+        (if (= err 0)
+          (job-cwd-set! sh-globals dir)
+          (raise-errorf 'cd "~a: ~a" path (c-errno->string err)))))))
+
+
+(define sh-pwd
+  (case-lambda
+    (()   (sh-pwd* (sh-fd-stdout)))
+    ((fd) (sh-pwd* fd))))
+
+
+(define (sh-pwd* fd)
+  (let ((wbuf (make-bytespan 0)))
+    (bytespan-insert-back/cspan! wbuf (sh-cwd))
+    (bytespan-insert-back/u8! wbuf 10) ; newline
+     ; TODO: loop on short writes
+    (fd-write fd (bytespan-peek-data wbuf)
+              (bytespan-peek-beg wbuf) (bytespan-peek-end wbuf))
+    (void)))
+
+;; the "cd" builtin
+(define (sh-builtin-cd job prog-and-args options)
+  (assert-string-list? 'sh-builtin-cd prog-and-args)
+  (apply sh-cd (cdr prog-and-args)))
+
+
+;; the "pwd" builtin
+(define (sh-builtin-pwd job prog-and-args options)
+  (assert-string-list? 'sh-builtin-pwd prog-and-args)
+  (sh-pwd))
+
+
+(begin
+  (c-environ->sh-global-env)
+
+  (let ((t (sh-builtins)))
+    ; additional builtins
+    (hashtable-set! t "cd"      sh-builtin-cd)
+    (hashtable-set! t "pwd"     sh-builtin-pwd)))
+
+) ; close library

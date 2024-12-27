@@ -12,7 +12,8 @@
     (rnrs)
     (schemesh bootstrap)
     (schemesh shell jobs)
-    (schemesh shell redirects)
+    (schemesh shell redirect)
+    (schemesh shell env)
     (schemesh shell parse))
 
 ;; wraps shell DSL
