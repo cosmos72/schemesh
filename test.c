@@ -823,6 +823,7 @@ static const testcase tests[] = {
      "{{sleep 1 || ls} && cd ..}\n"
      "(sh-and (sh-or (sh-cmd \"sleep\" \"1\") (sh-cmd \"ls\")) (sh-cmd \"cd\" \"..\"))"},
     {"(sh-cmd  \"echo\"  \"foo\" \" bar \")", "(sh-cmd \"echo\" \"foo\" \" bar \")"},
+    {"(sh-cmd* \"ls\" (lambda (j) \".\"))", "(sh-cmd \"ls\" #<procedure>)"},
     {"(sh-run/i (sh-cmd \"true\"))", ""}, /* (void) is displayed as empty string */
     {"(sh-run   (sh-cmd \"false\"))", "(exited . 1)"},
     {"(sh-run   (sh-cmd \"error\" \"0\"))", ""},

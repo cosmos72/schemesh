@@ -117,7 +117,9 @@
 
 ;; Set a lazy environment variable for specified job.
 ;; Note: lazy environment variables are copied into job's direct environment
-;; only upon starting the job.
+;; only upon starting the job, *after* expanding the job's command line.
+;;
+;; To clear a lazy environment variable, users can call (sh-env/lazy! job-or-id name "")
 (define (sh-env/lazy! job-or-id name value-or-procedure)
   (let ((j (sh-job job-or-id)))
     (assert* 'sh-env/lazy! (string? name))

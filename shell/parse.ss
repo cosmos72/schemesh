@@ -16,6 +16,7 @@
     (only (schemesh containers misc)   list-iterate list-quoteq! string-contains-only-decimal-digits?)
     (only (schemesh containers hashtable) eq-hashtable)
     (schemesh shell jobs)
+    (only (schemesh shell env) sh-env/lazy!)
     (schemesh shell redirect))
 
 ;; Return #t if token is a shell job terminator: ; &
@@ -367,25 +368,30 @@
 
 
 ;; Create a cmd to later spawn it.
-;; Each argument must be a string, symbol, fixnum or closure that return a string.
+;; Each argument must be a string, symbol, fixnum or closure.
 ;;
 ;; Symbol '= indicates an environment variable assignment, and must be preceded by
-;; the variable name (a non-empty string) and followed by its value (a string).
+;; the variable name (a non-empty string) and followed by its value (a string or closure that returns a string).
 ;;
-;; Symbols '< '<> '> '>> indicate a file redirection and must be followed by a string or closure that return a string.
+;; Symbols '< '<> '> '>> indicate a file redirection and must be followed by a string or closure that returns a string.
 ;;
 ;; Symbols '<& '>& indicate an fd redirection and must be followed by -1 or and unsigned fixnum.
 ;;
 ;; All redirection symbols '< '<> '> '>> '<& '>& can optionally be preceded by an unsigned fixnum,
 ;; indicating which file descriptor should be redirected.
 ;;
-;; Arguments that are not part of an assignment or a redirection
-;; must be strings or closures that return a string.
+;; Each argument that is not part of an assignment or a redirection must be one of:
+;;   a string
+;;   a closure that accepts 0 or 1 arguments (the job) and returns either a string or a list of strings.
 (define (sh-cmd* . program-and-args)
   (let-values (((program-and-args assignments redirections)
                   (cmd-parse-assignments-and-redirections program-and-args)))
     (let ((cmd (sh-make-cmd program-and-args)))
-      ;; FIXME: apply parsed assignments NAME = VALUE
+      (list-iterate assignments
+        (lambda (assignment)
+          (let ((name (car assignment))
+                (value (cdr assignment)))
+            (sh-env/lazy! cmd name value))))
       (list-iterate redirections
         (lambda (redirection)
           (sh-redirect! cmd (car redirection) (cadr redirection) (caddr redirection))))
@@ -425,6 +431,7 @@
 
 
 ;; parse a single environment variable assignment NAME = VALUE
+;; and return it as a (cons NAME VALUE)
 (define (cmd-parse-assignment args)
   (when (or (null? (cdr args)) (null? (cddr args)))
     (raise-errorf 'sh-cmd* "missing value after assignment: ~s" args))
@@ -437,7 +444,7 @@
       (raise-errorf 'sh-cmd* "expecting non-empty string before assignment, found: ~s ~s ~s" name op value))
     (unless (or (string? value) (procedure? value))
       (raise-errorf 'sh-cmd* "expecting string or closure after assignment, found: ~s ~s ~s" name op value))
-    (list name op value)))
+    (cons name value)))
 
 
 

@@ -234,6 +234,7 @@
 
 
 ;; Create a cmd to later spawn it. Each argument must be a string.
+;; If you want to use procedures as args, see (sh-cmd*)
 (define (sh-cmd . program-and-args)
   (assert-string-list? 'sh-cmd program-and-args)
   (sh-make-cmd program-and-args))
@@ -242,7 +243,7 @@
 (define (sh-make-cmd program-and-args)
   (%make-cmd #f -1 -1 '(new . 0)
     (span) #f '() ; redirections
-    job-start/cmd #f  ; start-proc step-proc
+    cmd-start #f  ; start-proc step-proc
     (sh-cwd)      ; job working directory - initially current directory
     #f            ; overridden environment variables - initially none
     #f            ; env var assignments - initially none
@@ -571,6 +572,7 @@
       (job-fds-to-remap-set! job #f))))
 
 
+
 ;; NOTE: this is an internal implementation function, use (sh-start) instead.
 ;; This function does not update job's status, and does not register job
 ;; into global (pid->job) table nor into global job-id table.
@@ -585,23 +587,62 @@
 ;; Options is a list of zero or more of the following:
 ;;   process-group-id: a fixnum, if present and > 0 the new process will be inserted
 ;;   into the corresponding process group id - which must already exist.
-(define (job-start/cmd c options)
+(define (cmd-start c options)
   (assert* 'sh-cmd (sh-cmd? c))
   (assert* 'sh-cmd (eq? 'running (job-last-status->kind c)))
 
-  ; expand aliases. sanity: (sh-alias-expand) ignores aliases for "builtin"
-  (let* ((prog-and-args (sh-alias-expand (cmd-arg-list c)))
-         (builtin  (sh-find-builtin prog-and-args)))
+  ; expand procedures in cmd-arg-list,
+  ; then expand aliases. sanity: (sh-alias-expand) ignores aliases for "builtin"
+  (let* ((prog-and-args (sh-alias-expand (cmd-arg-list-expand c)))
+         (builtin       (sh-find-builtin prog-and-args)))
     ; check for builtins
     (if builtin
       ; expanded arg[0] is a builtin, call it.
-      (job-run/builtin builtin c prog-and-args options)
+      (cmd-run/builtin builtin c prog-and-args options)
        ; expanded arg[0] is a not builtin or alias, spawn a subprocess
-      (job-start/cmd/spawn c (list->argv prog-and-args) options))))
+      (cmd-spawn c (list->argv prog-and-args) options))))
 
 
-;; internal function called by (job-start/cmd) to execute a builtin
-(define (job-run/builtin builtin c prog-and-args options)
+;; internal function called by (cmd-start):
+;; expand procedures in cmd-arg-list.
+;; Return the expanded command line, which is always a list of strings.
+(define (cmd-arg-list-expand c)
+  (let ((prog-and-args (cmd-arg-list c)))
+    (if (string-list? prog-and-args)
+      prog-and-args
+      (let ((l '()))
+        (list-iterate prog-and-args
+          (lambda (arg)
+            (set! l (cmd-arg-expand c arg l))))
+        (set! l (reverse! l))
+        (assert-string-list? 'sh-start l)
+        l))))
+
+
+;; internal function called by (cmd-start):
+;; expand a single procedure in a cmd-arg-list element,
+;; and reverse-cons it at the beginning of list-of-strings l.
+;; Return the updated list.
+(define (cmd-arg-expand c arg l)
+  (let ((expanded
+          (cond
+            ((not (procedure? arg)) arg)
+            ((logbit? 1 (procedure-arity-mask arg)) (arg c))
+            (#t   (arg)))))
+    (cond
+      ((null? expanded)
+        l)
+      ((pair? expanded)
+        (list-iterate expanded
+          (lambda (e)
+            (set! l (cons e l))))
+        l)
+      (#t
+        (cons expanded l)))))
+
+
+;; internal function called by (cmd-start) to execute a builtin
+(define (cmd-run/builtin builtin c prog-and-args options)
   (job-remap-fds! c)
   (job-status-set! c
     (parameterize ((sh-fd-stdin  (job-find-fd-remap c 0))
@@ -611,8 +652,8 @@
   (job-id-update! c)) ; returns job status
 
 
-;; internal function called by (job-start/cmd) to spawn a subprocess
-(define job-start/cmd/spawn
+;; internal function called by (cmd-start) to spawn a subprocess
+(define cmd-spawn
   (let ((c-spawn-pid (foreign-procedure "c_spawn_pid"
                         (ptr ptr ptr int) int)))
     (lambda (c argv options)
@@ -628,7 +669,7 @@
         (job-pgid-set! c (if (> process-group-id 0) process-group-id ret))))))
 
 
-;; internal function called by (job-start/cmd/spawn)
+;; internal function called by (cmd-spawn)
 ;; creates and fills a vector with job's redirections and its parents redirections
 (define (job-prepare-c-redirect-vector job)
   (let* ((n (job-count-c-redirect-vector job 0))
@@ -681,7 +722,7 @@
 (define (sh-builtin-command job prog-and-args options)
   (assert-string-list? 'sh-builtin-command prog-and-args)
   (assert* 'sh-builtin-command (string=? "command" (car prog-and-args)))
-  (job-start/cmd/spawn job (list->argv (cdr prog-and-args)) options)
+  (cmd-spawn job (list->argv (cdr prog-and-args)) options)
   (job-last-status job))
 
 
