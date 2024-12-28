@@ -508,30 +508,6 @@
 
 
 
-;; Common implementation of (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
-;; Also called by (job-advance/multijob)
-(define (job-advance mode job-or-id)
-  (assert* 'job-advance (memq mode '(sh-fg sh-bg sh-wait sh-sigcont+wait sh-subshell sh-job-status)))
-  (let ((job (sh-job job-or-id)))
-    ; (debugf "job-advance... mode=~s job=~s id=~s status=~s~%" mode job (job-id job) (job-last-status job))
-    (case (job-last-status->kind job)
-      ((exited killed unknown)
-        (void)) ; job finished
-      ((running stopped)
-        (cond
-          ((fx>? (job-pid job) 0)
-            (job-advance/pid mode job))
-          ((sh-multijob? job)
-            (job-advance/multijob mode job))))
-      (else
-        (raise-errorf mode  "job not started yet: ~s" job)))
-    ; returns job status
-    (job-id-update! job)))
-
-
-
-
-
 ;; Return up-to-date status of a job or job-id, which can be one of:
 ;;   (cons 'new     0)
 ;;   (cons 'running job-id)
@@ -609,6 +585,27 @@
 ;; Same as (sh-wait), but all arguments are mandatory
 (define (sh-wait* job-or-id send-sigcont?)
   (job-advance (if send-sigcont? 'sh-sigcont+wait 'sh-wait) job-or-id))
+
+
+;; Common implementation of (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
+;; Also called by (job-advance/multijob)
+(define (job-advance mode job-or-id)
+  (assert* 'job-advance (memq mode '(sh-fg sh-bg sh-wait sh-sigcont+wait sh-subshell sh-job-status)))
+  (let ((job (sh-job job-or-id)))
+    ; (debugf "job-advance... mode=~s job=~s id=~s status=~s~%" mode job (job-id job) (job-last-status job))
+    (case (job-last-status->kind job)
+      ((exited killed unknown)
+        (void)) ; job finished
+      ((running stopped)
+        (cond
+          ((fx>? (job-pid job) 0)
+            (job-advance/pid mode job))
+          ((sh-multijob? job)
+            (job-advance/multijob mode job))))
+      (else
+        (raise-errorf mode  "job not started yet: ~s" job)))
+    ; returns job status
+    (job-id-update! job)))
 
 
 ;; Start a job and wait for it to exit or stop.
