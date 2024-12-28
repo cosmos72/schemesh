@@ -51,6 +51,8 @@
   ; then expand aliases. sanity: (sh-alias-expand) ignores aliases for "builtin"
   (let* ((prog-and-args (sh-alias-expand (cmd-arg-list-expand c)))
          (builtin       (sh-find-builtin prog-and-args)))
+    ; apply lazy environment variables *after* expanding cmd-arg-list
+    (job-env/apply-lazy! c)
     (if builtin
       ; expanded arg[0] is a builtin, call it.
       (cmd-run/builtin builtin c prog-and-args options)

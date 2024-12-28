@@ -89,7 +89,7 @@
 ;; Note: lazy environment variables are copied into job's direct environment
 ;; only upon starting the job, *after* expanding the job's command line.
 ;;
-;; To clear a lazy environment variable, users can call (sh-env/lazy! job-or-id name "")
+;; To unset a lazy environment variable, call (sh-env/lazy! job-or-id name #f)
 (define (sh-env/lazy! job-or-id name value-or-procedure)
   (let ((j (sh-job job-or-id)))
     (assert* 'sh-env/lazy! (string? name))
@@ -119,17 +119,21 @@
       (do ((i 0 (fx+ i 2))
            (n (span-length env-lazy)))
           ((fx>? (fx+ i 2) n))
-        (let* ((name               (span-ref env-lazy i))
-               (value-or-procedure (span-ref env-lazy (fx1+ i)))
-               (value
-                 (if (procedure? value-or-procedure)
-                   (if (logbit? 1 (procedure-arity-mask value-or-procedure))
-                     (value-or-procedure j)
-                     (value-or-procedure))
-                   value-or-procedure)))
+        (let ((name  (span-ref env-lazy i))
+              (value (job-env/apply1 j (span-ref env-lazy (fx1+ i)))))
+          (debugf "job-env/apply-lazy! env name=~s, value=~s~%" name value)
           (if (eq? #f value)
             (sh-env-unset! j name)
             (sh-env-set+export! j name value #t)))))))
+
+
+;; internal function called by job-env/apply-lazy!
+(define (job-env/apply1 j value-or-procedure)
+  (if (procedure? value-or-procedure)
+    (if (logbit? 1 (procedure-arity-mask value-or-procedure))
+      (value-or-procedure j)
+      (value-or-procedure))
+    value-or-procedure))
 
 
 ;; Return direct environment variables of job, creating them if needed.
@@ -193,13 +197,7 @@
                       (hashtable-delete! vars name))
                     ((or (eq? 'export flag)
                          (and also-unexported? (eq? 'private flag)))
-                      (hashtable-set! vars name val))))))))
-        (let ((env-lazy (job-env-lazy job)))
-          (when env-lazy
-            (do ((n (span-length env-lazy))
-                 (i 0 (fx+ 2 i)))
-                ((fx>? (fx+ 2 i) n))
-              (hashtable-set! vars (span-ref env-lazy i) (span-ref env-lazy (fx1+ i))))))))
+                      (hashtable-set! vars name val))))))))))
     vars))
 
 
