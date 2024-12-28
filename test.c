@@ -835,6 +835,7 @@ static const testcase tests[] = {
     {"(sh-run   (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 1)"},
     {"(sh-run/i (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", ""},
     {"(sh-run   (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", ""},
+    {"(sh-run   (sh-or  (sh-cmd \"false\") (sh-cmd \"false\")))", "(exited . 1)"},
     {"(sh-run/i (sh-not (sh-cmd \"true\")))", "(exited . 1)"},
     {"(sh-run   (sh-not (sh-cmd \"true\")))", "(exited . 1)"},
     {"(sh-run/i (sh-not (sh-cmd \"false\")))", ""},
