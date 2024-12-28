@@ -121,7 +121,7 @@
           ((fx>? (fx+ i 2) n))
         (let ((name  (span-ref env-lazy i))
               (value (job-env/apply1 j (span-ref env-lazy (fx1+ i)))))
-          (debugf "job-env/apply-lazy! env name=~s, value=~s~%" name value)
+          ; (debugf "job-env/apply-lazy! env name=~s, value=~s~%" name value)
           (if (eq? #f value)
             (sh-env-unset! j name)
             (sh-env-set+export! j name value #t)))))))
