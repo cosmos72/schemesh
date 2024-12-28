@@ -6,29 +6,8 @@
 ;;; (at your option) any later version.
 
 
-;; Define the record types "job" "cmd" "multijob" and functions operating on them.
-;; Define the functions (sh-env...) and (sh-fd...)
-;
-;; Convention: (sh) and (sh-...) are functions
-;             (shell) and (shell-...) are macros
+;; this file should only be included inside a (library ...) definition
 
-(library (schemesh shell redirect (0 1))
-  (export
-    sh-run/bspan sh-run/string sh-redirect!)
-  (import
-    (rnrs)
-    (only (chezscheme)         include logand procedure-arity-mask)
-    (only (schemesh bootstrap) raise-errorf until)
-    (schemesh containers bytespan)
-    (schemesh containers span)
-    (schemesh containers utf8b)
-    (schemesh conversions)
-    (schemesh posix fd)
-    (only (schemesh shell jobs) sh-job sh-start sh-wait))
-
-
-;; define the record type "job" and its accessors
-(include "shell/internals.ss")
 
 
 ;; Start a job and wait for it to exit.
@@ -105,12 +84,6 @@
     job))
 
 
-;; Return #t if token is a shell redirection operator: < <> <& > >> >&
-(define (redirection-sym? token)
-  (and (symbol? token)
-       (memq token '(< <> > >> <& >&))))
-
-
 ;; Add a single redirection to a job
 (define (job-redirect! job fd direction to)
   (unless (fx>=? fd 0)
@@ -153,7 +126,3 @@
         #f)
       (#t
         (raise-errorf 'sh-redirect! "invalid redirect to fd or file, target must be a string, bytevector or procedure: ~s" to)))))
-
-
-
-) ; close library

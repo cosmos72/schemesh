@@ -26,12 +26,17 @@
     ; jobs.ss
     sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd? sh-multijob?
     sh-concat sh-env-copy sh-env->argv sh-globals sh-global-env
-    sh-builtin-command sh-cmd sh-make-cmd sh-cwd
+    sh-builtin-command sh-cmd make-cmd sh-cwd
     sh-consume-sigchld sh-multijob-child-length sh-multijob-child-ref
     sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/ok?
+
+    ; multijob.ss
     sh-and sh-or sh-not sh-list sh-subshell
+
+    ; display.ss
     sh-job-display sh-job-display* sh-job-display/string
     sh-job-write sh-job-write* sh-job-write/string
+    sh-job-display/summary sh-job-display/summary*
 
     ; env.ss
     sh-env sh-env! sh-env-unset! sh-env-exported? sh-env-export! sh-env-set+export!
@@ -55,9 +60,6 @@
     (schemesh shell aliases)
     (schemesh shell builtins)
     (schemesh shell jobs)
-    (schemesh shell env)
-    (schemesh shell redirect)
-    (schemesh shell parse)
     (schemesh shell macros)
     (schemesh shell utils))
 

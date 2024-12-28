@@ -6,37 +6,7 @@
 ;;; (at your option) any later version.
 
 
-;; Define the record types "job" "cmd" "multijob" and functions operating on them.
-;; Define the functions (sh-env...) and (sh-fd...)
-;
-;; Convention: (sh) and (sh-...) are functions
-;             (shell) and (shell-...) are macros
 
-(library (schemesh shell env (0 1))
-  (export
-    sh-env sh-env! sh-env-unset! sh-env-exported? sh-env-export! sh-env-set+export!
-    sh-env/lazy!
-    sh-builtin-cd sh-builtin-pwd sh-cwd-set! sh-cd sh-pwd)
-  (import
-    (rnrs)
-    (rnrs mutable-pairs)
-    (only (chezscheme)               foreign-procedure include logand procedure-arity-mask void)
-    (only (schemesh bootstrap)       assert* raise-errorf)
-    (only (schemesh posix fd)        c-errno->string fd-write)
-    (schemesh containers bytespan)
-    (schemesh containers charspan)
-    (only (schemesh containers span) span span-insert-back!)
-    (only (schemesh containers misc) assert-string-list?)
-    (schemesh containers utf8b)
-    (schemesh containers utils)
-    (only (schemesh shell fds)       sh-fd-stdout)
-    (only (schemesh shell builtins)  sh-builtins)
-    (schemesh shell paths)
-    (schemesh shell jobs))
-
-
-;; define the record type "job" and its accessors
-(include "shell/internals.ss")
 
 
 ;; Return string value of environment variable named "name" for specified job.
@@ -139,6 +109,29 @@
       (span-insert-back! vars name value-or-procedure))))
 
 
+;; Execute the procedures in lazy environment of a job,
+;; and copy the resulting env names and values into (job-direct-env)
+;;
+;; called automatically while starting a job.
+(define (job-env/apply-lazy! j)
+  (let ((env-lazy (job-env-lazy j)))
+    (when env-lazy
+      (do ((i 0 (fx+ i 2))
+           (n (span-length env-lazy)))
+          ((fx>? (fx+ i 2) n))
+        (let* ((name               (span-ref env-lazy i))
+               (value-or-procedure (span-ref env-lazy (fx1+ i)))
+               (value
+                 (if (procedure? value-or-procedure)
+                   (if (logbit? 1 (procedure-arity-mask value-or-procedure))
+                     (value-or-procedure j)
+                     (value-or-procedure))
+                   value-or-procedure)))
+          (if (eq? #f value)
+            (sh-env-unset! j name)
+            (sh-env-set+export! j name value #t)))))))
+
+
 ;; Return direct environment variables of job, creating them if needed.
 ;; Returned hashtable does not include default variables,
 ;; i.e. the ones inherited from parent jobs.
@@ -149,14 +142,6 @@
       (set! vars (make-hashtable string-hash string=?))
       (job-env-set! job vars))
     vars))
-
-
-;; Copy-pasted from shell/jobs.ss:
-;; call (proc job) on given job and each of its
-;; parents. Stops iterating if (proc) returns #f.
-(define (job-parents-iterate job-or-id proc)
-  (do ((parent (sh-job job-or-id) (job-parent parent)))
-      ((or (not (sh-job? parent)) (not (proc parent))))))
 
 
 ;; Repeatedly call C function c_environ_ref() and store returned (key . value)
@@ -173,76 +158,58 @@
         (sh-env-set+export! sh-globals (car entry) (cdr entry) #t)))))
 
 
-;; set the current directory of specified job or job-id to specified path.
-;; path must be a string or charspan.
+
+
+;; return global environment variables
+(define (sh-global-env)
+  (job-env sh-globals))
+
+
+;; Return a copy of job's environment variables,
+;; including default variables inherited from parent jobs.
+;; Argument which must be one of:
+;;   'exported: only exported variables are returned.
+;;   'all : unexported variables are returned too.
 ;;
-;; if job-or-id resolves to sh-globals, it is equivalent to (sh-cd path).
+;; In both cases, job-env-lazy is included too.
+(define (sh-env-copy job-or-id which)
+  (assert* 'sh-env-copy (memq which '(exported all)))
+  (let* ((jlist (job-parents-revlist job-or-id))
+         (vars (make-hashtable string-hash string=?))
+         (also-unexported? (eq? 'all which))
+         (only-exported? (not also-unexported?)))
+    (list-iterate jlist
+      (lambda (job)
+        (let ((env (job-env job)))
+          (when env
+            (hashtable-iterate env
+              (lambda (cell)
+                (let ((name (car cell))
+                      (flag (cadr cell))
+                      (val  (cddr cell)))
+                  (cond
+                    ((or (eq? 'delete flag)
+                         (and only-exported? (eq? 'private flag)))
+                      (hashtable-delete! vars name))
+                    ((or (eq? 'export flag)
+                         (and also-unexported? (eq? 'private flag)))
+                      (hashtable-set! vars name val))))))))
+        (let ((env-lazy (job-env-lazy job)))
+          (when env-lazy
+            (do ((n (span-length env-lazy))
+                 (i 0 (fx+ 2 i)))
+                ((fx>? (fx+ 2 i) n))
+              (hashtable-set! vars (span-ref env-lazy i) (span-ref env-lazy (fx1+ i))))))))
+    vars))
+
+
+;; Extract environment variables from specified job and all its parents,
+;; and convert them to a vector of bytevector0.
 ;;
-;; in all other cases, path is taken as-is, i.e. it is not normalized
-;; and is not validated against filesystem contents.
-(define (sh-cwd-set! job-or-id path)
-  (let ((job (sh-job job-or-id)))
-    (if (eq? job sh-globals)
-      (sh-cd path)
-      (job-cwd-set! job (if (charspan? path) path (string->charspan* path))))))
-
-
-
-;; change current directory to specified path.
-;; path must be a a string or charspan.
-(define sh-cd
-  (case-lambda
-    (()     (sh-cd* (sh-env sh-globals "HOME")))
-    ((path) (sh-cd* path))
-    ((path . extra-args) (raise-errorf 'cd "too many arguments"))))
-
-;; internal function called by (sh-cd)
-(define sh-cd*
-  (let ((c_chdir (foreign-procedure "c_chdir" (ptr) int)))
-    (lambda (path)
-      (let* ((suffix (text->sh-path path))
-             (dir (if (sh-path-absolute? suffix)
-                      (sh-path->subpath suffix)
-                      (sh-path-append (sh-cwd) suffix)))
-             (err (c_chdir (string->utf8b/0 (charspan->string dir)))))
-        (if (= err 0)
-          (job-cwd-set! sh-globals dir)
-          (raise-errorf 'cd "~a: ~a" path (c-errno->string err)))))))
-
-
-(define sh-pwd
-  (case-lambda
-    (()   (sh-pwd* (sh-fd-stdout)))
-    ((fd) (sh-pwd* fd))))
-
-
-(define (sh-pwd* fd)
-  (let ((wbuf (make-bytespan 0)))
-    (bytespan-insert-back/cspan! wbuf (sh-cwd))
-    (bytespan-insert-back/u8! wbuf 10) ; newline
-     ; TODO: loop on short writes
-    (fd-write fd (bytespan-peek-data wbuf)
-              (bytespan-peek-beg wbuf) (bytespan-peek-end wbuf))
-    (void)))
-
-;; the "cd" builtin
-(define (sh-builtin-cd job prog-and-args options)
-  (assert-string-list? 'sh-builtin-cd prog-and-args)
-  (apply sh-cd (cdr prog-and-args)))
-
-
-;; the "pwd" builtin
-(define (sh-builtin-pwd job prog-and-args options)
-  (assert-string-list? 'sh-builtin-pwd prog-and-args)
-  (sh-pwd))
-
-
-(begin
-  (c-environ->sh-global-env)
-
-  (let ((t (sh-builtins)))
-    ; additional builtins
-    (hashtable-set! t "cd"      sh-builtin-cd)
-    (hashtable-set! t "pwd"     sh-builtin-pwd)))
-
-) ; close library
+;; Argument "which" must be one of:
+;; 'exported: only exported variables are returned.
+;; 'all : unexported variables are returned too.
+;;
+;; In both cases, job-env-lazy is included too.
+(define (sh-env->argv job-or-id which)
+  (string-hashtable->argv (sh-env-copy job-or-id which)))

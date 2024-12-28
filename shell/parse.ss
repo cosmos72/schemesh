@@ -6,23 +6,8 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh shell parse (0 1))
-  (export sh sh-parse sh-cmd* sh-list*)
-  (import
-    (rnrs)
-    (rnrs mutable-pairs)
-    (only (chezscheme) append! eval expand fx1+ reverse!)
-    (only (schemesh bootstrap)      assert* debugf raise-errorf until)
-    (only (schemesh containers misc)   list-iterate list-quoteq! string-contains-only-decimal-digits?)
-    (only (schemesh containers hashtable) eq-hashtable)
-    (schemesh shell jobs)
-    (only (schemesh shell env) sh-env/lazy!)
-    (schemesh shell redirect))
+;; this file should only be included inside a (library ...) definition
 
-;; Return #t if token is a shell job terminator: ; &
-(define (job-terminator? token)
-  (and (symbol? token)
-       (or (eq? token '&) (eq? token '\x3b;))))
 
 ;; Return #t if token is a shell command separator: ; & && || |
 (define (cmd-separator? token)
@@ -386,7 +371,7 @@
 (define (sh-cmd* . program-and-args)
   (let-values (((program-and-args assignments redirections)
                   (cmd-parse-assignments-and-redirections program-and-args)))
-    (let ((cmd (sh-make-cmd program-and-args)))
+    (let ((cmd (make-cmd program-and-args)))
       (list-iterate assignments
         (lambda (assignment)
           (let ((name (car assignment))
@@ -485,6 +470,3 @@
   (when (or (null? jobs) (not (sh-job? (car jobs))))
     (raise-errorf 'sh-list* "redirections are allowed only after a job, found:"
       arg all-args)))
-
-
-) ; close library

@@ -11,10 +11,7 @@
   (import
     (rnrs)
     (schemesh bootstrap)
-    (schemesh shell jobs)
-    (schemesh shell redirect)
-    (schemesh shell env)
-    (schemesh shell parse))
+    (schemesh shell jobs))
 
 ;; wraps shell DSL
 (define-macro (shell . args)

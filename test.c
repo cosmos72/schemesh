@@ -867,47 +867,23 @@ static const testcase tests[] = {
   "(begin (($primitive 3 $invoke-library) '(schemesh shell builtins) '(0 1) 'builtins)"
 #define INVOKELIB_SHELL_JOBS                                                                       \
   "(begin (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"
-#define INVOKELIB_SHELL_PARSE                                                                      \
-  "(begin (($primitive 3 $invoke-library) '(schemesh shell parse) '(0 1) 'parse)"
 #define INVOKELIB_SHELL_BUILTINS_JOBS                                                              \
   "(begin"                                                                                         \
   " (($primitive 3 $invoke-library) '(schemesh shell builtins) '(0 1) 'builtins)"                  \
-  " (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"
-#define INVOKELIB_SHELL_JOBS_REDIRECT                                                              \
-  "(begin"                                                                                         \
-  " (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"                          \
-  " (($primitive 3 $invoke-library) '(schemesh shell redirect) '(0 1) 'redirect)"
-#define INVOKELIB_SHELL_JOBS_REDIRECT_PARSE                                                        \
-  "(begin"                                                                                         \
-  " (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"                          \
-  " (($primitive 3 $invoke-library) '(schemesh shell redirect) '(0 1) 'redirect)"                  \
-  " (($primitive 3 $invoke-library) '(schemesh shell parse) '(0 1) 'parse)"
-#define INVOKELIB_SHELL_JOBS_PARSE                                                                 \
-  "(begin"                                                                                         \
-  " (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"                          \
-  " (($primitive 3 $invoke-library) '(schemesh shell parse) '(0 1) 'parse)"
-#define INVOKELIB_SHELL_ENV_JOBS_PARSE                                                             \
-  "(begin"                                                                                         \
-  " (($primitive 3 $invoke-library) '(schemesh shell env) '(0 1) 'env)"                            \
-  " (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"                          \
-  " (($primitive 3 $invoke-library) '(schemesh shell parse) '(0 1) 'parse)"
-#define INVOKELIB_SHELL_PARSE_JOBS                                                                 \
-  "(begin"                                                                                         \
-  " (($primitive 3 $invoke-library) '(schemesh shell parse) '(0 1) 'parse)"                        \
   " (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"
 
     /* ------------------------- shell macros ------------------------------- */
     {"(expand '(shell))", /* */
      INVOKELIB_SHELL_JOBS " (sh-cmd))"},
     {"(expand '(shell 2 >& 1))", /* */
-     INVOKELIB_SHELL_PARSE " (sh-cmd* 2 '>& 1))"},
+     INVOKELIB_SHELL_JOBS " (sh-cmd* 2 '>& 1))"},
     {"(expand '(shell \"ls\" \"-l\" && \"wc\" \"-b\" \\x7c;\\x7c; \"echo\" \"error\" &))",
      INVOKELIB_SHELL_JOBS
      " (sh-list (sh-or (sh-and (sh-cmd ls -l) (sh-cmd wc -b)) (sh-cmd echo error)) '&))"},
     {"(expand '(shell \"true\" \\x7c;\\x7c; ! \"false\"))",
      INVOKELIB_SHELL_JOBS " (sh-or (sh-cmd true) (sh-not (sh-cmd false))))"},
     {"(expand '(shell-list (shell \"ls\" \"-al\" >> \"log.txt\")))",
-     INVOKELIB_SHELL_PARSE " (sh-cmd* ls -al 1 '>> log.txt))"},
+     INVOKELIB_SHELL_JOBS " (sh-cmd* ls -al 1 '>> log.txt))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{{{{echo|cat}}}}\")))",
      INVOKELIB_SHELL_JOBS " (sh-pipe* (sh-cmd echo) '| (sh-cmd cat)))"},
@@ -919,8 +895,7 @@ static const testcase tests[] = {
     {"(expand '(shell (shell \"foo\") \\x3b; \"bar\"))",
      INVOKELIB_SHELL_JOBS " (sh-list (sh-cmd foo) '; (sh-cmd bar)))"},
     {"(expand '(shell (shell \"ls\" & \"echo\") 2 >& 1))",
-     INVOKELIB_SHELL_JOBS_REDIRECT
-     " (sh-redirect! (sh-list (sh-cmd ls) '& (sh-cmd echo)) 2 '>& 1))"},
+     INVOKELIB_SHELL_JOBS " (sh-redirect! (sh-list (sh-cmd ls) '& (sh-cmd echo)) 2 '>& 1))"},
     {"(shell \\x3b; (shell \"foo\") \\x3b; \"bar\")",
      "(sh-list '\\x3B; (sh-cmd \"foo\") '\\x3B; (sh-cmd \"bar\"))"},
     {"(shell (shell \"ls\" & \"echo\") 2 >& 1)",
@@ -936,14 +911,14 @@ static const testcase tests[] = {
      "(shell C = D echo)"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{A=B ls}\")))",
-     INVOKELIB_SHELL_PARSE " (sh-cmd* A '= B ls))"},
+     INVOKELIB_SHELL_JOBS " (sh-cmd* A '= B ls))"},
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"{FOO=$BAR/subdir echo}\")))",
      "(shell FOO = (shell-concat (shell-env BAR) /subdir) echo)"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{FOO=$BAR/subdir echo}\"))))",
-     INVOKELIB_SHELL_ENV_JOBS_PARSE " (sh-cmd* FOO '= (lambda (job) (sh-concat job"
-                                    " (lambda (job) (sh-env job BAR)) /subdir)) echo))"},
+     INVOKELIB_SHELL_JOBS " (sh-cmd* FOO '= (lambda (job) (sh-concat job"
+                          " (lambda (job) (sh-env job BAR)) /subdir)) echo))"},
     /* in shell syntax, = is an operator only before command name */
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"ls A=B\")))",
@@ -959,17 +934,17 @@ static const testcase tests[] = {
      "(shell echo (shell-backquote foo && bar))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"echo $(foo&&bar)\")))",
-     INVOKELIB_SHELL_JOBS_REDIRECT_PARSE " (sh-cmd* echo (lambda (job) (sh-run/string"
-                                         " (sh-and (sh-cmd foo) (sh-cmd bar))))))"},
+     INVOKELIB_SHELL_JOBS " (sh-cmd* echo (lambda (job) (sh-run/string"
+                          " (sh-and (sh-cmd foo) (sh-cmd bar))))))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{ls} > log.txt &\")))",
-     INVOKELIB_SHELL_JOBS_PARSE " (sh-list* (sh-cmd ls) 1 '> log.txt '&))"},
+     INVOKELIB_SHELL_JOBS " (sh-list* (sh-cmd ls) 1 '> log.txt '&))"},
     {"(eval (parse-shell-form1 (string->parsectx\n"
      "  \"{ls} > log.txt &\")))",
      "(sh-list (sh-cmd* \"ls\" 1 '> \"log.txt\") '&)"},
     {"(expand '(shell \"echo\" \"abc\" > \"DEL_ME\" &&"
      " \"cat\" \"DEL_ME\" && \"rm\" \"DEL_ME\"))",
-     INVOKELIB_SHELL_PARSE_JOBS
+     INVOKELIB_SHELL_JOBS
      " (sh-and (sh-cmd* echo abc 1 '> DEL_ME) (sh-cmd cat DEL_ME) (sh-cmd rm DEL_ME)))"},
     {"(shell \"echo\" \"abc\" > \"DEL_ME\" && \"cat\" \"DEL_ME\" && \"rm\" \"DEL_ME\")",
      "(sh-and (sh-cmd* \"echo\" \"abc\" 1 '> \"DEL_ME\")"

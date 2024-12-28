@@ -24,8 +24,7 @@
     (schemesh posix misc)
     (schemesh parser)
     (only (schemesh parser autocomplete) parse-shell-autocomplete)
-    (schemesh shell jobs)
-    (schemesh shell env))
+    (schemesh shell jobs))
 
 
 ;; update linectx-completion-stem and linectx-completions with possible completions.

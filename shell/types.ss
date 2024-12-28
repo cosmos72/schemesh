@@ -9,6 +9,7 @@
 ;; this file should only be included inside a (library ...) definition
 
 
+
 (define-record-type
   (job %make-job %job?)
   (fields
@@ -35,6 +36,26 @@
     (mutable parent))    ; parent job, contains default values of env variables
                          ; and default redirections
   (nongenerative #{job ghm1j1xb9o5tkkhhucwauly2c-1175}))
+
+
+;; Define the record type "cmd"
+(define-record-type
+  (cmd %make-cmd sh-cmd?)
+  (parent job)
+  (fields arg-list) ; list of strings: program-name and args
+  (nongenerative #{cmd ghm1j1xb9o5tkkhhucwauly2c-1176}))
+
+
+;; Define the record type "multijob"
+(define-record-type
+  (multijob %make-multijob sh-multijob?)
+  (parent job)
+  (fields
+    kind                ; symbol: one of 'sh-and 'sh-or 'sh-not 'sh-list 'sh-subshell 'sh-global
+    (mutable current-child-index) ; -1 or index of currently running child job
+    children)           ; span: children jobs.
+  (nongenerative #{multijob ghm1j1xb9o5tkkhhucwauly2c-1177}))
+
 
 
 (define (%sh-redirect/fd-symbol->char caller symbol)
