@@ -381,12 +381,6 @@
 
 
 
-;; return charspan containing current directory,
-;; or charspan containing current directory of specified job-or-id.
-(define sh-cwd
-  (case-lambda
-    (()          (job-cwd sh-globals))
-    ((job-or-id) (job-cwd (sh-job job-or-id)))))
 
 
 (define (sh-consume-sigchld)

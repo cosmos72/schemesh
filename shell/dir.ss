@@ -9,6 +9,14 @@
 ;; this file should only be included inside a (library ...) definition
 
 
+;; return charspan containing current directory,
+;; or charspan containing current directory of specified job-or-id.
+(define sh-cwd
+  (case-lambda
+    (()          (job-cwd sh-globals))
+    ((job-or-id) (job-cwd (sh-job job-or-id)))))
+
+
 ;; set the current directory of specified job or job-id to specified path.
 ;; path must be a string or charspan.
 ;;
