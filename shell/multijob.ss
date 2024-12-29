@@ -152,16 +152,15 @@
 ;; Does not redirect file descriptors. Options are ignored.
 (define (job-start/or job options)
   ;; this runs in the main process, not in a subprocess.
-  ;; TODO: how can we redirect file descriptor?
   (assert* 'sh-or (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-or (fx=? -1 (multijob-current-child-index job)))
   (job-remap-fds! job)
   ; (debugf "job-start/or ~s empty children? = ~s~%" job (span-empty? (multijob-children job)))
   (if (span-empty? (multijob-children job))
-    ; (sh-or) with zero children -> job fails with '(exited . 255)
-    (job-status-set! job '(exited . 255))
+    ; (sh-or) with zero children -> job fails with '(exited . 256)
+    (job-status-set! job '(exited . 256))
     ; Do not yet assign a job-id.
-    (job-step/or job (void))))
+    (job-step/or job '(exited . 256))))
 
 
 ;; Internal function stored in (job-start-proc job) by (sh-not),
