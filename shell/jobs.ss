@@ -30,7 +30,7 @@
     sh-job-display/summary sh-job-display/summary*
 
     ; env.ss
-    sh-env sh-env! sh-env-unset! sh-env-exported? sh-env-export! sh-env-set+export!
+    sh-env sh-env! sh-env-unset! sh-env-exported? sh-env-export! sh-env-set+export! sh-env/lazy!
     sh-builtin-cd sh-builtin-pwd sh-cwd-set! sh-cd sh-pwd
 
     ; redirect.ss

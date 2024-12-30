@@ -125,6 +125,7 @@
   (assert* 'sh-list (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-list (fx=? -1 (multijob-current-child-index job)))
   (job-remap-fds! job)
+  (job-env/apply-lazy! job)
   ; Do not yet assign a job-id.
   (job-step/list job (void)))
 
@@ -139,6 +140,7 @@
   (assert* 'sh-and (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-and (fx=? -1 (multijob-current-child-index job)))
   (job-remap-fds! job)
+  (job-env/apply-lazy! job)
   (if (span-empty? (multijob-children job))
     ; (sh-and) with zero children -> job completes successfully
     (job-status-set! job (void))
@@ -155,6 +157,7 @@
   (assert* 'sh-or (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-or (fx=? -1 (multijob-current-child-index job)))
   (job-remap-fds! job)
+  (job-env/apply-lazy! job)
   ; (debugf "job-start/or ~s empty children? = ~s~%" job (span-empty? (multijob-children job)))
   (if (span-empty? (multijob-children job))
     ; (sh-or) with zero children -> job fails with '(exited . 256)
@@ -173,6 +176,7 @@
   (assert* 'sh-not (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-not (fx=? -1 (multijob-current-child-index job)))
   (job-remap-fds! job)
+  (job-env/apply-lazy! job)
   ; Do not yet assign a job-id.
   (job-step/not job (void)))
 
@@ -192,6 +196,7 @@
   (let ((c-fork-pid (foreign-procedure "c_fork_pid" (ptr int) int)))
     (lambda (job options)
       (assert* 'sh-start (procedure? (job-step-proc job)))
+      (job-env/apply-lazy! job)
       (let* ((process-group-id (job-start-options->process-group-id options))
              (ret (c-fork-pid
                     (span->vector (job-redirects job))

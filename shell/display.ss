@@ -68,7 +68,9 @@
 
 
 (define (job-display/multijob job port outer-precedence)
-  (job-display/env-lazy job port)
+  ; would be informative, but does not correspond
+  ; to shell syntax: cannot be parsed back correctly
+  ; (job-display/env-lazy job port)
   (let* ((kind (multijob-kind job))
          (precedence
            (case kind
@@ -232,7 +234,7 @@
   (put-string port (if (and (span-empty? (job-redirects job)) (not (job-env-lazy job)))
                      "(sh-cmd"
                      "(sh-cmd*"))
-  (cmd-write/env-lazy job port)
+  (job-write/env-lazy job port)
   (list-iterate (cmd-arg-list job)
     (lambda (arg)
       (put-char port #\space)
@@ -241,16 +243,16 @@
   (put-string port ")"))
 
 
-(define (cmd-write/env-lazy job port)
+(define (job-write/env-lazy job port)
   (let ((env-lazy (job-env-lazy job)))
     (when env-lazy
       (do ((i 0 (fx+ i 2))
            (n (span-length env-lazy)))
           ((fx>? (fx+ i 2) n))
-      (cmd-write/env-lazy1 env-lazy i port)))))
+      (job-write/env-lazy1 env-lazy i port)))))
 
 
-(define (cmd-write/env-lazy1 env-lazy i port)
+(define (job-write/env-lazy1 env-lazy i port)
   (put-char port #\space)
   (put-datum port (span-ref env-lazy i))
   (put-string port " '= ")
