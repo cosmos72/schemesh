@@ -685,11 +685,13 @@
 
 
 (define (paren-fill-end! ctx paren end-token)
-  (let-values (((x y) (parsectx-previous-pos ctx 1)))
-    (paren-end-xy-set! paren x y))
-  (paren-end-token-set! paren end-token)
-  ; (debugf "shell paren-fill-end! paren=~s end-token=~s~%" paren end-token)
-  )
+  (let-values (((x y) (if end-token
+                        (parsectx-previous-pos ctx 1)
+                        (parsectx-current-pos ctx))))
+    (paren-end-xy-set! paren x y)
+    (paren-end-token-set! paren end-token)
+    ; (debugf "shell paren-fill-end! paren=~s end-token=~s x=~s y=~s~%" paren end-token x y)
+  ))
 
 
 (define parser-shell

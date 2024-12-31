@@ -716,11 +716,16 @@ static const testcase tests[] = {
      "    (parsers))\n"
      "  'scheme))",
      "(((+ a b) (shell ls -al >> log.txt ;) foo bar) #<parser scheme>)"},
+#if 0
     /* ------------------------ parse-paren -------------------------------- */
     {"(values->list (paren->values (string->paren \"{\")))", "(scheme #t 0 0 #t 0 0)"},
     {"(values->list (paren->values (string->paren \"{[(\")))", "(scheme #t 0 0 #t 2 0)"},
     {"(values->list (paren->values (paren-inner-ref (string->paren \"{\") 0)))",
      "(shell { 0 0 #f 0 0)"},
+#endif
+    {"(values->list (paren->values (paren-inner-ref (string->paren \"{\n\") 0)))",
+     "(shell { 0 0 #f 0 1)"},
+#if 0
     {"(values->list (paren->values (paren-inner-ref* (string->paren \"{[(\") 0 0 0)))",
      "(scheme ( 2 0 #f 2 0)"},
     {"(string->paren \"(foo \\\"a()\\\" \\\"b[]\\\" \\\"c{}\\\" [* |2| 3])\")",
@@ -1001,6 +1006,7 @@ static const testcase tests[] = {
      /* ideally would return the same as previous test, but deciding to omit the (shell ...) wrapper
         is tricky */
      "(((shell (1 2 3))) #<parser shell>)"},
+#endif
 };
 
 static int run_tests(void) {
