@@ -105,8 +105,7 @@
     (parameterize ((sh-fd-stdin  (job-find-fd-remap c 0))
                    (sh-fd-stdout (job-find-fd-remap c 1))
                    (sh-fd-stderr (job-find-fd-remap c 2)))
-      (builtin c prog-and-args options)))
-  (job-id-update! c)) ; returns job status
+      (builtin c prog-and-args options))))
 
 
 ;; internal function called by (cmd-start) to spawn a subprocess
