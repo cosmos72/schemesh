@@ -20,10 +20,10 @@
 ;; because we need to read its standard output while it runs.
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
 (define (sh-run/bspan job . options)
-  (let ((redirect-len (span-length (job-redirects job)))
-        (parent       (job-parent job)))
-    ; create pipe fds
-    (let-values (((read-fd write-fd) (open-pipe-fds #t #t))) ; both fds are close-on-exec?
+  (let ((parent (job-parent job)))
+    ; create pipe fds, both are close-on-exec
+    (let-values (((read-fd write-fd) (open-pipe-fds #t #t)))
+      ; temporarily suppress messages about started/completed jobs
       (parameterize ((sh-job-display/summary? #f))
         (dynamic-wind
           void ; run before body

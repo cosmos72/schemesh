@@ -219,7 +219,7 @@
                     ; cannot wait on our own process
                     (job-status-set! job '(unknown . 0))))
                 (lambda () ; body
-                  ; sh-subshell stores job-run/subshell in (job-step-proc job), run it from child process
+                  ; sh-subshell stores job-run/subshell in (job-step-proc job), call it from child process
                   (set! status ((job-step-proc job) job (void))))
                 (lambda () ; run after body, even if it raised a condition
                   (exit-with-job-status status)))))

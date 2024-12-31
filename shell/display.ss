@@ -20,7 +20,6 @@
 
 (define (sh-job-display/summary* job-or-id port)
   (when (sh-job-display/summary?)
-    (break)
     (let* ((job    (sh-job job-or-id))
            (id     (job-id job))
            (pid    (job-pid job))
