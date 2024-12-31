@@ -47,23 +47,24 @@ ptr call3(const char symbol_name[], ptr arg1, ptr arg2, ptr arg3) {
 }
 
 /**
- * call Scheme (eval (read (open-string-input-port str))) on a C UTF-8 string
- * and return the resulting Scheme value
+ * call Scheme (eval (read (open-string-input-port str))) on a C string
+ * and return the resulting Scheme value.
+ * Cannot use (sh-eval) because it may be called before loading libschemesh.
  */
 ptr eval(const char str[]) {
   return call1("eval", call1("read", call1("open-string-input-port", Sstring_utf8(str, -1))));
 }
 
 /**
- * call Scheme (eval) on a C string, and convert returned Scheme value to
- * bytevector with (any->bytevector).
+ * call Scheme (sh-eval->bytevector) on a C UTF8 string, which also converts
+ * returned Scheme value to bytevector with (any->bytevector).
  * @return length and pointer to memory of a Scheme-allocated bytevector.
  *
  * Returned pointer CANNOT be dereferenced anymore after calling further Scheme code,
  * because it may be moved or garbage collected.
  */
 bytes eval_to_bytevector(const char str[]) {
-  ptr   bytevec = call1("eval->bytevector", Sstring_utf8(str, -1));
+  ptr   bytevec = call1("sh-eval->bytevector", Sstring_utf8(str, -1));
   bytes ret     = {Sbytevector_length(bytevec), Sbytevector_data(bytevec)};
   return ret;
 }

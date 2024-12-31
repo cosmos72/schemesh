@@ -944,7 +944,7 @@ static const testcase tests[] = {
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{ls} > log.txt &\")))",
      INVOKELIB_SHELL_JOBS " (sh-list* (sh-cmd ls) 1 '> log.txt '&))"},
-    {"(eval (parse-shell-form1 (string->parsectx\n"
+    {"(sh-eval (parse-shell-form1 (string->parsectx\n"
      "  \"{ls} > log.txt &\")))",
      "(sh-list (sh-cmd* \"ls\" 1 '> \"log.txt\") '&)"},
     {"(expand '(shell \"echo\" \"abc\" > \"DEL_ME\" &&"

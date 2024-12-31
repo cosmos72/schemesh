@@ -60,7 +60,7 @@
 (define repl-parse parse-forms)
 
 
-;; Eval a single form containing parsed expressions or shell commands,
+;; Eval with (sh-eval) a single form containing parsed expressions or shell commands,
 ;; and return value or exit status of executed form.
 ;; May return multiple values.
 ;;
@@ -73,7 +73,7 @@
 (define (repl-eval form)
   ; (debugf "repl-eval: ~s~%" form)
   (try
-    (eval
+    (sh-eval
       (if (and (pair? form) (memq (car form) '(shell shell-subshell)))
         (list 'sh-run/i form)
         form))
@@ -81,7 +81,7 @@
       (repl-exception-handler ex))))
 
 
-;; Execute with (eval-func form) each form in list of forms containing parsed expressions
+;; Execute with (repl-eval form) each form in list of forms containing parsed expressions
 ;; or shell commands, and print each returned value(s) or exit status.
 ;;
 ;; Implementation note:
@@ -92,9 +92,9 @@
 ;;   which causes Chez Scheme to suspend long/infinite evaluations
 ;;   and call (break) - a feature we want to preserve.
 ;;
-;;   For these reasons, the loop (do ... (eval-func ...))
+;;   For these reasons, the loop (do ... (repl-eval ...))
 ;;   is wrapped inside (dynamic-wind tty-restore! (lambda () ...) tty-setraw!)
-(define (repl-eval-list forms eval-func print-func)
+(define (repl-eval-list forms print-func)
   ; (debugf "evaluating list: ~s~%" forms)
   (unless (null? forms)
     (dynamic-wind
@@ -104,10 +104,10 @@
             ((null? tail))
           (if print-func
             (call-with-values
-              (lambda () (eval-func (car tail)))
+              (lambda () (repl-eval (car tail)))
               print-func)
             (begin
-              (eval-func (car tail))
+              (repl-eval (car tail))
               (void)))))
       tty-setraw!)))
 
@@ -124,7 +124,7 @@
 ;; Calls in sequence (repl-lineedit) (repl-parse) (repl-eval-list)
 ;;
 ;; Returns updated parser to use, or #f if got end-of-file.
-(define (repl-once initial-parser enabled-parsers eval-func print-func lctx)
+(define (repl-once initial-parser enabled-parsers print-func lctx)
   (linectx-parser-name-set! lctx (parser-name initial-parser))
   (linectx-parsers-set! lctx enabled-parsers)
   (let ((in (repl-lineedit lctx)))
@@ -139,15 +139,15 @@
                                                     0 0)
                                     initial-parser)))
           (unless (eq? (void) forms)
-            (repl-eval-list forms eval-func print-func))
+            (repl-eval-list forms print-func))
           updated-parser)))))
 
 
 ;; main loop of (repl) and (repl*)
 ;;
 ;; Returns values passed to (exit), or (void) on linectx eof
-(define (repl-loop parser enabled-parsers eval-func print-func lctx)
-  (let ((repl-args (list parser enabled-parsers eval-func print-func lctx)))
+(define (repl-loop parser enabled-parsers print-func lctx)
+  (let ((repl-args (list parser enabled-parsers print-func lctx)))
     (call/cc
       (lambda (k-exit)
         (parameterize ((sh-repl-args repl-args)
@@ -173,22 +173,21 @@
             (while updated-parser
               (set! parser updated-parser)
               (set-car! repl-args updated-parser)
-              (set! updated-parser (repl-once parser enabled-parsers eval-func print-func lctx)))))))))
+              (set! updated-parser (repl-once parser enabled-parsers print-func lctx)))))))))
 
 
 ;; top-level interactive repl with all arguments mandatory
 ;;
 ;; Returns values passed to (exit), or (void) on linectx eof
-(define (repl* initial-parser enabled-parsers eval-func print-func lctx)
+(define (repl* initial-parser enabled-parsers print-func lctx)
   ; (to-parser) also checks initial-parser's and enabled-parser's validity
   (let ((parser (to-parser enabled-parsers initial-parser 'repl)))
-    (assert* 'repl* (procedure? eval-func))
     (assert* 'repl* (linectx? lctx))
     (dynamic-wind
       (lambda ()
         (lineedit-clear! lctx) (signal-init-sigwinch) (tty-setraw!))
       (lambda ()
-        (repl-loop parser enabled-parsers eval-func print-func lctx))
+        (repl-loop parser enabled-parsers print-func lctx))
       (lambda ()
         (tty-restore!) (signal-restore-sigwinch) (lineedit-finish lctx)))))
 
@@ -196,14 +195,12 @@
 ;; top-level interactive repl with optional arguments:
 ;; 'parser initial-parser   - defaults to 'shell
 ;; 'parsers enabled-parsers - defaults to (parsers)
-;; 'eval eval-func          - defaults to repl-eval
 ;; 'linectx lctx            - defaults to (sh-make-linectx)
 ;;
 ;; Returns first value passed to (exit), or (void) on linectx eof
 (define (repl . args)
   (let ((initial-parser #f)  (initial-parser? #f)
         (enabled-parsers #f) (enabled-parsers? #f)
-        (eval-func #f)       (eval-func? #f)
         (print-func #f)      (print-func? #f)
         (lctx #f)            (lctx? #f))
     (do ((args-left args (cddr args-left)))
@@ -214,14 +211,12 @@
         (case opt
           ((parser)  (set! initial-parser val)  (set! initial-parser? #t))
           ((parsers) (set! enabled-parsers val) (set! enabled-parsers? #t))
-          ((eval)    (set! eval-func val)       (set! eval-func? #t))
           ((print)   (set! print-func val)      (set! print-func? #t))
           ((linectx) (set! lctx val)            (set! lctx? #t))
           (else      (syntax-violation 'repl "unexpected argument:" opt)))))
     (first-value-or-void
       (repl* (if initial-parser?  initial-parser 'shell)
              (if enabled-parsers? enabled-parsers (parsers))
-             (if eval-func?       eval-func       repl-eval)
              (if print-func?      print-func      repl-print)
              (if lctx? lctx (sh-make-linectx))))))
 

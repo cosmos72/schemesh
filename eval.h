@@ -40,7 +40,9 @@ ptr call2(const char symbol_name[], ptr arg1, ptr arg2);
 ptr call3(const char symbol_name[], ptr arg1, ptr arg2, ptr arg3);
 
 /**
- * call Scheme (eval-string) on a C string and return the resulting Scheme value
+ * call Scheme (eval (read (open-string-input-port str))) on a C string
+ * and return the resulting Scheme value.
+ * Cannot use (sh-eval) because it may be called before loading libschemesh.
  */
 ptr eval(const char str[]);
 
@@ -50,8 +52,8 @@ typedef struct {
 } bytes;
 
 /**
- * call Scheme (eval) on a C string, and convert returned Scheme value to
- * bytevector with (any->bytevector).
+ * call Scheme (sh-eval->bytevector) on a C UTF8 string, which also converts
+ * returned Scheme value to bytevector with (any->bytevector).
  * @return length and pointer to internal span of a Scheme-allocated
  * bytevector.
  *

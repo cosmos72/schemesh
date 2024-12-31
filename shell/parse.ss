@@ -22,14 +22,14 @@
 
 
 ;; Parse args using shell syntax, and return corresponding sh-cmd or sh-multijob object.
-;; Current implementation is (eval (sh-parse (cons 'shell args))), which uses (sh-parse)
-;; for converting shell commands to Scheme source forms, then (eval) such forms.
+;; Current implementation is (sh-eval (sh-parse (cons 'shell args))), which uses (sh-parse)
+;; for converting shell commands to Scheme source forms, then (sh-eval) such forms.
 ;;
 ;; See (sh-parse) for allowed args.
 (define (sh . args)
   ; implementation: use (sh-parse) for converting shell commands to Scheme forms,
-  ; then (eval) such forms
-  (eval (sh-parse (cons 'shell args))))
+  ; then (sh-eval) such forms
+  (sh-eval (sh-parse (cons 'shell args))))
 
 
 ;; Parse a list starting with 'shell or 'shell-subshell and containing a sequence
