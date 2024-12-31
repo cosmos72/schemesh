@@ -851,9 +851,13 @@ static const testcase tests[] = {
      "(exited . 1)"},
     /* (sh-start) of a builtin, or a multijob only containing builtins
      * directly returns their exit status, as (sh-run) would do.
-     * Reason: there is no external process start asynchronously in the background */
+     * Reason: there is no external process started asynchronously in the background */
     {"(sh-start (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))\n", /* */
      "(exited . 1)"},
+    {"(let ((j (sh-cmd \"sleep\" \"1\")))\n"
+     "  (sh-start j)\n"
+     "  (sh-bg j))\n",
+     "(running . 1)"},
     /* ------------------------- shell syntax ------------------------------- */
     {"(sh-parse '(shell \"wc\" \"-l\" \"myfile\" > \"mylog\" \\x3b; \"echo\" \"done\"))",
      "(sh-list (sh-cmd* wc -l myfile 1 '> mylog) '; (sh-cmd echo done))"},
@@ -868,14 +872,8 @@ static const testcase tests[] = {
     {"(sh-parse '(shell-subshell \"abc\" && \"def\"))",
      "(sh-subshell (sh-and (sh-cmd abc) (sh-cmd def)))"},
 
-#define INVOKELIB_SHELL_BUILTINS                                                                   \
-  "(begin (($primitive 3 $invoke-library) '(schemesh shell builtins) '(0 1) 'builtins)"
 #define INVOKELIB_SHELL_JOBS                                                                       \
   "(begin (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"
-#define INVOKELIB_SHELL_BUILTINS_JOBS                                                              \
-  "(begin"                                                                                         \
-  " (($primitive 3 $invoke-library) '(schemesh shell builtins) '(0 1) 'builtins)"                  \
-  " (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"
 
     /* ------------------------- shell macros ------------------------------- */
     {"(expand '(shell))", /* */
