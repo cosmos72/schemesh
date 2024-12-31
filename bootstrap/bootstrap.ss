@@ -59,6 +59,8 @@
       env)))
 
 
+;; port where to write debug messages with (debugf).
+;; lazily initialized to a file output port that writes to device /dev/pts/1
 (define debugf-port
   (let ((pts1 #f))
     (lambda ()
@@ -71,6 +73,8 @@
                                       (error-handling-mode raise)))))
       pts1)))
 
+
+;; write a debug message to (debugf-port)
 (define (debugf format-string . args)
   (let ((out (debugf-port))
         (t (current-time 'time-monotonic)))
@@ -126,6 +130,7 @@
 
 
 ;; alternative implementation of (assert (proc arg ...))
+;; producing more detailed error messages.
 ;; requires proc to be a procedure, NOT a syntax or macro
 (define-syntax assert*
   (lambda (x)
@@ -222,6 +227,7 @@
     ((_ expr) (call-with-values
                 (lambda () expr)
                 (lambda args (if (null? args) (void) (car args)))))))
+
 
 ;; Scheme implementation of Common Lisp defmacro, defines a global macro.
 ;; Usage:

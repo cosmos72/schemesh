@@ -277,7 +277,7 @@
     (case kind
       ((running)
         ; if wait-status is '(running . #f), try to return '(running . job-id)
-        (job-last-status job))
+        (job-status-set! job wait-status))
       ((exited killed unknown)
         ; job exited, clean it up. Also allows user to later start it again.
         (pid->job-delete! (job-pid job))
