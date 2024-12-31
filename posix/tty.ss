@@ -6,14 +6,28 @@
 ;;; (at your option) any later version.
 
 (library (schemesh posix tty (0 1))
-  (export tty-setraw! tty-restore! tty-size)
+  (export tty-setraw! tty-restore! tty-inspect tty-size with-cooked-tty)
   (import
     (rnrs)
-    (only (chezscheme) foreign-procedure))
+    (only (chezscheme) foreign-procedure inspect))
 
 (define tty-setraw! (foreign-procedure "c_tty_setraw" () int))
 
 (define tty-restore! (foreign-procedure "c_tty_restore" () int))
+
+
+(define-syntax with-cooked-tty
+  (syntax-rules ()
+    ((_ body1 body2 ...)
+      (dynamic-wind
+        tty-restore!       ; run before body
+        (lambda () body1 body2 ...)
+        tty-setraw!))))      ; run after body
+
+
+(define (tty-inspect obj)
+  (with-cooked-tty (inspect obj)))
+
 
 ; (tty-size) calls C functions c_tty_size(),
 ; which returns controlling tty size as pair (width . height), or c_errno() on error

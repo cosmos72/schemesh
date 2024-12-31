@@ -18,7 +18,6 @@
     lineedit-key-enter lineedit-key-newline-left lineedit-key-newline-right
     lineedit-key-history-next lineedit-key-history-prev
     lineedit-key-redraw lineedit-key-tab lineedit-key-toggle-insert
-    lineedit-inspect
     lineedit-paren-find/before-cursor lineedit-paren-find/surrounds-cursor
     lineedit-read lineedit-read-confirm-y-or-n? lineedit-flush lineedit-finish)
   (import
@@ -409,13 +408,7 @@
       (fx1+ q))))
 
 (define (lineedit-key-toggle-insert ctx)
-  (lineedit-inspect ctx))
-
-(define (lineedit-inspect obj)
-  (dynamic-wind
-    tty-restore!       ; run before body
-    (lambda () (inspect obj)) ; body
-    tty-setraw!))      ; run after body
+  (tty-inspect ctx))
 
 (define (lineedit-key-cmd-cd-parent ctx)
   ((top-level-value 'sh-cd) "..")
@@ -968,7 +961,7 @@
     (display-condition ex port)
     (newline port)
     (flush-output-port port))
-  (lineedit-inspect ex))
+  (tty-inspect ex))
 
 
 ;; implementation of (lineedit-read)

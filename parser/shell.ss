@@ -685,7 +685,7 @@
 
 
 (define (paren-fill-end! ctx paren end-token)
-  (let-values (((x y) (if end-token
+  (let-values (((x y) (if (char? end-token)
                         (parsectx-previous-pos ctx 1)
                         (parsectx-current-pos ctx))))
     (paren-end-xy-set! paren x y)

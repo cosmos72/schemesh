@@ -716,18 +716,17 @@ static const testcase tests[] = {
      "    (parsers))\n"
      "  'scheme))",
      "(((+ a b) (shell ls -al >> log.txt ;) foo bar) #<parser scheme>)"},
-#if 0
+
     /* ------------------------ parse-paren -------------------------------- */
-    {"(values->list (paren->values (string->paren \"{\")))", "(scheme #t 0 0 #t 0 0)"},
-    {"(values->list (paren->values (string->paren \"{[(\")))", "(scheme #t 0 0 #t 2 0)"},
+    {"(values->list (paren->values (string->paren \"{\")))", "(scheme #t 0 0 #t 1 0)"},
+    {"(values->list (paren->values (string->paren \"{[(\")))", "(scheme #t 0 0 #t 3 0)"},
     {"(values->list (paren->values (paren-inner-ref (string->paren \"{\") 0)))",
-     "(shell { 0 0 #f 0 0)"},
-#endif
+     "(shell { 0 0 #f 1 0)"},
+    {"(values->list (paren->values (string->paren \"{\n\")))", "(scheme #t 0 0 #t 0 1)"},
     {"(values->list (paren->values (paren-inner-ref (string->paren \"{\n\") 0)))",
      "(shell { 0 0 #f 0 1)"},
-#if 0
     {"(values->list (paren->values (paren-inner-ref* (string->paren \"{[(\") 0 0 0)))",
-     "(scheme ( 2 0 #f 2 0)"},
+     "(scheme ( 2 0 #f 3 0)"},
     {"(string->paren \"(foo \\\"a()\\\" \\\"b[]\\\" \\\"c{}\\\" [* |2| 3])\")",
      "#<paren _(\"\" \"\" \"\" [||])_>"},
     {"(string->paren \"#\\newline #\\\\( #\\\\) #\\\\[ #\\\\] #\\\\{ #\\\\} #\\\\#\")",
@@ -783,7 +782,7 @@ static const testcase tests[] = {
      "    (string->parsectx \"([{``)))\" (parsers))\n"
      "    'scheme\n"
      "    6 0)))",
-     "(shell { 2 0 #f 7 0)"},
+     "(shell { 2 0 #f 8 0)"},
     /* -------------------------- tty --------------------------------------- */
     {"(let ((sz (tty-size)))\n"
      "  (and (pair? sz)\n"
@@ -1006,7 +1005,6 @@ static const testcase tests[] = {
      /* ideally would return the same as previous test, but deciding to omit the (shell ...) wrapper
         is tricky */
      "(((shell (1 2 3))) #<parser shell>)"},
-#endif
 };
 
 static int run_tests(void) {
