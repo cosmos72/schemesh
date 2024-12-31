@@ -59,7 +59,7 @@
   (assert-charlines? 'charhistory-set*! lines)
   (let ((insert? (not (charlines-empty-or-duplicate? hist idx lines)))
         (len (span-length hist)))
-    ; (debugf "charhistory-set*! ~s ~s ~s insert?=~s~%" hist idx lines insert?)
+    ; (debugf "charhistory-set*! hist=~s, idx=~s, lines=~s, insert?=~s~%" hist idx lines insert?)
     (when (and insert? (fx>=? idx len))
       (span-resize-back! hist (fx1+ idx))
       ; optimization: (charhistory-cow-ref) returns a copy-on-write clone of i-th
@@ -79,7 +79,7 @@
 (define (charlines-empty-or-duplicate? hist idx lines)
   (or
     ; do not allow padding the history when inserting empty charlines
-    (and (fx>? idx (span-length hist))
+    (and (or (fxzero? idx) (fx>? idx (span-length hist)))
          (%charlines-empty? lines))
     (charlines-duplicate? hist idx lines)))
 

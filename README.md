@@ -11,7 +11,7 @@ It is primarily intended as a user-friendly Unix login shell, replacing bash, zs
 
 As such, it supports interactive line editing and familiar Unix shell syntax:
 it can start commands, including redirections, pipelines, job concatenation with `&&` `||`,
-groups surrounded by `{ }`, and manage foreground/background jobs.
+groups surrounded by `{ }`, subshells surrounded by `[ ]`, and manage foreground/background jobs.
 
 For more complex tasks, it seamlessly integrates a full Chez Scheme REPL.
 
@@ -24,7 +24,7 @@ Features:
 - [x] shell job control
 - [x] shell aliases
 - [ ] shell builtins - in progress
-- [ ] shell environment variables
+- [x] shell environment variables
 - [ ] shell pipelines `|`
 - [x] shell redirections `<` `>` `<>` `>>` `<&` `>&`
 - [ ] shell wildcard expansion
@@ -76,7 +76,7 @@ Switching between shell syntax and Lisp syntax is extremely simple, and can be d
   inside `( )`, `[ ]` or `{ }`.
   If entered at top level, it changes the default syntax until another directive is entered at top level.
 
-* shell syntax creates Lisp (sh-cmd) objects, which can be started/stopped/managed from both syntaxes
+* shell syntax creates Lisp (sh-cmd) and (sh-job) objects, which can be started/stopped/managed from both syntaxes
 
 Examples:
 

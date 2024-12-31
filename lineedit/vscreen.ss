@@ -28,7 +28,7 @@
   (import
     (rnrs)
     (only (chezscheme) format fx1+ fx1- record-writer)
-    (only (schemesh bootstrap) assert* while)
+    (only (schemesh bootstrap) assert* debugf while)
     (schemesh containers span)
     (schemesh containers charline)
     (schemesh containers charlines))
@@ -312,15 +312,15 @@
          ;; x position immediately after last char is allowed
          (xmax (vscreen-length-at-y screen ymax))
          (saved-n n))
-    ; (debugf "~%; vscreen-cursor-move/right! n ~s, x ~s, xmax ~s, y ~s, ymax ~s~%" n x xmax y ymax)
     (when (and (fx>=? ymax 0) (fx>=? xmax 0))
       (while (and (fx>? n 0) (fx<=? y ymax) (or (fx<? y ymax) (fx<? x xmax)))
         ;; x position immediately after last char is allowed
         (let* ((linemax (fx- (vscreen-length-at-y screen y) (if (fx=? y ymax) 0 1)))
                (delta   (fxmax 0 (fxmin n (fx- linemax x)))))
+          ; (debugf "~%; vscreen-cursor-move/right! n ~s, x ~s, xmax ~s, y ~s, ymax ~s, delta ~s~%" n x xmax y ymax delta)
           (set! n (fx- n delta))
           (set! x (fx+ x delta))
-          (when (and (fx>? n 0) (fx=? x linemax) (fx<? y ymax))
+          (when (and (fx>? n 0) (fx>=? x linemax) (fx<? y ymax))
             ;; move to beginning of next line
             (set! n (fx1- n))
             (set! y (fx1+ y))
