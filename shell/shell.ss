@@ -36,7 +36,7 @@
     ; display.ss
     sh-job-display sh-job-display* sh-job-display/string
     sh-job-write sh-job-write* sh-job-write/string
-    sh-job-display/summary sh-job-display/summary*
+    sh-job-display/summary? sh-job-display/summary sh-job-display/summary*
 
     ; env.ss
     sh-env sh-env! sh-env-unset! sh-env-exported? sh-env-export! sh-env-set+export! sh-env/lazy!

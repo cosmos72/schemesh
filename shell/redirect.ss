@@ -13,46 +13,51 @@
 ;; Start a job and wait for it to exit.
 ;; Reads job's standard output and returns it converted to bytespan.
 ;;
-;; FIXME: unfinished!
-;;
 ;; Does NOT return early if job is stopped, use (sh-run/i) for that.
 ;; Options are the same as (sh-start)
+;;
+;; Implementation note: job is started from a subshell,
+;; because we need to read its standard output while it runs.
+;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
 (define (sh-run/bspan job . options)
-  (let ((redirect-len (span-length (job-redirects job))))
+  (let ((redirect-len (span-length (job-redirects job)))
+        (parent       (job-parent job)))
     ; create pipe fds
     (let-values (((read-fd write-fd) (open-pipe-fds #t #t))) ; both fds are close-on-exec?
-      (dynamic-wind
-        (lambda ()
-          ; add temporarary redirection 1 >& write-fd
-          (sh-redirect! job 1 '>& write-fd))
-        (lambda ()
-          (apply sh-start job options)
-          ; close our copy of write-fd: needed to detect eof on read-fd
-          (fd-close write-fd)
-          (set! write-fd #f)
-          ;; WARNING: job may internally dup write-fd into (job-fds-to-remap)
-          ;; FIXME: (sh-wait) also advances multijob - we should automatically
-          ;;        do that from (sh-consume-signals) and call it periodically,
-          ;;        including when a syscall returns EINTR
-          (let ((ret (fd-read-until-eof read-fd)))
-            (sh-wait job)
-            ret))
-        (lambda ()
-          ; remove temporary redirection
-          (span-resize-back! (job-redirects job) redirect-len)
-          ; close pipe fds
-          (when write-fd
-            (fd-close write-fd))
-          (fd-close read-fd))))))
+      (parameterize ((sh-job-display/summary? #f))
+        (dynamic-wind
+          void ; run before body
+          (lambda ()
+            (let ((jj (sh-subshell job))) ; also sets job's parent to jj
+
+              (sh-redirect! jj 1 '>& write-fd) ; redirect jj stdout to write-fd
+
+              (apply sh-start jj options)
+              ; close our copy of write-fd: needed to detect eof on read-fd
+              (fd-close write-fd)
+              (set! write-fd #f)
+              ;; WARNING: job may internally dup write-fd into (job-fds-to-remap)
+              (let ((ret (fd-read-until-eof read-fd)))
+                (sh-wait jj)
+                ret)))
+          (lambda ()
+            ; restore job's original parent
+            (job-parent-set! job parent)
+            ; close pipe fds
+            (when write-fd
+              (fd-close write-fd))
+            (fd-close read-fd)))))))
 
 
 ;; Start a job and wait for it to exit.
 ;; Reads job's standard output and returns it converted to UTF-8b string.
 ;;
-;; FIXME: unfinished!
-;;
 ;; Does NOT return early if job is stopped, use (sh-run/i) for that.
 ;; Options are the same as (sh-start)
+;;
+;; Implementation note: job is started from a subshell,
+;; because we need to read its standard output while it runs.
+;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
 (define (sh-run/string job . options)
   (let* ((bsp (apply sh-run/bspan job options))
          (beg (bytespan-peek-beg bsp))

@@ -8,6 +8,9 @@
 
 ;; this file should only be included inside a (library ...) definition
 
+;; can be set to #f in forked sub-processes
+(define sh-job-display/summary?
+  (make-thread-parameter #t))
 
 (define sh-job-display/summary
   (case-lambda
@@ -16,20 +19,22 @@
 
 
 (define (sh-job-display/summary* job-or-id port)
-  (let* ((job    (sh-job job-or-id))
-         (id     (job-id job))
-         (pid    (job-pid job))
-         (job-status (job-last-status job))
-         (status (if (sh-ok? job-status) '(exited . 0) job-status)))
-    (if id
-      (if (fx>=? pid 0)
-        (format port "; job ~s pid ~s ~s\t    " id pid status)
-        (format port "; job ~s          ~s\t    " id status))
-      (if (fx>=? pid 0)
-        (format port "; job pid ~s ~s\t    " pid status)
-        (format port "; job          ~s\t    " status)))
-    (sh-job-display job port)
-    (put-char port #\newline)))
+  (when (sh-job-display/summary?)
+    (break)
+    (let* ((job    (sh-job job-or-id))
+           (id     (job-id job))
+           (pid    (job-pid job))
+           (job-status (job-last-status job))
+           (status (if (sh-ok? job-status) '(exited . 0) job-status)))
+      (if id
+        (if (fx>=? pid 0)
+          (format port "; job ~s pid ~s ~s\t    " id pid status)
+          (format port "; job ~s          ~s\t    " id status))
+        (if (fx>=? pid 0)
+          (format port "; job pid ~s ~s\t    " pid status)
+          (format port "; job          ~s\t    " status)))
+      (sh-job-display job port)
+      (put-char port #\newline))))
 
 
 (define precedence-lowest  0)

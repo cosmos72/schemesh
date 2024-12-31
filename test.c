@@ -957,11 +957,10 @@ static const testcase tests[] = {
      " && \"cat\" \"DEL_ME\" > \"/dev/null\""
      " && \"rm\" \"DEL_ME\"))",
      ""},
-#if 0  /* (sh-run/string) is unfinished, hangs on multijobs */
-    {"(sh-run/string (shell \"echo\" \"abc\" > \"DEL_ME\" && \"cat\" \"DEL_ME\" &&"
-     " \"rm\" \"DEL_ME\"))",
-     ""},
-#endif /* 0 */
+    {"(sh-run/string (shell \"echo\" \"a\" \"b\" \"c\" > \"DEL_ME\""
+     " && \"cat\" \"DEL_ME\" "
+     " && \"rm\" \"DEL_ME\"))",
+     "a b c\n"},
     /* ------------------------- repl --------------------------------------- */
     {"(values->list (repl-parse\n"
      "  (string->parsectx \"(+ 2 3) (values 7 (cons 'a 'b))\" (parsers))\n"

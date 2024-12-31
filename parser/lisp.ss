@@ -238,12 +238,13 @@
       ((vfxnparen) (create-fxvector   length values))
       ((vnparen)   (create-vector     length values))
       ((vu8nparen) (create-bytevector length values))
-      ((vflparen)  (apply (top-level-value 'flvector) values))
+      ((vflparen)  (apply (top-level-value 'flvector) values)) ; requires Chez Scheme >= 10.0.0
       ((vfxparen)  (apply fxvector   values))
       ((vparen)    (apply vector     values))
       ((vu8paren)  (apply bytevector values))
       (else  (syntax-errorf ctx (caller-for flavor) "unexpected ~a" vec-type)))))
 
+;; requires Chez Scheme >= 10.0.0
 (define (create-flvector length values)
   (%create-vector length values 0.0 (top-level-value 'make-flvector) (top-level-value 'flvector-set!)))
 

@@ -27,7 +27,7 @@
     ; display.ss
     sh-job-display sh-job-display* sh-job-display/string
     sh-job-write sh-job-write* sh-job-write/string
-    sh-job-display/summary sh-job-display/summary*
+    sh-job-display/summary? sh-job-display/summary sh-job-display/summary*
 
     ; env.ss
     sh-env sh-env! sh-env-unset! sh-env-exported? sh-env-export! sh-env-set+export! sh-env/lazy!
@@ -42,8 +42,8 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) append! break display-string eval foreign-procedure format fx1+ fx1-
-                       include inspect logand logbit? make-format-condition open-fd-output-port
-                       parameterize procedure-arity-mask record-writer reverse! void)
+                       include inspect logand logbit? make-format-condition make-thread-parameter
+                       open-fd-output-port parameterize procedure-arity-mask record-writer reverse! void)
     (only (schemesh bootstrap) assert* debugf sh-eval raise-errorf until while)
     (schemesh containers)
     (schemesh conversions)

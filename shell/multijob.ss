@@ -107,9 +107,8 @@
       (list->span children-jobs))))
 
     ;; set the parent of children-jobs
-    (do ((tail children-jobs (cdr tail)))
-        ((null? tail))
-      (let ((elem (car tail)))
+    (list-iterate children-jobs
+      (lambda (elem)
         (when (sh-job? elem)
           (job-parent-set! elem mj))))
     mj))
@@ -208,17 +207,19 @@
             (let ((status '(exited . 255)))
               (dynamic-wind
                 (lambda () ; run before body
+                  ; in child process, suppress messages about started/completed jobs
+                  (sh-job-display/summary? #f)
                   (let ((pid  (get-pid))
                         (pgid (get-pgid 0)))
                     (job-pid-set!  job pid)
                     (job-pgid-set! job pgid)
-                    ; this process now "is" the job job => update sh-globals' pid and pgid
+                    ; this process now "is" the job => update sh-globals' pid and pgid
                     (job-pid-set!  sh-globals pid)
                     (job-pgid-set! sh-globals pgid)
                     ; cannot wait on our own process
                     (job-status-set! job '(unknown . 0))))
                 (lambda () ; body
-                  ; sh-subshell stores job-run/subshell in (job-step-proc job)
+                  ; sh-subshell stores job-run/subshell in (job-step-proc job), run it from child process
                   (set! status ((job-step-proc job) job (void))))
                 (lambda () ; run after body, even if it raised a condition
                   (exit-with-job-status status)))))
