@@ -137,7 +137,7 @@
 ;; the "history" builtin
 (define (sh-builtin-history job prog-and-args options)
   (assert-string-list? 'sh-builtin-history prog-and-args)
-  (sh-history (list-nth 4 (sh-repl-args))))
+  (sh-history (list-nth 3 (sh-repl-args))))
 
 
 

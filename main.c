@@ -82,7 +82,7 @@ again:
   (void)end;
   (void)&show;
   (void)&diff;
-  /* Senable_expeditor(NULL); */
+  Senable_expeditor(NULL);
   c_errno_set(0);
   {
     ptr ret = call0("repl");

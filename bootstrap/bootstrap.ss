@@ -178,12 +178,12 @@
 
 (define-syntax try
   (syntax-rules (catch)
-    ((_ try-body1 try-body2 ... (catch (exception) catch-body ...))
+    ((_ try-body1 try-body2 ... (catch (exception) catch-body1 catch-body2 ...))
       (call/cc
         (lambda (k-exit)
           (with-exception-handler
             (lambda (exception)
-              (k-exit (begin (void) catch-body ...)))
+              (k-exit (begin catch-body1 catch-body2 ...)))
             (lambda ()
               try-body1 try-body2 ...)))))
     ((_ bad-body ...)
