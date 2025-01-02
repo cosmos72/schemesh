@@ -924,7 +924,6 @@ static const testcase tests[] = {
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"A=$(echo abc; echo def)\"))",
      "(shell A = (shell-backquote echo abc ; echo def))"},
-    /* currently fails, spurious "" in parsed output */
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"A=`echo abc; echo def`\"))",
      "(shell A = (shell-backquote echo abc ; echo def))"},
@@ -933,10 +932,11 @@ static const testcase tests[] = {
      INVOKELIB_SHELL_JOBS
      " (sh-cmd* A '= (lambda (job)"
      " (sh-run/string-rtrim-newlines (sh-list (sh-cmd echo abc) '; (sh-cmd echo def))))))"},
-    /* currently fails, expanded incorrectly */
+    {"(expand '(shell (shell-concat \"l\" \"s\")))",
+     INVOKELIB_SHELL_JOBS " (sh-cmd* (lambda (job) (sh-concat job l s))))"},
     {"(expand '(shell (shell-backquote \"echo\" \"ls\")))",
      INVOKELIB_SHELL_JOBS
-     " (sh-cmd* (lambda (job) (sh-run/string-rtrim-newlines (sh-cmd echo ls))))"},
+     " (sh-cmd* (lambda (job) (sh-run/string-rtrim-newlines (sh-cmd echo ls)))))"},
     /* in shell syntax, = is an operator only before command name */
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"ls A=B\")))",

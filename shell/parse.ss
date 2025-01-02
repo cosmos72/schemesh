@@ -58,15 +58,16 @@
              ((eq? 'shell-subshell arg0) 'sh-subshell)
              (#t
                (syntax-violation 'sh-parse "syntax error, shell DSL form should start with 'shell or 'shell-subshell, found:"
-                 args arg0)))))
+                 saved-args arg0)))))
     (validate args)
+    ; (debugf ">   sh-parse args = ~s~%" saved-args)
     (until (null? args)
       (let-values (((parsed tail) (parse-or args)))
         (unless (null? parsed)
           (set! ret (cons parsed ret)))
         (set! args tail)
         (set! job-n (fx1+ job-n))
-        ; (debugf "sh-parse           iterate: ret = ~s, args = ~s~%" (reverse ret) args)
+        ; (debugf "... sh-parse ret = ~s, args = ~s~%" (reverse ret) args)
         (let %again ()
           (let ((arg (if (null? args) #f (car args))))
             (cond
@@ -86,7 +87,7 @@
               (#t
                 (syntax-violation 'sh-parse "syntax error, unknown shell DSL operator:"
                   saved-args arg)))))))
-    ; (debugf "sh-parse            return: ret = ~s, args = ~s, job-n = ~s, redirections? = ~s, terminators? = ~s~%" (reverse ret) args job-n redirections? terminators?)
+    ; (debugf "<   sh-parse ret = ~s, args = ~s, job-n = ~s, redirections? = ~s, terminators? = ~s~%" (reverse ret) args job-n redirections? terminators?)
     (when (and redirections? (eq? 'sh-list ret-prefix))
       (if (and (fx=? job-n 1) (not terminators?))
         (set! ret-prefix 'sh-redirect!)
@@ -94,12 +95,24 @@
     (cond
       ((null? ret) '(sh-cmd))
       ((null? (cdr ret))
-        (if (eq? 'sh-list ret-prefix)
-          (car ret)
-          (cons ret-prefix ret)))
+        (let ((ret0 (car ret)))
+          (cond
+            ((not (eq? 'sh-list ret-prefix))
+              (cons ret-prefix ret))
+            ((%must-wrap-with-sh-cmd? ret0)
+              (cons 'sh-cmd* ret))
+            (#t
+              ret0))))
       (#t
        (cons ret-prefix (reverse! (list-quoteq! '(& \x3b;
                                                   ) ret)))))))
+
+(define (%must-wrap-with-sh-cmd? form)
+  (and (pair? form)
+       ; fragile, recognizes known macros by name and treats them specially
+       (memq (car form) '(shell-backquote shell-concat shell-glob lambda))))
+
+
 
 ;; validate list containing a sequence of shell commands separated by ; & ! && || |
 (define (validate args)
