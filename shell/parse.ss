@@ -99,19 +99,11 @@
           (cond
             ((not (eq? 'sh-list ret-prefix))
               (cons ret-prefix ret))
-            ((%must-wrap-with-sh-cmd? ret0)
-              (cons 'sh-cmd* ret))
             (#t
               ret0))))
       (#t
        (cons ret-prefix (reverse! (list-quoteq! '(& \x3b;
                                                   ) ret)))))))
-
-(define (%must-wrap-with-sh-cmd? form)
-  (and (pair? form)
-       ; fragile, recognizes known macros by name and treats them specially
-       (memq (car form) '(shell-backquote shell-concat shell-glob lambda))))
-
 
 
 ;; validate list containing a sequence of shell commands separated by ; & ! && || |
@@ -327,7 +319,7 @@
         (cond
           ((cmd-separator? arg)
             (set! done? #t)) ; separator => exit loop without consuming it
-          ((and (pair? arg) (null? ret))
+          ((and (null? ret) (pair? arg) (not (%cmd-subform? arg)))
             ; shell command starts with a Scheme or shell subform
             ; => return it as-is, without wrapping in (sh-cmd ...)
             (set! ret arg)
@@ -363,6 +355,11 @@
         ret)
       args)))
 
+
+(define (%cmd-subform? form)
+  (and (pair? form)
+       ; fragile, recognizes known macros by name and treats them specially
+       (memq (car form) '(shell-backquote shell-concat shell-glob))))
 
 
 ;; Create a cmd to later spawn it.

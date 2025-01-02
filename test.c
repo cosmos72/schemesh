@@ -934,6 +934,8 @@ static const testcase tests[] = {
      " (sh-run/string-rtrim-newlines (sh-list (sh-cmd echo abc) '; (sh-cmd echo def))))))"},
     {"(expand '(shell (shell-concat \"l\" \"s\")))",
      INVOKELIB_SHELL_JOBS " (sh-cmd* (lambda (job) (sh-concat job l s))))"},
+    {"(expand '(shell (shell-concat \"l\" \"s\") \".\"))",
+     INVOKELIB_SHELL_JOBS " (sh-cmd* (lambda (job) (sh-concat job l s)) .))"},
     {"(expand '(shell (shell-backquote \"echo\" \"ls\")))",
      INVOKELIB_SHELL_JOBS
      " (sh-cmd* (lambda (job) (sh-run/string-rtrim-newlines (sh-cmd echo ls)))))"},
