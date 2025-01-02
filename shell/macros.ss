@@ -30,8 +30,8 @@
 (define-syntax shell-backquote
   (syntax-rules ()
     ((_)               "")
-    ;; NOTE: (sh-run/string) cannot be stopped and resumed. But neither can `...` in POSIX shells
-    ((_ arg ...)       (lambda (job) (sh-run/string (shell arg ...))))))
+    ;; NOTE: (sh-run/string-rtrim-newlines) cannot be stopped and resumed. But neither can `...` in POSIX shells
+    ((_ arg ...)       (lambda (job) (sh-run/string-rtrim-newlines (shell arg ...))))))
 
 (define-syntax shell-concat
   (syntax-rules ()

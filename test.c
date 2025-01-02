@@ -930,11 +930,13 @@ static const testcase tests[] = {
      "(shell A = (shell-backquote echo abc ; echo def))"},
     /* should rather expand to (sh-env/lazy! ...) ? */
     {"(expand '(shell \"A\" = (shell-backquote \"echo\" \"abc\" \\x3b; \"echo\" \"def\")))",
-     INVOKELIB_SHELL_JOBS " (sh-cmd* A '= (lambda (job)"
-                          " (sh-run/string (sh-list (sh-cmd echo abc) '; (sh-cmd echo def))))))"},
+     INVOKELIB_SHELL_JOBS
+     " (sh-cmd* A '= (lambda (job)"
+     " (sh-run/string-rtrim-newlines (sh-list (sh-cmd echo abc) '; (sh-cmd echo def))))))"},
     /* currently fails, expanded incorrectly */
     {"(expand '(shell (shell-backquote \"echo\" \"ls\")))",
-     INVOKELIB_SHELL_JOBS " (sh-cmd* (lambda (job) (sh-run/string (sh-cmd echo ls))))"},
+     INVOKELIB_SHELL_JOBS
+     " (sh-cmd* (lambda (job) (sh-run/string-rtrim-newlines (sh-cmd echo ls))))"},
     /* in shell syntax, = is an operator only before command name */
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"ls A=B\")))",
@@ -950,7 +952,7 @@ static const testcase tests[] = {
      "(shell echo (shell-backquote foo && bar))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"echo $(foo&&bar)\")))",
-     INVOKELIB_SHELL_JOBS " (sh-cmd* echo (lambda (job) (sh-run/string"
+     INVOKELIB_SHELL_JOBS " (sh-cmd* echo (lambda (job) (sh-run/string-rtrim-newlines"
                           " (sh-and (sh-cmd foo) (sh-cmd bar))))))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{ls} > log.txt &\")))",
@@ -966,6 +968,8 @@ static const testcase tests[] = {
      "(sh-and (sh-cmd* \"echo\" \"abc\" 1 '> \"DEL_ME\")"
      " (sh-cmd \"cat\" \"DEL_ME\") (sh-cmd \"rm\" \"DEL_ME\"))"},
     /* ------------------------- job execution ------------------------------ */
+    {"(sh-run/string (shell \"echo\" \"a\"  \"b\" \"c\"))", "a b c\n"},
+    {"(sh-run/string-rtrim-newlines (shell \"echo\" \" abc \"))", " abc "},
     {"(sh-run (shell \"echo\" \"abc\" > \"DEL_ME\""
      " && \"cat\" \"DEL_ME\" > \"/dev/null\""
      " && \"rm\" \"DEL_ME\"))",

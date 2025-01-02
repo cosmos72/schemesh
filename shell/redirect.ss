@@ -65,6 +65,26 @@
     (utf8b-range->string (bytespan-peek-data bsp) beg (fx- end beg))))
 
 
+;; Start a job and wait for it to exit.
+;; Reads job's standard output and returns it converted to UTF-8b string,
+;; removing final newlines.
+;;
+;; Does NOT return early if job is stopped, use (sh-run/i) for that.
+;; Options are the same as (sh-start)
+;;
+;; Implementation note: job is started from a subshell,
+;; because we need to read its standard output while it runs.
+;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
+(define (sh-run/string-rtrim-newlines job . options)
+  (let* ((bsp (apply sh-run/bspan job options))
+         (bv  (bytespan-peek-data bsp))
+         (beg (bytespan-peek-beg bsp))
+         (end (bytespan-peek-end bsp)))
+    (while (and (fx>? end beg) (fx=? 10 (bytevector-u8-ref bv (fx1- end))))
+      (set! end (fx1- end)))
+    (utf8b-range->string bv beg (fx- end beg))))
+
+
 ;; Add multiple redirections for cmd or job. Return cmd or job.
 ;; Each redirection must be a two-argument DIRECTION TO-FD-OR-FILE-PATH
 ;; or a three-argument FROM-FD DIRECTION TO-FD-OR-FILE-PATH

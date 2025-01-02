@@ -34,7 +34,7 @@
     sh-cwd-set! sh-cd sh-pwd
 
     ; redirect.ss
-    sh-run/bspan sh-run/string sh-redirect!
+    sh-run/bspan sh-run/string sh-run/string-rtrim-newlines sh-redirect!
 
     ; parse.ss
     sh sh-parse sh-cmd* sh-list*)

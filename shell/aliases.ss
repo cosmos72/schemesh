@@ -21,10 +21,10 @@
 ;;
 ;; Note: for sanity, (sh-alias-expand) ignores aliases for "builtin"
 (define (sh-alias-expand prog-and-args)
-  (%expand-alias prog-and-args '("builtin"))) ; suppress alias expansion for "builtin"
+  (alias-expand prog-and-args '("builtin"))) ; suppress alias expansion for "builtin"
 
 
-(define (%expand-alias prog-and-args suppressed-name-list)
+(define (alias-expand prog-and-args suppressed-name-list)
   (assert-string-list? 'sh-alias-expand prog-and-args)
   (if (null? prog-and-args)
     prog-and-args
@@ -33,7 +33,7 @@
       (if (and alias (not (member name suppressed-name-list)))
         ;; recursively expand output of alias expansion,
         ;; but suppress expansion of already-expanded name
-        (%expand-alias (alias (cdr prog-and-args)) (cons name suppressed-name-list))
+        (alias-expand (alias (cdr prog-and-args)) (cons name suppressed-name-list))
         prog-and-args))))
 
 
