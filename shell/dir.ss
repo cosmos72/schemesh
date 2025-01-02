@@ -73,12 +73,12 @@
 
 
 ;; the "cd" builtin
-(define (sh-builtin-cd job prog-and-args options)
+(define (builtin-cd job prog-and-args options)
   (assert-string-list? 'sh-builtin-cd prog-and-args)
   (apply sh-cd (cdr prog-and-args)))
 
 
 ;; the "pwd" builtin
-(define (sh-builtin-pwd job prog-and-args options)
+(define (builtin-pwd job prog-and-args options)
   (assert-string-list? 'sh-builtin-pwd prog-and-args)
   (sh-pwd))

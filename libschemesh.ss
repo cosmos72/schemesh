@@ -45,7 +45,6 @@
   (include "parser/parser.ss")
   (include "shell/fds.ss")
   (include "shell/paths.ss")
-  (include "shell/aliases.ss")
   (include "shell/builtins.ss")
   (include "shell/jobs.ss")
   (include "shell/macros.ss")

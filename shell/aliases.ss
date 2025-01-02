@@ -1,17 +1,12 @@
-;;; Copyright (C) 2024 by Massimiliano Ghilardi
+;;; Copyright (C) 2023-2024 by Massimiliano Ghilardi
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh shell aliases (0 1))
-  (export sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases sh-builtin-alias sh-builtin-unalias)
-  (import
-    (rnrs)
-    (only (chezscheme) void)
-    (only (schemesh bootstrap) raise-errorf)
-    (only (schemesh containers misc) assert-string-list?))
+
+;; this file should only be included inside a (library ...) definition
 
 
 
@@ -56,7 +51,7 @@
 
 
 ;; the "alias" builtin
-(define (sh-builtin-alias job prog-and-args options)
+(define (builtin-alias job prog-and-args options)
   ; (debugf "sh-builtin-alias ~s~%" prog-and-args)
   (assert-string-list? 'sh-builtin-alias prog-and-args)
   (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
@@ -65,7 +60,7 @@
 
 
 ;; the "unalias" builtin
-(define (sh-builtin-unalias job prog-and-args options)
+(define (builtin-unalias job prog-and-args options)
   (assert-string-list? 'sh-builtin-unalias prog-and-args)
   (do ((tail (cdr prog-and-args) (cdr list)))
       ((null? tail))
@@ -83,6 +78,3 @@
     (hashtable-set! t "l"  (lambda (args) (cons "ls" (cons "-al" args))))
     (hashtable-set! t "v"  (lambda (args) (cons "ls" (cons "-l" args))))
     (lambda () t)))
-
-
-) ; close library

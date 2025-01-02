@@ -326,7 +326,7 @@
 
 
 ;; the "command" builtin
-(define (sh-builtin-command job prog-and-args options)
+(define (builtin-command job prog-and-args options)
   (assert-string-list? 'sh-builtin-command prog-and-args)
   (assert* 'sh-builtin-command (string=? "command" (car prog-and-args)))
   (cmd-spawn job (list->argv (cdr prog-and-args)) options)

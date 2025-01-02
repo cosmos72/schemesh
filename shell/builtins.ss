@@ -6,11 +6,11 @@
 ;;; (at your option) any later version.
 
 (library (schemesh shell builtins (0 1))
-  (export sh-builtin sh-builtin-echo sh-builtin-error sh-builtin-false sh-builtin-true sh-builtin-history
-          sh-builtins sh-find-builtin sh-echo sh-error sh-false sh-true sh-history sh-repl-args)
+  (export sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
+          sh-builtin sh-builtins sh-find-builtin sh-echo sh-error sh-false sh-true sh-history sh-repl-args)
   (import
     (rnrs)
-    (only (chezscheme)                    fx1+ make-thread-parameter void)
+    (only (chezscheme)                    fx1+ include make-thread-parameter void)
     (only (schemesh bootstrap)            debugf raise-errorf)
     (only (schemesh containers misc)      assert-string-list? list-nth string-contains-only-decimal-digits?)
     (schemesh containers bytespan)
@@ -20,9 +20,9 @@
     (only (schemesh posix fd)             fd-write)
     (schemesh lineedit charhistory)
     (only (schemesh lineedit linectx)     linectx? linectx-history)
-    (only (schemesh shell fds)            sh-fd-stdout)
-    (schemesh shell aliases))
+    (only (schemesh shell fds)            sh-fd-stdout))
 
+(include "shell/aliases.ss")
 
 (define (flush-bytespan-to-fd-stdout bsp)
   ; TODO: loop on short writes and call sh-consume-signals
@@ -111,31 +111,31 @@
 
 
 ;; the "echo" builtin
-(define (sh-builtin-echo job prog-and-args options)
+(define (builtin-echo job prog-and-args options)
   (assert-string-list? 'sh-builtin-echo prog-and-args)
   (apply sh-echo (cdr prog-and-args)))
 
 
 ;; the "error" builtin
-(define (sh-builtin-error job prog-and-args options)
+(define (builtin-error job prog-and-args options)
   (assert-string-list? 'sh-builtin-error prog-and-args)
   (apply sh-error (cdr prog-and-args)))
 
 
 ;; the "false" builtin
-(define (sh-builtin-false job prog-and-args options)
+(define (builtin-false job prog-and-args options)
   (assert-string-list? 'sh-builtin-false prog-and-args)
   (sh-false))
 
 
 ;; the "true" builtin
-(define (sh-builtin-true job prog-and-args options)
+(define (builtin-true job prog-and-args options)
   (assert-string-list? 'sh-builtin-true prog-and-args)
   (sh-true))
 
 
 ;; the "history" builtin
-(define (sh-builtin-history job prog-and-args options)
+(define (builtin-history job prog-and-args options)
   (assert-string-list? 'sh-builtin-history prog-and-args)
   (sh-history (list-nth 3 (sh-repl-args))))
 
@@ -158,10 +158,10 @@
 ;; given a command line prog-and-args i.e. a list of strings,
 ;; extract the first string and return the corresponding builtin.
 ;; Return #f if no corresponding builtin is found.
-;; Return sh-builtin-true if prog-and-args is the empty list.
+;; Return builtin-true if prog-and-args is the empty list.
 (define (sh-find-builtin prog-and-args)
   (if (null? prog-and-args)
-    sh-builtin-true ; empty command line, run it with (sh-builtin-true)
+    builtin-true ; empty command line, run it with (builtin-true)
     (hashtable-ref (sh-builtins) (car prog-and-args) #f)))
 
 
@@ -173,14 +173,14 @@
 ;; and must execute the builtin then return its exit status
 (define sh-builtins
   (let ((t (make-hashtable string-hash string=?)))
-    (hashtable-set! t "alias"   sh-builtin-alias)
+    (hashtable-set! t "alias"   builtin-alias)
     (hashtable-set! t "builtin" sh-builtin)
-    (hashtable-set! t "echo"    sh-builtin-echo)
-    (hashtable-set! t "error"   sh-builtin-error)
-    (hashtable-set! t "false"   sh-builtin-false)
-    (hashtable-set! t "history" sh-builtin-history)
-    (hashtable-set! t "true"    sh-builtin-true)
-    (hashtable-set! t "unalias" sh-builtin-unalias)
+    (hashtable-set! t "echo"    builtin-echo)
+    (hashtable-set! t "error"   builtin-error)
+    (hashtable-set! t "false"   builtin-false)
+    (hashtable-set! t "history" builtin-history)
+    (hashtable-set! t "true"    builtin-true)
+    (hashtable-set! t "unalias" builtin-unalias)
     (lambda () t)))
 
 ) ; close library

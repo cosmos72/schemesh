@@ -6,6 +6,8 @@
 ;;; (at your option) any later version.
 
 
+;; this file should only be included inside a (library ...) definition
+
 
 
 

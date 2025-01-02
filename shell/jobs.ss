@@ -17,7 +17,7 @@
     ; jobs.ss
     sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd? sh-multijob?
     sh-concat sh-env-copy sh-env->argv sh-globals sh-global-env
-    sh-builtin-command sh-cmd make-cmd sh-cwd
+    sh-cmd make-cmd sh-cwd
     sh-consume-sigchld sh-multijob-child-length sh-multijob-child-ref
     sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/ok?
 
@@ -31,7 +31,7 @@
 
     ; env.ss
     sh-env sh-env! sh-env-unset! sh-env-exported? sh-env-export! sh-env-set+export! sh-env/lazy!
-    sh-builtin-cd sh-builtin-pwd sh-cwd-set! sh-cd sh-pwd
+    sh-cwd-set! sh-cd sh-pwd
 
     ; redirect.ss
     sh-run/bspan sh-run/string sh-redirect!
@@ -52,7 +52,6 @@
     (schemesh posix signal)
     (schemesh shell fds)
     (schemesh shell paths)
-    (schemesh shell aliases)
     (schemesh shell builtins))
 
 
@@ -333,7 +332,7 @@
     dst))
 
 ;; the "jobs" builtin: list currently running jobs
-(define (sh-builtin-jobs job prog-and-args options)
+(define (builtin-jobs job prog-and-args options)
   (assert-string-list? 'sh-builtin-jobs prog-and-args)
   (let ((src (multijob-children sh-globals)))
     (unless (span-empty? src)
@@ -655,10 +654,10 @@
 
   (let ((t (sh-builtins)))
     ; additional builtins
-    (hashtable-set! t "cd"      sh-builtin-cd)
-    (hashtable-set! t "command" sh-builtin-command)
-    (hashtable-set! t "jobs"    sh-builtin-jobs)
-    (hashtable-set! t "pwd"     sh-builtin-pwd)))
+    (hashtable-set! t "cd"      builtin-cd)
+    (hashtable-set! t "command" builtin-command)
+    (hashtable-set! t "jobs"    builtin-jobs)
+    (hashtable-set! t "pwd"     builtin-pwd)))
 
 
 ) ; close library
