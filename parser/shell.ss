@@ -240,7 +240,7 @@
 ;;
 ;; return two values: the parsed form, and either 'string or 'rlist-assign
 ;; where 'rlist-assign means the parsed form should be reversed then spliced into the command being parsed.
-(define (parse-shell-word ctx equal-is-operator?)
+(define (parse-shell-word ctx equal-is-operator? inside-backquote?)
   (let* ((ret '())
          (again? #t)
          (assign? #f)
@@ -254,8 +254,10 @@
                ((null? l)        "")
                ((null? (cdr l))  (car l))
                (#t               (cons 'shell-concat l))))))
+    ; (debugf "> parse-shell-word equal-is-operator?=~s, inside-backquote?=~s~%" equal-is-operator? inside-backquote?)
     (while again?
       (let-values (((ch type) (peek-shell-char ctx)))
+        ; (debugf ". parse-shell-word ch=~s, type=~s, ret=~s~%" ch type ret)
         (case type
           ((eof)
             (when dquote?
@@ -270,6 +272,14 @@
             (parsectx-read-char ctx))
           ((dollar)
             (%append (read-subword-dollar ctx)))
+          ((backquote)
+            (if inside-backquote?
+              (set! again? #f)
+              (begin
+                (parsectx-read-char ctx) ; consume initial `
+                (let-values (((form _) (parse-shell-forms ctx type))) ; read a shell list surrounded by `...`
+                  (unless (null? form)
+                    (%append form))))))
           (else
             (cond
               (dquote?
@@ -299,6 +309,7 @@
                 (set! again? #f)))))))
 
     (set! ret (reverse! ret))
+    ; (debugf "< parse-shell-word ret=~s, assign=~s~%" ret assign?)
     (if assign?
        (values
          (list (%simplify (cdr ret)) '= (car ret))
@@ -317,7 +328,7 @@
 ;; The definition of shell token is adapted from
 ;; https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_03
 ;;
-(define (lex-shell-impl ctx equal-is-operator?)
+(define (lex-shell-impl ctx equal-is-operator? inside-backquote?)
   (let-values (((ch type) (read-shell-char ctx)))
     (case type
       ((eof separator lparen rparen lbrack rbrack lbrace rbrace)
@@ -325,9 +336,8 @@
       ((op)
         (let ((ch2 (parsectx-peek-char ctx)))
           (case ch
-            ((#\&) (if (eqv? ch2 #\&)
-                     (set! ch '&&)
-                     (set! type 'separator)))
+            ((#\&) (cond ((eqv? ch2 #\&) (set! ch '&&))
+                         (#t             (set! type 'separator))))
             ((#\|) (cond ((eqv? ch2 #\&) (set! ch '\x7c;&))
                          ((eqv? ch2 #\|) (set! ch '\x7c;\x7c;))))
             ((#\<) (cond ((eqv? ch2 #\>) (set! ch '<>))
@@ -343,12 +353,12 @@
           (values (parsectx-read-char ctx) 'dollar+lparen)
           (begin
             (parsectx-unread-char ctx ch)
-            (parse-shell-word ctx equal-is-operator?))))
+            (parse-shell-word ctx equal-is-operator? inside-backquote?))))
       ((backquote)
         (values ch type))
       ((char squote dquote backslash)
         (parsectx-unread-char ctx ch)
-        (parse-shell-word ctx equal-is-operator?))
+        (parse-shell-word ctx equal-is-operator? inside-backquote?))
       (else
         (syntax-errorf ctx 'lex-shell "unimplemented character type: ~a" type)))))
 
@@ -358,7 +368,7 @@
 ;; Skips initial whitespace, recognizes parser directives #!... and returns them th type 'parser,
 ;; and also recognizes numbers followed by redirection operators N< N<> N<& N> N>> N>&
 ;; and returns them as numbers - Joining them with subsequent redirection operator is left to (shell) macro.
-(define (lex-shell ctx equal-is-operator?)
+(define (lex-shell ctx equal-is-operator? inside-backquote?)
   (parsectx-skip-whitespace ctx #f) ; don't skip newlines
   (let ((value (try-read-parser-directive ctx)))
     (if (symbol? value)
@@ -372,7 +382,8 @@
         (values (get-parser ctx value 'parse-shell-forms) 'parser))
 
       ; read a single shell token
-      (let-values (((value type) (lex-shell-impl ctx equal-is-operator?)))
+      (let-values (((value type) (lex-shell-impl ctx equal-is-operator? inside-backquote?)))
+        ; (debugf "lex-shell value=~s type=~s~%" value type)
         (if (and (eq? 'string type)
                  (string? value) ; type = 'string also allows value = `(+ ...)
                  (string-contains-only-decimal-digits? value)
@@ -429,6 +440,7 @@
                      (else                      'shell)))
          (can-change-parser? #t)
          (equal-is-operator? #t)
+         (inside-backquote?  (eq? 'backquote begin-type))
          (done? #f)
          (parser #f)
          (%merge (lambda (ret forms)
@@ -441,7 +453,7 @@
                  merged))))))
     ; (debugf ">   parse-shell-forms end-type=~s prefix=~s~%" end-type prefix)
     (until done?
-      (let-values (((value type) (lex-shell ctx equal-is-operator?)))
+      (let-values (((value type) (lex-shell ctx equal-is-operator? inside-backquote?)))
         ; (debugf "... parse-shell-forms end-type=~s prefix=~s ret=~s value=~s type=~s~%" end-type prefix (if prefix (reverse ret) ret) value type)
         (case type
           ((eof)
@@ -550,9 +562,9 @@
   (let-values (((ch type) (peek-shell-char ctx)))
     (case type
       ((eof lparen) #t)
-      ((separator) (lex-shell ctx #f)) ; consume semicolon or newline
+      ((separator) (lex-shell ctx #f #f)) ; consume semicolon or newline
       (else
-        (let-values (((value type) (lex-shell ctx #f)))
+        (let-values (((value type) (lex-shell ctx #f #f)))
           (syntax-errorf ctx 'parse-shell-forms
             "unexpected token \"~a\" after initial (...) at shell top-level: expecting eof, newline, semicolon or another (...)"
             value)))))
