@@ -118,17 +118,21 @@
       iter)))
 
 
-; iterate on all elements of given hashtable, and call (proc (cons key value))
-; for each element. stop iterating if (proc ...) returns #f
-;
-; Assigning the (cdr) of an element propagates to the hashtable,
-; i.e. changes the value associated to key in hashtable.
-;
-; Do NOT modify the (car) of any element!
+;; iterate on all elements of given hashtable, and call (proc (cons key value))
+;; for each element. stop iterating if (proc ...) returns #f
+;;
+;; Returns #t if all calls to (proc ...) returned truish,
+;; otherwise returns #f.
+;;
+;; Assigning the (cdr) of an element propagates to the hashtable,
+;; i.e. changes the value associated to key in hashtable.
+;;
+;; Do NOT modify the (car) of any element!
 (define (hashtable-iterate htable proc)
   (let ((iter (make-hash-iterator htable)))
     (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter)))
-        ((or (not cell) (not (proc cell)))))))
+        ((not (and cell (proc cell)))
+         (not cell)))))
 
 
 ; (hashtable-transpose src dst) iterates on all (key . value) elements of hashtable src,

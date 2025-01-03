@@ -196,7 +196,8 @@
 (define (chargbuffer-iterate gb proc)
   (do ((i 0 (fx1+ i))
        (n (chargbuffer-length gb)))
-    ((or (fx>=? i n) (not (proc i (chargbuffer-ref gb i)))))))
+    ((or (fx>=? i n) (not (proc i (chargbuffer-ref gb i))))
+     (fx>=? i n))))
 
 ; customize how "chargbuffer" objects are printed
 (record-writer (record-type-descriptor %chargbuffer)

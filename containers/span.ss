@@ -256,6 +256,9 @@
 ;; iterate on span elements, and call (proc i elem) on each one.
 ;; Stops iterating if (proc ...) returns #f.
 ;;
+;; Returns #t if all calls to (proc i elem) returned truish,
+;; otherwise returns #f.
+;;
 ;; The implementation of (proc ...) can call directly or indirectly functions
 ;; that inspect the span without modifying it, and can also call (span-set! sp ...).
 ;;
@@ -265,7 +268,9 @@
   (do ((i (span-beg sp) (fx1+ i))
        (n (span-end sp))
        (v (span-vec sp)))
-    ((or (fx>=? i n) (not (proc i (vector-ref v i)))))))
+    ((or (fx>=? i n) (not (proc i (vector-ref v i))))
+     (fx>=? i n))))
+
 
 ;; (span-find) iterates on span elements from start to (fxmin (fx+ start n) (span-length
 ; sp)), and returns the index of first span element that causes (predicate elem) to return

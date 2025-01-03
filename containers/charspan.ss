@@ -341,7 +341,8 @@
   (do ((i (charspan-beg sp) (fx1+ i))
        (n (charspan-end sp))
        (v (charspan-str sp)))
-    ((or (fx>=? i n) (not (proc i (string-ref v i)))))))
+    ((or (fx>=? i n) (not (proc i (string-ref v i))))
+     (fx>=? i n))))
 
 ;; iterate on charspan elements from start to (fx+ start n)
 ;; and return the index of first charspan element that causes

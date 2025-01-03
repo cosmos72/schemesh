@@ -173,7 +173,8 @@
 (define (gbuffer-iterate gb proc)
   (do ((i 0 (fx1+ i))
        (n (gbuffer-length gb)))
-    ((or (fx>=? i n) (not (proc i (gbuffer-ref gb i)))))))
+    ((or (fx>=? i n) (not (proc i (gbuffer-ref gb i))))
+     (fx>=? i n))))
 
 ; customize how "gbuffer" objects are printed
 (record-writer (record-type-descriptor %gbuffer)

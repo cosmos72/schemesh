@@ -44,6 +44,9 @@
     ; redirect.ss
     sh-run/bspan sh-run/string sh-run/string-rtrim-newlines sh-redirect!
 
+    ; pipe.ss
+    sh-pipe sh-pipe*
+
     ; parse.ss
     sh sh-parse sh-cmd* sh-list*
 

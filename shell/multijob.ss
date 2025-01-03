@@ -44,17 +44,17 @@
 
 ;; Create an "and" multijob
 (define (sh-and . children-jobs)
-  (apply make-multijob 'sh-and assert-is-job job-start/and job-step/and children-jobs))
+  (make-multijob 'sh-and assert-is-job job-start/and job-step/and children-jobs))
 
 
 ;; Create an "or" multijob
 (define (sh-or . children-jobs)
-  (apply make-multijob 'sh-or  assert-is-job job-start/or job-step/or children-jobs))
+  (make-multijob 'sh-or  assert-is-job job-start/or job-step/or children-jobs))
 
 
 ;; Create a "not" multijob
 (define (sh-not child-job)
-  (make-multijob 'sh-not  assert-is-job job-start/not job-step/not child-job))
+  (make-multijob 'sh-not  assert-is-job job-start/not job-step/not (list child-job)))
 
 
 (define (assert-is-job who job)
@@ -64,7 +64,7 @@
 ;; Create a "list" multijob
 ;; Each argument must be a sh-job or subtype, possibly followed by a symbol ; &
 (define (sh-list . children-jobs-with-colon-ampersand)
-  (apply make-multijob 'sh-list
+  (make-multijob 'sh-list
     (lambda (caller job) ; validate-job-proc
       (unless (job-terminator? job)
         (assert* caller (sh-job? job))))
@@ -76,7 +76,7 @@
 ;; Create a "subshell" multijob
 ;; Each argument must be a sh-job or subtype, possibly followed by a symbol ; &
 (define (sh-subshell . children-jobs-with-colon-ampersand)
-  (apply make-multijob 'sh-subshell
+  (make-multijob 'sh-subshell
     (lambda (caller job) ; validate-job-proc
       (unless (job-terminator? job)
         (assert* caller (sh-job? job))))
@@ -95,7 +95,7 @@
 
 ;; Create a multijob to later start it.
 ;; Internal function, accepts an optional function to validate each element in children-jobs
-(define (make-multijob kind validate-job-proc start-proc next-proc . children-jobs)
+(define (make-multijob kind validate-job-proc start-proc next-proc children-jobs)
   (assert* 'make-multijob (symbol? kind))
   (assert* 'make-multijob (procedure? start-proc))
   (when next-proc
@@ -131,7 +131,6 @@
 ;; Does not redirect file descriptors. Options are ignored.
 (define (job-start/list job options)
   ;; this runs in the main process, not in a subprocess.
-  ;; TODO: how can we redirect file descriptor?
   (assert* 'sh-list (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-list (fx=? -1 (multijob-current-child-index job)))
   (job-remap-fds! job)
@@ -146,7 +145,6 @@
 ;; Does not redirect file descriptors. Options are ignored.
 (define (job-start/and job options)
   ;; this runs in the main process, not in a subprocess.
-  ;; TODO: how can we redirect file descriptor?
   (assert* 'sh-and (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-and (fx=? -1 (multijob-current-child-index job)))
   (job-remap-fds! job)
@@ -240,14 +238,14 @@
 
 
 
-;; Internal function called by (job-advance)
+;; Internal function called by (job-advance) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 (define (job-advance/multijob mode mj)
   (job-status-set/running! mj)
   (let* ((child (sh-multijob-child-ref mj (multijob-current-child-index mj)))
          ;; call (job-advance) on child
          (child-status (if (sh-job? child) (job-advance mode child) (void)))
          (step-proc (job-step-proc mj)))
-    ; (debugf "job-advance/multijob > ~s ~s child=~s child-status=~s~%" mode mj child child-status)
+    ; (debugf ">  job-advance/multijob ~s ~s child=~s child-status=~s~%" mode mj child child-status)
     (cond
       ((or (not step-proc) (job-status-stops-or-ends-multijob? child-status))
         ; propagate child exit status and return
@@ -256,9 +254,9 @@
       ((job-status-member? child-status '(exited killed unknown))
         ; child exited: advance multijob by calling (job-step-proc)
         ; then call (job-advance/multijob) again multijob job is still running.
-        ; (debugf "step-proc > ~s status=~s~%" mj (job-last-status mj))
+        ; (debugf "... job-advance/multijob > step-proc ~s status=~s~%" mj (job-last-status mj))
         (step-proc mj child-status)
-        ; (debugf "step-proc < ~s status=~s~%" mj (job-last-status mj))
+        ; (debugf "... job-advance/multijob < step-proc ~s status=~s~%" mj (job-last-status mj))
         (if (job-has-status? mj '(running))
           (job-advance/multijob mode mj)
           (job-last-status mj)))

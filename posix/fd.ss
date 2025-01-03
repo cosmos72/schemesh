@@ -140,9 +140,12 @@
           ret
           (raise-c-errno 'fd-setnonblock 'fcntl ret))))))
 
-; filepath must be string or bytevector.
-; each flag must be one of: 'read 'write 'rw 'create 'truncate 'append
-; at least one of 'read 'write 'rw must be present
+
+;; open a file and returns its file descriptor.
+;; Arguments:
+;;   filepath must be string or bytevector.
+;;   each flag must be one of: 'read 'write 'rw 'create 'truncate 'append
+;;   at least one of 'read 'write 'rw must be present
 (define open-file-fd
   (let ((c-open-file-fd (foreign-procedure "c_open_file_fd"
                           (ptr int int int int) int)))
@@ -161,6 +164,13 @@
           ret
           (raise-c-errno 'open-file-fd 'open ret))))))
 
+;; create a pipe.
+;; Arguments:
+;;   read-fd-close-on-exec?  if truish the read side of the pipe will be close-on-exec
+;;   write-fd-close-on-exec? if truish the write side of the pipe will be close-on-exec
+;; Returns two file descriptors:
+;;   the read side of the pipe
+;;   the write side of the pipe
 (define open-pipe-fds
   (let ((c-open-pipe-fds (foreign-procedure "c_open_pipe_fds" (ptr ptr) ptr)))
     (lambda (read-fd-close-on-exec? write-fd-close-on-exec?)

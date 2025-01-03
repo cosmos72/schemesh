@@ -30,9 +30,13 @@
 
 ;; (list-iterate l proc) iterates on all elements of given list l,
 ;; and calls (proc elem) on each element. Stops iterating if (proc ...) returns #f
+;;
+;; Returns #t if all calls to (proc elem) returned truish,
+;; otherwise returns #f.
 (define (list-iterate l proc)
   (do ((tail l (cdr tail)))
-      ((or (null? tail) (not (proc (car tail)))))))
+      ((or (null? tail) (not (proc (car tail))))
+       (null? tail))))
 
 
 ;; return n-th element of a list, where the car of the list is the "zeroth" element.
@@ -160,10 +164,14 @@
 
 ;; (vector-iterate l proc) iterates on all elements of given vector vec,
 ;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
+;;
+;; Returns #t if all calls to (proc index elem) returned truish,
+;; otherwise returns #f.
 (define (vector-iterate vec proc)
   (do ((i 0 (fx1+ i))
        (n (vector-length vec)))
-      ((or (fx>=? i n) (not (proc i (vector-ref vec i)))))))
+      ((or (fx>=? i n) (not (proc i (vector-ref vec i))))
+       (fx>=? i n))))
 
 ;; (vector->hashtable vec htable) iterates on all elements of given vector vec,
 ;; which must be cons cells, and inserts them into hashtable htable:
@@ -200,10 +208,14 @@
 
 ;; (bytevector-iterate l proc) iterates on all elements of given bytevector vec,
 ;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
+;;
+;; Returns #t if all calls to (proc index elem) returned truish,
+;; otherwise returns #f.
 (define (bytevector-iterate bvec proc)
   (do ((i 0 (fx1+ i))
        (n (bytevector-length bvec)))
-      ((or (fx>=? i n) (not (proc i (bytevector-u8-ref bvec i)))))))
+      ((or (fx>=? i n) (not (proc i (bytevector-u8-ref bvec i))))
+       (fx>=? i n))))
 
 ;; compare the two bytevectors bvec1 and bvec2.
 ;; return -1 if bvec1 is lexicographically lesser than bvec2,
@@ -243,10 +255,14 @@
 
 ;; (string-iterate l proc) iterates on all elements of given string src,
 ;; and calls (proc index ch) on each character. stops iterating if (proc ...) returns #f
+;;
+;; Returns #t if all calls to (proc index elem) returned truish,
+;; otherwise returns #f.
 (define (string-iterate str proc)
   (do ((i 0 (fx1+ i))
        (n (string-length str)))
-      ((or (fx>=? i n) (not (proc i (string-ref str i)))))))
+      ((or (fx>=? i n) (not (proc i (string-ref str i))))
+       (fx>=? i n))))
 
 
 ;; search string range [start, start+n) and return index of first character equal to ch.

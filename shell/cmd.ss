@@ -251,13 +251,13 @@
 
 ;; Internal function called by (job-advance/pid)
 (define (job-advance/pid/maybe-sigcont mode job pid pgid)
-  (assert* mode (fx>? pid 0))
-  (assert* mode (fx>? pgid 0))
+  (assert* mode (> pid 0))
+  (assert* mode (> pgid 0))
   (when (memq mode '(sh-fg sh-bg sh-sigcont+wait))
     ; send SIGCONT to job's process group, if present.
     ; otherwise send SIGCONT to job's process id. Both may raise error
     ; (debugf "job-advance/pid/sigcont > ~s ~s~%" mode job)
-    (pid-kill (if (fx>? pgid 0) (fx- pgid) pid) 'sigcont)))
+    (pid-kill (if (> pgid 0) (- pgid) pid) 'sigcont)))
 
 
 
@@ -320,9 +320,9 @@
         (%pgid-foreground mode global-pgid pgid)
         ; send SIGCONT to job's process group, if present.
         ; otherwise send SIGCONT to job's process id. Both may raise error
-        (pid-kill (if (fx>? pgid 0) (fx- pgid) pid) 'sigcont)
+        (pid-kill (if (> pgid 0) (- pgid) pid) 'sigcont)
         (unless break-returned-normally?
-          (pid-kill (if (fx>? pgid 0) (fx- pgid) pid) 'sigint))))))
+          (pid-kill (if (> pgid 0) (- pgid) pid) 'sigint))))))
 
 
 ;; the "command" builtin

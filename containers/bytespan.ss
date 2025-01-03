@@ -282,7 +282,8 @@
   (do ((i (bytespan-beg sp) (fx1+ i))
        (n (bytespan-end sp))
        (v (bytespan-vec sp)))
-    ((or (fx>=? i n) (not (proc i (bytevector-u8-ref v i)))))))
+    ((or (fx>=? i n) (not (proc i (bytevector-u8-ref v i))))
+     (fx>=? i n))))
 
 ; (bytespan-find/u8) iterates on bytespan u8 elements
 ; from start to (fxmin (fx+ start n) (bytespan-length sp)),

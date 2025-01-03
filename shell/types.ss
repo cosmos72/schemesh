@@ -11,7 +11,7 @@
 
 
 (define-record-type
-  (job %make-job %job?)
+  (job %make-job sh-job?)
   (fields
     (mutable id job-id %job-id-set!) ; fixnum: job id in (sh-globals), #f if not set
     (mutable pid)               ; fixnum: process id,       -1 if unknown

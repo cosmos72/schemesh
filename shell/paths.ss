@@ -92,16 +92,21 @@
 ;; and call (proc path pos len) on each component of the path,
 ;; where pos is the start index of the i-th component in the path, and len is its length.
 ;; stop iterating if (proc ...) returns #f.
+;;
+;; Returns #t if all calls to (proc path pos len) returned truish,
+;; otherwise returns #f.
 (define (sh-path-iterate path start n proc)
   (let* ((clen (charspan-length path))
          (pos  (fxmin clen (fxmax 0 start)))
-         (end  (fxmin clen (fx+ pos (fxmax 0 n)))))
-    (while (fx<? pos end)
+         (end  (fxmin clen (fx+ pos (fxmax 0 n))))
+         (continue? #t))
+    (while (and continue? (fx<? pos end))
       (let ((sep (or (charspan-find path pos (fx- end pos) char-is-sep?)
                      end)))
         (if (proc path pos (fx- sep pos))
           (set! pos (fx1+ sep))
-          (set! pos end))))))
+          (set! continue? #f))))
+    continue?))
 
 ;; given a path, return the length of its parent path.
 ;; returned length includes the final "/" ONLY if it's the only character.

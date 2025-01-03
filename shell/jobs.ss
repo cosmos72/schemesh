@@ -36,6 +36,9 @@
     ; redirect.ss
     sh-run/bspan sh-run/string sh-run/string-rtrim-newlines sh-redirect!
 
+    ; pipe.ss
+    sh-pipe sh-pipe*
+
     ; parse.ss
     sh sh-parse sh-cmd* sh-list*)
   (import
@@ -50,6 +53,7 @@
     (schemesh posix fd)
     (schemesh posix pid)
     (schemesh posix signal)
+    (only (schemesh posix tty) tty-inspect)
     (schemesh shell fds)
     (schemesh shell paths)
     (schemesh shell builtins))
@@ -57,9 +61,6 @@
 
 ;; define the record types "job" "cmd" "multijob" and their accessors
 (include "shell/types.ss")
-
-(define (sh-job? obj)
-  (%job? obj))
 
 
 ;; return the job-id of a job, or #f if not set
@@ -345,10 +346,15 @@
 
 
 ;; call (proc job) on given job and each of its
-;; parents. Stops iterating if (proc) returns #f.
+;; parents. Stops iterating if (proc ...) returns #f.
+;;
+;; Returns #t if all calls to (proc job) returned truish,
+;; otherwise returns #f.
 (define (job-parents-iterate job-or-id proc)
   (do ((parent (sh-job job-or-id) (job-parent parent)))
-      ((or (not (sh-job? parent)) (not (proc parent))))))
+      ((not (and (sh-job? parent) (proc parent)))
+       (not (sh-job? parent)))))
+
 
 
 ;; return list containing all job's parents,
@@ -588,6 +594,8 @@
 
 ;; Common implementation of (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 ;; Also called by (job-advance/multijob)
+;;
+;; mode must be one of: sh-fg sh-bg sh-wait sh-sigcont+wait sh-subshell sh-job-status
 (define (job-advance mode job-or-id)
   (assert* 'job-advance (memq mode '(sh-fg sh-bg sh-wait sh-sigcont+wait sh-subshell sh-job-status)))
   (let ((job (sh-job job-or-id)))
@@ -600,7 +608,9 @@
           ((fx>? (job-pid job) 0)
             (job-advance/pid mode job))
           ((sh-multijob? job)
-            (job-advance/multijob mode job))))
+            (if (eq? 'sh-pipe (multijob-kind job))
+              (job-advance/pipe     mode job)
+              (job-advance/multijob mode job)))))
       (else
         (raise-errorf mode  "job not started yet: ~s" job)))
     ; returns job status
@@ -643,6 +653,7 @@
 (include "shell/env.ss")
 (include "shell/dir.ss")
 (include "shell/redirect.ss")
+(include "shell/pipe.ss")
 (include "shell/parse.ss")
 (include "shell/display.ss")
 
