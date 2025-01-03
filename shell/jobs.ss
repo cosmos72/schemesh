@@ -342,7 +342,8 @@
         (span-iterate src
           (lambda (job-id job)
             (when (sh-job? job)
-              (sh-job-display/summary* job port))))))))
+              (sh-job-display/summary* job port)))))))
+  (void))
 
 
 ;; call (proc job) on given job and each of its

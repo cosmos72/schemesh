@@ -107,8 +107,31 @@ static int write_command_not_found(const char arg0[]) {
   return -EINVAL;
 }
 
-static int write_invalid_redirection(void) {
-  (void)write(2, "schemesh: invalid redirection\n", 30);
+static char to_hex_digit(unsigned number) {
+  number &= 0xF;
+  return number < 10 ? '0' + number : 'A' + (number - 10);
+}
+
+static unsigned ptr_to_hex(ptr p, char outbuf[/* sizeof(ptr) * 2 */]) {
+  const unsigned max_digits = sizeof(ptr) * 2;
+  char*          out        = outbuf + max_digits;
+  uptr           x          = (uptr)p;
+  do {
+    *--out = to_hex_digit(x);
+  } while ((x >>= 4) != 0);
+  return out - outbuf;
+}
+
+static int write_invalid_redirection(const char label[], ptr value) {
+  (void)write(2, "schemesh: invalid redirection ", 30);
+  (void)write(2, label, strlen(label));
+  (void)write(2, " 0x", 3);
+
+  char     buf[sizeof(ptr) * 2 + 1];
+  unsigned skip        = ptr_to_hex(value, buf);
+  buf[sizeof(buf) - 1] = '\n';
+  (void)write(2, buf + skip, sizeof(buf) - skip);
+
   return -EINVAL;
 }
 
@@ -500,17 +523,17 @@ c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector, ptr close_
 
   if (!Sfixnump(from_fd) || (fd = Sfixnum_value(from_fd)) < 0) {
     /* invalid fd */
-    return write_invalid_redirection();
+    return write_invalid_redirection("from_fd", from_fd);
   } else if (!Scharp(direction_ch) ||
              (open_flags = c_direction_to_open_flags(Schar_value(direction_ch))) < 0) {
     /* invalid direction */
-    return write_invalid_redirection();
+    return write_invalid_redirection("direction_ch", direction_ch);
   } else if (Sfixnump(to_fd_or_bytevector)) {
     /* redirect fd to another fd */
     iptr to_fd = Sfixnum_value(to_fd_or_bytevector);
     if (to_fd < -1) {
       /* invalid to_fd, must be >= -1 */
-      return write_invalid_redirection();
+      return write_invalid_redirection("to_fd_or_bytevector", to_fd_or_bytevector);
       /* redirect fd to another file descriptor, or close it */
     } else if (to_fd == -1) {
       (void)close(fd);
@@ -553,7 +576,7 @@ c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector, ptr close_
     return 0;
   } else {
     /* invalid path */
-    return write_invalid_redirection();
+    return write_invalid_redirection("to_fd_or_bytevector", to_fd_or_bytevector);
   }
 }
 
@@ -576,7 +599,7 @@ static int c_fds_redirect(ptr vector_fds_redirect, ptr close_on_exec) {
   iptr i, n;
   int  err = 0;
   if (!Svectorp(vector_fds_redirect) || ((n = Svector_length(vector_fds_redirect)) & 3)) {
-    write_invalid_redirection();
+    write_invalid_redirection("vector_fds_redirect", vector_fds_redirect);
     return -EINVAL;
   }
   for (i = 0; err == 0 && i + 4 <= n; i += 4) {

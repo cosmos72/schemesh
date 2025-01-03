@@ -80,6 +80,8 @@
         (set! out-pipe-fd/write fd/write)
         (job-redirect/fd! job 1 '>& fd/write)))
 
+    ; (debugf "job-start/pipe-i starting job=~s, options=~s~%" job options)
+
     ; Do not yet assign a job-id. Reuse mj process group id
     (start/any job options)
 

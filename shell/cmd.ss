@@ -116,7 +116,7 @@
       (let* ((process-group-id (job-start-options->process-group-id options))
              (ret (c-spawn-pid
                     argv
-                    (job-prepare-c-redirect-vector c)
+                    (job-make-c-redirect-vector c)
                     (sh-env->argv c 'exported)
                     process-group-id)))
         (when (< ret 0)
@@ -127,12 +127,14 @@
 
 ;; internal function called by (cmd-spawn)
 ;; creates and fills a vector with job's redirections and its parents redirections
-(define (job-prepare-c-redirect-vector job)
+(define (job-make-c-redirect-vector job)
   (let* ((n (job-count-c-redirect-vector job 0))
          (v (make-vector n)))
     (do ((parent job (job-parent parent)))
-        ((not parent) v)
-      (set! n (job-fill-c-redirect-vector-norecurse parent v n)))))
+        ((not parent))
+      (set! n (job-fill-c-redirect-vector/norecurse parent v n)))
+    ; (debugf "job-make-c-redirect-vector job=~s redirect-vector=~s~%" job v)
+    v))
 
 
 ;; count and return the total number of redirections (* 4) of a job,
@@ -146,16 +148,16 @@
 
 ;; copy job's redirections to vector v, without recursing to job's parents.
 ;; returns (fx- pos (number-of-copied-elements))
-(define (job-fill-c-redirect-vector-norecurse job v end-pos)
-   (let* ((n         (span-length (job-redirects job)))
-          (start-pos (fx- end-pos n)))
-     (do ((index (fx- n 4) (fx- index 4)))
-         ((fx<? index 0) start-pos)
-       (job-fill-c-redirect-vector-at job v index start-pos))))
+(define (job-fill-c-redirect-vector/norecurse job v end-pos)
+  (let ((n (span-length (job-redirects job))))
+    (do ((index (fx- n 4)       (fx- index 4))
+         (pos   (fx- end-pos 4) (fx- pos 4)))
+        ((fx<? index 0) (fx+ pos 4))
+      (job-fill-c-redirect-vector/at job v index pos))))
 
 
-;; copy a single job redirection to vector v
-(define (job-fill-c-redirect-vector-at job v index start-pos)
+;; copy a single job redirection to vector v, at v[pos] ... v[pos+3]
+(define (job-fill-c-redirect-vector/at job v index pos)
   (let* ((redirects     (job-redirects job))
          (fd            (span-ref redirects index))
          (direction-ch  (span-ref redirects (fx1+ index)))
@@ -165,12 +167,12 @@
          (to            (if (fx=? fd remapped-to)
                           (job-extract-redirection-to-fd-or-bytevector0 job redirects index)
                           remapped-to)))
-    (vector-set! v start-pos fd)
-    (vector-set! v (fx1+  start-pos) direction-ch)
-    ;; to-fd must be placed at start-pos + 2
-    (vector-set! v (fx+ 2 start-pos) (if (fixnum? to) to #f))
-    ;; to-bytevector0 must be placed at start-pos + 3
-    (vector-set! v (fx+ 3 start-pos) (if (fixnum? to) #f to))))
+    (vector-set! v pos fd)
+    (vector-set! v (fx1+  pos) direction-ch)
+    ;; to-fd must be placed at pos + 2
+    (vector-set! v (fx+ 2 pos) (if (fixnum? to) to #f))
+    ;; to-bytevector0 must be placed at pos + 3
+    (vector-set! v (fx+ 3 pos) (if (fixnum? to) #f to))))
 
 
 
