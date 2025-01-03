@@ -71,7 +71,7 @@
          (redirect-in?  (fx>=? in-pipe-fd 0))
          (redirect-out? (fx<? i (fx1- n))))
 
-    ; Apply redirections. TODO: remove them when mj finishes.
+    ; Apply redirections. Will be removed by job-advance/pipe/wait) when job finishes.
     (when redirect-in?
       (job-redirect/fd! job 0 '<& in-pipe-fd))
     (when redirect-out?
@@ -86,6 +86,11 @@
     ; set mj process group id for reuse by all other children
     (when (< process-group-id 0)
       (job-pgid-set! mj (job-pgid job)))
+
+    ; Close pipes after starting job.
+    ; Either the job has one or more remapped-fd pointing to a dup2() of them,
+    ; or the job is a child process owning a copy of a dup2() of them.
+    ; In both cases, the original pipes are no longer needed.
     (when (fx>=? in-pipe-fd 0)
       (fd-close in-pipe-fd))
     (when (fx>=? out-pipe-fd/write 0)
