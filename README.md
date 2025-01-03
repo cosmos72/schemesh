@@ -25,8 +25,8 @@ Features:
 - [x] shell aliases
 - [ ] shell builtins - in progress
 - [x] shell environment variables
-- [ ] shell pipelines `|`
-- [x] shell redirections `<` `>` `<>` `>>` `<&` `>&`
+- [x] shell pipelines `|`
+- [x] shell redirections `<` `>` `<>` `>>` `<&` `>&` `$()` ``` `` ```
 - [ ] shell wildcard expansion
 
 Schemesh can be used as:
