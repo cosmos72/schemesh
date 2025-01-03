@@ -32,7 +32,7 @@
     (lambda (pid)
       (let ((ret (c-get-pgid pid)))
         (when (< ret 0)
-          (raise-c-errno 'get-pgid 'getpgid ret))
+          (raise-c-errno 'get-pgid 'getpgid ret pid))
         ret))))
 
 
@@ -45,13 +45,14 @@
   (let ((c-spawn-pid (foreign-procedure "c_spawn_pid"
                         (ptr ptr ptr int) int)))
     (lambda (program . args)
-      (let ((ret (c-spawn-pid
-                   (list->argv (cons program args))
-                   '#(0 1 2) ; no fd redirections
-                   #f ; no environment override
-                   0)))
+      (let* ((program-and-args (cons program args))
+             (ret (c-spawn-pid
+                    (list->argv program-and-args)
+                    '#(0 1 2) ; no fd redirections
+                    #f ; no environment override
+                    0)))
         (when (< ret 0)
-          (raise-c-errno 'spawn-pid 'fork ret))
+          (apply raise-c-errno 'spawn-pid 'fork ret program-and-args))
         ret))))
 
 

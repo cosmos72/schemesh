@@ -432,10 +432,11 @@
          (to-fd-or-bytevector0 (job-extract-redirection-to-fd-or-bytevector0 job redirects index))
          (remap-fd             (sh-fd-allocate)))
     ; (debugf "fd-redirect fd=~s dir=~s to=~s~%" remap-fd direction-ch to-fd-or-bytevector0)
-    (let ((ret (fd-redirect (sh-fd->int remap-fd) direction-ch to-fd-or-bytevector0 #t))) ; #t close-on-exec?
+    (let* ((fd-int (sh-fd->int remap-fd))
+           (ret (fd-redirect fd-int direction-ch to-fd-or-bytevector0 #t))) ; #t close-on-exec?
       (when (< ret 0)
         (sh-fd-release remap-fd)
-        (raise-c-errno 'sh-start 'c_fd_redirect ret)))
+        (raise-c-errno 'sh-start 'c_fd_redirect ret fd-int direction-ch to-fd-or-bytevector0)))
     (hashtable-set! (job-fds-to-remap job) fd remap-fd)))
 
 

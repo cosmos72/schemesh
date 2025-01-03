@@ -209,7 +209,7 @@
     (lambda (caller expected-pgid new-pgid)
       (let ((err (c-pgid-foreground expected-pgid new-pgid)))
         (when (< err 0)
-          (raise-c-errno caller 'tcsetpgrp err))
+          (raise-c-errno caller 'tcsetpgrp err new-pgid))
         err))))
 
 

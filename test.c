@@ -981,6 +981,9 @@ static const testcase tests[] = {
      " && \"rm\" \"DEL_ME\"))",
      "a b c\n"},
     {"(sh-run/string (shell \"echo\" \"foo  bar\\n asdf\" \\x7C; \"grep\" \"asd\"))", " asdf\n"},
+    {"(sh-run (shell \"echo\" \"xyz\" \\x7C;"
+     " (shell \"command\" \"true\" && \"grep\" \"abc\" > \"/dev/null\")))",
+     "(exited . 1)"},
     /* ------------------------- repl --------------------------------------- */
     {"(values->list (repl-parse\n"
      "  (string->parsectx \"(+ 2 3) (values 7 (cons 'a 'b))\" (parsers))\n"

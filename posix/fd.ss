@@ -26,7 +26,8 @@
 
 (define (raise-c-errno who c-who c-errno . c-args)
   ; (debugf "raise-c-errno ~s ~s~%" who c-errno)
-  (raise-errorf who "C function ~s~s failed with error ~s" c-who c-args c-errno))
+  (raise-errorf who "C function ~s~s failed with error ~s: ~a"
+    c-who c-args c-errno (c-errno->string c-errno)))
 
 ;; return the maximum number of open file descriptors for a process
 (define fd-open-max
@@ -55,7 +56,7 @@
       (let ((ret (c-fd-dup old-fd)))
         (if (>= ret 0)
           ret
-          (raise-c-errno 'fd-dup 'dup ret))))))
+          (raise-c-errno 'fd-dup 'dup ret old-fd))))))
 
 (define fd-dup2
   (let ((c-fd-dup2 (foreign-procedure "c_fd_dup2" (int int) int)))
@@ -63,7 +64,7 @@
       (let ((ret (c-fd-dup2 old-fd new-fd)))
         (if (>= ret 0)
           (void)
-          (raise-c-errno 'fd-dup2 'dup2 ret))))))
+          (raise-c-errno 'fd-dup2 'dup2 ret old-fd new-fd))))))
 
 
 ;; read from fd until end-of-file.
@@ -95,7 +96,7 @@
       (let ((ret (c-fd-read fd bytevector-result start end)))
         (if (>= ret 0)
           ret
-          (raise-c-errno 'fd-read 'read ret))))))
+          (raise-c-errno 'fd-read 'read ret fd #vu8() start end))))))
 
 (define fd-write
   (let ((c-fd-write (foreign-procedure "c_fd_write" (int ptr iptr iptr) iptr)))
@@ -103,7 +104,7 @@
       (let ((ret (c-fd-write fd bytevector-towrite start end)))
         (if (>= ret 0)
           ret
-          (raise-c-errno 'fd-write 'write ret))))))
+          (raise-c-errno 'fd-write 'write ret fd #vu8() start end))))))
 
 ; (fd-select fd direction timeout-milliseconds) waits up to timeout-milliseconds
 ; for file descriptor fd to become ready for input, output or both.
@@ -127,10 +128,10 @@
         (cond
           ; if c_fd_select() returns EINTR, consider it a timeout
           ((eqv? ret c-errno-eintr) 'timeout)
-          ((< ret 0) (raise-c-errno 'fd-select 'select ret))
+          ((< ret 0) (raise-c-errno 'fd-select 'select ret fd rw-mask timeout-milliseconds))
           ((< ret 4) (vector-ref '#(timeout read write rw) ret))
           ; c_fd_select() called poll() which set (revents & POLLERR)
-          (#t        (raise-c-errno 'fd-select 'select c-errno-eio)))))))
+          (#t        (raise-c-errno 'fd-select 'select c-errno-eio fd rw-mask timeout-milliseconds)))))))
 
 (define fd-setnonblock
   (let ((c-fd-setnonblock (foreign-procedure "c_fd_setnonblock" (int) int)))
@@ -138,7 +139,7 @@
       (let ((ret (c-fd-setnonblock fd)))
         (if (>= ret 0)
           ret
-          (raise-c-errno 'fd-setnonblock 'fcntl ret))))))
+          (raise-c-errno 'fd-setnonblock 'fcntl ret fd))))))
 
 
 ;; open a file and returns its file descriptor.
@@ -162,7 +163,7 @@
              [ret (c-open-file-fd filepath0 flag-rw flag-create flag-truncate flag-append)])
         (if (>= ret 0)
           ret
-          (raise-c-errno 'open-file-fd 'open ret))))))
+          (apply raise-c-errno 'open-file-fd 'open ret filepath flags))))))
 
 ;; create a pipe.
 ;; Arguments:
