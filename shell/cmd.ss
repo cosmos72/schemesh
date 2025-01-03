@@ -150,10 +150,10 @@
 ;; returns (fx- pos (number-of-copied-elements))
 (define (job-fill-c-redirect-vector/norecurse job v end-pos)
   (let ((n (span-length (job-redirects job))))
-    (do ((index (fx- n 4)       (fx- index 4))
-         (pos   (fx- end-pos 4) (fx- pos 4)))
-        ((fx<? index 0) (fx+ pos 4))
-      (job-fill-c-redirect-vector/at job v index pos))))
+    (do ((index (fx- n 4)  (fx- index 4))
+         (pos   end-pos    (fx- pos 4)))
+        ((fx<? index 0) pos)
+      (job-fill-c-redirect-vector/at job v index (fx- pos 4)))))
 
 
 ;; copy a single job redirection to vector v, at v[pos] ... v[pos+3]
