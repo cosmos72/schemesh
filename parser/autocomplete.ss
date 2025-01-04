@@ -52,29 +52,32 @@
 
 ;; fill span-of-charspans completions with file names starting with charspan stem
 (define (parse-shell-autocomplete lctx paren completions)
-  (let* ((stem-is-first-word? (%compute-stem lctx paren %char-is-shell-identifier? %char-is-dollar?))
-         (stem      (linectx-completion-stem lctx))
-         (stem-len  (charspan-length stem))
-         (dollar?   (and (not (fxzero? stem-len)) (char=? #\$ (charspan-ref stem 0))))
-         (slash-pos (and (not (fxzero? stem-len)) (not dollar?) (charspan-rfind/ch stem 0 stem-len #\/))))
-    ; (debugf "parse-shell-autocomplete stem=~s, stem-is-first-word?=~s~%" stem stem-is-first-word?)
-    (cond
-      (dollar?
-        (%list-shell-env lctx (charspan->string stem) completions))
-      (slash-pos ; list contents of a directory
-        (let ((dir    (charspan-range->string stem 0 (fx1+ slash-pos)))
-              (prefix (charspan-range->string stem (fx1+ slash-pos) stem-len)))
-          (%list-directory dir prefix slash-pos completions)))
-      (stem-is-first-word? ; list builtins, aliases and programs in $PATH
-        (%list-shell-commands lctx (charspan->string stem) completions))
-      (#t ; list contents of current directory
-        (%list-directory "." (charspan->string stem) #f completions)))))
+  (let-values (((stem-is-first-word? x y) (%compute-stem lctx paren %char-is-shell-identifier? %char-is-dollar?)))
+    (let* ((stem      (linectx-completion-stem lctx))
+           (stem-len  (charspan-length stem))
+           (dollar?   (and (not (fxzero? stem-len)) (char=? #\$ (charspan-ref stem 0))))
+           (slash-pos (and (not (fxzero? stem-len)) (not dollar?) (charspan-rfind/ch stem 0 stem-len #\/))))
+      ; (debugf "parse-shell-autocomplete stem=~s, stem-is-first-word?=~s~%" stem stem-is-first-word?)
+      (cond
+        (dollar?
+          (%list-shell-env lctx (charspan->string stem) completions))
+        (slash-pos ; list contents of a directory
+          (let ((dir    (charspan-range->string stem 0 (fx1+ slash-pos)))
+                (prefix (charspan-range->string stem (fx1+ slash-pos) stem-len)))
+            (%list-directory dir prefix slash-pos completions)))
+        ((or stem-is-first-word? (%vscreen-contains-shell-separator? (linectx-vscreen lctx) x y))
+          ; list builtins, aliases and programs in $PATH
+          (%list-shell-commands lctx (charspan->string stem) completions))
+        (#t ; list contents of current directory
+          (%list-directory "." (charspan->string stem) #f completions))))))
 
 
 ;; TEMPORARY and APPROXIMATED:
 ;; fill charspan (linectx-completion-stem) with the word to autocomplete.
 ;; the correct solution requires parsing parens and finding the longest syntax-aware identifier
-;; returns #t if stem starts at beginning of paren, otherwise return #f
+;; returns three values:
+;;   #t if stem starts at beginning of paren, otherwise return #f
+;;   vscreen x and y of stopping character before stem
 (define (%compute-stem lctx paren char-is-ident-pred char-is-start-pred)
   (let* ((stem   (linectx-completion-stem lctx))
          (screen (linectx-vscreen lctx))
@@ -97,21 +100,21 @@
         ; (debugf "%vscreen-char-before-xy x=~s, y=~s -> x1=~s, y1=~s, ch=~s~%" x y x1 y1 ch)
         (cond
           ((not (and x1 y1 (char? ch))) ; reached start of paren or vscreen
-             #t)
+             (values #t x y))
           ((char-is-ident-pred ch) ; found an identifier char, insert it and iterate
              (charspan-insert-front! stem ch)
              (%fill-stem x1 y1))
           ((char-is-start-pred ch) ; found $ or some other char that starts the identifier, insert it and exit
              (charspan-insert-front! stem ch)
-             #f)
+             (values #f x y))
           (#t ; found a non-identifier char, could be a blank
             (let %vscreen-contains-only-blanks-before-xy? ((screen screen) (x x) (y y))
               (let-values (((x1 y1 ch) (%vscreen-char-before-xy screen x y)))
                 (cond
                   ((not (and x1 y1 (char? ch))) ; reached start of paren or vscreen, found only blanks
-                    #t)
+                    (values #t x y))
                   ((char>? ch #\space) ; found another word before stem
-                    #f)
+                    (values #f x y))
                   (#t ; iterate
                     (%vscreen-contains-only-blanks-before-xy? screen x1 y1)))))))))))
 
@@ -139,6 +142,17 @@
         (char<=? #\@ ch #\Z)  ; i.e. one of @ A ... Z
         (char<=? #\+ ch #\:)  ; i.e. one of + , - . / 0 ... 9 :
         (memv ch '(#\% #\= #\\ #\^ #\\ #\_ #\~)))))
+
+
+(define (%vscreen-contains-shell-separator? screen x y)
+  (let-values (((x1 y1 ch) (vscreen-char-before-xy screen x y)))
+    ; (debugf "%vscreen-contains-shell-separator? x=~s, y=~s -> x1=~s y1=~s ch=~s~%" x y x1 y1 ch)
+    (cond
+      ((not (and x1 y1 ch))               #f)
+      ((memv ch '(#\; #\newline #\& #\|)) #t)
+      ((char<=? ch #\space)
+        (%vscreen-contains-shell-separator? screen x1 y1))
+      (#t #f))))
 
 
 (define (%list-directory dir prefix slash? completions)
