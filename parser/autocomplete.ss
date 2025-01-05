@@ -65,7 +65,7 @@
           (let ((dir    (charspan-range->string stem 0 (fx1+ slash-pos)))
                 (prefix (charspan-range->string stem (fx1+ slash-pos) stem-len)))
             (%list-directory dir prefix slash-pos completions)))
-        ((or stem-is-first-word? (%vscreen-contains-shell-separator? (linectx-vscreen lctx) x y))
+        ((or stem-is-first-word? (%stem-is-after-shell-separator? (linectx-vscreen lctx) x y))
           ; list builtins, aliases and programs in $PATH
           (%list-shell-commands lctx (charspan->string stem) completions))
         (#t ; list contents of current directory
@@ -144,14 +144,14 @@
         (memv ch '(#\% #\= #\\ #\^ #\\ #\_ #\~)))))
 
 
-(define (%vscreen-contains-shell-separator? screen x y)
+(define (%stem-is-after-shell-separator? screen x y)
   (let-values (((x1 y1 ch) (vscreen-char-before-xy screen x y)))
-    ; (debugf "%vscreen-contains-shell-separator? x=~s, y=~s -> x1=~s y1=~s ch=~s~%" x y x1 y1 ch)
+    ; (debugf "%stem-is-after-shell-separator? x=~s, y=~s -> x1=~s y1=~s ch=~s~%" x y x1 y1 ch)
     (cond
-      ((not (and x1 y1 ch))               #f)
-      ((memv ch '(#\; #\newline #\& #\|)) #t)
+      ((not (and x1 y1 ch))  #f)
+      ((memv ch '(#\; #\newline #\! #\& #\|)) #t)
       ((char<=? ch #\space)
-        (%vscreen-contains-shell-separator? screen x1 y1))
+        (%stem-is-after-shell-separator? screen x1 y1))
       (#t #f))))
 
 
@@ -173,9 +173,9 @@
   )
 
 
-;; list environment variables that start with prefix,
-;; and append them to completions
+;; list environment variables that start with prefix, and append them to completions
 ;; NOTE: prefix always starts with #\$
+;; FIXME: pass (top-level-value 'sh-global-env) as argument
 (define (%list-shell-env lctx prefix completions)
   ; (debugf "%list-shell-env prefix = ~s~%" prefix)
   (let* ((prefix-len (fx1- (string-length prefix)))
