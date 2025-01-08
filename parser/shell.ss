@@ -264,6 +264,12 @@
               (set! word (if (char=? ch #\?) '? '*))
               (parsectx-unread-char ctx ch)) ; return word before ? or *
             (set! again? #f))
+          ((eqv? ch #\~)
+            (if (charspan-empty? word)
+              ; return wildcard symbol '~
+              (set! word '~)
+              (parsectx-unread-char ctx ch)) ; return word before ~
+            (set! again? #f))
           ((eq? type 'char)
             (charspan-insert-back! word ch))
           ((and (eq? type 'lbrack) (not lbracket-is-subshell?))

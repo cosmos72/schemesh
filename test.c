@@ -947,8 +947,8 @@ static const testcase tests[] = {
      "  \"{echo .*[a-z]?.so}\")))",
      "(shell echo (shell-concat . * [] a-z ? .so))"},
     {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
-     "  \"A=* ls\"))))",
-     "(shell \"A\" = \"*\" \"ls\")"},
+     "  \"A=* B=~ ls ~bar\"))))",
+     "(shell \"A\" = \"*\" \"B\" = ~ \"ls\" (shell-concat ~ \"bar\"))"},
     /* in shell syntax, = is an operator only before command name */
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"ls A=B\")))",
