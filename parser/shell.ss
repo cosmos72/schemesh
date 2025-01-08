@@ -228,14 +228,17 @@
             (set! again? #f)))))
     ; (debugf "<   read-subwords-noquote ret=~s splice?=~s~%" (reverse ret) splice?)
     (cond
-      (splice?
-        (values ret 'rsplice))
-      ((null? ret)
-        (values "" 'atom))
-      ((null? (cdr ret))
-        (values (car ret) 'atom))
-      (#t
-        (values (cons 'shell-concat (reverse! ret)) 'atom)))))
+      (splice?            (values ret 'rsplice))
+      ((null? ret)        (values "" 'atom))
+      ((%is-literal? ret) (values (car ret) 'atom))
+      (#t                 (values (cons 'shell-wildcard (reverse! ret)) 'atom)))))
+
+
+;; return #t if list l contains a single element that is not a wildcard
+;; and thus can be simplified from (shell-wildcard x ...) to x
+(define (%is-literal? l)
+  (and (null? (cdr l))
+       (not (memq (car l) '(~ * ?)))))
 
 
 ;; Read a single unquoted subword: either a string or a symbol '= '? '* '[] '[!]
@@ -401,8 +404,8 @@
     (cond
       (splice?            (values (reverse! ret) 'splice))
       ((null? ret)        (values ""             'atom))
-      ((null? (cdr ret))  (values (car ret)      'atom))
-      (#t                 (values (cons 'shell-concat (reverse! ret)) 'atom)))))
+      ((%is-literal? ret) (values (car ret)      'atom))
+      (#t                 (values (cons 'shell-wildcard (reverse! ret)) 'atom)))))
 
 
 ;; Read a single shell token from textual input port 'in'.

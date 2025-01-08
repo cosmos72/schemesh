@@ -364,7 +364,7 @@
 (define (%cmd-subform? form)
   (and (pair? form)
        ; fragile, recognizes known macros by name and treats them specially
-       (memq (car form) '(shell-backquote shell-concat shell-glob))))
+       (memq (car form) '(shell-backquote shell-wildcard shell-glob))))
 
 
 ;; Create a cmd to later spawn it.

@@ -584,7 +584,7 @@ static const testcase tests[] = {
      "(shell \"ls\" \"-l\" \".\")"},
     {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
      "  \"ls \\\"some\\\"'file'path\")))",
-     "(shell \"ls\" (shell-concat \"some\" \"file\" \"path\"))"},
+     "(shell \"ls\" (shell-wildcard \"some\" \"file\" \"path\"))"},
     {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
      "  \"ls `cmd1 && cmd2 || cmd3 -arg3`\"))))",
      "(shell \"ls\" (shell-backquote \"cmd1\" && \"cmd2\" \\x7C;\\x7C; \"cmd3\" \"-arg3\"))"},
@@ -596,7 +596,7 @@ static const testcase tests[] = {
      "(shell \"ls\" (shell-env \"v 1\") (shell-env \" v 2 \") \"${ v 3 }\")"},
     {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
      "  \"ls \\\"$var1\\\"'$var2'$var3\")))",
-     "(shell \"ls\" (shell-concat (shell-env \"var1\") \"$var2\" (shell-env \"var3\")))"},
+     "(shell \"ls\" (shell-wildcard (shell-env \"var1\") \"$var2\" (shell-env \"var3\")))"},
     {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
      "  \"ls $(cmd arg $var)\")))",
      "(shell \"ls\" (shell-backquote \"cmd\" \"arg\" (shell-env \"var\")))"},
@@ -709,7 +709,7 @@ static const testcase tests[] = {
     {"(values->list (parse-forms\n"
      "  (string->parsectx \"ls ~; #!scheme (f a b)\" (parsers))\n"
      "  'shell))",
-     "(((shell ls ~ ;) (f a b)) #<parser scheme>)"},
+     "(((shell ls (shell-wildcard ~) ;) (f a b)) #<parser scheme>)"},
     /* test multiple #!... directives */
     {"(values->list (parse-forms\n"
      "  (string->parsectx \"(+ a b) #!shell ls -al >> log.txt; #!scheme foo bar\""
@@ -916,13 +916,16 @@ static const testcase tests[] = {
      INVOKELIB_SHELL_JOBS " (sh-cmd* A '= B ls))"},
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"{FOO=$BAR/subdir echo}\")))",
-     "(shell FOO = (shell-concat (shell-env BAR) /subdir) echo)"},
-    {"(expand '(shell-concat \"a\" (shell-concat ~ \"b/\" *)"
+     "(shell FOO = (shell-wildcard (shell-env BAR) /subdir) echo)"},
+    {"(expand '(shell-wildcard *))", INVOKELIB_SHELL_JOBS " (lambda (job) (sh-wildcard job '*)))"},
+    {"(expand '(shell-wildcard ?))", INVOKELIB_SHELL_JOBS " (lambda (job) (sh-wildcard job '?)))"},
+    {"(expand '(shell-wildcard ~))", INVOKELIB_SHELL_JOBS " (lambda (job) (sh-wildcard job '~)))"},
+    {"(expand '(shell-wildcard \"a\" (shell-wildcard ~ \"b/\" *)"
      " ? \\x5B;\\x5D; \"def\" \\x5B;!\\x5D; \"ghi\"))", /* */
-     INVOKELIB_SHELL_JOBS " (lambda (job) (sh-concat job a '~ b/ '* '? '[] def '[!] ghi)))"},
+     INVOKELIB_SHELL_JOBS " (lambda (job) (sh-wildcard job a '~ b/ '* '? '[] def '[!] ghi)))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{FOO=$BAR/subdir echo}\"))))",
-     INVOKELIB_SHELL_JOBS " (sh-cmd* FOO '= (lambda (job) (sh-concat job"
+     INVOKELIB_SHELL_JOBS " (sh-cmd* FOO '= (lambda (job) (sh-wildcard job"
                           " (lambda (job) (sh-env job BAR)) /subdir)) echo))"},
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"A=$(echo abc; echo def)\"))",
@@ -935,26 +938,26 @@ static const testcase tests[] = {
      INVOKELIB_SHELL_JOBS
      " (sh-cmd* A '= (lambda (job)"
      " (sh-run/string-rtrim-newlines (sh-list (sh-cmd echo abc) '; (sh-cmd echo def))))))"},
-    {"(expand '(shell (shell-concat \"l\" \"s\")))",
-     INVOKELIB_SHELL_JOBS " (sh-cmd* (lambda (job) (sh-concat job l s))))"},
-    {"(expand '(shell (shell-concat \"l\" \"s\") \".\"))",
-     INVOKELIB_SHELL_JOBS " (sh-cmd* (lambda (job) (sh-concat job l s)) .))"},
+    {"(expand '(shell (shell-wildcard \"l\" \"s\")))",
+     INVOKELIB_SHELL_JOBS " (sh-cmd* (lambda (job) (sh-wildcard job l s))))"},
+    {"(expand '(shell (shell-wildcard \"l\" \"s\") \".\"))",
+     INVOKELIB_SHELL_JOBS " (sh-cmd* (lambda (job) (sh-wildcard job l s)) .))"},
     {"(expand '(shell (shell-backquote \"echo\" \"ls\")))",
      INVOKELIB_SHELL_JOBS
      " (sh-cmd* (lambda (job) (sh-run/string-rtrim-newlines (sh-cmd echo ls)))))"},
     /* test wildcards and patterns [...] */
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"{echo *}\")))",
-     "(shell echo *)"},
+     "(shell echo (shell-wildcard *))"},
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"{echo .*[a-z]?.so}\")))",
-     "(shell echo (shell-concat . * [] a-z ? .so))"},
+     "(shell echo (shell-wildcard . * [] a-z ? .so))"},
     {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
      "  \"A=* B=~ ls ~bar\"))))",
-     "(shell \"A\" = \"*\" \"B\" = ~ \"ls\" (shell-concat ~ \"bar\"))"},
+     "(shell \"A\" = \"*\" \"B\" = (shell-wildcard ~) \"ls\" (shell-wildcard ~ \"bar\"))"},
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"echo ab'c'\\\"d\\\"*?[a-z]\"))",
-     "(shell echo (shell-concat ab c d (shell-concat * ? [] a-z)))"},
+     "(shell echo (shell-wildcard ab c d (shell-wildcard * ? [] a-z)))"},
     /* in shell syntax, = is an operator only before command name */
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"ls A=B\")))",
