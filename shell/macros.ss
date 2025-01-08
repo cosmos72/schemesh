@@ -43,7 +43,7 @@
         (cond
           ((and (pair? arg) (eq? 'shell-concat (car arg)))
             (set! ret (%sh-concat-flatten ret (cdr arg))))
-          ((and (symbol? arg) (memq arg '(~ ? * \x5B;\x5D; \x5B;\x5D;
+          ((and (symbol? arg) (memq arg '(~ ? * \x5B;\x5D; \x5B;!\x5D;
                         )))
             (set! ret (cons (list 'quote arg) ret)))
           (#t

@@ -875,8 +875,6 @@ static const testcase tests[] = {
   "(begin (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"
 
     /* ------------------------- shell macros ------------------------------- */
-    {"(expand '(shell-concat \"a\" (shell-concat ~ \"b/\" *) ?))", /* */
-     INVOKELIB_SHELL_JOBS " (lambda (job) (sh-concat job a '~ b/ '* '?)))"},
     {"(expand '(shell))", /* */
      INVOKELIB_SHELL_JOBS " (sh-cmd))"},
     {"(expand '(shell 2 >& 1))", /* */
@@ -919,6 +917,9 @@ static const testcase tests[] = {
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"{FOO=$BAR/subdir echo}\")))",
      "(shell FOO = (shell-concat (shell-env BAR) /subdir) echo)"},
+    {"(expand '(shell-concat \"a\" (shell-concat ~ \"b/\" *)"
+     " ? \\x5B;\\x5D; \"def\" \\x5B;!\\x5D; \"ghi\"))", /* */
+     INVOKELIB_SHELL_JOBS " (lambda (job) (sh-concat job a '~ b/ '* '? '[] def '[!] ghi)))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{FOO=$BAR/subdir echo}\"))))",
      INVOKELIB_SHELL_JOBS " (sh-cmd* FOO '= (lambda (job) (sh-concat job"
