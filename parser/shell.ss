@@ -199,67 +199,87 @@
     (charspan->string csp)))
 
 
-;; Read some unquoted subwords: one or more portions of a word, not inside single or double quotes.
+;; Read a single word not inside single or double quotes,
+;; possibly composed by one or more subwords that should be concatenated.
 ;; return two values:
-;;   1. a single subword string, or a list of subword. Each subword is either a string or a symbol.
-;;   2. either 'atom or 'splice. The latter means returned list should be spliced into the command being parsed.
-(define (read-subwords-noquote ctx is-first-word?)
-  (let-values (((word assign-pos) (read-subword-noquote ctx is-first-word?)))
+;;   1. a (possibly empty) list containing the parsed subwords
+;;   2. either 'atom or 'rsplice. The latter means returned list should be reversed then spliced
+;;      i.e. appended to command being parsed.
+(define (read-subwords-noquote ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?)
+  (let ((ret     '())
+        (again?  #t)
+        (splice? #f))
+    ; (debugf ">   read-subwords-noquote equal-is-operator?=~s, lbracket-is-subshell?=~s wildcards?=~s, inside-backquote?=~s~%" equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?)
+    (while again?
+      (let ((word (read-subword-noquote ctx equal-is-operator? lbracket-is-subshell? wildcards?)))
+        ; (debugf "... read-subwords-noquote subword=~s~%" word)
+        (cond
+          ((eq? word '=)
+            (let-values (((words2 _) (parse-shell-word ctx #f #f #f inside-backquote?)))
+              (set! ret (cons (if (null? words2) "" words2) (cons word ret))))
+            (set! again? #f)
+            (set! splice? #t))
+          ((memq word '(\x5B;\x5D; '\x5B;!\x5D;
+                           ))
+            (set! ret (cons (read-unescape-until-rbrack ctx) (cons word ret))))
+          (word
+            (set! ret (cons word ret)))
+          (#t
+            (set! again? #f)))))
+    ; (debugf "<   read-subwords-noquote ret=~s splice?=~s~%" (reverse ret) splice?)
     (cond
-      ((and assign-pos (not (fxzero? assign-pos)))
-        (let ((name  (charspan-range->string word 0 assign-pos))
-              (value (charspan-range->string word (fx1+ assign-pos) (charspan-length word))))
-          (values
-            (list name '= value)
-            'splice)))
-      ((memq word '(\x5C;\x5d; '\x5C;!\x5d;
-                     ))
-        (values
-          (list word (read-unescape-until-rbrack ctx))
-          'atom))
+      (splice?
+        (values ret 'rsplice))
+      ((null? ret)
+        (values "" 'atom))
+      ((null? (cdr ret))
+        (values (car ret) 'atom))
       (#t
-        (values
-          (if (symbol? word) word (charspan->string word))
-          'atom)))))
+        (values (cons 'shell-concat (reverse! ret)) 'atom)))))
 
 
-;; Read a single unquoted subword: either a charspan or a symbol '? '* '[] '[!]
-;; as first value, return the charspan or one of the symbols '? '* '[] '[!]
-;; as second value, return either:
-;;  position of = in charspan if present and is-first-subword? is truish
-;;  otherwise #f
-(define (read-subword-noquote ctx is-first-subword?)
-  (let ((word       (charspan))
-        (assign-pos #f)
-        (again?     #t))
-    ; (debugf ">   read-subword-noquote~%")
+;; Read a single unquoted subword: either a string or a symbol '= '? '* '[] '[!]
+;; returns the string or one of the symbols '= '? '* '[] '[!]
+;; returns #f if the first character is a special character as ( ) [ ] { } ` " ' < > ; & etc.
+(define (read-subword-noquote ctx equal-is-operator? lbracket-is-subshell? wildcards?)
+  (let ((word   (charspan))
+        (again? #t))
+    ; (debugf ">   read-subword-noquote equal-is-operator?=~s, lbracket-is-subshell?=~s wildcards?=~s~%" equal-is-operator? lbracket-is-subshell? wildcards?)
     (while again?
       (let-values (((ch type) (read-shell-char ctx)))
         ; (debugf "... read-subword-noquote ch=~s type=~s ret=~s~%" ch type word)
         (cond
           ((eq? type 'backslash)
             ; read next char, suppressing any special meaning it may have
-            (let ((ch-i (read-char-after-backslash ctx word)))
-              (when ch-i (charspan-insert-back! word ch-i))))
-          ((and (eq? type 'char) (not (memv ch '(#\? #\*))))
-            (when (and is-first-subword? (not assign-pos) (char=? ch #\=))
-              (set! assign-pos (charspan-length word)))
-            (charspan-insert-back! word ch))
-          ((and (memv ch '(#\? #\*)) (charspan-empty? word))
-            ; return wildcard symbol '? or '*
-            (set! word (if (char=? ch #\?) '? '*))
+            (let ((ch2 (read-char-after-backslash ctx word)))
+              (when ch2 (charspan-insert-back! word ch2))))
+          ((and equal-is-operator? (eqv? ch #\=))
+            (if (charspan-empty? word)
+              (set! word '=)                 ; return '=
+              (parsectx-unread-char ctx ch)) ; return word before =
             (set! again? #f))
-          ((and (eq? type 'lbrack) (not is-first-subword?) (charspan-empty? word))
-            ; return beginning of wildcard pattern '[] or '[!]
-            (cond
-              ((eqv? #\! (parsectx-peek-char ctx))
-                (parsectx-read-char ctx)
-                (set! word '\x5C;!\x5d;))
-              (#t
-                (set! word '\x5C;\x5d;)))
+          ((and wildcards? (memv ch '(#\? #\*)))
+            (if (charspan-empty? word)
+              ; return wildcard symbol '? or '*
+              (set! word (if (char=? ch #\?) '? '*))
+              (parsectx-unread-char ctx ch)) ; return word before ? or *
+            (set! again? #f))
+          ((eq? type 'char)
+            (charspan-insert-back! word ch))
+          ((and (eq? type 'lbrack) (not lbracket-is-subshell?))
+            (if (charspan-empty? word)
+              ; return beginning of wildcard pattern '[] or '[!]
+              (cond
+                ((eqv? #\! (parsectx-peek-char ctx))
+                  (parsectx-read-char ctx)
+                  (set! word '\x5B;!\x5D;)) ; '[!]
+                (#t
+                  (set! word '\x5B;\x5D;))) ; '[]
+              ; return word before [
+              (parsectx-unread-char ctx ch))
             (set! again? #f))
           (#t
-            ; treat anything else as delimiters.
+            ; treat anything else as delimiter.
             ; This means in our shell parser the characters ( ) [ ] { } retain their meaning
             ;; when found inside an unquoted string.
             ; Reason: we want to allow writing things like {ls -l | wc} without users having
@@ -271,7 +291,13 @@
             (parsectx-unread-char ctx ch)
             (set! again? #f)))))
     ; (debugf "<   read-subword-noquote ret=~s~%" word)
-    (values word assign-pos)))
+    (cond
+      ((or (not word) (symbol? word))
+        word)
+      ((charspan-empty? word)
+        #f)
+      (#t
+        (charspan->string word)))))
 
 
 ;; parse and return a string ending at the first unescaped ], which is consumed but not returned.
@@ -305,7 +331,7 @@
 ;;
 ;; return two values: the parsed form, and either 'atom or 'splice
 ;; where 'splice means the parsed form should be spliced into the command being parsed.
-(define (parse-shell-word ctx equal-is-operator? inside-backquote?)
+(define (parse-shell-word ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?)
   (let* ((ret '())
          (again? #t)
          (splice? #f)
@@ -313,7 +339,7 @@
          (%append (lambda (subword)
            (unless (and (string? subword) (fxzero? (string-length subword)))
              (set! ret (cons subword ret))))))
-    ; (debugf "> parse-shell-word equal-is-operator?=~s, inside-backquote?=~s~%" equal-is-operator? inside-backquote?)
+    ; (debugf "> parse-shell-word equal-is-operator?=~s, lbracket-is-subshell?=~s, inside-backquote?=~s~%" equal-is-operator? lbracket-is-subshell? inside-backquote?)
     (while again?
       (let-values (((ch type) (peek-shell-char ctx)))
         ; (debugf "... parse-shell-word ch=~s, type=~s, ret=~s~%" ch type ret)
@@ -344,13 +370,15 @@
               (dquote?
                 (%append (read-subword-double-quoted ctx)))
               ((memq type '(backslash char))
-                (let-values (((words type) (read-subwords-noquote ctx equal-is-operator?)))
-                  (if (eq? 'splice type)
-                    (begin
-                      (list-iterate words %append)
+                (let-values (((words action)
+                                (read-subwords-noquote ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?)))
+                  (cond
+                    ((eq? action 'rsplice)
+                      (set! ret (append! words ret))
                       (set! splice? #t)
                       (set! again? #f))
-                    (%append words))))
+                    (#t
+                      (%append words)))))
               ; treat anything else as string delimiter. This means in our shell parser the
               ; characters ( ) [ ] { } retain their meaning when found inside an unquoted
               ; string.
@@ -363,11 +391,11 @@
               (#t
                 (set! again? #f)))))))
 
-    ; (debugf "< parse-shell-word ret=~s~s~%" (reverse ret))
+    ; (debugf "< parse-shell-word ret=~s~%" (reverse ret))
     (cond
       (splice?            (values (reverse! ret) 'splice))
-      ((null? ret)        (values ""        'atom))
-      ((null? (cdr ret))  (values (car ret) 'atom))
+      ((null? ret)        (values ""             'atom))
+      ((null? (cdr ret))  (values (car ret)      'atom))
       (#t                 (values (cons 'shell-concat (reverse! ret)) 'atom)))))
 
 
@@ -380,7 +408,7 @@
 ;; The definition of shell token is adapted from
 ;; https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_03
 ;;
-(define (lex-shell-impl ctx equal-is-operator? inside-backquote?)
+(define (lex-shell-impl ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?)
   (let-values (((ch type) (read-shell-char ctx)))
     (case type
       ((eof separator lparen rparen lbrack rbrack lbrace rbrace)
@@ -405,12 +433,12 @@
           (values (parsectx-read-char ctx) 'dollar+lparen)
           (begin
             (parsectx-unread-char ctx ch)
-            (parse-shell-word ctx equal-is-operator? inside-backquote?))))
+            (parse-shell-word ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?))))
       ((backquote)
         (values ch type))
       ((char squote dquote backslash)
         (parsectx-unread-char ctx ch)
-        (parse-shell-word ctx equal-is-operator? inside-backquote?))
+        (parse-shell-word ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?))
       (else
         (syntax-errorf ctx 'lex-shell "unimplemented character type: ~a" type)))))
 
@@ -420,7 +448,7 @@
 ;; Skips initial whitespace, recognizes parser directives #!... and returns them th type 'parser,
 ;; and also recognizes numbers followed by redirection operators N< N<> N<& N> N>> N>&
 ;; and returns them as numbers - Joining them with subsequent redirection operator is left to (shell) macro.
-(define (lex-shell ctx equal-is-operator? inside-backquote?)
+(define (lex-shell ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?)
   (parsectx-skip-whitespace ctx #f) ; don't skip newlines
   (let ((value (try-read-parser-directive ctx)))
     (if (symbol? value)
@@ -434,8 +462,8 @@
         (values (get-parser ctx value 'parse-shell-forms) 'parser))
 
       ; read a single shell token
-      (let-values (((value type) (lex-shell-impl ctx equal-is-operator? inside-backquote?)))
-        (debugf "lex-shell value=~s type=~s~%" value type)
+      (let-values (((value type) (lex-shell-impl ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?)))
+        ; (debugf "lex-shell value=~s type=~s~%" value type)
         (if (and (eq? 'atom type)
                  (string? value)
                  (string-contains-only-decimal-digits? value)
@@ -490,8 +518,9 @@
                      ((backquote dollar+lparen) 'shell-backquote)
                      ((lbrack)                  'shell-subshell)
                      (else                      'shell)))
-         (can-change-parser? #t)
-         (equal-is-operator? #t)
+         (can-change-parser?    #t)
+         (equal-is-operator?    #t)
+         (lbracket-is-subshell? #t)
          (inside-backquote?  (eq? 'backquote begin-type))
          (done? #f)
          (parser #f)
@@ -505,8 +534,9 @@
                  merged))))))
     ; (debugf ">   parse-shell-forms end-type=~s prefix=~s~%" end-type prefix)
     (until done?
-      (let-values (((value type) (lex-shell ctx equal-is-operator? inside-backquote?)))
+      (let-values (((value type) (lex-shell ctx equal-is-operator? lbracket-is-subshell? #t inside-backquote?)))
         ; (debugf "... parse-shell-forms end-type=~s prefix=~s ret=~s value=~s type=~s~%" end-type prefix (if prefix (reverse ret) ret) value type)
+        (set! lbracket-is-subshell? #f)
         (case type
           ((eof)
             (unless (eq? type end-type)
@@ -527,7 +557,8 @@
                   (set! prefix #f)))))
           ((separator)
             ; value can be #\& #\; or #\newline
-            (set! ret (cons (if (eq? value '&) '& '\x3b;) ret)))
+            (set! ret (cons (if (eq? value '&) '& '\x3b;) ret))
+            (set! lbracket-is-subshell? #t))
           ((op string integer atom)
             (set! ret (cons value ret)))
           ((splice)
@@ -614,9 +645,9 @@
   (let-values (((ch type) (peek-shell-char ctx)))
     (case type
       ((eof lparen) #t)
-      ((separator) (lex-shell ctx #f #f)) ; consume semicolon or newline
+      ((separator) (lex-shell ctx #f #f #f #f)) ; consume semicolon or newline
       (else
-        (let-values (((value type) (lex-shell ctx #f #f)))
+        (let-values (((value type) (lex-shell ctx #f #f #f #f)))
           (syntax-errorf ctx 'parse-shell-forms
             "unexpected token \"~a\" after initial (...) at shell top-level: expecting eof, newline, semicolon or another (...)"
             value)))))

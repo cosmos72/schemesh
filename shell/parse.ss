@@ -23,7 +23,7 @@
 ;; Return #t if token is a shell wildcard operator: ? * [] [!]
 (define (wildcard-sym? token)
   (and (symbol? token)
-       (memq token '(? * \x5B;\x5d; \x5B;!\x5d;
+       (memq token '(? * \x5B;\x5D; \x5B;!\x5D;
          ))))
 
 ;; Parse args using shell syntax, and return corresponding sh-cmd or sh-multijob object.

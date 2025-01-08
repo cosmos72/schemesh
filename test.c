@@ -939,6 +939,16 @@ static const testcase tests[] = {
     {"(expand '(shell (shell-backquote \"echo\" \"ls\")))",
      INVOKELIB_SHELL_JOBS
      " (sh-cmd* (lambda (job) (sh-run/string-rtrim-newlines (sh-cmd echo ls)))))"},
+    /* test wildcards and patterns [...] */
+    {"(parse-shell-form1 (string->parsectx\n"
+     "  \"{echo *}\")))",
+     "(shell echo *)"},
+    {"(parse-shell-form1 (string->parsectx\n"
+     "  \"{echo .*[a-z]?.so}\")))",
+     "(shell echo (shell-concat . * [] a-z ? .so))"},
+    {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
+     "  \"A=* ls\"))))",
+     "(shell \"A\" = \"*\" \"ls\")"},
     /* in shell syntax, = is an operator only before command name */
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"ls A=B\")))",
