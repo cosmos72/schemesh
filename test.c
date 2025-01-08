@@ -875,6 +875,8 @@ static const testcase tests[] = {
   "(begin (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"
 
     /* ------------------------- shell macros ------------------------------- */
+    {"(expand '(shell-concat \"a\" (shell-concat ~ \"b/\" *) ?))", /* */
+     INVOKELIB_SHELL_JOBS " (lambda (job) (sh-concat job a '~ b/ '* '?)))"},
     {"(expand '(shell))", /* */
      INVOKELIB_SHELL_JOBS " (sh-cmd))"},
     {"(expand '(shell 2 >& 1))", /* */
@@ -949,6 +951,9 @@ static const testcase tests[] = {
     {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
      "  \"A=* B=~ ls ~bar\"))))",
      "(shell \"A\" = \"*\" \"B\" = ~ \"ls\" (shell-concat ~ \"bar\"))"},
+    {"(parse-shell-form1 (string->parsectx\n"
+     "  \"echo ab'c'\\\"d\\\"*?[a-z]\"))",
+     "(shell echo (shell-concat ab c d (shell-concat * ? [] a-z)))"},
     /* in shell syntax, = is an operator only before command name */
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"ls A=B\")))",

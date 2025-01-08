@@ -10,6 +10,7 @@
   (export shell shell-backquote shell-concat shell-env shell-list shell-subshell)
   (import
     (rnrs)
+    (only (chezscheme) meta reverse!)
     (schemesh bootstrap)
     (schemesh shell jobs))
 
@@ -33,11 +34,32 @@
     ;; NOTE: (sh-run/string-rtrim-newlines) cannot be stopped and resumed. But neither can `...` in POSIX shells
     ((_ arg ...)       (lambda (job) (sh-run/string-rtrim-newlines (shell arg ...))))))
 
+(meta begin
+  (define (%sh-concat-flatten ret args)
+    (do ((args args (cdr args)))
+        ((null? args) ret)
+      ; (debugf "... %sh-concat-flatten ret=~s args=~s ~%" (reverse ret) args)
+      (let ((arg (car args)))
+        (cond
+          ((and (pair? arg) (eq? 'shell-concat (car arg)))
+            (set! ret (%sh-concat-flatten ret (cdr arg))))
+          ((and (symbol? arg) (memq arg '(~ ? * \x5B;\x5D; \x5B;\x5D;
+                        )))
+            (set! ret (cons (list 'quote arg) ret)))
+          (#t
+            (set! ret (cons arg ret)))))))
+
+  ;; flatten nested macros (shell-concat ... (shell-concat ...) ...)
+  (define-macro (%shell-concat-flatten . args)
+    (reverse! (%sh-concat-flatten '() args)))
+
+) ; close meta
+
 (define-syntax shell-concat
   (syntax-rules ()
     ((_)          "")
     ((_ arg)      arg)
-    ((_ arg0 arg1 ...) (lambda (job) (sh-concat job arg0 arg1 ...)))))
+    ((_ arg0 arg1 ...) (lambda (job) (%shell-concat-flatten sh-concat job arg0 arg1 ...)))))
 
 (define-syntax shell-env
   (syntax-rules ()

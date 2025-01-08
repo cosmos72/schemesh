@@ -133,10 +133,10 @@
 ;; producing more detailed error messages.
 ;; requires proc to be a procedure, NOT a syntax or macro
 (define-syntax assert*
-  (lambda (x)
+  (lambda (stx)
     (let ((form (lambda ()
-                  (format #f "~s" (caddr (syntax->datum x))))))
-      (syntax-case x ()
+                  (format #f "~s" (caddr (syntax->datum stx))))))
+      (syntax-case stx ()
         ((_ caller (proc))
           #`(let ((tproc proc))
               (or (tproc)
