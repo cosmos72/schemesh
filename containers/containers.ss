@@ -28,7 +28,7 @@
     bitmap make-bitmap bitmap? bitmap-length bitmap-ref bitmap-set! bitmap-last-zero
 
     ; span.ss
-    list->span vector->span vector->span* make-span span->vector span span?
+    list->span vector->span vector->span* make-span span->list span->vector span span?
     span-length span-empty? span-clear! span-capacity span-capacity-front span-capacity-back
     span-ref span-back span-set! span-fill! span-fill-range! span-copy span-copy!
     span-reserve-front! span-reserve-back! span-resize-front! span-resize-back!
@@ -57,9 +57,9 @@
     charspan-set! charspan-fill! charspan-fill-range! charspan-copy charspan-copy!
     charspan=? charspan-range-count= charspan-range=? charspan-range/string=?
     charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back!
-    charspan-insert-front! charspan-insert-back!
-    charspan-insert-front/cspan! charspan-insert-back/cspan!
-    charspan-insert-front/string!
+    charspan-insert-front!        charspan-insert-back!
+    charspan-insert-front/cspan!  charspan-insert-back/cspan!
+    charspan-insert-front/string! charspan-insert-back/string!
     charspan-erase-front! charspan-erase-back! charspan-iterate
     charspan-find charspan-rfind charspan-find/ch charspan-rfind/ch
     charspan-peek-data charspan-peek-beg charspan-peek-end

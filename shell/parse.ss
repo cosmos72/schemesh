@@ -20,12 +20,6 @@
   (and (symbol? token)
        (memq token '(< <> > >> <& >&))))
 
-;; Return #t if token is a shell wildcard operator: ? * [] [!]
-(define (wildcard-sym? token)
-  (and (symbol? token)
-       (memq token '(? * \x5B;\x5D; \x5B;!\x5D;
-         ))))
-
 ;; Parse args using shell syntax, and return corresponding sh-cmd or sh-multijob object.
 ;; Current implementation is (sh-eval (sh-parse (cons 'shell args))), which uses (sh-parse)
 ;; for converting shell commands to Scheme source forms, then (sh-eval) such forms.
@@ -331,7 +325,7 @@
             (set! args (cdr args))
             (set! done? #t)
             (set! prefix #f))
-          ((or (string? arg) (fixnum? arg) (eq? '= arg) (pair? arg) (redirection-sym? arg) (wildcard-sym? arg))
+          ((or (string? arg) (fixnum? arg) (eq? '= arg) (pair? arg) (redirection-sym? arg) (sh-wildcard? arg))
             (when (or (fixnum? arg) (symbol? arg) (pair? arg))
               ; (sh-cmd) does not support env assignment, redirections and closures, use (sh-cmd*)
               (set! prefix 'sh-cmd*))

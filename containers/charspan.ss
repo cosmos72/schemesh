@@ -19,9 +19,9 @@
     charspan-set! charspan-fill! charspan-fill-range! charspan-copy charspan-copy!
     charspan=? charspan<? charspan-range-count= charspan-range=? charspan-range/string=?
     charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back!
-    charspan-insert-front! charspan-insert-back!
-    charspan-insert-front/cspan! charspan-insert-back/cspan!
-    charspan-insert-front/string!
+    charspan-insert-front!        charspan-insert-back!
+    charspan-insert-front/cspan!  charspan-insert-back/cspan!
+    charspan-insert-front/string! charspan-insert-back/string!
     charspan-erase-front! charspan-erase-back! charspan-iterate
     charspan-find charspan-rfind charspan-find/ch charspan-rfind/ch
     charspan-peek-data charspan-peek-beg charspan-peek-end)
@@ -88,8 +88,8 @@
           ""
           (substring (charspan-str sp) (fx+ i beg) (fx+ j beg)))))))
 
-(define (charspan . vals)
-  (list->charspan vals))
+(define (charspan . charlist)
+  (list->charspan charlist))
 
 (define (charspan-length sp)
   (fx- (charspan-end sp) (charspan-beg sp)))
@@ -281,22 +281,22 @@
   (assert* 'charspan-resize-back! (fx>=? (charspan-capacity-back sp) len))
   (charspan-end-set! sp (fx+ len (charspan-beg sp))))
 
-(define (charspan-insert-front! sp . vals)
-  (unless (null? vals)
+(define (charspan-insert-front! sp . charlist)
+  (unless (null? charlist)
     (let ((pos 0)
-          (new-len (fx+ (charspan-length sp) (length vals))))
+          (new-len (fx+ (charspan-length sp) (length charlist))))
       (charspan-resize-front! sp new-len)
-      (list-iterate vals
-        (lambda (elem)
-          (charspan-set! sp pos elem)
+      (list-iterate charlist
+        (lambda (ch)
+          (charspan-set! sp pos ch)
           (set! pos (fx1+ pos)))))))
 
-(define (charspan-insert-back! sp . vals)
-  (unless (null? vals)
+(define (charspan-insert-back! sp . charlist)
+  (unless (null? charlist)
     (let* ((pos (charspan-length sp))
-           (new-len (fx+ pos (length vals))))
+           (new-len (fx+ pos (length charlist))))
       (charspan-resize-back! sp new-len)
-      (list-iterate vals
+      (list-iterate charlist
         (lambda (elem)
           (charspan-set! sp pos elem)
           (set! pos (fx1+ pos)))))))
@@ -323,6 +323,15 @@
     (string-copy! str-src src-start
                   (charspan-str sp-dst) (charspan-beg sp-dst)
                   src-n)))
+
+; append a portion of a string to this charspan
+(define (charspan-insert-back/string! sp-dst str-src src-start src-n)
+  (unless (fxzero? src-n)
+    (let ((pos (charspan-length sp-dst)))
+      (charspan-resize-back! sp-dst (fx+ pos src-n))
+      (string-copy! str-src src-start
+                    (charspan-str sp-dst) (fx- (charspan-end sp-dst) src-n)
+                    src-n))))
 
 
 ; erase n elements at the left (front) of charspan

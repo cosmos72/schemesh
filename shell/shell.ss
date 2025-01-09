@@ -14,7 +14,7 @@
     ; paths.ss
     sh-path sh-path? sh-path-absolute? sh-path-relative?
     sh-path-append sh-path-append! sh-path-iterate
-    sh-subpath sh-subpath? sh-path->subpath text->sh-path
+    sh-subpath sh-subpath? sh-path->subpath sh-wildcard? text->sh-path
 
     ; aliases.ss
     sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases

@@ -11,7 +11,7 @@
 
 (library (schemesh containers span (0 1))
   (export
-    list->span vector->span vector->span* make-span span->vector span span?
+    list->span vector->span vector->span* make-span span->list span->vector span span?
     span-length span-empty? span-clear! span-capacity span-capacity-front span-capacity-back
     span-ref span-back span-set! span-fill! span-fill-range! span-copy span-copy!
     span-reserve-front! span-reserve-back! span-resize-front! span-resize-back!
@@ -20,7 +20,7 @@
     span-peek-beg span-peek-end span-peek-data)
   (import
     (rnrs)
-    (only (chezscheme) break fx1+ fx1- record-writer vector-copy void)
+    (only (chezscheme) break fx1+ fx1- record-writer reverse! vector-copy void)
 (only (schemesh bootstrap) assert*)
     (schemesh containers misc))
 
@@ -52,6 +52,13 @@
   (case-lambda
     ((n)      (%make-span 0 n (make-vector n)))
     ((n fill) (%make-span 0 n (make-vector n fill)))))
+
+(define (span->list sp)
+  (let ((n (span-length sp))
+        (ret '()))
+    (do ((i 0 (fx1+ i)))
+        ((fx>=? i n) (reverse! ret))
+      (set! ret (cons (span-ref sp i) ret)))))
 
 (define (span->vector sp)
   (let ((beg (span-beg sp))

@@ -12,7 +12,8 @@
     (rnrs)
     (only (chezscheme) meta reverse!)
     (schemesh bootstrap)
-    (schemesh shell jobs))
+    (schemesh shell jobs)
+    (only (schemesh shell paths) sh-wildcard?))
 
 ;; wraps shell DSL
 (define-macro (shell . args)
@@ -43,8 +44,7 @@
         (cond
           ((and (pair? arg) (eq? 'shell-wildcard (car arg)))
             (set! ret (%sh-wildcard-flatten ret (cdr arg))))
-          ((and (symbol? arg) (memq arg '(* ? ~ \x5B;\x5D; \x5B;!\x5D;
-                        )))
+          ((sh-wildcard? arg)
             (set! ret (cons (list 'quote arg) ret)))
           (#t
             (set! ret (cons arg ret)))))))

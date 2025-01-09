@@ -219,7 +219,7 @@
               (set! ret (cons (if (null? words2) "" words2) (cons word ret))))
             (set! again? #f)
             (set! splice? #t))
-          ((memq word '(\x5B;\x5D; '\x5B;!\x5D;
+          ((memq word '(\x5B;\x5D; \x5B;!\x5D;
                            ))
             (set! ret (cons (read-unescape-until-rbrack ctx) (cons word ret))))
           (word
