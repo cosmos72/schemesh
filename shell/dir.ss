@@ -45,7 +45,7 @@
 (define sh-cd*
   (let ((c_chdir (foreign-procedure "c_chdir" (ptr) int)))
     (lambda (path)
-      (let* ((suffix (text->sh-path path))
+      (let* ((suffix (text->sh-path* path))
              (dir (if (sh-path-absolute? suffix)
                       (sh-path->subpath suffix)
                       (sh-path-append (sh-cwd) suffix)))

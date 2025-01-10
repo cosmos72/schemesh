@@ -373,101 +373,6 @@
   (reverse! (job-parents-revlist job-or-id)))
 
 
-;; concatenate strings, wildcard symbols ? * ~ [] [!]
-;; and closures (lambda (job) ...) or (lambda () ...) that return a string or a list of strings,
-;; then expand wildcard symbols to matching filesystem paths.
-;;
-;; returns a string or list of strings
-(define (sh-wildcard job-or-id . args)
-  (let* ((job (sh-job job-or-id))
-         (sp  (%sh-wildcard-concat-strings (%sh-wildcard-apply job args))))
-    ;; TODO: implement wildcards
-    (apply string-append (span->list sp))))
-
-
-;; iterate on args and call any procedure.
-;; returns span of strings and wildcard symbols ? * ~ [] [!]
-(define (%sh-wildcard-apply job args)
-  (let ((sp (span)))
-    (list-iterate args
-      (lambda (arg)
-        (cond
-          ((string? arg)
-            (span-insert-back! sp arg))
-          ((sh-wildcard? arg)
-            (span-insert-back! sp arg))
-          ((procedure? arg)
-            (let ((value
-                    (if (logbit? 1 (procedure-arity-mask arg))
-                      (arg job)
-                      (arg))))
-              (if (string? value)
-                (span-insert-back! sp value)
-                (begin
-                  (assert-string-list? 'sh-wildcard value)
-                  (apply span-insert-back! sp value)))))
-          (#t
-            (raise-assertv 'sh-wildcard '(or (string? arg) (sh-wildcard? arg) (procedure? arg)) arg)))))
-    sp))
-
-;; iterate on span and concatenate consecutive strings.
-;; returns in-place modified span of strings and wildcard symbols ? * ~ [] [!]
-(define (%sh-wildcard-concat-strings sp)
-  (let* ((cspan #f)
-         (i 0)
-         (j 0)
-         (n (span-length sp))
-         (%append (lambda (obj)
-                    (span-set! sp j obj)
-                    (set! j (fx1+ j)))))
-    (while (fx<? i n)
-      (let* ((i1   (fx1+ i))
-             (arg0 (span-ref sp i))
-             (arg1 (if (fx<? i1 n) (span-ref sp i1) #f)))
-        (cond
-          ((symbol? arg0)
-            (assert* 'sh-wildcard (sh-wildcard? arg0))
-            (when cspan
-              ;; flush buffered charspan before appending a symbol
-              (%append (charspan->string cspan))
-              (set! cspan #f))
-            (%append arg0)
-            (set! i i1)
-            (when (memq arg0 '(\x5B;\x5D; \x5B;\!x5D;
-                                ))
-              ; wildcard symbols '[] and '[!] must be followed by a string
-              (assert* 'sh-wildcard (string? arg1))
-              (%append arg1)
-              (set! i (fx1+ i))))
-          (#t
-            ; not a symbol -> must be a string
-            (assert* 'sh-wildcard (string? arg0))
-            (cond
-              (cspan
-                ; append string to buffered charspan
-                (charspan-insert-back/string! cspan arg0 0 (string-length arg0))
-                (set! i i1))
-              ((string? arg1)
-                ; two consecutive strings: merge them into a buffered charspan
-                (set! cspan (string->charspan arg0))
-                (charspan-insert-back/string! cspan arg1 0 (string-length arg1))
-                (set! i (fx1+ i1)))
-              (#t
-                ; just copy the string
-                (unless (fx=? i j)
-                  (span-set! sp j arg0))
-                (set! i i1)
-                (set! j (fx1+ j)))))))
-      ; (debugf "... %sh-wildcard-concat-strings sp=~s cspan=~s~%" sp cspan)
-      )
-    (when cspan
-      (%append (charspan->string cspan)))
-    (span-resize-back! sp j)
-    ; (debugf "<   %sh-wildcard-concat-strings sp=~s~%" sp)
-    sp))
-
-
-
 (define (sh-consume-sigchld)
   ; TODO: call (signal-consume-sigchld) and (pid-wait) to reap zombies
   ;        and collect exit status of child processes
@@ -736,6 +641,7 @@
 (include "shell/redirect.ss")
 (include "shell/pipe.ss")
 (include "shell/parse.ss")
+(include "shell/wildcard.ss")
 (include "shell/display.ss")
 
 

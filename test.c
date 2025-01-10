@@ -921,8 +921,8 @@ static const testcase tests[] = {
     {"(expand '(shell-wildcard ?))", INVOKELIB_SHELL_JOBS " (lambda (job) (sh-wildcard job '?)))"},
     {"(expand '(shell-wildcard ~))", INVOKELIB_SHELL_JOBS " (lambda (job) (sh-wildcard job '~)))"},
     {"(expand '(shell-wildcard \"a\" (shell-wildcard ~ \"b/\" *)"
-     " ? \\x5B;\\x5D; \"def\" \\x5B;!\\x5D; \"ghi\"))", /* */
-     INVOKELIB_SHELL_JOBS " (lambda (job) (sh-wildcard job a '~ b/ '* '? '[] def '[!] ghi)))"},
+     " ? % \"def\" %! \"ghi\"))", /* */
+     INVOKELIB_SHELL_JOBS " (lambda (job) (sh-wildcard job a '~ b/ '* '? '% def '%! ghi)))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{FOO=$BAR/subdir echo}\"))))",
      INVOKELIB_SHELL_JOBS " (sh-cmd* FOO '= (lambda (job) (sh-wildcard job"
@@ -951,13 +951,13 @@ static const testcase tests[] = {
      "(shell echo (shell-wildcard *))"},
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"{echo .*[a-z]?.so}\")))",
-     "(shell echo (shell-wildcard . * [] a-z ? .so))"},
+     "(shell echo (shell-wildcard . * % a-z ? .so))"},
     {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
      "  \"A=* B=~ ls ~bar\"))))",
      "(shell \"A\" = \"*\" \"B\" = (shell-wildcard ~) \"ls\" (shell-wildcard ~ \"bar\"))"},
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"echo ab'c'\\\"d\\\"*?[a-z]\"))",
-     "(shell echo (shell-wildcard ab c d (shell-wildcard * ? [] a-z)))"},
+     "(shell echo (shell-wildcard ab c d (shell-wildcard * ? % a-z)))"},
     /* in shell syntax, = is an operator only before command name */
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"ls A=B\")))",
@@ -988,6 +988,8 @@ static const testcase tests[] = {
     {"(shell \"echo\" \"abc\" > \"DEL_ME\" && \"cat\" \"DEL_ME\" && \"rm\" \"DEL_ME\")",
      "(sh-and (sh-cmd* \"echo\" \"abc\" 1 '> \"DEL_ME\")"
      " (sh-cmd \"cat\" \"DEL_ME\") (sh-cmd \"rm\" \"DEL_ME\"))"},
+    /* ------------------------- wildcard expansion ------------------------- */
+    {"(sh-wildcard #t \"a\" \"bcd\" \"\" \"ef\")", "abcdef"},
     /* ------------------------- job execution ------------------------------ */
     {"(sh-run/string (shell \"echo\" \"a\"  \"b\" \"c\"))", "a b c\n"},
     {"(sh-run/string-rtrim-newlines (shell \"echo\" \" abc \"))", " abc "},

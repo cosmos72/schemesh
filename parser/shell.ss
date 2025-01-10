@@ -219,8 +219,7 @@
               (set! ret (cons (if (null? words2) "" words2) (cons word ret))))
             (set! again? #f)
             (set! splice? #t))
-          ((memq word '(\x5B;\x5D; \x5B;!\x5D;
-                           ))
+          ((memq word '(% %!))
             (set! ret (cons (read-unescape-until-rbrack ctx) (cons word ret))))
           (word
             (set! ret (cons word ret)))
@@ -241,8 +240,8 @@
        (not (memq (car l) '(~ * ?)))))
 
 
-;; Read a single unquoted subword: either a string or a symbol '= '? '* '[] '[!]
-;; returns the string or one of the symbols '= '? '* '[] '[!]
+;; Read a single unquoted subword: either a string or a symbol '= '? '* '% '%!
+;; returns the string or one of the symbols '= '? '* '% '%!
 ;; returns #f if the first character is a special character as ( ) [ ] { } ` " ' < > ; & etc.
 (define (read-subword-noquote ctx equal-is-operator? lbracket-is-subshell? wildcards?)
   (let ((word   (charspan))
@@ -277,13 +276,13 @@
             (charspan-insert-back! word ch))
           ((and (eq? type 'lbrack) (not lbracket-is-subshell?))
             (if (charspan-empty? word)
-              ; return beginning of wildcard pattern '[] or '[!]
+              ; return beginning of wildcard pattern '% or '%!
               (cond
                 ((eqv? #\! (parsectx-peek-char ctx))
                   (parsectx-read-char ctx)
-                  (set! word '\x5B;!\x5D;)) ; '[!]
+                  (set! word '%!))
                 (#t
-                  (set! word '\x5B;\x5D;))) ; '[]
+                  (set! word '%)))
               ; return word before [
               (parsectx-unread-char ctx ch))
             (set! again? #f))

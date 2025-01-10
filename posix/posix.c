@@ -16,12 +16,14 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <poll.h>
+#include <pwd.h> /* getpwnam_r() */
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h> /* getenv(), strtoul() */
 #include <string.h>
 #include <string.h>    /* strlen() */
 #include <sys/ioctl.h> /* ioctl(), TIOCGWINSZ */
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h> /* sysconf(), write() */
 
@@ -36,6 +38,9 @@
 #else
 #include <termios.h> /* struct termios, tcgetattr(), tcsetattr() */
 #endif
+
+/* convert a C char[] to Scheme bytevector */
+static ptr c_chars_to_bytevector(const char chars[], const size_t len);
 
 static int c_fd_open_max(void);
 
@@ -643,6 +648,44 @@ static ptr c_get_hostname(void) {
 }
 
 /**
+ * get home directory of specified username, which must be a 0-terminated bytevector.
+ * return Scheme bytevector, or Scheme integer on error
+ */
+ptr c_get_userhome(ptr username0) {
+  struct passwd  pwd;
+  struct passwd* result;
+  char*          buf;
+  const char*    username_chars;
+  iptr           username_len = 0;
+  long           bufsize      = -1;
+  int            err;
+
+  if (!Sbytevectorp(username0) || (username_len = Sbytevector_length(username0)) == 0) {
+    return Sinteger(c_errno_set(EINVAL));
+  }
+  username_chars = (const char*)Sbytevector_data(username0);
+  if (username_chars[username_len - 1] != 0) {
+    return Sinteger(c_errno_set(EINVAL));
+  }
+
+#ifdef _SC_GETPW_R_SIZE_MAX
+  bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+#endif
+  if (bufsize < 0) {
+    bufsize = 16384;
+  }
+  buf = malloc(bufsize);
+  if (!buf) {
+    return Sinteger(c_errno());
+  }
+  err = getpwnam_r(username_chars, &pwd, buf, bufsize, &result);
+  if (result == NULL || result->pw_dir == NULL) {
+    return Sinteger(c_errno_set(err != 0 ? err : ENOENT));
+  }
+  return c_chars_to_bytevector(result->pw_dir, strlen(result->pw_dir));
+}
+
+/**
  * Convert struct dirent.d_type to Scheme integer:
  *   DT_UNKNOWN -> 0
  *   DT_BLK     -> 1
@@ -980,6 +1023,7 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_pid_kill", &c_pid_kill);
 
   Sregister_symbol("c_get_hostname", &c_get_hostname);
+  Sregister_symbol("c_get_userhome", &c_get_userhome);
   Sregister_symbol("c_exit", &c_exit);
   Sregister_symbol("c_directory_u8_list", &c_directory_u8_list);
 
