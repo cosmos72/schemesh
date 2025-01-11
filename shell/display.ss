@@ -27,14 +27,31 @@
            (status (if (sh-ok? job-status) '(exited . 0) job-status)))
       (if id
         (if (>= pid 0)
-          (format port "; job ~s pid ~s ~s\t    " id pid status)
-          (format port "; job ~s          ~s\t    " id status))
+          (format port "; job ~a~s pid ~a~s ~s \t  " (pad/job-id id) id (pad/pid pid) pid status)
+          (format port "; job ~a~s            ~s \t  " (pad/job-id id) id status))
         (if (>= pid 0)
-          (format port "; job pid ~s ~s\t    " pid status)
-          (format port "; job          ~s\t    " status)))
+          (format port "; job pid ~a~s ~s \t  " pid (pad/pid pid) status)
+          (format port "; job            ~s \t  " status)))
       (sh-job-display job port)
       (put-char port #\newline))))
 
+;; return padding string to align printing job-id
+(define (pad/job-id id)
+  (if (< id 10) " " ""))
+
+;; return padding string to align printing pid
+(define (pad/pid pid)
+  (cond
+    ((< pid 10) "     ")
+    ((< pid 100) "    ")
+    ((< pid 1000) "   ")
+    ((< pid 10000) "  ")
+    ((< pid 100000) " ")
+    ((< pid 1000000) "")
+    ((< pid 10000000) "   ")
+    ((< pid 100000000) "  ")
+    ((< pid 1000000000) " ")
+    (#t                  "")))
 
 (define precedence-lowest  0)
 (define precedence-list    1)
