@@ -16,8 +16,8 @@
     (only (rnrs mutable-pairs)   set-car!)
     (only (chezscheme)           fx1+ fx1- void)
     (only (schemesh bootstrap)   raise-assertv sh-eval-string)
-    (only (schemesh containers)  hashtable-iterate list-iterate string->utf8b string->utf8b/0
-                                 utf8b->string utf8b-range->string))
+    (only (schemesh containers)  charspan? charspan-empty? charspan->string hashtable-iterate list-iterate
+                                 string->utf8b string->utf8b/0 utf8b->string utf8b-range->string))
 
 
 (define (display-condition* x port)
@@ -118,14 +118,18 @@
 ; convert bytevector to #\nul terminated bytevector
 (define (bytevector->bytevector0 x)
   (let ((len (bytevector-length x)))
-    (if (or (fxzero? len) (fxzero? (bytevector-u8-ref x (fx1- len))))
-      bv0
-      (let ((ret (make-bytevector (fx1+ len))))
-        (bytevector-copy! x 0 ret 0 len)
-        (bytevector-u8-set! ret len 0)
-        ret))))
+    (cond
+      ((fxzero? len)
+        bv0)
+      ((fxzero? (bytevector-u8-ref x (fx1- len)))
+        x)
+      (#t
+        (let ((ret (make-bytevector (fx1+ len))))
+          (bytevector-copy! x 0 ret 0 len)
+          (bytevector-u8-set! ret len 0)
+          ret)))))
 
-; convert string or bytevector to #\nul terminated bytevector containing UTF-8b
+; convert a bytevector, string or charspan to #\nul terminated bytevector containing UTF-8b
 (define (text->bytevector0 x)
   (cond
     ((bytevector? x)
@@ -134,8 +138,12 @@
        (if (fxzero? (string-length x))
          bv0
          (string->utf8b/0 x)))
+    ((charspan? x)
+       (if (charspan-empty? x)
+         bv0
+         (string->utf8b/0 (charspan->string x))))
     (#t
-      (raise-assertv 'text->bytevector0 '(or (bytevector? x) (string? x)) x))))
+      (raise-assertv 'text->bytevector0 '(or (bytevector? x) (string? x) (charspan? x)) x))))
 
 
 ; convert a #\nul terminated bytevector containing UTF-8b to string

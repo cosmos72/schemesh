@@ -171,7 +171,7 @@ static const testcase tests[] = {
      "  (bytevector-set/utf8b! bv 0 (integer->char #x10ffff))\n"
      "  bv)",
      "\xf4\x8f\xbf\xbf"},
-    /* ----------------- bytespan-utf8 -------------------------------------- */
+    /* ----------------- bytespan-utf8b -------------------------------------- */
     {"(values->list (bytespan-ref/char (bytespan) 0 1))", "(#t 0)"}, /* incomplete */
     {"(values->list (bytespan-ref/char (bytespan 1) 0 1))", "(\x01 1)"},
     {"(values->list (bytespan-ref/char (bytespan #x7f) 0 1))", "(\x7f 1)"},
@@ -216,8 +216,6 @@ static const testcase tests[] = {
      "  (bytespan-insert-front/char! sp (integer->char #x10ffff))\n"
      "  sp)",
      "(bytespan 244 143 191 191)"},
-    {"(charspan->utf8 (string->charspan* \"\x7c \xce\x98 \xe0\xa4\xb9 \xf0\x90\x8d\x88\"))",
-     "(bytespan 124 32 206 152 32 224 164 185 32 240 144 141 136)"},
     /* ----------------- bytespan-fixnum-display ---------------------------- */
     {"(let ((sp (bytespan)))\n"
      "  (list-iterate '(0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000 "
@@ -350,6 +348,10 @@ static const testcase tests[] = {
     {"(let ((sp (charspan #\\@ #\\a #\\b #\\c)))\n"
      "  (charspan-find sp 0 999 (lambda (elem) (eq? #\\b elem))))",
      "2"},
+    {"(charspan->utf8 (string->charspan* \"\x7c \xce\x98 \xe0\xa4\xb9 \xf0\x90\x8d\x88\"))",
+     "(bytespan 124 32 206 152 32 224 164 185 32 240 144 141 136)"},
+    {"(bytevector->bytespan (text->bytevector0 (string->charspan* \"123\\x0;\")))",
+     "(bytespan 49 50 51 0)"},
     /* ----------------------- gbuffer --------------------------- */
     {"(gbuffer 'a 2 3.7)", "(gbuffer a 2 3.7)"},
     {"(vector->gbuffer* (vector 0 1 2))", "(gbuffer 0 1 2)"},

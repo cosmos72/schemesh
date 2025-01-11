@@ -83,10 +83,14 @@
 (define (string->utf8b str)
   (string-range->utf8b str 0 (string-length str) 0))
 
-;; convert a string to UTF-8b, append an additional byte 0 to conversion,
+;; convert a string to UTF-8b, append an additional byte 0 to conversion if not already present,
 ;; and return bytevector containing the conversion result.
 (define (string->utf8b/0 str)
-  (string-range->utf8b str 0 (string-length str) 1))
+  (let* ((len (string-length str))
+         (zeropad-len (if (or (fxzero? len) (not (char=? #\nul (string-ref str (fx1- len)))))
+                          1
+                          0)))
+    (string-range->utf8b str 0 len zeropad-len)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;     UTF-8b -> string functions    ;;;;;;;;;;;;;;;;;;;;;;;;;;

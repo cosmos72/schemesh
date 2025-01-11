@@ -24,10 +24,10 @@
 #include <string.h>
 #include <string.h>    /* strlen() */
 #include <sys/ioctl.h> /* ioctl(), TIOCGWINSZ */
+#include <sys/stat.h>  /* fstatat() */
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h> /* sysconf(), write() */
-
 #ifdef __linux__
 #define SCHEMESH_USE_TTY_IOCTL
 #else
@@ -688,6 +688,102 @@ ptr c_get_userhome(ptr username0) {
   return ret;
 }
 
+typedef enum {
+  e_unknown  = 0,
+  e_blockdev = 1,
+  e_chardev  = 2,
+  e_dir      = 3,
+  e_fifo     = 4,
+  e_file     = 5,
+  e_socket   = 6,
+  e_symlink  = 7,
+} e_type;
+
+/**
+ * Convert struct dirent.d_type to Scheme integer:
+ *   DT_UNKNOWN -> e_unknown  = 0
+ *   DT_BLK     -> e_blockdev = 1
+ *   DT_CHR     -> e_chardev  = 2
+ *   DT_DIR     -> e_dir      = 3
+ *   DT_FIFO    -> e_fifo     = 4
+ *   DT_REG     -> e_file     = 5
+ *   DT_SOCK    -> e_socket   = 6
+ *   DT_LNK     -> e_symlink  = 7
+ */
+static ptr c_readdir_type(unsigned char d_type) {
+  e_type type;
+  switch (d_type) {
+    case DT_BLK:
+      type = e_blockdev;
+      break;
+    case DT_CHR:
+      type = e_chardev;
+      break;
+    case DT_DIR:
+      type = e_dir;
+      break;
+    case DT_FIFO:
+      type = e_fifo;
+      break;
+    case DT_LNK:
+      type = e_symlink;
+      break;
+    case DT_REG:
+      type = e_file;
+      break;
+    case DT_SOCK:
+      type = e_socket;
+      break;
+    case DT_UNKNOWN:
+    default:
+      type = e_unknown;
+      break;
+  }
+  return Sfixnum(type);
+}
+
+/**
+ * Convert (struct stat.st_mode & S_IFMT) to Scheme integer:
+ *   S_IFBLK    -> e_blockdev = 1
+ *   S_IFCHR    -> e_chardev  = 2
+ *   S_IFDIR    -> e_dir      = 3
+ *   S_IFIFO    -> e_fifo     = 4
+ *   S_IFREG    -> e_file     = 5
+ *   S_IFSOCK   -> e_socket   = 6
+ *   S_IFLNK    -> e_symlink  = 7 - can only happen if called with lstat() result
+ *   otherwise  -> e_unknown  = 0
+ */
+static ptr c_stat_type(const mode_t s_type) {
+  e_type type;
+  switch (s_type) {
+    case S_IFBLK:
+      type = e_blockdev;
+      break;
+    case S_IFCHR:
+      type = e_chardev;
+      break;
+    case S_IFDIR:
+      type = e_dir;
+      break;
+    case S_IFIFO:
+      type = e_fifo;
+      break;
+    case S_IFREG:
+      type = e_file;
+      break;
+    case S_IFSOCK:
+      type = e_socket;
+      break;
+    case S_IFLNK:
+      type = e_symlink;
+      break;
+    default:
+      type = e_unknown;
+      break;
+  }
+  return Sfixnum(type);
+}
+
 /**
  * Convert struct dirent.d_type to Scheme integer:
  *   DT_UNKNOWN -> 0
@@ -698,52 +794,37 @@ ptr c_get_userhome(ptr username0) {
  *   DT_REG     -> 5
  *   DT_SOCK    -> 6
  *   DT_LNK     -> 7
+ * also resolves symlinks, i.e. replaces DT_LNK with the type of the file pointed to.
  */
-static ptr c_readdir_type(unsigned char d_type) {
-  unsigned char type;
-  switch (d_type) {
-    case DT_BLK:
-      type = 1;
-      break;
-    case DT_CHR:
-      type = 2;
-      break;
-    case DT_DIR:
-      type = 3;
-      break;
-    case DT_FIFO:
-      type = 4;
-      break;
-    case DT_LNK:
-      type = 7;
-      break;
-    case DT_REG:
-      type = 5;
-      break;
-    case DT_SOCK:
-      type = 6;
-      break;
-    case DT_UNKNOWN:
-    default:
-      type = 0;
-      break;
+static ptr
+c_file_type(DIR* dir, const char* filename, const ptr keep_symlinks, const unsigned char d_type) {
+  if (keep_symlinks == Sfalse && (d_type == DT_LNK || d_type == DT_UNKNOWN)) {
+    struct stat buf;
+    if (fstatat(dirfd(dir), filename, &buf, 0) == 0) {
+      return c_stat_type(buf.st_mode & S_IFMT);
+    }
   }
-  return Sfixnum(type);
+  return c_readdir_type(d_type);
 }
 
 /**
  * Scan directory bytevector0_dirpath and return Scheme list with its contents as pairs
  * (type . filename) where:
  *   filename is either a Scheme string (if ret_strings is truish) or a Scheme bytevector.
- *   type is a Scheme integer documented in c_readdir_type()
+ *   type is a Scheme integer corresponding to enum e_type.
+ *
+ * If keep_symlinks is #f, each type = e_symlink will be resolved to indicate
+ * the type of the file the symlink points to.
  *
  * If bytevector_filter_prefix is not empty,
  * only returns filenames that start with bytevector_filter_prefix.
  *
  * on error, return Scheme integer -errno
  */
-static ptr
-c_directory_list(ptr bytevector0_dirpath, ptr bytevector_filter_prefix, ptr ret_strings) {
+static ptr c_directory_list(ptr bytevector0_dirpath,
+                            ptr bytevector_filter_prefix,
+                            ptr keep_symlinks,
+                            ptr ret_strings) {
   ptr            ret = Snil;
   const char*    dirpath;
   const char*    prefix;
@@ -771,7 +852,7 @@ c_directory_list(ptr bytevector0_dirpath, ptr bytevector_filter_prefix, ptr ret_
     if (!prefixlen || (len >= (size_t)prefixlen && memcmp(name, prefix, prefixlen) == 0)) {
       ptr filename = ret_strings == Sfalse ? schemesh_Sbytevector(name, len) :
                                              schemesh_Sstring_utf8b(name, len);
-      ptr pair     = Scons(c_readdir_type(entry->d_type), filename);
+      ptr pair     = Scons(c_file_type(dir, name, keep_symlinks, entry->d_type), filename);
       ret          = Scons(pair, ret);
     }
   }
