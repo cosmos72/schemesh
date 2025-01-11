@@ -13,8 +13,8 @@
     parse-shell-autocomplete)
   (import
     (rnrs)
-    (only (chezscheme) environment-symbols fx1+ fx1- interaction-environment sort! top-level-value)
-    (only (schemesh bootstrap) debugf values->list)
+    (only (chezscheme) environment-symbols fx1+ fx1- sort! top-level-value)
+    (only (schemesh bootstrap) debugf sh-scheme-environment values->list)
     (only (schemesh containers misc) list-iterate list-remove-consecutive-duplicates! string-range=? string-split)
     (only (schemesh containers hashtable) hashtable-iterate)
     (schemesh containers charspan)
@@ -36,18 +36,29 @@
 (define (parse-scheme-autocomplete lctx paren completions)
   (%compute-stem lctx paren %char-is-scheme-identifier? %always-false)
   (let* ((stem     (linectx-completion-stem lctx))
-         (stem-len (charspan-length stem))
-         (l        '()))
-    ; (debugf "parse-scheme-autocomplete stem=~s~%" stem)
-    (list-iterate (environment-symbols (interaction-environment))
-      (lambda (sym)
-        (let* ((name (symbol->string sym))
-               (len  (string-length name)))
-          (when (and (fx>=? len stem-len) (charspan-range/string=? stem 0 name 0 stem-len))
-            (let ((csp (string->charspan* name)))
-              (charspan-erase-front! csp stem-len)
-              (span-insert-back! completions csp)))))))
-  (span-range-sort! completions 0 (span-length completions) charspan<?))
+         (stem-len (charspan-length stem)))
+    ; (debugf "parse-scheme-autocomplete paren=~s stem=~s~%" paren stem)
+    (if (eqv? #\" (paren-start-token paren))
+       ; list contents of some directory
+       (let ((slash-pos (and (not (fxzero? stem-len)) (charspan-rfind/ch stem 0 stem-len #\/))))
+         (if slash-pos
+           ; list contents of a directory
+           (let ((dir    (charspan-range->string stem 0 (fx1+ slash-pos)))
+                 (prefix (charspan-range->string stem (fx1+ slash-pos) stem-len)))
+             (%list-directory dir prefix slash-pos completions))
+           ; list contents of current directory
+           (%list-directory "." (charspan->string stem) #f completions)))
+      ; list top-level scheme symbols
+      (begin
+        (list-iterate (environment-symbols (sh-scheme-environment))
+          (lambda (sym)
+            (let* ((name (symbol->string sym))
+                   (len  (string-length name)))
+              (when (and (fx>=? len stem-len) (charspan-range/string=? stem 0 name 0 stem-len))
+                (let ((csp (string->charspan* name)))
+                  (charspan-erase-front! csp stem-len)
+                  (span-insert-back! completions csp))))))
+        (span-range-sort! completions 0 (span-length completions) charspan<?)))))
 
 
 ;; fill span-of-charspans completions with file names starting with charspan stem
