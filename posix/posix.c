@@ -8,7 +8,8 @@
  */
 
 #include "posix.h"
-#include "../eval.h" /* eval() */
+#include "../containers/containers.h" /* schemesh_Sbytevector() */
+#include "../eval.h"                  /* eval() */
 #include "signal.h"
 
 #include <dirent.h> /* opendir(), readdir(), closedir() */
@@ -38,9 +39,6 @@
 #else
 #include <termios.h> /* struct termios, tcgetattr(), tcsetattr() */
 #endif
-
-/* convert a C char[] to Scheme bytevector */
-static ptr c_chars_to_bytevector(const char chars[], const size_t len);
 
 static int c_fd_open_max(void);
 
@@ -682,7 +680,7 @@ ptr c_get_userhome(ptr username0) {
   if (result == NULL || result->pw_dir == NULL) {
     return Sinteger(c_errno_set(err != 0 ? err : ENOENT));
   }
-  return c_chars_to_bytevector(result->pw_dir, strlen(result->pw_dir));
+  return schemesh_Sbytevector(result->pw_dir, strlen(result->pw_dir));
 }
 
 /**
@@ -728,19 +726,6 @@ static ptr c_readdir_type(unsigned char d_type) {
   return Sfixnum(type);
 }
 
-/* convert a C char[] to Scheme bytevector */
-static ptr c_chars_to_bytevector(const char chars[], const size_t len) {
-  /* Smake_bytevector() wants iptr length */
-  iptr slen = (int)len;
-  if (slen < 0 || (size_t)slen != len) {
-    /** raises condition in Smake_bytevector() */
-    slen = -1;
-  }
-  ptr bvec = Smake_bytevector(slen, 0);
-  memcpy(Sbytevector_data(bvec), chars, len);
-  return bvec;
-}
-
 /**
  * Scan directory bytevector0_dirpath and return Scheme list with its contents as pairs
  * (type . filename) where filename is a Scheme bytevector,
@@ -777,7 +762,7 @@ static ptr c_directory_u8_list(ptr bytevector0_dirpath, ptr bytevector_filter_pr
     const char*  name = entry->d_name;
     const size_t len  = strlen(name);
     if (!prefixlen || (len >= (size_t)prefixlen && memcmp(name, prefix, prefixlen) == 0)) {
-      ptr pair = Scons(c_readdir_type(entry->d_type), c_chars_to_bytevector(name, len));
+      ptr pair = Scons(c_readdir_type(entry->d_type), schemesh_Sbytevector(name, len));
       ret      = Scons(pair, ret);
     }
   }

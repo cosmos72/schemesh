@@ -10,6 +10,15 @@
 #ifndef SCHEMESH_CONTAINERS_H
 #define SCHEMESH_CONTAINERS_H
 
+#include <scheme.h> /* ptr */
+#include <stddef.h> /* size_t */
+
 void schemesh_register_c_functions_containers(void);
+
+/** convert a C char[] to Scheme bytevector */
+ptr schemesh_Sbytevector(const char chars[], const size_t len);
+
+/** convert a C char[] from UTF-8b to Scheme string. */
+ptr schemesh_Sstring_utf8b(const char chars[], const size_t len);
 
 #endif /* SCHEMESH_CONTAINERS_H */

@@ -125,6 +125,7 @@
 
 (define get-userhome (foreign-procedure "c_get_userhome" (ptr) ptr))
 
+
 ;; given a span containing charspans and wildcards,
 ;; split the charspans after each delimiter /
 ;; and group wildcards and charspans that refer to a single directory or file name.

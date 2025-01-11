@@ -96,9 +96,9 @@
 ;;   https://peps.python.org/pep-0383
 ;;   https://web.archive.org/web/20090830064219/http://mail.nl.linux.org/linux-utf8/2000-07/msg00040.html
 (define utf8b-range->string
-  (let ((c-utf8b->string-append (foreign-procedure "c_utf8b_to_string_append"
+  (let ((c-utf8b->string-append (foreign-procedure "c_bytevector_utf8b_to_string_append"
                                   (ptr fixnum fixnum ptr fixnum) ptr))
-        (c-utf8b->string-length (foreign-procedure "c_utf8b_to_string_length"
+        (c-utf8b->string-length (foreign-procedure "c_bytevector_utf8b_to_string_length"
                                   (ptr fixnum fixnum) fixnum)))
     (lambda (bvec start n)
       (assert* 'utf8b->string (fx<=? 0 start (fx+ start n) (bytevector-length bvec)))

@@ -203,7 +203,7 @@ static ptr c_string_to_utf8b(ptr string, iptr start, iptr n, iptr zeropad_n) {
  * convert a single UTF-8b sequence to Unicode codepoint,
  * and return ONLY the number of converted bytes.
  */
-static uint32_t c_utf8b_to_codepoint_length(const octet* in, uptr in_len) {
+static uint32_t c_utf8b_to_codepoint_length(const octet* in, size_t in_len) {
   uint32_t in0, in1, in2, in3;
   if (UNLIKELY(in_len == 0)) {
     return 0;
@@ -326,11 +326,28 @@ static u32pair c_utf8b_to_codepoint(const octet* in, uptr in_len) {
 }
 
 /**
+ * convert up to n bytes from UTF-8b to UTF-32 string.
+ * and return ONLY the length of converted string i.e. the number of Unicode codepoints.
+ */
+static size_t c_bytes_utf8b_to_string_length(const octet* bytes, size_t len) {
+  size_t ret = 0;
+  while (len > 0) {
+    const uint32_t consumed = c_utf8b_to_codepoint_length(bytes, len);
+    if (consumed == 0 || consumed > len) {
+      break; // should not happen
+    }
+    bytes += consumed;
+    len -= consumed;
+    ret++;
+  }
+  return ret;
+}
+
+/**
  * convert up to n bytes of UTF-8b bytevector to UTF-32 string.
  * and return ONLY the length of converted string i.e. the number of Unicode codepoints.
  */
-static iptr c_utf8b_to_string_length(ptr bvec, iptr bvec_start, iptr n) {
-  iptr ret = 0;
+static iptr c_bytevector_utf8b_to_string_length(ptr bvec, iptr bvec_start, iptr n) {
   if (Sbytevectorp(bvec) && bvec_start >= 0 && n > 0) {
     iptr bvec_len = Sbytevector_length(bvec);
     if (bvec_start < bvec_len) {
@@ -340,51 +357,96 @@ static iptr c_utf8b_to_string_length(ptr bvec, iptr bvec_start, iptr n) {
       } else {
         bvec_len -= bvec_start;
       }
-      while (bvec_len > 0) {
-        const uint32_t consumed = c_utf8b_to_codepoint_length(bvec_data, bvec_len);
-        if (consumed == 0 || consumed > (uptr)bvec_len) {
-          break; // should not happen
+      {
+        size_t ret  = c_bytes_utf8b_to_string_length(bvec_data, (size_t)bvec_len);
+        iptr   iret = (iptr)ret;
+        if (iret >= 0 && (size_t)iret == ret) {
+          return iret;
         }
-        bvec_data += consumed;
-        bvec_len -= consumed;
-        ret++;
       }
     }
   }
-  return ret;
+  return 0;
 }
 
 /**
- * convert up to n bytes of UTF-8b bytevector to UTF-32 string.
+ * convert up to in_len bytes from an UTF-8b C char[] to a Scheme string,
+ * starting at position str_start.
+ * return the the number of Unicode codepoints written into the string,
+ * or Sfalse if caller-provided string is too small.
+ */
+static ptr c_bytes_utf8b_to_string_append(const octet* in, size_t in_len, ptr str, iptr str_start) {
+  iptr str_len = Sstring_length(str);
+  if (str_start <= str_len) {
+    iptr str_pos = str_start;
+    if (in_len == 0) {
+      return Sfixnum(0);
+    }
+    while (in_len > 0) {
+      const u32pair pair = c_utf8b_to_codepoint(in, in_len);
+      if (pair.length == 0 || pair.length > in_len || str_pos >= str_len) {
+        return Sfalse;
+      }
+      in += pair.length;
+      in_len -= pair.length;
+      Sstring_set(str, str_pos, pair.codepoint);
+      str_pos++;
+    }
+    return Sfixnum(str_pos - str_start);
+  }
+  return Sfalse;
+}
+
+/**
+ * convert up to n bytes from an UTF-8b bytevector to a Scheme string.
  * return the length of converted string, i.e. the number of Unicode codepoints written into it,
  * or Sfalse if caller-provided string is too small.
  */
-static ptr c_utf8b_to_string_append(ptr bvec, iptr bvec_start, iptr n, ptr str, iptr str_start) {
+static ptr
+c_bytevector_utf8b_to_string_append(ptr bvec, iptr bvec_start, iptr n, ptr str, iptr str_start) {
   if (Sbytevectorp(bvec) && bvec_start >= 0 && n >= 0 && Sstringp(str) && str_start >= 0) {
-    iptr bvec_len = Sbytevector_length(bvec);
-    iptr str_len  = Sstring_length(str);
-    if (bvec_start <= bvec_len && str_start <= str_len) {
-      iptr   str_pos   = str_start;
-      octet* bvec_data = &Sbytevector_u8_ref(bvec, bvec_start);
-      if (bvec_len - bvec_start > n) {
-        bvec_len = n;
-      } else {
-        bvec_len -= bvec_start;
+    octet* bvec_data = Sbytevector_data(bvec);
+    iptr   bvec_len  = Sbytevector_length(bvec);
+    if (bvec_start <= bvec_len) {
+      iptr in_len = bvec_len - bvec_start;
+      if (in_len > n) {
+        in_len = n;
       }
-      while (bvec_len > 0) {
-        const u32pair pair = c_utf8b_to_codepoint(bvec_data, bvec_len);
-        if (pair.length == 0 || pair.length > (uptr)bvec_len || str_pos >= str_len) {
-          return Sfalse;
-        }
-        bvec_data += pair.length;
-        bvec_len -= pair.length;
-        Sstring_set(str, str_pos, pair.codepoint);
-        str_pos++;
-      }
-      return Sfixnum(str_pos - str_start);
+      return c_bytes_utf8b_to_string_append(bvec_data + bvec_start, (size_t)in_len, str, str_start);
     }
   }
   return Sfalse;
+}
+
+/** convert a C char[] from UTF-8b to Scheme string. */
+ptr schemesh_Sstring_utf8b(const char chars[], const size_t len) {
+  size_t slen = c_bytes_utf8b_to_string_length((const octet*)chars, len);
+  /* Smake_string() wants iptr length */
+  iptr str_len = (int)slen;
+  if (str_len < 0 || (size_t)str_len != slen) {
+    /** raises condition in Smake_bytevector() */
+    str_len = -1;
+  }
+  ptr str     = Smake_string(str_len, 0);
+  ptr written = c_bytes_utf8b_to_string_append((const octet*)chars, len, str, 0);
+  if (Sfixnump(written) && Sfixnum_value(written) == str_len) {
+    return str;
+  }
+  /* raise condition */
+  return Smake_string(-1, 0);
+}
+
+/** convert a C char[] to Scheme bytevector */
+ptr schemesh_Sbytevector(const char chars[], const size_t len) {
+  /* Smake_bytevector() wants iptr length */
+  iptr ilen = (int)len;
+  if (ilen < 0 || (size_t)ilen != len) {
+    /** raises condition in Smake_bytevector() */
+    ilen = -1;
+  }
+  ptr bvec = Smake_bytevector(ilen, 0);
+  memcpy(Sbytevector_data(bvec), chars, len);
+  return bvec;
 }
 
 void schemesh_register_c_functions_containers(void) {
@@ -395,6 +457,6 @@ void schemesh_register_c_functions_containers(void) {
 #if 0
   Sregister_symbol("c_string_to_utf8b", &c_string_to_utf8b);
 #endif /* 0 */
-  Sregister_symbol("c_utf8b_to_string_length", &c_utf8b_to_string_length);
-  Sregister_symbol("c_utf8b_to_string_append", &c_utf8b_to_string_append);
+  Sregister_symbol("c_bytevector_utf8b_to_string_length", &c_bytevector_utf8b_to_string_length);
+  Sregister_symbol("c_bytevector_utf8b_to_string_append", &c_bytevector_utf8b_to_string_append);
 }
