@@ -31,9 +31,8 @@
       (#t
         ; actually expand wildcards
         (sh-wildcard/expand-paths job
-          (sh-wildcard/simplify-paths!
-            (sh-wildcard/prepare-paths
-              (sh-wildcard/expand-tilde! job sp))))))))
+          (sh-wildcard/prepare-paths
+            (sh-wildcard/expand-tilde! job sp)))))))
 
 
 ;; iterate on args list and call any procedure.
@@ -99,7 +98,7 @@
         (set! i (fx1+ i))
         (span-insert-back! (span-back ret) (string->charspan (span-ref sp i))))
       (set! i (fx1+ i)))
-    ret))
+    (sh-wildcard/simplify-paths! ret)))
 
 
 ;; if obj is a string, convert it to charspan, split it after each delimiter /

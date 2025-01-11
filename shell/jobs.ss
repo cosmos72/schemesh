@@ -44,7 +44,7 @@
 
     ; wildcard
     sh-wildcard sh-wildcard/apply sh-wildcard/expand-tilde!
-    sh-wildcard/prepare-paths sh-wildcard/simplify-paths! sh-wildcard/expand-paths)
+    sh-wildcard/prepare-paths sh-wildcard/expand-paths)
   (import
     (rnrs)
     (rnrs mutable-pairs)

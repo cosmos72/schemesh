@@ -990,17 +990,14 @@ static const testcase tests[] = {
      " (sh-cmd \"cat\" \"DEL_ME\") (sh-cmd \"rm\" \"DEL_ME\"))"},
     /* ------------------------- wildcard expansion ------------------------- */
     {"(sh-wildcard #t \"a\" \"bcd\" \"\" \"ef\")", "abcdef"},
-    {"(sh-wildcard/simplify-paths! (sh-wildcard/prepare-paths"
-     " (span \"/\" '* \".so\")))",
+    {"(sh-wildcard/prepare-paths (span \"/\" '* \".so\"))",
      "(span (string->charspan* \"/\") (span * (string->charspan* \".so\")))"},
-    {"(sh-wildcard/simplify-paths! (sh-wildcard/prepare-paths"
-     " (span \"//abc//\" \"//def//\")))",
+    {"(sh-wildcard/prepare-paths (span \"//abc//\" \"//def//\"))",
      "(span"
      " (string->charspan* \"/\")"
      " (string->charspan* \"abc/\")"
      " (string->charspan* \"def/\"))"},
-    {"(sh-wildcard/simplify-paths! (sh-wildcard/prepare-paths"
-     " (span \"/foo/\" '* \"/\" \"/bar\")))",
+    {"(sh-wildcard/prepare-paths (span \"/foo/\" '* \"/\" \"/bar\"))",
      "(span"
      " (string->charspan* \"/\")"
      " (string->charspan* \"foo/\")"
