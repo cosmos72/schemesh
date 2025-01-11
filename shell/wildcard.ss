@@ -115,19 +115,20 @@
       (assert* 'sh-wildcard (string? obj))
       (let ((str-len (string-length obj)))
         (unless (fxzero? str-len)
-          (%split-string->paths sp (span-back sp) obj str-len))
+          (%split-string->paths sp obj str-len))
         #f))))
 
 
 ;; split non-empty string str after each delimiter /
 ;; and append each fragment to subspans inside sp, starting from subspan.
-(define (%split-string->paths sp subspan str str-len)
-  (let ((cspan #f))
+(define (%split-string->paths sp str str-len)
+  (let ((subspan (span-back sp))
+        (cspan #f))
     (do ((i 0 (fx1+ i)))
         ((fx>=? i str-len))
       (let ((ch (string-ref str i)))
         ;; ignore duplicated consecutive /
-        (unless (and (fx>? i 0) (char=? #\/ ch) (char=? ch (string-ref str (fx1- i))))
+        (unless (and (char=? #\/ ch) (%last-is-slash? str i sp subspan))
           (unless cspan
             (set! cspan (%ensure-ends-with-charspan! subspan)))
           (charspan-insert-back! cspan ch)
@@ -137,6 +138,14 @@
             (set! subspan (span))
             (span-insert-back! sp subspan)))))))
 
+
+(define (%last-is-slash? str str-index sp subspan)
+  ; (debugf "%last-is-slash? str=~s, str-index=~s, sp=~s subspan=~s~%" str str-index sp subspan)
+  (or
+    (and (fx>? str-index 0) (char=? #\/ (string-ref str (fx1- str-index))))
+    ; by construction, an empty subspan is preceded by another subspan that ends with /
+    ; unless the empty subspan is the only subspan
+    (and (span-empty? subspan) (fx>? (span-length sp) 1))))
 
 (define (%ensure-ends-with-charspan! subspan)
   (if (or (span-empty? subspan) (not (charspan? (span-back subspan))))

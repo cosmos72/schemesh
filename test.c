@@ -994,12 +994,18 @@ static const testcase tests[] = {
      " (span \"/\" '* \".so\")))",
      "(span (string->charspan* \"/\") (span * (string->charspan* \".so\")))"},
     {"(sh-wildcard/simplify-paths! (sh-wildcard/prepare-paths"
-     " (span \"/usr/\" '* \"/bin\")))",
+     " (span \"//abc//\" \"//def//\")))",
      "(span"
      " (string->charspan* \"/\")"
-     " (string->charspan* \"usr/\")"
+     " (string->charspan* \"abc/\")"
+     " (string->charspan* \"def/\"))"},
+    {"(sh-wildcard/simplify-paths! (sh-wildcard/prepare-paths"
+     " (span \"/foo/\" '* \"/\" \"/bar\")))",
+     "(span"
+     " (string->charspan* \"/\")"
+     " (string->charspan* \"foo/\")"
      " (span * (string->charspan* \"/\"))"
-     " (string->charspan* \"bin\"))"},
+     " (string->charspan* \"bar\"))"},
     /* ------------------------- job execution ------------------------------ */
     {"(sh-run/string (shell \"echo\" \"a\"  \"b\" \"c\"))", "a b c\n"},
     {"(sh-run/string-rtrim-newlines (shell \"echo\" \" abc \"))", " abc "},
