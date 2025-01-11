@@ -15,7 +15,7 @@
     (rnrs)
     (only (rnrs mutable-pairs)   set-car!)
     (only (chezscheme)           fx1+ fx1- void)
-    (only (schemesh bootstrap)   assert* sh-eval-string)
+    (only (schemesh bootstrap)   raise-assertv sh-eval-string)
     (only (schemesh containers)  hashtable-iterate list-iterate string->utf8b string->utf8b/0
                                  utf8b->string utf8b-range->string))
 
@@ -134,7 +134,8 @@
        (if (fxzero? (string-length x))
          bv0
          (string->utf8b/0 x)))
-    (#t (assert* 'text->bytevector0 (string? x)))))
+    (#t
+      (raise-assertv 'text->bytevector0 '(or (bytevector? x) (string? x)) x))))
 
 
 ; convert a #\nul terminated bytevector containing UTF-8b to string

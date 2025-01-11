@@ -21,7 +21,7 @@
     (schemesh containers span)
     (schemesh containers sort)
     (only (schemesh containers utf8b) utf8b->string)
-    (only (schemesh posix misc) directory-u8-list)
+    (only (schemesh posix misc) directory-list)
     (only (schemesh lineedit vscreen) vscreen-char-before-xy vscreen-cursor-ix vscreen-cursor-iy)
     (schemesh lineedit paren)
     (only (schemesh lineedit linectx) linectx-completion-stem linectx-vscreen))
@@ -161,7 +161,7 @@
          (prefix-len (string-length prefix))
          (prefix?    (not (fxzero? prefix-len)))
          (prefix-starts-with-dot? (and prefix? (char=? #\. (string-ref prefix 0)))))
-    (list-iterate (directory-u8-list dir prefix 'sort 'catch)
+    (list-iterate (directory-list dir prefix 'bytes 'catch 'sort)
       (lambda (elem)
         (let ((name (string->charspan* (utf8b->string (cdr elem)))))
           (when (or prefix-starts-with-dot? (not (char=? #\. (charspan-ref name 0))))
@@ -248,12 +248,10 @@
          (prefix-len (string-length prefix)))
     (list-iterate dirs
       (lambda (dir)
-        (list-iterate (directory-u8-list dir prefix 'catch) ; don't sort directory list
+        (list-iterate (directory-list dir prefix 'catch) ; don't sort directory list
           (lambda (elem)
-            (let ((type (car elem)))
-              (when (or (eq? 'file type) (eq? 'symlink type))
-                (let ((name (utf8b->string (cdr elem))))
-                  (set! l (cons name l))))))))))
+            (when (eq? 'file (car elem))
+              (set! l (cons (cdr elem) l))))))))
   l)
 
 ) ; close library

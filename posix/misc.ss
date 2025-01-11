@@ -7,7 +7,7 @@
 
 
 (library (schemesh posix misc (0 1))
-  (export c-hostname c-exit directory-u8-list directory-u8-list*)
+  (export c-hostname c-exit directory-list directory-list*)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -30,31 +30,33 @@
 ;; mandatory first argument dirpath must be a string or bytevector.
 ;; optional second argument filter-prefix must be a string or bytevector.
 ;; futher optional arguments can contain:
+;;   'bytes - each returned filename will be a bytevector, not a string
+;;   'catch - errors be ignored instead of throwing exceptions
 ;;   'sort  - returned list will be sorted
-;;   'catch - errors in C functions will be ignored instead of throwing exceptions
 ;;
-;; Returns a list of pairs (type . filename) where filename is a bytevector
-;; (because Unix filenames can contain arbitrary bytes, not just UTF-8)
-;; and type is one of: 'unknown 'blockdev 'chardev 'dir 'fifo 'file 'socket 'symlink
+;; Returns a list of pairs (type . filename) where:
+;;  each type is one of: 'unknown 'blockdev 'chardev 'dir 'fifo 'file 'socket 'symlink
+;;  each filename is a either a bytevector (if options contain 'bytes) or a string
 ;;
 ;; If filter-prefix is not empty, only returns filenames that start with filter-prefix
-(define directory-u8-list
+(define directory-list
   (case-lambda
-    ((dirpath)                         (directory-u8-list* dirpath #vu8()        '()))
-    ((dirpath filter-prefix)           (directory-u8-list* dirpath filter-prefix '()))
-    ((dirpath filter-prefix . options) (directory-u8-list* dirpath filter-prefix options))))
+    ((dirpath)                         (directory-list* dirpath #vu8()        '()))
+    ((dirpath filter-prefix)           (directory-list* dirpath filter-prefix '()))
+    ((dirpath filter-prefix . options) (directory-list* dirpath filter-prefix options))))
 
 
-;; implementation of (directory-u8-list)
-(define directory-u8-list*
-  (let ((c-directory-u8-list (foreign-procedure "c_directory_u8_list"
-                     (ptr ptr) ptr))
+;; implementation of (directory-list)
+(define directory-list*
+  (let ((c-directory-list (foreign-procedure "c_directory_list" (ptr ptr ptr) ptr))
         (types '#(unknown blockdev chardev dir fifo file socket symlink)))
     (lambda (dirpath filter-prefix options)
-      (let ((ret (c-directory-u8-list (text->bytevector0 dirpath)
+      (let* ((strings? (not (memq 'bytes options)))
+             (ret (c-directory-list (text->bytevector0 dirpath)
                    (if (bytevector? filter-prefix)
                      filter-prefix
-                     (string->utf8b filter-prefix)))))
+                     (string->utf8b filter-prefix))
+                   strings?)))
         (cond
           ((or (null? ret) (pair? ret))
             (list-iterate ret
@@ -64,14 +66,17 @@
                     (if (fx<=? 0 c-type 7) (vector-ref types c-type) 'unknown)))))
             (if (memq 'sort options)
               (sort!
-                (lambda (entry1 entry2)
-                  (bytevector<? (cdr entry1) (cdr entry2)))
+                (if strings?
+                  (lambda (entry1 entry2)
+                    (string<? (cdr entry1) (cdr entry2)))
+                  (lambda (entry1 entry2)
+                    (bytevector<? (cdr entry1) (cdr entry2))))
                 ret)
               ret))
           ((memq 'catch options)
             '())
           (#t
-            (raise-c-errno 'directory-u8-list 'opendir ret dirpath)))))))
+            (raise-c-errno 'directory-list 'opendir ret dirpath)))))))
 
 
 ) ; close library

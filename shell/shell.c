@@ -45,7 +45,8 @@ static ptr c_environ_ref(uptr i) {
     size_t      namelen   = separator ? separator - entry : 0;
     iptr        inamelen  = Sfixnum_value(Sfixnum(namelen));
     if (namelen > 0 && inamelen > 0 && namelen == (size_t)inamelen) {
-      return Scons(Sstring_utf8(entry, inamelen), Sstring_utf8(separator + 1, -1));
+      return Scons(schemesh_Sstring_utf8b(entry, inamelen),
+                   schemesh_Sstring_utf8b(separator + 1, strlen(separator + 1)));
     }
   }
   return Sfalse;
@@ -60,9 +61,9 @@ static ptr c_get_cwd(void) {
     // call getcwd() with a small stack buffer
     char dir[256];
     if (getcwd(dir, sizeof(dir)) == dir) {
-      return Sstring_utf8(dir, -1);
+      return schemesh_Sstring_utf8b(dir, strlen(dir));
     } else if (c_errno() != -ERANGE) {
-      return Sstring_utf8("", 0);
+      return Smake_string(0, 0);
     }
   }
   {
@@ -71,7 +72,7 @@ static ptr c_get_cwd(void) {
     char*  dir    = NULL;
     while (maxlen && (dir = malloc(maxlen)) != NULL) {
       if (getcwd(dir, maxlen) == dir) {
-        ptr ret = Sstring_utf8(dir, -1);
+        ptr ret = schemesh_Sstring_utf8b(dir, strlen(dir));
         free(dir);
         return ret;
       }
@@ -79,7 +80,7 @@ static ptr c_get_cwd(void) {
       maxlen *= 2;
     }
   }
-  return Sstring_utf8("", 0);
+  return Smake_string(0, 0);
 }
 
 /**

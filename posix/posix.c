@@ -69,7 +69,8 @@ static int c_errno_einval(void) {
 }
 
 ptr c_strerror(int err) {
-  return Sstring_utf8(strerror(err < 0 ? -err : err), -1);
+  const char* msg = strerror(err < 0 ? -err : err);
+  return schemesh_Sstring_utf8b(msg, strlen(msg));
 }
 
 int c_init_failed(const char label[]) {
@@ -642,7 +643,7 @@ static ptr c_get_hostname(void) {
   if (gethostname(buf, sizeof(buf)) != 0) {
     return Sinteger(c_errno());
   }
-  return Sstring_utf8(buf, -1);
+  return schemesh_Sstring_utf8b(buf, strlen(buf));
 }
 
 /**
@@ -732,15 +733,17 @@ static ptr c_readdir_type(unsigned char d_type) {
 
 /**
  * Scan directory bytevector0_dirpath and return Scheme list with its contents as pairs
- * (type . filename) where filename is a Scheme bytevector,
- * and type is a Scheme integer documented in c_readdir_type()
+ * (type . filename) where:
+ *   filename is either a Scheme string (if ret_strings is truish) or a Scheme bytevector.
+ *   type is a Scheme integer documented in c_readdir_type()
  *
  * If bytevector_filter_prefix is not empty,
  * only returns filenames that start with bytevector_filter_prefix.
  *
  * on error, return Scheme integer -errno
  */
-static ptr c_directory_u8_list(ptr bytevector0_dirpath, ptr bytevector_filter_prefix) {
+static ptr
+c_directory_list(ptr bytevector0_dirpath, ptr bytevector_filter_prefix, ptr ret_strings) {
   ptr            ret = Snil;
   const char*    dirpath;
   const char*    prefix;
@@ -766,8 +769,10 @@ static ptr c_directory_u8_list(ptr bytevector0_dirpath, ptr bytevector_filter_pr
     const char*  name = entry->d_name;
     const size_t len  = strlen(name);
     if (!prefixlen || (len >= (size_t)prefixlen && memcmp(name, prefix, prefixlen) == 0)) {
-      ptr pair = Scons(c_readdir_type(entry->d_type), schemesh_Sbytevector(name, len));
-      ret      = Scons(pair, ret);
+      ptr filename = ret_strings == Sfalse ? schemesh_Sbytevector(name, len) :
+                                             schemesh_Sstring_utf8b(name, len);
+      ptr pair     = Scons(c_readdir_type(entry->d_type), filename);
+      ret          = Scons(pair, ret);
     }
   }
   (void)closedir(dir);
@@ -1014,7 +1019,7 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_get_hostname", &c_get_hostname);
   Sregister_symbol("c_get_userhome", &c_get_userhome);
   Sregister_symbol("c_exit", &c_exit);
-  Sregister_symbol("c_directory_u8_list", &c_directory_u8_list);
+  Sregister_symbol("c_directory_list", &c_directory_list);
 
   schemesh_register_c_functions_posix_signals();
   return 0;
