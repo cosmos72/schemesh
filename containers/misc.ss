@@ -256,7 +256,7 @@
 ;; (string-iterate l proc) iterates on all elements of given string src,
 ;; and calls (proc index ch) on each character. stops iterating if (proc ...) returns #f
 ;;
-;; Returns #t if all calls to (proc index elem) returned truish,
+;; Returns #t if all calls to (proc index ch) returned truish,
 ;; otherwise returns #f.
 (define (string-iterate str proc)
   (do ((i 0 (fx1+ i))

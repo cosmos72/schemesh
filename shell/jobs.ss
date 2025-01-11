@@ -16,7 +16,7 @@
   (export
     ; jobs.ss
     sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd? sh-multijob?
-    sh-wildcard sh-env-copy sh-env->argv sh-globals sh-global-env
+    sh-env-copy sh-env->argv sh-globals sh-global-env
     sh-cmd make-cmd sh-cwd
     sh-consume-sigchld sh-multijob-child-length sh-multijob-child-ref
     sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/ok?
@@ -40,7 +40,11 @@
     sh-pipe sh-pipe*
 
     ; parse.ss
-    sh sh-parse sh-cmd* sh-list*)
+    sh sh-parse sh-cmd* sh-list*
+
+    ; wildcard
+    sh-wildcard sh-wildcard/apply sh-wildcard/expand-tilde!
+    sh-wildcard/prepare-paths sh-wildcard/simplify-paths! sh-wildcard/expand-paths)
   (import
     (rnrs)
     (rnrs mutable-pairs)

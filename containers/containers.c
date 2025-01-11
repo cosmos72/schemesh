@@ -10,6 +10,7 @@
 #include "containers.h"
 #include "../eval.h"
 
+#include <errno.h>  // errno
 #include <stdint.h> // uint32_t
 #include <string.h> /* memcmp(), memmove() */
 
@@ -418,33 +419,36 @@ c_bytevector_utf8b_to_string_append(ptr bvec, iptr bvec_start, iptr n, ptr str, 
   return Sfalse;
 }
 
-/** convert a C char[] from UTF-8b to Scheme string. */
+/**
+ * convert a C char[] from UTF-8b to Scheme string and return it.
+ * If len > maximum string length, returns Sinteger(-ENOMEM).
+ */
 ptr schemesh_Sstring_utf8b(const char chars[], const size_t len) {
   size_t slen = c_bytes_utf8b_to_string_length((const octet*)chars, len);
   /* Smake_string() wants iptr length */
-  iptr str_len = (int)slen;
+  iptr str_len = (iptr)slen;
   if (str_len < 0 || (size_t)str_len != slen) {
-    /** raises condition in Smake_bytevector() */
-    str_len = -1;
+    return Sinteger(-(errno = ENOMEM));
   }
   ptr str     = Smake_string(str_len, 0);
   ptr written = c_bytes_utf8b_to_string_append((const octet*)chars, len, str, 0);
   if (Sfixnump(written) && Sfixnum_value(written) == str_len) {
     return str;
   }
-  /* raise condition */
-  return Smake_string(-1, 0);
+  return Sinteger(-(errno = ENOMEM));
 }
 
-/** convert a C char[] to Scheme bytevector */
+/**
+ * convert a C char[] to Scheme bytevector and return it.
+ * If len > maximum bytevector length, returns Sinteger(-ENOMEM).
+ */
 ptr schemesh_Sbytevector(const char chars[], const size_t len) {
   /* Smake_bytevector() wants iptr length */
-  iptr ilen = (int)len;
-  if (ilen < 0 || (size_t)ilen != len) {
-    /** raises condition in Smake_bytevector() */
-    ilen = -1;
+  iptr bvec_len = (iptr)len;
+  if (bvec_len < 0 || (size_t)bvec_len != len) {
+    return Sinteger(-(errno = ENOMEM));
   }
-  ptr bvec = Smake_bytevector(ilen, 0);
+  ptr bvec = Smake_bytevector(bvec_len, 0);
   memcpy(Sbytevector_data(bvec), chars, len);
   return bvec;
 }

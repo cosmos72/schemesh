@@ -647,11 +647,12 @@ static ptr c_get_hostname(void) {
 
 /**
  * get home directory of specified username, which must be a 0-terminated bytevector.
- * return Scheme bytevector, or Scheme integer on error
+ * return Scheme string, or Scheme integer on error
  */
 ptr c_get_userhome(ptr username0) {
   struct passwd  pwd;
-  struct passwd* result;
+  struct passwd* result = NULL;
+  ptr            ret;
   char*          buf;
   const char*    username_chars;
   iptr           username_len = 0;
@@ -677,10 +678,13 @@ ptr c_get_userhome(ptr username0) {
     return Sinteger(c_errno());
   }
   err = getpwnam_r(username_chars, &pwd, buf, bufsize, &result);
-  if (result == NULL || result->pw_dir == NULL) {
-    return Sinteger(c_errno_set(err != 0 ? err : ENOENT));
+  if (err == 0 && result && result->pw_dir) {
+    ret = schemesh_Sstring_utf8b(result->pw_dir, strlen(result->pw_dir));
+  } else {
+    ret = Sinteger(c_errno_set(err != 0 ? err : ENOENT));
   }
-  return schemesh_Sbytevector(result->pw_dir, strlen(result->pw_dir));
+  free(buf);
+  return ret;
 }
 
 /**

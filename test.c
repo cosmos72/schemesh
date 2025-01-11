@@ -990,6 +990,16 @@ static const testcase tests[] = {
      " (sh-cmd \"cat\" \"DEL_ME\") (sh-cmd \"rm\" \"DEL_ME\"))"},
     /* ------------------------- wildcard expansion ------------------------- */
     {"(sh-wildcard #t \"a\" \"bcd\" \"\" \"ef\")", "abcdef"},
+    {"(sh-wildcard/simplify-paths! (sh-wildcard/prepare-paths"
+     " (span \"/\" '* \".so\")))",
+     "(span (string->charspan* \"/\") (span * (string->charspan* \".so\")))"},
+    {"(sh-wildcard/simplify-paths! (sh-wildcard/prepare-paths"
+     " (span \"/usr/\" '* \"/bin\")))",
+     "(span"
+     " (string->charspan* \"/\")"
+     " (string->charspan* \"usr/\")"
+     " (span * (string->charspan* \"/\"))"
+     " (string->charspan* \"bin\"))"},
     /* ------------------------- job execution ------------------------------ */
     {"(sh-run/string (shell \"echo\" \"a\"  \"b\" \"c\"))", "a b c\n"},
     {"(sh-run/string-rtrim-newlines (shell \"echo\" \" abc \"))", " abc "},

@@ -15,10 +15,16 @@
 
 void schemesh_register_c_functions_containers(void);
 
-/** convert a C char[] to Scheme bytevector */
+/**
+ * convert a C char[] to Scheme bytevector and return it.
+ * If len > maximum bytevector length, returns Sinteger(-ENOMEM).
+ */
 ptr schemesh_Sbytevector(const char chars[], const size_t len);
 
-/** convert a C char[] from UTF-8b to Scheme string. */
+/**
+ * convert a C char[] from UTF-8b to Scheme string and return it.
+ * If len > maximum string length, returns Sinteger(-ENOMEM).
+ */
 ptr schemesh_Sstring_utf8b(const char chars[], const size_t len);
 
 #endif /* SCHEMESH_CONTAINERS_H */
