@@ -866,7 +866,9 @@
 ;; thus if present it means the input is incomplete and should not be evaluated.
 (define (linectx-paren-recursive-ok? ctx)
   (and
-    ; (even? (charlines-rcount= (linectx-vscreen ctx) #\\))
+    (fxeven?
+      (charlines-count/left (linectx-vscreen ctx) (greatest-fixnum) (greatest-fixnum)
+        (lambda (ch) (char=? ch #\\))))
     (let* ((parenmatcher (linectx-parenmatcher ctx))
            (paren (and parenmatcher (parenmatcher-paren parenmatcher))))
       (or (not paren)

@@ -436,7 +436,7 @@ static const testcase tests[] = {
      "  (lambda (ch) (char=? ch #\\Z)))",
      "10"},
     {"(charlines-count/left (strings->charlines* \"abc\n\" \"ccc\")\n"
-     "   999 1\n"
+     "   999 999\n"
      "  (lambda (ch) (char=? ch #\\c)))",
      "3"},
     {"(charlines-count/right (strings->charlines* \"abc\n\" \"ccc\")\n"
