@@ -21,7 +21,7 @@
   (import
     (rnrs)
     (only (chezscheme) break fx1+ fx1- record-writer reverse! vector-copy void)
-(only (schemesh bootstrap) assert*)
+    (only (schemesh bootstrap) assert*)
     (schemesh containers misc))
 
 (define-record-type
@@ -54,18 +54,14 @@
     ((n fill) (%make-span 0 n (make-vector n fill)))))
 
 (define (span->list sp)
-  (let ((n (span-length sp))
-        (ret '()))
-    (do ((i 0 (fx1+ i)))
-        ((fx>=? i n) (reverse! ret))
-      (set! ret (cons (span-ref sp i) ret)))))
+  (vector-range->list (span-vec sp) (span-beg sp) (span-length sp)))
 
 (define (span->vector sp)
   (let ((beg (span-beg sp))
         (end (span-end sp)))
-    (if (fx>=? beg end)
-      '#()
-      (subvector (span-vec sp) beg end))))
+    (if (fx<? beg end)
+      (subvector (span-vec sp) beg end)
+      '#())))
 
 (define (span . vals)
   (list->span vals))

@@ -10,7 +10,7 @@
     ; misc.ss
     list-iterate list-quoteq! list-nth list-reverse*! list-remove-consecutive-duplicates!
     string-list? assert-string-list? string-contains-only-decimal-digits?
-    vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable
+    vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable vector-range->list
     list->bytevector subbytevector
     bytevector-fill-range! bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?

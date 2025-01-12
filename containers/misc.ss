@@ -9,7 +9,7 @@
   (export
     list-iterate list-nth list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
     string-list? assert-string-list? string-contains-only-decimal-digits?
-    vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable
+    vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable vector-range->list
     list->bytevector subbytevector
     bytevector-fill-range! bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?
@@ -161,6 +161,14 @@
   (do ((i 0 (fx1+ i)))
       ((fx>=? i n))
     (vector-set! vec (fx+ i start) val)))
+
+;; read n elements from vector from offset = start and copy them into a list
+(define (vector-range->list vec start n)
+  (let %again ((pos (fx1- (fx+ start n)))
+               (ret '()))
+    (if (fx>=? pos start)
+      (%again (fx1- pos) (cons (vector-ref vec pos) ret))
+      ret)))
 
 ;; (vector-iterate l proc) iterates on all elements of given vector vec,
 ;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
