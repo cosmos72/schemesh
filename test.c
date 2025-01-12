@@ -794,6 +794,12 @@ static const testcase tests[] = {
      "#t"},
     /* ------------------------- posix -------------------------------------- */
     {"(c-errno)", "0"},
+    {"(file-stat \".\" 'catch)", "dir"},
+    {"(file-stat \"parser/parser.ss\" 'catch)", "file"},
+    {"(directory-sort! (directory-list \"parser\"))",
+     "((dir . .) (dir . ..) (file . autocomplete.ss) (file . lisp.ss)"
+     " (file . parser.ss) (file . r6rs.ss) (file . scheme.ss)"
+     " (file . shell.ss))"},
     /* ------------------------- shell paths -------------------------------- */
     {"(sh-path-absolute? (string->charspan* \"/foo\"))", "#t"},
     {"(sh-path-absolute? (string->charspan* \"bar/\"))", "#f"},

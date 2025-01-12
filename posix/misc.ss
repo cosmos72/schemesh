@@ -7,7 +7,7 @@
 
 
 (library (schemesh posix misc (0 1))
-  (export c-hostname c-exit directory-list directory-sort!)
+  (export c-hostname c-exit directory-list directory-sort! file-stat)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -25,12 +25,42 @@
     (lambda ()
       hostname)))
 
+(define c-type->file-type
+  (let ((file-types '#(unknown blockdev chardev dir fifo file socket symlink)))
+    (lambda (c-type)
+      (if (fx<=? 0 c-type 7) (vector-ref file-types c-type) 'unknown))))
+
+
+;; Check existence and type of a filesystem path.
+;; Mandatory first argument dirpath must be a bytevector, string or charspan.
+;; Further optional arguments can contain:
+;;   'catch    - return #f instead of raising a condition on C functions error
+;;   'symlinks - returned filenames that are symlinks will have type 'symlink
+;;               instead of the type of the file they point to.
+;;
+;; If file exists, return its type which is one of:
+;;   'unknown 'blockdev 'chardev 'dir 'fifo 'file 'socket 'symlink
+;; Returns #f if file does not exist.
+;;
+(define file-stat
+  (let ((c-file-stat (foreign-procedure "c_file_stat" (ptr ptr) ptr)))
+    (lambda (path . options)
+      (let* ((symlinks? (memq 'symlinks options))
+             (ret (c-file-stat (text->bytevector0 path) symlinks?)))
+        (cond
+          ((and (fixnum? ret) (fx>=? ret 0))
+            (c-type->file-type ret))
+          ((or (eq? ret #f) (memq 'catch options))
+            #f)
+          (#t
+            (raise-c-errno 'file-stat (if symlinks? 'lstat 'stat) ret path)))))))
+
 
 ;; List contents of a filesystem directory, in arbitrary order.
 ;; Mandatory first argument dirpath must be a bytevector, string or charspan.
-;; futher optional arguments can contain:
+;; Further optional arguments can contain:
 ;;   'bytes - each returned filename will be a bytevector, not a string
-;;   'catch - errors be ignored instead of raising a condition
+;;   'catch - errors will be ignored instead of raising a condition
 ;;   'symlinks - returned filenames that are symlinks will have type 'symlink
 ;;               instead of the type of the file they point to.
 ;;   'prefix followed by a charspan, string or bytevector, indicating the filter-prefix:
@@ -42,8 +72,7 @@
 ;;  each type is one of: 'unknown 'blockdev 'chardev 'dir 'fifo 'file 'socket 'symlink
 ;;  each filename is a either a bytevector (if options contain 'bytes) or a string
 (define directory-list
-  (let ((c-directory-list (foreign-procedure "c_directory_list" (ptr ptr ptr ptr ptr) ptr))
-        (types '#(unknown blockdev chardev dir fifo file socket symlink)))
+  (let ((c-directory-list (foreign-procedure "c_directory_list" (ptr ptr ptr ptr ptr) ptr)))
     (lambda (dirpath . options)
       (let* ((strings? (not (memq 'bytes options)))
              (ret (c-directory-list
@@ -58,9 +87,7 @@
           ((pair? ret)
             (list-iterate ret
               (lambda (entry)
-                (let ((c-type (car entry)))
-                  (set-car! entry
-                    (if (fx<=? 0 c-type 7) (vector-ref types c-type) 'unknown)))))
+                (set-car! entry (c-type->file-type (car entry)))))
             ret)
           ((memq 'catch options)
             '())

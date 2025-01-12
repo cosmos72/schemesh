@@ -756,49 +756,6 @@ typedef enum {
 } e_type;
 
 /**
- * Convert struct dirent.d_type to Scheme integer:
- *   DT_UNKNOWN -> e_unknown  = 0
- *   DT_BLK     -> e_blockdev = 1
- *   DT_CHR     -> e_chardev  = 2
- *   DT_DIR     -> e_dir      = 3
- *   DT_FIFO    -> e_fifo     = 4
- *   DT_REG     -> e_file     = 5
- *   DT_SOCK    -> e_socket   = 6
- *   DT_LNK     -> e_symlink  = 7
- */
-static ptr c_readdir_type(unsigned char d_type) {
-  e_type type;
-  switch (d_type) {
-    case DT_BLK:
-      type = e_blockdev;
-      break;
-    case DT_CHR:
-      type = e_chardev;
-      break;
-    case DT_DIR:
-      type = e_dir;
-      break;
-    case DT_FIFO:
-      type = e_fifo;
-      break;
-    case DT_LNK:
-      type = e_symlink;
-      break;
-    case DT_REG:
-      type = e_file;
-      break;
-    case DT_SOCK:
-      type = e_socket;
-      break;
-    case DT_UNKNOWN:
-    default:
-      type = e_unknown;
-      break;
-  }
-  return Sfixnum(type);
-}
-
-/**
  * Convert (struct stat.st_mode & S_IFMT) to Scheme integer:
  *   S_IFBLK    -> e_blockdev = 1
  *   S_IFCHR    -> e_chardev  = 2
@@ -842,6 +799,49 @@ static ptr c_stat_type(const mode_t s_type) {
 
 /**
  * Convert struct dirent.d_type to Scheme integer:
+ *   DT_UNKNOWN -> e_unknown  = 0
+ *   DT_BLK     -> e_blockdev = 1
+ *   DT_CHR     -> e_chardev  = 2
+ *   DT_DIR     -> e_dir      = 3
+ *   DT_FIFO    -> e_fifo     = 4
+ *   DT_REG     -> e_file     = 5
+ *   DT_SOCK    -> e_socket   = 6
+ *   DT_LNK     -> e_symlink  = 7
+ */
+static ptr c_dirent_type(unsigned char d_type) {
+  e_type type;
+  switch (d_type) {
+    case DT_BLK:
+      type = e_blockdev;
+      break;
+    case DT_CHR:
+      type = e_chardev;
+      break;
+    case DT_DIR:
+      type = e_dir;
+      break;
+    case DT_FIFO:
+      type = e_fifo;
+      break;
+    case DT_LNK:
+      type = e_symlink;
+      break;
+    case DT_REG:
+      type = e_file;
+      break;
+    case DT_SOCK:
+      type = e_socket;
+      break;
+    case DT_UNKNOWN:
+    default:
+      type = e_unknown;
+      break;
+  }
+  return Sfixnum(type);
+}
+
+/**
+ * Convert struct dirent.d_type to Scheme integer:
  *   DT_UNKNOWN -> 0
  *   DT_BLK     -> 1
  *   DT_CHR     -> 2
@@ -850,17 +850,58 @@ static ptr c_stat_type(const mode_t s_type) {
  *   DT_REG     -> 5
  *   DT_SOCK    -> 6
  *   DT_LNK     -> 7
- * also resolves symlinks, i.e. replaces DT_LNK with the type of the file pointed to.
+ * optionally resolves symlinks, i.e. if keep_symlinks is #f,
+ * calls fstatat() to resolve DT_LNK and DT_UNKNOWN to the type of the file pointed to.
  */
-static ptr
-c_file_type(DIR* dir, const char* filename, const ptr keep_symlinks, const unsigned char d_type) {
+static ptr c_dirent_type2(DIR*                dir,
+                          const char*         filename,
+                          const ptr           keep_symlinks,
+                          const unsigned char d_type) {
   if (keep_symlinks == Sfalse && (d_type == DT_LNK || d_type == DT_UNKNOWN)) {
     struct stat buf;
     if (fstatat(dirfd(dir), filename, &buf, 0) == 0) {
       return c_stat_type(buf.st_mode & S_IFMT);
     }
   }
-  return c_readdir_type(d_type);
+  return c_dirent_type(d_type);
+}
+
+/*
+ * Check existence and type of a filesystem path.
+ * bytevector0_path must be a 0-terminated bytevector.
+ *
+ * If file exists, return its type which is a Scheme integer corresponding to enum e_type.
+ * Returns #f if file does not exist.
+ *
+ * On other errors, return Scheme integer -errno
+ */
+static ptr c_file_stat(ptr bytevector0_path, ptr keep_symlinks) {
+  struct stat buf;
+  const char* path;
+  iptr        pathlen;
+  int         err;
+  if (!Sbytevectorp(bytevector0_path)) {
+    return Sinteger(c_errno_set(EINVAL));
+  }
+  path    = (const char*)Sbytevector_data(bytevector0_path);
+  pathlen = Sbytevector_length(bytevector0_path); /* including final '\0' */
+  if (pathlen <= 0 || path[pathlen - 1] != '\0') {
+    return Sinteger(c_errno_set(EINVAL));
+  }
+  if (keep_symlinks == Sfalse) {
+    err = stat(path, &buf);
+  } else {
+    err = lstat(path, &buf);
+  }
+  if (err == 0) {
+    return c_stat_type(buf.st_mode & S_IFMT);
+  }
+  err = errno;
+  if (err == ENOENT) {
+    errno = 0;
+    return Sfalse;
+  }
+  return Sinteger(-err);
 }
 
 /**
@@ -920,7 +961,7 @@ static ptr c_directory_list(ptr bytevector0_dirpath,
           (len >= (size_t)suffixlen && memcmp(name + len - suffixlen, suffix, suffixlen) == 0)) {
         ptr filename = ret_strings == Sfalse ? schemesh_Sbytevector(name, len) :
                                                schemesh_Sstring_utf8b(name, len);
-        ptr pair     = Scons(c_file_type(dir, name, keep_symlinks, entry->d_type), filename);
+        ptr pair     = Scons(c_dirent_type2(dir, name, keep_symlinks, entry->d_type), filename);
         ret          = Scons(pair, ret);
       }
     }
@@ -1191,6 +1232,7 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_get_userhome", &c_get_userhome);
   Sregister_symbol("c_exit", &c_exit);
   Sregister_symbol("c_directory_list", &c_directory_list);
+  Sregister_symbol("c_file_stat", &c_file_stat);
 
   schemesh_register_c_functions_posix_signals();
   return 0;

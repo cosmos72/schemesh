@@ -22,7 +22,7 @@
     tty-setraw! tty-restore! tty-size
 
     ; misc.ss
-    c-hostname c-exit directory-list directory-sort!
+    c-hostname c-exit directory-list directory-sort! file-stat
 
     ; pid.ss
     get-pid get-pgid spawn-pid pid-kill pid-wait exit-with-job-status)
