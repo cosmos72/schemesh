@@ -43,11 +43,12 @@
 ; The parameter program and each element in args must be either a string or a bytevector.
 (define spawn-pid
   (let ((c-spawn-pid (foreign-procedure "c_spawn_pid"
-                        (ptr ptr ptr int) int)))
+                        (ptr ptr ptr ptr int) int)))
     (lambda (program . args)
       (let* ((program-and-args (cons program args))
              (ret (c-spawn-pid
                     (list->argv program-and-args)
+                    #f ; run in current directory
                     '#(0 1 2) ; no fd redirections
                     #f ; no environment override
                     0)))

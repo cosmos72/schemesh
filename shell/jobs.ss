@@ -84,8 +84,7 @@
   (%make-multijob 0 (get-pid) (get-pgid 0) '(unknown . 0)
     (span) #f '() ; redirections
     #f #f ; start-proc step-proc
-    ; current directory
-    (string->charspan* ((foreign-procedure "c_get_cwd" () ptr)))
+    (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) ; current directory
     (make-hashtable string-hash string=?) ; env variables
     #f                        ; no env var assignments
     #f                        ; no parent

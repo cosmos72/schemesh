@@ -30,7 +30,7 @@
                     ; For cmds, will be called in fork()ed child process and
                     ; receives as argument job followed by options.
                     ; For cmds, its return value is passed to (exit-with-job-status)
-    (mutable cwd)        ; charspan: working directory
+    (mutable cwd %job-cwd job-cwd-set!) ; #f or charspan: working directory
     (mutable env)        ; #f or hashtable of overridden env variables: name -> value
     (mutable env-lazy)   ; #f or span of env variable name each followed by string or procedure
     (mutable parent))    ; parent job, contains default values of env variables

@@ -9,11 +9,21 @@
 ;; this file should only be included inside a (library ...) definition
 
 
+;; return charspan containing current directory of specified job.
+;; if job's cwd is not set, recursively retrieve it from parent job
+(define (job-cwd job)
+  (do ((parent job (job-parent parent)))
+      ((or (not (sh-job? parent)) (%job-cwd parent))
+       (or
+         (if (sh-job? parent) (%job-cwd parent) #f)
+         (%job-cwd sh-globals)))))
+
+
 ;; return charspan containing current directory,
 ;; or charspan containing current directory of specified job-or-id.
 (define sh-cwd
   (case-lambda
-    (()          (job-cwd sh-globals))
+    (()          (%job-cwd sh-globals))
     ((job-or-id) (job-cwd (sh-job job-or-id)))))
 
 

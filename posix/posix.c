@@ -141,6 +141,62 @@ static int write_invalid_redirection(const char label[], ptr value) {
 
 /******************************************************************************/
 /*                                                                            */
+/*                    current-directory-related functions                     */
+/*                                                                            */
+/******************************************************************************/
+
+/**
+ * change current working directory to specified Scheme bytevector0,
+ * i.e. a bytevector that must already end with a byte = 0.
+ * return 0 on success, or c_errno() < 0 on error.
+ */
+static int c_chdir(ptr bytevec0) {
+  if (Sbytevectorp(bytevec0)) {
+    iptr        len = Sbytevector_length(bytevec0);
+    const char* dir = (const char*)Sbytevector_data(bytevec0);
+    if (len > 0 && dir[len - 1] == 0) {
+      if (chdir(dir) == 0) {
+        return 0;
+      }
+      return c_errno();
+    }
+  }
+  return c_errno_set(EINVAL);
+}
+
+/**
+ * return current working directory as Scheme string,
+ * or empty string if an error happens
+ */
+static ptr c_get_cwd(void) {
+  {
+    // call getcwd() with a small stack buffer
+    char dir[256];
+    if (getcwd(dir, sizeof(dir)) == dir) {
+      return schemesh_Sstring_utf8b(dir, strlen(dir));
+    } else if (c_errno() != -ERANGE) {
+      return Smake_string(0, 0);
+    }
+  }
+  {
+    // call getcwd() with progressively larger heap buffers
+    size_t maxlen = 1024;
+    char*  dir    = NULL;
+    while (maxlen && (dir = malloc(maxlen)) != NULL) {
+      if (getcwd(dir, maxlen) == dir) {
+        ptr ret = schemesh_Sstring_utf8b(dir, strlen(dir));
+        free(dir);
+        return ret;
+      }
+      free(dir);
+      maxlen *= 2;
+    }
+  }
+  return Smake_string(0, 0);
+}
+
+/******************************************************************************/
+/*                                                                            */
 /*                           tty-related functions                            */
 /*                                                                            */
 /******************************************************************************/
@@ -918,6 +974,7 @@ static char** vector_to_c_argz(ptr vector_of_bytevector0);
 /** fork() and exec() an external program, return pid.
  * if existing_pgid_if_positive > 0, add process to given pgid i.e. process group */
 static int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
+                       ptr bytevector0_chdir_or_false,
                        ptr vector_fds_redirect,
                        ptr vector_of_bytevector0_environ,
                        int existing_pgid_if_positive) {
@@ -933,6 +990,21 @@ static int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
     pid = -EINVAL;
     goto out;
   }
+  if (bytevector0_chdir_or_false != Sfalse) {
+    const octet* dir;
+    iptr         dir_len;
+    if (!Sbytevectorp(bytevector0_chdir_or_false)) {
+      pid = -EINVAL;
+      goto out;
+    }
+    dir     = Sbytevector_data(bytevector0_chdir_or_false);
+    dir_len = Sbytevector_length(bytevector0_chdir_or_false);
+    if (dir_len <= 0 || dir[dir_len - 1] != 0) {
+      pid = -EINVAL;
+      goto out;
+    }
+  }
+
 #ifdef SCHEMESH_DEBUG_POSIX
   fprintf(stdout, "c_spawn_pid %s ...\n", argv[0]);
   fflush(stdout);
@@ -947,6 +1019,7 @@ static int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
       /* child */
       if (c_set_process_group((pid_t)existing_pgid_if_positive) >= 0 &&
           c_signals_setdefault() >= 0 && /*                                   */
+          (bytevector0_chdir_or_false == Sfalse || c_chdir(bytevector0_chdir_or_false) >= 0) &&
           c_fds_redirect(vector_fds_redirect, Sfalse) >= 0) {
         if (envp) {
           environ = envp;
@@ -956,7 +1029,7 @@ static int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
         (void)write_command_not_found(argv[0]);
         exit(127);
       }
-      /* in case c_set_process_group() or c_fds_redirect() fail */
+      /* in case c_set_process_group() or c_chdir() or c_fds_redirect() fail */
       exit(1);
     }
     default:
@@ -1072,6 +1145,10 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_errno_eintr", &c_errno_eintr);
   Sregister_symbol("c_errno_einval", &c_errno_einval);
   Sregister_symbol("c_strerror", &c_strerror);
+
+  Sregister_symbol("c_chdir", &c_chdir);
+  Sregister_symbol("c_get_cwd", &c_get_cwd);
+
   Sregister_symbol("c_fd_open_max", &c_fd_open_max);
   Sregister_symbol("c_fd_close", &c_fd_close);
   Sregister_symbol("c_fd_close_list", &c_fd_close_list);

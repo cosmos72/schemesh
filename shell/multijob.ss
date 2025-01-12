@@ -109,7 +109,7 @@
       (span) #f '() ; redirections
       start-proc    ; executed to start the job
       next-proc     ; executed when a child job changes status
-      (sh-cwd)      ; job working directory - initially current directory
+      #f            ; working directory - initially inherited by parent job
       #f            ; overridden environment variables - initially none
       #f            ; env var assignments - initially none
       sh-globals    ; parent job - initially the global job

@@ -970,6 +970,14 @@ static const testcase tests[] = {
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"ls A=B\"))))",
      INVOKELIB_SHELL_JOBS " (sh-cmd ls A=B))"},
+    /*
+     * known failure:
+     * [...] should parsed as subshell only if it's the first argument
+     * otherwise it's a pattern
+     */
+    {"(expand (parse-shell-form1 (string->parsectx\n"
+     "  \"ls [ab]\"))))",
+     INVOKELIB_SHELL_JOBS " (sh-cmd ls (shell-wildcard % ab)))"},
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"echo $(foo&&bar)\"))",
      "(shell echo (shell-backquote foo && bar))"},

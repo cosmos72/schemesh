@@ -99,9 +99,20 @@
     (while (fx<? i n)
       (when (sh-wildcard/prepare-path! (span-ref sp i) ret)
         (set! i (fx1+ i))
-        (span-insert-back! (span-back ret) (string->charspan (span-ref sp i))))
+        (let ((pattern (span-ref sp i)))
+          (if (string-find-char pattern 0 (string-length pattern) #\/)
+            (%raise-invalid-wildcard-pattern (span-ref sp (fx1- i)) pattern)
+            (span-insert-back! (span-back ret) pattern))))
       (set! i (fx1+ i)))
     (sh-wildcard/simplify-paths! ret)))
+
+
+(define (%raise-invalid-wildcard-pattern sym pattern)
+  (raise-errorf 'sh-wildcard "invalid shell wildcard pattern ~s, must not contain /"
+    (string-append
+      (if (eq? sym '%) "[" "[!")
+      pattern
+      "]")))
 
 
 ;; if obj is a string, convert it to charspan, split it after each delimiter /
@@ -149,6 +160,7 @@
     ; unless the empty subspan is the only subspan
     (and (span-empty? subspan) (fx>? (span-length sp) 1))))
 
+
 (define (%ensure-ends-with-charspan! subspan)
   (if (or (span-empty? subspan) (not (charspan? (span-back subspan))))
     (let ((cspan (charspan)))
@@ -158,9 +170,9 @@
 
 
 ;; unwrap single-element sub-spans in span sp.
-;; replace each charspan -> string
+;; replace each charspan -> string.
 ;; if last element is an empty subspan, remove it.
-;; return sp
+;; return sp, modified in-place
 (define (sh-wildcard/simplify-paths! sp)
   (span-iterate sp
     (lambda (i subspan)

@@ -21,7 +21,7 @@
   (%make-cmd #f -1 -1 '(new . 0)
     (span) #f '() ; redirections
     cmd-start #f  ; start-proc step-proc
-    (sh-cwd)      ; job working directory - initially current directory
+    #f            ; working directory - initially inherited by parent job
     #f            ; overridden environment variables - initially none
     #f            ; env var assignments - initially none
     sh-globals    ; parent job - initially the global job
@@ -111,11 +111,14 @@
 ;; internal function called by (cmd-start) to spawn a subprocess
 (define cmd-spawn
   (let ((c-spawn-pid (foreign-procedure "c_spawn_pid"
-                        (ptr ptr ptr int) int)))
+                        (ptr ptr ptr ptr int) int)))
     (lambda (c argv options)
       (let* ((process-group-id (job-start-options->process-group-id options))
+             (job-dir (job-cwd c))
+             (global-dir (sh-cwd))
              (ret (c-spawn-pid
                     argv
+                    (if (charspan=? job-dir global-dir) #f (text->bytevector0 job-dir))
                     (job-make-c-redirect-vector c)
                     (sh-env->argv c 'exported)
                     process-group-id)))

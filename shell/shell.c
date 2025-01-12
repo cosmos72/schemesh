@@ -52,56 +52,6 @@ static ptr c_environ_ref(uptr i) {
   return Sfalse;
 }
 
-/**
- * return current working directory as Scheme string,
- * or empty string if an error happens
- */
-static ptr c_get_cwd(void) {
-  {
-    // call getcwd() with a small stack buffer
-    char dir[256];
-    if (getcwd(dir, sizeof(dir)) == dir) {
-      return schemesh_Sstring_utf8b(dir, strlen(dir));
-    } else if (c_errno() != -ERANGE) {
-      return Smake_string(0, 0);
-    }
-  }
-  {
-    // call getcwd() with progressively larger heap buffers
-    size_t maxlen = 1024;
-    char*  dir    = NULL;
-    while (maxlen && (dir = malloc(maxlen)) != NULL) {
-      if (getcwd(dir, maxlen) == dir) {
-        ptr ret = schemesh_Sstring_utf8b(dir, strlen(dir));
-        free(dir);
-        return ret;
-      }
-      free(dir);
-      maxlen *= 2;
-    }
-  }
-  return Smake_string(0, 0);
-}
-
-/**
- * change current working directory to specified Scheme bytevector0,
- * i.e. a bytevector that must already end with a byte = 0.
- * return 0 on success, or c_errno() < 0 on error.
- */
-static int c_chdir(ptr bytevec0) {
-  if (Sbytevectorp(bytevec0)) {
-    iptr        len = Sbytevector_length(bytevec0);
-    const char* dir = (const char*)Sbytevector_data(bytevec0);
-    if (len > 0 && dir[len - 1] == 0) {
-      if (chdir(dir) == 0) {
-        return 0;
-      }
-      return c_errno();
-    }
-  }
-  return c_errno_set(EINVAL);
-}
-
 int schemesh_register_c_functions(void) {
   int err;
 
@@ -112,8 +62,6 @@ int schemesh_register_c_functions(void) {
   }
 
   Sregister_symbol("c_environ_ref", &c_environ_ref);
-  Sregister_symbol("c_get_cwd", &c_get_cwd);
-  Sregister_symbol("c_chdir", &c_chdir);
 
   return err;
 }
