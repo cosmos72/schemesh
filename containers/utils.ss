@@ -17,7 +17,7 @@
     bytespan-ref/char bytespan-set/char! bytespan-insert-front/char! bytespan-insert-back/char!
     bytespan-insert-back/cspan! bytespan-insert-back/cbuffer!
     bytespan-display-back/fixnum! bytespan-insert-back/string!
-    charspan->utf8)
+    charspan->utf8b)
   (import
     (rename (rnrs)
       (fxarithmetic-shift-left  fxshl)
@@ -119,7 +119,7 @@
           (values #t (fxmin 3 max-n)))) ; < 4 bytes available
       (#t (utf8b-singlet->char b0)))))
 
-;; convert char to 2-byte UTF-8b sequence and return two values: the two converted bytes.
+;; convert char to 2-byte UTF-8 sequence and return two values: the two converted bytes.
 ;; ch is assumed to be in the range #x80 <= ch < #x800
 (define (char->utf8-pair ch)
   (let ((n (char->integer ch)))
@@ -127,7 +127,7 @@
       (fxior #xc0 (fxand #x3f (fxshr n 6)))
       (fxior #x80 (fxand #x3f n)))))
 
-;; convert char to 3-byte UTF-8b sequence and return three values: the three converted bytes.
+;; convert char to 3-byte UTF-8 sequence and return three values: the three converted bytes.
 ;; ch is assumed to be in the range #x800 <= ch < #x10000
 (define (char->utf8-triplet ch)
   (let ((n (char->integer ch)))
@@ -136,7 +136,7 @@
       (fxior #x80 (fxand #x3f (fxshr n 6)))
       (fxior #x80 (fxand #x3f n)))))
 
-;; convert char to 4-byte UTF-8b sequence and return four values: the four converted bytes.
+;; convert char to 4-byte UTF-8 sequence and return four values: the four converted bytes.
 ;; ch is assumed to be in the range #x10000 <= ch < #x110000
 (define (char->utf8-quadruplet ch)
   (let ((n (char->integer ch)))
@@ -250,7 +250,7 @@
       (bytespan-insert-back/char! sp ch))))
 
 ;; convert a charspan to UTF-8b bytespan.
-(define (charspan->utf8 sp)
+(define (charspan->utf8b sp)
   (let ((ret (make-bytespan 0)))
     (bytespan-insert-back/cspan! ret sp)
     ret))

@@ -317,6 +317,7 @@
 
 ;; return #t if range [left-start, left-start + n) of left string contains
 ;; the same characters as range [right-start, right-start + n) of right string.
+;; otherwise return #f
 (define (string-range=? left left-start right right-start n)
   (fx=? n (string-range-count= left left-start right right-start n)))
 

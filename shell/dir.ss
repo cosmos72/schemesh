@@ -19,8 +19,19 @@
          (%job-cwd sh-globals)))))
 
 
+;; return (job-cwd job), or #f if it's equal to global working directory.
+(define (job-cwd-if-set job)
+  (let ((job-dir    (job-cwd job))
+        (global-dir (%job-cwd sh-globals)))
+    (if (charspan=? job-dir global-dir)
+      #f
+      job-dir)))
+
+
 ;; return charspan containing current directory,
 ;; or charspan containing current directory of specified job-or-id.
+;;
+;; NOTE: returned charspan must not be modified.
 (define sh-cwd
   (case-lambda
     (()          (%job-cwd sh-globals))
@@ -38,7 +49,9 @@
   (let ((job (sh-job job-or-id)))
     (if (eq? job sh-globals)
       (sh-cd path)
-      (job-cwd-set! job (if (charspan? path) path (string->charspan* path))))))
+      (job-cwd-set! job (if (charspan? path)
+                          (charspan-copy path)
+                          (string->charspan path))))))
 
 
 

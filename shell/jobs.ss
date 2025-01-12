@@ -402,22 +402,23 @@
 ;; we need an additional layer of indirection that keeps track of the job's redirected fds
 ;; and to which (private) fds they are actually mapped to
 (define (job-remap-fds! job)
-  (let* ((n (span-length (job-redirects job))))
+  (let ((n (span-length (job-redirects job))))
     (unless (fxzero? n)
-      (let ((remaps (make-eqv-hashtable n)))
+      (let ((job-dir (job-cwd-if-set job))
+            (remaps  (make-eqv-hashtable n)))
         (job-fds-to-remap-set! job remaps)
         (do ((i 0 (fx+ i 4)))
             ((fx>? i (fx- n 4)))
-          (job-remap-fd! job i))))))
+          (job-remap-fd! job job-dir i))))))
 
 
 ;; called by (job-remap-fds!)
-(define (job-remap-fd! job index)
+(define (job-remap-fd! job job-dir index)
   ;; redirects is span of quadruplets (fd mode to-fd-or-path-or-closure bytevector0)
   (let* ((redirects            (job-redirects job))
          (fd                   (span-ref redirects index))
          (direction-ch         (span-ref redirects (fx1+ index)))
-         (to-fd-or-bytevector0 (job-extract-redirection-to-fd-or-bytevector0 job redirects index))
+         (to-fd-or-bytevector0 (job-extract-redirection-to-fd-or-bytevector0 job job-dir redirects index))
          (remap-fd             (sh-fd-allocate)))
     ; (debugf "fd-redirect fd=~s dir=~s to=~s~%" remap-fd direction-ch to-fd-or-bytevector0)
     (let* ((fd-int (sh-fd->int remap-fd))
@@ -429,15 +430,34 @@
 
 
 ;; extract the destination fd or bytevector0 from a redirection
-(define (job-extract-redirection-to-fd-or-bytevector0 job redirects index)
-  (or (span-ref redirects (fx+ 3 index))
-      (let ((to (span-ref redirects (fx+ 2 index))))
-        (if (procedure? to)
-          (let ((temp (if (logbit? 1 (procedure-arity-mask to)) (to job) (to))))
-            (if (fixnum? temp)
-              temp
-              (text->bytevector0 temp)))
-          to))))
+(define (job-extract-redirection-to-fd-or-bytevector0 job job-dir redirects index)
+  (%prefix-job-dir-if-relative-path job-dir
+    (or (span-ref redirects (fx+ 3 index))
+        (let ((to (span-ref redirects (fx+ 2 index))))
+          (if (procedure? to)
+            (if (logbit? 1 (procedure-arity-mask to)) (to job) (to))
+            to)))))
+
+
+(define (%prefix-job-dir-if-relative-path job-dir path-or-fd)
+  (cond
+    ((fixnum? path-or-fd)
+      path-or-fd)
+    ((or (string? path-or-fd) (bytevector? path-or-fd))
+      (let ((bvec (text->bytevector0 path-or-fd))
+            (slash 47))
+        (if (and job-dir (not (fx=? slash (bytevector-u8-ref bvec 0))))
+          (let ((bspan (charspan->utf8b job-dir)))
+            (unless (or (bytespan-empty? bspan) (fx=? slash (bytespan-back/u8 bspan)))
+              ;; append / after job's directory if missing
+              (bytespan-insert-back/u8! bspan slash))
+            (bytespan-insert-back/bvector! bspan bvec 0 (bytevector-length bvec))
+            (bytespan->bytevector bspan))
+          bvec)))
+    (#t
+      (raise-assertv 'job-remap-fds
+        '(or (fixnum? path-or-fd) (string? path-or-fd) (bytevector? path-or-fd))
+        path-or-fd))))
 
 
 ;; redirect a file descriptor. returns < 0 on error

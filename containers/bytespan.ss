@@ -119,6 +119,7 @@
 
 (define (bytespan=? left right)
   (or
+    (eq? left right)
     (and (eq?  (bytespan-vec left) (bytespan-vec right))
          (fx=? (bytespan-beg left) (bytespan-beg right))
          (fx=? (bytespan-end left) (bytespan-end right)))

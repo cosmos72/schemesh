@@ -114,11 +114,11 @@
                         (ptr ptr ptr ptr int) int)))
     (lambda (c argv options)
       (let* ((process-group-id (job-start-options->process-group-id options))
-             (job-dir (job-cwd c))
+             (job-dir (job-cwd-if-set c))
              (global-dir (sh-cwd))
              (ret (c-spawn-pid
                     argv
-                    (if (charspan=? job-dir global-dir) #f (text->bytevector0 job-dir))
+                    (if job-dir (text->bytevector0 job-dir) #f)
                     (job-make-c-redirect-vector c)
                     (sh-env->argv c 'exported)
                     process-group-id)))
@@ -131,11 +131,12 @@
 ;; internal function called by (cmd-spawn)
 ;; creates and fills a vector with job's redirections and its parents redirections
 (define (job-make-c-redirect-vector job)
-  (let* ((n (job-count-c-redirect-vector job 0))
+  (let* ((child-dir (job-cwd-if-set job))
+         (n (job-count-c-redirect-vector job 0))
          (v (make-vector n)))
     (do ((parent job (job-parent parent)))
         ((not parent))
-      (set! n (job-fill-c-redirect-vector/norecurse parent v n)))
+      (set! n (job-fill-c-redirect-vector/norecurse parent child-dir v n)))
     ; (debugf "job-make-c-redirect-vector job=~s redirect-vector=~s~%" job v)
     v))
 
@@ -151,24 +152,29 @@
 
 ;; copy job's redirections to vector v, without recursing to job's parents.
 ;; returns (fx- pos (number-of-copied-elements))
-(define (job-fill-c-redirect-vector/norecurse job v end-pos)
-  (let ((n (span-length (job-redirects job))))
+(define (job-fill-c-redirect-vector/norecurse job child-dir v end-pos)
+  (let ((job-dir (job-cwd-if-set job))
+        (n       (span-length (job-redirects job))))
     (do ((index (fx- n 4)  (fx- index 4))
          (pos   end-pos    (fx- pos 4)))
         ((fx<? index 0) pos)
-      (job-fill-c-redirect-vector/at job v index (fx- pos 4)))))
+      (job-fill-c-redirect-vector/at job job-dir child-dir v index (fx- pos 4)))))
 
 
 ;; copy a single job redirection to vector v, at v[pos] ... v[pos+3]
-(define (job-fill-c-redirect-vector/at job v index pos)
-  (let* ((redirects     (job-redirects job))
+;;
+;; note: must prefix any relative path with job's working directory,
+;; because job may be a parent job with a different working directory
+(define (job-fill-c-redirect-vector/at job job-dir child-dir v index pos)
+  (let* ((dir           (%parent-dir-if-different job-dir child-dir))
+         (redirects     (job-redirects job))
          (fd            (span-ref redirects index))
          (direction-ch  (span-ref redirects (fx1+ index)))
          ;; redirection to file may already be opened on a different file descriptor
          ;; due to fd remapping
          (remapped-to   (job-find-fd-remap job fd))
          (to            (if (fx=? fd remapped-to)
-                          (job-extract-redirection-to-fd-or-bytevector0 job redirects index)
+                          (job-extract-redirection-to-fd-or-bytevector0 job dir redirects index)
                           remapped-to)))
     (vector-set! v pos fd)
     (vector-set! v (fx1+  pos) direction-ch)
@@ -177,6 +183,17 @@
     ;; to-bytevector0 must be placed at pos + 3
     (vector-set! v (fx+ 3 pos) (if (fixnum? to) #f to))))
 
+
+;; return parent-dir if different from child-dir, otherwise return #f
+;; Note: parent-dir and child-dir may be #f
+(define (%parent-dir-if-different parent-dir child-dir)
+  (cond
+    ((and parent-dir child-dir)
+      (if (charspan=? parent-dir child-dir) #f parent-dir))
+    (child-dir
+      (sh-cwd))
+    (#t
+      parent-dir)))
 
 
 ;; Convert pid-wait-result to a symbolic job-status:

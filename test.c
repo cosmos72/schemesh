@@ -348,7 +348,7 @@ static const testcase tests[] = {
     {"(let ((sp (charspan #\\@ #\\a #\\b #\\c)))\n"
      "  (charspan-find sp 0 999 (lambda (elem) (eq? #\\b elem))))",
      "2"},
-    {"(charspan->utf8 (string->charspan* \"\x7c \xce\x98 \xe0\xa4\xb9 \xf0\x90\x8d\x88\"))",
+    {"(charspan->utf8b (string->charspan* \"\x7c \xce\x98 \xe0\xa4\xb9 \xf0\x90\x8d\x88\"))",
      "(bytespan 124 32 206 152 32 224 164 185 32 240 144 141 136)"},
     {"(bytevector->bytespan (text->bytevector0 (string->charspan* \"123\\x0;\")))",
      "(bytespan 49 50 51 0)"},

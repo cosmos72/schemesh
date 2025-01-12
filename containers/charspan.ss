@@ -154,13 +154,15 @@
 
 
 (define (charspan=? left right)
-  (let ((n1 (charspan-length left))
-        (n2 (charspan-length right)))
-    (and (fx=? n1 n2)
-         (string-range=?
-           (charspan-str left) (charspan-beg left)
-           (charspan-str right) (charspan-beg right)
-           n1))))
+  (or
+    (eq? left right)
+    (let ((n1 (charspan-length left))
+          (n2 (charspan-length right)))
+      (and (fx=? n1 n2)
+           (string-range=?
+             (charspan-str left) (charspan-beg left)
+             (charspan-str right) (charspan-beg right)
+             n1)))))
 
 
 ;; compare the range [left-start, left-start + n) of left charspan
