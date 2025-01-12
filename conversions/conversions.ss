@@ -8,7 +8,8 @@
 (library (schemesh conversions (0 1))
   (export
     display-condition* display-any display-bytevector0 write-bytevector0
-    any->bytevector any->bytevector0 bytevector->bytevector0 text->bytevector0
+    any->bytevector text->bytevector
+    any->bytevector0 bytevector->bytevector0 text->bytevector0
     any->string argv->list list->argv string-hashtable->argv transcoder-utf8
     sh-eval->bytevector)
   (import
@@ -144,6 +145,23 @@
          (string->utf8b/0 (charspan->string x))))
     (#t
       (raise-assertv 'text->bytevector0 '(or (bytevector? x) (string? x) (charspan? x)) x))))
+
+
+; convert a bytevector, string or charspan to bytevector
+(define (text->bytevector x)
+  (cond
+    ((bytevector? x)
+       x)
+    ((string? x)
+       (if (fxzero? (string-length x))
+         #vu8()
+         (string->utf8b x)))
+    ((charspan? x)
+       (if (charspan-empty? x)
+         #vu8()
+         (string->utf8b (charspan->string x))))
+    (#t
+      (raise-assertv 'text->bytevector '(or (bytevector? x) (string? x) (charspan? x)) x))))
 
 
 ; convert a #\nul terminated bytevector containing UTF-8b to string

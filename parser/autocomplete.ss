@@ -172,7 +172,7 @@
          (prefix-len (string-length prefix))
          (prefix?    (not (fxzero? prefix-len)))
          (prefix-starts-with-dot? (and prefix? (char=? #\. (string-ref prefix 0)))))
-    (list-iterate (directory-list dir prefix 'bytes 'catch 'sort)
+    (list-iterate (directory-list dir 'prefix prefix 'bytes 'catch 'sort)
       (lambda (elem)
         (let ((name (string->charspan* (utf8b->string (cdr elem)))))
           (when (or prefix-starts-with-dot? (not (char=? #\. (charspan-ref name 0))))
@@ -259,7 +259,7 @@
          (prefix-len (string-length prefix)))
     (list-iterate dirs
       (lambda (dir)
-        (list-iterate (directory-list dir prefix 'catch) ; don't sort directory list
+        (list-iterate (directory-list dir 'prefix prefix 'catch) ; don't sort directory list
           (lambda (elem)
             (when (eq? 'file (car elem))
               (set! l (cons (cdr elem) l))))))))

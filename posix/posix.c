@@ -875,27 +875,37 @@ c_file_type(DIR* dir, const char* filename, const ptr keep_symlinks, const unsig
  * If bytevector_filter_prefix is not empty,
  * only returns filenames that start with bytevector_filter_prefix.
  *
+ * If bytevector_filter_suffix is not empty,
+ * only returns filenames that end with bytevector_filter_suffix.
+ *
  * on error, return Scheme integer -errno
  */
 static ptr c_directory_list(ptr bytevector0_dirpath,
                             ptr bytevector_filter_prefix,
+                            ptr bytevector_filter_suffix,
                             ptr keep_symlinks,
                             ptr ret_strings) {
   ptr            ret = Snil;
   const char*    dirpath;
   const char*    prefix;
+  const char*    suffix;
   iptr           dirlen;
   iptr           prefixlen;
+  iptr           suffixlen;
   DIR*           dir;
   struct dirent* entry;
-  if (!Sbytevectorp(bytevector0_dirpath) || !Sbytevectorp(bytevector_filter_prefix)) {
+  if (!Sbytevectorp(bytevector0_dirpath)         /*                 */
+      || !Sbytevectorp(bytevector_filter_prefix) /*                 */
+      || !Sbytevectorp(bytevector_filter_suffix)) {
     return Sinteger(c_errno_set(EINVAL));
   }
   dirpath   = (const char*)Sbytevector_data(bytevector0_dirpath);
   dirlen    = Sbytevector_length(bytevector0_dirpath); /* including final '\0' */
   prefix    = (const char*)Sbytevector_data(bytevector_filter_prefix);
   prefixlen = Sbytevector_length(bytevector_filter_prefix);
-  if (prefixlen < 0 || dirlen <= 0 || dirpath[dirlen - 1] != '\0') {
+  suffix    = (const char*)Sbytevector_data(bytevector_filter_suffix);
+  suffixlen = Sbytevector_length(bytevector_filter_suffix);
+  if (prefixlen < 0 || suffixlen < 0 || dirlen <= 0 || dirpath[dirlen - 1] != '\0') {
     return Sinteger(c_errno_set(EINVAL));
   }
   dir = opendir(dirpath);
@@ -906,10 +916,13 @@ static ptr c_directory_list(ptr bytevector0_dirpath,
     const char*  name = entry->d_name;
     const size_t len  = strlen(name);
     if (!prefixlen || (len >= (size_t)prefixlen && memcmp(name, prefix, prefixlen) == 0)) {
-      ptr filename = ret_strings == Sfalse ? schemesh_Sbytevector(name, len) :
-                                             schemesh_Sstring_utf8b(name, len);
-      ptr pair     = Scons(c_file_type(dir, name, keep_symlinks, entry->d_type), filename);
-      ret          = Scons(pair, ret);
+      if (!suffixlen ||
+          (len >= (size_t)suffixlen && memcmp(name + len - suffixlen, suffix, suffixlen) == 0)) {
+        ptr filename = ret_strings == Sfalse ? schemesh_Sbytevector(name, len) :
+                                               schemesh_Sstring_utf8b(name, len);
+        ptr pair     = Scons(c_file_type(dir, name, keep_symlinks, entry->d_type), filename);
+        ret          = Scons(pair, ret);
+      }
     }
   }
   (void)closedir(dir);
