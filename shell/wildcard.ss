@@ -57,7 +57,8 @@
     sp))
 
 
-;; if span starts with symbol ~ then replace it with specified user's home.
+;; if span starts with symbol '~ then replace it with specified user's home.
+;; replace every other occurrence of symbol '~ with string "~"
 ;; return sp
 (define (sh-wildcard/expand-tilde! job sp)
   (when (eq? '~ (span-ref sp 0))
@@ -72,6 +73,10 @@
             (#t
               ;; (get-userhome) failed: replace symbol '~ with string "~"
               (span-set! sp 0 "~")))))))
+  (span-iterate sp
+    (lambda (i elem)
+      (when (eq? '~ elem)
+        (span-set! sp i "~"))))
   sp)
 
 
@@ -79,15 +84,13 @@
 
 
 ;; given a span containing strings and wildcards,
-;; convert the strings to charspans, split them after each delimiter /
-;; and group wildcards and charspans that refer to a single directory or file name.
+;; split the strings after each delimiter /
+;; and group wildcards and strings that refer to a single directory or file name.
 ;;
 ;; example:
 ;;   (span "a/b" '* "c/d")
 ;; will be converted to
-;;   (span (string->charspan "a/")
-;;         (span (string->charspan "b") '* (string->charspan "c/"))
-;;         (string->charspan "d"))
+;;   (span "a/" (span "b" '* "c/") "d"))
 (define (sh-wildcard/prepare-paths sp)
   (let ((ret (span))
         (i 0)
@@ -155,13 +158,20 @@
 
 
 ;; unwrap single-element sub-spans in span sp.
+;; replace each charspan -> string
 ;; if last element is an empty subspan, remove it.
 ;; return sp
 (define (sh-wildcard/simplify-paths! sp)
   (span-iterate sp
     (lambda (i subspan)
-      (when (and (span? subspan) (fx=? 1 (span-length subspan)))
-        (span-set! sp i (span-ref subspan 0)))))
+      (when (span? subspan)
+        (if (fx=? 1 (span-length subspan))
+          (let ((elem (span-ref subspan 0)))
+            (span-set! sp i (if (charspan? elem) (charspan->string elem) elem)))
+          (span-iterate subspan
+            (lambda (j elem)
+              (when (charspan? elem)
+                (span-set! subspan j (charspan->string elem)))))))))
   ;; if last element is an empty subspan, remove it.
   (unless (span-empty? sp)
     (let ((subspan (span-back sp)))

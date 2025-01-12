@@ -992,19 +992,10 @@ static const testcase tests[] = {
      " (sh-cmd \"cat\" \"DEL_ME\") (sh-cmd \"rm\" \"DEL_ME\"))"},
     /* ------------------------- wildcard expansion ------------------------- */
     {"(sh-wildcard #t \"a\" \"bcd\" \"\" \"ef\")", "abcdef"},
-    {"(sh-wildcard/prepare-paths (span \"/\" '* \".so\"))",
-     "(span (string->charspan* \"/\") (span * (string->charspan* \".so\")))"},
-    {"(sh-wildcard/prepare-paths (span \"//abc//\" \"//def//\"))",
-     "(span"
-     " (string->charspan* \"/\")"
-     " (string->charspan* \"abc/\")"
-     " (string->charspan* \"def/\"))"},
+    {"(sh-wildcard/prepare-paths (span \"/\" '* \".so\"))", "(span / (span * .so))"},
+    {"(sh-wildcard/prepare-paths (span \"//abc//\" \"//def//\"))", "(span / abc/ def/)"},
     {"(sh-wildcard/prepare-paths (span \"/foo/\" '* \"/\" \"/bar\"))",
-     "(span"
-     " (string->charspan* \"/\")"
-     " (string->charspan* \"foo/\")"
-     " (span * (string->charspan* \"/\"))"
-     " (string->charspan* \"bar\"))"},
+     "(span / foo/ (span * /) bar)"},
     /* ------------------------- job execution ------------------------------ */
     {"(sh-run/string (shell \"echo\" \"a\"  \"b\" \"c\"))", "a b c\n"},
     {"(sh-run/string-rtrim-newlines (shell \"echo\" \" abc \"))", " abc "},
