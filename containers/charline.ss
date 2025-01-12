@@ -11,7 +11,7 @@
     assert-charline? charline-nl? charline-copy-on-write charline-empty?
     charline-length charline-ref charline-at charline-equal? charline-set! charline-clear!
     charline-erase-at! charline-insert-at! charline-insert-at/cspan! charline-insert-at/cbuf!
-    charline-find-left charline-find-right
+    charline-find/left charline-find/right charline-count/left charline-count/right
     charline-dirty-start-x charline-dirty-end-x charline-dirty-x-add! charline-dirty-x-unset!)
 
   (import
@@ -179,16 +179,18 @@
       (chargbuffer-clear! line)
       (charline-dirty-x-add! line 0 len))))
 
+
 ;; search leftward starting from x - 1,
 ;; find first character that satisfies (pred ch)
 ;; and return position of such character.
 ;; return #f if no character satisfies (pred ch)
 ;;
 ;; note: if x > (charline-length line), it is truncated to (charline-length line)
-(define (charline-find-left line x pred)
+(define (charline-find/left line x pred)
   (do ((i (fx1- (fxmin x (charline-length line))) (fx1- i)))
       ((or (fx<? i 0) (pred (charline-ref line i)))
         (if (fx<? i 0) #f i))))
+
 
 ;; search rightward starting from specified x,
 ;; find first character that satisfies (pred ch)
@@ -196,11 +198,37 @@
 ;; return #f if no character satisfies (pred ch).
 ;;
 ;; note: if x < 0, it is truncated to 0
-(define (charline-find-right line x pred)
+(define (charline-find/right line x pred)
   (let ((len (charline-length line)))
     (do ((i (fxmax x 0) (fx1+ i)))
         ((or (fx>=? i len) (pred (charline-ref line i)))
           (if (fx>=? i len) #f i)))))
+
+
+;; search leftward starting from x - 1,
+;; count number of consecutive characters that satisfy (pred ch)
+;; and return such number
+;;
+;; note: if x > (charline-length line), it is truncated to (charline-length line)
+(define (charline-count/left line x pred)
+  (let ((end (fxmin x (charline-length line))))
+    (do ((i (fx1- end) (fx1- i)))
+        ((or (fx<? i 0) (not (pred (charline-ref line i))))
+          (fx- end (fx1+ i))))))
+
+
+;; search rightward starting from specified x,
+;; count number of consecutive characters that satisfy (pred ch)
+;; and return such number
+;;
+;; note: if x < 0, it is truncated to 0
+(define (charline-count/right line x pred)
+  (let ((start (fxmax x 0))
+        (end   (charline-length line)))
+    (do ((i start (fx1+ i)))
+        ((or (fx>=? i end) (not (pred (charline-ref line i))))
+          (fx- i start)))))
+
 
 ;; make a copy of string str and store it into a newly created charline
 ;; return the created charline

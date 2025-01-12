@@ -768,7 +768,6 @@
     (values x y n)))
 
 
-
 ;; completely replace vscreen contents, setting it to specified charlines.
 ;; note: charlines will be retained and modified!
 ;; Sets vscreen cursor to 0 0.

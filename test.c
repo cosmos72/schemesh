@@ -388,12 +388,30 @@ static const testcase tests[] = {
     {"(string->charline* \"echo \\n\")", "(string->charline* \"echo \\n\")"},
     {"(charline-nl? (string->charline \"echo \\n\"))", "#t"},
     {"(charline-length (string->charline \"echo \\n\"))", "6"},
-    {"(charline-find-left (string->charline* \"qwerty=<>\") 999\n"
+    {"(charline-find/left (string->charline* \"qwerty=<>\") 999\n"
      "  (lambda (ch) (char=? ch #\\=)))",
      "6"},
-    {"(charline-find-right (string->charline* \"foo/bar\") -10\n"
-     "  (lambda (ch) (char=? ch #\\b)))",
-     "4"},
+    {"(let ((line (string->charline* \"foo/bar\"))\n"
+     "      (sp   (span))\n"
+     "      (pred (lambda (ch) (char=? ch #\\b))))\n"
+     "  (do ((i 0 (fx1+ i)))\n"
+     "      ((fx>=? i 10) sp)\n"
+     "    (span-insert-back! sp (charline-find/right line i pred))))\n",
+     "(span 4 4 4 4 4 #f #f #f #f #f)"},
+    {"(let ((line (string->charline* \"qwerty===\"))\n"
+     "      (sp   (span))\n"
+     "      (pred (lambda (ch) (char=? ch #\\=))))\n"
+     "  (do ((i 0 (fx1+ i)))\n"
+     "      ((fx>=? i 12) sp)\n"
+     "    (span-insert-back! sp (charline-count/left line i pred))))\n",
+     "(span 0 0 0 0 0 0 0 1 2 3 3 3)"},
+    {"(let ((line (string->charline* \"qwerty===\"))\n"
+     "      (sp   (span))\n"
+     "      (pred (lambda (ch) (char=? ch #\\=))))\n"
+     "  (do ((i 0 (fx1+ i)))\n"
+     "      ((fx>=? i 12) sp)\n"
+     "    (span-insert-back! sp (charline-count/right line i pred))))\n",
+     "(span 0 0 0 0 0 0 3 2 1 0 0 0)"},
     {"(let* ((l1 (string->charline* \"foo/bar\"))\n"
      "       (l2 (charline-copy-on-write l1)))\n"
      "  (charline-erase-at! l1 3 1)\n"
@@ -408,12 +426,12 @@ static const testcase tests[] = {
     /* ------------------------ charlines ----------------------------------- */
     {"(charlines (string->charline* \"foo/bar\") (string->charline \"\\n\"))",
      "(strings->charlines* \"foo/bar\" \"\\n\")"},
-    {"(charlines-count-left (charlines (string->charline* \"qwerty@$%\")\n"
+    {"(charlines-find/left (charlines (string->charline* \"qwerty@$%\")\n"
      "                                (string->charline* \"asdf\"))\n"
      "  999 1\n"
      "  (lambda (ch) (char=? ch #\\@)))",
      "7"},
-    {"(charlines-count-right (charlines (string->charline* \"IOHPR$\n\")\n"
+    {"(charlines-find/right (charlines (string->charline* \"IOHPR$\n\")\n"
      "                                  (string->charline* \"ORJZX\"))\n"
      "  -999 0\n"
      "  (lambda (ch) (char=? ch #\\Z)))",

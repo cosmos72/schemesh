@@ -10,7 +10,7 @@
     charlines charlines? strings->charlines strings->charlines*
     assert-charlines? charlines-shallow-copy charlines-copy-on-write charlines-iterate
     charlines-empty? charlines-length charlines-equal? charlines-ref charlines-set/cline!
-    charlines-clear! charlines-count-left charlines-count-right
+    charlines-clear! charlines-find/left charlines-find/right charlines-count/left charlines-count/right
     charlines-dirty-start-y charlines-dirty-end-y charlines-dirty-y-add! charlines-dirty-xy-unset!
     charlines-erase-at/cline! charlines-insert-at/cline!
     write-charlines)
@@ -144,7 +144,7 @@
 ;;        if x < 0 it is truncated to 0
 ;;        if x > (charline-length (charlines-ref lines y))
 ;;               it is truncated to charline-length
-(define (charlines-count-left lines x y pred)
+(define (charlines-find/left lines x y pred)
   (let ((ny (charlines-length lines))
         (ret 0))
     (set! y (fxmin y (fx1- ny)))
@@ -152,7 +152,7 @@
       (let* ((line (charlines-ref lines y))
              (len  (charline-length line))
              (xx   (fxmax 0 (fxmin x len)))
-             (pos  (charline-find-left line xx pred)))
+             (pos  (charline-find/left line xx pred)))
         (if pos
           (begin ;; match found
             (set! ret (fx+ ret (fx- xx pos)))
@@ -176,7 +176,7 @@
 ;;        if x < 0 it is truncated to 0
 ;;        if x > (charline-length (charlines-ref lines y))
 ;;               it is truncated to charline-length
-(define (charlines-count-right lines x y pred)
+(define (charlines-find/right lines x y pred)
   (let ((ny (charlines-length lines))
         (ret 0))
     (set! y (fxmax 0 y))
@@ -184,7 +184,7 @@
       (let* ((line (charlines-ref lines y))
              (len  (charline-length line))
              (xx   (fxmax 0 (fxmin x len)))
-             (pos  (charline-find-right line xx pred)))
+             (pos  (charline-find/right line xx pred)))
         (if pos
           (begin ;; match found
             (set! ret (fx+ ret (fx- pos xx)))
@@ -198,6 +198,21 @@
       ret))
 
 
+;; starting from one character left of specified x and y and moving left,
+;; count number of consecutive characters that satisfy (pred ch)
+;; and return such number.
+;;
+;; notes: if y < 0 returns #f
+;;        if y >= (charlines-length lines)
+;;                it is truncated to charlines-length - 1
+;;        if x < 0 it is truncated to 0
+;;        if x > (charline-length (charlines-ref lines y))
+;;               it is truncated to charline-length
+(define (charlines-count/left lines x y pred)
+  0)
+
+(define (charlines-count/right lines x y pred)
+  0)
 
 ;; make a copy of strings str and store them into a newly created charlines
 ;; return the created charlines

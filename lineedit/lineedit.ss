@@ -858,12 +858,19 @@
                                      0))
           (linectx-parser-name ctx))))))
 
-;; return (paren-recursive-ok? paren) for outermost paren inside parenmatcher
+;; return (paren-recursive-ok? paren) for outermost paren inside parenmatcher,
+;; and vscreen does not end with an odd number of #\\
+;;
+;; reason: an unescaped #\\ must be followed by some other char
+;; both in scheme and in shell syntax,
+;; thus if present it means the input is incomplete and should not be evaluated.
 (define (linectx-paren-recursive-ok? ctx)
-  (let* ((parenmatcher (linectx-parenmatcher ctx))
-         (paren (and parenmatcher (parenmatcher-paren parenmatcher))))
-    (or (not paren)
-        (paren-recursive-ok? paren))))
+  (and
+    ; (even? (charlines-rcount= (linectx-vscreen ctx) #\\))
+    (let* ((parenmatcher (linectx-parenmatcher ctx))
+           (paren (and parenmatcher (parenmatcher-paren parenmatcher))))
+      (or (not paren)
+          (paren-recursive-ok? paren)))))
 
 
 
