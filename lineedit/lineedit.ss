@@ -742,9 +742,9 @@
       (lineterm-move-to ctx vx vy)
       (case style
         ((good)
-          (bytespan-insert-back/bvector! wbuf '#vu8(27 91 49 59 51 54 109) 0 7))  ; ESC[1;36m
+          (bytespan-insert-back/bvector! wbuf '#vu8(27 91 49 59 52 54 109) 0 7))  ; ESC[1;46m
         ((bad)
-          (bytespan-insert-back/bvector! wbuf '#vu8(27 91 49 59 51 49 109) 0 7))) ; ESC[1;31m
+          (bytespan-insert-back/bvector! wbuf '#vu8(27 91 49 59 52 49 109) 0 7))) ; ESC[1;41m
       (bytespan-insert-back/char! wbuf ch)
       (when (or (eq? 'good style) (eq? 'bad style))
         (bytespan-insert-back/bvector! wbuf '#vu8(27 91 109) 0 3)) ; ESC[m

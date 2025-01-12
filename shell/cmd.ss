@@ -153,27 +153,28 @@
 ;; copy job's redirections to vector v, without recursing to job's parents.
 ;; returns (fx- pos (number-of-copied-elements))
 (define (job-fill-c-redirect-vector/norecurse job child-dir v end-pos)
-  (let ((job-dir (job-cwd-if-set job))
-        (n       (span-length (job-redirects job))))
+  (let ((parent-dir (job-cwd-if-set job))
+        (n          (span-length (job-redirects job))))
     (do ((index (fx- n 4)  (fx- index 4))
          (pos   end-pos    (fx- pos 4)))
         ((fx<? index 0) pos)
-      (job-fill-c-redirect-vector/at job job-dir child-dir v index (fx- pos 4)))))
+      (job-fill-c-redirect-vector/at job parent-dir child-dir v index (fx- pos 4)))))
 
 
 ;; copy a single job redirection to vector v, at v[pos] ... v[pos+3]
 ;;
 ;; note: must prefix any relative path with job's working directory,
 ;; because job may be a parent job with a different working directory
-(define (job-fill-c-redirect-vector/at job job-dir child-dir v index pos)
-  (let* ((dir           (%parent-dir-if-different job-dir child-dir))
+(define (job-fill-c-redirect-vector/at job parent-dir child-dir v index pos)
+  (let* ((dir           (%parent-dir-if-different parent-dir child-dir))
          (redirects     (job-redirects job))
          (fd            (span-ref redirects index))
          (direction-ch  (span-ref redirects (fx1+ index)))
-         ;; redirection to file may already be opened on a different file descriptor
+         ;; redirection from fd to file may already be opened on a different file descriptor
          ;; due to fd remapping
          (remapped-to   (job-find-fd-remap job fd))
          (to            (if (fx=? fd remapped-to)
+                          ; no remapping found, set "to"
                           (job-extract-redirection-to-fd-or-bytevector0 job dir redirects index)
                           remapped-to)))
     (vector-set! v pos fd)
