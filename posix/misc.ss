@@ -7,7 +7,7 @@
 
 
 (library (schemesh posix misc (0 1))
-  (export c-hostname c-exit directory-list)
+  (export c-hostname c-exit directory-list directory-sort!)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -26,12 +26,11 @@
       hostname)))
 
 
-;; List contents of a filesystem directory;
-;; mandatory first argument dirpath must be a bytevector, string or charspan.
+;; List contents of a filesystem directory, in arbitrary order.
+;; Mandatory first argument dirpath must be a bytevector, string or charspan.
 ;; futher optional arguments can contain:
 ;;   'bytes - each returned filename will be a bytevector, not a string
 ;;   'catch - errors be ignored instead of raising a condition
-;;   'sort  - returned list will be sorted
 ;;   'symlinks - returned filenames that are symlinks will have type 'symlink
 ;;               instead of the type of the file they point to.
 ;;   'prefix followed by a charspan, string or bytevector, indicating the filter-prefix:
@@ -54,21 +53,15 @@
                     (memq 'symlinks options)
                     strings?)))
         (cond
-          ((or (null? ret) (pair? ret))
+          ((null? ret)
+            ret)
+          ((pair? ret)
             (list-iterate ret
               (lambda (entry)
                 (let ((c-type (car entry)))
                   (set-car! entry
                     (if (fx<=? 0 c-type 7) (vector-ref types c-type) 'unknown)))))
-            (if (memq 'sort options)
-              (sort!
-                (if strings?
-                  (lambda (entry1 entry2)
-                    (string<? (cdr entry1) (cdr entry2)))
-                  (lambda (entry1 entry2)
-                    (bytevector<? (cdr entry1) (cdr entry2))))
-                ret)
-              ret))
+            ret)
           ((memq 'catch options)
             '())
           (#t
@@ -89,5 +82,25 @@
       (#t
         (%again (cdr options))))))
 
+
+;; in-place sort dir-list, which must have the same structure as the output of (directory-list)
+;; i.e. it must be a possibly empty list of pairs (key . value)
+;; where all values are either strings or bytevectors - mixtures are not allowed.
+(define (directory-sort! dir-list)
+  (if (null? dir-list)
+    dir-list
+    (sort!
+      (let ((value (cdar dir-list)))
+        (cond
+          ((string? value)
+            (lambda (entry1 entry2)
+              (string<? (cdr entry1) (cdr entry2))))
+          ((bytevector? value)
+            (lambda (entry1 entry2)
+              (bytevector<? (cdr entry1) (cdr entry2))))
+          (#t
+            (raise-assertf 'directory-sort! "expecting a list of pairs (key . value) where all values are bytevector or string, found value ~s"
+              value))))
+      dir-list)))
 
 ) ; close library
