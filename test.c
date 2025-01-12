@@ -426,8 +426,7 @@ static const testcase tests[] = {
     /* ------------------------ charlines ----------------------------------- */
     {"(charlines (string->charline* \"foo/bar\") (string->charline \"\\n\"))",
      "(strings->charlines* \"foo/bar\" \"\\n\")"},
-    {"(charlines-find/left (charlines (string->charline* \"qwerty@$%\")\n"
-     "                                (string->charline* \"asdf\"))\n"
+    {"(charlines-find/left (strings->charlines* \"qwerty@$%\" \"asdf\")\n"
      "  999 1\n"
      "  (lambda (ch) (char=? ch #\\@)))",
      "7"},
@@ -436,6 +435,14 @@ static const testcase tests[] = {
      "  -999 0\n"
      "  (lambda (ch) (char=? ch #\\Z)))",
      "10"},
+    {"(charlines-count/left (strings->charlines* \"abc\n\" \"ccc\")\n"
+     "   999 1\n"
+     "  (lambda (ch) (char=? ch #\\c)))",
+     "3"},
+    {"(charlines-count/right (strings->charlines* \"abc\n\" \"ccc\")\n"
+     "   3 0\n"
+     "  (lambda (ch) (not (char=? ch #\\c))))",
+     "1"},
     /* ------------------------ vscreen ------------------------------------- */
     {"(let ((screen (vscreen* 8 30 \"qwerty\\n\" \"asdfgh\")))\n"
      "  (vscreen-cursor-vxy-set! screen 3 1)\n"

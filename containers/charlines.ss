@@ -209,10 +209,47 @@
 ;;        if x > (charline-length (charlines-ref lines y))
 ;;               it is truncated to charline-length
 (define (charlines-count/left lines x y pred)
-  0)
+  (let ((ny (charlines-length lines))
+        (ret 0))
+    (set! y (fxmin y (fx1- ny)))
+    (while (fx>=? y 0)
+      (let* ((line (charlines-ref lines y))
+             (len  (charline-length line))
+             (xx   (fxmax 0 (fxmin x len)))
+             (n    (charline-count/left line xx pred)))
+        (set! ret (fx+ ret n))
+        (if (fx=? n xx)
+          (begin ;; all characters satisfy pred, continue on previous line
+            (set! x (greatest-fixnum))
+            (set! y (fx1- y)))
+          (set! y -1)))) ;; some character does not satify pred, stop
+    ret))
 
+;; starting from specified x and y and moving right,
+;; count number of consecutive character that satisfies (pred ch)
+;; and return such number.
+;;
+;; notes: if y < 0 it is truncated to 0
+;;        if y >= (charlines-length lines) returns #f
+;;        if x < 0 it is truncated to 0
+;;        if x > (charline-length (charlines-ref lines y))
+;;               it is truncated to charline-length
 (define (charlines-count/right lines x y pred)
-  0)
+  (let ((ny (charlines-length lines))
+        (ret 0))
+    (set! y (fxmax 0 y))
+    (while (fx<? y ny)
+      (let* ((line (charlines-ref lines y))
+             (len  (charline-length line))
+             (xx   (fxmax 0 (fxmin x len)))
+             (n    (charline-count/right line xx pred)))
+        (set! ret (fx+ ret n))
+        (if (fx=? n (fx- len xx))
+          (begin ;; all characters satisfy pred, continue on previous line
+            (set! x 0)
+            (set! y (fx1+ y)))
+          (set! y ny)))) ;; some character does not satify pred, stop
+    ret))
 
 ;; make a copy of strings str and store them into a newly created charlines
 ;; return the created charlines
