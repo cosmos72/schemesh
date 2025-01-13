@@ -7,8 +7,8 @@
 
 
 (library (schemesh repl (0 1))
-  (export repl repl* repl-eval repl-eval-list repl-lineedit
-          repl-parse repl-print repl-exception-handler repl-interrupt-handler)
+  (export sh-repl sh-repl* sh-repl-eval sh-repl-eval-list sh-repl-lineedit
+          sh-repl-parse sh-repl-print sh-repl-exception-handler sh-repl-interrupt-handler)
   (import
     (rnrs)
     (only (rnrs mutable-pairs) set-car!)
@@ -36,7 +36,7 @@
 ;; #f if got end-of-file
 ;; #t if waiting for more keypresses
 ;; a textual input port if user pressed ENTER.
-(define (repl-lineedit lctx)
+(define (sh-repl-lineedit lctx)
   (sh-consume-sigchld)
   (let ((ret (lineedit-read lctx -1)))
     (sh-consume-sigchld)
@@ -57,7 +57,7 @@
 ;; Return two values:
 ;;   list of forms containing Scheme code to evaluate,
 ;;   and updated parser to use.
-(define repl-parse parse-forms)
+(define sh-repl-parse parse-forms)
 
 
 ;; Eval with (sh-eval) a single form containing parsed expressions or shell commands,
@@ -70,18 +70,18 @@
 ;; This has two effects:
 ;; 1. when using shell parser, top-level commands will be executed immediately.
 ;; 2. when using scheme parser, top-level (shell ...) will be executed immediately.
-(define (repl-eval form)
-  ; (debugf "repl-eval: ~s~%" form)
+(define (sh-repl-eval form)
+  ; (debugf "sh-repl-eval: ~s~%" form)
   (try
     (sh-eval
       (if (and (pair? form) (memq (car form) '(shell shell-subshell)))
         (list 'sh-run/i form)
         form))
     (catch (ex)
-      (repl-exception-handler ex))))
+      (sh-repl-exception-handler ex))))
 
 
-;; Execute with (repl-eval form) each form in list of forms containing parsed expressions
+;; Execute with (sh-repl-eval form) each form in list of forms containing parsed expressions
 ;; or shell commands, and print each returned value(s) or exit status.
 ;;
 ;; Implementation note:
@@ -92,9 +92,9 @@
 ;;   which causes Chez Scheme to suspend long/infinite evaluations
 ;;   and call (break) - a feature we want to preserve.
 ;;
-;;   For these reasons, the loop (do ... (repl-eval ...))
+;;   For these reasons, the loop (do ... (sh-repl-eval ...))
 ;;   is wrapped inside (dynamic-wind tty-restore! (lambda () ...) tty-setraw!)
-(define (repl-eval-list forms print-func)
+(define (sh-repl-eval-list forms print-func)
   ; (debugf "evaluating list: ~s~%" forms)
   (unless (null? forms)
     (dynamic-wind
@@ -104,16 +104,16 @@
             ((null? tail))
           (if print-func
             (call-with-values
-              (lambda () (repl-eval (car tail)))
+              (lambda () (sh-repl-eval (car tail)))
               print-func)
             (begin
-              (repl-eval (car tail))
+              (sh-repl-eval (car tail))
               (void)))))
       tty-setraw!)))
 
 
 ;; Print values or exit statuses.
-(define (repl-print . values)
+(define (sh-repl-print . values)
   (do ((tail values (cdr tail)))
       ((null? tail))
     (let ((value (car tail)))
@@ -121,50 +121,50 @@
         (pretty-print value)))))
 
 ;; Parse and execute user input.
-;; Calls in sequence (repl-lineedit) (repl-parse) (repl-eval-list)
+;; Calls in sequence (sh-repl-lineedit) (sh-repl-parse) (sh-repl-eval-list)
 ;;
 ;; Returns updated parser to use, or #f if got end-of-file.
-(define (repl-once initial-parser enabled-parsers print-func lctx)
+(define (sh-repl-once initial-parser enabled-parsers print-func lctx)
   (linectx-parser-name-set! lctx (parser-name initial-parser))
   (linectx-parsers-set! lctx enabled-parsers)
-  (let ((in (repl-lineedit lctx)))
+  (let ((in (sh-repl-lineedit lctx)))
     (case in
       ((#f) #f)             ; got end-of-file
       ((#t) initial-parser) ; nothing to execute: waiting for more user input
       (else
         (let-values (((forms updated-parser)
-                        (repl-parse (make-parsectx* in enabled-parsers
-                                                    (linectx-width lctx)
-                                                    (linectx-prompt-end-x lctx)
-                                                    0 0)
+                        (sh-repl-parse (make-parsectx* in enabled-parsers
+                                         (linectx-width lctx)
+                                         (linectx-prompt-end-x lctx)
+                                         0 0)
                                     initial-parser)))
           (unless (eq? (void) forms)
-            (repl-eval-list forms print-func))
+            (sh-repl-eval-list forms print-func))
           updated-parser)))))
 
 
-;; main loop of (repl) and (repl*)
+;; main loop of (sh-repl) and (sh-repl*)
 ;;
 ;; Returns values passed to (exit), or (void) on linectx eof
-(define (repl-loop parser enabled-parsers print-func lctx)
+(define (sh-repl-loop parser enabled-parsers print-func lctx)
   (let ((repl-args (list parser enabled-parsers print-func lctx)))
     (call/cc
       (lambda (k-exit)
         (parameterize ((sh-repl-args repl-args)
-                       (base-exception-handler repl-exception-handler)
+                       (base-exception-handler sh-repl-exception-handler)
                        (break-handler
                          (lambda break-args
-                           (repl-interrupt-handler repl-args break-args)))
+                           (sh-repl-interrupt-handler repl-args break-args)))
                        (exit-handler k-exit)
                        (keyboard-interrupt-handler
                          (lambda ()
                            (put-string (console-error-port) "\n; interrupted\n")
-                           (repl-interrupt-handler repl-args '())))
+                           (sh-repl-interrupt-handler repl-args '())))
                        (reset-handler (reset-handler))
                        (suspend-handler
                          (lambda ()
                            (put-string (console-error-port) "\n; suspended\n")
-                           (repl-interrupt-handler repl-args '()))))
+                           (sh-repl-interrupt-handler repl-args '()))))
           (let ((k-reset k-exit)
                 (updated-parser parser))
             (reset-handler (lambda () (k-reset)))
@@ -173,21 +173,21 @@
             (while updated-parser
               (set! parser updated-parser)
               (set-car! repl-args updated-parser)
-              (set! updated-parser (repl-once parser enabled-parsers print-func lctx)))))))))
+              (set! updated-parser (sh-repl-once parser enabled-parsers print-func lctx)))))))))
 
 
-;; top-level interactive repl with all arguments mandatory
+;; top-level interactive sh-repl with all arguments mandatory
 ;;
 ;; Returns values passed to (exit), or (void) on linectx eof
-(define (repl* initial-parser enabled-parsers print-func lctx)
+(define (sh-repl* initial-parser enabled-parsers print-func lctx)
   ; (to-parser) also checks initial-parser's and enabled-parser's validity
-  (let ((parser (to-parser enabled-parsers initial-parser 'repl)))
-    (assert* 'repl* (linectx? lctx))
+  (let ((parser (to-parser enabled-parsers initial-parser 'sh-repl)))
+    (assert* 'sh-repl (linectx? lctx))
     (dynamic-wind
       (lambda ()
         (lineedit-clear! lctx) (signal-init-sigwinch) (tty-setraw!))
       (lambda ()
-        (repl-loop parser enabled-parsers print-func lctx))
+        (sh-repl-loop parser enabled-parsers print-func lctx))
       (lambda ()
         (tty-restore!) (signal-restore-sigwinch) (lineedit-finish lctx)))))
 
@@ -198,14 +198,14 @@
 ;; 'linectx lctx            - defaults to (sh-make-linectx)
 ;;
 ;; Returns first value passed to (exit), or (void) on linectx eof
-(define (repl . args)
+(define (sh-repl . args)
   (let ((initial-parser #f)  (initial-parser? #f)
         (enabled-parsers #f) (enabled-parsers? #f)
         (print-func #f)      (print-func? #f)
         (lctx #f)            (lctx? #f))
     (do ((args-left args (cddr args-left)))
         ((null? args-left))
-      (assert* 'repl (pair? (cdr args-left)))
+      (assert* 'sh-repl (pair? (cdr args-left)))
       (let ((opt (car args-left))
             (val (cadr args-left)))
         (case opt
@@ -213,16 +213,16 @@
           ((parsers) (set! enabled-parsers val) (set! enabled-parsers? #t))
           ((print)   (set! print-func val)      (set! print-func? #t))
           ((linectx) (set! lctx val)            (set! lctx? #t))
-          (else      (syntax-violation 'repl "unexpected argument:" opt)))))
+          (else      (syntax-violation 'sh-repl "unexpected argument:" opt)))))
     (first-value-or-void
-      (repl* (if initial-parser?  initial-parser 'shell)
+      (sh-repl* (if initial-parser?  initial-parser 'shell)
              (if enabled-parsers? enabled-parsers (parsers))
-             (if print-func?      print-func      repl-print)
+             (if print-func?      print-func      sh-repl-print)
              (if lctx? lctx (sh-make-linectx))))))
 
 
 ;; React to uncaught conditions
-(define (repl-exception-handler obj)
+(define (sh-repl-exception-handler obj)
   (let ((out (console-error-port)))
     (dynamic-wind
       (lambda () ; before body
@@ -242,19 +242,19 @@
 
 
 ;; React to calls to (break), to keyboard CTRL+C and to SIGTSTP signal: enter the debugger.
-(define (repl-interrupt-handler repl-args break-args)
+(define (sh-repl-interrupt-handler repl-args break-args)
   (call/cc
     (lambda (k)
       (parameterize ((break-handler void)
                      (keyboard-interrupt-handler void)
                      (suspend-handler void))
         (let ((out (console-output-port)))
-          (repl-interrupt-show-who-msg-irritants break-args out)
-          (while (repl-interrupt-handler-once repl-args k out)))))))
+          (sh-repl-interrupt-show-who-msg-irritants break-args out)
+          (while (sh-repl-interrupt-handler-once repl-args k out)))))))
 
 
 ;; Print (break ...) arguments
-(define (repl-interrupt-show-who-msg-irritants args out)
+(define (sh-repl-interrupt-show-who-msg-irritants args out)
   (when (pair? args)
     (let* ((who  (car args))
            (tail (cdr args))
@@ -271,8 +271,8 @@
      (put-char   out #\newline))))
 
 
-;; Single iteration of (repl-interrupt-handler)
-(define (repl-interrupt-handler-once repl-args k out)
+;; Single iteration of (sh-repl-interrupt-handler)
+(define (sh-repl-interrupt-handler-once repl-args k out)
   (put-string out "break> ")
   (flush-output-port out)
   (case (let-values (((type token start end) (read-token (console-input-port))))
@@ -285,7 +285,7 @@
     ((a abort)        (abort) #f)
     ((c e cont exit)  #f)
     ((i inspect)      (inspect k) #t)
-    ((n new)          (apply repl* repl-args) #t)
+    ((n new)          (apply sh-repl* repl-args) #t)
     ((q r quit reset) (reset) #f)
     ((t throw)        (error #f "user interrupt") #f)
     ((? help)

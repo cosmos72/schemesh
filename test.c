@@ -825,6 +825,13 @@ static const testcase tests[] = {
      "((dir . .) (dir . ..) (file . autocomplete.ss) (file . lisp.ss)"
      " (file . parser.ss) (file . r6rs.ss) (file . scheme.ss)"
      " (file . shell.ss))"},
+    /* ------------------------- posix patterns ----------------------------- */
+    {"(sh-pattern \"foo\" '* \".bar\" '? '% \"[a-z]\" '%! \"A-Z\")",
+     "(sh-pattern foo '* .bar '? '% [a-z] '%! A-Z)"},
+    {"(try (sh-pattern \"foo\" \".bar\") #f (catch (ex) #t))", "#t"},
+    {"(try (sh-pattern '%) #f (catch (ex) #t))", "#t"},
+    {"(try (sh-pattern '%!) #f (catch (ex) #t))", "#t"},
+    {"(try (sh-pattern '+) #f (catch (ex) #t))", "#t"},
     /* ------------------------- shell paths -------------------------------- */
     {"(sh-path-absolute? (string->charspan* \"/foo\"))", "#t"},
     {"(sh-path-absolute? (string->charspan* \"bar/\"))", "#f"},
@@ -1031,10 +1038,10 @@ static const testcase tests[] = {
      " (sh-cmd \"cat\" \"DEL_ME\") (sh-cmd \"rm\" \"DEL_ME\"))"},
     /* ------------------------- wildcard expansion ------------------------- */
     {"(sh-wildcard #t \"a\" \"bcd\" \"\" \"ef\")", "abcdef"},
-    {"(sh-wildcard/prepare-paths (span \"/\" '* \".so\"))", "(span / (span * .so))"},
-    {"(sh-wildcard/prepare-paths (span \"//abc//\" \"//def//\"))", "(span / abc/ def/)"},
-    {"(sh-wildcard/prepare-paths (span \"/foo/\" '* \"/\" \"/bar\"))",
-     "(span / foo/ (span * /) bar)"},
+    {"(sh-wildcard/prepare-patterns (span \"/\" '* \".so\"))", "(span / (sh-pattern '* .so))"},
+    {"(sh-wildcard/prepare-patterns (span \"//abc//\" \"//def//\"))", "(span / abc/ def/)"},
+    {"(sh-wildcard/prepare-patterns (span \"/foo/\" '* \"/\" \"/bar\"))",
+     "(span / foo/ (sh-pattern '* /) bar)"},
     /* ------------------------- job execution ------------------------------ */
     {"(sh-run/string (shell \"echo\" \"a\"  \"b\" \"c\"))", "a b c\n"},
     {"(sh-run/string-rtrim-newlines (shell \"echo\" \" abc \"))", " abc "},
@@ -1052,41 +1059,41 @@ static const testcase tests[] = {
      "(exited . 1)"},
     {"(sh-run (shell \"true\" \\x7C; \"command\" \"true\" \\x7C; \"false\"))", "(exited . 1)"},
     /* ------------------------- repl --------------------------------------- */
-    {"(values->list (repl-parse\n"
+    {"(values->list (sh-repl-parse\n"
      "  (string->parsectx \"(+ 2 3) (values 7 (cons 'a 'b))\" (parsers))\n"
      "  'scheme))\n",
      "(((+ 2 3) (values 7 (cons 'a 'b))) #<parser scheme>)"},
-    {"(values->list (repl-parse\n"
+    {"(values->list (sh-repl-parse\n"
      "  (string->parsectx \"ls -l | wc -b && echo ok || echo error &\" (parsers))\n"
      "  'shell))\n",
      "(((shell ls -l | wc -b && echo ok || echo error &)) #<parser shell>)"},
-    {"(values->list (repl-parse\n"
+    {"(values->list (sh-repl-parse\n"
      "  (string->parsectx \"(values '{})\" (parsers))\n"
      "  'scheme))\n",
      "(((values '(shell))) #<parser scheme>)"},
-    {"(values->list (repl-parse\n"
+    {"(values->list (sh-repl-parse\n"
      "  (string->parsectx \"(values '{ls; #!scheme 1 2 3})\" (parsers))\n"
      "  'scheme))\n",
      /* ugly result, and not very useful */
      "(((values '(shell ls ; 1 2 3))) #<parser scheme>)"},
-    {"(values->list (repl-parse\n"
+    {"(values->list (sh-repl-parse\n"
      "  (string->parsectx \"(1 2 3)\" (parsers))\n"
      "  'scheme))\n",
      "(((1 2 3)) #<parser scheme>)"},
-    {"(values->list (repl-parse\n"
+    {"(values->list (sh-repl-parse\n"
      "  (string->parsectx \"#!scheme 1 2 3\" (parsers))\n"
      "  'shell))\n",
      "((1 2 3) #<parser scheme>)"},
-    {"(values->list (repl-parse\n"
+    {"(values->list (sh-repl-parse\n"
      "  (string->parsectx \"1 2 3\" (parsers))\n"
      "  'shell))\n",
      "(((shell 1 2 3)) #<parser shell>)"},
-    {"(values->list (repl-parse\n"
+    {"(values->list (sh-repl-parse\n"
      "  (string->parsectx \"{#!scheme 1 2 3}\" (parsers))\n"
      "  'scheme))\n",
      /* must return the same as previous test */
      "(((1 2 3)) #<parser scheme>)"},
-    {"(values->list (repl-parse\n"
+    {"(values->list (sh-repl-parse\n"
      "  (string->parsectx \"{#!scheme 1 2 3}\" (parsers))\n"
      "  'shell))\n",
      /* ideally would return the same as previous test, but deciding to omit the (shell ...) wrapper

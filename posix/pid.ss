@@ -15,7 +15,7 @@
     (schemesh posix fd)
     (only (schemesh conversions)  list->argv)
     (only (schemesh posix signal) signal-name->number signal-raise)
-    (only (schemesh posix misc)   c-exit))
+    (only (schemesh posix fd)     c-exit))
 
 ; (get-pid) returns pid of current process
 (define get-pid

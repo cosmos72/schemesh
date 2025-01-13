@@ -21,10 +21,10 @@
   (%bitmap %make-bitmap bitmap?)
   (fields
     (immutable data       bitmap-data)   ; bytevector
-     ; unsigned fixnum, length in bits
-     (mutable   length     bitmap-length     bitmap-length-set!)
-     ; unsigned fixnum, position of last zero, or -1 if all bits are one.
-     (mutable   last-zero  bitmap-last-zero  bitmap-last-zero-set!))
+    ; unsigned fixnum, length in bits
+    (mutable   length     bitmap-length     bitmap-length-set!)
+    ; unsigned fixnum, position of last zero, or -1 if all bits are one.
+    (mutable   last-zero  bitmap-last-zero  bitmap-last-zero-set!))
   (nongenerative #{%bitmap f7pgyor7q9839cgjbgqhv381w-0}))
 
 

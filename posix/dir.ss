@@ -6,8 +6,8 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh posix misc (0 1))
-  (export c-hostname c-exit directory-list directory-sort! file-stat)
+(library (schemesh posix dir (0 1))
+  (export directory-list directory-sort! file-stat)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -16,14 +16,6 @@
     (only (schemesh containers) bytevector<? charspan? list-iterate string->utf8b)
     (only (schemesh conversions) text->bytevector text->bytevector0)
     (only (schemesh posix fd) raise-c-errno))
-
-(define c-exit (foreign-procedure "c_exit" (int) int))
-
-(define c-hostname
-  (let* ((hostname-or-error ((foreign-procedure "c_get_hostname" () ptr)))
-         (hostname (if (string? hostname-or-error) hostname-or-error "???")))
-    (lambda ()
-      hostname)))
 
 (define c-type->file-type
   (let ((file-types '#(unknown blockdev chardev dir fifo file socket symlink)))

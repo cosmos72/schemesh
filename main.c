@@ -85,7 +85,7 @@ again:
   Senable_expeditor(NULL);
   c_errno_set(0);
   {
-    ptr ret = call0("repl");
+    ptr ret = call0("sh-repl");
     if (Sfixnump(ret)) {
       err = Sfixnum_value(ret);
     }

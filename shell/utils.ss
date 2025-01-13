@@ -21,7 +21,7 @@
     (schemesh lineedit linectx)
     (schemesh lineedit vscreen)
     (schemesh lineedit)
-    (schemesh posix misc)
+    (only (schemesh posix fd) c-hostname)
     (schemesh parser)
     (only (schemesh parser autocomplete) parse-shell-autocomplete)
     (schemesh shell jobs))

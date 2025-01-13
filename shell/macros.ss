@@ -12,8 +12,8 @@
     (rnrs)
     (only (chezscheme) meta reverse!)
     (schemesh bootstrap)
-    (schemesh shell jobs)
-    (only (schemesh shell paths) sh-wildcard?))
+    (only (schemesh posix pattern) sh-wildcard?)
+    (schemesh shell jobs))
 
 ;; wraps shell DSL
 (define-macro (shell . args)

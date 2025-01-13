@@ -14,7 +14,7 @@
     ; paths.ss
     sh-path sh-path? sh-path-absolute? sh-path-relative?
     sh-path-append sh-path-append! sh-path-iterate
-    sh-subpath sh-subpath? sh-path->subpath sh-wildcard? text->sh-path*
+    sh-subpath sh-subpath? sh-path->subpath text->sh-path*
 
     ; aliases.ss
     sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
@@ -52,7 +52,7 @@
 
     ; wildcard
     sh-wildcard sh-wildcard/apply sh-wildcard/expand-tilde!
-    sh-wildcard/prepare-paths sh-wildcard/expand-paths
+    sh-wildcard/prepare-patterns sh-wildcard/expand-patterns
 
     ; macros.ss
     shell shell-backquote shell-env shell-list shell-subshell shell-wildcard

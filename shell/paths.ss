@@ -8,7 +8,7 @@
 (library (schemesh shell paths (0 1))
   (export sh-path sh-path? sh-path-absolute? sh-path-relative?
           sh-path-append sh-path-append! sh-path-iterate
-          sh-subpath sh-subpath? sh-path->subpath sh-wildcard? text->sh-path*)
+          sh-subpath sh-subpath? sh-path->subpath text->sh-path*)
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx1- void)
@@ -16,9 +16,6 @@
     (schemesh containers charspan)
     (only (schemesh containers misc) list-iterate))
 
-
-(define (sh-wildcard? obj)
-  (and (symbol? obj) (memq obj '(* ? ~ % %!))))
 
 ;; convert a string or a charspan to charspan
 (define (text->sh-path* text)

@@ -44,7 +44,7 @@
 
     ; wildcard
     sh-wildcard sh-wildcard/apply sh-wildcard/expand-tilde!
-    sh-wildcard/prepare-paths sh-wildcard/expand-paths)
+    sh-wildcard/prepare-patterns sh-wildcard/expand-patterns)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -55,6 +55,7 @@
     (schemesh containers)
     (schemesh conversions)
     (schemesh posix fd)
+    (schemesh posix pattern)
     (schemesh posix pid)
     (schemesh posix signal)
     (only (schemesh posix tty) tty-inspect)

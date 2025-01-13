@@ -7,9 +7,10 @@
 
 (library (schemesh posix fd (0 1))
   (export
-    c-errno c-errno->string raise-c-errno
+    c-errno c-errno->string c-exit c-hostname
     fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-read fd-write
-    fd-read-until-eof fd-select fd-setnonblock open-file-fd open-pipe-fds)
+    fd-read-until-eof fd-select fd-setnonblock open-file-fd open-pipe-fds
+    raise-c-errno)
   (import
     (rnrs)
     (only (chezscheme) foreign-procedure void)
@@ -23,6 +24,14 @@
 
 (define c-errno->string
   (foreign-procedure "c_strerror" (int) ptr))
+
+(define c-exit (foreign-procedure "c_exit" (int) int))
+
+(define c-hostname
+  (let* ((hostname-or-error ((foreign-procedure "c_get_hostname" () ptr)))
+         (hostname (if (string? hostname-or-error) hostname-or-error "???")))
+    (lambda ()
+      hostname)))
 
 (define (raise-c-errno who c-who c-errno . c-args)
   ; (debugf "raise-c-errno ~s ~s~%" who c-errno)

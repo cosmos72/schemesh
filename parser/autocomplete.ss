@@ -21,7 +21,7 @@
     (schemesh containers span)
     (schemesh containers sort)
     (only (schemesh containers utf8b) utf8b->string)
-    (only (schemesh posix misc) directory-list directory-sort!)
+    (only (schemesh posix dir) directory-list directory-sort!)
     (only (schemesh lineedit vscreen) vscreen-char-before-xy vscreen-cursor-ix vscreen-cursor-iy)
     (schemesh lineedit paren)
     (only (schemesh lineedit linectx) linectx-completion-stem linectx-vscreen))

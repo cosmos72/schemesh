@@ -30,8 +30,8 @@
           (charspan->string ret)))
       (#t
         ; actually expand wildcards
-        (sh-wildcard/expand-paths job
-          (sh-wildcard/prepare-paths
+        (sh-wildcard/expand-patterns job
+          (sh-wildcard/prepare-patterns
             (sh-wildcard/expand-tilde! job sp)))))))
 
 
@@ -84,14 +84,16 @@
 
 
 ;; given a span containing strings and wildcards,
-;; split the strings after each delimiter /
-;; and group wildcards and strings that refer to a single directory or file name.
+;; split the strings around each delimiter / which is omitted
+;;
+;; and group into a sh-pattern the wildcards and strings
+;; that refer to a single directory or file name.
 ;;
 ;; example:
 ;;   (span "a/b" '* "c/d")
 ;; will be converted to
-;;   (span "a/" (span "b" '* "c/") "d"))
-(define (sh-wildcard/prepare-paths sp)
+;;   (span "a" (span "b" '* "c") "d"))
+(define (sh-wildcard/prepare-patterns sp)
   (let ((ret (span))
         (i 0)
         (n (span-length sp)))
@@ -104,7 +106,7 @@
             (%raise-invalid-wildcard-pattern (span-ref sp (fx1- i)) pattern)
             (span-insert-back! (span-back ret) pattern))))
       (set! i (fx1+ i)))
-    (sh-wildcard/simplify-paths! ret)))
+    (sh-wildcard/simplify! ret)))
 
 
 (define (%raise-invalid-wildcard-pattern sym pattern)
@@ -132,20 +134,21 @@
         #f))))
 
 
-;; split non-empty string str after each delimiter /
+;; split non-empty string str around each delimiter / which is omitted.
 ;; and append each fragment to subspans inside sp, starting from subspan.
 (define (%split-string->paths sp str str-len)
   (let ((subspan (span-back sp))
         (cspan #f))
     (do ((i 0 (fx1+ i)))
         ((fx>=? i str-len))
-      (let ((ch (string-ref str i)))
+      (let* ((ch     (string-ref str i))
+             (slash? (char=? ch #\/)))
         ;; ignore duplicated consecutive /
-        (unless (and (char=? #\/ ch) (%last-is-slash? str i sp subspan))
+        (unless (and slash? (%last-is-slash? str i sp subspan))
           (unless cspan
             (set! cspan (%ensure-ends-with-charspan! subspan)))
           (charspan-insert-back! cspan ch)
-          (when (char=? ch #\/)
+          (when slash?
             ; create a new subspan
             (set! cspan #f)
             (set! subspan (span))
@@ -169,21 +172,32 @@
     (span-back subspan)))
 
 
-;; unwrap single-element sub-spans in span sp.
-;; replace each charspan -> string.
-;; if last element is an empty subspan, remove it.
+;; simplify span in four steps:
+;;
+;; 1. for each subspan in sp containing only a single charspan,
+;;    unwrap the charspan i.s. replace the subspan with the contained charspan.
+;; 2. replace each charspan -> string.
+;; 3. replace each non-empty subspan with a sh-pattern.
+;; 4. if last element is an empty subspan, remove it.
+;;
 ;; return sp, modified in-place
-(define (sh-wildcard/simplify-paths! sp)
+(define (sh-wildcard/simplify! sp)
   (span-iterate sp
     (lambda (i subspan)
       (when (span? subspan)
-        (if (fx=? 1 (span-length subspan))
-          (let ((elem (span-ref subspan 0)))
-            (span-set! sp i (if (charspan? elem) (charspan->string elem) elem)))
-          (span-iterate subspan
-            (lambda (j elem)
+        (case (span-length subspan)
+          ((0)
+            (void))
+          ((1)
+            (let ((elem (span-ref subspan 0)))
               (when (charspan? elem)
-                (span-set! subspan j (charspan->string elem)))))))))
+                (span-set! sp i (charspan->string elem)))))
+          (else
+            (span-iterate subspan
+              (lambda (j elem)
+                (when (charspan? elem)
+                  (span-set! subspan j (charspan->string elem)))))
+            (span-set! sp i (span->sh-pattern* subspan)))))))
   ;; if last element is an empty subspan, remove it.
   (unless (span-empty? sp)
     (let ((subspan (span-back sp)))
@@ -192,8 +206,8 @@
   sp)
 
 
-;; actually expand wildcards in span sp to list matching files on disk.
+;; actually expand sh-patterns in span sp to list matching files on disk.
 ;; returns a string or a list of strings.
-(define (sh-wildcard/expand-paths job sp)
+(define (sh-wildcard/expand-patterns job sp)
   ;; TODO: implement
   sp)
