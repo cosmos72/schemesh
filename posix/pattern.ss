@@ -214,13 +214,13 @@
                   (%pattern-match/range? alt ch)
                   ; plain string search among alternatives, returns fixnum or #f
                   (string-find/char alt 0 alt-len ch))))
-          ; negate the meaning of match? if key is '%!
+          ; if key is '%! then negate the meaning of match?
           (if (if (eq? '% (span-ref sp sp-start)) match? (not match?))
             2
             #f))))))
 
 
-;; match [alt] i.e. alternative characters listed in string alt,
+;; match [ALT] i.e. alternative characters listed in string alt,
 ;; which also contains ranges as "a-z"
 ;;
 ;; if match is successful returns #t,
