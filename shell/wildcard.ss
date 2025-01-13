@@ -102,7 +102,7 @@
       (when (sh-wildcard/prepare-path! (span-ref sp i) ret)
         (set! i (fx1+ i))
         (let ((pattern (span-ref sp i)))
-          (if (string-find-char pattern 0 (string-length pattern) #\/)
+          (if (string-find/char pattern 0 (string-length pattern) #\/)
             (%raise-invalid-wildcard-pattern (span-ref sp (fx1- i)) pattern)
             (span-insert-back! (span-back ret) pattern))))
       (set! i (fx1+ i)))

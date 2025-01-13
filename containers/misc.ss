@@ -14,7 +14,7 @@
     bytevector-fill-range! bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?
     string-fill-range! string-range-count= string-range=? string-range<?
-    string-find-char string-split string-iterate)
+    string-find/char string-split string-iterate)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -276,10 +276,10 @@
 ;; search string range [start, start+n) and return index of first character equal to ch.
 ;; returned numerical index will be in the range [start, start+n).
 ;; return #f if no such character is found in range.
-(define (string-find-char str start n ch)
-  (assert* 'string-find-char (string? str))
-  (assert* 'string-find-char (fx<=? 0 start (fx+ start n)))
-  (assert* 'string-find-char (char? ch))
+(define (string-find/char str start n ch)
+  (assert* 'string-find/char (string? str))
+  (assert* 'string-find/char (fx<=? 0 start (fx+ start n)))
+  (assert* 'string-find/char (char? ch))
   (do ((i start (fx1+ i))
        (end (fxmin (fx+ start n) (string-length str))))
       ((or (fx>=? i end) (char=? ch (string-ref str i)))
@@ -294,7 +294,7 @@
         (n (fxmin n (fx- (string-length str) start))))
     (when (fx>? n 0)
       (while prev-pos+1
-        (let ((pos (string-find-char str prev-pos+1 n delim)))
+        (let ((pos (string-find/char str prev-pos+1 n delim)))
           (set! l (cons (substring str prev-pos+1 (or pos (fx+ start n))) l))
           (set! prev-pos+1 (if pos (fx1+ pos) #f)))))
     (reverse! l)))

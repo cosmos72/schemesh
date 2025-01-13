@@ -832,6 +832,26 @@ static const testcase tests[] = {
     {"(try (sh-pattern '%) #f (catch (ex) #t))", "#t"},
     {"(try (sh-pattern '%!) #f (catch (ex) #t))", "#t"},
     {"(try (sh-pattern '+) #f (catch (ex) #t))", "#t"},
+    {"(sh-pattern-match?"
+     "  (sh-pattern \"foo\" '? \"bar\")"
+     "  \"foo.bar\")",
+     "#t"},
+    {"(sh-pattern-match?"
+     "  (sh-pattern \"asdf\" '% \"abc.\" '%! \"a-pr-z\" \"werty\" '?)"
+     "  \"asdf.qwerty.\")",
+     "#t"},
+    {"(sh-pattern-match?"
+     "  (sh-pattern '? \"xyz\")" /* '? never matches an initial dot */
+     "  \".xyz\")",
+     "#f"},
+    {"(sh-pattern-match?"
+     "  (sh-pattern '% \" ~\" \"xyz\")" /* '% never matches an initial dot */
+     "  \".xyz\")",
+     "#f"},
+    {"(sh-pattern-match?"
+     "  (sh-pattern '%! \"a\" \"xyz\")" /* '% never matches an initial dot */
+     "  \".xyz\")",
+     "#f"},
     /* ------------------------- shell paths -------------------------------- */
     {"(sh-path-absolute? (string->charspan* \"/foo\"))", "#t"},
     {"(sh-path-absolute? (string->charspan* \"bar/\"))", "#f"},

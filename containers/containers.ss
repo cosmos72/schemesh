@@ -15,7 +15,7 @@
     bytevector-fill-range! bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?
     string-fill-range! string-range-count= string-range=? string-range<?
-    string-find-char string-split string-iterate
+    string-find/char string-split string-iterate
 
     ; utf8b.ss
     integer->char* string->utf8b string->utf8b/0 utf8b->string utf8b-range->string
