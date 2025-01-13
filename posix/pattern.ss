@@ -196,8 +196,7 @@
     ; '%! "ALTERNATIVES" matches a single character not among ALTERNATIVES - does not match initial #\.
     (if (and (fxzero? str-start) (char=? #\. ch))
       #f
-      (let* ((key (span-ref sp sp-start))
-             (alt (span-ref sp (fx1+ sp-start)))
+      (let* ((alt (span-ref sp (fx1+ sp-start)))
              (alt-len (string-length alt)))
         (if (fxzero? alt-len)
           #f ; missing alternatives
@@ -206,10 +205,10 @@
                     ; found #\- not at the beginning and not at the end:
                     ; search among alternatives listed as range(s)
                     (%pattern-match/range? alt ch)
-                    ; plain string search among alternatives
-                    (if (string-find/char alt 0 alt-len ch) #t #f))))
+                    ; plain string search among alternatives, returns fixnum or #f
+                    (string-find/char alt 0 alt-len ch))))
             ; negate the meaning of match? if key is '%!
-            (if (eq? match? (eq? key '%))
+            (if (if (eq? '% (span-ref sp sp-start)) match? (not match?))
               2
               #f)))))))
 
@@ -227,11 +226,11 @@
         (let ((alt-ch (string-ref alt i)))
           (if (and (fx<? (fx+ i 2) end)
                    (char=? #\- (string-ref alt (fx1+ i))))
-            ; found range as "a-z"
+            ; range match, as "a-z"
             (if (char<=? alt-ch ch (string-ref alt (fx+ i 2)))
               #t                  ; range match successful, return #t
               (%again (fx+ i 3))) ; range match failed, iterate
-            ; plain character comparison
+            ; plain character match
             (if (char=? alt-ch ch)
               #t                       ; char match successful, return #t
               (%again (fx1+ i))))))))) ; char match failed, iterate
