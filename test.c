@@ -852,6 +852,14 @@ static const testcase tests[] = {
      "  (sh-pattern '%! \"a\" \"xyz\")" /* '% never matches an initial dot */
      "  \".xyz\")",
      "#f"},
+    {"(sh-pattern-match?"
+     "  (sh-pattern '*)" /* '* never matches an initial dot */
+     "  \"uiop.def..\")",
+     "#t"},
+    {"(sh-pattern-match?"
+     "  (sh-pattern '*)" /* '* never matches an initial dot */
+     "  \".abc\")",
+     "#f"},
     /* ------------------------- shell paths -------------------------------- */
     {"(sh-path-absolute? (string->charspan* \"/foo\"))", "#t"},
     {"(sh-path-absolute? (string->charspan* \"bar/\"))", "#f"},

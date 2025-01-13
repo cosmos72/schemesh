@@ -143,7 +143,7 @@
           (string-length key)))
       ((eq? key '?)
         (values
-          (%pattern-match/char str str-start)
+          (%pattern-match/char str str-start str-end)
           1))
       ((eq? key '*)
         (values
@@ -177,40 +177,47 @@
 ;;
 ;; if match is successful returns 1,
 ;; otherwise returns #f
-(define (%pattern-match/char str str-start)
-  (if (and (fxzero? str-start) (char=? #\. (string-ref str str-start)))
-    #f
-    1))
+(define (%pattern-match/char str str-start str-end)
+  (cond
+    ((fx>=? str-start str-end)
+      #f) ; end of string, cannot match a single character
+    ((and (fxzero? str-start) (char=? #\. (string-ref str str-start)))
+      #f) ; cannot match an initial #\.
+    (#t
+      1))) ; match any single character
 
 
 
-;; match [alt] or [!alt] i.e. alternative characters listed in (span-ref sp (fx1+ sp-start)).
+;; match [ALT] or [!ALT] i.e. alternative characters listed in (span-ref sp (fx1+ sp-start)).
+;; never matches an initial #\.
 ;;
-;; alternative characters may also contain ranges as "a-z"
+;; [ALT] is represented as '% "ALT" and matches a single character among ALT.
+;; [!ALT] is represented as '%! "ALT" and matches a single character not among ALT.
+;;
+;; ALT alternative characters may also contain ranges as "a-z"
 ;;
 ;; if match is successful returns 2,
 ;; otherwise returns #f
 (define (%pattern-match/alternative sp sp-start str str-start str-end)
-  (let ((ch  (string-ref str str-start)))
-    ; '% "ALTERNATIVES" matches a single character among ALTERNATIVES - does not match initial #\.
-    ; '%! "ALTERNATIVES" matches a single character not among ALTERNATIVES - does not match initial #\.
-    (if (and (fxzero? str-start) (char=? #\. ch))
-      #f
-      (let* ((alt (span-ref sp (fx1+ sp-start)))
-             (alt-len (string-length alt)))
-        (if (fxzero? alt-len)
-          #f ; missing alternatives
-          (let ((match?
-                  (if (string-find/char alt 1 (fxmax 1 (fx- alt-len 2)) #\-)
-                    ; found #\- not at the beginning and not at the end:
-                    ; search among alternatives listed as range(s)
-                    (%pattern-match/range? alt ch)
-                    ; plain string search among alternatives, returns fixnum or #f
-                    (string-find/char alt 0 alt-len ch))))
-            ; negate the meaning of match? if key is '%!
-            (if (if (eq? '% (span-ref sp sp-start)) match? (not match?))
-              2
-              #f)))))))
+  (if (or (fx>=? str-start str-end) ; end of string, cannot match a single character
+          (and (fxzero? str-start) (char=? #\. (string-ref str str-start)))) ; cannot match an initial #\.
+    #f
+    (let* ((ch  (string-ref str str-start))
+           (alt (span-ref sp (fx1+ sp-start)))
+           (alt-len (string-length alt)))
+      (if (fxzero? alt-len)
+        #f ; missing alternatives
+        (let ((match?
+                (if (string-find/char alt 1 (fxmax 1 (fx- alt-len 2)) #\-)
+                  ; found #\- not at the beginning and not at the end:
+                  ; search among alternatives listed as range(s)
+                  (%pattern-match/range? alt ch)
+                  ; plain string search among alternatives, returns fixnum or #f
+                  (string-find/char alt 0 alt-len ch))))
+          ; negate the meaning of match? if key is '%!
+          (if (if (eq? '% (span-ref sp sp-start)) match? (not match?))
+            2
+            #f))))))
 
 
 ;; match [alt] i.e. alternative characters listed in string alt,
@@ -236,15 +243,20 @@
               (%again (fx1+ i))))))))) ; char match failed, iterate
 
 
-
 ;; recursively determine whether the range [sp-start, sp-end] of the span sp,
 ;; which starts with '* matches range [str-start, str-end) of string str.
 ;;
 ;; if match is successful returns (fx- sp-end sp-start)
 ;; otherwise returns #f
 (define (%pattern-match/left/star sp sp-start sp-end str str-start str-end)
-  ; TODO implement
-  #f)
+  (cond
+    ((span-iterate sp (lambda (i key) (eq? '* key)))
+      ; a sequence of '* with nothing else matches anything
+      (if (and (fxzero? str-start) (char=? #\. (string-ref str 0)))
+        #f ; except that it cannot match an initial #\.
+        (fx- sp-end sp-start)))
+    (#t ; general case: TODO implement
+      #f)))
 
 
 ;;  customize how "sh-pattern" objects are printed
