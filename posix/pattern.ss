@@ -11,8 +11,8 @@
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx1- record-writer void)
-    (only (schemesh bootstrap) assert* raise-assertf)
-    (only (schemesh containers misc) string-find/char string-range=?)
+    (only (schemesh bootstrap) assert* debugf raise-assertf)
+    (only (schemesh containers misc) string-find/char string-rfind/char string-range=?)
     (schemesh containers span))
 
 
@@ -52,7 +52,7 @@
          (fixed? (%validate-span sp 0 n #f #f)))
     ; adjacent strings are not allowed
     ; => if span contains only strings, it must have length 1
-    (when (and fixed? (not (fx=? n 1)))
+    (when (and fixed? (fx>? n 1))
       (raise-assertf 'sh-pattern "adjacent strings are not allowed, consider merging them: ~s" sp))
     (%make-pattern sp fixed?)))
 
@@ -79,6 +79,8 @@
           (when prev-is-string?
             (raise-assertf 'sh-pattern "adjacent strings are not allowed, consider merging them: ~s ~s"
               obj (span-ref sp (fx1- i))))
+          (when (fxzero? (string-length obj))
+            (raise-assertf 'sh-pattern "empty strings are not allowed: ~s" obj))
           (%validate-span sp (fx1+ i) n contains-wildcard? #t))
         ((sh-wildcard? obj)
           (when (memq obj '(% %!))
@@ -103,12 +105,29 @@
   (let* ((sp  (pattern-span p))
          (n   (span-length sp))
          (len (string-length str)))
+    ;; handle special cases first
     (cond
+      ((span-empty? sp)
+        ; an empty pattern can only match the empty string
+        (fxzero? len))
+      ((fxzero? len)
+        ; an empty name can only be matched by an empty pattern (already checked above)
+        ; or by a sequence of '* with nothing else
+        (span-iterate sp
+          (lambda (i key)
+            (eq? key '*))))
       ((pattern-fixed? p)
+        ; a non-empty pattern without wilcards only matches the string (span-ref sp 0)
         (let ((key (span-ref sp 0)))
           (and (fx=? len (string-length key))
                (string-range=? key 0 str 0 len))))
       ((or (string=? str ".") (string=? str ".."))
+        ; the special directory names "." and ".." cannot be matched
+        ; by any pattern containing wildcards
+        #f)
+      ((char=? #\. (string-ref str 0))
+        ; names starting with #\. cannot be matched
+        ; by any pattern containing wildcards
         #f)
       (#t
         (%pattern-match/left sp 0 n str 0 len)))))
@@ -120,15 +139,36 @@
 ;; returns #t or #f.
 (define (%pattern-match/left sp sp-start sp-end str str-start str-end)
   (if (fx>=? str-start str-end)
+    ; consumed all keys. did we also consume the whole string?
     (fx>=? sp-start sp-end)
     (let-values (((sp-step str-step) (%pattern-match/left1 sp sp-start sp-end str str-start str-end)))
-      (if (and sp-step str-step)
+      ; (debugf "%pattern-match/left sp-step=~s str-step=~s~%" sp-step str-step)
+      (if sp-step
+        ; recurse
         (%pattern-match/left sp (fx+ sp-start sp-step) sp-end
                              str (fx+ str-start str-step) str-end)
         #f))))
 
 
+;; recursively determine whether the range [sp-start, sp-end] of the span sp,
+;; which may also contain wildcards, matches range [str-start, str-end) of string str.
+;;
+;; returns #t or #f.
+(define (%pattern-match/right sp sp-start sp-end str str-start str-end)
+  (if (fx>=? str-start str-end)
+    ; consumed all keys. did we also consume the whole string?
+    (fx>=? sp-start sp-end)
+    (let-values (((sp-step str-step) (%pattern-match/right1 sp sp-start sp-end str str-start str-end)))
+      ; (debugf "%pattern-match/right sp-step=~s str-step=~s~%" sp-step str-step)
+      (if sp-step
+        ; recurse
+        (%pattern-match/right sp sp-start (fx- sp-end sp-step)
+                              str str-start (fx- str-end str-step))
+        #f))))
+
+
 ;; determine how many characters of string str range [str-start, str-end)
+;; starting from str-start and moving forward
 ;; are matched by pattern key (span-ref sp sp-start).
 ;;
 ;; return two values:
@@ -139,57 +179,78 @@
     (cond
       ((string? key)
         (values
-          (%pattern-match/string key str str-start str-end)
+          (%pattern-match/left/string key str str-start str-end)
           (string-length key)))
       ((eq? key '?)
         (values
-          (%pattern-match/char str str-start str-end)
+          (%pattern-match/question str str-start str-end)
           1))
       ((eq? key '*)
         (values
-          (%pattern-match/left/star sp sp-start sp-end str str-start str-end)
+          (%pattern-match/right/star sp sp-start sp-end str str-start str-end)
           (fx- str-end str-start)))
       ((memq key '(% %!))
         (values
-          (%pattern-match/alternative sp sp-start str str-start str-end)
+          (and (fx<? str-start str-end)
+               (fx<? (fx1+ sp-start) sp-end)
+               (%pattern-match/alternative key (span-ref sp (fx1+ sp-start)) (string-ref str str-start)))
           1))
       (#t ; unexpected
         (raise-assertf 'sh-pattern-match? "pattern contains unsupported element: ~s" key)))))
 
 
-;; Determine whether range [str-start, str-end) of string str
-;; starts with string key.
+;; determine how many characters of string str range [str-start, str-end)
+;; starting from (fx1- str-end) and moving backward
+;; are matched by pattern key (span-ref sp (fx1- sp-end).
 ;;
-;; if match is successful returns 1,
-;; otherwise returns #f
-(define (%pattern-match/string key str str-start str-end)
-  (let* ((key-len   (string-length key))
-         (str-len   (fx- str-end str-start))
-         (compare-n (fxmin key-len str-len)))
-    (if (and (fx=? key-len compare-n)
-             (string-range=? key 0 str str-start compare-n))
-      1
-      #f)))
+;; return two values:
+;; 1. number of consumed span elements, or #f if match failed.
+;; 2. number of matched string characters
+(define (%pattern-match/right1 sp sp-start sp-end str str-start str-end)
+  (let ((key (%pattern-at sp (fx1- sp-end))))
+    (cond
+      ((string? key)
+        (values
+          (%pattern-match/right/string key str str-start str-end)
+          (string-length key)))
+      ((eq? key '?)
+        (values
+          (%pattern-match/question str str-start str-end)
+          1))
+      ((eq? key '*)
+        (values
+          (%pattern-match/right/star sp sp-start sp-end str str-start str-end)
+          (fx- str-end str-start)))
+      ((memq key '(% %!))
+        (values
+          (and (fx<? str-start str-end)
+               (fx<? sp-start (fx1- sp-end))
+               (%pattern-match/alternative key (span-ref sp (fx- sp-end 2)) (string-ref str (fx1- str-end))))
+          1))
+      (#t ; unexpected
+        (raise-assertf 'sh-pattern-match? "pattern contains unsupported element: ~s" key)))))
+
+;; return key at index i of span sp.
+;; note: if element at index i is a string and is preceded by '% or '%!
+;; we must return such preceding element
+(define (%pattern-at sp i)
+  (let ((key (span-ref sp i)))
+    (if (or (fx<=? i 0) (not (string? key)))
+      key
+      (let ((key2 (span-ref sp (fx1- i))))
+        (if (memq key2 '(% %!))
+          key2
+          key)))))
 
 
 ;; match ? i.e. any single character.
-;; does not match an initial #\. i.e. at str-start = 0
 ;;
 ;; if match is successful returns 1,
 ;; otherwise returns #f
-(define (%pattern-match/char str str-start str-end)
-  (cond
-    ((fx>=? str-start str-end)
-      #f) ; end of string, cannot match a single character
-    ((and (fxzero? str-start) (char=? #\. (string-ref str str-start)))
-      #f) ; cannot match an initial #\.
-    (#t
-      1))) ; match any single character
+(define (%pattern-match/question str str-start str-end)
+  (if (fx<? str-start str-end) 1 #f))
 
-
-
-;; match [ALT] or [!ALT] i.e. alternative characters listed in (span-ref sp (fx1+ sp-start)).
-;; never matches an initial #\.
+;; match [ALT] or [!ALT] i.e. alternative characters against character ch.
 ;;
 ;; [ALT] is represented as '% "ALT" and matches a single character among ALT.
 ;; [!ALT] is represented as '%! "ALT" and matches a single character not among ALT.
@@ -198,30 +259,25 @@
 ;;
 ;; if match is successful returns 2,
 ;; otherwise returns #f
-(define (%pattern-match/alternative sp sp-start str str-start str-end)
-  (if (or (fx>=? str-start str-end) ; end of string, cannot match a single character
-          (and (fxzero? str-start) (char=? #\. (string-ref str str-start)))) ; cannot match an initial #\.
-    #f
-    (let* ((ch  (string-ref str str-start))
-           (alt (span-ref sp (fx1+ sp-start)))
-           (alt-len (string-length alt)))
-      (if (fxzero? alt-len)
-        #f ; missing alternatives
-        (let ((match?
-                (if (string-find/char alt 1 (fxmax 1 (fx- alt-len 2)) #\-)
-                  ; found #\- not at the beginning and not at the end:
-                  ; search among alternatives listed as range(s)
-                  (%pattern-match/range? alt ch)
-                  ; plain string search among alternatives, returns fixnum or #f
-                  (string-find/char alt 0 alt-len ch))))
-          ; if key is '%! then negate the meaning of match?
-          (if (if (eq? '% (span-ref sp sp-start)) match? (not match?))
-            2
-            #f))))))
+(define (%pattern-match/alternative key alt ch)
+  (let ((alt-len (string-length alt)))
+    (if (fxzero? alt-len)
+      #f ; missing alternatives
+      (let ((match?
+              (if (string-find/char alt 1 (fxmax 1 (fx- alt-len 2)) #\-)
+                ; found #\- not at the beginning and not at the end:
+                ; search among alternatives listed as range(s)
+                (%pattern-match/range? alt ch)
+                ; plain string search among alternatives, returns fixnum or #f
+                (string-find/char alt 0 alt-len ch))))
+        ; if key is '%! then negate the meaning of match?
+        (if (if (eq? key '%) match? (not match?))
+          2
+          #f)))))
 
 
 ;; match [ALT] i.e. alternative characters listed in string alt,
-;; which also contains ranges as "a-z"
+;; which also contains ranges as "a-z", against character ch.
 ;;
 ;; if match is successful returns #t,
 ;; otherwise returns #f
@@ -243,6 +299,36 @@
               (%again (fx1+ i))))))))) ; char match failed, iterate
 
 
+;; Determine whether range [str-start, str-end) of string str
+;; starts with string key.
+;;
+;; if match is successful returns 1,
+;; otherwise returns #f
+(define (%pattern-match/left/string key str str-start str-end)
+  (let* ((key-len   (string-length key))
+         (str-len   (fx- str-end str-start))
+         (compare-n (fxmin key-len str-len)))
+    (if (and (fx=? key-len compare-n)
+             (string-range=? key 0 str str-start compare-n))
+      1
+      #f)))
+
+
+;; Determine whether range [str-start, str-end) of string str
+;; ends with string key.
+;;
+;; if match is successful returns 1,
+;; otherwise returns #f
+(define (%pattern-match/right/string key str str-start str-end)
+  (let* ((key-len   (string-length key))
+         (str-len   (fx- str-end str-start))
+         (compare-n (fxmin key-len str-len)))
+    (if (and (fx=? key-len compare-n)
+             (string-range=? key 0 str (fx- str-end compare-n) compare-n))
+      1
+      #f)))
+
+
 ;; recursively determine whether the range [sp-start, sp-end] of the span sp,
 ;; which starts with '* matches range [str-start, str-end) of string str.
 ;;
@@ -250,13 +336,82 @@
 ;; otherwise returns #f
 (define (%pattern-match/left/star sp sp-start sp-end str str-start str-end)
   (cond
-    ((span-iterate sp (lambda (i key) (eq? '* key)))
-      ; a sequence of '* with nothing else matches anything
-      (if (and (fxzero? str-start) (char=? #\. (string-ref str 0)))
-        #f ; except that it cannot match an initial #\.
-        (fx- sp-end sp-start)))
-    (#t ; general case: TODO implement
-      #f)))
+    ((%pattern-all-keys-are? sp sp-start sp-end '*)
+      ; a sequence of one or more '* with nothing else
+      ; matches anything and consumes all '*
+      (fx- sp-end sp-start))
+    ((not (eq? '* (span-ref sp (fx1- sp-end))))
+      ; match from right
+      (%pattern-match/right sp sp-start sp-end str str-start str-end))
+    ((string? (span-ref sp (fx1+ sp-start)))
+      ; '* followed by a string: do an optimized recursion
+      (let* ((sp-start+1 (fx1+ sp-start))
+             (ch (string-ref (span-ref sp sp-start+1) 0)))
+        (let %again/opt ((str-pos str-start))
+          (let ((str-ch-pos (string-find/char str str-pos (fx- str-end str-pos) ch)))
+            (if str-ch-pos
+              (or ; ch found: try to recursively match the remaining pattern after current '*
+                (%pattern-match/left sp sp-start+1 sp-end str str-ch-pos str-end)
+                (%again/opt (fx1+ str-pos))) ; called if match failed: try again immediately after ch
+              #f))))) ; ch not found: match failed
+    (#t
+      ; this is the hard case: no obvious optimizations.
+      ; we must try skipping one character, then two... up to (fx- str-end str-start),
+      ; and match recursively
+      (let ((sp-start+1 (fx1+ sp-start)))
+        (let %again ((str-pos str-start))
+          (if (fx>=? str-pos str-end)
+            #f ; all recursive match attempts failed
+            (or
+              (%pattern-match/left sp sp-start+1 sp-end str str-pos str-end)
+              (%again (fx1+ str-pos))))))))) ; called if match failed: try again skipping one more character
+
+
+;; recursively determine whether the range [sp-start, sp-end] of the span sp,
+;; which starts with '* matches range [str-start, str-end) of string str.
+;;
+;; if match is successful returns (fx- sp-end sp-start)
+;; otherwise returns #f
+(define (%pattern-match/right/star sp sp-start sp-end str str-start str-end)
+  (cond
+    ((%pattern-all-keys-are? sp sp-start sp-end '*)
+      ; a sequence of one or more '* with nothing else
+      ; matches anything and consumes all '*
+      (fx- sp-end sp-start))
+    ((not (eq? '* (span-ref sp sp-start)))
+      ; match from left
+      (%pattern-match/left sp sp-start sp-end str str-start str-end))
+    ((string? (%pattern-at sp (fx- sp-end 2)))
+      ; '* preceded by a string: do an optimized recursion
+      (let* ((sp-end-1 (fx1- sp-end))
+             (key (span-ref sp sp-end-1))
+             (ch (string-ref key (fx1- (string-length key)))))
+        (let %again/opt ((str-pos str-end))
+          (let ((str-ch-pos (string-rfind/char str str-start (fx- str-pos str-start) ch)))
+            (if str-ch-pos
+              (or ; ch found: try to recursively match the remaining pattern before current '*
+                (%pattern-match/right sp sp-start sp-end-1 str str-start (fx1+ str-ch-pos))
+                (%again/opt (fx1- str-pos))) ; called if match failed: try again immediately before ch
+              #f))))) ; ch not found: match failed
+    (#t
+      ; this is the hard case: no obvious optimizations.
+      ; we must try skipping one character, then two... up to (fx- str-end str-start),
+      ; and match recursively
+      (let ((sp-end-1 (fx1- sp-end)))
+        (let %again ((str-pos str-end))
+          (if (fx<=? str-pos str-start)
+            #f ; all recursive match attempts failed
+            (or
+              (%pattern-match/right sp sp-start sp-end-1 str str-start str-pos)
+              (%again (fx1- str-pos))))))))) ; called if match failed: try again skipping one more character
+
+
+;; return #t if all keys in the range [sp-start, sp-end] of the span sp are eq? key.
+;; otherwise return #f
+(define (%pattern-all-keys-are? sp sp-start sp-end key)
+  (do ((i sp-start (fx1+ i)))
+      ((or (fx>=? i sp-end) (not (eq? key (span-ref sp i))))
+        (fx>=? i sp-end))))
 
 
 ;;  customize how "sh-pattern" objects are printed

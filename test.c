@@ -849,17 +849,33 @@ static const testcase tests[] = {
      "  \".xyz\")",
      "#f"},
     {"(sh-pattern-match?"
-     "  (sh-pattern '%! \"a\" \"xyz\")" /* '% never matches an initial dot */
+     "  (sh-pattern '%! \"a\" \"xyz\")" /* '%! never matches an initial dot */
      "  \".xyz\")",
      "#f"},
     {"(sh-pattern-match?"
      "  (sh-pattern '*)" /* '* never matches an initial dot */
-     "  \"uiop.def..\")",
-     "#t"},
-    {"(sh-pattern-match?"
-     "  (sh-pattern '*)" /* '* never matches an initial dot */
      "  \".abc\")",
      "#f"},
+    {"(sh-pattern-match?"
+     "  (sh-pattern '*)"
+     "  \"uiop.def..\")",
+     "#t"},
+    /* match empty pattern */
+    {"(sh-pattern-match? (sh-pattern) \"\")", "#t"},
+    {"(sh-pattern-match? (sh-pattern) \"o\")", "#f"},
+    /* match empty string */
+    {"(sh-pattern-match? (sh-pattern '*) \"\")", "#t"},
+    {"(sh-pattern-match? (sh-pattern '?) \"\")", "#f"},
+    {"(sh-pattern-match? (sh-pattern '% \" -~\") \"\")", "#f"},
+    {"(sh-pattern-match? (sh-pattern '% \"!~\") \"\")", "#f"},
+    {"(sh-pattern-match? (sh-pattern '*) \"\")", "#t"},
+    {"(sh-pattern-match? (sh-pattern '* '*) \"\")", "#t"},
+    {"(sh-pattern-match? (sh-pattern '* '* '*) \"\")", "#t"},
+    /* match '* against strings */
+    {"(try"
+     "  (sh-pattern-match? (sh-pattern '* \"bar\") \"foo.bar\")"
+     "  (catch (ex) ex))",
+     "#t"},
     /* ------------------------- shell paths -------------------------------- */
     {"(sh-path-absolute? (string->charspan* \"/foo\"))", "#t"},
     {"(sh-path-absolute? (string->charspan* \"bar/\"))", "#f"},

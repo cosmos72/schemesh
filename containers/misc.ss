@@ -14,7 +14,7 @@
     bytevector-fill-range! bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?
     string-fill-range! string-range-count= string-range=? string-range<?
-    string-find/char string-split string-iterate)
+    string-find/char string-rfind/char string-split string-iterate)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -280,10 +280,23 @@
   (assert* 'string-find/char (string? str))
   (assert* 'string-find/char (fx<=? 0 start (fx+ start n)))
   (assert* 'string-find/char (char? ch))
-  (do ((i start (fx1+ i))
-       (end (fxmin (fx+ start n) (string-length str))))
-      ((or (fx>=? i end) (char=? ch (string-ref str i)))
-       (if (fx<? i end) i #f))))
+  (let ((end (fxmin (fx+ start n) (string-length str))))
+    (do ((i start (fx1+ i)))
+        ((or (fx>=? i end) (char=? ch (string-ref str i)))
+         (if (fx<? i end) i #f)))))
+
+
+;; search string range [start, start+n) and return index of last character equal to ch.
+;; returned numerical index will be in the range [start, start+n).
+;; return #f if no such character is found in range.
+(define (string-rfind/char str start n ch)
+  (assert* 'string-rfind/char (string? str))
+  (assert* 'string-rfind/char (fx<=? 0 start (fx+ start n)))
+  (assert* 'string-rfind/char (char? ch))
+  (let ((end (fxmin (fx+ start n) (string-length str))))
+    (do ((i (fx1- end) (fx1- i)))
+        ((or (fx<? i start) (char=? ch (string-ref str i)))
+         (if (fx>=? i start) i #f)))))
 
 
 ;; split string range [start, start+n) into a list of strings,

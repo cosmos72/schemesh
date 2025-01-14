@@ -858,8 +858,8 @@
                                      0))
           (linectx-parser-name ctx))))))
 
-;; return (paren-recursive-ok? paren) for outermost paren inside parenmatcher,
-;; and vscreen does not end with an odd number of #\\
+;; return #t if (paren-recursive-ok? paren) is truish for outermost paren inside parenmatcher,
+;; and vscreen ends with an even number of #\\ - for example zero.
 ;;
 ;; reason: an unescaped #\\ must be followed by some other char
 ;; both in scheme and in shell syntax,
