@@ -29,10 +29,37 @@
               (charspan-insert-back/string! ret elem 0 (string-length elem))))
           (charspan->string ret)))
       (#t
-        ; actually expand wildcards
-        (sh-wildcard/expand-patterns job
-          (sh-wildcard/prepare-patterns
-            (sh-wildcard/expand-tilde! job sp)))))))
+        ; actually expand wildcards and match them against filesystem
+        (let ((ret (sh-wildcard/expand-patterns job
+                     (sh-wildcard/prepare-patterns
+                       (sh-wildcard/expand-tilde! job sp)))))
+          (if (null? ret)
+            (sh-wildcard-arg-list->literal-string args)
+            ret))))))
+
+
+(define (sh-wildcard-arg-list->literal-string args)
+  (let ((ret (charspan)))
+    (let %again ((args args))
+      (let ((arg (if (null? args) #f (car args))))
+        (cond
+          ((null? args)
+            (charspan->string ret))
+          ((memq arg '(* ? ~))
+            (charspan-insert-back! ret (case arg ((*) #\*) ((?) #\?) (else #\~)))
+            (%again (cdr args)))
+          ((memq arg '(% %!))
+            (if (eq? arg '%)
+              (charspan-insert-back! ret #\[)
+              (charspan-insert-back/string! ret "[!" 0 2))
+            (let ((alt (cadr args)))
+              (charspan-insert-back/string! ret alt 0 (string-length alt)))
+            (charspan-insert-back! ret #\])
+            (%again (cddr args)))
+          (#t
+            (assert* '%pattern-list->literal-string (string? arg))
+            (charspan-insert-back/string! ret arg 0 (string-length arg))
+            (%again (cdr args))))))))
 
 
 ;; iterate on args list and call any procedure.
@@ -84,15 +111,15 @@
 
 
 ;; given a span containing strings and wildcards,
-;; split the strings around each delimiter / which is omitted
+;; split the strings after each delimiter /
 ;;
 ;; and group into a sh-pattern the wildcards and strings
 ;; that refer to a single directory or file name.
 ;;
 ;; example:
-;;   (span "a/b" '* "c/d")
+;;   (span "a/b" '* "c/def/")
 ;; will be converted to
-;;   (span "a" (span "b" '* "c") "d"))
+;;   (span "a/" (span "b" '* "c/") "def/"))
 (define (sh-wildcard/prepare-patterns sp)
   (let ((ret (span))
         (i 0)
@@ -206,8 +233,24 @@
   sp)
 
 
-;; actually expand sh-patterns in span sp to list matching files on disk.
+;; actually expand sh-patterns in span sp and list matching files on disk.
 ;; returns a string or a list of strings.
 (define (sh-wildcard/expand-patterns job sp)
-  ;; TODO: implement
-  sp)
+  (try
+    (if (span-empty? sp)
+      '()
+      (let* ((ret  (span))
+             (sp0  (span-ref sp 0))
+             (sp00 (if (string? sp0) sp0 (span-ref sp0 0)))
+             (sp00-absolute? (char=? #\/ (string-ref sp00 0)))
+             (dir  (if sp00-absolute? "/" (charspan->string (job-cwd job)))))
+        (span->list (%wildcard/expand-pattern/recurse sp 0 (span-length sp) dir ret))))
+    (catch (ex)
+      (debugf "exception in sh-wildcard/expand-patterns ~s: ~s" sp ex)
+      '())))
+
+;; recursive implementation of (sh-wildcard/expand-patterns)
+;; appends elements to span ret and returns it.
+(define (%wildcard/expand-pattern/recurse sp i sp-end dir ret)
+  ; TODO implement
+  ret)

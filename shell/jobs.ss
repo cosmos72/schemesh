@@ -51,7 +51,7 @@
     (only (chezscheme) append! break display-string eval foreign-procedure format fx1+ fx1-
                        include inspect logand logbit? make-format-condition make-thread-parameter
                        open-fd-output-port parameterize procedure-arity-mask record-writer reverse! void)
-    (only (schemesh bootstrap) assert* debugf sh-eval raise-assertv raise-errorf until while)
+    (only (schemesh bootstrap) assert* catch debugf sh-eval raise-assertv raise-errorf try until while)
     (schemesh containers)
     (schemesh conversions)
     (schemesh posix fd)
