@@ -242,11 +242,11 @@
       (let* ((ret  (span))
              (sp0  (span-ref sp 0))
              (sp00 (if (string? sp0) sp0 (span-ref sp0 0)))
-             (sp00-absolute? (char=? #\/ (string-ref sp00 0)))
+             (sp00-absolute? (and (string? sp00) (char=? #\/ (string-ref sp00 0))))
              (dir  (if sp00-absolute? "/" (charspan->string (job-cwd job)))))
         (span->list (%wildcard/expand-pattern/recurse sp 0 (span-length sp) dir ret))))
     (catch (ex)
-      (debugf "exception in sh-wildcard/expand-patterns ~s: ~s" sp ex)
+      (debugf "exception in sh-wildcard/expand-patterns ~s: ~a" sp ex)
       '())))
 
 ;; recursive implementation of (sh-wildcard/expand-patterns)
