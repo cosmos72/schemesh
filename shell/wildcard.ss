@@ -252,10 +252,10 @@
                          "")))))
         (span->list (%wildcard/expand-pattern/recurse sp 0 (span-length sp) dir ret))))
     (catch (ex)
-      (debugf "exception in sh-wildcard/expand-patterns ~s:" sp)
-      (let ((port (debugf-port)))
-        (display-condition ex port)
-        (newline port))
+      ; (debugf "exception in sh-wildcard/expand-patterns ~s:" sp)
+      ; (let ((port (debugf-port)))
+      ;   (display-condition ex port)
+      ;   (newline port))
       '())))
 
 
