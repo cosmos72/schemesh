@@ -40,7 +40,7 @@
 ;; or if mismatched end token is found, as for example ']' instead of ')'
 (define (parse-scheme-forms1 ctx)
   (let-values (((ret _) (parse-lisp-forms ctx 'eof 'scheme)))
-    ; (debugf "<>  parse-scheme-forms1 ret=~s~%" ret)
+    ; (debugf "<>  parse-scheme-forms1 ret=~s" ret)
     ret))
 
 

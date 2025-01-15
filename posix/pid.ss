@@ -69,7 +69,7 @@
   (let ((c-pid-kill (foreign-procedure "c_pid_kill" (int int) int))
         (c-errno-einval ((foreign-procedure "c_errno_einval" () int))))
     (lambda (pid signal-name)
-      ; (format #t "pid-kill ~s ~s~%" pid signal-name)
+      ; (format #t "pid-kill ~s ~s" pid signal-name)
       (let ((signal-number (signal-name->number signal-name)))
         (if (fixnum? signal-number)
           (c-pid-kill pid signal-number)
@@ -105,7 +105,7 @@
 ;               ; if kill() returns, will call C function exit(128 + signal_number)
 ;   ... any other value ... ;  will call C function exit(255)
 (define (exit-with-job-status status)
-  ; (debugf "exit-with-job-status ~s~%" status)
+  ; (debugf "exit-with-job-status ~s" status)
   (let ((exit-status
          (cond
             ((eq? (void) status) 0)

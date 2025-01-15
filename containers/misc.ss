@@ -273,42 +273,42 @@
        (fx>=? i n))))
 
 
-;; search string range [start, start+n) and return index of first character equal to ch.
-;; returned numerical index will be in the range [start, start+n).
+;; search string range [start, end) and return index of first character equal to ch.
+;; returned numerical index will be in the range [start, end).
 ;; return #f if no such character is found in range.
-(define (string-find/char str start n ch)
+(define (string-find/char str start end ch)
   (assert* 'string-find/char (string? str))
-  (assert* 'string-find/char (fx<=? 0 start (fx+ start n)))
+  (assert* 'string-find/char (fx<=? 0 start end))
   (assert* 'string-find/char (char? ch))
-  (let ((end (fxmin (fx+ start n) (string-length str))))
+  (let ((end (fxmin end (string-length str))))
     (do ((i start (fx1+ i)))
         ((or (fx>=? i end) (char=? ch (string-ref str i)))
          (if (fx<? i end) i #f)))))
 
 
-;; search string range [start, start+n) and return index of last character equal to ch.
-;; returned numerical index will be in the range [start, start+n).
+;; search string range [start, end) and return index of last character equal to ch.
+;; returned numerical index will be in the range [start, end).
 ;; return #f if no such character is found in range.
-(define (string-rfind/char str start n ch)
+(define (string-rfind/char str start end ch)
   (assert* 'string-rfind/char (string? str))
-  (assert* 'string-rfind/char (fx<=? 0 start (fx+ start n)))
+  (assert* 'string-rfind/char (fx<=? 0 start end))
   (assert* 'string-rfind/char (char? ch))
-  (let ((end (fxmin (fx+ start n) (string-length str))))
+  (let ((end (fxmin end (string-length str))))
     (do ((i (fx1- end) (fx1- i)))
         ((or (fx<? i start) (char=? ch (string-ref str i)))
          (if (fx>=? i start) i #f)))))
 
 
-;; split string range [start, start+n) into a list of strings,
+;; split string range [start, end) into a list of strings,
 ;; delimited by character delim - which is not included in returned list of strings
-(define (string-split str start n delim)
+(define (string-split str start end delim)
   (let ((l '())
         (prev-pos+1 start)
-        (n (fxmin n (fx- (string-length str) start))))
-    (when (fx>? n 0)
+        (end (fxmin end (string-length str))))
+    (when (fx>? end start)
       (while prev-pos+1
-        (let ((pos (string-find/char str prev-pos+1 n delim)))
-          (set! l (cons (substring str prev-pos+1 (or pos (fx+ start n))) l))
+        (let ((pos (string-find/char str prev-pos+1 end delim)))
+          (set! l (cons (substring str prev-pos+1 (or pos end)) l))
           (set! prev-pos+1 (if pos (fx1+ pos) #f)))))
     (reverse! l)))
 
@@ -346,14 +346,14 @@
 
 (define (string-range<? left  left-start  left-end
                         right right-start right-end)
-   ; (debugf "> string-range<? left=~s, left-start=~s, left-end=~s, right=~s, right-start=~s, right-end=~s~%"
+   ; (debugf "> string-range<? left=~s, left-start=~s, left-end=~s, right=~s, right-start=~s, right-end=~s"
    ;         left left-start left-end right right-start right-end)
    (let ((done? #f)
          (ret   #f))
      (do ((i left-start  (fx1+ i))
           (j right-start (fx1+ j)))
          (done?)
-       ; (debugf ". string-range<? i=~s, j=~s~%" i j)
+       ; (debugf ". string-range<? i=~s, j=~s" i j)
        (cond
          ((fx>=? i left-end)
            (set! done? #t))
@@ -369,7 +369,7 @@
                   (set! done? #t))
                 ((char>? ch1 ch2)
                   (set! done? #t)))))))
-     ; (debugf "< string-range<? ret=~s~%" ret)
+     ; (debugf "< string-range<? ret=~s" ret)
      ret))
 
 ) ; close library

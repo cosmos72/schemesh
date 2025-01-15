@@ -85,7 +85,7 @@
       (if flag?
         (fxior flags bit)
         (fxand flags (fxnot bit))))))
-;; (debugf "linectx-flag-set! ~s -> ~s~%" flags (linectx-flags ctx))))
+;; (debugf "linectx-flag-set! ~s -> ~s" flags (linectx-flags ctx))))
 
 (define (linectx-eof? ctx)
   (linectx-flag? ctx flag-eof?))

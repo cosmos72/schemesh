@@ -112,14 +112,14 @@
 
 ;; traverse paren and convert it to a hashtable (+ x (* y 65536)) -> paren
 (define (paren->hashtable paren)
-  ;; (debugf "(paren->hashtable ~s)~%" paren)
+  ;; (debugf "(paren->hashtable ~s)" paren)
   (if paren
     (%paren->hashtable paren (make-eqv-hashtable))
     #f))
 
 ;; actual implementation of (paren->hashtable)
 (define (%paren->hashtable paren htable)
-  ;; (debugf "(%paren->hashtable ~s)~%" paren)
+  ;; (debugf "(%paren->hashtable ~s)" paren)
   (when (paren-start-token paren)
     (%hashtable-put-paren-start htable paren))
   (when (paren-end-token paren)
@@ -186,7 +186,7 @@
 (define (%paren-find/surrounds paren xy outer-start-xy outer-end-xy)
   (let-values (((start-xy end-xy surrounds?)
                   (%paren-surrounds? paren xy outer-start-xy outer-end-xy)))
-    ; (debugf "  > paren-find/surrounds paren=~s, xy=~s, start-xy=~s, end-xy=~s, surrounds=~s, outer-start-xy=~s, outer-end-xy=~s~%"
+    ; (debugf "  > paren-find/surrounds paren=~s, xy=~s, start-xy=~s, end-xy=~s, surrounds=~s, outer-start-xy=~s, outer-end-xy=~s"
     ;         paren xy start-xy end-xy surrounds? outer-start-xy outer-end-xy)
     (and surrounds?
          (%paren-find-inner/surrounds paren xy start-xy end-xy))))

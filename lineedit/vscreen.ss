@@ -317,7 +317,7 @@
         ;; x position immediately after last char is allowed
         (let* ((linemax (fx- (vscreen-length-at-y screen y) (if (fx=? y ymax) 0 1)))
                (delta   (fxmax 0 (fxmin n (fx- linemax x)))))
-          ; (debugf "~%; vscreen-cursor-move/right! n ~s, x ~s, xmax ~s, y ~s, ymax ~s, delta ~s~%" n x xmax y ymax delta)
+          ; (debugf "~%; vscreen-cursor-move/right! n ~s, x ~s, xmax ~s, y ~s, ymax ~s, delta ~s" n x xmax y ymax delta)
           (set! n (fx- n delta))
           (set! x (fx+ x delta))
           (when (and (fx>? n 0) (fx>=? x linemax) (fx<? y ymax))
@@ -398,7 +398,7 @@
       (vscreen-dirty-set! screen #t)
       (let ((saved-y y))
         (while (and (fx>? n 0) (fx<? -1 y (vscreen-length screen)))
-          ;; (debugf "vscreen-erase-at-xy! ~s chars to delete at y = ~s~%" n y)
+          ;; (debugf "vscreen-erase-at-xy! ~s chars to delete at y = ~s" n y)
           (let* ((line (charlines-ref screen y))
                  (len  (charline-length line))
                  (i    (fxmin n (fx- len x))))
@@ -505,12 +505,12 @@
 ;; stops when a modified line has length <= vscreen width.
 ;; return y of last modified line.
 (define (vscreen-overflow-at-y screen y)
-  ; (debugf "~%; before vscreen-overflow-at-y ~s ~s~%" y screen)
+  ; (debugf "~%; before vscreen-overflow-at-y ~s ~s" y screen)
   (let ((line1 (vscreen-line-at-y screen y)))
     (when line1
       (while (and (fx<? y (vscreen-length screen))
                   (fx>? (charline-length line1) (vscreen-width-at-y screen y)))
-        ; (debugf "while0 vscreen-overflow-at-y ~s ~s ~s~%" y line1 screen)
+        ; (debugf "while0 vscreen-overflow-at-y ~s ~s ~s" y line1 screen)
         (vscreen-dirty-set! screen #t)
         (let* ((line1-nl?  (charline-nl? line1))
                (line1-len  (charline-length line1))
@@ -529,12 +529,12 @@
             (charline-insert-at/cbuf! line2 0 line1 line1-pos n)
             ;; remove chars from line1
             (charline-erase-at! line1 line1-pos n))
-          ; (debugf "while1 vscreen-overflow-at-y ~s ~s ~s~%" y line1 screen)
+          ; (debugf "while1 vscreen-overflow-at-y ~s ~s ~s" y line1 screen)
           ;; iterate on line2, as it may now have length >= vscreen-width-at-y
           (set! y y+1)
           (set! line1 line2)))))
   (vscreen-append-empty-line-if-needed screen)
-  ; (debugf "after  vscreen-overflow-at-y at ~s: ~s~%" y screen)
+  ; (debugf "after  vscreen-overflow-at-y at ~s: ~s" y screen)
   y)
 
 
@@ -670,7 +670,7 @@
       ;; allow positioning cursor after end of line only if it's the last line
       (let ((xmax (fx- (charline-length (charlines-ref screen y))
                        (if (fx=? y ymax) 0 1))))
-        ;; (debugf "vscreen-prev-xy xy = (~s ~s), xmax = ~s~%" x y xmax)
+        ;; (debugf "vscreen-prev-xy xy = (~s ~s), xmax = ~s" x y xmax)
         (if (fx<=? 1 x xmax)
           (values (fx1- x) y) ;; (x-1 y) is a valid position, return it
           (if (fx>? y 0)
@@ -689,7 +689,7 @@
       ;; allow positioning cursor after end of line only if it's the last line
       (let ((xmax (fx- (charline-length (charlines-ref screen y))
                        (if (fx=? y ymax) 0 1))))
-        ;; (debugf "vscreen-next-xy xy = (~s ~s), xmax = ~s~%" x y xmax)
+        ;; (debugf "vscreen-next-xy xy = (~s ~s), xmax = ~s" x y xmax)
         (if (fx<? -1 x xmax)
           (values (fx1+ x ) y) ;; (x+1 y) is a valid position, return it
           (if (fx<? y ymax)
@@ -759,7 +759,7 @@
                      (and ch (pred ch)))))
     (while continue?
       (let-values (((x1 y1 ch) (vscreen-char-after-xy screen x y)))
-        ;; (debugf "vscreen-count-at-xy/right xy = (~s ~s), ch = ~s~%" x1 y1 ch)
+        ;; (debugf "vscreen-count-at-xy/right xy = (~s ~s), ch = ~s" x1 y1 ch)
         (set! continue? (and x1 y1 ch (pred ch)))
         (when continue?
           (set! x x1)

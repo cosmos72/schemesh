@@ -33,10 +33,10 @@
   (let* ((paren (lineedit-paren-find/surrounds-cursor lctx))
          (func  (%sh-autocomplete-func lctx paren))
          (completions-span (linectx-completions lctx)))
-    ; (debugf "> sh-autocomplete paren = ~s, func = ~s~%" paren func)
+    ; (debugf "> sh-autocomplete paren = ~s, func = ~s" paren func)
     (span-clear! completions-span)
     (func lctx paren completions-span)
-    ; (debugf "< sh-autocomplete completions = ~s~%" completions-span)
+    ; (debugf "< sh-autocomplete completions = ~s" completions-span)
     ))
 
 

@@ -137,7 +137,7 @@
     (do ((parent job (job-parent parent)))
         ((not parent))
       (set! n (job-fill-c-redirect-vector/norecurse parent child-dir v n)))
-    ; (debugf "job-make-c-redirect-vector job=~s redirect-vector=~s~%" job v)
+    ; (debugf "job-make-c-redirect-vector job=~s redirect-vector=~s" job v)
     v))
 
 
@@ -254,7 +254,7 @@
 
 ;; Internal function called by (job-advance)
 (define (job-advance/pid mode job)
-  ; (debugf "job-advance/pid > ~s ~s status=~s~%" mode job (job-last-status job))
+  ; (debugf "job-advance/pid > ~s ~s status=~s" mode job (job-last-status job))
   (cond
     ((job-finished? job)
       (job-last-status job)) ; job exited, and exit status already available
@@ -279,7 +279,7 @@
   (when (memq mode '(sh-fg sh-bg sh-sigcont+wait))
     ; send SIGCONT to job's process group, if present.
     ; otherwise send SIGCONT to job's process id. Both may raise error
-    ; (debugf "job-advance/pid/sigcont > ~s ~s~%" mode job)
+    ; (debugf "job-advance/pid/sigcont > ~s ~s" mode job)
     (pid-kill (if (> pgid 0) (- pgid) pid) 'sigcont)))
 
 
@@ -293,7 +293,7 @@
   (let* ((may-block   (if (memq mode '(sh-bg sh-job-status)) 'nonblocking 'blocking))
          (wait-status (pid-wait->job-status (pid-wait (job-pid job) may-block)))
          (kind        (job-status->kind wait-status)))
-    ; (debugf "job-advance/pid/wait > ~s ~s wait-status=~s~%" mode job wait-status)
+    ; (debugf "job-advance/pid/wait > ~s ~s wait-status=~s" mode job wait-status)
     ; if may-block is 'non-blocking, wait-status may be '(running . #f)
     ; indicating job status did not change i.e. it's (expected to be) still running
     (case kind

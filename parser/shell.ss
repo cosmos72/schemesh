@@ -209,10 +209,10 @@
   (let ((ret     '())
         (again?  #t)
         (splice? #f))
-    ; (debugf ">   read-subwords-noquote equal-is-operator?=~s, lbracket-is-subshell?=~s wildcards?=~s, inside-backquote?=~s~%" equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?)
+    ; (debugf ">   read-subwords-noquote equal-is-operator?=~s, lbracket-is-subshell?=~s wildcards?=~s, inside-backquote?=~s" equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?)
     (while again?
       (let ((word (read-subword-noquote ctx equal-is-operator? lbracket-is-subshell? wildcards?)))
-        ; (debugf "... read-subwords-noquote subword=~s~%" word)
+        ; (debugf "... read-subwords-noquote subword=~s" word)
         (cond
           ((eq? word '=)
             (let-values (((words2 _) (parse-shell-word ctx #f #f #f inside-backquote?)))
@@ -225,7 +225,7 @@
             (set! ret (cons word ret)))
           (#t
             (set! again? #f)))))
-    ; (debugf "<   read-subwords-noquote ret=~s splice?=~s~%" (reverse ret) splice?)
+    ; (debugf "<   read-subwords-noquote ret=~s splice?=~s" (reverse ret) splice?)
     (cond
       (splice?            (values ret 'rsplice))
       ((null? ret)        (values "" 'atom))
@@ -246,10 +246,10 @@
 (define (read-subword-noquote ctx equal-is-operator? lbracket-is-subshell? wildcards?)
   (let ((word   (charspan))
         (again? #t))
-    ; (debugf ">   read-subword-noquote equal-is-operator?=~s, lbracket-is-subshell?=~s wildcards?=~s~%" equal-is-operator? lbracket-is-subshell? wildcards?)
+    ; (debugf ">   read-subword-noquote equal-is-operator?=~s, lbracket-is-subshell?=~s wildcards?=~s" equal-is-operator? lbracket-is-subshell? wildcards?)
     (while again?
       (let-values (((ch type) (read-shell-char ctx)))
-        ; (debugf "... read-subword-noquote ch=~s type=~s ret=~s~%" ch type word)
+        ; (debugf "... read-subword-noquote ch=~s type=~s ret=~s" ch type word)
         (cond
           ((eq? type 'backslash)
             ; read next char, suppressing any special meaning it may have
@@ -298,7 +298,7 @@
             ; and where characters ( ) inside an unquoted string are a syntax error.
             (parsectx-unread-char ctx ch)
             (set! again? #f)))))
-    ; (debugf "<   read-subword-noquote ret=~s~%" word)
+    ; (debugf "<   read-subword-noquote ret=~s" word)
     (cond
       ((or (not word) (symbol? word))
         word)
@@ -347,10 +347,10 @@
          (%append (lambda (subword)
            (unless (and (string? subword) (fxzero? (string-length subword)))
              (set! ret (cons subword ret))))))
-    ; (debugf "> parse-shell-word equal-is-operator?=~s, lbracket-is-subshell?=~s, inside-backquote?=~s~%" equal-is-operator? lbracket-is-subshell? inside-backquote?)
+    ; (debugf "> parse-shell-word equal-is-operator?=~s, lbracket-is-subshell?=~s, inside-backquote?=~s" equal-is-operator? lbracket-is-subshell? inside-backquote?)
     (while again?
       (let-values (((ch type) (peek-shell-char ctx)))
-        ; (debugf "... parse-shell-word ch=~s, type=~s, ret=~s~%" ch type ret)
+        ; (debugf "... parse-shell-word ch=~s, type=~s, ret=~s" ch type ret)
         (case type
           ((eof)
             (when dquote?
@@ -399,7 +399,7 @@
               (#t
                 (set! again? #f)))))))
 
-    ; (debugf "< parse-shell-word ret=~s~%" (reverse ret))
+    ; (debugf "< parse-shell-word ret=~s" (reverse ret))
     (cond
       (splice?            (values (reverse! ret) 'splice))
       ((null? ret)        (values ""             'atom))
@@ -471,7 +471,7 @@
 
       ; read a single shell token
       (let-values (((value type) (lex-shell-impl ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?)))
-        ; (debugf "lex-shell value=~s type=~s~%" value type)
+        ; (debugf "lex-shell value=~s type=~s" value type)
         (if (and (eq? 'atom type)
                  (string? value)
                  (string-contains-only-decimal-digits? value)
@@ -533,17 +533,17 @@
          (done? #f)
          (parser #f)
          (%merge (lambda (ret forms)
-           ; (debugf "... parse-shell-forms > %merge ret=~s other-forms=~s~%" ret forms)
+           ; (debugf "... parse-shell-forms > %merge ret=~s other-forms=~s" ret forms)
            (if (null? ret)
              forms
              (let ((simplified (%simplify-parse-shell-forms end-type prefix ret)))
                (let ((merged (if (null? forms) simplified (append! simplified forms))))
-                 ; (debugf "... parse-shell-forms < %merge ret=~s~%" merged)
+                 ; (debugf "... parse-shell-forms < %merge ret=~s" merged)
                  merged))))))
-    ; (debugf ">   parse-shell-forms end-type=~s prefix=~s~%" end-type prefix)
+    ; (debugf ">   parse-shell-forms end-type=~s prefix=~s" end-type prefix)
     (until done?
       (let-values (((value type) (lex-shell ctx equal-is-operator? lbracket-is-subshell? #t inside-backquote?)))
-        ; (debugf "... parse-shell-forms end-type=~s prefix=~s ret=~s value=~s type=~s~%" end-type prefix (if prefix (reverse ret) ret) value type)
+        ; (debugf "... parse-shell-forms end-type=~s prefix=~s ret=~s value=~s type=~s" end-type prefix (if prefix (reverse ret) ret) value type)
         (set! lbracket-is-subshell? #f)
         (case type
           ((eof)
@@ -597,10 +597,10 @@
           ((lbrace lbrack dollar+lparen)
             ; TODO: $(...) may be followed by other words without a space
             (let-values (((form _) (parse-shell-forms ctx type)))
-              ; (debugf "... parse-shell-forms nested_form=~s ret=~s~%" form ret)
+              ; (debugf "... parse-shell-forms nested_form=~s ret=~s" form ret)
               (unless (null? form)
                 (set! ret (cons form ret)))
-              ; (debugf "... parse-shell-forms nested_form    ret=~s~%" ret)
+              ; (debugf "... parse-shell-forms nested_form    ret=~s" ret)
             ))
           ((rbrace rbrack rparen)
             (unless (eq? type end-type)
@@ -613,9 +613,9 @@
         (set! can-change-parser? (eq? 'separator type))
         (set! equal-is-operator? (or (eq? 'separator type) (eq? 'splice type)))))
 
-    ; (debugf "... parse-shell-forms end-type=~s prefix=~s ret=~s~%" end-type prefix (if prefix (reverse ret) ret))
+    ; (debugf "... parse-shell-forms end-type=~s prefix=~s ret=~s" end-type prefix (if prefix (reverse ret) ret))
     (let ((simplified (%simplify-parse-shell-forms end-type prefix ret)))
-      ; (debugf "<   parse-shell-forms ret=~s~%" simplified)
+      ; (debugf "<   parse-shell-forms ret=~s" simplified)
       (values simplified parser))))
 
 
@@ -722,12 +722,12 @@
                                 (else (or start-ch #t))))
          (ret    #f))
 
-    ; (debugf ">   parse-shell-paren start-ch=~a end-ch=~a~%" start-ch end-ch)
+    ; (debugf ">   parse-shell-paren start-ch=~a end-ch=~a" start-ch end-ch)
     (let-values (((x y) (parsectx-previous-pos ctx (if start-ch 1 0))))
       (paren-start-xy-set! paren x y))
     (until ret
       (let ((token (scan-shell-paren-or-directive ctx)))
-        ; (debugf "... parse-shell-paren token=~s paren=~s~%" token paren)
+        ; (debugf "... parse-shell-paren token=~s paren=~s" token paren)
         (cond
           ((not token) ; not a grouping token
              #f)
@@ -741,7 +741,7 @@
               (let* ((other-parser      (get-parser-or-false ctx token))
                      (other-parse-paren (and other-parser (parser-parse-paren other-parser)))
                      (other-paren       (and other-parse-paren (other-parse-paren ctx start-ch))))
-                 ; (debugf "... parse-shell-paren other-paren=~s~%" other-paren)
+                 ; (debugf "... parse-shell-paren other-paren=~s" other-paren)
                  (when other-paren
                    (paren-inner-append! paren other-paren)
                    (set! ret #t)))))
@@ -793,7 +793,7 @@
                         (parsectx-current-pos ctx))))
     (paren-end-xy-set! paren x y)
     (paren-end-token-set! paren end-token)
-    ; (debugf "shell paren-fill-end! paren=~s end-token=~s x=~s y=~s~%" paren end-token x y)
+    ; (debugf "shell paren-fill-end! paren=~s end-token=~s x=~s y=~s" paren end-token x y)
   ))
 
 

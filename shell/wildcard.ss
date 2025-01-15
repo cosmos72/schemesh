@@ -156,7 +156,7 @@
 
 
 (define (%last-is-slash? str str-index sp subspan)
-  ; (debugf "%last-is-slash? str=~s, str-index=~s, sp=~s subspan=~s~%" str str-index sp subspan)
+  ; (debugf "%last-is-slash? str=~s, str-index=~s, sp=~s subspan=~s" str str-index sp subspan)
   (or
     (and (fx>? str-index 0) (char=? #\/ (string-ref str (fx1- str-index))))
     ; by construction, an empty subspan is preceded by another subspan that ends with /

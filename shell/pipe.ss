@@ -80,7 +80,7 @@
         (set! out-pipe-fd/write fd/write)
         (job-redirect/fd! job 1 '>& fd/write)))
 
-    ; (debugf "job-start/pipe-i starting job=~s, options=~s~%" job options)
+    ; (debugf "job-start/pipe-i starting job=~s, options=~s" job options)
 
     ; Do not yet assign a job-id. Reuse mj process group id
     (start/any job options)
@@ -105,7 +105,7 @@
 ;;
 ;; mode must be one of: sh-fg sh-bg sh-wait sh-sigcont+wait sh-subshell sh-job-status
 (define (job-advance/pipe mode mj)
-  ; (debugf ">   job-advance/pipe mode=~s mj=~s~%" mode mj)
+  ; (debugf ">   job-advance/pipe mode=~s mj=~s" mode mj)
   (let ((pgid (job-pgid mj)))
     (if (and (> pgid 0) (memq mode '(sh-fg sh-wait sh-sigcont+wait sh-subshell)))
       (with-foreground-pgid mode (job-pgid sh-globals) pgid
@@ -114,7 +114,7 @@
       (begin
         (job-advance/pipe/maybe-sigcont mode mj pgid)
         (job-advance/pipe/wait mode mj))))
-  ; (debugf "< job-advance/pipe job-status=~s~%" (job-last-status mj))
+  ; (debugf "< job-advance/pipe job-status=~s" (job-last-status mj))
   )
 
 
@@ -122,12 +122,12 @@
   ; send SIGCONT to job's process group, if present.
   ; It may raise error.
   (when (and (> pgid 0) (memq mode '(sh-fg sh-bg sh-sigcont+wait)))
-    ; (debugf "job-advance/pipe/sigcont > ~s ~s~%" mode mj)
+    ; (debugf "job-advance/pipe/sigcont > ~s ~s" mode mj)
     (pid-kill (- pgid) 'sigcont)))
 
 
 (define (job-advance/pipe/wait mode mj)
-  ; (debugf ">   job-advance/pipe/wait mode=~s mj=~s~%" mode mj)
+  ; (debugf ">   job-advance/pipe/wait mode=~s mj=~s" mode mj)
   (let* ((children  (multijob-children mj))
          (n         (span-length children))
          (running-i (multijob-current-child-index mj)))
@@ -163,6 +163,6 @@
                (redirect-in?  (fx>? i 0))
                (redirect-out? (fx<? i (fx1- n)))
                (erase-n       (fx+ (if redirect-in? 4 0) (if redirect-out? 4 0))))
-          ; (debugf ">   job-advance/pipe/remove-children-redirections erase-n=~s job=~s~%" erase-n job)
+          ; (debugf ">   job-advance/pipe/remove-children-redirections erase-n=~s job=~s" erase-n job)
           (when (fx>=? (span-length redirects) erase-n)
             (span-erase-back! redirects erase-n)))))))

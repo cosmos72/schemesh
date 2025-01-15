@@ -123,7 +123,7 @@
 ;; move tty cursor from its current tty position at from-x, from-y
 ;; back to linectx-term-x linectx-term-y
 (define (lineterm-move-from ctx from-x from-y)
-  ;; (debugf "lineterm-move-from (~s ~s)~%" from-x from-y)
+  ;; (debugf "lineterm-move-from (~s ~s)" from-x from-y)
   (lineterm-move ctx from-x from-y (linectx-term-x ctx) (linectx-term-y ctx)))
 
 ;; move tty cursor from its current tty position at linectx-term-x linectx-term-y

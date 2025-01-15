@@ -25,8 +25,10 @@
 (define-record-type
   (%pattern %make-pattern sh-pattern?)
   (fields
-     (immutable sp     pattern-span)
-     (immutable fixed? pattern-fixed?)) ; #t if sp only contains strings
+     (immutable sp      pattern-span)
+     (immutable min-len pattern-min-len) ; the length of shortest string that can be matched
+     (immutable max-len pattern-max-len) ; #f or the the length of longest string that can be matched
+     (immutable fixed?  pattern-fixed?)) ; #t if sp contains only strings
   ; (nongenerative #{%pattern ...})
   )
 
@@ -54,7 +56,8 @@
     ; => if span contains only strings, it must have length 1
     (when (and fixed? (fx>? n 1))
       (raise-assertf 'sh-pattern "adjacent strings are not allowed, consider merging them: ~s" sp))
-    (%make-pattern sp fixed?)))
+    (let-values (((min-len max-len) (%pattern-minmax-length sp 0 n 0 0)))
+      (%make-pattern sp min-len max-len fixed?))))
 
 
 ;; view a sh-pattern as a span.
@@ -67,8 +70,7 @@
 ;; validate a span to be used inside a sh-pattern.
 ;; raises condition if span contents is not valid for sh-pattern.
 ;;
-;; returns #t if span contains only strings,
-;; otherwise returns #f
+;; returns #t if span contains only strings, otherwise #f
 (define (%validate-span sp i n contains-wildcard? prev-is-string?)
   (if (fx>=? i n)
     (not contains-wildcard?)
@@ -76,12 +78,13 @@
           (i+1 (fx1+ i)))
       (cond
         ((string? obj)
-          (when prev-is-string?
-            (raise-assertf 'sh-pattern "adjacent strings are not allowed, consider merging them: ~s ~s"
-              obj (span-ref sp (fx1- i))))
-          (when (fxzero? (string-length obj))
-            (raise-assertf 'sh-pattern "empty strings are not allowed: ~s" obj))
-          (%validate-span sp (fx1+ i) n contains-wildcard? #t))
+          (let ((str-len (string-length obj)))
+            (when prev-is-string?
+              (raise-assertf 'sh-pattern "adjacent strings are not allowed, consider merging them: ~s ~s"
+                obj (span-ref sp (fx1- i))))
+            (when (fxzero? str-len)
+              (raise-assertf 'sh-pattern "empty strings are not allowed: ~s" obj))
+            (%validate-span sp (fx1+ i) n contains-wildcard? #t))) ; prev-is-string?
         ((sh-wildcard? obj)
           (when (memq obj '(% %!))
             (when (fx=? i+1 n)
@@ -90,12 +93,38 @@
             (let ((obj2 (span-ref sp i)))
               (unless (string? obj2)
                 (raise-assertf 'sh-pattern "expecting a string after wildcard symbol '~a, found ~s" obj obj2))))
-          (%validate-span sp (fx1+ i) n #t #f))
+          (%validate-span sp (fx1+ i) n #t ; contains-wildcard?
+                             #f)) ; prev-is-string?
         (#t
           (raise-assertf 'sh-pattern "expecting a string or sh-wildcard? symbol, found ~s" obj))))))
 
 
-;; Determine whether sh-pattern matches specified string. Returns #t or #f.
+;; analyze range [i, end) of span sp and return two values;
+;;   1. the length of shortest string that can be matched
+;;   2. the length of longest string that can be matched, or #f if unlimited
+(define (%pattern-minmax-length sp i end min-len max-len)
+  (if (fx>=? i end)
+    (values min-len max-len)
+    (let ((obj (span-ref sp i))
+          (i+1 (fx1+ i)))
+      (cond
+        ((string? obj)
+          (let ((str-len (string-length obj)))
+            (%pattern-minmax-length sp (fx1+ i) end
+              (fx+ min-len str-len)                    ; updated min-len
+              (if max-len (fx+ max-len str-len) #f)))) ; updated max-len
+        ((sh-wildcard? obj)
+          (%pattern-minmax-length sp
+              (if (memq obj '(% %!)) (fx1+ i+1) i+1) ; updated i
+              end
+              (if (eq? obj '*) min-len (fx1+ min-len))                  ; updated min-len
+              (if (and max-len (not (eq? obj '*))) (fx1+ max-len) #f))) ; updated max-len
+        (#t
+          (raise-assertf 'sh-pattern "expecting a string or sh-wildcard? symbol, found ~s" obj))))))
+
+
+;; Determine whether sh-pattern matches specified string.
+;; Returns #t or #f.
 ;;
 ;; Note: if a sh-pattern contains one or more wildcard symbols,
 ;; it intentionally never matches the strings "." or ".."
@@ -110,12 +139,15 @@
       ((span-empty? sp)
         ; an empty pattern can only match the empty string
         (fxzero? len))
+      ((or (fx<? len (pattern-min-len p))
+           (and (pattern-max-len p)
+                (fx>? len (pattern-max-len p))))
+        ; name is shorter than minimum length, or longer than maximum length - cannot be matched
+        #f)
       ((fxzero? len)
         ; an empty name can only be matched by an empty pattern (already checked above)
         ; or by a sequence of '* with nothing else
-        (span-iterate sp
-          (lambda (i key)
-            (eq? key '*))))
+        (%pattern-all-keys-are? sp 0 n '*))
       ((pattern-fixed? p)
         ; a non-empty pattern without wilcards only matches the string (span-ref sp 0)
         (let ((key (span-ref sp 0)))
@@ -125,27 +157,31 @@
         ; the special directory names "." and ".." cannot be matched
         ; by any pattern containing wildcards
         #f)
-      ((char=? #\. (string-ref str 0))
+      ((and (char=? #\. (string-ref str 0)) (symbol? (span-ref sp 0)))
         ; names starting with #\. cannot be matched
-        ; by any pattern containing wildcards
+        ; by a pattern starting with a wildcard
         #f)
       (#t
-        (%pattern-match/left sp 0 n str 0 len)))))
+        (if (%pattern-match/left sp 0 n 0 str 0 len)
+          #t
+          #f)))))
 
 
 ;; recursively determine whether the range [sp-start, sp-end] of the span sp,
 ;; which may also contain wildcards, matches range [str-start, str-end) of string str.
 ;;
-;; returns #t or #f.
-(define (%pattern-match/left sp sp-start sp-end str str-start str-end)
-  (if (fx>=? str-start str-end)
+;; returns (fx+ ret (fx- sp-end sp-start)) or #f.
+(define (%pattern-match/left sp sp-start sp-end ret str str-start str-end)
+  (if (fx>=? sp-start sp-end)
     ; consumed all keys. did we also consume the whole string?
-    (fx>=? sp-start sp-end)
+    (if (fx>=? str-start str-end)
+      ret
+      #f)
     (let-values (((sp-step str-step) (%pattern-match/left1 sp sp-start sp-end str str-start str-end)))
-      ; (debugf "%pattern-match/left sp-step=~s str-step=~s~%" sp-step str-step)
+      ; (debugf "%pattern-match/left sp-step=~s str-step=~s key=~s" sp-step str-step (span-ref sp sp-start))
       (if sp-step
         ; recurse
-        (%pattern-match/left sp (fx+ sp-start sp-step) sp-end
+        (%pattern-match/left sp (fx+ sp-start sp-step) sp-end (fx+ ret sp-step)
                              str (fx+ str-start str-step) str-end)
         #f))))
 
@@ -153,16 +189,18 @@
 ;; recursively determine whether the range [sp-start, sp-end] of the span sp,
 ;; which may also contain wildcards, matches range [str-start, str-end) of string str.
 ;;
-;; returns #t or #f.
-(define (%pattern-match/right sp sp-start sp-end str str-start str-end)
-  (if (fx>=? str-start str-end)
+;; returns (fx+ ret (fx- sp-end sp-start)) or #f.
+(define (%pattern-match/right sp sp-start sp-end ret str str-start str-end)
+  (if (fx>=? sp-start sp-end)
     ; consumed all keys. did we also consume the whole string?
-    (fx>=? sp-start sp-end)
+    (if (fx>=? str-start str-end)
+      ret
+      #f)
     (let-values (((sp-step str-step) (%pattern-match/right1 sp sp-start sp-end str str-start str-end)))
-      ; (debugf "%pattern-match/right sp-step=~s str-step=~s~%" sp-step str-step)
+      ; (debugf "%pattern-match/right sp-step=~s str-step=~s key=~s" sp-step str-step (%pattern-at sp (fx1- sp-end)))
       (if sp-step
         ; recurse
-        (%pattern-match/right sp sp-start (fx- sp-end sp-step)
+        (%pattern-match/right sp sp-start (fx- sp-end sp-step) (fx+ ret sp-step)
                               str str-start (fx- str-end str-step))
         #f))))
 
@@ -174,6 +212,12 @@
 ;; return two values:
 ;; 1. number of consumed span elements, or #f if match failed.
 ;; 2. number of matched string characters
+#|
+(define (%pattern-match/left1 sp sp-start sp-end str str-start str-end)
+  (let-values (((sp-step str-step) (%%pattern-match/left1 sp sp-start sp-end str str-start str-end)))
+    (debugf "%pattern-match/left1  sp-step=~s str-step=~s key=~s " sp-step str-step (if (fx<? sp-start sp-end) (span-ref sp sp-start) #f))
+    (values sp-step str-step)))
+|#
 (define (%pattern-match/left1 sp sp-start sp-end str str-start str-end)
   (let ((key (span-ref sp sp-start)))
     (cond
@@ -187,7 +231,7 @@
           1))
       ((eq? key '*)
         (values
-          (%pattern-match/right/star sp sp-start sp-end str str-start str-end)
+          (%pattern-match/left/star sp sp-start sp-end str str-start str-end)
           (fx- str-end str-start)))
       ((memq key '(% %!))
         (values
@@ -206,6 +250,12 @@
 ;; return two values:
 ;; 1. number of consumed span elements, or #f if match failed.
 ;; 2. number of matched string characters
+#|
+(define (%pattern-match/right1 sp sp-start sp-end str str-start str-end)
+  (let-values (((sp-step str-step) (%%pattern-match/right1 sp sp-start sp-end str str-start str-end)))
+    (debugf "%pattern-match/right1 sp-step=~s str-step=~s key=~s " sp-step str-step (if (fx<? sp-start sp-end) (%pattern-at sp (fx1- sp-end)) #f))
+    (values sp-step str-step)))
+|#
 (define (%pattern-match/right1 sp sp-start sp-end str str-start str-end)
   (let ((key (%pattern-at sp (fx1- sp-end))))
     (cond
@@ -264,7 +314,7 @@
     (if (fxzero? alt-len)
       #f ; missing alternatives
       (let ((match?
-              (if (string-find/char alt 1 (fxmax 1 (fx- alt-len 2)) #\-)
+              (if (string-find/char alt 1 (fxmax 1 (fx1- alt-len)) #\-)
                 ; found #\- not at the beginning and not at the end:
                 ; search among alternatives listed as range(s)
                 (%pattern-match/range? alt ch)
@@ -342,33 +392,61 @@
       (fx- sp-end sp-start))
     ((not (eq? '* (span-ref sp (fx1- sp-end))))
       ; match from right
-      (%pattern-match/right sp sp-start sp-end str str-start str-end))
-    ((string? (span-ref sp (fx1+ sp-start)))
-      ; '* followed by a string: do an optimized recursion
-      (let* ((sp-start+1 (fx1+ sp-start))
-             (ch (string-ref (span-ref sp sp-start+1) 0)))
-        (let %again/opt ((str-pos str-start))
-          (let ((str-ch-pos (string-find/char str str-pos (fx- str-end str-pos) ch)))
-            (if str-ch-pos
-              (or ; ch found: try to recursively match the remaining pattern after current '*
-                (%pattern-match/left sp sp-start+1 sp-end str str-ch-pos str-end)
-                (%again/opt (fx1+ str-pos))) ; called if match failed: try again immediately after ch
-              #f))))) ; ch not found: match failed
+      (%pattern-match/right sp sp-start sp-end 0 str str-start str-end))
     (#t
-      ; this is the hard case: no obvious optimizations.
-      ; we must try skipping one character, then two... up to (fx- str-end str-start),
-      ; and match recursively
-      (let ((sp-start+1 (fx1+ sp-start)))
-        (let %again ((str-pos str-start))
-          (if (fx>=? str-pos str-end)
-            #f ; all recursive match attempts failed
-            (or
-              (%pattern-match/left sp sp-start+1 sp-end str str-pos str-end)
-              (%again (fx1+ str-pos))))))))) ; called if match failed: try again skipping one more character
+      (let* ((sp-pos/not-star (span-find sp (fx1+ sp-start) sp-end (lambda (key) (not (eq? key '*)))))
+             (sp-pos/string?  (and sp-pos/not-star (string? (span-ref sp sp-pos/not-star)))))
+        (assert* 'sh-pattern-match sp-pos/not-star)
+        (let-values (((min-len max-len) (%pattern-minmax-length sp sp-pos/not-star sp-end 0 0)))
+          (assert* 'sh-pattern-match (fx>? min-len 1))
+          (cond
+            ((not (fx<=? min-len (fx- str-end str-start) (or max-len (greatest-fixnum))))
+              ; name is too short or long, cannot be matched
+              #f)
+            (sp-pos/string?
+              ; sequence of '* followed by a string: do an optimized recursion
+              (%pattern-match/left/stars-then-string sp sp-start sp-end sp-pos/not-star
+                                                     str str-start str-end min-len max-len))
+            (#t
+              ; this is the hard case: no obvious optimizations.
+              ; we must try skipping one character, then two... up to (fx- search-end str-start),
+              ; and match recursively
+              (%pattern-match/left/stars sp sp-start sp-end sp-pos/not-star
+                                         str str-start str-end min-len max-len))))))))
+
+
+;; iterate and recursively match a pattern starting with one or more '* followed by a string key
+(define (%pattern-match/left/stars-then-string sp sp-start sp-end sp-pos/not-star
+                                               str str-start str-end min-len max-len)
+  (let ((ch (string-ref (span-ref sp sp-pos/not-star) 0))
+        (search-start (if max-len (fx- str-end max-len) str-start))
+        (search-end   (fx1+ (fx- str-end min-len))))
+    (let %again/opt ((str-pos search-start))
+      (let ((str-ch-pos (string-find/char str str-pos search-end ch)))
+        (if str-ch-pos
+          ; ch found: try to recursively match the remaining pattern after sequence of '*
+          (or
+            (%pattern-match/left sp sp-pos/not-star sp-end (fx- sp-pos/not-star sp-start) str str-ch-pos str-end) ; recursive match
+            (%again/opt (fx1+ str-pos))) ; called if recursive match failed: try again immediately after ch
+          #f))))) ; ch not found: match failed
+
+
+;; iterate and recursively match a pattern starting with one or more '* NOT followed by a string key
+(define (%pattern-match/left/stars sp sp-start sp-end sp-pos/not-star
+                                   str str-start str-end min-len max-len)
+  (let ((search-start (if max-len (fx- str-end max-len) str-start))
+        (search-end   (fx1+ (fx- str-end min-len))))
+    (let %again ((str-pos search-start))
+      (if (fx>=? str-pos search-end)
+        #f ; all recursive match attempts failed
+        (or
+          (%pattern-match/left sp sp-pos/not-star sp-end (fx- sp-pos/not-star sp-start) str str-pos str-end) ; recursive match
+          (%again (fx1+ str-pos))))))) ; called if recursive match failed: try again skipping one more character
+
 
 
 ;; recursively determine whether the range [sp-start, sp-end] of the span sp,
-;; which starts with '* matches range [str-start, str-end) of string str.
+;; which ends with '* matches range [str-start, str-end) of string str.
 ;;
 ;; if match is successful returns (fx- sp-end sp-start)
 ;; otherwise returns #f
@@ -380,30 +458,62 @@
       (fx- sp-end sp-start))
     ((not (eq? '* (span-ref sp sp-start)))
       ; match from left
-      (%pattern-match/left sp sp-start sp-end str str-start str-end))
-    ((string? (%pattern-at sp (fx- sp-end 2)))
-      ; '* preceded by a string: do an optimized recursion
-      (let* ((sp-end-1 (fx1- sp-end))
-             (key (span-ref sp sp-end-1))
-             (ch (string-ref key (fx1- (string-length key)))))
-        (let %again/opt ((str-pos str-end))
-          (let ((str-ch-pos (string-rfind/char str str-start (fx- str-pos str-start) ch)))
-            (if str-ch-pos
-              (or ; ch found: try to recursively match the remaining pattern before current '*
-                (%pattern-match/right sp sp-start sp-end-1 str str-start (fx1+ str-ch-pos))
-                (%again/opt (fx1- str-pos))) ; called if match failed: try again immediately before ch
-              #f))))) ; ch not found: match failed
+      (%pattern-match/left sp sp-start sp-end 0 str str-start str-end))
     (#t
-      ; this is the hard case: no obvious optimizations.
-      ; we must try skipping one character, then two... up to (fx- str-end str-start),
-      ; and match recursively
-      (let ((sp-end-1 (fx1- sp-end)))
-        (let %again ((str-pos str-end))
-          (if (fx<=? str-pos str-start)
-            #f ; all recursive match attempts failed
-            (or
-              (%pattern-match/right sp sp-start sp-end-1 str str-start str-pos)
-              (%again (fx1- str-pos))))))))) ; called if match failed: try again skipping one more character
+      (let* ((sp-pos/not-star (span-rfind sp sp-start (fx1- sp-end) (lambda (key) (not (eq? key '*)))))
+             (sp-pos/string?  (and sp-pos/not-star
+                                   (string? (%pattern-at sp sp-pos/not-star)))))
+        (assert* 'sh-pattern-match sp-pos/not-star)
+        (let-values (((min-len max-len) (%pattern-minmax-length sp sp-pos/not-star sp-end 0 0)))
+          (assert* 'sh-pattern-match (fx>? min-len 1))
+          (cond
+            ((not (fx<=? min-len (fx- str-end str-start) (or max-len (greatest-fixnum))))
+              ; name is too short or long, cannot be matched
+              #f)
+            (sp-pos/string?
+              ; sequence of '* followed by a string: do an optimized recursion
+              (%pattern-match/right/stars-then-string sp sp-start sp-end sp-pos/not-star
+                                                      str str-start str-end min-len max-len))
+            (#t
+              ; this is the hard case: no obvious optimizations.
+              ; we must try skipping one character, then two... up to (fx- search-end str-start),
+              ; and match recursively
+              (%pattern-match/right/stars sp sp-start sp-end sp-pos/not-star
+                                          str str-start str-end min-len max-len))))))))
+
+
+;; iterate and recursively match a pattern ending with one or more '* preceded by a string key
+(define (%pattern-match/right/stars-then-string sp sp-start sp-end sp-pos/not-star
+                                                str str-start str-end min-len max-len)
+  (let* ((key (span-ref sp sp-pos/not-star))
+         (ch  (string-ref key (fx1- (string-length key))))
+         (search-start (fx1- (fx+ str-start min-len)))
+         (search-end   (if max-len (fx+ str-start max-len) str-end)))
+    (let %again/opt ((str-pos search-start))
+      (let ((str-ch-pos (string-find/char str str-pos search-end ch)))
+        (if str-ch-pos
+          ; ch found: try to recursively match the remaining pattern after sequence of '*
+          (or
+            (%pattern-match/right sp sp-start (fx1+ sp-pos/not-star)
+                                  (fx- sp-end (fx1+ sp-pos/not-star))
+                                  str str-start (fx1+ str-ch-pos)) ; recursive match
+            (%again/opt (fx1+ str-pos))) ; called if recursive match failed: try again immediately after ch
+          #f))))) ; ch not found: match failed
+
+
+;; iterate and recursively match a pattern ending with one or more '* NOT preceded by a string key
+(define (%pattern-match/right/stars sp sp-start sp-end sp-pos/not-star
+                                    str str-start str-end min-len max-len)
+  (let ((search-start (fx1- (fx+ str-start min-len)))
+        (search-end   (if max-len (fx+ str-start max-len) str-end)))
+    (let %again ((str-pos search-start))
+      (if (fx>=? str-pos search-end)
+        #f ; all recursive match attempts failed
+        (or
+          (%pattern-match/right sp sp-start (fx1+ sp-pos/not-star)
+                                (fx- sp-end (fx1+ sp-pos/not-star))
+                                str str-start (fx1+ str-pos)) ; recursive match
+          (%again (fx1+ str-pos))))))) ; called if recursive match failed: try again skipping one more character
 
 
 ;; return #t if all keys in the range [sp-start, sp-end] of the span sp are eq? key.

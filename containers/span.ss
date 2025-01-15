@@ -16,7 +16,7 @@
     span-ref span-back span-set! span-fill! span-fill-range! span-copy span-copy!
     span-reserve-front! span-reserve-back! span-resize-front! span-resize-back!
     span-insert-front! span-insert-back! span-insert-front/span! span-insert-back/span!
-    span-erase-front! span-erase-back! span-iterate span-find
+    span-erase-front! span-erase-back! span-iterate span-find span-rfind
     span-peek-beg span-peek-end span-peek-data)
   (import
     (rnrs)
@@ -275,16 +275,32 @@
      (fx>=? i n))))
 
 
-;; (span-find) iterates on span elements from start to (fxmin (fx+ start n) (span-length
-; sp)), and returns the index of first span element that causes (predicate elem) to return
-; non-#f. Returns #f if no such element is found.
-(define (span-find sp start n predicate)
-  (let ((ret #f))
-    (do ((i   start (fx1+ i))
-         (end (fxmin (fx+ start n) (span-length sp))))
+;; (span-find) iterates forward on span elements from start
+;; up to (fxmin end (span-length sp)),
+;; and returns the index of first span element that causes (predicate elem) to return truish.
+;; Returned index is always in the range [start, end)
+;; Returns #f if no such element is found.
+(define (span-find sp start end predicate)
+  (let ((end (fxmin end (span-length sp)))
+        (ret #f))
+    (do ((i start (fx1+ i)))
         ((or ret (fx>=? i end)) ret)
       (when (predicate (span-ref sp i))
         (set! ret i)))))
+
+;; (span-find) iterates backward on span elements
+;; from (fx1- (fxmin end (span-length sp))) down to start
+;; and returns the index of last span element that causes (predicate elem) to return truish.
+;; Returned index is always in the range [start, end)
+;; Returns #f if no such element is found.
+(define (span-rfind sp start end predicate)
+  (let ((end (fxmin end (span-length sp)))
+        (ret #f))
+    (do ((i (fx1- end) (fx1- i)))
+        ((or ret (fx<? i start)) ret)
+      (when (predicate (span-ref sp i))
+        (set! ret i)))))
+
 
 ;;  customize how "span" objects are printed
 (record-writer (record-type-descriptor %span)

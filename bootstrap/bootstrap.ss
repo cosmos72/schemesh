@@ -15,7 +15,7 @@
     (rnrs)
     (rnrs base)
     (rnrs exceptions)
-    (only (chezscheme) current-time environment? environment-mutable? eval format fx1- gensym
+    (only (chezscheme) current-time environment? environment-mutable? eval format fx1- fx/ gensym
                        interaction-environment logbit? make-format-condition make-thread-parameter
                        meta procedure-arity-mask reverse! syntax-error
                        time-second time-nanosecond void))
@@ -68,7 +68,7 @@
         (set! pts1 (open-file-output-port
                      "/dev/pts/1"
                      (file-options no-create no-truncate)
-                     (buffer-mode none)
+                     (buffer-mode line)
                      (make-transcoder (utf-8-codec) (eol-style lf)
                                       (error-handling-mode raise)))))
       pts1)))
@@ -76,11 +76,14 @@
 
 ;; write a debug message to (debugf-port)
 (define (debugf format-string . args)
-  (let ((out (debugf-port))
-        (t (current-time 'time-monotonic)))
-    (format out "; ~a " (+ (time-second t) (/ (time-nanosecond t) 1e9)))
-    (apply format out format-string args)
-    (flush-output-port out)))
+  (let* ((out (debugf-port))
+         (t (current-time 'time-monotonic))
+         (us-str (number->string (fx/ (time-nanosecond t) 1000)))
+         (us-str-len (string-length us-str))
+         (zeropad (if (fx<? us-str-len 6) (make-string (fx- 6 us-str-len) #\0) "")))
+    (apply format out (string-append "; ~a.~a~a " format-string "\n")
+      (time-second t) zeropad us-str args)))
+
 
 (define-syntax repeat
   (syntax-rules ()
@@ -95,7 +98,6 @@
   (syntax-rules ()
     ((_ pred)          (do () (pred)))
     ((_ pred body ...) (do () (pred) body ...))))
-
 
 ;; Raise a condition describing an assertion violation.
 ;; Condition format message and its arguments must be provided by caller.

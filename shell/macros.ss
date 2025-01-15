@@ -39,7 +39,7 @@
   (define (%sh-wildcard-flatten ret args)
     (do ((args args (cdr args)))
         ((null? args) ret)
-      ; (debugf "... %sh-wildcard-flatten ret=~s args=~s ~%" (reverse ret) args)
+      ; (debugf "... %sh-wildcard-flatten ret=~s args=~s" (reverse ret) args)
       (let ((arg (car args)))
         (cond
           ((and (pair? arg) (eq? 'shell-wildcard (car arg)))
@@ -54,7 +54,7 @@
     (reverse! (%sh-wildcard-flatten '() args)))
 
   (define (%is-wildcard? arg)
-    ; (debugf "%is-wildcard? arg=~s~%" arg)
+    ; (debugf "%is-wildcard? arg=~s" arg)
     (memq arg '(* ? ~)))
 
 ) ; close meta

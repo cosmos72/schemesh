@@ -44,7 +44,7 @@
   (assert* 'linectx-keytable-call (linectx? ctx))
   (let ((rbuf (linectx-rbuf ctx)))
     (let-values (((proc n) (linectx-keytable-find (linectx-ktable ctx) rbuf)))
-      ;; (debugf "linectx-keytable-call consume ~s bytes, call ~s~%" n proc)
+      ;; (debugf "linectx-keytable-call consume ~s bytes, call ~s" n proc)
       (cond
         ((procedure? proc) (void))     ; proc called below, we update rbuf first
         ((hashtable? proc) (set! n 0)) ; incomplete sequence, wait for more keystrokes
@@ -309,10 +309,10 @@
   (let* ((stem          (linectx-completion-stem ctx))
          (completions   (linectx-completions ctx))
          (completions-n (span-length completions)))
-    ; (debugf "%lineedit-update-with-completions stem=~s, completions=~s ...~%" stem completions)
+    ; (debugf "%lineedit-update-with-completions stem=~s, completions=~s ..." stem completions)
     (unless (fxzero? completions-n)
       (let-values (((common-len max-len) (%lineedit-analyze-completions completions)))
-        ; (debugf "%lineedit-update-with-completions stem=~s, common-len=~s, completions=~s~%" stem common-len completions)
+        ; (debugf "%lineedit-update-with-completions stem=~s, common-len=~s, completions=~s" stem common-len completions)
         (cond
           ((not (fxzero? common-len))
             ; insert common prefix of all completions
@@ -352,7 +352,7 @@
                    (if (fxzero? common-len)
                      0
                      (charspan-range-count= completion 0 completion-i 0 (fxmin common-len completion-i-len)))))
-            ; (debugf "common-i-len = ~s~%" common-i-len)
+            ; (debugf "... %lineedit-analyze-completions common-i-len = ~s" common-i-len)
             (when (fx>? common-len common-i-len)
               (set! common-len common-i-len))
             (when (fx<? max-len completion-i-len)
@@ -374,7 +374,7 @@
 
 
 (define (%lineedit-print-completion-table ctx stem completions column-width column-n row-n)
-  ; (debugf "%lineedit-print-completion-table stem=~s, completions=~s~%" stem completions)
+  ; (debugf "%lineedit-print-completion-table stem=~s, completions=~s" stem completions)
   (repeat (linectx-width ctx)
     (lineterm-write/u8 ctx 45)) ; write a whole line full of #\-
   (lineterm-write/u8 ctx 10) ; write a newline
@@ -385,7 +385,7 @@
 
 
 (define (%lineedit-print-completion-row ctx stem completions column-width column-n row-n row-i)
-  ; (debugf "%lineedit-print-completion-row column-n=~s, row-i=~s~%" column-n row-i)
+  ; (debugf "%lineedit-print-completion-row column-n=~s, row-i=~s" column-n row-i)
   (do ((completions-n (span-length completions))
        (completions-i row-i (fx+ row-n completions-i))
        (column-i      0     (fx1+ column-i)))
@@ -496,7 +496,7 @@
 ;; unconditionally draw prompt. does not update term-x, term-y
 (define (linectx-draw-prompt ctx)
   (let ((prompt (linectx-prompt ctx)))
-    ;; (debugf "linectx-draw-prompt: prompt = ~s~%" prompt)
+    ;; (debugf "linectx-draw-prompt: prompt = ~s" prompt)
     (lineterm-write/bspan ctx prompt 0 (bytespan-length prompt))))
 
 ;; unconditionally draw all lines. does not update term-x, term-y
@@ -505,7 +505,7 @@
          (width  (vscreen-width screen))
          (ymax   (fxmax 0 (fx1- (vscreen-length screen))))
          (nl?    #f))
-    ;; (debugf "linectx-draw-lines ~s~%" screen)
+    ;; (debugf "linectx-draw-lines ~s" screen)
     (charlines-iterate screen
       (lambda (y line)
         (lineterm-write/cbuffer ctx line 0 (charline-length line))
@@ -521,7 +521,7 @@
          (ix (vscreen-length-at-y screen iy))
          (vy (fx+ iy (vscreen-prompt-end-y screen)))
          (vx (fx+ ix (if (fxzero? iy) (vscreen-prompt-end-x screen) 0))))
-    ;; (debugf "linectx-move-from-end-lines vx = ~s, vy = ~s~%" vx vy)
+    ;; (debugf "linectx-move-from-end-lines vx = ~s, vy = ~s" vx vy)
     (linectx-term-xy-set! ctx vx vy)))
 
 
@@ -604,7 +604,7 @@
                    (xdraw0   (fxmax 0 (fxmin xdirty0 len)))
                    (xdraw1   (fxmax 0 (fxmin xdirty1 len)))
                    (nl       (if (and (charline-nl? line) (fx=? xdraw1 len)) 1 0))) ;; 1 if newline, 0 otherwise
-              ; (debugf "linectx-redraw-dirty i = ~s, len = ~s, width-at-i = ~s, xdirty0 = ~s -> ~s, xdirty1 = ~s -> ~s, nl = ~s~%"
+              ; (debugf "linectx-redraw-dirty i = ~s, len = ~s, width-at-i = ~s, xdirty0 = ~s -> ~s, xdirty1 = ~s -> ~s, nl = ~s"
               ;         i len width-at-i xdirty0 xdraw0 xdirty1 xdraw1 nl)
               (lineterm-move ctx vx vy (fx+ xdraw0 vxoffset) vi)
               (lineterm-write/cbuffer ctx line xdraw0 (fx- xdraw1 nl)) ;; do not print the newline yet
@@ -630,7 +630,7 @@
     (let ((yn (charlines-length screen)))
       (when (fx>=? ymax yn)
         (let ((vyn (fx+ prompt-y yn)))
-          ; (debugf "linectx-redraw-dirty move (~s . ~s) -> (~s . ~s) then clear-to-eos~%" vx vy 0 vyn)
+          ; (debugf "linectx-redraw-dirty move (~s . ~s) -> (~s . ~s) then clear-to-eos" vx vy 0 vyn)
           (lineterm-move ctx vx vy 0 vyn)
           (set! vx 0)
           (set! vy vyn)
@@ -674,7 +674,7 @@
 ;; draw a single parentheses using specified style.
 ;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
 (define (linectx-draw-paren ctx paren style)
-  ; (debugf " linectx-draw-paren paren=~s style=~s~%" paren style)
+  ; (debugf " linectx-draw-paren paren=~s style=~s" paren style)
   (when (paren? paren)
     (let ((style (if (eq? style 'highlight)
                    (if (paren-valid? paren) 'good 'bad)
@@ -737,7 +737,7 @@
         (wbuf  (linectx-wbuf  ctx))
         (vx    (if (fxzero? y) (fx+ x (linectx-prompt-end-x ctx)) x)) ;; also count prompt length!
         (vy    (fx+ y (linectx-prompt-end-y ctx))))                   ;; also count prompt length!
-    ;; (debugf "linectx-draw-char-at-xy at (~s ~s) char ~s~%" x y ch)
+    ;; (debugf "linectx-draw-char-at-xy at (~s ~s) char ~s" x y ch)
     (when (and ch (char>=? ch #\space))
       (lineterm-move-to ctx vx vy)
       (case style
@@ -939,11 +939,11 @@
 ;; if (linectx-rbuf ctx) is empty, refills it first.
 ;;
 (define (%linectx-read-consume/u8 ctx)
-  ; (debugf "> %linectx-read-consume/u8~%")
+  ; (debugf "> %linectx-read-consume/u8")
   (let ((rbuf (linectx-rbuf ctx)))
     (when (bytespan-empty? rbuf)
       (%linectx-read/some ctx 1 -1))
-    ; (debugf "< %linectx-read-consume/u8 got=~s~%" (bytespan-length rbuf))
+    ; (debugf "< %linectx-read-consume/u8 got=~s" (bytespan-length rbuf))
     (if (bytespan-empty? rbuf)
       #f
       (let ((u8 (bytespan-ref/u8 rbuf 0)))

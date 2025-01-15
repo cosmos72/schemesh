@@ -421,7 +421,7 @@
          (direction-ch         (span-ref redirects (fx1+ index)))
          (to-fd-or-bytevector0 (job-extract-redirection-to-fd-or-bytevector0 job job-dir redirects index))
          (remap-fd             (sh-fd-allocate)))
-    ; (debugf "fd-redirect fd=~s dir=~s to=~s~%" remap-fd direction-ch to-fd-or-bytevector0)
+    ; (debugf "fd-redirect fd=~s dir=~s to=~s" remap-fd direction-ch to-fd-or-bytevector0)
     (let* ((fd-int (sh-fd->int remap-fd))
            (ret (fd-redirect fd-int direction-ch to-fd-or-bytevector0 #t))) ; #t close-on-exec?
       (when (< ret 0)
@@ -507,7 +507,7 @@
 
 ;; Internal functions called by (sh-start)
 (define (start/any job options)
-  ; (debugf "start/any ~s ~s~%" job options)
+  ; (debugf "start/any ~s ~s" job options)
   (when (job-started? job)
     (if (job-id job)
       (raise-errorf 'sh-start "job already started with job id ~s" (job-id job))
@@ -609,7 +609,7 @@
 (define (job-advance mode job-or-id)
   (assert* 'job-advance (memq mode '(sh-fg sh-bg sh-wait sh-sigcont+wait sh-subshell sh-job-status)))
   (let ((job (sh-job job-or-id)))
-    ; (debugf "job-advance... mode=~s job=~s id=~s status=~s~%" mode job (job-id job) (job-last-status job))
+    ; (debugf "job-advance... mode=~s job=~s id=~s status=~s" mode job (job-id job) (job-last-status job))
     (case (job-last-status->kind job)
       ((exited killed unknown)
         (void)) ; job finished

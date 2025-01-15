@@ -47,6 +47,7 @@ static const testcase tests[] = {
      "  (plus 3 4 5))",
      "12"},
     {"(expand '(-> a b (c ^ d) (e f ^)))", "(e f (c (b a) d))"},
+    /* {"(begin (debugf \"warmup\") (debugf \"a\") (debugf \"b\") (debugf \"c\"))", ""}, */
     /* ----------------- containers/misc ------------------------------------ */
     {"(subvector '#(aa bb cc dd) 1 3)", "#(bb cc)"},
     {"(subbytevector #vu8(44 55 66 77) 2 3)", "B"},
@@ -840,26 +841,13 @@ static const testcase tests[] = {
      "  (sh-pattern \"asdf\" '% \"abc.\" '%! \"a-pr-z\" \"werty\" '?)"
      "  \"asdf.qwerty.\")",
      "#t"},
-    {"(sh-pattern-match?"
-     "  (sh-pattern '? \"xyz\")" /* '? never matches an initial dot */
-     "  \".xyz\")",
-     "#f"},
-    {"(sh-pattern-match?"
-     "  (sh-pattern '% \" ~\" \"xyz\")" /* '% never matches an initial dot */
-     "  \".xyz\")",
-     "#f"},
-    {"(sh-pattern-match?"
-     "  (sh-pattern '%! \"a\" \"xyz\")" /* '%! never matches an initial dot */
-     "  \".xyz\")",
-     "#f"},
-    {"(sh-pattern-match?"
-     "  (sh-pattern '*)" /* '* never matches an initial dot */
-     "  \".abc\")",
-     "#f"},
-    {"(sh-pattern-match?"
-     "  (sh-pattern '*)"
-     "  \"uiop.def..\")",
-     "#t"},
+    /* initial wildcards never match an initial dot */
+    {"(sh-pattern-match? (sh-pattern '? \"foo\")        \".foo\")", "#f"},
+    {"(sh-pattern-match? (sh-pattern '% \" ~\" \"foo\") \".foo\")", "#f"},
+    {"(sh-pattern-match? (sh-pattern '% \".\" \"foo\")  \".foo\")", "#f"},
+    {"(sh-pattern-match? (sh-pattern '%! \"f\" \"foo\") \".foo\")", "#f"},
+    {"(sh-pattern-match? (sh-pattern '*)                \".foo\")", "#f"},
+    {"(sh-pattern-match? (sh-pattern '* \"foo\")        \".my.foo\")", "#f"},
     /* match empty pattern */
     {"(sh-pattern-match? (sh-pattern) \"\")", "#t"},
     {"(sh-pattern-match? (sh-pattern) \"o\")", "#f"},
@@ -868,13 +856,17 @@ static const testcase tests[] = {
     {"(sh-pattern-match? (sh-pattern '?) \"\")", "#f"},
     {"(sh-pattern-match? (sh-pattern '% \" -~\") \"\")", "#f"},
     {"(sh-pattern-match? (sh-pattern '% \"!~\") \"\")", "#f"},
+    /* match string against '* */
+    {"(sh-pattern-match? (sh-pattern '*) \"uiop.def..\")", "#t"},
     {"(sh-pattern-match? (sh-pattern '*) \"\")", "#t"},
     {"(sh-pattern-match? (sh-pattern '* '*) \"\")", "#t"},
     {"(sh-pattern-match? (sh-pattern '* '* '*) \"\")", "#t"},
-    /* match '* against strings */
-    {"(try"
-     "  (sh-pattern-match? (sh-pattern '* \"bar\") \"foo.bar\")"
-     "  (catch (ex) ex))",
+    {"(sh-pattern-match? (sh-pattern '* \"bar\") \"foo.bar\")", "#t"},
+    {"(sh-pattern-match? (sh-pattern \"abc\" '* \"def\") \"abc...def\")", "#t"},
+    {"(sh-pattern-match? (sh-pattern '* \"zzz\" '? '*) \"abc.zzz.def\")", "#t"},
+    {"(sh-pattern-match? (sh-pattern '* \"xyz\" '%! \"x-z\" \"xyz\" '*) \"xyzxyz.xyz\")", "#t"},
+    {"(sh-pattern-match? (sh-pattern '* '* \"abc\" '%! \".\" '* '* \"abc\" '* '*)"
+     " \"abc.zzz.abc^abc\")",
      "#t"},
     /* ------------------------- shell paths -------------------------------- */
     {"(sh-path-absolute? (string->charspan* \"/foo\"))", "#t"},

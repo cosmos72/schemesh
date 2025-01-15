@@ -37,7 +37,7 @@
   (%compute-stem lctx paren %char-is-scheme-identifier? %always-false)
   (let* ((stem     (linectx-completion-stem lctx))
          (stem-len (charspan-length stem)))
-    ; (debugf "parse-scheme-autocomplete paren=~s stem=~s~%" paren stem)
+    ; (debugf "parse-scheme-autocomplete paren=~s stem=~s" paren stem)
     (if (eqv? #\" (paren-start-token paren))
        ; list contents of some directory
        (let ((slash-pos (and (not (fxzero? stem-len)) (charspan-rfind/ch stem 0 stem-len #\/))))
@@ -68,7 +68,7 @@
            (stem-len  (charspan-length stem))
            (dollar?   (and (not (fxzero? stem-len)) (char=? #\$ (charspan-ref stem 0))))
            (slash-pos (and (not (fxzero? stem-len)) (not dollar?) (charspan-rfind/ch stem 0 stem-len #\/))))
-      ; (debugf "parse-shell-autocomplete stem=~s, stem-is-first-word?=~s~%" stem stem-is-first-word?)
+      ; (debugf "parse-shell-autocomplete stem=~s, stem-is-first-word?=~s" stem stem-is-first-word?)
       (cond
         (dollar?
           (%list-shell-env lctx (charspan->string stem) completions))
@@ -103,12 +103,12 @@
                      (and (fx=? y ymin) (fx>=? x xmin)))
                (vscreen-char-before-xy screen x y)
                (values #f #f #f)))))
-    ; (debugf "%compute-stem paren=~s, xmin=~s, ymin=~s~%" (values->list (paren->values paren)) xmin ymin)
+    ; (debugf "%compute-stem paren=~s, xmin=~s, ymin=~s" (values->list (paren->values paren)) xmin ymin)
     (charspan-clear! stem)
     (let %fill-stem ((x (vscreen-cursor-ix screen))
                      (y (vscreen-cursor-iy screen)))
       (let-values (((x1 y1 ch) (%vscreen-char-before-xy screen x y)))
-        ; (debugf "%vscreen-char-before-xy x=~s, y=~s -> x1=~s, y1=~s, ch=~s~%" x y x1 y1 ch)
+        ; (debugf "%vscreen-char-before-xy x=~s, y=~s -> x1=~s, y1=~s, ch=~s" x y x1 y1 ch)
         (cond
           ((not (and x1 y1 (char? ch))) ; reached start of paren or vscreen
              (values #t x y))
@@ -157,7 +157,7 @@
 
 (define (%stem-is-after-shell-separator? screen x y)
   (let-values (((x1 y1 ch) (vscreen-char-before-xy screen x y)))
-    ; (debugf "%stem-is-after-shell-separator? x=~s, y=~s -> x1=~s y1=~s ch=~s~%" x y x1 y1 ch)
+    ; (debugf "%stem-is-after-shell-separator? x=~s, y=~s -> x1=~s y1=~s ch=~s" x y x1 y1 ch)
     (cond
       ((not (and x1 y1 ch))  #f)
       ((memv ch '(#\; #\newline #\! #\& #\|)) #t)
@@ -167,7 +167,7 @@
 
 
 (define (%list-directory dir prefix slash? completions)
-  ; (debugf "lineedit-shell-list/directory dir = ~s, prefix = ~s~%" dir prefix)
+  ; (debugf "lineedit-shell-list/directory dir = ~s, prefix = ~s" dir prefix)
   (let* ((dir?       (and slash? (not (fxzero? (string-length dir)))))
          (prefix-len (string-length prefix))
          (prefix?    (not (fxzero? prefix-len)))
@@ -180,7 +180,7 @@
             (when (eq? 'dir (car elem))
               (charspan-insert-back! name #\/))
             (span-insert-back! completions name))))))
-  ; (debugf "lineedit-shell-list/directory completions = ~s~%" completions)
+  ; (debugf "lineedit-shell-list/directory completions = ~s" completions)
   )
 
 
@@ -188,11 +188,11 @@
 ;; NOTE: prefix always starts with #\$
 ;; FIXME: pass (top-level-value 'sh-global-env) as argument
 (define (%list-shell-env lctx prefix completions)
-  ; (debugf "%list-shell-env prefix = ~s~%" prefix)
+  ; (debugf "%list-shell-env prefix = ~s" prefix)
   (let* ((prefix-len (fx1- (string-length prefix)))
          (htable ((top-level-value 'sh-global-env)))
          (l      '()))
-    ; (debugf "%list-shell-env htable = ~s~%" htable)
+    ; (debugf "%list-shell-env htable = ~s" htable)
     (hashtable-iterate htable
       (lambda (cell)
         (let ((name (car cell)))
@@ -201,9 +201,9 @@
             (let ((cname (string->charspan* name)))
               (charspan-erase-front! cname prefix-len)
               (span-insert-back! completions cname)))))))
-  ; (debugf "%list-shell-env completions = ~s~%" completions)
+  ; (debugf "%list-shell-env completions = ~s" completions)
   (span-range-sort! completions 0 (span-length completions) charspan<?)
-  ; (debugf "%list-shell-env completions sorted = ~s~%" completions)
+  ; (debugf "%list-shell-env completions sorted = ~s" completions)
   )
 
 
@@ -211,21 +211,21 @@
 ;; list builtins, aliases and programs in $PATH that start with prefix,
 ;; and append them to completions
 (define (%list-shell-commands lctx prefix completions)
-  ; (debugf "%list-shell-commands prefix = ~s~%" prefix)
+  ; (debugf "%list-shell-commands prefix = ~s" prefix)
   (let ((l (%list-shell-programs prefix
              (%list-shell-builtins prefix
                (%list-shell-aliases prefix '()))))
         (prefix-len (string-length prefix)))
     (set! l (sort! string<? l))
-    ; (debugf "%list-shell-commands prefix=~s, list-with-duplicates   =~s~%" prefix l)
+    ; (debugf "%list-shell-commands prefix=~s, list-with-duplicates   =~s" prefix l)
     (list-remove-consecutive-duplicates! l string=?)
-    ; (debugf "%list-shell-commands prefix=~s, list-without-duplicates=~s~%" prefix l)
+    ; (debugf "%list-shell-commands prefix=~s, list-without-duplicates=~s" prefix l)
     (list-iterate l
       (lambda (name)
         (let ((cname (string->charspan* name)))
           (charspan-erase-front! cname prefix-len)
           (span-insert-back! completions cname)))))
-  ; (debugf "%list-shell-commands prefix=~s, completions=~s~%" prefix completions)
+  ; (debugf "%list-shell-commands prefix=~s, completions=~s" prefix completions)
   )
 
 ;; find shell aliases starting with prefix, cons them onto list l, and return l

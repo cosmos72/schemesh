@@ -52,7 +52,7 @@
 
 ;; the "alias" builtin
 (define (builtin-alias job prog-and-args options)
-  ; (debugf "sh-builtin-alias ~s~%" prog-and-args)
+  ; (debugf "sh-builtin-alias ~s" prog-and-args)
   (assert-string-list? 'sh-builtin-alias prog-and-args)
   (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
     (void) ;; TODO: a lone "alias" should list aliases

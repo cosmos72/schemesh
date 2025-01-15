@@ -59,14 +59,14 @@
                (syntax-violation 'sh-parse "syntax error, shell DSL form should start with 'shell or 'shell-subshell, found:"
                  saved-args arg0)))))
     (validate args)
-    ; (debugf ">   sh-parse args = ~s~%" saved-args)
+    ; (debugf ">   sh-parse args = ~s" saved-args)
     (until (null? args)
       (let-values (((parsed tail) (parse-or args)))
         (unless (null? parsed)
           (set! ret (cons parsed ret)))
         (set! args tail)
         (set! job-n (fx1+ job-n))
-        ; (debugf "... sh-parse ret = ~s, args = ~s~%" (reverse ret) args)
+        ; (debugf "... sh-parse ret = ~s, args = ~s" (reverse ret) args)
         (let %again ()
           (let ((arg (if (null? args) #f (car args))))
             (cond
@@ -86,7 +86,7 @@
               (#t
                 (syntax-violation 'sh-parse "syntax error, unknown shell DSL operator:"
                   saved-args arg)))))))
-    ; (debugf "<   sh-parse ret = ~s, args = ~s, job-n = ~s, redirections? = ~s, terminators? = ~s~%" (reverse ret) args job-n redirections? terminators?)
+    ; (debugf "<   sh-parse ret = ~s, args = ~s, job-n = ~s, redirections? = ~s, terminators? = ~s" (reverse ret) args job-n redirections? terminators?)
     (when (and redirections? (eq? 'sh-list ret-prefix))
       (if (and (fx=? job-n 1) (not terminators?))
         (set! ret-prefix 'sh-redirect!)
@@ -206,14 +206,14 @@
         (unless (null? parsed)
           (set! ret (cons parsed ret)))
         (set! args tail))
-      ; (debugf "parse-or  iterate: ret = ~s, args = ~s~%" (reverse ret) args)
+      ; (debugf "parse-or  iterate: ret = ~s, args = ~s" (reverse ret) args)
       (cond
         ((null? args) (set! done? #t))
         ((eqv? (car args) '\x7c;\x7c;)
           (set! args  (cdr args))
           (set! done? (null? args)))
         (#t   (set! done? #t)))) ; unhandled token => exit loop
-    ; (debugf "parse-or   return: ret = ~s, args = ~s~%" (reverse ret) args)
+    ; (debugf "parse-or   return: ret = ~s, args = ~s" (reverse ret) args)
     (values
       (cond
         ((null? ret)       ret)
@@ -235,14 +235,14 @@
         (unless (null? parsed)
           (set! ret (cons parsed ret)))
         (set! args tail))
-      ; (debugf "parse-and iterate: ret = ~s, args = ~s~%" (reverse ret) args)
+      ; (debugf "parse-and iterate: ret = ~s, args = ~s" (reverse ret) args)
       (cond
         ((null? args) (set! done? #t))
         ((eqv? (car args) '&&)
           (set! args  (cdr args))
           (set! done? (null? args)))
         (#t   (set! done? #t)))) ; unhandled token => exit loop
-    ; (debugf "parse-and  return: ret = ~s, args = ~s~%" (reverse ret) args)
+    ; (debugf "parse-and  return: ret = ~s, args = ~s" (reverse ret) args)
     (values
       (cond
         ((null? ret)       ret)
@@ -263,7 +263,7 @@
         (unless (null? parsed)
           (set! ret (cons parsed ret)))
         (set! args tail))
-      ; (debugf "parse-pipe iterate: ret = ~s, args = ~s~%" (reverse ret) args)
+      ; (debugf "parse-pipe iterate: ret = ~s, args = ~s" (reverse ret) args)
       (cond
         ((null? args) (set! done? #t))
         ((memq (car args) '(\x7c; \x7c;&
@@ -272,7 +272,7 @@
           (set! args (cdr args))
           (set! done? (null? args)))
         (#t   (set! done? #t)))) ; unhandled token => exit loop
-    ; (debugf "parse-pipe  return: ret = ~s, args = ~s~%" (reverse ret) args)
+    ; (debugf "parse-pipe  return: ret = ~s, args = ~s" (reverse ret) args)
     (values
       (cond
         ((null? ret) ret)
@@ -290,7 +290,7 @@
 (define (parse-not args)
   (let %again ((negate? #f)
                (args args))
-    ; (debugf "parse-not iterate: negate? = ~s, args = ~s~%" negate? args)
+    ; (debugf "parse-not iterate: negate? = ~s, args = ~s" negate? args)
     (cond
       ((and (not (null? args)) (eq? '! (car args)))
         (%again (not negate?) (cdr args)))
@@ -312,9 +312,9 @@
         (prefix 'sh-cmd)
         (done? (null? args)))
     (until (or done? (null? args))
-      ; (debugf "parse-cmd iterate: ret = ~s, args = ~s~%" (reverse ret) args)
+      ; (debugf "parse-cmd iterate: ret = ~s, args = ~s" (reverse ret) args)
       (let ((arg (car args)))
-        ; (debugf "parse-cmd iterate: ret = ~s, arg = ~s, args = ~s~%" (reverse ret) arg (cdr args))
+        ; (debugf "parse-cmd iterate: ret = ~s, arg = ~s, args = ~s" (reverse ret) arg (cdr args))
         (cond
           ((cmd-separator? arg)
             (set! done? #t)) ; separator => exit loop without consuming it
@@ -346,7 +346,7 @@
             (syntax-violation 'sh-parse
               "syntax error, shell DSL atom must be a string, fixnum, pair, = or redirection operator, found:"
               saved-args arg)))))
-    ; (debugf "parse-cmd  return: prefix=~s ret=~s, args=~s~%" prefix (reverse ret) args)
+    ; (debugf "parse-cmd  return: prefix=~s ret=~s, args=~s" prefix (reverse ret) args)
     (values
       ; optimize away empty (sh-cmd)
       (if (and prefix (not (and (null? ret) (eq? 'sh-cmd prefix))))
@@ -452,7 +452,7 @@
   (let %again ((jobs '())
                (args children-jobs-with-redirections-colon-ampersand))
     (let ((arg (if (null? args) #f (car args))))
-      ; (debugf "sh-list* jobs = ~s, arg = ~s, args = ~s~%" (reverse jobs) arg args)
+      ; (debugf "sh-list* jobs = ~s, arg = ~s, args = ~s" (reverse jobs) arg args)
       (cond
         ((null? args)
           (apply sh-list (reverse! jobs)))

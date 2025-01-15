@@ -166,7 +166,7 @@
   (assert* 'sh-or (fx=? -1 (multijob-current-child-index job)))
   (job-remap-fds! job)
   (job-env/apply-lazy! job)
-  ; (debugf "job-start/or ~s empty children? = ~s~%" job (span-empty? (multijob-children job)))
+  ; (debugf "job-start/or ~s empty children? = ~s" job (span-empty? (multijob-children job)))
   (if (span-empty? (multijob-children job))
     ; (sh-or) with zero children -> job fails with '(exited . 256)
     (job-status-set! job '(exited . 256))
@@ -245,7 +245,7 @@
          ;; call (job-advance) on child
          (child-status (if (sh-job? child) (job-advance mode child) (void)))
          (step-proc (job-step-proc mj)))
-    ; (debugf ">  job-advance/multijob ~s ~s child=~s child-status=~s~%" mode mj child child-status)
+    ; (debugf ">  job-advance/multijob ~s ~s child=~s child-status=~s" mode mj child child-status)
     (cond
       ((or (not step-proc) (job-status-stops-or-ends-multijob? child-status))
         ; propagate child exit status and return
@@ -254,9 +254,9 @@
       ((job-status-member? child-status '(exited killed unknown))
         ; child exited: advance multijob by calling (job-step-proc)
         ; then call (job-advance/multijob) again multijob job is still running.
-        ; (debugf "... job-advance/multijob > step-proc ~s status=~s~%" mj (job-last-status mj))
+        ; (debugf "... job-advance/multijob > step-proc ~s status=~s" mj (job-last-status mj))
         (step-proc mj child-status)
-        ; (debugf "... job-advance/multijob < step-proc ~s status=~s~%" mj (job-last-status mj))
+        ; (debugf "... job-advance/multijob < step-proc ~s status=~s" mj (job-last-status mj))
         (if (job-has-status? mj '(running))
           (job-advance/multijob mode mj)
           (job-last-status mj)))
@@ -351,14 +351,14 @@
          (child-n  (span-length (multijob-children mj)))
          (iterate? #t)
          (interrupted? #f))
-    ; (debugf "job-step/list > ~s idx=~s prev-child-status=~s~%" mj (fx1- idx) prev-child-status)
+    ; (debugf "job-step/list > ~s idx=~s prev-child-status=~s" mj (fx1- idx) prev-child-status)
     (assert* 'job-step/list (job-status-member? prev-child-status '(exited killed unknown)))
     ; idx = 0 if called by (job-start/list)
     (assert* 'job-step/list (fx>=? idx 0))
     (while (and iterate? (not interrupted?) (fx<=? idx child-n))
       (multijob-current-child-index-set! mj idx)
       (let ((child (sh-multijob-child-ref mj idx)))
-        ; (debugf "job-step-list status = ~s, start child ~s = ~s~%" (job-last-status mj) idx child)
+        ; (debugf "job-step-list status = ~s, start child ~s = ~s" (job-last-status mj) idx child)
         (when (sh-job? child)
           ; start next child job
           (let* ((child-status (start/any child '()))
@@ -395,7 +395,7 @@
 ;; run a multijob containing a sequence of children jobs optionally followed by & ;
 ;; Used by (sh-subshell), implements runtime behavior of shell syntax [ ... ]
 (define (job-run/subshell mj dummy-prev-child-status)
-  ; (debugf "%multijob-subshell/run ~s status = ~s~%" mj (job-last-status mj))
+  ; (debugf "%multijob-subshell/run ~s status = ~s" mj (job-last-status mj))
   (let ((children   (multijob-children mj))
         (pgid   (job-pgid mj))
         (status (void)))

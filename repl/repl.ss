@@ -71,7 +71,7 @@
 ;; 1. when using shell parser, top-level commands will be executed immediately.
 ;; 2. when using scheme parser, top-level (shell ...) will be executed immediately.
 (define (sh-repl-eval form)
-  ; (debugf "sh-repl-eval: ~s~%" form)
+  ; (debugf "sh-repl-eval: ~s" form)
   (try
     (sh-eval
       (if (and (pair? form) (memq (car form) '(shell shell-subshell)))
@@ -95,7 +95,7 @@
 ;;   For these reasons, the loop (do ... (sh-repl-eval ...))
 ;;   is wrapped inside (dynamic-wind tty-restore! (lambda () ...) tty-setraw!)
 (define (sh-repl-eval-list forms print-func)
-  ; (debugf "evaluating list: ~s~%" forms)
+  ; (debugf "evaluating list: ~s" forms)
   (unless (null? forms)
     (dynamic-wind
       tty-restore!

@@ -50,19 +50,21 @@ static void show(FILE* out, bytes bv) {
 
 int main(int argc, const char* argv[]) {
   enum { LEN = 1024 };
-  int             err;
   char            buf[LEN];
   struct timespec start, end;
+  int             err = 0;
 
   switch (setjmp(jmp_env)) {
     case NOP: /* first call to setjmp: continue initialization */
       break;
     case INIT_FAILED: /* init() failed */
+      err = 1;
       goto finish;
     case EVAL_FAILED: /* exception in eval() */
+      err = 0;
       goto again;
     case QUIT_FAILED: /* exception in quit() */
-      return 1;
+      return 2;
   }
   on_exception = INIT_FAILED;
   schemesh_init(&handle_scheme_exception);

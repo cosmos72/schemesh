@@ -171,7 +171,7 @@
              (syntax-errorf ctx (caller-for flavor) "unexpected token ~a, expecting ~a"
                (lex-type->string type) (lex-type->string end-type)))))
          (%merge! (lambda (forms)
-           ; (debugf "... parse-lisp-forms > %merge! ret=~s other-forms=~s~%" (if reverse? (reverse ret) ret) forms)
+           ; (debugf "... parse-lisp-forms > %merge! ret=~s other-forms=~s" (if reverse? (reverse ret) ret) forms)
            (cond
              ((null? ret)
                 (set! ret forms))
@@ -179,12 +179,12 @@
                (set! ret (append! (if reverse? (reverse! ret) ret) forms)))
              (#t
                (set! ret (append! (if reverse? (reverse! ret) ret) (list forms)))))
-           ; (debugf "... parse-lisp-forms < %merge! ret=~s~%" ret)
+           ; (debugf "... parse-lisp-forms < %merge! ret=~s" ret)
            (set! reverse? #f))))
-    ; (debugf ">   parse-lisp-forms end-type=~s~%" end-type)
+    ; (debugf ">   parse-lisp-forms end-type=~s" end-type)
     (while again?
       (let-values (((value type) (lex-lisp ctx flavor)))
-        ; (debugf "... parse-lisp-forms ret=~s value=~s type=~s end-type=~s~%" (if reverse? (reverse ret) ret) value type end-type)
+        ; (debugf "... parse-lisp-forms ret=~s value=~s type=~s end-type=~s" (if reverse? (reverse ret) ret) value type end-type)
         (case type
           ((eof)
             (unless (eq? type end-type)
@@ -219,7 +219,7 @@
             ;; parse a single form and append it
             (let ((value-i (parse-lisp-impl ctx value type flavor)))
               (set! ret (cons value-i ret)))))))
-    ; (debugf "<   parse-lisp-forms ret=~s~%" (if reverse? (reverse ret) ret))
+    ; (debugf "<   parse-lisp-forms ret=~s" (if reverse? (reverse ret) ret))
     (values
       (if reverse? (reverse! ret) ret)
       parser)))
@@ -369,12 +369,12 @@
                                 (else (or start-ch #t))))
          (ret    #f))
 
-    ; (debugf ">   parse-lisp-paren start-ch=~a~%" start-ch)
+    ; (debugf ">   parse-lisp-paren start-ch=~a" start-ch)
     (let-values (((x y) (parsectx-previous-pos ctx (if start-ch 1 0))))
       (paren-start-xy-set! paren x y))
     (until ret
       (let ((token (scan-lisp-paren-or-directive ctx)))
-        ; (debugf "... parse-lisp-paren token=~s paren=~s~%" token paren)
+        ; (debugf "... parse-lisp-paren token=~s paren=~s" token paren)
         (cond
           ((not token) ; not a grouping token
              #f)
@@ -445,7 +445,7 @@
                         (parsectx-current-pos ctx))))
     (paren-end-xy-set! paren x y)
     (paren-end-token-set! paren end-token)
-    ; (debugf "lisp paren-fill-end! paren=~s end-token=~s x=~s y=~s~%" paren end-token x y)
+    ; (debugf "lisp paren-fill-end! paren=~s end-token=~s x=~s y=~s" paren end-token x y)
   ))
 
 ) ; close library

@@ -34,7 +34,7 @@
       hostname)))
 
 (define (raise-c-errno who c-who c-errno . c-args)
-  ; (debugf "raise-c-errno ~s ~s~%" who c-errno)
+  ; (debugf "raise-c-errno ~s ~s" who c-errno)
   (raise-errorf who "C function ~s~s failed with error ~s: ~a"
     c-who c-args c-errno (c-errno->string c-errno)))
 

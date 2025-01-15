@@ -57,7 +57,7 @@
 
 ;; implementation of "error" builtin, exits with user-specified exit status
 (define (sh-error . args)
-  ; (debugf "sh-error ~s~%" args)
+  ; (debugf "sh-error ~s" args)
   (if (pair? args)
     (let ((arg (car args)))
       (cond
@@ -89,7 +89,7 @@
 
 ;; ;; implementation of "history" builtin, lists previous commands saved to history
 (define (sh-history lctx)
-  ; (debugf "sh-history ~s~%" lctx)
+  ; (debugf "sh-history ~s" lctx)
   (when (linectx? lctx)
     (let ((wbuf (make-bytespan 0)))
       (span-iterate (linectx-history lctx)
@@ -144,7 +144,7 @@
 ;; the "builtin" builtin: find and execute a builtin.
 ;; raises exception if specified builtin is not found.
 (define (sh-builtin job prog-and-args options)
-  ; (debugf "sh-builtin ~s~%" prog-and-args)
+  ; (debugf "sh-builtin ~s" prog-and-args)
   (assert-string-list? 'sh-builtin prog-and-args)
   (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
     (void)
