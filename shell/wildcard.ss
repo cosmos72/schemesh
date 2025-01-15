@@ -119,7 +119,7 @@
 ;; example:
 ;;   (span "a/b" '* "c/def/")
 ;; will be converted to
-;;   (span "a/" (span "b" '* "c/") "def/"))
+;;   (span "a/" (sh-pattern "b" '* "c/") "def/"))
 (define (sh-wildcard/prepare-patterns sp)
   (let ((ret (span))
         (i 0)
@@ -217,8 +217,9 @@
             (void))
           ((1)
             (let ((elem (span-ref subspan 0)))
-              (when (charspan? elem)
-                (span-set! sp i (charspan->string elem)))))
+              (span-set! sp i (if (charspan? elem)
+                                (charspan->string elem)
+                                (span->sh-pattern* subspan)))))
           (else
             (span-iterate subspan
               (lambda (j elem)
@@ -240,17 +241,60 @@
     (if (span-empty? sp)
       '()
       (let* ((ret  (span))
-             (sp0  (span-ref sp 0))
-             (sp00 (if (string? sp0) sp0 (span-ref sp0 0)))
-             (sp00-absolute? (and (string? sp00) (char=? #\/ (string-ref sp00 0))))
-             (dir  (if sp00-absolute? "/" (charspan->string (job-cwd job)))))
+             (p    (span-ref sp 0))
+             (p0   (if (string? p) p (sh-pattern-front/string p)))
+             (p0-absolute? (and (string? p0) (char=? #\/ (string-ref p0 0))))
+             (dir  (if p0-absolute?
+                     "/"
+                     (let ((job-dir (job-cwd-if-set job)))
+                       (if job-dir
+                         (charspan->string job-dir)
+                         "")))))
         (span->list (%wildcard/expand-pattern/recurse sp 0 (span-length sp) dir ret))))
     (catch (ex)
-      (debugf "exception in sh-wildcard/expand-patterns ~s: ~a" sp ex)
+      (debugf "exception in sh-wildcard/expand-patterns ~s:" sp)
+      (let ((port (debugf-port)))
+        (display-condition ex port)
+        (newline port))
       '())))
 
+
 ;; recursive implementation of (sh-wildcard/expand-patterns)
-;; appends elements to span ret and returns it.
-(define (%wildcard/expand-pattern/recurse sp i sp-end dir ret)
-  ; TODO implement
-  ret)
+;; appends matching paths to span ret and returns it.
+(define (%wildcard/expand-pattern/recurse sp i sp-end path ret)
+  (cond
+    ((fx>=? i sp-end) ; check that path exists
+      (when (file-stat path 'catch 'symlinks)
+        (span-insert-back! ret path))
+      ret)
+    ((string? (span-ref sp i))
+      (let ((subpath (%path-append path (span-ref sp i))))
+        ; check that subpath exists
+        (if (file-stat subpath 'catch 'symlinks)
+          (%wildcard/expand-pattern/recurse sp (fx1+ i) sp-end subpath ret)
+          ret)))
+    (#t
+      (let* ((p       (span-ref sp i))
+             (prefix  (or (sh-pattern-front/string p) ""))
+             (suffix  (or (sh-pattern-back/string p) ""))
+             (path-or-dot (if (fxzero? (string-length path)) "." path))
+             (i+1     (fx1+ i)))
+        (list-iterate (directory-sort! (directory-list path-or-dot 'append-slash 'catch 'prefix prefix 'suffix suffix))
+          (lambda (type-and-name)
+            (let ((name (cdr type-and-name)))
+              (when (sh-pattern-match? p name)
+                (%wildcard/expand-pattern/recurse sp i+1 sp-end (%path-append path name) ret))
+              (void))))
+        ret))))
+
+
+;; concatenate two filesystem paths
+(define (%path-append path1 path2)
+  (let ((path1-len (string-length path1)))
+    (cond
+      ((fxzero? path1-len)
+        path2)
+      ((char=? #\/ (string-ref path1 (fx1- path1-len)))
+        (string-append path1 path2))
+      (#t
+        (string-append path1 "/" path2)))))

@@ -151,15 +151,15 @@
 (define (text->bytevector x)
   (cond
     ((bytevector? x)
-       x)
+      x)
     ((string? x)
-       (if (fxzero? (string-length x))
-         #vu8()
-         (string->utf8b x)))
+      (if (fxzero? (string-length x))
+        #vu8()
+        (string->utf8b x)))
     ((charspan? x)
-       (if (charspan-empty? x)
-         #vu8()
-         (string->utf8b (charspan->string x))))
+      (if (charspan-empty? x)
+        #vu8()
+        (string->utf8b (charspan->string x))))
     (#t
       (raise-assertv 'text->bytevector '(or (bytevector? x) (string? x) (charspan? x)) x))))
 

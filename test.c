@@ -1074,6 +1074,7 @@ static const testcase tests[] = {
      " (sh-cmd \"cat\" \"DEL_ME\") (sh-cmd \"rm\" \"DEL_ME\"))"},
     /* ------------------------- wildcard expansion ------------------------- */
     {"(sh-wildcard #t \"a\" \"bcd\" \"\" \"ef\")", "abcdef"},
+    {"(sh-wildcard/prepare-patterns (span '*))", "(span (sh-pattern '*))"},
     {"(sh-wildcard/prepare-patterns (span \"/\" '* \".so\"))", "(span / (sh-pattern '* .so))"},
     {"(sh-wildcard/prepare-patterns (span \"//abc//\" \"//def//\"))", "(span / abc/ def/)"},
     {"(sh-wildcard/prepare-patterns (span \"/foo/\" '* \"/\" \"/bar\"))",

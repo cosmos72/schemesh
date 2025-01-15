@@ -850,14 +850,14 @@ static ptr c_dirent_type(unsigned char d_type) {
  *   DT_REG     -> 5
  *   DT_SOCK    -> 6
  *   DT_LNK     -> 7
- * optionally resolves symlinks, i.e. if keep_symlinks is #f,
- * calls fstatat() to resolve DT_LNK and DT_UNKNOWN to the type of the file pointed to.
+ * if keep_symlinks == 0, resolves symlinks i.e. calls fstatat()
+ * to resolve DT_LNK and DT_UNKNOWN to the type of the file pointed to.
  */
 static ptr c_dirent_type2(DIR*                dir,
                           const char*         filename,
-                          const ptr           keep_symlinks,
+                          const int           keep_symlinks,
                           const unsigned char d_type) {
-  if (keep_symlinks == Sfalse && (d_type == DT_LNK || d_type == DT_UNKNOWN)) {
+  if (keep_symlinks == 0 && (d_type == DT_LNK || d_type == DT_UNKNOWN)) {
     struct stat buf;
     if (fstatat(dirfd(dir), filename, &buf, 0) == 0) {
       return c_stat_type(buf.st_mode & S_IFMT);
@@ -875,7 +875,7 @@ static ptr c_dirent_type2(DIR*                dir,
  *
  * On other errors, return Scheme integer -errno
  */
-static ptr c_file_stat(ptr bytevector0_path, ptr keep_symlinks) {
+static ptr c_file_stat(ptr bytevector0_path, int keep_symlinks) {
   struct stat buf;
   const char* path;
   iptr        pathlen;
@@ -888,7 +888,7 @@ static ptr c_file_stat(ptr bytevector0_path, ptr keep_symlinks) {
   if (pathlen <= 0 || path[pathlen - 1] != '\0') {
     return Sinteger(c_errno_set(EINVAL));
   }
-  if (keep_symlinks == Sfalse) {
+  if (keep_symlinks == 0) {
     err = stat(path, &buf);
   } else {
     err = lstat(path, &buf);
@@ -904,14 +904,19 @@ static ptr c_file_stat(ptr bytevector0_path, ptr keep_symlinks) {
   return Sinteger(-err);
 }
 
+typedef enum { o_symlinks = 1, o_append_slash = 2, o_strings = 4 } o_dir_options;
+
 /**
  * Scan directory bytevector0_dirpath and return Scheme list with its contents as pairs
  * (type . filename) where:
- *   filename is either a Scheme string (if ret_strings is truish) or a Scheme bytevector.
+ *   filename is either a Scheme string (if (options & o_string) != 0) or a Scheme bytevector.
  *   type is a Scheme integer corresponding to enum e_type.
  *
- * If keep_symlinks is #f, each type = e_symlink will be resolved to indicate
+ * If (options & o_symlinks) == 0, then each type = e_symlink will be resolved to indicate
  * the type of the file the symlink points to.
+ *
+ * If (options & o_append_slash) != 0, then each filename with type = e_dir
+ * will be modified by appending '/' - useful mostly if (options & o_symlinks) == 0
  *
  * If bytevector_filter_prefix is not empty,
  * only returns filenames that start with bytevector_filter_prefix.
@@ -924,8 +929,7 @@ static ptr c_file_stat(ptr bytevector0_path, ptr keep_symlinks) {
 static ptr c_directory_list(ptr bytevector0_dirpath,
                             ptr bytevector_filter_prefix,
                             ptr bytevector_filter_suffix,
-                            ptr keep_symlinks,
-                            ptr ret_strings) {
+                            int options) {
   ptr            ret = Snil;
   const char*    dirpath;
   const char*    prefix;
@@ -935,6 +939,9 @@ static ptr c_directory_list(ptr bytevector0_dirpath,
   iptr           suffixlen;
   DIR*           dir;
   struct dirent* entry;
+  int            keep_symlinks    = options & o_symlinks;
+  int            ret_strings      = options & o_strings;
+  int            ret_append_slash = options & o_append_slash;
   if (!Sbytevectorp(bytevector0_dirpath)         /*                 */
       || !Sbytevectorp(bytevector_filter_prefix) /*                 */
       || !Sbytevectorp(bytevector_filter_suffix)) {
@@ -954,15 +961,22 @@ static ptr c_directory_list(ptr bytevector0_dirpath,
     return Sinteger(c_errno());
   }
   while ((entry = readdir(dir)) != NULL) {
-    const char*  name = entry->d_name;
-    const size_t len  = strlen(name);
+    char*  name = entry->d_name;
+    size_t len  = strlen(name);
     if (!prefixlen || (len >= (size_t)prefixlen && memcmp(name, prefix, prefixlen) == 0)) {
       if (!suffixlen ||
           (len >= (size_t)suffixlen && memcmp(name + len - suffixlen, suffix, suffixlen) == 0)) {
-        ptr filename = ret_strings == Sfalse ? schemesh_Sbytevector(name, len) :
-                                               schemesh_Sstring_utf8b(name, len);
-        ptr pair     = Scons(c_dirent_type2(dir, name, keep_symlinks, entry->d_type), filename);
-        ret          = Scons(pair, ret);
+        ptr type = c_dirent_type2(dir, name, keep_symlinks, entry->d_type);
+        ptr filename;
+        if (ret_append_slash && type == Sfixnum(e_dir)) {
+          name[len++] = '/'; /* replace final '\0' -> '/' is this portable? */
+        }
+        filename =
+            ret_strings ? schemesh_Sstring_utf8b(name, len) : schemesh_Sbytevector(name, len);
+        if (ret_append_slash) {
+          name[--len] = '\0'; /* restore final '\0' */
+        }
+        ret = Scons(Scons(type, filename), ret);
       }
     }
   }

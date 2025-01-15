@@ -31,7 +31,7 @@
 ;; return charspan containing current directory,
 ;; or charspan containing current directory of specified job-or-id.
 ;;
-;; NOTE: returned charspan must not be modified.
+;; NOTE: returned charspan must NOT be modified.
 (define sh-cwd
   (case-lambda
     (()          (%job-cwd sh-globals))

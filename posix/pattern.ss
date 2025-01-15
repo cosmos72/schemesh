@@ -7,7 +7,8 @@
 
 (library (schemesh posix pattern (0 1))
   (export
-    sh-pattern sh-pattern? span->sh-pattern* sh-pattern->span* sh-pattern-match? sh-wildcard?)
+    sh-pattern sh-pattern? span->sh-pattern* sh-pattern->span*
+    sh-pattern-front/string sh-pattern-back/string sh-pattern-match? sh-wildcard?)
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx1- record-writer void)
@@ -121,6 +122,23 @@
               (if (and max-len (not (eq? obj '*))) (fx1+ max-len) #f))) ; updated max-len
         (#t
           (raise-assertf 'sh-pattern "expecting a string or sh-wildcard? symbol, found ~s" obj))))))
+
+
+;; if first element in sh-pattern is a string, return it.
+;; otherwise return #f
+(define (sh-pattern-front/string p)
+  (let* ((sp     (pattern-span p))
+         (key    (if (span-empty? sp) #f (span-ref sp 0))))
+    (if (string? key) key #f)))
+
+
+;; if first element in sh-pattern is a string, return it.
+;; otherwise return #f
+(define (sh-pattern-back/string p)
+  (let* ((sp     (pattern-span p))
+         (sp-len (span-length sp))
+         (key    (if (fxzero? sp-len) #f (%pattern-at sp (fx1- sp-len)))))
+    (if (string? key) key #f)))
 
 
 ;; Determine whether sh-pattern matches specified string.

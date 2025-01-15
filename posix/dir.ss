@@ -51,6 +51,8 @@
 ;; List contents of a filesystem directory, in arbitrary order.
 ;; Mandatory first argument dirpath must be a bytevector, string or charspan.
 ;; Further optional arguments can contain:
+;;   'append-slash - if a returned type is 'dir then a '/' will be appended
+;;            to corresponding filename
 ;;   'bytes - each returned filename will be a bytevector, not a string
 ;;   'catch - errors will be ignored instead of raising a condition
 ;;   'symlinks - returned filenames that are symlinks will have type 'symlink
@@ -64,15 +66,16 @@
 ;;  each type is one of: 'unknown 'blockdev 'chardev 'dir 'fifo 'file 'socket 'symlink
 ;;  each filename is a either a bytevector (if options contain 'bytes) or a string
 (define directory-list
-  (let ((c-directory-list (foreign-procedure "c_directory_list" (ptr ptr ptr ptr ptr) ptr)))
+  (let ((c-directory-list (foreign-procedure "c_directory_list" (ptr ptr ptr int) ptr)))
     (lambda (dirpath . options)
       (let* ((strings? (not (memq 'bytes options)))
              (ret (c-directory-list
                     (text->bytevector0 dirpath)
                     (%find-and-convert-option options 'prefix)
                     (%find-and-convert-option options 'suffix)
-                    (memq 'symlinks options)
-                    strings?)))
+                    (fxior (if (memq 'symlinks options) 0 1)
+                           (if (memq 'append-slash options) 2 0)
+                           (if strings? 4 0)))))
         (cond
           ((null? ret)
             ret)
