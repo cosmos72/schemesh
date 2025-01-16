@@ -10,7 +10,7 @@
      assert* catch define-macro debugf debugf-port first-value first-value-or-void
      let-macro raise-assertv raise-assertf raise-errorf repeat
      sh-eval sh-eval-string sh-scheme-environment sh-scheme-eval
-     while until throws? trace try list->values values->list -> ^)
+     while until throws? trace-call try list->values values->list -> ^)
   (import
     (rnrs)
     (rnrs base)
@@ -111,7 +111,7 @@
 ;; wrap a procedure call, and write two debug messages to (debugf-port):
 ;; the first before calling the procedure, showing the arguments values
 ;; the second after the procedure returned, showing the return values
-(define-syntax trace
+(define-syntax trace-call
   (lambda (stx)
     (syntax-case stx ()
       ((_ (proc args ...))
