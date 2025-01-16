@@ -10,8 +10,8 @@
 #include "containers.h"
 #include "../eval.h"
 
-#include <errno.h>  // errno
-#include <stdint.h> // uint32_t
+#include <errno.h>  /* errno */
+#include <stdint.h> /* uint32_t */
 #include <string.h> /* memcmp(), memmove() */
 
 #if defined(__GNUC__) && __GNUC__ >= 4
@@ -172,7 +172,7 @@ static ptr c_string_to_utf8b_append(ptr string, iptr start, iptr n, ptr bvec, ip
       if (LIKELY(written != 0)) {
         opos += written;
       } else {
-        return Schar(codepoint); // codepoint is invalid
+        return Schar(codepoint); /* codepoint is invalid */
       }
     }
     return Sfixnum(opos);
@@ -214,33 +214,33 @@ static uint32_t c_utf8b_to_codepoint_length(const octet* in, size_t in_len) {
     return 1;
   }
   if (in0 < 0xC2 || in0 > 0xF4 || in_len == 1) {
-    return 1; // invalid, overlong or truncated UTF-8 sequence.
+    return 1; /* invalid, overlong or truncated UTF-8 sequence. */
   }
   in1 = in[1];
   if ((in1 & 0xC0) != 0x80) {
-    return 1; // invalid continuation byte in UTF-8 sequence.
+    return 1; /* invalid continuation byte in UTF-8 sequence. */
   }
   if (in0 < 0xE0) {
     return 2;
   }
   if (in_len == 2) {
-    return 1; // truncated UTF-8 sequence.
+    return 1; /* truncated UTF-8 sequence. */
   }
   in2 = in[2];
   if ((in2 & 0xC0) != 0x80) {
-    return 1; // invalid continuation byte in UTF-8 sequence.
+    return 1; /* invalid continuation byte in UTF-8 sequence. */
   }
   if (in0 < 0xF0) {
     const uint32_t val = (in0 & 0x0F) << 12 | (in1 & 0x3F) << 6 | (in2 & 0x3F);
     if (val >= 0x800 && (val < 0xD800 || val >= 0xE000)) {
       return 3;
     } else {
-      // overlong UTF-8 sequence, or invalid codepoint in surrogate range 0xD000...0xDFFF
+      /* overlong UTF-8 sequence, or invalid codepoint in surrogate range 0xD000...0xDFFF */
     }
     return 1;
   }
   if (in_len == 3) {
-    return 1; // truncated UTF-8 sequence.
+    return 1; /* truncated UTF-8 sequence. */
   }
   in3 = in[3];
   if (in0 <= 0xF4 && (in3 & 0xC0) == 0x80) {
@@ -248,10 +248,10 @@ static uint32_t c_utf8b_to_codepoint_length(const octet* in, size_t in_len) {
     if (val >= 0x10000 && val < 0x110000) {
       return 4;
     } else {
-      // overlong UTF-8 sequence, or invalid codepoint > 0x10FFFF
+      /* overlong UTF-8 sequence, or invalid codepoint > 0x10FFFF */
     }
   } else {
-    // invalid byte in UTF-8 sequence.
+    /* invalid byte in UTF-8 sequence. */
   }
   return 1;
 }
@@ -274,17 +274,17 @@ static u32pair c_utf8b_to_codepoint(const octet* in, uptr in_len) {
     ret.length    = 1;
     return ret;
   }
-  // default: invalid, overlong or truncated UTF-8 sequence.
-  // Encoded by UTF-8b as 0xDC00 | in0 to allow lossless roundtrip of non UTF-8 data.
+  /* default: invalid, overlong or truncated UTF-8 sequence. */
+  /* Encoded by UTF-8b as 0xDC00 | in0 to allow lossless roundtrip of non UTF-8 data. */
   ret.codepoint = 0xDC00 | in0;
   ret.length    = 1;
 
   if (in0 < 0xC2 || in0 > 0xF4 || in_len == 1) {
-    return ret; // invalid, overlong or truncated UTF-8 sequence.
+    return ret; /* invalid, overlong or truncated UTF-8 sequence. */
   }
   in1 = in[1];
   if ((in1 & 0xC0) != 0x80) {
-    return ret; // invalid continuation byte in UTF-8 sequence.
+    return ret; /* invalid continuation byte in UTF-8 sequence. */
   }
   if (in0 < 0xE0) {
     ret.codepoint = (in0 & 0x1F) << 6 | (in1 & 0x3F);
@@ -292,11 +292,11 @@ static u32pair c_utf8b_to_codepoint(const octet* in, uptr in_len) {
     return ret;
   }
   if (in_len == 2) {
-    return ret; // truncated UTF-8 sequence.
+    return ret; /* truncated UTF-8 sequence. */
   }
   in2 = in[2];
   if ((in2 & 0xC0) != 0x80) {
-    return ret; // invalid continuation byte in UTF-8 sequence.
+    return ret; /* invalid continuation byte in UTF-8 sequence. */
   }
   if (in0 < 0xF0) {
     const uint32_t val = (in0 & 0x0F) << 12 | (in1 & 0x3F) << 6 | (in2 & 0x3F);
@@ -304,12 +304,12 @@ static u32pair c_utf8b_to_codepoint(const octet* in, uptr in_len) {
       ret.codepoint = val;
       ret.length    = 3;
     } else {
-      // overlong UTF-8 sequence, or invalid codepoint in surrogate range 0xD000...0xDFFF
+      /* overlong UTF-8 sequence, or invalid codepoint in surrogate range 0xD000...0xDFFF */
     }
     return ret;
   }
   if (in_len == 3) {
-    return ret; // truncated UTF-8 sequence.
+    return ret; /* truncated UTF-8 sequence. */
   }
   in3 = in[3];
   if (in0 <= 0xF4 && (in3 & 0xC0) == 0x80) {
@@ -318,10 +318,10 @@ static u32pair c_utf8b_to_codepoint(const octet* in, uptr in_len) {
       ret.codepoint = val;
       ret.length    = 4;
     } else {
-      // overlong UTF-8 sequence, or invalid codepoint > 0x10FFFF
+      /* overlong UTF-8 sequence, or invalid codepoint > 0x10FFFF */
     }
   } else {
-    // invalid byte in UTF-8 sequence.
+    /* invalid byte in UTF-8 sequence. */
   }
   return ret;
 }
@@ -335,7 +335,7 @@ static size_t c_bytes_utf8b_to_string_length(const octet* bytes, size_t len) {
   while (len > 0) {
     const uint32_t consumed = c_utf8b_to_codepoint_length(bytes, len);
     if (consumed == 0 || consumed > len) {
-      break; // should not happen
+      break; /* should not happen */
     }
     bytes += consumed;
     len -= consumed;
@@ -428,7 +428,7 @@ ptr schemesh_Sstring_utf8b(const char chars[], const size_t len) {
   /* Smake_string() wants iptr length */
   iptr str_len = (iptr)slen;
   if (str_len < 0 || (size_t)str_len != slen) {
-    // Smake_string() will raise condition
+    /* Smake_string() will raise condition */
     str_len = -1;
   }
   ptr str     = Smake_string(str_len, 0);
@@ -436,7 +436,7 @@ ptr schemesh_Sstring_utf8b(const char chars[], const size_t len) {
   if (Sfixnump(written) && Sfixnum_value(written) == str_len) {
     return str;
   }
-  // raise condition
+  /* raise condition */
   return Smake_string(-1, 0);
 }
 
@@ -448,7 +448,7 @@ ptr schemesh_Sbytevector(const char chars[], const size_t len) {
   /* Smake_bytevector() wants iptr length */
   iptr bvec_len = (iptr)len;
   if (bvec_len < 0 || (size_t)bvec_len != len) {
-    // Smake_bytevector() will raise condition
+    /* Smake_bytevector() will raise condition */
     bvec_len = -1;
   }
   ptr bvec = Smake_bytevector(bvec_len, 0);

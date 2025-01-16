@@ -12,7 +12,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) foreign-procedure sort!)
-    (only (schemesh bootstrap) catch raise-assertf try)
+    (only (schemesh bootstrap) catch debugf raise-assertf try)
     (only (schemesh containers) bytevector<? charspan? list-iterate string->utf8b)
     (only (schemesh conversions) text->bytevector text->bytevector0)
     (only (schemesh posix fd) raise-c-errno))
@@ -68,6 +68,7 @@
 (define directory-list
   (let ((c-directory-list (foreign-procedure "c_directory_list" (ptr ptr ptr int) ptr)))
     (lambda (dirpath . options)
+      ; (debugf "directory-list dir=~s, options=~s" dirpath options)
       (let* ((strings? (not (memq 'bytes options)))
              (ret (c-directory-list
                     (text->bytevector0 dirpath)

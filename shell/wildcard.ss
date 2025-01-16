@@ -30,8 +30,8 @@
           (charspan->string ret)))
       (#t
         ; actually expand wildcards and match them against filesystem
-        (let ((ret (sh-wildcard/expand-patterns job
-                     (sh-wildcard/prepare-patterns
+        (let ((ret (sh-wildcard/expand job
+                     (sh-wildcard/prepare
                        (sh-wildcard/expand-tilde! job sp)))))
           (if (null? ret)
             (sh-wildcard-arg-list->literal-string args)
@@ -120,20 +120,20 @@
 ;;   (span "a/b" '* "c/def/")
 ;; will be converted to
 ;;   (span "a/" (sh-pattern "b" '* "c/") "def/"))
-(define (sh-wildcard/prepare-patterns sp)
+(define (sh-wildcard/prepare sp)
   (let ((ret (span))
         (i 0)
         (n (span-length sp)))
     (span-insert-back! ret (span))
     (while (fx<? i n)
-      (when (sh-wildcard/prepare-path! (span-ref sp i) ret)
+      (when (%wildcard/prepare1! (span-ref sp i) ret)
         (set! i (fx1+ i))
         (let ((pattern (span-ref sp i)))
           (if (string-find/char pattern 0 (string-length pattern) #\/)
             (%raise-invalid-wildcard-pattern (span-ref sp (fx1- i)) pattern)
             (span-insert-back! (span-back ret) pattern))))
       (set! i (fx1+ i)))
-    (sh-wildcard/simplify! ret)))
+    (%wildcard/simplify! ret)))
 
 
 (define (%raise-invalid-wildcard-pattern sym pattern)
@@ -148,7 +148,7 @@
 ;; and append each fragment into sp. Return #f.
 ;; if obj is a wildcard, append it to sp and return truish if next obj is part of the wildcard,
 ;; otherwise return #f.
-(define (sh-wildcard/prepare-path! obj sp)
+(define (%wildcard/prepare1! obj sp)
   (cond
     ((symbol? obj)
       (span-insert-back! (span-back sp) obj)
@@ -208,7 +208,7 @@
 ;; 4. if last element is an empty subspan, remove it.
 ;;
 ;; return sp, modified in-place
-(define (sh-wildcard/simplify! sp)
+(define (%wildcard/simplify! sp)
   (span-iterate sp
     (lambda (i subspan)
       (when (span? subspan)
@@ -236,7 +236,7 @@
 
 ;; actually expand sh-patterns in span sp and list matching files on disk.
 ;; returns a string or a list of strings.
-(define (sh-wildcard/expand-patterns job sp)
+(define (sh-wildcard/expand job sp)
   (try
     (if (span-empty? sp)
       '()
@@ -250,18 +250,19 @@
                        (if job-dir
                          (charspan->string job-dir)
                          "")))))
-        (span->list (%wildcard/expand-pattern/recurse sp 0 (span-length sp) dir ret))))
+        (span->list (%wildcard/expand sp 0 (span-length sp) dir ret))))
     (catch (ex)
-      ; (debugf "exception in sh-wildcard/expand-patterns ~s:" sp)
-      ; (let ((port (debugf-port)))
-      ;   (display-condition ex port)
-      ;   (newline port))
+      ;; (debugf "exception in sh-wildcard/expand ~s:" sp)
+      ;; (let ((port (debugf-port)))
+      ;;   (display-condition ex port)
+      ;;   (newline port))
       '())))
 
 
-;; recursive implementation of (sh-wildcard/expand-patterns)
+;; recursive implementation of (sh-wildcard/expand)
 ;; appends matching paths to span ret and returns it.
-(define (%wildcard/expand-pattern/recurse sp i sp-end path ret)
+(define (%wildcard/expand sp i sp-end path ret)
+  ;; (debugf "%wildcard/expand p=~s, path=~s" (if (fx<? i sp-end) (span-ref sp i) #f) path)
   (cond
     ((fx>=? i sp-end) ; check that path exists
       (when (file-stat path 'catch 'symlinks)
@@ -271,7 +272,7 @@
       (let ((subpath (%path-append path (span-ref sp i))))
         ; check that subpath exists
         (if (file-stat subpath 'catch 'symlinks)
-          (%wildcard/expand-pattern/recurse sp (fx1+ i) sp-end subpath ret)
+          (%wildcard/expand sp (fx1+ i) sp-end subpath ret)
           ret)))
     (#t
       (let* ((p       (span-ref sp i))
@@ -283,18 +284,33 @@
           (lambda (type-and-name)
             (let ((name (cdr type-and-name)))
               (when (sh-pattern-match? p name)
-                (%wildcard/expand-pattern/recurse sp i+1 sp-end (%path-append path name) ret))
+                (%wildcard/expand sp i+1 sp-end (%path-append path name) ret))
               (void))))
         ret))))
 
 
 ;; concatenate two filesystem paths
 (define (%path-append path1 path2)
-  (let ((path1-len (string-length path1)))
+  (let* ((path1-len (string-length path1))
+         (path2-len (string-length path2))
+         (path1-slash?
+           (if (fxzero? path1-len)
+             #f
+             (char=? #\/ (string-ref path1 (fx1- path1-len)))))
+         (path2-slash?
+           (if (fxzero? path2-len)
+             #f
+             (char=? #\/ (string-ref path2 (fx1- path2-len))))))
     (cond
       ((fxzero? path1-len)
         path2)
-      ((char=? #\/ (string-ref path1 (fx1- path1-len)))
+      ((and path1-slash? path2-slash?)
+        (let* ((path1-len-1 (fx1- path1-len))
+               (ret (make-string (fx+ path1-len-1 path2-len))))
+          (string-copy! path1 0 ret 0 path1-len-1)
+          (string-copy! path2 0 ret path1-len-1 path2-len)
+          ret))
+      ((or path1-slash? path2-slash?)
         (string-append path1 path2))
       (#t
         (string-append path1 "/" path2)))))

@@ -162,9 +162,10 @@
       ((fx>=? i n))
     (vector-set! vec (fx+ i start) val)))
 
-;; read n elements from vector from offset = start and copy them into a list
-(define (vector-range->list vec start n)
-  (let %again ((pos (fx1- (fx+ start n)))
+;; read elements from vector range [start, end) and copy them into a list.
+;; return such list.
+(define (vector-range->list vec start end)
+  (let %again ((pos (fx1- end))
                (ret '()))
     (if (fx>=? pos start)
       (%again (fx1- pos) (cons (vector-ref vec pos) ret))

@@ -101,7 +101,7 @@
     bytevector-ref/utf8b bytevector-set/utf8b! char->utf8b-length
     bytespan-ref/char bytespan-set/char! bytespan-insert-front/char! bytespan-insert-back/char!
     bytespan-insert-back/cspan! bytespan-insert-back/cbuffer! bytespan-display-back/fixnum!
-    charspan->utf8b)
+    charspan->utf8b charspan->utf8b/0)
 
   (import (schemesh containers misc)
           (schemesh containers utf8b)

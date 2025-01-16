@@ -147,6 +147,7 @@
 ;; Note: if a sh-pattern contains one or more wildcard symbols,
 ;; it intentionally never matches the strings "." or ".."
 (define (sh-pattern-match? p str)
+  ;; (debugf "sh-pattern-match p=~s str=~s" p str)
   (assert* 'sh-pattern-match? (sh-pattern? p))
   (assert* 'sh-pattern-match? (string? str))
   (let* ((sp  (pattern-span p))

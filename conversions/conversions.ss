@@ -17,7 +17,8 @@
     (only (rnrs mutable-pairs)   set-car!)
     (only (chezscheme)           fx1+ fx1- void)
     (only (schemesh bootstrap)   raise-assertv sh-eval-string)
-    (only (schemesh containers)  charspan? charspan-empty? charspan->string hashtable-iterate list-iterate
+    (only (schemesh containers)  bytespan->bytevector charspan? charspan-empty? charspan->utf8b charspan->utf8b/0
+                                 hashtable-iterate list-iterate
                                  string->utf8b string->utf8b/0 utf8b->string utf8b-range->string))
 
 
@@ -61,19 +62,19 @@
     (display-condition* x port)
     (display x port)))
 
-; convert to string a bytevector0 containing UTF-8b
-; and print it quoted, i.e. surrounded by "" and with special characters escaped
+;; convert a bytevector0 to string using UTF-8b
+;; and print it quoted, i.e. surrounded by "" and with special characters escaped
 (define (write-bytevector0 x port)
   (let ((str (utf8b-range->string x 0 (fx1- (bytevector-length x)))))
     (write str port)))
 
-; convert to string a bytevector0 containing UTF-8b
-; and print it unquoted, i.e. surrounded by ""
+;; convert a 0-terminated bytevector to string using UTF-8b
+;; and print it unquoted, i.e. not surrounded by ""
 (define (display-bytevector0 x port)
   (let ((str (utf8b-range->string x 0 (fx1- (bytevector-length x)))))
     (display str port)))
 
-; convert any value to a string
+;; convert any value to a string
 (define (any->string x)
   (cond ((string? x) x)
         ((bytevector? x) (utf8b->string x))
@@ -86,7 +87,7 @@
 (define transcoder-utf8 (make-transcoder (utf-8-codec) (eol-style lf)
                           (error-handling-mode raise)))
 
-; convert any value to a bytevector
+;; convert any value to a bytevector
 (define (any->bytevector x)
   (cond
     ((bytevector? x) x)
@@ -98,7 +99,7 @@
           (display-any x port)
           (get-bytevector)))))
 
-; convert any sequence of values to #\nul terminated bytevector
+;; convert any sequence of values to 0-terminated bytevector
 (define (any->bytevector0 . args)
   (let-values (((port get-bytevector)
                 (open-bytevector-output-port transcoder-utf8)))
@@ -116,7 +117,7 @@
 
 (define bv0 #vu8(0))
 
-; convert bytevector to #\nul terminated bytevector
+;; convert bytevector to 0-terminated bytevector
 (define (bytevector->bytevector0 x)
   (let ((len (bytevector-length x)))
     (cond
@@ -130,7 +131,8 @@
           (bytevector-u8-set! ret len 0)
           ret)))))
 
-; convert a bytevector, string or charspan to #\nul terminated bytevector containing UTF-8b
+;; convert a bytevector, string or charspan to terminated bytevector, then appends a byte 0.
+;; uses UTF-8b to convert characters to bytes.
 (define (text->bytevector0 x)
   (cond
     ((bytevector? x)
@@ -142,12 +144,13 @@
     ((charspan? x)
        (if (charspan-empty? x)
          bv0
-         (string->utf8b/0 (charspan->string x))))
+         (bytespan->bytevector (charspan->utf8b/0 x))))
     (#t
       (raise-assertv 'text->bytevector0 '(or (bytevector? x) (string? x) (charspan? x)) x))))
 
 
-; convert a bytevector, string or charspan to bytevector
+;; convert a bytevector, string or charspan to bytevector
+;; uses UTF-8b to convert characters to bytes.
 (define (text->bytevector x)
   (cond
     ((bytevector? x)
@@ -159,18 +162,18 @@
     ((charspan? x)
       (if (charspan-empty? x)
         #vu8()
-        (string->utf8b (charspan->string x))))
+        (bytespan->bytevector (charspan->utf8b x))))
     (#t
       (raise-assertv 'text->bytevector '(or (bytevector? x) (string? x) (charspan? x)) x))))
 
 
-; convert a #\nul terminated bytevector containing UTF-8b to string
+;; convert a 0-terminated bytevector containing UTF-8b to string
 (define (bytevector0->string x)
   (utf8b-range->string x 0 (fx1- (bytevector-length x))))
 
 
-; convert a list of strings or bytevectors to vector-of-bytevector0
-; i.e. to a vector of #\nul terminated UTF-8b bytevectors
+;; convert a list of strings or UTF-8b bytevectors to vector-of-bytevector0
+;; i.e. to a vector of 0-terminated UTF-8b bytevectors
 (define (list->argv l)
   (let ((argv (list->vector l)))
     (do ((i 0 (fx1+ i)))
@@ -178,8 +181,8 @@
       (vector-set! argv i (text->bytevector0 (vector-ref argv i))))))
 
 
-; convert a vector of #\nul terminated UTF-8b bytevectors
-; to a list of strings
+;; convert a vector of 0-terminated UTF-8b bytevectors
+;; to a list of strings,
 (define (argv->list argv)
   (let ((l (vector->list argv)))
     (do ((tail l (cdr tail)))

@@ -52,7 +52,7 @@
 
     ; wildcard
     sh-wildcard sh-wildcard/apply sh-wildcard/expand-tilde!
-    sh-wildcard/prepare-patterns sh-wildcard/expand-patterns
+    sh-wildcard/prepare sh-wildcard/expand
 
     ; macros.ss
     shell shell-backquote shell-env shell-list shell-subshell shell-wildcard

@@ -7,6 +7,8 @@
  * (at your option) any later version.
  */
 
+#define _POSIX_C_SOURCE 200809L
+
 #include "signal.h"
 #include "../eval.h"
 #include "posix.h"
@@ -141,8 +143,9 @@ static ptr c_signals_list(void) {
                   {SIGWINCH, "sigwinch"},   {SIGIO, "sigio"},         {SIGPWR, "sigpwr"},
                   {SIGSYS, "sigsys"}};
 
-  ptr ret = Snil;
-  for (size_t i = 0; i < sizeof(sigtable) / sizeof(sigtable[0]); i++) {
+  ptr    ret = Snil;
+  size_t i;
+  for (i = 0; i < sizeof(sigtable) / sizeof(sigtable[0]); i++) {
     ptr name = Sstring_to_symbol(sigtable[i].sig_name);
     ptr num  = Sfixnum(sigtable[i].sig_num);
     ret      = Scons(Scons(num, name), ret);

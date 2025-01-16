@@ -7,6 +7,8 @@
  * (at your option) any later version.
  */
 
+#define _POSIX_C_SOURCE 200809L
+
 #include "main.h"
 #include "eval.h"
 #include "posix/posix.h"

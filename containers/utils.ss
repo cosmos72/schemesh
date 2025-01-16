@@ -17,7 +17,7 @@
     bytespan-ref/char bytespan-set/char! bytespan-insert-front/char! bytespan-insert-back/char!
     bytespan-insert-back/cspan! bytespan-insert-back/cbuffer!
     bytespan-display-back/fixnum! bytespan-insert-back/string!
-    charspan->utf8b)
+    charspan->utf8b charspan->utf8b/0)
   (import
     (rename (rnrs)
       (fxarithmetic-shift-left  fxshl)
@@ -220,29 +220,29 @@
     (bytespan-resize-front! sp new-len)
     (bytespan-set/char! sp 0 ch)))
 
-;; convert a character to UTF-8/b sequence and append it to bytespan.
-;; Return length in bytes of inserted UTF-8/b sequence
+;; convert a character to UTF-8b sequence and append it to bytespan.
+;; Return length in bytes of inserted UTF-8b sequence
 (define (bytespan-insert-back/char! sp ch)
   (let* ((old-len (bytespan-length sp))
          (new-len (fx+ old-len (char->utf8b-length ch))))
     (bytespan-resize-back! sp new-len)
     (bytespan-set/char! sp old-len ch)))
 
-;; convert a string to UTF-8/b sequences and append it to bytespan.
+;; convert a string to UTF-8b sequences and append it to bytespan.
 (define (bytespan-insert-back/string! sp str)
   (bytespan-reserve-back! sp (fx+ (bytespan-length sp) (string-length str)))
   (string-iterate str
     (lambda (i ch)
       (bytespan-insert-back/char! sp ch))))
 
-;; convert a charspan to UTF-8/b sequences and append it to bytespan.
+;; convert a charspan to UTF-8b sequences and append it to bytespan.
 (define (bytespan-insert-back/cspan! sp csp)
   (bytespan-reserve-back! sp (fx+ (bytespan-length sp) (charspan-length csp)))
   (charspan-iterate csp
     (lambda (i ch)
       (bytespan-insert-back/char! sp ch))))
 
-;; convert a chargbuffer to UTF-8/b sequences and append it to bytespan.
+;; convert a chargbuffer to UTF-8b sequences and append it to bytespan.
 (define (bytespan-insert-back/cbuffer! sp cbuf)
   (bytespan-reserve-back! sp (fx+ (bytespan-length sp) (chargbuffer-length cbuf)))
   (chargbuffer-iterate cbuf
@@ -254,6 +254,14 @@
   (let ((ret (make-bytespan 0)))
     (bytespan-insert-back/cspan! ret sp)
     ret))
+
+;; convert a charspan to UTF-8b bytespan, then append a final byte 0 if not already present.
+(define (charspan->utf8b/0 sp)
+  (let ((ret (charspan->utf8b sp)))
+    (when (or (bytespan-empty? ret) (not (fxzero? (bytespan-back/u8 ret))))
+      (bytespan-insert-back/u8! ret 0))
+    ret))
+
 
 ;; convert a fixnum to decimal digits and append the digits to bytespan.
 (define (bytespan-display-back/fixnum! sp n)

@@ -7,6 +7,10 @@
  * (at your option) any later version.
  */
 
+#define _POSIX_C_SOURCE 200809L /* fstatat() */
+#define _DEFAULT_SOURCE         /* DT_* */
+#define _BSD_SOURCE             /* DT_* */
+
 #include "posix.h"
 #include "../containers/containers.h" /* schemesh_Sbytevector() */
 #include "../eval.h"                  /* eval() */
@@ -17,8 +21,8 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <poll.h>
-#include <pwd.h> /* getpwnam_r() */
-#include <signal.h>
+#include <pwd.h>    /* getpwnam_r() */
+#include <signal.h> /* kill() ... */
 #include <stdio.h>
 #include <stdlib.h> /* getenv(), strtoul() */
 #include <string.h>
@@ -170,7 +174,7 @@ static int c_chdir(ptr bytevec0) {
  */
 static ptr c_get_cwd(void) {
   {
-    // call getcwd() with a small stack buffer
+    /* call getcwd() with a small stack buffer */
     char dir[256];
     if (getcwd(dir, sizeof(dir)) == dir) {
       return schemesh_Sstring_utf8b(dir, strlen(dir));
@@ -179,7 +183,7 @@ static ptr c_get_cwd(void) {
     }
   }
   {
-    // call getcwd() with progressively larger heap buffers
+    /* call getcwd() with progressively larger heap buffers */
     size_t maxlen = 1024;
     char*  dir    = NULL;
     while (maxlen && (dir = malloc(maxlen)) != NULL) {
@@ -354,7 +358,7 @@ static int c_fd_open_max(void) {
 #elif defined(_POSIX_OPEN_MAX)
   return _POSIX_OPEN_MAX;
 #else
-  return 256; // reasonable? default
+  return 256; /* reasonable? default */
 #endif
 }
 
@@ -906,6 +910,21 @@ static ptr c_file_stat(ptr bytevector0_path, int keep_symlinks) {
 
 typedef enum { o_symlinks = 1, o_append_slash = 2, o_strings = 4 } o_dir_options;
 
+typedef struct {
+  const char* prefix;
+  const char* suffix;
+  iptr        prefixlen;
+  iptr        suffixlen;
+  int         prefix_has_slash;
+  int         suffix_has_slash;
+  int         keep_symlinks;
+  int         ret_append_slash;
+  int         ret_strings;
+} s_directory_list_opts;
+
+static ptr
+c_directory_list1(DIR* dir, struct dirent* entry, const s_directory_list_opts* opts, ptr ret);
+
 /**
  * Scan directory bytevector0_dirpath and return Scheme list with its contents as pairs
  * (type . filename) where:
@@ -932,55 +951,104 @@ static ptr c_directory_list(ptr bytevector0_dirpath,
                             int options) {
   ptr            ret = Snil;
   const char*    dirpath;
-  const char*    prefix;
-  const char*    suffix;
   iptr           dirlen;
-  iptr           prefixlen;
-  iptr           suffixlen;
   DIR*           dir;
   struct dirent* entry;
-  int            keep_symlinks    = options & o_symlinks;
-  int            ret_strings      = options & o_strings;
-  int            ret_append_slash = options & o_append_slash;
+
+  s_directory_list_opts opts;
+
   if (!Sbytevectorp(bytevector0_dirpath)         /*                 */
       || !Sbytevectorp(bytevector_filter_prefix) /*                 */
       || !Sbytevectorp(bytevector_filter_suffix)) {
     return Sinteger(c_errno_set(EINVAL));
   }
-  dirpath   = (const char*)Sbytevector_data(bytevector0_dirpath);
-  dirlen    = Sbytevector_length(bytevector0_dirpath); /* including final '\0' */
-  prefix    = (const char*)Sbytevector_data(bytevector_filter_prefix);
-  prefixlen = Sbytevector_length(bytevector_filter_prefix);
-  suffix    = (const char*)Sbytevector_data(bytevector_filter_suffix);
-  suffixlen = Sbytevector_length(bytevector_filter_suffix);
-  if (prefixlen < 0 || suffixlen < 0 || dirlen <= 0 || dirpath[dirlen - 1] != '\0') {
+  dirpath        = (const char*)Sbytevector_data(bytevector0_dirpath);
+  dirlen         = Sbytevector_length(bytevector0_dirpath); /* including final '\0' */
+  opts.prefix    = (const char*)Sbytevector_data(bytevector_filter_prefix);
+  opts.prefixlen = Sbytevector_length(bytevector_filter_prefix);
+  opts.suffix    = (const char*)Sbytevector_data(bytevector_filter_suffix);
+  opts.suffixlen = Sbytevector_length(bytevector_filter_suffix);
+  if (opts.prefixlen < 0 || opts.suffixlen < 0 || dirlen <= 0 || dirpath[dirlen - 1] != '\0') {
     return Sinteger(c_errno_set(EINVAL));
+  }
+  if (opts.prefixlen && opts.prefix[opts.prefixlen - 1] == '/') {
+    opts.prefix_has_slash = 1;
+    opts.prefixlen--;
+  } else {
+    opts.prefix_has_slash = 0;
+  }
+  if (opts.suffixlen && opts.suffix[opts.suffixlen - 1] == '/') {
+    opts.suffix_has_slash = 1;
+    opts.suffixlen--;
+  } else {
+    opts.suffix_has_slash = 0;
+  }
+  opts.keep_symlinks    = options & o_symlinks;
+  opts.ret_append_slash = options & o_append_slash;
+  opts.ret_strings      = options & o_strings;
+
+  if (!opts.ret_append_slash && (opts.prefix_has_slash || opts.suffix_has_slash)) {
+    return ret; /* impossible to satisfy, return nil */
   }
   dir = opendir(dirpath);
   if (!dir) {
     return Sinteger(c_errno());
   }
   while ((entry = readdir(dir)) != NULL) {
-    char*  name = entry->d_name;
-    size_t len  = strlen(name);
-    if (!prefixlen || (len >= (size_t)prefixlen && memcmp(name, prefix, prefixlen) == 0)) {
-      if (!suffixlen ||
-          (len >= (size_t)suffixlen && memcmp(name + len - suffixlen, suffix, suffixlen) == 0)) {
-        ptr type = c_dirent_type2(dir, name, keep_symlinks, entry->d_type);
-        ptr filename;
-        if (ret_append_slash && type == Sfixnum(e_dir)) {
-          name[len++] = '/'; /* replace final '\0' -> '/' is this portable? */
-        }
-        filename =
-            ret_strings ? schemesh_Sstring_utf8b(name, len) : schemesh_Sbytevector(name, len);
-        if (ret_append_slash) {
-          name[--len] = '\0'; /* restore final '\0' */
-        }
-        ret = Scons(Scons(type, filename), ret);
-      }
-    }
+    ret = c_directory_list1(dir, entry, &opts, ret);
   }
   (void)closedir(dir);
+  return ret;
+}
+
+/**
+ * called by c_directory_list(): if entry matches opts, add it to ret.
+ * returns new ret.
+ */
+static ptr
+c_directory_list1(DIR* dir, struct dirent* entry, const s_directory_list_opts* opts, ptr ret) {
+
+  char*  name    = entry->d_name;
+  size_t namelen = strlen(name);
+  ptr    type;
+  ptr    filename;
+  int    name_has_slash;
+
+  if (opts->prefix_has_slash && namelen != (size_t)opts->prefixlen) {
+    /*
+     * prefix was specified and it ends with '/'
+     * => only names containing exactly prefixlen bytes may end with a '/'
+     * at the requested position (happens if they are directories)
+     */
+    return ret;
+  }
+  if (opts->prefixlen &&
+      (namelen < (size_t)opts->prefixlen || memcmp(name, opts->prefix, opts->prefixlen) != 0)) {
+    return ret; /* name does not start with prefix, ignore it */
+  }
+  if (opts->suffixlen &&
+      (namelen < (size_t)opts->suffixlen ||
+       memcmp(name + namelen - opts->suffixlen, opts->suffix, opts->suffixlen) != 0)) {
+    return ret; /* name does not end with suffix, ignore it */
+  }
+  type           = c_dirent_type2(dir, name, opts->keep_symlinks, entry->d_type);
+  name_has_slash = type == Sfixnum(e_dir) && opts->ret_append_slash;
+  if (name_has_slash) {
+    /*
+     * relax filter: return name even if suffix does not end with '/'
+     * because we want (sh-pattern '*) to list all files
+     */
+    name[namelen++] = '/'; /* replace final '\0' -> '/' is this portable? */
+  } else if (opts->prefix_has_slash || opts->suffix_has_slash) {
+    return ret; /* we must only return names that end with '/' */
+  }
+  filename = opts->ret_strings ? schemesh_Sstring_utf8b(name, namelen) :
+                                 schemesh_Sbytevector(name, namelen);
+  ret      = Scons(Scons(type, filename), ret);
+
+  if (name_has_slash) {
+    name[--namelen] = '\0'; /* restore final '\0' */
+  }
   return ret;
 }
 

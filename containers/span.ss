@@ -54,7 +54,7 @@
     ((n fill) (%make-span 0 n (make-vector n fill)))))
 
 (define (span->list sp)
-  (vector-range->list (span-vec sp) (span-beg sp) (span-length sp)))
+  (vector-range->list (span-vec sp) (span-beg sp) (span-end sp)))
 
 (define (span->vector sp)
   (let ((beg (span-beg sp))
