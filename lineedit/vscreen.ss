@@ -398,7 +398,7 @@
       (vscreen-dirty-set! screen #t)
       (let ((saved-y y))
         (while (and (fx>? n 0) (fx<? -1 y (vscreen-length screen)))
-          ;; (debugf "vscreen-erase-at-xy! ~s chars to delete at y = ~s" n y)
+          ; (debugf "vscreen-erase-at-xy! ~s chars to delete at y = ~s" n y)
           (let* ((line (charlines-ref screen y))
                  (len  (charline-length line))
                  (i    (fxmin n (fx- len x))))
@@ -670,7 +670,7 @@
       ;; allow positioning cursor after end of line only if it's the last line
       (let ((xmax (fx- (charline-length (charlines-ref screen y))
                        (if (fx=? y ymax) 0 1))))
-        ;; (debugf "vscreen-prev-xy xy = (~s ~s), xmax = ~s" x y xmax)
+        ; (debugf "vscreen-prev-xy xy = (~s ~s), xmax = ~s" x y xmax)
         (if (fx<=? 1 x xmax)
           (values (fx1- x) y) ;; (x-1 y) is a valid position, return it
           (if (fx>? y 0)
@@ -689,7 +689,7 @@
       ;; allow positioning cursor after end of line only if it's the last line
       (let ((xmax (fx- (charline-length (charlines-ref screen y))
                        (if (fx=? y ymax) 0 1))))
-        ;; (debugf "vscreen-next-xy xy = (~s ~s), xmax = ~s" x y xmax)
+        ; (debugf "vscreen-next-xy xy = (~s ~s), xmax = ~s" x y xmax)
         (if (fx<? -1 x xmax)
           (values (fx1+ x ) y) ;; (x+1 y) is a valid position, return it
           (if (fx<? y ymax)
@@ -759,7 +759,7 @@
                      (and ch (pred ch)))))
     (while continue?
       (let-values (((x1 y1 ch) (vscreen-char-after-xy screen x y)))
-        ;; (debugf "vscreen-count-at-xy/right xy = (~s ~s), ch = ~s" x1 y1 ch)
+        ; (debugf "vscreen-count-at-xy/right xy = (~s ~s), ch = ~s" x1 y1 ch)
         (set! continue? (and x1 y1 ch (pred ch)))
         (when continue?
           (set! x x1)

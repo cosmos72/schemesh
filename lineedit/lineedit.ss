@@ -44,7 +44,7 @@
   (assert* 'linectx-keytable-call (linectx? ctx))
   (let ((rbuf (linectx-rbuf ctx)))
     (let-values (((proc n) (linectx-keytable-find (linectx-ktable ctx) rbuf)))
-      ;; (debugf "linectx-keytable-call consume ~s bytes, call ~s" n proc)
+      ; (debugf "linectx-keytable-call consume ~s bytes, call ~s" n proc)
       (cond
         ((procedure? proc) (void))     ; proc called below, we update rbuf first
         ((hashtable? proc) (set! n 0)) ; incomplete sequence, wait for more keystrokes
@@ -496,7 +496,7 @@
 ;; unconditionally draw prompt. does not update term-x, term-y
 (define (linectx-draw-prompt ctx)
   (let ((prompt (linectx-prompt ctx)))
-    ;; (debugf "linectx-draw-prompt: prompt = ~s" prompt)
+    ; (debugf "linectx-draw-prompt: prompt = ~s" prompt)
     (lineterm-write/bspan ctx prompt 0 (bytespan-length prompt))))
 
 ;; unconditionally draw all lines. does not update term-x, term-y
@@ -505,7 +505,7 @@
          (width  (vscreen-width screen))
          (ymax   (fxmax 0 (fx1- (vscreen-length screen))))
          (nl?    #f))
-    ;; (debugf "linectx-draw-lines ~s" screen)
+    ; (debugf "linectx-draw-lines ~s" screen)
     (charlines-iterate screen
       (lambda (y line)
         (lineterm-write/cbuffer ctx line 0 (charline-length line))
@@ -521,7 +521,7 @@
          (ix (vscreen-length-at-y screen iy))
          (vy (fx+ iy (vscreen-prompt-end-y screen)))
          (vx (fx+ ix (if (fxzero? iy) (vscreen-prompt-end-x screen) 0))))
-    ;; (debugf "linectx-move-from-end-lines vx = ~s, vy = ~s" vx vy)
+    ; (debugf "linectx-move-from-end-lines vx = ~s, vy = ~s" vx vy)
     (linectx-term-xy-set! ctx vx vy)))
 
 
@@ -737,7 +737,7 @@
         (wbuf  (linectx-wbuf  ctx))
         (vx    (if (fxzero? y) (fx+ x (linectx-prompt-end-x ctx)) x)) ;; also count prompt length!
         (vy    (fx+ y (linectx-prompt-end-y ctx))))                   ;; also count prompt length!
-    ;; (debugf "linectx-draw-char-at-xy at (~s ~s) char ~s" x y ch)
+    ; (debugf "linectx-draw-char-at-xy at (~s ~s) char ~s" x y ch)
     (when (and ch (char>=? ch #\space))
       (lineterm-move-to ctx vx vy)
       (case style

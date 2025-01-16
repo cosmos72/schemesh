@@ -262,7 +262,7 @@
 ;; recursive implementation of (sh-wildcard/expand)
 ;; appends matching paths to span ret and returns it.
 (define (%wildcard/expand sp i sp-end path ret)
-  ;; (debugf "%wildcard/expand p=~s, path=~s" (if (fx<? i sp-end) (span-ref sp i) #f) path)
+  ;; (debugf "%wildcard/expand patterns=~s, path=~s" (span-range->span* sp i sp-end) path)
   (cond
     ((fx>=? i sp-end) ; check that path exists
       (when (file-stat path 'catch 'symlinks)

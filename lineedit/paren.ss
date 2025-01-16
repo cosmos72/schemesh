@@ -112,14 +112,14 @@
 
 ;; traverse paren and convert it to a hashtable (+ x (* y 65536)) -> paren
 (define (paren->hashtable paren)
-  ;; (debugf "(paren->hashtable ~s)" paren)
+  ; (debugf "(paren->hashtable ~s)" paren)
   (if paren
     (%paren->hashtable paren (make-eqv-hashtable))
     #f))
 
 ;; actual implementation of (paren->hashtable)
 (define (%paren->hashtable paren htable)
-  ;; (debugf "(%paren->hashtable ~s)" paren)
+  ; (debugf "(%paren->hashtable ~s)" paren)
   (when (paren-start-token paren)
     (%hashtable-put-paren-start htable paren))
   (when (paren-end-token paren)

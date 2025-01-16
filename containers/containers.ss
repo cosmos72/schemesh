@@ -30,7 +30,7 @@
     ; span.ss
     list->span vector->span vector->span* make-span span->list span->vector span span?
     span-length span-empty? span-clear! span-capacity span-capacity-front span-capacity-back
-    span-ref span-back span-set! span-fill! span-fill-range! span-copy span-copy!
+    span-ref span-back span-set! span-fill! span-fill-range! span-range->span* span-copy span-copy!
     span-reserve-front! span-reserve-back! span-resize-front! span-resize-back!
     span-insert-front! span-insert-back! span-insert-front/span! span-insert-back/span!
     span-erase-front! span-erase-back! span-iterate span-find

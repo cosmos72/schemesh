@@ -13,7 +13,7 @@
   (export
     list->span vector->span vector->span* make-span span->list span->vector span span?
     span-length span-empty? span-clear! span-capacity span-capacity-front span-capacity-back
-    span-ref span-back span-set! span-fill! span-fill-range! span-copy span-copy!
+    span-ref span-back span-set! span-fill! span-fill-range! span-range->span* span-copy span-copy!
     span-reserve-front! span-reserve-back! span-resize-front! span-resize-back!
     span-insert-front! span-insert-back! span-insert-front/span! span-insert-back/span!
     span-erase-front! span-erase-back! span-iterate span-find span-rfind
@@ -103,6 +103,15 @@
   (assert* 'span-fill-range! (fx<=? (fx+ start n) (span-length sp)))
   (vector-fill-range! (span-vec sp) (fx+ start (span-beg sp)) n val))
 
+
+;; view the range [start, end) of span sp as a new span, and return it.
+;; note: modifying the content of either span may propagate to the other.
+(define (span-range->span* sp start end)
+  (assert* 'span-range->span* (fx<=? 0 start end (span-length sp)))
+  (%make-span (fx+ start (span-beg sp)) (fx+ end (span-beg sp)) (span-vec sp)))
+
+
+;; make a copy of a span and return it.
 (define (span-copy src)
   (let* ((n (span-length src))
          (dst (make-span n)))
