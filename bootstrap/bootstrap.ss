@@ -10,7 +10,7 @@
      assert* catch define-macro debugf debugf-port first-value first-value-or-void
      let-macro raise-assertv raise-assertf raise-errorf repeat
      sh-eval sh-eval-string sh-scheme-environment sh-scheme-eval
-     while until throws? try list->values values->list -> ^)
+     while until throws? trace try list->values values->list -> ^)
   (import
     (rnrs)
     (rnrs base)
@@ -59,6 +59,29 @@
       env)))
 
 
+;; convert a list to multiple values
+(define (list->values l)
+  (apply values l))
+
+;; evaluate expr, which may return multiple values, and return a list containing such values.
+(define-syntax values->list
+  (syntax-rules ()
+    ((_ expr) (call-with-values (lambda () expr) list))))
+
+;; evaluate expr, which may return multiple values, and return the first of such values.
+(define-syntax first-value
+  (syntax-rules ()
+    ((_ expr) (call-with-values (lambda () expr) (lambda args (car args))))))
+
+;; evaluate expr, which may return multiple values, and return the first of such values.
+;; If expr returns no values, return (void)
+(define-syntax first-value-or-void
+  (syntax-rules ()
+    ((_ expr) (call-with-values
+                (lambda () expr)
+                (lambda args (if (null? args) (void) (car args)))))))
+
+
 ;; port where to write debug messages with (debugf).
 ;; lazily initialized to a file output port that writes to device /dev/pts/1
 (define debugf-port
@@ -83,6 +106,21 @@
          (zeropad (if (fx<? us-str-len 6) (make-string (fx- 6 us-str-len) #\0) "")))
     (apply format out (string-append "; ~a.~a~a " format-string "\n")
       (time-second t) zeropad us-str args)))
+
+
+;; wrap a procedure call, and write two debug messages to (debugf-port):
+;; the first before calling the procedure, showing the arguments values
+;; the second after the procedure returned, showing the return values
+(define-syntax trace
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ (proc args ...))
+        #'(let ((tproc proc) ; proc must be evaluated before args
+                (targs (list args ...)))
+            (debugf "> ~s call ~s" 'proc (cons 'proc targs))
+            (let ((ret (values->list (apply tproc targs))))
+              (debugf "< ~s rets ~s" 'proc ret)
+              (list->values ret)))))))
 
 
 (define-syntax repeat
@@ -208,27 +246,6 @@
           (or ex #t))))))
 
 
-;; convert a list to multiple values
-(define (list->values l)
-  (apply values l))
-
-;; evaluate expr, which may return multiple values, and return a list containing such values.
-(define-syntax values->list
-  (syntax-rules ()
-    ((_ expr) (call-with-values (lambda () expr) list))))
-
-;; evaluate expr, which may return multiple values, and return the first of such values.
-(define-syntax first-value
-  (syntax-rules ()
-    ((_ expr) (call-with-values (lambda () expr) (lambda args (car args))))))
-
-;; evaluate expr, which may return multiple values, and return the first of such values.
-;; If expr returns no values, return (void)
-(define-syntax first-value-or-void
-  (syntax-rules ()
-    ((_ expr) (call-with-values
-                (lambda () expr)
-                (lambda args (if (null? args) (void) (car args)))))))
 
 
 ;; Scheme implementation of Common Lisp defmacro, defines a global macro.
