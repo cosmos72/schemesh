@@ -74,7 +74,7 @@
                     (text->bytevector0 dirpath)
                     (%find-and-convert-option options 'prefix)
                     (%find-and-convert-option options 'suffix)
-                    (fxior (if (memq 'symlinks options) 0 1)
+                    (fxior (if (memq 'symlinks options) 1 0)
                            (if (memq 'append-slash options) 2 0)
                            (if strings? 4 0)))))
         (cond

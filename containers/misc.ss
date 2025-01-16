@@ -14,7 +14,8 @@
     bytevector-fill-range! bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?
     string-fill-range! string-range-count= string-range=? string-range<?
-    string-find/char string-rfind/char string-split string-iterate)
+    string-find/char string-rfind/char string-split string-iterate
+    string-starts-with/char? string-ends-with/char? )
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -272,6 +273,20 @@
        (n (string-length str)))
       ((or (fx>=? i n) (not (proc i (string-ref str i))))
        (fx>=? i n))))
+
+
+;; return #t if string str is non-empty and starts with character ch,
+;; otherwise return #f.
+(define (string-starts-with/char? str ch)
+  (let ((len (string-length str)))
+    (if (fxzero? len) #f (char=? #\/ (string-ref str 0)))))
+
+
+;; return #t if string str is non-empty and ends with character ch,
+;; otherwise return #f.
+(define (string-ends-with/char? str ch)
+  (let ((len (string-length str)))
+    (if (fxzero? len) #f (char=? #\/ (string-ref str (fx1- len))))))
 
 
 ;; search string range [start, end) and return index of first character equal to ch.

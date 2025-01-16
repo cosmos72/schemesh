@@ -48,11 +48,12 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) append! break display-condition foreign-procedure format fx1+ fx1-
+    (only (chezscheme) append! break debug-condition display-condition foreign-procedure format fx1+ fx1-
                        include inspect logand logbit? make-format-condition make-thread-parameter
                        open-fd-output-port parameterize procedure-arity-mask record-writer reverse!
-                       string-copy! void)
-    (only (schemesh bootstrap) assert* catch debugf debugf-port sh-eval raise-assertv raise-errorf try until while)
+                       string-copy! string-truncate! void)
+    (only (schemesh bootstrap) assert* catch debugf debugf-port sh-eval raise-assertv raise-errorf
+                               trace-call try until while)
     (schemesh containers)
     (schemesh conversions)
     (schemesh posix dir)

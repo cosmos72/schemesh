@@ -132,7 +132,7 @@
     (if (string? key) key #f)))
 
 
-;; if first element in sh-pattern is a string, return it.
+;; if last element in sh-pattern is a string, return it.
 ;; otherwise return #f
 (define (sh-pattern-back/string p)
   (let* ((sp     (pattern-span p))

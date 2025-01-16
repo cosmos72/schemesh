@@ -252,10 +252,7 @@
                          "")))))
         (span->list (%wildcard/expand sp 0 (span-length sp) dir ret))))
     (catch (ex)
-      ;; (debugf "exception in sh-wildcard/expand ~s:" sp)
-      ;; (let ((port (debugf-port)))
-      ;;   (display-condition ex port)
-      ;;   (newline port))
+      (debug-condition ex) ;; save ex into thread-parameter (debug-condition)
       '())))
 
 
@@ -266,12 +263,16 @@
   (cond
     ((fx>=? i sp-end) ; check that path exists
       (when (file-stat path 'catch 'symlinks)
+        ; if patterns do not end with #\/ then remove any final #\/ from path
+        (when (and (string-ends-with/char? path #\/)
+                   (not (%patterns-end-with/char? sp #\/)))
+          (string-truncate! path (fx1- (string-length path))))
         (span-insert-back! ret path))
       ret)
     ((string? (span-ref sp i))
       (let ((subpath (%path-append path (span-ref sp i))))
-        ; check that subpath exists
-        (if (file-stat subpath 'catch 'symlinks)
+        ; check that subpath exists.
+        (if (file-stat subpath 'catch)
           (%wildcard/expand sp (fx1+ i) sp-end subpath ret)
           ret)))
     (#t
@@ -280,6 +281,9 @@
              (suffix  (or (sh-pattern-back/string p) ""))
              (path-or-dot (if (fxzero? (string-length path)) "." path))
              (i+1     (fx1+ i)))
+        ; pattern p may end with #\/ thus:
+        ; 1. must add option 'append-slash to mark directories with a final #\/
+        ; 2. cannot add option 'symlinks because it would not mark symlinks with a final #\/ even if they point to a directory
         (list-iterate (directory-sort! (directory-list path-or-dot 'append-slash 'catch 'prefix prefix 'suffix suffix))
           (lambda (type-and-name)
             (let ((name (cdr type-and-name)))
@@ -288,25 +292,29 @@
               (void))))
         ret))))
 
+;; given a span of sh-pattern and strings,
+;; return #t if last span element (either a span or a sh-pattern)
+;; ends with character ch
+(define (%patterns-end-with/char? sp ch)
+  (if (span-empty? sp)
+    #f
+    (let* ((p   (span-back sp))
+           (key (if (string? p) p (sh-pattern-back/string p))))
+      (and (string? key) (string-ends-with/char? key ch)))))
+
 
 ;; concatenate two filesystem paths
 (define (%path-append path1 path2)
   (let* ((path1-len (string-length path1))
          (path2-len (string-length path2))
-         (path1-slash?
-           (if (fxzero? path1-len)
-             #f
-             (char=? #\/ (string-ref path1 (fx1- path1-len)))))
-         (path2-slash?
-           (if (fxzero? path2-len)
-             #f
-             (char=? #\/ (string-ref path2 (fx1- path2-len))))))
+         (path1-slash? (string-ends-with/char? path1 #\/))
+         (path2-slash? (string-starts-with/char? path2 #\/)))
     (cond
       ((fxzero? path1-len)
         path2)
       ((and path1-slash? path2-slash?)
         (let* ((path1-len-1 (fx1- path1-len))
-               (ret (make-string (fx+ path1-len-1 path2-len))))
+               (ret         (make-string (fx+ path1-len-1 path2-len))))
           (string-copy! path1 0 ret 0 path1-len-1)
           (string-copy! path2 0 ret path1-len-1 path2-len)
           ret))
