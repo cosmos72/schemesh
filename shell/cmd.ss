@@ -77,15 +77,16 @@
 
 
 ;; internal function called by (cmd-start):
-;; expand a single procedure in a cmd-arg-list element,
-;; and reverse-cons it at the beginning of list-of-strings l.
+;; if arg is a procedure then call it, optionally passing current job as the only argument.
+;; Such procedure must return a string or list-of-strings, which are reverse-consed
+;; at the beginning of list-of-strings l.
 ;; Return the updated list.
 (define (cmd-arg-expand c arg l)
   (let ((expanded
           (cond
             ((not (procedure? arg)) arg)
-            ((logbit? 1 (procedure-arity-mask arg)) (arg c))
-            (#t   (arg)))))
+            ((logbit? 1 (procedure-arity-mask arg)) (arg c)) ; call closure (lambda (job) ...)
+            (#t   (arg)))))                                  ; call closure (lambda () ...)
     (cond
       ((null? expanded)
         l)

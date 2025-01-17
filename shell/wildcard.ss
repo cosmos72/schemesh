@@ -13,7 +13,9 @@
 ;; and closures (lambda (job) ...) or (lambda () ...) that return a string or a list of strings,
 ;; then expand wildcard symbols to matching filesystem paths.
 ;;
-;; returns a string or list of strings
+;; returns a non-empty list of strings, containing matching filesystem paths.
+;; if args do not match any filesystem path, return a single string - not a list -
+;;   containing args converted back to string with shell wildcard syntax.
 (define (sh-wildcard job-or-id . args)
   (let* ((job (sh-job job-or-id))
          (sp  (sh-wildcard/apply job args))

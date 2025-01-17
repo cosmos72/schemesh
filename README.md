@@ -1,9 +1,8 @@
 # schemesh
 ## Fusion between a Unix shell and a Lisp REPL
 
-### Current status: ALPHA.
-### Some features work, many others are incomplete or missing.
-### Use at your own risk!
+### Current status: BETA.
+### Many features work, some are incomplete or missing.
 
 Schemesh is an interactive shell scriptable in Lisp.
 
@@ -27,7 +26,7 @@ Features:
 - [x] shell environment variables
 - [x] shell pipelines `|`
 - [x] shell redirections `<` `>` `<>` `>>` `<&` `>&` `$()` ``` `` ```
-- [ ] shell wildcard expansion
+- [x] shell wildcard expansion
 
 Schemesh can be used as:
 * a replacement for traditional interactive Unix shell, as for example bash/zsh/pdksh etc.
@@ -90,3 +89,15 @@ fg
 (sh-start job)
 (sh-fg job)
 ```
+
+## TO DO
+
+* modify builtin "cd", for changing current directory of *parent* job
+* implement builtin "global-cd", for changing current directory of sh-globals
+* implement builtin "set", for setting environment variables in *parent* job
+* implement builtin "global-set", for setting environment variables in sh-globals
+* implement builtin "unsafe", for executing the output of a subshell or any other closure
+  add check to macro (shell): if first argument contains (shell-backquote), raise condition suggesting to prefix it with "unsafe"
+* add missing shell builtins: bg fg kill exec exit global-cd set global-set unalias unsafe unset
+* complete existing builtins: alias, without arguments must list existing aliases
+* implement function (string->sh-patterns)

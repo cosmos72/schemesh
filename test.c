@@ -1012,7 +1012,7 @@ static const testcase tests[] = {
     /* should rather expand to (sh-env/lazy! ...) ? */
     {"(expand '(shell \"A\" = (shell-backquote \"echo\" \"abc\" \\x3b; \"echo\" \"def\")))",
      INVOKELIB_SHELL_JOBS
-     " (sh-cmd* A '= (lambda (job)"
+     " (sh-cmd* A '= (lambda ()"
      " (sh-run/string-rtrim-newlines (sh-list (sh-cmd echo abc) '; (sh-cmd echo def))))))"},
     {"(expand '(shell (shell-wildcard \"l\" \"s\")))",
      INVOKELIB_SHELL_JOBS " (sh-cmd* (lambda (job) (sh-wildcard job l s))))"},
@@ -1020,7 +1020,7 @@ static const testcase tests[] = {
      INVOKELIB_SHELL_JOBS " (sh-cmd* (lambda (job) (sh-wildcard job l s)) .))"},
     {"(expand '(shell (shell-backquote \"echo\" \"ls\")))",
      INVOKELIB_SHELL_JOBS
-     " (sh-cmd* (lambda (job) (sh-run/string-rtrim-newlines (sh-cmd echo ls)))))"},
+     " (sh-cmd* (lambda () (sh-run/string-rtrim-newlines (sh-cmd echo ls)))))"},
     /* test wildcards and patterns [...] */
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"{echo *}\")))",
@@ -1057,7 +1057,7 @@ static const testcase tests[] = {
      "(shell echo (shell-backquote foo && bar))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"echo $(foo&&bar)\")))",
-     INVOKELIB_SHELL_JOBS " (sh-cmd* echo (lambda (job) (sh-run/string-rtrim-newlines"
+     INVOKELIB_SHELL_JOBS " (sh-cmd* echo (lambda () (sh-run/string-rtrim-newlines"
                           " (sh-and (sh-cmd foo) (sh-cmd bar))))))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{ls} > log.txt &\")))",
