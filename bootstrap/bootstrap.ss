@@ -117,9 +117,9 @@
       ((_ (proc args ...))
         #'(let ((tproc proc) ; proc must be evaluated before args
                 (targs (list args ...)))
-            (debugf "> ~s call ~s" 'proc (cons 'proc targs))
+            (begin (debugf "> ~s call ~s" 'proc (cons 'proc targs)))
             (let ((ret (values->list (apply tproc targs))))
-              (debugf "< ~s rets ~s" 'proc ret)
+              (begin (debugf "< ~s rets ~s" 'proc ret))
               (list->values ret)))))))
 
 
