@@ -92,6 +92,7 @@ fg
 
 ## TO DO
 
+* decide: (shell-backquote) should expand to a closure that accepts a parent job and creates a subshell with such parent job?
 * modify builtin "cd", for changing current directory of *parent* job
 * implement builtin "global-cd", for changing current directory of sh-globals
 * implement builtin "set", for setting environment variables in *parent* job
