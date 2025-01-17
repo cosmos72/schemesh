@@ -10,7 +10,7 @@
 #ifndef SCHEMESH_CONTAINERS_H
 #define SCHEMESH_CONTAINERS_H
 
-#include <scheme.h> /* ptr */
+#include "../chezscheme.h" /* ptr */
 #include <stddef.h> /* size_t */
 
 void schemesh_register_c_functions_containers(void);

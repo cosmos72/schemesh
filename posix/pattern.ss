@@ -231,12 +231,6 @@
 ;; return two values:
 ;; 1. number of consumed span elements, or #f if match failed.
 ;; 2. number of matched string characters
-#|
-(define (%pattern-match/left1 sp sp-start sp-end str str-start str-end)
-  (let-values (((sp-step str-step) (%%pattern-match/left1 sp sp-start sp-end str str-start str-end)))
-    (debugf "%pattern-match/left1  sp-step=~s str-step=~s key=~s " sp-step str-step (if (fx<? sp-start sp-end) (span-ref sp sp-start) #f))
-    (values sp-step str-step)))
-|#
 (define (%pattern-match/left1 sp sp-start sp-end str str-start str-end)
   (let ((key (span-ref sp sp-start)))
     (cond
@@ -269,12 +263,6 @@
 ;; return two values:
 ;; 1. number of consumed span elements, or #f if match failed.
 ;; 2. number of matched string characters
-#|
-(define (%pattern-match/right1 sp sp-start sp-end str str-start str-end)
-  (let-values (((sp-step str-step) (%%pattern-match/right1 sp sp-start sp-end str str-start str-end)))
-    (debugf "%pattern-match/right1 sp-step=~s str-step=~s key=~s " sp-step str-step (if (fx<? sp-start sp-end) (%pattern-at sp (fx1- sp-end)) #f))
-    (values sp-step str-step)))
-|#
 (define (%pattern-match/right1 sp sp-start sp-end str str-start str-end)
   (let ((key (%pattern-at sp (fx1- sp-end))))
     (cond

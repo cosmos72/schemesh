@@ -11,7 +11,6 @@
 #include "shell/shell.h"
 
 #include <errno.h>
-#include <scheme.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -490,13 +489,13 @@ static const testcase tests[] = {
      "  screen)",
      "(vscreen* 8 30 \"abcduwxy\" \"zefgh012\" \"\\n\" \"\")"},
     {"(let ((screen (vscreen* 8 30 \"abcdefgh\" \"012\\n\")))\n"
-     "  (values->list (vscreen-count-at-xy/left screen 4 1"
+     "  (values->list (vscreen-count-before-xy/left screen 4 1"
      "                  (lambda (ch) (not (char=? ch #\\d))))))",
      "(4 0 8)"},
     {"(let ((screen (vscreen* 8 30 \"abcdefgh\" \"012\\n\")))\n"
      "  (values->list (vscreen-count-at-xy/right screen 4 0"
      "                  (lambda (ch) (not (char=? ch #\\newline))))))",
-     "(2 1 6)"},
+     "(3 1 7)"},
     {"(let ((screen (vscreen* 8 30 \"abcdefgh\" \"012\\n\" \"qwert\")))\n"
      "  (vscreen-cursor-ixy-set! screen 3 1)\n" /* move the cursor to the char '\n' */
      "  (vscreen-resize! screen 5 30)\n"
@@ -1014,10 +1013,9 @@ static const testcase tests[] = {
      INVOKELIB_SHELL_JOBS
      " (sh-cmd* A '= (lambda ()"
      " (sh-run/string-rtrim-newlines (sh-list (sh-cmd echo abc) '; (sh-cmd echo def))))))"},
-    {"(expand '(shell (shell-wildcard \"l\" \"s\")))",
-     INVOKELIB_SHELL_JOBS " (sh-cmd* (lambda (job) (sh-wildcard job l s))))"},
+    {"(expand '(shell (shell-wildcard \"l\" \"s\")))", INVOKELIB_SHELL_JOBS " (sh-cmd* ls))"},
     {"(expand '(shell (shell-wildcard \"l\" \"s\") \".\"))",
-     INVOKELIB_SHELL_JOBS " (sh-cmd* (lambda (job) (sh-wildcard job l s)) .))"},
+     INVOKELIB_SHELL_JOBS " (sh-cmd* ls .))"},
     {"(expand '(shell (shell-backquote \"echo\" \"ls\")))",
      INVOKELIB_SHELL_JOBS
      " (sh-cmd* (lambda () (sh-run/string-rtrim-newlines (sh-cmd echo ls)))))"},
@@ -1044,14 +1042,12 @@ static const testcase tests[] = {
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"ls A=B\"))))",
      INVOKELIB_SHELL_JOBS " (sh-cmd ls A=B))"},
-    /*
-     * known failure:
-     * [...] should parsed as subshell only if it's the first argument
-     * otherwise it's a pattern
-     */
+    {"(parse-shell-form1 (string->parsectx\n"
+     "  \"echo [ab]* ? [!z]\"))))",
+     "(shell echo (shell-wildcard % ab *) (shell-wildcard ?) (shell-wildcard %! z))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
-     "  \"ls [ab]\"))))",
-     INVOKELIB_SHELL_JOBS " (sh-cmd ls (shell-wildcard % ab)))"},
+     "  \"ls [ab]*\"))))",
+     INVOKELIB_SHELL_JOBS " (sh-cmd* ls (lambda (job) (sh-wildcard job '% ab '*))))"},
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"echo $(foo&&bar)\"))",
      "(shell echo (shell-backquote foo && bar))"},

@@ -16,7 +16,7 @@
     vscreen-length-at-y  vscreen-length
     vscreen-char-at-xy   vscreen-char-before-xy  vscreen-char-after-xy
     vscreen-next-xy      vscreen-prev-xy   vscreen-next-xy/or-self  vscreen-prev-xy/or-self
-    vscreen-count-at-xy/left  vscreen-count-at-xy/right
+    vscreen-count-before-xy/left  vscreen-count-at-xy/right
     vscreen-clear!       vscreen-empty?
     vscreen-cursor-move/left! vscreen-cursor-move/right!  vscreen-cursor-move/up!  vscreen-cursor-move/down!
     vscreen-erase-left/n!     vscreen-erase-right/n!      vscreen-erase-at-xy!
@@ -736,9 +736,10 @@
       (values #f #f #f))))
 
 
-;; return count of consecutive characters before x y that satisfy (pred ch), and their position.
-;; return x y 0 if either x y are out of range, or character before x y does not satisfy (pred ch)
-(define (vscreen-count-at-xy/left screen x y pred)
+;; return count of consecutive characters starting immediately before x y and moving backward
+;; that satisfy (pred ch), and the x y position of the first such character.
+;; return x y 0 if either x y are out of range, or character immediately before x y does not satisfy (pred ch)
+(define (vscreen-count-before-xy/left screen x y pred)
   (let ((n 0)
         (continue? #t))
     (while continue?
@@ -751,7 +752,8 @@
     (values x y n)))
 
 
-;; return count of consecutive characters at x y or afterwards that satisfy (pred ch), and their position.
+;; return count of consecutive characters starting at x y and moving forward
+;; that satisfy (pred ch), and x y position immediately after the last such character.
 ;; return x y 0 if either x y are out of range, or character at x y does not satisfy (pred ch)
 (define (vscreen-count-at-xy/right screen x y pred)
   (let ((n 0)
@@ -760,8 +762,8 @@
     (while continue?
       (let-values (((x1 y1 ch) (vscreen-char-after-xy screen x y)))
         ; (debugf "vscreen-count-at-xy/right xy = (~s ~s), ch = ~s" x1 y1 ch)
-        (set! continue? (and x1 y1 ch (pred ch)))
-        (when continue?
+        (when (and x1 y1)
+          (set! continue? (and ch (pred ch)))
           (set! x x1)
           (set! y y1)
           (set! n (fx1+ n)))))

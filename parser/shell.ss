@@ -377,7 +377,8 @@
             (cond
               (dquote?
                 (%append (read-subword-double-quoted ctx)))
-              ((memq type '(backslash char))
+              ((or (memq type '(backslash char))
+                   (and (eq? type 'lbrack) (not lbracket-is-subshell?)))
                 (let-values (((words action)
                                 (read-subwords-noquote ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?)))
                   (cond
@@ -419,7 +420,7 @@
 (define (lex-shell-impl ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?)
   (let-values (((ch type) (read-shell-char ctx)))
     (case type
-      ((eof separator lparen rparen lbrack rbrack lbrace rbrace)
+      ((eof separator lparen rparen rbrack lbrace rbrace)
         (values ch type))
       ((op)
         (let ((ch2 (parsectx-peek-char ctx)))
@@ -436,10 +437,13 @@
           (parsectx-read-char ctx); consume peeked character
           (set! ch (op->symbol ctx ch))) ; convert character to symbol
         (values ch type))
-      ((dollar)
-        (if (eqv? #\( (parsectx-peek-char ctx)) #| #\) |# ; make vscode happy
-          (values (parsectx-read-char ctx) 'dollar+lparen)
-          (begin
+      ((dollar lbrack)
+        (cond
+          ((and (eq? type 'dollar) (eqv? #\( (parsectx-peek-char ctx))) #| #\) |# ; make vscode happy
+            (values (parsectx-read-char ctx) 'dollar+lparen))
+          ((and (eq? type 'lbrack) lbracket-is-subshell?)
+            (values ch type))
+          (#t
             (parsectx-unread-char ctx ch)
             (parse-shell-word ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?))))
       ((backquote)

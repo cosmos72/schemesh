@@ -36,26 +36,32 @@
     ((_ arg ...)       (lambda () (sh-run/string-rtrim-newlines (shell arg ...))))))
 
 (meta begin
-  (define (%sh-wildcard-flatten ret args)
+  (define (%sh-wildcard-simplify wildcards? ret args)
     (do ((args args (cdr args)))
-        ((null? args) ret)
-      ; (debugf "... %sh-wildcard-flatten ret=~s args=~s" (reverse ret) args)
+        ((null? args) (values wildcards? ret))
+      ; (debugf "... %sh-wildcard-simplify ret=~s args=~s" (reverse ret) args)
       (let ((arg (car args)))
         (cond
           ((and (pair? arg) (eq? 'shell-wildcard (car arg)))
-            (set! ret (%sh-wildcard-flatten ret (cdr arg))))
+            (let-values (((inner-wildcards? inner-ret) (%sh-wildcard-simplify wildcards? ret (cdr arg))))
+              (set! wildcards? inner-wildcards?)
+              (set! ret        inner-ret)))
           ((sh-wildcard? arg)
+            (set! wildcards? #t)
             (set! ret (cons (list 'quote arg) ret)))
           (#t
+            (unless (string? arg)
+              (set! wildcards? #t))
             (set! ret (cons arg ret)))))))
 
   ;; flatten nested macros (shell-wildcard ... (shell-wildcard ...) ...)
-  (define-macro (%shell-wildcard-flatten . args)
-    (reverse! (%sh-wildcard-flatten '() args)))
-
-  (define (%is-wildcard? arg)
-    ; (debugf "%is-wildcard? arg=~s" arg)
-    (memq arg '(* ? ~)))
+  ;; replace (shell-wildcard ...) containing only strings with the concatenation of those strings
+  (define-macro (%shell-wildcard-simplify proc job . args)
+    (let-values (((wildcards? rev-args) (%sh-wildcard-simplify #f '() args)))
+      (let ((args (reverse! rev-args)))
+        (if wildcards?
+          `(lambda (,job) (,proc ,job ,@args))
+          (apply string-append args)))))
 
 ) ; close meta
 
@@ -65,11 +71,11 @@
       ((_)
          "")
       ((_ arg)
-        ; single-argument (shell-syntax arg) can be simplified to arg
-        ; unless arg it's a wildcard i.e. one of * ? ~
-        (not (%is-wildcard? (syntax->datum (syntax arg))))
+        ; single-argument (shell-wildcard arg) can be simplified to arg
+        ; if arg is a string
+        (string? (syntax->datum (syntax arg)))
         #`arg)
-      ((_ arg0 ...) #`(lambda (job) (%shell-wildcard-flatten sh-wildcard job arg0 ...))))))
+      ((_ arg0 ...) #`(%shell-wildcard-simplify sh-wildcard job arg0 ...)))))
 
 (define-syntax shell-env
   (syntax-rules ()

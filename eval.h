@@ -10,7 +10,7 @@
 #ifndef SCHEMESH_EVAL_H
 #define SCHEMESH_EVAL_H
 
-#include <scheme.h>
+#include "chezscheme.h"
 
 /**
  * call global Scheme procedure with no arguments.

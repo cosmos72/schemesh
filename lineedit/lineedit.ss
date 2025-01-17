@@ -66,8 +66,8 @@
 (define (linectx-find-left/word-begin ctx)
   (let ((screen (linectx-vscreen ctx)))
     (let-values (((x y) (vscreen-cursor-ixy screen)))
-      (let-values (((x y nsp) (vscreen-count-at-xy/left screen x y (lambda (ch) (char<=? ch #\space)))))
-        (let-values (((x y nw) (vscreen-count-at-xy/left screen x y (lambda (ch) (char>? ch #\space)))))
+      (let-values (((x y nsp) (vscreen-count-before-xy/left screen x y %char-is-not-alphanumeric)))
+        (let-values (((x y nw) (vscreen-count-before-xy/left screen x y %char-is-alphanumeric)))
           (values x y (fx+ nsp nw)))))))
 
 
@@ -76,11 +76,23 @@
 (define (linectx-find-right/word-end ctx)
   (let ((screen (linectx-vscreen ctx)))
     (let-values (((x y) (vscreen-cursor-ixy screen)))
-      (let-values (((x y nsp) (vscreen-count-at-xy/right screen x y (lambda (ch) (char<=? ch #\space)))))
-        (let-values (((x y nsp) (vscreen-next-xy/or-self screen x y nsp)))
-          (let-values (((x y nw) (vscreen-count-at-xy/right screen x y (lambda (ch) (char>? ch #\space)))))
-            (let-values (((x y nw) (vscreen-next-xy/or-self screen x y nw)))
-              (values x y (fx+ nsp nw)))))))))
+      (let-values (((x y nsp) (vscreen-count-at-xy/right screen x y %char-is-not-alphanumeric)))
+        (let-values (((x y nw) (vscreen-count-at-xy/right screen x y %char-is-alphanumeric)))
+          (values x y (fx+ nsp nw)))))))
+
+
+;; return #t if ch is an alphanumeric i.e. one of [0-9A-Za-z] or a Unicode codepoint >= 128
+;; otherwise return #f
+(define (%char-is-alphanumeric ch)
+  (or (char<=? #\0 ch #\9)
+      (char<=? #\A ch #\Z)
+      (char<=? #\a ch #\z)
+      (fx>=? (char->integer ch) 128)))
+
+;; return #t if ch is not alphanumeric i.e. not one of [0-9A-Za-z] and not a Unicode codepoint >= 128
+;; otherwise return #f
+(define (%char-is-not-alphanumeric ch)
+  (not (%char-is-alphanumeric ch)))
 
 
 (define (lineedit-flush ctx)

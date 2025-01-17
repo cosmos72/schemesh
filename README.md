@@ -92,6 +92,12 @@ fg
 
 ## TO DO
 
+* autocomplete shell paths and scheme strings: unescape stems before searching for completions, escape completions
+* autocomplete shell paths starting with ~
+* at startup, load history from ~/.cache/schemesh/history.schemesh
+* at exit, save history to the same file
+* implement (sh-include)
+* at startup, (sh-include) file history from ~/.config/schemesh/init.schemesh
 * decide: (shell-backquote) should expand to a closure that accepts a parent job and creates a subshell with such parent job?
 * modify builtin "cd", for changing current directory of *parent* job
 * implement builtin "global-cd", for changing current directory of sh-globals
