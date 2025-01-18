@@ -7,15 +7,16 @@
 
 (library (schemesh lineedit charhistory io (0 1))
   (export
-    charhistory-load           charhistory-save
-    charhistory-load-from-path charhistory-save-to-path
-    charhistory-load-from-port charhistory-save-to-port)
+    charhistory-load!           charhistory-save
+    charhistory-load-from-path! charhistory-save-to-path
+    charhistory-load-from-port! charhistory-save-to-port)
   (import
     (rnrs)
-    (only (chezscheme)               fx1+)
-    (only (schemesh bootstrap)       try catch)
-    (only (schemesh containers misc) string-replace/char!)
-    (only (schemesh containers utf8b) string->utf8b)
+    (only (chezscheme)                fx1+)
+    (only (schemesh bootstrap)        try catch debugf until)
+    (only (schemesh containers misc)  string-replace/char!)
+    (only (schemesh containers utf8b) string->utf8b utf8b-bytespan->string)
+    (schemesh containers bytespan)
     (schemesh containers gbuffer)
     (schemesh containers charline)
     (schemesh containers charlines)
@@ -74,19 +75,21 @@
 
 ;; load charhistory from file (charhistory-path hist)
 ;; return #t if successful, otherwise return #f
-(define (charhistory-load hist)
+(define (charhistory-load! hist)
   (let ((path (charhistory-path hist)))
-    (and path (charhistory-load-from-path hist path))))
+    (and path (charhistory-load-from-path! hist path))))
 
 
-(define (charhistory-load-from-path hist path)
+;; load charhistory from specified file path.
+;; return #t if successful, otherwise return #f
+(define (charhistory-load-from-path! hist path)
   (let ((port #f))
     (try
       (dynamic-wind
         (lambda ()
-          (set! port (open-file-input-port path (file-options) (buffer-mode block))))
+          (set! port (open-file-input-port path (file-options) (buffer-mode none))))
         (lambda ()
-          (charhistory-load-from-port hist port))
+          (charhistory-load-from-port! hist port))
         (lambda ()
           (when port
             (close-port port))))
@@ -94,8 +97,113 @@
         #f))))
 
 
-(define (charhistory-load-from-port hist port)
-  #f)
+;; load charhistory from specified binary input port.
+;; return #t if successful, otherwise return #f
+(define (charhistory-load-from-port! hist port)
+  (gbuffer-clear! hist)
+  (let* ((bv    (make-bytevector #x10000))
+         (start 0)
+         (end   0)
+         (done? #f))
+    (until done?
+      (let-values (((lines next-start next-end eof?) (charlines-load-from-port port bv start end)))
+        (set! start next-start)
+        (set! end next-end)
+        (when lines
+          (gbuffer-insert-at! hist (gbuffer-length hist) lines))
+        (when (or eof? (not lines))
+          (set! done? #t))))
+    #t))
+
+
+;; load a charlines from specified binary input port and return it.
+;;
+;; uses bytevector bv as input buffer, and consumes range [start, end)
+;; of bv before reading more data from port.
+;;
+;; return the created charlines if successful, otherwise return #f
+;; as second value, return updated start offset.
+;; as third value, return updated end offset.
+;; as fourth value, return #t if EOF was reached otherwise return #f
+(define (charlines-load-from-port port bv start end)
+  (let ((lines (charlines))
+        (flag  #f))
+    (until flag
+      ; (debugf ">   charline-load-from-port start=~s end=~s" start end)
+      ; (sleep (make-time 'time-duration 0 1))
+      (let-values (((line next-start next-end next-flag) (charline-load-from-port port bv start end)))
+        (set! start next-start)
+        (set! end next-end)
+        (set! flag next-flag)
+        ; (debugf "<   charline-load-from-port line=~s start=~s end=~s flag=~s" line start end flag)
+        (when line
+          (charlines-insert-at/cline! lines (charlines-length lines) line))))
+    (values
+      (if (and (eq? flag 'eof) (charlines-empty? lines)) #f lines)
+      start
+      end
+      (eq? flag 'eof))))
+
+
+
+;; load a charline from specified binary input port and return it.
+;;
+;; uses bytevector bv as input buffer, and consumes range [start, end)
+;; of bv before reading more data from port.
+;;
+;; return the created charline if successful, otherwise return #f
+;; as second value, return updated start offset.
+;; as third value, return updated end offset.
+;; as fourth value, return 'nl if newline was found and consumed (it marks the end of charlines),
+;;   otherwise return 'eof if EOF was reached
+;;   otherwise return #f
+(define (charline-load-from-port port bv start end)
+  (let ((bspan (bytespan))
+        (done? #f)
+        (eof?  #f)
+        (nl?   #f))
+    (until done?
+      (when (fx>=? start end)
+        ; refill bytevector
+        (let ((n (get-bytevector-n! port bv 0 (bytevector-length bv))))
+          (set! start 0)
+          (set! end (if (fixnum? n) n 0))
+          (unless (and (fixnum? n) (fx>? n 0))
+            (set! eof? #t))
+          ; (debugf "... charline-load-from-port n=~s start=~s end=~s eof?=~s" n start end eof?)
+          ; (sleep (make-time 'time-duration 0 1))
+          ))
+      (until (or done? (fx>=? start end))
+        (let ((b (bytevector-u8-ref bv start)))
+          ; (debugf "... charline-load-from-port byte=~s" (make-string 1 (integer->char b)))
+          (set! start (fx1+ start))
+          (case b
+            ((0) ; found an escaped newline, it marks the end charline
+              (bytespan-insert-back/u8! bspan 10)
+              (set! done? #t))
+            ((10) ; found a newline, it marks the end of charlines
+              (set! nl? #t)
+              (set! done? #t))
+            (else
+              (bytespan-insert-back/u8! bspan b)))))
+      (when eof?
+        (set! done? #t))
+      ; (debugf "... charline-load-from-port bspan=~s start=~s end=~s nl?=~s eof?=~s" (utf8b-bytespan->string bspan) start end nl? eof?)
+      )
+
+    (values
+      (if (and eof? (bytespan-empty? bspan)) #f (string->charline* (utf8b-bytespan->string bspan)))
+      start
+      end
+      (if nl? 'nl (if (and eof? (fx>=? start end)) 'eof #f)))))
+
+
+
+
+
+
+
+
 
 
 ) ; close library

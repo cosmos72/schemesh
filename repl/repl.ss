@@ -27,7 +27,7 @@
     (schemesh parser)
     (schemesh posix signal) ; also for suspend-handler
     (schemesh posix tty)
-    (only (schemesh shell) sh-consume-sigchld sh-make-linectx sh-repl-args sh-xdg-cache-home/))
+    (only (schemesh shell) sh-history sh-consume-sigchld sh-make-linectx sh-repl-args sh-xdg-cache-home/))
 
 
 ;; Read user input.
@@ -186,11 +186,17 @@
     (assert* 'sh-repl (linectx? lctx))
     (dynamic-wind
       (lambda ()
-        (lineedit-clear! lctx) (signal-init-sigwinch) (tty-setraw!))
+        (lineedit-clear! lctx)
+        (linectx-load-history! lctx)
+        (signal-init-sigwinch)
+        (tty-setraw!))
       (lambda ()
         (sh-repl-loop parser print-func lctx))
       (lambda ()
-        (tty-restore!) (signal-restore-sigwinch) (lineedit-finish lctx)))))
+        (tty-restore!)
+        (signal-restore-sigwinch)
+        (lineedit-finish lctx)
+        (linectx-save-history lctx)))))
 
 
 ;; top-level interactive repl with optional arguments:

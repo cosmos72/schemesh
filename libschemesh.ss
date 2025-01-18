@@ -8,12 +8,12 @@
 (begin
   (include "bootstrap/bootstrap.ss")
   (include "containers/misc.ss")
-  (include "containers/utf8b.ss")
   (include "containers/hashtable.ss")
   (include "containers/bitmap.ss")
   (include "containers/span.ss")
   (include "containers/bytespan.ss")
   (include "containers/charspan.ss")
+  (include "containers/utf8b.ss") ; requires containers/bytespan.ss
   (include "containers/gbuffer.ss")
   (include "containers/chargbuffer.ss")
   (include "containers/charline.ss")

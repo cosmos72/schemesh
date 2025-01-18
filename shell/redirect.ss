@@ -59,10 +59,7 @@
 ;; because we need to read its standard output while it runs.
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
 (define (sh-run/string job . options)
-  (let* ((bsp (apply sh-run/bspan job options))
-         (beg (bytespan-peek-beg bsp))
-         (end (bytespan-peek-end bsp)))
-    (utf8b-range->string (bytespan-peek-data bsp) beg (fx- end beg))))
+  (utf8b-bytespan->string (apply sh-run/bspan job options)))
 
 
 ;; Start a job and wait for it to exit.
@@ -82,7 +79,7 @@
          (end (bytespan-peek-end bsp)))
     (while (and (fx>? end beg) (fx=? 10 (bytevector-u8-ref bv (fx1- end))))
       (set! end (fx1- end)))
-    (utf8b-range->string bv beg (fx- end beg))))
+    (utf8b-range->string bv beg end)))
 
 
 ;; Add multiple redirections for cmd or job. Return cmd or job.

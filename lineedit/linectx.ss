@@ -21,6 +21,7 @@
     linectx-parser-name linectx-parser-name-set!
     linectx-parsers linectx-parsers-set!
     linectx-history linectx-history-index linectx-history-index-set! linectx-to-history*
+    linectx-load-history! linectx-save-history
     linectx-clear!  linectx-eof? linectx-eof-set! linectx-redraw? linectx-redraw-set!
     linectx-return? linectx-return-set!
     linectx-default-keytable linectx-keytable-set! linectx-keytable-find)
@@ -33,6 +34,7 @@
     (schemesh posix fd)
     (schemesh lineedit vscreen)
     (schemesh lineedit charhistory)
+    (schemesh lineedit charhistory io)
     (schemesh lineedit paren)
     (schemesh lineedit parenmatcher)
     (only (schemesh lineedit parser) make-parsectx*)
@@ -244,6 +246,17 @@
   (let-values (((ret idx) (charhistory-set*! (linectx-history lctx) (linectx-history-index lctx) (linectx-vscreen lctx))))
     (linectx-history-index-set! lctx idx)
     ret))
+
+;; load history from file. return #t if successful, otherwise return #f
+(define (linectx-load-history! lctx)
+  (let ((hist (linectx-history lctx)))
+     (charhistory-load! hist)
+     (linectx-history-index-set! lctx (charhistory-length hist))))
+
+
+;; save history to file. return #t if successful, otherwise return #f
+(define (linectx-save-history lctx)
+  (charhistory-save (linectx-history lctx)))
 
 
 (define (linectx-keytable-set! keytable proc . keysequences)

@@ -59,6 +59,7 @@
 
 (define charhistory-empty? gbuffer-empty?)
 (define charhistory-length gbuffer-length)
+(define charhistory-clear! gbuffer-clear!)
 
 ;; iterate on charhistory lines, and call (proc i lines) on each one.
 ;; Stops iterating if (proc ...) returns #f.

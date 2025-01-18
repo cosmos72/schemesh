@@ -19,7 +19,8 @@
     string-starts-with/char? string-ends-with/char?
 
     ; utf8b.ss
-    integer->char* string->utf8b string->utf8b/0 utf8b->string utf8b-range->string
+    integer->char* string->utf8b string->utf8b/0
+    utf8b->string utf8b-range->string utf8b-bytespan->string
 
     ; hashtable.ss
     make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-cell hash-iterator-next!
