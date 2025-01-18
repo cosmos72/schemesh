@@ -93,6 +93,7 @@
     charlines-clear! charlines-find/left charlines-find/right charlines-count/left charlines-count/right
     charlines-dirty-start-y charlines-dirty-end-y charlines-dirty-y-add! charlines-dirty-xy-unset!
     charlines-erase-at/cline! charlines-insert-at/cline!
+    charlines-next-xy charlines-prev-xy charlines-char-at-xy charlines-char-before-xy charlines-char-after-xy
     write-charlines
 
     ; sort.ss

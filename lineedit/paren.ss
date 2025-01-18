@@ -249,9 +249,9 @@
 
 (define (debugf-paren obj)
   (try
-    (debugf "debugf-paren tokens ~s ~s, start-xy ~s ~s, end-xy ~s ~s, inner ~s\n"
+    (begin (debugf "debugf-paren tokens ~s ~s, start-xy ~s ~s, end-xy ~s ~s, inner ~s\n"
       (paren-start-token obj) (paren-end-token obj) (paren-start-x obj) (paren-start-y obj)
-      (paren-end-x obj) (paren-end-y obj) (paren-inner obj))
+      (paren-end-x obj) (paren-end-y obj) (paren-inner obj)))
     (catch (ex)
       (display ex (current-output-port)))))
 

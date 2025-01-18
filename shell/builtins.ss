@@ -14,7 +14,7 @@
     (only (schemesh bootstrap)            debugf raise-errorf)
     (only (schemesh containers misc)      assert-string-list? list-nth string-contains-only-decimal-digits?)
     (schemesh containers bytespan)
-    (only (schemesh containers span)      span-iterate)
+    (only (schemesh containers gbuffer)   gbuffer-iterate)
     (only (schemesh containers charlines) charlines-iterate)
     (schemesh containers utils)
     (only (schemesh posix fd)             fd-write)
@@ -92,7 +92,7 @@
   ; (debugf "sh-history ~s" lctx)
   (when (linectx? lctx)
     (let ((wbuf (make-bytespan 0)))
-      (span-iterate (linectx-history lctx)
+      (gbuffer-iterate (linectx-history lctx)
         (lambda (i lines)
           (bytespan-insert-back/u8! wbuf 32) ; space
           (bytespan-display-back/fixnum! wbuf i)

@@ -140,14 +140,7 @@
 
 ;; return vscreen char at specified x y, or #f if x y are out of range
 (define (vscreen-char-at-xy screen x y)
-  (if (fx<? -1 y (vscreen-length screen))
-    (let* ((line (charlines-ref screen y))
-           (len  (charline-length line)))
-      (if (fx<? -1 x len)
-        (charline-ref line x)
-        #f))
-    #f))
-
+  (charlines-char-at-xy screen x y))
 
 ;; return tow values: cursor x and y position in input charlines
 (define (vscreen-cursor-ixy screen)
@@ -665,37 +658,14 @@
 ;; returned position may be on the previous line.
 ;; return #f #f if x y is out of range or is the first valid position.
 (define (vscreen-prev-xy screen x y)
-  (let ((ymax  (fx1- (vscreen-length screen))))
-    (if (fx<=? 0 y ymax)
-      ;; allow positioning cursor after end of line only if it's the last line
-      (let ((xmax (fx- (charline-length (charlines-ref screen y))
-                       (if (fx=? y ymax) 0 1))))
-        ; (debugf "vscreen-prev-xy xy = (~s ~s), xmax = ~s" x y xmax)
-        (if (fx<=? 1 x xmax)
-          (values (fx1- x) y) ;; (x-1 y) is a valid position, return it
-          (if (fx>? y 0)
-            ;; return last position in previous line
-            (values (fx1- (charline-length (charlines-ref screen (fx1- y)))) (fx1- y))
-            (values #f #f))))
-      (values #f #f))))
+  (charlines-prev-xy x y))
 
 
 ;; return position one character to the right of x y.
 ;; returned position may be on the next line.
 ;; return #f #f if x y is out of range or is the last valid position.
 (define (vscreen-next-xy screen x y)
-  (let ((ymax  (fx1- (vscreen-length screen))))
-    (if (fx<=? 0 y ymax)
-      ;; allow positioning cursor after end of line only if it's the last line
-      (let ((xmax (fx- (charline-length (charlines-ref screen y))
-                       (if (fx=? y ymax) 0 1))))
-        ; (debugf "vscreen-next-xy xy = (~s ~s), xmax = ~s" x y xmax)
-        (if (fx<? -1 x xmax)
-          (values (fx1+ x ) y) ;; (x+1 y) is a valid position, return it
-          (if (fx<? y ymax)
-            (values 0 (fx1+ y)) ;; return beginning of next line
-            (values #f #f))))
-      (values #f #f))))
+  (charlines-next-xy x y))
 
 
 ;; return position one character to the left of x y, and n+1.
@@ -720,20 +690,14 @@
 ;; return position immediately before x y, and char at such position.
 ;; return #f #f #f if x y are out of range or 0 0.
 (define (vscreen-char-before-xy screen x y)
-  (let-values (((x y) (vscreen-prev-xy screen x y)))
-    (if (and x y)
-      (values x y (vscreen-char-at-xy screen x y))
-      (values #f #f #f))))
+  (charlines-char-before-xy screen x y))
 
 
 ;; return position immediately after x y, and char at such position.
 ;; return #f #f #f if x y are out of range.
 ;; return x+1 y #f if x y correspond to the last character in the last line
 (define (vscreen-char-after-xy screen x y)
-  (let-values (((x y) (vscreen-next-xy screen x y)))
-    (if (and x y)
-      (values x y (vscreen-char-at-xy screen x y))
-      (values #f #f #f))))
+  (charlines-char-after-xy screen x y))
 
 
 ;; return count of consecutive characters starting immediately before x y and moving backward

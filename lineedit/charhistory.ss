@@ -8,8 +8,10 @@
 (library (schemesh lineedit charhistory (0 1))
   (export
     charhistory charhistory? make-charhistory
-    charhistory-empty? charhistory-length charhistory-cow-ref charhistory-set*!
-    charhistory-path charhistory-path-set!)
+    charhistory-empty? charhistory-length charhistory-ref/cow
+    charhistory-find/starts-with charhistory-rfind/starts-with
+    charhistory-erase-consecutive-empty-charlines-before!
+    charhistory-set*! charhistory-path charhistory-path-set!)
   (import
     (rnrs)
     (only (chezscheme)               fx1+ fx1- record-writer)
@@ -44,7 +46,7 @@
 
 
 (define (make-charhistory n)
-  ; optimization: (charhistory-cow-ref) returns a copy-on-write clone of i-th charline,
+  ; optimization: (charhistory-ref/cow) returns a copy-on-write clone of i-th charline,
   ; thus we can reuse the same empty (charlines) for all elements
   (%make-charhistory (span) (make-span n (charlines)) #f))
 
@@ -59,13 +61,13 @@
 (define charhistory-length gbuffer-length)
 
 ;; return a copy-on-write clone of i-th charlines in history
-(define (charhistory-cow-ref hist idx)
+(define (charhistory-ref/cow hist idx)
   (charlines-copy-on-write (gbuffer-ref hist idx)))
+
 
 ;; if i is in range, set i-th charlines in history to a shallow copy of lines.
 ;; otherwise append shallow copy of lines to history.
 ;; do NOT insert lines in history if they are equal to another charlines at a nearby index.
-;; Then remove consecutive empty charlines at indexes < i and update indexes accordingly.
 ;; returns two values:
 ;;   the inserted shallow copy of lines - or the existing lines that prevented insertion
 ;;   the index where lines were actually stored - or the index of existing lines that prevented insertion
@@ -73,7 +75,7 @@
   (assert-charlines? 'charhistory-set*! lines)
   (let* ((len       (gbuffer-length hist))
          (idx-clamp (fxmax 0 (fxmin idx len)))
-         (idx-eq    (charlines-find-nearby hist idx-clamp lines))
+         (idx-eq    (%charlines-find-nearby hist idx-clamp lines))
          (idx       (or idx-eq idx-clamp))
          (lines (if idx-eq
                   (gbuffer-ref hist idx-eq)
@@ -84,15 +86,15 @@
       (if (fx>=? idx len)
         (gbuffer-insert-at! hist idx lines)
         (gbuffer-set! hist idx lines)))
-
-    ; remove empty lines at indexes < idx
-    (let ((i (fx1- idx)))
-      (while (and (fx>=? i 0) (%charlines-empty? (gbuffer-ref hist i)))
-        (gbuffer-erase-at! i 1)
-        (set! i (fx1- i))
-        (set! idx (fx1- idx)))) ; also decrement idx
-
     (values lines idx)))
+
+
+(define (charhistory-erase-consecutive-empty-charlines-before! hist idx)
+  (let ((i (fx1- (fxmin idx (charhistory-length hist)))))
+    (while (and (fx>=? i 0) (%charlines-empty? (gbuffer-ref hist i)))
+      (gbuffer-erase-at! hist i 1)
+      (set! i (fx1- i)))
+    i))
 
 
 (define (%charlines-empty? lines)
@@ -106,7 +108,7 @@
 ;;
 ;; return index of equal charlines if found,
 ;; otherwise return #f
-(define (charlines-find-nearby hist idx lines)
+(define (%charlines-find-nearby hist idx lines)
   (let* ((len   (gbuffer-length hist))
          (start (fxmax 0 (fx1- idx)))
          (end   (fxmin len (fx+ 2 idx)))
@@ -115,6 +117,31 @@
         ((or ret (fx>=? i end)) ret)
       (when (charlines-equal? (gbuffer-ref hist i) lines)
         (set! ret i)))))
+
+;; search for first charlines in range [start, end) that begins with same characters
+;; as the range [0 0, prefix-x prefix-y) of prefix-lines.
+;;
+;; return index of such charlines if found,
+;; otherwise return #f
+(define (charhistory-find/starts-with hist start end prefix-lines prefix-x prefix-y)
+  (let ((start (fxmax 0 start))
+        (end   (fxmin end (charhistory-length hist))))
+    (do ((i start (fx1+ i)))
+        ((or (fx>=? i end) (charlines-starts-with? (gbuffer-ref hist i) prefix-lines prefix-x prefix-y))
+         (if (fx<? i end) i #f)))))
+
+
+;; search for last charlines in range [start, end) that begins with same characters
+;; as the range [0 0, prefix-x prefix-y) of prefix-lines.
+;;
+;; return index of such charlines if found,
+;; otherwise return #f
+(define (charhistory-rfind/starts-with hist start end prefix-lines prefix-x prefix-y)
+  (let ((start (fxmax 0 start))
+        (end   (fxmin end (charhistory-length hist))))
+    (do ((i (fx1- end) (fx1- i)))
+      ((or (fx<? i start) (charlines-starts-with? (gbuffer-ref hist i) prefix-lines prefix-x prefix-y))
+       (if (fx>=? i start) i #f)))))
 
 
 ;; customize how "charhistory" objects are printed

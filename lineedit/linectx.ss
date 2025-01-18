@@ -239,7 +239,7 @@
 
 
 ;; save to history a shallow clone of charlines in linectx-vscreen,
-;; and return such clone
+;; remove empty charlines from history, and return such clone
 (define (linectx-to-history* lctx)
   (let-values (((ret idx) (charhistory-set*! (linectx-history lctx) (linectx-history-index lctx) (linectx-vscreen lctx))))
     (linectx-history-index-set! lctx idx)
