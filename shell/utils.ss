@@ -73,9 +73,11 @@
       (%display str 6 (date-second d)))
     str))
 
+(define sh-fancy-ps1 "\\[\\e]0;\\u@\\h \\w\\a\\]\\[\\e[33;1m\\]\\s\\[\\e[34m\\] \\u\\[\\e[0m\\]@\\[\\e[32m\\]\\h\\[\\e[0m\\]:\\[\\e[34;1m\\]\\w\\[\\e[0m\\]:")
+
 ; update linectx-prompt and linectx-prompt-length with new prompt
 (define (sh-expand-ps1 lctx)
-  (let* ((src (sh-env sh-globals "SCHEMESH_PS1")) ; string
+  (let* ((src (sh-env #t "SCHEMESH_PS1" sh-fancy-ps1)) ; string
          (prompt (linectx-prompt lctx))
          (prompt-len 0)
          (hidden  0)
@@ -106,7 +108,7 @@
               ; ((#\r)   (%append-char     #\return))  ; breaks computing prompt-end-x/y
               ((#\s)     (%append-string   (symbol->string (linectx-parser-name lctx))))
               ((#\@ #\A #\T #\t)    (%append-string (sh-current-time ch)))
-              ((#\u)     (%append-string   (sh-env sh-globals "USER")))
+              ((#\u)     (%append-string   (sh-env #t "USER")))
               ((#\w)     (%append-charspan (sh-home->~ (sh-cwd))))
               (else      (%append-char     ch)))
             (set! escape? #f))
