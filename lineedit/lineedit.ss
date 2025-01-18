@@ -291,7 +291,7 @@
   (let-values (((x y) (linectx-ixy lctx)))
     (let* ((hist (linectx-history lctx))
            (idx  (linectx-history-index lctx))
-           (next-idx (charhistory-rfind/starts-with
+           (next-idx (charhistory-find/starts-with
                        hist
                        (fx1+ idx)
                        (charhistory-length hist)

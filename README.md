@@ -15,7 +15,9 @@ groups surrounded by `{ }`, subshells surrounded by `[ ]`, and manage foreground
 For more complex tasks, it seamlessly integrates a full Chez Scheme REPL.
 
 Features:
-- [x] REPL with multi-line editing, history and parentheses highlighting
+- [x] REPL with multi-line editing and parentheses highlighting
+- [x] persistent history, searchable with PageUp and PageDown keys
+- [x] shortcuts to execute commands by pressing a single key: KP- KP+
 - [ ] cut-and-paste
 - [x] context-sensitive autocompletion
 - [x] dual syntax parsing, allows mixing Scheme and shell expressions
@@ -94,8 +96,6 @@ fg
 
 * autocomplete shell paths and scheme strings: unescape stems before searching for completions, escape completions
 * autocomplete shell paths starting with ~
-* at startup, load history from ~/.cache/schemesh/history.txt
-* at exit, save history to the same file
 * implement (sh-include)
 * at startup, (sh-include) initialization file from ~/.config/schemesh/init.schemesh
 * decide: (shell-backquote) should expand to a closure that accepts a parent job and creates a subshell with such parent job?
@@ -107,3 +107,8 @@ fg
 * add missing shell builtins: bg fg kill exec exit global-cd set global-set unalias unsafe unset
 * complete existing builtins: alias, without arguments must list existing aliases
 * implement function (string->sh-patterns)
+
+## DONE
+
+* at startup, load history from ~/.cache/schemesh/history.txt
+* at exit, save history to the same file

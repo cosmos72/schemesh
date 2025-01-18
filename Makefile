@@ -70,8 +70,8 @@ schemesh: main.o $(OBJS)
 schemesh_test: test.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -L$(CHEZ_SCHEME_DIR) $(LIBS)
 
-$(LIBSCHEMESH_SO): schemesh
-	./schemesh --compile-source-dir=.
+$(LIBSCHEMESH_SO): schemesh_test
+	./schemesh_test
 
 install: schemesh $(LIBSCHEMESH_SO)
 	$(INSTALL) schemesh $(INSTALL_BINDIR) || $(CP) schemesh $(INSTALL_BINDIR)

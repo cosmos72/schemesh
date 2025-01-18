@@ -1247,10 +1247,8 @@ int main(int argc, const char* argv[]) {
   if ((err = schemesh_register_c_functions()) != 0) {
     goto finish;
   }
-  if (schemesh_load_libraries(".") != 0) {
-    if ((err = schemesh_compile_libraries(".")) != 0) {
-      goto finish;
-    }
+  if ((err = schemesh_compile_libraries(".")) != 0) {
+    goto finish;
   }
   if ((err = schemesh_load_libraries(".")) != 0) {
     goto finish;
