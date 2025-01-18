@@ -94,15 +94,14 @@ fg
 
 * autocomplete shell paths and scheme strings: unescape stems before searching for completions, escape completions
 * autocomplete shell paths starting with ~
-* at startup, load history from ~/.cache/schemesh/history.schemesh
+* at startup, load history from ~/.cache/schemesh/history.txt
 * at exit, save history to the same file
 * implement (sh-include)
-* at startup, (sh-include) file history from ~/.config/schemesh/init.schemesh
+* at startup, (sh-include) initialization file from ~/.config/schemesh/init.schemesh
 * decide: (shell-backquote) should expand to a closure that accepts a parent job and creates a subshell with such parent job?
 * modify builtin "cd", for changing current directory of *parent* job
-* implement builtin "global-cd", for changing current directory of sh-globals
 * implement builtin "set", for setting environment variables in *parent* job
-* implement builtin "global-set", for setting environment variables in sh-globals
+* implement builtin "global", for running another builtin with its parent job set to sh-globals
 * implement builtin "unsafe", for executing the output of a subshell or any other closure
   add check to macro (shell): if first argument contains (shell-backquote), raise condition suggesting to prefix it with "unsafe"
 * add missing shell builtins: bg fg kill exec exit global-cd set global-set unalias unsafe unset

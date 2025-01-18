@@ -22,6 +22,25 @@
     ; builtins.ss
     sh-builtin sh-builtins sh-find-builtin sh-echo sh-error sh-false sh-true sh-history sh-repl-args
 
+    ; macros.ss
+    shell shell-backquote shell-env shell-list shell-subshell shell-wildcard
+
+    ; utils.ss
+    sh-autocomplete sh-current-time sh-expand-ps1 sh-home->~ sh-make-linectx
+
+    ; jobs.ss and files included by it:
+
+    ; dir.ss
+    sh-cwd-set! sh-cd sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
+
+    ; display.ss
+    sh-job-display sh-job-display* sh-job-display/string
+    sh-job-write sh-job-write* sh-job-write/string
+    sh-job-display/summary? sh-job-display/summary sh-job-display/summary*
+
+    ; env.ss
+    sh-env sh-env! sh-env-unset! sh-env-exported? sh-env-export! sh-env-set+export! sh-env/lazy!
+
     ; jobs.ss
     sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd? sh-multijob?
     sh-env-copy sh-env->argv sh-globals sh-global-env
@@ -32,33 +51,18 @@
     ; multijob.ss
     sh-and sh-or sh-not sh-list sh-subshell
 
-    ; display.ss
-    sh-job-display sh-job-display* sh-job-display/string
-    sh-job-write sh-job-write* sh-job-write/string
-    sh-job-display/summary? sh-job-display/summary sh-job-display/summary*
-
-    ; env.ss
-    sh-env sh-env! sh-env-unset! sh-env-exported? sh-env-export! sh-env-set+export! sh-env/lazy!
-    sh-cwd-set! sh-cd sh-pwd
-
     ; redirect.ss
     sh-run/bspan sh-run/string sh-run/string-rtrim-newlines sh-redirect!
-
-    ; pipe.ss
-    sh-pipe sh-pipe*
 
     ; parse.ss
     sh sh-parse sh-cmd* sh-list*
 
+    ; pipe.ss
+    sh-pipe sh-pipe*
+
     ; wildcard
-    sh-wildcard sh-wildcard/apply sh-wildcard/expand-tilde!
-    sh-wildcard/prepare sh-wildcard/expand
-
-    ; macros.ss
-    shell shell-backquote shell-env shell-list shell-subshell shell-wildcard
-
-    ; utils.ss
-    sh-autocomplete sh-current-time sh-expand-ps1 sh-home->~ sh-make-linectx)
+    sh-wildcard sh-wildcard/apply sh-wildcard/prepare sh-wildcard/expand
+    )
 
   (import
     (schemesh shell fds)

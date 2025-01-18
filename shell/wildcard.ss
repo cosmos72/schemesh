@@ -93,8 +93,10 @@
   (when (eq? '~ (span-ref sp 0))
     (let ((arg1 (if (fx>? (span-length sp) 1) (span-ref sp 1) #f)))
       (if (or (not (string? arg1)) (fxzero? (string-length arg1)) (char=? #\/ (string-ref arg1 0)))
-        (span-set! sp 0 (sh-env job "HOME"))
-        (let* ((userhome (get-userhome (string->utf8b/0 arg1))))
+        ;; if environment variable "HOME" is not set, replace symbol '~ with string "~"
+        (let ((userhome (sh-env job "HOME" "~")))
+          (span-set! sp 0 userhome))
+        (let ((userhome (get-userhome (string->utf8b/0 arg1))))
           (cond
             ((string? userhome)
               (span-erase-front! sp 1)   ; erase the initial symbol '~
@@ -107,9 +109,6 @@
       (when (eq? '~ elem)
         (span-set! sp i "~"))))
   sp)
-
-
-(define get-userhome (foreign-procedure "c_get_userhome" (ptr) ptr))
 
 
 ;; given a span containing strings and wildcards,

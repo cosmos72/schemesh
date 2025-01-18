@@ -115,10 +115,14 @@
             (else    (%append-char ch))))))
     (linectx-prompt-length-set! lctx prompt-len)))
 
-; if charspan path begins with user's $HOME, replace it with ~
+
+;; if charspan path begins with user's $HOME,
+;; return a copy of it where the initial user's $HOME is replaced by "~"
+;;
+;; otherwise return path.
 (define (sh-home->~ path)
   (let ((ret path)
-        (home (sh-env sh-globals "HOME" #f)))
+        (home (sh-env #t "HOME" #f)))
     (when (string? home)
       (let ((home-len (string-length home))
             (path-len (charspan-length path)))
@@ -129,8 +133,18 @@
     ret))
 
 
-(define (sh-make-linectx)
-  (make-linectx* sh-expand-ps1 (make-parenmatcher) sh-autocomplete #f))
+(define sh-make-linectx
+  (case-lambda
+    (()
+      (sh-make-linectx* (parsers) #f))
+    ((enabled-parsers)
+      (sh-make-linectx* enabled-parsers #f))
+    ((enabled-parsers history-path)
+      (sh-make-linectx* enabled-parsers history-path))))
+
+
+(define (sh-make-linectx* enabled-parsers history-path)
+  (make-linectx* sh-expand-ps1 (make-parenmatcher) sh-autocomplete enabled-parsers history-path))
 
 
 ) ; close library

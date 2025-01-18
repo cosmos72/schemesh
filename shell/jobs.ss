@@ -14,6 +14,17 @@
 
 (library (schemesh shell jobs (0 1))
   (export
+    ; dir.ss
+    sh-cwd-set! sh-cd sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
+
+    ; display.ss
+    sh-job-display sh-job-display* sh-job-display/string
+    sh-job-write sh-job-write* sh-job-write/string
+    sh-job-display/summary? sh-job-display/summary sh-job-display/summary*
+
+    ; env.ss
+    sh-env sh-env! sh-env-unset! sh-env-exported? sh-env-export! sh-env-set+export! sh-env/lazy!
+
     ; jobs.ss
     sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd? sh-multijob?
     sh-env-copy sh-env->argv sh-globals sh-global-env
@@ -24,27 +35,17 @@
     ; multijob.ss
     sh-and sh-or sh-not sh-list sh-subshell
 
-    ; display.ss
-    sh-job-display sh-job-display* sh-job-display/string
-    sh-job-write sh-job-write* sh-job-write/string
-    sh-job-display/summary? sh-job-display/summary sh-job-display/summary*
-
-    ; env.ss
-    sh-env sh-env! sh-env-unset! sh-env-exported? sh-env-export! sh-env-set+export! sh-env/lazy!
-    sh-cwd-set! sh-cd sh-pwd
-
     ; redirect.ss
     sh-run/bspan sh-run/string sh-run/string-rtrim-newlines sh-redirect!
-
-    ; pipe.ss
-    sh-pipe sh-pipe*
 
     ; parse.ss
     sh sh-parse sh-cmd* sh-list*
 
+    ; pipe.ss
+    sh-pipe sh-pipe*
+
     ; wildcard
-    sh-wildcard sh-wildcard/apply sh-wildcard/expand-tilde!
-    sh-wildcard/prepare sh-wildcard/expand)
+    sh-wildcard sh-wildcard/apply sh-wildcard/prepare sh-wildcard/expand)
   (import
     (rnrs)
     (rnrs mutable-pairs)

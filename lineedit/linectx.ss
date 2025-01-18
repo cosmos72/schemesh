@@ -75,86 +75,86 @@
 (define flag-sigwinch? 4)
 (define flag-redraw? 8)
 
-(define (linectx-flag? ctx bit)
-  (not (fxzero? (fxand bit (linectx-flags ctx)))))
+(define (linectx-flag? lctx bit)
+  (not (fxzero? (fxand bit (linectx-flags lctx)))))
 
-(define (linectx-flag-set! ctx bit flag?)
+(define (linectx-flag-set! lctx bit flag?)
   (assert* 'linectx-flag-set! (boolean? flag?))
-  (let ((flags (linectx-flags ctx)))
-    (linectx-flags-set! ctx
+  (let ((flags (linectx-flags lctx)))
+    (linectx-flags-set! lctx
       (if flag?
         (fxior flags bit)
         (fxand flags (fxnot bit))))))
 
-(define (linectx-eof? ctx)
-  (linectx-flag? ctx flag-eof?))
-(define (linectx-return? ctx)
-  (linectx-flag? ctx flag-return?))
-(define (linectx-sigwinch? ctx)
-  (linectx-flag? ctx flag-sigwinch?))
-(define (linectx-redraw? ctx)
-  (linectx-flag? ctx flag-redraw?))
+(define (linectx-eof? lctx)
+  (linectx-flag? lctx flag-eof?))
+(define (linectx-return? lctx)
+  (linectx-flag? lctx flag-return?))
+(define (linectx-sigwinch? lctx)
+  (linectx-flag? lctx flag-sigwinch?))
+(define (linectx-redraw? lctx)
+  (linectx-flag? lctx flag-redraw?))
 
-(define (linectx-eof-set! ctx flag?)
-  (linectx-flag-set! ctx flag-eof? flag?))
-(define (linectx-return-set! ctx flag?)
-  (linectx-flag-set! ctx flag-return? flag?))
-(define (linectx-sigwinch-set! ctx flag?)
-  (linectx-flag-set! ctx flag-sigwinch? flag?))
-(define (linectx-redraw-set! ctx flag?)
-  (linectx-flag-set! ctx flag-redraw? flag?))
+(define (linectx-eof-set! lctx flag?)
+  (linectx-flag-set! lctx flag-eof? flag?))
+(define (linectx-return-set! lctx flag?)
+  (linectx-flag-set! lctx flag-return? flag?))
+(define (linectx-sigwinch-set! lctx flag?)
+  (linectx-flag-set! lctx flag-sigwinch? flag?))
+(define (linectx-redraw-set! lctx flag?)
+  (linectx-flag-set! lctx flag-redraw? flag?))
 
 ;; return number of charlines
-(define (linectx-end-y ctx)
-  (vscreen-length (linectx-vscreen ctx)))
+(define (linectx-end-y lctx)
+  (vscreen-length (linectx-vscreen lctx)))
 
 ;; return vscreen cursor x position
-(define (linectx-ix ctx)
-  (vscreen-cursor-ix (linectx-vscreen ctx)))
+(define (linectx-ix lctx)
+  (vscreen-cursor-ix (linectx-vscreen lctx)))
 
 ;; return vscreen cursor y position
-(define (linectx-iy ctx)
-  (vscreen-cursor-iy (linectx-vscreen ctx)))
+(define (linectx-iy lctx)
+  (vscreen-cursor-iy (linectx-vscreen lctx)))
 
 ;; return two values: vscreen cursor x and y position
-(define (linectx-ixy ctx)
-  (vscreen-cursor-ixy (linectx-vscreen ctx)))
+(define (linectx-ixy lctx)
+  (vscreen-cursor-ixy (linectx-vscreen lctx)))
 
 ;; set vscreen cursor x and y position
-(define (linectx-ixy-set! ctx x y)
-  (vscreen-cursor-ixy-set! (linectx-vscreen ctx) x y))
+(define (linectx-ixy-set! lctx x y)
+  (vscreen-cursor-ixy-set! (linectx-vscreen lctx) x y))
 
 ;; return vscreen cursor x visual position. It is equal to linectx-ix,
 ;; unless cursor y = 0, where prompt-end-x is added.
-(define (linectx-vx ctx)
-  (vscreen-cursor-vx (linectx-vscreen ctx)))
+(define (linectx-vx lctx)
+  (vscreen-cursor-vx (linectx-vscreen lctx)))
 
 ;; return vscreen cursor y visual position. It is equal to linectx-iy + linectx-prompt-end-y.
-(define (linectx-vy ctx)
-  (vscreen-cursor-vy (linectx-vscreen ctx)))
+(define (linectx-vy lctx)
+  (vscreen-cursor-vy (linectx-vscreen lctx)))
 
 ;; set tty cursor x and y position.
 ;; Only updates linectx-term-x and linectx-term-y, does *not* write anything to the tty.
-(define (linectx-term-xy-set! ctx x y)
-  (linectx-term-x-set! ctx x)
-  (linectx-term-y-set! ctx y))
+(define (linectx-term-xy-set! lctx x y)
+  (linectx-term-x-set! lctx x)
+  (linectx-term-y-set! lctx y))
 
 ;; return screen width
-(define (linectx-width ctx)
-  (vscreen-width (linectx-vscreen ctx)))
+(define (linectx-width lctx)
+  (vscreen-width (linectx-vscreen lctx)))
 
 ;; return screen height
-(define (linectx-height ctx)
-  (vscreen-height (linectx-vscreen ctx)))
+(define (linectx-height lctx)
+  (vscreen-height (linectx-vscreen lctx)))
 
-(define (linectx-prompt-end-x ctx)
-  (vscreen-prompt-end-x (linectx-vscreen ctx)))
-(define (linectx-prompt-end-y ctx)
-  (vscreen-prompt-end-y (linectx-vscreen ctx)))
-(define (linectx-prompt-length ctx)
-  (vscreen-prompt-length (linectx-vscreen ctx)))
-(define (linectx-prompt-length-set! ctx prompt-len)
-  (vscreen-prompt-length-set! (linectx-vscreen ctx) prompt-len))
+(define (linectx-prompt-end-x lctx)
+  (vscreen-prompt-end-x (linectx-vscreen lctx)))
+(define (linectx-prompt-end-y lctx)
+  (vscreen-prompt-end-y (linectx-vscreen lctx)))
+(define (linectx-prompt-length lctx)
+  (vscreen-prompt-length (linectx-vscreen lctx)))
+(define (linectx-prompt-length-set! lctx prompt-len)
+  (vscreen-prompt-length-set! (linectx-vscreen lctx) prompt-len))
 
 
 
@@ -170,7 +170,7 @@
 ;;
 ;; argument prompt-func must be #f or a procedure accepting linectx,
 ;; and updating linectx-completions
-(define (make-linectx* prompt-func parenmatcher completion-func enabled-parsers)
+(define (make-linectx* prompt-func parenmatcher completion-func enabled-parsers history-path)
   (assert* 'make-linectx* (procedure? prompt-func))
   (when parenmatcher
     (assert* 'make-linectx* (parenmatcher? parenmatcher)))
@@ -178,11 +178,15 @@
     (assert* 'make-linectx* (procedure? completion-func)))
   (when enabled-parsers
     (assert* 'make-linectx* (hashtable? enabled-parsers)))
+  (when history-path
+    (assert* 'make-linectx* (string? history-path)))
   (let* ((sz    (tty-size))
          (rbuf  (bytespan))
-         (wbuf  (bytespan)))
+         (wbuf  (bytespan))
+         (history (charhistory)))
     (bytespan-reserve-back! rbuf 1024)
     (bytespan-reserve-back! wbuf 1024)
+    (charhistory-path-set! history history-path)
     (%make-linectx
       rbuf wbuf
       (vscreen* (if (pair? sz) (car sz) 80) (if (pair? sz) (cdr sz) 24) "")
@@ -194,49 +198,52 @@
       parenmatcher #f            ; parenmatcher paren
       (span) (charspan) completion-func ; completions stem completion-func
       linectx-default-keytable   ; keytable
-      0 (charhistory))))         ; history
+      0 history)))              ; history
 
-(define (default-prompt-func ctx)
-  (let* ((str    (symbol->string (linectx-parser-name ctx)))
+(define (default-prompt-func lctx)
+  (let* ((str    (symbol->string (linectx-parser-name lctx)))
          (bv     (string->utf8b str))
-         (prompt (linectx-prompt ctx)))
+         (prompt (linectx-prompt lctx)))
     (bytespan-clear! prompt)
     (bytespan-insert-back/bvector! prompt bv 0 (bytevector-length bv))
     ; append colon and space after parser name
     (bytespan-insert-back/u8! prompt 58 32)
-    (linectx-prompt-length-set! ctx (fx+ 2 (string-length str)))))
+    (linectx-prompt-length-set! lctx (fx+ 2 (string-length str)))))
 
 
 ;; Create and return a linectx
 (define make-linectx
   (case-lambda
     (()
-       (make-linectx* default-prompt-func #f #f #f))
+       (make-linectx* default-prompt-func #f #f #f #f))
     ((prompt-func)
-       (make-linectx* prompt-func #f #f #f))
+       (make-linectx* prompt-func #f #f #f #f))
     ((prompt-func parenmatcher)
-       (make-linectx* prompt-func parenmatcher #f #f))
+       (make-linectx* prompt-func parenmatcher #f #f #f))
     ((prompt-func parenmatcher completion-func)
-       (make-linectx* prompt-func parenmatcher completion-func #f))
+       (make-linectx* prompt-func parenmatcher completion-func #f #f))
     ((prompt-func parenmatcher completion-func enabled-parsers)
-       (make-linectx* prompt-func parenmatcher completion-func enabled-parsers))))
+       (make-linectx* prompt-func parenmatcher completion-func enabled-parsers #f))
+    ((prompt-func parenmatcher completion-func enabled-parsers history-path)
+       (make-linectx* prompt-func parenmatcher completion-func enabled-parsers history-path))))
 
 
 ;; Clear and recreate empty vscreen: it may have been saved to history,
 ;; which retains it.
 ;; Does NOT write anything to the tty
-(define (linectx-clear! ctx)
-  (vscreen-clear! (linectx-vscreen ctx))
-  (linectx-paren-set! ctx #f)
-  (linectx-return-set! ctx #f))
+(define (linectx-clear! lctx)
+  (vscreen-clear! (linectx-vscreen lctx))
+  (linectx-paren-set! lctx #f)
+  (linectx-return-set! lctx #f))
 
 
 
 ;; save to history a shallow clone of charlines in linectx-vscreen,
 ;; and return such clone
-(define (linectx-to-history* ctx)
-  ;; TODO: do not insert duplicates in history
-  (charhistory-set*! (linectx-history ctx) (linectx-history-index ctx) (linectx-vscreen ctx)))
+(define (linectx-to-history* lctx)
+  (let-values (((ret idx) (charhistory-set*! (linectx-history lctx) (linectx-history-index lctx) (linectx-vscreen lctx))))
+    (linectx-history-index-set! lctx idx)
+    ret))
 
 
 (define (linectx-keytable-set! keytable proc . keysequences)
@@ -280,9 +287,9 @@
 
 ;; customize how "linectx" objects are printed
 (record-writer (record-type-descriptor linectx)
-  (lambda (ctx port writer)
+  (lambda (lctx port writer)
     (display "#<linectx " port)
-    (display (linectx-parser-name ctx) port)
+    (display (linectx-parser-name lctx) port)
     (display ">" port)))
 
 ) ; close library

@@ -105,3 +105,59 @@
 (define (builtin-pwd job prog-and-args options)
   (assert-string-list? 'sh-builtin-pwd prog-and-args)
   (sh-pwd))
+
+
+
+
+;; return home directory of specified username, which must be a string.
+;;
+;; if username is not specified, return global environment variable "HOME",
+;; which is expected to contain home directory for current user.
+;;
+;; otherwise return home directory for specified username, retrieved with C function getpwnam_r()
+;;
+;; returned value is a string, or #f if an error occurred
+(define sh-userhome
+  (case-lambda
+    (()
+      (sh-env #t "HOME" #f))
+    ((username)
+      (let ((userhome (get-userhome (string->utf8b/0 username))))
+        (if (string? userhome)
+          userhome
+          #f)))))
+
+
+(define get-userhome (foreign-procedure "c_get_userhome" (ptr) ptr))
+
+
+;; if subpath is specified, return (string-append (xdg-cache-home) "/" subpath)
+;; otherwise return (string-append (xdg-cache-home) "/")
+(define sh-xdg-cache-home/
+  (case-lambda
+    (()         (string-append (xdg-cache-home) "/"))
+    ((subpath)  (string-append (xdg-cache-home) "/" subpath))))
+
+
+;; if subpath is specified, return (string-append (xdg-config-home) "/" subpath)
+;; otherwise return (string-append (xdg-config-home) "/")
+(define sh-xdg-config-home/
+  (case-lambda
+    (()         (string-append (xdg-config-home) "/"))
+    ((subpath)  (string-append (xdg-config-home) "/" subpath))))
+
+
+;; return string containing environment variable $XDG_CACHE_HOME
+;; or $HOME/.cache if the former is not set.
+(define (xdg-cache-home)
+  (or
+    (sh-env #t "XDG_CACHE_HOME" #f)
+    (string-append (sh-env #t "HOME" "") "/.cache")))
+
+
+;; return string containing environment variable $XDG_CONFIG_HOME
+;; or $HOME/.config if the former is not set.
+(define (xdg-config-home)
+  (or
+    (sh-env #t "XDG_CONFIG_HOME" #f)
+    (string-append (sh-env #t "HOME" "") "/.config")))

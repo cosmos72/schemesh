@@ -20,13 +20,14 @@
       pretty-print read-token reset reset-handler void)
     (schemesh bootstrap)
     (only (schemesh containers) list-iterate)
+    (only (schemesh lineedit charhistory) charhistory-path-set!)
     (schemesh lineedit io)
     (schemesh lineedit linectx)
     (schemesh lineedit)
     (schemesh parser)
     (schemesh posix signal) ; also for suspend-handler
     (schemesh posix tty)
-    (only (schemesh shell) sh-consume-sigchld sh-make-linectx sh-repl-args))
+    (only (schemesh shell) sh-consume-sigchld sh-make-linectx sh-repl-args sh-xdg-cache-home/))
 
 
 ;; Read user input.
@@ -124,16 +125,16 @@
 ;; Calls in sequence (sh-repl-lineedit) (sh-repl-parse) (sh-repl-eval-list)
 ;;
 ;; Returns updated parser to use, or #f if got end-of-file.
-(define (sh-repl-once initial-parser enabled-parsers print-func lctx)
+(define (sh-repl-once initial-parser print-func lctx)
   (linectx-parser-name-set! lctx (parser-name initial-parser))
-  (linectx-parsers-set! lctx enabled-parsers)
   (let ((in (sh-repl-lineedit lctx)))
     (case in
       ((#f) #f)             ; got end-of-file
       ((#t) initial-parser) ; nothing to execute: waiting for more user input
       (else
         (let-values (((forms updated-parser)
-                        (sh-repl-parse (make-parsectx* in enabled-parsers
+                        (sh-repl-parse (make-parsectx* in
+                                         (linectx-parsers lctx)
                                          (linectx-width lctx)
                                          (linectx-prompt-end-x lctx)
                                          0 0)
@@ -146,8 +147,8 @@
 ;; main loop of (sh-repl) and (sh-repl*)
 ;;
 ;; Returns values passed to (exit), or (void) on linectx eof
-(define (sh-repl-loop parser enabled-parsers print-func lctx)
-  (let ((repl-args (list parser enabled-parsers print-func lctx)))
+(define (sh-repl-loop parser print-func lctx)
+  (let ((repl-args (list parser print-func lctx)))
     (call/cc
       (lambda (k-exit)
         (parameterize ((sh-repl-args repl-args)
@@ -173,52 +174,64 @@
             (while updated-parser
               (set! parser updated-parser)
               (set-car! repl-args updated-parser)
-              (set! updated-parser (sh-repl-once parser enabled-parsers print-func lctx)))))))))
+              (set! updated-parser (sh-repl-once parser print-func lctx)))))))))
 
 
 ;; top-level interactive sh-repl with all arguments mandatory
 ;;
 ;; Returns values passed to (exit), or (void) on linectx eof
-(define (sh-repl* initial-parser enabled-parsers print-func lctx)
+(define (sh-repl* initial-parser print-func lctx)
   ; (to-parser) also checks initial-parser's and enabled-parser's validity
-  (let ((parser (to-parser enabled-parsers initial-parser 'sh-repl)))
+  (let ((parser (to-parser (linectx-parsers lctx) initial-parser 'sh-repl)))
     (assert* 'sh-repl (linectx? lctx))
     (dynamic-wind
       (lambda ()
         (lineedit-clear! lctx) (signal-init-sigwinch) (tty-setraw!))
       (lambda ()
-        (sh-repl-loop parser enabled-parsers print-func lctx))
+        (sh-repl-loop parser print-func lctx))
       (lambda ()
         (tty-restore!) (signal-restore-sigwinch) (lineedit-finish lctx)))))
 
 
 ;; top-level interactive repl with optional arguments:
+;; 'history history-path    - defaults to (sh-xdg-cache-dir/ "schemesh/history.txt")
 ;; 'parser initial-parser   - defaults to 'shell
 ;; 'parsers enabled-parsers - defaults to (parsers)
-;; 'linectx lctx            - defaults to (sh-make-linectx)
+;; 'print print-func        - defaults to sh-repl-print
+;; 'linectx lctx            - defaults to (sh-make-linectx* enabled-parsers history-path)
 ;;
 ;; Returns first value passed to (exit), or (void) on linectx eof
-(define (sh-repl . args)
-  (let ((initial-parser #f)  (initial-parser? #f)
+(define (sh-repl . options)
+  (let ((history-path #f)    (history-path? #f)
+        (initial-parser #f)  (initial-parser? #f)
         (enabled-parsers #f) (enabled-parsers? #f)
-        (print-func #f)      (print-func? #f)
+        (print #f)           (print? #f)
         (lctx #f)            (lctx? #f))
-    (do ((args-left args (cddr args-left)))
-        ((null? args-left))
-      (assert* 'sh-repl (pair? (cdr args-left)))
-      (let ((opt (car args-left))
-            (val (cadr args-left)))
-        (case opt
+    (do ((tail options (cddr tail)))
+        ((null? tail))
+      (assert* 'sh-repl (pair? (cdr tail)))
+      (let ((key (car tail))
+            (val (cadr tail)))
+        (case key
+          ((linectx) (set! lctx val)            (set! lctx? #t))
+          ((history) (set! history-path val)    (set! history-path? #t))
           ((parser)  (set! initial-parser val)  (set! initial-parser? #t))
           ((parsers) (set! enabled-parsers val) (set! enabled-parsers? #t))
-          ((print)   (set! print-func val)      (set! print-func? #t))
-          ((linectx) (set! lctx val)            (set! lctx? #t))
-          (else      (syntax-violation 'sh-repl "unexpected argument:" opt)))))
+          ((print)   (set! print val)           (set! print? #t))
+          (else      (syntax-violation 'sh-repl "unexpected argument:" key)))))
+    (when (and lctx? enabled-parsers?)
+      (linectx-parsers-set! lctx enabled-parsers))
+    (when (and lctx? history-path?)
+      (charhistory-path-set! (linectx-history lctx) history-path))
     (first-value-or-void
-      (sh-repl* (if initial-parser?  initial-parser 'shell)
-             (if enabled-parsers? enabled-parsers (parsers))
-             (if print-func?      print-func      sh-repl-print)
-             (if lctx? lctx (sh-make-linectx))))))
+      (sh-repl*
+        (if initial-parser?  initial-parser  'shell)
+        (if print?   print   sh-repl-print)
+        (if lctx?
+          lctx
+          (sh-make-linectx
+            (if enabled-parsers? enabled-parsers (parsers))
+            (if history-path?    history-path    (sh-xdg-cache-home/ "schemesh/history.txt"))))))))
 
 
 ;; React to uncaught conditions

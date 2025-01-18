@@ -8,80 +8,91 @@
 (library (schemesh lineedit charhistory (0 1))
   (export
     charhistory charhistory? make-charhistory
-    charhistory-empty? charhistory-length charhistory-cow-ref charhistory-set*!)
+    charhistory-empty? charhistory-length charhistory-cow-ref charhistory-set*!
+    charhistory-path charhistory-path-set!)
   (import
     (rnrs)
-    (only (chezscheme) fx1+ fx1- record-writer)
-    (only (schemesh bootstrap) debugf)
+    (only (chezscheme)               fx1+ fx1- record-writer)
+    (only (schemesh bootstrap)       raise-assertf while)
     (only (schemesh containers misc) list-iterate)
-    (schemesh containers span)
+    (only (schemesh containers span) span make-span list->span)
+    (schemesh containers gbuffer)
     (only (schemesh containers charline) charline-empty?)
     (schemesh containers charlines))
 
-;; copy-pasted from containers/span.ss
+;; copy-pasted from containers/gbuffer.ss
 (define-record-type
-  (%span %make-span %span?)
+  (%gbuffer %make-gbuffer %gbuffer?)
   (fields
-     (mutable beg span-beg span-beg-set!)
-     (mutable end span-end span-end-set!)
-     (mutable vec span-vec span-vec-set!))
-  (nongenerative #{%span ng1h8vurkk5k61p0jsryrbk99-0}))
+    (mutable left  gbuffer-left  gbuffer-left-set!)
+    (mutable right gbuffer-right gbuffer-right-set!))
+  (nongenerative #{%gbuffer ejch98ka4vi1n9dn4ybq4gzwe-0}))
 
 
-;; type charhistory is a span containing charlines elements (the history itself)
+;; type charhistory is a gbuffer containing charlines elements (the history itself)
 (define-record-type
   (%charhistory %make-charhistory charhistory?)
-  (parent %span)
+  (parent %gbuffer)
+  (fields
+    (mutable path charhistory-path %charhistory-path-set!)) ; #f or string path where to load/save history
   (nongenerative #{%charhistory db0fmss41lc1voqx7uww5xnhu-28}))
+
 
 (define (charhistory . vals)
   (list-iterate vals (lambda (val) (assert-charlines? 'charhistory val)))
-  (let ((vec (list->vector vals)))
-    (%make-charhistory 0 (vector-length vec) vec)))
+  (%make-charhistory (span) (list->span vals) #f))
+
 
 (define (make-charhistory n)
-  ;; optimization: (charhistory-cow-ref) returns a copy-on-write clone of i-th
-  ; charline, thus we can reuse the same empty (charlines) for all elements
-  (%make-charhistory 0 n (make-vector n (charlines))))
+  ; optimization: (charhistory-cow-ref) returns a copy-on-write clone of i-th charline,
+  ; thus we can reuse the same empty (charlines) for all elements
+  (%make-charhistory (span) (make-span n (charlines)) #f))
 
-(define charhistory-empty? span-empty?)
-(define charhistory-length span-length)
+
+(define (charhistory-path-set! hist path)
+  (when (and path (not (string? path)))
+    (raise-assertf 'charhistory-path-set! "~s is not #f or string" path))
+  (%charhistory-path-set! hist path))
+
+
+(define charhistory-empty? gbuffer-empty?)
+(define charhistory-length gbuffer-length)
 
 ;; return a copy-on-write clone of i-th charlines in history
 (define (charhistory-cow-ref hist idx)
-  (charlines-copy-on-write (span-ref hist idx)))
+  (charlines-copy-on-write (gbuffer-ref hist idx)))
 
-;; set i-th charlines in history to a shallow copy of lines, and return such copy
-;; resizes history if needed.
-;; do NOT insert empty charlines,
-;; do NOT insert lines in history if they are equal to i-1-th charlines, i-th charlines or i+1-th charlines
+;; if i is in range, set i-th charlines in history to a shallow copy of lines.
+;; otherwise append shallow copy of lines to history.
+;; do NOT insert lines in history if they are equal to another charlines at a nearby index.
+;; Then remove consecutive empty charlines at indexes < i and update indexes accordingly.
+;; returns two values:
+;;   the inserted shallow copy of lines - or the existing lines that prevented insertion
+;;   the index where lines were actually stored - or the index of existing lines that prevented insertion
 (define (charhistory-set*! hist idx lines)
   (assert-charlines? 'charhistory-set*! lines)
-  (let ((insert? (not (charlines-empty-or-duplicate? hist idx lines)))
-        (len (span-length hist)))
-    ; (debugf "charhistory-set*! hist=~s, idx=~s, lines=~s, insert?=~s" hist idx lines insert?)
-    (when (and insert? (fx>=? idx len))
-      (span-resize-back! hist (fx1+ idx))
-      ; optimization: (charhistory-cow-ref) returns a copy-on-write clone of i-th
-      ; charlines, thus we can reuse the same empty (charlines) for all elements we add
-      (let ((empty-lines (charlines)))
-        (do ((i len (fx1+ i)))
-            ((fx>=? i idx))
-          (span-set! hist i empty-lines))))
-    ;; make a shallow copy of lines. Also helps in case
-    ;; lines is a subclass of charlines - for example a vscreen
-    (let ((lines (charlines-shallow-copy lines)))
-      (when insert?
-        (span-set! hist idx lines))
-      lines)))
+  (let* ((len       (gbuffer-length hist))
+         (idx-clamp (fxmax 0 (fxmin idx len)))
+         (idx-eq    (charlines-find-nearby hist idx-clamp lines))
+         (idx       (or idx-eq idx-clamp))
+         (lines (if idx-eq
+                  (gbuffer-ref hist idx-eq)
+                  ; make a shallow copy of lines. Also helps in case lines is not
+                  ; a charlines but a subclass of it, for example a vscreen
+                  (charlines-shallow-copy lines))))
+    (unless idx-eq
+      (if (fx>=? idx len)
+        (gbuffer-insert-at! hist idx lines)
+        (gbuffer-set! hist idx lines)))
 
+    ; remove empty lines at indexes < idx
+    (let ((i (fx1- idx)))
+      (while (and (fx>=? i 0) (%charlines-empty? (gbuffer-ref hist i)))
+        (gbuffer-erase-at! i 1)
+        (set! i (fx1- i))
+        (set! idx (fx1- idx)))) ; also decrement idx
 
-(define (charlines-empty-or-duplicate? hist idx lines)
-  (or
-    ; do not allow padding the history when inserting empty charlines
-    (and (or (fxzero? idx) (fx>? idx (span-length hist)))
-         (%charlines-empty? lines))
-    (charlines-duplicate? hist idx lines)))
+    (values lines idx)))
 
 
 (define (%charlines-empty? lines)
@@ -90,18 +101,27 @@
            (charline-empty? (charlines-ref lines 0)))))
 
 
-(define (charlines-duplicate? hist idx lines)
-  (let ((len (span-length hist)))
-    (do ((i (fxmax 0 (fx1- idx)) (fx1+ i)))
-        ((or (fx>=? i len) (charlines-equal? (span-ref hist i) lines))
-         (fx<? i len)))))
+;; search for charlines equal to lines
+;; at charhistory indexes (fx1- idx) idx (fx1+ idx)
+;;
+;; return index of equal charlines if found,
+;; otherwise return #f
+(define (charlines-find-nearby hist idx lines)
+  (let* ((len   (gbuffer-length hist))
+         (start (fxmax 0 (fx1- idx)))
+         (end   (fxmin len (fx+ 2 idx)))
+         (ret   #f))
+    (do ((i start (fx1+ i)))
+        ((or ret (fx>=? i end)) ret)
+      (when (charlines-equal? (gbuffer-ref hist i) lines)
+        (set! ret i)))))
 
 
 ;; customize how "charhistory" objects are printed
 (record-writer (record-type-descriptor %charhistory)
   (lambda (hist port writer)
     (display "(charhistory" port)
-    (span-iterate hist
+    (gbuffer-iterate hist
       (lambda (i elem)
         (display #\space port)
         (writer elem port)))
