@@ -170,11 +170,24 @@
         (gbuffer-split-at! gb end)
         (span-erase-back! left n)))))
 
+
+;; iterate on gbuffer elements, and call (proc i elem) on each one.
+;; Stops iterating if (proc ...) returns #f.
+;;
+;; Returns #t if all calls to (proc i elem) returned truish,
+;; otherwise returns #f.
+;;
+;; The implementation of (proc ...) can call directly or indirectly functions
+;; that inspect the gbuffer without modifying it, and can also call (gbuffer-set! sp ...).
+;;
+;; It must NOT call any other function that modifies the gbuffer (insert or erase elements,
+;; change the gbuffer size or capacity, etc).
 (define (gbuffer-iterate gb proc)
   (do ((i 0 (fx1+ i))
        (n (gbuffer-length gb)))
     ((or (fx>=? i n) (not (proc i (gbuffer-ref gb i))))
      (fx>=? i n))))
+
 
 ; customize how "gbuffer" objects are printed
 (record-writer (record-type-descriptor %gbuffer)

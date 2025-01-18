@@ -8,7 +8,7 @@
 (library (schemesh lineedit charhistory (0 1))
   (export
     charhistory charhistory? make-charhistory
-    charhistory-empty? charhistory-length charhistory-ref/cow
+    charhistory-empty? charhistory-length charhistory-ref/cow charhistory-iterate
     charhistory-find/starts-with charhistory-rfind/starts-with
     charhistory-erase-consecutive-empty-charlines-before!
     charhistory-set*! charhistory-path charhistory-path-set!)
@@ -59,6 +59,20 @@
 
 (define charhistory-empty? gbuffer-empty?)
 (define charhistory-length gbuffer-length)
+
+;; iterate on charhistory lines, and call (proc i lines) on each one.
+;; Stops iterating if (proc ...) returns #f.
+;;
+;; Returns #t if all calls to (proc i lines) returned truish,
+;; otherwise returns #f.
+;;
+;; The implementation of (proc ...) can call directly or indirectly functions
+;; that inspect the charhistory without modifying it,
+;; and can also inspect lines.
+;;
+;; It must NOT call any function that modifies the lines or charhistory
+;; (set elements, insert or erase elements, change the size or capacity, etc).
+(define charhistory-iterate gbuffer-iterate)
 
 ;; return a copy-on-write clone of i-th charlines in history
 (define (charhistory-ref/cow hist idx)

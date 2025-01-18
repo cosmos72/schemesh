@@ -109,6 +109,7 @@ void schemesh_import_libraries(void) {
        "  (import (schemesh lineedit io))\n"
        "  (import (schemesh lineedit parser))\n"
        "  (import (schemesh lineedit charhistory))\n"
+       "  (import (schemesh lineedit charhistory io))\n"
        "  (import (schemesh lineedit paren))\n"
        "  (import (schemesh lineedit parenmatcher))\n"
        "  (import (schemesh lineedit))\n"

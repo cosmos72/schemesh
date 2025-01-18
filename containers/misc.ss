@@ -14,7 +14,7 @@
     bytevector-fill-range! bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?
     string-fill-range! string-range-count= string-range=? string-range<?
-    string-find/char string-rfind/char string-split string-iterate
+    string-find/char string-rfind/char string-replace/char! string-split string-iterate
     string-starts-with/char? string-ends-with/char? )
   (import
     (rnrs)
@@ -314,6 +314,17 @@
         ((or (fx<? i start) (char=? ch (string-ref str i)))
          (if (fx>=? i start) i #f)))))
 
+;; destructively replace each occurrence of ch-from with ch-to in string str.
+;; return str, modified in-place.
+(define (string-replace/char! str ch-from ch-to)
+  (assert* 'string-replace/char (string? str))
+  (assert* 'string-replace/char (char? ch-from))
+  (assert* 'string-replace/char (char? ch-to))
+  (let ((end (string-length str)))
+    (do ((i 0 (fx1+ i)))
+        ((fx>=? i end) str)
+      (when (char=? ch-from (string-ref str i))
+        (string-set! str i ch-to)))))
 
 ;; split string range [start, end) into a list of strings,
 ;; delimited by character delim - which is not included in returned list of strings
