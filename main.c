@@ -16,6 +16,7 @@
 
 #include <setjmp.h>
 #include <stdio.h>
+#include <string.h> /* strcmp() */
 #include <time.h>
 
 static jmp_buf jmp_env;
@@ -49,11 +50,47 @@ static void show(FILE* out, bytes bv) {
   }
 }
 
+static int usage(const char* name) {
+  if (name == NULL) {
+    name = "schemesh";
+  }
+  fprintf(stdout, "Usage: %s [-i] [--repl] [--compile-source-dir=DIR] [--libdir=DIR]\n", name);
+  return 0;
+}
+
+static int unknown_option(const char* name, const char* arg) {
+  if (name == NULL) {
+    name = "schemesh";
+  }
+  fprintf(stderr,
+          "%s: unrecognized option '%s'\nTry '%s --help' for more information.\n",
+          name,
+          arg,
+          name);
+  return 1;
+}
+
 int main(int argc, const char* argv[]) {
-  enum { LEN = 1024 };
-  char            buf[LEN];
-  struct timespec start, end;
-  int             err = 0;
+  const char* library_dir = NULL;
+  const char* source_dir  = NULL;
+  const char* arg;
+  int         err = 0;
+  int         i;
+  enum { e_repl_no, e_repl_auto, e_repl_yes } repl_flag = e_repl_auto;
+
+  for (i = 1; i < argc && (arg = argv[i]) != NULL; i++) {
+    if (!strcmp(arg, "-h") || !strcmp(arg, "--help")) {
+      return usage(argv[0]);
+    } else if (!strcmp(arg, "-i") || !strcmp(arg, "--repl")) {
+      repl_flag = e_repl_yes;
+    } else if (!strncmp(arg, "--compile-source-dir=", 21)) {
+      source_dir = arg + 21;
+    } else if (!strncmp(arg, "--libdir=", 9)) {
+      library_dir = arg + 9;
+    } else {
+      return unknown_option(argv[0], arg);
+    }
+  }
 
   switch (setjmp(jmp_env)) {
     case NOP: /* first call to setjmp: continue initialization */
@@ -67,22 +104,30 @@ int main(int argc, const char* argv[]) {
     case QUIT_FAILED: /* exception in quit() */
       return 2;
   }
+
   on_exception = INIT_FAILED;
   schemesh_init(&handle_scheme_exception);
-  if ((err = schemesh_register_c_functions()) < 0) {
+  if ((err = schemesh_register_c_functions()) != 0) {
     return err;
   }
-  schemesh_compile_and_load_libraries();
+  if (source_dir != NULL) {
+    err = schemesh_compile_libraries(source_dir);
+    if (repl_flag == e_repl_auto) {
+      repl_flag = e_repl_no;
+    }
+  }
+  if (err || repl_flag == e_repl_no) {
+    goto finish;
+  }
+  if ((err = schemesh_load_libraries(library_dir ? library_dir : source_dir ? "." : NULL)) != 0) {
+    goto finish;
+  }
+
   schemesh_import_libraries();
 
   on_exception = EVAL_FAILED;
 again:
 #if 1
-  (void)argc;
-  (void)argv;
-  (void)buf;
-  (void)start;
-  (void)end;
   (void)&show;
   (void)&diff;
   Senable_expeditor(NULL);
@@ -93,10 +138,7 @@ again:
       err = Sfixnum_value(ret);
     }
   }
-#elif 1
-  (void)buf;
-  (void)start;
-  (void)end;
+#elif 0
   (void)&show;
   (void)&diff;
   Senable_expeditor(NULL);
@@ -107,16 +149,22 @@ again:
   (void)argv;
   c_errno_set(0);
 
-  while (fgets(buf, LEN, stdin) != NULL) {
-    start = now();
+  {
+    enum { LEN = 1024 };
+    char            buf[LEN];
+    struct timespec start, end;
 
-    bytes bv = eval_to_bytevector(buf);
-    show(stdout, bv);
+    while (fgets(buf, LEN, stdin) != NULL) {
+      start = now();
 
-    end = now();
-    fprintf(stdout, "; elapsed: %.09f\n", diff(start, end));
+      bytes bv = eval_to_bytevector(buf);
+      show(stdout, bv);
+
+      end = now();
+      fprintf(stdout, "; elapsed: %.09f\n", diff(start, end));
+    }
+    fprintf(stdout, "; got EOF. exiting.\n");
   }
-  fprintf(stdout, "; got EOF. exiting.\n");
 #endif /*0*/
 finish:
   on_exception = QUIT_FAILED;

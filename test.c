@@ -870,10 +870,10 @@ static const testcase tests[] = {
     /* ------------------------- shell paths -------------------------------- */
     {"(sh-path-absolute? (string->charspan* \"/foo\"))", "#t"},
     {"(sh-path-absolute? (string->charspan* \"bar/\"))", "#f"},
-    {"(sh-path \"//usr///local////\")", "(string->charspan* \"//usr///local////\")"},
-    {"(sh-subpath \"//usr///local////\")", "(string->charspan* \"/usr/local\")"},
-    {"(sh-subpath \"/usr/local/\" \"/bin/\" \"../lib/scheme/\")",
-     "(string->charspan* \"/usr/local/lib/scheme\")"},
+    {"(sh-path \"//foo///bar////\")", "(string->charspan* \"//foo///bar////\")"},
+    {"(sh-subpath \"//foo///bar////\")", "(string->charspan* \"/foo/bar\")"},
+    {"(sh-subpath \"/foo/bar/\" \"/aaa/\" \"../baz/bbbb/\")",
+     "(string->charspan* \"/foo/bar/baz/bbbb\")"},
     {"(sh-path? (string->charspan* \"../a//b/\"))", "#t"},
     {"(sh-path? (string->charspan* \"\\x0;\"))", "#f"},
     {"(sh-subpath? (string->charspan* \"../a//b/\"))", "#f"},
@@ -1244,14 +1244,23 @@ int main(int argc, const char* argv[]) {
   (void)argv;
 
   schemesh_init(&handle_scheme_exception);
-  if ((err = schemesh_register_c_functions()) < 0) {
-    return err;
+  if ((err = schemesh_register_c_functions()) != 0) {
+    goto finish;
   }
-  schemesh_compile_and_load_libraries();
+  if (schemesh_load_libraries(".") != 0) {
+    if ((err = schemesh_compile_libraries(".")) != 0) {
+      goto finish;
+    }
+  }
+  if ((err = schemesh_load_libraries(".")) != 0) {
+    goto finish;
+  }
+
   schemesh_import_libraries();
 
   err = run_tests();
 
+finish:
   schemesh_quit();
 
   return err;

@@ -19,11 +19,23 @@
  */
 void schemesh_init(void (*on_scheme_exception)(void));
 
-/** register all C functions needed by schemesh libraries. return < 0 if failed */
+/** register all C functions needed by schemesh libraries. return != 0 if failed */
 int schemesh_register_c_functions(void);
 
-/** compile and load all schemesh libraries */
-void schemesh_compile_and_load_libraries(void);
+/**
+ * compile libschemesh_VERSION.so from sources found in specified directory.
+ *
+ * return 0 if successful, otherwise error code.
+ */
+int schemesh_compile_libraries(const char* source_dir);
+
+/**
+ * if override_library_dir is set, load libschemesh_VERSION.so library from it
+ * otherwise load libschemesh_VERSION.so from system-wide installation directory.
+ *
+ * return 0 if successful, otherwise error code.
+ */
+int schemesh_load_libraries(const char* override_library_dir);
 
 /** import all schemesh libraries */
 void schemesh_import_libraries(void);

@@ -14,6 +14,7 @@
 #include "../posix/signal.h"
 
 #include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -25,6 +26,7 @@
 #define STR_(arg) #arg
 #define STR(arg) STR_(arg)
 #define CHEZ_SCHEME_DIR_STR STR(CHEZ_SCHEME_DIR)
+#define INSTALL_LIBDIR_STR STR(INSTALL_LIBDIR)
 
 #if !defined(__GNUC__) || defined(__OPTIMIZE__)
 #define SCHEMESH_OPTIMIZE
@@ -57,7 +59,7 @@ int schemesh_register_c_functions(void) {
 
   schemesh_register_c_functions_containers();
 
-  if ((err = schemesh_register_c_functions_posix()) < 0) {
+  if ((err = schemesh_register_c_functions_posix()) != 0) {
     return err;
   }
 
@@ -66,38 +68,90 @@ int schemesh_register_c_functions(void) {
   return err;
 }
 
-#ifdef SCHEMESH_OPTIMIZE
-#define LIBSCHEMESH_SO "libschemesh.so"
-#else /* !SCHEMESH_OPTIMIZE */
-#define LIBSCHEMESH_SO "libschemesh_debug.so"
-#endif
+#define LIBSCHEMESH_SO "libschemesh_0.7.so"
 
-void schemesh_compile_and_load_libraries(void) {
-  eval("(let ((try-load\n"
-       "  (lambda (path)\n"
-       "    (call/cc\n"
-       "      (lambda (k-exit)\n"
-       "        (with-exception-handler\n"
-       "          (lambda (condition)\n"
-       "            (k-exit #f))\n"
-       "          (lambda ()\n"
+/* return 0 if successful, otherwise error code */
+int schemesh_compile_libraries(const char* source_dir) {
+  ptr ret;
+  int err;
+  if (source_dir == NULL) {
+    fprintf(stderr, "%s", "schemesh: --compile-source-dir argument is null\n");
+    return EINVAL;
+  }
+  if (chdir(source_dir) != 0) {
+    err = errno;
+    fprintf(stderr,
+            "schemesh: C function chdir(\"%s\") failed with error %d: %s\n",
+            source_dir,
+            err,
+            strerror(err));
+    return err;
+  }
+  ret =
+      eval("(call/cc\n"
+           "  (lambda (k-exit)\n"
+           "    (with-exception-handler\n"
+           "      (lambda (ex)\n"
+           "        (let ((port (current-error-port)))\n"
+           "          (put-string port \"schemesh: (compile-file \"libschemesh.ss\") failed: \")\n"
+           "          (display-condition ex port)\n"
+           "          (newline port))\n"
+           "        (k-exit #f))\n" /* exception -> return #f */
+           "      (lambda ()\n"
 #ifdef SCHEMESH_OPTIMIZE
-       "            (parameterize ((optimize-level 2))\n"
+           "        (parameterize ((optimize-level 2))\n"
+           "          (compile-file \"libschemesh.ss\" \"libschemesh_temp.so\")\n"
+           "          (strip-fasl-file \"libschemesh_temp.so\" \"" LIBSCHEMESH_SO "\"\n"
+           "            (fasl-strip-options inspector-source source-annotations profile-source)))\n"
 #else /* !SCHEMESH_OPTIMIZE */
-       "            (parameterize ((optimize-level 0)\n"
-       "                           (run-cp0 (lambda (cp0 x) x)))\n"
+           "        (parameterize ((optimize-level 0)\n"
+           "                       (run-cp0 (lambda (cp0 x) x)))\n"
+           "          (compile-file \"libschemesh.ss\" \"" LIBSCHEMESH_SO "\"))\n"
 #endif
-       "              (load path))\n"
-       "            #t)))))))\n"
-       "  (unless (try-load \"/usr/local/lib/schemesh/" LIBSCHEMESH_SO "\")\n"
-       "    (unless (try-load \"/usr/lib/schemesh/" LIBSCHEMESH_SO "\")\n"
-       "      (unless (try-load \"" LIBSCHEMESH_SO "\")\n"
-       "        (compile-file \"libschemesh.ss\" \"libschemesh_debug.so\")\n"
-#ifdef SCHEMESH_OPTIMIZE
-       "        (strip-fasl-file \"libschemesh_debug.so\" \"libschemesh.so\"\n"
-       "          (fasl-strip-options inspector-source source-annotations profile-source))\n"
+           "        #t))))\n"); /* success -> return #t */
+  return ret == Strue ? 0 : EINVAL;
+}
+
+/* return 0 if successful, otherwise error code */
+int schemesh_load_libraries(const char* override_library_dir) {
+#if 0
+  ptr try_load_proc = eval("(lambda (dir)\n"
+                           "  (load (string-append dir \"/" LIBSCHEMESH_SO "\"))\n"
+                           "  #t)\n");
+#else
+  ptr try_load_proc = eval("(lambda (dir)\n"
+                           "  (let ((path (string-append dir \"/" LIBSCHEMESH_SO "\")))\n"
+                           "    (call/cc\n"
+                           "      (lambda (k-exit)\n"
+                           "        (with-exception-handler\n"
+                           "          (lambda (ex)\n"
+                           "            (let ((port (current-error-port)))\n"
+                           "              (put-string port \"schemesh: \")"
+                           "              (display-condition ex port)\n"
+                           "              (newline port))\n"
+                           "            (k-exit #f))\n" /* exception -> return #f */
+                           "          (lambda ()\n"
+                           "            (load path)\n"
+                           "            #t))))))\n"); /* success -> return #t */
 #endif
-       "        (load \"" LIBSCHEMESH_SO "\")))))\n");
+  ptr ret = Sfalse;
+  Slock_object(try_load_proc);
+
+  if (override_library_dir != NULL) {
+    ret = Scall1(try_load_proc, Sstring_utf8(override_library_dir, -1));
+  } else {
+#ifdef INSTALL_LIBDIR
+    ret = Scall1(try_load_proc, Sstring_utf8(INSTALL_LIBDIR_STR, -1));
+#endif
+    if (ret != Strue) {
+      ret = Scall1(try_load_proc, Sstring_utf8("/usr/local/lib/schemesh", -1));
+    }
+    if (ret != Strue) {
+      ret = Scall1(try_load_proc, Sstring_utf8("/usr/lib/schemesh", -1));
+    }
+  }
+  Sunlock_object(try_load_proc);
+  return ret == Strue ? 0 : EINVAL;
 }
 
 void schemesh_import_libraries(void) {
