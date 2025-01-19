@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2023-2024 by Massimiliano Ghilardi
+ * Copyright (C) 2023-2025 by Massimiliano Ghilardi
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,7 +20,8 @@
 
 #define N_OF(span) (sizeof(span) / sizeof((span)[0]))
 
-#if 1 /* defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L && !defined(__STDC_NO_ATOMICS__) */
+#if 1 /* defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L && !defined(__STDC_NO_ATOMICS__) \
+       */
 #define ATOMIC _Atomic
 #else
 #define ATOMIC volatile

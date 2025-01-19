@@ -1,4 +1,4 @@
-;;; Copyright (C) 2023-2024 by Massimiliano Ghilardi
+;;; Copyright (C) 2023-2025 by Massimiliano Ghilardi
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -58,7 +58,7 @@
              (#t
                (syntax-violation 'sh-parse-datum "syntax error, shell DSL form should start with 'shell or 'shell-subshell, found:"
                  saved-args arg0)))))
-    (validate args)
+    (validate-datum args)
     ; (debugf ">   sh-parse-datum args = ~s" saved-args)
     (until (null? args)
       (let-values (((parsed tail) (parse-or args)))
@@ -105,8 +105,8 @@
                                                   ) ret)))))))
 
 
-;; validate list containing a sequence of shell commands separated by ; & ! && || |
-(define (validate args)
+;; validate-datum list containing a sequence of shell commands separated by ; & ! && || |
+(define (validate-datum args)
   (unless (or (null? args) (null? (cdr args)))
     (let ((arg1 (car args))
           (arg2 (cadr args)))
@@ -114,7 +114,7 @@
         (unless (and (eq? arg1 '\x3b;) (job-terminator? arg2))
           (syntax-violation 'sh-parse-datum "syntax error, invalid consecutive shell DSL operators:"
               args arg2))))
-    (validate (cdr args))))
+    (validate-datum (cdr args))))
 
 
 

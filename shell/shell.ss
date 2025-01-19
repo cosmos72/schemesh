@@ -1,4 +1,6 @@
-;;; Copyright (C) 2023-2024 by Massimiliano Ghilardi
+#!r6rs
+
+;;; Copyright (C) 2023-2025 by Massimiliano Ghilardi
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -22,13 +24,16 @@
     ; builtins.ss
     sh-builtin sh-builtins sh-find-builtin sh-echo sh-error sh-false sh-true sh-history sh-repl-args
 
+    ; include.ss
+    sh-include
+
     ; macros.ss
     shell shell-backquote shell-env shell-list shell-subshell shell-wildcard
 
     ; utils.ss
     sh-autocomplete sh-current-time sh-expand-ps1 sh-home->~ sh-make-linectx
 
-    ; jobs.ss and files included by it:
+    ;;;;;;;;;; jobs.ss and files included by it:
 
     ; dir.ss
     sh-cwd-set! sh-cd sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
@@ -62,6 +67,7 @@
 
     ; wildcard
     sh-wildcard sh-wildcard/apply sh-wildcard/prepare sh-wildcard/expand
+
     )
 
   (import
@@ -69,6 +75,7 @@
     (schemesh shell paths)
     (schemesh shell builtins)
     (schemesh shell jobs)
+    (schemesh shell includes)
     (schemesh shell macros)
     (schemesh shell utils))
 

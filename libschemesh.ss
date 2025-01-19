@@ -1,4 +1,4 @@
-;;; Copyright (C) 2023-2024 by Massimiliano Ghilardi
+;;; Copyright (C) 2023-2025 by Massimiliano Ghilardi
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -49,6 +49,7 @@
   (include "shell/paths.ss")
   (include "shell/builtins.ss")
   (include "shell/jobs.ss")
+  (include "shell/includes.ss")
   (include "shell/macros.ss")
   (include "shell/utils.ss")
   (include "shell/shell.ss")

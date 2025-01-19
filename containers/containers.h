@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2023-2024 by Massimiliano Ghilardi
+ * Copyright (C) 2023-2025 by Massimiliano Ghilardi
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -11,7 +11,7 @@
 #define SCHEMESH_CONTAINERS_H
 
 #include "../chezscheme.h" /* ptr */
-#include <stddef.h> /* size_t */
+#include <stddef.h>        /* size_t */
 
 void schemesh_register_c_functions_containers(void);
 
