@@ -28,12 +28,6 @@
 #define CHEZ_SCHEME_DIR_STR STR(CHEZ_SCHEME_DIR)
 #define INSTALL_LIBDIR_STR STR(INSTALL_LIBDIR)
 
-#if !defined(__GNUC__) || defined(__OPTIMIZE__)
-#define SCHEMESH_OPTIMIZE
-#else
-#undef SCHEMESH_OPTIMIZE
-#endif
-
 /**
  * return i-th environment variable i.e. environ[i]
  * converted to a cons containing two Scheme strings: (key . value)
@@ -66,50 +60,6 @@ int schemesh_register_c_functions(void) {
   Sregister_symbol("c_environ_ref", &c_environ_ref);
 
   return err;
-}
-
-#define LIBSCHEMESH_SO "libschemesh_0.7.so"
-
-/* return 0 if successful, otherwise error code */
-int schemesh_compile_libraries(const char* source_dir) {
-  ptr ret;
-  int err;
-  if (source_dir == NULL) {
-    fprintf(stderr, "%s", "schemesh: --compile-source-dir argument is null\n");
-    return EINVAL;
-  }
-  if (chdir(source_dir) != 0) {
-    err = errno;
-    fprintf(stderr,
-            "schemesh: C function chdir(\"%s\") failed with error %d: %s\n",
-            source_dir,
-            err,
-            strerror(err));
-    return err;
-  }
-  ret =
-      eval("(call/cc\n"
-           "  (lambda (k-exit)\n"
-           "    (with-exception-handler\n"
-           "      (lambda (ex)\n"
-           "        (let ((port (current-error-port)))\n"
-           "          (put-string port \"schemesh: (compile-file \"libschemesh.ss\") failed: \")\n"
-           "          (display-condition ex port)\n"
-           "          (newline port))\n"
-           "        (k-exit #f))\n" /* exception -> return #f */
-           "      (lambda ()\n"
-#ifdef SCHEMESH_OPTIMIZE
-           "        (parameterize ((optimize-level 2))\n"
-           "          (compile-file \"libschemesh.ss\" \"libschemesh_temp.so\")\n"
-           "          (strip-fasl-file \"libschemesh_temp.so\" \"" LIBSCHEMESH_SO "\"\n"
-           "            (fasl-strip-options inspector-source source-annotations profile-source)))\n"
-#else /* !SCHEMESH_OPTIMIZE */
-           "        (parameterize ((optimize-level 0)\n"
-           "                       (run-cp0 (lambda (cp0 x) x)))\n"
-           "          (compile-file \"libschemesh.ss\" \"" LIBSCHEMESH_SO "\"))\n"
-#endif
-           "        #t))))\n"); /* success -> return #t */
-  return ret == Strue ? 0 : EINVAL;
 }
 
 /* return 0 if successful, otherwise error code */

@@ -37,7 +37,7 @@ LIBSCHEMESH_SO=libschemesh_0.7.so
 
 OBJS=containers.o eval.o posix.o shell.o signal.o
 
-all: schemesh schemesh_test
+all: schemesh schemesh_test $(LIBSCHEMESH_SO)
 
 clean:
 	rm -f *~ *.o *.so schemesh schemesh_test
@@ -73,7 +73,7 @@ schemesh_test: test.o $(OBJS)
 $(LIBSCHEMESH_SO): schemesh_test
 	./schemesh_test
 
-install: schemesh $(LIBSCHEMESH_SO)
+install: all
 	$(INSTALL) schemesh $(INSTALL_BINDIR) || $(CP) schemesh $(INSTALL_BINDIR)
 	$(MKDIR_P) $(INSTALL_LIBDIR)
 	$(INSTALL) $(LIBSCHEMESH_SO) $(INSTALL_LIBDIR) || $(CP) $(LIBSCHEMESH_SO) $(INSTALL_LIBDIR)

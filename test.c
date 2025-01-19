@@ -14,6 +14,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h> // chdir()
+
+#if !defined(__GNUC__) || defined(__OPTIMIZE__)
+#define SCHEMESH_OPTIMIZE
+#else
+#undef SCHEMESH_OPTIMIZE
+#endif
 
 #define GRAY(str) "\033[30;1m" str "\033[m"
 
@@ -1238,6 +1245,52 @@ static void handle_scheme_exception(void) {
   exit(1);
 }
 
+/**
+ * compile libschemesh_VERSION.so from sources found in specified directory.
+ *
+ * return 0 if successful, otherwise error code.
+ */
+static int compile_libraries(const char* source_dir) {
+  ptr ret;
+  int err;
+  if (source_dir == NULL) {
+    fprintf(stderr, "%s", "schemesh: --compile-source-dir argument is null\n");
+    return EINVAL;
+  }
+  if (chdir(source_dir) != 0) {
+    err = errno;
+    fprintf(stderr,
+            "schemesh: C function chdir(\"%s\") failed with error %d: %s\n",
+            source_dir,
+            err,
+            strerror(err));
+    return err;
+  }
+  ret =
+      eval("(call/cc\n"
+           "  (lambda (k-exit)\n"
+           "    (with-exception-handler\n"
+           "      (lambda (ex)\n"
+           "        (let ((port (current-error-port)))\n"
+           "          (put-string port \"schemesh: (compile-file \"libschemesh.ss\") failed: \")\n"
+           "          (display-condition ex port)\n"
+           "          (newline port))\n"
+           "        (k-exit #f))\n" /* exception -> return #f */
+           "      (lambda ()\n"
+#ifdef SCHEMESH_OPTIMIZE
+           "        (parameterize ((optimize-level 2))\n"
+           "          (compile-file \"libschemesh.ss\" \"libschemesh_temp.so\")\n"
+           "          (strip-fasl-file \"libschemesh_temp.so\" \"" LIBSCHEMESH_SO "\"\n"
+           "            (fasl-strip-options inspector-source source-annotations profile-source)))\n"
+#else /* !SCHEMESH_OPTIMIZE */
+           "        (parameterize ((optimize-level 0)\n"
+           "                       (run-cp0 (lambda (cp0 x) x)))\n"
+           "          (compile-file \"libschemesh.ss\" \"" LIBSCHEMESH_SO "\"))\n"
+#endif
+           "        #t))))\n"); /* success -> return #t */
+  return ret == Strue ? 0 : EINVAL;
+}
+
 int main(int argc, const char* argv[]) {
   int err;
   (void)argc;
@@ -1247,7 +1300,7 @@ int main(int argc, const char* argv[]) {
   if ((err = schemesh_register_c_functions()) != 0) {
     goto finish;
   }
-  if ((err = schemesh_compile_libraries(".")) != 0) {
+  if ((err = compile_libraries(".")) != 0) {
     goto finish;
   }
   if ((err = schemesh_load_libraries(".")) != 0) {

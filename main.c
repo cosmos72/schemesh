@@ -54,7 +54,7 @@ static int usage(const char* name) {
   if (name == NULL) {
     name = "schemesh";
   }
-  fprintf(stdout, "Usage: %s [-i] [--repl] [--compile-source-dir=DIR] [--libdir=DIR]\n", name);
+  fprintf(stdout, "Usage: %s [-i] [--repl] [--libdir=DIR]\n", name);
   return 0;
 }
 
@@ -72,7 +72,6 @@ static int unknown_option(const char* name, const char* arg) {
 
 int main(int argc, const char* argv[]) {
   const char* library_dir = NULL;
-  const char* source_dir  = NULL;
   const char* arg;
   int         err = 0;
   int         i;
@@ -83,8 +82,6 @@ int main(int argc, const char* argv[]) {
       return usage(argv[0]);
     } else if (!strcmp(arg, "-i") || !strcmp(arg, "--repl")) {
       repl_flag = e_repl_yes;
-    } else if (!strncmp(arg, "--compile-source-dir=", 21)) {
-      source_dir = arg + 21;
     } else if (!strncmp(arg, "--libdir=", 9)) {
       library_dir = arg + 9;
     } else {
@@ -110,16 +107,10 @@ int main(int argc, const char* argv[]) {
   if ((err = schemesh_register_c_functions()) != 0) {
     return err;
   }
-  if (source_dir != NULL) {
-    err = schemesh_compile_libraries(source_dir);
-    if (repl_flag == e_repl_auto) {
-      repl_flag = e_repl_no;
-    }
-  }
   if (err || repl_flag == e_repl_no) {
     goto finish;
   }
-  if ((err = schemesh_load_libraries(library_dir ? library_dir : source_dir ? "." : NULL)) != 0) {
+  if ((err = schemesh_load_libraries(library_dir)) != 0) {
     goto finish;
   }
 

@@ -10,6 +10,8 @@
 #ifndef SCHEMESH_SHELL_SHELL_H
 #define SCHEMESH_SHELL_SHELL_H
 
+#define LIBSCHEMESH_SO "libschemesh_0.7.so"
+
 /**
  * initialize Chez Scheme. calls in sequence:
  *   Sscheme_init(on_scheme_exception);
@@ -21,13 +23,6 @@ void schemesh_init(void (*on_scheme_exception)(void));
 
 /** register all C functions needed by schemesh libraries. return != 0 if failed */
 int schemesh_register_c_functions(void);
-
-/**
- * compile libschemesh_VERSION.so from sources found in specified directory.
- *
- * return 0 if successful, otherwise error code.
- */
-int schemesh_compile_libraries(const char* source_dir);
 
 /**
  * if override_library_dir is set, load libschemesh_VERSION.so library from it
