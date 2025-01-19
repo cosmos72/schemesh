@@ -891,7 +891,7 @@ static const testcase tests[] = {
      "  (sh-alias-set! \"test-alias-foo\" '(\"bar\" \"baz\"))\n"
      "  (sh-alias-expand '(\"test-alias-foo\" \"123\" \"456\")))\n",
      "(bar baz 123 456)"},
-    /* ------------------------- shell jobs --------------------------------- */
+    /* ------------------------- shell job --------------------------------- */
     {"(begin\n"
      "  (sh-env! #t \"foo\" \"bar\")\n"
      "  (cons\n"
@@ -956,7 +956,7 @@ static const testcase tests[] = {
      "(sh-subshell (sh-and (sh-cmd abc) (sh-cmd def)))"},
 
 #define INVOKELIB_SHELL_JOBS                                                                       \
-  "(begin (($primitive 3 $invoke-library) '(schemesh shell jobs) '(0 1) 'jobs)"
+  "(begin (($primitive 3 $invoke-library) '(schemesh shell job) '(0 1) 'job)"
 
     /* ------------------------- shell macros ------------------------------- */
     {"(expand '(shell))", /* */
@@ -1268,28 +1268,18 @@ static int compile_libraries(const char* source_dir) {
             strerror(err));
     return err;
   }
-  ret =
-      eval("(call/cc\n"
-           "  (lambda (k-exit)\n"
-           "    (with-exception-handler\n"
-           "      (lambda (ex)\n"
-           "        (let ((port (current-error-port)))\n"
-           "          (put-string port \"schemesh: (compile-file \"libschemesh.ss\") failed: \")\n"
-           "          (display-condition ex port)\n"
-           "          (newline port))\n"
-           "        (k-exit #f))\n" /* exception -> return #f */
-           "      (lambda ()\n"
 #ifdef SCHEMESH_OPTIMIZE
-           "        (parameterize ((optimize-level 2))\n"
-           "          (compile-file \"libschemesh.ss\" \"libschemesh_temp.so\")\n"
-           "          (strip-fasl-file \"libschemesh_temp.so\" \"" LIBSCHEMESH_SO "\"\n"
-           "            (fasl-strip-options inspector-source source-annotations profile-source)))\n"
+  ret = eval("(parameterize ((optimize-level 2))\n"
+             "  (compile-file \"libschemesh.ss\" \"libschemesh_temp.so\")\n"
+             "  (strip-fasl-file \"libschemesh_temp.so\" \"" LIBSCHEMESH_SO "\"\n"
+             "    (fasl-strip-options inspector-source source-annotations profile-source))\n"
+             "    #t\n)");
 #else /* !SCHEMESH_OPTIMIZE */
-           "        (parameterize ((optimize-level 0)\n"
-           "                       (run-cp0 (lambda (cp0 x) x)))\n"
-           "          (compile-file \"libschemesh.ss\" \"" LIBSCHEMESH_SO "\"))\n"
+  ret = eval("(parameterize ((optimize-level 0)\n"
+             "               (run-cp0 (lambda (cp0 x) x)))\n"
+             "  (compile-file \"libschemesh.ss\" \"" LIBSCHEMESH_SO "\")\n"
+             "  #t)");
 #endif
-           "        #t))))\n"); /* success -> return #t */
   return ret == Strue ? 0 : EINVAL;
 }
 

@@ -109,7 +109,7 @@
     continue?))
 
 ;; given a path, return the length of its parent path.
-;; returned length includes the final "/" ONLY if it's the only character.
+;; returned length include the final "/" ONLY if it's the only character.
 (define (path-parent-len path)
   (let ((pos (charspan-rfind path 0 (charspan-length path) char-is-sep?)))
     (cond

@@ -15,7 +15,7 @@
     bytevector<=? bytevector<? bytevector>=? bytevector>?
     string-fill-range! string-range-count= string-range=? string-range<?
     string-find/char string-rfind/char string-replace/char! string-split string-iterate
-    string-starts-with/char? string-ends-with/char? )
+    string-starts-with? string-ends-with? string-starts-with/char? string-ends-with/char?)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -326,6 +326,7 @@
       (when (char=? ch-from (string-ref str i))
         (string-set! str i ch-to)))))
 
+
 ;; split string range [start, end) into a list of strings,
 ;; delimited by character delim - which is not included in returned list of strings
 (define (string-split str start end delim)
@@ -398,5 +399,24 @@
                   (set! done? #t)))))))
      ; (debugf "< string-range<? ret=~s" ret)
      ret))
+
+
+;; return #t if string str starts with specified string prefix,
+;; otherwise return #f.
+(define (string-starts-with? str prefix)
+  (let ((str-len    (string-length str))
+        (prefix-len (string-length prefix)))
+    (and (fx>=? str-len prefix-len)
+         (string-range=? str 0 prefix 0 prefix-len))))
+
+
+;; return #t if string str ends with specified string suffix,
+;; otherwise return #f.
+(define (string-ends-with? str suffix)
+  (let ((str-len    (string-length str))
+        (suffix-len (string-length suffix)))
+    (and (fx>=? str-len suffix-len)
+         (string-range=? str (fx- str-len suffix-len) suffix 0 suffix-len))))
+
 
 ) ; close library

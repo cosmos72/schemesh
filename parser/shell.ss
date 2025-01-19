@@ -631,7 +631,7 @@
       ; simplify top-level (shell) -> nothing
       '())
     ((and (eq? 'eof end-type) (eq? 'shell prefix) (pair? ret)
-          (null? (cdr ret)) (pair? (car ret)) (memq (caar ret) '(shell shell-subshell)))
+          (null? (cdr ret)) (pair? (car ret)) (memq (caar ret) '(shell shell-subshell shell-include)))
       ; simplify top-level (shell (shell...)) -> (shell...)
       (list (car ret)))
     (#t

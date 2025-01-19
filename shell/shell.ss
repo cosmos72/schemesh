@@ -25,15 +25,15 @@
     sh-builtin sh-builtins sh-find-builtin sh-echo sh-error sh-false sh-true sh-history sh-repl-args
 
     ; include.ss
-    sh-include
+    sh-include sh-parse-file sh-parse-port
 
     ; macros.ss
-    shell shell-backquote shell-env shell-list shell-subshell shell-wildcard
+    shell shell-backquote shell-env shell-list shell-include shell-subshell shell-wildcard
 
     ; utils.ss
     sh-autocomplete sh-current-time sh-expand-ps1 sh-home->~ sh-make-linectx
 
-    ;;;;;;;;;; jobs.ss and files included by it:
+    ;;;;;;;;;; job.ss and files included by it:
 
     ; dir.ss
     sh-cwd-set! sh-cd sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
@@ -46,7 +46,7 @@
     ; env.ss
     sh-env sh-env! sh-env-unset! sh-env-exported? sh-env-export! sh-env-set+export! sh-env/lazy!
 
-    ; jobs.ss
+    ; job.ss
     sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd? sh-multijob?
     sh-env-copy sh-env->argv sh-globals sh-global-env
     sh-cmd make-cmd sh-cwd
@@ -74,8 +74,8 @@
     (schemesh shell fds)
     (schemesh shell paths)
     (schemesh shell builtins)
-    (schemesh shell jobs)
-    (schemesh shell includes)
+    (schemesh shell job)
+    (schemesh shell include)
     (schemesh shell macros)
     (schemesh shell utils))
 

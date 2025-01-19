@@ -16,7 +16,7 @@
       abort base-exception-handler break-handler
       console-input-port console-output-port console-error-port
       debug debug-condition debug-on-exception default-exception-handler display-condition
-      eval exit-handler inspect keyboard-interrupt-handler parameterize
+      eval exit-handler expand inspect keyboard-interrupt-handler parameterize
       pretty-print read-token reset reset-handler void)
     (schemesh bootstrap)
     (only (schemesh containers) list-iterate)
@@ -27,7 +27,7 @@
     (schemesh parser)
     (schemesh posix signal) ; also for suspend-handler
     (schemesh posix tty)
-    (only (schemesh shell) sh-history sh-consume-sigchld sh-make-linectx sh-repl-args sh-xdg-cache-home/))
+    (only (schemesh shell) sh-history sh-consume-sigchld sh-make-linectx sh-repl-args sh-run/i sh-xdg-cache-home/))
 
 
 ;; Read user input.
@@ -74,10 +74,9 @@
 (define (sh-repl-eval form)
   ; (debugf "sh-repl-eval: ~s" form)
   (try
-    (sh-eval
-      (if (and (pair? form) (memq (car form) '(shell shell-subshell)))
-        (list 'sh-run/i form)
-        form))
+    (if (and (pair? form) (memq (car form) '(shell shell-include shell-subshell)))
+      (sh-run/i (sh-eval form))
+      (sh-eval form)) ; may return multiple values
     (catch (ex)
       (sh-repl-exception-handler ex))))
 

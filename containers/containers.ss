@@ -16,7 +16,7 @@
     bytevector<=? bytevector<? bytevector>=? bytevector>?
     string-fill-range! string-range-count= string-range=? string-range<?
     string-find/char string-rfind/char string-replace/char! string-split string-iterate
-    string-starts-with/char? string-ends-with/char?
+    string-starts-with? string-ends-with? string-starts-with/char? string-ends-with/char?
 
     ; utf8b.ss
     integer->char* string->utf8b string->utf8b/0

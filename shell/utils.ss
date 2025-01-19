@@ -24,7 +24,7 @@
     (only (schemesh posix fd) c-hostname)
     (schemesh parser)
     (only (schemesh parser autocomplete) parse-shell-autocomplete)
-    (schemesh shell jobs))
+    (schemesh shell job))
 
 
 ;; update linectx-completion-stem and linectx-completions with possible completions.

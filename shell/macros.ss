@@ -7,13 +7,14 @@
 
 
 (library (schemesh shell macros (0 1))
-  (export shell shell-backquote shell-env shell-list shell-subshell shell-wildcard)
+  (export shell shell-backquote shell-env shell-include shell-list shell-subshell shell-wildcard)
   (import
     (rnrs)
     (only (chezscheme) meta reverse!)
     (schemesh bootstrap)
     (only (schemesh posix pattern) sh-wildcard?)
-    (schemesh shell jobs))
+    (schemesh shell job)
+    (only (schemesh shell include) sh-parse-file))
 
 ;; wraps shell DSL
 (define-macro (shell . args)
@@ -21,6 +22,13 @@
 
 (define-macro (shell-subshell . args)
   (sh-parse-datum (cons 'shell-subshell args)))
+
+
+;; macro: read specified file path and parse it with (sh-parse-file)
+;;
+;; return parsed file contents.
+(define-macro (shell-include path . options)
+  (apply sh-parse-file path options))
 
 
 (define-syntax shell-list
@@ -80,6 +88,8 @@
 (define-syntax shell-env
   (syntax-rules ()
     ((_ arg)      (lambda (job) (sh-env job arg)))))
+
+
 
 
 ) ; close library
