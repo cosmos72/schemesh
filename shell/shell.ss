@@ -55,7 +55,7 @@
     sh-run/bspan sh-run/string sh-run/string-rtrim-newlines sh-redirect!
 
     ; parse.ss
-    sh sh-parse sh-cmd* sh-list*
+    sh sh-parse-datum sh-cmd* sh-list*
 
     ; pipe.ss
     sh-pipe sh-pipe*

@@ -940,17 +940,19 @@ static const testcase tests[] = {
      "  (sh-bg j))\n",
      "(running . 1)"},
     /* ------------------------- shell syntax ------------------------------- */
-    {"(sh-parse '(shell \"wc\" \"-l\" \"myfile\" > \"mylog\" \\x3b; \"echo\" \"done\"))",
+    {"(sh-parse-datum '(shell \"wc\" \"-l\" \"myfile\" > \"mylog\" \\x3b; \"echo\" \"done\"))",
      "(sh-list (sh-cmd* wc -l myfile 1 '> mylog) '; (sh-cmd echo done))"},
-    {"(sh-parse '(shell \"find\" \"-type\" \"f\" \\x7c; \"wc\" &))",
+    {"(sh-parse-datum '(shell \"find\" \"-type\" \"f\" \\x7c; \"wc\" &))",
      "(sh-list (sh-pipe* (sh-cmd find -type f) '| (sh-cmd wc)) '&)"},
     /* (sh-parse) does not alter nested (shell "foo") and returns it verbatim */
-    {"(sh-parse '(shell (shell \"foo\") \\x3b; \"bar\"))", "(sh-list (shell foo) '; (sh-cmd bar))"},
-    {"(sh-parse '(shell ! \"foo\" && \"bar\"))", "(sh-and (sh-not (sh-cmd foo)) (sh-cmd bar))"},
+    {"(sh-parse-datum '(shell (shell \"foo\") \\x3b; \"bar\"))",
+     "(sh-list (shell foo) '; (sh-cmd bar))"},
+    {"(sh-parse-datum '(shell ! \"foo\" && \"bar\"))",
+     "(sh-and (sh-not (sh-cmd foo)) (sh-cmd bar))"},
     /* double negation is optimized away */
-    {"(sh-parse '(shell ! ! \"true\"))", "(sh-cmd true)"},
-    {"(sh-parse '(shell ! ! ! \"false\"))", "(sh-not (sh-cmd false))"},
-    {"(sh-parse '(shell-subshell \"abc\" && \"def\"))",
+    {"(sh-parse-datum '(shell ! ! \"true\"))", "(sh-cmd true)"},
+    {"(sh-parse-datum '(shell ! ! ! \"false\"))", "(sh-not (sh-cmd false))"},
+    {"(sh-parse-datum '(shell-subshell \"abc\" && \"def\"))",
      "(sh-subshell (sh-and (sh-cmd abc) (sh-cmd def)))"},
 
 #define INVOKELIB_SHELL_JOBS                                                                       \

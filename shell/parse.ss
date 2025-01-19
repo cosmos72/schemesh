@@ -21,14 +21,14 @@
        (memq token '(< <> > >> <& >&))))
 
 ;; Parse args using shell syntax, and return corresponding sh-cmd or sh-multijob object.
-;; Current implementation is (sh-eval (sh-parse (cons 'shell args))), which uses (sh-parse)
+;; Current implementation is (sh-eval (sh-parse-datum (cons 'shell args))), which uses (sh-parse-datum)
 ;; for converting shell commands to Scheme source forms, then (sh-eval) such forms.
 ;;
 ;; See (sh-parse) for allowed args.
 (define (sh . args)
   ; implementation: use (sh-parse) for converting shell commands to Scheme forms,
   ; then (sh-eval) such forms
-  (sh-eval (sh-parse (cons 'shell args))))
+  (sh-eval (sh-parse-datum (cons 'shell args))))
 
 
 ;; Parse a list starting with 'shell or 'shell-subshell and containing a sequence
@@ -38,12 +38,12 @@
 ;;
 ;; Each element in (cdr list) must be a symbol, string, integer or pair:
 ;; 1. symbols are operators. Recognized symbols are: ; & ! && || | < <> > >> <& >&
-;; 2. strings stand for themselves. for example (sh-parse '(shell "ls" "-l"))
+;; 2. strings stand for themselves. for example (sh-parse-datum '(shell "ls" "-l"))
 ;;    returns the Scheme source form '(sh-cmd "ls" "-l")
 ;; 3. integers are fd numbers, and must be followed by a redirection operator < <> <& > >> >&
 ;; 4. pairs are not parsed: they are copied verbatim into returned list.
-(define (sh-parse args)
-  (assert* 'sh-parse (pair? args))
+(define (sh-parse-datum args)
+  (assert* 'sh-parse-datum (pair? args))
   (let* ((saved-args args)
          (arg0       (car args))
          (args       (cdr args))
@@ -56,17 +56,17 @@
              ((eq? 'shell          arg0) 'sh-list)
              ((eq? 'shell-subshell arg0) 'sh-subshell)
              (#t
-               (syntax-violation 'sh-parse "syntax error, shell DSL form should start with 'shell or 'shell-subshell, found:"
+               (syntax-violation 'sh-parse-datum "syntax error, shell DSL form should start with 'shell or 'shell-subshell, found:"
                  saved-args arg0)))))
     (validate args)
-    ; (debugf ">   sh-parse args = ~s" saved-args)
+    ; (debugf ">   sh-parse-datum args = ~s" saved-args)
     (until (null? args)
       (let-values (((parsed tail) (parse-or args)))
         (unless (null? parsed)
           (set! ret (cons parsed ret)))
         (set! args tail)
         (set! job-n (fx1+ job-n))
-        ; (debugf "... sh-parse ret = ~s, args = ~s" (reverse ret) args)
+        ; (debugf "... sh-parse-datum ret = ~s, args = ~s" (reverse ret) args)
         (let %again ()
           (let ((arg (if (null? args) #f (car args))))
             (cond
@@ -84,9 +84,9 @@
                 (set! redirections? #t)
                 (%again))
               (#t
-                (syntax-violation 'sh-parse "syntax error, unknown shell DSL operator:"
+                (syntax-violation 'sh-parse-datum "syntax error, unknown shell DSL operator:"
                   saved-args arg)))))))
-    ; (debugf "<   sh-parse ret = ~s, args = ~s, job-n = ~s, redirections? = ~s, terminators? = ~s" (reverse ret) args job-n redirections? terminators?)
+    ; (debugf "<   sh-parse-datum ret = ~s, args = ~s, job-n = ~s, redirections? = ~s, terminators? = ~s" (reverse ret) args job-n redirections? terminators?)
     (when (and redirections? (eq? 'sh-list ret-prefix))
       (if (and (fx=? job-n 1) (not terminators?))
         (set! ret-prefix 'sh-redirect!)
@@ -112,7 +112,7 @@
           (arg2 (cadr args)))
       (when (and (symbol? arg1) (symbol? arg2) (not (eq? '! arg2)))
         (unless (and (eq? arg1 '\x3b;) (job-terminator? arg2))
-          (syntax-violation 'sh-parse "syntax error, invalid consecutive shell DSL operators:"
+          (syntax-violation 'sh-parse-datum "syntax error, invalid consecutive shell DSL operators:"
               args arg2))))
     (validate (cdr args))))
 
@@ -143,19 +143,19 @@
 ;; return three values: fd direction to-fd-or-path
 (define (parse-redirection2 args verbatim-proc)
   (when (null? (cdr args))
-    (raise-errorf 'sh-parse "missing argument after redirection: ~s" args))
+    (raise-errorf 'sh-parse-datum "missing argument after redirection: ~s" args))
   (let ((dir (car args))
         (to  (cadr args)))
     (case dir
       ((< <> > >>)
         (unless (or (string? to) (verbatim-proc to))
-          (raise-errorf 'sh-parse "expecting string after redirection, found: ~s ~s" dir to)))
+          (raise-errorf 'sh-parse-datum "expecting string after redirection, found: ~s ~s" dir to)))
       ((<& >&)
         (set! to (parse-redirection-to-fd to))
         (unless (and (fixnum? to) (fx>=? to -1))
-          (raise-errorf 'sh-parse "expecting -1 or unsigned fixnum after redirection, found: ~s ~s" dir to)))
+          (raise-errorf 'sh-parse-datum "expecting -1 or unsigned fixnum after redirection, found: ~s ~s" dir to)))
       (else
-        (raise-errorf 'sh-parse "invalid redirection operator: ~s" dir)))
+        (raise-errorf 'sh-parse-datum "invalid redirection operator: ~s" dir)))
     (values (if (memq dir '(< <> <&)) 0 1) dir to)))
 
 
@@ -163,22 +163,22 @@
 ;; return three values: fd direction to-fd-or-path
 (define (parse-redirection3 args verbatim-proc)
   (when (or (null? (cdr args)) (null? (cddr args)))
-    (raise-errorf 'sh-parse "missing argument after redirection: ~s" args))
+    (raise-errorf 'sh-parse-datum "missing argument after redirection: ~s" args))
   (let ((fd  (car args))
         (dir (cadr args))
         (to  (caddr args)))
     (unless (and (fixnum? fd) (fx>=? fd 0))
-      (raise-errorf 'sh-parse "expecting unsigned fixnum before redirection, found: ~s ~s ~s" fd dir to))
+      (raise-errorf 'sh-parse-datum "expecting unsigned fixnum before redirection, found: ~s ~s ~s" fd dir to))
     (case dir
       ((< <> > >>)
         (unless (or (string? to) (verbatim-proc to))
-          (raise-errorf 'sh-parse "expecting string after redirection, found: ~s ~s ~s" fd dir to)))
+          (raise-errorf 'sh-parse-datum "expecting string after redirection, found: ~s ~s ~s" fd dir to)))
       ((<& >&)
         (set! to (parse-redirection-to-fd to))
         (unless (and (fixnum? to) (fx>=? to -1))
-          (raise-errorf 'sh-parse "expecting -1 or unsigned fixnum after redirection, found: ~s ~s ~s" fd dir to)))
+          (raise-errorf 'sh-parse-datum "expecting -1 or unsigned fixnum after redirection, found: ~s ~s ~s" fd dir to)))
       (else
-        (raise-errorf 'sh-parse "invalid redirection operator: ~s" dir)))
+        (raise-errorf 'sh-parse-datum "invalid redirection operator: ~s" dir)))
     (values fd dir to)))
 
 

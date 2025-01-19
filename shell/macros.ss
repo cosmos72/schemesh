@@ -17,10 +17,10 @@
 
 ;; wraps shell DSL
 (define-macro (shell . args)
-  (sh-parse (cons 'shell args)))
+  (sh-parse-datum (cons 'shell args)))
 
 (define-macro (shell-subshell . args)
-  (sh-parse (cons 'shell-subshell args)))
+  (sh-parse-datum (cons 'shell-subshell args)))
 
 
 (define-syntax shell-list
