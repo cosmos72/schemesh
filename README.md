@@ -119,7 +119,7 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 * decide: (shell-backquote) should expand to a closure that accepts a parent job and creates a subshell with such parent job?
 * modify builtin "cd", for changing current directory of *parent* job
 * implement builtin "set", for setting environment variables in *parent* job
-* implement builtin "global", for running another builtin with its parent job set to sh-globals
+* implement builtin "global", for running another builtin with its parent job set to (sh-globals)
 * implement builtin "unsafe", for executing the output of a subshell or any other closure
   add check to macro (shell): if first argument contains (shell-backquote), raise condition suggesting to prefix it with "unsafe"
 * add missing shell builtins: bg fg kill exec exit global-cd set global-set unalias unsafe unset

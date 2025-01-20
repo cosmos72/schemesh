@@ -9,7 +9,7 @@
   (export
      assert* catch define-macro debugf debugf-port first-value first-value-or-void
      let-macro raise-assertv raise-assertf raise-errorf repeat
-     sh-current-environment sh-current-eval sh-eval sh-eval-string
+     sh-current-environment sh-current-eval sh-eval sh-eval-string sh-globals
      while until throws? trace-call try list->values values->list -> ^)
   (import
     (rnrs)
@@ -25,6 +25,9 @@
 
 ;; retrieve value of sh-current-eval set by bootstrap/parameter.ss
 (define sh-current-eval (top-level-value 'sh-current-eval))
+
+;; retrieve value of sh-globals set by bootstrap/parameter.ss
+(define sh-globals (top-level-value 'sh-globals))
 
 ;; evaluate a form with (sh-current-eval) in specified environment,
 ;; which is (sh-current-environment) by default

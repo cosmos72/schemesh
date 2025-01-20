@@ -151,7 +151,7 @@
 
 
 ;; Repeatedly call C function c_environ_ref() and store returned (key . value)
-;; environment variables into (sh-global-env).
+;; environment variables into (sh-env #t).
 ;;
 ;; This function is usually only called once, during initialization of Scheme library
 ;; (schemesh shell) below.
@@ -161,14 +161,9 @@
       (do ((i 1 (fx+ i 1))
            (entry (c-environ-ref 0) (c-environ-ref i)))
           ((not (pair? entry)))
-        (sh-env-set+export! sh-globals (car entry) (cdr entry) #t)))))
+        (sh-env-set+export! (sh-globals) (car entry) (cdr entry) #t)))))
 
 
-
-
-;; return global environment variables
-(define (sh-global-env)
-  (job-env sh-globals))
 
 
 ;; Return a copy of job's environment variables,

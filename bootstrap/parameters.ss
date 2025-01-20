@@ -63,5 +63,14 @@
           (%raise-errorf 'sh-current-eval "~s is not a procedure accepting 2 arguments" proc))
         proc))))
 
+
+;; Thread paramenter contains the global job corresponding to this process.
+;; Jobs started with (sh-start) will be children of (sh-globals).
+;
+;; May be parameterized to a different value in subshells.
+(unless (top-level-bound? 'sh-globals)
+  (set! sh-globals
+    (make-thread-parameter #f)))
+
 ) ; close let
 ) ; close eval-when

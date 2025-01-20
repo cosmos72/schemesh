@@ -24,7 +24,7 @@
     #f            ; working directory - initially inherited by parent job
     #f            ; overridden environment variables - initially none
     #f            ; env var assignments - initially none
-    sh-globals    ; parent job - initially the global job
+    (sh-globals)  ; parent job - initially the global job
     program-and-args))
 
 
@@ -249,7 +249,7 @@
           (lambda ()
             body ...)
           (lambda () ; run after body
-            ; try to restore sh-globals as the foreground process group
+            ; try to restore (sh-globals) as the foreground process group
             (%pgid-foreground _caller _new-pgid _expected-pgid)))))))
 
 
@@ -265,7 +265,7 @@
       (let ((pid  (job-pid job))
             (pgid (job-pgid job)))
         (if (memq mode '(sh-fg sh-wait sh-sigcont+wait sh-subshell))
-          (with-foreground-pgid mode (job-pgid sh-globals) pgid
+          (with-foreground-pgid mode (job-pgid (sh-globals)) pgid
             (job-advance/pid/maybe-sigcont mode job pid pgid)
             (job-advance/pid/wait mode job pid pgid))
           (begin
@@ -332,7 +332,7 @@
 ;; if (break) raises an exception or resets scheme, then send 'sigint to job
 (define (job-advance/pid/break mode job pid pgid)
   (let ((break-returned-normally? #f)
-        (global-pgid (job-pgid sh-globals)))
+        (global-pgid (job-pgid (sh-globals))))
     (dynamic-wind
       (lambda () ; before body
         (%pgid-foreground mode pgid global-pgid))

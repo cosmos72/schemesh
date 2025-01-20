@@ -14,15 +14,13 @@
 (define (job-cwd job)
   (do ((parent job (job-parent parent)))
       ((or (not (sh-job? parent)) (%job-cwd parent))
-       (or
-         (if (sh-job? parent) (%job-cwd parent) #f)
-         (%job-cwd sh-globals)))))
+        (%job-cwd (if (sh-job? parent) parent (sh-globals))))))
 
 
 ;; return (job-cwd job), or #f if it's equal to global working directory.
 (define (job-cwd-if-set job)
   (let ((job-dir    (job-cwd job))
-        (global-dir (%job-cwd sh-globals)))
+        (global-dir (%job-cwd (sh-globals))))
     (if (charspan=? job-dir global-dir)
       #f
       job-dir)))
@@ -34,20 +32,20 @@
 ;; NOTE: returned charspan must NOT be modified.
 (define sh-cwd
   (case-lambda
-    (()          (%job-cwd sh-globals))
+    (()          (%job-cwd (sh-globals)))
     ((job-or-id) (job-cwd (sh-job job-or-id)))))
 
 
 ;; set the current directory of specified job or job-id to specified path.
 ;; path must be a string or charspan.
 ;;
-;; if job-or-id resolves to sh-globals, it is equivalent to (sh-cd path).
+;; if job-or-id resolves to (sh-globals), it is equivalent to (sh-cd path).
 ;;
 ;; in all other cases, path is taken as-is, i.e. it is not normalized
 ;; and is not validated against filesystem contents.
 (define (sh-cwd-set! job-or-id path)
   (let ((job (sh-job job-or-id)))
-    (if (eq? job sh-globals)
+    (if (eq? job (sh-globals))
       (sh-cd path)
       (job-cwd-set! job (if (charspan? path)
                           (charspan-copy path)
@@ -59,7 +57,7 @@
 ;; path must be a a string or charspan.
 (define sh-cd
   (case-lambda
-    (()     (sh-cd* (sh-env sh-globals "HOME")))
+    (()     (sh-cd* (sh-env #t "HOME")))
     ((path) (sh-cd* path))
     ((path . extra-args) (raise-errorf 'cd "too many arguments"))))
 
@@ -74,7 +72,7 @@
                       (sh-path-append (sh-cwd) suffix)))
              (err (c_chdir (string->utf8b/0 (charspan->string dir)))))
         (if (= err 0)
-          (job-cwd-set! sh-globals dir)
+          (job-cwd-set! (sh-globals) dir)
           (raise-errorf 'cd "~a: ~a" path (c-errno->string err)))))))
 
 

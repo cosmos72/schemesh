@@ -108,7 +108,7 @@
   ; (debugf ">   job-advance/pipe mode=~s mj=~s" mode mj)
   (let ((pgid (job-pgid mj)))
     (if (and (> pgid 0) (memq mode '(sh-fg sh-wait sh-sigcont+wait sh-subshell)))
-      (with-foreground-pgid mode (job-pgid sh-globals) pgid
+      (with-foreground-pgid mode (job-pgid (sh-globals)) pgid
         (job-advance/pipe/maybe-sigcont mode mj pgid)
         (job-advance/pipe/wait mode mj))
       (begin

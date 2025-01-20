@@ -112,7 +112,7 @@
       #f            ; working directory - initially inherited by parent job
       #f            ; overridden environment variables - initially none
       #f            ; env var assignments - initially none
-      sh-globals    ; parent job - initially the global job
+      (sh-globals)  ; parent job - initially the global job
       kind
       -1            ; no child running yet
       (list->span children-jobs))))
@@ -222,9 +222,9 @@
                         (pgid (pgid-get 0)))
                     (job-pid-set!  job pid)
                     (job-pgid-set! job pgid)
-                    ; this process now "is" the job => update sh-globals' pid and pgid
-                    (job-pid-set!  sh-globals pid)
-                    (job-pgid-set! sh-globals pgid)
+                    ; this process now "is" the job => update (sh-globals)' pid and pgid
+                    (job-pid-set!  (sh-globals) pid)
+                    (job-pgid-set! (sh-globals) pgid)
                     ; cannot wait on our own process
                     (job-status-set! job '(unknown . 0))))
                 (lambda () ; body

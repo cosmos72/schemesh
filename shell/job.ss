@@ -27,8 +27,7 @@
 
     ; job.ss
     sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd? sh-multijob?
-    sh-env-copy sh-env->argv sh-globals sh-global-env
-    sh-cmd make-cmd sh-cwd
+    sh-env-copy sh-env->argv sh-globals sh-cmd make-cmd sh-cwd
     sh-consume-sigchld sh-multijob-child-length sh-multijob-child-ref
     sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/ok?
 
@@ -53,8 +52,8 @@
                        include inspect logand logbit? make-format-condition make-thread-parameter
                        open-fd-output-port parameterize procedure-arity-mask record-writer reverse!
                        string-copy! string-truncate! void)
-    (only (schemesh bootstrap) assert* catch debugf debugf-port sh-eval raise-assertv raise-errorf
-                               trace-call try until while)
+    (only (schemesh bootstrap) assert* catch debugf debugf-port sh-eval sh-globals
+                               raise-assertv raise-errorf try until while)
     (schemesh containers)
     (schemesh conversions)
     (schemesh posix dir)
@@ -77,23 +76,6 @@
   (job-id job))
 
 
-;; Define the variable sh-globals, contains the global job.
-;; Jobs started with (sh-start) will be children of sh-globals.
-;
-;; Variable may be set! to a different value in subshells.
-(define sh-globals
-  ;; assign job-id 0 to sh-globals itself.
-  ;;
-  ;; waiting for sh-globals to exit is not useful:
-  ;; pretend it already exited with unknown exit status
-  (%make-multijob 0 (pid-get) (pgid-get 0) '(unknown . 0)
-    (span) #f '() ; redirections
-    #f #f ; start-proc step-proc
-    (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) ; current directory
-    (make-hashtable string-hash string=?) ; env variables
-    #f                        ; no env var assignments
-    #f                        ; no parent
-    'sh-global -1 (span #t))) ; skip job-id 0, is used by sh-globals itself
 
 ;; Global hashtable pid -> job
 (define %table-pid->job (make-eq-hashtable))
@@ -244,12 +226,12 @@
 
 
 ;; unset the job-id of a job,
-;; and remove it from (multijob-children sh-globals).
+;; and remove it from (multijob-children (sh-globals)).
 ;; Return job status
 (define (job-id-unset! job)
   (assert* 'job-id-unset! (sh-job? job))
   (when (job-id job)
-    (let* ((children (multijob-children sh-globals))
+    (let* ((children (multijob-children (sh-globals)))
            (child-n  (span-length children))
            (id       (job-id job)))
       (when (fx<? -1 id child-n)
@@ -262,7 +244,7 @@
 
 
 
-;; If job has no job-id, assign a job-id to it, by appending it to (multijob-children sh-globals).
+;; If job has no job-id, assign a job-id to it, by appending it to (multijob-children (sh-globals)).
 ;; If job status is '(running . #f) update it to '(running . job-id)
 ;; Return updated job status
 (define (job-id-set! job)
@@ -279,10 +261,10 @@
   (job-last-status job))
 
 
-;; Assumes job has no job-id, and assigns a job-id to it, by appending it to (multijob-children sh-globals).
+;; Assumes job has no job-id, and assigns a job-id to it, by appending it to (multijob-children (sh-globals)).
 ;; Return job-id
 (define (%job-id-assign! job)
-  (let* ((children (multijob-children sh-globals))
+  (let* ((children (multijob-children (sh-globals)))
          (id       (span-length children)))
     (span-insert-back! children job)
     (%job-id-set! job id)
@@ -309,16 +291,16 @@
 
 ;; Convert job-or-id to job.
 ;; job-or-id can be either a job,
-;; or #t which means sh-globals,
+;; or #t which means (sh-globals),
 ;; or a fixnum indicating the job-id of one of the running jobs
-;;   stored in (multijob-children sh-globals)
+;;   stored in (multijob-children (sh-globals))
 ;;
 ;; Raises error if no job matches job-or-id.
 (define (sh-job job-or-id)
   (cond
-    ((eq? #t job-or-id) sh-globals)
+    ((eq? #t job-or-id) (sh-globals))
     ((fixnum? job-or-id)
-      (let* ((all-jobs (multijob-children sh-globals))
+      (let* ((all-jobs (multijob-children (sh-globals)))
              (job (when (and (fx>? job-or-id 0) ; job-ids start at 1
                              (fx<? job-or-id (span-length all-jobs)))
                     (span-ref all-jobs job-or-id))))
@@ -332,7 +314,7 @@
 ;; return currently running jobs
 ;; as a span of pairs (job-id . job) sorted by job-id
 (define (sh-jobs)
-  (let ((src (multijob-children sh-globals))
+  (let ((src (multijob-children (sh-globals)))
         (dst (span)))
     (span-iterate src
       (lambda (job-id job)
@@ -343,7 +325,7 @@
 ;; the "jobs" builtin: list currently running jobs
 (define (builtin-jobs job prog-and-args options)
   (assert-string-list? 'sh-builtin-jobs prog-and-args)
-  (let ((src (multijob-children sh-globals)))
+  (let ((src (multijob-children (sh-globals))))
     (unless (span-empty? src)
       ;; do NOT close port, it would close the fd!
       (let ((port (open-fd-output-port (sh-fd-stdout) (buffer-mode line) transcoder-utf8)))
@@ -367,7 +349,7 @@
 
 
 ;; return list containing all job's parents,
-;; starting from sh-globals, until job itself.
+;; starting from (sh-globals), until job itself.
 (define (job-parents-revlist job-or-id)
   (let ((jlist '()))
     (job-parents-iterate job-or-id
@@ -676,6 +658,28 @@
 
 (begin
   (sh-fd-allocate) ; mark highest fd as reserved: used by tty_fd
+
+  ;; set the parameter (sh-globals) to the global job.
+  ;; Jobs started with (sh-start) will be children of sh-globals.
+  ;;
+  ;; If it's already set, does not modify it.
+  ;;
+  ;; May be parameterized to a different value in subshells.
+  (unless (sh-globals)
+    (sh-globals
+      ;; assign job-id 0 to sh-globals itself.
+      ;;
+      ;; waiting for sh-globals to exit is not useful:
+      ;; pretend it already exited with unknown exit status
+      (%make-multijob 0 (pid-get) (pgid-get 0) '(unknown . 0)
+         (span) #f '() ; redirections
+         #f #f ; start-proc step-proc
+         (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) ; current directory
+         (make-hashtable string-hash string=?) ; env variables
+         #f                        ; no env var assignments
+         #f                        ; no parent
+         '\x23;<global> -1 (span #t)))) ; skip job-id 0, is used by sh-globals itself
+
   (c-environ->sh-global-env)
 
   (let ((t (sh-builtins)))

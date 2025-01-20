@@ -186,11 +186,11 @@
 
 ;; list environment variables that start with prefix, and append them to completions
 ;; NOTE: prefix always starts with #\$
-;; FIXME: pass (top-level-value 'sh-global-env) as argument
+;; FIXME: pass (top-level-value 'sh-env) as argument
 (define (%list-shell-env lctx prefix completions)
   ; (debugf "%list-shell-env prefix = ~s" prefix)
   (let* ((prefix-len (fx1- (string-length prefix)))
-         (htable ((top-level-value 'sh-global-env)))
+         (htable ((top-level-value 'sh-env) #t))
          (l      '()))
     ; (debugf "%list-shell-env htable = ~s" htable)
     (hashtable-iterate htable

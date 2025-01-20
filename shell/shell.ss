@@ -47,7 +47,7 @@
 
     ; job.ss
     sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd? sh-multijob?
-    sh-env-copy sh-env->argv sh-globals sh-global-env
+    sh-env-copy sh-env->argv sh-globals
     sh-cmd make-cmd sh-cwd
     sh-consume-sigchld sh-multijob-child-length sh-multijob-child-ref
     sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/ok?
