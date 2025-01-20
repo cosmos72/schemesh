@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh posix (0 1))
+(library (schemesh posix (0 7 0))
   (export
     ; fd.ss
     c-errno c-errno->string raise-c-errno
@@ -22,7 +22,7 @@
     sh-pattern sh-pattern? span->sh-pattern* sh-pattern->span* sh-pattern-match? sh-wildcard?
 
     ; pid.ss
-    get-pid get-pgid spawn-pid pid-kill pid-wait exit-with-job-status
+    pid-get pgid-get pid-spawn pid-kill pid-wait exit-with-job-status
 
     ; tty.ss
     tty-setraw! tty-restore! tty-size

@@ -6,15 +6,18 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh shell macros (0 1))
-  (export shell shell-backquote shell-env shell-include shell-list shell-subshell shell-wildcard)
+(library (schemesh shell macros (0 7 0))
+  (export
+    include/lang include/lang*
+    shell shell-backquote shell-env shell-list shell-subshell shell-wildcard)
   (import
     (rnrs)
-    (only (chezscheme) meta reverse!)
+    (only (chezscheme) datum meta reverse!)
     (schemesh bootstrap)
     (only (schemesh posix pattern) sh-wildcard?)
     (schemesh shell job)
-    (only (schemesh shell include) sh-parse-file))
+    (only (schemesh shell include) sh-read-file ; sh-parse-file
+  ))
 
 ;; wraps shell DSL
 (define-macro (shell . args)
@@ -24,11 +27,34 @@
   (sh-parse-datum (cons 'shell-subshell args)))
 
 
-;; macro: read specified file path and parse it with (sh-parse-file)
+;; macro: read specified file path, parse it with (sh-read-file)
+;; and execute its contents at macroexpansion time.
 ;;
-;; return parsed file contents.
-(define-macro (shell-include path . options)
-  (apply sh-parse-file path options))
+;; optional arguments:
+;;   initial-parser - one of the symbols: scheme shell r6rs
+;;   enables-parsers - a list containing one or more symbols among: scheme shell r6rs
+(define-syntax include/lang
+  (lambda (x)
+    (syntax-case x ()
+      ((k path)
+         (datum->syntax #'k (sh-read-file (datum path))))
+
+      ((k path initial-parser)
+        (datum->syntax #'k (sh-read-file (datum path) (datum initial-parser))))
+
+      ((k path initial-parser enabled-parsers)
+        (datum->syntax #'k (sh-read-file (datum path) (datum initial-parser) (datum enabled-parsers)))))))
+
+
+;; macro: read specified file path, parse it with (sh-read-file)
+;; and execute its contents at macroexpansion time.
+;;
+;; same as (include/lang), with the difference that all arguments are mandatory
+(define-syntax include/lang*
+  (lambda (x)
+    (syntax-case x ()
+      ((k path initial-parser enabled-parsers)
+        (datum->syntax #'k (sh-read-file (datum path) (datum initial-parser) (datum enabled-parsers)))))))
 
 
 (define-syntax shell-list

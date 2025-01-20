@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh lineedit paren (0 1))
+(library (schemesh lineedit paren (0 7 0))
   (export
     make-paren      paren?           paren-name
     paren-start-token paren-end-token paren-end-token-set!
@@ -16,9 +16,7 @@
     paren-inner     paren-inner-empty?
     paren-inner-ref paren-inner-ref* paren-inner-append!
     paren->values   paren->hashtable paren-hashtable-ref
-    paren-find/surrounds
-
-    is-paren-char? debugf-paren)
+    paren-find/surrounds is-paren-char? debugf-paren)
   (import
     (rnrs)
     (rnrs mutable-pairs)

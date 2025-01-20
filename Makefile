@@ -3,20 +3,20 @@
 CC=cc
 
 # debug build
-CFLAGS=-g -pipe -Wall -W -Wextra
+CFLAGS=-g -pipe -Wall -W -Wextra -std=c89
 LDFLAGS=-g
 
 # optimized build
-#  CFLAGS=-O2 -pipe -Wall -W -Wextra
+#  CFLAGS=-O2 -pipe -Wall -W -Wextra -std=c89
 #  LDFLAGS=-s
-
-CP=cp
-MKDIR_P=mkdir -p
-INSTALL=install
 
 INSTALL_DIR=/usr/local
 INSTALL_BINDIR=$(INSTALL_DIR)/bin
 INSTALL_LIBDIR=$(INSTALL_DIR)/lib/schemesh
+
+CP=cp
+MKDIR_P=mkdir -p
+INSTALL=install
 
 
 # Autodetect Chez Scheme installation.
@@ -33,7 +33,7 @@ LIBS=$(CHEZ_SCHEME_KERNEL) -lz -llz4 -lncurses -ldl -lm -lpthread -luuid $(LIB_I
 #
 # no user-serviceable parts below this line
 #
-LIBSCHEMESH_SO=libschemesh_0.7.so
+LIBSCHEMESH_SO=libschemesh_0.7.0.so
 
 OBJS=containers.o eval.o posix.o shell.o signal.o
 

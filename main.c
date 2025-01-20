@@ -54,7 +54,7 @@ static int usage(const char* name) {
   if (name == NULL) {
     name = "schemesh";
   }
-  fprintf(stdout, "Usage: %s [-i] [--repl] [--libdir=DIR]\n", name);
+  fprintf(stdout, "Usage: %s [-i] [--repl] [--bootdir=DIR] [--libdir=DIR]\n", name);
   return 0;
 }
 
@@ -71,6 +71,7 @@ static int unknown_option(const char* name, const char* arg) {
 }
 
 int main(int argc, const char* argv[]) {
+  const char* boot_dir    = NULL;
   const char* library_dir = NULL;
   const char* arg;
   int         err = 0;
@@ -82,6 +83,8 @@ int main(int argc, const char* argv[]) {
       return usage(argv[0]);
     } else if (!strcmp(arg, "-i") || !strcmp(arg, "--repl")) {
       repl_flag = e_repl_yes;
+    } else if (!strncmp(arg, "--bootdir=", 10)) {
+      boot_dir = arg + 10;
     } else if (!strncmp(arg, "--libdir=", 9)) {
       library_dir = arg + 9;
     } else {
@@ -103,7 +106,7 @@ int main(int argc, const char* argv[]) {
   }
 
   on_exception = INIT_FAILED;
-  schemesh_init(&handle_scheme_exception);
+  schemesh_init(boot_dir, &handle_scheme_exception);
   if ((err = schemesh_register_c_functions()) != 0) {
     return err;
   }
@@ -114,7 +117,7 @@ int main(int argc, const char* argv[]) {
     goto finish;
   }
 
-  schemesh_import_libraries();
+  schemesh_import_minimal_libraries();
 
   on_exception = EVAL_FAILED;
 again:

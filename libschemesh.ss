@@ -32,13 +32,14 @@
   (include "lineedit/vscreen.ss")
   (include "lineedit/charhistory.ss")
   (include "lineedit/charhistory-io.ss")
+  (include "lineedit/charlines-io.ss")
   (include "lineedit/paren.ss")
   (include "lineedit/parenmatcher.ss")
   (include "lineedit/parser.ss")
-  (include "lineedit/io.ss")
   (include "lineedit/linectx.ss")
   (include "lineedit/lineterm.ss")
   (include "lineedit/lineedit.ss")
+  (include "lineedit/all.ss")
   (include "parser/autocomplete.ss")
   (include "parser/lisp.ss")
   (include "parser/r6rs.ss")
@@ -54,5 +55,6 @@
   (include "shell/utils.ss")
   (include "shell/shell.ss")
   (include "repl/repl.ss")
+  (include "utils/import.ss")
 
 ) ; close begin

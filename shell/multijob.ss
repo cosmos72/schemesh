@@ -218,8 +218,8 @@
                 (lambda () ; run before body
                   ; in child process, suppress messages about started/completed jobs
                   (sh-job-display/summary? #f)
-                  (let ((pid  (get-pid))
-                        (pgid (get-pgid 0)))
+                  (let ((pid  (pid-get))
+                        (pgid (pgid-get 0)))
                     (job-pid-set!  job pid)
                     (job-pgid-set! job pgid)
                     ; this process now "is" the job => update sh-globals' pid and pgid

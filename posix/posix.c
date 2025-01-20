@@ -1053,13 +1053,13 @@ c_directory_list1(DIR* dir, struct dirent* entry, const s_directory_list_opts* o
 }
 
 /** return pid of current process, or c_errno() on error */
-static int c_get_pid(void) {
+static int c_pid_get(void) {
   int pid = getpid();
   return pid >= 0 ? pid : c_errno();
 }
 
 /** return process group of specified process (0 = current process), or c_errno() on error */
-static int c_get_pgid(int pid) {
+static int c_pgid_get(int pid) {
   int pgid = getpgid((pid_t)pid);
   return pgid >= 0 ? pgid : c_errno();
 }
@@ -1109,7 +1109,7 @@ static char** vector_to_c_argz(ptr vector_of_bytevector0);
 
 /** fork() and exec() an external program, return pid.
  * if existing_pgid_if_positive > 0, add process to given pgid i.e. process group */
-static int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
+static int c_pid_spawn(ptr vector_of_bytevector0_cmdline,
                        ptr bytevector0_chdir_or_false,
                        ptr vector_fds_redirect,
                        ptr vector_of_bytevector0_environ,
@@ -1142,7 +1142,7 @@ static int c_spawn_pid(ptr vector_of_bytevector0_cmdline,
   }
 
 #ifdef SCHEMESH_DEBUG_POSIX
-  fprintf(stdout, "c_spawn_pid %s ...\n", argv[0]);
+  fprintf(stdout, "c_pid_spawn %s ...\n", argv[0]);
   fflush(stdout);
 #endif
   pid = fork();
@@ -1302,10 +1302,10 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_tty_setraw", &c_tty_setraw);
   Sregister_symbol("c_tty_size", &c_tty_size);
 
-  Sregister_symbol("c_get_pid", &c_get_pid);
-  Sregister_symbol("c_get_pgid", &c_get_pgid);
+  Sregister_symbol("c_pid_get", &c_pid_get);
+  Sregister_symbol("c_pgid_get", &c_pgid_get);
   Sregister_symbol("c_fork_pid", &c_fork_pid);
-  Sregister_symbol("c_spawn_pid", &c_spawn_pid);
+  Sregister_symbol("c_pid_spawn", &c_pid_spawn);
   Sregister_symbol("c_pid_wait", &c_pid_wait);
   Sregister_symbol("c_pgid_foreground", &c_pgid_foreground);
   Sregister_symbol("c_pid_kill", &c_pid_kill);

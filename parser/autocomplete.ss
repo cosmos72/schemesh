@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh parser autocomplete (0 1))
+(library (schemesh parser autocomplete (0 7 0))
   (export
     parse-r6rs-autocomplete
     parse-scheme-autocomplete

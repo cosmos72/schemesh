@@ -111,13 +111,13 @@
 
 ;; internal function called by (cmd-start) to spawn a subprocess
 (define cmd-spawn
-  (let ((c-spawn-pid (foreign-procedure "c_spawn_pid"
+  (let ((c-pid-spawn (foreign-procedure "c_pid_spawn"
                         (ptr ptr ptr ptr int) int)))
     (lambda (c argv options)
       (let* ((process-group-id (job-start-options->process-group-id options))
              (job-dir (job-cwd-if-set c))
              (global-dir (sh-cwd))
-             (ret (c-spawn-pid
+             (ret (c-pid-spawn
                     argv
                     (if job-dir (text->bytevector0 job-dir) #f)
                     (job-make-c-redirect-vector c)

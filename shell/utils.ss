@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh shell utils (0 1))
+(library (schemesh shell utils (0 7 0))
   (export
     sh-autocomplete sh-current-time sh-expand-ps1 sh-home->~ sh-make-linectx)
   (import
@@ -15,12 +15,12 @@
     (only (chezscheme) current-date date-hour date-minute date-second fx1+ fx1-)
     (schemesh bootstrap)
     (schemesh containers)
-    (schemesh lineedit io)
+    (schemesh lineedit linectx)
+    (schemesh lineedit lineedit)
+    (schemesh lineedit charlines io)
     (only (schemesh lineedit paren) paren-name)
     (schemesh lineedit parser)
-    (schemesh lineedit linectx)
     (schemesh lineedit vscreen)
-    (schemesh lineedit)
     (only (schemesh posix fd) c-hostname)
     (schemesh parser)
     (only (schemesh parser autocomplete) parse-shell-autocomplete)
@@ -73,7 +73,7 @@
       (%display str 6 (date-second d)))
     str))
 
-(define sh-fancy-ps1 "\\[\\e]0;\\u@\\h \\w\\a\\]\\[\\e[33;1m\\]\\s\\[\\e[34m\\] \\u\\[\\e[0m\\]@\\[\\e[32m\\]\\h\\[\\e[0m\\]:\\[\\e[34;1m\\]\\w\\[\\e[0m\\]:")
+(define sh-fancy-ps1 "\\[\\e]0;\\u@\\h \\w\\a\\]\\[\\e[0;32m\\]\\s\\[\\e[1;34m\\] \\u\\[\\e[0m\\]@\\[\\e[1;33m\\]\\h\\[\\e[0m\\]:\\[\\e[1;34m\\]\\w\\[\\e[0m\\]:")
 
 ; update linectx-prompt and linectx-prompt-length with new prompt
 (define (sh-expand-ps1 lctx)

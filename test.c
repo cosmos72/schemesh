@@ -14,7 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h> // chdir()
+#include <unistd.h> /* chdir() */
 
 #if !defined(__GNUC__) || defined(__OPTIMIZE__)
 #define SCHEMESH_OPTIMIZE
@@ -956,7 +956,7 @@ static const testcase tests[] = {
      "(sh-subshell (sh-and (sh-cmd abc) (sh-cmd def)))"},
 
 #define INVOKELIB_SHELL_JOBS                                                                       \
-  "(begin (($primitive 3 $invoke-library) '(schemesh shell job) '(0 1) 'job)"
+  "(begin (($primitive 3 $invoke-library) '(schemesh shell job) '(0 7 0) 'job)"
 
     /* ------------------------- shell macros ------------------------------- */
     {"(expand '(shell))", /* */
@@ -1102,6 +1102,15 @@ static const testcase tests[] = {
      " (shell \"command\" \"true\" && \"grep\" \"abc\" > \"/dev/null\")))",
      "(exited . 1)"},
     {"(sh-run (shell \"true\" \\x7C; \"command\" \"true\" \\x7C; \"false\"))", "(exited . 1)"},
+    /* ------------------------- file read ---------------------------------- */
+    {"(sh-read-file \"utils/test_file.ss\")",
+     "(define (fib n)"
+     " (let %fib ((i n))"
+     " (if (fx>? i 2) (fx+ (%fib (fx1- i)) (%fib (fx- i 2))) 1)))"},
+    {"(sh-read-file \"utils/test_file.sh\")",
+     "(sh-run (shell ; ;"
+     " BAR =  ; foo a b c | bar (shell-env BAR)"
+     " && (shell echo (shell-backquote baz --quiet) < /dev/null 2 >& 1 || fail --verbose) ;))"},
     /* ------------------------- repl --------------------------------------- */
     {"(values->list (sh-repl-parse\n"
      "  (string->parsectx \"(+ 2 3) (values 7 (cons 'a 'b))\" (parsers))\n"
@@ -1288,7 +1297,7 @@ int main(int argc, const char* argv[]) {
   (void)argc;
   (void)argv;
 
-  schemesh_init(&handle_scheme_exception);
+  schemesh_init(NULL, &handle_scheme_exception);
   if ((err = schemesh_register_c_functions()) != 0) {
     goto finish;
   }
@@ -1299,7 +1308,7 @@ int main(int argc, const char* argv[]) {
     goto finish;
   }
 
-  schemesh_import_libraries();
+  schemesh_import_all_libraries();
 
   err = run_tests();
 

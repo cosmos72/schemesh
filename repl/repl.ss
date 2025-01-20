@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh repl (0 1))
+(library (schemesh repl (0 7 0))
   (export sh-repl sh-repl* sh-repl-eval sh-repl-eval-list sh-repl-lineedit
           sh-repl-parse sh-repl-print sh-repl-exception-handler sh-repl-interrupt-handler)
   (import
@@ -21,9 +21,9 @@
     (schemesh bootstrap)
     (only (schemesh containers) list-iterate)
     (only (schemesh lineedit charhistory) charhistory-path-set!)
-    (schemesh lineedit io)
+    (schemesh lineedit charlines io)
     (schemesh lineedit linectx)
-    (schemesh lineedit)
+    (schemesh lineedit lineedit)
     (schemesh parser)
     (schemesh posix signal) ; also for suspend-handler
     (schemesh posix tty)
@@ -74,7 +74,7 @@
 (define (sh-repl-eval form)
   ; (debugf "sh-repl-eval: ~s" form)
   (try
-    (if (and (pair? form) (memq (car form) '(shell shell-include shell-subshell)))
+    (if (and (pair? form) (memq (car form) '(shell shell-subshell)))
       (sh-run/i (sh-eval form))
       (sh-eval form)) ; may return multiple values
     (catch (ex)

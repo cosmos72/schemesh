@@ -6,8 +6,8 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh posix pid (0 1))
-  (export get-pid get-pgid spawn-pid pid-kill pid-wait exit-with-job-status)
+(library (schemesh posix pid (0 7 0))
+  (export pid-get pgid-get pid-spawn pid-kill pid-wait exit-with-job-status)
   (import
     (rnrs)
     (only (chezscheme) foreign-procedure format void)
@@ -17,22 +17,22 @@
     (only (schemesh posix signal) signal-name->number signal-raise)
     (only (schemesh posix fd)     c-exit))
 
-; (get-pid) returns pid of current process
-(define get-pid
-  (let ((c-get-pid (foreign-procedure "c_get_pid" () int)))
+; (pid-get) returns pid of current process
+(define pid-get
+  (let ((c-pid-get (foreign-procedure "c_pid_get" () int)))
     (lambda ()
-      (let ((ret (c-get-pid)))
+      (let ((ret (c-pid-get)))
         (when (< ret 0)
-          (raise-c-errno 'get-pid 'getpid ret))
+          (raise-c-errno 'pid-get 'getpid ret))
         ret))))
 
-; (get-pgid) returns process group of specified process (0 = current process)
-(define get-pgid
-  (let ((c-get-pgid (foreign-procedure "c_get_pgid" (int) int)))
+; (pgid-get) returns process group of specified process (0 = current process)
+(define pgid-get
+  (let ((c-pgid-get (foreign-procedure "c_pgid_get" (int) int)))
     (lambda (pid)
-      (let ((ret (c-get-pgid pid)))
+      (let ((ret (c-pgid-get pid)))
         (when (< ret 0)
-          (raise-c-errno 'get-pgid 'getpgid ret pid))
+          (raise-c-errno 'pgid-get 'getpgid ret pid))
         ret))))
 
 
@@ -41,19 +41,19 @@
 ; Parameter program is the program path to spawn;
 ; Parameter args is the list of arguments to pass to the program;
 ; The parameter program and each element in args must be either a string or a bytevector.
-(define spawn-pid
-  (let ((c-spawn-pid (foreign-procedure "c_spawn_pid"
+(define pid-spawn
+  (let ((c-pid-spawn (foreign-procedure "c_pid_spawn"
                         (ptr ptr ptr ptr int) int)))
     (lambda (program . args)
       (let* ((program-and-args (cons program args))
-             (ret (c-spawn-pid
+             (ret (c-pid-spawn
                     (list->argv program-and-args)
                     #f ; run in current directory
                     '#(0 1 2) ; no fd redirections
                     #f ; no environment override
                     0)))
         (when (< ret 0)
-          (apply raise-c-errno 'spawn-pid 'fork ret program-and-args))
+          (apply raise-c-errno 'pid-spawn 'fork ret program-and-args))
         ret))))
 
 

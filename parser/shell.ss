@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh parser shell (0 1))
+(library (schemesh parser shell (0 7 0))
   (export
     read-shell-char lex-shell parse-shell-word parse-shell-form1
     parse-shell-forms parser-shell)
@@ -433,10 +433,15 @@
                          ((eqv? ch2 #\&) (set! ch '<&))))
             ((#\>) (cond ((eqv? ch2 #\>) (set! ch '>>))
                          ((eqv? ch2 #\&) (set! ch '>&))))))
-        (if (symbol? ch)
-          (parsectx-read-char ctx); consume peeked character
-          (set! ch (op->symbol ctx ch))) ; convert character to symbol
-        (values ch type))
+        (cond
+          ((symbol? ch) ; consume peeked character
+            (parsectx-read-char ctx)
+            (values ch type))
+          ((eqv? ch #\#) ; consume comment until end of line, then call again (lex-shell-impl)
+            (parsectx-skip-line ctx)
+            (lex-shell-impl ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?))
+          (#t  ; convert operator character to symbol
+            (values (op->symbol ctx ch) type))))
       ((dollar lbrack)
         (cond
           ((and (eq? type 'dollar) (eqv? #\( (parsectx-peek-char ctx))) #| #\) |# ; make vscode happy
@@ -631,7 +636,7 @@
       ; simplify top-level (shell) -> nothing
       '())
     ((and (eq? 'eof end-type) (eq? 'shell prefix) (pair? ret)
-          (null? (cdr ret)) (pair? (car ret)) (memq (caar ret) '(shell shell-subshell shell-include)))
+          (null? (cdr ret)) (pair? (car ret)) (memq (caar ret) '(shell shell-subshell)))
       ; simplify top-level (shell (shell...)) -> (shell...)
       (list (car ret)))
     (#t

@@ -5,15 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-;#define SCHEMESH_LIBRARY_CONTAINERS_HASHTABLE_EXPORT_1                                             \
-;  "make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-cell hash-iterator-next! "   \
-;  "hashtable-iterate hashtable-transpose eq-hashtable eqv-hashtable "
-;#define SCHEMESH_LIBRARY_CONTAINERS_HASHTABLE_EXPORT_2 "(rename (%hashtable hashtable))"
-;
-;#define SCHEMESH_LIBRARY_CONTAINERS_HASHTABLE_EXPORT                                               \
-;  SCHEMESH_LIBRARY_CONTAINERS_HASHTABLE_EXPORT_1 "hashtable "
-
-(library (schemesh containers hashtable (0 1))
+(library (schemesh containers hashtable (0 7 0))
   (export
     make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-cell hash-iterator-next!
     hashtable-iterate hashtable-transpose eq-hashtable eqv-hashtable (rename (%hashtable hashtable)))
@@ -23,7 +15,11 @@
     (schemesh containers misc))
 
 
-  (include "containers/hashtable-types.ss")
+;; NOTE: (hash-table-for-each) exported by Chez Scheme at least up to version 10.0.0
+;; is not suitable for implementing (hashtable-iterate) because it only works on eq-hashtable:s.
+
+
+(include "containers/hashtable-types.ss")
 
 
 ; Note: eqv hashtables contain two inner hashtables:

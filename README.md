@@ -91,6 +91,24 @@ fg
 (sh-start job)
 (sh-fg job)
 ```
+## Build instructions
+
+On Debian Linux, execute the following commands:
+```
+sudo apt update
+sudo apt install build-essential chezscheme-dev liblz4-dev libncurses-dev git uuid-dev
+git clone https://github.com/cosmos72/schemesh
+cd schemesh
+make -j
+sudo make install
+```
+
+For other systems, the instructions above can (hopefully) be adapted as needed.
+
+If all went well, you can execute `schemesh`
+
+In case your environment variable `$PATH` does not contain `/usr/local/bin`,
+the command `schemesh` will not suffice - you will need to run `/usr/local/bin/schemesh`
 
 ## TO DO
 

@@ -1,5 +1,3 @@
-#!r6rs
-
 ;;; Copyright (C) 2023-2025 by Massimiliano Ghilardi
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
@@ -8,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh shell (0 1))
+(library (schemesh shell (0 7 0))
   (export
     ; fds.ss
     sh-fd sh-fd* sh-fd? sh-fd->int sh-fd-copy sh-fd-allocate sh-fd-release sh-fd-stdin sh-fd-stdout sh-fd-stderr
@@ -25,10 +23,11 @@
     sh-builtin sh-builtins sh-find-builtin sh-echo sh-error sh-false sh-true sh-history sh-repl-args
 
     ; include.ss
-    sh-include sh-parse-file sh-parse-port
+    sh-read-file sh-read-file* sh-read-port* sh-read-parsectx*
 
     ; macros.ss
-    shell shell-backquote shell-env shell-list shell-include shell-subshell shell-wildcard
+    include/lang include/lang*
+    shell shell-backquote shell-env shell-list shell-subshell shell-wildcard
 
     ; utils.ss
     sh-autocomplete sh-current-time sh-expand-ps1 sh-home->~ sh-make-linectx

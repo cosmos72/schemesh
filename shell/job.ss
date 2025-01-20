@@ -12,7 +12,7 @@
 ;; Convention: (sh) and (sh-...) are functions
 ;             (shell) and (shell-...) are macros
 
-(library (schemesh shell job (0 1))
+(library (schemesh shell job (0 7 0))
   (export
     ; dir.ss
     sh-cwd-set! sh-cd sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
@@ -86,7 +86,7 @@
   ;;
   ;; waiting for sh-globals to exit is not useful:
   ;; pretend it already exited with unknown exit status
-  (%make-multijob 0 (get-pid) (get-pgid 0) '(unknown . 0)
+  (%make-multijob 0 (pid-get) (pgid-get 0) '(unknown . 0)
     (span) #f '() ; redirections
     #f #f ; start-proc step-proc
     (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) ; current directory

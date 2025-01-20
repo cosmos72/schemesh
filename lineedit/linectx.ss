@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh lineedit linectx (0 1))
+(library (schemesh lineedit linectx (0 7 0))
   (export
     make-linectx make-linectx* linectx? linectx-rbuf linectx-wbuf
     linectx-vscreen linectx-width linectx-height linectx-end-y
@@ -38,7 +38,7 @@
     (schemesh lineedit paren)
     (schemesh lineedit parenmatcher)
     (only (schemesh lineedit parser) make-parsectx*)
-    (only (schemesh lineedit io) open-charlines-input-port)
+    (only (schemesh lineedit charlines io) open-charlines-input-port)
     (schemesh posix tty)
     (only (schemesh posix signal) signal-consume-sigwinch))
 

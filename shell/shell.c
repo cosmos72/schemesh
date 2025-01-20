@@ -104,29 +104,48 @@ int schemesh_load_libraries(const char* override_library_dir) {
   return ret == Strue ? 0 : EINVAL;
 }
 
-void schemesh_import_libraries(void) {
-  eval("(begin\n"
-       "  (import (schemesh bootstrap))\n"
-       "  (import (schemesh containers))\n"
-       "  (import (schemesh conversions))\n"
-       "  (import (schemesh lineedit vscreen))\n"
-       "  (import (schemesh lineedit io))\n"
-       "  (import (schemesh lineedit parser))\n"
-       "  (import (schemesh lineedit charhistory))\n"
-       "  (import (schemesh lineedit charhistory io))\n"
-       "  (import (schemesh lineedit paren))\n"
-       "  (import (schemesh lineedit parenmatcher))\n"
-       "  (import (schemesh lineedit))\n"
-       "  (import (schemesh parser))\n"
-       "  (import (schemesh posix))\n"
-       "  (import (schemesh shell))\n"
-       "  (import (schemesh repl)))\n");
+void schemesh_import_minimal_libraries(void) {
+  eval("(import\n"
+       "  (schemesh shell)\n"
+       "  (schemesh repl))\n");
 }
 
-void schemesh_init(void (*on_scheme_exception)(void)) {
+void schemesh_import_all_libraries(void) {
+#if 1
+  eval("(import-schemesh/all)");
+#else
+  eval("(import\n"
+       "  (schemesh bootstrap)\n"
+       "  (schemesh containers)\n"
+       "  (schemesh conversions)\n"
+       "  (schemesh lineedit)\n"
+       "  (schemesh parser)\n"
+       "  (schemesh posix)\n"
+       "  (schemesh shell)\n"
+       "  (schemesh repl))\n");
+#endif
+}
+
+void schemesh_init(const char* override_boot_dir, void (*on_scheme_exception)(void)) {
+  int loaded = 0;
   Sscheme_init(on_scheme_exception);
-  Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/petite.boot");
-  Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/scheme.boot");
+  if (override_boot_dir != NULL) {
+    size_t dir_len   = strlen(override_boot_dir);
+    char*  boot_file = (char*)malloc(dir_len + 13);
+    if (boot_file != NULL) {
+      memcpy(boot_file, override_boot_dir, dir_len);
+      memcpy(boot_file + dir_len, "/petite.boot", 13);
+      Sregister_boot_file(boot_file);
+
+      memcpy(boot_file + dir_len, "/scheme.boot", 13);
+      Sregister_boot_file(boot_file);
+      loaded = 1;
+    }
+  }
+  if (loaded == 0) {
+    Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/petite.boot");
+    Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/scheme.boot");
+  }
   Sbuild_heap(NULL, NULL);
 }
 

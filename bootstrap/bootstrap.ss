@@ -270,9 +270,9 @@
      (define-syntax name
        (lambda (stx)
          (syntax-case stx ()
-           ((l . sv)
-             (datum->syntax (syntax l)
-               (apply transformer (syntax->datum (syntax sv)))))))))))
+           ((xname . args)
+             (datum->syntax (syntax xname)
+               (apply transformer (syntax->datum (syntax args)))))))))))
 
 
 ;; Scheme implementation of Common Lisp macrolet, defines a local macro.
@@ -301,9 +301,9 @@
      (let-syntax ((name
        (lambda (stx)
          (syntax-case stx ()
-           ((l . sv)
-             (datum->syntax (syntax l)
-               (apply transformer (syntax->datum (syntax sv)))))))))
+           ((xname . args)
+             (datum->syntax (syntax xname)
+               (apply transformer (syntax->datum (syntax args)))))))))
        form1 form2 ...))))
 
 

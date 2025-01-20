@@ -10,16 +10,24 @@
 #ifndef SCHEMESH_SHELL_SHELL_H
 #define SCHEMESH_SHELL_SHELL_H
 
-#define LIBSCHEMESH_SO "libschemesh_0.7.so"
+#define LIBSCHEMESH_SO "libschemesh_0.7.0.so"
 
 /**
- * initialize Chez Scheme. calls in sequence:
+ * initialize Chez Scheme.
+ *
+ * if override_boot_dir != NULL, calls in sequence:
+ *   Sscheme_init(on_scheme_exception);
+ *   Sregister_boot_file(string_append(override_boot_dir,  "/petite.boot"));
+ *   Sregister_boot_file(string_append(override_boot_dir, "/scheme.boot"));
+ *   Sbuild_heap(NULL, NULL);
+ *
+ * otherwise calls in sequence:
  *   Sscheme_init(on_scheme_exception);
  *   Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/petite.boot");
  *   Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/scheme.boot");
  *   Sbuild_heap(NULL, NULL);
  */
-void schemesh_init(void (*on_scheme_exception)(void));
+void schemesh_init(const char* override_boot_dir, void (*on_scheme_exception)(void));
 
 /** register all C functions needed by schemesh libraries. return != 0 if failed */
 int schemesh_register_c_functions(void);
@@ -33,7 +41,10 @@ int schemesh_register_c_functions(void);
 int schemesh_load_libraries(const char* override_library_dir);
 
 /** import all schemesh libraries */
-void schemesh_import_libraries(void);
+void schemesh_import_all_libraries(void);
+
+/** import a reduced set of schemesh libraries */
+void schemesh_import_minimal_libraries(void);
 
 /**
  * quit Chez Scheme. calls:
