@@ -6,6 +6,7 @@
 ;;; (at your option) any later version.
 
 (begin
+  (include "bootstrap/parameters.ss")
   (include "bootstrap/bootstrap.ss")
   (include "containers/misc.ss")
   (include "containers/hashtable.ss")

@@ -9,54 +9,32 @@
   (export
      assert* catch define-macro debugf debugf-port first-value first-value-or-void
      let-macro raise-assertv raise-assertf raise-errorf repeat
-     sh-eval sh-eval-string sh-scheme-environment sh-scheme-eval
+     sh-current-environment sh-current-eval sh-eval sh-eval-string
      while until throws? trace-call try list->values values->list -> ^)
   (import
     (rnrs)
     (rnrs base)
     (rnrs exceptions)
-    (only (chezscheme) current-time environment? environment-mutable? eval format fx1- fx/ gensym
-                       interaction-environment logbit? make-format-condition make-thread-parameter
-                       meta procedure-arity-mask reverse! syntax-error
-                       time-second time-nanosecond void))
+    (only (chezscheme) current-time format fx1- fx/ gensym
+                       interaction-environment make-format-condition meta reverse!
+                       time-second time-nanosecond top-level-value void))
 
+
+;; retrieve value of sh-current-environment set by bootstrap/parameter.ss
+(define sh-current-environment (top-level-value 'sh-current-environment))
+
+;; retrieve value of sh-current-eval set by bootstrap/parameter.ss
+(define sh-current-eval (top-level-value 'sh-current-eval))
+
+;; evaluate a form with (sh-current-eval) in specified environment,
+;; which is (sh-current-environment) by default
+(define sh-eval
+  (case-lambda
+    ((form)     ((sh-current-eval) form (sh-current-environment)))
+    ((form env) ((sh-current-eval) form env))))
 
 (define (sh-eval-string str)
   (sh-eval (read (open-string-input-port str))))
-
-(define sh-eval
-  (case-lambda
-    ((form)     ((sh-scheme-eval) form (sh-scheme-environment)))
-    ((form env) ((sh-scheme-eval) form env))))
-
-
-;; Thread parameter containing the eval function to use.
-;; Will be called as ((sh-scheme-eval) obj environment).
-;; Initially set to Chez Scheme's eval, because it can also create definitions.
-(define sh-scheme-eval
-  (make-thread-parameter
-    eval
-    (lambda (proc)
-      (unless (procedure? proc)
-        (raise-errorf 'sh-scheme-eval "invalid value, must be a procedure: ~s" proc))
-      (unless (logbit? 1 (procedure-arity-mask proc))
-        (raise-errorf 'sh-scheme-eval "invalid procedure, must accept 2 arguments: ~s" proc))
-      proc)))
-
-
-;; Thread parameter containing the scheme enviroment where to eval forms - usually with (sh-eval)
-;;
-;; Initially set to Chez Scheme's (interaction-environment), because it's mutable
-;; and contains all r6rs and chezscheme bindings.
-(define sh-scheme-environment
-  (make-thread-parameter
-    (interaction-environment)
-    (lambda (env)
-      (unless (environment? env)
-        (raise-errorf 'sh-scheme-environment "invalid value, must be an environment: ~s" env))
-      (unless (environment-mutable? env)
-        (raise-errorf 'sh-scheme-environment "invalid environment, must be mutable: ~s" env))
-      env)))
 
 
 ;; convert a list to multiple values

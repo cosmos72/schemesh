@@ -14,7 +14,7 @@
   (import
     (rnrs)
     (only (chezscheme) environment-symbols fx1+ fx1- sort! top-level-value)
-    (only (schemesh bootstrap) debugf sh-scheme-environment values->list)
+    (only (schemesh bootstrap) debugf sh-current-environment values->list)
     (only (schemesh containers misc) list-iterate list-remove-consecutive-duplicates! string-range=? string-split)
     (only (schemesh containers hashtable) hashtable-iterate)
     (schemesh containers charspan)
@@ -50,7 +50,7 @@
            (%list-directory "." (charspan->string stem) #f completions)))
       ; list top-level scheme symbols
       (begin
-        (list-iterate (environment-symbols (sh-scheme-environment))
+        (list-iterate (environment-symbols (sh-current-environment))
           (lambda (sym)
             (let* ((name (symbol->string sym))
                    (len  (string-length name)))
