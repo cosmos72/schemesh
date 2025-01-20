@@ -17,7 +17,7 @@
 ;; imports are local to scope (let () ...) above
 (import
   (rnrs)
-  (only (chezscheme) current-time environment? environment-mutable? eval
+  (only (chezscheme) environment? environment-mutable? eval
                      interaction-environment logbit? make-thread-parameter))
 
 ;; (%raise-errorf) is local to scope (let () ...) above
@@ -68,9 +68,10 @@
 ;; Jobs started with (sh-start) will be children of (sh-globals).
 ;
 ;; May be parameterized to a different value in subshells.
-(unless (top-level-bound? 'sh-globals)
-  (set! sh-globals
-    (make-thread-parameter #f)))
+(unless (top-level-bound? 'sh-globals (sh-current-environment))
+  ; (set! sh-globals (make-thread-parameter #f))) ; fails with "attempt to assign immutable variable sh-globals"
+  (eval '(set! sh-globals (make-thread-parameter #f))
+        (sh-current-environment)))
 
 ) ; close let
 ) ; close eval-when

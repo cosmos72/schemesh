@@ -78,6 +78,7 @@
 
 
 ;; Global hashtable pid -> job
+;; FIXME: refactor it as a thread parameter, analogous to (sh-current-eval)
 (define %table-pid->job (make-eq-hashtable))
 
 ;; Convert pid to job, return #f if job not found
