@@ -76,5 +76,6 @@
     (hashtable-set! t ":"  (lambda (args) (cons "true" args)))
     (hashtable-set! t "ls" (lambda (args) (cons "ls" (cons "--color=auto" args))))
     (hashtable-set! t "l"  (lambda (args) (cons "ls" (cons "-al" args))))
+    (hashtable-set! t "m"  (lambda (args) (cons "less" args)))
     (hashtable-set! t "v"  (lambda (args) (cons "ls" (cons "-l" args))))
     (lambda () t)))
