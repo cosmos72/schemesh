@@ -112,10 +112,10 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 
 ## TO DO
 
+* fix ^Z forgetting suspended job on termux
 * autocomplete shell paths and scheme strings: unescape stems before searching for completions, escape completions
 * autocomplete shell paths starting with ~
-* implement (sh-include)
-* at startup, (sh-include) initialization file from ~/.config/schemesh/init.schemesh
+* at startup, (include/lang) initialization file from ~/.config/schemesh/init.schemesh
 * decide: (shell-backquote) should expand to a closure that accepts a parent job and creates a subshell with such parent job?
 * modify builtin "cd", for changing current directory of *parent* job
 * implement builtin "set", for setting environment variables in *parent* job
@@ -130,3 +130,4 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 
 * at startup, load history from ~/.cache/schemesh/history.txt
 * at exit, save history to the same file
+* implement (include/lang)
