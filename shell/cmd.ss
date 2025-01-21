@@ -47,8 +47,8 @@
   (assert* 'sh-cmd (sh-cmd? c))
   (assert* 'sh-cmd (eq? 'running (job-last-status->kind c)))
 
-  ; expand procedures in cmd-arg-list,
-  ; then expand aliases. sanity: (sh-alias-expand) ignores aliases for "builtin"
+  ; expand procedures in cmd-arg-list, then expand aliases.
+  ; sanity: (sh-alias-expand) ignores aliases for "builtin"
   (let* ((prog-and-args (sh-alias-expand (cmd-arg-list-expand c)))
          (builtin       (sh-find-builtin prog-and-args)))
     ; apply lazy environment variables *after* expanding cmd-arg-list
@@ -87,16 +87,23 @@
             ((not (procedure? arg)) arg)
             ((logbit? 1 (procedure-arity-mask arg)) (arg c)) ; call closure (lambda (job) ...)
             (#t   (arg)))))                                  ; call closure (lambda () ...)
+    ; (debugf "cmd-arg-expand cmd=~s arg=~s expanded=~s l=~s" c arg expanded l)
     (cond
+      ((eq? (void) expanded)
+        l)
       ((null? expanded)
         l)
       ((pair? expanded)
         (list-iterate expanded
           (lambda (e)
+            (assert* 'sh-start (string? e))
             (set! l (cons e l))))
         l)
+      ((string? expanded)
+        (cons expanded l))
       (#t
-        (cons expanded l)))))
+        (raise-errorf 'sh-start "value ~s returned by closure ~s in job ~s is not a string, a list of strings, or (void)"
+          expanded arg c)))))
 
 
 ;; internal function called by (cmd-start) to execute a builtin
