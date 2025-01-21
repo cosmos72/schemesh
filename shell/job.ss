@@ -29,7 +29,7 @@
     sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd? sh-multijob?
     sh-env-copy sh-env->argv sh-globals sh-cmd make-cmd sh-cwd
     sh-consume-sigchld sh-multijob-child-length sh-multijob-child-ref
-    sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/ok?
+    sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/err? sh-run/ok?
 
     ; multijob.ss
     sh-and sh-or sh-not sh-list sh-subshell
@@ -639,6 +639,18 @@
 ;; Return #t if job exited successfully, otherwise return #f.
 (define (sh-run/ok? job . options)
   (sh-ok? (apply sh-run job options)))
+
+
+;; Start a job and wait for it to exit.
+;; Does NOT return early if job is stopped, use (sh-run/i) for that.
+;;
+;; Options are the same as (sh-start)
+;;
+;; Return #f if job exited successfully,
+;; otherwise return job exit status, which is a cons and hence truish.
+(define (sh-run/err? job . options)
+  (let ((status (apply sh-run job options)))
+    (if (eq? status (void)) #f status)))
 
 
 (include "shell/cmd.ss")

@@ -87,6 +87,7 @@
     (try
       (dynamic-wind
         (lambda ()
+          ;; we do our own buffering in (charhistory-load-from-port)
           (set! port (open-file-input-port path (file-options) (buffer-mode none))))
         (lambda ()
           (charhistory-load-from-port! hist port))

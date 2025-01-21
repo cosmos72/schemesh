@@ -7,8 +7,12 @@
 
 
 (library (schemesh repl (0 7 0))
-  (export sh-repl sh-repl* sh-repl-eval sh-repl-eval-list sh-repl-lineedit
-          sh-repl-parse sh-repl-print sh-repl-exception-handler sh-repl-interrupt-handler)
+  (export sh-repl sh-repl* sh-repl-eval sh-repl-eval-list
+	  sh-repl-lineedit sh-repl-parse sh-repl-print
+	  sh-repl-exception-handler sh-repl-interrupt-handler
+
+      sh-eval-file/print sh-eval-file/print* sh-eval-port/print*
+      sh-eval-parsectx/print* sh-eval-string/print*)
   (import
     (rnrs)
     (only (rnrs mutable-pairs) set-car!)
@@ -17,7 +21,7 @@
       console-input-port console-output-port console-error-port
       debug debug-condition debug-on-exception default-exception-handler display-condition
       eval exit-handler expand inspect keyboard-interrupt-handler parameterize
-      pretty-print read-token reset reset-handler void)
+      pretty-print read-token reset reset-handler top-level-bound? top-level-value void)
     (schemesh bootstrap)
     (only (schemesh containers) list-iterate)
     (only (schemesh lineedit charhistory) charhistory-path-set!)
@@ -25,9 +29,53 @@
     (schemesh lineedit linectx)
     (schemesh lineedit lineedit)
     (schemesh parser)
+    (only (schemesh posix dir) file-stat)
     (schemesh posix signal) ; also for suspend-handler
     (schemesh posix tty)
-    (only (schemesh shell) sh-history sh-consume-sigchld sh-make-linectx sh-repl-args sh-run/i sh-xdg-cache-home/))
+    (only (schemesh shell)
+       sh-history sh-consume-sigchld
+       sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
+       sh-make-linectx sh-repl-args sh-run/i  sh-xdg-cache-home/ sh-xdg-config-home/))
+
+
+
+;; variant (sh-eval-file) that pretty-print the result(s) instead of returning them
+(define sh-eval-file/print
+  (case-lambda
+    ((path)
+      (call-with-values (lambda () (sh-eval-file path))                                sh-repl-print))
+    ((path initial-parser)
+      (call-with-values (lambda () (sh-eval-file path initial-parser))                 sh-repl-print))
+    ((path initial-parser enabled-parsers)
+      (call-with-values (lambda () (sh-eval-file path initial-parser enabled-parsers)) sh-repl-print))))
+
+
+;; variant (sh-eval-file*) that pretty-print the result(s) instead of returning them
+(define (sh-eval-file/print* path initial-parser enabled-parsers)
+  (call-with-values
+    (lambda () (sh-eval-file* path initial-parser enabled-parsers))
+    sh-repl-print))
+
+
+;; variant (sh-eval-port*) that pretty-print the result(s) instead of returning them
+(define (sh-eval-port/print* path initial-parser enabled-parsers)
+  (call-with-values
+    (lambda () (sh-eval-port* path initial-parser enabled-parsers))
+    sh-repl-print))
+
+
+;; variant (sh-eval-parsectx*) that pretty-print the result(s) instead of returning them
+(define (sh-eval-parsectx/print* pctx initial-parser)
+  (call-with-values
+    (lambda () (sh-eval-parsectx* pctx initial-parser))
+    sh-repl-print))
+
+
+;; variant (sh-eval-string*) that pretty-print the result(s) instead of returning them
+(define (sh-eval-string/print* pctx initial-parser enabled-parsers)
+  (call-with-values
+    (lambda () (sh-eval-string* pctx initial-parser enabled-parsers))
+    sh-repl-print))
 
 
 ;; Read user input.
@@ -113,8 +161,8 @@
 
 
 ;; Print values or exit statuses.
-(define (sh-repl-print . values)
-  (do ((tail values (cdr tail)))
+(define (sh-repl-print . vals)
+  (do ((tail vals (cdr tail)))
       ((null? tail))
     (let ((value (car tail)))
       (unless (eq? (void) value)
@@ -147,7 +195,10 @@
 ;;
 ;; Returns values passed to (exit), or (void) on linectx eof
 (define (sh-repl-loop parser print-func lctx)
-  (let ((repl-args (list parser print-func lctx)))
+  ;; set to #f the init-file-path and quit-file-path saved in (sh-repl-args):
+  ;; if (sh-repl* ...) is called from an interrupt handler, we do NOT want to load them again
+  (let ((repl-args (list parser print-func lctx #f #f))
+	(suggest-reload? #t))
     (call/cc
       (lambda (k-exit)
         (parameterize ((sh-repl-args repl-args)
@@ -173,13 +224,33 @@
             (while updated-parser
               (set! parser updated-parser)
               (set-car! repl-args updated-parser)
-              (set! updated-parser (sh-repl-once parser print-func lctx)))))))))
+              (set! updated-parser (sh-repl-once parser print-func lctx))
+	      (when (and suggest-reload?
+			 (top-level-bound? 'sh-repl)
+			 (not (eq? sh-repl (top-level-value 'sh-repl))))
+		(set! suggest-reload? #f)
+	        (display "; warning: binding for sh-repl changed. Consider switching to the new repl.\n")))))))))
+
+
+(define (try-eval-file path)
+  (and (string? path) (file-stat path)
+    (try
+      (sh-eval-file path)
+      #t
+      (catch (ex)
+        (let ((out (current-error-port)))
+          (put-string out "; Warning: failed loading file ")
+          (put-datum  out path)
+          (put-string out ": ")
+          (display-condition ex out)
+          (newline out))
+        #f))))
 
 
 ;; top-level interactive sh-repl with all arguments mandatory
 ;;
 ;; Returns values passed to (exit), or (void) on linectx eof
-(define (sh-repl* initial-parser print-func lctx)
+(define (sh-repl* initial-parser print-func lctx init-file-path quit-file-path)
   ; (to-parser) also checks initial-parser's and enabled-parser's validity
   (let ((parser (to-parser (linectx-parsers lctx) initial-parser 'sh-repl)))
     (assert* 'sh-repl (linectx? lctx))
@@ -188,10 +259,12 @@
         (lineedit-clear! lctx)
         (linectx-load-history! lctx)
         (signal-init-sigwinch)
-        (tty-setraw!))
+        (tty-setraw!)
+        (try-eval-file init-file-path))
       (lambda ()
         (sh-repl-loop parser print-func lctx))
       (lambda ()
+        (try-eval-file quit-file-path)
         (tty-restore!)
         (signal-restore-sigwinch)
         (lineedit-finish lctx)
@@ -199,11 +272,13 @@
 
 
 ;; top-level interactive repl with optional arguments:
-;; 'history history-path    - defaults to (sh-xdg-cache-dir/ "schemesh/history.txt")
-;; 'parser initial-parser   - defaults to 'shell
-;; 'parsers enabled-parsers - defaults to (parsers)
-;; 'print print-func        - defaults to sh-repl-print
-;; 'linectx lctx            - defaults to (sh-make-linectx* enabled-parsers history-path)
+;; 'history history-path    - string,    defaults to (sh-xdg-cache-dir/ "schemesh/history.txt")
+;; 'init    init-file-path  - string,    defaults to (sh-xdg-config-dir/ "schemesh/repl_init.sh")
+;; 'parser  initial-parser  - symbol,    defaults to 'shell
+;; 'parsers enabled-parsers - hashtable, defaults to (parsers)
+;; 'print   print-func      - procedure, defaults to sh-repl-print
+;; 'quit    quit-file-path  - string,    defaults to (sh-xdg-config-dir/ "schemesh/repl_quit.sh")
+;; 'linectx lctx            - linectx,   defaults to (sh-make-linectx* enabled-parsers history-path)
 ;;
 ;; Returns first value passed to (exit), or (void) on linectx eof
 (define (sh-repl . options)
@@ -211,7 +286,9 @@
         (initial-parser #f)  (initial-parser? #f)
         (enabled-parsers #f) (enabled-parsers? #f)
         (print #f)           (print? #f)
-        (lctx #f)            (lctx? #f))
+        (lctx #f)            (lctx? #f)
+        (init-file-path #f)  (init-file-path? #f)
+        (quit-file-path #f)  (quit-file-path? #f))
     (do ((tail options (cddr tail)))
         ((null? tail))
       (assert* 'sh-repl (pair? (cdr tail)))
@@ -220,9 +297,11 @@
         (case key
           ((linectx) (set! lctx val)            (set! lctx? #t))
           ((history) (set! history-path val)    (set! history-path? #t))
+          ((init)    (set! init-file-path val)  (set! init-file-path? #t))
           ((parser)  (set! initial-parser val)  (set! initial-parser? #t))
           ((parsers) (set! enabled-parsers val) (set! enabled-parsers? #t))
           ((print)   (set! print val)           (set! print? #t))
+          ((quit)    (set! quit-file-path val)  (set! quit-file-path? #t))
           (else      (syntax-violation 'sh-repl "unexpected argument:" key)))))
     (when (and lctx? enabled-parsers?)
       (linectx-parsers-set! lctx enabled-parsers))
@@ -236,7 +315,9 @@
           lctx
           (sh-make-linectx
             (if enabled-parsers? enabled-parsers (parsers))
-            (if history-path?    history-path    (sh-xdg-cache-home/ "schemesh/history.txt"))))))))
+            (if history-path?    history-path    (sh-xdg-cache-home/ "schemesh/history.txt"))))
+        (if init-file-path? init-file-path (sh-xdg-config-home/ "schemesh/repl_init.ss"))
+        (if quit-file-path? quit-file-path (sh-xdg-config-home/ "schemesh/repl_quit.ss"))))))
 
 
 ;; React to uncaught conditions

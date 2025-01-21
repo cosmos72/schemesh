@@ -71,11 +71,10 @@
 ;; Each alias is a function args -> prog-and-args
 ;; i.e. it must accept a list of strings and return a list of strings
 (define sh-aliases
-  (let ((t (make-hashtable string-hash string=?)))
+  (let ((ht (make-hashtable string-hash string=?)))
     ; initial aliases
-    (hashtable-set! t ":"  (lambda (args) (cons "true" args)))
-    (hashtable-set! t "ls" (lambda (args) (cons "ls" (cons "--color=auto" args))))
-    (hashtable-set! t "l"  (lambda (args) (cons "ls" (cons "-al" args))))
-    (hashtable-set! t "m"  (lambda (args) (cons "less" args)))
-    (hashtable-set! t "v"  (lambda (args) (cons "ls" (cons "-l" args))))
-    (lambda () t)))
+    (hashtable-set! ht ":"  (lambda (args) (cons "true" args)))
+    (hashtable-set! ht "ls" (lambda (args) (cons "ls" (cons "--color=auto" args))))
+    (hashtable-set! ht "l"  (lambda (args) (cons "ls" (cons "-al" args))))
+    (hashtable-set! ht "v"  (lambda (args) (cons "ls" (cons "-l" args))))
+    (lambda () ht)))

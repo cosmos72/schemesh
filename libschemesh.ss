@@ -51,7 +51,7 @@
   (include "shell/paths.ss")
   (include "shell/builtins.ss")
   (include "shell/job.ss")
-  (include "shell/include.ss")
+  (include "shell/eval.ss")
   (include "shell/macros.ss")
   (include "shell/utils.ss")
   (include "shell/shell.ss")

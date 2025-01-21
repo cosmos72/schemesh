@@ -16,7 +16,7 @@
     (schemesh bootstrap)
     (only (schemesh posix pattern) sh-wildcard?)
     (schemesh shell job)
-    (only (schemesh shell include) sh-read-file ; sh-parse-file
+    (only (schemesh shell eval) sh-read-file
   ))
 
 ;; wraps shell DSL

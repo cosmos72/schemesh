@@ -31,8 +31,9 @@
   (bytespan-clear! bsp))
 
 
-;; thread parameter (sh-repl-args) must be empty or a list (parser enabled-parsers eval-func lctx)
-;; containing arguments of current call to (repl) or (repl*)
+;; thread parameter (sh-repl-args) must be empty or a list
+;;   (parser enabled-parsers eval-func lctx init-file-path quit-file-path)
+;; containing arguments of current call to (sh-repl) or (sh-repl*)
 (define sh-repl-args
   (make-thread-parameter
     '()

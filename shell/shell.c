@@ -8,7 +8,7 @@
  */
 
 #include "shell.h"
-#include "../containers/containers.h"
+#include "../containers/containers.h" /* schemesh_Sstring_utf8b() */
 #include "../eval.h"
 #include "../posix/posix.h"
 #include "../posix/signal.h"
@@ -26,7 +26,9 @@
 #define STR_(arg) #arg
 #define STR(arg) STR_(arg)
 #define CHEZ_SCHEME_DIR_STR STR(CHEZ_SCHEME_DIR)
-#define INSTALL_LIBDIR_STR STR(INSTALL_LIBDIR)
+#ifdef INSTALL_LIBDIR
+# define INSTALL_LIBDIR_STR STR(INSTALL_LIBDIR)
+#endif
 
 /**
  * return i-th environment variable i.e. environ[i]
@@ -62,6 +64,10 @@ int schemesh_register_c_functions(void) {
   return err;
 }
 
+static ptr call_try_load(ptr try_load_proc, const char* dir) {
+  return Scall1(try_load_proc, schemesh_Sstring_utf8b(dir, strlen(dir)));
+}
+
 /* return 0 if successful, otherwise error code */
 int schemesh_load_libraries(const char* override_library_dir) {
 #if 0
@@ -88,16 +94,16 @@ int schemesh_load_libraries(const char* override_library_dir) {
   Slock_object(try_load_proc);
 
   if (override_library_dir != NULL) {
-    ret = Scall1(try_load_proc, Sstring_utf8(override_library_dir, -1));
+    ret = call_try_load(try_load_proc, override_library_dir);
   } else {
-#ifdef INSTALL_LIBDIR
-    ret = Scall1(try_load_proc, Sstring_utf8(INSTALL_LIBDIR_STR, -1));
+#ifdef INSTALL_LIBDIR_STR
+    ret = call_try_load(try_load_proc, INSTALL_LIBDIR_STR);
 #endif
     if (ret != Strue) {
-      ret = Scall1(try_load_proc, Sstring_utf8("/usr/local/lib/schemesh", -1));
+      ret = call_try_load(try_load_proc, "/usr/local/lib/schemesh");
     }
     if (ret != Strue) {
-      ret = Scall1(try_load_proc, Sstring_utf8("/usr/lib/schemesh", -1));
+      ret = call_try_load(try_load_proc, "/usr/lib/schemesh");
     }
   }
   Sunlock_object(try_load_proc);
