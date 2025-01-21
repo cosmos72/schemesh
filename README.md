@@ -112,7 +112,6 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 
 ## TO DO
 
-* fix ^Z forgetting suspended job on termux
 * autocomplete shell paths and scheme strings: unescape stems before searching for completions, escape completions
 * autocomplete shell paths starting with ~
 * at startup, (include/lang) initialization file from ~/.config/schemesh/init.schemesh

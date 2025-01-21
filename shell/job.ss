@@ -52,7 +52,7 @@
                        include inspect logand logbit? make-format-condition make-thread-parameter
                        open-fd-output-port parameterize procedure-arity-mask record-writer reverse!
                        string-copy! string-truncate! void)
-    (only (schemesh bootstrap) assert* catch debugf debugf-port sh-eval sh-globals
+    (only (schemesh bootstrap) assert* catch debugf debugf-port sh-eval sh-globals sh-pid-table
                                raise-assertv raise-errorf try until while)
     (schemesh containers)
     (schemesh conversions)
@@ -77,25 +77,21 @@
 
 
 
-;; Global hashtable pid -> job
-;; FIXME: refactor it as a thread parameter, analogous to (sh-current-eval)
-(define %table-pid->job (make-eq-hashtable))
-
 ;; Convert pid to job, return #f if job not found
 (define (pid->job pid)
   (assert* 'pid->job (fixnum? pid))
-  (hashtable-ref %table-pid->job pid #f))
+  (hashtable-ref (sh-pid-table) pid #f))
 
 ;; Adds an entry to the global hashtable pid -> job
 (define (pid->job-set! pid job)
   (assert* 'pid->job-set! (fixnum? pid))
   (assert* 'pid->job-set! (sh-job? job))
-  (hashtable-set! %table-pid->job pid job))
+  (hashtable-set! (sh-pid-table) pid job))
 
 ;; Removes an entry from the global hashtable pid -> job
 (define (pid->job-delete! pid)
   (assert* 'pid->job-delete! (fixnum? pid))
-  (hashtable-delete! %table-pid->job pid))
+  (hashtable-delete! (sh-pid-table) pid))
 
 
 ;; return #t if job-status is (void), i.e. if job exited with exit status 0,
@@ -679,7 +675,7 @@
          (make-hashtable string-hash string=?) ; env variables
          #f                        ; no env var assignments
          #f                        ; no parent
-         '\x23;<global> -1 (span #t)))) ; skip job-id 0, is used by sh-globals itself
+         '\x23;<global> -1 (span #t)))) ; skip job-id 0, is used by (sh-globals) itself
 
   (c-environ->sh-global-env)
 

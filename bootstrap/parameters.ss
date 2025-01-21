@@ -64,14 +64,31 @@
         proc))))
 
 
-;; Thread paramenter contains the global job corresponding to this process.
+;; Parameter containing the global job corresponding to this process.
 ;; Jobs started with (sh-start) will be children of (sh-globals).
 ;
 ;; May be parameterized to a different value in subshells.
-(unless (top-level-bound? 'sh-globals (sh-current-environment))
+(unless (top-level-bound? 'sh-globals)
   ; (set! sh-globals (make-thread-parameter #f))) ; fails with "attempt to assign immutable variable sh-globals"
-  (eval '(set! sh-globals (make-thread-parameter #f))
+  (eval '(set! sh-globals (make-parameter #f))
         (sh-current-environment)))
+
+;; Parameter containing the global hashtable pid -> job.
+;
+;; May be parameterized to a different value in subshells.
+(unless (top-level-bound? 'sh-pid-table)
+  (set! sh-pid-table
+    (make-parameter
+      (make-eqv-hashtable)
+      (lambda (htable)
+        (unless (hashtable? htable)
+          (%raise-errorf 'sh-pid-table "~s is not a hashtable" htable))
+        (unless (hashtable-mutable? htable)
+          (%raise-errorf 'sh-pid-table "~s is not a mutable hashtable" htable))
+        (unless (eq? (hashtable-equivalence-function htable) eqv?)
+          (%raise-errorf 'sh-pid-table "~s is not an eqv hashtable" htable))
+        htable))))
+
 
 ) ; close let
 ) ; close eval-when

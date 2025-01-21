@@ -35,3 +35,13 @@
              (schemesh repl)
              (schemesh shell)))
         #'(void)))))
+
+
+;; when reloading libschemesh.ss, reimport (schemesh repl) and (schemesh shell)
+;; fixes error "compiled program requires a different compilation instance of (schemesh ...)""
+(eval-when (eval)
+  (let ()
+    (import (rnrs) (only (chezscheme) top-level-bound? eval))
+
+    (when (top-level-bound? 'sh-repl)
+      (eval '(import (schemesh shell job) (schemesh repl))))))
