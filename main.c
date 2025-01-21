@@ -62,6 +62,8 @@ static int usage(const char* name) {
       "  options:\n"
       "    -c STRING, --cmd STRING   run STRING as shell script\n"
       "    -e STRING, --eval STRING  run STRING as scheme source\n"
+      "    --cmd-file FILE           read and execute FILE as shell script\n"
+      "    --eval-file FILE          read and execute FILE as scheme source\n"
       "    -h, --help                display this help and exit immediately\n"
       "    -i, --repl                unconditionally start the interactive repl\n"
       "                              (default: start only if no files or strings are specified)\n"
@@ -69,9 +71,10 @@ static int usage(const char* name) {
       "    --library-dir DIR         load schemesh libraries from DIR\n"
       "    --                        end of options. always treat further arguments as files\n"
       "\n"
-      "  files are read and executed as scheme source if their extension is one of:\n"
-      "    *.lisp *.rkt *.ss\n"
-      "  otherwise they are read and executed as shell script.\n"
+      "  the type of files, if they are not specified after options '--cmd-file' or '--eval-file'\n"
+      "  is determined by their name:\n"
+      "    file names ending in '.sh' and names not containing '.' are executed as shell script,\n"
+      "    all other files are executed as scheme source\n"
       "\n"
       "  both files and strings can switch to different languages\n"
       "  by using the following language-changing syntax tokens:\n"
@@ -139,8 +142,8 @@ static void parse_command_line(int argc, const char* argv[], struct cmdline* cmd
       }
       cmd->library_dir = arg2;
       i++;
-    } else if (!strcmp(arg, "-c") || !strcmp(arg, "--cmd") || !strcmp(arg, "-e") ||
-               !strcmp(arg, "--eval")) {
+    } else if (!strcmp(arg, "-c") || !strcmp(arg, "--cmd") || !strcmp(arg, "--cmd-file") ||
+               !strcmp(arg, "-e") || !strcmp(arg, "--eval") || !strcmp(arg, "--eval-file")) {
       if (!arg2) {
         missing_option_argument(argv[0], arg);
       }
@@ -179,8 +182,20 @@ static void run_files_and_strings(int argc, const char* argv[]) {
               Sstring_to_symbol("shell"),
               Strue);
         i++;
+      } else if (arg2 && (!strcmp(arg, "--cmd-file"))) {
+        call3("sh-eval-file/print*",
+              schemesh_Sstring_utf8b(arg2, strlen(arg2)),
+              Sstring_to_symbol("shell"),
+              Strue);
+        i++;
       } else if (arg2 && (!strcmp(arg, "-e") || !strcmp(arg, "--eval"))) {
         call3("sh-eval-string/print*",
+              schemesh_Sstring_utf8b(arg2, strlen(arg2)),
+              Sstring_to_symbol("scheme"),
+              Strue);
+        i++;
+      } else if (arg2 && (!strcmp(arg, "--eval-file"))) {
+        call3("sh-eval-file/print*",
               schemesh_Sstring_utf8b(arg2, strlen(arg2)),
               Sstring_to_symbol("scheme"),
               Strue);

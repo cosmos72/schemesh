@@ -15,18 +15,25 @@
     (rnrs mutable-pairs)
     (only (chezscheme) datum eval-when void)
     (only (schemesh bootstrap) assert* raise-errorf sh-eval until)
-    (only (schemesh containers misc) list-iterate string-ends-with?)
+    (only (schemesh containers misc) list-iterate string-ends-with? string-rfind/char)
     (schemesh parser)
     (schemesh shell job))
 
 
 (define (default-parser-for-file-extension path)
-  (if (or (string-ends-with? path ".lisp")
-          (string-ends-with? path ".scheme")
-          (string-ends-with? path ".ss")
-          (string-ends-with? path ".rkt")) ; racket
-    'scheme
-    'shell))
+  (if (or (string-ends-with? path ".sh")
+          (not (filename-rfind/char path #\.)))
+    'shell
+    'scheme))
+
+;; return position of last character equal to ch in the filename part of path,
+;; i.e. after the last slash.
+;; return #f if ch is not present the filename part of path.
+(define (filename-rfind/char path ch)
+  (let* ((len   (string-length path))
+         (slash (string-rfind/char path 0 len #\/)))
+    (string-rfind/char path (or slash 0) len ch)))
+
 
 ;; open specified file path, parse its multi-language source contents with (sh-read-port*)
 ;; and return the parsed source form.
