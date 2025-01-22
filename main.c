@@ -60,20 +60,21 @@ static int usage(const char* name) {
       stdout,
       "Usage: %s [options and files]\n"
       "  options:\n"
-      "    -c STRING, --cmd STRING   run STRING as shell script\n"
-      "    -e STRING, --eval STRING  run STRING as scheme source\n"
-      "    --cmd-file FILE           read and execute FILE as shell script\n"
-      "    --eval-file FILE          read and execute FILE as scheme source\n"
-      "    -h, --help                display this help and exit immediately\n"
-      "    -i, --repl                unconditionally start the interactive repl\n"
-      "                              (default: start only if no files or strings are specified)\n"
-      "    --boot-dir DIR            load Chez Scheme boot files from DIR\n"
-      "    --library-dir DIR         load schemesh libraries from DIR\n"
-      "    --                        end of options. always treat further arguments as files\n"
+      "    -c STRING, --cmd STRING     run STRING as shell script\n"
+      "    -e STRING, --eval STRING    run STRING as scheme source\n"
+      "    --cmd-file FILE             read and execute FILE as shell script\n"
+      "    --eval-file FILE            read and execute FILE as scheme source\n"
+      "    -h, --help                  display this help and exit immediately\n"
+      "    -i, --repl                  unconditionally start the interactive repl\n"
+      "                                (default: start only if no files or strings are specified)\n"
+      "    -l, --login                 ignored for compatibility\n"
+      "    --boot-dir DIR              load Chez Scheme boot files from DIR\n"
+      "    --library-dir DIR           load schemesh libraries from DIR\n"
+      "    --                          end of options. always treat further arguments as files\n"
       "\n"
       "  the type of files, if they are not specified after options '--cmd-file' or '--eval-file'\n"
       "  is determined by their name:\n"
-      "    file names ending in '.sh' and names not containing '.' are executed as shell script,\n"
+      "    file names ending in '.sh' or not containing '.' are executed as shell script,\n"
       "    all other files are executed as scheme source\n"
       "\n"
       "  both files and strings can switch to different languages\n"
@@ -154,6 +155,8 @@ static void parse_command_line(int argc, const char* argv[], struct cmdline* cmd
       usage(argv[0]);
     } else if (!strcmp(arg, "-i") || !strcmp(arg, "--repl")) {
       cmd->force_repl = 1;
+    } else if (!strcmp(arg, "-l") || !strcmp(arg, "--login")) {
+      /* nop */
     } else if (!strncmp(arg, "-", 1)) {
       unknown_option(argv[0], arg);
     } else {
@@ -175,7 +178,7 @@ static void run_files_and_strings(int argc, const char* argv[]) {
       if (!strcmp(arg, "--")) {
         opts = 0; /* end of options, the rest are files */
       } else if (arg2 && (!strcmp(arg, "--boot-dir") || !strcmp(arg, "--library-dir"))) {
-        i++;
+        i++; /* skip subsequent arg */
       } else if (arg2 && (!strcmp(arg, "-c") || !strcmp(arg, "--cmd"))) {
         call3("sh-eval-string/print*",
               schemesh_Sstring_utf8b(arg2, strlen(arg2)),
