@@ -9,7 +9,7 @@
 ;;;;;;;;;;;;;  define Scheme type "span", a resizeable vector  ;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (schemesh containers sort (0 7 0))
+(library (schemesh containers sort (0 7 1))
   (export
     span-range-sort! vector-range-sort!)
   (import

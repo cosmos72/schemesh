@@ -9,7 +9,7 @@
 ;;;;;;;;;  define Scheme type "bytespan", a resizeable bytevector  ;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (schemesh containers bytespan (0 7 0))
+(library (schemesh containers bytespan (0 7 1))
   (export
     list->bytespan bytevector->bytespan bytevector->bytespan* make-bytespan bytespan->bytevector
     bytespan bytespan? bytespan-length bytespan-empty? bytespan-clear!

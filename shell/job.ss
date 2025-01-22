@@ -12,7 +12,7 @@
 ;; Convention: (sh) and (sh-...) are functions
 ;             (shell) and (shell-...) are macros
 
-(library (schemesh shell job (0 7 0))
+(library (schemesh shell job (0 7 1))
   (export
     ; dir.ss
     sh-cwd-set! sh-cd sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/

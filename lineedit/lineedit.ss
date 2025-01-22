@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh lineedit lineedit (0 7 0))
+(library (schemesh lineedit lineedit (0 7 1))
   (export
     lineedit-clear!
     lineedit-lines-set! lineedit-insert/rbuf!

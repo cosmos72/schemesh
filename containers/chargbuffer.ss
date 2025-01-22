@@ -11,7 +11,7 @@
 ;;;;; Implementation: contains two charspans, a "left" and a "right" ones ;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (schemesh containers chargbuffer (0 7 0))
+(library (schemesh containers chargbuffer (0 7 1))
   (export
     list->chargbuffer string->chargbuffer string->chargbuffer* charspan->chargbuffer charspan->chargbuffer*
     make-chargbuffer chargbuffer chargbuffer? chargbuffer->charspan chargbuffer->string

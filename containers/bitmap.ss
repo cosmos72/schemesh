@@ -9,7 +9,7 @@
 ;;;;;;;;;   define Scheme type "bitmap", a fixed size bit vector   ;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (schemesh containers bitmap (0 7 0))
+(library (schemesh containers bitmap (0 7 1))
   (export
     bitmap make-bitmap bitmap? bitmap-length bitmap-ref bitmap-set! bitmap-last-zero)
   (import

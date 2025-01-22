@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh posix pattern (0 7 0))
+(library (schemesh posix pattern (0 7 1))
   (export
     sh-pattern sh-pattern? span->sh-pattern* sh-pattern->span*
     sh-pattern-front/string sh-pattern-back/string sh-pattern-match? sh-wildcard?)

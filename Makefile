@@ -33,7 +33,7 @@ LIBS=$(CHEZ_SCHEME_KERNEL) -lz -llz4 -lncurses -ldl -lm -lpthread -luuid $(LIB_I
 #
 # no user-serviceable parts below this line
 #
-LIBSCHEMESH_SO=libschemesh_0.7.0.so
+LIBSCHEMESH_SO=libschemesh_0.7.1.so
 
 OBJS=containers.o eval.o posix.o shell.o signal.o
 

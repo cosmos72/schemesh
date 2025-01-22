@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh posix (0 7 0))
+(library (schemesh posix (0 7 1))
   (export
     ; fd.ss
     c-errno c-errno->string raise-c-errno

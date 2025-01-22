@@ -245,8 +245,9 @@
   (let ((c-pgid-foreground (foreign-procedure "c_pgid_foreground" (int int) int)))
     (lambda (caller expected-pgid new-pgid)
       (let ((err (c-pgid-foreground expected-pgid new-pgid)))
-        (when (< err 0)
-          (raise-c-errno caller 'tcsetpgrp err new-pgid))
+        ; (c-pgid-foreground) may fail if new-pgid exited in the meantime
+        ; (when (< err 0)
+        ;  (raise-c-errno caller 'tcsetpgrp err new-pgid))
         err))))
 
 
