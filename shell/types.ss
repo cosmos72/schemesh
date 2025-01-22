@@ -21,6 +21,8 @@
     ; span of quadruplets (fd mode to-fd-or-path-or-closure bytevector0)
     ; to open and redirect between fork() and exec()
     (mutable redirects)
+    (mutable redirects-temp-n) ; fixnum, number elements at front of (job-redirects)
+                               ; inserted by temporary redirections
     (mutable fds-to-remap) ; for builtins or multijobs, #f or hashmap job-logical-fd -> actual-fd-to-use
     (mutable fds-to-close) ; for builtins or multijobs, '() or list of fds to close at job exit
     start-proc      ; #f or procedure to run in main process.
@@ -35,7 +37,7 @@
     (mutable env-lazy)   ; #f or span of env variable name each followed by string or procedure
     (mutable parent))    ; parent job, contains default values of env variables
                          ; and default redirections
-  (nongenerative #{job ghm1j1xb9o5tkkhhucwauly2c-1175}))
+  (nongenerative #{job ghm1j1xb9o5tkkhhucwauly2c-1178}))
 
 
 ;; Define the record type "cmd"
@@ -45,7 +47,7 @@
   (fields
     arg-list                     ; list of strings and closures: program-name and args
     (mutable expanded-arg-list)) ; #f or list of strings: program-name and args after applying closures and expanding aliases
-  (nongenerative #{cmd ghm1j1xb9o5tkkhhucwauly2c-1176}))
+  (nongenerative #{cmd ghm1j1xb9o5tkkhhucwauly2c-1179}))
 
 
 ;; Define the record type "multijob"
@@ -56,7 +58,7 @@
     kind                ; symbol: one of 'sh-and 'sh-or 'sh-not 'sh-list 'sh-subshell 'sh-global
     (mutable current-child-index) ; -1 or index of currently running child job
     children)           ; span: children jobs.
-  (nongenerative #{multijob ghm1j1xb9o5tkkhhucwauly2c-1177}))
+  (nongenerative #{multijob ghm1j1xb9o5tkkhhucwauly2c-1180}))
 
 
 

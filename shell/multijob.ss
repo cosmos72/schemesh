@@ -106,15 +106,15 @@
       (validate-job-proc kind (car tail))))
   (let ((mj
     (%make-multijob #f -1 -1 '(new . 0)
-      (span) #f '() ; redirections
-      start-proc    ; executed to start the job
-      next-proc     ; executed when a child job changes status
-      #f            ; working directory - initially inherited by parent job
-      #f            ; overridden environment variables - initially none
-      #f            ; env var assignments - initially none
-      (sh-globals)  ; parent job - initially the global job
+      (span) 0 #f '() ; redirections
+      start-proc      ; executed to start the job
+      next-proc       ; executed when a child job changes status
+      #f              ; working directory - initially inherited by parent job
+      #f              ; overridden environment variables - initially none
+      #f              ; env var assignments - initially none
+      (sh-globals)    ; parent job - initially the global job
       kind
-      -1            ; no child running yet
+      -1              ; no child running yet
       (list->span children-jobs))))
 
     ;; set the parent of children-jobs

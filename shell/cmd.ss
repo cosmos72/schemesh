@@ -19,14 +19,14 @@
 
 (define (make-cmd program-and-args)
   (%make-cmd #f -1 -1 '(new . 0)
-    (span) #f '() ; redirections
-    cmd-start #f  ; start-proc step-proc
-    #f            ; working directory - initially inherited by parent job
-    #f            ; overridden environment variables - initially none
-    #f            ; env var assignments - initially none
-    (sh-globals)  ; parent job - initially the global job
+    (span) 0 #f '() ; redirections
+    cmd-start #f    ; start-proc step-proc
+    #f              ; working directory - initially inherited by parent job
+    #f              ; overridden environment variables - initially none
+    #f              ; env var assignments - initially none
+    (sh-globals)    ; parent job - initially the global job
     program-and-args
-    #f))          ; expanded arg-list
+    #f))            ; expanded arg-list
 
 
 

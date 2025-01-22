@@ -188,14 +188,16 @@
       (begin
         (%job-last-status-set! job status)
         (when (job-status-member? status '(exited killed unknown))
-          ; unset expanded arg-list, because next expansion may differ
           (when (sh-cmd? job)
+            ; unset expanded arg-list, because next expansion may differ
             (cmd-expanded-arg-list-set! job #f))
           (job-unmap-fds! job)
           (let ((fds (job-fds-to-close job)))
             (unless (null? fds)
               (fd-close-list fds)
-              (job-fds-to-close-set! job '()))))
+              (job-fds-to-close-set! job '())))
+          ; remove temporary redirections
+          (job-unredirect/temp/all! job))
         status))))
 
 
@@ -684,7 +686,7 @@
       ;; waiting for sh-globals to exit is not useful:
       ;; pretend it already exited with unknown exit status
       (%make-multijob 0 (pid-get) (pgid-get 0) '(unknown . 0)
-         (span) #f '() ; redirections
+         (span) 0 #f '() ; redirections
          #f #f ; start-proc step-proc
          (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) ; current directory
          (make-hashtable string-hash string=?) ; env variables

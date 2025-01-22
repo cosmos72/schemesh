@@ -12,11 +12,13 @@
 
 ;; Create a pipe multijob to later start it. Each element in children-jobs must be a sh-job or subtype.
 (define (sh-pipe . children-jobs)
-  (make-multijob 'sh-pipe assert-is-job job-start/pipe #f children-jobs))
+  (make-multijob 'sh-pipe assert-is-job-or-pipe-symbol job-start/pipe #f
+    (validate-convert-pipe-args children-jobs)))
 
 
 ;; Create a pipe multijob to later start it.
-;; Each element in children-jobs-with-pipe be a sh-job (or subtype) or the symbols '\ '|&
+;; Odd elements in children-jobs-with-pipe must be sh-job or subtype.
+;; Even elements in children-jobs-with-pipe must be one of the symbols '\ '|&
 (define (sh-pipe* . children-jobs-with-pipe)
   (validate-pipe*-args children-jobs-with-pipe)
   (make-multijob 'sh-pipe
@@ -26,19 +28,31 @@
     children-jobs-with-pipe))
 
 
+;; check that args is a list of jobs, and insert a '| between each pair of jobs
+(define (validate-convert-pipe-args args)
+  (let %again ((tail args)
+               (ret '()))
+    (if (null? tail)
+      (if (null? ret)
+        ret
+        (reverse! (cdr ret))) ; remove last extra '|
+      (let ((arg (car tail)))
+        (assert-is-job 'sh-pipe arg)
+        (%again (cdr args) (cons '\x7c; (cons arg ret)))))))
+
+
+;; check that args is an alternating list of jobs and symbols '| '|&
 (define (validate-pipe*-args args)
-  (let ((prev-arg #f))
+  (let ((i 0))
     (list-iterate args
       (lambda (arg)
         (assert-is-job-or-pipe-symbol 'sh-pipe* arg)
-        (when (symbol? arg)
-          (unless prev-arg
-            (raise-errorf 'sh-pipe* "missing job before operator ~a" arg))
-          (when (symbol? prev-arg)
-            (raise-errorf 'sh-pipe* "missing job between consecutive operators ~a ~a" prev-arg arg)))
-        (set! prev-arg arg)))
-    (when (symbol? prev-arg)
-      (raise-errorf 'sh-pipe* "missing job after operator ~a" prev-arg))))
+        (if (fxeven? i)
+          (unless (sh-job? arg)
+            (raise-errorf 'sh-pipe* "even-indexed arguments must be sh-job or subtype, found instead ~s" arg))
+          (unless (pipe-sym? arg)
+            (raise-errorf 'sh-pipe* "odd-indexed arguments must one of | |^ found instead ~s" arg)))
+        (set! i (fx1+ i))))))
 
 
 (define (assert-is-job-or-pipe-symbol who arg)
@@ -89,16 +103,16 @@
     ; Apply redirections. Will be removed by job-advance/pipe/wait) when job finishes.
     (when redirect-in?
       ; we must redirect job fd 0 *before* any redirection configured in the job itself
-      (job-redirect/front/fd! job 0 '<& in-pipe-fd))
+      (job-redirect/temp/fd! job 0 '<& in-pipe-fd))
     (when redirect-out?
       (let-values (((fd/read fd/write) (open-pipe-fds #t #t)))
         (set! out-pipe-fd/read  fd/read)
         (set! out-pipe-fd/write fd/write)
         ; we must redirect job's fd 1 *before* any redirection configured in the job itself
-        (job-redirect/front/fd! job 1 '>& fd/write)
+        (job-redirect/temp/fd! job 1 '>& fd/write)
         (when redirect-err?
           ; we must redirect job's fd 2 *before* any redirection configured in the job itself
-          (job-redirect/front/fd! job 2 '>& fd/write))))
+          (job-redirect/temp/fd! job 2 '>& fd/write))))
 
     ; (debugf "job-start/pipe-i starting job=~s, options=~s" job options)
 
@@ -166,30 +180,7 @@
       (#t
         (multijob-current-child-index-set! mj -1)
         (job-pgid-set! mj -1)
-        (when (job-status-finished?
-                (job-status-set! mj
-                  (if (span-empty? children)
-                    (void)
-                    (job-last-status (span-back children)))))
-          (job-advance/pipe/remove-children-redirections mj))))))
-
-
-;; WARNING: fragile, assumes user did not modify children jobs redirections
-;; while the jobs where running.
-(define (job-advance/pipe/remove-children-redirections mj)
-  (let* ((children  (multijob-children mj))
-         (n         (span-length children)))
-    (span-iterate children
-      (lambda (i job)
-        (when (sh-job? job)
-          (let* ((redirect-in?  (fx>? i 0))
-                 (redirect-out? (fx<? i (fx1- n)))
-                 (redirect-err? (and redirect-out?
-                                     (eq? '\x7c;& (sh-multijob-child-ref mj (fx1+ i))))))
-
-            (when redirect-err?
-              (job-unredirect/front! job))
-            (when redirect-out?
-              (job-unredirect/front! job))
-            (when redirect-in?
-              (job-unredirect/front! job))))))))
+        (job-status-set! mj
+          (if (span-empty? children)
+            (void)
+            (job-last-status (span-back children))))))))

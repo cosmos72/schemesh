@@ -103,7 +103,6 @@
            (case kind
              ((sh-or)   " || ")
              ((sh-and)  " && ")
-             ((sh-pipe) " | ")
              (else      " "))))
     (when (fx<=? precedence outer-precedence)
       (put-char port #\{))
@@ -154,9 +153,10 @@
 
 
 (define (job-display/redirects job port)
-  (let ((redirects (job-redirects job)))
-    (do ((i 0 (fx+ i 4))
+  (let* ((redirects (job-redirects job))
          (n (span-length redirects)))
+    ; do not show temporary redirections
+    (do ((i (job-redirects-temp-n job) (fx+ i 4)))
         ((fx>? (fx+ i 4) n))
       (job-display/redirect redirects i port))))
 
@@ -221,16 +221,27 @@
     (#t                 (put-string port "???"))))
 
 
+;; return #t if job has non-temporary redirections,
+;; otherwise return #f
+(define (job-persistent-redirects? job)
+  (fx>? (span-length (job-redirects job))
+        (job-redirects-temp-n job)))
+
+
 (define (job-write/multijob job port)
   (let ((kind (multijob-kind job)))
     (cond
-      ((span-empty? (job-redirects job))
-        (put-char port #\()
-        (display kind port)
-        (job-write/children job port)
-        (put-char port #\)))
+      ; do not show temporary redirections
+      ((job-persistent-redirects? job)
+        (job-write/multijob* job port))
       (#t
-        (job-write/multijob* job port)))))
+        (put-char port #\()
+        ; we must write (sh-pipe* ...) instead of (sh-pipe ...)
+        ; because (sh-pipe) function inserted symbols '| between each pair of jobs,
+        ; which is the syntax wanted by (sh-pipe*) function
+        (display (if (eq? kind 'sh-pipe) 'sh-pipe* kind) port)
+        (job-write/children job port)
+        (put-char port #\))))))
 
 
 (define (job-write/children job port)
@@ -252,9 +263,9 @@
 
 
 (define (job-write/cmd job port)
-  (put-string port (if (and (span-empty? (job-redirects job)) (not (job-env-lazy job)))
-                     "(sh-cmd"
-                     "(sh-cmd*"))
+  (put-string port (if (or (job-persistent-redirects? job) (job-env-lazy job))
+                     "(sh-cmd*"
+                     "(sh-cmd"))
   (job-write/env-lazy job port)
   (list-iterate (or (cmd-expanded-arg-list job) (cmd-arg-list job))
     (lambda (arg)
@@ -281,9 +292,10 @@
 
 
 (define (job-write/redirects job port)
-  (let ((redirects (job-redirects job)))
-    (do ((i 0 (fx+ i 4))
+  (let* ((redirects (job-redirects job))
          (n (span-length redirects)))
+    ; do not show temporary redirections
+    (do ((i (job-redirects-temp-n job) (fx+ i 4)))
         ((fx>? (fx+ i 4) n))
       (job-write/redirect redirects i port))))
 

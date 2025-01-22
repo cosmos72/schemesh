@@ -112,7 +112,6 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 
 ## TO DO
 
-* mark and hide temporary redirections created by (sh-pipe) and (sh-pipe*)
 * autocomplete shell paths and scheme strings: unescape stems before searching for completions, escape completions
 * autocomplete shell paths starting with ~
 * decide: (shell-backquote) should expand to a closure that accepts a parent job and creates a subshell with such parent job?
@@ -132,3 +131,4 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 * at exit, save history to the same file
 * implement (include/lang)
 * implement pipeline operator |&
+* mark and hide temporary redirections created by (sh-pipe) and (sh-pipe*)
