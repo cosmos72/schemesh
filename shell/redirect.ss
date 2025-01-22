@@ -106,7 +106,7 @@
     job))
 
 
-;; Add a single redirection to a job
+;; Append a single redirection to a job
 (define (job-redirect! job fd direction to)
   (unless (fx>=? fd 0)
     (raise-errorf 'sh-redirect! "invalid redirect fd, must be an unsigned fixnum: ~a" fd))
@@ -115,7 +115,7 @@
     (job-redirect/file! job fd direction to)))
 
 
-;; Add a single fd redirection to a job
+;; Append a single fd redirection to a job
 (define (job-redirect/fd! job fd direction to)
   (unless (fx>=? to -1)
     (raise-errorf 'sh-redirect! "invalid redirect to fd, must be -1 or an unsigned fixnum: ~a" to))
@@ -148,3 +148,19 @@
         #f)
       (#t
         (raise-errorf 'sh-redirect! "invalid redirect to fd or file, target must be a string, bytevector or procedure: ~s" to)))))
+
+
+;; Prefix a single fd redirection to a job
+(define (job-redirect/front/fd! job fd direction to)
+  (unless (fx>=? to -1)
+    (raise-errorf 'sh-redirect! "invalid redirect to fd, must be -1 or an unsigned fixnum: ~a" to))
+  (span-insert-front! (job-redirects job)
+    fd
+    (%sh-redirect/fd-symbol->char 'sh-redirect! direction)
+    to
+    #f))
+
+
+;; Remove the first redirection from a job
+(define (job-unredirect/front! job)
+  (span-erase-front! (job-redirects job) 4))

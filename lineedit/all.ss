@@ -93,7 +93,7 @@
     syntax-errorf
 
     ; vscreen.ss
-    vscreen  vscreen*  vscreen?  assert-vscreen?
+    make-vscreen  vscreen*  vscreen?  assert-vscreen?
     vscreen-width        vscreen-height     vscreen-width-at-y  vscreen-resize!
     vscreen-dirty?       vscreen-dirty-set!
     vscreen-cursor-ix    vscreen-cursor-iy  vscreen-cursor-ixy  vscreen-cursor-ixy-set!

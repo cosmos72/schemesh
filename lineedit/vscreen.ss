@@ -7,7 +7,7 @@
 
 (library (schemesh lineedit vscreen (0 7 0))
   (export
-    vscreen  vscreen*  vscreen?  assert-vscreen?
+    make-vscreen  vscreen*  vscreen?  assert-vscreen?
     vscreen-width        vscreen-height     vscreen-width-at-y  vscreen-resize!
     vscreen-dirty?       vscreen-dirty-set!
     vscreen-cursor-ix    vscreen-cursor-iy  vscreen-cursor-ixy  vscreen-cursor-ixy-set!
@@ -60,16 +60,16 @@
 ;;
 ;; vscreen must always contain at least one (possibly empty) charline.
 (define-record-type
-  (%vscreen %make-vscreen vscreen?)
+  (vscreen %make-vscreen vscreen?)
   (parent %charlines)
   (fields
-    (mutable dirty?     vscreen-dirty?     %vscreen-dirty-set!  )  ;; boolean, #t if some line is dirty
-    (mutable width      vscreen-width      vscreen-width-set!   )  ;; fixnum, screen width
-    (mutable height     vscreen-height     vscreen-height-set!  )  ;; fixnum, screen height
-    (mutable prompt-end-x vscreen-prompt-end-x vscreen-prompt-end-x-set!) ;; fixnum, x column where prompt ends
-    (mutable prompt-end-y vscreen-prompt-end-y vscreen-prompt-end-y-set!) ;; fixnum, y row where prompt ends
-    (mutable cursor-x   vscreen-cursor-ix   vscreen-cursor-ix-set!)  ;; fixnum, cursor x position
-    (mutable cursor-y   vscreen-cursor-iy   vscreen-cursor-iy-set!)) ;; fixnum, cursor y position
+    (mutable dirty? vscreen-dirty? %vscreen-dirty-set!) ;; boolean, #t if some line is dirty
+    (mutable width)        ;; fixnum, screen width
+    (mutable height)       ;; fixnum, screen height
+    (mutable prompt-end-x) ;; fixnum, x column where prompt ends
+    (mutable prompt-end-y) ;; fixnum, y row where prompt ends
+    (mutable cursor-ix)    ;; fixnum, cursor x position
+    (mutable cursor-iy))   ;; fixnum, cursor y position
   (nongenerative #{%vscreen jrk9oih6lhpsih9dh3qu06xvo-525}))
 
 
@@ -79,7 +79,7 @@
 
 
 ;; create a vscreen
-(define (vscreen)
+(define (make-vscreen)
   (%make-vscreen (span) (span (charline)) (greatest-fixnum) 0 #f 80 24 0 0 0 0))
 
 
@@ -766,7 +766,7 @@
 
 
 ;; customize how "vscreen" objects are printed
-(record-writer (record-type-descriptor %vscreen)
+(record-writer (record-type-descriptor vscreen)
   (lambda (screen port writer)
     (write-vscreen screen port)))
 

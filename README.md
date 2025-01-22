@@ -26,7 +26,7 @@ Features:
 - [x] shell aliases
 - [ ] shell builtins - in progress
 - [x] shell environment variables
-- [x] shell pipelines `|`
+- [x] shell pipelines `|` `|&`
 - [x] shell redirections `<` `>` `<>` `>>` `<&` `>&` `$()` ``` `` ```
 - [x] shell wildcard expansion
 
@@ -114,19 +114,20 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 
 * autocomplete shell paths and scheme strings: unescape stems before searching for completions, escape completions
 * autocomplete shell paths starting with ~
-* at startup, (include/lang) initialization file from ~/.config/schemesh/init.schemesh
 * decide: (shell-backquote) should expand to a closure that accepts a parent job and creates a subshell with such parent job?
 * modify builtin "cd", for changing current directory of *parent* job
 * implement builtin "set", for setting environment variables in *parent* job
 * implement builtin "global", for running another builtin with its parent job set to (sh-globals)
 * implement builtin "unsafe", for executing the output of a subshell or any other closure
   add check to macro (shell): if first argument contains (shell-backquote), raise condition suggesting to prefix it with "unsafe"
-* add missing shell builtins: bg fg kill exec exit global-cd set global-set unalias unsafe unset
+* add missing shell builtins: bg fg kill exec exit export global set unalias unsafe unset
 * complete existing builtins: alias, without arguments must list existing aliases
 * implement function (string->sh-patterns)
 
 ## DONE
 
+* at startup, (include/lang) initialization file ~/.config/schemesh/repl_init.ss
 * at startup, load history from ~/.cache/schemesh/history.txt
 * at exit, save history to the same file
 * implement (include/lang)
+* implement pipeline operator |&

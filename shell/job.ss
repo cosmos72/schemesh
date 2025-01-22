@@ -188,6 +188,9 @@
       (begin
         (%job-last-status-set! job status)
         (when (job-status-member? status '(exited killed unknown))
+          ; unset expanded arg-list, because next expansion may differ
+          (when (sh-cmd? job)
+            (cmd-expanded-arg-list-set! job #f))
           (job-unmap-fds! job)
           (let ((fds (job-fds-to-close job)))
             (unless (null? fds)

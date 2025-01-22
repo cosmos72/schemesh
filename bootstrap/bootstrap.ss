@@ -73,6 +73,7 @@
   (let ((pts1 #f))
     (lambda ()
       (unless pts1
+        ; works, but leaks into child processes :(
         (set! pts1 (open-file-output-port
                      "/dev/pts/1"
                      (file-options no-create no-truncate)

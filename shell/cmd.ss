@@ -25,7 +25,8 @@
     #f            ; overridden environment variables - initially none
     #f            ; env var assignments - initially none
     (sh-globals)  ; parent job - initially the global job
-    program-and-args))
+    program-and-args
+    #f))          ; expanded arg-list
 
 
 
@@ -51,6 +52,9 @@
   ; sanity: (sh-alias-expand) ignores aliases for "builtin"
   (let* ((prog-and-args (sh-alias-expand (cmd-arg-list-expand c)))
          (builtin       (sh-find-builtin prog-and-args)))
+    (unless (eq? prog-and-args (cmd-arg-list c))
+      ; save expanded cmd-arg-list for more accurate pretty-printing
+      (cmd-expanded-arg-list-set! c prog-and-args))
     ; apply lazy environment variables *after* expanding cmd-arg-list
     (job-env/apply-lazy! c)
     (if builtin
@@ -178,13 +182,15 @@
          (redirects     (job-redirects job))
          (fd            (span-ref redirects index))
          (direction-ch  (span-ref redirects (fx1+ index)))
-         ;; redirection from fd to file may already be opened on a different file descriptor
-         ;; due to fd remapping
-         (remapped-to   (job-find-fd-remap job fd))
-         (to            (if (fx=? fd remapped-to)
-                          ; no remapping found, set "to"
+         ;; fd may need to be redirected to a different file descriptor due to fd remapping
+         (remapped-fd   (job-find-fd-remap job fd))
+         (to            (if (fx=? fd remapped-fd)
+                          ; no remapping found, extract redirection.
                           (job-extract-redirection-to-fd-or-bytevector0 job dir redirects index)
-                          remapped-to)))
+                          ; remapping found, use it
+                          remapped-fd)))
+
+    ; (debugf "job-fill-c-redirect-vector job=~s redirect fd=~s -> fd=~s, remapped-fd = ~s" job fd to remapped-fd)
     (vector-set! v pos fd)
     (vector-set! v (fx1+  pos) direction-ch)
     ;; to-fd must be placed at pos + 2

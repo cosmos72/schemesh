@@ -122,7 +122,7 @@
 
 (define (job-display/cmd job port)
   (job-display/env-lazy job port)
-  (do ((tail (cmd-arg-list job) (cdr tail))
+  (do ((tail (or (cmd-expanded-arg-list job) (cmd-arg-list job)) (cdr tail))
        (first? #t #f))
       ((null? tail))
     (unless first?
@@ -256,7 +256,7 @@
                      "(sh-cmd"
                      "(sh-cmd*"))
   (job-write/env-lazy job port)
-  (list-iterate (cmd-arg-list job)
+  (list-iterate (or (cmd-expanded-arg-list job) (cmd-arg-list job))
     (lambda (arg)
       (put-char port #\space)
       (put-datum port arg)))

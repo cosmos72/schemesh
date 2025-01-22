@@ -9,13 +9,19 @@
 ;; this file should only be included inside a (library ...) definition
 
 
-;; Return #t if token is a shell command separator: ; & && || |
+;; Returntruish if token is a shell command separator: ; & && || | |&
 (define (cmd-separator? token)
   (and (symbol? token)
        (memq token '(& && \x3b; \x7c;\x7c; \x7c; \x7c;&
                      ))))
 
-;; Return #t if token is a shell redirection operator: < <> <& > >> >&
+;; Return truish if token is a shell pipe operator: | |&
+(define (pipe-sym? token)
+  (and (symbol? token)
+       (memq token '(\x7c; \x7c;&
+                     ))))
+
+;; Return truish if token is a shell redirection operator: < <> <& > >> >&
 (define (redirection-sym? token)
   (and (symbol? token)
        (memq token '(< <> > >> <& >&))))

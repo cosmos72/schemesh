@@ -24,14 +24,13 @@
 
 
 (define-record-type
-  (%pattern %make-pattern sh-pattern?)
+  (pattern %make-pattern sh-pattern?)
   (fields
-     (immutable sp      pattern-span)
-     (immutable min-len pattern-min-len) ; the length of shortest string that can be matched
-     (immutable max-len pattern-max-len) ; #f or the the length of longest string that can be matched
-     (immutable fixed?  pattern-fixed?)) ; #t if sp contains only strings
-  ; (nongenerative #{%pattern ...})
-  )
+     span       ; span of strings and symbols
+     min-len    ; length of shortest string that can be matched
+     max-len    ; length of longest string that can be matched, or #f if unlimited
+     fixed?)    ; #t if sp contains only strings
+  (nongenerative #{%pattern y20ej9ny9anof5y82rq0r1qh-632}))
 
 
 ;; create a sh-pattern containing a list of strings and wildcard symbols.
@@ -532,7 +531,7 @@
 
 
 ;;  customize how "sh-pattern" objects are printed
-(record-writer (record-type-descriptor %pattern)
+(record-writer (record-type-descriptor pattern)
   (lambda (p port writer)
     (display "(sh-pattern" port)
     (span-iterate (pattern-span p)

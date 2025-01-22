@@ -18,7 +18,7 @@
 (import
   (rnrs)
   (only (chezscheme) environment? environment-mutable? eval
-                     interaction-environment logbit? make-thread-parameter))
+                     interaction-environment logbit? make-parameter make-thread-parameter))
 
 ;; (%raise-errorf) is local to scope (let () ...) above
 (define (%raise-errorf who format-string . format-args)
@@ -66,15 +66,16 @@
 
 ;; Parameter containing the global job corresponding to this process.
 ;; Jobs started with (sh-start) will be children of (sh-globals).
-;
+;;
 ;; May be parameterized to a different value in subshells.
 (unless (top-level-bound? 'sh-globals)
   ; (set! sh-globals (make-thread-parameter #f))) ; fails with "attempt to assign immutable variable sh-globals"
   (eval '(set! sh-globals (make-parameter #f))
         (sh-current-environment)))
 
+
 ;; Parameter containing the global hashtable pid -> job.
-;
+;;
 ;; May be parameterized to a different value in subshells.
 (unless (top-level-bound? 'sh-pid-table)
   (set! sh-pid-table

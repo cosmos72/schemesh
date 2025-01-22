@@ -70,7 +70,9 @@
     (mutable completion-func)
     (mutable ktable)        ; hashtable, contains keybindings
     (mutable history-index) ; index of last used item in history
-    history))               ; charhistory, history of entered commands
+    history)                ; charhistory, history of entered commands
+  (nongenerative #{linectx nuxrmccfi39or6fxntagza5ob-986}))
+
 
 (define flag-eof? 1)
 (define flag-return? 2)

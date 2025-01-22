@@ -42,7 +42,9 @@
 (define-record-type
   (cmd %make-cmd sh-cmd?)
   (parent job)
-  (fields arg-list) ; list of strings: program-name and args
+  (fields
+    arg-list                     ; list of strings and closures: program-name and args
+    (mutable expanded-arg-list)) ; #f or list of strings: program-name and args after applying closures and expanding aliases
   (nongenerative #{cmd ghm1j1xb9o5tkkhhucwauly2c-1176}))
 
 
