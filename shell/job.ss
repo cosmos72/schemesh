@@ -278,15 +278,23 @@
 ;; if job has terminated, clear its job id and close its fds.
 ;; Also replace any job status '(running . #f) -> '(running . job-id)
 ;; Return updated job status.
+;;
+;; Note: does not create job-id for children of (sh-pipe) jobs.
 (define (job-id-update! job)
-  (let ((status (job-last-status job)))
-    (case (job-status->kind status)
-      ((running stopped)
-        (job-id-set! job))
-      ((exited killed unknown)
-        (job-id-unset! job))
-      (else
-        status))))
+  (let ((parent (job-parent job))
+        (status (job-last-status job)))
+    (if (and (sh-multijob? parent) (eq? 'sh-pipe (multijob-kind parent)))
+      ;; the children of (sh-pipe) jobs are not supposed to be started/stopped individually:
+      ;; the parent (sh-pipe) job always starts/stops all of them collectively.
+      ;; thus assigning a job-id to such children usually just adds noise.
+      (job-id-unset! job)
+      (case (job-status->kind status)
+        ((running stopped)
+          (job-id-set! job))
+        ((exited killed unknown)
+          (job-id-unset! job))
+        (else
+          status)))))
 
 
 

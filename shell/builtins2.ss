@@ -48,7 +48,9 @@
              (other-status (sh-bg job)))
         (if (job-status-finished? other-status)
           other-status
-          (sh-job-display/summary job))) ; returns (void) i.e. bg exiting, status = 0
+          ; job still exists, show its running/stopped status.
+          ; returns (void) i.e. builtin "bg" exiting successfully.
+          (sh-job-display/summary job)))
       (write-builtin-error "bg" arg "no such job")))) ; returns '(exited . 1)
 
 
@@ -66,7 +68,9 @@
              (other-status (sh-fg job)))
         (if (job-status-finished? other-status)
           other-status
-          (sh-job-display/summary job))) ; returns (void) i.e. fg exiting, status = 0
+          ; job still exists, show its running/stopped status.
+          ; returns (void) i.e. builtin "fg" exiting successfully.
+          (sh-job-display/summary job)))
       (write-builtin-error "fg" arg "no such job")))) ; returns '(exited . 1)
 
 
