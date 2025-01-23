@@ -15,7 +15,7 @@
     linectx-stdin  linectx-stdin-set! linectx-stdout linectx-stdout-set!
     linectx-prompt      linectx-prompt-end-x  linectx-prompt-end-y
     linectx-prompt-func linectx-prompt-length linectx-prompt-length-set!
-    linectx-parenmatcher linectx-ktable
+    linectx-parenmatcher linectx-keytable
     linectx-paren linectx-paren-set!
     linectx-completions linectx-completion-stem linectx-completion-func
     linectx-parser-name linectx-parser-name-set!
@@ -24,7 +24,7 @@
     linectx-load-history! linectx-save-history
     linectx-clear!  linectx-eof? linectx-eof-set! linectx-redraw? linectx-redraw-set!
     linectx-return? linectx-return-set!
-    linectx-default-keytable linectx-keytable-set! linectx-keytable-find)
+    linectx-default-keytable linectx-keytable-find linectx-keytable-insert!)
 
   (import
     (rnrs)
@@ -68,7 +68,7 @@
     completion-stem         ; charspan, chars from vscreen used as stem
     ; procedure, receives linectx as argument and should update completions and stem
     (mutable completion-func)
-    (mutable ktable)        ; hashtable, contains keybindings
+    (mutable keytable)      ; hashtable, contains keybindings. Usually eq? linectx-default-keytable
     (mutable history-index) ; index of last used item in history
     history)                ; charhistory, history of entered commands
   (nongenerative #{linectx nuxrmccfi39or6fxntagza5ob-986}))
@@ -202,7 +202,7 @@
       parenmatcher #f            ; parenmatcher paren
       (span) (charspan) completion-func ; completions stem completion-func
       linectx-default-keytable   ; keytable
-      0 history)))              ; history
+      0 history)))               ; history
 
 (define (default-prompt-func lctx)
   (let* ((str    (symbol->string (linectx-parser-name lctx)))
@@ -261,7 +261,7 @@
   (charhistory-save (linectx-history lctx)))
 
 
-(define (linectx-keytable-set! keytable proc . keysequences)
+(define (linectx-keytable-insert! keytable proc . keysequences)
   (letrec
     ((%add-bytelist (lambda (htable bytelist)
       (let ((byte (car bytelist)))

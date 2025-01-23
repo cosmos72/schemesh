@@ -43,7 +43,7 @@
 (define (linectx-keytable-call lctx)
   (assert* 'linectx-keytable-call (linectx? lctx))
   (let ((rbuf (linectx-rbuf lctx)))
-    (let-values (((proc n) (linectx-keytable-find (linectx-ktable lctx) rbuf)))
+    (let-values (((proc n) (linectx-keytable-find (linectx-keytable lctx) rbuf)))
       ; (debugf "linectx-keytable-call consume ~s bytes, call ~s" n proc)
       (cond
         ((procedure? proc) (void))     ; proc called below, we update rbuf first
@@ -437,8 +437,11 @@
       q
       (fx1+ q))))
 
-(define (lineedit-key-toggle-insert lctx)
+(define (lineedit-key-inspect-linectx lctx)
   (tty-inspect lctx))
+
+(define (lineedit-key-toggle-insert lctx)
+  (void))
 
 (define (lineedit-key-cmd-cd-parent lctx)
   ((top-level-value 'sh-cd) "..")
@@ -1056,29 +1059,30 @@
       #t))) ; return "waiting for more keypresses"
 
 (let ((t linectx-default-keytable)
-      (%add linectx-keytable-set!))
-  (%add t lineedit-key-bol 1)      ; CTRL+A
-  (%add t lineedit-key-left 2)     ; CTRL+B
-  (%add t lineedit-key-break 3)    ; CTRL+C
-  (%add t lineedit-key-ctrl-d 4)   ; CTRL+D
-  (%add t lineedit-key-eol 5)      ; CTRL+E
-  (%add t lineedit-key-right 6)    ; CTRL+F
-  (%add t lineedit-key-del-left 8 127)    ; CTRL+H or BACKSPACE
-  (%add t lineedit-key-tab 9)      ; CTRL+I or TAB
-  (%add t lineedit-key-enter 10 13); CTRL+J or ENTER, CTRL+M
-  (%add t lineedit-key-del-line-right 11) ; CTRL+K
-  (%add t lineedit-key-redraw 12)  ; CTRL+L
-  (%add t lineedit-key-history-next 14)   ; CTRL+N
-  (%add t lineedit-key-newline-right 15)  ; CTRL+O
-  (%add t lineedit-key-history-prev 16)   ; CTRL+P
-  (%add t lineedit-key-transpose-char 20) ; CTRL+T
-  (%add t lineedit-key-del-line-left 21)  ; CTRL+U
+      (%add linectx-keytable-insert!))
+  (%add t lineedit-key-bol          1) ; CTRL+A
+  (%add t lineedit-key-left         2) ; CTRL+B
+  (%add t lineedit-key-break        3) ; CTRL+C
+  (%add t lineedit-key-ctrl-d       4) ; CTRL+D
+  (%add t lineedit-key-eol          5) ; CTRL+E
+  (%add t lineedit-key-right        6) ; CTRL+F
+  (%add t lineedit-key-del-left 8 127) ; CTRL+H, BACKSPACE
+  (%add t lineedit-key-tab          9) ; CTRL+I, TAB
+  (%add t lineedit-key-enter    10 13) ; CTRL+J or ENTER, CTRL+M
+  (%add t lineedit-key-del-line-right  11) ; CTRL+K
+  (%add t lineedit-key-redraw          12) ; CTRL+L
+  (%add t lineedit-key-history-next    14) ; CTRL+N
+  (%add t lineedit-key-newline-right   15) ; CTRL+O
+  (%add t lineedit-key-history-prev    16) ; CTRL+P
+  (%add t lineedit-key-transpose-char  20) ; CTRL+T
+  (%add t lineedit-key-del-line-left   21) ; CTRL+U
+  (%add t lineedit-key-inspect-linectx 28) ; CTRL+4, CTRL+BACKSPACE
   ; CTRL+W, CTRL+BACKSPACE, ALT+BACKSPACE
   (%add t lineedit-key-del-word-left 23 31 '(27 127))
   ; sequences starting with ESC
-  (%add t lineedit-key-word-left '(27 66) '(27 98))       ; ALT+B, ALT+b
+  (%add t lineedit-key-word-left      '(27 66) '(27 98))  ; ALT+B, ALT+b
   (%add t lineedit-key-del-word-right '(27 68) '(27 100)) ; ALT+D, ALT+d
-  (%add t lineedit-key-word-right '(27 70) '(27 102))     ; ALT+F, ALT+f
+  (%add t lineedit-key-word-right     '(27 70) '(27 102)) ; ALT+F, ALT+f
   ; sequences starting with ESC O
   (%add t lineedit-key-up    '(27 79 65))        ; UP    \eOA
   (%add t lineedit-key-down  '(27 79 66))        ; DOWN  \eOB

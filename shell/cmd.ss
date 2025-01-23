@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-;; this file should only be included inside a (library ...) definition
+;; this file should be included only from file ../job.ss
 
 
 
@@ -52,6 +52,7 @@
   ; sanity: (sh-alias-expand) ignores aliases for "builtin"
   (let* ((prog-and-args (sh-alias-expand (cmd-arg-list-expand c)))
          (builtin       (sh-find-builtin prog-and-args)))
+    ; (debugf "cmd-start expanded-prog-and-args=~s builtin=~s" prog-and-args builtin)
     (unless (eq? prog-and-args (cmd-arg-list c))
       ; save expanded cmd-arg-list for more accurate pretty-printing
       (cmd-expanded-arg-list-set! c prog-and-args))
@@ -122,13 +123,11 @@
 
 ;; internal function called by (cmd-start) to spawn a subprocess
 (define cmd-spawn
-  (let ((c-pid-spawn (foreign-procedure "c_pid_spawn"
-                        (ptr ptr ptr ptr int) int)))
+  (let ((c-cmd-spawn (foreign-procedure "c_cmd_spawn" (ptr ptr ptr ptr int) int)))
     (lambda (c argv options)
       (let* ((process-group-id (job-start-options->process-group-id options))
              (job-dir (job-cwd-if-set c))
-             (global-dir (sh-cwd))
-             (ret (c-pid-spawn
+             (ret (c-cmd-spawn
                     argv
                     (if job-dir (text->bytevector0 job-dir) #f)
                     (job-make-c-redirect-vector c)
@@ -138,6 +137,20 @@
           (raise-c-errno 'sh-start 'fork ret))
         (job-pid-set! c ret)
         (job-pgid-set! c (if (> process-group-id 0) process-group-id ret))))))
+
+
+;; internal function called by (builtin-exec) to exec a subprocess
+(define cmd-exec
+  (let ((c-cmd-exec (foreign-procedure "c_cmd_exec" (ptr ptr ptr ptr) int)))
+    (lambda (c argv options)
+      (let* ((job-dir (job-cwd-if-set c))
+             (ret (c-cmd-exec
+                    argv
+                    (if job-dir (text->bytevector0 job-dir) #f)
+                    (job-make-c-redirect-vector c)
+                    (sh-env->argv c 'exported))))
+        ; (c-cmd-exec) returns only if it failed
+        (job-status-set! c (cons 'exited (if (integer? ret) ret -1)))))))
 
 
 ;; internal function called by (cmd-spawn)
@@ -361,11 +374,3 @@
         (pid-kill (if (> pgid 0) (- pgid) pid) 'sigcont)
         (unless break-returned-normally?
           (pid-kill (if (> pgid 0) (- pgid) pid) 'sigint))))))
-
-
-;; the "command" builtin
-(define (builtin-command job prog-and-args options)
-  (assert-string-list? 'sh-builtin-command prog-and-args)
-  (assert* 'sh-builtin-command (string=? "command" (car prog-and-args)))
-  (cmd-spawn job (list->argv (cdr prog-and-args)) options)
-  (job-last-status job))

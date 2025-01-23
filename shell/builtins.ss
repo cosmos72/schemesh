@@ -7,10 +7,11 @@
 
 (library (schemesh shell builtins (0 7 1))
   (export sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
-          sh-builtin sh-builtins sh-find-builtin sh-echo sh-error sh-false sh-true sh-history sh-repl-args)
+          sh-builtin sh-builtins sh-find-builtin sh-echo sh-error
+          sh-false sh-true sh-history sh-repl-args)
   (import
     (rnrs)
-    (only (chezscheme)                    fx1+ include make-thread-parameter void)
+    (only (chezscheme)                    format fx1+ include make-thread-parameter void)
     (only (schemesh bootstrap)            debugf raise-errorf)
     (only (schemesh containers misc)      assert-string-list? list-nth string-contains-only-decimal-digits?)
     (schemesh containers bytespan)
@@ -20,11 +21,12 @@
     (only (schemesh posix fd)             fd-write)
     (schemesh lineedit charhistory)
     (only (schemesh lineedit linectx)     linectx? linectx-history)
-    (only (schemesh shell fds)            sh-fd-stdout))
+    (only (schemesh shell fds)            sh-fd-stdout sh-fd-stderr))
 
 (include "shell/aliases.ss")
 
-(define (flush-bytespan-to-fd-stdout bsp)
+
+(define (fd-stdout-write/bspan bsp)
   ; TODO: loop on short writes and call sh-consume-signals
   (fd-write (sh-fd-stdout) (bytespan-peek-data bsp)
             (bytespan-peek-beg bsp) (bytespan-peek-end bsp))
@@ -52,7 +54,7 @@
         (bytespan-insert-back/u8! wbuf 32)) ; space
       (bytespan-insert-back/string! wbuf (car tail)))
     (bytespan-insert-back/u8! wbuf 10) ; newline
-    (flush-bytespan-to-fd-stdout wbuf))
+    (fd-stdout-write/bspan wbuf))
   (void))
 
 
@@ -103,8 +105,8 @@
               (bytespan-insert-back/cbuffer! wbuf line)))
           (bytespan-insert-back/u8! wbuf 10) ; newline
           (when (fx>=? (bytespan-length wbuf) 4096)
-            (flush-bytespan-to-fd-stdout wbuf))))
-      (flush-bytespan-to-fd-stdout wbuf))))
+            (fd-stdout-write/bspan wbuf))))
+      (fd-stdout-write/bspan wbuf))))
 
 
 
@@ -153,7 +155,7 @@
            (builtin (sh-find-builtin args)))
       (unless builtin
         (raise-errorf 'sh-builtin "~a: not a shell builtin" (car args)))
-      (builtin job args options))))
+      (sh-run-builtin builtin job args options))))
 
 
 ;; given a command line prog-and-args i.e. a list of strings,
@@ -165,6 +167,28 @@
     builtin-true ; empty command line, run it with (builtin-true)
     (hashtable-ref (sh-builtins) (car prog-and-args) #f)))
 
+
+;; run a builtin. performs sanity checks on builtin's exit status
+(define (sh-run-builtin builtin job args options)
+  (let ((status (builtin job args options)))
+    (if (job-status-finished? status)
+      status
+      (%warn-bad-builtin-exit-status builtin args status)))) ; returns (void)
+
+
+;; local copy of (job-status-finished?) defined in job.ss
+(define (job-status-finished? status)
+   (or (eq? (void) status)
+       (and (pair? status)
+            (memq (car status) '(exited killed unknown)))))
+
+
+;; always returns (void). Useful for (sh-run-builtin)
+(define (%warn-bad-builtin-exit-status builtin args status)
+  (format (current-error-port)
+    "; warning: invalid exit status ~s of builtin ~s called with arguments ~s\n"
+    status builtin args)
+  (void))
 
 ;; function returning the global hashtable name -> builtin.
 ;; Each builtin must be a function accepting as arguments:

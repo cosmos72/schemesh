@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-;; this file should only be included inside a (library ...) definition
+;; this file should be included only from file ../job.ss
 
 
 ;; return charspan containing current directory of specified job.

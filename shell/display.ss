@@ -6,18 +6,21 @@
 ;;; (at your option) any later version.
 
 
-;; this file should only be included inside a (library ...) definition
+;; this file should be included only from file ../job.ss
 
 ;; can be set to #f in forked sub-processes
 (define sh-job-display/summary?
   (make-thread-parameter #t))
 
+
+;; always returns (void) - useful for builtins
 (define sh-job-display/summary
   (case-lambda
     ((job-or-id)      (sh-job-display/summary* job-or-id (current-output-port)))
     ((job-or-id port) (sh-job-display/summary* job-or-id port))))
 
 
+;; always returns (void) - useful for builtins
 (define (sh-job-display/summary* job-or-id port)
   (when (sh-job-display/summary?)
     (let* ((job    (sh-job job-or-id))
@@ -27,13 +30,14 @@
            (status (if (sh-ok? job-status) '(exited . 0) job-status)))
       (if id
         (if (>= pid 0)
-          (format port "; job ~a~s pid ~a~s ~s \t  " (pad/job-id id) id (pad/pid pid) pid status)
-          (format port "; job ~a~s            ~s \t  " (pad/job-id id) id status))
+          (format port "; job ~a~s pid ~a~s ~s \t" (pad/job-id id) id (pad/pid pid) pid status)
+          (format port "; job ~a~s            ~s \t" (pad/job-id id) id status))
         (if (>= pid 0)
-          (format port "; job pid ~a~s ~s \t  " pid (pad/pid pid) status)
-          (format port "; job            ~s \t  " status)))
+          (format port "; job pid ~a~s ~s \t" pid (pad/pid pid) status)
+          (format port "; job            ~s \t" status)))
       (sh-job-display job port)
-      (put-char port #\newline))))
+      (put-char port #\newline)))
+  (void))
 
 ;; return padding string to align printing job-id
 (define (pad/job-id id)

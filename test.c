@@ -779,7 +779,8 @@ static const testcase tests[] = {
     {"(string->paren \"{\\\"()\\\"}\")", "#<paren _{\"\"}_>"},
     /** parse mismatched paren */
     {"(string->paren \"'\" 'shell)", "#<paren _'" GRAY("'") "_>"},
-    {"(string->paren \"([{)]}\")", "#<paren _([{}" GRAY("]") GRAY(")") "_>"},
+    {"(string->paren \"([{)]}\")",
+     "#<paren _([{" GRAY("(") ") " GRAY("[") "]}" GRAY("]") GRAY(")") "_>"},
     {"(string->paren \"(\\\" a\\\"\")", "#<paren _(\"\"" GRAY(")") "_>"},
     {"(string->paren \"ls #!scheme 1 2 3\" 'shell)", "#<paren __>"},
     {"(string->paren \"{ls ; #!scheme 1 2 3}\")", "#<paren _{}_>"},
@@ -797,10 +798,16 @@ static const testcase tests[] = {
      "    (paren-find/surrounds p 8 0)\n"
      "    (paren-find/surrounds p 9 0)\n"
      "    (paren-find/surrounds p 10 0)))",
-     "(#<paren _{[]" GRAY("}") "_> #<paren {[]" GRAY(
-         "}") "> #<paren []> #<paren []> #<paren {[]"                              /*            */
-     GRAY("}") "> #<paren {[]" GRAY("}") "> #<paren {[]" GRAY("}") "> #<paren {[]" /*            */
-     GRAY("}") "> #<paren {[]" GRAY("}") "> #<paren {[]" GRAY("}") "> #<paren {[]" GRAY("}") ">)"},
+     ""
+#define P0_ "#<paren _{[] " GRAY("[") "]" GRAY("}") "_> "
+#define P1 "#<paren {[] " GRAY("[") "]" GRAY("}") ">"
+#define P1_ P1 " "
+#define P2_ "#<paren []> "
+     "(" P0_ P1_ P2_ P2_ P1_ P1_ P1_ P1_ P1_ P1_ P1 ")"},
+#undef P0_
+#undef P1
+#undef P1_
+#undef P2_
     /* -------------------------- parenmatcher -------------------------------*/
     {"(values->list (paren->values\n"
      "  (parenmatcher-find/at\n"
@@ -818,11 +825,11 @@ static const testcase tests[] = {
      "(shell { 2 0 #f 8 0)"},
     /* -------------------------- tty --------------------------------------- */
     {"(let ((sz (tty-size)))\n"
-     "  (and (pair? sz)\n"
-     "       (integer? (car sz))\n"
-     "       (integer? (cdr sz))\n"
-     "       (positive? (car sz))\n"
-     "       (positive? (cdr sz))))",
+     "  (if (and (pair? sz)\n"
+     "           (integer? (car sz)) (positive? (car sz))\n"
+     "           (integer? (cdr sz)) (positive? (cdr sz)))\n"
+     "    #t\n"
+     "    sz))\n",
      "#t"},
     /* ------------------------- posix -------------------------------------- */
     {"(c-errno)", "0"},

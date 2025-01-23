@@ -1064,9 +1064,23 @@ static int c_pgid_get(int pid) {
   return pgid >= 0 ? pgid : c_errno();
 }
 
-static int c_set_process_group(pid_t existing_pgid_if_positive) {
-  int err = setpgid(0 /*current process*/, /*                                    */
-                    existing_pgid_if_positive > 0 ? existing_pgid_if_positive : 0);
+/**
+ * set process group id (i.e. pgid) of current process:
+ * if existing_pgid > 0:
+ *   move current process into process group indicated by existing_pgid.
+ *
+ * if existing_pgid == 0 or == -1:
+ *   create a new process group with pgid == current process pid,
+ *   and move current process into it.
+ *
+ * if existing_pgid < -1:
+ *   do nothing.
+ */
+static int c_pgid_set(int existing_pgid) {
+  int err = 0;
+  if (existing_pgid >= -1) {
+    err = setpgid(0 /*current process*/, existing_pgid > 0 ? (pid_t)existing_pgid : (pid_t)0);
+  }
   return err >= 0 ? err : c_errno();
 }
 
@@ -1075,7 +1089,7 @@ static int c_set_process_group(pid_t existing_pgid_if_positive) {
  * parent: return pid, or c_errno() on error
  * child: return 0, or c_errno() on error
  */
-static int c_fork_pid(ptr vector_fds_redirect, int existing_pgid_if_positive) {
+static int c_fork_pid(ptr vector_fds_redirect, int existing_pgid) {
   const int pid = fork();
   switch (pid) {
     case -1:
@@ -1083,8 +1097,7 @@ static int c_fork_pid(ptr vector_fds_redirect, int existing_pgid_if_positive) {
     case 0: {
       /* child */
       int err;
-      if ((err = c_set_process_group((pid_t)existing_pgid_if_positive)) >= 0 &&
-          (err = c_signal_setdefault(SIGTSTP)) >= 0) {
+      if ((err = c_pgid_set(existing_pgid)) >= 0 && (err = c_signal_setdefault(SIGTSTP)) >= 0) {
         err = c_fds_redirect(vector_fds_redirect, Sfalse);
       }
       return err;
@@ -1107,13 +1120,15 @@ static int c_fork_pid(ptr vector_fds_redirect, int existing_pgid_if_positive) {
  */
 static char** vector_to_c_argz(ptr vector_of_bytevector0);
 
-/** fork() and exec() an external program, return pid.
- * if existing_pgid_if_positive > 0, add process to given pgid i.e. process group */
-static int c_pid_spawn(ptr vector_of_bytevector0_cmdline,
-                       ptr bytevector0_chdir_or_false,
-                       ptr vector_fds_redirect,
-                       ptr vector_of_bytevector0_environ,
-                       int existing_pgid_if_positive) {
+/** optionally fork(), then exec() an external program.
+ * if forked, return pid in parent process.
+ * if existing_pgid > 0, add process to given pgid i.e. process group */
+static int c_cmd_spawn_or_exec(ptr vector_of_bytevector0_cmdline,
+                               ptr bytevector0_chdir_or_false,
+                               ptr vector_fds_redirect,
+                               ptr vector_of_bytevector0_environ,
+                               int existing_pgid,
+                               int is_spawn) {
 
   char** argv = vector_to_c_argz(vector_of_bytevector0_cmdline);
   char** envp = vector_to_c_argz(vector_of_bytevector0_environ);
@@ -1142,10 +1157,14 @@ static int c_pid_spawn(ptr vector_of_bytevector0_cmdline,
   }
 
 #ifdef SCHEMESH_DEBUG_POSIX
-  fprintf(stdout, "c_pid_spawn %s ...\n", argv[0]);
+  fprintf(stdout, "c_cmd_spawn %s ...\n", argv[0]);
   fflush(stdout);
 #endif
-  pid = fork();
+  if (is_spawn) {
+    pid = fork();
+  } else {
+    pid = 0; /* pretend we are already in the child */
+  }
   switch (pid) {
     case -1:
       /* error */
@@ -1153,19 +1172,23 @@ static int c_pid_spawn(ptr vector_of_bytevector0_cmdline,
       break;
     case 0: {
       /* child */
-      if (c_set_process_group((pid_t)existing_pgid_if_positive) >= 0 &&
+      if (c_pgid_set(existing_pgid) >= 0 &&
           c_signals_setdefault() >= 0 && /*                                   */
           (bytevector0_chdir_or_false == Sfalse || c_chdir(bytevector0_chdir_or_false) >= 0) &&
           c_fds_redirect(vector_fds_redirect, Sfalse) >= 0) {
         if (envp) {
           environ = envp;
         }
-        (void)execvp(argv[0], argv);
-        /* in case or execvp() fails and returns */
+        if (strchr(argv[0], '/')) {
+          (void)execv(argv[0], argv);
+        } else {
+          (void)execvp(argv[0], argv);
+        }
+        /* in case or execv...() failed and returned */
         (void)write_command_not_found(argv[0]);
         exit(127);
       }
-      /* in case c_set_process_group() or c_chdir() or c_fds_redirect() fail */
+      /* in case c_pgid_set() or c_chdir() or c_fds_redirect() fail */
       exit(1);
     }
     default:
@@ -1179,6 +1202,42 @@ out:
     c_errno_set(-pid);
   }
   return pid;
+}
+
+/**
+ * exec() an external program. Returns only if failed.
+ * if existing_pgid > 0, add process to given pgid i.e. process group
+ */
+static int c_cmd_exec(ptr vector_of_bytevector0_cmdline,
+                      ptr bytevector0_chdir_or_false,
+                      ptr vector_fds_redirect,
+                      ptr vector_of_bytevector0_environ) {
+
+  return c_cmd_spawn_or_exec(vector_of_bytevector0_cmdline,
+                             bytevector0_chdir_or_false,
+                             vector_fds_redirect,
+                             vector_of_bytevector0_environ,
+                             -2, /* do not set pgid */
+                             0); /* is_spawn */
+}
+
+/**
+ * fork() and exec() an external program, return pid.
+ * if existing_pgid > 0, add process to given pgid i.e. process group
+ * if existing_pgid == 0 or -1, create new process group
+ */
+static int c_cmd_spawn(ptr vector_of_bytevector0_cmdline,
+                       ptr bytevector0_chdir_or_false,
+                       ptr vector_fds_redirect,
+                       ptr vector_of_bytevector0_environ,
+                       int existing_pgid) {
+
+  return c_cmd_spawn_or_exec(vector_of_bytevector0_cmdline,
+                             bytevector0_chdir_or_false,
+                             vector_fds_redirect,
+                             vector_of_bytevector0_environ,
+                             existing_pgid,
+                             1); /* is_spawn */
 }
 
 /**
@@ -1302,10 +1361,11 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_tty_setraw", &c_tty_setraw);
   Sregister_symbol("c_tty_size", &c_tty_size);
 
+  Sregister_symbol("c_cmd_exec", &c_cmd_exec);
+  Sregister_symbol("c_cmd_spawn", &c_cmd_spawn);
   Sregister_symbol("c_pid_get", &c_pid_get);
   Sregister_symbol("c_pgid_get", &c_pgid_get);
   Sregister_symbol("c_fork_pid", &c_fork_pid);
-  Sregister_symbol("c_pid_spawn", &c_pid_spawn);
   Sregister_symbol("c_pid_wait", &c_pid_wait);
   Sregister_symbol("c_pgid_foreground", &c_pgid_foreground);
   Sregister_symbol("c_pid_kill", &c_pid_kill);

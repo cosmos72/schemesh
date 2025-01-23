@@ -31,7 +31,7 @@
     linectx-stdin  linectx-stdin-set! linectx-stdout linectx-stdout-set!
     linectx-prompt      linectx-prompt-end-x  linectx-prompt-end-y
     linectx-prompt-func linectx-prompt-length linectx-prompt-length-set!
-    linectx-parenmatcher linectx-ktable
+    linectx-parenmatcher linectx-keytable
     linectx-paren linectx-paren-set!
     linectx-completions linectx-completion-stem linectx-completion-func
     linectx-parser-name linectx-parser-name-set!
@@ -40,7 +40,7 @@
     linectx-load-history! linectx-save-history
     linectx-clear!  linectx-eof? linectx-eof-set! linectx-redraw? linectx-redraw-set!
     linectx-return? linectx-return-set!
-    linectx-default-keytable linectx-keytable-set! linectx-keytable-find
+    linectx-default-keytable linectx-keytable-find linectx-keytable-insert!
 
     ; lineedit.ss
     lineedit-clear!
@@ -63,7 +63,8 @@
     lineterm-move lineterm-move-from lineterm-move-to
 
     ; paren.ss
-    make-paren      paren?           paren-name
+    make-paren      make-paren/bad-close
+    paren?          paren-name
     paren-start-token paren-end-token paren-end-token-set!
     paren-start-x   paren-start-y    paren-start-xy-set!
     paren-end-x     paren-end-y      paren-end-xy-set!

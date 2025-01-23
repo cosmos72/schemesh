@@ -67,7 +67,7 @@ static int usage(const char* name) {
       "    -h, --help                  display this help and exit immediately\n"
       "    -i, --repl                  unconditionally start the interactive repl\n"
       "                                (default: start only if no files or strings are specified)\n"
-      "    -l, --login                 ignored for compatibility\n"
+      "    -l, --login                 ignored. accepted for compatibility with other shells\n"
       "    --boot-dir DIR              load Chez Scheme boot files from DIR\n"
       "    --library-dir DIR           load schemesh libraries from DIR\n"
       "    --                          end of options. always treat further arguments as files\n"

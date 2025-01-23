@@ -379,9 +379,6 @@
           ((not token) ; not a grouping token
              #f)
 
-          ((eqv? token end-ch) ; found matching close token
-             (set! ret #t))
-
           ((symbol? token)
              ; recurse to other parser until end of current list
              (let* ((other-parser      (get-parser-or-false ctx token))
@@ -391,7 +388,9 @@
                  (paren-inner-append! paren other-paren)
                  (set! ret #t))))
 
-          ((memv token '(#\( #\[))               #| make vscode happy: #\) |#
+          ((memv token '(#\( #\[
+                         #| ] ) |#             ; help vscode
+                         ))
              ; recursion: call lisp parser on nested list
              (paren-inner-append! paren (parse-lisp-paren ctx token flavor)))
 
@@ -404,6 +403,15 @@
                                    (parse-lisp-paren ctx token flavor))))
                (when other-paren
                  (paren-inner-append! paren other-paren))))
+
+          ((eqv? token end-ch) ; found matching close token
+             (set! ret #t))
+
+          ((memv token '( #| { [ ( |#     ; help vscode
+                         #\) #\] #\}))
+            ; found mismatched close token
+            (let-values (((x y) (parsectx-previous-pos ctx 1)))
+              (paren-inner-append! paren (make-paren/bad-close flavor token x y))))
 
           ((memv token '(#\" #\| #\#))
              ; found quoted string, quoted symbol or block comment.

@@ -444,7 +444,7 @@
             (values (op->symbol ctx ch) type))))
       ((dollar lbrack)
         (cond
-          ((and (eq? type 'dollar) (eqv? #\( (parsectx-peek-char ctx))) #| #\) |# ; make vscode happy
+          ((and (eq? type 'dollar) (eqv? #\( (parsectx-peek-char ctx))) #| ) |# ; help vscode
             (values (parsectx-read-char ctx) 'dollar+lparen))
           ((and (eq? type 'lbrack) lbracket-is-subshell?)
             (values ch type))
@@ -689,14 +689,13 @@
     (until ret
       (let ((ch (parsectx-read-char ctx)))
         (case ch
-          ((#\()
+          ((#\()    #| ) |# ; help vscode
              (set! ret (if (eqv? prev-char #\$) dollar+lparen ch)))
-             #| make vscode happy: #\) |#
 
           ((#\{)
              (set! ret (if (eqv? prev-char #\$) dollar+lbrace ch)))
 
-          #| make vscode happy: #\( |#
+          #| ( |# ; help vscode
           ((#\) #\} #\[ #\] #\" #\' #\`) (set! ret ch))
 
           ((#\\)  (parsectx-read-char ctx)) ; consume one character after backslash
@@ -736,7 +735,6 @@
       (paren-start-xy-set! paren x y))
     (until ret
       (let ((token (scan-shell-paren-or-directive ctx)))
-        ; (debugf "... parse-shell-paren token=~s paren=~s" token paren)
         (cond
           ((not token) ; not a grouping token
              #f)
@@ -745,6 +743,7 @@
              (set! ret #t))
 
           ((symbol? token)
+            ;; inside double quotes, parser directives are not special
             (unless (eqv? start-ch #\")
               ; recurse to other parser until end of current list
               (let* ((other-parser      (get-parser-or-false ctx token))
@@ -765,10 +764,10 @@
                                         (#t                       token))))
                  (paren-inner-append! paren (parse-shell-paren ctx start-inner)))))
 
-          ((eqv? token #\()                  #| make vscode happy: #\) |#
+          ((eqv? token #\()                  #| ) |# ; help vscode
              (unless (eqv? start-ch #\")
-               ; paren not inside double quotes, switch to scheme parser
-               ; recursion: call scheme parser on nested list
+               ;; paren not inside double quotes -> switch to scheme parser
+               ;; recursion: call scheme parser on nested list
                (let* ((other-parser       (get-parser-or-false ctx 'scheme))
                       (other-parse-paren (and other-parser (parser-parse-paren other-parser)))
                       (other-paren       (if other-parse-paren
@@ -777,7 +776,8 @@
                  (when other-paren
                    (paren-inner-append! paren other-paren)))))
 
-          ((eqv? token #\')       ; found single-quoted string
+          ((eqv? token #\')
+             ;; found single-quoted string, read it fully
              (unless (eqv? start-ch #\")
                (let ((inner (make-paren 'shell token)))
                  (let-values (((x y) (parsectx-previous-pos ctx 1)))
@@ -786,10 +786,17 @@
                    (paren-fill-end! ctx inner #\'))
                  (paren-inner-append! paren inner))))
 
+          ((memv token '( #| { [ ( |#     ; help vscode
+                         #\) #\] #\}))
+            ;; found a close token. inside double quotes, it is not special
+            (unless (eqv? start-ch #\")
+              (let-values (((x y) (parsectx-previous-pos ctx 1)))
+                (paren-inner-append! paren (make-paren/bad-close 'shell token x y)))))
+
           ((eof-object? token)
              (set! ret (if start-ch 'err #t)))
 
-          ; ignore unexpected tokens
+          ; ignore other tokens, including unexpected ones
           )))
 
     (paren-fill-end! ctx paren (and (eq? #t ret) end-ch))

@@ -7,7 +7,7 @@
 
 
 (library (schemesh posix pid (0 7 1))
-  (export pid-get pgid-get pid-spawn pid-kill pid-wait exit-with-job-status)
+  (export pid-get pgid-get pid-kill pid-wait exit-with-job-status)
   (import
     (rnrs)
     (only (chezscheme) foreign-procedure format void)
@@ -33,27 +33,6 @@
       (let ((ret (c-pgid-get pid)))
         (when (< ret 0)
           (raise-c-errno 'pgid-get 'getpgid ret pid))
-        ret))))
-
-
-; Spawn an external program in a new background process group (pgid) and return its pid.
-;
-; Parameter program is the program path to spawn;
-; Parameter args is the list of arguments to pass to the program;
-; The parameter program and each element in args must be either a string or a bytevector.
-(define pid-spawn
-  (let ((c-pid-spawn (foreign-procedure "c_pid_spawn"
-                        (ptr ptr ptr ptr int) int)))
-    (lambda (program . args)
-      (let* ((program-and-args (cons program args))
-             (ret (c-pid-spawn
-                    (list->argv program-and-args)
-                    #f ; run in current directory
-                    '#(0 1 2) ; no fd redirections
-                    #f ; no environment override
-                    0)))
-        (when (< ret 0)
-          (apply raise-c-errno 'pid-spawn 'fork ret program-and-args))
         ret))))
 
 

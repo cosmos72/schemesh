@@ -120,7 +120,7 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 * implement builtin "global", for running another builtin with its parent job set to (sh-globals)
 * implement builtin "unsafe", for executing the output of a subshell or any other closure
   add check to macro (shell): if first argument contains (shell-backquote), raise condition suggesting to prefix it with "unsafe"
-* add missing shell builtins: bg fg kill exec exit export global set unalias unsafe unset
+* add missing shell builtins: kill exit export global set unalias unsafe unset
 * complete existing builtins: alias, without arguments must list existing aliases
 * implement function (string->sh-patterns)
 
@@ -132,3 +132,4 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 * implement (include/lang)
 * implement pipeline operator |&
 * mark and hide temporary redirections created by (sh-pipe) and (sh-pipe*)
+* implement missing shell builtins: bg fg exec

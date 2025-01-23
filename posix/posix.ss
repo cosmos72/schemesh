@@ -22,7 +22,7 @@
     sh-pattern sh-pattern? span->sh-pattern* sh-pattern->span* sh-pattern-match? sh-wildcard?
 
     ; pid.ss
-    pid-get pgid-get pid-spawn pid-kill pid-wait exit-with-job-status
+    pid-get pgid-get pid-kill pid-wait exit-with-job-status
 
     ; tty.ss
     tty-setraw! tty-restore! tty-size

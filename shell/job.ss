@@ -324,19 +324,6 @@
           (span-insert-back! dst (cons job-id job)))))
     dst))
 
-;; the "jobs" builtin: list currently running jobs
-(define (builtin-jobs job prog-and-args options)
-  (assert-string-list? 'sh-builtin-jobs prog-and-args)
-  (let ((src (multijob-children (sh-globals))))
-    (unless (span-empty? src)
-      ;; do NOT close port, it would close the fd!
-      (let ((port (open-fd-output-port (sh-fd-stdout) (buffer-mode line) transcoder-utf8)))
-        (span-iterate src
-          (lambda (job-id job)
-            (when (sh-job? job)
-              (sh-job-display/summary* job port)))))))
-  (void))
-
 
 ;; call (proc job) on given job and each of its
 ;; parents. Stops iterating if (proc ...) returns #f.
@@ -528,7 +515,7 @@
       (job-advance 'sh-job-status job))))
 
 
-;; Continue a job or job-id in background by sending SIGCONT to it.
+;; Continue a job or job-id in background by sending SIGCONT to it, and return immediately.
 ;; Return job status, which can be one of:
 ;;
 ;;   (cons 'running job-id)
@@ -658,6 +645,7 @@
     (if (eq? status (void)) #f status)))
 
 
+
 (include "shell/cmd.ss")
 (include "shell/multijob.ss")
 (include "shell/env.ss")
@@ -665,8 +653,9 @@
 (include "shell/redirect.ss")
 (include "shell/pipe.ss")
 (include "shell/parse.ss")
+(include "shell/builtins2.ss")
 (include "shell/wildcard.ss")
-(include "shell/display.ss")
+(include "shell/display.ss") ; must be last one, contains (record-writer ...)
 
 
 
@@ -698,8 +687,11 @@
 
   (let ((t (sh-builtins)))
     ; additional builtins
+    (hashtable-set! t "bg"      builtin-bg)
     (hashtable-set! t "cd"      builtin-cd)
     (hashtable-set! t "command" builtin-command)
+    (hashtable-set! t "exec"    builtin-exec)
+    (hashtable-set! t "fg"      builtin-fg)
     (hashtable-set! t "jobs"    builtin-jobs)
     (hashtable-set! t "pwd"     builtin-pwd)))
 

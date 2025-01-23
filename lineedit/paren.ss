@@ -8,7 +8,8 @@
 
 (library (schemesh lineedit paren (0 7 1))
   (export
-    make-paren      paren?           paren-name
+    make-paren      make-paren/bad-close
+    paren?          paren-name
     paren-start-token paren-end-token paren-end-token-set!
     paren-start-x   paren-start-y    paren-start-xy-set!
     paren-end-x     paren-end-y      paren-end-xy-set!
@@ -49,6 +50,14 @@
   (unless (boolean? start-token)
     (assert* 'make-paren (char? start-token)))
   (%make-paren name start-token 0 0 #f (greatest-fixnum) (greatest-fixnum) #f))
+
+
+(define (make-paren/bad-close name end-token x y)
+  (assert* 'make-paren (symbol? name))
+  (assert* 'make-paren (char? end-token))
+  (assert* 'make-paren (fixnum? x))
+  (assert* 'make-paren (fixnum? y))
+  (%make-paren name #f x y end-token x y #f))
 
 
 ;; return truish if paren start-token and end-token are both present,
