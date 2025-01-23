@@ -45,7 +45,7 @@
 
     ; wildcard
     sh-wildcard sh-wildcard/apply sh-wildcard/prepare sh-wildcard/expand
-    sh-wildcard/expand-tilde! sh-wildcard->literal-string
+    sh-wildcard/expand-tilde! sh-wildcard->string
   )
   (import
     (rnrs)

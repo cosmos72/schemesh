@@ -40,12 +40,12 @@
             ; except that ~ expanded by (sh-wildcard/expand-tilde!) must be preserved.
             ; reason: ~/foo/bar must be expanded to $HOME/foo/bar
             ; even if no such path exists
-            (sh-wildcard->literal-string sp)
+            (sh-wildcard->string sp)
             ret))))))
 
 
-(define (sh-wildcard->literal-string sp)
-  (debugf "sh-wildcard->literal-string sp=~s" sp)
+(define (sh-wildcard->string sp)
+  ; (debugf "sh-wildcard->string sp=~s" sp)
   (let ((ret (charspan)))
     (%wildcard->charspan-append! sp ret)
     (charspan->string ret)))
