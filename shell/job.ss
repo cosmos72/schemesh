@@ -44,7 +44,9 @@
     sh-pipe sh-pipe*
 
     ; wildcard
-    sh-wildcard sh-wildcard/apply sh-wildcard/prepare sh-wildcard/expand)
+    sh-wildcard sh-wildcard/apply sh-wildcard/prepare sh-wildcard/expand
+    sh-wildcard/expand-tilde! sh-wildcard->literal-string
+  )
   (import
     (rnrs)
     (rnrs mutable-pairs)

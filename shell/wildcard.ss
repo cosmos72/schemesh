@@ -36,32 +36,43 @@
                      (sh-wildcard/prepare
                        (sh-wildcard/expand-tilde! job sp)))))
           (if (null? ret)
-            (sh-wildcard-arg-list->literal-string args)
+            ; convert back wildcard to the string it was generated from,
+            ; except that ~ expanded by (sh-wildcard/expand-tilde!) must be preserved.
+            ; reason: ~/foo/bar must be expanded to $HOME/foo/bar
+            ; even if no such path exists
+            (sh-wildcard->literal-string sp)
             ret))))))
 
 
-(define (sh-wildcard-arg-list->literal-string args)
+(define (sh-wildcard->literal-string sp)
+  (debugf "sh-wildcard->literal-string sp=~s" sp)
   (let ((ret (charspan)))
-    (let %again ((args args))
-      (let ((arg (if (null? args) #f (car args))))
-        (cond
-          ((null? args)
-            (charspan->string ret))
-          ((memq arg '(* ? ~))
-            (charspan-insert-back! ret (case arg ((*) #\*) ((?) #\?) (else #\~)))
-            (%again (cdr args)))
-          ((memq arg '(% %!))
-            (if (eq? arg '%)
-              (charspan-insert-back! ret #\[)
-              (charspan-insert-back/string! ret "[!" 0 2))
-            (let ((alt (cadr args)))
-              (charspan-insert-back/string! ret alt 0 (string-length alt)))
-            (charspan-insert-back! ret #\])
-            (%again (cddr args)))
-          (#t
-            (assert* '%pattern-list->literal-string (string? arg))
-            (charspan-insert-back/string! ret arg 0 (string-length arg))
-            (%again (cdr args))))))))
+    (%wildcard->charspan-append! sp ret)
+    (charspan->string ret)))
+
+;; convert back a single element of a wildcard to the string it was generated from,
+;; and append it to specified charspan
+(define (%wildcard->charspan-append! sp csp)
+  (let ((n (span-length sp)))
+    (let %again ((i 0))
+      (let ((obj (if (fx<? i n) (span-ref sp i) #f)))
+        (case obj
+          ((#f)
+            (void))
+          ((* ?)
+            (charspan-insert-back! csp (if (eq? '* obj) #\* #\?))
+            (%again (fx1+ i)))
+          ((% %!)
+            (charspan-insert-back! csp #\[)
+            (when (eq? '%! obj)
+              (charspan-insert-back! csp #\!))
+            (let ((str (span-ref sp (fx1+ i))))
+              (charspan-insert-back/string! csp str 0 (string-length str)))
+            (charspan-insert-back! csp #\])
+            (%again (fx+ i 2)))
+          (else
+            (charspan-insert-back/string! csp obj 0 (string-length obj))
+            (%again (fx1+ i))))))))
 
 
 ;; iterate on args list and call any procedure.

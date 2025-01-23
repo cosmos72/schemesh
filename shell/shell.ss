@@ -67,9 +67,8 @@
 
     ; wildcard
     sh-wildcard sh-wildcard/apply sh-wildcard/prepare sh-wildcard/expand
-
-    )
-
+    sh-wildcard/expand-tilde! sh-wildcard->literal-string
+  )
   (import
     (schemesh shell builtins)
     (schemesh shell eval)

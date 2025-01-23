@@ -14,6 +14,7 @@
     (only (chezscheme) fx1+ fx1- record-writer void)
     (only (schemesh bootstrap) assert* debugf raise-assertf)
     (only (schemesh containers misc) string-find/char string-rfind/char string-range=?)
+    (schemesh containers charspan)
     (schemesh containers span))
 
 
@@ -528,6 +529,11 @@
   (do ((i sp-start (fx1+ i)))
       ((or (fx>=? i sp-end) (not (eq? key (span-ref sp i))))
         (fx>=? i sp-end))))
+
+
+
+
+
 
 
 ;;  customize how "sh-pattern" objects are printed
