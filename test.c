@@ -1116,13 +1116,15 @@ static const testcase tests[] = {
     {"(sh-run (shell \"true\" \\x7C; \"command\" \"true\" \\x7C; \"false\"))", "(exited . 1)"},
     /* ------------------------- file read ---------------------------------- */
     {"(sh-read-file \"utils/test_file.ss\")",
-     "(define (fib n)"
+     "(begin (define (fib n)"
      " (let %fib ((i n))"
-     " (if (fx>? i 2) (fx+ (%fib (fx1- i)) (%fib (fx- i 2))) 1)))"},
+     " (if (fx>? i 2) (fx+ (%fib (fx1- i)) (%fib (fx- i 2))) 1))) "
+     "(sh-run (shell ; FOO = bar ; ;)))"},
     {"(sh-read-file \"utils/test_file.sh\")",
-     "(sh-run (shell ; ;"
+     "(begin (sh-run (shell ; ;"
      " BAR =  ; foo a b c | bar (shell-env BAR)"
-     " && (shell echo (shell-backquote baz --quiet) < /dev/null 2 >& 1 || fail --verbose) ;))"},
+     " && (shell echo (shell-backquote baz --quiet) < /dev/null 2 >& 1 || fail --verbose) ; ;)) "
+     "(set! a 42))"},
     /* ------------------------- repl --------------------------------------- */
     {"(values->list (sh-repl-parse\n"
      "  (string->parsectx \"(+ 2 3) (values 7 (cons 'a 'b))\" (parsers))\n"

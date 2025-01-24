@@ -8,3 +8,7 @@
       (fx+ (%fib (fx1- i))
            (%fib (fx- i 2)))
       1)))
+
+#!shell
+FOO=bar
+

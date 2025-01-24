@@ -4,3 +4,6 @@
 
 BAR=
 foo "a b" c | bar $BAR && { echo `baz --quiet` </dev/null 2>&1 || fail --verbose }
+
+#!scheme
+(set! a 42)

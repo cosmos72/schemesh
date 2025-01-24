@@ -136,9 +136,9 @@
 (define (wrap-forms! forms)
   (do ((tail forms (cdr tail)))
       ((null? tail))
-    (let ((form (car forms)))
+    (let ((form (car tail)))
       (when (and (pair? form) (memq (car form) '(shell shell-subshell)))
-        (set-car! forms (list 'sh-run form)))))
+        (set-car! tail (list 'sh-run form)))))
   (cond
     ((null? forms)       '(void))
     ((null? (cdr forms)) (car forms))
