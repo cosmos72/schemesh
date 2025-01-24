@@ -66,8 +66,8 @@
     sh-pipe sh-pipe*
 
     ; wildcard
-    sh-wildcard sh-wildcard/apply sh-wildcard/prepare sh-wildcard/expand
-    sh-wildcard/expand-tilde! sh-wildcard->string
+    sh-wildcard sh-wildcard/apply sh-wildcard/expand-~ sh-wildcard->string
+    sh-wildcard->sh-patterns sh-patterns/expand
   )
   (import
     (schemesh shell builtins)

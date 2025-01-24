@@ -9,143 +9,167 @@
 ;; this file should be included only from file ../job.ss
 
 
-;; concatenate strings, wildcard symbols ? * ~ % %!
-;; and closures (lambda (job) ...) or (lambda () ...) that return a string or a list of strings,
-;; then expand wildcard symbols to matching filesystem paths.
+;; expand a path containing wildcards to the list of filesystem entries that match such wildcards.
+;;
+;; each w must be a string, wildcard symbols ? * ~ % %!
+;; or closure (lambda (job) ...) or (lambda () ...) that return a string or a list of strings.
+;;
+;; expand initial ~ if present,
+;; then call each closure and replace it with the returned string or list of strings,
+;; finally expand wildcard symbols to matching filesystem paths.
 ;;
 ;; returns a non-empty list of strings, containing matching filesystem paths.
-;; if args do not match any filesystem path, return a single string - not a list -
-;;   containing args converted back to string with shell wildcard syntax.
-(define (sh-wildcard job-or-id . args)
-  (let* ((job (sh-job job-or-id))
-         (sp  (sh-wildcard/apply job args))
-         (n   (span-length sp)))
+;; if w does not match any filesystem path, return a single string - not a list -
+;;   containing w converted back to string with shell wildcard syntax.
+(define (sh-wildcard job-or-id . w)
+  (sh-wildcard* job-or-id w))
+
+
+;; same as (sh-wildcard), the only difference is w must be passed as a list.
+(define (sh-wildcard* job-or-id w)
+  (let* ((job  (sh-job job-or-id))
+         (w (sh-wildcard/apply job (sh-wildcard/expand-~ job w))))
     (cond
-      ((fxzero? n)
+      ((null? w)
         "")
-      ((span-iterate sp (lambda  (i elem) (string? elem)))
+      ((list-iterate w (lambda  (elem) (string? elem)))
         ; all elements are strings -> concatenate them
         (let ((ret (charspan)))
-          (span-iterate sp
-            (lambda (i elem)
+          (list-iterate w
+            (lambda (elem)
               (charspan-insert-back/string! ret elem 0 (string-length elem))))
-          (charspan->string ret)))
+          (charspan->string*! ret)))
       (#t
-        ; actually expand wildcards and match them against filesystem
-        (let ((ret (sh-wildcard/expand job
-                     (sh-wildcard/prepare
-                       (sh-wildcard/expand-tilde! job sp)))))
+        ; actually expand wildcards and match them against filesystem paths
+        (let* ((patterns (sh-wildcard->sh-patterns w))
+               (ret (sh-patterns/expand job patterns)))
           (if (null? ret)
             ; convert back wildcard to the string it was generated from,
-            ; except that ~ expanded by (sh-wildcard/expand-tilde!) must be preserved.
+            ; except that ~ expanded by (sh-wildcard/expand-~) must be preserved.
             ; reason: ~/foo/bar must be expanded to $HOME/foo/bar
             ; even if no such path exists
-            (sh-wildcard->string sp)
+            (sh-wildcard->string w)
             ret))))))
 
 
-(define (sh-wildcard->string sp)
-  ; (debugf "sh-wildcard->string sp=~s" sp)
+(define (sh-wildcard->string w)
+  ; (debugf "sh-wildcard->string w=~s" w)
   (let ((ret (charspan)))
-    (%wildcard->charspan-append! sp ret)
+    (%wildcard->charspan-append! w ret)
     (charspan->string ret)))
 
-;; convert back a single element of a wildcard to the string it was generated from,
-;; and append it to specified charspan
-(define (%wildcard->charspan-append! sp csp)
-  (let ((n (span-length sp)))
-    (let %again ((i 0))
-      (let ((obj (if (fx<? i n) (span-ref sp i) #f)))
-        (case obj
-          ((#f)
-            (void))
-          ((* ?)
-            (charspan-insert-back! csp (if (eq? '* obj) #\* #\?))
-            (%again (fx1+ i)))
-          ((% %!)
-            (charspan-insert-back! csp #\[)
-            (when (eq? '%! obj)
-              (charspan-insert-back! csp #\!))
-            (let ((str (span-ref sp (fx1+ i))))
-              (charspan-insert-back/string! csp str 0 (string-length str)))
-            (charspan-insert-back! csp #\])
-            (%again (fx+ i 2)))
-          (else
-            (charspan-insert-back/string! csp obj 0 (string-length obj))
-            (%again (fx1+ i))))))))
+
+;; convert back wildcard w to the string it was generated from,
+;; and append it to specified charspan.
+;; return (void)
+(define (%wildcard->charspan-append! w csp)
+  (until (null? w)
+    (let ((obj (car w)))
+      (case obj
+        ((* ?)
+          (charspan-insert-back! csp (if (eq? '* obj) #\* #\?)))
+        ((% %!)
+          (charspan-insert-back! csp #\[)
+          (when (eq? '%! obj)
+            (charspan-insert-back! csp #\!))
+          (let ((str (cadr w)))
+            (charspan-insert-back/string! csp str 0 (string-length str)))
+          (charspan-insert-back! csp #\])
+          (set! w (cdr w)))
+        (else
+          (charspan-insert-back/string! csp obj 0 (string-length obj)))))
+    (set! w (cdr w))))
 
 
-;; iterate on args list and call any procedure.
+;; iterate on w - a list - and call any procedure.
 ;; each procedure must return a string or a list of strings.
-;; return span of strings and wildcard symbols ? * ~ % %!
-(define (sh-wildcard/apply job args)
-  (let ((sp (span)))
-    (list-iterate args
-      (lambda (arg)
-        (cond
-          ((or (string? arg) (sh-wildcard? arg))
-            (span-insert-back! sp arg))
-          ((procedure? arg)
-            (let ((obj (if (logbit? 1 (procedure-arity-mask arg)) (arg job) (arg))))
-              (if (string? obj)
-                (span-insert-back! sp obj)
-                (begin
-                  (assert-string-list? 'sh-wildcard obj)
-                  (apply span-insert-back! sp obj)))))
-          (#t
-            (raise-assertv 'sh-wildcard '(or (string? arg) (sh-wildcard? arg) (procedure? arg)) arg)))))
-    sp))
-
-
-;; if span starts with symbol '~ then replace it with specified user's home.
-;; replace every other occurrence of symbol '~ with string "~"
-;; return sp
-(define (sh-wildcard/expand-tilde! job sp)
-  (when (eq? '~ (span-ref sp 0))
-    (let ((arg1 (if (fx>? (span-length sp) 1) (span-ref sp 1) #f)))
-      (if (or (not (string? arg1)) (fxzero? (string-length arg1)) (char=? #\/ (string-ref arg1 0)))
-        ;; if environment variable "HOME" is not set, replace symbol '~ with string "~"
-        (let ((userhome (sh-env job "HOME" "~")))
-          (span-set! sp 0 userhome))
-        (let ((userhome (get-userhome (string->utf8b/0 arg1))))
+;; return the new list of strings and wildcard symbols ? * ~ % %!
+;; which may share data with w
+(define (sh-wildcard/apply job w)
+  (if (list-iterate w (lambda (arg) (not (procedure? arg))))
+    w
+    (let* ((ret '())
+           (%insert!
+             (lambda (arg)
+               (set! ret (cons arg ret)))))
+      (list-iterate w
+        (lambda (arg)
           (cond
-            ((string? userhome)
-              (span-erase-front! sp 1)   ; erase the initial symbol '~
-              (span-set! sp 0 userhome)) ; replace username -> userhome
+            ((or (string? arg) (sh-wildcard? arg))
+              (%insert! arg))
+            ((procedure? arg)
+              (let ((obj (if (logbit? 1 (procedure-arity-mask arg)) (arg job) (arg))))
+                (if (string? obj)
+                  (%insert! obj)
+                  (begin
+                    (assert-string-list? 'sh-wildcard obj)
+                    (list-iterate obj %insert!)))))
             (#t
-              ;; (get-userhome) failed: replace symbol '~ with string "~"
-              (span-set! sp 0 "~")))))))
-  (span-iterate sp
-    (lambda (i elem)
-      (when (eq? '~ elem)
-        (span-set! sp i "~"))))
-  sp)
+              (raise-assertv 'sh-wildcard '(or (string? arg) (sh-wildcard? arg) (procedure? arg)) arg)))))
+      (reverse! ret))))
 
 
-;; given a span containing strings and wildcards,
+;; if list w starts with symbol '~ then replace it with specified user's home.
+;; replace every other occurrence of symbol '~ with string "~"
+;; return list containing replacement result, which may share data with w.
+;; does NOT modify w.
+(define (sh-wildcard/expand-~ job w)
+  (if (list-iterate w (lambda (elem) (not (eq? '~ elem))))
+    w
+    (begin
+      (when (and (not (null? w)) (eq? '~ (car w)))
+        (let* ((tail (cdr w))
+               (arg1 (if (null? tail) #f (car tail))))
+          ; (debugf "sh-wildcard/expand-~~ arg1=~s" arg1)
+          (if (or (not (string? arg1)) (fxzero? (string-length arg1)) (char=? #\/ (string-ref arg1 0)))
+            ;; expand ~ to environment variable "HOME", or to string "~" if such env. variable is not set
+            (let ((userhome (sh-env job "HOME" "~")))
+              (set! w (cons userhome tail)))
+            (let* ((slash    (string-find/char arg1 0 (string-length arg1) #\/))
+                   (username (if slash (substring arg1 0 slash) arg1))
+                   (userhome (get-userhome (string->utf8b/0 username))))
+              (if (string? userhome)
+                (if slash
+                  ; remove the initial '~ and the portion of arg1 before the slash
+                  (set! w (cons userhome (cons (substring arg1 slash (string-length arg1)) w)))
+                  ; remove the initial '~ and the whole arg1
+                  (set! w (cons userhome (cdr tail))))
+                ;; (get-userhome) failed: replace symbol '~ with string "~", keep arg1
+                (set! w (cons "~" tail)))))))
+        (if (list-iterate w (lambda (elem) (not (eq? '~ w))))
+          w
+          (map w (lambda (elem) (if (eq? '~ elem) "~" elem)))))))
+
+
+;; given a list w containing strings and wildcards,
 ;; split the strings after each delimiter /
 ;;
 ;; and group into a sh-pattern the wildcards and strings
 ;; that refer to a single directory or file name.
 ;;
+;; return a span of sh-pattern and strings.
+;;
 ;; example:
-;;   (span "a/b" '* "c/def/")
+;;   (list "a/b" '* "c/def/")
 ;; will be converted to
 ;;   (span "a/" (sh-pattern "b" '* "c/") "def/"))
-(define (sh-wildcard/prepare sp)
-  (let ((ret (span))
-        (i 0)
-        (n (span-length sp)))
+(define (sh-wildcard->sh-patterns w)
+  (let ((ret (span)))
     (span-insert-back! ret (span))
-    (while (fx<? i n)
-      (when (%wildcard/prepare1! (span-ref sp i) ret)
-        (set! i (fx1+ i))
-        (let ((pattern (span-ref sp i)))
-          (if (string-find/char pattern 0 (string-length pattern) #\/)
-            (%raise-invalid-wildcard-pattern (span-ref sp (fx1- i)) pattern)
-            (span-insert-back! (span-back ret) pattern))))
-      (set! i (fx1+ i)))
-    (%wildcard/simplify! ret)))
+    (until (null? w)
+      (when (%patterns/prepare1! (car w) ret)
+        (let ((tail (cdr w)))
+          (when (null? tail)
+            (raise-errorf 'sh-wildcard "missing string after shell wildcard symbol '~s" (car w)))
+          (let ((pattern (car tail)))
+            (unless (string? pattern)
+              (raise-errorf 'sh-wildcard "found ~s after shell wildcard symbol '~s, expected a string" pattern (car w)))
+            (when (string-find/char pattern 0 (string-length pattern) #\/)
+              (%raise-invalid-wildcard-pattern (car w) pattern))
+            (span-insert-back! (span-back ret) pattern))
+            (set! w tail)))
+      (set! w (cdr w)))
+    (%patterns/simplify! ret)))
 
 
 (define (%raise-invalid-wildcard-pattern sym pattern)
@@ -160,7 +184,7 @@
 ;; and append each fragment into sp. Return #f.
 ;; if obj is a wildcard, append it to sp and return truish if next obj is part of the wildcard,
 ;; otherwise return #f.
-(define (%wildcard/prepare1! obj sp)
+(define (%patterns/prepare1! obj sp)
   (cond
     ((symbol? obj)
       (span-insert-back! (span-back sp) obj)
@@ -220,7 +244,7 @@
 ;; 4. if last element is an empty subspan, remove it.
 ;;
 ;; return sp, modified in-place
-(define (%wildcard/simplify! sp)
+(define (%patterns/simplify! sp)
   (span-iterate sp
     (lambda (i subspan)
       (when (span? subspan)
@@ -246,9 +270,10 @@
   sp)
 
 
-;; actually expand sh-patterns in span sp and list matching files on disk.
-;; returns a string or a list of strings.
-(define (sh-wildcard/expand job sp)
+;; actually expand sh-patterns in span sp and list matching filesystem entries.
+;; return (possibly empty) list of strings,
+;; where names in each directory are sorted lexicographically.
+(define (sh-patterns/expand job sp)
   (try
     (if (span-empty? sp)
       '()
@@ -262,16 +287,16 @@
                        (if job-dir
                          (charspan->string job-dir)
                          "")))))
-        (span->list (%wildcard/expand sp 0 (span-length sp) dir ret))))
+        (span->list (%patterns/expand sp 0 (span-length sp) dir ret))))
     (catch (ex)
       (debug-condition ex) ;; save ex into thread-parameter (debug-condition)
       '())))
 
 
-;; recursive implementation of (sh-wildcard/expand)
+;; recursive implementation of (sh-patterns/expand)
 ;; appends matching paths to span ret and returns it.
-(define (%wildcard/expand sp i sp-end path ret)
-  ;; (debugf "%wildcard/expand patterns=~s, path=~s" (span-range->span* sp i sp-end) path)
+(define (%patterns/expand sp i sp-end path ret)
+  ;; (debugf "%patterns/expand patterns=~s, path=~s" (span-range->span* sp i sp-end) path)
   (cond
     ((fx>=? i sp-end) ; check that path exists
       (when (file-stat path 'catch 'symlinks)
@@ -285,7 +310,7 @@
       (let ((subpath (%path-append path (span-ref sp i))))
         ; check that subpath exists.
         (if (file-stat subpath 'catch)
-          (%wildcard/expand sp (fx1+ i) sp-end subpath ret)
+          (%patterns/expand sp (fx1+ i) sp-end subpath ret)
           ret)))
     (#t
       (let* ((p       (span-ref sp i))
@@ -300,7 +325,7 @@
           (lambda (type-and-name)
             (let ((name (cdr type-and-name)))
               (when (sh-pattern-match? p name)
-                (%wildcard/expand sp i+1 sp-end (%path-append path name) ret))
+                (%patterns/expand sp i+1 sp-end (%path-append path name) ret))
               (void))))
         ret))))
 

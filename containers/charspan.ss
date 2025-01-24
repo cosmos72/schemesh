@@ -12,7 +12,8 @@
 
 (library (schemesh containers charspan (0 7 1))
   (export
-    list->charspan string->charspan string->charspan* make-charspan charspan->string charspan-range->string
+    list->charspan string->charspan string->charspan* make-charspan
+    charspan->string charspan-range->string charspan->string*!
     charspan charspan? assert-charspan? charspan-length charspan-empty? charspan-clear!
     charspan-capacity charspan-capacity-front charspan-capacity-back charspan-ref
     charspan-front charspan-back
@@ -28,7 +29,7 @@
   (import
     (rnrs)
     (rnrs mutable-strings)
-    (only (chezscheme) fx1+ fx1- record-writer string-copy! void)
+    (only (chezscheme) fx1+ fx1- record-writer string-copy! string-truncate! void)
     (only (schemesh bootstrap) assert*)
     (schemesh containers misc))
 
@@ -87,6 +88,15 @@
         (if (fx>=? i j)
           ""
           (substring (charspan-str sp) (fx+ i beg) (fx+ j beg)))))))
+
+;; if possible, truncate charspan to its length and view it as a string.
+;; otherwise convert it to string as (charspan-string) does.
+(define (charspan->string*! sp)
+  (if (or (charspan-empty? sp) (not (fxzero? (charspan-beg sp))))
+    (charspan->string sp)
+    (let ((str (charspan-str sp)))
+      (string-truncate! str (charspan-end sp))
+      str)))
 
 (define (charspan . charlist)
   (list->charspan charlist))
