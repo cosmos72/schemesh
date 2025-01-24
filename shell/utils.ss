@@ -73,7 +73,7 @@
       (%display str 6 (date-second d)))
     str))
 
-(define sh-fancy-ps1 "\\[\\e]0;\\u@\\h \\w\\a\\]\\[\\e[0;32m\\]\\s\\[\\e[1;34m\\] \\u\\[\\e[0m\\]@\\[\\e[1;33m\\]\\h\\[\\e[0m\\]:\\[\\e[1;34m\\]\\w\\[\\e[0m\\]:")
+(define sh-fancy-ps1 "\\[\\e]0;\\u@\\h \\w\\a\\]\\[\\e[0;32m\\]\\s \\[\\e[1;36m\\]\\u\\[\\e[0m\\]@\\[\\e[1;33m\\]\\h\\[\\e[0m\\]:\\[\\e[1;34m\\]\\w\\[\\e[0m\\]:")
 
 ; update linectx-prompt and linectx-prompt-length with new prompt
 (define (sh-expand-ps1 lctx)
