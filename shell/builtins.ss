@@ -26,7 +26,9 @@
 (include "shell/aliases.ss")
 
 
-(define (fd-stdout-write/bspan bsp)
+;; write contents of bytespan bsp to (sh-fd-stdout)
+;; then clear bytespan bsp
+(define (fd-stdout-write/bspan! bsp)
   ; TODO: loop on short writes and call sh-consume-signals
   (fd-write (sh-fd-stdout) (bytespan-peek-data bsp)
             (bytespan-peek-beg bsp) (bytespan-peek-end bsp))
@@ -54,7 +56,7 @@
         (bytespan-insert-back/u8! wbuf 32)) ; space
       (bytespan-insert-back/string! wbuf (car tail)))
     (bytespan-insert-back/u8! wbuf 10) ; newline
-    (fd-stdout-write/bspan wbuf))
+    (fd-stdout-write/bspan! wbuf))
   (void))
 
 
@@ -105,8 +107,9 @@
               (bytespan-insert-back/cbuffer! wbuf line)))
           (bytespan-insert-back/u8! wbuf 10) ; newline
           (when (fx>=? (bytespan-length wbuf) 4096)
-            (fd-stdout-write/bspan wbuf))))
-      (fd-stdout-write/bspan wbuf))))
+            (fd-stdout-write/bspan! wbuf))))
+      (fd-stdout-write/bspan! wbuf)))
+  (void)) ; must return (void), means builtin exited succesfully
 
 
 

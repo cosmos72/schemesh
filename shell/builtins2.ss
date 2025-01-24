@@ -10,7 +10,9 @@
 
 
 
-(define (fd-stderr-write/bspan bsp)
+;; write contents of bytespan bsp to (sh-fd-stderr)
+;; then clear bytespan bsp
+(define (fd-stderr-write/bspan! bsp)
   ; TODO: loop on short writes and call sh-consume-signals
   (fd-write (sh-fd-stderr) (bytespan-peek-data bsp)
             (bytespan-peek-beg bsp) (bytespan-peek-end bsp))
@@ -82,7 +84,7 @@
         (bytespan-insert-back/u8! msg 58 32) ; ": "
         (bytespan-insert-back/string! msg arg)))
     (bytespan-insert-back/u8! msg 10)
-    (fd-stderr-write/bspan msg)
+    (fd-stderr-write/bspan! msg)
     '(exited . 1)))
 
 
