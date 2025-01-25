@@ -1,0 +1,15 @@
+#!shell
+
+# example file containing schemesh repl customization.
+#
+# to automatically load this file every time schemesh starts a repl,
+# copy it to ~/.config/schemesh/repl_init.ss
+
+alias gdb gdb -q
+alias grep grep --color=tty
+
+alias m less
+alias j jed
+
+alias b exec bash
+alias s exec schemesh
