@@ -36,7 +36,7 @@
         (if (>= pid 0)
           (format port "; job pid ~a~s ~s \t" pid (pad/pid pid) status)
           (format port "; job            ~s \t" status)))
-      (sh-job-display job port)
+      (sh-job-display* job port)
       (put-char port #\newline)))
   (void))
 
@@ -110,7 +110,7 @@
              ((sh-and)  " && ")
              (else      " "))))
     (when (fx<=? precedence outer-precedence)
-      (put-char port #\{))
+      (job-display/open-paren port kind))
     (span-iterate (multijob-children job)
       (lambda (i child)
         (unless (fxzero? i)
@@ -119,9 +119,15 @@
           (job-display/any child port precedence)
           (display child port))))
     (when (fx<=? precedence outer-precedence)
-      (put-char port #\})))
+      (job-display/close-paren port kind)))
   (job-display/redirects job port))
 
+
+(define (job-display/open-paren port kind)
+  (put-char port (if (eq? 'sh-subshell kind) #\[ #\{)))
+
+(define (job-display/close-paren port kind)
+  (put-char port (if (eq? 'sh-subshell kind) #\] #\})))
 
 
 (define (job-display/cmd job port)

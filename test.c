@@ -924,15 +924,16 @@ static const testcase tests[] = {
      "    (sh-env       #t \"foo\")\n"
      "    (sh-env-exported? #t \"foo\")))",
      "(bar . #f)"},
-    {"(let ((j (sh-and (sh-or (sh-cmd \"sleep\" \"1\") (sh-cmd \"ls\"))\n"
+    {"(let ((j (sh-and (sh-or (sh-subshell (sh-cmd \"sleep\" \"1\")) (sh-cmd \"ls\"))\n"
      "                 (sh-cmd \"cd\" \"..\"))))\n"
      "  (let-values (((port get-string) (open-string-output-port)))\n"
      "    (sh-job-display j port)\n"
      "    (newline          port)\n"
      "    (sh-job-write   j port)\n"
      "    (get-string)))\n",
-     "{{sleep 1 || ls} && cd ..}\n"
-     "(sh-and (sh-or (sh-cmd \"sleep\" \"1\") (sh-cmd \"ls\")) (sh-cmd \"cd\" \"..\"))"},
+     "{{[sleep 1] || ls} && cd ..}\n"
+     "(sh-and (sh-or (sh-subshell (sh-cmd \"sleep\" \"1\")) (sh-cmd \"ls\"))"
+     " (sh-cmd \"cd\" \"..\"))"},
     {"(sh-cmd  \"echo\"  \"foo\" \" bar \")", "(sh-cmd \"echo\" \"foo\" \" bar \")"},
     {"(sh-cmd* \"ls\" (lambda (j) \".\"))", "(sh-cmd \"ls\" #<procedure>)"},
     {"(sh-cmd* \"A\" '= \"B\" \"echo\")", "(sh-cmd* \"A\" '= \"B\" \"echo\")"},
