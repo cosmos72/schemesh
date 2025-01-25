@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-;; this file should be included only from file ../job.ss
+;; this file should be included only from file shell/job.ss
 
 
 ;; return charspan containing current directory of specified job.
@@ -94,14 +94,14 @@
 
 
 ;; the "cd" builtin
-(define (builtin-cd job prog-and-args options)
-  (assert-string-list? 'sh-builtin-cd prog-and-args)
+(define (sh-builtin-cd job prog-and-args options)
+  (assert-string-list? 'sh-sh-builtin-cd prog-and-args)
   (apply sh-cd (cdr prog-and-args)))
 
 
 ;; the "pwd" builtin
-(define (builtin-pwd job prog-and-args options)
-  (assert-string-list? 'sh-builtin-pwd prog-and-args)
+(define (sh-builtin-pwd job prog-and-args options)
+  (assert-string-list? 'sh-sh-builtin-pwd prog-and-args)
   (sh-pwd))
 
 

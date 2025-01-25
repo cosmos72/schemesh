@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-;; this file should be included only from file ../job.ss
+;; this file should be included only from file shell/job.ss
 
 
 
@@ -139,7 +139,7 @@
         (job-pgid-set! c (if (> process-group-id 0) process-group-id ret))))))
 
 
-;; internal function called by (builtin-exec) to exec a subprocess
+;; internal function called by (sh-builtin-exec) to exec a subprocess
 (define cmd-exec
   (let ((c-cmd-exec (foreign-procedure "c_cmd_exec" (ptr ptr ptr ptr) int)))
     (lambda (c argv options)

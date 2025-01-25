@@ -14,6 +14,10 @@
 
 (library (schemesh shell job (0 7 1))
   (export
+    ; builtins2.ss
+    sh-builtin-bg sh-builtin-builtin sh-builtin-cd sh-builtin-command
+    sh-builtin-exec sh-builtin-fg sh-builtin-jobs sh-builtin-pwd
+
     ; dir.ss
     sh-cwd-set! sh-cd sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
 
@@ -478,13 +482,35 @@
 
 
 
-;; Start a cmd or a job and return immediately, without waiting for it to finish.
-;; If job finishes immediately, return its exit status (happens for builtins).
-;; Otherwise, return '(running . job-id)
+;; Start a job and return immediately, without waiting for it to finish.
+;;
+;; Returns job status, typically (cons 'running job-id) but other values are allowed.
+;; For the complete list of possible returned job statuses, see (sh-job-status).
+;;
+;; Note that job may finish immediately, for example because it is a builtin,
+;;   or a multijob that only (recursively) contains builtins,
+;;   or a command that exits very quickly.
+;;   For these reasons, the returned job status may be different from (cons 'running job-id)
+;;   and may indicate that the job has already finished.
 ;;
 ;; Options is a list of zero or more of the following:
+;;
 ;;   process-group-id: a fixnum, if present and > 0 then the new process will be inserted
-;;   into the corresponding process group id - which must already exist.
+;;     into the corresponding process group id - which must already exist.
+;;
+;;   'spawn: a symbol, if present then job will be started in a subprocess.
+;;     By design, commands and (sh-subshell) are always started in a subprocess,
+;;     and for them the 'spawn option has no effect - it is enabled by default.
+;;
+;;     Instead builtins and multijobs such as (sh-and) (sh-or) (sh-list) (sh-pipe) ...
+;;     are usually started in the main schemesh process:
+;;     this is convenient and fast, but may hang if their file descriptors
+;;     contain pipes whose other end is read/written by the main schemesh process too.
+;;
+;;     The option 'spawn causes builtins and multijobs to start in a subprocess too.
+;;     It is slower, but has the beneficial effect that reading/writing
+;;     their redirected file descriptors from main schemesh process will no longer hang.
+;;
 (define (sh-start job . options)
   (start/any job options)
   (job-id-update! job)) ; sets job-id if started, otherwise unsets it
@@ -697,13 +723,14 @@
 
   (let ((t (sh-builtins)))
     ; additional builtins
-    (hashtable-set! t "bg"      builtin-bg)
-    (hashtable-set! t "cd"      builtin-cd)
-    (hashtable-set! t "command" builtin-command)
-    (hashtable-set! t "exec"    builtin-exec)
-    (hashtable-set! t "fg"      builtin-fg)
-    (hashtable-set! t "jobs"    builtin-jobs)
-    (hashtable-set! t "pwd"     builtin-pwd)))
+    (hashtable-set! t "bg"      sh-builtin-bg)
+    (hashtable-set! t "builtin" sh-builtin-builtin)
+    (hashtable-set! t "cd"      sh-builtin-cd)
+    (hashtable-set! t "command" sh-builtin-command)
+    (hashtable-set! t "exec"    sh-builtin-exec)
+    (hashtable-set! t "fg"      sh-builtin-fg)
+    (hashtable-set! t "jobs"    sh-builtin-jobs)
+    (hashtable-set! t "pwd"     sh-builtin-pwd)))
 
 
 ) ; close library

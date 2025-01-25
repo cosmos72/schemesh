@@ -142,9 +142,9 @@
   ; while the outer paren usually starts at a parenthesis,
   ; and we want to highlight the latter when cursor is at the end position
   ; of both paren.
-  (when (paren-start-token paren)
+  (when (char? (paren-start-token paren))
     (%hashtable-put-paren-start htable paren))
-  (when (paren-end-token paren)
+  (when (char? (paren-end-token paren))
     (%hashtable-put-paren-end htable paren))
   htable)
 

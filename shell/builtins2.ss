@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-;; this file should be included only from file ../job.ss
+;; this file should be included only from file shell/job.ss
 
 
 
@@ -20,17 +20,17 @@
 
 
 ;; the "command" builtin
-(define (builtin-command job prog-and-args options)
-  (assert-string-list? 'sh-builtin-command prog-and-args)
-  (assert* 'sh-builtin-command (string=? "command" (car prog-and-args)))
+(define (sh-builtin-command job prog-and-args options)
+  (assert-string-list? 'sh-sh-builtin-command prog-and-args)
+  (assert* 'sh-sh-builtin-command (string=? "command" (car prog-and-args)))
   (cmd-spawn job (list->argv (cdr prog-and-args)) options)
   (job-last-status job))
 
 
 ;; the "exec" builtin
-(define (builtin-exec job prog-and-args options)
-  (assert-string-list? 'sh-builtin-exec prog-and-args)
-  (assert* 'sh-builtin-exec (string=? "exec" (car prog-and-args)))
+(define (sh-builtin-exec job prog-and-args options)
+  (assert-string-list? 'sh-sh-builtin-exec prog-and-args)
+  (assert* 'sh-sh-builtin-exec (string=? "exec" (car prog-and-args)))
   (cmd-exec job (list->argv (cdr prog-and-args)) options) ; returns only on error
   (job-last-status job))
 
@@ -39,9 +39,9 @@
 ;; Continue a job or job-id in background by sending SIGCONT to it, and return immediately.
 ;; Return job status. For possible returned statuses, see (sh-bg)
 ;;
-(define (builtin-bg job prog-and-args options)
-  (assert-string-list? 'sh-builtin-bg prog-and-args)
-  ;; TODO: implement (builtin-bg) with no args
+(define (sh-builtin-bg job prog-and-args options)
+  (assert-string-list? 'sh-sh-builtin-bg prog-and-args)
+  ;; TODO: implement (sh-builtin-bg) with no args
   (let ((arg (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
                 "\"\""
                 (cadr prog-and-args))))
@@ -59,9 +59,9 @@
 ;; The "fg" builtin: continue a job-id by sending SIGCONT to it, then wait for it to exit or stop,
 ;; and finally return its status. For possible returned statuses, see (sh-fg)
 ;;
-(define (builtin-fg job prog-and-args options)
-  (assert-string-list? 'sh-builtin-fg prog-and-args)
-  ;; TODO: implement (builtin-fg) with no args
+(define (sh-builtin-fg job prog-and-args options)
+  (assert-string-list? 'sh-sh-builtin-fg prog-and-args)
+  ;; TODO: implement (sh-builtin-fg) with no args
   (let ((arg (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
                 "\"\""
                 (cadr prog-and-args))))
@@ -90,8 +90,8 @@
 
 
 ;; the "jobs" builtin: list currently running jobs
-(define (builtin-jobs job prog-and-args options)
-  (assert-string-list? 'sh-builtin-jobs prog-and-args)
+(define (sh-builtin-jobs job prog-and-args options)
+  (assert-string-list? 'sh-sh-builtin-jobs prog-and-args)
   (let ((src (multijob-children (sh-globals))))
     (unless (span-empty? src)
       ;; do NOT close port, it would close the fd!
@@ -100,4 +100,47 @@
           (lambda (job-id job)
             (when (sh-job? job)
               (sh-job-display/summary* job port)))))))
+  (void))
+
+
+
+;; the "builtin" builtin: find a builtin from its name, and execute it.
+;; raises exception if specified builtin is not found.
+(define (sh-builtin-builtin job prog-and-args options)
+  ; (debugf "sh-builtin-builtin ~s" prog-and-args)
+  (assert-string-list? 'sh-builtin-builtin prog-and-args)
+  (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
+    (void)
+    (let* ((args (cdr prog-and-args))
+           (builtin (sh-find-builtin args)))
+      (unless builtin
+        (raise-errorf 'sh-builtin-builtin "~a: not a shell builtin" (car args)))
+      (sh-start-builtin builtin job args options))))
+
+
+;; start a builtin and return its status.
+;; performs sanity checks on exit status returned by the call (builtin job args options)
+;;
+;; if options list contain 'spawn, then the builtin will be started asynchronously
+;;   in a subprocess, thus the returned status can be '(running ...)
+;; otherwise the builtin will be executed synchronously in the caller's process
+;;   and the returned status can only be one of (void) '(exited ...) '(killed ...) or '(unknown ...)
+(define (sh-start-builtin builtin job args options)
+  (let ((proc
+    (lambda ()
+      (let ((status (builtin job args options)))
+        (if (job-status-finished? status)
+          status
+          (%warn-bad-builtin-exit-status builtin args status)))))) ; returns (void)
+    (if (memq 'spawn options)
+      (job-start/spawn-proc job proc '#() options)
+      (proc))))
+
+
+
+;; always returns (void). Useful for (sh-start-builtin)
+(define (%warn-bad-builtin-exit-status builtin args status)
+  (format (current-error-port)
+    "; warning: invalid exit status ~s of builtin ~s called with arguments ~s\n"
+    status builtin args)
   (void))

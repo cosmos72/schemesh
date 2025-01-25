@@ -112,7 +112,6 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 
 ## TO DO
 
-* fix (sh-read...) exception while parsing "#!/some/absolute/path" at the beginning of input
 * fix hang in {history | foo} due to builtins being fully executed when they start:
   pipe fd becomes full and blocks further writes, preventing builtin "history" from finishing
   and causing a deadlock: "foo" is never started.
@@ -138,3 +137,4 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 * implement pipeline operator |&
 * mark and hide temporary redirections created by (sh-pipe) and (sh-pipe*)
 * implement missing shell builtins: bg fg exec
+* fix (sh-read...) exception while parsing "#!/some/absolute/path" at the beginning of input

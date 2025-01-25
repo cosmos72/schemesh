@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-;; this file should be included only from file ../job.ss
+;; this file should be included only from file shell/job.ss
 
 
 
@@ -200,15 +200,45 @@
 ;; Options is a list of zero or more of the following:
 ;;   process-group-id: a fixnum, if present and > 0 the new subshell will be inserted
 ;;     into the corresponding process group id - which must already exist.
-(define job-start/subshell
+;;   'spawn: a symbol. enabled by default, because this function always spawns a subprocess.
+(define (job-start/subshell job options)
+  (let ((step-proc (job-step-proc job)))
+    (assert* 'sh-start (procedure? step-proc))
+    (assert* 'sh-start (logbit? 2  (procedure-arity-mask step-proc)))
+    (job-env/apply-lazy! job)
+    (job-start/spawn-proc
+      job
+      (lambda () (step-proc job (void)))
+      (span->vector (job-redirects job))
+      options)))
+
+
+;; Fork a new subprocess and call (thunk) from the child subprocess.
+;;
+;; The call (thunk) must return a job exit status.
+;;
+;; The new subprocess is started in background, i.e. the foreground process group is NOT set
+;; to the process group of the newly created subprocess.
+;;
+;; Note: does not call (job-env/apply-lazy! job).
+;;
+;; Options is a list of zero or more of the following:
+;;   process-group-id: a fixnum, if present and > 0 the new subshell will be inserted
+;;     into the corresponding process group id - which must already exist.
+;;   'spawn: a symbol. enabled by default, because this function always spawns a subprocess.
+;;
+;; Return job status, which is usually '(running ...)
+;;   for a complete list of possible job statuses, see (sh-start)
+(define job-start/spawn-proc
   (let ((c-fork-pid (foreign-procedure "c_fork_pid" (ptr int) int)))
-    (lambda (job options)
-      (assert* 'sh-start (procedure? (job-step-proc job)))
-      (job-env/apply-lazy! job)
+    (lambda (job thunk redirects-vector options)
+      (assert* 'sh-start (sh-job? job))
+      (assert* 'sh-start (procedure? thunk))
+      (assert* 'sh-start (logbit? 0  (procedure-arity-mask thunk)))
+      (assert* 'sh-start (vector? redirects-vector))
+      (assert* 'sh-start (list? options))
       (let* ((process-group-id (job-start-options->process-group-id options))
-             (ret (c-fork-pid
-                    (span->vector (job-redirects job))
-                    process-group-id)))
+             (ret (c-fork-pid redirects-vector process-group-id)))
         (cond
           ((< ret 0) ; fork() failed
             (raise-c-errno 'sh-start 'fork ret))
@@ -228,14 +258,12 @@
                     ; cannot wait on our own process
                     (job-status-set! job '(unknown . 0))))
                 (lambda () ; body
-                  ; sh-subshell stores job-run/subshell in (job-step-proc job), call it from child process
-                  (set! status ((job-step-proc job) job (void))))
+                  (set! status (thunk)))
                 (lambda () ; run after body, even if it raised a condition
                   (exit-with-job-status status)))))
           ((> ret 0) ; parent
             (job-pid-set! job ret)
             (job-pgid-set! job (if (> process-group-id 0) process-group-id ret))))))))
-
 
 
 ;; Internal function called by (job-advance) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
