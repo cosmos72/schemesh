@@ -124,12 +124,6 @@
     ; Do not yet assign a job-id. Reuse mj process group id
     (start/any job options)
 
-    (when spawn?
-      ; we can cleanup job's file descriptor, as it's running in a subprocess
-      (job-unmap-fds! job)
-      (job-close-fds-to-close! job)
-      (job-unredirect/temp/all! job))
-
     ; set mj process group id for reuse by all other children
     (when (< pgid 0)
       (job-pgid-set! mj (job-pgid job)))

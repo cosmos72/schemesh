@@ -112,7 +112,12 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 
 ## TO DO
 
+* consume received signals, i.e. call (sh-consume-signals) from (sh-repl-lineedit)
+  and modify the former to wait4(WNOHANG) any child process , update (sh-pid-table)
+  and possibly call (sh-job-status) on uppermost ancestor of each job that exited.
 * autocomplete shell paths and scheme strings: unescape stems before searching for completions, escape completions
+* autocomplete shell paths and scheme strings: when autocompleting inside single or double quotes,
+  the stem starts at the quotes.
 * autocomplete shell paths starting with ~
 * decide: (shell-backquote) should expand to a closure that accepts a parent job and creates a subshell with such parent job?
 * modify builtin "cd", for changing current directory of *parent* job

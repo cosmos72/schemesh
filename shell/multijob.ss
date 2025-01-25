@@ -249,14 +249,14 @@
 ;; Return job status, which is usually '(running ...)
 ;;   for a complete list of possible job statuses, see (sh-job-status)
 (define job-start/spawn-proc
-  (let ((c-fork-pid (foreign-procedure "c_fork_pid" (ptr int) int)))
+  (let ((c-fork-pid (foreign-procedure "c_fork_pid" (int) int)))
     (lambda (job proc options)
       (assert* 'sh-start (sh-job? job))
       (assert* 'sh-start (procedure? proc))
       (assert* 'sh-start (logbit? 1  (procedure-arity-mask proc)))
       (assert* 'sh-start (list? options))
       (let* ((process-group-id (job-start-options->process-group-id options))
-             (ret (c-fork-pid '#() process-group-id))) ; redirects-vector is #() i.e. no redirects
+             (ret (c-fork-pid process-group-id)))
         (cond
           ((< ret 0) ; fork() failed
             (raise-c-errno 'sh-start 'fork ret))

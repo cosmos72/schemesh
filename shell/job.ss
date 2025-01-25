@@ -538,8 +538,13 @@
       (raise-errorf 'sh-start "cannot start job ~s, bad or missing job-start-proc: ~s" job start-proc))
     (job-status-set/running! job)
     (start-proc job options))           ; ignore value returned by job-start-proc
-  (when (fx>? (job-pid job) 0)
-    (pid->job-set! (job-pid job) job))  ; add job to pid->job table
+  (when (> (job-pid job) 0)
+    (pid->job-set! (job-pid job) job))  ; add job to pid->job table 
+  (when (memq 'spawn options)
+    ; we can cleanup job's file descriptor, as it's running in a subprocess
+    (job-unmap-fds! job)
+    (job-close-fds-to-close! job)
+    (job-unredirect/temp/all! job))
   (job-last-status job))                ; check if job finished
 
 
@@ -636,9 +641,9 @@
         (void)) ; job finished
       ((running stopped)
         (cond
-          ((fx>? (job-pid job) 0)
-            ; either the job is a sh-cmd, or a multijob spawned in a child subprocess.
-            ; in both cases, we have a pid to wait on.
+          ((> (job-pid job) 0)
+            ; either the job is a sh-cmd, or a builtin or multijob spawned in a child subprocess.
+            ; in all cases, we have a pid to wait on.
             (job-advance/pid mode job))
           ((sh-multijob? job)
             (if (eq? 'sh-pipe (multijob-kind job))
