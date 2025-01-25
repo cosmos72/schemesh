@@ -282,7 +282,7 @@
 
 ;; Internal function called by (job-advance)
 (define (job-advance/pid mode job)
-  ;a (debugf "> job-advance/pid mode=~s job=~s pid=~s status=~s" mode job (job-pid job) (job-last-status job))
+  ; (debugf "> job-advance/pid mode=~s job=~a pid=~s status=~s" mode (sh-job-display/string job) (job-pid job) (job-last-status job))
   (cond
     ((job-finished? job)
       (job-last-status job)) ; job exited, and exit status already available

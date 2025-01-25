@@ -81,7 +81,7 @@
       (unless (job-terminator? job)
         (assert* caller (sh-job? job))))
     job-start/subshell
-    job-run/subshell ; executed in child process
+    #f   ; nothing to do, (job-start/subshell) already does everything
     children-jobs-with-colon-ampersand))
 
 
@@ -132,17 +132,17 @@
 (define (job-start/list job options)
   (assert* 'sh-list (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-list (fx=? -1 (multijob-current-child-index job)))
-  (let ((%thunk-job-start/list
-          (lambda ()
+  (let ((%proc-job-start/list
+          (lambda (job)
             (job-remap-fds! job)
             (job-env/apply-lazy! job)
             ; Do not yet assign a job-id.
             (job-step/list job (void)))))
     (if (memq 'spawn options)
-      ;; spawn a subprocess and run (%thunk) and (job-step-proc job) inside it
-      (job-start/spawn-proc job %thunk-job-start/list '#() options)
+      ;; spawn a subprocess and run (%proc... job) and (job-step-proc job) inside it
+      (job-start/spawn-proc job %proc-job-start/list '#() options)
       ;; run (proc) in the caller's process
-      (%thunk-job-start/list))))
+      (%proc-job-start/list job))))
 
 
 ;; Internal function stored in (job-start-proc job) by (sh-and),
@@ -153,8 +153,8 @@
   ;; this runs in the main process, not in a subprocess.
   (assert* 'sh-and (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-and (fx=? -1 (multijob-current-child-index job)))
-  (let ((%thunk-job-start/and
-          (lambda ()
+  (let ((%proc-job-start/and
+          (lambda (job)
             (job-remap-fds! job)
             (job-env/apply-lazy! job)
             (if (span-empty? (multijob-children job))
@@ -163,10 +163,10 @@
               ; Do not yet assign a job-id.
               (job-step/and job (void))))))
     (if (memq 'spawn options)
-      ;; spawn a subprocess and run (%thunk) inside it
-      (job-start/spawn-proc job %thunk-job-start/and '#() options)
-      ;; run (%thunk) in the caller's process
-      (%thunk-job-start/and))))
+      ;; spawn a subprocess and run (%proc... job) inside it
+      (job-start/spawn-proc job %proc-job-start/and '#() options)
+      ;; run (%proc... job) in the caller's process
+      (%proc-job-start/and job))))
 
 
 ;; Internal function stored in (job-start-proc job) by (sh-or),
@@ -177,8 +177,8 @@
   ;; this runs in the main process, not in a subprocess.
   (assert* 'sh-or (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-or (fx=? -1 (multijob-current-child-index job)))
-  (let ((%thunk-job-start/or
-          (lambda ()
+  (let ((%proc-job-start/or
+          (lambda (job)
             (job-remap-fds! job)
             (job-env/apply-lazy! job)
             ; (debugf "job-start/or ~s empty children? = ~s" job (span-empty? (multijob-children job)))
@@ -188,10 +188,10 @@
               ; Do not yet assign a job-id.
               (job-step/or job '(exited . 256))))))
     (if (memq 'spawn options)
-      ;; spawn a subprocess and run (%thunk) and (job-step-proc job) inside it
-      (job-start/spawn-proc job %thunk-job-start/or '#() options)
-      ;; run (%thunk) in the caller's process
-      (%thunk-job-start/or))))
+      ;; spawn a subprocess and run (%proc... job) and (job-step-proc job) inside it
+      (job-start/spawn-proc job %proc-job-start/or '#() options)
+      ;; run (%proc... job) in the caller's process
+      (%proc-job-start/or job))))
 
 
 ;; Internal function stored in (job-start-proc job) by (sh-not),
@@ -203,17 +203,17 @@
   ;; TODO: how can we redirect file descriptor?
   (assert* 'sh-not (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-not (fx=? -1 (multijob-current-child-index job)))
-  (let ((%thunk-job-start/not
-          (lambda ()
+  (let ((%proc-job-start/not
+          (lambda (job)
             (job-remap-fds! job)
             (job-env/apply-lazy! job)
             ; Do not yet assign a job-id.
             (job-step/not job (void)))))
     (if (memq 'spawn options)
-      ;; spawn a subprocess and run (%thunk) and (job-step-proc job) inside it
-      (job-start/spawn-proc job %thunk-job-start/not '#() options)
-      ;; run (%thunk) in the caller's process
-      (%thunk-job-start/not))))
+      ;; spawn a subprocess and run (%proc... job) and (job-step-proc job) inside it
+      (job-start/spawn-proc job %proc-job-start/not '#() options)
+      ;; run (%proc... job) in the caller's process
+      (%proc-job-start/not job))))
 
 
 ;; internal function stored in (job-start-proc job) by (sh-subshell) multijobs
@@ -229,19 +229,17 @@
 ;;     into the corresponding process group id - which must already exist.
 ;;   'spawn: a symbol. enabled by default, because this function always spawns a subprocess.
 (define (job-start/subshell job options)
-  (let ((step-proc (job-step-proc job)))
-    (assert* 'sh-start (procedure? step-proc))
-    (assert* 'sh-start (logbit? 2  (procedure-arity-mask step-proc))))
+  (assert* 'sh-start (not (job-step-proc job)))
   (job-env/apply-lazy! job)
   (job-start/spawn-proc
     job
-    void ; no (proc), we only run (job-step-proc job)
+    job-run/subshell ; executed in subprocess
     (span->vector (job-redirects job))
     options))
 
 
 ;; Fork a new subprocess, and in the child subprocess
-;; call (thunk) once, then call (sh job) repeatedly
+;; call (proc job) once, then call (sh-wait job) repeatedly - which calls (job-step-proc job) if set -
 ;; until (job-finished? job) returns truish.
 ;;
 ;; The new subprocess is started in background, i.e. the foreground process group is NOT set
@@ -258,10 +256,10 @@
 ;;   for a complete list of possible job statuses, see (sh-job-status)
 (define job-start/spawn-proc
   (let ((c-fork-pid (foreign-procedure "c_fork_pid" (ptr int) int)))
-    (lambda (job thunk redirects-vector options)
+    (lambda (job proc redirects-vector options)
       (assert* 'sh-start (sh-job? job))
-      (assert* 'sh-start (procedure? thunk))
-      (assert* 'sh-start (logbit? 0  (procedure-arity-mask thunk)))
+      (assert* 'sh-start (procedure? proc))
+      (assert* 'sh-start (logbit? 1  (procedure-arity-mask proc)))
       (assert* 'sh-start (vector? redirects-vector))
       (assert* 'sh-start (list? options))
       (let* ((process-group-id (job-start-options->process-group-id options))
@@ -293,9 +291,9 @@
                     ; which is only annoying - cannot do anything useful with such job-id.
                     (%job-last-status-set! job '(running . #f))))
                 (lambda () ; body
-                  ;b (debugf ">   job-start/spawn-proc job=~a subprocess calling thunk ~s" (sh-job-display/string job) thunk)
-                  (let ((child-status (thunk)))
-                    ;b (debugf "... job-start/spawn-proc job=~a subprocess thunk returned child-status=~s" (sh-job-display/string job) child-status)
+                  ;b (debugf ">   job-start/spawn-proc job=~a subprocess calling proc ~s" (sh-job-display/string job) proc)
+                  (let ((ret (proc job)))
+                    ;b (debugf "... job-start/spawn-proc job=~a subprocess proc returned ~s" (sh-job-display/string job) ret)
                     (void))
                   (set! status (sh-wait job)))
                 (lambda () ; run after body, even if it raised a condition
@@ -463,8 +461,8 @@
 ;; Executed in child process:
 ;; run a multijob containing a sequence of children jobs optionally followed by & ;
 ;; Used by (sh-subshell), implements runtime behavior of shell syntax [ ... ]
-(define (job-run/subshell mj dummy-prev-child-status)
-  ; (debugf "%multijob-subshell/run ~s status = ~s" mj (job-last-status mj))
+(define (job-run/subshell mj)
+  ; (debugf "job-run/subshell mj=~s status=~s" mj (job-last-status mj))
   (let ((children   (multijob-children mj))
         (pgid   (job-pgid mj))
         (status (void)))
