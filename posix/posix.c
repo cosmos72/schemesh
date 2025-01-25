@@ -585,7 +585,7 @@ c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector, ptr close_
   int         open_flags;
   int         err = 0;
 
-  if (!Sfixnump(from_fd) || (fd = Sfixnum_value(from_fd)) < 0) {
+  if (!Sfixnump(from_fd) || (fd = Sfixnum_value(from_fd)) < 0 || fd != (iptr)(int)fd) {
     /* invalid fd */
     return write_invalid_redirection("from_fd", from_fd);
   } else if (!Scharp(direction_ch) ||
@@ -595,14 +595,14 @@ c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector, ptr close_
   } else if (Sfixnump(to_fd_or_bytevector)) {
     /* redirect fd to another fd */
     iptr to_fd = Sfixnum_value(to_fd_or_bytevector);
-    if (to_fd < -1) {
-      /* invalid to_fd, must be >= -1 */
+    if (to_fd < -1 || to_fd != (iptr)(int)to_fd) {
+      /* invalid to_fd, must be in the range [-1, INT_MAX] */
       return write_invalid_redirection("to_fd_or_bytevector", to_fd_or_bytevector);
       /* redirect fd to another file descriptor, or close it */
     } else if (to_fd == -1) {
       (void)close(fd);
       return 0;
-    } else if (dup2_close_on_exec(to_fd, fd, close_on_exec) < 0) {
+    } else if (dup2_close_on_exec((int)to_fd, (int)fd, close_on_exec) < 0) {
       return write_c_errno();
     }
     return 0;
@@ -631,7 +631,7 @@ c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector, ptr close_
       }
 #endif
     } else {
-      err = dup2_close_on_exec(temp_fd, fd, close_on_exec);
+      err = dup2_close_on_exec(temp_fd, (int)fd, close_on_exec);
       (void)close(temp_fd);
     }
     if (err < 0) {
