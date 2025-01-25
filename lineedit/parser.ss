@@ -365,7 +365,7 @@
 ;; i.e. all characters up to the first "\n" and including it, and return #f
 (define (parsectx-read-directive pctx)
   (let ((ch (parsectx-peek-char pctx)))
-    (debugf "parsectx-read-directive ch=~s" ch)
+    ; (debugf "parsectx-read-directive ch=~s" ch)
     (if (is-simple-identifier-char? ch)
       (parsectx-read-simple-identifier pctx)
       (begin
