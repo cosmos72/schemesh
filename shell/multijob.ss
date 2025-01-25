@@ -81,7 +81,7 @@
       (unless (job-terminator? job)
         (assert* caller (sh-job? job))))
     job-start/subshell
-    #f   ; nothing to do, (job-start/subshell) already does everything
+    job-step/list
     children-jobs-with-colon-ampersand))
 
 
@@ -140,7 +140,7 @@
             (job-step/list job (void)))))
     (if (memq 'spawn options)
       ;; spawn a subprocess and run (%proc... job) and (job-step-proc job) inside it
-      (job-start/spawn-proc job %proc-job-start/list '#() options)
+      (job-start/spawn-proc job %proc-job-start/list options)
       ;; run (proc) in the caller's process
       (%proc-job-start/list job))))
 
@@ -164,7 +164,7 @@
               (job-step/and job (void))))))
     (if (memq 'spawn options)
       ;; spawn a subprocess and run (%proc... job) inside it
-      (job-start/spawn-proc job %proc-job-start/and '#() options)
+      (job-start/spawn-proc job %proc-job-start/and options)
       ;; run (%proc... job) in the caller's process
       (%proc-job-start/and job))))
 
@@ -189,7 +189,7 @@
               (job-step/or job '(exited . 256))))))
     (if (memq 'spawn options)
       ;; spawn a subprocess and run (%proc... job) and (job-step-proc job) inside it
-      (job-start/spawn-proc job %proc-job-start/or '#() options)
+      (job-start/spawn-proc job %proc-job-start/or options)
       ;; run (%proc... job) in the caller's process
       (%proc-job-start/or job))))
 
@@ -211,7 +211,7 @@
             (job-step/not job (void)))))
     (if (memq 'spawn options)
       ;; spawn a subprocess and run (%proc... job) and (job-step-proc job) inside it
-      (job-start/spawn-proc job %proc-job-start/not '#() options)
+      (job-start/spawn-proc job %proc-job-start/not options)
       ;; run (%proc... job) in the caller's process
       (%proc-job-start/not job))))
 
@@ -229,13 +229,7 @@
 ;;     into the corresponding process group id - which must already exist.
 ;;   'spawn: a symbol. enabled by default, because this function always spawns a subprocess.
 (define (job-start/subshell job options)
-  (assert* 'sh-start (not (job-step-proc job)))
-  (job-env/apply-lazy! job)
-  (job-start/spawn-proc
-    job
-    job-run/subshell ; executed in subprocess
-    (span->vector (job-redirects job))
-    options))
+  (job-start/list job (cons 'spawn options)))
 
 
 ;; Fork a new subprocess, and in the child subprocess
@@ -256,14 +250,13 @@
 ;;   for a complete list of possible job statuses, see (sh-job-status)
 (define job-start/spawn-proc
   (let ((c-fork-pid (foreign-procedure "c_fork_pid" (ptr int) int)))
-    (lambda (job proc redirects-vector options)
+    (lambda (job proc options)
       (assert* 'sh-start (sh-job? job))
       (assert* 'sh-start (procedure? proc))
       (assert* 'sh-start (logbit? 1  (procedure-arity-mask proc)))
-      (assert* 'sh-start (vector? redirects-vector))
       (assert* 'sh-start (list? options))
       (let* ((process-group-id (job-start-options->process-group-id options))
-             (ret (c-fork-pid redirects-vector process-group-id)))
+             (ret (c-fork-pid '#() process-group-id))) ; redirects-vector is #() i.e. no redirects
         (cond
           ((< ret 0) ; fork() failed
             (raise-c-errno 'sh-start 'fork ret))

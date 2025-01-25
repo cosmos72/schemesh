@@ -962,7 +962,7 @@ static const testcase tests[] = {
      "  (sh-bg j)\n"
      "  (sh-wait j))\n",
      "(exited . 1)"},
-    /* (sh-start) of a builtin, or a multijob only containing builtins
+    /* (sh-start) of a builtin, or a multijob containing (recursively) only builtins,
      * directly returns their exit status, as (sh-run) would do.
      * Reason: there is no external process started asynchronously in the background */
     {"(sh-start (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))\n", /* */
@@ -971,6 +971,8 @@ static const testcase tests[] = {
      "  (sh-start j)\n"
      "  (sh-bg j))\n",
      "(running . 1)"},
+    {"(sh-run (sh-subshell (sh-cmd \"true\") '\\x3B; (sh-cmd \"false\")))\n", /* */
+     "(exited . 1)"},
     /* ------------------------- shell syntax ------------------------------- */
     {"(sh-parse-datum '(shell \"wc\" \"-l\" \"myfile\" > \"mylog\" \\x3b; \"echo\" \"done\"))",
      "(sh-list (sh-cmd* wc -l myfile 1 '> mylog) '; (sh-cmd echo done))"},

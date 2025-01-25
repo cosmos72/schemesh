@@ -141,7 +141,7 @@
           status
           (%warn-bad-builtin-exit-status builtin args status)))))) ; returns (void)
     (if (memq 'spawn options)
-      (job-start/spawn-proc job %proc-builtin/start '#() options)
+      (job-start/spawn-proc job %proc-builtin/start options)
       (%proc-builtin/start job))))
 
 
