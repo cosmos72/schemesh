@@ -129,7 +129,8 @@
 ;; otherwise the builtin will be executed synchronously in the caller's process
 ;;   and the returned status can only be one of (void) '(exited ...) '(killed ...) or '(unknown ...)
 (define (builtin/start builtin job args options)
-  (let ((proc
+  (assert* 'builtin/start (not (job-step-proc job)))
+  (let ((%thunk-builtin/start
     (lambda ()
       (let ((status (builtin job args options)))
         ; executing a builtin finishes immediately, and returns a (job-status-finished? status)
@@ -140,8 +141,8 @@
           status
           (%warn-bad-builtin-exit-status builtin args status)))))) ; returns (void)
     (if (memq 'spawn options)
-      (job-start/spawn-proc job proc '#() options)
-      (proc))))
+      (job-start/spawn-proc job %thunk-builtin/start '#() options)
+      (%thunk-builtin/start))))
 
 
 

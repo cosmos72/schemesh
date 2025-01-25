@@ -180,7 +180,7 @@
       (#t
         (multijob-current-child-index-set! mj -1)
         (job-pgid-set! mj -1)
-        (job-status-set! mj
+        (job-status-set! 'job-advance/pipe/wait mj
           (if (span-empty? children)
             (void)
             (job-last-status (span-back children))))))))

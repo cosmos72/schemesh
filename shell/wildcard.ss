@@ -296,7 +296,7 @@
 ;; recursive implementation of (sh-patterns/expand)
 ;; appends matching paths to span ret and returns it.
 (define (%patterns/expand sp i sp-end path ret)
-  ;; (debugf "%patterns/expand patterns=~s, path=~s" (span-range->span* sp i sp-end) path)
+  ; (debugf "%patterns/expand patterns=~s, path=~s" (span-range->span* sp i sp-end) path)
   (cond
     ((fx>=? i sp-end) ; check that path exists
       (when (file-stat path 'catch 'symlinks)

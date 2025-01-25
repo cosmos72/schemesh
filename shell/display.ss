@@ -8,7 +8,8 @@
 
 ;; this file should be included only from file shell/job.ss
 
-;; can be set to #f in forked sub-processes
+;; if set to #f, (sh-job-display/summary) does nothing.
+;; useful in forked sub-processes
 (define sh-job-display/summary?
   (make-thread-parameter #t))
 

@@ -16,7 +16,7 @@
     (rnrs)
     (rnrs base)
     (rnrs exceptions)
-    (only (chezscheme) current-time format fx1- fx/ gensym
+    (only (chezscheme) current-time format foreign-procedure fx1- fx/ gensym
                        interaction-environment make-format-condition meta reverse!
                        time-second time-nanosecond top-level-value void))
 
@@ -82,6 +82,7 @@
                                       (error-handling-mode raise)))))
       pts1)))
 
+(define c-pid-get (foreign-procedure "c_pid_get" () int))
 
 ;; write a debug message to (debugf-port)
 (define (debugf format-string . args)
@@ -89,9 +90,9 @@
          (t (current-time 'time-monotonic))
          (us-str (number->string (fx/ (time-nanosecond t) 1000)))
          (us-str-len (string-length us-str))
-         (zeropad (if (fx<? us-str-len 6) (make-string (fx- 6 us-str-len) #\0) "")))
-    (apply format out (string-append "; ~a.~a~a " format-string "\n")
-      (time-second t) zeropad us-str args)))
+         (zeropad-time (if (fx<? us-str-len 6) (make-string (fx- 6 us-str-len) #\0) "")))
+    (apply format out (string-append "; [pid ~a] ~a.~a~a " format-string "\n")
+      (c-pid-get) (time-second t) zeropad-time us-str args)))
 
 
 ;; wrap a procedure call, and write two debug messages to (debugf-port):

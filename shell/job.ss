@@ -186,8 +186,11 @@
 
 
 ;; set the status of a job and return it.
-;; if (job-status->kind status) is one of 'exited 'killed 'unknown, also close the job fds
-(define (job-status-set! job status)
+;; if specified status indicates that job finished,
+;;   i.e. (job-status->kind status) is one of 'exited 'killed 'unknown,
+;;   also close the job fds that need to be closed.
+(define (job-status-set! caller job status)
+  ;a (debugf "job-status-set! caller=~s job=~s status=~s" caller job status)
   (let ((status (job-status-normalize status)))
     (if (job-status-member? status '(running))
       (job-status-set/running! job)
@@ -197,14 +200,20 @@
           (when (sh-cmd? job)
             ; unset expanded arg-list, because next expansion may differ
             (cmd-expanded-arg-list-set! job #f))
+          ; (debugf "job-status-set! caller=~s job=~s status=~s" caller job status)
           (job-unmap-fds! job)
-          (let ((fds (job-fds-to-close job)))
-            (unless (null? fds)
-              (fd-close-list fds)
-              (job-fds-to-close-set! job '())))
+          (job-close-fds-to-close! job)
           ; remove temporary redirections
           (job-unredirect/temp/all! job))
         status))))
+
+
+;; close fd list (job-fds-to-close job) and set it to the empty list.
+(define (job-close-fds-to-close! job)
+  (let ((fds (job-fds-to-close job)))
+    (unless (null? fds)
+      (fd-close-list fds)
+      (job-fds-to-close-set! job '()))))
 
 
 ;; normalize job status, converting unexpected status values to '(unknown . 0)
@@ -263,7 +272,7 @@
          (kind   (job-status->kind status)))
     (when (and (eq? kind 'running) (not (eqv? id (cdr status))))
       ;; replace job status '(running . #f) -> '(running . job-id)
-      (job-status-set! job (cons 'running id)))
+      (job-status-set! 'job-id-set! job (cons 'running id)))
     (unless (eqv? id old-id)
       (sh-job-display/summary job)))
   (job-last-status job))
@@ -475,6 +484,7 @@
         (lambda (cell)
           (let ((fd (cdr cell)))
             (when (sh-fd-release fd)
+              ; (debugf "pid ~s: job-unmap-fds! -> fd-close ~s" (pid-get) (sh-fd->int fd))
               (fd-close (sh-fd->int fd))))))
       (job-fds-to-remap-set! job #f))))
 
@@ -504,12 +514,12 @@
 ;;
 ;;     Instead builtins and multijobs such as (sh-and) (sh-or) (sh-list) (sh-pipe) ...
 ;;     are usually started in the main schemesh process:
-;;     this is convenient and fast, but may hang if their file descriptors
+;;     this is convenient and fast, but may deadlock if their file descriptors
 ;;     contain pipes whose other end is read/written by the main schemesh process too.
 ;;
 ;;     The option 'spawn causes builtins and multijobs to start in a subprocess too.
 ;;     It is slower, but has the beneficial effect that reading/writing
-;;     their redirected file descriptors from main schemesh process will no longer hang.
+;;     their redirected file descriptors from main schemesh process will no longer deadlock.
 ;;
 (define (sh-start job . options)
   (start/any job options)
@@ -518,7 +528,7 @@
 
 ;; Internal functions called by (sh-start)
 (define (start/any job options)
-  ; (debugf "start/any ~s ~s" job options)
+  ;b (debugf "start/any ~a ~s" (sh-job-display/string job) options)
   (when (job-started? job)
     (if (job-id job)
       (raise-errorf 'sh-start "job already started with job id ~s" (job-id job))
@@ -620,13 +630,15 @@
 (define (job-advance mode job-or-id)
   (assert* 'job-advance (memq mode '(sh-fg sh-bg sh-wait sh-sigcont+wait sh-subshell sh-job-status)))
   (let ((job (sh-job job-or-id)))
-    ; (debugf "job-advance... mode=~s job=~s id=~s status=~s" mode job (job-id job) (job-last-status job))
+    ;a (debugf ">  job-advance mode=~s job=~s id=~s pid=~s status=~s" mode job (job-id job) (job-pid job) (job-last-status job))
     (case (job-last-status->kind job)
       ((exited killed unknown)
         (void)) ; job finished
       ((running stopped)
         (cond
           ((fx>? (job-pid job) 0)
+            ; either the job is a sh-cmd, or a multijob spawned in a child subprocess.
+            ; in both cases, we have a pid to wait on.
             (job-advance/pid mode job))
           ((sh-multijob? job)
             (if (eq? 'sh-pipe (multijob-kind job))
@@ -634,8 +646,10 @@
               (job-advance/multijob mode job)))))
       (else
         (raise-errorf mode  "job not started yet: ~s" job)))
-    ; returns job status
-    (job-id-update! job)))
+
+    (let ((status (job-id-update! job))) ; returns job status
+      ;a (debugf "<  job-advance mode=~s job=~s id=~s pid=~s status=~s" mode job (job-id job) (job-pid job) status)
+      status)))
 
 
 ;; Start a job and wait for it to exit or stop.

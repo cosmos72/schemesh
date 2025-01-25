@@ -16,11 +16,11 @@
 ;; Does NOT return early if job is stopped, use (sh-run/i) for that.
 ;; Options are the same as (sh-start)
 ;;
-;; Implementation note: job is started from a subshell,
+;; Implementation note: job is always started in a subprocess,
 ;; because we need to read its standard output while it runs.
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
 (define (sh-run/bspan job . options)
-  (let ((parent (job-parent job)))
+  (let ((started? #f))
     ; create pipe fds, both are close-on-exec
     (let-values (((read-fd write-fd) (open-pipe-fds #t #t)))
       ; temporarily suppress messages about started/completed jobs
@@ -28,25 +28,33 @@
         (dynamic-wind
           void ; run before body
           (lambda ()
-            (let ((jj (sh-subshell job))) ; also sets job's parent to jj
+            ; temporarily redirect job's stdout to write-fd.
+            ; redirection is automatically removed by (job-status-set!) when job finishes.
+            (job-redirect/temp/fd! job 1 '>& write-fd)
+            ; always start job in a subprocess, see above for reason.
+            (apply sh-start job 'spawn options)
+            (set! started? #t)
+            ; close our copy of write-fd: needed to detect eof on read-fd
+            (fd-close write-fd)
+            (set! write-fd #f)
 
-              (sh-redirect! jj 1 '>& write-fd) ; redirect jj stdout to write-fd
+            ; job no longer needs fd remapping and fds-to-close:
+            ; they also may contain a dup() of write-fd
+            ; which prevents detecting eof on read-fd
+            ; (debugf "pid ~s: sh-run/bspan calling (job-unmap-fds) job=~s" (pid-get) job)
+            (job-unmap-fds! job)
+            (job-close-fds-to-close! job)
 
-              (apply sh-start jj options)
-              ; close our copy of write-fd: needed to detect eof on read-fd
-              (fd-close write-fd)
-              (set! write-fd #f)
-              ;; WARNING: job may internally dup write-fd into (job-fds-to-remap)
-              (let ((ret (fd-read-until-eof read-fd)))
-                (sh-wait jj)
-                ret)))
+            ;; WARNING: job may internally dup write-fd into (job-fds-to-remap)
+            (fd-read-until-eof read-fd))
           (lambda ()
-            ; restore job's original parent
-            (job-parent-set! job parent)
             ; close pipe fds
             (when write-fd
               (fd-close write-fd))
-            (fd-close read-fd)))))))
+            (fd-close read-fd)
+            (when started?
+              (sh-wait job))))))))
+
 
 
 ;; Start a job and wait for it to exit.

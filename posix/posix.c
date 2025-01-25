@@ -554,11 +554,11 @@ static int c_direction_to_open_flags(string_char ch) {
   switch (ch) {
     case '<':
       return O_RDONLY;
-    case '>':
-      return O_WRONLY | O_CREAT;
-    case 0x00bb: /* » means >> */
-      return O_WRONLY | O_APPEND | O_CREAT;
-    case 0x2276: /* ≶ means <> */
+    case '>': /* write to file. truncate file if exists, otherwise create it */
+      return O_WRONLY | O_CREAT | O_TRUNC;
+    case 0x00bb: /* » means >> i.e. append */
+      return O_WRONLY | O_CREAT | O_APPEND;
+    case 0x2276: /* ≶ means <> i.e. read/write from start of file and do NOT truncate */
       return O_RDWR | O_CREAT;
     default:
       return -1;

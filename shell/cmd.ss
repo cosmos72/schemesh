@@ -114,7 +114,7 @@
 ;; internal function called by (cmd-start) to execute a builtin
 (define (cmd-start/builtin builtin c prog-and-args options)
   (job-remap-fds! c)
-  (job-status-set! c
+  (job-status-set! 'cmd-start/builtin c
     (parameterize ((sh-fd-stdin  (job-find-fd-remap c 0))
                    (sh-fd-stdout (job-find-fd-remap c 1))
                    (sh-fd-stderr (job-find-fd-remap c 2)))
@@ -150,7 +150,7 @@
                     (job-make-c-redirect-vector c)
                     (sh-env->argv c 'exported))))
         ; (c-cmd-exec) returns only if it failed
-        (job-status-set! c (cons 'exited (if (integer? ret) ret -1)))))))
+        (job-status-set! 'cmd-exec c (cons 'exited (if (integer? ret) ret -1)))))))
 
 
 ;; internal function called by (cmd-spawn)
@@ -282,7 +282,7 @@
 
 ;; Internal function called by (job-advance)
 (define (job-advance/pid mode job)
-  ; (debugf "job-advance/pid > ~s ~s status=~s" mode job (job-last-status job))
+  ;a (debugf "> job-advance/pid mode=~s job=~s pid=~s status=~s" mode job (job-pid job) (job-last-status job))
   (cond
     ((job-finished? job)
       (job-last-status job)) ; job exited, and exit status already available
@@ -318,8 +318,9 @@
   ; the only case where we spawn multiple processes in the same process group
   ; is a pipe i.e {a | b | c ...} and in such case we separately wait on the process id
   ; of each spawned process
-  (let* ((may-block   (if (memq mode '(sh-bg sh-job-status)) 'nonblocking 'blocking))
-         (wait-status (pid-wait->job-status (pid-wait (job-pid job) may-block)))
+  (let* ((pid-wait-ret (pid-wait (job-pid job)
+                         (if (memq mode '(sh-bg sh-job-status)) 'nonblocking 'blocking)))
+         (wait-status (pid-wait->job-status pid-wait-ret))
          (kind        (job-status->kind wait-status)))
     ; (debugf "job-advance/pid/wait > ~s ~s wait-status=~s" mode job wait-status)
     ; if may-block is 'non-blocking, wait-status may be '(running . #f)
@@ -327,11 +328,11 @@
     (case kind
       ((running)
         ; if wait-status is '(running . #f), try to return '(running . job-id)
-        (job-status-set! job wait-status))
+        (job-status-set! 'job-advance/pid/wait job wait-status))
       ((exited killed unknown)
         ; job exited, clean it up. Also allows user to later start it again.
         (pid->job-delete! (job-pid job))
-        (job-status-set! job wait-status)
+        (job-status-set! 'job-advance/pid/wait job wait-status)
         (job-id-unset! job) ; may show job summary
         (job-pid-set!  job -1)
         (job-pgid-set! job -1)
@@ -339,7 +340,8 @@
       ((stopped)
         ; process is stopped.
         ; if mode is sh-wait or sh-sigcont+wait, call (break)
-        ; then, if mode is sh-wait sh-sigcont+wait or sh-subshell, wait for it again (which blocks until it changes status again)
+        ; then, if mode is sh-wait sh-sigcont+wait or sh-subshell,
+        ;;  wait for it again (which blocks until it changes status again)
         ; otherwise propagate process status and return.
         (if (memq mode '(sh-wait sh-sigcont+wait sh-subshell))
           (begin
@@ -347,7 +349,7 @@
               (job-advance/pid/break mode job pid pgid))
             (job-advance/pid/wait mode job pid pgid))
           (begin
-            (job-status-set! job wait-status)
+            (job-status-set! 'job-advance/pid/wait job wait-status)
             wait-status)))
       (else
         (raise-errorf mode "job not started yet: ~s" job)))))
