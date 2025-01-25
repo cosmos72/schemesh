@@ -467,7 +467,7 @@
 ;; and returns them as numbers - Joining them with subsequent redirection operator is left to (shell) macro.
 (define (lex-shell ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?)
   (parsectx-skip-whitespace ctx #f) ; don't skip newlines
-  (let ((value (try-read-parser-directive ctx)))
+  (let ((value (parsectx-try-read-directive ctx)))
     (if (symbol? value)
       (if (eq? 'eof value)
         ; yes, #!eof is an allowed directive:
@@ -702,7 +702,8 @@
 
           ((#\#)
             (if (eqv? #\! (parsectx-read-char ctx))
-              (set! ret (parsectx-read-simple-identifier ctx))
+              (set! ret (parsectx-read-directive ctx))
+              ; #\# not followed by #\! is a comment line, skip it
               (parsectx-skip-line ctx)))
 
           (else

@@ -608,7 +608,7 @@ static const testcase tests[] = {
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"a<>/dev/null||b>/dev/zero&&!c>&2\"))",
      "(shell a <> /dev/null || b > /dev/zero && ! c >& 2)"},
-    /** test fd number [N] before redirection */
+    /* test fd number [N] before redirection */
     {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
      "  \"foo 0</dev/zero 1<>/dev/urandom 2<&- 3>>logfile 4>otherfile 5>&/dev/null\")))",
      "(shell \"foo\" 0 < \"/dev/zero\" 1 <> \"/dev/urandom\" 2 <& \"-\" 3 >> \"logfile\""
@@ -665,6 +665,24 @@ static const testcase tests[] = {
      "  (string->parsectx \"uiop asdf #!scheme (xyz %%a)\" (parsers))\n"
      "  'scheme))",
      "((uiop asdf (xyz %%a)) #<parser scheme>)"},
+    /* #! not followed by [0-9A-Za-z] skips the rest of line */
+    {"(values->list (parse-forms\n"
+     "  (string->parsectx \"qwerty #!/some/path '()\" (parsers))\n"
+     "  'scheme))",
+     "((qwerty) #<parser scheme>)"},
+    {"(values->list (parse-forms\n"
+     "  (string->parsectx \"qwerty #!/some/path\\n '()\" (parsers))\n"
+     "  'scheme))",
+     "((qwerty '()) #<parser scheme>)"},
+    /* ; skips the rest of line too */
+    {"(values->list (parse-forms\n"
+     "  (string->parsectx \"uiop ; this is a comment\" (parsers))\n"
+     "  'scheme))",
+     "((uiop) #<parser scheme>)"},
+    {"(values->list (parse-forms\n"
+     "  (string->parsectx \"uiop ;\\n this is not a comment\" (parsers))\n"
+     "  'scheme))",
+     "((uiop this is not a comment) #<parser scheme>)"},
     {"(values->list (parse-forms\n"
      "  (string->parsectx \"`('foo ,bar ,@baz) #`(#'sfoo #,sbar #,@sbaz)\" (parsers))\n"
      "  'scheme))",
@@ -775,16 +793,17 @@ static const testcase tests[] = {
     {"(string->paren \"{'foo\\\"bar{}[]()``baz'}\")", "#<paren _{''}_>"},
     /* test double-quoted strings in shell syntax */
     {"(string->paren \"{\\\"foobar{}[]``${baz}\\\"}\")", "#<paren _{\"`` {}\"}_>"},
-    /** paren are not special in shell syntax inside double quoted string */
+    /* paren are not special in shell syntax inside double quoted string */
     {"(string->paren \"{\\\"()\\\"}\")", "#<paren _{\"\"}_>"},
-    /** parse mismatched paren */
+    /* parse mismatched paren */
     {"(string->paren \"'\" 'shell)", "#<paren _'" GRAY("'") "_>"},
     {"(string->paren \"([{)]}\")",
      "#<paren _([{" GRAY("(") ") " GRAY("[") "]}" GRAY("]") GRAY(")") "_>"},
     {"(string->paren \"(\\\" a\\\"\")", "#<paren _(\"\"" GRAY(")") "_>"},
-    {"(string->paren \"ls #!scheme 1 2 3\" 'shell)", "#<paren __>"},
-    {"(string->paren \"{ls ; #!scheme 1 2 3}\")", "#<paren _{}_>"},
-    {"(string->paren \"(values '{ls; #!scheme 1 2 3})\")", "#<paren _({})_>"},
+    /* the code after #!scheme is inside a nested paren with name = 'scheme */
+    {"(string->paren \"ls #!scheme 1 2 3\" 'shell)", "#<paren ____>"},
+    {"(string->paren \"{ls ; #!scheme 1 2 3}\")", "#<paren _{{}}_>"},
+    {"(string->paren \"(values '{ls; #!scheme 1 2 3})\")", "#<paren _({{}})_>"},
     {"(let ((p (string->paren \"{[a] && b]\")))\n"
      "  (list\n"
      "    (paren-find/surrounds p 0 0)\n"
@@ -1114,7 +1133,13 @@ static const testcase tests[] = {
      " (shell \"command\" \"true\" && \"grep\" \"abc\" > \"/dev/null\")))",
      "(exited . 1)"},
     {"(sh-run (shell \"true\" \\x7C; \"command\" \"true\" \\x7C; \"false\"))", "(exited . 1)"},
-    /* ------------------------- file read ---------------------------------- */
+    /* ------------------------- sh-read ------------------------------------ */
+    {"(sh-read-string* \"#!/some/path some-arg\\n(display (+ 1 2)) {ls}\""
+     "  'scheme #t)",
+     "(begin (display (+ 1 2)) (sh-run (shell ls)))"},
+    {"(sh-read-string* \"#!/some/other/path\\n(display (* 3 4)); ls\""
+     "  'shell #t)",
+     "(begin (display (* 3 4)) (sh-run (shell ls)))"},
     {"(sh-read-file \"utils/test_file.ss\")",
      "(begin (define (fib n)"
      " (let %fib ((i n))"

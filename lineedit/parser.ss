@@ -16,15 +16,15 @@
     get-parser-or-false get-parser to-parser
 
     parsectx-peek-char parsectx-read-char parsectx-unread-char parsectx-skip-whitespace
-    parsectx-skip-line parsectx-skip-until-char parsectx-read-simple-identifier
-    try-read-parser-directive
+    parsectx-skip-line parsectx-skip-until-char
+    parsectx-try-read-directive parsectx-read-directive
 
     syntax-errorf)
   (import
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) fx1+ fx1- make-format-condition record-writer unread-char void)
-    (only (schemesh bootstrap) assert* until while)
+    (only (schemesh bootstrap) assert* debugf until while)
     (only (schemesh containers misc) list-iterate)
     (only (schemesh containers hashtable) hashtable-iterate)
     (schemesh containers span)
@@ -310,40 +310,67 @@
 (define (parsectx-read-simple-identifier pctx)
   (let ((csp (charspan)))
     (charspan-reserve-back! csp 10)
-    (parsectx-read-char pctx)
     (while (is-simple-identifier-char? (parsectx-peek-char pctx))
       (charspan-insert-back! csp (parsectx-read-char pctx)))
     (string->symbol (charspan->string csp))))
 
 
-;; return truthy if ch is a character whose value is a number,
-;; or an ASCII letter, or '_', or greater than (integer->char 127).
+;; return truthy if ch is one of the characters:
+;;   #\0 ... #\9
+;;   #\A ... #\Z
+;;   #\a ... #\z
+;;   #\_
 ;; Otherwise return #f
 (define (is-simple-identifier-char? ch)
   (and (char? ch)
        (or (and (char>=? ch #\0) (char<=? ch #\9))
            (and (char>=? ch #\A) (char<=? ch #\Z))
            (and (char>=? ch #\a) (char<=? ch #\z))
-           (char=? ch #\_)
-           (char>? ch #\delete))))
+           (char=? ch #\_))))
 
 
 
 ;; Try to read a parser directive #!... from textual input port (parsectx-in pctx)
 ;; Does NOT skip whitespace in input port.
 ;;
-;; If port's first two characters are a parser directive #!
-;; then read the symbol after it, and return such symbol.
+;; If port's next two characters are "#!" and are followed by a simple-identifier character,
+;; i.e. one of [0-9A-Za-z_] then read a simple-identifier and return it converted to a symbol.
 ;;
-;; Otherwise do nothing and return #f i.e. do not consume any character or part of it
-(define (try-read-parser-directive pctx)
-  (let ((ret #f))
-    (when (eqv? #\# (parsectx-peek-char pctx))
+;; Otherwise if port's next two characters are "#!" or "#!" but are not followed by
+;; a simple-identifier character, then ignore and consume a whole line
+;; i.e. all characters up to the first "\n" and including it, and return #f
+;;
+;; Otherwise do nothing and return #f i.e. do not consume any character or part of it.
+(define (parsectx-try-read-directive pctx)
+  (if (eqv? #\# (parsectx-peek-char pctx))
+    (begin
       (parsectx-read-char pctx)
       (if (eqv? #\! (parsectx-peek-char pctx))
-        (set! ret (parsectx-read-simple-identifier pctx))
+        (begin
+          (parsectx-read-char pctx)
+          (parsectx-read-directive pctx))
+        ; #\# not followed by #\! : unread everything and return #f
         (parsectx-unread-char pctx #\#)))
-    ret))
+    #f))
+
+
+;; Read a parser directive from textual input port (parsectx-in pctx).
+;; Does NOT skip whitespace in input port.
+;; Assumes the characters "#!" were already read and consumed.
+;;
+;; If port's next character is a simple-identifier character, i.e. one of [0-9A-Za-z_]
+;; then read a simple-identifier and return it converted to a symbol.
+;;
+;; Otherwise ignore and consume a whole line
+;; i.e. all characters up to the first "\n" and including it, and return #f
+(define (parsectx-read-directive pctx)
+  (let ((ch (parsectx-peek-char pctx)))
+    (debugf "parsectx-read-directive ch=~s" ch)
+    (if (is-simple-identifier-char? ch)
+      (parsectx-read-simple-identifier pctx)
+      (begin
+        (parsectx-skip-line pctx)
+        #f))))
 
 
 ;; Raise a condition describing a syntax error

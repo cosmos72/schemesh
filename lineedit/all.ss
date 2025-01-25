@@ -88,8 +88,8 @@
     get-parser-or-false get-parser to-parser
 
     parsectx-peek-char parsectx-read-char parsectx-unread-char parsectx-skip-whitespace
-    parsectx-skip-line parsectx-skip-until-char parsectx-read-simple-identifier
-    try-read-parser-directive
+    parsectx-skip-line parsectx-skip-until-char
+    parsectx-try-read-directive parsectx-read-directive
 
     syntax-errorf
 

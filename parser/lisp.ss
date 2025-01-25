@@ -41,7 +41,7 @@
 ;; Return two values: token value and its type.
 (define (lex-lisp ctx flavor)
   (parsectx-skip-whitespace ctx 'also-skip-newlines)
-  (let ((value (try-read-parser-directive ctx)))
+  (let ((value (parsectx-try-read-directive ctx)))
     (if (symbol? value)
       (if (eq? 'eof value)
         ;; yes, #!eof is an allowed directive:
@@ -304,7 +304,7 @@
       ((#\\) (parsectx-read-char ctx) #f) ; consume one char after #\
       ((#\( #\[ #\{) ch) ; treat #( #[ #{ respectively as ( [ {
       ((#\|) #\#) ; found start of block comment #| thus return #
-      ((#\!)        (parsectx-read-simple-identifier ctx)) ; found parser directive
+      ((#\!)        (parsectx-read-directive ctx)) ; found parser directive
       (else #f))))
 
 

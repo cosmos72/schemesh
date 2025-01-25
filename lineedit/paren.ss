@@ -127,15 +127,25 @@
 ;; actual implementation of (paren->hashtable)
 (define (%paren->hashtable paren htable)
   ; (debugf "(%paren->hashtable ~s)" paren)
-  (when (paren-start-token paren)
-    (%hashtable-put-paren-start htable paren))
-  (when (paren-end-token paren)
-    (%hashtable-put-paren-end htable paren))
   (let ((inner-span (paren-inner paren)))
     (when inner-span
       (span-iterate inner-span
         (lambda (i inner)
           (%paren->hashtable inner htable)))))
+  ; if multiple paren start or end at the same position,
+  ; the outer one wins.
+  ; if they are at the same depth, the later one wins.
+  ;
+  ; reason: parser directive #!... creates a nested paren
+  ; with the same end position of the outer one,
+  ; but the nested paren starts at the end of the parser directive #!...
+  ; while the outer paren usually starts at a parenthesis,
+  ; and we want to highlight the latter when cursor is at the end position
+  ; of both paren.
+  (when (paren-start-token paren)
+    (%hashtable-put-paren-start htable paren))
+  (when (paren-end-token paren)
+    (%hashtable-put-paren-end htable paren))
   htable)
 
 ;; add paren to hashtable for position start-x start-y
