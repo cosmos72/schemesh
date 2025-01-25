@@ -112,10 +112,6 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 
 ## TO DO
 
-* fix hang in {history | foo} due to builtins being fully executed when they start:
-  pipe fd becomes full and blocks further writes, preventing builtin "history" from finishing
-  and causing a deadlock: "foo" is never started.
-  A solution would be for (sh-pipe) to start builtins and multijobs in a subshell
 * autocomplete shell paths and scheme strings: unescape stems before searching for completions, escape completions
 * autocomplete shell paths starting with ~
 * decide: (shell-backquote) should expand to a closure that accepts a parent job and creates a subshell with such parent job?
@@ -138,3 +134,7 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 * mark and hide temporary redirections created by (sh-pipe) and (sh-pipe*)
 * implement missing shell builtins: bg fg exec
 * fix (sh-read...) exception while parsing "#!/some/absolute/path" at the beginning of input
+* fix hang in {history | foo} due to builtins being fully executed when they start:
+  pipe fd becomes full and blocks further writes, preventing builtin "history" from finishing
+  and causing a deadlock: "foo" is never started.
+  The solution was: modify (sh-pipe) to start builtins and multijobs in a subprocess

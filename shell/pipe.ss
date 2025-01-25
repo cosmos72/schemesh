@@ -94,13 +94,18 @@
          (out-pipe-fd/read -1)
          (out-pipe-fd/write -1)
          (pgid          (job-pgid mj)) ; < 0 if not set
-         (options       (if (< pgid 0) '() (list pgid)))
          (redirect-in?  (fx>=? in-pipe-fd 0))
          (redirect-out? (fx<? i (fx1- n)))
          (redirect-err? (and redirect-out?
-                             (eq? '\x7C;& (sh-multijob-child-ref mj (fx1+ i))))))
+                             (eq? '\x7C;& (sh-multijob-child-ref mj (fx1+ i)))))
+         ; optimization: no need to run the last job in a subprocess
+         ; TO DO: investigate wrong exit value if spawn? is unconditionally #t
+         (spawn?        redirect-out?)
+         (options1      (if (< pgid 0) '() (list pgid)))
+         (options       (if spawn? (cons 'spawn options1) options1)))
 
-    ; Apply redirections. Will be removed by job-advance/pipe/wait) when job finishes.
+
+    ; Apply redirections. Will be removed by (job-advance/pipe/wait) when job finishes.
     (when redirect-in?
       ; we must redirect job fd 0 *before* any redirection configured in the job itself
       (job-redirect/temp/fd! job 0 '<& in-pipe-fd))
@@ -114,10 +119,16 @@
           ; we must redirect job's fd 2 *before* any redirection configured in the job itself
           (job-redirect/temp/fd! job 2 '>& fd/write))))
 
-    ; (debugf "job-start/pipe-i starting job=~s, options=~s" job options)
+    ; (debugf "... job-start/pipe-i starting job=~a, options=~s, redirect-in=~s, redirect-out=~s" (sh-job-display/string job) options redirect-in? redirect-out?)
 
     ; Do not yet assign a job-id. Reuse mj process group id
     (start/any job options)
+
+    (when spawn?
+      ; we can cleanup job's file descriptor, as it's running in a subprocess
+      (job-unmap-fds! job)
+      (job-close-fds-to-close! job)
+      (job-unredirect/temp/all! job))
 
     ; set mj process group id for reuse by all other children
     (when (< pgid 0)
@@ -149,7 +160,7 @@
       (begin
         (job-advance/pipe/maybe-sigcont mode mj pgid)
         (job-advance/pipe/wait mode mj))))
-  ; (debugf "< job-advance/pipe job-status=~s" (job-last-status mj))
+  ; (debugf "<   job-advance/pipe job-status=~s" (job-last-status mj))
   )
 
 
