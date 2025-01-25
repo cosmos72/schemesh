@@ -513,7 +513,7 @@
 ;;
 (define (sh-start job . options)
   (start/any job options)
-  (job-id-update! job)) ; sets job-id if started, otherwise unsets it
+  (job-id-update! job)) ; sets job-id if started, otherwise unsets it. returns job status.
 
 
 ;; Internal functions called by (sh-start)
@@ -523,14 +523,14 @@
     (if (job-id job)
       (raise-errorf 'sh-start "job already started with job id ~s" (job-id job))
       (raise-errorf 'sh-start "job already started")))
-  (let ((proc (job-start-proc job)))
-    (unless (procedure? proc)
-      (raise-errorf 'sh-start "cannot start job, it has bad or missing job-start-proc: ~s" job))
+  (let ((start-proc (job-start-proc job)))
+    (unless (procedure? start-proc)
+      (raise-errorf 'sh-start "cannot start job ~s, bad or missing job-start-proc: ~s" job start-proc))
     (job-status-set/running! job)
-    (proc job options)) ; ignore value returned by job-start-proc
+    (start-proc job options))           ; ignore value returned by job-start-proc
   (when (fx>? (job-pid job) 0)
-    (pid->job-set! (job-pid job) job))        ; add job to pid->job table
-  (job-last-status job))
+    (pid->job-set! (job-pid job) job))  ; add job to pid->job table
+  (job-last-status job))                ; check if job finished
 
 
 

@@ -60,7 +60,7 @@
     (job-env/apply-lazy! c)
     (if builtin
       ; expanded arg[0] is a builtin, call it.
-      (cmd-run/builtin builtin c prog-and-args options)
+      (cmd-start/builtin builtin c prog-and-args options)
        ; expanded arg[0] is a not builtin or alias, spawn a subprocess
       (cmd-spawn c (list->argv prog-and-args) options))))
 
@@ -112,13 +112,13 @@
 
 
 ;; internal function called by (cmd-start) to execute a builtin
-(define (cmd-run/builtin builtin c prog-and-args options)
+(define (cmd-start/builtin builtin c prog-and-args options)
   (job-remap-fds! c)
   (job-status-set! c
     (parameterize ((sh-fd-stdin  (job-find-fd-remap c 0))
                    (sh-fd-stdout (job-find-fd-remap c 1))
                    (sh-fd-stderr (job-find-fd-remap c 2)))
-      (builtin c prog-and-args options))))
+      (builtin/start builtin c prog-and-args options))))
 
 
 ;; internal function called by (cmd-start) to spawn a subprocess

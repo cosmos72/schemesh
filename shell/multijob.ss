@@ -228,7 +228,7 @@
 ;;   'spawn: a symbol. enabled by default, because this function always spawns a subprocess.
 ;;
 ;; Return job status, which is usually '(running ...)
-;;   for a complete list of possible job statuses, see (sh-start)
+;;   for a complete list of possible job statuses, see (sh-job-status)
 (define job-start/spawn-proc
   (let ((c-fork-pid (foreign-procedure "c_fork_pid" (ptr int) int)))
     (lambda (job thunk redirects-vector options)
@@ -263,7 +263,8 @@
                   (exit-with-job-status status)))))
           ((> ret 0) ; parent
             (job-pid-set! job ret)
-            (job-pgid-set! job (if (> process-group-id 0) process-group-id ret))))))))
+            (job-pgid-set! job (if (> process-group-id 0) process-group-id ret))
+            (cons 'running #f)))))))
 
 
 ;; Internal function called by (job-advance) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
