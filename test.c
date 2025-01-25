@@ -86,8 +86,8 @@ static const testcase tests[] = {
     {"(values->list (bytevector-ref/utf8b #vu8() 0 1))", "(#t 0)"}, /* incomplete */
     {"(values->list (bytevector-ref/utf8b #vu8(1) 0 1))", "(\x01 1)"},
     {"(values->list (bytevector-ref/utf8b #vu8(33) 0 1))", "(! 1)"},
-    {"(values->list (bytevector-ref/utf8b #vu8(#x7e) 0 1))", "(~ 1)"},
-    {"(values->list (bytevector-ref/utf8b #vu8(#x7f) 0 1))", "(\x7f 1)"},
+    {"(values->list (bytevector-ref/utf8b #vu8(#x7E) 0 1))", "(~ 1)"},
+    {"(values->list (bytevector-ref/utf8b #vu8(#x7F) 0 1))", "(\x7F 1)"},
     /* UTF-8b roundtrip #x80 -> U+DC80 -> #x80 */
     {"(first-value  (bytevector-ref/utf8b #vu8(#x80) 0 1))", "\x80"},
     {"(values->list (bytevector-ref/utf8b #vu8(#xc0 #x80) 0 1))", "(#t 1)"},
@@ -95,7 +95,7 @@ static const testcase tests[] = {
     {"(first-value (bytevector-ref/utf8b #vu8(#xc0 #x80) 0 2))", "\xc0"},
     {"(first-value (bytevector-ref/utf8b #vu8(#xc1 #xbf) 0 2))", "\xc1"},
     /* bad UTF-8 continuation byte, only first byte undergoes UTF-8b roundtrip */
-    {"(first-value (bytevector-ref/utf8b #vu8(#xc2 #x7f) 0 2))", "\xc2"},
+    {"(first-value (bytevector-ref/utf8b #vu8(#xc2 #x7F) 0 2))", "\xc2"},
     {"(values->list (bytevector-ref/utf8b #vu8(#xc2 #x80) 0 2))", "(\xc2\x80 2)"}, /* U+0080 */
     {"(values->list (bytevector-ref/utf8b #vu8(#xc2 #xa3) 0 2))", "(\xc2\xa3 2)"}, /* pound sign */
     {"(values->list (bytevector-ref/utf8b #vu8(#xc2 #xbf) 0 2))", "(\xc2\xbf 2)"},
@@ -150,7 +150,7 @@ static const testcase tests[] = {
      "~"},
     {"(list\n"
      "  (char->utf8b-length (integer->char 0))\n"
-     "  (char->utf8b-length (integer->char #x7f))\n"
+     "  (char->utf8b-length (integer->char #x7F))\n"
      "  (char->utf8b-length (integer->char #x80))\n"
      "  (char->utf8b-length (integer->char #x7ff))\n"
      "  (char->utf8b-length (integer->char #x800))\n"
@@ -181,7 +181,7 @@ static const testcase tests[] = {
     /* ----------------- bytespan-utf8b -------------------------------------- */
     {"(values->list (bytespan-ref/char (bytespan) 0 1))", "(#t 0)"}, /* incomplete */
     {"(values->list (bytespan-ref/char (bytespan 1) 0 1))", "(\x01 1)"},
-    {"(values->list (bytespan-ref/char (bytespan #x7f) 0 1))", "(\x7f 1)"},
+    {"(values->list (bytespan-ref/char (bytespan #x7F) 0 1))", "(\x7F 1)"},
     {"(first-value  (bytespan-ref/char (bytespan #x80) 0 1))", "\x80"},
     {"(values->list (bytespan-ref/char (bytespan #xc2 #x80) 0 2))", "(\xc2\x80 2)"}, /* U+0080 */
     {"(values->list (bytespan-ref/char (bytespan #xdf #xbf) 0 2))", "(\xdf\xbf 2)"}, /* U+07FF */
@@ -603,6 +603,8 @@ static const testcase tests[] = {
      "(shell echo | (shell cat ; (shell true) ;) &)"},
     {"(parse-shell-form1 (string->parsectx \"ls; [foo || bar &] & echo\"))",
      "(shell ls ; (shell-subshell foo || bar &) & echo)"},
+    {"(parse-shell-form1 (string->parsectx \"ls && [A=1 foo || bar &] || [B=2 echo]\"))",
+     "(shell ls && (shell-subshell A = 1 foo || bar &) || (shell-subshell B = 2 echo))"},
     {"(parse-shell-form1 (string->parsectx \"{{{{echo|cat}}}}\"))",
      "(shell (shell (shell (shell echo | cat))))"},
     {"(parse-shell-form1 (string->parsectx\n"
@@ -957,7 +959,7 @@ static const testcase tests[] = {
      "  (sh-bg j)\n"
      "  (sh-wait j))\n",
      "(exited . 1)"},
-    {"(let ((j (sh-pipe* (sh-cmd \"true\") '\\x7c;& (sh-cmd \"command\" \"false\"))))\n"
+    {"(let ((j (sh-pipe* (sh-cmd \"true\") '\\x7C;& (sh-cmd \"command\" \"false\"))))\n"
      "  (sh-start j)\n"
      "  (sh-bg j)\n"
      "  (sh-wait j))\n",
@@ -974,12 +976,12 @@ static const testcase tests[] = {
     {"(sh-run (sh-subshell (sh-cmd \"true\") '\\x3B; (sh-cmd \"false\")))\n", /* */
      "(exited . 1)"},
     /* ------------------------- shell syntax ------------------------------- */
-    {"(sh-parse-datum '(shell \"wc\" \"-l\" \"myfile\" > \"mylog\" \\x3b; \"echo\" \"done\"))",
+    {"(sh-parse-datum '(shell \"wc\" \"-l\" \"myfile\" > \"mylog\" \\x3B; \"echo\" \"done\"))",
      "(sh-list (sh-cmd* wc -l myfile 1 '> mylog) '; (sh-cmd echo done))"},
-    {"(sh-parse-datum '(shell \"find\" \"-type\" \"f\" \\x7c;& \"wc\" &))",
+    {"(sh-parse-datum '(shell \"find\" \"-type\" \"f\" \\x7C;& \"wc\" &))",
      "(sh-list (sh-pipe* (sh-cmd find -type f) '|& (sh-cmd wc)) '&)"},
     /* (sh-parse) does not alter nested (shell "foo") and returns it verbatim */
-    {"(sh-parse-datum '(shell (shell \"foo\") \\x3b; \"bar\"))",
+    {"(sh-parse-datum '(shell (shell \"foo\") \\x3B; \"bar\"))",
      "(sh-list (shell foo) '; (sh-cmd bar))"},
     {"(sh-parse-datum '(shell ! \"foo\" && \"bar\"))",
      "(sh-and (sh-not (sh-cmd foo)) (sh-cmd bar))"},
@@ -997,10 +999,10 @@ static const testcase tests[] = {
      INVOKELIB_SHELL_JOBS " (sh-cmd))"},
     {"(expand '(shell 2 >& 1))", /* */
      INVOKELIB_SHELL_JOBS " (sh-cmd* 2 '>& 1))"},
-    {"(expand '(shell \"ls\" \"-l\" && \"wc\" \"-b\" \\x7c;\\x7c; \"echo\" \"error\" &))",
+    {"(expand '(shell \"ls\" \"-l\" && \"wc\" \"-b\" \\x7C;\\x7C; \"echo\" \"error\" &))",
      INVOKELIB_SHELL_JOBS
      " (sh-list (sh-or (sh-and (sh-cmd ls -l) (sh-cmd wc -b)) (sh-cmd echo error)) '&))"},
-    {"(expand '(shell \"true\" \\x7c;\\x7c; ! \"false\"))",
+    {"(expand '(shell \"true\" \\x7C;\\x7C; ! \"false\"))",
      INVOKELIB_SHELL_JOBS " (sh-or (sh-cmd true) (sh-not (sh-cmd false))))"},
     {"(expand '(shell-list (shell \"ls\" \"-al\" >> \"log.txt\")))",
      INVOKELIB_SHELL_JOBS " (sh-cmd* ls -al 1 '>> log.txt))"},
@@ -1012,11 +1014,11 @@ static const testcase tests[] = {
      INVOKELIB_SHELL_JOBS " (sh-pipe* (sh-cmd echo) '| (sh-list (sh-cmd cat) '; (sh-cmd true))))"},
     {"(expand '(shell (shell \"ls\" & \"echo\")))",
      INVOKELIB_SHELL_JOBS " (sh-list (sh-cmd ls) '& (sh-cmd echo)))"},
-    {"(expand '(shell (shell \"foo\") \\x3b; \"bar\"))",
+    {"(expand '(shell (shell \"foo\") \\x3B; \"bar\"))",
      INVOKELIB_SHELL_JOBS " (sh-list (sh-cmd foo) '; (sh-cmd bar)))"},
     {"(expand '(shell (shell \"ls\" & \"echo\") 2 >& 1))",
      INVOKELIB_SHELL_JOBS " (sh-redirect! (sh-list (sh-cmd ls) '& (sh-cmd echo)) 2 '>& 1))"},
-    {"(shell \\x3b; (shell \"foo\") \\x3b; \"bar\")",
+    {"(shell \\x3B; (shell \"foo\") \\x3B; \"bar\")",
      "(sh-list '\\x3B; (sh-cmd \"foo\") '\\x3B; (sh-cmd \"bar\"))"},
     {"(shell (shell \"ls\" & \"echo\") 2 >& 1)",
      "(sh-redirect! (sh-list (sh-cmd \"ls\") '& (sh-cmd \"echo\")) 2 '>& 1)"},
@@ -1052,7 +1054,7 @@ static const testcase tests[] = {
      "  \"A=`echo abc; echo def`\"))",
      "(shell A = (shell-backquote echo abc ; echo def))"},
     /* should rather expand to (sh-env/lazy! ...) ? */
-    {"(expand '(shell \"A\" = (shell-backquote \"echo\" \"abc\" \\x3b; \"echo\" \"def\")))",
+    {"(expand '(shell \"A\" = (shell-backquote \"echo\" \"abc\" \\x3B; \"echo\" \"def\")))",
      INVOKELIB_SHELL_JOBS
      " (sh-cmd* A '= (lambda ()"
      " (sh-run/string-rtrim-newlines (sh-list (sh-cmd echo abc) '; (sh-cmd echo def))))))"},

@@ -56,12 +56,12 @@
 ;; Convert a character whose type is 'op or 'separator to corresponding symbol
 (define (op->symbol ctx ch)
   (case ch
-    ((#\newline #\;) '\x3b;)
+    ((#\newline #\;) '\x3B;)
     ((#\!) '!)
     ((#\&) '&)
     ((#\<) '<)
     ((#\>) '>)
-    ((#\|) '\x7c;)
+    ((#\|) '\x7C;)
     (else (syntax-errorf ctx 'lex-shell
             "unexpected operator character ~s, cannot convert to symbol" ch))))
 
@@ -427,8 +427,8 @@
           (case ch
             ((#\&) (cond ((eqv? ch2 #\&) (set! ch '&&))
                          (#t             (set! type 'separator))))
-            ((#\|) (cond ((eqv? ch2 #\&) (set! ch '\x7c;&))
-                         ((eqv? ch2 #\|) (set! ch '\x7c;\x7c;))))
+            ((#\|) (cond ((eqv? ch2 #\&) (set! ch '\x7C;&))
+                         ((eqv? ch2 #\|) (set! ch '\x7C;\x7C;))))
             ((#\<) (cond ((eqv? ch2 #\>) (set! ch '<>))
                          ((eqv? ch2 #\&) (set! ch '<&))))
             ((#\>) (cond ((eqv? ch2 #\>) (set! ch '>>))
@@ -574,10 +574,16 @@
                   (set! prefix #f)))))
           ((separator)
             ; value can be #\& #\; or #\newline
-            (set! ret (cons (if (eq? value '&) '& '\x3b;) ret))
+            (set! ret (cons (if (eq? value '&) '& '\x3B;) ret))
+            (set! equal-is-operator?    #t)
             (set! lbracket-is-subshell? #t))
           ((op string integer atom)
-            (set! ret (cons value ret)))
+            (set! ret (cons value ret))
+            (when (and (eq? type 'op)
+                       (memq value '(&& \x7C;\x7C; \x7C; \x7C;&
+                                      )))
+              (set! equal-is-operator?    #t)
+              (set! lbracket-is-subshell? #t)))
           ((splice)
             (set! ret (append! (reverse! value) ret)))
           ((backquote)

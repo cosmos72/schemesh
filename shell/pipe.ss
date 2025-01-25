@@ -38,7 +38,7 @@
         (reverse! (cdr ret))) ; remove last extra '|
       (let ((arg (car tail)))
         (assert-is-job 'sh-pipe arg)
-        (%again (cdr args) (cons '\x7c; (cons arg ret)))))))
+        (%again (cdr args) (cons '\x7C; (cons arg ret)))))))
 
 
 ;; check that args is an alternating list of jobs and symbols '| '|&
@@ -98,7 +98,7 @@
          (redirect-in?  (fx>=? in-pipe-fd 0))
          (redirect-out? (fx<? i (fx1- n)))
          (redirect-err? (and redirect-out?
-                             (eq? '\x7c;& (sh-multijob-child-ref mj (fx1+ i))))))
+                             (eq? '\x7C;& (sh-multijob-child-ref mj (fx1+ i))))))
 
     ; Apply redirections. Will be removed by job-advance/pipe/wait) when job finishes.
     (when redirect-in?

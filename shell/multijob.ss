@@ -88,7 +88,7 @@
 ;; Return #t if token is a shell job terminator: ; &
 (define (job-terminator? token)
   (and (symbol? token)
-       (or (eq? token '&) (eq? token '\x3b;))))
+       (or (eq? token '&) (eq? token '\x3B;))))
 
 
 

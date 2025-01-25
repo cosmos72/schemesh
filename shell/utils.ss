@@ -102,7 +102,7 @@
               ((#\[)     (set! hidden (fx1+ hidden)))
               ((#\])     (set! hidden (fx1- hidden)))
               ((#\a)     (%append-char     #\x07))
-              ((#\e)     (%append-char     #\x1b))
+              ((#\e)     (%append-char     #\x1B))
               ((#\h #\H) (%append-string (c-hostname)))
               ; ((#\n)   (%append-char     #\newline)) ; breaks computing prompt-end-x/y
               ; ((#\r)   (%append-char     #\return))  ; breaks computing prompt-end-x/y

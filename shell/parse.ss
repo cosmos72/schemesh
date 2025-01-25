@@ -9,16 +9,16 @@
 ;; this file should be included only from file shell/job.ss
 
 
-;; Returntruish if token is a shell command separator: ; & && || | |&
+;; Return truish if token is a shell command separator: ; & && || | |&
 (define (cmd-separator? token)
   (and (symbol? token)
-       (memq token '(& && \x3b; \x7c;\x7c; \x7c; \x7c;&
+       (memq token '(& && \x3B; \x7C;\x7C; \x7C; \x7C;&
                      ))))
 
 ;; Return truish if token is a shell pipe operator: | |&
 (define (pipe-sym? token)
   (and (symbol? token)
-       (memq token '(\x7c; \x7c;&
+       (memq token '(\x7C; \x7C;&
                      ))))
 
 ;; Return truish if token is a shell redirection operator: < <> <& > >> >&
@@ -107,7 +107,7 @@
             (#t
               ret0))))
       (#t
-       (cons ret-prefix (reverse! (list-quoteq! '(& \x3b;
+       (cons ret-prefix (reverse! (list-quoteq! '(& \x3B;
                                                   ) ret)))))))
 
 
@@ -117,7 +117,7 @@
     (let ((arg1 (car args))
           (arg2 (cadr args)))
       (when (and (symbol? arg1) (symbol? arg2) (not (eq? '! arg2)))
-        (unless (and (eq? arg1 '\x3b;) (job-terminator? arg2))
+        (unless (and (eq? arg1 '\x3B;) (job-terminator? arg2))
           (syntax-violation 'sh-parse-datum "syntax error, invalid consecutive shell DSL operators:"
               args arg2))))
     (validate-datum (cdr args))))
@@ -215,7 +215,7 @@
       ; (debugf "parse-or  iterate: ret = ~s, args = ~s" (reverse ret) args)
       (cond
         ((null? args) (set! done? #t))
-        ((eqv? (car args) '\x7c;\x7c;)
+        ((eqv? (car args) '\x7C;\x7C;)
           (set! args  (cdr args))
           (set! done? (null? args)))
         (#t   (set! done? #t)))) ; unhandled token => exit loop
@@ -272,7 +272,7 @@
       ; (debugf "parse-pipe iterate: ret = ~s, args = ~s" (reverse ret) args)
       (cond
         ((null? args) (set! done? #t))
-        ((memq (car args) '(\x7c; \x7c;&
+        ((memq (car args) '(\x7C; \x7C;&
                             ))
           (set! ret (cons (car args) ret))
           (set! args (cdr args))
@@ -283,7 +283,7 @@
       (cond
         ((null? ret) ret)
         ((null? (cdr ret)) (car ret))
-        (#t (cons 'sh-pipe* (reverse! (list-quoteq! '(\x7c; \x7c;&
+        (#t (cons 'sh-pipe* (reverse! (list-quoteq! '(\x7C; \x7C;&
                                                       ) ret)))))
       args)))
 
