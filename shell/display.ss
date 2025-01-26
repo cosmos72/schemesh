@@ -30,10 +30,10 @@
            (job-status (job-last-status job))
            (status (if (sh-ok? job-status) '(exited . 0) job-status)))
       (if id
-        (if (>= pid 0)
+        (if pid
           (format port "; job ~a~s pid ~a~s ~s \t" (pad/job-id id) id (pad/pid pid) pid status)
           (format port "; job ~a~s            ~s \t" (pad/job-id id) id status))
-        (if (>= pid 0)
+        (if pid
           (format port "; job pid ~a~s ~s \t" pid (pad/pid pid) status)
           (format port "; job            ~s \t" status)))
       (sh-job-display* job port)

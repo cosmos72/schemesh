@@ -74,7 +74,7 @@
   (let ((pgid (job-start-options->process-group-id options))
         (n    (span-length (multijob-children mj)))
         (pipe-fd -1))
-    (when (> pgid 0)
+    (when pgid
       (job-pgid-set! mj pgid))
 
     (do ((i 0 (fx1+ i)))
@@ -93,7 +93,7 @@
   (let* ((job (sh-multijob-child-ref mj i))
          (out-pipe-fd/read -1)
          (out-pipe-fd/write -1)
-         (pgid          (job-pgid mj)) ; < 0 if not set
+         (pgid          (job-pgid mj)) ; #f if not set
          (redirect-in?  (fx>=? in-pipe-fd 0))
          (redirect-out? (fx<? i (fx1- n)))
          (redirect-err? (and redirect-out?
@@ -101,7 +101,7 @@
          ; optimization: no need to run the last job in a subprocess
          ; TO DO: investigate wrong exit value if spawn? is unconditionally #t
          (spawn?        redirect-out?)
-         (options1      (if (< pgid 0) '() (list pgid)))
+         (options1      (if pgid   (list pgid) '()))
          (options       (if spawn? (cons 'spawn options1) options1)))
 
 
@@ -124,8 +124,8 @@
     ; Do not yet assign a job-id. Reuse mj process group id
     (start/any job options)
 
-    ; set mj process group id for reuse by all other children
-    (when (< pgid 0)
+    ; if not present yet, set mj process group id for reuse by all other children
+    (unless pgid
       (job-pgid-set! mj (job-pgid job)))
 
     ; Close pipes after starting job.
@@ -147,7 +147,7 @@
 (define (job-advance/pipe mode mj)
   ; (debugf ">   job-advance/pipe mode=~s mj=~s" mode mj)
   (let ((pgid (job-pgid mj)))
-    (if (and (> pgid 0) (memq mode '(sh-fg sh-wait sh-sigcont+wait sh-subshell)))
+    (if (and pgid (memq mode '(sh-fg sh-wait sh-sigcont+wait sh-subshell)))
       (with-foreground-pgid mode (job-pgid (sh-globals)) pgid
         (job-advance/pipe/maybe-sigcont mode mj pgid)
         (job-advance/pipe/wait mode mj))
@@ -161,7 +161,7 @@
 (define (job-advance/pipe/maybe-sigcont mode mj pgid)
   ; send SIGCONT to job's process group, if present.
   ; It may raise error.
-  (when (and (> pgid 0) (memq mode '(sh-fg sh-bg sh-sigcont+wait)))
+  (when (and pgid (memq mode '(sh-fg sh-bg sh-sigcont+wait)))
     ; (debugf "job-advance/pipe/sigcont > ~s ~s" mode mj)
     (pid-kill (- pgid) 'sigcont)))
 
@@ -184,7 +184,7 @@
         (multijob-current-child-index-set! mj running-i))
       (#t
         (multijob-current-child-index-set! mj -1)
-        (job-pgid-set! mj -1)
+        (job-pgid-set! mj #f)
         (job-status-set! 'job-advance/pipe/wait mj
           (if (span-empty? children)
             (void)

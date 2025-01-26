@@ -18,7 +18,8 @@
 
 
 (define (make-cmd program-and-args)
-  (%make-cmd #f -1 -1 '(new . 0)
+  (%make-cmd
+    #f #f #f '(new . 0) ; id pid pgid last-status
     (span) 0 #f '() ; redirections
     cmd-start #f    ; start-proc step-proc
     #f              ; working directory - initially inherited by parent job
@@ -132,11 +133,11 @@
                     (if job-dir (text->bytevector0 job-dir) #f)
                     (job-make-c-redirect-vector c)
                     (sh-env->argv c 'exported)
-                    process-group-id)))
+                    (or process-group-id -1))))
         (when (< ret 0)
           (raise-c-errno 'sh-start 'fork ret))
         (job-pid-set! c ret)
-        (job-pgid-set! c (if (> process-group-id 0) process-group-id ret))))))
+        (job-pgid-set! c (or process-group-id ret))))))
 
 
 ;; internal function called by (sh-builtin-exec) to exec a subprocess
@@ -291,7 +292,7 @@
     (#t
       (let ((pid  (job-pid job))
             (pgid (job-pgid job)))
-        (if (memq mode '(sh-fg sh-wait sh-sigcont+wait sh-subshell))
+        (if (and pgid (memq mode '(sh-fg sh-wait sh-sigcont+wait sh-subshell)))
           (with-foreground-pgid mode (job-pgid (sh-globals)) pgid
             (job-advance/pid/maybe-sigcont mode job pid pgid)
             (job-advance/pid/wait mode job pid pgid))
@@ -334,8 +335,8 @@
         (pid->job-delete! (job-pid job))
         (job-status-set! 'job-advance/pid/wait job wait-status)
         (job-id-unset! job) ; may show job summary
-        (job-pid-set!  job -1)
-        (job-pgid-set! job -1)
+        (job-pid-set!  job #f)
+        (job-pgid-set! job #f)
         wait-status)
       ((stopped)
         ; process is stopped.

@@ -382,10 +382,10 @@
 
 
 (define (job-start-options->process-group-id options)
-  (let ((existing-pgid -1))
+  (let ((existing-pgid #f))
     (list-iterate options
       (lambda (option)
-        (when (fixnum? option)
+        (when (integer? option)
           (set! existing-pgid option)
           #f))) ; stop iterating on options
     existing-pgid))
@@ -538,8 +538,8 @@
       (raise-errorf 'sh-start "cannot start job ~s, bad or missing job-start-proc: ~s" job start-proc))
     (job-status-set/running! job)
     (start-proc job options))           ; ignore value returned by job-start-proc
-  (when (> (job-pid job) 0)
-    (pid->job-set! (job-pid job) job))  ; add job to pid->job table 
+  (when (job-pid job)
+    (pid->job-set! (job-pid job) job))  ; add job to pid->job table
   (when (memq 'spawn options)
     ; we can cleanup job's file descriptor, as it's running in a subprocess
     (job-unmap-fds! job)
@@ -641,7 +641,7 @@
         (void)) ; job finished
       ((running stopped)
         (cond
-          ((> (job-pid job) 0)
+          ((job-pid job)
             ; either the job is a sh-cmd, or a builtin or multijob spawned in a child subprocess.
             ; in all cases, we have a pid to wait on.
             (job-advance/pid mode job))
@@ -729,9 +729,10 @@
       ;;
       ;; waiting for sh-globals to exit is not useful:
       ;; pretend it already exited with unknown exit status
-      (%make-multijob 0 (pid-get) (pgid-get 0) '(unknown . 0)
-         (span) 0 #f '() ; redirections
-         #f #f ; start-proc step-proc
+      (%make-multijob
+         0 (pid-get) (pgid-get 0) '(unknown . 0) ; id pid pgid last-status
+         (span) 0 #f '()           ; redirections
+         #f #f                     ; start-proc step-proc
          (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) ; current directory
          (make-hashtable string-hash string=?) ; env variables
          #f                        ; no env var assignments

@@ -105,7 +105,8 @@
         ((null? tail))
       (validate-job-proc kind (car tail))))
   (let ((mj
-    (%make-multijob #f -1 -1 '(new . 0)
+    (%make-multijob
+      #f #f #f '(new . 0) ; id pid pgid last-status
       (span) 0 #f '() ; redirections
       start-proc      ; executed to start the job
       next-proc       ; executed when a child job changes status
@@ -256,7 +257,7 @@
       (assert* 'sh-start (logbit? 1  (procedure-arity-mask proc)))
       (assert* 'sh-start (list? options))
       (let* ((process-group-id (job-start-options->process-group-id options))
-             (ret (c-fork-pid process-group-id)))
+             (ret (c-fork-pid (or process-group-id -1))))
         (cond
           ((< ret 0) ; fork() failed
             (raise-c-errno 'sh-start 'fork ret))
@@ -272,8 +273,8 @@
                     (job-pid-set!  (sh-globals) pid)
                     (job-pgid-set! (sh-globals) pgid)
                     ; cannot wait on our own process.
-                    (job-pid-set!  job -1)
-                    (job-pgid-set! job -1)
+                    (job-pid-set!  job #f)
+                    (job-pgid-set! job #f)
 
                     ; we would like to set status to '(unknown . 0)
                     ; but that causes (sh-wait job) below to think that job already exited,
@@ -294,7 +295,7 @@
                   (exit-with-job-status status)))))
           ((> ret 0) ; parent
             (job-pid-set! job ret)
-            (job-pgid-set! job (if (> process-group-id 0) process-group-id ret))
+            (job-pgid-set! job (or process-group-id ret))
             (cons 'running #f)))))))
 
 
@@ -459,6 +460,7 @@
   (let ((children   (multijob-children mj))
         (pgid   (job-pgid mj))
         (status (void)))
+    (assert* 'job-run/subshell (integer? pgid))
     (span-iterate children
       (lambda (i job)
         (when (sh-job? job)
