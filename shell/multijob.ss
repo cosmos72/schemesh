@@ -175,9 +175,7 @@
             (sh-job-display/summary? #f)
 
             (job-remap-fds! job)
-            (job-env/apply-lazy! job)
-            ; Do not yet assign a job-id.
-            (job-step/subshell job (void)))))
+            (job-env/apply-lazy! job))))
     ;; spawn a subprocess and run (%proc... job) and (job-step-proc job) inside it
     (job-start/spawn-proc job %proc-job-start/subshell options)))
 

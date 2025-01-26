@@ -36,6 +36,7 @@ static unsigned run_test_utf8b(ptr string, unsigned first_codepoint);
 static unsigned adjust_codepoint(unsigned codepoint);
 
 static const testcase tests[] = {
+    {"", "#!eof"},
     {"(+ 1 2 3)", "6"},
     {"(* 4 5 6)", "120"},
     /* ----------------- bootstrap ------------------------------------------ */
@@ -926,6 +927,14 @@ static const testcase tests[] = {
      "    (sh-env       #t \"foo\")\n"
      "    (sh-env-exported? #t \"foo\")))",
      "(bar . #f)"},
+    {"(let ((j (sh-subshell (sh-cmd \"sleep\" \"1\") '\\x3B; (sh-cmd \"echo\" \"done\"))))\n"
+     "  (let-values (((port get-string) (open-string-output-port)))\n"
+     "    (sh-job-display j port)\n"
+     "    (newline          port)\n"
+     "    (sh-job-write   j port)\n"
+     "    (get-string)))\n",
+     "[sleep 1 ; echo done]\n"
+     "(sh-subshell (sh-cmd \"sleep\" \"1\") '\\x3B; (sh-cmd \"echo\" \"done\"))"},
     {"(let ((j (sh-and (sh-or (sh-subshell (sh-cmd \"sleep\" \"1\")) (sh-cmd \"ls\"))\n"
      "                 (sh-cmd \"cd\" \"..\"))))\n"
      "  (let-values (((port get-string) (open-string-output-port)))\n"

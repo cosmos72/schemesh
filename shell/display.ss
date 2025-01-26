@@ -74,9 +74,11 @@
 
 ;; same as (sh-job-display), except that all arguments are mandatory
 (define (sh-job-display* job-or-id port)
-  (put-char port #\{)
-  (job-display/any (sh-job job-or-id) port precedence-lowest)
-  (put-char port #\}))
+  (let* ((job (sh-job job-or-id))
+         (kind (if (sh-multijob? job) (multijob-kind job) #f)))
+    (job-display/open-paren  port kind)
+    (job-display/any         job port precedence-lowest)
+    (job-display/close-paren port kind)))
 
 
 ;; same as (sh-job-display), except that outputs to a string, which is returned
