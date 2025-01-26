@@ -1073,13 +1073,13 @@ static int c_pgid_get(int pid) {
  *   create a new process group with pgid == current process pid,
  *   and move current process into it.
  *
- * if existing_pgid < -1:
+ * if existing_pgid < 0:
  *   do nothing.
  */
 static int c_pgid_set(int existing_pgid) {
   int err = 0;
   if (existing_pgid >= 0) {
-    err = setpgid(0 /*current process*/, existing_pgid > 0 ? (pid_t)existing_pgid : (pid_t)0);
+    err = setpgid(0 /*current process*/, (pid_t)existing_pgid);
   }
   return err >= 0 ? err : c_errno();
 }
@@ -1088,6 +1088,10 @@ static int c_pgid_set(int existing_pgid) {
  * call fork().
  * parent: return pid, or c_errno() on error
  * child: return 0, or c_errno() on error
+ *
+ * if existing_pgid > 0, add process to given pgid i.e. process group
+ * if existing_pgid == 0 create a new process id (numerically equal to the process id)
+ *                       and move process into it
  */
 static int c_fork_pid(int existing_pgid) {
   const int pid = fork();
@@ -1120,9 +1124,13 @@ static int c_fork_pid(int existing_pgid) {
  */
 static char** vector_to_c_argz(ptr vector_of_bytevector0);
 
-/** optionally fork(), then exec() an external program.
+/**
+ * optionally fork(), then exec() an external program.
  * if forked, return pid in parent process.
- * if existing_pgid > 0, add process to given pgid i.e. process group */
+ * if existing_pgid > 0, add process to given pgid i.e. process group
+ * if existing_pgid == 0 create a new process id (numerically equal to the process id)
+ *                       and move process into it
+ */
 static int c_cmd_spawn_or_exec(ptr vector_of_bytevector0_cmdline,
                                ptr bytevector0_chdir_or_false,
                                ptr vector_fds_redirect,

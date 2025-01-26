@@ -13,14 +13,14 @@
 ;; if #f, sub-processes will inherit the parent's process group.
 ;;
 ;; Needed by job control, usually set to #t in the main shell and to #f in subshells
-(define sh-can-create-pgid? (make-thread-parameter #f))
+(define sh-can-create-pgid? (make-thread-parameter #t))
 
 
 ;; if truish, allow changing the foreground process group
 ;; if #f, the foreground process group will never be changed by this process.
 ;;
 ;; Needed by job control, usually set to #t in the main shell and to #f in subshells
-(define sh-can-set-fg-pgid? (make-thread-parameter #f))
+(define sh-can-set-fg-pgid? (make-thread-parameter #t))
 
 
 ;; Create a cmd to later spawn it. Each argument must be a string.

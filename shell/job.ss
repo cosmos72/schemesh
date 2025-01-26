@@ -401,7 +401,8 @@
         (lambda (option)
           (when (and (integer? option) (>= option 0))
             (set! existing-pgid option)
-            #f)))) ; stop iterating on options
+            #f))) ; stop iterating on options
+      existing-pgid)
     ; in a subshell,
     ; ignore requests to move a process into a specific process group id
     ; or to create a new process group id
