@@ -998,17 +998,18 @@
      (eqv? byte-or-eof 121))))
 
 
-;; invoked when some function called by lineedit-read raises a condition
+;; invoked when some function called by lineedit-read raises a condition:
+;;
+;; display the condition on (current-error-port)
 (define (%lineedit-error lctx ex)
   ; remove offending input that triggered the exception
   (bytespan-clear! (linectx-rbuf lctx))
   ; display the condition
-  (let ((port (current-output-port)))
+  (let ((port (current-error-port)))
     (put-string port "\n; Exception in lineedit-read: ")
     (display-condition ex port)
     (newline port)
-    (flush-output-port port))
-  (tty-inspect ex))
+    (flush-output-port port)))
 
 
 ;; implementation of (lineedit-read)
@@ -1056,7 +1057,8 @@
     (%lineedit-read lctx timeout-milliseconds)
     (catch (ex)
       (%lineedit-error lctx ex)
-      #t))) ; return "waiting for more keypresses"
+      #f))) ; assume error is unrecoverable, return end-of-file
+
 
 (let ((t linectx-default-keytable)
       (%add linectx-keytable-insert!))
