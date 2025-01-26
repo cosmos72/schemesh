@@ -1069,7 +1069,7 @@ static int c_pgid_get(int pid) {
  * if existing_pgid > 0:
  *   move current process into process group indicated by existing_pgid.
  *
- * if existing_pgid == 0 or == -1:
+ * if existing_pgid == 0:
  *   create a new process group with pgid == current process pid,
  *   and move current process into it.
  *
@@ -1078,7 +1078,7 @@ static int c_pgid_get(int pid) {
  */
 static int c_pgid_set(int existing_pgid) {
   int err = 0;
-  if (existing_pgid >= -1) {
+  if (existing_pgid >= 0) {
     err = setpgid(0 /*current process*/, existing_pgid > 0 ? (pid_t)existing_pgid : (pid_t)0);
   }
   return err >= 0 ? err : c_errno();
@@ -1207,6 +1207,8 @@ out:
 /**
  * exec() an external program. Returns only if failed.
  * if existing_pgid > 0, add process to given pgid i.e. process group
+ * if existing_pgid == 0, create a new process group id == process id, and move process into it.
+ * if existing_pgid < 0, process inherits the process group id from current process
  */
 static int c_cmd_exec(ptr vector_of_bytevector0_cmdline,
                       ptr bytevector0_chdir_or_false,
@@ -1224,7 +1226,8 @@ static int c_cmd_exec(ptr vector_of_bytevector0_cmdline,
 /**
  * fork() and exec() an external program, return pid.
  * if existing_pgid > 0, add process to given pgid i.e. process group
- * if existing_pgid == 0 or -1, create new process group
+ * if existing_pgid == 0, create a new process group id == process id, and move process into it.
+ * if existing_pgid < 0, process inherits the process group id from current process
  */
 static int c_cmd_spawn(ptr vector_of_bytevector0_cmdline,
                        ptr bytevector0_chdir_or_false,
@@ -1252,7 +1255,7 @@ static int c_pgid_foreground(int expected_pgid, int new_pgid) {
   actual_pgid = tcgetpgrp(tty_fd);
   if (actual_pgid < 0) {
     return c_errno();
-  } else if (actual_pgid != expected_pgid) {
+  } else if (expected_pgid != -1 && actual_pgid != expected_pgid) {
     return 0; /* fg process group is not the expected one: do nothing */
   }
   return tcsetpgrp(tty_fd, new_pgid) >= 0 ? 0 : c_errno();

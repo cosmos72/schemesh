@@ -82,6 +82,21 @@
   (job-id job))
 
 
+;; set the process group id of specified job
+(define (job-pgid-set! job pgid)
+  (%job-pgid-set! job
+    (cond
+      ((eqv? pgid 0)
+        ; pgid is zero: it means a new process group id was created
+        ; for this job, and it is numerically equal to the job's pid.
+        (job-pid job))
+      ((and (integer? pgid) (> pgid 0))
+        ; set job's process group id to a pre-existing group's id
+        pgid)
+      (#t
+        ; unset job's process group id
+        #f))))
+
 
 ;; Convert pid to job, return #f if job not found
 (define (pid->job pid)
@@ -98,6 +113,7 @@
 (define (pid->job-delete! pid)
   (assert* 'pid->job-delete! (fixnum? pid))
   (hashtable-delete! (sh-pid-table) pid))
+
 
 
 ;; return #t if job-status is (void), i.e. if job exited with exit status 0,
@@ -237,9 +253,6 @@
       (let ((new-status (cons 'running id)))
         (%job-last-status-set! job new-status)
         new-status))))
-
-
-
 
 
 ;; unset the job-id of a job,
@@ -382,13 +395,17 @@
 
 
 (define (job-start-options->process-group-id options)
-  (let ((existing-pgid #f))
-    (list-iterate options
-      (lambda (option)
-        (when (integer? option)
-          (set! existing-pgid option)
-          #f))) ; stop iterating on options
-    existing-pgid))
+  (if (sh-can-create-pgid?)
+    (let ((existing-pgid 0)) ; means: create a new process group
+      (list-iterate options
+        (lambda (option)
+          (when (and (integer? option) (>= option 0))
+            (set! existing-pgid option)
+            #f)))) ; stop iterating on options
+    ; in a subshell,
+    ; ignore requests to move a process into a specific process group id
+    ; or to create a new process group id
+    #f))
 
 
 ;; called when starting a builtin or multijob:

@@ -74,8 +74,7 @@
   (let ((pgid (job-start-options->process-group-id options))
         (n    (span-length (multijob-children mj)))
         (pipe-fd -1))
-    (when pgid
-      (job-pgid-set! mj pgid))
+    (job-pgid-set! mj pgid)
 
     (do ((i 0 (fx1+ i)))
         ((fx>=? i n))
@@ -161,7 +160,7 @@
 (define (job-advance/pipe/maybe-sigcont mode mj pgid)
   ; send SIGCONT to job's process group, if present.
   ; It may raise error.
-  (when (and pgid (memq mode '(sh-fg sh-bg sh-sigcont+wait)))
+  (when (and pgid (memq mode '(sh-fg sh-bg sh-sigcont+wait sh-subshell)))
     ; (debugf "job-advance/pipe/sigcont > ~s ~s" mode mj)
     (pid-kill (- pgid) 'sigcont)))
 

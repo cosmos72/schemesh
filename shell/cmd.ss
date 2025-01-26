@@ -9,6 +9,19 @@
 ;; this file should be included only from file shell/job.ss
 
 
+;; if truish, new process groups will be created as needed and sub-processes may be moved into them.
+;; if #f, sub-processes will inherit the parent's process group.
+;;
+;; Needed by job control, usually set to #t in the main shell and to #f in subshells
+(define sh-can-create-pgid? (make-thread-parameter #f))
+
+
+;; if truish, allow changing the foreground process group
+;; if #f, the foreground process group will never be changed by this process.
+;;
+;; Needed by job control, usually set to #t in the main shell and to #f in subshells
+(define sh-can-set-fg-pgid? (make-thread-parameter #f))
+
 
 ;; Create a cmd to later spawn it. Each argument must be a string.
 ;; If you want to use procedures as args, see (sh-cmd*)
@@ -43,7 +56,7 @@
 ;; to the process group of the newly created process.
 ;;
 ;; Options is a list of zero or more of the following:
-;;   process-group-id: a fixnum, if present and > 0 the new process will be inserted
+;;   process-group-id: an integer, if present and > 0 the new process will be inserted
 ;;   into the corresponding process group id - which must already exist.
 (define (cmd-start c options)
   (assert* 'sh-cmd (sh-cmd? c))
@@ -137,7 +150,7 @@
         (when (< ret 0)
           (raise-c-errno 'sh-start 'fork ret))
         (job-pid-set! c ret)
-        (job-pgid-set! c (or process-group-id ret))))))
+        (job-pgid-set! c process-group-id)))))
 
 
 ;; internal function called by (sh-builtin-exec) to exec a subprocess
@@ -270,15 +283,18 @@
     ((_  caller expected-pgid new-pgid body ...)
       (let ((_caller caller)
             (_expected-pgid expected-pgid)
-            (_new-pgid new-pgid))
+            (_new-pgid new-pgid)
+            (_can-set-fd-pgid? (sh-can-set-fg-pgid?)))
         (dynamic-wind
           (lambda () ; run before body
-            (%pgid-foreground _caller _expected-pgid _new-pgid))
+            (when _can-set-fd-pgid?
+              (%pgid-foreground _caller _expected-pgid _new-pgid)))
           (lambda ()
             body ...)
           (lambda () ; run after body
-            ; try to restore (sh-globals) as the foreground process group
-            (%pgid-foreground _caller _new-pgid _expected-pgid)))))))
+            (when _can-set-fd-pgid?
+              ; try to restore (sh-globals) as the foreground process group
+              (%pgid-foreground _caller _new-pgid _expected-pgid))))))))
 
 
 ;; Internal function called by (job-advance)
@@ -304,12 +320,13 @@
 ;; Internal function called by (job-advance/pid)
 (define (job-advance/pid/maybe-sigcont mode job pid pgid)
   (assert* mode (> pid 0))
-  (assert* mode (> pgid 0))
+  (when pgid
+    (assert* mode (> pgid 0)))
   (when (memq mode '(sh-fg sh-bg sh-sigcont+wait))
     ; send SIGCONT to job's process group, if present.
     ; otherwise send SIGCONT to job's process id. Both may raise error
     ; (debugf "job-advance/pid/sigcont > ~s ~s" mode job)
-    (pid-kill (if (> pgid 0) (- pgid) pid) 'sigcont)))
+    (pid-kill (if (and pgid (> pgid 0)) (- pgid) pid) 'sigcont)))
 
 
 
@@ -323,7 +340,7 @@
                          (if (memq mode '(sh-bg sh-job-status)) 'nonblocking 'blocking)))
          (wait-status (pid-wait->job-status pid-wait-ret))
          (kind        (job-status->kind wait-status)))
-    ; (debugf "job-advance/pid/wait > ~s ~s wait-status=~s" mode job wait-status)
+    ; (debugf ">   job-advance/pid/wait mode=~s job=~a pid=~s wait-status=~s" mode (sh-job-display/string job) (job-pid job) wait-status)
     ; if may-block is 'non-blocking, wait-status may be '(running . #f)
     ; indicating job status did not change i.e. it's (expected to be) still running
     (case kind
@@ -346,8 +363,7 @@
         ; otherwise propagate process status and return.
         (if (memq mode '(sh-wait sh-sigcont+wait sh-subshell))
           (begin
-            (when (memq mode '(sh-wait sh-sigcont+wait))
-              (job-advance/pid/break mode job pid pgid))
+            (job-advance/pid/break mode job pid pgid)
             (job-advance/pid/wait mode job pid pgid))
           (begin
             (job-status-set! 'job-advance/pid/wait job wait-status)
@@ -361,19 +377,22 @@
 ;; call (break) then send 'sigcont to job
 ;; if (break) raises an exception or resets scheme, then send 'sigint to job
 (define (job-advance/pid/break mode job pid pgid)
-  (let ((break-returned-normally? #f)
-        (global-pgid (job-pgid (sh-globals))))
-    (dynamic-wind
-      (lambda () ; before body
-        (%pgid-foreground mode pgid global-pgid))
-      (lambda () ; body
-        (job-id-set! job)
-        (break)
-        (set! break-returned-normally? #t))
-      (lambda ()
-        (%pgid-foreground mode global-pgid pgid)
-        ; send SIGCONT to job's process group, if present.
-        ; otherwise send SIGCONT to job's process id. Both may raise error
-        (pid-kill (if (> pgid 0) (- pgid) pid) 'sigcont)
-        (unless break-returned-normally?
-          (pid-kill (if (> pgid 0) (- pgid) pid) 'sigint))))))
+   ; subshells should not directly perform I/O,
+   ; they cannot write the "break> " prompt then read commands
+   (when (sh-can-set-fg-pgid?)
+     (let ((break-returned-normally? #f)
+          (global-pgid (job-pgid (sh-globals))))
+      (dynamic-wind
+        (lambda () ; before body
+          (%pgid-foreground mode pgid global-pgid))
+        (lambda () ; body
+          (job-id-set! job)
+          (break)
+          (set! break-returned-normally? #t))
+        (lambda ()
+          (%pgid-foreground mode global-pgid pgid)
+          ; send SIGCONT to job's process group, if present.
+          ; otherwise send SIGCONT to job's process id. Both may raise error
+          (pid-kill (if (> pgid 0) (- pgid) pid) 'sigcont)
+          (unless break-returned-normally?
+            (pid-kill (if (> pgid 0) (- pgid) pid) 'sigint)))))))

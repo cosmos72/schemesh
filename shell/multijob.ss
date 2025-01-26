@@ -81,7 +81,7 @@
       (unless (job-terminator? job)
         (assert* caller (sh-job? job))))
     job-start/subshell
-    job-step/list
+    job-step/subshell
     children-jobs-with-colon-ampersand))
 
 
@@ -144,6 +144,43 @@
       (job-start/spawn-proc job %proc-job-start/list options)
       ;; run (proc) in the caller's process
       (%proc-job-start/list job))))
+
+
+
+;; internal function stored in (job-start-proc job) by (sh-subshell) multijobs
+;;
+;; Forks a new subshell process in background, i.e. the foreground process group is NOT set
+;; to the process group of the newly created process.
+;;
+;; The subshell process will execute the Scheme function (job-step-proc job)
+;; passing the job job as only argument,
+;;
+;; Options is a list of zero or more of the following:
+;;   process-group-id: a fixnum, if present and > 0 the new subshell will be inserted
+;;     into the corresponding process group id - which must already exist.
+;;   'spawn: a symbol. enabled by default, because this function always spawns a subprocess.
+(define (job-start/subshell job options)
+  (assert* 'sh-subshell (eq? 'running (job-last-status->kind job)))
+  (assert* 'sh-subshell (fx=? -1 (multijob-current-child-index job)))
+  (let ((%proc-job-start/subshell
+          (lambda (job)
+            ; this will be executed in a subprocess.
+            ;
+            ; do not create process groups: all child processes will
+            ; inherit process group from the subshell itself
+            (sh-can-create-pgid? #f)
+            ; never change the foregroud process group
+            (sh-can-set-fg-pgid? #f)
+            ; do not output status changes of children jobs.
+            (sh-job-display/summary? #f)
+
+            (job-remap-fds! job)
+            (job-env/apply-lazy! job)
+            ; Do not yet assign a job-id.
+            (job-step/subshell job (void)))))
+    ;; spawn a subprocess and run (%proc... job) and (job-step-proc job) inside it
+    (job-start/spawn-proc job %proc-job-start/subshell options)))
+
 
 
 ;; Internal function stored in (job-start-proc job) by (sh-and),
@@ -217,21 +254,6 @@
       (%proc-job-start/not job))))
 
 
-;; internal function stored in (job-start-proc job) by (sh-subshell) multijobs
-;;
-;; Forks a new subshell process in background, i.e. the foreground process group is NOT set
-;; to the process group of the newly created process.
-;;
-;; The subshell process will execute the Scheme function (job-step-proc job)
-;; passing the job job as only argument,
-;;
-;; Options is a list of zero or more of the following:
-;;   process-group-id: a fixnum, if present and > 0 the new subshell will be inserted
-;;     into the corresponding process group id - which must already exist.
-;;   'spawn: a symbol. enabled by default, because this function always spawns a subprocess.
-(define (job-start/subshell job options)
-  (job-start/list job (cons 'spawn options)))
-
 
 ;; Fork a new subprocess, and in the child subprocess
 ;; call (proc job) once, then call (sh-wait job) repeatedly - which calls (job-step-proc job) if set -
@@ -243,8 +265,11 @@
 ;; Note: does not call (job-env/apply-lazy! job).
 ;;
 ;; Options is a list of zero or more of the following:
-;;   process-group-id: a fixnum, if present and > 0 the new subshell will be inserted
-;;     into the corresponding process group id - which must already exist.
+;;   process-group-id: an integer,
+;;     if present and > 0 the new subprocess will be inserted
+;;       into the corresponding process group id - which must already exist.
+;;     Otherwise, if present and = 0 a new process group will be created
+;;       and the new subprocess will be moved into it.
 ;;   'spawn: a symbol. enabled by default, because this function always spawns a subprocess.
 ;;
 ;; Return job status, which is usually '(running ...)
@@ -295,7 +320,7 @@
                   (exit-with-job-status status)))))
           ((> ret 0) ; parent
             (job-pid-set! job ret)
-            (job-pgid-set! job (or process-group-id ret))
+            (job-pgid-set! job process-group-id)
             (cons 'running #f)))))))
 
 
@@ -451,23 +476,7 @@
       (job-status-set! 'job-step/list mj prev-child-status))))
 
 
-
-;; Executed in child process:
-;; run a multijob containing a sequence of children jobs optionally followed by & ;
+;; Run first or next child job in a multijob containing a sequence of children jobs optionally followed by & ;
 ;; Used by (sh-subshell), implements runtime behavior of shell syntax [ ... ]
-(define (job-run/subshell mj)
-  ; (debugf "job-run/subshell mj=~s status=~s" mj (job-last-status mj))
-  (let ((children   (multijob-children mj))
-        (pgid   (job-pgid mj))
-        (status (void)))
-    (assert* 'job-run/subshell (integer? pgid))
-    (span-iterate children
-      (lambda (i job)
-        (when (sh-job? job)
-          ; run child job in parent's process group
-          (start/any job (list pgid))
-          ; wait for child job to exit, unless it's followed by '&
-          (unless (eq? '& (sh-multijob-child-ref mj (fx1+ i)))
-            (set! status (job-advance 'sh-subshell job))))
-        #t)) ; keep iterating
-    status))
+(define (job-step/subshell mj prev-child-status)
+  (job-step/list mj prev-child-status))

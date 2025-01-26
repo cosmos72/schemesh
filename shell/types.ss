@@ -13,9 +13,9 @@
 (define-record-type
   (job %make-job sh-job?)
   (fields
-    (mutable id job-id %job-id-set!) ; fixnum: job id in (sh-globals), #f if not set
-    (mutable pid)               ; fixnum: process id,       -1 if unknown
-    (mutable pgid)              ; fixnum: process group id, -1 if unknown
+    (mutable id job-id %job-id-set!)       ; #f or fixnum >= 0: job id in (sh-globals)
+    (mutable pid)                          ; #f or integer > 0: process id
+    (mutable pgid job-pgid %job-pgid-set!) ; #f or integer > 0: process group id
      ; cons: last known status, or (void) if job exited successfully
     (mutable last-status job-last-status %job-last-status-set!)
     ; span of quadruplets (fd mode to-fd-or-path-or-closure bytevector0)
