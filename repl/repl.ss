@@ -33,8 +33,9 @@
     (schemesh posix signal) ; also for suspend-handler
     (schemesh posix tty)
     (only (schemesh shell)
-       sh-history sh-consume-sigchld
+       sh-consume-sigchld
        sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
+       sh-job-control? sh-job-control-available?
        sh-make-linectx sh-repl-args sh-run/i  sh-xdg-cache-home/ sh-xdg-config-home/))
 
 
@@ -252,20 +253,28 @@
 ;; Returns values passed to (exit), or (void) on linectx eof
 (define (sh-repl* initial-parser print-func lctx init-file-path quit-file-path)
   ; (to-parser) also checks initial-parser's and enabled-parser's validity
-  (let ((parser (to-parser (linectx-parsers lctx) initial-parser 'sh-repl)))
+  (let ((parser (to-parser (linectx-parsers lctx) initial-parser 'sh-repl))
+        (old-job-control (sh-job-control?))
+        (new-job-control #f))
     (assert* 'sh-repl (linectx? lctx))
     (dynamic-wind
       (lambda ()
         (lineedit-clear! lctx)
         (linectx-load-history! lctx)
         (signal-init-sigwinch)
-        (tty-setraw!)
-        (try-eval-file init-file-path))
+        (try-eval-file init-file-path)
+        ; enable job control if available
+        (set! new-job-control (sh-job-control? (sh-job-control-available?)))
+        (when new-job-control
+          (tty-setraw!)))
       (lambda ()
         (sh-repl-loop parser print-func lctx))
       (lambda ()
+        (when new-job-control
+          (tty-restore!))
+        ; restore job control to previous value
+        (sh-job-control? old-job-control)
         (try-eval-file quit-file-path)
-        (tty-restore!)
         (signal-restore-sigwinch)
         (lineedit-finish lctx)
         (linectx-save-history lctx)))))

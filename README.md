@@ -125,7 +125,7 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 * implement builtin "global", for running another builtin with its parent job set to (sh-globals)
 * implement builtin "unsafe", for executing the output of a subshell or any other closure
   add check to macro (shell): if first argument contains (shell-backquote), raise condition suggesting to prefix it with "unsafe"
-* add missing shell builtins: kill exit export global set unalias unsafe unset
+* add missing shell builtins: kill exit export global set unsafe unset
 * complete existing builtins: alias, without arguments must list existing aliases
 * implement function (string->sh-patterns)
 
@@ -142,4 +142,4 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 * fix hang in {history | foo} due to builtins being fully executed when they start:
   pipe fd becomes full and blocks further writes, preventing builtin "history" from finishing
   and causing a deadlock: "foo" is never started.
-  The solution was: modify (sh-pipe) to start builtins and multijobs in a subprocess
+  The solution was: modify (sh-pipe) to always start builtins and multijobs in a subprocess

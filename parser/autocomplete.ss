@@ -58,7 +58,7 @@
                 (let ((csp (string->charspan* name)))
                   (charspan-erase-front! csp stem-len)
                   (span-insert-back! completions csp))))))
-        (span-range-sort! completions 0 (span-length completions) charspan<?)))))
+        (span-sort! charspan<? completions)))))
 
 
 ;; fill span-of-charspans completions with file names starting with charspan stem
@@ -202,7 +202,7 @@
               (charspan-erase-front! cname prefix-len)
               (span-insert-back! completions cname)))))))
   ; (debugf "%list-shell-env completions = ~s" completions)
-  (span-range-sort! completions 0 (span-length completions) charspan<?)
+  (span-sort! charspan<? completions)
   ; (debugf "%list-shell-env completions sorted = ~s" completions)
   )
 

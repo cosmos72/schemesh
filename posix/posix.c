@@ -339,6 +339,55 @@ static unsigned long c_parse_unsigned_long(const char* str) {
 
 /******************************************************************************/
 /*                                                                            */
+/*                            job-control functions                           */
+/*                                                                            */
+/******************************************************************************/
+
+/** return 1 if job control is available, otherwise return zero */
+static int c_job_control_available(void) {
+  return tty_fd >= 0 && isatty(tty_fd) ? 1 : 0;
+}
+
+/**
+ * try to enable (if enable > 0) or disable (if enable <= 0) job control.
+ * return 0 if successful, otherwise error code < 0
+ */
+static int c_job_control_change(int enable) {
+  int err;
+  if (enable > 0) {
+    pid_t pgid;
+    if (!c_job_control_available()) {
+      return c_errno_set(ENOTTY);
+    }
+    while (tcgetpgrp(tty_fd) != (pgid = getpgid(0))) {
+      (void)kill(-pgid, SIGTTIN);
+    }
+    if ((err = c_signals_init()) < 0) {
+      return err;
+    }
+
+    if (pgid == getpid()) {
+      /**
+       * our process already has a process group id == process id
+       * and such process group id is already in the foreground
+       * => nothing to do
+       */
+    } else {
+      /* create a new process group id = process id and move our process into it */
+      if (setpgid(0, 0) < 0 || (pgid = getpgid(0)) < 0 || tcsetpgrp(tty_fd, pgid) < 0) {
+        err = c_errno();
+      }
+    }
+
+  } else { /* enable < 0 */
+
+    err = c_signals_setdefault(); /* keeps SICHLD handler */
+  }
+  return err;
+}
+
+/******************************************************************************/
+/*                                                                            */
 /*                            fd-related functions                            */
 /*                                                                            */
 /******************************************************************************/
@@ -1052,7 +1101,7 @@ c_directory_list1(DIR* dir, struct dirent* entry, const s_directory_list_opts* o
   return ret;
 }
 
-/** return pid of current process, or c_errno() on error */
+/** return pid of current process. */
 static int c_pid_get(void) {
   int pid = getpid();
   return pid >= 0 ? pid : c_errno();
@@ -1102,7 +1151,7 @@ static int c_fork_pid(int existing_pgid) {
       /* child */
       int err;
       if ((err = c_pgid_set(existing_pgid)) >= 0) {
-        err = c_signals_setdefault();
+        err = c_signals_setdefault(); /* keeps SICHLD handler */
       }
       return err;
     }
@@ -1181,7 +1230,7 @@ static int c_cmd_spawn_or_exec(ptr vector_of_bytevector0_cmdline,
     case 0: {
       /* child */
       if (c_pgid_set(existing_pgid) >= 0 &&
-          c_signals_setdefault() >= 0 && /*                                   */
+          c_signals_setdefault() >= 0 && /* keeps SICHLD handler, will be resetted by execv...() */
           (bytevector0_chdir_or_false == Sfalse || c_chdir(bytevector0_chdir_or_false) >= 0) &&
           c_fds_redirect(vector_fds_redirect, Sfalse) >= 0) {
         if (envp) {
@@ -1342,8 +1391,6 @@ int schemesh_register_c_functions_posix(void) {
   int err;
   if ((err = c_tty_init()) < 0) {
     return err;
-  } else if ((err = c_signals_init()) < 0) {
-    return err;
   }
 
   Sregister_symbol("c_errno", &c_errno);
@@ -1371,6 +1418,8 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_tty_restore", &c_tty_restore);
   Sregister_symbol("c_tty_setraw", &c_tty_setraw);
   Sregister_symbol("c_tty_size", &c_tty_size);
+  Sregister_symbol("c_job_control_available", &c_job_control_available);
+  Sregister_symbol("c_job_control_change", &c_job_control_change);
 
   Sregister_symbol("c_cmd_exec", &c_cmd_exec);
   Sregister_symbol("c_cmd_spawn", &c_cmd_spawn);

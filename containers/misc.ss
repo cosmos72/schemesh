@@ -7,7 +7,7 @@
 
 (library (schemesh containers misc (0 7 1))
   (export
-    list-iterate list-nth list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
+    list-iterate list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
     string-list? assert-string-list? string-contains-only-decimal-digits?
     vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable vector-range->list
     list->bytevector subbytevector
@@ -38,21 +38,6 @@
   (do ((tail l (cdr tail)))
       ((or (null? tail) (not (proc (car tail))))
        (null? tail))))
-
-
-;; return n-th element of a list, where the car of the list is the "zeroth" element.
-;; return (void) if list contains < n elements
-(define (list-nth n l)
-  (if (null? l)
-    (void)
-    (begin
-      (assert* 'list-nth (pair? l))
-      (do ((i n (fx1- i))
-           (tail l (cdr tail)))
-        ((or (fxzero? i) (null? tail))
-           (if (and (fxzero? i) (not (null? tail)))
-             (car tail)
-             (void)))))))
 
 
 ;; For each item in items (which must be a list), when found in list l destructively

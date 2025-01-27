@@ -48,18 +48,20 @@ ptr c_sigwinch_consume(void) {
   return atomic_exchange(&c_sigwinch_received, 0) ? Strue : Sfalse;
 }
 
-static const int signals_tohandle[] = {SIGCHLD, SIGTSTP, SIGTTOU};
+static const int signals_tohandle[] = {SIGCHLD, SIGTSTP, SIGTTIN, SIGTTOU};
 
 int c_signals_init(void) {
   struct sigaction   action   = {};
   static const char* labels[] = {
       "sigaction(SIGCHLD)",
       "sigaction(SIGTSTP, SIG_IGN)",
+      "sigaction(SIGTTIN, SIG_IGN)",
       "sigaction(SIGTTOU, SIG_IGN)",
   };
   typedef void (*signal_handler_func)(int);
   static const signal_handler_func handlers[] = {
       &c_sigchld_handler,
+      SIG_IGN,
       SIG_IGN,
       SIG_IGN,
   };
@@ -79,7 +81,8 @@ int c_signals_setdefault(void) {
   size_t           i;
   action.sa_handler = SIG_DFL;
 
-  for (i = 0; i < N_OF(signals_tohandle); i++) {
+  /* keep SIGCHLD handler */
+  for (i = 1; i < N_OF(signals_tohandle); i++) {
     if (sigaction(signals_tohandle[i], &action, NULL) < 0) {
       return c_errno();
     }

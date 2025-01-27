@@ -41,6 +41,9 @@
     ; redirect.ss
     sh-run/bspan sh-run/string sh-run/string-rtrim-newlines sh-redirect!
 
+    ; params.ss
+    sh-job-control-available? sh-job-control?
+
     ; parse.ss
     sh sh-parse-datum sh-cmd* sh-list*
 
@@ -55,7 +58,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) append! break debug-condition display-condition foreign-procedure format fx1+ fx1-
-                       include inspect logand logbit? make-format-condition make-thread-parameter
+                       include inspect logand logbit? make-format-condition make-thread-parameter make-parameter
                        open-fd-output-port parameterize procedure-arity-mask record-writer reverse!
                        string-copy! string-truncate! void)
     (only (schemesh bootstrap) assert* catch debugf debugf-port sh-eval sh-globals sh-pid-table
@@ -395,7 +398,7 @@
 
 
 (define (job-start-options->process-group-id options)
-  (if (sh-can-create-pgid?)
+  (if (sh-job-control?)
     (let ((existing-pgid 0)) ; means: create a new process group
       (list-iterate options
         (lambda (option)
@@ -649,9 +652,9 @@
 ;; Common implementation of (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 ;; Also called by (job-advance/multijob)
 ;;
-;; mode must be one of: sh-fg sh-bg sh-wait sh-sigcont+wait sh-subshell sh-job-status
+;; mode must be one of: sh-fg sh-bg sh-wait sh-sigcont+wait sh-job-status
 (define (job-advance mode job-or-id)
-  (assert* 'job-advance (memq mode '(sh-fg sh-bg sh-wait sh-sigcont+wait sh-subshell sh-job-status)))
+  (assert* 'job-advance (memq mode '(sh-fg sh-bg sh-wait sh-sigcont+wait sh-job-status)))
   (let ((job (sh-job job-or-id)))
     ;a (debugf ">  job-advance mode=~s job=~s id=~s pid=~s status=~s" mode job (job-id job) (job-pid job) (job-last-status job))
     (case (job-last-status->kind job)
@@ -719,6 +722,7 @@
 
 
 
+(include "shell/params.ss")
 (include "shell/cmd.ss")
 (include "shell/multijob.ss")
 (include "shell/env.ss")

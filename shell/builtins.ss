@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 (library (schemesh shell builtins (0 7 1))
-  (export sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
+  (export sh-alias sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
           sh-builtin-alias sh-builtin-echo sh-builtin-error sh-builtin-false
           sh-builtin-history sh-builtin-true sh-builtin-unalias
           sh-builtins sh-find-builtin
@@ -15,10 +15,13 @@
     (rnrs)
     (only (chezscheme)                    format fx1+ include make-thread-parameter void)
     (only (schemesh bootstrap)            debugf raise-errorf)
-    (only (schemesh containers misc)      assert-string-list? list-nth string-contains-only-decimal-digits?)
     (schemesh containers bytespan)
-    (only (schemesh containers gbuffer)   gbuffer-iterate)
     (only (schemesh containers charlines) charlines-iterate)
+    (only (schemesh containers gbuffer)   gbuffer-iterate)
+    (only (schemesh containers hashtable) hashtable-iterate)
+    (only (schemesh containers misc)      assert-string-list? list-iterate string-contains-only-decimal-digits?)
+    (only (schemesh containers sort)      span-sort!)
+    (only (schemesh containers span)      span span-insert-back! span-iterate)
     (schemesh containers utils)
     (only (schemesh posix fd)             fd-write)
     (schemesh lineedit charhistory)
@@ -95,23 +98,25 @@
 
 
 ;; ;; implementation of "history" builtin, lists previous commands saved to history
-(define (sh-history lctx)
-  ; (debugf "sh-history ~s" lctx)
-  (when (linectx? lctx)
-    (let ((wbuf (make-bytespan 0)))
-      (gbuffer-iterate (linectx-history lctx)
-        (lambda (i lines)
-          (bytespan-insert-back/u8! wbuf 32) ; space
-          (bytespan-display-back/fixnum! wbuf i)
-          (bytespan-insert-back/u8! wbuf 9) ; tab
-          (charlines-iterate lines
-            (lambda (j line)
-              (bytespan-insert-back/cbuffer! wbuf line)))
-          (bytespan-insert-back/u8! wbuf 10) ; newline
-          (when (fx>=? (bytespan-length wbuf) 4096)
-            (fd-stdout-write/bspan! wbuf))))
-      (fd-stdout-write/bspan! wbuf)))
-  (void)) ; must return (void), means builtin exited succesfully
+(define (sh-history)
+  (let ((lctx (list-ref (sh-repl-args) 2)))
+    ; (debugf "sh-history ~s" lctx)
+    (if (linectx? lctx)
+      (let ((wbuf (make-bytespan 0)))
+        (gbuffer-iterate (linectx-history lctx)
+          (lambda (i lines)
+            (bytespan-insert-back/u8! wbuf 32) ; space
+            (bytespan-display-back/fixnum! wbuf i)
+            (bytespan-insert-back/u8! wbuf 9) ; tab
+            (charlines-iterate lines
+              (lambda (j line)
+                (bytespan-insert-back/cbuffer! wbuf line)))
+            (bytespan-insert-back/u8! wbuf 10) ; newline
+            (when (fx>=? (bytespan-length wbuf) 4096)
+              (fd-stdout-write/bspan! wbuf))))
+        (fd-stdout-write/bspan! wbuf)
+        (void)) ; return (void), means builtin exited succesfully
+      '(exited . 1))))
 
 
 
@@ -142,8 +147,7 @@
 ;; the "history" builtin
 (define (sh-builtin-history job prog-and-args options)
   (assert-string-list? 'sh-builtin-history prog-and-args)
-  (sh-history (list-nth 2 (sh-repl-args))))
-
+  (sh-history))
 
 
 ;; given a command line prog-and-args i.e. a list of strings,
@@ -165,6 +169,7 @@
 ;; and must execute the builtin then return its exit status
 (define sh-builtins
   (let ((t (make-hashtable string-hash string=?)))
+    (hashtable-set! t ":"       sh-builtin-true)
     (hashtable-set! t "alias"   sh-builtin-alias)
     (hashtable-set! t "echo"    sh-builtin-echo)
     (hashtable-set! t "error"   sh-builtin-error)

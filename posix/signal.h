@@ -13,7 +13,10 @@
 /** install signal handlers */
 int c_signals_init(void);
 
-/** restore all installed signal handlers to SIG_DFL */
+/**
+ * restore all installed signal handlers to SIG_DFL.
+ * keeps SICHLD signal handler.
+ */
 int c_signals_setdefault(void);
 
 /** restore handler for specified signal to SIG_DFL */

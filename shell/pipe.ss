@@ -142,11 +142,11 @@
 
 ;; Internal function called by (job-advance) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 ;;
-;; mode must be one of: sh-fg sh-bg sh-wait sh-sigcont+wait sh-subshell sh-job-status
+;; mode must be one of: sh-fg sh-bg sh-wait sh-sigcont+wait sh-job-status
 (define (job-advance/pipe mode mj)
   ; (debugf ">   job-advance/pipe mode=~s mj=~s" mode mj)
   (let ((pgid (job-pgid mj)))
-    (if (and pgid (memq mode '(sh-fg sh-wait sh-sigcont+wait sh-subshell)))
+    (if (and pgid (memq mode '(sh-fg sh-wait sh-sigcont+wait)))
       (with-foreground-pgid mode (job-pgid (sh-globals)) pgid
         (job-advance/pipe/maybe-sigcont mode mj pgid)
         (job-advance/pipe/wait mode mj))
@@ -160,7 +160,7 @@
 (define (job-advance/pipe/maybe-sigcont mode mj pgid)
   ; send SIGCONT to job's process group, if present.
   ; It may raise error.
-  (when (and pgid (memq mode '(sh-fg sh-bg sh-sigcont+wait sh-subshell)))
+  (when (and pgid (memq mode '(sh-fg sh-bg sh-sigcont+wait)))
     ; (debugf "job-advance/pipe/sigcont > ~s ~s" mode mj)
     (pid-kill (- pgid) 'sigcont)))
 

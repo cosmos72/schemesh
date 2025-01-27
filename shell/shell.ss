@@ -12,7 +12,7 @@
     sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
 
     ; builtins.ss
-    sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
+    sh-alias sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
     sh-builtin-alias sh-builtin-echo sh-builtin-error sh-builtin-false
     sh-builtin-history sh-builtin-true sh-builtin-unalias
     sh-builtins sh-find-builtin
@@ -66,6 +66,9 @@
 
     ; redirect.ss
     sh-run/bspan sh-run/string sh-run/string-rtrim-newlines sh-redirect!
+
+    ; params.ss
+    sh-job-control-available? sh-job-control?
 
     ; parse.ss
     sh sh-parse-datum sh-cmd* sh-list*

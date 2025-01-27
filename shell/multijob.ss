@@ -166,11 +166,15 @@
           (lambda (job)
             ; this will be executed in a subprocess.
             ;
-            ; do not create process groups: all child processes will
-            ; inherit process group from the subshell itself
-            (sh-can-create-pgid? #f)
-            ; never change the foregroud process group
-            (sh-can-set-fg-pgid? #f)
+            ; deactivate job control:
+            ; a. do not create process groups => all child processes will
+            ;    inherit process group from the subshell itself
+            ; b. do not change the foregroud process group
+            ;
+            ; note that commands executed by the subshell CAN reactivate job control:
+            ; in such case, (sh-job-control? #t) will self-suspend the subshell with SIGTTIN
+            ; until the user resumes it in the foreground.
+            (sh-job-control? #f)
             ; do not output status changes of children jobs.
             (sh-job-display/summary? #f)
 
@@ -349,9 +353,9 @@
         (job-status-set! 'job-advance/multijob mj (cons 'running (job-id mj)))) ; (job-id mj) may still be #f
       ((job-status-member? child-status '(stopped))
         ; child is stopped.
-        ; if mode is sh-wait or sh-subshell, wait for it again.
+        ; if mode is sh-wait or sh-sigcont+wait, wait for it again.
         ; otherwise propagate child status and return
-        (if (memq mode '(sh-wait sh-sigcont+wait sh-subshell))
+        (if (memq mode '(sh-wait sh-sigcont+wait))
           (job-advance/multijob mode mj)
           (job-status-set! 'job-advance/multijob mj child-status)))
       (#t

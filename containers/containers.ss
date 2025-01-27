@@ -8,7 +8,7 @@
 (library (schemesh containers (0 7 1))
   (export
     ; misc.ss
-    list-iterate list-quoteq! list-nth list-reverse*! list-remove-consecutive-duplicates!
+    list-iterate list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
     string-list? assert-string-list? string-contains-only-decimal-digits?
     vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable vector-range->list
     list->bytevector subbytevector
@@ -99,7 +99,7 @@
     write-charlines
 
     ; sort.ss
-    span-range-sort! vector-range-sort!
+    span-range-sort! span-sort! vector-range-sort!
 
     ; utils.ss
     bytevector-ref/utf8b bytevector-set/utf8b! char->utf8b-length

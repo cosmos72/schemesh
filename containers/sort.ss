@@ -9,50 +9,29 @@
 ;;;;;;;;;;;;;  define Scheme type "span", a resizeable vector  ;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
 (library (schemesh containers sort (0 7 1))
   (export
-    span-range-sort! vector-range-sort!)
+    span-range-sort! span-sort! vector-range-sort!)
   (import
     (rnrs)
-    (only (chezscheme) fx1+ fx1- random void)
-    (only (schemesh bootstrap) assert*)
+    (only (chezscheme) eval-when fx1+ fx1- fxarithmetic-shift-right logbit? optimize-level procedure-arity-mask random void)
+    (only (schemesh bootstrap) assert* debugf)
     (schemesh containers span))
 
 
-(define (span-range-sort! sp start end is<?)
-  (assert* 'span-range-sort! (span? sp))
-  (assert* 'span-range-sort! (fx<=? 0 start end (span-length sp)))
-  (assert* 'span-range-sort! (procedure? is<?))
-  (let ((beg (span-peek-beg sp)))
-    (%vector-range-sort! (span-peek-data sp) (fx+ beg start) (fx+ beg end) is<?)))
+(eval-when (compile) (optimize-level 3) (debug-level 0))
+
+(define (%vector-swap v i j)
+  (unless (fx=? i j)
+    (let ((e1 (vector-ref v i))
+          (e2 (vector-ref v j)))
+      (vector-set! v i e2)
+      (vector-set! v j e1))))
 
 
-(define (vector-range-sort! v start end is<?)
-  (assert* 'vector-range-sort! (vector? v))
-  (assert* 'vector-range-sort! (fx<=? 0 start end (vector-length v)))
-  (assert* 'vector-range-sort! (procedure? is<?))
-  (%vector-range-sort! v start end is<?))
-
-
-(define (%vector-range-sort! v start end is<?)
-  ; (debugf "%vector-range-sort! start=~s end=~s v=~s" start end v)
-  (let ((n (fx- end start)))
-    (cond
-      ((fx<=? n 1) (void))
-      ((fx=?  n 2)
-        (let ((e1 (vector-ref v start))
-              (e2 (vector-ref v (fx1+ start))))
-          (when (is<? e2 e1)
-            (vector-set! v start e2)
-            (vector-set! v (fx1+ start) e1))))
-      (#t
-        (let ((partition-i (%vector-partition v start end is<?)))
-          (%vector-range-sort! v start partition-i  is<?)
-          (%vector-range-sort! v (fx1+ partition-i) end is<?))))))
-
-
-(define (%vector-partition v start end is<?)
-  (let* ((pivot-i (fx+ start (random (fx- end start))))
+(define (%vector-partition is<? v start end)
+  (let* ((pivot-i (fx+ start (fxarithmetic-shift-right (fx- end start) 1)))
          (pivot   (vector-ref v pivot-i))
          (out-i   start))
     (%vector-swap v pivot-i (fx1- end))
@@ -66,11 +45,51 @@
     out-i))
 
 
-(define (%vector-swap v i j)
-  (unless (fx=? i j)
-    (let ((ei (vector-ref v i))
-          (ej (vector-ref v j)))
-      (vector-set! v i ej)
-      (vector-set! v j ei))))
+(define (%vector-range-sort! is<? v start end)
+  ; (debugf "%vector-range-sort! start=~s end=~s v=~s" start end v)
+  (let ((n (fx- end start)))
+    (cond
+      ((fx<=? n 1) (void))
+      ((fx=?  n 2)
+        (let ((e1 (vector-ref v start))
+              (e2 (vector-ref v (fx1+ start))))
+          (when (is<? e2 e1)
+            (vector-set! v start e2)
+            (vector-set! v (fx1+ start) e1))))
+      (#t
+        (let ((partition-i (%vector-partition is<? v start end)))
+          (%vector-range-sort! is<? v start              partition-i)
+          (%vector-range-sort! is<? v (fx1+ partition-i) end))))))
+
+
+(define (vector-range-sort! is<? v start end)
+  (assert* 'vector-range-sort! (procedure? is<?))
+  (assert* 'vector-range-sort! (logbit? 2 (procedure-arity-mask is<?)))
+  (assert* 'vector-range-sort! (vector? v))
+  (assert* 'vector-range-sort! (fixnum? start))
+  (assert* 'vector-range-sort! (fixnum? end))
+  (assert* 'vector-range-sort! (fx<=? 0 start end (vector-length v)))
+  (%vector-range-sort! is<? v start end))
+
+
+(define (span-range-sort! is<? sp start end)
+  (assert* 'span-range-sort! (procedure? is<?))
+  (assert* 'span-range-sort! (logbit? 2 (procedure-arity-mask is<?)))
+  (assert* 'span-range-sort! (span? sp))
+  (assert* 'span-range-sort! (fixnum? start))
+  (assert* 'span-range-sort! (fixnum? end))
+  (assert* 'span-range-sort! (fx<=? 0 start end (span-length sp)))
+  (let ((beg (span-peek-beg sp)))
+    (%vector-range-sort! is<? (span-peek-data sp) (fx+ beg start) (fx+ beg end))))
+
+#|
+;; unnecessary, already defined in R6RS
+(define (vector-sort! is<? v)
+  (vector-range-sort! is<? v 0 (vector-length v)))
+|#
+
+(define (span-sort! is<? sp)
+  (assert* 'span-sort! (span? sp))
+  (span-range-sort! is<? sp 0 (span-length sp)))
 
 ) ; close library
