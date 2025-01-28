@@ -75,7 +75,7 @@
     (mutable last-key)      ; #f or procedure, last executed lineedit-key... procedure
     (mutable history-index) ; index of last used item in history
     history)                ; charhistory, history of entered commands
-  (nongenerative #{linectx nuxrmccfi39or6fxntagza5ob-986}))
+  (nongenerative #{linectx nuxrmccfi39or6fxntagza5ob-987}))
 
 
 (define flag-eof? 1)
