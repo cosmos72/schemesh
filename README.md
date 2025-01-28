@@ -18,7 +18,7 @@ Features:
 - [x] REPL with multi-line editing and parentheses highlighting
 - [x] persistent history, searchable with PageUp and PageDown keys
 - [x] shortcuts to execute commands by pressing a single key: KP- KP+
-- [ ] cut-and-paste
+- [x] cut-and-paste
 - [x] context-sensitive autocompletion
 - [x] dual syntax parsing, allows mixing Scheme and shell expressions
 - [x] shell commands, including `&&` `||` `{` `}` `[` `]`

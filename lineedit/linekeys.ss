@@ -1,0 +1,325 @@
+;;; Copyright (C) 2023-2025 by Massimiliano Ghilardi
+;;;
+;;; This program is free software; you can redistribute it and/or modify
+;;; it under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation; either version 2 of the License, or
+;;; (at your option) any later version.
+
+
+;; n is the number of bytes at the end of (linectx-rbuf)
+;; that caused the call to this function.
+;; If needed, such bytes can be read to choose which action will be performed.
+(define (lineedit-key-nop lctx)
+  (void))
+
+;; move cursor left by 1, moving to previous line if cursor x is 0
+(define (lineedit-key-left lctx)
+  (vscreen-cursor-move/left! (linectx-vscreen lctx) 1))
+
+
+;; move cursor right by 1, moving to next line if cursor x is at end of current line
+(define (lineedit-key-right lctx)
+  (vscreen-cursor-move/right! (linectx-vscreen lctx) 1))
+
+
+;; move cursor up by 1, moving to previous history entry if cursor y is 0
+(define (lineedit-key-up lctx)
+  (if (fx>? (linectx-iy lctx) 0)
+    (vscreen-cursor-move/up! (linectx-vscreen lctx) 1)
+    (lineedit-navigate-history lctx -1)))
+
+;; move cursor up by 1, moving to next history entry if cursor y is at end of vscreen
+(define (lineedit-key-down lctx)
+  (if (fx<? (fx1+ (linectx-iy lctx)) (linectx-end-y lctx))
+    (vscreen-cursor-move/down! (linectx-vscreen lctx) 1)
+    (lineedit-navigate-history lctx +1)))
+
+;; move to start of word under cursor
+(define (lineedit-key-word-left lctx)
+  (let-values (((x y n) (linectx-find-left/word-begin lctx)))
+    (when (and x y n (fx>? n 0))
+      (linectx-ixy-set! lctx x y))))
+
+;; move to end of word under cursor
+(define (lineedit-key-word-right lctx)
+  (let-values (((x y n) (linectx-find-right/word-end lctx)))
+    (when (and x y n (fx>? n 0))
+      (linectx-ixy-set! lctx x y))))
+
+;; move to start of line
+(define (lineedit-key-bol lctx)
+  (linectx-ixy-set! lctx 0 (linectx-iy lctx)))
+
+;; move to end of line
+(define (lineedit-key-eol lctx)
+  (linectx-ixy-set! lctx (greatest-fixnum) (linectx-iy lctx)))
+
+(define (lineedit-key-break lctx)
+  (linectx-clear! lctx)
+  (linectx-return-set! lctx #t))
+
+;; delete one character to the right.
+;; acts as end-of-file if vscreen is empty.
+(define (lineedit-key-ctrl-d lctx)
+  (if (vscreen-empty? (linectx-vscreen lctx))
+    (linectx-eof-set! lctx #t)
+    (lineedit-key-del-right lctx)))
+
+(define (lineedit-key-transpose-char lctx)
+  (void)) ;; TODO: implement
+
+;; delete one character to the left of cursor.
+;; moves cursor one character to the left.
+(define (lineedit-key-del-left lctx)
+  (vscreen-erase-left/n! (linectx-vscreen lctx) 1)
+  (void))
+
+;; delete one character under cursor.
+;; does not move cursor.
+(define (lineedit-key-del-right lctx)
+  (vscreen-erase-right/n! (linectx-vscreen lctx) 1)
+  (void))
+
+;; delete from cursor to start of word under cursor.
+;; moves cursor n characters to the left, where n is the number of deleted characters.
+(define (lineedit-key-del-word-left lctx)
+  (let-values (((x y n) (linectx-find-left/word-begin lctx)))
+    (when (and x y n (fx>? n 0))
+      (lineedit-clipboard-maybe-clear! lctx)
+      (linectx-clipboard-insert/left! lctx n)
+      (vscreen-erase-left/n! (linectx-vscreen lctx) n)
+      (void))))
+
+;; delete from cursor to end of word under cursor.
+;; does not move cursor.
+(define (lineedit-key-del-word-right lctx)
+  (let-values (((x y n) (linectx-find-right/word-end lctx)))
+    (when (and x y n (fx>? n 0))
+      (lineedit-clipboard-maybe-clear! lctx)
+      (linectx-clipboard-insert/right! lctx n)
+      (vscreen-erase-right/n! (linectx-vscreen lctx) n)
+      (void))))
+
+(define (lineedit-clipboard-maybe-clear! lctx)
+  (unless (key-inserted-into-clipboard? (linectx-last-key lctx))
+    (linectx-clipboard-clear! lctx)))
+
+
+(define (lineedit-key-del-line lctx)
+  (void)) ;; TODO: implement
+
+(define (lineedit-key-del-line-left lctx)
+  (vscreen-erase-left/line! (linectx-vscreen lctx)))
+
+(define (lineedit-key-del-line-right lctx)
+  (vscreen-erase-right/line! (linectx-vscreen lctx)))
+
+(define (lineedit-key-newline-left lctx)
+  (let ((screen (linectx-vscreen lctx)))
+    (vscreen-insert-at-xy/newline! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen))
+    (vscreen-cursor-move/right! screen 1)))
+
+(define (lineedit-key-newline-right lctx)
+  (let ((screen (linectx-vscreen lctx)))
+    (vscreen-insert-at-xy/newline! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen))))
+
+(define (lineedit-key-enter lctx)
+  (linectx-paren-update/force! lctx)
+  (if (linectx-paren-recursive-ok? lctx)
+    (linectx-return-set! lctx #t)
+    (lineedit-key-newline-left lctx)))
+
+(define (lineedit-key-history-next lctx)
+  (let-values (((x y) (linectx-ixy lctx)))
+    (let* ((hist (linectx-history lctx))
+           (idx  (linectx-history-index lctx))
+           (next-idx (charhistory-find/starts-with
+                       hist
+                       (fx1+ idx)
+                       (charhistory-length hist)
+                       (linectx-vscreen lctx)
+                       x y)))
+    (when next-idx
+      (lineedit-navigate-history lctx (fx- next-idx idx))
+      (linectx-ixy-set! lctx x y)))))
+
+(define (lineedit-key-history-prev lctx)
+  (let-values (((x y) (linectx-ixy lctx)))
+    (let* ((hist (linectx-history lctx))
+           (idx  (linectx-history-index lctx))
+           (prev-idx (charhistory-rfind/starts-with hist 0 idx (linectx-vscreen lctx) x y)))
+      (when prev-idx
+        (lineedit-navigate-history lctx (fx- prev-idx idx))
+        (linectx-ixy-set! lctx x y)))))
+
+(define (lineedit-key-insert-clipboard lctx)
+  (let* ((screen    (linectx-vscreen lctx))
+         (clipboard (linectx-clipboard lctx))
+         (n         (charspan-length clipboard)))
+    (unless (fxzero? n)
+      (let-values (((x y) (vscreen-cursor-ixy screen)))
+        (vscreen-insert-at-xy/cspan! screen x y clipboard 0 n)
+        (vscreen-cursor-move/right! screen n)))))
+
+(define (lineedit-key-redraw lctx)
+  (linectx-redraw-set! lctx #t))
+
+(define (lineedit-key-tab lctx)
+  (let ((func (linectx-completion-func lctx)))
+    (when func
+      (func lctx)
+      (%lineedit-update-with-completions lctx))))
+
+
+(define %linectx-confirm-display-completions?
+  (let ((header (string->utf8 "; display all "))
+        (footer (string->utf8 " possibilities? (y or n) ")))
+    (lambda (lctx completions-n)
+      (let ((wbuf (linectx-wbuf lctx)))
+        (bytespan-insert-back/bvector! wbuf header 0 (bytevector-length header))
+        (bytespan-display-back/fixnum! wbuf completions-n)
+        (bytespan-insert-back/bvector! wbuf footer 0 (bytevector-length footer))
+        (lineedit-flush lctx)
+        (let ((ok? (lineedit-read-confirm-y-or-n? lctx)))
+          (bytespan-insert-back/u8! wbuf (if ok? 121 110) 10)
+          ok?)))))
+
+
+(define (%lineedit-update-with-completions lctx)
+  (let* ((stem          (linectx-completion-stem lctx))
+         (completions   (linectx-completions lctx))
+         (completions-n (span-length completions)))
+    ; (debugf "%lineedit-update-with-completions stem=~s, completions=~s ..." stem completions)
+    (unless (fxzero? completions-n)
+      (let-values (((common-len max-len) (%lineedit-analyze-completions completions)))
+        ; (debugf "%lineedit-update-with-completions stem=~s, common-len=~s, completions=~s" stem common-len completions)
+        (cond
+          ((not (fxzero? common-len))
+            ; insert common prefix of all completions
+            (let ((completion-0 (span-ref completions 0)))
+              (linectx-insert/cspan! lctx completion-0 0 common-len)
+              (when (and (fx=? 1 completions-n)
+                         (not (char=? #\/ (charspan-ref completion-0 (fx1- common-len)))))
+                (linectx-insert/ch! lctx #\space))))
+          ((fx>? completions-n 1)
+            ; erase prompt and lines (also sets flag "redraw prompt and lines"),
+            ; then list all possible completions
+            (linectx-undraw lctx)
+            (let ((column-width (fx+ 2 (fx+ max-len (charspan-length stem)))))
+              (let-values (((column-n row-n) (%lineedit-completions-column-n-row-n lctx completions-n column-width)))
+                (when (or (%lineedit-completions-fit-vscreen? lctx column-n row-n)
+                          (%linectx-confirm-display-completions? lctx completions-n))
+                  (%lineedit-print-completion-table lctx stem completions column-width column-n row-n))))))))))
+
+
+;; analyze completions, and return two values:
+;;  the length of longest common prefix among completions,
+;;  and the length of longest completion
+(define (%lineedit-analyze-completions completions)
+  (let* ((completion-0 (span-ref completions 0))
+         (completion   (if (charspan? completion-0) completion-0 (charspan)))
+         (common-len   (charspan-length completion))
+         (max-len      common-len))
+    (do ((n (span-length completions))
+         (i 1 (fx1+ i)))
+        ((fx>=? i n)
+         (values common-len max-len))
+      (let ((completion-i (span-ref completions i)))
+        (when (charspan? completion-i) ; sanity
+          ; (debugf "... %lineedit-analyze-completions stem-len = ~s, completion-i = ~s ... " stem-len completion-i)
+          (let* ((completion-i-len (charspan-length completion-i))
+                 (common-i-len
+                   (if (fxzero? common-len)
+                     0
+                     (charspan-range-count= completion 0 completion-i 0 (fxmin common-len completion-i-len)))))
+            ; (debugf "... %lineedit-analyze-completions common-i-len = ~s" common-i-len)
+            (when (fx>? common-len common-i-len)
+              (set! common-len common-i-len))
+            (when (fx<? max-len completion-i-len)
+              (set! max-len completion-i-len))))))))
+
+
+;; return two values: number of screen columns and number screen of rows
+;; needed to list completions
+(define (%lineedit-completions-column-n-row-n lctx completions-n column-width)
+  (let* ((screen-width  (linectx-width lctx))
+         (screen-height (linectx-height lctx))
+         (column-n      (fxmax 1 (fx/ screen-width column-width)))
+         (row-n         (fx//round-up completions-n column-n)))
+    (values column-n row-n)))
+
+
+(define (%lineedit-completions-fit-vscreen? lctx column-n row-n)
+  (fx<? row-n (linectx-height lctx)))
+
+
+(define (%lineedit-print-completion-table lctx stem completions column-width column-n row-n)
+  ; (debugf "%lineedit-print-completion-table stem=~s, completions=~s" stem completions)
+  (repeat (linectx-width lctx)
+    (lineterm-write/u8 lctx 45)) ; write a whole line full of #\-
+  (lineterm-write/u8 lctx 10) ; write a newline
+  (do ((completions-n (span-length completions))
+       (row-i 0 (fx1+ row-i)))
+      ((fx>=? row-i row-n))
+    (%lineedit-print-completion-row lctx stem completions column-width column-n row-n row-i)))
+
+
+(define (%lineedit-print-completion-row lctx stem completions column-width column-n row-n row-i)
+  ; (debugf "%lineedit-print-completion-row column-n=~s, row-i=~s" column-n row-i)
+  (do ((completions-n (span-length completions))
+       (completions-i row-i (fx+ row-n completions-i))
+       (column-i      0     (fx1+ column-i)))
+      ((or (fx>=? column-i column-n) (fx>=? completions-i completions-n)))
+    (%lineedit-print-completion-cell lctx stem (span-ref completions completions-i) column-width))
+  (lineterm-write/u8 lctx 10)) ;; append newline after each row
+
+
+(define (%lineedit-print-completion-cell lctx stem completion column-width)
+  (lineterm-write/cspan lctx stem)
+  (lineterm-write/cspan lctx completion)
+  (repeat (fx- column-width (fx+ (charspan-length stem) (charspan-length completion)))
+    (lineterm-write/u8 lctx 32))) ; pad with spaces
+
+
+(define (fx//round-up x1 x2)
+  (let ((q (fx/ x1 x2)))
+    (if (fx=? x1 (fx* q x2))
+      q
+      (fx1+ q))))
+
+(define (lineedit-key-inspect-linectx lctx)
+  (tty-inspect lctx))
+
+(define (lineedit-key-toggle-insert lctx)
+  (void))
+
+(define (lineedit-key-cmd-cd-parent lctx)
+  ((top-level-value 'sh-cd) "..")
+  (linectx-redraw-all lctx))
+
+(define (lineedit-key-cmd-ls lctx)
+  (lineterm-move-to lctx (linectx-prompt-end-x lctx) (linectx-prompt-end-y lctx))
+  (lineterm-write/bvector lctx #vu8(108 115 27 91 74 10) 0 6) ; l s ESC [ J \n
+  (lineedit-flush lctx)
+  ((top-level-value 'sh-run) ((top-level-value 'sh-cmd) "ls"))
+  ; make enough space after command output for prompt and current line(s)
+  (repeat (linectx-vy lctx)
+    (lineterm-write/u8 lctx 10))
+  (linectx-redraw-all lctx))
+
+(define (lineedit-navigate-history lctx delta-y)
+  (let ((y      (fx+ delta-y (linectx-history-index lctx)))
+        (hist   (linectx-history lctx)))
+    (when (fx<? -1 y (charhistory-length hist))
+      ; also saves a copy of current linectx-vscreen to history
+      (lineedit-lines-set! lctx (charhistory-ref/cow hist y))
+      (linectx-history-index-set! lctx y)
+      ;; if moving up, set vscreen cursor to end of first line
+      ;; if moving down, set vscreen cursor to end of last line
+      (linectx-ixy-set! lctx (greatest-fixnum)
+                            (if (fx<? delta-y 0) 0 (greatest-fixnum))))))
+
+(define key-inserted-into-clipboard?
+  (let ((keys (list lineedit-key-del-word-left lineedit-key-del-word-right lineedit-key-redraw)))
+    (lambda (key)
+      (and key (memq key keys)))))

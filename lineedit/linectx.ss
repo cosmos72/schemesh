@@ -15,8 +15,9 @@
     linectx-stdin  linectx-stdin-set! linectx-stdout linectx-stdout-set!
     linectx-prompt      linectx-prompt-end-x  linectx-prompt-end-y
     linectx-prompt-func linectx-prompt-length linectx-prompt-length-set!
-    linectx-parenmatcher linectx-keytable
-    linectx-paren linectx-paren-set!
+    linectx-parenmatcher linectx-paren linectx-paren-set!
+    linectx-clipboard linectx-clipboard-clear!
+    linectx-clipboard-insert/left! linectx-clipboard-insert/right!
     linectx-completions linectx-completion-stem linectx-completion-func
     linectx-parser-name linectx-parser-name-set!
     linectx-parsers linectx-parsers-set!
@@ -24,7 +25,8 @@
     linectx-load-history! linectx-save-history
     linectx-clear!  linectx-eof? linectx-eof-set! linectx-redraw? linectx-redraw-set!
     linectx-return? linectx-return-set!
-    linectx-default-keytable linectx-keytable-find linectx-keytable-insert!)
+    linectx-default-keytable linectx-keytable linectx-keytable-find linectx-keytable-insert!
+    linectx-last-key linectx-last-key-set!)
 
   (import
     (rnrs)
@@ -64,11 +66,13 @@
     (mutable prompt-func)
     parenmatcher
     (mutable paren)         ; #f or paren containing current parenthes to be highlighted
+    clipboard               ; charspan
     completions             ; span of charspans, possible completions
     completion-stem         ; charspan, chars from vscreen used as stem
     ; procedure, receives linectx as argument and should update completions and stem
     (mutable completion-func)
     (mutable keytable)      ; hashtable, contains keybindings. Usually eq? linectx-default-keytable
+    (mutable last-key)      ; #f or procedure, last executed lineedit-key... procedure
     (mutable history-index) ; index of last used item in history
     history)                ; charhistory, history of entered commands
   (nongenerative #{linectx nuxrmccfi39or6fxntagza5ob-986}))
@@ -194,15 +198,16 @@
     (%make-linectx
       rbuf wbuf
       (vscreen* (if (pair? sz) (car sz) 80) (if (pair? sz) (cdr sz) 24) "")
-      0 0                        ; term-x term-y
-      0 1 -1 flag-redraw?        ; stdin stdout read-timeout flags
-      'shell enabled-parsers     ; parser-name parsers
-      (bytespan)                 ; prompt
-      prompt-func                ; prompt-func
-      parenmatcher #f            ; parenmatcher paren
+      0 0                         ; term-x term-y
+      0 1 -1 flag-redraw?         ; stdin stdout read-timeout flags
+      'shell enabled-parsers      ; parser-name parsers
+      (bytespan)                  ; prompt
+      prompt-func                 ; prompt-func
+      parenmatcher #f             ; parenmatcher paren
+      (charspan)                  ; clipboard
       (span) (charspan) completion-func ; completions stem completion-func
-      linectx-default-keytable   ; keytable
-      0 history)))               ; history
+      linectx-default-keytable #f ; keytable last-key
+      0 history)))                ; history
 
 (define (default-prompt-func lctx)
   (let* ((str    (symbol->string (linectx-parser-name lctx)))
@@ -234,12 +239,48 @@
 
 ;; Clear and recreate empty vscreen: it may have been saved to history,
 ;; which retains it.
-;; Does NOT write anything to the tty
+;; Does NOT write anything to the tty. Does not modify the clipboard.
 (define (linectx-clear! lctx)
   (vscreen-clear! (linectx-vscreen lctx))
   (linectx-paren-set! lctx #f)
   (linectx-return-set! lctx #f))
 
+
+(define (linectx-clipboard-clear! lctx)
+  (charspan-clear! (linectx-clipboard lctx)))
+
+
+(define (linectx-clipboard-insert/left! lctx char-count-leftward-before-cursor)
+  ; (debugf ">   linectx-clipboard-insert/left! n=~s" char-count-leftward-before-cursor)
+  (when (fx>? char-count-leftward-before-cursor 0)
+    (let ((n         char-count-leftward-before-cursor)
+          (screen    (linectx-vscreen lctx))
+          (clipboard (linectx-clipboard lctx)))
+      (let-values (((x y) (vscreen-cursor-ixy screen)))
+        (while (and x y (fx>? n 0))
+          (let-values (((x1 y1 ch) (vscreen-char-before-xy screen x y)))
+            (set! x x1)
+            (set! y y1)
+            (set! n (fx1- n))
+            (when ch
+              (charspan-insert-front! clipboard ch))))))))
+
+
+(define (linectx-clipboard-insert/right! lctx char-count-rightward-at-cursor)
+  ; (debugf ">  linectx-clipboard-insert/right! n=~s" char-count-rightward-at-cursor)
+  (when (fx>? char-count-rightward-at-cursor 0)
+    (let ((n         char-count-rightward-at-cursor)
+          (screen    (linectx-vscreen lctx))
+          (clipboard (linectx-clipboard lctx)))
+      (let-values (((x y) (vscreen-cursor-ixy screen)))
+        (let ((ch (vscreen-char-at-xy screen x y)))
+          (while (and x y ch (fx>? n 0))
+            (charspan-insert-back! clipboard ch)
+            (let-values (((x1 y1 ch1) (vscreen-char-after-xy screen x y)))
+              (set! x x1)
+              (set! y y1)
+              (set! ch ch1)
+              (set! n (fx1- n)))))))))
 
 
 ;; save to history a shallow clone of charlines in linectx-vscreen,
