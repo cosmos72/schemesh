@@ -1131,6 +1131,9 @@ static const testcase tests[] = {
      "(span / foo/ (sh-pattern '* /) bar)"},
     {"(sh-wildcard #t '* \"/\" '* \".c\")",
      "(containers/containers.c posix/posix.c posix/signal.c shell/shell.c)"},
+    {"(sh-wildcard #t \"Makefile\")", "(Makefile)"}, /* file exists => returned ad list */
+    {"(sh-wildcard #t \"_does_not_exist_\")", /* file does not exists => returned as string */
+     "_does_not_exist_"},
     /* ------------------------- job execution ------------------------------ */
     {"(sh-run/string (shell \"echo\" \"a\"  \"b\" \"c\"))", "a b c\n"},
     {"(sh-run/string-rtrim-newlines (shell \"echo\" \" abc \"))", " abc "},

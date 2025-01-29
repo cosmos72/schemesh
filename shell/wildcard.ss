@@ -34,11 +34,10 @@
         "")
       ((list-iterate w (lambda  (elem) (string? elem)))
         ; all elements are strings -> concatenate them
-        (let ((ret (charspan)))
-          (list-iterate w
-            (lambda (elem)
-              (charspan-insert-back/string! ret elem 0 (string-length elem))))
-          (charspan->string*! ret)))
+        (let ((str (sh-wildcard->string w)))
+          (if (file-stat str 'catch 'symlinks)
+            (list str) ; path exists, return a list containing only it
+            str)))     ; path does not exist, return a string
       (#t
         ; actually expand wildcards and match them against filesystem paths
         (let* ((patterns (sh-wildcard->sh-patterns w))
@@ -54,9 +53,9 @@
 
 (define (sh-wildcard->string w)
   ; (debugf "sh-wildcard->string w=~s" w)
-  (let ((ret (charspan)))
-    (%wildcard->charspan-append! w ret)
-    (charspan->string ret)))
+  (let ((csp (charspan)))
+    (%wildcard->charspan-append! w csp)
+    (charspan->string*! csp)))
 
 
 ;; convert back wildcard w to the string it was generated from,
