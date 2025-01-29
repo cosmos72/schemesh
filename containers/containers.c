@@ -47,20 +47,28 @@ static signed char c_bytevector_compare(ptr left, ptr right) {
 }
 
 /**
- * similar to (integer->char) but integer Unicode codepoint is not checked for validity:
- * it INTENTIONALLY allows invalid codepoints in the ranges #xD800..#xDFFF and #x10FFFF..#xFFFFFF
+ * INTENTIONALLY fills string with Unicode codepoints in the surrogate range 0xDC80..0xDCFF,
+ * which cannot be created with (integer->char).
+ * They are used by UTF-8b encoding to represent bytes in the range 0x80 .. 0xFF
+ * that are not part of a valid UTF-8 sequence.
+ *
+ * For a definition of UTF-8b, see
+ *   https://peps.python.org/pep-0383
+ *   https://web.archive.org/web/20090830064219/http://mail.nl.linux.org/linux-utf8/2000-07/msg00040.html
  */
-static ptr c_integer_to_char(const uint32_t codepoint) {
-  return Schar(codepoint);
+static ptr c_string_fill_utf8b_surrogate_chars(const ptr string) {
+  iptr len, i;
+  if (Sstringp(string) && (len = Sstring_length(string)) > 0) {
+    for (i = 0; i < len; i++) {
+      Sstring_set(string, i, 0xDC80 | (i & 0x7F));
+    }
+  }
+  return string;
 }
 
 /**
  * convert UTF-32 codepoint to UTF-8b sequence, and return length of such sequence.
  * Does not actually create an UTF-8b sequence - only pretends to.
- *
- * For a definition of UTF-8b, see
- *   https://peps.python.org/pep-0383
- *   https://web.archive.org/web/20090830064219/http://mail.nl.linux.org/linux-utf8/2000-07/msg00040.html
  */
 static iptr c_codepoint_to_utf8b_length(const uint32_t codepoint) {
   if (LIKELY(codepoint < 0x800)) {
@@ -420,8 +428,12 @@ static ptr c_bytevector_utf8b_to_string_append(
 /**
  * convert a C char[] from UTF-8b to Scheme string and return it.
  * If out of memory, or required string length > maximum string length, raises condition.
+ * If len == (size_t)-1, set len = strlen(chars).
  */
-ptr schemesh_Sstring_utf8b(const char chars[], const size_t len) {
+ptr schemesh_Sstring_utf8b(const char chars[], size_t len) {
+  if (len == (size_t)-1) {
+    len = strlen(chars);
+  }
   size_t slen = c_bytes_utf8b_to_string_length((const octet*)chars, len);
   /* Smake_string() wants iptr length */
   iptr str_len = (iptr)slen;
@@ -456,7 +468,7 @@ ptr schemesh_Sbytevector(const char chars[], const size_t len) {
 
 void schemesh_register_c_functions_containers(void) {
   Sregister_symbol("c_bytevector_compare", &c_bytevector_compare);
-  Sregister_symbol("c_integer_to_char", &c_integer_to_char);
+  Sregister_symbol("c_string_fill_utf8b_surrogate_chars", &c_string_fill_utf8b_surrogate_chars);
   Sregister_symbol("c_string_to_utf8b_length", &c_string_to_utf8b_length);
   Sregister_symbol("c_string_to_utf8b_append", &c_string_to_utf8b_append);
 #if 0

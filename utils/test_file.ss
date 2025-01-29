@@ -1,6 +1,6 @@
 
 ;; test file read by (sh-read-file) in tests executed by test.c
-;; contains some random Scheme source that is never compiled or evaluated
+;; contains some random Scheme source that is only read, not compiled or evaluated
 
 (define (fib n)
   (let %fib ((i n))
@@ -11,4 +11,3 @@
 
 #!shell
 FOO=bar
-

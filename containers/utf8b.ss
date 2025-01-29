@@ -14,7 +14,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme) bytevector foreign-procedure fx1+ fx1-)
+    (only (chezscheme) bytevector foreign-procedure fx1+ fx1- string-truncate!)
     (only (schemesh bootstrap) assert* raise-assertf)
     (only (schemesh containers bytespan) bytespan-peek-data bytespan-peek-beg bytespan-peek-end)
     (only (schemesh containers misc) bytevector-fill-range!))
@@ -25,13 +25,17 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; similar to (integer->char) but it INTENTIONALLY allows codepoints
-;; in the range #xDC80..#xDCFF which is used by UTF-8b encoding
-;; to represent raw bytes 0x80..0xFF converted to Unicode codepoints
+;; in the range #xDC80..#xDCFF that are used by UTF-8b encoding
+;; to represent raw bytes #x80..#xFF converted to Unicode codepoints
+;;
+;; For a definition of UTF-8b, see
+;;   https://peps.python.org/pep-0383
+;;   https://web.archive.org/web/20090830064219/http://mail.nl.linux.org/linux-utf8/2000-07/msg00040.html
 (define integer->char*
-  (let ((c-integer->char (foreign-procedure "c_integer_to_char" (unsigned-32) ptr)))
+  (let ((surrogate-chars ((foreign-procedure "c_string_fill_utf8b_surrogate_chars" (ptr) ptr) (make-string #x80))))
     (lambda (codepoint)
       (if (fx<=? #xDC80 codepoint #xDCFF)
-        (c-integer->char codepoint)
+        (string-ref surrogate-chars (fxand #x7F codepoint))
         (integer->char codepoint))))) ; may raise exception
 
 
@@ -52,19 +56,23 @@
     (lambda (str start end zeropad-byte-n)
       (assert* 'string->utf8b (fx<=? 0 start end (string-length str)))
       (assert* 'string->utf8b (fx>=? zeropad-byte-n 0))
-      (if (and (fx>=? start end) (fxzero? zeropad-byte-n))
-        #vu8()
+      (if (fx<? start end)
         (let ((byte-n (c-string->utf8b-length str start end)))
           (assert* 'string->utf8b (fixnum? byte-n))
-          (let* ((bvec (make-bytevector (fx+ byte-n zeropad-byte-n)))
+          (let* ((bvec      (make-bytevector (fx+ byte-n zeropad-byte-n)))
                  (written-n (c-string->utf8b-append str start end bvec 0)))
             (unless (and (fixnum? written-n) (fx=? byte-n written-n))
-              (string->utf8b-error written-n))
+              (raise-string->utf8b-error written-n))
             (when (fx>? zeropad-byte-n 0)
               (bytevector-fill-range! bvec byte-n zeropad-byte-n 0))
-            bvec))))))
+            bvec))
+        ; (fx>=? start end)
+        (if (fxzero? zeropad-byte-n)
+          #vu8()
+          (make-bytevector zeropad-byte-n 0))))))
 
-(define (string->utf8b-error err)
+
+(define (raise-string->utf8b-error err)
   (if (char? err)
     (raise-assertf 'string->utf8b "~s is not a valid unicode scalar value" (char->integer err))
     (raise-assertf 'string->utf8b "invalid arguments")))
@@ -105,15 +113,15 @@
 ;;   https://web.archive.org/web/20090830064219/http://mail.nl.linux.org/linux-utf8/2000-07/msg00040.html
 (define utf8b-range->string
   (let ((c-utf8b->string-append (foreign-procedure "c_bytevector_utf8b_to_string_append"
-                                  (ptr fixnum fixnum ptr fixnum) ptr))
-        (c-utf8b->string-length (foreign-procedure "c_bytevector_utf8b_to_string_length"
-                                  (ptr fixnum fixnum) fixnum)))
+                                  (ptr fixnum fixnum ptr fixnum) ptr)))
     (lambda (bvec start end)
       (assert* 'utf8b->string (fx<=? 0 start end (bytevector-length bvec)))
-      (let* ((char-n (c-utf8b->string-length bvec start end))
-             (str (make-string char-n))
+      (let* ((max-n     (fx- end start))
+             (str       (make-string max-n))
              (written-n (c-utf8b->string-append bvec start end str 0)))
-        (assert* 'utf8b->string (fx=? char-n written-n))
+        (if (fx<? written-n max-n)
+          (string-truncate! str written-n)
+          (assert* 'utf8b->string (fx<=? written-n max-n)))
         str))))
 
 ;; convert a bytevector from UTF-8b to string, and return string containing the conversion result.

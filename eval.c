@@ -56,9 +56,7 @@ ptr call3(const char symbol_name[], ptr arg1, ptr arg2, ptr arg3) {
 ptr eval(const char str[]) {
   /* this must work even if libschemesh is not loaded -> cannot use (sh-eval...) */
   return call1("eval",
-	       call1("read",
-		     call1("open-string-input-port",
-			   schemesh_Sstring_utf8b(str, strlen(str)))));
+               call1("read", call1("open-string-input-port", schemesh_Sstring_utf8b(str, -1))));
 }
 
 /**
@@ -70,8 +68,7 @@ ptr eval(const char str[]) {
  * because it may be moved or garbage collected.
  */
 bytes eval_to_bytevector(const char str[]) {
-  ptr   bytevec = call1("sh-eval->bytevector",
-			schemesh_Sstring_utf8b(str, strlen(str)));
+  ptr   bytevec = call1("sh-eval->bytevector", schemesh_Sstring_utf8b(str, -1));
   bytes ret     = {Sbytevector_length(bytevec), Sbytevector_data(bytevec)};
   return ret;
 }

@@ -403,8 +403,8 @@ Type ? or help for this help.
      n or new to enter new repl
      c or e to exit interrupt handler and continue
      t or throw to raise an error condition
-     q or r to reset scheme
-     a or abort to abort scheme
+     q or r to reset schemesh
+     a or abort to abort schemesh. terminates the program!
      \n\n")
       (flush-output-port out)
       #t)

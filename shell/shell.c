@@ -27,7 +27,7 @@
 #define STR(arg) STR_(arg)
 #define CHEZ_SCHEME_DIR_STR STR(CHEZ_SCHEME_DIR)
 #ifdef INSTALL_LIBDIR
-# define INSTALL_LIBDIR_STR STR(INSTALL_LIBDIR)
+#define INSTALL_LIBDIR_STR STR(INSTALL_LIBDIR)
 #endif
 
 /**
@@ -43,8 +43,8 @@ static ptr c_environ_ref(uptr i) {
     size_t      namelen   = separator ? separator - entry : 0;
     iptr        inamelen  = Sfixnum_value(Sfixnum(namelen));
     if (namelen > 0 && inamelen > 0 && namelen == (size_t)inamelen) {
-      return Scons(schemesh_Sstring_utf8b(entry, inamelen),
-                   schemesh_Sstring_utf8b(separator + 1, strlen(separator + 1)));
+      return Scons(schemesh_Sstring_utf8b(entry, namelen),
+                   schemesh_Sstring_utf8b(separator + 1, -1));
     }
   }
   return Sfalse;
@@ -65,7 +65,7 @@ int schemesh_register_c_functions(void) {
 }
 
 static ptr call_try_load(ptr try_load_proc, const char* dir) {
-  return Scall1(try_load_proc, schemesh_Sstring_utf8b(dir, strlen(dir)));
+  return Scall1(try_load_proc, schemesh_Sstring_utf8b(dir, -1));
 }
 
 /* return 0 if successful, otherwise error code */

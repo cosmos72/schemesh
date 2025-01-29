@@ -1163,7 +1163,7 @@ static const testcase tests[] = {
      "(begin (define (fib n)"
      " (let %fib ((i n))"
      " (if (fx>? i 2) (fx+ (%fib (fx1- i)) (%fib (fx- i 2))) 1))) "
-     "(sh-run (shell ; FOO = bar ; ;)))"},
+     "(sh-run (shell ; FOO = bar ;)))"},
     {"(sh-read-file \"utils/test_file.sh\")",
      "(begin (sh-run (shell ; ;"
      " BAR =  ; foo a b c | bar (shell-env BAR)"

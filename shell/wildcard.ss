@@ -136,7 +136,7 @@
                   (set! w (cons userhome (cdr tail))))
                 ;; (get-userhome) failed: replace symbol '~ with string "~", keep arg1
                 (set! w (cons "~" tail)))))))
-        (if (list-iterate w (lambda (elem) (not (eq? '~ w))))
+        (if (list-iterate w (lambda (elem) (not (eq? '~ elem))))
           w
           (map w (lambda (elem) (if (eq? '~ elem) "~" elem)))))))
 

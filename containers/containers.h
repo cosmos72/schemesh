@@ -24,6 +24,7 @@ ptr schemesh_Sbytevector(const char chars[], const size_t len);
 /**
  * convert a C char[] from UTF-8b to Scheme string and return it.
  * If out of memory, or required string length > maximum string length, raises condition.
+ * If len == (size_t)-1, set len = strlen(chars).
  */
 ptr schemesh_Sstring_utf8b(const char chars[], const size_t len);
 

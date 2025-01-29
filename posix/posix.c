@@ -74,7 +74,7 @@ static int c_errno_einval(void) {
 
 ptr c_strerror(int err) {
   const char* msg = strerror(err < 0 ? -err : err);
-  return schemesh_Sstring_utf8b(msg, strlen(msg));
+  return schemesh_Sstring_utf8b(msg, -1);
 }
 
 int c_init_failed(const char label[]) {
@@ -177,7 +177,7 @@ static ptr c_get_cwd(void) {
     /* call getcwd() with a small stack buffer */
     char dir[256];
     if (getcwd(dir, sizeof(dir)) == dir) {
-      return schemesh_Sstring_utf8b(dir, strlen(dir));
+      return schemesh_Sstring_utf8b(dir, -1);
     } else if (c_errno() != -ERANGE) {
       return Smake_string(0, 0);
     }
@@ -188,7 +188,7 @@ static ptr c_get_cwd(void) {
     char*  dir    = NULL;
     while (maxlen && (dir = malloc(maxlen)) != NULL) {
       if (getcwd(dir, maxlen) == dir) {
-        ptr ret = schemesh_Sstring_utf8b(dir, strlen(dir));
+        ptr ret = schemesh_Sstring_utf8b(dir, -1);
         free(dir);
         return ret;
       }
@@ -752,7 +752,7 @@ static ptr c_get_hostname(void) {
   if (gethostname(buf, sizeof(buf)) != 0) {
     return Sinteger(c_errno());
   }
-  return schemesh_Sstring_utf8b(buf, strlen(buf));
+  return schemesh_Sstring_utf8b(buf, -1);
 }
 
 /**
@@ -789,7 +789,7 @@ ptr c_get_userhome(ptr username0) {
   }
   err = getpwnam_r(username_chars, &pwd, buf, bufsize, &result);
   if (err == 0 && result && result->pw_dir) {
-    ret = schemesh_Sstring_utf8b(result->pw_dir, strlen(result->pw_dir));
+    ret = schemesh_Sstring_utf8b(result->pw_dir, -1);
   } else {
     ret = Sinteger(c_errno_set(err != 0 ? err : ENOENT));
   }

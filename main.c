@@ -181,35 +181,35 @@ static void run_files_and_strings(int argc, const char* argv[]) {
         i++; /* skip subsequent arg */
       } else if (arg2 && (!strcmp(arg, "-c") || !strcmp(arg, "--cmd"))) {
         call3("sh-eval-string/print*",
-              schemesh_Sstring_utf8b(arg2, strlen(arg2)),
+              schemesh_Sstring_utf8b(arg2, -1),
               Sstring_to_symbol("shell"),
               Strue);
         i++;
       } else if (arg2 && (!strcmp(arg, "--cmd-file"))) {
         call3("sh-eval-file/print*",
-              schemesh_Sstring_utf8b(arg2, strlen(arg2)),
+              schemesh_Sstring_utf8b(arg2, -1),
               Sstring_to_symbol("shell"),
               Strue);
         i++;
       } else if (arg2 && (!strcmp(arg, "-e") || !strcmp(arg, "--eval"))) {
         call3("sh-eval-string/print*",
-              schemesh_Sstring_utf8b(arg2, strlen(arg2)),
+              schemesh_Sstring_utf8b(arg2, -1),
               Sstring_to_symbol("scheme"),
               Strue);
         i++;
       } else if (arg2 && (!strcmp(arg, "--eval-file"))) {
         call3("sh-eval-file/print*",
-              schemesh_Sstring_utf8b(arg2, strlen(arg2)),
+              schemesh_Sstring_utf8b(arg2, -1),
               Sstring_to_symbol("scheme"),
               Strue);
         i++;
       } else if (!strncmp(arg, "-", 1)) {
         /* some other option */
       } else {
-        call1("sh-eval-file/print", schemesh_Sstring_utf8b(arg, strlen(arg)));
+        call1("sh-eval-file/print", schemesh_Sstring_utf8b(arg, -1));
       }
     } else {
-      call1("sh-eval-file/print", schemesh_Sstring_utf8b(arg, strlen(arg)));
+      call1("sh-eval-file/print", schemesh_Sstring_utf8b(arg, -1));
     }
   }
 }

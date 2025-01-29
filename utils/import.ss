@@ -13,7 +13,7 @@
             (only (schemesh bootstrap) sh-eval))
     (syntax-case stx ()
       ((_)
-        ; import libraries when (import-schemesh/minimal) is macroexpanded, not at runtime
+        ; import libraries at macroexpansion time, not at runtime
         (sh-eval '(import (schemesh repl) (schemesh shell)))
         #'(void)))))
 
@@ -24,7 +24,7 @@
             (only (schemesh bootstrap) sh-eval))
     (syntax-case stx ()
       ((_)
-        ; import libraries when (import-schemesh/all) is macroexpanded, not at runtime
+        ; import libraries at macroexpansion time, not at runtime
         (sh-eval
           '(import
              (schemesh bootstrap)
