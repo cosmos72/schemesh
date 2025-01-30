@@ -2,13 +2,16 @@
 # C compiler
 CC=cc
 
-# debug build
-CFLAGS=-g -pipe -Wall -W -Wextra -std=c89
-LDFLAGS=-g
-
 # optimized build
-#  CFLAGS=-O2 -pipe -Wall -W -Wextra -std=c89
-#  LDFLAGS=-s
+CFLAGS=-O2 -pipe -Wall -W -Wextra -std=c89
+LDFLAGS=-s
+
+# debug build
+# CFLAGS=-g -pipe -Wall -W -Wextra -std=c89
+# LDFLAGS=-g
+
+# C compiler with additional flags for C shared library (not compiled by default)
+CC_SO=$(CC) -shared -fPIC
 
 INSTALL_DIR=/usr/local
 INSTALL_BINDIR=$(INSTALL_DIR)/bin
@@ -30,11 +33,13 @@ LIB_ICONV:=$(shell uname -o | grep -q Android && echo -liconv)
 
 LIBS=$(CHEZ_SCHEME_KERNEL) -lz -llz4 -lncurses -ldl -lm -lpthread -luuid $(LIB_ICONV)
 
-#
+######################################################################################
 # no user-serviceable parts below this line
-#
+######################################################################################
 LIBSCHEMESH_SO=libschemesh_0.7.1.so
+LIBSCHEMESH_C_SO=libschemesh_c_0.7.1.so
 
+SRCS=containers/containers.c eval.c posix/posix.c posix/signal.c shell/shell.c
 OBJS=containers.o eval.o posix.o shell.o signal.o
 
 all: schemesh schemesh_test $(LIBSCHEMESH_SO)
@@ -48,19 +53,21 @@ containers.o: containers/containers.c containers/containers.h eval.h
 eval.o: eval.c eval.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
-main.o: main.c main.h eval.h shell/shell.h
-	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
-
 posix.o: posix/posix.c posix/posix.h eval.h posix/signal.h
-	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
-
-signal.o: posix/signal.c posix/signal.h eval.h posix/posix.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
 shell.o: shell/shell.c shell/shell.h containers/containers.h eval.h posix/posix.h posix/signal.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR) -DCHEZ_SCHEME_DIR="$(CHEZ_SCHEME_DIR)" -DINSTALL_LIBDIR="$(INSTALL_LIBDIR)"
 
-test.o: test.c test.h shell/shell.h
+signal.o: posix/signal.c posix/signal.h eval.h posix/posix.h
+	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
+
+
+
+main.o: main.c main.h eval.h shell/shell.h
+	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
+
+test.o: test.c test.h eval.h shell/shell.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
 
@@ -77,3 +84,10 @@ install: all
 	$(INSTALL) schemesh $(INSTALL_BINDIR) || $(CP) schemesh $(INSTALL_BINDIR)
 	$(MKDIR_P) $(INSTALL_LIBDIR)
 	$(INSTALL) $(LIBSCHEMESH_SO) $(INSTALL_LIBDIR) || $(CP) $(LIBSCHEMESH_SO) $(INSTALL_LIBDIR)
+
+
+# by default, C shared library is not compiled.
+c_so: $(LIBSCHEMESH_C_SO)
+
+$(LIBSCHEMESH_C_SO): $(SRCS)
+	$(CC_SO) -o $@ $^ $(CFLAGS) -I$(CHEZ_SCHEME_DIR) -DCHEZ_SCHEME_DIR="$(CHEZ_SCHEME_DIR)" -DINSTALL_LIBDIR="$(INSTALL_LIBDIR)" $(LDFLAGS)

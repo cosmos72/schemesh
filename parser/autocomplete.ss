@@ -251,9 +251,9 @@
   l)
 
 ;; find programs in $PATH that start with prefix, cons them onto list l, and return l
-;; FIXME: pass ((top-level-value 'sh-env) #t "PATH") as argument
+;; FIXME: pass ((top-level-value 'sh-env-ref) #t "PATH") as argument
 (define (%list-shell-programs prefix l)
-  (let* (($path      ((top-level-value 'sh-env) #t "PATH"))
+  (let* (($path      ((top-level-value 'sh-env-ref) #t "PATH"))
          (dirs       (string-split $path 0 (string-length $path) #\:))
          (prefix-len (string-length prefix)))
     (list-iterate dirs
