@@ -1240,7 +1240,7 @@ static int run_tests(void) {
 static unsigned run_test(const testcase* test) {
   /* fprintf(stdout, "test: %s\n", test->string_to_eval); */
 
-  bytes actual   = eval_to_bytevector(test->string_to_eval);
+  bytes actual   = schemesh_eval_to_bytevector(test->string_to_eval);
   bytes expected = {strlen(test->expected_result), (const unsigned char*)test->expected_result};
   if (actual.size == expected.size && memcmp(actual.data, expected.data, actual.size) == 0) {
     return 0;
@@ -1340,16 +1340,18 @@ static int compile_libraries(const char* source_dir) {
     return err;
   }
 #ifdef SCHEMESH_OPTIMIZE
-  ret = eval("(parameterize ((optimize-level 2))\n"
-             "  (compile-file \"libschemesh.ss\" \"libschemesh_temp.so\")\n"
-             "  (strip-fasl-file \"libschemesh_temp.so\" \"" LIBSCHEMESH_SO "\"\n"
-             "    (fasl-strip-options inspector-source source-annotations profile-source))\n"
-             "    #t\n)");
+  ret = schemesh_eval
+      ("(parameterize ((optimize-level 2))\n"
+       "  (compile-file \"libschemesh.ss\" \"libschemesh_temp.so\")\n"
+       "  (strip-fasl-file \"libschemesh_temp.so\" \"" LIBSCHEMESH_SO "\"\n"
+       "    (fasl-strip-options inspector-source source-annotations profile-source))\n"
+       "    #t\n)");
 #else /* !SCHEMESH_OPTIMIZE */
-  ret = eval("(parameterize ((optimize-level 0)\n"
-             "               (run-cp0 (lambda (cp0 x) x)))\n"
-             "  (compile-file \"libschemesh.ss\" \"" LIBSCHEMESH_SO "\")\n"
-             "  #t)");
+  ret = schemesh_eval
+      ("(parameterize ((optimize-level 0)\n"
+       "               (run-cp0 (lambda (cp0 x) x)))\n"
+       "  (compile-file \"libschemesh.ss\" \"" LIBSCHEMESH_SO "\")\n"
+       "  #t)");
 #endif
   return ret == Strue ? 0 : EINVAL;
 }

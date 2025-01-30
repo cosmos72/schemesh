@@ -40,11 +40,11 @@ static void c_sigwinch_handler(int sig_num) {
   atomic_store(&c_sigwinch_received, 1);
 }
 
-ptr c_sigchld_consume(void) {
+static ptr c_sigchld_consume(void) {
   return atomic_exchange(&c_sigchld_received, 0) ? Strue : Sfalse;
 }
 
-ptr c_sigwinch_consume(void) {
+static ptr c_sigwinch_consume(void) {
   return atomic_exchange(&c_sigwinch_received, 0) ? Strue : Sfalse;
 }
 
@@ -92,7 +92,7 @@ int c_signals_setdefault(void) {
 
 static struct sigaction c_sigwinch_saved_action;
 
-int c_sigwinch_init(void) {
+static int c_sigwinch_init(void) {
   struct sigaction action = {};
   action.sa_handler       = &c_sigwinch_handler;
   if (sigaction(SIGWINCH, &action, &c_sigwinch_saved_action) < 0) {
@@ -109,7 +109,7 @@ static int c_sigwinch_restore(void) {
   return 0;
 }
 
-int c_signal_setdefault(int sig) {
+static int c_signal_setdefault(int sig) {
   struct sigaction action = {};
   action.sa_handler       = SIG_DFL;
 
@@ -119,7 +119,7 @@ int c_signal_setdefault(int sig) {
   return 0;
 }
 
-int c_signal_raise(int sig) {
+static int c_signal_raise(int sig) {
   (void)c_signal_setdefault(sig);
   if (raise(sig) < 0) { /* better than kill(getpid(), sig) in multi-threaded-programs */
     return c_errno();

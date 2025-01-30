@@ -71,24 +71,26 @@ static ptr call_try_load(ptr try_load_proc, const char* dir) {
 /* return 0 if successful, otherwise error code */
 int schemesh_load_libraries(const char* override_library_dir) {
 #if 0
-  ptr try_load_proc = eval("(lambda (dir)\n"
-                           "  (load (string-append dir \"/" LIBSCHEMESH_SO "\"))\n"
-                           "  #t)\n");
+  ptr try_load_proc = schemesh_eval
+      ("(lambda (dir)\n"
+       "  (load (string-append dir \"/" LIBSCHEMESH_SO "\"))\n"
+       "  #t)\n");
 #else
-  ptr try_load_proc = eval("(lambda (dir)\n"
-                           "  (let ((path (string-append dir \"/" LIBSCHEMESH_SO "\")))\n"
-                           "    (call/cc\n"
-                           "      (lambda (k-exit)\n"
-                           "        (with-exception-handler\n"
-                           "          (lambda (ex)\n"
-                           "            (let ((port (current-error-port)))\n"
-                           "              (put-string port \"schemesh: \")"
-                           "              (display-condition ex port)\n"
-                           "              (newline port))\n"
-                           "            (k-exit #f))\n" /* exception -> return #f */
-                           "          (lambda ()\n"
-                           "            (load path)\n"
-                           "            #t))))))\n"); /* success -> return #t */
+  ptr try_load_proc = schemesh_eval
+      ("(lambda (dir)\n"
+       "  (let ((path (string-append dir \"/" LIBSCHEMESH_SO "\")))\n"
+       "    (call/cc\n"
+       "      (lambda (k-exit)\n"
+       "        (with-exception-handler\n"
+       "          (lambda (ex)\n"
+       "            (let ((port (current-error-port)))\n"
+       "              (put-string port \"schemesh: \")"
+       "              (display-condition ex port)\n"
+       "              (newline port))\n"
+       "            (k-exit #f))\n" /* exception -> return #f */
+       "          (lambda ()\n"
+       "            (load path)\n"
+       "            #t))))))\n"); /* success -> return #t */
 #endif
   ptr ret = Sfalse;
   Slock_object(try_load_proc);
@@ -111,25 +113,19 @@ int schemesh_load_libraries(const char* override_library_dir) {
 }
 
 void schemesh_import_minimal_libraries(void) {
-  eval("(import\n"
-       "  (schemesh shell)\n"
-       "  (schemesh repl))\n");
+  schemesh_eval("(import (schemesh shell) (schemesh repl))\n");
 }
 
 void schemesh_import_all_libraries(void) {
-#if 1
-  eval("(import-schemesh/all)");
-#else
-  eval("(import\n"
-       "  (schemesh bootstrap)\n"
-       "  (schemesh containers)\n"
-       "  (schemesh conversions)\n"
-       "  (schemesh lineedit)\n"
-       "  (schemesh parser)\n"
-       "  (schemesh posix)\n"
-       "  (schemesh shell)\n"
-       "  (schemesh repl))\n");
-#endif
+  schemesh_eval("(import\n"
+                "  (schemesh bootstrap)\n"
+                "  (schemesh containers)\n"
+                "  (schemesh conversions)\n"
+                "  (schemesh lineedit)\n"
+                "  (schemesh parser)\n"
+                "  (schemesh posix)\n"
+                "  (schemesh shell)\n"
+                "  (schemesh repl))\n");
 }
 
 void schemesh_init(const char* override_boot_dir, void (*on_scheme_exception)(void)) {

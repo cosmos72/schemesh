@@ -13,12 +13,16 @@
 #include <stddef.h> /* NULL */
 #include <string.h> /* strlen() */
 
+static ptr top_level_value(const char symbol_name[]) {
+  return Stop_level_value(Sstring_to_symbol(symbol_name));
+}
+
 /**
  * call global Scheme procedure with no arguments.
  * Return the resulting Scheme value.
  */
 ptr call0(const char symbol_name[]) {
-  return Scall0(Stop_level_value(Sstring_to_symbol(symbol_name)));
+  return Scall0(top_level_value(symbol_name));
 }
 
 /**
@@ -27,7 +31,7 @@ ptr call0(const char symbol_name[]) {
  * Return the resulting Scheme value.
  */
 ptr call1(const char symbol_name[], ptr arg) {
-  return Scall1(Stop_level_value(Sstring_to_symbol(symbol_name)), arg);
+  return Scall1(top_level_value(symbol_name), arg);
 }
 
 /**
@@ -36,7 +40,7 @@ ptr call1(const char symbol_name[], ptr arg) {
  * Return the resulting Scheme value.
  */
 ptr call2(const char symbol_name[], ptr arg1, ptr arg2) {
-  return Scall2(Stop_level_value(Sstring_to_symbol(symbol_name)), arg1, arg2);
+  return Scall2(top_level_value(symbol_name), arg1, arg2);
 }
 
 /**
@@ -45,7 +49,7 @@ ptr call2(const char symbol_name[], ptr arg1, ptr arg2) {
  * Return the resulting Scheme value.
  */
 ptr call3(const char symbol_name[], ptr arg1, ptr arg2, ptr arg3) {
-  return Scall3(Stop_level_value(Sstring_to_symbol(symbol_name)), arg1, arg2, arg3);
+  return Scall3(top_level_value(symbol_name), arg1, arg2, arg3);
 }
 
 /**
@@ -53,10 +57,12 @@ ptr call3(const char symbol_name[], ptr arg1, ptr arg2, ptr arg3) {
  * and return the resulting Scheme value.
  * Cannot use (sh-eval) because it may be called before loading libschemesh.
  */
-ptr eval(const char str[]) {
+ptr schemesh_eval(const char str[]) {
   /* this must work even if libschemesh is not loaded -> cannot use (sh-eval...) */
   return call1("eval",
-               call1("read", call1("open-string-input-port", schemesh_Sstring_utf8b(str, -1))));
+               call1("read",
+                     call1("open-string-input-port",
+                           schemesh_Sstring_utf8b(str, -1))));
 }
 
 /**
@@ -67,7 +73,7 @@ ptr eval(const char str[]) {
  * Returned pointer CANNOT be dereferenced anymore after calling further Scheme code,
  * because it may be moved or garbage collected.
  */
-bytes eval_to_bytevector(const char str[]) {
+bytes schemesh_eval_to_bytevector(const char str[]) {
   ptr   bytevec = call1("sh-eval->bytevector", schemesh_Sstring_utf8b(str, -1));
   bytes ret     = {Sbytevector_length(bytevec), Sbytevector_data(bytevec)};
   return ret;

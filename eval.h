@@ -44,7 +44,7 @@ ptr call3(const char symbol_name[], ptr arg1, ptr arg2, ptr arg3);
  * and return the resulting Scheme value.
  * Cannot use (sh-eval) because it may be called before loading libschemesh.
  */
-ptr eval(const char str[]);
+ptr schemesh_eval(const char str[]);
 
 typedef struct {
   iptr                 size;
@@ -60,6 +60,6 @@ typedef struct {
  * Returned pointer CANNOT be dereferenced anymore after calling Scheme code,
  * because it may be moved or garbage collected.
  */
-bytes eval_to_bytevector(const char str[]);
+bytes schemesh_eval_to_bytevector(const char str[]);
 
 #endif /* SCHEMESH_EVAL_H */

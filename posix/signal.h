@@ -19,10 +19,7 @@ int c_signals_init(void);
  */
 int c_signals_setdefault(void);
 
-/** restore handler for specified signal to SIG_DFL */
-int c_signal_setdefault(int sig);
-
 /** define functions (signal-number->name) (signal-name->number) */
 void schemesh_register_c_functions_posix_signals(void);
 
-#endif /* SCHEMESH_SIGNAL_POSIX_H */
+#endif /* SCHEMESH_POSIX_SIGNAL_H */
