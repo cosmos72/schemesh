@@ -14,10 +14,6 @@
 
 (library (schemesh shell job (0 7 1))
   (export
-    ; builtins2.ss
-    sh-builtin-bg sh-builtin-builtin sh-builtin-cd sh-builtin-command
-    sh-builtin-exec sh-builtin-fg sh-builtin-jobs sh-builtin-pwd
-
     ; dir.ss
     sh-cwd-set! sh-cd sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
 
@@ -766,14 +762,14 @@
 
   (let ((t (sh-builtins)))
     ; additional builtins
-    (hashtable-set! t "bg"      sh-builtin-bg)
-    (hashtable-set! t "builtin" sh-builtin-builtin)
-    (hashtable-set! t "cd"      sh-builtin-cd)
-    (hashtable-set! t "command" sh-builtin-command)
-    (hashtable-set! t "exec"    sh-builtin-exec)
-    (hashtable-set! t "fg"      sh-builtin-fg)
-    (hashtable-set! t "jobs"    sh-builtin-jobs)
-    (hashtable-set! t "pwd"     sh-builtin-pwd)))
+    (hashtable-set! t "bg"      builtin-bg)
+    (hashtable-set! t "builtin" builtin-builtin)
+    (hashtable-set! t "cd"      builtin-cd)
+    (hashtable-set! t "command" builtin-command)
+    (hashtable-set! t "exec"    builtin-exec)
+    (hashtable-set! t "fg"      builtin-fg)
+    (hashtable-set! t "jobs"    builtin-jobs)
+    (hashtable-set! t "pwd"     builtin-pwd)))
 
 
 ) ; close library

@@ -61,9 +61,9 @@
 
 
 ;; the "alias" builtin
-(define (sh-builtin-alias job prog-and-args options)
-  ; (debugf "sh-builtin-alias ~s" prog-and-args)
-  (assert-string-list? 'sh-builtin-alias prog-and-args)
+(define (builtin-alias job prog-and-args options)
+  ; (debugf "builtin-alias ~s" prog-and-args)
+  (assert-string-list? 'builtin-alias prog-and-args)
   (cond
    ((or (null? prog-and-args) (null? (cdr prog-and-args)))
      (show-aliases))
@@ -74,8 +74,8 @@
 
 
 ;; the "unalias" builtin
-(define (sh-builtin-unalias job prog-and-args options)
-  (assert-string-list? 'sh-builtin-unalias prog-and-args)
+(define (builtin-unalias job prog-and-args options)
+  (assert-string-list? 'builtin-unalias prog-and-args)
   (do ((tail (cdr prog-and-args) (cdr tail)))
       ((null? tail))
     (sh-alias-delete! (car tail))))

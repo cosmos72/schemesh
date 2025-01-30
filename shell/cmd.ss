@@ -140,7 +140,7 @@
         (job-pgid-set! c process-group-id)))))
 
 
-;; internal function called by (sh-builtin-exec) to exec a subprocess
+;; internal function called by (builtin-exec) to exec a subprocess
 (define cmd-exec
   (let ((c-cmd-exec (foreign-procedure "c_cmd_exec" (ptr ptr ptr ptr) int)))
     (lambda (c argv options)

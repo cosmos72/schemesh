@@ -13,10 +13,7 @@
 
     ; builtins.ss
     sh-alias sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
-    sh-builtin-alias sh-builtin-echo sh-builtin-error sh-builtin-false
-    sh-builtin-history sh-builtin-true sh-builtin-unalias
-    sh-builtins sh-find-builtin
-    sh-echo sh-error sh-false sh-true sh-history sh-repl-args
+    sh-builtins sh-find-builtin sh-echo sh-error sh-false sh-history sh-repl-args sh-true
 
     ; eval.ss
     sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
@@ -38,10 +35,6 @@
     sh-autocomplete sh-current-time sh-expand-ps1 sh-home->~ sh-make-linectx
 
     ;;;;;;;;;; job.ss and files included by it:
-
-    ; builtins2.ss
-    sh-builtin-bg sh-builtin-builtin sh-builtin-cd sh-builtin-command
-    sh-builtin-exec sh-builtin-fg sh-builtin-jobs sh-builtin-pwd
 
     ; dir.ss
     sh-cwd-set! sh-cd sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
