@@ -393,7 +393,7 @@
         (lambda (assignment)
           (let ((name (car assignment))
                 (value (cdr assignment)))
-            (sh-env/lazy! cmd name value))))
+            (sh-env-set/lazy! cmd name value))))
       (list-iterate redirections
         (lambda (redirection)
           (sh-redirect! cmd (car redirection) (cadr redirection) (caddr redirection))))

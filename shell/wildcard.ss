@@ -122,7 +122,7 @@
           ; (debugf "sh-wildcard/expand-~~ arg1=~s" arg1)
           (if (or (not (string? arg1)) (fxzero? (string-length arg1)) (char=? #\/ (string-ref arg1 0)))
             ;; expand ~ to environment variable "HOME", or to string "~" if such env. variable is not set
-            (let ((userhome (sh-env job "HOME" "~")))
+            (let ((userhome (sh-env-ref job "HOME" "~")))
               (set! w (cons userhome tail)))
             (let* ((slash    (string-find/char arg1 0 (string-length arg1) #\/))
                    (username (if slash (substring arg1 0 slash) arg1))

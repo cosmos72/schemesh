@@ -77,7 +77,7 @@
 
 ; update linectx-prompt and linectx-prompt-length with new prompt
 (define (sh-expand-ps1 lctx)
-  (let* ((src (sh-env #t "SCHEMESH_PS1" sh-fancy-ps1)) ; string
+  (let* ((src (sh-env-ref #t "SCHEMESH_PS1" sh-fancy-ps1)) ; string
          (prompt (linectx-prompt lctx))
          (prompt-len 0)
          (hidden  0)
@@ -108,7 +108,7 @@
               ; ((#\r)   (%append-char     #\return))  ; breaks computing prompt-end-x/y
               ((#\s)     (%append-string   (symbol->string (linectx-parser-name lctx))))
               ((#\@ #\A #\T #\t)    (%append-string (sh-current-time ch)))
-              ((#\u)     (%append-string   (sh-env #t "USER")))
+              ((#\u)     (%append-string   (sh-env-ref #t "USER")))
               ((#\w)     (%append-charspan (sh-home->~ (sh-cwd))))
               (else      (%append-char     ch)))
             (set! escape? #f))
@@ -124,7 +124,7 @@
 ;; otherwise return path.
 (define (sh-home->~ path)
   (let ((ret path)
-        (home (sh-env #t "HOME" #f)))
+        (home (sh-env-ref #t "HOME" #f)))
     (when (string? home)
       (let ((home-len (string-length home))
             (path-len (charspan-length path)))

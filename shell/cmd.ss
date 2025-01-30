@@ -132,7 +132,7 @@
                     argv
                     (if job-dir (text->bytevector0 job-dir) #f)
                     (job-make-c-redirect-vector c)
-                    (sh-env->argv c 'exported)
+                    (sh-env->argv c 'export)
                     (or process-group-id -1))))
         (when (< ret 0)
           (raise-c-errno 'sh-start 'fork ret))
@@ -149,7 +149,7 @@
                     argv
                     (if job-dir (text->bytevector0 job-dir) #f)
                     (job-make-c-redirect-vector c)
-                    (sh-env->argv c 'exported))))
+                    (sh-env->argv c 'export))))
         ; (c-cmd-exec) returns only if it failed
         (job-status-set! 'cmd-exec c (cons 'exited (if (integer? ret) ret -1)))))))
 

@@ -57,7 +57,7 @@
 ;; path must be a a string or charspan.
 (define sh-cd
   (case-lambda
-    (()     (sh-cd* (sh-env #t "HOME")))
+    (()     (sh-cd* (sh-env-ref #t "HOME")))
     ((path) (sh-cd* path))
     ((path . extra-args) (raise-errorf 'cd "too many arguments"))))
 
@@ -118,7 +118,7 @@
 (define sh-userhome
   (case-lambda
     (()
-      (sh-env #t "HOME" #f))
+      (sh-env-ref #t "HOME" #f))
     ((username)
       (let ((userhome (get-userhome (string->utf8b/0 username))))
         (if (string? userhome)
@@ -149,13 +149,13 @@
 ;; or $HOME/.cache if the former is not set.
 (define (xdg-cache-home)
   (or
-    (sh-env #t "XDG_CACHE_HOME" #f)
-    (string-append (sh-env #t "HOME" "") "/.cache")))
+    (sh-env-ref #t "XDG_CACHE_HOME" #f)
+    (string-append (sh-env-ref #t "HOME" "") "/.cache")))
 
 
 ;; return string containing environment variable $XDG_CONFIG_HOME
 ;; or $HOME/.config if the former is not set.
 (define (xdg-config-home)
   (or
-    (sh-env #t "XDG_CONFIG_HOME" #f)
-    (string-append (sh-env #t "HOME" "") "/.config")))
+    (sh-env-ref #t "XDG_CONFIG_HOME" #f)
+    (string-append (sh-env-ref #t "HOME" "") "/.config")))

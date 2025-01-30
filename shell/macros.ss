@@ -113,7 +113,7 @@
 
 (define-syntax shell-env
   (syntax-rules ()
-    ((_ arg)      (lambda (job) (sh-env job arg)))))
+    ((_ arg)      (lambda (job) (sh-env-ref job arg)))))
 
 
 

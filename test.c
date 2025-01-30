@@ -922,11 +922,11 @@ static const testcase tests[] = {
      "(bar baz 123 456)"},
     /* ------------------------- shell job --------------------------------- */
     {"(begin\n"
-     "  (sh-env! #t \"foo\" \"bar\")\n"
+     "  (sh-env-set! #t \"foo\" \"bar\")\n"
      "  (cons\n"
-     "    (sh-env       #t \"foo\")\n"
-     "    (sh-env-exported? #t \"foo\")))",
-     "(bar . #f)"},
+     "    (sh-env-ref   #t \"foo\")\n"
+     "    (values->list (sh-env-visibility-ref #t \"foo\"))))",
+     "(bar bar private)"},
     {"(let ((j (sh-subshell (sh-cmd \"sleep\" \"1\") '\\x3B; (sh-cmd \"echo\" \"done\"))))\n"
      "  (let-values (((port get-string) (open-string-output-port)))\n"
      "    (sh-job-display j port)\n"
@@ -1055,14 +1055,14 @@ static const testcase tests[] = {
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{FOO=$BAR/subdir echo}\"))))",
      INVOKELIB_SHELL_JOBS " (sh-cmd* FOO '= (lambda (job) (sh-wildcard job"
-                          " (lambda (job) (sh-env job BAR)) /subdir)) echo))"},
+                          " (lambda (job) (sh-env-ref job BAR)) /subdir)) echo))"},
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"A=$(echo abc; echo def)\"))",
      "(shell A = (shell-backquote echo abc ; echo def))"},
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"A=`echo abc; echo def`\"))",
      "(shell A = (shell-backquote echo abc ; echo def))"},
-    /* should rather expand to (sh-env/lazy! ...) ? */
+    /* should rather expand to (sh-env-set/lazy! ...) ? */
     {"(expand '(shell \"A\" = (shell-backquote \"echo\" \"abc\" \\x3B; \"echo\" \"def\")))",
      INVOKELIB_SHELL_JOBS
      " (sh-cmd* A '= (lambda ()"
