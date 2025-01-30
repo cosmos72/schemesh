@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h> /* strcmp() */
 #include <time.h>
+#include <errno.h>
 
 static jmp_buf jmp_env;
 static int     on_exception = 0;
@@ -180,36 +181,36 @@ static void run_files_and_strings(int argc, const char* argv[]) {
       } else if (arg2 && (!strcmp(arg, "--boot-dir") || !strcmp(arg, "--library-dir"))) {
         i++; /* skip subsequent arg */
       } else if (arg2 && (!strcmp(arg, "-c") || !strcmp(arg, "--cmd"))) {
-        call3("sh-eval-string/print*",
-              schemesh_Sstring_utf8b(arg2, -1),
-              Sstring_to_symbol("shell"),
-              Strue);
+        schemesh_call3("sh-eval-string/print*",
+                       schemesh_Sstring_utf8b(arg2, -1),
+                       Sstring_to_symbol("shell"),
+                       Strue);
         i++;
       } else if (arg2 && (!strcmp(arg, "--cmd-file"))) {
-        call3("sh-eval-file/print*",
-              schemesh_Sstring_utf8b(arg2, -1),
-              Sstring_to_symbol("shell"),
-              Strue);
+        schemesh_call3("sh-eval-file/print*",
+                       schemesh_Sstring_utf8b(arg2, -1),
+                       Sstring_to_symbol("shell"),
+                       Strue);
         i++;
       } else if (arg2 && (!strcmp(arg, "-e") || !strcmp(arg, "--eval"))) {
-        call3("sh-eval-string/print*",
-              schemesh_Sstring_utf8b(arg2, -1),
-              Sstring_to_symbol("scheme"),
-              Strue);
+        schemesh_call3("sh-eval-string/print*",
+                       schemesh_Sstring_utf8b(arg2, -1),
+                       Sstring_to_symbol("scheme"),
+                       Strue);
         i++;
       } else if (arg2 && (!strcmp(arg, "--eval-file"))) {
-        call3("sh-eval-file/print*",
-              schemesh_Sstring_utf8b(arg2, -1),
-              Sstring_to_symbol("scheme"),
-              Strue);
+        schemesh_call3("sh-eval-file/print*",
+                       schemesh_Sstring_utf8b(arg2, -1),
+                       Sstring_to_symbol("scheme"),
+                       Strue);
         i++;
       } else if (!strncmp(arg, "-", 1)) {
         /* some other option */
       } else {
-        call1("sh-eval-file/print", schemesh_Sstring_utf8b(arg, -1));
+        schemesh_call1("sh-eval-file/print", schemesh_Sstring_utf8b(arg, -1));
       }
     } else {
-      call1("sh-eval-file/print", schemesh_Sstring_utf8b(arg, -1));
+      schemesh_call1("sh-eval-file/print", schemesh_Sstring_utf8b(arg, -1));
     }
   }
 }
@@ -247,7 +248,7 @@ int main(int argc, const char* argv[]) {
   (void)&show;
   (void)&diff;
   Senable_expeditor(NULL);
-  c_errno_set(0);
+  errno = 0;
 
   if (cmd.have_file_or_string) {
     run_files_and_strings(argc, argv);
@@ -260,7 +261,7 @@ again:
 #if 1
   on_exception = EVAL_FAILED;
   {
-    ptr ret = call0("sh-repl");
+    ptr ret = schemesh_call0("sh-repl");
     if (Sfixnump(ret)) {
       err = Sfixnum_value(ret);
     }

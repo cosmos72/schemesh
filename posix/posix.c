@@ -14,7 +14,12 @@
 #include "posix.h"
 #include "../containers/containers.h" /* schemesh_Sbytevector() */
 #include "../eval.h"                  /* eval() */
-#include "signal.h"
+
+#include <errno.h> /* EINVAL */
+#include <signal.h>
+#include <stdatomic.h>
+#include <stddef.h> /* size_t, NULL */
+
 
 #include <dirent.h> /* opendir(), readdir(), closedir() */
 #include <errno.h>  /* EINVAL, EIO, errno */
@@ -44,6 +49,15 @@
 #include <termios.h> /* struct termios, tcgetattr(), tcsetattr() */
 #endif
 
+#define SCHEMESH_POSIX_POSIX_C
+
+/** needed by signal.h */
+static int c_errno(void);
+static int c_init_failed(const char label[]);
+
+/** signal.h defines a lot of static functions */
+#include "signal.h"
+
 static int c_fd_open_max(void);
 
 /******************************************************************************/
@@ -52,11 +66,11 @@ static int c_fd_open_max(void);
 /*                                                                            */
 /******************************************************************************/
 
-int c_errno(void) {
+static int c_errno(void) {
   return -errno;
 }
 
-int c_errno_set(int errno_value) {
+static int c_errno_set(int errno_value) {
   return -(errno = errno_value);
 }
 
@@ -72,12 +86,12 @@ static int c_errno_einval(void) {
   return -EINVAL;
 }
 
-ptr c_strerror(int err) {
+static ptr c_strerror(int err) {
   const char* msg = strerror(err < 0 ? -err : err);
   return schemesh_Sstring_utf8b(msg, -1);
 }
 
-int c_init_failed(const char label[]) {
+static int c_init_failed(const char label[]) {
   const int err = errno;
   fprintf(stderr,
           "error initializing POSIX subsystem: %s failed with error %s\n",
@@ -205,7 +219,12 @@ static ptr c_get_cwd(void) {
 /*                                                                            */
 /******************************************************************************/
 
-/** close-on-exec file descriptor for our tty */
+/**
+ * close-on-exec file descriptor for our tty.
+ *
+ * Scheme code assumes it is == c_fd_open_max() - 1
+ * if c_tty_init() is succesful.
+ */
 static int tty_fd = -1;
 
 static int c_tty_init(void) {
@@ -219,11 +238,6 @@ static int c_tty_init(void) {
     tty_fd = fd;
   }
   return err;
-}
-
-/** return file descriptor for our controlling tty */
-int c_tty_fd(void) {
-  return tty_fd;
 }
 
 static int c_tty_getattr(int fd, struct termios* conf) {
@@ -759,7 +773,7 @@ static ptr c_get_hostname(void) {
  * get home directory of specified username, which must be a 0-terminated bytevector.
  * return Scheme string, or Scheme integer on error
  */
-ptr c_get_userhome(ptr username0) {
+static ptr c_get_userhome(ptr username0) {
   struct passwd  pwd;
   struct passwd* result = NULL;
   ptr            ret;
@@ -1436,6 +1450,6 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_directory_list", &c_directory_list);
   Sregister_symbol("c_file_stat", &c_file_stat);
 
-  schemesh_register_c_functions_posix_signals();
+  c_register_c_functions_posix_signals();
   return 0;
 }

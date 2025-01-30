@@ -11,7 +11,6 @@
 #include "../containers/containers.h" /* schemesh_Sstring_utf8b() */
 #include "../eval.h"
 #include "../posix/posix.h"
-#include "../posix/signal.h"
 
 #include <errno.h>
 #include <stdio.h>

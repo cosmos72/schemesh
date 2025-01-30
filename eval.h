@@ -16,28 +16,28 @@
  * call global Scheme procedure with no arguments.
  * Return the resulting Scheme value.
  */
-ptr call0(const char symbol_name[]);
+ptr schemesh_call0(const char symbol_name[]);
 
 /**
  * call global Scheme procedure having specified symbol name
  * passing a single Scheme argument to it.
  * Return the resulting Scheme value.
  */
-ptr call1(const char symbol_name[], ptr arg);
+ptr schemesh_call1(const char symbol_name[], ptr arg);
 
 /**
  * call global Scheme procedure having specified symbol name
  * passing two Scheme arguments to it.
  * Return the resulting Scheme value.
  */
-ptr call2(const char symbol_name[], ptr arg1, ptr arg2);
+ptr schemesh_call2(const char symbol_name[], ptr arg1, ptr arg2);
 
 /**
  * call global Scheme procedure having specified symbol name
  * passing three Scheme arguments to it.
  * Return the resulting Scheme value.
  */
-ptr call3(const char symbol_name[], ptr arg1, ptr arg2, ptr arg3);
+ptr schemesh_call3(const char symbol_name[], ptr arg1, ptr arg2, ptr arg3);
 
 /**
  * call Scheme (eval (read (open-string-input-port str))) on a C string

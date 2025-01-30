@@ -39,8 +39,8 @@ LIBS=$(CHEZ_SCHEME_KERNEL) -lz -llz4 -lncurses -ldl -lm -lpthread -luuid $(LIB_I
 LIBSCHEMESH_SO=libschemesh_0.7.1.so
 LIBSCHEMESH_C_SO=libschemesh_c_0.7.1.so
 
-SRCS=containers/containers.c eval.c posix/posix.c posix/signal.c shell/shell.c
-OBJS=containers.o eval.o posix.o shell.o signal.o
+SRCS=containers/containers.c eval.c posix/posix.c shell/shell.c
+OBJS=containers.o eval.o posix.o shell.o
 
 all: schemesh schemesh_test $(LIBSCHEMESH_SO)
 
@@ -53,14 +53,12 @@ containers.o: containers/containers.c containers/containers.h eval.h
 eval.o: eval.c eval.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
-posix.o: posix/posix.c posix/posix.h eval.h posix/signal.h
+posix.o: posix/posix.c posix/posix.h eval.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
-shell.o: shell/shell.c shell/shell.h containers/containers.h eval.h posix/posix.h posix/signal.h
+shell.o: shell/shell.c shell/shell.h containers/containers.h eval.h posix/posix.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR) -DCHEZ_SCHEME_DIR="$(CHEZ_SCHEME_DIR)" -DINSTALL_LIBDIR="$(INSTALL_LIBDIR)"
 
-signal.o: posix/signal.c posix/signal.h eval.h posix/posix.h
-	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
 
 

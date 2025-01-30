@@ -1130,7 +1130,7 @@ static const testcase tests[] = {
     {"(sh-wildcard->sh-patterns '(\"/foo/\" * \"/\" \"/bar\"))",
      "(span / foo/ (sh-pattern '* /) bar)"},
     {"(sh-wildcard #t '* \"/\" '* \".c\")",
-     "(containers/containers.c posix/posix.c posix/signal.c shell/shell.c)"},
+     "(containers/containers.c posix/posix.c shell/shell.c)"},
     {"(sh-wildcard #t \"Makefile\")", "(Makefile)"}, /* file exists => returned ad list */
     {"(sh-wildcard #t \"_does_not_exist_\")", /* file does not exists => returned as string */
      "_does_not_exist_"},
@@ -1280,8 +1280,8 @@ static unsigned run_test_utf8b(ptr string, unsigned first_codepoint) {
     codepoint = adjust_codepoint(codepoint);
     Sstring_set(string, pos, codepoint++);
   }
-  ptr bvec    = call1("string->utf8b", string);
-  ptr string2 = call1("utf8b->string", bvec);
+  ptr bvec    = schemesh_call1("string->utf8b", string);
+  ptr string2 = schemesh_call1("utf8b->string", bvec);
 
   codepoint = first_codepoint;
   for (pos = 0; pos < maxlen; ++pos) {
