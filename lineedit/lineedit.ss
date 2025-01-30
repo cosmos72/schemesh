@@ -499,7 +499,7 @@
     (%lineedit-read lctx timeout-milliseconds)
     (catch (ex)
       (%lineedit-error lctx ex)
-      #f))) ; assume error is unrecoverable, return end-of-file
+      #t))) ; assume error is recoverable, return "waiting for more keypresses"
 
 
 (let ((t linectx-default-keytable)

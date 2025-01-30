@@ -52,7 +52,8 @@
     sh-job-display/summary? sh-job-display/summary sh-job-display/summary*
 
     ; env.ss
-    sh-env-ref sh-env-set! sh-env-unset! sh-env-visibility-ref sh-env-visibility-set! sh-env-set/lazy!
+    sh-env-ref sh-env-set! sh-env-unset! sh-env-visibility-ref sh-env-visibility-set!
+    sh-env-iterate/direct sh-env-set/lazy!
 
     ; job.ss
     sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd? sh-multijob?

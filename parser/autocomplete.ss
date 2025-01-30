@@ -186,21 +186,20 @@
 
 ;; list environment variables that start with prefix, and append them to completions
 ;; NOTE: prefix always starts with #\$
-;; FIXME: pass (top-level-value 'sh-env) as argument
+;; FIXME: pass (top-level-value 'sh-env-iterate/direct) as argument
 (define (%list-shell-env lctx prefix completions)
   ; (debugf "%list-shell-env prefix = ~s" prefix)
   (let* ((prefix-len (fx1- (string-length prefix)))
-         (htable ((top-level-value 'sh-env) #t))
+         (env-iterate (top-level-value 'sh-env-iterate/direct))
          (l      '()))
     ; (debugf "%list-shell-env htable = ~s" htable)
-    (hashtable-iterate htable
-      (lambda (cell)
-        (let ((name (car cell)))
-          (when (and (fx>=? (string-length name) prefix-len)
-                     (string-range=? name 0 prefix 1 prefix-len))
-            (let ((cname (string->charspan* name)))
-              (charspan-erase-front! cname prefix-len)
-              (span-insert-back! completions cname)))))))
+    (env-iterate #t
+      (lambda (name val visibility)
+        (when (and (fx>=? (string-length name) prefix-len)
+                   (string-range=? name 0 prefix 1 prefix-len))
+          (let ((cname (string->charspan* name)))
+            (charspan-erase-front! cname prefix-len)
+            (span-insert-back! completions cname))))))
   ; (debugf "%list-shell-env completions = ~s" completions)
   (span-sort! charspan<? completions)
   ; (debugf "%list-shell-env completions sorted = ~s" completions)

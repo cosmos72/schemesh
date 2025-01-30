@@ -113,6 +113,26 @@
     (if val #t #f)))
 
 
+;; Iterate on environment variables for specified job,
+;; and call (proc name val visibility) on each variable.
+;; Does *not* iterate on environment variables inherited from parent jobs.
+;;
+;; Stops iterating if (proc ...) returns #f
+;;
+;; Returns #t if all calls to (proc ...) returned truish,
+;; otherwise returns #f.
+(define (sh-env-iterate/direct job-or-id proc)
+  (assert* 'sh-env-iterate/direct (procedure? proc))
+  (assert* 'sh-env-iterate/direct (logbit? 3 (procedure-arity-mask proc)))
+  (let ((vars (job-env (sh-job job-or-id))))
+    (if vars
+      (hashtable-iterate vars
+        (lambda (cell)
+          (proc (car cell) (cddr cell) (cadr cell))))
+      #t)))
+  
+
+
 ;; Set a lazy environment variable for specified job.
 ;; Note: lazy environment variables are copied into job's direct environment
 ;; only upon starting the job, *after* expanding the job's command line.
