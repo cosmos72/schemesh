@@ -14,7 +14,7 @@ Instructions to compile C shared libraries may differ on other systems.
 ```
 make clean
 make -j CC='cc -fPIC'
-cc -shared -o libschemesh_c_0.7.1.so containers.o eval.o posix.o shell.o signal.o
+cc -shared -o libschemesh_c_0.7.1.so containers.o eval.o posix.o shell.o
 scheme
 ```
 then, from scheme repl:
