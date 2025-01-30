@@ -22,11 +22,10 @@
     lineedit-read lineedit-read-confirm-y-or-n? lineedit-flush lineedit-finish)
   (import
     (rnrs)
-    (only (chezscheme)
-       display-condition format fx1+ fx1- fx/ include inspect record-writer top-level-value void)
+    (only (chezscheme)    display-condition format fx1+ fx1- fx/ include inspect
+                          make-time record-writer sleep top-level-value void)
     (schemesh bootstrap)
     (schemesh containers)
-    (only (schemesh conversions) display-condition*)
     (schemesh posix fd)
     (schemesh lineedit vscreen)
     (schemesh lineedit charhistory)
@@ -397,6 +396,7 @@
       ; fd is a file descriptor -> call (fd-select) then (fd-read)
       (when (eq? 'read (fd-select fd 'read read-timeout-milliseconds))
         (let ((end (bytespan-peek-end rbuf)))
+          ; fd-read raises exception on I/O errors
           (set! got (fd-read fd (bytespan-peek-data rbuf) end (fx+ end max-n))))
         ; (fxzero? got) means end of file
         (set! eof? (fxzero? got)))
@@ -499,7 +499,10 @@
     (%lineedit-read lctx timeout-milliseconds)
     (catch (ex)
       (%lineedit-error lctx ex)
-      #t))) ; assume error is recoverable, return "waiting for more keypresses"
+      ;; sleep 0.2 seconds, to rate-limit error messages
+      (sleep (make-time 'time-duration 200000000 1))
+      ;; assume error is recoverable, return "waiting for more keypresses"
+      #t)))
 
 
 (let ((t linectx-default-keytable)
