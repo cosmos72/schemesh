@@ -876,6 +876,7 @@ static const testcase tests[] = {
     /* ------------------------- posix patterns ----------------------------- */
     {"(sh-pattern \"foo\" '* \".bar\" '? '% \"[a-z]\" '%! \"A-Z\")",
      "(sh-pattern foo '* .bar '? '% [a-z] '%! A-Z)"},
+    {"(sh-pattern '* '% \"ch\")", "(sh-pattern '* '% ch)"},
     {"(try (sh-pattern \"foo\" \".bar\") #f (catch (ex) #t))", "#t"},
     {"(try (sh-pattern '%) #f (catch (ex) #t))", "#t"},
     {"(try (sh-pattern '%!) #f (catch (ex) #t))", "#t"},
@@ -888,6 +889,8 @@ static const testcase tests[] = {
      "  (sh-pattern \"asdf\" '% \"abc.\" '%! \"a-pr-z\" \"werty\" '?)"
      "  \"asdf.qwerty.\")",
      "#t"},
+    /* currently fails */
+    {"(try (sh-pattern-match? (sh-pattern '* '% \"ch\") \"shell.c\") (catch (ex) ex))", "#t"},
     /* initial wildcards never match an initial dot */
     {"(sh-pattern-match? (sh-pattern '? \"foo\")        \".foo\")", "#f"},
     {"(sh-pattern-match? (sh-pattern '% \" ~\" \"foo\") \".foo\")", "#f"},

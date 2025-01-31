@@ -11,10 +11,10 @@
 
 ;; expand a path containing wildcards to the list of filesystem entries that match such wildcards.
 ;;
-;; each w must be a string, wildcard symbols ? * ~ % %!
-;; or closure (lambda (job) ...) or (lambda () ...) that return a string or a list of strings.
+;; each w must be a string, a wildcard symbol ? * ~ % %!
+;; or a closure (lambda (job) ...) or (lambda () ...) that returns a string or a list of strings.
 ;;
-;; expand initial ~ if present,
+;; if first w is the symbol ~ expand it to specified user's home directory,
 ;; then call each closure and replace it with the returned string or list of strings,
 ;; finally expand wildcard symbols to matching filesystem paths.
 ;;
@@ -22,33 +22,61 @@
 ;; if w does not match any filesystem path, return a single string - not a list -
 ;;   containing w converted back to string with shell wildcard syntax.
 (define (sh-wildcard job-or-id . w)
-  (sh-wildcard* job-or-id w))
+  (sh-wildcard-impl job-or-id w 'string-if-no-match))
 
 
-;; same as (sh-wildcard), the only difference is w must be passed as a list.
+;; TL;DR similar to (sh-wildcard), with two differences:
+;;  1. w must be passed as a list
+;;  2. if w does not match any filesystem entry, returns empty list instead of w converted to string
+;;
+;; Full description:
+;;
+;; expand a path containing wildcards to the list of filesystem entries that match such wildcards.
+;;
+;; each element of list w must be a string, a wildcard symbol ? * ~ % %!
+;; or a closure (lambda (job) ...) or (lambda () ...) that returns a string or a list of strings.
+;;
+;; if w starts with symbol ~ expand it to specified user's home directory,
+;; then call each closure and replace it with the returned string or list of strings,
+;; finally expand wildcard symbols to matching filesystem paths.
+;;
+;; returns a possibly empty list of strings, containing matching filesystem paths.
 (define (sh-wildcard* job-or-id w)
+  (sh-wildcard-impl job-or-id w #f))
+
+
+;; common implementation of (sh-wildcard) and (sh-wildcard*)
+(define (sh-wildcard-impl job-or-id w string-if-no-match?)
   (let* ((job  (sh-job job-or-id))
          (w (sh-wildcard/apply job (sh-wildcard/expand-tilde job w))))
     (cond
       ((null? w)
-        "")
+        (if string-if-no-match? "" '()))
       ((list-iterate w (lambda  (elem) (string? elem)))
         ; all elements are strings -> concatenate them
         (let ((str (sh-wildcard->string w)))
-          (if (file-stat str 'catch 'symlinks)
-            (list str) ; path exists, return a list containing only it
-            str)))     ; path does not exist, return a string
+          (cond
+            ((file-stat str 'catch 'symlinks)
+              (list str)) ; path exists, return a list containing only it
+            (string-if-no-match?
+              str)        ; path does not exist, return a string
+            (#t
+              '()))))     ; path does not exist, and caller requested an empty list
       (#t
         ; actually expand wildcards and match them against filesystem paths
         (let* ((patterns (sh-wildcard->sh-patterns w))
                (ret (sh-patterns/expand job patterns)))
-          (if (null? ret)
-            ; convert back wildcard to the string it was generated from,
-            ; except that ~ expanded by (sh-wildcard/expand-tilde) must be preserved.
-            ; reason: ~/foo/bar must be expanded to $HOME/foo/bar
-            ; even if no such path exists
-            (sh-wildcard->string w)
-            ret))))))
+          (cond
+            ((pair? ret)
+              ret)
+            (string-if-no-match?
+              ; convert back wildcard to the string it was generated from,
+              ; except that ~ expanded by (sh-wildcard/expand-tilde) must be preserved.
+              ; reason: ~/foo/bar must be expanded to $HOME/foo/bar
+              ; even if no such path exists
+              (sh-wildcard->string w))
+            (#t
+              '())))))))
 
 
 (define (sh-wildcard->string w)

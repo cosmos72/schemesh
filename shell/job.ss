@@ -51,7 +51,7 @@
     sh-pipe sh-pipe*
 
     ; wildcard
-    sh-wildcard sh-wildcard/apply sh-wildcard/expand-tilde sh-wildcard->string
+    sh-wildcard sh-wildcard* sh-wildcard/apply sh-wildcard/expand-tilde sh-wildcard->string
     sh-wildcard->sh-patterns sh-patterns/expand
   )
   (import
