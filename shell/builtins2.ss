@@ -42,18 +42,19 @@
 (define (builtin-bg job prog-and-args options)
   (assert-string-list? 'builtin-bg prog-and-args)
   ;; TODO: implement (builtin-bg) with no args
-  (let ((arg (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
+  (let* ((arg (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
                 "\"\""
-                (cadr prog-and-args))))
-    (if (string-contains-only-decimal-digits? arg)
-      (let* ((job (sh-job (string->number arg)))
-             (other-status (sh-bg job)))
-        (if (job-status-finished? other-status)
-          other-status
-          ; job still exists, show its running/stopped status.
-          ; returns (void) i.e. builtin "bg" exiting successfully.
-          (sh-job-display/summary job)))
-      (write-builtin-error "bg" arg "no such job")))) ; returns '(exited . 1)
+                (cadr prog-and-args)))
+         (job (and (string-contains-only-decimal-digits? arg)
+                   (sh-find-job (string->number arg)))))
+      (if job
+        (let ((other-status (sh-bg job)))
+          (if (job-status-finished? other-status)
+            other-status
+            ; job still exists, show its running/stopped status.
+            ; returns (void) i.e. builtin "bg" exiting successfully.
+            (sh-job-display/summary job)))
+        (write-builtin-error "bg" arg "no such job")))) ; returns '(exited . 1)
 
 
 ;; The "fg" builtin: continue a job-id by sending SIGCONT to it, then wait for it to exit or stop,
@@ -62,18 +63,19 @@
 (define (builtin-fg job prog-and-args options)
   (assert-string-list? 'builtin-fg prog-and-args)
   ;; TODO: implement (builtin-fg) with no args
-  (let ((arg (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
+  (let* ((arg (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
                 "\"\""
-                (cadr prog-and-args))))
-    (if (string-contains-only-decimal-digits? arg)
-      (let* ((job (sh-job (string->number arg)))
-             (other-status (sh-fg job)))
-        (if (job-status-finished? other-status)
-          other-status
-          ; job still exists, show its running/stopped status.
-          ; returns (void) i.e. builtin "fg" exiting successfully.
-          (sh-job-display/summary job)))
-      (write-builtin-error "fg" arg "no such job")))) ; returns '(exited . 1)
+                (cadr prog-and-args)))
+         (job (and (string-contains-only-decimal-digits? arg)
+                   (sh-find-job (string->number arg)))))
+      (if job
+        (let ((other-status (sh-fg job)))
+          (if (job-status-finished? other-status)
+            other-status
+            ; job still exists, show its running/stopped status.
+            ; returns (void) i.e. builtin "fg" exiting successfully.
+            (sh-job-display/summary job)))
+        (write-builtin-error "fg" arg "no such job")))) ; returns '(exited . 1)
 
 
 (define (write-builtin-error . args)
@@ -105,7 +107,7 @@
 
 
 ;; the "builtin" builtin: find a builtin by name, and execute it.
-;; raises exception if specified builtin is not found.
+;; returns builtin exit status, or '(exited . 1) if specified builtin is not found.
 (define (builtin-builtin job prog-and-args options)
   ; (debugf "builtin-builtin ~s" prog-and-args)
   (assert-string-list? 'builtin-builtin prog-and-args)
@@ -113,9 +115,9 @@
     (void)
     (let* ((args (cdr prog-and-args))
            (builtin (sh-find-builtin args)))
-      (unless builtin
-        (raise-errorf 'builtin-builtin "~a: not a shell builtin" (car args)))
-      (builtin/start builtin job args options))))
+      (if builtin
+        (builtin/start builtin job args options)
+        (write-builtin-error "builtin" "not a shell builtin" (car args))))))
 
 
 ;; start a builtin and return its status.

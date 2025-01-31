@@ -69,7 +69,7 @@
   (assert* 'sh-pipe (eq? 'running (job-last-status->kind mj)))
   (assert* 'sh-pipe (fx=? -1 (multijob-current-child-index mj)))
   (job-remap-fds! mj)
-  (job-env/apply-lazy! mj)
+  (job-env/apply-lazy! mj 'export)
   ; Do not yet assign a job-id.
   (let ((pgid (job-start-options->process-group-id options))
         (n    (span-length (multijob-children mj)))

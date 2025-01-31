@@ -14,6 +14,10 @@
 ;; Return string value of environment variable named "name" for specified job.
 ;; If name is not found in job's direct environment, also search in environment
 ;; inherited from parent jobs.
+;;
+;; Also returns the value of environment variables with visibility 'private.
+;; To retrieve an environment variable *and* its visibility, use (sh-env-visibility-ref)
+;;
 ;; If name is not found, return default if specified - otherwise return ""
 ;; Returned value is always a string or the specified default
 (define sh-env-ref
@@ -25,6 +29,10 @@
 ;; Get the value of environment variable named "name" for specified job.
 ;; If name is not found in job's direct environment, also search in environment
 ;; inherited from parent jobs.
+;;
+;; Also returns the value of environment variables with visibility 'private.
+;; To retrieve an environment variable *and* its visibility, use (sh-env-visibility-ref)
+;;
 ;; If name is not found, return default
 ;; Returned value is always a string or the specified default.
 (define (sh-env-ref* job-or-id name default)
@@ -67,12 +75,13 @@
     (unless (eq? 'maintain visibility)
       (set-car! elem visibility))))
 
+
 ;; Unset an environment variable for specified job.
 ;; Implementation note: inserts an entry with visibility 'delete,
 ;; in order to override any parent job's environment variable
 ;; with the same name.
-(define (sh-env-unset! job-or-id name)
-  (assert* 'sh-env-unset! (string? name))
+(define (sh-env-delete! job-or-id name)
+  (assert* 'sh-env-delete! (string? name))
   (let ((vars (job-direct-env job-or-id)))
     (hashtable-set! vars name (cons 'delete ""))))
 
@@ -90,12 +99,11 @@
         (let* ((vars (job-env job))
                (elem (if vars (hashtable-ref vars name #f) #f)))
           (when (pair? elem)
-            (let ((val (cdr elem))
-                  (visibility (car elem)))
+            (let ((visibility (car elem)))
               (unless (eq? 'delete visibility)
-                (set! ret-val val)
-                (set! ret-visibility visibility)))
-            #f)))) ; name found (possibly deleted), stop iterating
+                (set! ret-visibility visibility)
+                (set! ret-val        (cdr elem))))
+            #f)))) ; name found, possibly deleted. stop iterating
     (values ret-val ret-visibility)))
 
 
@@ -130,7 +138,7 @@
         (lambda (cell)
           (proc (car cell) (cddr cell) (cadr cell))))
       #t)))
-  
+
 
 
 ;; Set a lazy environment variable for specified job.
@@ -161,7 +169,8 @@
 ;; and copy the resulting env names and values into (job-direct-env)
 ;;
 ;; called automatically while starting a job.
-(define (job-env/apply-lazy! j)
+(define (job-env/apply-lazy! j visibility)
+  (assert* 'job-env/apply-lazy! (memq visibility '(maintain export private)))
   (let ((env-lazy (job-env-lazy j)))
     (when env-lazy
       (do ((i 0 (fx+ i 2))
@@ -171,8 +180,8 @@
               (value (job-env/apply1 j (span-ref env-lazy (fx1+ i)))))
           ; (debugf "job-env/apply-lazy! env name=~s, value=~s" name value)
           (if (eq? #f value)
-            (sh-env-unset! j name)
-            (sh-env-set*! j name value 'export)))))))
+            (sh-env-delete! j name)
+            (sh-env-set*! j name value visibility)))))))
 
 
 ;; internal function called by job-env/apply-lazy!
@@ -221,25 +230,20 @@
 ;; In both cases, job-env-lazy is included too.
 (define (sh-env-copy job-or-id which)
   (assert* 'sh-env-copy (memq which '(export all)))
-  (let* ((vars (make-hashtable string-hash string=?))
-         (also-private? (eq? 'all which))
+  (let* ((vars           (make-hashtable string-hash string=?))
+         (also-private?  (eq? 'all which))
          (only-exported? (not also-private?)))
     (list-iterate (job-parents-revlist job-or-id)
       (lambda (job)
-        (let ((env (job-env job)))
-          (when env
-            (hashtable-iterate env
-              (lambda (cell)
-                (let ((name (car cell))
-                      (flag (cadr cell))
-                      (val  (cddr cell)))
-                  (cond
-                    ((or (eq? 'delete flag)
-                         (and only-exported? (eq? 'private flag)))
-                      (hashtable-delete! vars name))
-                    ((or (eq? 'export flag)
-                         (and also-private? (eq? 'private flag)))
-                      (hashtable-set! vars name val))))))))))
+        (sh-env-iterate/direct job
+          (lambda (name val visibility)
+            (cond
+              ((or (eq? 'delete visibility)
+                   (and only-exported? (eq? 'private visibility)))
+                (hashtable-delete! vars name))
+              ((or (eq? 'export visibility)
+                   (and also-private? (eq? 'private visibility)))
+                (hashtable-set! vars name val)))))))
     vars))
 
 
@@ -247,9 +251,27 @@
 ;; and convert them to a vector of bytevector0.
 ;;
 ;; Argument "which" must be one of:
-;; 'export: only exported variables are returned.
-;; 'all : private variables are returned too.
+;;   'export - only exported variables are returned.
+;;   'all    - private variables are returned too.
 ;;
 ;; In both cases, job-env-lazy is included too.
 (define (sh-env->argv job-or-id which)
   (string-hashtable->argv (sh-env-copy job-or-id which)))
+
+
+;; Copy overridden environment variables from specified job to its parent.
+;; Ignores inherited environment variables.
+;;
+;; Called by (cmd-start) to implement the syntax "ENV_VAR" '= "VALUE"
+;;   i.e. a command with environment variables but no arguments.
+;;
+;; Always returns (void)
+(define (job-env-copy-into-parent! job)
+  (let ((parent (job-parent job)))
+    (when parent
+      (sh-env-iterate/direct job
+        (lambda (name val visibility)
+          (if (eq? 'delete visibility)
+            (sh-env-delete! parent name)
+            (sh-env-set*! parent name val visibility))))))
+  (void))

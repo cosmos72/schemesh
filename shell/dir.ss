@@ -55,14 +55,18 @@
 
 ;; change current directory to specified path.
 ;; path must be a a string or charspan.
+;;
+;; Returns (void) if successful, otherwise returns '(exited . 1)
 (define sh-cd
   (case-lambda
     (()     (sh-cd* (sh-env-ref #t "HOME")))
     ((path) (sh-cd* path))
-    ((path . extra-args) (raise-errorf 'cd "too many arguments"))))
+    ((path . extra-args) (write-builtin-error "cd" "too many arguments"))))
 
 
 ;; internal function called by (sh-cd)
+;;
+;; Returns (void) if successful, otherwise returns '(exited . 1)
 (define sh-cd*
   (let ((c_chdir (foreign-procedure "c_chdir" (ptr) int)))
     (lambda (path)
@@ -73,7 +77,7 @@
              (err (c_chdir (string->utf8b/0 (charspan->string dir)))))
         (if (= err 0)
           (job-cwd-set! (sh-globals) dir)
-          (raise-errorf 'cd "~a: ~a" path (c-errno->string err)))))))
+          (write-builtin-error "cd" dir (c-errno->string err))))))) ; returns '(exited . 1)
 
 
 (define sh-pwd

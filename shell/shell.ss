@@ -12,7 +12,7 @@
     sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
 
     ; builtins.ss
-    sh-alias sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
+    sh-alias-ref sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
     sh-builtins sh-find-builtin sh-echo sh-error sh-false sh-history sh-repl-args sh-true
 
     ; eval.ss
@@ -45,14 +45,13 @@
     sh-job-display/summary? sh-job-display/summary sh-job-display/summary*
 
     ; env.ss
-    sh-env-ref sh-env-set! sh-env-unset! sh-env-visibility-ref sh-env-visibility-set!
-    sh-env-iterate/direct sh-env-set/lazy!
+    sh-env-ref sh-env-set! sh-env-delete! sh-env-visibility-ref sh-env-visibility-set!
+    sh-env-iterate/direct sh-env-set/lazy! sh-env-copy sh-env->argv
 
     ; job.ss
-    sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd? sh-multijob?
-    sh-env-copy sh-env->argv sh-globals
-    sh-cmd make-cmd sh-cwd
-    sh-consume-sigchld sh-multijob-child-length sh-multijob-child-ref
+    sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-find-job
+    sh-cmd? sh-multijob? sh-cmd make-cmd sh-cwd sh-consume-sigchld
+    sh-globals sh-multijob-child-length sh-multijob-child-ref
     sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/err? sh-run/ok?
 
     ; multijob.ss
@@ -71,7 +70,7 @@
     sh-pipe sh-pipe*
 
     ; wildcard
-    sh-wildcard sh-wildcard/apply sh-wildcard/expand-~ sh-wildcard->string
+    sh-wildcard sh-wildcard/apply sh-wildcard/expand-tilde sh-wildcard->string
     sh-wildcard->sh-patterns sh-patterns/expand
   )
   (import

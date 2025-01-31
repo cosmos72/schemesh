@@ -60,9 +60,12 @@
 ;; if needed, redraw prompt, lines, cursor and matching parentheses.
 (define (linectx-redraw-as-needed lctx)
   (cond
-    ((linectx-redraw? lctx)                  (linectx-redraw-all lctx))
-    ((vscreen-dirty? (linectx-vscreen lctx)) (linectx-redraw-dirty lctx))
-    (else                                   (linectx-redraw-cursor+paren lctx))))
+    ((linectx-redraw? lctx)
+      (linectx-redraw-all lctx))
+    ((vscreen-dirty? (linectx-vscreen lctx))
+      (linectx-redraw-dirty lctx 'highlight))
+    (else
+      (linectx-redraw-cursor+paren lctx))))
 
 
 ;; erase everything, then set flag "redraw prompt and lines"
@@ -95,8 +98,11 @@
     (linectx-term-xy-set! lctx vx vy)))
 
 
-;; redraw only dirty parts of vscreen
-(define (linectx-redraw-dirty lctx)
+;; redraw only dirty parts of vscreen.
+;; paren-option should be one of:
+;;   'plain     to de-highlight bad and matching parentheses
+;;   'highlight to re-highlight bad and matching parentheses
+(define (linectx-redraw-dirty lctx paren-option)
   (linectx-draw-bad-parens lctx 'plain)
   (linectx-draw-paren lctx (linectx-paren lctx) 'plain)
   (let* ((screen (linectx-vscreen lctx))
@@ -161,9 +167,10 @@
 
   ;; highlight matching parentheses
   (parenmatcher-clear! (linectx-parenmatcher lctx))
-  (linectx-paren-update! lctx)
-  (linectx-draw-bad-parens lctx 'highlight)
-  (linectx-draw-paren lctx (linectx-paren lctx) 'highlight)
+  (when (eq? 'highlight paren-option)
+    (linectx-paren-update! lctx)
+    (linectx-draw-bad-parens lctx 'highlight)
+    (linectx-draw-paren lctx (linectx-paren lctx) 'highlight))
 
   ;; move the cursor to final position, and update term-x and term-y accordingly
   (let ((vx (linectx-vx lctx))

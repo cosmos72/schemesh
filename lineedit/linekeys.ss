@@ -86,8 +86,7 @@
   (let-values (((x y n) (linectx-find-left/word-begin lctx)))
     (when (and x y n (fx>? n 0))
       (lineedit-clipboard-maybe-clear! lctx)
-      (linectx-clipboard-insert/left! lctx n)
-      (vscreen-erase-left/n! (linectx-vscreen lctx) n)
+      (vscreen-erase-left/n! (linectx-vscreen lctx) n (linectx-clipboard lctx))
       (void))))
 
 ;; delete from cursor to end of word under cursor.
@@ -96,9 +95,9 @@
   (let-values (((x y n) (linectx-find-right/word-end lctx)))
     (when (and x y n (fx>? n 0))
       (lineedit-clipboard-maybe-clear! lctx)
-      (linectx-clipboard-insert/right! lctx n)
-      (vscreen-erase-right/n! (linectx-vscreen lctx) n)
+      (vscreen-erase-right/n! (linectx-vscreen lctx) n (linectx-clipboard lctx))
       (void))))
+
 
 (define (lineedit-clipboard-maybe-clear! lctx)
   (unless (key-inserted-into-clipboard? (linectx-last-key lctx))
@@ -109,10 +108,12 @@
   (void)) ;; TODO: implement
 
 (define (lineedit-key-del-line-left lctx)
-  (vscreen-erase-left/line! (linectx-vscreen lctx)))
+  (lineedit-clipboard-maybe-clear! lctx)
+  (vscreen-erase-left/line! (linectx-vscreen lctx) (linectx-clipboard lctx)))
 
 (define (lineedit-key-del-line-right lctx)
-  (vscreen-erase-right/line! (linectx-vscreen lctx)))
+  (lineedit-clipboard-maybe-clear! lctx)
+  (vscreen-erase-right/line! (linectx-vscreen lctx) (linectx-clipboard lctx)))
 
 (define (lineedit-key-newline-left lctx)
   (let ((screen (linectx-vscreen lctx)))
@@ -158,8 +159,10 @@
          (n         (charspan-length clipboard)))
     (unless (fxzero? n)
       (let-values (((x y) (vscreen-cursor-ixy screen)))
-        (vscreen-insert-at-xy/cspan! screen x y clipboard 0 n)
-        (vscreen-cursor-move/right! screen n)))))
+        (vscreen-insert-at-xy/cspan! screen x y clipboard 0 n))
+      (when (charspan-find/ch clipboard 0 n #\newline)
+        (vscreen-reflow screen))
+      (vscreen-cursor-move/right! screen n))))
 
 (define (lineedit-key-redraw lctx)
   (linectx-redraw-set! lctx #t))
@@ -320,6 +323,8 @@
                             (if (fx<? delta-y 0) 0 (greatest-fixnum))))))
 
 (define key-inserted-into-clipboard?
-  (let ((keys (list lineedit-key-del-word-left lineedit-key-del-word-right lineedit-key-redraw)))
+  (let ((keys (list lineedit-key-del-line-left lineedit-key-del-line-right
+                    lineedit-key-del-word-left lineedit-key-del-word-right
+                    lineedit-key-redraw)))
     (lambda (key)
       (and key (memq key keys)))))

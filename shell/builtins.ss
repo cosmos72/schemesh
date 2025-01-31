@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 (library (schemesh shell builtins (0 7 1))
-  (export sh-alias sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
+  (export sh-alias-ref sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
           sh-builtins sh-find-builtin sh-echo sh-error sh-false sh-history sh-repl-args sh-true)
   (import
     (rnrs)

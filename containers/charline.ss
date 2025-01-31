@@ -11,7 +11,7 @@
     assert-charline? charline-nl? charline-copy-on-write charline-empty?
     charline-length charline-ref charline-at charline-equal? charline-set! charline-clear!
     charline-erase-at! charline-insert-at! charline-insert-at/cspan! charline-insert-at/cbuf!
-    charline-find/left charline-find/right charline-count/left charline-count/right
+    charline-find/left charline-find/right charline-find/ch charline-count/left charline-count/right
     charline-dirty-start-x charline-dirty-end-x charline-dirty-x-add! charline-dirty-x-unset!)
 
   (import
@@ -162,14 +162,14 @@
     (charline-dirty-x-add! line x (charline-length line))))
 
 
-; erase n chars from charline starting at position x
-(define (charline-erase-at! line x n)
-  (when (fx>? n 0)
+; erase the chars in range [start, end) from charline
+(define (charline-erase-at! line start end)
+  (when (fx<? start end)
     (charline-unshare! line)
     (let ((len (charline-length line)))
-      (chargbuffer-erase-at! line x n)
+      (chargbuffer-erase-at! line start (fx- end start))
       ;; mark as dirty until original end of line
-      (charline-dirty-x-add! line x len))))
+      (charline-dirty-x-add! line start len))))
 
 ;; remove all chars from charline
 (define (charline-clear! line)
@@ -203,6 +203,20 @@
     (do ((i (fxmax x 0) (fx1+ i)))
         ((or (fx>=? i len) (pred (charline-ref line i)))
           (if (fx>=? i len) #f i)))))
+
+
+;; search rightward in the range [start, end)
+;; find first character equal to ch,
+;; and return position of such character.
+;; return #f if no such character is found in the range.
+;;
+;; note: if start < 0, it is truncated to 0
+;; note: if end > (charline-length line), it is truncated to (charline-length line)
+(define (charline-find/ch line start end ch)
+  (let ((end (fxmin end (charline-length line))))
+    (do ((i (fxmax start 0) (fx1+ i)))
+        ((or (fx>=? i end) (char=? ch (charline-ref line i)))
+          (if (fx>=? i end) #f i)))))
 
 
 ;; search leftward starting from x - 1,

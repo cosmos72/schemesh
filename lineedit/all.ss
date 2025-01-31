@@ -110,7 +110,7 @@
     vscreen-erase-left/line!  vscreen-erase-right/line!
     vscreen-insert-at-xy/ch!  vscreen-insert-at-xy/newline! vscreen-insert-at-xy/cspan!
     vscreen-insert/ch!        vscreen-insert/cspan!         vscreen-assign*!
-    write-vscreen)
+    vscreen-reflow       write-vscreen)
 
   (import
     (schemesh lineedit charlines io)

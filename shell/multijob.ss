@@ -136,7 +136,7 @@
   (let ((%proc-job-start/list
           (lambda (job)
             (job-remap-fds! job)
-            (job-env/apply-lazy! job)
+            (job-env/apply-lazy! job 'export)
             ; Do not yet assign a job-id.
             (job-step/list job (void)))))
     (if (memq 'spawn options)
@@ -179,7 +179,7 @@
             (sh-job-display/summary? #f)
 
             (job-remap-fds! job)
-            (job-env/apply-lazy! job))))
+            (job-env/apply-lazy! job 'export))))
     ;; spawn a subprocess and run (%proc... job) and (job-step-proc job) inside it
     (job-start/spawn-proc job %proc-job-start/subshell options)))
 
@@ -196,7 +196,7 @@
   (let ((%proc-job-start/and
           (lambda (job)
             (job-remap-fds! job)
-            (job-env/apply-lazy! job)
+            (job-env/apply-lazy! job 'export)
             (if (span-empty? (multijob-children job))
               ; (sh-and) with zero children -> job completes successfully
               (job-status-set! 'job-start/and job (void))
@@ -220,7 +220,7 @@
   (let ((%proc-job-start/or
           (lambda (job)
             (job-remap-fds! job)
-            (job-env/apply-lazy! job)
+            (job-env/apply-lazy! job 'export)
             ; (debugf "job-start/or ~s empty children? = ~s" job (span-empty? (multijob-children job)))
             (if (span-empty? (multijob-children job))
               ; (sh-or) with zero children -> job fails with '(exited . 256)
@@ -246,7 +246,7 @@
   (let ((%proc-job-start/not
           (lambda (job)
             (job-remap-fds! job)
-            (job-env/apply-lazy! job)
+            (job-env/apply-lazy! job 'export)
             ; Do not yet assign a job-id.
             (job-step/not job (void)))))
     (if (memq 'spawn options)

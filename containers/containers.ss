@@ -85,7 +85,7 @@
     assert-charline? charline-nl? charline-copy-on-write charline-empty?
     charline-length charline-ref charline-at charline-equal? charline-set! charline-clear!
     charline-erase-at! charline-insert-at! charline-insert-at/cspan! charline-insert-at/cbuf!
-    charline-find/left charline-find/right charline-count/left charline-count/right
+    charline-find/left charline-find/right charline-find/ch charline-count/left charline-count/right
     charline-dirty-start-x charline-dirty-end-x charline-dirty-x-add! charline-dirty-x-unset!
 
     ; charlines.ss

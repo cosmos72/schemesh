@@ -23,13 +23,13 @@
     sh-job-display/summary? sh-job-display/summary sh-job-display/summary*
 
     ; env.ss
-    sh-env-ref sh-env-set! sh-env-unset! sh-env-visibility-ref sh-env-visibility-set!
-    sh-env-iterate/direct sh-env-set/lazy!
+    sh-env-ref sh-env-set! sh-env-delete! sh-env-visibility-ref sh-env-visibility-set!
+    sh-env-iterate/direct sh-env-set/lazy! sh-env-copy sh-env->argv
 
     ; job.ss
-    sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-cmd? sh-multijob?
-    sh-env-copy sh-env->argv sh-globals sh-cmd make-cmd sh-cwd
-    sh-consume-sigchld sh-multijob-child-length sh-multijob-child-ref
+    sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-find-job
+    sh-cmd? sh-multijob? sh-cmd make-cmd sh-cwd sh-consume-sigchld
+    sh-globals sh-multijob-child-length sh-multijob-child-ref
     sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/err? sh-run/ok?
 
     ; multijob.ss
@@ -48,7 +48,7 @@
     sh-pipe sh-pipe*
 
     ; wildcard
-    sh-wildcard sh-wildcard/apply sh-wildcard/expand-~ sh-wildcard->string
+    sh-wildcard sh-wildcard/apply sh-wildcard/expand-tilde sh-wildcard->string
     sh-wildcard->sh-patterns sh-patterns/expand
   )
   (import
@@ -57,7 +57,7 @@
     (only (chezscheme) append! break debug-condition display-condition foreign-procedure format fx1+ fx1-
                        include inspect logand logbit? make-format-condition make-thread-parameter make-parameter
                        open-fd-output-port parameterize procedure-arity-mask record-writer reverse!
-                       string-copy! string-truncate! void)
+                       string-copy! string-truncate! define void)
     (only (schemesh bootstrap) assert* catch debugf debugf-port sh-eval sh-globals sh-pid-table
                                raise-assertv raise-errorf try until while)
     (schemesh containers)
@@ -325,6 +325,28 @@
           status)))))
 
 
+
+
+;; Convert job-or-id to job.
+;; job-or-id can be either a job,
+;; or #t which means (sh-globals),
+;; or a fixnum indicating the job-id of one of the running jobs
+;;   stored in (multijob-children (sh-globals))
+;;
+;; Returns job object, or #f if job was not found.
+(define (sh-find-job job-or-id)
+  (cond
+    ((eq? #t job-or-id) (sh-globals))
+    ((fixnum? job-or-id)
+      (let* ((all-jobs (multijob-children (sh-globals)))
+             (job (when (and (fx>? job-or-id 0) ; job-ids start at 1
+                             (fx<? job-or-id (span-length all-jobs)))
+                    (span-ref all-jobs job-or-id))))
+        (if (sh-job? job) job #f)))
+    ((sh-job? job-or-id)
+      job-or-id)
+    (#t
+      #f)))
 
 
 ;; Convert job-or-id to job.

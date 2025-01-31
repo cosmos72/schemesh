@@ -422,7 +422,7 @@ static const testcase tests[] = {
      "(span 0 0 0 0 0 0 3 2 1 0 0 0)"},
     {"(let* ((l1 (string->charline* \"foo/bar\"))\n"
      "       (l2 (charline-copy-on-write l1)))\n"
-     "  (charline-erase-at! l1 3 1)\n"
+     "  (charline-erase-at! l1 3 4)\n"
      "  (charline-insert-at! l2 3 #\\~)\n"
      "  (list l1 l2))",
      "((string->charline* \"foobar\") (string->charline* \"foo~/bar\"))"},
@@ -606,6 +606,8 @@ static const testcase tests[] = {
      "(shell ls ; (shell-subshell foo || bar &) & echo)"},
     {"(parse-shell-form1 (string->parsectx \"ls && [A=1 foo || bar &] || [B=2 echo]\"))",
      "(shell ls && (shell-subshell A = 1 foo || bar &) || (shell-subshell B = 2 echo))"},
+    {"(parse-shell-form1 (string->parsectx \"ls[A-Z]?[!ax-z] .\"))",
+     "(shell (shell-wildcard ls % A-Z ? %! ax-z) .)"},
     {"(parse-shell-form1 (string->parsectx \"{{{{echo|cat}}}}\"))",
      "(shell (shell (shell (shell echo | cat))))"},
     {"(parse-shell-form1 (string->parsectx\n"
@@ -761,6 +763,16 @@ static const testcase tests[] = {
      "  (string->parsectx \"[foo; bar]\" (parsers))\n"
      "  'shell)",
      "((shell-subshell foo ; bar))"},
+    /* open bracket [ at the beginning of a command starts a subshell, not a wildcard */
+    {"(parse-forms1\n"
+     "  (string->parsectx \"[foo] [bar]\" (parsers))\n"
+     "  'shell)",
+     "((shell (shell-subshell foo) (shell-subshell bar)))"},
+    /* open bracket [ not at the beginning of a command starts a wildcard, not a subshell */
+    {"(parse-forms1\n"
+     "  (string->parsectx \"''[foo] [bar]\" (parsers))\n"
+     "  'shell)",
+     "((shell (shell-wildcard % foo) (shell-wildcard % bar)))"},
     {"(values->list (parse-forms\n"
      "  (string->parsectx \"ls ~; #!scheme (f a b)\" (parsers))\n"
      "  'shell))",
@@ -946,8 +958,11 @@ static const testcase tests[] = {
      "(sh-and (sh-or (sh-subshell (sh-cmd \"sleep\" \"1\")) (sh-cmd \"ls\"))"
      " (sh-cmd \"cd\" \"..\"))"},
     {"(sh-cmd  \"echo\"  \"foo\" \" bar \")", "(sh-cmd \"echo\" \"foo\" \" bar \")"},
-    {"(sh-cmd* \"ls\" (lambda (j) \".\"))", "(sh-cmd \"ls\" #<procedure>)"},
+    {"(sh-cmd* \"ls\" (lambda (j) \".\"))", "(sh-cmd* \"ls\" #<procedure>)"},
     {"(sh-cmd* \"A\" '= \"B\" \"echo\")", "(sh-cmd* \"A\" '= \"B\" \"echo\")"},
+    {"(sh-find-job 0)", "#f"},
+    {"(sh-find-job 1)", "#f"},
+    {"(sh-find-job #t)", "(#<global> #t)"},
     {"(sh-run/i (sh-cmd \"true\"))", ""}, /* (void) is displayed as empty string */
     {"(sh-run   (sh-cmd \"false\"))", "(exited . 1)"},
     {"(sh-run   (sh-cmd \"error\" \"0\"))", ""},
@@ -1340,18 +1355,17 @@ static int compile_libraries(const char* source_dir) {
     return err;
   }
 #ifdef SCHEMESH_OPTIMIZE
-  ret = schemesh_eval
-      ("(parameterize ((optimize-level 2))\n"
-       "  (compile-file \"libschemesh.ss\" \"libschemesh_temp.so\")\n"
-       "  (strip-fasl-file \"libschemesh_temp.so\" \"" LIBSCHEMESH_SO "\"\n"
-       "    (fasl-strip-options inspector-source source-annotations profile-source))\n"
-       "    #t\n)");
+  ret =
+      schemesh_eval("(parameterize ((optimize-level 2))\n"
+                    "  (compile-file \"libschemesh.ss\" \"libschemesh_temp.so\")\n"
+                    "  (strip-fasl-file \"libschemesh_temp.so\" \"" LIBSCHEMESH_SO "\"\n"
+                    "    (fasl-strip-options inspector-source source-annotations profile-source))\n"
+                    "    #t\n)");
 #else /* !SCHEMESH_OPTIMIZE */
-  ret = schemesh_eval
-      ("(parameterize ((optimize-level 0)\n"
-       "               (run-cp0 (lambda (cp0 x) x)))\n"
-       "  (compile-file \"libschemesh.ss\" \"" LIBSCHEMESH_SO "\")\n"
-       "  #t)");
+  ret = schemesh_eval("(parameterize ((optimize-level 0)\n"
+                      "               (run-cp0 (lambda (cp0 x) x)))\n"
+                      "  (compile-file \"libschemesh.ss\" \"" LIBSCHEMESH_SO "\")\n"
+                      "  #t)");
 #endif
   return ret == Strue ? 0 : EINVAL;
 }

@@ -364,7 +364,7 @@
 (define (%cmd-subform? form)
   (and (pair? form)
        ; fragile, recognizes known macros by name and treats them specially
-       (memq (car form) '(shell-backquote shell-wildcard shell-glob))))
+       (memq (car form) '(shell-backquote shell-wildcard))))
 
 
 ;; Create a cmd to later spawn it.
@@ -385,9 +385,13 @@
 ;;   a string
 ;;   a closure that accepts 0 or 1 arguments (the job)
 ;;     and it must return a single value: a string, a list of strings, or (void)
-(define (sh-cmd* . program-and-args)
+(define (sh-cmd* . args)
   (let-values (((program-and-args assignments redirections)
-                  (cmd-parse-assignments-and-redirections program-and-args)))
+                  (cmd-parse-assignments-and-redirections args)))
+    (when (and (not (null? program-and-args))
+               (not (string? (car program-and-args))))
+      (raise-errorf 'sh-cmd* "unsafe command detected: non-constant expressions, as for example wildcards, are not allowed as the first argument of a command.\n\tReason: the command actually executed can only be determined at runtime, and may even depend on the contents of current directory. \n\tIf you REALLY want to do that, use \"unsafe command ARGS\".\n\tFull command:   ~s\n\tParsed command: ~s"
+        args program-and-args))
     (let ((cmd (make-cmd program-and-args)))
       (list-iterate assignments
         (lambda (assignment)

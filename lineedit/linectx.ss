@@ -17,7 +17,6 @@
     linectx-prompt-func linectx-prompt-length linectx-prompt-length-set!
     linectx-parenmatcher linectx-paren linectx-paren-set!
     linectx-clipboard linectx-clipboard-clear!
-    linectx-clipboard-insert/left! linectx-clipboard-insert/right!
     linectx-completions linectx-completion-stem linectx-completion-func
     linectx-parser-name linectx-parser-name-set!
     linectx-parsers linectx-parsers-set!
@@ -248,39 +247,6 @@
 
 (define (linectx-clipboard-clear! lctx)
   (charspan-clear! (linectx-clipboard lctx)))
-
-
-(define (linectx-clipboard-insert/left! lctx char-count-leftward-before-cursor)
-  ; (debugf ">   linectx-clipboard-insert/left! n=~s" char-count-leftward-before-cursor)
-  (when (fx>? char-count-leftward-before-cursor 0)
-    (let ((n         char-count-leftward-before-cursor)
-          (screen    (linectx-vscreen lctx))
-          (clipboard (linectx-clipboard lctx)))
-      (let-values (((x y) (vscreen-cursor-ixy screen)))
-        (while (and x y (fx>? n 0))
-          (let-values (((x1 y1 ch) (vscreen-char-before-xy screen x y)))
-            (set! x x1)
-            (set! y y1)
-            (set! n (fx1- n))
-            (when ch
-              (charspan-insert-front! clipboard ch))))))))
-
-
-(define (linectx-clipboard-insert/right! lctx char-count-rightward-at-cursor)
-  ; (debugf ">  linectx-clipboard-insert/right! n=~s" char-count-rightward-at-cursor)
-  (when (fx>? char-count-rightward-at-cursor 0)
-    (let ((n         char-count-rightward-at-cursor)
-          (screen    (linectx-vscreen lctx))
-          (clipboard (linectx-clipboard lctx)))
-      (let-values (((x y) (vscreen-cursor-ixy screen)))
-        (let ((ch (vscreen-char-at-xy screen x y)))
-          (while (and x y ch (fx>? n 0))
-            (charspan-insert-back! clipboard ch)
-            (let-values (((x1 y1 ch1) (vscreen-char-after-xy screen x y)))
-              (set! x x1)
-              (set! y y1)
-              (set! ch ch1)
-              (set! n (fx1- n)))))))))
 
 
 ;; save to history a shallow clone of charlines in linectx-vscreen,

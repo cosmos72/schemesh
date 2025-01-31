@@ -28,7 +28,7 @@
 ;; same as (sh-wildcard), the only difference is w must be passed as a list.
 (define (sh-wildcard* job-or-id w)
   (let* ((job  (sh-job job-or-id))
-         (w (sh-wildcard/apply job (sh-wildcard/expand-~ job w))))
+         (w (sh-wildcard/apply job (sh-wildcard/expand-tilde job w))))
     (cond
       ((null? w)
         "")
@@ -44,7 +44,7 @@
                (ret (sh-patterns/expand job patterns)))
           (if (null? ret)
             ; convert back wildcard to the string it was generated from,
-            ; except that ~ expanded by (sh-wildcard/expand-~) must be preserved.
+            ; except that ~ expanded by (sh-wildcard/expand-tilde) must be preserved.
             ; reason: ~/foo/bar must be expanded to $HOME/foo/bar
             ; even if no such path exists
             (sh-wildcard->string w)
@@ -85,8 +85,7 @@
 ;; return the new list of strings and wildcard symbols ? * ~ % %!
 ;; which may share data with w
 (define (sh-wildcard/apply job w)
-  (if (list-iterate w (lambda (arg) (not (procedure? arg))))
-    w
+  (if (list-contains-procedure? w)
     (let* ((ret '())
            (%insert!
              (lambda (arg)
@@ -97,7 +96,9 @@
             ((or (string? arg) (sh-wildcard? arg))
               (%insert! arg))
             ((procedure? arg)
-              (let ((obj (if (logbit? 1 (procedure-arity-mask arg)) (arg job) (arg))))
+              (let ((obj (if (logbit? 1 (procedure-arity-mask arg))
+                               (arg job) ; call (proc job)
+                               (arg))))  ; call (proc)
                 (if (string? obj)
                   (%insert! obj)
                   (begin
@@ -105,39 +106,59 @@
                     (list-iterate obj %insert!)))))
             (#t
               (raise-assertv 'sh-wildcard '(or (string? arg) (sh-wildcard? arg) (procedure? arg)) arg)))))
-      (reverse! ret))))
+      (reverse! ret))
+    w))
 
 
 ;; if list w starts with symbol '~ then replace it with specified user's home.
 ;; replace every other occurrence of symbol '~ with string "~"
 ;; return list containing replacement result, which may share data with w.
 ;; does NOT modify w.
-(define (sh-wildcard/expand-~ job w)
-  (if (list-iterate w (lambda (elem) (not (eq? '~ elem))))
-    w
-    (begin
-      (when (and (not (null? w)) (eq? '~ (car w)))
-        (let* ((tail (cdr w))
-               (arg1 (if (null? tail) #f (car tail))))
-          ; (debugf "sh-wildcard/expand-~~ arg1=~s" arg1)
-          (if (or (not (string? arg1)) (fxzero? (string-length arg1)) (char=? #\/ (string-ref arg1 0)))
-            ;; expand ~ to environment variable "HOME", or to string "~" if such env. variable is not set
-            (let ((userhome (sh-env-ref job "HOME" "~")))
-              (set! w (cons userhome tail)))
-            (let* ((slash    (string-find/char arg1 0 (string-length arg1) #\/))
-                   (username (if slash (substring arg1 0 slash) arg1))
-                   (userhome (get-userhome (string->utf8b/0 username))))
-              (if (string? userhome)
-                (if slash
-                  ; remove the initial '~ and the portion of arg1 before the slash
-                  (set! w (cons userhome (cons (substring arg1 slash (string-length arg1)) w)))
-                  ; remove the initial '~ and the whole arg1
-                  (set! w (cons userhome (cdr tail))))
-                ;; (get-userhome) failed: replace symbol '~ with string "~", keep arg1
-                (set! w (cons "~" tail)))))))
-        (if (list-iterate w (lambda (elem) (not (eq? '~ elem))))
-          w
-          (map w (lambda (elem) (if (eq? '~ elem) "~" elem)))))))
+(define (sh-wildcard/expand-tilde job w)
+  (if (list-contains-tilde? w)
+    (let ((w (if (eq? '~ (car w))
+               (expand-initial-tilde job w)
+               w)))
+      (if (list-contains-tilde? w)
+        (list-replaceq w '~ "~")
+        w))
+    w))
+
+
+(define (list-contains-procedure? l)
+  (not (list-iterate l (lambda (elem) (not (procedure? elem))))))
+
+(define (list-contains-tilde? l)
+  (and (memq '~ l) #t)) ; (memq) returns a list, not a boolean
+
+(define (list-replaceq l old new)
+  (map (lambda (elem) (if (eq? elem old) new elem)) l))
+
+
+;; given a list w starting with '~ and possibly also containing strings and wildcards,
+;; replace initial symbol '~ with specified user's home.
+;;
+;; return modified list, which may share data with w.
+;; does NOT modify w.
+(define (expand-initial-tilde job w)
+  (let* ((tail (cdr w))
+         (arg1 (if (null? tail) #f (car tail))))
+    ; (debugf "expand-initial-tilde arg1=~s" arg1)
+    (if (or (not (string? arg1)) (fxzero? (string-length arg1)) (char=? #\/ (string-ref arg1 0)))
+      ;; expand ~ to environment variable "HOME", or to string "~" if such env. variable is not set
+      (let ((userhome (sh-env-ref job "HOME" "~")))
+        (cons userhome tail))
+      (let* ((slash    (string-find/char arg1 0 (string-length arg1) #\/))
+             (username (if slash (substring arg1 0 slash) arg1))
+             (userhome (get-userhome (string->utf8b/0 username))))
+        (if (string? userhome)
+          (if slash
+            ; remove the initial '~ and the portion of arg1 before the slash
+            (cons userhome (cons (substring arg1 slash (string-length arg1)) w))
+            ; remove the initial '~ and the whole arg1
+            (cons userhome (cdr tail)))
+          ;; (get-userhome) failed: replace symbol '~ with string "~", keep arg1
+          (cons "~" tail))))))
 
 
 ;; given a list w containing strings and wildcards,

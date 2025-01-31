@@ -231,7 +231,7 @@
   (cond
     ((sh-multijob? job) (job-write/multijob job port))
     ((sh-cmd? job)      (job-write/cmd job port))
-    (#t                 (put-string port "???"))))
+    (#t                 (put-string port "#<unknown-job>"))))
 
 
 ;; return #t if job has non-temporary redirections,
@@ -276,16 +276,21 @@
 
 
 (define (job-write/cmd job port)
-  (put-string port (if (or (job-persistent-redirects? job) (job-env-lazy job))
-                     "(sh-cmd*"
-                     "(sh-cmd"))
-  (job-write/env-lazy job port)
-  (list-iterate (or (cmd-expanded-arg-list job) (cmd-arg-list job))
-    (lambda (arg)
-      (put-char port #\space)
-      (put-datum port arg)))
-  (job-write/redirects job port)
-  (put-string port ")"))
+  (let ((arg-list (or (cmd-expanded-arg-list job) (cmd-arg-list job))))
+
+    (put-string port
+      (if (or (job-persistent-redirects? job)
+              (job-env-lazy job)
+              (not (string-list? arg-list)))
+        "(sh-cmd*"
+        "(sh-cmd"))
+    (job-write/env-lazy job port)
+    (list-iterate arg-list
+      (lambda (arg)
+        (put-char port #\space)
+        (put-datum port arg)))
+    (job-write/redirects job port)
+    (put-string port ")")))
 
 
 (define (job-write/env-lazy job port)

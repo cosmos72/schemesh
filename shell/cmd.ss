@@ -33,11 +33,20 @@
 
 ;; NOTE: this is an internal implementation function, use (sh-start) instead.
 ;; This function does not update job's status, and does not register job
-;; into global (pid->job) table nor into global job-id table.
+;; into global (sh-pid-table) nor into global job-id table.
 ;;
 ;; Description:
-;; Start a cmd i.e. fork() and exec() an external process, optionally inserting it into
-;; an existing process group.
+;; Call any procedure found in (cmd-arg-list c),
+;; then repeatedly expand aliases in the produced argument list.
+;;
+;; If the argument list is empty, copy overridden environment variables,
+;; including lazy ones, to parent process. This implements the syntax "ENV_VAR" '= "VALUE"
+;;
+;; Otherwise, if the argument list starts with the name of a builtin,
+;; execute such builtin.
+;;
+;; Otherwise, start a command i.e. fork() and exec() an external process,
+;; optionally inserting it into an existing process group.
 ;;
 ;; The new process is started in background, i.e. the foreground process group is NOT set
 ;; to the process group of the newly created process.
@@ -45,31 +54,41 @@
 ;; Options is a list of zero or more of the following:
 ;;   process-group-id: an integer, if present and > 0 the new process will be inserted
 ;;   into the corresponding process group id - which must already exist.
+;;
+;; Updates job status, and also returns it,
+;;   which may be one of (void) '(exited ...) '(running ...) etc.
+;;   For the complete list of possible returned job statuses, see (sh-job-status).
 (define (cmd-start c options)
   (assert* 'sh-cmd (sh-cmd? c))
   (assert* 'sh-cmd (eq? 'running (job-last-status->kind c)))
 
-  ; expand procedures in cmd-arg-list, then expand aliases.
-  ; sanity: (sh-alias-expand) ignores aliases for "builtin"
-  (let* ((prog-and-args (sh-alias-expand (cmd-arg-list-expand c)))
-         (builtin       (sh-find-builtin prog-and-args)))
-    ; (debugf "cmd-start expanded-prog-and-args=~s builtin=~s" prog-and-args builtin)
+  ;; expand procedures in cmd-arg-list, then expand aliases.
+  ;; sanity: (sh-alias-expand) ignores aliases for "builtin"
+  (let ((prog-and-args (sh-alias-expand (cmd-arg-list-apply c))))
+    ;; (debugf "cmd-start expanded-prog-and-args=~s builtin=~s" prog-and-args builtin)
     (unless (eq? prog-and-args (cmd-arg-list c))
-      ; save expanded cmd-arg-list for more accurate pretty-printing
+      ;; save expanded cmd-arg-list for more accurate pretty-printing
       (cmd-expanded-arg-list-set! c prog-and-args))
-    ; apply lazy environment variables *after* expanding cmd-arg-list
-    (job-env/apply-lazy! c)
-    (if builtin
-      ; expanded arg[0] is a builtin, call it.
-      (cmd-start/builtin builtin c prog-and-args options)
-       ; expanded arg[0] is a not builtin or alias, spawn a subprocess
-      (cmd-spawn c (list->argv prog-and-args) options))))
+    (if (null? prog-and-args)
+      (begin
+        ;; apply lazy environment variables *after* expanding cmd-arg-list
+        (job-env/apply-lazy! c 'maintain)
+        (job-env-copy-into-parent! c)
+        (job-status-set! 'cmd-start c (void)))
+      (let ((builtin (sh-find-builtin prog-and-args)))
+        ;; apply lazy environment variables *after* expanding cmd-arg-list
+        (job-env/apply-lazy! c 'export)
+        (if builtin
+          ; expanded arg[0] is a builtin, call it.
+          (cmd-start/builtin builtin c prog-and-args options)
+          ; expanded arg[0] is a not builtin or alias, spawn a subprocess
+          (cmd-spawn c (list->argv prog-and-args) options))))))
 
 
 ;; internal function called by (cmd-start):
-;; expand procedures in cmd-arg-list.
+;; call procedures in cmd-arg-list.
 ;; Return the expanded command line, which is always a list of strings.
-(define (cmd-arg-list-expand c)
+(define (cmd-arg-list-apply c)
   (let ((prog-and-args (cmd-arg-list c)))
     (if (string-list? prog-and-args)
       prog-and-args
@@ -135,6 +154,7 @@
                     (sh-env->argv c 'export)
                     (or process-group-id -1))))
         (when (< ret 0)
+          (job-status-set! c 'cmd-spawn (cons 'exited ret))
           (raise-c-errno 'sh-start 'fork ret))
         (job-pid-set! c ret)
         (job-pgid-set! c process-group-id)))))

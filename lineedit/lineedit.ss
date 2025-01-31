@@ -137,13 +137,13 @@
   (vscreen-insert/ch! (linectx-vscreen lctx) ch))
 
 
-;; read n chars from charspan csp, starting at position = start
+;; read chars in the range [start, end) from charspan csp,
 ;; and insert them into vscreen at cursor.
-;; Also moves cursor n characters to the right, and reflows vscreen as needed.
-(define (linectx-insert/cspan! lctx csp start n)
-  (assert* 'linectx-insert/cspan! (fx<=? 0 start (fx+ start n) (charspan-length csp)))
-  (when (fx>? n 0)
-    (vscreen-insert/cspan! (linectx-vscreen lctx) csp start n)))
+;; Also moves cursor (fx- end start) characters to the right, and reflows vscreen as needed.
+(define (linectx-insert/cspan! lctx csp start end)
+  (assert* 'linectx-insert/cspan! (fx<=? 0 start end (charspan-length csp)))
+  (when (fx<? start end)
+    (vscreen-insert/cspan! (linectx-vscreen lctx) csp start end)))
 
 
 ;; read up to n bytes from bytespan bsp, starting at offset = start,
@@ -177,24 +177,25 @@
 (define (lineedit-insert/rbuf! lctx n)
   (linectx-insert/bspan! lctx (linectx-rbuf lctx) 0 n))
 
+
 (include "lineedit/linekeys.ss")
 (include "lineedit/linedraw.ss")
 
-;;
+
 ;; if linectx-vscreen is empty, return a shallow copy of it.
 ;; otherwise, append a shallow copy of it to history, and return such copy.
 ;;
 ;; in either case, returned charlines must NOT be modified - not even temporarily -
 ;; because in one case they are the vscreen, and in the other case history references it.
 (define (linectx-return-lines* lctx)
-  (linectx-return-set! lctx #f) ; clear flag "user pressed ENTER"
-  (linectx-redraw-set! lctx #t) ; set flag "redraw prompt and lines"
-  (linectx-draw-bad-parens lctx 'plain)                ; unhighlight bad parentheses
-  (linectx-draw-paren lctx (linectx-paren lctx) 'plain) ; unhighlight current parentheses
+  ; also un-highlights bad parentheses and current parentheses
+  (linectx-redraw-dirty lctx 'plain)
   (lineterm-move-dy lctx (fx- (fx1- (linectx-end-y lctx))
                              (linectx-iy lctx))) ; move to last input line
   (lineterm-write/u8 lctx 10) ; advance to next line.
   (linectx-term-xy-set! lctx 0 0) ; set tty cursor to 0 0
+  (linectx-return-set! lctx #f) ; clear flag "user pressed ENTER"
+  (linectx-redraw-set! lctx #t) ; set flag "redraw prompt and lines"
   (let* ((y (linectx-history-index lctx))
          (hist (linectx-history lctx)))
     ; always overwrite last history slot

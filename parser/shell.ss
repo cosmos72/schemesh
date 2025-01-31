@@ -205,13 +205,13 @@
 ;;   1. a (possibly empty) list containing the parsed subwords
 ;;   2. either 'atom or 'rsplice. The latter means returned list should be reversed then spliced
 ;;      i.e. appended to command being parsed.
-(define (read-subwords-noquote ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?)
+(define (read-subwords-noquote ctx equal-is-operator? wildcards? inside-backquote?)
   (let ((ret     '())
         (again?  #t)
         (splice? #f))
-    ; (debugf ">   read-subwords-noquote equal-is-operator?=~s, lbracket-is-subshell?=~s wildcards?=~s, inside-backquote?=~s" equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?)
+    ; (debugf ">   read-subwords-noquote equal-is-operator?=~s, wildcards?=~s, inside-backquote?=~s" equal-is-operator? wildcards? inside-backquote?)
     (while again?
-      (let ((word (read-subword-noquote ctx equal-is-operator? lbracket-is-subshell? wildcards?)))
+      (let ((word (read-subword-noquote ctx equal-is-operator? wildcards?)))
         ; (debugf "... read-subwords-noquote subword=~s" word)
         (cond
           ((eq? word '=)
@@ -243,10 +243,10 @@
 ;; Read a single unquoted subword: either a string or a symbol '= '? '* '% '%!
 ;; returns the string or one of the symbols '= '? '* '% '%!
 ;; returns #f if the first character is a special character as ( ) [ ] { } ` " ' < > ; & etc.
-(define (read-subword-noquote ctx equal-is-operator? lbracket-is-subshell? wildcards?)
+(define (read-subword-noquote ctx equal-is-operator? wildcards?)
   (let ((word   (charspan))
         (again? #t))
-    ; (debugf ">   read-subword-noquote equal-is-operator?=~s, lbracket-is-subshell?=~s wildcards?=~s" equal-is-operator? lbracket-is-subshell? wildcards?)
+    ; (debugf ">   read-subword-noquote equal-is-operator?=~s, wildcards?=~s" equal-is-operator? wildcards?)
     (while again?
       (let-values (((ch type) (read-shell-char ctx)))
         ; (debugf "... read-subword-noquote ch=~s type=~s ret=~s" ch type word)
@@ -274,7 +274,7 @@
             (set! again? #f))
           ((eq? type 'char)
             (charspan-insert-back! word ch))
-          ((and (eq? type 'lbrack) (not lbracket-is-subshell?))
+          ((eq? type 'lbrack)
             (if (charspan-empty? word)
               ; return beginning of wildcard pattern '% or '%!
               (cond
@@ -352,20 +352,24 @@
       (let-values (((ch type) (peek-shell-char ctx)))
         ; (debugf "... parse-shell-word ch=~s, type=~s, ret=~s" ch type ret)
         (case type
+          ;; the following tokens retain their meaning also inside double quotes
           ((eof)
             (when dquote?
               (syntax-errorf ctx 'parse-shell
                 "unexpected end-of-file inside double-quoted string ~s" (reverse! ret)))
             (set! again? #f))
           ((squote)
-            (%append (if dquote? (read-subword-double-quoted ctx)
-                                 (read-subword-single-quoted ctx))))
+            (%append (read-subword-single-quoted ctx))
+            (set! lbracket-is-subshell? #f))
           ((dquote)
             (set! dquote? (not dquote?))
+            (set! lbracket-is-subshell? #f)
             (parsectx-read-char ctx))
           ((dollar)
-            (%append (read-subword-dollar ctx)))
+            (%append (read-subword-dollar ctx))
+            (set! lbracket-is-subshell? #f))
           ((backquote)
+            (set! lbracket-is-subshell? #f)
             (if inside-backquote?
               (set! again? #f)
               (begin
@@ -376,11 +380,13 @@
           (else
             (cond
               (dquote?
+                (set! lbracket-is-subshell? #f)
                 (%append (read-subword-double-quoted ctx)))
               ((or (memq type '(backslash char))
                    (and (eq? type 'lbrack) (not lbracket-is-subshell?)))
+                (set! lbracket-is-subshell? #f)
                 (let-values (((words action)
-                                (read-subwords-noquote ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?)))
+                                (read-subwords-noquote ctx equal-is-operator? wildcards? inside-backquote?)))
                   (cond
                     ((eq? action 'rsplice)
                       (set! ret (append! words ret))
@@ -615,6 +621,11 @@
               ; (debugf "... parse-shell-forms nested_form=~s ret=~s" form ret)
               (unless (null? form)
                 (set! ret (cons form ret)))
+              (unless (eq? 'dollar+lparen type)
+                ; shell block { ... } and subshell [ ... ] end with an implicit separator ';
+                (set! can-change-parser?    #t)
+                (set! equal-is-operator?    #t)
+                (set! lbracket-is-subshell? #t))
               ; (debugf "... parse-shell-forms nested_form    ret=~s" ret)
             ))
           ((rbrace rbrack rparen)

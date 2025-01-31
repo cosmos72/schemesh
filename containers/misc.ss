@@ -54,7 +54,7 @@
 
 ;; (list-reverse*! l) destructively reverses list l,
 ;; creating an improper list - unless (car l) is itself a list.
-;
+;;
 ;; Example: (list-reverse*! (list a b c)) returns '(c b . a)
 (define (list-reverse*! l)
   (if (or (null? l) (null? (cdr l)))
