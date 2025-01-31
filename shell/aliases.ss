@@ -74,8 +74,10 @@
 ;;
 ;; do NOT modify alias after calling this function.
 (define (sh-alias-set! name alias)
-  (alias-validate sh-alias-set! name alias)
+  (alias-validate 'sh-alias-set! name alias)
   (hashtable-set! (sh-aliases) name alias))
+
+
 
 
 ;; remove an alias from (sh-aliases) table.

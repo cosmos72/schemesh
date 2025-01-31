@@ -78,6 +78,8 @@
         (write-builtin-error "fg" arg "no such job")))) ; returns '(exited . 1)
 
 
+;; print error message to (fd-stderr)
+;; always returns '(exited . 1)
 (define (write-builtin-error . args)
   (let ((msg (bytespan)))
     (bytespan-insert-back/string! msg "schemesh")
