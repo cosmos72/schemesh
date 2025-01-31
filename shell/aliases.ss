@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-;; this file should be included only from file builtins.ss
+;; this file should be included only from file job.ss
 
 
 ;; find and return the definition of specified alias name,
@@ -56,10 +56,10 @@
 (define (alias-validate caller name alias)
   (assert-string-list? caller alias)
   (when (null? alias)
-    (raise-errorf caller "alias cannot be empty.\n\tReason: it would be functionally equivalent to \"unsafe\" keyword.\n\tFound: ~s"
+    (raise-errorf caller "an alias cannot be empty.\n\tReason: it would be functionally equivalent to \"unsafe\" keyword.\n\tFound: ~s"
       (list "alias" name)))
   (when (string-list-starts-with-unsafe? alias)
-    (raise-errorf caller "alias cannot expand to \"unsafe\".\n\tReason: it would allow hiding the \"unsafe\" keyword.\n\tFound: ~s"
+    (raise-errorf caller "an alias cannot expand to \"unsafe\".\n\tReason: it would allow hiding the \"unsafe\" keyword.\n\tFound: ~s"
       (cons "alias" (cons name alias)))))
 
 
@@ -75,9 +75,12 @@
 ;; do NOT modify alias after calling this function.
 (define (sh-alias-set! name alias)
   (alias-validate 'sh-alias-set! name alias)
+  (cond
+    ((string=? "builtin" name)
+      (write-builtin-warning "\"builtin\" is a keyword, defining it as an alias has no effect"))
+    ((string=? "unsafe" name)
+      (write-builtin-warning "\"unsafe\" is a keyword, defining it as an alias has no effect")))
   (hashtable-set! (sh-aliases) name alias))
-
-
 
 
 ;; remove an alias from (sh-aliases) table.
@@ -120,8 +123,9 @@
 
 
 (define (show-aliases)
-  (let ((wbuf (make-bytespan 0))
-        (aliases (span)))
+  (let ((wbuf    (make-bytespan 0))
+        (aliases (span))
+        (fd      (sh-fd-stdout)))
     (hashtable-iterate (sh-aliases)
       (lambda (cell)
         (span-insert-back! aliases cell)))
@@ -130,22 +134,19 @@
       (lambda (i cell)
         (show-alias* (car cell) (cdr cell) wbuf)
         (when (fx>=? (bytespan-length wbuf) 4096)
-          (fd-stdout-write/bspan! wbuf))))
-    (fd-stdout-write/bspan! wbuf)
+          (fd-write/bspan! fd wbuf))))
+    (fd-write/bspan! fd wbuf)
     (void))) ; return (void), means builtin exited succesfully
 
 
 (define (show-alias name)
-  (let ((wbuf  (make-bytespan 0))
-        (alias (sh-alias-ref name)))
+  (let ((alias (sh-alias-ref name)))
     (if alias
-      (show-alias* name alias wbuf)
-      (begin
-        (bytespan-insert-back/string! wbuf "schemesh: alias: ")
-        (bytespan-insert-back/string! wbuf name)
-        (bytespan-insert-back/string! wbuf ": not found\n")))
-    (fd-stdout-write/bspan! wbuf)
-    (if alias (void) '(exited . 1))))
+      (let ((wbuf  (make-bytespan 0)))
+        (show-alias* name alias wbuf)
+        (fd-write/bspan! (sh-fd-stdout) wbuf)
+        (void)                                           ; success, return (void)
+      (write-builtin-error "alias" name "not found"))))) ; error, return '(exited . 1)
 
 
 (define (show-alias* name alias wbuf)

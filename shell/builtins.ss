@@ -6,8 +6,7 @@
 ;;; (at your option) any later version.
 
 (library (schemesh shell builtins (0 7 1))
-  (export sh-alias-ref sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
-          sh-builtins sh-find-builtin sh-echo sh-error sh-false sh-history sh-repl-args sh-true)
+  (export sh-builtins sh-find-builtin sh-echo sh-error sh-false sh-history sh-repl-args sh-true)
   (import
     (rnrs)
     (only (chezscheme)                    format fx1+ include make-thread-parameter void)
@@ -25,14 +24,14 @@
     (only (schemesh lineedit linectx)     linectx? linectx-history)
     (only (schemesh shell fds)            sh-fd-stdout sh-fd-stderr))
 
-(include "shell/aliases.ss")
 
-
-;; write contents of bytespan bsp to (sh-fd-stdout)
+;; copy-pasted from shell/builtins2.ss
+;;
+;; write contents of bytespan bsp to file descriptor fd,
 ;; then clear bytespan bsp
-(define (fd-stdout-write/bspan! bsp)
+(define (fd-write/bspan! fd bsp)
   ; TODO: loop on short writes and call sh-consume-signals
-  (fd-write (sh-fd-stdout) (bytespan-peek-data bsp)
+  (fd-write fd (bytespan-peek-data bsp)
             (bytespan-peek-beg bsp) (bytespan-peek-end bsp))
   (bytespan-clear! bsp))
 
@@ -51,14 +50,17 @@
 
 ;; implementation of "echo" builtin, writes user-specified arguments to file descriptor 1
 (define (sh-echo . args)
-  (let ((wbuf (make-bytespan 0)))
+  (let ((wbuf (make-bytespan 0))
+        (fd   (sh-fd-stdout)))
     (do ((tail args (cdr tail)))
         ((null? tail))
       (unless (eq? args tail)
         (bytespan-insert-back/u8! wbuf 32)) ; space
-      (bytespan-insert-back/string! wbuf (car tail)))
+      (bytespan-insert-back/string! wbuf (car tail))
+      (when (fx>=? (bytespan-length wbuf) 4096)
+        (fd-write/bspan! fd wbuf)))
     (bytespan-insert-back/u8! wbuf 10) ; newline
-    (fd-stdout-write/bspan! wbuf))
+    (fd-write/bspan! fd wbuf))
   (void))
 
 
@@ -96,7 +98,8 @@
 
 ;; ;; implementation of "history" builtin, lists previous commands saved to history
 (define (sh-history)
-  (let ((lctx (list-ref (sh-repl-args) 2)))
+  (let ((lctx (list-ref (sh-repl-args) 2))
+        (fd   (sh-fd-stdout)))
     ; (debugf "sh-history ~s" lctx)
     (if (linectx? lctx)
       (let ((wbuf (make-bytespan 0)))
@@ -110,8 +113,8 @@
                 (bytespan-insert-back/cbuffer! wbuf line)))
             (bytespan-insert-back/u8! wbuf 10) ; newline
             (when (fx>=? (bytespan-length wbuf) 4096)
-              (fd-stdout-write/bspan! wbuf))))
-        (fd-stdout-write/bspan! wbuf)
+              (fd-write/bspan! fd wbuf))))
+        (fd-write/bspan! fd wbuf)
         (void)) ; return (void), means builtin exited succesfully
       '(exited . 1))))
 
@@ -167,13 +170,11 @@
 (define sh-builtins
   (let ((t (make-hashtable string-hash string=?)))
     (hashtable-set! t ":"       builtin-true)
-    (hashtable-set! t "alias"   builtin-alias)
     (hashtable-set! t "echo"    builtin-echo)
     (hashtable-set! t "error"   builtin-error)
     (hashtable-set! t "false"   builtin-false)
     (hashtable-set! t "history" builtin-history)
     (hashtable-set! t "true"    builtin-true)
-    (hashtable-set! t "unalias" builtin-unalias)
     (lambda () t)))
 
 ) ; close library

@@ -9,14 +9,43 @@
 ;; this file should be included only from file shell/job.ss
 
 
-
-;; write contents of bytespan bsp to (sh-fd-stderr)
+;; write contents of bytespan bsp to file descriptor fd,
 ;; then clear bytespan bsp
-(define (fd-stderr-write/bspan! bsp)
+(define (fd-write/bspan! fd bsp)
   ; TODO: loop on short writes and call sh-consume-signals
-  (fd-write (sh-fd-stderr) (bytespan-peek-data bsp)
+  (fd-write fd (bytespan-peek-data bsp)
             (bytespan-peek-beg bsp) (bytespan-peek-end bsp))
   (bytespan-clear! bsp))
+
+
+;; print warning or error message to file descriptor fd.
+(define (fd-write-strings fd prefix strings)
+  (let ((wbuf (bytespan)))
+    (bytespan-insert-back/string! wbuf prefix)
+    (list-iterate strings
+      (lambda (arg)
+        (bytespan-insert-back/u8! wbuf 58 32) ; ": "
+        (bytespan-insert-back/string! wbuf arg)
+        (when (fx>=? (bytespan-length wbuf) 4096)
+          (fd-write/bspan! fd wbuf))))
+    (bytespan-insert-back/u8! wbuf 10)
+    (fd-write/bspan! fd wbuf)))
+
+
+;; print warning message to (sh-fd-stderr)
+;; always returns (void)
+(define (write-builtin-warning . args)
+  (fd-write-strings (sh-fd-stderr) "; warning" args)
+  (void))
+
+
+;; print error message to (sh-fd-stderr)
+;; always returns '(exited . 1)
+(define (write-builtin-error . args)
+  (fd-write-strings (sh-fd-stderr) "schemesh" args)
+  '(exited . 1))
+
+
 
 
 ;; the "command" builtin. spawns a subprocess and returns immediately
@@ -78,18 +107,7 @@
         (write-builtin-error "fg" arg "no such job")))) ; returns '(exited . 1)
 
 
-;; print error message to (fd-stderr)
-;; always returns '(exited . 1)
-(define (write-builtin-error . args)
-  (let ((msg (bytespan)))
-    (bytespan-insert-back/string! msg "schemesh")
-    (list-iterate args
-      (lambda (arg)
-        (bytespan-insert-back/u8! msg 58 32) ; ": "
-        (bytespan-insert-back/string! msg arg)))
-    (bytespan-insert-back/u8! msg 10)
-    (fd-stderr-write/bspan! msg)
-    '(exited . 1)))
+
 
 
 

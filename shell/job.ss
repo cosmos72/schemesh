@@ -14,6 +14,9 @@
 
 (library (schemesh shell job (0 7 1))
   (export
+    ; alias.ss
+    sh-alias-ref sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
+
     ; dir.ss
     sh-cwd-set! sh-cd sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
 
@@ -750,6 +753,7 @@
 (include "shell/pipe.ss")
 (include "shell/parse.ss")
 (include "shell/builtins2.ss")
+(include "shell/aliases.ss")
 (include "shell/wildcard.ss")
 (include "shell/display.ss") ; must be last one, contains (record-writer ...)
 
@@ -784,6 +788,7 @@
 
   (let ((t (sh-builtins)))
     ; additional builtins
+    (hashtable-set! t "alias"   builtin-alias)
     (hashtable-set! t "bg"      builtin-bg)
     (hashtable-set! t "builtin" builtin-builtin)
     (hashtable-set! t "cd"      builtin-cd)
@@ -791,7 +796,8 @@
     (hashtable-set! t "exec"    builtin-exec)
     (hashtable-set! t "fg"      builtin-fg)
     (hashtable-set! t "jobs"    builtin-jobs)
-    (hashtable-set! t "pwd"     builtin-pwd)))
+    (hashtable-set! t "pwd"     builtin-pwd)
+    (hashtable-set! t "unalias" builtin-unalias)))
 
 
 ) ; close library
