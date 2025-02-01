@@ -247,21 +247,32 @@
           (bytespan-set/u8! sp pos elem)
           (set! pos (fx1+ pos)))))))
 
-;  prefix a portion of another bytespan to this bytespan
-(define (bytespan-insert-front/bspan! sp-dst sp-src src-start src-n)
-  (assert* 'bytespan-insert-front/bspan! (not (eq? (bytespan-vec sp-dst) (bytespan-vec sp-src))))
-  (assert* 'bytespan-insert-front/bspan! (fx<=? 0 src-start (fx+ src-start src-n) (bytespan-length sp-src)))
-  (unless (fxzero? src-n)
-    (let ((len (bytespan-length sp-dst)))
-      (bytespan-resize-front! sp-dst (fx+ len src-n))
-      (bytespan-copy! sp-src src-start sp-dst 0 src-n))))
+;; insert range [src-start, src-end) of bytespan bv-src
+;; at the beginning of bytespan sp-dst
+(define bytespan-insert-front/bspan!
+  (case-lambda
+    ((sp-dst sp-src)
+      (bytespan-insert-front/bspan! sp-dst sp-src 0 (bytespan-length sp-src)))
+    ((sp-dst sp-src src-start src-end)
+      (assert* 'bytespan-insert-front/bspan! (not (eq? (bytespan-vec sp-dst) (bytespan-vec sp-src))))
+      (assert* 'bytespan-insert-front/bspan! (fx<=? 0 src-start src-end (bytespan-length sp-src)))
+      (when (fx<? src-start src-end)
+        (let ((len    (bytespan-length sp-dst))
+              (src-n  (fx- src-end src-start)))
+          (bytespan-resize-front! sp-dst (fx+ len src-n))
+          (bytespan-copy! sp-src src-start sp-dst 0 src-n))))))
 
-;  prefix a portion of a bytevector to this bytespan
-(define (bytespan-insert-front/bvector! sp-dst bv-src src-start src-n)
-  (assert* 'bytespan-insert-front/bvector! (not (eq? (bytespan-vec sp-dst) bv-src)))
-  (assert* 'bytespan-insert-front/bvector! (fx<=? 0 src-start (fx+ src-start src-n) (bytevector-length bv-src)))
-  (unless (fxzero? src-n)
-    (bytespan-insert-front/bspan! sp-dst (bytevector->bytespan* bv-src) src-start src-n)))
+;; insert range [src-start, src-end) of bytevector bv-src
+;; at the beginning of bytespan sp-dst
+(define bytespan-insert-front/bvector!
+  (case-lambda
+    ((sp-dst bv-src)
+      (bytespan-insert-front/bvector! sp-dst bv-src 0 (bytevector-length bv-src)))
+    ((sp-dst bv-src src-start src-end)
+      (assert* 'bytespan-insert-front/bvector! (not (eq? (bytespan-vec sp-dst) bv-src)))
+      (assert* 'bytespan-insert-front/bvector! (fx<=? 0 src-start src-end (bytevector-length bv-src)))
+      (when (fx<? src-start src-end)
+        (bytespan-insert-front/bspan! sp-dst (bytevector->bytespan* bv-src) src-start src-end)))))
 
 ;  append a portion of another bytespan to this bytespan
 (define bytespan-insert-back/bspan!
