@@ -308,8 +308,8 @@ static const testcase tests[] = {
      "  (bytespan-insert-back/u8! sp 7 8)\n"
      "  sp)",
      "(bytespan 4 5 6 7 8)"},
-    {"(let ((sp (bytespan 9 10 11 12)))\n"
-     "  (bytespan-find/u8 sp 0 999 (lambda (elem) (eq? 11 elem))))",
+    {"(let ((bsp (bytespan 9 10 11 12)))\n"
+     "  (bytespan-find/u8 bsp 0 (bytespan-length bsp) (lambda (elem) (fx=? 11 elem))))",
      "2"},
     /* ----------------------- charspan ------------------------------------- */
     {"(charspan #\\1 #\\2 #\\3)", "(string->charspan* \"123\")"},

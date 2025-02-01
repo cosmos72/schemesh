@@ -128,18 +128,17 @@
   (assert* 'charspan-back (not (charspan-empty? sp)))
   (string-ref (charspan-str sp) (fx1- (charspan-end sp))))
 
-(define (charspan-set! sp idx val)
+(define (charspan-set! sp idx ch)
   (assert* 'charspan-set! (fx<? -1 idx (charspan-length sp)))
-  (string-set! (charspan-str sp) (fx+ idx (charspan-beg sp)) val))
+  (string-set! (charspan-str sp) (fx+ idx (charspan-beg sp)) ch))
 
-(define (charspan-fill! sp val)
-  (string-fill-range! (charspan-str sp) (charspan-beg sp) (charspan-length sp) val))
+(define (charspan-fill! sp ch)
+  (string-fill-range! (charspan-str sp) (charspan-beg sp) (charspan-end sp) ch))
 
-(define (charspan-fill-range! sp start n val)
-  (assert* 'charspan-fill-range! (fx>=? start 0))
-  (assert* 'charspan-fill-range! (fx>=? n 0))
-  (assert* 'charspan-fill-range! (fx<=? (fx+ start n) (charspan-length sp)))
-  (string-fill-range! (charspan-str sp) (fx+ start (charspan-beg sp)) n val))
+(define (charspan-fill-range! sp start end ch)
+  (assert* 'charspan-fill-range! (fx<=? 0 start end (charspan-length sp)))
+  (let ((offset (charspan-beg sp)))
+    (string-fill-range! (charspan-str sp) (fx+ start offset) (fx+ end offset) ch)))
 
 ; make a copy of charspan and return it
 (define (charspan-copy src)
@@ -367,7 +366,7 @@
 
 ;; iterate on charspan elements from start to (fx+ start n)
 ;; and return the index of first charspan element that causes
-;; (predicate elem) to return non-#f. Returns #f if no such element is found.
+;; (predicate elem) to return truish. Returns #f if no such element is found.
 (define (charspan-find sp start n predicate)
   (let* ((clen  (charspan-length sp))
          (start (fxmin clen (fxmax 0 start)))
@@ -380,7 +379,7 @@
 
 ;; iterate backward on charspan elements from (fx1- (fx+ start n)) to start
 ;; and return the index of first (i.e. the highest index) charspan element that causes
-;; (predicate elem) to return non-#f. Returns #f if no such element is found.
+;; (predicate elem) to return truish. Returns #f if no such element is found.
 (define (charspan-rfind sp start n predicate)
   (let* ((clen  (charspan-length sp))
          (start (fxmin clen (fxmax 0 start)))

@@ -243,11 +243,12 @@
 ;;;;;;;;;;;;;;;;;     some additional string functions    ;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; set n elements of string from offset = start to specified value
-(define (string-fill-range! str start n val)
-  (do ((i 0 (fx1+ i)))
-      ((fx>=? i n))
-    (string-set! str (fx+ i start) val)))
+;; set characters in range [start, end) of string str to character ch
+(define (string-fill-range! str start end ch)
+  (assert* 'string-fill-range! (fx<=? 0 start end (string-length str)))
+  (do ((i start (fx1+ i)))
+      ((fx>=? i end))
+    (string-set! str i ch)))
 
 
 ;; (string-iterate l proc) iterates on all elements of given string src,

@@ -296,17 +296,14 @@
     ((or (fx>=? i n) (not (proc i (bytevector-u8-ref v i))))
      (fx>=? i n))))
 
-; (bytespan-find/u8) iterates on bytespan u8 elements
-; from start to (fxmin (fx+ start n) (bytespan-length sp)),
-; and returns the index of first bytespan u8 element that causes
-; (predicate elem) to return non-#f. Returns #f if no such element is found.
-(define (bytespan-find/u8 sp start n predicate)
-  (let ((ret #f))
-    (do ((i   start (fx1+ i))
-         (end (fxmin (fx+ start n) (bytespan-length sp))))
-        ((or ret (fx>=? i end)) ret)
-      (when (predicate (bytespan-ref/u8 sp i))
-        (set! ret i)))))
+; (bytespan-find/u8) iterates on bytespan u8 elements in range [start, end)
+;; and returns the index of first bytespan u8 element that causes
+; (predicate elem) to return truish. Returns #f if no such element is found.
+(define (bytespan-find/u8 sp start end predicate)
+  (assert* 'bytespan-find/u8 (fx<=? 0 start end (bytespan-length sp)))
+  (do ((i start (fx1+ i)))
+      ((or (fx>=? i end) (predicate (bytespan-ref/u8 sp i)))
+        (if (fx>=? i end) #f i))))
 
 ; customize how "bytespan" objects are printed
 (record-writer (record-type-descriptor %bytespan)
