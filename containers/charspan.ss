@@ -353,23 +353,37 @@
       (charspan-copy! sp-src src-start sp-dst pos src-n))))
 
 
-; prefix a portion of a string to this charspan
-(define (charspan-insert-front/string! sp-dst str-src src-start src-n)
-  (unless (fxzero? src-n)
-    (charspan-resize-front! sp-dst (fx+ src-n (charspan-length sp-dst)))
-    (string-copy! str-src src-start
-                  (charspan-str sp-dst) (charspan-beg sp-dst)
-                  src-n)))
+; insert range [start, end) of string str-src at the beginning of charspan sp-dst
+(define charspan-insert-front/string!
+  (case-lambda
+    ((sp-dst str-src)
+      (charspan-insert-front/string! sp-dst str-src 0 (string-length str-src)))
+    ((sp-dst str-src src-start src-end)
+      (assert* 'charspan-insert-front/string! (not (eq? (charspan-str sp-dst) str-src)))
+      (assert* 'charspan-insert-front/string! (fx<=? 0 src-start src-end (string-length str-src)))
+      (when (fx<? src-start src-end)
+        (let ((src-n (fx- src-end src-start)))
+          (charspan-resize-front! sp-dst (fx+ src-n (charspan-length sp-dst)))
+          (string-copy! str-src src-start
+                        (charspan-str sp-dst) (charspan-beg sp-dst)
+                        src-n))))))
 
 
-; append a portion of a string to this charspan
-(define (charspan-insert-back/string! sp-dst str-src src-start src-n)
-  (unless (fxzero? src-n)
-    (let ((pos (charspan-length sp-dst)))
-      (charspan-resize-back! sp-dst (fx+ pos src-n))
-      (string-copy! str-src src-start
-                    (charspan-str sp-dst) (fx- (charspan-end sp-dst) src-n)
-                    src-n))))
+; append range [start, end) of string str-src at the end of charspan sp-dst
+(define charspan-insert-back/string!
+  (case-lambda
+    ((sp-dst str-src)
+      (charspan-insert-back/string! sp-dst str-src 0 (string-length str-src)))
+    ((sp-dst str-src src-start src-end)
+      (assert* 'charspan-insert-back/string! (not (eq? (charspan-str sp-dst) str-src)))
+      (assert* 'charspan-insert-back/string! (fx<=? 0 src-start src-end (string-length str-src)))
+      (when (fx<? src-start src-end)
+        (let ((pos (charspan-length sp-dst))
+              (src-n (fx- src-end src-start)))
+          (charspan-resize-back! sp-dst (fx+ pos src-n))
+          (string-copy! str-src src-start
+                        (charspan-str sp-dst) (fx- (charspan-end sp-dst) src-n)
+                        src-n))))))
 
 
 ; erase n elements at the left (front) of charspan

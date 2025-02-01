@@ -99,12 +99,11 @@
           (charspan-insert-back! csp #\[)
           (when (eq? '%! obj)
             (charspan-insert-back! csp #\!))
-          (let ((str (cadr w)))
-            (charspan-insert-back/string! csp str 0 (string-length str)))
+          (charspan-insert-back/string! csp (cadr w))
           (charspan-insert-back! csp #\])
           (set! w (cdr w)))
         (else
-          (charspan-insert-back/string! csp obj 0 (string-length obj)))))
+          (charspan-insert-back/string! csp obj))))
     (set! w (cdr w))))
 
 
