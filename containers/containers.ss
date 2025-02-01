@@ -65,7 +65,7 @@
     charspan-insert-front/cspan!  charspan-insert-back/cspan!
     charspan-insert-front/string! charspan-insert-back/string!
     charspan-erase-front! charspan-erase-back! charspan-iterate
-    charspan-find charspan-rfind charspan-find/ch charspan-rfind/ch
+    charspan-find charspan-rfind charspan-find/char charspan-rfind/char
     charspan-peek-data charspan-peek-beg charspan-peek-end
 
     ; gbuffer.ss
@@ -86,7 +86,7 @@
     assert-charline? charline-nl? charline-copy-on-write charline-empty?
     charline-length charline-ref charline-at charline-equal? charline-set! charline-clear!
     charline-erase-range! charline-insert-at! charline-insert-at/cspan! charline-insert-at/cbuf!
-    charline-find/left charline-find/right charline-find/ch charline-count/left charline-count/right
+    charline-find/left charline-find/right charline-find/char charline-count/left charline-count/right
     charline-dirty-start-x charline-dirty-end-x charline-dirty-x-add! charline-dirty-x-unset!
 
     ; charlines.ss

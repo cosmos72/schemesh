@@ -108,8 +108,8 @@
     vscreen-cursor-move/left! vscreen-cursor-move/right!  vscreen-cursor-move/up!  vscreen-cursor-move/down!
     vscreen-erase-left/n!     vscreen-erase-right/n!      vscreen-erase-at-xy!
     vscreen-erase-left/line!  vscreen-erase-right/line!
-    vscreen-insert-at-xy/ch!  vscreen-insert-at-xy/newline! vscreen-insert-at-xy/cspan!
-    vscreen-insert/ch!        vscreen-insert/cspan!         vscreen-assign*!
+    vscreen-insert-at-xy/char!  vscreen-insert-at-xy/newline! vscreen-insert-at-xy/cspan!
+    vscreen-insert/char!        vscreen-insert/cspan!         vscreen-assign*!
     vscreen-reflow       write-vscreen)
 
   (import

@@ -21,8 +21,8 @@
     vscreen-cursor-move/left! vscreen-cursor-move/right!  vscreen-cursor-move/up!  vscreen-cursor-move/down!
     vscreen-erase-left/n!     vscreen-erase-right/n!      vscreen-erase-at-xy!
     vscreen-erase-left/line!  vscreen-erase-right/line!
-    vscreen-insert-at-xy/ch!  vscreen-insert-at-xy/newline! vscreen-insert-at-xy/cspan!
-    vscreen-insert/ch!        vscreen-insert/cspan!         vscreen-assign*!
+    vscreen-insert-at-xy/char!  vscreen-insert-at-xy/newline! vscreen-insert-at-xy/cspan!
+    vscreen-insert/char!        vscreen-insert/cspan!         vscreen-assign*!
     vscreen-reflow       write-vscreen)
 
   (import
@@ -617,7 +617,7 @@
 (define (vcreen-split-line-after-first-newline screen y)
   (let* ((line (vscreen-line-at-y screen y))
          (end  (and line (charline-length line)))
-         (pos  (and line (charline-find/ch line 0 end #\newline))))
+         (pos  (and line (charline-find/char line 0 end #\newline))))
     (when (and pos (fx<? (fx1+ pos) end))
       (let ((line2 (charline))
             (pos+1 (fx1+ pos)))
@@ -671,8 +671,8 @@
 ;; move extra characters into the following line(s)
 ;; i.e. reflow them according to vscreen width.
 ;; Both x and y are clamped to valid range.
-(define (vscreen-insert-at-xy/ch! screen x y ch)
-  (assert* 'vscreen-insert-at-xy/ch! (char>=? ch #\space))
+(define (vscreen-insert-at-xy/char! screen x y ch)
+  (assert* 'vscreen-insert-at-xy/char! (char>=? ch #\space))
   (let-values (((x y line) (vscreen-insert-at-xy/prepare! screen x y)))
     (vscreen-dirty-set! screen #t)
     (charline-insert-at! line x ch)
@@ -715,19 +715,19 @@
     (let-values (((x y line) (vscreen-insert-at-xy/prepare! screen x y)))
       (vscreen-dirty-set! screen #t)
       (charline-insert-at/cspan! line x csp csp-start csp-end)
-      (if (charspan-find/ch csp csp-start csp-end #\newline)
+      (if (charspan-find/char csp csp-start csp-end #\newline)
         (vscreen-reflow screen)
         (vscreen-overflow-at-y screen y)))))
 
 
 ;; insert a char, which can be a #\newline, into vscreen at cursor position
 ;; then move cursor right by one.
-(define (vscreen-insert/ch! screen ch)
+(define (vscreen-insert/char! screen ch)
   (let ((x (vscreen-cursor-ix screen))
         (y (vscreen-cursor-iy screen)))
     (if (char=? ch #\newline)
       (vscreen-insert-at-xy/newline! screen x y)
-      (vscreen-insert-at-xy/ch! screen x y ch))
+      (vscreen-insert-at-xy/char! screen x y ch))
     (vscreen-cursor-move/right! screen 1)))
 
 

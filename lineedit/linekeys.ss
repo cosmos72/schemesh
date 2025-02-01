@@ -160,7 +160,7 @@
     (unless (fxzero? n)
       (let-values (((x y) (vscreen-cursor-ixy screen)))
         (vscreen-insert-at-xy/cspan! screen x y clipboard 0 n))
-      (when (charspan-find/ch clipboard 0 n #\newline)
+      (when (charspan-find/char clipboard 0 n #\newline)
         (vscreen-reflow screen))
       (vscreen-cursor-move/right! screen n))))
 
@@ -203,7 +203,7 @@
               (linectx-insert/cspan! lctx completion-0 0 common-len)
               (when (and (fx=? 1 completions-n)
                          (not (char=? #\/ (charspan-ref completion-0 (fx1- common-len)))))
-                (linectx-insert/ch! lctx #\space))))
+                (linectx-insert/char! lctx #\space))))
           ((fx>? completions-n 1)
             ; erase prompt and lines (also sets flag "redraw prompt and lines"),
             ; then list all possible completions

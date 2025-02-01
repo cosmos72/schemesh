@@ -66,7 +66,7 @@
 ;; return #t if argument is a path i.e. a charspan that does not contain #\nul,
 ;; otherwise return #f
 (define (sh-path? obj)
-  (and (charspan? obj) (not (charspan-find/ch obj #\nul))))
+  (and (charspan? obj) (not (charspan-find/char obj #\nul))))
 
 
 ;; return #t if path is absolute i.e. it starts with "/" otherwise return #f
@@ -110,7 +110,7 @@
 ;; given a path, return the length of its parent path.
 ;; returned length include the final "/" ONLY if it's the only character.
 (define (path-parent-len path)
-  (let ((pos (charspan-rfind path 0 (charspan-length path) char-is-sep?)))
+  (let ((pos (charspan-rfind path char-is-sep?)))
     (cond
       ((not pos)     0) ;; parent of relative path "foo" is the empty string
       ((fxzero? pos) 1) ;; keep "/" because it's the only character

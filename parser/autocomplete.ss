@@ -40,7 +40,7 @@
     ; (debugf "parse-scheme-autocomplete paren=~s stem=~s" paren stem)
     (if (eqv? #\" (paren-start-token paren))
        ; list contents of some directory
-       (let ((slash-pos (and (not (fxzero? stem-len)) (charspan-rfind/ch stem 0 stem-len #\/))))
+       (let ((slash-pos (charspan-rfind/char stem #\/)))
          (if slash-pos
            ; list contents of a directory
            (let ((dir    (charspan-range->string stem 0 (fx1+ slash-pos)))
@@ -67,7 +67,7 @@
     (let* ((stem      (linectx-completion-stem lctx))
            (stem-len  (charspan-length stem))
            (dollar?   (and (not (fxzero? stem-len)) (char=? #\$ (charspan-ref stem 0))))
-           (slash-pos (and (not (fxzero? stem-len)) (not dollar?) (charspan-rfind/ch stem 0 stem-len #\/))))
+           (slash-pos (and (not (fxzero? stem-len)) (not dollar?) (charspan-rfind/char stem #\/))))
       ; (debugf "parse-shell-autocomplete stem=~s, stem-is-first-word?=~s" stem stem-is-first-word?)
       (cond
         (dollar?

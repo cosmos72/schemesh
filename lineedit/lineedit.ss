@@ -133,8 +133,8 @@
 
 ;; insert a single character into vscreen at cursor.
 ;; Also moves vscreen cursor one character to the right, and reflows vscreen as needed.
-(define (linectx-insert/ch! lctx ch)
-  (vscreen-insert/ch! (linectx-vscreen lctx) ch))
+(define (linectx-insert/char! lctx ch)
+  (vscreen-insert/char! (linectx-vscreen lctx) ch))
 
 
 ;; read chars in the range [start, end) from charspan csp,
@@ -167,7 +167,7 @@
           ((eq? #t ch)
             (set! incomplete-utf8? #t))
           ((and (char? ch) (char>=? ch #\space))
-            (linectx-insert/ch! lctx ch)))))
+            (linectx-insert/char! lctx ch)))))
     (fx- pos start))) ; return number of bytes actually inserted
 
 ;; read up to n bytes from rbuf and insert them into current line.

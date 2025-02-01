@@ -267,52 +267,63 @@
 ;; otherwise return #f.
 (define (string-starts-with/char? str ch)
   (let ((len (string-length str)))
-    (if (fxzero? len) #f (char=? #\/ (string-ref str 0)))))
+    (if (fxzero? len)
+      #f
+      (char=? #\/ (string-ref str 0)))))
 
 
 ;; return #t if string str is non-empty and ends with character ch,
 ;; otherwise return #f.
 (define (string-ends-with/char? str ch)
   (let ((len (string-length str)))
-    (if (fxzero? len) #f (char=? #\/ (string-ref str (fx1- len))))))
+    (if (fxzero? len)
+      #f
+      (char=? #\/ (string-ref str (fx1- len))))))
 
 
 ;; search string range [start, end) and return index of first character equal to ch.
 ;; returned numerical index will be in the range [start, end).
 ;; return #f if no such character is found in range.
-(define (string-find/char str start end ch)
-  (assert* 'string-find/char (string? str))
-  (assert* 'string-find/char (fx<=? 0 start end))
-  (assert* 'string-find/char (char? ch))
-  (let ((end (fxmin end (string-length str))))
-    (do ((i start (fx1+ i)))
-        ((or (fx>=? i end) (char=? ch (string-ref str i)))
-         (if (fx<? i end) i #f)))))
+(define string-find/char
+  (case-lambda
+    ((str ch)
+      (string-find/char str 0 (string-length str) ch))
+    ((str start end ch)
+      (assert* 'string-find/char (string? str))
+      (assert* 'string-find/char (fx<=? 0 start end (string-length str)))
+      (assert* 'string-find/char (char? ch))
+      (do ((i start (fx1+ i)))
+          ((or (fx>=? i end) (char=? ch (string-ref str i)))
+            (if (fx>=? i end) #f i))))))
 
 
 ;; search string range [start, end) and return index of last character equal to ch.
 ;; returned numerical index will be in the range [start, end).
 ;; return #f if no such character is found in range.
-(define (string-rfind/char str start end ch)
-  (assert* 'string-rfind/char (string? str))
-  (assert* 'string-rfind/char (fx<=? 0 start end))
-  (assert* 'string-rfind/char (char? ch))
-  (let ((end (fxmin end (string-length str))))
-    (do ((i (fx1- end) (fx1- i)))
-        ((or (fx<? i start) (char=? ch (string-ref str i)))
-         (if (fx>=? i start) i #f)))))
+(define string-rfind/char
+  (case-lambda
+    ((str ch)
+      (string-rfind/char str 0 (string-length str) ch))
+    ((str start end ch)
+      (assert* 'string-rfind/char (string? str))
+      (assert* 'string-rfind/char (fx<=? 0 start end (string-length str)))
+      (assert* 'string-rfind/char (char? ch))
+      (do ((i (fx1- end) (fx1- i)))
+          ((or (fx<? i start) (char=? ch (string-ref str i)))
+            (if (fx<? i start) #f i))))))
 
-;; destructively replace each occurrence of ch-from with ch-to in string str.
+
+;; destructively replace each occurrence of old-char with new-char in string str.
 ;; return str, modified in-place.
-(define (string-replace/char! str ch-from ch-to)
+(define (string-replace/char! str old-char new-char)
   (assert* 'string-replace/char (string? str))
-  (assert* 'string-replace/char (char? ch-from))
-  (assert* 'string-replace/char (char? ch-to))
+  (assert* 'string-replace/char (char? old-char))
+  (assert* 'string-replace/char (char? new-char))
   (let ((end (string-length str)))
     (do ((i 0 (fx1+ i)))
         ((fx>=? i end) str)
-      (when (char=? ch-from (string-ref str i))
-        (string-set! str i ch-to)))))
+      (when (char=? old-char (string-ref str i))
+        (string-set! str i new-char)))))
 
 
 ;; split string range [start, end) into a list of strings,

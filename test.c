@@ -485,7 +485,7 @@ static const testcase tests[] = {
      "  screen)",
      "(vscreen* 8 30 \"abcd\\n\" \"{[()]}\\n\")"},
     {"(let ((screen (vscreen* 8 30 \"abcdef\" \"012\\n\")))\n"
-     "  (vscreen-insert-at-xy/ch! screen 4 1 #\\space)\n"
+     "  (vscreen-insert-at-xy/char! screen 4 1 #\\space)\n"
      "  screen)",
      "(vscreen* 8 30 \"abcdef\" \"012\\n\" \" \")"},
     {"(let ((screen (vscreen* 8 30 \"abcdef\" \"012\\n\")))\n"

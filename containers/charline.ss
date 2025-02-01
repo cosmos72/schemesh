@@ -11,7 +11,7 @@
     assert-charline? charline-nl? charline-copy-on-write charline-empty?
     charline-length charline-ref charline-at charline-equal? charline-set! charline-clear!
     charline-erase-range! charline-insert-at! charline-insert-at/cspan! charline-insert-at/cbuf!
-    charline-find/left charline-find/right charline-find/ch charline-count/left charline-count/right
+    charline-find/left charline-find/right charline-find/char charline-count/left charline-count/right
     charline-dirty-start-x charline-dirty-end-x charline-dirty-x-add! charline-dirty-x-unset!)
 
   (import
@@ -212,7 +212,7 @@
 ;;
 ;; note: if start < 0, it is truncated to 0
 ;; note: if end > (charline-length line), it is truncated to (charline-length line)
-(define (charline-find/ch line start end ch)
+(define (charline-find/char line start end ch)
   (let ((end (fxmin end (charline-length line))))
     (do ((i (fxmax start 0) (fx1+ i)))
         ((or (fx>=? i end) (char=? ch (charline-ref line i)))
