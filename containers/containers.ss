@@ -72,7 +72,7 @@
     list->gbuffer vector->gbuffer vector->gbuffer* span->gbuffer span->gbuffer*
     make-gbuffer gbuffer gbuffer? gbuffer->vector gbuffer->span
     gbuffer-length gbuffer-empty? gbuffer-ref gbuffer-set! gbuffer-clear! gbuffer-split-at!
-    gbuffer-insert-at! gbuffer-erase-at! gbuffer-iterate
+    gbuffer-insert-at! gbuffer-erase-range! gbuffer-iterate
 
     ; chargbuffer.ss
     list->chargbuffer string->chargbuffer string->chargbuffer* charspan->chargbuffer charspan->chargbuffer*

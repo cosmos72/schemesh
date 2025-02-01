@@ -213,9 +213,10 @@
          (bv     (string->utf8b str))
          (prompt (linectx-prompt lctx)))
     (bytespan-clear! prompt)
-    (bytespan-insert-back/bvector! prompt bv 0 (bytevector-length bv))
+    (bytespan-insert-back/bvector! prompt bv)
     ; append colon and space after parser name
     (bytespan-insert-back/u8! prompt 58 32)
+    ; we want length in characters, not in UTF-8b bytes
     (linectx-prompt-length-set! lctx (fx+ 2 (string-length str)))))
 
 

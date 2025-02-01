@@ -143,7 +143,7 @@
   (let ((yn (charlines-length lines)))
     (when (fx<? -1 y yn)
       (charlines-dirty-y-add! lines y yn)
-      (gbuffer-erase-at! lines y 1))))
+      (gbuffer-erase-range! lines y (fx1+ y)))))
 
 
 ;; insert a charline into lines at y

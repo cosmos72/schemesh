@@ -371,7 +371,7 @@ static const testcase tests[] = {
      "  gb)",
      "(gbuffer 0 -1 -2 -3 -4)"},
     {"(let ((gb (gbuffer 'a 'b 'c 'd 'e)))\n"
-     "  (gbuffer-erase-at! gb 2 2)\n"
+     "  (gbuffer-erase-range! gb 2 4)\n"
      "  (gbuffer-insert-at! gb 1 'x)\n"
      "  gb)",
      "(gbuffer a x b e)"},

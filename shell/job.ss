@@ -493,7 +493,7 @@
             (unless (or (bytespan-empty? bspan) (fx=? slash (bytespan-back/u8 bspan)))
               ;; append / after job's directory if missing
               (bytespan-insert-back/u8! bspan slash))
-            (bytespan-insert-back/bvector! bspan bvec 0 (bytevector-length bvec))
+            (bytespan-insert-back/bvector! bspan bvec)
             (bytespan->bytevector bspan))
           bvec)))
     (#t

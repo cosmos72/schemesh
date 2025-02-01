@@ -27,12 +27,20 @@
   (bytespan-insert-back/u8! (linectx-wbuf ctx) u8))
 
 ;; write a portion of given bytevector to wbuf
-(define (lineterm-write/bvector ctx bv start n)
-  (bytespan-insert-back/bvector! (linectx-wbuf ctx) bv start n))
+(define lineterm-write/bvector
+  (case-lambda
+    ((ctx bv)
+      (bytespan-insert-back/bvector! (linectx-wbuf ctx) bv))
+    ((ctx bv start end)
+      (bytespan-insert-back/bvector! (linectx-wbuf ctx) bv start end))))
 
 ;; write a portion of given bytespan to wbuf
-(define (lineterm-write/bspan ctx bsp start n)
-  (bytespan-insert-back/bspan! (linectx-wbuf ctx) bsp start n))
+(define lineterm-write/bspan
+  (case-lambda
+    ((ctx bsp)
+      (bytespan-insert-back/bspan! (linectx-wbuf ctx) bsp))
+    ((ctx bsp start end)
+      (bytespan-insert-back/bspan! (linectx-wbuf ctx) bsp start end))))
 
 ;; write given charspan to wbuf
 (define (lineterm-write/cspan ctx csp)
@@ -54,7 +62,7 @@
     ((fxzero? dx) ; do nothing
       (void))
     ((fx=? dx 1) ; move right by 1
-      (lineterm-write/bvector ctx #vu8(27 91 67) 0 3))     ; ESC [ C
+      (lineterm-write/bvector ctx #vu8(27 91 67)))        ; ESC [ C
     ((fx>? dx 1) ; move right by dx                        ;
       (let ((wbuf (linectx-wbuf ctx)))                     ;
         (bytespan-insert-back/u8! wbuf 27 91)              ; ESC [
@@ -78,9 +86,9 @@
     ((fxzero? dy) ; do nothing
       (void))
     ((fx=? dy 1)  ; move down by 1
-      (lineterm-write/bvector ctx #vu8(27 91 66) 0 3))  ; ESC [ B
+      (lineterm-write/bvector ctx #vu8(27 91 66)))  ; ESC [ B
     ((fx=? dy -1) ; move up by 1
-      (lineterm-write/bvector ctx #vu8(27 91 65) 0 3))  ; ESC [ A
+      (lineterm-write/bvector ctx #vu8(27 91 65)))  ; ESC [ A
     ((fx>? dy 1) ; move down by dy
       (let ((wbuf (linectx-wbuf ctx)))
         (bytespan-insert-back/u8! wbuf 27 91)     ; ESC [
@@ -98,11 +106,11 @@
 
 ;; send escape sequence "clear from cursor to end-of-line"
 (define (lineterm-clear-to-eol ctx)
-  (lineterm-write/bvector ctx #vu8(27 91 75) 0 3)) ; ESC [ K
+  (lineterm-write/bvector ctx #vu8(27 91 75))) ; ESC [ K
 
 ;; send escape sequence "clear from cursor to end-of-screen"
 (define (lineterm-clear-to-eos ctx)
-  (lineterm-write/bvector ctx #vu8(27 91 74) 0 3)) ; ESC [ J
+  (lineterm-write/bvector ctx #vu8(27 91 74))) ; ESC [ J
 
 ;; move tty cursor from tty position from-x from-y to tty position to-x to-y
 ;; does not check or update linectx

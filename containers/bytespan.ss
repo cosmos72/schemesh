@@ -264,18 +264,29 @@
     (bytespan-insert-front/bspan! sp-dst (bytevector->bytespan* bv-src) src-start src-n)))
 
 ;  append a portion of another bytespan to this bytespan
-(define (bytespan-insert-back/bspan! sp-dst sp-src src-start src-n)
-  (assert* 'bytespan-insert-back/bspan! (not (eq? (bytespan-vec sp-dst) (bytespan-vec sp-src))))
-  (assert* 'bytespan-insert-back/bspan! (fx<=? 0 src-start (fx+ src-start src-n) (bytespan-length sp-src)))
-  (unless (fxzero? src-n)
-    (let ((pos (bytespan-length sp-dst)))
-      (bytespan-resize-back! sp-dst (fx+ pos src-n))
-      (bytespan-copy! sp-src src-start sp-dst pos src-n))))
+(define bytespan-insert-back/bspan!
+  (case-lambda
+    ((sp-dst sp-src)
+      (bytespan-insert-back/bspan! sp-dst sp-src 0 (bytespan-length sp-src)))
+    ((sp-dst sp-src src-start src-end)
+      (assert* 'bytespan-insert-back/bspan! (not (eq? (bytespan-vec sp-dst) (bytespan-vec sp-src))))
+      (assert* 'bytespan-insert-back/bspan! (fx<=? 0 src-start src-end (bytespan-length sp-src)))
+      (when (fx<? src-start src-end)
+        (let ((pos   (bytespan-length sp-dst))
+              (src-n (fx- src-end src-start)))
+          (bytespan-resize-back! sp-dst (fx+ pos src-n))
+          (bytespan-copy! sp-src src-start sp-dst pos src-n))))))
 
 ;  append a portion of a bytevector to this bytespan
-(define (bytespan-insert-back/bvector! sp-dst bv-src src-start src-n)
-  (unless (fxzero? src-n)
-    (bytespan-insert-back/bspan! sp-dst (bytevector->bytespan* bv-src) src-start src-n)))
+(define bytespan-insert-back/bvector!
+  (case-lambda
+    ((sp-dst bv-src)
+      ; call four-argument variant of this function
+      (bytespan-insert-back/bvector! sp-dst bv-src 0 (bytevector-length bv-src)))
+    ((sp-dst bv-src src-start src-end)
+      (unless (fx=? src-start src-end)
+        ; call bytespan-insert... accepting a bytespan second argument
+        (bytespan-insert-back/bspan! sp-dst (bytevector->bytespan* bv-src) src-start src-end)))))
 
 ;  erase n elements at the left (front) of bytespan
 (define (bytespan-erase-front! sp n)

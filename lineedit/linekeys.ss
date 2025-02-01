@@ -179,9 +179,9 @@
         (footer (string->utf8 " possibilities? (y or n) ")))
     (lambda (lctx completions-n)
       (let ((wbuf (linectx-wbuf lctx)))
-        (bytespan-insert-back/bvector! wbuf header 0 (bytevector-length header))
+        (bytespan-insert-back/bvector! wbuf header)
         (bytespan-display-back/fixnum! wbuf completions-n)
-        (bytespan-insert-back/bvector! wbuf footer 0 (bytevector-length footer))
+        (bytespan-insert-back/bvector! wbuf footer)
         (lineedit-flush lctx)
         (let ((ok? (lineedit-read-confirm-y-or-n? lctx)))
           (bytespan-insert-back/u8! wbuf (if ok? 121 110) 10)
@@ -302,7 +302,7 @@
 
 (define (lineedit-key-cmd-ls lctx)
   (lineterm-move-to lctx (linectx-prompt-end-x lctx) (linectx-prompt-end-y lctx))
-  (lineterm-write/bvector lctx #vu8(108 115 27 91 74 10) 0 6) ; l s ESC [ J \n
+  (lineterm-write/bvector lctx #vu8(108 115 27 91 74 10)) ; l s ESC [ J \n
   (lineedit-flush lctx)
   ((top-level-value 'sh-run) ((top-level-value 'sh-cmd) "ls"))
   ; make enough space after command output for prompt and current line(s)
