@@ -234,19 +234,23 @@
           (span-set! sp pos elem)
           (set! pos (fx1+ pos)))))))
 
-;; prefix a portion of another span to this span
-(define (span-insert-front/span! sp-dst sp-src src-start src-n)
+;; prefix range [src-start, src-end) of another span into this span
+(define (span-insert-front/span! sp-dst sp-src src-start src-end)
   (assert* 'span-insert-front/span! (not (eq? sp-dst sp-src)))
-  (unless (fxzero? src-n)
-    (let ((len (span-length sp-dst)))
+  (assert* 'span-insert-front/span! (fx<=? 0 src-start src-end (span-length sp-src)))
+  (when (fx<? src-start src-end)
+    (let ((len   (span-length sp-dst))
+          (src-n (fx- src-end src-start)))
       (span-resize-front! sp-dst (fx+ len src-n))
       (span-copy! sp-src src-start sp-dst 0 src-n))))
 
 ;; append a portion of another span to this span
-(define (span-insert-back/span! sp-dst sp-src src-start src-n)
+(define (span-insert-back/span! sp-dst sp-src src-start src-end)
   (assert* 'span-insert-back/span! (not (eq? sp-dst sp-src)))
-  (unless (fxzero? src-n)
-    (let ((pos (span-length sp-dst)))
+  (assert* 'span-insert-back/span! (fx<=? 0 src-start src-end (span-length sp-src)))
+  (when (fx<? src-start src-end)
+    (let ((pos   (span-length sp-dst))
+          (src-n (fx- src-end src-start)))
       (span-resize-back! sp-dst (fx+ pos src-n))
       (span-copy! sp-src src-start sp-dst pos src-n))))
 

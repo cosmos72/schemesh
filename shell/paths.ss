@@ -66,8 +66,7 @@
 ;; return #t if argument is a path i.e. a charspan that does not contain #\nul,
 ;; otherwise return #f
 (define (sh-path? obj)
-  (and (charspan? obj)
-       (not (charspan-find obj 0 (charspan-length obj) (lambda (ch) (char=? ch #\nul))))))
+  (and (charspan? obj) (not (charspan-find/ch obj #\nul))))
 
 
 ;; return #t if path is absolute i.e. it starts with "/" otherwise return #f
@@ -101,7 +100,7 @@
          (end  (fxmin clen (fx+ pos (fxmax 0 n))))
          (continue? #t))
     (while (and continue? (fx<? pos end))
-      (let ((sep (or (charspan-find path pos (fx- end pos) char-is-sep?)
+      (let ((sep (or (charspan-find path pos end char-is-sep?)
                      end)))
         (if (proc path pos (fx- sep pos))
           (set! pos (fx1+ sep))

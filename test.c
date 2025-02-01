@@ -354,7 +354,7 @@ static const testcase tests[] = {
      "  sp)",
      "(string->charspan* \"asdfu\")"},
     {"(let ((sp (charspan #\\@ #\\a #\\b #\\c)))\n"
-     "  (charspan-find sp 0 999 (lambda (elem) (eq? #\\b elem))))",
+     "  (charspan-find sp (lambda (elem) (eq? #\\b elem))))",
      "2"},
     {"(charspan->utf8b (string->charspan* \"\x7c \xce\x98 \xe0\xa4\xb9 \xf0\x90\x8d\x88\"))",
      "(bytespan 124 32 206 152 32 224 164 185 32 240 144 141 136)"},
@@ -396,7 +396,7 @@ static const testcase tests[] = {
     {"(string->charline* \"echo \\n\")", "(string->charline* \"echo \\n\")"},
     {"(charline-nl? (string->charline \"echo \\n\"))", "#t"},
     {"(charline-length (string->charline \"echo \\n\"))", "6"},
-    {"(charline-find/left (string->charline* \"qwerty=<>\") 999\n"
+    {"(charline-find/left (string->charline* \"qwerty=<>\") 9\n"
      "  (lambda (ch) (char=? ch #\\=)))",
      "6"},
     {"(let ((line (string->charline* \"foo/bar\"))\n"
@@ -435,20 +435,20 @@ static const testcase tests[] = {
     {"(charlines (string->charline* \"foo/bar\") (string->charline \"\\n\"))",
      "(strings->charlines* \"foo/bar\" \"\\n\")"},
     {"(charlines-find/left (strings->charlines* \"qwerty@$%\" \"asdf\")\n"
-     "  999 1\n"
+     "  4 1\n"
      "  (lambda (ch) (char=? ch #\\@)))",
      "7"},
     {"(charlines-find/right (charlines (string->charline* \"IOHPR$\n\")\n"
      "                                  (string->charline* \"ORJZX\"))\n"
-     "  -999 0\n"
+     "  0 0\n"
      "  (lambda (ch) (char=? ch #\\Z)))",
      "10"},
     {"(charlines-count/left (strings->charlines* \"abc\n\" \"ccc\")\n"
-     "   999 999\n"
+     "  4 1\n"
      "  (lambda (ch) (char=? ch #\\c)))",
      "3"},
     {"(charlines-count/right (strings->charlines* \"abc\n\" \"ccc\")\n"
-     "   3 0\n"
+     "  3 0\n"
      "  (lambda (ch) (not (char=? ch #\\c))))",
      "1"},
     /* ------------------------ vscreen ------------------------------------- */

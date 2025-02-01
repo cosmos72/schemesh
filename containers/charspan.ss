@@ -364,37 +364,46 @@
     ((or (fx>=? i n) (not (proc i (string-ref v i))))
      (fx>=? i n))))
 
-;; iterate on charspan elements from start to (fx+ start n)
-;; and return the index of first charspan element that causes
-;; (predicate elem) to return truish. Returns #f if no such element is found.
-(define (charspan-find sp start n predicate)
-  (let* ((clen  (charspan-length sp))
-         (start (fxmin clen (fxmax 0 start)))
-         (end   (fxmin clen (fx+ start n)))
-         (ret #f))
-    (do ((i start (fx1+ i)))
-        ((or ret (fx>=? i end)) ret)
-      (when (predicate (charspan-ref sp i))
-        (set! ret i)))))
+;; iterate on charspan elements in range [start, end) and return the index
+;; of first element that causes (predicate elem) to return truish.
+;;
+;; Return #f if no such element is found.
+(define charspan-find
+  (case-lambda
+    ((sp predicate)
+      (charspan-find sp 0 (charspan-length sp) predicate))
+    ((sp start end predicate)
+      (assert* 'charspan-find (fx<=? 0 start end (charspan-length sp)))
+      (do ((i start (fx1+ i)))
+          ((or (fx>=? i end) (predicate (charspan-ref sp i)))
+            (if (fx>=? i end) #f i))))))
+
 
 ;; iterate backward on charspan elements from (fx1- (fx+ start n)) to start
 ;; and return the index of first (i.e. the highest index) charspan element that causes
 ;; (predicate elem) to return truish. Returns #f if no such element is found.
 (define (charspan-rfind sp start n predicate)
-  (let* ((clen  (charspan-length sp))
-         (start (fxmin clen (fxmax 0 start)))
-         (end   (fxmin clen (fx+ start n)))
+  (let* ((len  (charspan-length sp))
+         (start (fxmin len (fxmax 0 start)))
+         (end   (fxmin len (fx+ start n)))
          (ret #f))
     (do ((i  (fx1- end) (fx1- i)))
         ((or ret (fx<? i start)) ret)
       (when (predicate (charspan-ref sp i))
         (set! ret i)))))
 
-;; iterate on charspan elements from start to (fx+ start n)
-;; and return the index of first charspan element equal to ch.
-;; Returns #f if no such element is found.
-(define (charspan-find/ch sp start n ch)
-  (charspan-find sp start n (lambda (e) (char=? e ch))))
+
+;; iterate on charspan elements in range [start, end) and return
+;; the index of first charspan element equal to ch.
+;;
+;; Return #f if no such element is found.
+(define charspan-find/ch
+  (case-lambda
+    ((sp ch)
+      (charspan-find sp (lambda (e) (char=? e ch))))
+    ((sp start end ch)
+      (charspan-find sp start end (lambda (e) (char=? e ch))))))
+
 
 ;; iterate backward on charspan elements from (fx1- (fx+ start n)) to start
 ;; and return the index of first (i.e. the highest index) charspan element equal to ch.

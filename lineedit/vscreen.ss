@@ -715,7 +715,7 @@
     (let-values (((x y line) (vscreen-insert-at-xy/prepare! screen x y)))
       (vscreen-dirty-set! screen #t)
       (charline-insert-at/cspan! line x csp csp-start csp-end)
-      (if (charspan-find/ch csp csp-start (fx- csp-end csp-start) #\newline)
+      (if (charspan-find/ch csp csp-start csp-end #\newline)
         (vscreen-reflow screen)
         (vscreen-overflow-at-y screen y)))))
 
