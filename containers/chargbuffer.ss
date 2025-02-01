@@ -18,7 +18,7 @@
     chargbuffer-length chargbuffer-empty?
     chargbuffer-ref chargbuffer-set! chargbuffer-clear! chargbuffer-split-at!
     chargbuffer-insert-at! chargbuffer-insert-at/cspan! chargbuffer-insert-at/cbuf!
-    chargbuffer-erase-at! chargbuffer-iterate)
+    chargbuffer-erase-range! chargbuffer-iterate)
   (import
     (rnrs)
     (only (chezscheme) fx1+ record-writer string-copy! void)
@@ -165,18 +165,18 @@
       (when (fx>? src-n 0)
         (chargbuffer-insert-at/cspan! gb idx right (fx- src-start left-n) src-n)))))
 
-; remove n elements from chargbuffer starting at start
-(define (chargbuffer-erase-at! gb start n)
+; remove elements in range [start, end) from chargbuffer gb
+(define (chargbuffer-erase-range! gb start end)
   (let* ((left    (chargbuffer-left  gb))
          (right   (chargbuffer-right gb))
          (left-n  (charspan-length left))
          (right-n (charspan-length right))
          (len     (fx+ left-n right-n))
-         (end     (fx+ start n)))
-    (assert* 'chargbuffer-erase-at! (fx<=? 0 start len))
-    (assert* 'chargbuffer-erase-at! (fx<=? 0 n (fx- len start)))
+         (n       (fx- end start)))
+    (assert* 'chargbuffer-erase-range! (fx<=? 0 start end len))
     (cond
-      ((fxzero? n) (void)) ; nothing to do
+      ((fxzero? n)
+        (void)) ; nothing to do
       ((fxzero? start)
         (let ((head (fxmin n left-n)))
           (charspan-erase-front! left head)

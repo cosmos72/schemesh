@@ -79,13 +79,13 @@
     make-chargbuffer chargbuffer chargbuffer? chargbuffer->charspan chargbuffer->string
     chargbuffer-length chargbuffer-empty?
     chargbuffer-ref chargbuffer-set! chargbuffer-clear! chargbuffer-split-at!
-    chargbuffer-insert-at! chargbuffer-erase-at! chargbuffer-iterate
+    chargbuffer-insert-at! chargbuffer-erase-range! chargbuffer-iterate
 
     ; charline.ss
     charline charline? string->charline string->charline* charline->string
     assert-charline? charline-nl? charline-copy-on-write charline-empty?
     charline-length charline-ref charline-at charline-equal? charline-set! charline-clear!
-    charline-erase-at! charline-insert-at! charline-insert-at/cspan! charline-insert-at/cbuf!
+    charline-erase-range! charline-insert-at! charline-insert-at/cspan! charline-insert-at/cbuf!
     charline-find/left charline-find/right charline-find/ch charline-count/left charline-count/right
     charline-dirty-start-x charline-dirty-end-x charline-dirty-x-add! charline-dirty-x-unset!
 

@@ -387,7 +387,7 @@ static const testcase tests[] = {
      "  gb)",
      "(string->chargbuffer* \"@ABCD\")"},
     {"(let ((gb (chargbuffer #\\a #\\b #\\c #\\d #\\e)))\n"
-     "  (chargbuffer-erase-at! gb 2 2)\n"
+     "  (chargbuffer-erase-range! gb 2 4)\n"
      "  (chargbuffer-insert-at! gb 1 #\\x)\n"
      "  gb)",
      "(string->chargbuffer* \"axbe\")"},
@@ -422,7 +422,7 @@ static const testcase tests[] = {
      "(span 0 0 0 0 0 0 3 2 1 0 0 0)"},
     {"(let* ((l1 (string->charline* \"foo/bar\"))\n"
      "       (l2 (charline-copy-on-write l1)))\n"
-     "  (charline-erase-at! l1 3 4)\n"
+     "  (charline-erase-range! l1 3 4)\n"
      "  (charline-insert-at! l2 3 #\\~)\n"
      "  (list l1 l2))",
      "((string->charline* \"foobar\") (string->charline* \"foo~/bar\"))"},

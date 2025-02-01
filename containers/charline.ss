@@ -10,7 +10,7 @@
     charline charline? string->charline string->charline* charline->string
     assert-charline? charline-nl? charline-copy-on-write charline-empty?
     charline-length charline-ref charline-at charline-equal? charline-set! charline-clear!
-    charline-erase-at! charline-insert-at! charline-insert-at/cspan! charline-insert-at/cbuf!
+    charline-erase-range! charline-insert-at! charline-insert-at/cspan! charline-insert-at/cbuf!
     charline-find/left charline-find/right charline-find/ch charline-count/left charline-count/right
     charline-dirty-start-x charline-dirty-end-x charline-dirty-x-add! charline-dirty-x-unset!)
 
@@ -163,11 +163,11 @@
 
 
 ; erase the chars in range [start, end) from charline
-(define (charline-erase-at! line start end)
+(define (charline-erase-range! line start end)
   (when (fx<? start end)
     (charline-unshare! line)
     (let ((len (charline-length line)))
-      (chargbuffer-erase-at! line start (fx- end start))
+      (chargbuffer-erase-range! line start end)
       ;; mark as dirty until original end of line
       (charline-dirty-x-add! line start len))))
 
