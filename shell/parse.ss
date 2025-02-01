@@ -101,8 +101,7 @@
       ((null? ret)
         '(sh-cmd))
       ((null? (cdr ret))
-        ;; when prefix is 'sh-list, unwrap single-element ret
-        ;; if it's a pair starting with a known shell macro or function name.
+        ;; when prefix is 'sh-list, unwrap single-element ret,
         ;;
         ;; this has the annoying side effect that "{ cd PATH }" becomes "cd PATH"
         ;;   and the latter changes the current directory of (sh-globals), not of the enclosing "{ ... }",
@@ -111,9 +110,7 @@
         ;;   then a plain "cd PATH" is returned as "{ cd PATH }" which has no effect,
         ;;   because it only changes the current directory of the enclosing "{ ... }"
         (let ((ret0 (car ret)))
-          (if (and (eq? 'sh-list ret-prefix)
-                   (pair? ret0)
-                   (memq (car ret0) '(shell shell-subshell sh-list sh-subshell sh-and sh-or sh-pipe sh-pipe* sh-not sh-cmd sh-cmd*)))
+          (if (eq? 'sh-list ret-prefix)
             ret0
             (cons ret-prefix ret))))
       (#t
