@@ -1154,6 +1154,12 @@ static const testcase tests[] = {
     /* ------------------------- job execution ------------------------------ */
     {"(sh-run/string (shell \"echo\" \"a\"  \"b\" \"c\"))", "a b c\n"},
     {"(sh-run/string-rtrim-newlines (shell \"echo\" \" abc \"))", " abc "},
+    {"(sh-run/string (shell \"FOO\" = \"abc\" \\x3B; \"echo\" (shell-env \"FOO\")))", "abc\n"},
+    /* also test that overwriting existing environment variables works */
+    {"(sh-run/string (shell\n"
+     "    \"FOO\" = (shell-backquote \"echo\" \"abc\") \\x3B;\n"
+     "    \"echo\" (shell-env \"FOO\")))\n",
+     "abc\n"},
     {"(sh-run (shell \"echo\" \"abc\" > \"DEL_ME\""
      " && \"cat\" \"DEL_ME\" > \"/dev/null\""
      " && \"rm\" \"DEL_ME\"))",

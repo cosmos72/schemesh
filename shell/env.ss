@@ -69,11 +69,15 @@
   (assert* 'sh-env-set! (memq visibility '(export private maintain)))
   (let* ((vars (job-direct-env job-or-id))
          (elem (hashtable-ref vars name #f)))
-    (unless (pair? elem)
-      (set! elem (cons 'private val))
-      (hashtable-set! vars name elem))
-    (unless (eq? 'maintain visibility)
-      (set-car! elem visibility))))
+    (if (pair? elem)
+      (begin
+        ; env variable already exist, overwrite it
+        (set-cdr! elem val)
+        (unless (eq? 'maintain visibility)
+          (set-car! elem visibility)))
+      (let ((visibility (if (eq? 'maintain visibility) 'private visibility)))
+        ; env variable does not exist, create it
+        (hashtable-set! vars name (cons visibility val))))))
 
 
 ;; Unset an environment variable for specified job.
@@ -268,10 +272,13 @@
 ;; Always returns (void)
 (define (job-env-copy-into-parent! job)
   (let ((parent (job-parent job)))
+    ;;  (debugf ">  job-env-copy-into-parent! job=~s parent=~s" job parent)
     (when parent
       (sh-env-iterate/direct job
         (lambda (name val visibility)
+          ;; (debugf "... job-env-copy-into-parent! name=~s visibility=~s val=~s " name visibility val)
           (if (eq? 'delete visibility)
             (sh-env-delete! parent name)
             (sh-env-set*! parent name val visibility))))))
+    ;; (debugf "<  job-env-copy-into-parent!")
   (void))
