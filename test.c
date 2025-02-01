@@ -428,7 +428,7 @@ static const testcase tests[] = {
      "((string->charline* \"foobar\") (string->charline* \"foo~/bar\"))"},
     {"(let* ((l1 (string->charline* \"abcdefgh\"))\n"
      "       (l2 (charline-copy-on-write l1)))\n"
-     "  (charline-insert-at/cbuf! l1 5 (string->charline* \"012345\") 2 3)\n"
+     "  (charline-insert-at/cbuf! l1 5 (string->charline* \"012345\") 2 5)\n"
      "  (list l1 l2))",
      "((string->charline* \"abcde234fgh\") (string->charline* \"abcdefgh\"))"},
     /* ------------------------ charlines ----------------------------------- */

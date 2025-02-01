@@ -145,20 +145,20 @@
   (charline-dirty-x-add! line x (charline-length line)))
 
 
-; read src-n elements from charspan csp-src,
-; starting from src-start, and insert them into charline at position x
-(define (charline-insert-at/cspan! line x csp-src src-start src-n)
-  (when (fx>? src-n 0)
+; read elements in range [src-start, src-end) from charspan csp-src,
+; and insert them into charline line at position x
+(define (charline-insert-at/cspan! line x csp-src src-start src-end)
+  (when (fx<? src-start src-end)
     (charline-unshare! line)
-    (chargbuffer-insert-at/cspan! line x csp-src src-start (fx+ src-start src-n))
+    (chargbuffer-insert-at/cspan! line x csp-src src-start src-end)
     (charline-dirty-x-add! line x (charline-length line))))
 
-; read src-n elements from charbuffer or charline cbuf-src,
-; starting from src-start, and insert them into charline at position x
-(define (charline-insert-at/cbuf! line x cbuf-src src-start src-n)
-  (when (fx>? src-n 0)
+; read elements in range [src-start, src-end) from charbuffer or charline csp-src,
+; and insert them into charline at position x
+(define (charline-insert-at/cbuf! line x cbuf-src src-start src-end)
+  (when (fx<? src-start src-end)
     (charline-unshare! line)
-    (chargbuffer-insert-at/cbuf! line x cbuf-src src-start (fx+ src-start src-n))
+    (chargbuffer-insert-at/cbuf! line x cbuf-src src-start src-end)
     (charline-dirty-x-add! line x (charline-length line))))
 
 

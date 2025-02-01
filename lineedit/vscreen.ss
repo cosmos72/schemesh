@@ -563,9 +563,8 @@
         ; (debugf "while0 vscreen-overflow-at-y ~s ~s ~s" y line1 screen)
         (vscreen-dirty-set! screen #t)
         (let* ((line1-nl?  (charline-nl? line1))
-               (line1-len  (charline-length line1))
+               (line1-end  (charline-length line1))
                (line1-pos  (vscreen-width-at-y screen y))
-               (n          (fx- line1-len line1-pos))
                (y+1        (fx1+ y))
                (line2-new? (or line1-nl? (fx=? y+1 (vscreen-length screen))))
                (line2      (if line2-new?
@@ -574,11 +573,11 @@
                (line2-nl? (charline-nl? line2)))
           (when line2-new?
             (charlines-insert-at/cline! screen y+1 line2))
-          (unless (fxzero? n)
+          (when (fx<? line1-pos line1-end)
             ;; insert chars into line2
-            (charline-insert-at/cbuf! line2 0 line1 line1-pos n)
+            (charline-insert-at/cbuf! line2 0 line1 line1-pos line1-end)
             ;; remove chars from line1
-            (charline-erase-range! line1 line1-pos (fx+ line1-pos n)))
+            (charline-erase-range! line1 line1-pos line1-end))
           ; (debugf "while1 vscreen-overflow-at-y ~s ~s ~s" y line1 screen)
           ;; iterate on line2, as it may now have length >= vscreen-width-at-y
           (set! y y+1)
@@ -621,8 +620,8 @@
     (when (and pos (fx<? (fx1+ pos) end))
       (let ((line2 (charline))
             (pos+1 (fx1+ pos)))
-        (charline-insert-at/cbuf! line2 0 line pos+1 (fx- end pos+1))
-        (charline-erase-range!       line pos+1 end)
+        (charline-insert-at/cbuf! line2 0 line pos+1 end)
+        (charline-erase-range!    line pos+1 end)
         (charlines-insert-at/cline! screen (fx1+ y) line2)))))
 
 
@@ -686,7 +685,8 @@
   (let-values (((x y line1) (vscreen-insert-at-xy/prepare! screen x y)))
     (let* ((x+1   (fx1+ x))
            (y+1   (fx1+ y))
-           (n     (fx- (charline-length line1) x)) ;; # of chars to move to line2
+           ;; line1 length after we insert the newline
+           (line1-end+1   (fx1+ (charline-length line1)))
            (create-line2? (or (charline-nl? line1)
                               (fx=? y+1 (vscreen-length screen))))
            (line2 (if create-line2? (charline) (charlines-ref screen y+1))))
@@ -694,11 +694,13 @@
       (charline-insert-at! line1 x #\newline)
       (when create-line2?
         (charlines-insert-at/cline! screen y+1 line2))
-      (when (fx>? n 0)
+      (when (fx<? x+1 line1-end+1)
+        ;; (debugf "vscreen-insert-at-xy/newline! before moving range [~s,~s): line1=~s, line2=~s" x+1 line1-end+1 line1 line2)
         ;; insert into line2 the chars from line1 after inserted newline
-        (charline-insert-at/cbuf! line2 0 line1 x+1 n)
+        (charline-insert-at/cbuf! line2 0 line1 x+1 line1-end+1)
         ;; remove from line1 the chars after inserted newline
-        (charline-erase-range! line1 x+1 (fx+ x+1 n)))
+        (charline-erase-range! line1 x+1 line1-end+1))
+        ;; (debugf "vscreen-insert-at-xy/newline! after  moving range [~s,~s): line1=~s, line2=~s" x+1 line1-end+1 line1 line2)
       (vscreen-reflow screen))))
 
 
