@@ -11,7 +11,8 @@
 
 (library (schemesh containers bytespan (0 7 1))
   (export
-    list->bytespan bytevector->bytespan bytevector->bytespan* make-bytespan bytespan->bytevector
+    list->bytespan bytevector->bytespan bytevector->bytespan* make-bytespan
+    bytespan->bytevector bytespan->bytevector*!
     bytespan bytespan? bytespan-length bytespan-empty? bytespan-clear!
     bytespan-capacity bytespan-capacity-front bytespan-capacity-back
     bytespan-ref/u8 bytespan-back/u8 bytespan-set/u8!
@@ -24,7 +25,7 @@
     bytespan-peek-beg bytespan-peek-end bytespan-peek-data)
   (import
     (rnrs)
-    (only (chezscheme) fx1+ fx1- record-writer void)
+    (only (chezscheme) bytevector-truncate! fx1+ fx1- record-writer void)
     (only (schemesh bootstrap) assert*)
     (schemesh containers misc))
 
@@ -57,12 +58,22 @@
     ((n)      (%make-bytespan 0 n (make-bytevector n)))
     ((n fill) (%make-bytespan 0 n (make-bytevector n fill)))))
 
+;; convert a bytespan to bytevector
 (define (bytespan->bytevector sp)
   (let ((beg (bytespan-beg sp))
         (end (bytespan-end sp)))
     (if (fx>=? beg end)
       #vu8()
       (subbytevector (bytespan-vec sp) beg end))))
+
+;; if possible, truncate bytespan to its length and view it as a bytevector.
+;; otherwise convert it to bytevector as (bytespan->bytevector) does.
+(define (bytespan->bytevector*! sp)
+  (if (or (bytespan-empty? sp) (not (fxzero? (bytespan-beg sp))))
+    (bytespan->bytevector sp)
+    (let ((bv (bytespan-vec sp)))
+      (bytevector-truncate! bv (bytespan-end sp))
+      bv)))
 
 (define (bytespan . u8vals)
   (list->bytespan u8vals))

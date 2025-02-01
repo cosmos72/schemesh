@@ -18,7 +18,7 @@
     sh-alias-ref sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
 
     ; dir.ss
-    sh-cwd-set! sh-cd sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
+    sh-cd sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
 
     ; display.ss
     sh-job-display sh-job-display* sh-job-display/string

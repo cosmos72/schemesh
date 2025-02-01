@@ -20,7 +20,6 @@
 #include <stdatomic.h>
 #include <stddef.h> /* size_t, NULL */
 
-
 #include <dirent.h> /* opendir(), readdir(), closedir() */
 #include <errno.h>  /* EINVAL, EIO, errno */
 #include <fcntl.h>
@@ -84,6 +83,14 @@ static int c_errno_eintr(void) {
 
 static int c_errno_einval(void) {
   return -EINVAL;
+}
+
+static int c_errno_enoent(void) {
+  return -ENOENT;
+}
+
+static int c_errno_enotdir(void) {
+  return -ENOTDIR;
 }
 
 static ptr c_strerror(int err) {
@@ -1411,6 +1418,9 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_errno_eio", &c_errno_eio);
   Sregister_symbol("c_errno_eintr", &c_errno_eintr);
   Sregister_symbol("c_errno_einval", &c_errno_einval);
+  Sregister_symbol("c_errno_enoent", &c_errno_enoent);
+  Sregister_symbol("c_errno_enotdir", &c_errno_enotdir);
+
   Sregister_symbol("c_strerror", &c_strerror);
 
   Sregister_symbol("c_chdir", &c_chdir);

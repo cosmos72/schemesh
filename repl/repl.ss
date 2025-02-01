@@ -234,7 +234,7 @@
 
 
 (define (try-eval-file path)
-  (and (string? path) (file-stat path)
+  (and (string? path) (symbol? (file-stat path 'catch))
     (try
       (sh-eval-file path)
       #t

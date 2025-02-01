@@ -39,7 +39,8 @@
     span-peek-beg span-peek-end span-peek-data
 
     ; bytespan.ss
-    list->bytespan bytevector->bytespan bytevector->bytespan* make-bytespan bytespan->bytevector
+    list->bytespan bytevector->bytespan bytevector->bytespan* make-bytespan
+    bytespan->bytevector bytespan->bytevector*!
     bytespan bytespan? bytespan-length bytespan-empty? bytespan-clear!
     bytespan-capacity bytespan-capacity-front bytespan-capacity-back
     bytespan-ref/u8 bytespan-back/u8 bytespan-set/u8!

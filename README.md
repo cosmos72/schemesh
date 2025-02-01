@@ -119,8 +119,11 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 * implement pipeline operator |&
 * implement shell builtins: bg fg exec
 * extend (sh-cmd* "ENV_VAR" '= "VALUE") to set environment variables in *parent* job
+* modify builtin "cd" to change current directory of *parent* job
+* modify builtin "pwd" to print current directory of *current* job
 * implement shell keyword "unsafe", for creating (sh-cmd*) commands whose first argument - the program name -
   is not a string but a closure, as for example the output of a subshell, a wildcard etc.
+* extend builtin "alias", without arguments now lists existing aliases
 * mark and hide temporary redirections created by (sh-pipe) and (sh-pipe*)
 * fix (sh-read...) exception while parsing "#!/some/absolute/path" at the beginning of input
 * fix hang in {history | foo} due to builtins being fully executed when they start:
@@ -138,8 +141,6 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
   the stem starts at the quotes.
 * autocomplete shell paths starting with ~
 * decide: (shell-backquote) should expand to a closure that accepts a parent job and creates a subshell with such parent job?
-* modify builtin "cd", for changing current directory of *parent* job
 * implement builtin "global", for running another builtin with its parent job set to (sh-globals)
 * add missing shell builtins: kill exit export global set unset
-* complete existing builtins: alias, without arguments must list existing aliases
 * implement function (string->sh-patterns)

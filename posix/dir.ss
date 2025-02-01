@@ -26,7 +26,7 @@
 ;; Check existence and type of a filesystem path.
 ;; Mandatory first argument dirpath must be a bytevector, string or charspan.
 ;; Further optional arguments can contain:
-;;   'catch    - return #f instead of raising a condition on C functions error
+;;   'catch    - return numeric c-errno instead of raising a condition on C functions error
 ;;   'symlinks - returned filenames that are symlinks will have type 'symlink
 ;;               instead of the type of the file they point to.
 ;;
@@ -35,15 +35,19 @@
 ;; Returns #f if file does not exist.
 ;;
 (define file-stat
-  (let ((c-file-stat (foreign-procedure "c_file_stat" (ptr ptr) ptr)))
+  (let ((c-file-stat (foreign-procedure "c_file_stat" (ptr int) ptr))
+        (c-errno-einval ((foreign-procedure "c_errno_einval" () int))))
     (lambda (path . options)
       (let* ((symlinks? (memq 'symlinks options))
-             (ret (c-file-stat (text->bytevector0 path) symlinks?)))
+             (ret (c-file-stat (text->bytevector0 path)
+                               (if symlinks? 1 0))))
         (cond
           ((and (fixnum? ret) (fx>=? ret 0))
             (c-type->file-type ret))
-          ((or (eq? ret #f) (memq 'catch options))
+          ((eq? ret #f)
             #f)
+          ((memq 'catch options)
+            (if (fixnum? ret) ret c-errno-einval))
           (#t
             (raise-c-errno 'file-stat (if symlinks? 'lstat 'stat) ret path)))))))
 

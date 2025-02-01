@@ -90,7 +90,7 @@
           (substring (charspan-str sp) (fx+ i beg) (fx+ j beg)))))))
 
 ;; if possible, truncate charspan to its length and view it as a string.
-;; otherwise convert it to string as (charspan-string) does.
+;; otherwise convert it to string as (charspan->string) does.
 (define (charspan->string*! sp)
   (if (or (charspan-empty? sp) (not (fxzero? (charspan-beg sp))))
     (charspan->string sp)
