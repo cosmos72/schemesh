@@ -302,6 +302,7 @@
           (charspan-set! sp pos ch)
           (set! pos (fx1+ pos)))))))
 
+
 (define (charspan-insert-back! sp . charlist)
   (unless (null? charlist)
     (let* ((pos (charspan-length sp))
@@ -312,20 +313,45 @@
           (charspan-set! sp pos elem)
           (set! pos (fx1+ pos)))))))
 
-; prefix a portion of another charspan to this charspan
-(define (charspan-insert-front/cspan! sp-dst sp-src src-start src-n)
-  (assert* 'charspan-insert-front/cspan! (not (eq? sp-dst sp-src)))
-  (unless (fxzero? src-n)
-    (charspan-resize-front! sp-dst (fx+ src-n (charspan-length sp-dst)))
-    (charspan-copy! sp-src src-start sp-dst 0 src-n)))
 
-; append a portion of another charspan to this charspan
-(define (charspan-insert-back/cspan! sp-dst sp-src src-start src-n)
+;; insert range [start, end) of charspan sp-src at the beginning of charspan sp-dst
+(define charspan-insert-front/cspan!
+  (case-lambda
+    ((sp-dst sp-src)
+      (charspan-insert-front/cspan*! sp-dst sp-src 0 (charspan-length sp-src)))
+    ((sp-dst sp-src src-start src-end)
+      (charspan-insert-front/cspan*! sp-dst sp-src src-start src-end))))
+
+
+;; same as (charspan-insert-front/cspan!), with all arguments mandatory
+(define (charspan-insert-front/cspan*! sp-dst sp-src src-start src-end)
+  (assert* 'charspan-insert-front/cspan! (not (eq? sp-dst sp-src)))
+  (assert* 'charspan-insert-front/cspan! (fx<=? 0 src-start src-end (charspan-length sp-src)))
+  (unless (fx>=? src-start src-end)
+    (let ((src-n (fx- src-end src-start)))
+      (charspan-resize-front! sp-dst (fx+ src-n (charspan-length sp-dst)))
+      (charspan-copy! sp-src src-start sp-dst 0 src-n))))
+
+
+; append range [start, end) of charspan sp-src at the end of charspan sp-dst
+(define charspan-insert-back/cspan!
+  (case-lambda
+    ((sp-dst sp-src)
+      (charspan-insert-back/cspan*! sp-dst sp-src 0 (charspan-length sp-src)))
+    ((sp-dst sp-src src-start src-end)
+      (charspan-insert-back/cspan*! sp-dst sp-src src-start src-end))))
+
+
+;; same as (charspan-insert-back/cspan!), with all arguments mandatory
+(define (charspan-insert-back/cspan*! sp-dst sp-src src-start src-end)
   (assert* 'charspan-insert-back/cspan! (not (eq? sp-dst sp-src)))
-  (unless (fxzero? src-n)
-    (let ((pos (charspan-length sp-dst)))
+  (assert* 'charspan-insert-back/cspan! (fx<=? 0 src-start src-end (charspan-length sp-src)))
+  (unless (fx>=? src-start src-end)
+    (let ((pos (charspan-length sp-dst))
+          (src-n (fx- src-end src-start)))
       (charspan-resize-back! sp-dst (fx+ pos src-n))
       (charspan-copy! sp-src src-start sp-dst pos src-n))))
+
 
 ; prefix a portion of a string to this charspan
 (define (charspan-insert-front/string! sp-dst str-src src-start src-n)
@@ -334,6 +360,7 @@
     (string-copy! str-src src-start
                   (charspan-str sp-dst) (charspan-beg sp-dst)
                   src-n)))
+
 
 ; append a portion of a string to this charspan
 (define (charspan-insert-back/string! sp-dst str-src src-start src-n)

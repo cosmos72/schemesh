@@ -106,7 +106,7 @@
         (charspan-insert-back/cspan! left right 0 delta)
         (charspan-erase-front! right delta))
       ((fx<? delta 0)
-        (charspan-insert-front/cspan! right left idx (fx- delta))
+        (charspan-insert-front/cspan! right left idx (fx- idx delta))
         (charspan-erase-back! left (fx- delta))))))
 
 ; insert one char into chargbuffer at position idx
@@ -129,22 +129,22 @@
 ; and insert them into chargbuffer at position idx
 (define (chargbuffer-insert-at/cspan! gb idx csp-src src-start src-n)
   (assert* 'chargbuffer-insert-at/cspan! (fx<=? 0 idx       (chargbuffer-length gb)))
-  (assert* 'chargbuffer-insert-at/cspan! (fx<=? 0 src-start (charspan-length csp-src)))
-  (assert* 'chargbuffer-insert-at/cspan! (fx<=? 0 (fx+ src-start src-n) (charspan-length csp-src)))
+  (assert* 'chargbuffer-insert-at/cspan! (fx<=? 0 src-start  (fx+ src-start src-n) (charspan-length csp-src)))
   (let* ((left   (chargbuffer-left  gb))
          (right  (chargbuffer-right gb))
          (left-n (charspan-length left))
-         (delta  (fx- idx left-n)))
+         (delta  (fx- idx left-n))
+         (src-end (fx+ src-start src-n)))
     (cond
       ((fxzero? src-n) ; nothing to do
         (void))
       ((fxzero? idx)
-        (charspan-insert-front/cspan! left csp-src src-start src-n))
+        (charspan-insert-front/cspan! left csp-src src-start src-end))
       ((fx=? idx (chargbuffer-length gb))
-        (charspan-insert-back/cspan! right csp-src src-start src-n))
+        (charspan-insert-back/cspan! right csp-src src-start src-end))
       (#t
         (chargbuffer-split-at! gb idx)
-        (charspan-insert-back/cspan! left csp-src src-start src-n)))))
+        (charspan-insert-back/cspan! left csp-src src-start src-end)))))
 
 ; read src-n elements from chargbuffer gb-src starting from src-start
 ; and insert them into chargbuffer at position idx

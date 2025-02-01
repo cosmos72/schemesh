@@ -59,7 +59,7 @@
                 (charspan-erase-back! result 1))
               ((not (or sep-before? sep-after?))
                 (charspan-insert-back! result #\/)))
-            (charspan-insert-back/cspan! result next 0 (charspan-length next)))))
+            (charspan-insert-back/cspan! result next))))
       result)))
 
 
@@ -153,7 +153,7 @@
           (#t
             (unless (path-ends-with-sep? prefix)
               (charspan-insert-back! prefix #\/))
-            (charspan-insert-back/cspan! prefix suffix start (fx- end start))))))))
+            (charspan-insert-back/cspan! prefix suffix start end)))))))
 
 
 (define (trim-path-prefix-len path)
