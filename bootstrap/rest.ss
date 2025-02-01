@@ -10,7 +10,7 @@
      assert* catch define-macro debugf debugf-port first-value first-value-or-void
      let-macro raise-assertv raise-assertf raise-errorf repeat
      sh-current-environment sh-current-eval sh-eval sh-eval-string
-     sh-globals sh-pid-table
+     sh-globals sh-pid-table sh-make-parameter sh-make-thread-parameter
      while until throws? trace-call try list->values values->list -> ^)
   (import
     (rnrs)
@@ -18,7 +18,8 @@
     (rnrs exceptions)
     (only (chezscheme) current-time format foreign-procedure fx1- fx/ gensym
                        interaction-environment make-format-condition meta reverse!
-                       time-second time-nanosecond top-level-value void))
+                       time-second time-nanosecond top-level-value void)
+    (schemesh bootstrap first))
 
 
 ;; retrieve value of sh-current-environment set by bootstrap/parameter.ss

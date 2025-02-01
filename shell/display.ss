@@ -11,7 +11,7 @@
 ;; if set to #f, (sh-job-display/summary) does nothing.
 ;; useful in forked sub-processes
 (define sh-job-display/summary?
-  (make-thread-parameter #t))
+  (sh-make-thread-parameter #t))
 
 
 ;; always returns (void) - useful for builtins

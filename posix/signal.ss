@@ -11,9 +11,9 @@
           suspend-handler)
   (import
     (rnrs)
-    (only (chezscheme) assertion-violationf foreign-procedure logbit? make-thread-parameter
+    (only (chezscheme) assertion-violationf foreign-procedure logbit?
                        procedure-arity-mask register-signal-handler void)
-    (only (schemesh bootstrap)    assert*)
+    (only (schemesh bootstrap)            assert* sh-make-thread-parameter)
     (only (schemesh containers hashtable) eq-hashtable hashtable-transpose))
 
 (define signal-table-number->name
@@ -55,7 +55,7 @@
 ;; thread parameter (suspend-handler) must be a procedure accepting zero arguments,
 ;; and it is invoked when schemesh receives signal SIGTSTP
 (define suspend-handler
-  (make-thread-parameter
+  (sh-make-thread-parameter
     void
     (lambda (proc)
       (unless (and (procedure? proc) (logbit? 0 (procedure-arity-mask proc)))

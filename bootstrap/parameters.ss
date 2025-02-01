@@ -12,13 +12,21 @@
 
 (eval-when (compile load eval)
 
+;; INVESTIGATE:
+;; is there a mechanism to preserve the value of a binding defined in a library
+;; when the library itself (or an updated version) is recompiled and reloaded?
+;;
+;; As a workaround, the following defines global bindings in (interaction-environment)
+;; and on reload tries to retrieve (and reuse) their current values.
+
 (let ()
 
 ;; imports are local to scope (let () ...) above
 (import
   (rnrs)
   (only (chezscheme) environment? environment-mutable? eval
-                     interaction-environment logbit? make-parameter make-thread-parameter))
+                     interaction-environment logbit?)
+  (schemesh bootstrap first))
 
 ;; (%raise-errorf) is local to scope (let () ...) above
 (define (%raise-errorf who format-string . format-args)
@@ -38,7 +46,7 @@
 ;; and contains all r6rs and chezscheme bindings.
 (unless (top-level-bound? 'sh-current-environment)
   (set! sh-current-environment
-    (make-thread-parameter
+    (sh-make-thread-parameter
       (interaction-environment)
       (lambda (env)
         (unless (environment? env)
@@ -54,7 +62,7 @@
 ;; Initially set to Chez Scheme's eval, because it can also create definitions.
 (unless (top-level-bound? 'sh-current-eval)
   (set! sh-current-eval
-    (make-thread-parameter
+    (sh-make-thread-parameter
       eval
       (lambda (proc)
         (unless (procedure? proc)
@@ -69,9 +77,10 @@
 ;;
 ;; May be parameterized to a different value in subshells.
 (unless (top-level-bound? 'sh-globals)
-  ; (set! sh-globals (make-thread-parameter #f))) ; fails with "attempt to assign immutable variable sh-globals"
-  (eval '(set! sh-globals (make-parameter #f))
-        (sh-current-environment)))
+  (set! sh-globals (sh-make-thread-parameter #f)))
+  ;((sh-current-eval)
+  ;  '(set! sh-globals (sh-make-parameter #f))
+  ;  (sh-current-environment)))
 
 
 ;; Parameter containing the global hashtable pid -> job.
@@ -79,7 +88,7 @@
 ;; May be parameterized to a different value in subshells.
 (unless (top-level-bound? 'sh-pid-table)
   (set! sh-pid-table
-    (make-parameter
+    (sh-make-parameter
       (make-eqv-hashtable)
       (lambda (htable)
         (unless (hashtable? htable)

@@ -14,8 +14,8 @@
     sh-fd sh-fd* sh-fd? sh-fd->int sh-fd-copy sh-fd-allocate sh-fd-release sh-fd-stdin sh-fd-stdout sh-fd-stderr)
   (import
     (rnrs)
-    (only (chezscheme) fx1+ fx1- make-thread-parameter record-writer)
-    (only (schemesh bootstrap) assert* raise-errorf)
+    (only (chezscheme) fx1+ fx1- record-writer)
+    (only (schemesh bootstrap) assert* sh-make-thread-parameter raise-errorf)
     (schemesh containers bitmap)
     (only (schemesh posix fd) fd-open-max))
 
@@ -88,7 +88,7 @@
 ;; thread parameter (sh-fd-stdin) must be an unsigned fixnum,
 ;; it is used as shell's standard input file descriptor
 (define sh-fd-stdin
-  (make-thread-parameter
+  (sh-make-thread-parameter
     0
     (lambda (fd)
       (unless (and (fixnum? fd) (fx<? -1 fd fd-max))
@@ -99,7 +99,7 @@
 ;; thread parameter (sh-fd-stdout) must be an unsigned fixnum,
 ;; it is used as shell's standard output file descriptor
 (define sh-fd-stdout
-  (make-thread-parameter
+  (sh-make-thread-parameter
     1
     (lambda (fd)
       (unless (and (fixnum? fd) (fx<? -1 fd fd-max))
@@ -110,7 +110,7 @@
 ;; thread parameter (sh-fd-stderr) must be an unsigned fixnum,
 ;; it is used as shell's standard error file descriptor
 (define sh-fd-stderr
-  (make-thread-parameter
+  (sh-make-thread-parameter
     2
     (lambda (fd)
       (unless (and (fixnum? fd) (fx<? -1 fd fd-max))

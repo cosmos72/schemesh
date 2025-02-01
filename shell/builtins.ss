@@ -9,8 +9,8 @@
   (export sh-builtins sh-find-builtin sh-echo sh-error sh-false sh-history sh-repl-args sh-true)
   (import
     (rnrs)
-    (only (chezscheme)                    format fx1+ include make-thread-parameter void)
-    (only (schemesh bootstrap)            debugf raise-errorf)
+    (only (chezscheme)                    format fx1+ include void)
+    (only (schemesh bootstrap)            sh-make-thread-parameter raise-errorf)
     (schemesh containers bytespan)
     (only (schemesh containers charlines) charlines-iterate)
     (only (schemesh containers gbuffer)   gbuffer-iterate)
@@ -40,7 +40,7 @@
 ;;   (parser enabled-parsers eval-func lctx init-file-path quit-file-path)
 ;; containing arguments of current call to (sh-repl) or (sh-repl*)
 (define sh-repl-args
-  (make-thread-parameter
+  (sh-make-thread-parameter
     '()
     (lambda (args)
       (unless (list? args)
