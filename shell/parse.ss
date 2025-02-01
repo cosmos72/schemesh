@@ -98,14 +98,21 @@
         (set! ret-prefix 'sh-redirect!)
         (set! ret-prefix 'sh-list*)))
     (cond
-      ((null? ret) '(sh-cmd))
+      ((null? ret)
+        '(sh-cmd))
       ((null? (cdr ret))
+        ;; when prefix is 'sh-list, unwrap single-element ret.
+        ;;
+        ;; this has the annoying side effect that "{ cd PATH }" becomes "cd PATH"
+        ;;   and the latter changes the current directory of (sh-globals), not of the enclosing "{ ... }",
+        ;;
+        ;; the alternative is worse: if we do *not* unwrap single-element ret,
+        ;;   then a plain "cd PATH" is returned as "{ cd PATH }" which has no effect,
+        ;;   because it only changes the current directory of the enclosing "{ ... }"
         (let ((ret0 (car ret)))
-          (cond
-            ((not (eq? 'sh-list ret-prefix))
-              (cons ret-prefix ret))
-            (#t
-              ret0))))
+          (if (eq? 'sh-list ret-prefix)
+            ret0
+            (cons ret-prefix ret))))
       (#t
        (cons ret-prefix (reverse! (list-quoteq! '(& \x3B;
                                                   ) ret)))))))
