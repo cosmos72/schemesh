@@ -702,7 +702,8 @@
       (vscreen-reflow screen))))
 
 
-;; insert chars in range [start, end) of a charspan into vscreen at specified x and y.
+;; insert chars in range [start, end) of charspan csp
+;; into vscreen at specified x and y.
 ;; Both x and y are clamped to valid range.
 ;;
 ;; If the line at y becomes longer than vscreen-width-at-y,
@@ -710,14 +711,19 @@
 ;; i.e. reflows them according to vscreen width.
 ;;
 ;; If one or more #\newline are inserted, performs a full (vscreen-reflow)
-(define (vscreen-insert-at-xy/cspan! screen x y csp csp-start csp-end)
-  (when (fx<? csp-start csp-end)
-    (let-values (((x y line) (vscreen-insert-at-xy/prepare! screen x y)))
-      (vscreen-dirty-set! screen #t)
-      (charline-insert-at/cspan! line x csp csp-start csp-end)
-      (if (charspan-find/char csp csp-start csp-end #\newline)
-        (vscreen-reflow screen)
-        (vscreen-overflow-at-y screen y)))))
+(define vscreen-insert-at-xy/cspan!
+  (case-lambda
+    ((screen x y csp)
+      (vscreen-insert-at-xy/cspan! screen x y csp 0 (charspan-length csp)))
+    ((screen x y csp csp-start csp-end)
+      (assert* 'vscreen-insert-at-xy/cspan! (fx<=? 0 csp-start csp-end (charspan-length csp)))
+      (when (fx<? csp-start csp-end)
+        (let-values (((x y line) (vscreen-insert-at-xy/prepare! screen x y)))
+          (vscreen-dirty-set! screen #t)
+          (charline-insert-at/cspan! line x csp csp-start csp-end)
+          (if (charspan-find/char csp csp-start csp-end #\newline)
+            (vscreen-reflow screen)
+            (vscreen-overflow-at-y screen y)))))))
 
 
 ;; insert a char, which can be a #\newline, into vscreen at cursor position

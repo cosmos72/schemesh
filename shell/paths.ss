@@ -84,25 +84,32 @@
        (char=? #\/ (charspan-back path))))
 
 
-(define (char-is-sep? ch)
-  (char=? #\/ ch))
-
-;; given a path, split its subset start...start+n using "/" as separator
-;; and call (proc path pos len) on each component of the path,
-;; where pos is the start index of the i-th component in the path, and len is its length.
+;; given a path, split its range [start, end) using "/" as separator
+;; and call (proc path pos-start pos-end) on each component of the path,
+;; where pos-start is the start index of the i-th component in the path,
+;;   and pos-start is its end index.
 ;; stop iterating if (proc ...) returns #f.
 ;;
-;; Returns #t if all calls to (proc path pos len) returned truish,
+;; Returns #t if all calls to (proc path pos-start pos-end) returned truish,
 ;; otherwise returns #f.
-(define (sh-path-iterate path start n proc)
-  (let* ((clen (charspan-length path))
-         (pos  (fxmin clen (fxmax 0 start)))
-         (end  (fxmin clen (fx+ pos (fxmax 0 n))))
+(define sh-path-iterate
+  (case-lambda
+    ((path proc)
+      (sh-path-iterate* path 0 (charspan-length path) proc))
+    ((path start end proc)
+      (sh-path-iterate* path start end proc))))
+
+
+;; same as (sh-path-iterate*), all arguments are mandatory
+(define (sh-path-iterate* path start end proc)
+  (let* ((len (charspan-length path))
+         (pos (fxmin len (fxmax 0 start)))
+         (end (fxmin len (fxmax 0 end)))
          (continue? #t))
     (while (and continue? (fx<? pos end))
-      (let ((sep (or (charspan-find path pos end char-is-sep?)
+      (let ((sep (or (charspan-find/char path pos end #\/)
                      end)))
-        (if (proc path pos (fx- sep pos))
+        (if (proc path pos sep)
           (set! pos (fx1+ sep))
           (set! continue? #f))))
     continue?))
@@ -110,19 +117,19 @@
 ;; given a path, return the length of its parent path.
 ;; returned length include the final "/" ONLY if it's the only character.
 (define (path-parent-len path)
-  (let ((pos (charspan-rfind path char-is-sep?)))
+  (let ((pos (charspan-rfind/char path #\/)))
     (cond
       ((not pos)     0) ;; parent of relative path "foo" is the empty string
       ((fxzero? pos) 1) ;; keep "/" because it's the only character
       (else          pos))))
 
 
-(define (path-is-dot? path start len)
-  (and (fx=? len 1)
+(define (path-is-dot? path start end)
+  (and (fx=? start (fx1- end))
        (char=? #\. (charspan-ref path start))))
 
-(define (path-is-dot-dot? path start len)
-  (and (fx=? len 2)
+(define (path-is-dot-dot? path start end)
+  (and (fx=? start (fx- end 2))
        (char=? #\. (charspan-ref path start))
        (char=? #\. (charspan-ref path (fx1+ start)))))
 
@@ -137,16 +144,16 @@
         (suffix-len (trim-path-suffix-len suffix)))
     (charspan-resize-back! prefix prefix-len)
     (sh-path-iterate suffix 0 suffix-len
-      (lambda (suffix start len)
+      (lambda (elem start end)
         (cond
-          ((or (fxzero? len) (path-is-dot? suffix start len))
+          ((or (fx>=? start end) (path-is-dot? elem start end))
             (void))
-          ((path-is-dot-dot? suffix start len)
+          ((path-is-dot-dot? elem start end)
             (charspan-resize-back! prefix (path-parent-len prefix)))
           (#t
             (unless (path-ends-with-sep? prefix)
               (charspan-insert-back! prefix #\/))
-            (charspan-insert-back/cspan! prefix suffix start len)))))))
+            (charspan-insert-back/cspan! prefix suffix start (fx- end start))))))))
 
 
 (define (trim-path-prefix-len path)
@@ -191,12 +198,12 @@
     (sh-path? obj)
     (let ((path obj)
           (ok? #t))
-      (sh-path-iterate path 0 (charspan-length path)
-        (lambda (path start len)
+      (sh-path-iterate path
+        (lambda (elem start end)
           ;; only first component can be empty i.e. path can start with "/"
-          (when (or (and (fxzero? len) (not (fxzero? start)))
-                    (path-is-dot? path start len)
-                    (path-is-dot-dot? path start len))
+          (when (or (and (fx>=? start end) (not (fxzero? start)))
+                    (path-is-dot? elem start end)
+                    (path-is-dot-dot? elem start end))
             (set! ok? #f))
           ok?)) ; exits early from sh-path-iterate if ok? is #f
       ok?)))

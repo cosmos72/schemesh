@@ -159,8 +159,8 @@
          (n         (charspan-length clipboard)))
     (unless (fxzero? n)
       (let-values (((x y) (vscreen-cursor-ixy screen)))
-        (vscreen-insert-at-xy/cspan! screen x y clipboard 0 n))
-      (when (charspan-find/char clipboard 0 n #\newline)
+        (vscreen-insert-at-xy/cspan! screen x y clipboard))
+      (when (charspan-find/char clipboard #\newline)
         (vscreen-reflow screen))
       (vscreen-cursor-move/right! screen n))))
 
