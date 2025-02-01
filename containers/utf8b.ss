@@ -64,7 +64,7 @@
             (unless (and (fixnum? written-n) (fx=? byte-n written-n))
               (raise-string->utf8b-error written-n))
             (when (fx>? zeropad-byte-n 0)
-              (bytevector-fill-range! bvec byte-n zeropad-byte-n 0))
+              (bytevector-fill-range! bvec byte-n (fx+ byte-n zeropad-byte-n) 0))
             bvec))
         ; (fx>=? start end)
         (if (fxzero? zeropad-byte-n)

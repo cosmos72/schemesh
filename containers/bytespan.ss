@@ -107,13 +107,12 @@
 
 (define (bytespan-fill! sp u8)
   (bytevector-fill-range! (bytespan-vec sp) (bytespan-beg sp)
-                          (bytespan-length sp) u8))
+                          (bytespan-end sp) u8))
 
-(define (bytespan-fill-range! sp start n u8)
-  (assert* 'bytespan-fill-range! (fx>=? start 0))
-  (assert* 'bytespan-fill-range! (fx>=? n 0))
-  (assert* 'bytespan-fill-range! (fx<=? (fx+ start n) (bytespan-length sp)))
-  (bytevector-fill-range! (bytespan-vec sp) (fx+ start (bytespan-beg sp)) n u8))
+(define (bytespan-fill-range! sp start end u8)
+  (assert* 'bytespan-fill-range! (fx<=? 0 start end (bytespan-length sp)))
+  (let ((offset (bytespan-beg sp)))
+    (bytevector-fill-range! (bytespan-vec sp) (fx+ start offset) (fx+ end offset) u8)))
 
 (define (bytespan-copy src)
   (let* ((n (bytespan-length src))

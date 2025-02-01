@@ -134,19 +134,20 @@
 
 
 ;; return a copy of vector vec containing only elements
-;; from start (inclusive) to end (exclusive)
+;; in range [start, end) i.e. from start (inclusive) to end (exclusive)
 (define (subvector vec start end)
-  (assert* 'subvector (fx<=? 0 start end))
+  (assert* 'subvector (fx<=? 0 start end (vector-length vec)))
   (let* ((n (fx- end start))
          (dst (make-vector n)))
     (vector-copy! vec start dst 0 n)
     dst))
 
-;; set n elements of vector from offset = start to specified value
-(define (vector-fill-range! vec start n val)
-  (do ((i 0 (fx1+ i)))
-      ((fx>=? i n))
-    (vector-set! vec (fx+ i start) val)))
+;; set elements in range [start, end) of vector vec specified value
+(define (vector-fill-range! vec start end val)
+  (assert* 'vector-fill-range! (fx<=? 0 start end (vector-length vec)))
+  (do ((i start (fx1+ i)))
+      ((fx>=? i end))
+    (vector-set! vec i val)))
 
 ;; read elements from vector range [start, end) and copy them into a list.
 ;; return such list.
@@ -187,21 +188,22 @@
   (apply bytevector l))
 
 
-;; return a copy of bytevector vec containing only elements
+;; return a copy of bytevector bvec containing only elements
 ;; from start (inclusive) to end (exclusive)
-(define (subbytevector vec start end)
-  (assert* 'subbytevector (fx<=? 0 start end))
+(define (subbytevector bvec start end)
+  (assert* 'subbytevector (fx<=? 0 start end (bytevector-length bvec)))
   (let* ((n (fx- end start))
          (dst (make-bytevector n)))
-    (bytevector-copy! vec start dst 0 n)
+    (bytevector-copy! bvec start dst 0 n)
     dst))
 
-(define (bytevector-fill-range! bvec start n val)
-  (do ((i 0 (fx1+ i)))
-      ((fx>=? i n))
-    (bytevector-u8-set! bvec (fx+ i start) val)))
+(define (bytevector-fill-range! bvec start end val)
+  (assert* 'bytevector-fill-range! (fx<=? 0 start end (bytevector-length bvec)))
+  (do ((i start (fx1+ i)))
+      ((fx>=? i end))
+    (bytevector-u8-set! bvec i val)))
 
-;; (bytevector-iterate l proc) iterates on all elements of given bytevector vec,
+;; (bytevector-iterate l proc) iterates on all elements of given bytevector bvec,
 ;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
 ;;
 ;; Returns #t if all calls to (proc index elem) returned truish,

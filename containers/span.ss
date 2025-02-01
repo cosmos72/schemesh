@@ -95,13 +95,12 @@
   (vector-set! (span-vec sp) (fx+ idx (span-beg sp)) val))
 
 (define (span-fill! sp val)
-  (vector-fill-range! (span-vec sp) (span-beg sp) (span-length sp) val))
+  (vector-fill-range! (span-vec sp) (span-beg sp) (span-end sp) val))
 
-(define (span-fill-range! sp start n val)
-  (assert* 'span-fill-range! (fx>=? start 0))
-  (assert* 'span-fill-range! (fx>=? n 0))
-  (assert* 'span-fill-range! (fx<=? (fx+ start n) (span-length sp)))
-  (vector-fill-range! (span-vec sp) (fx+ start (span-beg sp)) n val))
+(define (span-fill-range! sp start end val)
+  (assert* 'span-fill-range! (fx<=? 0 start end (span-length sp)))
+  (let ((offset (span-beg sp)))
+    (vector-fill-range! (span-vec sp) (fx+ start offset) (fx+ end offset) val)))
 
 
 ;; view the range [start, end) of span sp as a new span, and return it.
