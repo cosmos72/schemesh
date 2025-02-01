@@ -110,6 +110,24 @@ If all went well, you can execute `schemesh`
 In case your environment variable `$PATH` does not contain `/usr/local/bin`,
 the command `schemesh` will not suffice - you will need to run `/usr/local/bin/schemesh`
 
+## IMPLEMENTED
+
+* at startup, (include/lang) initialization file ~/.config/schemesh/repl_init.ss
+* at startup, load history from ~/.cache/schemesh/history.txt
+* at exit, save history to the same file
+* implement (include/lang)
+* implement pipeline operator |&
+* implement shell builtins: bg fg exec
+* extend (sh-cmd* "ENV_VAR" '= "VALUE") to set environment variables in *parent* job
+* implement shell keyword "unsafe", for creating (sh-cmd*) commands whose first argument - the program name -
+  is not a string but a closure, as for example the output of a subshell, a wildcard etc.
+* mark and hide temporary redirections created by (sh-pipe) and (sh-pipe*)
+* fix (sh-read...) exception while parsing "#!/some/absolute/path" at the beginning of input
+* fix hang in {history | foo} due to builtins being fully executed when they start:
+  pipe fd becomes full and blocks further writes, preventing builtin "history" from finishing
+  and causing a deadlock: "foo" is never started.
+  The solution was: modify (sh-pipe) to always start builtins and multijobs in a subprocess
+
 ## TO DO
 
 * consume received signals, i.e. call (sh-consume-signals) from (sh-repl-lineedit)
@@ -121,25 +139,7 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 * autocomplete shell paths starting with ~
 * decide: (shell-backquote) should expand to a closure that accepts a parent job and creates a subshell with such parent job?
 * modify builtin "cd", for changing current directory of *parent* job
-* implement builtin "set", for setting environment variables in *parent* job
 * implement builtin "global", for running another builtin with its parent job set to (sh-globals)
-* implement builtin "unsafe", for executing the output of a subshell or any other closure
-  add check to macro (shell): if first argument contains (shell-backquote), raise condition suggesting to prefix it with "unsafe"
-* add missing shell builtins: kill exit export global set unsafe unset
+* add missing shell builtins: kill exit export global set unset
 * complete existing builtins: alias, without arguments must list existing aliases
 * implement function (string->sh-patterns)
-
-## DONE
-
-* at startup, (include/lang) initialization file ~/.config/schemesh/repl_init.ss
-* at startup, load history from ~/.cache/schemesh/history.txt
-* at exit, save history to the same file
-* implement (include/lang)
-* implement pipeline operator |&
-* mark and hide temporary redirections created by (sh-pipe) and (sh-pipe*)
-* implement missing shell builtins: bg fg exec
-* fix (sh-read...) exception while parsing "#!/some/absolute/path" at the beginning of input
-* fix hang in {history | foo} due to builtins being fully executed when they start:
-  pipe fd becomes full and blocks further writes, preventing builtin "history" from finishing
-  and causing a deadlock: "foo" is never started.
-  The solution was: modify (sh-pipe) to always start builtins and multijobs in a subprocess
