@@ -889,7 +889,6 @@ static const testcase tests[] = {
      "  (sh-pattern \"asdf\" '% \"abc.\" '%! \"a-pr-z\" \"werty\" '?)"
      "  \"asdf.qwerty.\")",
      "#t"},
-    /* currently fails */
     {"(try (sh-pattern-match? (sh-pattern '* '% \"ch\") \"shell.c\") (catch (ex) ex))", "#t"},
     /* initial wildcards never match an initial dot */
     {"(sh-pattern-match? (sh-pattern '? \"foo\")        \".foo\")", "#f"},

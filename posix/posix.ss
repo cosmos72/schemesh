@@ -19,7 +19,9 @@
     directory-list directory-sort! file-stat
 
     ; pattern.ss
-    sh-pattern sh-pattern? span->sh-pattern* sh-pattern->span* sh-pattern-match? sh-wildcard?
+    sh-pattern sh-pattern? span->sh-pattern* sh-pattern->span*
+    sh-pattern-front/string sh-pattern-back/string
+    sh-pattern-match? sh-pattern-match-range? sh-wildcard?
 
     ; pid.ss
     pid-get pgid-get pid-kill pid-wait exit-with-job-status

@@ -8,7 +8,8 @@
 (library (schemesh posix pattern (0 7 1))
   (export
     sh-pattern sh-pattern? span->sh-pattern* sh-pattern->span*
-    sh-pattern-front/string sh-pattern-back/string sh-pattern-match? sh-wildcard?)
+    sh-pattern-front/string sh-pattern-back/string
+    sh-pattern-match? sh-pattern-match-range? sh-wildcard?)
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx1- record-writer void)
@@ -141,18 +142,30 @@
     (if (string? key) key #f)))
 
 
-;; Determine whether sh-pattern matches specified string.
+;; Determine whether sh-pattern p matches specified string.
 ;; Returns #t or #f.
 ;;
-;; Note: if a sh-pattern contains one or more wildcard symbols,
-;; it intentionally never matches the strings "." or ".."
+;; Notes:
+;; 1. if sh-pattern p contains one or more wildcard symbols,
+;;    it intentionally never matches the strings "." or ".."
+;;
+;; 2. if sh-pattern p starts with a wildcard symbol,
+;;    it intentionally never matches strings starting with "."
+;;
 (define (sh-pattern-match? p str)
-  ; (debugf "sh-pattern-match p=~s str=~s" p str)
   (assert* 'sh-pattern-match? (sh-pattern? p))
   (assert* 'sh-pattern-match? (string? str))
+  (sh-pattern-match-range? p str 0 (string-length str)))
+
+
+(define (sh-pattern-match-range? p str str-start str-end)
+  ; (debugf "sh-pattern-match p=~s str=~s" p str)
+  (assert* 'sh-pattern-match-range? (sh-pattern? p))
+  (assert* 'sh-pattern-match-range? (string? str))
   (let* ((sp  (pattern-span p))
          (n   (span-length sp))
-         (len (string-length str)))
+         (len (fx- str-end str-start)))
+    (assert* 'sh-pattern-match-range? (fx<=? 0 str-start str-end (string-length str)))
     ;; handle special cases first
     (cond
       ((span-empty? sp)
@@ -171,22 +184,22 @@
         ; a non-empty pattern without wilcards only matches the string (span-ref sp 0)
         (let ((key (span-ref sp 0)))
           (and (fx=? len (string-length key))
-               (string-range=? key 0 str 0 len))))
-      ((or (string=? str ".") (string=? str ".."))
+               (string-range=? key 0 str str-start len))))
+      ((and (fx<=? len 2) (string-range=? str str-start ".." 0 len))
         ; the special directory names "." and ".." cannot be matched
         ; by any pattern containing wildcards
         #f)
-      ((and (char=? #\. (string-ref str 0)) (symbol? (span-ref sp 0)))
+      ((and (char=? #\. (string-ref str str-start)) (symbol? (span-ref sp 0)))
         ; names starting with #\. cannot be matched
         ; by a pattern starting with a wildcard
         #f)
       (#t
-        (if (%pattern-match/left sp 0 n 0 str 0 len)
+        (if (%pattern-match/left sp 0 n 0 str str-start str-end)
           #t
           #f)))))
 
 
-;; recursively determine whether the range [sp-start, sp-end] of the span sp,
+;; recursively determine whether the range [sp-start, sp-end) of the span sp,
 ;; which may also contain wildcards, matches range [str-start, str-end) of string str.
 ;;
 ;; returns (fx+ ret (fx- sp-end sp-start)) or #f.
@@ -205,7 +218,7 @@
         #f))))
 
 
-;; recursively determine whether the range [sp-start, sp-end] of the span sp,
+;; recursively determine whether the range [sp-start, sp-end) of the span sp,
 ;; which may also contain wildcards, matches range [str-start, str-end) of string str.
 ;;
 ;; returns (fx+ ret (fx- sp-end sp-start)) or #f.
@@ -265,6 +278,8 @@
 ;; 2. number of matched string characters
 (define (%pattern-match/right1 sp sp-start sp-end str str-start str-end)
   (let ((key (%pattern-at sp (fx1- sp-end))))
+    ; (debugf ">   %pattern-match/right1 sp=~s sp-start=~s sp-end=~s key=~s" sp sp-start sp-end key)
+    ; (debugf "... %pattern-match/right1 str=~s str-start=~s str-end=~s" str str-start str-end)
     (cond
       ((string? key)
         (values
@@ -282,7 +297,7 @@
         (values
           (and (fx<? str-start str-end)
                (fx<? sp-start (fx1- sp-end))
-               (%pattern-match/alternative key (span-ref sp (fx- sp-end 2)) (string-ref str (fx1- str-end))))
+               (%pattern-match/alternative key (span-ref sp (fx1- sp-end)) (string-ref str (fx1- str-end))))
           1))
       (#t ; unexpected
         (raise-assertf 'sh-pattern-match? "pattern contains unsupported element: ~s" key)))))
