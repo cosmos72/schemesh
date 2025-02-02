@@ -47,7 +47,9 @@
         (raise-errorf 'sh-repl-args "invalid value, must be a list: " args))
       args)))
 
-;; implementation of "echo" builtin, writes user-specified arguments to file descriptor 1
+;; implementation of "echo" builtin, writes user-specified arguments to file descriptor 1.
+;; separator between arguments is #\space
+;; terminating character after arguments is #\newline
 (define (sh-echo . args)
   (let ((wbuf (make-bytespan 0))
         (fd   (sh-fd-stdout)))
@@ -64,6 +66,8 @@
 
 
 ;; implementation of "echo0" builtin, writes user-specified arguments to file descriptor 1
+;; separator between arguments is #\nul
+;; terminating character after arguments is #\nul
 (define (sh-echo0 . args)
   (let ((wbuf (make-bytespan 0))
         (fd   (sh-fd-stdout)))
