@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh repl (0 7 1))
+(library (schemesh repl (0 7 2))
   (export sh-repl sh-repl* sh-repl-eval sh-repl-eval-list
           sh-repl-lineedit sh-repl-parse sh-repl-print
           sh-repl-exception-handler sh-repl-interrupt-handler

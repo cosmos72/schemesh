@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh lineedit linectx (0 7 1))
+(library (schemesh lineedit linectx (0 7 2))
   (export
     make-linectx make-linectx* linectx? linectx-rbuf linectx-wbuf
     linectx-vscreen linectx-width linectx-height linectx-end-y

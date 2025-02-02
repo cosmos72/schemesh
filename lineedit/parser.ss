@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh lineedit parser (0 7 1))
+(library (schemesh lineedit parser (0 7 2))
   (export
     make-parsectx make-parsectx* parsectx? string->parsectx
     parsectx-in parsectx-current-pos parsectx-previous-pos parsectx-enabled-parsers

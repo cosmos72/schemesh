@@ -36,8 +36,8 @@ LIBS=$(CHEZ_SCHEME_KERNEL) -lz -llz4 -lncurses -ldl -lm -lpthread -luuid $(LIB_I
 ######################################################################################
 # no user-serviceable parts below this line
 ######################################################################################
-LIBSCHEMESH_SO=libschemesh_0.7.1.so
-LIBSCHEMESH_C_SO=libschemesh_c_0.7.1.so
+LIBSCHEMESH_SO=libschemesh_0.7.2.so
+LIBSCHEMESH_C_SO=libschemesh_c_0.7.2.so
 
 SRCS=containers/containers.c eval.c posix/posix.c shell/shell.c
 OBJS=containers.o eval.o posix.o shell.o

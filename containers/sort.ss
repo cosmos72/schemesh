@@ -10,7 +10,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(library (schemesh containers sort (0 7 1))
+(library (schemesh containers sort (0 7 2))
   (export
     span-range-sort! span-sort! vector-range-sort!)
   (import

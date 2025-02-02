@@ -1018,7 +1018,7 @@ static const testcase tests[] = {
      "(sh-subshell (sh-and (sh-cmd abc) (sh-cmd def)))"},
 
 #define INVOKELIB_SHELL_JOBS                                                                       \
-  "(begin (($primitive 3 $invoke-library) '(schemesh shell job) '(0 7 1) 'job)"
+  "(begin (($primitive 3 $invoke-library) '(schemesh shell job) '(0 7 2) 'job)"
 
     /* ------------------------- shell macros ------------------------------- */
     {"(expand '(shell))", /* */

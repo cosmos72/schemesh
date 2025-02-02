@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh shell (0 7 1))
+(library (schemesh shell (0 7 2))
   (export
     ; aliases.ss
     sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
