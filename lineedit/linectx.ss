@@ -23,7 +23,7 @@
     linectx-history linectx-history-index linectx-history-index-set! linectx-to-history*
     linectx-load-history! linectx-save-history
     linectx-clear!  linectx-eof? linectx-eof-set! linectx-redraw? linectx-redraw-set!
-    linectx-return? linectx-return-set!
+    linectx-return? linectx-return-set! linectx-mark-not-bol? linectx-mark-not-bol-set!
     linectx-default-keytable linectx-keytable linectx-keytable-find linectx-keytable-insert!
     linectx-last-key linectx-last-key-set!)
 
@@ -56,7 +56,7 @@
     (mutable stdin)   ; input file descriptor, or binary input port
     (mutable stdout)  ; output file descriptor, or binary output port
     (mutable read-timeout-milliseconds) ; -1 means unlimited timeout
-    ; bitwise or of: flag-eof? flag-return? flag-sigwinch? flag-redraw?
+    ; bitwise or of: flag-eof? flag-return? flag-sigwinch? flag-redraw? flag-mark-not-bol?
     (mutable flags)
     (mutable parser-name)   ; symbol, name of current parser
     (mutable parsers)       ; #f or hashtable symbol -> parser, table of enabled parsers
@@ -80,7 +80,8 @@
 (define flag-eof? 1)
 (define flag-return? 2)
 (define flag-sigwinch? 4)
-(define flag-redraw? 8)
+(define flag-redraw?     8)
+(define flag-mark-not-bol? 16)
 
 (define (linectx-flag? lctx bit)
   (not (fxzero? (fxand bit (linectx-flags lctx)))))
@@ -101,6 +102,8 @@
   (linectx-flag? lctx flag-sigwinch?))
 (define (linectx-redraw? lctx)
   (linectx-flag? lctx flag-redraw?))
+(define (linectx-mark-not-bol? lctx)
+  (linectx-flag? lctx flag-mark-not-bol?))
 
 (define (linectx-eof-set! lctx flag?)
   (linectx-flag-set! lctx flag-eof? flag?))
@@ -110,6 +113,8 @@
   (linectx-flag-set! lctx flag-sigwinch? flag?))
 (define (linectx-redraw-set! lctx flag?)
   (linectx-flag-set! lctx flag-redraw? flag?))
+(define (linectx-mark-not-bol-set! lctx flag?)
+  (linectx-flag-set! lctx flag-mark-not-bol? flag?))
 
 ;; return number of charlines
 (define (linectx-end-y lctx)

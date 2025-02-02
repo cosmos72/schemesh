@@ -60,7 +60,7 @@
     ; lineterm.ss
     lineterm-write/u8 lineterm-write/bvector lineterm-write/bspan lineterm-write/cspan lineterm-write/cbuffer
     lineterm-move-dx lineterm-move-dy lineterm-move-to-bol lineterm-clear-to-eol lineterm-clear-to-eos
-    lineterm-move lineterm-move-from lineterm-move-to
+    lineterm-move lineterm-move-from lineterm-move-to lineterm-write-not-bol-marker
 
     ; paren.ss
     make-paren      make-paren/bad-close

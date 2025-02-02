@@ -78,6 +78,9 @@
 
 ;; redraw everything
 (define (linectx-redraw-all lctx)
+  (when (linectx-mark-not-bol? lctx)
+    (linectx-mark-not-bol-set! lctx #f)
+    (lineterm-write-not-bol-marker lctx))
   (lineterm-move-dy lctx (fx- (linectx-term-y lctx)))
   (lineterm-move-to-bol lctx)
   (linectx-update-prompt lctx)

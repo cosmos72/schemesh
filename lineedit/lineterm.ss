@@ -9,7 +9,7 @@
   (export
     lineterm-write/u8 lineterm-write/bvector lineterm-write/bspan lineterm-write/cspan lineterm-write/cbuffer
     lineterm-move-dx lineterm-move-dy lineterm-move-to-bol lineterm-clear-to-eol lineterm-clear-to-eos
-    lineterm-move lineterm-move-from lineterm-move-to)
+    lineterm-move lineterm-move-from lineterm-move-to lineterm-write-not-bol-marker)
 
   (import
     (rnrs)
@@ -139,7 +139,20 @@
 (define (lineterm-move-to ctx to-x to-y)
   (lineterm-move ctx (linectx-term-x ctx) (linectx-term-y ctx) to-x to-y))
 
-
+;; if cursor is not at beginning of line, write a highlighted space to show that last command
+;; did not write a newline, then move to next line.
+;;
+;; if cursor is at beginning of line, writes some useless spaces that will be erased by prompt and input.
+(define lineterm-write-not-bol-marker
+  (let* ((space-n 256)
+         (spaces (make-bytevector space-n 32)))
+    (lambda (ctx)
+      (let ((wbuf  (linectx-wbuf ctx))
+            (width (linectx-width ctx)))
+        (bytespan-insert-back/bvector! wbuf #vu8(27 91 55 109 32 27 91 109)) ; ESC [ 7 m SPACE ESC [ m
+        (do ((write-n (fx1- width) (fx- write-n space-n)))
+            ((fx<=? write-n 0))
+          (bytespan-insert-back/bvector! wbuf spaces 0 (fxmin write-n space-n)))))))
 
 
 ) ; close library

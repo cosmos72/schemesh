@@ -195,6 +195,7 @@
   (linectx-term-xy-set! lctx 0 0) ; set tty cursor to 0 0
   (linectx-return-set! lctx #f) ; clear flag "user pressed ENTER"
   (linectx-redraw-set! lctx #t) ; set flag "redraw prompt and lines"
+  (linectx-mark-not-bol-set! lctx #t) ; set flag "highlight if prompt is not at bol"
   (let* ((y (linectx-history-index lctx))
          (hist (linectx-history lctx)))
     ; always overwrite last history slot
