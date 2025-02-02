@@ -5,103 +5,66 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-;; if this file is loaded multiple times, only the first one has any effect.
+;; if this file is loaded multiple times, it reuses pre-existing values of bindings
+;;   sh-current-environment sh-current-eval sh-globals sh-pid-table
+;; found in (interaction-environment).
+;;
 ;; implementation note:
-;; this is done by setting the top-level symbols sh-current-environment and sh-current-eval
-;; only if they are not bound yet.
+;;   this is done by setting those top-level bindings only if they are not bound yet.
 
-(eval-when (compile load eval)
-
-;; INVESTIGATE:
-;; is there a mechanism to preserve the value of a binding defined in a library
-;; when the library itself (or an updated version) is recompiled and reloaded?
-;;
-;; As a workaround, the following defines global bindings in (interaction-environment)
-;; and on reload tries to retrieve (and reuse) their current values.
-
-(let ()
-
-;; imports are local to scope (let () ...) above
-(import
-  (rnrs)
-  (only (chezscheme) environment? environment-mutable? eval
-                     interaction-environment logbit?)
-  (schemesh bootstrap first))
-
-;; (%raise-errorf) is local to scope (let () ...) above
-(define (%raise-errorf who format-string . format-args)
-  (call/cc
-    (lambda (k)
-      (raise
-        (condition
-          (make-error)
-          (make-continuation-condition k)
-          (make-who-condition who)
-          (make-format-condition)
-          (make-message-condition format-string)
-          (make-irritants-condition format-args))))))
+(library (schemesh bootstrap parameters)
+  (export sh-current-environment)
+  (import
+    (rnrs)
+    (only (chezscheme) define-top-level-value environment? environment-mutable? eval eval-when
+                       interaction-environment logbit? procedure-arity-mask top-level-bound? top-level-value)
+    (schemesh bootstrap first))
 
 
-;; Thread parameter containing the scheme enviroment where to eval forms,
-;; usually with (sh-eval) that calls ((sh-current-eval) form (sh-current-environment))
-;;
-;; Initially set to Chez Scheme's (interaction-environment), because it's mutable
-;; and contains all r6rs and chezscheme bindings.
-(unless (top-level-bound? 'sh-current-environment)
-  (set! sh-current-environment
-    (sh-make-thread-parameter
-      (interaction-environment)
-      (lambda (env)
-        (unless (environment? env)
-          (%raise-errorf 'sh-current-environment "~s is not an environment" env))
-        (unless (environment-mutable? env)
-          (%raise-errorf 'sh-current-environment "~s is not a mutable environment" env))
-        env))))
+;; retrieve value of sh-current-environment set by bootstrap/first.ss
+(define sh-current-environment (top-level-value 'sh-current-environment (interaction-environment)))
 
 
 ;; Thread parameter containing the eval function to use.
 ;; Will be called as ((sh-current-eval) obj environment).
 ;;
 ;; Initially set to Chez Scheme's eval, because it can also create definitions.
-(unless (top-level-bound? 'sh-current-eval)
-  (set! sh-current-eval
+(unless (top-level-bound? 'sh-current-eval (sh-current-environment))
+  (define-top-level-value 'sh-current-eval
     (sh-make-thread-parameter
       eval
       (lambda (proc)
         (unless (procedure? proc)
-          (%raise-errorf 'sh-current-eval "~s is not a procedure" proc))
+          (raise-errorf 'sh-current-eval "~s is not a procedure" proc))
         (unless (logbit? 2 (procedure-arity-mask proc))
-          (%raise-errorf 'sh-current-eval "~s is not a procedure accepting 2 arguments" proc))
-        proc))))
+          (raise-errorf 'sh-current-eval "~s is not a procedure accepting 2 arguments" proc))
+        proc))
+    (sh-current-environment)))
 
 
 ;; Parameter containing the global job corresponding to this process.
 ;; Jobs started with (sh-start) will be children of (sh-globals).
 ;;
 ;; May be parameterized to a different value in subshells.
-(unless (top-level-bound? 'sh-globals)
-  (set! sh-globals (sh-make-thread-parameter #f)))
-  ;((sh-current-eval)
-  ;  '(set! sh-globals (sh-make-parameter #f))
-  ;  (sh-current-environment)))
+(unless (top-level-bound? 'sh-globals (sh-current-environment))
+  (define-top-level-value 'sh-globals (sh-make-thread-parameter #f) (sh-current-environment)))
 
 
 ;; Parameter containing the global hashtable pid -> job.
 ;;
 ;; May be parameterized to a different value in subshells.
-(unless (top-level-bound? 'sh-pid-table)
-  (set! sh-pid-table
+(unless (top-level-bound? 'sh-pid-table (sh-current-environment))
+  (define-top-level-value 'sh-pid-table
     (sh-make-parameter
       (make-eqv-hashtable)
       (lambda (htable)
         (unless (hashtable? htable)
-          (%raise-errorf 'sh-pid-table "~s is not a hashtable" htable))
+          (raise-errorf 'sh-pid-table "~s is not a hashtable" htable))
         (unless (hashtable-mutable? htable)
-          (%raise-errorf 'sh-pid-table "~s is not a mutable hashtable" htable))
+          (raise-errorf 'sh-pid-table "~s is not a mutable hashtable" htable))
         (unless (eq? (hashtable-equivalence-function htable) eqv?)
-          (%raise-errorf 'sh-pid-table "~s is not an eqv hashtable" htable))
-        htable))))
+          (raise-errorf 'sh-pid-table "~s is not an eqv hashtable" htable))
+        htable))
+    (sh-current-environment)))
 
-
-) ; close let
-) ; close eval-when
+) ; close library

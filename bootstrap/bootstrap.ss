@@ -7,32 +7,34 @@
 
 (library (schemesh bootstrap)
   (export
+     ;; first.ss
+     sh-make-parameter sh-make-thread-parameter raise-assertf raise-assertv raise-errorf
+
+     ;; parameters.ss
+     sh-current-environment
+
+     ;; bootstrap.ss
+     sh-current-environment sh-current-eval sh-globals sh-pid-table sh-eval sh-eval-string
      assert* catch define-macro debugf debugf-port first-value first-value-or-void
-     let-macro raise-assertv raise-assertf raise-errorf repeat
-     sh-current-environment sh-current-eval sh-eval sh-eval-string
-     sh-globals sh-pid-table sh-make-parameter sh-make-thread-parameter
-     while until throws? trace-call try list->values values->list -> ^)
+     let-macro repeat while until throws? trace-call try list->values values->list -> ^)
   (import
     (rnrs)
     (rnrs base)
     (rnrs exceptions)
-    (only (chezscheme) current-time format foreign-procedure fx1- fx/ gensym interaction-environment
-                       make-continuation-condition make-format-condition meta reverse!
-                       time-second time-nanosecond top-level-value void)
-    (schemesh bootstrap first))
+    (only (chezscheme) current-time format foreign-procedure fx1- fx/ gensym
+                       meta reverse! time-second time-nanosecond top-level-value void)
+    (schemesh bootstrap first)
+    (schemesh bootstrap parameters))
 
 
-;; retrieve value of sh-current-environment set by bootstrap/parameter.ss
-(define sh-current-environment (top-level-value 'sh-current-environment))
+;; retrieve value of sh-current-eval set by bootstrap/parameters.ss
+(define sh-current-eval (top-level-value 'sh-current-eval (sh-current-environment)))
 
-;; retrieve value of sh-current-eval set by bootstrap/parameter.ss
-(define sh-current-eval (top-level-value 'sh-current-eval))
+;; retrieve value of sh-globals set by bootstrap/parameters.ss
+(define sh-globals (top-level-value 'sh-globals (sh-current-environment)))
 
-;; retrieve value of sh-globals set by bootstrap/parameter.ss
-(define sh-globals (top-level-value 'sh-globals))
-
-;; retrieve value of sh-pid-table set by bootstrap/parameter.ss
-(define sh-pid-table (top-level-value 'sh-pid-table))
+;; retrieve value of sh-pid-table set by bootstrap/parameters.ss
+(define sh-pid-table (top-level-value 'sh-pid-table (sh-current-environment)))
 
 ;; evaluate a form with (sh-current-eval) in specified environment,
 ;; which is (sh-current-environment) by default
@@ -124,43 +126,6 @@
   (syntax-rules ()
     ((_ pred)          (do () (pred)))
     ((_ pred body ...) (do () (pred) body ...))))
-
-;; Raise a condition describing an assertion violation.
-;; Condition format message and its arguments must be provided by caller.
-(define (raise-assertf who format-string . format-args)
-  (call/cc
-    (lambda (k)
-      (raise
-        (condition
-          (make-assertion-violation)
-          (make-continuation-condition k)
-          (make-who-condition who)
-          (make-format-condition)
-          (make-message-condition format-string)
-          (make-irritants-condition format-args))))))
-
-
-;; Raise a condition describing an assertion violation evaluating a form.
-;; Condition format message is hardcoded, caller needs to provide:
-;; * form - a string containing source code of the failed assertion
-;; * form-values - values of each subform in form
-(define (raise-assertv who form . form-values)
-  (raise-assertf who "failed assertion ~a with arguments ~s" form form-values))
-
-
-;; Raise a condition describing an error.
-;; Condition format message and its arguments must be provided by caller.
-(define (raise-errorf who format-string . format-args)
-  (call/cc
-    (lambda (k)
-      (raise
-        (condition
-          (make-error)
-          (make-continuation-condition k)
-          (make-who-condition who)
-          (make-format-condition)
-          (make-message-condition format-string)
-          (make-irritants-condition format-args))))))
 
 
 ;; alternative implementation of (assert (proc arg ...))

@@ -8,8 +8,8 @@
 
 (library (schemesh repl (0 7 1))
   (export sh-repl sh-repl* sh-repl-eval sh-repl-eval-list
-	  sh-repl-lineedit sh-repl-parse sh-repl-print
-	  sh-repl-exception-handler sh-repl-interrupt-handler
+          sh-repl-lineedit sh-repl-parse sh-repl-print
+          sh-repl-exception-handler sh-repl-interrupt-handler
 
           sh-eval-file/print sh-eval-file/print* sh-eval-port/print*
           sh-eval-parsectx/print* sh-eval-string/print*)
@@ -40,7 +40,7 @@
 
 
 
-;; variant (sh-eval-file) that pretty-print the result(s) instead of returning them
+;; variant of (sh-eval-file) that pretty-print the result(s) instead of returning them
 (define sh-eval-file/print
   (case-lambda
     ((path)
@@ -51,28 +51,28 @@
       (call-with-values (lambda () (sh-eval-file path initial-parser enabled-parsers)) sh-repl-print))))
 
 
-;; variant (sh-eval-file*) that pretty-print the result(s) instead of returning them
+;; variant of (sh-eval-file*) that pretty-print the result(s) instead of returning them
 (define (sh-eval-file/print* path initial-parser enabled-parsers)
   (call-with-values
     (lambda () (sh-eval-file* path initial-parser enabled-parsers))
     sh-repl-print))
 
 
-;; variant (sh-eval-port*) that pretty-print the result(s) instead of returning them
+;; variant of (sh-eval-port*) that pretty-print the result(s) instead of returning them
 (define (sh-eval-port/print* path initial-parser enabled-parsers)
   (call-with-values
     (lambda () (sh-eval-port* path initial-parser enabled-parsers))
     sh-repl-print))
 
 
-;; variant (sh-eval-parsectx*) that pretty-print the result(s) instead of returning them
+;; variant of (sh-eval-parsectx*) that pretty-print the result(s) instead of returning them
 (define (sh-eval-parsectx/print* pctx initial-parser)
   (call-with-values
     (lambda () (sh-eval-parsectx* pctx initial-parser))
     sh-repl-print))
 
 
-;; variant (sh-eval-string*) that pretty-print the result(s) instead of returning them
+;; variant of (sh-eval-string*) that pretty-print the result(s) instead of returning them
 (define (sh-eval-string/print* pctx initial-parser enabled-parsers)
   (call-with-values
     (lambda () (sh-eval-string* pctx initial-parser enabled-parsers))
@@ -205,7 +205,7 @@
   ;; set to #f the init-file-path and quit-file-path saved in (sh-repl-args):
   ;; if (sh-repl* ...) is called from an interrupt handler, we do NOT want to load them again
   (let ((repl-args (list parser print-func lctx #f #f))
-	(suggest-reload? #t))
+        (suggest-reload? #t))
     (call/cc
       (lambda (k-exit)
         (parameterize ((sh-repl-args repl-args)
@@ -232,11 +232,11 @@
               (set! parser updated-parser)
               (set-car! repl-args updated-parser)
               (set! updated-parser (sh-repl-once parser print-func lctx))
-	      (when (and suggest-reload?
-			 (top-level-bound? 'sh-repl)
-			 (not (eq? sh-repl (top-level-value 'sh-repl))))
-		(set! suggest-reload? #f)
-	        (display "; warning: binding for sh-repl changed. Consider switching to the new repl.\n")))))))))
+              (when (and suggest-reload?
+                         (top-level-bound? 'sh-repl)
+                         (not (eq? sh-repl (top-level-value 'sh-repl))))
+                (set! suggest-reload? #f)
+                (display "; warning: binding for sh-repl changed. Consider switching to the new repl.\n")))))))))
 
 
 (define (try-eval-file path)
