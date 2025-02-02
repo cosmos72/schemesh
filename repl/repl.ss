@@ -11,15 +11,15 @@
 	  sh-repl-lineedit sh-repl-parse sh-repl-print
 	  sh-repl-exception-handler sh-repl-interrupt-handler
 
-      sh-eval-file/print sh-eval-file/print* sh-eval-port/print*
-      sh-eval-parsectx/print* sh-eval-string/print*)
+          sh-eval-file/print sh-eval-file/print* sh-eval-port/print*
+          sh-eval-parsectx/print* sh-eval-string/print*)
   (import
     (rnrs)
     (only (rnrs mutable-pairs) set-car!)
     (only (chezscheme)
       abort base-exception-handler break-handler
       console-input-port console-output-port console-error-port
-      debug debug-condition debug-on-exception default-exception-handler display-condition
+      default-exception-handler display-condition
       eval exit-handler expand inspect keyboard-interrupt-handler parameterize
       pretty-print read-token reset reset-handler top-level-bound? top-level-value void)
     (schemesh bootstrap)
@@ -33,7 +33,7 @@
     (schemesh posix signal) ; also for suspend-handler
     (schemesh posix tty)
     (only (schemesh shell)
-       sh-consume-sigchld
+       sh-consume-sigchld sh-exception-handler
        sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
        sh-job-control? sh-job-control-available? sh-make-linectx
        sh-repl-args sh-run/i sh-xdg-cache-home/ sh-xdg-config-home/))
@@ -77,6 +77,11 @@
   (call-with-values
     (lambda () (sh-eval-string* pctx initial-parser enabled-parsers))
     sh-repl-print))
+
+
+;; React to uncaught exceptions
+(define (sh-repl-exception-handler obj)
+  (sh-exception-handler obj (reset-handler)))
 
 
 ;; Read user input.
@@ -168,6 +173,7 @@
     (let ((value (car tail)))
       (unless (eq? (void) value)
         (pretty-print value)))))
+
 
 ;; Parse and execute user input.
 ;; Calls in sequence (sh-repl-lineedit) (sh-repl-parse) (sh-repl-eval-list)
@@ -329,25 +335,6 @@
         (if init-file-path? init-file-path (sh-xdg-config-home/ "schemesh/repl_init.ss"))
         (if quit-file-path? quit-file-path (sh-xdg-config-home/ "schemesh/repl_quit.ss"))))))
 
-
-;; React to uncaught conditions
-(define (sh-repl-exception-handler obj)
-  (let ((port (console-error-port)))
-    (dynamic-wind
-      (lambda () ; before body
-        (put-string port "; ")
-        (display-condition obj port)
-        (newline port)
-        (flush-output-port port))
-      (lambda () ; body
-        (when (or (serious-condition? obj) (not (warning? obj)))
-          (debug-condition obj) ;; save obj into thread-parameter (debug-condition)
-          (if (debug-on-exception)
-            (debug)
-            (put-string port "; type (debug) to enter the debugger.\n"))
-          (flush-output-port port)))
-      (lambda () ; after body
-        ((reset-handler))))))
 
 
 ;; React to calls to (break), to keyboard CTRL+C and to SIGTSTP signal: enter the debugger.

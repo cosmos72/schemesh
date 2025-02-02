@@ -23,7 +23,8 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) fx1+ fx1- make-format-condition record-writer unread-char void)
+    (only (chezscheme) fx1+ fx1- make-continuation-condition
+                       make-format-condition record-writer unread-char void)
     (only (schemesh bootstrap) assert* debugf until while)
     (only (schemesh containers misc) list-iterate)
     (only (schemesh containers hashtable) hashtable-iterate)
@@ -375,27 +376,31 @@
 
 ;; Raise a condition describing a syntax error
 (define (syntax-errorf pctx who format-string . format-args)
-  (raise
-    (if (parsectx? pctx)
-      (condition
-        (make-lexical-violation)
-        (make-i/o-read-error)
-        (make-who-condition who)
-        (make-format-condition)
-        (make-i/o-port-error (parsectx-in pctx))
-        (make-message-condition (string-append format-string " at line ~a, char ~a of ~a"))
-        (make-irritants-condition
-          (append format-args
-            (list (fx1+ (cdr (parsectx-pos pctx)))
-                  (car (parsectx-pos pctx))
-                  (parsectx-in pctx)))))
-      (condition
-        (make-lexical-violation)
-        (make-i/o-read-error)
-        (make-who-condition who)
-        (make-format-condition)
-        (make-message-condition format-string)
-        (make-irritants-condition format-args)))))
+  (call/cc
+    (lambda (k)
+      (raise
+        (if (parsectx? pctx)
+          (condition
+            (make-lexical-violation)
+            (make-i/o-read-error)
+            (make-i/o-port-error (parsectx-in pctx))
+            (make-continuation-condition k)
+            (make-who-condition who)
+            (make-format-condition)
+            (make-message-condition (string-append format-string " at line ~a, char ~a of ~a"))
+            (make-irritants-condition
+             (append format-args
+               (list (fx1+ (cdr (parsectx-pos pctx)))
+                     (car (parsectx-pos pctx))
+                     (parsectx-in pctx)))))
+          (condition
+            (make-lexical-violation)
+            (make-i/o-read-error)
+            (make-continuation-condition k)
+            (make-who-condition who)
+            (make-format-condition)
+            (make-message-condition format-string)
+            (make-irritants-condition format-args)))))))
 
 
 ;; customize how "parser" objects are printed

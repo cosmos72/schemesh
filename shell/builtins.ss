@@ -6,11 +6,13 @@
 ;;; (at your option) any later version.
 
 (library (schemesh shell builtins (0 7 1))
-  (export sh-builtins sh-find-builtin sh-echo sh-error sh-false sh-history sh-repl-args sh-true)
+  (export sh-builtins sh-find-builtin sh-exception-handler
+          sh-echo sh-error sh-false sh-history sh-repl-args sh-true)
   (import
     (rnrs)
-    (only (chezscheme)                    format fx1+ include void)
-    (only (schemesh bootstrap)            sh-make-thread-parameter raise-errorf)
+    (only (chezscheme)           console-error-port debug debug-condition debug-on-exception
+                                 display-condition reset-handler void)
+    (only (schemesh bootstrap)      sh-make-thread-parameter raise-errorf)
     (schemesh containers bytespan)
     (only (schemesh containers charlines) charlines-iterate)
     (only (schemesh containers gbuffer)   gbuffer-iterate)
@@ -46,6 +48,30 @@
       (unless (list? args)
         (raise-errorf 'sh-repl-args "invalid value, must be a list: " args))
       args)))
+
+
+;; React to uncaught conditions
+(define sh-exception-handler
+  (case-lambda
+    ((obj proc-after-body)
+      (let ((port (console-error-port)))
+        (dynamic-wind
+          (lambda () ; before body
+            (put-string port "; ")
+            (display-condition obj port)
+            (newline port)
+            (flush-output-port port))
+          (lambda () ; body
+            (when (or (serious-condition? obj) (not (warning? obj)))
+              (debug-condition obj) ;; save obj into thread-parameter (debug-condition)
+              (if (debug-on-exception)
+                (debug)
+                (put-string port "; type (debug) to enter the debugger, or (debug-condition) to retrieve the condition.\n"))
+              (flush-output-port port)))
+          proc-after-body)))
+    ((obj)
+      (sh-exception-handler obj void))))
+
 
 ;; implementation of "echo" builtin, writes user-specified arguments to file descriptor 1.
 ;; separator between arguments is #\space

@@ -272,7 +272,7 @@
 ;; Always returns (void)
 (define (job-env-copy-into-parent! job)
   (let ((parent (job-parent job)))
-    ;;  (debugf ">  job-env-copy-into-parent! job=~s parent=~s" job parent)
+    ;; (debugf ">  job-env-copy-into-parent! job=~s parent=~s" job parent)
     (when parent
       (sh-env-iterate/direct job
         (lambda (name val visibility)

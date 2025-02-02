@@ -12,8 +12,8 @@
     sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
 
     ; builtins.ss
-    sh-alias-ref sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
-    sh-builtins sh-find-builtin sh-echo sh-error sh-false sh-history sh-repl-args sh-true
+    sh-builtins sh-find-builtin sh-exception-handler
+    sh-echo sh-error sh-false sh-history sh-repl-args sh-true
 
     ; eval.ss
     sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*

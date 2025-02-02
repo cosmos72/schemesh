@@ -16,8 +16,8 @@
     (rnrs)
     (rnrs base)
     (rnrs exceptions)
-    (only (chezscheme) current-time format foreign-procedure fx1- fx/ gensym
-                       interaction-environment make-format-condition meta reverse!
+    (only (chezscheme) current-time format foreign-procedure fx1- fx/ gensym interaction-environment
+                       make-continuation-condition make-format-condition meta reverse!
                        time-second time-nanosecond top-level-value void)
     (schemesh bootstrap first))
 
@@ -128,13 +128,16 @@
 ;; Raise a condition describing an assertion violation.
 ;; Condition format message and its arguments must be provided by caller.
 (define (raise-assertf who format-string . format-args)
-  (raise
-    (condition
-      (make-assertion-violation)
-      (make-who-condition who)
-      (make-format-condition)
-      (make-message-condition format-string)
-      (make-irritants-condition format-args))))
+  (call/cc
+    (lambda (k)
+      (raise
+        (condition
+          (make-assertion-violation)
+          (make-continuation-condition k)
+          (make-who-condition who)
+          (make-format-condition)
+          (make-message-condition format-string)
+          (make-irritants-condition format-args))))))
 
 
 ;; Raise a condition describing an assertion violation evaluating a form.
@@ -148,13 +151,16 @@
 ;; Raise a condition describing an error.
 ;; Condition format message and its arguments must be provided by caller.
 (define (raise-errorf who format-string . format-args)
-  (raise
-    (condition
-      (make-error)
-      (make-who-condition who)
-      (make-format-condition)
-      (make-message-condition format-string)
-      (make-irritants-condition format-args))))
+  (call/cc
+    (lambda (k)
+      (raise
+        (condition
+          (make-error)
+          (make-continuation-condition k)
+          (make-who-condition who)
+          (make-format-condition)
+          (make-message-condition format-string)
+          (make-irritants-condition format-args))))))
 
 
 ;; alternative implementation of (assert (proc arg ...))

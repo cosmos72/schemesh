@@ -336,7 +336,7 @@
                          "")))))
         (span->list (%patterns/expand sp 0 (span-length sp) dir ret))))
     (catch (ex)
-      (debug-condition ex) ;; save ex into thread-parameter (debug-condition)
+      (sh-exception-handler ex)
       '())))
 
 

@@ -30,13 +30,16 @@
 
 ;; (%raise-errorf) is local to scope (let () ...) above
 (define (%raise-errorf who format-string . format-args)
-  (raise
-    (condition
-      (make-error)
-      (make-who-condition who)
-      (make-format-condition)
-      (make-message-condition format-string)
-      (make-irritants-condition format-args))))
+  (call/cc
+    (lambda (k)
+      (raise
+        (condition
+          (make-error)
+          (make-continuation-condition k)
+          (make-who-condition who)
+          (make-format-condition)
+          (make-message-condition format-string)
+          (make-irritants-condition format-args))))))
 
 
 ;; Thread parameter containing the scheme enviroment where to eval forms,

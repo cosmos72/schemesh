@@ -570,16 +570,8 @@
 ;;     their redirected file descriptors from main schemesh process will no longer deadlock.
 ;;
 (define (sh-start job . options)
-  (let ((ret #f))
-    (dynamic-wind
-      void
-      (lambda ()
-        (start-any 'sh-start job options)
-        (set! ret (job-id-update! job))) ; sets job-id if started, otherwise unsets it. also returns job status
-      (lambda ()
-        (unless ret
-          (job-id-update! job)))) ; sets job-id if started, otherwise unsets it.
-    ret))
+  (start-any 'sh-start job options)
+  (job-id-update! job)) ; sets job-id if started, otherwise unsets it. also returns job status
 
 
 ;; Internal functions called by (sh-start)
@@ -588,8 +580,8 @@
   (call/cc
     (lambda (k-continue)
       (with-exception-handler
-        (lambda (except)
-          (start-any/on-exception caller job options k-continue except))
+        (lambda (ex)
+          (start-any/on-exception caller job options k-continue ex))
         (lambda ()
           (start-any/may-throw caller job options)))))
   (when (job-pid job)
@@ -616,15 +608,15 @@
   (void))
 
 
-(define (start-any/on-exception caller job options k-continue except)
-  ;; propagate exception and status also to parent jobs, or let the various (job-step/...) do it?
-  (job-exception-set! job except)
+(define (start-any/on-exception caller job options k-continue ex)
+  (job-parents-iterate job
+    (lambda (parent)
+      (unless (eq? parent (sh-globals))
+        (job-exception-set! parent ex))))
   (job-status-set! caller job '(killed . exception))
   (if (memq 'catch options)
-    (begin
-      (start-any/display-condition except (console-error-port))
-      (k-continue (void)))
-    (raise except)))
+    (k-continue (sh-exception-handler ex))
+    (raise ex)))
 
 
 (define (start-any/display-condition obj port)
