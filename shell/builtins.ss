@@ -47,7 +47,6 @@
         (raise-errorf 'sh-repl-args "invalid value, must be a list: " args))
       args)))
 
-
 ;; implementation of "echo" builtin, writes user-specified arguments to file descriptor 1
 (define (sh-echo . args)
   (let ((wbuf (make-bytespan 0))
@@ -60,6 +59,20 @@
       (when (fx>=? (bytespan-length wbuf) 4096)
         (fd-write/bspan! fd wbuf)))
     (bytespan-insert-back/u8! wbuf 10) ; newline
+    (fd-write/bspan! fd wbuf))
+  (void))
+
+
+;; implementation of "echo0" builtin, writes user-specified arguments to file descriptor 1
+(define (sh-echo0 . args)
+  (let ((wbuf (make-bytespan 0))
+        (fd   (sh-fd-stdout)))
+    (do ((tail args (cdr tail)))
+        ((null? tail))
+      (bytespan-insert-back/string! wbuf (car tail))
+      (bytespan-insert-back/u8! wbuf 0) ; #\nul
+      (when (fx>=? (bytespan-length wbuf) 4096)
+        (fd-write/bspan! fd wbuf)))
     (fd-write/bspan! fd wbuf))
   (void))
 
@@ -126,6 +139,12 @@
   (apply sh-echo (cdr prog-and-args)))
 
 
+;; the "echo0" builtin
+(define (builtin-echo0 job prog-and-args options)
+  (assert-string-list? 'builtin-echo0 prog-and-args)
+  (apply sh-echo0 (cdr prog-and-args)))
+
+
 ;; the "error" builtin
 (define (builtin-error job prog-and-args options)
   (assert-string-list? 'builtin-error prog-and-args)
@@ -171,6 +190,7 @@
   (let ((t (make-hashtable string-hash string=?)))
     (hashtable-set! t ":"       builtin-true)
     (hashtable-set! t "echo"    builtin-echo)
+    (hashtable-set! t "echo0"   builtin-echo0)
     (hashtable-set! t "error"   builtin-error)
     (hashtable-set! t "false"   builtin-false)
     (hashtable-set! t "history" builtin-history)
