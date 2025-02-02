@@ -949,7 +949,7 @@ static ptr c_dirent_type2(DIR*                dir,
  *
  * On other errors, return Scheme integer -errno
  */
-static ptr c_file_stat(ptr bytevector0_path, int keep_symlinks) {
+static ptr c_file_type(ptr bytevector0_path, int keep_symlinks) {
   struct stat buf;
   const char* path;
   iptr        pathlen;
@@ -1458,7 +1458,7 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_get_userhome", &c_get_userhome);
   Sregister_symbol("c_exit", &c_exit);
   Sregister_symbol("c_directory_list", &c_directory_list);
-  Sregister_symbol("c_file_stat", &c_file_stat);
+  Sregister_symbol("c_file_type", &c_file_type);
 
   c_register_c_functions_posix_signals();
   return 0;

@@ -67,7 +67,7 @@
 ;; path will be normalized, and must be an accessible directory on filesystem.
 ;; if job resolves to (sh-globals), C function chdir() will also be called.
 ;;
-;; Returns (void) if successful, otherwise returns '(exited . 1)
+;; Returns (void) if successful, otherwise raises exception.
 (define sh-cd
   (case-lambda
     (()
@@ -83,7 +83,7 @@
       (job-cd job-or-id path))
 
     ((job-or-id path . extra-args)
-      (write-builtin-error "cd" "too many arguments"))))
+      (raise-errorf 'cd "too many arguments"))))
 
 
 ;; internal function called by (sh-cd)
@@ -92,7 +92,7 @@
 ;; that will be normalized and must be an accessible directory on filesystem.
 ;; if job resolves to (sh-globals), C function chdir() will also be called.
 ;;
-;; Returns (void) if successful, otherwise returns '(exited . 1)
+;; Returns (void) if successful, otherwise raises exception.
 (define (job-cd job-or-id path)
   (let* ((job    (sh-job job-or-id))
          (suffix (text->sh-path* path))
@@ -102,7 +102,7 @@
          (c-err  (job-cd/bv0 job (bytespan->bytevector*! (charspan->utf8b/0 dir)))))
     (if (= c-err 0)
       (job-cwd-set! job dir)
-      (write-builtin-error "cd"
+      (raise-errorf 'cd "~s: ~a"
         (if (string? path) path (charspan->string path))
         (c-errno->string c-err))))) ; returns '(exited . 1)
 
@@ -117,7 +117,7 @@
     (lambda (job path-bv0)
       (if (eq? job (sh-globals))
         (c_chdir path-bv0)
-        (let ((ret (file-stat path-bv0 'catch)))
+        (let ((ret (file-type path-bv0 'catch)))
           (cond
             ((eq? ret 'dir)
               0)

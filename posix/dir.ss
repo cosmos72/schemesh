@@ -7,7 +7,7 @@
 
 
 (library (schemesh posix dir (0 7 1))
-  (export directory-list directory-sort! file-stat)
+  (export directory-list directory-sort! file-type)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -34,12 +34,12 @@
 ;;   'unknown 'blockdev 'chardev 'dir 'fifo 'file 'socket 'symlink
 ;; Returns #f if file does not exist.
 ;;
-(define file-stat
-  (let ((c-file-stat (foreign-procedure "c_file_stat" (ptr int) ptr))
+(define file-type
+  (let ((c-file-type (foreign-procedure "c_file_type" (ptr int) ptr))
         (c-errno-einval ((foreign-procedure "c_errno_einval" () int))))
     (lambda (path . options)
       (let* ((symlinks? (memq 'symlinks options))
-             (ret (c-file-stat (text->bytevector0 path)
+             (ret (c-file-type (text->bytevector0 path)
                                (if symlinks? 1 0))))
         (cond
           ((and (fixnum? ret) (fx>=? ret 0))
@@ -49,7 +49,7 @@
           ((memq 'catch options)
             (if (fixnum? ret) ret c-errno-einval))
           (#t
-            (raise-c-errno 'file-stat (if symlinks? 'lstat 'stat) ret path)))))))
+            (raise-c-errno 'file-type (if symlinks? 'lstat 'stat) ret path)))))))
 
 
 ;; List contents of a filesystem directory, in arbitrary order.

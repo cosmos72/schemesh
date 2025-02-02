@@ -56,7 +56,7 @@
         ; all elements are strings -> concatenate them
         (let ((str (sh-wildcard->string w)))
           (cond
-            ((file-stat str 'catch 'symlinks)
+            ((file-type str 'catch 'symlinks)
               (list str)) ; path exists, return a list containing only it
             (string-if-no-match?
               str)        ; path does not exist, return a string
@@ -346,7 +346,7 @@
   ; (debugf "%patterns/expand patterns=~s, path=~s" (span-range->span* sp i sp-end) path)
   (cond
     ((fx>=? i sp-end) ; check that path exists
-      (when (file-stat path 'catch 'symlinks)
+      (when (file-type path 'catch 'symlinks)
         ; if patterns do not end with #\/ then remove any final #\/ from path
         (when (and (string-ends-with/char? path #\/)
                    (not (%patterns-end-with/char? sp #\/)))
@@ -356,7 +356,7 @@
     ((string? (span-ref sp i))
       (let ((subpath (%path-append path (span-ref sp i))))
         ; check that subpath exists.
-        (if (file-stat subpath 'catch)
+        (if (file-type subpath 'catch)
           (%patterns/expand sp (fx1+ i) sp-end subpath ret)
           ret)))
     (#t

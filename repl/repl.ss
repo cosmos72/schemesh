@@ -29,7 +29,7 @@
     (schemesh lineedit linectx)
     (schemesh lineedit lineedit)
     (schemesh parser)
-    (only (schemesh posix dir) file-stat)
+    (only (schemesh posix dir) file-type)
     (schemesh posix signal) ; also for suspend-handler
     (schemesh posix tty)
     (only (schemesh shell)
@@ -234,7 +234,7 @@
 
 
 (define (try-eval-file path)
-  (and (string? path) (symbol? (file-stat path 'catch))
+  (and (string? path) (symbol? (file-type path 'catch))
     (try
       (sh-eval-file path)
       #t
