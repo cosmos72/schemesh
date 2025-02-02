@@ -170,7 +170,7 @@
 
 ;; always returns (void). Useful for (builtin/start)
 (define (%warn-bad-builtin-exit-status builtin args status)
-  (format (current-error-port)
+  (format (console-error-port)
     "; warning: invalid exit status ~s of builtin ~s called with arguments ~s\n"
     status builtin args)
   (void))

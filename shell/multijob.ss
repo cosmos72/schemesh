@@ -106,7 +106,8 @@
       (validate-job-proc kind (car tail))))
   (let ((mj
     (%make-multijob
-      #f #f #f '(new . 0) ; id pid pgid last-status
+      #f #f #f        ; id pid pgid
+      '(new . 0) #f   ; last-status exception
       (span) 0 #f '() ; redirections
       start-proc      ; executed to start the job
       next-proc       ; executed when a child job changes status
@@ -372,7 +373,7 @@
       (begin
         ; start next child job
         (multijob-current-child-index-set! mj idx)
-        (let ((child-status (start/any child '())))
+        (let ((child-status (start-any 'sh-and child '(catch))))
           (when (job-status-finished? child-status)
             ; child job already finished, iterate
             (job-step/and mj child-status))))
@@ -394,7 +395,7 @@
       (begin
         ; start next child job
         (multijob-current-child-index-set! mj idx)
-        (let ((child-status (start/any child '())))
+        (let ((child-status (start-any 'sh-or child '(catch))))
           (when (job-status-finished? child-status)
             ; child job already finished, iterate
             (job-step/or mj child-status))))
@@ -417,7 +418,7 @@
       (begin
         ; start child job
         (multijob-current-child-index-set! mj idx)
-        (let ((child-status (start/any child '())))
+        (let ((child-status (start-any 'sh-not child '(catch))))
           (when (job-status-finished? child-status)
             ; child job already finished, iterate
             (job-step/not mj child-status))))
@@ -449,7 +450,7 @@
         ; (debugf "job-step-list status = ~s, start child ~s = ~s" (job-last-status mj) idx child)
         (when (sh-job? child)
           ; start next child job
-          (let* ((child-status (start/any child '()))
+          (let* ((child-status (start-any 'sh-list child '(catch)))
                  (child-started? (job-status-started? child-status)))
             ; iterate on subsequent child jobs in two cases:
             ; if child job is followed by '&

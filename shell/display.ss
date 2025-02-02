@@ -17,7 +17,7 @@
 ;; always returns (void) - useful for builtins
 (define sh-job-display/summary
   (case-lambda
-    ((job-or-id)      (sh-job-display/summary* job-or-id (current-output-port)))
+    ((job-or-id)      (sh-job-display/summary* job-or-id (console-output-port)))
     ((job-or-id port) (sh-job-display/summary* job-or-id port))))
 
 
@@ -68,7 +68,7 @@
 ;; display a job using terse shell syntax {foo && bar || baz ...}
 (define sh-job-display
   (case-lambda
-    ((job-or-id)      (sh-job-display* job-or-id (current-output-port)))
+    ((job-or-id)      (sh-job-display* job-or-id (console-output-port)))
     ((job-or-id port) (sh-job-display* job-or-id port))))
 
 
@@ -212,7 +212,7 @@
 ;; display a job using verbose Scheme syntax (sh-or (sh-and (sh-cmd "foo") (sh-cmd "bar")) ...)
 (define sh-job-write
   (case-lambda
-    ((job-or-id)      (sh-job-write* job-or-id (current-output-port)))
+    ((job-or-id)      (sh-job-write* job-or-id (console-output-port)))
     ((job-or-id port) (sh-job-write* job-or-id port))))
 
 

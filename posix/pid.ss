@@ -17,7 +17,7 @@
     (only (schemesh posix signal) signal-name->number signal-raise)
     (only (schemesh posix fd)     c-exit))
 
-; (pid-get) returns pid of current process
+;; (pid-get) returns pid of current process
 (define pid-get
   (let ((c-pid-get (foreign-procedure "c_pid_get" () int)))
     (lambda ()
@@ -26,7 +26,7 @@
           (raise-c-errno 'pid-get 'getpid ret))
         ret))))
 
-; (pgid-get) returns process group of specified process (0 = current process)
+;; (pgid-get) returns process group of specified process (0 = current process)
 (define pgid-get
   (let ((c-pgid-get (foreign-procedure "c_pgid_get" (int) int)))
     (lambda (pid)
@@ -36,14 +36,14 @@
         ret))))
 
 
-; (pid-kill pid signal-name) calls C function kill(pid, sig) i.e. sends specified signal
-; to the process(es) identified by pid.
-; Notes:
-;   pid ==  0 means "all processes in the same process group as the caller".
-;   pid == -1 means "all processes".
-;   pid <  -1 means "all processes in process group -pid"
+;; (pid-kill pid signal-name) calls C function kill(pid, sig) i.e. sends specified signal
+;; to the process(es) identified by pid.
+;; Notes:
+;;   pid ==  0 means "all processes in the same process group as the caller".
+;;   pid == -1 means "all processes".
+;;   pid <  -1 means "all processes in process group -pid"
 ;
-; Returns < 0 if signal-name is unknown, or if C function kill() fails with C errno != 0.
+;; Returns < 0 if signal-name is unknown, or if C function kill() fails with C errno != 0.
 (define pid-kill
   (let ((c-pid-kill (foreign-procedure "c_pid_kill" (int int) int))
         (c-errno-einval ((foreign-procedure "c_errno_einval" () int))))
@@ -55,20 +55,20 @@
           c-errno-einval)))))
 
 
-; (pid-wait pid may-block) calls waitpid(pid, WUNTRACED) i.e. checks if process specified by
-; pid exited or stopped. Notes: pid ==  0 means "any process in the same process group as
-; the caller". pid == -1 means "any child process". pid <  -1 means "any process in process
-; group -pid".
+;; (pid-wait pid may-block) calls waitpid(pid, WUNTRACED) i.e. checks if process specified by
+;; pid exited or stopped. Notes: pid ==  0 means "any process in the same process group as
+;; the caller". pid == -1 means "any child process". pid <  -1 means "any process in process
+;; group -pid".
 ;
-; Argument may-block must be either 'blocking or 'nonblocking.
-; If may-block is 'blocking, wait until pid (or any child process, if pid == -1) exits or
-; stops, otherwise check for such conditions without blocking.
+;; Argument may-block must be either 'blocking or 'nonblocking.
+;; If may-block is 'blocking, wait until pid (or any child process, if pid == -1) exits or
+;; stops, otherwise check for such conditions without blocking.
 ;
-; If waitpid() fails with C errno != 0, return < 0.
-; If no child process matches pid, or if may_block is 'nonblocking and no child exited or
-; stopped, return '().
-; Otherwise return a Scheme cons (pid . exit_flag), where exit_flag is one of:
-; process_exit_status, or 256 + signal, or 512 + stop_signal.
+;; If waitpid() fails with C errno != 0, return < 0.
+;; If no child process matches pid, or if may_block is 'nonblocking and no child exited or
+;; stopped, return '().
+;; Otherwise return a Scheme cons (pid . exit_flag), where exit_flag is one of:
+;; process_exit_status, or 256 + signal, or 512 + stop_signal.
 (define pid-wait
   (let ((c-pid-wait (foreign-procedure "c_pid_wait" (int int) ptr)))
     (lambda (pid may-block)
@@ -76,13 +76,14 @@
       (c-pid-wait pid (if (eq? may-block 'blocking) 1 0)))))
 
 
-; Call kill() or exit() to terminate current process with job-status, which can be one of:
-;   (void)                       ; will call C function exit(0)
-;   (cons 'exited  exit-status)  ; will call C function exit(exit_status)
-;   (cons 'killed  signal-name)  ; will call C function kill(getpid(), signal_number)
-;               ; unless signal-name is one of: 'sigstop 'sigtstp 'sigcont 'sigttin 'sigttou
-;               ; if kill() returns, will call C function exit(128 + signal_number)
-;   ... any other value ... ;  will call C function exit(255)
+;; Call C functions kill() or exit() to terminate current process with job-status,
+;; which can be one of:
+;;   (void)                       ; will call C function exit(0)
+;;   (cons 'exited  exit-status)  ; will call C function exit(exit_status)
+;;   (cons 'killed  signal-name)  ; will call C function kill(getpid(), signal_number)
+;;               ; unless signal-name is one of: 'sigstop 'sigtstp 'sigcont 'sigttin 'sigttou
+;;               ; if kill() returns, will call C function exit(128 + signal_number)
+;;   ... any other value ... ;  will call C function exit(255)
 (define (exit-with-job-status status)
   ; (debugf "exit-with-job-status ~s" status)
   (let ((exit-status

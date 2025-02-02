@@ -18,6 +18,8 @@
     (mutable pgid job-pgid %job-pgid-set!) ; #f or integer > 0: process group id
      ; cons: last known status, or (void) if job exited successfully
     (mutable last-status job-last-status %job-last-status-set!)
+    ; #f or exception that caused the job to terminate
+    (mutable exception)
     ; span of quadruplets (fd mode to-fd-or-path-or-closure bytevector0)
     ; to open and redirect between fork() and exec()
     (mutable redirects)
@@ -37,7 +39,7 @@
     (mutable env-lazy)   ; #f or span of env variable name each followed by string or procedure
     (mutable parent))    ; parent job, contains default values of env variables
                          ; and default redirections
-  (nongenerative #{job ghm1j1xb9o5tkkhhucwauly2c-1178}))
+  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-0}))
 
 
 ;; Define the record type "cmd"
@@ -47,7 +49,7 @@
   (fields
     arg-list                     ; list of strings and closures: program-name and args
     (mutable expanded-arg-list)) ; #f or list of strings: program-name and args after applying closures and expanding aliases
-  (nongenerative #{cmd ghm1j1xb9o5tkkhhucwauly2c-1179}))
+  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-1}))
 
 
 ;; Define the record type "multijob"
@@ -58,7 +60,7 @@
     kind                ; symbol: one of 'sh-and 'sh-or 'sh-not 'sh-list 'sh-subshell '#<global>
     (mutable current-child-index) ; -1 or index of currently running child job
     children)           ; span: children jobs.
-  (nongenerative #{multijob ghm1j1xb9o5tkkhhucwauly2c-1180}))
+  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-2}))
 
 
 

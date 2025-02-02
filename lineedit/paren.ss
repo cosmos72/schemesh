@@ -21,7 +21,7 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) format fx1+ fx1- record-writer unread-char void)
+    (only (chezscheme) console-error-port format fx1+ fx1- record-writer unread-char void)
     (only (schemesh bootstrap) assert* catch debugf try until while)
     (only (schemesh containers misc) list-iterate)
     (only (schemesh containers hashtable) hashtable-iterate)
@@ -270,7 +270,7 @@
       (paren-start-token obj) (paren-end-token obj) (paren-start-x obj) (paren-start-y obj)
       (paren-end-x obj) (paren-end-y obj) (paren-inner obj)))
     (catch (ex)
-      (display ex (current-output-port)))))
+      (display ex (console-error-port)))))
 
 (define (close-token-for token)
   (case token

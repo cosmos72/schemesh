@@ -35,8 +35,8 @@
     (only (schemesh shell)
        sh-consume-sigchld
        sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
-       sh-job-control? sh-job-control-available?
-       sh-make-linectx sh-repl-args sh-run/i  sh-xdg-cache-home/ sh-xdg-config-home/))
+       sh-job-control? sh-job-control-available? sh-make-linectx
+       sh-repl-args sh-run/i sh-xdg-cache-home/ sh-xdg-config-home/))
 
 
 
@@ -239,12 +239,13 @@
       (sh-eval-file path)
       #t
       (catch (ex)
-        (let ((out (current-error-port)))
-          (put-string out "; Warning: failed loading file ")
-          (put-datum  out path)
-          (put-string out ": ")
-          (display-condition ex out)
-          (newline out))
+        (let ((port (console-error-port)))
+          (put-string port "; Warning: failed loading file ")
+          (put-datum  port path)
+          (put-string port ": ")
+          (display-condition ex port)
+          (newline port)
+          (flush-output-port port))
         #f))))
 
 
@@ -331,20 +332,20 @@
 
 ;; React to uncaught conditions
 (define (sh-repl-exception-handler obj)
-  (let ((out (console-error-port)))
+  (let ((port (console-error-port)))
     (dynamic-wind
       (lambda () ; before body
-        (put-string out "; ")
-        (display-condition obj out)
-        (put-string out "\n")
-        (flush-output-port out))
+        (put-string port "; ")
+        (display-condition obj port)
+        (newline port)
+        (flush-output-port port))
       (lambda () ; body
         (when (or (serious-condition? obj) (not (warning? obj)))
           (debug-condition obj) ;; save obj into thread-parameter (debug-condition)
           (if (debug-on-exception)
             (debug)
-            (put-string out "; type (debug) to enter the debugger.\n"))
-          (flush-output-port out)))
+            (put-string port "; type (debug) to enter the debugger.\n"))
+          (flush-output-port port)))
       (lambda () ; after body
         ((reset-handler))))))
 
@@ -356,27 +357,27 @@
       (parameterize ((break-handler void)
                      (keyboard-interrupt-handler void)
                      (suspend-handler void))
-        (let ((out (console-output-port)))
-          (sh-repl-interrupt-show-who-msg-irritants break-args out)
-          (while (sh-repl-interrupt-handler-once repl-args k out)))))))
+        (sh-repl-interrupt-show-who-msg-irritants break-args (console-error-port))
+        (let ((port (console-output-port)))
+          (while (sh-repl-interrupt-handler-once repl-args k port)))))))
 
 
 ;; Print (break ...) arguments
-(define (sh-repl-interrupt-show-who-msg-irritants args out)
+(define (sh-repl-interrupt-show-who-msg-irritants args port)
   (when (pair? args)
     (let* ((who  (car args))
            (tail (cdr args))
            (msg  (if (pair? tail) (car tail) ""))
            (irritants (if (pair? tail) (cdr tail) '())))
-     (put-string out "break in " )
-     (put-datum  out who)
-     (put-string out ": ")
-     (put-string out msg)
+     (put-string port "break in " )
+     (put-datum  port who)
+     (put-string port ": ")
+     (put-string port msg)
      (list-iterate irritants
        (lambda (value)
-         (put-char   out #\space)
-         (put-datum  out value)))
-     (put-char   out #\newline))))
+         (put-char   port #\space)
+         (put-datum  port value)))
+     (put-char   port #\newline))))
 
 
 ;; Single iteration of (sh-repl-interrupt-handler)

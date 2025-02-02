@@ -75,7 +75,7 @@ int schemesh_load_libraries(const char* override_library_dir) {
        "  (load (string-append dir \"/" LIBSCHEMESH_SO "\"))\n"
        "  #t)\n");
 #else
-  ptr try_load_proc = schemesh_eval
+  ptr try_load_proc = schemesh_eval /*                       */
       ("(lambda (dir)\n"
        "  (let ((path (string-append dir \"/" LIBSCHEMESH_SO "\")))\n"
        "    (call/cc\n"

@@ -19,7 +19,8 @@
 
 (define (make-cmd program-and-args)
   (%make-cmd
-    #f #f #f '(new . 0) ; id pid pgid last-status
+    #f #f #f        ; id pid pgid
+    '(new . 0) #f   ; last-status exception
     (span) 0 #f '() ; redirections
     cmd-start #f    ; start-proc step-proc
     #f              ; working directory - initially inherited by parent job

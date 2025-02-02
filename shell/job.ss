@@ -57,7 +57,8 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) append! break debug-condition display-condition foreign-procedure format fx1+ fx1-
+    (only (chezscheme) append! break console-output-port console-error-port
+                       debug-condition display-condition foreign-procedure format fx1+ fx1-
                        include inspect logand logbit? make-format-condition
                        open-fd-output-port parameterize procedure-arity-mask record-writer reverse!
                        string-copy! string-truncate! define void)
@@ -182,12 +183,13 @@
 ;; '(stopped . *)
 ;; '(killed  . sigint)
 ;; '(killed  . sigquit)
+;; '(killed  . exception)
 ;;
 (define (job-status-stops-or-ends-multijob? job-status)
   (let ((kind (job-status->kind job-status)))
     (or (memq kind '(unknown stopped))
         (and (eq? kind 'killed)
-             (memq (cdr job-status) '(sigint sigquit))))))
+             (memq (cdr job-status) '(sigint sigquit exception))))))
 
 
 ;; Return #t if job-status represents a child job status
@@ -195,12 +197,13 @@
 ;; '(unknown . *)
 ;; '(killed  . sigint)
 ;; '(killed  . sigquit)
+;; '(killed  . exception)
 ;;
 (define (job-status-ends-multijob? job-status)
   (let ((kind (job-status->kind job-status)))
     (or (eq? kind 'unknown)
         (and (eq? kind 'killed)
-             (memq (cdr job-status) '(sigint sigquit))))))
+             (memq (cdr job-status) '(sigint sigquit exception))))))
 
 
 ;; set the status of a job and return it.
@@ -214,7 +217,7 @@
       (job-status-set/running! job)
       (begin
         (%job-last-status-set! job status)
-        (when (job-status-member? status '(exited killed unknown))
+        (when (job-status-finished? status)
           (when (sh-cmd? job)
             ; unset expanded arg-list, because next expansion may differ
             (cmd-expanded-arg-list-set! job #f))
@@ -550,6 +553,9 @@
 ;;   process-group-id: a fixnum, if present and > 0 then the new process will be inserted
 ;;     into the corresponding process group id - which must already exist.
 ;;
+;;   'catch: a symbol, if present any Scheme condition raised by starting
+;;     the job will be captured, and job status will be set to '(killed . exception)
+;;
 ;;   'spawn: a symbol, if present then job will be started in a subprocess.
 ;;     By design, commands and (sh-subshell) are always started in a subprocess,
 ;;     and for them the 'spawn option has no effect - it is enabled by default.
@@ -564,31 +570,68 @@
 ;;     their redirected file descriptors from main schemesh process will no longer deadlock.
 ;;
 (define (sh-start job . options)
-  (start/any job options)
-  (job-id-update! job)) ; sets job-id if started, otherwise unsets it. returns job status.
+  (let ((ret #f))
+    (dynamic-wind
+      void
+      (lambda ()
+        (start-any 'sh-start job options)
+        (set! ret (job-id-update! job))) ; sets job-id if started, otherwise unsets it. also returns job status
+      (lambda ()
+        (unless ret
+          (job-id-update! job)))) ; sets job-id if started, otherwise unsets it.
+    ret))
 
 
 ;; Internal functions called by (sh-start)
-(define (start/any job options)
-  ;b (debugf "start/any ~a ~s" (sh-job-display/string job) options)
-  (when (job-started? job)
-    (if (job-id job)
-      (raise-errorf 'sh-start "job already started with job id ~s" (job-id job))
-      (raise-errorf 'sh-start "job already started")))
-  (let ((start-proc (job-start-proc job)))
-    (unless (procedure? start-proc)
-      (raise-errorf 'sh-start "cannot start job ~s, bad or missing job-start-proc: ~s" job start-proc))
-    (job-status-set/running! job)
-    (start-proc job options))           ; ignore value returned by job-start-proc
+(define (start-any caller job options)
+  ;b (debugf "start-any ~a ~s" (sh-job-display/string job) options)
+  (call/cc
+    (lambda (k-continue)
+      (with-exception-handler
+        (lambda (except)
+          (start-any/on-exception caller job options k-continue except))
+        (lambda ()
+          (start-any/may-throw caller job options)))))
   (when (job-pid job)
     (pid->job-set! (job-pid job) job))  ; add job to pid->job table
-  (when (memq 'spawn options)
+  (when (and (memq 'spawn options) (job-status-started? job))
     ; we can cleanup job's file descriptor, as it's running in a subprocess
     (job-unmap-fds! job)
     (job-close-fds-to-close! job)
     (job-unredirect/temp/all! job))
-  (job-last-status job))                ; check if job finished
+  (job-last-status job)) ; returns job status. also checks if job finished
 
+
+(define (start-any/may-throw caller job options)
+  (when (job-started? job)
+    (if (job-id job)
+      (raise-errorf caller "job already started with job id ~s" (job-id job))
+      (raise-errorf caller "job already started")))
+  (let ((start-proc (job-start-proc job)))
+    (unless (procedure? start-proc)
+      (raise-errorf caller "cannot start job ~s, bad or missing job-start-proc: ~s" job start-proc))
+    (job-status-set/running! job)
+    (job-exception-set! job #f)
+    (start-proc job options))  ; may throw. ignore value returned by job-start-proc
+  (void))
+
+
+(define (start-any/on-exception caller job options k-continue except)
+  ;; propagate exception and status also to parent jobs, or let the various (job-step/...) do it?
+  (job-exception-set! job except)
+  (job-status-set! caller job '(killed . exception))
+  (if (memq 'catch options)
+    (begin
+      (start-any/display-condition except (console-error-port))
+      (k-continue (void)))
+    (raise except)))
+
+
+(define (start-any/display-condition obj port)
+  (put-string port "; ")
+  (display-condition obj port)
+  (newline port)
+  (flush-output-port port))
 
 
 ;; Return up-to-date status of a job or job-id, which can be one of:
@@ -596,7 +639,7 @@
 ;;   (cons 'running job-id)
 ;;   (void)                      ; if process exited with exit-status = 0
 ;;   (cons 'exited  exit-status)
-;;   (cons 'killed  signal-name)
+;;   (cons 'killed  signal-name) or (cons 'killed 'exception)
 ;;   (cons 'stopped signal-name)
 ;;   (cons 'unknown ...)
 ;;
@@ -614,7 +657,7 @@
 ;;   (cons 'running job-id)
 ;;   (void)                      ; if process exited with exit-status = 0
 ;;   (cons 'exited  exit-status)
-;;   (cons 'killed  signal-name)
+;;   (cons 'killed  signal-name) or (cons 'killed 'exception)
 ;;   (cons 'stopped signal-name)
 ;;   (cons 'unknown ...)
 (define (sh-bg job-or-id)
@@ -626,7 +669,7 @@
 ;;
 ;;   (void)                      ; if process exited with exit-status = 0
 ;;   (cons 'exited  exit-status)
-;;   (cons 'killed  signal-name)
+;;   (cons 'killed  signal-name) or (cons 'killed 'exception)
 ;;   (cons 'stopped signal-name)
 ;;   (cons 'unknown ...)
 ;
@@ -647,7 +690,7 @@
 ;; Returned job status can be one of:
 ;;   (void)                      ; if process exited with exit-status = 0
 ;;   (cons 'exited  exit-status)
-;;   (cons 'killed  signal-name)
+;;   (cons 'killed  signal-name) or (cons 'killed 'exception)
 ;;   (cons 'unknown ...)
 ;;
 ;; Does NOT return early if job gets stopped, use (sh-fg) for that.
@@ -705,7 +748,7 @@
 ;;
 ;; Return job status, possible values are the same as (sh-fg)
 (define (sh-run/i job . options)
-  (start/any job options)
+  (start-any 'sh-run/i job options)
   (sh-fg job))
 
 
@@ -716,7 +759,7 @@
 ;;
 ;; Return job status, possible values are the same as (sh-wait)
 (define (sh-run job . options)
-  (start/any job options)
+  (start-any 'sh-run job options)
   (sh-wait job))
 
 
@@ -774,7 +817,8 @@
       ;; waiting for sh-globals to exit is not useful:
       ;; pretend it already exited with unknown exit status
       (%make-multijob
-         0 (pid-get) (pgid-get 0) '(unknown . 0) ; id pid pgid last-status
+         0 (pid-get) (pgid-get 0)  ; id pid pgid
+         '(unknown . 0) #f         ; last-status exception
          (span) 0 #f '()           ; redirections
          #f #f                     ; start-proc step-proc
          (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) ; current directory

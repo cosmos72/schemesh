@@ -22,7 +22,8 @@
     lineedit-read lineedit-read-confirm-y-or-n? lineedit-flush lineedit-finish)
   (import
     (rnrs)
-    (only (chezscheme)    display-condition format fx1+ fx1- fx/ include inspect
+    (only (chezscheme)    console-output-port console-error-port
+                          display-condition format fx1+ fx1- fx/ include inspect
                           make-time record-writer sleep top-level-value void)
     (schemesh bootstrap)
     (schemesh containers)
@@ -274,10 +275,11 @@
                   (linectx-parser-name lctx)
                   x y))
               (catch (ex)
-                (let ((port (current-output-port)))
+                (let ((port (console-output-port)))
                   (put-string port "\n; Exception in parenmatcher-find/at: ")
                   (display-condition ex port)
-                  (newline port))))))))
+                  (newline port)
+                  (flush-output-port port))))))))
     ret))
 
 ;; return #f or innermost paren object surrounding the cursor.
@@ -305,10 +307,11 @@
               (linectx-parser-name lctx)
               x y))
           (catch (ex)
-            (let ((port (current-output-port)))
+            (let ((port (console-error-port)))
               (put-string port "\n; Exception in parenmatcher-find/surrounds: ")
               (display-condition ex port)
-              (newline port))))))
+              (newline port)
+              (flush-output-port port))))))
     ret))
 
 
@@ -444,12 +447,12 @@
 
 ;; invoked when some function called by lineedit-read raises a condition:
 ;;
-;; display the condition on (current-error-port)
+;; display the condition on (console-error-port)
 (define (lineedit-show-error lctx message ex)
   ; remove offending input that triggered the exception
   (bytespan-clear! (linectx-rbuf lctx))
   ; display the condition
-  (let ((port (current-error-port)))
+  (let ((port (console-error-port)))
     (put-string port "\n; ")
     (put-string port message)
     (put-string port ": ")
@@ -485,7 +488,7 @@
 (define (%lineedit-read lctx timeout-milliseconds)
   (dynamic-wind
     (lambda () ; before body
-      (flush-output-port (current-output-port))
+      (flush-output-port (console-output-port))
       (linectx-consume-sigwinch lctx)
       (linectx-redraw-as-needed lctx)
       (lineedit-flush lctx))

@@ -44,13 +44,13 @@
 (define (job-control-available-change! old-flag new-flag)
   (cond
     ((not (boolean? new-flag))
-      (format (current-error-port)
+      (format (console-error-port)
         "; error: ~s is not a boolean, refusing to set sh-job-control-available? to such value\n" new-flag)
       old-flag)
     ((eq? old-flag new-flag)
       old-flag)
     (new-flag
-      (put-string (current-error-port)
+      (put-string (console-error-port)
         "; error: parameter sh-job-control-available? is #f, cannot be changed anymore\n")
       old-flag)
     (#t
@@ -77,7 +77,7 @@
     (lambda (old-flag new-flag)
       (cond
         ((not (boolean? new-flag))
-          (format (current-error-port)
+          (format (console-error-port)
             "; schemesh (pid ~s) error: ~s is not a boolean, refusing to set sh-job-control? to such value\n"
               (pid-get) new-flag)
           old-flag)
@@ -92,18 +92,18 @@
                 (job-pgid-set! (sh-globals) (pgid-get 0))
                 new-flag)
               (begin
-                (format (current-error-port) "; schemesh (pid ~s) error: failed activating job control: C function c_job_control_change(1) failed with error ~s: ~a\n"
+                (format (console-error-port) "; schemesh (pid ~s) error: failed activating job control: C function c_job_control_change(1) failed with error ~s: ~a\n"
                    (pid-get) err (c-errno->string err))
                 old-flag))))
         (new-flag
-          (format (current-error-port) "; schemesh (pid ~s) error: cannot activate job control, parameter sh-job-control-available? is #f\n"
+          (format (console-error-port) "; schemesh (pid ~s) error: cannot activate job control, parameter sh-job-control-available? is #f\n"
             (pid-get))
           old-flag)
         (old-flag
           ; try to deactivate job control
           (let ((err (c-job-control-change (if new-flag 1 0))))
             (unless (zero? err)
-              (format (current-error-port) "; schemesh (pid ~s) warning: failed deactivating job control: C function c_job_control_change(0) failed with error ~s: ~a\n"
+              (format (console-error-port) "; schemesh (pid ~s) warning: failed deactivating job control: C function c_job_control_change(0) failed with error ~s: ~a\n"
                    (pid-get) err (c-errno->string err))))
           ; set job-control to inactive even if c_job_control_change() failed
           new-flag)
