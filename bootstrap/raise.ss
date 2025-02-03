@@ -10,34 +10,12 @@
 ;; this is done by setting the top-level symbols sh-current-environment and sh-current-eval
 ;; only if they are not bound yet.
 
-(library (schemesh bootstrap first)
+(library (schemesh bootstrap raise)
   (export
-     sh-make-parameter sh-make-thread-parameter raise-assertf raise-assertv raise-errorf)
+      raise-assertf raise-assertv raise-errorf)
   (import
     (rnrs)
-    (only (chezscheme) make-continuation-condition make-format-condition
-                       top-level-bound? top-level-value))
-
-
-;; portable reimplementation of Chez Scheme (make-parameter)
-(define sh-make-parameter
-  (case-lambda
-    ((initial-value updater-proc)
-      (let ((current-value (updater-proc initial-value)))
-        (case-lambda
-          (() current-value)
-          ((new-value) (set! current-value (updater-proc new-value))))))
-    ((initial-value)
-      (sh-make-parameter initial-value (lambda (x) x)))))
-
-
-;; approximate reimplementation of Chez Scheme make-thread-parameter:
-;; calls (make-thread-parameter) if available,
-;; otherwise calls (sh-make-parameter) above
-(define sh-make-thread-parameter
-  (if (top-level-bound? 'make-thread-parameter)
-        (top-level-value 'make-thread-parameter)
-        sh-make-parameter))
+    (only (chezscheme) make-continuation-condition make-format-condition))
 
 
 ;; Raise a condition describing an assertion violation.
@@ -49,6 +27,7 @@
         (condition
           (make-assertion-violation)
           (make-continuation-condition k)
+          (make-non-continuable-violation)
           (make-who-condition who)
           (make-format-condition)
           (make-message-condition format-string)
@@ -72,6 +51,7 @@
         (condition
           (make-error)
           (make-continuation-condition k)
+          (make-non-continuable-violation)
           (make-who-condition who)
           (make-format-condition)
           (make-message-condition format-string)

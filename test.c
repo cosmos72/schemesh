@@ -63,7 +63,16 @@ static const testcase tests[] = {
     {"(bytevector-compare #vu8(66 77) #vu8(66 78))", "-1"},
     {"(bytevector-compare #vu8(79) #vu8(78 0))", "1"},
     {"(string-range-count= \"qwertyuiop\" 2 \"_ertyuio7\" 1 8)", "7"},
-    {"(string-split \"ab:cdef::g\" 1 1000 #\\:)", "(b cdef  g)"},
+    {"(format #f \"~s\" (string-split \"\" #\\:))", "(\"\")"},
+    {"(format #f \"~s\" (string-split \":\" #\\:))", "(\"\" \"\")"},
+    {"(format #f \"~s\" (string-split \"x:\" #\\:))", "(\"x\" \"\")"},
+    {"(format #f \"~s\" (string-split \":y\" #\\:))", "(\"\" \"y\")"},
+    {"(format #f \"~s\" (string-split \"ab:cdef::g\" 1 10 #\\:))", /*        */
+     "(\"b\" \"cdef\" \"\" \"g\")"},
+    {"(string-trim-split-at-blanks \"\"))", "()"},
+    {"(format #f \"~s\" (string-trim-split-at-blanks"
+     "  \"\\n\\x0;ab c\\x1f;\"))",
+     "(\"ab\" \"c\")"},
     {"(list-remove-consecutive-duplicates!\n"
      "  (list \"foo\" \"foo\" \"foo\" \"bar\" \"bar\")\n"
      "  string=?)",
@@ -870,9 +879,8 @@ static const testcase tests[] = {
     {"(file-type \".\" 'catch)", "dir"},
     {"(file-type \"parser/parser.ss\" 'catch)", "file"},
     {"(directory-sort! (directory-list \"parser\"))",
-     "((dir . .) (dir . ..) (file . autocomplete.ss) (file . lisp.ss)"
-     " (file . parser.ss) (file . r6rs.ss) (file . scheme.ss)"
-     " (file . shell.ss))"},
+     "((dir . .) (dir . ..) (file . lisp.ss) (file . parser.ss)"
+     " (file . r6rs.ss) (file . scheme.ss) (file . shell.ss))"},
     /* ------------------------- posix patterns ----------------------------- */
     {"(sh-pattern \"foo\" '* \".bar\" '? '% \"[a-z]\" '%! \"A-Z\")",
      "(sh-pattern foo '* .bar '? '% [a-z] '%! A-Z)"},
@@ -932,7 +940,7 @@ static const testcase tests[] = {
     /* ------------------------- shell aliases ------------------------------ */
     {"(begin\n"
      "  (sh-alias-set! \"test-alias-foo\" '(\"bar\" \"baz\"))\n"
-     "  (sh-alias-expand '(\"test-alias-foo\" \"123\" \"456\")))\n",
+     "  (sh-aliases-expand '(\"test-alias-foo\" \"123\" \"456\")))\n",
      "(bar baz 123 456)"},
     /* ------------------------- shell job --------------------------------- */
     {"(begin\n"
@@ -1152,6 +1160,7 @@ static const testcase tests[] = {
     {"(sh-wildcard #t \"_does_not_exist_\")", /* file does not exists => returned as string */
      "_does_not_exist_"},
     /* ------------------------- job execution ------------------------------ */
+    {"(sh-run (shell \"true\" \\x7C; \"command\" \"true\" \\x7C; \"false\"))", "(exited . 1)"},
     {"(sh-run/string (shell \"echo\" \"a\"  \"b\" \"c\"))", "a b c\n"},
     {"(sh-run/string-rtrim-newlines (shell \"echo\" \" abc \"))", " abc "},
     {"(sh-run/string (shell \"FOO\" = \"abc\" \\x3B; \"echo\" (shell-env \"FOO\")))", "abc\n"},
@@ -1177,7 +1186,12 @@ static const testcase tests[] = {
     {"(sh-run (shell \"echo\" \"xyz\" \\x7C;"
      " (shell \"command\" \"true\" && \"grep\" \"abc\" > \"/dev/null\")))",
      "(exited . 1)"},
-    {"(sh-run (shell \"true\" \\x7C; \"command\" \"true\" \\x7C; \"false\"))", "(exited . 1)"},
+    {"(format #f \"~s\" (sh-run/string (shell \"echo0\" \"def\" \"gh\" \"i\" \"\")))",
+     "\"def\\x0;gh\\x0;i\\x0;\\x0;\""},
+    {"(format #f \"~s\" (sh-run/string (shell \"split-at-0\" \"echo\" (shell-backquote \"echo0\" "
+     "\"jkl\" \"mn\" \"o\" "
+     "\"\"))))",
+     "\"jkl mn o \\n\""},
     /* ------------------------- sh-read ------------------------------------ */
     {"(sh-read-string* \"#!/some/path some-arg\\n(display (+ 1 2)) {ls}\""
      "  'scheme #t)",

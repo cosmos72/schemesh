@@ -23,7 +23,7 @@
     (schemesh lineedit vscreen)
     (only (schemesh posix fd) c-hostname)
     (schemesh parser)
-    (only (schemesh parser autocomplete) parse-shell-autocomplete)
+    (schemesh shell autocomplete)
     (schemesh shell job))
 
 
@@ -43,12 +43,8 @@
 ;; return the syntax-aware function that lists autocompletions.
 ;; The parser name to use is extracted from paren, or from current parser if paren is #f
 (define (%sh-autocomplete-func lctx paren)
-  (let* ((parsers     (linectx-parsers lctx))
-         (parser-name (if paren (paren-name paren) (linectx-parser-name lctx)))
-         (parser      (and parsers (hashtable-ref parsers parser-name #f))))
-    (if parser
-      (parser-autocomplete parser)
-      parse-shell-autocomplete)))
+  (let ((parser-name (if paren (paren-name paren) (linectx-parser-name lctx))))
+    (or (sh-autocomplete-func parser-name) sh-autocomplete-shell)))
 
 
 ; return string containing current time in 24-hour HH:MM:SS format.

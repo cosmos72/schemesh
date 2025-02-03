@@ -17,8 +17,7 @@
     (only (schemesh containers misc) list-iterate string-contains-only-decimal-digits?)
     (schemesh containers charspan)
     (schemesh lineedit paren)
-    (schemesh lineedit parser)
-    (only (schemesh parser autocomplete) parse-shell-autocomplete))
+    (schemesh lineedit parser))
 
 (define (paren-type->string type)
   (case type
@@ -832,7 +831,7 @@
 
 
 (define parser-shell
-  (let ((ret (make-parser 'shell parse-shell-forms parse-shell-paren parse-shell-autocomplete)))
+  (let ((ret (make-parser 'shell parse-shell-forms parse-shell-paren)))
     (lambda ()
       ret)))
 

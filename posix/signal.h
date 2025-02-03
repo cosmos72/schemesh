@@ -7,10 +7,9 @@
  * (at your option) any later version.
  */
 
-
 /** this file should only be included by posix/posix.c */
 #ifndef SCHEMESH_POSIX_POSIX_C
-# error "posix/signal.h should only be #included by posix/posix.h"
+#error "posix/signal.h should only be #included by posix/posix.h"
 #endif
 
 #define N_OF(array) (sizeof(array) / sizeof((array)[0]))
@@ -36,6 +35,10 @@ static void c_sigwinch_handler(int sig_num) {
 }
 
 static ptr c_sigchld_consume(void) {
+#if 0
+  (void)write(2, "\nc_sigchld_consume = ", 21);
+  (void)write(2, atomic_load(&c_sigchld_received) ? "1\n" : "0\n", 2);
+#endif
   return atomic_exchange(&c_sigchld_received, 0) ? Strue : Sfalse;
 }
 

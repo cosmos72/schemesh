@@ -9,13 +9,15 @@
   (export
     ; misc.ss
     list-iterate list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
-    string-list? assert-string-list? string-contains-only-decimal-digits?
+    string-list? assert-string-list? string-list-split-after-nuls
     vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable vector-range->list
     list->bytevector subbytevector
-    bytevector-fill-range! bytevector-iterate bytevector-compare
+    bytevector-fill-range! bytevector-find/u8 bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?
+    string-contains-only-decimal-digits?
     string-fill-range! string-range-count= string-range=? string-range<?
-    string-find/char string-rfind/char string-replace/char! string-split string-iterate
+    string-find string-rfind string-find/char string-rfind/char
+    string-split string-trim-split-at-blanks string-iterate string-replace/char!
     string-starts-with? string-ends-with? string-starts-with/char? string-ends-with/char?
 
     ; utf8b.ss

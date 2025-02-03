@@ -9,23 +9,21 @@
 ;; TODO: is there a better solution not requiring (sh-eval) ?
 (define-syntax import-schemesh/minimal
   (lambda (stx)
-    (import (only (chezscheme) void)
-            (only (schemesh bootstrap) sh-eval))
+    (import (only (chezscheme) eval void))
     (syntax-case stx ()
       ((_)
         ; import libraries at macroexpansion time, not at runtime
-        (sh-eval '(import (schemesh repl) (schemesh shell)))
+        (eval '(import (schemesh shell) (schemesh repl)))
         #'(void)))))
 
 
 (define-syntax import-schemesh/all
   (lambda (stx)
-    (import (only (chezscheme) void)
-            (only (schemesh bootstrap) sh-eval))
+    (import (only (chezscheme) eval void))
     (syntax-case stx ()
       ((_)
         ; import libraries at macroexpansion time, not at runtime
-        (sh-eval
+        (eval
           '(import
              (schemesh bootstrap)
              (schemesh containers)
@@ -38,11 +36,13 @@
         #'(void)))))
 
 
-;; when reloading libschemesh.ss, reimport (schemesh repl) and (schemesh shell)
+;; when reloading libschemesh.ss, reimport (schemesh shell) and (schemesh repl)
 ;; fixes error "compiled program requires a different compilation instance of (schemesh ...)""
 (eval-when (eval)
   (let ()
     (import (rnrs) (only (chezscheme) top-level-bound? eval))
 
+    (when (top-level-bound? 'sh-persistent-parameters)
+      (eval '(import (schemesh shell))))
     (when (top-level-bound? 'sh-repl)
-      (eval '(import (schemesh shell job) (schemesh repl))))))
+      (eval '(import (schemesh repl))))))

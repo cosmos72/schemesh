@@ -55,14 +55,16 @@
           c-errno-einval)))))
 
 
-;; (pid-wait pid may-block) calls waitpid(pid, WUNTRACED) i.e. checks if process specified by
-;; pid exited or stopped. Notes: pid ==  0 means "any process in the same process group as
-;; the caller". pid == -1 means "any child process". pid <  -1 means "any process in process
-;; group -pid".
+;; (pid-wait pid may-block) calls waitpid(pid, WUNTRACED) i.e. checks if process specified by pid exited or stopped.
+;;
+;; Special cases:
+;;   pid ==  0 means "any child process in the same process group as the caller"
+;;   pid == -1 means "any child process"
+;;   pid <  -1 means "any child process in process group -pid"
 ;
 ;; Argument may-block must be either 'blocking or 'nonblocking.
-;; If may-block is 'blocking, wait until pid (or any child process, if pid == -1) exits or
-;; stops, otherwise check for such conditions without blocking.
+;; If may-block is 'blocking, wait until pid (or any child process, if pid == -1)
+;; exits or stops, otherwise check for such conditions without blocking.
 ;
 ;; If waitpid() fails with C errno != 0, return < 0.
 ;; If no child process matches pid, or if may_block is 'nonblocking and no child exited or

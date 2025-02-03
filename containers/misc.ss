@@ -8,19 +8,21 @@
 (library (schemesh containers misc (0 7 2))
   (export
     list-iterate list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
-    string-list? assert-string-list? string-contains-only-decimal-digits?
+    string-list? assert-string-list? string-list-split-after-nuls
     vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable vector-range->list
     list->bytevector subbytevector
-    bytevector-fill-range! bytevector-iterate bytevector-compare
+    bytevector-fill-range! bytevector-find/u8 bytevector-iterate bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>?
+    string-contains-only-decimal-digits?
     string-fill-range! string-range-count= string-range=? string-range<?
-    string-find/char string-rfind/char string-replace/char! string-split string-iterate
+    string-find string-rfind string-find/char string-rfind/char
+    string-split string-trim-split-at-blanks string-iterate string-replace/char!
     string-starts-with? string-ends-with? string-starts-with/char? string-ends-with/char?)
   (import
     (rnrs)
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme) bytevector foreign-procedure fx1+ fx1- reverse! void)
+    (only (chezscheme) bytevector foreign-procedure fx1+ fx1- reverse! substring-fill! void)
     (only (schemesh bootstrap) assert* while))
 
 
@@ -98,6 +100,37 @@
 ;; shortcut for (assert* caller (string-list? l)
 (define (assert-string-list? caller l)
   (assert* caller (string-list? l)))
+
+
+;; iterate on string-list l, and split each string after each #\nul
+;; return a string-list containing each produced fragment.
+(define (string-list-split-after-nuls l)
+  (let ((ret '()))
+    (list-iterate l
+       (lambda (elem)
+          (set! ret (%string-split-after-nuls elem ret))))
+    ; (debugf "builtin-split-at-0 args=~s split=~s" prog-and-args (reverse ret)
+    (reverse! ret)))
+
+
+;; split a string at each #\nul, and cons each splitted fragment onto ret.
+;; return updated ret.
+(define (%string-split-after-nuls str ret)
+  (let* ((start 0)
+         (end (string-length str))
+         (pos (string-find/char str start end #\nul)))
+     (if pos
+       (begin
+         (while pos
+           (set! ret (cons (substring str start pos) ret))
+           (set! start (fx1+ pos))
+           (set! pos (string-find/char str start end #\nul)))
+         (when (fx<? start end)
+           (set! ret (cons (substring str start end) ret)))
+         ret)
+       (cons
+         (if (fxzero? start) str (substring str start end))
+         ret))))
 
 
 ;; return #t if obj is a non-empty string and only contains decimal digits
@@ -203,6 +236,23 @@
       ((fx>=? i end))
     (bytevector-u8-set! bvec i val)))
 
+
+;; search bytevector range [start, end) and return index of first byte equal to b.
+;; returned numerical index will be in the range [start, end).
+;; return #f if no such byte is found in range.
+(define bytevector-find/u8
+  (case-lambda
+    ((bvec b)
+      (bytevector-find/u8 bvec 0 (bytevector-length bvec) b))
+    ((bvec start end b)
+      (assert* 'bytevector-find/u8 (bytevector? bvec))
+      (assert* 'bytevector-find/u8 (fx<=? 0 start end (bytevector-length bvec)))
+      (assert* 'bytevector-find/u8 (fx<=? 0 b 255))
+      (do ((i start (fx1+ i)))
+          ((or (fx>=? i end) (fx=? b (bytevector-u8-ref bvec i)))
+            (if (fx>=? i end) #f i))))))
+
+
 ;; (bytevector-iterate l proc) iterates on all elements of given bytevector bvec,
 ;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
 ;;
@@ -246,9 +296,8 @@
 ;; set characters in range [start, end) of string str to character ch
 (define (string-fill-range! str start end ch)
   (assert* 'string-fill-range! (fx<=? 0 start end (string-length str)))
-  (do ((i start (fx1+ i)))
-      ((fx>=? i end))
-    (string-set! str i ch)))
+  (when (fx<? start end)
+    (substring-fill! str start end ch)))
 
 
 ;; (string-iterate l proc) iterates on all elements of given string src,
@@ -313,6 +362,42 @@
             (if (fx<? i start) #f i))))))
 
 
+;; search string range [start, end) and return index of first character
+;; that causes (predicate ch) to return truish.
+;;
+;; returned numerical index will be in the range [start, end).
+;; return #f if no such character is found in range.
+(define string-find
+  (case-lambda
+    ((str predicate)
+      (string-find str 0 (string-length str) predicate))
+    ((str start end predicate)
+      (assert* 'string-find (string? str))
+      (assert* 'string-find (fx<=? 0 start end (string-length str)))
+      (assert* 'string-find (procedure? predicate))
+      (do ((i start (fx1+ i)))
+          ((or (fx>=? i end) (predicate (string-ref str i)))
+            (if (fx>=? i end) #f i))))))
+
+
+;; search string range [start, end) and return index of last character
+;; that causes (predicate ch) to return truish.
+;;
+;; returned numerical index will be in the range [start, end).
+;; return #f if no such character is found in range.
+(define string-rfind
+  (case-lambda
+    ((str predicate)
+      (string-rfind str 0 (string-length str) predicate))
+    ((str start end predicate)
+      (assert* 'string-rfind (string? str))
+      (assert* 'string-rfind (fx<=? 0 start end (string-length str)))
+      (assert* 'string-rfind (procedure? predicate))
+      (do ((i (fx1- end) (fx1- i)))
+          ((or (fx<? i start) (predicate (string-ref str i)))
+            (if (fx<? i start) #f i))))))
+
+
 ;; destructively replace each occurrence of old-char with new-char in string str.
 ;; return str, modified in-place.
 (define (string-replace/char! str old-char new-char)
@@ -326,18 +411,61 @@
         (string-set! str i new-char)))))
 
 
-;; split string range [start, end) into a list of strings,
-;; delimited by character delim - which is not included in returned list of strings
-(define (string-split str start end delim)
-  (let ((l '())
-        (prev-pos+1 start)
-        (end (fxmin end (string-length str))))
-    (when (fx>? end start)
-      (while prev-pos+1
-        (let ((pos (string-find/char str prev-pos+1 end delim)))
-          (set! l (cons (substring str prev-pos+1 (or pos end)) l))
-          (set! prev-pos+1 (if pos (fx1+ pos) #f)))))
-    (reverse! l)))
+;; split range [start, end) of string str into a list of substrings,
+;; using specified character as delimiter.
+;; Notes:
+;; 1. delimiters are not included in returned list of substrings.
+;; 2. multiple consecutive delimiters are *not* coalesced together;
+;;    instead, each additional one adds an empty substring to the returned list.
+;; 3. if the original string ends with a delimiter,
+;;    an empty substring is appended to returned list.
+;; 4. if the original string is empty, the returned list contains one empty string.
+(define string-split
+  (case-lambda
+    ((str delim)
+      (assert* 'string-split (string? str))
+      (string-split str 0 (string-length str) delim))
+    ((str start end delim)
+      (assert* 'string-split (string? str))
+      (assert* 'string-split (fx<=? 0 start end (string-length str)))
+      (let ((l '()))
+        (while start
+          (let ((pos (string-find/char str start end delim)))
+            (set! l (cons (substring str start (or pos end)) l))
+            (set! start (if pos (fx1+ pos) #f))))
+        (reverse! l)))))
+
+
+(define (char-is-blank? ch)
+  (char<=? ch #\space))
+
+(define (char-is-not-blank? ch)
+  (char>? ch #\space))
+
+;; trim a string then split it into a list of substrings, using as delimiter any character <= #\space
+;; Notes:
+;; 1. delimiters are not included in returned list of substrings.
+;; 2. multiple consecutive delimiters are coalesced together.
+;; 3. if original string starts and/or ends with delimiters, such delimiters are ignored.
+;; 4. if the original string is empty, the returned list will contain zero elements.
+(define string-trim-split-at-blanks
+  (case-lambda
+    ((str)
+      (assert* 'string-trim-split-at-blanks (string? str))
+      (string-trim-split-at-blanks str 0 (string-length str)))
+    ((str start end)
+      (assert* 'string-trim-split-at-blanks (string? str))
+      (assert* 'string-trim-split-at-blanks (fx<=? 0 start end (string-length str)))
+      (let ((l '())
+            (pos-not-blank (or (string-find str start end char-is-not-blank?) end)))
+        (while (fx<? pos-not-blank end)
+          (let ((pos-blank (string-find str (fx1+ pos-not-blank) end char-is-blank?)))
+            (set! l (cons (substring str pos-not-blank (or pos-blank end)) l))
+            (if pos-blank
+              (set! pos-not-blank (or (string-find str (fx1+ pos-blank) end char-is-not-blank?) end))
+              (set! pos-not-blank end))))
+        (reverse! l)))))
+
 
 
 ;; compare the range [left-start, left-start + n) of left string

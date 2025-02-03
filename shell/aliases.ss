@@ -24,42 +24,36 @@
 ;; starts with an alias name, it is expanded again.
 ;; To avoid infinite recursion, each alias name is only expanded at most once.
 ;;
-;; Note: for sanity, (sh-alias-expand) ignores aliases for "builtin"
-(define (sh-alias-expand prog-and-args)
-  (assert-string-list? 'sh-alias-expand prog-and-args)
-  (alias-expand prog-and-args '("builtin"))) ; suppress alias expansion for "builtin"
+;; Note: for sanity, (sh-aliases-expand) ignores aliases for "builtin"
+(define (sh-aliases-expand prog-and-args)
+  (assert-string-list? 'sh-aliases-expand prog-and-args)
+  (aliases-expand prog-and-args '("builtin"))) ; suppress alias expansion for "builtin"
 
 
-(define (alias-expand prog-and-args suppressed-name-list)
-  (cond
-    ((null? prog-and-args)
-      prog-and-args)
-    ((string=? "unsafe" (car prog-and-args))
-      ;; this is the implementation of "unsafe" keyword:
-      ;; just remove the "unsafe" keyword and expand whatever follows.
-      ;; it is functionally equivalent to an empty alias.
-      (alias-expand (cdr prog-and-args) suppressed-name-list))
-    (#t
-      (let* ((name  (car prog-and-args))
-             (alias (sh-alias-ref name)))
-        ;; try to recursively expand output of alias expansion,
-        ;; but suppress expansion of already-expanded names
-        (if (and alias (not (member name suppressed-name-list)))
-          (let ((expanded (append alias (cdr prog-and-args))))
-            (alias-validate 'sh-alias-expand name alias)
-            (alias-expand expanded (cons name suppressed-name-list)))
-          ;; name is not an alias, or is in suppressed-name-list:
-          ;; stop recursion, just return prog-and-args
-          prog-and-args)))))
+(define (aliases-expand prog-and-args suppressed-name-list)
+  (if (null? prog-and-args)
+    prog-and-args
+    (let* ((name  (car prog-and-args))
+           (alias (sh-alias-ref name)))
+      ;; try to recursively expand output of alias expansion,
+      ;; but suppress expansion of already-expanded names
+      (if (and alias (not (member name suppressed-name-list)))
+        (let ((expanded (append alias (cdr prog-and-args))))
+          (alias-validate 'sh-aliases-expand name alias)
+          (aliases-expand expanded (cons name suppressed-name-list)))
+
+        ;; name is not an alias, or is in suppressed-name-list:
+        ;; stop recursion, just return prog-and-args
+        prog-and-args))))
 
 
 (define (alias-validate caller name alias)
   (assert-string-list? caller alias)
   (when (null? alias)
-    (raise-errorf caller "an alias cannot be empty.\n\tReason: it would be functionally equivalent to \"unsafe\" keyword.\n\tFound: ~s"
+    (raise-errorf caller "an alias cannot be empty.\n\tReason: it would be functionally equivalent to \"unsafe\" builtin.\n\tFound: ~s"
       (list "alias" name)))
   (when (string-list-starts-with-unsafe? alias)
-    (raise-errorf caller "an alias cannot expand to \"unsafe\".\n\tReason: it would allow hiding the \"unsafe\" keyword.\n\tFound: ~s"
+    (raise-errorf caller "an alias cannot expand to \"unsafe\".\n\tReason: it would allow hiding the \"unsafe\" builtin.\n\tFound: ~s"
       (cons "alias" (cons name alias)))))
 
 
@@ -75,11 +69,10 @@
 ;; do NOT modify alias after calling this function.
 (define (sh-alias-set! name alias)
   (alias-validate 'sh-alias-set! name alias)
-  (cond
-    ((string=? "builtin" name)
-      (write-builtin-warning "\"builtin\" is a keyword, defining it as an alias has no effect"))
-    ((string=? "unsafe" name)
-      (write-builtin-warning "\"unsafe\" is a keyword, defining it as an alias has no effect")))
+  (when (hashtable-ref (sh-builtins) name #f)
+    (write-builtin-warning
+      (string-append "\"" name
+        "\" is a builtin. defining an alias with the same name is allowed, but probably confusing")))
   (hashtable-set! (sh-aliases) name alias))
 
 

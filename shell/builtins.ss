@@ -12,7 +12,7 @@
     (rnrs)
     (only (chezscheme)           console-error-port debug debug-condition debug-on-exception
                                  display-condition reset-handler void)
-    (only (schemesh bootstrap)      sh-make-thread-parameter raise-errorf)
+    (only (schemesh bootstrap)      sh-make-thread-parameter raise-errorf while)
     (schemesh containers bytespan)
     (only (schemesh containers charlines) charlines-iterate)
     (only (schemesh containers gbuffer)   gbuffer-iterate)
@@ -32,7 +32,7 @@
 ;; write contents of bytespan bsp to file descriptor fd,
 ;; then clear bytespan bsp
 (define (fd-write/bspan! fd bsp)
-  ; TODO: loop on short writes and call sh-consume-signals
+  ; TODO: loop on short writes and call sh-consume-sigchld
   (fd-write fd (bytespan-peek-data bsp)
             (bytespan-peek-beg bsp) (bytespan-peek-end bsp))
   (bytespan-clear! bsp))

@@ -10,16 +10,16 @@
     display-condition* display-any display-bytevector0 write-bytevector0
     any->bytevector text->bytevector
     any->bytevector0 bytevector->bytevector0 text->bytevector0
-    any->string argv->list list->argv string-hashtable->argv transcoder-utf8
-    sh-eval->bytevector)
+    any->string argv->list list->argv string-hashtable->argv transcoder-utf8)
   (import
     (rnrs)
     (only (rnrs mutable-pairs)   set-car!)
     (only (chezscheme)           condition-continuation continuation-condition? fx1+ fx1- void)
-    (only (schemesh bootstrap)   raise-assertv sh-eval-string)
-    (only (schemesh containers)  bytespan->bytevector charspan? charspan-empty? charspan->utf8b charspan->utf8b/0
+    (only (schemesh bootstrap raise)   raise-assertf)
+    (only (schemesh containers)  bytespan->bytevector bytevector-find/u8
+                                 charspan? charspan-empty? charspan-find/char charspan->utf8b charspan->utf8b/0
                                  hashtable-iterate list-iterate
-                                 string->utf8b string->utf8b/0 utf8b->string utf8b-range->string))
+                                 string-find/char string->utf8b string->utf8b/0 utf8b->string utf8b-range->string))
 
 
 (define display-condition*
@@ -152,7 +152,7 @@
          bv0
          (bytespan->bytevector (charspan->utf8b/0 x))))
     (#t
-      (raise-assertv 'text->bytevector0 '(or (bytevector? x) (string? x) (charspan? x)) x))))
+      (raise-assertf 'text->bytevector0 "~s is not bytevector, string or charspan" x))))
 
 
 ;; convert a bytevector, string or charspan to bytevector
@@ -170,7 +170,7 @@
         #vu8()
         (bytespan->bytevector (charspan->utf8b x))))
     (#t
-      (raise-assertv 'text->bytevector '(or (bytevector? x) (string? x) (charspan? x)) x))))
+      (raise-assertf 'text->bytevector "~s is not bytevector, string or charspan" x))))
 
 
 ;; convert a 0-terminated bytevector containing UTF-8b to string
@@ -178,13 +178,34 @@
   (utf8b-range->string x 0 (fx1- (bytevector-length x))))
 
 
-;; convert a list of strings or UTF-8b bytevectors to vector-of-bytevector0
+;; convert a list of strings, bytevectors or charspans to vector-of-bytevector0
 ;; i.e. to a vector of 0-terminated UTF-8b bytevectors
+;;
+;; Note: throws if a string, bytevector or charspan to be converted contains #\nul
 (define (list->argv l)
   (let ((argv (list->vector l)))
     (do ((i 0 (fx1+ i)))
         ((>= i (vector-length argv)) argv)
-      (vector-set! argv i (text->bytevector0 (vector-ref argv i))))))
+      (vector-set! argv i (text->bytevector0 (validate-c-arg (vector-ref argv i)))))))
+
+
+;; throws if string, bytevector or charspan x contains #\nul
+(define (validate-c-arg x)
+  (let ((msg1 "string arguments for C functions must not contain embedded #\\nul\n\tFound: ")
+        (msg2 "\n\tConsider using the builtin \"split-at-0\""))
+    (cond
+      ((bytevector? x)
+        (when (bytevector-find/u8 x 0)
+          (raise-assertf 'list->argv "~a(string->utf8b ~s)~a" msg1 (utf8b->string x) msg2)))
+      ((string? x)
+        (when (string-find/char x #\nul)
+          (raise-assertf 'list->argv "~a~s~a" msg1 x msg2)))
+      ((charspan? x)
+        (when (charspan-find/char x #\nul)
+          (raise-assertf 'list->argv "~a~s~a" msg1 x msg2)))
+      (#t
+        (raise-assertf 'list->argv "~s is not bytevector, string or charspan" x)))
+    x))
 
 
 ;; convert a vector of 0-terminated UTF-8b bytevectors
@@ -210,7 +231,5 @@
           (set! i (fx1+ i)))))
     out))
 
-(define (sh-eval->bytevector str)
-  (any->bytevector (sh-eval-string str)))
 
 )

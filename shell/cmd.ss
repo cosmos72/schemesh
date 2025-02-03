@@ -22,7 +22,7 @@
     #f #f #f        ; id pid pgid
     '(new . 0) #f   ; last-status exception
     (span) 0 #f '() ; redirections
-    cmd-start #f    ; start-proc step-proc
+    start-cmd #f    ; start-proc step-proc
     #f              ; working directory - initially inherited by parent job
     #f              ; overridden environment variables - initially none
     #f              ; env var assignments - initially none
@@ -59,34 +59,13 @@
 ;; Updates job status, and also returns it,
 ;;   which may be one of (void) '(exited ...) '(running ...) etc.
 ;;   For the complete list of possible returned job statuses, see (sh-job-status).
-(define (cmd-start c options)
-  (assert* 'sh-cmd (sh-cmd? c))
+(define (start-cmd c options)
   (assert* 'sh-cmd (eq? 'running (job-last-status->kind c)))
-
-  ;; expand procedures in cmd-arg-list, then expand aliases.
-  ;; sanity: (sh-alias-expand) ignores aliases for "builtin"
-  (let ((prog-and-args (sh-alias-expand (cmd-arg-list-apply c))))
-    ;; (debugf "cmd-start expanded-prog-and-args=~s builtin=~s" prog-and-args builtin)
-    (unless (eq? prog-and-args (cmd-arg-list c))
-      ;; save expanded cmd-arg-list for more accurate pretty-printing
-      (cmd-expanded-arg-list-set! c prog-and-args))
-    (if (null? prog-and-args)
-      (begin
-        ;; apply lazy environment variables *after* expanding cmd-arg-list
-        (job-env/apply-lazy! c 'maintain)
-        (job-env-copy-into-parent! c)
-        (job-status-set! 'cmd-start c (void)))
-      (let ((builtin (sh-find-builtin prog-and-args)))
-        ;; apply lazy environment variables *after* expanding cmd-arg-list
-        (job-env/apply-lazy! c 'export)
-        (if builtin
-          ; expanded arg[0] is a builtin, call it.
-          (cmd-start/builtin builtin c prog-and-args options)
-          ; expanded arg[0] is a not builtin or alias, spawn a subprocess
-          (cmd-spawn c (list->argv prog-and-args) options))))))
+  (start-command-or-builtin-or-alias c (cmd-arg-list-apply c) options))
 
 
-;; internal function called by (cmd-start):
+
+;; internal function called by (start-cmd):
 ;; call procedures in cmd-arg-list.
 ;; Return the expanded command line, which is always a list of strings.
 (define (cmd-arg-list-apply c)
@@ -96,24 +75,24 @@
       (let ((l '()))
         (list-iterate prog-and-args
           (lambda (arg)
-            (set! l (cmd-arg-expand c arg l))))
+            (set! l (cmd-arg-apply c arg l))))
         (set! l (reverse! l))
         (assert-string-list? 'sh-start l)
         l))))
 
 
-;; internal function called by (cmd-start):
+;; internal function called by (start-cmd):
 ;; if arg is a procedure then call it, optionally passing current job as the only argument.
 ;; Such procedure must return a string or list-of-strings, which are reverse-consed
 ;; at the beginning of list-of-strings l.
 ;; Return the updated list.
-(define (cmd-arg-expand c arg l)
+(define (cmd-arg-apply c arg l)
   (let ((expanded
           (cond
             ((not (procedure? arg)) arg)
             ((logbit? 1 (procedure-arity-mask arg)) (arg c)) ; call closure (lambda (job) ...)
             (#t   (arg)))))                                  ; call closure (lambda () ...)
-    ; (debugf "cmd-arg-expand cmd=~s arg=~s expanded=~s l=~s" c arg expanded l)
+    ; (debugf "cmd-arg-apply cmd=~s arg=~s expanded=~s l=~s" c arg expanded l)
     (cond
       ((eq? (void) expanded)
         l)
@@ -132,30 +111,85 @@
           expanded arg c)))))
 
 
-;; internal function called by (cmd-start) to execute a builtin
-(define (cmd-start/builtin builtin c prog-and-args options)
-  (job-remap-fds! c)
-  (job-status-set! 'cmd-start/builtin c
-    (parameterize ((sh-fd-stdin  (job-find-fd-remap c 0))
-                   (sh-fd-stdout (job-find-fd-remap c 1))
-                   (sh-fd-stderr (job-find-fd-remap c 2)))
-      (builtin/start builtin c prog-and-args options))))
+;; NOTE: this is an internal implementation function, use (sh-start) instead.
+;; This function does not update job's status, and does not register job
+;; into global (sh-pid-table) nor into global job-id table.
+;;
+;; Description:
+;; Repeatedly expand aliases in args
+;;
+;; If the expanded argument list is empty, copy overridden environment variables,
+;; including lazy ones, to parent process. This implements the syntax "ENV_VAR" '= "VALUE"
+;;
+;; Otherwise, if the expand argument list starts with the name of a builtin,
+;; execute such builtin.
+;;
+;; Otherwise, start a command i.e. fork() and exec() an external process,
+;; optionally inserting it into an existing process group.
+;;
+;; Updates job status, and also returns it,
+;;   which may be one of (void) '(exited ...) '(running ...) etc.
+;;   For the complete list of possible returned job statuses, see (sh-job-status).
+(define (start-command-or-builtin-or-alias c program-and-args options)
+  (assert* 'sh-cmd (sh-cmd? c))
+  ;; expand aliases in args
+  ;; sanity: (sh-aliases-expand) ignores aliases for "builtin"
+  (let ((prog-and-args (sh-aliases-expand program-and-args)))
+    ;; (debugf "start-cmd expanded-prog-and-args=~s builtin=~s" prog-and-args builtin)
+    (unless (eq? prog-and-args (cmd-arg-list c))
+      ;; save expanded cmd-arg-list for more accurate pretty-printing
+      (cmd-expanded-arg-list-set! c prog-and-args))
+    (if (null? prog-and-args)
+      (begin
+        ;; apply lazy environment variables *after* expanding cmd-arg-list
+        (job-env/apply-lazy! c 'maintain)
+        (job-env-copy-into-parent! c)
+        (job-status-set! 'start-cmd c (void)))
+      (let ((builtin (sh-find-builtin prog-and-args)))
+        ;; apply lazy environment variables *after* expanding cmd-arg-list
+        (job-env/apply-lazy! c 'export)
+        (if builtin
+          ; expanded arg[0] is a builtin, call it.
+          (start-builtin builtin c prog-and-args options)
+          ; expanded arg[0] is a not builtin or alias, spawn a subprocess
+          (spawn-cmd c (list->argv prog-and-args) options))))))
 
 
-;; internal function called by (cmd-start) to spawn a subprocess
-(define cmd-spawn
-  (let ((c-cmd-spawn (foreign-procedure "c_cmd_spawn" (ptr ptr ptr ptr int) int)))
+(define (start-command-or-builtin-or-alias-from-another-builtin c program-and-args options)
+  (assert* 'sh-cmd (sh-cmd? c))
+  ;; expand aliases in args
+  ;; sanity: (sh-aliases-expand) ignores aliases for "builtin"
+  (let ((prog-and-args (sh-aliases-expand program-and-args)))
+    ;; (debugf "start-cmd expanded-prog-and-args=~s builtin=~s" prog-and-args builtin)
+    (unless (eq? prog-and-args (cmd-arg-list c))
+      ;; save expanded cmd-arg-list for more accurate pretty-printing
+      (cmd-expanded-arg-list-set! c prog-and-args))
+    ; lazy environment was applied already by the outer (start-command-or-builtin-or-alias)
+    (if (null? prog-and-args)
+      (job-status-set! 'start-cmd c (void))
+      (let ((builtin (sh-find-builtin prog-and-args)))
+        (if builtin
+          ; expanded arg[0] is a builtin, call it.
+          ; redirections were applied already by the outer (start-command-or-builtin-or-alias)
+          (start-builtin-already-redirected builtin c prog-and-args options)
+          ; expanded arg[0] is a not builtin or alias, spawn a subprocess
+          (spawn-cmd c (list->argv prog-and-args) options))))))
+
+
+;; internal function called by (start-cmd) to spawn a subprocess
+(define spawn-cmd
+  (let ((c-spawn-cmd (foreign-procedure "c_cmd_spawn" (ptr ptr ptr ptr int) int)))
     (lambda (c argv options)
       (let* ((process-group-id (job-start-options->process-group-id options))
              (job-dir (job-cwd-if-set c))
-             (ret (c-cmd-spawn
+             (ret (c-spawn-cmd
                     argv
                     (if job-dir (text->bytevector0 job-dir) #f)
                     (job-make-c-redirect-vector c)
                     (sh-env->argv c 'export)
                     (or process-group-id -1))))
         (when (< ret 0)
-          (job-status-set! c 'cmd-spawn (cons 'exited ret))
+          (job-status-set! c 'spawn-cmd (cons 'exited ret))
           (raise-c-errno 'sh-start 'fork ret))
         (job-pid-set! c ret)
         (job-pgid-set! c process-group-id)))))
@@ -175,7 +209,7 @@
         (job-status-set! 'cmd-exec c (cons 'exited (if (integer? ret) ret -1)))))))
 
 
-;; internal function called by (cmd-spawn)
+;; internal function called by (spawn-cmd)
 ;; creates and fills a vector with job's redirections and its parents redirections
 (define (job-make-c-redirect-vector job)
   (let* ((child-dir (job-cwd-if-set job))
@@ -246,34 +280,25 @@
       parent-dir)))
 
 
-;; Convert pid-wait-result to a symbolic job-status:
+;; Convert value returned by (pid-wait) to a symbolic job status.
 ;;
-;; If pid-wait-result is '() i.e. process status did not change,
-;; return '(running . #f) indicating process is still running.
-;;
-;; If pid-wait-result is a pair (pid . exit-status) where exit-status is:
-;;   not a fixnum, or < 0 => return (cons 'unknown exit-status)
+;; If (pid-wait) succeeds, it returns a pair (pid . wait-status).
+;; Passing wait-status to this function converts it to a job status as follows:
+;;   not a fixnum, or < 0 => return (cons 'unknown wait-status)
 ;;   0                    => return (void)
-;;   1..255               => return (cons 'exited  exit-status)
+;;   1..255               => return (cons 'exited  wait-status)
 ;;   256 + kill_signal    => return (cons 'killed  signal-name)
 ;;   512 + stop_signal    => return (cons 'stopped signal-name)
-;;   >= 768               => return (cons 'unknown (fx- exit-status 768))
+;;   >= 768               => return (cons 'unknown (fx- wait-status 768))
 ;;
-;; Otherwise return (cons 'unknown pid-wait-result)
-(define (pid-wait->job-status pid-wait-result)
-  (cond
-    ((pair? pid-wait-result)
-      (let ((num (cdr pid-wait-result)))
-        (cond ((or (not (fixnum? num)) (fx<? num 0)) (cons 'unknown num))
-              ((fx=? num   0) (void))
-              ((fx<? num 256) (cons 'exited  num))
-              ((fx<? num 512) (cons 'killed  (signal-number->name (fxand num 255))))
-              ((fx<? num 768) (cons 'stopped (signal-number->name (fxand num 255))))
-              (#t             (cons 'unknown (fx- num 768))))))
-    ((null? pid-wait-result)
-      '(running . #f))
-    (#t
-      (cons 'unknown pid-wait-result))))
+(define (pid-wait-status->job-status wait-status)
+  (let ((x wait-status))
+    (cond ((or (not (fixnum? x)) (fx<? x 0)) (cons 'unknown x))
+          ((fx=? x   0) (void))
+          ((fx<? x 256) (cons 'exited  x))
+          ((fx<? x 512) (cons 'killed  (signal-number->name (fxand x 255))))
+          ((fx<? x 768) (cons 'stopped (signal-number->name (fxand x 255))))
+          (#t           (cons 'unknown (fx- x 768))))))
 
 
 (define %pgid-foreground
@@ -305,9 +330,9 @@
               (%pgid-foreground _caller _new-pgid _expected-pgid))))))))
 
 
-;; Internal function called by (job-advance)
-(define (job-advance/pid mode job)
-  ; (debugf "> job-advance/pid mode=~s job=~a pid=~s status=~s" mode (sh-job-display/string job) (job-pid job) (job-last-status job))
+;; Internal function called by (advance-job)
+(define (advance-pid mode job)
+  ; (debugf "> advance-pid mode=~s job=~a pid=~s status=~s" mode (sh-job-display/string job) (job-pid job) (job-last-status job))
   (cond
     ((job-finished? job)
       (job-last-status job)) ; job exited, and exit status already available
@@ -318,51 +343,49 @@
             (pgid (job-pgid job)))
         (if (and pgid (memq mode '(sh-fg sh-wait sh-sigcont+wait)))
           (with-foreground-pgid mode (job-pgid (sh-globals)) pgid
-            (job-advance/pid/maybe-sigcont mode job pid pgid)
-            (job-advance/pid/wait mode job pid pgid))
+            (advance-pid/maybe-sigcont mode job pid pgid)
+            (advance-pid/wait mode job pid pgid))
           (begin
-            (job-advance/pid/maybe-sigcont mode job pid pgid)
-            (job-advance/pid/wait mode job pid pgid)))))))
+            (advance-pid/maybe-sigcont mode job pid pgid)
+            (advance-pid/wait mode job pid pgid)))))))
 
 
-;; Internal function called by (job-advance/pid)
-(define (job-advance/pid/maybe-sigcont mode job pid pgid)
+;; Internal function called by (advance-pid)
+(define (advance-pid/maybe-sigcont mode job pid pgid)
   (assert* mode (> pid 0))
   (when pgid
     (assert* mode (> pgid 0)))
   (when (memq mode '(sh-fg sh-bg sh-sigcont+wait))
     ; send SIGCONT to job's process group, if present.
     ; otherwise send SIGCONT to job's process id. Both may raise error
-    ; (debugf "job-advance/pid/sigcont > ~s ~s" mode job)
+    ; (debugf "advance-pid/sigcont > ~s ~s" mode job)
     (pid-kill (if (and pgid (> pgid 0)) (- pgid) pid) 'sigcont)))
 
 
 
-;; Internal function called by (job-advance/pid)
-(define (job-advance/pid/wait mode job pid pgid)
-  ; no need to wait for ALL processes in job's process group:
-  ; the only case where we spawn multiple processes in the same process group
-  ; is a pipe i.e {a | b | c ...} and in such case we separately wait on the process id
-  ; of each spawned process
-  (let* ((pid-wait-ret (pid-wait (job-pid job)
-                         (if (memq mode '(sh-bg sh-job-status)) 'nonblocking 'blocking)))
-         (wait-status (pid-wait->job-status pid-wait-ret))
-         (kind        (job-status->kind wait-status)))
-    ; (debugf ">   job-advance/pid/wait mode=~s job=~a pid=~s wait-status=~s" mode (sh-job-display/string job) (job-pid job) wait-status)
-    ; if may-block is 'non-blocking, wait-status may be '(running . #f)
+;; Internal function called by (advance-pid)
+(define (advance-pid/wait mode job pid pgid)
+  ;; cannot call (sh-job-status), it would recurse back here.
+  (let* ((old-status (job-last-status job))
+         (new-status (if (job-status-finished? old-status)
+                       old-status
+                       (job-pids-wait job
+                         (if (memq mode '(sh-bg sh-job-status)) 'nonblocking 'blocking)))))
+    ; (debugf ">   advance-pid/wait mode=~s job=~a pid=~s new-status=~s" mode (sh-job-display/string job) (job-pid job) new-status)
+    ; if may-block is 'non-blocking, new-status may be '(running . #f)
     ; indicating job status did not change i.e. it's (expected to be) still running
-    (case kind
+    (case (job-status->kind new-status)
       ((running)
-        ; if wait-status is '(running . #f), try to return '(running . job-id)
-        (job-status-set! 'job-advance/pid/wait job wait-status))
+        ; if new-status is '(running . #f), try to return '(running . job-id)
+        (job-status-set! 'advance-pid/wait job new-status))
       ((exited killed unknown)
         ; job exited, clean it up. Also allows user to later start it again.
         (pid->job-delete! (job-pid job))
-        (job-status-set! 'job-advance/pid/wait job wait-status)
+        (job-status-set! 'advance-pid/wait job new-status)
         (job-id-unset! job) ; may show job summary
         (job-pid-set!  job #f)
         (job-pgid-set! job #f)
-        wait-status)
+        new-status)
       ((stopped)
         ; process is stopped.
         ; if mode is sh-wait or sh-sigcont+wait
@@ -370,20 +393,66 @@
         ; otherwise propagate process status and return.
         (if (memq mode '(sh-wait sh-sigcont+wait))
           (begin
-            (job-advance/pid/break mode job pid pgid)
-            (job-advance/pid/wait mode job pid pgid))
+            (advance-pid/break mode job pid pgid)
+            (advance-pid/wait mode job pid pgid))
           (begin
-            (job-status-set! 'job-advance/pid/wait job wait-status)
-            wait-status)))
+            (job-status-set! 'advance-pid/wait job new-status)
+            new-status)))
       (else
         (raise-errorf mode "job not started yet: ~s" job)))))
 
 
-;; Internal function called by (job-advance/pid/wait)
+;; Internal function called by (advance-pid/wait):
+;;
+;; If may-block is 'nonblocking, call C function wait4(WNOHANG) in a loop,
+;; as long as it tells us that *some* subprocess changed status,
+;; and update the corresponding job status.
+;; Return when wait4(WNOHANG) does not report any subprocess status change.
+;;
+;; Otherwise, if may-block is 'blocking, call C function wait4() in a loop,
+;; waiting for *some* subprocess to change status,
+;; and update the corresponding job status.
+;; Return when the preferred-pid happens to change status.
+;;
+;; In all cases, if preferred-job is set, return its updated status.
+(define (job-pids-wait preferred-job may-block)
+  ;c (debugf ">   job-pids-wait may-block=~s preferred-job=~a" may-block (if preferred-job (sh-job-display/string preferred-job) preferred-job))
+  (let ((done? #f))
+    (until done?
+      (let ((wait-result (pid-wait -1 may-block)))
+        (if (pair? wait-result)
+          (let ((job (pid->job (car wait-result))))
+            (when job
+              (job-status-set! 'job-pids-wait job (pid-wait-status->job-status (cdr wait-result)))
+              ;c (debugf "... job-pids-wait new-status=~s job=~a" (job-last-status job) (sh-job-display/string job))
+
+              (if (eq? job preferred-job)
+                ;; the job we are interested in changed status => don't block again
+                (when (eq? may-block 'blocking)
+                  (set! done? #t))
+
+                ;; advance top parent of job that changed status, before waiting again.
+                ;; do NOT advance preferred-job, because that's what our callers are already doing.
+                (let ((parent (job-top-parent job)))
+                  ;c (debugf "... job-pids-wait -> sh-job-status job=~a parent=~a" (sh-job-display/string job) (sh-job-display/string parent))
+                  (sh-job-status parent)))))
+
+          (set! done? #t))))) ; (pid-wait) did not report any status change => return
+
+  (let ((ret (if preferred-job (job-last-status preferred-job) (void))))
+    ;c (debugf "<   job-pids-wait ret=~s" ret)
+    ret))
+
+
+
+
+
+
+;; Internal function called by (advance-pid/wait)
 ;; when job is stopped in mode 'sh-wait or 'sh-sigcont+wait:
 ;; call (break) then send 'sigcont to job
 ;; if (break) raises an exception or resets scheme, then send 'sigint to job
-(define (job-advance/pid/break mode job pid pgid)
+(define (advance-pid/break mode job pid pgid)
    ; subshells should not directly perform I/O,
    ; they cannot write the "break> " prompt then read commands
    (when (sh-job-control?)

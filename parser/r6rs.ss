@@ -19,8 +19,7 @@
        read-token reverse!)
     (only (schemesh bootstrap) while)
     (schemesh lineedit parser)
-    (schemesh parser lisp)
-    (only (schemesh parser autocomplete) parse-r6rs-autocomplete))
+    (schemesh parser lisp))
 
 ; Read a single r6rs Scheme token from textual input port 'in.
 ; Internally uses Chez Scheme (read-token) for simplicity, but could be reimplemented
@@ -58,7 +57,7 @@
 
 
 (define parser-r6rs
-  (let ((ret (make-parser 'r6rs parse-r6rs-forms parse-r6rs-paren parse-r6rs-autocomplete)))
+  (let ((ret (make-parser 'r6rs parse-r6rs-forms parse-r6rs-paren)))
     (lambda ()
       ret)))
 

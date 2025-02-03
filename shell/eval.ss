@@ -14,9 +14,10 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) datum eval-when void)
-    (only (schemesh bootstrap) assert* raise-errorf sh-eval until)
+    (only (schemesh bootstrap) assert* raise-errorf until)
     (only (schemesh containers misc) list-iterate string-ends-with? string-rfind/char)
     (schemesh parser)
+    (only (schemesh shell parameters) sh-eval)
     (schemesh shell job))
 
 

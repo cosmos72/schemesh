@@ -12,7 +12,7 @@
     make-parsectx make-parsectx* parsectx?
     parsectx-skip-whitespace parsectx-unread-char parsectx-try-read-directive
     get-parser to-parser make-parser parser? parser-name
-    parser-parse-forms parser-parse-paren parser-autocomplete
+    parser-parse-forms parser-parse-paren
 
     ; r6rs.ss
     lex-r6rs parse-r6rs-forms parser-r6rs

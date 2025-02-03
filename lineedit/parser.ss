@@ -12,7 +12,7 @@
     parsectx-in parsectx-current-pos parsectx-previous-pos parsectx-enabled-parsers
 
     make-parser parser?
-    parser-name parser-parse-forms parser-parse-paren parser-autocomplete
+    parser-name parser-parse-forms parser-parse-paren
     get-parser-or-false get-parser to-parser
 
     parsectx-peek-char parsectx-read-char parsectx-unread-char parsectx-skip-whitespace
@@ -32,31 +32,25 @@
     (schemesh containers charspan))
 
 
-;; parser is an object containing three procedures:
+;; parser is an object containing two procedures:
 ;;   parser-parse-forms will parse multiple forms, and return them
 ;;   parser-parse-paren will scan a list of forms and return matching parentheses/brackets/braces/quotes
-;;   parser-autocomplete accepts a prefix charspan and a span of charspans,
-;;     and fills the span with possible completions of prefix:
-;;     scheme parsers will list possible completions among symbols in current environment,
-;;     shell parsers will list possible completions among files in current directory, etc.
 ;;
 (define-record-type
   (parser %make-parser parser?)
   (fields
     name
     parse-forms
-    parse-paren
-    autocomplete)
-  (nongenerative #{parser cd39kg38a9c4cnwzwhghs827-24}))
+    parse-paren)
+  (nongenerative #{parser cd39kg38a9c4cnwzwhghs827-25}))
 
 
 ;; create a new parser
-(define (make-parser name parse-forms parse-paren autocomplete)
+(define (make-parser name parse-forms parse-paren)
   (assert* 'make-parser (symbol?    name))
   (assert* 'make-parser (procedure? parse-forms))
   (assert* 'make-parser (procedure? parse-paren))
-  (assert* 'make-parser (procedure? autocomplete))
-  (%make-parser name parse-forms parse-paren autocomplete))
+  (%make-parser name parse-forms parse-paren))
 
 
 ;; Find and return the parser corresponding to given parser-name (which must be a symbol)
@@ -385,6 +379,7 @@
             (make-i/o-read-error)
             (make-i/o-port-error (parsectx-in pctx))
             (make-continuation-condition k)
+            (make-non-continuable-violation)
             (make-who-condition who)
             (make-format-condition)
             (make-message-condition (string-append format-string " at line ~a, char ~a of ~a"))
@@ -397,6 +392,7 @@
             (make-lexical-violation)
             (make-i/o-read-error)
             (make-continuation-condition k)
+            (make-non-continuable-violation)
             (make-who-condition who)
             (make-format-condition)
             (make-message-condition format-string)

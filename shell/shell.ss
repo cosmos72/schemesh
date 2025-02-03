@@ -8,8 +8,11 @@
 
 (library (schemesh shell (0 7 2))
   (export
+    ; autocomplete.ss
+    sh-autocomplete-func sh-autocomplete-r6rs sh-autocomplete-scheme sh-autocomplete-shell
+
     ; aliases.ss
-    sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
+    sh-alias-delete! sh-alias-set! sh-aliases-expand sh-aliases
 
     ; builtins.ss
     sh-builtins sh-find-builtin sh-exception-handler
@@ -25,6 +28,14 @@
     ; macros.ss
     include/lang include/lang*
     shell shell-backquote shell-env shell-list shell-subshell shell-wildcard
+
+    ; parameter1.ss
+    sh-persistent-parameters
+
+    ; parameters.ss
+    sh-current-environment sh-current-eval sh-globals sh-pid-table
+    sh-schemesh-reload-count sh-repl-reload sh-repl-reload?
+    sh-eval sh-eval-string sh-eval->bytevector
 
     ; paths.ss
     sh-path sh-path? sh-path-absolute? sh-path-relative?
@@ -49,7 +60,7 @@
     sh-env-iterate/direct sh-env-set/lazy! sh-env-copy sh-env->argv
 
     ; job.ss
-    sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-find-job
+    sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-find-job sh-job-exception
     sh-cmd? sh-multijob? sh-cmd make-cmd sh-cwd sh-consume-sigchld
     sh-globals sh-multijob-child-length sh-multijob-child-ref
     sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/err? sh-run/ok?
@@ -74,11 +85,13 @@
     sh-wildcard->sh-patterns sh-patterns/expand
   )
   (import
+    (schemesh shell autocomplete)
     (schemesh shell builtins)
     (schemesh shell eval)
     (schemesh shell fds)
     (schemesh shell job)
     (schemesh shell macros)
+    (schemesh shell parameters)
     (schemesh shell paths)
     (schemesh shell utils))
 

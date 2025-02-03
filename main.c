@@ -15,12 +15,12 @@
 #include "posix/posix.h"
 #include "shell/shell.h"
 
+#include <errno.h>
 #include <setjmp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h> /* strcmp() */
 #include <time.h>
-#include <errno.h>
 
 static jmp_buf jmp_env;
 static int     on_exception = 0;
@@ -260,12 +260,12 @@ int main(int argc, const char* argv[]) {
 again:
 #if 1
   on_exception = EVAL_FAILED;
-  {
+  do {
     ptr ret = schemesh_call0("sh-repl");
-    if (Sfixnump(ret)) {
-      err = Sfixnum_value(ret);
-    }
-  }
+
+    err = Sfixnump(ret) ? Sfixnum_value(ret) : -1;
+
+  } while (schemesh_call0("sh-repl-reload?") == Strue);
 #elif 0
   Sscheme_start(argc, argv);
 #else

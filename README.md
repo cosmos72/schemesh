@@ -121,7 +121,7 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 * extend (sh-cmd* "ENV_VAR" '= "VALUE") to set environment variables in *parent* job
 * modify builtin "cd" to change current directory of *parent* job
 * modify builtin "pwd" to print current directory of *current* job
-* implement shell keyword "unsafe", for creating (sh-cmd*) commands whose first argument - the program name -
+* implement shell builtin "unsafe", for creating (sh-cmd*) commands whose first argument - the program name -
   is not a string but a closure, as for example the output of a subshell, a wildcard etc.
 * extend builtin "alias", without arguments now lists existing aliases
 * mark and hide temporary redirections created by (sh-pipe) and (sh-pipe*)
@@ -133,7 +133,7 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 
 ## TO DO
 
-* consume received signals, i.e. call (sh-consume-signals) from (sh-repl-lineedit)
+* consume received signals, i.e. call (sh-consume-sigchld) from (sh-repl-lineedit)
   and modify the former to wait4(WNOHANG) any child process , update (sh-pid-table)
   and possibly call (sh-job-status) on uppermost ancestor of each job that exited.
 * autocomplete shell paths and scheme strings: unescape stems before searching for completions, escape completions
@@ -142,5 +142,5 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 * autocomplete shell paths starting with ~
 * decide: (shell-backquote) should expand to a closure that accepts a parent job and creates a subshell with such parent job?
 * implement builtin "global", for running another builtin with its parent job set to (sh-globals)
-* add missing shell builtins: kill exit export global set unset
+* add missing shell builtins: kill exit export global unset
 * implement function (string->sh-patterns)

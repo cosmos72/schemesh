@@ -21,20 +21,21 @@
       console-input-port console-output-port console-error-port
       default-exception-handler display-condition
       eval exit-handler expand inspect keyboard-interrupt-handler parameterize
-      pretty-print read-token reset reset-handler top-level-bound? top-level-value void)
+      pretty-print read-token reset reset-handler void)
     (schemesh bootstrap)
     (only (schemesh containers) list-iterate)
     (only (schemesh lineedit charhistory) charhistory-path-set!)
     (schemesh lineedit charlines io)
     (schemesh lineedit linectx)
+    (only (schemesh lineedit lineterm) lineterm-write/u8)
     (schemesh lineedit lineedit)
     (schemesh parser)
     (only (schemesh posix dir) file-type)
     (schemesh posix signal) ; also for suspend-handler
     (schemesh posix tty)
     (only (schemesh shell)
-       sh-consume-sigchld sh-exception-handler
-       sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
+       sh-consume-sigchld sh-exception-handler sh-repl-reload sh-repl-reload? sh-schemesh-reload-count
+       sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
        sh-job-control? sh-job-control-available? sh-make-linectx
        sh-repl-args sh-run/i sh-xdg-cache-home/ sh-xdg-config-home/))
 
@@ -205,7 +206,8 @@
   ;; set to #f the init-file-path and quit-file-path saved in (sh-repl-args):
   ;; if (sh-repl* ...) is called from an interrupt handler, we do NOT want to load them again
   (let ((repl-args (list parser print-func lctx #f #f))
-        (suggest-reload? #t))
+        (reload-count (sh-schemesh-reload-count)))
+    (sh-repl-reload #f)
     (call/cc
       (lambda (k-exit)
         (parameterize ((sh-repl-args repl-args)
@@ -223,20 +225,25 @@
                          (lambda ()
                            (put-string (console-error-port) "\n; suspended\n")
                            (sh-repl-interrupt-handler repl-args '()))))
-          (let ((k-reset k-exit)
-                (updated-parser parser))
+          (let ((k-reset k-exit))
             (reset-handler (lambda () (k-reset)))
             (call/cc (lambda (k) (set! k-reset k)))
             ; when the (reset-handler) we installed is called, resume from here
-            (while updated-parser
-              (set! parser updated-parser)
-              (set-car! repl-args updated-parser)
-              (set! updated-parser (sh-repl-once parser print-func lctx))
-              (when (and suggest-reload?
-                         (top-level-bound? 'sh-repl)
-                         (not (eq? sh-repl (top-level-value 'sh-repl))))
-                (set! suggest-reload? #f)
-                (display "; warning: binding for sh-repl changed. Consider switching to the new repl.\n")))))))))
+            (while parser
+              (set! parser (sh-repl-once parser print-func lctx))
+              (cond
+                (parser
+                  (set-car! repl-args parser)
+                  (if (sh-repl-reload?)
+                    (set! parser #f) ; parser if #f, loop will exit
+                    (let ((new-reload-count (sh-schemesh-reload-count)))
+                      (unless (= reload-count new-reload-count)
+                        (set! reload-count new-reload-count)
+                        (put-string (console-error-port)
+                          "; warning: libschemesh was reloaded. Call (sh-repl-reload) to switch to the new libschemesh.\n")))))
+                (#t ; EOF
+                  (lineterm-write/u8 lctx 10))))
+            0)))))) ; EOF, or (sh-repl-reload) was called. return 0
 
 
 (define (try-eval-file path)
@@ -283,7 +290,7 @@
         (sh-job-control? old-job-control)
         (try-eval-file quit-file-path)
         (signal-restore-sigwinch)
-        (lineedit-finish lctx)
+        (lineedit-flush lctx)
         (linectx-save-history lctx)))))
 
 

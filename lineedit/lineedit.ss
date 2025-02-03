@@ -19,7 +19,7 @@
     lineedit-key-history-next lineedit-key-history-prev lineedit-key-insert-clipboard
     lineedit-key-redraw lineedit-key-tab lineedit-key-toggle-insert
     lineedit-paren-find/before-cursor lineedit-paren-find/surrounds-cursor
-    lineedit-read lineedit-read-confirm-y-or-n? lineedit-flush lineedit-finish)
+    lineedit-read lineedit-read-confirm-y-or-n? lineedit-flush)
   (import
     (rnrs)
     (only (chezscheme)    console-output-port console-error-port
@@ -118,10 +118,6 @@
   (linectx-clear! lctx))
 
 
-;; write #\newline before returning from (repl)
-(define (lineedit-finish lctx)
-  (lineterm-write/u8 lctx 10)
-  (lineedit-flush lctx))
 
 
 ;; save current linectx-vscreen to history,

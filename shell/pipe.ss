@@ -12,7 +12,7 @@
 
 ;; Create a pipe multijob to later start it. Each element in children-jobs must be a sh-job or subtype.
 (define (sh-pipe . children-jobs)
-  (make-multijob 'sh-pipe assert-is-job-or-pipe-symbol job-start/pipe #f
+  (make-multijob 'sh-pipe assert-is-job-or-pipe-symbol start-multijob-pipe #f
     (validate-convert-pipe-args children-jobs)))
 
 
@@ -23,7 +23,7 @@
   (validate-pipe*-args children-jobs-with-pipe)
   (make-multijob 'sh-pipe
     assert-is-job-or-pipe-symbol
-    job-start/pipe
+    start-multijob-pipe
     #f
     children-jobs-with-pipe))
 
@@ -64,7 +64,7 @@
 ;; and called by (sh-start) to actually start a pipe multijob.
 ;;
 ;; Does not redirect file descriptors.
-(define (job-start/pipe mj options)
+(define (start-multijob-pipe mj options)
   ;; this runs in the main process, not in a subprocess.
   (assert* 'sh-pipe (eq? 'running (job-last-status->kind mj)))
   (assert* 'sh-pipe (fx=? -1 (multijob-current-child-index mj)))
@@ -79,7 +79,7 @@
     (do ((i 0 (fx1+ i)))
         ((fx>=? i n))
       (when (sh-job? (sh-multijob-child-ref mj i))
-        (set! pipe-fd (job-start/pipe-i mj i n pipe-fd))))
+        (set! pipe-fd (start-multijob-pipe-i mj i n pipe-fd))))
   (multijob-current-child-index-set! mj 0)))
 
 
@@ -88,7 +88,7 @@
 ;;
 ;; Return the i-th child job output pipe fd,
 ;; or -1 if this is the last job and its output should not be redirected to a pipe.
-(define (job-start/pipe-i mj i n in-pipe-fd)
+(define (start-multijob-pipe-i mj i n in-pipe-fd)
   (let* ((job (sh-multijob-child-ref mj i))
          (out-pipe-fd/read -1)
          (out-pipe-fd/write -1)
@@ -104,7 +104,7 @@
          (options       (if spawn? (cons 'spawn options1) options1)))
 
 
-    ; Apply redirections. Will be removed by (job-advance/pipe/wait) when job finishes.
+    ; Apply redirections. Will be removed by (advance-multijob-pipe/wait) when job finishes.
     (when redirect-in?
       ; we must redirect job fd 0 *before* any redirection configured in the job itself
       (job-redirect/temp/fd! job 0 '<& in-pipe-fd))
@@ -118,7 +118,7 @@
           ; we must redirect job's fd 2 *before* any redirection configured in the job itself
           (job-redirect/temp/fd! job 2 '>& fd/write))))
 
-    ; (debugf "... job-start/pipe-i starting job=~a, options=~s, redirect-in=~s, redirect-out=~s" (sh-job-display/string job) options redirect-in? redirect-out?)
+    ; (debugf "... start-multijob-pipe-i starting job=~a, options=~s, redirect-in=~s, redirect-out=~s" (sh-job-display/string job) options redirect-in? redirect-out?)
 
     ; Do not yet assign a job-id. Reuse mj process group id
     (start-any 'sh-pipe job (cons 'catch options))
@@ -140,42 +140,42 @@
     out-pipe-fd/read))
 
 
-;; Internal function called by (job-advance) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
+;; Internal function called by (advance-job) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 ;;
 ;; mode must be one of: sh-fg sh-bg sh-wait sh-sigcont+wait sh-job-status
-(define (job-advance/pipe mode mj)
-  ; (debugf ">   job-advance/pipe mode=~s mj=~s" mode mj)
+(define (advance-multijob-pipe mode mj)
+  ; (debugf ">   advance-multijob-pipe mode=~s mj=~s" mode mj)
   (let ((pgid (job-pgid mj)))
     (if (and pgid (memq mode '(sh-fg sh-wait sh-sigcont+wait)))
       (with-foreground-pgid mode (job-pgid (sh-globals)) pgid
-        (job-advance/pipe/maybe-sigcont mode mj pgid)
-        (job-advance/pipe/wait mode mj))
+        (advance-multijob-pipe/maybe-sigcont mode mj pgid)
+        (advance-multijob-pipe/wait mode mj))
       (begin
-        (job-advance/pipe/maybe-sigcont mode mj pgid)
-        (job-advance/pipe/wait mode mj))))
-  ; (debugf "<   job-advance/pipe job-status=~s" (job-last-status mj))
+        (advance-multijob-pipe/maybe-sigcont mode mj pgid)
+        (advance-multijob-pipe/wait mode mj))))
+  ; (debugf "<   advance-multijob-pipe job-status=~s" (job-last-status mj))
   )
 
 
-(define (job-advance/pipe/maybe-sigcont mode mj pgid)
+(define (advance-multijob-pipe/maybe-sigcont mode mj pgid)
   ; send SIGCONT to job's process group, if present.
   ; It may raise error.
   (when (and pgid (memq mode '(sh-fg sh-bg sh-sigcont+wait)))
-    ; (debugf "job-advance/pipe/sigcont > ~s ~s" mode mj)
+    ; (debugf "advance-multijob-pipe/sigcont > ~s ~s" mode mj)
     (pid-kill (- pgid) 'sigcont)))
 
 
-(define (job-advance/pipe/wait mode mj)
-  ; (debugf ">   job-advance/pipe/wait mode=~s mj=~s" mode mj)
+(define (advance-multijob-pipe/wait mode mj)
+  ; (debugf ">   advance-multijob-pipe/wait mode=~s mj=~s" mode mj)
   (let* ((children  (multijob-children mj))
          (n         (span-length children))
          (running-i (multijob-current-child-index mj)))
-    ; call (job-advance mode ...) on each child job,
+    ; call (advance-job mode ...) on each child job,
     ; skipping the ones that already finished.
     (let %again ((i running-i))
       (let ((job (sh-multijob-child-ref mj i)))
         (when job
-          (when (or (symbol? job) (job-status-finished? (job-advance mode job)))
+          (when (or (symbol? job) (job-status-finished? (advance-job mode job)))
             (set! running-i (fx1+ i))
             (%again (fx1+ i))))))
     (cond
@@ -184,7 +184,7 @@
       (#t
         (multijob-current-child-index-set! mj -1)
         (job-pgid-set! mj #f)
-        (job-status-set! 'job-advance/pipe/wait mj
+        (job-status-set! 'advance-multijob-pipe/wait mj
           (if (span-empty? children)
             (void)
             (job-last-status (span-back children))))))))

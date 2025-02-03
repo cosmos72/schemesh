@@ -55,7 +55,7 @@
     lineedit-key-history-next lineedit-key-history-prev
     lineedit-key-redraw lineedit-key-tab lineedit-key-toggle-insert
     lineedit-paren-find/before-cursor lineedit-paren-find/surrounds-cursor
-    lineedit-read lineedit-read-confirm-y-or-n? lineedit-flush lineedit-finish
+    lineedit-read lineedit-read-confirm-y-or-n? lineedit-flush
 
     ; lineterm.ss
     lineterm-write/u8 lineterm-write/bvector lineterm-write/bspan lineterm-write/cspan lineterm-write/cbuffer
@@ -84,7 +84,7 @@
     parsectx-in parsectx-current-pos parsectx-previous-pos parsectx-enabled-parsers
 
     make-parser parser?
-    parser-name parser-parse-forms parser-parse-paren parser-autocomplete
+    parser-name parser-parse-forms parser-parse-paren
     get-parser-or-false get-parser to-parser
 
     parsectx-peek-char parsectx-read-char parsectx-unread-char parsectx-skip-whitespace

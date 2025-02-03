@@ -266,7 +266,7 @@
 ;; Copy overridden environment variables from specified job to its parent.
 ;; Ignores inherited environment variables.
 ;;
-;; Called by (cmd-start) to implement the syntax "ENV_VAR" '= "VALUE"
+;; Called by (start-cmd) to implement the syntax "ENV_VAR" '= "VALUE"
 ;;   i.e. a command with environment variables but no arguments.
 ;;
 ;; Always returns (void)

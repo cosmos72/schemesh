@@ -6,16 +6,14 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh parser autocomplete (0 7 2))
+(library (schemesh shell autocomplete (0 7 2))
   (export
-    parse-r6rs-autocomplete
-    parse-scheme-autocomplete
-    parse-shell-autocomplete)
+      sh-autocomplete-func sh-autocomplete-r6rs sh-autocomplete-scheme sh-autocomplete-shell)
   (import
     (rnrs)
-    (only (chezscheme) environment-symbols fx1+ fx1- sort! top-level-value)
-    (only (schemesh bootstrap) debugf sh-current-environment values->list)
-    (only (schemesh containers misc) list-iterate list-remove-consecutive-duplicates! string-range=? string-split)
+    (only (chezscheme) environment-symbols fx1+ fx1- sort!)
+    (only (schemesh bootstrap)       values->list)
+    (only (schemesh containers misc) list-iterate list-remove-consecutive-duplicates! string-range=? string-split string-starts-with?)
     (only (schemesh containers hashtable) hashtable-iterate)
     (schemesh containers charspan)
     (schemesh containers span)
@@ -24,20 +22,28 @@
     (only (schemesh posix dir) directory-list directory-sort!)
     (only (schemesh lineedit vscreen) vscreen-char-before-xy vscreen-cursor-ix vscreen-cursor-iy)
     (schemesh lineedit paren)
-    (only (schemesh lineedit linectx) linectx-completion-stem linectx-vscreen))
+    (only (schemesh lineedit linectx) linectx-completion-stem linectx-vscreen)
+    (only (schemesh shell parameters) sh-current-environment)
+    (only (schemesh shell builtins)   sh-builtins)
+    (only (schemesh shell job)        sh-env-iterate/direct sh-aliases sh-env-ref))
+
+;; each sh-autocomplete-... procedure accepts a prefix charspan and a span of charspans,
+;; and fills the span with possible completions of prefix:
+;;  scheme parsers will list possible completions among symbols in current environment,
+;;  shell parsers will list possible completions among files in current directory, etc.
 
 
 ;; fill span-of-charspans completions with top-level scheme symbols whose name starts with charspan stem
-(define (parse-r6rs-autocomplete lctx paren completions)
-  (parse-scheme-autocomplete lctx paren completions))
+(define (sh-autocomplete-r6rs lctx paren completions)
+  (sh-autocomplete-scheme lctx paren completions))
 
 
 ;; fill span-of-charspans completions with top-level scheme symbols whose name starts with charspan stem
-(define (parse-scheme-autocomplete lctx paren completions)
+(define (sh-autocomplete-scheme lctx paren completions)
   (%compute-stem lctx paren %char-is-scheme-identifier? %always-false)
   (let* ((stem     (linectx-completion-stem lctx))
          (stem-len (charspan-length stem)))
-    ; (debugf "parse-scheme-autocomplete paren=~s stem=~s" paren stem)
+    ; (debugf "sh-autocomplete-scheme paren=~s stem=~s" paren stem)
     (if (eqv? #\" (paren-start-token paren))
        ; list contents of some directory
        (let ((slash-pos (charspan-rfind/char stem #\/)))
@@ -62,13 +68,13 @@
 
 
 ;; fill span-of-charspans completions with file names starting with charspan stem
-(define (parse-shell-autocomplete lctx paren completions)
+(define (sh-autocomplete-shell lctx paren completions)
   (let-values (((stem-is-first-word? x y) (%compute-stem lctx paren %char-is-shell-identifier? %char-is-dollar?)))
     (let* ((stem      (linectx-completion-stem lctx))
            (stem-len  (charspan-length stem))
            (dollar?   (and (not (fxzero? stem-len)) (char=? #\$ (charspan-ref stem 0))))
            (slash-pos (and (not (fxzero? stem-len)) (not dollar?) (charspan-rfind/char stem #\/))))
-      ; (debugf "parse-shell-autocomplete stem=~s, stem-is-first-word?=~s" stem stem-is-first-word?)
+      ; (debugf "sh-autocomplete-shell stem=~s, stem-is-first-word?=~s" stem stem-is-first-word?)
       (cond
         (dollar?
           (%list-shell-env lctx (charspan->string stem) completions))
@@ -186,14 +192,12 @@
 
 ;; list environment variables that start with prefix, and append them to completions
 ;; NOTE: prefix always starts with #\$
-;; FIXME: pass (top-level-value 'sh-env-iterate/direct) as argument
 (define (%list-shell-env lctx prefix completions)
   ; (debugf "%list-shell-env prefix = ~s" prefix)
   (let* ((prefix-len (fx1- (string-length prefix)))
-         (env-iterate (top-level-value 'sh-env-iterate/direct))
          (l      '()))
     ; (debugf "%list-shell-env htable = ~s" htable)
-    (env-iterate #t
+    (sh-env-iterate/direct #t
       (lambda (name val visibility)
         (when (and (fx>=? (string-length name) prefix-len)
                    (string-range=? name 0 prefix 1 prefix-len))
@@ -228,15 +232,13 @@
   )
 
 ;; find shell aliases starting with prefix, cons them onto list l, and return l
-;; FIXME: pass (top-level-value 'sh-aliases) as argument
 (define (%list-shell-aliases prefix l)
-  (%list-htable-keys ((top-level-value 'sh-aliases)) prefix l))
+  (%list-htable-keys (sh-aliases) prefix l))
 
 
 ;; find shell builtins starting with prefix, cons them onto list l, and return l
-;; FIXME: pass (top-level-value 'sh-builtins) as argument
 (define (%list-shell-builtins prefix l)
-  (%list-htable-keys ((top-level-value 'sh-builtins)) prefix l))
+  (%list-htable-keys (sh-builtins) prefix l))
 
 
 ;; find hashtable keys starting with prefix, cons them onto list l, and return l
@@ -245,23 +247,30 @@
     (hashtable-iterate htable
       (lambda (cell)
         (let ((name (car cell)))
-          (when (and (fx>=? (string-length name) prefix-len)
-                     (string-range=? prefix 0 name 0 prefix-len))
+          (when (string-starts-with? name prefix)
             (set! l (cons name l)))))))
   l)
 
 ;; find programs in $PATH that start with prefix, cons them onto list l, and return l
-;; FIXME: pass ((top-level-value 'sh-env-ref) #t "PATH") as argument
 (define (%list-shell-programs prefix l)
-  (let* (($path      ((top-level-value 'sh-env-ref) #t "PATH"))
-         (dirs       (string-split $path 0 (string-length $path) #\:))
+  (let* (($path      (sh-env-ref #t "PATH"))
+         (dirs       (string-split $path #\:))
          (prefix-len (string-length prefix)))
     (list-iterate dirs
       (lambda (dir)
-        (list-iterate (directory-list dir 'prefix prefix 'catch) ; don't sort directory list
+        (list-iterate (directory-list dir 'prefix prefix 'catch) ; no need to sort directory list
           (lambda (elem)
             (when (eq? 'file (car elem))
               (set! l (cons (cdr elem) l))))))))
   l)
+
+;; return the correct autocompletion function for specified parser name,
+;; or #f if not found.
+(define (sh-autocomplete-func parser-name)
+  (case parser-name
+    ((r6rs)   sh-autocomplete-r6rs)
+    ((scheme) sh-autocomplete-scheme)
+    ((shell)  sh-autocomplete-shell)
+    (else     #f)))
 
 ) ; close library

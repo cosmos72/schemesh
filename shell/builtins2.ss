@@ -12,7 +12,7 @@
 ;; write contents of bytespan bsp to file descriptor fd,
 ;; then clear bytespan bsp
 (define (fd-write/bspan! fd bsp)
-  ; TODO: loop on short writes and call sh-consume-signals
+  ; TODO: loop on short writes and call sh-consume-sigchld
   (fd-write fd (bytespan-peek-data bsp)
             (bytespan-peek-beg bsp) (bytespan-peek-end bsp))
   (bytespan-clear! bsp))
@@ -52,7 +52,7 @@
 (define (builtin-command job prog-and-args options)
   (assert-string-list? 'builtin-command prog-and-args)
   (assert* 'builtin-command (string=? "command" (car prog-and-args)))
-  (cmd-spawn job (list->argv (cdr prog-and-args)) options)
+  (spawn-cmd job (list->argv (cdr prog-and-args)) options)
   (job-last-status job))
 
 
@@ -107,10 +107,6 @@
         (write-builtin-error "fg" arg "no such job")))) ; returns '(exited . 1)
 
 
-
-
-
-
 ;; the "jobs" builtin: list currently running jobs
 (define (builtin-jobs job prog-and-args options)
   (assert-string-list? 'builtin-jobs prog-and-args)
@@ -125,8 +121,27 @@
   (void))
 
 
+;; the "split-at-0" builtin: split second and subsequent strings of a command line at each #\nul
+;; then run whatever command, builtin or alias is at the first string of the command line.
+(define (builtin-split-at-0 job prog-and-args options)
+  (assert-string-list? 'builtin-split-at-0 prog-and-args)
+  (if (null? (cdr prog-and-args))
+    (write-builtin-error "split-at-0" "too few arguments")
+    (let ((args (cons (cadr prog-and-args) ;; copy first argument as-is
+                       ;; split after each #\nul the second and subsequent arguments
+                      (string-list-split-after-nuls (cddr prog-and-args)))))
+      (start-command-or-builtin-or-alias-from-another-builtin job args options))))
 
-;; the "builtin" builtin: find a builtin by name, and execute it.
+
+;; the "unsafe" builtin: run whatever command, builtin or alias is in the remaining command line.
+(define (builtin-unsafe job prog-and-args options)
+  (assert-string-list? 'builtin-unsafe prog-and-args)
+  (if (null? (cdr prog-and-args))
+    (void)
+    (start-command-or-builtin-or-alias-from-another-builtin job (cdr prog-and-args) options)))
+
+
+;; the "builtin" builtin: run the builtin in the remaining command line.
 ;; returns builtin exit status, or '(exited . 1) if specified builtin is not found.
 (define (builtin-builtin job prog-and-args options)
   ; (debugf "builtin-builtin ~s" prog-and-args)
@@ -136,7 +151,7 @@
     (let* ((args (cdr prog-and-args))
            (builtin (sh-find-builtin args)))
       (if builtin
-        (builtin/start builtin job args options)
+        (start-builtin-already-redirected builtin job args options)
         (write-builtin-error "builtin" "not a shell builtin" (car args))))))
 
 
@@ -150,25 +165,35 @@
 ;;   thus the returned status can be '(running ...)
 ;; otherwise the builtin will be executed synchronously in the caller's process
 ;;   and the returned status can only be one of (void) '(exited ...) '(killed ...) or '(unknown ...)
-(define (builtin/start builtin job args options)
-  (assert* 'builtin/start (not (job-step-proc job)))
-  (let ((%proc-builtin/start
+(define (start-builtin builtin c args options)
+  (assert* 'start-builtin (not (job-step-proc c)))
+  (job-remap-fds! c)
+  (parameterize ((sh-fd-stdin  (job-find-fd-remap c 0))
+                 (sh-fd-stdout (job-find-fd-remap c 1))
+                 (sh-fd-stderr (job-find-fd-remap c 2)))
+    (job-status-set! 'start-builtin c
+      (start-builtin-already-redirected builtin c args options))))
+
+
+;; internal function called by (start-builtin) to execute a builtin
+(define (start-builtin-already-redirected builtin c args options)
+  (let ((%proc-start-builtin
     (lambda (job)
       (let ((status (builtin job args options)))
         ; executing a builtin finishes immediately, and returns a (job-status-finished? status)
         ; with two exceptions:
         ; 1. if the builtin is started with 'spawn option, it is executed asynchronously in a spawned subprocess
         ; 2. the builtin "command" by design spawns asynchronously an external subprocess and returns immediately
-        (if (or (memq 'spawn options) (eq? builtin builtin-command) (job-status-finished? status))
+        (if (or (eq? builtin builtin-command) (memq 'spawn options)  (job-status-finished? status))
           status
           (%warn-bad-builtin-exit-status builtin args status)))))) ; returns (void)
     (if (memq 'spawn options)
-      (job-start/spawn-proc job %proc-builtin/start options)
-      (%proc-builtin/start job))))
+      (spawn-procedure c %proc-start-builtin options)
+      (%proc-start-builtin c))))
 
 
 
-;; always returns (void). Useful for (builtin/start)
+;; always returns (void). Useful for (start-builtin)
 (define (%warn-bad-builtin-exit-status builtin args status)
   (format (console-error-port)
     "; warning: invalid exit status ~s of builtin ~s called with arguments ~s\n"

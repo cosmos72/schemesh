@@ -15,7 +15,7 @@
 (library (schemesh shell job (0 7 2))
   (export
     ; alias.ss
-    sh-alias-ref sh-alias-delete! sh-alias-set! sh-alias-expand sh-aliases
+    sh-alias-ref sh-alias-delete! sh-alias-set! sh-aliases-expand sh-aliases
 
     ; dir.ss
     sh-cd sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
@@ -30,7 +30,7 @@
     sh-env-iterate/direct sh-env-set/lazy! sh-env-copy sh-env->argv
 
     ; job.ss
-    sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-find-job
+    sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-find-job sh-job-exception
     sh-cmd? sh-multijob? sh-cmd make-cmd sh-cwd sh-consume-sigchld
     sh-globals sh-multijob-child-length sh-multijob-child-ref
     sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/err? sh-run/ok?
@@ -71,9 +71,10 @@
     (schemesh posix pid)
     (schemesh posix signal)
     (only (schemesh posix tty) tty-inspect)
+    (schemesh shell builtins)
     (schemesh shell fds)
-    (schemesh shell paths)
-    (schemesh shell builtins))
+    (schemesh shell parameters)
+    (schemesh shell paths))
 
 
 ;; define the record types "job" "cmd" "multijob" and their accessors
@@ -388,6 +389,14 @@
     dst))
 
 
+;; Return the exception that terminated a job-or-id.
+;; Return #f if job was not terminated by an exception.
+;;
+;; Raises error if no job matches job-or-id.
+(define (sh-job-exception job-or-id)
+  (job-exception (sh-job job-or-id)))
+
+
 ;; call (proc job) on given job and each of its
 ;; parents. Stops iterating if (proc ...) returns #f.
 ;;
@@ -415,10 +424,19 @@
   (reverse! (job-parents-revlist job-or-id)))
 
 
+;; return top ancestor of job, excluding (sh-globals)
+(define (job-top-parent job)
+  (let ((global (sh-globals))
+        (parent (job-parent job)))
+    (while (and parent (not (eq? global parent)))
+      (set! job parent)
+      (set! parent (job-parent parent)))
+    job))
+
+
 (define (sh-consume-sigchld)
-  ; TODO: call (signal-consume-sigchld) and (pid-wait) to reap zombies
-  ;        and collect exit status of child processes
-  (void))
+  (while (signal-consume-sigchld)
+    (job-pids-wait #f 'nonblocking)))
 
 
 (define (job-start-options->process-group-id options)
@@ -447,7 +465,7 @@
 ;; and to which (private) fds they are actually mapped to
 (define (job-remap-fds! job)
   (let ((n (span-length (job-redirects job))))
-    (unless (fxzero? n)
+    (unless (or (fxzero? n) (job-fds-to-remap job)) ; if fds are already remapped, do nothing
       (let ((job-dir (job-cwd-if-set job))
             (remaps  (make-eqv-hashtable n)))
         (job-fds-to-remap-set! job remaps)
@@ -640,7 +658,7 @@
   (let ((job (sh-job job-or-id)))
     (if (job-has-status? job '(new))
       (job-last-status job)
-      (job-advance 'sh-job-status job))))
+      (advance-job 'sh-job-status job))))
 
 
 ;; Continue a job or job-id in background by sending SIGCONT to it, and return immediately.
@@ -653,7 +671,7 @@
 ;;   (cons 'stopped signal-name)
 ;;   (cons 'unknown ...)
 (define (sh-bg job-or-id)
-  (job-advance 'sh-bg job-or-id))
+  (advance-job 'sh-bg job-or-id))
 
 
 ;; Continue a job or job-id by sending SIGCONT to it, then wait for it to exit or stop,
@@ -669,7 +687,7 @@
 ;;   upon invocation, sets the job as fg process group.
 ;;   And before returning, restores current shell as fg process group.
 (define (sh-fg job-or-id)
-  (job-advance 'sh-fg job-or-id))
+  (advance-job 'sh-fg job-or-id))
 
 
 ;; Continue a job or job-id by optionally sending SIGCONT to it,
@@ -702,17 +720,17 @@
 
 ;; Same as (sh-wait), but all arguments are mandatory
 (define (sh-wait* job-or-id send-sigcont?)
-  (job-advance (if send-sigcont? 'sh-sigcont+wait 'sh-wait) job-or-id))
+  (advance-job (if send-sigcont? 'sh-sigcont+wait 'sh-wait) job-or-id))
 
 
 ;; Common implementation of (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
-;; Also called by (job-advance/multijob)
+;; Also called by (advance-multijob)
 ;;
 ;; mode must be one of: sh-fg sh-bg sh-wait sh-sigcont+wait sh-job-status
-(define (job-advance mode job-or-id)
-  (assert* 'job-advance (memq mode '(sh-fg sh-bg sh-wait sh-sigcont+wait sh-job-status)))
+(define (advance-job mode job-or-id)
+  (assert* 'advance-job (memq mode '(sh-fg sh-bg sh-wait sh-sigcont+wait sh-job-status)))
   (let ((job (sh-job job-or-id)))
-    ;a (debugf ">  job-advance mode=~s job=~s id=~s pid=~s status=~s" mode job (job-id job) (job-pid job) (job-last-status job))
+    ;a (debugf ">  advance-job mode=~s job=~s id=~s pid=~s status=~s" mode job (job-id job) (job-pid job) (job-last-status job))
     (case (job-last-status->kind job)
       ((exited killed unknown)
         (void)) ; job finished
@@ -721,16 +739,16 @@
           ((job-pid job)
             ; either the job is a sh-cmd, or a builtin or multijob spawned in a child subprocess.
             ; in all cases, we have a pid to wait on.
-            (job-advance/pid mode job))
+            (advance-pid mode job))
           ((sh-multijob? job)
             (if (eq? 'sh-pipe (multijob-kind job))
-              (job-advance/pipe     mode job)
-              (job-advance/multijob mode job)))))
+              (advance-multijob-pipe     mode job)
+              (advance-multijob mode job)))))
       (else
         (raise-errorf mode  "job not started yet: ~s" job)))
 
     (let ((status (job-id-update! job))) ; returns job status
-      ;a (debugf "<  job-advance mode=~s job=~s id=~s pid=~s status=~s" mode job (job-id job) (job-pid job) status)
+      ;a (debugf "<  advance-job mode=~s job=~s id=~s pid=~s status=~s" mode job (job-id job) (job-pid job) status)
       status)))
 
 
@@ -832,7 +850,9 @@
     (hashtable-set! t "fg"      builtin-fg)
     (hashtable-set! t "jobs"    builtin-jobs)
     (hashtable-set! t "pwd"     builtin-pwd)
-    (hashtable-set! t "unalias" builtin-unalias)))
+    (hashtable-set! t "split-at-0" builtin-split-at-0)
+    (hashtable-set! t "unalias"    builtin-unalias)
+    (hashtable-set! t "unsafe"     builtin-unsafe)))
 
 
 ) ; close library
