@@ -17,7 +17,7 @@
 
       ;; parameters.ss
       sh-current-environment sh-current-eval sh-globals sh-pid-table
-      sh-schemesh-reload-count sh-repl-reload sh-repl-reload?
+      sh-schemesh-reload-count sh-repl-restart sh-repl-restart?
       sh-eval sh-eval-string sh-eval->bytevector)
   (import
     (rnrs)
@@ -41,13 +41,13 @@
 ;; retrieve integer sh-schemesh-reload-count set by parameters/parameter1.ss
 (define (sh-schemesh-reload-count) (vector-ref (sh-persistent-parameters) 4))
 
-;; retrieve boolean flag sh-repl-reload? set by parameters/parameter1.ss
-(define (sh-repl-reload?) (vector-ref (sh-persistent-parameters) 5))
+;; retrieve boolean flag sh-repl-restart? set by parameters/parameter1.ss
+(define (sh-repl-restart?) (vector-ref (sh-persistent-parameters) 5))
 
-;; set to #t or #f the boolean flag sh-repl-reload?
-(define sh-repl-reload
+;; set to #t or #f the boolean flag sh-repl-restart?
+(define sh-repl-restart
   (case-lambda
-    (() (sh-repl-reload #t))
+    (() (sh-repl-restart #t))
     ((flag) (vector-set! (sh-persistent-parameters) 5 (not (not flag))))))
 
 

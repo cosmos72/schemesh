@@ -34,7 +34,7 @@
 
     ; parameters.ss
     sh-current-environment sh-current-eval sh-globals sh-pid-table
-    sh-schemesh-reload-count sh-repl-reload sh-repl-reload?
+    sh-schemesh-reload-count sh-repl-restart sh-repl-restart?
     sh-eval sh-eval-string sh-eval->bytevector
 
     ; paths.ss

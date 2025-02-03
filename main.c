@@ -265,7 +265,7 @@ again:
 
     err = Sfixnump(ret) ? Sfixnum_value(ret) : -1;
 
-  } while (schemesh_call0("sh-repl-reload?") == Strue);
+  } while (schemesh_call0("sh-repl-restart?") == Strue);
 #elif 0
   Sscheme_start(argc, argv);
 #else

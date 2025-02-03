@@ -34,7 +34,7 @@
     (schemesh posix signal) ; also for suspend-handler
     (schemesh posix tty)
     (only (schemesh shell)
-       sh-consume-sigchld sh-exception-handler sh-repl-reload sh-repl-reload? sh-schemesh-reload-count
+       sh-consume-sigchld sh-exception-handler sh-repl-restart sh-repl-restart? sh-schemesh-reload-count
        sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
        sh-job-control? sh-job-control-available? sh-make-linectx
        sh-repl-args sh-run/i sh-xdg-cache-home/ sh-xdg-config-home/))
@@ -207,7 +207,7 @@
   ;; if (sh-repl* ...) is called from an interrupt handler, we do NOT want to load them again
   (let ((repl-args (list parser print-func lctx #f #f))
         (reload-count (sh-schemesh-reload-count)))
-    (sh-repl-reload #f)
+    (sh-repl-restart #f)
     (call/cc
       (lambda (k-exit)
         (parameterize ((sh-repl-args repl-args)
@@ -234,16 +234,16 @@
               (cond
                 (parser
                   (set-car! repl-args parser)
-                  (if (sh-repl-reload?)
+                  (if (sh-repl-restart?)
                     (set! parser #f) ; parser if #f, loop will exit
                     (let ((new-reload-count (sh-schemesh-reload-count)))
                       (unless (= reload-count new-reload-count)
                         (set! reload-count new-reload-count)
                         (put-string (console-error-port)
-                          "; warning: libschemesh was reloaded. Call (sh-repl-reload) to switch to the new libschemesh.\n")))))
+                          "; warning: libschemesh was reloaded. Call (sh-repl-restart) to switch to the new libschemesh.\n")))))
                 (#t ; EOF
                   (lineterm-write/u8 lctx 10))))
-            0)))))) ; EOF, or (sh-repl-reload) was called. return 0
+            0)))))) ; EOF, or (sh-repl-restart) was called. return 0
 
 
 (define (try-eval-file path)
