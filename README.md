@@ -130,12 +130,12 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
   pipe fd becomes full and blocks further writes, preventing builtin "history" from finishing
   and causing a deadlock: "foo" is never started.
   The solution was: modify (sh-pipe) to always start builtins and multijobs in a subprocess
+* consume received signals, i.e. (sh-repl-lineedit) calls (sh-consume-sigchld),
+  which calls C waitpid(-1, WNOHANG) for any child process, updates (sh-pid-table)
+  and calls (sh-job-status) on all parents of each job that changes status.
 
 ## TO DO
 
-* consume received signals, i.e. call (sh-consume-sigchld) from (sh-repl-lineedit)
-  and modify the former to wait4(WNOHANG) any child process , update (sh-pid-table)
-  and possibly call (sh-job-status) on uppermost ancestor of each job that exited.
 * autocomplete shell paths and scheme strings: unescape stems before searching for completions, escape completions
 * autocomplete shell paths and scheme strings: when autocompleting inside single or double quotes,
   the stem starts at the quotes.

@@ -424,16 +424,6 @@
   (reverse! (job-parents-revlist job-or-id)))
 
 
-;; return top ancestor of job, excluding (sh-globals)
-(define (job-top-parent job)
-  (let ((global (sh-globals))
-        (parent (job-parent job)))
-    (while (and parent (not (eq? global parent)))
-      (set! job parent)
-      (set! parent (job-parent parent)))
-    job))
-
-
 (define (sh-consume-sigchld)
   (while (signal-consume-sigchld)
     (job-pids-wait #f 'nonblocking)))
@@ -656,6 +646,7 @@
 ;; Note: this function also non-blocking checks if job status changed.
 (define (sh-job-status job-or-id)
   (let ((job (sh-job job-or-id)))
+    ; (debugf ">  sh-job-status job=~a" (sh-job-display/string job))
     (if (job-has-status? job '(new))
       (job-last-status job)
       (advance-job 'sh-job-status job))))
@@ -730,7 +721,7 @@
 (define (advance-job mode job-or-id)
   (assert* 'advance-job (memq mode '(sh-fg sh-bg sh-wait sh-sigcont+wait sh-job-status)))
   (let ((job (sh-job job-or-id)))
-    ;a (debugf ">  advance-job mode=~s job=~s id=~s pid=~s status=~s" mode job (job-id job) (job-pid job) (job-last-status job))
+    ; (debugf ">  advance-job mode=~s job=~a id=~s pid=~s status=~s" mode (sh-job-display/string job) (job-id job) (job-pid job) (job-last-status job))
     (case (job-last-status->kind job)
       ((exited killed unknown)
         (void)) ; job finished
@@ -742,8 +733,8 @@
             (advance-pid mode job))
           ((sh-multijob? job)
             (if (eq? 'sh-pipe (multijob-kind job))
-              (advance-multijob-pipe     mode job)
-              (advance-multijob mode job)))))
+              (advance-multijob-pipe mode job)
+              (advance-multijob      mode job)))))
       (else
         (raise-errorf mode  "job not started yet: ~s" job)))
 

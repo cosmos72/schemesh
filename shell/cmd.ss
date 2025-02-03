@@ -424,18 +424,22 @@
           (let ((job (pid->job (car wait-result))))
             (when job
               (job-status-set! 'job-pids-wait job (pid-wait-status->job-status (cdr wait-result)))
-              ;c (debugf "... job-pids-wait new-status=~s job=~a" (job-last-status job) (sh-job-display/string job))
+              ; (debugf "... job-pids-wait new-status=~s job=~a" (job-last-status job) (sh-job-display/string job))
 
               (if (eq? job preferred-job)
                 ;; the job we are interested in changed status => don't block again
                 (when (eq? may-block 'blocking)
                   (set! done? #t))
 
-                ;; advance top parent of job that changed status, before waiting again.
+                ;; advance *all* parents of job that changed status, before waiting again.
                 ;; do NOT advance preferred-job, because that's what our callers are already doing.
-                (let ((parent (job-top-parent job)))
-                  ;c (debugf "... job-pids-wait -> sh-job-status job=~a parent=~a" (sh-job-display/string job) (sh-job-display/string parent))
-                  (sh-job-status parent)))))
+                (let ((globals (sh-globals)))
+                  (job-parents-iterate (job-parent job)
+                    (lambda (parent)
+                      ; (debugf "... job-pids-wait -> sh-job-status parent=~a" (sh-job-display/string parent))
+                      (if (eq? parent globals)
+                        #f
+                       (sh-job-status parent))))))))
 
           (set! done? #t))))) ; (pid-wait) did not report any status change => return
 

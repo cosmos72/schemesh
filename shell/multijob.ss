@@ -329,6 +329,7 @@
 
 ;; Internal function called by (advance-job) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 (define (advance-multijob mode mj)
+  ; (debugf ">  advance-multijob mode=~s job=~a id=~s status=~s" mode (sh-job-display/string mj) (job-id mj) (job-last-status mj))
   (job-status-set/running! mj)
   (let* ((child (sh-multijob-child-ref mj (multijob-current-child-index mj)))
          ;; call (advance-job) on child
