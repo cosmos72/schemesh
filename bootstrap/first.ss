@@ -15,8 +15,7 @@
      sh-make-parameter sh-make-thread-parameter raise-assertf raise-assertv raise-errorf)
   (import
     (rnrs)
-    (only (chezscheme) define-top-level-value  environment? environment-mutable?
-                       make-continuation-condition make-format-condition interaction-environment
+    (only (chezscheme) make-continuation-condition make-format-condition
                        top-level-bound? top-level-value))
 
 
@@ -77,24 +76,5 @@
           (make-format-condition)
           (make-message-condition format-string)
           (make-irritants-condition format-args))))))
-
-
-
-;; Thread parameter containing the scheme enviroment where to eval forms,
-;; usually with (sh-eval) that calls ((sh-current-eval) form (sh-current-environment))
-;;
-;; Initially set to Chez Scheme's (interaction-environment), because it's mutable
-;; and contains all r6rs and chezscheme bindings.
-(unless (top-level-bound? 'sh-current-environment (interaction-environment))
-  (define-top-level-value 'sh-current-environment
-    (sh-make-thread-parameter
-      (interaction-environment)
-      (lambda (env)
-        (unless (environment? env)
-          (raise-errorf 'sh-current-environment "~s is not an environment" env))
-        (unless (environment-mutable? env)
-          (raise-errorf 'sh-current-environment "~s is not a mutable environment" env))
-        env))
-    (interaction-environment)))
 
 ) ; close library

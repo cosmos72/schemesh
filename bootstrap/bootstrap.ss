@@ -10,9 +10,6 @@
      ;; first.ss
      sh-make-parameter sh-make-thread-parameter raise-assertf raise-assertv raise-errorf
 
-     ;; parameters.ss
-     sh-current-environment
-
      ;; bootstrap.ss
      sh-current-environment sh-current-eval sh-globals sh-pid-table sh-eval sh-eval-string
      assert* catch define-macro debugf debugf-port first-value first-value-or-void
@@ -21,20 +18,26 @@
     (rnrs)
     (rnrs base)
     (rnrs exceptions)
-    (only (chezscheme) current-time format foreign-procedure fx1- fx/ gensym
-                       meta reverse! time-second time-nanosecond top-level-value void)
+    (only (chezscheme) current-time eval-when format foreign-procedure fx1- fx/ gensym
+                       meta reverse! time-second time-nanosecond void)
     (schemesh bootstrap first)
     (schemesh bootstrap parameters))
 
 
-;; retrieve value of sh-current-eval set by bootstrap/parameters.ss
-(define sh-current-eval (top-level-value 'sh-current-eval (sh-current-environment)))
+;; call procedure (sh-persistent-parameters) set by bootstrap/parameters.ss
+(define %params (sh-persistent-parameters))
 
-;; retrieve value of sh-globals set by bootstrap/parameters.ss
-(define sh-globals (top-level-value 'sh-globals (sh-current-environment)))
+;; retrieve parameter sh-current-environment set by bootstrap/parameters.ss
+(define sh-current-environment (vector-ref %params 0))
 
-;; retrieve value of sh-pid-table set by bootstrap/parameters.ss
-(define sh-pid-table (top-level-value 'sh-pid-table (sh-current-environment)))
+;; retrieve parameter sh-current-eval set by bootstrap/parameters.ss
+(define sh-current-eval (vector-ref %params 1))
+
+;; retrieve parameter sh-globals set by bootstrap/parameters.ss
+(define sh-globals (vector-ref %params 2))
+
+;; retrieve parameter sh-pid-table set by bootstrap/parameters.ss
+(define sh-pid-table (vector-ref %params 3))
 
 ;; evaluate a form with (sh-current-eval) in specified environment,
 ;; which is (sh-current-environment) by default
