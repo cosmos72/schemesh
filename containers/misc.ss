@@ -16,7 +16,7 @@
     string-contains-only-decimal-digits?
     string-fill-range! string-range-count= string-range=? string-range<?
     string-find string-rfind string-find/char string-rfind/char
-    string-split string-trim-split-at-blanks string-iterate string-replace/char!
+    string-split string-split-after-nuls string-trim-split-at-blanks string-iterate string-replace/char!
     string-starts-with? string-ends-with? string-starts-with/char? string-ends-with/char?)
   (import
     (rnrs)
@@ -111,6 +111,12 @@
           (set! ret (%string-split-after-nuls elem ret))))
     ; (debugf "builtin-split-at-0 args=~s split=~s" prog-and-args (reverse ret)
     (reverse! ret)))
+
+
+;; split a string after each #\nul.
+;; return as string-list containing each produced fragment.
+(define (string-split-after-nuls str)
+  (reverse! (%string-split-after-nuls str '())))
 
 
 ;; split a string at each #\nul, and cons each splitted fragment onto ret.

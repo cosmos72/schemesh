@@ -7,21 +7,23 @@
 
 (library (schemesh bootstrap)
   (export
-     ;; raise.ss
-     raise-assertf raise-assertv raise-errorf
+      ;; assert.ss
+      raise-assert0 raise-assert1 raise-assert2 raise-assert3 raise-assert4 raise-assert5
+      raise-assertf raise-assertl raise-errorf
 
-     ;; parameters.ss
-     sh-make-parameter sh-make-thread-parameter
+      ;; parameters.ss
+      sh-make-parameter sh-make-thread-parameter
 
-     ;; bootstrap.ss
-     assert* catch define-macro debugf debugf-port first-value first-value-or-void
-     let-macro repeat while until throws? trace-call try list->values values->list -> ^)
+      ;; bootstrap.ss
+      assert* catch define-macro debugf debugf-port first-value first-value-or-void let-macro
+      raise-assert*  repeat while until throws? trace-call try list->values values->list -> ^)
+
   (import
     (rnrs)
     (rnrs base)
     (rnrs exceptions)
     (only (chezscheme) current-time eval-when format foreign-procedure fx1- fx/ gensym
-                       meta reverse! time-second time-nanosecond void)
+                       meta pariah reverse! time-second time-nanosecond void)
     (schemesh bootstrap raise)
     (schemesh bootstrap parameters))
 
@@ -78,6 +80,45 @@
       (c-pid-get) (time-second t) zeropad-time us-str args)))
 
 
+;; Expands to the correct (raise-assert...) depending on the number of arguments
+(define-syntax raise-assert*
+  (syntax-rules ()
+    ((_ caller form)
+      (pariah (raise-assert0 caller form) (void)))
+    ((_ caller form arg1)
+      (pariah (raise-assert1 caller form arg1) (void)))
+    ((_ caller form arg1 arg2)
+      (pariah (raise-assert2 caller form arg1 arg2) (void)))
+    ((_ caller form arg1 arg2 arg3)
+      (pariah (raise-assert3 caller form arg1 arg2 arg3) (void)))
+    ((_ caller form arg1 arg2 arg3 arg4)
+      (pariah (raise-assert4 caller form arg1 arg2 arg3 arg4) (void)))
+    ((_ caller form arg1 arg2 arg3 arg4 arg5)
+      (pariah (raise-assert5 caller form arg1 arg2 arg3 arg4 arg5) (void)))
+    ((_ caller form args ...)
+      (pariah (raise-assertl caller form (list args ...) (void))))))
+
+
+;; alternative implementation of (assert (proc arg ...))
+;; producing more detailed error messages.
+;; requires proc to be a procedure, NOT a syntax or macro
+(define-syntax assert*
+  (lambda (stx)
+    (let ((form (format #f "~s" (caddr (syntax->datum stx)))))
+      (syntax-case stx ()
+        ((_ caller (proc args ...))
+          (with-syntax (((targs ...) (generate-temporaries #'(args ...))))
+            #`(let ((tproc proc) (targs args) ...)
+                (if (tproc targs ...)
+                  (void)
+                  (raise-assert* caller #,form targs ...)))))
+        ((_ caller expr)
+          #`(let ((texpr expr))
+              (if texpr
+                  (void)
+                  (raise-assert* caller #,form texpr))))))))
+
+
 ;; wrap a procedure call, and write two debug messages to (debugf-port):
 ;; the first before calling the procedure, showing the arguments values
 ;; the second after the procedure returned, showing the return values
@@ -108,52 +149,6 @@
     ((_ pred body ...) (do () (pred) body ...))))
 
 
-;; alternative implementation of (assert (proc arg ...))
-;; producing more detailed error messages.
-;; requires proc to be a procedure, NOT a syntax or macro
-(define-syntax assert*
-  (lambda (stx)
-    (let ((form (lambda ()
-                  (format #f "~s" (caddr (syntax->datum stx))))))
-      (syntax-case stx ()
-        ((_ caller (proc))
-          #`(let ((tproc proc))
-              (or (tproc)
-                  (raise-assertv caller #,(form) tproc))))
-        ((_ caller (proc arg1))
-          #`(let ((tproc proc)
-                  (targ1 arg1))
-              (or (tproc targ1)
-                  (raise-assertv caller #,(form) tproc targ1))))
-        ((_ caller (proc arg1 arg2))
-          #`(let ((tproc proc)
-                  (targ1 arg1)
-                  (targ2 arg2))
-              (or (tproc targ1 targ2)
-                  (raise-assertv caller #,(form) tproc targ1 targ2))))
-        ((_ caller (proc arg1 arg2 arg3))
-          #`(let ((tproc proc)
-                  (targ1 arg1)
-                  (targ2 arg2)
-                  (targ3 arg3))
-              (or (tproc targ1 targ2 targ3)
-                  (raise-assertv caller #,(form) tproc targ1 targ2 targ3))))
-        ((_ caller (proc arg1 arg2 arg3 arg4))
-          #`(let ((tproc proc)
-                  (targ1 arg1)
-                  (targ2 arg2)
-                  (targ3 arg3)
-                  (targ4 arg4))
-              (or (tproc targ1 targ2 targ3 targ4)
-                  (raise-assertv caller #,(form) tproc targ1 targ2 targ3 targ4))))
-        ((_ caller (proc arg ...))
-          #`(let ((tproc proc)
-                  (targs (list arg ...)))
-              (or (apply tproc targs)
-                  (apply raise-assertv caller #,(form) tproc targs))))
-        ((_ caller expr)
-          #`(let ((texpr expr))
-              (or texpr (raise-assertv caller #,(form) texpr))))))))
 
 (define-syntax try
   (syntax-rules (catch)

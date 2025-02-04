@@ -15,13 +15,30 @@
     span-range-sort! span-sort! vector-range-sort!)
   (import
     (rnrs)
-    (only (chezscheme) eval-when fx1+ fx1- fxarithmetic-shift-right logbit?
-                       mutable-vector? optimize-level procedure-arity-mask random void)
-    (only (schemesh bootstrap) assert* while)
+    (only (chezscheme) eval-when format fx1+ fx1- fxarithmetic-shift-right logbit?
+                       mutable-vector? optimize-level pariah procedure-arity-mask void)
+    ;;(only (schemesh bootstrap) assert*)
     (schemesh containers span))
 
 
 (eval-when (compile) (optimize-level 3) (debug-level 0))
+
+(define (raise-assert0 caller message)
+  (raise
+    (condition
+      (make-assertion-violation)
+      (make-non-continuable-violation)
+      (make-who-condition caller)
+      (make-message-condition message))))
+
+
+;; optimized assert*, does not allocate. Error messages are less informative.
+(define-syntax assert*
+  (lambda (stx)
+    (let ((message (format #f "assertion failed: ~s" (caddr (syntax->datum stx)))))
+      (syntax-case stx ()
+        ((_ caller expr)
+          #`(if expr (void) (pariah (raise-assert0 caller #,message) (void))))))))
 
 
 (define (%vector-swap! v x0 x1)
@@ -108,37 +125,89 @@
                 (vector-set! v x3 e3)))))))))
 
 
+;; sort the three vector elements at start, (avg start end), (fx1- end)
+;; move them into positions start, (fx- end 2), (fx1- end)
+;; and return middle value
+(define (%vector-range-sort/pivot! is<? v start end)
+  (let* ((x0 start)
+         (x2 (fx1- end))
+         (xp (fx1- x2))
+         (x1 (fx+ x0 (fxarithmetic-shift-right (fx- xp x0) 1)))
+         (e0 (vector-ref v x0))
+         (e1 (vector-ref v x1))
+         (e2 (vector-ref v x2))
+         (ep (vector-ref v xp)))
+    (if (is<? e0 e1)
+      (cond           ; order is e0 .. e1
+        ((is<? e1 e2) ; order is e0 e1 e2
+          (vector-set! v x1 ep)
+          (vector-set! v xp e1)
+          e1)
+        ((is<? e2 e0) ; order is e2 e0 e1
+          (vector-set! v x0 e2)
+          (vector-set! v x1 ep)
+          (vector-set! v xp e0)
+          (vector-set! v x2 e1)
+          e0)
+        (#t           ; order is e0 e2 e1
+          (vector-set! v x1 ep)
+          (vector-set! v xp e2)
+          (vector-set! v x2 e1)
+          e2))
+      (cond           ; order is e1 .. e0
+        ((is<? e0 e2) ; order is e1 e0 e2
+          (vector-set! v x0 e1)
+          (vector-set! v x1 ep)
+          (vector-set! v xp e0)
+          e0)
+        ((is<? e2 e1) ; order is e2 e1 e0
+          (vector-set! v x0 e2)
+          (vector-set! v x1 ep)
+          (vector-set! v xp e1)
+          (vector-set! v x2 e0)
+          e1)
+        (#t           ; order is e1 e2 e0
+          (vector-set! v x0 e1)
+          (vector-set! v x1 ep)
+          (vector-set! v xp e2)
+          (vector-set! v x2 e0)
+          e2)))))
+
+
 (define (%vector-partition is<? v start end)
-  (let* ((pivot-i (fx+ start (fxarithmetic-shift-right (fx- end start) 1)))
-         (pivot   (vector-ref v pivot-i))
-         (out-i   start)
-         (end-1   (fx- end 1))) ; pivot is at (fx1- end), no need to compare it against itself
-    (%vector-swap! v pivot-i end-1)
-    (do ((i start (fx1+ i)))
-        ((fx>=? i end-1))
-      (when (is<? (vector-ref v i) pivot)
-        (%vector-swap! v i out-i)
-        (set! out-i (fx1+ out-i))))
-    (%vector-swap! v end-1 out-i)
-    ; (debugf "%vector-partition start=~s end=~s out-i=~s v=~s" start end out-i v)
-    out-i))
+  ;; (%vector-range-sort/pivot!) already partitions first and last element
+  (let ((pivot  (%vector-range-sort/pivot! is<? v start end))
+        (end-2  (fx- end 2)))
+    (let %loop ((lo (fx1+ start))
+                (hi (fx1- end-2)))
+      (if (fx<=? lo hi)
+        (if (is<? (vector-ref v lo) pivot)
+          (%loop (fx1+ lo) hi)
+          (begin
+            (%vector-swap! v lo hi)
+            (%loop lo (fx1- hi))))
+        (begin
+          (%vector-swap! v lo end-2) ; put pivot after smaller elements
+          lo)))))
+
 
 
 (define (%vector-range-sort! is<? v start end)
   ; (debugf "%vector-range-sort! start=~s end=~s v=~s" start end v)
-  (case (fx- end start)
-    ((0 1)
-      (void))
-    ((2)
-      (%vector-range-sort/2! is<? v start))
-    ((3)
-      (%vector-range-sort/3! is<? v start))
-    ((4)
-      (%vector-range-sort/4! is<? v start))
-    (else
-      (let ((partition-i (%vector-partition is<? v start end)))
-        (%vector-range-sort! is<? v start              partition-i)
-        (%vector-range-sort! is<? v (fx1+ partition-i) end)))))
+  (let ((n (fx- end start)))
+    (cond
+      ((fx>? n 4)
+        (let ((partition-i (%vector-partition is<? v start end)))
+          (%vector-range-sort! is<? v start              partition-i)
+          (%vector-range-sort! is<? v (fx1+ partition-i) end)))
+      ((fx=? n 4)
+        (%vector-range-sort/4! is<? v start))
+      ((fx=? n 3)
+        (%vector-range-sort/3! is<? v start))
+      ((fx=? n 2)
+        (%vector-range-sort/2! is<? v start))
+      (#t
+        (void)))))
 
 
 (define (vector-range-sort! is<? v start end)

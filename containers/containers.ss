@@ -17,7 +17,7 @@
     string-contains-only-decimal-digits?
     string-fill-range! string-range-count= string-range=? string-range<?
     string-find string-rfind string-find/char string-rfind/char
-    string-split string-trim-split-at-blanks string-iterate string-replace/char!
+    string-split string-split-after-nuls string-trim-split-at-blanks string-iterate string-replace/char!
     string-starts-with? string-ends-with? string-starts-with/char? string-ends-with/char?
 
     ; utf8b.ss

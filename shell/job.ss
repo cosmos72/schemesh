@@ -507,8 +507,8 @@
             (bytespan->bytevector bspan))
           bvec)))
     (#t
-      (raise-assertv 'job-remap-fds
-        '(or (fixnum? path-or-fd) (string? path-or-fd) (bytevector? path-or-fd))
+      (raise-assert1 'job-remap-fds
+        "(or (fixnum? path-or-fd) (string? path-or-fd) (bytevector? path-or-fd))"
         path-or-fd))))
 
 

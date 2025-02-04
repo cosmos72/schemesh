@@ -132,7 +132,7 @@
                     (assert-string-list? 'sh-wildcard obj)
                     (list-iterate obj %insert!)))))
             (#t
-              (raise-assertv 'sh-wildcard '(or (string? arg) (sh-wildcard? arg) (procedure? arg)) arg)))))
+              (raise-assert1 'sh-wildcard "(or (string? arg) (sh-wildcard? arg) (procedure? arg))" arg)))))
       (reverse! ret))
     w))
 

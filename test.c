@@ -44,8 +44,8 @@ static const testcase tests[] = {
      "  (repeat 5 (set! x (fx1+ x)))\n"
      "  x)",
      "5"},
-    {"(try (assert* 'who #t) (catch (ex) 1))", "#t"},
-    {"(try (assert* 'who #f) (catch (ex) 2))", "2"},
+    {"(try (assert* 'who #t) 1 (catch (ex) 2))", "1"},
+    {"(try (assert* 'who #f) 1 (catch (ex) 2))", "2"},
     {"(values->list (values 1 2 3))", "(1 2 3)"},
     {"(let-macro ((plus . args) `(+ ,@args))\n"
      "  (plus 3 4 5))",

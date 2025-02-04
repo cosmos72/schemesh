@@ -12,7 +12,8 @@
 
 (library (schemesh bootstrap raise)
   (export
-      raise-assertf raise-assertv raise-errorf)
+      raise-assert0 raise-assert1 raise-assert2 raise-assert3 raise-assert4 raise-assert5
+      raise-assertf raise-assertl raise-errorf)
   (import
     (rnrs)
     (only (chezscheme) make-continuation-condition make-format-condition))
@@ -38,8 +39,20 @@
 ;; Condition format message is hardcoded, caller needs to provide:
 ;; * form - a string containing source code of the failed assertion
 ;; * form-values - values of each subform in form
-(define (raise-assertv who form . form-values)
-  (raise-assertf who "failed assertion ~a with arguments ~s" form form-values))
+(define (raise-assert0 who form)
+  (raise-assertf who "failed assertion ~a" form))
+(define (raise-assert1 who form arg1)
+  (raise-assertf who "failed assertion ~a with argument ~s" form arg1))
+(define (raise-assert2 who form arg1 arg2)
+  (raise-assertf who "failed assertion ~a with arguments ~s ~s" form arg1 arg2))
+(define (raise-assert3 who form arg1 arg2 arg3)
+  (raise-assertf who "failed assertion ~a with arguments ~s ~s ~s" form arg1 arg2 arg3))
+(define (raise-assert4 who form arg1 arg2 arg3 arg4)
+  (raise-assertf who "failed assertion ~a with arguments ~s ~s ~s ~s" form arg1 arg2 arg3 arg4))
+(define (raise-assert5 who form arg1 arg2 arg3 arg4 arg5)
+  (raise-assertf who "failed assertion ~a with arguments ~s ~s ~s ~s ~s" form arg1 arg2 arg3 arg4 arg5))
+(define (raise-assertl who form args)
+  (raise-assertf who "failed assertion ~a with arguments ~s" form args))
 
 
 ;; Raise a condition describing an error.
@@ -56,5 +69,8 @@
           (make-format-condition)
           (make-message-condition format-string)
           (make-irritants-condition format-args))))))
+
+
+
 
 ) ; close library
