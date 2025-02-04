@@ -13,7 +13,7 @@
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx1- record-writer void)
-    (only (schemesh bootstrap) assert* debugf raise-assertf)
+    (only (schemesh bootstrap) assert* raise-assertf)
     (only (schemesh containers misc) string-find/char string-rfind/char string-range=?)
     (schemesh containers charspan)
     (schemesh containers span))

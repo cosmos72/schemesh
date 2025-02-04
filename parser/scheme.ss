@@ -13,17 +13,10 @@
     lex-scheme parse-scheme-forms1 parse-scheme-forms parser-scheme)
   (import
     (rnrs)
-    (only (chezscheme)
-       box bytevector fx1+
-       fxvector fxvector-set! make-fxvector
-       read-token reverse!)
-    (only (schemesh bootstrap) debugf while)
-    (schemesh lineedit parser)
+    (only (schemesh lineedit parser) make-parser)
     (schemesh parser lisp))
 
 ;; Read a single Chez Scheme token from textual input port 'in.
-;; Internally uses Chez Scheme (read-token) for simplicity, but could be reimplemented
-;; in pure R6RS.
 ;;
 ;; Return two values: token value and its type.
 (define (lex-scheme ctx)

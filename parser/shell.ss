@@ -13,7 +13,7 @@
   (import
     (rnrs)
     (only (chezscheme) append! fx1+ fx1- inspect reverse! unread-char void)
-    (only (schemesh bootstrap) assert* debugf first-value until while)
+    (only (schemesh bootstrap) assert* until while)
     (only (schemesh containers misc) list-iterate string-contains-only-decimal-digits?)
     (schemesh containers charspan)
     (schemesh lineedit paren)

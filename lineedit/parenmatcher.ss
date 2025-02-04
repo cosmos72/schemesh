@@ -13,7 +13,7 @@
   (import
     (rnrs)
     (only (chezscheme)         record-writer)
-    (only (schemesh bootstrap) assert* debugf)
+    (only (schemesh bootstrap) assert*)
     (schemesh lineedit paren))
 
 ;; type parenmatcher contains bookkeeping information,

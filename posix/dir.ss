@@ -12,7 +12,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) foreign-procedure sort!)
-    (only (schemesh bootstrap) catch debugf raise-assertf try)
+    (only (schemesh bootstrap) catch raise-assertf try)
     (only (schemesh containers) bytevector<? charspan? list-iterate string->utf8b)
     (only (schemesh conversions) text->bytevector text->bytevector0)
     (only (schemesh posix fd) raise-c-errno))

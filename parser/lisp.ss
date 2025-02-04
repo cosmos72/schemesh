@@ -10,17 +10,17 @@
 ;;;
 (library (schemesh parser lisp (0 7 2))
   (export
-    lex-lisp parse-lisp-forms parse-lisp-paren)
+    lex-lisp parse-lisp-forms parse-lisp-paren read-token*)
   (import
     (rnrs)
     (only (chezscheme)
       append! box bytevector fx1+ fx1- fxvector fxvector-set! make-fxvector
       read-token reverse! top-level-value void)
-    (only (schemesh bootstrap) assert* debugf while until)
+    (only (schemesh bootstrap) assert* while until)
     (only (schemesh containers misc) list-reverse*!)
     (schemesh lineedit paren)
-    (schemesh lineedit parser))
-
+    (schemesh lineedit parser)
+    (schemesh parser lisp read-token))
 
 
 (define (caller-for flavor)
@@ -34,9 +34,8 @@
     'parse-r6rs-paren
     'parse-scheme-paren))
 
+
 ;; Read a single r6rs or Chez Scheme token from textual input port 'in.
-;; Internally uses Chez Scheme (read-token) for simplicity, but could be reimplemented
-;; in pure R6RS.
 ;;
 ;; Return two values: token value and its type.
 (define (lex-lisp ctx flavor)
@@ -51,27 +50,16 @@
         (values (eof-object) 'eof)
         ;; cannot switch to other parser here: just return it and let caller switch
         (values (get-parser ctx value (caller-for flavor)) 'parser))
-      ;; read a single token with Chez Scheme (read-token),
-      ;; then replace (values '{ 'atomic) with (values #f 'lbrace)
-      ;; and replace (values '} 'atomic) with (values #f 'rbrace)
-      ;; because we use them to switch to shell parser. For example,
-      ;;    {ls -l > log.txt}
-      ;; is equivalent to
-      ;;    (#!shell ls -l > log.txt)
-      (let-values (((type value start end) (read-token (parsectx-in ctx))))
-        (if (eq? 'atomic type)
-          (case value
-            (({)  (values #f 'lbrace))
-            ((})  (values #f 'rbrace))
-            (else (values value type)))
-          (values value type))))))
+      ;; read a single token with (read-token*)
+      (let-values (((type value start end) (read-token* (parsectx-in ctx))))
+        (values value type)))))
 
 
 ;; Return the symbol, converted to string,
-;; of most token types returned by Chez Scheme (read-token),
+;; of most token types returned by (read-token*),
 ;;
 ;; Also recognizes and converts to string the additional types
-;; 'lbrace and 'rbrace introduced by (lex-lisp)
+;; 'lbrace and 'rbrace introduced by (read-token*)
 (define (lex-type->string type)
   (case type
     ((box) "#&")   ((dot) ".")    ((fasl) "#@")  ((insert) "#N#")
@@ -135,7 +123,7 @@
           "invalid token in #!r6rs syntax, only allowed in #!scheme syntax: ~a"
           (lex-type->string type)))
       (parse-vector ctx type value flavor))
-    ; TODO implement types: record-brack fasl insert mark
+    ;; TODO implement types: record-brack fasl insert mark
     (else
       (syntax-errorf ctx (caller-for flavor) "unexpected token type: ~a" type))))
 

@@ -14,7 +14,7 @@
   (import
     (rnrs)
     (only (chezscheme)               foreign-procedure void)
-    (only (schemesh bootstrap)       assert* debugf raise-errorf while)
+    (only (schemesh bootstrap)       assert* raise-errorf while)
     (schemesh containers bytespan)
     (only (schemesh containers misc) list-iterate)
     (only (schemesh conversions)     text->bytevector0 transcoder-utf8))

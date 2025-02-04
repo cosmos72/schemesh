@@ -23,7 +23,7 @@
       (fxarithmetic-shift-left  fxshl)
       (fxarithmetic-shift-right fxshr))
     (only (chezscheme) fx1+ fx1-)
-    (only (schemesh bootstrap) assert* debugf)
+    (only (schemesh bootstrap) assert*)
     (schemesh containers misc)
     (schemesh containers utf8b)
     (schemesh containers bytespan)

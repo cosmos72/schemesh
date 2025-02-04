@@ -42,6 +42,7 @@
   (include "lineedit/lineterm.ss")
   (include "lineedit/lineedit.ss")
   (include "lineedit/all.ss")
+  (include "parser/lisp-read-token.ss")
   (include "parser/lisp.ss")
   (include "parser/r6rs.ss")
   (include "parser/scheme.ss")

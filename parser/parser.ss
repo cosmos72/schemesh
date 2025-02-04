@@ -8,7 +8,10 @@
 
 (library (schemesh parser (0 7 2))
   (export
-    ; lineedit/parser.ss
+    ; lisp-read-token.ss
+    read-token*
+
+    ; parser.ss
     make-parsectx make-parsectx* parsectx?
     parsectx-skip-whitespace parsectx-unread-char parsectx-try-read-directive
     get-parser to-parser make-parser parser? parser-name
@@ -32,11 +35,12 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) reverse! void)
-    (only (schemesh bootstrap) assert* debugf first-value until while)
+    (only (schemesh bootstrap) assert*)
     (schemesh lineedit paren)
     (only (schemesh lineedit parenmatcher) make-custom-parenmatcher)
     (schemesh lineedit parser)
     (schemesh parser r6rs)
+    (schemesh parser lisp read-token)
     (schemesh parser scheme)
     (schemesh parser shell))
 

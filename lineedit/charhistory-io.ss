@@ -13,7 +13,7 @@
   (import
     (rnrs)
     (only (chezscheme)                fx1+ rename-file)
-    (only (schemesh bootstrap)        try catch debugf until)
+    (only (schemesh bootstrap)        try catch until)
     (only (schemesh containers misc)  string-replace/char!)
     (only (schemesh containers utf8b) string->utf8b utf8b-bytespan->string)
     (schemesh containers bytespan)

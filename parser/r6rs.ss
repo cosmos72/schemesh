@@ -13,30 +13,23 @@
     lex-r6rs parse-r6rs-forms parser-r6rs)
   (import
     (rnrs)
-    (only (chezscheme)
-       box bytevector fx1+
-       fxvector fxvector-set! make-fxvector
-       read-token reverse!)
-    (only (schemesh bootstrap) while)
-    (schemesh lineedit parser)
+    (only (schemesh lineedit parser) make-parser)
     (schemesh parser lisp))
 
-; Read a single r6rs Scheme token from textual input port 'in.
-; Internally uses Chez Scheme (read-token) for simplicity, but could be reimplemented
-; in pure R6RS.
+;; Read a single r6rs Scheme token from textual input port 'in.
 ;
-; Return two values: token value and its type.
+;; Return two values: token value and its type.
 (define (lex-r6rs ctx)
   (lex-lisp ctx 'r6rs))
 
 
 
-; Read r6rs Scheme forms from textual input port 'in', until a token ) or ] or } matching
-; the specified begin-type token is found.
-; Automatically change parser when directive #!... is found.
+;; Read r6rs Scheme forms from textual input port 'in', until a token ) or ] or } matching
+;; the specified begin-type token is found.
+;; Automatically change parser when directive #!... is found.
 ;
-; Return a list of parsed forms
-; Raise syntax-errorf if mismatched end token is found, as for example ']' instead of ')'
+;; Return a list of parsed forms
+;; Raise syntax-errorf if mismatched end token is found, as for example ']' instead of ')'
 (define (parse-r6rs-forms ctx begin-type)
   (parse-lisp-forms ctx begin-type 'r6rs))
 

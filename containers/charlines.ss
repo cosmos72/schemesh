@@ -21,7 +21,7 @@
     (only (rnrs mutable-pairs)   set-car!)
     (only (rnrs mutable-strings) string-set!)
     (only (chezscheme) fx1+ fx1- record-writer string-copy!)
-    (only (schemesh bootstrap) assert* debugf while)
+    (only (schemesh bootstrap) assert* while)
     (only (schemesh containers misc) list-iterate)
     (schemesh containers span)
     (schemesh containers charline)

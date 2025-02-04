@@ -879,7 +879,7 @@ static const testcase tests[] = {
     {"(file-type \".\" 'catch)", "dir"},
     {"(file-type \"parser/parser.ss\" 'catch)", "file"},
     {"(directory-sort! (directory-list \"parser\"))",
-     "((dir . .) (dir . ..) (file . lisp.ss) (file . parser.ss)"
+     "((dir . .) (dir . ..) (file . lisp.ss) (file . lisp-read-token.ss) (file . parser.ss)"
      " (file . r6rs.ss) (file . scheme.ss) (file . shell.ss))"},
     /* ------------------------- posix patterns ----------------------------- */
     {"(sh-pattern \"foo\" '* \".bar\" '? '% \"[a-z]\" '%! \"A-Z\")",
