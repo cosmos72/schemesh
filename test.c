@@ -591,6 +591,13 @@ static const testcase tests[] = {
     {"(parse-scheme-forms1 (string->parsectx"
      "  \"(a (b c . d) . e)\"))",
      "((a (b c . d) . e))"},
+    {"(format #f \"~s\" (parse-scheme-forms1 (string->parsectx"
+     "  \" #\\\\m #\\\\x7e \")))",
+     "(#\\m #\\~)"},
+    /* character literals #\xdc80 ... #\xdcff are allowed only by UTF-8b */
+    {"(sh-eval (cons 'list (parse-scheme-forms1 (string->parsectx\n"
+     "  \"(char->integer #\\\\x20ac) (char->integer #\\\\xdc80) (char->integer #\\\\xdcff)\")))))",
+     "(8364 56448 56575)"},
     {"(parse-scheme-forms1 (string->parsectx"
      "  \"(list #| '\\\" . #| ,`@# |# |#" /* nested block comments */
      "      '#(a 1.0 2/3) #2(d) #vu8(1 2 3) #4vu8(9) #vfx(-1 0 2) #3vfx(4))\"))",

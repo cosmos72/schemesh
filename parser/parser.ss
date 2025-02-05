@@ -8,8 +8,8 @@
 
 (library (schemesh parser (0 7 2))
   (export
-    ; lisp-read-token.ss
-    read-token*
+    ; lisp.ss
+    lex-lisp parse-lisp-forms parse-lisp-paren read-lisp-token
 
     ; parser.ss
     make-parsectx make-parsectx* parsectx?
@@ -39,8 +39,8 @@
     (schemesh lineedit paren)
     (only (schemesh lineedit parenmatcher) make-custom-parenmatcher)
     (schemesh lineedit parser)
+    (schemesh parser lisp)
     (schemesh parser r6rs)
-    (schemesh parser lisp read-token)
     (schemesh parser scheme)
     (schemesh parser shell))
 

@@ -89,7 +89,8 @@
 
     parsectx-peek-char parsectx-read-char parsectx-unread-char parsectx-skip-whitespace
     parsectx-skip-line parsectx-skip-until-char
-    parsectx-try-read-directive parsectx-read-directive
+    parsectx-try-read-directive parsectx-read-directive parsectx-read-simple-identifier
+    parsectx-is-simple-identifier-char?
 
     syntax-errorf
 

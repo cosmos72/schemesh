@@ -142,11 +142,11 @@
   dst)
 
 
-; (eq-hashtable . pairs) iterates on all (key . value) elements of pairs,
-; and inserts each of them into a new hashtable created with (make-eq-hashtable (length
-; pairs)).
-;
-; Returns the new hashtable.
+;; (eq-hashtable . pairs) iterates on all (key . value) elements of pairs,
+;; and inserts each of them into a new hashtable created with
+;;   (make-eq-hashtable (length pairs)).
+;;
+;; Returns the new hashtable.
 (define (eq-hashtable . pairs)
   (let ((dst (make-eq-hashtable (length pairs))))
     (list-iterate pairs
@@ -155,11 +155,11 @@
     dst))
 
 
-; (eqv-hashtable . pairs) iterates on all (key . value) elements of pairs,
-; and inserts each of them into a new hashtable created with (make-eqv-hashtable (length
-; pairs)).
-;
-; Returns the new hashtable.
+;; (eqv-hashtable . pairs) iterates on all (key . value) elements of pairs,
+;; and inserts each of them into a new hashtable created with
+;; (make-eqv-hashtable (length pairs)).
+;;
+;; Returns the new hashtable.
 (define (eqv-hashtable . pairs)
   (let ((dst (make-eqv-hashtable (length pairs))))
     (list-iterate pairs

@@ -20,8 +20,8 @@
       abort base-exception-handler break-handler
       console-input-port console-output-port console-error-port
       default-exception-handler display-condition
-      eval exit-handler expand inspect keyboard-interrupt-handler parameterize
-      pretty-print reset reset-handler void)
+      eval exit-handler expand inspect keyboard-interrupt-handler
+      parameterize pretty-print read-token reset reset-handler void)
     (schemesh bootstrap)
     (only (schemesh containers) list-iterate)
     (only (schemesh lineedit charhistory) charhistory-path-set!)
@@ -378,7 +378,7 @@
 (define (sh-repl-interrupt-handler-once repl-args k out)
   (put-string out "break> ")
   (flush-output-port out)
-  (case (let-values (((type token start end) (read-token* (console-input-port))))
+  (case (let-values (((type token start end) (read-token (console-input-port))))
           (cond
             ((eq? 'eof type)
               (put-char out #\newline)

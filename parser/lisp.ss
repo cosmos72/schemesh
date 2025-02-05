@@ -10,29 +10,27 @@
 ;;;
 (library (schemesh parser lisp (0 7 2))
   (export
-    lex-lisp parse-lisp-forms parse-lisp-paren read-token*)
+    lex-lisp parse-lisp-forms parse-lisp-paren read-lisp-token)
   (import
     (rnrs)
     (only (chezscheme)
-      append! box bytevector fx1+ fx1- fxvector fxvector-set! make-fxvector
-      read-token reverse! top-level-value void)
-    (only (schemesh bootstrap) assert* while until)
+      append! box bytevector fx1+ fx1- fxvector fxvector-set! include
+      make-fxvector read-token reverse! top-level-value void)
+    (only (schemesh bootstrap) assert* debugf while until)
+    (only (schemesh containers hashtable) hashtable)
     (only (schemesh containers misc) list-reverse*!)
+    (only (schemesh containers utf8b) integer->char*)
     (schemesh lineedit paren)
-    (schemesh lineedit parser)
-    (schemesh parser lisp read-token))
+    (schemesh lineedit parser))
+
+
+(include "parser/lisp-read-token.ss")
 
 
 (define (caller-for flavor)
   (if (eq? flavor 'r6rs)
     'parse-r6rs-forms
     'parse-scheme-forms))
-
-
-(define (paren-caller-for flavor)
-  (if (eq? flavor 'r6rs)
-    'parse-r6rs-paren
-    'parse-scheme-paren))
 
 
 ;; Read a single r6rs or Chez Scheme token from textual input port 'in.
@@ -50,16 +48,15 @@
         (values (eof-object) 'eof)
         ;; cannot switch to other parser here: just return it and let caller switch
         (values (get-parser ctx value (caller-for flavor)) 'parser))
-      ;; read a single token with (read-token*)
-      (let-values (((type value start end) (read-token* (parsectx-in ctx))))
-        (values value type)))))
+      ;; read a single token with (read-lisp-token)
+      (read-lisp-token ctx flavor))))
 
 
 ;; Return the symbol, converted to string,
-;; of most token types returned by (read-token*),
+;; of most token types returned by (read-lisp-token),
 ;;
 ;; Also recognizes and converts to string the additional types
-;; 'lbrace and 'rbrace introduced by (read-token*)
+;; 'lbrace and 'rbrace introduced by (read-lisp-token)
 (define (lex-type->string type)
   (case type
     ((box) "#&")   ((dot) ".")    ((fasl) "#@")  ((insert) "#N#")

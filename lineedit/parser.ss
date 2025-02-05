@@ -17,7 +17,8 @@
 
     parsectx-peek-char parsectx-read-char parsectx-unread-char parsectx-skip-whitespace
     parsectx-skip-line parsectx-skip-until-char
-    parsectx-try-read-directive parsectx-read-directive
+    parsectx-try-read-directive parsectx-read-directive parsectx-read-simple-identifier
+    parsectx-is-simple-identifier-char?
 
     syntax-errorf)
   (import
@@ -301,13 +302,13 @@
   (void))
 
 
-;; read a simple identifier and return corresponding symbol
+;; read a simple identifier and return it as a string
 (define (parsectx-read-simple-identifier pctx)
   (let ((csp (charspan)))
     (charspan-reserve-back! csp 10)
-    (while (is-simple-identifier-char? (parsectx-peek-char pctx))
+    (while (parsectx-is-simple-identifier-char? (parsectx-peek-char pctx))
       (charspan-insert-back! csp (parsectx-read-char pctx)))
-    (string->symbol (charspan->string csp))))
+    (charspan->string csp)))
 
 
 ;; return truthy if ch is one of the characters:
@@ -316,7 +317,7 @@
 ;;   #\a ... #\z
 ;;   #\_
 ;; Otherwise return #f
-(define (is-simple-identifier-char? ch)
+(define (parsectx-is-simple-identifier-char? ch)
   (and (char? ch)
        (or (and (char>=? ch #\0) (char<=? ch #\9))
            (and (char>=? ch #\A) (char<=? ch #\Z))
@@ -361,8 +362,8 @@
 (define (parsectx-read-directive pctx)
   (let ((ch (parsectx-peek-char pctx)))
     ; (debugf "parsectx-read-directive ch=~s" ch)
-    (if (is-simple-identifier-char? ch)
-      (parsectx-read-simple-identifier pctx)
+    (if (parsectx-is-simple-identifier-char? ch)
+      (string->symbol (parsectx-read-simple-identifier pctx))
       (begin
         (parsectx-skip-line pctx)
         #f))))
