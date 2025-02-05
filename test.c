@@ -584,9 +584,10 @@ static const testcase tests[] = {
     {"(parse-scheme-forms1 (string->parsectx"
      "  \"foo bar\"))",
      "(foo bar)"},
+    /* #; comments the next s-expr */
     {"(parse-scheme-forms1 (string->parsectx"
-     "  \"(foo bar) '(a b)\"))",
-     "((foo bar) '(a b))"},
+     "  \"(foo bar) #; (a b (c)) '(d [ef g] h)\"))",
+     "((foo bar) '(d (ef g) h))"},
     {"(parse-scheme-forms1 (string->parsectx"
      "  \"(a (b c . d) . e)\"))",
      "((a (b c . d) . e))"},

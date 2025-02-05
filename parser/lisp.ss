@@ -104,8 +104,15 @@
     ;; if type = 'quote, value can be one of:
     ;;    'quote  'quasiquote  'unquote  'unquote-splicing
     ;;    'syntax 'quasisyntax 'unsyntax 'unsyntax-splicing
+    ;;    'datum-comment
     ((quote)
-      (list value (parse-lisp ctx flavor)))
+      (let ((next (parse-lisp ctx flavor)))
+        (if (eq? 'datum-comment value)
+          ; skip the whole lisp form read above,
+          ; then call (parse-lisp again) and return its value
+          (parse-lisp ctx flavor)
+          ; quote the whole lisp form read above and return it
+          (list value next))))
     ((lparen lbrack)
       (let-values (((ret _) (parse-lisp-forms ctx type flavor)))
         ret))
