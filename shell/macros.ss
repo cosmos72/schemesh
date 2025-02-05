@@ -16,8 +16,7 @@
     (schemesh bootstrap)
     (only (schemesh posix pattern) sh-wildcard?)
     (schemesh shell job)
-    (only (schemesh shell eval) sh-read-file
-  ))
+    (only (schemesh shell eval) sh-read-file))
 
 ;; wraps shell DSL
 (define-macro (shell . args)
@@ -40,10 +39,10 @@
          (datum->syntax #'k (sh-read-file (datum path))))
 
       ((k path initial-parser)
-        (datum->syntax #'k (sh-read-file (datum path) (datum initial-parser))))
+         (datum->syntax #'k (sh-read-file (datum path) (datum initial-parser))))
 
       ((k path initial-parser enabled-parsers)
-        (datum->syntax #'k (sh-read-file (datum path) (datum initial-parser) (datum enabled-parsers)))))))
+         (datum->syntax #'k (sh-read-file (datum path) (datum initial-parser) (datum enabled-parsers)))))))
 
 
 ;; macro: read specified file path, parse it with (sh-read-file)
@@ -66,8 +65,8 @@
 (define-syntax shell-backquote
   (syntax-rules ()
     ((_)               "")
-    ;; NOTE: (sh-run/string-rtrim-newlines) cannot be stopped and resumed. But neither can `...` in POSIX shells
-    ((_ arg ...)       (lambda () (sh-run/string-rtrim-newlines (shell arg ...))))))
+    ;; NOTE: (sh-run/string-rtrim-newlines) cannot be stopped and resumed. But neither can $(...) or `...` in POSIX shells
+    ((_ arg ...)       (lambda (job) (sh-run/string-rtrim-newlines (shell arg ...) (cons 'same-parent-as-job job))))))
 
 (meta begin
   (define (%sh-wildcard-simplify wildcards? ret args)

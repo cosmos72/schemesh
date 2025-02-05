@@ -33,13 +33,16 @@
     sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-find-job sh-job-exception
     sh-cmd? sh-multijob? sh-cmd make-cmd sh-cwd sh-consume-sigchld
     sh-globals sh-multijob-child-length sh-multijob-child-ref
-    sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/err? sh-run/ok?
+    sh-start sh-start* sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/err? sh-run/ok?
 
     ; multijob.ss
     sh-and sh-or sh-not sh-list sh-subshell
 
+    ; options
+    sh-options
+
     ; redirect.ss
-    sh-run/bspan sh-run/string sh-run/string-rtrim-newlines sh-redirect!
+    sh-run/bspan sh-run/string sh-run/string-rtrim-newlines sh-redirect! sh-start/fd-stdout
 
     ; params.ss
     sh-job-control-available? sh-job-control?
@@ -70,7 +73,8 @@
     (schemesh posix pattern)
     (schemesh posix pid)
     (schemesh posix signal)
-    (only (schemesh posix tty) tty-inspect)
+    (only (schemesh lineedit charhistory) charhistory-path-set!)
+    (only (schemesh lineedit linectx) linectx? linectx-history linectx-save-history)
     (schemesh shell builtins)
     (schemesh shell fds)
     (schemesh shell parameters)
@@ -225,8 +229,8 @@
           ; (debugf "job-status-set! caller=~s job=~s status=~s" caller job status)
           (job-unmap-fds! job)
           (job-close-fds-to-close! job)
-          ; remove temporary redirections
-          (job-unredirect/temp/all! job))
+          (job-unredirect/temp/all! job) ; remove temporary redirections
+          (job-temp-parent-set! job #f)) ; remove temporary parent job
         status))))
 
 
@@ -307,6 +311,9 @@
     id))
 
 
+(define (job-parent job)
+  (or (job-temp-parent job) (job-default-parent job)))
+
 
 ;; if job is running or stopped, then create a new job-id for it.
 ;; if job has terminated, clear its job id and close its fds.
@@ -342,13 +349,13 @@
 ;; Returns job object, or #f if job was not found.
 (define (sh-find-job job-or-id)
   (cond
-    ((eq? #t job-or-id) (sh-globals))
+    ((eq? #t job-or-id)
+      (sh-globals))
     ((fixnum? job-or-id)
-      (let* ((all-jobs (multijob-children (sh-globals)))
-             (job (when (and (fx>? job-or-id 0) ; job-ids start at 1
-                             (fx<? job-or-id (span-length all-jobs)))
-                    (span-ref all-jobs job-or-id))))
-        (if (sh-job? job) job #f)))
+      (let ((all-jobs (multijob-children (sh-globals))))
+        (if (fx<? 0 job-or-id (span-length all-jobs)) ; job-ids start at 1
+          (span-ref all-jobs job-or-id)
+           #f)))
     ((sh-job? job-or-id)
       job-or-id)
     (#t
@@ -397,13 +404,24 @@
   (job-exception (sh-job job-or-id)))
 
 
-;; call (proc job) on given job and each of its
-;; parents. Stops iterating if (proc ...) returns #f.
+;; call (proc job) on given job and each of its parents.
+;; Stops iterating if (proc ...) returns #f.
 ;;
 ;; Returns #t if all calls to (proc job) returned truish,
 ;; otherwise returns #f.
 (define (job-parents-iterate job-or-id proc)
   (do ((parent (sh-job job-or-id) (job-parent parent)))
+      ((not (and (sh-job? parent) (proc parent)))
+       (not (sh-job? parent)))))
+
+
+;; call (proc job) on given job and each of its default parents.
+;; Stops iterating if (proc ...) returns #f.
+;;
+;; Returns #t if all calls to (proc job) returned truish,
+;; otherwise returns #f.
+(define (job-default-parents-iterate job-or-id proc)
+  (do ((parent (sh-job job-or-id) (job-default-parent parent)))
       ((not (and (sh-job? parent) (proc parent)))
        (not (sh-job? parent)))))
 
@@ -419,29 +437,16 @@
     jlist))
 
 
-;; return list containing job followed by all its parents.
+#|
+;; unused. return list containing job followed by all its parents.
 (define (job-parents-list job-or-id)
   (reverse! (job-parents-revlist job-or-id)))
-
+|#
 
 (define (sh-consume-sigchld)
   (while (signal-consume-sigchld)
     (job-pids-wait #f 'nonblocking)))
 
-
-(define (job-start-options->process-group-id options)
-  (if (sh-job-control?)
-    (let ((existing-pgid 0)) ; means: create a new process group
-      (list-iterate options
-        (lambda (option)
-          (when (and (integer? option) (>= option 0))
-            (set! existing-pgid option)
-            #f))) ; stop iterating on options
-      existing-pgid)
-    ; in a subshell,
-    ; ignore requests to move a process into a specific process group id
-    ; or to create a new process group id
-    #f))
 
 
 ;; called when starting a builtin or multijob:
@@ -556,35 +561,22 @@
 ;;   For these reasons, the returned job status may be different from (cons 'running job-id)
 ;;   and may indicate that the job has already finished.
 ;;
-;; Options is a list of zero or more of the following:
-;;
-;;   process-group-id: a fixnum, if present and > 0 then the new process will be inserted
-;;     into the corresponding process group id - which must already exist.
-;;
-;;   'catch: a symbol, if present any Scheme condition raised by starting
-;;     the job will be captured, and job status will be set to '(killed . exception)
-;;
-;;   'spawn: a symbol, if present then job will be started in a subprocess.
-;;     By design, commands and (sh-subshell) are always started in a subprocess,
-;;     and for them the 'spawn option has no effect - it is enabled by default.
-;;
-;;     Instead builtins and multijobs such as (sh-and) (sh-or) (sh-list) (sh-pipe) ...
-;;     are usually started in the main schemesh process:
-;;     this is convenient and fast, but may deadlock if their file descriptors
-;;     contain pipes whose other end is read/written by the main schemesh process too.
-;;
-;;     The option 'spawn causes builtins and multijobs to start in a subprocess too.
-;;     It is slower, but has the beneficial effect that reading/writing
-;;     their redirected file descriptors from main schemesh process will no longer deadlock.
+;; For possible values of options, see (sh-options)
 ;;
 (define (sh-start job . options)
+  (sh-start* job options))
+
+;; same as sh-start, options must be passed as a single association list.
+(define (sh-start* job options)
   (start-any 'sh-start job options)
   (job-id-update! job)) ; sets job-id if started, otherwise unsets it. also returns job status
+
 
 
 ;; Internal functions called by (sh-start)
 (define (start-any caller job options)
   ;b (debugf "start-any ~a ~s" (sh-job-display/string job) options)
+  (options-validate caller options)
   (call/cc
     (lambda (k-continue)
       (with-exception-handler
@@ -594,7 +586,7 @@
           (start-any/may-throw caller job options)))))
   (when (job-pid job)
     (pid->job-set! (job-pid job) job))  ; add job to pid->job table
-  (when (and (memq 'spawn options) (job-status-started? job))
+  (when (and (job-status-started? job) (options->spawn? options))
     ; we can cleanup job's file descriptor, as it's running in a subprocess
     (job-unmap-fds! job)
     (job-close-fds-to-close! job)
@@ -612,17 +604,20 @@
       (raise-errorf caller "cannot start job ~s, bad or missing job-start-proc: ~s" job start-proc))
     (job-status-set/running! job)
     (job-exception-set! job #f)
-    (start-proc job options))  ; may throw. ignore value returned by job-start-proc
+    ;; set job's parent if requested.
+    ;; must be done *before* calling procedures in (cmd-arg-list c)
+    (let ((options (options->set-temp-parent! job options)))
+      (start-proc job options)))  ; may throw. ignore value returned by job-start-proc
   (void))
 
 
 (define (start-any/on-exception caller job options k-continue ex)
-  (job-parents-iterate job
+  (job-default-parents-iterate job
     (lambda (parent)
       (unless (eq? parent (sh-globals))
         (job-exception-set! parent ex))))
   (job-status-set! caller job '(killed . exception))
-  (if (memq 'catch options)
+  (if (options->catch? options)
     (k-continue (sh-exception-handler ex))
     (raise ex)))
 
@@ -787,6 +782,7 @@
 
 
 
+(include "shell/options.ss")
 (include "shell/params.ss")
 (include "shell/cmd.ss")
 (include "shell/multijob.ss")
@@ -825,25 +821,35 @@
          (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) ; current directory
          (make-hashtable string-hash string=?) ; env variables
          #f                        ; no env var assignments
-         #f                        ; no parent
+         #f #f                     ; no temp parent, no default parent
          '\x23;<global> -1 (span #t)))) ; skip job-id 0, is used by (sh-globals) itself
 
   (c-environ->sh-global-env)
 
-  (let ((t (sh-builtins)))
+  (let ((bt (sh-builtins))
+        (ft (builtins-that-finish-immediately)))
+
     ; additional builtins
-    (hashtable-set! t "alias"   builtin-alias)
-    (hashtable-set! t "bg"      builtin-bg)
-    (hashtable-set! t "builtin" builtin-builtin)
-    (hashtable-set! t "cd"      builtin-cd)
-    (hashtable-set! t "command" builtin-command)
-    (hashtable-set! t "exec"    builtin-exec)
-    (hashtable-set! t "fg"      builtin-fg)
-    (hashtable-set! t "jobs"    builtin-jobs)
-    (hashtable-set! t "pwd"     builtin-pwd)
-    (hashtable-set! t "split-at-0" builtin-split-at-0)
-    (hashtable-set! t "unalias"    builtin-unalias)
-    (hashtable-set! t "unsafe"     builtin-unsafe)))
+    (hashtable-set! bt "alias"      builtin-alias)
+    (hashtable-set! bt "bg"         builtin-bg)
+    (hashtable-set! bt "builtin"    builtin-builtin)
+    (hashtable-set! bt "cd"         builtin-cd)
+    (hashtable-set! bt "command"    builtin-command)
+    (hashtable-set! bt "exec"       builtin-exec)
+    (hashtable-set! bt "fg"         builtin-fg)
+    (hashtable-set! bt "global"     builtin-global)
+    (hashtable-set! bt "jobs"       builtin-jobs)
+    (hashtable-set! bt "pwd"        builtin-pwd)
+    (hashtable-set! bt "split-at-0" builtin-split-at-0)
+    (hashtable-set! bt "unalias"    builtin-unalias)
+    (hashtable-set! bt "unsafe"     builtin-unsafe)
+
+    (list-iterate '("alias" "cd" "echo" "echo0" "error" "false" "jobs" "history" "pwd" "true" "unalias")
+      (lambda (name)
+        (let ((builtin (hashtable-ref bt name #f)))
+          (when builtin
+            (hashtable-set! ft builtin #t)))))))
+
 
 
 ) ; close library

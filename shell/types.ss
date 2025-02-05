@@ -29,17 +29,18 @@
     (mutable fds-to-close) ; for builtins or multijobs, '() or list of fds to close at job exit
     start-proc      ; #f or procedure to run in main process.
                     ; receives as argument job followed by options.
-    step-proc       ; #f or procedure.
+    (mutable step-proc) ; #f or procedure.
                     ; For multijobs, will be called when a child job changes status.
                     ; For cmds, will be called in fork()ed child process and
                     ; receives as argument job followed by options.
                     ; For cmds, its return value is passed to (exit-with-job-status)
-    (mutable cwd %job-cwd job-cwd-set!) ; #f or charspan: working directory
-    (mutable env)        ; #f or hashtable of overridden env variables: name -> value
-    (mutable env-lazy)   ; #f or span of env variable name each followed by string or procedure
-    (mutable parent))    ; parent job, contains default values of env variables
-                         ; and default redirections
-  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-0}))
+    (mutable cwd %job-cwd job-cwd-set!) ; charspan: working directory. if #f, use parent's cwd
+    (mutable env)         ; #f or hashtable of overridden env variables: name -> value
+    (mutable env-lazy)    ; #f or span of env variable name each followed by string or procedure
+    (mutable temp-parent) ; temporary parent job, contains default values of env variables.
+                          ; Unset when job finishes
+    (mutable default-parent)) ; default parent job, contains default values of env variables
+  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-3}))
 
 
 ;; Define the record type "cmd"
@@ -49,7 +50,7 @@
   (fields
     arg-list                     ; list of strings and closures: program-name and args
     (mutable expanded-arg-list)) ; #f or list of strings: program-name and args after applying closures and expanding aliases
-  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-1}))
+  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-4}))
 
 
 ;; Define the record type "multijob"
@@ -60,7 +61,7 @@
     kind                ; symbol: one of 'sh-and 'sh-or 'sh-not 'sh-list 'sh-subshell '#<global>
     (mutable current-child-index) ; -1 or index of currently running child job
     children)           ; span: children jobs.
-  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-2}))
+  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-5}))
 
 
 

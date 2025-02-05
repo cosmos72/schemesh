@@ -81,7 +81,7 @@
       (unless (job-terminator? job)
         (assert* caller (sh-job? job))))
     start-multijob-subshell
-    step-multijob-subshell
+    #f
     children-jobs-with-colon-ampersand))
 
 
@@ -114,7 +114,7 @@
       #f              ; working directory - initially inherited by parent job
       #f              ; overridden environment variables - initially none
       #f              ; env var assignments - initially none
-      (sh-globals)    ; parent job - initially the global job
+      #f (sh-globals) ; no temp parent. default parent job is initially the global job
       kind
       -1              ; no child running yet
       (list->span children-jobs))))
@@ -123,7 +123,7 @@
     (list-iterate children-jobs
       (lambda (elem)
         (when (sh-job? elem)
-          (job-parent-set! elem mj))))
+          (job-default-parent-set! elem mj))))
     mj))
 
 
@@ -134,18 +134,12 @@
 (define (start-multijob-list job options)
   (assert* 'sh-list (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-list (fx=? -1 (multijob-current-child-index job)))
-  (let ((%proc-start-multijob-list
-          (lambda (job)
-            (job-remap-fds! job)
-            (job-env/apply-lazy! job 'export)
-            ; Do not yet assign a job-id.
-            (step-multijob-list job (void)))))
-    (if (memq 'spawn options)
-      ;; spawn a subprocess and run (%proc... job) and (job-step-proc job) inside it
-      (spawn-procedure job %proc-start-multijob-list options)
-      ;; run (proc) in the caller's process
-      (%proc-start-multijob-list job))))
-
+  (call-or-spawn-procedure job options
+    (lambda (job options)
+      (job-remap-fds! job)
+      (job-env/apply-lazy! job 'export)
+      ; Do not yet assign a job-id.
+      (step-multijob-list job (void)))))
 
 
 ;; internal function stored in (job-start-proc job) by (sh-subshell) multijobs
@@ -156,33 +150,45 @@
 ;; The subshell process will execute the Scheme function (job-step-proc job)
 ;; passing the job job as only argument,
 ;;
-;; Options is a list of zero or more of the following:
-;;   process-group-id: a fixnum, if present and > 0 the new subshell will be inserted
-;;     into the corresponding process group id - which must already exist.
-;;   'spawn: a symbol. enabled by default, because this function always spawns a subprocess.
+;; Options are the same as described in (sh-start).
+;; Option '(spawn? . #t) is enabled by default, because this function always spawns a subprocess.
 (define (start-multijob-subshell job options)
   (assert* 'sh-subshell (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-subshell (fx=? -1 (multijob-current-child-index job)))
-  (let ((%proc-start-multijob-subshell
-          (lambda (job)
-            ; this will be executed in a subprocess.
-            ;
-            ; deactivate job control:
-            ; a. do not create process groups => all child processes will
-            ;    inherit process group from the subshell itself
-            ; b. do not change the foregroud process group
-            ;
-            ; note that commands executed by the subshell CAN reactivate job control:
-            ; in such case, (sh-job-control? #t) will self-suspend the subshell with SIGTTIN
-            ; until the user resumes it in the foreground.
-            (sh-job-control? #f)
-            ; do not output status changes of children jobs.
-            (sh-job-display/summary? #f)
+  (spawn-procedure job options
+    (lambda (job options)
+      ;; this will be executed in a subprocess.
+      ;;
+      ;; deactivate job control:
+      ;; a. do not create process groups => all child processes will
+      ;;    inherit process group from the subshell itself
+      ;; b. do not change the foregroud process group
+      ;;
+      ;; note that commands executed by the subshell CAN reactivate job control:
+      ;; in such case, (sh-job-control? #t) will self-suspend the subshell with SIGTTIN
+      ;; until the user resumes it in the foreground.
+      (sh-job-control? #f)
 
-            (job-remap-fds! job)
-            (job-env/apply-lazy! job 'export))))
-    ;; spawn a subprocess and run (%proc... job) and (job-step-proc job) inside it
-    (spawn-procedure job %proc-start-multijob-subshell options)))
+      ;; do not output status changes of children jobs.
+      (sh-job-display/summary? #f)
+
+      ;; do not save history when subshell exits.
+      (let ((lctx (sh-repl-args-linectx)))
+        (when (linectx? lctx)
+          (let ((history (linectx-history lctx)))
+            (when history
+              (charhistory-path-set! history #f)))))
+
+      (job-remap-fds! job)
+      (job-env/apply-lazy! job 'export)
+
+      ;; pretend that this subshell is equivalent to an sh-list:
+      ;; since we are in a subprocess, this does not alter the original object
+      ;; and (sh-wait) needs it to know what to do with children jobs.
+      (job-step-proc-set! job step-multijob-list)
+
+      (sh-wait job)))) ; execute and wait each child job
+
 
 
 
@@ -194,20 +200,18 @@
   ;; this runs in the main process, not in a subprocess.
   (assert* 'sh-and (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-and (fx=? -1 (multijob-current-child-index job)))
-  (let ((%proc-start-multijob-and
-          (lambda (job)
-            (job-remap-fds! job)
-            (job-env/apply-lazy! job 'export)
-            (if (span-empty? (multijob-children job))
-              ; (sh-and) with zero children -> job completes successfully
-              (job-status-set! 'start-multijob-and job (void))
-              ; Do not yet assign a job-id.
-              (step-multijob-and job (void))))))
-    (if (memq 'spawn options)
-      ;; spawn a subprocess and run (%proc... job) inside it
-      (spawn-procedure job %proc-start-multijob-and options)
-      ;; run (%proc... job) in the caller's process
-      (%proc-start-multijob-and job))))
+  (call-or-spawn-procedure
+    job options
+    (lambda (job options)
+      (job-remap-fds! job)
+      (job-env/apply-lazy! job 'export)
+      (if (span-empty? (multijob-children job))
+        ; (sh-and) with zero children -> job completes successfully
+        (job-status-set! 'start-multijob-and job (void))
+        ; Do not yet assign a job-id.
+        (step-multijob-and job (void))))))
+
+
 
 
 ;; Internal function stored in (job-start-proc job) by (sh-or),
@@ -218,21 +222,16 @@
   ;; this runs in the main process, not in a subprocess.
   (assert* 'sh-or (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-or (fx=? -1 (multijob-current-child-index job)))
-  (let ((%proc-start-multijob-or
-          (lambda (job)
-            (job-remap-fds! job)
-            (job-env/apply-lazy! job 'export)
-            ; (debugf "start-multijob-or ~s empty children? = ~s" job (span-empty? (multijob-children job)))
-            (if (span-empty? (multijob-children job))
-              ; (sh-or) with zero children -> job fails with '(exited . 256)
-              (job-status-set! 'start-multijob-or job '(exited . 256))
-              ; Do not yet assign a job-id.
-              (step-multijob-or job '(exited . 256))))))
-    (if (memq 'spawn options)
-      ;; spawn a subprocess and run (%proc... job) and (job-step-proc job) inside it
-      (spawn-procedure job %proc-start-multijob-or options)
-      ;; run (%proc... job) in the caller's process
-      (%proc-start-multijob-or job))))
+  (call-or-spawn-procedure job options
+    (lambda (job options)
+      (job-remap-fds! job)
+      (job-env/apply-lazy! job 'export)
+      ;; (debugf "start-multijob-or ~s empty children? = ~s" job (span-empty? (multijob-children job)))
+      (if (span-empty? (multijob-children job))
+        ;; (sh-or) with zero children -> job fails with '(exited . 256)
+        (job-status-set! 'start-multijob-or job '(exited . 256))
+        ;; Do not yet assign a job-id.
+        (step-multijob-or job '(exited . 256))))))
 
 
 ;; Internal function stored in (job-start-proc job) by (sh-not),
@@ -241,25 +240,19 @@
 ;; Does not redirect file descriptors.
 (define (start-multijob-not job options)
   ;; this runs in the main process, not in a subprocess.
-  ;; TODO: how can we redirect file descriptor?
   (assert* 'sh-not (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-not (fx=? -1 (multijob-current-child-index job)))
-  (let ((%proc-start-multijob-not
-          (lambda (job)
-            (job-remap-fds! job)
-            (job-env/apply-lazy! job 'export)
-            ; Do not yet assign a job-id.
-            (step-multijob-not job (void)))))
-    (if (memq 'spawn options)
-      ;; spawn a subprocess and run (%proc... job) and (job-step-proc job) inside it
-      (spawn-procedure job %proc-start-multijob-not options)
-      ;; run (%proc... job) in the caller's process
-      (%proc-start-multijob-not job))))
+  (call-or-spawn-procedure job options
+    (lambda (job options)
+      (job-remap-fds! job)
+      (job-env/apply-lazy! job 'export)
+      ;; Do not yet assign a job-id.
+      (step-multijob-not job (void)))))
 
 
 
 ;; Fork a new subprocess, and in the child subprocess
-;; call (proc job) once, then call (sh-wait job) repeatedly - which calls (job-step-proc job) if set -
+;; call (proc job options) once, then call (sh-wait job) repeatedly - which calls (job-step-proc job) if set -
 ;; until (job-finished? job) returns truish.
 ;;
 ;; The new subprocess is started in background, i.e. the foreground process group is NOT set
@@ -267,25 +260,21 @@
 ;;
 ;; Note: does not call (job-env/apply-lazy! job).
 ;;
-;; Options is a list of zero or more of the following:
-;;   process-group-id: an integer,
-;;     if present and > 0 the new subprocess will be inserted
-;;       into the corresponding process group id - which must already exist.
-;;     Otherwise, if present and = 0 a new process group will be created
-;;       and the new subprocess will be moved into it.
+;; Options is an association list, see (sh-start) for allowed keys and values.
 ;;   'spawn: a symbol. enabled by default, because this function always spawns a subprocess.
 ;;
 ;; Return job status, which is usually '(running ...)
 ;;   for a complete list of possible job statuses, see (sh-job-status)
 (define spawn-procedure
   (let ((c-fork-pid (foreign-procedure "c_fork_pid" (int) int)))
-    (lambda (job proc options)
+    (lambda (job options proc)
       (assert* 'sh-start (sh-job? job))
       (assert* 'sh-start (procedure? proc))
-      (assert* 'sh-start (logbit? 1  (procedure-arity-mask proc)))
+      (assert* 'sh-start (logbit? 2  (procedure-arity-mask proc)))
       (assert* 'sh-start (list? options))
-      (let* ((process-group-id (job-start-options->process-group-id options))
-             (ret (c-fork-pid (or process-group-id -1))))
+      (let* ((process-group-id (options->process-group-id options))
+             (_                (options->set-temp-parent! job options))
+             (ret              (c-fork-pid (or process-group-id -1))))
         (cond
           ((< ret 0) ; fork() failed
             (raise-c-errno 'sh-start 'fork ret))
@@ -314,7 +303,7 @@
                     (%job-last-status-set! job '(running . #f))))
                 (lambda () ; body
                   ;b (debugf ">   spawn-procedure job=~a subprocess calling proc ~s" (sh-job-display/string job) proc)
-                  (let ((ret (proc job)))
+                  (let ((ret (proc job options)))
                     ;b (debugf "... spawn-procedure job=~a subprocess proc returned ~s" (sh-job-display/string job) ret)
                     (void))
                   (set! status (sh-wait job)))
@@ -325,6 +314,17 @@
             (job-pid-set! job ret)
             (job-pgid-set! job process-group-id)
             (cons 'running #f)))))))
+
+
+;; if options contain '(spawn? . #t) then remove such options and call (spawn-procedure job options proc)
+;; otherwise directly call (proc job options)
+(define (call-or-spawn-procedure job options proc)
+  (if (options->spawn? options)
+    ;; spawn a subprocess and run (%proc... job) inside it
+    (spawn-procedure job (options-filter-out options '(spawn?)) proc)
+    ;; directly call (proc job options) in the caller's process
+    (let ((options (options->set-temp-parent! job options)))
+      (proc job options))))
 
 
 ;; Internal function called by (advance-job) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
@@ -363,6 +363,7 @@
       (#t
         (raise-errorf mode "child job not started yet: ~s" child)))))
 
+(define options-catch '((catch? . #t)))
 
 ;; Run next child job in a multijob containing an "and" of children jobs.
 ;; Used by (sh-and), implements runtime behavior of shell syntax foo && bar && baz
@@ -374,7 +375,7 @@
       (begin
         ; start next child job
         (multijob-current-child-index-set! mj idx)
-        (let ((child-status (start-any 'sh-and child '(catch))))
+        (let ((child-status (start-any 'sh-and child options-catch)))
           (when (job-status-finished? child-status)
             ; child job already finished, iterate
             (step-multijob-and mj child-status))))
@@ -396,7 +397,7 @@
       (begin
         ; start next child job
         (multijob-current-child-index-set! mj idx)
-        (let ((child-status (start-any 'sh-or child '(catch))))
+        (let ((child-status (start-any 'sh-or child options-catch)))
           (when (job-status-finished? child-status)
             ; child job already finished, iterate
             (step-multijob-or mj child-status))))
@@ -419,7 +420,7 @@
       (begin
         ; start child job
         (multijob-current-child-index-set! mj idx)
-        (let ((child-status (start-any 'sh-not child '(catch))))
+        (let ((child-status (start-any 'sh-not child options-catch)))
           (when (job-status-finished? child-status)
             ; child job already finished, iterate
             (step-multijob-not mj child-status))))
@@ -451,7 +452,7 @@
         ; (debugf "job-step-list status = ~s, start child ~s = ~s" (job-last-status mj) idx child)
         (when (sh-job? child)
           ; start next child job
-          (let* ((child-status (start-any 'sh-list child '(catch)))
+          (let* ((child-status (start-any 'sh-list child options-catch))
                  (child-started? (job-status-started? child-status)))
             ; iterate on subsequent child jobs in two cases:
             ; if child job is followed by '&
@@ -478,9 +479,3 @@
       ; propagate status of last sync child
       (multijob-current-child-index-set! mj -1)
       (job-status-set! 'step-multijob-list mj prev-child-status))))
-
-
-;; Run first or next child job in a multijob containing a sequence of children jobs optionally followed by & ;
-;; Used by (sh-subshell), implements runtime behavior of shell syntax [ ... ]
-(define (step-multijob-subshell mj prev-child-status)
-  (step-multijob-list mj prev-child-status))

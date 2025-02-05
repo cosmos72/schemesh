@@ -7,7 +7,7 @@
 
 (library (schemesh shell builtins (0 7 2))
   (export sh-builtins sh-find-builtin sh-exception-handler
-          sh-echo sh-error sh-false sh-history sh-repl-args sh-true)
+          sh-echo sh-error sh-false sh-history sh-repl-args sh-repl-args-linectx sh-true)
   (import
     (rnrs)
     (only (chezscheme)           console-error-port debug debug-condition debug-on-exception
@@ -39,7 +39,7 @@
 
 
 ;; thread parameter (sh-repl-args) must be empty or a list
-;;   (parser enabled-parsers eval-func lctx init-file-path quit-file-path)
+;;   (parser eval-func linectx repl-init-file-path repl-quit-file-path)
 ;; containing arguments of current call to (sh-repl) or (sh-repl*)
 (define sh-repl-args
   (sh-make-thread-parameter
@@ -48,6 +48,14 @@
       (unless (list? args)
         (raise-errorf 'sh-repl-args "invalid value, must be a list: " args))
       args)))
+
+
+;; return the linectx contained in thread parameter (sh-repl-args),
+;; or #f if not present.
+(define (sh-repl-args-linectx)
+  (let ((repl-args (sh-repl-args)))
+    (and (fx>=? (length repl-args) 3)
+         (list-ref repl-args 2))))
 
 
 ;; React to uncaught conditions
@@ -141,7 +149,7 @@
 
 ;; ;; implementation of "history" builtin, lists previous commands saved to history
 (define (sh-history)
-  (let ((lctx (list-ref (sh-repl-args) 2))
+  (let ((lctx (sh-repl-args-linectx))
         (fd   (sh-fd-stdout)))
     ; (debugf "sh-history ~s" lctx)
     (if (linectx? lctx)
@@ -163,37 +171,52 @@
 
 
 
-;; the "echo" builtin
+;; the "echo" builtin: write arguments to (sh-fd-stdout)
+;; separating each pair with a #\space and terminating them with a #\newline
+;;
+;; As all builtins do, must return job status.
 (define (builtin-echo job prog-and-args options)
   (assert-string-list? 'builtin-echo prog-and-args)
   (apply sh-echo (cdr prog-and-args)))
 
 
-;; the "echo0" builtin
+;; the "echo0" builtin: write arguments to (sh-fd-stdout)
+;; terminating each one with a #\nul
+;;
+;; As all builtins do, must return job status.
 (define (builtin-echo0 job prog-and-args options)
   (assert-string-list? 'builtin-echo0 prog-and-args)
   (apply sh-echo0 (cdr prog-and-args)))
 
 
-;; the "error" builtin
+;; the "error" builtin: return specified exit status,
+;; which must be a non-empty string containing only decimal digits.
+;;
+;; As all builtins do, must return job status.
 (define (builtin-error job prog-and-args options)
   (assert-string-list? 'builtin-error prog-and-args)
   (apply sh-error (cdr prog-and-args)))
 
 
-;; the "false" builtin
+;; the "false" builtin: return '(exited . 1)
+;;
+;; As all builtins do, must return job status.
 (define (builtin-false job prog-and-args options)
   (assert-string-list? 'builtin-false prog-and-args)
   (sh-false))
 
 
-;; the "true" builtin
+;; the "true" builtin: return (void)
+;;
+;; As all builtins do, must return job status.
 (define (builtin-true job prog-and-args options)
   (assert-string-list? 'builtin-true prog-and-args)
   (sh-true))
 
 
-;; the "history" builtin
+;; the "history" builtin: write current history to (sh-fd-stdout).
+;;
+;; As all builtins do, must return job status.
 (define (builtin-history job prog-and-args options)
   (assert-string-list? 'builtin-history prog-and-args)
   (sh-history))

@@ -26,7 +26,7 @@
     #f              ; working directory - initially inherited by parent job
     #f              ; overridden environment variables - initially none
     #f              ; env var assignments - initially none
-    (sh-globals)    ; parent job - initially the global job
+    #f (sh-globals) ; no temp parent. default parent job is initially the global job
     program-and-args
     #f))            ; expanded arg-list
 
@@ -61,7 +61,8 @@
 ;;   For the complete list of possible returned job statuses, see (sh-job-status).
 (define (start-cmd c options)
   (assert* 'sh-cmd (eq? 'running (job-last-status->kind c)))
-  (start-command-or-builtin-or-alias c (cmd-arg-list-apply c) options))
+  (job-status-set! 'start-cmd c
+    (start-command-or-builtin-or-alias c (cmd-arg-list-apply c) options)))
 
 
 
@@ -127,36 +128,45 @@
 ;; Otherwise, start a command i.e. fork() and exec() an external process,
 ;; optionally inserting it into an existing process group.
 ;;
-;; Updates job status, and also returns it,
+;; Returns job status,
 ;;   which may be one of (void) '(exited ...) '(running ...) etc.
 ;;   For the complete list of possible returned job statuses, see (sh-job-status).
 (define (start-command-or-builtin-or-alias c program-and-args options)
   (assert* 'sh-cmd (sh-cmd? c))
-  ;; expand aliases in args
-  ;; sanity: (sh-aliases-expand) ignores aliases for "builtin"
-  (let ((prog-and-args (sh-aliases-expand program-and-args)))
+
+       ;; set parent job if requested. currently redundant,
+       ;; as we are only called by (start-any/throw) that already does the same.
+  (let ((options (options->set-temp-parent! c options))
+        ;; expand aliases in args
+        ;; sanity: (sh-aliases-expand) ignores aliases for "builtin"
+        (prog-and-args (sh-aliases-expand program-and-args)))
+
     ;; (debugf "start-cmd expanded-prog-and-args=~s builtin=~s" prog-and-args builtin)
     (unless (eq? prog-and-args (cmd-arg-list c))
       ;; save expanded cmd-arg-list for more accurate pretty-printing
       (cmd-expanded-arg-list-set! c prog-and-args))
+
     (if (null? prog-and-args)
       (begin
         ;; apply lazy environment variables *after* expanding cmd-arg-list
         (job-env/apply-lazy! c 'maintain)
         (job-env-copy-into-parent! c)
-        (job-status-set! 'start-cmd c (void)))
+        (void)) ; return job status = success
       (let ((builtin (sh-find-builtin prog-and-args)))
         ;; apply lazy environment variables *after* expanding cmd-arg-list
+        ;; and *after* setting job's parent
         (job-env/apply-lazy! c 'export)
         (if builtin
           ; expanded arg[0] is a builtin, call it.
-          (start-builtin builtin c prog-and-args options)
+          (start-builtin builtin c prog-and-args options)  ; returns job status
           ; expanded arg[0] is a not builtin or alias, spawn a subprocess
-          (spawn-cmd c (list->argv prog-and-args) options))))))
+          (spawn-cmd c (list->argv prog-and-args) options)))))) ; returns job status
 
 
+;; returns job status
 (define (start-command-or-builtin-or-alias-from-another-builtin c program-and-args options)
   (assert* 'sh-cmd (sh-cmd? c))
+
   ;; expand aliases in args
   ;; sanity: (sh-aliases-expand) ignores aliases for "builtin"
   (let ((prog-and-args (sh-aliases-expand program-and-args)))
@@ -166,21 +176,23 @@
       (cmd-expanded-arg-list-set! c prog-and-args))
     ; lazy environment was applied already by the outer (start-command-or-builtin-or-alias)
     (if (null? prog-and-args)
-      (job-status-set! 'start-cmd c (void))
+      (void) ; return success
       (let ((builtin (sh-find-builtin prog-and-args)))
         (if builtin
           ; expanded arg[0] is a builtin, call it.
           ; redirections were applied already by the outer (start-command-or-builtin-or-alias)
-          (start-builtin-already-redirected builtin c prog-and-args options)
+          (start-builtin-already-redirected builtin c prog-and-args options) ; returns job status
           ; expanded arg[0] is a not builtin or alias, spawn a subprocess
-          (spawn-cmd c (list->argv prog-and-args) options))))))
+          (spawn-cmd c (list->argv prog-and-args) options)))))) ; returns job status
 
 
-;; internal function called by (start-cmd) to spawn a subprocess
+;; internal function called by (start-cmd) to spawn a subprocess.
+;; returns job status.
 (define spawn-cmd
   (let ((c-spawn-cmd (foreign-procedure "c_cmd_spawn" (ptr ptr ptr ptr int) int)))
     (lambda (c argv options)
-      (let* ((process-group-id (job-start-options->process-group-id options))
+      (let* ((process-group-id (options->process-group-id options))
+             (_                (options->set-temp-parent! c options))
              (job-dir (job-cwd-if-set c))
              (ret (c-spawn-cmd
                     argv
@@ -192,21 +204,24 @@
           (job-status-set! c 'spawn-cmd (cons 'exited ret))
           (raise-c-errno 'sh-start 'fork ret))
         (job-pid-set! c ret)
-        (job-pgid-set! c process-group-id)))))
+        (job-pgid-set! c process-group-id)
+        (job-last-status c)))))
 
 
-;; internal function called by (builtin-exec) to exec a subprocess
-(define cmd-exec
-  (let ((c-cmd-exec (foreign-procedure "c_cmd_exec" (ptr ptr ptr ptr) int)))
+;; internal function called by (builtin-exec) to exec a subprocess.
+;; if C exec() fails, returns job status.
+(define exec-cmd
+  (let ((c-exec-cmd (foreign-procedure "c_cmd_exec" (ptr ptr ptr ptr) int)))
     (lambda (c argv options)
-      (let* ((job-dir (job-cwd-if-set c))
-             (ret (c-cmd-exec
+      (let* ((_       (options->set-temp-parent! c options))
+             (job-dir (job-cwd-if-set c))
+             (ret (c-exec-cmd
                     argv
                     (if job-dir (text->bytevector0 job-dir) #f)
                     (job-make-c-redirect-vector c)
                     (sh-env->argv c 'export))))
-        ; (c-cmd-exec) returns only if it failed
-        (job-status-set! 'cmd-exec c (cons 'exited (if (integer? ret) ret -1)))))))
+        ; (c-exec-cmd) returns only if it failed
+        (cons 'exited (if (integer? ret) ret -1))))))
 
 
 ;; internal function called by (spawn-cmd)
@@ -434,7 +449,7 @@
                 ;; advance *all* parents of job that changed status, before waiting again.
                 ;; do NOT advance preferred-job, because that's what our callers are already doing.
                 (let ((globals (sh-globals)))
-                  (job-parents-iterate (job-parent job)
+                  (job-default-parents-iterate (job-parent job)
                     (lambda (parent)
                       ; (debugf "... job-pids-wait -> sh-job-status parent=~a" (sh-job-display/string parent))
                       (if (eq? parent globals)

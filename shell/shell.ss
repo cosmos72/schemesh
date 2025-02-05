@@ -63,13 +63,13 @@
     sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-find-job sh-job-exception
     sh-cmd? sh-multijob? sh-cmd make-cmd sh-cwd sh-consume-sigchld
     sh-globals sh-multijob-child-length sh-multijob-child-ref
-    sh-start sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/err? sh-run/ok?
+    sh-start sh-start* sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/err? sh-run/ok?
 
     ; multijob.ss
     sh-and sh-or sh-not sh-list sh-subshell
 
     ; redirect.ss
-    sh-run/bspan sh-run/string sh-run/string-rtrim-newlines sh-redirect!
+    sh-run/bspan sh-run/string sh-run/string-rtrim-newlines sh-redirect! sh-start/fd-stdout
 
     ; params.ss
     sh-job-control-available? sh-job-control?

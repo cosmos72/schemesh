@@ -81,7 +81,9 @@
   (hashtable-delete! (sh-aliases) name))
 
 
-;; the "alias" builtin
+;; the "alias" builtin: show all aliases, or show a single alias, or set an alias.
+;;
+;; As all builtins do, must return job status.
 (define (builtin-alias job prog-and-args options)
   ; (debugf "builtin-alias ~s" prog-and-args)
   (assert-string-list? 'builtin-alias prog-and-args)
@@ -91,14 +93,17 @@
    ((null? (cddr prog-and-args))
      (show-alias (cadr prog-and-args)))
    (#t
-     (sh-alias-set! (cadr prog-and-args) (cddr prog-and-args)))))
+     (sh-alias-set! (cadr prog-and-args) (cddr prog-and-args))
+     (void))))
 
 
-;; the "unalias" builtin
+;; the "unalias" builtin: unset zero or more aliases.
+;;
+;; As all builtins do, must return job status.
 (define (builtin-unalias job prog-and-args options)
   (assert-string-list? 'builtin-unalias prog-and-args)
   (do ((tail (cdr prog-and-args) (cdr tail)))
-      ((null? tail))
+      ((null? tail) (void))
     (sh-alias-delete! (car tail))))
 
 

@@ -10,6 +10,59 @@
 
 
 
+;; Start a job and return immediately.
+;; Redirects job's standard output to a pipe and returns the read side of that pipe,
+;; which is an integer file descriptor.
+;;
+;; May raise exceptions. On errors, return #f.
+;;
+;; Implementation note: job is always started in a subprocess,
+;; because we need to read its standard output while it runs.
+;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
+(define (sh-start/fd-stdout job . options)
+  (options-validate 'sh-start/fd-stdout options)
+  (let ((fds (cons #f #f))
+        (err? #t))
+    (dynamic-wind
+      (lambda () ; run before body
+        ; create pipe fds, both are close-on-exec
+        (let-values (((read-fd write-fd) (open-pipe-fds #t #t)))
+          (set-car! fds read-fd)
+          (set-cdr! fds write-fd)))
+
+      (lambda () ; body
+        ; temporarily redirect job's stdout to write-fd.
+        ; redirection is automatically removed by (job-status-set!) when job finishes.
+        (job-redirect/temp/fd! job 1 '>& (cdr fds))
+        ; always start job in a subprocess, see above for reason.
+        (sh-start* job (cons '(spawn? . #t) options))
+
+        ; close our copy of write-fd: needed to detect eof on read-fd
+        (fd-close (cdr fds))
+        (set-cdr! fds #f)
+
+        ; job no longer needs fd remapping and fds-to-close:
+        ; they also may contain a dup() of write-fd
+        ; which prevents detecting eof on read-fd
+        ; (debugf "pid ~s: sh-start/fd-stdout calling (job-unmap-fds) job=~s" (pid-get) job)
+
+        (job-unmap-fds! job)
+        (job-close-fds-to-close! job)
+        (set! err? #f))
+
+      (lambda () ; after body
+        ; close our copy of write-fd: needed to detect eof on read-fd
+        (when (cdr fds)
+          (fd-close (cdr fds))
+          (set-cdr! fds #f))
+
+        (when (and err? (car fds))
+          (fd-close (car fds))
+          (set-car! fds #f))))
+
+    (car fds))) ; return read-fd or #f
+
+
 ;; Start a job and wait for it to exit.
 ;; Reads job's standard output and returns it converted to bytespan.
 ;;
@@ -20,41 +73,20 @@
 ;; because we need to read its standard output while it runs.
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
 (define (sh-run/bspan job . options)
-  (let ((started? #f))
-    ; create pipe fds, both are close-on-exec
-    (let-values (((read-fd write-fd) (open-pipe-fds #t #t)))
-      ; temporarily suppress messages about started/completed jobs
-      (parameterize ((sh-job-display/summary? #f))
-        (dynamic-wind
-          void ; run before body
-          (lambda ()
-            ; temporarily redirect job's stdout to write-fd.
-            ; redirection is automatically removed by (job-status-set!) when job finishes.
-            (job-redirect/temp/fd! job 1 '>& write-fd)
-            ; always start job in a subprocess, see above for reason.
-            (apply sh-start job 'spawn options)
-            (set! started? #t)
-            ; close our copy of write-fd: needed to detect eof on read-fd
-            (fd-close write-fd)
-            (set! write-fd #f)
-
-            ; job no longer needs fd remapping and fds-to-close:
-            ; they also may contain a dup() of write-fd
-            ; which prevents detecting eof on read-fd
-            ; (debugf "pid ~s: sh-run/bspan calling (job-unmap-fds) job=~s" (pid-get) job)
-            (job-unmap-fds! job)
-            (job-close-fds-to-close! job)
-
-            ;; WARNING: job may internally dup write-fd into (job-fds-to-remap)
-            (fd-read-until-eof read-fd))
-          (lambda ()
-            ; close pipe fds
-            (when write-fd
-              (fd-close write-fd))
-            (fd-close read-fd)
-            (when started?
-              (sh-wait job))))))))
-
+  (let ((read-fd #f))
+    ; temporarily suppress messages about started/completed jobs
+    (parameterize ((sh-job-display/summary? #f))
+      (dynamic-wind
+        void
+        (lambda ()
+          (set! read-fd (apply sh-start/fd-stdout job options))
+          ;; WARNING: job may internally dup write-fd into (job-fds-to-remap)
+          (fd-read-until-eof read-fd))
+        (lambda ()
+          (when read-fd
+            (fd-close read-fd))
+          (when (job-started? job)
+            (sh-wait job)))))))
 
 
 ;; Start a job and wait for it to exit.

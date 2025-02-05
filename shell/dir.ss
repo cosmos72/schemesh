@@ -147,6 +147,9 @@
 
 
 ;; the "cd" builtin: set current directory of job's parent.
+;; For safety, throws an exception if setting current directory fails.
+;;
+;; As all builtins do, must return job status.
 (define (builtin-cd job prog-and-args options)
   (assert-string-list? 'builtin-cd prog-and-args)
   (apply sh-cd (or (job-parent job) job) (cdr prog-and-args)))
@@ -154,6 +157,8 @@
 
 ;; the "pwd" builtin: print working directory of current job,
 ;; or of specified job-id.
+;;
+;; As all builtins do, must return job status.
 (define (builtin-pwd job prog-and-args options)
   (assert-string-list? 'builtin-pwd prog-and-args)
   (let ((arg (list->integer-or-false (cdr prog-and-args))))

@@ -879,7 +879,7 @@ static const testcase tests[] = {
     {"(file-type \".\" 'catch)", "dir"},
     {"(file-type \"parser/parser.ss\" 'catch)", "file"},
     {"(directory-sort! (directory-list \"parser\"))",
-     "((dir . .) (dir . ..) (file . lisp.ss) (file . lisp-read-token.ss) (file . parser.ss)"
+     "((dir . .) (dir . ..) (file . lisp-read-token.ss) (file . lisp.ss) (file . parser.ss)"
      " (file . r6rs.ss) (file . scheme.ss) (file . shell.ss))"},
     /* ------------------------- posix patterns ----------------------------- */
     {"(sh-pattern \"foo\" '* \".bar\" '? '% \"[a-z]\" '%! \"A-Z\")",
@@ -1025,6 +1025,7 @@ static const testcase tests[] = {
     {"(sh-parse-datum '(shell-subshell \"abc\" && \"def\"))",
      "(sh-subshell (sh-and (sh-cmd abc) (sh-cmd def)))"},
 
+#define OPTION_PARENT_JOB "(($primitive 2 cons) 'same-parent-as-job job)"
 #define INVOKELIB_SHELL_JOBS                                                                       \
   "(begin (($primitive 3 $invoke-library) '(schemesh shell job) '(0 7 2) 'job)"
 
@@ -1090,14 +1091,16 @@ static const testcase tests[] = {
     /* should rather expand to (sh-env-set/lazy! ...) ? */
     {"(expand '(shell \"A\" = (shell-backquote \"echo\" \"abc\" \\x3B; \"echo\" \"def\")))",
      INVOKELIB_SHELL_JOBS
-     " (sh-cmd* A '= (lambda ()"
-     " (sh-run/string-rtrim-newlines (sh-list (sh-cmd echo abc) '; (sh-cmd echo def))))))"},
+     " (sh-cmd* A '= (lambda (job)"
+     " (sh-run/string-rtrim-newlines (sh-list (sh-cmd echo abc) '; (sh-cmd echo def))"
+     " " OPTION_PARENT_JOB "))))"},
     {"(expand '(shell (shell-wildcard \"l\" \"s\")))", INVOKELIB_SHELL_JOBS " (sh-cmd* ls))"},
     {"(expand '(shell (shell-wildcard \"l\" \"s\") \".\"))",
      INVOKELIB_SHELL_JOBS " (sh-cmd* ls .))"},
     {"(expand '(shell (shell-backquote \"echo\" \"ls\")))",
      INVOKELIB_SHELL_JOBS
-     " (sh-cmd* (lambda () (sh-run/string-rtrim-newlines (sh-cmd echo ls)))))"},
+     " (sh-cmd* (lambda (job) (sh-run/string-rtrim-newlines (sh-cmd echo ls) " /*          */
+     OPTION_PARENT_JOB "))))"},
     /* test wildcards and patterns [...] */
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"{echo *}\")))",
@@ -1132,8 +1135,8 @@ static const testcase tests[] = {
      "(shell echo (shell-backquote foo && bar))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"echo $(foo&&bar)\")))",
-     INVOKELIB_SHELL_JOBS " (sh-cmd* echo (lambda () (sh-run/string-rtrim-newlines"
-                          " (sh-and (sh-cmd foo) (sh-cmd bar))))))"},
+     INVOKELIB_SHELL_JOBS " (sh-cmd* echo (lambda (job) (sh-run/string-rtrim-newlines"
+                          " (sh-and (sh-cmd foo) (sh-cmd bar)) " OPTION_PARENT_JOB "))))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{ls} > log.txt &\")))",
      INVOKELIB_SHELL_JOBS " (sh-list* (sh-cmd ls) 1 '> log.txt '&))"},
@@ -1160,7 +1163,16 @@ static const testcase tests[] = {
     {"(sh-wildcard #t \"_does_not_exist_\")", /* file does not exists => returned as string */
      "_does_not_exist_"},
     /* ------------------------- job execution ------------------------------ */
-    {"(sh-run (shell \"true\" \\x7C; \"command\" \"true\" \\x7C; \"false\"))", "(exited . 1)"},
+    {"(sh-run (shell"
+     "  \"false\" \\x7C;"
+     "  \"command\" \"true\" \\x7C;"
+     "  \"error\" \"17\"))",
+     "(exited . 17)"},
+    {"(sh-run (shell-subshell"
+     "  \"builtin\" \"true\" \\x7C;"
+     "  \"builtin\" \"command\" \"false\" \\x7C;"
+     "  \"global\"  \"error\" \"19\"))",
+     "(exited . 19)"},
     {"(sh-run/string (shell \"echo\" \"a\"  \"b\" \"c\"))", "a b c\n"},
     {"(sh-run/string-rtrim-newlines (shell \"echo\" \" abc \"))", " abc "},
     {"(sh-run/string (shell \"FOO\" = \"abc\" \\x3B; \"echo\" (shell-env \"FOO\")))", "abc\n"},

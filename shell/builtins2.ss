@@ -46,28 +46,51 @@
   '(exited . 1))
 
 
+;; the "builtin" builtin: run the builtin in the remaining command line.
+;;
+;; As all builtins do, must return job status.
+;; returns '(exited . 1) if specified builtin is not found.
+(define (builtin-builtin job prog-and-args options)
+  ; (debugf "builtin-builtin ~s" prog-and-args)
+  (assert-string-list? 'builtin-builtin prog-and-args)
+  (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
+    (void)
+    (let* ((args (cdr prog-and-args))
+           (builtin (sh-find-builtin args)))
+      (if builtin
+        (start-builtin-already-redirected builtin job args options)
+        (write-builtin-error "builtin" "not a shell builtin" (car args))))))
 
 
-;; the "command" builtin. spawns a subprocess and returns immediately
+;; the "command" builtin: spawn a subprocess and return immediately
+;;
+;; As all builtins do, must return job status.
 (define (builtin-command job prog-and-args options)
   (assert-string-list? 'builtin-command prog-and-args)
   (assert* 'builtin-command (string=? "command" (car prog-and-args)))
-  (spawn-cmd job (list->argv (cdr prog-and-args)) options)
-  (job-last-status job))
+  (spawn-cmd job (list->argv (cdr prog-and-args)) options)) ; returns job status
 
 
-;; the "exec" builtin
+;; the "exec" builtin: replace the current process with specified command.
+;; Returns only if command cannot be executed.
+;;
+;; As all builtins do, must return job status.
 (define (builtin-exec job prog-and-args options)
   (assert-string-list? 'builtin-exec prog-and-args)
   (assert* 'builtin-exec (string=? "exec" (car prog-and-args)))
-  (cmd-exec job (list->argv (cdr prog-and-args)) options) ; returns only on error
-  (job-last-status job))
+  ;; save history before this process is replaced by exec'd command
+  (let ((lctx (sh-repl-args-linectx)))
+    (when (linectx? lctx)
+      (linectx-save-history lctx)))
+  ; on success, does not return: this process does not exist anymore.
+  ; on failure, returns job status
+  (exec-cmd job (list->argv (cdr prog-and-args)) options))
 
 
 ;; The "bg" builtin: continue a job-id by sending SIGCONT to it, and return immediately
 ;; Continue a job or job-id in background by sending SIGCONT to it, and return immediately.
-;; Return job status. For possible returned statuses, see (sh-bg)
 ;;
+;; As all builtins do, must return job status. For possible returned statuses, see (sh-bg)
 (define (builtin-bg job prog-and-args options)
   (assert-string-list? 'builtin-bg prog-and-args)
   ;; TODO: implement (builtin-bg) with no args
@@ -86,9 +109,9 @@
         (write-builtin-error "bg" arg "no such job")))) ; returns '(exited . 1)
 
 
-;; The "fg" builtin: continue a job-id by sending SIGCONT to it, then wait for it to exit or stop,
-;; and finally return its status. For possible returned statuses, see (sh-fg)
+;; The "fg" builtin: continue a job-id by sending SIGCONT to it, then wait for it to exit or stop.
 ;;
+;; As all builtins do, must return job status. For possible returned statuses, see (sh-fg)
 (define (builtin-fg job prog-and-args options)
   (assert-string-list? 'builtin-fg prog-and-args)
   ;; TODO: implement (builtin-fg) with no args
@@ -107,7 +130,27 @@
         (write-builtin-error "fg" arg "no such job")))) ; returns '(exited . 1)
 
 
+;; the "global" builtin: run the builtin in the remaining command line
+;; with its parent job temporarily set to (sh-globals)
+;; Useful mostly for builtins "cd" and "pwd"
+;;
+;; As all builtins do, must return job status.
+(define (builtin-global job prog-and-args options)
+  ; (debugf "builtin-global ~s" prog-and-args)
+  (assert-string-list? 'builtin-global prog-and-args)
+  (if (null? (cdr prog-and-args))
+    (void)
+    (let* ((args    (cdr prog-and-args))
+           (builtin (sh-find-builtin args)))
+      (if builtin
+        (start-builtin-already-redirected builtin job args
+            (cons '(parent-job . #t) options)) ; options will be processed again
+        (write-builtin-error "global" "not a shell builtin" (car args))))))
+
+
 ;; the "jobs" builtin: list currently running jobs
+;;
+;; As all builtins do, must return job status.
 (define (builtin-jobs job prog-and-args options)
   (assert-string-list? 'builtin-jobs prog-and-args)
   (let ((src (multijob-children (sh-globals))))
@@ -123,6 +166,8 @@
 
 ;; the "split-at-0" builtin: split second and subsequent strings of a command line at each #\nul
 ;; then run whatever command, builtin or alias is at the first string of the command line.
+;;
+;; As all builtins do, must return job status.
 (define (builtin-split-at-0 job prog-and-args options)
   (assert-string-list? 'builtin-split-at-0 prog-and-args)
   (if (null? (cdr prog-and-args))
@@ -134,6 +179,8 @@
 
 
 ;; the "unsafe" builtin: run whatever command, builtin or alias is in the remaining command line.
+;;
+;; As all builtins do, must return job status.
 (define (builtin-unsafe job prog-and-args options)
   (assert-string-list? 'builtin-unsafe prog-and-args)
   (if (null? (cdr prog-and-args))
@@ -141,24 +188,10 @@
     (start-command-or-builtin-or-alias-from-another-builtin job (cdr prog-and-args) options)))
 
 
-;; the "builtin" builtin: run the builtin in the remaining command line.
-;; returns builtin exit status, or '(exited . 1) if specified builtin is not found.
-(define (builtin-builtin job prog-and-args options)
-  ; (debugf "builtin-builtin ~s" prog-and-args)
-  (assert-string-list? 'builtin-builtin prog-and-args)
-  (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
-    (void)
-    (let* ((args (cdr prog-and-args))
-           (builtin (sh-find-builtin args)))
-      (if builtin
-        (start-builtin-already-redirected builtin job args options)
-        (write-builtin-error "builtin" "not a shell builtin" (car args))))))
-
-
 ;; start a builtin and return its status.
 ;; performs sanity checks on exit status returned by the call (builtin job args options)
 ;;
-;; if options list contain 'spawn, then the builtin will be started asynchronously
+;; if options list contain '(spawn? . #t), then the builtin will be started asynchronously
 ;;   in a subprocess, thus the returned status can be '(running ...)
 ;; if builtin is builtin-command, by design it spawns asynchronously
 ;;   an external subprocess and returns immediately,
@@ -171,25 +204,26 @@
   (parameterize ((sh-fd-stdin  (job-find-fd-remap c 0))
                  (sh-fd-stdout (job-find-fd-remap c 1))
                  (sh-fd-stderr (job-find-fd-remap c 2)))
-    (job-status-set! 'start-builtin c
-      (start-builtin-already-redirected builtin c args options))))
+    (start-builtin-already-redirected builtin c args options)))
 
 
-;; internal function called by (start-builtin) to execute a builtin
-(define (start-builtin-already-redirected builtin c args options)
-  (let ((%proc-start-builtin
-    (lambda (job)
-      (let ((status (builtin job args options)))
-        ; executing a builtin finishes immediately, and returns a (job-status-finished? status)
-        ; with two exceptions:
-        ; 1. if the builtin is started with 'spawn option, it is executed asynchronously in a spawned subprocess
-        ; 2. the builtin "command" by design spawns asynchronously an external subprocess and returns immediately
-        (if (or (eq? builtin builtin-command) (memq 'spawn options)  (job-status-finished? status))
+;; filled at the end of job.ss
+(define builtins-that-finish-immediately
+  (let ((ht (make-eq-hashtable)))
+    (lambda () ht)))
+
+
+;; internal function called by (start-builtin) to execute a builtin.
+;; returns job status.
+(define (start-builtin-already-redirected builtin job args options)
+  (call-or-spawn-procedure job options
+    (lambda (job options)
+      ;; execute the builtin
+      (let ((status  (builtin job args options)))
+        (if (or (job-status-finished? status) (options->spawn? options)
+                (not (hashtable-ref (builtins-that-finish-immediately) builtin #f)))
           status
           (%warn-bad-builtin-exit-status builtin args status)))))) ; returns (void)
-    (if (memq 'spawn options)
-      (spawn-procedure c %proc-start-builtin options)
-      (%proc-start-builtin c))))
 
 
 

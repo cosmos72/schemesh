@@ -71,7 +71,7 @@
   (job-remap-fds! mj)
   (job-env/apply-lazy! mj 'export)
   ; Do not yet assign a job-id.
-  (let ((pgid (job-start-options->process-group-id options))
+  (let ((pgid (options->process-group-id options))
         (n    (span-length (multijob-children mj)))
         (pipe-fd -1))
     (job-pgid-set! mj pgid)
@@ -89,7 +89,7 @@
 ;; Return the i-th child job output pipe fd,
 ;; or -1 if this is the last job and its output should not be redirected to a pipe.
 (define (start-multijob-pipe-i mj i n in-pipe-fd)
-  (let* ((job (sh-multijob-child-ref mj i))
+  (let* ((job           (sh-multijob-child-ref mj i))
          (out-pipe-fd/read -1)
          (out-pipe-fd/write -1)
          (pgid          (job-pgid mj)) ; #f if not set
@@ -99,9 +99,11 @@
                              (eq? '\x7C;& (sh-multijob-child-ref mj (fx1+ i)))))
          ; optimization: no need to run the last job in a subprocess
          ; TO DO: investigate wrong exit value if spawn? is unconditionally #t
-         (spawn?        redirect-out?)
-         (options1      (if pgid   (list pgid) '()))
-         (options       (if spawn? (cons 'spawn options1) options1)))
+         (spawn?   redirect-out?)
+         (options  (sh-options
+                     (and spawn? '(spawn? . #t))
+                     (and pgid   (cons 'process-group-id pgid))
+                     '(catch? . #t))))
 
 
     ; Apply redirections. Will be removed by (advance-multijob-pipe/wait) when job finishes.
@@ -121,7 +123,7 @@
     ; (debugf "... start-multijob-pipe-i starting job=~a, options=~s, redirect-in=~s, redirect-out=~s" (sh-job-display/string job) options redirect-in? redirect-out?)
 
     ; Do not yet assign a job-id. Reuse mj process group id
-    (start-any 'sh-pipe job (cons 'catch options))
+    (start-any 'sh-pipe job options)
 
     ; if not present yet, set mj process group id for reuse by all other children
     (unless pgid
