@@ -30,8 +30,8 @@
     sh-env-iterate/direct sh-env-set/lazy! sh-env-copy sh-env->argv
 
     ; job.ss
-    sh-job? sh-job sh-job-id sh-job-status sh-jobs sh-find-job sh-job-exception
-    sh-cmd? sh-multijob? sh-cmd make-cmd sh-cwd sh-consume-sigchld
+    sh-job sh-job-id sh-job-status sh-jobs sh-find-job sh-job-exception
+    sh-cmd make-cmd sh-cwd sh-consume-sigchld
     sh-globals sh-multijob-child-length sh-multijob-child-ref
     sh-start sh-start* sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/err? sh-run/ok?
 
@@ -42,7 +42,7 @@
     sh-options
 
     ; redirect.ss
-    sh-run/bspan sh-run/string sh-run/string-rtrim-newlines sh-redirect! sh-start/fd-stdout
+    sh-redirect! sh-run/bspan sh-run/string sh-run/string-rtrim-newlines sh-start/fd-stdout
 
     ; params.ss
     sh-job-control-available? sh-job-control?
@@ -52,6 +52,9 @@
 
     ; pipe.ss
     sh-pipe sh-pipe*
+
+    ; types.ss
+    sh-job? sh-job-copy sh-cmd? sh-multijob?
 
     ; wildcard
     sh-wildcard sh-wildcard* sh-wildcard/apply sh-wildcard/expand-tilde sh-wildcard->string

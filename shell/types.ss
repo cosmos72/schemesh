@@ -64,6 +64,86 @@
   (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-5}))
 
 
+;; Create a copy of job and all its children jobs, and return it.
+;; Returned job will have no id, status '(new . 0) and specified parent, or (sh-globals) if not specified
+(define sh-job-copy
+  (case-lambda
+    ((job) (sh-job-copy job (sh-globals)))
+    ((job parent)
+      (cond ((sh-cmd?      job) (cmd-copy      job parent))
+            ((sh-multijob? job) (multijob-copy job parent))
+            (raise-errorf 'sh-job-copy "~s is not a sh-cmd or a sh-multijob" job)))))
+
+
+;; Create a copy of sh-cmd j, and return it.
+;; Returned job will have no id, status '(new . 0) and specified parent.
+(define (cmd-copy j parent)
+  (%make-cmd
+    #f #f #f             ; id pid pgid
+    '(new . 0) #f        ; status exception
+    (let ((redirects (job-redirects j)))
+      (span-copy redirects (job-redirects-temp-n j) (span-length redirects)))
+    0                    ; redirects-temp-n
+    #f #f                ; fds-to-remap fds-to-close
+    (job-start-proc j)
+    (job-step-proc  j)
+    (let ((cwd (%job-cwd j)))
+      (and cwd (charspan-copy cwd)))
+    (let ((env (job-env j)))
+      (and env (hashtable-copy env)))
+    (let ((env-lazy (job-env-lazy j)))
+      (and env-lazy (span-copy env-lazy)))
+    #f                   ; temp-parent
+    parent               ; default-parent
+    (filter (lambda (x) #t) (cmd-arg-list j)) ; copy arg-list
+    #f))                 ; expanded-arg-list
+
+
+;; Create a copy of sh-multijob j, and return it.
+;; Returned job will have no id, status '(new . 0) and specified parent.
+;; Children jobs will be copied recursively.
+(define (multijob-copy j parent)
+  (let* ((children (job-span-copy (multijob-children j)))
+         (ret
+    (%make-multijob
+      #f #f #f             ; id pid pgid
+      '(new . 0) #f        ; status exception
+      (let ((redirects (job-redirects j)))
+        (span-copy redirects (job-redirects-temp-n j) (span-length redirects)))
+      0                    ; redirects-temp-n
+      #f #f                ; fds-to-remap fds-to-close
+      (job-start-proc j)
+      (job-step-proc  j)
+      (let ((cwd (%job-cwd j)))
+        (and cwd (charspan-copy cwd)))
+      (let ((env (job-env j)))
+        (and env (hashtable-copy env)))
+      (let ((env-lazy (job-env-lazy j)))
+        (and env-lazy (span-copy env-lazy)))
+      #f                   ; temp-parent
+      parent               ; default-parent
+      (multijob-kind j)
+      -1                   ; current-child-index
+      children)))
+    (span-iterate children
+      (lambda (i elem)
+        (when (sh-job? elem)
+          (job-default-parent-set! elem ret))))
+    ret))
+
+
+;; Create a copy of span containing jobs and symbols, and return it.
+;; Returned jobs will have no id, status '(new . 0) and parent (sh-globals)
+;; Children jobs will be copied recursively.
+(define (job-span-copy src)
+  (let ((dst (make-span (span-length src))))
+    (span-iterate src
+      (lambda (i elem)
+        (span-set! i dst (if (sh-job? elem)
+                           (sh-job-copy elem)
+                           elem))))
+    dst))
+
 
 (define (%sh-redirect/fd-symbol->char caller symbol)
   (case symbol

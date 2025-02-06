@@ -110,14 +110,22 @@
   (%make-span (fx+ start (span-beg sp)) (fx+ end (span-beg sp)) (span-vec sp)))
 
 
-;; make a copy of a span and return it.
-(define (span-copy src)
-  (let* ((n (span-length src))
-         (dst (make-span n)))
-    (vector-copy! (span-vec src) (span-beg src)
-                  (span-vec dst) (span-beg dst) n)
-    dst))
+;; copy of a range of elements from span src to a new span,
+;; and return the new span.
+(define span-copy
+  (case-lambda
+    ((src)
+      (span-copy src 0 (span-length src)))
+    ((src start end)
+      (assert* 'span-copy (fx<=? 0 start end (span-length src)))
+      (let* ((n (fx- end start))
+             (dst (make-span n)))
+        (vector-copy! (span-vec src) (fx+ (span-beg src) start)
+                      (span-vec dst) (span-beg dst) n)
+        dst))))
 
+
+;; copy a range of elements from span src to span dst.
 (define (span-copy! src src-start dst dst-start n)
   (assert* 'span-copy! (fx>=? src-start 0))
   (assert* 'span-copy! (fx>=? dst-start 0))
@@ -126,6 +134,7 @@
   (assert* 'span-copy! (fx<=? (fx+ dst-start n) (span-length dst)))
   (vector-copy! (span-vec src) (fx+ src-start (span-beg src))
                 (span-vec dst) (fx+ dst-start (span-beg dst)) n))
+
 
 (define (span-reallocate-front! sp len cap)
   (assert* 'span-reallocate-front! (fx<=? 0 len cap))

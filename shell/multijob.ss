@@ -449,7 +449,7 @@
     (while (and iterate? (not interrupted?) (fx<=? idx child-n))
       (multijob-current-child-index-set! mj idx)
       (let ((child (sh-multijob-child-ref mj idx)))
-        ; (debugf "job-step-list status = ~s, start child ~s = ~s" (job-last-status mj) idx child)
+        ; (debugf "step-multijob-list status = ~s, start child ~s = ~s" (job-last-status mj) idx child)
         (when (sh-job? child)
           ; start next child job
           (let* ((child-status (start-any 'sh-list child options-catch))
