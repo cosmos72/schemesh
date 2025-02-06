@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-;; this file should be included only from file shell/job.ss
+;; this file should be included only by file shell/job.ss
 
 
 ;; Return truish if token is a shell command separator: ; & && || | |&

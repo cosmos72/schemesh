@@ -6,6 +6,9 @@
 ;;; (at your option) any later version.
 
 
+;; this file should be included only by file lineedit/lineedit.ss
+
+
 ;; n is the number of bytes at the end of (linectx-rbuf)
 ;; that caused the call to this function.
 ;; If needed, such bytes can be read to choose which action will be performed.
@@ -207,7 +210,7 @@
           ((fx>? completions-n 1)
             ; erase prompt and lines (also sets flag "redraw prompt and lines"),
             ; then list all possible completions
-            (linectx-undraw lctx)
+            (lineedit-undraw lctx)
             (let ((column-width (fx+ 2 (fx+ max-len (charspan-length stem)))))
               (let-values (((column-n row-n) (%lineedit-completions-column-n-row-n lctx completions-n column-width)))
                 (when (or (%lineedit-completions-fit-vscreen? lctx column-n row-n)

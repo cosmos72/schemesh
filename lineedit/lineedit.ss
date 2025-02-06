@@ -7,6 +7,10 @@
 
 (library (schemesh lineedit lineedit (0 7 2))
   (export
+    ;; linedraw.ss
+    lineedit-undraw
+
+    ;; lineedit.ss
     lineedit-clear!
     lineedit-lines-set! lineedit-insert/rbuf!
     lineedit-key-nop lineedit-key-left lineedit-key-right lineedit-key-up lineedit-key-down

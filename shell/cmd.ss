@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-;; this file should be included only from file shell/job.ss
+;; this file should be included only by file shell/job.ss
 
 
 
@@ -389,7 +389,8 @@
          (new-status (if (job-status-finished? old-status)
                        old-status
                        (job-pids-wait job
-                         (if (memq mode '(sh-bg sh-job-status)) 'nonblocking 'blocking)))))
+                         (if (memq mode '(sh-bg sh-job-status)) 'nonblocking 'blocking)
+                         #f))))
     ; (debugf ">   advance-pid/wait mode=~s job=~a pid=~s new-status=~s" mode (sh-job-display/string job) (job-pid job) new-status)
     ; if may-block is 'non-blocking, new-status may be '(running . #f)
     ; indicating job status did not change i.e. it's (expected to be) still running
@@ -434,7 +435,7 @@
 ;; Return when the preferred-pid happens to change status.
 ;;
 ;; In all cases, if preferred-job is set, return its updated status.
-(define (job-pids-wait preferred-job may-block)
+(define (job-pids-wait preferred-job may-block proc-before-draw)
   ;c (debugf ">   job-pids-wait may-block=~s preferred-job=~a" may-block (if preferred-job (sh-job-display/string preferred-job) preferred-job))
   (let ((done? #f))
     (until done?
@@ -446,8 +447,7 @@
                      (new-status (pid-wait-result->job-status (cdr wait-result))))
                 (job-status-set! 'job-pids-wait job new-status)
                 ; (debugf "... job-pids-wait old-status=~s new-status=~s job=~a" old-status new-status (sh-job-display/string job))
-                (when (and (job-id job) (job-status-changed? old-status new-status))
-                  (sh-job-display/summary job)))
+                (maybe-job-display job old-status new-status proc-before-draw))
 
               ; (debugf "... job-pids-wait new-status=~s job=~a" (job-last-status job) (sh-job-display/string job))
 
@@ -466,15 +466,19 @@
                         (let* ((old-status (job-last-status parent))
                                (new-status (sh-job-status parent)))
                           ; (debugf "... job-pids-wait old-status=~s new-status=~s parent=~a" old-status new-status (sh-job-display/string parent))
-                          (when (and (job-id parent) (job-status-changed? old-status new-status))
-                            (sh-job-display/summary parent))
-                          new-status))))))))
-          (set! done? #t))))) ; (pid-wait) did not report any status change => return
+                          (maybe-job-display job old-status new-status proc-before-draw)))))))))
 
+          (set! done? #t))))) ; (pid-wait) did not report any status change => return
   (let ((ret (if preferred-job (job-last-status preferred-job) (void))))
     ;c (debugf "<   job-pids-wait ret=~s" ret)
     ret))
 
+
+(define (maybe-job-display job old-status new-status proc-before-draw)
+  (when (and (job-id job) (job-status-changed? old-status new-status))
+    (when proc-before-draw
+      (proc-before-draw))
+    (sh-job-display/summary job)))
 
 
 ;; Internal function called by (advance-pid/wait)

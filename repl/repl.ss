@@ -93,9 +93,9 @@
 ;; #t if waiting for more keypresses
 ;; a textual input port if user pressed ENTER.
 (define (sh-repl-lineedit lctx)
-  (sh-consume-sigchld)
+  (sh-consume-sigchld lctx)
   (let ((ret (lineedit-read lctx -1)))
-    (sh-consume-sigchld)
+    (sh-consume-sigchld lctx)
     (if (boolean? ret)
       ret
       (open-charlines-input-port ret))))

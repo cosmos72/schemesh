@@ -78,6 +78,7 @@
     (schemesh posix signal)
     (only (schemesh lineedit charhistory) charhistory-path-set!)
     (only (schemesh lineedit linectx) linectx? linectx-history linectx-save-history)
+    (only (schemesh lineedit lineedit) lineedit-flush lineedit-undraw)
     (schemesh shell builtins)
     (schemesh shell fds)
     (schemesh shell parameters)
@@ -450,9 +451,18 @@
   (reverse! (job-parents-revlist job-or-id)))
 |#
 
-(define (sh-consume-sigchld)
-  (while (signal-consume-sigchld)
-    (job-pids-wait #f 'nonblocking)))
+(define (sh-consume-sigchld lctx)
+  (when (signal-consume-sigchld)
+    (let* ((need-undraw? #t)
+           (proc-before-draw
+             (lambda ()
+               (when need-undraw?
+                 (set! need-undraw? #f)
+                 (lineedit-undraw lctx)
+                 (lineedit-flush lctx)))))
+      (job-pids-wait #f 'nonblocking proc-before-draw)
+      (while (signal-consume-sigchld)
+        (job-pids-wait #f 'nonblocking proc-before-draw)))))
 
 
 ;; raise an exception if a job or one of it recursive children is already started

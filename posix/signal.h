@@ -7,7 +7,7 @@
  * (at your option) any later version.
  */
 
-/** this file should only be included by posix/posix.c */
+/** this file should be included only by posix/posix.c */
 #ifndef SCHEMESH_POSIX_POSIX_C
 #error "posix/signal.h should only be #included by posix/posix.h"
 #endif

@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-;; this file should be included only from file parser/lisp.ss
+;; this file should be included only by file parser/lisp.ss
 
 
 

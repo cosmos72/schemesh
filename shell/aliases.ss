@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-;; this file should be included only from file job.ss
+;; this file should be included only by file job.ss
 
 
 ;; find and return the definition of specified alias name,

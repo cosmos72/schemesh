@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-;; this file should be included only from file shell/job.ss
+;; this file should be included only by file shell/job.ss
 
 
 ;; expand a path containing wildcards to the list of filesystem entries that match such wildcards.

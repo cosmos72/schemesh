@@ -1,3 +1,13 @@
+;;; Copyright (C) 2023-2025 by Massimiliano Ghilardi
+;;;
+;;; This program is free software; you can redistribute it and/or modify
+;;; it under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation; either version 2 of the License, or
+;;; (at your option) any later version.
+
+
+;; this file should be included only by file lineedit/lineedit.ss
+
 
 ;; if tty size changed, resize and reflow vscreen
 (define (linectx-resize lctx width height)
@@ -68,7 +78,7 @@
 
 
 ;; erase everything, then set flag "redraw prompt and lines"
-(define (linectx-undraw lctx)
+(define (lineedit-undraw lctx)
   (lineterm-move-dy lctx (fx- (linectx-term-y lctx)))
   (lineterm-move-to-bol lctx)
   (lineterm-clear-to-eos lctx)
