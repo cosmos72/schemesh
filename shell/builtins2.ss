@@ -100,12 +100,16 @@
          (job (and (string-contains-only-decimal-digits? arg)
                    (sh-find-job (string->number arg)))))
       (if job
-        (let ((other-status (sh-bg job)))
-          (if (job-status-finished? other-status)
-            other-status
+        (let* ((old-status (job-last-status job))
+               (new-status (sh-bg job)))
+          (if (job-status-finished? new-status)
+            new-status
             ; job still exists, show its running/stopped status.
-            ; returns (void) i.e. builtin "bg" exiting successfully.
-            (sh-job-display/summary job)))
+            (begin
+              (unless (job-status-stopped-or-resumed? old-status new-status)
+                (sh-job-display/summary job))
+              ; return (void) i.e. builtin "bg" exiting successfully.
+              (void))))
         (write-builtin-error "bg" arg "no such job")))) ; returns '(exited . 1)
 
 
@@ -121,12 +125,16 @@
          (job (and (string-contains-only-decimal-digits? arg)
                    (sh-find-job (string->number arg)))))
       (if job
-        (let ((other-status (sh-fg job)))
-          (if (job-status-finished? other-status)
-            other-status
+        (let* ((old-status (job-last-status job))
+               (new-status (sh-fg job)))
+          (if (job-status-finished? new-status)
+            new-status
             ; job still exists, show its running/stopped status.
-            ; returns (void) i.e. builtin "fg" exiting successfully.
-            (sh-job-display/summary job)))
+            (begin
+              (unless (job-status-stopped-or-resumed? old-status new-status)
+                (sh-job-display/summary job))
+              ; return (void) i.e. builtin "fg" exiting successfully.
+              (void))))
         (write-builtin-error "fg" arg "no such job")))) ; returns '(exited . 1)
 
 

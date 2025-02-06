@@ -70,7 +70,7 @@
 ;; If no child process matches pid, or if may_block is 'nonblocking and no child exited or
 ;; stopped, return '().
 ;; Otherwise return a Scheme cons (pid . exit_flag), where exit_flag is one of:
-;; process_exit_status, or 256 + signal, or 512 + stop_signal.
+;; process_exit_status, or 256 + signal, or 512 + stop_signal, or 768 if job continued.
 (define pid-wait
   (let ((c-pid-wait (foreign-procedure "c_pid_wait" (int int) ptr)))
     (lambda (pid may-block)

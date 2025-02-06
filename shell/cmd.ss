@@ -304,15 +304,17 @@
 ;;   1..255               => return (cons 'exited  wait-status)
 ;;   256 + kill_signal    => return (cons 'killed  signal-name)
 ;;   512 + stop_signal    => return (cons 'stopped signal-name)
-;;   >= 768               => return (cons 'unknown (fx- wait-status 768))
+;;   768                  => return (cons 'running #f)
+;;   > 768                => return (cons 'unknown (fx- wait-status 768))
 ;;
-(define (pid-wait-status->job-status wait-status)
+(define (pid-wait-result->job-status wait-status)
   (let ((x wait-status))
     (cond ((or (not (fixnum? x)) (fx<? x 0)) (cons 'unknown x))
           ((fx=? x   0) (void))
           ((fx<? x 256) (cons 'exited  x))
           ((fx<? x 512) (cons 'killed  (signal-number->name (fxand x 255))))
           ((fx<? x 768) (cons 'stopped (signal-number->name (fxand x 255))))
+          ((fx=? x 768) '(running . #f))
           (#t           (cons 'unknown (fx- x 768))))))
 
 
@@ -374,7 +376,9 @@
     ; send SIGCONT to job's process group, if present.
     ; otherwise send SIGCONT to job's process id. Both may raise error
     ; (debugf "advance-pid/sigcont > ~s ~s" mode job)
-    (pid-kill (if (and pgid (> pgid 0)) (- pgid) pid) 'sigcont)))
+    (pid-kill (if (and pgid (> pgid 0)) (- pgid) pid) 'sigcont)
+    ;; assume job is now running
+    (job-status-set/running! job)))
 
 
 
@@ -392,7 +396,7 @@
     (case (job-status->kind new-status)
       ((running)
         ; if new-status is '(running . #f), try to return '(running . job-id)
-        (job-status-set! 'advance-pid/wait job new-status))
+        (job-status-set/running! job))
       ((exited killed unknown)
         ; job exited, clean it up. Also allows user to later start it again.
         (pid->job-delete! (job-pid job))
@@ -438,7 +442,13 @@
         (if (pair? wait-result)
           (let ((job (pid->job (car wait-result))))
             (when job
-              (job-status-set! 'job-pids-wait job (pid-wait-status->job-status (cdr wait-result)))
+              (let* ((old-status (job-last-status job))
+                     (new-status (pid-wait-result->job-status (cdr wait-result))))
+                (job-status-set! 'job-pids-wait job new-status)
+                ; (debugf "... job-pids-wait old-status=~s new-status=~s job=~a" old-status new-status (sh-job-display/string job))
+                (when (job-status-stopped-or-resumed? old-status new-status)
+                  (sh-job-display/summary job)))
+
               ; (debugf "... job-pids-wait new-status=~s job=~a" (job-last-status job) (sh-job-display/string job))
 
               (if (eq? job preferred-job)
@@ -446,24 +456,24 @@
                 (when (eq? may-block 'blocking)
                   (set! done? #t))
 
-                ;; advance *all* parents of job that changed status, before waiting again.
+                ;; advance job that changed status and *all* it parents, before waiting again.
                 ;; do NOT advance preferred-job, because that's what our callers are already doing.
                 (let ((globals (sh-globals)))
                   (job-default-parents-iterate (job-parent job)
                     (lambda (parent)
-                      ; (debugf "... job-pids-wait -> sh-job-status parent=~a" (sh-job-display/string parent))
                       (if (eq? parent globals)
                         #f
-                       (sh-job-status parent))))))))
-
+                        (let* ((old-status (job-last-status parent))
+                               (new-status (sh-job-status parent)))
+                          ; (debugf "... job-pids-wait old-status=~s new-status=~s parent=~a" old-status new-status (sh-job-display/string parent))
+                          (when (job-status-stopped-or-resumed? old-status new-status)
+                            (sh-job-display/summary parent))
+                          new-status))))))))
           (set! done? #t))))) ; (pid-wait) did not report any status change => return
 
   (let ((ret (if preferred-job (job-last-status preferred-job) (void))))
     ;c (debugf "<   job-pids-wait ret=~s" ret)
     ret))
-
-
-
 
 
 

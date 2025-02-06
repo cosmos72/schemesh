@@ -1177,6 +1177,12 @@ static int c_fork_pid(int existing_pgid) {
       return err;
     }
     default:
+      /*
+       * fix well-known race condition between parent and child:
+       * both need the child to be in desired process group before continuing,
+       * thus both must set it before continuing.
+       */
+      (void)c_pgid_set(existing_pgid);
 #ifdef SCHEMESH_DEBUG_POSIX
       fprintf(stdout, "c_fork_pid %d -> %d\n", (int)getpid(), pid);
       fflush(stdout);
@@ -1340,7 +1346,9 @@ static int c_pgid_foreground(int expected_pgid, int new_pgid) {
 }
 
 /**
- * call waitpid(pid, WUNTRACED) i.e. check if process specified by pid exited or stopped.
+ * call waitpid(pid, WUNTRACED|WCONTINUED) i.e. check if process specified by pid
+ * exited, stopped or resumed.
+ *
  * Special cases:
  *   pid ==  0 means "any child process in the same process group as the caller"
  *   pid == -1 means "any child process"
@@ -1351,15 +1359,19 @@ static int c_pgid_foreground(int expected_pgid, int new_pgid) {
  *
  * If no child process matches pid, or if may_block == 0 and no child exited or
  * stopped, return Scheme empty list '().
- * Otherwise return a Scheme cons (pid . exit_flag), or c_errno() on error.
- * Exit flag is one of: process exit status, or 256 + signal, or 512 + stop signal.
+ * Otherwise return a Scheme cons (pid . status_flag), or c_errno() on error.
+ * status_flag is one of:
+ *   process exit status in 0 ... 255
+ *   or 256 + signal that killed the process
+ *   or 512 + signal that stopped the process
+ *   or 768 if job resumed due to SIGCONT
  */
 static ptr c_pid_wait(int pid, int may_block) {
   int wstatus = 0;
   int flag    = 0;
   int ret;
   do {
-    ret = waitpid((pid_t)pid, &wstatus, may_block ? WUNTRACED : WNOHANG | WUNTRACED);
+    ret = waitpid((pid_t)pid, &wstatus, WUNTRACED | WCONTINUED | (may_block ? 0 : WNOHANG));
   } while (ret == -1 && errno == EINTR);
 
   if (ret <= 0) { /* 0 if children exist but did not change status */
@@ -1377,6 +1389,8 @@ static ptr c_pid_wait(int pid, int may_block) {
     flag = 256 + WTERMSIG(wstatus);
   } else if (WIFSTOPPED(wstatus)) {
     flag = 512 + WSTOPSIG(wstatus);
+  } else if (WIFCONTINUED(wstatus)) {
+    flag = 768;
   } else {
     return Sinteger(c_errno_set(EINVAL));
   }

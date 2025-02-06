@@ -162,27 +162,34 @@
 (define (job-status-finished? job-status)
   (job-status-member? job-status '(exited killed unknown)))
 
+;; Return truish if status changed from running to stopped or viceversa.
+;; otherwise return #f
+(define (job-status-stopped-or-resumed? old-status new-status)
+  (and (job-status-started? old-status)
+       (job-status-started? new-status)
+       (not (eq? (job-status->kind old-status)
+                 (job-status->kind new-status)))))
 
-;; Return #t if (job-last-status job) is a pair whose car is in allowed-list,
+;; Return truish if (job-last-status job) is a pair whose car is in allowed-list,
 ;; otherwise return #f;
 ;;
 ;; if (job-last-status job) is (void) and allowed-list also contains 'exited
-;; then return #t because (void) is a shortcut for '(exited . 0)
+;; then return truish because (void) is a shortcut for '(exited . 0)
 (define (job-has-status? job allowed-list)
   (job-status-member? (job-last-status job) allowed-list))
 
-;; Return #t if job was already started, otherwise return #f
+;; Return truish if job was already started, otherwise return #f
 (define (job-started? job)
   (job-status-started? (job-last-status job)))
 
-;; Return #t if job has already finished, otherwise return #f
+;; Return truish if job has already finished, otherwise return #f
 (define (job-finished? job)
   (job-status-finished? (job-last-status job)))
 
 
 
 
-;; Return #t if job-status represents a child job status
+;; Return truish if job-status represents a child job status
 ;; that causes a parent multijob to stop or end, i.e. one of:
 ;; '(unknown . *)
 ;; '(stopped . *)
@@ -197,7 +204,7 @@
              (memq (cdr job-status) '(sigint sigquit exception))))))
 
 
-;; Return #t if job-status represents a child job status
+;; Return truish if job-status represents a child job status
 ;; that causes a parent multijob to end, i.e. one of:
 ;; '(unknown . *)
 ;; '(killed  . sigint)
