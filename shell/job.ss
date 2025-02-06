@@ -455,6 +455,18 @@
     (job-pids-wait #f 'nonblocking)))
 
 
+;; raise an exception if a job or one of it recursive children is already started
+(define (job-check-not-started caller job)
+  (when (job-started? job)
+    (if (job-id job)
+      (raise-errorf caller "job already started with job id ~s" (job-id job))
+      (raise-errorf caller "job already started")))
+  (when (sh-multijob? job)
+    (span-iterate (multijob-children job)
+      (lambda (i elem)
+        (when (sh-job? elem)
+          (job-check-not-started caller elem))))))
+
 
 ;; called when starting a builtin or multijob:
 ;; create fd redirections and store them into (job-fds-to-remap)
@@ -584,6 +596,7 @@
 (define (start-any caller job options)
   ;b (debugf "start-any ~a ~s" (sh-job-display/string job) options)
   (options-validate caller options)
+  (job-check-not-started caller job)
   (call/cc
     (lambda (k-continue)
       (with-exception-handler
@@ -602,10 +615,6 @@
 
 
 (define (start-any/may-throw caller job options)
-  (when (job-started? job)
-    (if (job-id job)
-      (raise-errorf caller "job already started with job id ~s" (job-id job))
-      (raise-errorf caller "job already started")))
   (let ((start-proc (job-start-proc job)))
     (unless (procedure? start-proc)
       (raise-errorf caller "cannot start job ~s, bad or missing job-start-proc: ~s" job start-proc))

@@ -451,13 +451,14 @@
       (let ((child (sh-multijob-child-ref mj idx)))
         ; (debugf "step-multijob-list status = ~s, start child ~s = ~s" (job-last-status mj) idx child)
         (when (sh-job? child)
-          ; start next child job
-          (let* ((child-status (start-any 'sh-list child options-catch))
+          ;; start next child job
+          (let* ((child-async? (eq? '& (sh-multijob-child-ref mj (fx1+ idx))))
+                 (child-status (start-any 'sh-list child options-catch))
                  (child-started? (job-status-started? child-status)))
             ; iterate on subsequent child jobs in two cases:
             ; if child job is followed by '&
             ; if child job has already finished
-            (if (eq? '& (sh-multijob-child-ref mj (fx1+ idx)))
+            (if child-async?
               ; run child job asynchronously
               (when child-started?
                 ; child job is running or stopped, assign a job-id to it
