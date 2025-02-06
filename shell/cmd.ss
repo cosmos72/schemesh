@@ -446,7 +446,7 @@
                      (new-status (pid-wait-result->job-status (cdr wait-result))))
                 (job-status-set! 'job-pids-wait job new-status)
                 ; (debugf "... job-pids-wait old-status=~s new-status=~s job=~a" old-status new-status (sh-job-display/string job))
-                (when (job-status-stopped-or-resumed? old-status new-status)
+                (when (and (job-id job) (job-status-changed? old-status new-status))
                   (sh-job-display/summary job)))
 
               ; (debugf "... job-pids-wait new-status=~s job=~a" (job-last-status job) (sh-job-display/string job))
@@ -466,7 +466,7 @@
                         (let* ((old-status (job-last-status parent))
                                (new-status (sh-job-status parent)))
                           ; (debugf "... job-pids-wait old-status=~s new-status=~s parent=~a" old-status new-status (sh-job-display/string parent))
-                          (when (job-status-stopped-or-resumed? old-status new-status)
+                          (when (and (job-id parent) (job-status-changed? old-status new-status))
                             (sh-job-display/summary parent))
                           new-status))))))))
           (set! done? #t))))) ; (pid-wait) did not report any status change => return

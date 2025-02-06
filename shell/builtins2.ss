@@ -106,8 +106,7 @@
             new-status
             ; job still exists, show its running/stopped status.
             (begin
-              (unless (job-status-stopped-or-resumed? old-status new-status)
-                (sh-job-display/summary job))
+              (sh-job-display/summary job)
               ; return (void) i.e. builtin "bg" exiting successfully.
               (void))))
         (write-builtin-error "bg" arg "no such job")))) ; returns '(exited . 1)
@@ -129,12 +128,10 @@
                (new-status (sh-fg job)))
           (if (job-status-finished? new-status)
             new-status
-            ; job still exists, show its running/stopped status.
-            (begin
-              (unless (job-status-stopped-or-resumed? old-status new-status)
-                (sh-job-display/summary job))
-              ; return (void) i.e. builtin "fg" exiting successfully.
-              (void))))
+            ; job not finished yet. no need to show its running/stopped status,
+            ; (job-pids-wait) will do that
+            ; return (void) i.e. builtin "fg" exiting successfully.
+            (void)))
         (write-builtin-error "fg" arg "no such job")))) ; returns '(exited . 1)
 
 

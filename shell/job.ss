@@ -146,29 +146,27 @@
   (job-status->kind (job-last-status job)))
 
 
-;; Return #t if job-status is a pair whose car is in allowed-list,
+;; Return  if job-status is a pair whose car is in allowed-list,
 ;; otherwise return #f;
 ;;
 ;; if job-status is (void) and allowed-list also contains 'exited
-;; then return #t because (void) is a shortcut for '(exited . 0)
+;; then return truish because (void) is a shortcut for '(exited . 0)
 (define (job-status-member? job-status allowed-list)
   (memq (job-status->kind job-status) allowed-list))
 
-;; Return #t if job-status is started, otherwise return #f
+;; Return truish if job-status is started, otherwise return #f
 (define (job-status-started? job-status)
   (job-status-member? job-status '(running stopped)))
 
-;; Return #t if job-status is finished, otherwise return #f
+;; Return truish if job-status is finished, otherwise return #f
 (define (job-status-finished? job-status)
   (job-status-member? job-status '(exited killed unknown)))
 
-;; Return truish if status changed from running to stopped or viceversa.
+;; Return truish if old-status and new-status have different
 ;; otherwise return #f
-(define (job-status-stopped-or-resumed? old-status new-status)
-  (and (job-status-started? old-status)
-       (job-status-started? new-status)
-       (not (eq? (job-status->kind old-status)
-                 (job-status->kind new-status)))))
+(define (job-status-changed? old-status new-status)
+  (not (eq? (job-status->kind old-status)
+            (job-status->kind new-status))))
 
 ;; Return truish if (job-last-status job) is a pair whose car is in allowed-list,
 ;; otherwise return #f;
@@ -285,7 +283,6 @@
         (span-set! children id #f)
         (until (or (span-empty? children) (span-back children))
           (span-erase-back! children 1)))
-      (sh-job-display/summary job)
       (%job-id-set! job #f)))
   (job-last-status job))
 
