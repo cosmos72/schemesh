@@ -598,6 +598,15 @@ static const testcase tests[] = {
     {"(sh-eval (cons 'list (parse-scheme-forms1 (string->parsectx\n"
      "  \"(char->integer #\\\\x20ac) (char->integer #\\\\xdc80) (char->integer #\\\\xdcff)\")))))",
      "(8364 56448 56575)"},
+    /* string escape sequences #\xdc80; ... #\xdcff; are allowed only by UTF-8b */
+    {"(let ((ret '()))\n"
+     "  (string-iterate\n"
+     "      (car (parse-scheme-forms1 (string->parsectx"
+     "                 \"\\\" \\\\x20ac; \\\\xdc80; \\\\xdcff; \\\"\")))\n"
+     "    (lambda (i ch)\n"
+     "      (set! ret (cons (char->integer ch) ret))))\n"
+     "  (reverse! ret))\n",
+     "(32 8364 32 56448 32 56575 32)"},
     {"(parse-scheme-forms1 (string->parsectx"
      "  \"(list #| '\\\" . #| ,`@# |# |#" /* nested block comments */
      "      '#(a 1.0 2/3) #2(d) #vu8(1 2 3) #4vu8(9) #vfx(-1 0 2) #3vfx(4))\"))",

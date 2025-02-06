@@ -17,6 +17,7 @@
       append! box bytevector fx1+ fx1- fxvector fxvector-set! include
       make-fxvector read-token reverse! top-level-value void)
     (only (schemesh bootstrap) assert* debugf while until)
+    (only (schemesh containers charspan) charspan charspan-insert-back! charspan->string*!)
     (only (schemesh containers hashtable) hashtable)
     (only (schemesh containers misc) list-reverse*!)
     (only (schemesh containers utf8b) integer->char*)
@@ -114,6 +115,9 @@
       (let-values (((ret _) (parse-lisp-forms ctx type flavor)))
         ret))
     ((lbrace)
+      (when (eq? flavor 'r6rs)
+        (syntax-errorf ctx (caller-for flavor)
+          "invalid token in #!r6rs syntax, only allowed in #!scheme syntax: ~a" #\{))
       ; switch to shell parser until corresponding }
       (let ((other-parse-forms (parser-parse-forms (get-parser ctx 'shell (caller-for flavor)))))
         (let-values (((other-forms _) (other-parse-forms ctx type)))

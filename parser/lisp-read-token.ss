@@ -46,6 +46,19 @@
           (values value type))))))
 
 
+;; minimal wrapper around Chez Scheme (read-token)
+;;
+;; returns two values:
+;;   token value
+;;   token type
+(define (%read-token ctx)
+  (let-values (((type value start end) (read-token (parsectx-in ctx))))
+    ;; (debugf "%read-token type=~s value=~s start=~s end=~s" type value start end)
+    (values value type)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ;; read a lisp string literal starting with double quotes.
 ;; also supports string literals "..." containing hexadecimal escape sequences \x...;
 ;;   representing valid UTF-8b codepoints
@@ -54,10 +67,109 @@
 ;;   token value: the unescaped string
 ;;   token type: 'atomic
 (define (read-lisp-string ctx flavor)
-  (assert* 'read-lisp-sharp (eqv? #\" (parsectx-peek-char ctx)))
-  ;; TODO: implement
-  (%read-token ctx))
+  (assert* 'read-lisp-string (eqv? #\" (parsectx-read-char ctx)))
+  (let ((csp (charspan)))
+    (let %again ()
+      (let ((ch (read-lisp-string-chars ctx flavor)))
+        (when (char? ch)
+          (charspan-insert-back! csp ch))
+        (when ch
+          (%again))))
+    (%assert-next-char-is-separator ctx flavor "string")
+    (values (charspan->string*! csp) 'atomic)))
 
+
+;; read some characters inside a lisp string literal,
+;; interpreting escape sequences, and returning the converted character.
+;;
+;; if it should be called again, returns #t or the converted character.
+;; otherwise returns #f.
+(define (read-lisp-string-chars ctx flavor)
+  (let ((ch (parsectx-read-char ctx)))
+    (case ch
+      ((#\\)
+        (read-lisp-string-chars-after-backslash ctx flavor))
+      ((#\")
+        #f)
+      (else
+        (when (eof-object? ch)
+          (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file reading string"))
+        ch))))
+
+
+;; read some characters after #\\ inside a lisp string literal,
+;; interpreting escape sequences, and return the corresponding character.
+;;
+;; returns #t or the converted character.
+(define (read-lisp-string-chars-after-backslash ctx flavor)
+  (let ((ch (parsectx-read-char ctx)))
+    (case ch
+      ((#\" #\\) ch)
+      ((#\a) #\alarm)
+      ((#\b) #\backspace)
+      ((#\f) #\page)
+      ((#\n) #\newline)
+      ((#\r) #\return)
+      ((#\t) #\tab)
+      ((#\v) #\vtab)
+      ((#\x)
+        (read-lisp-string-hex-sequence ctx flavor))
+      ((#\tab #\vtab #\space)
+        (skip-intraline-whitespace-newline-intraline-whitespace ctx flavor))
+      (else
+        (if (eof-object? ch)
+          (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file reading string")
+          (syntax-errorf ctx (caller-for flavor) "invalid string character ~s" ch))))))
+
+
+;; read an hexadecimal escape sequence after "\x" inside a string literal,
+;; and return the corresponding character.
+;;
+;; either returns a character or raises an exception.
+(define (read-lisp-string-hex-sequence ctx flavor)
+  (let %next ((ret 0))
+    (let* ((ch (parsectx-peek-char ctx))
+           (n  (%hex-digit->fixnum ch)))
+      (cond
+        (n
+          (parsectx-read-char ctx)
+          (%next (fxior n (fxarithmetic-shift-left ret 4))))
+        ((eqv? ch #\;)
+          (parsectx-read-char ctx)
+          (integer->char* ret))
+        ((eof-object? ch)
+          (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file reading string hex escape"))
+        (#t
+          (syntax-errorf ctx (caller-for flavor) "invalid character ~s in string hex escape" ch))))))
+
+
+;; read intraline whitespace after a backslash, followed by a newline and possibly more intraline whitespace.
+;;
+;; either returns #t or raises an exception.
+(define (skip-intraline-whitespace-newline-intraline-whitespace ctx flavor)
+  (skip-intraline-whitespace ctx)
+  (let ((ch (parsectx-peek-char ctx)))
+    ;; https://www.scheme.com/tspl4/grammar.html#grammar:strings
+    ;; A line ending is one of:
+    ;; 1. a newline character
+    ;; 2. a next-line character
+    ;; 3. a line-separator character
+    ;; 4. a carriage-return character followed by a newline character - NOT IMPLEMENTED
+    ;; 5. a carriage return followed by a next-line character  - NOT IMPLEMENTED
+    ;; 6. a carriage return not followed by a newline or next-line character
+    (unless (memq ch '(#\newline #\linefeed #\page #\return))
+      (syntax-errorf ctx (caller-for flavor) "unexpected character ~s after \\<intraline whitespace>" ch)))
+  (parsectx-read-char ctx) ; consume newline and similar
+  (skip-intraline-whitespace ctx)
+  #t)
+
+
+(define (skip-intraline-whitespace ctx)
+  (while (memq (parsectx-peek-char ctx) (#\tab #\vtab #\space))
+    (parsectx-read-char ctx)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; read a lisp token starting with "#"
 ;;
@@ -82,30 +194,18 @@
 ;;   token type: 'atomic
 (define (read-lisp-character ctx flavor)
   (assert* 'read-lisp-character (eqv? #\\ (parsectx-read-char ctx)))
-  (let ((ch (parsectx-peek-char ctx)))
-    (if (parsectx-is-simple-identifier-char? ch)
-      (let ((name (parsectx-read-simple-identifier ctx)))
-        (values (%char-name->char ctx flavor name) 'atomic))
-      (begin
-        (parsectx-read-char ctx)
-        ;; TODO: check that next char is whitespace or a parenthesis
-        (values ch 'atomic)))))
-
-
-;; minimal wrapper around Chez Scheme (read-token)
-;;
-;; returns two values:
-;;   token value
-;;   token type
-(define (%read-token ctx)
-  (let-values (((type value start end) (read-token (parsectx-in ctx))))
-    (values value type)))
-
+  (let* ((ch (parsectx-peek-char ctx))
+         (ret (if (parsectx-is-simple-identifier-char? ch)
+                (let ((name (parsectx-read-simple-identifier ctx)))
+                  (%char-name->char ctx flavor name))
+                (parsectx-read-char ctx)))) ; consume and return peeked char
+    (%assert-next-char-is-separator ctx flavor "character")
+    (values ret 'atomic)))
 
 
 (define %char-names (hashtable string-hash string=?
-   '("alarm" . #\alarm) '("backspace" . #\backspace) '("delete" . #\delete) '("esc" #\esc)
-   '("linefeed" . #\linefeed) '("newline" . #\newline) '("page" #\page) '("return" #\return)
+   '("alarm" . #\alarm) '("backspace" . #\backspace) '("delete" . #\delete) '("esc" . #\esc)
+   '("linefeed" . #\linefeed) '("newline" . #\newline) '("page" #\page) '("return" . #\return)
    '("space" . #\space) '("tab" . #\tab) '("vtab" . #\vtab)))
 
 
@@ -121,7 +221,7 @@
         (integer->char* (%hex-digits->fixnum name 1 (string-length name))))
       (else
         (or (hashtable-ref %char-names name #f)
-            (syntax-errorf ctx (caller-for flavor) "invalid character #\\~a" name))))))
+            (syntax-errorf ctx (caller-for flavor) "invalid character ~s" name))))))
 
 
 ;; parse characters in range [start, end) of string str
@@ -162,3 +262,13 @@
         (fx- x 87))
       (#t
         #f))))
+
+(define (%assert-next-char-is-separator ctx flavor label)
+  (let ((ch (parsectx-peek-char ctx)))
+    (case ch
+      ((#\tab #\newline #\vtab #\page #\return #\space
+        #\" #\# #\' #\( #\) #\, #\; #\[ #\] #\` #\{ #\})
+       (void))
+      (else
+       (when (and (char? ch) (char>=? ch #\space))
+         (syntax-errorf ctx (caller-for flavor) (string-append "invalid delimiter ~s for " label) ch))))))
