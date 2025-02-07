@@ -1180,16 +1180,16 @@ static const testcase tests[] = {
     {"(sh-wildcard #t \"_does_not_exist_\")", /* file does not exists => returned as string */
      "_does_not_exist_"},
     /* ------------------------- job execution ------------------------------ */
-    {"(sh-run (shell"
-     "  \"false\" \\x7C;"
-     "  \"command\" \"true\" \\x7C;"
-     "  \"error\" \"17\"))",
-     "(exited . 17)"},
-    {"(sh-run (shell-subshell"
-     "  \"builtin\" \"true\" \\x7C;"
-     "  \"builtin\" \"command\" \"false\" \\x7C;"
-     "  \"global\"  \"error\" \"19\"))",
-     "(exited . 19)"},
+    /* exit status */
+    {"(sh-run (shell \"true\"))", ""},
+    {"(sh-run (shell \"false\"))", "(exited . 1)"},
+    {"(sh-run (shell \"echo0\"))", ""},
+    {"(sh-run (shell \"error\" \"210\"))", "(exited . 210)"},
+    {"(sh-run (shell-subshell \"true\"))", ""},
+    {"(sh-run (shell-subshell \"false\"))", "(exited . 1)"},
+    {"(sh-run (shell-subshell \"echo0\"))", ""},
+    {"(sh-run (shell-subshell \"error\" \"210\"))", "(exited . 210)"},
+    /* (sh-run/string) */
     {"(sh-run/string (shell \"echo\" \"a\"  \"b\" \"c\"))", "a b c\n"},
     {"(sh-run/string-rtrim-newlines (shell \"echo\" \" abc \"))", " abc "},
     {"(sh-run/string (shell \"FOO\" = \"abc\" \\x3B; \"echo\" (shell-env \"FOO\")))", "abc\n"},
@@ -1221,6 +1221,30 @@ static const testcase tests[] = {
      "\"jkl\" \"mn\" \"o\" "
      "\"\"))))",
      "\"jkl mn o \\n\""},
+    /* run job in a subprocess */
+    {"(sh-run"
+     "  (sh-cmd \"false\") '(spawn? . #t))",
+     "(exited . 1)"},
+    {"(let ((j (sh-cmd \"false\")))"
+     "  (sh-start j '(spawn? . #t))"
+     "  (sh-wait j))",
+     "(exited . 1)"},
+    /* run a pipe in current shell */
+    {"(sh-run (shell"
+     "  \"command\" \"true\" \\x7C;"
+     "  \"false\"))",
+     "(exited . 1)"},
+    {"(sh-run (shell"
+     "  \"false\" \\x7C;"
+     "  \"command\" \"true\" \\x7C;"
+     "  \"error\" \"17\"))",
+     "(exited . 17)"},
+    /* run a pipe in a subshell */
+    {"(sh-run (shell-subshell"
+     "  \"builtin\" \"true\" \\x7C;"
+     "  \"builtin\" \"command\" \"false\" \\x7C;"
+     "  \"global\"  \"error\" \"19\"))",
+     "(exited . 19)"},
     /* ------------------------- sh-read ------------------------------------ */
     {"(sh-read-string* \"#!/some/path some-arg\\n(display (+ 1 2)) {ls}\""
      "  'scheme #t)",

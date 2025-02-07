@@ -68,7 +68,7 @@
 (define (builtin-command job prog-and-args options)
   (assert-string-list? 'builtin-command prog-and-args)
   (assert* 'builtin-command (string=? "command" (car prog-and-args)))
-  (spawn-cmd job (list->argv (cdr prog-and-args)) options)) ; returns job status
+  (spawn-cmd job (cdr prog-and-args) options)) ; returns job status
 
 
 ;; the "exec" builtin: replace the current process with specified command.
@@ -106,7 +106,7 @@
             new-status
             ; job still exists, show its running/stopped status.
             (begin
-              (sh-job-display/summary job)
+              (sh-job-display-summary job)
               ; return (void) i.e. builtin "bg" exiting successfully.
               (void))))
         (write-builtin-error "bg" arg "no such job")))) ; returns '(exited . 1)
@@ -165,7 +165,7 @@
         (span-iterate src
           (lambda (job-id job)
             (when (sh-job? job)
-              (sh-job-display/summary* job port)))))))
+              (sh-job-display-summary* job port)))))))
   (void))
 
 
@@ -224,11 +224,14 @@
   (call-or-spawn-procedure job options
     (lambda (job options)
       ;; execute the builtin
-      (let ((status  (builtin job args options)))
-        (if (or (job-status-finished? status) (options->spawn? options)
-                (not (hashtable-ref (builtins-that-finish-immediately) builtin #f)))
-          status
-          (%warn-bad-builtin-exit-status builtin args status)))))) ; returns (void)
+      ;c (debugf "start-builtin-already-redirected options=~s args=~s job=~a" options args (sh-job->string job))
+      (job-status-set! 'start-builtin-already-redirected job
+        (let ((status  (builtin job args options)))
+          ;c (debugf "< start-builtin-already-redirected options=~s args=~s job=~a status=~s" options args (sh-job->string job) status)
+          (if (or (job-status-finished? status) (options->spawn? options)
+                  (not (hashtable-ref (builtins-that-finish-immediately) builtin #f)))
+            status
+            (%warn-bad-builtin-exit-status builtin args status))))))) ; returns (void)
 
 
 

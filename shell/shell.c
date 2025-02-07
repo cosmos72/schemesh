@@ -149,7 +149,3 @@ void schemesh_init(const char* override_boot_dir, void (*on_scheme_exception)(vo
   }
   Sbuild_heap(NULL, NULL);
 }
-
-void schemesh_quit(void) {
-  Sscheme_deinit();
-}

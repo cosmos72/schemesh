@@ -48,7 +48,10 @@ void schemesh_import_minimal_libraries(void);
 
 /**
  * quit Chez Scheme. calls:
+ *   c_tty_quit()
  *   Sscheme_deinit()
+ *
+ * implemented in posix/posix.c
  */
 void schemesh_quit(void);
 

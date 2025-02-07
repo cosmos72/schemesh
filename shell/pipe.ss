@@ -120,7 +120,7 @@
           ; we must redirect job's fd 2 *before* any redirection configured in the job itself
           (job-redirect/temp/fd! job 2 '>& fd/write))))
 
-    ; (debugf "... start-multijob-pipe-i starting job=~a, options=~s, redirect-in=~s, redirect-out=~s" (sh-job-display/string job) options redirect-in? redirect-out?)
+    ; (debugf "... start-multijob-pipe-i starting job=~a, options=~s, redirect-in=~s, redirect-out=~s" (sh-job->string job) options redirect-in? redirect-out?)
 
     ; Do not yet assign a job-id. Reuse mj process group id
     (start-any 'sh-pipe job options)
@@ -149,7 +149,7 @@
   ; (debugf ">   advance-multijob-pipe mode=~s mj=~s" mode mj)
   (let ((pgid (job-pgid mj)))
     (if (and pgid (memq mode '(sh-fg sh-wait sh-sigcont+wait)))
-      (with-foreground-pgid mode (job-pgid (sh-globals)) pgid
+      (with-foreground-pgid mode pgid
         (advance-multijob-pipe/maybe-sigcont mode mj pgid)
         (advance-multijob-pipe/wait mode mj))
       (begin
@@ -172,6 +172,7 @@
   (let* ((children  (multijob-children mj))
          (n         (span-length children))
          (running-i (multijob-current-child-index mj)))
+
     ; call (advance-job mode ...) on each child job,
     ; skipping the ones that already finished.
     (let %again ((i running-i))
@@ -180,9 +181,19 @@
           (when (or (symbol? job) (job-status-finished? (advance-job mode job)))
             (set! running-i (fx1+ i))
             (%again (fx1+ i))))))
+
     (cond
       ((fx<? running-i n)
-        (multijob-current-child-index-set! mj running-i))
+        ;; if some child is still running or stopped
+        (multijob-current-child-index-set! mj running-i)
+
+        ;; if some child is still running
+        ;; and mode is sh-fg, sh-wait or sh-sigcont+wait, then wait for child.
+        ;; otherwise propagate child status and return.
+        (if (and (memq mode '(sh-fg sh-wait sh-sigcont+wait))
+                 (eq? 'running (job-status->kind (sh-multijob-child-status mj running-i))))
+           (advance-multijob-pipe/wait mode mj)
+           (job-last-status mj)))
       (#t
         (multijob-current-child-index-set! mj -1)
         (job-pgid-set! mj #f)

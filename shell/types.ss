@@ -14,7 +14,7 @@
   (job %make-job sh-job?)
   (fields
     (mutable id job-id %job-id-set!)       ; #f or fixnum >= 0: job id in (sh-globals)
-    (mutable pid)                          ; #f or integer > 0: process id
+    (mutable pid  job-pid  %job-pid-set!)  ; #f or integer > 0: process id
     (mutable pgid job-pgid %job-pgid-set!) ; #f or integer > 0: process group id
      ; cons: last known status, or (void) if job exited successfully
     (mutable last-status job-last-status %job-last-status-set!)
@@ -25,8 +25,7 @@
     (mutable redirects)
     (mutable redirects-temp-n) ; fixnum, number elements at front of (job-redirects)
                                ; inserted by temporary redirections
-    (mutable fds-to-remap) ; for builtins or multijobs, #f or hashmap job-logical-fd -> actual-fd-to-use
-    (mutable fds-to-close) ; for builtins or multijobs, '() or list of fds to close at job exit
+    (mutable fds-to-remap) ; for builtins or multijobs, #f or hashmap job-logical-fd -> (sh-fd) to actually use
     start-proc      ; #f or procedure to run in main process.
                     ; receives as argument job followed by options.
     (mutable step-proc) ; #f or procedure.
@@ -40,7 +39,7 @@
     (mutable temp-parent) ; temporary parent job, contains default values of env variables.
                           ; Unset when job finishes
     (mutable default-parent)) ; default parent job, contains default values of env variables
-  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-3}))
+  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-6}))
 
 
 ;; Define the record type "cmd"
@@ -50,7 +49,7 @@
   (fields
     arg-list                     ; list of strings and closures: program-name and args
     (mutable expanded-arg-list)) ; #f or list of strings: program-name and args after applying closures and expanding aliases
-  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-4}))
+  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-7}))
 
 
 ;; Define the record type "multijob"
@@ -61,7 +60,102 @@
     kind                ; symbol: one of 'sh-and 'sh-or 'sh-not 'sh-list 'sh-subshell '#<global>
     (mutable current-child-index) ; -1 or index of currently running child job
     children)           ; span: children jobs.
-  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-5}))
+  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-8}))
+
+
+;; Convert pid to job, return #f if job not found
+(define (pid->job pid)
+  (assert* 'pid->job (fixnum? pid))
+  (hashtable-ref (sh-pid-table) pid #f))
+
+;; Adds an entry to the global hashtable pid -> job
+(define (pid->job-set! pid job)
+  (assert* 'pid->job-set! (fixnum? pid))
+  (assert* 'pid->job-set! (sh-job? job))
+  (hashtable-set! (sh-pid-table) pid job))
+
+;; Removes an entry from the global hashtable pid -> job
+(define (pid->job-delete! pid)
+  (assert* 'pid->job-delete! (fixnum? pid))
+  (hashtable-delete! (sh-pid-table) pid))
+
+
+
+(define (%sh-redirect/fd-symbol->char caller symbol)
+  (case symbol
+    ((<&) #\<)
+    ((>&) #\>)
+    (else
+      (raise-errorf caller "invalid redirect to fd direction, must be <& or >&: ~a" symbol))))
+
+
+
+(define (%sh-redirect/file-symbol->char caller symbol)
+  (case symbol
+    ((<) #\<)
+    ((>) #\>)
+    ((<>) (integer->char #x2276)) ; #\≶
+    ((>>) (integer->char #x00bb)) ; #\»
+    (else
+      (raise-errorf caller "invalid redirect to file direction, must be < > <> or >>: ~a" symbol))))
+
+
+(define (%sh-redirect/fd-char->symbol caller ch)
+  (case ch
+    ((#\<) '<&)
+    ((#\>) '>&)
+    (else
+      (raise-errorf caller "invalid redirect to fd character, must be <& or >&: ~a" ch))))
+
+
+(define (%sh-redirect/file-char->symbol caller ch)
+  (case (char->integer ch)
+    ((#x3c) '<)
+    ((#x3e) '>)
+    ((#x2276) '<>)
+    ((#x00bb) '>>)
+    (else
+      (raise-errorf caller "invalid redirect to file character, must be < <> > or >>: ~a" ch))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;   sh-job-id   sh-job-pid   sh-job-pgid   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; return the job-id of a job, or #f if not set
+(define (sh-job-id job)
+  (job-id job))
+
+
+;; set the process id of specified job
+(define (job-pid-set! job new-pid)
+  (let ((old-pid (job-pid job)))
+    (when old-pid
+      (pid->job-delete! old-pid)))
+  (when new-pid
+    (pid->job-set! new-pid job))
+  (%job-pid-set! job new-pid))
+
+
+;; set the process group id of specified job
+(define (job-pgid-set! job pgid)
+  (%job-pgid-set! job
+    (cond
+      ((eqv? pgid 0)
+        ; pgid is zero: it means a new process group id was created
+        ; for this job, and it is numerically equal to the job's pid.
+        (job-pid job))
+      ((and (integer? pgid) (> pgid 0))
+        ; set job's process group id to a pre-existing group's id
+        pgid)
+      (#t
+        ; unset job's process group id
+        #f))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;   sh-job-copy   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 ;; Create a copy of job and all its children jobs, and return it.
@@ -83,8 +177,7 @@
     '(new . 0) #f        ; status exception
     (let ((redirects (job-redirects j)))
       (span-copy redirects (job-redirects-temp-n j) (span-length redirects)))
-    0                    ; redirects-temp-n
-    #f #f                ; fds-to-remap fds-to-close
+    0 #f                 ; redirects-temp-n fds-to-remap
     (job-start-proc j)
     (job-step-proc  j)
     (let ((cwd (%job-cwd j)))
@@ -109,9 +202,9 @@
       #f #f #f             ; id pid pgid
       '(new . 0) #f        ; status exception
       (let ((redirects (job-redirects j)))
+        ;; skip temporary redirects, copy the rest
         (span-copy redirects (job-redirects-temp-n j) (span-length redirects)))
-      0                    ; redirects-temp-n
-      #f #f                ; fds-to-remap fds-to-close
+      0 #f                 ; redirects-temp-n fds-to-remap
       (job-start-proc j)
       (job-step-proc  j)
       (let ((cwd (%job-cwd j)))
@@ -143,39 +236,3 @@
                            (sh-job-copy elem)
                            elem))))
     dst))
-
-
-(define (%sh-redirect/fd-symbol->char caller symbol)
-  (case symbol
-    ((<&) #\<)
-    ((>&) #\>)
-    (else
-      (raise-errorf caller "invalid redirect to fd direction, must be <& or >&: ~a" symbol))))
-
-
-(define (%sh-redirect/file-symbol->char caller symbol)
-  (case symbol
-    ((<) #\<)
-    ((>) #\>)
-    ((<>) (integer->char #x2276)) ; #\≶
-    ((>>) (integer->char #x00bb)) ; #\»
-    (else
-      (raise-errorf caller "invalid redirect to file direction, must be < > <> or >>: ~a" symbol))))
-
-
-(define (%sh-redirect/fd-char->symbol caller ch)
-  (case ch
-    ((#\<) '<&)
-    ((#\>) '>&)
-    (else
-      (raise-errorf caller "invalid redirect to fd character, must be <& or >&: ~a" ch))))
-
-
-(define (%sh-redirect/file-char->symbol caller ch)
-  (case (char->integer ch)
-    ((#x3c) '<)
-    ((#x3e) '>)
-    ((#x2276) '<>)
-    ((#x00bb) '>>)
-    (else
-      (raise-errorf caller "invalid redirect to file character, must be < <> > or >>: ~a" ch))))

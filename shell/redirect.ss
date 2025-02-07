@@ -41,13 +41,12 @@
         (fd-close (cdr fds))
         (set-cdr! fds #f)
 
-        ; job no longer needs fd remapping and fds-to-close:
+        ; job no longer needs fd remapping:
         ; they also may contain a dup() of write-fd
         ; which prevents detecting eof on read-fd
         ; (debugf "pid ~s: sh-start/fd-stdout calling (job-unmap-fds) job=~s" (pid-get) job)
 
         (job-unmap-fds! job)
-        (job-close-fds-to-close! job)
         (set! err? #f))
 
       (lambda () ; after body
@@ -75,7 +74,7 @@
 (define (sh-run/bspan job . options)
   (let ((read-fd #f))
     ; temporarily suppress messages about started/completed jobs
-    (parameterize ((sh-job-display/summary? #f))
+    (parameterize ((sh-job-display-summary? #f))
       (dynamic-wind
         void
         (lambda ()

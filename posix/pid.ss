@@ -102,7 +102,7 @@
         (when (and (pair? status) (eq? 'killed (car status)))
           (let ((signal-name (cdr status)))
             (unless (memq signal-name '(sigstop sigtstp sigcont
-                                          sigttin sigttou))
+                                          sigttin sigttou exception))
               (signal-raise signal-name))
             ; process did not die with (signal-raise)
             (let ((signal-number (signal-name->number signal-name)))

@@ -510,7 +510,7 @@
     (catch (ex)
       (lineedit-show-error lctx "Exception in lineedit-read" ex)
       ;; sleep 0.2 seconds, to rate-limit error messages
-      (sleep (make-time 'time-duration 200000000 1))
+      (sleep (make-time 'time-duration 200000000 0))
       ;; assume error is recoverable, return "waiting for more keypresses"
       #t)))
 

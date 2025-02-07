@@ -21,7 +21,7 @@
   (%make-cmd
     #f #f #f        ; id pid pgid
     '(new . 0) #f   ; last-status exception
-    (span) 0 #f '() ; redirections
+    (span) 0 #f     ; redirections
     start-cmd #f    ; start-proc step-proc
     #f              ; working directory - initially inherited by parent job
     #f              ; overridden environment variables - initially none
@@ -56,8 +56,8 @@
 ;;   process-group-id: an integer, if present and > 0 the new process will be inserted
 ;;   into the corresponding process group id - which must already exist.
 ;;
-;; Updates job status, and also returns it,
-;;   which may be one of (void) '(exited ...) '(running ...) etc.
+;; Returns job status, which is also stored in (sh-job-last-status)
+;;   and may be one of (void) '(exited ...) '(running ...) '(stopped ...) '(killed ...) '(unknown ...) etc.
 ;;   For the complete list of possible returned job statuses, see (sh-job-status).
 (define (start-cmd c options)
   (assert* 'sh-cmd (eq? 'running (job-last-status->kind c)))
@@ -160,7 +160,7 @@
           ; expanded arg[0] is a builtin, call it.
           (start-builtin builtin c prog-and-args options)  ; returns job status
           ; expanded arg[0] is a not builtin or alias, spawn a subprocess
-          (spawn-cmd c (list->argv prog-and-args) options)))))) ; returns job status
+          (spawn-cmd c prog-and-args options)))))) ; returns job status
 
 
 ;; returns job status
@@ -183,29 +183,30 @@
           ; redirections were applied already by the outer (start-command-or-builtin-or-alias)
           (start-builtin-already-redirected builtin c prog-and-args options) ; returns job status
           ; expanded arg[0] is a not builtin or alias, spawn a subprocess
-          (spawn-cmd c (list->argv prog-and-args) options)))))) ; returns job status
+          (spawn-cmd c prog-and-args options)))))) ; returns job status
 
 
 ;; internal function called by (start-cmd) to spawn a subprocess.
 ;; returns job status.
 (define spawn-cmd
   (let ((c-spawn-cmd (foreign-procedure "c_cmd_spawn" (ptr ptr ptr ptr int) int)))
-    (lambda (c argv options)
+    (lambda (c prog-and-args options)
       (let* ((process-group-id (options->process-group-id options))
              (_                (options->set-temp-parent! c options))
              (job-dir (job-cwd-if-set c))
              (ret (c-spawn-cmd
-                    argv
+                    (list->argv prog-and-args)
                     (if job-dir (text->bytevector0 job-dir) #f)
                     (job-make-c-redirect-vector c)
                     (sh-env->argv c 'export)
                     (or process-group-id -1))))
+        ;c (debugf "spawn-cmd pid=~s prog-and-args=~s job=~a " ret prog-and-args (sh-job->string c))
         (when (< ret 0)
-          (job-status-set! c 'spawn-cmd (cons 'exited ret))
+          (job-status-set! 'spawn-cmd c (cons 'exited ret))
           (raise-c-errno 'sh-start 'fork ret))
         (job-pid-set! c ret)
         (job-pgid-set! c process-group-id)
-        (job-last-status c)))))
+        (job-status-set/running! c)))))
 
 
 ;; internal function called by (builtin-exec) to exec a subprocess.
@@ -318,10 +319,29 @@
           (#t           (cons 'unknown (fx- x 768))))))
 
 
+;; if job-control? is truish,
+;; suspend our process group until someone puts it in the foreground,
+;; then return our (possibly changed) process group.
+;;
+;; otherwise do nothing and return our cached process group.
+(define %suspend-ourself-until-foreground
+  (let ((c-suspend-until-foreground (foreign-procedure "c_suspend_until_foreground" () int)))
+    (lambda (job-control?)
+      (let ((global (sh-globals)))
+        (if job-control?
+          (let ((pgid (c-suspend-until-foreground)))
+            (if (>= pgid 0)
+              (begin
+                (job-pgid-set! global pgid)
+                pgid)
+              (job-pgid global)))
+          (job-pgid global))))))
+
+
 (define %pgid-foreground
   (let ((c-pgid-foreground (foreign-procedure "c_pgid_foreground" (int int) int)))
-    (lambda (caller expected-pgid new-pgid)
-      (let ((err (c-pgid-foreground expected-pgid new-pgid)))
+    (lambda (caller old-pgid new-pgid)
+      (let ((err (c-pgid-foreground old-pgid new-pgid)))
         ; (c-pgid-foreground) may fail if new-pgid exited in the meantime
         ; (when (< err 0)
         ;  (raise-c-errno caller 'tcsetpgrp err new-pgid))
@@ -330,26 +350,27 @@
 
 (define-syntax with-foreground-pgid
   (syntax-rules ()
-    ((_  caller expected-pgid new-pgid body ...)
-      (let ((_caller        caller)
-            (_expected-pgid expected-pgid)
-            (_new-pgid      new-pgid)
-            (_job-control?  (sh-job-control?)))
+    ((_  caller new-pgid body ...)
+      ;; hygienic macros sure are handy :)
+      (let* ((caller        caller)
+             (job-control?  (sh-job-control?))
+             (our-pgid      (%suspend-ourself-until-foreground job-control?))
+             (new-pgid      new-pgid))
         (dynamic-wind
           (lambda () ; run before body
-            (when _job-control?
-              (%pgid-foreground _caller _expected-pgid _new-pgid)))
+            (when job-control?
+              (%pgid-foreground caller our-pgid new-pgid)))
           (lambda ()
             body ...)
           (lambda () ; run after body
-            (when _job-control?
-              ; try to restore (sh-globals) as the foreground process group
-              (%pgid-foreground _caller _new-pgid _expected-pgid))))))))
+            (when job-control?
+              ; try really hard to restore (sh-globals) as the foreground process group
+              (%pgid-foreground caller -1 our-pgid))))))))
 
 
 ;; Internal function called by (advance-job)
 (define (advance-pid mode job)
-  ; (debugf "> advance-pid mode=~s job=~a pid=~s status=~s" mode (sh-job-display/string job) (job-pid job) (job-last-status job))
+  ; (debugf "> advance-pid mode=~s job=~a pid=~s status=~s" mode (sh-job->string job) (job-pid job) (job-last-status job))
   (cond
     ((job-finished? job)
       (job-last-status job)) ; job exited, and exit status already available
@@ -359,7 +380,7 @@
       (let ((pid  (job-pid job))
             (pgid (job-pgid job)))
         (if (and pgid (memq mode '(sh-fg sh-wait sh-sigcont+wait)))
-          (with-foreground-pgid mode (job-pgid (sh-globals)) pgid
+          (with-foreground-pgid mode pgid
             (advance-pid/maybe-sigcont mode job pid pgid)
             (advance-pid/wait mode job pid pgid))
           (begin
@@ -390,14 +411,21 @@
                        old-status
                        (job-pids-wait job
                          (if (memq mode '(sh-bg sh-job-status)) 'nonblocking 'blocking)
-                         #f))))
-    ; (debugf ">   advance-pid/wait mode=~s job=~a pid=~s new-status=~s" mode (sh-job-display/string job) (job-pid job) new-status)
+                         queue-job-display-summary))))
+    ;c (debugf "advance-pid/wait mode=~s old-status=~s new-status=~s pid=~s job=~a" mode old-status new-status (job-pid job) (sh-job->string job))
+    ;c (sleep (make-time 'time-duration 0 1))
+
     ; if may-block is 'non-blocking, new-status may be '(running . #f)
     ; indicating job status did not change i.e. it's (expected to be) still running
     (case (job-status->kind new-status)
       ((running)
         ; if new-status is '(running . #f), try to return '(running . job-id)
-        (job-status-set/running! job))
+        (let ((new-status2 (job-status-set/running! job)))
+           (if (memq mode '(sh-fg sh-wait sh-sigcont+wait))
+             ;; if mode is sh-fg, sh-wait or sh-sigcont+wait, then wait again for pid
+             (advance-pid/wait mode job pid pgid)
+             ;; otherwise return job status
+             new-status2)))
       ((exited killed unknown)
         ; job exited, clean it up. Also allows user to later start it again.
         (pid->job-delete! (job-pid job))
@@ -435,21 +463,24 @@
 ;; Return when the preferred-pid happens to change status.
 ;;
 ;; In all cases, if preferred-job is set, return its updated status.
-(define (job-pids-wait preferred-job may-block proc-before-draw)
-  ;c (debugf ">   job-pids-wait may-block=~s preferred-job=~a" may-block (if preferred-job (sh-job-display/string preferred-job) preferred-job))
+;;
+;; If proc-notify-status-change is truish, it must be a procedure
+;; and (proc-notify-status-change job)
+;; will be called for each job that changed status.
+(define (job-pids-wait preferred-job may-block proc-notify-status-change)
+  ;c (debugf ">   job-pids-wait may-block=~s preferred-job=~a" may-block (if preferred-job (sh-job->string preferred-job) preferred-job))
   (let ((done? #f))
     (until done?
       (let ((wait-result (pid-wait -1 may-block)))
         (if (pair? wait-result)
-          (let ((job (pid->job (car wait-result))))
+          (let* ((job        (pid->job (car wait-result)))
+                 (old-status (if job (job-last-status job) (void)))
+                 (new-status (pid-wait-result->job-status (cdr wait-result))))
+            ;; (debugf "... job-pids-wait wait-result=~s new-status=~s job=~a preferred-job=~a" wait-result new-status (if job (sh-job->string job) #f) (if preferred-job (sh-job->string preferred-job) #f))
             (when job
-              (let* ((old-status (job-last-status job))
-                     (new-status (pid-wait-result->job-status (cdr wait-result))))
-                (job-status-set! 'job-pids-wait job new-status)
-                ; (debugf "... job-pids-wait old-status=~s new-status=~s job=~a" old-status new-status (sh-job-display/string job))
-                (maybe-job-display job old-status new-status proc-before-draw))
+              (job-status-set! 'job-pids-wait job new-status)
 
-              ; (debugf "... job-pids-wait new-status=~s job=~a" (job-last-status job) (sh-job-display/string job))
+              ;; (debugf "... job-pids-wait old-status new-status=~s job=~a" old-status new-status (sh-job->string job))
 
               (if (eq? job preferred-job)
                 ;; the job we are interested in changed status => don't block again
@@ -459,26 +490,23 @@
                 ;; advance job that changed status and *all* it parents, before waiting again.
                 ;; do NOT advance preferred-job, because that's what our callers are already doing.
                 (let ((globals (sh-globals)))
+                  (when (and proc-notify-status-change (job-status-changed? old-status new-status))
+                    (proc-notify-status-change job))
+
                   (job-default-parents-iterate (job-parent job)
                     (lambda (parent)
                       (if (eq? parent globals)
                         #f
                         (let* ((old-status (job-last-status parent))
                                (new-status (sh-job-status parent)))
-                          ; (debugf "... job-pids-wait old-status=~s new-status=~s parent=~a" old-status new-status (sh-job-display/string parent))
-                          (maybe-job-display job old-status new-status proc-before-draw)))))))))
+                          ; (debugf "... job-pids-wait old-status=~s new-status=~s parent=~a" old-status new-status (sh-job->string parent))
+                          (when (and proc-notify-status-change (job-status-changed? old-status new-status))
+                            (proc-notify-status-change job))))))))))
 
           (set! done? #t))))) ; (pid-wait) did not report any status change => return
   (let ((ret (if preferred-job (job-last-status preferred-job) (void))))
     ;c (debugf "<   job-pids-wait ret=~s" ret)
     ret))
-
-
-(define (maybe-job-display job old-status new-status proc-before-draw)
-  (when (and (job-id job) (job-status-changed? old-status new-status))
-    (when proc-before-draw
-      (proc-before-draw))
-    (sh-job-display/summary job)))
 
 
 ;; Internal function called by (advance-pid/wait)
@@ -490,18 +518,21 @@
    ; they cannot write the "break> " prompt then read commands
    (when (sh-job-control?)
      (let ((break-returned-normally? #f)
-          (global-pgid (job-pgid (sh-globals))))
+           (our-pgid    (job-pgid (sh-globals)))
+           (kill-target (if (and pgid (> pgid 0)) (- pgid) pid)))
       (dynamic-wind
         (lambda () ; before body
-          (%pgid-foreground mode pgid global-pgid))
+          ; grab the foreground
+          (%pgid-foreground mode -1 our-pgid))
         (lambda () ; body
           (job-id-set! job)
           (break)
           (set! break-returned-normally? #t))
         (lambda ()
-          (%pgid-foreground mode global-pgid pgid)
+          ; restore job to run in foreground
+          (%pgid-foreground mode our-pgid pgid)
           ; send SIGCONT to job's process group, if present.
           ; otherwise send SIGCONT to job's process id. Both may raise error
-          (pid-kill (if (> pgid 0) (- pgid) pid) 'sigcont)
+          (pid-kill kill-target 'sigcont)
           (unless break-returned-normally?
-            (pid-kill (if (> pgid 0) (- pgid) pid) 'sigint)))))))
+            (pid-kill kill-target 'sigint)))))))

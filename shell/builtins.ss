@@ -10,7 +10,7 @@
           sh-echo sh-error sh-false sh-history sh-repl-args sh-repl-args-linectx sh-true)
   (import
     (rnrs)
-    (only (chezscheme)           console-error-port debug debug-condition debug-on-exception
+    (only (chezscheme)        console-error-port debug debug-condition debug-on-exception
                                  display-condition reset-handler void)
     (only (schemesh bootstrap)      sh-make-thread-parameter raise-errorf while)
     (schemesh containers bytespan)

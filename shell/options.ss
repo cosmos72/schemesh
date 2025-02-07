@@ -9,7 +9,6 @@
 ;; this file should be included only by file shell/job.ss
 
 
-
 ;; validate a single (sh-start) job option:
 ;; raise an exception if the option is unsupported
 (define (option-validate caller option)
@@ -158,7 +157,7 @@
             #t)))) ; continue iteration
     (if parent
       (begin
-        ; (debugf "job-temp-parent-set! job=~a parent=~a" (sh-job-display/string job) (sh-job-display/string parent))
+        ; (debugf "job-temp-parent-set! job=~a parent=~a" (sh-job->string job) (sh-job->string parent))
         (job-temp-parent-set! job parent)
         (options-filter-out options '(parent-job same-parent-as-job)))
       options))) ; nothing to remove

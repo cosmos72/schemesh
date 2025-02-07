@@ -78,12 +78,19 @@
 
 
 ;; erase everything, then set flag "redraw prompt and lines"
-(define (lineedit-undraw lctx)
-  (lineterm-move-dy lctx (fx- (linectx-term-y lctx)))
-  (lineterm-move-to-bol lctx)
-  (lineterm-clear-to-eos lctx)
-  (linectx-term-xy-set! lctx 0 0)
-  (linectx-redraw-set! lctx #t))
+(define lineedit-undraw
+  (case-lambda
+    ((lctx)
+      (lineedit-undraw lctx #f))
+    ((lctx flush?)
+      (unless (linectx-redraw? lctx)
+        (lineterm-move-dy lctx (fx- (linectx-term-y lctx)))
+        (lineterm-move-to-bol lctx)
+        (lineterm-clear-to-eos lctx)
+        (linectx-term-xy-set! lctx 0 0)
+        (linectx-redraw-set! lctx #t)
+        (when flush?
+          (lineedit-flush lctx))))))
 
 
 ;; redraw everything

@@ -51,9 +51,9 @@
     sh-cd sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
 
     ; display.ss
-    sh-job-display sh-job-display* sh-job-display/string
-    sh-job-write sh-job-write* sh-job-write/string
-    sh-job-display/summary? sh-job-display/summary sh-job-display/summary*
+    sh-job-display sh-job-display* sh-job->string
+    sh-job-write   sh-job-write*   sh-job->verbose-string
+    sh-job-display-summary? sh-job-display-summary sh-job-display-summary*
 
     ; env.ss
     sh-env-ref sh-env-set! sh-env-delete! sh-env-visibility-ref sh-env-visibility-set!

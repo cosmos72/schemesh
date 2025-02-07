@@ -8,22 +8,22 @@
 
 ;; this file should be included only by file shell/job.ss
 
-;; if set to #f, (sh-job-display/summary) does nothing.
+;; if set to #f, (sh-job-display-summary) does nothing.
 ;; useful in forked sub-processes
-(define sh-job-display/summary?
+(define sh-job-display-summary?
   (sh-make-thread-parameter #t))
 
 
 ;; always returns (void) - useful for builtins
-(define sh-job-display/summary
+(define sh-job-display-summary
   (case-lambda
-    ((job-or-id)      (sh-job-display/summary* job-or-id (console-output-port)))
-    ((job-or-id port) (sh-job-display/summary* job-or-id port))))
+    ((job-or-id)      (sh-job-display-summary* job-or-id (console-output-port)))
+    ((job-or-id port) (sh-job-display-summary* job-or-id port))))
 
 
 ;; always returns (void) - useful for builtins
-(define (sh-job-display/summary* job-or-id port)
-  (when (sh-job-display/summary?)
+(define (sh-job-display-summary* job-or-id port)
+  (when (sh-job-display-summary?)
     (let* ((job    (sh-job job-or-id))
            (id     (job-id job))
            (pid    (job-pid job))
@@ -39,6 +39,24 @@
       (sh-job-display* job port)
       (put-char port #\newline)))
   (void))
+
+
+;; add a job to an internal queue for later showing it with (sh-job-display-summary)
+;; if called without arguments, return all queued jobs as a list then clears the queue.
+(define queue-job-display-summary
+  (let ((queue '()))
+    (case-lambda
+      ((job)
+        ; (debugf "queue-job-display-summary add job=~a id=~s" (sh-job->string job) (job-id job))
+        (set! queue (cons job queue)))
+      (()
+        ; (debugf "queue-job-display-summary return jobs=~a" (reverse queue))
+        (if (null? queue)
+          queue
+          (let ((ret queue))
+            (set! queue '())
+            (reverse! ret)))))))
+
 
 ;; return padding string to align printing job-id
 (define (pad/job-id id)
@@ -81,8 +99,8 @@
     (job-display/close-paren port kind)))
 
 
-;; same as (sh-job-display), except that outputs to a string, which is returned
-(define (sh-job-display/string job-or-id)
+;; return a string describing a job, using terse shell syntax {foo && bar || baz ...}
+(define (sh-job->string job-or-id)
   (let-values (((port get-string) (open-string-output-port)))
     (sh-job-display* job-or-id port)
     (get-string)))
@@ -216,12 +234,13 @@
     ((job-or-id port) (sh-job-write* job-or-id port))))
 
 
-;; same as (sh-job-display), except that all arguments are mandatory
+;; same as (sh-job-write), except that all arguments are mandatory
 (define (sh-job-write* job-or-id port)
   (job-write/any (sh-job job-or-id) port))
 
-;; same as (sh-job-display), except that outputs to a string, which is returned
-(define (sh-job-write/string job-or-id)
+
+;; return a string describing a job, using verbose Scheme syntax (sh-or (sh-and (sh-cmd "foo") (sh-cmd "bar")) ...)
+(define (sh-job->verbose-string job-or-id)
   (let-values (((port get-string) (open-string-output-port)))
     (sh-job-write* job-or-id port)
     (get-string)))

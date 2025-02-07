@@ -18,6 +18,7 @@
     (only (chezscheme) fx1+ fx1- open-fd-output-port record-writer)
     (only (schemesh bootstrap) assert* sh-make-thread-parameter raise-errorf)
     (schemesh containers bitmap)
+    (only (schemesh containers hashtable) hashtable-iterate)
     (only (schemesh posix fd) fd-open-max))
 
 
@@ -55,7 +56,7 @@
 
 
 ;; increase by one the reference count of an sh-fd
-;; return the sh-fd
+;; return the sh-fd argument
 (define (sh-fd-copy fd)
   (assert* 'sh-fd-copy (sh-fd? fd))
   (%sh-fd-refcount-set! fd (fx1+ (%sh-fd-refcount fd)))

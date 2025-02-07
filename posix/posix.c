@@ -58,6 +58,7 @@ static int c_init_failed(const char label[]);
 #include "signal.h"
 
 static int c_fd_open_max(void);
+static int c_job_control_available(void);
 
 /******************************************************************************/
 /*                                                                            */
@@ -234,17 +235,26 @@ static ptr c_get_cwd(void) {
  */
 static int tty_fd = -1;
 
+/** process group that started this process */
+static int tty_pgid = -1;
+
 static int c_tty_init(void) {
-  int fd  = c_fd_open_max() - 1;
-  int err = 0;
+  int fd = c_fd_open_max() - 1;
   if (dup2(0, fd) < 0) {
-    err = c_init_failed("dup2(0, tty_fd)");
+    return c_init_failed("dup2(0, tty_fd)");
   } else if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0) {
-    err = c_init_failed("fcntl(tty_fd, F_SETFD, FD_CLOEXEC)");
+    (void)close(fd);
+    return c_init_failed("fcntl(tty_fd, F_SETFD, FD_CLOEXEC)");
   } else {
     tty_fd = fd;
   }
-  return err;
+  return 0;
+}
+
+static void c_tty_quit(void) {
+  if (tty_fd >= 0 && tty_pgid >= 0) {
+    (void)tcsetpgrp(tty_fd, tty_pgid);
+  }
 }
 
 static int c_tty_getattr(int fd, struct termios* conf) {
@@ -370,34 +380,52 @@ static int c_job_control_available(void) {
 }
 
 /**
+ * suspend our process group until someone puts it in the foreground,
+ * then change our process group, if needed, to match our process id.
+ *
+ * return our process group, or < 0 on errors.
+ */
+static int c_suspend_until_foreground(void) {
+  pid_t fg_pgid, pgid;
+  for (;;) {
+    fg_pgid = tcgetpgrp(tty_fd);
+    pgid    = getpgid(0);
+    if (tty_pgid < 0) {
+      tty_pgid = fg_pgid;
+    }
+    if (fg_pgid == pgid) {
+      break;
+    }
+    (void)kill(-pgid, SIGTTIN);
+  }
+  if (pgid == getpid()) {
+    /**
+     * our process already has a process group id == process id
+     * and such process group id is already in the foreground
+     * => nothing to do
+     */
+
+    /* create a new process group id = process id and move our process into it */
+  } else if (setpgid(0, 0) < 0 || (pgid = getpgid(0)) < 0 || tcsetpgrp(tty_fd, pgid) < 0) {
+    return c_errno();
+  }
+  return (int)pgid;
+}
+
+/**
  * try to enable (if enable > 0) or disable (if enable <= 0) job control.
  * return 0 if successful, otherwise error code < 0
  */
 static int c_job_control_change(int enable) {
   int err;
   if (enable > 0) {
-    pid_t pgid;
     if (!c_job_control_available()) {
       return c_errno_set(ENOTTY);
     }
-    while (tcgetpgrp(tty_fd) != (pgid = getpgid(0))) {
-      (void)kill(-pgid, SIGTTIN);
-    }
+    c_suspend_until_foreground();
+
     if ((err = c_signals_init()) < 0) {
       return err;
-    }
-
-    if (pgid == getpid()) {
-      /**
-       * our process already has a process group id == process id
-       * and such process group id is already in the foreground
-       * => nothing to do
-       */
-    } else {
-      /* create a new process group id = process id and move our process into it */
-      if (setpgid(0, 0) < 0 || (pgid = getpgid(0)) < 0 || tcsetpgrp(tty_fd, pgid) < 0) {
-        err = c_errno();
-      }
     }
 
   } else { /* enable < 0 */
@@ -1328,19 +1356,21 @@ static int c_cmd_spawn(ptr vector_of_bytevector0_cmdline,
 }
 
 /**
- * if expected_pgid i.e. process group id is the foreground process group,
+ * if old_pgid < 0, unconditionally set new_pgid as the foreground process group.
+ *
+ * if old_pgid >= 0 and the foreground process group == old_pgid,
  * then set new_pgid as the foreground process group.
  */
-static int c_pgid_foreground(int expected_pgid, int new_pgid) {
-  int actual_pgid;
-  if (expected_pgid == new_pgid) {
-    return 0; /* nothing to do */
-  }
-  actual_pgid = tcgetpgrp(tty_fd);
-  if (actual_pgid < 0) {
-    return c_errno();
-  } else if (expected_pgid != -1 && actual_pgid != expected_pgid) {
-    return 0; /* fg process group is not the expected one: do nothing */
+static int c_pgid_foreground(int old_pgid, int new_pgid) {
+  if (old_pgid >= 0) {
+    const int current_pgid = tcgetpgrp(tty_fd);
+    if (current_pgid < 0) {
+      return c_errno();
+    } else if (current_pgid != old_pgid) {
+      return 0; /* fg process group is not the expected one: do nothing */
+    } else if (current_pgid == new_pgid) {
+      return 0; /* nothing to do */
+    }
   }
   return tcsetpgrp(tty_fd, new_pgid) >= 0 ? 0 : c_errno();
 }
@@ -1367,16 +1397,19 @@ static int c_pgid_foreground(int expected_pgid, int new_pgid) {
  *   or 768 if job resumed due to SIGCONT
  */
 static ptr c_pid_wait(int pid, int may_block) {
-  int wstatus = 0;
-  int flag    = 0;
-  int ret;
+  int   wstatus = 0;
+  int   result  = 0;
+  pid_t ret_pid;
+#ifndef WCONTINUED
+#define WCONTINUED 0
+#endif
   do {
-    ret = waitpid((pid_t)pid, &wstatus, WUNTRACED | WCONTINUED | (may_block ? 0 : WNOHANG));
-  } while (ret == -1 && errno == EINTR);
+    ret_pid = waitpid((pid_t)pid, &wstatus, WUNTRACED | WCONTINUED | (may_block ? 0 : WNOHANG));
+  } while (ret_pid == -1 && errno == EINTR);
 
-  if (ret <= 0) { /* 0 if children exist but did not change status */
+  if (ret_pid <= 0) { /* 0 if children exist but did not change status */
     int err = 0;
-    if (ret < 0) {
+    if (ret_pid < 0) {
       err = c_errno();
       if (err == -EAGAIN || err == -ECHILD) {
         err = 0; /* no child changed status */
@@ -1384,17 +1417,19 @@ static ptr c_pid_wait(int pid, int may_block) {
     }
     return err == 0 ? Snil : Sinteger(err);
   } else if (WIFEXITED(wstatus)) {
-    flag = (int)(unsigned char)WEXITSTATUS(wstatus);
+    result = (int)(unsigned char)WEXITSTATUS(wstatus);
   } else if (WIFSIGNALED(wstatus)) {
-    flag = 256 + WTERMSIG(wstatus);
+    result = 256 + WTERMSIG(wstatus);
   } else if (WIFSTOPPED(wstatus)) {
-    flag = 512 + WSTOPSIG(wstatus);
+    result = 512 + WSTOPSIG(wstatus);
+#ifdef WIFCONTINUED
   } else if (WIFCONTINUED(wstatus)) {
-    flag = 768;
+    result = 768;
+#endif
   } else {
     return Sinteger(c_errno_set(EINVAL));
   }
-  return Scons(Sinteger(ret), Sinteger(flag));
+  return Scons(Sinteger(ret_pid), Sinteger(result));
 }
 
 static char** vector_to_c_argz(ptr vector_of_bytevector0) {
@@ -1462,6 +1497,7 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_tty_size", &c_tty_size);
   Sregister_symbol("c_job_control_available", &c_job_control_available);
   Sregister_symbol("c_job_control_change", &c_job_control_change);
+  Sregister_symbol("c_suspend_until_foreground", &c_suspend_until_foreground);
 
   Sregister_symbol("c_cmd_exec", &c_cmd_exec);
   Sregister_symbol("c_cmd_spawn", &c_cmd_spawn);
@@ -1480,4 +1516,14 @@ int schemesh_register_c_functions_posix(void) {
 
   c_register_c_functions_posix_signals();
   return 0;
+}
+
+/**
+ * quit Chez Scheme. calls:
+ *   c_tty_quit()
+ *   Sscheme_deinit()
+ */
+void schemesh_quit(void) {
+  c_tty_quit();
+  Sscheme_deinit();
 }

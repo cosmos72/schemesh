@@ -108,7 +108,7 @@
     (%make-multijob
       #f #f #f        ; id pid pgid
       '(new . 0) #f   ; last-status exception
-      (span) 0 #f '() ; redirections
+      (span) 0 #f     ; redirections
       start-proc      ; executed to start the job
       next-proc       ; executed when a child job changes status
       #f              ; working directory - initially inherited by parent job
@@ -170,7 +170,7 @@
       (sh-job-control? #f)
 
       ;; do not output status changes of children jobs.
-      (sh-job-display/summary? #f)
+      (sh-job-display-summary? #f)
 
       ;; do not save history when subshell exits.
       (let ((lctx (sh-repl-args-linectx)))
@@ -279,19 +279,19 @@
           ((< ret 0) ; fork() failed
             (raise-c-errno 'sh-start 'fork ret))
           ((= ret 0) ; child
-            (let ((status '(exited . 255)))
+            (let ((status '(killed . exception)))
               (dynamic-wind
                 (lambda () ; run before body
                   ; in child process, suppress messages about started/completed jobs
-                  (sh-job-display/summary? #f)
+                  (sh-job-display-summary? #f)
                   (let ((pid  (pid-get))
                         (pgid (pgid-get 0)))
                     ; this process now "is" the job => update (sh-globals)' pid and pgid
-                    (job-pid-set!  (sh-globals) pid)
-                    (job-pgid-set! (sh-globals) pgid)
+                    (%job-pid-set!  (sh-globals) pid)
+                    (%job-pgid-set! (sh-globals) pgid)
                     ; cannot wait on our own process.
-                    (job-pid-set!  job #f)
-                    (job-pgid-set! job #f)
+                    (%job-pid-set!  job #f)
+                    (%job-pgid-set! job #f)
 
                     ; we would like to set status to '(unknown . 0)
                     ; but that causes (sh-wait job) below to think that job already exited,
@@ -302,13 +302,13 @@
                     ; which is only annoying - cannot do anything useful with such job-id.
                     (%job-last-status-set! job '(running . #f))))
                 (lambda () ; body
-                  ;b (debugf ">   spawn-procedure job=~a subprocess calling proc ~s" (sh-job-display/string job) proc)
+                  ;c (debugf "> [child] spawn-procedure job=~a subprocess calling proc ~s" (sh-job->string job) proc)
                   (let ((ret (proc job options)))
-                    ;b (debugf "... spawn-procedure job=~a subprocess proc returned ~s" (sh-job-display/string job) ret)
+                    ;c (debugf ". [child] spawn-procedure job=~a subprocess proc returned ~s pid=~s" (sh-job->string job) ret (job-pid job))
                     (void))
                   (set! status (sh-wait job)))
                 (lambda () ; run after body, even if it raised a condition
-                  ;b (debugf "< spawn-procedure job=~a subprocess exiting with status=~s" (sh-job-display/string job) status)
+                  ;c (debugf "< [child] spawn-procedure job=~a subprocess exiting with pid=~s status=~s" (sh-job->string job) (job-pid job) status)
                   (exit-with-job-status status)))))
           ((> ret 0) ; parent
             (job-pid-set! job ret)
@@ -318,7 +318,10 @@
 
 ;; if options contain '(spawn? . #t) then remove such options and call (spawn-procedure job options proc)
 ;; otherwise directly call (proc job options)
+;;
+;; WARNING (proc job options) must call (sh-job-status-set! job), because the return value of (proc ...) is ignored
 (define (call-or-spawn-procedure job options proc)
+  ;c (debugf "call-or-spawn-procedure options=~s proc=~s job=~a" options proc (sh-job->string job))
   (if (options->spawn? options)
     ;; spawn a subprocess and run (%proc... job) inside it
     (spawn-procedure job (options-filter-out options '(spawn?)) proc)
@@ -329,7 +332,7 @@
 
 ;; Internal function called by (advance-job) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 (define (advance-multijob mode mj)
-  ; (debugf ">  advance-multijob mode=~s job=~a id=~s status=~s" mode (sh-job-display/string mj) (job-id mj) (job-last-status mj))
+  ; (debugf ">  advance-multijob mode=~s job=~a id=~s status=~s" mode (sh-job->string mj) (job-id mj) (job-last-status mj))
   (job-status-set/running! mj)
   (let* ((child (sh-multijob-child-ref mj (multijob-current-child-index mj)))
          ;; call (advance-job) on child
@@ -343,7 +346,7 @@
         child-status)
       ((job-status-member? child-status '(exited killed unknown))
         ; child exited: advance multijob by calling (job-step-proc)
-        ; then call (advance-multijob) again multijob job is still running.
+        ; then call (advance-multijob) again multijob if job is still running.
         ; (debugf "... advance-multijob > step-proc ~s status=~s" mj (job-last-status mj))
         (step-proc mj child-status)
         ; (debugf "... advance-multijob < step-proc ~s status=~s" mj (job-last-status mj))
@@ -351,8 +354,12 @@
           (advance-multijob mode mj)
           (job-last-status mj)))
       ((job-status-member? child-status '(running))
-        ; child is still running. propagate child status and return
-        (job-status-set! 'advance-multijob mj (cons 'running (job-id mj)))) ; (job-id mj) may still be #f
+        ;; child is still running.
+        ;; if mode is sh-fg, sh-wait or sh-sigcont+wait, wait for child.
+        ;; otherwise propagate child status and return.
+        (if (memq mode '(sh-fg sh-wait sh-sigcont+wait))
+           (advance-multijob mode mj)
+           (job-last-status mj)))
       ((job-status-member? child-status '(stopped))
         ; child is stopped.
         ; if mode is sh-wait or sh-sigcont+wait, wait for it again.
