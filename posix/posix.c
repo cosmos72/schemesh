@@ -439,7 +439,8 @@ static int c_job_control_change(int enable) {
     if ((err = c_signals_init()) < 0) {
       return err;
     }
-    pgid = c_create_foreground_pgid(pgid);
+    err = pgid = c_create_foreground_pgid(pgid);
+
   } else { /* enable < 0 */
 
     err = c_signals_setdefault(); /* keeps SICHLD handler */
