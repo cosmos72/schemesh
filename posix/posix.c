@@ -422,11 +422,10 @@ static int c_job_control_change(int enable) {
     if (!c_job_control_available()) {
       return c_errno_set(ENOTTY);
     }
-    c_suspend_until_foreground();
-
     if ((err = c_signals_init()) < 0) {
       return err;
     }
+    c_suspend_until_foreground();
 
   } else { /* enable < 0 */
 
