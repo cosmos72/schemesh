@@ -75,23 +75,24 @@
 (define job-control-change!
   (let ((c-job-control-change (foreign-procedure "c_job_control_change" (int) int)))
     (lambda (old-flag new-flag)
+      ; (debugf "job-control-change! ~s -> ~s" old-flag new-flag)
       (cond
+        ((eq? old-flag new-flag)
+          old-flag)
         ((not (boolean? new-flag))
           (format (console-error-port)
             "; schemesh (pid ~s) error: ~s is not a boolean, refusing to set sh-job-control? to such value\n"
               (pid-get) new-flag)
           old-flag)
-        ((eq? old-flag new-flag)
-          old-flag)
         ((and new-flag (sh-job-control-available?))
           ; try to activate job control
-          (let ((err (c-job-control-change 1)))
-            (if (zero? err)
-              (begin
+          (let ((pgid-or-error (c-job-control-change 1)))
+            (if (>= pgid-or-error 0)
+              (let ((pgid pgid-or-error))
                 ; our process group id may have changed
-                (job-pgid-set! (sh-globals) (pgid-get 0))
+                (job-pgid-set! (sh-globals) (if (zero? pgid) (pgid-get 0) pgid))
                 new-flag)
-              (begin
+              (let ((err pgid-or-error))
                 (format (console-error-port) "; schemesh (pid ~s) error: failed activating job control: C function c_job_control_change(1) failed with error ~s: ~a\n"
                    (pid-get) err (c-errno->string err))
                 old-flag))))
@@ -101,13 +102,13 @@
           old-flag)
         (old-flag
           ; try to deactivate job control
-          (let ((err (c-job-control-change (if new-flag 1 0))))
-            (unless (zero? err)
+          (let ((err (c-job-control-change 0)))
+            (when (< err 0)
               (format (console-error-port) "; schemesh (pid ~s) warning: failed deactivating job control: C function c_job_control_change(0) failed with error ~s: ~a\n"
                    (pid-get) err (c-errno->string err))))
           ; set job-control to inactive even if c_job_control_change() failed
           new-flag)
-        (#t
+        (#t ; should not happen
           new-flag)))))
 
 

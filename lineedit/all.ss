@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh lineedit (0 7 2))
+(library (schemesh lineedit (0 7 3))
   (export
     ; charlines-io.ss
     open-charline-input-port open-charlines-input-port

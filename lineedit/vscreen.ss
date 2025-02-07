@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh lineedit vscreen (0 7 2))
+(library (schemesh lineedit vscreen (0 7 3))
   (export
     make-vscreen  vscreen*  vscreen?  assert-vscreen?
     vscreen-width        vscreen-height     vscreen-width-at-y  vscreen-resize!

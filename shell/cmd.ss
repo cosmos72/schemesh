@@ -319,25 +319,6 @@
           (#t           (cons 'unknown (fx- x 768))))))
 
 
-;; if job-control? is truish,
-;; suspend our process group until someone puts it in the foreground,
-;; then return our (possibly changed) process group.
-;;
-;; otherwise do nothing and return our cached process group.
-(define %suspend-ourself-until-foreground
-  (let ((c-suspend-until-foreground (foreign-procedure "c_suspend_until_foreground" () int)))
-    (lambda (job-control?)
-      (let ((global (sh-globals)))
-        (if job-control?
-          (let ((pgid (c-suspend-until-foreground)))
-            (if (>= pgid 0)
-              (begin
-                (job-pgid-set! global pgid)
-                pgid)
-              (job-pgid global)))
-          (job-pgid global))))))
-
-
 (define %pgid-foreground
   (let ((c-pgid-foreground (foreign-procedure "c_pgid_foreground" (int int) int)))
     (lambda (caller old-pgid new-pgid)
@@ -353,9 +334,9 @@
     ((_  caller new-pgid body ...)
       ;; hygienic macros sure are handy :)
       (let* ((caller        caller)
+             (new-pgid      new-pgid)
              (job-control?  (sh-job-control?))
-             (our-pgid      (%suspend-ourself-until-foreground job-control?))
-             (new-pgid      new-pgid))
+             (our-pgid      (and job-control? (job-pgid (sh-globals)))))
         (dynamic-wind
           (lambda () ; run before body
             (when job-control?

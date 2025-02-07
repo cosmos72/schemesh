@@ -380,24 +380,30 @@ static int c_job_control_available(void) {
 }
 
 /**
- * suspend our process group until someone puts it in the foreground,
- * then change our process group, if needed, to match our process id.
+ * suspend our process group until someone puts it in the foreground.
  *
- * return our process group, or < 0 on errors.
+ * return process group id of current process.
  */
 static int c_suspend_until_foreground(void) {
-  pid_t fg_pgid, pgid;
   for (;;) {
-    fg_pgid = tcgetpgrp(tty_fd);
-    pgid    = getpgid(0);
+    const pid_t fg_pgid = tcgetpgrp(tty_fd);
+    const pid_t pgid    = getpgid(0);
     if (tty_pgid < 0) {
       tty_pgid = fg_pgid;
     }
     if (fg_pgid == pgid) {
-      break;
+      return pgid;
     }
     (void)kill(-pgid, SIGTTIN);
   }
+}
+
+/**
+ * change our process group, if needed, to match our process id,
+ * and put it in the foreground.
+ * return our process group, or < 0 on errors.
+ */
+static int c_create_foreground_pgid(int pgid) {
   if (pgid == getpid()) {
     /**
      * our process already has a process group id == process id
@@ -414,19 +420,26 @@ static int c_suspend_until_foreground(void) {
 
 /**
  * try to enable (if enable > 0) or disable (if enable <= 0) job control.
- * return 0 if successful, otherwise error code < 0
+ *
+ * if enable > 0, return process group of current process if successful,
+ * otherwise error code < 0
+ *
+ * if enable <= 0, return 0 if successful,
+ * otherwise error code < 0
  */
 static int c_job_control_change(int enable) {
   int err;
   if (enable > 0) {
+    pid_t pgid;
     if (!c_job_control_available()) {
       return c_errno_set(ENOTTY);
     }
+    pgid = c_suspend_until_foreground();
+
     if ((err = c_signals_init()) < 0) {
       return err;
     }
-    c_suspend_until_foreground();
-
+    pgid = c_create_foreground_pgid(pgid);
   } else { /* enable < 0 */
 
     err = c_signals_setdefault(); /* keeps SICHLD handler */
@@ -1496,7 +1509,6 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_tty_size", &c_tty_size);
   Sregister_symbol("c_job_control_available", &c_job_control_available);
   Sregister_symbol("c_job_control_change", &c_job_control_change);
-  Sregister_symbol("c_suspend_until_foreground", &c_suspend_until_foreground);
 
   Sregister_symbol("c_cmd_exec", &c_cmd_exec);
   Sregister_symbol("c_cmd_spawn", &c_cmd_spawn);

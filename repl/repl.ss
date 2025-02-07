@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh repl (0 7 2))
+(library (schemesh repl (0 7 3))
   (export sh-repl sh-repl* sh-repl-eval sh-repl-eval-list
           sh-repl-lineedit sh-repl-parse sh-repl-print
           sh-repl-exception-handler sh-repl-interrupt-handler
@@ -305,6 +305,7 @@
 ;;
 ;; Returns first value passed to (exit), or (void) on linectx eof
 (define (sh-repl . options)
+  ; (debugf "sh-repl options=~s" options)
   (let ((history-path #f)    (history-path? #f)
         (initial-parser #f)  (initial-parser? #f)
         (enabled-parsers #f) (enabled-parsers? #f)

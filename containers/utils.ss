@@ -11,7 +11,7 @@
 ;;; b. converting integers to decimal and writing them into "bytevector" and "bytespan"
 
 
-(library (schemesh containers utils (0 7 2))
+(library (schemesh containers utils (0 7 3))
   (export
     bytevector-ref/utf8b bytevector-set/utf8b! char->utf8b-length
     bytespan-ref/char bytespan-set/char! bytespan-insert-front/char! bytespan-insert-back/char!
