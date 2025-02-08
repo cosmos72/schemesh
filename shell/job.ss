@@ -710,10 +710,10 @@
 
     (hashtable-set! t "split-at-0" (string->utf8 " alias-or-builtin-or-cmd [arg ...]
     split each ARG ... after each NUL character i.e. Unicode codepoint U+0000,
-    and execute the specified alias, builtin or command with arguments
-    set to the result of such splitting.
+    and execute the specified alias, builtin or command
+    with arguments set to the result of such splitting.
 
-    useful to pass as arguments the filenames produced by another command,
+    useful to pass as arguments the NUL-terminated filenames produced by another command,
     as for example 'split-at-0 editor $(find -name \\*.txt -print0)'
 
     return exit status of executed alias, builtin or command.\n"))
