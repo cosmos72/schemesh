@@ -142,7 +142,7 @@
   '(exited . 1))
 
 
-;; implementation of "true" builtin, always exits succesfully i.e. with exit status (void)
+;; implementation of "true" builtin, always exits successfully i.e. with exit status (void)
 (define (sh-true . ignored-args)
   (void))
 
@@ -166,7 +166,7 @@
             (when (fx>=? (bytespan-length wbuf) 4096)
               (fd-write/bspan! fd wbuf))))
         (fd-write/bspan! fd wbuf)
-        (void)) ; return (void), means builtin exited succesfully
+        (void)) ; return (void), means builtin exited successfully
       '(exited . 1))))
 
 

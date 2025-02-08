@@ -9,17 +9,17 @@
 ;; this file should be included only by file shell/job.ss
 
 
-;; write contents of bytespan bsp to file descriptor fd,
-;; then clear bytespan bsp
-(define (fd-write/bspan! fd bsp)
+;; write contents of bytespan wbuf to file descriptor fd,
+;; then clear bytespan wbuf
+(define (fd-write/bspan! fd wbuf)
   ; TODO: loop on short writes and call sh-consume-sigchld
-  (fd-write fd (bytespan-peek-data bsp)
-            (bytespan-peek-beg bsp) (bytespan-peek-end bsp))
-  (bytespan-clear! bsp))
+  (fd-write fd (bytespan-peek-data wbuf)
+            (bytespan-peek-beg wbuf) (bytespan-peek-end wbuf))
+  (bytespan-clear! wbuf))
 
 
-;; print warning or error message to file descriptor fd.
-(define (fd-write-strings fd prefix strings)
+;; write warning or error message to file descriptor fd.
+(define (fd-write-strings: fd prefix strings)
   (let ((wbuf (bytespan)))
     (bytespan-insert-back/string! wbuf prefix)
     (list-iterate strings
@@ -35,14 +35,14 @@
 ;; print warning message to (sh-fd-stderr)
 ;; always returns (void)
 (define (write-builtin-warning . args)
-  (fd-write-strings (sh-fd-stderr) "; warning" args)
+  (fd-write-strings: (sh-fd-stderr) "; warning" args)
   (void))
 
 
 ;; print error message to (sh-fd-stderr)
 ;; always returns '(exited . 1)
 (define (write-builtin-error . args)
-  (fd-write-strings (sh-fd-stderr) "schemesh" args)
+  (fd-write-strings: (sh-fd-stderr) "schemesh" args)
   '(exited . 1))
 
 
@@ -135,7 +135,7 @@
         (write-builtin-error "fg" arg "no such job")))) ; returns '(exited . 1)
 
 
-;; the "global" builtin: run the builtin in the remaining command line
+;; the "global" builtin: run the builtin passed as first argument
 ;; with its parent job temporarily set to (sh-globals)
 ;; Useful mostly for builtins "cd" and "pwd"
 ;;
@@ -161,12 +161,65 @@
   (let ((src (multijob-children (sh-globals))))
     (unless (span-empty? src)
       ;; do NOT close port, it would close the fd!
-      (let ((port (open-fd-output-port (sh-fd-stdout) (buffer-mode line) transcoder-utf8)))
+      (let ((port (open-fd-output-port (sh-fd-stdout) (buffer-mode block) transcoder-utf8)))
         (span-iterate src
           (lambda (job-id job)
             (when (sh-job? job)
-              (sh-job-display-summary* job port)))))))
+              (sh-job-display-summary* job port))))
+        (flush-output-port port))))
   (void))
+
+
+;; display a single environment variable
+(define (%env-display-var name val wbuf)
+  (bytespan-insert-back/bvector! wbuf #vu8(115 101 116 32)) ; "set "
+  (bytespan-insert-back/string!  wbuf name)
+  (bytespan-insert-back/bvector! wbuf #vu8(32 39)) ; " '"
+  (bytespan-insert-back/string!  wbuf val)
+  (bytespan-insert-back/bvector! wbuf #vu8(39 10))) ; "'\n"
+
+
+;; display all environment variables of specified job, including private ones.
+(define (%env-display-all job)
+  (let ((wbuf (bytespan))
+        (fd   (sh-fd-stdout))
+        (vec  (hashtable-cells (sh-env-copy job 'all))))
+    (vector-sort! (lambda (e1 e2) (string<? (car e1) (car e2))) vec)
+    (bytespan-reserve-back! wbuf (fxmin 4096 (fx* 32 (vector-length vec))))
+    (vector-iterate vec
+      (lambda (i elem)
+        (%env-display-var (car elem) (cdr elem) wbuf)
+        (when (fx>=? (bytespan-length wbuf) 4096)
+          (fd-write/bspan! fd wbuf))))
+    (fd-write/bspan! fd wbuf)))
+
+
+;; the "set" builtin: show or set environment variables of parent job
+;;
+;; As all builtins do, must return job status.
+(define (builtin-set job prog-and-args options)
+  (assert-string-list? 'builtin-set prog-and-args)
+  (let ((parent (job-parent job)))
+    (cond
+      ((null? (cdr prog-and-args))
+        (%env-display-all parent))
+      ((null? (cddr prog-and-args))
+        (let* ((name (cadr prog-and-args))
+               (val  (sh-env-ref parent name #f)))
+          (if val
+            (let ((wbuf (bytespan)))
+              (%env-display-var name val wbuf)
+              (fd-write/bspan! (sh-fd-stdout) wbuf)
+              (void)          ; exit successfully
+            '(exited . 1))))) ; env variable not found => fail
+      ((null? (cdddr prog-and-args))
+        (let ((name (cadr prog-and-args))
+              (val  (caddr prog-and-args)))
+          (sh-env-set! parent name val)
+          (void))) ; exit successfully
+      (#t
+        (write-builtin-error "set" "too many arguments"))))) ; returns '(exited . 1)
+
 
 
 ;; the "split-at-0" builtin: split second and subsequent strings of a command line at each #\nul

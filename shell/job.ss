@@ -65,7 +65,7 @@
     (rnrs mutable-pairs)
     (only (chezscheme) append! break console-output-port console-error-port
                        debug-condition display-condition foreign-procedure format fx1+ fx1-
-                       include inspect logand logbit? make-format-condition
+                       hashtable-cells include inspect logand logbit? make-format-condition
                        open-fd-output-port parameterize procedure-arity-mask record-writer reverse!
                        string-copy! string-truncate! define void)
     (schemesh bootstrap)
@@ -592,11 +592,12 @@
     (hashtable-set! bt "global"     builtin-global)
     (hashtable-set! bt "jobs"       builtin-jobs)
     (hashtable-set! bt "pwd"        builtin-pwd)
+    (hashtable-set! bt "set"        builtin-set)
     (hashtable-set! bt "split-at-0" builtin-split-at-0)
     (hashtable-set! bt "unalias"    builtin-unalias)
     (hashtable-set! bt "unsafe"     builtin-unsafe)
 
-    (list-iterate '("alias" "cd" "echo" "echo0" "error" "false" "jobs" "history" "pwd" "true" "unalias")
+    (list-iterate '("alias" "cd" "echo" "echo0" "error" "false" "jobs" "history" "pwd" "set" "true" "unalias")
       (lambda (name)
         (let ((builtin (hashtable-ref bt name #f)))
           (when builtin

@@ -231,7 +231,7 @@ static ptr c_get_cwd(void) {
  * close-on-exec file descriptor for our tty.
  *
  * Scheme code assumes it is == c_fd_open_max() - 1
- * if c_tty_init() is succesful.
+ * if c_tty_init() is successful.
  */
 static int tty_fd = -1;
 

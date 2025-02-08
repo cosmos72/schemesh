@@ -134,7 +134,7 @@
         (when (fx>=? (bytespan-length wbuf) 4096)
           (fd-write/bspan! fd wbuf))))
     (fd-write/bspan! fd wbuf)
-    (void))) ; return (void), means builtin exited succesfully
+    (void))) ; return (void), means builtin exited successfully
 
 
 (define (show-alias name)

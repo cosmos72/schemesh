@@ -112,7 +112,7 @@
 
 
 ;; Set ONLY the visibility of an environment variable for specified job to 'export or 'private
-;; Return #t if succesful, or #f if the variable was not found or has been deleted.
+;; Return #t if successful, or #f if the variable was not found or has been deleted.
 (define (sh-env-visibility-set! job-or-id name visibility)
   (assert* 'sh-env-visibility! (string? name))
   (assert* 'sh-env-visibility! (memq visibility '(export private)))
@@ -225,7 +225,7 @@
 
 
 
-;; Return a copy of job's environment variables,
+;; Return a hashtable containing a copy of job's environment variables,
 ;; including default variables inherited from parent jobs.
 ;; Argument which must be one of:
 ;;   'export: only exported variables are returned.
