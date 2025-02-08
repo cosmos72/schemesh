@@ -5,10 +5,6 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;  define Scheme type "span", a resizeable vector  ;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 
 (library (schemesh containers sort (0 7 3))
   (export
@@ -16,7 +12,7 @@
   (import
     (rnrs)
     (only (chezscheme) eval-when format fx1+ fx1- fxarithmetic-shift-right logbit?
-                       mutable-vector? optimize-level pariah procedure-arity-mask void)
+                       mutable-vector? optimize-level pariah procedure-arity-mask define void)
     ;;(only (schemesh bootstrap) assert*)
     (schemesh containers span))
 
@@ -50,7 +46,7 @@
 
 
 ;; sort the two vector elements at x0, x0+1
-(define (%vector-range-sort/2! is<? v x0)
+(define (%vector-sort/2! is<? v x0)
     (let ((e0 (vector-ref v x0))
           (e1 (vector-ref v (fx1+ x0))))
       (when (is<? e1 e0)
@@ -60,7 +56,7 @@
 
 
 ;; sort the three vector elements at x0, x0+1, x0+2
-(define (%vector-range-sort/3! is<? v x0)
+(define (%vector-sort/3! is<? v x0)
   (let* ((x1 (fx1+ x0))
          (x2 (fx+ x0 2))
          (e0 (vector-ref v x0))
@@ -102,7 +98,7 @@
 
 
 ;; sort the four vector elements at x0, x0+1, x0+2, x0+3
-(define (%vector-range-sort/4! is<? v x0)
+(define (%vector-sort/4! is<? v x0)
   (let* ((x1 (fx1+ x0))
          (x2 (fx+ x0 2))
          (x3 (fx+ x0 3))
@@ -128,7 +124,7 @@
 ;; sort the three vector elements at start, (avg start end), (fx1- end)
 ;; move them into positions start, (fx- end 2), (fx1- end)
 ;; and return middle value
-(define (%vector-range-sort/pivot! is<? v start end)
+(define (%vector-sort/pivot! is<? v start end)
   (let* ((x0 start)
          (x2 (fx1- end))
          (xp (fx1- x2))
@@ -175,8 +171,8 @@
 
 
 (define (%vector-partition is<? v start end)
-  ;; (%vector-range-sort/pivot!) already partitions first and last element
-  (let ((pivot  (%vector-range-sort/pivot! is<? v start end))
+  ;; (%vector-sort/pivot!) already partitions first and last element
+  (let ((pivot  (%vector-sort/pivot! is<? v start end))
         (end-2  (fx- end 2)))
     (let %loop ((lo (fx1+ start))
                 (hi (fx1- end-2)))
@@ -192,20 +188,20 @@
 
 
 
-(define (%vector-range-sort! is<? v start end)
-  ; (debugf "%vector-range-sort! start=~s end=~s v=~s" start end v)
+(define (%vector-sort! is<? v start end)
+  ; (debugf "%vector-sort! start=~s end=~s v=~s" start end v)
   (let ((n (fx- end start)))
     (cond
       ((fx>? n 4)
         (let ((partition-i (%vector-partition is<? v start end)))
-          (%vector-range-sort! is<? v start              partition-i)
-          (%vector-range-sort! is<? v (fx1+ partition-i) end)))
+          (%vector-sort! is<? v start              partition-i)
+          (%vector-sort! is<? v (fx1+ partition-i) end)))
       ((fx=? n 4)
-        (%vector-range-sort/4! is<? v start))
+        (%vector-sort/4! is<? v start))
       ((fx=? n 3)
-        (%vector-range-sort/3! is<? v start))
+        (%vector-sort/3! is<? v start))
       ((fx=? n 2)
-        (%vector-range-sort/2! is<? v start))
+        (%vector-sort/2! is<? v start))
       (#t
         (void)))))
 
@@ -224,7 +220,7 @@
       (assert* 'vector-sort*! (fixnum? start))
       (assert* 'vector-sort*! (fixnum? end))
       (assert* 'vector-sort*! (fx<=? 0 start end (vector-length v)))
-      (%vector-range-sort! is<? v start end))))
+      (%vector-sort! is<? v start end))))
 
 
 (define span-sort!
@@ -241,7 +237,7 @@
       (assert* 'span-sort! (fixnum? end))
       (assert* 'span-sort! (fx<=? 0 start end (span-length sp)))
       (let ((beg (span-peek-beg sp)))
-        (%vector-range-sort! is<? (span-peek-data sp) (fx+ beg start) (fx+ beg end))))))
+        (%vector-sort! is<? (span-peek-data sp) (fx+ beg start) (fx+ beg end))))))
 
 
 
