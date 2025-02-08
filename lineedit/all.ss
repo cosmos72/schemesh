@@ -14,7 +14,7 @@
     charhistory charhistory? make-charhistory
     charhistory-empty? charhistory-length charhistory-ref/cow charhistory-iterate
     charhistory-find/starts-with charhistory-rfind/starts-with
-    charhistory-erase-consecutive-empty-charlines-before!
+    charhistory-erase-empty-lines!
     charhistory-set*! charhistory-path charhistory-path-set!
 
     ; charhistory-io.ss

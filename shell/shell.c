@@ -112,19 +112,11 @@ int schemesh_load_libraries(const char* override_library_dir) {
 }
 
 void schemesh_import_minimal_libraries(void) {
-  schemesh_eval("(import (schemesh shell) (schemesh repl))\n");
+  schemesh_eval("(import (schemesh minimal))\n");
 }
 
 void schemesh_import_all_libraries(void) {
-  schemesh_eval("(import\n"
-                "  (schemesh bootstrap)\n"
-                "  (schemesh containers)\n"
-                "  (schemesh conversions)\n"
-                "  (schemesh lineedit)\n"
-                "  (schemesh parser)\n"
-                "  (schemesh posix)\n"
-                "  (schemesh shell)\n"
-                "  (schemesh repl))\n");
+  schemesh_eval("(import (schemesh all))\n");
 }
 
 void schemesh_init(const char* override_boot_dir, void (*on_scheme_exception)(void)) {

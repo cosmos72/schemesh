@@ -202,7 +202,7 @@
     (linectx-history-index-set! lctx (fxmax 0 y (fx1- (charhistory-length hist))))
     (let* ((screen (linectx-vscreen lctx))
            (lines (linectx-to-history* lctx)))
-      (charhistory-erase-consecutive-empty-charlines-before! hist (charhistory-length hist))
+      (charhistory-erase-empty-lines! hist (charhistory-length hist))
       (linectx-history-index-set! lctx (charhistory-length hist))
       (linectx-clear! lctx) ;; clear vscreen
       lines)))
