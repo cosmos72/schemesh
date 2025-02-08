@@ -222,7 +222,7 @@
                     (job-make-c-redirect-vector c)
                     (sh-env->argv c 'export))))
         ; (c-exec-cmd) returns only if it failed
-        (cons 'exited (if (integer? ret) ret -1))))))
+        (cons 'exited (if (and (integer? ret) (not (zero? ret))) ret -1))))))
 
 
 ;; internal function called by (spawn-cmd)

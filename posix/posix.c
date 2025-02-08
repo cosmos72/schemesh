@@ -1256,27 +1256,34 @@ static int c_cmd_spawn_or_exec(ptr vector_of_bytevector0_cmdline,
                                int is_spawn) {
 
   char** argv = vector_to_c_argz(vector_of_bytevector0_cmdline);
-  char** envp = vector_to_c_argz(vector_of_bytevector0_environ);
-  int    pid;
-  if (!argv || (!envp && Svectorp(vector_of_bytevector0_environ))) {
-    pid = -ENOMEM;
+  char** envp = NULL;
+  int    err  = 0;
+  if (!argv) {
+    err = -ENOMEM;
     goto out;
   }
   if (!argv[0]) {
-    pid = -EINVAL;
+    err = -EINVAL;
     goto out;
+  }
+  if (!is_spawn) {
+    envp = vector_to_c_argz(vector_of_bytevector0_environ);
+    if (!envp && Svectorp(vector_of_bytevector0_environ)) {
+      err = -ENOMEM;
+      goto out;
+    }
   }
   if (bytevector0_chdir_or_false != Sfalse) {
     const octet* dir;
     iptr         dir_len;
     if (!Sbytevectorp(bytevector0_chdir_or_false)) {
-      pid = -EINVAL;
+      err = -EINVAL;
       goto out;
     }
     dir     = Sbytevector_data(bytevector0_chdir_or_false);
     dir_len = Sbytevector_length(bytevector0_chdir_or_false);
     if (dir_len <= 0 || dir[dir_len - 1] != 0) {
-      pid = -EINVAL;
+      err = -EINVAL;
       goto out;
     }
   }
@@ -1286,47 +1293,53 @@ static int c_cmd_spawn_or_exec(ptr vector_of_bytevector0_cmdline,
   fflush(stdout);
 #endif
   if (is_spawn) {
-    pid = fork();
+    err = fork();
   } else {
-    pid = 0; /* pretend we are already in the child */
+    err = 0; /* pretend we are already in the child */
   }
-  switch (pid) {
-    case -1:
-      /* error */
-      pid = c_errno();
+  switch (err) {
+    case -1: /* error */
+      err = c_errno();
       break;
-    case 0: {
-      /* child */
-      if (c_pgid_set(existing_pgid) >= 0 &&
-          c_signals_setdefault() >= 0 && /* keeps SICHLD handler, will be resetted by execv...() */
-          (bytevector0_chdir_or_false == Sfalse || c_chdir(bytevector0_chdir_or_false) >= 0) &&
-          c_fds_redirect(vector_fds_redirect, Sfalse) >= 0) {
-        if (envp) {
-          environ = envp;
+
+    case 0: /* child */
+      if (is_spawn) {
+        if ((err = c_pgid_set(existing_pgid) < 0) ||
+            /* keep SICHLD handler, will be resetted by execv...() */
+            (err = c_signals_setdefault()) < 0) {
+          goto child_out;
         }
-        if (strchr(argv[0], '/')) {
-          (void)execv(argv[0], argv);
-        } else {
-          (void)execvp(argv[0], argv);
-        }
-        /* in case or execv...() failed and returned */
-        (void)write_command_not_found(argv[0]);
-        exit(127);
       }
-      /* in case c_pgid_set() or c_chdir() or c_fds_redirect() fail */
-      exit(1);
-    }
-    default:
-      /* parent */
+      if ((bytevector0_chdir_or_false != Sfalse &&
+           (err = c_chdir(bytevector0_chdir_or_false) < 0)) ||
+          (err = c_fds_redirect(vector_fds_redirect, Sfalse)) < 0) {
+        goto child_out;
+      }
+      if (is_spawn && envp) {
+        environ = envp;
+        envp    = NULL; /* don't risk calling free(environ) */
+      }
+      if (strchr(argv[0], '/')) {
+        (void)execv(argv[0], argv);
+      } else {
+        (void)execvp(argv[0], argv);
+      }
+      /* in case or execv...() failed and returned */
+      err = c_errno();
+      (void)write_command_not_found(argv[0]);
+    child_out:
+      if (is_spawn) {
+        exit(err < 0 ? 1 : 127);
+      }
+      break;
+
+    default: /* parent */
       break;
   }
 out:
   free(argv);
   free(envp);
-  if (pid < 0) {
-    c_errno_set(-pid);
-  }
-  return pid;
+  return err;
 }
 
 /**
@@ -1345,7 +1358,7 @@ static int c_cmd_exec(ptr vector_of_bytevector0_cmdline,
                              vector_fds_redirect,
                              vector_of_bytevector0_environ,
                              -2, /* do not set pgid */
-                             0); /* is_spawn */
+                             0); /* !is_spawn */
 }
 
 /**
