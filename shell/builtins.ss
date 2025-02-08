@@ -31,6 +31,8 @@
 ;;
 ;; write contents of bytespan bsp to file descriptor fd,
 ;; then clear bytespan bsp
+;;
+;; returns (void)
 (define (fd-write/bspan! fd bsp)
   ; TODO: loop on short writes and call sh-consume-sigchld
   (fd-write fd (bytespan-peek-data bsp)

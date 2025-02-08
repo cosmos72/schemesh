@@ -117,7 +117,7 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 * at exit, save history to the same file
 * implement (include/lang)
 * implement pipeline operator |&
-* implement shell builtins: bg fg exec
+* implement shell builtins: bg fg exec export unexport global set unset
 * extend (sh-cmd* "ENV_VAR" '= "VALUE") to set environment variables in *parent* job
 * modify builtin "cd" to change current directory of *parent* job
 * modify builtin "pwd" to print current directory of *current* job
@@ -142,5 +142,5 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 * autocomplete shell paths starting with ~
 * decide: (shell-backquote) should expand to a closure that accepts a parent job and creates a subshell with such parent job?
 * implement builtin "global", for running another builtin with its parent job set to (sh-globals)
-* add missing shell builtins: kill exit export global unset
+* add missing shell builtins: kill exit source
 * implement function (string->sh-patterns)

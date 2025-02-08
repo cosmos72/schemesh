@@ -588,6 +588,7 @@
     (hashtable-set! bt "cd"         builtin-cd)
     (hashtable-set! bt "command"    builtin-command)
     (hashtable-set! bt "exec"       builtin-exec)
+    (hashtable-set! bt "export"     builtin-export)
     (hashtable-set! bt "fg"         builtin-fg)
     (hashtable-set! bt "global"     builtin-global)
     (hashtable-set! bt "jobs"       builtin-jobs)
@@ -595,6 +596,7 @@
     (hashtable-set! bt "set"        builtin-set)
     (hashtable-set! bt "split-at-0" builtin-split-at-0)
     (hashtable-set! bt "unalias"    builtin-unalias)
+    (hashtable-set! bt "unexport"   builtin-unexport)
     (hashtable-set! bt "unsafe"     builtin-unsafe)
     (hashtable-set! bt "unset"      builtin-unset)
 

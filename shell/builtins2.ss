@@ -11,6 +11,8 @@
 
 ;; write contents of bytespan wbuf to file descriptor fd,
 ;; then clear bytespan wbuf
+;;
+;; returns (void)
 (define (fd-write/bspan! fd wbuf)
   ; TODO: loop on short writes and call sh-consume-sigchld
   (fd-write fd (bytespan-peek-data wbuf)
@@ -19,6 +21,8 @@
 
 
 ;; write warning or error message to file descriptor fd.
+;;
+;; returns (void)
 (define (fd-write-strings: fd prefix strings)
   (let ((wbuf (bytespan)))
     (bytespan-insert-back/string! wbuf prefix)
@@ -85,6 +89,22 @@
   ; on success, does not return: this process does not exist anymore.
   ; on failure, returns job status
   (exec-cmd job (list->argv (cdr prog-and-args)) options))
+
+
+;; the "export" builtin: show exported environment variables,
+;; or export one or more environment variables of parent job
+;;
+;; As all builtins do, must return job status.
+(define (builtin-export job prog-and-args options)
+  (assert-string-list? 'builtin-export prog-and-args)
+  (let ((parent (job-parent job)))
+    (if (null? (cdr prog-and-args))
+      (%env-display-vars parent 'export) ; returns (void)
+      (begin
+        (list-iterate (cdr prog-and-args)
+          (lambda (name)
+            (sh-env-visibility-set! parent name 'export)))
+        (void)))))
 
 
 ;; The "bg" builtin: continue a job-id by sending SIGCONT to it, and return immediately
@@ -179,19 +199,31 @@
   (bytespan-insert-back/bvector! wbuf #vu8(39 10))) ; "'\n"
 
 
-;; display all environment variables of specified job, including private ones.
-(define (%env-display-all job)
+;; display all environment variables of specified job - either all or only exported ones.
+;; returns (void)
+(define (%env-display-vars job which)
   (let ((wbuf (bytespan))
         (fd   (sh-fd-stdout))
-        (vec  (hashtable-cells (sh-env-copy job 'all))))
-    (vector-sort! (lambda (e1 e2) (string<? (car e1) (car e2))) vec)
-    (bytespan-reserve-back! wbuf (fxmin 4096 (fx* 32 (vector-length vec))))
-    (vector-iterate vec
-      (lambda (i elem)
-        (%env-display-var (car elem) (cdr elem) wbuf)
-        (when (fx>=? (bytespan-length wbuf) 4096)
-          (fd-write/bspan! fd wbuf))))
-    (fd-write/bspan! fd wbuf)))
+        (vec  (hashtable-cells (sh-env-copy job which))))
+    (unless (fxzero? (vector-length vec))
+      (vector-sort! (lambda (e1 e2) (string<? (car e1) (car e2))) vec)
+      (bytespan-reserve-back! wbuf (fxmin 4096 (fx* 32 (vector-length vec))))
+      (vector-iterate vec
+        (lambda (i elem)
+          (%env-display-var (car elem) (cdr elem) wbuf)
+          (when (fx>=? (bytespan-length wbuf) 4096)
+            (fd-write/bspan! fd wbuf))))
+      (when (eq? 'export which)
+        (bytespan-insert-back/bvector! wbuf #vu8(101 120 112 111 114 116)) ; "export"
+        (vector-iterate vec
+          (lambda (i elem)
+            (bytespan-insert-back/u8! wbuf 32)   ; " "
+            (bytespan-insert-back/string! wbuf (car elem))
+            (when (fx>=? (bytespan-length wbuf) 4096)
+              (fd-write/bspan! fd wbuf))))
+        (bytespan-insert-back/u8! wbuf 10))       ; "\n"
+      (fd-write/bspan! fd wbuf)))
+  (void))
 
 
 ;; the "set" builtin: show environment variable(s),
@@ -203,7 +235,7 @@
   (let ((parent (job-parent job)))
     (cond
       ((null? (cdr prog-and-args))
-        (%env-display-all parent))
+        (%env-display-vars parent 'all))
       ((null? (cddr prog-and-args))
         (let* ((name (cadr prog-and-args))
                (val  (sh-env-ref parent name #f)))
@@ -235,6 +267,18 @@
                        ;; split after each #\nul the second and subsequent arguments
                       (string-list-split-after-nuls (cddr prog-and-args)))))
       (start-command-or-builtin-or-alias-from-another-builtin job args options))))
+
+
+;; the "unexport" builtin: unexport zero or more environment variables of parent job
+;;
+;; As all builtins do, must return job status.
+(define (builtin-unexport job prog-and-args options)
+  (assert-string-list? 'builtin-unexport prog-and-args)
+  (let ((parent (job-parent job)))
+    (list-iterate (cdr prog-and-args)
+      (lambda (name)
+        (sh-env-visibility-set! parent name 'private))))
+  (void))
 
 
 ;; the "unsafe" builtin: run whatever command, builtin or alias is in the remaining command line.
