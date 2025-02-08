@@ -607,8 +607,67 @@
       (lambda (name)
         (let ((builtin (hashtable-ref bt name #f)))
           (when builtin
-            (hashtable-set! ft builtin #t)))))))
+            (hashtable-set! ft builtin #t))))))
 
 
+  (let ((t (sh-builtins-help)))
+
+    (hashtable-set! t "alias"   (string->utf8 " [name [expansion ...]]\
+\n    define or display aliases.\
+\n\
+\n    without arguments,          'alias' writes the list of defined aliases to standard output.\
+\n    with a single argument,     'alias NAME' writes the definition of alias 'name' to standard output.\
+\n    with two or more arguments, 'alias NAME EXPANSION ...' defines an alias NAME such that,\
+\n                                 when NAME ARGS ... executed, it is substituted with EXPANSION ... ARGS ...\
+\n\
+\n    return success, unless 'alias NAME' is executed and no such alias is defined.\n"))
+
+    (hashtable-set! t "bg"      (string->utf8 " job-id\
+\n    move a job to the background.\
+\n    return success if job-id was found, otherwise return failure.\n"))
+
+    (hashtable-set! t "builtin" (string->utf8 " [builtin-name [arg ...]]\
+\n    execute a builtin with specified arguments.\
+\n\
+\n    useful if BUILTIN-NAME has been shadowed by an alias with the same name.\
+\n\
+\n    return exit status of executed builtin, or failure if no such builtin was found.\n"))
+
+    (hashtable-set! t "cd"      (string->utf8 " [dir]\
+\n    change the current directory.\
+\n\
+\n    without arguments, 'cd' sets the current directory to the value of HOME environment variable.\
+\n    with one argument, 'cd DIR' sets the current directory to to DIR.\
+\n\
+\n    return success if the directory is successfully changed, otherwise return failure.\n"))
+
+    (hashtable-set! t "command" (string->utf8 " [command-name [arg ...]]\
+\n    execute a command with specified arguments.\
+\n\
+\n    useful if COMMAND-NAME has been shadowed by an alias or by a builtin with the same name.\
+\n\
+\n    return exit status of executed command, or failure if no such command was found.\n"))
+
+    (hashtable-set! t "exec" (string->utf8 " [cmd [arg ...]]\n    TBD\n"))
+    (hashtable-set! t "exit" (string->utf8 " [number ...]\n    TBD\n"))
+    (hashtable-set! t "export" (string->utf8 " [var ...]\n    TBD\n"))
+
+    (hashtable-set! t "fg"      (string->utf8 " job-id\
+\n    move a job to the foreground.\
+\n    return success if job-id was found, otherwise return failure.\n"))
+
+    (hashtable-set! t "global"     (string->utf8 " [cmd ...]\n    TBD\n"))
+    (hashtable-set! t "jobs"       (string->utf8 "\n    write jobs and their status to standard output. return success.\n"))
+    (hashtable-set! t "pwd"        (string->utf8 " [job-id]\n    TBD\n"))
+    (hashtable-set! t "set"        (string->utf8 " [var [value]]\n    TBD\n"))
+    (hashtable-set! t "split-at-0" (string->utf8 " cmd [arg ...]\n    TBD\n"))
+    (hashtable-set! t "unalias"    (string->utf8 " [name ...]\n    TBD\n"))
+    (hashtable-set! t "unexport"   (string->utf8 " [var ...]\n    TBD\n"))
+    (hashtable-set! t "unsafe"     (string->utf8 " [cmd ...]\n    TBD\n"))
+    (hashtable-set! t "unset"      (string->utf8 " [var ...]\n    TBD\n"))
+
+  )
+
+) ; close begin
 
 ) ; close library

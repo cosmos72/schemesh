@@ -10,12 +10,12 @@
 ;; this is done by setting the top-level symbol sh-persistent-parameters
 ;; only if it's not bound yet, and by retrieving its value if it's bound.
 
-(library (schemesh bootstrap parameters)
-  (export sh-make-parameter sh-make-thread-parameter)
+(library (schemesh bootstrap parameters (0 7 3))
+  (export
+       sh-make-parameter sh-make-thread-parameter sh-version)
   (import
     (rnrs)
-    (only (chezscheme)
-                       interaction-environment top-level-bound? top-level-value)
+    (only (chezscheme)  interaction-environment top-level-bound? top-level-value)
     (schemesh bootstrap raise))
 
 
@@ -39,6 +39,10 @@
         (top-level-value 'make-thread-parameter)
         sh-make-parameter))
 
+
+;; return schemesh version
+(define (sh-version)
+  (list 0 7 3))
 
 
 ) ; close library

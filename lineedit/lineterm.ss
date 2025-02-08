@@ -7,7 +7,8 @@
 
 (library (schemesh lineedit lineterm (0 7 3))
   (export
-    lineterm-write/u8 lineterm-write/bvector lineterm-write/bspan lineterm-write/cspan lineterm-write/cbuffer
+    lineterm-write/u8
+    lineterm-write/bvector lineterm-write/bspan lineterm-write/cspan lineterm-write/cbuffer lineterm-write/string
     lineterm-move-dx lineterm-move-dy lineterm-move-to-bol lineterm-clear-to-eol lineterm-clear-to-eos
     lineterm-move lineterm-move-from lineterm-move-to lineterm-write-not-bol-marker)
 
@@ -52,6 +53,11 @@
        (pos start (fx1+ pos)))
       ((fx>=? pos end))
     (bytespan-insert-back/char! wbuf (chargbuffer-ref cgb pos))))
+
+;; write given string to wbuf
+(define (lineterm-write/string ctx str)
+  (bytespan-insert-back/string! (linectx-wbuf ctx) str))
+
 
 ;; Move tty cursor horizontally.
 ;; If dx > 0, send escape sequence "move cursor right by dx".

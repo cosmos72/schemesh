@@ -89,7 +89,7 @@ static const testcase tests[] = {
     {"(string-range<? \"abcdef\" 1 5 \"_abxyef\" 2 4))\n", "#t"},
     /* ----------------- containers/sort ------------------------------------ */
     {"(let ((v (vector 9 8 7 6 5 4 3 2 1 0)))\n"
-     "  (vector-range-sort! fx<? v 1 9)\n"
+     "  (vector-sort*! fx<? v 1 9)\n"
      "  v)",
      "#(9 1 2 3 4 5 6 7 8 0)"},
     /* ----------------- bytevector/utf8 ------------------------------------ */

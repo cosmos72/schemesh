@@ -102,7 +102,7 @@
     write-charlines
 
     ; sort.ss
-    span-range-sort! span-sort! vector-range-sort!
+    span-sort! vector-sort*!
 
     ; utils.ss
     bytevector-ref/utf8b bytevector-set/utf8b! char->utf8b-length

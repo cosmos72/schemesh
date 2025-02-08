@@ -6,24 +6,25 @@
 ;;; (at your option) any later version.
 
 (library (schemesh shell builtins (0 7 3))
-  (export sh-builtins sh-find-builtin sh-exception-handler
-          sh-echo sh-error sh-false sh-history sh-repl-args sh-repl-args-linectx sh-true)
+  (export sh-builtins sh-builtins-help sh-find-builtin sh-exception-handler
+          sh-echo sh-error sh-false sh-help sh-history sh-repl-args sh-repl-args-linectx sh-true)
   (import
     (rnrs)
     (only (chezscheme)        console-error-port debug debug-condition debug-on-exception
                                  display-condition reset-handler void)
-    (only (schemesh bootstrap)      sh-make-thread-parameter raise-errorf while)
+    (only (schemesh bootstrap)     raise-errorf sh-make-thread-parameter sh-version while)
     (schemesh containers bytespan)
     (only (schemesh containers charlines) charlines-iterate)
     (only (schemesh containers gbuffer)   gbuffer-iterate)
     (only (schemesh containers hashtable) hashtable-iterate)
     (only (schemesh containers misc)      assert-string-list? list-iterate string-contains-only-decimal-digits?)
-    (only (schemesh containers sort)      span-sort!)
-    (only (schemesh containers span)      span span-insert-back! span-iterate)
+    (only (schemesh containers sort)      vector-sort*!)
+    (only (schemesh containers span)      span span-insert-back! span-iterate vector->span*)
     (schemesh containers utils)
     (only (schemesh posix fd)             fd-write)
     (schemesh lineedit charhistory)
-    (only (schemesh lineedit linectx)     linectx? linectx-history)
+    (only (schemesh lineedit linectx)     linectx? linectx-history linectx-wbuf)
+    (only (schemesh lineedit lineedit)    lineedit-display-table lineedit-flush)
     (only (schemesh shell fds)            sh-fd-stdout sh-fd-stderr))
 
 
@@ -144,27 +145,72 @@
   '(exited . 1))
 
 
-;; ;; implementation of "history" builtin, lists previous commands saved to history
-(define (sh-history)
-  (let ((lctx (sh-repl-args-linectx))
-        (fd   (sh-fd-stdout)))
-    ; (debugf "sh-history ~s" lctx)
-    (if (linectx? lctx)
-      (let ((wbuf (make-bytespan 0)))
-        (gbuffer-iterate (linectx-history lctx)
-          (lambda (i lines)
-            (bytespan-insert-back/u8! wbuf 32) ; space
-            (bytespan-display-back/fixnum! wbuf i)
-            (bytespan-insert-back/u8! wbuf 9) ; tab
-            (charlines-iterate lines
-              (lambda (j line)
-                (bytespan-insert-back/cbuffer! wbuf line)))
-            (bytespan-insert-back/u8! wbuf 10) ; newline
-            (when (fx>=? (bytespan-length wbuf) 4096)
-              (fd-write/bspan! fd wbuf))))
-        (fd-write/bspan! fd wbuf)
-        (void)) ; return (void), means builtin exited successfully
-      '(exited . 1))))
+;; implementation of "help" builtin, display general help or help for specified builtin.
+(define sh-help
+  (case-lambda
+    (()
+      (let* ((lctx (sh-repl-args-linectx))
+             (wbuf (linectx-wbuf lctx)))
+        (bytespan-insert-back/string! wbuf "schemesh version")
+        (let ((version (sh-version)))
+          (do ((l version (cdr l)))
+              ((null? l))
+            (bytespan-insert-back/u8! wbuf (if (eq? l version) 32 46))
+            (bytespan-display-back/fixnum! wbuf (car l))))
+        ; (bytespan-insert-back/string! wbuf " Copyright (C) 2023-2035 Massimiliano Ghilardi <https://github.com/cosmos72/schemesh>\n\n")
+        ; (bytespan-insert-back/string! wbuf "schemesh comes with ABSOLUTELY NO WARRANTY; for details type 'help warranty'.\n")
+        ; (bytespan-insert-back/string! wbuf "  This is free software, and you are welcome to redistribute it\n")
+        ; (bytespan-insert-back/string! wbuf "  under certain conditions; type 'help copyright' for details.\n\n")
+        (bytespan-insert-back/string! wbuf "\n\nType 'help' to display this text. Type 'help name' for help about the builtin 'name'.\n")
+        (bytespan-insert-back/string! wbuf "The following names are recognized as builtins:\n\n")
+        (let ((names (hashtable-keys (sh-builtins))))
+          (vector-sort*! string<? names)
+          (lineedit-display-table lctx (vector->span* names)))
+        (lineedit-flush lctx)
+        (void)))
+    ((name)
+      (let ((wbuf (bytespan))
+            (help-bvector (hashtable-ref (sh-builtins-help) name #f)))
+        (if help-bvector
+          (begin
+            (bytespan-insert-back/string!  wbuf name)
+            (bytespan-insert-back/bvector! wbuf help-bvector)
+            (fd-write/bspan! (sh-fd-stdout) wbuf)
+            (void))
+          (begin
+            (bytespan-insert-back/string! wbuf "schemesh: help: no help for builtin '")
+            (bytespan-insert-back/string! wbuf name)
+            (bytespan-insert-back/string! wbuf "'. Try 'help' or 'help help'.\n")
+            (fd-write/bspan! (sh-fd-stdout) wbuf)
+            '(exited . 1)))))))
+
+
+
+
+;; implementation of "history" builtin, display previous commands saved to history.
+(define sh-history
+  (case-lambda
+    (()
+      (sh-history (sh-repl-args-linectx)))
+    ((lctx)
+      (let ((fd   (sh-fd-stdout)))
+        ; (debugf "sh-history ~s" lctx)
+        (if (linectx? lctx)
+          (let ((wbuf (make-bytespan 0)))
+            (gbuffer-iterate (linectx-history lctx)
+              (lambda (i lines)
+                (bytespan-insert-back/u8!      wbuf 32) ; space
+                (bytespan-display-back/fixnum! wbuf i)
+                (bytespan-insert-back/u8!      wbuf 9) ; tab
+                (charlines-iterate lines
+                  (lambda (j line)
+                    (bytespan-insert-back/cbuffer! wbuf line)))
+                (bytespan-insert-back/u8! wbuf 10) ; newline
+                (when (fx>=? (bytespan-length wbuf) 4096)
+                  (fd-write/bspan! fd wbuf))))
+            (fd-write/bspan! fd wbuf)
+            (void)) ; return (void), means builtin exited successfully
+          '(exited . 1))))))
 
 
 ;; implementation of "true" builtin, always exits successfully i.e. with exit status (void)
@@ -207,6 +253,16 @@
   (sh-false))
 
 
+;; the "help" builtin: write help, or help for specified builtin, to (sh-fd-stdout).
+;;
+;; As all builtins do, must return job status.
+(define (builtin-help job prog-and-args options)
+  (assert-string-list? 'builtin-help prog-and-args)
+  (if (null? (cdr prog-and-args))
+    (sh-help)
+    (sh-help (cadr prog-and-args))))
+
+
 ;; the "history" builtin: write current history to (sh-fd-stdout).
 ;;
 ;; As all builtins do, must return job status.
@@ -239,7 +295,7 @@
 ;;   a job (actually a cmd)
 ;;   a prog-and-args i.e. a list of strings containing the builtin name and its arguments
 ;;   a list of options
-;; and must execute the builtin then return its exit status
+;; and must execute the builtin then return its exit status.
 (define sh-builtins
   (let ((t (make-hashtable string-hash string=?)))
     (hashtable-set! t ":"       builtin-true)
@@ -247,8 +303,24 @@
     (hashtable-set! t "echo0"   builtin-echo0)
     (hashtable-set! t "error"   builtin-error)
     (hashtable-set! t "false"   builtin-false)
+    (hashtable-set! t "help"    builtin-help)
     (hashtable-set! t "history" builtin-history)
     (hashtable-set! t "true"    builtin-true)
+    (lambda () t)))
+
+
+;; function returning the global hashtable name -> help text for builtin.
+;; Each help text must be a bytevector starting with byte 32 i.e. space and ending with byte 10 i.e. newline.
+(define sh-builtins-help
+  (let ((t (make-hashtable string-hash string=?)))
+    (hashtable-set! t ":"       (string->utf8 " [arg ...]\n    ignore arguments. return success i.e. (void).\n"))
+    (hashtable-set! t "echo"    (string->utf8 " [arg ...]\n    write space-separated arguments to standard output, followed by a single newline.\n    return success.\n"))
+    (hashtable-set! t "echo0"   (string->utf8 " [arg ...]\n    write nul-terminated arguments to standard output. return success.\n"))
+    (hashtable-set! t "error"   (string->utf8 " [number ...]\n    return numeric value specified as first argument, or failure i.e. '(exited . 1) if no arguments.\n"))
+    (hashtable-set! t "false"   (string->utf8 " [arg ...]\n    ignore arguments. return failure i.e. '(exited . 1).\n"))
+    (hashtable-set! t "help"    (string->utf8 " [name]\n    display available builtins, or help about builtin 'name'.\n    return success, or failure if builtin 'name' is not found.\n"))
+    (hashtable-set! t "history" (string->utf8 " [arg ...]\n    ignore arguments, write history to standard output. return success.\n"))
+    (hashtable-set! t "true"    (hashtable-ref t ":" ""))
     (lambda () t)))
 
 ) ; close library

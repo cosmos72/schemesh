@@ -177,13 +177,13 @@
       (%lineedit-update-with-completions lctx))))
 
 
-(define %linectx-confirm-display-completions?
+(define %linectx-confirm-display-table?
   (let ((header (string->utf8 "; display all "))
         (footer (string->utf8 " possibilities? (y or n) ")))
-    (lambda (lctx completions-n)
+    (lambda (lctx table-n)
       (let ((wbuf (linectx-wbuf lctx)))
         (bytespan-insert-back/bvector! wbuf header)
-        (bytespan-display-back/fixnum! wbuf completions-n)
+        (bytespan-display-back/fixnum! wbuf table-n)
         (bytespan-insert-back/bvector! wbuf footer)
         (lineedit-flush lctx)
         (let ((ok? (lineedit-read-confirm-y-or-n? lctx)))
@@ -192,99 +192,134 @@
 
 
 (define (%lineedit-update-with-completions lctx)
-  (let* ((stem          (linectx-completion-stem lctx))
-         (completions   (linectx-completions lctx))
-         (completions-n (span-length completions)))
-    ; (debugf "%lineedit-update-with-completions stem=~s, completions=~s ..." stem completions)
-    (unless (fxzero? completions-n)
-      (let-values (((common-len max-len) (%lineedit-analyze-completions completions)))
-        ; (debugf "%lineedit-update-with-completions stem=~s, common-len=~s, completions=~s" stem common-len completions)
+  (let* ((stem    (linectx-completion-stem lctx))
+         (table   (linectx-completions lctx))
+         (table-n (span-length table)))
+    ; (debugf "%lineedit-update-with-completions stem=~s, table=~s ..." stem table)
+    (unless (fxzero? table-n)
+      (let-values (((common-len max-len) (%table-analyze table)))
+        ; (debugf "%lineedit-update-with-completions stem=~s, common-len=~s, table=~s" stem common-len table)
         (cond
           ((not (fxzero? common-len))
             ; insert common prefix of all completions
-            (let ((completion-0 (span-ref completions 0)))
-              (linectx-insert/cspan! lctx completion-0 0 common-len)
-              (when (and (fx=? 1 completions-n)
-                         (not (char=? #\/ (charspan-ref completion-0 (fx1- common-len)))))
+            (let ((elem-0 (span-ref table 0)))
+              (linectx-insert/cspan! lctx elem-0 0 common-len)
+              (when (and (fx=? 1 table-n)
+                         (not (char=? #\/ (charspan-ref elem-0 (fx1- common-len)))))
                 (linectx-insert/char! lctx #\space))))
-          ((fx>? completions-n 1)
+          ((fx>? table-n 1)
             ; erase prompt and lines (also sets flag "redraw prompt and lines"),
-            ; then list all possible completions
+            ; then list all possible table
             (lineedit-undraw lctx)
-            (let ((column-width (fx+ 2 (fx+ max-len (charspan-length stem)))))
-              (let-values (((column-n row-n) (%lineedit-completions-column-n-row-n lctx completions-n column-width)))
-                (when (or (%lineedit-completions-fit-vscreen? lctx column-n row-n)
-                          (%linectx-confirm-display-completions? lctx completions-n))
-                  (%lineedit-print-completion-table lctx stem completions column-width column-n row-n))))))))))
+            (lineedit-display-table lctx stem table max-len 'ask-if-large 'display-dashes)))))))
 
 
-;; analyze completions, and return two values:
-;;  the length of longest common prefix among completions,
-;;  and the length of longest completion
-(define (%lineedit-analyze-completions completions)
-  (let* ((completion-0 (span-ref completions 0))
-         (completion   (if (charspan? completion-0) completion-0 (charspan)))
-         (common-len   (charspan-length completion))
+(define lineedit-display-table
+  (case-lambda
+    ((lctx table)
+      (lineedit-display-table lctx (charspan) table (%table-max-len table)))
+    ((lctx stem table max-len . options)
+      (let ((column-width (fx+ 2 (fx+ max-len (charspan-length stem))))
+            (table-n      (span-length table)))
+        (let-values (((column-n row-n) (%lineedit-table-column-n-row-n lctx table-n column-width)))
+          (when (or (not (memq 'ask-if-large options))
+                    (%lineedit-table-fit-vscreen? lctx column-n row-n)
+                    (%linectx-confirm-display-table? lctx table-n))
+            (%lineedit-display-table lctx stem table column-width column-n row-n options)))))))
+
+
+;; analyze table, and return the length of longest element
+(define (%table-max-len table)
+  (let %loop ((i   0)
+              (n   (span-length table))
+              (len 0))
+    (if (fx<? i n)
+      (let ((elem (span-ref table i)))
+        (%loop (fx1+ i) n
+          (cond
+            ((string? elem)   (fxmax len (string-length elem)))
+            ((charspan? elem) (fxmax len (charspan-length elem)))
+            (#t               len))))
+      len)))
+
+
+;; analyze table, and return two values:
+;;  the length of longest common prefix among table,
+;;  and the length of longest elem
+(define (%table-analyze table)
+  (let* ((elem-0 (span-ref table 0))
+         (elem   (if (charspan? elem-0) elem-0 (charspan)))
+         (common-len   (charspan-length elem))
          (max-len      common-len))
-    (do ((n (span-length completions))
+    (do ((n (span-length table))
          (i 1 (fx1+ i)))
         ((fx>=? i n)
          (values common-len max-len))
-      (let ((completion-i (span-ref completions i)))
-        (when (charspan? completion-i) ; sanity
-          ; (debugf "... %lineedit-analyze-completions stem-len = ~s, completion-i = ~s ... " stem-len completion-i)
-          (let* ((completion-i-len (charspan-length completion-i))
+      (let ((elem-i (span-ref table i)))
+        (when (charspan? elem-i) ; sanity
+          ; (debugf "... %table-analyze stem-len = ~s, elem-i = ~s ... " stem-len elem-i)
+          (let* ((elem-i-len (charspan-length elem-i))
                  (common-i-len
                    (if (fxzero? common-len)
                      0
-                     (charspan-range-count= completion 0 completion-i 0 (fxmin common-len completion-i-len)))))
-            ; (debugf "... %lineedit-analyze-completions common-i-len = ~s" common-i-len)
+                     (charspan-range-count= elem 0 elem-i 0 (fxmin common-len elem-i-len)))))
+            ; (debugf "... %table-analyze common-i-len = ~s" common-i-len)
             (when (fx>? common-len common-i-len)
               (set! common-len common-i-len))
-            (when (fx<? max-len completion-i-len)
-              (set! max-len completion-i-len))))))))
+            (when (fx<? max-len elem-i-len)
+              (set! max-len elem-i-len))))))))
 
 
 ;; return two values: number of screen columns and number screen of rows
-;; needed to list completions
-(define (%lineedit-completions-column-n-row-n lctx completions-n column-width)
+;; needed to list table
+(define (%lineedit-table-column-n-row-n lctx table-n column-width)
   (let* ((screen-width  (linectx-width lctx))
          (screen-height (linectx-height lctx))
          (column-n      (fxmax 1 (fx/ screen-width column-width)))
-         (row-n         (fx//round-up completions-n column-n)))
+         (row-n         (fx//round-up table-n column-n)))
     (values column-n row-n)))
 
 
-(define (%lineedit-completions-fit-vscreen? lctx column-n row-n)
+(define (%lineedit-table-fit-vscreen? lctx column-n row-n)
   (fx<? row-n (linectx-height lctx)))
 
 
-(define (%lineedit-print-completion-table lctx stem completions column-width column-n row-n)
-  ; (debugf "%lineedit-print-completion-table stem=~s, completions=~s" stem completions)
-  (repeat (linectx-width lctx)
-    (lineterm-write/u8 lctx 45)) ; write a whole line full of #\-
-  (lineterm-write/u8 lctx 10) ; write a newline
-  (do ((completions-n (span-length completions))
+(define (%lineedit-display-table lctx stem table column-width column-n row-n options)
+  ; (debugf "%lineedit-display-table stem=~s, table=~s" stem table)
+  (when (memq 'display-dashes options)
+    (repeat (linectx-width lctx)
+      (lineterm-write/u8 lctx 45)) ; write a whole line full of #\-
+    (lineterm-write/u8 lctx 10)) ; write a newline
+  (do ((table-n (span-length table))
        (row-i 0 (fx1+ row-i)))
       ((fx>=? row-i row-n))
-    (%lineedit-print-completion-row lctx stem completions column-width column-n row-n row-i)))
+    (%lineedit-display-table-row lctx stem table column-width column-n row-n row-i)))
 
 
-(define (%lineedit-print-completion-row lctx stem completions column-width column-n row-n row-i)
-  ; (debugf "%lineedit-print-completion-row column-n=~s, row-i=~s" column-n row-i)
-  (do ((completions-n (span-length completions))
-       (completions-i row-i (fx+ row-n completions-i))
-       (column-i      0     (fx1+ column-i)))
-      ((or (fx>=? column-i column-n) (fx>=? completions-i completions-n)))
-    (%lineedit-print-completion-cell lctx stem (span-ref completions completions-i) column-width))
+(define (%lineedit-display-table-row lctx stem table column-width column-n row-n row-i)
+  ; (debugf "%lineedit-display-table-row column-n=~s, row-i=~s" column-n row-i)
+  (do ((table-n  (span-length table))
+       (table-i  row-i (fx+ row-n table-i))
+       (column-i 0     (fx1+ column-i)))
+      ((or (fx>=? column-i column-n) (fx>=? table-i table-n)))
+    (%lineedit-display-table-cell lctx stem (span-ref table table-i) column-width))
   (lineterm-write/u8 lctx 10)) ;; append newline after each row
 
 
-(define (%lineedit-print-completion-cell lctx stem completion column-width)
+(define (%lineedit-display-table-cell lctx stem elem column-width)
   (lineterm-write/cspan lctx stem)
-  (lineterm-write/cspan lctx completion)
-  (repeat (fx- column-width (fx+ (charspan-length stem) (charspan-length completion)))
-    (lineterm-write/u8 lctx 32))) ; pad with spaces
+  (let ((elem-len
+          (cond
+            ((string? elem)
+              (lineterm-write/string lctx elem)
+              (string-length elem))
+            ((charspan? elem)
+              (lineterm-write/cspan lctx elem)
+              (charspan-length elem))
+            (#t
+              0))))
+    (repeat (fx- column-width (fx+ (charspan-length stem) elem-len))
+      (lineterm-write/u8 lctx 32)))) ; pad with spaces
 
 
 (define (fx//round-up x1 x2)

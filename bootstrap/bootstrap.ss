@@ -5,14 +5,14 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh bootstrap)
+(library (schemesh bootstrap (0 7 3))
   (export
       ;; assert.ss
       raise-assert0 raise-assert1 raise-assert2 raise-assert3 raise-assert4 raise-assert5
       raise-assertf raise-assertl raise-errorf
 
       ;; parameters.ss
-      sh-make-parameter sh-make-thread-parameter
+      sh-make-parameter sh-make-thread-parameter sh-version
 
       ;; bootstrap.ss
       assert* catch define-macro debugf debugf-port first-value first-value-or-void let-macro

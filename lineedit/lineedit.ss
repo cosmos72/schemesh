@@ -11,7 +11,7 @@
     lineedit-undraw
 
     ;; lineedit.ss
-    lineedit-clear!
+    lineedit-clear!     lineedit-display-table
     lineedit-lines-set! lineedit-insert/rbuf!
     lineedit-key-nop lineedit-key-left lineedit-key-right lineedit-key-up lineedit-key-down
     lineedit-key-word-left lineedit-key-word-right lineedit-key-bol lineedit-key-eol

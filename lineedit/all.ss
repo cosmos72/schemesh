@@ -43,7 +43,7 @@
     linectx-default-keytable linectx-keytable-find linectx-keytable-insert!
 
     ; lineedit.ss
-    lineedit-clear!
+    lineedit-clear!     lineedit-display-table
     lineedit-lines-set! lineedit-insert/rbuf!
     lineedit-key-nop lineedit-key-left lineedit-key-right lineedit-key-up lineedit-key-down
     lineedit-key-word-left lineedit-key-word-right lineedit-key-bol lineedit-key-eol
@@ -58,7 +58,8 @@
     lineedit-read lineedit-read-confirm-y-or-n? lineedit-flush
 
     ; lineterm.ss
-    lineterm-write/u8 lineterm-write/bvector lineterm-write/bspan lineterm-write/cspan lineterm-write/cbuffer
+    lineterm-write/u8
+    lineterm-write/bvector lineterm-write/bspan lineterm-write/cspan lineterm-write/cbuffer lineterm-write/string
     lineterm-move-dx lineterm-move-dy lineterm-move-to-bol lineterm-clear-to-eol lineterm-clear-to-eos
     lineterm-move lineterm-move-from lineterm-move-to lineterm-write-not-bol-marker
 

@@ -12,7 +12,7 @@
 
 (library (schemesh containers sort (0 7 3))
   (export
-    span-range-sort! span-sort! vector-range-sort!)
+    span-sort! vector-sort*!) ; R6RS already defines (vector-sort!)
   (import
     (rnrs)
     (only (chezscheme) eval-when format fx1+ fx1- fxarithmetic-shift-right logbit?
@@ -210,36 +210,39 @@
         (void)))))
 
 
-(define (vector-range-sort! is<? v start end)
-  (assert* 'vector-range-sort! (procedure? is<?))
-  (assert* 'vector-range-sort! (logbit? 2 (procedure-arity-mask is<?)))
-  (assert* 'vector-range-sort! (vector? v))
-  (assert* 'vector-range-sort! (mutable-vector? v))
-  (assert* 'vector-range-sort! (fixnum? start))
-  (assert* 'vector-range-sort! (fixnum? end))
-  (assert* 'vector-range-sort! (fx<=? 0 start end (vector-length v)))
-  (%vector-range-sort! is<? v start end))
+;; do not use the name (vector-sort!), R6RS already defines it
+(define vector-sort*!
+  (case-lambda
+    ((is<? v)
+      (assert* 'vector-sort*! (vector? v))
+      (vector-sort*! is<? v 0 (vector-length v)))
+    ((is<? v start end)
+      (assert* 'vector-sort*! (procedure? is<?))
+      (assert* 'vector-sort*! (logbit? 2 (procedure-arity-mask is<?)))
+      (assert* 'vector-sort*! (vector? v))
+      (assert* 'vector-sort*! (mutable-vector? v))
+      (assert* 'vector-sort*! (fixnum? start))
+      (assert* 'vector-sort*! (fixnum? end))
+      (assert* 'vector-sort*! (fx<=? 0 start end (vector-length v)))
+      (%vector-range-sort! is<? v start end))))
 
 
-(define (span-range-sort! is<? sp start end)
-  (assert* 'span-range-sort! (procedure? is<?))
-  (assert* 'span-range-sort! (logbit? 2 (procedure-arity-mask is<?)))
-  (assert* 'span-range-sort! (span? sp))
-  (assert* 'span-range-sort! (mutable-vector? (span-peek-data sp)))
-  (assert* 'span-range-sort! (fixnum? start))
-  (assert* 'span-range-sort! (fixnum? end))
-  (assert* 'span-range-sort! (fx<=? 0 start end (span-length sp)))
-  (let ((beg (span-peek-beg sp)))
-    (%vector-range-sort! is<? (span-peek-data sp) (fx+ beg start) (fx+ beg end))))
+(define span-sort!
+  (case-lambda
+    ((is<? sp)
+      (assert* 'span-sort! (span? sp))
+      (span-sort! is<? sp 0 (span-length sp)))
+    ((is<? sp start end)
+      (assert* 'span-sort! (procedure? is<?))
+      (assert* 'span-sort! (logbit? 2 (procedure-arity-mask is<?)))
+      (assert* 'span-sort! (span? sp))
+      (assert* 'span-sort! (mutable-vector? (span-peek-data sp)))
+      (assert* 'span-sort! (fixnum? start))
+      (assert* 'span-sort! (fixnum? end))
+      (assert* 'span-sort! (fx<=? 0 start end (span-length sp)))
+      (let ((beg (span-peek-beg sp)))
+        (%vector-range-sort! is<? (span-peek-data sp) (fx+ beg start) (fx+ beg end))))))
 
-#|
-;; unnecessary, already defined in R6RS
-(define (vector-sort! is<? v)
-  (vector-range-sort! is<? v 0 (vector-length v)))
-|#
 
-(define (span-sort! is<? sp)
-  (assert* 'span-sort! (span? sp))
-  (span-range-sort! is<? sp 0 (span-length sp)))
 
 ) ; close library

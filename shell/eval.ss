@@ -18,7 +18,7 @@
     (only (schemesh containers misc)   assert-string-list? list-iterate string-ends-with? string-rfind/char)
     (only (schemesh posix fd)          fd-write)
     (schemesh parser)
-    (only (schemesh shell builtins)    sh-builtins)
+    (only (schemesh shell builtins)    sh-builtins sh-builtins-help)
     (only (schemesh shell parameters)  sh-eval)
     (only (schemesh shell fds)         sh-fd-stderr))
 
@@ -257,10 +257,15 @@
 
 
 (begin
-  (let ((bt (sh-builtins)))
+  (let ((t (sh-builtins)))
     ; additional builtins
-    (hashtable-set! bt "."          builtin-source)
-    (hashtable-set! bt "source"     builtin-source)))
+    (hashtable-set! t "."          builtin-source)
+    (hashtable-set! t "source"     builtin-source))
 
+  (let ((t (sh-builtins-help)))
+    (hashtable-set! t "."       (string->utf8 " filename\
+\n    read filename and execute the contained shell script or Scheme source code.\
+\n    return exit status of last evaluated expression.\n"))
+    (hashtable-set! t "source"  (hashtable-ref t ":" ""))))
 
 ) ; close library

@@ -24,7 +24,7 @@ Features:
 - [x] shell commands, including `&&` `||` `{` `}` `[` `]`
 - [x] shell job control
 - [x] shell aliases
-- [ ] shell builtins - in progress
+- [x] shell builtins
 - [x] shell environment variables
 - [x] shell pipelines `|` `|&`
 - [x] shell redirections `<` `>` `<>` `>>` `<&` `>&` `$()` ``` `` ```
@@ -117,7 +117,7 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 * at exit, save history to the same file
 * implement (include/lang)
 * implement pipeline operator |&
-* implement shell builtins: bg fg exec exit export unexport global set unset source
+* implement shell builtins: bg fg exec exit export unexport global help set unset source
 * extend (sh-cmd* "ENV_VAR" '= "VALUE") to set environment variables in *parent* job
 * modify builtin "cd" to change current directory of *parent* job
 * modify builtin "pwd" to print current directory of *parent* job
@@ -126,6 +126,8 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
   is not a string but a closure, as for example the output of a subshell, a wildcard etc.
 * extend builtin "alias", without arguments now lists existing aliases
 * mark and hide temporary redirections created by (sh-pipe) and (sh-pipe*)
+* improve (shell-backquote), now expands to a closure that accepts a job
+  and calls (sh-run/string-rtrim-newlines) on a new job with the same parent as the job argument
 * fix (sh-read...) exception while parsing "#!/some/absolute/path" at the beginning of input
 * fix hang in {history | foo} due to builtins being fully executed when they start:
   pipe fd becomes full and blocks further writes, preventing builtin "history" from finishing
@@ -141,6 +143,5 @@ the command `schemesh` will not suffice - you will need to run `/usr/local/bin/s
 * autocomplete shell paths and scheme strings: when autocompleting inside single or double quotes,
   the stem starts at the quotes.
 * autocomplete shell paths starting with ~
-* decide: (shell-backquote) should expand to a closure that accepts a parent job and creates a subshell with such parent job?
 * add missing shell builtins: kill
 * implement function (string->sh-patterns)
