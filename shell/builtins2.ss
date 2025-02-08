@@ -194,7 +194,8 @@
     (fd-write/bspan! fd wbuf)))
 
 
-;; the "set" builtin: show or set environment variables of parent job
+;; the "set" builtin: show environment variable(s),
+;; or set a single environment variables of parent job
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-set job prog-and-args options)
@@ -210,8 +211,8 @@
             (let ((wbuf (bytespan)))
               (%env-display-var name val wbuf)
               (fd-write/bspan! (sh-fd-stdout) wbuf)
-              (void)          ; exit successfully
-            '(exited . 1))))) ; env variable not found => fail
+              (void))          ; exit successfully
+            '(exited . 1)))) ; env variable not found => fail
       ((null? (cdddr prog-and-args))
         (let ((name (cadr prog-and-args))
               (val  (caddr prog-and-args)))
@@ -244,6 +245,18 @@
   (if (null? (cdr prog-and-args))
     (void)
     (start-command-or-builtin-or-alias-from-another-builtin job (cdr prog-and-args) options)))
+
+
+;; the "unset" builtin: delete zero or more environment variables of parent job
+;;
+;; As all builtins do, must return job status.
+(define (builtin-unset job prog-and-args options)
+  (assert-string-list? 'builtin-unset prog-and-args)
+  (let ((parent (job-parent job)))
+    (list-iterate (cdr prog-and-args)
+      (lambda (name)
+        (sh-env-delete! parent name)))
+    (void))) ; exit successfully
 
 
 ;; start a builtin and return its status.

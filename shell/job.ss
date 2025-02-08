@@ -596,8 +596,11 @@
     (hashtable-set! bt "split-at-0" builtin-split-at-0)
     (hashtable-set! bt "unalias"    builtin-unalias)
     (hashtable-set! bt "unsafe"     builtin-unsafe)
+    (hashtable-set! bt "unset"      builtin-unset)
 
-    (list-iterate '("alias" "cd" "echo" "echo0" "error" "false" "jobs" "history" "pwd" "set" "true" "unalias")
+    ;; mark builtins that finish immediately i.e. cannot run commands or aliases
+    (list-iterate '("alias" "cd" "echo" "echo0" "error" "false" "jobs"
+                    "history" "pwd" "set" "true" "unalias" "unset")
       (lambda (name)
         (let ((builtin (hashtable-ref bt name #f)))
           (when builtin

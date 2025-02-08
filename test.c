@@ -1180,7 +1180,7 @@ static const testcase tests[] = {
     {"(sh-wildcard #t \"_does_not_exist_\")", /* file does not exists => returned as string */
      "_does_not_exist_"},
     /* ------------------------- job execution ------------------------------ */
-    /* exit status */
+    /* builtins and their exit status */
     {"(sh-run (shell \"true\"))", ""},
     {"(sh-run (shell \"false\"))", "(exited . 1)"},
     {"(sh-run (shell \"echo0\"))", ""},
@@ -1193,11 +1193,13 @@ static const testcase tests[] = {
     {"(sh-run/string (shell \"echo\" \"a\"  \"b\" \"c\"))", "a b c\n"},
     {"(sh-run/string-rtrim-newlines (shell \"echo\" \" abc \"))", " abc "},
     {"(sh-run/string (shell \"FOO\" = \"abc\" \\x3B; \"echo\" (shell-env \"FOO\")))", "abc\n"},
-    /* also test that overwriting existing environment variables works */
+    {"(sh-run/string (shell \"set\" \"FOO\" \"def\" \\x3B; \"set\" \"FOO\"))", "set FOO 'def'\n"},
+    {"(sh-run/string (shell \"unset\" \"FOO\" \\x3B; \"set\" \"FOO\"))", ""},
+    /* test that overwriting existing environment variables works */
     {"(sh-run/string (shell\n"
-     "    \"FOO\" = (shell-backquote \"echo\" \"abc\") \\x3B;\n"
+     "    \"FOO\" = (shell-backquote \"echo\" \"ghijk\") \\x3B;\n"
      "    \"echo\" (shell-env \"FOO\")))\n",
-     "abc\n"},
+     "ghijk\n"},
     {"(sh-run (shell \"echo\" \"abc\" > \"DEL_ME\""
      " && \"cat\" \"DEL_ME\" > \"/dev/null\""
      " && \"rm\" \"DEL_ME\"))",
@@ -1221,7 +1223,7 @@ static const testcase tests[] = {
      "\"jkl\" \"mn\" \"o\" "
      "\"\"))))",
      "\"jkl mn o \\n\""},
-    /* run job in a subprocess */
+    /* run builtin in a subprocess */
     {"(sh-run"
      "  (sh-cmd \"false\") '(spawn? . #t))",
      "(exited . 1)"},
