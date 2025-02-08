@@ -313,14 +313,38 @@
 ;; Each help text must be a bytevector starting with byte 32 i.e. space and ending with byte 10 i.e. newline.
 (define sh-builtins-help
   (let ((t (make-hashtable string-hash string=?)))
-    (hashtable-set! t ":"       (string->utf8 " [arg ...]\n    ignore arguments. return success i.e. (void).\n"))
-    (hashtable-set! t "echo"    (string->utf8 " [arg ...]\n    write space-separated arguments to standard output, followed by a single newline.\n    return success.\n"))
-    (hashtable-set! t "echo0"   (string->utf8 " [arg ...]\n    write nul-terminated arguments to standard output. return success.\n"))
-    (hashtable-set! t "error"   (string->utf8 " [number ...]\n    return numeric value specified as first argument, or failure i.e. '(exited . 1) if no arguments.\n"))
-    (hashtable-set! t "false"   (string->utf8 " [arg ...]\n    ignore arguments. return failure i.e. '(exited . 1).\n"))
-    (hashtable-set! t "help"    (string->utf8 " [name]\n    display available builtins, or help about builtin 'name'.\n    return success, or failure if builtin 'name' is not found.\n"))
-    (hashtable-set! t "history" (string->utf8 " [arg ...]\n    ignore arguments, write history to standard output. return success.\n"))
+
+    (hashtable-set! t ":"       (string->utf8 " [arg ...]
+    ignore arguments. return success i.e. (void).\n"))
+
+    (hashtable-set! t "echo"    (string->utf8 " [arg ...]
+    write space-separated arguments to standard output, followed by a single newline.
+
+    return success.\n"))
+
+    (hashtable-set! t "echo0"   (string->utf8 " [arg ...]
+    write NUL-terminated arguments to standard output.
+
+    return success.\n"))
+
+    (hashtable-set! t "error"   (string->utf8 " [int ...]
+    return INT value specified as first argument, or failure i.e. '(exited . 1) if no arguments.\n"))
+
+    (hashtable-set! t "false"   (string->utf8 " [arg ...]
+    ignore arguments. return failure i.e. '(exited . 1).\n"))
+
+    (hashtable-set! t "help"    (string->utf8 " [name]
+    display available builtins, or help about builtin NAME.
+
+    return success, unless NAME is not found.\n"))
+
+    (hashtable-set! t "history" (string->utf8 " [arg ...]
+    ignore arguments, write history to standard output.
+
+    return success.\n"))
+
     (hashtable-set! t "true"    (hashtable-ref t ":" ""))
+
     (lambda () t)))
 
 ) ; close library

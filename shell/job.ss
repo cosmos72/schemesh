@@ -612,59 +612,134 @@
 
   (let ((t (sh-builtins-help)))
 
-    (hashtable-set! t "alias"   (string->utf8 " [name [expansion ...]]\
-\n    define or display aliases.\
-\n\
-\n    without arguments,          'alias' writes the list of defined aliases to standard output.\
-\n    with a single argument,     'alias NAME' writes the definition of alias 'name' to standard output.\
-\n    with two or more arguments, 'alias NAME EXPANSION ...' defines an alias NAME such that,\
-\n                                 when NAME ARGS ... executed, it is substituted with EXPANSION ... ARGS ...\
-\n\
-\n    return success, unless 'alias NAME' is executed and no such alias is defined.\n"))
+    (hashtable-set! t "alias"   (string->utf8 " [name [expansion ...]]
+    define or display aliases.
 
-    (hashtable-set! t "bg"      (string->utf8 " job-id\
-\n    move a job to the background.\
-\n    return success if job-id was found, otherwise return failure.\n"))
+    without arguments,          'alias' writes the list of defined aliases to standard output.
+    with a single argument,     'alias NAME' writes the definition of alias NAME to standard output.
+    with two or more arguments, 'alias NAME EXPANSION ...' defines an alias NAME such that,
+                                 when NAME ARGS ... executed, it is substituted with EXPANSION ... ARGS ...
 
-    (hashtable-set! t "builtin" (string->utf8 " [builtin-name [arg ...]]\
-\n    execute a builtin with specified arguments.\
-\n\
-\n    useful if BUILTIN-NAME has been shadowed by an alias with the same name.\
-\n\
-\n    return exit status of executed builtin, or failure if no such builtin was found.\n"))
+    return success, unless 'alias NAME' is executed and no such alias is defined.\n"))
 
-    (hashtable-set! t "cd"      (string->utf8 " [dir]\
-\n    change the current directory.\
-\n\
-\n    without arguments, 'cd' sets the current directory to the value of HOME environment variable.\
-\n    with one argument, 'cd DIR' sets the current directory to to DIR.\
-\n\
-\n    return success if the directory is successfully changed, otherwise return failure.\n"))
+    (hashtable-set! t "bg"      (string->utf8 " job-id
+    move a job to the background.
 
-    (hashtable-set! t "command" (string->utf8 " [command-name [arg ...]]\
-\n    execute a command with specified arguments.\
-\n\
-\n    useful if COMMAND-NAME has been shadowed by an alias or by a builtin with the same name.\
-\n\
-\n    return exit status of executed command, or failure if no such command was found.\n"))
+    return success if job-id was found, otherwise return failure.\n"))
 
-    (hashtable-set! t "exec" (string->utf8 " [cmd [arg ...]]\n    TBD\n"))
-    (hashtable-set! t "exit" (string->utf8 " [number ...]\n    TBD\n"))
-    (hashtable-set! t "export" (string->utf8 " [var ...]\n    TBD\n"))
+    (hashtable-set! t "builtin" (string->utf8 " [builtin-name [arg ...]]
+    execute a builtin with specified arguments.
 
-    (hashtable-set! t "fg"      (string->utf8 " job-id\
-\n    move a job to the foreground.\
-\n    return success if job-id was found, otherwise return failure.\n"))
+    useful if BUILTIN-NAME has been shadowed by an alias with the same name.
 
-    (hashtable-set! t "global"     (string->utf8 " [cmd ...]\n    TBD\n"))
-    (hashtable-set! t "jobs"       (string->utf8 "\n    write jobs and their status to standard output. return success.\n"))
-    (hashtable-set! t "pwd"        (string->utf8 " [job-id]\n    TBD\n"))
-    (hashtable-set! t "set"        (string->utf8 " [var [value]]\n    TBD\n"))
-    (hashtable-set! t "split-at-0" (string->utf8 " cmd [arg ...]\n    TBD\n"))
-    (hashtable-set! t "unalias"    (string->utf8 " [name ...]\n    TBD\n"))
-    (hashtable-set! t "unexport"   (string->utf8 " [var ...]\n    TBD\n"))
-    (hashtable-set! t "unsafe"     (string->utf8 " [cmd ...]\n    TBD\n"))
-    (hashtable-set! t "unset"      (string->utf8 " [var ...]\n    TBD\n"))
+    return exit status of executed builtin, or failure if no such builtin was found.\n"))
+
+    (hashtable-set! t "cd"      (string->utf8 " [dir]
+    change the current directory of parent job.
+
+    without arguments, 'cd' sets the current directory of parent job
+                       to the value of its HOME environment variable.
+    with one argument, 'cd DIR' sets the current directory of parent job to DIR.
+
+    return success if the directory is successfully changed, otherwise return failure.\n"))
+
+    (hashtable-set! t "command" (string->utf8 " [command-name [arg ...]]
+    execute a command with specified arguments.
+
+    useful if COMMAND-NAME has been shadowed by an alias or by a builtin with the same name.
+
+    return exit status of executed command, or failure if no such command was found.\n"))
+
+    (hashtable-set! t "exec" (string->utf8 " [cmd [arg ...]]
+    replace the current shell with the command CMD ARG ...
+
+    if CMD ARG ... are not specified, any redirections take effect in the current shell.
+
+    if CMD is not specified, return success.
+    if CMD is specified, on success does not return. On failure, returns failure error code.\n"))
+
+    (hashtable-set! t "exit" (string->utf8 " [int ...]
+    exit the shell with C exit status INT, or 0 if not specified.
+
+    does not return.\n"))
+
+    (hashtable-set! t "export" (string->utf8 " [var ...]
+    show or export environment variables
+
+    without arguments,          'export' writes all exported environment variables
+                                 of parent job to standard output.
+    with one or more arguments, 'export VAR ...' marks specified environment variables
+                                 as exported in parent job.
+
+    return success.\n"))
+
+    (hashtable-set! t "fg"      (string->utf8 " job-id
+    move a job to the foreground.
+
+    return success if job-id was found, otherwise return failure.\n"))
+
+    (hashtable-set! t "global"     (string->utf8 " [builtin-name [arg ...]]
+    execute a builtin with its parent temporarily set to the shell itself.
+
+    useful mostly for builtins 'cd' 'export' 'set' 'pwd' 'unexport' 'unset'
+    that show or alter the current directory or the environment variables of their parent job.
+
+    return exit status of executed builtin, or failure if no such builtin was found.\n"))
+
+    (hashtable-set! t "jobs"       (string->utf8 " [arg ...]
+    ignore arguments. write jobs and their status to standard output.
+
+    return success.\n"))
+
+    (hashtable-set! t "pwd"        (string->utf8 " [job-id]
+    write the current directory of specified job to standard output.
+    if job is not specified, defaults to parent job.
+
+    return success if job-id was found or not specified, otherwise return failure.\n"))
+
+    (hashtable-set! t "set"        (string->utf8 " [var [value]]'
+    show or set environment variables of parent job.
+
+    without arguments,  'set' writes all exported and private environment variables
+                                 of parent job to standard output.
+    with one argument,  'set VAR' writes specified environment variable of parent job
+                                 to standard output.
+    with two arguments, 'set VAR VALUE' sets specified environment variable of parent job.
+
+    return success, unless 'set VAR' is executed and no such variable is found.\n"))
+
+    (hashtable-set! t "split-at-0" (string->utf8 " alias-or-builtin-or-cmd [arg ...]
+    split each ARG ... after each NUL character i.e. Unicode codepoint U+0000,
+    and execute the specified alias, builtin or command with arguments
+    set to the result of such splitting.
+
+    useful to pass as arguments the filenames produced by another command,
+    as for example 'split-at-0 editor $(find -name \\*.txt -print0)'
+
+    return exit status of executed alias, builtin or command.\n"))
+
+    (hashtable-set! t "unalias"    (string->utf8 " [name ...]
+    remove each NAME ... from the list of defined aliases.
+
+    return success.\n"))
+
+    (hashtable-set! t "unexport"   (string->utf8 " [var ...]
+    mark each VAR ... environment variable as private in parent job.
+
+    return success.\n"))
+
+    (hashtable-set! t "unsafe"     (string->utf8 " [alias-or-builtin-or-cmd [arg ...]]
+    execute the specified alias, builtin or command.
+
+    this builtin is only needed when ALIAS-OR-BUILTIN-OR-CMD is a non-constant expression,
+    as for example a wildcard or the value of an environment variable.
+
+    return exit status of executed alias, builtin or command.\n"))
+
+    (hashtable-set! t "unset"      (string->utf8 " [var ...]
+    remove each VAR ... environment variable from parent job.
+
+    return success.\n"))
 
   )
 

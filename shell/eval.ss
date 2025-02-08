@@ -263,9 +263,10 @@
     (hashtable-set! t "source"     builtin-source))
 
   (let ((t (sh-builtins-help)))
-    (hashtable-set! t "."       (string->utf8 " filename\
-\n    read filename and execute the contained shell script or Scheme source code.\
-\n    return exit status of last evaluated expression.\n"))
-    (hashtable-set! t "source"  (hashtable-ref t ":" ""))))
+    (hashtable-set! t "."       (string->utf8 " filename
+    read FILENAME and execute the contained shell script or Scheme source code.
+
+    return exit status of last executed command, or value of last evaluated expression.\n"))
+    (hashtable-set! t "source"  (hashtable-ref t "." ""))))
 
 ) ; close library
