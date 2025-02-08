@@ -588,6 +588,7 @@
     (hashtable-set! bt "cd"         builtin-cd)
     (hashtable-set! bt "command"    builtin-command)
     (hashtable-set! bt "exec"       builtin-exec)
+    (hashtable-set! bt "exit"       builtin-exit)
     (hashtable-set! bt "export"     builtin-export)
     (hashtable-set! bt "fg"         builtin-fg)
     (hashtable-set! bt "global"     builtin-global)
@@ -601,7 +602,7 @@
     (hashtable-set! bt "unset"      builtin-unset)
 
     ;; mark builtins that finish immediately i.e. cannot run commands or aliases
-    (list-iterate '("alias" "cd" "echo" "echo0" "error" "false" "jobs"
+    (list-iterate '("alias" "cd" "echo" "echo0" "error" "exit" "false" "jobs"
                     "history" "pwd" "set" "true" "unalias" "unset")
       (lambda (name)
         (let ((builtin (hashtable-ref bt name #f)))

@@ -144,11 +144,6 @@
   '(exited . 1))
 
 
-;; implementation of "true" builtin, always exits successfully i.e. with exit status (void)
-(define (sh-true . ignored-args)
-  (void))
-
-
 ;; ;; implementation of "history" builtin, lists previous commands saved to history
 (define (sh-history)
   (let ((lctx (sh-repl-args-linectx))
@@ -171,6 +166,10 @@
         (void)) ; return (void), means builtin exited successfully
       '(exited . 1))))
 
+
+;; implementation of "true" builtin, always exits successfully i.e. with exit status (void)
+(define (sh-true . ignored-args)
+  (void))
 
 
 ;; the "echo" builtin: write arguments to (sh-fd-stdout)
@@ -208,20 +207,20 @@
   (sh-false))
 
 
-;; the "true" builtin: return (void)
-;;
-;; As all builtins do, must return job status.
-(define (builtin-true job prog-and-args options)
-  (assert-string-list? 'builtin-true prog-and-args)
-  (sh-true))
-
-
 ;; the "history" builtin: write current history to (sh-fd-stdout).
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-history job prog-and-args options)
   (assert-string-list? 'builtin-history prog-and-args)
   (sh-history))
+
+
+;; the "true" builtin: return (void)
+;;
+;; As all builtins do, must return job status.
+(define (builtin-true job prog-and-args options)
+  (assert-string-list? 'builtin-true prog-and-args)
+  (sh-true))
 
 
 ;; given a command line prog-and-args i.e. a list of strings,

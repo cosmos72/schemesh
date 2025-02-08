@@ -91,6 +91,15 @@
   (exec-cmd job (list->argv (cdr prog-and-args)) options))
 
 
+;; the "exit" builtin: call current exit-handler, optionally with specified exit status.
+;;
+;; Never returns normally.
+(define (builtin-exit job prog-and-args options)
+  (assert-string-list? 'builtin-exit prog-and-args)
+  (let ((arg (list->integer-or-false (cdr prog-and-args))))
+    (exit (or arg 0))))
+
+
 ;; the "export" builtin: show exported environment variables,
 ;; or export one or more environment variables of parent job
 ;;

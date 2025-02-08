@@ -101,19 +101,27 @@
 ;; return number of bytes read
 (define fd-read
   (let ((c-fd-read (foreign-procedure "c_fd_read" (int ptr iptr iptr) iptr)))
-    (lambda (fd bytevector-result start end)
-      (let ((ret (c-fd-read fd bytevector-result start end)))
-        (if (>= ret 0)
-          ret
-          (raise-c-errno 'fd-read 'read ret fd #vu8() start end))))))
+    (case-lambda
+      ((fd bytevector-result)
+        (fd-read fd bytevector-result 0 (bytevector-length bytevector-result)))
+      ((fd bytevector-result start end)
+        (let ((ret (c-fd-read fd bytevector-result start end)))
+          (if (>= ret 0)
+            ret
+            (raise-c-errno 'fd-read 'read ret fd #vu8() start end)))))))
+
 
 (define fd-write
   (let ((c-fd-write (foreign-procedure "c_fd_write" (int ptr iptr iptr) iptr)))
-    (lambda (fd bytevector-towrite start end)
-      (let ((ret (c-fd-write fd bytevector-towrite start end)))
-        (if (>= ret 0)
-          ret
-          (raise-c-errno 'fd-write 'write ret fd #vu8() start end))))))
+    (case-lambda
+      ((fd bytevector-towrite)
+        (fd-write fd bytevector-towrite 0 (bytevector-length bytevector-towrite)))
+      ((fd bytevector-towrite start end)
+        (let ((ret (c-fd-write fd bytevector-towrite start end)))
+          (if (>= ret 0)
+            ret
+            (raise-c-errno 'fd-write 'write ret fd #vu8() start end)))))))
+
 
 ; (fd-select fd direction timeout-milliseconds) waits up to timeout-milliseconds
 ; for file descriptor fd to become ready for input, output or both.

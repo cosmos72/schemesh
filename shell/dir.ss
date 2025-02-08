@@ -155,14 +155,14 @@
   (apply sh-cd (or (job-parent job) job) (cdr prog-and-args)))
 
 
-;; the "pwd" builtin: print working directory of current job,
+;; the "pwd" builtin: print working directory of parent job,
 ;; or of specified job-id.
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-pwd job prog-and-args options)
   (assert-string-list? 'builtin-pwd prog-and-args)
   (let ((arg (list->integer-or-false (cdr prog-and-args))))
-    (sh-pwd (or arg job))))
+    (sh-pwd (or arg (job-parent job)))))
 
 
 ;; convert string str to an integer, and return such integer.

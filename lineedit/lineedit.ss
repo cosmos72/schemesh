@@ -110,13 +110,13 @@
          (end  (bytespan-peek-end wbuf)))
     (when (fx<? beg end)
       (let ((bv (bytespan-peek-data wbuf))
-            (stdout (linectx-stdout lctx))
-            (n (fx- end beg)))
+            (stdout (linectx-stdout lctx)))
         (if (fixnum? stdout)
           ; TODO: loop on short writes
-          (set! n (fd-write stdout bv beg end))
-          (put-bytevector stdout bv beg n))
+          (fd-write stdout bv beg end)
+          (put-bytevector stdout bv beg (fx- end beg)))
         (bytespan-clear! wbuf)))))
+
 
 (define (lineedit-clear! lctx)
   (linectx-clear! lctx))
