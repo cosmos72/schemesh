@@ -34,7 +34,7 @@ If the parentheses/braces/brackets/quotes are balanced,<br/>
 schemesh will execute the command and show any failure, or evaluate the expression and pretty-print its value.
 
 If the parentheses/braces/brackets/quotes are *not* balanced,<br/>
-schemesh will create a second line where you can continue typing - you can move between lines with cursor keys.
+schemesh will create a second line where you can continue typing - you can move between lines with cursor keys.<br/>
 ![](doc/screenshot-2.png)
 
 Switching between shell syntax and Lisp syntax is extremely simple, and can be done basically everywhere:
