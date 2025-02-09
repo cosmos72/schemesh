@@ -270,6 +270,9 @@
 ;; Copy overridden environment variables from specified job to its parent.
 ;; Ignores inherited environment variables.
 ;;
+;; If an environment variable already exists in parent job or one of its ancestors,
+;; reuse its visibility.
+;;
 ;; Called by (start-cmd) to implement the syntax "ENV_VAR" '= "VALUE"
 ;;   i.e. a command with environment variables but no arguments.
 ;;
@@ -283,6 +286,7 @@
           ;; (debugf "... job-env-copy-into-parent! name=~s visibility=~s val=~s " name visibility val)
           (if (eq? 'delete visibility)
             (sh-env-delete! parent name)
-            (sh-env-set*! parent name val visibility))))))
+            (let-values (((parent-val parent-visibility) (sh-env-visibility-ref parent name)))
+              (sh-env-set*! parent name val (or parent-visibility visibility))))))))
     ;; (debugf "<  job-env-copy-into-parent!")
   (void))
