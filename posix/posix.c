@@ -112,27 +112,31 @@ static int c_init_failed(const char label[]) {
 }
 
 static int write_c_errno(int err) {
-  const char* errmsg = c_strerror(err);
+  const char* err_msg = c_strerror(err);
   /* writev() is less portable */
   (void)write(2, "schemesh: ", 10);
-  (void)write(2, errmsg, strlen(errmsg));
+  (void)write(2, err_msg, strlen(err_msg));
   (void)write(2, "\n", 1);
   return err;
 }
 
-static int write_path_c_errno(const char path[], const size_t path_len, const int err) {
-  const char* errmsg = c_strerror(err);
+static int write_path_c_errno(const char   path[],
+                              const size_t path_len,
+                              const int    err,
+                              const char   suffix_msg[]) {
+  const char* err_msg = c_strerror(err);
   (void)write(2, "schemesh: ", 10);
   (void)write(2, path, path_len);
   (void)write(2, ": ", 2);
-  (void)write(2, errmsg, strlen(errmsg));
+  (void)write(2, err_msg, strlen(err_msg));
+  (void)write(2, suffix_msg, strlen(suffix_msg));
   return -err;
 }
 
 static int write_command_not_found(const char path[]) {
   (void)write(2, "schemesh: ", 10);
   (void)write(2, path, strlen(path));
-  (void)write(2, ": command not found\n", 20);
+  (void)write(2, ": command not found. Type 'help' for help.\n", 43);
   return -EINVAL;
 }
 
@@ -692,13 +696,14 @@ static int dup2_close_on_exec(int old_fd, int new_fd, ptr close_on_exec) {
 /** redirect a single fd as specified */
 static int
 c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector, ptr close_on_exec) {
-  iptr        fd;
   iptr        path_len = 0;
-  const char* path     = NULL;
+  iptr        ifd;
+  const char* path = NULL;
+  int         fd;
   int         open_flags;
   int         err = 0;
 
-  if (!Sfixnump(from_fd) || (fd = Sfixnum_value(from_fd)) < 0 || fd != (iptr)(int)fd) {
+  if (!Sfixnump(from_fd) || (ifd = Sfixnum_value(from_fd)) < 0 || ifd != (iptr)(fd = (int)ifd)) {
     /* invalid fd */
     return write_invalid_redirection("from_fd", from_fd);
   } else if (!Scharp(direction_ch) ||
@@ -715,7 +720,7 @@ c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector, ptr close_
     } else if (to_fd == -1) {
       (void)close(fd);
       return 0;
-    } else if ((err = dup2_close_on_exec((int)to_fd, (int)fd, close_on_exec) < 0)) {
+    } else if ((err = dup2_close_on_exec((int)to_fd, fd, close_on_exec) < 0)) {
       return write_c_errno(err);
     }
     return 0;
@@ -733,7 +738,7 @@ c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector, ptr close_
 #endif
 
     if (temp_fd < 0) {
-      return write_path_c_errno(path, path_len - 1, c_errno());
+      return write_path_c_errno(path, path_len - 1, c_errno(), "\n");
     } else if (temp_fd == fd) {
 #ifndef O_CLOEXEC
       if (close_on_exec != Sfalse) {
@@ -744,11 +749,11 @@ c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector, ptr close_
       }
 #endif
     } else {
-      err = dup2_close_on_exec(temp_fd, (int)fd, close_on_exec);
+      err = dup2_close_on_exec(temp_fd, fd, close_on_exec);
       (void)close(temp_fd);
     }
     if (err < 0) {
-      return write_path_c_errno(path, path_len - 1, err);
+      return write_path_c_errno(path, path_len - 1, err, "\n");
     }
     return 0;
   } else {
@@ -1340,7 +1345,7 @@ static int c_cmd_spawn_or_exec(ptr vector_of_bytevector0_cmdline,
       if (err == -ENOENT) {
         (void)write_command_not_found(argv[0]);
       } else {
-        (void)write_path_c_errno(argv[0], strlen(argv[0]), err);
+        (void)write_path_c_errno(argv[0], strlen(argv[0]), err, ". Type 'help' for help.\n");
       }
     child_out:
       if (is_spawn) {
