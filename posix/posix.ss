@@ -16,7 +16,7 @@
     raise-c-errno
 
     ; dir.ss
-    directory-list directory-sort! file-type
+    directory-list* directory-sort! file-type
 
     ; pattern.ss
     sh-pattern sh-pattern? span->sh-pattern* sh-pattern->span*

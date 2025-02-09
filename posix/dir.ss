@@ -7,7 +7,7 @@
 
 
 (library (schemesh posix dir (0 7 3))
-  (export directory-list directory-sort! file-type)
+  (export directory-list* directory-sort! file-type)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -53,6 +53,8 @@
 
 
 ;; List contents of a filesystem directory, in arbitrary order.
+;; Do not use the name (directory-list) because Chez Scheme already defines it.
+;;
 ;; Mandatory first argument dirpath must be a bytevector, string or charspan.
 ;; Further optional arguments can contain:
 ;;   'append-slash - if a returned type is 'dir then a '/' will be appended
@@ -69,12 +71,12 @@
 ;; Returns a list of pairs (type . filename) where:
 ;;  each type is one of: 'unknown 'blockdev 'chardev 'dir 'fifo 'file 'socket 'symlink
 ;;  each filename is a either a bytevector (if options contain 'bytes) or a string
-(define directory-list
-  (let ((c-directory-list (foreign-procedure "c_directory_list" (ptr ptr ptr int) ptr)))
+(define directory-list*
+  (let ((c-directory-list* (foreign-procedure "c_directory_list" (ptr ptr ptr int) ptr)))
     (lambda (dirpath . options)
-      ; (debugf "directory-list dir=~s, options=~s" dirpath options)
+      ; (debugf "directory-list* dir=~s, options=~s" dirpath options)
       (let* ((strings? (not (memq 'bytes options)))
-             (ret (c-directory-list
+             (ret (c-directory-list*
                     (text->bytevector0 dirpath)
                     (%find-and-convert-option options 'prefix)
                     (%find-and-convert-option options 'suffix)
@@ -92,7 +94,7 @@
           ((memq 'catch options)
             '())
           (#t
-            (raise-c-errno 'directory-list 'opendir ret dirpath)))))))
+            (raise-c-errno 'directory-list* 'opendir ret dirpath)))))))
 
 
 (define (%find-and-convert-option options key)
@@ -103,14 +105,14 @@
       ((eq? key (car options))
         (let ((value (if (null? (cdr options)) '() (cadr options))))
           (unless (or (bytevector? value) (string? value) (charspan? value))
-            (raise-assertf 'directory-list "expecting a bytevector, string or charspan after option '~a, found ~s"
+            (raise-assertf 'directory-list* "expecting a bytevector, string or charspan after option '~a, found ~s"
               key value))
           (text->bytevector value)))
       (#t
         (%again (cdr options))))))
 
 
-;; in-place sort dir-list, which must have the same structure as the output of (directory-list)
+;; in-place sort dir-list, which must have the same structure as the output of (directory-list*)
 ;; i.e. it must be a possibly empty list of pairs (key . value)
 ;; where all values are either strings or bytevectors - mixtures are not allowed.
 (define (directory-sort! dir-list)
