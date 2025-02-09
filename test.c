@@ -552,7 +552,7 @@ static const testcase tests[] = {
     {"(string-hashtable->argv\n"
      "  (hashtable string-hash string=?\n"
      "             '(\"A\" . \"X\") '(\"B\" . \"Y\") '(\"C\" . \"Z\")))",
-     "#(#vu8(67 61 90 0) #vu8(65 61 88 0) #vu8(66 61 89 0))"},
+     "#(#vu8(65 61 88 0) #vu8(66 61 89 0) #vu8(67 61 90 0))"},
     {"(let ((ret '()))\n"
      "  (hashtable-iterate (eqv-hashtable '(1.0 . A) '(2.1 . B) '(3 . C))\n"
      "    (lambda (cell)\n"

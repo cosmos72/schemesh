@@ -1262,22 +1262,15 @@ static int c_cmd_spawn_or_exec(ptr vector_of_bytevector0_cmdline,
                                int is_spawn) {
 
   char** argv = vector_to_c_argz(vector_of_bytevector0_cmdline);
-  char** envp = NULL;
+  char** envp = vector_to_c_argz(vector_of_bytevector0_environ);
   int    err  = 0;
-  if (!argv) {
+  if (!argv || (!envp && Svectorp(vector_of_bytevector0_environ))) {
     err = -ENOMEM;
     goto out;
   }
   if (!argv[0]) {
     err = -EINVAL;
     goto out;
-  }
-  if (!is_spawn) {
-    envp = vector_to_c_argz(vector_of_bytevector0_environ);
-    if (!envp && Svectorp(vector_of_bytevector0_environ)) {
-      err = -ENOMEM;
-      goto out;
-    }
   }
   if (bytevector0_chdir_or_false != Sfalse) {
     const octet* dir;

@@ -16,10 +16,13 @@
     (only (rnrs mutable-pairs)   set-car!)
     (only (chezscheme)           condition-continuation continuation-condition? fx1+ fx1- void)
     (only (schemesh bootstrap raise)   raise-assertf)
-    (only (schemesh containers)  bytespan->bytevector bytevector-find/u8
+    (only (schemesh containers)  bytespan->bytevector bytespan->bytevector*!
+                                 bytespan-reserve-back! bytespan-insert-back/string! bytespan-insert-back/u8!
+                                 bytevector<? bytevector-find/u8
                                  charspan? charspan-empty? charspan-find/char charspan->utf8b charspan->utf8b/0
-                                 hashtable-iterate list-iterate
-                                 string-find/char string->utf8b string->utf8b/0 utf8b->string utf8b-range->string))
+                                 hashtable-iterate list-iterate make-bytespan string-find/char
+                                 string->utf8b string->utf8b/0 utf8b->string utf8b-range->string
+                                 vector-sort*!))
 
 
 (define display-condition*
@@ -208,6 +211,31 @@
     x))
 
 
+;; convert two strings key and val to a bytevector0 containing key=value\x0;
+(define (key-value->bytevector0 key val)
+  (let ((bsp (make-bytespan 0)))
+    (bytespan-reserve-back! bsp (fx+ 2 (fx+ (string-length key) (string-length val))))
+    (bytespan-insert-back/string! bsp key)
+    (bytespan-insert-back/u8!     bsp 61) ; #\=
+    (bytespan-insert-back/string! bsp val)
+    (bytespan-insert-back/u8!     bsp 0)  ; #\x0
+    (bytespan->bytevector*! bsp)))
+
+
+;; convert a hashtable containing string keys and string values
+;; to a sorted vector of bytevector0, where each element is key=value\x0;
+(define (string-hashtable->argv htable)
+  (let* ((i 0)
+         (n (hashtable-size htable))
+         (vec (make-vector n)))
+    (hashtable-iterate htable
+      (lambda (cell)
+        (vector-set! vec i (key-value->bytevector0 (car cell) (cdr cell)))
+        (set! i (fx1+ i))))
+    (vector-sort*! bytevector<? vec)
+    vec))
+
+
 ;; convert a vector of 0-terminated UTF-8b bytevectors
 ;; to a list of strings,
 (define (argv->list argv)
@@ -215,21 +243,6 @@
     (do ((tail l (cdr tail)))
         ((null? tail) l)
       (set-car! tail (bytevector0->string (car tail))))))
-
-
-;; convert a hashtable containing string keys and string values
-;; to a vector of bytevector0, where each element is key=value\x0;
-(define (string-hashtable->argv htable)
-  (let* ((i 0)
-         (n (hashtable-size htable))
-         (out (make-vector n)))
-    (hashtable-iterate htable
-      (lambda (cell)
-        (let ((key (car cell))
-              (val (cdr cell)))
-          (vector-set! out i (any->bytevector0 key "=" val))
-          (set! i (fx1+ i)))))
-    out))
 
 
 )

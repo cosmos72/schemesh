@@ -146,16 +146,13 @@
       ;; save expanded cmd-arg-list for more accurate pretty-printing
       (cmd-expanded-arg-list-set! c prog-and-args))
 
+    ;; apply lazy environment variables *after* expanding cmd-arg-list
+    ;; and *after* setting job's parent
+    (job-env/apply-lazy! c 'export)
+
     (if (null? prog-and-args)
-      (begin
-        ;; apply lazy environment variables *after* expanding cmd-arg-list
-        (job-env/apply-lazy! c 'maintain)
-        (job-env-copy-into-parent! c)
-        (void)) ; return job status = success
+      (job-env-copy-into-parent! c) ; return (void) job status = success
       (let ((builtin (sh-find-builtin prog-and-args)))
-        ;; apply lazy environment variables *after* expanding cmd-arg-list
-        ;; and *after* setting job's parent
-        (job-env/apply-lazy! c 'export)
         (if builtin
           ; expanded arg[0] is a builtin, call it.
           (start-builtin builtin c prog-and-args options)  ; returns job status

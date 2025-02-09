@@ -173,19 +173,22 @@
 ;; and copy the resulting env names and values into (job-direct-env)
 ;;
 ;; called automatically while starting a job.
+;; return (void)
 (define (job-env/apply-lazy! j visibility)
   (assert* 'job-env/apply-lazy! (memq visibility '(maintain export private)))
   (let ((env-lazy (job-env-lazy j)))
-    (when env-lazy
+    (if env-lazy
       (do ((i 0 (fx+ i 2))
            (n (span-length env-lazy)))
-          ((fx>? (fx+ i 2) n))
+          ((fx>? (fx+ i 2) n)
+           (void))
         (let ((name  (span-ref env-lazy i))
               (value (job-env/apply1 j (span-ref env-lazy (fx1+ i)))))
           ; (debugf "job-env/apply-lazy! env name=~s, value=~s" name value)
           (if (eq? #f value)
             (sh-env-delete! j name)
-            (sh-env-set*! j name value visibility)))))))
+            (sh-env-set*! j name value visibility))))
+      (void))))
 
 
 ;; internal function called by job-env/apply-lazy!
@@ -241,6 +244,7 @@
       (lambda (job)
         (sh-env-iterate/direct job
           (lambda (name val visibility)
+            ; (debugf "sh-env-copy name=~s\tval=~s\tvisibility=~s" name val visibility)
             (cond
               ((or (eq? 'delete visibility)
                    (and only-exported? (eq? 'private visibility)))
