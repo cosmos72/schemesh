@@ -16,9 +16,9 @@ Schemesh can be used as:
 
 * a Unix shell scriptable in Chez Scheme.
 
-* a Scheme REPL with additional syntax and functions to start, redirect and manage Unix processes
+* a Scheme REPL with additional syntax and functions to start, redirect and manage Unix processes.
 
-* a Scheme library for starting, redirecting and managing Unix processes
+* a Scheme library for starting, redirecting and managing Unix processes.
 
 For scripting and serious programming, schemesh completely replaces the slow, clumsy and error-prone
 scripting language of a traditional shell (yes, the author has opinions) with a full-featured Lisp REPL,
@@ -27,13 +27,15 @@ backed by the fast and open-source Chez Scheme compiler that generates highly op
 ### How to use
 
 As a traditional Unix shell: type a command and press Enter.<br/>
-As a Lisp REPL: type an expression starting with `(` and press Enter.
+As a Lisp REPL: type an expression starting with `(` and press Enter.<br/>
+![](doc/screenshot-1.png)
 
-If the parentheses/braces/brackets/quotes are balanced,
+If the parentheses/braces/brackets/quotes are balanced,<br/>
 schemesh will execute the command and show any failure, or evaluate the expression and pretty-print its value.
 
-If the parentheses/braces/brackets/quotes are *not* balanced,
+If the parentheses/braces/brackets/quotes are *not* balanced,<br/>
 schemesh will create a second line where you can continue typing - you can move between lines with cursor keys.
+![](doc/screenshot-2.png)
 
 Switching between shell syntax and Lisp syntax is extremely simple, and can be done basically everywhere:
 * open parenthesis `(` temporarily switches to Lisp syntax until the corresponding `)`.
@@ -121,9 +123,13 @@ fg
 - [x] shell pipelines `|` `|&`
 - [x] shell redirections `<` `>` `<>` `>>` `<&` `>&` `$()` ``` `` ```
 - [x] shell wildcard expansion
-- [x] if the directory `$HOME/.cache/schemesh/` exists, history is automatically saved to and loaded from a file `history.txt` inside such directory
-- [x] if the file `$HOME/.config/schemesh/repl_init.ss` exists, it is automatically executed when starting the REPL
-- [x] if the file `$HOME/.config/schemesh/repl_quit.ss` exists, it is automatically executed when exiting the REPL
+- [x] customizable prompt, set by environment variable `$SCHEMESH_PS1`
+- [x] if the directory `$HOME/.cache/schemesh/` exists,<br/>
+      history is automatically saved to and loaded from a file `history.txt` inside such directory
+- [x] if the file `$HOME/.config/schemesh/repl_init.ss` exists,<br/>
+      it is automatically executed when starting the REPL
+- [x] if the file `$HOME/.config/schemesh/repl_quit.ss` exists,<br/>
+      it is automatically executed when exiting the REPL
 
 
 ## Build instructions
@@ -131,7 +137,7 @@ fg
 On Debian Linux, execute the following commands:
 ```
 sudo apt update
-sudo apt install build-essential chezscheme-dev liblz4-dev libncurses-dev git uuid-dev
+sudo apt install build-essential chezscheme-dev liblz4-dev libncurses-dev git uuid-dev zlib1g-dev
 git clone https://github.com/cosmos72/schemesh
 cd schemesh
 make -j
