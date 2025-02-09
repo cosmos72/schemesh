@@ -23,7 +23,7 @@
   (foreign-procedure "c_errno" () int))
 
 (define c-errno->string
-  (foreign-procedure "c_strerror" (int) ptr))
+  (foreign-procedure "c_strerror_string" (int) ptr))
 
 (define c-exit (foreign-procedure "c_exit" (int) int))
 

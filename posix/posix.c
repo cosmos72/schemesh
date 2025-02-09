@@ -94,45 +94,44 @@ static int c_errno_enotdir(void) {
   return -ENOTDIR;
 }
 
-static ptr c_strerror(int err) {
-  const char* msg = strerror(err < 0 ? -err : err);
-  return schemesh_Sstring_utf8b(msg, -1);
+static const char* c_strerror(int err) {
+  return strerror(err < 0 ? -err : err);
+}
+
+static ptr c_strerror_string(int err) {
+  return schemesh_Sstring_utf8b(c_strerror(err), -1);
 }
 
 static int c_init_failed(const char label[]) {
-  const int err = errno;
+  const int err = c_errno();
   fprintf(stderr,
           "error initializing POSIX subsystem: %s failed with error %s\n",
           label,
-          strerror(err));
-  return -err;
+          c_strerror(err));
+  return err;
 }
 
-static int write_c_errno(void) {
-  const char* errmsg;
-  const int   err = errno;
+static int write_c_errno(int err) {
+  const char* errmsg = c_strerror(err);
   /* writev() is less portable */
   (void)write(2, "schemesh: ", 10);
-  errmsg = strerror(err);
   (void)write(2, errmsg, strlen(errmsg));
   (void)write(2, "\n", 1);
-  return -err;
+  return err;
 }
 
-static int write_path_c_errno(const char path[], const size_t path_len) {
-  const char* errmsg;
-  const int   err = errno;
+static int write_path_c_errno(const char path[], const size_t path_len, const int err) {
+  const char* errmsg = c_strerror(err);
   (void)write(2, "schemesh: ", 10);
   (void)write(2, path, path_len);
   (void)write(2, ": ", 2);
-  errmsg = strerror(err);
   (void)write(2, errmsg, strlen(errmsg));
   return -err;
 }
 
-static int write_command_not_found(const char arg0[]) {
+static int write_command_not_found(const char path[]) {
   (void)write(2, "schemesh: ", 10);
-  (void)write(2, arg0, strlen(arg0));
+  (void)write(2, path, strlen(path));
   (void)write(2, ": command not found\n", 20);
   return -EINVAL;
 }
@@ -678,9 +677,12 @@ static int c_direction_to_open_flags(string_char ch) {
 
 static int dup2_close_on_exec(int old_fd, int new_fd, ptr close_on_exec) {
   int err = dup2(old_fd, new_fd);
-  if (err >= 0 && close_on_exec != Sfalse) {
+  if (err < 0) {
+    err = c_errno();
+  } else if (close_on_exec != Sfalse) {
     err = fcntl(new_fd, F_SETFD, FD_CLOEXEC);
     if (err < 0) {
+      err = c_errno();
       (void)close(new_fd);
     }
   }
@@ -713,8 +715,8 @@ c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector, ptr close_
     } else if (to_fd == -1) {
       (void)close(fd);
       return 0;
-    } else if (dup2_close_on_exec((int)to_fd, (int)fd, close_on_exec) < 0) {
-      return write_c_errno();
+    } else if ((err = dup2_close_on_exec((int)to_fd, (int)fd, close_on_exec) < 0)) {
+      return write_c_errno(err);
     }
     return 0;
   } else if (Sbytevectorp(to_fd_or_bytevector) &&
@@ -731,7 +733,7 @@ c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector, ptr close_
 #endif
 
     if (temp_fd < 0) {
-      return write_path_c_errno(path, path_len - 1);
+      return write_path_c_errno(path, path_len - 1, c_errno());
     } else if (temp_fd == fd) {
 #ifndef O_CLOEXEC
       if (close_on_exec != Sfalse) {
@@ -746,7 +748,7 @@ c_fd_redirect(ptr from_fd, ptr direction_ch, ptr to_fd_or_bytevector, ptr close_
       (void)close(temp_fd);
     }
     if (err < 0) {
-      return write_path_c_errno(path, path_len - 1);
+      return write_path_c_errno(path, path_len - 1, err);
     }
     return 0;
   } else {
@@ -1176,7 +1178,7 @@ static int c_pgid_get(int pid) {
 }
 
 /**
- * set process group id (i.e. pgid) of current process:
+ * set process group id (i.e. pgid) of specified process:
  * if existing_pgid > 0:
  *   move current process into process group indicated by existing_pgid.
  *
@@ -1187,10 +1189,10 @@ static int c_pgid_get(int pid) {
  * if existing_pgid < 0:
  *   do nothing.
  */
-static int c_pgid_set(int existing_pgid) {
+static int c_pgid_set(int pid, int existing_pgid) {
   int err = 0;
   if (existing_pgid >= 0) {
-    err = setpgid(0 /*current process*/, (pid_t)existing_pgid);
+    err = setpgid((pid_t)pid, (pid_t)existing_pgid);
   }
   return err >= 0 ? err : c_errno();
 }
@@ -1207,23 +1209,22 @@ static int c_pgid_set(int existing_pgid) {
 static int c_fork_pid(int existing_pgid) {
   const int pid = fork();
   switch (pid) {
-    case -1:
-      return c_errno(); /* fork() failed */
-    case 0: {
-      /* child */
+    case -1: /* fork() failed */
+      return c_errno();
+    case 0: { /* child */
       int err;
-      if ((err = c_pgid_set(existing_pgid)) >= 0) {
+      if ((err = c_pgid_set(0, existing_pgid)) >= 0) {
         err = c_signals_setdefault(); /* keeps SICHLD handler */
       }
       return err;
     }
-    default:
+    default: /* parent */
       /*
        * fix well-known race condition between parent and child:
        * both need the child to be in desired process group before continuing,
        * thus both must set it before continuing.
        */
-      (void)c_pgid_set(existing_pgid);
+      (void)c_pgid_set(pid, existing_pgid);
 #ifdef SCHEMESH_DEBUG_POSIX
       fprintf(stdout, "c_fork_pid %d -> %d\n", (int)getpid(), pid);
       fflush(stdout);
@@ -1302,9 +1303,20 @@ static int c_cmd_spawn_or_exec(ptr vector_of_bytevector0_cmdline,
       err = c_errno();
       break;
 
-    case 0: /* child */
+    default: /* parent */
+      /*
+       * fix well-known race condition between parent and child:
+       * both need the child to be in desired process group before continuing,
+       * thus both must set it before continuing.
+       */
+      (void)c_pgid_set(err, existing_pgid);
+      break;
+
+    case 0: { /* child */
+      char** saved_environ = environ;
+
       if (is_spawn) {
-        if ((err = c_pgid_set(existing_pgid) < 0) ||
+        if ((err = c_pgid_set(0, existing_pgid) < 0) ||
             /* keep SICHLD handler, will be resetted by execv...() */
             (err = c_signals_setdefault()) < 0) {
           goto child_out;
@@ -1315,9 +1327,8 @@ static int c_cmd_spawn_or_exec(ptr vector_of_bytevector0_cmdline,
           (err = c_fds_redirect(vector_fds_redirect, Sfalse)) < 0) {
         goto child_out;
       }
-      if (is_spawn && envp) {
+      if (envp) {
         environ = envp;
-        envp    = NULL; /* don't risk calling free(environ) */
       }
       if (strchr(argv[0], '/')) {
         (void)execv(argv[0], argv);
@@ -1326,15 +1337,20 @@ static int c_cmd_spawn_or_exec(ptr vector_of_bytevector0_cmdline,
       }
       /* in case or execv...() failed and returned */
       err = c_errno();
-      (void)write_command_not_found(argv[0]);
+      if (err == -ENOENT) {
+        (void)write_command_not_found(argv[0]);
+      } else {
+        (void)write_path_c_errno(argv[0], strlen(argv[0]), err);
+      }
     child_out:
       if (is_spawn) {
         exit(err < 0 ? 1 : 127);
       }
+      if (envp) {
+        environ = saved_environ;
+      }
       break;
-
-    default: /* parent */
-      break;
+    }
   }
 out:
   free(argv);
@@ -1500,7 +1516,7 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_errno_enoent", &c_errno_enoent);
   Sregister_symbol("c_errno_enotdir", &c_errno_enotdir);
 
-  Sregister_symbol("c_strerror", &c_strerror);
+  Sregister_symbol("c_strerror_string", &c_strerror_string);
 
   Sregister_symbol("c_chdir", &c_chdir);
   Sregister_symbol("c_get_cwd", &c_get_cwd);
