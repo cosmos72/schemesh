@@ -26,8 +26,8 @@ backed by the fast and open-source Chez Scheme compiler that generates highly op
 
 ### How to use
 
-As a traditional Unix shell: type a command, press Enter.<br/>
-As a Lisp REPL: type an expression starting with `(`, press Enter.
+As a traditional Unix shell: type a command and press Enter.<br/>
+As a Lisp REPL: type an expression starting with `(` and press Enter.
 
 If the parentheses/braces/brackets/quotes are balanced,
 schemesh will execute the command and show any failure, or evaluate the expression and pretty-print its value.
@@ -36,19 +36,19 @@ If the parentheses/braces/brackets/quotes are *not* balanced,
 schemesh will create a second line where you can continue typing - you can move between lines with cursor keys.
 
 Switching between shell syntax and Lisp syntax is extremely simple, and can be done basically everywhere:
-* open parenthesis `(` temporarily switches to Lisp syntax until the corresponding closed parenthesis `)`
+* open parenthesis `(` temporarily switches to Lisp syntax until the corresponding `)`.
 
-* open brace i.e. `{` temporarily switches to shell syntax until the corresponding closed brace i.e. `}`
+* open brace i.e. `{` temporarily switches to shell syntax until the corresponding `}`.
 
-* open bracket i.e. `[` starts a new sub-form in current syntax until the corresponding closed bracket i.e. `]`
-  If found in Lisp syntax, it is equivalent to `(`
+* open bracket i.e. `[` starts a new sub-form in current syntax until the corresponding `]`.<br/>
+  If found in Lisp syntax, it is equivalent to `(`.<br/>
   If found in shell syntax, it is similar to `{` with the difference that commands will be executed in a subshell.
 
 * the directives `#!scheme` `#!chezscheme` and `#!r6rs` temporarily switch to Scheme syntax
-  (with the appropriate flavor) until the end of current `( )`, `[ ]` or `{ }`.
+  (with the appropriate flavor) until the end of current `( )`, `[ ]` or `{ }`.<br/>
   If entered at top level, they change the default syntax until another directive is entered at top level.
 
-* the directive `#!shell` temporarily switches to shell syntax until the end of current `( )`, `[ ]` or `{ }`.
+* the directive `#!shell` temporarily switches to shell syntax until the end of current `( )`, `[ ]` or `{ }`.<br/>
   If entered at top level, it changes the default syntax until another directive is entered at top level.
 
 * shell syntax creates first-class Lisp `sh-job` objects, which can be started/stopped/managed from both syntaxes.
