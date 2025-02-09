@@ -5,11 +5,11 @@ Schemesh is an interactive shell scriptable in Lisp.
 
 It is primarily intended as a user-friendly Unix login shell, replacing bash, zsh, pdksh etc.
 
-As such, it supports interactive line editing and familiar Unix shell syntax:
-it can start commands, including redirections, pipelines, job concatenation with `&&` `||`,
+As such, it supports interactive line editing, autocompletion, history and the familiar Unix shell syntax:
+it can start commands, including redirections, pipelines, job concatenation with `;` `&&` `||`,
 groups surrounded by `{ }`, subshells surrounded by `[ ]`, and manage foreground/background jobs.
 
-For more complex tasks, it seamlessly integrates a full Chez Scheme REPL.
+For more complex tasks, it seamlessly integrates a full Lisp REPL backed by Chez Scheme.
 
 Schemesh can be used as:
 * a replacement for traditional interactive Unix shell, as for example bash/zsh/pdksh etc.
@@ -22,17 +22,18 @@ Schemesh can be used as:
 
 For scripting and serious programming, schemesh completely replaces the slow, clumsy and error-prone
 scripting language of a traditional shell (yes, the author has opinions) with a full-featured Lisp REPL,
-backed by the fast open-source Chez Scheme compiler that generates highly optimized native code.
+backed by the fast and open-source Chez Scheme compiler that generates highly optimized native code.
 
 ### How to use
 
-As a traditional Unix shell: type a command, press Enter.
-If the parentheses/braces/brackets/quotes are balanced, schemesh will execute the command and show any failure result.
-Otherwise it will create a second line where you can continue typing - you can move between lines with cursor keys.
+As a traditional Unix shell: type a command, press Enter.<br/>
+As a Lisp REPL: type an expression starting with `(`, press Enter.
 
-As a Chez Scheme REPL: type an expression starting with `(`, press Enter.
-If the parentheses/braces/brackets/quotes are balanced, schemesh will evaluate the expression and pretty-print its result.
-Otherwise it will create a second line where you can continue typing - you can move between lines with cursor keys.
+If the parentheses/braces/brackets/quotes are balanced,
+schemesh will execute the command and show any failure, or evaluate the expression and pretty-print its value.
+
+If the parentheses/braces/brackets/quotes are *not* balanced,
+schemesh will create a second line where you can continue typing - you can move between lines with cursor keys.
 
 Switching between shell syntax and Lisp syntax is extremely simple, and can be done basically everywhere:
 * open parenthesis `(` temporarily switches to Lisp syntax until the corresponding closed parenthesis `)`
@@ -44,14 +45,19 @@ Switching between shell syntax and Lisp syntax is extremely simple, and can be d
   If found in shell syntax, it is similar to `{` with the difference that commands will be executed in a subshell.
 
 * the directives `#!scheme` `#!chezscheme` and `#!r6rs` temporarily switch to Scheme syntax
-  (with the appropriate flavor) until the end of current list or group inside `( )`, `[ ]` or `{ }`.
+  (with the appropriate flavor) until the end of current `( )`, `[ ]` or `{ }`.
   If entered at top level, they change the default syntax until another directive is entered at top level.
 
-* the directive `#!shell` temporarily switches to shell syntax until the end of current list or group
-  inside `( )`, `[ ]` or `{ }`.
+* the directive `#!shell` temporarily switches to shell syntax until the end of current `( )`, `[ ]` or `{ }`.
   If entered at top level, it changes the default syntax until another directive is entered at top level.
 
-* shell syntax creates Lisp (sh-job) objects, which can be started/stopped/managed from both syntaxes
+* shell syntax creates first-class Lisp `sh-job` objects, which can be started/stopped/managed from both syntaxes.
+
+* `(sh-job)` objects are discoverable and pretty-printable:<br/>
+  `(values '{SOME-SHELL-SYNTAX})` shows how shell syntax is converted to `shell...` macros,<br/>
+  `(expand '{SOME-SHELL-SYNTAX})` shows how `shell...` macros are expanded to `sh...` functions for creating jobs,<br/>
+  `(values  {SOME-SHELL-SYNTAX})` - *without* quotes - pretty-prints the created `sh-job` objects.
+
 
 The most common mechanisms to start/stop/manage jobs from shell syntax are:
 * CTRL+C      interrupt the current foreground job
@@ -89,7 +95,7 @@ fi
 ```
 
 ```shell
-find (lisp-function-returning-some-path) -type f | grep ^lib | wc -l &
+find (lisp-function-returning-some-string) -type f | grep ^lib | wc -l &
 fg
 ```
 
@@ -106,6 +112,7 @@ fg
 - [x] history searchable with PageUp and PageDown keys
 - [x] cut-and-paste
 - [x] context-sensitive autocompletion - some improvements pending
+- [x] UTF-8b for losslessly converting byte sequences that are not valid UTF-8
 - [x] shell commands, including `&&` `||` `{` `}` `[` `]`
 - [x] shell job control
 - [x] shell aliases
