@@ -16,7 +16,7 @@
 
       ;; bootstrap.ss
       assert* catch define-macro debugf debugf-port first-value first-value-or-void let-macro
-      raise-assert*  repeat while until throws? trace-call try list->values values->list -> ^)
+      raise-assert* repeat second-value while until throws? trace-call try list->values values->list -> ^)
 
   (import
     (rnrs)
@@ -51,6 +51,10 @@
                 (lambda () expr)
                 (lambda args (if (null? args) (void) (car args)))))))
 
+;; evaluate expr, which may return multiple values, and return the second of such values.
+(define-syntax second-value
+  (syntax-rules ()
+    ((_ expr) (call-with-values (lambda () expr) (lambda args (cdr args))))))
 
 ;; port where to write debug messages with (debugf).
 ;; lazily initialized to a file output port that writes to device /dev/pts/1

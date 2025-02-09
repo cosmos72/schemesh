@@ -47,49 +47,6 @@
   default)
 
 
-;; Set an environment variable for specified job.
-;; Optionally also sets the visibility flag to 'export or 'private
-;; Note: visibility flag 'maintain preserves pre-existing visibility flag,
-;;       or creates the variable as 'private if it does not exist.
-(define sh-env-set!
-  (case-lambda
-   ((job-or-id name val)
-    (sh-env-set*! job-or-id name val 'maintain))
-   ((job-or-id name val visibility)
-    (sh-env-set*! job-or-id name val visibility))))
-
-
-;; Set an environment variable for specified job.
-;; Also sets the visibility flag to 'export or 'private
-;; Note: visibility flag 'maintain preserves pre-existing visibility flag,
-;;       or creates the variable as 'private if it does not exist.
-(define (sh-env-set*! job-or-id name val visibility)
-  (assert* 'sh-env-set! (string? name))
-  (assert* 'sh-env-set! (string? val))
-  (assert* 'sh-env-set! (memq visibility '(export private maintain)))
-  (let* ((vars (job-direct-env job-or-id))
-         (elem (hashtable-ref vars name #f)))
-    (if (pair? elem)
-      (begin
-        ; env variable already exist, overwrite it
-        (set-cdr! elem val)
-        (unless (eq? 'maintain visibility)
-          (set-car! elem visibility)))
-      (let ((visibility (if (eq? 'maintain visibility) 'private visibility)))
-        ; env variable does not exist, create it
-        (hashtable-set! vars name (cons visibility val))))))
-
-
-;; Unset an environment variable for specified job.
-;; Implementation note: inserts an entry with visibility 'delete,
-;; in order to override any parent job's environment variable
-;; with the same name.
-(define (sh-env-delete! job-or-id name)
-  (assert* 'sh-env-delete! (string? name))
-  (let ((vars (job-direct-env job-or-id)))
-    (hashtable-set! vars name (cons 'delete ""))))
-
-
 ;; Return the value and visibility of an environment variable for specified job.
 ;; First returned value is a string or #f: the value of environment variable,
 ;;   or #f if not found or has been deleted.
@@ -123,6 +80,55 @@
       ;; (job-direct-env job) creates job environment if not yet present
       (hashtable-set! (job-direct-env job) name (cons visibility val)))
     (if val #t #f)))
+
+
+;; Set an environment variable for specified job.
+;; Optionally also sets the visibility flag to 'export or 'private
+;; Note: visibility flag 'maintain preserves pre-existing visibility flag,
+;;       or creates the variable as 'private if it does not exist.
+(define sh-env-set!
+  (case-lambda
+   ((job-or-id name val)
+    (sh-env-set*! job-or-id name val 'maintain))
+   ((job-or-id name val visibility)
+    (sh-env-set*! job-or-id name val visibility))))
+
+
+;; Set an environment variable for specified job.
+;; Also sets the visibility flag to 'export or 'private
+;; Note: visibility flag 'maintain preserves pre-existing visibility flag,
+;;       or creates the variable as 'private if it does not exist.
+(define (sh-env-set*! job-or-id name val visibility)
+  (assert* 'sh-env-set! (string? name))
+  (assert* 'sh-env-set! (string? val))
+  (assert* 'sh-env-set! (memq visibility '(export private maintain)))
+  ;; (job-direct-env job) creates job environment if not yet present
+  (let* ((job  (sh-job job-or-id))
+         (vars (job-direct-env job))
+         (elem (hashtable-ref vars name #f)))
+    (cond
+     ;; env variable already exist, overwrite it
+     ((pair? elem)
+      (set-cdr! elem val)
+      (unless (eq? 'maintain visibility)
+        (set-car! elem visibility)))
+     ;; env variable does not exist, create it
+     ((eq? 'maintain visibility)
+      (let* ((parent (job-parent job))
+             (parent-visibility (and parent (second-value (sh-env-visibility-ref parent name)))))
+        (hashtable-set! vars name (cons (or parent-visibility 'private) val))))
+     (#t
+      (hashtable-set! vars name (cons visibility val))))))
+
+
+;; Unset an environment variable for specified job.
+;; Implementation note: inserts an entry with visibility 'delete,
+;; in order to override any parent job's environment variable
+;; with the same name.
+(define (sh-env-delete! job-or-id name)
+  (assert* 'sh-env-delete! (string? name))
+  (let ((vars (job-direct-env job-or-id)))
+    (hashtable-set! vars name (cons 'delete ""))))
 
 
 ;; Iterate on environment variables for specified job,
