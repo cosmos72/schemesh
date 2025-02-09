@@ -1,9 +1,6 @@
 # schemesh
 ## Fusion between a Unix shell and a Lisp REPL
 
-### Current status: BETA.
-### Many features work, some are incomplete or missing.
-
 Schemesh is an interactive shell scriptable in Lisp.
 
 It is primarily intended as a user-friendly Unix login shell, replacing bash, zsh, pdksh etc.
@@ -13,22 +10,6 @@ it can start commands, including redirections, pipelines, job concatenation with
 groups surrounded by `{ }`, subshells surrounded by `[ ]`, and manage foreground/background jobs.
 
 For more complex tasks, it seamlessly integrates a full Chez Scheme REPL.
-
-Features:
-- [x] REPL with multi-line editing and parentheses highlighting
-- [x] persistent history, searchable with PageUp and PageDown keys
-- [x] shortcuts to execute commands by pressing a single key: KP- KP+
-- [x] cut-and-paste
-- [x] context-sensitive autocompletion
-- [x] dual syntax parsing, allows mixing Scheme and shell expressions
-- [x] shell commands, including `&&` `||` `{` `}` `[` `]`
-- [x] shell job control
-- [x] shell aliases
-- [x] shell builtins
-- [x] shell environment variables
-- [x] shell pipelines `|` `|&`
-- [x] shell redirections `<` `>` `<>` `>>` `<&` `>&` `$()` ``` `` ```
-- [x] shell wildcard expansion
 
 Schemesh can be used as:
 * a replacement for traditional interactive Unix shell, as for example bash/zsh/pdksh etc.
@@ -43,22 +24,15 @@ For scripting and serious programming, schemesh completely replaces the slow, cl
 scripting language of a traditional shell (yes, the author has opinions) with a full-featured Lisp REPL,
 backed by the fast open-source Chez Scheme compiler that generates highly optimized native code.
 
-This means you can mix shell command execution with Lisp control structures, loops and functions as for example
-```lisp
-(if (some_expression arg1 (sub_expression2))
-  (sh-run/i {then_run_this_command foo bar $VAR})
-  (sh-run/i {else_run_this_command foo bar $VAR}))
-```
-instead of typical shell syntax, which is error prone as it's based on string expansion and splitting,
-and geared toward command execution, as for example:
-```shell
-if some_command "$arg1" "$(sub_command)"
-then
-  then_run_this_command foo bar $VAR
-else
-  else_run_this_command foo bar $VAR
-fi
-```
+### How to use
+
+As a traditional Unix shell: type a command, press Enter.
+If the parentheses/braces/brackets/quotes are balanced, schemesh will execute the command and show any failure result.
+Otherwise it will create a second line where you can continue typing - you can move between lines with cursor keys.
+
+As a Chez Scheme REPL: type an expression starting with `(`, press Enter.
+If the parentheses/braces/brackets/quotes are balanced, schemesh will evaluate the expression and pretty-print its result.
+Otherwise it will create a second line where you can continue typing - you can move between lines with cursor keys.
 
 Switching between shell syntax and Lisp syntax is extremely simple, and can be done basically everywhere:
 * open parenthesis `(` temporarily switches to Lisp syntax until the corresponding closed parenthesis `)`
@@ -77,9 +51,42 @@ Switching between shell syntax and Lisp syntax is extremely simple, and can be d
   inside `( )`, `[ ]` or `{ }`.
   If entered at top level, it changes the default syntax until another directive is entered at top level.
 
-* shell syntax creates Lisp (sh-cmd) and (sh-job) objects, which can be started/stopped/managed from both syntaxes
+* shell syntax creates Lisp (sh-job) objects, which can be started/stopped/managed from both syntaxes
 
-Examples:
+The most common mechanisms to start/stop/manage jobs from shell syntax are:
+* CTRL+C      interrupt the current foreground job
+* CTRL+Z      suspend the current foreground job
+* `bg job-id` resume a job in background
+* `fg job-id` resume a job in foreground
+
+The most common mechanisms to start/stop/manage jobs from Lisp syntax are:
+* CTRL+C      as above
+* CTRL+Z      as above
+* `(sh-start job-object)` start a job in background, return immediately
+* `(sh-run/i job-object)` start a job in foreground, wait until job finishes or is suspended
+* `(sh-run   job-object)` start a job in foreground, wait until job finishes
+* `(sh-bg    job-or-id)` resume a job in background, return immediately
+* `(sh-fg    job-or-id)` resume a job in foreground, wait until job finishes or is suspended
+* `(sh-wait  job-or-id)` resume a job in foreground, wait until job finishes
+
+### Examples
+
+You can mix shell command execution with Lisp control structures, loops and functions as for example:
+```lisp
+(if (some_expression arg1 (sub_expression2))
+  (sh-run/i {then_run_this_command foo bar $VAR})
+  (sh-run/i {else_run_this_command foo bar $VAR}))
+```
+instead of typical shell syntax, which is error prone as it's based on string expansion and splitting,
+and geared toward command execution, as for example:
+```shell
+if some_command "$arg1" "$(sub_command)"
+then
+  then_run_this_command foo bar $VAR
+else
+  else_run_this_command foo bar $VAR
+fi
+```
 
 ```shell
 find (lisp-function-returning-some-path) -type f | grep ^lib | wc -l &
@@ -91,6 +98,27 @@ fg
 (sh-start job)
 (sh-fg job)
 ```
+
+### Features
+- [x] REPL with multi-line editing and parentheses highlighting
+- [x] dual syntax parsing, allows mixing Scheme and shell expressions
+- [x] shortcuts to execute commands by pressing a single key: KP- KP+
+- [x] history searchable with PageUp and PageDown keys
+- [x] cut-and-paste
+- [x] context-sensitive autocompletion - some improvements pending
+- [x] shell commands, including `&&` `||` `{` `}` `[` `]`
+- [x] shell job control
+- [x] shell aliases
+- [x] shell builtins
+- [x] shell environment variables
+- [x] shell pipelines `|` `|&`
+- [x] shell redirections `<` `>` `<>` `>>` `<&` `>&` `$()` ``` `` ```
+- [x] shell wildcard expansion
+- [x] if the directory `$HOME/.cache/schemesh/` exists, history is automatically saved to and loaded from a file `history.txt` inside such directory
+- [x] if the file `$HOME/.config/schemesh/repl_init.ss` exists, it is automatically executed when starting the REPL
+- [x] if the file `$HOME/.config/schemesh/repl_quit.ss` exists, it is automatically executed when exiting the REPL
+
+
 ## Build instructions
 
 On Debian Linux, execute the following commands:
@@ -110,38 +138,15 @@ If all went well, you can execute `schemesh`
 In case your environment variable `$PATH` does not contain `/usr/local/bin`,
 the command `schemesh` will not suffice - you will need to run `/usr/local/bin/schemesh`
 
-## IMPLEMENTED
+## RECENT CHANGES
 
-* at startup, (include/lang) initialization file ~/.config/schemesh/repl_init.ss
-* at startup, load history from ~/.cache/schemesh/history.txt
-* at exit, save history to the same file
-* implement (include/lang)
-* implement pipeline operator |&
-* implement shell builtins: bg fg exec exit export unexport global help set unset source
-* extend (sh-cmd* "ENV_VAR" '= "VALUE") to set environment variables in *parent* job
-* modify builtin "cd" to change current directory of *parent* job
-* modify builtin "pwd" to print current directory of *parent* job
-* implement builtin "global", for running another builtin with its parent job set to (sh-globals)
-* implement shell builtin "unsafe", for creating (sh-cmd*) commands whose first argument - the program name -
-  is not a string but a closure, as for example the output of a subshell, a wildcard etc.
-* extend builtin "alias", without arguments now lists existing aliases
-* mark and hide temporary redirections created by (sh-pipe) and (sh-pipe*)
-* improve (shell-backquote), now expands to a closure that accepts a job
-  and calls (sh-run/string-rtrim-newlines) on a new job with the same parent as the job argument
-* fix (sh-read...) exception while parsing "#!/some/absolute/path" at the beginning of input
-* fix hang in {history | foo} due to builtins being fully executed when they start:
-  pipe fd becomes full and blocks further writes, preventing builtin "history" from finishing
-  and causing a deadlock: "foo" is never started.
-  The solution was: modify (sh-pipe) to always start builtins and multijobs in a subprocess
-* consume received signals, i.e. (sh-repl-lineedit) calls (sh-consume-sigchld),
-  which calls C waitpid(-1, WNOHANG) for any child process, updates (sh-pid-table)
-  and calls (sh-job-status) on all parents of each job that changes status.
+See [doc/recent_changes.md](doc/recent_changes.md)
 
 ## TO DO
 
 * autocomplete shell paths and scheme strings: unescape stems before searching for completions, escape completions
-* autocomplete shell paths and scheme strings: when autocompleting inside single or double quotes,
-  the stem starts at the quotes.
+* autocomplete shell paths and scheme strings: when autocompleting inside single or double quotes, the stem starts at the quotes.
 * autocomplete shell paths starting with ~
-* add missing shell builtins: kill
-* implement function (string->sh-patterns)
+* maybe add missing shell builtins "kill"
+* implement function `(string->sh-patterns)`
+* improve function `(include/lang)` to save and restore parameters `(optimize-level)` `(debug-level)` etc.
