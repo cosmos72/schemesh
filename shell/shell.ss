@@ -8,6 +8,9 @@
 
 (library (schemesh shell (0 7 4))
   (export
+    ; ../bootstrap/parameters.ss
+    sh-version
+
     ; autocomplete.ss
     sh-autocomplete-func sh-autocomplete-r6rs sh-autocomplete-scheme sh-autocomplete-shell
 
@@ -88,6 +91,7 @@
     sh-wildcard->sh-patterns sh-patterns/expand
   )
   (import
+    (schemesh bootstrap parameters)
     (schemesh shell autocomplete)
     (schemesh shell builtins)
     (schemesh shell eval)
