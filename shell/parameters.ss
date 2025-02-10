@@ -10,7 +10,7 @@
 ;; this is done by setting the top-level symbol sh-persistent-parameters
 ;; only if it's not bound yet, and by retrieving its value if it's bound.
 
-(library (schemesh shell parameters (0 7 3))
+(library (schemesh shell parameters (0 7 4))
   (export
       ;; parameter1.ss
       sh-persistent-parameters

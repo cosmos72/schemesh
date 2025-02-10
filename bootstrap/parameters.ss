@@ -10,7 +10,7 @@
 ;; this is done by setting the top-level symbol sh-persistent-parameters
 ;; only if it's not bound yet, and by retrieving its value if it's bound.
 
-(library (schemesh bootstrap parameters (0 7 3))
+(library (schemesh bootstrap parameters (0 7 4))
   (export
        sh-make-parameter sh-make-thread-parameter sh-version)
   (import
@@ -42,7 +42,7 @@
 
 ;; return schemesh version
 (define (sh-version)
-  (list 0 7 3))
+  (list 0 7 4))
 
 
 ) ; close library

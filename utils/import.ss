@@ -8,7 +8,7 @@
 
 ;; TODO: is there a better solution not requiring (eval) ?
 (eval
-  `(library (schemesh minimal (0 7 3))
+  `(library (schemesh minimal (0 7 4))
       (export ,@(library-exports '(schemesh repl))
               ,@(library-exports '(schemesh shell)))
       (import (schemesh shell)
@@ -16,7 +16,7 @@
 
 
 (eval
-  `(library (schemesh all (0 7 3))
+  `(library (schemesh all (0 7 4))
       (export ,@(library-exports '(schemesh bootstrap))
               ,@(library-exports '(schemesh containers))
               ,@(library-exports '(schemesh conversions))

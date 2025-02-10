@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh shell builtins (0 7 3))
+(library (schemesh shell builtins (0 7 4))
   (export sh-builtins sh-builtins-help sh-find-builtin sh-exception-handler
           sh-echo sh-error sh-false sh-help sh-history sh-repl-args sh-repl-args-linectx sh-true)
   (import

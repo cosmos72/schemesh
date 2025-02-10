@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh containers misc (0 7 3))
+(library (schemesh containers misc (0 7 4))
   (export
     list-iterate list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
     string-list? assert-string-list? string-list-split-after-nuls

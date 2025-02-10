@@ -10,7 +10,7 @@
 ;; this is done by setting the top-level symbols sh-current-environment and sh-current-eval
 ;; only if they are not bound yet.
 
-(library (schemesh bootstrap raise (0 7 3))
+(library (schemesh bootstrap raise (0 7 4))
   (export
       raise-assert0 raise-assert1 raise-assert2 raise-assert3 raise-assert4 raise-assert5
       raise-assertf raise-assertl raise-errorf)
