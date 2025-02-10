@@ -148,13 +148,9 @@
 (define (advance-multijob-pipe mode mj)
   ; (debugf ">   advance-multijob-pipe mode=~s mj=~s" mode mj)
   (let ((pgid (job-pgid mj)))
-    (if (and pgid (memq mode '(sh-fg sh-wait sh-sigcont+wait)))
-      (with-foreground-pgid mode pgid
-        (advance-multijob-pipe/maybe-sigcont mode mj pgid)
-        (advance-multijob-pipe/wait mode mj))
-      (begin
-        (advance-multijob-pipe/maybe-sigcont mode mj pgid)
-        (advance-multijob-pipe/wait mode mj))))
+    (with-foreground-pgid mode pgid
+      (advance-multijob-pipe/maybe-sigcont mode mj pgid)
+      (advance-multijob-pipe/wait mode mj)))
   ; (debugf "<   advance-multijob-pipe job-status=~s" (job-last-status mj))
   )
 

@@ -328,22 +328,24 @@
 
 (define-syntax with-foreground-pgid
   (syntax-rules ()
-    ((_  caller new-pgid body ...)
+    ((_  mode new-pgid body ...)
       ;; hygienic macros sure are handy :)
-      (let* ((caller        caller)
-             (new-pgid      new-pgid)
-             (job-control?  (sh-job-control?))
-             (our-pgid      (and job-control? (job-pgid (sh-globals)))))
+      (let* ((mode      mode)
+             (new-pgid  new-pgid)
+             (our-pgid  (and new-pgid
+			  (memq mode '(sh-fg sh-wait sh-sigcont+wait))
+			  (sh-job-control?)
+			  (job-pgid (sh-globals)))))
         (dynamic-wind
           (lambda () ; run before body
-            (when job-control?
-              (%pgid-foreground caller our-pgid new-pgid)))
+            (when our-pgid
+	      (%pgid-foreground mode our-pgid new-pgid)))
           (lambda ()
             body ...)
           (lambda () ; run after body
-            (when job-control?
-              ; try really hard to restore (sh-globals) as the foreground process group
-              (%pgid-foreground caller -1 our-pgid))))))))
+	    ;; try really hard to restore (sh-globals) as the foreground process group
+            (when our-pgid
+	      (%pgid-foreground mode -1 our-pgid))))))))
 
 
 ;; Internal function called by (advance-job)
@@ -357,13 +359,9 @@
     (#t
       (let ((pid  (job-pid job))
             (pgid (job-pgid job)))
-        (if (and pgid (memq mode '(sh-fg sh-wait sh-sigcont+wait)))
-          (with-foreground-pgid mode pgid
-            (advance-pid/maybe-sigcont mode job pid pgid)
-            (advance-pid/wait mode job pid pgid))
-          (begin
-            (advance-pid/maybe-sigcont mode job pid pgid)
-            (advance-pid/wait mode job pid pgid)))))))
+        (with-foreground-pgid mode pgid
+          (advance-pid/maybe-sigcont mode job pid pgid)
+          (advance-pid/wait mode job pid pgid))))))
 
 
 ;; Internal function called by (advance-pid)
@@ -408,7 +406,7 @@
         ; job exited, clean it up. Also allows user to later start it again.
         (pid->job-delete! (job-pid job))
         (job-status-set! 'advance-pid/wait job new-status)
-        (job-id-unset! job) ; may show job summary
+        (job-id-unset! job)
         (job-pid-set!  job #f)
         (job-pgid-set! job #f)
         new-status)
