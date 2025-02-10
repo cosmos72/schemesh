@@ -119,7 +119,7 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;   sh-job-id   sh-job-pid   sh-job-pgid   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;   sh-job-id   sh-job-pid   sh-job-pgid   sh-job<?   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; return the job-id of a job, or #f if not set
@@ -151,6 +151,23 @@
       (#t
         ; unset job's process group id
         #f))))
+
+
+(define (sh-job<? job1 job2)
+  (let ((id1 (job-id job1))
+        (id2 (job-id job2)))
+    (cond
+      ((and id1 id2) (fx<? id1 id2))
+      (id1   #t) ; jobs with id compare "smaller than" jobs without id
+      (id2   #f)
+      (#t
+        (let ((pid1 (job-pid job1))
+              (pid2 (job-pid job2)))
+          (cond
+            ((and pid1 pid2) (< pid1 pid2))
+            (pid1   #t) ; jobs with pid compare "smaller than" jobs without pid
+            (pid2   #f)
+            (#t     #f))))))) ; no id, no pid => compare "equal"
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

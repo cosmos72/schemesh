@@ -13,15 +13,6 @@ LDFLAGS=-s
 # C compiler with additional flags for C shared library (not compiled by default)
 CC_SO=$(CC) -shared -fPIC
 
-INSTALL_DIR=/usr/local
-INSTALL_BINDIR=$(INSTALL_DIR)/bin
-INSTALL_LIBDIR=$(INSTALL_DIR)/lib/schemesh
-
-CP=cp
-MKDIR_P=mkdir -p
-INSTALL=install
-
-
 # Autodetect Chez Scheme installation.
 # Alternatively, you can manually specify it, as for example:
 #  CHEZ_SCHEME_DIR=/usr/local/lib/csv10.0.0/ta6le
@@ -29,9 +20,30 @@ INSTALL=install
 CHEZ_SCHEME_DIR:=$(shell ./utils/find_chez_scheme_dir.sh)
 CHEZ_SCHEME_KERNEL:=$(shell ./utils/find_chez_scheme_kernel.sh $(CHEZ_SCHEME_DIR))
 
+# required libraries
 LIB_ICONV:=$(shell uname -o | grep -q Android && echo -liconv)
 
 LIBS=$(CHEZ_SCHEME_KERNEL) -lz -llz4 -lncurses -ldl -lm -lpthread -luuid $(LIB_ICONV)
+
+
+# installation directories. Names and values are taken from GNU Makefile conventions
+# and can be overridden from "make" command line
+prefix      = /usr/local
+exec_prefix = $(prefix)
+bindir      = $(exec_prefix)/bin
+libdir      = $(exec_prefix)/lib
+
+SCHEMESH_LIBDIR = $(libdir)/schemesh
+
+
+# installation programs. Names and values are taken from GNU Makefile conventions
+# and can be overridden from "make" command line
+INSTALL         = install
+INSTALL_PROGRAM = $(INSTALL)
+INSTALL_DATA    = $(INSTALL) -m 644
+MKDIR_P         = mkdir -p
+
+
 
 ######################################################################################
 # no user-serviceable parts below this line
@@ -57,7 +69,7 @@ posix.o: posix/posix.c posix/posix.h eval.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR)
 
 shell.o: shell/shell.c shell/shell.h containers/containers.h eval.h posix/posix.h
-	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR) -DCHEZ_SCHEME_DIR="$(CHEZ_SCHEME_DIR)" -DINSTALL_LIBDIR="$(INSTALL_LIBDIR)"
+	$(CC) -o $@ -c $< $(CFLAGS) -I$(CHEZ_SCHEME_DIR) -DCHEZ_SCHEME_DIR="$(CHEZ_SCHEME_DIR)" -DSCHEMESH_LIBDIR="$(SCHEMESH_LIBDIR)"
 
 
 
@@ -78,14 +90,24 @@ schemesh_test: test.o $(OBJS)
 $(LIBSCHEMESH_SO): schemesh_test
 	./schemesh_test
 
-install: all
-	$(INSTALL) schemesh $(INSTALL_BINDIR) || $(CP) schemesh $(INSTALL_BINDIR)
-	$(MKDIR_P) $(INSTALL_LIBDIR)
-	$(INSTALL) $(LIBSCHEMESH_SO) $(INSTALL_LIBDIR) || $(CP) $(LIBSCHEMESH_SO) $(INSTALL_LIBDIR)
+
+installdirs:
+	$(MKDIR_P) $(DESTDIR)$(bindir)
+	$(MKDIR_P) $(DESTDIR)$(SCHEMESH_LIBDIR)
+
+install: all installdirs
+	$(INSTALL_PROGRAM) schemesh $(DESTDIR)$(bindir)
+	$(INSTALL_DATA) $(LIBSCHEMESH_SO) $(DESTDIR)$(SCHEMESH_LIBDIR)
+
+uninstall:
+	rm -f $(DESTDIR)$(bindir)/schemesh $(DESTDIR)$(SCHEMESH_LIBDIR)/$(LIBSCHEMESH_SO) $(DESTDIR)$(SCHEMESH_LIBDIR)/$(LIBSCHEMESH_C_SO)
 
 
 # by default, C shared library is not compiled.
 c_so: $(LIBSCHEMESH_C_SO)
 
 $(LIBSCHEMESH_C_SO): $(SRCS)
-	$(CC_SO) -o $@ $^ $(CFLAGS) -I$(CHEZ_SCHEME_DIR) -DCHEZ_SCHEME_DIR="$(CHEZ_SCHEME_DIR)" -DINSTALL_LIBDIR="$(INSTALL_LIBDIR)" $(LDFLAGS)
+	$(CC_SO) -o $@ $^ $(CFLAGS) -I$(CHEZ_SCHEME_DIR) -DCHEZ_SCHEME_DIR="$(CHEZ_SCHEME_DIR)" -DSCHEMESH_LIBDIR="$(SCHEMESH_LIBDIR)" $(LDFLAGS)
+
+install_c_so: $(LIBSCHEMESH_C_SO) installdirs
+	$(INSTALL_DATA) $(LIBSCHEMESH_C_SO) $(DESTDIR)$(SCHEMESH_LIBDIR)

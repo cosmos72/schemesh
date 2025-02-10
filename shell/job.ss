@@ -66,8 +66,8 @@
     (only (chezscheme) append! break console-output-port console-error-port
                        debug-condition display-condition foreign-procedure format fx1+ fx1-
                        hashtable-cells include inspect logand logbit? make-format-condition
-                       open-fd-output-port parameterize procedure-arity-mask record-writer reverse!
-                       string-copy! string-truncate! define void)
+                       open-fd-output-port parameterize procedure-arity-mask record-writer
+                       reverse! sort! string-copy! string-truncate! void)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh conversions)
@@ -414,10 +414,12 @@
               (sh-job-display-summary job)
               (when (job-finished? job)
                 (job-id-unset! job))))))
-  (list-iterate (queue-job-display-summary)
-    proc-notify-status-change)
-  (while (signal-consume-sigchld)
-    (job-pids-wait #f 'nonblocking proc-notify-status-change))))
+    (let ((job-list (queue-job-display-summary)))
+      (unless (null? job-list)
+        (list-iterate (list-remove-consecutive-duplicates! (sort! sh-job<? job-list) eq?)
+          proc-notify-status-change)))
+    (while (signal-consume-sigchld)
+      (job-pids-wait #f 'nonblocking proc-notify-status-change))))
 
 
 ;; raise an exception if a job or one of it recursive children is already started

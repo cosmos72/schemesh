@@ -132,12 +132,11 @@
         (let* ((old-status (job-last-status job))
                (new-status (sh-bg job)))
           (if (job-status-finished? new-status)
+            ; job finished, return its exit status as "bg" exit status.
             new-status
             ; job still exists, show its running/stopped status.
-            (begin
-              (sh-job-display-summary job)
-              ; return (void) i.e. builtin "bg" exiting successfully.
-              (void))))
+            ; return (void) i.e. builtin "fg" exiting successfully.
+            (queue-job-display-summary job)))
         (write-builtin-error "bg" arg "no such job")))) ; returns '(exited . 1)
 
 
@@ -156,11 +155,11 @@
         (let* ((old-status (job-last-status job))
                (new-status (sh-fg job)))
           (if (job-status-finished? new-status)
+            ; job finished, return its exit status as "fg" exit status.
             new-status
-            ; job not finished yet. no need to show its running/stopped status,
-            ; (job-pids-wait) will do that
+            ; job still exists, show its running/stopped status.
             ; return (void) i.e. builtin "fg" exiting successfully.
-            (void)))
+            (queue-job-display-summary job)))
         (write-builtin-error "fg" arg "no such job")))) ; returns '(exited . 1)
 
 

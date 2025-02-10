@@ -157,12 +157,16 @@
               ((null? l))
             (bytespan-insert-back/u8! wbuf (if (eq? l version) 32 46))
             (bytespan-display-back/fixnum! wbuf (car l))))
-        ; (bytespan-insert-back/string! wbuf " Copyright (C) 2023-2035 Massimiliano Ghilardi <https://github.com/cosmos72/schemesh>\n\n")
-        ; (bytespan-insert-back/string! wbuf "schemesh comes with ABSOLUTELY NO WARRANTY; for details type 'help warranty'.\n")
-        ; (bytespan-insert-back/string! wbuf "  This is free software, and you are welcome to redistribute it\n")
-        ; (bytespan-insert-back/string! wbuf "  under certain conditions; type 'help copyright' for details.\n\n")
-        (bytespan-insert-back/string! wbuf "\n\nType 'help' to display this text. Type 'help name' for help about the builtin 'name'.\n")
-        (bytespan-insert-back/string! wbuf "The following names are recognized as builtins:\n\n")
+        (bytespan-insert-back/string! wbuf "
+Copyright (C) 2023-2035 Massimiliano Ghilardi <https://github.com/cosmos72/schemesh>
+
+  schemesh comes with ABSOLUTELY NO WARRANTY; for details type 'help warranty'.
+  This is free software, and you are welcome to redistribute it
+  under certain conditions; type 'help copyright' for details.
+
+Type 'help' to display this text. Type 'help name' for help about the builtin 'name'.
+The following names are recognized as builtins:\n\n")
+
         (let ((names (hashtable-keys (sh-builtins))))
           (vector-sort*! string<? names)
           (lineedit-display-table lctx (vector->span* names)))
@@ -317,6 +321,28 @@
     (hashtable-set! t ":"       (string->utf8 " [arg ...]
     ignore arguments. return success i.e. (void).\n"))
 
+    (hashtable-set! t "copyright" (string->utf8 "
+
+schemesh, a fusion between interactive Unix shell and Chez Scheme REPL.
+Copyright (C) 2023-2035 Massimiliano Ghilardi <https://github.com/cosmos72/schemesh>
+
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License along
+  with this program; if not, write to the Free Software Foundation, Inc.,
+  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+Informative note: an online version of the GNU General Public License version 2.0,
+is usually available at <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html#SEC1>\n"))
+
     (hashtable-set! t "echo"    (string->utf8 " [arg ...]
     write space-separated arguments to standard output, followed by a single newline.
 
@@ -344,6 +370,13 @@
     return success.\n"))
 
     (hashtable-set! t "true"    (hashtable-ref t ":" ""))
+
+    (hashtable-set! t "warranty"       (string->utf8 "
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.\n"))
+
 
     (lambda () t)))
 

@@ -240,17 +240,15 @@
   (assert-string-list? 'builtin-source prog-and-args)
   (cond
     ((null? (cdr prog-and-args))
-      (let ((fd (sh-fd-stderr)))
-        (fd-write fd
-          #vu8(115 99 104 101 109 101 115 104 58 32 115 111 117 114 99 101 58 32 116 111 111
-               32 102 101 119 32 97 114 103 117 109 101 110 116 115 10)) ; "schemesh: source: too few arguments\n"
-        (void)))
+      (fd-write (sh-fd-stderr)
+        #vu8(115 99 104 101 109 101 115 104 58 32 115 111 117 114 99 101 58 32 116 111 111
+             32 102 101 119 32 97 114 103 117 109 101 110 116 115 10)) ; "schemesh: source: too few arguments\n"
+      '(exited . 1))
     ((not (null? (cddr prog-and-args)))
-      (let ((fd (sh-fd-stderr)))
-        (fd-write fd
-          #vu8(115 99 104 101 109 101 115 104 58 32 115 111 117 114 99 101 58 32 116 111 111
-               32 109 97 110 121 32 97 114 103 117 109 101 110 116 115 10)) ; "schemesh: source: too many arguments\n"
-        (void)))
+      (fd-write (sh-fd-stderr)
+        #vu8(115 99 104 101 109 101 115 104 58 32 115 111 117 114 99 101 58 32 116 111 111
+             32 109 97 110 121 32 97 114 103 117 109 101 110 116 115 10)) ; "schemesh: source: too many arguments\n"
+      '(exited . 1))
     (#t
       (job-status-normalize
         (sh-eval-file (cadr prog-and-args))))))

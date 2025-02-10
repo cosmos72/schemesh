@@ -41,8 +41,10 @@
   (void))
 
 
-;; add a job to an internal queue for later showing it with (sh-job-display-summary)
-;; if called without arguments, return all queued jobs as a list then clears the queue.
+;; add a job to an internal queue, and return (void)
+;;
+;; if called without arguments, return all queued jobs as a list
+;; then clears the internal queue.
 (define queue-job-display-summary
   (let ((queue '()))
     (case-lambda
@@ -55,7 +57,7 @@
           queue
           (let ((ret queue))
             (set! queue '())
-            (reverse! ret)))))))
+            ret))))))
 
 
 ;; return padding string to align printing job-id

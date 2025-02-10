@@ -82,19 +82,19 @@
   (let %recurse ((tail l))
     (cond
       ((or (null? tail) (null? (cdr tail)))
-        (void))
+        l)
       ((equal-pred (car tail) (cadr tail))
         (set-cdr! tail (cddr tail))
         (%recurse tail))
       (#t
-        (%recurse (cdr tail)))))
-  l)
+        (%recurse (cdr tail))))))
 
 
 ;; return #t if l is a (possibly empty) list of strings
 (define (string-list? l)
   (do ((tail l (cdr tail)))
-      ((or (null? tail) (not (string? (car tail)))) (null? tail))))
+      ((or (null? tail) (not (string? (car tail))))
+        (null? tail))))
 
 
 ;; shortcut for (assert* caller (string-list? l)

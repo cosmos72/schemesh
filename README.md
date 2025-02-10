@@ -34,7 +34,8 @@ If the parentheses/braces/brackets/quotes are balanced,<br/>
 schemesh will execute the command and show any failure, or evaluate the expression and pretty-print its value.
 
 If the parentheses/braces/brackets/quotes are *not* balanced,<br/>
-schemesh will create a second line where you can continue typing - you can move between lines with cursor keys.<br/>
+schemesh will create a second line where you can continue typing.<br/>
+You can move between lines with the cursor keys, and use all the classical line-editing features including cut-and-paste.<br/>
 ![](doc/screenshot-2.png)
 
 Switching between shell syntax and Lisp syntax is extremely simple, and can be done basically everywhere:
@@ -55,11 +56,10 @@ Switching between shell syntax and Lisp syntax is extremely simple, and can be d
 
 * shell syntax creates first-class Lisp `sh-job` objects, which can be started/stopped/managed from both syntaxes.
 
-* `(sh-job)` objects are discoverable and pretty-printable:<br/>
+* `sh-job` objects are discoverable and pretty-printable:<br/>
   `(values '{SOME-SHELL-SYNTAX})` shows how shell syntax is converted to `shell...` macros,<br/>
   `(expand '{SOME-SHELL-SYNTAX})` shows how `shell...` macros are expanded to `sh...` functions for creating jobs,<br/>
   `(values  {SOME-SHELL-SYNTAX})` - *without* quotes - pretty-prints the created `sh-job` objects.
-
 
 The most common mechanisms to start/stop/manage jobs from shell syntax are:
 * CTRL+C      interrupt the current foreground job
@@ -67,7 +67,7 @@ The most common mechanisms to start/stop/manage jobs from shell syntax are:
 * `bg job-id` resume a job in background
 * `fg job-id` resume a job in foreground
 
-The most common mechanisms to start/stop/manage jobs from Lisp syntax are:
+The analogous job control mechanisms from Scheme syntax are:
 * CTRL+C      as above
 * CTRL+Z      as above
 * `(sh-start job-object)` start a job in background, return immediately
@@ -76,6 +76,10 @@ The most common mechanisms to start/stop/manage jobs from Lisp syntax are:
 * `(sh-bg    job-or-id)` resume a job in background, return immediately
 * `(sh-fg    job-or-id)` resume a job in foreground, wait until job finishes or is suspended
 * `(sh-wait  job-or-id)` resume a job in foreground, wait until job finishes
+
+Some more advanced Scheme functions:
+* `(sh-run/string job-object)` start a job in foreground, wait until job finishes, return its output as a Scheme string
+* `(sh-start/fd-stdout job-object)` start a job in background, return a file descriptor fixnum for reading its standard output - for example with `(open-fd-input-port fd)`
 
 ### Examples
 
@@ -88,6 +92,7 @@ You can mix shell command execution with Lisp control structures, loops and func
 instead of typical shell syntax, which is error prone as it's based on string expansion and splitting,
 and geared toward command execution, as for example:
 ```shell
+# Note: this is POSIX shell syntax for `if-then-else`. It will NOT work in schemesh.
 if some_command "$arg1" "$(sub_command)"
 then
   then_run_this_command foo bar $VAR
@@ -98,13 +103,18 @@ fi
 
 ```shell
 find (lisp-function-returning-some-string) -type f | grep ^lib | wc -l &
-fg
+fg 1
 ```
 
 ```lisp
 (define job {ls -l > ls.out || echo "ls failed"})
 (sh-start job)
 (sh-fg job)
+```
+
+```lisp
+(define txt (sh-run/string {git log}))
+(display txt)
 ```
 
 ### Features
@@ -115,7 +125,7 @@ fg
 - [x] cut-and-paste
 - [x] context-sensitive autocompletion - some improvements pending
 - [x] UTF-8b for losslessly converting byte sequences that are not valid UTF-8
-- [x] shell commands, including `&&` `||` `{` `}` `[` `]`
+- [x] shell commands, including `&&` `||` `;` `&` `{` `}` `[` `]`
 - [x] shell job control
 - [x] shell aliases
 - [x] shell builtins
