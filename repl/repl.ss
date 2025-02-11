@@ -113,7 +113,8 @@
 ;; Return two values:
 ;;   list of forms containing Scheme code to evaluate,
 ;;   and updated parser to use.
-(define sh-repl-parse parse-forms)
+(define (sh-repl-parse pctx initial-parser)
+  (parse-forms pctx initial-parser))
 
 
 ;; Eval with (sh-eval) a single form containing parsed expressions or shell commands,

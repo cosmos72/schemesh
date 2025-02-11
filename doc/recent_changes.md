@@ -2,10 +2,11 @@
 
 ### up to 2025-02-09
 
-* at startup, (include/lang) initialization file ~/.config/schemesh/repl_init.ss
+* at startup, (sh-eval-file) initialization file ~/.config/schemesh/repl_init.ss if it exists
+* at exit, (sh-eval-file) shutdown file ~/.config/schemesh/repl_quit.ss if it exists
 * at startup, load history from ~/.cache/schemesh/history.txt
 * at exit, save history to the same file
-* implement (include/lang)
+* implement (include/lang) and (include/lang*)
 * implement pipeline operator |&
 * implement shell builtins: bg fg exec exit export unexport global help set unset source
 * extend (sh-cmd* "ENV_VAR" '= "VALUE") to set environment variables in *parent* job

@@ -7,7 +7,7 @@
 
 (library (schemesh shell builtins (0 7 4))
   (export sh-builtins sh-builtins-help sh-find-builtin sh-exception-handler
-          sh-echo sh-error sh-false sh-help sh-history sh-repl-args sh-repl-args-linectx sh-true)
+          sh-echo sh-false sh-help sh-history sh-repl-args sh-repl-args-linectx sh-test sh-true)
   (import
     (rnrs)
     (only (chezscheme)        console-error-port debug debug-condition debug-on-exception
@@ -118,28 +118,6 @@
   (void))
 
 
-;; implementation of "error" builtin, exits with user-specified exit status
-(define (sh-error . args)
-  ; (debugf "sh-error ~s" args)
-  (if (pair? args)
-    (let ((arg (car args)))
-      (cond
-        ((fixnum? arg)
-          (if (fxzero? arg)
-            (void) ; '(exited . 0) is always abbreviated to (void)
-            (cons 'exited arg)))
-        ((and (string? arg) (string-contains-only-decimal-digits? arg))
-          (let ((num (string->number arg)))
-            (if (zero? num)
-              (void) ; '(exited . 0) is always abbreviated to (void)
-              (cons 'exited num))))
-        ((and (pair? arg) (symbol? (car arg)) (or (fixnum? (cdr arg)) (symbol? (cdr arg))))
-          arg)
-        (#t
-          '(exited . 1))))
-    '(exited . 1)))
-
-
 ;; implementation of "false" builtin, always exits with failure exit status '(exited . 1)
 (define (sh-false . ignored-args)
   '(exited . 1))
@@ -217,6 +195,28 @@ The following names are recognized as builtins:\n\n")
           '(exited . 1))))))
 
 
+;; implementation of "test" builtin, exits with user-specified exit status
+(define (sh-test . args)
+  ; (debugf "sh-test ~s" args)
+  (if (pair? args)
+    (let ((arg (car args)))
+      (cond
+        ((integer? arg)
+          (if (fxzero? arg)
+            (void) ; '(exited . 0) is always abbreviated to (void)
+            (cons 'exited arg)))
+        ((and (string? arg) (string-contains-only-decimal-digits? arg))
+          (let ((num (string->number arg)))
+            (if (zero? num)
+              (void) ; '(exited . 0) is always abbreviated to (void)
+              (cons 'exited num))))
+        ((and (pair? arg) (symbol? (car arg)) (or (integer? (cdr arg)) (symbol? (cdr arg))))
+          arg)
+        (#t
+          '(exited . 1))))
+    '(exited . 1)))
+
+
 ;; implementation of "true" builtin, always exits successfully i.e. with exit status (void)
 (define (sh-true . ignored-args)
   (void))
@@ -238,15 +238,6 @@ The following names are recognized as builtins:\n\n")
 (define (builtin-echo0 job prog-and-args options)
   (assert-string-list? 'builtin-echo0 prog-and-args)
   (apply sh-echo0 (cdr prog-and-args)))
-
-
-;; the "error" builtin: return specified exit status,
-;; which must be a non-empty string containing only decimal digits.
-;;
-;; As all builtins do, must return job status.
-(define (builtin-error job prog-and-args options)
-  (assert-string-list? 'builtin-error prog-and-args)
-  (apply sh-error (cdr prog-and-args)))
 
 
 ;; the "false" builtin: return '(exited . 1)
@@ -273,6 +264,15 @@ The following names are recognized as builtins:\n\n")
 (define (builtin-history job prog-and-args options)
   (assert-string-list? 'builtin-history prog-and-args)
   (sh-history))
+
+
+;; the "test" builtin: return specified exit status,
+;; which must be a non-empty string containing only decimal digits.
+;;
+;; As all builtins do, must return job status.
+(define (builtin-test job prog-and-args options)
+  (assert-string-list? 'builtin-test prog-and-args)
+  (apply sh-test (cdr prog-and-args)))
 
 
 ;; the "true" builtin: return (void)
@@ -305,10 +305,10 @@ The following names are recognized as builtins:\n\n")
     (hashtable-set! t ":"       builtin-true)
     (hashtable-set! t "echo"    builtin-echo)
     (hashtable-set! t "echo0"   builtin-echo0)
-    (hashtable-set! t "error"   builtin-error)
     (hashtable-set! t "false"   builtin-false)
     (hashtable-set! t "help"    builtin-help)
     (hashtable-set! t "history" builtin-history)
+    (hashtable-set! t "test"    builtin-test)
     (hashtable-set! t "true"    builtin-true)
     (lambda () t)))
 
@@ -353,9 +353,6 @@ is usually available at <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html#
 
     return success.\n"))
 
-    (hashtable-set! t "error"   (string->utf8 " [int ...]
-    return INT value specified as first argument, or failure i.e. '(exited . 1) if no arguments.\n"))
-
     (hashtable-set! t "false"   (string->utf8 " [arg ...]
     ignore arguments. return failure i.e. '(exited . 1).\n"))
 
@@ -368,6 +365,9 @@ is usually available at <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html#
     ignore arguments, write history to standard output.
 
     return success.\n"))
+
+    (hashtable-set! t "test"   (string->utf8 " [int ...]
+    return INT value specified as first argument, or failure i.e. '(exited . 1) if no arguments.\n"))
 
     (hashtable-set! t "true"    (hashtable-ref t ":" ""))
 

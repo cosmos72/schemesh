@@ -9,12 +9,13 @@
 (library (schemesh shell macros (0 7 4))
   (export
     include/lang include/lang*
-    shell shell-backquote shell-env shell-list shell-subshell shell-wildcard)
+    shell shell-backquote shell-env shell-list shell-subshell shell-test shell-wildcard)
   (import
     (rnrs)
     (only (chezscheme) datum meta reverse!)
     (schemesh bootstrap)
     (only (schemesh posix pattern) sh-wildcard?)
+    (schemesh shell builtins)
     (schemesh shell job)
     (only (schemesh shell eval) sh-read-file))
 
@@ -22,8 +23,17 @@
 (define-macro (shell . args)
   (sh-parse-datum (cons 'shell args)))
 
-(define-macro (shell-subshell . args)
-  (sh-parse-datum (cons 'shell-subshell args)))
+
+(define-syntax shell-backquote
+  (syntax-rules ()
+    ((_)               "")
+    ;; NOTE: (sh-run/string-rtrim-newlines) cannot be stopped and resumed. But neither can $(...) or `...` in POSIX shells
+    ((_ arg ...)       (lambda (job) (sh-run/string-rtrim-newlines (shell arg ...) (cons 'same-parent-as-job job))))))
+
+
+(define-syntax shell-env
+  (syntax-rules ()
+    ((_ arg)      (lambda (job) (sh-env-ref job arg)))))
 
 
 ;; macro: read specified file path, parse it with (sh-read-file)
@@ -48,7 +58,7 @@
 ;; macro: read specified file path, parse it with (sh-read-file)
 ;; and execute its contents at macroexpansion time.
 ;;
-;; same as (include/lang), with the difference that all arguments are mandatory
+;; same as (include/lang*), with the difference that all arguments are mandatory
 (define-syntax include/lang*
   (lambda (x)
     (syntax-case x ()
@@ -62,11 +72,17 @@
     ((_ arg)           arg)
     ((_ arg0 arg1 ...) (sh-list arg0 arg1 ...))))
 
-(define-syntax shell-backquote
+
+(define-macro (shell-subshell . args)
+  (sh-parse-datum (cons 'shell-subshell args)))
+
+
+;; macro: create a (sh-cmd) that evaluates specified Scheme expression when executed,
+;; and returns success i.e. (void) if expression is truish,
+;; or failure i.e '(exited . 1) if expression is false.
+(define-syntax shell-test
   (syntax-rules ()
-    ((_)               "")
-    ;; NOTE: (sh-run/string-rtrim-newlines) cannot be stopped and resumed. But neither can $(...) or `...` in POSIX shells
-    ((_ arg ...)       (lambda (job) (sh-run/string-rtrim-newlines (shell arg ...) (cons 'same-parent-as-job job))))))
+    ((_ expr) (sh-cmd* "builtin" "test" (lambda () (sh-bool expr))))))
 
 (meta begin
   (define (%sh-wildcard-simplify wildcards? ret args)
@@ -109,11 +125,6 @@
         (string? (syntax->datum (syntax arg)))
         #`arg)
       ((_ arg0 ...) #`(%shell-wildcard-simplify sh-wildcard job arg0 ...)))))
-
-(define-syntax shell-env
-  (syntax-rules ()
-    ((_ arg)      (lambda (job) (sh-env-ref job arg)))))
-
 
 
 

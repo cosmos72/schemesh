@@ -9,6 +9,20 @@
 ;; this file should be included only by file shell/job.ss
 
 
+;; convert boolean obj to exit status string:
+;; if obj is truish. return "0", otherwise return "1"
+;;
+;; useful with builtin "test", as for example:
+;;   test (sh-bool (and (some-scheme-expression) (another-scheme-expression))) || echo failed
+
+;; or, to evaluate scheme expressions when builtin "test" is actually executed,
+;;   test (lambda () (sh-bool (and (some-scheme-expression) (another-scheme-expression)))) || echo failed
+;; which can be abbreviated to
+;;   (shell-test (and (some-scheme-expression) (another-scheme-expression))) || echo failed
+(define (sh-bool obj)
+  (if obj "0" "1"))
+
+
 ;; write contents of bytespan wbuf to file descriptor fd,
 ;; then clear bytespan wbuf
 ;;

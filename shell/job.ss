@@ -14,49 +14,55 @@
 
 (library (schemesh shell job (0 7 4))
   (export
-    ; alias.ss
-    sh-alias-ref sh-alias-delete! sh-alias-set! sh-aliases-expand sh-aliases
+    ;; aliases.ss
+    sh-alias-ref sh-alias-delete! sh-alias-set! sh-aliases sh-aliases-expand
 
-    ; dir.ss
+    ;; builtins2.ss
+    sh-bool
+
+    ;; cmd.ss
+    make-sh-cmd sh-cmd
+
+    ;; dir.ss
     sh-cd sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
 
-    ; display.ss
+    ;; display.ss
     sh-job-display sh-job-display* sh-job->string
     sh-job-write   sh-job-write* sh-job->verbose-string
     sh-job-display-summary? sh-job-display-summary sh-job-display-summary*
 
-    ; env.ss
+    ;; env.ss
     sh-env-ref sh-env-set! sh-env-delete! sh-env-visibility-ref sh-env-visibility-set!
     sh-env-iterate/direct sh-env-set/lazy! sh-env-copy sh-env->argv
 
-    ; job.ss
-    sh-job sh-job-id sh-job-status sh-jobs sh-find-job sh-job-exception
-    sh-cmd make-cmd sh-cwd sh-consume-sigchld
-    sh-globals sh-multijob-child-length sh-multijob-child-ref
-    sh-start sh-start* sh-bg sh-fg sh-wait sh-ok? sh-run sh-run/i sh-run/err? sh-run/ok?
+    ;; job.ss
+    sh-consume-sigchld sh-cwd
+    sh-job sh-job-id sh-job-status sh-jobs sh-find-job sh-job-exception sh-ok?
+    sh-start sh-start* sh-bg sh-fg sh-wait sh-run sh-run/i sh-run/err? sh-run/ok?
 
-    ; multijob.ss
+    ;; multijob.ss
     sh-and sh-or sh-not sh-list sh-subshell
+    sh-globals sh-multijob-child-length sh-multijob-child-ref
 
-    ; options
+    ;; options.ss
     sh-options
 
-    ; redirect.ss
+    ;; redirect.ss
     sh-redirect! sh-run/bspan sh-run/string sh-run/string-rtrim-newlines sh-start/fd-stdout
 
-    ; params.ss
+    ;; params.ss
     sh-job-control-available? sh-job-control?
 
-    ; parse.ss
+    ;; parse.ss
     sh sh-parse-datum sh-cmd* sh-list*
 
-    ; pipe.ss
+    ;; pipe.ss
     sh-pipe sh-pipe*
 
-    ; types.ss
-    sh-job? sh-job-copy sh-cmd? sh-multijob?
+    ;; types.ss
+    sh-cmd? sh-job? sh-job-copy sh-multijob?
 
-    ; wildcard
+    ;; wildcard
     sh-wildcard sh-wildcard* sh-wildcard/apply sh-wildcard/expand-tilde sh-wildcard->string
     sh-wildcard->sh-patterns sh-patterns/expand
   )
@@ -604,8 +610,8 @@
     (hashtable-set! bt "unset"      builtin-unset)
 
     ;; mark builtins that finish immediately i.e. cannot run commands or aliases
-    (list-iterate '("alias" "cd" "echo" "echo0" "error" "exit" "false" "jobs"
-                    "history" "pwd" "set" "true" "unalias" "unset")
+    (list-iterate '("alias" "cd" "echo" "echo0" "exit" "false" "jobs"
+                    "history" "pwd" "set" "test" "true" "unalias" "unset")
       (lambda (name)
         (let ((builtin (hashtable-ref bt name #f)))
           (when builtin

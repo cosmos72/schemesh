@@ -172,4 +172,3 @@ See [doc/recent_changes.md](doc/recent_changes.md)
 * autocomplete shell paths starting with ~
 * maybe add missing shell builtins "kill"
 * implement function `(string->sh-patterns)`
-* improve function `(include/lang)` to save and restore parameters `(optimize-level)` `(debug-level)` etc.

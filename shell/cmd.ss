@@ -10,14 +10,7 @@
 
 
 
-;; Create a cmd to later spawn it. Each argument must be a string.
-;; If you want to use procedures as args, see (sh-cmd*)
-(define (sh-cmd . program-and-args)
-  (assert-string-list? 'sh-cmd program-and-args)
-  (make-cmd program-and-args))
-
-
-(define (make-cmd program-and-args)
+(define (make-sh-cmd program-and-args)
   (%make-cmd
     #f #f #f        ; id pid pgid
     '(new . 0) #f   ; last-status exception
@@ -30,6 +23,12 @@
     program-and-args
     #f))            ; expanded arg-list
 
+
+;; Create a cmd to later spawn it. Each argument must be a string.
+;; If you want to use procedures as args, see (sh-cmd*)
+(define (sh-cmd . program-and-args)
+  (assert-string-list? 'make-sh-cmd program-and-args)
+  (make-sh-cmd program-and-args))
 
 
 ;; NOTE: this is an internal implementation function, use (sh-start) instead.
