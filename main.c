@@ -65,6 +65,7 @@ static int usage(const char* name) {
       "    -e STRING, --eval STRING    run STRING as scheme source\n"
       "    --cmd-file FILE             read and execute FILE as shell script\n"
       "    --eval-file FILE            read and execute FILE as scheme source\n"
+      "    --load-file FILE            read and execute FILE as compiled scheme library\n"
       "    -h, --help                  display this help and exit immediately\n"
       "    -i, --repl                  unconditionally start the interactive repl\n"
       "                                (default: start only if no files or strings are specified)\n"
@@ -145,7 +146,8 @@ static void parse_command_line(int argc, const char* argv[], struct cmdline* cmd
       cmd->library_dir = arg2;
       i++;
     } else if (!strcmp(arg, "-c") || !strcmp(arg, "--cmd") || !strcmp(arg, "--cmd-file") ||
-               !strcmp(arg, "-e") || !strcmp(arg, "--eval") || !strcmp(arg, "--eval-file")) {
+               !strcmp(arg, "-e") || !strcmp(arg, "--eval") || !strcmp(arg, "--eval-file") ||
+               !strcmp(arg, "--load-file")) {
       if (!arg2) {
         missing_option_argument(argv[0], arg);
       }
@@ -203,6 +205,9 @@ static void run_files_and_strings(int argc, const char* argv[]) {
                        schemesh_Sstring_utf8b(arg2, -1),
                        Sstring_to_symbol("scheme"),
                        Strue);
+        i++;
+      } else if (arg2 && (!strcmp(arg, "--load-file"))) {
+        schemesh_call1("load", schemesh_Sstring_utf8b(arg2, -1));
         i++;
       } else if (!strncmp(arg, "-", 1)) {
         /* some other option */
