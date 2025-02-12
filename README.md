@@ -125,7 +125,7 @@ fg 1
 - [x] cut-and-paste
 - [x] context-sensitive autocompletion - some improvements pending
 - [x] UTF-8b for losslessly converting byte sequences that are not valid UTF-8
-- [x] shell commands, including `&&` `||` `;` `&` `{` `}` `[` `]`
+- [x] shell commands, including `;` `&` `!` `&&` `||` `{` `}` `[` `]`
 - [x] shell job control
 - [x] shell aliases
 - [x] shell builtins
