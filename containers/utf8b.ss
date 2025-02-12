@@ -16,7 +16,7 @@
     (rnrs mutable-strings)
     (only (chezscheme) bytevector foreign-procedure fx1+ fx1- string-truncate!)
     (only (schemesh bootstrap)             assert* raise-assertf)
-    (only (schemesh containers bytespan)   bytespan-length bytespan-peek-data bytespan-peek-beg bytespan-peek-end)
+    (only (schemesh containers bytespan)   bytespan? bytespan-length bytespan-peek-data bytespan-peek-beg bytespan-peek-end)
     (only (schemesh containers bytevector) bytevector-fill-range!))
 
 
@@ -131,8 +131,10 @@
 (define utf8b-bytespan->string
   (case-lambda
     ((bspan)
+      (assert* 'utf8b-bytespan->string (bytespan? bspan))
       (utf8b->string (bytespan-peek-data bspan) (bytespan-peek-beg bspan) (bytespan-peek-end bspan)))
     ((bspan start end)
+      (assert* 'utf8b-bytespan->string (bytespan? bspan))
       (assert* 'utf8b-bytespan->string (fx<=? 0 start end (bytespan-length bspan)))
       (let ((offset (bytespan-peek-beg bspan)))
         (utf8b->string (bytespan-peek-data bspan) (fx+ offset start) (fx+ offset end))))))
