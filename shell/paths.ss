@@ -14,7 +14,7 @@
     (only (chezscheme) fx1+ fx1- void)
     (only (schemesh bootstrap) while)
     (schemesh containers charspan)
-    (only (schemesh containers list) list-iterate))
+    (only (schemesh containers misc) list-iterate))
 
 
 ;; convert a string or a charspan to charspan

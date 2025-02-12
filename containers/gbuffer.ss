@@ -20,8 +20,8 @@
   (import
     (rnrs)
     (only (chezscheme) fx1+ record-writer void)
-    (only (schemesh bootstrap)         assert* -> ^)
-    (only (schemesh containers vector) vector-copy!)
+    (only (schemesh bootstrap)       assert* -> ^)
+    (only (schemesh containers misc) vector-copy!)
     (schemesh containers span))
 
 (define-record-type

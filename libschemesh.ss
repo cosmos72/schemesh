@@ -10,10 +10,9 @@
   (include "bootstrap/parameters.ss")
   (include "bootstrap/bootstrap.ss")
   (include "containers/bitmap.ss")
-  (include "containers/bytevector.ss")
-  (include "containers/list.ss")
+  (include "containers/misc.ss")
   (include "containers/string.ss")
-  (include "containers/vector.ss")
+  (include "containers/hashtable.ss")   ; requires containers/misc.ss
 
   (include "containers/bytespan.ss")    ; requires containers/bytevector.ss containers/list.ss
   (include "containers/charspan.ss")    ; requires containers/string.ss
@@ -24,7 +23,6 @@
 
   (include "containers/chargbuffer.ss") ; requires containers/charspan.ss
   (include "containers/gbuffer.ss")     ; requires containers/span.ss
-  (include "containers/hashtable.ss")   ; requires containers/list.ss
 
   (include "containers/charline.ss")    ; requires containers/gbuffer.ss
   (include "containers/charlines.ss")   ; requires containers/charlines.ss

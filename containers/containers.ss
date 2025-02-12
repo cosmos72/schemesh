@@ -118,23 +118,20 @@
     vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable vector-range->list)
 
   (import (schemesh containers bitmap)
-          (schemesh containers bitmap)
-          (schemesh containers bytevector)
-          (schemesh containers list)
-          (schemesh containers vector)
+          (schemesh containers misc)
           (schemesh containers sort)
           (schemesh containers string)
+          (schemesh containers hashtable)   ; requires (schemesh containers misc)
 
-          (schemesh containers bytespan)    ; requires (schemesh containers bytevector) (schemesh containers list)
+          (schemesh containers bytespan)    ; requires (schemesh containers misc)
           (schemesh containers charspan)    ; requires (schemesh containers string)
-          (schemesh containers span)        ; requires (schemesh containers vector)
+          (schemesh containers span)        ; requires (schemesh containers misc)
 
           (schemesh containers utf8b)       ; requires (schemesh containers bytespan)
           (schemesh containers utf8b utils)
 
           (schemesh containers chargbuffer) ; requires (schemesh containers charspan)
           (schemesh containers gbuffer)     ; requires (schemesh containers span)
-          (schemesh containers hashtable)   ; requires (schemesh containers list)
 
           (schemesh containers charline)    ; requires (schemesh containers gbuffer)
           (schemesh containers charlines))  ; requires (schemesh containers charlines)

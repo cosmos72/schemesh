@@ -9,6 +9,11 @@
 ;; this file should be included only by file parser/lisp.ss
 
 
+(define (caller-for flavor)
+  (if (eq? flavor 'r6rs)
+    'parse-r6rs-forms
+    'parse-scheme-forms))
+
 
 ;; Wrapper around Chez Scheme (read-token), recognizes the following extensions:
 ;;   { as (values 'lbrace f ...)

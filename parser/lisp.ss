@@ -19,7 +19,7 @@
     (only (schemesh bootstrap)            assert* debugf while until)
     (only (schemesh containers charspan)  charspan charspan-insert-back! charspan->string*!)
     (only (schemesh containers hashtable) hashtable)
-    (only (schemesh containers list)      list-reverse*!)
+    (only (schemesh containers misc)      list-reverse*!)
     (only (schemesh containers utf8b)     integer->char*)
     (schemesh lineedit paren)
     (schemesh lineedit parser))
@@ -28,10 +28,6 @@
 (include "parser/lisp-read-token.ss")
 
 
-(define (caller-for flavor)
-  (if (eq? flavor 'r6rs)
-    'parse-r6rs-forms
-    'parse-scheme-forms))
 
 
 ;; Read a single r6rs or Chez Scheme token from textual input port 'in.

@@ -5,13 +5,8 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh containers vector (0 7 4))
-  (export
-    vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable vector-range->list)
-  (import
-    (rnrs)
-    (only (chezscheme) fx1+ fx1- void)
-    (only (schemesh bootstrap) assert*))
+
+;; this file should be included only by file containers/misc.ss
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -79,6 +74,3 @@
     (lambda (i cell)
       (hashtable-set! htable (car cell) (cdr cell))))
   htable)
-
-
-) ; close library

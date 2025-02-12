@@ -31,7 +31,7 @@
     (rnrs mutable-strings)
     (only (chezscheme) fx1+ fx1- record-writer string-copy! string-truncate! void)
     (only (schemesh bootstrap)         assert*)
-    (only (schemesh containers list)   list-iterate)
+    (only (schemesh containers misc)   list-iterate)
     (only (schemesh containers string) string-fill-range! string-range<? string-range=? string-range-count=))
 
 

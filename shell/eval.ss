@@ -15,7 +15,7 @@
     (rnrs mutable-pairs)
     (only (chezscheme)                 void)
     (only (schemesh bootstrap) assert* raise-errorf until)
-    (only (schemesh containers list)   list-iterate)
+    (only (schemesh containers misc)   list-iterate)
     (only (schemesh containers string) assert-string-list? string-ends-with? string-rfind/char)
     (only (schemesh posix fd)          fd-write)
     (schemesh parser)

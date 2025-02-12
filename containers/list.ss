@@ -5,12 +5,8 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh containers list (0 7 4))
-  (export
-    list-iterate list-quoteq! list-reverse*! list-remove-consecutive-duplicates! with-list-elements)
-  (import
-    (rnrs)
-    (rnrs mutable-pairs))
+
+;; this file should be included only by file containers/misc.ss
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -89,6 +85,3 @@
       (do ((tail l (cdr tail)))
           ((or (null? tail) (let ((elem (car tail))) (not (begin body1 body2 ...))))
            (null? tail))))))
-
-
-) ; close library

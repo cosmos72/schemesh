@@ -17,7 +17,7 @@
     (only (schemesh containers charlines) charlines-iterate)
     (only (schemesh containers gbuffer)   gbuffer-iterate)
     (only (schemesh containers hashtable) hashtable-iterate)
-    (only (schemesh containers list)      list-iterate)
+    (only (schemesh containers misc)      list-iterate)
     (only (schemesh containers sort)      vector-sort*!)
     (only (schemesh containers span)      span span-insert-back! span-iterate vector->span*)
     (only (schemesh containers string)    assert-string-list? string-contains-only-decimal-digits?)

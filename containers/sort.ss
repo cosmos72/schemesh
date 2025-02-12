@@ -12,7 +12,7 @@
   (import
     (rnrs)
     (only (chezscheme) eval-when format fx1+ fx1- fxarithmetic-shift-right logbit?
-                       mutable-vector? optimize-level pariah procedure-arity-mask define void)
+                       mutable-vector? optimize-level pariah procedure-arity-mask void)
     ;;(only (schemesh bootstrap) assert*)
     (schemesh containers span))
 

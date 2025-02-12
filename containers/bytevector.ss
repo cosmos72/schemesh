@@ -5,20 +5,9 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh containers bytevector (0 7 4))
-  (export
-    list->bytevector subbytevector
-    bytevector-fill-range! bytevector-find/u8 bytevector-iterate bytevector-compare
-    bytevector<=? bytevector<? bytevector>=? bytevector>?)
-  (import
-    (rnrs)
-    (only (chezscheme) bytevector foreign-procedure fx1+)
-    (only (schemesh bootstrap) assert*))
 
+;; this file should be included only by file containers/misc.ss
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;     some additional bytevector functions    ;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (list->bytevector l)
   (apply bytevector l))
@@ -91,6 +80,3 @@
 
 (define (bytevector>? bvec1 bvec2)
   (fx>? (bytevector-compare bvec1 bvec2) 0))
-
-
-) ; close library

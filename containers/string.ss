@@ -19,7 +19,7 @@
     (rnrs mutable-strings)
     (only (chezscheme) bytevector foreign-procedure fx1+ fx1- reverse! substring-fill! void)
     (only (schemesh bootstrap) assert* while)
-    (only (schemesh containers list) list-iterate))
+    (only (schemesh containers misc) list-iterate))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

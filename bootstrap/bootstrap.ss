@@ -142,16 +142,17 @@
   (syntax-rules ()
     ((_ n body ...) (do ((i n (fx1- i))) ((fx<=? i 0)) body ...))))
 
+
 (define-syntax while
   (syntax-rules ()
     ((_ pred)          (do () ((not pred))))
     ((_ pred body ...) (do () ((not pred)) body ...))))
 
+
 (define-syntax until
   (syntax-rules ()
     ((_ pred)          (do () (pred)))
     ((_ pred body ...) (do () (pred) body ...))))
-
 
 
 (define-syntax try
@@ -168,6 +169,7 @@
       (syntax-violation "" "invalid syntax, expecting (try EXPR ... (catch (IDENT) ...)) in"
         (list 'try (quote bad-body) ...)))))
 
+
 ;; export aux keyword catch, needed by try
 (define-syntax catch
   (lambda (arg)
@@ -182,8 +184,6 @@
         #f
         (catch (ex)
           (or ex #t))))))
-
-
 
 
 ;; Scheme implementation of Common Lisp defmacro, defines a global macro.

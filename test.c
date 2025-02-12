@@ -898,7 +898,7 @@ static const testcase tests[] = {
     {"(file-type \"parser/parser.ss\" 'catch)", "file"},
     {"(directory-sort! (directory-list* \"parser\"))",
      "((dir . .) (dir . ..) (file . lisp-read-token.ss) (file . lisp.ss) (file . parser.ss)"
-     " (file . r6rs.ss) (file . scheme.ss) (file . shell.ss))"},
+     " (file . r6rs.ss) (file . scheme.ss) (file . shell-read-token.ss) (file . shell.ss))"},
     /* ------------------------- posix patterns ----------------------------- */
     {"(sh-pattern \"foo\" '* \".bar\" '? '% \"[a-z]\" '%! \"A-Z\")",
      "(sh-pattern foo '* .bar '? '% [a-z] '%! A-Z)"},
@@ -1046,7 +1046,7 @@ static const testcase tests[] = {
 #define OPTION_PARENT_JOB "(($primitive 2 cons) 'same-parent-as-job job)"
 
 #if 0
-# define INVOKELIB_SHELL_JOBS                                                                       \
+#define INVOKELIB_SHELL_JOBS                                                                       \
   "(begin (($primitive 3 $invoke-library) '(schemesh shell job) '(0 7 4) 'job)"
 #endif
 
@@ -1069,10 +1069,8 @@ static const testcase tests[] = {
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{echo|{cat;{true}}}\")))",
      "(sh-pipe* (sh-cmd echo) '| (sh-list (sh-cmd cat) '; (sh-cmd true)))"},
-    {"(expand '(shell (shell \"ls\" & \"echo\")))",
-     "(sh-list (sh-cmd ls) '& (sh-cmd echo))"},
-    {"(expand '(shell (shell \"foo\") \\x3B; \"bar\"))",
-     "(sh-list (sh-cmd foo) '; (sh-cmd bar))"},
+    {"(expand '(shell (shell \"ls\" & \"echo\")))", "(sh-list (sh-cmd ls) '& (sh-cmd echo))"},
+    {"(expand '(shell (shell \"foo\") \\x3B; \"bar\"))", "(sh-list (sh-cmd foo) '; (sh-cmd bar))"},
     {"(expand '(shell (shell \"ls\" & \"echo\") 2 >& 1))",
      "(sh-redirect! (sh-list (sh-cmd ls) '& (sh-cmd echo)) 2 '>& 1)"},
     {"(shell \\x3B; (shell \"foo\") \\x3B; \"bar\")",
@@ -1103,7 +1101,7 @@ static const testcase tests[] = {
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{FOO=$BAR/subdir echo}\"))))",
      "(sh-cmd* FOO '= (lambda (job) (sh-wildcard job"
-                          " (lambda (job) (sh-env-ref job BAR)) /subdir)) echo)"},
+     " (lambda (job) (sh-env-ref job BAR)) /subdir)) echo)"},
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"A=$(echo abc; echo def)\"))",
      "(shell A = (shell-backquote echo abc ; echo def))"},
@@ -1116,8 +1114,7 @@ static const testcase tests[] = {
      " (sh-run/string-rtrim-newlines (sh-list (sh-cmd echo abc) '; (sh-cmd echo def))"
      " " OPTION_PARENT_JOB ")))"},
     {"(expand '(shell (shell-wildcard \"l\" \"s\")))", "(sh-cmd* ls)"},
-    {"(expand '(shell (shell-wildcard \"l\" \"s\") \".\"))",
-     "(sh-cmd* ls .)"},
+    {"(expand '(shell (shell-wildcard \"l\" \"s\") \".\"))", "(sh-cmd* ls .)"},
     {"(expand '(shell (shell-backquote \"echo\" \"ls\")))",
      "(sh-cmd* (lambda (job) (sh-run/string-rtrim-newlines (sh-cmd echo ls) " /*          */
      OPTION_PARENT_JOB ")))"},
