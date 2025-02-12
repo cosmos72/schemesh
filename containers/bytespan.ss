@@ -27,7 +27,8 @@
     (rnrs)
     (only (chezscheme) bytevector-truncate! fx1+ fx1- record-writer void)
     (only (schemesh bootstrap) assert*)
-    (schemesh containers misc))
+    (schemesh containers bytevector)
+    (schemesh containers list))
 
 (define-record-type
   (%bytespan %make-bytespan bytespan?)

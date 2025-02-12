@@ -16,11 +16,11 @@
     (only (chezscheme)
       append! box bytevector fx1+ fx1- fxvector fxvector-set! include
       make-fxvector read-token reverse! top-level-value void)
-    (only (schemesh bootstrap) assert* debugf while until)
-    (only (schemesh containers charspan) charspan charspan-insert-back! charspan->string*!)
+    (only (schemesh bootstrap)            assert* debugf while until)
+    (only (schemesh containers charspan)  charspan charspan-insert-back! charspan->string*!)
     (only (schemesh containers hashtable) hashtable)
-    (only (schemesh containers misc) list-reverse*!)
-    (only (schemesh containers utf8b) integer->char*)
+    (only (schemesh containers list)      list-reverse*!)
+    (only (schemesh containers utf8b)     integer->char*)
     (schemesh lineedit paren)
     (schemesh lineedit parser))
 

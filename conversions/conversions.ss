@@ -21,7 +21,7 @@
                                  bytevector<? bytevector-find/u8
                                  charspan? charspan-empty? charspan-find/char charspan->utf8b charspan->utf8b/0
                                  hashtable-iterate list-iterate make-bytespan string-find/char
-                                 string->utf8b string->utf8b/0 utf8b->string utf8b-range->string
+                                 string->utf8b string->utf8b/0 utf8b->string utf8b->string
                                  vector-sort*!))
 
 
@@ -74,13 +74,13 @@
 ;; convert a bytevector0 to string using UTF-8b
 ;; and print it quoted, i.e. surrounded by "" and with special characters escaped
 (define (write-bytevector0 x port)
-  (let ((str (utf8b-range->string x 0 (fx1- (bytevector-length x)))))
+  (let ((str (utf8b->string x 0 (fx1- (bytevector-length x)))))
     (write str port)))
 
 ;; convert a 0-terminated bytevector to string using UTF-8b
 ;; and print it unquoted, i.e. not surrounded by ""
 (define (display-bytevector0 x port)
-  (let ((str (utf8b-range->string x 0 (fx1- (bytevector-length x)))))
+  (let ((str (utf8b->string x 0 (fx1- (bytevector-length x)))))
     (display str port)))
 
 ;; convert any value to a string
@@ -178,7 +178,7 @@
 
 ;; convert a 0-terminated bytevector containing UTF-8b to string
 (define (bytevector0->string x)
-  (utf8b-range->string x 0 (fx1- (bytevector-length x))))
+  (utf8b->string x 0 (fx1- (bytevector-length x))))
 
 
 ;; convert a list of strings, bytevectors or charspans to vector-of-bytevector0

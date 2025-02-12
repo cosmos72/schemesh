@@ -9,19 +9,27 @@
   (include "bootstrap/raise.ss")
   (include "bootstrap/parameters.ss")
   (include "bootstrap/bootstrap.ss")
-  (include "containers/misc.ss")
-  (include "containers/hashtable.ss")
   (include "containers/bitmap.ss")
-  (include "containers/span.ss")
-  (include "containers/bytespan.ss")
-  (include "containers/charspan.ss")
-  (include "containers/utf8b.ss") ; requires containers/bytespan.ss
-  (include "containers/gbuffer.ss")
-  (include "containers/chargbuffer.ss")
-  (include "containers/charline.ss")
-  (include "containers/charlines.ss")
-  (include "containers/sort.ss")
-  (include "containers/utils.ss")
+  (include "containers/bytevector.ss")
+  (include "containers/list.ss")
+  (include "containers/string.ss")
+  (include "containers/vector.ss")
+
+  (include "containers/bytespan.ss")    ; requires containers/bytevector.ss containers/list.ss
+  (include "containers/charspan.ss")    ; requires containers/string.ss
+  (include "containers/span.ss")        ; requires containers/vector.ss
+
+  (include "containers/sort.ss")        ; requires containers/span.ss
+  (include "containers/utf8b.ss")       ; requires containers/bytespan.ss
+
+  (include "containers/chargbuffer.ss") ; requires containers/charspan.ss
+  (include "containers/gbuffer.ss")     ; requires containers/span.ss
+  (include "containers/hashtable.ss")   ; requires containers/list.ss
+
+  (include "containers/charline.ss")    ; requires containers/gbuffer.ss
+  (include "containers/charlines.ss")   ; requires containers/charlines.ss
+
+  (include "containers/utf8b-utils.ss") ; requires containers/utf8b.ss containers/chargbuffer.ss
   (include "containers/containers.ss")
   (include "conversions/conversions.ss")
   (include "posix/fd.ss")
@@ -60,4 +68,5 @@
   (include "shell/shell.ss")
   (include "repl/repl.ss")
   (include "utils/import.ss")
+
 ) ; close begin

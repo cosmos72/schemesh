@@ -11,7 +11,7 @@
 ;;; b. converting integers to decimal and writing them into "bytevector" and "bytespan"
 
 
-(library (schemesh containers utils (0 7 4))
+(library (schemesh containers utf8b utils (0 7 4))
   (export
     bytevector-ref/utf8b bytevector-set/utf8b! char->utf8b-length
     bytespan-ref/char bytespan-set/char! bytespan-insert-front/char! bytespan-insert-back/char!
@@ -24,11 +24,11 @@
       (fxarithmetic-shift-right fxshr))
     (only (chezscheme) fx1+ fx1-)
     (only (schemesh bootstrap) assert*)
-    (schemesh containers misc)
-    (schemesh containers utf8b)
     (schemesh containers bytespan)
     (schemesh containers charspan)
-    (only (schemesh containers chargbuffer) chargbuffer-iterate chargbuffer-length))
+    (only (schemesh containers chargbuffer) chargbuffer-iterate chargbuffer-length)
+    (only (schemesh containers string)      string-iterate)
+    (schemesh containers utf8b))
 
 
 ;; encode a single raw byte in the range #x80 ... #xff that is NOT part of a valid UTF-8 sequence

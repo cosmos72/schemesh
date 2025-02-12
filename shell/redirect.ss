@@ -118,7 +118,7 @@
          (end (bytespan-peek-end bsp)))
     (while (and (fx>? end beg) (fx=? 10 (bytevector-u8-ref bv (fx1- end))))
       (set! end (fx1- end)))
-    (utf8b-range->string bv beg end)))
+    (utf8b->string bv beg end)))
 
 
 ;; Add multiple redirections for cmd or job. Return cmd or job.

@@ -5,14 +5,9 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh containers misc (0 7 4))
+(library (schemesh containers string (0 7 4))
   (export
-    list-iterate list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
     string-list? assert-string-list? string-list-split-after-nuls
-    vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable vector-range->list
-    list->bytevector subbytevector
-    bytevector-fill-range! bytevector-find/u8 bytevector-iterate bytevector-compare
-    bytevector<=? bytevector<? bytevector>=? bytevector>?
     string-contains-only-decimal-digits?
     string-fill-range! string-range-count= string-range=? string-range<?
     string-find string-rfind string-find/char string-rfind/char
@@ -23,71 +18,13 @@
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
     (only (chezscheme) bytevector foreign-procedure fx1+ fx1- reverse! substring-fill! void)
-    (only (schemesh bootstrap) assert* while))
+    (only (schemesh bootstrap) assert* while)
+    (only (schemesh containers list) list-iterate))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;     some additional list functions    ;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;     some additional string functions    ;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-;; (list-iterate l proc) iterates on all elements of given list l,
-;; and calls (proc elem) on each element. Stops iterating if (proc ...) returns #f
-;;
-;; Returns #t if all calls to (proc elem) returned truish,
-;; otherwise returns #f.
-(define (list-iterate l proc)
-  (do ((tail l (cdr tail)))
-      ((or (null? tail) (not (proc (car tail))))
-       (null? tail))))
-
-
-;; For each item in items (which must be a list), when found in list l destructively
-;; replace it with (list 'quote item).
-;; Comparison between items is performed with eq?
-(define (list-quoteq! items l)
-  (do ((tail l (cdr tail)))
-      ((null? tail) l)
-    (let ((item (car tail)))
-      (when (memq item items)
-        (set-car! tail (list 'quote item))))))
-
-
-
-;; (list-reverse*! l) destructively reverses list l,
-;; creating an improper list - unless (car l) is itself a list.
-;;
-;; Example: (list-reverse*! (list a b c)) returns '(c b . a)
-(define (list-reverse*! l)
-  (if (or (null? l) (null? (cdr l)))
-    l
-    (let* ((tail (if (pair? (cdr l)) (cddr l) '()))
-           (head (let ((first  (car l))
-                       (second (cadr l)))
-                   (set-car! l second)
-                   (set-cdr! l first)
-                   l)))
-      (let %step ((head head)
-                  (tail tail))
-        (if (null? tail)
-          head
-          (let ((new-head tail)
-                (new-tail (cdr tail)))
-            (set-cdr! new-head head)
-            (%step new-head new-tail)))))))
-
-;; remove consecutive duplicates from a list, and return it.
-;; elements are considered duplicates if (equal-pred elem1 elem2) returns truish.
-(define (list-remove-consecutive-duplicates! l equal-pred)
-  (let %recurse ((tail l))
-    (cond
-      ((or (null? tail) (null? (cdr tail)))
-        l)
-      ((equal-pred (car tail) (cadr tail))
-        (set-cdr! tail (cddr tail))
-        (%recurse tail))
-      (#t
-        (%recurse (cdr tail))))))
 
 
 ;; return #t if l is a (possibly empty) list of strings
@@ -152,148 +89,6 @@
 (define (decimal-digit? ch)
   (char<=? #\0 ch #\9))
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;     some additional vector functions    ;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-;; copy a portion of vector src into dst.
-;; works even if src are the same vector and the two ranges overlap.
-(define (vector-copy! src src-start dst dst-start n)
-  (if (and (eq? src dst) (fx<? src-start dst-start))
-    ; copy backward
-    (do ((i (fx1- n) (fx1- i)))
-        ((fx<? i 0))
-      (vector-set! dst (fx+ i dst-start) (vector-ref src (fx+ i src-start))))
-    ; copy forward
-    (do ((i 0 (fx1+ i)))
-        ((fx>=? i n))
-      (vector-set! dst (fx+ i dst-start) (vector-ref src (fx+ i src-start))))))
-
-
-;; return a copy of vector vec containing only elements
-;; in range [start, end) i.e. from start (inclusive) to end (exclusive)
-(define (subvector vec start end)
-  (assert* 'subvector (fx<=? 0 start end (vector-length vec)))
-  (let* ((n (fx- end start))
-         (dst (make-vector n)))
-    (vector-copy! vec start dst 0 n)
-    dst))
-
-;; set elements in range [start, end) of vector vec specified value
-(define (vector-fill-range! vec start end val)
-  (assert* 'vector-fill-range! (fx<=? 0 start end (vector-length vec)))
-  (do ((i start (fx1+ i)))
-      ((fx>=? i end))
-    (vector-set! vec i val)))
-
-;; read elements from vector range [start, end) and copy them into a list.
-;; return such list.
-(define (vector-range->list vec start end)
-  (let %again ((pos (fx1- end))
-               (ret '()))
-    (if (fx>=? pos start)
-      (%again (fx1- pos) (cons (vector-ref vec pos) ret))
-      ret)))
-
-;; (vector-iterate l proc) iterates on all elements of given vector vec,
-;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
-;;
-;; Returns #t if all calls to (proc index elem) returned truish,
-;; otherwise returns #f.
-(define (vector-iterate vec proc)
-  (do ((i 0 (fx1+ i))
-       (n (vector-length vec)))
-      ((or (fx>=? i n) (not (proc i (vector-ref vec i))))
-       (fx>=? i n))))
-
-;; (vector->hashtable vec htable) iterates on all elements of given vector vec,
-;; which must be cons cells, and inserts them into hashtable htable:
-;; (car cell) is used as key, and (cdr cell) is used ad value.
-;
-;; Returns htable.
-(define (vector->hashtable vec htable)
-  (vector-iterate vec
-    (lambda (i cell)
-      (hashtable-set! htable (car cell) (cdr cell))))
-  htable)
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;     some additional bytevector functions    ;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(define (list->bytevector l)
-  (apply bytevector l))
-
-
-;; return a copy of bytevector bvec containing only elements
-;; from start (inclusive) to end (exclusive)
-(define (subbytevector bvec start end)
-  (assert* 'subbytevector (fx<=? 0 start end (bytevector-length bvec)))
-  (let* ((n (fx- end start))
-         (dst (make-bytevector n)))
-    (bytevector-copy! bvec start dst 0 n)
-    dst))
-
-(define (bytevector-fill-range! bvec start end val)
-  (assert* 'bytevector-fill-range! (fx<=? 0 start end (bytevector-length bvec)))
-  (do ((i start (fx1+ i)))
-      ((fx>=? i end))
-    (bytevector-u8-set! bvec i val)))
-
-
-;; search bytevector range [start, end) and return index of first byte equal to b.
-;; returned numerical index will be in the range [start, end).
-;; return #f if no such byte is found in range.
-(define bytevector-find/u8
-  (case-lambda
-    ((bvec b)
-      (bytevector-find/u8 bvec 0 (bytevector-length bvec) b))
-    ((bvec start end b)
-      (assert* 'bytevector-find/u8 (bytevector? bvec))
-      (assert* 'bytevector-find/u8 (fx<=? 0 start end (bytevector-length bvec)))
-      (assert* 'bytevector-find/u8 (fx<=? 0 b 255))
-      (do ((i start (fx1+ i)))
-          ((or (fx>=? i end) (fx=? b (bytevector-u8-ref bvec i)))
-            (if (fx>=? i end) #f i))))))
-
-
-;; (bytevector-iterate l proc) iterates on all elements of given bytevector bvec,
-;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
-;;
-;; Returns #t if all calls to (proc index elem) returned truish,
-;; otherwise returns #f.
-(define (bytevector-iterate bvec proc)
-  (do ((i 0 (fx1+ i))
-       (n (bytevector-length bvec)))
-      ((or (fx>=? i n) (not (proc i (bytevector-u8-ref bvec i))))
-       (fx>=? i n))))
-
-;; compare the two bytevectors bvec1 and bvec2.
-;; return -1 if bvec1 is lexicographically lesser than bvec2,
-;; return 0 if they are equal,
-;; return 1 if bvec1 is lexicographically greater than bvec2
-(define bytevector-compare
-  (let ((c-bytevector-compare (foreign-procedure "c_bytevector_compare"
-          (ptr ptr) integer-8)))
-    (lambda (bvec1 bvec2)
-      (assert* 'bytevector-compare (bytevector? bvec1))
-      (assert* 'bytevector-compare (bytevector? bvec2))
-      (or (eq? bvec1 bvec2)
-          (c-bytevector-compare bvec1 bvec2)))))
-
-(define (bytevector<=? bvec1 bvec2)
-  (fx<=? (bytevector-compare bvec1 bvec2) 0))
-
-(define (bytevector<? bvec1 bvec2)
-  (fx<? (bytevector-compare bvec1 bvec2) 0))
-
-(define (bytevector>=? bvec1 bvec2)
-  (fx>=? (bytevector-compare bvec1 bvec2) 0))
-
-(define (bytevector>? bvec1 bvec2)
-  (fx>? (bytevector-compare bvec1 bvec2) 0))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;     some additional string functions    ;;;;;;;;;;;;;;;;;;;;;;

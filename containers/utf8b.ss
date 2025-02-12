@@ -8,16 +8,16 @@
 (library (schemesh containers utf8b (0 7 4))
   (export
     integer->char* string->utf8b string->utf8b/0
-    utf8b->string utf8b-range->string utf8b-bytespan->string)
+    utf8b->string utf8b->string utf8b-bytespan->string)
 
   (import
     (rnrs)
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
     (only (chezscheme) bytevector foreign-procedure fx1+ fx1- string-truncate!)
-    (only (schemesh bootstrap) assert* raise-assertf)
-    (only (schemesh containers bytespan) bytespan-peek-data bytespan-peek-beg bytespan-peek-end)
-    (only (schemesh containers misc) bytevector-fill-range!))
+    (only (schemesh bootstrap)             assert* raise-assertf)
+    (only (schemesh containers bytespan)   bytespan-length bytespan-peek-data bytespan-peek-beg bytespan-peek-end)
+    (only (schemesh containers bytevector) bytevector-fill-range!))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -106,31 +106,36 @@
 ;;;;;;;;;;;;;;;;;;;     UTF-8b -> string functions    ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; convert a portion of a bytevector from UTF-8b to string, and return string containing the conversion result.
+;; convert a bytevector range from UTF-8b to string, and return string containing the conversion result.
 ;;
 ;; For a definition of UTF-8b, see
 ;;   https://peps.python.org/pep-0383
 ;;   https://web.archive.org/web/20090830064219/http://mail.nl.linux.org/linux-utf8/2000-07/msg00040.html
-(define utf8b-range->string
+(define utf8b->string
   (let ((c-utf8b->string-append (foreign-procedure "c_bytevector_utf8b_to_string_append"
                                   (ptr fixnum fixnum ptr fixnum) ptr)))
-    (lambda (bvec start end)
-      (assert* 'utf8b->string (fx<=? 0 start end (bytevector-length bvec)))
-      (let* ((max-n     (fx- end start))
-             (str       (make-string max-n))
-             (written-n (c-utf8b->string-append bvec start end str 0)))
-        (if (fx<? written-n max-n)
-          (string-truncate! str written-n)
-          (assert* 'utf8b->string (fx<=? written-n max-n)))
-        str))))
+    (case-lambda
+      ((bvec)
+         (utf8b->string bvec 0 (bytevector-length bvec)))
+      ((bvec start end)
+        (assert* 'utf8b->string (fx<=? 0 start end (bytevector-length bvec)))
+        (let* ((max-n     (fx- end start))
+               (str       (make-string max-n))
+               (written-n (c-utf8b->string-append bvec start end str 0)))
+          (if (fx<? written-n max-n)
+            (string-truncate! str written-n)
+            (assert* 'utf8b->string (fx<=? written-n max-n)))
+          str)))))
 
-;; convert a bytevector from UTF-8b to string, and return string containing the conversion result.
-(define (utf8b->string bvec)
-  (utf8b-range->string bvec 0 (bytevector-length bvec)))
-
-;; convert a bytespan from UTF-8b to string, and return string containing the conversion result.
-(define (utf8b-bytespan->string bspan)
-  (utf8b-range->string (bytespan-peek-data bspan) (bytespan-peek-beg bspan) (bytespan-peek-end bspan)))
+;; convert a bytespan range from UTF-8b to string, and return string containing the conversion result.
+(define utf8b-bytespan->string
+  (case-lambda
+    ((bspan)
+      (utf8b->string (bytespan-peek-data bspan) (bytespan-peek-beg bspan) (bytespan-peek-end bspan)))
+    ((bspan start end)
+      (assert* 'utf8b-bytespan->string (fx<=? 0 start end (bytespan-length bspan)))
+      (let ((offset (bytespan-peek-beg bspan)))
+        (utf8b->string (bytespan-peek-data bspan) (fx+ offset start) (fx+ offset end))))))
 
 
 ) ; close library

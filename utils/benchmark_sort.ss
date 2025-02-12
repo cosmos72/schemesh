@@ -9,8 +9,8 @@
     (rnrs)
     (only (chezscheme)           eval-when fx1+ fx1- random time vector-sort!)
     (only (schemesh bootstrap)     assert*)
-    (only (schemesh containers misc) vector-copy!)
-    (only (schemesh containers sort) vector-sort*!))
+    (only (schemesh containers vector) vector-copy!)
+    (only (schemesh containers sort)   vector-sort*!))
 
 
 (eval-when (compile) (optimize-level 3) (debug-level 0))

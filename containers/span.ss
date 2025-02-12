@@ -21,8 +21,9 @@
   (import
     (rnrs)
     (only (chezscheme) break fx1+ fx1- record-writer reverse! vector-copy void)
-    (only (schemesh bootstrap) assert*)
-    (schemesh containers misc))
+    (only (schemesh bootstrap)         assert*)
+    (only (schemesh containers list)   list-iterate)
+    (only (schemesh containers vector) subvector vector-copy! vector-fill-range! vector-range->list))
 
 (define-record-type
   (%span %make-span span?)

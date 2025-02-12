@@ -12,7 +12,7 @@
   (import
     (rnrs)
     (only (chezscheme) $primitive fx1+ include record-writer)
-    (schemesh containers misc))
+    (only (schemesh containers list) list-iterate))
 
 
 ;; NOTE: (hash-table-for-each) exported by Chez Scheme at least up to version 10.0.0

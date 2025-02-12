@@ -13,7 +13,7 @@
 (library (schemesh containers charspan (0 7 4))
   (export
     list->charspan string->charspan string->charspan* make-charspan
-    charspan->string charspan-range->string charspan->string*!
+    charspan->string charspan->string*!
     charspan charspan? assert-charspan? charspan-length charspan-empty? charspan-clear!
     charspan-capacity charspan-capacity-front charspan-capacity-back charspan-ref
     charspan-front charspan-back
@@ -30,8 +30,10 @@
     (rnrs)
     (rnrs mutable-strings)
     (only (chezscheme) fx1+ fx1- record-writer string-copy! string-truncate! void)
-    (only (schemesh bootstrap) assert*)
-    (schemesh containers misc))
+    (only (schemesh bootstrap)         assert*)
+    (only (schemesh containers list)   list-iterate)
+    (only (schemesh containers string) string-fill-range! string-range<? string-range=? string-range-count=))
+
 
 (define-record-type
   (%charspan %make-charspan charspan?)
@@ -69,25 +71,19 @@
     ((n)      (%make-charspan 0 n (make-string n #\nul)))
     ((n char) (%make-charspan 0 n (make-string n char)))))
 
-;; convert a charspan to string
-(define (charspan->string sp)
-  (let ((beg (charspan-beg sp))
-        (end (charspan-end sp)))
-    (if (fx<? beg end)
-      (substring (charspan-str sp) beg end)
-      "")))
 
 ;; convert a portion of charspan to string
-(define (charspan-range->string sp start len)
-  (let ((n (charspan-length sp)))
-    (if (fx<=? n 0)
-      ""
-      (let* ((beg (charspan-beg sp))
-             (i (fxmin n (fxmax 0 start)))
-             (j (fxmin n (fxmax i (fx+ start len)))))
-        (if (fx>=? i j)
-          ""
-          (substring (charspan-str sp) (fx+ i beg) (fx+ j beg)))))))
+(define charspan->string
+  (case-lambda
+    ((sp)
+      (charspan->string sp 0 (charspan-length sp)))
+    ((sp start end)
+      (assert* 'charspan->string (fx<=? 0 start end (charspan-length sp)))
+      (if (fx>=? start end)
+        ""
+        (let ((offset (charspan-beg sp)))
+          (substring (charspan-str sp) (fx+ offset start) (fx+ offset end)))))))
+
 
 ;; if possible, truncate charspan to its length and view it as a string.
 ;; otherwise convert it to string as (charspan->string) does.

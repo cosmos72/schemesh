@@ -12,8 +12,9 @@
   (import
     (rnrs)
     (only (chezscheme) environment-symbols fx1+ fx1- sort!)
-    (only (schemesh bootstrap)       values->list)
-    (only (schemesh containers misc) list-iterate list-remove-consecutive-duplicates! string-range=? string-split string-starts-with?)
+    (only (schemesh bootstrap)            values->list)
+    (only (schemesh containers list)      list-iterate list-remove-consecutive-duplicates!)
+    (only (schemesh containers string)    string-range=? string-split string-starts-with?)
     (only (schemesh containers hashtable) hashtable-iterate)
     (schemesh containers charspan)
     (schemesh containers span)
@@ -49,8 +50,8 @@
        (let ((slash-pos (charspan-rfind/char stem #\/)))
          (if slash-pos
            ; list contents of a directory
-           (let ((dir    (charspan-range->string stem 0 (fx1+ slash-pos)))
-                 (prefix (charspan-range->string stem (fx1+ slash-pos) stem-len)))
+           (let ((dir    (charspan->string stem 0 (fx1+ slash-pos)))
+                 (prefix (charspan->string stem (fx1+ slash-pos) stem-len)))
              (%list-directory dir prefix slash-pos completions))
            ; list contents of current directory
            (%list-directory "." (charspan->string stem) #f completions)))
@@ -79,8 +80,8 @@
         (dollar?
           (%list-shell-env lctx (charspan->string stem) completions))
         (slash-pos ; list contents of a directory
-          (let ((dir    (charspan-range->string stem 0 (fx1+ slash-pos)))
-                (prefix (charspan-range->string stem (fx1+ slash-pos) stem-len)))
+          (let ((dir    (charspan->string stem 0 (fx1+ slash-pos)))
+                (prefix (charspan->string stem (fx1+ slash-pos) stem-len)))
             (%list-directory dir prefix slash-pos completions)))
         ((or stem-is-first-word? (%stem-is-after-shell-separator? (linectx-vscreen lctx) x y))
           ; list builtins, aliases and programs in $PATH

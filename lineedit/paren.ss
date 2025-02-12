@@ -23,7 +23,7 @@
     (rnrs mutable-pairs)
     (only (chezscheme) console-error-port format fx1+ fx1- record-writer unread-char void)
     (only (schemesh bootstrap) assert* debugf catch try until while)
-    (only (schemesh containers misc) list-iterate)
+    (only (schemesh containers list) list-iterate)
     (only (schemesh containers hashtable) hashtable-iterate)
     (schemesh containers span)
     (schemesh containers charspan))

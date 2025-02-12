@@ -12,15 +12,15 @@
     charhistory-load-from-port! charhistory-save-to-port)
   (import
     (rnrs)
-    (only (chezscheme)                fx1+ rename-file)
-    (only (schemesh bootstrap)        try catch until)
-    (only (schemesh containers misc)  string-replace/char!)
-    (only (schemesh containers utf8b) string->utf8b utf8b-bytespan->string)
+    (only (chezscheme)                 fx1+ rename-file)
+    (only (schemesh bootstrap)         try catch until)
+    (only (schemesh containers string) string-replace/char!)
+    (only (schemesh containers utf8b)  string->utf8b utf8b-bytespan->string)
     (schemesh containers bytespan)
     (schemesh containers gbuffer)
     (schemesh containers charline)
     (schemesh containers charlines)
-    (only (schemesh posix pid)        pid-get)
+    (only (schemesh posix pid)         pid-get)
     (schemesh lineedit charhistory))
 
 
