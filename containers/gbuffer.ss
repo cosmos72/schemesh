@@ -20,7 +20,7 @@
   (import
     (rnrs)
     (only (chezscheme) fx1+ record-writer void)
-    (only (schemesh bootstrap)       assert* -> ^)
+    (only (schemesh bootstrap)       assert* assert-not* -> ^)
     (only (schemesh containers misc) vector-copy!)
     (schemesh containers span))
 
@@ -124,21 +124,27 @@
 
 ; read elements in range [src-start, src-end) from span sp-src
 ; and insert them into gbuffer at position idx
-(define (gbuffer-insert-at/span! gb idx sp-src src-start src-end)
-  (assert* 'gbuffer-insert-at/span! (fx<=? 0 idx (gbuffer-length gb)))
-  (assert* 'gbuffer-insert-at/span! (fx<=? 0 src-start src-end (span-length sp-src)))
-  (let ((left   (gbuffer-left  gb))
-        (right  (gbuffer-right gb)))
-    (cond
-      ((fx=? src-start src-end)
-        (void)) ; nothing to do
-      ((fxzero? idx)
-        (span-insert-front/span! left sp-src src-start src-end))
-      ((fx=? idx (gbuffer-length gb))
-        (span-insert-back/span! right sp-src src-start src-end))
-      (#t
-        (gbuffer-split-at! gb idx)
-        (span-insert-back/span! left sp-src src-start src-end)))))
+(define gbuffer-insert-at/span!
+  (case-lambda
+    ((gb idx sp-src)
+      (gbuffer-insert-at/span! gb idx sp-src 0 (span-length sp-src)))
+    ((gb idx sp-src src-start src-end)
+      (assert* 'gbuffer-insert-at/span! (fx<=? 0 idx (gbuffer-length gb)))
+      (assert* 'gbuffer-insert-at/span! (fx<=? 0 src-start src-end (span-length sp-src)))
+      (let ((left   (gbuffer-left  gb))
+            (right  (gbuffer-right gb)))
+        (assert-not* 'gbuffer-insert-at/span! (eq? left sp-src))
+        (assert-not* 'gbuffer-insert-at/span! (eq? right sp-src))
+        (cond
+          ((fx>=? src-start src-end)
+            (void)) ; nothing to do
+          ((fxzero? idx)
+            (span-insert-front/span! left sp-src src-start src-end))
+          ((fx=? idx (gbuffer-length gb))
+            (span-insert-back/span! right sp-src src-start src-end))
+          (#t
+            (gbuffer-split-at! gb idx)
+            (span-insert-back/span! left sp-src src-start src-end)))))))
 
 ; remove elements in range [start, end) from gbuffer gb
 (define (gbuffer-erase-range! gb start end)

@@ -30,7 +30,7 @@
     (rnrs)
     (rnrs mutable-strings)
     (only (chezscheme) fx1+ fx1- record-writer string-copy! string-truncate! void)
-    (only (schemesh bootstrap)         assert*)
+    (only (schemesh bootstrap)         assert* assert-not*)
     (only (schemesh containers misc)   list-iterate)
     (only (schemesh containers string) string-fill-range! string-range<? string-range=? string-range-count=))
 
@@ -314,39 +314,29 @@
 (define charspan-insert-front/cspan!
   (case-lambda
     ((sp-dst sp-src)
-      (charspan-insert-front/cspan*! sp-dst sp-src 0 (charspan-length sp-src)))
+      (charspan-insert-front/cspan! sp-dst sp-src 0 (charspan-length sp-src)))
     ((sp-dst sp-src src-start src-end)
-      (charspan-insert-front/cspan*! sp-dst sp-src src-start src-end))))
-
-
-;; same as (charspan-insert-front/cspan!), with all arguments mandatory
-(define (charspan-insert-front/cspan*! sp-dst sp-src src-start src-end)
-  (assert* 'charspan-insert-front/cspan! (not (eq? sp-dst sp-src)))
-  (assert* 'charspan-insert-front/cspan! (fx<=? 0 src-start src-end (charspan-length sp-src)))
-  (unless (fx>=? src-start src-end)
-    (let ((src-n (fx- src-end src-start)))
-      (charspan-resize-front! sp-dst (fx+ src-n (charspan-length sp-dst)))
-      (charspan-copy! sp-src src-start sp-dst 0 src-n))))
+      (assert* 'charspan-insert-front/cspan! (fx<=? 0 src-start src-end (charspan-length sp-src)))
+      (assert-not* 'charspan-insert-front/cspan! (eq? sp-dst sp-src))
+      (when (fx<? src-start src-end)
+        (let ((src-n (fx- src-end src-start)))
+          (charspan-resize-front! sp-dst (fx+ src-n (charspan-length sp-dst)))
+          (charspan-copy! sp-src src-start sp-dst 0 src-n))))))
 
 
 ; append range [start, end) of charspan sp-src at the end of charspan sp-dst
 (define charspan-insert-back/cspan!
   (case-lambda
     ((sp-dst sp-src)
-      (charspan-insert-back/cspan*! sp-dst sp-src 0 (charspan-length sp-src)))
+      (charspan-insert-back/cspan! sp-dst sp-src 0 (charspan-length sp-src)))
     ((sp-dst sp-src src-start src-end)
-      (charspan-insert-back/cspan*! sp-dst sp-src src-start src-end))))
-
-
-;; same as (charspan-insert-back/cspan!), with all arguments mandatory
-(define (charspan-insert-back/cspan*! sp-dst sp-src src-start src-end)
-  (assert* 'charspan-insert-back/cspan! (not (eq? sp-dst sp-src)))
-  (assert* 'charspan-insert-back/cspan! (fx<=? 0 src-start src-end (charspan-length sp-src)))
-  (unless (fx>=? src-start src-end)
-    (let ((pos (charspan-length sp-dst))
-          (src-n (fx- src-end src-start)))
-      (charspan-resize-back! sp-dst (fx+ pos src-n))
-      (charspan-copy! sp-src src-start sp-dst pos src-n))))
+      (assert* 'charspan-insert-back/cspan! (fx<=? 0 src-start src-end (charspan-length sp-src)))
+      (assert-not* 'charspan-insert-back/cspan! (eq? sp-dst sp-src))
+      (when (fx<? src-start src-end)
+        (let ((pos (charspan-length sp-dst))
+              (src-n (fx- src-end src-start)))
+          (charspan-resize-back! sp-dst (fx+ pos src-n))
+          (charspan-copy! sp-src src-start sp-dst pos src-n))))))
 
 
 ; insert range [start, end) of string str-src at the beginning of charspan sp-dst
@@ -355,9 +345,11 @@
     ((sp-dst str-src)
       (charspan-insert-front/string! sp-dst str-src 0 (string-length str-src)))
     ((sp-dst str-src src-start src-end)
-      (assert* 'charspan-insert-front/string! (not (eq? (charspan-str sp-dst) str-src)))
       (assert* 'charspan-insert-front/string! (fx<=? 0 src-start src-end (string-length str-src)))
       (when (fx<? src-start src-end)
+        ;; check for (not (eq? src dst)) only if dst is non-empty,
+        ;; because reusing the empty string is a common optimization of Scheme compilers
+        (assert-not* 'charspan-insert-front/string! (eq? (charspan-str sp-dst) str-src))
         (let ((src-n (fx- src-end src-start)))
           (charspan-resize-front! sp-dst (fx+ src-n (charspan-length sp-dst)))
           (string-copy! str-src src-start
@@ -371,9 +363,11 @@
     ((sp-dst str-src)
       (charspan-insert-back/string! sp-dst str-src 0 (string-length str-src)))
     ((sp-dst str-src src-start src-end)
-      (assert* 'charspan-insert-back/string! (not (eq? (charspan-str sp-dst) str-src)))
       (assert* 'charspan-insert-back/string! (fx<=? 0 src-start src-end (string-length str-src)))
       (when (fx<? src-start src-end)
+        ;; check for (not (eq? src dst)) only if dst is non-empty,
+        ;; because reusing the empty string is a common optimization of Scheme compilers
+        (assert-not* 'charspan-insert-back/string! (eq? (charspan-str sp-dst) str-src))
         (let ((pos (charspan-length sp-dst))
               (src-n (fx- src-end src-start)))
           (charspan-resize-back! sp-dst (fx+ pos src-n))

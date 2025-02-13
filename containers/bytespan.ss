@@ -25,8 +25,8 @@
     bytespan-peek-beg bytespan-peek-end bytespan-peek-data)
   (import
     (rnrs)
-    (only (chezscheme) bytevector-truncate! fx1+ fx1- record-writer void)
-    (only (schemesh bootstrap) assert*)
+    (only (chezscheme)         bytevector-truncate! fx1+ fx1- record-writer void)
+    (only (schemesh bootstrap) assert* assert-not*)
     (schemesh containers misc))
 
 (define-record-type
@@ -254,9 +254,12 @@
     ((sp-dst sp-src)
       (bytespan-insert-front/bspan! sp-dst sp-src 0 (bytespan-length sp-src)))
     ((sp-dst sp-src src-start src-end)
-      (assert* 'bytespan-insert-front/bspan! (not (eq? (bytespan-vec sp-dst) (bytespan-vec sp-src))))
-      (assert* 'bytespan-insert-front/bspan! (fx<=? 0 src-start src-end (bytespan-length sp-src)))
+      (assert-not* 'bytespan-insert-front/bspan! (eq? sp-dst sp-src))
+      (assert*     'bytespan-insert-front/bspan! (fx<=? 0 src-start src-end (bytespan-length sp-src)))
       (when (fx<? src-start src-end)
+        ;; check for (not (eq? src dst)) only if dst is non-empty,
+        ;; because reusing the empty bytevector is a common optimization of Scheme compilers
+        (assert-not* 'bytespan-insert-front/bspan! (eq? (bytespan-vec sp-dst) (bytespan-vec sp-src)))
         (let ((len    (bytespan-length sp-dst))
               (src-n  (fx- src-end src-start)))
           (bytespan-resize-front! sp-dst (fx+ len src-n))
@@ -269,9 +272,11 @@
     ((sp-dst bv-src)
       (bytespan-insert-front/bvector! sp-dst bv-src 0 (bytevector-length bv-src)))
     ((sp-dst bv-src src-start src-end)
-      (assert* 'bytespan-insert-front/bvector! (not (eq? (bytespan-vec sp-dst) bv-src)))
-      (assert* 'bytespan-insert-front/bvector! (fx<=? 0 src-start src-end (bytevector-length bv-src)))
+      (assert*     'bytespan-insert-front/bvector! (fx<=? 0 src-start src-end (bytevector-length bv-src)))
       (when (fx<? src-start src-end)
+        ;; check for (not (eq? src dst)) only if dst is non-empty,
+        ;; because reusing the empty bytevector is a common optimization of Scheme compilers
+        (assert-not* 'bytespan-insert-front/bvector! (eq? (bytespan-vec sp-dst) bv-src))
         (bytespan-insert-front/bspan! sp-dst (bytevector->bytespan* bv-src) src-start src-end)))))
 
 ;  append a portion of another bytespan to this bytespan
@@ -280,9 +285,12 @@
     ((sp-dst sp-src)
       (bytespan-insert-back/bspan! sp-dst sp-src 0 (bytespan-length sp-src)))
     ((sp-dst sp-src src-start src-end)
-      (assert* 'bytespan-insert-back/bspan! (not (eq? (bytespan-vec sp-dst) (bytespan-vec sp-src))))
-      (assert* 'bytespan-insert-back/bspan! (fx<=? 0 src-start src-end (bytespan-length sp-src)))
+      (assert-not* 'bytespan-insert-back/bspan! (eq? sp-dst sp-src))
+      (assert*     'bytespan-insert-back/bspan! (fx<=? 0 src-start src-end (bytespan-length sp-src)))
       (when (fx<? src-start src-end)
+        ;; check for (not (eq? src dst)) only if dst is non-empty,
+        ;; because reusing the empty bytevector is a common optimization of Scheme compilers
+        (assert-not* 'bytespan-insert-back/bspan! (eq? (bytespan-vec sp-dst) (bytespan-vec sp-src)))
         (let ((pos   (bytespan-length sp-dst))
               (src-n (fx- src-end src-start)))
           (bytespan-resize-back! sp-dst (fx+ pos src-n))
@@ -292,7 +300,6 @@
 (define bytespan-insert-back/bvector!
   (case-lambda
     ((sp-dst bv-src)
-      ; call four-argument variant of this function
       (bytespan-insert-back/bvector! sp-dst bv-src 0 (bytevector-length bv-src)))
     ((sp-dst bv-src src-start src-end)
       (unless (fx=? src-start src-end)

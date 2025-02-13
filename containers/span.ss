@@ -21,7 +21,7 @@
   (import
     (rnrs)
     (only (chezscheme) break fx1+ fx1- record-writer reverse! vector-copy void)
-    (only (schemesh bootstrap)         assert*)
+    (only (schemesh bootstrap)         assert* assert-not*)
     (only (schemesh containers misc)   list-iterate subvector vector-copy! vector-fill-range! vector-range->list))
 
 (define-record-type
@@ -243,25 +243,41 @@
           (span-set! sp pos elem)
           (set! pos (fx1+ pos)))))))
 
+
 ;; prefix range [src-start, src-end) of another span into this span
-(define (span-insert-front/span! sp-dst sp-src src-start src-end)
-  (assert* 'span-insert-front/span! (not (eq? sp-dst sp-src)))
-  (assert* 'span-insert-front/span! (fx<=? 0 src-start src-end (span-length sp-src)))
-  (when (fx<? src-start src-end)
-    (let ((len   (span-length sp-dst))
-          (src-n (fx- src-end src-start)))
-      (span-resize-front! sp-dst (fx+ len src-n))
-      (span-copy! sp-src src-start sp-dst 0 src-n))))
+(define span-insert-front/span!
+  (case-lambda
+    ((sp-dst sp-src)
+      (span-insert-front/span! sp-dst sp-src 0 (span-length sp-src)))
+    ((sp-dst sp-src src-start src-end)
+      (assert-not* 'span-insert-front/span! (eq? sp-dst sp-src))
+      (assert*     'span-insert-front/span! (fx<=? 0 src-start src-end (span-length sp-src)))
+      (when (fx<? src-start src-end)
+        ;; check for (not (eq? src dst)) only if dst is non-empty,
+        ;; because reusing the empty vector is a common optimization of Scheme compilers
+        (assert-not* 'span-insert-front/span! (eq? (span-peek-data sp-dst) (span-peek-data sp-src)))
+        (let ((len   (span-length sp-dst))
+              (src-n (fx- src-end src-start)))
+          (span-resize-front! sp-dst (fx+ len src-n))
+          (span-copy! sp-src src-start sp-dst 0 src-n))))))
+
 
 ;; append a portion of another span to this span
-(define (span-insert-back/span! sp-dst sp-src src-start src-end)
-  (assert* 'span-insert-back/span! (not (eq? sp-dst sp-src)))
-  (assert* 'span-insert-back/span! (fx<=? 0 src-start src-end (span-length sp-src)))
-  (when (fx<? src-start src-end)
-    (let ((pos   (span-length sp-dst))
-          (src-n (fx- src-end src-start)))
-      (span-resize-back! sp-dst (fx+ pos src-n))
-      (span-copy! sp-src src-start sp-dst pos src-n))))
+(define span-insert-back/span!
+  (case-lambda
+    ((sp-dst sp-src)
+      (span-insert-back/span! sp-dst sp-src 0 (span-length sp-src)))
+    ((sp-dst sp-src src-start src-end)
+      (assert-not* 'span-insert-back/span! (eq? sp-dst sp-src))
+      (assert*     'span-insert-back/span! (fx<=? 0 src-start src-end (span-length sp-src)))
+      (when (fx<? src-start src-end)
+        ;; check for (not (eq? src dst)) only if dst is non-empty,
+        ;; because reusing the empty vector is a common optimization of Scheme compilers
+        (assert-not* 'span-insert-back/span! (eq? (span-peek-data sp-dst) (span-peek-data sp-src)))
+        (let ((pos   (span-length sp-dst))
+              (src-n (fx- src-end src-start)))
+          (span-resize-back! sp-dst (fx+ pos src-n))
+          (span-copy! sp-src src-start sp-dst pos src-n))))))
 
 ;; erase n elements at the left (front) of span
 (define (span-erase-front! sp n)

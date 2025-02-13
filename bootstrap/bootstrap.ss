@@ -15,7 +15,7 @@
       sh-make-parameter sh-make-thread-parameter sh-version
 
       ;; bootstrap.ss
-      assert* catch define-macro debugf debugf-port first-value first-value-or-void let-macro
+      assert* assert-not* catch define-macro debugf debugf-port first-value first-value-or-void let-macro
       raise-assert* repeat second-value while until throws? trace-call try list->values values->list -> ^)
 
   (import
@@ -121,6 +121,26 @@
               (if texpr
                   (void)
                   (raise-assert* caller #,form texpr))))))))
+
+
+;; alternative implementation of (assert (not (proc arg ...)))
+;; producing more detailed error messages.
+;; requires proc to be a procedure, NOT a syntax or macro
+(define-syntax assert-not*
+  (lambda (stx)
+    (let ((form (format #f "(not ~s)" (caddr (syntax->datum stx)))))
+      (syntax-case stx ()
+        ((_ caller (proc args ...))
+          (with-syntax (((targs ...) (generate-temporaries #'(args ...))))
+            #`(let ((tproc proc) (targs args) ...)
+                (if (tproc targs ...)
+                  (raise-assert* caller #,form targs ...)
+                  (void)))))
+        ((_ caller expr)
+          #`(let ((texpr expr))
+              (if texpr
+                  (raise-assert* caller #,form texpr)
+                  (void))))))))
 
 
 ;; wrap a procedure call, and write two debug messages to (debugf-port):

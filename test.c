@@ -279,7 +279,7 @@ static const testcase tests[] = {
      "(span -1 0 1 2 3)"},
     {"(let ((sp (span 1 2 3))"
      "      (sp2 (span -1 0)))\n"
-     "  (span-insert-back/span! sp sp2 0 2)\n"
+     "  (span-insert-back/span! sp sp2)\n"
      "  sp)",
      "(span 1 2 3 -1 0)"},
     {"(let ((sp (span 'a 'b 'c 'd)))\n"
@@ -1189,6 +1189,7 @@ static const testcase tests[] = {
     {"(sh-run (shell-subshell \"echo0\"))", ""},
     {"(sh-run (shell-subshell \"test\" \"210\"))", "(exited . 210)"},
     /* (sh-run/string) */
+    {"(sh-run/string (shell \"echo\" (shell-wildcard (shell-env \"FOO\") \"=123\" )))", "=123\n"},
     {"(sh-run/string (shell \"echo\" \"a\"  \"b\" \"c\"))", "a b c\n"},
     {"(sh-run/string-rtrim-newlines (shell \"echo\" \" abc \"))", " abc "},
     {"(sh-run/string (shell \"FOO\" = \"abc\" \\x3B; \"echo\" (shell-env \"FOO\")))", "abc\n"},
