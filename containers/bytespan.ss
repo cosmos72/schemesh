@@ -251,8 +251,6 @@
 ;; at the beginning of bytespan sp-dst
 (define bytespan-insert-front/bspan!
   (case-lambda
-    ((sp-dst sp-src)
-      (bytespan-insert-front/bspan! sp-dst sp-src 0 (bytespan-length sp-src)))
     ((sp-dst sp-src src-start src-end)
       (assert-not* 'bytespan-insert-front/bspan! (eq? sp-dst sp-src))
       (assert*     'bytespan-insert-front/bspan! (fx<=? 0 src-start src-end (bytespan-length sp-src)))
@@ -263,27 +261,27 @@
         (let ((len    (bytespan-length sp-dst))
               (src-n  (fx- src-end src-start)))
           (bytespan-resize-front! sp-dst (fx+ len src-n))
-          (bytespan-copy! sp-src src-start sp-dst 0 src-n))))))
+          (bytespan-copy! sp-src src-start sp-dst 0 src-n))))
+    ((sp-dst sp-src)
+      (bytespan-insert-front/bspan! sp-dst sp-src 0 (bytespan-length sp-src)))))
 
 ;; insert range [src-start, src-end) of bytevector bv-src
 ;; at the beginning of bytespan sp-dst
 (define bytespan-insert-front/bvector!
   (case-lambda
-    ((sp-dst bv-src)
-      (bytespan-insert-front/bvector! sp-dst bv-src 0 (bytevector-length bv-src)))
     ((sp-dst bv-src src-start src-end)
       (assert*     'bytespan-insert-front/bvector! (fx<=? 0 src-start src-end (bytevector-length bv-src)))
       (when (fx<? src-start src-end)
         ;; check for (not (eq? src dst)) only if dst is non-empty,
         ;; because reusing the empty bytevector is a common optimization of Scheme compilers
         (assert-not* 'bytespan-insert-front/bvector! (eq? (bytespan-vec sp-dst) bv-src))
-        (bytespan-insert-front/bspan! sp-dst (bytevector->bytespan* bv-src) src-start src-end)))))
+        (bytespan-insert-front/bspan! sp-dst (bytevector->bytespan* bv-src) src-start src-end)))
+    ((sp-dst bv-src)
+      (bytespan-insert-front/bvector! sp-dst bv-src 0 (bytevector-length bv-src)))))
 
 ;  append a portion of another bytespan to this bytespan
 (define bytespan-insert-back/bspan!
   (case-lambda
-    ((sp-dst sp-src)
-      (bytespan-insert-back/bspan! sp-dst sp-src 0 (bytespan-length sp-src)))
     ((sp-dst sp-src src-start src-end)
       (assert-not* 'bytespan-insert-back/bspan! (eq? sp-dst sp-src))
       (assert*     'bytespan-insert-back/bspan! (fx<=? 0 src-start src-end (bytespan-length sp-src)))
@@ -294,17 +292,19 @@
         (let ((pos   (bytespan-length sp-dst))
               (src-n (fx- src-end src-start)))
           (bytespan-resize-back! sp-dst (fx+ pos src-n))
-          (bytespan-copy! sp-src src-start sp-dst pos src-n))))))
+          (bytespan-copy! sp-src src-start sp-dst pos src-n))))
+    ((sp-dst sp-src)
+      (bytespan-insert-back/bspan! sp-dst sp-src 0 (bytespan-length sp-src)))))
 
 ;  append a portion of a bytevector to this bytespan
 (define bytespan-insert-back/bvector!
   (case-lambda
-    ((sp-dst bv-src)
-      (bytespan-insert-back/bvector! sp-dst bv-src 0 (bytevector-length bv-src)))
     ((sp-dst bv-src src-start src-end)
       (unless (fx=? src-start src-end)
         ; call bytespan-insert... accepting a bytespan second argument
-        (bytespan-insert-back/bspan! sp-dst (bytevector->bytespan* bv-src) src-start src-end)))))
+        (bytespan-insert-back/bspan! sp-dst (bytevector->bytespan* bv-src) src-start src-end)))
+    ((sp-dst bv-src)
+      (bytespan-insert-back/bvector! sp-dst bv-src 0 (bytevector-length bv-src)))))
 
 ;  erase n elements at the left (front) of bytespan
 (define (bytespan-erase-front! sp n)
@@ -328,11 +328,15 @@
 ; (bytespan-find/u8) iterates on bytespan u8 elements in range [start, end)
 ;; and returns the index of first bytespan u8 element that causes
 ; (predicate elem) to return truish. Returns #f if no such element is found.
-(define (bytespan-find/u8 sp start end predicate)
-  (assert* 'bytespan-find/u8 (fx<=? 0 start end (bytespan-length sp)))
-  (do ((i start (fx1+ i)))
-      ((or (fx>=? i end) (predicate (bytespan-ref/u8 sp i)))
-        (if (fx>=? i end) #f i))))
+(define bytespan-find/u8
+  (case-lambda
+    ((sp start end predicate)
+      (assert* 'bytespan-find/u8 (fx<=? 0 start end (bytespan-length sp)))
+      (do ((i start (fx1+ i)))
+          ((or (fx>=? i end) (predicate (bytespan-ref/u8 sp i)))
+           (if (fx>=? i end) #f i))))
+    ((sp predicate)
+      (bytespan-find/u8 sp 0 (bytespan-length sp) predicate))))
 
 ; customize how "bytespan" objects are printed
 (record-writer (record-type-descriptor %bytespan)

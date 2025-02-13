@@ -114,24 +114,21 @@
 ;; and return the new span.
 (define span-copy
   (case-lambda
-    ((src)
-      (span-copy src 0 (span-length src)))
     ((src start end)
       (assert* 'span-copy (fx<=? 0 start end (span-length src)))
       (let* ((n (fx- end start))
              (dst (make-span n)))
         (vector-copy! (span-vec src) (fx+ (span-beg src) start)
                       (span-vec dst) (span-beg dst) n)
-        dst))))
+        dst))
+    ((src)
+      (span-copy src 0 (span-length src)))))
 
 
 ;; copy a range of elements from span src to span dst.
 (define (span-copy! src src-start dst dst-start n)
-  (assert* 'span-copy! (fx>=? src-start 0))
-  (assert* 'span-copy! (fx>=? dst-start 0))
-  (assert* 'span-copy! (fx>=? n 0))
-  (assert* 'span-copy! (fx<=? (fx+ src-start n) (span-length src)))
-  (assert* 'span-copy! (fx<=? (fx+ dst-start n) (span-length dst)))
+  (assert* 'span-copy! (fx<=? 0 src-start (fx+ src-start n) (span-length src)))
+  (assert* 'span-copy! (fx<=? 0 dst-start (fx+ dst-start n) (span-length dst)))
   (vector-copy! (span-vec src) (fx+ src-start (span-beg src))
                 (span-vec dst) (fx+ dst-start (span-beg dst)) n))
 
@@ -247,37 +244,38 @@
 ;; prefix range [src-start, src-end) of another span into this span
 (define span-insert-front/span!
   (case-lambda
-    ((sp-dst sp-src)
-      (span-insert-front/span! sp-dst sp-src 0 (span-length sp-src)))
     ((sp-dst sp-src src-start src-end)
-      (assert-not* 'span-insert-front/span! (eq? sp-dst sp-src))
       (assert*     'span-insert-front/span! (fx<=? 0 src-start src-end (span-length sp-src)))
       (when (fx<? src-start src-end)
         ;; check for (not (eq? src dst)) only if dst is non-empty,
         ;; because reusing the empty vector is a common optimization of Scheme compilers
+        (assert-not* 'span-insert-front/span! (eq? sp-dst sp-src))
         (assert-not* 'span-insert-front/span! (eq? (span-peek-data sp-dst) (span-peek-data sp-src)))
         (let ((len   (span-length sp-dst))
               (src-n (fx- src-end src-start)))
           (span-resize-front! sp-dst (fx+ len src-n))
-          (span-copy! sp-src src-start sp-dst 0 src-n))))))
+          (span-copy! sp-src src-start sp-dst 0 src-n))))
+    ((sp-dst sp-src)
+      (span-insert-front/span! sp-dst sp-src 0 (span-length sp-src)))))
 
 
 ;; append a portion of another span to this span
 (define span-insert-back/span!
   (case-lambda
-    ((sp-dst sp-src)
-      (span-insert-back/span! sp-dst sp-src 0 (span-length sp-src)))
     ((sp-dst sp-src src-start src-end)
-      (assert-not* 'span-insert-back/span! (eq? sp-dst sp-src))
       (assert*     'span-insert-back/span! (fx<=? 0 src-start src-end (span-length sp-src)))
       (when (fx<? src-start src-end)
         ;; check for (not (eq? src dst)) only if dst is non-empty,
         ;; because reusing the empty vector is a common optimization of Scheme compilers
+        (assert-not* 'span-insert-back/span! (eq? sp-dst sp-src))
         (assert-not* 'span-insert-back/span! (eq? (span-peek-data sp-dst) (span-peek-data sp-src)))
         (let ((pos   (span-length sp-dst))
               (src-n (fx- src-end src-start)))
           (span-resize-back! sp-dst (fx+ pos src-n))
-          (span-copy! sp-src src-start sp-dst pos src-n))))))
+          (span-copy! sp-src src-start sp-dst pos src-n))))
+    ((sp-dst sp-src)
+      (span-insert-back/span! sp-dst sp-src 0 (span-length sp-src)))))
+
 
 ;; erase n elements at the left (front) of span
 (define (span-erase-front! sp n)
@@ -286,12 +284,14 @@
     ; TODO: zero-fill erased range? Helps GC
     (span-beg-set! sp (fx+ n (span-beg sp)))))
 
+
 ;; erase n elements at the right (back) of span
 (define (span-erase-back! sp n)
   (assert* 'span-erase-back! (fx<=? 0 n (span-length sp)))
   (unless (fxzero? n)
     ; TODO: zero-fill erased range? Helps GC
     (span-end-set! sp (fx- (span-end sp) n))))
+
 
 ;; iterate on span elements, and call (proc i elem) on each one.
 ;; Stops iterating if (proc ...) returns #f.

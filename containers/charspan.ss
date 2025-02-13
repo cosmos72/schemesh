@@ -75,14 +75,14 @@
 ;; convert a portion of charspan to string
 (define charspan->string
   (case-lambda
-    ((sp)
-      (charspan->string sp 0 (charspan-length sp)))
     ((sp start end)
       (assert* 'charspan->string (fx<=? 0 start end (charspan-length sp)))
       (if (fx>=? start end)
         ""
         (let ((offset (charspan-beg sp)))
-          (substring (charspan-str sp) (fx+ offset start) (fx+ offset end)))))))
+          (substring (charspan-str sp) (fx+ offset start) (fx+ offset end)))))
+    ((sp)
+      (charspan->string sp 0 (charspan-length sp)))))
 
 
 ;; if possible, truncate charspan to its length and view it as a string.
@@ -313,22 +313,20 @@
 ;; insert range [start, end) of charspan sp-src at the beginning of charspan sp-dst
 (define charspan-insert-front/cspan!
   (case-lambda
-    ((sp-dst sp-src)
-      (charspan-insert-front/cspan! sp-dst sp-src 0 (charspan-length sp-src)))
     ((sp-dst sp-src src-start src-end)
       (assert* 'charspan-insert-front/cspan! (fx<=? 0 src-start src-end (charspan-length sp-src)))
       (assert-not* 'charspan-insert-front/cspan! (eq? sp-dst sp-src))
       (when (fx<? src-start src-end)
         (let ((src-n (fx- src-end src-start)))
           (charspan-resize-front! sp-dst (fx+ src-n (charspan-length sp-dst)))
-          (charspan-copy! sp-src src-start sp-dst 0 src-n))))))
+          (charspan-copy! sp-src src-start sp-dst 0 src-n))))
+    ((sp-dst sp-src)
+      (charspan-insert-front/cspan! sp-dst sp-src 0 (charspan-length sp-src)))))
 
 
 ; append range [start, end) of charspan sp-src at the end of charspan sp-dst
 (define charspan-insert-back/cspan!
   (case-lambda
-    ((sp-dst sp-src)
-      (charspan-insert-back/cspan! sp-dst sp-src 0 (charspan-length sp-src)))
     ((sp-dst sp-src src-start src-end)
       (assert* 'charspan-insert-back/cspan! (fx<=? 0 src-start src-end (charspan-length sp-src)))
       (assert-not* 'charspan-insert-back/cspan! (eq? sp-dst sp-src))
@@ -336,14 +334,14 @@
         (let ((pos (charspan-length sp-dst))
               (src-n (fx- src-end src-start)))
           (charspan-resize-back! sp-dst (fx+ pos src-n))
-          (charspan-copy! sp-src src-start sp-dst pos src-n))))))
+          (charspan-copy! sp-src src-start sp-dst pos src-n))))
+    ((sp-dst sp-src)
+      (charspan-insert-back/cspan! sp-dst sp-src 0 (charspan-length sp-src)))))
 
 
 ; insert range [start, end) of string str-src at the beginning of charspan sp-dst
 (define charspan-insert-front/string!
   (case-lambda
-    ((sp-dst str-src)
-      (charspan-insert-front/string! sp-dst str-src 0 (string-length str-src)))
     ((sp-dst str-src src-start src-end)
       (assert* 'charspan-insert-front/string! (fx<=? 0 src-start src-end (string-length str-src)))
       (when (fx<? src-start src-end)
@@ -354,14 +352,14 @@
           (charspan-resize-front! sp-dst (fx+ src-n (charspan-length sp-dst)))
           (string-copy! str-src src-start
                         (charspan-str sp-dst) (charspan-beg sp-dst)
-                        src-n))))))
+                        src-n))))
+    ((sp-dst str-src)
+      (charspan-insert-front/string! sp-dst str-src 0 (string-length str-src)))))
 
 
 ; append range [start, end) of string str-src at the end of charspan sp-dst
 (define charspan-insert-back/string!
   (case-lambda
-    ((sp-dst str-src)
-      (charspan-insert-back/string! sp-dst str-src 0 (string-length str-src)))
     ((sp-dst str-src src-start src-end)
       (assert* 'charspan-insert-back/string! (fx<=? 0 src-start src-end (string-length str-src)))
       (when (fx<? src-start src-end)
@@ -373,7 +371,9 @@
           (charspan-resize-back! sp-dst (fx+ pos src-n))
           (string-copy! str-src src-start
                         (charspan-str sp-dst) (fx- (charspan-end sp-dst) src-n)
-                        src-n))))))
+                        src-n))))
+    ((sp-dst str-src)
+      (charspan-insert-back/string! sp-dst str-src 0 (string-length str-src)))))
 
 
 ; erase n elements at the left (front) of charspan
@@ -401,13 +401,13 @@
 ;; Return #f if no such element is found.
 (define charspan-find
   (case-lambda
-    ((sp predicate)
-      (charspan-find sp 0 (charspan-length sp) predicate))
     ((sp start end predicate)
       (assert* 'charspan-find (fx<=? 0 start end (charspan-length sp)))
       (do ((i start (fx1+ i)))
           ((or (fx>=? i end) (predicate (charspan-ref sp i)))
-            (if (fx>=? i end) #f i))))))
+            (if (fx>=? i end) #f i))))
+    ((sp predicate)
+      (charspan-find sp 0 (charspan-length sp) predicate))))
 
 
 ;; iterate backward on charspan elements in the range [start, end)
@@ -415,13 +415,13 @@
 ;; (predicate elem) to return truish. Returns #f if no such element is found.
 (define charspan-rfind
   (case-lambda
-    ((sp predicate)
-      (charspan-rfind sp 0 (charspan-length sp) predicate))
     ((sp start end predicate)
       (assert* 'charspan-rfind (fx<=? 0 start end (charspan-length sp)))
       (do ((i (fx1- end) (fx1- i)))
           ((or (fx<? i start) (predicate (charspan-ref sp i)))
-            (if (fx<? i start) #f i))))))
+            (if (fx<? i start) #f i))))
+    ((sp predicate)
+      (charspan-rfind sp 0 (charspan-length sp) predicate))))
 
 
 ;; iterate on charspan elements in range [start, end) and return
@@ -430,10 +430,10 @@
 ;; Return #f if no such element is found.
 (define charspan-find/char
   (case-lambda
-    ((sp ch)
-      (charspan-find sp (lambda (e) (char=? e ch))))
     ((sp start end ch)
-      (charspan-find sp start end (lambda (e) (char=? e ch))))))
+      (charspan-find sp start end (lambda (e) (char=? e ch))))
+    ((sp ch)
+      (charspan-find sp (lambda (e) (char=? e ch))))))
 
 
 ;; iterate backward on charspan elements in the range [start, end)
@@ -441,10 +441,10 @@
 ;; Returns #f if no such element is found.
 (define charspan-rfind/char
   (case-lambda
-    ((sp ch)
-      (charspan-rfind sp (lambda (e) (char=? e ch))))
     ((sp start end ch)
-      (charspan-rfind sp start end (lambda (e) (char=? e ch))))))
+      (charspan-rfind sp start end (lambda (e) (char=? e ch))))
+    ((sp ch)
+      (charspan-rfind sp (lambda (e) (char=? e ch))))))
 
 
 ; customize how charspan objects are printed

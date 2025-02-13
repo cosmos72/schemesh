@@ -34,15 +34,15 @@
 ;; return #f if no such byte is found in range.
 (define bytevector-find/u8
   (case-lambda
-    ((bvec b)
-      (bytevector-find/u8 bvec 0 (bytevector-length bvec) b))
     ((bvec start end b)
       (assert* 'bytevector-find/u8 (bytevector? bvec))
       (assert* 'bytevector-find/u8 (fx<=? 0 start end (bytevector-length bvec)))
       (assert* 'bytevector-find/u8 (fx<=? 0 b 255))
       (do ((i start (fx1+ i)))
           ((or (fx>=? i end) (fx=? b (bytevector-u8-ref bvec i)))
-            (if (fx>=? i end) #f i))))))
+            (if (fx>=? i end) #f i))))
+    ((bvec b)
+      (bytevector-find/u8 bvec 0 (bytevector-length bvec) b))))
 
 
 ;; (bytevector-iterate l proc) iterates on all elements of given bytevector bvec,
