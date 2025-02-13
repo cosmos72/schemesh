@@ -65,7 +65,7 @@ static int usage(const char* name) {
       "    -e STRING, --eval STRING    run STRING as scheme source\n"
       "    --cmd-file FILE             read and execute FILE as shell script\n"
       "    --eval-file FILE            read and execute FILE as scheme source\n"
-      "    --load-file FILE            read and execute FILE as compiled scheme library\n"
+      "    --load-file FILE            load and execute FILE as compiled scheme library\n"
       "    -h, --help                  display this help and exit immediately\n"
       "    -i, --repl                  unconditionally start the interactive repl\n"
       "                                (default: start only if no files or strings are specified)\n"
@@ -74,9 +74,10 @@ static int usage(const char* name) {
       "    --library-dir DIR           load schemesh libraries from DIR\n"
       "    --                          end of options. always treat further arguments as files\n"
       "\n"
-      "  the type of files, if they are not specified after options '--cmd-file' or '--eval-file'\n"
-      "  is determined by their name:\n"
+      "  the type of files, if they are not specified after options '--cmd-file', '--eval-file'\n"
+      "  or '--load-file' is determined by their name:\n"
       "    file names ending in '.sh' or not containing '.' are executed as shell script,\n"
+      "    file names ending in '.so' are executed as compiled scheme library,\n"
       "    all other files are executed as scheme source\n"
       "\n"
       "  both files and strings can switch to different languages\n"
@@ -169,6 +170,17 @@ static void parse_command_line(int argc, const char* argv[], struct cmdline* cmd
   }
 }
 
+static void load_file_autodetect_type(const char filename[]) {
+  const size_t len = strlen(filename);
+  const char*  procname;
+  if (len >= 3 && memcmp(filename + len - 3, ".so", 3) == 0) {
+    procname = "load";
+  } else {
+    procname = "sh-eval-file/print";
+  }
+  schemesh_call1(procname, schemesh_Sstring_utf8b(filename, len));
+}
+
 static void run_files_and_strings(int argc, const char* argv[]) {
   const char* arg;
   const char* arg2;
@@ -212,10 +224,10 @@ static void run_files_and_strings(int argc, const char* argv[]) {
       } else if (!strncmp(arg, "-", 1)) {
         /* some other option */
       } else {
-        schemesh_call1("sh-eval-file/print", schemesh_Sstring_utf8b(arg, -1));
+        load_file_autodetect_type(arg);
       }
     } else {
-      schemesh_call1("sh-eval-file/print", schemesh_Sstring_utf8b(arg, -1));
+      load_file_autodetect_type(arg);
     }
   }
 }
