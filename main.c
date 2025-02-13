@@ -170,15 +170,30 @@ static void parse_command_line(int argc, const char* argv[], struct cmdline* cmd
   }
 }
 
-static void load_file_autodetect_type(const char filename[]) {
-  const size_t len = strlen(filename);
-  const char*  procname;
-  if (len >= 3 && memcmp(filename + len - 3, ".so", 3) == 0) {
-    procname = "load";
-  } else {
-    procname = "sh-eval-file/print";
+static void eval_string_type(const char filename[], const size_t len, const char* type) {
+  schemesh_call3("sh-eval-string/print*",
+                 schemesh_Sstring_utf8b(filename, len),
+                 Sstring_to_symbol(type),
+                 Strue);
+}
+
+static void load_file_type(const char filename[], const size_t len, const char* type) {
+  schemesh_call3(
+      "sh-eval-file/print*", schemesh_Sstring_utf8b(filename, len), Sstring_to_symbol(type), Strue);
+}
+
+static void load_file_type_compiled(const char filename[], const size_t len) {
+  schemesh_call1("load", schemesh_Sstring_utf8b(filename, len));
+}
+
+static void load_file_type_autodetect(const char filename[], size_t len) {
+  if (len == (size_t)-1) {
+    len = strlen(filename);
   }
-  schemesh_call1(procname, schemesh_Sstring_utf8b(filename, len));
+  if (len >= 3 && memcmp(filename + len - 3, ".so", 3) == 0) {
+    return load_file_type_compiled(filename, len);
+  }
+  schemesh_call1("sh-eval-file/print", schemesh_Sstring_utf8b(filename, len));
 }
 
 static void run_files_and_strings(int argc, const char* argv[]) {
@@ -195,39 +210,27 @@ static void run_files_and_strings(int argc, const char* argv[]) {
       } else if (arg2 && (!strcmp(arg, "--boot-dir") || !strcmp(arg, "--library-dir"))) {
         i++; /* skip subsequent arg */
       } else if (arg2 && (!strcmp(arg, "-c") || !strcmp(arg, "--cmd"))) {
-        schemesh_call3("sh-eval-string/print*",
-                       schemesh_Sstring_utf8b(arg2, -1),
-                       Sstring_to_symbol("shell"),
-                       Strue);
+        eval_string_type(arg2, -1, "shell");
         i++;
       } else if (arg2 && (!strcmp(arg, "--cmd-file"))) {
-        schemesh_call3("sh-eval-file/print*",
-                       schemesh_Sstring_utf8b(arg2, -1),
-                       Sstring_to_symbol("shell"),
-                       Strue);
+        load_file_type(arg2, -1, "shell");
         i++;
       } else if (arg2 && (!strcmp(arg, "-e") || !strcmp(arg, "--eval"))) {
-        schemesh_call3("sh-eval-string/print*",
-                       schemesh_Sstring_utf8b(arg2, -1),
-                       Sstring_to_symbol("scheme"),
-                       Strue);
+        eval_string_type(arg2, -1, "scheme");
         i++;
       } else if (arg2 && (!strcmp(arg, "--eval-file"))) {
-        schemesh_call3("sh-eval-file/print*",
-                       schemesh_Sstring_utf8b(arg2, -1),
-                       Sstring_to_symbol("scheme"),
-                       Strue);
+        load_file_type(arg2, -1, "scheme");
         i++;
       } else if (arg2 && (!strcmp(arg, "--load-file"))) {
-        schemesh_call1("load", schemesh_Sstring_utf8b(arg2, -1));
+        load_file_type_compiled(arg2, -1);
         i++;
       } else if (!strncmp(arg, "-", 1)) {
         /* some other option */
       } else {
-        load_file_autodetect_type(arg);
+        load_file_type_autodetect(arg, -1);
       }
     } else {
-      load_file_autodetect_type(arg);
+      load_file_type_autodetect(arg, -1);
     }
   }
 }
