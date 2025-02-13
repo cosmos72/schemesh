@@ -145,9 +145,18 @@ fg 1
 ## Build instructions
 
 On Debian Linux, execute the following commands:
-```
+```shell
 sudo apt update
 sudo apt install build-essential chezscheme-dev liblz4-dev libncurses-dev git uuid-dev zlib1g-dev
+git clone https://github.com/cosmos72/schemesh
+cd schemesh
+make -j
+sudo make install
+```
+
+On Fedora:
+```shell
+sudo dnf install gcc gcc-c++ make chez-scheme-devel lz4-devel ncurses-devel git libuuid-devel zlib-devel
 git clone https://github.com/cosmos72/schemesh
 cd schemesh
 make -j
