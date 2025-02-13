@@ -53,7 +53,7 @@ static const testcase tests[] = {
     {"(let-macro ((plus arg0 . args) `(+ ,arg0 ,@args))\n"
      "  (plus 3 4 5))",
      "12"},
-    {"(expand-omit-library-invocations #t)", ""},
+    /* {"(expand-omit-library-invocations #t)", ""},*/ /* avoid, requires Chez Scheme >= 10.0.0 */
     {"(expand '(-> a b (c ^ d) (e f ^)))", "(e f (c (b a) d))"},
     /* {"(begin (debugf \"warmup\") (debugf \"a\") (debugf \"b\") (debugf \"c\"))", ""}, */
     /* ----------------- containers/misc ------------------------------------ */
@@ -538,18 +538,23 @@ static const testcase tests[] = {
     {"(list-reverse*! (list 1 2))", "(2 . 1)"},
     {"(list-reverse*! (list 1 2 3 4 5 6))", "(6 5 4 3 2 . 1)"},
     /* ------------------------ hashtable ----------------------------------- */
-    {"(hashtable-cells\n"
-     "  (eq-hashtable '(3 . C) '(2 . B) '(1 . A)))",
+    {"(vector-sort"
+     "  (lambda (cell1 cell2) (< (car cell1) (car cell2)))"
+     "  (hashtable-cells (eq-hashtable '(3 . C) '(2 . B) '(1 . A))))",
      "#((1 . A) (2 . B) (3 . C))"},
-    {"(hashtable-cells\n"
-     "  (eqv-hashtable '(1.0 . A) '(2.1 . B) '(3 . C)))",
-     "#((3 . C) (2.1 . B) (1.0 . A))"},
-    {"(hashtable-cells\n"
-     "  (eqv-hashtable '(3.1 . C) '(2 . B) '(1 . A)))",
+    {"(vector-sort"
+     "  (lambda (cell1 cell2) (< (car cell1) (car cell2)))"
+     "  (hashtable-cells (eqv-hashtable '(1.0 . A) '(2.1 . B) '(3 . C))))",
+     "#((1.0 . A) (2.1 . B) (3 . C))"},
+    {"(vector-sort"
+     "  (lambda (cell1 cell2) (< (car cell1) (car cell2)))"
+     "  (hashtable-cells (eqv-hashtable  '(3.1 . C) '(2 . B) '(1 . A))))",
      "#((1 . A) (2 . B) (3.1 . C))"},
-    {"(hashtable-cells\n"
-     "  (hashtable string-hash string=? '(\"a\" . 1) '(\"B\" . 2) '(\"+\" . 3)))",
-     "#((a . 1) (+ . 3) (B . 2))"},
+    {"(vector-sort"
+     "  (lambda (cell1 cell2) (string<? (car cell1) (car cell2)))"
+     "  (hashtable-cells\n"
+     "    (hashtable string-hash string=? '(\"a\" . 1) '(\"B\" . 2) '(\"+\" . 3))))",
+     "#((+ . 3) (B . 2) (a . 1))"},
     {"(string-hashtable->argv\n"
      "  (hashtable string-hash string=?\n"
      "             '(\"A\" . \"X\") '(\"B\" . \"Y\") '(\"C\" . \"Z\")))",
@@ -558,7 +563,9 @@ static const testcase tests[] = {
      "  (hashtable-iterate (eqv-hashtable '(1.0 . A) '(2.1 . B) '(3 . C))\n"
      "    (lambda (cell)\n"
      "      (set! ret (cons cell ret))))\n"
-     "  ret)",
+     "  (sort!"
+     "    (lambda (cell1 cell2) (< (car cell1) (car cell2)))"
+     "    ret))",
      "((1.0 . A) (2.1 . B) (3 . C))"},
     /* ------------------------ lineedit io --------------------------------- */
     {"(get-string-all\n"
@@ -1045,34 +1052,35 @@ static const testcase tests[] = {
 
 #define OPTION_PARENT_JOB "(($primitive 2 cons) 'same-parent-as-job job)"
 
-#if 0
 #define INVOKELIB_SHELL_JOBS                                                                       \
-  "(begin (($primitive 3 $invoke-library) '(schemesh shell job) '(0 7 4) 'job)"
-#endif
+  "(begin (($primitive 3 $invoke-library) '(schemesh shell job) '(0 7 4) 'job) "
 
     /* ------------------------- shell macros ------------------------------- */
     {"(expand '(shell))", /* */
-     "(sh-cmd)"},
+     INVOKELIB_SHELL_JOBS "(sh-cmd))"},
     {"(expand '(shell 2 >& 1))", /* */
-     "(sh-cmd* 2 '>& 1)"},
+     INVOKELIB_SHELL_JOBS "(sh-cmd* 2 '>& 1))"},
     {"(expand '(shell \"ls\" \"-l\" && \"wc\" \"-b\" \\x7C;\\x7C; \"echo\" \"error\" &))",
-     "(sh-list (sh-or (sh-and (sh-cmd ls -l) (sh-cmd wc -b)) (sh-cmd echo error)) '&)"},
+     INVOKELIB_SHELL_JOBS
+     "(sh-list (sh-or (sh-and (sh-cmd ls -l) (sh-cmd wc -b)) (sh-cmd echo error)) '&))"},
     {"(expand '(shell \"true\" \\x7C;\\x7C; ! \"false\"))",
-     "(sh-or (sh-cmd true) (sh-not (sh-cmd false)))"},
+     INVOKELIB_SHELL_JOBS "(sh-or (sh-cmd true) (sh-not (sh-cmd false))))"},
     {"(expand '(shell-list (shell \"ls\" \"-al\" >> \"log.txt\")))",
-     "(sh-cmd* ls -al 1 '>> log.txt)"},
+     INVOKELIB_SHELL_JOBS "(sh-cmd* ls -al 1 '>> log.txt))"},
     {"(expand '(shell-test (if a b c)))",
-     "(sh-cmd* builtin test (lambda () (sh-bool (if a b c))))"},
+     INVOKELIB_SHELL_JOBS "(sh-cmd* builtin test (lambda () (sh-bool (if a b c)))))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{{{{echo|cat}}}}\")))",
-     "(sh-pipe* (sh-cmd echo) '| (sh-cmd cat))"},
+     INVOKELIB_SHELL_JOBS "(sh-pipe* (sh-cmd echo) '| (sh-cmd cat)))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{echo|{cat;{true}}}\")))",
-     "(sh-pipe* (sh-cmd echo) '| (sh-list (sh-cmd cat) '; (sh-cmd true)))"},
-    {"(expand '(shell (shell \"ls\" & \"echo\")))", "(sh-list (sh-cmd ls) '& (sh-cmd echo))"},
-    {"(expand '(shell (shell \"foo\") \\x3B; \"bar\"))", "(sh-list (sh-cmd foo) '; (sh-cmd bar))"},
+     INVOKELIB_SHELL_JOBS "(sh-pipe* (sh-cmd echo) '| (sh-list (sh-cmd cat) '; (sh-cmd true))))"},
+    {"(expand '(shell (shell \"ls\" & \"echo\")))",
+     INVOKELIB_SHELL_JOBS "(sh-list (sh-cmd ls) '& (sh-cmd echo)))"},
+    {"(expand '(shell (shell \"foo\") \\x3B; \"bar\"))",
+     INVOKELIB_SHELL_JOBS "(sh-list (sh-cmd foo) '; (sh-cmd bar)))"},
     {"(expand '(shell (shell \"ls\" & \"echo\") 2 >& 1))",
-     "(sh-redirect! (sh-list (sh-cmd ls) '& (sh-cmd echo)) 2 '>& 1)"},
+     INVOKELIB_SHELL_JOBS "(sh-redirect! (sh-list (sh-cmd ls) '& (sh-cmd echo)) 2 '>& 1))"},
     {"(shell \\x3B; (shell \"foo\") \\x3B; \"bar\")",
      "(sh-list '\\x3B; (sh-cmd \"foo\") '\\x3B; (sh-cmd \"bar\"))"},
     {"(shell (shell \"ls\" & \"echo\") 2 >& 1)",
@@ -1088,36 +1096,42 @@ static const testcase tests[] = {
      "(shell C = D echo)"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{A=B ls}\")))",
-     "(sh-cmd* A '= B ls)"},
+     INVOKELIB_SHELL_JOBS "(sh-cmd* A '= B ls))"},
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"{FOO=$BAR/subdir echo}\")))",
      "(shell FOO = (shell-wildcard (shell-env BAR) /subdir) echo)"},
-    {"(expand '(shell-wildcard *))", "(lambda (job) (sh-wildcard job '*))"},
-    {"(expand '(shell-wildcard ?))", "(lambda (job) (sh-wildcard job '?))"},
-    {"(expand '(shell-wildcard ~))", "(lambda (job) (sh-wildcard job '~))"},
+    {"(expand '(shell-wildcard *))", /*         */
+     INVOKELIB_SHELL_JOBS "(lambda (job) (sh-wildcard job '*)))"},
+    {"(expand '(shell-wildcard ?))", /*         */
+     INVOKELIB_SHELL_JOBS "(lambda (job) (sh-wildcard job '?)))"},
+    {"(expand '(shell-wildcard ~))", /*         */
+     INVOKELIB_SHELL_JOBS "(lambda (job) (sh-wildcard job '~)))"},
     {"(expand '(shell-wildcard \"a\" (shell-wildcard ~ \"b/\" *)"
      " ? % \"def\" %! \"ghi\"))", /* */
-     "(lambda (job) (sh-wildcard job a '~ b/ '* '? '% def '%! ghi))"},
+     INVOKELIB_SHELL_JOBS "(lambda (job) (sh-wildcard job a '~ b/ '* '? '% def '%! ghi)))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{FOO=$BAR/subdir echo}\"))))",
-     "(sh-cmd* FOO '= (lambda (job) (sh-wildcard job"
-     " (lambda (job) (sh-env-ref job BAR)) /subdir)) echo)"},
+     INVOKELIB_SHELL_JOBS "(sh-cmd* FOO '= (lambda (job) (sh-wildcard job"
+                          " (lambda (job) (sh-env-ref job BAR)) /subdir)) echo))"},
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"A=$(echo abc; echo def)\"))",
      "(shell A = (shell-backquote echo abc ; echo def))"},
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"A=`echo abc; echo def`\"))",
      "(shell A = (shell-backquote echo abc ; echo def))"},
-    /* should rather expand to (sh-env-set/lazy! ...) ? */
     {"(expand '(shell \"A\" = (shell-backquote \"echo\" \"abc\" \\x3B; \"echo\" \"def\")))",
+     INVOKELIB_SHELL_JOBS
      "(sh-cmd* A '= (lambda (job)"
      " (sh-run/string-rtrim-newlines (sh-list (sh-cmd echo abc) '; (sh-cmd echo def))"
-     " " OPTION_PARENT_JOB ")))"},
-    {"(expand '(shell (shell-wildcard \"l\" \"s\")))", "(sh-cmd* ls)"},
-    {"(expand '(shell (shell-wildcard \"l\" \"s\") \".\"))", "(sh-cmd* ls .)"},
+     " " OPTION_PARENT_JOB "))))"},
+    {"(expand '(shell (shell-wildcard \"l\" \"s\")))", /*         */
+     INVOKELIB_SHELL_JOBS "(sh-cmd* ls))"},
+    {"(expand '(shell (shell-wildcard \"l\" \"s\") \".\"))",
+     INVOKELIB_SHELL_JOBS "(sh-cmd* ls .))"},
     {"(expand '(shell (shell-backquote \"echo\" \"ls\")))",
+     INVOKELIB_SHELL_JOBS
      "(sh-cmd* (lambda (job) (sh-run/string-rtrim-newlines (sh-cmd echo ls) " /*          */
-     OPTION_PARENT_JOB ")))"},
+     OPTION_PARENT_JOB "))))"},
     /* test wildcards and patterns [...] */
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"{echo *}\")))",
@@ -1140,29 +1154,30 @@ static const testcase tests[] = {
      "(shell ls A=B)"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"ls A=B\"))))",
-     "(sh-cmd ls A=B)"},
+     INVOKELIB_SHELL_JOBS "(sh-cmd ls A=B))"},
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"echo [ab]* ? [!z]\"))))",
      "(shell echo (shell-wildcard % ab *) (shell-wildcard ?) (shell-wildcard %! z))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"ls [ab]*\"))))",
-     "(sh-cmd* ls (lambda (job) (sh-wildcard job '% ab '*)))"},
+     INVOKELIB_SHELL_JOBS "(sh-cmd* ls (lambda (job) (sh-wildcard job '% ab '*))))"},
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"echo $(foo&&bar)\"))",
      "(shell echo (shell-backquote foo && bar))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"echo $(foo&&bar)\")))",
-     "(sh-cmd* echo (lambda (job) (sh-run/string-rtrim-newlines"
-     " (sh-and (sh-cmd foo) (sh-cmd bar)) " OPTION_PARENT_JOB ")))"},
+     INVOKELIB_SHELL_JOBS "(sh-cmd* echo (lambda (job) (sh-run/string-rtrim-newlines"
+                          " (sh-and (sh-cmd foo) (sh-cmd bar)) " OPTION_PARENT_JOB "))))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{ls} > log.txt &\")))",
-     "(sh-list* (sh-cmd ls) 1 '> log.txt '&)"},
+     INVOKELIB_SHELL_JOBS "(sh-list* (sh-cmd ls) 1 '> log.txt '&))"},
     {"(sh-eval (parse-shell-form1 (string->parsectx\n"
      "  \"{ls} > log.txt &\")))",
      "(sh-list (sh-cmd* \"ls\" 1 '> \"log.txt\") '&)"},
     {"(expand '(shell \"echo\" \"abc\" > \"DEL_ME\" &&"
      " \"cat\" \"DEL_ME\" && \"rm\" \"DEL_ME\"))",
-     "(sh-and (sh-cmd* echo abc 1 '> DEL_ME) (sh-cmd cat DEL_ME) (sh-cmd rm DEL_ME))"},
+     INVOKELIB_SHELL_JOBS
+     "(sh-and (sh-cmd* echo abc 1 '> DEL_ME) (sh-cmd cat DEL_ME) (sh-cmd rm DEL_ME)))"},
     {"(shell \"echo\" \"abc\" > \"DEL_ME\" && \"cat\" \"DEL_ME\" && \"rm\" \"DEL_ME\")",
      "(sh-and (sh-cmd* \"echo\" \"abc\" 1 '> \"DEL_ME\")"
      " (sh-cmd \"cat\" \"DEL_ME\") (sh-cmd \"rm\" \"DEL_ME\"))"},
@@ -1265,7 +1280,7 @@ static const testcase tests[] = {
      " && (shell echo (shell-backquote baz --quiet) < /dev/null 2 >& 1 || fail --verbose) ; ;)) "
      "(set! a 42))"},
     /* ------------------------- repl --------------------------------------- */
-    {"(expand-omit-library-invocations #f)", ""},
+    /* {"(expand-omit-library-invocations #t)", ""},*/ /* avoid, requires Chez Scheme >= 10.0.0 */
     {"(values->list (sh-repl-parse\n"
      "  (string->parsectx \"(+ 2 3) (values 7 (cons 'a 'b))\" (parsers))\n"
      "  'scheme))\n",
