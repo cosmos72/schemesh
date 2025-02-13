@@ -100,7 +100,7 @@ else
   else_run_this_command foo bar $VAR
 fi
 ```
-
+more examples mixing shell and Lisp syntax:
 ```shell
 find (lisp-function-returning-some-string) -type f | grep ^lib | wc -l &
 fg 1
@@ -154,7 +154,7 @@ make -j
 sudo make install
 ```
 
-On Fedora:
+On Fedora Linux:
 ```shell
 sudo dnf install gcc gcc-c++ make chez-scheme-devel lz4-devel ncurses-devel git libuuid-devel zlib-devel
 git clone https://github.com/cosmos72/schemesh
@@ -169,6 +169,11 @@ If all went well, you can execute `schemesh`
 
 In case your environment variable `$PATH` does not contain `/usr/local/bin`,
 the command `schemesh` will not suffice - you will need to run `/usr/local/bin/schemesh`
+
+Troubleshooting:
+
+if `make -j` fails, a possible error is that it fails to autodetect Chez Scheme installation directory.
+In such case you can manually specify it, as for example `make -j CHEZ_SCHEME_DIR="/usr/local/lib/csv10.0.0/ta6le"`
 
 ## RECENT CHANGES
 
