@@ -544,7 +544,7 @@ static const testcase tests[] = {
      "#((1 . A) (2 . B) (3 . C))"},
     {"(vector-sort"
      "  (lambda (cell1 cell2) (< (car cell1) (car cell2)))"
-     "  (hashtable-cells (list->eqv-hashtable '((1.0 . A) (2.1 . B) (3 . C)))))",
+     "  (hashtable-cells (alist->eqv-hashtable '((1.0 . A) (2.1 . B) (3 . C)))))",
      "#((1.0 . A) (2.1 . B) (3 . C))"},
     {"(vector-sort"
      "  (lambda (cell1 cell2) (< (car cell1) (car cell2)))"

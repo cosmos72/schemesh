@@ -10,7 +10,7 @@
     make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-cell hash-iterator-next!
     in-hashtable hashtable-iterate hashtable-transpose
     eq-hashtable eqv-hashtable (rename (%hashtable hashtable))
-    list->eq-hashtable list->eqv-hashtable list->hashtable)
+    alist->eq-hashtable alist->eqv-hashtable alist->hashtable)
   (import
     (rnrs)
     (only (chezscheme) $primitive fx1+ include record-writer)
@@ -161,12 +161,12 @@
   dst)
 
 
-;; (eq-hashtable* l) iterates on all (key . value) elements of list l
+;; (alist->eq-hashtable l) iterates on all (key . value) elements of list l
 ;; and inserts each of them into a new hashtable created with
 ;;   (make-eq-hashtable (length l)).
 ;;
 ;; Returns the new hashtable.
-(define (list->eq-hashtable l)
+(define (alist->eq-hashtable l)
   (let ((dst (make-eq-hashtable (length l))))
     (list-iterate l
       (lambda (cell)
@@ -174,12 +174,12 @@
     dst))
 
 
-;; (list->eqv-hashtable l) iterates on all (key . value) elements of list l,
+;; (alist->eqv-hashtable l) iterates on all (key . value) elements of list l,
 ;; and inserts each of them into a new hashtable created with
 ;; (make-eqv-hashtable (length l)).
 ;;
 ;; Returns the new hashtable.
-(define (list->eqv-hashtable l)
+(define (alist->eqv-hashtable l)
   (let ((dst (make-eqv-hashtable (length l))))
     (list-iterate l
       (lambda (cell)
@@ -187,12 +187,12 @@
     dst))
 
 
-; (list->hashtable hash-proc eq-proc l) iterates on all (key . value) elements of list l,
+; (alist->hashtable hash-proc eq-proc l) iterates on all (key . value) elements of list l,
 ; and inserts each of them into a new hashtable created with
 ;   (make-hashtable hash-proc eq-proc (length pairs)).
 ;
 ; Returns the created hashtable.
-(define (list->hashtable hash-proc eq-proc l)
+(define (alist->hashtable hash-proc eq-proc l)
   (let ((dst (make-hashtable hash-proc eq-proc (length l))))
     (list-iterate l
       (lambda (cell)
@@ -206,7 +206,7 @@
 ;;
 ;; Returns the created hashtable.
 (define (eq-hashtable . pairs)
-  (list->eq-hashtable pairs))
+  (alist->eq-hashtable pairs))
 
 
 ;; (eqv-hashtable . pairs) iterates on all (key . value) elements of pairs,
@@ -215,7 +215,7 @@
 ;;
 ;; Returns the created hashtable.
 (define (eqv-hashtable . pairs)
-  (list->eqv-hashtable pairs))
+  (alist->eqv-hashtable pairs))
 
 
 ; (hashtable hash-proc eq-proc l) iterates on all (key . value) elements of list l,
@@ -224,7 +224,7 @@
 ;
 ; Returns the created hashtable.
 (define (%hashtable hash-proc eq-proc . pairs)
-  (list->hashtable hash-proc eq-proc pairs))
+  (alist->hashtable hash-proc eq-proc pairs))
 
 
 ; customize how "hash-iterator" objects are printed
