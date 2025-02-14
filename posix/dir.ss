@@ -7,15 +7,48 @@
 
 
 (library (schemesh posix dir (0 7 4))
-  (export directory-list* directory-sort! file-type)
+  (export directory-list* directory-sort! file-rename file-type)
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) foreign-procedure sort!)
+    (only (chezscheme) foreign-procedure sort! void)
     (only (schemesh bootstrap) catch raise-assertf try)
     (only (schemesh containers) bytevector<? charspan? list-iterate string->utf8b)
     (only (schemesh conversions) text->bytevector text->bytevector0)
     (only (schemesh posix fd) raise-c-errno))
+
+
+(define c-errno-einval ((foreign-procedure "c_errno_einval" () int)))
+
+
+;; Rename a file from old-name to new-name.
+;; Both old-name and new-name are mandatory and each one be a bytevector, string or charspan.
+;; Further optional arguments can contain:
+;;   'catch    - on error, return numeric c-errno instead of raising a condition
+;;
+;; Note: to move a file into a directory, new-name must contain the directory path followed by "/SOME_NEW_NAME"
+;;
+;; Differs from Chez Scheme (rename-file) in three aspects:
+;; 1. Chez Scheme only accepts strings, not bytevectors or charspans.
+;; 2. Chez Scheme internally converts strings to UTF-8 bytevectors, not UTF-8b.
+;; 3. Chez Scheme does not accept option 'catch - on errors, always raises an exception.
+;;
+;; On success, returns (void)
+;; On error:
+;;   if options contain 'catch, returns an integer error code
+;;   otherwise raises an exception.
+(define file-rename
+  (let ((c-file-rename (foreign-procedure "c_file_rename" (ptr ptr) int)))
+    (lambda (old-name new-name . options)
+      (let ((err (c-file-rename (text->bytevector0 old-name) (text->bytevector0 new-name))))
+        (cond
+          ((and (fixnum? err) (fx>=? err 0))
+            (void))
+          ((memq 'catch options)
+            (if (fixnum? err) err c-errno-einval))
+          (#t
+            (raise-c-errno 'file-rename 'rename err old-name new-name)))))))
+
 
 (define c-type->file-type
   (let ((file-types '#(unknown blockdev chardev dir fifo file socket symlink)))
@@ -35,8 +68,7 @@
 ;; Returns #f if file does not exist.
 ;;
 (define file-type
-  (let ((c-file-type (foreign-procedure "c_file_type" (ptr int) ptr))
-        (c-errno-einval ((foreign-procedure "c_errno_einval" () int))))
+  (let ((c-file-type (foreign-procedure "c_file_type" (ptr int) ptr)))
     (lambda (path . options)
       (let* ((symlinks? (memq 'symlinks options))
              (ret (c-file-type (text->bytevector0 path)

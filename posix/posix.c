@@ -27,7 +27,7 @@
 #include <poll.h>
 #include <pwd.h>    /* getpwnam_r() */
 #include <signal.h> /* kill() ... */
-#include <stdio.h>
+#include <stdio.h>  /* rename() ... */
 #include <stdlib.h> /* getenv(), strtoul() */
 #include <string.h>
 #include <string.h>    /* strlen() */
@@ -866,6 +866,36 @@ static ptr c_get_userhome(ptr username0) {
   return ret;
 }
 
+/**
+ * Move or rename a file.
+ * Both bytevector0_old_name and bytevector0_new_name must 0-terminated bytevectors.
+ *
+ * On success, return 0.
+ * On error, return integer -errno
+ */
+static int c_file_rename(ptr bytevector0_old_name, ptr bytevector0_new_name) {
+  const char* old_name;
+  const char* new_name;
+  iptr        old_len;
+  iptr        new_len;
+  if (!Sbytevectorp(bytevector0_old_name) || !Sbytevectorp(bytevector0_new_name)) {
+    return c_errno_set(EINVAL);
+  }
+  old_name = (const char*)Sbytevector_data(bytevector0_old_name);
+  new_name = (const char*)Sbytevector_data(bytevector0_new_name);
+  old_len  = Sbytevector_length(bytevector0_old_name); /* including final '\0' */
+  new_len  = Sbytevector_length(bytevector0_new_name); /* including final '\0' */
+
+  if (old_len <= 0 || old_name[old_len - 1] != '\0' || /*                      */
+      new_len <= 0 || new_name[new_len - 1] != '\0') {
+    return c_errno_set(EINVAL);
+  }
+  if (rename(old_name, new_name) < 0) {
+    return c_errno();
+  }
+  return 0;
+}
+
 typedef enum {
   e_unknown  = 0,
   e_blockdev = 1,
@@ -988,7 +1018,7 @@ static ptr c_dirent_type2(DIR*                dir,
   return c_dirent_type(d_type);
 }
 
-/*
+/**
  * Check existence and type of a filesystem path.
  * bytevector0_path must be a 0-terminated bytevector.
  *
@@ -1551,6 +1581,7 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_get_userhome", &c_get_userhome);
   Sregister_symbol("c_exit", &c_exit);
   Sregister_symbol("c_directory_list", &c_directory_list);
+  Sregister_symbol("c_file_rename", &c_file_rename);
   Sregister_symbol("c_file_type", &c_file_type);
 
   c_register_c_functions_posix_signals();

@@ -122,7 +122,7 @@ a slighty more complex example - uses several additional functions and macros pr
 (import (schemesh all))
 
 (for ((f (in-list (sh-run/string-split-after-nuls {find -type f -print0}))))
-  (rename-file f (string-replace f ".old" ".bak")))
+  (file-rename f (string-replace f ".old" ".bak")))
 ```
 
 ### Features
