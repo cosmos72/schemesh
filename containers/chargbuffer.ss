@@ -13,7 +13,8 @@
 
 (library (schemesh containers chargbuffer (0 7 4))
   (export
-    list->chargbuffer string->chargbuffer string->chargbuffer* charspan->chargbuffer charspan->chargbuffer*
+    in-chargbuffer list->chargbuffer string->chargbuffer string->chargbuffer*
+    charspan->chargbuffer charspan->chargbuffer*
     make-chargbuffer chargbuffer chargbuffer? chargbuffer->charspan chargbuffer->string
     chargbuffer-length chargbuffer-empty?
     chargbuffer-ref chargbuffer-set! chargbuffer-clear! chargbuffer-split-at!
@@ -206,6 +207,29 @@
       (#t
         (chargbuffer-split-at! gb end)
         (charspan-erase-back! left n)))))
+
+
+;; create and return a closure that iterates on elements of chargbuffer gb.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values elem #t) i.e. the next element in chargbuffer gb and #t,
+;; or (values #<unspecified> #f) if end of chargbuffer is reached.
+(define in-chargbuffer
+  (case-lambda
+    ((gb start end step)
+      (assert* 'in-chargbuffer (fx<=? 0 start end (chargbuffer-length gb)))
+      (assert* 'in-chargbuffer (fx>=? step 0))
+      (lambda ()
+        (if (fx<? start end)
+          (let ((elem (chargbuffer-ref gb start)))
+            (set! start (fx+ start step))
+            (values elem #t))
+          (values #\nul #f))))
+    ((gb start end)
+      (in-chargbuffer gb start end 1))
+    ((gb)
+      (in-chargbuffer gb 0 (chargbuffer-length gb) 1))))
+
 
 (define (chargbuffer-iterate gb proc)
   (do ((i 0 (fx1+ i))

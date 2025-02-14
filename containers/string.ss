@@ -11,8 +11,9 @@
     string-contains-only-decimal-digits?
     string-fill-range! string-range-count= string-range=? string-range<?
     string-find string-rfind string-find/char string-rfind/char
-    string-split string-split-after-nuls string-trim-split-at-blanks string-iterate string-replace/char!
-    string-starts-with? string-ends-with? string-starts-with/char? string-ends-with/char?)
+    string-split string-split-after-nuls string-trim-split-at-blanks string-replace/char!
+    string-starts-with? string-ends-with? string-starts-with/char? string-ends-with/char?
+    in-string string-iterate)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -90,15 +91,33 @@
   (char<=? #\0 ch #\9))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;     some additional string functions    ;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 ;; set characters in range [start, end) of string str to character ch
 (define (string-fill-range! str start end ch)
   (assert* 'string-fill-range! (fx<=? 0 start end (string-length str)))
   (when (fx<? start end)
     (substring-fill! str start end ch)))
+
+
+;; create and return a closure that iterates on elements of string str.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values elem #t) i.e. the next element in string str and #t,
+;; or (values #<unspecified> #f) if end of string is reached.
+(define in-string
+  (case-lambda
+    ((str start end step)
+      (assert* 'in-string (fx<=? 0 start end (string-length str)))
+      (assert* 'in-string (fx>=? step 0))
+      (lambda ()
+        (if (fx<? start end)
+          (let ((elem (string-ref str start)))
+            (set! start (fx+ start step))
+            (values elem #t))
+          (values #\nul #f))))
+    ((str start end)
+      (in-string str start end 1))
+    ((str)
+      (in-string str 0 (string-length str) 1))))
 
 
 ;; (string-iterate l proc) iterates on all elements of given string src,

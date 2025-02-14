@@ -53,6 +53,29 @@
       (%again (fx1- pos) (cons (vector-ref vec pos) ret))
       ret)))
 
+
+;; create and return a closure that iterates on elements of vector v.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values elem #t) i.e. the next element in vector v and #t,
+;; or (values #<unspecified> #f) if end of vector is reached.
+(define in-vector
+  (case-lambda
+    ((v start end step)
+      (assert* 'in-vector (fx<=? 0 start end (vector-length v)))
+      (assert* 'in-vector (fx>=? step 0))
+      (lambda ()
+        (if (fx<? start end)
+          (let ((elem (vector-ref v start)))
+            (set! start (fx+ start step))
+            (values elem #t))
+          (values #f #f))))
+    ((v start end)
+      (in-vector v start end 1))
+    ((v)
+      (in-vector v 0 (vector-length v) 1))))
+
+
 ;; (vector-iterate l proc) iterates on all elements of given vector vec,
 ;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
 ;;
@@ -64,12 +87,13 @@
       ((or (fx>=? i n) (not (proc i (vector-ref vec i))))
        (fx>=? i n))))
 
-;; (vector->hashtable vec htable) iterates on all elements of given vector vec,
+
+;; (vector->hashtable! vec htable) iterates on all elements of given vector vec,
 ;; which must be cons cells, and inserts them into hashtable htable:
 ;; (car cell) is used as key, and (cdr cell) is used ad value.
 ;
 ;; Returns htable.
-(define (vector->hashtable vec htable)
+(define (vector->hashtable! vec htable)
   (vector-iterate vec
     (lambda (i cell)
       (hashtable-set! htable (car cell) (cdr cell))))

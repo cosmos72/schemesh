@@ -5,118 +5,9 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh containers (0 7 4))
-  (export
-    ;; bitmap.ss
-    bitmap make-bitmap bitmap? bitmap-length bitmap-ref bitmap-set! bitmap-last-zero
 
-    ;; bytespan.ss
-    list->bytespan bytevector->bytespan bytevector->bytespan* make-bytespan
-    bytespan->bytevector bytespan->bytevector*!
-    bytespan bytespan? bytespan-length bytespan-empty? bytespan-clear!
-    bytespan-capacity bytespan-capacity-front bytespan-capacity-back
-    bytespan-ref/u8 bytespan-back/u8 bytespan-set/u8!
-    bytespan-fill! bytespan-fill-range! bytespan-copy bytespan-copy! bytespan=?
-    bytespan-reserve-front! bytespan-reserve-back! bytespan-resize-front! bytespan-resize-back!
-    bytespan-insert-front/u8! bytespan-insert-back/u8!
-    bytespan-insert-front/bspan! bytespan-insert-back/bspan!
-    bytespan-insert-front/bvector! bytespan-insert-back/bvector!
-    bytespan-erase-front! bytespan-erase-back! bytespan-iterate bytespan-find/u8
-    bytespan-peek-beg bytespan-peek-end bytespan-peek-data
-
-    ;; bytevector.ss
-    list->bytevector subbytevector
-    bytevector-fill-range! bytevector-find/u8 bytevector-iterate bytevector-compare
-    bytevector<=? bytevector<? bytevector>=? bytevector>?
-
-    ;; chargbuffer.ss
-    list->chargbuffer string->chargbuffer string->chargbuffer* charspan->chargbuffer charspan->chargbuffer*
-    make-chargbuffer chargbuffer chargbuffer? chargbuffer->charspan chargbuffer->string
-    chargbuffer-length chargbuffer-empty?
-    chargbuffer-ref chargbuffer-set! chargbuffer-clear! chargbuffer-split-at!
-    chargbuffer-insert-at! chargbuffer-erase-range! chargbuffer-iterate
-
-    ;; charline.ss
-    charline charline? string->charline string->charline* charline->string
-    assert-charline? charline-nl? charline-copy-on-write charline-empty?
-    charline-length charline-ref charline-at charline-equal? charline-set! charline-clear!
-    charline-erase-range! charline-insert-at! charline-insert-at/cspan! charline-insert-at/cbuf!
-    charline-find/left charline-find/right charline-find/char charline-count/left charline-count/right
-    charline-dirty-start-x charline-dirty-end-x charline-dirty-x-add! charline-dirty-x-unset!
-
-    ;; charlines.ss
-    charlines charlines? strings->charlines strings->charlines*
-    assert-charlines? charlines-shallow-copy charlines-copy-on-write charlines-iterate
-    charlines-empty? charlines-length charlines-equal? charlines-ref charlines-set/cline!
-    charlines-clear! charlines-find/left charlines-find/right charlines-count/left charlines-count/right
-    charlines-dirty-start-y charlines-dirty-end-y charlines-dirty-y-add! charlines-dirty-xy-unset!
-    charlines-erase-at/cline! charlines-insert-at/cline!
-    charlines-next-xy charlines-prev-xy charlines-char-at-xy charlines-char-before-xy charlines-char-after-xy
-    write-charlines
-
-    ;; charspan.ss
-    list->charspan string->charspan string->charspan* make-charspan
-    charspan->string charspan->string*!
-    charspan charspan? assert-charspan? charspan-length charspan-empty? charspan-clear!
-    charspan-capacity charspan-capacity-front charspan-capacity-back charspan-ref
-    charspan-front charspan-back
-    charspan-set! charspan-fill! charspan-fill-range! charspan-copy charspan-copy!
-    charspan=? charspan-range-count= charspan-range=? charspan-range/string=?
-    charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back!
-    charspan-insert-front!        charspan-insert-back!
-    charspan-insert-front/cspan!  charspan-insert-back/cspan!
-    charspan-insert-front/string! charspan-insert-back/string!
-    charspan-erase-front! charspan-erase-back! charspan-iterate
-    charspan-find charspan-rfind charspan-find/char charspan-rfind/char
-    charspan-peek-data charspan-peek-beg charspan-peek-end
-
-    ;; gbuffer.ss
-    list->gbuffer vector->gbuffer vector->gbuffer* span->gbuffer span->gbuffer*
-    make-gbuffer gbuffer gbuffer? gbuffer->vector gbuffer->span
-    gbuffer-length gbuffer-empty? gbuffer-ref gbuffer-set! gbuffer-clear! gbuffer-split-at!
-    gbuffer-insert-at! gbuffer-erase-range! gbuffer-iterate
-
-    ;; hashtable.ss
-    make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-cell hash-iterator-next!
-    hashtable-iterate hashtable-transpose eq-hashtable eqv-hashtable hashtable
-
-    ;; list.ss
-    list-iterate list-quoteq! list-reverse*! list-remove-consecutive-duplicates! with-list-elements
-
-    ;; span.ss
-    list->span vector->span vector->span* make-span span->list span->vector span span?
-    span-length span-empty? span-clear! span-capacity span-capacity-front span-capacity-back
-    span-ref span-back span-set! span-fill! span-fill-range! span-range->span* span-copy span-copy!
-    span-reserve-front! span-reserve-back! span-resize-front! span-resize-back!
-    span-insert-front! span-insert-back! span-insert-front/span! span-insert-back/span!
-    span-erase-front! span-erase-back! span-iterate span-find
-    span-peek-beg span-peek-end span-peek-data
-
-    ;; sort.ss
-    span-sort! vector-sort*!
-
-    ;; string.ss
-    string-list? assert-string-list? string-list-split-after-nuls
-    string-contains-only-decimal-digits?
-    string-fill-range! string-range-count= string-range=? string-range<?
-    string-find string-rfind string-find/char string-rfind/char
-    string-split string-split-after-nuls string-trim-split-at-blanks string-iterate string-replace/char!
-    string-starts-with? string-ends-with? string-starts-with/char? string-ends-with/char?
-
-    ;; utf8b.ss
-    integer->char* string->utf8b string->utf8b/0
-    utf8b->string utf8b->string utf8b-bytespan->string
-
-    ;; utf8b-utils.ss
-    bytevector-ref/utf8b bytevector-set/utf8b! char->utf8b-length
-    bytespan-ref/char bytespan-set/char! bytespan-insert-front/char! bytespan-insert-back/char!
-    bytespan-insert-back/cspan! bytespan-insert-back/cbuffer!
-    bytespan-display-back/fixnum! bytespan-insert-back/string!
-    charspan->utf8b charspan->utf8b/0
-
-    ;; vector.ss
-    vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable vector-range->list)
-
+;; define (schemesh containers) as a library that exports all its imported bindings
+(library-reexport (schemesh containers (0 7 4))
   (import (schemesh containers bitmap)
           (schemesh containers misc)
           (schemesh containers sort)
@@ -134,6 +25,4 @@
           (schemesh containers gbuffer)     ; requires (schemesh containers span)
 
           (schemesh containers charline)    ; requires (schemesh containers gbuffer)
-          (schemesh containers charlines))  ; requires (schemesh containers charlines)
-
-) ; close library
+          (schemesh containers charlines))) ; requires (schemesh containers charlines)

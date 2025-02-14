@@ -23,7 +23,7 @@
     charspan-insert-front!        charspan-insert-back!
     charspan-insert-front/cspan!  charspan-insert-back/cspan!
     charspan-insert-front/string! charspan-insert-back/string!
-    charspan-erase-front! charspan-erase-back! charspan-iterate
+    charspan-erase-front! charspan-erase-back! charspan-iterate in-charspan
     charspan-find charspan-rfind charspan-find/char charspan-rfind/char
     charspan-peek-data charspan-peek-beg charspan-peek-end)
   (import
@@ -77,10 +77,10 @@
   (case-lambda
     ((sp start end)
       (assert* 'charspan->string (fx<=? 0 start end (charspan-length sp)))
-      (if (fx>=? start end)
-        ""
+      (if (fx<? start end)
         (let ((offset (charspan-beg sp)))
-          (substring (charspan-str sp) (fx+ offset start) (fx+ offset end)))))
+          (substring (charspan-str sp) (fx+ offset start) (fx+ offset end)))
+        ""))
     ((sp)
       (charspan->string sp 0 (charspan-length sp)))))
 
@@ -387,6 +387,29 @@
   (assert* 'charspan-erase-back! (fx<=? 0 n (charspan-length sp)))
   (unless (fxzero? n)
     (charspan-end-set! sp (fx- (charspan-end sp) n))))
+
+
+;; create and return a closure that iterates on elements of charspan sp.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values elem #t) i.e. the next element in charspan sp and #t,
+;; or (values #<unspecified> #f) if end of charspan is reached.
+(define in-charspan
+  (case-lambda
+    ((sp start end step)
+      (assert* 'in-charspan (fx<=? 0 start end (charspan-length sp)))
+      (assert* 'in-charspan (fx>=? step 0))
+      (lambda ()
+        (if (fx<? start end)
+          (let ((elem (charspan-ref sp start)))
+            (set! start (fx+ start step))
+            (values elem #t))
+          (values #\nul #f))))
+    ((sp start end)
+      (in-charspan sp start end 1))
+    ((sp)
+      (in-charspan sp 0 (charspan-length sp) 1))))
+
 
 (define (charspan-iterate sp proc)
   (do ((i (charspan-beg sp) (fx1+ i))

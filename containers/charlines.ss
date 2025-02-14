@@ -14,7 +14,7 @@
     charlines-dirty-start-y charlines-dirty-end-y charlines-dirty-y-add! charlines-dirty-xy-unset!
     charlines-erase-at/cline! charlines-insert-at/cline! charlines-starts-with?
     charlines-next-xy charlines-prev-xy charlines-char-at-xy charlines-char-before-xy charlines-char-after-xy
-    write-charlines)
+    in-charlines write-charlines)
 
   (import
     (rnrs)
@@ -354,6 +354,28 @@
 (define (charlines-char-after-xy lines x y)
   (let-values (((x y) (charlines-next-xy lines x y)))
     (values x y (and x y (charlines-char-at-xy lines x y)))))
+
+
+;; create and return a closure that iterates on elements of charlines lines.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values elem #t) i.e. the next element in charlines lines and #t,
+;; or (values #<unspecified> #f) if end of charlines is reached.
+(define in-charlines
+  (case-lambda
+    ((lines start end step)
+      (assert* 'in-charlines (fx<=? 0 start end (charlines-length lines)))
+      (assert* 'in-charlines (fx>=? step 0))
+      (lambda ()
+        (if (fx<? start end)
+          (let ((elem (charlines-ref lines start)))
+            (set! start (fx+ start step))
+            (values elem #t))
+          (values #f #f))))
+    ((lines start end)
+      (in-charlines lines start end 1))
+    ((lines)
+      (in-charlines lines 0 (charlines-length lines) 1))))
 
 
 ;; write a textual representation of charlines to output port

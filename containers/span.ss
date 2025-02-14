@@ -16,7 +16,8 @@
     span-ref span-back span-set! span-fill! span-fill-range! span-range->span* span-copy span-copy!
     span-reserve-front! span-reserve-back! span-resize-front! span-resize-back!
     span-insert-front! span-insert-back! span-insert-front/span! span-insert-back/span!
-    span-erase-front! span-erase-back! span-iterate span-find span-rfind
+    span-erase-front! span-erase-back! span-find span-rfind
+    in-span span-iterate
     span-peek-beg span-peek-end span-peek-data)
   (import
     (rnrs)
@@ -291,6 +292,28 @@
   (unless (fxzero? n)
     ; TODO: zero-fill erased range? Helps GC
     (span-end-set! sp (fx- (span-end sp) n))))
+
+
+;; create and return a closure that iterates on elements of span sp.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values elem #t) i.e. the next element in span sp and #t,
+;; or (values #<unspecified> #f) if end of span is reached.
+(define in-span
+  (case-lambda
+    ((sp start end step)
+      (assert* 'in-span (fx<=? 0 start end (span-length sp)))
+      (assert* 'in-span (fx>=? step 0))
+      (lambda ()
+        (if (fx<? start end)
+          (let ((elem (span-ref sp start)))
+            (set! start (fx+ start step))
+            (values elem #t))
+          (values #f #f))))
+    ((sp start end)
+      (in-span sp start end 1))
+    ((sp)
+      (in-span sp 0 (span-length sp) 1))))
 
 
 ;; iterate on span elements, and call (proc i elem) on each one.

@@ -12,7 +12,8 @@
     charline-length charline-ref charline-at charline-equal? charline-set! charline-clear!
     charline-erase-range! charline-insert-at! charline-insert-at/cspan! charline-insert-at/cbuf!
     charline-find/left charline-find/right charline-find/char charline-count/left charline-count/right
-    charline-dirty-start-x charline-dirty-end-x charline-dirty-x-add! charline-dirty-x-unset!)
+    charline-dirty-start-x charline-dirty-end-x charline-dirty-x-add! charline-dirty-x-unset!
+    in-charline)
 
   (import
     (rnrs)
@@ -251,6 +252,28 @@
     (do ((i start (fx1+ i)))
         ((or (fx>=? i end) (not (pred (charline-ref line i))))
           (fx- i start)))))
+
+
+;; create and return a closure that iterates on elements of charline line.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values elem #t) i.e. the next element in charline line and #t,
+;; or (values #<unspecified> #f) if end of charline is reached.
+(define in-charline
+  (case-lambda
+    ((line start end step)
+      (assert* 'in-charline (fx<=? 0 start end (charline-length line)))
+      (assert* 'in-charline (fx>=? step 0))
+      (lambda ()
+        (if (fx<? start end)
+          (let ((elem (charline-ref line start)))
+            (set! start (fx+ start step))
+            (values elem #t))
+          (values #\nul #f))))
+    ((line start end)
+      (in-charline line start end 1))
+    ((line)
+      (in-charline line 0 (charline-length line) 1))))
 
 
 ;; make a copy of string str and store it into a newly created charline

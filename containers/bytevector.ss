@@ -45,6 +45,30 @@
       (bytevector-find/u8 bvec 0 (bytevector-length bvec) b))))
 
 
+
+;; create and return a closure that iterates on elements of bytevector sp.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values elem #t) i.e. the next element in bytevector sp and #t,
+;; or (values #<unspecified> #f) if end of bytevector is reached.
+(define in-bytevector
+  (case-lambda
+    ((sp start end step)
+      (assert* 'in-bytevector (fx<=? 0 start end (bytevector-length sp)))
+      (assert* 'in-bytevector (fx>=? step 0))
+      (lambda ()
+        (if (fx<? start end)
+          (let ((elem (bytevector-u8-ref sp start)))
+            (set! start (fx+ start step))
+            (values elem #t)))
+          (values 0 #f)))
+    ((sp start end)
+      (in-bytevector sp start end 1))
+    ((sp)
+      (in-bytevector sp 0 (bytevector-length sp) 1))))
+
+
+
 ;; (bytevector-iterate l proc) iterates on all elements of given bytevector bvec,
 ;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
 ;;

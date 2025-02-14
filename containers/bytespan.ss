@@ -21,7 +21,8 @@
     bytespan-insert-front/u8! bytespan-insert-back/u8!
     bytespan-insert-front/bspan! bytespan-insert-back/bspan!
     bytespan-insert-front/bvector! bytespan-insert-back/bvector!
-    bytespan-erase-front! bytespan-erase-back! bytespan-iterate bytespan-find/u8
+    bytespan-erase-front! bytespan-erase-back! bytespan-find/u8
+    in-bytespan bytespan-iterate
     bytespan-peek-beg bytespan-peek-end bytespan-peek-data)
   (import
     (rnrs)
@@ -318,6 +319,34 @@
   (unless (fxzero? n)
     (bytespan-end-set! sp (fx- (bytespan-end sp) n))))
 
+
+;; create and return a closure that iterates on elements of bytespan sp.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values elem #t) i.e. the next element in bytespan sp and #t,
+;; or (values #<unspecified> #f) if end of bytespan is reached.
+(define in-bytespan
+  (case-lambda
+    ((sp start end step)
+      (assert* 'in-bytespan (fx<=? 0 start end (bytespan-length sp)))
+      (assert* 'in-bytespan (fx>=? step 0))
+      (lambda ()
+        (if (fx<? start end)
+          (let ((elem (bytespan-ref/u8 sp start)))
+            (set! start (fx+ start step))
+            (values elem #t))
+          (values 0 #f))))
+    ((sp start end)
+      (in-bytespan sp start end 1))
+    ((sp)
+      (in-bytespan sp 0 (bytespan-length sp) 1))))
+
+
+;; (bytespan-iterate l proc) iterates on all elements of given bytespan sp,
+;; and calls (proc index elem) on each element. stops iterating if (proc ...) returns #f
+;;
+;; Returns #t if all calls to (proc index elem) returned truish,
+;; otherwise returns #f.
 (define (bytespan-iterate sp proc)
   (do ((i (bytespan-beg sp) (fx1+ i))
        (n (bytespan-end sp))

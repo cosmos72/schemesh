@@ -6,9 +6,11 @@
 ;;; (at your option) any later version.
 
 (begin
+  (include "bootstrap/first.ss")
   (include "bootstrap/raise.ss")
   (include "bootstrap/parameters.ss")
   (include "bootstrap/bootstrap.ss")
+  (include "bootstrap/library-reexport.ss")
   (include "containers/bitmap.ss")
   (include "containers/misc.ss")
   (include "containers/string.ss")
@@ -53,6 +55,7 @@
   (include "parser/scheme.ss")
   (include "parser/shell.ss")
   (include "parser/parser.ss")
+
   (include "shell/parameter1.ss")
   (include "shell/parameters.ss")
   (include "shell/fds.ss")

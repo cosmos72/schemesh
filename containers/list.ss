@@ -14,6 +14,20 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
+;; create and return a closure that iterates on elements of list l.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values elem #t) i.e. the next element in list l and #t,
+;; or (values #<unspecified> #f) if end of list is reached.
+(define (in-list l)
+  (lambda ()
+    (if (null? l)
+      (values #f #f)
+      (let ((elem (car l)))
+        (set! l (cdr l))
+        (values elem #t)))))
+
+
 ;; (list-iterate l proc) iterates on all elements of given list l,
 ;; and calls (proc elem) on each element. Stops iterating if (proc ...) returns #f
 ;;
@@ -71,17 +85,3 @@
         (%recurse tail))
       (#t
         (%recurse (cdr tail))))))
-
-
-;; (with-list-elements ((elem l)) body1 body2 ...) iterates on all elements of given list l,
-;; binds elem to each element, and repeatedly evaluates (begin body1 body2 ...).
-;; Stops iterating if (begin body1 body2 ...) returns #f
-;;
-;; Returns #t if all evaluations of (begin body1 body2 ...) returned truish,
-;; otherwise returns #f.
-(define-syntax with-list-elements
-  (syntax-rules ()
-    ((_ (elem l) body1 body2 ...)
-      (do ((tail l (cdr tail)))
-          ((or (null? tail) (let ((elem (car tail))) (not (begin body1 body2 ...))))
-           (null? tail))))))

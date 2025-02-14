@@ -8,7 +8,7 @@
 (library (schemesh containers hashtable (0 7 4))
   (export
     make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-cell hash-iterator-next!
-    hashtable-iterate hashtable-transpose eq-hashtable eqv-hashtable (rename (%hashtable hashtable)))
+    in-hashtable hashtable-iterate hashtable-transpose eq-hashtable eqv-hashtable (rename (%hashtable hashtable)))
   (import
     (rnrs)
     (only (chezscheme) $primitive fx1+ include record-writer)
@@ -99,6 +99,7 @@
           (iter-vec2-set!   iter (vector))
           (hash-iterator-next! iter))))))
 
+
 ; return hash-iterator to first element in hashtable
 (define (make-hash-iterator h)
   (if (fxzero? (hashtable-size h))
@@ -112,6 +113,22 @@
       ; advance iterator to first bucket
       (hash-iterator-next! iter)
       iter)))
+
+
+;; create and return a closure that iterates on elements of hashtable t.
+;;
+;; the returned closure accepts no arguments, and each call to it returns three values:
+;; either (values key val #t) i.e. the next key and value in hashtable t and #t,
+;; or (values #<unspecified> #<unspecified> #f) if end of hashtable is reached.
+(define (in-hashtable htable)
+  (let* ((iter (make-hash-iterator htable))
+         (next (hash-iterator-cell iter)))
+     (lambda ()
+       (if (pair? next)
+         (let ((cell next))
+           (set! next (hash-iterator-next! iter))
+           (values (car cell) (cdr cell) #t))
+         (values #f #f #f)))))
 
 
 ;; iterate on all elements of given hashtable, and call (proc (cons key value))

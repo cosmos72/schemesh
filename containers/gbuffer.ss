@@ -16,7 +16,7 @@
     list->gbuffer vector->gbuffer vector->gbuffer* span->gbuffer span->gbuffer*
     make-gbuffer gbuffer gbuffer? gbuffer->vector gbuffer->span
     gbuffer-length gbuffer-empty? gbuffer-ref gbuffer-set! gbuffer-clear! gbuffer-split-at!
-    gbuffer-insert-at! gbuffer-erase-range! gbuffer-iterate)
+    gbuffer-insert-at! gbuffer-erase-range! in-gbuffer gbuffer-iterate)
   (import
     (rnrs)
     (only (chezscheme) fx1+ record-writer void)
@@ -172,6 +172,28 @@
       (#t
         (gbuffer-split-at! gb end)
         (span-erase-back! left n)))))
+
+
+;; create and return a closure that iterates on elements of gbuffer gb.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values elem #t) i.e. the next element in gbuffer gb and #t,
+;; or (values #<unspecified> #f) if end of gbuffer is reached.
+(define in-gbuffer
+  (case-lambda
+    ((gb start end step)
+      (assert* 'in-gbuffer (fx<=? 0 start end (gbuffer-length gb)))
+      (assert* 'in-gbuffer (fx>=? step 0))
+      (lambda ()
+        (if (fx<? start end)
+          (let ((elem (gbuffer-ref gb start)))
+            (set! start (fx+ start step))
+            (values elem #t))
+          (values #f #f))))
+    ((gb start end)
+      (in-gbuffer gb start end 1))
+    ((gb)
+      (in-gbuffer gb 0 (gbuffer-length gb) 1))))
 
 
 ;; iterate on gbuffer elements, and call (proc i elem) on each one.

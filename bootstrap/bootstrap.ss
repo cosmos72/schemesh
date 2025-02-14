@@ -7,7 +7,10 @@
 
 (library (schemesh bootstrap (0 7 4))
   (export
-      ;; assert.ss
+      ;; first.ss
+      generate-pretty-temporaries generate-pretty-temporary gensym-pretty
+
+      ;; raise.ss
       raise-assert0 raise-assert1 raise-assert2 raise-assert3 raise-assert4 raise-assert5
       raise-assertf raise-assertl raise-errorf
 
@@ -24,6 +27,7 @@
     (rnrs exceptions)
     (only (chezscheme) current-time eval-when format foreign-procedure fx1- fx/ gensym
                        meta pariah reverse! time-second time-nanosecond void)
+    (schemesh bootstrap first)
     (schemesh bootstrap raise)
     (schemesh bootstrap parameters))
 
@@ -111,7 +115,7 @@
     (let ((form (format #f "~s" (caddr (syntax->datum stx)))))
       (syntax-case stx ()
         ((_ caller (proc args ...))
-          (with-syntax (((targs ...) (generate-temporaries #'(args ...))))
+          (with-syntax (((targs ...) (generate-pretty-temporaries #'(args ...))))
             #`(let ((tproc proc) (targs args) ...)
                 (if (tproc targs ...)
                   (void)
@@ -131,7 +135,7 @@
     (let ((form (format #f "(not ~s)" (caddr (syntax->datum stx)))))
       (syntax-case stx ()
         ((_ caller (proc args ...))
-          (with-syntax (((targs ...) (generate-temporaries #'(args ...))))
+          (with-syntax (((targs ...) (generate-pretty-temporaries #'(args ...))))
             #`(let ((tproc proc) (targs args) ...)
                 (if (tproc targs ...)
                   (raise-assert* caller #,form targs ...)
