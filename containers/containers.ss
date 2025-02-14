@@ -25,4 +25,5 @@
           (schemesh containers gbuffer)     ; requires (schemesh containers span)
 
           (schemesh containers charline)    ; requires (schemesh containers gbuffer)
-          (schemesh containers charlines))) ; requires (schemesh containers charlines)
+          (schemesh containers charlines)   ; requires (schemesh containers charlines)
+          (schemesh containers macros)))

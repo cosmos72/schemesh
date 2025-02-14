@@ -117,6 +117,14 @@ fg 1
 (display txt)
 ```
 
+a slighty more complex example - uses several additional functions and macros provided by schemesh
+```lisp
+(import (schemesh all))
+
+(for ((f (in-list (sh-run/string-split-after-nuls {find -type f -print0}))))
+  (rename-file f (string-replace f ".old" ".bak")))
+```
+
 ### Features
 - [x] REPL with multi-line editing and parentheses highlighting
 - [x] dual syntax parsing, allows mixing Scheme and shell expressions

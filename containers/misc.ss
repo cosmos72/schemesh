@@ -13,7 +13,7 @@
 
     in-list list-iterate list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
 
-    for for* in-range in-fixnum-range in-flonum-range
+    in-range in-fixnum-range in-flonum-range
 
     in-vector vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable! vector-range->list)
   (import
@@ -123,72 +123,5 @@
     ((end)
       (in-flonum-range 0.0 end 1.0))))
 
-
-(define-syntax %for-inner-part
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ ((vars ... flag iter) ...) body1 body2 ...)
-        #`(let-values (((vars ... flag) (iter)) ...)
-            (when (and flag ...)
-              body1 body2 ...))))))
-
-
-(define-syntax %for*-inner-part
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ (()) body1 body2 ...)
-        #`(begin body1 body2 ...))
-      ((_ ((vars ... flag iter)) body1 body2 ...)
-        #`(let-values (((vars ... flag) (iter)))
-            (when flag
-              body1 body2 ...)))
-      ((_ ((vars ... flag iter) (vars2 ... flag2 iter2) ...) body1 body2 ...)
-        #`(let-values (((vars ... flag) (iter)))
-            (when flag
-              (%for*-inner-part ((vars2 ... flag2 iter2) ...)
-                body1 body2 ...)))))))
-
-
-;; repeatedly call (begin body1 body2 ...) in a loop,
-;; with vars bound to successive elements produced by corresponding iterators.
-;;
-;; the loop finishes when some iterator reaches reach its end.
-;;
-;; typical iterators expressions are (in-list ...) (in-vector ...) (in-hashtable ...) etc.
-(define-syntax for
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ ((vars ... iterator) ...) body1 body2 ...)
-        (with-syntax (((flag ...) (generate-pretty-temporaries #'(iterator ...))))
-          (with-syntax (((iter ...) (generate-pretty-temporaries #'(iterator ...))))
-            #`(let ((iter iterator) ...)
-                (let for-loop ()
-                  (%for-inner-part ((vars ... flag iter) ...)
-                    body1 body2 ...
-                    (for-loop))))))))))
-
-
-;; repeatedly call (begin body1 body2 ...) in a loop,
-;; with vars bound to successive elements produced by corresponding iterators.
-;;
-;; the loop finishes when some iterator reaches its end.
-;;
-;; typical iterators expressions are (in-list ...) (in-vector ...) (in-hashtable ...) etc.
-;;
-;; the only difference between (for) and (for*) is:
-;;   (for) evaluates all (iterator) in parallel, then checks if some of them reached their end.
-;;   (for*) evaluates each (iterator) one by one, and immediately checks if it reached its end:
-;;          in such case, the remaining iterators are not evaluated.
-(define-syntax for*
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ ((vars ... iterator) ...) body1 body2 ...)
-        (with-syntax (((flag ...) (generate-pretty-temporaries #'(iterator ...))))
-          (with-syntax (((iter ...) (generate-pretty-temporaries #'(iterator ...))))
-            #`(let ((iter iterator) ...)
-                (let for-loop ()
-                  (%for*-inner-part ((vars ... flag iter) ...)
-                    body1 body2 ...
-                    (for-loop))))))))))
 
 ) ; close library

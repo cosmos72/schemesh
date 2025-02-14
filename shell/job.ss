@@ -48,7 +48,8 @@
     sh-options
 
     ;; redirect.ss
-    sh-redirect! sh-run/bspan sh-run/string sh-run/string-rtrim-newlines sh-start/fd-stdout
+    sh-redirect! sh-run/bspan sh-run/string sh-run/string-rtrim-newlines sh-run/string-split-after-nuls
+    sh-start/fd-stdout
 
     ;; params.ss
     sh-job-control-available? sh-job-control?
