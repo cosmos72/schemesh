@@ -64,6 +64,7 @@ static const testcase tests[] = {
     {"(bytevector-compare #vu8(66 77) #vu8(66 78))", "-1"},
     {"(bytevector-compare #vu8(79) #vu8(78 0))", "1"},
     {"(string-range-count= \"qwertyuiop\" 2 \"_ertyuio7\" 1 8)", "7"},
+    {"(string-replace \"abcdbacdabcd\" \"ab\" \"0\")", "0cdbacd0cd"},
     {"(format #f \"~s\" (string-split \"\" #\\:))", "(\"\")"},
     {"(format #f \"~s\" (string-split \":\" #\\:))", "(\"\" \"\")"},
     {"(format #f \"~s\" (string-split \"x:\" #\\:))", "(\"x\" \"\")"},
