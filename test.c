@@ -237,11 +237,10 @@ static const testcase tests[] = {
      "(bytespan 244 143 191 191)"},
     /* ----------------- bytespan-fixnum-display ---------------------------- */
     {"(let ((sp (bytespan)))\n"
-     "  (list-iterate '(0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000 "
-     "                  9999998 10000000 12345678 -1 -9 -10 -87654321)\n"
-     "    (lambda (n)\n"
-     "      (bytespan-display-back/fixnum! sp n)\n"
-     "      (bytespan-insert-back/u8! sp 32)))\n"
+     "  (for ((n (in-list '(0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000 "
+     "                     9999998 10000000 12345678 -1 -9 -10 -87654321))))\n"
+     "    (bytespan-display-back/fixnum! sp n)\n"
+     "    (bytespan-insert-back/u8! sp 32))\n"
      "  (bytespan->bytevector sp))",
      "0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000 "
      "9999998 10000000 12345678 -1 -9 -10 -87654321 "},
@@ -545,7 +544,7 @@ static const testcase tests[] = {
      "#((1 . A) (2 . B) (3 . C))"},
     {"(vector-sort"
      "  (lambda (cell1 cell2) (< (car cell1) (car cell2)))"
-     "  (hashtable-cells (eqv-hashtable '(1.0 . A) '(2.1 . B) '(3 . C))))",
+     "  (hashtable-cells (list->eqv-hashtable '((1.0 . A) (2.1 . B) (3 . C)))))",
      "#((1.0 . A) (2.1 . B) (3 . C))"},
     {"(vector-sort"
      "  (lambda (cell1 cell2) (< (car cell1) (car cell2)))"
