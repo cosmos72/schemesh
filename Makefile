@@ -48,8 +48,8 @@ MKDIR_P         = mkdir -p
 ######################################################################################
 # no user-serviceable parts below this line
 ######################################################################################
-LIBSCHEMESH_SO=libschemesh_0.7.4.so
-LIBSCHEMESH_C_SO=libschemesh_c_0.7.4.so
+LIBSCHEMESH_SO=libschemesh_0.7.5.so
+LIBSCHEMESH_C_SO=libschemesh_c_0.7.5.so
 
 SRCS=containers/containers.c eval.c posix/posix.c shell/shell.c
 OBJS=containers.o eval.o posix.o shell.o

@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh containers string (0 7 4))
+(library (schemesh containers string (0 7 5))
   (export
     string-list? assert-string-list? string-list-split-after-nuls
     string-contains-only-decimal-digits?

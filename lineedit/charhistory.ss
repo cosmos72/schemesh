@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh lineedit charhistory (0 7 4))
+(library (schemesh lineedit charhistory (0 7 5))
   (export
     charhistory charhistory? make-charhistory
     charhistory-empty? charhistory-length charhistory-ref/cow charhistory-iterate

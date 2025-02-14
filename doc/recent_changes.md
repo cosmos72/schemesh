@@ -1,6 +1,32 @@
 ## RECENT CHANGES
 
-### up to 2025-02-09
+### release v0.7.5, 2025-02-14
+
+* fix `utils/find_chez_scheme_dir.sh` for Alpine linux
+* fix a pair of bugged assertions that were triggered by valid code {echo $A=}
+* fix support for Chez Scheme down to 9.5.8
+* rename shell builtin "error" -> "test"
+* add command line option `--load-file FILE` and support for loading compiled Scheme libraries *.so
+* add functions (alist->eq-hashtable) (alist->eqv-hashtable) (alist->hashtable) (file-rename)
+  (in-bytevector) (in-bytespan) (in-chargbuffer) (in-charline) (in-charlines) (in-charspan)
+  (in-gbuffer) (in-hashtable) (in-list) (in-span) (in-string) (in-vector)
+  (in-fixnum-range) (in-flonum-range) (in-range) (on-list)
+  (sh-bool) (sh-run/string-split-after-nuls) (sh-version) (string-replace)
+* add macros (for) (for*) (library-reexport) (shell-test)
+* add Fedora Linux build instructions to README.md
+* add "Troubleshooting" section to README.md
+* add more examples to README.md
+
+### release v0.7.4, 2025-02-10
+
+* update Makefile to follow GNU conventions for installation directories,
+  installation programs and Makefile variable names
+* add shell builtins "help copyright" and "help warranty"
+* improve shell builtin "fg" to show job status if it's not finished yet when "fg" exits
+* when entering and leaving (lineedit-read), sort by id then by pid the queued job status change notifications
+* mention (sh-run/string) and (sh-start/fd-stdout) in README.md
+
+### release v0.7.3, 2025-02-09
 
 * at startup, (sh-eval-file) initialization file ~/.config/schemesh/repl_init.ss if it exists
 * at exit, (sh-eval-file) shutdown file ~/.config/schemesh/repl_quit.ss if it exists

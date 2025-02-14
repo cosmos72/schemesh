@@ -8,7 +8,7 @@
 ;;;
 ;;; Common backend of libraries (schemesh parser r6rs) and (schemesh parser scheme)
 ;;;
-(library (schemesh parser lisp (0 7 4))
+(library (schemesh parser lisp (0 7 5))
   (export
     lex-lisp parse-lisp-forms parse-lisp-paren read-lisp-token)
   (import

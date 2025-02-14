@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh containers misc (0 7 4))
+(library (schemesh containers misc (0 7 5))
   (export
     in-bytevector list->bytevector subbytevector
     bytevector-fill-range! bytevector-find/u8 bytevector-compare

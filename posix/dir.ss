@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh posix dir (0 7 4))
+(library (schemesh posix dir (0 7 5))
   (export directory-list* directory-sort! file-rename file-type)
   (import
     (rnrs)

@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh bootstrap first (0 7 4))
+(library (schemesh bootstrap first (0 7 5))
   (export
       generate-pretty-temporaries generate-pretty-temporary gensym-pretty)
   (import
