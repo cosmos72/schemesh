@@ -13,7 +13,7 @@
 
     in-list list-iterate list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
 
-    for for* in-range in-fixnum-range in-float-range
+    for for* in-range in-fixnum-range in-flonum-range
 
     in-vector vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable! vector-range->list)
   (import
@@ -87,9 +87,9 @@
               (values ret #t))
             (values end #f)))))
     ((start end)
-      (in-float-range start end 1))
+      (in-flonum-range start end 1))
     ((end)
-      (in-float-range 0 end 1))))
+      (in-flonum-range 0 end 1))))
 
 
 ;; create and return a closure that returns inexact real numbers in the range [start, end)
@@ -99,7 +99,7 @@
 ;; or (values #<unspecified> #f) if end of range is reached.
 ;;
 ;; If step is zero or a very small inexact real, the closure may never reach end of range.
-(define in-float-range
+(define in-flonum-range
   (case-lambda
     ((start end step)
       (let ((start (real->flonum start))
@@ -119,9 +119,9 @@
                 (values ret #t))
               (values end #f))))))
     ((start end)
-      (in-float-range start end 1.0))
+      (in-flonum-range start end 1.0))
     ((end)
-      (in-float-range 0.0 end 1.0))))
+      (in-flonum-range 0.0 end 1.0))))
 
 
 (define-syntax %for-inner-part
