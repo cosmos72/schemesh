@@ -28,6 +28,20 @@
         (values elem #t)))))
 
 
+;; create and return a closure that iterates on elements of list l.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values tail #t) i.e. the list containing next element and all subsequent ones, and #t,
+;; or (values #<unspecified> #f) if end of list is reached.
+(define (on-list l)
+  (lambda ()
+    (if (null? l)
+      (values #f #f)
+      (let ((tail l))
+        (set! l (cdr l))
+        (values l #t)))))
+
+
 ;; (list-iterate l proc) iterates on all elements of given list l,
 ;; and calls (proc elem) on each element. Stops iterating if (proc ...) returns #f
 ;;

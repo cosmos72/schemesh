@@ -11,7 +11,7 @@
     bytevector-fill-range! bytevector-find/u8 bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>? bytevector-iterate
 
-    in-list list-iterate list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
+    in-list on-list list-iterate list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
 
     in-range in-fixnum-range in-flonum-range
 
