@@ -170,7 +170,7 @@ static int write_invalid_redirection(const char label[], ptr value) {
 
 /******************************************************************************/
 /*                                                                            */
-/*                    current-directory-related functions                     */
+/*                       directory-related functions                          */
 /*                                                                            */
 /******************************************************************************/
 
@@ -222,6 +222,26 @@ static ptr c_get_cwd(void) {
     }
   }
   return Smake_string(0, 0);
+}
+
+/**
+ * create a directory with specified permissions.
+ * Argument must be a Scheme bytevector0,
+ * i.e. a bytevector that must already end with a byte = 0.
+ * return 0 on success, or c_errno() < 0 on error.
+ */
+static int c_mkdir(ptr bytevec0, int mode) {
+  if (Sbytevectorp(bytevec0)) {
+    iptr        len = Sbytevector_length(bytevec0);
+    const char* dir = (const char*)Sbytevector_data(bytevec0);
+    if (len > 0 && dir[len - 1] == 0) {
+      if (mkdir(dir, mode) == 0) {
+        return 0;
+      }
+      return c_errno();
+    }
+  }
+  return c_errno_set(EINVAL);
 }
 
 /******************************************************************************/
@@ -874,21 +894,17 @@ static ptr c_get_userhome(ptr username0) {
  * On error, return integer -errno
  */
 static int c_file_delete(ptr bytevector0_name) {
-  const char* name;
-  iptr        len;
-  if (!Sbytevectorp(bytevector0_name)) {
-    return c_errno_set(EINVAL);
+  if (Sbytevectorp(bytevector0_name)) {
+    const char* name = (const char*)Sbytevector_data(bytevector0_name);
+    const iptr  len  = Sbytevector_length(bytevector0_name); /* including final '\0' */
+    if (len > 0 && name[len - 1] == '\0') {
+      if (remove(name) == 0) {
+        return 0;
+      }
+      return c_errno();
+    }
   }
-  name = (const char*)Sbytevector_data(bytevector0_name);
-  len  = Sbytevector_length(bytevector0_name); /* including final '\0' */
-
-  if (len <= 0 || name[len - 1] != '\0') {
-    return c_errno_set(EINVAL);
-  }
-  if (remove(name) < 0) {
-    return c_errno();
-  }
-  return 0;
+  return c_errno_set(EINVAL);
 }
 
 /**
@@ -1579,6 +1595,7 @@ int schemesh_register_c_functions_posix(void) {
 
   Sregister_symbol("c_chdir", &c_chdir);
   Sregister_symbol("c_get_cwd", &c_get_cwd);
+  Sregister_symbol("c_mkdir", &c_mkdir);
 
   Sregister_symbol("c_fd_open_max", &c_fd_open_max);
   Sregister_symbol("c_fd_close", &c_fd_close);

@@ -9,7 +9,7 @@
 (library (schemesh posix dir (0 7 5))
   (export
       directory-list directory-list* directory-list-type directory-sort!
-      file-delete file-rename file-type ok?)
+      file-delete file-rename file-type mkdir ok?)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -28,6 +28,50 @@
   (eq? return-status (void)))
 
 
+(define (%find-and-convert-fixnum-option caller options key default)
+  (let ((option (memq key options)))
+    (if option
+      (let ((value (if (null? (cdr option)) '() (cadr option))))
+        (unless (fixnum? value)
+          (raise-assertf caller "expecting a fixnum after option '~a, found ~s"
+            key value))
+        value)
+      default)))
+
+
+;; Create a directory.
+;; WARNING: Chez Scheme also defines a function (mkdir) with different options
+;;
+;; Mandatory first argument dirpath must be a bytevector, string or charspan.
+;; Further optional arguments can contain:
+;;   'catch - errors will be ignored instead of raising a condition
+;;   'mode followed by a fixnum - specifies the owner, group and others initial permissions
+;;            on the directory - see "man 2 mkdir" for details.
+;;
+;; On success, returns (void)
+;; On error:
+;;   if options contain 'catch, returns an integer error code
+;;   otherwise raises an exception.
+;;
+;; Differences between (mkdir) and Chez Scheme (mkdir):
+;; 1. (mkdir) also accepts bytevectors or charspans, not only strings.
+;; 3. (mkdir) converts strings and charspans to UTF-8b bytevectors instead of UTF-8.
+;; 4. (mkdir) accepts option 'catch, instead Chez Scheme (mkdir) always raises an exception of failure.
+;; 5. (mkdir) returns (void) on success and error code on failure, instead of an unspecified value.
+(define mkdir
+  (let ((c-mkdir (foreign-procedure "c_mkdir" (ptr int) int)))
+    (lambda (dirpath . options)
+      (let ((err (c-mkdir (text->bytevector0 dirpath)
+                          (%find-and-convert-fixnum-option 'mkdir options 'mode #o777))))
+        (cond
+          ((and (fixnum? err) (fxzero? err))
+            (void))
+          ((memq 'catch options)
+            (if (fixnum? err) err c-errno-einval))
+          (#t
+            (raise-c-errno 'mkdir 'mkdir err dirpath)))))))
+
+
 ;; Delete a file or directory.
 ;; Mandatory argument name must be a bytevector, string or charspan.
 ;; Further optional arguments can contain:
@@ -41,7 +85,7 @@
 ;; Differences between (file-delete) and Chez Scheme (delete-file):
 ;; 1. (file-delete) also deletes empty directories
 ;; 2. (file-delete) also accepts bytevectors or charspans, not only strings.
-;; 3. (file-delete) converts strings to UTF-8b bytevectors, not UTF-8.
+;; 3. (file-delete) converts strings and charspans to UTF-8b bytevectors instead of UTF-8.
 ;; 4. (file-delete) accepts option 'catch instead of optional boolean argument errors?
 ;; 5. (file-delete) returns (void) on success and error code on failure, instead of a boolean
 (define file-delete
@@ -49,7 +93,7 @@
     (lambda (name . options)
       (let ((err (c-file-delete (text->bytevector0 name))))
         (cond
-          ((and (fixnum? err) (fx>=? err 0))
+          ((and (fixnum? err) (fxzero? err))
             (void))
           ((memq 'catch options)
             (if (fixnum? err) err c-errno-einval))
@@ -72,7 +116,7 @@
 ;;
 ;; Differs from Chez Scheme (rename-file) in three aspects:
 ;; 1. (file-rename) also accepts bytevectors and charspans, not only strings.
-;; 2. (file-rename) converts strings to UTF-8b, not to UTF-8.
+;; 2. (file-rename) converts strings and charspans to UTF-8b, instead of UTF-8.
 ;; 3. (file-rename) also accepts option 'catch, while Chez (rename-file) always raises an exception on failure.
 ;; 4. (file-delete) returns (void) on success and error code on failure, instead of an unspecified value.
 (define file-rename
@@ -80,7 +124,7 @@
     (lambda (old-name new-name . options)
       (let ((err (c-file-rename (text->bytevector0 old-name) (text->bytevector0 new-name))))
         (cond
-          ((and (fixnum? err) (fx>=? err 0))
+          ((and (fixnum? err) (fxzero? err))
             (void))
           ((memq 'catch options)
             (if (fixnum? err) err c-errno-einval))
@@ -122,19 +166,15 @@
             (raise-c-errno 'file-type (if symlinks? 'lstat 'stat) ret path)))))))
 
 
-(define (%find-and-convert-option options key)
-  (let %again ((options options))
-    (cond
-      ((null? options)
-        #vu8())
-      ((eq? key (car options))
-        (let ((value (if (null? (cdr options)) '() (cadr options))))
-          (unless (or (bytevector? value) (string? value) (charspan? value))
-            (raise-assertf 'directory-list-type "expecting a bytevector, string or charspan after option '~a, found ~s"
-              key value))
-          (text->bytevector value)))
-      (#t
-        (%again (cdr options))))))
+(define (%find-and-convert-text-option caller options key)
+  (let ((option (memq key options)))
+    (if option
+      (let ((value (if (null? (cdr option)) '() (cadr option))))
+        (unless (or (bytevector? value) (string? value) (charspan? value))
+          (raise-assertf caller "expecting a bytevector, string or charspan after option '~a, found ~s"
+            key value))
+        (text->bytevector value))
+      #vu8())))
 
 
 ;; List contents of a filesystem directory, in arbitrary order.
@@ -153,8 +193,8 @@
       ; (debugf "directory-list-type dir=~s, options=~s" dirpath options)
       (let ((ret (c-directory-list
                    (text->bytevector0 dirpath)
-                   (%find-and-convert-option options 'prefix)
-                   (%find-and-convert-option options 'suffix)
+                   (%find-and-convert-text-option 'directory-list options 'prefix)
+                   (%find-and-convert-text-option 'directory-list options 'suffix)
                    (fxior (if (memq 'symlinks options) 1 0)
                           (if (memq 'append-slash options) 2 0)
                           (if (memq 'bytes    options) 4 0)
@@ -243,6 +283,9 @@
               where all keys are bytevector or string, found list element ~s"
               elem))))
       dir-list)))
+
+
+
 
 
 

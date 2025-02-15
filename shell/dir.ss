@@ -116,6 +116,8 @@
         (c-errno-enoent  ((foreign-procedure "c_errno_enoent" () int))))
     (lambda (job path-bv0)
       (if (eq? job (sh-globals))
+        ;; no need to call Chez Scheme (cd path)
+        ;; it autodetects that current process changed its current directory
         (c_chdir path-bv0)
         (let ((ret (file-type path-bv0 'catch)))
           (cond
