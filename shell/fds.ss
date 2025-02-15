@@ -67,7 +67,7 @@
 (define (sh-fd-allocate)
   (let ((index (bitmap-last-zero fd-bitmap)))
     (when (fx<? index 0)
-      (raise-errorf 'sh-fd-allocate "too many reserved fds: " index))
+      (raise-errorf 'sh-fd-allocate "too many reserved fds: ~s" index))
     (bitmap-set! fd-bitmap index 1)
     (sh-fd (fx+ fd-min index))))
 
@@ -94,7 +94,7 @@
     0
     (lambda (fd)
       (unless (and (fixnum? fd) (fx<? -1 fd fd-max))
-        (raise-errorf 'sh-fd-stdin "invalid file descriptor, must be a fixnum in [0, fd-max - 1]: ~s" fd))
+        (raise-errorf 'sh-fd-stdin "invalid file descriptor, must be a fixnum in [0, fd-max): ~s" fd))
       fd)))
 
 
@@ -105,7 +105,7 @@
     1
     (lambda (fd)
       (unless (and (fixnum? fd) (fx<? -1 fd fd-max))
-        (raise-errorf 'sh-fd-stdout "invalid file descriptor, must be a fixnum in [0, fd-max - 1]: ~s" fd))
+        (raise-errorf 'sh-fd-stdout "invalid file descriptor, must be a fixnum in [0, fd-max): ~s" fd))
       fd)))
 
 
@@ -116,7 +116,7 @@
     2
     (lambda (fd)
       (unless (and (fixnum? fd) (fx<? -1 fd fd-max))
-        (raise-errorf 'sh-fd-stderr "invalid file descriptor, must be a fixnum in [0, fd-max - 1]: " fd))
+        (raise-errorf 'sh-fd-stderr "invalid file descriptor, must be a fixnum in [0, fd-max): ~s" fd))
       fd)))
 
 

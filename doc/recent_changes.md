@@ -8,7 +8,8 @@
 * add functions (directory-list) (directory-list-type) (file-delete) (in-exact-range)
   (mkdir) (ok?) (string-replace-start) (string-replace-end)
 * refactor function (in-range) to call one of (in-fixnum-range) (in-exact-range) (in-flonum-range)
-* implement builtin "parent", for running another builtin with its parent job temporarily set to its grandparent job.
+* implement builtin "cd-" changes current directory of *parent* job to its previous value.
+* implement builtin "parent" executes another builtin with its parent job temporarily set to its grandparent job.
   if used multiple times, as for example "parent parent cd ..", the effects are cumulative.
 
 ### release v0.7.5, 2025-02-14

@@ -33,13 +33,14 @@
                     ; For cmds, will be called in fork()ed child process and
                     ; receives as argument job followed by options.
                     ; For cmds, its return value is passed to (exit-with-job-status)
-    (mutable cwd %job-cwd job-cwd-set!) ; charspan: working directory. if #f, use parent's cwd
+    (mutable cwd %job-cwd %job-cwd-set!) ; charspan: working directory. if #f, use parent's cwd
+    (mutable owd %job-owd %job-owd-set!) ; #f or charspan: previous working directory
     (mutable env)         ; #f or hashtable of overridden env variables: name -> value
     (mutable env-lazy)    ; #f or span of env variable name each followed by string or procedure
     (mutable temp-parent) ; temporary parent job, contains default values of env variables.
                           ; Unset when job finishes
     (mutable default-parent)) ; default parent job, contains default values of env variables
-  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-6}))
+  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-9}))
 
 
 ;; Define the record type "cmd"
@@ -49,7 +50,7 @@
   (fields
     arg-list                     ; list of strings and closures: program-name and args
     (mutable expanded-arg-list)) ; #f or list of strings: program-name and args after applying closures and expanding aliases
-  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-7}))
+  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-10}))
 
 
 ;; Define the record type "multijob"
@@ -60,7 +61,7 @@
     kind                ; symbol: one of 'sh-and 'sh-or 'sh-not 'sh-list 'sh-subshell '#<global>
     (mutable current-child-index) ; -1 or index of currently running child job
     children)           ; span: children jobs.
-  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-8}))
+  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-11}))
 
 
 ;; Convert pid to job, return #f if job not found
@@ -199,6 +200,8 @@
     (job-step-proc  j)
     (let ((cwd (%job-cwd j)))
       (and cwd (charspan-copy cwd)))
+    (let ((owd (job-owd j)))
+      (and owd (charspan-copy owd)))
     (let ((env (job-env j)))
       (and env (hashtable-copy env)))
     (let ((env-lazy (job-env-lazy j)))
@@ -226,6 +229,8 @@
       (job-step-proc  j)
       (let ((cwd (%job-cwd j)))
         (and cwd (charspan-copy cwd)))
+      (let ((owd (job-owd j)))
+        (and owd (charspan-copy owd)))
       (let ((env (job-env j)))
         (and env (hashtable-copy env)))
       (let ((env-lazy (job-env-lazy j)))

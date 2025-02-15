@@ -578,7 +578,7 @@
          '(unknown . 0) #f         ; last-status exception
          (span) 0 #f               ; redirections
          #f #f                     ; start-proc step-proc
-         (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) ; current directory
+         (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) #f ; current directory, old working directory
          (make-hashtable string-hash string=?) ; env variables
          #f                        ; no env var assignments
          #f #f                     ; no temp parent, no default parent
@@ -594,6 +594,7 @@
     (hashtable-set! bt "bg"         builtin-bg)
     (hashtable-set! bt "builtin"    builtin-builtin)
     (hashtable-set! bt "cd"         builtin-cd)
+    (hashtable-set! bt "cd-"        builtin-cd-)
     (hashtable-set! bt "command"    builtin-command)
     (hashtable-set! bt "exec"       builtin-exec)
     (hashtable-set! bt "exit"       builtin-exit)
@@ -611,7 +612,7 @@
     (hashtable-set! bt "unset"      builtin-unset)
 
     ;; mark builtins that finish immediately i.e. cannot run commands or aliases
-    (list-iterate '("alias" "cd" "echo" "echo0" "exit" "false" "jobs"
+    (list-iterate '("alias" "cd" "cd-" "echo" "echo0" "exit" "false" "jobs"
                     "history" "pwd" "set" "test" "true" "unalias" "unset")
       (lambda (name)
         (let ((builtin (hashtable-ref bt name #f)))
@@ -650,7 +651,12 @@
                        to the value of its HOME environment variable.
     with one argument, 'cd DIR' sets the current directory of parent job to DIR.
 
-    return success if the directory is successfully changed, otherwise return failure.\n"))
+    return success if the directory is successfully changed, otherwise raises an exception.\n"))
+
+    (hashtable-set! t "cd-"      (string->utf8 "
+    change the current directory of parent job, setting it to previous working directory.
+
+    return success if the directory is successfully changed, otherwise raises an exception.\n"))
 
     (hashtable-set! t "command" (string->utf8 " [command-name [arg ...]]
     execute a command with specified arguments.

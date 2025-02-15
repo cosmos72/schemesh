@@ -16,7 +16,7 @@
     '(new . 0) #f   ; last-status exception
     (span) 0 #f     ; redirections
     start-cmd #f    ; start-proc step-proc
-    #f              ; working directory - initially inherited by parent job
+    #f #f           ; working directory, old working directory - initially inherited from parent job
     #f              ; overridden environment variables - initially none
     #f              ; env var assignments - initially none
     #f (sh-globals) ; no temp parent. default parent job is initially the global job

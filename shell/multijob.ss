@@ -111,7 +111,7 @@
       (span) 0 #f     ; redirections
       start-proc      ; executed to start the job
       next-proc       ; executed when a child job changes status
-      #f              ; working directory - initially inherited by parent job
+      #f #f           ; working directory, old working directory - initially inherited from parent job
       #f              ; overridden environment variables - initially none
       #f              ; env var assignments - initially none
       #f (sh-globals) ; no temp parent. default parent job is initially the global job

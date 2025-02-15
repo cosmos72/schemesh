@@ -11,6 +11,8 @@
 
 ;; return charspan containing current directory of specified job.
 ;; if job's cwd is not set, recursively retrieve it from parent job
+;;
+;; NOTE: returned charspan must NOT be modified.
 (define (job-cwd job)
   (do ((parent job (job-parent parent)))
       ((or (not (sh-job? parent)) (%job-cwd parent))
@@ -18,12 +20,24 @@
 
 
 ;; return (job-cwd job), or #f if it's equal to global working directory.
+;;
+;; NOTE: returned charspan must NOT be modified.
 (define (job-cwd-if-set job)
   (let ((job-dir    (job-cwd job))
         (global-dir (%job-cwd (sh-globals))))
     (if (charspan=? job-dir global-dir)
       #f
       job-dir)))
+
+
+;; return charspan containing previous directory of specified job.
+;; if job's owd is not set, recursively retrieve it from parent job
+;;
+;; NOTE: returned charspan must NOT be modified.
+(define (job-owd job)
+  (do ((parent job (job-parent parent)))
+      ((or (not (sh-job? parent)) (%job-owd parent))
+        (%job-owd (if (sh-job? parent) parent (sh-globals))))))
 
 
 ;; return charspan containing current directory,
@@ -34,29 +48,6 @@
   (case-lambda
     (()          (%job-cwd (sh-globals)))
     ((job-or-id) (job-cwd  (sh-job job-or-id)))))
-
-
-#|
-;; Decide: needed?
-;;
-;; alter the current directory of a job or job-id to specified path.
-;; path must be a string or charspan.
-;;
-;; if job or job-id resolves to (sh-globals), path will be normalized
-;; and C function chdir() will be called.
-;;
-;; in all other cases, path is taken as-is, i.e. it is not normalized
-;; and is not validated against filesystem contents.
-;;
-;; Returns (void) if successful, otherwise returns '(exited . 1)
-(define (sh-cwd-set! job-or-id path)
-  (let ((job (sh-job job-or-id)))
-    (if (eq? job (sh-globals))
-      (global-cd! path)
-      (job-cwd-set! job (if (charspan? path)
-                          (charspan-copy path)
-                          (string->charspan path))))))
-|#
 
 
 ;; set the current directory of a job or job-id to specified path.
@@ -111,14 +102,14 @@
 ;;
 ;; actually calls C functions chdir() or stat()
 (define job-cd/bv0
-  (let ((c_chdir (foreign-procedure "c_chdir" (ptr) int))
+  (let ((c-chdir (foreign-procedure "c_chdir" (ptr) int))
         (c-errno-enotdir ((foreign-procedure "c_errno_enotdir" () int)))
         (c-errno-enoent  ((foreign-procedure "c_errno_enoent" () int))))
     (lambda (job path-bv0)
       (if (eq? job (sh-globals))
         ;; no need to call Chez Scheme (cd path)
         ;; it autodetects that current process changed its current directory
-        (c_chdir path-bv0)
+        (c-chdir path-bv0)
         (let ((ret (file-type path-bv0 'catch)))
           (cond
             ((eq? ret 'dir)
@@ -129,6 +120,32 @@
               ret)  ; some C error
             (#t            ; no such file or directory, or some other error
               c-errno-enoent)))))))
+
+
+;; store path as job's current directory.
+;; called by (sh-cd), which calls (job-cd) after C function to change the directory succeeded.
+(define (job-cwd-set! job path)
+  (when (charspan? path)
+    (%job-owd-set! job (job-cwd job)) ; save current directory into old directory
+    (%job-cwd-set! job path)))        ; save path into current directory
+
+
+;; set the current directory of a job or job-id to previous working directory stored in (job-cwd).
+;; if job or job-id is not specified, defaults to (sh-globals)
+;;
+;; Returns (void) if successful, otherwise raises exception.
+(define sh-cd-
+  (case-lambda
+    (()
+      (sh-cd- #t))
+    ((job-or-id)
+      (let* ((job  (sh-job job-or-id))
+             (path (job-owd job)))
+        (unless path
+          (raise-errorf 'cd- "old working directory is not set for job ~s" job))
+        (job-cd job path)))
+    ((job-or-id . extra-args)
+      (raise-errorf 'cd- "too many arguments"))))
 
 
 (define sh-pwd
@@ -155,6 +172,18 @@
 (define (builtin-cd job prog-and-args options)
   (assert-string-list? 'builtin-cd prog-and-args)
   (apply sh-cd (or (job-parent job) job) (cdr prog-and-args)))
+
+
+;; the "cd-" builtin: set current directory of job's parent
+;; to its previous value saved in (job-owd)
+;; For safety, throws an exception if setting current directory fails.
+;;
+;; As all builtins do, must return job status.
+(define (builtin-cd- job prog-and-args options)
+  (assert-string-list? 'builtin-cd- prog-and-args)
+  (unless (null? (cdr prog-and-args))
+    (raise-errorf 'cd- "too many arguments"))
+  (sh-cd- (or (job-parent job) job)))
 
 
 ;; the "pwd" builtin: print working directory of parent job,

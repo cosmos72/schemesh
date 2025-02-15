@@ -50,7 +50,7 @@
     '()
     (lambda (args)
       (unless (list? args)
-        (raise-errorf 'sh-repl-args "invalid value, must be a list: " args))
+        (raise-errorf 'sh-repl-args "~s is not a list" args))
       args)))
 
 
