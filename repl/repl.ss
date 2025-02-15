@@ -400,7 +400,7 @@ Type ? or help for this help.
      n or new to enter new repl
      c or e to exit interrupt handler and continue
      t or throw to raise an error condition
-     q or r to reset schemesh
+     q or r to quit current evaluation. returns to REPL
      a or abort to abort schemesh. terminates the program!
      \n\n")
       (flush-output-port out)
