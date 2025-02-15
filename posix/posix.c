@@ -27,7 +27,7 @@
 #include <poll.h>
 #include <pwd.h>    /* getpwnam_r() */
 #include <signal.h> /* kill() ... */
-#include <stdio.h>  /* rename() ... */
+#include <stdio.h>  /* remove(), rename() ... */
 #include <stdlib.h> /* getenv(), strtoul() */
 #include <string.h>
 #include <string.h>    /* strlen() */
@@ -867,7 +867,32 @@ static ptr c_get_userhome(ptr username0) {
 }
 
 /**
- * Move or rename a file.
+ * Delete a file or directory.
+ * bytevector0_name must be a 0-terminated bytevector.
+ *
+ * On success, return 0.
+ * On error, return integer -errno
+ */
+static int c_file_delete(ptr bytevector0_name) {
+  const char* name;
+  iptr        len;
+  if (!Sbytevectorp(bytevector0_name)) {
+    return c_errno_set(EINVAL);
+  }
+  name = (const char*)Sbytevector_data(bytevector0_name);
+  len  = Sbytevector_length(bytevector0_name); /* including final '\0' */
+
+  if (len <= 0 || name[len - 1] != '\0') {
+    return c_errno_set(EINVAL);
+  }
+  if (remove(name) < 0) {
+    return c_errno();
+  }
+  return 0;
+}
+
+/**
+ * Move or rename a file or directory.
  * Both bytevector0_old_name and bytevector0_new_name must 0-terminated bytevectors.
  *
  * On success, return 0.
@@ -1587,6 +1612,7 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_get_userhome", &c_get_userhome);
   Sregister_symbol("c_exit", &c_exit);
   Sregister_symbol("c_directory_list", &c_directory_list);
+  Sregister_symbol("c_file_delete", &c_file_delete);
   Sregister_symbol("c_file_rename", &c_file_rename);
   Sregister_symbol("c_file_type", &c_file_type);
 

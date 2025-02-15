@@ -7,7 +7,9 @@
 
 
 (library (schemesh posix dir (0 7 5))
-  (export directory-list directory-list* directory-list-type directory-sort! file-rename file-type)
+  (export
+      directory-list directory-list* directory-list-type directory-sort!
+      file-delete file-rename file-type ok?)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -20,23 +22,59 @@
 
 (define c-errno-einval ((foreign-procedure "c_errno_einval" () int)))
 
+;; return #t if return-status is (void), which indicates success,
+;; otherwise return #f
+(define (ok? return-status)
+  (eq? return-status (void)))
 
-;; Rename a file from old-name to new-name.
-;; Both old-name and new-name are mandatory and each one be a bytevector, string or charspan.
+
+;; Delete a file or directory.
+;; Mandatory argument name must be a bytevector, string or charspan.
 ;; Further optional arguments can contain:
 ;;   'catch    - on error, return numeric c-errno instead of raising a condition
-;;
-;; Note: to move a file into a directory, new-name must contain the directory path followed by "/SOME_NEW_NAME"
-;;
-;; Differs from Chez Scheme (rename-file) in three aspects:
-;; 1. Chez Scheme only accepts strings, not bytevectors or charspans.
-;; 2. Chez Scheme internally converts strings to UTF-8 bytevectors, not UTF-8b.
-;; 3. Chez Scheme does not accept option 'catch - on errors, always raises an exception.
 ;;
 ;; On success, returns (void)
 ;; On error:
 ;;   if options contain 'catch, returns an integer error code
 ;;   otherwise raises an exception.
+;;
+;; Differences between (file-delete) and Chez Scheme (delete-file):
+;; 1. (file-delete) also deletes empty directories
+;; 2. (file-delete) also accepts bytevectors or charspans, not only strings.
+;; 3. (file-delete) converts strings to UTF-8b bytevectors, not UTF-8.
+;; 4. (file-delete) accepts option 'catch instead of optional boolean argument errors?
+;; 5. (file-delete) returns (void) on success and error code on failure, instead of a boolean
+(define file-delete
+  (let ((c-file-delete (foreign-procedure "c_file_delete" (ptr) int)))
+    (lambda (name . options)
+      (let ((err (c-file-delete (text->bytevector0 name))))
+        (cond
+          ((and (fixnum? err) (fx>=? err 0))
+            (void))
+          ((memq 'catch options)
+            (if (fixnum? err) err c-errno-einval))
+          (#t
+            (raise-c-errno 'file-delete 'remove err name)))))))
+
+
+;; Move or rename a file or directory from old-name to new-name.
+;; Both old-name and new-name are mandatory and each one must be a bytevector, string or charspan.
+;; Further optional arguments can contain:
+;;   'catch    - on error, return numeric c-errno instead of raising a condition
+;;
+;; Note: to move a file or directory into an existing directory,
+;;       new-name must contain the directory path followed by "/SOME_NEW_NAME"
+;;
+;; On success, returns (void)
+;; On error:
+;;   if options contain 'catch, returns an integer error code
+;;   otherwise raises an exception.
+;;
+;; Differs from Chez Scheme (rename-file) in three aspects:
+;; 1. (file-rename) also accepts bytevectors and charspans, not only strings.
+;; 2. (file-rename) converts strings to UTF-8b, not to UTF-8.
+;; 3. (file-rename) also accepts option 'catch, while Chez (rename-file) always raises an exception on failure.
+;; 4. (file-delete) returns (void) on success and error code on failure, instead of an unspecified value.
 (define file-rename
   (let ((c-file-rename (foreign-procedure "c_file_rename" (ptr ptr) int)))
     (lambda (old-name new-name . options)

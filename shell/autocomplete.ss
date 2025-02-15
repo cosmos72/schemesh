@@ -181,10 +181,10 @@
          (prefix-starts-with-dot? (and prefix? (char=? #\. (string-ref prefix 0)))))
     (list-iterate (directory-sort! (directory-list-type dir 'prefix prefix 'bytes 'catch))
       (lambda (elem)
-        (let ((name (string->charspan* (utf8b->string (cdr elem)))))
+        (let ((name (string->charspan* (utf8b->string (car elem)))))
           (when (or prefix-starts-with-dot? (not (char=? #\. (charspan-ref name 0))))
             (charspan-erase-front! name prefix-len)
-            (when (eq? 'dir (car elem))
+            (when (eq? 'dir (cdr elem))
               (charspan-insert-back! name #\/))
             (span-insert-back! completions name))))))
   ; (debugf "lineedit-shell-list/directory completions = ~s" completions)
@@ -261,8 +261,8 @@
       (lambda (dir)
         (list-iterate (directory-list-type dir 'prefix prefix 'catch) ; no need to sort directory list
           (lambda (elem)
-            (when (eq? 'file (car elem))
-              (set! l (cons (cdr elem) l))))))))
+            (when (eq? 'file (cdr elem))
+              (set! l (cons (car elem) l))))))))
   l)
 
 ;; return the correct autocompletion function for specified parser name,

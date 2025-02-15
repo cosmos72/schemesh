@@ -37,8 +37,8 @@
 
     ;; job.ss
     sh-consume-sigchld sh-cwd
-    sh-job sh-job-id sh-job-status sh-jobs sh-find-job sh-job-exception sh-ok?
-    sh-start sh-start* sh-bg sh-fg sh-wait sh-run sh-run/i sh-run/err? sh-run/ok?
+    sh-job sh-job-id sh-job-status sh-jobs sh-find-job sh-job-exception
+    sh-start sh-start* sh-bg sh-fg sh-wait sh-run sh-run/i sh-run/err? sh-run/ok? sh-ok?
 
     ;; multijob.ss
     sh-and sh-or sh-not sh-list sh-subshell
@@ -101,8 +101,7 @@
 ;; return #t if job-status is (void), i.e. if job exited with exit status 0,
 ;; otherwise return #f
 ;;
-;; job-status must be one of the possible values returned by
-;; (sh-fg) (sh-fg) (sh-wait) or (sh-job-status)
+;; intentionally identical to function (ok?) exported by library (schemesh posix)
 (define (sh-ok? job-status)
   (eq? job-status (void)))
 
