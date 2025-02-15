@@ -368,12 +368,11 @@
         ; pattern p may end with #\/ thus:
         ; 1. must add option 'append-slash to mark directories with a final #\/
         ; 2. cannot add option 'symlinks because it would not mark symlinks with a final #\/ even if they point to a directory
-        (list-iterate (directory-sort! (directory-list* path-or-dot 'append-slash 'catch 'prefix prefix 'suffix suffix))
-          (lambda (type-and-name)
-            (let ((name (cdr type-and-name)))
-              (when (sh-pattern-match? p name)
-                (%patterns/expand sp i+1 sp-end (%path-append path name) ret))
-              (void))))
+        (list-iterate (directory-sort! (directory-list path-or-dot 'append-slash 'catch 'prefix prefix 'suffix suffix))
+          (lambda (name)
+            (when (sh-pattern-match? p name)
+              (%patterns/expand sp i+1 sp-end (%path-append path name) ret))
+            (void)))
         ret))))
 
 ;; given a span of sh-pattern and strings,

@@ -1056,26 +1056,31 @@ static ptr c_file_type(ptr bytevector0_path, int keep_symlinks) {
   return Sinteger(-err);
 }
 
-typedef enum { o_symlinks = 1, o_append_slash = 2, o_strings = 4 } o_dir_options;
+typedef enum { o_symlinks = 1, o_append_slash = 2, o_bytes = 4, o_types = 8 } o_dir_options;
 
 typedef struct {
   const char* prefix;
   const char* suffix;
   iptr        prefixlen;
   iptr        suffixlen;
-  int         prefix_has_slash;
-  int         suffix_has_slash;
-  int         keep_symlinks;
-  int         ret_append_slash;
-  int         ret_strings;
+  char        prefix_has_slash;
+  char        suffix_has_slash;
+  char        keep_symlinks;
+  char        ret_append_slash;
+  char        ret_bytes;
+  char        ret_types;
 } s_directory_list_opts;
 
 static ptr
 c_directory_list1(DIR* dir, struct dirent* entry, const s_directory_list_opts* opts, ptr ret);
 
 /**
- * Scan directory bytevector0_dirpath and return Scheme list with its contents as pairs
- * (type . filename) where:
+ * Scan directory bytevector0_dirpath and return Scheme list with its contents.
+ *
+ * If (options & o_types) == 0 each element in returned list is a filename,
+ * which is either a Scheme string (if (options & o_string) != 0) or a Scheme bytevector.
+ *
+ * If (options & o_types) != 0 each element in returned list is a pair (filename . type) where:
  *   filename is either a Scheme string (if (options & o_string) != 0) or a Scheme bytevector.
  *   type is a Scheme integer corresponding to enum e_type.
  *
@@ -1131,9 +1136,10 @@ static ptr c_directory_list(ptr bytevector0_dirpath,
   } else {
     opts.suffix_has_slash = 0;
   }
-  opts.keep_symlinks    = options & o_symlinks;
-  opts.ret_append_slash = options & o_append_slash;
-  opts.ret_strings      = options & o_strings;
+  opts.keep_symlinks    = (options & o_symlinks) != 0;
+  opts.ret_append_slash = (options & o_append_slash) != 0;
+  opts.ret_bytes        = (options & o_bytes) != 0;
+  opts.ret_types        = (options & o_types) != 0;
 
   if (!opts.ret_append_slash && (opts.prefix_has_slash || opts.suffix_has_slash)) {
     return ret; /* impossible to satisfy, return nil */
@@ -1190,9 +1196,9 @@ c_directory_list1(DIR* dir, struct dirent* entry, const s_directory_list_opts* o
   } else if (opts->prefix_has_slash || opts->suffix_has_slash) {
     return ret; /* we must only return names that end with '/' */
   }
-  filename = opts->ret_strings ? schemesh_Sstring_utf8b(name, namelen) :
-                                 schemesh_Sbytevector(name, namelen);
-  ret      = Scons(Scons(type, filename), ret);
+  filename =
+      opts->ret_bytes ? schemesh_Sbytevector(name, namelen) : schemesh_Sstring_utf8b(name, namelen);
+  ret = Scons(opts->ret_types ? Scons(filename, type) : filename, ret);
 
   if (name_has_slash) {
     name[--namelen] = '\0'; /* restore final '\0' */

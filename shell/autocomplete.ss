@@ -20,7 +20,7 @@
     (schemesh containers span)
     (schemesh containers sort)
     (only (schemesh containers utf8b) utf8b->string)
-    (only (schemesh posix dir)        directory-list* directory-sort!)
+    (only (schemesh posix dir)        directory-list-type directory-sort!)
     (only (schemesh lineedit vscreen) vscreen-char-before-xy vscreen-cursor-ix vscreen-cursor-iy)
     (schemesh lineedit paren)
     (only (schemesh lineedit linectx) linectx-completion-stem linectx-vscreen)
@@ -179,7 +179,7 @@
          (prefix-len (string-length prefix))
          (prefix?    (not (fxzero? prefix-len)))
          (prefix-starts-with-dot? (and prefix? (char=? #\. (string-ref prefix 0)))))
-    (list-iterate (directory-sort! (directory-list* dir 'prefix prefix 'bytes 'catch))
+    (list-iterate (directory-sort! (directory-list-type dir 'prefix prefix 'bytes 'catch))
       (lambda (elem)
         (let ((name (string->charspan* (utf8b->string (cdr elem)))))
           (when (or prefix-starts-with-dot? (not (char=? #\. (charspan-ref name 0))))
@@ -259,7 +259,7 @@
          (prefix-len (string-length prefix)))
     (list-iterate dirs
       (lambda (dir)
-        (list-iterate (directory-list* dir 'prefix prefix 'catch) ; no need to sort directory list
+        (list-iterate (directory-list-type dir 'prefix prefix 'catch) ; no need to sort directory list
           (lambda (elem)
             (when (eq? 'file (car elem))
               (set! l (cons (cdr elem) l))))))))

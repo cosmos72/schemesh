@@ -903,9 +903,9 @@ static const testcase tests[] = {
     {"(c-errno)", "0"},
     {"(file-type \".\" 'catch)", "dir"},
     {"(file-type \"parser/parser.ss\" 'catch)", "file"},
-    {"(directory-sort! (directory-list* \"parser\"))",
-     "((dir . .) (dir . ..) (file . lisp-read-token.ss) (file . lisp.ss) (file . parser.ss)"
-     " (file . r6rs.ss) (file . scheme.ss) (file . shell-read-token.ss) (file . shell.ss))"},
+    {"(directory-sort! (directory-list-type \"parser\"))",
+     "((. . dir) (.. . dir) (lisp-read-token.ss . file) (lisp.ss . file) (parser.ss . file)"
+     " (r6rs.ss . file) (scheme.ss . file) (shell-read-token.ss . file) (shell.ss . file))"},
     /* ------------------------- posix patterns ----------------------------- */
     {"(sh-pattern \"foo\" '* \".bar\" '? '% \"[a-z]\" '%! \"A-Z\")",
      "(sh-pattern foo '* .bar '? '% [a-z] '%! A-Z)"},

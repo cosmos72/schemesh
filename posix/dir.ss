@@ -7,7 +7,7 @@
 
 
 (library (schemesh posix dir (0 7 5))
-  (export directory-list* directory-sort! file-rename file-type)
+  (export directory-list directory-list* directory-list-type directory-sort! file-rename file-type)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -84,8 +84,61 @@
             (raise-c-errno 'file-type (if symlinks? 'lstat 'stat) ret path)))))))
 
 
+(define (%find-and-convert-option options key)
+  (let %again ((options options))
+    (cond
+      ((null? options)
+        #vu8())
+      ((eq? key (car options))
+        (let ((value (if (null? (cdr options)) '() (cadr options))))
+          (unless (or (bytevector? value) (string? value) (charspan? value))
+            (raise-assertf 'directory-list-type "expecting a bytevector, string or charspan after option '~a, found ~s"
+              key value))
+          (text->bytevector value)))
+      (#t
+        (%again (cdr options))))))
+
+
 ;; List contents of a filesystem directory, in arbitrary order.
-;; Do not use the name (directory-list) because Chez Scheme already defines it.
+;; Mandatory first argument dirpath must be a bytevector, string or charspan.
+;; Mandatory second argument options must be a list of options, see (directory-list) for details.
+;;
+;; if option 'types is specified, returns a list of pairs (filename . type) where:
+;;   each filename is a either a bytevector (if options contain 'bytes) or a string
+;;   each type is one of: 'unknown 'blockdev 'chardev 'dir 'fifo 'file 'socket 'symlink
+;;
+;; if option 'types is not specified, returns a list of filenames where:
+;;   each filename is a either a bytevector (if options contain 'bytes) or a string
+(define directory-list*
+  (let ((c-directory-list (foreign-procedure "c_directory_list" (ptr ptr ptr int) ptr)))
+    (lambda (dirpath options)
+      ; (debugf "directory-list-type dir=~s, options=~s" dirpath options)
+      (let ((ret (c-directory-list
+                   (text->bytevector0 dirpath)
+                   (%find-and-convert-option options 'prefix)
+                   (%find-and-convert-option options 'suffix)
+                   (fxior (if (memq 'symlinks options) 1 0)
+                          (if (memq 'append-slash options) 2 0)
+                          (if (memq 'bytes    options) 4 0)
+                          (if (memq 'types    options) 8 0)))))
+        (cond
+          ((null? ret)
+            ret)
+          ((pair? ret)
+            (when (memq 'types options)
+              (list-iterate ret
+                (lambda (entry)
+                  (set-cdr! entry (c-type->file-type (cdr entry))))))
+            ret)
+          ((memq 'catch options)
+            '())
+          (#t
+            (raise-c-errno 'directory-list-type 'opendir ret dirpath)))))))
+
+
+
+;; List contents of a filesystem directory, in arbitrary order.
+;; WARNING: Chez Scheme also defines a function (directory-list) with different options.
 ;;
 ;; Mandatory first argument dirpath must be a bytevector, string or charspan.
 ;; Further optional arguments can contain:
@@ -95,73 +148,62 @@
 ;;   'catch - errors will be ignored instead of raising a condition
 ;;   'symlinks - returned filenames that are symlinks will have type 'symlink
 ;;               instead of the type of the file they point to.
+;;   'types  - each returned list element will be a pair (filename . type)
+;;             where filename is a bytevector or string and type is a symbol:
+;;             see below for possible values
 ;;   'prefix followed by a charspan, string or bytevector, indicating the filter-prefix:
 ;;            only filenames that start with such filter-prefix will be returned.
 ;;   'suffix followed by a charspan, string or bytevector, indicating the filter-suffix:
 ;;            only filenames that end with such filter-suffix will be returned.
 ;;
-;; Returns a list of pairs (type . filename) where:
-;;  each type is one of: 'unknown 'blockdev 'chardev 'dir 'fifo 'file 'socket 'symlink
+;; if option 'type is specified, returns a list of pairs (filename . type) where:
 ;;  each filename is a either a bytevector (if options contain 'bytes) or a string
-(define directory-list*
-  (let ((c-directory-list* (foreign-procedure "c_directory_list" (ptr ptr ptr int) ptr)))
-    (lambda (dirpath . options)
-      ; (debugf "directory-list* dir=~s, options=~s" dirpath options)
-      (let* ((strings? (not (memq 'bytes options)))
-             (ret (c-directory-list*
-                    (text->bytevector0 dirpath)
-                    (%find-and-convert-option options 'prefix)
-                    (%find-and-convert-option options 'suffix)
-                    (fxior (if (memq 'symlinks options) 1 0)
-                           (if (memq 'append-slash options) 2 0)
-                           (if strings? 4 0)))))
-        (cond
-          ((null? ret)
-            ret)
-          ((pair? ret)
-            (list-iterate ret
-              (lambda (entry)
-                (set-car! entry (c-type->file-type (car entry)))))
-            ret)
-          ((memq 'catch options)
-            '())
-          (#t
-            (raise-c-errno 'directory-list* 'opendir ret dirpath)))))))
+;;  each type is one of: 'unknown 'blockdev 'chardev 'dir 'fifo 'file 'socket 'symlink
+;;
+;; if option 'type is not specified, returns a list of filename where:
+;;  each filename is a either a bytevector (if options contain 'bytes) or a string
+(define (directory-list dirpath . options)
+  (directory-list* dirpath options))
 
 
-(define (%find-and-convert-option options key)
-  (let %again ((options options))
-    (cond
-      ((null? options)
-        #vu8())
-      ((eq? key (car options))
-        (let ((value (if (null? (cdr options)) '() (cadr options))))
-          (unless (or (bytevector? value) (string? value) (charspan? value))
-            (raise-assertf 'directory-list* "expecting a bytevector, string or charspan after option '~a, found ~s"
-              key value))
-          (text->bytevector value)))
-      (#t
-        (%again (cdr options))))))
+;; List contents of a filesystem directory, in arbitrary order.
+;; Mandatory first argument dirpath must be a bytevector, string or charspan.
+;; Further optional arguments can contain the same options described in (directory-list)
+;; with the difference that option 'types is always considered to be present.
+;;
+;; returns a list of pairs (filename . type) where:
+;;   each filename is a either a bytevector (if options contain 'bytes) or a string
+;;   each type is one of: 'unknown 'blockdev 'chardev 'dir 'fifo 'file 'socket 'symlink
+(define (directory-list-type dirpath . options)
+  (directory-list* dirpath (cons 'types options)))
 
 
-;; in-place sort dir-list, which must have the same structure as the output of (directory-list*)
-;; i.e. it must be a possibly empty list of pairs (key . value)
-;; where all values are either strings or bytevectors - mixtures are not allowed.
+
+;; in-place sort dir-list, which must have the same structure as the output
+;; of (directory-list) (directory-list*) or (directory-list-type)
+;; i.e. it must be a possibly empty list of strings, or list of bytevectors,
+;; or list or pairs (filename . type) where all filenames are either strings or bytevectors:
+;; mixtures are not allowed.
 (define (directory-sort! dir-list)
-  (if (null? dir-list)
+  (if (or (null? dir-list) (null? (cdr dir-list)))
     dir-list
     (sort!
-      (let ((value (cdar dir-list)))
+      (let ((elem (car dir-list)))
         (cond
-          ((string? value)
+          ((string? elem)
+            string<?)
+          ((bytevector? elem)
+            bytevector<?)
+          ((and (pair? elem) (string? (car elem)))
             (lambda (entry1 entry2)
-              (string<? (cdr entry1) (cdr entry2))))
-          ((bytevector? value)
+              (string<? (car entry1) (car entry2))))
+          ((and (pair? elem) (bytevector? (car elem)))
             (lambda (entry1 entry2)
-              (bytevector<? (cdr entry1) (cdr entry2))))
+              (bytevector<? (car entry1) (car entry2))))
           (#t
-            (raise-assertf 'directory-sort! "expecting a list of pairs (key . value) where all values are bytevector or string, found value ~s"
-              value))))
+            (raise-assertf 'directory-sort! "expecting a list of string, bytevectors, or pairs (key . value)\
+              where all keys are bytevector or string, found list element ~s"
+              elem))))
       dir-list)))
 
 
