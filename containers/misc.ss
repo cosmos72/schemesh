@@ -73,7 +73,7 @@
       (assert* 'in-fixnum-range (fixnum? start))
       (assert* 'in-fixnum-range (fixnum? end))
       (assert* 'in-fixnum-range (fixnum? step))
-      (if (fx>=? step 0.0)
+      (if (fx>=? step 0)
         (lambda ()
           (if (fx<? start end)
             (let ((ret start))
@@ -87,9 +87,9 @@
               (values ret #t))
             (values end #f)))))
     ((start end)
-      (in-flonum-range start end 1))
+      (in-fixnum-range start end 1))
     ((end)
-      (in-flonum-range 0 end 1))))
+      (in-fixnum-range 0 end 1))))
 
 
 ;; create and return a closure that returns inexact real numbers in the range [start, end)

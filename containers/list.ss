@@ -39,7 +39,7 @@
       (values #f #f)
       (let ((tail l))
         (set! l (cdr l))
-        (values l #t)))))
+        (values tail #t)))))
 
 
 ;; (list-iterate l proc) iterates on all elements of given list l,
