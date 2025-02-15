@@ -141,6 +141,8 @@ a slighty more complex example - uses several additional functions and macros pr
 - [x] shell pipelines `|` `|&`
 - [x] shell redirections `<` `>` `<>` `>>` `<&` `>&` `$()` ``` `` ```
 - [x] shell wildcard expansion
+- [x] each job has its own current directory and environment variables,
+      initially inherited from parent job
 - [x] customizable prompt, set by environment variable `$SCHEMESH_PS1`
 - [x] if the directory `$HOME/.cache/schemesh/` exists,<br/>
       history is automatically saved to and loaded from a file `history.txt` inside such directory
