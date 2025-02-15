@@ -13,12 +13,13 @@
     string-find string-rfind string-find/char string-rfind/char
     string-split string-split-after-nuls string-trim-split-at-blanks string-replace/char!
     string-starts-with? string-ends-with? string-starts-with/char? string-ends-with/char?
+    string-replace-start string-replace-end
     in-string string-iterate)
   (import
     (rnrs)
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme) bytevector foreign-procedure fx1+ fx1- reverse! substring-fill! void)
+    (only (chezscheme) fx1+ fx1- reverse! string-copy! substring-fill! void)
     (only (schemesh bootstrap) assert* while)
     (only (schemesh containers misc) list-iterate))
 
@@ -57,24 +58,26 @@
   (reverse! (%string-split-after-nuls str '())))
 
 
+;; optimized version of (substring), avoids making a copy if extracting the whole string
+(define (%substring str start end)
+  (if (and (fxzero? start) (fx=? end (string-length str)))
+    str
+    (substring str start end)))
+
+
 ;; split a string at each #\nul, and cons each splitted fragment onto ret.
 ;; return updated ret.
 (define (%string-split-after-nuls str ret)
-  (let* ((start 0)
-         (end (string-length str))
-         (pos (string-find/char str start end #\nul)))
-     (if pos
-       (begin
-         (while pos
-           (set! ret (cons (substring str start pos) ret))
-           (set! start (fx1+ pos))
-           (set! pos (string-find/char str start end #\nul)))
-         (when (fx<? start end)
-           (set! ret (cons (substring str start end) ret)))
-         ret)
-       (cons
-         (if (fxzero? start) str (substring str start end))
-         ret))))
+  (let ((end (string-length str)))
+    (let %loop ((start 0) (ret ret))
+      (let ((pos (string-find/char str start end #\nul)))
+        (if pos
+          (%loop
+            (fx1+ pos)
+            (cons (substring str start pos) ret))
+          (if (fx<? start end)
+            (cons (%substring str start end) ret)
+            ret))))))
 
 
 ;; return #t if obj is a non-empty string and only contains decimal digits
@@ -366,5 +369,44 @@
     (and (fx>=? str-len suffix-len)
          (string-range=? str (fx- str-len suffix-len) suffix 0 suffix-len))))
 
+
+;; if str begins with old-str, create and return a copy of str
+;; where the first occurrence of old-str has been replaced by new-str.
+;;
+;; otherwise return str
+(define (string-replace-start str old-str new-str)
+  (assert* 'string-replace (string? str))
+  (assert* 'string-replace (string? old-str))
+  (assert* 'string-replace (string? new-str))
+  (if (string-starts-with? str old-str)
+    (let* ((len      (string-length str))
+           (old-len  (string-length old-str))
+           (new-len  (string-length new-str))
+           (tail-len (fx- len old-len))
+           (dst      (make-string (fx+ new-len tail-len))))
+      (string-copy! new-str 0 dst 0 new-len)
+      (string-copy! str old-len dst new-len tail-len)
+      dst)
+    str))
+
+
+;; if str ends with old-str, create and return a copy of str
+;; where the last occurrence of old-str has been replaced by new-str.
+;;
+;; otherwise return str
+(define (string-replace-end str old-str new-str)
+  (assert* 'string-replace (string? str))
+  (assert* 'string-replace (string? old-str))
+  (assert* 'string-replace (string? new-str))
+  (if (string-ends-with? str old-str)
+    (let* ((len      (string-length str))
+           (old-len  (string-length old-str))
+           (new-len  (string-length new-str))
+           (head-len (fx- len old-len))
+           (dst      (make-string (fx+ head-len new-len))))
+      (string-copy! str 0 dst 0 head-len)
+      (string-copy! new-str 0 dst head-len new-len)
+      dst)
+    str))
 
 ) ; close library

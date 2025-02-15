@@ -472,7 +472,8 @@
       (charspan-rfind sp (lambda (e) (char=? e ch))))))
 
 
-;; create and return a copy of str, where each occurrence of old-str has been replaced by new-str.
+
+;; create and return a copy of str, where all occurrences of old-str have been replaced by new-str.
 (define string-replace
   (case-lambda
     ((str start end old-str new-str)
@@ -505,6 +506,7 @@
                 (charspan->string*! dst)))))))
     ((str old-str new-str)
       (string-replace str 0 (string-length str) old-str new-str))))
+
 
 
 ; customize how charspan objects are printed

@@ -5,7 +5,8 @@
 * fix C function c_tty_setraw() to retrieve the current tty configuration at every call,
   because one of the executed commands may have changed it: we want to preserve such changes for future commands
 * fix bugs in (on-list) and (in-fixnum-range)
-* add functions (directory-list) (directory-list-type) (file-delete) (in-exact-range) (mkdir) (ok?)
+* add functions (directory-list) (directory-list-type) (file-delete) (in-exact-range)
+  (mkdir) (ok?) (string-replace-start) (string-replace-end)
 * refactor function (in-range) to call one of (in-fixnum-range) (in-exact-range) (in-flonum-range)
 * implement builtin "parent", for running another builtin with its parent job temporarily set to its grandparent job.
   if used multiple times, as for example "parent parent cd ..", the effects are cumulative.
