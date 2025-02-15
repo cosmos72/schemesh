@@ -13,7 +13,7 @@
 
     in-list on-list list-iterate list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
 
-    in-range in-fixnum-range in-flonum-range
+    in-exact-range in-fixnum-range in-flonum-range in-range
 
     in-vector vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable! vector-range->list)
   (import
@@ -28,19 +28,20 @@
 (include "containers/vector.ss")
 
 
-;; create and return a closure that returns exact or inexact real numbers in the range [start, end)
+
+;; create and return a closure that returns exact real numbers in the range [start, end)
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns two values:
 ;; either (values elem #t) i.e. the next element in range [start, end) and #t,
 ;; or (values #<unspecified> #f) if end of range is reached.
 ;;
-;; If step is zero or a very small inexact real, the closure may never reach end of range.
-(define in-range
+;; If step is zero, the closure may never reach end of range.
+(define in-exact-range
   (case-lambda
     ((start end step)
-      (assert* 'in-range (real? start))
-      (assert* 'in-range (real? end))
-      (assert* 'in-range (real? step))
+      (assert* 'in-range (exact? start))
+      (assert* 'in-range (exact? end))
+      (assert* 'in-range (exact? step))
       (if (< step 0)
         (lambda ()
           (if (> start end)
@@ -55,9 +56,9 @@
               (values ret #t))
             (values end #f)))))
     ((start end)
-      (in-range start end 1))
+      (in-exact-range start end 1))
     ((end)
-      (in-range 0 end 1))))
+      (in-exact-range 0 end 1))))
 
 
 ;; create and return a closure that returns fixnums in the range [start, end)
@@ -122,6 +123,37 @@
       (in-flonum-range start end 1.0))
     ((end)
       (in-flonum-range 0.0 end 1.0))))
+
+
+;; create and return a closure that returns exact or inexact real numbers in the range [start, end)
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values elem #t) i.e. the next element in range [start, end) and #t,
+;; or (values #<unspecified> #f) if end of range is reached.
+;;
+;; If step is zero or a very small inexact real, the closure may never reach end of range.
+;;
+;; Implementation:
+;;  if all arguments are fixnums, calls (in-fixnum-range)
+;;  otherwise, if all arguments are exact, calls (in-exact-range)
+;;  otherwise calls (in-flonum-range)
+(define in-range
+  (case-lambda
+    ((start end step)
+      (assert* 'in-range (real? start))
+      (assert* 'in-range (real? end))
+      (assert* 'in-range (real? step))
+      (cond
+        ((and (fixnum? start) (fixnum? end) (fixnum? step))
+          (in-fixnum-range start end step))
+        ((and (exact? start) (exact? end) (exact? step))
+          (in-exact-range start end step))
+        (#t
+          (in-flonum-range start end step))))
+    ((start end)
+      (in-range start end 1))
+    ((end)
+      (in-range 0 end 1))))
 
 
 ) ; close library

@@ -3,7 +3,8 @@
 ### in git main branch
 
 * fix bugs in (on-list) and (in-fixnum-range)
-* add functions (directory-list) (directory-list-type) (file-delete) (mkdir) (ok?)
+* add functions (directory-list) (directory-list-type) (file-delete) (in-exact-range) (mkdir) (ok?)
+* refactor function (in-range) to call one of (in-fixnum-range) (in-exact-range) (in-flonum-range)
 * implement builtin "parent", for running another builtin with its parent job temporarily set to its grandparent job.
   if used multiple times, as for example "parent parent cd ..", the effects are cumulative.
 
