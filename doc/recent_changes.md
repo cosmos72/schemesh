@@ -1,5 +1,12 @@
 ## RECENT CHANGES
 
+### in git main branch
+
+* fix bugs in (on-list) and (in-fixnum-range)
+* add functions (directory-list) (directory-list-type) (file-delete) (mkdir) (ok?)
+* implement builtin "parent", for running another builtin with its parent job temporarily set to its grandparent job.
+  if used multiple times, as for example "parent parent cd ..", the effects are cumulative.
+
 ### release v0.7.5, 2025-02-14
 
 * fix `utils/find_chez_scheme_dir.sh` for Alpine linux
@@ -38,7 +45,7 @@
 * extend (sh-cmd* "ENV_VAR" '= "VALUE") to set environment variables in *parent* job
 * modify builtin "cd" to change current directory of *parent* job
 * modify builtin "pwd" to print current directory of *parent* job
-* implement builtin "global", for running another builtin with its parent job set to (sh-globals)
+* implement builtin "global", for running another builtin with its parent job temporarily set to (sh-globals)
 * implement shell builtin "unsafe", for creating (sh-cmd*) commands whose first argument - the program name -
   is not a string but a closure, as for example the output of a subshell, a wildcard etc.
 * extend builtin "alias", without arguments now lists existing aliases

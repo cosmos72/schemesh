@@ -601,6 +601,7 @@
     (hashtable-set! bt "fg"         builtin-fg)
     (hashtable-set! bt "global"     builtin-global)
     (hashtable-set! bt "jobs"       builtin-jobs)
+    (hashtable-set! bt "parent"     builtin-parent)
     (hashtable-set! bt "pwd"        builtin-pwd)
     (hashtable-set! bt "set"        builtin-set)
     (hashtable-set! bt "split-at-0" builtin-split-at-0)
@@ -698,6 +699,15 @@
     ignore arguments. write jobs and their status to standard output.
 
     return success.\n"))
+
+    (hashtable-set! t "parent"     (string->utf8 " [builtin-name [arg ...]]
+    execute a builtin with its parent temporarily set to its grandparent.
+    if used multiple times, as for example \"parent parent cd ..\", the effects are cumulative.
+
+    useful mostly for builtins 'cd' 'export' 'set' 'pwd' 'unexport' 'unset'
+    that show or alter the current directory or the environment variables of their parent job.
+
+    return exit status of executed builtin, or failure if no such builtin was found.\n"))
 
     (hashtable-set! t "pwd"        (string->utf8 " [job-id]
     write the current directory of specified job to standard output.

@@ -178,8 +178,8 @@
 
 
 ;; the "global" builtin: run the builtin passed as first argument
-;; with its parent job temporarily set to (sh-globals)
-;; Useful mostly for builtins "cd" and "pwd"
+;; with its parent job temporarily changed to (sh-globals)
+;; Useful mostly for builtins "cd", "pwd" and "set"
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-global job prog-and-args options)
@@ -210,6 +210,26 @@
               (sh-job-display-summary* job port))))
         (flush-output-port port))))
   (void))
+
+
+;; the "parent" builtin: run the builtin passed as first argument
+;; with its parent job temporarily changed to current parent's parent.
+;; Useful mostly for builtins "cd", "pwd" and "set"
+;;
+;; As all builtins do, must return job status.
+(define (builtin-parent job prog-and-args options)
+  ; (debugf "builtin-parent ~s" prog-and-args)
+  (assert-string-list? 'builtin-parent prog-and-args)
+  (if (null? (cdr prog-and-args))
+    (void)
+    (let* ((args       (cdr prog-and-args))
+           (builtin    (sh-find-builtin args))
+           (old-parent (job-parent job))
+           (new-parent (or (and old-parent (job-parent old-parent)) #t)))
+      (if builtin
+        (start-builtin-already-redirected builtin job args
+            (cons (cons 'parent-job new-parent) options)) ; options will be processed again
+        (write-builtin-error "parent" "not a shell builtin" (car args))))))
 
 
 ;; display a single environment variable
