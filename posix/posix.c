@@ -297,7 +297,25 @@ static int c_tty_setattr(int fd, const struct termios* conf) {
 }
 
 static struct termios saved_conf;
+static struct termios raw_conf;
 static int            have_saved_conf = 0;
+static int            have_raw_conf   = 0;
+
+/** copy initial_conf into conf, then change conf to raw mode */
+static void c_tty_fill_raw_conf(struct termios* conf, const struct termios* initial_conf) {
+  size_t i;
+  *conf = *initial_conf;
+  conf->c_iflag &= ~(BRKINT | ICRNL | IGNBRK | IGNCR | INLCR | ISTRIP | IXOFF | IXON | PARMRK);
+  conf->c_oflag |= OPOST | ONLCR;
+  conf->c_cflag &= ~(CSIZE | PARENB);
+  conf->c_cflag |= CS8;
+  conf->c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
+  /* conf->c_lflag |= TOSTOP; */
+  for (i = 0; i < NCCS; i++) {
+    conf->c_cc[i] = 0;
+  }
+  conf->c_cc[VMIN] = 1;
+}
 
 /** restore controlling tty to saved config */
 static int c_tty_restore(void) {
@@ -312,32 +330,27 @@ static int c_tty_restore(void) {
   return 0;
 }
 
-/** save controlling tty config, then set it to raw mode */
+/** save current config of controlling tty, then set it to raw mode */
 static int c_tty_setraw(void) {
-  struct termios conf;
-  size_t         i;
-  /* (void)write(1, "; c_tty_setraw\r\n", 16); */
+  struct termios* conf = &raw_conf;
 
-  if (!have_saved_conf) {
-    while (c_tty_getattr(tty_fd, &saved_conf) != 0) {
-      if (errno != EINTR) {
-        return c_errno();
-      }
+  /* (void)write(1, "; c_tty_setraw\r\n", 16); */
+  /*
+   * save current config every time, because one of the executed commands
+   * may have changed it: we want to preserve such changes for future commands
+   */
+  while (c_tty_getattr(tty_fd, &saved_conf) != 0) {
+    if (errno != EINTR) {
+      return c_errno();
     }
-    have_saved_conf = 1;
   }
-  conf = saved_conf;
-  conf.c_iflag &= ~(BRKINT | ICRNL | IGNBRK | IGNCR | INLCR | ISTRIP | IXOFF | IXON | PARMRK);
-  conf.c_oflag |= OPOST | ONLCR;
-  conf.c_cflag &= ~(CSIZE | PARENB);
-  conf.c_cflag |= CS8;
-  conf.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
-  /* conf.c_lflag |= TOSTOP; */
-  for (i = 0; i < NCCS; i++) {
-    conf.c_cc[i] = 0;
+  have_saved_conf = 1;
+
+  if (!have_raw_conf) {
+    c_tty_fill_raw_conf(conf, &saved_conf);
+    have_raw_conf = 1;
   }
-  conf.c_cc[VMIN] = 1;
-  while (c_tty_setattr(tty_fd, &conf) != 0) {
+  while (c_tty_setattr(tty_fd, conf) != 0) {
     if (errno != EINTR) {
       return c_errno();
     }
