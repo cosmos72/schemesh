@@ -71,7 +71,7 @@
 ;; Implementation note: job is always started in a subprocess,
 ;; because we need to read its standard output while it runs.
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
-(define (sh-run/bspan job . options)
+(define (sh-run/bvector job . options)
   (let ((read-fd #f))
     ; temporarily suppress messages about started/completed jobs
     (parameterize ((sh-job-display-summary? #f))
@@ -98,7 +98,7 @@
 ;; because we need to read its standard output while it runs.
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
 (define (sh-run/string job . options)
-  (utf8b-bytespan->string (apply sh-run/bspan job options)))
+  (utf8b->string (apply sh-run/bvector job options)))
 
 
 ;; Start a job and wait for it to exit.
@@ -112,13 +112,7 @@
 ;; because we need to read its standard output while it runs.
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
 (define (sh-run/string-rtrim-newlines job . options)
-  (let* ((bsp (apply sh-run/bspan job options))
-         (bv  (bytespan-peek-data bsp))
-         (beg (bytespan-peek-beg bsp))
-         (end (bytespan-peek-end bsp)))
-    (while (and (fx>? end beg) (fx=? 10 (bytevector-u8-ref bv (fx1- end))))
-      (set! end (fx1- end)))
-    (utf8b->string bv beg end)))
+  (string-rtrim-newlines! (utf8b->string (apply sh-run/bvector job options))))
 
 
 ;; Start a job and wait for it to exit.
@@ -133,7 +127,7 @@
 ;; because we need to read its standard output while it runs.
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
 (define (sh-run/string-split-after-nuls job . options)
-  (string-split-after-nuls (utf8b-bytespan->string (apply sh-run/bspan job options))))
+  (string-split-after-nuls (utf8b->string (apply sh-run/bvector job options))))
 
 
 ;; Add multiple redirections for cmd or job. Return cmd or job.

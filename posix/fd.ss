@@ -77,11 +77,11 @@
 
 
 ;; read from fd until end-of-file.
-;; return read bytes as a bytespan
+;; return read bytes as a bytevector
 (define (fd-read-until-eof fd)
   (let ((bsp (make-bytespan 0)))
     (while (fx>? (fd-read-some fd bsp) 0))
-    bsp))
+    (bytespan->bytevector*! bsp)))
 
 
 ;; read some bytes from fd and append them to specified bytespan

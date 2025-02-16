@@ -10,7 +10,7 @@
     string-list? assert-string-list? string-list-split-after-nuls
     string-contains-only-decimal-digits?
     string-fill-range! string-range-count= string-range=? string-range<?
-    string-find string-rfind string-find/char string-rfind/char
+    string-find string-rfind string-find/char string-rfind/char string-rtrim-newlines!
     string-split string-split-after-nuls string-trim-split-at-blanks string-replace/char!
     string-starts-with? string-ends-with? string-starts-with/char? string-ends-with/char?
     string-replace-start string-replace-end
@@ -19,7 +19,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme) fx1+ fx1- reverse! string-copy! substring-fill! void)
+    (only (chezscheme) fx1+ fx1- reverse! string-copy! string-truncate! substring-fill! void)
     (only (schemesh bootstrap) assert* while)
     (only (schemesh containers misc) list-iterate))
 
@@ -78,6 +78,17 @@
           (if (fx<? start end)
             (cons (%substring str start end) ret)
             ret))))))
+
+
+;; destructively remove all consecutive trailing #\newline characters from string str.
+;; return str.
+(define (string-rtrim-newlines! str)
+  (let %loop ((end (string-length str)))
+    (if (and (fx>? end 0) (char=? #\newline (string-ref str (fx1- end))))
+      (%loop (fx1- end))
+      (begin
+        (string-truncate! str end)
+        str))))
 
 
 ;; return #t if obj is a non-empty string and only contains decimal digits

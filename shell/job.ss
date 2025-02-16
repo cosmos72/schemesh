@@ -48,7 +48,7 @@
     sh-options
 
     ;; redirect.ss
-    sh-redirect! sh-run/bspan sh-run/string sh-run/string-rtrim-newlines sh-run/string-split-after-nuls
+    sh-redirect! sh-run/bvector sh-run/string sh-run/string-rtrim-newlines sh-run/string-split-after-nuls
     sh-start/fd-stdout
 
     ;; params.ss
