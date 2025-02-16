@@ -77,12 +77,13 @@
   (sh-parse-datum (cons 'shell-subshell args)))
 
 
-;; macro: create a (sh-cmd) that evaluates specified Scheme expression when executed,
-;; and returns success i.e. (void) if expression is truish,
+;; macro: create a (sh-cmd) that evaluates specified Scheme expressions when executed,
+;; and returns success i.e. (void) if last expression is truish,
 ;; or failure i.e '(exited . 1) if expression is false.
 (define-syntax shell-expr
   (syntax-rules ()
-    ((_ expr) (sh-cmd* "builtin" "expr" (lambda () (sh-bool expr))))))
+    ((_ expr exprs ...) (sh-cmd* "builtin" "expr" (lambda () (sh-bool (begin expr exprs ...)))))))
+
 
 (meta begin
   (define (%sh-wildcard-simplify wildcards? ret args)
