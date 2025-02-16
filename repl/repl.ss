@@ -130,7 +130,7 @@
 (define (sh-repl-eval form)
   ; (debugf "sh-repl-eval: ~s" form)
   (try
-    (if (and (pair? form) (memq (car form) '(shell shell-subshell shell-test)))
+    (if (and (pair? form) (memq (car form) '(shell shell-subshell shell-expr)))
       (sh-run/i (sh-eval form))
       (sh-eval form)) ; may return multiple values
     (catch (ex)

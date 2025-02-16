@@ -1000,8 +1000,8 @@ static const testcase tests[] = {
     {"(sh-find-job #t)", "(#<global> #t)"},
     {"(sh-run/i (sh-cmd \"true\"))", ""}, /* (void) is displayed as empty string */
     {"(sh-run   (sh-cmd \"false\"))", "(exited . 1)"},
-    {"(sh-run   (sh-cmd \"test\" \"0\"))", ""},
-    {"(sh-run   (sh-cmd \"test\" \"257\"))", "(exited . 257)"},
+    {"(sh-run   (sh-cmd \"expr\" \"0\"))", ""},
+    {"(sh-run   (sh-cmd \"expr\" \"257\"))", "(exited . 257)"},
     {"(sh-run/i (sh-list (sh-cmd \"false\") (sh-cmd \"true\")))\n", ""},
     {"(sh-run   (sh-list (sh-cmd \"true\") (sh-cmd \"false\")))\n", "(exited . 1)"},
     {"(sh-run/i (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 1)"},
@@ -1067,8 +1067,8 @@ static const testcase tests[] = {
      INVOKELIB_SHELL_JOBS "(sh-or (sh-cmd true) (sh-not (sh-cmd false))))"},
     {"(expand '(shell-list (shell \"ls\" \"-al\" >> \"log.txt\")))",
      INVOKELIB_SHELL_JOBS "(sh-cmd* ls -al 1 '>> log.txt))"},
-    {"(expand '(shell-test (if a b c)))",
-     INVOKELIB_SHELL_JOBS "(sh-cmd* builtin test (lambda () (sh-bool (if a b c)))))"},
+    {"(expand '(shell-expr (if a b c)))",
+     INVOKELIB_SHELL_JOBS "(sh-cmd* builtin expr (lambda () (sh-bool (if a b c)))))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
      "  \"{{{{echo|cat}}}}\")))",
      INVOKELIB_SHELL_JOBS "(sh-pipe* (sh-cmd echo) '| (sh-cmd cat)))"},
@@ -1198,11 +1198,11 @@ static const testcase tests[] = {
     {"(sh-run (shell \"true\"))", ""},
     {"(sh-run (shell \"false\"))", "(exited . 1)"},
     {"(sh-run (shell \"echo0\"))", ""},
-    {"(sh-run (shell \"test\" \"210\"))", "(exited . 210)"},
+    {"(sh-run (shell \"expr\" \"210\"))", "(exited . 210)"},
     {"(sh-run (shell-subshell \"true\"))", ""},
     {"(sh-run (shell-subshell \"false\"))", "(exited . 1)"},
     {"(sh-run (shell-subshell \"echo0\"))", ""},
-    {"(sh-run (shell-subshell \"test\" \"210\"))", "(exited . 210)"},
+    {"(sh-run (shell-subshell \"expr\" \"210\"))", "(exited . 210)"},
     /* (sh-run/string) */
     {"(sh-run/string (shell \"echo\" (shell-wildcard (shell-env \"FOO\") \"=123\" )))", "=123\n"},
     {"(sh-run/string (shell \"echo\" \"a\"  \"b\" \"c\"))", "a b c\n"},
@@ -1254,13 +1254,13 @@ static const testcase tests[] = {
     {"(sh-run (shell"
      "  \"false\" \\x7C;"
      "  \"command\" \"true\" \\x7C;"
-     "  \"test\" \"17\"))",
+     "  \"expr\" \"17\"))",
      "(exited . 17)"},
     /* run a pipe in a subshell */
     {"(sh-run (shell-subshell"
      "  \"builtin\" \"true\" \\x7C;"
      "  \"builtin\" \"command\" \"false\" \\x7C;"
-     "  \"global\"  \"test\" \"19\"))",
+     "  \"global\"  \"expr\" \"19\"))",
      "(exited . 19)"},
     /* ------------------------- sh-read ------------------------------------ */
     {"(sh-read-string* \"#!/some/path some-arg\\n(display (+ 1 2)) {ls}\""

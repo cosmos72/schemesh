@@ -612,8 +612,8 @@
     (hashtable-set! bt "unset"      builtin-unset)
 
     ;; mark builtins that finish immediately i.e. cannot run commands or aliases
-    (list-iterate '("alias" "cd" "cd-" "echo" "echo0" "exit" "false" "jobs"
-                    "history" "pwd" "set" "test" "true" "unalias" "unset")
+    (list-iterate '("alias" "cd" "cd-" "echo" "echo0" "exit" "expr" "false"
+                    "jobs" "history" "pwd" "set" "true" "unalias" "unset")
       (lambda (name)
         (let ((builtin (hashtable-ref bt name #f)))
           (when builtin

@@ -223,15 +223,21 @@
 
 ;; copy-pasted from shell/job.ss
 ;;
-;; normalize job status, converting unexpected status values to '(unknown . 0)
+;; normalize job status, converting unexpected status values to '(unknown ...)
 (define (job-status-normalize status)
   (cond
     ((eq? (void) status)
       status)
-    ((and (pair? status) (memq (car status) '(new running stopped exited killed unknown)))
+    ((not (pair? status))
+      (cons 'unknown status))
+    ((memq (car status) '(new running exited))
+      (if (integer? (cdr status))
+        status
+        (cons (car status) -1)))
+    ((memq (car status) '(killed stopped unknown))
       status)
     (#t
-      '(unknown . 0))))
+      (cons 'unknown status))))
 
 
 ;; the "source" builtin: read a file containing shell script or Scheme source and eval it.

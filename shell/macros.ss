@@ -9,7 +9,7 @@
 (library (schemesh shell macros (0 7 5))
   (export
     include/lang include/lang*
-    shell shell-backquote shell-env shell-list shell-subshell shell-test shell-wildcard)
+    shell shell-backquote shell-env shell-list shell-subshell shell-expr shell-wildcard)
   (import
     (rnrs)
     (only (chezscheme) datum meta reverse!)
@@ -80,9 +80,9 @@
 ;; macro: create a (sh-cmd) that evaluates specified Scheme expression when executed,
 ;; and returns success i.e. (void) if expression is truish,
 ;; or failure i.e '(exited . 1) if expression is false.
-(define-syntax shell-test
+(define-syntax shell-expr
   (syntax-rules ()
-    ((_ expr) (sh-cmd* "builtin" "test" (lambda () (sh-bool expr))))))
+    ((_ expr) (sh-cmd* "builtin" "expr" (lambda () (sh-bool expr))))))
 
 (meta begin
   (define (%sh-wildcard-simplify wildcards? ret args)

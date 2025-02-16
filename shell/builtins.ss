@@ -7,7 +7,7 @@
 
 (library (schemesh shell builtins (0 7 5))
   (export sh-builtins sh-builtins-help sh-find-builtin sh-exception-handler
-          sh-echo sh-false sh-help sh-history sh-repl-args sh-repl-args-linectx sh-test sh-true)
+          sh-echo sh-false sh-help sh-history sh-repl-args sh-repl-args-linectx sh-expr sh-true)
   (import
     (rnrs)
     (only (chezscheme)        console-error-port debug debug-condition debug-on-exception
@@ -196,9 +196,9 @@ The following names are recognized as builtins:\n\n")
           '(exited . 1))))))
 
 
-;; implementation of "test" builtin, exits with user-specified exit status
-(define (sh-test . args)
-  ; (debugf "sh-test ~s" args)
+;; implementation of "expr" builtin, exits with user-specified exit status
+(define (sh-expr . args)
+  ; (debugf "sh-expr ~s" args)
   (if (pair? args)
     (let ((arg (car args)))
       (cond
@@ -267,13 +267,13 @@ The following names are recognized as builtins:\n\n")
   (sh-history))
 
 
-;; the "test" builtin: return specified exit status,
+;; the "expr" builtin: return specified exit status,
 ;; which must be a non-empty string containing only decimal digits.
 ;;
 ;; As all builtins do, must return job status.
-(define (builtin-test job prog-and-args options)
-  (assert-string-list? 'builtin-test prog-and-args)
-  (apply sh-test (cdr prog-and-args)))
+(define (builtin-expr job prog-and-args options)
+  (assert-string-list? 'builtin-expr prog-and-args)
+  (apply sh-expr (cdr prog-and-args)))
 
 
 ;; the "true" builtin: return (void)
@@ -306,10 +306,10 @@ The following names are recognized as builtins:\n\n")
     (hashtable-set! t ":"       builtin-true)
     (hashtable-set! t "echo"    builtin-echo)
     (hashtable-set! t "echo0"   builtin-echo0)
+    (hashtable-set! t "expr"    builtin-expr)
     (hashtable-set! t "false"   builtin-false)
     (hashtable-set! t "help"    builtin-help)
     (hashtable-set! t "history" builtin-history)
-    (hashtable-set! t "test"    builtin-test)
     (hashtable-set! t "true"    builtin-true)
     (lambda () t)))
 
@@ -354,6 +354,12 @@ is usually available at <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html#
 
     return success.\n"))
 
+    (hashtable-set! t "expr"   (string->utf8 " [int ...]
+    return INT value specified as first argument, or failure i.e. '(exited . 1) if no arguments.
+
+    Usually invoked with a (lambda () (sh-bool ...)) as its only argument,
+    for running arbitrary Scheme code from a shell job.\n"))
+
     (hashtable-set! t "false"   (string->utf8 " [arg ...]
     ignore arguments. return failure i.e. '(exited . 1).\n"))
 
@@ -366,9 +372,6 @@ is usually available at <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html#
     ignore arguments, write history to standard output.
 
     return success.\n"))
-
-    (hashtable-set! t "test"   (string->utf8 " [int ...]
-    return INT value specified as first argument, or failure i.e. '(exited . 1) if no arguments.\n"))
 
     (hashtable-set! t "true"    (hashtable-ref t ":" ""))
 
