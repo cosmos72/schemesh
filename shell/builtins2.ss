@@ -9,7 +9,7 @@
 ;; this file should be included only by file shell/job.ss
 
 
-;; convert boolean obj to exit status string:
+;; convert Scheme obj to exit status string:
 ;; if obj is truish. return "0", otherwise return "1"
 ;;
 ;; useful with builtin "test", as for example:

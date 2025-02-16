@@ -61,24 +61,35 @@
 (define (start-cmd c options)
   (assert* 'sh-cmd (eq? 'running (job-last-status->kind c)))
   (job-status-set! 'start-cmd c
-    (start-command-or-builtin-or-alias c (cmd-arg-list-apply c) options)))
+    (let ((prog-and-args (cmd-arg-list c)))
+      (if (string-list? prog-and-args)
 
+        ;; all command line arguments are strings, proceed
+        (start-command-or-builtin-or-alias c prog-and-args options)
+
+        ;; some command line argument is a closure:
+        ;; setup fds remapping before calling them, because they may want to use
+        ;; (sh-fd-stdin) (sh-fd-stdout) (sh-fd-stderr) or more generally, (job-find-fd-remap)
+        (begin
+          (job-remap-fds! c)
+          (parameterize ((sh-fd-stdin  (job-find-fd-remap c 0))
+                         (sh-fd-stdout (job-find-fd-remap c 1))
+                         (sh-fd-stderr (job-find-fd-remap c 2)))
+            (start-command-or-builtin-or-alias c
+              (cmd-arg-list-call-closures c prog-and-args) options)))))))
 
 
 ;; internal function called by (start-cmd):
-;; call procedures in cmd-arg-list.
+;; call procedures in prog-and-args.
 ;; Return the expanded command line, which is always a list of strings.
-(define (cmd-arg-list-apply c)
-  (let ((prog-and-args (cmd-arg-list c)))
-    (if (string-list? prog-and-args)
-      prog-and-args
-      (let ((l '()))
-        (list-iterate prog-and-args
-          (lambda (arg)
-            (set! l (cmd-arg-apply c arg l))))
-        (set! l (reverse! l))
-        (assert-string-list? 'sh-start l)
-        l))))
+(define (cmd-arg-list-call-closures c prog-and-args)
+  (let ((l '()))
+    (list-iterate prog-and-args
+      (lambda (arg)
+        (set! l (cmd-arg-apply c arg l))))
+    (set! l (reverse! l))
+    (assert-string-list? 'sh-start l)
+    l))
 
 
 ;; internal function called by (start-cmd):
