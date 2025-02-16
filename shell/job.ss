@@ -469,13 +469,14 @@
          (direction-ch         (span-ref redirects (fx1+ index)))
          (to-fd-or-bytevector0 (job-extract-redirection-to-fd-or-bytevector0 job job-dir redirects index))
          (remap-fd             (sh-fd-allocate)))
-    ; (debugf "fd-redirect fd=~s dir=~s to=~s" remap-fd direction-ch to-fd-or-bytevector0)
+    ;; (debugf "job-remap-fd! fd=~s dir=~s remap-fd=~s to=~s" fd direction-ch remap-fd to-fd-or-bytevector0)
     (let* ((fd-int (sh-fd->int remap-fd))
            (ret (fd-redirect fd-int direction-ch to-fd-or-bytevector0 #t))) ; #t close-on-exec?
       (when (< ret 0)
         (sh-fd-release remap-fd)
         (raise-c-errno 'sh-start 'c_fd_redirect ret fd-int direction-ch to-fd-or-bytevector0)))
     (hashtable-set! (job-fds-to-remap job) fd remap-fd)))
+
 
 
 ;; extract the destination fd or bytevector0 from a redirection
@@ -534,7 +535,7 @@
         (lambda (cell)
           (let ((fd (cdr cell)))
             (when (sh-fd-release fd)
-              ; (debugf "pid ~s: job-unmap-fds! -> fd-close ~s" (pid-get) (sh-fd->int fd))
+              ;; (debugf "job-unmap-fds! fd-close ~s" (sh-fd->int fd))
               (fd-close (sh-fd->int fd))))))
       (job-fds-to-remap-set! job #f))))
 

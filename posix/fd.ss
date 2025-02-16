@@ -114,13 +114,13 @@
 (define fd-write
   (let ((c-fd-write (foreign-procedure "c_fd_write" (int ptr iptr iptr) iptr)))
     (case-lambda
-      ((fd bytevector-towrite)
-        (fd-write fd bytevector-towrite 0 (bytevector-length bytevector-towrite)))
       ((fd bytevector-towrite start end)
         (let ((ret (c-fd-write fd bytevector-towrite start end)))
           (if (>= ret 0)
             ret
-            (raise-c-errno 'fd-write 'write ret fd #vu8() start end)))))))
+            (raise-c-errno 'fd-write 'write ret fd #vu8() start end))))
+      ((fd bytevector-towrite)
+        (fd-write fd bytevector-towrite 0 (bytevector-length bytevector-towrite))))))
 
 
 ; (fd-select fd direction timeout-milliseconds) waits up to timeout-milliseconds

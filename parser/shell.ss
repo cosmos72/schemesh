@@ -294,20 +294,23 @@
                   (set! ret (cons form ret))))))
           ((lparen)
             ; switch to Scheme parser for a single form.
-            (let ((other-parse-forms (parser-parse-forms (get-parser ctx 'scheme 'parse-shell-forms))))
-              (let-values (((other-forms _) (other-parse-forms ctx type)))
+            (let ((lisp-parser (parser-parse-forms (get-parser ctx 'scheme 'parse-shell-forms))))
+              (let-values (((lisp-forms _) (lisp-parser ctx type)))
                 (if (and (null? ret) (eq? 'eof end-type))
                   ; lparen is the first token at shell top level:
                   ; allow entering Scheme form
-                  (let-values (((forms updated-parser) (%after-lisp-forms-at-top-level ctx other-forms)))
-                    (set! ret forms)
-                    (when updated-parser
-                      (set! parser updated-parser))
-                    (set! done? #t)
-                    (set! prefix #f))
+                  (let ((return-lisp-form? (%after-lisp-forms-at-top-level ctx)))
+                    (if return-lisp-form?
+                      (let-values (((next-forms updated-parser) (parse-shell-forms ctx begin-type)))
+                        (when updated-parser
+                          (set! parser updated-parser))
+                        (set! ret (cons lisp-forms next-forms))
+                        (set! done? #t)
+                        (set! prefix #f))
+                      (set! ret (cons lisp-forms ret))))
                   ; lparen was in the middle of shell syntax:
                   ; just insert parsed Scheme form into current shell command
-                  (set! ret (cons other-forms ret))))))
+                  (set! ret (cons lisp-forms ret))))))
           ((lbrace lbrack dollar+lparen)
             ; TODO: $(...) may be followed by other words without a space
             (let-values (((form _) (parse-shell-forms ctx type)))
@@ -356,32 +359,24 @@
           form)))))
 
 
-;; Convenience: lparen was the first token and begin-type is eof:
-;; => omit the initial (shell ...)
-;; This allows entering Scheme forms from shell syntax.
-;; We still need to read until eof, and for readability the (...) must be followed by one of:
-;; - eof
-;; - semicolon or newline
-;; - another (...)
+;; lparen was the first token, begin-type is eof,
+;; and we read a whole Scheme form until the corresponding lparen.
 ;;
-;; return two values:
-;; 1. list of parsed forms
-;; 2. updated parser to use, or #f if parser was not changed
-(define (%after-lisp-forms-at-top-level ctx lisp-forms)
+;; Convenience: if the first token after rparen is lparen, semicolon, newline or eof,
+;; then instruct the caller to omit the initial (shell ...) and return the Scheme form as is.
+;; This allows entering Scheme forms from shell syntax.
+;;
+;; Otherwise instruct the caller to wrap the Scheme form inside (shell ...)
+;;
+;; Return #t if Scheme form should be compiled and evaluated as is,
+;; or #f is it should be inserted inside (shell ...)
+(define (%after-lisp-forms-at-top-level ctx)
   (parsectx-skip-whitespace ctx #f) ; do not skip newlines
   (let-values (((ch type) (peek-shell-char ctx)))
     (case type
       ((eof lparen) #t)
-      ((separator) (lex-shell ctx #f #f #f #f)) ; consume semicolon or newline
-      (else
-        (let-values (((value type) (lex-shell ctx #f #f #f #f)))
-          (syntax-errorf ctx 'parse-shell-forms
-            "unexpected token \"~a\" after initial (...) at shell top-level: expecting eof, newline, semicolon or another (...)"
-            value)))))
-  (let-values (((forms updated-parser) (parse-shell-forms ctx 'eof)))
-    (values
-      (cons lisp-forms forms)
-      updated-parser)))
+      ((separator) (read-shell-char ctx) #t) ; consume semicolon or newline
+      (else         #f))))
 
 
 

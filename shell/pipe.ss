@@ -138,6 +138,11 @@
     (when (fx>=? out-pipe-fd/write 0)
       (fd-close out-pipe-fd/write))
 
+    (when spawn?
+      ; we can cleanup job's file descriptor, as it's running in a subprocess
+      (job-unmap-fds! job)
+      (job-unredirect/temp/all! job))
+
 
     out-pipe-fd/read))
 

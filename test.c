@@ -761,9 +761,11 @@ static const testcase tests[] = {
      "  (string->parsectx \"ls ; #!shell echo\" (parsers))\n"
      "  'shell))",
      "((shell ls ; echo))"},
-    /* ( inside shell syntax switches to Scheme parser for a single Scheme form,
+    /* #\( inside shell syntax switches to Scheme parser for a single Scheme form,
      * then continues parsing shell syntax.
-     * An eof, newline, semicolon or ( is required after (...) if ( was initial */
+     * If the #\( is the first token, and the parsed Scheme form is followed by one of:
+     *   newline, semicolon, another #\( or eof,
+     * then the Scheme form is compiled as-is, without wrapping it inside (shell ...) */
     {"(parse-forms1\n"
      "  (string->parsectx \"(+ 1 2)\" (parsers))\n"
      "  'shell)",
@@ -776,6 +778,15 @@ static const testcase tests[] = {
      "  (string->parsectx \"(+ 4 5) (* 6 7) ; ls\" (parsers))\n"
      "  'shell)",
      "((+ 4 5) (* 6 7) (shell ls))"},
+    /*
+     * in shell syntax, an initial Scheme form ( ... ) is NOT followed by one of:
+     *   newline, semicolon, another #\( or eof
+     * => wrap the Scheme form inside the overall (shell ...) together with subsequent shell forms
+     */
+    {"(parse-forms1\n"
+     "  (string->parsectx \"(sh-cmd \\\"true\\\") && echo\" (parsers))\n"
+     "  'shell)",
+     "((shell (sh-cmd true) && echo))"},
     /* test inserting Scheme forms inside shell syntax */
     {"(parse-forms1\n"
      "  (string->parsectx \"echo (+ 8 9)\" (parsers))\n"

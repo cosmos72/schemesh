@@ -397,8 +397,8 @@
                        (job-pids-wait job
                          (if (memq mode '(sh-bg sh-job-status)) 'nonblocking 'blocking)
                          queue-job-display-summary))))
-    ;c (debugf "advance-pid/wait mode=~s old-status=~s new-status=~s pid=~s job=~a" mode old-status new-status (job-pid job) (sh-job->string job))
-    ;c (sleep (make-time 'time-duration 0 1))
+    ; (debugf "advance-pid/wait mode=~s old-status=~s new-status=~s pid=~s job=~a" mode old-status new-status (job-pid job) (sh-job->string job))
+    ; (sleep (make-time 'time-duration 0 1))
 
     ; if may-block is 'non-blocking, new-status may be '(running . #f)
     ; indicating job status did not change i.e. it's (expected to be) still running
