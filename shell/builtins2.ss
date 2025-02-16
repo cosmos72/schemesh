@@ -13,12 +13,12 @@
 ;; if obj is truish. return "0", otherwise return "1"
 ;;
 ;; useful with builtin "expr", as for example:
-;;   expr (sh-bool (and (some-scheme-expression) (another-scheme-expression))) || echo failed
+;;   expr (sh-bool (some-scheme-expression))
 
 ;; or, to evaluate scheme expressions when builtin "expr" is actually executed,
-;;   expr (lambda () (sh-bool (and (some-scheme-expression) (another-scheme-expression)))) || echo failed
+;;   expr (lambda () (sh-bool (some-scheme-expression)))
 ;; which can be abbreviated to
-;;   (shell-expr (and (some-scheme-expression) (another-scheme-expression))) || echo failed
+;;   (shell-expr (some-scheme-expression))
 (define (sh-bool obj)
   (if obj "0" "1"))
 
