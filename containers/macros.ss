@@ -25,7 +25,7 @@
 (define-syntax %for*-inner-part
   (lambda (stx)
     (syntax-case stx ()
-      ((_ (()) body1 body2 ...)
+      ((_ () body1 body2 ...)
         #`(begin body1 body2 ...))
       ((_ ((vars ... flag iter)) body1 body2 ...)
         #`(let-values (((vars ... flag) (iter)))
@@ -75,9 +75,9 @@
         (with-syntax (((flag ...) (generate-pretty-temporaries #'(iterator ...))))
           (with-syntax (((iter ...) (generate-pretty-temporaries #'(iterator ...))))
             #`(let ((iter iterator) ...)
-                (let for-loop ()
+                (let for*-loop ()
                   (%for*-inner-part ((vars ... flag iter) ...)
                     body1 body2 ...
-                    (for-loop))))))))))
+                    (for*-loop))))))))))
 
 ) ; close library

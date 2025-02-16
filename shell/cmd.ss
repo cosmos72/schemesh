@@ -176,8 +176,7 @@
       (let ((builtin (sh-find-builtin prog-and-args)))
         (if builtin
           ; expanded arg[0] is a builtin, call it.
-          ; redirections were applied already by the outer (start-command-or-builtin-or-alias)
-          (start-builtin-already-redirected builtin c prog-and-args options) ; returns job status
+          (start-builtin builtin c prog-and-args options) ; returns job status
           ; expanded arg[0] is a not builtin or alias, spawn a subprocess
           (spawn-cmd c prog-and-args options)))))) ; returns job status
 
