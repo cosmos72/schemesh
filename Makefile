@@ -1,10 +1,10 @@
 
 # C compiler
-CC=cc
+CC ?= cc
 
 # optimized build
-CFLAGS=-O2 -pipe -Wall -W -Wextra -std=c89
-LDFLAGS=-s
+CFLAGS ?= -O2 -pipe -Wall -W -Wextra -std=c89
+LDFLAGS ?= -s
 
 # debug build
 # CFLAGS=-g -pipe -Wall -W -Wextra -std=c89
@@ -28,20 +28,20 @@ LIBS=$(CHEZ_SCHEME_KERNEL) -lz -llz4 -lncurses -ldl -lm -lpthread -luuid $(LIB_I
 
 # installation directories. Names and values are taken from GNU Makefile conventions
 # and can be overridden from "make" command line
-prefix      = /usr/local
-exec_prefix = $(prefix)
-bindir      = $(exec_prefix)/bin
-libdir      = $(exec_prefix)/lib
+prefix      ?= /usr/local
+exec_prefix ?= $(prefix)
+bindir      ?= $(exec_prefix)/bin
+libdir      ?= $(exec_prefix)/lib
 
 SCHEMESH_LIBDIR = $(libdir)/schemesh
 
 
 # installation programs. Names and values are taken from GNU Makefile conventions
 # and can be overridden from "make" command line
-INSTALL         = install
-INSTALL_PROGRAM = $(INSTALL)
-INSTALL_DATA    = $(INSTALL) -m 644
-MKDIR_P         = mkdir -p
+INSTALL         ?= install
+INSTALL_PROGRAM ?= $(INSTALL)
+INSTALL_DATA    ?= $(INSTALL) -m 644
+MKDIR_P         ?= mkdir -p
 
 
 
