@@ -542,25 +542,26 @@
   (%add t lineedit-key-del-word-right '(27 68) '(27 100)) ; ALT+D, ALT+d
   (%add t lineedit-key-word-right     '(27 70) '(27 102)) ; ALT+F, ALT+f
   ; sequences starting with ESC O
-  (%add t lineedit-key-up    '(27 79 65))        ; UP    \eOA
-  (%add t lineedit-key-down  '(27 79 66))        ; DOWN  \eOB
-  (%add t lineedit-key-right '(27 79 67))        ; RIGHT \eOC
-  (%add t lineedit-key-left  '(27 79 68))        ; LEFT  \eOD
-  (%add t lineedit-key-eol   '(27 79 70))        ; END   \eOF
-  (%add t lineedit-key-bol   '(27 79 72))        ; HOME  \eOH
-  (%add t lineedit-key-newline-left '(27 79 77)) ; KPRET \eOM
-  (%add t lineedit-key-nop   '(27 79 80)         ; NUM-LOCK
-    '(27 79 81) '(27 79 82))                     ; KP/ KP*
-  (%add t lineedit-key-cmd-cd-parent '(27 79 83))  ; KP-
-  (%add t lineedit-key-cmd-ls        '(27 79 108)) ; KP+
-  ; sequences starting with ESC [                ;
-  (%add t lineedit-key-up    '(27 91 65))        ; UP    \e[A
-  (%add t lineedit-key-down  '(27 91 66))        ; DOWN  \e[B
-  (%add t lineedit-key-right '(27 91 67))        ; RIGHT \e[C
-  (%add t lineedit-key-left  '(27 91 68))        ; LEFT  \e[D
-  (%add t lineedit-key-eol   '(27 91 70))        ; END   \e[F
-  (%add t lineedit-key-bol   '(27 91 72)         ; HOME  \e[H
-                         '(27 91 49 126))        ; HOME  \e[1~
+  (%add t lineedit-key-up    '(27 79 65))          ; UP    \eOA
+  (%add t lineedit-key-down  '(27 79 66))          ; DOWN  \eOB
+  (%add t lineedit-key-right '(27 79 67))          ; RIGHT \eOC
+  (%add t lineedit-key-left  '(27 79 68))          ; LEFT  \eOD
+  (%add t lineedit-key-eol   '(27 79 70))          ; END   \eOF
+  (%add t lineedit-key-bol   '(27 79 72))          ; HOME  \eOH
+  (%add t lineedit-key-newline-left   '(27 79 77)) ; KPRET \eOM
+  (%add t lineedit-key-nop            '(27 79 80)) ; NUM-LOCK \eOP
+  (%add t lineedit-key-cmd-cd-parent  '(27 79 81)) ; KP/   \eOQ
+  (%add t lineedit-key-cmd-ls         '(27 79 82)) ; KP*   \eOR
+  (%add t lineedit-key-cmd-cd-old-dir '(27 79 83)) ; KP-   \eOS
+  (%add t lineedit-key-nop            '(27 79 108)); KP+   \eOl
+  ; sequences starting with ESC [                  ;
+  (%add t lineedit-key-up    '(27 91 65))          ; UP    \e[A
+  (%add t lineedit-key-down  '(27 91 66))          ; DOWN  \e[B
+  (%add t lineedit-key-right '(27 91 67))          ; RIGHT \e[C
+  (%add t lineedit-key-left  '(27 91 68))          ; LEFT  \e[D
+  (%add t lineedit-key-eol   '(27 91 70))          ; END   \e[F
+  (%add t lineedit-key-bol   '(27 91 72)           ; HOME  \e[H
+                             '(27 91 49 126))      ; HOME  \e[1~
 
   (%add t lineedit-key-toggle-insert '(27 91 50 126)) ; INSERT \e[2~
   (%add t lineedit-key-del-right     '(27 91 51 126)) ; DELETE \e[3~

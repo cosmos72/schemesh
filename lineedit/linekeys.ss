@@ -338,6 +338,15 @@
   ((top-level-value 'sh-cd) "..")
   (linectx-redraw-all lctx))
 
+(define (lineedit-key-cmd-cd-old-dir lctx)
+  (when
+    (try
+      ((top-level-value 'sh-cd-))
+      #t
+      (catch (ex)
+        #f))
+    (linectx-redraw-all lctx)))
+
 (define (lineedit-key-cmd-ls lctx)
   (lineterm-move-to lctx (linectx-prompt-end-x lctx) (linectx-prompt-end-y lctx))
   (lineterm-write/bvector lctx #vu8(108 115 27 91 74 10)) ; l s ESC [ J \n

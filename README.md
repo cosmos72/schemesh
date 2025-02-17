@@ -128,7 +128,7 @@ a slighty more complex example - uses several additional functions and macros pr
 ### Features
 - [x] REPL with multi-line editing and parentheses highlighting
 - [x] dual syntax parsing, allows mixing Scheme and shell expressions
-- [x] shortcuts to execute commands by pressing a single key: KP- KP+
+- [x] shortcuts to execute commands by pressing a single key: KP/ KP* KP-
 - [x] history searchable with PageUp and PageDown keys
 - [x] cut-and-paste
 - [x] context-sensitive autocompletion - some improvements pending
@@ -166,7 +166,7 @@ sudo make install
 
 On Fedora Linux:
 ```shell
-sudo dnf install gcc gcc-c++ make chez-scheme-devel lz4-devel ncurses-devel git libuuid-devel zlib-devel
+sudo dnf install gcc make chez-scheme-devel lz4-devel ncurses-devel git libuuid-devel zlib-devel
 git clone https://github.com/cosmos72/schemesh
 cd schemesh
 make -j
@@ -188,6 +188,25 @@ In such case you can manually specify it, as for example `make -j CHEZ_SCHEME_DI
 ## RECENT CHANGES
 
 See [doc/recent_changes.md](doc/recent_changes.md)
+
+## FREQUENTLY ASKED QUESTIONS
+
+* how does schemesh differ from other Lisp-based shells as
+  [Scsh](https://scsh.net/),
+  [Rash](http://rash-lang.org/),
+  [Eshell](https://www.emacswiki.org/emacs/CategoryEshell#Eshell),
+  or (pick favorite shell) ?
+
+  In extreme summary:
+  none of them have job control, i.e. the ability to suspend a job and resume it in the background or foreground;
+  some also have additional limitations.
+
+  Scsh lacks line editing, autocompletion and shell-like syntax - see [Scsh Reference manual - Caveats](https://scsh.net/docu/html/man-Z-H-2.html#node_sec_1.4)
+
+  Eshell runs *inside* Emacs, so it's difficult to use as a login shell.
+
+  For more details, see [doc/comparison_with_other_shells.md](doc/comparison_with_other_shells.md)
+
 
 ## TO DO
 

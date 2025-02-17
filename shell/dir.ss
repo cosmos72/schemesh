@@ -136,14 +136,14 @@
 ;; Returns (void) if successful, otherwise raises exception.
 (define sh-cd-
   (case-lambda
-    (()
-      (sh-cd- #t))
     ((job-or-id)
       (let* ((job  (sh-job job-or-id))
              (path (job-owd job)))
         (unless path
           (raise-errorf 'cd- "old working directory is not set for job ~s" job))
         (job-cd job path)))
+    (()
+      (sh-cd- #t))
     ((job-or-id . extra-args)
       (raise-errorf 'cd- "too many arguments"))))
 

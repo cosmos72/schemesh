@@ -13,11 +13,11 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) foreign-procedure sort! void)
+    (only (chezscheme) foreign-procedure make-continuation-condition make-format-condition sort! void)
     (only (schemesh bootstrap) catch raise-assertf try)
     (only (schemesh containers) bytevector<? charspan? list-iterate string->utf8b)
     (only (schemesh conversions) text->bytevector text->bytevector0)
-    (only (schemesh posix fd) raise-c-errno))
+    (only (schemesh posix fd) c-errno->string raise-c-errno))
 
 
 (define c-errno-einval ((foreign-procedure "c_errno_einval" () int)))
@@ -73,7 +73,7 @@
 
 
 ;; Delete a file or directory.
-;; Mandatory argument name must be a bytevector, string or charspan.
+;; Mandatory argument path must be a bytevector, string or charspan.
 ;; Further optional arguments can contain:
 ;;   'catch    - on error, return numeric c-errno instead of raising a condition
 ;;
@@ -90,24 +90,24 @@
 ;; 5. (file-delete) returns (void) on success and error code on failure, instead of a boolean
 (define file-delete
   (let ((c-file-delete (foreign-procedure "c_file_delete" (ptr) int)))
-    (lambda (name . options)
-      (let ((err (c-file-delete (text->bytevector0 name))))
+    (lambda (path . options)
+      (let ((err (c-file-delete (text->bytevector0 path))))
         (cond
           ((and (fixnum? err) (fxzero? err))
             (void))
           ((memq 'catch options)
             (if (fixnum? err) err c-errno-einval))
           (#t
-            (raise-c-errno 'file-delete 'remove err name)))))))
+            (raise-c-errno 'file-delete 'remove err path)))))))
 
 
-;; Move or rename a file or directory from old-name to new-name.
-;; Both old-name and new-name are mandatory and each one must be a bytevector, string or charspan.
+;; Move or rename a file or directory from old-path to new-path.
+;; Both old-path and new-path are mandatory and each one must be a bytevector, string or charspan.
 ;; Further optional arguments can contain:
 ;;   'catch    - on error, return numeric c-errno instead of raising a condition
 ;;
 ;; Note: to move a file or directory into an existing directory,
-;;       new-name must contain the directory path followed by "/SOME_NEW_NAME"
+;;       new-path must contain the directory path followed by "/SOME_NEW_NAME"
 ;;
 ;; On success, returns (void)
 ;; On error:
@@ -121,15 +121,15 @@
 ;; 4. (file-delete) returns (void) on success and error code on failure, instead of an unspecified value.
 (define file-rename
   (let ((c-file-rename (foreign-procedure "c_file_rename" (ptr ptr) int)))
-    (lambda (old-name new-name . options)
-      (let ((err (c-file-rename (text->bytevector0 old-name) (text->bytevector0 new-name))))
+    (lambda (old-path new-path . options)
+      (let ((err (c-file-rename (text->bytevector0 old-path) (text->bytevector0 new-path))))
         (cond
           ((and (fixnum? err) (fxzero? err))
             (void))
           ((memq 'catch options)
             (if (fixnum? err) err c-errno-einval))
           (#t
-            (raise-c-errno 'file-rename 'rename err old-name new-name)))))))
+            (raise-c-errno 'file-rename 'rename err old-path new-path)))))))
 
 
 (define c-type->file-type
@@ -139,7 +139,7 @@
 
 
 ;; Check existence and type of a filesystem path.
-;; Mandatory first argument dirpath must be a bytevector, string or charspan.
+;; Mandatory first argument path must be a bytevector, string or charspan.
 ;; Further optional arguments can contain:
 ;;   'catch    - return numeric c-errno instead of raising a condition on C functions error
 ;;   'symlinks - returned filenames that are symlinks will have type 'symlink
@@ -283,10 +283,6 @@
               where all keys are bytevector or string, found list element ~s"
               elem))))
       dir-list)))
-
-
-
-
 
 
 ) ; close library

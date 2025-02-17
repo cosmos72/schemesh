@@ -12,6 +12,12 @@
     (schemesh posix fd)
     (schemesh posix dir)
     (schemesh posix pattern)
+
+    ;; by default, do not re-export bindings from (schemesh posix replacements)
+    ;; because they intentionally conflict with R6RS functions (file-exists?) and (delete-file)
+    ;;
+    ;; (schemesh posix replacements)
+
     (schemesh posix signal)
     (schemesh posix tty)
     (schemesh posix pid)))

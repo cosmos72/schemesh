@@ -24,7 +24,7 @@
     make-sh-cmd sh-cmd
 
     ;; dir.ss
-    sh-cd sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
+    sh-cd sh-cd- sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
 
     ;; display.ss
     sh-job-display sh-job-display* sh-job->string
