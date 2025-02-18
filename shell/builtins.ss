@@ -137,7 +137,7 @@
             (bytespan-insert-back/u8! wbuf (if (eq? l version) 32 46))
             (bytespan-display-back/fixnum! wbuf (car l))))
         (bytespan-insert-back/string! wbuf "
-Copyright (C) 2023-2035 Massimiliano Ghilardi <https://github.com/cosmos72/schemesh>
+Copyright (C) 2023-2025 Massimiliano Ghilardi <https://github.com/cosmos72/schemesh>
 
   schemesh comes with ABSOLUTELY NO WARRANTY; for details type 'help warranty'.
   This is free software, and you are welcome to redistribute it
@@ -325,7 +325,7 @@ The following names are recognized as builtins:\n\n")
     (hashtable-set! t "copyright" (string->utf8 "
 
 schemesh, a fusion between interactive Unix shell and Chez Scheme REPL.
-Copyright (C) 2023-2035 Massimiliano Ghilardi <https://github.com/cosmos72/schemesh>
+Copyright (C) 2023-2025 Massimiliano Ghilardi <https://github.com/cosmos72/schemesh>
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
