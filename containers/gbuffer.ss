@@ -118,7 +118,7 @@
         (span-insert-front! left val))
       ((fx=? idx (gbuffer-length gb))
         (span-insert-back! right val))
-      (#t
+      (else
         (gbuffer-split-at! gb idx)
         (span-insert-back! left val)))))
 
@@ -139,7 +139,7 @@
               (span-insert-front/span! left sp-src src-start src-end))
             ((fx=? idx (gbuffer-length gb))
               (span-insert-back/span! right sp-src src-start src-end))
-            (#t
+            (else
               (gbuffer-split-at! gb idx)
               (span-insert-back/span! left sp-src src-start src-end))))))
     ((gb idx sp-src)
@@ -169,7 +169,7 @@
         (let ((tail (fxmin n right-n)))
           (span-erase-back! right tail)
           (span-erase-back! left (fx- n tail))))
-      (#t
+      (else
         (gbuffer-split-at! gb end)
         (span-erase-back! left n)))))
 

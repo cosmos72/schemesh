@@ -140,7 +140,7 @@
       (let* ((rw-mask (cond ((eq? 'rw    direction) 3)
                             ((eq? 'write direction) 2)
                             ((eq? 'read  direction) 1)
-                            (#t (error 'fd-select "direction must be one of 'read 'write 'rw"))))
+                            (else (error 'fd-select "direction must be one of 'read 'write 'rw"))))
               (ret (c-fd-select fd rw-mask timeout-milliseconds)))
         (cond
           ; if c_fd_select() returns EINTR, consider it a timeout
@@ -148,7 +148,7 @@
           ((< ret 0) (raise-c-errno 'fd-select 'select ret fd rw-mask timeout-milliseconds))
           ((< ret 4) (vector-ref '#(timeout read write rw) ret))
           ; c_fd_select() called poll() which set (revents & POLLERR)
-          (#t        (raise-c-errno 'fd-select 'select c-errno-eio fd rw-mask timeout-milliseconds)))))))
+          (else      (raise-c-errno 'fd-select 'select c-errno-eio fd rw-mask timeout-milliseconds)))))))
 
 (define fd-setnonblock
   (let ((c-fd-setnonblock (foreign-procedure "c_fd_setnonblock" (int) int)))
@@ -172,8 +172,8 @@
              [flag-rw (cond ((memq 'rw    flags) 2)
                             ((memq 'write flags) 1)
                             ((memq 'read  flags) 0)
-                            (#t (error 'open-file-fd
-                                 "flags must contain one of 'read 'write 'rw" flags)))]
+                            (else (error 'open-file-fd
+                                    "flags must contain one of 'read 'write 'rw" flags)))]
              [flag-create   (if (memq 'create   flags) 1 0)]
              [flag-truncate (if (memq 'truncate flags) 1 0)]
              [flag-append   (if (memq 'append   flags) 1 0)]

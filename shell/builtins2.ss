@@ -23,6 +23,13 @@
   (if obj "0" "1"))
 
 
+
+
+;; implementation of "expr" builtin, returns user-specified status
+(define (sh-expr kind . results)
+  (status-normalize (cons kind results)))
+
+
 ;; write contents of bytespan wbuf to file descriptor fd,
 ;; then clear bytespan wbuf
 ;;
@@ -58,16 +65,16 @@
 
 
 ;; print error message to (sh-fd-stderr)
-;; always returns '(failed . 1)
+;; always returns '(failed 1)
 (define (write-builtin-error . args)
   (fd-write-strings: (sh-fd-stderr) "schemesh" args)
-  '(failed . 1))
+  '(failed 1))
 
 
 ;; the "builtin" builtin: run the builtin in the remaining command line.
 ;;
 ;; As all builtins do, must return job status.
-;; returns '(failed . 1) if specified builtin is not found.
+;; returns '(failed 1) if specified builtin is not found.
 (define (builtin-builtin job prog-and-args options)
   ; (debugf "builtin-builtin ~s" prog-and-args)
   (assert-string-list? 'builtin-builtin prog-and-args)
@@ -130,6 +137,26 @@
         (void)))))
 
 
+(define (try-string->base10-integer str)
+  (if (string-is-signed-base10-integer? str)
+    (string->number str)
+    str))
+
+
+;; the "expr" builtin: return specified exit status,
+;; which must be a non-empty string containing only decimal digits.
+;;
+;; As all builtins do, must return job status.
+(define (builtin-expr job prog-and-args options)
+  (assert-string-list? 'builtin-expr prog-and-args)
+  (let ((result (if (null? (cdr prog-and-args))
+                  1
+                  (try-string->base10-integer (cadr prog-and-args)))))
+    (if (eqv? 0 result)
+      (sh-expr 'ok     (void))
+      (sh-expr 'failed result))))
+
+
 ;; The "bg" builtin: continue a job-id by sending SIGCONT to it, and return immediately
 ;; Continue a job or job-id in background by sending SIGCONT to it, and return immediately.
 ;;
@@ -140,18 +167,18 @@
   (let* ((arg (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
                 "\"\""
                 (cadr prog-and-args)))
-         (job (and (string-contains-only-decimal-digits? arg)
+         (job (and (string-is-unsigned-base10-integer? arg)
                    (sh-find-job (string->number arg)))))
       (if job
         (let* ((old-status (job-last-status job))
                (new-status (sh-bg job)))
-          (if (job-status-finished? new-status)
+          (if (status-finished? new-status)
             ; job finished, return its exit status as "bg" exit status.
             new-status
             ; job still exists, show its running/stopped status.
             ; return (void) i.e. builtin "fg" exiting successfully.
             (queue-job-display-summary job)))
-        (write-builtin-error "bg" arg "no such job")))) ; returns '(failed . 1)
+        (write-builtin-error "bg" arg "no such job")))) ; returns '(failed 1)
 
 
 ;; The "fg" builtin: continue a job-id by sending SIGCONT to it, then wait for it to exit or stop.
@@ -163,18 +190,18 @@
   (let* ((arg (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
                 "\"\""
                 (cadr prog-and-args)))
-         (job (and (string-contains-only-decimal-digits? arg)
+         (job (and (string-is-unsigned-base10-integer? arg)
                    (sh-find-job (string->number arg)))))
       (if job
         (let* ((old-status (job-last-status job))
                (new-status (sh-fg job)))
-          (if (job-status-finished? new-status)
+          (if (status-finished? new-status)
             ; job finished, return its exit status as "fg" exit status.
             new-status
             ; job still exists, show its running/stopped status.
             ; return (void) i.e. builtin "fg" exiting successfully.
             (queue-job-display-summary job)))
-        (write-builtin-error "fg" arg "no such job")))) ; returns '(failed . 1)
+        (write-builtin-error "fg" arg "no such job")))) ; returns '(failed 1)
 
 
 ;; the "global" builtin: run the builtin passed as first argument
@@ -286,14 +313,14 @@
               (%env-display-var name val wbuf)
               (fd-write/bspan! (sh-fd-stdout) wbuf)
               (void))          ; exit successfully
-            '(failed . 1)))) ; env variable not found => fail
+            '(failed 1)))) ; env variable not found => fail
       ((null? (cdddr prog-and-args))
         (let ((name (cadr prog-and-args))
               (val  (caddr prog-and-args)))
           (sh-env-set! parent name val)
           (void))) ; exit successfully
-      (#t
-        (write-builtin-error "set" "too many arguments"))))) ; returns '(failed . 1)
+      (else
+        (write-builtin-error "set" "too many arguments"))))) ; returns '(failed 1)
 
 
 
@@ -354,7 +381,7 @@
 ;;   an external subprocess and returns immediately,
 ;;   thus the returned status can be '(running ...)
 ;; otherwise the builtin will be executed synchronously in the caller's process
-;;   and the returned status can only be one of (void) '(failed ...) '(killed ...) or '(unknown ...)
+;;   and the returned status can only be one of (void) '(ok ...) '(failed ...) '(killed ...) or '(exception ...)
 (define (start-builtin builtin c args options)
   (assert* 'start-builtin (not (job-step-proc c)))
   (if (job-fds-to-remap c)
@@ -385,7 +412,7 @@
       (job-status-set! 'start-builtin job
         (let ((status  (builtin job args options)))
           ;c (debugf "< start-builtin options=~s args=~s job=~a status=~s" options args (sh-job->string job) status)
-          (if (or (job-status-finished? status) (options->spawn? options)
+          (if (or (status-finished? status) (options->spawn? options)
                   (not (hashtable-ref (builtins-that-finish-immediately) builtin #f)))
             status
             (%warn-bad-builtin-exit-status builtin args status))))))) ; returns (void)

@@ -290,7 +290,7 @@
         (let-values (((x1 y1) (charlines-next-xy lines x1 y1)))
           (let-values (((x2 y2) (charlines-next-xy prefix x2 y2)))
             (%again x1 y1 x2 y2))))
-      (#t                    ; found different characters
+      (else                    ; found different characters
         #f)))))
 
 

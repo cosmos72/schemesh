@@ -25,8 +25,8 @@
           (cond
             ((null? b)      a)
             ((eq? 'quote a) b)
-            (#t             a)))))
-    (#t
+            (else           a)))))
+    (else
       (gensym))))
 
 

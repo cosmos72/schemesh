@@ -150,7 +150,7 @@
             (void))
           ((path-is-dot-dot? elem start end)
             (charspan-resize-back! prefix (path-parent-len prefix)))
-          (#t
+          (else
             (unless (path-ends-with-sep? prefix)
               (charspan-insert-back! prefix #\/))
             (charspan-insert-back/cspan! prefix suffix start end)))))))

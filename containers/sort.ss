@@ -70,7 +70,7 @@
           (vector-set! v x0 e2)
           (vector-set! v x1 e0)
           (vector-set! v x2 e1))
-        (#t           ; order is e0 e2 e1
+        (else         ; order is e0 e2 e1
           (vector-set! v x1 e2)
           (vector-set! v x2 e1)))
       (cond           ; order is e1 .. e0
@@ -80,7 +80,7 @@
         ((is<? e2 e1) ; order is e2 e1 e0
           (vector-set! v x0 e2)
           (vector-set! v x2 e0))
-        (#t           ; order is e1 e2 e0
+        (else         ; order is e1 e2 e0
           (vector-set! v x0 e1)
           (vector-set! v x1 e2)
           (vector-set! v x2 e0))))))
@@ -145,7 +145,7 @@
           (vector-set! v xp e0)
           (vector-set! v x2 e1)
           e0)
-        (#t           ; order is e0 e2 e1
+        (else         ; order is e0 e2 e1
           (vector-set! v x1 ep)
           (vector-set! v xp e2)
           (vector-set! v x2 e1)
@@ -162,7 +162,7 @@
           (vector-set! v xp e1)
           (vector-set! v x2 e0)
           e1)
-        (#t           ; order is e1 e2 e0
+        (else         ; order is e1 e2 e0
           (vector-set! v x0 e1)
           (vector-set! v x1 ep)
           (vector-set! v xp e2)
@@ -202,7 +202,7 @@
         (%vector-sort/3! is<? v start))
       ((fx=? n 2)
         (%vector-sort/2! is<? v start))
-      (#t
+      (else
         (void)))))
 
 

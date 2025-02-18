@@ -122,7 +122,7 @@
         (charspan-insert-front! left ch))
       ((fx=? idx (chargbuffer-length gb))
         (charspan-insert-back! right ch))
-      (#t
+      (else
         (chargbuffer-split-at! gb idx)
         (charspan-insert-back! left ch)))))
 
@@ -146,7 +146,7 @@
               (charspan-insert-front/cspan! left csp-src src-start src-end))
             ((fx=? idx (chargbuffer-length gb))
               (charspan-insert-back/cspan! right csp-src src-start src-end))
-            (#t
+            (else
               (chargbuffer-split-at! gb idx)
               (charspan-insert-back/cspan! left csp-src src-start src-end))))))
     ((gb idx csp-src)
@@ -204,7 +204,7 @@
         (let ((tail (fxmin n right-n)))
           (charspan-erase-back! right tail)
           (charspan-erase-back! left (fx- n tail))))
-      (#t
+      (else
         (chargbuffer-split-at! gb end)
         (charspan-erase-back! left n)))))
 

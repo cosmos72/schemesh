@@ -144,7 +144,7 @@
           (integer->char* ret))
         ((eof-object? ch)
           (syntax-errorf ctx (caller-for flavor) "unexpected end-of-file reading string hex escape"))
-        (#t
+        (else
           (syntax-errorf ctx (caller-for flavor) "invalid character ~s in string hex escape" ch))))))
 
 
@@ -265,7 +265,7 @@
         (fx- x 55))
       ((char<=? #\a ch #\f)
         (fx- x 87))
-      (#t
+      (else
         #f))))
 
 (define (%assert-next-char-is-separator ctx flavor label)

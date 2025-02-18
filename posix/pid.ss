@@ -11,7 +11,7 @@
   (import
     (rnrs)
     (only (chezscheme) foreign-procedure format void)
-    (only (schemesh bootstrap)    assert*)
+    (only (schemesh bootstrap)    assert* debugf)
     (schemesh posix fd)
     (only (schemesh conversions)  list->argv)
     (only (schemesh posix signal) signal-name->number signal-raise)
@@ -78,36 +78,55 @@
       (c-pid-wait pid (if (eq? may-block 'blocking) 1 0)))))
 
 
+;; reduced version of (status->kind) copy-pasted from shell/status.ss
+;;
+;; Extract the kind of a status and return it.
+(define (status->kind status)
+  (cond
+    ((eq? (void) status) 'ok)
+    ((pair? status)      (car status))
+    (else                'failed)))
+
+
+(define (status->result status)
+  (cond
+    ((eq? (void) status) 0)
+    ((and (pair? status) (not (null? (cdr status))))
+      (if (eq? 'ok status)
+        0
+        (cadr status)))
+    (else
+      255)))
+
+
 ;; Call C functions kill() or exit() to terminate current process with job-status,
 ;; which can be one of:
 ;;   (void)                       ; will call C function exit(0)
-;;   (cons 'failed  exit-status)  ; will call C function exit(exit_status)
-;;   (cons 'killed  signal-name)  ; will call C function kill(getpid(), signal_number)
+;;   (list 'failed  exit-status)  ; will call C function exit(exit_status)
+;;   (list 'killed  signal-name)  ; will call C function kill(getpid(), signal_number)
 ;;               ; unless signal-name is one of: 'sigstop 'sigtstp 'sigcont 'sigttin 'sigttou
 ;;               ; if kill() returns, will call C function exit(128 + signal_number)
 ;;   ... any other value ... ;  will call C function exit(255)
 (define (exit-with-job-status status)
-  ; (debugf "exit-with-job-status ~s" status)
-  (let ((exit-status
-         (cond
-            ((eq? (void) status) 0)
-            ((and (pair? status) (eq? 'failed (car status))
-                  (fixnum? (cdr status)) (fx=? (cdr status)
-                                               (fxand 255 (cdr status))))
-               (cdr status))
-            (#t 255))))
+  ;; (debugf "exit-with-job-status ~s" status)
+  (let* ((kind   (status->kind status))
+         (result (status->result status)))
     (dynamic-wind
       void       ; before body
       (lambda () ; body
-        (when (and (pair? status) (eq? 'killed (car status)))
-          (let ((signal-name (cdr status)))
-            (unless (memq signal-name '(sigstop sigtstp sigcont
-                                          sigttin sigttou exception))
+        (when (eq? 'killed kind)
+          (let ((signal-name result))
+            (unless (memq signal-name '(sigstop sigtstp sigcont sigttin sigttou))
               (signal-raise signal-name))
             ; process did not die with (signal-raise)
             (let ((signal-number (signal-name->number signal-name)))
               (when (fixnum? signal-number)
-                (set! exit-status (fx+ 128 signal-number)))))))
+                (set! result (fx+ 128 signal-number)))))))
       (lambda () ; after body
-        (c-exit exit-status)))))
+        (c-exit
+          (if (and (fixnum? result) (fx<=? 0 result 255))
+            result
+            255))))))
+
+
 ) ; close library

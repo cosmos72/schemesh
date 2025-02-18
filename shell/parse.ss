@@ -61,7 +61,7 @@
            (cond
              ((eq? 'shell          arg0) 'sh-list)
              ((eq? 'shell-subshell arg0) 'sh-subshell)
-             (#t
+             (else
                (syntax-violation 'sh-parse-datum "syntax error, shell DSL form should start with 'shell or 'shell-subshell, found:"
                  saved-args arg0)))))
     (validate-datum args)
@@ -89,7 +89,7 @@
                   (set! args tail))
                 (set! redirections? #t)
                 (%again))
-              (#t
+              (else
                 (syntax-violation 'sh-parse-datum "syntax error, unknown shell DSL operator:"
                   saved-args arg)))))))
     ; (debugf "<   sh-parse-datum ret = ~s, args = ~s, job-n = ~s, redirections? = ~s, terminators? = ~s" (reverse ret) args job-n redirections? terminators?)
@@ -113,7 +113,7 @@
           (if (eq? 'sh-list ret-prefix)
             ret0
             (cons ret-prefix ret))))
-      (#t
+      (else
        (cons ret-prefix (reverse! (list-quoteq! '(& \x3B;
                                                   ) ret)))))))
 
@@ -147,7 +147,7 @@
       ((redirection-sym? arg0)
         (let-values (((fd dir to) (parse-redirection2 args pair?)))
           (values (list to (list 'quote dir) fd) (cddr args))))
-      (#t
+      (else
         (values '() args))))) ; no redirection found
 
 
@@ -202,8 +202,8 @@
   (if (string? obj)
     (cond
       ((string=? "-" obj) -1)
-      ((string-contains-only-decimal-digits? obj) (string->number obj))
-      (#t obj))
+      ((string-is-unsigned-base10-integer? obj) (string->number obj))
+      (else obj))
     obj))
 
 
@@ -225,13 +225,13 @@
         ((eqv? (car args) '\x7C;\x7C;)
           (set! args  (cdr args))
           (set! done? (null? args)))
-        (#t   (set! done? #t)))) ; unhandled token => exit loop
+        (else (set! done? #t)))) ; unhandled token => exit loop
     ; (debugf "parse-or   return: ret = ~s, args = ~s" (reverse ret) args)
     (values
       (cond
         ((null? ret)       ret)
         ((null? (cdr ret)) (car ret))
-        (#t                (cons 'sh-or (reverse! ret))))
+        (else              (cons 'sh-or (reverse! ret))))
       args)))
 
 
@@ -254,13 +254,13 @@
         ((eqv? (car args) '&&)
           (set! args  (cdr args))
           (set! done? (null? args)))
-        (#t   (set! done? #t)))) ; unhandled token => exit loop
+        (else (set! done? #t)))) ; unhandled token => exit loop
     ; (debugf "parse-and  return: ret = ~s, args = ~s" (reverse ret) args)
     (values
       (cond
         ((null? ret)       ret)
         ((null? (cdr ret)) (car ret))
-        (#t                (cons 'sh-and (reverse! ret))))
+        (else              (cons 'sh-and (reverse! ret))))
       args)))
 
 ;; Parse list containing a sequence of shell commands separated by |
@@ -284,13 +284,13 @@
           (set! ret (cons (car args) ret))
           (set! args (cdr args))
           (set! done? (null? args)))
-        (#t   (set! done? #t)))) ; unhandled token => exit loop
+        (else (set! done? #t)))) ; unhandled token => exit loop
     ; (debugf "parse-pipe  return: ret = ~s, args = ~s" (reverse ret) args)
     (values
       (cond
         ((null? ret) ret)
         ((null? (cdr ret)) (car ret))
-        (#t (cons 'sh-pipe* (reverse! (list-quoteq! '(\x7C; \x7C;&
+        (else (cons 'sh-pipe* (reverse! (list-quoteq! '(\x7C; \x7C;&
                                                       ) ret)))))
       args)))
 
@@ -310,7 +310,7 @@
       (negate?
         (let-values (((parsed tail) (parse-cmd args)))
           (values (list 'sh-not parsed) tail)))
-      (#t
+      (else
         (parse-cmd args)))))
 
 
@@ -351,11 +351,11 @@
                 (let-values (((fd dir to) (parse-redirection2 args pair?)))
                   (set! ret (cons to (cons (list 'quote dir) (cons fd ret))))
                   (set! args (cddr args))))
-              (#t
+              (else
                 (set! ret (cons (if (symbol? arg) (list 'quote arg) arg)
                                 ret))
                 (set! args (cdr args)))))
-          (#t
+          (else
             (syntax-violation 'sh-parse
               "syntax error, shell DSL atom must be a string, fixnum, pair, = or redirection operator, found:"
               saved-args arg)))))
@@ -439,7 +439,7 @@
           (%again (cdddr args) rets assignments (cons (list fd dir to) redirections))))
       ((eq? (void) (car args))
         (%again (cdr args) rets assignments redirections))
-      (#t
+      (else
         (raise-errorf 'sh-cmd* "expecting assignment, argument or redirection, found: ~s" args)))))
 
 
@@ -491,7 +491,7 @@
             ; modify last job in-place
             (sh-redirect! (car jobs) fd dir to)
             (%again jobs (cdddr args))))
-        (#t
+        (else
           (raise-errorf 'sh-list* "expecting job, redirection or ; &, found:"
             arg children-jobs-with-redirections-colon-ampersand))))))
 

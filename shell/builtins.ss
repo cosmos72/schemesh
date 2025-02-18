@@ -7,7 +7,7 @@
 
 (library (schemesh shell builtins (0 7 5))
   (export sh-builtins sh-builtins-help sh-find-builtin sh-exception-handler
-          sh-echo sh-false sh-help sh-history sh-repl-args sh-repl-args-linectx sh-expr sh-true)
+          sh-echo sh-false sh-help sh-history sh-repl-args sh-repl-args-linectx sh-true)
   (import
     (rnrs)
     (only (chezscheme)        console-error-port debug debug-condition debug-on-exception
@@ -20,7 +20,7 @@
     (only (schemesh containers misc)      list-iterate)
     (only (schemesh containers sort)      vector-sort*!)
     (only (schemesh containers span)      span span-insert-back! span-iterate vector->span*)
-    (only (schemesh containers string)    assert-string-list? string-contains-only-decimal-digits?)
+    (only (schemesh containers string)    assert-string-list? string-is-unsigned-base10-integer?)
     (schemesh containers utf8b utils)
     (only (schemesh posix fd)             fd-write)
     (schemesh lineedit charhistory)
@@ -119,9 +119,9 @@
   (void))
 
 
-;; implementation of "false" builtin, always exits with failure exit status '(failed . 1)
+;; implementation of "false" builtin, always exits with failure exit status '(failed 1)
 (define (sh-false . ignored-args)
-  '(failed . 1))
+  '(failed 1))
 
 
 ;; implementation of "help" builtin, display general help or help for specified builtin.
@@ -165,7 +165,7 @@ The following names are recognized as builtins:\n\n")
             (bytespan-insert-back/string! wbuf name)
             (bytespan-insert-back/string! wbuf "'. Try 'help' or 'help help'.\n")
             (fd-write/bspan! (sh-fd-stdout) wbuf)
-            '(failed . 1)))))))
+            '(failed 1)))))))
 
 
 
@@ -193,29 +193,7 @@ The following names are recognized as builtins:\n\n")
                   (fd-write/bspan! fd wbuf))))
             (fd-write/bspan! fd wbuf)
             (void)) ; return (void), means builtin finished successfully
-          '(failed . 1))))))
-
-
-;; implementation of "expr" builtin, exits with user-specified exit status
-(define (sh-expr . args)
-  ; (debugf "sh-expr ~s" args)
-  (if (pair? args)
-    (let ((arg (car args)))
-      (cond
-        ((integer? arg)
-          (if (fxzero? arg)
-            (void) ; '(failed . 0) is always abbreviated to (void)
-            (cons 'failed arg)))
-        ((and (string? arg) (string-contains-only-decimal-digits? arg))
-          (let ((num (string->number arg)))
-            (if (zero? num)
-              (void) ; '(failed . 0) is always abbreviated to (void)
-              (cons 'failed num))))
-        ((and (pair? arg) (symbol? (car arg)) (or (integer? (cdr arg)) (symbol? (cdr arg))))
-          arg)
-        (#t
-          '(failed . 1))))
-    '(failed . 1)))
+          '(failed 1))))))
 
 
 ;; implementation of "true" builtin, always exits successfully i.e. with exit status (void)
@@ -241,7 +219,7 @@ The following names are recognized as builtins:\n\n")
   (apply sh-echo0 (cdr prog-and-args)))
 
 
-;; the "false" builtin: return '(failed . 1)
+;; the "false" builtin: return '(failed 1)
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-false job prog-and-args options)
@@ -265,15 +243,6 @@ The following names are recognized as builtins:\n\n")
 (define (builtin-history job prog-and-args options)
   (assert-string-list? 'builtin-history prog-and-args)
   (sh-history))
-
-
-;; the "expr" builtin: return specified exit status,
-;; which must be a non-empty string containing only decimal digits.
-;;
-;; As all builtins do, must return job status.
-(define (builtin-expr job prog-and-args options)
-  (assert-string-list? 'builtin-expr prog-and-args)
-  (apply sh-expr (cdr prog-and-args)))
 
 
 ;; the "true" builtin: return (void)
@@ -306,7 +275,6 @@ The following names are recognized as builtins:\n\n")
     (hashtable-set! t ":"       builtin-true)
     (hashtable-set! t "echo"    builtin-echo)
     (hashtable-set! t "echo0"   builtin-echo0)
-    (hashtable-set! t "expr"    builtin-expr)
     (hashtable-set! t "false"   builtin-false)
     (hashtable-set! t "help"    builtin-help)
     (hashtable-set! t "history" builtin-history)
@@ -354,14 +322,8 @@ is usually available at <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html#
 
     return success.\n"))
 
-    (hashtable-set! t "expr"   (string->utf8 " [int ...]
-    return INT value specified as first argument, or failure i.e. '(failed . 1) if no arguments.
-
-    Usually invoked with a (lambda () (sh-bool ...)) as its only argument,
-    for running arbitrary Scheme code from a shell job.\n"))
-
     (hashtable-set! t "false"   (string->utf8 " [arg ...]
-    ignore arguments. return failure i.e. '(failed . 1).\n"))
+    ignore arguments. return failure i.e. '(failed 1).\n"))
 
     (hashtable-set! t "help"    (string->utf8 " [name]
     display available builtins, or help about builtin NAME.

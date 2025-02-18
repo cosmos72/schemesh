@@ -169,7 +169,7 @@
                 (set! ret forms))
              ((eq? 'eof end-type)
                (set! ret (append! (if reverse? (reverse! ret) ret) forms)))
-             (#t
+             (else
                (set! ret (append! (if reverse? (reverse! ret) ret) (list forms)))))
            ; (debugf "... parse-lisp-forms < %merge! ret=~s" ret)
            (set! reverse? #f))))
@@ -434,7 +434,7 @@
            (and (skip-lisp-double-quotes ctx) #\"))
         ((eqv? token #\|)               ; parse |identifier|
            (and (parsectx-skip-until-char ctx #\|) #\|))
-        (#t                             ; parse #| block comment |#
+        (else                           ; parse #| block comment |#
            (and (skip-lisp-block-comment ctx flavor paren) #\#))))
     paren))
 

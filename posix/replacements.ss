@@ -43,7 +43,7 @@
         (cond
           ((eq? (void) err) #t)
           (error?           (%raise-io-filename-error 'delete-file path err))
-          (#t               #f))))
+          (else             #f))))
     ((path)
       (delete-file path #f))))
 
@@ -68,7 +68,7 @@
         (cond
           ((eq? (void) err) #t)
           (error?           (%raise-io-filename-error 'delete-directory path err))
-          (#t               #f))))
+          (else             #f))))
     ((path)
       (delete-directory path #f))))
 

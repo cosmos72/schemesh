@@ -85,7 +85,7 @@
       ((eqv? ch #\newline)
         ; backslash followed by newline -> ignore both
         #f)
-      (#t ch))))
+      (else ch))))
 
 
 ;; Read a subword starting with ${
@@ -124,7 +124,7 @@
                (char<=? #\a ch #\z)
                (char=?  #\_ ch))
             (charspan-insert-back! csp ch))
-          (#t
+          (else
             (set! again? #f)
             (parsectx-unread-char ctx ch)))))
     (list 'shell-env (charspan->string csp))))
@@ -178,12 +178,12 @@
             (parsectx-unread-char ctx ch)
             (set! again? #f))
           ((backslash)
-            ; read next char, suppressing any special meaning it may have
+            ;; read next char, suppressing any special meaning it may have
             (let ((ch-i (read-char-after-backslash ctx csp)))
               (when ch-i (charspan-insert-back! csp ch-i))))
           (else
-            ; single quote, newline, semicolon, operators and parentheses
-            ; have no special meaning inside dquotes
+            ;; single quote, newline, semicolon, operators and parentheses
+            ;; have no special meaning inside dquotes
             (charspan-insert-back! csp ch)))))
     (charspan->string csp)))
 
@@ -212,14 +212,14 @@
             (set! ret (cons (read-unescape-until-rbrack ctx) (cons word ret))))
           (word
             (set! ret (cons word ret)))
-          (#t
+          (else
             (set! again? #f)))))
     ; (debugf "<   read-subwords-noquote ret=~s splice?=~s" (reverse ret) splice?)
     (cond
       (splice?            (values ret 'rsplice))
       ((null? ret)        (values "" 'atom))
       ((%is-literal? ret) (values (car ret) 'atom))
-      (#t                 (values (cons 'shell-wildcard (reverse! ret)) 'atom)))))
+      (else               (values (cons 'shell-wildcard (reverse! ret)) 'atom)))))
 
 
 ;; return #t if list l contains a single element that is not a wildcard
@@ -270,12 +270,12 @@
                 ((eqv? #\! (parsectx-peek-char ctx))
                   (parsectx-read-char ctx)
                   (set! word '%!))
-                (#t
+                (else
                   (set! word '%)))
               ; return word before [
               (parsectx-unread-char ctx ch))
             (set! again? #f))
-          (#t
+          (else
             ; treat anything else as delimiter.
             ; This means in our shell parser the characters ( ) [ ] { } retain their meaning
             ;; when found inside an unquoted string.
@@ -293,7 +293,7 @@
         word)
       ((charspan-empty? word)
         #f)
-      (#t
+      (else
         (charspan->string word)))))
 
 
@@ -314,6 +314,6 @@
             (let ((ch2 (parsectx-read-char ctx)))
               (when (char? ch2)
                 (charspan-insert-back! word ch2))))
-          (#t
+          (else
             (charspan-insert-back! word ch)))))
     (charspan->string word)))

@@ -22,10 +22,17 @@
 
 (define c-errno-einval ((foreign-procedure "c_errno_einval" () int)))
 
-;; return #t if return-status is (void), which indicates success,
+;; return #t if return-status is either (void) or '(ok ...), that indicate success.
 ;; otherwise return #f
 (define (ok? return-status)
-  (eq? return-status (void)))
+  (cond
+    ((eq? return-status (void))
+      #t)
+    ((and (pair? return-status)
+          (eq? 'ok (car return-status)))
+      #t)
+    (else
+      #f)))
 
 
 (define (%find-and-convert-fixnum-option caller options key default)
@@ -68,7 +75,7 @@
             (void))
           ((memq 'catch options)
             (if (fixnum? err) err c-errno-einval))
-          (#t
+          (else
             (raise-c-errno 'mkdir 'mkdir err dirpath)))))))
 
 
@@ -97,7 +104,7 @@
             (void))
           ((memq 'catch options)
             (if (fixnum? err) err c-errno-einval))
-          (#t
+          (else
             (raise-c-errno 'file-delete 'remove err path)))))))
 
 
@@ -128,7 +135,7 @@
             (void))
           ((memq 'catch options)
             (if (fixnum? err) err c-errno-einval))
-          (#t
+          (else
             (raise-c-errno 'file-rename 'rename err old-path new-path)))))))
 
 
@@ -162,7 +169,7 @@
             #f)
           ((memq 'catch options)
             (if (fixnum? ret) ret c-errno-einval))
-          (#t
+          (else
             (raise-c-errno 'file-type (if symlinks? 'lstat 'stat) ret path)))))))
 
 
@@ -210,7 +217,7 @@
             ret)
           ((memq 'catch options)
             '())
-          (#t
+          (else
             (raise-c-errno 'directory-list-type 'opendir ret dirpath)))))))
 
 
@@ -278,7 +285,7 @@
           ((and (pair? elem) (bytevector? (car elem)))
             (lambda (entry1 entry2)
               (bytevector<? (car entry1) (car entry2))))
-          (#t
+          (else
             (raise-assertf 'directory-sort! "expecting a list of string, bytevectors, or pairs (key . value)\
               where all keys are bytevector or string, found list element ~s"
               elem))))

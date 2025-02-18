@@ -86,7 +86,7 @@
         ((or stem-is-first-word? (%stem-is-after-shell-separator? (linectx-vscreen lctx) x y))
           ; list builtins, aliases and programs in $PATH
           (%list-shell-commands lctx (charspan->string stem) completions))
-        (#t ; list contents of current directory
+        (else ; list contents of current directory
           (%list-directory "." (charspan->string stem) #f completions))))))
 
 
@@ -125,7 +125,7 @@
           ((char-is-start-pred ch) ; found $ or some other char that starts the identifier, insert it and exit
              (charspan-insert-front! stem ch)
              (values #f x y))
-          (#t ; found a non-identifier char, could be a blank
+          (else ; found a non-identifier char, could be a blank
             (let %vscreen-contains-only-blanks-before-xy? ((screen screen) (x x) (y y))
               (let-values (((x1 y1 ch) (%vscreen-char-before-xy screen x y)))
                 (cond
@@ -133,7 +133,7 @@
                     (values #t x y))
                   ((char>? ch #\space) ; found another word before stem
                     (values #f x y))
-                  (#t ; iterate
+                  (else ; iterate
                     (%vscreen-contains-only-blanks-before-xy? screen x1 y1)))))))))))
 
 
@@ -170,7 +170,7 @@
       ((memv ch '(#\; #\newline #\! #\& #\|)) #t)
       ((char<=? ch #\space)
         (%stem-is-after-shell-separator? screen x1 y1))
-      (#t #f))))
+      (else #f))))
 
 
 (define (%list-directory dir prefix slash? completions)

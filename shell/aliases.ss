@@ -92,7 +92,7 @@
      (show-aliases))
    ((null? (cddr prog-and-args))
      (show-alias (cadr prog-and-args)))
-   (#t
+   (else
      (sh-alias-set! (cadr prog-and-args) (cddr prog-and-args))
      (void))))
 
@@ -144,7 +144,7 @@
         (show-alias* name alias wbuf)
         (fd-write/bspan! (sh-fd-stdout) wbuf)
         (void)                                           ; success, return (void)
-      (write-builtin-error "alias" name "not found"))))) ; error, return '(failed . 1)
+      (write-builtin-error "alias" name "not found"))))) ; error, return '(failed 1)
 
 
 (define (show-alias* name alias wbuf)
@@ -162,6 +162,6 @@
               (bytespan-insert-back/string! wbuf elem)
               (bytespan-insert-back/u8! wbuf 39))   ; #\'
             (bytespan-insert-back/string! wbuf  elem " #<bad-value>")))))
-    (#t
+    (else
       (bytespan-insert-back/string! wbuf " #<bad-value>")))
   (bytespan-insert-back/u8! wbuf 10)) ; #\newline

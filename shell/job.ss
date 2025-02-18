@@ -38,7 +38,7 @@
     ;; job.ss
     sh-consume-sigchld sh-cwd
     sh-job sh-job-id sh-job-status sh-jobs sh-find-job sh-job-exception
-    sh-start sh-start* sh-bg sh-fg sh-wait sh-run sh-run/i sh-run/err? sh-run/ok? sh-ok?
+    sh-start sh-start* sh-bg sh-fg sh-wait sh-run sh-run/i sh-run/err? sh-run/ok?
 
     ;; multijob.ss
     sh-and sh-or sh-not sh-list sh-subshell
@@ -60,8 +60,16 @@
     ;; pipe.ss
     sh-pipe sh-pipe*
 
+    ;;;;;;;;;;;;; DEBUGGING ;;;;;;;;;;;;;;;;
+    job-started? job-finished? job-last-status
+    status-started? status-finished? status->kind status->result status->results
+
+    ;; status.ss
+    sh-ok?
+
     ;; types.ss
     sh-cmd? sh-job? sh-job-copy sh-multijob?
+
     ;; wildcard
     sh-wildcard sh-wildcard* sh-wildcard/apply sh-wildcard/expand-tilde sh-wildcard->string
     sh-wildcard->sh-patterns sh-patterns/expand
@@ -82,6 +90,7 @@
     (schemesh posix pattern)
     (schemesh posix pid)
     (schemesh posix signal)
+    (only (schemesh posix tty) tty-inspect)
     (only (schemesh lineedit charhistory) charhistory-path-set!)
     (only (schemesh lineedit linectx) linectx? linectx-history linectx-save-history)
     (only (schemesh lineedit lineedit) lineedit-flush lineedit-undraw)
@@ -91,115 +100,28 @@
     (schemesh shell paths))
 
 
-;; define the record types "job" "cmd" "multijob" and their accessors
+;; record types "job" "cmd" "multijob" and their accessors
 (include "shell/types.ss")
 
+;; functions to operate on job status
+(include "shell/status.ss")
 
 
 
-;; return #t if job-status is (void), i.e. if job failed with exit status 0,
-;; otherwise return #f
-;;
-;; intentionally identical to function (ok?) exported by library (schemesh posix)
-(define (sh-ok? job-status)
-  (eq? job-status (void)))
-
-
-;; Convert a job-status to one of: 'new 'running 'stopped 'failed 'killed 'unknown
-(define (job-status->kind job-status)
-  ;; job-status is either (void) or a pair
-  (cond
-    ((eq? (void) job-status)  'failed)
-    ((pair? job-status)       (car job-status))
-    (#t                       'unknown)))
-
-;; Convert job's last-status to one of: 'new 'running 'stopped 'failed 'killed 'unknown
-(define (job-last-status->kind job)
-  (job-status->kind (job-last-status job)))
-
-
-;; Return  if job-status is a pair whose car is in allowed-list,
-;; otherwise return #f;
-;;
-;; if job-status is (void) and allowed-list also contains 'failed
-;; then return truish because (void) is a shortcut for '(failed . 0)
-(define (job-status-member? job-status allowed-list)
-  (memq (job-status->kind job-status) allowed-list))
-
-;; Return truish if job-status is started, otherwise return #f
-(define (job-status-started? job-status)
-  (job-status-member? job-status '(running stopped)))
-
-;; Return truish if job-status is finished, otherwise return #f
-(define (job-status-finished? job-status)
-  (job-status-member? job-status '(failed killed unknown)))
-
-;; Return truish if old-status and new-status have different
-;; otherwise return #f
-(define (job-status-changed? old-status new-status)
-  (not (eq? (job-status->kind old-status)
-            (job-status->kind new-status))))
-
-;; Return truish if (job-last-status job) is a pair whose car is in allowed-list,
-;; otherwise return #f;
-;;
-;; if (job-last-status job) is (void) and allowed-list also contains 'failed
-;; then return truish because (void) is a shortcut for '(failed . 0)
-(define (job-has-status? job allowed-list)
-  (job-status-member? (job-last-status job) allowed-list))
-
-;; Return truish if job was already started, otherwise return #f
-(define (job-started? job)
-  (job-status-started? (job-last-status job)))
-
-;; Return truish if job has already finished, otherwise return #f
-(define (job-finished? job)
-  (job-status-finished? (job-last-status job)))
-
-
-
-
-;; Return truish if job-status represents a child job status
-;; that causes a parent multijob to stop or end, i.e. one of:
-;; '(unknown . *)
-;; '(stopped . *)
-;; '(killed  . sigint)
-;; '(killed  . sigquit)
-;; '(killed  . exception)
-;;
-(define (job-status-stops-or-ends-multijob? job-status)
-  (let ((kind (job-status->kind job-status)))
-    (or (memq kind '(unknown stopped))
-        (and (eq? kind 'killed)
-             (memq (cdr job-status) '(sigint sigquit exception))))))
-
-
-;; Return truish if job-status represents a child job status
-;; that causes a parent multijob to end, i.e. one of:
-;; '(unknown . *)
-;; '(killed  . sigint)
-;; '(killed  . sigquit)
-;; '(killed  . exception)
-;;
-(define (job-status-ends-multijob? job-status)
-  (let ((kind (job-status->kind job-status)))
-    (or (eq? kind 'unknown)
-        (and (eq? kind 'killed)
-             (memq (cdr job-status) '(sigint sigquit exception))))))
 
 
 ;; set the status of a job and return it.
 ;; if specified status indicates that job finished,
-;;   i.e. (job-status->kind status) is one of 'failed 'killed 'unknown,
+;;   i.e. (status-finished? status) returns true
 ;;   also close the job fds that need to be closed.
-(define (job-status-set! caller job status)
-  ;a (debugf "job-status-set! caller=~s job=~s status=~s" caller job status)
-  (let ((status (job-status-normalize status)))
-    (if (job-status-member? status '(running))
+(define (job-status-set! caller job new-status)
+  (let ((status (status-normalize new-status)))
+    ;; (debugf "job-status-set! caller=~s job=~a status=~s normalized-status=~s" caller (sh-job->string job) new-status status)
+    (if (status-running? status)
       (job-status-set/running! job)
       (begin
         (%job-last-status-set! job status)
-        (when (job-status-finished? status)
+        (when (status-finished? status)
           (when (sh-cmd? job)
             ; unset expanded arg-list, because next expansion may differ
             (cmd-expanded-arg-list-set! job #f))
@@ -210,25 +132,16 @@
         status))))
 
 
-;; normalize job status, converting unexpected status values to '(unknown . 0)
-(define (job-status-normalize status)
-  (cond
-    ((eq? (void) status)
-      status)
-    ((and (pair? status) (memq (car status) '(new running stopped failed killed unknown)))
-      status)
-    (#t
-      '(unknown . 0))))
-
-
 (define (job-status-set/running! job)
   (let* ((id     (job-id job))
          (status (job-last-status job))
-         (kind   (job-status->kind status))
-         (old-id (if (pair? status) (cdr status) #f)))
+         (kind   (status->kind status))
+         (old-id (if (and (pair? status) (not (null? (cdr status))))
+                   (cadr status)
+                   #f)))
     (if (and (eq? 'running status) (eqv? id old-id))
       status
-      (let ((new-status (cons 'running id)))
+      (let ((new-status (list 'running id)))
         (%job-last-status-set! job new-status)
         new-status))))
 
@@ -252,17 +165,17 @@
 
 
 ;; If job has no job-id, assign a job-id to it, by appending it to (multijob-children (sh-globals)).
-;; If job status is '(running . #f) update it to '(running . job-id)
+;; If job status is '(running #f) update it to '(running job-id)
 ;; Return updated job status
 (define (job-id-set! job)
   (assert* 'job-id-set! (sh-job? job))
   (let* ((old-id (job-id job))
          (id     (or old-id (%job-id-assign! job)))
          (status (job-last-status job))
-         (kind   (job-status->kind status)))
-    (when (and (eq? kind 'running) (not (eqv? id (cdr status))))
-      ;; replace job status '(running . #f) -> '(running . job-id)
-      (job-status-set! 'job-id-set! job (cons 'running id)))
+         (kind   (status->kind status)))
+    (when (and (eq? kind 'running) (or (null? (cdr status)) (not (eqv? id (cadr status)))))
+      ;; replace job status '(running #f) -> '(running job-id)
+      (job-status-set! 'job-id-set! job (list 'running id)))
     (unless (eqv? id old-id)
       (sh-job-display-summary job)))
   (job-last-status job))
@@ -284,7 +197,7 @@
 
 ;; if job is running or stopped, then create a new job-id for it.
 ;; if job has terminated, clear its job id and close its fds.
-;; Also replace any job status '(running . #f) -> '(running . job-id)
+;; Also replace any job status '(running #f) -> '(running job-id)
 ;; Return updated job status.
 ;;
 ;; Note: does not create job-id for children of (sh-pipe) jobs.
@@ -296,10 +209,10 @@
       ;; the parent (sh-pipe) job always starts/stops all of them collectively.
       ;; thus assigning a job-id to such children usually just adds noise.
       (job-id-unset! job)
-      (case (job-status->kind status)
+      (case (status->kind status)
         ((running stopped)
           (job-id-set! job))
-        ((failed killed unknown)
+        ((ok exception failed killed)
           (job-id-unset! job))
         (else
           status)))))
@@ -325,7 +238,7 @@
            #f)))
     ((sh-job? job-or-id)
       job-or-id)
-    (#t
+    (else
       #f)))
 
 
@@ -348,7 +261,7 @@
           (raise-errorf 'sh-job "job not found: ~s" job-or-id))
         job))
     ((sh-job? job-or-id) job-or-id)
-    (#t (raise-errorf 'sh-job "not a job-id: ~s" job-or-id))))
+    (else (raise-errorf 'sh-job "not a job-id: ~s" job-or-id))))
 
 
 ;; return currently running jobs
@@ -503,7 +416,7 @@
             (bytespan-insert-back/bvector! bspan bvec)
             (bytespan->bytevector bspan))
           bvec)))
-    (#t
+    (else
       (raise-assert1 'job-remap-fds
         "(or (fixnum? path-or-fd) (string? path-or-fd) (bytevector? path-or-fd))"
         path-or-fd))))
@@ -554,219 +467,9 @@
 (include "shell/builtins2.ss")
 (include "shell/aliases.ss")
 (include "shell/wildcard.ss")
-(include "shell/display.ss") ; must be last one, contains (record-writer ...)
+(include "shell/display.ss") ; must be next-to-last one, contains (record-writer ...)
 
+(include "shell/init.ss")    ; must be last one, contains expressions
 
-
-(begin
-  (sh-fd-allocate) ; mark highest fd as reserved: used by tty_fd
-
-  ;; set the parameter (sh-globals) to the global job.
-  ;; Jobs started with (sh-start) will be children of sh-globals.
-  ;;
-  ;; If it's already set, does not modify it.
-  ;;
-  ;; May be parameterized to a different value in subshells.
-  (unless (sh-globals)
-    (sh-globals
-      ;; assign job-id 0 to sh-globals itself.
-      ;;
-      ;; waiting for sh-globals to exit is not useful:
-      ;; pretend it already finished with unknown exit status
-      (%make-multijob
-         0 (pid-get) (pgid-get 0)  ; id pid pgid
-         '(unknown . 0) #f         ; last-status exception
-         (span) 0 #f               ; redirections
-         #f #f                     ; start-proc step-proc
-         (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) #f ; current directory, old working directory
-         (make-hashtable string-hash string=?) ; env variables
-         #f                        ; no env var assignments
-         #f #f                     ; no temp parent, no default parent
-         '\x23;<global> -1 (span #t)))) ; skip job-id 0, is used by (sh-globals) itself
-
-  (c-environ->sh-global-env)
-
-  (let ((bt (sh-builtins))
-        (ft (builtins-that-finish-immediately)))
-
-    ; additional builtins
-    (hashtable-set! bt "alias"      builtin-alias)
-    (hashtable-set! bt "bg"         builtin-bg)
-    (hashtable-set! bt "builtin"    builtin-builtin)
-    (hashtable-set! bt "cd"         builtin-cd)
-    (hashtable-set! bt "cd-"        builtin-cd-)
-    (hashtable-set! bt "command"    builtin-command)
-    (hashtable-set! bt "exec"       builtin-exec)
-    (hashtable-set! bt "exit"       builtin-exit)
-    (hashtable-set! bt "export"     builtin-export)
-    (hashtable-set! bt "fg"         builtin-fg)
-    (hashtable-set! bt "global"     builtin-global)
-    (hashtable-set! bt "jobs"       builtin-jobs)
-    (hashtable-set! bt "parent"     builtin-parent)
-    (hashtable-set! bt "pwd"        builtin-pwd)
-    (hashtable-set! bt "set"        builtin-set)
-    (hashtable-set! bt "split-at-0" builtin-split-at-0)
-    (hashtable-set! bt "unalias"    builtin-unalias)
-    (hashtable-set! bt "unexport"   builtin-unexport)
-    (hashtable-set! bt "unsafe"     builtin-unsafe)
-    (hashtable-set! bt "unset"      builtin-unset)
-
-    ;; mark builtins that finish immediately i.e. cannot run commands or aliases
-    (list-iterate '("alias" "cd" "cd-" "echo" "echo0" "exit" "expr" "false"
-                    "jobs" "history" "pwd" "set" "true" "unalias" "unset")
-      (lambda (name)
-        (let ((builtin (hashtable-ref bt name #f)))
-          (when builtin
-            (hashtable-set! ft builtin #t))))))
-
-
-  (let ((t (sh-builtins-help)))
-
-    (hashtable-set! t "alias"   (string->utf8 " [name [expansion ...]]
-    define or display aliases.
-
-    without arguments,          'alias' writes the list of defined aliases to standard output.
-    with a single argument,     'alias NAME' writes the definition of alias NAME to standard output.
-    with two or more arguments, 'alias NAME EXPANSION ...' defines an alias NAME such that,
-                                 when NAME ARGS ... executed, it is substituted with EXPANSION ... ARGS ...
-
-    return success, unless 'alias NAME' is executed and no such alias is defined.\n"))
-
-    (hashtable-set! t "bg"      (string->utf8 " job-id
-    move a job to the background.
-
-    return success if job-id was found, otherwise return failure.\n"))
-
-    (hashtable-set! t "builtin" (string->utf8 " [builtin-name [arg ...]]
-    execute a builtin with specified arguments.
-
-    useful if BUILTIN-NAME has been shadowed by an alias with the same name.
-
-    return exit status of executed builtin, or failure if no such builtin was found.\n"))
-
-    (hashtable-set! t "cd"      (string->utf8 " [dir]
-    change the current directory of parent job.
-
-    without arguments, 'cd' sets the current directory of parent job
-                       to the value of its HOME environment variable.
-    with one argument, 'cd DIR' sets the current directory of parent job to DIR.
-
-    return success if the directory is successfully changed, otherwise raises an exception.\n"))
-
-    (hashtable-set! t "cd-"      (string->utf8 "
-    change the current directory of parent job, setting it to previous working directory.
-
-    return success if the directory is successfully changed, otherwise raises an exception.\n"))
-
-    (hashtable-set! t "command" (string->utf8 " [command-name [arg ...]]
-    execute a command with specified arguments.
-
-    useful if COMMAND-NAME has been shadowed by an alias or by a builtin with the same name.
-
-    return exit status of executed command, or failure if no such command was found.\n"))
-
-    (hashtable-set! t "exec" (string->utf8 " [cmd [arg ...]]
-    replace the current shell with the command CMD ARG ...
-
-    if CMD ARG ... are not specified, any redirections take effect in the current shell.
-
-    if CMD is not specified, return success.
-    if CMD is specified, on success does not return. On failure, returns failure error code.\n"))
-
-    (hashtable-set! t "exit" (string->utf8 " [int ...]
-    exit the shell with C exit status INT, or 0 if not specified.
-
-    does not return.\n"))
-
-    (hashtable-set! t "export" (string->utf8 " [var ...]
-    show or export environment variables
-
-    without arguments,          'export' writes all exported environment variables
-                                 of parent job to standard output.
-    with one or more arguments, 'export VAR ...' marks specified environment variables
-                                 as exported in parent job.
-
-    return success.\n"))
-
-    (hashtable-set! t "fg"      (string->utf8 " job-id
-    move a job to the foreground.
-
-    return success if job-id was found, otherwise return failure.\n"))
-
-    (hashtable-set! t "global"     (string->utf8 " [builtin-name [arg ...]]
-    execute a builtin with its parent temporarily set to the shell itself.
-
-    useful mostly for builtins 'cd' 'export' 'set' 'pwd' 'unexport' 'unset'
-    that show or alter the current directory or the environment variables of their parent job.
-
-    return exit status of executed builtin, or failure if no such builtin was found.\n"))
-
-    (hashtable-set! t "jobs"       (string->utf8 " [arg ...]
-    ignore arguments. write jobs and their status to standard output.
-
-    return success.\n"))
-
-    (hashtable-set! t "parent"     (string->utf8 " [builtin-name [arg ...]]
-    execute a builtin with its parent temporarily set to its grandparent.
-    if used multiple times, as for example \"parent parent cd ..\", the effects are cumulative.
-
-    useful mostly for builtins 'cd' 'export' 'set' 'pwd' 'unexport' 'unset'
-    that show or alter the current directory or the environment variables of their parent job.
-
-    return exit status of executed builtin, or failure if no such builtin was found.\n"))
-
-    (hashtable-set! t "pwd"        (string->utf8 " [job-id]
-    write the current directory of specified job to standard output.
-    if job is not specified, defaults to parent job.
-
-    return success if job-id was found or not specified, otherwise return failure.\n"))
-
-    (hashtable-set! t "set"        (string->utf8 " [var [value]]'
-    show or set environment variables of parent job.
-
-    without arguments,  'set' writes all exported and private environment variables
-                                 of parent job to standard output.
-    with one argument,  'set VAR' writes specified environment variable of parent job
-                                 to standard output.
-    with two arguments, 'set VAR VALUE' sets specified environment variable of parent job.
-
-    return success, unless 'set VAR' is executed and no such variable is found.\n"))
-
-    (hashtable-set! t "split-at-0" (string->utf8 " alias-or-builtin-or-cmd [arg ...]
-    split each ARG ... after each NUL character i.e. Unicode codepoint U+0000,
-    and execute the specified alias, builtin or command
-    with arguments set to the result of such splitting.
-
-    useful to pass as arguments the NUL-terminated filenames produced by another command,
-    as for example 'split-at-0 editor $(find -name \\*.txt -print0)'
-
-    return exit status of executed alias, builtin or command.\n"))
-
-    (hashtable-set! t "unalias"    (string->utf8 " [name ...]
-    remove each NAME ... from the list of defined aliases.
-
-    return success.\n"))
-
-    (hashtable-set! t "unexport"   (string->utf8 " [var ...]
-    mark each VAR ... environment variable as private in parent job.
-
-    return success.\n"))
-
-    (hashtable-set! t "unsafe"     (string->utf8 " [alias-or-builtin-or-cmd [arg ...]]
-    execute the specified alias, builtin or command.
-
-    this builtin is only needed when ALIAS-OR-BUILTIN-OR-CMD is a non-constant expression,
-    as for example a wildcard or the value of an environment variable.
-
-    return exit status of executed alias, builtin or command.\n"))
-
-    (hashtable-set! t "unset"      (string->utf8 " [var ...]
-    remove each VAR ... environment variable from parent job.
-
-    return success.\n"))
-
-  )
-
-) ; close begin
 
 ) ; close library

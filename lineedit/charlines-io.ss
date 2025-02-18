@@ -83,7 +83,7 @@
         (iport-x-set! p 0)
         (iport-y-set! p (fx1+ y))
         (iport-read-char p))
-      (#t #f)))) ; end-of-file reached
+      (else #f)))) ; end-of-file reached
 
 (define (iport-read-string p str start n)
   (assert* 'iport-read-string (fx>=? start 0))

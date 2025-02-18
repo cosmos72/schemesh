@@ -95,7 +95,7 @@
       (job-cwd-set! job dir)
       (raise-errorf 'cd "~s: ~a"
         (if (string? path) path (charspan->string path))
-        (c-errno->string c-err))))) ; returns '(failed . 1)
+        (c-errno->string c-err))))) ; returns '(failed 1)
 
 
 ;; internal function called by (sh-cd) -> (job-cd)
@@ -118,7 +118,7 @@
               c-errno-enotdir)
             ((and (fixnum? ret) (fx<? ret 0))
               ret)  ; some C error
-            (#t            ; no such file or directory, or some other error
+            (else          ; no such file or directory, or some other error
               c-errno-enoent)))))))
 
 
@@ -202,7 +202,7 @@
 ;; or contains characters that are not decimal digits.
 (define (string->integer-or-false str)
   (and (string? str)
-       (string-contains-only-decimal-digits? str)
+       (string-is-unsigned-base10-integer? str)
        (string->number str)))
 
 

@@ -53,7 +53,7 @@
       (put-string (console-error-port)
         "; error: parameter sh-job-control-available? is #f, cannot be changed anymore\n")
       old-flag)
-    (#t
+    (else
       ; disabling (sh-job-control-available?) -> also disable (sh-job-control?)
       (sh-job-control? #f)
       new-flag)))
@@ -108,7 +108,7 @@
                    (pid-get) err (c-errno->string err))))
           ; set job-control to inactive even if c_job_control_change() failed
           new-flag)
-        (#t ; should not happen
+        (else ; should not happen
           new-flag)))))
 
 

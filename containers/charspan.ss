@@ -250,7 +250,7 @@
           (string-copy! str (charspan-beg sp) str new-beg old-len)
           (charspan-beg-set! sp new-beg)
           (charspan-end-set! sp cap)))
-      (#t
+      (else
        ; string is too small, reallocate it
        (let ((new-cap (fxmax 8 len (fx* 2 cap-front))))
          (charspan-reallocate-front! sp (charspan-length sp) new-cap))))))
@@ -271,7 +271,7 @@
           (string-copy! str (charspan-beg sp) str 0 len)
           (charspan-beg-set! sp 0)
           (charspan-end-set! sp len)))
-      (#t
+      (else
        ; string is too small, reallocate it
        (let ((new-cap (fxmax 8 len (fx* 2 cap-back))))
          (charspan-reallocate-back! sp (charspan-length sp) new-cap))))))
@@ -500,7 +500,7 @@
                 ;; (string-ref str pos) matches ch0, but following characters don't match
                 (charspan-insert-back/string! dst str i (fx1+ pos))
                 (%loop (fx1+ pos)))
-              (#t
+              (else
                 ;; no match, copy all remaining characters from str to dst
                 (charspan-insert-back/string! dst str i end)
                 (charspan->string*! dst)))))))

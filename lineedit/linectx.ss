@@ -291,9 +291,9 @@
          ((pair?       keyseq) keyseq)
          ((bytevector? keyseq) (bytevector->u8-list keyseq))
          ((string?     keyseq) (bytevector->u8-list (string->utf8b keyseq)))
-         (#t (assert
-               (or (fixnum? keyseq) (pair? keyseq)
-                   (bytevector? keyseq) (string? keyseq))))))))
+         (else (assert
+                 (or (fixnum? keyseq) (pair? keyseq)
+                     (bytevector? keyseq) (string? keyseq))))))))
     (do ((l keysequences (cdr l)))
         ((null? l))
       (%add-bytelist keytable (%any->bytelist (car l))))))
@@ -310,7 +310,7 @@
         (cond
           ((procedure? entry) (values entry rpos+1))
           ((hashtable? entry) (%find  entry rpos+1))
-          (#t                 (values #f    (bytespan-length rbuf))))))))
+          (else               (values #f    (bytespan-length rbuf))))))))
 
 
 ;; customize how "linectx" objects are printed

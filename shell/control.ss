@@ -11,13 +11,13 @@
 
 ;; Start a job and return immediately, without waiting for it to finish.
 ;;
-;; Returns job status, typically (cons 'running job-id) but other values are allowed.
+;; Returns job status, typically (list 'running job-id) but other values are allowed.
 ;; For the complete list of possible returned job statuses, see (sh-job-status).
 ;;
 ;; Note that job may finish immediately, for example because it is a builtin,
 ;;   or a multijob that only (recursively) contains builtins,
 ;;   or a command that exits very quickly.
-;;   For these reasons, the returned job status may be different from (cons 'running job-id)
+;;   For these reasons, the returned job status may be different from (list 'running job-id)
 ;;   and may indicate that the job has already finished.
 ;;
 ;; For possible values of options, see (sh-options)
@@ -44,7 +44,7 @@
           (start-any/on-exception caller job options k-continue ex))
         (lambda ()
           (start-any/may-throw caller job options)))))
-  (when (and (job-status-started? job) (options->spawn? options))
+  (when (and (job-started? job) (options->spawn? options))
     ; we can cleanup job's file descriptor, as it's running in a subprocess
     (job-unmap-fds! job)
     (job-unredirect/temp/all! job))
@@ -69,7 +69,7 @@
     (lambda (parent)
       (unless (eq? parent (sh-globals))
         (job-exception-set! parent ex))))
-  (job-status-set! caller job '(killed . exception))
+  (job-status-set! caller job (list 'exception ex))
   (if (options->catch? options)
     (k-continue (sh-exception-handler ex))
     (raise ex)))
@@ -83,64 +83,48 @@
 
 
 ;; Return up-to-date status of a job or job-id, which can be one of:
-;;   (cons 'new     0)
-;;   (cons 'running job-id)
-;;   (void)                      ; if process failed with exit-status = 0
-;;   (cons 'failed  exit-status)
-;;   (cons 'killed  signal-name) or (cons 'killed 'exception)
-;;   (cons 'stopped signal-name)
-;;   (cons 'unknown ...)
+;;   (list 'new       0)
+;;   (list 'running   #f)         ; if job is running but has no job-id
+;;   (list 'running   job-id)
+;;   (void)                       ; if process exited successfully, i.e. with exit-status = 0
+;;   (list 'ok        result ...) ; if job is a Scheme procedure that successfully returned zero or more results
+;;   (list 'failed    exit-status)
+;;   (list 'stopped   signal-name)
+;;   (list 'killed    signal-name)
+;;   (list 'exception condition-object)
 ;;
 ;; Note: this function also non-blocking checks if job status changed.
 (define (sh-job-status job-or-id)
-  (let ((job (sh-job job-or-id)))
+  (let* ((job    (sh-job job-or-id))
+         (status (job-last-status job)))
     ; (debugf ">  sh-job-status job=~a" (sh-job->string job))
-    (if (job-has-status? job '(new))
-      (job-last-status job)
-      (advance-job 'sh-job-status job))))
+    (if (status-started? status)
+      (advance-job 'sh-job-status job)
+      status)))
 
 
 ;; Continue a job or job-id in background by sending SIGCONT to it, and return immediately.
-;; Return job status, which can be one of:
-;;
-;;   (cons 'running job-id)
-;;   (void)                      ; if process failed with exit-status = 0
-;;   (cons 'failed  exit-status)
-;;   (cons 'killed  signal-name) or (cons 'killed 'exception)
-;;   (cons 'stopped signal-name)
-;;   (cons 'unknown ...)
+;; Return job status. For possible job statuses, see (sh-job-status)
 (define (sh-bg job-or-id)
   (advance-job 'sh-bg job-or-id))
 
 
 ;; Continue a job or job-id by sending SIGCONT to it, then wait for it to exit or stop,
-;; and finally return its status, which can be one of:
+;; and finally return its status. For possible job statuses, see (sh-job-status)
 ;;
-;;   (void)                      ; if process failed with exit-status = 0
-;;   (cons 'failed  exit-status)
-;;   (cons 'killed  signal-name) or (cons 'killed 'exception)
-;;   (cons 'stopped signal-name)
-;;   (cons 'unknown ...)
-;
-;; Note: if the current shell is in the fg process group,
+;; Note: if job control is enabled,
 ;;   upon invocation, sets the job as fg process group.
 ;;   And before returning, restores current shell as fg process group.
 (define (sh-fg job-or-id)
   (advance-job 'sh-fg job-or-id))
 
 
-;; Continue a job or job-id by optionally sending SIGCONT to it,
-;; then wait for it to exit, and finally return its status.
+;; Continue a job or job-id by optionally sending SIGCONT to it, then wait for it to exit,
+;; and finally return its status. For possible job statuses, see (sh-job-status)
 ;;
 ;; Arguments are:
 ;;   job-or-id           ; a job or job-id
 ;;   send-sigcont?       ; if truthy, send SIGCONT to job before waiting for it to exit, default is #t
-;;
-;; Returned job status can be one of:
-;;   (void)                      ; if process failed with exit-status = 0
-;;   (cons 'failed  exit-status)
-;;   (cons 'killed  signal-name) or (cons 'killed 'exception)
-;;   (cons 'unknown ...)
 ;;
 ;; Does NOT return early if job gets stopped, use (sh-fg) for that.
 ;;
@@ -148,7 +132,7 @@
 ;; if (break) raises an exception or resets scheme, the job is interrupted with SIGINT.
 ;; otherwise waits again for the job to exit.
 ;;
-;; Note: if current shell is in the fg process group,
+;; Note: if job control is enabled,
 ;;   upon invocation, sets the job as fg process group.
 ;;   And before returning, restores current shell as fg process group.
 (define sh-wait
@@ -171,7 +155,7 @@
   (let ((job (sh-job job-or-id)))
     ; (debugf ">  advance-job mode=~s job=~a id=~s pid=~s status=~s" mode (sh-job->string job) (job-id job) (job-pid job) (job-last-status job))
     (case (job-last-status->kind job)
-      ((failed killed unknown)
+      ((ok exception failed killed)
         (void)) ; job finished
       ((running stopped)
         (cond

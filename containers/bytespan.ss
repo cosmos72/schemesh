@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;  define Scheme type "bytespan", a resizeable bytevector  ;;;;;;;;;;;;;
+;;;;;;;;; define Scheme type "bytespan", a resizeable bytevector  ;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (library (schemesh containers bytespan (0 7 5))
@@ -46,11 +46,11 @@
   (let ((vec (list->bytevector l)))
     (%make-bytespan 0 (bytevector-length vec) vec)))
 
-; create bytespan copying contents of specified bytevector
+;; create bytespan copying contents of specified bytevector
 (define (bytevector->bytespan vec)
   (%make-bytespan 0 (bytevector-length vec) (bytevector-copy vec)))
 
-; view existing bytevector as bytespan
+;; view existing bytevector as bytespan
 (define (bytevector->bytespan* vec)
   (%make-bytespan 0 (bytevector-length vec) vec))
 
@@ -82,8 +82,8 @@
 (define (bytespan-length sp)
   (fx- (bytespan-end sp) (bytespan-beg sp)))
 
-; return length of internal bytevector, i.e. maximum number of elements
-; that can be stored without reallocating
+;; return length of internal bytevector, i.e. maximum number of elements
+;; that can be stored without reallocating
 (define (bytespan-capacity sp)
   (bytevector-length (bytespan-vec sp)))
 
@@ -162,66 +162,66 @@
     (bytespan-end-set! sp len)
     (bytespan-vec-set! sp new-vec)))
 
-;  return distance between begin of internal bytevector and last element
+;; return distance between begin of internal bytevector and last element
 (define (bytespan-capacity-front sp)
   (bytespan-end sp))
 
-;  return distance between first element and end of internal bytevector
+;; return distance between first element and end of internal bytevector
 (define (bytespan-capacity-back sp)
   (fx- (bytevector-length (bytespan-vec sp)) (bytespan-beg sp)))
 
-;  ensure distance between begin of internal bytevector and last element is >= n.
-; does NOT change the length
+;; ensure distance between begin of internal bytevector and last element is >= n.
+;; does NOT change the length
 (define (bytespan-reserve-front! sp len)
   (assert* 'bytespan-reserve-front! (fx>=? len 0))
   (let ((vec (bytespan-vec sp))
         (cap-front (bytespan-capacity-front sp)))
     (cond
       ((fx<=? len cap-front)
-;       nothing to do
+       ;; nothing to do
        (void))
       ((fx<=? len (bytevector-length vec))
-;        bytevector is large enough, move elements to the back
+        ;; bytevector is large enough, move elements to the back
         (let* ((cap (bytespan-capacity sp))
                (old-len (bytespan-length sp))
                (new-beg (fx- cap old-len)))
           (bytevector-copy! vec (bytespan-beg sp) vec new-beg old-len)
           (bytespan-beg-set! sp new-beg)
           (bytespan-end-set! sp cap)))
-      (#t
-;        bytevector is too small, reallocate it
+      (else
+       ;; bytevector is too small, reallocate it
        (let ((new-cap (fxmax 8 len (fx* 2 cap-front))))
          (bytespan-reallocate-front! sp (bytespan-length sp) new-cap))))))
 
-;  ensure distance between first element and end of internal bytevector is >= n.
-; does NOT change the length
+;; ensure distance between first element and end of internal bytevector is >= n.
+;; does NOT change the length
 (define (bytespan-reserve-back! sp len)
   (assert* 'bytespan-reserve-back! (fx>=? len 0))
   (let ((vec (bytespan-vec sp))
         (cap-back (bytespan-capacity-back sp)))
     (cond
       ((fx<=? len cap-back)
-;       nothing to do
+       ;; nothing to do
        (void))
       ((fx<=? len (bytevector-length vec))
-;        bytevector is large enough, move elements to the front
+        ;; bytevector is large enough, move elements to the front
         (let ((len (bytespan-length sp)))
           (bytevector-copy! vec (bytespan-beg sp) vec 0 len)
           (bytespan-beg-set! sp 0)
           (bytespan-end-set! sp len)))
-      (#t
-;        bytevector is too small, reallocate it
+      (else
+       ;; bytevector is too small, reallocate it
        (let ((new-cap (fxmax 8 len (fx* 2 cap-back))))
          (bytespan-reallocate-back! sp (bytespan-length sp) new-cap))))))
 
-;  grow or shrink bytespan on the left (front), set length to n
+;; grow or shrink bytespan on the left (front), set length to n
 (define (bytespan-resize-front! sp len)
   (assert* 'bytespan-resize-front! (fx>=? len 0))
   (bytespan-reserve-front! sp len)
   (assert* 'bytespan-resize-front! (fx>=? (bytespan-capacity-front sp) len))
   (bytespan-beg-set! sp (fx- (bytespan-end sp) len)))
 
-;  grow or shrink bytespan on the right (back), set length to n
+;; grow or shrink bytespan on the right (back), set length to n
 (define (bytespan-resize-back! sp len)
   (assert* 'bytespan-resize-back! (fx>=? len 0))
   (bytespan-reserve-back! sp len)
@@ -280,7 +280,7 @@
     ((sp-dst bv-src)
       (bytespan-insert-front/bvector! sp-dst bv-src 0 (bytevector-length bv-src)))))
 
-;  append a portion of another bytespan to this bytespan
+;; append a portion of another bytespan to this bytespan
 (define bytespan-insert-back/bspan!
   (case-lambda
     ((sp-dst sp-src src-start src-end)
@@ -297,7 +297,7 @@
     ((sp-dst sp-src)
       (bytespan-insert-back/bspan! sp-dst sp-src 0 (bytespan-length sp-src)))))
 
-;  append a portion of a bytevector to this bytespan
+;; append a portion of a bytevector to this bytespan
 (define bytespan-insert-back/bvector!
   (case-lambda
     ((sp-dst bv-src src-start src-end)
@@ -307,13 +307,13 @@
     ((sp-dst bv-src)
       (bytespan-insert-back/bvector! sp-dst bv-src 0 (bytevector-length bv-src)))))
 
-;  erase n elements at the left (front) of bytespan
+;; erase n elements at the left (front) of bytespan
 (define (bytespan-erase-front! sp n)
   (assert* 'bytespan-erase-front! (fx<=? 0 n (bytespan-length sp)))
   (unless (fxzero? n)
     (bytespan-beg-set! sp (fx+ n (bytespan-beg sp)))))
 
-;  erase n elements at the right (back) of bytespan
+;; erase n elements at the right (back) of bytespan
 (define (bytespan-erase-back! sp n)
   (assert* 'bytespan-erase-back! (fx<=? 0 n (bytespan-length sp)))
   (unless (fxzero? n)
@@ -354,9 +354,9 @@
     ((or (fx>=? i n) (not (proc i (bytevector-u8-ref v i))))
      (fx>=? i n))))
 
-; (bytespan-find/u8) iterates on bytespan u8 elements in range [start, end)
+;; (bytespan-find/u8) iterates on bytespan u8 elements in range [start, end)
 ;; and returns the index of first bytespan u8 element that causes
-; (predicate elem) to return truish. Returns #f if no such element is found.
+;; (predicate elem) to return truish. Returns #f if no such element is found.
 (define bytespan-find/u8
   (case-lambda
     ((sp start end predicate)
@@ -367,7 +367,7 @@
     ((sp predicate)
       (bytespan-find/u8 sp 0 (bytespan-length sp) predicate))))
 
-; customize how "bytespan" objects are printed
+;; customize how "bytespan" objects are printed
 (record-writer (record-type-descriptor %bytespan)
   (lambda (sp port writer)
     (display "(bytespan" port)

@@ -97,7 +97,7 @@
                 (raise-assertf 'sh-pattern "expecting a string after wildcard symbol '~a, found ~s" obj obj2))))
           (%validate-span sp (fx1+ i) n #t ; contains-wildcard?
                              #f)) ; prev-is-string?
-        (#t
+        (else
           (raise-assertf 'sh-pattern "expecting a string or sh-wildcard? symbol, found ~s" obj))))))
 
 
@@ -121,7 +121,7 @@
               end
               (if (eq? obj '*) min-len (fx1+ min-len))                  ; updated min-len
               (if (and max-len (not (eq? obj '*))) (fx1+ max-len) #f))) ; updated max-len
-        (#t
+        (else
           (raise-assertf 'sh-pattern "expecting a string or sh-wildcard? symbol, found ~s" obj))))))
 
 
@@ -193,7 +193,7 @@
         ; names starting with #\. cannot be matched
         ; by a pattern starting with a wildcard
         #f)
-      (#t
+      (else
         (if (%pattern-match/left sp 0 n 0 str str-start str-end)
           #t
           #f)))))
@@ -265,7 +265,7 @@
                (fx<? (fx1+ sp-start) sp-end)
                (%pattern-match/alternative key (span-ref sp (fx1+ sp-start)) (string-ref str str-start)))
           1))
-      (#t ; unexpected
+      (else ; unexpected
         (raise-assertf 'sh-pattern-match? "pattern contains unsupported element: ~s" key)))))
 
 
@@ -299,7 +299,7 @@
                (fx<? sp-start (fx1- sp-end))
                (%pattern-match/alternative key (span-ref sp (fx1- sp-end)) (string-ref str (fx1- str-end))))
           1))
-      (#t ; unexpected
+      (else ; unexpected
         (raise-assertf 'sh-pattern-match? "pattern contains unsupported element: ~s" key)))))
 
 ;; return key at index i of span sp.
@@ -415,7 +415,7 @@
     ((not (eq? '* (span-ref sp (fx1- sp-end))))
       ; match from right
       (%pattern-match/right sp sp-start sp-end 0 str str-start str-end))
-    (#t
+    (else
       (let* ((sp-pos/not-star (span-find sp (fx1+ sp-start) sp-end (lambda (key) (not (eq? key '*)))))
              (sp-pos/string?  (and sp-pos/not-star (string? (span-ref sp sp-pos/not-star)))))
         (assert* 'sh-pattern-match sp-pos/not-star)
@@ -429,7 +429,7 @@
               ; sequence of '* followed by a string: do an optimized recursion
               (%pattern-match/left/stars-then-string sp sp-start sp-end sp-pos/not-star
                                                      str str-start str-end min-len max-len))
-            (#t
+            (else
               ; this is the hard case: no obvious optimizations.
               ; we must try skipping one character, then two... up to (fx- search-end str-start),
               ; and match recursively
@@ -481,7 +481,7 @@
     ((not (eq? '* (span-ref sp sp-start)))
       ; match from left
       (%pattern-match/left sp sp-start sp-end 0 str str-start str-end))
-    (#t
+    (else
       (let* ((sp-pos/not-star (span-rfind sp sp-start (fx1- sp-end) (lambda (key) (not (eq? key '*)))))
              (sp-pos/string?  (and sp-pos/not-star
                                    (string? (%pattern-at sp sp-pos/not-star)))))
@@ -496,7 +496,7 @@
               ; sequence of '* followed by a string: do an optimized recursion
               (%pattern-match/right/stars-then-string sp sp-start sp-end sp-pos/not-star
                                                       str str-start str-end min-len max-len))
-            (#t
+            (else
               ; this is the hard case: no obvious optimizations.
               ; we must try skipping one character, then two... up to (fx- search-end str-start),
               ; and match recursively

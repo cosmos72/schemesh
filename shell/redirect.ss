@@ -149,7 +149,7 @@
           ((redirection-sym? arg)
             (job-redirect! job (if (eq? '<& arg) 0 1) arg (cadr args))
             (set! args (cddr args)))
-          (#t
+          (else
             (raise-errorf 'sh-redirect! "invalid redirect, first argument must a fixnum or a redirection symbol: ~s" args)))))
     job))
 
@@ -194,7 +194,7 @@
         (when (zero? (logand 3 (procedure-arity-mask to)))
           (raise-errorf 'sh-redirect! "invalid redirect to procedure, must accept 0 or 1 arguments: ~a" to))
         #f)
-      (#t
+      (else
         (raise-errorf 'sh-redirect! "invalid redirect to fd or file, target must be a string, bytevector or procedure: ~s" to)))))
 
 

@@ -79,7 +79,7 @@
 
 ;; macro: create a (sh-cmd) that evaluates specified Scheme expressions when executed,
 ;; and returns success i.e. (void) if last expression is truish,
-;; or failure i.e '(failed . 1) if last expression is #f.
+;; or failure i.e '(failed 1) if last expression is #f.
 (define-syntax shell-expr
   (syntax-rules ()
     ((_ expr exprs ...) (sh-cmd* "builtin" "expr" (lambda () (sh-bool (begin expr exprs ...)))))))
@@ -99,7 +99,7 @@
           ((sh-wildcard? arg)
             (set! wildcards? #t)
             (set! ret (cons (list 'quote arg) ret)))
-          (#t
+          (else
             (unless (string? arg)
               (set! wildcards? #t))
             (set! ret (cons arg ret)))))))

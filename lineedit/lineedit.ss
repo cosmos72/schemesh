@@ -53,7 +53,7 @@
       (cond
         ((procedure? proc) (void))     ; proc called below, we update rbuf first
         ((hashtable? proc) (set! n 0)) ; incomplete sequence, wait for more keystrokes
-        (#t  ; insert received bytes into current line
+        (else  ; insert received bytes into current line
           (set! n (lineedit-insert/rbuf! lctx n))))
       (unless (fxzero? n)
         (bytespan-erase-front! rbuf n)
@@ -228,7 +228,7 @@
       (linectx-redraw-set! lctx #t)
       ;; return
       #f)
-    (#t #t)))
+    (else #t)))
 
 
 ;; return x y position immediately to the left of cursor.

@@ -36,7 +36,7 @@
         x)
       ((and (fixnum? x) (fx<? -1 x (span-length all)))
         (span-ref all x))
-      (#t
+      (else
         #f))))
 
 

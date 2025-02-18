@@ -28,7 +28,7 @@
            (id     (job-id job))
            (pid    (job-pid job))
            (job-status (job-last-status job))
-           (status (if (sh-ok? job-status) '(failed . 0) job-status)))
+           (status (if (sh-ok? job-status) '(ok 0) job-status)))
       (if id
         (if pid
           (format port "; job ~a~s pid ~a~s ~s \t" (pad/job-id id) id (pad/pid pid) pid status)
@@ -76,7 +76,7 @@
     ((< pid 10000000) "   ")
     ((< pid 100000000) "  ")
     ((< pid 1000000000) " ")
-    (#t                  "")))
+    (else                "")))
 
 (define precedence-lowest  0)
 (define precedence-list    1)
@@ -112,7 +112,7 @@
   (cond
     ((sh-multijob? job) (job-display/multijob job port outer-precedence))
     ((sh-cmd? job)      (job-display/cmd job port))
-    (#t                 (put-string port "???"))))
+    (else               (put-string port "???"))))
 
 
 (define (job-display/multijob job port outer-precedence)
@@ -252,7 +252,7 @@
   (cond
     ((sh-multijob? job) (job-write/multijob job port))
     ((sh-cmd? job)      (job-write/cmd job port))
-    (#t                 (put-string port "#<unknown-job>"))))
+    (else               (put-string port "#<unknown-job>"))))
 
 
 ;; return #t if job has non-temporary redirections,
@@ -268,7 +268,7 @@
       ; do not show temporary redirections
       ((job-persistent-redirects? job)
         (job-write/multijob* job port))
-      (#t
+      (else
         (put-char port #\()
         ; we must write (sh-pipe* ...) instead of (sh-pipe ...)
         ; because (sh-pipe) function inserted symbols '| between each pair of jobs,

@@ -117,7 +117,7 @@
       (let* ((parent (job-parent job))
              (parent-visibility (and parent (second-value (sh-env-visibility-ref parent name)))))
         (hashtable-set! vars name (cons (or parent-visibility 'private) val))))
-     (#t
+     (else
       (hashtable-set! vars name (cons visibility val))))))
 
 

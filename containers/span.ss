@@ -181,7 +181,7 @@
           (vector-copy! vec (span-beg sp) vec new-beg old-len)
           (span-beg-set! sp new-beg)
           (span-end-set! sp cap)))
-      (#t
+      (else
        ; vector is too small, reallocate it
        (let ((new-cap (fxmax 8 len (fx* 2 cap-front))))
          (span-reallocate-front! sp (span-length sp) new-cap))))))
@@ -202,7 +202,7 @@
           (vector-copy! vec (span-beg sp) vec 0 len)
           (span-beg-set! sp 0)
           (span-end-set! sp len)))
-      (#t
+      (else
        ; vector is too small, reallocate it
        (let ((new-cap (fxmax 8 len (fx* 2 cap-back))))
          (span-reallocate-back! sp (span-length sp) new-cap))))))

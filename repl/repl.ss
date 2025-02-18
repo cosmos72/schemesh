@@ -242,7 +242,7 @@
                         (set! reload-count new-reload-count)
                         (put-string (console-error-port)
                           "; warning: libschemesh was reloaded. Call (sh-repl-restart) to switch to the new libschemesh.\n")))))
-                (#t ; EOF
+                (else ; EOF
                   (lineterm-write/u8 lctx 10))))
             0)))))) ; EOF, or (sh-repl-restart) was called. return 0
 

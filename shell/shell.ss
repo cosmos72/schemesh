@@ -18,5 +18,4 @@
     (schemesh shell macros)
     (schemesh shell parameters)
     (schemesh shell paths)
-    (schemesh shell status)
     (schemesh shell utils)))

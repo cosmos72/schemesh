@@ -40,7 +40,7 @@
 ;;
 ;;   (cons 'catch? flag) - flag must be a boolean, otherwise an exception will be raised.
 ;;     If present and flag is #t, any Scheme condition raised by starting
-;;     the job will be captured, and job status will be set to '(killed . exception)
+;;     the job will be captured, and job status will be set to (list exception #<condition>)
 ;;
 ;;   (cons 'parent-job job-or-id) - job-or-id must resolve to an existing job via (sh-job job-or-id),
 ;;     otherwise an exception will be raised.
@@ -153,7 +153,7 @@
           ((eq? 'same-parent-as-job (car option))
             (set! parent (job-parent (sh-job (cdr option))))
             #f) ; stop iteration
-          (#t
+          (else
             #t)))) ; continue iteration
     (if parent
       (begin

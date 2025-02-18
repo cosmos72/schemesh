@@ -60,9 +60,9 @@
               (list str)) ; path exists, return a list containing only it
             (string-if-no-match?
               str)        ; path does not exist, return a string
-            (#t
+            (else
               '()))))     ; path does not exist, and caller requested an empty list
-      (#t
+      (else
         ; actually expand wildcards and match them against filesystem paths
         (let* ((patterns (sh-wildcard->sh-patterns w))
                (ret (sh-patterns/expand job patterns)))
@@ -75,7 +75,7 @@
               ; reason: ~/foo/bar must be expanded to $HOME/foo/bar
               ; even if no such path exists
               (sh-wildcard->string w))
-            (#t
+            (else
               '())))))))
 
 
@@ -131,7 +131,7 @@
                   (begin
                     (assert-string-list? 'sh-wildcard obj)
                     (list-iterate obj %insert!)))))
-            (#t
+            (else
               (raise-assert1 'sh-wildcard "(or (string? arg) (sh-wildcard? arg) (procedure? arg))" arg)))))
       (reverse! ret))
     w))
@@ -236,7 +236,7 @@
     ((symbol? obj)
       (span-insert-back! (span-back sp) obj)
       (memq obj '(% %!)))
-    (#t
+    (else
       (assert* 'sh-wildcard (string? obj))
       (let ((str-len (string-length obj)))
         (unless (fxzero? str-len)
@@ -359,7 +359,7 @@
         (if (file-type subpath 'catch)
           (%patterns/expand sp (fx1+ i) sp-end subpath ret)
           ret)))
-    (#t
+    (else
       (let* ((p       (span-ref sp i))
              (prefix  (or (sh-pattern-front/string p) ""))
              (suffix  (or (sh-pattern-back/string p) ""))
@@ -403,5 +403,5 @@
           ret))
       ((or path1-slash? path2-slash?)
         (string-append path1 path2))
-      (#t
+      (else
         (string-append path1 "/" path2)))))

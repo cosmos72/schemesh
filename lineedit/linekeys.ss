@@ -239,7 +239,7 @@
           (cond
             ((string? elem)   (fxmax len (string-length elem)))
             ((charspan? elem) (fxmax len (charspan-length elem)))
-            (#t               len))))
+            (else             len))))
       len)))
 
 
@@ -316,7 +316,7 @@
             ((charspan? elem)
               (lineterm-write/cspan lctx elem)
               (charspan-length elem))
-            (#t
+            (else
               0))))
     (repeat (fx- column-width (fx+ (charspan-length stem) elem-len))
       (lineterm-write/u8 lctx 32)))) ; pad with spaces

@@ -8,7 +8,7 @@
 (library (schemesh containers string (0 7 5))
   (export
     string-list? assert-string-list? string-list-split-after-nuls
-    string-contains-only-decimal-digits?
+    string-is-unsigned-base10-integer? string-is-signed-base10-integer?
     string-fill-range! string-range-count= string-range=? string-range<?
     string-find string-rfind string-find/char string-rfind/char string-rtrim-newlines!
     string-split string-split-after-nuls string-trim-split-at-blanks string-replace/char!
@@ -91,18 +91,34 @@
         str))))
 
 
-;; return #t if obj is a non-empty string and only contains decimal digits
-(define (string-contains-only-decimal-digits? obj)
-  (let ((n (if (string? obj) (string-length obj) 0)))
-    (if (fxzero? n)
-      #f
-      (do ((i 0 (fx1+ i)))
-          ((or (fx>=? i n) (not (decimal-digit? (string-ref obj i))))
-             (fx>=? i n))))))
-
 ;; return #t if character is a decimal digit 0..9
-(define (decimal-digit? ch)
+(define (char-is-decimal-digit? ch)
   (char<=? #\0 ch #\9))
+
+
+;; return #t if obj is a non-empty string containing only decimal digits.
+(define string-is-unsigned-base10-integer?
+  (case-lambda
+    ((obj start end)
+      (if (and (string? obj) (fx<? start end))
+        (do ((i start (fx1+ i)))
+            ((or (fx>=? i end) (not (char-is-decimal-digit? (string-ref obj i))))
+              (fx>=? i end)))
+        #f))
+    ((obj)
+      (and (string? obj) (string-is-unsigned-base10-integer? obj 0 (string-length obj))))))
+
+
+;; return #t if obj is a non-empty string containing only decimal digits, possibly prefixed by "-"
+(define (string-is-signed-base10-integer? obj)
+  (let ((n (string-length obj)))
+    (cond
+      ((fxzero? n)
+        #f)
+      ((char=? #\- (string-ref obj 0))
+        (string-is-unsigned-base10-integer? obj 1 n))
+      (else
+        (string-is-unsigned-base10-integer? obj 0 n)))))
 
 
 ;; set characters in range [start, end) of string str to character ch
@@ -317,7 +333,7 @@
       n)
     ((and (eq? left right) (fx=? left-start right-start))
       n)
-    (#t
+    (else
       (do ((i 0 (fx1+ i)))
           ((or
              (fx>=? i n)
@@ -350,7 +366,7 @@
          ((fx>=? j right-end)
            (set! ret   #t)
            (set! done? #t))
-         (#t
+         (else
            (let ((ch1 (string-ref left i))
                  (ch2 (string-ref right j)))
               (cond

@@ -88,10 +88,11 @@
   (cond ((string? x) x)
         ((bytevector? x) (utf8b->string x))
         ((eq? (void) x) "")
-        (#t (let-values (((port get-string)
-                          (open-string-output-port)))
-              (display-any x port)
-              (get-string)))))
+        (else
+          (let-values (((port get-string)
+                       (open-string-output-port)))
+            (display-any x port)
+            (get-string)))))
 
 (define transcoder-utf8 (make-transcoder (utf-8-codec) (eol-style lf)
                           (error-handling-mode raise)))
@@ -103,10 +104,11 @@
     ((string? x)     (string->utf8b x))
     ((char? x)       (string->utf8b (string x)))
     ((eq? (void) x)  #vu8())
-    (#t (let-values (((port get-bytevector)
-                      (open-bytevector-output-port transcoder-utf8)))
-          (display-any x port)
-          (get-bytevector)))))
+    (else
+      (let-values (((port get-bytevector)
+                   (open-bytevector-output-port transcoder-utf8)))
+        (display-any x port)
+        (get-bytevector)))))
 
 ;; convert any sequence of values to 0-terminated bytevector
 (define (any->bytevector0 . args)
@@ -120,7 +122,7 @@
           ((bytevector? e) (display (utf8b->string e) port))
           ((string? e)     (display e port))
           ((eq? (void) e)  #f)
-          (#t              (display-any e port)))))
+          (else            (display-any e port)))))
     (display #\nul port)
     (get-bytevector)))
 
@@ -134,7 +136,7 @@
         bv0)
       ((fxzero? (bytevector-u8-ref x (fx1- len)))
         x)
-      (#t
+      (else
         (let ((ret (make-bytevector (fx1+ len))))
           (bytevector-copy! x 0 ret 0 len)
           (bytevector-u8-set! ret len 0)
@@ -154,7 +156,7 @@
        (if (charspan-empty? x)
          bv0
          (bytespan->bytevector (charspan->utf8b/0 x))))
-    (#t
+    (else
       (raise-assertf 'text->bytevector0 "~s is not bytevector, string or charspan" x))))
 
 
@@ -172,7 +174,7 @@
       (if (charspan-empty? x)
         #vu8()
         (bytespan->bytevector (charspan->utf8b x))))
-    (#t
+    (else
       (raise-assertf 'text->bytevector "~s is not bytevector, string or charspan" x))))
 
 
@@ -206,7 +208,7 @@
       ((charspan? x)
         (when (charspan-find/char x #\nul)
           (raise-assertf 'list->argv "~a~s~a" msg1 x msg2)))
-      (#t
+      (else
         (raise-assertf 'list->argv "~s is not bytevector, string or charspan" x)))
     x))
 

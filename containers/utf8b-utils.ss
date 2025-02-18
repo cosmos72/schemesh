@@ -117,7 +117,8 @@
                 (b3 (bytevector-u8-ref vec (fx+ 3 start))))
             (utf8b-quadruplet->char b0 b1 b2 b3))
           (values #t (fxmin 3 max-n)))) ; < 4 bytes available
-      (#t (utf8b-singlet->char b0)))))
+      (else
+        (utf8b-singlet->char b0)))))
 
 ;; convert char to 2-byte UTF-8 sequence and return two values: the two converted bytes.
 ;; ch is assumed to be in the range #x80 <= ch < #x800
@@ -182,7 +183,7 @@
           (bytevector-u8-set! vec (fx+ 1 start) b1)
           (bytevector-u8-set! vec start b0))
         4)
-      (#t 0)))) ; should not happen
+      (else 0)))) ; should not happen
 
 ;; convert a char to UTF-8b sequence and return the length in bytes of UTF-8b sequence.
 (define (char->utf8b-length ch)
@@ -194,7 +195,7 @@
       ((fx<=?  #xdc80 n #xdcff) 1) ; unpaired surrogate half, used by UTF-8b to encode raw bytes into chars
       ((fx<? n #x10000) 3)
       ((fx<? n #x110000) 4)
-      (#t 0)))) ; should not happen
+      (else 0)))) ; should not happen
 
 ;; read up to max-n bytes from bytespan at offset idx, interpret
 ;; them as UTF-8b sequence and convert them to the corresponding char.

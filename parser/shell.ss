@@ -15,7 +15,7 @@
     (only (chezscheme) append! fx1+ fx1- include inspect reverse! unread-char void)
     (only (schemesh bootstrap) assert* until while)
     (only (schemesh containers misc)   list-iterate)
-    (only (schemesh containers string) string-contains-only-decimal-digits?)
+    (only (schemesh containers string) string-is-unsigned-base10-integer?)
     (schemesh containers charspan)
     (schemesh lineedit paren)
     (schemesh lineedit parser))
@@ -85,7 +85,7 @@
                       (set! ret (append! words ret))
                       (set! splice? #t)
                       (set! again? #f))
-                    (#t
+                    (else
                       (%append words)))))
               ; treat anything else as string delimiter. This means in our shell parser the
               ; characters ( ) [ ] { } retain their meaning when found inside an unquoted
@@ -96,7 +96,7 @@
               ; That's intentionally different from posix shell,
               ; where { } inside a string are treated as regular characters,
               ; and where ( ) inside a string are a syntax error.
-              (#t
+              (else
                 (set! again? #f)))))))
 
     ; (debugf "< parse-shell-word ret=~s" (reverse ret))
@@ -104,7 +104,7 @@
       (splice?            (values (reverse! ret) 'splice))
       ((null? ret)        (values ""             'atom))
       ((%is-literal? ret) (values (car ret)      'atom))
-      (#t                 (values (cons 'shell-wildcard (reverse! ret)) 'atom)))))
+      (else               (values (cons 'shell-wildcard (reverse! ret)) 'atom)))))
 
 
 ;; Read a single shell token from textual input port 'in'.
@@ -125,7 +125,7 @@
         (let ((ch2 (parsectx-peek-char ctx)))
           (case ch
             ((#\&) (cond ((eqv? ch2 #\&) (set! ch '&&))
-                         (#t             (set! type 'separator))))
+                         (else           (set! type 'separator))))
             ((#\|) (cond ((eqv? ch2 #\&) (set! ch '\x7C;&))
                          ((eqv? ch2 #\|) (set! ch '\x7C;\x7C;))))
             ((#\<) (cond ((eqv? ch2 #\>) (set! ch '<>))
@@ -139,7 +139,7 @@
           ((eqv? ch #\#) ; consume comment until end of line, then call again (lex-shell-impl)
             (parsectx-skip-line ctx)
             (lex-shell-impl ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?))
-          (#t  ; convert operator character to symbol
+          (else ;; convert operator character to symbol
             (values (op->symbol ctx ch) type))))
       ((dollar lbrack)
         (cond
@@ -147,7 +147,7 @@
             (values (parsectx-read-char ctx) 'dollar+lparen))
           ((and (eq? type 'lbrack) lbracket-is-subshell?)
             (values ch type))
-          (#t
+          (else
             (parsectx-unread-char ctx ch)
             (parse-shell-word ctx equal-is-operator? lbracket-is-subshell? wildcards? inside-backquote?))))
       ((backquote)
@@ -182,7 +182,7 @@
         ; (debugf "lex-shell value=~s type=~s" value type)
         (if (and (eq? 'atom type)
                  (string? value)
-                 (string-contains-only-decimal-digits? value)
+                 (string-is-unsigned-base10-integer? value)
                  (memv (parsectx-peek-char ctx) '(#\< #\>)))
           (values (string->number value) 'integer) ;; integer followed by redirection operator
           (values value type))))))
@@ -203,7 +203,7 @@
         (void))
       ((and (pair? forms) (null? (cdr forms)))
         (car forms))
-      (#t
+      (else
         (syntax-errorf ctx 'parse-shell-form1 "expecting a single shell form, parsed ~s" forms)))))
 
 
@@ -352,7 +352,7 @@
           (null? (cdr ret)) (pair? (car ret)) (memq (caar ret) '(shell shell-subshell)))
       ; simplify top-level (shell (shell...)) -> (shell...)
       (list (car ret)))
-    (#t
+    (else
       (let ((form (cons prefix (reverse! ret))))
         (if (eq? 'eof end-type)
           (list form)
@@ -467,7 +467,7 @@
                ;; recursion: call shell parser on nested list
                (let ((start-inner (cond ((eqv? token dollar+lparen) #\() #|)|#
                                         ((eqv? token dollar+lbrace) #\{)
-                                        (#t                       token))))
+                                        (else                     token))))
                  (paren-inner-append! paren (parse-shell-paren ctx start-inner)))))
 
           ((eqv? token #\()                  #| ) |# ; help vscode

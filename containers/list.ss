@@ -97,5 +97,5 @@
       ((equal-pred (car tail) (cadr tail))
         (set-cdr! tail (cddr tail))
         (%recurse tail))
-      (#t
+      (else
         (%recurse (cdr tail))))))

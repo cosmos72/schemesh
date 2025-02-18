@@ -283,7 +283,7 @@
           (reverse! ret))
         ((and replace? (eq? old (car tail)))
           (%again (cdr tail) (cons new ret) #f))
-        (#t
+        (else
           (%again (cdr tail) (cons (car tail) ret) replace?)))))
 
 

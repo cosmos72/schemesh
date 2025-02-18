@@ -13,7 +13,7 @@
 (define (make-sh-cmd program-and-args)
   (%make-cmd
     #f #f #f        ; id pid pgid
-    '(new . 0) #f   ; last-status exception
+    '(new 0) #f     ; last-status exception
     (span) 0 #f     ; redirections
     start-cmd #f    ; start-proc step-proc
     #f #f           ; working directory, old working directory - initially inherited from parent job
@@ -56,7 +56,7 @@
 ;;   into the corresponding process group id - which must already exist.
 ;;
 ;; Returns job status, which is also stored in (sh-job-last-status)
-;;   and may be one of (void) '(failed ...) '(running ...) '(stopped ...) '(killed ...) '(unknown ...) etc.
+;;   and may be one of (void) '(ok ...) '(failed ...) '(running ...) '(stopped ...) '(killed ...) '(exception ...) etc.
 ;;   For the complete list of possible returned job statuses, see (sh-job-status).
 (define (start-cmd c options)
   (assert* 'sh-cmd (eq? 'running (job-last-status->kind c)))
@@ -102,7 +102,7 @@
           (cond
             ((not (procedure? arg)) arg)
             ((logbit? 1 (procedure-arity-mask arg)) (arg c)) ; call closure (lambda (job) ...)
-            (#t   (arg)))))                                  ; call closure (lambda () ...)
+            (else (arg)))))                                  ; call closure (lambda () ...)
     ; (debugf "cmd-arg-apply cmd=~s arg=~s expanded=~s l=~s" c arg expanded l)
     (cond
       ((eq? (void) expanded)
@@ -117,7 +117,7 @@
         l)
       ((string? expanded)
         (cons expanded l))
-      (#t
+      (else
         (raise-errorf 'sh-start "value ~s returned by closure ~s in job ~s is not a string, a list of strings, or (void)"
           expanded arg c)))))
 
@@ -208,7 +208,7 @@
                     (or process-group-id -1))))
         ;c (debugf "spawn-cmd pid=~s prog-and-args=~s job=~a " ret prog-and-args (sh-job->string c))
         (when (< ret 0)
-          (job-status-set! 'spawn-cmd c (cons 'failed ret))
+          (job-status-set! 'spawn-cmd c (list 'failed ret))
           (raise-c-errno 'sh-start 'fork ret))
         (job-pid-set! c ret)
         (job-pgid-set! c process-group-id)
@@ -228,7 +228,7 @@
                     (job-make-c-redirect-vector c)
                     (sh-env->argv c 'export))))
         ; (c-exec-cmd) returns only if it failed
-        (cons 'failed (if (and (integer? ret) (not (zero? ret))) ret -1))))))
+        (list 'failed (if (and (integer? ret) (not (zero? ret))) ret -1))))))
 
 
 ;; internal function called by (spawn-cmd)
@@ -298,7 +298,7 @@
       (if (charspan=? parent-dir child-dir) #f parent-dir))
     (child-dir
       (sh-cwd))
-    (#t
+    (else
       parent-dir)))
 
 
@@ -306,23 +306,23 @@
 ;;
 ;; If (pid-wait) succeeds, it returns a pair (pid . wait-status).
 ;; Passing wait-status to this function converts it to a job status as follows:
-;;   not a fixnum, or < 0 => return (cons 'unknown wait-status)
+;;   not a fixnum, or < 0 => return (list 'failed wait-status)
 ;;   0                    => return (void)
-;;   1..255               => return (cons 'failed  wait-status)
-;;   256 + kill_signal    => return (cons 'killed  signal-name)
-;;   512 + stop_signal    => return (cons 'stopped signal-name)
-;;   768                  => return (cons 'running #f)
-;;   > 768                => return (cons 'unknown (fx- wait-status 768))
+;;   1..255               => return (list 'failed  wait-status)
+;;   256 + kill_signal    => return (list 'killed  signal-name)
+;;   512 + stop_signal    => return (list 'stopped signal-name)
+;;   768                  => return (list 'running #f)
+;;   > 768                => return (list 'failed  (fx- wait-status 512))
 ;;
-(define (pid-wait-result->job-status wait-status)
+(define (pid-wait-result->status wait-status)
   (let ((x wait-status))
-    (cond ((or (not (fixnum? x)) (fx<? x 0)) (cons 'unknown x))
+    (cond ((not (fixnum? x)) (list 'failed x))
           ((fx=? x   0) (void))
-          ((fx<? x 256) (cons 'failed  x))
-          ((fx<? x 512) (cons 'killed  (signal-number->name (fxand x 255))))
-          ((fx<? x 768) (cons 'stopped (signal-number->name (fxand x 255))))
-          ((fx=? x 768) '(running . #f))
-          (#t           (cons 'unknown (fx- x 768))))))
+          ((fx<? x 256) (list 'failed  x))
+          ((fx<? x 512) (list 'killed  (signal-number->name (fxand x 255))))
+          ((fx<? x 768) (list 'stopped (signal-number->name (fxand x 255))))
+          ((fx=? x 768) '(running #f))
+          (else         (list 'failed  (fx- x 512))))))
 
 
 (define %pgid-foreground
@@ -362,10 +362,10 @@
   ; (debugf "> advance-pid mode=~s job=~a pid=~s status=~s" mode (sh-job->string job) (job-pid job) (job-last-status job))
   (cond
     ((job-finished? job)
-      (job-last-status job)) ; job failed, and exit status already available
+      (job-last-status job)) ; job finished, exit status already available
     ((not (job-started? job))
       (raise-errorf mode "job not started yet: ~s" job))
-    (#t
+    (else
       (let ((pid  (job-pid job))
             (pgid (job-pgid job)))
         (with-foreground-pgid mode pgid
@@ -392,7 +392,7 @@
 (define (advance-pid/wait mode job pid pgid)
   ;; cannot call (sh-job-status), it would recurse back here.
   (let* ((old-status (job-last-status job))
-         (new-status (if (job-status-finished? old-status)
+         (new-status (if (status-finished? old-status)
                        old-status
                        (job-pids-wait job
                          (if (memq mode '(sh-bg sh-job-status)) 'nonblocking 'blocking)
@@ -400,19 +400,19 @@
     ; (debugf "advance-pid/wait mode=~s old-status=~s new-status=~s pid=~s job=~a" mode old-status new-status (job-pid job) (sh-job->string job))
     ; (sleep (make-time 'time-duration 0 1))
 
-    ; if may-block is 'non-blocking, new-status may be '(running . #f)
+    ; if may-block is 'non-blocking, new-status may be '(running #f)
     ; indicating job status did not change i.e. it's (expected to be) still running
-    (case (job-status->kind new-status)
+    (case (status->kind new-status)
       ((running)
-        ; if new-status is '(running . #f), try to return '(running . job-id)
+        ; if new-status is '(running #f), try to return '(running job-id)
         (let ((new-status2 (job-status-set/running! job)))
            (if (memq mode '(sh-fg sh-wait sh-sigcont+wait))
              ;; if mode is sh-fg, sh-wait or sh-sigcont+wait, then wait again for pid
              (advance-pid/wait mode job pid pgid)
              ;; otherwise return job status
              new-status2)))
-      ((failed killed unknown)
-        ; job failed, clean it up. Also allows user to later start it again.
+      ((ok exception failed killed)
+        ; job finished, clean it up. Also allows user to later start it again.
         (pid->job-delete! (job-pid job))
         (job-status-set! 'advance-pid/wait job new-status)
         (job-id-unset! job)
@@ -460,7 +460,7 @@
         (if (pair? wait-result)
           (let* ((job        (pid->job (car wait-result)))
                  (old-status (if job (job-last-status job) (void)))
-                 (new-status (pid-wait-result->job-status (cdr wait-result))))
+                 (new-status (pid-wait-result->status (cdr wait-result))))
             ;; (debugf "... job-pids-wait wait-result=~s new-status=~s job=~a preferred-job=~a" wait-result new-status (if job (sh-job->string job) #f) (if preferred-job (sh-job->string preferred-job) #f))
             (when job
               (job-status-set! 'job-pids-wait job new-status)
@@ -475,7 +475,7 @@
                 ;; advance job that changed status and *all* it parents, before waiting again.
                 ;; do NOT advance preferred-job, because that's what our callers are already doing.
                 (let ((globals (sh-globals)))
-                  (when (and proc-notify-status-change (job-status-changed? old-status new-status))
+                  (when (and proc-notify-status-change (status-changed? old-status new-status))
                     (proc-notify-status-change job))
 
                   (job-default-parents-iterate (job-parent job)
@@ -485,7 +485,7 @@
                         (let* ((old-status (job-last-status parent))
                                (new-status (sh-job-status parent)))
                           ; (debugf "... job-pids-wait old-status=~s new-status=~s parent=~a" old-status new-status (sh-job->string parent))
-                          (when (and proc-notify-status-change (job-status-changed? old-status new-status))
+                          (when (and proc-notify-status-change (status-changed? old-status new-status))
                             (proc-notify-status-change job))))))))))
 
           (set! done? #t))))) ; (pid-wait) did not report any status change => return

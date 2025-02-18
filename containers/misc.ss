@@ -148,7 +148,7 @@
           (in-fixnum-range start end step))
         ((and (exact? start) (exact? end) (exact? step))
           (in-exact-range start end step))
-        (#t
+        (else
           (in-flonum-range start end step))))
     ((start end)
       (in-range start end 1))
