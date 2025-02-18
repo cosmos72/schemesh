@@ -150,7 +150,7 @@
 (define (builtin-expr job prog-and-args options)
   (assert-string-list? 'builtin-expr prog-and-args)
   (let ((result (if (null? (cdr prog-and-args))
-                  1
+                  0
                   (try-string->base10-integer (cadr prog-and-args)))))
     (if (eqv? 0 result)
       (sh-expr 'ok     (void))

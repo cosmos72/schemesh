@@ -140,7 +140,7 @@
     return success.\n"))
 
     (hashtable-set! t "expr"   (string->utf8 " [int ...]
-    return INT value specified as first argument, or failure i.e. '(failed 1) if no arguments.
+    return INT value specified as first argument, or success if no arguments.
 
     Usually invoked with a (lambda () (sh-bool ...)) as its only argument,
     for running arbitrary Scheme code from a shell job.\n"))
