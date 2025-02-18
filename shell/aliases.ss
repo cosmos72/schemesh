@@ -134,7 +134,7 @@
         (when (fx>=? (bytespan-length wbuf) 4096)
           (fd-write/bspan! fd wbuf))))
     (fd-write/bspan! fd wbuf)
-    (void))) ; return (void), means builtin exited successfully
+    (void))) ; return (void), means builtin finished, successfully
 
 
 (define (show-alias name)
@@ -144,7 +144,7 @@
         (show-alias* name alias wbuf)
         (fd-write/bspan! (sh-fd-stdout) wbuf)
         (void)                                           ; success, return (void)
-      (write-builtin-error "alias" name "not found"))))) ; error, return '(exited . 1)
+      (write-builtin-error "alias" name "not found"))))) ; error, return '(failed . 1)
 
 
 (define (show-alias* name alias wbuf)

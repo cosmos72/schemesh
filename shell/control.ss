@@ -85,8 +85,8 @@
 ;; Return up-to-date status of a job or job-id, which can be one of:
 ;;   (cons 'new     0)
 ;;   (cons 'running job-id)
-;;   (void)                      ; if process exited with exit-status = 0
-;;   (cons 'exited  exit-status)
+;;   (void)                      ; if process failed with exit-status = 0
+;;   (cons 'failed  exit-status)
 ;;   (cons 'killed  signal-name) or (cons 'killed 'exception)
 ;;   (cons 'stopped signal-name)
 ;;   (cons 'unknown ...)
@@ -104,8 +104,8 @@
 ;; Return job status, which can be one of:
 ;;
 ;;   (cons 'running job-id)
-;;   (void)                      ; if process exited with exit-status = 0
-;;   (cons 'exited  exit-status)
+;;   (void)                      ; if process failed with exit-status = 0
+;;   (cons 'failed  exit-status)
 ;;   (cons 'killed  signal-name) or (cons 'killed 'exception)
 ;;   (cons 'stopped signal-name)
 ;;   (cons 'unknown ...)
@@ -116,8 +116,8 @@
 ;; Continue a job or job-id by sending SIGCONT to it, then wait for it to exit or stop,
 ;; and finally return its status, which can be one of:
 ;;
-;;   (void)                      ; if process exited with exit-status = 0
-;;   (cons 'exited  exit-status)
+;;   (void)                      ; if process failed with exit-status = 0
+;;   (cons 'failed  exit-status)
 ;;   (cons 'killed  signal-name) or (cons 'killed 'exception)
 ;;   (cons 'stopped signal-name)
 ;;   (cons 'unknown ...)
@@ -137,8 +137,8 @@
 ;;   send-sigcont?       ; if truthy, send SIGCONT to job before waiting for it to exit, default is #t
 ;;
 ;; Returned job status can be one of:
-;;   (void)                      ; if process exited with exit-status = 0
-;;   (cons 'exited  exit-status)
+;;   (void)                      ; if process failed with exit-status = 0
+;;   (cons 'failed  exit-status)
 ;;   (cons 'killed  signal-name) or (cons 'killed 'exception)
 ;;   (cons 'unknown ...)
 ;;
@@ -171,7 +171,7 @@
   (let ((job (sh-job job-or-id)))
     ; (debugf ">  advance-job mode=~s job=~a id=~s pid=~s status=~s" mode (sh-job->string job) (job-id job) (job-pid job) (job-last-status job))
     (case (job-last-status->kind job)
-      ((exited killed unknown)
+      ((failed killed unknown)
         (void)) ; job finished
       ((running stopped)
         (cond
@@ -217,7 +217,7 @@
 ;;
 ;; Options are the same as (sh-start)
 ;;
-;; Return #t if job exited successfully, otherwise return #f.
+;; Return #t if job failed successfully, otherwise return #f.
 (define (sh-run/ok? job . options)
   (sh-ok? (apply sh-run job options)))
 
@@ -227,7 +227,7 @@
 ;;
 ;; Options are the same as (sh-start)
 ;;
-;; Return #f if job exited successfully,
+;; Return #f if job failed successfully,
 ;; otherwise return job exit status, which is a cons and hence truish.
 (define (sh-run/err? job . options)
   (let ((status (apply sh-run job options)))

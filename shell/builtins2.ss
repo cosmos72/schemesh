@@ -58,16 +58,16 @@
 
 
 ;; print error message to (sh-fd-stderr)
-;; always returns '(exited . 1)
+;; always returns '(failed . 1)
 (define (write-builtin-error . args)
   (fd-write-strings: (sh-fd-stderr) "schemesh" args)
-  '(exited . 1))
+  '(failed . 1))
 
 
 ;; the "builtin" builtin: run the builtin in the remaining command line.
 ;;
 ;; As all builtins do, must return job status.
-;; returns '(exited . 1) if specified builtin is not found.
+;; returns '(failed . 1) if specified builtin is not found.
 (define (builtin-builtin job prog-and-args options)
   ; (debugf "builtin-builtin ~s" prog-and-args)
   (assert-string-list? 'builtin-builtin prog-and-args)
@@ -151,7 +151,7 @@
             ; job still exists, show its running/stopped status.
             ; return (void) i.e. builtin "fg" exiting successfully.
             (queue-job-display-summary job)))
-        (write-builtin-error "bg" arg "no such job")))) ; returns '(exited . 1)
+        (write-builtin-error "bg" arg "no such job")))) ; returns '(failed . 1)
 
 
 ;; The "fg" builtin: continue a job-id by sending SIGCONT to it, then wait for it to exit or stop.
@@ -174,7 +174,7 @@
             ; job still exists, show its running/stopped status.
             ; return (void) i.e. builtin "fg" exiting successfully.
             (queue-job-display-summary job)))
-        (write-builtin-error "fg" arg "no such job")))) ; returns '(exited . 1)
+        (write-builtin-error "fg" arg "no such job")))) ; returns '(failed . 1)
 
 
 ;; the "global" builtin: run the builtin passed as first argument
@@ -286,14 +286,14 @@
               (%env-display-var name val wbuf)
               (fd-write/bspan! (sh-fd-stdout) wbuf)
               (void))          ; exit successfully
-            '(exited . 1)))) ; env variable not found => fail
+            '(failed . 1)))) ; env variable not found => fail
       ((null? (cdddr prog-and-args))
         (let ((name (cadr prog-and-args))
               (val  (caddr prog-and-args)))
           (sh-env-set! parent name val)
           (void))) ; exit successfully
       (#t
-        (write-builtin-error "set" "too many arguments"))))) ; returns '(exited . 1)
+        (write-builtin-error "set" "too many arguments"))))) ; returns '(failed . 1)
 
 
 
@@ -354,7 +354,7 @@
 ;;   an external subprocess and returns immediately,
 ;;   thus the returned status can be '(running ...)
 ;; otherwise the builtin will be executed synchronously in the caller's process
-;;   and the returned status can only be one of (void) '(exited ...) '(killed ...) or '(unknown ...)
+;;   and the returned status can only be one of (void) '(failed ...) '(killed ...) or '(unknown ...)
 (define (start-builtin builtin c args options)
   (assert* 'start-builtin (not (job-step-proc c)))
   (if (job-fds-to-remap c)

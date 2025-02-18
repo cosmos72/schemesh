@@ -62,7 +62,6 @@
 
     ;; types.ss
     sh-cmd? sh-job? sh-job-copy sh-multijob?
-
     ;; wildcard
     sh-wildcard sh-wildcard* sh-wildcard/apply sh-wildcard/expand-tilde sh-wildcard->string
     sh-wildcard->sh-patterns sh-patterns/expand
@@ -98,7 +97,7 @@
 
 
 
-;; return #t if job-status is (void), i.e. if job exited with exit status 0,
+;; return #t if job-status is (void), i.e. if job failed with exit status 0,
 ;; otherwise return #f
 ;;
 ;; intentionally identical to function (ok?) exported by library (schemesh posix)
@@ -106,15 +105,15 @@
   (eq? job-status (void)))
 
 
-;; Convert a job-status to one of: 'new 'running 'stopped 'exited 'killed 'unknown
+;; Convert a job-status to one of: 'new 'running 'stopped 'failed 'killed 'unknown
 (define (job-status->kind job-status)
   ;; job-status is either (void) or a pair
   (cond
-    ((eq? (void) job-status)  'exited)
+    ((eq? (void) job-status)  'failed)
     ((pair? job-status)       (car job-status))
     (#t                       'unknown)))
 
-;; Convert job's last-status to one of: 'new 'running 'stopped 'exited 'killed 'unknown
+;; Convert job's last-status to one of: 'new 'running 'stopped 'failed 'killed 'unknown
 (define (job-last-status->kind job)
   (job-status->kind (job-last-status job)))
 
@@ -122,8 +121,8 @@
 ;; Return  if job-status is a pair whose car is in allowed-list,
 ;; otherwise return #f;
 ;;
-;; if job-status is (void) and allowed-list also contains 'exited
-;; then return truish because (void) is a shortcut for '(exited . 0)
+;; if job-status is (void) and allowed-list also contains 'failed
+;; then return truish because (void) is a shortcut for '(failed . 0)
 (define (job-status-member? job-status allowed-list)
   (memq (job-status->kind job-status) allowed-list))
 
@@ -133,7 +132,7 @@
 
 ;; Return truish if job-status is finished, otherwise return #f
 (define (job-status-finished? job-status)
-  (job-status-member? job-status '(exited killed unknown)))
+  (job-status-member? job-status '(failed killed unknown)))
 
 ;; Return truish if old-status and new-status have different
 ;; otherwise return #f
@@ -144,8 +143,8 @@
 ;; Return truish if (job-last-status job) is a pair whose car is in allowed-list,
 ;; otherwise return #f;
 ;;
-;; if (job-last-status job) is (void) and allowed-list also contains 'exited
-;; then return truish because (void) is a shortcut for '(exited . 0)
+;; if (job-last-status job) is (void) and allowed-list also contains 'failed
+;; then return truish because (void) is a shortcut for '(failed . 0)
 (define (job-has-status? job allowed-list)
   (job-status-member? (job-last-status job) allowed-list))
 
@@ -191,7 +190,7 @@
 
 ;; set the status of a job and return it.
 ;; if specified status indicates that job finished,
-;;   i.e. (job-status->kind status) is one of 'exited 'killed 'unknown,
+;;   i.e. (job-status->kind status) is one of 'failed 'killed 'unknown,
 ;;   also close the job fds that need to be closed.
 (define (job-status-set! caller job status)
   ;a (debugf "job-status-set! caller=~s job=~s status=~s" caller job status)
@@ -216,7 +215,7 @@
   (cond
     ((eq? (void) status)
       status)
-    ((and (pair? status) (memq (car status) '(new running stopped exited killed unknown)))
+    ((and (pair? status) (memq (car status) '(new running stopped failed killed unknown)))
       status)
     (#t
       '(unknown . 0))))
@@ -300,7 +299,7 @@
       (case (job-status->kind status)
         ((running stopped)
           (job-id-set! job))
-        ((exited killed unknown)
+        ((failed killed unknown)
           (job-id-unset! job))
         (else
           status)))))
@@ -573,7 +572,7 @@
       ;; assign job-id 0 to sh-globals itself.
       ;;
       ;; waiting for sh-globals to exit is not useful:
-      ;; pretend it already exited with unknown exit status
+      ;; pretend it already finished with unknown exit status
       (%make-multijob
          0 (pid-get) (pgid-get 0)  ; id pid pgid
          '(unknown . 0) #f         ; last-status exception

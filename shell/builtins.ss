@@ -119,9 +119,9 @@
   (void))
 
 
-;; implementation of "false" builtin, always exits with failure exit status '(exited . 1)
+;; implementation of "false" builtin, always exits with failure exit status '(failed . 1)
 (define (sh-false . ignored-args)
-  '(exited . 1))
+  '(failed . 1))
 
 
 ;; implementation of "help" builtin, display general help or help for specified builtin.
@@ -165,7 +165,7 @@ The following names are recognized as builtins:\n\n")
             (bytespan-insert-back/string! wbuf name)
             (bytespan-insert-back/string! wbuf "'. Try 'help' or 'help help'.\n")
             (fd-write/bspan! (sh-fd-stdout) wbuf)
-            '(exited . 1)))))))
+            '(failed . 1)))))))
 
 
 
@@ -192,8 +192,8 @@ The following names are recognized as builtins:\n\n")
                 (when (fx>=? (bytespan-length wbuf) 4096)
                   (fd-write/bspan! fd wbuf))))
             (fd-write/bspan! fd wbuf)
-            (void)) ; return (void), means builtin exited successfully
-          '(exited . 1))))))
+            (void)) ; return (void), means builtin finished successfully
+          '(failed . 1))))))
 
 
 ;; implementation of "expr" builtin, exits with user-specified exit status
@@ -204,18 +204,18 @@ The following names are recognized as builtins:\n\n")
       (cond
         ((integer? arg)
           (if (fxzero? arg)
-            (void) ; '(exited . 0) is always abbreviated to (void)
-            (cons 'exited arg)))
+            (void) ; '(failed . 0) is always abbreviated to (void)
+            (cons 'failed arg)))
         ((and (string? arg) (string-contains-only-decimal-digits? arg))
           (let ((num (string->number arg)))
             (if (zero? num)
-              (void) ; '(exited . 0) is always abbreviated to (void)
-              (cons 'exited num))))
+              (void) ; '(failed . 0) is always abbreviated to (void)
+              (cons 'failed num))))
         ((and (pair? arg) (symbol? (car arg)) (or (integer? (cdr arg)) (symbol? (cdr arg))))
           arg)
         (#t
-          '(exited . 1))))
-    '(exited . 1)))
+          '(failed . 1))))
+    '(failed . 1)))
 
 
 ;; implementation of "true" builtin, always exits successfully i.e. with exit status (void)
@@ -241,7 +241,7 @@ The following names are recognized as builtins:\n\n")
   (apply sh-echo0 (cdr prog-and-args)))
 
 
-;; the "false" builtin: return '(exited . 1)
+;; the "false" builtin: return '(failed . 1)
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-false job prog-and-args options)
@@ -355,13 +355,13 @@ is usually available at <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html#
     return success.\n"))
 
     (hashtable-set! t "expr"   (string->utf8 " [int ...]
-    return INT value specified as first argument, or failure i.e. '(exited . 1) if no arguments.
+    return INT value specified as first argument, or failure i.e. '(failed . 1) if no arguments.
 
     Usually invoked with a (lambda () (sh-bool ...)) as its only argument,
     for running arbitrary Scheme code from a shell job.\n"))
 
     (hashtable-set! t "false"   (string->utf8 " [arg ...]
-    ignore arguments. return failure i.e. '(exited . 1).\n"))
+    ignore arguments. return failure i.e. '(failed . 1).\n"))
 
     (hashtable-set! t "help"    (string->utf8 " [name]
     display available builtins, or help about builtin NAME.

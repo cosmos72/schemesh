@@ -1010,41 +1010,41 @@ static const testcase tests[] = {
     {"(sh-find-job 1)", "#f"},
     {"(sh-find-job #t)", "(#<global> #t)"},
     {"(sh-run/i (sh-cmd \"true\"))", ""}, /* (void) is displayed as empty string */
-    {"(sh-run   (sh-cmd \"false\"))", "(exited . 1)"},
+    {"(sh-run   (sh-cmd \"false\"))", "(failed . 1)"},
     {"(sh-run   (sh-cmd \"expr\" \"0\"))", ""},
-    {"(sh-run   (sh-cmd \"expr\" \"257\"))", "(exited . 257)"},
+    {"(sh-run   (sh-cmd \"expr\" \"257\"))", "(failed . 257)"},
     {"(sh-run/i (sh-list (sh-cmd \"false\") (sh-cmd \"true\")))\n", ""},
-    {"(sh-run   (sh-list (sh-cmd \"true\") (sh-cmd \"false\")))\n", "(exited . 1)"},
-    {"(sh-run/i (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 1)"},
-    {"(sh-run   (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(exited . 1)"},
+    {"(sh-run   (sh-list (sh-cmd \"true\") (sh-cmd \"false\")))\n", "(failed . 1)"},
+    {"(sh-run/i (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(failed . 1)"},
+    {"(sh-run   (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))", "(failed . 1)"},
     {"(sh-run/i (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", ""},
     {"(sh-run   (sh-or  (sh-cmd \"true\") (sh-cmd \"false\")))", ""},
-    {"(sh-run   (sh-or  (sh-cmd \"false\") (sh-cmd \"false\")))", "(exited . 1)"},
-    {"(sh-run/i (sh-not (sh-cmd \"true\")))", "(exited . 1)"},
-    {"(sh-run   (sh-not (sh-cmd \"true\")))", "(exited . 1)"},
+    {"(sh-run   (sh-or  (sh-cmd \"false\") (sh-cmd \"false\")))", "(failed . 1)"},
+    {"(sh-run/i (sh-not (sh-cmd \"true\")))", "(failed . 1)"},
+    {"(sh-run   (sh-not (sh-cmd \"true\")))", "(failed . 1)"},
     {"(sh-run/i (sh-not (sh-cmd \"false\")))", ""},
     {"(sh-run   (sh-not (sh-cmd \"false\")))", ""},
     {"(let ((j (sh-and (sh-cmd \"true\") (sh-cmd \"command\" \"false\"))))\n"
      "  (sh-start j)\n"
      "  (sh-bg j)\n"
      "  (sh-wait j))\n",
-     "(exited . 1)"},
+     "(failed . 1)"},
     {"(let ((j (sh-pipe* (sh-cmd \"true\") '\\x7C;& (sh-cmd \"command\" \"false\"))))\n"
      "  (sh-start j)\n"
      "  (sh-bg j)\n"
      "  (sh-wait j))\n",
-     "(exited . 1)"},
+     "(failed . 1)"},
     /* (sh-start) of a builtin, or a multijob containing (recursively) only builtins,
      * directly returns their exit status, as (sh-run) would do.
      * Reason: there is no external process started asynchronously in the background */
     {"(sh-start (sh-and (sh-cmd \"true\") (sh-cmd \"false\")))\n", /* */
-     "(exited . 1)"},
+     "(failed . 1)"},
     {"(let ((j (sh-cmd \"sleep\" \"1\")))\n"
      "  (sh-start j)\n"
      "  (sh-bg j))\n",
      "(running . 1)"},
     {"(sh-run (sh-subshell (sh-cmd \"true\") '\\x3B; (sh-cmd \"false\")))\n", /* */
-     "(exited . 1)"},
+     "(failed . 1)"},
     /* ------------------------- shell syntax ------------------------------- */
     {"(sh-parse-datum '(shell \"wc\" \"-l\" \"myfile\" > \"mylog\" \\x3B; \"echo\" \"done\"))",
      "(sh-list (sh-cmd* wc -l myfile 1 '> mylog) '; (sh-cmd echo done))"},
@@ -1207,13 +1207,13 @@ static const testcase tests[] = {
     /* ------------------------- job execution ------------------------------ */
     /* builtins and their exit status */
     {"(sh-run (shell \"true\"))", ""},
-    {"(sh-run (shell \"false\"))", "(exited . 1)"},
+    {"(sh-run (shell \"false\"))", "(failed . 1)"},
     {"(sh-run (shell \"echo0\"))", ""},
-    {"(sh-run (shell \"expr\" \"210\"))", "(exited . 210)"},
+    {"(sh-run (shell \"expr\" \"210\"))", "(failed . 210)"},
     {"(sh-run (shell-subshell \"true\"))", ""},
-    {"(sh-run (shell-subshell \"false\"))", "(exited . 1)"},
+    {"(sh-run (shell-subshell \"false\"))", "(failed . 1)"},
     {"(sh-run (shell-subshell \"echo0\"))", ""},
-    {"(sh-run (shell-subshell \"expr\" \"210\"))", "(exited . 210)"},
+    {"(sh-run (shell-subshell \"expr\" \"210\"))", "(failed . 210)"},
     /* (sh-run/string) */
     {"(sh-run/string (shell \"echo\" (shell-wildcard (shell-env \"FOO\") \"=123\" )))", "=123\n"},
     {"(sh-run/string (shell \"echo\" \"a\"  \"b\" \"c\"))", "a b c\n"},
@@ -1242,7 +1242,7 @@ static const testcase tests[] = {
      " asdf\nok\n"},
     {"(sh-run (shell \"echo\" \"xyz\" \\x7C;"
      " (shell \"command\" \"true\" && \"grep\" \"abc\" > \"/dev/null\")))",
-     "(exited . 1)"},
+     "(failed . 1)"},
     {"(format #f \"~s\" (sh-run/string (shell \"echo0\" \"def\" \"gh\" \"i\" \"\")))",
      "\"def\\x0;gh\\x0;i\\x0;\\x0;\""},
     {"(format #f \"~s\" (sh-run/string (shell \"split-at-0\" \"echo\" (shell-backquote \"echo0\" "
@@ -1252,27 +1252,27 @@ static const testcase tests[] = {
     /* run builtin in a subprocess */
     {"(sh-run"
      "  (sh-cmd \"false\") '(spawn? . #t))",
-     "(exited . 1)"},
+     "(failed . 1)"},
     {"(let ((j (sh-cmd \"false\")))"
      "  (sh-start j '(spawn? . #t))"
      "  (sh-wait j))",
-     "(exited . 1)"},
+     "(failed . 1)"},
     /* run a pipe in current shell */
     {"(sh-run (shell"
      "  \"command\" \"true\" \\x7C;"
      "  \"false\"))",
-     "(exited . 1)"},
+     "(failed . 1)"},
     {"(sh-run (shell"
      "  \"false\" \\x7C;"
      "  \"command\" \"true\" \\x7C;"
      "  \"expr\" \"17\"))",
-     "(exited . 17)"},
+     "(failed . 17)"},
     /* run a pipe in a subshell */
     {"(sh-run (shell-subshell"
      "  \"builtin\" \"true\" \\x7C;"
      "  \"builtin\" \"command\" \"false\" \\x7C;"
      "  \"global\"  \"expr\" \"19\"))",
-     "(exited . 19)"},
+     "(failed . 19)"},
     /* ------------------------- sh-read ------------------------------------ */
     {"(sh-read-string* \"#!/some/path some-arg\\n(display (+ 1 2)) {ls}\""
      "  'scheme #t)",

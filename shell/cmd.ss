@@ -56,7 +56,7 @@
 ;;   into the corresponding process group id - which must already exist.
 ;;
 ;; Returns job status, which is also stored in (sh-job-last-status)
-;;   and may be one of (void) '(exited ...) '(running ...) '(stopped ...) '(killed ...) '(unknown ...) etc.
+;;   and may be one of (void) '(failed ...) '(running ...) '(stopped ...) '(killed ...) '(unknown ...) etc.
 ;;   For the complete list of possible returned job statuses, see (sh-job-status).
 (define (start-cmd c options)
   (assert* 'sh-cmd (eq? 'running (job-last-status->kind c)))
@@ -139,7 +139,7 @@
 ;; optionally inserting it into an existing process group.
 ;;
 ;; Returns job status,
-;;   which may be one of (void) '(exited ...) '(running ...) etc.
+;;   which may be one of (void) '(failed ...) '(running ...) etc.
 ;;   For the complete list of possible returned job statuses, see (sh-job-status).
 (define (start-command-or-builtin-or-alias c program-and-args options)
   (assert* 'sh-cmd (sh-cmd? c))
@@ -208,7 +208,7 @@
                     (or process-group-id -1))))
         ;c (debugf "spawn-cmd pid=~s prog-and-args=~s job=~a " ret prog-and-args (sh-job->string c))
         (when (< ret 0)
-          (job-status-set! 'spawn-cmd c (cons 'exited ret))
+          (job-status-set! 'spawn-cmd c (cons 'failed ret))
           (raise-c-errno 'sh-start 'fork ret))
         (job-pid-set! c ret)
         (job-pgid-set! c process-group-id)
@@ -228,7 +228,7 @@
                     (job-make-c-redirect-vector c)
                     (sh-env->argv c 'export))))
         ; (c-exec-cmd) returns only if it failed
-        (cons 'exited (if (and (integer? ret) (not (zero? ret))) ret -1))))))
+        (cons 'failed (if (and (integer? ret) (not (zero? ret))) ret -1))))))
 
 
 ;; internal function called by (spawn-cmd)
@@ -308,7 +308,7 @@
 ;; Passing wait-status to this function converts it to a job status as follows:
 ;;   not a fixnum, or < 0 => return (cons 'unknown wait-status)
 ;;   0                    => return (void)
-;;   1..255               => return (cons 'exited  wait-status)
+;;   1..255               => return (cons 'failed  wait-status)
 ;;   256 + kill_signal    => return (cons 'killed  signal-name)
 ;;   512 + stop_signal    => return (cons 'stopped signal-name)
 ;;   768                  => return (cons 'running #f)
@@ -318,7 +318,7 @@
   (let ((x wait-status))
     (cond ((or (not (fixnum? x)) (fx<? x 0)) (cons 'unknown x))
           ((fx=? x   0) (void))
-          ((fx<? x 256) (cons 'exited  x))
+          ((fx<? x 256) (cons 'failed  x))
           ((fx<? x 512) (cons 'killed  (signal-number->name (fxand x 255))))
           ((fx<? x 768) (cons 'stopped (signal-number->name (fxand x 255))))
           ((fx=? x 768) '(running . #f))
@@ -329,7 +329,7 @@
   (let ((c-pgid-foreground (foreign-procedure "c_pgid_foreground" (int int) int)))
     (lambda (caller old-pgid new-pgid)
       (let ((err (c-pgid-foreground old-pgid new-pgid)))
-        ; (c-pgid-foreground) may fail if new-pgid exited in the meantime
+        ; (c-pgid-foreground) may fail if new-pgid failed in the meantime
         ; (when (< err 0)
         ;  (raise-c-errno caller 'tcsetpgrp err new-pgid))
         err))))
@@ -362,7 +362,7 @@
   ; (debugf "> advance-pid mode=~s job=~a pid=~s status=~s" mode (sh-job->string job) (job-pid job) (job-last-status job))
   (cond
     ((job-finished? job)
-      (job-last-status job)) ; job exited, and exit status already available
+      (job-last-status job)) ; job failed, and exit status already available
     ((not (job-started? job))
       (raise-errorf mode "job not started yet: ~s" job))
     (#t
@@ -411,8 +411,8 @@
              (advance-pid/wait mode job pid pgid)
              ;; otherwise return job status
              new-status2)))
-      ((exited killed unknown)
-        ; job exited, clean it up. Also allows user to later start it again.
+      ((failed killed unknown)
+        ; job failed, clean it up. Also allows user to later start it again.
         (pid->job-delete! (job-pid job))
         (job-status-set! 'advance-pid/wait job new-status)
         (job-id-unset! job)

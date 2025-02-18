@@ -1507,7 +1507,7 @@ static int c_pgid_foreground(int old_pgid, int new_pgid) {
 
 /**
  * call waitpid(pid, WUNTRACED|WCONTINUED) i.e. check if process specified by pid
- * exited, stopped or resumed.
+ * finished, stopped or resumed.
  *
  * Special cases:
  *   pid ==  0 means "any child process in the same process group as the caller"
@@ -1517,7 +1517,7 @@ static int c_pgid_foreground(int old_pgid, int new_pgid) {
  * If may_block != 0, wait until pid (or any child process, if pid == -1) exits or stops,
  * otherwise check for such conditions without blocking.
  *
- * If no child process matches pid, or if may_block == 0 and no child exited or
+ * If no child process matches pid, or if may_block == 0 and no child finished, or
  * stopped, return Scheme empty list '().
  * Otherwise return a Scheme cons (pid . status_flag), or c_errno() on error.
  * status_flag is one of:

@@ -228,10 +228,10 @@
       (job-env/apply-lazy! job 'export)
       ;; (debugf "start-multijob-or ~s empty children? = ~s" job (span-empty? (multijob-children job)))
       (if (span-empty? (multijob-children job))
-        ;; (sh-or) with zero children -> job fails with '(exited . 256)
-        (job-status-set! 'start-multijob-or job '(exited . 256))
+        ;; (sh-or) with zero children -> job fails with '(failed . 256)
+        (job-status-set! 'start-multijob-or job '(failed . 256))
         ;; Do not yet assign a job-id.
-        (step-multijob-or job '(exited . 256))))))
+        (step-multijob-or job '(failed . 256))))))
 
 
 ;; Internal function stored in (job-start-proc job) by (sh-not),
@@ -294,7 +294,7 @@
                     (%job-pgid-set! job #f)
 
                     ; we would like to set status to '(unknown . 0)
-                    ; but that causes (sh-wait job) below to think that job already exited,
+                    ; but that causes (sh-wait job) below to think that job already failed,
                     ; and skips calls to (job-step-proc job) to start nested jobs.
                     ;
                     ; warning: do not call (job-status-set! job ...)
@@ -344,8 +344,8 @@
         ; propagate child exit status and return
         (job-status-set! 'advance-multijob mj child-status)
         child-status)
-      ((job-status-member? child-status '(exited killed unknown))
-        ; child exited: advance multijob by calling (job-step-proc)
+      ((job-status-member? child-status '(failed killed unknown))
+        ; child failed: advance multijob by calling (job-step-proc)
         ; then call (advance-multijob) again multijob if job is still running.
         ; (debugf "... advance-multijob > step-proc ~s status=~s" mj (job-last-status mj))
         (step-proc mj child-status)
@@ -416,7 +416,7 @@
 
 
 ;; Run the child job in a multijob containing a "not" and one child job,
-;; or collect the exit status of the child job after it exited.
+;; or collect the exit status of the child job after it failed.
 ;; Used by (sh-not), implements runtime behavior of shell syntax ! foo
 (define (step-multijob-not mj prev-child-status)
   (assert* 'sh-not (fx=? 1 (sh-multijob-child-length mj)))
@@ -432,11 +432,11 @@
             ; child job already finished, iterate
             (step-multijob-not mj child-status))))
       (begin
-        ; child job exited, negate its exit status
+        ; child job failed, negate its exit status
         (multijob-current-child-index-set! mj -1)
         (job-status-set! 'step-multijob-not mj
           (cond
-            ((sh-ok? prev-child-status) '(exited . 1))
+            ((sh-ok? prev-child-status) '(failed . 1))
             ((job-status-ends-multijob? prev-child-status) prev-child-status)
             (#t (void))))))))
 
@@ -450,7 +450,7 @@
          (iterate? #t)
          (interrupted? #f))
     ; (debugf "step-multijob-list > ~s idx=~s prev-child-status=~s" mj (fx1- idx) prev-child-status)
-    (assert* 'step-multijob-list (job-status-member? prev-child-status '(exited killed unknown)))
+    (assert* 'step-multijob-list (job-status-member? prev-child-status '(failed killed unknown)))
     ; idx = 0 if called by (start-multijob-list)
     (assert* 'step-multijob-list (fx>=? idx 0))
     (while (and iterate? (not interrupted?) (fx<=? idx child-n))

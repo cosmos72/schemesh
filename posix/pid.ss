@@ -55,7 +55,7 @@
           c-errno-einval)))))
 
 
-;; (pid-wait pid may-block) calls waitpid(pid, WUNTRACED) i.e. checks if process specified by pid exited or stopped.
+;; (pid-wait pid may-block) calls waitpid(pid, WUNTRACED) i.e. checks if process specified by pid finished or stopped.
 ;;
 ;; Special cases:
 ;;   pid ==  0 means "any child process in the same process group as the caller"
@@ -67,7 +67,7 @@
 ;; exits or stops, otherwise check for such conditions without blocking.
 ;
 ;; If waitpid() fails with C errno != 0, return < 0.
-;; If no child process matches pid, or if may_block is 'nonblocking and no child exited or
+;; If no child process matches pid, or if may_block is 'nonblocking and no child finished or
 ;; stopped, return '().
 ;; Otherwise return a Scheme cons (pid . exit_flag), where exit_flag is one of:
 ;; process_exit_status, or 256 + signal, or 512 + stop_signal, or 768 if job continued.
@@ -81,7 +81,7 @@
 ;; Call C functions kill() or exit() to terminate current process with job-status,
 ;; which can be one of:
 ;;   (void)                       ; will call C function exit(0)
-;;   (cons 'exited  exit-status)  ; will call C function exit(exit_status)
+;;   (cons 'failed  exit-status)  ; will call C function exit(exit_status)
 ;;   (cons 'killed  signal-name)  ; will call C function kill(getpid(), signal_number)
 ;;               ; unless signal-name is one of: 'sigstop 'sigtstp 'sigcont 'sigttin 'sigttou
 ;;               ; if kill() returns, will call C function exit(128 + signal_number)
@@ -91,7 +91,7 @@
   (let ((exit-status
          (cond
             ((eq? (void) status) 0)
-            ((and (pair? status) (eq? 'exited (car status))
+            ((and (pair? status) (eq? 'failed (car status))
                   (fixnum? (cdr status)) (fx=? (cdr status)
                                                (fxand 255 (cdr status))))
                (cdr status))

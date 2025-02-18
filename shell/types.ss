@@ -40,7 +40,7 @@
     (mutable temp-parent) ; temporary parent job, contains default values of env variables.
                           ; Unset when job finishes
     (mutable default-parent)) ; default parent job, contains default values of env variables
-  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-9}))
+  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-12}))
 
 
 ;; Define the record type "cmd"
@@ -50,7 +50,7 @@
   (fields
     arg-list                     ; list of strings and closures: program-name and args
     (mutable expanded-arg-list)) ; #f or list of strings: program-name and args after applying closures and expanding aliases
-  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-10}))
+  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-13}))
 
 
 ;; Define the record type "multijob"
@@ -61,7 +61,7 @@
     kind                ; symbol: one of 'sh-and 'sh-or 'sh-not 'sh-list 'sh-subshell '#<global>
     (mutable current-child-index) ; -1 or index of currently running child job
     children)           ; span: children jobs.
-  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-11}))
+  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-14}))
 
 
 ;; Convert pid to job, return #f if job not found

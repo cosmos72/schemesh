@@ -62,6 +62,7 @@
   (include "shell/parameters.ss")
   (include "shell/fds.ss")
   (include "shell/paths.ss")
+  (include "shell/status.ss")
   (include "shell/builtins.ss")
   (include "shell/job.ss")
   (include "shell/eval.ss")

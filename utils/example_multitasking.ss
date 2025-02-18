@@ -20,7 +20,7 @@
   (task %make-task task?)
   (fields
      id
-     (mutable status) ; one of: 'new 'running 'exited
+     (mutable status) ; one of: 'new 'running 'failed
      (mutable result)
      start-proc
      (mutable resume-proc)
@@ -41,7 +41,7 @@
 
 
 (define (task-end task result)
-  (task-status-set! task 'exited)
+  (task-status-set! task 'failed)
   (task-result-set! task result)
   result)
 
@@ -67,7 +67,7 @@
       ;; Capture the continuation representing THIS call to task-resume
       (lambda (susp)
         (let ((proc (case (task-status task)
-                      ((new exited) (task-start-proc task))
+                      ((new failed) (task-start-proc task))
                       ((running)    (task-resume-proc task))
                       (else     #f))))
           (when proc
