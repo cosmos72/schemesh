@@ -12,8 +12,8 @@
           (schemesh repl)))
 
 
-;; define (schemesh all) as a library that exports all its imported bindings
-(library-reexport (schemesh all (0 7 5))
+;; define (schemesh) as a library that exports all its imported bindings
+(library-reexport (schemesh (0 7 5))
   (import
     (schemesh bootstrap)
     (schemesh containers)

@@ -116,7 +116,7 @@ void schemesh_import_minimal_libraries(void) {
 }
 
 void schemesh_import_all_libraries(void) {
-  schemesh_eval("(import (schemesh all))\n");
+  schemesh_eval("(import (schemesh))\n");
 }
 
 void schemesh_init(const char* override_boot_dir, void (*on_scheme_exception)(void)) {

@@ -119,7 +119,7 @@ fg 1
 
 a slighty more complex example - uses several additional functions and macros provided by schemesh
 ```lisp
-(import (schemesh all))
+(import (schemesh))
 
 (for ((f (in-list (sh-run/string-split-after-nuls {find -type f -print0}))))
   (file-rename f (string-replace f ".old" ".bak")))
