@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh containers string (0 7 5))
+(library (schemesh containers string (0 7 6))
   (export
     string-list? assert-string-list? string-list-split-after-nuls
     string-is-unsigned-base10-integer? string-is-signed-base10-integer?

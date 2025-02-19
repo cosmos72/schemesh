@@ -5,14 +5,14 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh posix signal (0 7 5))
+(library (schemesh posix signal (0 7 6))
   (export signal-raise signal-number->name signal-name->number
-          signal-consume-sigchld signal-consume-sigwinch signal-init-sigwinch signal-restore-sigwinch
-          suspend-handler)
+          signal-consume-sigchld signal-consume-sigtstp signal-consume-sigwinch
+          signal-init-sigwinch signal-restore-sigwinch)
   (import
     (rnrs)
     (only (chezscheme) assertion-violationf foreign-procedure logbit?
-                       procedure-arity-mask register-signal-handler void)
+                       procedure-arity-mask void)
     (only (schemesh bootstrap)            assert* sh-make-thread-parameter)
     (only (schemesh containers hashtable) eq-hashtable hashtable-transpose))
 
@@ -43,6 +43,7 @@
           c-errno-einval)))))
 
 (define signal-consume-sigchld  (foreign-procedure "c_sigchld_consume" () ptr))
+(define signal-consume-sigtstp  (foreign-procedure "c_sigtstp_consume" () ptr))
 (define signal-consume-sigwinch (foreign-procedure "c_sigwinch_consume" () ptr))
 
 (define signal-init-sigwinch
@@ -51,19 +52,5 @@
       (assert* 'signal-init-sigwinch (fxzero? (c-signal-init-sigwinch))))))
 
 (define signal-restore-sigwinch (foreign-procedure "c_sigwinch_restore" () int))
-
-;; thread parameter (suspend-handler) must be a procedure accepting zero arguments,
-;; and it is invoked when schemesh receives signal SIGTSTP
-(define suspend-handler
-  (sh-make-thread-parameter
-    void
-    (lambda (proc)
-      (unless (and (procedure? proc) (logbit? 0 (procedure-arity-mask proc)))
-        (assertion-violationf "suspend-handler: ~s is not a procedure accepting zero arguments~%" proc))
-      proc)))
-
-(register-signal-handler
-  (signal-name->number 'sigtstp)
-  (lambda (sig) ((suspend-handler))))
 
 ) ; close library

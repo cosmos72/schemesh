@@ -7,18 +7,15 @@
  * (at your option) any later version.
  */
 
+#if 0 /* at least on FreeBSD and MacOSX, these cause more trouble than what they are worth */
 #define _POSIX_C_SOURCE 200809L /* fstatat() */
-#define _DEFAULT_SOURCE         /* DT_* */
-#define _BSD_SOURCE             /* DT_* */
+#define _DEFAULT_SOURCE         /* DT_... */
+#define _BSD_SOURCE             /* DT_... SIGWINCH */
+#endif
 
 #include "posix.h"
 #include "../containers/containers.h" /* schemesh_Sbytevector() */
 #include "../eval.h"                  /* eval() */
-
-#include <errno.h> /* EINVAL */
-#include <signal.h>
-#include <stdatomic.h>
-#include <stddef.h> /* size_t, NULL */
 
 #include <dirent.h> /* opendir(), readdir(), closedir() */
 #include <errno.h>  /* EINVAL, EIO, errno */
@@ -26,7 +23,9 @@
 #include <limits.h>
 #include <poll.h>
 #include <pwd.h>    /* getpwnam_r() */
-#include <signal.h> /* kill() ... */
+#include <signal.h> /* kill(), sigaction(), SIG... */
+#include <stdatomic.h>
+#include <stddef.h> /* size_t, NULL */
 #include <stdio.h>  /* remove(), rename() ... */
 #include <stdlib.h> /* getenv(), strtoul() */
 #include <string.h>
@@ -850,7 +849,11 @@ static int c_exit(int status) {
 
 /** return Scheme string, or Scheme integer on error */
 static ptr c_get_hostname(void) {
+#ifdef HOST_NAME_MAX
   char buf[HOST_NAME_MAX + 1];
+#else
+  char buf[256];
+#endif
   if (gethostname(buf, sizeof(buf)) != 0) {
     return Sinteger(c_errno());
   }

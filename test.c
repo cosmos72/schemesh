@@ -1066,7 +1066,7 @@ static const testcase tests[] = {
 #define OPTION_PARENT_JOB "(($primitive 2 cons) 'same-parent-as-job job)"
 
 #define INVOKELIB_SHELL_JOBS                                                                       \
-  "(begin (($primitive 3 $invoke-library) '(schemesh shell job) '(0 7 5) 'job) "
+  "(begin (($primitive 3 $invoke-library) '(schemesh shell job) '(0 7 6) 'job) "
 
     /* ------------------------- shell macros ------------------------------- */
     {"(expand '(shell))", /* */

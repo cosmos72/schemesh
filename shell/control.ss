@@ -83,11 +83,11 @@
 
 
 ;; Return up-to-date status of a job or job-id, which can be one of:
-;;   (list 'new       0)
-;;   (list 'running   #f)         ; if job is running but has no job-id
+;;   (list 'new)
+;;   (list 'running)              ; job is running, has no job-id
 ;;   (list 'running   job-id)
-;;   (void)                       ; if process exited successfully, i.e. with exit-status = 0
-;;   (list 'ok        result ...) ; if job is a Scheme procedure that successfully returned zero or more results
+;;   (void)                       ; job exited successfully, i.e. with C exit-status = 0
+;;   (list 'ok        result ...) ; job is a Scheme procedure that successfully returned zero or more results
 ;;   (list 'failed    exit-status)
 ;;   (list 'stopped   signal-name)
 ;;   (list 'killed    signal-name)
@@ -98,7 +98,7 @@
   (let* ((job    (sh-job job-or-id))
          (status (job-last-status job)))
     ; (debugf ">  sh-job-status job=~a" (sh-job->string job))
-    (if (status-started? status)
+    (if (sh-started? status)
       (advance-job 'sh-job-status job)
       status)))
 

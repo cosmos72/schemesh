@@ -177,22 +177,22 @@
 
 
 ;; Create a copy of job and all its children jobs, and return it.
-;; Returned job will have no id, status '(new 0) and specified parent, or (sh-globals) if not specified
+;; Returned job will have no id, status '(new) and specified parent, or (sh-globals) if not specified
 (define sh-job-copy
   (case-lambda
-    ((job) (sh-job-copy job (sh-globals)))
     ((job parent)
       (cond ((sh-cmd?      job) (cmd-copy      job parent))
             ((sh-multijob? job) (multijob-copy job parent))
-            (raise-errorf 'sh-job-copy "~s is not a sh-cmd or a sh-multijob" job)))))
+            (raise-errorf 'sh-job-copy "~s is not a sh-cmd or a sh-multijob" job)))
+    ((job) (sh-job-copy job (sh-globals)))))
 
 
 ;; Create a copy of sh-cmd j, and return it.
-;; Returned job will have no id, status '(new 0) and specified parent.
+;; Returned job will have no id, status '(new) and specified parent.
 (define (cmd-copy j parent)
   (%make-cmd
     #f #f #f             ; id pid pgid
-    '(new 0) #f        ; status exception
+    '(new) #f            ; status exception
     (let ((redirects (job-redirects j)))
       (span-copy redirects (job-redirects-temp-n j) (span-length redirects)))
     0 #f                 ; redirects-temp-n fds-to-remap
@@ -213,14 +213,14 @@
 
 
 ;; Create a copy of sh-multijob j, and return it.
-;; Returned job will have no id, status '(new 0) and specified parent.
+;; Returned job will have no id, status '(new) and specified parent.
 ;; Children jobs will be copied recursively.
 (define (multijob-copy j parent)
   (let* ((children (job-span-copy (multijob-children j)))
          (ret
     (%make-multijob
       #f #f #f             ; id pid pgid
-      '(new 0) #f        ; status exception
+      '(new) #f            ; status exception
       (let ((redirects (job-redirects j)))
         ;; skip temporary redirects, copy the rest
         (span-copy redirects (job-redirects-temp-n j) (span-length redirects)))
@@ -248,7 +248,7 @@
 
 
 ;; Create a copy of span containing jobs and symbols, and return it.
-;; Returned jobs will have no id, status '(new 0) and parent (sh-globals)
+;; Returned jobs will have no id, status '(new) and parent (sh-globals)
 ;; Children jobs will be copied recursively.
 (define (job-span-copy src)
   (let ((dst (make-span (span-length src))))

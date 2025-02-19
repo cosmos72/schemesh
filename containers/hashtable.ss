@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh containers hashtable (0 7 5))
+(library (schemesh containers hashtable (0 7 6))
   (export
     make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-cell hash-iterator-next!
     in-hashtable hashtable-iterate hashtable-transpose

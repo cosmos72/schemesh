@@ -53,37 +53,37 @@
 
 ;; Extract the kind of a status and return it.
 ;; Possible returned kinds are: 'new 'running 'stopped 'ok 'exception 'failed 'killed
-(define (status->kind status)
+(define (sh-status->kind status)
   (cond
     ((eq? (void) status)     'ok)
     ((status-valid? status)  (car status))
     (else                    'failed)))
 
 
-;; if (status-finished? status) is #t, return the first result stored in status.
-;; if (status-finished? status) is #f or status contains zero results, return (void)
-(define (status->result status)
+;; if (sh-finished? status) is #t, return the first result stored in status.
+;; if (sh-finished? status) is #f or status contains zero results, return (void)
+(define (sh-status->result status)
   (if (and (pair? status)
            (not (null? (cdr status)))
-           (status-finished? status))
+           (sh-finished? status))
     (cadr status)
     (void)))
 
 
-;; if (status-finished? status) is #t, return the list of results stored in status
+;; if (sh-finished? status) is #t, return the list of results stored in status
 ;;    Note: the status (void) represents a successfully finished job that returned (void)
 ;;          thus the returned results is a single-element list containing (void)
-;; if (status-finished? status) is #f, return the empty list.
+;; if (sh-finished? status) is #f, return the empty list.
 ;;
 ;; DO NOT modify the returned list!
-(define status->results
+(define sh-status->results
   (let ((list1-void (list (void))))
     (lambda (status)
       (cond
         ((eq? status (void))
           list1-void)
         ((and (pair? status)
-              (status-finished? status))
+              (sh-finished? status))
           (cdr status))
         (else
           '())))))
@@ -92,7 +92,7 @@
 ;; return #t if status is either (void) or '(ok ...), i.e. if job finished successfully.
 ;; otherwise return #f
 ;;
-;; intentionally identical to function (ok?) exported by library (schemesh posix)
+;; intentionally identical to function (ok?) exported by library (schemesh posix dir)
 (define (sh-ok? status)
   (cond
     ((eq? status (void))
@@ -105,28 +105,28 @@
 
 ;; Return #t if status represents a started job, i.e. its kind is one of 'running 'stopped.
 ;; otherwise return #f
-(define (status-started? status)
-  (if (memq (status->kind status) '(running stopped))
+(define (sh-started? status)
+  (if (memq (sh-status->kind status) '(running stopped))
     #t
     #f))
 
 
 ;; Return #t if status represents a running job, i.e. its kind is 'running.
 ;; otherwise return #f
-(define (status-running? status)
-  (eq? (status->kind status) 'running))
+(define (sh-running? status)
+  (eq? 'running (sh-status->kind status)))
 
 
 ;; Return #t if status represents a stopped job, i.e. its kind is 'stopped.
 ;; otherwise return #f
-(define (status-stopped? status)
-  (eq? (status->kind status) 'stopped))
+(define (sh-stopped? status)
+  (eq? 'stopped (sh-status->kind status)))
 
 
 ;; Return #t if status represents a finished job, i.e. its kind is one of 'ok 'exception 'failed 'killed.
 ;; otherwise return #f
-(define (status-finished? status)
-  (if (memq (status->kind status) '(ok exception failed killed))
+(define (sh-finished? status)
+  (if (memq (sh-status->kind status) '(ok exception failed killed))
     #t
     #f))
 
@@ -134,8 +134,8 @@
 ;; Return #t if old-status and new-status have different kind.
 ;; otherwise return #f
 (define (status-changed? old-status new-status)
-  (not (eq? (status->kind old-status)
-            (status->kind new-status))))
+  (not (eq? (sh-status->kind old-status)
+            (sh-status->kind new-status))))
 
 
 
@@ -148,7 +148,7 @@
 ;; '(killed  sigquit)
 ;;
 (define (status-stops-or-ends-multijob? status)
-  (let ((kind (status->kind status)))
+  (let ((kind (sh-status->kind status)))
     (if (or (memq kind '(exception stopped))
             (and (eq? kind 'killed)
                  (not (null? (cdr status)))
@@ -164,7 +164,7 @@
 ;; '(killed  sigquit)
 ;;
 (define (status-ends-multijob? status)
-  (let ((kind (status->kind status)))
+  (let ((kind (sh-status->kind status)))
     (if (or (eq? kind 'exception)
           (and (eq? kind 'killed)
                (not (null? (cdr status)))
@@ -175,18 +175,18 @@
 
 ;; Convert job's last-status to one of: 'new 'running 'stopped 'ok 'failed 'exception 'killed
 (define (job-last-status->kind job)
-  (status->kind (job-last-status job)))
+  (sh-status->kind (job-last-status job)))
 
 
 
 ;; Return truish if job was already started, otherwise return #f
 (define (job-started? job)
-  (status-started? (job-last-status job)))
+  (sh-started? (job-last-status job)))
 
 ;; Return truish if job was started and is still running (not stopped or finished), otherwise return #f
 (define (job-running? job)
-  (status-running? (job-last-status job)))
+  (sh-running? (job-last-status job)))
 
 ;; Return truish if job has already finished, otherwise return #f
 (define (job-finished? job)
-  (status-finished? (job-last-status job)))
+  (sh-finished? (job-last-status job)))

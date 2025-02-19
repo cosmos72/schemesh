@@ -35,7 +35,7 @@
 ;;
 ;; returns (void)
 (define (fd-write/bspan! fd wbuf)
-  ; TODO: loop on short writes and call sh-consume-sigchld
+  ; TODO: loop on short writes and call sh-consume-signals
   (fd-write fd (bytespan-peek-data wbuf)
             (bytespan-peek-beg wbuf) (bytespan-peek-end wbuf))
   (bytespan-clear! wbuf))
@@ -172,7 +172,7 @@
       (if job
         (let* ((old-status (job-last-status job))
                (new-status (sh-bg job)))
-          (if (status-finished? new-status)
+          (if (sh-finished? new-status)
             ; job finished, return its exit status as "bg" exit status.
             new-status
             ; job still exists, show its running/stopped status.
@@ -195,7 +195,7 @@
       (if job
         (let* ((old-status (job-last-status job))
                (new-status (sh-fg job)))
-          (if (status-finished? new-status)
+          (if (sh-finished? new-status)
             ; job finished, return its exit status as "fg" exit status.
             new-status
             ; job still exists, show its running/stopped status.
@@ -412,7 +412,7 @@
       (job-status-set! 'start-builtin job
         (let ((status  (builtin job args options)))
           ;c (debugf "< start-builtin options=~s args=~s job=~a status=~s" options args (sh-job->string job) status)
-          (if (or (status-finished? status) (options->spawn? options)
+          (if (or (sh-finished? status) (options->spawn? options)
                   (not (hashtable-ref (builtins-that-finish-immediately) builtin #f)))
             status
             (%warn-bad-builtin-exit-status builtin args status))))))) ; returns (void)

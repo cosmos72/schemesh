@@ -122,7 +122,7 @@ a slighty more complex example - uses several additional functions and macros pr
 (import (schemesh))
 
 (for ((f (in-list (sh-run/string-split-after-nuls {find -type f -print0}))))
-  (file-rename f (string-replace f ".old" ".bak")))
+  (file-rename f (string-replace-end f ".old" ".bak")))
 ```
 
 ### Features
@@ -173,6 +173,25 @@ make -j
 sudo make install
 ```
 
+On FreeBSD:
+```shell
+pkg install chez-scheme gcc git gmake  # must be executed as root
+git clone https://github.com/cosmos72/schemesh
+cd schemesh
+gmake -j
+gmake install  # must be executed as root
+```
+
+On Mac OS X (untested, likely incomplete):
+```shell
+sudo xcode-select --install # only needed if you don't already have XCode Command Line Tools
+brew install chezscheme lz4
+git clone https://github.com/cosmos72/schemesh
+cd schemesh
+make -j
+sudo make install
+```
+
 For other systems, the instructions above can (hopefully) be adapted as needed.
 
 If all went well, you can execute `schemesh`
@@ -180,10 +199,32 @@ If all went well, you can execute `schemesh`
 In case your environment variable `$PATH` does not contain `/usr/local/bin`,
 the command `schemesh` will not suffice - you will need to run `/usr/local/bin/schemesh`
 
-Troubleshooting:
+#### Troubleshooting:
 
-if `make -j` fails, a possible error is that it fails to autodetect Chez Scheme installation directory.
-In such case you can manually specify it, as for example `make -j CHEZ_SCHEME_DIR="/usr/local/lib/csv10.0.0/ta6le"`
+If `make -j` fails, do not panic :) Some issues are relatively minor and can be fixed easily:
+
+1. error messages like `scheme.h: No such file or directory` or `missing path after '-I'`
+   or `Usage: ./utils/find_chez_scheme_kernel.sh CHEZ_SCHEME_DIR`
+   indicate that `make` failed to autodetect Chez Scheme installation directory.
+
+   In such case you can manually specify it, as for example `make -j CHEZ_SCHEME_DIR="/usr/local/lib/csv10.0.0/ta6le"`
+
+2. on Ubuntu 22.04, you may get the error message
+   `lto1: fatal error: bytecode stream in file ‘/usr/lib/csv9.5.4/ta6le/kernel.o’ generated with LTO version 9.4 instead of the expected 11.3`
+
+   This can be worked around by running `make -j CC="gcc -fno-lto"`
+
+If get some other error and you correctly installed the required dependencies,
+feel free to open a (GitHub issue)[https://github.com/cosmos72/schemesh/issues]
+describing the issue. Remember to include at least:
+* the exact `make ...` command you executed, and its output - especially the error messages
+* the output of the command `lsb_release -a`
+* the output of the command `uname -a`
+* the output of the command `make --version`
+* the output of the command `cc --version`
+* the output of the command `( chezscheme --verbose || chez --verbose || scheme --verbose ) </dev/null >/dev/null`
+* the output of the command `git log | head -6`
+
 
 ## RECENT CHANGES
 

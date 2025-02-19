@@ -22,11 +22,18 @@
 #endif
 
 static ATOMIC int c_sigchld_received  = 0;
+static ATOMIC int c_sigtstp_received  = 0;
 static ATOMIC int c_sigwinch_received = 0;
 
 static void c_sigchld_handler(int sig_num) {
   (void)sig_num;
   atomic_store(&c_sigchld_received, 1);
+}
+
+static void c_sigtstp_handler(int sig_num) {
+  (void)sig_num;
+  atomic_store(&c_sigtstp_received, 1);
+  (void)raise(SIGINT); /* trigger Chez Scheme (break-handler) */
 }
 
 static void c_sigwinch_handler(int sig_num) {
@@ -35,11 +42,11 @@ static void c_sigwinch_handler(int sig_num) {
 }
 
 static ptr c_sigchld_consume(void) {
-#if 0
-  (void)write(2, "\nc_sigchld_consume = ", 21);
-  (void)write(2, atomic_load(&c_sigchld_received) ? "1\n" : "0\n", 2);
-#endif
   return atomic_exchange(&c_sigchld_received, 0) ? Strue : Sfalse;
+}
+
+static ptr c_sigtstp_consume(void) {
+  return atomic_exchange(&c_sigtstp_received, 0) ? Strue : Sfalse;
 }
 
 static ptr c_sigwinch_consume(void) {
@@ -52,14 +59,14 @@ static int c_signals_init(void) {
   struct sigaction   action   = {};
   static const char* labels[] = {
       "sigaction(SIGCHLD)",
-      "sigaction(SIGTSTP, SIG_IGN)",
+      "sigaction(SIGTSTP)",
       "sigaction(SIGTTIN, SIG_IGN)",
       "sigaction(SIGTTOU, SIG_IGN)",
   };
   typedef void (*signal_handler_func)(int);
   static const signal_handler_func handlers[] = {
       &c_sigchld_handler,
-      SIG_IGN,
+      &c_sigtstp_handler,
       SIG_IGN,
       SIG_IGN,
   };
@@ -118,7 +125,9 @@ static int c_signal_setdefault(int sig) {
 }
 
 static int c_signal_raise(int sig) {
-  (void)c_signal_setdefault(sig);
+  if (sig == SIGTTIN || sig == SIGTTOU) {
+    (void)c_signal_setdefault(sig);
+  }
   if (raise(sig) < 0) { /* better than kill(getpid(), sig) in multi-threaded-programs */
     return c_errno();
   }
@@ -133,17 +142,55 @@ static ptr c_signals_list(void) {
   static const struct {
     int         sig_num;
     const char* sig_name;
-  } sigtable[] = {{SIGHUP, "sighup"},       {SIGINT, "sigint"},       {SIGQUIT, "sigquit"},
-                  {SIGILL, "sigill"},       {SIGTRAP, "sigtrap"},     {SIGABRT, "sigabrt"},
-                  {SIGBUS, "sigbus"},       {SIGFPE, "sigfpe"},       {SIGKILL, "sigkill"},
-                  {SIGUSR1, "sigusr1"},     {SIGSEGV, "sigsegv"},     {SIGUSR2, "sigusr2"},
-                  {SIGPIPE, "sigpipe"},     {SIGALRM, "sigalrm"},     {SIGTERM, "sigterm"},
-                  {SIGSTKFLT, "sigstkflt"}, {SIGCHLD, "sigchld"},     {SIGCONT, "sigcont"},
-                  {SIGSTOP, "sigstop"},     {SIGTSTP, "sigtstp"},     {SIGTTIN, "sigttin"},
-                  {SIGTTOU, "sigttou"},     {SIGURG, "sigurg"},       {SIGXCPU, "sigxcpu"},
-                  {SIGXFSZ, "sigxfsz"},     {SIGVTALRM, "sigvtalrm"}, {SIGPROF, "sigprof"},
-                  {SIGWINCH, "sigwinch"},   {SIGIO, "sigio"},         {SIGPWR, "sigpwr"},
-                  {SIGSYS, "sigsys"}};
+  } sigtable[] = {
+      {SIGABRT, "sigabrt"},     {SIGALRM, "sigalrm"}, {SIGBUS, "sigbus"},   {SIGCHLD, "sigchld"},
+      {SIGCONT, "sigcont"},     {SIGFPE, "sigfpe"},   {SIGHUP, "sighup"},   {SIGILL, "sigill"},
+      {SIGINT, "sigint"},       {SIGKILL, "sigkill"}, {SIGPIPE, "sigpipe"}, {SIGQUIT, "sigquit"},
+      {SIGSEGV, "sigsegv"},     {SIGSTOP, "sigstop"}, {SIGTERM, "sigterm"}, {SIGTSTP, "sigtstp"},
+      {SIGTTIN, "sigttin"},     {SIGTTOU, "sigttou"}, {SIGUSR1, "sigusr1"}, {SIGUSR2, "sigusr2"},
+
+      {SIGWINCH, "sigwinch"}, /* not fully standard, but we need it */
+
+#ifdef SIGINFO /* synonym for SIGPWR */
+      {SIGINFO, "siginfo"},
+#endif
+#ifdef SIGIO
+      {SIGIO, "sigio"},
+#endif
+#ifdef SIGPOLL
+      {SIGPOLL, "sigpoll"},
+#endif
+#ifdef SIGPROF
+      {SIGPROF, "sigprof"},
+#endif
+#ifdef SIGPWR
+      {SIGPWR, "sigpwr"},
+#endif
+#ifdef SIGSTKFLT
+      {SIGSTKFLT, "sigstkflt"},
+#endif
+#ifdef SIGPWR
+      {SIGPWR, "sigpwr"},
+#endif
+#ifdef SIGSYS
+      {SIGSYS, "sigsys"},
+#endif
+#ifdef SIGTRAP
+      {SIGTRAP, "sigtrap"},
+#endif
+#ifdef SIGURG
+      {SIGURG, "sigurg"},
+#endif
+#ifdef SIGVTALRM
+      {SIGVTALRM, "sigvtalrm"},
+#endif
+#ifdef SIGXCPU
+      {SIGXCPU, "sigxcpu"},
+#endif
+#ifdef SIGXFSZ
+      {SIGXFSZ, "sigxfsz"},
+#endif
+  };
 
   ptr    ret = Snil;
   size_t i;
@@ -159,6 +206,7 @@ static void c_register_c_functions_posix_signals(void) {
   Sregister_symbol("c_signals_list", &c_signals_list);
   Sregister_symbol("c_signal_raise", &c_signal_raise);
   Sregister_symbol("c_sigchld_consume", &c_sigchld_consume);
+  Sregister_symbol("c_sigtstp_consume", &c_sigtstp_consume);
   Sregister_symbol("c_sigwinch_consume", &c_sigwinch_consume);
   Sregister_symbol("c_sigwinch_init", &c_sigwinch_init);
   Sregister_symbol("c_sigwinch_restore", &c_sigwinch_restore);

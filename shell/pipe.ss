@@ -179,7 +179,7 @@
     (let %again ((i running-i))
       (let ((job (sh-multijob-child-ref mj i)))
         (when job
-          (when (or (symbol? job) (status-finished? (advance-job mode job)))
+          (when (or (symbol? job) (sh-finished? (advance-job mode job)))
             (set! running-i (fx1+ i))
             (%again (fx1+ i))))))
 
@@ -192,7 +192,7 @@
         ;; and mode is sh-fg, sh-wait or sh-sigcont+wait, then wait for child.
         ;; otherwise propagate child status and return.
         (if (and (memq mode '(sh-fg sh-wait sh-sigcont+wait))
-                 (eq? 'running (status->kind (sh-multijob-child-status mj running-i))))
+                 (eq? 'running (sh-status->kind (sh-multijob-child-status mj running-i))))
            (advance-multijob-pipe/wait mode mj)
            (job-last-status mj)))
       (else

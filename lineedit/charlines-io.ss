@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh lineedit charlines io (0 7 5))
+(library (schemesh lineedit charlines io (0 7 6))
   (export open-charline-input-port open-charlines-input-port)
   (import
     (rnrs)

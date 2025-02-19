@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh repl (0 7 5))
+(library (schemesh repl (0 7 6))
   (export sh-repl sh-repl* sh-repl-eval sh-repl-eval-list
           sh-repl-lineedit sh-repl-parse sh-repl-print
           sh-repl-exception-handler sh-repl-interrupt-handler
@@ -31,10 +31,10 @@
     (schemesh lineedit lineedit)
     (schemesh parser)
     (only (schemesh posix dir) file-type)
-    (schemesh posix signal) ; also for suspend-handler
+    (schemesh posix signal)
     (schemesh posix tty)
     (only (schemesh shell)
-       sh-consume-sigchld sh-exception-handler sh-repl-restart sh-repl-restart? sh-schemesh-reload-count
+       sh-consume-signals sh-exception-handler sh-repl-restart sh-repl-restart? sh-schemesh-reload-count
        sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
        sh-job-control? sh-job-control-available? sh-make-linectx
        sh-repl-args sh-run/i sh-xdg-cache-home/ sh-xdg-config-home/))
@@ -93,9 +93,9 @@
 ;; #t if waiting for more keypresses
 ;; a textual input port if user pressed ENTER.
 (define (sh-repl-lineedit lctx)
-  (sh-consume-sigchld lctx)
+  (sh-consume-signals lctx)
   (let ((ret (lineedit-read lctx -1)))
-    (sh-consume-sigchld lctx)
+    (sh-consume-signals lctx)
     (if (boolean? ret)
       ret
       (open-charlines-input-port ret))))
@@ -219,13 +219,14 @@
                        (exit-handler k-exit)
                        (keyboard-interrupt-handler
                          (lambda ()
-                           (put-string (console-error-port) "\n; interrupted\n")
+                           ;; invoked also for SIGTSTP, because signal.h installs
+                           ;; a SIGTSTP handler that intentionally calls raise(SIGINT)
+                           ;;
+                           ;; reason: it's the simplest mechanism to quickly suspend a long-running Scheme procedure
+                           (put-string (console-error-port)
+                             (if (signal-consume-sigtstp) "\n; suspended\n" "\n; interrupted\n"))
                            (sh-repl-interrupt-handler repl-args '())))
-                       (reset-handler (reset-handler))
-                       (suspend-handler
-                         (lambda ()
-                           (put-string (console-error-port) "\n; suspended\n")
-                           (sh-repl-interrupt-handler repl-args '()))))
+                       (reset-handler (reset-handler)))
           (let ((k-reset k-exit))
             (reset-handler (lambda () (k-reset)))
             (call/cc (lambda (k) (set! k-reset k)))
@@ -351,8 +352,7 @@
   (call/cc
     (lambda (k)
       (parameterize ((break-handler void)
-                     (keyboard-interrupt-handler void)
-                     (suspend-handler void))
+                     (keyboard-interrupt-handler void))
         (sh-repl-interrupt-show-who-msg-irritants break-args (console-error-port))
         (let ((port (console-output-port)))
           (while (sh-repl-interrupt-handler-once repl-args k port)))))))

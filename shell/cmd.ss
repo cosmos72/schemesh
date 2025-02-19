@@ -13,7 +13,7 @@
 (define (make-sh-cmd program-and-args)
   (%make-cmd
     #f #f #f        ; id pid pgid
-    '(new 0) #f     ; last-status exception
+    '(new) #f       ; last-status exception
     (span) 0 #f     ; redirections
     start-cmd #f    ; start-proc step-proc
     #f #f           ; working directory, old working directory - initially inherited from parent job
@@ -311,7 +311,7 @@
 ;;   1..255               => return (list 'failed  wait-status)
 ;;   256 + kill_signal    => return (list 'killed  signal-name)
 ;;   512 + stop_signal    => return (list 'stopped signal-name)
-;;   768                  => return (list 'running #f)
+;;   768                  => return (list 'running)
 ;;   > 768                => return (list 'failed  (fx- wait-status 512))
 ;;
 (define (pid-wait-result->status wait-status)
@@ -321,7 +321,7 @@
           ((fx<? x 256) (list 'failed  x))
           ((fx<? x 512) (list 'killed  (signal-number->name (fxand x 255))))
           ((fx<? x 768) (list 'stopped (signal-number->name (fxand x 255))))
-          ((fx=? x 768) '(running #f))
+          ((fx=? x 768) '(running))
           (else         (list 'failed  (fx- x 512))))))
 
 
@@ -392,7 +392,7 @@
 (define (advance-pid/wait mode job pid pgid)
   ;; cannot call (sh-job-status), it would recurse back here.
   (let* ((old-status (job-last-status job))
-         (new-status (if (status-finished? old-status)
+         (new-status (if (sh-finished? old-status)
                        old-status
                        (job-pids-wait job
                          (if (memq mode '(sh-bg sh-job-status)) 'nonblocking 'blocking)
@@ -400,11 +400,11 @@
     ; (debugf "advance-pid/wait mode=~s old-status=~s new-status=~s pid=~s job=~a" mode old-status new-status (job-pid job) (sh-job->string job))
     ; (sleep (make-time 'time-duration 0 1))
 
-    ; if may-block is 'non-blocking, new-status may be '(running #f)
+    ; if may-block is 'non-blocking, new-status may be '(running)
     ; indicating job status did not change i.e. it's (expected to be) still running
-    (case (status->kind new-status)
+    (case (sh-status->kind new-status)
       ((running)
-        ; if new-status is '(running #f), try to return '(running job-id)
+        ; if new-status is '(running), try to return '(running job-id)
         (let ((new-status2 (job-status-set/running! job)))
            (if (memq mode '(sh-fg sh-wait sh-sigcont+wait))
              ;; if mode is sh-fg, sh-wait or sh-sigcont+wait, then wait again for pid

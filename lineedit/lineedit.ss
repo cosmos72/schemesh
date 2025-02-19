@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh lineedit lineedit (0 7 5))
+(library (schemesh lineedit lineedit (0 7 6))
   (export
     ;; linedraw.ss
     lineedit-undraw
@@ -549,11 +549,18 @@
   (%add t lineedit-key-eol   '(27 79 70))          ; END   \eOF
   (%add t lineedit-key-bol   '(27 79 72))          ; HOME  \eOH
   (%add t lineedit-key-newline-left   '(27 79 77)) ; KPRET \eOM
-  (%add t lineedit-key-nop            '(27 79 80)) ; NUM-LOCK \eOP
-  (%add t lineedit-key-cmd-cd-parent  '(27 79 81)) ; KP/   \eOQ
-  (%add t lineedit-key-cmd-ls         '(27 79 82)) ; KP*   \eOR
-  (%add t lineedit-key-cmd-cd-old-dir '(27 79 83)) ; KP-   \eOS
+  (%add t lineedit-key-nop            '(27 79 80)) ; NUMLOCK \eOP ; F1 on MacOSX
+  (%add t lineedit-key-cmd-cd-parent  '(27 79 81)) ; KP/   \eOQ   ; F2 on MacOSX
+  (%add t lineedit-key-cmd-ls         '(27 79 82)) ; KP*   \eOR   ; F3 on MacOSX
+  (%add t lineedit-key-cmd-cd-old-dir '(27 79 83)) ; KP-   \eOS   ; F4 on MacOSx
   (%add t lineedit-key-nop            '(27 79 108)); KP+   \eOl
+  (%add t lineedit-key-cmd-cd-old-dir '(27 79 109)); KP-   \eOm
+
+  (%add t lineedit-key-nop   '(27 79 110) '(27 79 112) ; KP.  KP0
+    '(27 79 113) '(27 79 114) '(27 79 115)             ; KP1  KP2  KP3
+    '(27 79 116) '(27 79 117) '(27 79 118)             ; KP4  KP5  KP6
+    '(27 79 119) '(27 79 120) '(27 79 121))            ; KP7  KP8  KP9
+
   ; sequences starting with ESC [                  ;
   (%add t lineedit-key-up    '(27 91 65))          ; UP    \e[A
   (%add t lineedit-key-down  '(27 91 66))          ; DOWN  \e[B
@@ -561,16 +568,15 @@
   (%add t lineedit-key-left  '(27 91 68))          ; LEFT  \e[D
   (%add t lineedit-key-eol   '(27 91 70))          ; END   \e[F
   (%add t lineedit-key-bol   '(27 91 72)           ; HOME  \e[H
-                             '(27 91 49 126))      ; HOME  \e[1~
-
+                                     '(27 91 49 126)) ; HOME   \e[1~
   (%add t lineedit-key-toggle-insert '(27 91 50 126)) ; INSERT \e[2~
   (%add t lineedit-key-del-right     '(27 91 51 126)) ; DELETE \e[3~
   (%add t lineedit-key-eol           '(27 91 52 126)) ; END    \e[4~
   (%add t lineedit-key-history-prev  '(27 91 53 126)) ; PGUP   \e[5~
   (%add t lineedit-key-history-next  '(27 91 54 126)) ; PGDWN  \e[6~
 
-  (%add t lineedit-key-nop   '(27 91 91 65) '(27 91 91 66)    ; F1..F2
-    '(27 91 91 67) '(27 91 91 68) '(27 91 91 69)              ; F3..F4
+  (%add t lineedit-key-nop '(27 91 91 65) '(27 91 91 66)      ; F1..F2
+    '(27 91 91 67)     '(27 91 91 68)     '(27 91 91 69)      ; F3..F4
     '(27 91 49 53 126) '(27 91 49 55 126) '(27 91 49 56 126)  ; F4..F7
     '(27 91 49 57 126) '(27 91 50 48 126) '(27 91 50 49 126)  ; F8..F10
     '(27 91 50 50 126) '(27 91 50 51 126) '(27 91 50 52 126)) ; F?..F12

@@ -13,7 +13,7 @@
 * implement builtin "parent" executes another builtin with its parent job temporarily set to its grandparent job.
   if used multiple times, as for example "parent parent cd ..", the effects are cumulative.
 
-### release v0.7.5, 2025-02-14
+### release v0.7.6, 2025-02-14
 
 * fix `utils/find_chez_scheme_dir.sh` for Alpine linux
 * fix a pair of bugged assertions that were triggered by valid code {echo $A=}

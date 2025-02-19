@@ -28,7 +28,7 @@
            (id     (job-id job))
            (pid    (job-pid job))
            (job-status (job-last-status job))
-           (status (if (sh-ok? job-status) '(ok 0) job-status)))
+           (status (if (sh-ok? job-status) '(ok) job-status)))
       (if id
         (if pid
           (format port "; job ~a~s pid ~a~s ~s \t" (pad/job-id id) id (pad/pid pid) pid status)

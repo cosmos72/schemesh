@@ -8,7 +8,7 @@
 ;;;
 ;;; Lexer and parser for Chez Scheme syntax.
 ;;;
-(library (schemesh parser scheme (0 7 5))
+(library (schemesh parser scheme (0 7 6))
   (export
     lex-scheme parse-scheme-forms1 parse-scheme-forms parser-scheme)
   (import

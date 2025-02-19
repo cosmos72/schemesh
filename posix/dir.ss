@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh posix dir (0 7 5))
+(library (schemesh posix dir (0 7 6))
   (export
       directory-list directory-list* directory-list-type directory-sort!
       file-delete file-rename file-type mkdir ok?)
@@ -24,6 +24,8 @@
 
 ;; return #t if return-status is either (void) or '(ok ...), that indicate success.
 ;; otherwise return #f
+;;
+;; intentionally identical to function (sh-ok?) exported by library (schemesh shell job)
 (define (ok? return-status)
   (cond
     ((eq? return-status (void))

@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh containers misc (0 7 5))
+(library (schemesh containers misc (0 7 6))
   (export
     in-bytevector list->bytevector subbytevector
     bytevector-fill-range! bytevector-find/u8 bytevector-compare
@@ -15,12 +15,15 @@
 
     in-exact-range in-fixnum-range in-flonum-range in-range
 
+    in-fxvector
+    in-flvector ; requires Chez Scheme >= 10.0.0
     in-vector vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable! vector-range->list)
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) bytevector foreign-procedure fx1+ fx1- include)
-    (only (schemesh bootstrap) assert* generate-pretty-temporaries))
+    (only (chezscheme)         bytevector foreign-procedure fx1+ fx1- fxvector-length fxvector-ref
+                               import include meta-cond library-exports scheme-version)
+    (only (schemesh bootstrap) assert* generate-pretty-temporaries raise-errorf))
 
 
 (include "containers/bytevector.ss")

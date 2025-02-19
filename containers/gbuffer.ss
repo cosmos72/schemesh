@@ -11,7 +11,7 @@
 ;;;;;;; Implementation: contains two spans, a "left" and a "right" ones ;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (schemesh containers gbuffer (0 7 5))
+(library (schemesh containers gbuffer (0 7 6))
   (export
     list->gbuffer vector->gbuffer vector->gbuffer* span->gbuffer span->gbuffer*
     make-gbuffer gbuffer gbuffer? gbuffer->vector gbuffer->span

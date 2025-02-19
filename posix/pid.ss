@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh posix pid (0 7 5))
+(library (schemesh posix pid (0 7 6))
   (export pid-get pgid-get pid-kill pid-wait exit-with-job-status)
   (import
     (rnrs)
@@ -78,16 +78,22 @@
       (c-pid-wait pid (if (eq? may-block 'blocking) 1 0)))))
 
 
-;; reduced version of (status->kind) copy-pasted from shell/status.ss
+;; reduced version of (sh-status->kind) copy-pasted from shell/status.ss
 ;;
 ;; Extract the kind of a status and return it.
 (define (status->kind status)
   (cond
-    ((eq? (void) status) 'ok)
-    ((pair? status)      (car status))
-    (else                'failed)))
+    ((eq? (void) status)
+      'ok)
+    ((and (pair? status) (not (null? (cdr status))))
+      (cadr status))
+    (else
+      'failed)))
 
 
+;; reduced version of (sh-status->result) copy-pasted from shell/status.ss
+;;
+;; Extract the first result of a status and return it.
 (define (status->result status)
   (cond
     ((eq? (void) status) 0)

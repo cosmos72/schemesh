@@ -12,7 +12,7 @@
 ;; Convention: (sh) and (sh-...) are functions
 ;             (shell) and (shell-...) are macros
 
-(library (schemesh shell job (0 7 5))
+(library (schemesh shell job (0 7 6))
   (export
     ;; aliases.ss
     sh-alias-ref sh-alias-delete! sh-alias-set! sh-aliases sh-aliases-expand
@@ -36,7 +36,7 @@
     sh-env-iterate/direct sh-env-set/lazy! sh-env-copy sh-env->argv
 
     ;; job.ss
-    sh-consume-sigchld sh-cwd
+    sh-consume-signals sh-cwd
     sh-job sh-job-id sh-job-status sh-jobs sh-find-job sh-job-exception
     sh-start sh-start* sh-bg sh-fg sh-wait sh-run sh-run/i sh-run/err? sh-run/ok?
 
@@ -60,12 +60,9 @@
     ;; pipe.ss
     sh-pipe sh-pipe*
 
-    ;;;;;;;;;;;;; DEBUGGING ;;;;;;;;;;;;;;;;
-    job-started? job-finished? job-last-status
-    status-started? status-finished? status->kind status->result status->results
-
     ;; status.ss
-    sh-ok?
+    sh-ok? sh-started? sh-running? sh-stopped? sh-finished?
+    sh-status->kind sh-status->result sh-status->results
 
     ;; types.ss
     sh-cmd? sh-job? sh-job-copy sh-multijob?
@@ -112,16 +109,16 @@
 
 ;; set the status of a job and return it.
 ;; if specified status indicates that job finished,
-;;   i.e. (status-finished? status) returns true
+;;   i.e. (sh-finished? status) returns true
 ;;   also close the job fds that need to be closed.
 (define (job-status-set! caller job new-status)
   (let ((status (status-normalize new-status)))
     ;; (debugf "job-status-set! caller=~s job=~a status=~s normalized-status=~s" caller (sh-job->string job) new-status status)
-    (if (status-running? status)
+    (if (sh-running? status)
       (job-status-set/running! job)
       (begin
         (%job-last-status-set! job status)
-        (when (status-finished? status)
+        (when (sh-finished? status)
           (when (sh-cmd? job)
             ; unset expanded arg-list, because next expansion may differ
             (cmd-expanded-arg-list-set! job #f))
@@ -135,7 +132,7 @@
 (define (job-status-set/running! job)
   (let* ((id     (job-id job))
          (status (job-last-status job))
-         (kind   (status->kind status))
+         (kind   (sh-status->kind status))
          (old-id (if (and (pair? status) (not (null? (cdr status))))
                    (cadr status)
                    #f)))
@@ -165,16 +162,16 @@
 
 
 ;; If job has no job-id, assign a job-id to it, by appending it to (multijob-children (sh-globals)).
-;; If job status is '(running #f) update it to '(running job-id)
+;; If job status is '(running) update it to '(running job-id)
 ;; Return updated job status
 (define (job-id-set! job)
   (assert* 'job-id-set! (sh-job? job))
   (let* ((old-id (job-id job))
          (id     (or old-id (%job-id-assign! job)))
          (status (job-last-status job))
-         (kind   (status->kind status)))
+         (kind   (sh-status->kind status)))
     (when (and (eq? kind 'running) (or (null? (cdr status)) (not (eqv? id (cadr status)))))
-      ;; replace job status '(running #f) -> '(running job-id)
+      ;; replace job status '(running) -> '(running job-id)
       (job-status-set! 'job-id-set! job (list 'running id)))
     (unless (eqv? id old-id)
       (sh-job-display-summary job)))
@@ -197,7 +194,7 @@
 
 ;; if job is running or stopped, then create a new job-id for it.
 ;; if job has terminated, clear its job id and close its fds.
-;; Also replace any job status '(running #f) -> '(running job-id)
+;; Also replace any job status '(running) -> '(running job-id)
 ;; Return updated job status.
 ;;
 ;; Note: does not create job-id for children of (sh-pipe) jobs.
@@ -209,7 +206,7 @@
       ;; the parent (sh-pipe) job always starts/stops all of them collectively.
       ;; thus assigning a job-id to such children usually just adds noise.
       (job-id-unset! job)
-      (case (status->kind status)
+      (case (sh-status->kind status)
         ((running stopped)
           (job-id-set! job))
         ((ok exception failed killed)
@@ -324,7 +321,7 @@
 |#
 
 
-(define (sh-consume-sigchld lctx)
+(define (sh-consume-signals lctx)
   (let ((proc-notify-status-change
           (lambda (job)
             (when (job-id job)

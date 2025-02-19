@@ -32,11 +32,13 @@ enum jmp_arg {
   QUIT_FAILED = 3,
 };
 
+#if 0 /* not used */
 struct timespec now(void) {
   struct timespec t;
   (void)clock_gettime(CLOCK_REALTIME, &t);
   return t;
 }
+#endif
 
 static double diff(const struct timespec start, const struct timespec end) {
   return (end.tv_sec - start.tv_sec) + 1e-9 * (end.tv_nsec - start.tv_nsec);

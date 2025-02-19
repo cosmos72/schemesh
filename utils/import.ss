@@ -7,13 +7,13 @@
 
 
 ;; define (schemesh minimal) as a library that exports all its imported bindings
-(library-reexport (schemesh minimal (0 7 5))
+(library-reexport (schemesh minimal (0 7 6))
   (import (schemesh shell)
           (schemesh repl)))
 
 
 ;; define (schemesh) as a library that exports all its imported bindings
-(library-reexport (schemesh (0 7 5))
+(library-reexport (schemesh (0 7 6))
   (import
     (schemesh bootstrap)
     (schemesh containers)
