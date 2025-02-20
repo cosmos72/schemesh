@@ -147,15 +147,15 @@
     out-pipe-fd/read))
 
 
-;; Internal function called by (advance-job) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
+;; Internal function called by (sh-resume) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 ;;
 ;; mode must be one of: sh-fg sh-bg sh-wait sh-sigcont+wait sh-job-status
-(define (advance-multijob-pipe mode mj)
+(define (advance-multijob-pipe mode wait-flags mj)
   ; (debugf ">   advance-multijob-pipe mode=~s mj=~s" mode mj)
   (let ((pgid (job-pgid mj)))
     (with-foreground-pgid mode pgid
       (advance-multijob-pipe/maybe-sigcont mode mj pgid)
-      (advance-multijob-pipe/wait mode mj)))
+      (advance-multijob-pipe/wait mode wait-flags mj)))
   ; (debugf "<   advance-multijob-pipe job-status=~s" (job-last-status mj))
   )
 
@@ -168,18 +168,18 @@
     (pid-kill (- pgid) 'sigcont)))
 
 
-(define (advance-multijob-pipe/wait mode mj)
+(define (advance-multijob-pipe/wait mode wait-flags mj)
   ; (debugf ">   advance-multijob-pipe/wait mode=~s mj=~s" mode mj)
   (let* ((children  (multijob-children mj))
          (n         (span-length children))
          (running-i (multijob-current-child-index mj)))
 
-    ; call (advance-job mode ...) on each child job,
+    ; call (sh-resume mode ...) on each child job,
     ; skipping the ones that already finished.
     (let %again ((i running-i))
       (let ((job (sh-multijob-child-ref mj i)))
         (when job
-          (when (or (symbol? job) (sh-finished? (advance-job mode job)))
+          (when (or (symbol? job) (sh-finished? (sh-resume mode wait-flags job)))
             (set! running-i (fx1+ i))
             (%again (fx1+ i))))))
 
@@ -193,7 +193,7 @@
         ;; otherwise propagate child status and return.
         (if (and (memq mode '(sh-fg sh-wait sh-sigcont+wait))
                  (eq? 'running (sh-status->kind (sh-multijob-child-status mj running-i))))
-           (advance-multijob-pipe/wait mode mj)
+           (advance-multijob-pipe/wait mode wait-flags mj)
            (job-last-status mj)))
       (else
         (multijob-current-child-index-set! mj -1)

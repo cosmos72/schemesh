@@ -6,12 +6,12 @@
 ;;; (at your option) any later version.
 
 
-;; Define the functions (sh-fd-allocate) (sh-fd-release) to manage reserved fds
+;; Define the functions (s-fd-allocate) (s-fd-release) to manage reserved fds
 
 
 (library (schemesh shell fds (0 7 6))
   (export
-    sh-fd sh-fd* sh-fd? sh-fd->int sh-fd-copy sh-fd-allocate sh-fd-release
+    s-fd s-fd* s-fd? s-fd->int s-fd-copy s-fd-allocate s-fd-release
     sh-fd-stdin sh-fd-stdout sh-fd-stderr sh-open-stderr-port)
   (import
     (rnrs)
@@ -34,55 +34,55 @@
 
 ;; reference-counted file descriptor
 (define-record-type
-  (%sh-fd %make-sh-fd sh-fd?)
+  (%s-fd %make-s-fd s-fd?)
   (fields
-    (immutable int sh-fd->int) ; unsigned fixnum: file descriptor
-    (mutable   refcount))      ; fixnum: reference count
-  (nongenerative #{%sh-fd cjsh4sku94arywo64878o3mil-0}))
+    (immutable int s-fd->int) ; unsigned fixnum: file descriptor
+    (mutable   refcount))     ; fixnum: reference count
+  (nongenerative #{%s-fd cjsh4sku94arywo64878o3mil-0}))
 
 
-;; wrap a file descriptor (an unsigned fixnum) and an optional reference count into sh-fd
-(define sh-fd
+;; wrap a file descriptor (an unsigned fixnum) and an optional reference count into s-fd
+(define s-fd
   (case-lambda
-    ((int)          (sh-fd* int 1))
-    ((int refcount) (sh-fd* int refcount))))
+    ((int)          (s-fd* int 1))
+    ((int refcount) (s-fd* int refcount))))
 
 
-;; wrap a file descriptor (an unsigned fixnum) and a mandatory reference count into sh-fd
-(define (sh-fd* int refcount)
-  (assert* 'sh-fd (fx<? -1 int fd-max))
-  (assert* 'sh-fd (fx>=? refcount 0))
-  (%make-sh-fd int refcount))
+;; wrap a file descriptor (an unsigned fixnum) and a mandatory reference count into s-fd
+(define (s-fd* int refcount)
+  (assert* 's-fd (fx<? -1 int fd-max))
+  (assert* 's-fd (fx>=? refcount 0))
+  (%make-s-fd int refcount))
 
 
-;; increase by one the reference count of an sh-fd
-;; return the sh-fd argument
-(define (sh-fd-copy fd)
-  (assert* 'sh-fd-copy (sh-fd? fd))
-  (%sh-fd-refcount-set! fd (fx1+ (%sh-fd-refcount fd)))
+;; increase by one the reference count of an s-fd
+;; return the s-fd argument
+(define (s-fd-copy fd)
+  (assert* 's-fd-copy (s-fd? fd))
+  (%s-fd-refcount-set! fd (fx1+ (%s-fd-refcount fd)))
   fd)
 
 
-;; reserve a fd, return its number wrapped inside a sh-fd
-(define (sh-fd-allocate)
+;; reserve a fd, return its number wrapped inside a s-fd
+(define (s-fd-allocate)
   (let ((index (bitmap-last-zero fd-bitmap)))
     (when (fx<? index 0)
-      (raise-errorf 'sh-fd-allocate "too many reserved fds: ~s" index))
+      (raise-errorf 's-fd-allocate "too many reserved fds: ~s" index))
     (bitmap-set! fd-bitmap index 1)
-    (sh-fd (fx+ fd-min index))))
+    (s-fd (fx+ fd-min index))))
 
 
-;; decrease by one the reference count of an sh-fd,
+;; decrease by one the reference count of an s-fd,
 ;; unreserve it if reference count becomes <= zero
 ;; return #t if if reference count becomes <= zero
-(define (sh-fd-release fd)
-  (assert* 'sh-fd-release (sh-fd? fd))
-  (let* ((refcount      (fx1- (%sh-fd-refcount fd)))
+(define (s-fd-release fd)
+  (assert* 's-fd-release (s-fd? fd))
+  (let* ((refcount      (fx1- (%s-fd-refcount fd)))
          (unreserve? (fx<=? refcount 0)))
-    (%sh-fd-refcount-set! fd refcount)
+    (%s-fd-refcount-set! fd refcount)
     (when unreserve?
-      (let ((index (fx- (sh-fd->int fd) fd-min)))
-        (assert* 'sh-fd-release (fx=? 1 (bitmap-ref fd-bitmap index)))
+      (let ((index (fx- (s-fd->int fd) fd-min)))
+        (assert* 's-fd-release (fx=? 1 (bitmap-ref fd-bitmap index)))
         (bitmap-set! fd-bitmap index 0)))
     unreserve?))
 
@@ -130,12 +130,12 @@
       (open-fd-output-port (sh-fd-stderr) (buffer-mode line) transcoder))))
 
 
-; customize how "sh-fd" objects are printed
-(record-writer (record-type-descriptor %sh-fd)
+; customize how "s-fd" objects are printed
+(record-writer (record-type-descriptor %s-fd)
   (lambda (fd port writer)
-    (display "(sh-fd " port)
-    (display (sh-fd->int fd) port)
-    (let ((refcount (%sh-fd-refcount fd)))
+    (display "(s-fd " port)
+    (display (s-fd->int fd) port)
+    (let ((refcount (%s-fd-refcount fd)))
       (unless (fx=? 1 refcount)
         (display #\space port)
         (display refcount port)))

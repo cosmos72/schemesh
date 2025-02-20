@@ -25,7 +25,7 @@
     (mutable redirects)
     (mutable redirects-temp-n) ; fixnum, number elements at front of (job-redirects)
                                ; inserted by temporary redirections
-    (mutable fds-to-remap) ; for builtins or multijobs, #f or hashmap job-logical-fd -> (sh-fd) to actually use
+    (mutable fds-to-remap) ; for builtins or multijobs, #f or hashmap job-logical-fd -> (s-fd) to actually use
     start-proc      ; #f or procedure to run in main process.
                     ; receives as argument job followed by options.
     (mutable step-proc) ; #f or procedure.

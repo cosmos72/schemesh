@@ -86,6 +86,15 @@
   (flush-output-port port))
 
 
+
+;; flags for (sh-resume), called by (sh-bg) (sh-fg) (sh-wait) (sh-wait*)
+;;
+(define wait-flag-fg 1)
+(define wait-flag-sigcont 2)
+(define wait-flag-wait-until-stopped-or-finished 4)
+(define wait-flag-wait-until-finished 8)
+
+
 ;; Return up-to-date status of a job or job-id, which can be one of:
 ;;   (list 'new)
 ;;   (list 'running)              ; job is running, has no job-id
@@ -103,14 +112,14 @@
          (status (job-last-status job)))
     ; (debugf ">  sh-job-status job=~a" (sh-job->string job))
     (if (sh-started? status)
-      (advance-job 'sh-job-status job)
+      (sh-resume 'sh-job-status 0 job)
       status)))
 
 
 ;; Continue a job or job-id in background by sending SIGCONT to it, and return immediately.
 ;; Return job status. For possible job statuses, see (sh-job-status)
 (define (sh-bg job-or-id)
-  (advance-job 'sh-bg job-or-id))
+  (sh-resume 'sh-bg wait-flag-sigcont job-or-id))
 
 
 ;; Continue a job or job-id by sending SIGCONT to it, then wait for it to exit or stop,
@@ -120,7 +129,7 @@
 ;;   upon invocation, sets the job as fg process group.
 ;;   And before returning, restores current shell as fg process group.
 (define (sh-fg job-or-id)
-  (advance-job 'sh-fg job-or-id))
+  (sh-resume 'sh-fg (fxior wait-flag-sigcont wait-flag-wait-until-stopped-or-finished) job-or-id))
 
 
 ;; Continue a job or job-id by optionally sending SIGCONT to it, then wait for it to exit,
@@ -147,17 +156,22 @@
 
 ;; Same as (sh-wait), but all arguments are mandatory
 (define (sh-wait* job-or-id send-sigcont?)
-  (advance-job (if send-sigcont? 'sh-sigcont+wait 'sh-wait) job-or-id))
+  (sh-resume
+    (if send-sigcont? 'sh-sigcont+wait 'sh-wait)
+    (if send-sigcont?
+      (fxior wait-flag-sigcont wait-flag-wait-until-finished)
+      wait-flag-wait-until-finished)
+     job-or-id))
 
 
 ;; Common implementation of (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 ;; Also called by (advance-multijob)
 ;;
 ;; mode must be one of: sh-fg sh-bg sh-wait sh-sigcont+wait sh-job-status
-(define (advance-job mode job-or-id)
-  (assert* 'advance-job (memq mode '(sh-fg sh-bg sh-wait sh-sigcont+wait sh-job-status)))
+(define (sh-resume mode wait-flags job-or-id)
+  (assert* 'sh-resume (memq mode '(sh-fg sh-bg sh-wait sh-sigcont+wait sh-job-status)))
   (let ((job (sh-job job-or-id)))
-    ; (debugf ">  advance-job mode=~s job=~a id=~s pid=~s status=~s" mode (sh-job->string job) (job-id job) (job-pid job) (job-last-status job))
+    ; (debugf ">  sh-resume mode=~s job=~a id=~s pid=~s status=~s" mode (sh-job->string job) (job-id job) (job-pid job) (job-last-status job))
     (case (job-last-status->kind job)
       ((ok exception failed killed)
         (void)) ; job finished
@@ -169,19 +183,19 @@
             (advance-pid mode job))
           ((sh-multijob? job)
             (if (eq? 'sh-pipe (multijob-kind job))
-              (advance-multijob-pipe mode job)
-              (advance-multijob      mode job)))))
+              (advance-multijob-pipe mode wait-flags job)
+              (advance-multijob      mode wait-flags job)))))
       (else
         (raise-errorf mode  "job not started yet: ~s" job)))
 
     (let ((status (job-id-update! job))) ; returns job status
-      ;a (debugf "<  advance-job mode=~s job=~s id=~s pid=~s status=~s" mode job (job-id job) (job-pid job) status)
+      ;a (debugf "<  sh-resume mode=~s job=~s id=~s pid=~s status=~s" mode job (job-id job) (job-pid job) status)
       status)))
 
 
 ;; Start a job and wait for it to exit or stop.
 ;;
-;; Options are the same as (sh-start)
+;; For the possible options, see (sh-options)
 ;;
 ;; Return job status, possible values are the same as (sh-fg)
 (define (sh-run/i job . options)
@@ -192,7 +206,7 @@
 ;; Start a job and wait for it to exit.
 ;; Does NOT return early if job is stopped, use (sh-run/i) for that.
 ;;
-;; Options are the same as (sh-start)
+;; For the possible options, see (sh-options)
 ;;
 ;; Return job status, possible values are the same as (sh-wait)
 (define (sh-run job . options)
@@ -203,7 +217,7 @@
 ;; Start a job and wait for it to exit.
 ;; Does NOT return early if job is stopped, use (sh-run/i) for that.
 ;;
-;; Options are the same as (sh-start)
+;; For the possible options, see (sh-options)
 ;;
 ;; Return #t if job failed successfully, otherwise return #f.
 (define (sh-run/ok? job . options)
@@ -213,10 +227,10 @@
 ;; Start a job and wait for it to exit.
 ;; Does NOT return early if job is stopped, use (sh-run/i) for that.
 ;;
-;; Options are the same as (sh-start)
+;; For the possible options, see (sh-options)
 ;;
-;; Return #f if job failed successfully,
+;; Return #f if job exited successfully,
 ;; otherwise return job exit status, which is a cons and hence truish.
 (define (sh-run/err? job . options)
   (let ((status (apply sh-run job options)))
-    (if (eq? status (void)) #f status)))
+    (if (sh-ok? status) #f status)))

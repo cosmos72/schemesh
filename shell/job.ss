@@ -10,7 +10,7 @@
 ;; Define the functions (sh-env...) and (sh-fd...)
 ;
 ;; Convention: (sh) and (sh-...) are functions
-;             (shell) and (shell-...) are macros
+;              (shell) and (shell-...) are macros
 
 (library (schemesh shell job (0 7 6))
   (export
@@ -24,7 +24,7 @@
     make-sh-cmd sh-cmd
 
     ;; control.ss
-    sh-start sh-start* sh-bg sh-fg sh-wait sh-run sh-run/i sh-run/err? sh-run/ok?
+    sh-start sh-start* sh-bg sh-fg sh-resume sh-run sh-run/i sh-run/err? sh-run/ok? sh-wait
 
     ;; dir.ss
     sh-cd sh-cd- sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
@@ -381,12 +381,12 @@
          (fd                   (span-ref redirects index))
          (direction-ch         (span-ref redirects (fx1+ index)))
          (to-fd-or-bytevector0 (job-extract-redirection-to-fd-or-bytevector0 job job-dir redirects index))
-         (remap-fd             (sh-fd-allocate)))
+         (remap-fd             (s-fd-allocate)))
     ;; (debugf "job-remap-fd! fd=~s dir=~s remap-fd=~s to=~s" fd direction-ch remap-fd to-fd-or-bytevector0)
-    (let* ((fd-int (sh-fd->int remap-fd))
+    (let* ((fd-int (s-fd->int remap-fd))
            (ret (fd-redirect fd-int direction-ch to-fd-or-bytevector0 #t))) ; #t close-on-exec?
       (when (< ret 0)
-        (sh-fd-release remap-fd)
+        (s-fd-release remap-fd)
         (raise-c-errno 'sh-start 'c_fd_redirect ret fd-int direction-ch to-fd-or-bytevector0)))
     (hashtable-set! (job-fds-to-remap job) fd remap-fd)))
 
@@ -437,7 +437,7 @@
     (let* ((remap-fds (job-fds-to-remap parent))
            (remap-fd  (and remap-fds (hashtable-ref remap-fds fd #f))))
       (when remap-fd
-        (set! fd (sh-fd->int remap-fd))))))
+        (set! fd (s-fd->int remap-fd))))))
 
 
 ;; release job's remapped fds and unset (job-fds-to-remap job)
@@ -447,9 +447,9 @@
       (hashtable-iterate remap-fds
         (lambda (cell)
           (let ((fd (cdr cell)))
-            (when (sh-fd-release fd)
-              ;; (debugf "job-unmap-fds! fd-close ~s" (sh-fd->int fd))
-              (fd-close (sh-fd->int fd))))))
+            (when (s-fd-release fd)
+              ;; (debugf "job-unmap-fds! fd-close ~s" (s-fd->int fd))
+              (fd-close (s-fd->int fd))))))
       (job-fds-to-remap-set! job #f))))
 
 

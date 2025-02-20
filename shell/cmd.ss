@@ -343,22 +343,22 @@
       (let* ((mode      mode)
              (new-pgid  new-pgid)
              (our-pgid  (and new-pgid
-			  (memq mode '(sh-fg sh-wait sh-sigcont+wait))
-			  (sh-job-control?)
-			  (job-pgid (sh-globals)))))
+                          (memq mode '(sh-fg sh-wait sh-sigcont+wait))
+                          (sh-job-control?)
+                          (job-pgid (sh-globals)))))
         (dynamic-wind
           (lambda () ; run before body
             (when our-pgid
-	      (%pgid-foreground mode our-pgid new-pgid)))
+              (%pgid-foreground mode our-pgid new-pgid)))
           (lambda ()
             body ...)
           (lambda () ; run after body
-	    ;; try really hard to restore (sh-globals) as the foreground process group
+            ;; try really hard to restore (sh-globals) as the foreground process group
             (when our-pgid
-	      (%pgid-foreground mode -1 our-pgid))))))))
+              (%pgid-foreground mode -1 our-pgid))))))))
 
 
-;; Internal function called by (advance-job)
+;; Internal function called by (sh-resume)
 (define (advance-pid mode job)
   ; (debugf "> advance-pid mode=~s job=~a pid=~s status=~s" mode (sh-job->string job) (job-pid job) (job-last-status job))
   (cond
