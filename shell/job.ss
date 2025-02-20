@@ -24,6 +24,8 @@
     make-sh-cmd sh-cmd
 
     ;; control.ss
+    jr-flag-sigcont  jr-flag-foreground  jr-flag-wait-until-finished  jr-flag-wait-until-stopped-or-finished
+    jr-flag-sigcont? jr-flag-foreground? jr-flag-wait-until-finished? jr-flag-wait-until-stopped-or-finished?
     sh-start sh-start* sh-bg sh-fg sh-resume sh-run sh-run/i sh-run/err? sh-run/ok? sh-wait
 
     ;; dir.ss

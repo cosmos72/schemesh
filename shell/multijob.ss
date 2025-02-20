@@ -358,14 +358,14 @@
         ;; child is still running.
         ;; if wait-flags tell to wait, then wait for child to change status again.
         ;; otherwise propagate child status and return.
-        (if (wait-flag-wait? wait-flags)
+        (if (jr-flag-wait? wait-flags)
            (advance-multijob caller wait-flags mj)
            (job-last-status mj)))
       ((sh-stopped? child-status)
         ;; child is stopped.
         ;; if wait-flags tell to wait until child finishes, then wait for child to change status again.
         ;; otherwise propagate child status and return
-        (if (wait-flag-wait-until-finished? wait-flags)
+        (if (jr-flag-wait-until-finished? wait-flags)
           (advance-multijob caller wait-flags mj)
           (job-status-set! 'advance-multijob mj child-status)))
       (else

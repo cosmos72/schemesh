@@ -342,7 +342,7 @@
       ;; hygienic macros sure are handy :)
       (let* ((new-pgid  new-pgid)
              (our-pgid  (and new-pgid
-                          (wait-flag-foreground? wait-flags)
+                          (jr-flag-foreground? wait-flags)
                           (sh-job-control?)
                           (job-pgid (sh-globals)))))
         (dynamic-wind
@@ -378,7 +378,7 @@
   (assert* caller (> pid 0))
   (when pgid
     (assert* caller (> pgid 0)))
-  (when (wait-flag-sigcont? wait-flags)
+  (when (jr-flag-sigcont? wait-flags)
     ; send SIGCONT to job's process group, if present.
     ; otherwise send SIGCONT to job's process id. Both may raise error
     ; (debugf "advance-pid/sigcont wait-flags=~s job=~s" wait-flags job)
@@ -391,7 +391,7 @@
 ;; Internal function called by (advance-pid)
 (define (advance-pid/maybe-wait caller wait-flags job pid pgid)
   ;; cannot call (sh-job-status), it would recurse back here.
-  (let* ((blocking?  (wait-flag-wait? wait-flags))
+  (let* ((blocking?  (jr-flag-wait? wait-flags))
          (old-status (job-last-status job))
          (new-status (if (sh-finished? old-status)
                        old-status
@@ -425,7 +425,7 @@
         ; if wait-flags tell to wait until job finishes,
         ;   call (break) then wait for it again (which blocks until it changes status again)
         ; otherwise propagate process status and return.
-        (if (wait-flag-wait-until-finished? wait-flags)
+        (if (jr-flag-wait-until-finished? wait-flags)
           (begin
             (advance-pid/break                         job pid pgid)
             (advance-pid/maybe-wait  caller wait-flags job pid pgid))

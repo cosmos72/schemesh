@@ -161,7 +161,7 @@
 (define (advance-multijob-pipe/maybe-sigcont wait-flags mj pgid)
   ; send SIGCONT to job's process group, if present.
   ; It may raise error.
-  (when (and pgid (wait-flag-sigcont? wait-flags))
+  (when (and pgid (jr-flag-sigcont? wait-flags))
     ; (debugf "advance-multijob-pipe/sigcont > ~s ~s" wait-flags mj)
     (pid-kill (- pgid) 'sigcont)))
 
@@ -189,7 +189,7 @@
         ;; if some child is still running
         ;; and wait-flags tell to wait, then wait for child.
         ;; otherwise propagate child status and return.
-        (if (and (wait-flag-wait? wait-flags)
+        (if (and (jr-flag-wait? wait-flags)
                  (eq? 'running (sh-status->kind (sh-multijob-child-status mj running-i))))
            (advance-multijob-pipe/maybe-wait caller wait-flags mj)
            (job-last-status mj)))
