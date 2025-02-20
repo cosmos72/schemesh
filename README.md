@@ -182,7 +182,7 @@ gmake -j
 gmake install  # must be executed as root
 ```
 
-On Mac OS X (untested, likely incomplete):
+On Mac OS X:
 ```shell
 sudo xcode-select --install # only needed if you don't already have XCode Command Line Tools
 brew install chezscheme lz4

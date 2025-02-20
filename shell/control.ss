@@ -96,7 +96,7 @@
 
 
 (define (wait-flag-foreground? wait-flags)
-  (debugf "wait-flag-foreground? wait-flags=~s" wait-flags)
+  ;; (debugf "wait-flag-foreground? wait-flags=~s" wait-flags)
   (not (fxzero? (fxand wait-flags wait-flag-foreground))))
 
 (define (wait-flag-sigcont? wait-flags)
