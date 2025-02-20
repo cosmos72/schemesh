@@ -106,7 +106,7 @@
                      '(catch? . #t))))
 
 
-    ; Apply redirections. Will be removed by (advance-multijob-pipe/wait) when job finishes.
+    ; Apply redirections. Will be removed by (advance-multijob-pipe/maybe-wait) when job finishes.
     (when redirect-in?
       ; we must redirect job fd 0 *before* any redirection configured in the job itself
       (job-redirect/temp/fd! job 0 '<& in-pipe-fd))
@@ -150,17 +150,17 @@
 ;; Internal function called by (sh-resume) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 ;;
 ;; mode must be one of: sh-fg sh-bg sh-wait sh-sigcont+wait sh-job-status
-(define (advance-multijob-pipe mode wait-flags mj)
+(define (advance-multijob-pipe caller mode wait-flags mj)
   ; (debugf ">   advance-multijob-pipe mode=~s mj=~s" mode mj)
   (let ((pgid (job-pgid mj)))
     (with-foreground-pgid mode pgid
-      (advance-multijob-pipe/maybe-sigcont mode mj pgid)
-      (advance-multijob-pipe/wait mode wait-flags mj)))
+      (advance-multijob-pipe/maybe-sigcont caller mode mj pgid)
+      (advance-multijob-pipe/maybe-wait    caller mode wait-flags mj)))
   ; (debugf "<   advance-multijob-pipe job-status=~s" (job-last-status mj))
   )
 
 
-(define (advance-multijob-pipe/maybe-sigcont mode mj pgid)
+(define (advance-multijob-pipe/maybe-sigcont caller mode mj pgid)
   ; send SIGCONT to job's process group, if present.
   ; It may raise error.
   (when (and pgid (memq mode '(sh-fg sh-bg sh-sigcont+wait)))
@@ -168,8 +168,8 @@
     (pid-kill (- pgid) 'sigcont)))
 
 
-(define (advance-multijob-pipe/wait mode wait-flags mj)
-  ; (debugf ">   advance-multijob-pipe/wait mode=~s mj=~s" mode mj)
+(define (advance-multijob-pipe/maybe-wait caller mode wait-flags mj)
+  ; (debugf ">   advance-multijob-pipe/maybe-wait mode=~s mj=~s" mode mj)
   (let* ((children  (multijob-children mj))
          (n         (span-length children))
          (running-i (multijob-current-child-index mj)))
@@ -193,12 +193,12 @@
         ;; otherwise propagate child status and return.
         (if (and (memq mode '(sh-fg sh-wait sh-sigcont+wait))
                  (eq? 'running (sh-status->kind (sh-multijob-child-status mj running-i))))
-           (advance-multijob-pipe/wait mode wait-flags mj)
+           (advance-multijob-pipe/maybe-wait caller mode wait-flags mj)
            (job-last-status mj)))
       (else
         (multijob-current-child-index-set! mj -1)
         (job-pgid-set! mj #f)
-        (job-status-set! 'advance-multijob-pipe/wait mj
+        (job-status-set! 'advance-multijob-pipe/maybe-wait mj
           (if (span-empty? children)
             (void)
             (job-last-status (span-back children))))))))

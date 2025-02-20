@@ -359,23 +359,23 @@
 
 
 ;; Internal function called by (sh-resume)
-(define (advance-pid mode job)
-  ; (debugf "> advance-pid mode=~s job=~a pid=~s status=~s" mode (sh-job->string job) (job-pid job) (job-last-status job))
+(define (advance-pid caller mode wait-flags job)
+  ; (debugf "> advance-pid mode=~s wait-flags=~s job=~a pid=~s status=~s" mode wait-flags (sh-job->string job) (job-pid job) (job-last-status job))
   (cond
     ((job-finished? job)
       (job-last-status job)) ; job finished, exit status already available
     ((not (job-started? job))
-      (raise-errorf mode "job not started yet: ~s" job))
+      (raise-errorf caller "job not started yet: ~s" job))
     (else
       (let ((pid  (job-pid job))
             (pgid (job-pgid job)))
         (with-foreground-pgid mode pgid
-          (advance-pid/maybe-sigcont mode job pid pgid)
-          (advance-pid/wait mode job pid pgid))))))
+          (advance-pid/maybe-sigcont caller mode wait-flags job pid pgid)
+          (advance-pid/maybe-wait    caller mode wait-flags job pid pgid))))))
 
 
 ;; Internal function called by (advance-pid)
-(define (advance-pid/maybe-sigcont mode job pid pgid)
+(define (advance-pid/maybe-sigcont caller mode wait-flags job pid pgid)
   (assert* mode (> pid 0))
   (when pgid
     (assert* mode (> pgid 0)))
@@ -390,7 +390,7 @@
 
 
 ;; Internal function called by (advance-pid)
-(define (advance-pid/wait mode job pid pgid)
+(define (advance-pid/maybe-wait caller mode wait-flags job pid pgid)
   ;; cannot call (sh-job-status), it would recurse back here.
   (let* ((old-status (job-last-status job))
          (new-status (if (sh-finished? old-status)
@@ -398,7 +398,7 @@
                        (job-pids-wait job
                          (if (memq mode '(sh-bg sh-job-status)) 'nonblocking 'blocking)
                          queue-job-display-summary))))
-    ; (debugf "advance-pid/wait mode=~s old-status=~s new-status=~s pid=~s job=~a" mode old-status new-status (job-pid job) (sh-job->string job))
+    ; (debugf "advance-pid/maybe-wait mode=~s old-status=~s new-status=~s pid=~s job=~a" mode old-status new-status (job-pid job) (sh-job->string job))
     ; (sleep (make-time 'time-duration 0 1))
 
     ; if may-block is 'non-blocking, new-status may be '(running)
@@ -409,13 +409,13 @@
         (let ((new-status2 (job-status-set/running! job)))
            (if (memq mode '(sh-fg sh-wait sh-sigcont+wait))
              ;; if mode is sh-fg, sh-wait or sh-sigcont+wait, then wait again for pid
-             (advance-pid/wait mode job pid pgid)
+             (advance-pid/maybe-wait caller mode wait-flags job pid pgid)
              ;; otherwise return job status
              new-status2)))
       ((ok exception failed killed)
         ; job finished, clean it up. Also allows user to later start it again.
         (pid->job-delete! (job-pid job))
-        (job-status-set! 'advance-pid/wait job new-status)
+        (job-status-set! 'advance-pid/maybe-wait job new-status)
         (job-id-unset! job)
         (job-pid-set!  job #f)
         (job-pgid-set! job #f)
@@ -427,16 +427,16 @@
         ; otherwise propagate process status and return.
         (if (memq mode '(sh-wait sh-sigcont+wait))
           (begin
-            (advance-pid/break mode job pid pgid)
-            (advance-pid/wait mode job pid pgid))
+            (advance-pid/break       caller mode wait-flags job pid pgid)
+            (advance-pid/maybe-wait  caller mode wait-flags job pid pgid))
           (begin
-            (job-status-set! 'advance-pid/wait job new-status)
+            (job-status-set! 'advance-pid/maybe-wait job new-status)
             new-status)))
       (else
         (raise-errorf mode "job not started yet: ~s" job)))))
 
 
-;; Internal function called by (advance-pid/wait):
+;; Internal function called by (advance-pid/maybe-wait):
 ;;
 ;; If may-block is 'nonblocking, call C function wait4(WNOHANG) in a loop,
 ;; as long as it tells us that *some* subprocess changed status,
@@ -495,11 +495,11 @@
     ret))
 
 
-;; Internal function called by (advance-pid/wait)
+;; Internal function called by (advance-pid/maybe-wait)
 ;; when job is stopped in mode 'sh-wait or 'sh-sigcont+wait:
 ;; call (break) then send 'sigcont to job
 ;; if (break) raises an exception or resets scheme, then send 'sigint to job
-(define (advance-pid/break mode job pid pgid)
+(define (advance-pid/break caller mode wait-flags job pid pgid)
    ; subshells should not directly perform I/O,
    ; they cannot write the "break> " prompt then read commands
    (when (sh-job-control?)

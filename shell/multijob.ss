@@ -331,13 +331,13 @@
       (proc job options))))
 
 
-;; Internal function called by (sh-resume) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
-(define (advance-multijob mode wait-flags mj)
+;; Internal function called by (resume-job) called by (sh-fg) (sh-bg) (sh-resume) (sh-wait) (sh-job-status)
+(define (advance-multijob caller mode wait-flags mj)
   ; (debugf ">  advance-multijob mode=~s job=~a id=~s status=~s" mode (sh-job->string mj) (job-id mj) (job-last-status mj))
   (job-status-set/running! mj)
   (let* ((child (sh-multijob-child-ref mj (multijob-current-child-index mj)))
-         ;; call (sh-resume) on child
-         (child-status (if (sh-job? child) (sh-resume mode wait-flags child) (void)))
+         ;; call (resume-job) on child
+         (child-status (if (sh-job? child) (resume-job caller mode wait-flags child) (void)))
          (step-proc (job-step-proc mj)))
     ;a (debugf ">  advance-multijob mode=~s job=~s child=~s child-status=~s" mode mj child child-status)
     (cond
@@ -352,21 +352,21 @@
         (step-proc mj child-status)
         ; (debugf "... advance-multijob < step-proc ~s status=~s" mj (job-last-status mj))
         (if (job-running? mj)
-          (advance-multijob mode wait-flags mj)
+          (advance-multijob caller mode wait-flags mj)
           (job-last-status mj)))
       ((sh-running? child-status)
         ;; child is still running.
         ;; if mode is sh-fg, sh-wait or sh-sigcont+wait, wait for child.
         ;; otherwise propagate child status and return.
         (if (memq mode '(sh-fg sh-wait sh-sigcont+wait))
-           (advance-multijob mode wait-flags mj)
+           (advance-multijob caller mode wait-flags mj)
            (job-last-status mj)))
       ((sh-stopped? child-status)
         ; child is stopped.
         ; if mode is sh-wait or sh-sigcont+wait, wait for it again.
         ; otherwise propagate child status and return
         (if (memq mode '(sh-wait sh-sigcont+wait))
-          (advance-multijob mode wait-flags mj)
+          (advance-multijob caller mode wait-flags mj)
           (job-status-set! 'advance-multijob mj child-status)))
       (else
         (raise-errorf mode "child job not started yet: ~s" child)))))
