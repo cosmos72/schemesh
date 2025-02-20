@@ -394,7 +394,8 @@
 ;;     and it must return a single value: a string, a list of strings, or (void)
 (define (sh-cmd* . args)
   (let-values (((program-and-args assignments redirections)
-                  (cmd-parse-assignments-and-redirections args)))
+                  (cmd-parse-assignments-and-redirections
+                    (cmd-expand-string-lists args))))
     (when (and (not (null? program-and-args))
                (not (string? (car program-and-args))))
       (raise-errorf 'sh-cmd* "unsafe command detected: non-constant expressions, as for example wildcards, are not allowed as the first argument of a command.\n\tReason: the command actually executed can only be determined at runtime, and may even depend on the contents of current directory. \n\tIf you REALLY want to do that, use \"unsafe command ARGS\".\n\tFull command:   ~s\n\tParsed command: ~s"
@@ -409,6 +410,27 @@
         (lambda (redirection)
           (sh-redirect! cmd (car redirection) (cadr redirection) (caddr redirection))))
       cmd)))
+
+
+;; if some element in args is a list of strings, splice it into the returned list.
+;; if some element in args is (void), remove it.
+;;
+;; these are intentionally the same rules used by (cmd-arg-list-call-closures)
+;; to expand the results of closures.
+(define (cmd-expand-string-lists args)
+  (let %loop ((args args) (ret '()))
+    (if (null? args)
+      (reverse! ret)
+      (let ((arg (car args)))
+        (cond
+          ((or (null? arg) (eq? (void) arg))
+            (%loop (cdr args) ret))
+          ((pair? arg)
+            (assert-string-list? 'sh-cmd* arg)
+            (%loop (cdr args) (append! (reverse arg) ret)))
+          (else
+            (%loop (cdr args) (cons arg ret))))))))
+
 
 
 ;; parse environment variable assignments NAME = VALUE
