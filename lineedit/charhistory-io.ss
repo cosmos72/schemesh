@@ -11,8 +11,8 @@
     charhistory-load-from-path! charhistory-save-to-path
     charhistory-load-from-port! charhistory-save-to-port)
   (import
-    (rnrs)
-    (only (chezscheme)                 fx1+ rename-file)
+    (except (rnrs) delete-file)
+    (only (chezscheme)                 fx1+ delete-file rename-file void)
     (only (schemesh bootstrap)         try catch until)
     (only (schemesh containers string) string-replace/char!)
     (only (schemesh containers utf8b)  string->utf8b utf8b-bytespan->string)
@@ -34,32 +34,34 @@
 ;; save charhistory to file specified by path.
 ;; return #t if successful, otherwise return #f
 (define (charhistory-save-to-path hist path)
-  (let ((temp-path (string-append path "." (number->string (pid-get))))
-        (port #f)
-        (remove-temp-path? #f))
-    (try
-      (dynamic-wind
-        (lambda ()
-          ;; write to a temporary file "history.txt.PID"
-          (set! port (open-file-output-port temp-path (file-options no-fail) (buffer-mode block)))
-          (set! remove-temp-path? #t))
-        (lambda ()
-          (charhistory-save-to-port hist port)
-          (close-port port)
-          (set! port #f)
-          ;; atomically rename "history.txt.PID" -> "history.txt"
-          (try
+  (call/cc
+    (lambda (cont)
+      (let ((temp-path (string-append path "." (number->string (pid-get))))
+            (remove-temp-path? #f)
+            (port #f)
+            (ok? #f))
+        (dynamic-wind
+          void
+          (lambda ()
+            ;; write to a temporary file "history.txt.PID"
+            (set! port (open-file-output-port temp-path (file-options no-fail) (buffer-mode block)))
+            (set! remove-temp-path? #t)
+            (charhistory-save-to-port hist port)
+            (close-port port)
+            (set! port #f)
+            ;; atomically rename "history.txt.PID" -> "history.txt"
             (rename-file temp-path path)
             (set! remove-temp-path? #f)
-            (catch (ex) #f)))
-        (lambda ()
-          (when port
-            (close-port port))
-          (when remove-temp-path?
-            (try (delete-file temp-path)
-              (catch (ex) #f)))))
-      (catch (ex)
-        #f))))
+            (set! ok? #t))
+          (lambda ()
+            (when port
+              (close-port port)
+              (set! port #f))
+            (when remove-temp-path?
+              (delete-file temp-path #f) ; don't raise exception on errors
+              (set! remove-temp-path? #f))
+            (cont ok?)))))))
+
 
 ;; save charhistory to specified binary output port.
 ;; return #t if successful, otherwise return #f

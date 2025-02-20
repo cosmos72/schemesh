@@ -339,23 +339,23 @@
 
 (define-syntax with-foreground-pgid
   (syntax-rules ()
-    ((_  wait-flags new-pgid body ...)
+    ((_  wait-flags new-pgid body1 body2 ...)
       ;; hygienic macros sure are handy :)
       (let* ((new-pgid  new-pgid)
              (our-pgid  (and new-pgid
                           (jr-flag-foreground? wait-flags)
                           (sh-job-control?)
-                          (job-pgid (sh-globals)))))
-        (dynamic-wind
-          (lambda () ; run before body
-            (when our-pgid
-              (%pgid-foreground our-pgid new-pgid)))
-          (lambda ()
-            body ...)
-          (lambda () ; run after body
-            ;; try really hard to restore (sh-globals) as the foreground process group
-            (when our-pgid
-              (%pgid-foreground -1 our-pgid))))))))
+                          (job-pgid (sh-globals))))
+             (func (lambda () body1 body2 ...)))
+        (if our-pgid
+          (dynamic-wind
+            (lambda () ; run before body
+              (%pgid-foreground our-pgid new-pgid))
+            func
+            (lambda () ; run after body
+              ;; try really hard to restore (sh-globals) as the foreground process group
+              (%pgid-foreground -1 our-pgid)))
+          (func))))))
 
 
 ;; Internal function called by (job-resume).

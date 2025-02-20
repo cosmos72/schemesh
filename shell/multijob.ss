@@ -274,9 +274,9 @@
                   ;;    inherit process group from the subprocess itself
                   ;; b. do not change the foregroud process group
                   ;;
-                  ;; note that code executed by the subprocess CANNOT reactivate job control,
-                  ;; as it's permanently deactivated in the subprocess.
-                  (sh-job-control-available? #f)
+                  ;; note that code executed by the subprocess CAN reactivate job control,
+                  ;; and in such case it will suspend itself until someone moves it to the foreground.
+                  (sh-job-control? #f)
 
                   ;; in child process, suppress messages about started/completed jobs
                   (sh-job-display-summary? #f)
