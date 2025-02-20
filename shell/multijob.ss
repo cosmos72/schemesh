@@ -69,7 +69,7 @@
       (unless (job-terminator? job)
         (assert* caller (sh-job? job))))
     start-multijob-list
-    step-multijob-list
+    #f
     children-jobs-with-colon-ampersand))
 
 
@@ -173,12 +173,9 @@
       (job-remap-fds! job)
       (job-env/apply-lazy! job 'export)
 
-      ;; pretend that this subshell is equivalent to an sh-list:
-      ;; since we are in a subprocess, this does not alter the original object
-      ;; and (sh-wait) needs it to know what to do with children jobs.
-      (job-step-proc-set! job step-multijob-list)
-
-      (sh-wait job)))) ; execute and wait each child job
+      ;; pretend that running a subshell is equivalent to running an sh-list in a subprocess.
+      ;; actually, that's quite accurate
+      (continue-multijob-list job options))))
 
 
 
@@ -308,15 +305,14 @@
                   ;c (debugf "> [child] spawn-procedure job=~a subprocess calling proc ~s" (sh-job->string job) proc)
 
                   ;; if proc attempts to suspend or yield job,
-                  ;; call (sh-wait job) for resuming it until it finishes.
-                  (job-yield-proc-set! job
-                    (lambda (dummy)
-                      ;; (debugf ". [child] spawn-procedure calling (sh-wait) job=~a status=~s" (sh-job->string job) (job-last-status job))
-                      (sh-wait job)))
+                  ;; call (sh-wait job) below for resuming it until it finishes.
+                  (call/cc
+                    (lambda (yield)
+                      (job-yield-proc-set! job yield)
 
-                  ;; ignore value returned by (proc)
-                  (proc job options)
-                  ;; (debugf ". [child] spawn-procedure job=~a subprocess proc returned" (sh-job->string job))
+                      ;; ignore value returned by (proc)
+                      (proc job options)))
+                      ;; (debugf ". [child] spawn-procedure job=~a subprocess proc returned" (sh-job->string job))
 
                   (set! status (sh-wait job)))
                 (lambda () ; run after body, even if it raised a condition
@@ -451,54 +447,6 @@
             ((sh-ok? prev-child-status) '(failed 1))
             ((status-ends-multijob? prev-child-status) prev-child-status)
             (else (void))))))))
-
-
-
-;; Run first or next child job in a multijob containing a sequence of children jobs optionally followed by & ;
-;; Used by (sh-list), implements runtime behavior of shell syntax foo; bar & baz
-(define (step-multijob-list mj prev-child-status)
-  (let* ((idx      (fx1+ (multijob-current-child-index mj)))
-         (child-n  (span-length (multijob-children mj)))
-         (iterate? #t)
-         (interrupted? #f))
-    ; (debugf "step-multijob-list > ~s idx=~s prev-child-status=~s" mj (fx1- idx) prev-child-status)
-    (assert* 'step-multijob-list (sh-finished? prev-child-status))
-    ; idx = 0 if called by (start-multijob-list)
-    (assert* 'step-multijob-list (fx>=? idx 0))
-    (while (and iterate? (not interrupted?) (fx<=? idx child-n))
-      (multijob-current-child-index-set! mj idx)
-      (let ((child (sh-multijob-child-ref mj idx)))
-        (when (sh-job? child)
-          ;; start next child job
-          (let* ((child-async? (eq? '& (sh-multijob-child-ref mj (fx1+ idx))))
-                 (child-status (job-start 'sh-list child options-catch))
-                 (child-started? (sh-started? child-status)))
-            ; iterate on subsequent child jobs in two cases:
-            ; if child job is followed by '&
-            ; if child job has already finished
-            ; (debugf "step-multijob-list~a started child ~s" (if child-async? " async" "") child)
-            (if child-async?
-              ; run child job asynchronously
-              (when child-started?
-                ; child job is running or stopped, assign a job-id to it
-                (job-id-set! child))
-              ; run child job synchronously:
-              (begin
-                (set! interrupted? (status-ends-multijob? child-status))
-                (if child-started?
-                  ; stop iterating if child job is still running or is stopped
-                  (set! iterate? #f)
-                  ; remember exit status of last sync child, and keep iterating
-                  (set! prev-child-status child-status)))))))
-      ; in any case, advance idx after each iteration
-      (set! idx (fx1+ idx)))
-    (when (or interrupted?
-              (and (fx>? idx child-n)
-                   (sh-finished? prev-child-status)))
-      ; end of children reached, or sync child interrupted.
-      ; propagate status of last sync child
-      (multijob-current-child-index-set! mj -1)
-      (job-status-set! 'step-multijob-list mj prev-child-status))))
 
 
 (define (loop-run-child-with-yield caller mj options child)
