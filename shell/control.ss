@@ -87,12 +87,32 @@
 
 
 
-;; flags for (sh-resume), called by (sh-bg) (sh-fg) (sh-wait)
+;; flags for (sh-resume), subsumes (sh-bg) (sh-fg) (sh-wait) (sh-job-status)
 ;;
 (define wait-flag-foreground 1)
 (define wait-flag-sigcont 2)
-(define wait-flag-wait-until-stopped-or-finished 4)
-(define wait-flag-wait-until-finished 8)
+(define wait-flag-wait-until-finished 4)
+(define wait-flag-wait-until-stopped-or-finished 8)
+
+
+(define (wait-flag-foreground? wait-flags)
+  (debugf "wait-flag-foreground? wait-flags=~s" wait-flags)
+  (not (fxzero? (fxand wait-flags wait-flag-foreground))))
+
+(define (wait-flag-sigcont? wait-flags)
+  (not (fxzero? (fxand wait-flags wait-flag-sigcont))))
+
+(define (wait-flag-wait? wait-flags)
+  (not (fxzero? (fxand wait-flags
+                       (fxior wait-flag-wait-until-finished
+                              wait-flag-wait-until-stopped-or-finished)))))
+
+(define (wait-flag-wait-until-finished? wait-flags)
+  (not (fxzero? (fxand wait-flags wait-flag-wait-until-finished))))
+
+(define (wait-flag-wait-until-stopped-or-finished? wait-flags)
+  (not (fxzero? (fxand wait-flags wait-flag-wait-until-stopped-or-finished))))
+
 
 
 ;; Return up-to-date status of a job or job-id, which can be one of:
@@ -148,7 +168,7 @@
   (resume-job
     'sh-sigcont+wait
     'sh-sigcont+wait
-    (fxior wait-flag-sigcont wait-flag-wait-until-finished)
+    (fxior wait-flag-foreground wait-flag-sigcont wait-flag-wait-until-finished)
     job-or-id))
 
 
@@ -165,9 +185,8 @@
 ;; Resume and optionally wait for a job.
 ;;
 (define (resume-job caller mode wait-flags job-or-id)
-  (assert* 'sh-resume (memq mode '(sh-fg sh-bg sh-wait sh-sigcont+wait sh-job-status)))
   (let ((job (sh-job job-or-id)))
-    ; (debugf ">  sh-resume mode=~s wait-flags=~s job=~a id=~s pid=~s status=~s" mode wait-flags (sh-job->string job) (job-id job) (job-pid job) (job-last-status job))
+    ; (debugf ">  sh-resume wait-flags=~s job=~a id=~s pid=~s status=~s" wait-flags (sh-job->string job) (job-id job) (job-pid job) (job-last-status job))
     (case (job-last-status->kind job)
       ((ok exception failed killed)
         (void)) ; job finished

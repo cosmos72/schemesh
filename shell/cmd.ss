@@ -328,7 +328,7 @@
 
 (define %pgid-foreground
   (let ((c-pgid-foreground (foreign-procedure "c_pgid_foreground" (int int) int)))
-    (lambda (caller old-pgid new-pgid)
+    (lambda (old-pgid new-pgid)
       (let ((err (c-pgid-foreground old-pgid new-pgid)))
         ; (c-pgid-foreground) may fail if new-pgid failed in the meantime
         ; (when (< err 0)
@@ -338,24 +338,24 @@
 
 (define-syntax with-foreground-pgid
   (syntax-rules ()
-    ((_  mode new-pgid body ...)
+    ((_  mode wait-flags new-pgid body ...)
       ;; hygienic macros sure are handy :)
       (let* ((mode      mode)
              (new-pgid  new-pgid)
              (our-pgid  (and new-pgid
-                          (memq mode '(sh-fg sh-wait sh-sigcont+wait))
+                          (wait-flag-foreground? wait-flags)
                           (sh-job-control?)
                           (job-pgid (sh-globals)))))
         (dynamic-wind
           (lambda () ; run before body
             (when our-pgid
-              (%pgid-foreground mode our-pgid new-pgid)))
+              (%pgid-foreground our-pgid new-pgid)))
           (lambda ()
             body ...)
           (lambda () ; run after body
             ;; try really hard to restore (sh-globals) as the foreground process group
             (when our-pgid
-              (%pgid-foreground mode -1 our-pgid))))))))
+              (%pgid-foreground -1 our-pgid))))))))
 
 
 ;; Internal function called by (sh-resume)
@@ -369,20 +369,20 @@
     (else
       (let ((pid  (job-pid job))
             (pgid (job-pgid job)))
-        (with-foreground-pgid mode pgid
-          (advance-pid/maybe-sigcont caller mode wait-flags job pid pgid)
+        (with-foreground-pgid mode wait-flags pgid
+          (advance-pid/maybe-sigcont caller wait-flags job pid pgid)
           (advance-pid/maybe-wait    caller mode wait-flags job pid pgid))))))
 
 
 ;; Internal function called by (advance-pid)
-(define (advance-pid/maybe-sigcont caller mode wait-flags job pid pgid)
-  (assert* mode (> pid 0))
+(define (advance-pid/maybe-sigcont caller wait-flags job pid pgid)
+  (assert* caller (> pid 0))
   (when pgid
-    (assert* mode (> pgid 0)))
-  (when (memq mode '(sh-fg sh-bg sh-sigcont+wait))
+    (assert* caller (> pgid 0)))
+  (when (wait-flag-sigcont? wait-flags)
     ; send SIGCONT to job's process group, if present.
     ; otherwise send SIGCONT to job's process id. Both may raise error
-    ; (debugf "advance-pid/sigcont > ~s ~s" mode job)
+    ; (debugf "advance-pid/sigcont wait-flags=~s job=~s" wait-flags job)
     (pid-kill (if (and pgid (> pgid 0)) (- pgid) pid) 'sigcont)
     ;; assume job is now running
     (job-status-set/running! job)))
@@ -392,11 +392,12 @@
 ;; Internal function called by (advance-pid)
 (define (advance-pid/maybe-wait caller mode wait-flags job pid pgid)
   ;; cannot call (sh-job-status), it would recurse back here.
-  (let* ((old-status (job-last-status job))
+  (let* ((blocking?  (wait-flag-wait? wait-flags))
+         (old-status (job-last-status job))
          (new-status (if (sh-finished? old-status)
                        old-status
                        (job-pids-wait job
-                         (if (memq mode '(sh-bg sh-job-status)) 'nonblocking 'blocking)
+                         (if blocking? 'blocking 'nonblocking)
                          queue-job-display-summary))))
     ; (debugf "advance-pid/maybe-wait mode=~s old-status=~s new-status=~s pid=~s job=~a" mode old-status new-status (job-pid job) (sh-job->string job))
     ; (sleep (make-time 'time-duration 0 1))
@@ -407,8 +408,8 @@
       ((running)
         ; if new-status is '(running), try to return '(running job-id)
         (let ((new-status2 (job-status-set/running! job)))
-           (if (memq mode '(sh-fg sh-wait sh-sigcont+wait))
-             ;; if mode is sh-fg, sh-wait or sh-sigcont+wait, then wait again for pid
+           (if blocking?
+             ;; if wait-flags tell to wait until job stops or finishes, then wait again for pid
              (advance-pid/maybe-wait caller mode wait-flags job pid pgid)
              ;; otherwise return job status
              new-status2)))
@@ -422,12 +423,12 @@
         new-status)
       ((stopped)
         ; process is stopped.
-        ; if mode is sh-wait or sh-sigcont+wait
+        ; if wait-flags tell to wait until job finishes,
         ;   call (break) then wait for it again (which blocks until it changes status again)
         ; otherwise propagate process status and return.
-        (if (memq mode '(sh-wait sh-sigcont+wait))
+        (if (wait-flag-wait-until-finished? wait-flags)
           (begin
-            (advance-pid/break       caller mode wait-flags job pid pgid)
+            (advance-pid/break       job pid pgid)
             (advance-pid/maybe-wait  caller mode wait-flags job pid pgid))
           (begin
             (job-status-set! 'advance-pid/maybe-wait job new-status)
@@ -496,10 +497,10 @@
 
 
 ;; Internal function called by (advance-pid/maybe-wait)
-;; when job is stopped in mode 'sh-wait or 'sh-sigcont+wait:
+;; when job is stopped and wait-flags tell to wait until job finishes:
 ;; call (break) then send 'sigcont to job
 ;; if (break) raises an exception or resets scheme, then send 'sigint to job
-(define (advance-pid/break caller mode wait-flags job pid pgid)
+(define (advance-pid/break job pid pgid)
    ; subshells should not directly perform I/O,
    ; they cannot write the "break> " prompt then read commands
    (when (sh-job-control?)
@@ -509,14 +510,14 @@
       (dynamic-wind
         (lambda () ; before body
           ; grab the foreground
-          (%pgid-foreground mode -1 our-pgid))
+          (%pgid-foreground -1 our-pgid))
         (lambda () ; body
           (job-id-set! job)
           (break)
           (set! break-returned-normally? #t))
         (lambda ()
           ; restore job to run in foreground
-          (%pgid-foreground mode our-pgid pgid)
+          (%pgid-foreground our-pgid pgid)
           ; send SIGCONT to job's process group, if present.
           ; otherwise send SIGCONT to job's process id. Both may raise error
           (pid-kill kill-target 'sigcont)

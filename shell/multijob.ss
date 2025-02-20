@@ -356,16 +356,16 @@
           (job-last-status mj)))
       ((sh-running? child-status)
         ;; child is still running.
-        ;; if mode is sh-fg, sh-wait or sh-sigcont+wait, wait for child.
+        ;; if wait-flags tell to wait, then wait for child to change status again.
         ;; otherwise propagate child status and return.
-        (if (memq mode '(sh-fg sh-wait sh-sigcont+wait))
+        (if (wait-flag-wait? wait-flags)
            (advance-multijob caller mode wait-flags mj)
            (job-last-status mj)))
       ((sh-stopped? child-status)
-        ; child is stopped.
-        ; if mode is sh-wait or sh-sigcont+wait, wait for it again.
-        ; otherwise propagate child status and return
-        (if (memq mode '(sh-wait sh-sigcont+wait))
+        ;; child is stopped.
+        ;; if wait-flags tell to wait until child finishes, then wait for child to change status again.
+        ;; otherwise propagate child status and return
+        (if (wait-flag-wait-until-finished? wait-flags)
           (advance-multijob caller mode wait-flags mj)
           (job-status-set! 'advance-multijob mj child-status)))
       (else

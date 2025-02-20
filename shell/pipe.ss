@@ -153,18 +153,18 @@
 (define (advance-multijob-pipe caller mode wait-flags mj)
   ; (debugf ">   advance-multijob-pipe mode=~s mj=~s" mode mj)
   (let ((pgid (job-pgid mj)))
-    (with-foreground-pgid mode pgid
-      (advance-multijob-pipe/maybe-sigcont caller mode mj pgid)
+    (with-foreground-pgid mode wait-flags pgid
+      (advance-multijob-pipe/maybe-sigcont wait-flags mj pgid)
       (advance-multijob-pipe/maybe-wait    caller mode wait-flags mj)))
   ; (debugf "<   advance-multijob-pipe job-status=~s" (job-last-status mj))
   )
 
 
-(define (advance-multijob-pipe/maybe-sigcont caller mode mj pgid)
+(define (advance-multijob-pipe/maybe-sigcont wait-flags mj pgid)
   ; send SIGCONT to job's process group, if present.
   ; It may raise error.
-  (when (and pgid (memq mode '(sh-fg sh-bg sh-sigcont+wait)))
-    ; (debugf "advance-multijob-pipe/sigcont > ~s ~s" mode mj)
+  (when (and pgid (wait-flag-sigcont? wait-flags))
+    ; (debugf "advance-multijob-pipe/sigcont > ~s ~s" wait-flags mj)
     (pid-kill (- pgid) 'sigcont)))
 
 

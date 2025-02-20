@@ -1033,7 +1033,7 @@ static const testcase tests[] = {
     {"(let ((j (sh-and (sh-cmd \"true\") (sh-cmd \"command\" \"false\"))))\n"
      "  (sh-start j)\n"
      "  (sh-bg j)\n"
-     "  (sh-wait j))\n",
+     "  (sh-fg j))\n",
      "(failed 1)"},
     {"(let ((j (sh-pipe* (sh-cmd \"true\") '\\x7C;& (sh-cmd \"command\" \"false\"))))\n"
      "  (sh-start j)\n"
