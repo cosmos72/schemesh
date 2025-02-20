@@ -34,7 +34,7 @@
                     ; receives as argument job followed by options.
                     ; For cmds, its return value is passed to (exit-with-job-status)
     (mutable resume-proc) ; #f or continuation to resume job
-    (mutable suspend-proc) ; #f or continuation to suspend job and return to whoever started/resumed it
+    (mutable yield-proc) ; #f or continuation to suspend job and return to whoever started/resumed it
     (mutable cwd %job-cwd %job-cwd-set!) ; charspan: working directory. if #f, use parent's cwd
     (mutable owd %job-owd %job-owd-set!) ; #f or charspan: previous working directory
     (mutable env)         ; #f or hashtable of overridden env variables: name -> value
@@ -183,7 +183,7 @@
     0 #f                 ; redirects-temp-n fds-to-remap
     (job-start-proc j)
     (job-step-proc  j)
-    #f #f                ; resume-proc suspend-proc
+    #f #f                ; resume-proc yield-proc
     (let ((cwd (%job-cwd j)))
       (and cwd (charspan-copy cwd)))
     (let ((owd (job-owd j)))
@@ -213,7 +213,7 @@
       0 #f                 ; redirects-temp-n fds-to-remap
       (job-start-proc j)
       (job-step-proc  j)
-      #f #f                ; resume-proc suspend-proc
+      #f #f                ; resume-proc yield-proc
       (let ((cwd (%job-cwd j)))
         (and cwd (charspan-copy cwd)))
       (let ((owd (job-owd j)))

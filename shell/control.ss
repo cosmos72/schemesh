@@ -59,7 +59,7 @@
           (raise-errorf caller "cannot start job ~s, bad or missing job-start-proc: ~s" job start-proc))
         (job-exception-set! job #f)
         (job-status-set/running! job)
-        (job-suspend-proc-set! job susp)
+        (job-yield-proc-set! job susp)
         (parameterize ((sh-current-job job))
           ;; set job's parent if requested.
           ;; must be done *before* calling procedures in (cmd-arg-list c)
@@ -89,27 +89,27 @@
 
 
 
-;; suspend a job and call its (job-suspend-proc) continuation,
+;; suspend a job and call its (job-yield-proc) continuation,
 ;; which non-locally jumps to whoever started or resumed the job.
 ;;
 ;; if job is later resumed, it then returns #t to the caller of (job-suspend)
 ;; if there was no job to suspend, immediately return #f to the caller of (job-suspend)
 (define (job-suspend job)
-  (let ((suspend-proc (and (sh-job? job) (job-suspend-proc job))))
-    (when suspend-proc
+  (let ((yield-proc (and (sh-job? job) (job-yield-proc job))))
+    (when yield-proc
       (call/cc
         ;; Capture the continuation representing THIS call to (job-suspend)
         (lambda (cont)
           ;; store it as job's resume-proc
           (job-resume-proc-set!  job cont)
-          (job-suspend-proc-set! job #f)
+          (job-yield-proc-set! job #f)
           (%job-last-status-set! job '(stopped sigtstp))
-          ;; suspend job, i.e. call its suspend-proc
-          (suspend-proc (void)))))
-    (if suspend-proc #t #f))) ; ignore value returned by continuations (suspend-proc) and (cont)
+          ;; suspend job, i.e. call its yield-proc
+          (yield-proc (void)))))
+    (if yield-proc #t #f))) ; ignore value returned by continuations (yield-proc) and (cont)
 
 
-;; Suspend current job and call its (job-suspend-proc) continuation,
+;; Suspend current job and call its (job-yield-proc) continuation,
 ;; which non-locally jumps to whoever started or resumed the job.
 ;;
 ;; if job is later resumed, it then returns #t to the caller of (sh-current-job-suspend)
@@ -188,7 +188,7 @@
 
 
 ;; call the continuation stored in job-resume-proc of a job for resuming it.
-;; save the current continuation in its job-suspend-proc
+;; save the current continuation in its job-yield-proc
 (define (job-call-resume-proc job wait-flags)
   (call/cc
     ;; Capture the continuation representing THIS call to (job-call-resume-proc)
@@ -196,7 +196,7 @@
       (let ((resume-proc (job-resume-proc job))
             (pgid (job-pgid job)))
         (job-resume-proc-set!  job #f)
-        (job-suspend-proc-set! job susp)
+        (job-yield-proc-set! job susp)
         (job-status-set/running! job)
         (with-foreground-pgid wait-flags pgid
           ;; send SIGCONT to job's process group, if present.

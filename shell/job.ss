@@ -134,7 +134,7 @@
           (job-unredirect/temp/all! job) ; remove temporary redirections
           (job-temp-parent-set!  job #f) ; remove temporary parent job
           (job-resume-proc-set!  job #f)
-          (job-suspend-proc-set! job #f))
+          (job-yield-proc-set! job #f))
         status)
       (else
         (%job-last-status-set! job status)))))
