@@ -33,8 +33,9 @@
                     ; For cmds, will be called in fork()ed child process and
                     ; receives as argument job followed by options.
                     ; For cmds, its return value is passed to (exit-with-job-status)
-    (mutable resume-proc) ; #f or continuation to resume job
-    (mutable yield-proc) ; #f or continuation to suspend job and return to whoever started/resumed it
+    (mutable resume-flags) ; fixnum, jr-flags to use when calling (job-resume) on a child
+    (mutable resume-proc)  ; #f or continuation to resume job
+    (mutable yield-proc)   ; #f or continuation to suspend job and return to whoever started/resumed it
     (mutable cwd %job-cwd %job-cwd-set!) ; charspan: working directory. if #f, use parent's cwd
     (mutable owd %job-owd %job-owd-set!) ; #f or charspan: previous working directory
     (mutable env)         ; #f or hashtable of overridden env variables: name -> value
@@ -42,7 +43,7 @@
     (mutable temp-parent) ; temporary parent job, contains default values of env variables.
                           ; Unset when job finishes
     (mutable default-parent)) ; default parent job, contains default values of env variables
-  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-15}))
+  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-18}))
 
 
 ;; Define the record type "cmd"
@@ -52,7 +53,7 @@
   (fields
     arg-list                     ; list of strings and closures: program-name and args
     (mutable expanded-arg-list)) ; #f or list of strings: program-name and args after applying closures and expanding aliases
-  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-16}))
+  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-19}))
 
 
 ;; Define the record type "multijob"
@@ -63,7 +64,7 @@
     kind                ; symbol: one of 'sh-and 'sh-or 'sh-not 'sh-list 'sh-subshell '#<global>
     (mutable current-child-index) ; -1 or index of currently running child job
     children)           ; span: children jobs.
-  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-17}))
+  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-20}))
 
 
 ;; Parameter containing the current job.
@@ -183,7 +184,7 @@
     0 #f                 ; redirects-temp-n fds-to-remap
     (job-start-proc j)
     (job-step-proc  j)
-    #f #f                ; resume-proc yield-proc
+    0 #f #f                ; resume-flags resume-proc yield-proc
     (let ((cwd (%job-cwd j)))
       (and cwd (charspan-copy cwd)))
     (let ((owd (job-owd j)))
@@ -213,7 +214,7 @@
       0 #f                 ; redirects-temp-n fds-to-remap
       (job-start-proc j)
       (job-step-proc  j)
-      #f #f                ; resume-proc yield-proc
+      0 #f #f              ; resume-flags resume-proc yield-proc
       (let ((cwd (%job-cwd j)))
         (and cwd (charspan-copy cwd)))
       (let ((owd (job-owd j)))

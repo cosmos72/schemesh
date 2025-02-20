@@ -109,6 +109,26 @@
     (if yield-proc #t #f))) ; ignore value returned by continuations (yield-proc) and (cont)
 
 
+;; suspend a job and call its (job-yield-proc) continuation,
+;; which non-locally jumps to whoever started or resumed the job.
+;;
+;; if job is later resumed, it then returns #t to the caller of (job-suspend)
+;; if there was no job to yield, immediately return #f to the caller of (job-yield)
+(define (job-yield job)
+  (let ((yield-proc (and (sh-job? job) (job-yield-proc job))))
+    (when yield-proc
+      (call/cc
+        ;; Capture the continuation representing THIS call to (job-yield)
+        (lambda (cont)
+          ;; store it as job's resume-proc
+          (job-resume-proc-set!  job cont)
+          (job-yield-proc-set! job #f)
+          (job-status-set/running! job)
+          ;; suspend job, i.e. call its yield-proc
+          (yield-proc (void)))))
+    (if yield-proc #t #f))) ; ignore value returned by continuations (yield-proc) and (cont)
+
+
 ;; Suspend current job and call its (job-yield-proc) continuation,
 ;; which non-locally jumps to whoever started or resumed the job.
 ;;
@@ -118,6 +138,17 @@
 ;; Note: has effect only if (sh-current-job) is set
 (define (sh-current-job-suspend)
   (job-suspend (sh-current-job)))
+
+
+;; Yield current job and call its (job-yield-proc) continuation,
+;; which non-locally jumps to whoever started or resumed the job.
+;;
+;; if job is later resumed, it then returns #t to the caller of (sh-current-job-yield)
+;; if there was no job to yield, immediately return #f to the caller of (sh-current-job-yield)
+;;
+;; Note: has effect only if (sh-current-job) is set
+(define (sh-current-job-yield)
+  (job-yield (sh-current-job)))
 
 
 ;; flags for (sh-resume), which subsumes (sh-bg) (sh-fg) (sh-wait) (sh-job-status)

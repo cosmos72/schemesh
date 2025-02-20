@@ -34,7 +34,7 @@
     (schemesh posix signal)
     (schemesh posix tty)
     (only (schemesh shell)
-       sh-consume-signals sh-current-job-suspend sh-exception-handler
+       sh-consume-signals sh-current-job-suspend sh-current-job-yield sh-exception-handler
        sh-repl-restart sh-repl-restart? sh-schemesh-reload-count
        sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
        sh-job-control? sh-job-control-available? sh-make-linectx

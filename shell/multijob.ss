@@ -111,7 +111,7 @@
       (span) 0 #f     ; redirections
       start-proc      ; executed to start the job
       step-proc       ; executed when a child job changes status
-      #f #f           ; resume-proc yield-proc
+      0 #f #f         ; resume-flags resume-proc yield-proc
       #f #f           ; working directory, old working directory - initially inherited from parent job
       #f              ; overridden environment variables - initially none
       #f              ; env var assignments - initially none
