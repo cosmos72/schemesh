@@ -603,6 +603,10 @@ static const testcase tests[] = {
     {"(format #f \"~s\" (parse-scheme-forms1 (string->parsectx"
      "  \" #\\\\m #\\\\x7e \")))",
      "(#\\m #\\~)"},
+    /* Chez Scheme allows additional character names */
+    {"(format #f \"~s\" (parse-scheme-forms1 (string->parsectx"
+     "  \" #\\\\rubout #\\\\bel #\\\\vt #\\\\nel #\\\\ls \")))",
+     "(#\\delete #\\alarm #\\vtab #\\x85 #\\x2028)"},
     /* character literals #\xdc80 ... #\xdcff are allowed only by UTF-8b */
     {"(sh-eval (cons 'list (parse-scheme-forms1 (string->parsectx\n"
      "  \"(char->integer #\\\\x20ac) (char->integer #\\\\xdc80) (char->integer #\\\\xdcff)\")))))",

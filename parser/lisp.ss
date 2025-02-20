@@ -14,7 +14,7 @@
   (import
     (rnrs)
     (only (chezscheme)
-      append! box bytevector fx1+ fx1- fxvector fxvector-set! include
+      append! box bytevector char-name fx1+ fx1- fxvector fxvector-set! include
       make-fxvector read-token reverse! top-level-value void)
     (only (schemesh bootstrap)            assert* debugf while until)
     (only (schemesh containers charspan)  charspan charspan-insert-back! charspan->string*!)

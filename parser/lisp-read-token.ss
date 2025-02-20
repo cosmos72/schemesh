@@ -208,10 +208,18 @@
     (values ret 'atomic)))
 
 
+;; standard character names
 (define %char-names (hashtable string-hash string=?
    '("alarm" . #\alarm) '("backspace" . #\backspace) '("delete" . #\delete) '("esc" . #\esc)
    '("linefeed" . #\linefeed) '("newline" . #\newline) '("page" #\page) '("return" . #\return)
    '("space" . #\space) '("tab" . #\tab) '("vtab" . #\vtab)))
+
+
+;; if flavor is 'scheme then search and return
+;; non-standard character names allowed by Chez Scheme (char-name)
+(define (%chezscheme-char-name flavor name)
+  (and (eq? flavor 'scheme)
+       (char-name (string->symbol name))))
 
 
 ;; convert a character name into a character
@@ -226,6 +234,7 @@
         (integer->char* (%hex-digits->fixnum name 1 (string-length name))))
       (else
         (or (hashtable-ref %char-names name #f)
+            (%chezscheme-char-name flavor name)
             (syntax-errorf ctx (caller-for flavor) "invalid character ~s" name))))))
 
 
