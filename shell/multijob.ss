@@ -160,9 +160,6 @@
     (lambda (job options)
       ;; this will be executed in a subprocess.
 
-      ;; do not output status changes of children jobs.
-      (sh-job-display-summary? #f)
-
       ;; do not save history when subshell exits.
       (let ((lctx (sh-repl-args-linectx)))
         (when (linectx? lctx)
@@ -173,7 +170,7 @@
       (job-remap-fds! job)
       (job-env/apply-lazy! job 'export)
 
-      ;; pretend that running a subshell is equivalent to running an sh-list in a subprocess.
+      ;; pretend that running a sh-subshell is equivalent to running an sh-list in a subprocess.
       ;; actually, that's quite accurate
       (continue-multijob-list job options))))
 
