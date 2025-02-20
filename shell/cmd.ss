@@ -329,6 +329,7 @@
 (define %pgid-foreground
   (let ((c-pgid-foreground (foreign-procedure "c_pgid_foreground" (int int) int)))
     (lambda (old-pgid new-pgid)
+      ;; (debugf "%pgid-foreground old-pgid=~s new-pgid=~s job-control?=~s job-control-available?=~s" old-pgid new-pgid (sh-job-control?) (sh-job-control-available?))
       (let ((err (c-pgid-foreground old-pgid new-pgid)))
         ; (c-pgid-foreground) may fail if new-pgid failed in the meantime
         ; (when (< err 0)
@@ -357,38 +358,51 @@
               (%pgid-foreground -1 our-pgid))))))))
 
 
-;; Internal function called by (sh-resume)
+;; Internal function called by (job-resume).
+;; Returns unspecified value.
 (define (advance-pid caller job wait-flags)
   ; (debugf "> advance-pid wait-flags=~s job=~a pid=~s status=~s" wait-flags (sh-job->string job) (job-pid job) (job-last-status job))
   (cond
     ((job-finished? job)
-      (job-last-status job)) ; job finished, exit status already available
+      (void)) ; job finished, exit status already available
     ((not (job-started? job))
       (raise-errorf caller "job not started yet: ~s" job))
     (else
       (let ((pid  (job-pid job))
             (pgid (job-pgid job)))
         (with-foreground-pgid wait-flags pgid
-          (advance-pid/maybe-sigcont caller job wait-flags pid pgid)
-          (advance-pid/maybe-wait    caller job wait-flags pid pgid))))))
+          (if (advance-pid/maybe-sigcont caller job wait-flags pid pgid)
+            (advance-pid/maybe-wait      caller job wait-flags pid pgid)
+            (job-status-set! caller job '(failed -1)))))))) ; job disappeared?
 
 
-;; Internal function called by (advance-pid)
+;; Internal function called by (advance-pid).
+;; Return #t if job-pid and job-pgid are not set or sending a signal to them succeeds.
+;; Return #f if job-pid or job-pgid is set but sending a signal to it fails.
 (define (advance-pid/maybe-sigcont caller job wait-flags pid pgid)
   (assert* caller (> pid 0))
   (when pgid
     (assert* caller (> pgid 0)))
-  (when (jr-flag-sigcont? wait-flags)
-    ; send SIGCONT to job's process group, if present.
-    ; otherwise send SIGCONT to job's process id. Both may raise error
-    ; (debugf "advance-pid/sigcont wait-flags=~s job=~s" job wait-flags)
-    (pid-kill (if (and pgid (> pgid 0)) (- pgid) pid) 'sigcont)
-    ;; assume job is now running
-    (job-status-set/running! job)))
+  ;; (debugf "advance-pid/sigcont wait-flags=~s job=~s" job wait-flags)
+
+  ;; send SIGCONT to job's process group, if present.
+  ;; otherwise send SIGCONT to job's process id. Both may return error code
+  (let* ((sigcont? (jr-flag-sigcont? wait-flags))
+         (sig      (if sigcont? 'sigcont 0))
+         (err      (pid-kill (if (and pgid (> pgid 0)) (- pgid) pid) sig)))
+    (case err
+      ((0)
+        (when sigcont?
+          ;; assume job is now running
+          (job-status-set/running! job))
+        #t)
+      (else
+        #f))))
 
 
 
 ;; Internal function called by (advance-pid)
+;; Returns unspecified value.
 (define (advance-pid/maybe-wait caller job wait-flags pid pgid)
   ;; cannot call (sh-job-status), it would recurse back here.
   (let* ((blocking?  (jr-flag-wait? wait-flags))
@@ -418,8 +432,7 @@
         (job-status-set! 'advance-pid/maybe-wait job new-status)
         (job-id-unset! job)
         (job-pid-set!  job #f)
-        (job-pgid-set! job #f)
-        new-status)
+        (job-pgid-set! job #f))
       ((stopped)
         ; process is stopped.
         ; if wait-flags tell to wait until job finishes,
@@ -429,9 +442,7 @@
           (begin
             (advance-pid/break              job            pid pgid)
             (advance-pid/maybe-wait  caller job wait-flags pid pgid))
-          (begin
-            (job-status-set! 'advance-pid/maybe-wait job new-status)
-            new-status)))
+          (job-status-set! 'advance-pid/maybe-wait job new-status)))
       (else
         (raise-errorf caller "job not started yet: ~s" job)))))
 

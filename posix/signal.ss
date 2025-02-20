@@ -25,6 +25,8 @@
 (define (signal-number->name number)
   (hashtable-ref signal-table-number->name number #f))
 
+;; convert a signal name (must be a symbol) to signal number.
+;; return #f if signal name was not found.
 (define (signal-name->number name)
   (hashtable-ref signal-table-name->number name #f))
 

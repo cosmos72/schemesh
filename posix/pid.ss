@@ -36,20 +36,23 @@
         ret))))
 
 
-;; (pid-kill pid signal-name) calls C function kill(pid, sig) i.e. sends specified signal
-;; to the process(es) identified by pid.
+;; (pid-kill pid signal-name-or-number) calls C function kill(pid, sig)
+;; i.e. sends specified signal to the process(es) identified by pid.
 ;; Notes:
 ;;   pid ==  0 means "all processes in the same process group as the caller".
 ;;   pid == -1 means "all processes".
 ;;   pid <  -1 means "all processes in process group -pid"
 ;
-;; Returns < 0 if signal-name is unknown, or if C function kill() fails with C errno != 0.
+;; Returns 0 on success.
+;; Otherwise < 0 if signal-name is unknown, or if C function kill() fails with C errno != 0.
 (define pid-kill
   (let ((c-pid-kill (foreign-procedure "c_pid_kill" (int int) int))
         (c-errno-einval ((foreign-procedure "c_errno_einval" () int))))
-    (lambda (pid signal-name)
+    (lambda (pid signal-name-or-number)
       ; (format #t "pid-kill ~s ~s" pid signal-name)
-      (let ((signal-number (signal-name->number signal-name)))
+      (let ((signal-number (if (fixnum? signal-name-or-number)
+                             signal-name-or-number
+                             (signal-name->number signal-name-or-number))))
         (if (fixnum? signal-number)
           (c-pid-kill pid signal-number)
           c-errno-einval)))))

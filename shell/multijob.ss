@@ -140,7 +140,7 @@
       (job-remap-fds! job)
       (job-env/apply-lazy! job 'export)
       ; Do not yet assign a job-id.
-      (run-multijob-list job options))))
+      (continue-multijob-list job options))))
 
 
 ;; internal function stored in (job-start-proc job) by (sh-subshell) multijobs
@@ -159,16 +159,6 @@
   (spawn-procedure job options
     (lambda (job options)
       ;; this will be executed in a subprocess.
-      ;;
-      ;; deactivate job control:
-      ;; a. do not create process groups => all child processes will
-      ;;    inherit process group from the subshell itself
-      ;; b. do not change the foregroud process group
-      ;;
-      ;; note that commands executed by the subshell CAN reactivate job control:
-      ;; in such case, (sh-job-control? #t) will self-suspend the subshell with SIGTTIN
-      ;; until the user resumes it in the foreground.
-      (sh-job-control? #f)
 
       ;; do not output status changes of children jobs.
       (sh-job-display-summary? #f)
@@ -273,9 +263,11 @@
       (assert* 'sh-start (procedure? proc))
       (assert* 'sh-start (logbit? 2  (procedure-arity-mask proc)))
       (assert* 'sh-start (list? options))
+
       (let* ((process-group-id (options->process-group-id options))
              (_                (options->set-temp-parent! job options))
              (ret              (c-fork-pid (or process-group-id -1))))
+
         (cond
           ((< ret 0) ; fork() failed
             (raise-c-errno 'sh-start 'fork ret))
@@ -283,8 +275,18 @@
             (let ((status '(exception #f)))
               (dynamic-wind
                 (lambda () ; run before body
-                  ; in child process, suppress messages about started/completed jobs
+                  ;; deactivate job control in subprocess:
+                  ;; a. do not create process groups => all child processes will
+                  ;;    inherit process group from the subprocess itself
+                  ;; b. do not change the foregroud process group
+                  ;;
+                  ;; note that code executed by the subprocess CANNOT reactivate job control,
+                  ;; as it's permanently deactivated in the subprocess.
+                  (sh-job-control-available? #f)
+
+                  ;; in child process, suppress messages about started/completed jobs
                   (sh-job-display-summary? #f)
+
                   (let ((pid  (pid-get))
                         (pgid (pgid-get 0)))
                     ; this process now "is" the job => update (sh-globals)' pid and pgid
@@ -304,9 +306,18 @@
                     (%job-last-status-set! job '(running))))
                 (lambda () ; body
                   ;c (debugf "> [child] spawn-procedure job=~a subprocess calling proc ~s" (sh-job->string job) proc)
-                  (let ((ret (proc job options)))
-                    ;c (debugf ". [child] spawn-procedure job=~a subprocess proc returned ~s pid=~s" (sh-job->string job) ret (job-pid job))
-                    (void))
+
+                  ;; if proc attempts to suspend or yield job,
+                  ;; call (sh-wait job) for resuming it until it finishes.
+                  (job-yield-proc-set! job
+                    (lambda (dummy)
+                      ;; (debugf ". [child] spawn-procedure calling (sh-wait) job=~a status=~s" (sh-job->string job) (job-last-status job))
+                      (sh-wait job)))
+
+                  ;; ignore value returned by (proc)
+                  (proc job options)
+                  ;; (debugf ". [child] spawn-procedure job=~a subprocess proc returned" (sh-job->string job))
+
                   (set! status (sh-wait job)))
                 (lambda () ; run after body, even if it raised a condition
                   ;c (debugf "< [child] spawn-procedure job=~a subprocess exiting with pid=~s status=~s" (sh-job->string job) (job-pid job) status)
@@ -490,9 +501,9 @@
       (job-status-set! 'step-multijob-list mj prev-child-status))))
 
 
-(define (loop-start-resume-child-with-suspend caller mj options child)
+(define (loop-run-child-with-yield caller mj options child)
   (let %loop ((status '(new)))
-    (debugf "loop-start-resume-child-with-suspend child=~a status=~s" (sh-job->string child) status)
+    ;; (debugf "... loop-run-child-with-yield mj=~a child=~a status=~s" (sh-job->string mj) (sh-job->string child) status)
     (case (sh-status->kind status)
       ((new)
         (%loop (job-start caller child options)))
@@ -503,13 +514,14 @@
         (job-suspend mj)
         (%loop (job-last-status child)))
       (else
+        ;; (debugf "<   loop-run-child-with-yield mj=~a child=~a status=~s" (sh-job->string mj) (sh-job->string child) status)
         status))))
 
 
 ;; Run the children jobs in a multijob list.
 ;; Used by (sh-list), implements runtime behavior of shell syntax foo; bar & baz
 ;; each child job can be optionally followed by '& or ';
-(define (run-multijob-list mj options)
+(define (continue-multijob-list mj options)
   (let* ((options  (cons '(catch? . #t) options))
          (children (multijob-children mj))
          (n        (span-length children)))
@@ -520,4 +532,4 @@
           (multijob-current-child-index-set! mj i)
           (if (eq? '& (sh-multijob-child-ref mj (fx1+ i)))
             (job-start 'sh-list child options)
-            (loop-start-resume-child-with-suspend 'sh-list mj options child)))))))
+            (loop-run-child-with-yield 'sh-list mj options child)))))))

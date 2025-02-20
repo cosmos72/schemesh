@@ -97,6 +97,7 @@
 (define (job-suspend job)
   (let ((yield-proc (and (sh-job? job) (job-yield-proc job))))
     (when yield-proc
+      ;; (debugf "job-suspend job=~a" (sh-job->string job))
       (call/cc
         ;; Capture the continuation representing THIS call to (job-suspend)
         (lambda (cont)
@@ -117,6 +118,7 @@
 (define (job-yield job)
   (let ((yield-proc (and (sh-job? job) (job-yield-proc job))))
     (when yield-proc
+      ;; (debugf "job-yield job=~a" (sh-job->string job))
       (call/cc
         ;; Capture the continuation representing THIS call to (job-yield)
         (lambda (cont)
@@ -205,9 +207,14 @@
             ;; either the job is a sh-cmd, or a builtin or multijob spawned in a child subprocess.
             ;; in all cases, we have a pid to wait on.
             (advance-pid caller job wait-flags))
+
           ((job-resume-proc job)
             ;; we have a continuation to call for resuming the job
-            (job-call-resume-proc job wait-flags))
+            (job-call-resume-proc job wait-flags)
+            (when (and (jr-flag-wait-until-finished? wait-flags) (sh-stopped? job))
+              ;; caller asked to wait until job finishes, cannot return with a stopped job: try again
+              (job-resume caller job-or-id wait-flags)))
+
           ((sh-multijob? job)
             (if (eq? 'sh-pipe (multijob-kind job))
               (advance-multijob-pipe caller job wait-flags)

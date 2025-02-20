@@ -1015,6 +1015,7 @@ static const testcase tests[] = {
     {"(sh-find-job 1)", "#f"},
     {"(sh-find-job #t)", "(#<global> #t)"},
 #endif
+#if 1
     {"(sh-run/i (sh-cmd \"true\"))", ""}, /* (void) is displayed as empty string */
     {"(sh-run   (sh-cmd \"false\"))", "(failed 1)"},
     {"(sh-run   (sh-cmd \"expr\" \"0\"))", ""},
@@ -1227,6 +1228,10 @@ static const testcase tests[] = {
     {"(sh-run/string (shell \"FOO\" = \"abc\" \\x3B; \"echo\" (shell-env \"FOO\")))", "abc\n"},
     {"(sh-run/string (shell \"set\" \"FOO\" \"def\" \\x3B; \"set\" \"FOO\"))", "set FOO 'def'\n"},
     {"(sh-run/string (shell \"unset\" \"FOO\" \\x3B; \"set\" \"FOO\"))", ""},
+#endif
+    {"(sh-run/string (shell \"command\" \"echo\" \"abc\" \\x3B; \"echo\" \"def\" )))",
+     "abc\ndef\n"},
+#if 1
     /* test that overwriting existing environment variables works */
     {"(sh-run/string (shell\n"
      "    \"FOO\" = (shell-backquote \"echo\" \"ghijk\") \\x3B;\n"
@@ -1338,6 +1343,7 @@ static const testcase tests[] = {
      /* ideally would return the same as previous test, but deciding to omit the (shell ...) wrapper
         is tricky */
      "(((shell (1 2 3))) #<parser shell>)"},
+#endif
 };
 
 static int run_tests(void) {
