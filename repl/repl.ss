@@ -34,7 +34,8 @@
     (schemesh posix signal)
     (schemesh posix tty)
     (only (schemesh shell)
-       sh-consume-signals sh-exception-handler sh-repl-restart sh-repl-restart? sh-schemesh-reload-count
+       sh-consume-signals sh-current-job-suspend sh-exception-handler
+       sh-repl-restart sh-repl-restart? sh-schemesh-reload-count
        sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
        sh-job-control? sh-job-control-available? sh-make-linectx
        sh-repl-args sh-run/i sh-xdg-cache-home/ sh-xdg-config-home/))
@@ -219,12 +220,6 @@
                        (exit-handler k-exit)
                        (keyboard-interrupt-handler
                          (lambda ()
-                           ;; invoked also for SIGTSTP, because signal.h installs
-                           ;; a SIGTSTP handler that intentionally calls raise(SIGINT)
-                           ;;
-                           ;; reason: it's the simplest mechanism to quickly suspend a long-running Scheme procedure
-                           (put-string (console-error-port)
-                             (if (signal-consume-sigtstp) "\n; suspended\n" "\n; interrupted\n"))
                            (sh-repl-interrupt-handler repl-args '())))
                        (reset-handler (reset-handler)))
           (let ((k-reset k-exit))
@@ -347,15 +342,25 @@
 
 
 
-;; React to calls to (break), to keyboard CTRL+C and to SIGTSTP signal: enter the debugger.
+;; React to calls to (break), to keyboard CTRL+C and to SIGTSTP signal:
+;; either enter the debugger, or, if possible, suspend the current job.
 (define (sh-repl-interrupt-handler repl-args break-args)
-  (call/cc
-    (lambda (k)
-      (parameterize ((break-handler void)
-                     (keyboard-interrupt-handler void))
-        (sh-repl-interrupt-show-who-msg-irritants break-args (console-error-port))
-        (let ((port (console-output-port)))
-          (while (sh-repl-interrupt-handler-once repl-args k port)))))))
+  ;; invoked also for SIGTSTP, because signal.h installs
+  ;; a SIGTSTP handler that intentionally calls raise(SIGINT)
+  ;;
+  ;; reason: it's the simplest mechanism to quickly suspend a long-running Scheme procedure
+  (let ((suspend? (signal-consume-sigtstp)))
+    ;; try to suspend ourselves and our caller
+    (unless (and suspend? (sh-current-job-suspend))
+      (put-string (console-error-port)
+        (if suspend? "\n; suspended\n" "\n; interrupted\n"))
+      (call/cc
+        (lambda (k)
+          (parameterize ((break-handler void)
+                         (keyboard-interrupt-handler void))
+            (sh-repl-interrupt-show-who-msg-irritants break-args (console-error-port))
+            (let ((port (console-output-port)))
+              (while (sh-repl-interrupt-handler-once repl-args k port)))))))))
 
 
 ;; Print (break ...) arguments

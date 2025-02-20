@@ -92,7 +92,8 @@
 ;; suspend a job and call its (job-suspend-proc) continuation,
 ;; which non-locally jumps to whoever started or resumed the job.
 ;;
-;; if job is later resumed, it then returns normally to caller of (job-suspend)
+;; if job is later resumed, it then returns #t to the caller of (job-suspend)
+;; if there was no job to suspend, immediately return #f to the caller of (job-suspend)
 (define (job-suspend job)
   (let ((suspend-proc (and (sh-job? job) (job-suspend-proc job))))
     (when suspend-proc
@@ -105,13 +106,14 @@
           (%job-last-status-set! job '(stopped sigtstp))
           ;; suspend job, i.e. call its suspend-proc
           (suspend-proc (void)))))
-    (void))) ; ignore value returned by continuations (suspend-proc) and (cont)
+    (if suspend-proc #t #f))) ; ignore value returned by continuations (suspend-proc) and (cont)
 
 
 ;; Suspend current job and call its (job-suspend-proc) continuation,
 ;; which non-locally jumps to whoever started or resumed the job.
 ;;
-;; if job is later resumed, it then returns normally to caller of (job-suspend)
+;; if job is later resumed, it then returns #t to the caller of (sh-current-job-suspend)
+;; if there was no job to suspend, immediately return #f to the caller of (sh-current-job-suspend)
 ;;
 ;; Note: has effect only if (sh-current-job) is set
 (define (sh-current-job-suspend)
@@ -174,7 +176,7 @@
             (advance-pid caller job wait-flags))
           ((job-resume-proc job)
             ;; we have a continuation to call for resuming the job
-            (job-call-resume-proc job))
+            (job-call-resume-proc job wait-flags))
           ((sh-multijob? job)
             (if (eq? 'sh-pipe (multijob-kind job))
               (advance-multijob-pipe caller job wait-flags)
@@ -187,16 +189,21 @@
 
 ;; call the continuation stored in job-resume-proc of a job for resuming it.
 ;; save the current continuation in its job-suspend-proc
-(define (job-call-resume-proc job)
+(define (job-call-resume-proc job wait-flags)
   (call/cc
     ;; Capture the continuation representing THIS call to (job-call-resume-proc)
     (lambda (susp)
-      (let ((resume-proc (job-resume-proc job)))
+      (let ((resume-proc (job-resume-proc job))
+            (pgid (job-pgid job)))
         (job-resume-proc-set!  job #f)
         (job-suspend-proc-set! job susp)
         (job-status-set/running! job)
-        (parameterize ((sh-current-job job))
-          (resume-proc (void))))))
+        (with-foreground-pgid wait-flags pgid
+          ;; send SIGCONT to job's process group, if present.
+          (when (and pgid (jr-flag-sigcont? wait-flags))
+            (pid-kill (- pgid) 'sigcont))
+          (parameterize ((sh-current-job job))
+            (resume-proc (void)))))))
   ;; ignore the value returned by (resume-proc) and by continuation (susp)
   (void))
 

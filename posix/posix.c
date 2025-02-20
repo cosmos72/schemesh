@@ -1533,18 +1533,27 @@ static ptr c_pid_wait(int pid, int may_block) {
   int   wstatus = 0;
   int   result  = 0;
   pid_t ret_pid;
+
 #ifndef WCONTINUED
 #define WCONTINUED 0
 #endif
-  do {
-    ret_pid = waitpid((pid_t)pid, &wstatus, WUNTRACED | WCONTINUED | (may_block ? 0 : WNOHANG));
-  } while (ret_pid == -1 && errno == EINTR);
+  ret_pid = waitpid((pid_t)pid, &wstatus, WUNTRACED | WCONTINUED | (may_block ? 0 : WNOHANG));
+
+#if 0
+  fprintf(stderr,
+          "c_pid_wait(pid = %d, may_block = %d) -> ret = %d, errno = %d\n",
+          pid,
+          may_block,
+          ret_pid,
+          errno);
+  fflush(stderr);
+#endif /* 0 */
 
   if (ret_pid <= 0) { /* 0 if children exist but did not change status */
     int err = 0;
     if (ret_pid < 0) {
       err = c_errno();
-      if (err == -EAGAIN || err == -ECHILD) {
+      if (err == -EAGAIN || err == -EINTR || err == -ECHILD) {
         err = 0; /* no child changed status */
       }
     }
