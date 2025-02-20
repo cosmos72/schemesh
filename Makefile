@@ -21,8 +21,8 @@ CHEZ_SCHEME_DIR:=$(shell ./utils/find_chez_scheme_dir.sh)
 CHEZ_SCHEME_KERNEL:=$(shell ./utils/find_chez_scheme_kernel.sh $(CHEZ_SCHEME_DIR))
 
 # required libraries
-LIB_ICONV:=$(shell uname -o | grep -q Android && echo -liconv)
-LIB_UUID:=$(shell uname -o | grep -q FreeBSD || echo -luuid)
+LIB_ICONV:=$(shell uname -o | grep -q -E '(Android|Darwin)' && echo -liconv)
+LIB_UUID:=$(shell uname -o | grep -q -E '(FreeBSD|Darwin)' || echo -luuid)
 
 LIBS=$(CHEZ_SCHEME_KERNEL) -lz -llz4 -lncurses -ldl -lm -lpthread $(LIB_UUID) $(LIB_ICONV)
 
