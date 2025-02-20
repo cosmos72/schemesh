@@ -358,7 +358,7 @@
 
 
 ;; Internal function called by (sh-resume)
-(define (advance-pid caller wait-flags job)
+(define (advance-pid caller job wait-flags)
   ; (debugf "> advance-pid wait-flags=~s job=~a pid=~s status=~s" wait-flags (sh-job->string job) (job-pid job) (job-last-status job))
   (cond
     ((job-finished? job)
@@ -369,19 +369,19 @@
       (let ((pid  (job-pid job))
             (pgid (job-pgid job)))
         (with-foreground-pgid wait-flags pgid
-          (advance-pid/maybe-sigcont caller wait-flags job pid pgid)
-          (advance-pid/maybe-wait    caller wait-flags job pid pgid))))))
+          (advance-pid/maybe-sigcont caller job wait-flags pid pgid)
+          (advance-pid/maybe-wait    caller job wait-flags pid pgid))))))
 
 
 ;; Internal function called by (advance-pid)
-(define (advance-pid/maybe-sigcont caller wait-flags job pid pgid)
+(define (advance-pid/maybe-sigcont caller job wait-flags pid pgid)
   (assert* caller (> pid 0))
   (when pgid
     (assert* caller (> pgid 0)))
   (when (jr-flag-sigcont? wait-flags)
     ; send SIGCONT to job's process group, if present.
     ; otherwise send SIGCONT to job's process id. Both may raise error
-    ; (debugf "advance-pid/sigcont wait-flags=~s job=~s" wait-flags job)
+    ; (debugf "advance-pid/sigcont wait-flags=~s job=~s" job wait-flags)
     (pid-kill (if (and pgid (> pgid 0)) (- pgid) pid) 'sigcont)
     ;; assume job is now running
     (job-status-set/running! job)))
@@ -389,7 +389,7 @@
 
 
 ;; Internal function called by (advance-pid)
-(define (advance-pid/maybe-wait caller wait-flags job pid pgid)
+(define (advance-pid/maybe-wait caller job wait-flags pid pgid)
   ;; cannot call (sh-job-status), it would recurse back here.
   (let* ((blocking?  (jr-flag-wait? wait-flags))
          (old-status (job-last-status job))
@@ -409,7 +409,7 @@
         (let ((new-status2 (job-status-set/running! job)))
            (if blocking?
              ;; if wait-flags tell to wait until job stops or finishes, then wait again for pid
-             (advance-pid/maybe-wait caller wait-flags job pid pgid)
+             (advance-pid/maybe-wait caller job wait-flags pid pgid)
              ;; otherwise return job status
              new-status2)))
       ((ok exception failed killed)
@@ -427,8 +427,8 @@
         ; otherwise propagate process status and return.
         (if (jr-flag-wait-until-finished? wait-flags)
           (begin
-            (advance-pid/break                         job pid pgid)
-            (advance-pid/maybe-wait  caller wait-flags job pid pgid))
+            (advance-pid/break              job            pid pgid)
+            (advance-pid/maybe-wait  caller job wait-flags pid pgid))
           (begin
             (job-status-set! 'advance-pid/maybe-wait job new-status)
             new-status)))

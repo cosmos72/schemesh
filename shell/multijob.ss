@@ -332,12 +332,12 @@
 
 
 ;; Internal function called by (job-resume) called by (sh-fg) (sh-bg) (sh-resume) (sh-wait) (sh-job-status)
-(define (advance-multijob caller wait-flags mj)
+(define (advance-multijob caller mj wait-flags)
   ; (debugf ">  advance-multijob wait-flags=~s job=~a id=~s status=~s" wait-flags (sh-job->string mj) (job-id mj) (job-last-status mj))
   (job-status-set/running! mj)
   (let* ((child (sh-multijob-child-ref mj (multijob-current-child-index mj)))
          ;; call (job-resume) on child
-         (child-status (if (sh-job? child) (job-resume caller wait-flags child) (void)))
+         (child-status (if (sh-job? child) (job-resume caller child wait-flags) (void)))
          (step-proc (job-step-proc mj)))
     ;a (debugf ">  advance-multijob job=~s child=~s child-status=~s" mj child child-status)
     (cond
@@ -352,21 +352,21 @@
         (step-proc mj child-status)
         ; (debugf "... advance-multijob < step-proc ~s status=~s" mj (job-last-status mj))
         (if (job-running? mj)
-          (advance-multijob caller wait-flags mj)
+          (advance-multijob caller mj wait-flags)
           (job-last-status mj)))
       ((sh-running? child-status)
         ;; child is still running.
         ;; if wait-flags tell to wait, then wait for child to change status again.
         ;; otherwise propagate child status and return.
         (if (jr-flag-wait? wait-flags)
-           (advance-multijob caller wait-flags mj)
+           (advance-multijob caller mj wait-flags)
            (job-last-status mj)))
       ((sh-stopped? child-status)
         ;; child is stopped.
         ;; if wait-flags tell to wait until child finishes, then wait for child to change status again.
         ;; otherwise propagate child status and return
         (if (jr-flag-wait-until-finished? wait-flags)
-          (advance-multijob caller wait-flags mj)
+          (advance-multijob caller mj wait-flags)
           (job-status-set! 'advance-multijob mj child-status)))
       (else
         (raise-errorf caller "child job not started yet: ~s" child)))))

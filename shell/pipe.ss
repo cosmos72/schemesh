@@ -148,26 +148,26 @@
 
 
 ;; Internal function called by (sh-resume) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
-(define (advance-multijob-pipe caller wait-flags mj)
-  ; (debugf ">   advance-multijob-pipe wait-flags=~s mj=~s" wait-flags mj)
+(define (advance-multijob-pipe caller mj wait-flags)
+  ; (debugf ">   advance-multijob-pipe wait-flags=~s mj=~s" mj wait-flags)
   (let ((pgid (job-pgid mj)))
     (with-foreground-pgid wait-flags pgid
-      (advance-multijob-pipe/maybe-sigcont        wait-flags mj pgid)
-      (advance-multijob-pipe/maybe-wait    caller wait-flags mj)))
+      (advance-multijob-pipe/maybe-sigcont        mj wait-flags pgid)
+      (advance-multijob-pipe/maybe-wait    caller mj wait-flags)))
   ; (debugf "<   advance-multijob-pipe job-status=~s" (job-last-status mj))
   )
 
 
-(define (advance-multijob-pipe/maybe-sigcont wait-flags mj pgid)
+(define (advance-multijob-pipe/maybe-sigcont mj wait-flags pgid)
   ; send SIGCONT to job's process group, if present.
   ; It may raise error.
   (when (and pgid (jr-flag-sigcont? wait-flags))
-    ; (debugf "advance-multijob-pipe/sigcont > ~s ~s" wait-flags mj)
+    ; (debugf "advance-multijob-pipe/sigcont > ~s ~s" mj wait-flags)
     (pid-kill (- pgid) 'sigcont)))
 
 
-(define (advance-multijob-pipe/maybe-wait caller wait-flags mj)
-  ; (debugf ">   advance-multijob-pipe/maybe-wait wait-flags=~s mj=~s" wait-flags mj)
+(define (advance-multijob-pipe/maybe-wait caller mj wait-flags)
+  ; (debugf ">   advance-multijob-pipe/maybe-wait wait-flags=~s mj=~s" mj wait-flags)
   (let* ((children  (multijob-children mj))
          (n         (span-length children))
          (running-i (multijob-current-child-index mj)))
@@ -177,7 +177,7 @@
     (let %again ((i running-i))
       (let ((job (sh-multijob-child-ref mj i)))
         (when job
-          (when (or (symbol? job) (sh-finished? (sh-resume wait-flags job)))
+          (when (or (symbol? job) (sh-finished? (sh-resume job wait-flags)))
             (set! running-i (fx1+ i))
             (%again (fx1+ i))))))
 
@@ -191,7 +191,7 @@
         ;; otherwise propagate child status and return.
         (if (and (jr-flag-wait? wait-flags)
                  (eq? 'running (sh-status->kind (sh-multijob-child-status mj running-i))))
-           (advance-multijob-pipe/maybe-wait caller wait-flags mj)
+           (advance-multijob-pipe/maybe-wait caller mj wait-flags)
            (job-last-status mj)))
       (else
         (multijob-current-child-index-set! mj -1)
