@@ -43,7 +43,7 @@
         (lambda (ex)
           (start-any/on-exception caller job options k-continue ex))
         (lambda ()
-          (start-any/may-throw caller job options)))))
+          (start-any/may-throw caller job k-continue options)))))
   (when (and (job-started? job) (options->spawn? options))
     ; we can cleanup job's file descriptor, as it's running in a subprocess
     (job-unmap-fds! job)
@@ -51,16 +51,20 @@
   (job-last-status job)) ; returns job status. also checks if job finished
 
 
-(define (start-any/may-throw caller job options)
-  (let ((start-proc (job-start-proc job)))
-    (unless (procedure? start-proc)
-      (raise-errorf caller "cannot start job ~s, bad or missing job-start-proc: ~s" job start-proc))
-    (job-status-set/running! job)
-    (job-exception-set! job #f)
-    ;; set job's parent if requested.
-    ;; must be done *before* calling procedures in (cmd-arg-list c)
-    (let ((options (options->set-temp-parent! job options)))
-      (start-proc job options)))  ; may throw. ignore value returned by job-start-proc
+(define (start-any/may-throw caller job k-continue options)
+  (call/cc
+    (lambda (susp)
+      (let ((start-proc (job-start-proc job)))
+        (unless (procedure? start-proc)
+          (raise-errorf caller "cannot start job ~s, bad or missing job-start-proc: ~s" job start-proc))
+        (job-status-set/running! job)
+        (job-exception-set! job #f)
+        (job-suspend-proc-set! job susp)
+        (parameterize ((sh-current-job job))
+          ;; set job's parent if requested.
+          ;; must be done *before* calling procedures in (cmd-arg-list c)
+          (let ((options (options->set-temp-parent! job options)))
+            (start-proc job options))))))  ; may throw. ignore value returned by job-start-proc
   (void))
 
 

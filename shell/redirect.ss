@@ -9,6 +9,42 @@
 ;; this file should be included only by file shell/job.ss
 
 
+;; low-level utilities
+(define (%sh-redirect/fd-symbol->char caller symbol)
+  (case symbol
+    ((<&) #\<)
+    ((>&) #\>)
+    (else
+      (raise-errorf caller "invalid redirect to fd direction, must be <& or >&: ~a" symbol))))
+
+
+(define (%sh-redirect/file-symbol->char caller symbol)
+  (case symbol
+    ((<) #\<)
+    ((>) #\>)
+    ((<>) (integer->char #x2276)) ; #\≶
+    ((>>) (integer->char #x00bb)) ; #\»
+    (else
+      (raise-errorf caller "invalid redirect to file direction, must be < > <> or >>: ~a" symbol))))
+
+
+(define (%sh-redirect/fd-char->symbol caller ch)
+  (case ch
+    ((#\<) '<&)
+    ((#\>) '>&)
+    (else
+      (raise-errorf caller "invalid redirect to fd character, must be <& or >&: ~a" ch))))
+
+
+(define (%sh-redirect/file-char->symbol caller ch)
+  (case (char->integer ch)
+    ((#x3c) '<)
+    ((#x3e) '>)
+    ((#x2276) '<>)
+    ((#x00bb) '>>)
+    (else
+      (raise-errorf caller "invalid redirect to file character, must be < <> > or >>: ~a" ch))))
+
 
 ;; Start a job and return immediately.
 ;; Redirects job's standard output to a pipe and returns the read side of that pipe,

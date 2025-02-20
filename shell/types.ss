@@ -33,6 +33,8 @@
                     ; For cmds, will be called in fork()ed child process and
                     ; receives as argument job followed by options.
                     ; For cmds, its return value is passed to (exit-with-job-status)
+    (mutable resume-proc) ; #f or continuation to resume job
+    (mutable suspend-proc) ; #f or continuation to suspend job and return to whoever started/resumed it
     (mutable cwd %job-cwd %job-cwd-set!) ; charspan: working directory. if #f, use parent's cwd
     (mutable owd %job-owd %job-owd-set!) ; #f or charspan: previous working directory
     (mutable env)         ; #f or hashtable of overridden env variables: name -> value
@@ -40,7 +42,7 @@
     (mutable temp-parent) ; temporary parent job, contains default values of env variables.
                           ; Unset when job finishes
     (mutable default-parent)) ; default parent job, contains default values of env variables
-  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-12}))
+  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-15}))
 
 
 ;; Define the record type "cmd"
@@ -50,7 +52,7 @@
   (fields
     arg-list                     ; list of strings and closures: program-name and args
     (mutable expanded-arg-list)) ; #f or list of strings: program-name and args after applying closures and expanding aliases
-  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-13}))
+  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-16}))
 
 
 ;; Define the record type "multijob"
@@ -61,8 +63,28 @@
     kind                ; symbol: one of 'sh-and 'sh-or 'sh-not 'sh-list 'sh-subshell '#<global>
     (mutable current-child-index) ; -1 or index of currently running child job
     children)           ; span: children jobs.
-  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-14}))
+  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-17}))
 
+
+;; Parameter containing the current job.
+;; It is truish only if called from one of the dynamic contexts listed below,
+;; or from some code called directly or indirectly by them:
+;;
+;; * one of the procedures stored in (job-start-proc)
+;; * a closure injected in a sh-job, as for example {echo (lambda () ...)}
+;; * an expression inside (shell-expr ...)
+;;
+(define sh-current-job
+  (sh-make-thread-parameter #f
+    (lambda (job)
+      (when (and job (not (sh-job? job)))
+        (raise-errorf 'sh-current-job "invalid current job, must be #f or a sh-job: ~s" job))
+      job)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;    convert  pid -> job     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Convert pid to job, return #f if job not found
 (define (pid->job pid)
@@ -82,45 +104,8 @@
 
 
 
-(define (%sh-redirect/fd-symbol->char caller symbol)
-  (case symbol
-    ((<&) #\<)
-    ((>&) #\>)
-    (else
-      (raise-errorf caller "invalid redirect to fd direction, must be <& or >&: ~a" symbol))))
-
-
-
-(define (%sh-redirect/file-symbol->char caller symbol)
-  (case symbol
-    ((<) #\<)
-    ((>) #\>)
-    ((<>) (integer->char #x2276)) ; #\≶
-    ((>>) (integer->char #x00bb)) ; #\»
-    (else
-      (raise-errorf caller "invalid redirect to file direction, must be < > <> or >>: ~a" symbol))))
-
-
-(define (%sh-redirect/fd-char->symbol caller ch)
-  (case ch
-    ((#\<) '<&)
-    ((#\>) '>&)
-    (else
-      (raise-errorf caller "invalid redirect to fd character, must be <& or >&: ~a" ch))))
-
-
-(define (%sh-redirect/file-char->symbol caller ch)
-  (case (char->integer ch)
-    ((#x3c) '<)
-    ((#x3e) '>)
-    ((#x2276) '<>)
-    ((#x00bb) '>>)
-    (else
-      (raise-errorf caller "invalid redirect to file character, must be < <> > or >>: ~a" ch))))
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;   sh-job-id   sh-job-pid   sh-job-pgid   sh-job<?   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;   manage job's id, pid and pgid   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; return the job-id of a job, or #f if not set
@@ -172,7 +157,7 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;   sh-job-copy   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;   sh-job-copy   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
@@ -198,6 +183,7 @@
     0 #f                 ; redirects-temp-n fds-to-remap
     (job-start-proc j)
     (job-step-proc  j)
+    #f #f                ; resume-proc suspend-proc
     (let ((cwd (%job-cwd j)))
       (and cwd (charspan-copy cwd)))
     (let ((owd (job-owd j)))
@@ -227,6 +213,7 @@
       0 #f                 ; redirects-temp-n fds-to-remap
       (job-start-proc j)
       (job-step-proc  j)
+      #f #f                ; resume-proc suspend-proc
       (let ((cwd (%job-cwd j)))
         (and cwd (charspan-copy cwd)))
       (let ((owd (job-owd j)))

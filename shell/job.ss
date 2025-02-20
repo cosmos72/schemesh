@@ -23,6 +23,9 @@
     ;; cmd.ss
     make-sh-cmd sh-cmd
 
+    ;; control.ss
+    sh-start sh-start* sh-bg sh-fg sh-wait sh-run sh-run/i sh-run/err? sh-run/ok?
+
     ;; dir.ss
     sh-cd sh-cd- sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
 
@@ -38,7 +41,6 @@
     ;; job.ss
     sh-consume-signals sh-cwd
     sh-job sh-job-id sh-job-status sh-jobs sh-find-job sh-job-exception
-    sh-start sh-start* sh-bg sh-fg sh-wait sh-run sh-run/i sh-run/err? sh-run/ok?
 
     ;; multijob.ss
     sh-and sh-or sh-not sh-list sh-subshell
@@ -65,7 +67,7 @@
     sh-status->kind sh-status->result sh-status->results
 
     ;; types.ss
-    sh-cmd? sh-job? sh-job-copy sh-multijob?
+    sh-cmd? sh-job? sh-job-copy sh-multijob? sh-current-job
 
     ;; wildcard
     sh-wildcard sh-wildcard* sh-wildcard/apply sh-wildcard/expand-tilde sh-wildcard->string
@@ -125,7 +127,9 @@
           ; (debugf "job-status-set! caller=~s job=~s status=~s" caller job status)
           (job-unmap-fds! job)
           (job-unredirect/temp/all! job) ; remove temporary redirections
-          (job-temp-parent-set! job #f)) ; remove temporary parent job
+          (job-temp-parent-set!  job #f) ; remove temporary parent job
+          (job-resume-proc-set!  job #f)
+          (job-suspend-proc-set! job #f))
         status))))
 
 

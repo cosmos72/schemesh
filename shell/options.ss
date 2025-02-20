@@ -9,8 +9,10 @@
 ;; this file should be included only by file shell/job.ss
 
 
-;; validate a single (sh-start) job option:
-;; raise an exception if the option is unsupported
+;; validate a single (sh-start) job option.
+;;
+;; if option is valid, return it.
+;; otherwise raise an exception.
 (define (option-validate caller option)
   (assert* caller (pair?   option))
   (assert* caller (symbol? (car option)))
@@ -22,7 +24,8 @@
       (assert* caller (sh-find-job (cdr option))))
     ((process-group-id)
       (assert* caller (integer? (cdr option)))
-      (assert* caller (>= (cdr option) 0)))))
+      (assert* caller (>= (cdr option) 0))))
+  option)
 
 
 ;; validate an association list of (sh-start) job options:
@@ -34,9 +37,11 @@
       (option-validate caller option))))
 
 
-;; create an association list usable for (sh-start) job options.
+;; create and return association list usable for (sh-start) job options.
 ;;
-;; each option must be one of the following pairs:
+;; each option must be one of the following:
+;;
+;;   (void) or #f - ignored, and omitted from returned list.
 ;;
 ;;   (cons 'catch? flag) - flag must be a boolean, otherwise an exception will be raised.
 ;;     If present and flag is #t, any Scheme condition raised by starting
@@ -75,9 +80,9 @@
 (define (sh-options . options-or-false)
   (filter
     (lambda (option)
-      (when option
-        (option-validate 'sh-options option))
-      option)
+      (if (and option (not (eq? (void) option)))
+        (option-validate 'sh-options option)
+        #f))
     options-or-false))
 
 

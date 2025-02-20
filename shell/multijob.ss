@@ -95,11 +95,11 @@
 
 ;; Create a multijob to later start it.
 ;; Internal function, accepts an optional function to validate each element in children-jobs
-(define (make-multijob kind validate-job-proc start-proc next-proc children-jobs)
+(define (make-multijob kind validate-job-proc start-proc step-proc children-jobs)
   (assert* 'make-multijob (symbol? kind))
   (assert* 'make-multijob (procedure? start-proc))
-  (when next-proc
-    (assert* 'make-multijob (procedure? next-proc)))
+  (when step-proc
+    (assert* 'make-multijob (procedure? step-proc)))
   (when validate-job-proc
     (do ((tail children-jobs (cdr tail)))
         ((null? tail))
@@ -110,7 +110,8 @@
       '(new) #f       ; last-status exception
       (span) 0 #f     ; redirections
       start-proc      ; executed to start the job
-      next-proc       ; executed when a child job changes status
+      step-proc       ; executed when a child job changes status
+      #f #f           ; resume-proc suspend-proc
       #f #f           ; working directory, old working directory - initially inherited from parent job
       #f              ; overridden environment variables - initially none
       #f              ; env var assignments - initially none
