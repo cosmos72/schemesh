@@ -148,14 +148,12 @@
 
 
 ;; Internal function called by (sh-resume) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
-;;
-;; mode must be one of: sh-fg sh-bg sh-wait sh-sigcont+wait sh-job-status
-(define (advance-multijob-pipe caller mode wait-flags mj)
-  ; (debugf ">   advance-multijob-pipe mode=~s mj=~s" mode mj)
+(define (advance-multijob-pipe caller wait-flags mj)
+  ; (debugf ">   advance-multijob-pipe wait-flags=~s mj=~s" wait-flags mj)
   (let ((pgid (job-pgid mj)))
-    (with-foreground-pgid mode wait-flags pgid
-      (advance-multijob-pipe/maybe-sigcont wait-flags mj pgid)
-      (advance-multijob-pipe/maybe-wait    caller mode wait-flags mj)))
+    (with-foreground-pgid wait-flags pgid
+      (advance-multijob-pipe/maybe-sigcont        wait-flags mj pgid)
+      (advance-multijob-pipe/maybe-wait    caller wait-flags mj)))
   ; (debugf "<   advance-multijob-pipe job-status=~s" (job-last-status mj))
   )
 
@@ -168,18 +166,18 @@
     (pid-kill (- pgid) 'sigcont)))
 
 
-(define (advance-multijob-pipe/maybe-wait caller mode wait-flags mj)
-  ; (debugf ">   advance-multijob-pipe/maybe-wait mode=~s mj=~s" mode mj)
+(define (advance-multijob-pipe/maybe-wait caller wait-flags mj)
+  ; (debugf ">   advance-multijob-pipe/maybe-wait wait-flags=~s mj=~s" wait-flags mj)
   (let* ((children  (multijob-children mj))
          (n         (span-length children))
          (running-i (multijob-current-child-index mj)))
 
-    ; call (sh-resume mode ...) on each child job,
+    ; call (sh-resume wait-flags ...) on each child job,
     ; skipping the ones that already finished.
     (let %again ((i running-i))
       (let ((job (sh-multijob-child-ref mj i)))
         (when job
-          (when (or (symbol? job) (sh-finished? (sh-resume mode wait-flags job)))
+          (when (or (symbol? job) (sh-finished? (sh-resume wait-flags job)))
             (set! running-i (fx1+ i))
             (%again (fx1+ i))))))
 
@@ -189,11 +187,11 @@
         (multijob-current-child-index-set! mj running-i)
 
         ;; if some child is still running
-        ;; and mode is sh-fg, sh-wait or sh-sigcont+wait, then wait for child.
+        ;; and wait-flags tell to wait, then wait for child.
         ;; otherwise propagate child status and return.
-        (if (and (memq mode '(sh-fg sh-wait sh-sigcont+wait))
+        (if (and (wait-flag-wait? wait-flags)
                  (eq? 'running (sh-status->kind (sh-multijob-child-status mj running-i))))
-           (advance-multijob-pipe/maybe-wait caller mode wait-flags mj)
+           (advance-multijob-pipe/maybe-wait caller wait-flags mj)
            (job-last-status mj)))
       (else
         (multijob-current-child-index-set! mj -1)

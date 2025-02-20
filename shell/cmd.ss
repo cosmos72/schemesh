@@ -338,10 +338,9 @@
 
 (define-syntax with-foreground-pgid
   (syntax-rules ()
-    ((_  mode wait-flags new-pgid body ...)
+    ((_  wait-flags new-pgid body ...)
       ;; hygienic macros sure are handy :)
-      (let* ((mode      mode)
-             (new-pgid  new-pgid)
+      (let* ((new-pgid  new-pgid)
              (our-pgid  (and new-pgid
                           (wait-flag-foreground? wait-flags)
                           (sh-job-control?)
@@ -359,8 +358,8 @@
 
 
 ;; Internal function called by (sh-resume)
-(define (advance-pid caller mode wait-flags job)
-  ; (debugf "> advance-pid mode=~s wait-flags=~s job=~a pid=~s status=~s" mode wait-flags (sh-job->string job) (job-pid job) (job-last-status job))
+(define (advance-pid caller wait-flags job)
+  ; (debugf "> advance-pid wait-flags=~s job=~a pid=~s status=~s" wait-flags (sh-job->string job) (job-pid job) (job-last-status job))
   (cond
     ((job-finished? job)
       (job-last-status job)) ; job finished, exit status already available
@@ -369,9 +368,9 @@
     (else
       (let ((pid  (job-pid job))
             (pgid (job-pgid job)))
-        (with-foreground-pgid mode wait-flags pgid
+        (with-foreground-pgid wait-flags pgid
           (advance-pid/maybe-sigcont caller wait-flags job pid pgid)
-          (advance-pid/maybe-wait    caller mode wait-flags job pid pgid))))))
+          (advance-pid/maybe-wait    caller wait-flags job pid pgid))))))
 
 
 ;; Internal function called by (advance-pid)
@@ -390,7 +389,7 @@
 
 
 ;; Internal function called by (advance-pid)
-(define (advance-pid/maybe-wait caller mode wait-flags job pid pgid)
+(define (advance-pid/maybe-wait caller wait-flags job pid pgid)
   ;; cannot call (sh-job-status), it would recurse back here.
   (let* ((blocking?  (wait-flag-wait? wait-flags))
          (old-status (job-last-status job))
@@ -399,7 +398,7 @@
                        (job-pids-wait job
                          (if blocking? 'blocking 'nonblocking)
                          queue-job-display-summary))))
-    ; (debugf "advance-pid/maybe-wait mode=~s old-status=~s new-status=~s pid=~s job=~a" mode old-status new-status (job-pid job) (sh-job->string job))
+    ; (debugf "advance-pid/maybe-wait old-status=~s new-status=~s pid=~s job=~a" old-status new-status (job-pid job) (sh-job->string job))
     ; (sleep (make-time 'time-duration 0 1))
 
     ; if may-block is 'non-blocking, new-status may be '(running)
@@ -410,7 +409,7 @@
         (let ((new-status2 (job-status-set/running! job)))
            (if blocking?
              ;; if wait-flags tell to wait until job stops or finishes, then wait again for pid
-             (advance-pid/maybe-wait caller mode wait-flags job pid pgid)
+             (advance-pid/maybe-wait caller wait-flags job pid pgid)
              ;; otherwise return job status
              new-status2)))
       ((ok exception failed killed)
@@ -428,13 +427,13 @@
         ; otherwise propagate process status and return.
         (if (wait-flag-wait-until-finished? wait-flags)
           (begin
-            (advance-pid/break       job pid pgid)
-            (advance-pid/maybe-wait  caller mode wait-flags job pid pgid))
+            (advance-pid/break                         job pid pgid)
+            (advance-pid/maybe-wait  caller wait-flags job pid pgid))
           (begin
             (job-status-set! 'advance-pid/maybe-wait job new-status)
             new-status)))
       (else
-        (raise-errorf mode "job not started yet: ~s" job)))))
+        (raise-errorf caller "job not started yet: ~s" job)))))
 
 
 ;; Internal function called by (advance-pid/maybe-wait):

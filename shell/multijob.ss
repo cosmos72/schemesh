@@ -332,14 +332,14 @@
 
 
 ;; Internal function called by (resume-job) called by (sh-fg) (sh-bg) (sh-resume) (sh-wait) (sh-job-status)
-(define (advance-multijob caller mode wait-flags mj)
-  ; (debugf ">  advance-multijob mode=~s job=~a id=~s status=~s" mode (sh-job->string mj) (job-id mj) (job-last-status mj))
+(define (advance-multijob caller wait-flags mj)
+  ; (debugf ">  advance-multijob wait-flags=~s job=~a id=~s status=~s" wait-flags (sh-job->string mj) (job-id mj) (job-last-status mj))
   (job-status-set/running! mj)
   (let* ((child (sh-multijob-child-ref mj (multijob-current-child-index mj)))
          ;; call (resume-job) on child
-         (child-status (if (sh-job? child) (resume-job caller mode wait-flags child) (void)))
+         (child-status (if (sh-job? child) (resume-job caller wait-flags child) (void)))
          (step-proc (job-step-proc mj)))
-    ;a (debugf ">  advance-multijob mode=~s job=~s child=~s child-status=~s" mode mj child child-status)
+    ;a (debugf ">  advance-multijob job=~s child=~s child-status=~s" mj child child-status)
     (cond
       ((or (not step-proc) (status-stops-or-ends-multijob? child-status))
         ; propagate child exit status and return
@@ -352,24 +352,24 @@
         (step-proc mj child-status)
         ; (debugf "... advance-multijob < step-proc ~s status=~s" mj (job-last-status mj))
         (if (job-running? mj)
-          (advance-multijob caller mode wait-flags mj)
+          (advance-multijob caller wait-flags mj)
           (job-last-status mj)))
       ((sh-running? child-status)
         ;; child is still running.
         ;; if wait-flags tell to wait, then wait for child to change status again.
         ;; otherwise propagate child status and return.
         (if (wait-flag-wait? wait-flags)
-           (advance-multijob caller mode wait-flags mj)
+           (advance-multijob caller wait-flags mj)
            (job-last-status mj)))
       ((sh-stopped? child-status)
         ;; child is stopped.
         ;; if wait-flags tell to wait until child finishes, then wait for child to change status again.
         ;; otherwise propagate child status and return
         (if (wait-flag-wait-until-finished? wait-flags)
-          (advance-multijob caller mode wait-flags mj)
+          (advance-multijob caller wait-flags mj)
           (job-status-set! 'advance-multijob mj child-status)))
       (else
-        (raise-errorf mode "child job not started yet: ~s" child)))))
+        (raise-errorf caller "child job not started yet: ~s" child)))))
 
 (define options-catch '((catch? . #t)))
 
