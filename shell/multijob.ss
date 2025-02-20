@@ -140,7 +140,7 @@
       (job-remap-fds! job)
       (job-env/apply-lazy! job 'export)
       ; Do not yet assign a job-id.
-      (step-multijob-list job (void)))))
+      (run-multijob-list job options))))
 
 
 ;; internal function stored in (job-start-proc job) by (sh-subshell) multijobs
@@ -492,13 +492,13 @@
 
 (define (loop-start-resume-child-with-suspend caller mj options child)
   (let %loop ((status '(new)))
-    ; (debugf "loop-start-resume-child-with-suspend child=~s status=~s" child status)
+    (debugf "loop-start-resume-child-with-suspend child=~a status=~s" (sh-job->string child) status)
     (case (sh-status->kind status)
       ((new)
         (%loop (job-start caller child options)))
       ((running)
-        ;; TODO: we should mark mj as running, and yield it.
-        (%loop (sh-fg child)))
+        (job-yield mj)
+        (%loop (job-resume caller child (job-resume-flags mj))))
       ((stopped)
         (job-suspend mj)
         (%loop (job-last-status child)))

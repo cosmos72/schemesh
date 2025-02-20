@@ -53,20 +53,20 @@
 
 (define (job-start/may-throw caller job k-continue options)
   (call/cc
-    (lambda (susp)
+    (lambda (yield)
       (let ((start-proc (job-start-proc job)))
         (unless (procedure? start-proc)
           (raise-errorf caller "cannot start job ~s, bad or missing job-start-proc: ~s" job start-proc))
         (job-exception-set! job #f)
         (job-status-set/running! job)
-        (job-yield-proc-set! job susp)
+        (job-yield-proc-set! job yield)
         (parameterize ((sh-current-job job))
           ;; set job's parent if requested.
           ;; must be done *before* calling procedures in (cmd-arg-list c)
           (let ((options (options->set-temp-parent! job options)))
             (start-proc job options))))))  ; may throw
   ;; ignore value returned by job-start-proc,
-  ;; and ignore value returned by continuation (susp)
+  ;; and ignore value returned by continuation (yield)
   (void))
 
 
@@ -223,11 +223,12 @@
 (define (job-call-resume-proc job wait-flags)
   (call/cc
     ;; Capture the continuation representing THIS call to (job-call-resume-proc)
-    (lambda (susp)
+    (lambda (yield)
       (let ((resume-proc (job-resume-proc job))
             (pgid (job-pgid job)))
+        (job-resume-flags-set! job wait-flags)
         (job-resume-proc-set!  job #f)
-        (job-yield-proc-set! job susp)
+        (job-yield-proc-set!   job yield)
         (job-status-set/running! job)
         (with-foreground-pgid wait-flags pgid
           ;; send SIGCONT to job's process group, if present.
@@ -235,7 +236,7 @@
             (pid-kill (- pgid) 'sigcont))
           (parameterize ((sh-current-job job))
             (resume-proc (void)))))))
-  ;; ignore the value returned by (resume-proc) and by continuation (susp)
+  ;; ignore the value returned by (resume-proc) and by continuation (yield)
   (void))
 
 
