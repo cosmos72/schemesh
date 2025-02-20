@@ -603,13 +603,13 @@ static const testcase tests[] = {
     {"(format #f \"~s\" (parse-scheme-forms1 (string->parsectx"
      "  \" #\\\\m #\\\\x7e \")))",
      "(#\\m #\\~)"},
-    /* Chez Scheme allows additional character names */
-    {"(format #f \"~s\" (parse-scheme-forms1 (string->parsectx"
-     "  \" #\\\\rubout #\\\\bel #\\\\vt #\\\\nel #\\\\ls \")))",
-     "(#\\delete #\\alarm #\\vtab #\\x85 #\\x2028)"},
+    /* Chez Scheme allows additional character names, and also octal sequences #\000 ... #\377 */
+    {"(map char->integer (parse-scheme-forms1 (string->parsectx"
+     "  \" #\\\\rubout #\\\\bel #\\\\vt #\\\\nel #\\\\ls #\\\\000 #\\\\001 #\\\\376 #\\\\377 \")))",
+     "(127 7 11 133 8232 0 1 254 255)"},
     /* character literals #\xdc80 ... #\xdcff are allowed only by UTF-8b */
-    {"(sh-eval (cons 'list (parse-scheme-forms1 (string->parsectx\n"
-     "  \"(char->integer #\\\\x20ac) (char->integer #\\\\xdc80) (char->integer #\\\\xdcff)\")))))",
+    {"(map char->integer (parse-scheme-forms1 (string->parsectx\n"
+     "  \" #\\\\x20ac #\\\\xdc80 #\\\\xdcff \")))",
      "(8364 56448 56575)"},
     /* string escape sequences #\xdc80; ... #\xdcff; are allowed only by UTF-8b */
     {"(let ((ret '()))\n"

@@ -20,6 +20,7 @@
     (only (schemesh containers charspan)  charspan charspan-insert-back! charspan->string*!)
     (only (schemesh containers hashtable) hashtable)
     (only (schemesh containers misc)      list-reverse*!)
+    (only (schemesh containers string)    string-iterate)
     (only (schemesh containers utf8b)     integer->char*)
     (schemesh lineedit paren)
     (schemesh lineedit parser))
