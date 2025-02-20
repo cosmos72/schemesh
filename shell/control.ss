@@ -266,8 +266,9 @@
 ;;
 ;; Return job status, possible values are the same as (sh-fg)
 (define (sh-run/i job . options)
-  (job-start 'sh-run/i job options)
-  (sh-fg job))
+  (if (sh-running? (job-start 'sh-run/i job options))
+    (sh-fg job)
+    (job-id-update! job))) ; sets job-id if started, otherwise unsets it. also returns job status
 
 
 ;; Start a job and wait for it to exit.
