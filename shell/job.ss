@@ -26,6 +26,7 @@
     ;; control.ss
     jr-flag-sigcont  jr-flag-foreground  jr-flag-wait-until-finished  jr-flag-wait-until-stopped-or-finished
     jr-flag-sigcont? jr-flag-foreground? jr-flag-wait-until-finished? jr-flag-wait-until-stopped-or-finished?
+    sh-current-job-suspend
     sh-start sh-start* sh-bg sh-fg sh-resume sh-run sh-run/i sh-run/err? sh-run/ok? sh-wait
 
     ;; dir.ss
@@ -116,11 +117,13 @@
 ;;   i.e. (sh-finished? status) returns true
 ;;   also close the job fds that need to be closed.
 (define (job-status-set! caller job new-status)
-  (let ((status (status-normalize new-status)))
+  (let* ((status (status-normalize new-status))
+         (kind   (sh-status->kind status)))
     ;; (debugf "job-status-set! caller=~s job=~a status=~s normalized-status=~s" caller (sh-job->string job) new-status status)
-    (if (sh-running? status)
-      (job-status-set/running! job)
-      (begin
+    (case kind
+      ((running)
+        (job-status-set/running! job))
+      ((ok exception failed killed)
         (%job-last-status-set! job status)
         (when (sh-finished? status)
           (when (sh-cmd? job)
@@ -132,9 +135,13 @@
           (job-temp-parent-set!  job #f) ; remove temporary parent job
           (job-resume-proc-set!  job #f)
           (job-suspend-proc-set! job #f))
-        status))))
+        status)
+      (else
+        (%job-last-status-set! job status)))))
 
 
+;; set job status to (list 'running job-id)
+;; and return such status
 (define (job-status-set/running! job)
   (let* ((id     (job-id job))
          (status (job-last-status job))

@@ -123,7 +123,7 @@
     ; (debugf "... start-multijob-pipe-i starting job=~a, options=~s, redirect-in=~s, redirect-out=~s" (sh-job->string job) options redirect-in? redirect-out?)
 
     ; Do not yet assign a job-id. Reuse mj process group id
-    (start-any 'sh-pipe job options)
+    (job-start 'sh-pipe job options)
 
     ; if not present yet, set mj process group id for reuse by all other children
     (unless pgid

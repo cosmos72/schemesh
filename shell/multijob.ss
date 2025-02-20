@@ -331,13 +331,13 @@
       (proc job options))))
 
 
-;; Internal function called by (resume-job) called by (sh-fg) (sh-bg) (sh-resume) (sh-wait) (sh-job-status)
+;; Internal function called by (job-resume) called by (sh-fg) (sh-bg) (sh-resume) (sh-wait) (sh-job-status)
 (define (advance-multijob caller wait-flags mj)
   ; (debugf ">  advance-multijob wait-flags=~s job=~a id=~s status=~s" wait-flags (sh-job->string mj) (job-id mj) (job-last-status mj))
   (job-status-set/running! mj)
   (let* ((child (sh-multijob-child-ref mj (multijob-current-child-index mj)))
-         ;; call (resume-job) on child
-         (child-status (if (sh-job? child) (resume-job caller wait-flags child) (void)))
+         ;; call (job-resume) on child
+         (child-status (if (sh-job? child) (job-resume caller wait-flags child) (void)))
          (step-proc (job-step-proc mj)))
     ;a (debugf ">  advance-multijob job=~s child=~s child-status=~s" mj child child-status)
     (cond
@@ -383,7 +383,7 @@
       (begin
         ; start next child job
         (multijob-current-child-index-set! mj idx)
-        (let ((child-status (start-any 'sh-and child options-catch)))
+        (let ((child-status (job-start 'sh-and child options-catch)))
           (when (sh-finished? child-status)
             ; child job already finished, iterate
             (step-multijob-and mj child-status))))
@@ -405,7 +405,7 @@
       (begin
         ; start next child job
         (multijob-current-child-index-set! mj idx)
-        (let ((child-status (start-any 'sh-or child options-catch)))
+        (let ((child-status (job-start 'sh-or child options-catch)))
           (when (sh-finished? child-status)
             ; child job already finished, iterate
             (step-multijob-or mj child-status))))
@@ -428,7 +428,7 @@
       (begin
         ; start child job
         (multijob-current-child-index-set! mj idx)
-        (let ((child-status (start-any 'sh-not child options-catch)))
+        (let ((child-status (job-start 'sh-not child options-catch)))
           (when (sh-finished? child-status)
             ; child job already finished, iterate
             (step-multijob-not mj child-status))))
@@ -461,7 +461,7 @@
         (when (sh-job? child)
           ;; start next child job
           (let* ((child-async? (eq? '& (sh-multijob-child-ref mj (fx1+ idx))))
-                 (child-status (start-any 'sh-list child options-catch))
+                 (child-status (job-start 'sh-list child options-catch))
                  (child-started? (sh-started? child-status)))
             ; iterate on subsequent child jobs in two cases:
             ; if child job is followed by '&

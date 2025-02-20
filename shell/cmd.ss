@@ -15,7 +15,7 @@
     #f #f #f        ; id pid pgid
     '(new) #f       ; last-status exception
     (span) 0 #f     ; redirections
-    start-cmd #f    ; start-proc step-proc
+    cmd-start #f    ; start-proc step-proc
     #f #f           ; resume-proc suspend-proc
     #f #f           ; working directory, old working directory - initially inherited from parent job
     #f              ; overridden environment variables - initially none
@@ -59,9 +59,9 @@
 ;; Returns job status, which is also stored in (sh-job-last-status)
 ;;   and may be one of (void) '(ok ...) '(failed ...) '(running ...) '(stopped ...) '(killed ...) '(exception ...) etc.
 ;;   For the complete list of possible returned job statuses, see (sh-job-status).
-(define (start-cmd c options)
+(define (cmd-start c options)
   (assert* 'sh-cmd (eq? 'running (job-last-status->kind c)))
-  (job-status-set! 'start-cmd c
+  (job-status-set! 'cmd-start c
     (let ((prog-and-args (cmd-arg-list c)))
       (if (string-list? prog-and-args)
 
@@ -80,7 +80,7 @@
               (cmd-arg-list-call-closures c prog-and-args) options)))))))
 
 
-;; internal function called by (start-cmd):
+;; internal function called by (cmd-start):
 ;; call procedures in prog-and-args.
 ;; Return the expanded command line, which is always a list of strings.
 (define (cmd-arg-list-call-closures c prog-and-args)
@@ -93,7 +93,7 @@
     l))
 
 
-;; internal function called by (start-cmd):
+;; internal function called by (cmd-start):
 ;; if arg is a procedure then call it, optionally passing current job as the only argument.
 ;; Such procedure must return a string or list-of-strings, which are reverse-consed
 ;; at the beginning of list-of-strings l.
@@ -146,13 +146,13 @@
   (assert* 'sh-cmd (sh-cmd? c))
 
        ;; set parent job if requested. currently redundant,
-       ;; as we are only called by (start-any/throw) that already does the same.
+       ;; as we are only called by (job-start/throw) that already does the same.
   (let ((options (options->set-temp-parent! c options))
         ;; expand aliases in args
         ;; sanity: (sh-aliases-expand) ignores aliases for "builtin"
         (prog-and-args (sh-aliases-expand program-and-args)))
 
-    ;; (debugf "start-cmd expanded-prog-and-args=~s builtin=~s" prog-and-args builtin)
+    ;; (debugf "cmd-start expanded-prog-and-args=~s builtin=~s" prog-and-args builtin)
     (unless (eq? prog-and-args (cmd-arg-list c))
       ;; save expanded cmd-arg-list for more accurate pretty-printing
       (cmd-expanded-arg-list-set! c prog-and-args))
@@ -178,7 +178,7 @@
   ;; expand aliases in args
   ;; sanity: (sh-aliases-expand) ignores aliases for "builtin"
   (let ((prog-and-args (sh-aliases-expand program-and-args)))
-    ;; (debugf "start-cmd expanded-prog-and-args=~s builtin=~s" prog-and-args builtin)
+    ;; (debugf "cmd-start expanded-prog-and-args=~s builtin=~s" prog-and-args builtin)
     (unless (eq? prog-and-args (cmd-arg-list c))
       ;; save expanded cmd-arg-list for more accurate pretty-printing
       (cmd-expanded-arg-list-set! c prog-and-args))
@@ -193,7 +193,7 @@
           (spawn-cmd c prog-and-args options)))))) ; returns job status
 
 
-;; internal function called by (start-cmd) to spawn a subprocess.
+;; internal function called by (cmd-start) to spawn a subprocess.
 ;; returns job status.
 (define spawn-cmd
   (let ((c-spawn-cmd (foreign-procedure "c_cmd_spawn" (ptr ptr ptr ptr int) int)))
@@ -207,7 +207,7 @@
                     (job-make-c-redirect-vector c)
                     (sh-env->argv c 'export)
                     (or process-group-id -1))))
-        ;c (debugf "spawn-cmd pid=~s prog-and-args=~s job=~a " ret prog-and-args (sh-job->string c))
+        ;; (debugf "spawn-cmd pid=~s prog-and-args=~s job=~a " ret prog-and-args (sh-job->string c))
         (when (< ret 0)
           (job-status-set! 'spawn-cmd c (list 'failed ret))
           (raise-c-errno 'sh-start 'fork ret))
@@ -398,11 +398,11 @@
                        (job-pids-wait job
                          (if blocking? 'blocking 'nonblocking)
                          queue-job-display-summary))))
-    ; (debugf "advance-pid/maybe-wait old-status=~s new-status=~s pid=~s job=~a" old-status new-status (job-pid job) (sh-job->string job))
-    ; (sleep (make-time 'time-duration 0 1))
+    ;; (debugf "advance-pid/maybe-wait old-status=~s new-status=~s pid=~s job=~a" old-status new-status (job-pid job) (sh-job->string job))
+    ;; (sleep (make-time 'time-duration 0 1))
 
-    ; if may-block is 'non-blocking, new-status may be '(running)
-    ; indicating job status did not change i.e. it's (expected to be) still running
+    ;; if blocking? is #f, new-status may be '(running)
+    ;; indicating job status did not change i.e. it's (expected to be) still running
     (case (sh-status->kind new-status)
       ((running)
         ; if new-status is '(running), try to return '(running job-id)

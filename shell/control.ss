@@ -10,6 +10,7 @@
 
 
 ;; Start a job and return immediately, without waiting for it to finish.
+;; For possible values of options, see (sh-options)
 ;;
 ;; Returns job status, typically (list 'running job-id) but other values are allowed.
 ;; For the complete list of possible returned job statuses, see (sh-job-status).
@@ -20,30 +21,29 @@
 ;;   For these reasons, the returned job status may be different from (list 'running job-id)
 ;;   and may indicate that the job has already finished.
 ;;
-;; For possible values of options, see (sh-options)
-;;
 (define (sh-start job . options)
   (sh-start* job options))
 
+
 ;; same as sh-start, options must be passed as a single association list.
 (define (sh-start* job options)
-  (start-any 'sh-start job options)
+  (job-start 'sh-start job options)
   (job-id-update! job)) ; sets job-id if started, otherwise unsets it. also returns job status
 
 
 
 ;; Internal functions called by (sh-start)
-(define (start-any caller job options)
-  ;b (debugf "start-any ~a ~s" (sh-job->string job) options)
+(define (job-start caller job options)
+  ;b (debugf "job-start ~a ~s" (sh-job->string job) options)
   (options-validate caller options)
   (job-check-not-started caller job)
   (call/cc
     (lambda (k-continue)
       (with-exception-handler
         (lambda (ex)
-          (start-any/on-exception caller job options k-continue ex))
+          (job-start/on-exception caller job options k-continue ex))
         (lambda ()
-          (start-any/may-throw caller job k-continue options)))))
+          (job-start/may-throw caller job k-continue options)))))
   (when (and (job-started? job) (options->spawn? options))
     ; we can cleanup job's file descriptor, as it's running in a subprocess
     (job-unmap-fds! job)
@@ -51,24 +51,26 @@
   (job-last-status job)) ; returns job status. also checks if job finished
 
 
-(define (start-any/may-throw caller job k-continue options)
+(define (job-start/may-throw caller job k-continue options)
   (call/cc
     (lambda (susp)
       (let ((start-proc (job-start-proc job)))
         (unless (procedure? start-proc)
           (raise-errorf caller "cannot start job ~s, bad or missing job-start-proc: ~s" job start-proc))
-        (job-status-set/running! job)
         (job-exception-set! job #f)
+        (job-status-set/running! job)
         (job-suspend-proc-set! job susp)
         (parameterize ((sh-current-job job))
           ;; set job's parent if requested.
           ;; must be done *before* calling procedures in (cmd-arg-list c)
           (let ((options (options->set-temp-parent! job options)))
-            (start-proc job options))))))  ; may throw. ignore value returned by job-start-proc
+            (start-proc job options))))))  ; may throw
+  ;; ignore value returned by job-start-proc,
+  ;; and ignore value returned by continuation (susp)
   (void))
 
 
-(define (start-any/on-exception caller job options k-continue ex)
+(define (job-start/on-exception caller job options k-continue ex)
   (job-default-parents-iterate job
     (lambda (parent)
       (unless (eq? parent (sh-globals))
@@ -79,12 +81,41 @@
     (raise ex)))
 
 
-(define (start-any/display-condition obj port)
+(define (job-start/display-condition obj port)
   (put-string port "; ")
   (display-condition obj port)
   (newline port)
   (flush-output-port port))
 
+
+
+;; suspend a job and call its (job-suspend-proc) continuation,
+;; which non-locally jumps to whoever started or resumed the job.
+;;
+;; if job is later resumed, it then returns normally to caller of (job-suspend)
+(define (job-suspend job)
+  (let ((suspend-proc (and (sh-job? job) (job-suspend-proc job))))
+    (when suspend-proc
+      (call/cc
+        ;; Capture the continuation representing THIS call to (job-suspend)
+        (lambda (cont)
+          ;; store it as job's resume-proc
+          (job-resume-proc-set!  job cont)
+          (job-suspend-proc-set! job #f)
+          (%job-last-status-set! job '(stopped sigtstp))
+          ;; suspend job, i.e. call its suspend-proc
+          (suspend-proc (void)))))
+    (void))) ; ignore value returned by continuations (suspend-proc) and (cont)
+
+
+;; Suspend current job and call its (job-suspend-proc) continuation,
+;; which non-locally jumps to whoever started or resumed the job.
+;;
+;; if job is later resumed, it then returns normally to caller of (job-suspend)
+;;
+;; Note: has effect only if (sh-current-job) is set
+(define (sh-current-job-suspend)
+  (job-suspend (sh-current-job)))
 
 
 ;; flags for (sh-resume), which subsumes (sh-bg) (sh-fg) (sh-wait) (sh-job-status)
@@ -115,6 +146,61 @@
 
 
 
+;; General function to resume and optionally wait for a job.
+;; Subsumes (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
+;;
+;; Argument wait-flags must be (fxior ...) of zero or more constants jr-flag-...
+;;
+;; Returns updated job status.
+(define (sh-resume wait-flags job-or-id)
+  (job-resume 'sh-resume wait-flags job-or-id))
+
+
+;; Common implementation of (sh-fg) (sh-bg) (sh-resume) (sh-wait) (sh-job-status)
+;; Resume and optionally wait for a job.
+;;
+;; Returns updated job status.
+(define (job-resume caller wait-flags job-or-id)
+  (let ((job (sh-job job-or-id)))
+    ;; (debugf ">  job-resume caller=~s wait-flags=~s job=~a id=~s pid=~s status=~s" caller wait-flags (sh-job->string job) (job-id job) (job-pid job) (job-last-status job))
+    (case (job-last-status->kind job)
+      ((ok exception failed killed)
+        (void)) ; job finished
+      ((running stopped)
+        (cond
+          ((job-pid job)
+            ;; either the job is a sh-cmd, or a builtin or multijob spawned in a child subprocess.
+            ;; in all cases, we have a pid to wait on.
+            (advance-pid caller wait-flags job))
+          ((job-resume-proc job)
+            ;; we have a continuation to call for resuming the job
+            (job-call-resume-proc job))
+          ((sh-multijob? job)
+            (if (eq? 'sh-pipe (multijob-kind job))
+              (advance-multijob-pipe caller wait-flags job)
+              (advance-multijob      caller wait-flags job)))))
+      (else
+        (raise-errorf caller "job not started yet: ~s" job)))
+
+    (job-id-update! job))) ; returns job status
+
+
+;; call the continuation stored in job-resume-proc of a job for resuming it.
+;; save the current continuation in its job-suspend-proc
+(define (job-call-resume-proc job)
+  (call/cc
+    ;; Capture the continuation representing THIS call to (job-call-resume-proc)
+    (lambda (susp)
+      (let ((resume-proc (job-resume-proc job)))
+        (job-resume-proc-set!  job #f)
+        (job-suspend-proc-set! job susp)
+        (job-status-set/running! job)
+        (parameterize ((sh-current-job job))
+          (resume-proc (void))))))
+  ;; ignore the value returned by (resume-proc) and by continuation (susp)
+  (void))
+
+
 ;; Return up-to-date status of a job or job-id, which can be one of:
 ;;   (list 'new)
 ;;   (list 'running)              ; job is running, has no job-id
@@ -132,14 +218,14 @@
          (status (job-last-status job)))
     ; (debugf ">  sh-job-status job=~a" (sh-job->string job))
     (if (sh-started? status)
-      (resume-job 'sh-job-status 0 job)
+      (job-resume 'sh-job-status 0 job)
       status)))
 
 
 ;; Continue a job or job-id in background by sending SIGCONT to it, and return immediately.
 ;; Return job status. For possible job statuses, see (sh-job-status)
 (define (sh-bg job-or-id)
-  (resume-job 'sh-bg jr-flag-sigcont job-or-id))
+  (job-resume 'sh-bg jr-flag-sigcont job-or-id))
 
 
 ;; Continue a job or job-id by sending SIGCONT to it, then wait for it to exit or stop,
@@ -149,7 +235,7 @@
 ;;   upon invocation, sets the job as fg process group.
 ;;   And before returning, restores current shell as fg process group.
 (define (sh-fg job-or-id)
-  (resume-job
+  (job-resume
     'sh-fg
     (fxior jr-flag-foreground jr-flag-sigcont jr-flag-wait-until-stopped-or-finished)
     job-or-id))
@@ -168,46 +254,10 @@
 ;;   upon invocation, sets the job as fg process group.
 ;;   And before returning, restores current shell as fg process group.
 (define (sh-wait job-or-id)
-  (resume-job
+  (job-resume
     'sh-sigcont+wait
     (fxior jr-flag-foreground jr-flag-sigcont jr-flag-wait-until-finished)
     job-or-id))
-
-
-;; General function to resume and optionally wait for a job.
-;;
-;; Argument wait-flags must be (fxior ...) of zero or more constants jr-flag-...
-;;
-;; Subsumes (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
-(define (sh-resume wait-flags job-or-id)
-  (resume-job 'sh-resume wait-flags job-or-id))
-
-
-;; Common implementation of (sh-fg) (sh-bg) (sh-resume) (sh-wait) (sh-job-status)
-;; Resume and optionally wait for a job.
-;;
-(define (resume-job caller wait-flags job-or-id)
-  (let ((job (sh-job job-or-id)))
-    ; (debugf ">  sh-resume wait-flags=~s job=~a id=~s pid=~s status=~s" wait-flags (sh-job->string job) (job-id job) (job-pid job) (job-last-status job))
-    (case (job-last-status->kind job)
-      ((ok exception failed killed)
-        (void)) ; job finished
-      ((running stopped)
-        (cond
-          ((job-pid job)
-            ; either the job is a sh-cmd, or a builtin or multijob spawned in a child subprocess.
-            ; in all cases, we have a pid to wait on.
-            (advance-pid caller wait-flags job))
-          ((sh-multijob? job)
-            (if (eq? 'sh-pipe (multijob-kind job))
-              (advance-multijob-pipe caller wait-flags job)
-              (advance-multijob      caller wait-flags job)))))
-      (else
-        (raise-errorf caller "job not started yet: ~s" job)))
-
-    (let ((status (job-id-update! job))) ; returns job status
-      ;a (debugf "<  sh-resume wait-flags=~s job=~a id=~s pid=~s status=~s" wait-flags (sh-job->string job) (job-id job) (job-pid job) status)
-      status)))
 
 
 ;; Start a job and wait for it to exit or stop.
@@ -216,7 +266,7 @@
 ;;
 ;; Return job status, possible values are the same as (sh-fg)
 (define (sh-run/i job . options)
-  (start-any 'sh-run/i job options)
+  (job-start 'sh-run/i job options)
   (sh-fg job))
 
 
@@ -227,7 +277,7 @@
 ;;
 ;; Return job status, possible values are the same as (sh-wait)
 (define (sh-run job . options)
-  (start-any 'sh-run job options)
+  (job-start 'sh-run job options)
   (sh-wait job))
 
 

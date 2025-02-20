@@ -279,7 +279,7 @@
 ;; If an environment variable already exists in parent job or one of its ancestors,
 ;; reuse its visibility.
 ;;
-;; Called by (start-cmd) to implement the syntax "ENV_VAR" '= "VALUE"
+;; Called by (cmd-start) to implement the syntax "ENV_VAR" '= "VALUE"
 ;;   i.e. a command with environment variables but no arguments.
 ;;
 ;; Always returns (void)
