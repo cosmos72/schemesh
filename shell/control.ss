@@ -205,7 +205,7 @@
           ((job-pid job)
             ;; either the job is a sh-cmd, or a builtin or multijob spawned in a child subprocess.
             ;; in all cases, we have a pid to wait on.
-            (advance-pid caller job wait-flags))
+            (pid-resume caller job wait-flags))
 
           ((job-resume-proc job)
             ;; we have a continuation to call for resuming the job
