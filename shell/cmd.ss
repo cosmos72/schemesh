@@ -214,7 +214,7 @@
           (raise-c-errno 'sh-start 'fork ret))
         (job-pid-set! c ret)
         (job-pgid-set! c process-group-id)
-        (job-status-set-running! c)))))
+        (job-status-set-running! 'spawn-cmd c)))))
 
 
 ;; internal function called by (builtin-exec) to exec a subprocess.
@@ -399,7 +399,7 @@
 
     ;; if both pid and pgid are set, prefer pgid
     (when (eqv? 0 (pid-kill (if (and pgid (> pgid 0)) (- pgid) pid) 'sigcont))
-       (job-status-set-running! job))
+       (job-status-set-running! 'resume-pid/maybe-sigcont job))
     (void)))
 
 
@@ -423,7 +423,7 @@
     (case (sh-status->kind new-status)
       ((running)
         ; if new-status is '(running), try to return '(running job-id)
-        (let ((new-status2 (job-status-set-running! job)))
+        (let ((new-status2 (job-status-set-running! 'resume-pid/maybe-wait job)))
            (if blocking?
              ;; if wait-flags tell to wait until job stops or finishes, then wait again for pid
              (resume-pid/maybe-wait caller job wait-flags pid pgid)

@@ -413,7 +413,7 @@
           ((fx>=? i n))
         (let ((child (child-ref mj i)))
           (when (and (sh-job? child) (job-new? child))
-            (debugf "continue-multijob-list job=~s starting~a child=~s child-status=~s" mj (if (eq? '& (child-ref mj (fx1+ i))) " async" "") child (job-last-status child))
+            ; (debugf "continue-multijob-list job=~s starting~a child=~s child-status=~s" mj (if (eq? '& (child-ref mj (fx1+ i))) " async" "") child (job-last-status child))
             (if (eq? '& (child-ref mj (fx1+ i)))
               (unless (sh-finished? (job-start 'sh-list child options))
                 (job-id-set! child))
@@ -421,5 +421,5 @@
                 (set! child-status (loop-resume-child-with-yield 'sh-list mj options i))
                 (check 'sh-list (sh-finished? child-status)))))))
 
-      (debugf "continue-multijob-list job=~s finished status=~s" mj child-status)
+      ; (debugf "continue-multijob-list job=~s finished status=~s" mj child-status)
       (job-status-set! 'sh-list/end mj child-status))))

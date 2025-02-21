@@ -85,7 +85,7 @@
         (job-oid-set! job #f)
         (job-exception-set! job #f)
         (job-status-set-new/recursive! job)
-        (job-status-set-running! job)
+        (job-status-set-running! 'job-start/may-throw job)
         (job-yield-proc-set! job yield)
         (parameterize ((sh-current-job job))
           ;; set job's parent if requested.
@@ -153,7 +153,7 @@
           (job-resume-proc-set!  job cont)
           (job-yield-proc-set! job #f)
           (when (job-started? job)
-            (job-status-set-running! job))
+            (job-status-set-running! 'job-yield job))
           ;; suspend job, i.e. call its yield-proc
           (yield-proc (void)))))
     ;; (debugf "<  job-yield job=~a status=~s" (sh-job->string job) (job-last-status job))
@@ -280,7 +280,7 @@
         (job-resume-proc-set!  job #f)
         (job-yield-proc-set!   job yield)
         (when (job-started? job)
-          (job-status-set-running! job))
+          (job-status-set-running! 'job-call-resume-proc job))
         (with-foreground-pgid wait-flags pgid
           ;; send SIGCONT to job's process group, if present.
           (when (and pgid (resume-flag-resume-if-stopped? wait-flags))

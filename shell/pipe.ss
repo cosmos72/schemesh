@@ -188,7 +188,7 @@
         (case kind
           ((running)
             ;; a child is still running => set multijob status to running too.
-            (job-status-set-running! mj)
+            (job-status-set-running! 'continue-multijob-pipe/maybe-wait mj)
 
             ;; if wait-flags tell to wait until job stops or finishes, then wait for child.
             ;; otherwise return.

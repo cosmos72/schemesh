@@ -123,7 +123,7 @@
     ;; (debugf "job-status-set! caller=~s job=~a status=~s normalized-status=~s" caller (sh-job->string job) new-status status)
     (case kind
       ((running)
-        (job-status-set-running! job))
+        (job-status-set-running! caller job))
       ((ok exception failed killed)
         (%job-last-status-set! job status)
         (job-id-unset! job)
@@ -143,7 +143,7 @@
 
 ;; set job status to (list 'running job-id)
 ;; and return such status
-(define (job-status-set-running! job)
+(define (job-status-set-running! caller job)
   (let* ((id     (job-id job))
          (status (job-last-status job))
          (kind   (sh-status->kind status))
