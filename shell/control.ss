@@ -36,7 +36,7 @@
 (define (job-start caller job options)
   ;b (debugf "job-start ~a ~s" (sh-job->string job) options)
   (options-validate caller options)
-  (job-check-not-started caller job)
+  (job-raise-if-started/recursive caller job)
   (call/cc
     (lambda (k-continue)
       (with-exception-handler
@@ -51,6 +51,31 @@
   (job-last-status job)) ; returns job status. also checks if job finished
 
 
+;; raise an exception if a job or one of it recursive children is already started
+(define (job-raise-if-started/recursive caller job)
+  (when (job-started? job)
+    (if (job-id job)
+      (raise-errorf caller "job already started with job id ~s" (job-id job))
+      (raise-errorf caller "job already started")))
+  (when (sh-multijob? job)
+    (span-iterate (multijob-children job)
+      (lambda (i elem)
+        (when (sh-job? elem)
+          (job-raise-if-started/recursive caller elem))))))
+
+
+;; set status '(new) in job and all their recursive children.
+;; also set child-index of all visited multijobs to -1.
+(define (job-status-set-new/recursive! job)
+  (%job-last-status-set! job '(new))
+  (when (sh-multijob? job)
+    (multijob-current-child-index-set! job -1)
+    (span-iterate (multijob-children job)
+      (lambda (i elem)
+        (when (sh-job? elem)
+          (job-status-set-new/recursive! elem))))))
+
+
 (define (job-start/may-throw caller job k-continue options)
   (call/cc
     (lambda (yield)
@@ -59,7 +84,8 @@
           (raise-errorf caller "cannot start job ~s, bad or missing job-start-proc: ~s" job start-proc))
         (job-oid-set! job #f)
         (job-exception-set! job #f)
-        (job-status-set/running! job)
+        (job-status-set-new/recursive! job)
+        (job-status-set-running! job)
         (job-yield-proc-set! job yield)
         (parameterize ((sh-current-job job))
           ;; set job's parent if requested.
@@ -126,7 +152,8 @@
           ;; store it as job's resume-proc
           (job-resume-proc-set!  job cont)
           (job-yield-proc-set! job #f)
-          (job-status-set/running! job)
+          (when (job-started? job)
+            (job-status-set-running! job))
           ;; suspend job, i.e. call its yield-proc
           (yield-proc (void)))))
     ;; (debugf "<  job-yield job=~a status=~s" (sh-job->string job) (job-last-status job))
@@ -190,12 +217,14 @@
   (job-resume 'sh-resume job-or-id wait-flags))
 
 
+(define resume-flags-all (resume-flags foreground resume-if-stopped wait-until-finished wait-until-stopped-or-finished))
+
 ;; Common implementation of (sh-fg) (sh-bg) (sh-resume) (sh-wait) (sh-job-status)
 ;; Resume and optionally wait for a job.
 ;;
 ;; Returns updated job status.
 (define (job-resume caller job-or-id wait-flags)
-  (assert* caller (enum-set-subset? wait-flags (resume-flags foreground resume-if-stopped wait-until-finished wait-until-stopped-or-finished)))
+  (assert* caller (enum-set-subset? wait-flags resume-flags-all))
   (let ((job (sh-job job-or-id)))
     (%job-resume caller job wait-flags)
     (job-id-update! job))) ; returns job status
@@ -232,10 +261,9 @@
 
           ((and (sh-multijob? job) (eq? 'sh-pipe (multijob-kind job)))
             (continue-multijob-pipe caller job wait-flags))
-          (else
-            (format (current-error-port) "schemesh: (~s): job has no pid and no continuation, cannot resume it: ~a"
-              caller (sh-job->string job))
-            (job-status-set! caller job '(failed -1)))))
+
+          ; else job has no pid and no continuation, cannot resume it from here
+          ))
       (else
         (raise-errorf caller "job not started yet: ~s" job)))))
 
@@ -251,7 +279,8 @@
         (job-resume-flags-set! job wait-flags)
         (job-resume-proc-set!  job #f)
         (job-yield-proc-set!   job yield)
-        (job-status-set/running! job)
+        (when (job-started? job)
+          (job-status-set-running! job))
         (with-foreground-pgid wait-flags pgid
           ;; send SIGCONT to job's process group, if present.
           (when (and pgid (resume-flag-resume-if-stopped? wait-flags))

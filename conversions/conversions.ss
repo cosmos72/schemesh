@@ -15,7 +15,7 @@
     (rnrs)
     (only (rnrs mutable-pairs)   set-car!)
     (only (chezscheme)           condition-continuation continuation-condition? fx1+ fx1- void)
-    (only (schemesh bootstrap raise)   raise-assertf)
+    (only (schemesh bootstrap functions)   raise-assertf)
     (only (schemesh containers)  bytespan->bytevector bytespan->bytevector*!
                                  bytespan-reserve-back! bytespan-insert-back/string! bytespan-insert-back/u8!
                                  bytevector<? bytevector-find/u8

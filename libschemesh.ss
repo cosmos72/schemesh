@@ -6,11 +6,9 @@
 ;;; (at your option) any later version.
 
 (begin
-  (include "bootstrap/first.ss")
-  (include "bootstrap/raise.ss")
-  (include "bootstrap/parameters.ss")
+  (include "bootstrap/functions.ss")
+  (include "bootstrap/macros.ss")
   (include "bootstrap/bootstrap.ss")
-  (include "bootstrap/library-reexport.ss")
 
   (include "containers/bitmap.ss")
   (include "containers/misc.ss")

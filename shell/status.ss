@@ -89,19 +89,10 @@
           '())))))
 
 
-;; return #t if represents a job finished successfully, i.e. its kind is 'ok
+;; Return #t if status represents a new job, i.e. its kind is 'new
 ;; otherwise return #f
-;;
-;; intentionally identical to function (ok?) exported by library (schemesh posix dir)
-(define (sh-ok? status)
-  (cond
-    ((eq? status (void))
-      #t)
-    ((and (pair? status)
-          (eq? 'ok (car status)))
-      #t)
-    (else
-      #f)))
+(define (sh-new? status)
+  (eq? 'new (sh-status->kind status)))
 
 
 ;; Return #t if status represents a started job, i.e. its kind is one of 'running 'stopped.
@@ -130,6 +121,16 @@
   (if (memq (sh-status->kind status) '(ok exception failed killed))
     #t
     #f))
+
+
+;; return #t if represents a job finished successfully, i.e. its kind is 'ok
+;; otherwise return #f
+;;
+;; intentionally identical to function (ok?) exported by library (schemesh posix dir)
+(define (sh-ok? status)
+  (or (eq? status (void))
+      (and (pair? status)
+           (eq? 'ok (car status)))))
 
 
 ;; return #t if status represents a job finished unsuccessfully, i.e. its kind is one of 'exception 'failed 'killed.
@@ -187,11 +188,14 @@
   (sh-status->kind (job-last-status job)))
 
 
+;; Return #t if job status is '(new ...), otherwise return #f
+(define (job-new? job)
+  (sh-new? (job-last-status job)))
 
-;; Return truish if job was already started, otherwise return #f
+;; Return #t if job was already started, otherwise return #f
 (define (job-started? job)
   (sh-started? (job-last-status job)))
 
-;; Return truish if job has already finished, otherwise return #f
+;; Return #t if job has already finished, otherwise return #f
 (define (job-finished? job)
   (sh-finished? (job-last-status job)))

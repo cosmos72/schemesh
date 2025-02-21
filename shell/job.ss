@@ -123,7 +123,7 @@
     ;; (debugf "job-status-set! caller=~s job=~a status=~s normalized-status=~s" caller (sh-job->string job) new-status status)
     (case kind
       ((running)
-        (job-status-set/running! job))
+        (job-status-set-running! job))
       ((ok exception failed killed)
         (%job-last-status-set! job status)
         (job-id-unset! job)
@@ -143,7 +143,7 @@
 
 ;; set job status to (list 'running job-id)
 ;; and return such status
-(define (job-status-set/running! job)
+(define (job-status-set-running! job)
   (let* ((id     (job-id job))
          (status (job-last-status job))
          (kind   (sh-status->kind status))
@@ -191,7 +191,7 @@
       ;; replace job status '(running) -> '(running job-id)
       (job-status-set! 'job-id-set! job (list 'running id)))
     (unless (eqv? id old-id)
-      (sh-job-display-summary job)))
+      (queue-job-display-summary job)))
   (job-last-status job))
 
 
@@ -339,7 +339,7 @@
 (define (sh-consume-signals lctx)
   (let ((proc-notify-status-change
           (lambda (job)
-            (when (job-oid job)
+            (when (or (job-id job) (job-oid job))
               (lineedit-undraw lctx 'flush)
               (sh-job-display-summary job)
               (job-oid-set! job #f))))) ; no longer needed, clear it
@@ -349,19 +349,6 @@
           proc-notify-status-change)))
     (while (signal-consume-sigchld)
       (job-pids-wait #f 'nonblocking proc-notify-status-change))))
-
-
-;; raise an exception if a job or one of it recursive children is already started
-(define (job-check-not-started caller job)
-  (when (job-started? job)
-    (if (job-id job)
-      (raise-errorf caller "job already started with job id ~s" (job-id job))
-      (raise-errorf caller "job already started")))
-  (when (sh-multijob? job)
-    (span-iterate (multijob-children job)
-      (lambda (i elem)
-        (when (sh-job? elem)
-          (job-check-not-started caller elem))))))
 
 
 ;; called when starting a builtin or multijob:
