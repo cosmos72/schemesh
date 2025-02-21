@@ -17,7 +17,8 @@
       file-directory? file-exists? file-regular? file-symbolic-link?)
   (import
     (except (rnrs) delete-file file-exists?)
-    (only (chezscheme) foreign-procedure make-continuation-condition make-format-condition sort! void)
+    (only (chezscheme)         foreign-procedure format make-continuation-condition
+                               make-format-condition sort! void)
     (only (schemesh posix fd)  c-errno->string)
     (only (schemesh posix dir) file-type file-delete))
 
@@ -79,7 +80,7 @@
       (raise
         (condition
           (make-i/o-filename-error path)
-          (make-who-condition who)
+          (make-who-condition (if (symbol? who) who (format #f "~s" who)))
           (make-format-condition)
           (make-message-condition "failed for ~a: ~a")
           (make-irritants-condition (list path (c-errno->string err)))

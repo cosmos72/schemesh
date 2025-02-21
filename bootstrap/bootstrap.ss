@@ -63,17 +63,17 @@
 ;; port where to write debug messages with (debugf).
 ;; lazily initialized to a file output port that writes to device /dev/pts/1
 (define debugf-port
-  (let ((pts1 #f))
+  (let ((port #f))
     (lambda ()
-      (unless pts1
+      (unless port
         ; works, but leaks into child processes :(
-        (set! pts1 (open-file-output-port
+        (set! port (open-file-output-port
                      "/dev/pts/1"
                      (file-options no-create no-truncate)
                      (buffer-mode line)
                      (make-transcoder (utf-8-codec) (eol-style lf)
                                       (error-handling-mode raise)))))
-      pts1)))
+      port)))
 
 (define c-pid-get (foreign-procedure "c_pid_get" () int))
 

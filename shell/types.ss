@@ -14,6 +14,7 @@
   (job %make-job sh-job?)
   (fields
     (mutable id job-id %job-id-set!)       ; #f or fixnum >= 0: job id in (sh-globals)
+    (mutable oid)                          ; #f or fixnum >= 0: previous value of job id
     (mutable pid  job-pid  %job-pid-set!)  ; #f or integer > 0: process id
     (mutable pgid job-pgid %job-pgid-set!) ; #f or integer > 0: process group id
      ; cons: last known status, or (void) if job exited successfully
@@ -27,12 +28,9 @@
                                ; inserted by temporary redirections
     (mutable fds-to-remap) ; for builtins or multijobs, #f or hashmap job-logical-fd -> (s-fd) to actually use
     start-proc      ; #f or procedure to run in main process.
-                    ; receives as argument job followed by options.
-    (mutable step-proc) ; #f or procedure.
-                    ; For multijobs, will be called when a child job changes status.
-                    ; For cmds, will be called in fork()ed child process and
-                    ; receives as argument job followed by options.
-                    ; For cmds, its return value is passed to (exit-with-job-status)
+                    ; receives as argument job followed by options,
+                    ; must start the job, yield or suspend every time it needs to wait,
+                    ; and set the job status when it's finished.
     (mutable resume-flags) ; resume-flags enum set to use when calling (job-resume) on a child
     (mutable resume-proc)  ; #f or continuation to resume job
     (mutable yield-proc)   ; #f or continuation to suspend job and return to whoever started/resumed it
@@ -43,7 +41,7 @@
     (mutable temp-parent) ; temporary parent job, contains default values of env variables.
                           ; Unset when job finishes
     (mutable default-parent)) ; default parent job, contains default values of env variables
-  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-18}))
+  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-24}))
 
 
 ;; Define the record type "cmd"
@@ -53,7 +51,7 @@
   (fields
     arg-list                     ; list of strings and closures: program-name and args
     (mutable expanded-arg-list)) ; #f or list of strings: program-name and args after applying closures and expanding aliases
-  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-19}))
+  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-25}))
 
 
 ;; Define the record type "multijob"
@@ -64,7 +62,7 @@
     kind                ; symbol: one of 'sh-and 'sh-or 'sh-not 'sh-list 'sh-subshell '#<global>
     (mutable current-child-index) ; -1 or index of currently running child job
     children)           ; span: children jobs.
-  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-20}))
+  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-26}))
 
 
 ;; Parameter containing the current job.
@@ -177,13 +175,12 @@
 ;; Returned job will have no id, status '(new) and specified parent.
 (define (cmd-copy j parent)
   (%make-cmd
-    #f #f #f             ; id pid pgid
+    #f #f #f #f          ; id oid pid pgid
     '(new) #f            ; status exception
     (let ((redirects (job-redirects j)))
       (span-copy redirects (job-redirects-temp-n j) (span-length redirects)))
     0 #f                 ; redirects-temp-n fds-to-remap
     (job-start-proc j)
-    (job-step-proc  j)
     (resume-flags)       ; resume-flags
     #f #f                ; resume-proc yield-proc
     (let ((cwd (%job-cwd j)))
@@ -207,14 +204,13 @@
   (let* ((children (job-span-copy (multijob-children j)))
          (ret
     (%make-multijob
-      #f #f #f             ; id pid pgid
+      #f #f #f #f          ; id oid pid pgid
       '(new) #f            ; status exception
       (let ((redirects (job-redirects j)))
         ;; skip temporary redirects, copy the rest
         (span-copy redirects (job-redirects-temp-n j) (span-length redirects)))
       0 #f                 ; redirects-temp-n fds-to-remap
       (job-start-proc j)
-      (job-step-proc  j)
       (resume-flags)       ; resume-flags
       #f #f                ; resume-proc yield-proc
       (let ((cwd (%job-cwd j)))

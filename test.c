@@ -1228,19 +1228,19 @@ static const testcase tests[] = {
     {"(sh-run/string (shell \"FOO\" = \"abc\" \\x3B; \"echo\" (shell-env \"FOO\")))", "abc\n"},
     {"(sh-run/string (shell \"set\" \"FOO\" \"def\" \\x3B; \"set\" \"FOO\"))", "set FOO 'def'\n"},
     {"(sh-run/string (shell \"unset\" \"FOO\" \\x3B; \"set\" \"FOO\"))", ""},
-#endif
     {"(sh-run/string (shell \"command\" \"echo\" \"abc\" \\x3B; \"echo\" \"def\" )))",
      "abc\ndef\n"},
-#if 1
     /* test that overwriting existing environment variables works */
     {"(sh-run/string (shell\n"
      "    \"FOO\" = (shell-backquote \"echo\" \"ghijk\") \\x3B;\n"
      "    \"echo\" (shell-env \"FOO\")))\n",
      "ghijk\n"},
+#endif
     {"(sh-run (shell \"echo\" \"abc\" > \"DEL_ME\""
      " && \"cat\" \"DEL_ME\" > \"/dev/null\""
      " && \"rm\" \"DEL_ME\"))",
      ""},
+#if 1
     {"(sh-run/string (shell"
      "    \"echo\" \"a\" \"b\" \"c\" > \"DEL_ME\""
      " && \"cat\" \"DEL_ME\""

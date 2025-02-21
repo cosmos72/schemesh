@@ -383,7 +383,6 @@
 ;; otherwise the builtin will be executed synchronously in the caller's process
 ;;   and the returned status can only be one of (void) '(ok ...) '(failed ...) '(killed ...) or '(exception ...)
 (define (start-builtin builtin c args options)
-  (assert* 'start-builtin (not (job-step-proc c)))
   (if (job-fds-to-remap c)
     ;; fd remapping already performed, proceed
     (%start-builtin-already-redirected builtin c args options)

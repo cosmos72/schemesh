@@ -24,10 +24,11 @@
       ;; waiting for sh-globals to exit is not useful:
       ;; pretend it already finished successfully
       (%make-multijob
-         0 (pid-get) (pgid-get 0)  ; id pid pgid
+         0 #f                      ; id oid
+         (pid-get) (pgid-get 0)    ; pid pgid
          (void) #f                 ; last-status exception
          (span) 0 #f               ; redirections
-         #f #f                     ; start-proc step-proc
+         #f                        ; start-proc
          (resume-flags)            ; resume-flags
          #f #f                     ; resume-proc yield-proc
          (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) #f ; current directory, old working directory

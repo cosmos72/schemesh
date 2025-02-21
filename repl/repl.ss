@@ -184,7 +184,9 @@
 ;; Returns updated parser to use, or #f if got end-of-file.
 (define (repl-once initial-parser print-func lctx)
   (linectx-parser-name-set! lctx (parser-name initial-parser))
+  ;; (debugf "repl-once ready")
   (let ((in (repl-lineedit lctx)))
+    ;; (debugf "repl-once read ~s" in)
     (case in
       ((#f) #f)             ; got end-of-file
       ((#t) initial-parser) ; nothing to execute: waiting for more user input

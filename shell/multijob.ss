@@ -41,20 +41,19 @@
 
 ;; Create a multijob to later start it. Each element in children-jobs must be a sh-job or subtype.
 
-
 ;; Create an "and" multijob
 (define (sh-and . children-jobs)
-  (make-multijob 'sh-and assert-is-job start-multijob-and step-multijob-and children-jobs))
+  (make-multijob 'sh-and assert-is-job start-multijob-and children-jobs))
 
 
 ;; Create an "or" multijob
 (define (sh-or . children-jobs)
-  (make-multijob 'sh-or  assert-is-job start-multijob-or step-multijob-or children-jobs))
+  (make-multijob 'sh-or  assert-is-job start-multijob-or children-jobs))
 
 
 ;; Create a "not" multijob
 (define (sh-not child-job)
-  (make-multijob 'sh-not assert-is-job start-multijob-not step-multijob-not (list child-job)))
+  (make-multijob 'sh-not assert-is-job start-multijob-not (list child-job)))
 
 
 (define (assert-is-job who job)
@@ -64,24 +63,24 @@
 ;; Create a "list" multijob
 ;; Each argument must be a sh-job or subtype, possibly followed by a symbol ; &
 (define (sh-list . children-jobs-with-colon-ampersand)
-  (make-multijob 'sh-list
+  (make-multijob
+    'sh-list
     (lambda (caller job) ; validate-job-proc
       (unless (job-terminator? job)
         (assert* caller (sh-job? job))))
     start-multijob-list
-    #f
     children-jobs-with-colon-ampersand))
 
 
 ;; Create a "subshell" multijob
 ;; Each argument must be a sh-job or subtype, possibly followed by a symbol ; &
 (define (sh-subshell . children-jobs-with-colon-ampersand)
-  (make-multijob 'sh-subshell
+  (make-multijob
+    'sh-subshell
     (lambda (caller job) ; validate-job-proc
       (unless (job-terminator? job)
         (assert* caller (sh-job? job))))
     start-multijob-subshell
-    #f
     children-jobs-with-colon-ampersand))
 
 
@@ -95,22 +94,19 @@
 
 ;; Create a multijob to later start it.
 ;; Internal function, accepts an optional function to validate each element in children-jobs
-(define (make-multijob kind validate-job-proc start-proc step-proc children-jobs)
+(define (make-multijob kind validate-job-proc start-proc children-jobs)
   (assert* 'make-multijob (symbol? kind))
   (assert* 'make-multijob (procedure? start-proc))
-  (when step-proc
-    (assert* 'make-multijob (procedure? step-proc)))
   (when validate-job-proc
     (do ((tail children-jobs (cdr tail)))
         ((null? tail))
       (validate-job-proc kind (car tail))))
   (let ((mj
     (%make-multijob
-      #f #f #f        ; id pid pgid
+      #f #f #f #f     ; id oid pid pgid
       '(new) #f       ; last-status exception
       (span) 0 #f     ; redirections
       start-proc      ; executed to start the job
-      step-proc       ; executed when a child job changes status
       (resume-flags)  ; resume-flags
       #f #f           ; resume-proc yield-proc
       #f #f           ; working directory, old working directory - initially inherited from parent job
@@ -149,8 +145,7 @@
 ;; Forks a new subshell process in background, i.e. the foreground process group is NOT set
 ;; to the process group of the newly created process.
 ;;
-;; The subshell process will execute the Scheme function (job-step-proc job)
-;; passing the job job as only argument,
+;; The subshell process will execute the Scheme function (continue-multijob-list job options)
 ;;
 ;; Options are the same as described in (sh-start).
 ;; Option '(spawn? . #t) is enabled by default, because this function always spawns a subprocess.
@@ -191,11 +186,7 @@
     (lambda (job options)
       (job-remap-fds! job)
       (job-env/apply-lazy! job 'export)
-      (if (span-empty? (multijob-children job))
-        ; (sh-and) with zero children -> job completes successfully
-        (job-status-set! 'start-multijob-and job (void))
-        ; Do not yet assign a job-id.
-        (step-multijob-and job (void))))))
+      (continue-multijob-and job options))))
 
 
 
@@ -213,11 +204,8 @@
       (job-remap-fds! job)
       (job-env/apply-lazy! job 'export)
       ;; (debugf "start-multijob-or ~s empty children? = ~s" job (span-empty? (multijob-children job)))
-      (if (span-empty? (multijob-children job))
-        ;; (sh-or) with zero children -> job fails with '(failed 256)
-        (job-status-set! 'start-multijob-or job '(failed 256))
-        ;; Do not yet assign a job-id.
-        (step-multijob-or job '(failed 256))))))
+      ;; Do not yet assign a job-id.
+      (continue-multijob-or job options))))
 
 
 ;; Internal function stored in (job-start-proc job) by (sh-not),
@@ -233,12 +221,12 @@
       (job-remap-fds! job)
       (job-env/apply-lazy! job 'export)
       ;; Do not yet assign a job-id.
-      (step-multijob-not job (void)))))
+      (continue-multijob-not job options))))
 
 
 
 ;; Fork a new subprocess, and in the child subprocess
-;; call (proc job options) once, then call (sh-wait job) repeatedly - which calls (job-step-proc job) if set -
+;; call (proc job options) once, then call (sh-wait job) repeatedly - which calls (job-resume-proc job) -
 ;; until (job-finished? job) returns truish.
 ;;
 ;; The new subprocess is started in background, i.e. the foreground process group is NOT set
@@ -292,8 +280,7 @@
                     (%job-pgid-set! job #f)
 
                     ; we would like to set status to (void)
-                    ; but that causes (sh-wait job) below to think that job already finished,
-                    ; and skips calls to (job-step-proc job) to start nested jobs.
+                    ; but that causes (sh-wait job) below to think that job already finished.
                     ;
                     ; warning: do not call (job-status-set! job ...)
                     ; because it detects that job is running, and assigns a job-id to it,
@@ -336,146 +323,93 @@
       (proc job options))))
 
 
-;; Internal function called by (job-resume) called by (sh-fg) (sh-bg) (sh-resume) (sh-wait) (sh-job-status)
-(define (advance-multijob caller mj wait-flags)
-  ; (debugf ">  advance-multijob wait-flags=~s job=~a id=~s status=~s" wait-flags (sh-job->string mj) (job-id mj) (job-last-status mj))
-  (job-status-set/running! mj)
-  (let* ((child (sh-multijob-child-ref mj (multijob-current-child-index mj)))
-         ;; call (job-resume) on child
-         (child-status (if (sh-job? child) (job-resume caller child wait-flags) (void)))
-         (step-proc (job-step-proc mj)))
-    ;a (debugf ">  advance-multijob job=~s child=~s child-status=~s" mj child child-status)
-    (cond
-      ((or (not step-proc) (status-stops-or-ends-multijob? child-status))
-        ; propagate child exit status and return
-        (job-status-set! 'advance-multijob mj child-status)
-        child-status)
-      ((sh-finished? child-status)
-        ; child failed: advance multijob by calling (job-step-proc)
-        ; then call (advance-multijob) again multijob if job is still running.
-        ; (debugf "... advance-multijob > step-proc ~s status=~s" mj (job-last-status mj))
-        (step-proc mj child-status)
-        ; (debugf "... advance-multijob < step-proc ~s status=~s" mj (job-last-status mj))
-        (if (job-running? mj)
-          (advance-multijob caller mj wait-flags)
-          (job-last-status mj)))
-      ((sh-running? child-status)
-        ;; child is still running.
-        ;; if wait-flags tell to wait, then wait for child to change status again.
-        ;; otherwise propagate child status and return.
-        (if (resume-flag-wait? wait-flags)
-           (advance-multijob caller mj wait-flags)
-           (job-last-status mj)))
-      ((sh-stopped? child-status)
-        ;; child is stopped.
-        ;; if wait-flags tell to wait until child finishes, then wait for child to change status again.
-        ;; otherwise propagate child status and return
-        (if (resume-flag-wait-until-finished? wait-flags)
-          (advance-multijob caller mj wait-flags)
-          (job-status-set! 'advance-multijob mj child-status)))
-      (else
-        (raise-errorf caller "child job not started yet: ~s" child)))))
 
 (define options-catch '((catch? . #t)))
 
-;; Run next child job in a multijob containing an "and" of children jobs.
-;; Used by (sh-and), implements runtime behavior of shell syntax foo && bar && baz
-(define (step-multijob-and mj prev-child-status)
-  (let* ((idx     (fx1+ (multijob-current-child-index mj)))
-         (child   (sh-multijob-child-ref mj idx)))
-    ;a (debugf "step-multijob-and idx=~s child=~s prev-child-status=~s" idx child prev-child-status)
-    (if (and (sh-ok? prev-child-status) (sh-job? child))
-      (begin
-        ; start next child job
-        (multijob-current-child-index-set! mj idx)
-        (let ((child-status (job-start 'sh-and child options-catch)))
-          (when (sh-finished? child-status)
-            ; child job already finished, iterate
-            (step-multijob-and mj child-status))))
-      (begin
-        ; previous child failed, or interrupted, or end of children
-        (multijob-current-child-index-set! mj -1)
-        (job-status-set! 'step-multijob-and mj prev-child-status)))))
+
+(define (loop-run-child-with-yield caller mj options child-i)
+  (multijob-current-child-index-set! mj child-i)
+  (let ((child (span-ref (multijob-children mj) child-i))
+        (caller (cons 'loop-run-child-with-yield caller)))
+
+    ;; (debugf ">   loop-run-child-with-yield mj=~a child=~a" (sh-job->string mj) (sh-job->string child))
+    (let %loop ((status '(new)))
+      ;; (debugf "... loop-run-child-with-yield mj=~a child=~a status=~s" (sh-job->string mj) (sh-job->string child) status)
+      (case (sh-status->kind status)
+        ((new)
+          (%loop (job-start caller child options)))
+        ((running)
+          ;; (debugf "... loop-run-child-with-yield mj=~a child=~a --- calling yield" (sh-job->string mj) (sh-job->string child))
+          (job-yield mj)
+          ;; (debugf "... loop-run-child-with-yield mj=~a child=~a --- yield returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string mj) (sh-job->string child) (enum-set->list (job-resume-flags mj)))
+          (%loop (job-resume caller child (job-resume-flags mj))))
+        ((stopped)
+          ;; (debugf "... loop-run-child-with-yield mj=~a child=~a --- calling suspend" (sh-job->string mj) (sh-job->string child))
+          (job-suspend mj)
+          ;; (debugf "... loop-run-child-with-yield mj=~a child=~a --- suspend returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string mj) (sh-job->string child) (enum-set->list (job-resume-flags mj)))
+          (%loop (job-resume caller child (job-resume-flags mj))))
+        (else
+          ;; (debugf "<   loop-run-child-with-yield mj=~a child=~a status=~s" (sh-job->string mj) (sh-job->string child) status)
+          (multijob-current-child-index-set! mj -1)
+          status)))))
+
+
+;; Run the children jobs in an "and" multijob .
+;; Used by (sh-and), implements runtime behavior of shell syntax {foo && bar && baz}
+(define (continue-multijob-and mj options)
+  (let* ((options  (cons '(catch? . #t) options))
+         (children (multijob-children mj))
+         (n        (span-length children))
+         (child-status (void)))
+    (do ((i 0 (fx1+ i)))
+        ((or (fx>=? i n) (sh-err? child-status)))
+      (set! child-status (loop-run-child-with-yield 'sh-and mj options i)))
+    (job-status-set! 'sh-and mj child-status)))
 
 
 
-;; Run next child job in a multijob containing an "or" of children jobs.
-;; Used by (sh-and), implements runtime behavior of shell syntax foo || bar || baz
-(define (step-multijob-or mj prev-child-status)
-  (let* ((idx     (fx1+ (multijob-current-child-index mj)))
-         (child   (sh-multijob-child-ref mj idx)))
-    (if (and (not (sh-ok? prev-child-status))
-             (not (status-ends-multijob? prev-child-status))
-             (sh-job? child))
-      (begin
-        ; start next child job
-        (multijob-current-child-index-set! mj idx)
-        (let ((child-status (job-start 'sh-or child options-catch)))
-          (when (sh-finished? child-status)
-            ; child job already finished, iterate
-            (step-multijob-or mj child-status))))
-      (begin
-        ; previous child successful, or interrupted, or end of children
-        (multijob-current-child-index-set! mj -1)
-        (job-status-set! 'step-multijob-or mj prev-child-status)))))
+;; Run the children jobs in an "or" multijob.
+;; Used by (sh-or), implements runtime behavior of shell syntax {foo || bar || baz}
+(define (continue-multijob-or mj options)
+  (let* ((options  (cons '(catch? . #t) options))
+         (children (multijob-children mj))
+         (n        (span-length children))
+         (child-status '(failed 1)))
+    (do ((i 0 (fx1+ i)))
+        ((or (fx>=? i n) (sh-ok? child-status)))
+      (set! child-status (loop-run-child-with-yield 'sh-or mj options i)))
+    (job-status-set! 'sh-or mj child-status)))
 
 
-
-;; Run the child job in a multijob containing a "not" and one child job,
-;; or collect the exit status of the child job after it failed.
-;; Used by (sh-not), implements runtime behavior of shell syntax ! foo
-(define (step-multijob-not mj prev-child-status)
-  (assert* 'sh-not (fx=? 1 (sh-multijob-child-length mj)))
-
-  (let* ((idx     (fx1+ (multijob-current-child-index mj)))
-         (child   (sh-multijob-child-ref mj idx)))
-    (if (sh-job? child)
-      (begin
-        ; start child job
-        (multijob-current-child-index-set! mj idx)
-        (let ((child-status (job-start 'sh-not child options-catch)))
-          (when (sh-finished? child-status)
-            ; child job already finished, iterate
-            (step-multijob-not mj child-status))))
-      (begin
-        ; child job failed, negate its exit status
-        (multijob-current-child-index-set! mj -1)
-        (job-status-set! 'step-multijob-not mj
-          (cond
-            ((sh-ok? prev-child-status) '(failed 1))
-            ((status-ends-multijob? prev-child-status) prev-child-status)
-            (else (void))))))))
-
-
-(define (loop-run-child-with-yield caller mj options child)
-  (let %loop ((status '(new)))
-    ;; (debugf "... loop-run-child-with-yield mj=~a child=~a status=~s" (sh-job->string mj) (sh-job->string child) status)
-    (case (sh-status->kind status)
-      ((new)
-        (%loop (job-start caller child options)))
-      ((running)
-        (job-yield mj)
-        (%loop (job-resume caller child (job-resume-flags mj))))
-      ((stopped)
-        (job-suspend mj)
-        (%loop (job-last-status child)))
-      (else
-        ;; (debugf "<   loop-run-child-with-yield mj=~a child=~a status=~s" (sh-job->string mj) (sh-job->string child) status)
-        status))))
+;; Run the children jobs in a "not" multijob.
+;; Used by (sh-not), implements runtime behavior of shell syntax {! foo}
+(define (continue-multijob-not mj options)
+  (let* ((options  (cons '(catch? . #t) options))
+         (children (multijob-children mj)))
+    (assert* 'sh-not (fx=? 1 (span-length children)))
+    (let ((child-status (loop-run-child-with-yield 'sh-not mj options 0)))
+      (job-status-set! 'sh-not mj
+        (if (sh-ok? child-status)
+          '(failed 1)
+          (void))))))
 
 
 ;; Run the children jobs in a multijob list.
-;; Used by (sh-list), implements runtime behavior of shell syntax foo; bar & baz
+;; Used by (sh-list), implements runtime behavior of shell syntax {foo; bar & baz}
 ;; each child job can be optionally followed by '& or ';
 (define (continue-multijob-list mj options)
   (let* ((options  (cons '(catch? . #t) options))
          (children (multijob-children mj))
-         (n        (span-length children)))
+         (n        (span-length children))
+         (child-status (void)))
     (do ((i 0 (fx1+ i)))
         ((fx>=? i n))
       (let ((child (span-ref children i)))
         (when (sh-job? child)
-          (multijob-current-child-index-set! mj i)
           (if (eq? '& (sh-multijob-child-ref mj (fx1+ i)))
-            (job-start 'sh-list child options)
-            (loop-run-child-with-yield 'sh-list mj options child)))))))
+            (unless (sh-finished? (job-start 'sh-list child options))
+              (job-id-set! child))
+            (begin
+              (multijob-current-child-index-set! mj i)
+              (set! child-status (loop-run-child-with-yield 'sh-list mj options i)))))))
+    (job-status-set! 'sh-list/end mj child-status)))

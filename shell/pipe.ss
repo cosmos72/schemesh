@@ -12,7 +12,7 @@
 
 ;; Create a pipe multijob to later start it. Each element in children-jobs must be a sh-job or subtype.
 (define (sh-pipe . children-jobs)
-  (make-multijob 'sh-pipe assert-is-job-or-pipe-symbol start-multijob-pipe #f
+  (make-multijob 'sh-pipe assert-is-job-or-pipe-symbol start-multijob-pipe
     (validate-convert-pipe-args children-jobs)))
 
 
@@ -21,11 +21,7 @@
 ;; Even elements in children-jobs-with-pipe must be one of the symbols '\ '|&
 (define (sh-pipe* . children-jobs-with-pipe)
   (validate-pipe*-args children-jobs-with-pipe)
-  (make-multijob 'sh-pipe
-    assert-is-job-or-pipe-symbol
-    start-multijob-pipe
-    #f
-    children-jobs-with-pipe))
+  (make-multijob 'sh-pipe assert-is-job-or-pipe-symbol start-multijob-pipe children-jobs-with-pipe))
 
 
 ;; check that args is a list of jobs, and insert a '| between each pair of jobs
@@ -51,7 +47,7 @@
           (unless (sh-job? arg)
             (raise-errorf 'sh-pipe* "even-indexed arguments must be sh-job or subtype, found instead ~s" arg))
           (unless (pipe-sym? arg)
-            (raise-errorf 'sh-pipe* "odd-indexed arguments must one of | |^ found instead ~s" arg)))
+            (raise-errorf 'sh-pipe* "odd-indexed arguments must pipe symbol '| or '|& found instead ~s" arg)))
         (set! i (fx1+ i))))))
 
 
@@ -106,7 +102,7 @@
                      '(catch? . #t))))
 
 
-    ; Apply redirections. Will be removed by (advance-multijob-pipe/maybe-wait) when job finishes.
+    ; Apply redirections. Will be removed by (continue-multijob-pipe/maybe-wait) when job finishes.
     (when redirect-in?
       ; we must redirect job fd 0 *before* any redirection configured in the job itself
       (job-redirect/temp/fd! job 0 '<& in-pipe-fd))
@@ -147,56 +143,67 @@
     out-pipe-fd/read))
 
 
-;; Internal function called by (sh-resume) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
-(define (advance-multijob-pipe caller mj wait-flags)
-  ; (debugf ">   advance-multijob-pipe wait-flags=~s mj=~s" mj wait-flags)
-  (let ((pgid (job-pgid mj)))
-    (with-foreground-pgid wait-flags pgid
-      (advance-multijob-pipe/maybe-sigcont        mj wait-flags pgid)
-      (advance-multijob-pipe/maybe-wait    caller mj wait-flags)))
-  ; (debugf "<   advance-multijob-pipe job-status=~s" (job-last-status mj))
-  )
+;; Internal function called by (job-resume) called by (sh-resume) (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
+;; for waiting on children jobs of a sh-pipe.
+;;
+;; returns unspecified value.
+(define (continue-multijob-pipe caller mj wait-flags)
+  (if (span-empty? (multijob-children mj))
+    (job-status-set! caller mj (void))
+    (let ((pgid (job-pgid mj)))
+      (with-foreground-pgid wait-flags pgid
+        (resume-pid/maybe-sigcont          caller mj wait-flags #f pgid)
+        (continue-multijob-pipe/maybe-wait caller mj wait-flags)))))
 
 
-(define (advance-multijob-pipe/maybe-sigcont mj wait-flags pgid)
-  ; send SIGCONT to job's process group, if present.
-  ; It may raise error.
-  (when (and pgid (resume-flag-resume-if-stopped? wait-flags))
-    ; (debugf "advance-multijob-pipe/sigcont > ~s ~s" mj wait-flags)
-    (pid-kill (- pgid) 'sigcont)))
 
-
-(define (advance-multijob-pipe/maybe-wait caller mj wait-flags)
-  ; (debugf ">   advance-multijob-pipe/maybe-wait wait-flags=~s mj=~s" mj wait-flags)
+;; Internal function called by (job-resume) called by (sh-resume) (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
+;; for waiting on children jobs of a sh-pipe.
+;;
+;; returns unspecified value.
+(define (continue-multijob-pipe/maybe-wait caller mj wait-flags)
+  ; (debugf ">   continue-multijob-pipe/maybe-wait wait-flags=~s mj=~s" mj wait-flags)
   (let* ((children  (multijob-children mj))
-         (n         (span-length children))
-         (running-i (multijob-current-child-index mj)))
+         (n         (span-length children)))
 
     ; call (sh-resume wait-flags ...) on each child job,
     ; skipping the ones that already finished.
-    (let %again ((i running-i))
+    (let %again ((i (multijob-current-child-index mj)))
       (let ((job (sh-multijob-child-ref mj i)))
-        (when job
-          (when (or (symbol? job) (sh-finished? (sh-resume job wait-flags)))
-            (set! running-i (fx1+ i))
-            (%again (fx1+ i))))))
+        (cond
+          ((not job)
+            (void))
+          ((symbol? job)
+            (%again (fx1+ i)))
+          (else
+            (multijob-current-child-index-set! mj i)
+            (when (sh-finished? (sh-resume job wait-flags))
+              (%again (fx1+ i)))))))
 
-    (cond
-      ((fx<? running-i n)
-        ;; if some child is still running or stopped
-        (multijob-current-child-index-set! mj running-i)
 
-        ;; if some child is still running
-        ;; and wait-flags tell to wait, then wait for child.
-        ;; otherwise propagate child status and return.
-        (if (and (resume-flag-wait? wait-flags)
-                 (eq? 'running (sh-status->kind (sh-multijob-child-status mj running-i))))
-           (advance-multijob-pipe/maybe-wait caller mj wait-flags)
-           (job-last-status mj)))
-      (else
-        (multijob-current-child-index-set! mj -1)
-        (job-pgid-set! mj #f)
-        (job-status-set! 'advance-multijob-pipe/maybe-wait mj
-          (if (span-empty? children)
-            (void)
-            (job-last-status (span-back children))))))))
+    (let ((child (sh-multijob-child-ref mj (multijob-current-child-index mj))))
+      (assert* 'continue-multijob-pipe/maybe-wait (sh-job? child))
+      (let* ((status (job-last-status child))
+             (kind   (sh-status->kind status)))
+        (case kind
+          ((running)
+            ;; a child is still running => set multijob status to running too.
+            (job-status-set/running! mj)
+
+            ;; if wait-flags tell to wait until job stops or finishes, then wait for child.
+            ;; otherwise return.
+            (when (resume-flag-wait? wait-flags)
+               (continue-multijob-pipe/maybe-wait caller mj wait-flags)))
+
+          ((stopped)
+            ;; a child is stopped.
+            ;; if wait-flags tell to wait until job finishes, then wait for child.
+            ;; otherwise set multijob status to stopped and return.
+            (if (resume-flag-wait-until-finished? wait-flags)
+               (continue-multijob-pipe/maybe-wait caller mj wait-flags)
+               (job-status-set! 'continue-multijob-pipe/maybe-wait mj status)))
+
+          (else
+            ;; all children finished
+            (multijob-current-child-index-set! mj -1)
+            (job-status-set! 'continue-multijob-pipe/maybe-wait mj status)))))))

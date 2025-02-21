@@ -89,7 +89,7 @@
           '())))))
 
 
-;; return #t if status is either (void) or '(ok ...), i.e. if job finished successfully.
+;; return #t if represents a job finished successfully, i.e. its kind is 'ok
 ;; otherwise return #f
 ;;
 ;; intentionally identical to function (ok?) exported by library (schemesh posix dir)
@@ -102,6 +102,7 @@
       #t)
     (else
       #f)))
+
 
 ;; Return #t if status represents a started job, i.e. its kind is one of 'running 'stopped.
 ;; otherwise return #f
@@ -127,6 +128,14 @@
 ;; otherwise return #f
 (define (sh-finished? status)
   (if (memq (sh-status->kind status) '(ok exception failed killed))
+    #t
+    #f))
+
+
+;; return #t if status represents a job finished unsuccessfully, i.e. its kind is one of 'exception 'failed 'killed.
+;; otherwise return #f
+(define (sh-err? status)
+  (if (memq (sh-status->kind status) '(exception failed killed))
     #t
     #f))
 
@@ -182,10 +191,6 @@
 ;; Return truish if job was already started, otherwise return #f
 (define (job-started? job)
   (sh-started? (job-last-status job)))
-
-;; Return truish if job was started and is still running (not stopped or finished), otherwise return #f
-(define (job-running? job)
-  (sh-running? (job-last-status job)))
 
 ;; Return truish if job has already finished, otherwise return #f
 (define (job-finished? job)

@@ -16,7 +16,7 @@
       raise-assertf raise-assertl raise-errorf)
   (import
     (rnrs)
-    (only (chezscheme) make-continuation-condition make-format-condition))
+    (only (chezscheme) format make-continuation-condition make-format-condition))
 
 
 ;; Raise a condition describing an assertion violation.
@@ -29,7 +29,7 @@
           (make-assertion-violation)
           (make-continuation-condition k)
           (make-non-continuable-violation)
-          (make-who-condition who)
+          (make-who-condition (if (symbol? who) who (format #f "~s" who)))
           (make-format-condition)
           (make-message-condition format-string)
           (make-irritants-condition format-args))))))
@@ -65,7 +65,7 @@
           (make-error)
           (make-continuation-condition k)
           (make-non-continuable-violation)
-          (make-who-condition who)
+          (make-who-condition (if (symbol? who) who (format #f "~s" who)))
           (make-format-condition)
           (make-message-condition format-string)
           (make-irritants-condition format-args))))))

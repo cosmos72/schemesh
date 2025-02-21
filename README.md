@@ -255,4 +255,5 @@ See [doc/recent_changes.md](doc/recent_changes.md)
 * autocomplete shell paths and scheme strings: when autocompleting inside single or double quotes, the stem starts at the quotes.
 * autocomplete shell paths starting with ~
 * maybe add missing shell builtins "kill"
+* add syntax for evaluating a shell word i.e. a (sh-wildcard) from Scheme. TODO: associated to which job?
 * implement function `(string->sh-patterns)`

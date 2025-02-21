@@ -57,6 +57,7 @@
       (let ((start-proc (job-start-proc job)))
         (unless (procedure? start-proc)
           (raise-errorf caller "cannot start job ~s, bad or missing job-start-proc: ~s" job start-proc))
+        (job-oid-set! job #f)
         (job-exception-set! job #f)
         (job-status-set/running! job)
         (job-yield-proc-set! job yield)
@@ -117,8 +118,8 @@
 ;; if there was no job to yield, immediately return #f to the caller of (job-yield)
 (define (job-yield job)
   (let ((yield-proc (and (sh-job? job) (job-yield-proc job))))
+    ;; (debugf ">  job-yield job=~a yield-proc=~s" (sh-job->string job) yield-proc)
     (when yield-proc
-      ;; (debugf "job-yield job=~a" (sh-job->string job))
       (call/cc
         ;; Capture the continuation representing THIS call to (job-yield)
         (lambda (cont)
@@ -128,6 +129,7 @@
           (job-status-set/running! job)
           ;; suspend job, i.e. call its yield-proc
           (yield-proc (void)))))
+    ;; (debugf "<  job-yield job=~a status=~s" (sh-job->string job) (job-last-status job))
     (if yield-proc #t #f))) ; ignore value returned by continuations (yield-proc) and (cont)
 
 
@@ -193,10 +195,18 @@
 ;;
 ;; Returns updated job status.
 (define (job-resume caller job-or-id wait-flags)
-  (let* ((job    (sh-job job-or-id))
-         (status (job-last-status job))
+  (assert* caller (enum-set-subset? wait-flags (resume-flags foreground resume-if-stopped wait-until-finished wait-until-stopped-or-finished)))
+  (let ((job (sh-job job-or-id)))
+    (%job-resume caller job wait-flags)
+    (job-id-update! job))) ; returns job status
+
+
+;; actual implementation of (job-resume)
+;; returns unspecified value.
+(define (%job-resume caller job wait-flags)
+  (let* ((status (job-last-status job))
          (kind   (sh-status->kind status)))
-    ;; (debugf ">  job-resume caller=~s wait-flags=~s job=~a id=~s pid=~s status=~s" caller wait-flags (sh-job->string job) (job-id job) (job-pid job) (job-last-status job))
+    ;; (debugf ">  job-resume caller=~s wait-flags=~s job=~a id=~s pid=~s status=~s" caller (enum-set->list wait-flags) (sh-job->string job) (job-id job) (job-pid job) (job-last-status job))
     (case kind
       ((ok exception failed killed)
         (void)) ; job finished
@@ -205,27 +215,29 @@
           ((job-pid job)
             ;; either the job is a sh-cmd, or a builtin or multijob spawned in a child subprocess.
             ;; in all cases, we have a pid to wait on.
-            (pid-resume caller job wait-flags))
+            (resume-pid caller job wait-flags))
 
           ((job-resume-proc job)
             ;; we have a continuation to call for resuming the job
-            (when (or (not (eq? 'stopped kind))
+            (when (or (eq? 'running kind)
                       (resume-flag-wait? wait-flags)
                       (resume-flag-resume-if-stopped? wait-flags))
 
               (job-call-resume-proc job wait-flags)
-              (when (and (resume-flag-wait-until-finished? wait-flags) (sh-stopped? job))
-                ;; caller asked to wait until job finishes, cannot return with a stopped job: try again
-                (job-resume caller job-or-id wait-flags))))
+              (let ((kind (job-last-status->kind job)))
+                (when (or (and (eq? 'running kind) (resume-flag-wait?                wait-flags))
+                          (and (eq? 'stopped kind) (resume-flag-wait-until-finished? wait-flags)))
+                  ;; caller asked to wait for job to finish (or to stop), cannot return yet: try again
+                  (%job-resume caller job wait-flags)))))
 
-          ((sh-multijob? job)
-            (if (eq? 'sh-pipe (multijob-kind job))
-              (advance-multijob-pipe caller job wait-flags)
-              (advance-multijob      caller job wait-flags)))))
+          ((and (sh-multijob? job) (eq? 'sh-pipe (multijob-kind job)))
+            (continue-multijob-pipe caller job wait-flags))
+          (else
+            (format (current-error-port) "schemesh: (~s): job has no pid and no continuation, cannot resume it: ~a"
+              caller (sh-job->string job))
+            (job-status-set! caller job '(failed -1)))))
       (else
-        (raise-errorf caller "job not started yet: ~s" job)))
-
-    (job-id-update! job))) ; returns job status
+        (raise-errorf caller "job not started yet: ~s" job)))))
 
 
 ;; call the continuation stored in job-resume-proc of a job for resuming it.
@@ -267,7 +279,7 @@
          (status (job-last-status job)))
     ; (debugf ">  sh-job-status job=~a" (sh-job->string job))
     (if (sh-started? status)
-      (job-resume 'sh-job-status job 0)
+      (job-resume 'sh-job-status job (resume-flags))
       status)))
 
 

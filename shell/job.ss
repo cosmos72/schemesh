@@ -114,8 +114,9 @@
 
 ;; set the status of a job and return it.
 ;; if specified status indicates that job finished,
-;;   i.e. (sh-finished? status) returns true
-;;   also close the job fds that need to be closed.
+;;   i.e. (sh-finished? status) returns true then cleanup the job:
+;;   close the job fds that need to be closed, unset job's ids,
+;;   remove resume-proc and suspend-proc, etc.
 (define (job-status-set! caller job new-status)
   (let* ((status (status-normalize new-status))
          (kind   (sh-status->kind status)))
@@ -125,16 +126,16 @@
         (job-status-set/running! job))
       ((ok exception failed killed)
         (%job-last-status-set! job status)
-        (when (sh-finished? status)
-          (when (sh-cmd? job)
-            ; unset expanded arg-list, because next expansion may differ
-            (cmd-expanded-arg-list-set! job #f))
-          ; (debugf "job-status-set! caller=~s job=~s status=~s" caller job status)
-          (job-unmap-fds! job)
-          (job-unredirect/temp/all! job) ; remove temporary redirections
-          (job-temp-parent-set!  job #f) ; remove temporary parent job
-          (job-resume-proc-set!  job #f)
-          (job-yield-proc-set! job #f))
+        (job-id-unset! job)
+        (when (sh-cmd? job)
+          ; unset expanded arg-list, because next expansion may differ
+          (cmd-expanded-arg-list-set! job #f))
+        ; (debugf "job-status-set! caller=~s job=~s status=~s" caller job status)
+        (job-unmap-fds! job)
+        (job-unredirect/temp/all! job) ; remove temporary redirections
+        (job-temp-parent-set!  job #f) ; remove temporary parent job
+        (job-resume-proc-set!  job #f)
+        (job-yield-proc-set! job #f)
         status)
       (else
         (%job-last-status-set! job status)))))
@@ -161,15 +162,17 @@
 ;; Return job status
 (define (job-id-unset! job)
   (assert* 'job-id-unset! (sh-job? job))
-  (when (job-id job)
-    (let* ((children (multijob-children (sh-globals)))
-           (child-n  (span-length children))
-           (id       (job-id job)))
-      (when (fx<? -1 id child-n)
-        (span-set! children id #f)
-        (until (or (span-empty? children) (span-back children))
-          (span-erase-back! children 1)))
-      (%job-id-set! job #f)))
+  (let ((id (job-id job)))
+    (when id
+      (let* ((children (multijob-children (sh-globals)))
+             (child-n  (span-length children)))
+        (when (fx<? -1 id child-n)
+          (span-set! children id #f)
+          (until (or (span-empty? children) (span-back children))
+            (span-erase-back! children 1))))
+      (%job-id-set! job #f)
+      (job-oid-set! job id) ;; needed for later displaying it
+      (queue-job-display-summary job)))
   (job-last-status job))
 
 
@@ -183,6 +186,7 @@
          (id     (or old-id (%job-id-assign! job)))
          (status (job-last-status job))
          (kind   (sh-status->kind status)))
+    ;; (debugf "job-id-set! job=~a status=~s old-id=~s new-id=~s" (sh-job->string job) status old-id id)
     (when (and (eq? kind 'running) (or (null? (cdr status)) (not (eqv? id (cadr status)))))
       ;; replace job status '(running) -> '(running job-id)
       (job-status-set! 'job-id-set! job (list 'running id)))
@@ -212,8 +216,9 @@
 ;;
 ;; Note: does not create job-id for children of (sh-pipe) jobs.
 (define (job-id-update! job)
-  (let ((parent (job-parent job))
+  (let ((parent (job-default-parent job))
         (status (job-last-status job)))
+    ;; (debugf "job-id-update! job=~a status=~s" (sh-job->string job) status)
     (if (and (sh-multijob? parent) (eq? 'sh-pipe (multijob-kind parent)))
       ;; the children of (sh-pipe) jobs are not supposed to be started/stopped individually:
       ;; the parent (sh-pipe) job always starts/stops all of them collectively.
@@ -222,11 +227,8 @@
       (case (sh-status->kind status)
         ((running stopped)
           (job-id-set! job))
-        ((ok exception failed killed)
-          (job-id-unset! job))
         (else
-          status)))))
-
+          (job-id-unset! job))))))
 
 
 
@@ -337,11 +339,10 @@
 (define (sh-consume-signals lctx)
   (let ((proc-notify-status-change
           (lambda (job)
-            (when (job-id job)
+            (when (job-oid job)
               (lineedit-undraw lctx 'flush)
               (sh-job-display-summary job)
-              (when (job-finished? job)
-                (job-id-unset! job))))))
+              (job-oid-set! job #f))))) ; no longer needed, clear it
     (let ((job-list (queue-job-display-summary)))
       (unless (null? job-list)
         (list-iterate (list-remove-consecutive-duplicates! (sort! sh-job<? job-list) eq?)
