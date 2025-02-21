@@ -207,20 +207,20 @@
 (define (repl-loop parser print-func lctx)
   ;; set to #f the init-file-path and quit-file-path saved in (repl-args):
   ;; if (repl* ...) is called from an interrupt handler, we do NOT want to load them again
-  (let ((repl-args (list parser print-func lctx #f #f))
+  (let ((my-repl-args (list parser print-func lctx #f #f))
         (reload-count (sh-schemesh-reload-count)))
     (repl-restart #f)
     (call/cc
       (lambda (k-exit)
-        (parameterize ((repl-args repl-args)
+        (parameterize ((repl-args  my-repl-args)
                        (base-exception-handler repl-exception-handler)
                        (break-handler
                          (lambda break-args
-                           (repl-interrupt-handler repl-args break-args)))
+                           (repl-interrupt-handler my-repl-args break-args)))
                        (exit-handler k-exit)
                        (keyboard-interrupt-handler
                          (lambda ()
-                           (repl-interrupt-handler repl-args '())))
+                           (repl-interrupt-handler my-repl-args '())))
                        (reset-handler (reset-handler)))
           (let ((k-reset k-exit))
             (reset-handler (lambda () (k-reset)))
@@ -230,7 +230,7 @@
               (set! parser (repl-once parser print-func lctx))
               (cond
                 (parser
-                  (set-car! repl-args parser)
+                  (set-car! my-repl-args parser)
                   (if (repl-restart?)
                     (set! parser #f) ; parser if #f, loop will exit
                     (let ((new-reload-count (sh-schemesh-reload-count)))
@@ -344,7 +344,7 @@
 
 ;; React to calls to (break), to keyboard CTRL+C and to SIGTSTP signal:
 ;; either enter the debugger, or, if possible, suspend the current job.
-(define (repl-interrupt-handler repl-args break-args)
+(define (repl-interrupt-handler my-repl-args break-args)
   ;; invoked also for SIGTSTP, because signal.h installs
   ;; a SIGTSTP handler that intentionally calls raise(SIGINT)
   ;;
@@ -360,7 +360,7 @@
                          (keyboard-interrupt-handler void))
             (repl-interrupt-show-who-msg-irritants break-args (console-error-port))
             (let ((port (console-output-port)))
-              (while (repl-interrupt-handler-once repl-args k port)))))))))
+              (while (repl-interrupt-handler-once my-repl-args k port)))))))))
 
 
 ;; Print (break ...) arguments
@@ -382,7 +382,7 @@
 
 
 ;; Single iteration of (repl-interrupt-handler)
-(define (repl-interrupt-handler-once repl-args k out)
+(define (repl-interrupt-handler-once my-repl-args k out)
   (put-string out "break> ")
   (flush-output-port out)
   (case (let-values (((type token start end) (read-token (console-input-port))))
@@ -395,7 +395,7 @@
     ((a abort)        (abort) #f)
     ((c e cont exit)  #f)
     ((i inspect)      (inspect k) #t)
-    ((n new)          (apply repl* repl-args) #t)
+    ((n new)          (apply repl* my-repl-args) #t)
     ((q r quit reset) (reset) #f)
     ((t throw)        (error #f "user interrupt") #f)
     ((? help)

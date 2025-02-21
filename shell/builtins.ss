@@ -57,9 +57,9 @@
 ;; return the linectx contained in thread parameter (repl-args),
 ;; or #f if not present.
 (define (repl-args-linectx)
-  (let ((repl-args (repl-args)))
-    (and (fx>=? (length repl-args) 3)
-         (list-ref repl-args 2))))
+  (let ((my-repl-args (repl-args)))
+    (and (fx>=? (length my-repl-args) 3)
+         (list-ref my-repl-args 2))))
 
 
 ;; React to uncaught conditions
