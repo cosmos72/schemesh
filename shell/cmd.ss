@@ -16,7 +16,8 @@
     '(new) #f       ; last-status exception
     (span) 0 #f     ; redirections
     cmd-start #f    ; start-proc step-proc
-    0 #f #f         ; resume-flags resume-proc yield-proc
+    (resume-flags)  ; resume-flags
+    #f #f           ; resume-proc yield-proc
     #f #f           ; working directory, old working directory - initially inherited from parent job
     #f              ; overridden environment variables - initially none
     #f              ; env var assignments - initially none
@@ -343,7 +344,7 @@
       ;; hygienic macros sure are handy :)
       (let* ((new-pgid  new-pgid)
              (our-pgid  (and new-pgid
-                          (jr-flag-foreground? wait-flags)
+                          (resume-flag-foreground? wait-flags)
                           (sh-job-control?)
                           (job-pgid (sh-globals))))
              (func (lambda () body1 body2 ...)))
@@ -387,7 +388,7 @@
 
   ;; send SIGCONT to job's process group, if present.
   ;; otherwise send SIGCONT to job's process id. Both may return error code
-  (let* ((sigcont? (jr-flag-sigcont? wait-flags))
+  (let* ((sigcont? (resume-flag-resume-if-stopped? wait-flags))
          (sig      (if sigcont? 'sigcont 0))
          (err      (pid-kill (if (and pgid (> pgid 0)) (- pgid) pid) sig)))
     (case err
@@ -405,7 +406,7 @@
 ;; Returns unspecified value.
 (define (advance-pid/maybe-wait caller job wait-flags pid pgid)
   ;; cannot call (sh-job-status), it would recurse back here.
-  (let* ((blocking?  (jr-flag-wait? wait-flags))
+  (let* ((blocking?  (resume-flag-wait? wait-flags))
          (old-status (job-last-status job))
          (new-status (if (sh-finished? old-status)
                        old-status
@@ -438,7 +439,7 @@
         ; if wait-flags tell to wait until job finishes,
         ;   call (break) then wait for it again (which blocks until it changes status again)
         ; otherwise propagate process status and return.
-        (if (jr-flag-wait-until-finished? wait-flags)
+        (if (resume-flag-wait-until-finished? wait-flags)
           (begin
             (advance-pid/break              job            pid pgid)
             (advance-pid/maybe-wait  caller job wait-flags pid pgid))

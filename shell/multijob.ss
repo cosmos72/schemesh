@@ -111,7 +111,8 @@
       (span) 0 #f     ; redirections
       start-proc      ; executed to start the job
       step-proc       ; executed when a child job changes status
-      0 #f #f         ; resume-flags resume-proc yield-proc
+      (resume-flags)  ; resume-flags
+      #f #f           ; resume-proc yield-proc
       #f #f           ; working directory, old working directory - initially inherited from parent job
       #f              ; overridden environment variables - initially none
       #f              ; env var assignments - initially none
@@ -362,14 +363,14 @@
         ;; child is still running.
         ;; if wait-flags tell to wait, then wait for child to change status again.
         ;; otherwise propagate child status and return.
-        (if (jr-flag-wait? wait-flags)
+        (if (resume-flag-wait? wait-flags)
            (advance-multijob caller mj wait-flags)
            (job-last-status mj)))
       ((sh-stopped? child-status)
         ;; child is stopped.
         ;; if wait-flags tell to wait until child finishes, then wait for child to change status again.
         ;; otherwise propagate child status and return
-        (if (jr-flag-wait-until-finished? wait-flags)
+        (if (resume-flag-wait-until-finished? wait-flags)
           (advance-multijob caller mj wait-flags)
           (job-status-set! 'advance-multijob mj child-status)))
       (else

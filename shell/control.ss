@@ -155,36 +155,33 @@
 
 ;; flags for (sh-resume), which subsumes (sh-bg) (sh-fg) (sh-wait) (sh-job-status)
 ;;
-(define jr-flag-sigcont 1)
-(define jr-flag-foreground 2)
-(define jr-flag-wait-until-finished 4)
-(define jr-flag-wait-until-stopped-or-finished 8)
+(define-enumeration
+  resume-flag
+  (foreground resume-if-stopped wait-until-finished wait-until-stopped-or-finished)
+  resume-flags)
 
+(define (resume-flag-foreground? wait-flags)
+  (enum-set-member? 'foreground wait-flags))
 
-(define (jr-flag-foreground? wait-flags)
-  ;; (debugf "jr-flag-foreground? wait-flags=~s" wait-flags)
-  (not (fxzero? (fxand wait-flags jr-flag-foreground))))
+(define (resume-flag-resume-if-stopped? wait-flags)
+  (enum-set-member? 'resume-if-stopped wait-flags))
 
-(define (jr-flag-sigcont? wait-flags)
-  (not (fxzero? (fxand wait-flags jr-flag-sigcont))))
+(define (resume-flag-wait? wait-flags)
+  (or (resume-flag-wait-until-finished? wait-flags)
+      (resume-flag-wait-until-stopped-or-finished? wait-flags)))
 
-(define (jr-flag-wait? wait-flags)
-  (not (fxzero? (fxand wait-flags
-                       (fxior jr-flag-wait-until-finished
-                              jr-flag-wait-until-stopped-or-finished)))))
+(define (resume-flag-wait-until-finished? wait-flags)
+  (enum-set-member? 'wait-until-finished wait-flags))
 
-(define (jr-flag-wait-until-finished? wait-flags)
-  (not (fxzero? (fxand wait-flags jr-flag-wait-until-finished))))
-
-(define (jr-flag-wait-until-stopped-or-finished? wait-flags)
-  (not (fxzero? (fxand wait-flags jr-flag-wait-until-stopped-or-finished))))
+(define (resume-flag-wait-until-stopped-or-finished? wait-flags)
+  (enum-set-member? 'wait-until-stopped-or-finished wait-flags))
 
 
 
 ;; General function to resume and optionally wait for a job.
 ;; Subsumes (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 ;;
-;; Argument wait-flags must be (fxior ...) of zero or more constants jr-flag-...
+;; Argument wait-flags must be a resume-flags enum set.
 ;;
 ;; Returns updated job status.
 (define (sh-resume job-or-id wait-flags)
@@ -196,9 +193,11 @@
 ;;
 ;; Returns updated job status.
 (define (job-resume caller job-or-id wait-flags)
-  (let ((job (sh-job job-or-id)))
+  (let* ((job    (sh-job job-or-id))
+         (status (job-last-status job))
+         (kind   (sh-status->kind status)))
     ;; (debugf ">  job-resume caller=~s wait-flags=~s job=~a id=~s pid=~s status=~s" caller wait-flags (sh-job->string job) (job-id job) (job-pid job) (job-last-status job))
-    (case (job-last-status->kind job)
+    (case kind
       ((ok exception failed killed)
         (void)) ; job finished
       ((running stopped)
@@ -210,10 +209,14 @@
 
           ((job-resume-proc job)
             ;; we have a continuation to call for resuming the job
-            (job-call-resume-proc job wait-flags)
-            (when (and (jr-flag-wait-until-finished? wait-flags) (sh-stopped? job))
-              ;; caller asked to wait until job finishes, cannot return with a stopped job: try again
-              (job-resume caller job-or-id wait-flags)))
+            (when (or (not (eq? 'stopped kind))
+                      (resume-flag-wait? wait-flags)
+                      (resume-flag-resume-if-stopped? wait-flags))
+
+              (job-call-resume-proc job wait-flags)
+              (when (and (resume-flag-wait-until-finished? wait-flags) (sh-stopped? job))
+                ;; caller asked to wait until job finishes, cannot return with a stopped job: try again
+                (job-resume caller job-or-id wait-flags))))
 
           ((sh-multijob? job)
             (if (eq? 'sh-pipe (multijob-kind job))
@@ -239,7 +242,7 @@
         (job-status-set/running! job)
         (with-foreground-pgid wait-flags pgid
           ;; send SIGCONT to job's process group, if present.
-          (when (and pgid (jr-flag-sigcont? wait-flags))
+          (when (and pgid (resume-flag-resume-if-stopped? wait-flags))
             (pid-kill (- pgid) 'sigcont))
           (parameterize ((sh-current-job job))
             (resume-proc (void)))))))
@@ -271,7 +274,7 @@
 ;; Continue a job or job-id in background by sending SIGCONT to it, and return immediately.
 ;; Return job status. For possible job statuses, see (sh-job-status)
 (define (sh-bg job-or-id)
-  (job-resume 'sh-bg job-or-id jr-flag-sigcont))
+  (job-resume 'sh-bg job-or-id (resume-flags resume-if-stopped)))
 
 
 ;; Continue a job or job-id by sending SIGCONT to it, then wait for it to exit or stop,
@@ -284,7 +287,7 @@
   (job-resume
     'sh-fg
     job-or-id
-    (fxior jr-flag-foreground jr-flag-sigcont jr-flag-wait-until-stopped-or-finished)))
+    (resume-flags foreground resume-if-stopped wait-until-stopped-or-finished)))
 
 
 ;; Continue a job or job-id by optionally sending SIGCONT to it, then wait for it to exit,
@@ -301,9 +304,9 @@
 ;;   And before returning, restores current shell as fg process group.
 (define (sh-wait job-or-id)
   (job-resume
-    'sh-sigcont+wait
+    'sh-wait
     job-or-id
-    (fxior jr-flag-foreground jr-flag-sigcont jr-flag-wait-until-finished)))
+    (resume-flags foreground resume-if-stopped wait-until-finished)))
 
 
 ;; Start a job and wait for it to exit or stop.

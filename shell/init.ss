@@ -28,7 +28,8 @@
          (void) #f                 ; last-status exception
          (span) 0 #f               ; redirections
          #f #f                     ; start-proc step-proc
-         0 #f #f                   ; resume-flags resume-proc yield-proc
+         (resume-flags)            ; resume-flags
+         #f #f                     ; resume-proc yield-proc
          (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) #f ; current directory, old working directory
          (make-hashtable string-hash string=?) ; env variables
          #f                        ; no env var assignments

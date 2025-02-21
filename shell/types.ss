@@ -33,7 +33,7 @@
                     ; For cmds, will be called in fork()ed child process and
                     ; receives as argument job followed by options.
                     ; For cmds, its return value is passed to (exit-with-job-status)
-    (mutable resume-flags) ; fixnum, jr-flags to use when calling (job-resume) on a child
+    (mutable resume-flags) ; resume-flags enum set to use when calling (job-resume) on a child
     (mutable resume-proc)  ; #f or continuation to resume job
     (mutable yield-proc)   ; #f or continuation to suspend job and return to whoever started/resumed it
     (mutable cwd %job-cwd %job-cwd-set!) ; charspan: working directory. if #f, use parent's cwd
@@ -184,7 +184,8 @@
     0 #f                 ; redirects-temp-n fds-to-remap
     (job-start-proc j)
     (job-step-proc  j)
-    0 #f #f                ; resume-flags resume-proc yield-proc
+    (resume-flags)       ; resume-flags
+    #f #f                ; resume-proc yield-proc
     (let ((cwd (%job-cwd j)))
       (and cwd (charspan-copy cwd)))
     (let ((owd (job-owd j)))
@@ -214,7 +215,8 @@
       0 #f                 ; redirects-temp-n fds-to-remap
       (job-start-proc j)
       (job-step-proc  j)
-      0 #f #f              ; resume-flags resume-proc yield-proc
+      (resume-flags)       ; resume-flags
+      #f #f                ; resume-proc yield-proc
       (let ((cwd (%job-cwd j)))
         (and cwd (charspan-copy cwd)))
       (let ((owd (job-owd j)))
