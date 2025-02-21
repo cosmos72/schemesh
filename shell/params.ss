@@ -122,7 +122,7 @@
 ;;   a. sub-processes will inherit the parent's process group.
 ;;   b. changing the foreground process group is not allowed.
 ;;
-;; Usually set to #t while (sh-repl) is running, and to #f when executing scripts or in subshells.
+;; Usually set to #t while (repl) is running, and to #f when executing scripts or in subshells.
 ;;
 ;; Job control can be activated i.e. set to #t only if (sh-job-control-available?) returns #t
 ;;

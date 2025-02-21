@@ -161,7 +161,7 @@
       ;; this will be executed in a subprocess.
 
       ;; do not save history when subshell exits.
-      (let ((lctx (sh-repl-args-linectx)))
+      (let ((lctx (repl-args-linectx)))
         (when (linectx? lctx)
           (let ((history (linectx-history lctx)))
             (when history

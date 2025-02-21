@@ -1303,41 +1303,41 @@ static const testcase tests[] = {
      "(set! a 42))"},
     /* ------------------------- repl --------------------------------------- */
     /* {"(expand-omit-library-invocations #t)", ""},*/ /* avoid, requires Chez Scheme >= 10.0.0 */
-    {"(values->list (sh-repl-parse\n"
+    {"(values->list (repl-parse\n"
      "  (string->parsectx \"(+ 2 3) (values 7 (cons 'a 'b))\" (parsers))\n"
      "  'scheme))\n",
      "(((+ 2 3) (values 7 (cons 'a 'b))) #<parser scheme>)"},
-    {"(values->list (sh-repl-parse\n"
+    {"(values->list (repl-parse\n"
      "  (string->parsectx \"ls -l | wc -b && echo ok || echo error &\" (parsers))\n"
      "  'shell))\n",
      "(((shell ls -l | wc -b && echo ok || echo error &)) #<parser shell>)"},
-    {"(values->list (sh-repl-parse\n"
+    {"(values->list (repl-parse\n"
      "  (string->parsectx \"(values '{})\" (parsers))\n"
      "  'scheme))\n",
      "(((values '(shell))) #<parser scheme>)"},
-    {"(values->list (sh-repl-parse\n"
+    {"(values->list (repl-parse\n"
      "  (string->parsectx \"(values '{ls; #!scheme 1 2 3})\" (parsers))\n"
      "  'scheme))\n",
      /* ugly result, and not very useful */
      "(((values '(shell ls ; 1 2 3))) #<parser scheme>)"},
-    {"(values->list (sh-repl-parse\n"
+    {"(values->list (repl-parse\n"
      "  (string->parsectx \"(1 2 3)\" (parsers))\n"
      "  'scheme))\n",
      "(((1 2 3)) #<parser scheme>)"},
-    {"(values->list (sh-repl-parse\n"
+    {"(values->list (repl-parse\n"
      "  (string->parsectx \"#!scheme 1 2 3\" (parsers))\n"
      "  'shell))\n",
      "((1 2 3) #<parser scheme>)"},
-    {"(values->list (sh-repl-parse\n"
+    {"(values->list (repl-parse\n"
      "  (string->parsectx \"1 2 3\" (parsers))\n"
      "  'shell))\n",
      "(((shell 1 2 3)) #<parser shell>)"},
-    {"(values->list (sh-repl-parse\n"
+    {"(values->list (repl-parse\n"
      "  (string->parsectx \"{#!scheme 1 2 3}\" (parsers))\n"
      "  'scheme))\n",
      /* must return the same as previous test */
      "(((1 2 3)) #<parser scheme>)"},
-    {"(values->list (sh-repl-parse\n"
+    {"(values->list (repl-parse\n"
      "  (string->parsectx \"{#!scheme 1 2 3}\" (parsers))\n"
      "  'shell))\n",
      /* ideally would return the same as previous test, but deciding to omit the (shell ...) wrapper

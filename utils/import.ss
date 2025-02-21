@@ -34,5 +34,5 @@
 
     (when (top-level-bound? 'sh-persistent-parameters)
       (eval '(import (schemesh shell))))
-    (when (top-level-bound? 'sh-repl)
+    (when (top-level-bound? 'repl)
       (eval '(import (schemesh repl))))))

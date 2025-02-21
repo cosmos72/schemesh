@@ -104,7 +104,7 @@
   (assert-string-list? 'builtin-exec prog-and-args)
   (assert* 'builtin-exec (string=? "exec" (car prog-and-args)))
   ;; save history before this process is replaced by exec'd command
-  (let ((lctx (sh-repl-args-linectx)))
+  (let ((lctx (repl-args-linectx)))
     (when (linectx? lctx)
       (linectx-save-history lctx)))
   ; on success, does not return: this process does not exist anymore.
