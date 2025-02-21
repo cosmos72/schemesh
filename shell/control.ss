@@ -244,7 +244,7 @@
           ((job-pid job)
             ;; either the job is a sh-cmd, or a builtin or multijob spawned in a child subprocess.
             ;; in all cases, we have a pid to wait on.
-            (resume-pid caller job wait-flags))
+            (pid-resume caller job wait-flags))
 
           ((job-resume-proc job)
             ;; we have a continuation to call for resuming the job
@@ -260,7 +260,7 @@
                   (%job-resume caller job wait-flags)))))
 
           ((and (sh-multijob? job) (eq? 'sh-pipe (multijob-kind job)))
-            (continue-multijob-pipe caller job wait-flags))
+            (mj-pipe-continue caller job wait-flags))
 
           ; else job has no pid and no continuation, cannot resume it from here
           ))

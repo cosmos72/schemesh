@@ -43,17 +43,17 @@
 
 ;; Create an "and" multijob
 (define (sh-and . children-jobs)
-  (make-multijob 'sh-and assert-is-job start-multijob-and children-jobs))
+  (make-multijob 'sh-and assert-is-job mj-and-start children-jobs))
 
 
 ;; Create an "or" multijob
 (define (sh-or . children-jobs)
-  (make-multijob 'sh-or  assert-is-job start-multijob-or children-jobs))
+  (make-multijob 'sh-or  assert-is-job mj-or-start children-jobs))
 
 
 ;; Create a "not" multijob
 (define (sh-not child-job)
-  (make-multijob 'sh-not assert-is-job start-multijob-not (list child-job)))
+  (make-multijob 'sh-not assert-is-job mj-not-start (list child-job)))
 
 
 (define (assert-is-job who job)
@@ -68,7 +68,7 @@
     (lambda (caller job) ; validate-job-proc
       (unless (job-terminator? job)
         (assert* caller (sh-job? job))))
-    start-multijob-list
+    mj-list-start
     children-jobs-with-colon-ampersand))
 
 
@@ -80,7 +80,7 @@
     (lambda (caller job) ; validate-job-proc
       (unless (job-terminator? job)
         (assert* caller (sh-job? job))))
-    start-multijob-subshell
+    mj-subshell-start
     children-jobs-with-colon-ampersand))
 
 
@@ -129,7 +129,7 @@
 ;; and called by (sh-start) to actually start the multijob.
 ;;
 ;; Does not redirect file descriptors.
-(define (start-multijob-list job options)
+(define (mj-list-start job options)
   (assert* 'sh-list (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-list (fx=? -1 (multijob-current-child-index job)))
   (call-or-spawn-procedure job options
@@ -137,7 +137,7 @@
       (job-remap-fds! job)
       (job-env/apply-lazy! job 'export)
       ; Do not yet assign a job-id.
-      (continue-multijob-list job options))))
+      (mj-list-continue job options))))
 
 
 ;; internal function stored in (job-start-proc job) by (sh-subshell) multijobs
@@ -145,11 +145,11 @@
 ;; Forks a new subshell process in background, i.e. the foreground process group is NOT set
 ;; to the process group of the newly created process.
 ;;
-;; The subshell process will execute the Scheme function (continue-multijob-list job options)
+;; The subshell process will execute the Scheme function (mj-list-continue job options)
 ;;
 ;; Options are the same as described in (sh-start).
 ;; Option '(spawn? . #t) is enabled by default, because this function always spawns a subprocess.
-(define (start-multijob-subshell job options)
+(define (mj-subshell-start job options)
   (assert* 'sh-subshell (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-subshell (fx=? -1 (multijob-current-child-index job)))
   (spawn-procedure job options
@@ -168,7 +168,7 @@
 
       ;; pretend that running a sh-subshell is equivalent to running an sh-list in a subprocess.
       ;; actually, that's quite accurate
-      (continue-multijob-list job options))))
+      (mj-list-continue job options))))
 
 
 
@@ -177,7 +177,7 @@
 ;; and called by (sh-start) to actually start the multijob.
 ;;
 ;; Does not redirect file descriptors.
-(define (start-multijob-and job options)
+(define (mj-and-start job options)
   ;; this runs in the main process, not in a subprocess.
   (assert* 'sh-and (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-and (fx=? -1 (multijob-current-child-index job)))
@@ -186,7 +186,7 @@
     (lambda (job options)
       (job-remap-fds! job)
       (job-env/apply-lazy! job 'export)
-      (continue-multijob-and job options))))
+      (mj-and-continue job options))))
 
 
 
@@ -195,7 +195,7 @@
 ;; and called by (sh-start) to actually start the multijob.
 ;;
 ;; Does not redirect file descriptors.
-(define (start-multijob-or job options)
+(define (mj-or-start job options)
   ;; this runs in the main process, not in a subprocess.
   (assert* 'sh-or (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-or (fx=? -1 (multijob-current-child-index job)))
@@ -203,16 +203,16 @@
     (lambda (job options)
       (job-remap-fds! job)
       (job-env/apply-lazy! job 'export)
-      ;; (debugf "start-multijob-or ~s empty children? = ~s" job (span-empty? (multijob-children job)))
+      ;; (debugf "mj-or-start ~s empty children? = ~s" job (span-empty? (multijob-children job)))
       ;; Do not yet assign a job-id.
-      (continue-multijob-or job options))))
+      (mj-or-continue job options))))
 
 
 ;; Internal function stored in (job-start-proc job) by (sh-not),
 ;; and called by (sh-start) to actually start the multijob.
 ;;
 ;; Does not redirect file descriptors.
-(define (start-multijob-not job options)
+(define (mj-not-start job options)
   ;; this runs in the main process, not in a subprocess.
   (assert* 'sh-not (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-not (fx=? -1 (multijob-current-child-index job)))
@@ -221,7 +221,7 @@
       (job-remap-fds! job)
       (job-env/apply-lazy! job 'export)
       ;; Do not yet assign a job-id.
-      (continue-multijob-not job options))))
+      (mj-not-continue job options))))
 
 
 
@@ -355,7 +355,7 @@
 
 ;; Run the children jobs in an "and" multijob .
 ;; Used by (sh-and), implements runtime behavior of shell syntax {foo && bar && baz}
-(define (continue-multijob-and mj options)
+(define (mj-and-continue mj options)
   (unless (job-finished? mj)
     (let* ((options  (cons '(catch? . #t) options))
            (children (multijob-children mj))
@@ -371,7 +371,7 @@
 
 ;; Run the children jobs in an "or" multijob.
 ;; Used by (sh-or), implements runtime behavior of shell syntax {foo || bar || baz}
-(define (continue-multijob-or mj options)
+(define (mj-or-continue mj options)
   (unless (job-finished? mj)
     (let* ((options  (cons '(catch? . #t) options))
            (children (multijob-children mj))
@@ -386,7 +386,7 @@
 
 ;; Run the children jobs in a "not" multijob.
 ;; Used by (sh-not), implements runtime behavior of shell syntax {! foo}
-(define (continue-multijob-not mj options)
+(define (mj-not-continue mj options)
   (unless (job-finished? mj)
     (let* ((options  (cons '(catch? . #t) options))
            (children (multijob-children mj)))
@@ -402,7 +402,7 @@
 ;; Run the children jobs in a multijob list.
 ;; Used by (sh-list), implements runtime behavior of shell syntax {foo; bar & baz}
 ;; each child job can be optionally followed by '& or ';
-(define (continue-multijob-list mj options)
+(define (mj-list-continue mj options)
   (unless (job-finished? mj)
     (let* ((options      (cons '(catch? . #t) options))
            (n            (sh-multijob-child-length mj))
@@ -413,7 +413,7 @@
           ((fx>=? i n))
         (let ((child (child-ref mj i)))
           (when (and (sh-job? child) (job-new? child))
-            ; (debugf "continue-multijob-list job=~s starting~a child=~s child-status=~s" mj (if (eq? '& (child-ref mj (fx1+ i))) " async" "") child (job-last-status child))
+            ; (debugf "mj-list-continue job=~s starting~a child=~s child-status=~s" mj (if (eq? '& (child-ref mj (fx1+ i))) " async" "") child (job-last-status child))
             (if (eq? '& (child-ref mj (fx1+ i)))
               (unless (sh-finished? (job-start 'sh-list child options))
                 (job-id-set! child))
@@ -421,5 +421,5 @@
                 (set! child-status (loop-resume-child-with-yield 'sh-list mj options i))
                 (check 'sh-list (sh-finished? child-status)))))))
 
-      ; (debugf "continue-multijob-list job=~s finished status=~s" mj child-status)
+      ; (debugf "mj-list-continue job=~s finished status=~s" mj child-status)
       (job-status-set! 'sh-list/end mj child-status))))

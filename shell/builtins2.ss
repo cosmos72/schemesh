@@ -83,7 +83,7 @@
     (let* ((args (cdr prog-and-args))
            (builtin (sh-find-builtin args)))
       (if builtin
-        (start-builtin builtin job args options)
+        (builtin-start builtin job args options)
         (write-builtin-error "builtin" "not a shell builtin" (car args))))))
 
 
@@ -93,7 +93,7 @@
 (define (builtin-command job prog-and-args options)
   (assert-string-list? 'builtin-command prog-and-args)
   (assert* 'builtin-command (string=? "command" (car prog-and-args)))
-  (spawn-cmd job (cdr prog-and-args) options)) ; returns job status
+  (cmd-spawn job (cdr prog-and-args) options)) ; returns job status
 
 
 ;; the "exec" builtin: replace the current process with specified command.
@@ -217,7 +217,7 @@
     (let* ((args    (cdr prog-and-args))
            (builtin (sh-find-builtin args)))
       (if builtin
-        (start-builtin builtin job args
+        (builtin-start builtin job args
             (cons '(parent-job . #t) options)) ; options will be processed again
         (write-builtin-error "global" "not a shell builtin" (car args))))))
 
@@ -254,7 +254,7 @@
            (old-parent (job-parent job))
            (new-parent (or (and old-parent (job-parent old-parent)) #t)))
       (if builtin
-        (start-builtin builtin job args
+        (builtin-start builtin job args
             (cons (cons 'parent-job new-parent) options)) ; options will be processed again
         (write-builtin-error "parent" "not a shell builtin" (car args))))))
 
@@ -382,17 +382,17 @@
 ;;   thus the returned status can be '(running ...)
 ;; otherwise the builtin will be executed synchronously in the caller's process
 ;;   and the returned status can only be one of (void) '(ok ...) '(failed ...) '(killed ...) or '(exception ...)
-(define (start-builtin builtin c args options)
+(define (builtin-start builtin c args options)
   (if (job-fds-to-remap c)
     ;; fd remapping already performed, proceed
-    (%start-builtin-already-redirected builtin c args options)
+    (%builtin-start-already-redirected builtin c args options)
     ;; perform fd remapping, then start the builtin
     (begin
       (job-remap-fds! c)
       (parameterize ((sh-fd-stdin  (job-find-fd-remap c 0))
                      (sh-fd-stdout (job-find-fd-remap c 1))
                      (sh-fd-stderr (job-find-fd-remap c 2)))
-        (%start-builtin-already-redirected builtin c args options)))))
+        (%builtin-start-already-redirected builtin c args options)))))
 
 
 ;; filled at the end of job.ss
@@ -401,16 +401,16 @@
     (lambda () ht)))
 
 
-;; internal function called by (start-builtin) to execute a builtin.
+;; internal function called by (builtin-start) to execute a builtin.
 ;; returns job status.
-(define (%start-builtin-already-redirected builtin job args options)
+(define (%builtin-start-already-redirected builtin job args options)
   (call-or-spawn-procedure job options
     (lambda (job options)
       ;; execute the builtin
-      ;c (debugf "start-builtin options=~s args=~s job=~a" options args (sh-job->string job))
-      (job-status-set! 'start-builtin job
+      ;c (debugf "builtin-start options=~s args=~s job=~a" options args (sh-job->string job))
+      (job-status-set! 'builtin-start job
         (let ((status  (builtin job args options)))
-          ;c (debugf "< start-builtin options=~s args=~s job=~a status=~s" options args (sh-job->string job) status)
+          ;c (debugf "< builtin-start options=~s args=~s job=~a status=~s" options args (sh-job->string job) status)
           (if (or (sh-finished? status) (options->spawn? options)
                   (not (hashtable-ref (builtins-that-finish-immediately) builtin #f)))
             status
@@ -418,7 +418,7 @@
 
 
 
-;; always returns (void). Useful for (start-builtin)
+;; always returns (void). Useful for (builtin-start)
 (define (%warn-bad-builtin-exit-status builtin args status)
   (format (console-error-port)
     "; warning: invalid exit status ~s of builtin ~s called with arguments ~s\n"
