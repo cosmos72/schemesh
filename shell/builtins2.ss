@@ -109,7 +109,7 @@
       (linectx-save-history lctx)))
   ; on success, does not return: this process does not exist anymore.
   ; on failure, returns job status
-  (exec-cmd job (list->argv (cdr prog-and-args)) options))
+  (cmd-exec job (list->argv (cdr prog-and-args)) options))
 
 
 ;; the "exit" builtin: call current exit-handler, optionally with specified exit status.

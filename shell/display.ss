@@ -41,10 +41,11 @@
   (void))
 
 
-;; add a job to an internal queue, and return (void)
+;; add a job to an internal queue of jobs that should be displayed because they changed status,
+;; and return (void)
 ;;
-;; if called without arguments, return all queued jobs as a list
-;; then clears the internal queue.
+;; if called without arguments, return all previously queued jobs as a list
+;; then clear the internal queue.
 (define queue-job-display-summary
   (let ((queue '()))
     (case-lambda

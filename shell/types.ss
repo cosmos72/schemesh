@@ -31,7 +31,7 @@
                     ; receives as argument job followed by options,
                     ; must start the job, yield or suspend every time it needs to wait,
                     ; and set the job status when it's finished.
-    (mutable resume-flags) ; resume-flags enum set to use when calling (job-resume) on a child
+    (mutable resume-flags) ; sh-resume-flags enum set to use when calling (job-resume) on a child
     (mutable resume-proc)  ; #f or continuation to resume job
     (mutable yield-proc)   ; #f or continuation to suspend job and return to whoever started/resumed it
     (mutable cwd %job-cwd %job-cwd-set!) ; charspan: working directory. if #f, use parent's cwd
@@ -181,7 +181,7 @@
       (span-copy redirects (job-redirects-temp-n j) (span-length redirects)))
     0 #f                 ; redirects-temp-n fds-to-remap
     (job-start-proc j)
-    (resume-flags)       ; resume-flags
+    (sh-resume-flags)
     #f #f                ; resume-proc yield-proc
     (let ((cwd (%job-cwd j)))
       (and cwd (charspan-copy cwd)))
@@ -211,7 +211,7 @@
         (span-copy redirects (job-redirects-temp-n j) (span-length redirects)))
       0 #f                 ; redirects-temp-n fds-to-remap
       (job-start-proc j)
-      (resume-flags)       ; resume-flags
+      (sh-resume-flags)
       #f #f                ; resume-proc yield-proc
       (let ((cwd (%job-cwd j)))
         (and cwd (charspan-copy cwd)))

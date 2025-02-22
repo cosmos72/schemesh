@@ -16,7 +16,7 @@
     '(new) #f       ; last-status exception
     (span) 0 #f     ; redirections
     cmd-start       ; start-proc
-    (resume-flags)  ; resume-flags
+    (sh-resume-flags)
     #f #f           ; resume-proc yield-proc
     #f #f           ; working directory, old working directory - initially inherited from parent job
     #f              ; overridden environment variables - initially none
@@ -195,7 +195,11 @@
 
 
 ;; internal function called by (cmd-start) to spawn a subprocess.
-;; returns job status.
+;; On errors spawning the subprocess, raises an exception.
+;; On success, non-locally jumps to whoever requested this cmd start, by calling (job-yield) or (job-suspend).
+;;
+;; This function is then non-locally re-entered each time cmd is resumed:
+;; if cmd has finished, normally returns job status.
 (define cmd-spawn
   (let ((c-cmd-spawn (foreign-procedure "c_cmd_spawn" (ptr ptr ptr ptr int) int)))
     (lambda (c prog-and-args options)
@@ -214,22 +218,48 @@
           (raise-c-errno 'sh-start 'fork ret))
         (job-pid-set! c ret)
         (job-pgid-set! c process-group-id)
-        (job-status-set-running! 'cmd-spawn c)))))
+        (job-status-set-running! 'cmd-spawn c)
+        (loop-resume-cmd-with-yield c options)))))
+
+
+;; Wait for job's pid to exit or stop, calling (job-yield) or (job-suspend) each time it needs to wait.
+;; Returns updated job status.
+(define (loop-resume-cmd-with-yield c options)
+  ;; (debugf ">   loop-resume-cmd-with-yield cmd=~a" (sh-job->string cmd))
+  (let ((caller 'loop-resume-cmd-with-yield))
+    (let %loop ((status (job-last-status c)))
+      ;; (debugf "... loop-resume-cmd-with-yield cmd=~a status=~s" (sh-job->string cmd) status)
+      (case (sh-status->kind status)
+        ((running)
+          ;; (debugf "... loop-resume-cmd-with-yield cmd=~a --- calling yield" (sh-job->string cmd))
+          (job-yield c)
+          ;; (debugf "... loop-resume-cmd-with-yield cmd=~a --- yield returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string cmd) (enum-set->list (job-resume-flags c)))
+          (%loop (job-resume caller c (job-resume-flags c))))
+        ((stopped)
+          ;; (debugf "... loop-resume-cmd-with-yield cmd=~a --- calling suspend" (sh-job->string cmd))
+          (job-suspend c)
+          ;; (debugf "... loop-resume-cmd-with-yield cmd=~a --- suspend returned,\n\t\tcalling resume on cmd, wait-flags=~s" (sh-job->string cmd) (enum-set->list (job-resume-flags c)))
+          (%loop (job-resume caller c (job-resume-flags c))))
+        (else
+          ;; (debugf "<   loop-resume-cmd-with-yield cmd=~a status=~s" (sh-job->string cmd) status)
+          status)))))
+
+
 
 
 ;; internal function called by (builtin-exec) to exec a subprocess.
 ;; if C exec() fails, returns job status.
-(define exec-cmd
-  (let ((c-exec-cmd (foreign-procedure "c_cmd_exec" (ptr ptr ptr ptr) int)))
+(define cmd-exec
+  (let ((c-cmd-exec (foreign-procedure "c_cmd_exec" (ptr ptr ptr ptr) int)))
     (lambda (c argv options)
       (let* ((_       (options->set-temp-parent! c options))
              (job-dir (job-cwd-if-set c))
-             (ret (c-exec-cmd
+             (ret (c-cmd-exec
                     argv
                     (if job-dir (text->bytevector0 job-dir) #f)
                     (job-make-c-redirect-vector c)
                     (sh-env->argv c 'export))))
-        ; (c-exec-cmd) returns only if it failed
+        ; (c-cmd-exec) returns only if it failed
         (list 'failed (if (and (integer? ret) (not (zero? ret))) ret -1))))))
 
 
@@ -344,7 +374,7 @@
       ;; hygienic macros sure are handy :)
       (let* ((new-pgid  new-pgid)
              (our-pgid  (and new-pgid
-                          (resume-flag-foreground? wait-flags)
+                          (sh-resume-flag-foreground-pgid? wait-flags)
                           (sh-job-control?)
                           (job-pgid (sh-globals))))
              (func (lambda () body1 body2 ...)))
@@ -377,7 +407,6 @@
           (pid-resume/maybe-wait    caller job wait-flags pid pgid))))))
 
 
-
 ;; Internal function called by (pid-resume) and by (mj-pipe-continue).
 ;; If wait-flags contains 'resume-if-stopped then send SIGCONT to pgid (preferred) or to pid.
 ;;
@@ -389,7 +418,7 @@
 ;; Returns unspecified value.
 (define (pid-resume/maybe-sigcont caller job wait-flags pid pgid)
   ;; (debugf "pid-resume/maybe-sigcont wait-flags=~s job=~a pid=~s pgid=~s" wait-flags (sh-job->string job) pid pgid)
-  (when (and (resume-flag-resume-if-stopped? wait-flags) (or pid pgid))
+  (when (and (sh-resume-flag-resume-if-stopped? wait-flags) (or pid pgid))
     (when pid
       (assert* caller (integer? pid))
       (assert* caller (> pid 0)))
@@ -399,113 +428,86 @@
 
     ;; if both pid and pgid are set, prefer pgid
     (when (eqv? 0 (pid-kill (if (and pgid (> pgid 0)) (- pgid) pid) 'sigcont))
+       ;; SIGCONT signal sent successfully, assume job is now running
        (job-status-set-running! 'pid-resume/maybe-sigcont job))
     (void)))
 
 
 
-;; Internal function called by (pid-resume)
+;; Internal function called by (pid-resume), waits for some process to change status
 ;; Returns unspecified value.
 (define (pid-resume/maybe-wait caller job wait-flags pid pgid)
   ;; cannot call (sh-job-status), it would recurse back here.
-  (let* ((blocking?  (resume-flag-wait? wait-flags))
-         (old-status (job-last-status job))
-         (new-status (if (sh-finished? old-status)
-                       old-status
-                       (job-pids-wait job
-                         (if blocking? 'blocking 'nonblocking)
-                         queue-job-display-summary))))
-    ;; (debugf "pid-resume/maybe-wait old-status=~s new-status=~s pid=~s job=~a" old-status new-status (job-pid job) (sh-job->string job))
-    ;; (sleep (make-time 'time-duration 0 1))
+  (unless (job-finished? job)
 
-    ;; if blocking? is #f, new-status may be '(running)
-    ;; indicating job status did not change i.e. it's (expected to be) still running
-    (case (sh-status->kind new-status)
-      ((running)
-        ; if new-status is '(running), try to return '(running job-id)
-        (let ((new-status2 (job-status-set-running! 'pid-resume/maybe-wait job)))
-           (if blocking?
-             ;; if wait-flags tell to wait until job stops or finishes, then wait again for pid
-             (pid-resume/maybe-wait caller job wait-flags pid pgid)
-             ;; otherwise return job status
-             new-status2)))
-      ((ok exception failed killed)
-        ; job finished, clean it up. Also allows user to later start it again.
-        (pid->job-delete! (job-pid job))
-        (job-status-set! 'pid-resume/maybe-wait job new-status)
-        (job-id-unset! job)
-        (job-pid-set!  job #f)
-        (job-pgid-set! job #f))
+    (job-pids-wait wait-flags queue-job-display-summary)
+
+    (case (job-last-status->kind job)
+      ((new)
+        (raise-errorf caller "job not started yet: ~s" job))
       ((stopped)
-        ; process is stopped.
-        ; if wait-flags tell to wait until job finishes,
-        ;   call (break) then wait for it again (which blocks until it changes status again)
-        ; otherwise propagate process status and return.
-        (if (resume-flag-wait-until-finished? wait-flags)
-          (begin
-            (pid-resume/break              job            pid pgid)
-            (pid-resume/maybe-wait  caller job wait-flags pid pgid))
-          (job-status-set! 'pid-resume/maybe-wait job new-status)))
-      (else
-        (raise-errorf caller "job not started yet: ~s" job)))))
+        ;; process is stopped.
+        ;; if wait-flags tell to wait until job finishes,
+        ;;   call (break) then wait for it again (which blocks until it changes status again)
+        ;; otherwise propagate process status and return.
+        (when (sh-resume-flag-wait-until-finished? wait-flags)
+          (pid-resume/break              job            pid pgid)
+          (pid-resume/maybe-wait  caller job wait-flags pid pgid))))
+
+      ;; else job may be running or finished. in both cases, return:
+      ;; if job is running, caller will decide whether to invoke us again or not
+    ))
 
 
-;; Internal function called by (pid-resume/maybe-wait):
+;; Core function in charge of waiting.
+;; Called by (sh-consume-signals) and by (pid-resume/maybe-wait).
 ;;
-;; If may-block is 'nonblocking, call C function wait4(WNOHANG) in a loop,
+;; If (sh-resume-flag-wait? wait-flags) is truish, call _once_ the C function wait4(),
+;; waiting for *some* subprocess to change status,
+;; and update the corresponding job status.
+;; Then proceed as if (sh-resume-flag-wait? wait-flags) is #f - see immediately below.
+;;
+;;
+;; If (sh-resume-flag-wait? wait-flags) is #f, call C function wait4(WNOHANG) in a loop,
 ;; as long as it tells us that *some* subprocess changed status,
 ;; and update the corresponding job status.
 ;; Return when wait4(WNOHANG) does not report any subprocess status change.
 ;;
-;; Otherwise, if may-block is 'blocking, call C function wait4() in a loop,
-;; waiting for *some* subprocess to change status,
-;; and update the corresponding job status.
-;; Return when the preferred-pid happens to change status.
+;; Also, proc-notify-status-change may be truish: in such case it must be a procedure
+;; and (proc-notify-status-change job) will be called for each job that changed status.
 ;;
-;; In all cases, if preferred-job is set, return its updated status.
-;;
-;; If proc-notify-status-change is truish, it must be a procedure
-;; and (proc-notify-status-change job)
-;; will be called for each job that changed status.
-(define (job-pids-wait preferred-job may-block proc-notify-status-change)
+;; Returns unspecified value.
+(define (job-pids-wait wait-flags proc-notify-status-change)
   ;;e (debugf ">   job-pids-wait may-block=~s preferred-job=~a" may-block (and preferred-job (sh-job->string preferred-job)))
-  (let ((done? #f))
-    (until done?
-      (let ((wait-result (pid-wait -1 may-block)))
-        (if (pair? wait-result)
-          (let* ((job        (pid->job (car wait-result)))
-                 (old-status (if job (job-last-status job) (void)))
-                 (new-status (pid-wait-result->status (cdr wait-result))))
-            ;; (debugf "... job-pids-wait wait-result=~s new-status=~s job=~a preferred-job=~a" wait-result new-status (and job (sh-job->string job)) (and preferred-job (sh-job->string preferred-job)))
-            (when job
-              (job-status-set! 'job-pids-wait job new-status)
+  (when (sh-resume-flag-wait? wait-flags)
+    (job-pids-wait-once wait-flags proc-notify-status-change))
 
-              ;;e (debugf "... job-pids-wait job=~a old-status=~s new-status=~s preferred-job=~a" (sh-job->string job) old-status new-status (and preferred-job (sh-job->string preferred-job)))
+  (while (job-pids-wait-once (sh-resume-flags) proc-notify-status-change)
+    (void)))
 
-              (if (eq? job preferred-job)
-                ;; the job we are interested in changed status => don't block again
-                (when (eq? may-block 'blocking)
-                  (set! done? #t))
 
-                ;; advance job that changed status and *all* it parents, before waiting again.
-                ;; do NOT advance preferred-job, because that's what our callers are already doing.
-                (begin
-                  (when (and proc-notify-status-change (status-changed? old-status new-status))
-                    (proc-notify-status-change job))
+;; Call _once_ the C function wait4(), passing flag WNOHANG if requested.
+;; If some suprocess changed status, update the corresponding job status and call its (job-resume-proc) if set.
+;;
+;; Return #t is some job changed its status, otherwise return #f.
+(define (job-pids-wait-once wait-flags proc-notify-status-change)
 
-                  ;; do not iterate on job's parent: calling (sh-job-status job)
-                  ;; is expected to resume it by calling its job-resume-proc
-                  ;; FIXME: it currently only resumes multijobs, because sh-cmd with a pid don't set job-resume-proc: they should
-                  (let* ((old-status (job-last-status job))
-                         (new-status (sh-job-status job)))
-                    ; (debugf "... job-pids-wait old-status=~s new-status=~s parent=~a" old-status new-status (sh-job->string parent))
-                    (when (and proc-notify-status-change (status-changed? old-status new-status))
-                      (proc-notify-status-change job)))))))
+  (let* ((may-block   (if (sh-resume-flag-wait? wait-flags) 'blocking 'nonblocking))
+         (wait-result (pid-wait -1 may-block))
+         (job         (and (pair? wait-result) (pid->job (car wait-result)))))
+    (if job
+      (let* ((old-status  (job-last-status job))
+             (new-status  (pid-wait-result->status (cdr wait-result)))
+             (changed?    (status-changed? old-status new-status)))
 
-          (set! done? #t))))) ; (pid-wait) did not report any status change => return
-  (let ((ret (if preferred-job (job-last-status preferred-job) (void))))
-    ;;e (debugf "<   job-pids-wait ret=~s preferred-job=~a" ret (and preferred-job (sh-job->string preferred-job)))
-    ret))
+        (job-status-set! 'job-pids-wait-once job new-status)
+        (when changed?
+          (when proc-notify-status-change
+            (proc-notify-status-change job))
+          (when (job-resume-proc job)
+            (job-call-resume-proc job wait-flags)))
+        changed?)
+      #f)))
 
 
 ;; Internal function called by (pid-resume/maybe-wait)

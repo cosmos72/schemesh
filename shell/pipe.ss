@@ -192,14 +192,14 @@
 
             ;; if wait-flags tell to wait until job stops or finishes, then wait for child.
             ;; otherwise return.
-            (when (resume-flag-wait? wait-flags)
+            (when (sh-resume-flag-wait? wait-flags)
                (mj-pipe-continue/maybe-wait caller mj wait-flags)))
 
           ((stopped)
             ;; a child is stopped.
             ;; if wait-flags tell to wait until job finishes, then wait for child.
             ;; otherwise set multijob status to stopped and return.
-            (if (resume-flag-wait-until-finished? wait-flags)
+            (if (sh-resume-flag-wait-until-finished? wait-flags)
                (mj-pipe-continue/maybe-wait caller mj wait-flags)
                (job-status-set! 'mj-pipe-continue/maybe-wait mj status)))
 

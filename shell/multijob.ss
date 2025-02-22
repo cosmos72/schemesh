@@ -107,7 +107,7 @@
       '(new) #f       ; last-status exception
       (span) 0 #f     ; redirections
       start-proc      ; executed to start the job
-      (resume-flags)  ; resume-flags
+      (sh-resume-flags)
       #f #f           ; resume-proc yield-proc
       #f #f           ; working directory, old working directory - initially inherited from parent job
       #f              ; overridden environment variables - initially none

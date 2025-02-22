@@ -29,7 +29,7 @@
          (void) #f                 ; last-status exception
          (span) 0 #f               ; redirections
          #f                        ; start-proc
-         (resume-flags)            ; resume-flags
+         (sh-resume-flags)
          #f #f                     ; resume-proc yield-proc
          (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) #f ; current directory, old working directory
          (make-hashtable string-hash string=?) ; env variables

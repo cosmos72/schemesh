@@ -24,8 +24,8 @@
     make-sh-cmd sh-cmd
 
     ;; control.ss
-    resume-flag resume-flags resume-flag-foreground? resume-flag-resume-if-stopped?
-    resume-flag-wait-until-finished? resume-flag-wait-until-stopped-or-finished?
+    sh-resume-flags sh-resume-flag-foreground-pgid? sh-resume-flag-resume-if-stopped?
+    sh-resume-flag-wait-until-finished? sh-resume-flag-wait-until-stopped-or-finished?
     sh-current-job-suspend sh-current-job-yield
     sh-start sh-start* sh-bg sh-fg sh-resume sh-run sh-run/i sh-run/err? sh-run/ok? sh-wait
 
@@ -82,8 +82,8 @@
     (only (chezscheme) append! break console-output-port console-error-port
                        debug-condition display-condition foreign-procedure format fx1+ fx1-
                        hashtable-cells include inspect logand logbit? make-format-condition
-                       open-fd-output-port parameterize procedure-arity-mask record-writer
-                       reverse! sort! string-copy! string-truncate! void)
+                       meta open-fd-output-port parameterize procedure-arity-mask
+                       record-writer reverse! sort! string-copy! string-truncate! void)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh conversions)
@@ -126,7 +126,6 @@
         (job-status-set-running! caller job))
       ((ok exception failed killed)
         (%job-last-status-set! job status)
-        (job-id-unset! job)
         (when (sh-cmd? job)
           ; unset expanded arg-list, because next expansion may differ
           (cmd-expanded-arg-list-set! job #f))
@@ -136,6 +135,11 @@
         (job-temp-parent-set!  job #f) ; remove temporary parent job
         (job-resume-proc-set!  job #f)
         (job-yield-proc-set! job #f)
+        (job-id-unset! job)
+        (job-pgid-set! job #f)
+        (when (job-pid job)
+          (pid->job-delete! (job-pid job))
+          (job-pid-set! job #f))
         status)
       (else
         (%job-last-status-set! job status)))))
@@ -349,7 +353,7 @@
         (list-iterate (list-remove-consecutive-duplicates! (sort! sh-job<? job-list) eq?)
           proc-notify-status-change)))
     (while (signal-consume-sigchld)
-      (job-pids-wait #f 'nonblocking proc-notify-status-change))))
+      (job-pids-wait (sh-resume-flags) proc-notify-status-change))))
 
 
 ;; called when starting a builtin or multijob:
