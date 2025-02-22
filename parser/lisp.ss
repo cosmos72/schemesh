@@ -159,7 +159,7 @@
                      ((lbrace) 'rbrace)
                      ((lbrack) 'rbrack)
                      (else 'rparen)))
-         (check-list-end (lambda (type)
+         (assert-list-end-type (lambda (type)
            (unless (eq? type end-type)
              (syntax-errorf ctx (caller-for flavor) "unexpected token ~a, expecting ~a"
                (lex-type->string type) (lex-type->string end-type)))))
@@ -194,7 +194,7 @@
                   (set! parser updated-parser))
                 (%merge! other-forms))))
           ((rparen rbrack rbrace)
-            (check-list-end type)
+            (assert-list-end-type type)
             (set! again? #f))
           ((dot)
             ;; parse '.' followed by last form and matching token ) or ] or },
@@ -207,7 +207,7 @@
               (set! again? #f))
             ;; then parse ')' ']' or '}'
             (let-values (((value type) (lex-lisp ctx flavor)))
-              (check-list-end type)))
+              (assert-list-end-type type)))
           (else
             ;; parse a single form and append it
             (let ((value-i (parse-lisp-impl ctx value type flavor)))

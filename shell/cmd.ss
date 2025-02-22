@@ -219,27 +219,27 @@
         (job-pid-set! c ret)
         (job-pgid-set! c process-group-id)
         (job-status-set-running! 'cmd-spawn c)
-        (loop-resume-cmd-with-yield c options)))))
+        (loop-resume-cmd-with-yield c)))))
 
 
 ;; Wait for job's pid to exit or stop, calling (job-yield) or (job-suspend) each time it needs to wait.
 ;; Returns updated job status.
-(define (loop-resume-cmd-with-yield c options)
+(define (loop-resume-cmd-with-yield c)
   ;; (debugf ">   loop-resume-cmd-with-yield cmd=~a" (sh-job->string cmd))
-  (let ((caller 'loop-resume-cmd-with-yield))
-    (let %loop ((status (job-last-status c)))
+  (let %loop ((c c))
+    (let ((status (job-last-status c)))
       ;; (debugf "... loop-resume-cmd-with-yield cmd=~a status=~s" (sh-job->string cmd) status)
       (case (sh-status->kind status)
         ((running)
           ;; (debugf "... loop-resume-cmd-with-yield cmd=~a --- calling yield" (sh-job->string cmd))
           (job-yield c)
-          ;; (debugf "... loop-resume-cmd-with-yield cmd=~a --- yield returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string cmd) (enum-set->list (job-resume-flags c)))
-          (%loop (job-resume caller c (job-resume-flags c))))
+          ;; (debugf "... loop-resume-cmd-with-yield cmd=~a --- yield returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string cmd) (job-resume-flags c))
+          (%loop c))
         ((stopped)
           ;; (debugf "... loop-resume-cmd-with-yield cmd=~a --- calling suspend" (sh-job->string cmd))
-          (job-suspend c)
-          ;; (debugf "... loop-resume-cmd-with-yield cmd=~a --- suspend returned,\n\t\tcalling resume on cmd, wait-flags=~s" (sh-job->string cmd) (enum-set->list (job-resume-flags c)))
-          (%loop (job-resume caller c (job-resume-flags c))))
+          (job-suspend c status)
+          ;; (debugf "... loop-resume-cmd-with-yield cmd=~a --- suspend returned,\n\t\tcalling resume on cmd, wait-flags=~s" (sh-job->string cmd) (job-resume-flags c))
+          (%loop c))
         (else
           ;; (debugf "<   loop-resume-cmd-with-yield cmd=~a status=~s" (sh-job->string cmd) status)
           status)))))
@@ -478,12 +478,11 @@
 ;;
 ;; Returns unspecified value.
 (define (job-pids-wait wait-flags proc-notify-status-change)
-  ;;e (debugf ">   job-pids-wait may-block=~s preferred-job=~a" may-block (and preferred-job (sh-job->string preferred-job)))
+
   (when (sh-resume-flag-wait? wait-flags)
     (job-pids-wait-once wait-flags proc-notify-status-change))
 
-  (while (job-pids-wait-once (sh-resume-flags) proc-notify-status-change)
-    (void)))
+  (while (job-pids-wait-once (sh-resume-flags) proc-notify-status-change)))
 
 
 ;; Call _once_ the C function wait4(), passing flag WNOHANG if requested.
@@ -492,22 +491,40 @@
 ;; Return #t is some job changed its status, otherwise return #f.
 (define (job-pids-wait-once wait-flags proc-notify-status-change)
 
+  ;;f (debugf ">   job-pids-wait-once wait-flags=~s" wait-flags)
+
   (let* ((may-block   (if (sh-resume-flag-wait? wait-flags) 'blocking 'nonblocking))
          (wait-result (pid-wait -1 may-block))
          (job         (and (pair? wait-result) (pid->job (car wait-result)))))
+
+    ;;f (debugf "... job-pids-wait-once wait-flags=~s wait-result=~s job=~a" wait-flags wait-result (and job (sh-job->string job)))
+
     (if job
       (let* ((old-status  (job-last-status job))
              (new-status  (pid-wait-result->status (cdr wait-result)))
              (changed?    (status-changed? old-status new-status)))
 
         (job-status-set! 'job-pids-wait-once job new-status)
+
+        ;;f (debugf "... job-pids-wait-once wait-flags=~s job status changed? ~s ~s -> ~s job=~a resume-proc=~s" wait-flags changed? old-status new-status (sh-job->string job) (job-resume-proc job))
+
         (when changed?
           (when proc-notify-status-change
             (proc-notify-status-change job))
+
+          ;; FIXME: executing {sleep 1 && command echo foo} &
+          ;;        currently never runs "echo foo"
           (when (job-resume-proc job)
-            (job-call-resume-proc job wait-flags)))
+            ;;h (debugf "job-pids-wait-once calling job-resume-proc... job=~a" (sh-job->string job))
+            (job-call-resume-proc job (sh-resume-flags))
+            ;;h (debugf "job-pids-wait-once ... job-resume-proc returned job=~a" (sh-job->string job))
+          ))
+
+        ;;f (debugf "<   job-pids-wait-once wait-flags=~s changed?=~s job=~a" wait-flags changed? (sh-job->string job))
         changed?)
-      #f)))
+      (begin
+        ;;f (debugf "<   job-pids-wait-once wait-flags=~s changed?=#f job=#f" wait-flags)
+        #f))))
 
 
 ;; Internal function called by (pid-resume/maybe-wait)

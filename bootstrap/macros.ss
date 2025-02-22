@@ -7,8 +7,9 @@
 
 (library (schemesh bootstrap macros (0 7 6))
   (export
-      assert* assert-not* catch check define-macro debugf debugf-port first-value first-value-or-void let-macro
-      raise-assert* repeat second-value while until throws? trace-call try list->values values->list -> ^)
+      assert* assert-not* catch check check-not define-macro debugf debugf-port
+      first-value first-value-or-void let-macro raise-assert* repeat second-value
+      while until throws? trace-call try list->values values->list -> ^)
 
   (import
     (rnrs)
@@ -48,14 +49,14 @@
     ((_ expr) (call-with-values (lambda () expr) (lambda args (cdr args))))))
 
 ;; port where to write debug messages with (debugf).
-;; lazily initialized to a file output port that writes to device /dev/pts/1
+;; lazily initialized to a file output port that writes to device /dev/tty
 (define debugf-port
   (let ((port #f))
     (lambda ()
       (unless port
         ; works, but leaks into child processes :(
         (set! port (open-file-output-port
-                     "/dev/pts/1"
+                     "/dev/tty"
                      (file-options no-create no-truncate)
                      (buffer-mode line)
                      (make-transcoder (utf-8-codec) (eol-style lf)
@@ -171,6 +172,23 @@
           #`(let ((texpr expr))
               (if texpr
                   (void)
+                  (warn-check-failed caller #,form texpr))))))))
+
+
+;; display a warning message if (proc arg ...) evaluates to truish
+;; requires proc to be a procedure, NOT a syntax or macro
+(define-syntax check-not
+  (lambda (stx)
+    (let ((form (format #f "(not ~s)" (caddr (syntax->datum stx)))))
+      (syntax-case stx ()
+        ((_ caller (proc args ...))
+          (with-syntax (((targs ...) (generate-pretty-temporaries #'(args ...))))
+            #`(let ((tproc proc) (targs args) ...)
+                (when (tproc targs ...)
+                  (warn-check-failed caller #,form targs ...)))))
+        ((_ caller expr)
+          #`(let ((texpr expr))
+              (when texpr
                   (warn-check-failed caller #,form texpr))))))))
 
 

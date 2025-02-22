@@ -126,15 +126,28 @@
         (job-status-set-running! caller job))
       ((ok exception failed killed)
         (%job-last-status-set! job status)
+
+        ;; before returning, we must repeatedly call (job-yield) until it returns #f
+        ;; because (job-pids-wait) may have resumed us,
+        ;; and we must give it a chance to continue
+        (while (job-yield job))
+
+        ;; close file descriptors
+        ;; only after the loop (job-yield job) above
+        (job-unmap-fds! job)
+        (job-unredirect/temp/all! job) ; remove temporary redirections
+        (job-temp-parent-set!  job #f) ; remove temporary parent job
+
+        ;; clear fields displayed by (sh-job-display-summary)
+        ;; only after the loop (job-yield job) above
         (when (sh-cmd? job)
           ; unset expanded arg-list, because next expansion may differ
           (cmd-expanded-arg-list-set! job #f))
         ; (debugf "job-status-set! caller=~s job=~s status=~s" caller job status)
-        (job-unmap-fds! job)
-        (job-unredirect/temp/all! job) ; remove temporary redirections
-        (job-temp-parent-set!  job #f) ; remove temporary parent job
-        (job-resume-proc-set!  job #f)
-        (job-yield-proc-set! job #f)
+        ;; do NOT clear resume-proc and yield-proc,
+        ;; we still need to call them for resuming the job and letting it resume its parent(s)
+        ;; (job-resume-proc-set! job #f)
+        ;; (job-yield-proc-set!  job #f)
         (job-id-unset! job)
         (job-pgid-set! job #f)
         (when (job-pid job)

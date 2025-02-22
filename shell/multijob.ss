@@ -298,6 +298,8 @@
                       ;; ignore value returned by (proc)
                       (proc job options)))
                       ;; (debugf ". [child] spawn-procedure job=~a subprocess proc returned" (sh-job->string job))
+                  ;; the yield continuation we set is no longer useful
+                  (job-yield-proc-set! job #f)
 
                   (set! status (sh-wait job)))
                 (lambda () ; run after body, even if it raised a condition
@@ -340,15 +342,15 @@
         ((running)
           ;; (debugf "... loop-resume-child-with-yield mj=~a child=~a --- calling yield" (sh-job->string mj) (sh-job->string child))
           (job-yield mj)
-          ;; (debugf "... loop-resume-child-with-yield mj=~a child=~a --- yield returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string mj) (sh-job->string child) (enum-set->list (job-resume-flags mj)))
+          ;; (debugf "... loop-resume-child-with-yield mj=~a child=~a --- yield returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string mj) (sh-job->string child) (job-resume-flags mj))
           (%loop (job-resume caller child (job-resume-flags mj))))
         ((stopped)
           ;; (debugf "... loop-resume-child-with-yield mj=~a child=~a --- calling suspend" (sh-job->string mj) (sh-job->string child))
-          (job-suspend mj)
-          ;; (debugf "... loop-resume-child-with-yield mj=~a child=~a --- suspend returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string mj) (sh-job->string child) (enum-set->list (job-resume-flags mj)))
+          (job-suspend mj status)
+          ;; (debugf "... loop-resume-child-with-yield mj=~a child=~a --- suspend returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string mj) (sh-job->string child) (job-resume-flags mj))
           (%loop (job-resume caller child (job-resume-flags mj))))
         (else
-          ;; (debugf "<   loop-resume-child-with-yield mj=~a child=~a status=~s" (sh-job->string mj) (sh-job->string child) status)
+          ;; child has finished.
           status)))))
 
 

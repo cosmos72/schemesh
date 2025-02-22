@@ -55,9 +55,9 @@
 ;; Possible returned kinds are: 'new 'running 'stopped 'ok 'exception 'failed 'killed
 (define (sh-status->kind status)
   (cond
-    ((eq? (void) status)     'ok)
-    ((status-valid? status)  (car status))
-    (else                    'failed)))
+    ((eq? (void) status) 'ok)
+    ((pair? status)      (car status))
+    (else                'failed)))
 
 
 ;; if (sh-finished? status) is #t, return the first result stored in status.
