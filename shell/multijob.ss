@@ -329,8 +329,7 @@
 
 (define (loop-resume-child-with-yield caller mj options child-i)
   (multijob-current-child-index-set! mj child-i)
-  (let ((child  (span-ref (multijob-children mj) child-i))
-        (caller (cons 'loop-resume-child-with-yield caller)))
+  (let ((child  (span-ref (multijob-children mj) child-i)))
 
     ;; (debugf ">   loop-resume-child-with-yield mj=~a child=~a" (sh-job->string mj) (sh-job->string child))
     (let %loop ((status (job-last-status child)))
