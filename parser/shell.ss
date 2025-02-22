@@ -40,7 +40,7 @@
          (%append (lambda (subword)
            (unless (and (string? subword) (fxzero? (string-length subword)))
              (set! ret (cons subword ret))))))
-    ; (debugf "> parse-shell-word equal-is-operator?=~s, lbracket-is-subshell?=~s, inside-backquote?=~s" equal-is-operator? lbracket-is-subshell? inside-backquote?)
+    ; (debugf "-> parse-shell-word equal-is-operator?=~s, lbracket-is-subshell?=~s, inside-backquote?=~s" equal-is-operator? lbracket-is-subshell? inside-backquote?)
     (while again?
       (let-values (((ch type) (peek-shell-char ctx)))
         ; (debugf "... parse-shell-word ch=~s, type=~s, ret=~s" ch type ret)
@@ -99,7 +99,7 @@
               (else
                 (set! again? #f)))))))
 
-    ; (debugf "< parse-shell-word ret=~s" (reverse ret))
+    ; (debugf "<- parse-shell-word ret=~s" (reverse ret))
     (cond
       (splice?            (values (reverse! ret) 'splice))
       ((null? ret)        (values ""             'atom))
@@ -248,7 +248,7 @@
                (let ((merged (if (null? forms) simplified (append! simplified forms))))
                  ; (debugf "... parse-shell-forms < %merge ret=~s" merged)
                  merged))))))
-    ; (debugf ">   parse-shell-forms end-type=~s prefix=~s" end-type prefix)
+    ; (debugf "->   parse-shell-forms end-type=~s prefix=~s" end-type prefix)
     (until done?
       (let-values (((value type) (lex-shell ctx equal-is-operator? lbracket-is-subshell? #t inside-backquote?)))
         ; (debugf "... parse-shell-forms end-type=~s prefix=~s ret=~s value=~s type=~s" end-type prefix (if prefix (reverse ret) ret) value type)
@@ -337,7 +337,7 @@
 
     ; (debugf "... parse-shell-forms end-type=~s prefix=~s ret=~s" end-type prefix (if prefix (reverse ret) ret))
     (let ((simplified (%simplify-parse-shell-forms end-type prefix ret)))
-      ; (debugf "<   parse-shell-forms ret=~s" simplified)
+      ; (debugf "<-  parse-shell-forms ret=~s" simplified)
       (values simplified parser))))
 
 
@@ -436,7 +436,7 @@
                                 (else (or start-ch #t))))
          (ret    #f))
 
-    ; (debugf ">   parse-shell-paren start-ch=~a end-ch=~a" start-ch end-ch)
+    ; (debugf "->   parse-shell-paren start-ch=~a end-ch=~a" start-ch end-ch)
     (let-values (((x y) (parsectx-previous-pos ctx (if start-ch 1 0))))
       (paren-start-xy-set! paren x y))
     (until ret

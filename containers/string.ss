@@ -352,7 +352,7 @@
 
 (define (string-range<? left  left-start  left-end
                         right right-start right-end)
-   ; (debugf "> string-range<? left=~s, left-start=~s, left-end=~s, right=~s, right-start=~s, right-end=~s"
+   ; (debugf "-> string-range<? left=~s, left-start=~s, left-end=~s, right=~s, right-start=~s, right-end=~s"
    ;         left left-start left-end right right-start right-end)
    (let ((done? #f)
          (ret   #f))
@@ -375,7 +375,7 @@
                   (set! done? #t))
                 ((char>? ch1 ch2)
                   (set! done? #t)))))))
-     ; (debugf "< string-range<? ret=~s" ret)
+     ; (debugf "<- string-range<? ret=~s" ret)
      ret))
 
 

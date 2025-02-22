@@ -147,13 +147,13 @@
   (let ((lines (charlines))
         (flag  #f))
     (until flag
-      ; (debugf ">   charline-load-from-port start=~s end=~s" start end)
+      ; (debugf "->   charline-load-from-port start=~s end=~s" start end)
       ; (sleep (make-time 'time-duration 0 1))
       (let-values (((line next-start next-end next-flag) (charline-load-from-port port bv start end)))
         (set! start next-start)
         (set! end next-end)
         (set! flag next-flag)
-        ; (debugf "<   charline-load-from-port line=~s start=~s end=~s flag=~s" line start end flag)
+        ; (debugf "<-  charline-load-from-port line=~s start=~s end=~s flag=~s" line start end flag)
         (when line
           (charlines-insert-at/cline! lines (charlines-length lines) line))))
     (values

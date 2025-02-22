@@ -285,7 +285,7 @@
 ;; Always returns (void)
 (define (job-env-copy-into-parent! job)
   (let ((parent (job-parent job)))
-    ;; (debugf ">  job-env-copy-into-parent! job=~s parent=~s" job parent)
+    ;; (debugf "->  job-env-copy-into-parent! job=~s parent=~s" job parent)
     (when parent
       (sh-env-iterate/direct job
         (lambda (name val visibility)
@@ -294,5 +294,5 @@
             (sh-env-delete! parent name)
             (let-values (((parent-val parent-visibility) (sh-env-visibility-ref parent name)))
               (sh-env-set*! parent name val (or parent-visibility visibility))))))))
-    ;; (debugf "<  job-env-copy-into-parent!")
+    ;; (debugf "<- job-env-copy-into-parent!")
   (void))

@@ -65,7 +65,7 @@
                (syntax-violation 'sh-parse-datum "syntax error, shell DSL form should start with 'shell or 'shell-subshell, found:"
                  saved-args arg0)))))
     (validate-datum args)
-    ; (debugf ">   sh-parse-datum args = ~s" saved-args)
+    ; (debugf "->   sh-parse-datum args = ~s" saved-args)
     (until (null? args)
       (let-values (((parsed tail) (parse-or args)))
         (unless (null? parsed)
@@ -92,7 +92,7 @@
               (else
                 (syntax-violation 'sh-parse-datum "syntax error, unknown shell DSL operator:"
                   saved-args arg)))))))
-    ; (debugf "<   sh-parse-datum ret = ~s, args = ~s, job-n = ~s, redirections? = ~s, terminators? = ~s" (reverse ret) args job-n redirections? terminators?)
+    ; (debugf "<-  sh-parse-datum ret = ~s, args = ~s, job-n = ~s, redirections? = ~s, terminators? = ~s" (reverse ret) args job-n redirections? terminators?)
     (when (and redirections? (eq? 'sh-list ret-prefix))
       (if (and (fx=? job-n 1) (not terminators?))
         (set! ret-prefix 'sh-redirect!)

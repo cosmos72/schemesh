@@ -128,9 +128,13 @@
         (%job-last-status-set! job status)
 
         ;; before returning, we must repeatedly call (job-yield) until it returns #f
-        ;; because (job-pids-wait) may have resumed us,
+        ;; because (job-pids-wait) or some other function may have resumed us,
         ;; and we must give it a chance to continue
-        (while (job-yield job))
+        ;(while (job-yield job (list 'job-status-set! kind)))
+
+        ;; needed?
+        ;(while (job-resume-proc job)
+        ;  (job-resume 'job-status-set! job (sh-resume-flags)))
 
         ;; close file descriptors
         ;; only after the loop (job-yield job) above

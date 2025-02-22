@@ -174,7 +174,7 @@
                (set! ret (append! (if reverse? (reverse! ret) ret) (list forms)))))
            ; (debugf "... parse-lisp-forms < %merge! ret=~s" ret)
            (set! reverse? #f))))
-    ; (debugf ">   parse-lisp-forms end-type=~s" end-type)
+    ; (debugf "->   parse-lisp-forms end-type=~s" end-type)
     (while again?
       (let-values (((value type) (lex-lisp ctx flavor)))
         ; (debugf "... parse-lisp-forms ret=~s value=~s type=~s end-type=~s" (if reverse? (reverse ret) ret) value type end-type)
@@ -212,7 +212,7 @@
             ;; parse a single form and append it
             (let ((value-i (parse-lisp-impl ctx value type flavor)))
               (set! ret (cons value-i ret)))))))
-    ; (debugf "<   parse-lisp-forms ret=~s" (if reverse? (reverse ret) ret))
+    ; (debugf "<-  parse-lisp-forms ret=~s" (if reverse? (reverse ret) ret))
     (values
       (if reverse? (reverse! ret) ret)
       parser)))
@@ -362,7 +362,7 @@
                                 (else (or start-ch #t))))
          (ret    #f))
 
-    ; (debugf ">   parse-lisp-paren start-ch=~a" start-ch)
+    ; (debugf "->   parse-lisp-paren start-ch=~a" start-ch)
     (let-values (((x y) (parsectx-previous-pos ctx (if start-ch 1 0))))
       (paren-start-xy-set! paren x y))
     (until ret

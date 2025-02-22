@@ -106,8 +106,8 @@
 
 ;; Display a warning message describing a failed check evaluating a form.
 ;; Message format is hardcoded.
-(define (warn-check-failedf who format-string . format-args)
-  (apply format (current-error-port) format-string "; warning: failed check " format-args))
+(define (warn-check-failedf format-string . format-args)
+  (apply format (current-error-port) format-string format-args))
 
 
 ;; Display a warning message describing a failed check evaluating a form.
@@ -115,19 +115,19 @@
 ;; * form - a string containing source code of the failed check
 ;; * form-values - values of each subform in the failed check
 (define (warn-check-failed0 who form)
-  (warn-check-failedf who "~a~a\n" form))
+  (warn-check-failedf "; warning in ~a: ~a ~a\n" who form))
 (define (warn-check-failed1 who form arg1)
-  (warn-check-failedf who "~a~a with argument ~s\n" form arg1))
+  (warn-check-failedf "; warning in ~a: failed check ~a with argument ~s\n" who form arg1))
 (define (warn-check-failed2 who form arg1 arg2)
-  (warn-check-failedf who "~a~a with arguments ~s ~s\n" form arg1 arg2))
+  (warn-check-failedf "; warning in ~a: failed check ~a with arguments ~s ~s\n" who form arg1 arg2))
 (define (warn-check-failed3 who form arg1 arg2 arg3)
-  (warn-check-failedf who "~a~a with arguments ~s ~s ~s\n" form arg1 arg2 arg3))
+  (warn-check-failedf "; warning in ~a: failed check ~a with arguments ~s ~s ~s\n" who form arg1 arg2 arg3))
 (define (warn-check-failed4 who form arg1 arg2 arg3 arg4)
-  (warn-check-failedf who "~a~a with arguments ~s ~s ~s ~s\n" form arg1 arg2 arg3 arg4))
+  (warn-check-failedf "; warning in ~a: failed check ~a with arguments ~s ~s ~s ~s\n" who form arg1 arg2 arg3 arg4))
 (define (warn-check-failed5 who form arg1 arg2 arg3 arg4 arg5)
-  (warn-check-failedf who "~a~a with arguments ~s ~s ~s ~s ~s\n" form arg1 arg2 arg3 arg4 arg5))
+  (warn-check-failedf "; warning in ~a: failed check ~a with arguments ~s ~s ~s ~s ~s\n" who form arg1 arg2 arg3 arg4 arg5))
 (define (warn-check-failedl who form args)
-  (warn-check-failedf who "~a~a with arguments ~s\n" form args))
+  (warn-check-failedf "; warning in ~a: failed check ~a with arguments ~s\n" who form args))
 
 
   ;; portable reimplementation of Chez Scheme (make-parameter)

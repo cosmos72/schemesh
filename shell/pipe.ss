@@ -162,7 +162,7 @@
 ;;
 ;; returns unspecified value.
 (define (mj-pipe-continue/maybe-wait caller mj wait-flags)
-  ; (debugf ">   mj-pipe-continue/maybe-wait wait-flags=~s mj=~s" mj wait-flags)
+  ; (debugf "->   mj-pipe-continue/maybe-wait wait-flags=~s mj=~s" mj wait-flags)
   (let* ((children  (multijob-children mj))
          (n         (span-length children)))
 

@@ -278,7 +278,7 @@
 ;; 2. number of matched string characters
 (define (%pattern-match/right1 sp sp-start sp-end str str-start str-end)
   (let ((key (%pattern-at sp (fx1- sp-end))))
-    ; (debugf ">   %pattern-match/right1 sp=~s sp-start=~s sp-end=~s key=~s" sp sp-start sp-end key)
+    ; (debugf "->   %pattern-match/right1 sp=~s sp-start=~s sp-end=~s key=~s" sp sp-start sp-end key)
     ; (debugf "... %pattern-match/right1 str=~s str-start=~s str-end=~s" str str-start str-end)
     (cond
       ((string? key)
