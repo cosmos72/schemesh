@@ -34,7 +34,7 @@
 
 ;; Internal functions called by (sh-start)
 (define (job-start caller job options)
-  ;b (debugf "job-start ~a ~s" (sh-job->string job) options)
+;;e (debugf "job-start caller=~s job=~a options=~s status=~s" caller (sh-job->string job) options (job-last-status job))
   (options-validate caller options)
   (job-raise-if-started/recursive caller job)
   (call/cc
@@ -84,7 +84,8 @@
           (raise-errorf caller "cannot start job ~s, bad or missing job-start-proc: ~s" job start-proc))
         (job-oid-set! job #f)
         (job-exception-set! job #f)
-        (job-status-set-new/recursive! job)
+        (unless (job-new? job)
+          (job-status-set-new/recursive! job))
         (job-status-set-running! 'job-start/may-throw job)
         (job-yield-proc-set! job yield)
         (parameterize ((sh-current-job job))
@@ -123,6 +124,7 @@
 ;; if there was no job to suspend, immediately return #f to the caller of (job-suspend)
 (define (job-suspend job)
   (let ((yield-proc (and (sh-job? job) (job-yield-proc job))))
+  ;;e (debugf "> job-suspend job=~a yield-proc=~s" (sh-job->string job) yield-proc)
     (when yield-proc
       ;; (debugf "job-suspend job=~a" (sh-job->string job))
       (call/cc
@@ -134,6 +136,7 @@
           (%job-last-status-set! job '(stopped sigtstp))
           ;; suspend job, i.e. call its yield-proc
           (yield-proc (void)))))
+  ;;e (debugf "< job-suspend job=~a status=~s" (sh-job->string job) (job-last-status job))
     (if yield-proc #t #f))) ; ignore value returned by continuations (yield-proc) and (cont)
 
 
@@ -144,7 +147,7 @@
 ;; if there was no job to yield, immediately return #f to the caller of (job-yield)
 (define (job-yield job)
   (let ((yield-proc (and (sh-job? job) (job-yield-proc job))))
-    ;; (debugf ">  job-yield job=~a yield-proc=~s" (sh-job->string job) yield-proc)
+  ;;e (debugf "> job-yield job=~a yield-proc=~s" (sh-job->string job) yield-proc)
     (when yield-proc
       (call/cc
         ;; Capture the continuation representing THIS call to (job-yield)
@@ -156,7 +159,7 @@
             (job-status-set-running! 'job-yield job))
           ;; suspend job, i.e. call its yield-proc
           (yield-proc (void)))))
-    ;; (debugf "<  job-yield job=~a status=~s" (sh-job->string job) (job-last-status job))
+  ;;e (debugf "< job-yield job=~a status=~s" (sh-job->string job) (job-last-status job))
     (if yield-proc #t #f))) ; ignore value returned by continuations (yield-proc) and (cont)
 
 
@@ -235,7 +238,7 @@
 (define (%job-resume caller job wait-flags)
   (let* ((status (job-last-status job))
          (kind   (sh-status->kind status)))
-    ;; (debugf ">  job-resume caller=~s wait-flags=~s job=~a id=~s pid=~s status=~s" caller (enum-set->list wait-flags) (sh-job->string job) (job-id job) (job-pid job) (job-last-status job))
+  ;;e (debugf "job-resume caller=~s\twait-flags=~s job=~a id=~s pid=~s status=~s resume-proc=~s" caller (enum-set->list wait-flags) (sh-job->string job) (job-id job) (job-pid job) (job-last-status job) (job-resume-proc job))
     (case kind
       ((ok exception failed killed)
         (void)) ; job finished

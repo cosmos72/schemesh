@@ -468,7 +468,7 @@
 ;; and (proc-notify-status-change job)
 ;; will be called for each job that changed status.
 (define (job-pids-wait preferred-job may-block proc-notify-status-change)
-  ;c (debugf ">   job-pids-wait may-block=~s preferred-job=~a" may-block (if preferred-job (sh-job->string preferred-job) preferred-job))
+  ;;e (debugf ">   job-pids-wait may-block=~s preferred-job=~a" may-block (and preferred-job (sh-job->string preferred-job)))
   (let ((done? #f))
     (until done?
       (let ((wait-result (pid-wait -1 may-block)))
@@ -476,11 +476,11 @@
           (let* ((job        (pid->job (car wait-result)))
                  (old-status (if job (job-last-status job) (void)))
                  (new-status (pid-wait-result->status (cdr wait-result))))
-            ;; (debugf "... job-pids-wait wait-result=~s new-status=~s job=~a preferred-job=~a" wait-result new-status (if job (sh-job->string job) #f) (if preferred-job (sh-job->string preferred-job) #f))
+            ;; (debugf "... job-pids-wait wait-result=~s new-status=~s job=~a preferred-job=~a" wait-result new-status (and job (sh-job->string job)) (and preferred-job (sh-job->string preferred-job)))
             (when job
               (job-status-set! 'job-pids-wait job new-status)
 
-              ;; (debugf "... job-pids-wait old-status new-status=~s job=~a" old-status new-status (sh-job->string job))
+              ;;e (debugf "... job-pids-wait job=~a old-status=~s new-status=~s preferred-job=~a" (sh-job->string job) old-status new-status (and preferred-job (sh-job->string preferred-job)))
 
               (if (eq? job preferred-job)
                 ;; the job we are interested in changed status => don't block again
@@ -489,27 +489,22 @@
 
                 ;; advance job that changed status and *all* it parents, before waiting again.
                 ;; do NOT advance preferred-job, because that's what our callers are already doing.
-                (let ((globals (sh-globals)))
+                (begin
                   (when (and proc-notify-status-change (status-changed? old-status new-status))
                     (proc-notify-status-change job))
 
-                  (job-default-parents-iterate (job-parent job)
-                    (lambda (parent)
-                      (if (eq? parent globals)
-                        #f
-                        ;; undiscriminately call (sh-job-status) on job's ancestors:
-                        ;; requires job-resume-proc to be robust against unexpected calls,
-                        ;; for example in a parent has already finished - may happen if some job
-                        ;; was started asynchronously by its parent.
-                        (let* ((old-status (job-last-status parent))
-                               (new-status (sh-job-status parent)))
-                          ; (debugf "... job-pids-wait old-status=~s new-status=~s parent=~a" old-status new-status (sh-job->string parent))
-                          (when (and proc-notify-status-change (status-changed? old-status new-status))
-                            (proc-notify-status-change job))))))))))
+                  ;; do not iterate on job's parent: calling (sh-job-status job)
+                  ;; is expected to resume it by calling its job-resume-proc
+                  ;; FIXME: it currently only resumes multijobs, because sh-cmd with a pid don't set job-resume-proc: they should
+                  (let* ((old-status (job-last-status job))
+                         (new-status (sh-job-status job)))
+                    ; (debugf "... job-pids-wait old-status=~s new-status=~s parent=~a" old-status new-status (sh-job->string parent))
+                    (when (and proc-notify-status-change (status-changed? old-status new-status))
+                      (proc-notify-status-change job)))))))
 
           (set! done? #t))))) ; (pid-wait) did not report any status change => return
   (let ((ret (if preferred-job (job-last-status preferred-job) (void))))
-    ;c (debugf "<   job-pids-wait ret=~s" ret)
+    ;;e (debugf "<   job-pids-wait ret=~s preferred-job=~a" ret (and preferred-job (sh-job->string preferred-job)))
     ret))
 
 
