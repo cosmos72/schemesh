@@ -440,7 +440,7 @@
   ;; cannot call (sh-job-status), it would recurse back here.
   (unless (job-finished? job)
 
-    (job-pids-wait wait-flags queue-job-display-summary)
+    (core-scheduler-wait wait-flags)
 
     (case (job-last-status->kind job)
       ((new)
@@ -459,8 +459,14 @@
     ))
 
 
+
 ;; Core function in charge of waiting.
-;; Called by (sh-consume-signals) and by (pid-resume/maybe-wait).
+;;
+;; Also executed when there's a foreground job to wait for,
+;; and no Scheme code to run immediately - not even the REPL prompt.
+;;
+;; For example, it's the default functions invoked by (job-yield) if the job has no resume continuation
+;; and
 ;;
 ;; If (sh-resume-flag-wait? wait-flags) is truish, call _once_ the C function wait4(),
 ;; waiting for *some* subprocess to change status,
@@ -477,21 +483,28 @@
 ;; and (proc-notify-status-change job) will be called for each job that changed status.
 ;;
 ;; Returns unspecified value.
-(define (job-pids-wait wait-flags proc-notify-status-change)
+(define (core-scheduler-wait wait-flags)
 
   (when (sh-resume-flag-wait? wait-flags)
-    (job-pids-wait-once wait-flags proc-notify-status-change))
+    (job-pids-wait-once wait-flags))
 
-  (while (job-pids-wait-once (sh-resume-flags) proc-notify-status-change)))
+  (while (job-pids-wait-once (sh-resume-flags))))
+
+
+(define (maybe-queue-job-display-summary job)
+  (when (or (job-id job) (job-oid job))
+    (queue-job-display-summary job)))
 
 
 ;; Call _once_ the C function wait4(), passing flag WNOHANG if requested.
 ;; If some suprocess changed status, update the corresponding job status and call its (job-resume-proc) if set.
 ;;
 ;; Return #t is some job changed its status, otherwise return #f.
-(define (job-pids-wait-once wait-flags proc-notify-status-change)
+(define (job-pids-wait-once wait-flags)
 
   ;;x (debugf "->  job-pids-wait-once wait-flags=~s" wait-flags)
+
+  (signal-consume-sigchld)
 
   (let* ((may-block   (if (sh-resume-flag-wait? wait-flags) 'blocking 'nonblocking))
          (wait-result (pid-wait -1 may-block))
@@ -509,8 +522,7 @@
         ;;x (debugf "... job-pids-wait-once job=~a\tstatus=~s -> ~s changed?=~s\twait-flags=~s\tresume-proc=~s" (sh-job->string job) old-status new-status changed? wait-flags (job-resume-proc job))
 
         (when changed?
-          (when proc-notify-status-change
-            (proc-notify-status-change job))
+          (maybe-queue-job-display-summary job)
 
           (check 'job-pids-wait (job-resume-proc job))
 

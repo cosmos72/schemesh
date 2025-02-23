@@ -7,7 +7,6 @@
 
 (begin
   (include "bootstrap/functions.ss")
-  (include "bootstrap/macros.ss")
   (include "bootstrap/bootstrap.ss")
 
   (include "containers/bitmap.ss")

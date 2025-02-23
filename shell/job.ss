@@ -358,19 +358,29 @@
 |#
 
 
+
+;; react to POSIX signals:
+;; non-blockingly detect all job pids that changed status,
+;; update them, resume their parents,
+;; and s
 (define (sh-consume-signals lctx)
-  (let ((proc-notify-status-change
-          (lambda (job)
-            (when (or (job-id job) (job-oid job))
-              (lineedit-undraw lctx 'flush)
-              (sh-job-display-summary job)
-              (job-oid-set! job #f))))) ; no longer needed, clear it
-    (let ((job-list (queue-job-display-summary)))
-      (unless (null? job-list)
-        (list-iterate (list-remove-consecutive-duplicates! (sort! sh-job<? job-list) eq?)
-          proc-notify-status-change)))
-    (while (signal-consume-sigchld)
-      (job-pids-wait (sh-resume-flags) proc-notify-status-change))))
+  (core-scheduler-wait (sh-resume-flags))
+  (display-status-changes lctx))
+
+
+(define (display-status-changes lctx)
+  (let ((job-list (queue-job-display-summary)))
+    (unless (null? job-list)
+      (lineedit-undraw lctx 'flush)
+      (list-iterate (list-remove-consecutive-duplicates! (sort! sh-job<? job-list) eq?)
+        (lambda (job)
+          (display-status-change job lctx))))))
+
+
+(define (display-status-change job lctx)
+  (when (or (job-id job) (job-oid job))
+    (sh-job-display-summary job)
+    (job-oid-set! job #f))) ; no longer needed, clear it
 
 
 ;; called when starting a builtin or multijob:
