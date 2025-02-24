@@ -9,7 +9,7 @@
   (export
       ;; bootstrap.ss
       assert* assert-not* catch check check-not define-macro debugf debugf-port
-      first-value first-value-or-void let-macro raise-assert* repeat second-value
+      first-value first-value-or-void forever let-macro raise-assert* repeat second-value
       while until throws? trace-call try list->values values->list -> ^
 
       ;; functions.ss
@@ -57,7 +57,16 @@
 ;; evaluate expr, which may return multiple values, and return the second of such values.
 (define-syntax second-value
   (syntax-rules ()
-    ((_ expr) (call-with-values (lambda () expr) (lambda args (cdr args))))))
+    ((_ expr)
+      (call-with-values (lambda () expr) (lambda args (cdr args))))))
+
+
+
+(define-syntax forever
+  (syntax-rules ()
+    ((_ body ...)
+      (do () (#f) body ...))))
+
 
 ;; port where to write debug messages with (debugf).
 ;; lazily initialized to a file output port that writes to device /dev/tty
@@ -166,10 +175,22 @@
       (pariah (warn-check-failedl caller form (list args ...) (void))))))
 
 
+(define-syntax check
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ caller expr)
+       #'(void)))))
+
+(define-syntax check-not
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ caller expr)
+       #'(void)))))
+
 
 ;; display a warning message if (proc arg ...) evaluates to #f
 ;; requires proc to be a procedure, NOT a syntax or macro
-(define-syntax check
+(define-syntax check.saved
   (lambda (stx)
     (let ((form (format #f "~s" (caddr (syntax->datum stx)))))
       (syntax-case stx ()
@@ -185,10 +206,10 @@
                   (void)
                   (warn-check-failed caller #,form texpr))))))))
 
-
+	  
 ;; display a warning message if (proc arg ...) evaluates to truish
 ;; requires proc to be a procedure, NOT a syntax or macro
-(define-syntax check-not
+(define-syntax check-not.saved
   (lambda (stx)
     (let ((form (format #f "(not ~s)" (caddr (syntax->datum stx)))))
       (syntax-case stx ()

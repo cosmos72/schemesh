@@ -143,7 +143,7 @@
     out-pipe-fd/read))
 
 
-;; Internal function called by (job-resume) called by (sh-resume) (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
+;; Internal function called by (job-resume) called by (sh-wait) (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 ;; for waiting on children jobs of a sh-pipe.
 ;;
 ;; returns unspecified value.
@@ -157,7 +157,7 @@
 
 
 
-;; Internal function called by (job-resume) called by (sh-resume) (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
+;; Internal function called by (job-resume) called by (sh-wait) (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 ;; for waiting on children jobs of a sh-pipe.
 ;;
 ;; returns unspecified value.
@@ -166,7 +166,7 @@
   (let* ((children  (multijob-children mj))
          (n         (span-length children)))
 
-    ; call (sh-resume wait-flags ...) on each child job,
+    ; call (sh-wait wait-flags ...) on each child job,
     ; skipping the ones that already finished.
     (let %again ((i (multijob-current-child-index mj)))
       (let ((job (sh-multijob-child-ref mj i)))
@@ -177,7 +177,7 @@
             (%again (fx1+ i)))
           (else
             (multijob-current-child-index-set! mj i)
-            (when (sh-finished? (sh-resume job wait-flags))
+            (when (sh-finished? (sh-wait job wait-flags))
               (%again (fx1+ i)))))))
 
 
@@ -192,14 +192,14 @@
 
             ;; if wait-flags tell to wait until job stops or finishes, then wait for child.
             ;; otherwise return.
-            (when (sh-resume-flag-wait? wait-flags)
+            (when (sh-wait-flag-wait? wait-flags)
                (mj-pipe-continue/maybe-wait caller mj wait-flags)))
 
           ((stopped)
             ;; a child is stopped.
             ;; if wait-flags tell to wait until job finishes, then wait for child.
             ;; otherwise set multijob status to stopped and return.
-            (if (sh-resume-flag-wait-until-finished? wait-flags)
+            (if (sh-wait-flag-wait-until-finished? wait-flags)
                (mj-pipe-continue/maybe-wait caller mj wait-flags)
                (job-status-set! 'mj-pipe-continue/maybe-wait mj status)))
 

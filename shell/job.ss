@@ -24,10 +24,10 @@
     make-sh-cmd sh-cmd
 
     ;; control.ss
-    sh-resume-flags sh-resume-flag-foreground-pgid? sh-resume-flag-resume-if-stopped?
-    sh-resume-flag-wait-until-finished? sh-resume-flag-wait-until-stopped-or-finished?
+    sh-wait-flags sh-wait-flag-foreground-pgid? sh-wait-flag-resume-if-stopped?
+    sh-wait-flag-wait-until-finished? sh-wait-flag-wait-until-stopped-or-finished?
     sh-current-job-suspend sh-current-job-yield
-    sh-start sh-start* sh-bg sh-fg sh-resume sh-run sh-run/i sh-run/err? sh-run/ok? sh-wait
+    sh-start sh-start* sh-bg sh-fg sh-wait sh-run sh-run/i sh-run/err? sh-run/ok? sh-wait
 
     ;; dir.ss
     sh-cd sh-cd- sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
@@ -127,14 +127,9 @@
       ((ok exception failed killed)
         (%job-last-status-set! job status)
 
-        ;; before returning, we must repeatedly call (job-yield) until it returns #f
-        ;; because (job-pids-wait) or some other function may have resumed us,
-        ;; and we must give it a chance to continue
-        ;(while (job-yield job (list 'job-status-set! kind)))
-
         ;; needed?
         ;(while (job-resume-proc job)
-        ;  (job-resume 'job-status-set! job (sh-resume-flags)))
+        ;  (job-resume 'job-status-set! job (sh-wait-flags)))
 
         ;; close file descriptors
         ;; only after the loop (job-yield job) above
@@ -364,7 +359,7 @@
 ;; update them, resume their parents,
 ;; and s
 (define (sh-consume-signals lctx)
-  (core-scheduler-wait (sh-resume-flags))
+  (core-scheduler-wait (sh-wait-flags))
   (display-status-changes lctx))
 
 
