@@ -233,12 +233,12 @@
 	((running)
 	  ;; (debugf "... cmd-loop cmd=~a --- calling yield" (sh-job->string cmd))
           (job-yield c '(cmd-loop running))
-          ;; (debugf "... cmd-loop cmd=~a --- yield returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string cmd) (job-resume-flags c))
+          ;; (debugf "... cmd-loop cmd=~a --- yield returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string cmd) (job-wait-flags c))
 	 )
         ((stopped)
            ;; (debugf "... cmd-loop cmd=~a --- calling suspend" (sh-job->string cmd))
            (job-suspend c status)
-           ;; (debugf "... cmd-loop cmd=~a --- suspend returned,\n\t\tcalling resume on cmd, wait-flags=~s" (sh-job->string cmd) (job-resume-flags c))
+           ;; (debugf "... cmd-loop cmd=~a --- suspend returned,\n\t\tcalling resume on cmd, wait-flags=~s" (sh-job->string cmd) (job-wait-flags c))
            )
         (else
           ;; (debugf "<-  cmd-loop cmd=~a status=~s" (sh-job->string cmd) status)
@@ -389,7 +389,7 @@
           (func))))))
 
 
-;; Internal function called by (job-resume) for resuming a job with a pid or pgid.
+;; Internal function called by (job-wait) for resuming a job with a pid or pgid.
 ;;
 ;; Returns unspecified value.
 (define (pid-resume caller job wait-flags)

@@ -143,7 +143,7 @@
     out-pipe-fd/read))
 
 
-;; Internal function called by (job-resume) called by (sh-wait) (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
+;; Internal function called by (job-wait) called by (sh-wait) (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 ;; for waiting on children jobs of a sh-pipe.
 ;;
 ;; returns unspecified value.
@@ -157,7 +157,7 @@
 
 
 
-;; Internal function called by (job-resume) called by (sh-wait) (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
+;; Internal function called by (job-wait) called by (sh-wait) (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 ;; for waiting on children jobs of a sh-pipe.
 ;;
 ;; returns unspecified value.

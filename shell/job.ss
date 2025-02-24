@@ -129,7 +129,7 @@
 
         ;; needed?
         ;(while (job-resume-proc job)
-        ;  (job-resume 'job-status-set! job (sh-wait-flags)))
+        ;  (job-wait 'job-status-set! job (sh-wait-flags)))
 
         ;; close file descriptors
         ;; only after the loop (job-yield job) above

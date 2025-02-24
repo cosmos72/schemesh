@@ -345,20 +345,20 @@
         ((running)
           ;; (debugf "... mj-child-loop-with-yield mj=~a child=~a --- calling yield" (sh-job->string mj) (sh-job->string child))
           (job-yield mj (list caller 'mj-child-loop-with-yield 'running))
-          ;; (debugf "... mj-child-loop-with-yield mj=~a child=~a --- yield returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string mj) (sh-job->string child) (job-resume-flags mj))
-          (%loop (job-resume caller child (job-resume-flags mj))))
+          ;; (debugf "... mj-child-loop-with-yield mj=~a child=~a --- yield returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string mj) (sh-job->string child) (job-wait-flags mj))
+          (%loop (job-wait caller child (job-wait-flags mj))))
         ((stopped)
           ;; (debugf "... mj-child-loop-with-yield mj=~a child=~a --- calling suspend" (sh-job->string mj) (sh-job->string child))
           (job-suspend mj status)
-          ;; (debugf "... mj-child-loop-with-yield mj=~a child=~a --- suspend returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string mj) (sh-job->string child) (job-resume-flags mj))
-          (%loop (job-resume caller child (job-resume-flags mj))))
+          ;; (debugf "... mj-child-loop-with-yield mj=~a child=~a --- suspend returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string mj) (sh-job->string child) (job-wait-flags mj))
+          (%loop (job-wait caller child (job-wait-flags mj))))
         (else
           ;; child has finished. it likely still has a resume-proc, and calling it is expected
           ;; to non-locally continue to the code after its last call to (job-yield) or (job-suspend).
           ;; Such code, as for example (cmd-loop-with-yield)
           ;; should then return normally because the child has finished,
           ;; and then return to WHERE?
-          (job-resume caller child (sh-wait-flags)))))))
+          (job-wait caller child (sh-wait-flags)))))))
 
 
 ;; Run the children jobs in an "and" multijob .

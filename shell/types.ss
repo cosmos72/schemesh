@@ -31,7 +31,7 @@
                     ; receives as argument job followed by options,
                     ; must start the job, yield or suspend every time it needs to wait,
                     ; and set the job status when it's finished.
-    (mutable resume-flags) ; sh-wait-flags enum set to use when calling (job-resume) on a child
+    (mutable wait-flags)   ; sh-wait-flags to use when calling (job-wait)
     (mutable resume-proc)  ; #f or continuation to resume job
     (mutable yield-proc)   ; #f or continuation to suspend job and return to whoever started/resumed it
     (mutable cwd %job-cwd %job-cwd-set!) ; charspan: working directory. if #f, use parent's cwd

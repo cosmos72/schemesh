@@ -284,10 +284,10 @@
 (define sh-wait
   (case-lambda
     ((job-or-id)
-      (job-resume 'sh-wait job-or-id
+      (job-wait 'sh-wait job-or-id
        (sh-wait-flags foreground-pgid resume-if-stopped wait-until-finished)))
     ((job-or-id wait-flags)
-      (job-resume 'sh-wait job-or-id wait-flags))))
+      (job-wait 'sh-wait job-or-id wait-flags))))
      
 
 
@@ -296,20 +296,20 @@
 ;; Resume and optionally wait for a job.
 ;;
 ;; Returns updated job status.
-(define (job-resume caller job-or-id wait-flags)
+(define (job-wait caller job-or-id wait-flags)
   (assert* caller (fixnum? wait-flags))
   (assert* caller (fx<=? 0 wait-flags (sh-wait-flags-all)))
   (let ((job (sh-job job-or-id)))
-    (%job-resume caller job wait-flags)
+    (%job-wait caller job wait-flags)
     (job-id-update! job))) ; returns job status
 
 
-;; actual implementation of (job-resume)
+;; actual implementation of (job-wait)
 ;; returns unspecified value.
-(define (%job-resume caller job wait-flags)
+(define (%job-wait caller job wait-flags)
   (let* ((status (job-last-status job))
          (kind   (sh-status->kind status)))
-    ;;x (debugf "-> job-resume\tjob=~a\tstatus=~s\tcaller=~s\twait-flags=~s id=~s pid=~s resume-proc=~s" (sh-job->string job) (job-last-status job) caller wait-flags (job-id job) (job-pid job) (job-resume-proc job))
+    ;;x (debugf "-> job-wait\tjob=~a\tstatus=~s\tcaller=~s\twait-flags=~s id=~s pid=~s resume-proc=~s" (sh-job->string job) (job-last-status job) caller wait-flags (job-id job) (job-pid job) (job-resume-proc job))
     (case kind
       ((ok exception failed killed)
         (void))
@@ -323,9 +323,9 @@
             ;; Note: don't call job-resume-proc, because (pid-resume) already calls it when needed
             (pid-resume caller job wait-flags)
 
-            (when (%job-resume-should-wait-again? job wait-flags)
+            (when (%job-wait-should-wait-again? job wait-flags)
               ;; caller asked to wait for job to finish (or to stop), cannot return yet: try again
-              (%job-resume caller job wait-flags)))
+              (%job-wait caller job wait-flags)))
 
           ((job-resume-proc job)
             ;; we have a continuation to call for resuming the job
@@ -335,9 +335,9 @@
 
               (job-call-resume-proc job wait-flags)
 
-              (when (%job-resume-should-wait-again? job wait-flags)
+              (when (%job-wait-should-wait-again? job wait-flags)
                 ;; caller asked to wait for job to finish (or to stop), cannot return yet: try again
-                (%job-resume caller job wait-flags))))
+                (%job-wait caller job wait-flags))))
 
           ((and (sh-multijob? job) (eq? 'sh-pipe (multijob-kind job)))
             (mj-pipe-continue caller job wait-flags))
@@ -346,13 +346,13 @@
           ))
       (else
         (raise-errorf caller "job not started yet: ~s" job))))
-  ;;x (debugf "<- job-resume\tjob=~a\tstatus=~s\tcaller=~s\twait-flags=~s id=~s pid=~s resume-proc=~s" (sh-job->string job) (job-last-status job) caller wait-flags (job-id job) (job-pid job) (job-resume-proc job))
+  ;;x (debugf "<- job-wait\tjob=~a\tstatus=~s\tcaller=~s\twait-flags=~s id=~s pid=~s resume-proc=~s" (sh-job->string job) (job-last-status job) caller wait-flags (job-id job) (job-pid job) (job-resume-proc job))
   )
 
 
-;; check job status, and return #t if (%job-resume) should wait again for job to stop of finish.
-;; Returns #f if (%job-resume) should NOT wait again.
-(define (%job-resume-should-wait-again? job wait-flags)
+;; check job status, and return #t if (%job-wait) should wait again for job to stop of finish.
+;; Returns #f if (%job-wait) should NOT wait again.
+(define (%job-wait-should-wait-again? job wait-flags)
   (let ((kind (job-last-status->kind job)))
     (or (and (eq? 'running kind) (sh-wait-flag-wait?                wait-flags))
         (and (eq? 'stopped kind) (sh-wait-flag-wait-until-finished? wait-flags)))))
@@ -367,7 +367,7 @@
     (lambda (yield)
       (let ((resume-proc (job-resume-proc job))
             (pgid (job-pgid job)))
-        (job-resume-flags-set! job wait-flags)
+        (job-wait-flags-set! job wait-flags)
         (job-resume-proc-set!  job #f)
         (check-not 'job-call-resume-proc (job-yield-proc job))
         (job-yield-proc-set!   job yield)
@@ -406,14 +406,14 @@
          (status (job-last-status job)))
     ; (debugf "->  sh-job-status job=~a" (sh-job->string job))
     (if (sh-started? status)
-      (job-resume 'sh-job-status job (sh-wait-flags))
+      (job-wait 'sh-job-status job (sh-wait-flags))
       status)))
 
 
 ;; Continue a job or job-id in background by sending SIGCONT to it, and return immediately.
 ;; Return job status. For possible job statuses, see (sh-job-status)
 (define (sh-bg job-or-id)
-   (job-resume 'sh-bg job-or-id (sh-wait-flags resume-if-stopped)))
+   (job-wait 'sh-bg job-or-id (sh-wait-flags resume-if-stopped)))
 
 
 ;; Continue a job or job-id by sending SIGCONT to it, then wait for it to exit or stop,
@@ -423,7 +423,7 @@
 ;;   upon invocation, sets the job as fg process group.
 ;;   And before returning, restores current shell as fg process group.
 (define (sh-fg job-or-id)
-  (job-resume 'sh-fg job-or-id
+  (job-wait 'sh-fg job-or-id
     (sh-wait-flags foreground-pgid resume-if-stopped wait-until-stopped-or-finished)))
 
 
