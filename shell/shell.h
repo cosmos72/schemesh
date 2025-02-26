@@ -43,9 +43,6 @@ int schemesh_load_libraries(const char* override_library_dir);
 /** import all schemesh libraries */
 void schemesh_import_all_libraries(void);
 
-/** import a reduced set of schemesh libraries */
-void schemesh_import_minimal_libraries(void);
-
 /**
  * quit Chez Scheme. calls:
  *   c_tty_quit()

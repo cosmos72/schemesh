@@ -11,8 +11,8 @@
     charhistory-load-from-path! charhistory-save-to-path
     charhistory-load-from-port! charhistory-save-to-port)
   (import
-    (except (rnrs) delete-file)
-    (only (chezscheme)                 fx1+ delete-file rename-file void)
+    (rnrs)
+    (only (chezscheme)                 fx1+ void)
     (only (schemesh bootstrap)         try catch until)
     (only (schemesh containers string) string-replace/char!)
     (only (schemesh containers utf8b)  string->utf8b utf8b-bytespan->string)
@@ -21,6 +21,7 @@
     (schemesh containers charline)
     (schemesh containers charlines)
     (only (schemesh posix pid)         pid-get)
+    (only (schemesh posix dir)         file-delete file-rename ok?)
     (schemesh lineedit charhistory))
 
 
@@ -39,7 +40,7 @@
       (let ((temp-path (string-append path "." (number->string (pid-get))))
             (remove-temp-path? #f)
             (port #f)
-            (ok? #f))
+            (success? #f))
         (dynamic-wind
           void
           (lambda ()
@@ -50,17 +51,17 @@
             (close-port port)
             (set! port #f)
             ;; atomically rename "history.txt.PID" -> "history.txt"
-            (rename-file temp-path path)
-            (set! remove-temp-path? #f)
-            (set! ok? #t))
+            (when (ok? (file-rename temp-path path 'catch))
+              (set! remove-temp-path? #f)
+              (set! success? #t)))
           (lambda ()
             (when port
               (close-port port)
               (set! port #f))
             (when remove-temp-path?
-              (delete-file temp-path #f) ; don't raise exception on errors
+              (file-delete temp-path 'catch)
               (set! remove-temp-path? #f))
-            (cont ok?)))))))
+            (cont success?)))))))
 
 
 ;; save charhistory to specified binary output port.

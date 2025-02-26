@@ -11,8 +11,8 @@
 
 (library (schemesh containers span (0 7 6))
   (export
-    list->span vector->span vector->span* make-span span->list span->vector span span?
-    span-length span-empty? span-clear! span-capacity span-capacity-front span-capacity-back
+    list->span vector->span vector->span* make-span span->list span->vector
+    span span? span-length span-empty? span-clear! span-capacity span-capacity-front span-capacity-back
     span-ref span-back span-set! span-fill! span-fill-range! span-range->span* span-copy span-copy!
     span-reserve-front! span-reserve-back! span-resize-front! span-resize-back!
     span-insert-front! span-insert-back! span-insert-front/span! span-insert-back/span!
@@ -23,7 +23,8 @@
     (rnrs)
     (only (chezscheme) break fx1+ fx1- record-writer reverse! vector-copy void)
     (only (schemesh bootstrap)         assert* assert-not*)
-    (only (schemesh containers misc)   list-iterate subvector vector-copy! vector-fill-range! vector-range->list))
+    (only (schemesh containers list)   list-iterate)
+    (only (schemesh containers misc)   subvector vector-copy! vector-fill-range! vector-range->list))
 
 (define-record-type
   (%span %make-span span?)

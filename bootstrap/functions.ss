@@ -18,7 +18,7 @@
       raise-assert4 raise-assert5 raise-assertf raise-assertl raise-errorf
 
       warn-check-failed0 warn-check-failed1 warn-check-failed2 warn-check-failed3
-      warn-check-failed4 warn-check-failed5 warn-check-failedf warn-check-failedl
+      warn-check-failed4 warn-check-failed5 warnf warn-check-failedl
 
       sh-make-parameter sh-make-thread-parameter sh-version)
   (import
@@ -104,30 +104,33 @@
           (make-irritants-condition format-args))))))
 
 
-;; Display a warning message describing a failed check evaluating a form.
-;; Message format is hardcoded.
-(define (warn-check-failedf format-string . format-args)
-  (apply format (current-error-port) format-string format-args))
+(define (warnf-port)
+  (current-error-port))
+
+;; Display a warning message to (warnf-port).
+(define (warnf format-string . format-args)
+  (apply format (warnf-port) format-string format-args))
 
 
 ;; Display a warning message describing a failed check evaluating a form.
 ;; Message format is hardcoded, caller needs to provide:
+;; * who  - a string or symbol identifying the caller. helps finding the location of the failed check.
 ;; * form - a string containing source code of the failed check
-;; * form-values - values of each subform in the failed check
+;; * arg... - values of each subform in the failed check
 (define (warn-check-failed0 who form)
-  (warn-check-failedf "; warning in ~a: ~a ~a\n" who form))
+  (warnf "; warning in ~a: failed check ~a\n" who form))
 (define (warn-check-failed1 who form arg1)
-  (warn-check-failedf "; warning in ~a: failed check ~a with argument ~s\n" who form arg1))
+  (warnf "; warning in ~a: failed check ~a with argument ~s\n" who form arg1))
 (define (warn-check-failed2 who form arg1 arg2)
-  (warn-check-failedf "; warning in ~a: failed check ~a with arguments ~s ~s\n" who form arg1 arg2))
+  (warnf "; warning in ~a: failed check ~a with arguments ~s ~s\n" who form arg1 arg2))
 (define (warn-check-failed3 who form arg1 arg2 arg3)
-  (warn-check-failedf "; warning in ~a: failed check ~a with arguments ~s ~s ~s\n" who form arg1 arg2 arg3))
+  (warnf "; warning in ~a: failed check ~a with arguments ~s ~s ~s\n" who form arg1 arg2 arg3))
 (define (warn-check-failed4 who form arg1 arg2 arg3 arg4)
-  (warn-check-failedf "; warning in ~a: failed check ~a with arguments ~s ~s ~s ~s\n" who form arg1 arg2 arg3 arg4))
+  (warnf "; warning in ~a: failed check ~a with arguments ~s ~s ~s ~s\n" who form arg1 arg2 arg3 arg4))
 (define (warn-check-failed5 who form arg1 arg2 arg3 arg4 arg5)
-  (warn-check-failedf "; warning in ~a: failed check ~a with arguments ~s ~s ~s ~s ~s\n" who form arg1 arg2 arg3 arg4 arg5))
+  (warnf "; warning in ~a: failed check ~a with arguments ~s ~s ~s ~s ~s\n" who form arg1 arg2 arg3 arg4 arg5))
 (define (warn-check-failedl who form args)
-  (warn-check-failedf "; warning in ~a: failed check ~a with arguments ~s\n" who form args))
+  (warnf "; warning in ~a: failed check ~a with arguments ~s\n" who form args))
 
 
   ;; portable reimplementation of Chez Scheme (make-parameter)
@@ -147,8 +150,8 @@
 ;; otherwise calls (sh-make-parameter) above.
 (define sh-make-thread-parameter
   (if (top-level-bound? 'make-thread-parameter)
-        (top-level-value 'make-thread-parameter)
-        sh-make-parameter))
+    (top-level-value 'make-thread-parameter)
+    sh-make-parameter))
 
 
 ;; return schemesh version

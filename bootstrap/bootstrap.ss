@@ -19,7 +19,7 @@
       raise-assert4 raise-assert5 raise-assertf raise-assertl raise-errorf
 
       warn-check-failed0 warn-check-failed1 warn-check-failed2 warn-check-failed3
-      warn-check-failed4 warn-check-failed5 warn-check-failedf warn-check-failedl
+      warn-check-failed4 warn-check-failed5 warnf warn-check-failedl
 
       sh-make-parameter sh-make-thread-parameter sh-version)
   (import
@@ -69,7 +69,10 @@
 
 
 ;; port where to write debug messages with (debugf).
-;; lazily initialized to a file output port that writes to device /dev/tty
+(define (debugf-port)
+  (current-output-port))
+
+#|
 (define debugf-port
   (let ((port #f))
     (lambda ()
@@ -82,6 +85,8 @@
                      (make-transcoder (utf-8-codec) (eol-style lf)
                                       (error-handling-mode raise)))))
       port)))
+|#
+
 
 (define c-pid-get (foreign-procedure "c_pid_get" () int))
 
@@ -206,7 +211,7 @@
                   (void)
                   (warn-check-failed caller #,form texpr))))))))
 
-	  
+
 ;; display a warning message if (proc arg ...) evaluates to truish
 ;; requires proc to be a procedure, NOT a syntax or macro
 (define-syntax check-not.saved

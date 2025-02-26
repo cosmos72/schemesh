@@ -265,7 +265,7 @@ int main(int argc, const char* argv[]) {
     goto finish;
   }
 
-  schemesh_import_minimal_libraries();
+  schemesh_import_all_libraries();
 
   (void)&show;
   (void)&diff;

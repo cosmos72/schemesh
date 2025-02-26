@@ -13,8 +13,8 @@
   (import
     (rnrs)
     (only (chezscheme) append! fx1+ fx1- include inspect reverse! unread-char void)
-    (only (schemesh bootstrap) assert* until while)
-    (only (schemesh containers misc)   list-iterate)
+    (only (schemesh bootstrap) assert* debugf until warnf while)
+    (only (schemesh containers list)   list-iterate)
     (only (schemesh containers string) string-is-unsigned-base10-integer?)
     (schemesh containers charspan)
     (schemesh lineedit paren)
@@ -143,8 +143,10 @@
             (values (op->symbol ctx ch) type))))
       ((dollar lbrack)
         (cond
-          ((and (eq? type 'dollar) (eqv? #\( (parsectx-peek-char ctx))) #| ) |# ; help vscode
+          ((and (eq? type 'dollar) (eqv? #\( (parsectx-peek-char ctx))) #| #\) |# ; help vscode
             (values (parsectx-read-char ctx) 'dollar+lparen))
+          ((and (eq? type 'dollar) (eqv? #\[ (parsectx-peek-char ctx))) #| #\] |# ; help vscode
+            (values (parsectx-read-char ctx) 'dollar+lbrack))
           ((and (eq? type 'lbrack) lbracket-is-subshell?)
             (values ch type))
           (else
@@ -225,15 +227,16 @@
 (define (parse-shell-forms ctx begin-type)
   (let* ((ret '())
          (end-type (case begin-type
-                     ((lbrace) 'rbrace)
-                     ((lbrack) 'rbrack)
+                     ((lbrack dollar+lbrack) 'rbrack)
+                     ((lbrace dollar+lbrace) 'rbrace)
                      ((backquote) 'backquote)
                      ((eof)    'eof)
                      (else     'rparen)))
          (prefix (case begin-type
-                     ((backquote dollar+lparen) 'shell-backquote)
-                     ((lbrack)                  'shell-subshell)
-                     (else                      'shell)))
+                     ((backquote dollar+lparen dollar+lbrack)
+                                'shell-backquote)
+                     ((lbrack)  'shell-subshell)
+                     (else      'shell)))
          (can-change-parser?    #t)
          (equal-is-operator?    #t)
          (lbracket-is-subshell? #t)
@@ -311,13 +314,16 @@
                   ; lparen was in the middle of shell syntax:
                   ; just insert parsed Scheme form into current shell command
                   (set! ret (cons lisp-forms ret))))))
-          ((lbrace lbrack dollar+lparen)
+          ((lbrace lbrack dollar+lparen dollar+lbrack)
+            (when (eq? type 'dollar+lparen)
+              (warnf "; warning in ~a: shell syntax $( ) is deprecated and will soon change meaning. please use $[ ] instead\n" 'parse-shell-forms))
+
             ; TODO: $(...) may be followed by other words without a space
             (let-values (((form _) (parse-shell-forms ctx type)))
               ; (debugf "... parse-shell-forms nested_form=~s ret=~s" form ret)
               (unless (null? form)
                 (set! ret (cons form ret)))
-              (unless (eq? 'dollar+lparen type)
+              (when (memq type '(lbrace lbrack))
                 ; shell block { ... } and subshell [ ... ] end with an implicit separator ';
                 (set! can-change-parser?    #t)
                 (set! equal-is-operator?    #t)
@@ -382,13 +388,14 @@
 
 
 (define dollar+lparen 1)
-(define dollar+lbrace 2)
+(define dollar+lbrack 2)
+(define dollar+lbrace 3)
 
-;; Read until one of ( ) { } ' " ` $( is found, and return it.
+;; Read until one of ( ) { } ' " ` $( $[ is found, and return it.
 ;; ignore them if they are preceded by \
-;; if $( is found, return $
+;; if $( or $[ is found, return $
 ;; Also recognize and return parser directives #!... and return them
-(define (scan-shell-paren-or-directive ctx)
+(define (scan-shell-paren-or-directive ctx inside-dquote?)
   (let ((ret #f)
         (prev-char #f))
     (until ret
@@ -396,6 +403,9 @@
         (case ch
           ((#\()    #| ) |# ; help vscode
              (set! ret (if (eqv? prev-char #\$) dollar+lparen ch)))
+
+          ((#\[)    #| ] |# ; help vscode
+             (set! ret (if (eqv? prev-char #\$) dollar+lbrack ch)))
 
           ((#\{)
              (set! ret (if (eqv? prev-char #\$) dollar+lbrace ch)))
@@ -406,16 +416,18 @@
           ((#\\)  (parsectx-read-char ctx)) ; consume one character after backslash
 
           ((#\#)
-            (if (eqv? #\! (parsectx-read-char ctx))
-              (set! ret (parsectx-read-directive ctx))
-              ; #\# not followed by #\! is a comment line, skip it
-              (parsectx-skip-line ctx)))
+            (unless inside-dquote?
+              (if (eqv? #\! (parsectx-read-char ctx))
+                (set! ret (parsectx-read-directive ctx))
+                ; #\# not followed by #\! is a comment line, skip it
+                (parsectx-skip-line ctx))))
 
           (else
             (when (eof-object? ch)
               (set! ret ch))))
         (set! prev-char ch)))
     ret))
+
 
 ;; Read shell forms from textual input port (parsectx-in ctx),
 ;; collecting grouping tokens i.e. ( ) [ ] { } " ' ` and filling paren with them.
@@ -436,11 +448,12 @@
                                 (else (or start-ch #t))))
          (ret    #f))
 
-    ; (debugf "->   parse-shell-paren start-ch=~a end-ch=~a" start-ch end-ch)
     (let-values (((x y) (parsectx-previous-pos ctx (if start-ch 1 0))))
       (paren-start-xy-set! paren x y))
     (until ret
-      (let ((token (scan-shell-paren-or-directive ctx)))
+      (let ((token (scan-shell-paren-or-directive ctx (eqv? start-ch #\"))))
+
+        ; (debugf "parse-shell-paren start-ch=~a end-ch=~a token=~s" start-ch end-ch token)
         (cond
           ((not token) ; not a grouping token
              #f)
@@ -460,16 +473,6 @@
                    (paren-inner-append! paren other-paren)
                    (set! ret #t)))))
 
-          ((or (fixnum? token) (memv token '(#\{ #\[ #\" #\`)))
-             ;; inside double quotes, ${ is special but plain { or [ aren't.
-             ;; " inside double quotes is handled above by (eqv? token end-ch)
-             (unless (and (eqv? start-ch #\") (memv token '(#\{ #\[)))
-               ;; recursion: call shell parser on nested list
-               (let ((start-inner (cond ((eqv? token dollar+lparen) #\() #|)|#
-                                        ((eqv? token dollar+lbrace) #\{)
-                                        (else                     token))))
-                 (paren-inner-append! paren (parse-shell-paren ctx start-inner)))))
-
           ((eqv? token #\()                  #| ) |# ; help vscode
              (unless (eqv? start-ch #\")
                ;; paren not inside double quotes -> switch to scheme parser
@@ -481,6 +484,17 @@
                                             (parse-shell-paren ctx token))))
                  (when other-paren
                    (paren-inner-append! paren other-paren)))))
+
+          ((or (fixnum? token) (memv token '(#\{ #\[ #\" #\`)))
+             ;; inside double quotes, $( $[ ${ are special but plain ( [ or { aren't.
+             ;; " inside double quotes is handled above by (eqv? token end-ch)
+             (unless (and (eqv? start-ch #\") (memv token '(#\[ #\{))) #|)|#
+               ;; recursion: call shell parser on nested list
+               (let ((start-inner (cond ((eqv? token dollar+lparen) #\() #|)|#
+                                        ((eqv? token dollar+lbrack) #\[) #|]|#
+                                        ((eqv? token dollar+lbrace) #\{)
+                                        (else                     token))))
+                 (paren-inner-append! paren (parse-shell-paren ctx start-inner)))))
 
           ((eqv? token #\')
              ;; found single-quoted string, read it fully

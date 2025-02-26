@@ -19,7 +19,7 @@
     (only (schemesh bootstrap)            assert* debugf while until)
     (only (schemesh containers charspan)  charspan charspan-insert-back! charspan->string*!)
     (only (schemesh containers hashtable) hashtable)
-    (only (schemesh containers misc)      list-reverse*!)
+    (only (schemesh containers list)      list-reverse*!)
     (only (schemesh containers string)    string-iterate)
     (only (schemesh containers utf8b)     integer->char*)
     (schemesh lineedit paren)

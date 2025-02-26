@@ -6,7 +6,7 @@
   because one of the executed commands may have changed it: we want to preserve such changes for future commands
 * fix bugs in (on-list) and (in-fixnum-range)
 * add functions (directory-list) (directory-list-type) (file-delete) (in-exact-range)
-  (mkdir) (ok?) (string-replace-start) (string-replace-end)
+  (mkdir) (ok?) (string-replace-prefix) (string-replace-suffix)
 * refactor function (in-range) to call one of (in-fixnum-range) (in-exact-range) (in-flonum-range)
 * rename shell builtin "test" -> "expr" and rename macro (shell-test) -> (shell-expr)
 * implement builtin "cd-" changes current directory of *parent* job to its previous value.

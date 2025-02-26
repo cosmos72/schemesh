@@ -117,13 +117,38 @@ fg 1
 (display txt)
 ```
 
-a slighty more complex example - uses several additional functions and macros provided by schemesh
-```lisp
-(import (schemesh))
-
-(for ((f (in-list (sh-run/string-split-after-nuls {find -type f -print0}))))
-  (file-rename f (string-replace-end f ".old" ".bak")))
+```shell
+sed -i -e 's/old/new/g' -- (directory-list ".")
 ```
+or, if you want to run a separate `sed` command for each file,
+```lisp
+(for-each
+  (lambda (f)
+    (sh-run {sed -i -e 's/old/new/g' -- (values f)}))
+  (directory-list "."))
+```
+
+Also, `(sh-run/string-split-after-nuls)` combines well with `{find ... -print0}`. Example:
+```lisp
+(for-each
+  (lambda (f)
+    (file-rename f (string-replace-suffix f ".old" ".bak")))
+  (sh-run/string-split-after-nuls {find -type f -print0}))
+```
+which can also be written as
+```lisp
+(list-iterate
+  (sh-run/string-split-after-nuls {find -type f -print0})
+  (lambda (f)
+    (file-rename f (string-replace-suffix f ".old" ".bak"))))
+```
+or even
+```lisp
+(for ((f (in-list (sh-run/string-split-after-nuls {find -type f -print0}))))
+  (file-rename f (string-replace-suffix f ".old" ".bak")))
+```
+the last example has the advantage that `for` can iterate in parallel on multiple heterogenous containers:
+lists, strings, vectors, hashtables, etc. ...
 
 ### Features
 - [x] REPL with multi-line editing and parentheses highlighting

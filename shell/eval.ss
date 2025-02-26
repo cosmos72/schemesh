@@ -15,8 +15,8 @@
     (rnrs mutable-pairs)
     (only (chezscheme)                 void)
     (only (schemesh bootstrap) assert* raise-errorf until)
-    (only (schemesh containers misc)   list-iterate)
-    (only (schemesh containers string) assert-string-list? string-ends-with? string-rfind/char)
+    (only (schemesh containers list)   list-iterate)
+    (only (schemesh containers string) assert-string-list? string-suffix? string-index-right)
     (only (schemesh posix fd)          fd-write)
     (schemesh parser)
     (only (schemesh shell builtins)    sh-builtins sh-builtins-help)
@@ -25,19 +25,19 @@
 
 
 (define (default-parser-for-file-extension path)
-  (if (or (string-ends-with? path ".sh")
-          (not (filename-rfind/char path #\.)))
+  (if (or (string-suffix? path ".sh")
+          (not (filename-index-right path #\.)))
     'shell
     'scheme))
 
 
-;; return position of last character equal to ch in the filename part of path,
+;; return position of last character that matches ch-or-pred in the filename part of path,
 ;; i.e. after the last slash.
 ;; return #f if ch is not present the filename part of path.
-(define (filename-rfind/char path ch)
+(define (filename-index-right path ch-or-pred)
   (let* ((len   (string-length path))
-         (slash (string-rfind/char path 0 len #\/)))
-    (string-rfind/char path (or slash 0) len ch)))
+         (slash (string-index-right path #\/ 0 len)))
+    (string-index-right path ch-or-pred (or slash 0) len)))
 
 
 ;; open specified file path, parse its multi-language source contents with (sh-read-port*)

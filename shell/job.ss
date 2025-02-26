@@ -252,6 +252,7 @@
 ;; Convert job-or-id to job.
 ;; job-or-id can be either a job,
 ;; or #t which means (sh-globals),
+;; or #f which means (sh-current-job),
 ;; or a fixnum indicating the job-id of one of the running jobs
 ;;   stored in (multijob-children (sh-globals))
 ;;
@@ -260,11 +261,12 @@
   (cond
     ((eq? #t job-or-id)
       (sh-globals))
+    ((eq? #f job-or-id)
+      (sh-globals))
     ((fixnum? job-or-id)
       (let ((all-jobs (multijob-children (sh-globals))))
-        (if (fx<? 0 job-or-id (span-length all-jobs)) ; job-ids start at 1
-          (span-ref all-jobs job-or-id)
-           #f)))
+        (and (fx<? 0 job-or-id (span-length all-jobs)) ; job-ids start at 1
+             (span-ref all-jobs job-or-id))))
     ((sh-job? job-or-id)
       job-or-id)
     (else
@@ -274,23 +276,15 @@
 ;; Convert job-or-id to job.
 ;; job-or-id can be either a job,
 ;; or #t which means (sh-globals),
+;; or #f which means (sh-current-job),
 ;; or a fixnum indicating the job-id of one of the running jobs
 ;;   stored in (multijob-children (sh-globals))
 ;;
 ;; Raises error if no job matches job-or-id.
 (define (sh-job job-or-id)
-  (cond
-    ((eq? #t job-or-id) (sh-globals))
-    ((fixnum? job-or-id)
-      (let* ((all-jobs (multijob-children (sh-globals)))
-             (job (when (and (fx>? job-or-id 0) ; job-ids start at 1
-                             (fx<? job-or-id (span-length all-jobs)))
-                    (span-ref all-jobs job-or-id))))
-        (unless (sh-job? job)
-          (raise-errorf 'sh-job "job not found: ~s" job-or-id))
-        job))
-    ((sh-job? job-or-id) job-or-id)
-    (else (raise-errorf 'sh-job "not a job-id: ~s" job-or-id))))
+  (or
+    (sh-find-job job-or-id)
+    (raise-errorf 'sh-job "job not found: ~s" job-or-id)))
 
 
 ;; return currently running jobs

@@ -65,12 +65,12 @@ static const testcase tests[] = {
     {"(bytevector-compare #vu8(66 77) #vu8(66 78))", "-1"},
     {"(bytevector-compare #vu8(79) #vu8(78 0))", "1"},
     {"(string-range-count= \"qwertyuiop\" 2 \"_ertyuio7\" 1 8)", "7"},
-    {"(string-replace \"abcdbacdabcd\" \"ab\" \"0\")", "0cdbacd0cd"},
+    {"(string-replace-all \"abcdbacdabcd\" \"ab\" \"0\")", "0cdbacd0cd"},
     {"(format #f \"~s\" (string-split \"\" #\\:))", "(\"\")"},
     {"(format #f \"~s\" (string-split \":\" #\\:))", "(\"\" \"\")"},
     {"(format #f \"~s\" (string-split \"x:\" #\\:))", "(\"x\" \"\")"},
     {"(format #f \"~s\" (string-split \":y\" #\\:))", "(\"\" \"y\")"},
-    {"(format #f \"~s\" (string-split \"ab:cdef::g\" 1 10 #\\:))", /*        */
+    {"(format #f \"~s\" (string-split \"ab:cdef::g\" #\\: 1 10))", /*        */
      "(\"b\" \"cdef\" \"\" \"g\")"},
     {"(string-trim-split-at-blanks \"\"))", "()"},
     {"(format #f \"~s\" (string-trim-split-at-blanks"
@@ -676,14 +676,14 @@ static const testcase tests[] = {
      "  \"ls \\\"$var1\\\"'$var2'$var3\")))",
      "(shell \"ls\" (shell-wildcard (shell-env \"var1\") \"$var2\" (shell-env \"var3\")))"},
     {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
-     "  \"ls $(cmd arg $var)\")))",
+     "  \"ls $[cmd arg $var]\")))",
      "(shell \"ls\" (shell-backquote \"cmd\" \"arg\" (shell-env \"var\")))"},
     {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
-     "  \"ls \\\"$(cmd arg $var)\\\"\")))",
+     "  \"ls \\\"$[cmd arg $var]\\\"\")))",
      "(shell \"ls\" (shell-backquote \"cmd\" \"arg\" (shell-env \"var\")))"},
     {"(format #f \"~s\" (parse-shell-form1 (string->parsectx\n"
-     "  \"ls '$(cmd arg $var)'\")))",
-     "(shell \"ls\" \"$(cmd arg $var)\")"},
+     "  \"ls '$[cmd arg $var]'\")))",
+     "(shell \"ls\" \"$[cmd arg $var]\")"},
     /* test () inside shell syntax */
     {"(parse-shell-form1 (string->parsectx \"echo a || (cons 1 2)\" (parsers)))",
      "(shell echo a || (cons 1 2))"},
@@ -852,8 +852,9 @@ static const testcase tests[] = {
     {"(string->paren \"{[(``)]}\")", "#<paren _{[()]}_>"},
     /* [] are grouping tokens in lisp syntax and `` are grouping tokens in shell syntax */
     {"(string->paren \"([{``}])\")", "#<paren _([{``}])_>"},
-    /* test $( shell syntax )*/
+    /* test $( $[ ${ shell syntax )*/
     {"(string->paren \"{$(`{}()`)}\")", "#<paren _{(`{} ()`)}_>"},
+    {"(string->paren \"{$[$({${}})]}\")", "#<paren _{[({{}})]}_>"},
     /* test single-quoted strings in shell syntax */
     {"(string->paren \"{'foo\\\"bar{}[]()``baz'}\")", "#<paren _{''}_>"},
     /* test double-quoted strings in shell syntax */
@@ -1132,7 +1133,7 @@ static const testcase tests[] = {
      INVOKELIB_SHELL_JOBS "(sh-cmd* FOO '= (lambda (job) (sh-wildcard job"
                           " (lambda (job) (sh-env-ref job BAR)) /subdir)) echo))"},
     {"(parse-shell-form1 (string->parsectx\n"
-     "  \"A=$(echo abc; echo def)\"))",
+     "  \"A=$[echo abc; echo def]\"))",
      "(shell A = (shell-backquote echo abc ; echo def))"},
     {"(parse-shell-form1 (string->parsectx\n"
      "  \"A=`echo abc; echo def`\"))",
@@ -1180,10 +1181,10 @@ static const testcase tests[] = {
      "  \"ls [ab]*\"))))",
      INVOKELIB_SHELL_JOBS "(sh-cmd* ls (lambda (job) (sh-wildcard job '% ab '*))))"},
     {"(parse-shell-form1 (string->parsectx\n"
-     "  \"echo $(foo&&bar)\"))",
+     "  \"echo $[foo&&bar]\"))",
      "(shell echo (shell-backquote foo && bar))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"
-     "  \"echo $(foo&&bar)\")))",
+     "  \"echo $[foo&&bar]\")))",
      INVOKELIB_SHELL_JOBS "(sh-cmd* echo (lambda (job) (sh-run/string-rtrim-newlines"
                           " (sh-and (sh-cmd foo) (sh-cmd bar)) " OPTION_PARENT_JOB "))))"},
     {"(expand (parse-shell-form1 (string->parsectx\n"

@@ -11,9 +11,10 @@
 
 (define (paren-type->string type)
   (case type
-    ((lparen) "(") ((lbrack) "[") ((lbrace) "{")
-    ((rparen) ")") ((rbrack) "]") ((rbrace) "}")
-    ((backquote) "`") ((dollar+lparen) "$(")
+    ((lparen) "(") ((dollar+lparen) "$(") ((rparen) ")")
+    ((lbrack) "[") ((dollar+lbrack) "$[") ((rbrack) "]")
+    ((lbrace) "{") ((dollar+lbrace) "${") ((rbrace) "}")
+    ((backquote) "`")
     ((eof) "#!eof")
     (else "???")))
 
@@ -141,6 +142,11 @@
         (parsectx-read-char ctx) ; consume (
         ; read a shell list surrounded by $(...)
         (let-values (((form _) (parse-shell-forms ctx 'dollar+lparen)))
+          form))
+      ((lbrack)
+        (parsectx-read-char ctx) ; consume [
+        ; read a shell list surrounded by $[...]
+        (let-values (((form _) (parse-shell-forms ctx 'dollar+lbrack)))
           form))
       ((lbrace)
         (read-subword-dollar-braced ctx))

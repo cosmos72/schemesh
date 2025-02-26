@@ -22,6 +22,6 @@ then, from Chez Scheme repl:
 (load-shared-object "./libschemesh_c_0.7.6.so")
 ((foreign-procedure "schemesh_register_c_functions" () int)) ; should return 0
 (load "./libschemesh_0.7.6.so")
-(import (schemesh minimal))
+(import (schemesh))
 (repl)
 ```

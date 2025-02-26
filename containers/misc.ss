@@ -11,8 +11,6 @@
     bytevector-fill-range! bytevector-find/u8 bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>? bytevector-iterate
 
-    in-list on-list list-iterate list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
-
     in-exact-range in-fixnum-range in-flonum-range in-range
 
     in-fxvector
@@ -27,7 +25,6 @@
 
 
 (include "containers/bytevector.ss")
-(include "containers/list.ss")
 (include "containers/vector.ss")
 
 
