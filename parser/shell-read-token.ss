@@ -11,9 +11,10 @@
 
 (define (paren-type->string type)
   (case type
-    ((lparen) "(") ((lbrack) "[") ((lbrace) "{")
-    ((rparen) ")") ((rbrack) "]") ((rbrace) "}")
-    ((backquote) "`") ((dollar+lparen) "$(")
+    ((lparen) "(") ((dollar+lparen) "$(") ((rparen) ")")
+    ((lbrack) "[") ((dollar+lbrack) "$[") ((rbrack) "]")
+    ((lbrace) "{") ((dollar+lbrace) "${") ((rbrace) "}")
+    ((backquote) "`")
     ((eof) "#!eof")
     (else "???")))
 
@@ -142,6 +143,11 @@
         ; read a shell list surrounded by $(...)
         (let-values (((form _) (parse-shell-forms ctx 'dollar+lparen)))
           form))
+      ((lbrack)
+        (parsectx-read-char ctx) ; consume [
+        ; read a shell list surrounded by $[...]
+        (let-values (((form _) (parse-shell-forms ctx 'dollar+lbrack)))
+          form))
       ((lbrace)
         (read-subword-dollar-braced ctx))
       (else
@@ -198,7 +204,7 @@
   (let ((ret     '())
         (again?  #t)
         (splice? #f))
-    ; (debugf ">   read-subwords-noquote equal-is-operator?=~s, wildcards?=~s, inside-backquote?=~s" equal-is-operator? wildcards? inside-backquote?)
+    ; (debugf "->   read-subwords-noquote equal-is-operator?=~s, wildcards?=~s, inside-backquote?=~s" equal-is-operator? wildcards? inside-backquote?)
     (while again?
       (let ((word (read-subword-noquote ctx equal-is-operator? wildcards?)))
         ; (debugf "... read-subwords-noquote subword=~s" word)
@@ -214,7 +220,7 @@
             (set! ret (cons word ret)))
           (else
             (set! again? #f)))))
-    ; (debugf "<   read-subwords-noquote ret=~s splice?=~s" (reverse ret) splice?)
+    ; (debugf "<-  read-subwords-noquote ret=~s splice?=~s" (reverse ret) splice?)
     (cond
       (splice?            (values ret 'rsplice))
       ((null? ret)        (values "" 'atom))
@@ -235,7 +241,7 @@
 (define (read-subword-noquote ctx equal-is-operator? wildcards?)
   (let ((word   (charspan))
         (again? #t))
-    ; (debugf ">   read-subword-noquote equal-is-operator?=~s, wildcards?=~s" equal-is-operator? wildcards?)
+    ; (debugf "->   read-subword-noquote equal-is-operator?=~s, wildcards?=~s" equal-is-operator? wildcards?)
     (while again?
       (let-values (((ch type) (read-shell-char ctx)))
         ; (debugf "... read-subword-noquote ch=~s type=~s ret=~s" ch type word)
@@ -287,7 +293,7 @@
             ; and where characters ( ) inside an unquoted string are a syntax error.
             (parsectx-unread-char ctx ch)
             (set! again? #f)))))
-    ; (debugf "<   read-subword-noquote ret=~s" word)
+    ; (debugf "<-  read-subword-noquote ret=~s" word)
     (cond
       ((or (not word) (symbol? word))
         word)

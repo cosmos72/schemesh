@@ -265,7 +265,7 @@ int main(int argc, const char* argv[]) {
     goto finish;
   }
 
-  schemesh_import_minimal_libraries();
+  schemesh_import_all_libraries();
 
   (void)&show;
   (void)&diff;
@@ -283,11 +283,11 @@ again:
 #if 1
   on_exception = EVAL_FAILED;
   do {
-    ptr ret = schemesh_call0("sh-repl");
+    ptr ret = schemesh_call0("repl");
 
     err = Sfixnump(ret) ? Sfixnum_value(ret) : -1;
 
-  } while (schemesh_call0("sh-repl-restart?") == Strue);
+  } while (schemesh_call0("repl-restart?") == Strue);
 #elif 0
   Sscheme_start(argc, argv);
 #else

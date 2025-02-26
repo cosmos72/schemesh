@@ -127,7 +127,7 @@
 ;; 1. (file-rename) also accepts bytevectors and charspans, not only strings.
 ;; 2. (file-rename) converts strings and charspans to UTF-8b, instead of UTF-8.
 ;; 3. (file-rename) also accepts option 'catch, while Chez (rename-file) always raises an exception on failure.
-;; 4. (file-delete) returns (void) on success and error code on failure, instead of an unspecified value.
+;; 4. (file-rename) returns (void) on success and error code on failure, instead of an unspecified value.
 (define file-rename
   (let ((c-file-rename (foreign-procedure "c_file_rename" (ptr ptr) int)))
     (lambda (old-path new-path . options)

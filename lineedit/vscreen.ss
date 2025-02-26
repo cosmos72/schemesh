@@ -443,7 +443,7 @@
 
 
 (define (clipboard-insert-vscreen/left! clipboard screen n)
-  ; (debugf ">   linectx-clipboard-insert/left! n=~s" char-count-leftward-before-cursor)
+  ; (debugf "->   linectx-clipboard-insert/left! n=~s" char-count-leftward-before-cursor)
   (when (and clipboard (fx>? n 0))
     (let-values (((x y) (vscreen-cursor-ixy screen)))
       (while (and x y (fx>? n 0))

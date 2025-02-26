@@ -15,12 +15,12 @@
     (rnrs)
     (only (rnrs mutable-pairs)   set-car!)
     (only (chezscheme)           condition-continuation continuation-condition? fx1+ fx1- void)
-    (only (schemesh bootstrap raise)   raise-assertf)
+    (only (schemesh bootstrap functions)   raise-assertf)
     (only (schemesh containers)  bytespan->bytevector bytespan->bytevector*!
                                  bytespan-reserve-back! bytespan-insert-back/string! bytespan-insert-back/u8!
                                  bytevector<? bytevector-find/u8
                                  charspan? charspan-empty? charspan-find/char charspan->utf8b charspan->utf8b/0
-                                 hashtable-iterate list-iterate make-bytespan string-find/char
+                                 hashtable-iterate list-iterate make-bytespan string-index
                                  string->utf8b string->utf8b/0 utf8b->string utf8b->string
                                  vector-sort*!))
 
@@ -203,7 +203,7 @@
         (when (bytevector-find/u8 x 0)
           (raise-assertf 'list->argv "~a(string->utf8b ~s)~a" msg1 (utf8b->string x) msg2)))
       ((string? x)
-        (when (string-find/char x #\nul)
+        (when (string-index x #\nul)
           (raise-assertf 'list->argv "~a~s~a" msg1 x msg2)))
       ((charspan? x)
         (when (charspan-find/char x #\nul)

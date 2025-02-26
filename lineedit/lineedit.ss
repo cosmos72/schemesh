@@ -425,11 +425,11 @@
 ;; if (linectx-rbuf lctx) is empty, refills it first.
 ;;
 (define (%linectx-read-consume/u8 lctx)
-  ; (debugf "> %linectx-read-consume/u8")
+  ; (debugf "-> %linectx-read-consume/u8")
   (let ((rbuf (linectx-rbuf lctx)))
     (when (bytespan-empty? rbuf)
       (linectx-read-some lctx 1 -1))
-    ; (debugf "< %linectx-read-consume/u8 got=~s" (bytespan-length rbuf))
+    ; (debugf "<- %linectx-read-consume/u8 got=~s" (bytespan-length rbuf))
     (if (bytespan-empty? rbuf)
       #f
       (let ((u8 (bytespan-ref/u8 rbuf 0)))

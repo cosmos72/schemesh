@@ -13,8 +13,8 @@
     (rnrs)
     (only (chezscheme) environment-symbols fx1+ fx1- sort!)
     (only (schemesh bootstrap)            values->list)
-    (only (schemesh containers misc)      list-iterate list-remove-consecutive-duplicates!)
-    (only (schemesh containers string)    string-range=? string-split string-starts-with?)
+    (only (schemesh containers list)      list-iterate list-remove-consecutive-duplicates!)
+    (only (schemesh containers string)    string-range=? string-split string-prefix?)
     (only (schemesh containers hashtable) hashtable-iterate)
     (schemesh containers charspan)
     (schemesh containers span)
@@ -248,7 +248,7 @@
     (hashtable-iterate htable
       (lambda (cell)
         (let ((name (car cell)))
-          (when (string-starts-with? name prefix)
+          (when (string-prefix? name prefix)
             (set! l (cons name l)))))))
   l)
 

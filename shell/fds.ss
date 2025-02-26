@@ -12,7 +12,7 @@
 (library (schemesh shell fds (0 7 6))
   (export
     s-fd s-fd* s-fd? s-fd->int s-fd-copy s-fd-allocate s-fd-release
-    sh-fd-stdin sh-fd-stdout sh-fd-stderr sh-open-stderr-port)
+    sh-fd-stdin sh-fd-stdout sh-fd-stderr)
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx1- open-fd-output-port record-writer)
@@ -118,16 +118,6 @@
       (unless (and (fixnum? fd) (fx<? -1 fd fd-max))
         (raise-errorf 'sh-fd-stderr "invalid file descriptor, must be a fixnum in [0, fd-max): ~s" fd))
       fd)))
-
-
-;; create and return a new textual output port that writes to file descriptor (sh-fd-stderr)
-;; FIXME: we should create it only once with (make-custom-textual-output-port)
-;;        and retrieve (sh-fd-stderr) each time it is needed.
-(define sh-open-stderr-port
-  (let ((transcoder (make-transcoder (utf-8-codec) (eol-style lf)
-                                     (error-handling-mode replace))))
-    (lambda ()
-      (open-fd-output-port (sh-fd-stderr) (buffer-mode line) transcoder))))
 
 
 ; customize how "s-fd" objects are printed

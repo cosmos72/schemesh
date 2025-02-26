@@ -24,7 +24,7 @@
     (condition
       (make-assertion-violation)
       (make-non-continuable-violation)
-      (make-who-condition caller)
+      (make-who-condition (if (symbol? caller) caller (format #f "~s" caller)))
       (make-message-condition message))))
 
 

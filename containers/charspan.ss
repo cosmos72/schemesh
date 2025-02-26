@@ -27,14 +27,14 @@
     charspan-find charspan-rfind  charspan-find/char charspan-rfind/char
     charspan-peek-data charspan-peek-beg charspan-peek-end
 
-    string-replace) ; requires (charspan...)
+    string-replace-all) ; requires (charspan...)
   (import
     (rnrs)
     (rnrs mutable-strings)
     (only (chezscheme) fx1+ fx1- record-writer string-copy! string-truncate! void)
     (only (schemesh bootstrap)         assert* assert-not*)
-    (only (schemesh containers misc)   list-iterate)
-    (only (schemesh containers string) string-fill-range! string-find/char string-range<? string-range=? string-range-count=))
+    (only (schemesh containers list)   list-iterate)
+    (only (schemesh containers string) string-fill-range! string-index string-range<? string-range=? string-range-count=))
 
 
 (define-record-type
@@ -474,20 +474,20 @@
 
 
 ;; create and return a copy of str, where all occurrences of old-str have been replaced by new-str.
-(define string-replace
+(define string-replace-all
   (case-lambda
-    ((str start end old-str new-str)
-      (assert* 'string-replace (fx<=? 0 start end (string-length str)))
-      (assert* 'string-replace (string? old-str))
-      (assert* 'string-replace (string? new-str))
-      (assert-not* 'string-replace (fxzero? (string-length old-str)))
+    ((str old-str new-str start end)
+      (assert* 'string-replace-all (fx<=? 0 start end (string-length str)))
+      (assert* 'string-replace-all (string? old-str))
+      (assert* 'string-replace-all (string? new-str))
+      (assert-not* 'string-replace-all (fxzero? (string-length old-str)))
       (let ((dst (charspan))
             (ch0 (string-ref old-str 0))
             (old-len (string-length old-str)))
         (charspan-insert-back/string! dst str 0 start)
         (let %loop ((i start))
-          (let ((pos (string-find/char str i end ch0)))
-            ;; (debugf "string-replace dst=~s str=~s i=~s pos=~s end=~s old=~s new=~s" (charspan->string dst) str i pos end old-str new-str)
+          (let ((pos (string-index str ch0 i end)))
+            ;; (debugf "string-replace-all dst=~s str=~s i=~s pos=~s end=~s old=~s new=~s" (charspan->string dst) str i pos end old-str new-str)
             (cond
               ((and pos
                     (fx<=? pos (fx- end old-len))
@@ -505,7 +505,7 @@
                 (charspan-insert-back/string! dst str i end)
                 (charspan->string*! dst)))))))
     ((str old-str new-str)
-      (string-replace str 0 (string-length str) old-str new-str))))
+      (string-replace-all str old-str new-str  0 (string-length str)))))
 
 
 

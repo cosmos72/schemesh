@@ -7,21 +7,23 @@
 
 (library (schemesh containers string (0 7 6))
   (export
-    string-list? assert-string-list? string-list-split-after-nuls
-    string-is-unsigned-base10-integer? string-is-signed-base10-integer?
-    string-fill-range! string-range-count= string-range=? string-range<?
-    string-find string-rfind string-find/char string-rfind/char string-rtrim-newlines!
-    string-split string-split-after-nuls string-trim-split-at-blanks string-replace/char!
-    string-starts-with? string-ends-with? string-starts-with/char? string-ends-with/char?
-    string-replace-start string-replace-end
-    in-string string-iterate)
+    assert-string-list? in-string
+    string-any string-contains string-count string-every string-fill-range!
+    string-index string-index-right
+    string-is-unsigned-base10-integer? string-is-signed-base10-integer? string-iterate
+    string-join string-list? string-list-split-after-nuls
+    string-map string-prefix? string-prefix/char?
+    string-range-count= string-range=? string-range<?
+    string-replace-prefix string-replace-suffix string-replace/char! string-rtrim-newlines!
+    string-split string-split-after-nuls string-suffix? string-suffix/char?
+    string-trim-split-at-blanks)
   (import
     (rnrs)
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
     (only (chezscheme) fx1+ fx1- reverse! string-copy! string-truncate! substring-fill! void)
     (only (schemesh bootstrap) assert* while)
-    (only (schemesh containers misc) list-iterate))
+    (only (schemesh containers list) list-iterate))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -29,16 +31,166 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
+;; shortcut for (assert* caller (string-list? l)
+(define (assert-string-list? caller l)
+  (assert* caller (string-list? l)))
+
+
+;; apply proc element-wise to the i-th element of the strings
+(define (%apply-proc proc str-list i)
+  (apply proc (map (lambda (str) (string-ref str i)) str-list)))
+
+
+
+;; apply proc element-wise to the elements of the strings, stop at the first truish value returned by (proc elem ...) and return it.
+;; If all calls to (proc elem ...) return #f, then return #f.
+;; If not all strings have the same length, iteration terminates when the end of shortest string is reached.
+;; Proc must accept as many elements as there are strings, and must return a single value.
+(define string-any
+  (case-lambda
+    ((proc)
+      #f)
+    ((proc str)
+      (let ((n (string-length str)))
+        (let %any ((i 0))
+          (if (fx<? i n)
+            (or (proc (string-ref str i))
+                (%any (fx1+ i)))
+            #f))))
+    ((proc str1 str2)
+      (let ((n (fxmin (string-length str1) (string-length str2))))
+        (let %any ((i 0))
+          (if (fx<? i n)
+            (or (proc (string-ref str1 i) (string-ref str2 i))
+                (%any (fx1+ i)))
+            #f))))
+    ((proc str1 str2 str3)
+      (let ((n (fxmin (string-length str1) (string-length str2) (string-length str3))))
+        (let %any ((i 0))
+          (if (fx<? i n)
+            (or (proc (string-ref str1 i) (string-ref str2 i) (string-ref str3 i))
+                (%any (fx1+ i)))
+            #f))))
+    ((proc . str-list)
+      (let ((n (apply fxmin (map string-length str-list))))
+        (let %any ((i 0))
+          (if (fx<? i n)
+            (or (%apply-proc proc str-list i)
+                (%any (fx1+ i)))
+            #f))))))
+
+
+;; apply proc element-wise to the elements of the strings, and count and return how many times (proc elem ...) evaluates to truish.
+;; If not all strings have the same length, iteration terminates when the end of shortest string is reached.
+;; Proc must accept as many elements as there are strings, and must return a single value.
+(define string-count
+  (case-lambda
+    ((proc)
+      0)
+    ((proc str)
+      (let ((n (string-length str)))
+        (let %count ((i 0) (ret 0))
+          (if (fx<? i n)
+            (%count
+              (if (proc (string-ref str i))
+                (fx1+ ret)
+                ret)
+              (fx1+ i))
+            ret))))
+    ((proc str1 str2)
+      (let ((n (fxmin (string-length str1) (string-length str2))))
+        (let %count ((i 0) (ret 0))
+          (if (fx<? i n)
+            (%count (fx1+ i)
+              (if (proc (string-ref str1 i) (string-ref str2 i))
+                (fx1+ ret)
+                ret))
+            ret))))
+    ((proc str1 str2 str3)
+      (let ((n (fxmin (string-length str1) (string-length str2) (string-length str3))))
+        (let %count ((i 0) (ret 0))
+          (if (fx<? i n)
+            (%count (fx1+ i)
+              (if (proc (string-ref str1 i) (string-ref str2 i) (string-ref str3 i))
+                (fx1+ ret)
+                ret))
+            ret))))
+    ((proc . str-list)
+      (let ((n (apply fxmin (map string-length str-list))))
+        (let %count ((i 0) (ret 0))
+          (if (fx<? i n)
+            (%count (fx1+ i)
+              (if (%apply-proc proc str-list i)
+                (fx1+ ret)
+                ret))
+            ret))))))
+
+
+;; apply proc element-wise to the elements of the strings, stop at the first #f returned by (proc elem ...) and return it.
+;; If all calls to (proc elem ...) return truish, then return #t.
+;; If not all strings have the same length, iteration terminates when the end of shortest string is reached.
+;; Proc must accept as many elements as there are strings, and must return a single value.
+(define string-every
+  (case-lambda
+    ((proc)
+      #t)
+    ((proc str)
+      (string-any (lambda (ch) (not (proc ch))) str))
+    ((proc str1 str2)
+      (string-any (lambda (ch1 ch2) (not (proc ch1 ch2))) str1 str2))
+    ((proc str1 str2 str3)
+      (string-any (lambda (ch1 ch2 ch3) (not (proc ch1 ch2 ch3))) str1 str2 str3))
+    ((proc . str-list)
+      (let ((n (apply fxmin (map string-length str-list))))
+        (let %every ((i 0))
+          (if (fx<? i n)
+            (and (%apply-proc proc str-list i)
+                 (%every (fx1+ i)))
+            #t))))))
+
+
+;; apply proc element-wise to the elements of the strings, and return a string of the results.
+;; If not all strings have the same length, iteration terminates when the end of shortest string is reached.
+;; Proc must accept as many elements as there are strings, and must return a character.
+(define string-map
+  (case-lambda
+    ((proc)
+      "")
+    ((proc str)
+      (let* ((n   (string-length str))
+             (ret (make-string n)))
+        (do ((i 0 (fx1+ i)))
+            ((fx>=? i n)
+              ret)
+          (string-set! ret i (proc (string-ref str i))))))
+    ((proc str1 str2)
+      (let* ((n   (fxmin (string-length str1) (string-length str2)))
+             (ret (make-string n)))
+        (do ((i 0 (fx1+ i)))
+            ((fx>=? i n)
+              ret)
+          (string-set! ret i (proc (string-ref str1 i) (string-ref str2 i))))))
+    ((proc str1 str2 str3)
+      (let* ((n   (fxmin (string-length str1) (string-length str2) (string-length str3)))
+             (ret (make-string n)))
+        (do ((i 0 (fx1+ i)))
+            ((fx>=? i n)
+              ret)
+          (string-set! ret i (proc (string-ref str1 i) (string-ref str2 i) (string-ref str3 i))))))
+    ((proc . str-list)
+      (let* ((n   (apply fxmin (map string-length str-list)))
+             (ret (make-string n)))
+        (do ((i 0 (fx1+ i)))
+            ((fx>=? i n)
+              ret)
+          (string-set! ret i (%apply-proc proc str-list i)))))))
+
+
 ;; return #t if l is a (possibly empty) list of strings
 (define (string-list? l)
   (do ((tail l (cdr tail)))
       ((or (null? tail) (not (string? (car tail))))
         (null? tail))))
-
-
-;; shortcut for (assert* caller (string-list? l)
-(define (assert-string-list? caller l)
-  (assert* caller (string-list? l)))
 
 
 ;; iterate on string-list l, and split each string after each #\nul
@@ -70,7 +222,7 @@
 (define (%string-split-after-nuls str ret)
   (let ((end (string-length str)))
     (let %loop ((start 0) (ret ret))
-      (let ((pos (string-find/char str start end #\nul)))
+      (let ((pos (string-index/char str #\nul start end)))
         (if pos
           (%loop
             (fx1+ pos)
@@ -164,7 +316,7 @@
 
 ;; return #t if string str is non-empty and starts with character ch,
 ;; otherwise return #f.
-(define (string-starts-with/char? str ch)
+(define (string-prefix/char? str ch)
   (let ((len (string-length str)))
     (if (fxzero? len)
       #f
@@ -173,7 +325,7 @@
 
 ;; return #t if string str is non-empty and ends with character ch,
 ;; otherwise return #f.
-(define (string-ends-with/char? str ch)
+(define (string-suffix/char? str ch)
   (let ((len (string-length str)))
     (if (fxzero? len)
       #f
@@ -183,33 +335,17 @@
 ;; search string range [start, end) and return index of first character equal to ch.
 ;; returned numerical index will be in the range [start, end).
 ;; return #f if no such character is found in range.
-(define string-find/char
+(define string-index/char
   (case-lambda
-    ((str ch)
-      (string-find/char str 0 (string-length str) ch))
-    ((str start end ch)
-      (assert* 'string-find/char (string? str))
-      (assert* 'string-find/char (fx<=? 0 start end (string-length str)))
-      (assert* 'string-find/char (char? ch))
+    ((str ch start end)
+      (assert* 'string-index/char (string? str))
+      (assert* 'string-index/char (fx<=? 0 start end (string-length str)))
+      (assert* 'string-index/char (char? ch))
       (do ((i start (fx1+ i)))
           ((or (fx>=? i end) (char=? ch (string-ref str i)))
-            (if (fx>=? i end) #f i))))))
-
-
-;; search string range [start, end) and return index of last character equal to ch.
-;; returned numerical index will be in the range [start, end).
-;; return #f if no such character is found in range.
-(define string-rfind/char
-  (case-lambda
+            (if (fx>=? i end) #f i))))
     ((str ch)
-      (string-rfind/char str 0 (string-length str) ch))
-    ((str start end ch)
-      (assert* 'string-rfind/char (string? str))
-      (assert* 'string-rfind/char (fx<=? 0 start end (string-length str)))
-      (assert* 'string-rfind/char (char? ch))
-      (do ((i (fx1- end) (fx1- i)))
-          ((or (fx<? i start) (char=? ch (string-ref str i)))
-            (if (fx<? i start) #f i))))))
+      (string-index/char str ch 0 (string-length str)))))
 
 
 ;; search string range [start, end) and return index of first character
@@ -217,17 +353,49 @@
 ;;
 ;; returned numerical index will be in the range [start, end).
 ;; return #f if no such character is found in range.
-(define string-find
+(define string-index/pred
   (case-lambda
-    ((str predicate)
-      (string-find str 0 (string-length str) predicate))
-    ((str start end predicate)
-      (assert* 'string-find (string? str))
-      (assert* 'string-find (fx<=? 0 start end (string-length str)))
-      (assert* 'string-find (procedure? predicate))
+    ((str predicate start end)
+      (assert* 'string-index/pred (string? str))
+      (assert* 'string-index/pred (procedure? predicate))
+      (assert* 'string-index/pred (fx<=? 0 start end (string-length str)))
       (do ((i start (fx1+ i)))
           ((or (fx>=? i end) (predicate (string-ref str i)))
-            (if (fx>=? i end) #f i))))))
+            (if (fx>=? i end) #f i))))
+    ((str predicate)
+      (string-index/pred str predicate 0 (string-length str)))))
+
+
+;; search string range [start, end) and return index of first character
+;; that matches char-or-predicate
+;;
+;; returned numerical index will be in the range [start, end).
+;; return #f if no such character is found in range.
+(define string-index
+  (case-lambda
+    ((str char-or-predicate start end)
+      (if (char? char-or-predicate)
+        (string-index/char str char-or-predicate start end)
+        (string-index/pred str char-or-predicate start end)))
+    ((str predicate)
+      (string-index str predicate 0 (string-length str)))))
+
+
+
+;; search string range [start, end) and return index of last character equal to ch.
+;; returned numerical index will be in the range [start, end).
+;; return #f if no such character is found in range.
+(define string-index-right/char
+  (case-lambda
+    ((str ch start end)
+      (assert* 'string-index-right/char (string? str))
+      (assert* 'string-index-right/char (fx<=? 0 start end (string-length str)))
+      (assert* 'string-index-right/char (char? ch))
+      (do ((i (fx1- end) (fx1- i)))
+          ((or (fx<? i start) (char=? ch (string-ref str i)))
+            (if (fx<? i start) #f i))))
+    ((str ch)
+      (string-index-right/char str ch 0 (string-length str)))))
 
 
 ;; search string range [start, end) and return index of last character
@@ -235,17 +403,32 @@
 ;;
 ;; returned numerical index will be in the range [start, end).
 ;; return #f if no such character is found in range.
-(define string-rfind
+(define string-index-right/pred
   (case-lambda
-    ((str predicate)
-      (string-rfind str 0 (string-length str) predicate))
-    ((str start end predicate)
-      (assert* 'string-rfind (string? str))
-      (assert* 'string-rfind (fx<=? 0 start end (string-length str)))
-      (assert* 'string-rfind (procedure? predicate))
+    ((str predicate start end)
+      (assert* 'string-index-right/pred (string? str))
+      (assert* 'string-index-right/pred (procedure? predicate))
+      (assert* 'string-index-right/pred (fx<=? 0 start end (string-length str)))
       (do ((i (fx1- end) (fx1- i)))
           ((or (fx<? i start) (predicate (string-ref str i)))
-            (if (fx<? i start) #f i))))))
+            (if (fx<? i start) #f i))))
+    ((str predicate)
+      (string-index-right/pred str predicate 0 (string-length str)))))
+
+
+;; search string range [start, end) and return index of last character
+;; that matches char-or-predicate
+;;
+;; returned numerical index will be in the range [start, end).
+;; return #f if no such character is found in range.
+(define string-index-right
+  (case-lambda
+    ((str char-or-predicate start end)
+      (if (char? char-or-predicate)
+        (string-index-right/char str char-or-predicate start end)
+        (string-index-right/pred str char-or-predicate start end)))
+    ((str predicate)
+      (string-index-right str predicate 0 (string-length str)))))
 
 
 ;; destructively replace each occurrence of old-char with new-char in string str.
@@ -262,6 +445,50 @@
 
 
 
+;; concatenate the strings in str-list, which must be a list of strings,
+;; inserting string sep between each pair of strings in str-list.
+;; Notes:
+;; 1. sep is not added before the first string
+;; 2. sep is not added after the last string
+;; 3. if the list of strings is empty or contains a single empty string,
+;;      returns the empty string (consequence of 1. and 2.)
+(define (string-join str-list sep)
+  (cond
+    ((null? str-list)
+      "")
+    ((null? (cdr str-list))
+      ; always return a new string - NOT (car str-list)
+      (string-copy (car str-list)))
+    (else
+      (let* ((sep-len   (string-length sep))
+             (ret       (make-string (%sum-strings-length-plus-separator str-list sep-len 0)))
+             (first     (car str-list))
+             (first-len (string-length first)))
+        (string-copy! first 0 ret 0 first-len)
+        (let %copy-string-list! ((l (cdr str-list)) (pos first-len))
+          (if (null? l)
+            ret
+            (let* ((elem     (car str-list))
+                   (elem-len (string-length elem)))
+              (string-copy! sep  0 ret pos sep-len)
+              (string-copy! elem 0 ret (fx+ pos sep-len) elem-len)
+              (%copy-string-list! (cdr l) (fx+ (fx+ pos sep-len) elem-len)))))))))
+
+
+(define (%sum-strings-length-plus-separator l sep-len ret)
+  (cond
+    ((null? l)
+      ret)
+    ((null? (cdr l))
+      (fx+ ret (string-length (car l))))
+    (else
+      (%sum-strings-length-plus-separator
+        (cdr l)
+        sep-len
+        (fx+ (fx+ ret sep-len) (string-length (car l)))))))
+
+
+
 ;; split range [start, end) of string str into a list of substrings,
 ;; using specified character as delimiter.
 ;; Notes:
@@ -273,18 +500,18 @@
 ;; 4. if the original string is empty, the returned list contains one empty string.
 (define string-split
   (case-lambda
-    ((str delim)
-      (assert* 'string-split (string? str))
-      (string-split str 0 (string-length str) delim))
-    ((str start end delim)
+    ((str delim start end)
       (assert* 'string-split (string? str))
       (assert* 'string-split (fx<=? 0 start end (string-length str)))
       (let ((l '()))
         (while start
-          (let ((pos (string-find/char str start end delim)))
+          (let ((pos (string-index/char str delim start end)))
             (set! l (cons (substring str start (or pos end)) l))
             (set! start (if pos (fx1+ pos) #f))))
-        (reverse! l)))))
+        (reverse! l)))
+    ((str delim)
+      (assert* 'string-split (string? str))
+      (string-split str delim 0 (string-length str)))))
 
 
 (define (char-is-blank? ch)
@@ -308,12 +535,12 @@
       (assert* 'string-trim-split-at-blanks (string? str))
       (assert* 'string-trim-split-at-blanks (fx<=? 0 start end (string-length str)))
       (let ((l '())
-            (pos-not-blank (or (string-find str start end char-is-not-blank?) end)))
+            (pos-not-blank (or (string-index/pred str char-is-not-blank? start end) end)))
         (while (fx<? pos-not-blank end)
-          (let ((pos-blank (string-find str (fx1+ pos-not-blank) end char-is-blank?)))
+          (let ((pos-blank (string-index/pred str char-is-blank? (fx1+ pos-not-blank) end)))
             (set! l (cons (substring str pos-not-blank (or pos-blank end)) l))
             (if pos-blank
-              (set! pos-not-blank (or (string-find str (fx1+ pos-blank) end char-is-not-blank?) end))
+              (set! pos-not-blank (or (string-index/pred str char-is-not-blank? (fx1+ pos-blank) end) end))
               (set! pos-not-blank end))))
         (reverse! l)))))
 
@@ -352,7 +579,7 @@
 
 (define (string-range<? left  left-start  left-end
                         right right-start right-end)
-   ; (debugf "> string-range<? left=~s, left-start=~s, left-end=~s, right=~s, right-start=~s, right-end=~s"
+   ; (debugf "-> string-range<? left=~s, left-start=~s, left-end=~s, right=~s, right-start=~s, right-end=~s"
    ;         left left-start left-end right right-start right-end)
    (let ((done? #f)
          (ret   #f))
@@ -375,64 +602,84 @@
                   (set! done? #t))
                 ((char>? ch1 ch2)
                   (set! done? #t)))))))
-     ; (debugf "< string-range<? ret=~s" ret)
+     ; (debugf "<- string-range<? ret=~s" ret)
      ret))
+
+
+;; if string str contains specified string key, return index of the first occurrence,
+;; otherwise return #f.
+;;
+;; if optional arguments str-start str-end key-start key-end are specified,
+;;   considers only matches that lie entirely in the range [str-start, str-end),
+;;   and the returned index is either #f or a fixnum in such range.
+(define string-contains
+  (case-lambda
+    ((str key str-start str-end key-start key-end)
+      (assert* 'string-contains (fx<=? 0 str-start str-end (string-length str)))
+      (assert* 'string-contains (fx<=? 0 key-start key-end (string-length key)))
+      (let* ((key-len (fx- key-end key-start))
+             (last    (fx- str-end key-len)))
+        (do ((i str-start (fx1+ i)))
+            ((or (fx>? i last) (string-range=? str i key key-start key-len))
+              (if (fx<=? i last) i #f)))))
+    ((str key)
+      (string-contains str key 0 (string-length str) 0 (string-length key)))))
 
 
 ;; return #t if string str starts with specified string prefix,
 ;; otherwise return #f.
-(define (string-starts-with? str prefix)
+(define (string-prefix? str prefix)
   (let ((str-len    (string-length str))
         (prefix-len (string-length prefix)))
     (and (fx>=? str-len prefix-len)
          (string-range=? str 0 prefix 0 prefix-len))))
 
 
-;; return #t if string str ends with specified string suffix,
+;; return #t if string str ends with specified string suffix.
 ;; otherwise return #f.
-(define (string-ends-with? str suffix)
+(define (string-suffix? str suffix)
   (let ((str-len    (string-length str))
         (suffix-len (string-length suffix)))
     (and (fx>=? str-len suffix-len)
          (string-range=? str (fx- str-len suffix-len) suffix 0 suffix-len))))
 
 
-;; if str begins with old-str, create and return a copy of str
-;; where the first occurrence of old-str has been replaced by new-str.
+;; if string str begins with string old-prefix, create and return a copy of str
+;; where the initial of old-prefix has been replaced by string new-prefix.
 ;;
 ;; otherwise return str
-(define (string-replace-start str old-str new-str)
-  (assert* 'string-replace (string? str))
-  (assert* 'string-replace (string? old-str))
-  (assert* 'string-replace (string? new-str))
-  (if (string-starts-with? str old-str)
+(define (string-replace-prefix str old-prefix new-prefix)
+  (assert* 'string-replace-prefix (string? str))
+  (assert* 'string-replace-prefix (string? old-prefix))
+  (assert* 'string-replace-prefix (string? new-prefix))
+  (if (string-prefix? str old-prefix)
     (let* ((len      (string-length str))
-           (old-len  (string-length old-str))
-           (new-len  (string-length new-str))
+           (old-len  (string-length old-prefix))
+           (new-len  (string-length new-prefix))
            (tail-len (fx- len old-len))
            (dst      (make-string (fx+ new-len tail-len))))
-      (string-copy! new-str 0 dst 0 new-len)
+      (string-copy! new-prefix 0 dst 0 new-len)
       (string-copy! str old-len dst new-len tail-len)
       dst)
     str))
 
 
-;; if str ends with old-str, create and return a copy of str
-;; where the last occurrence of old-str has been replaced by new-str.
+;; if str ends with old-suffix, create and return a copy of str
+;; where the final old-suffix has been replaced by new-suffix.
 ;;
 ;; otherwise return str
-(define (string-replace-end str old-str new-str)
-  (assert* 'string-replace (string? str))
-  (assert* 'string-replace (string? old-str))
-  (assert* 'string-replace (string? new-str))
-  (if (string-ends-with? str old-str)
+(define (string-replace-suffix str old-suffix new-suffix)
+  (assert* 'string-replace-suffix (string? str))
+  (assert* 'string-replace-suffix (string? old-suffix))
+  (assert* 'string-replace-suffix (string? new-suffix))
+  (if (string-suffix? str old-suffix)
     (let* ((len      (string-length str))
-           (old-len  (string-length old-str))
-           (new-len  (string-length new-str))
+           (old-len  (string-length old-suffix))
+           (new-len  (string-length new-suffix))
            (head-len (fx- len old-len))
            (dst      (make-string (fx+ head-len new-len))))
       (string-copy! str 0 dst 0 head-len)
-      (string-copy! new-str 0 dst head-len new-len)
+      (string-copy! new-suffix 0 dst head-len new-len)
       dst)
     str))
 

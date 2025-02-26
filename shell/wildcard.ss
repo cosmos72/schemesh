@@ -175,7 +175,7 @@
       ;; expand ~ to environment variable "HOME", or to string "~" if such env. variable is not set
       (let ((userhome (sh-env-ref job "HOME" "~")))
         (cons userhome tail))
-      (let* ((slash    (string-find/char arg1 #\/))
+      (let* ((slash    (string-index arg1 #\/))
              (username (if slash (substring arg1 0 slash) arg1))
              (userhome (get-userhome (string->utf8b/0 username))))
         (if (string? userhome)
@@ -211,7 +211,7 @@
           (let ((pattern (car tail)))
             (unless (string? pattern)
               (raise-errorf 'sh-wildcard "found ~s after shell wildcard symbol '~s, expected a string" pattern (car w)))
-            (when (string-find/char pattern 0 (string-length pattern) #\/)
+            (when (string-index pattern #\/)
               (%raise-invalid-wildcard-pattern (car w) pattern))
             (span-insert-back! (span-back ret) pattern))
             (set! w tail)))
@@ -348,7 +348,7 @@
     ((fx>=? i sp-end) ; check that path exists
       (when (file-type path 'catch 'symlinks)
         ; if patterns do not end with #\/ then remove any final #\/ from path
-        (when (and (string-ends-with/char? path #\/)
+        (when (and (string-suffix/char? path #\/)
                    (not (%patterns-end-with/char? sp #\/)))
           (string-truncate! path (fx1- (string-length path))))
         (span-insert-back! ret path))
@@ -383,15 +383,15 @@
     #f
     (let* ((p   (span-back sp))
            (key (if (string? p) p (sh-pattern-back/string p))))
-      (and (string? key) (string-ends-with/char? key ch)))))
+      (and (string? key) (string-suffix/char? key ch)))))
 
 
 ;; concatenate two filesystem paths
 (define (%path-append path1 path2)
   (let* ((path1-len (string-length path1))
          (path2-len (string-length path2))
-         (path1-slash? (string-ends-with/char? path1 #\/))
-         (path2-slash? (string-starts-with/char? path2 #\/)))
+         (path1-slash? (string-suffix/char? path1 #\/))
+         (path2-slash? (string-prefix/char? path2 #\/)))
     (cond
       ((fxzero? path1-len)
         path2)

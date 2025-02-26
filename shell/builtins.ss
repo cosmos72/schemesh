@@ -7,7 +7,7 @@
 
 (library (schemesh shell builtins (0 7 6))
   (export sh-builtins sh-builtins-help sh-find-builtin sh-exception-handler
-          sh-echo sh-false sh-help sh-history sh-repl-args sh-repl-args-linectx sh-true)
+          sh-echo sh-false sh-help sh-history repl-args repl-args-linectx sh-true)
   (import
     (rnrs)
     (only (chezscheme)        console-error-port debug debug-condition debug-on-exception
@@ -17,7 +17,7 @@
     (only (schemesh containers charlines) charlines-iterate)
     (only (schemesh containers gbuffer)   gbuffer-iterate)
     (only (schemesh containers hashtable) hashtable-iterate)
-    (only (schemesh containers misc)      list-iterate)
+    (only (schemesh containers list)      list-iterate)
     (only (schemesh containers sort)      vector-sort*!)
     (only (schemesh containers span)      span span-insert-back! span-iterate vector->span*)
     (only (schemesh containers string)    assert-string-list? string-is-unsigned-base10-integer?)
@@ -42,22 +42,22 @@
   (bytespan-clear! bsp))
 
 
-;; thread parameter (sh-repl-args) must be empty or a list
+;; thread parameter (repl-args) must be empty or a list
 ;;   (parser eval-func linectx repl-init-file-path repl-quit-file-path)
-;; containing arguments of current call to (sh-repl) or (sh-repl*)
-(define sh-repl-args
+;; containing arguments of current call to (repl) or (repl*)
+(define repl-args
   (sh-make-thread-parameter
     '()
     (lambda (args)
       (unless (list? args)
-        (raise-errorf 'sh-repl-args "~s is not a list" args))
+        (raise-errorf 'repl-args "~s is not a list" args))
       args)))
 
 
-;; return the linectx contained in thread parameter (sh-repl-args),
+;; return the linectx contained in thread parameter (repl-args),
 ;; or #f if not present.
-(define (sh-repl-args-linectx)
-  (let ((repl-args (sh-repl-args)))
+(define (repl-args-linectx)
+  (let ((repl-args (repl-args)))
     (and (fx>=? (length repl-args) 3)
          (list-ref repl-args 2))))
 
@@ -128,7 +128,7 @@
 (define sh-help
   (case-lambda
     (()
-      (let* ((lctx (sh-repl-args-linectx))
+      (let* ((lctx (repl-args-linectx))
              (wbuf (linectx-wbuf lctx)))
         (bytespan-insert-back/string! wbuf "schemesh version")
         (let ((version (sh-version)))
@@ -174,7 +174,7 @@ The following names are recognized as builtins:\n\n")
 (define sh-history
   (case-lambda
     (()
-      (sh-history (sh-repl-args-linectx)))
+      (sh-history (repl-args-linectx)))
     ((lctx)
       (let ((fd   (sh-fd-stdout)))
         ; (debugf "sh-history ~s" lctx)

@@ -19,7 +19,7 @@
     (only (schemesh bootstrap)            assert* debugf while until)
     (only (schemesh containers charspan)  charspan charspan-insert-back! charspan->string*!)
     (only (schemesh containers hashtable) hashtable)
-    (only (schemesh containers misc)      list-reverse*!)
+    (only (schemesh containers list)      list-reverse*!)
     (only (schemesh containers string)    string-iterate)
     (only (schemesh containers utf8b)     integer->char*)
     (schemesh lineedit paren)
@@ -159,7 +159,7 @@
                      ((lbrace) 'rbrace)
                      ((lbrack) 'rbrack)
                      (else 'rparen)))
-         (check-list-end (lambda (type)
+         (assert-list-end-type (lambda (type)
            (unless (eq? type end-type)
              (syntax-errorf ctx (caller-for flavor) "unexpected token ~a, expecting ~a"
                (lex-type->string type) (lex-type->string end-type)))))
@@ -174,7 +174,7 @@
                (set! ret (append! (if reverse? (reverse! ret) ret) (list forms)))))
            ; (debugf "... parse-lisp-forms < %merge! ret=~s" ret)
            (set! reverse? #f))))
-    ; (debugf ">   parse-lisp-forms end-type=~s" end-type)
+    ; (debugf "->   parse-lisp-forms end-type=~s" end-type)
     (while again?
       (let-values (((value type) (lex-lisp ctx flavor)))
         ; (debugf "... parse-lisp-forms ret=~s value=~s type=~s end-type=~s" (if reverse? (reverse ret) ret) value type end-type)
@@ -194,7 +194,7 @@
                   (set! parser updated-parser))
                 (%merge! other-forms))))
           ((rparen rbrack rbrace)
-            (check-list-end type)
+            (assert-list-end-type type)
             (set! again? #f))
           ((dot)
             ;; parse '.' followed by last form and matching token ) or ] or },
@@ -207,12 +207,12 @@
               (set! again? #f))
             ;; then parse ')' ']' or '}'
             (let-values (((value type) (lex-lisp ctx flavor)))
-              (check-list-end type)))
+              (assert-list-end-type type)))
           (else
             ;; parse a single form and append it
             (let ((value-i (parse-lisp-impl ctx value type flavor)))
               (set! ret (cons value-i ret)))))))
-    ; (debugf "<   parse-lisp-forms ret=~s" (if reverse? (reverse ret) ret))
+    ; (debugf "<-  parse-lisp-forms ret=~s" (if reverse? (reverse ret) ret))
     (values
       (if reverse? (reverse! ret) ret)
       parser)))
@@ -362,7 +362,7 @@
                                 (else (or start-ch #t))))
          (ret    #f))
 
-    ; (debugf ">   parse-lisp-paren start-ch=~a" start-ch)
+    ; (debugf "->   parse-lisp-paren start-ch=~a" start-ch)
     (let-values (((x y) (parsectx-previous-pos ctx (if start-ch 1 0))))
       (paren-start-xy-set! paren x y))
     (until ret

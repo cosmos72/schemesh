@@ -7,29 +7,28 @@
 
 (library (schemesh bootstrap (0 7 6))
   (export
-      ;; first.ss
+      ;; bootstrap.ss
+      assert* assert-not* catch check check-not define-macro debugf debugf-port
+      first-value first-value-or-void forever let-macro raise-assert* repeat second-value
+      while until throws? trace-call try list->values values->list -> ^
+
+      ;; functions.ss
       generate-pretty-temporaries generate-pretty-temporary gensym-pretty
 
-      ;; raise.ss
-      raise-assert0 raise-assert1 raise-assert2 raise-assert3 raise-assert4 raise-assert5
-      raise-assertf raise-assertl raise-errorf
+      raise-assert0 raise-assert1 raise-assert2 raise-assert3
+      raise-assert4 raise-assert5 raise-assertf raise-assertl raise-errorf
 
-      ;; parameters.ss
-      sh-make-parameter sh-make-thread-parameter sh-version
+      warn-check-failed0 warn-check-failed1 warn-check-failed2 warn-check-failed3
+      warn-check-failed4 warn-check-failed5 warnf warn-check-failedl
 
-      ;; bootstrap.ss
-      assert* assert-not* catch define-macro debugf debugf-port first-value first-value-or-void let-macro
-      raise-assert* repeat second-value while until throws? trace-call try list->values values->list -> ^)
-
+      sh-make-parameter sh-make-thread-parameter sh-version)
   (import
     (rnrs)
     (rnrs base)
     (rnrs exceptions)
     (only (chezscheme) current-time eval-when format foreign-procedure fx1- fx/ gensym
                        meta pariah reverse! time-second time-nanosecond void)
-    (schemesh bootstrap first)
-    (schemesh bootstrap raise)
-    (schemesh bootstrap parameters))
+    (schemesh bootstrap functions))
 
 
 
@@ -58,22 +57,36 @@
 ;; evaluate expr, which may return multiple values, and return the second of such values.
 (define-syntax second-value
   (syntax-rules ()
-    ((_ expr) (call-with-values (lambda () expr) (lambda args (cdr args))))))
+    ((_ expr)
+      (call-with-values (lambda () expr) (lambda args (cdr args))))))
+
+
+
+(define-syntax forever
+  (syntax-rules ()
+    ((_ body ...)
+      (do () (#f) body ...))))
+
 
 ;; port where to write debug messages with (debugf).
-;; lazily initialized to a file output port that writes to device /dev/pts/1
+(define (debugf-port)
+  (current-output-port))
+
+#|
 (define debugf-port
-  (let ((pts1 #f))
+  (let ((port #f))
     (lambda ()
-      (unless pts1
+      (unless port
         ; works, but leaks into child processes :(
-        (set! pts1 (open-file-output-port
-                     "/dev/pts/1"
+        (set! port (open-file-output-port
+                     "/dev/tty"
                      (file-options no-create no-truncate)
                      (buffer-mode line)
                      (make-transcoder (utf-8-codec) (eol-style lf)
                                       (error-handling-mode raise)))))
-      pts1)))
+      port)))
+|#
+
 
 (define c-pid-get (foreign-procedure "c_pid_get" () int))
 
@@ -147,6 +160,76 @@
                   (void))))))))
 
 
+
+;; Expands to the correct (warn-check-failed...) depending on the number of arguments
+(define-syntax warn-check-failed
+  (syntax-rules ()
+    ((_ caller form)
+      (pariah (warn-check-failed0 caller form) (void)))
+    ((_ caller form arg1)
+      (pariah (warn-check-failed1 caller form arg1) (void)))
+    ((_ caller form arg1 arg2)
+      (pariah (warn-check-failed2 caller form arg1 arg2) (void)))
+    ((_ caller form arg1 arg2 arg3)
+      (pariah (warn-check-failed3 caller form arg1 arg2 arg3) (void)))
+    ((_ caller form arg1 arg2 arg3 arg4)
+      (pariah (warn-check-failed4 caller form arg1 arg2 arg3 arg4) (void)))
+    ((_ caller form arg1 arg2 arg3 arg4 arg5)
+      (pariah (warn-check-failed5 caller form arg1 arg2 arg3 arg4 arg5) (void)))
+    ((_ caller form args ...)
+      (pariah (warn-check-failedl caller form (list args ...) (void))))))
+
+
+(define-syntax check
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ caller expr)
+       #'(void)))))
+
+(define-syntax check-not
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ caller expr)
+       #'(void)))))
+
+
+;; display a warning message if (proc arg ...) evaluates to #f
+;; requires proc to be a procedure, NOT a syntax or macro
+(define-syntax check.saved
+  (lambda (stx)
+    (let ((form (format #f "~s" (caddr (syntax->datum stx)))))
+      (syntax-case stx ()
+        ((_ caller (proc args ...))
+          (with-syntax (((targs ...) (generate-pretty-temporaries #'(args ...))))
+            #`(let ((tproc proc) (targs args) ...)
+                (if (tproc targs ...)
+                  (void)
+                  (warn-check-failed caller #,form targs ...)))))
+        ((_ caller expr)
+          #`(let ((texpr expr))
+              (if texpr
+                  (void)
+                  (warn-check-failed caller #,form texpr))))))))
+
+
+;; display a warning message if (proc arg ...) evaluates to truish
+;; requires proc to be a procedure, NOT a syntax or macro
+(define-syntax check-not.saved
+  (lambda (stx)
+    (let ((form (format #f "(not ~s)" (caddr (syntax->datum stx)))))
+      (syntax-case stx ()
+        ((_ caller (proc args ...))
+          (with-syntax (((targs ...) (generate-pretty-temporaries #'(args ...))))
+            #`(let ((tproc proc) (targs args) ...)
+                (when (tproc targs ...)
+                  (warn-check-failed caller #,form targs ...)))))
+        ((_ caller expr)
+          #`(let ((texpr expr))
+              (when texpr
+                  (warn-check-failed caller #,form texpr))))))))
+
+
+
 ;; wrap a procedure call, and write two debug messages to (debugf-port):
 ;; the first before calling the procedure, showing the arguments values
 ;; the second after the procedure returned, showing the return values
@@ -156,9 +239,9 @@
       ((_ (proc args ...))
         #'(let ((tproc proc) ; proc must be evaluated before args
                 (targs (list args ...)))
-            (begin (debugf "> ~s call ~s" 'proc (cons 'proc targs)))
+            (begin (debugf "-> ~s call ~s" 'proc (cons 'proc targs)))
             (let ((ret (values->list (apply tproc targs))))
-              (begin (debugf "< ~s rets ~s" 'proc ret))
+              (begin (debugf "<- ~s rets ~s" 'proc ret))
               (list->values ret)))))))
 
 

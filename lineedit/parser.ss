@@ -24,10 +24,10 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) fx1+ fx1- make-continuation-condition
+    (only (chezscheme) format fx1+ fx1- make-continuation-condition
                        make-format-condition record-writer unread-char void)
     (only (schemesh bootstrap) assert* until while)
-    (only (schemesh containers misc)      list-iterate)
+    (only (schemesh containers list)      list-iterate)
     (only (schemesh containers hashtable) hashtable-iterate)
     (schemesh containers span)
     (schemesh containers charspan))
@@ -381,7 +381,7 @@
             (make-i/o-port-error (parsectx-in pctx))
             (make-continuation-condition k)
             (make-non-continuable-violation)
-            (make-who-condition who)
+            (make-who-condition (if (symbol? who) who (format #f "~s" who)))
             (make-format-condition)
             (make-message-condition (string-append format-string " at line ~a, char ~a of ~a"))
             (make-irritants-condition
@@ -394,7 +394,7 @@
             (make-i/o-read-error)
             (make-continuation-condition k)
             (make-non-continuable-violation)
-            (make-who-condition who)
+            (make-who-condition (if (symbol? who) who (format #f "~s" who)))
             (make-format-condition)
             (make-message-condition format-string)
             (make-irritants-condition format-args)))))))

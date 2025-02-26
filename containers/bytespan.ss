@@ -28,6 +28,7 @@
     (rnrs)
     (only (chezscheme)         bytevector-truncate! fx1+ fx1- record-writer void)
     (only (schemesh bootstrap) assert* assert-not*)
+    (only (schemesh containers list) list-iterate)
     (schemesh containers misc))
 
 (define-record-type

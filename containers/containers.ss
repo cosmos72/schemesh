@@ -9,6 +9,7 @@
 ;; define (schemesh containers) as a library that exports all its imported bindings
 (library-reexport (schemesh containers (0 7 6))
   (import (schemesh containers bitmap)
+          (schemesh containers list)
           (schemesh containers misc)
           (schemesh containers sort)
           (schemesh containers string)

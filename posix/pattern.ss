@@ -14,7 +14,7 @@
     (rnrs)
     (only (chezscheme) fx1+ fx1- record-writer void)
     (only (schemesh bootstrap) assert* raise-assertf)
-    (only (schemesh containers string) string-find/char string-rfind/char string-range=?)
+    (only (schemesh containers string) string-index string-index-right string-range=?)
     (schemesh containers charspan)
     (schemesh containers span))
 
@@ -278,7 +278,7 @@
 ;; 2. number of matched string characters
 (define (%pattern-match/right1 sp sp-start sp-end str str-start str-end)
   (let ((key (%pattern-at sp (fx1- sp-end))))
-    ; (debugf ">   %pattern-match/right1 sp=~s sp-start=~s sp-end=~s key=~s" sp sp-start sp-end key)
+    ; (debugf "->   %pattern-match/right1 sp=~s sp-start=~s sp-end=~s key=~s" sp sp-start sp-end key)
     ; (debugf "... %pattern-match/right1 str=~s str-start=~s str-end=~s" str str-start str-end)
     (cond
       ((string? key)
@@ -336,12 +336,12 @@
     (if (fxzero? alt-len)
       #f ; missing alternatives
       (let ((match?
-              (if (string-find/char alt 1 (fxmax 1 (fx1- alt-len)) #\-)
+              (if (string-index alt #\- 1 (fxmax 1 (fx1- alt-len)))
                 ; found #\- not at the beginning and not at the end:
                 ; search among alternatives listed as range(s)
                 (%pattern-match/range? alt ch)
                 ; plain string search among alternatives, returns fixnum or #f
-                (string-find/char alt 0 alt-len ch))))
+                (string-index alt ch 0 alt-len))))
         ; if key is '%! then negate the meaning of match?
         (if (if (eq? key '%) match? (not match?))
           2
@@ -444,7 +444,7 @@
         (search-start (if max-len (fx- str-end max-len) str-start))
         (search-end   (fx1+ (fx- str-end min-len))))
     (let %again/opt ((str-pos search-start))
-      (let ((str-ch-pos (string-find/char str str-pos search-end ch)))
+      (let ((str-ch-pos (string-index str ch str-pos search-end )))
         (if str-ch-pos
           ; ch found: try to recursively match the remaining pattern after sequence of '*
           (or
@@ -512,7 +512,7 @@
          (search-start (fx1- (fx+ str-start min-len)))
          (search-end   (if max-len (fx+ str-start max-len) str-end)))
     (let %again/opt ((str-pos search-start))
-      (let ((str-ch-pos (string-find/char str str-pos search-end ch)))
+      (let ((str-ch-pos (string-index str ch str-pos search-end)))
         (if str-ch-pos
           ; ch found: try to recursively match the remaining pattern after sequence of '*
           (or

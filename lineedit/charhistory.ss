@@ -16,7 +16,7 @@
     (rnrs)
     (only (chezscheme)               fx1+ fx1- record-writer)
     (only (schemesh bootstrap)       raise-assertf while)
-    (only (schemesh containers misc) list-iterate)
+    (only (schemesh containers list) list-iterate)
     (only (schemesh containers span) span make-span list->span)
     (schemesh containers gbuffer)
     (only (schemesh containers charline) charline-empty?)
