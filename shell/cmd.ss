@@ -15,13 +15,12 @@
     #f #f #f #f     ; id oid pid pgid
     '(new) #f       ; last-status exception
     (span) 0 #f     ; redirections
-    cmd-start       ; start-proc
-    (sh-wait-flags)
-    #f #f           ; resume-proc yield-proc
+    cmd-start #f    ; start-proc resume-proc
     #f #f           ; working directory, old working directory - initially inherited from parent job
     #f              ; overridden environment variables - initially none
     #f              ; env var assignments - initially none
-    #f (sh-globals) ; no temp parent. default parent job is initially the global job
+    #f              ; no temp parent
+    (or (sh-current-job) (sh-globals)) ; default parent job
     program-and-args
     #f))            ; expanded arg-list
 
@@ -233,12 +232,12 @@
 	((running)
 	  ;; (debugf "... cmd-loop cmd=~a --- calling yield" (sh-job->string cmd))
           (job-yield c '(cmd-loop running))
-          ;; (debugf "... cmd-loop cmd=~a --- yield returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string cmd) (job-wait-flags c))
+          ;; (debugf "... cmd-loop cmd=~a --- yield returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string cmd))
 	 )
         ((stopped)
            ;; (debugf "... cmd-loop cmd=~a --- calling suspend" (sh-job->string cmd))
            (job-suspend c status)
-           ;; (debugf "... cmd-loop cmd=~a --- suspend returned,\n\t\tcalling resume on cmd, wait-flags=~s" (sh-job->string cmd) (job-wait-flags c))
+           ;; (debugf "... cmd-loop cmd=~a --- suspend returned,\n\t\tcalling resume on cmd, wait-flags=~s" (sh-job->string cmd))
            )
         (else
           ;; (debugf "<-  cmd-loop cmd=~a status=~s" (sh-job->string cmd) status)
@@ -368,25 +367,36 @@
         err))))
 
 
-(define-syntax with-foreground-pgid
-  (syntax-rules ()
-    ((_  wait-flags new-pgid body1 body2 ...)
-      ;; hygienic macros sure are handy :)
-      (let* ((new-pgid  new-pgid)
-             (our-pgid  (and new-pgid
+(define (call/foreground-pgid wait-flags new-pgid proc)
+  (call/cc
+    ;; Capture the continuation representing THIS call to (call/foreground-pgid)
+    ;; and save it in (default-yield-proc): needed because proc calls job-resume-proc,
+    ;; which is a continuation and NEVER returns:
+    ;; it only yields to parent job or to (default-yield-proc).
+    (lambda (yield)
+      (let* ((our-pgid  (and new-pgid
                           (sh-wait-flag-foreground-pgid? wait-flags)
                           (sh-job-control?)
                           (job-pgid (sh-globals))))
-             (func (lambda () body1 body2 ...)))
-        (if our-pgid
-          (dynamic-wind
-            (lambda () ; run before body
+             (outer-yield #f))
+        (dynamic-wind
+          (lambda () ; run before body
+            (when our-pgid
               (%pgid-foreground our-pgid new-pgid))
-            func
-            (lambda () ; run after body
+            (set! outer-yield (default-yield-proc))
+            (default-yield-proc yield))
+          proc
+          (lambda () ; run after body
+            (default-yield-proc outer-yield)
+            (when our-pgid
               ;; try really hard to restore (sh-globals) as the foreground process group
-              (%pgid-foreground -1 our-pgid)))
-          (func))))))
+              (%pgid-foreground -1 our-pgid))))))))
+
+
+(define-syntax with-foreground-pgid
+  (syntax-rules ()
+    ((_  wait-flags new-pgid body1 body2 ...)
+      (call/foreground-pgid wait-flags new-pgid (lambda () (body1 body2 ...))))))
 
 
 ;; Internal function called by (job-wait) for resuming a job with a pid or pgid.
@@ -440,7 +450,7 @@
   ;; cannot call (sh-job-status), it would recurse back here.
   (unless (job-finished? job)
 
-    (core-scheduler-wait wait-flags)
+    (scheduler-wait wait-flags)
 
     (case (job-last-status->kind job)
       ((new)
@@ -483,12 +493,13 @@
 ;; and (proc-notify-status-change job) will be called for each job that changed status.
 ;;
 ;; Returns unspecified value.
-(define (core-scheduler-wait wait-flags)
+(define (scheduler-wait wait-flags)
+  (assert* 'scheduler-wait (default-yield-proc))
 
   (when (sh-wait-flag-wait? wait-flags)
-    (job-pids-wait-once wait-flags))
+    (scheduler-wait-once wait-flags))
 
-  (while (job-pids-wait-once (sh-wait-flags))))
+  (while (scheduler-wait-once (sh-wait-flags))))
 
 
 (define (maybe-queue-job-display-summary job)
@@ -500,9 +511,9 @@
 ;; If some suprocess changed status, update the corresponding job status and call its (job-resume-proc) if set.
 ;;
 ;; Return #t is some job changed its status, otherwise return #f.
-(define (job-pids-wait-once wait-flags)
+(define (scheduler-wait-once wait-flags)
 
-  ;;x (debugf "->  job-pids-wait-once wait-flags=~s" wait-flags)
+  ;;x (debugf "->  scheduler-wait-once wait-flags=~s" wait-flags)
 
   (signal-consume-sigchld)
 
@@ -510,16 +521,16 @@
          (wait-result (pid-wait -1 may-block))
          (job         (and (pair? wait-result) (pid->job (car wait-result)))))
 
-    ;;x (debugf "... job-pids-wait-once job=~a\twait-flags=~s wait-result=~s" (and job (sh-job->string job)) wait-flags wait-result)
+    ;;x (debugf "... scheduler-wait-once job=~a\twait-flags=~s wait-result=~s" (and job (sh-job->string job)) wait-flags wait-result)
 
     (if job
       (let* ((old-status  (job-last-status job))
              (new-status  (pid-wait-result->status (cdr wait-result)))
              (changed?    (status-changed? old-status new-status)))
 
-        (job-status-set! 'job-pids-wait-once job new-status)
+        (job-status-set! 'scheduler-wait-once job new-status)
 
-        ;;x (debugf "... job-pids-wait-once job=~a\tstatus=~s -> ~s changed?=~s\twait-flags=~s\tresume-proc=~s" (sh-job->string job) old-status new-status changed? wait-flags (job-resume-proc job))
+        ;;x (debugf "... scheduler-wait-once job=~a\tstatus=~s -> ~s changed?=~s\twait-flags=~s\tresume-proc=~s" (sh-job->string job) old-status new-status changed? wait-flags (job-resume-proc job))
 
         (when changed?
           (maybe-queue-job-display-summary job)
@@ -527,15 +538,15 @@
           (check 'job-pids-wait (job-resume-proc job))
 
           (when (job-resume-proc job)
-            ;;x (debugf "job-pids-wait-once job=~a\tcalling job-resume-proc... " (sh-job->string job))
+            ;;x (debugf "scheduler-wait-once job=~a\tcalling job-resume-proc... " (sh-job->string job))
             (job-call-resume-proc job (sh-wait-flags))
-            ;;x (debugf "job-pids-wait-once job=~a\t...job-resume-proc returned" (sh-job->string job))
+            ;;x (debugf "scheduler-wait-once job=~a\t...job-resume-proc returned" (sh-job->string job))
           ))
 
-        ;;x (debugf "<-  job-pids-wait-once job=~a changed?=~s wait-flags=~s" (sh-job->string job) changed? wait-flags)
+        ;;x (debugf "<-  scheduler-wait-once job=~a changed?=~s wait-flags=~s" (sh-job->string job) changed? wait-flags)
         changed?)
       (begin
-        ;;x (debugf "<-  job-pids-wait-once job=~a changed?=~s wait-flags=~s" #f #f wait-flags)
+        ;;x (debugf "<-  scheduler-wait-once job=~a changed?=~s wait-flags=~s" #f #f wait-flags)
         #f))))
 
 

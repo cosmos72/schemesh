@@ -71,7 +71,6 @@
   (%job-last-status-set! job '(new))
   (job-exception-set! job #f)
   (job-resume-proc-set! job #f)
-  (job-yield-proc-set! job #f)
   (when (sh-multijob? job)
     (multijob-current-child-index-set! job -1)
     (span-iterate (multijob-children job)
@@ -80,6 +79,7 @@
           (job-status-set-new/recursive! elem))))))
 
 
+;; returns unspecified value
 (define (job-start/may-throw caller job k-continue options)
   (let ((start-proc (job-start-proc job)))
      (unless (procedure? start-proc)
@@ -89,19 +89,12 @@
      (unless (job-new? job)
        (job-status-set-new/recursive! job))
      (job-status-set-running! 'job-start/may-throw job)
-     (check-not caller (job-yield-proc job))
-     (job-yield-proc-set! job k-continue)
-     (parameterize ((sh-current-job job))
+     (parameterize ((sh-current-job     job)
+                    (default-yield-proc k-continue))
        ;; set job's parent if requested.
        ;; must be done *before* calling procedures in (cmd-arg-list c)
        (let ((options (options->set-temp-parent! job options)))
-         (start-proc job options))))  ; may throw
-  ;; ignore value returned by job-start-proc,
-;; and ignore value returned by continuation (yield)
-  ;;
-  ;; the yield continuation we set above is no longer useful
-  (job-yield-proc-set! job #f)
-  (void))
+         (start-proc job options)))))  ; may throw
 
 
 (define (job-start/on-exception caller job options k-continue ex)
@@ -112,7 +105,9 @@
   (job-status-set! caller job (list 'exception ex))
   (if (options->catch? options)
     (k-continue (sh-exception-handler ex))
-    (raise ex)))
+    (begin
+      (debug-condition ex) ;; save ex into thread-parameter (debug-condition)
+      (raise ex))))
 
 
 (define (job-start/display-condition obj port)
@@ -122,86 +117,131 @@
   (flush-output-port port))
 
 
+;; return #f or the continuation to call for yielding job.
+(define (job-yield-proc job)
+  (let* ((parent             (job-default-parent job))
+         (parent-resume-proc (and parent (job-resume-proc parent))))
+    (or parent-resume-proc
+        (default-yield-proc))))
 
-;; suspend a job and call its (job-yield-proc) continuation,
-;; which non-locally jumps to whoever started or resumed the job.
+
+;; suspend a job and call (job-yield-proc) continuation,
+;; which non-locally resumes job's parent or resumes the current call to (job-resume).
 ;;
-;; if job is later resumed, it then returns #t to the caller of (job-suspend)
-;; if there was no job to suspend, immediately return #f to the caller of (job-suspend)
-(define (job-suspend job status)
-  (let ((yield-proc (and (sh-job? job) (job-yield-proc job))))
+;; if suspend succeeds and job is later resumed, it then returns #t to the caller of (job-suspend)
+;; if suspend fails, immediately return #f to the caller of (job-suspend)
+(define (%job-suspend job status)
+  (check-not 'job-suspend (job-resume-proc job))
+  (let ((yield-proc (job-yield-proc job)))
     ;;x (debugf "-> job-suspend\tjob=~a\tstatus=~s\tyield-proc=~s" (sh-job->string job) (job-last-status job) yield-proc)
-    (when yield-proc
-      ;; (debugf "job-suspend job=~a" (sh-job->string job))
-      (call/cc
-        ;; Capture the continuation representing THIS call to (job-suspend)
-        (lambda (cont)
-          ;; store it as job's resume-proc
-          (check-not 'job-suspend (job-resume-proc job))
-          (job-resume-proc-set! job cont)
-          (job-yield-proc-set!  job #f)
-          (unless (job-pid job)
-            (%job-last-status-set! job (if (sh-stopped? status) status '(stopped sigtstp))))
-          ;; suspend job, i.e. call its yield-proc
-          (yield-proc (void)))))
-    ;;x (debugf "<- job-suspend\tjob=~a\tstatus=~s" (sh-job->string job) (job-last-status job))
-    ;; ignore value returned by continuations (yield-proc) and (cont)
-    ;;
-    ;; also, the resume continuation we set above is no longer useful
-    (job-resume-proc-set! job #f)
-    (if yield-proc #t #f)))
+    (if yield-proc
+      (begin
+        (call/cc
+          ;; Capture the continuation representing THIS call to (job-suspend)
+          (lambda (cont)
+            ;; store it as job's resume-proc
+            (job-resume-proc-set! job cont)
+            (unless (job-pid job)
+              (%job-last-status-set! job (if (sh-stopped? status) status '(stopped sigtstp))))
+            ;; suspend job by calling resume of its parent job, or default-yield-proc
+            (yield-proc (void))))
+
+        ;;x (debugf "<- job-suspend\tjob=~a\tstatus=~s" (sh-job->string job) (job-last-status job))
+        ;; ignore value returned by continuation (yield-proc)
+        ;;
+        ;; also, the resume continuation we set above is no longer useful
+        (job-resume-proc-set! job #f)
+        #t)
+      #f)))
 
 
-;; suspend a running job and call its (job-yield-proc) continuation,
-;; which non-locally jumps to whoever started or resumed the job.
+;; yield a running job and call (job-yield-proc) continuation,
+;; which non-locally resumes job's parent or resumes the current call to (job-resume).
 ;;
-;; if job is later resumed, it then returns #t to the caller of (job-suspend)
-;; if there was no job to yield, immediately return #f to the caller of (job-yield)
-(define (job-yield job caller)
-  (let ((yield-proc (and (sh-job? job) (job-yield-proc job))))
-    ;;x (debugf "-> job-yield\tjob=~a\tstatus=~s\tcaller=~s yield-proc=~s" (sh-job->string job) (job-last-status job) caller yield-proc)
-    (when yield-proc
-      (call/cc
-        ;; Capture the continuation representing THIS call to (job-yield)
-        (lambda (cont)
-          ;; store it as job's resume-proc
-          (check-not 'job-yield (job-resume-proc job))
-          (job-resume-proc-set! job cont)
-          (job-yield-proc-set! job #f)
-          (when (job-running? job)
-            ;; try to update status '(running) -> '(running id)
-            (job-status-set-running! 'job-yield job))
-          ;; suspend job, i.e. call its yield-proc
-          (yield-proc (void)))))
-    ;;x (debugf "<- job-yield\tjob=~a\tstatus=~s\tcaller=~s" (sh-job->string job) (job-last-status job) caller)
-    ;; ignore value returned by continuations (yield-proc) and (cont)
-    ;;
-    ;; also, the resume continuation we set above is no longer useful
-    (job-resume-proc-set! job #f)
+;; if yield succeeds and job is later resumed, it then returns #t to the caller of (job-yield)
+;; if yield fails, immediately return #f to the caller of (job-yield)
+(define (%job-yield job caller)
+  (check-not 'job-yield (job-resume-proc job))
+  (let ((yield-proc (job-yield-proc job)))
+    ;;x (debugf "-> job-suspend\tjob=~a\tstatus=~s\tyield-proc=~s" (sh-job->string job) (job-last-status job) yield-proc)
+    (if yield-proc
+      (begin
+        (call/cc
+          ;; Capture the continuation representing THIS call to (job-suspend)
+          (lambda (cont)
+            ;; store it as job's resume-proc
+            (job-resume-proc-set! job cont)
+            (when (job-running? job)
+              ;; try to update status '(running) -> '(running id)
+              (job-status-set-running! 'job-yield job))
+            ;; suspend job by calling resume of its parent job, or default-yield-proc
+            (yield-proc (void))))
 
-    (if yield-proc #t #f)))
+        ;;x (debugf "<- job-suspend\tjob=~a\tstatus=~s" (sh-job->string job) (job-last-status job))
+        ;; ignore value returned by continuation (yield-proc)
+        ;;
+        ;; also, the resume continuation we set above is no longer useful
+        (job-resume-proc-set! job #f)
+        #t)
+      #f)))
+
+
+;; suspend a job and call (job-yield-proc) continuation,
+;; which non-locally resumes job's parent or resumes the current call to (job-resume).
+;;
+;; if suspend succeeds and job is later resumed, it then returns #t to the caller of (job-suspend)
+;; if suspend fails, immediately return #f to the caller of (job-suspend).
+;;
+;; Implementation note: if after a successful suspend, job status is 'stopped, suspend it again.
+(define (job-suspend job status)
+  (if (%job-suspend job status)
+    (let ((status (job-last-status job)))
+      (if (sh-stopped? status)
+        (%job-suspend job status)
+        #t))
+    #f))
+
+
+;; yield a running job and call (job-yield-proc) continuation,
+;; which non-locally resumes job's parent or resumes the current call to (job-resume).
+;;
+;; if yield succeeds and job is later resumed, it then returns #t to the caller of (job-yield)
+;; if yield fails, immediately return #f to the caller of (job-yield)
+;;
+;; Implementation note: if after a successful yield, job status is 'stopped, suspend it.
+(define (job-yield job caller)
+  (if (%job-yield job caller)
+    (let ((status (job-last-status job)))
+      (if (sh-stopped? status)
+        (%job-suspend job status)
+        #t))
+    #f))
 
 
 ;; Suspend current job and call its (job-yield-proc) continuation,
 ;; which non-locally jumps to whoever started or resumed the job.
 ;;
-;; if job is later resumed, it then returns #t to the caller of (sh-current-job-suspend)
-;; if there was no job to suspend, immediately return #f to the caller of (sh-current-job-suspend)
+;; if suspend is successful and job is later resumed, it then returns #t to the caller of (sh-current-job-suspend)
+;; if suspend fails, immediately return #f to the caller of (sh-current-job-suspend)
 ;;
-;; Note: has effect only if (sh-current-job) is set
+;; Note: if (sh-current-job) is not set, has no effect and always immediately returns #f.
 (define (sh-current-job-suspend)
-  (job-suspend (sh-current-job) '(stopped sigtstp)))
+  (let ((job (sh-current-job)))
+    (and job
+         (job-suspend job '(stopped sigtstp)))))
 
 
 ;; Yield current job and call its (job-yield-proc) continuation,
 ;; which non-locally jumps to whoever started or resumed the job.
 ;;
-;; if job is later resumed, it then returns #t to the caller of (sh-current-job-yield)
-;; if there was no job to yield, immediately return #f to the caller of (sh-current-job-yield)
+;; if yield is successful and job is later resumed, it then returns #t to the caller of (sh-current-job-yield)
+;; if yield fails, immediately return #f to the caller of (sh-current-job-yield)
 ;;
-;; Note: has effect only if (sh-current-job) is set
+;; Note: if (sh-current-job) is not set, has no effect and always immediately returns #f.
 (define (sh-current-job-yield)
-  (job-yield (sh-current-job) 'sh-current-job-yield))
+  (let ((job (sh-current-job)))
+    (and job
+         (job-yield job 'sh-current-job-yield))))
 
 
 (meta begin
@@ -284,11 +324,11 @@
 (define sh-wait
   (case-lambda
     ((job-or-id)
-      (job-wait 'sh-wait job-or-id
-       (sh-wait-flags foreground-pgid resume-if-stopped wait-until-finished)))
+      (job-wait 'sh-wait (sh-job job-or-id)
+        (sh-wait-flags foreground-pgid resume-if-stopped wait-until-finished)))
     ((job-or-id wait-flags)
-      (job-wait 'sh-wait job-or-id wait-flags))))
-     
+      (job-wait 'sh-wait (sh-job job-or-id) wait-flags))))
+
 
 
 
@@ -296,15 +336,16 @@
 ;; Resume and optionally wait for a job.
 ;;
 ;; Returns updated job status.
-(define (job-wait caller job-or-id wait-flags)
+(define (job-wait caller job wait-flags)
+  (assert* caller (sh-job? job))
   (assert* caller (fixnum? wait-flags))
   (assert* caller (fx<=? 0 wait-flags (sh-wait-flags-all)))
-  (let ((job (sh-job job-or-id)))
-    (%job-wait caller job wait-flags)
-    (job-id-update! job))) ; returns job status
+  (%job-wait caller job wait-flags)
+  (job-id-update! job)) ; returns job status
 
 
-;; actual implementation of (job-wait)
+;; actual implementation of (job-wait): resume and optionally wait for a job.
+;;
 ;; returns unspecified value.
 (define (%job-wait caller job wait-flags)
   (let* ((status (job-last-status job))
@@ -320,7 +361,7 @@
             ;; either the job is a sh-cmd, or a builtin or multijob spawned in a child subprocess.
             ;; in all cases, we have a pid to wait on.
             ;;
-            ;; Note: don't call job-resume-proc, because (pid-resume) already calls it when needed
+            ;; FIXME: resume/sigcont job as needed, then call scheduler-wait
             (pid-resume caller job wait-flags)
 
             (when (%job-wait-should-wait-again? job wait-flags)
@@ -328,12 +369,13 @@
               (%job-wait caller job wait-flags)))
 
           ((job-resume-proc job)
-            ;; we have a continuation to call for resuming the job
             (when (or (eq? 'running kind)
                       (sh-wait-flag-wait? wait-flags)
                       (sh-wait-flag-resume-if-stopped? wait-flags))
 
-              (job-call-resume-proc job wait-flags)
+              ;; FIXME: traverse job and its children and resume/sigcont them as needed.
+
+              (scheduler-wait wait-flags)
 
               (when (%job-wait-should-wait-again? job wait-flags)
                 ;; caller asked to wait for job to finish (or to stop), cannot return yet: try again
@@ -359,33 +401,23 @@
 
 
 ;; call the continuation stored in job-resume-proc of a job for resuming it.
-;; save the current continuation in its job-yield-proc
 (define (job-call-resume-proc job wait-flags)
   (assert* 'job-call-resume-proc (job-resume-proc job))
-  (call/cc
-    ;; Capture the continuation representing THIS call to (job-call-resume-proc)
-    (lambda (yield)
-      (let ((resume-proc (job-resume-proc job))
-            (pgid (job-pgid job)))
-        (job-wait-flags-set! job wait-flags)
-        (job-resume-proc-set!  job #f)
-        (check-not 'job-call-resume-proc (job-yield-proc job))
-        (job-yield-proc-set!   job yield)
-        (when (or (job-running? job)
-                  (and (job-stopped? job)
-                       (not (job-pid job))
-                       (sh-wait-flag-resume-if-stopped? wait-flags)))
-          ;; try to update status '(running) -> '(running id)
-          (job-status-set-running! 'job-call-resume-proc job))
-        (with-foreground-pgid wait-flags pgid
-          ;; send SIGCONT to job's process group, if present.
-          (when (and pgid (sh-wait-flag-resume-if-stopped? wait-flags))
-            (pid-kill (- pgid) 'sigcont))
-          (resume-proc (void))))))
-  ;; ignore the value returned by (resume-proc) and by continuation (yield)
-  ;;
-  ;; also, the yield continuation we set above is no longer useful
-  (job-yield-proc-set! job #f)
+  (let ((resume-proc (job-resume-proc job))
+        (pgid (job-pgid job)))
+    (job-resume-proc-set!  job #f)
+    (when (or (job-running? job)
+              (and (job-stopped? job)
+                   (not (job-pid job))
+                   (sh-wait-flag-resume-if-stopped? wait-flags)))
+      ;; try to update status '(running) -> '(running id)
+      (job-status-set-running! 'job-call-resume-proc job))
+    (with-foreground-pgid wait-flags pgid
+      ;; send SIGCONT to job's process group, if present.
+      (when (and pgid (sh-wait-flag-resume-if-stopped? wait-flags))
+        (pid-kill (- pgid) 'sigcont))
+      (resume-proc (void))))
+  ;; ignore the value returned by (resume-proc)
   (void))
 
 
@@ -402,18 +434,13 @@
 ;;
 ;; Note: this function also non-blocking checks if job status changed.
 (define (sh-job-status job-or-id)
-  (let* ((job    (sh-job job-or-id))
-         (status (job-last-status job)))
-    ; (debugf "->  sh-job-status job=~a" (sh-job->string job))
-    (if (sh-started? status)
-      (job-wait 'sh-job-status job (sh-wait-flags))
-      status)))
+  (job-wait 'sh-job-status (sh-job job-or-id) (sh-wait-flags)))
 
 
 ;; Continue a job or job-id in background by sending SIGCONT to it, and return immediately.
 ;; Return job status. For possible job statuses, see (sh-job-status)
 (define (sh-bg job-or-id)
-   (job-wait 'sh-bg job-or-id (sh-wait-flags resume-if-stopped)))
+   (job-wait 'sh-bg (sh-job job-or-id) (sh-wait-flags resume-if-stopped)))
 
 
 ;; Continue a job or job-id by sending SIGCONT to it, then wait for it to exit or stop,
@@ -423,7 +450,7 @@
 ;;   upon invocation, sets the job as fg process group.
 ;;   And before returning, restores current shell as fg process group.
 (define (sh-fg job-or-id)
-  (job-wait 'sh-fg job-or-id
+  (job-wait 'sh-fg (sh-job job-or-id)
     (sh-wait-flags foreground-pgid resume-if-stopped wait-until-stopped-or-finished)))
 
 

@@ -1370,7 +1370,10 @@ static int run_tests(void) {
 }
 
 static unsigned run_test(const testcase* test) {
-  /* fprintf(stdout, "test: %s\n", test->string_to_eval); */
+#define SCHEMESH_TESTS_VERBOSE
+#ifdef SCHEMESH_TESTS_VERBOSE
+  fprintf(stdout, "test: %s\n", test->string_to_eval);
+#endif
 
   bytes actual   = schemesh_eval_to_bytevector(test->string_to_eval);
   bytes expected = {strlen(test->expected_result), (const unsigned char*)test->expected_result};

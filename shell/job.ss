@@ -70,7 +70,7 @@
     sh-status->kind sh-status->result sh-status->results
 
     ;; types.ss
-    sh-cmd? sh-job? sh-job-copy sh-multijob? sh-current-job
+    sh-cmd? sh-job? sh-job-copy sh-multijob? sh-current-job default-yield-proc
 
     ;; wildcard
     sh-wildcard sh-wildcard* sh-wildcard/apply sh-wildcard/expand-tilde sh-wildcard->string
@@ -143,10 +143,8 @@
           ; unset expanded arg-list, because next expansion may differ
           (cmd-expanded-arg-list-set! job #f))
         ; (debugf "job-status-set! caller=~s job=~s status=~s" caller job status)
-        ;; do NOT clear resume-proc and yield-proc,
-        ;; we still need to call them for resuming the job and letting it resume its parent(s)
+        ;; do NOT clear resume-proc: do we still need it?
         ;; (job-resume-proc-set! job #f)
-        ;; (job-yield-proc-set!  job #f)
         (job-id-unset! job)
         (job-pgid-set! job #f)
         (when (job-pid job)
@@ -353,7 +351,7 @@
 ;; update them, resume their parents,
 ;; and s
 (define (sh-consume-signals lctx)
-  (core-scheduler-wait (sh-wait-flags))
+  (scheduler-wait (sh-wait-flags))
   (display-status-changes lctx))
 
 

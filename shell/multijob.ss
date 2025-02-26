@@ -106,13 +106,12 @@
       #f #f #f #f     ; id oid pid pgid
       '(new) #f       ; last-status exception
       (span) 0 #f     ; redirections
-      start-proc      ; executed to start the job
-      (sh-wait-flags)
-      #f #f           ; resume-proc yield-proc
+      start-proc #f   ; start-proc resume-proc
       #f #f           ; working directory, old working directory - initially inherited from parent job
       #f              ; overridden environment variables - initially none
       #f              ; env var assignments - initially none
-      #f (sh-globals) ; no temp parent. default parent job is initially the global job
+      #f              ; no temp parent.
+      (or (sh-current-job) (sh-globals)) ; default parent job
       kind
       -1              ; no child running yet
       (list->span children-jobs))))
@@ -289,19 +288,18 @@
                 (lambda () ; body
                   ;c (debugf "-> [child] spawn-procedure job=~a subprocess calling proc ~s" (sh-job->string job) proc)
 
-                  (check-not 'spawn-procedure (job-yield-proc job))
                   ;; if proc attempts to suspend or yield job,
                   ;; call (sh-wait job) below for resuming it until it finishes.
                   (call/cc
                     (lambda (yield)
-                      (job-yield-proc-set! job yield)
-
+                      (default-yield-proc yield)
                       ;; ignore value returned by (proc)
                       (proc job options)))
                       ;; (debugf ". [child] spawn-procedure job=~a subprocess proc returned" (sh-job->string job))
-                  ;; the yield continuation we set is no longer useful
-                  (job-yield-proc-set! job #f)
 
+                  ;; cleanup parameters before calling (sh-wait)
+                  (default-yield-proc #f)
+                  (sh-current-job #f)
                   (set! status (sh-wait job)))
                 (lambda () ; run after body, even if it raised a condition
                   ;c (debugf "<- [child] spawn-procedure job=~a subprocess exiting with pid=~s status=~s" (sh-job->string job) (job-pid job) status)
@@ -335,7 +333,6 @@
 (define (mj-child-loop-with-yield caller mj options child-i)
   (multijob-current-child-index-set! mj child-i)
   (let ((child  (span-ref (multijob-children mj) child-i)))
-
     ;; (debugf "->   mj-child-loop-with-yield mj=~a child=~a" (sh-job->string mj) (sh-job->string child))
     (let %loop ((status (job-last-status child)))
       ;; (debugf "... mj-child-loop-with-yield mj=~a child=~a status=~s" (sh-job->string mj) (sh-job->string child) status)
@@ -345,20 +342,16 @@
         ((running)
           ;; (debugf "... mj-child-loop-with-yield mj=~a child=~a --- calling yield" (sh-job->string mj) (sh-job->string child))
           (job-yield mj (list caller 'mj-child-loop-with-yield 'running))
-          ;; (debugf "... mj-child-loop-with-yield mj=~a child=~a --- yield returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string mj) (sh-job->string child) (job-wait-flags mj))
-          (%loop (job-wait caller child (job-wait-flags mj))))
+          ;; (debugf "... mj-child-loop-with-yield mj=~a child=~a --- yield returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string mj) (sh-job->string child))
+          (%loop (job-last-status child)))
         ((stopped)
           ;; (debugf "... mj-child-loop-with-yield mj=~a child=~a --- calling suspend" (sh-job->string mj) (sh-job->string child))
           (job-suspend mj status)
-          ;; (debugf "... mj-child-loop-with-yield mj=~a child=~a --- suspend returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string mj) (sh-job->string child) (job-wait-flags mj))
-          (%loop (job-wait caller child (job-wait-flags mj))))
+          ;; (debugf "... mj-child-loop-with-yield mj=~a child=~a --- suspend returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string mj) (sh-job->string child))
+          (%loop (job-last-status child)))
         (else
-          ;; child has finished. it likely still has a resume-proc, and calling it is expected
-          ;; to non-locally continue to the code after its last call to (job-yield) or (job-suspend).
-          ;; Such code, as for example (cmd-loop-with-yield)
-          ;; should then return normally because the child has finished,
-          ;; and then return to WHERE?
-          (job-wait caller child (sh-wait-flags)))))))
+          ;; child has finished, return its status
+          status)))))
 
 
 ;; Run the children jobs in an "and" multijob .
@@ -385,40 +378,38 @@
 ;; NEVER returns normally, only yields
 (define (mj-or-loop mj options)
   (unless (job-finished? mj)
-    (job-yield mj 'mj-and-loop) 
     (let* ((options  (cons '(catch? . #t) options))
            (children (multijob-children mj))
            (n        (span-length children))
            (child-status '(failed 1)))
       (do ((i 0 (fx1+ i)))
           ((or (fx>=? i n) (sh-ok? child-status)))
-        (set! child-status (mj-child-loop-with-yield 'sh-or mj options i))
-        (check 'sh-or (sh-finished? child-status)))
-      (job-status-set! 'sh-or mj child-status)))
+        (set! child-status (mj-child-loop-with-yield 'mj-or-loop mj options i))
+        (check 'mj-or-loop (sh-finished? child-status)))
+      (job-status-set! 'mj-or-loop mj child-status)))
   (forever
     (job-yield mj 'mj-and-loop)))
 
-	   
+
 
 ;; Run the children jobs in a "not" multijob.
 ;; Used by (sh-not), implements runtime behavior of shell syntax {! foo}
 ;; NEVER returns normally, only yields
 (define (mj-not-loop mj options)
   (unless (job-finished? mj)
-    (job-yield mj 'mj-and-loop) 
     (let* ((options  (cons '(catch? . #t) options))
            (children (multijob-children mj)))
-      (assert* 'sh-not (fx=? 1 (span-length children)))
-      (let ((child-status (mj-child-loop-with-yield 'sh-not mj options 0)))
-        (check 'sh-not (sh-finished? child-status))
+      (assert* 'mj-not-loop (fx=? 1 (span-length children)))
+      (let ((child-status (mj-child-loop-with-yield 'mj-not-loop mj options 0)))
+        (check 'mj-not-loop (sh-finished? child-status))
         (job-status-set!
-	  'sh-not mj
-	  (if (sh-ok? child-status)
-	    '(failed 1)
+          'mj-not-loop mj
+          (if (sh-ok? child-status)
+            '(failed 1)
             (void))))))
   (forever
     (job-yield mj 'mj-not-loop)))
-  
+
 
 
 ;; Run the children jobs in a multijob list.
@@ -427,7 +418,6 @@
 ;; NEVER returns normally, only yields
 (define (mj-list-loop mj options)
   (unless (job-finished? mj)
-    (job-yield mj 'mj-and-loop) 
     (let* ((options      (cons '(catch? . #t) options))
            (n            (sh-multijob-child-length mj))
            (child-status (void))
@@ -437,16 +427,15 @@
           ((fx>=? i n))
         (let ((child (child-ref mj i)))
           (when (and (sh-job? child) (job-new? child))
-	    ;; (debugf "mj-list-loop job=~s starting~a child=~s child-status=~s" mj (if (eq? '& (child-ref mj (fx1+ i))) " async" "") child (job-last-status child))
+            ;; (debugf "mj-list-loop job=~s starting~a child=~s child-status=~s" mj (if (eq? '& (child-ref mj (fx1+ i))) " async" "") child (job-last-status child))
             (if (eq? '& (child-ref mj (fx1+ i)))
-	      (unless (sh-finished? (job-start 'sh-list child options))
+              (unless (sh-finished? (job-start 'sh-list child options))
                 (job-id-set! child))
-	      (begin
-                (set! child-status (mj-child-loop-with-yield 'sh-list mj options i))
-                (check 'sh-list (sh-finished? child-status)))))))
+              (begin
+                (set! child-status (mj-child-loop-with-yield 'mj-list-loop mj options i))
+                (check 'mj-list-loop (sh-finished? child-status)))))))
 
       ;; (debugf "mj-list-loop job=~s finished status=~s" mj child-status)
-      (job-status-set! 'sh-list/end mj child-status)))
+      (job-status-set! 'mj-list-loop mj child-status)))
   (forever
     (job-yield mj 'mj-list-loop)))
-

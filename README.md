@@ -282,7 +282,3 @@ See [doc/recent_changes.md](doc/recent_changes.md)
 * maybe add missing shell builtins "kill"
 * add syntax for evaluating a shell word i.e. a (sh-wildcard) from Scheme. TODO: associated to which job?
 * implement function `(string->sh-patterns)`
-
-## FIXME
-* bug in "continuation" branch: executing {sleep 1 && command echo foo} &
-  currently polls wait4(-1, WNOHANG) after {sleep 1} returns and until {echo foo} finishes

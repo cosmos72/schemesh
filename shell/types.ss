@@ -31,9 +31,7 @@
                     ; receives as argument job followed by options,
                     ; must start the job, yield or suspend every time it needs to wait,
                     ; and set the job status when it's finished.
-    (mutable wait-flags)   ; sh-wait-flags to use when calling (job-wait)
     (mutable resume-proc)  ; #f or continuation to resume job
-    (mutable yield-proc)   ; #f or continuation to suspend job and return to whoever started/resumed it
     (mutable cwd %job-cwd %job-cwd-set!) ; charspan: working directory. if #f, use parent's cwd
     (mutable owd %job-owd %job-owd-set!) ; #f or charspan: previous working directory
     (mutable env)         ; #f or hashtable of overridden env variables: name -> value
@@ -41,7 +39,7 @@
     (mutable temp-parent) ; temporary parent job, contains default values of env variables.
                           ; Unset when job finishes
     (mutable default-parent)) ; default parent job, contains default values of env variables
-  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-24}))
+  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-30}))
 
 
 ;; Define the record type "cmd"
@@ -51,7 +49,7 @@
   (fields
     arg-list                     ; list of strings and closures: program-name and args
     (mutable expanded-arg-list)) ; #f or list of strings: program-name and args after applying closures and expanding aliases
-  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-25}))
+  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-31}))
 
 
 ;; Define the record type "multijob"
@@ -62,7 +60,7 @@
     kind                ; symbol: one of 'sh-and 'sh-or 'sh-not 'sh-list 'sh-subshell '#<global>
     (mutable current-child-index) ; -1 or index of currently running child job
     children)           ; span: children jobs.
-  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-26}))
+  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-32}))
 
 
 ;; Parameter containing the current job.
@@ -79,6 +77,16 @@
       (when (and job (not (sh-job? job)))
         (raise-errorf 'sh-current-job "invalid current job, must be #f or a sh-job: ~s" job))
       job)))
+
+
+;; Parameter containing the continuation for resuming the current call to (job-resume).
+(define default-yield-proc
+  (sh-make-thread-parameter #f
+    (lambda (cont)
+      (when cont
+        (unless (and (procedure? cont) (logbit? 1 (procedure-arity-mask cont)))
+          (raise-errorf 'sh-current-job "invalid default-yield, must be #f or a procedure accepting 1 argument: ~s" cont)))
+      cont)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -181,8 +189,7 @@
       (span-copy redirects (job-redirects-temp-n j) (span-length redirects)))
     0 #f                 ; redirects-temp-n fds-to-remap
     (job-start-proc j)
-    (sh-wait-flags)
-    #f #f                ; resume-proc yield-proc
+    #f                   ; resume-proc
     (let ((cwd (%job-cwd j)))
       (and cwd (charspan-copy cwd)))
     (let ((owd (job-owd j)))
@@ -211,8 +218,7 @@
         (span-copy redirects (job-redirects-temp-n j) (span-length redirects)))
       0 #f                 ; redirects-temp-n fds-to-remap
       (job-start-proc j)
-      (sh-wait-flags)
-      #f #f                ; resume-proc yield-proc
+      #f                   ; resume-proc
       (let ((cwd (%job-cwd j)))
         (and cwd (charspan-copy cwd)))
       (let ((owd (job-owd j)))

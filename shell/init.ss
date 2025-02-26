@@ -28,9 +28,7 @@
          (pid-get) (pgid-get 0)    ; pid pgid
          (void) #f                 ; last-status exception
          (span) 0 #f               ; redirections
-         #f                        ; start-proc
-         (sh-wait-flags)
-         #f #f                     ; resume-proc yield-proc
+         #f #f                     ; start-proc resume-proc
          (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) #f ; current directory, old working directory
          (make-hashtable string-hash string=?) ; env variables
          #f                        ; no env var assignments

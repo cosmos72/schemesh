@@ -152,7 +152,7 @@
     (job-status-set! caller mj (void))
     (let ((pgid (job-pgid mj)))
       (with-foreground-pgid wait-flags pgid
-        (pid-resume/maybe-sigcont          caller mj wait-flags #f pgid)
+        (pid-resume/maybe-sigcont    caller mj wait-flags #f pgid)
         (mj-pipe-continue/maybe-wait caller mj wait-flags)))))
 
 
