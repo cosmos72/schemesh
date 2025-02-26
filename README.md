@@ -40,12 +40,11 @@ schemesh will create a second line where you can continue typing.<br/>
 You can move between lines with the cursor keys, and use all the classical line-editing features including cut-and-paste.<br/>
 ![](doc/screenshot-2.png)
 
-Commands can be executed in a subshell by surrounding them in `[ ]` - example:
+Commands can be executed in a subshell by surrounding them in `[ ]` as for example:
 ```shell
 grep -q old *.txt && [ sed -i -e 's/old/new/g' -- *.txt ]
 ```
 traditional shells typically start subshells with `( )`, which has a different meaning in schemesh.
-
 
 Command substituion, i.e. using output of a first command as argument for a second command,
 can be performed by surrounding the first command in ``` `` ``` or `$[ ]` - example:
@@ -301,7 +300,3 @@ See [doc/recent_changes.md](doc/recent_changes.md)
 * maybe add missing shell builtins "kill"
 * add syntax for evaluating a shell word i.e. a (sh-wildcard) from Scheme. TODO: associated to which job?
 * implement function `(string->sh-patterns)`
-
-## FIXME
-* bug in "continuation" branch: executing {sleep 1 && command echo foo} &
-  currently polls wait4(-1, WNOHANG) after {sleep 1} returns and until {echo foo} finishes
