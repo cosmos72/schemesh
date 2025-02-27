@@ -122,9 +122,9 @@
           (else
             (utf8b-singlet->char b0)))))
     ((vec start)
-      (bytevector-ref/utf8b start (bytevector-length vec)))
+      (bytevector-ref/utf8b vec start (bytevector-length vec)))
     ((vec)
-      (bytevector-ref/utf8b 0 (bytevector-length vec)))))
+      (bytevector-ref/utf8b vec 0 (bytevector-length vec)))))
 
 
 ;; convert char to 2-byte UTF-8 sequence and return two values: the two converted bytes.

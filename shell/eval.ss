@@ -71,7 +71,7 @@
       (lambda () ; body
         (sh-read-fd* fd initial-parser enabled-parsers))
       (lambda () ; after body
-        (when fd (fd-close fd))))))
+        (when fd (fd-close fd) (set! fd #f))))))
 
 
 ;; read and parse multi-language source contents from specified file descriptor,
