@@ -1375,15 +1375,16 @@ static void run_tests_scheme(unsigned long* run_n, unsigned long* failed_n) {
 }
 
 static int run_tests(void) {
-  unsigned long run_n    = sizeof(tests) / sizeof(tests[0]);
+  unsigned long run_n    = 0;
   unsigned long failed_n = 0;
   unsigned long i;
 
   run_tests_scheme(&run_n, &failed_n);
 
-  for (i = 0; i < run_n; i++) {
+  for (i = 0; i < N_OF(tests); i++) {
     errno = 0;
     failed_n += run_test(&tests[i]);
+    run_n++;
   }
   run_n++;
   failed_n += run_tests_utf8b();
