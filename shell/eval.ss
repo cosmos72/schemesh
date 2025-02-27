@@ -64,14 +64,22 @@
 ;; same as (sh-read-file), with the difference that all arguments are mandatory
 (define (sh-read-file* path initial-parser enabled-parsers)
   (assert* 'sh-read-file (symbol? initial-parser))
-  (let ((fd #f))
+  (let ((in #f))
     (dynamic-wind
       (lambda () ; before body
-        (set! fd (open-file-fd path 'read)))
+        (set! in
+          (open-file-input-port
+            path
+            (file-options)
+            (buffer-mode block)
+            (make-transcoder (utf-8-codec) (eol-style lf)
+                             (error-handling-mode raise)))))
       (lambda () ; body
-        (sh-read-fd* fd initial-parser enabled-parsers))
+        (sh-read-port* in initial-parser enabled-parsers))
       (lambda () ; after body
-        (when fd (fd-close fd))))))
+        (when in
+          (close-port in)
+          (set! in #f))))))
 
 
 ;; read and parse multi-language source contents from specified file descriptor,
