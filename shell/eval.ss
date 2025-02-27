@@ -8,8 +8,8 @@
 
 (library (schemesh shell eval (0 7 6))
   (export
-    sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
-    sh-read-file sh-read-file* sh-read-port* sh-read-parsectx* sh-read-string*)
+    sh-eval-file sh-eval-file* sh-eval-fd* sh-eval-port* sh-eval-parsectx* sh-eval-string*
+    sh-read-file sh-read-file* sh-read-fd* sh-read-port* sh-read-parsectx* sh-read-string*)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -17,7 +17,8 @@
     (only (schemesh bootstrap) assert* raise-errorf until)
     (only (schemesh containers list)   list-iterate)
     (only (schemesh containers string) assert-string-list? string-suffix? string-index-right)
-    (only (schemesh posix fd)          fd-write)
+    (only (schemesh containers utf8b)  utf8b->string)
+    (only (schemesh posix fd)          fd-close fd-read-until-eof fd-write open-file-fd)
     (schemesh parser)
     (only (schemesh shell builtins)    sh-builtins sh-builtins-help)
     (only (schemesh shell parameters)  sh-eval)
@@ -63,21 +64,29 @@
 ;; same as (sh-read-file), with the difference that all arguments are mandatory
 (define (sh-read-file* path initial-parser enabled-parsers)
   (assert* 'sh-read-file (symbol? initial-parser))
-  (let ((in #f))
+  (let ((fd #f))
     (dynamic-wind
       (lambda () ; before body
-        (set! in
-          (open-file-input-port
-            path (file-options) (buffer-mode block)
-            (make-transcoder (utf-8-codec) (eol-style lf) (error-handling-mode raise)))))
+        (set! fd (open-file-fd path 'read)))
       (lambda () ; body
-        (sh-read-port* in initial-parser enabled-parsers))
+        (sh-read-fd* fd initial-parser enabled-parsers))
       (lambda () ; after body
-        (when in
-          (close-port in))))))
+        (when fd (fd-close fd))))))
 
 
-;; parse multi-language source contents of specified textual input port,
+;; read and parse multi-language source contents from specified file descriptor,
+;; and return parsed form.
+;; arguments:
+;;   fd              - the file descriptor to read from
+;;   initial-parser  - one of the symbols: 'scheme 'shell 'r6rs
+;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
+;;                     or a hashtable hashtable symbol -> parser
+;;                     or #t that means all known parsers i.e. (parsers)
+(define (sh-read-fd* fd initial-parser enabled-parsers)
+  (sh-read-string* (utf8b->string (fd-read-until-eof fd)) initial-parser enabled-parsers))
+
+
+;; read and parse multi-language source contents from specified textual input port,
 ;; and return parsed form.
 ;; arguments:
 ;;   in              - the textual input port to read from
@@ -150,7 +159,7 @@
     (else                (cons 'begin forms))))
 
 
-;; open specified file path, parse its multi-language source contents with (sh-read-port*),
+;; open specified file path, read and parse its multi-language source contents with (sh-read-port*),
 ;; and eval the parsed source form.
 ;;
 ;; arguments:
@@ -171,7 +180,7 @@
        (sh-eval-file* path initial-parser enabled-parsers))))
 
 
-;; open specified file path, parse its multi-language source contents with (sh-read-port*)
+;; open specified file path, read and parse its multi-language source contents with (sh-read-port*)
 ;; and eval the parsed source form.
 ;;
 ;; arguments:
@@ -184,7 +193,20 @@
   (sh-eval (sh-read-file* path initial-parser enabled-parsers)))
 
 
-;; parse multi-language source contents of specified textual input port,
+
+;; read and parse multi-language source contents from specified file descriptor,
+;; and return parsed form.
+;; arguments:
+;;   fd              - the file descriptor to read from
+;;   initial-parser  - one of the symbols: 'scheme 'shell 'r6rs
+;;   enables-parsers - a list containing one or more symbols among: 'scheme 'shell 'r6rs
+;;                     or a hashtable hashtable symbol -> parser
+;;                     or #t that means all known parsers i.e. (parsers)
+(define (sh-eval-fd* fd initial-parser enabled-parsers)
+  (sh-eval (sh-read-fd* fd initial-parser enabled-parsers)))
+
+
+;; read and parse multi-language source contents of specified textual input port,
 ;; and eval the parsed source form.
 ;;
 ;; arguments:
@@ -197,7 +219,7 @@
   (sh-eval (sh-read-port* in initial-parser enabled-parsers)))
 
 
-;; parse multi-language source contents of specified parsectx,
+;; read and parse multi-language source contents of specified parsectx,
 ;; and eval the parsed source form.
 ;;
 ;; arguments:
@@ -207,7 +229,7 @@
   (sh-eval (sh-read-parsectx* pctx initial-parser)))
 
 
-;; parse multi-language source contained in specified string,
+;; read and parse multi-language source contained in specified string,
 ;; and eval the parsed source form.
 ;;
 ;; arguments:

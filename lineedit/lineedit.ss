@@ -162,7 +162,7 @@
              (fx>=? pos end)
              ; stop at any byte < 32, unless it's the first byte (which we skip)
              (and (fx>? pos start) (fx<? (bytespan-ref/u8 bsp pos) 32))))
-      (let-values (((ch len) (bytespan-ref/char bsp pos (fx- end pos))))
+      (let-values (((ch len) (bytespan-ref/char bsp pos end)))
         (set! pos (fxmin end (fx+ pos len)))
         (cond
           ((eq? #t ch)

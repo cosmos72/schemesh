@@ -96,7 +96,7 @@ static const testcase tests[] = {
      "  v)",
      "#(9 1 2 3 4 5 6 7 8 0)"},
     /* ----------------- bytevector/utf8 ------------------------------------ */
-    {"(values->list (bytevector-ref/utf8b #vu8() 0 1))", "(#t 0)"}, /* incomplete */
+    {"(values->list (bytevector-ref/utf8b #vu8() 0 0))", "(#t 0)"}, /* incomplete */
     {"(values->list (bytevector-ref/utf8b #vu8(1) 0 1))", "(\x01 1)"},
     {"(values->list (bytevector-ref/utf8b #vu8(33) 0 1))", "(! 1)"},
     {"(values->list (bytevector-ref/utf8b #vu8(#x7E) 0 1))", "(~ 1)"},
@@ -192,7 +192,7 @@ static const testcase tests[] = {
      "  bv)",
      "\xf4\x8f\xbf\xbf"},
     /* ----------------- bytespan-utf8b -------------------------------------- */
-    {"(values->list (bytespan-ref/char (bytespan) 0 1))", "(#t 0)"}, /* incomplete */
+    {"(values->list (bytespan-ref/char (bytespan) 0 0))", "(#t 0)"}, /* incomplete */
     {"(values->list (bytespan-ref/char (bytespan 1) 0 1))", "(\x01 1)"},
     {"(values->list (bytespan-ref/char (bytespan #x7F) 0 1))", "(\x7F 1)"},
     {"(first-value  (bytespan-ref/char (bytespan #x80) 0 1))", "\x80"},
