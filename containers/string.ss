@@ -135,7 +135,7 @@
     ((proc)
       #t)
     ((proc str)
-      (string-iterate str ch))
+      (string-iterate str proc))
     ((proc str1 str2)
       (string-any (lambda (ch1 ch2) (not (proc ch1 ch2))) str1 str2))
     ((proc str1 str2 str3)
