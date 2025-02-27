@@ -82,43 +82,50 @@
     ; invalid continuation byte b1, b2 or b3
     (utf8b-singlet->char b0)))
 
-;; read up to max-n bytes from bytevector at offset start, interpret
-;; them as UTF-8b sequence and convert them to the corresponding char.
+;; read byte range [start, end) from bytevector, interpret bytes
+;; as UTF-8b sequence and convert them to the corresponding char.
 ;;
 ;; Returns two values: converted char, and length in bytes of UTF-8b sequence.
-;; If UTF-8 sequence is incomplete, return #t instead of converted char.
-;; If UTF-8 sequence is invalid, convert a single raw byte according to UTF-8b and return converted char.
-(define (bytevector-ref/utf8b vec start max-n)
-  (assert* 'bytevector-ref/utf8b (fx<=? 0 start (bytevector-length vec)))
-  (assert* 'bytevector-ref/utf8b (fx>=? max-n 0))
-  (let* ((len (bytevector-length vec))
-         (max-n (fxmin max-n (fx- len start)))
-         (b0  (if (fx>? max-n 0) (bytevector-u8-ref vec start) -1)))
-    (cond
-      ((fx<? b0    0) (values #t 0)) ; 0 bytes available
-      ((fx<? b0 #x80) (values (integer->char b0) 1))
-      ; convert a single raw byte to unpaired surrogate half U+dc80 ... U+dcff according to UTF-8b
-      ((fx<? b0 #xc0) (utf8b-singlet->char b0))
-      ((fx<? b0 #xe0)
-        (if (fx>? max-n 1)
-          (let ((b1 (bytevector-u8-ref vec (fx1+ start))))
-            (utf8b-pair->char b0 b1))
-          (values #t 1))) ; < 2 bytes available
-      ((fx<? b0 #xf0)
-        (if (fx>? max-n 2)
-          (let ((b1 (bytevector-u8-ref vec (fx+ 1 start)))
-                (b2 (bytevector-u8-ref vec (fx+ 2 start))))
-            (utf8b-triplet->char b0 b1 b2))
-          (values #t (fxmin 2 max-n)))) ; < 3 bytes available
-      ((fx<? b0 #xf5)
-        (if (fx>? max-n 3)
-          (let ((b1 (bytevector-u8-ref vec (fx+ 1 start)))
-                (b2 (bytevector-u8-ref vec (fx+ 2 start)))
-                (b3 (bytevector-u8-ref vec (fx+ 3 start))))
-            (utf8b-quadruplet->char b0 b1 b2 b3))
-          (values #t (fxmin 3 max-n)))) ; < 4 bytes available
-      (else
-        (utf8b-singlet->char b0)))))
+;; If UTF-8 sequence is incomplete, return #t instead of converted char:
+;;   in such case, length is always (fx- end start) and should NOT be considered "consumed".
+;; If UTF-8 sequence is invalid, convert a single raw byte according to UTF-8b:
+;;   return converted char and length equal to 1.
+(define bytevector-ref/utf8b
+  (case-lambda
+    ((vec start end)
+      (assert* 'bytevector-ref/utf8b (fx<=? 0 start end (bytevector-length vec)))
+      (let* ((max-n (fx- end start))
+             (b0    (if (fx>? max-n 0) (bytevector-u8-ref vec start) -1)))
+        (cond
+          ((fx<? b0    0) (values #t 0)) ; 0 bytes available
+          ((fx<? b0 #x80) (values (integer->char b0) 1))
+          ; convert a single raw byte to unpaired surrogate half U+dc80 ... U+dcff according to UTF-8b
+          ((fx<? b0 #xc0) (utf8b-singlet->char b0))
+          ((fx<? b0 #xe0)
+            (if (fx>? max-n 1)
+              (let ((b1 (bytevector-u8-ref vec (fx1+ start))))
+                (utf8b-pair->char b0 b1))
+              (values #t 1))) ; < 2 bytes available
+          ((fx<? b0 #xf0)
+            (if (fx>? max-n 2)
+              (let ((b1 (bytevector-u8-ref vec (fx+ 1 start)))
+                    (b2 (bytevector-u8-ref vec (fx+ 2 start))))
+                (utf8b-triplet->char b0 b1 b2))
+              (values #t (fxmin 2 max-n)))) ; < 3 bytes available
+          ((fx<? b0 #xf5)
+            (if (fx>? max-n 3)
+              (let ((b1 (bytevector-u8-ref vec (fx+ 1 start)))
+                    (b2 (bytevector-u8-ref vec (fx+ 2 start)))
+                    (b3 (bytevector-u8-ref vec (fx+ 3 start))))
+                (utf8b-quadruplet->char b0 b1 b2 b3))
+              (values #t (fxmin 3 max-n)))) ; < 4 bytes available
+          (else
+            (utf8b-singlet->char b0)))))
+    ((vec start)
+      (bytevector-ref/utf8b start (bytevector-length vec)))
+    ((vec)
+      (bytevector-ref/utf8b 0 (bytevector-length vec)))))
+
 
 ;; convert char to 2-byte UTF-8 sequence and return two values: the two converted bytes.
 ;; ch is assumed to be in the range #x80 <= ch < #x800
@@ -197,17 +204,21 @@
       ((fx<? n #x110000) 4)
       (else 0)))) ; should not happen
 
-;; read up to max-n bytes from bytespan at offset idx, interpret
-;; them as UTF-8b sequence and convert them to the corresponding char.
+;; read byte range [start, end) from bytespan at offset idx, interpret
+;; bytes as UTF-8b sequence and convert them to the corresponding char.
 ;;
 ;; Returns two values: converted char, and length in bytes of UTF-8b sequence.
 ;; If UTF-8b sequence is incomplete, return #t instead of converted char.
 ;; If UTF-8b sequence is invalid, return #f instead of converted char.
-(define (bytespan-ref/char sp idx max-n)
-  (assert* 'bytespan-ref/char (fx<=? 0 idx (bytespan-length sp)))
-  (bytevector-ref/utf8b (bytespan-peek-data sp)
-    (fx+ idx (bytespan-peek-beg sp))
-    (fxmin max-n (fx- (bytespan-length sp) idx))))
+(define bytespan-ref/char
+  (case-lambda
+    ((sp start end)
+      (assert* 'bytespan-ref/char (fx<=? 0 start end (bytespan-length sp)))
+      (let ((offset (bytespan-peek-beg sp)))
+        (bytevector-ref/utf8b (bytespan-peek-data sp) (fx+ start offset) (fx+ end offset))))
+    ((sp start)
+      (bytespan-ref/char sp start (bytespan-length sp)))))
+
 
 ;; convert char to UTF-8b sequence and write it into bytespan starting at offset idx
 (define (bytespan-set/char! sp idx ch)
