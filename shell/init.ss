@@ -33,7 +33,7 @@
          (make-hashtable string-hash string=?) ; env variables
          #f                        ; no env var assignments
          #f #f                     ; no temp parent, no default parent
-         '\x23;<global> -1 (span #t)))) ; skip job-id 0, is used by (sh-globals) itself
+         'sh-globals -1 (span #t)))) ; skip job-id 0, is used by (sh-globals) itself
 
   (c-environ->sh-global-env)
 

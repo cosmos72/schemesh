@@ -119,6 +119,8 @@
       ((#\v) #\vtab)
       ((#\x)
         (read-lisp-string-hex-sequence ctx flavor))
+      ((#\newline #\linefeed #\page #\return)
+        (skip-intraline-whitespace ctx))
       ((#\tab #\vtab #\space)
         (skip-intraline-whitespace-newline-intraline-whitespace ctx flavor))
       (else
@@ -165,13 +167,14 @@
     (unless (memq ch '(#\newline #\linefeed #\page #\return))
       (syntax-errorf ctx (caller-for flavor) "unexpected character ~s after \\<intraline whitespace>" ch)))
   (parsectx-read-char ctx) ; consume newline and similar
-  (skip-intraline-whitespace ctx)
-  #t)
+  (skip-intraline-whitespace ctx))
 
 
+;; always returns #t
 (define (skip-intraline-whitespace ctx)
-  (while (memq (parsectx-peek-char ctx) (#\tab #\vtab #\space))
-    (parsectx-read-char ctx)))
+  (while (memq (parsectx-peek-char ctx) '(#\tab #\vtab #\space))
+    (parsectx-read-char ctx))
+  #t)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

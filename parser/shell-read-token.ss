@@ -220,10 +220,10 @@
             (set! ret (cons word ret)))
           (else
             (set! again? #f)))))
-    ; (debugf "<-  read-subwords-noquote ret=~s splice?=~s" (reverse ret) splice?)
+    ; (debugf "<- read-subwords-noquote ret=~s splice?=~s" (reverse ret) splice?)
     (cond
       (splice?            (values ret 'rsplice))
-      ((null? ret)        (values "" 'atom))
+      ((null? ret)        (values ret 'rsplice))
       ((%is-literal? ret) (values (car ret) 'atom))
       (else               (values (cons 'shell-wildcard (reverse! ret)) 'atom)))))
 
@@ -241,13 +241,13 @@
 (define (read-subword-noquote ctx equal-is-operator? wildcards?)
   (let ((word   (charspan))
         (again? #t))
-    ; (debugf "->   read-subword-noquote equal-is-operator?=~s, wildcards?=~s" equal-is-operator? wildcards?)
+    ; (debugf "->  read-subword-noquote equal-is-operator?=~s, wildcards?=~s" equal-is-operator? wildcards?)
     (while again?
       (let-values (((ch type) (read-shell-char ctx)))
         ; (debugf "... read-subword-noquote ch=~s type=~s ret=~s" ch type word)
         (cond
           ((eq? type 'backslash)
-            ; read next char, suppressing any special meaning it may have
+            ;; read next char, suppressing any special meaning it may have
             (let ((ch2 (read-char-after-backslash ctx word)))
               (when ch2 (charspan-insert-back! word ch2))))
           ((and equal-is-operator? (eqv? ch #\=))

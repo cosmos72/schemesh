@@ -2,6 +2,8 @@
 
 ### in git main branch
 
+* fix (parse-shell-forms) to parse to nothing backslash-newline outside quotes
+* fix (parse-lisp-forms) to correctly parse backslash-whitespace-newline-whitespace inside double quotes
 * fix C function c_tty_setraw() to retrieve the current tty configuration at every call,
   because one of the executed commands may have changed it: we want to preserve such changes for future commands
 * fix bugs in (on-list) and (in-fixnum-range)

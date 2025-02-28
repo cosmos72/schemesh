@@ -121,8 +121,8 @@
               (values #t (fxmin 3 max-n)))) ; < 4 bytes available
           (else
             (utf8b-singlet->char b0)))))
-    ((vec start)
-      (bytevector-ref/utf8b vec start (bytevector-length vec)))
+    ((vec pos)
+      (bytevector-ref/utf8b vec pos (bytevector-length vec)))
     ((vec)
       (bytevector-ref/utf8b vec 0 (bytevector-length vec)))))
 
