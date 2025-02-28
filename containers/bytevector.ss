@@ -32,17 +32,17 @@
 ;; search bytevector range [start, end) and return index of first byte equal to b.
 ;; returned numerical index will be in the range [start, end).
 ;; return #f if no such byte is found in range.
-(define bytevector-find/u8
+(define bytevector-index/u8
   (case-lambda
     ((bvec start end b)
-      (assert* 'bytevector-find/u8 (bytevector? bvec))
-      (assert* 'bytevector-find/u8 (fx<=? 0 start end (bytevector-length bvec)))
-      (assert* 'bytevector-find/u8 (fx<=? 0 b 255))
+      (assert* 'bytevector-index/u8 (bytevector? bvec))
+      (assert* 'bytevector-index/u8 (fx<=? 0 start end (bytevector-length bvec)))
+      (assert* 'bytevector-index/u8 (fx<=? 0 b 255))
       (do ((i start (fx1+ i)))
           ((or (fx>=? i end) (fx=? b (bytevector-u8-ref bvec i)))
             (if (fx>=? i end) #f i))))
     ((bvec b)
-      (bytevector-find/u8 bvec 0 (bytevector-length bvec) b))))
+      (bytevector-index/u8 bvec 0 (bytevector-length bvec) b))))
 
 
 

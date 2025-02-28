@@ -416,7 +416,7 @@
       ; match from right
       (%pattern-match/right sp sp-start sp-end 0 str str-start str-end))
     (else
-      (let* ((sp-pos/not-star (span-find sp (fx1+ sp-start) sp-end (lambda (key) (not (eq? key '*)))))
+      (let* ((sp-pos/not-star (span-index sp (fx1+ sp-start) sp-end (lambda (key) (not (eq? key '*)))))
              (sp-pos/string?  (and sp-pos/not-star (string? (span-ref sp sp-pos/not-star)))))
         (assert* 'sh-pattern-match sp-pos/not-star)
         (let-values (((min-len max-len) (%pattern-minmax-length sp sp-pos/not-star sp-end 0 0)))
@@ -482,7 +482,7 @@
       ; match from left
       (%pattern-match/left sp sp-start sp-end 0 str str-start str-end))
     (else
-      (let* ((sp-pos/not-star (span-rfind sp sp-start (fx1- sp-end) (lambda (key) (not (eq? key '*)))))
+      (let* ((sp-pos/not-star (span-index-right sp sp-start (fx1- sp-end) (lambda (key) (not (eq? key '*)))))
              (sp-pos/string?  (and sp-pos/not-star
                                    (string? (%pattern-at sp sp-pos/not-star)))))
         (assert* 'sh-pattern-match sp-pos/not-star)

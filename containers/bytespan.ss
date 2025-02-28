@@ -21,7 +21,7 @@
     bytespan-insert-front/u8! bytespan-insert-back/u8!
     bytespan-insert-front/bspan! bytespan-insert-back/bspan!
     bytespan-insert-front/bvector! bytespan-insert-back/bvector!
-    bytespan-erase-front! bytespan-erase-back! bytespan-find/u8
+    bytespan-erase-front! bytespan-erase-back! bytespan-index/u8
     in-bytespan bytespan-iterate
     bytespan-peek-beg bytespan-peek-end bytespan-peek-data)
   (import
@@ -349,24 +349,25 @@
 ;; Returns #t if all calls to (proc index elem) returned truish,
 ;; otherwise returns #f.
 (define (bytespan-iterate sp proc)
-  (do ((i (bytespan-beg sp) (fx1+ i))
-       (n (bytespan-end sp))
-       (v (bytespan-vec sp)))
-    ((or (fx>=? i n) (not (proc i (bytevector-u8-ref v i))))
-     (fx>=? i n))))
+  (let ((start (bytespan-beg sp))
+        (end   (bytespan-end sp))
+        (bv    (bytespan-vec sp)))
+    (do ((i start (fx1+ i)))
+      ((or (fx>=? i end) (not (proc (fx- i start) (bytevector-u8-ref bv i))))
+       (fx>=? i end)))))
 
-;; (bytespan-find/u8) iterates on bytespan u8 elements in range [start, end)
+;; (bytespan-index/u8) iterates on bytespan u8 elements in range [start, end)
 ;; and returns the index of first bytespan u8 element that causes
 ;; (predicate elem) to return truish. Returns #f if no such element is found.
-(define bytespan-find/u8
+(define bytespan-index/u8
   (case-lambda
     ((sp start end predicate)
-      (assert* 'bytespan-find/u8 (fx<=? 0 start end (bytespan-length sp)))
+      (assert* 'bytespan-index/u8 (fx<=? 0 start end (bytespan-length sp)))
       (do ((i start (fx1+ i)))
           ((or (fx>=? i end) (predicate (bytespan-ref/u8 sp i)))
            (if (fx>=? i end) #f i))))
     ((sp predicate)
-      (bytespan-find/u8 sp 0 (bytespan-length sp) predicate))))
+      (bytespan-index/u8 sp 0 (bytespan-length sp) predicate))))
 
 ;; customize how "bytespan" objects are printed
 (record-writer (record-type-descriptor %bytespan)

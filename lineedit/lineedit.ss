@@ -349,7 +349,7 @@
 (define (linectx-paren-recursive-ok? lctx)
   (and
     (fxeven?
-      (charlines-count/left (linectx-vscreen lctx) (greatest-fixnum) (greatest-fixnum)
+      (charlines-count (linectx-vscreen lctx) (greatest-fixnum) (greatest-fixnum)
         (lambda (ch) (char=? ch #\\))))
     (let* ((parenmatcher (linectx-parenmatcher lctx))
            (paren (and parenmatcher (parenmatcher-paren parenmatcher))))

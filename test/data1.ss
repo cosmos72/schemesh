@@ -195,7 +195,7 @@
   (let ((sp (span 'a 'b 'c 'd)))
     (span-erase-back! sp 1) sp)            ,(span a b c)
   (let ((sp (span 'a 'b 'c 'd)))
-    (span-find sp 0 999
+    (span-index sp 0 999
       (lambda (elem) (eq? 'c elem))))     2
   ;; ----------------------- bytespan -------------------------------------
   (bytespan 1 2 3)                                 ,(bytespan 1 2 3)
@@ -219,7 +219,7 @@
   (let ((sp (bytespan 4 5 6)))
     (bytespan-insert-back/u8! sp 7 8) sp)          ,(bytespan 4 5 6 7 8)
   (let ((bsp (bytespan 9 10 11 12)))
-    (bytespan-find/u8 bsp
+    (bytespan-index/u8 bsp
       (lambda (elem) (fx=? 11 elem))))             2
   ;; ----------------------- charspan -------------------------------------
   (charspan #\1 #\2 #\3)                           ,(string->charspan* "123")
@@ -256,7 +256,7 @@
   (let ((sp (string->charspan "asdfuiop")))
     (charspan-erase-back! sp 3) sp)                ,(string->charspan* "asdfu")
   (let ((sp (charspan #\@ #\a #\b #\c)))
-    (charspan-find sp
+    (charspan-index sp
       (lambda (elem) (eq? #\b elem))))             2
   (charspan->utf8b (string->charspan*
     "\x7c; \xdcce;\xdc98; \xdce0;\xdca4;\xdcb9; \xdcf0;\xdc90;\xdc8d;\xdc88;"))
@@ -293,7 +293,7 @@
   (string->charline* "echo \n")                    ,(string->charline* "echo \n")
   (charline-nl? (string->charline "echo \n"))      #t
   (charline-length (string->charline "echo \n"))   6
-  (charline-find/left
+  (charline-index
     (string->charline* "qwerty=<>")
     9
     (lambda (ch) (char=? ch #\=)))                 6
@@ -302,21 +302,21 @@
         (pred (lambda (ch) (char=? ch #\b))))
     (do ((i 0 (fx1+ i)))
         ((fx>=? i 10) sp)
-      (span-insert-back! sp (charline-find/right line i pred))))
+      (span-insert-back! sp (charline-index-right line i pred))))
                                                    ,(span 4 4 4 4 4 #f #f #f #f #f)
   (let ((line (string->charline* "qwerty==="))
         (sp   (span))
         (pred (lambda (ch) (char=? ch #\=))))
     (do ((i 0 (fx1+ i)))
         ((fx>=? i 12) sp)
-      (span-insert-back! sp (charline-count/left line i pred))))
+      (span-insert-back! sp (charline-count line i pred))))
                                                    ,(span 0 0 0 0 0 0 0 1 2 3 3 3)
   (let ((line (string->charline* "qwerty==="))
         (sp   (span))
         (pred (lambda (ch) (char=? ch #\=))))
     (do ((i 0 (fx1+ i)))
         ((fx>=? i 12) sp)
-      (span-insert-back! sp (charline-count/right line i pred))))
+      (span-insert-back! sp (charline-count-right line i pred))))
                                                    ,(span 0 0 0 0 0 0 3 2 1 0 0 0)
   (let* ((l1 (string->charline* "foo/bar"))
          (l2 (charline-copy-on-write l1)))
@@ -330,18 +330,18 @@
   ;; ------------------------ charlines -----------------------------------
   (charlines (string->charline* "foo/bar")
     (string->charline "\n"))                       ,(strings->charlines* "foo/bar" "\n")
-  (charlines-find/left (strings->charlines* "qwerty@$%" "asdf")
+  (charlines-index (strings->charlines* "qwerty@$%" "asdf")
     4 1
     (lambda (ch) (char=? ch #\@)))                 7
-  (charlines-find/right (charlines
+  (charlines-index-right (charlines
     (string->charline* "IOHPR$\n")
     (string->charline* "ORJZX"))
     0 0
     (lambda (ch) (char=? ch #\Z)))                 10
-  (charlines-count/left (strings->charlines* "abc\n" "ccc")
+  (charlines-count (strings->charlines* "abc\n" "ccc")
     4 1
     (lambda (ch) (char=? ch #\c)))                 3
-  (charlines-count/right (strings->charlines* "abc\n" "ccc")
+  (charlines-count-right (strings->charlines* "abc\n" "ccc")
     3 0
     (lambda (ch) (not (char=? ch #\c))))           1
   ;; ------------------------ vscreen -------------------------------------

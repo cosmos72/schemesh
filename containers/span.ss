@@ -16,7 +16,7 @@
     span-ref span-back span-set! span-fill! span-fill-range! span-range->span* span-copy span-copy!
     span-reserve-front! span-reserve-back! span-resize-front! span-resize-back!
     span-insert-front! span-insert-back! span-insert-front/span! span-insert-back/span!
-    span-erase-front! span-erase-back! span-find span-rfind
+    span-erase-front! span-erase-back! span-index span-index-right
     in-span span-iterate
     span-peek-beg span-peek-end span-peek-data)
   (import
@@ -329,19 +329,20 @@
 ;; It must NOT call any other function that modifies the span (insert or erase elements,
 ;; change the span size or capacity, etc).
 (define (span-iterate sp proc)
-  (do ((i (span-beg sp) (fx1+ i))
-       (n (span-end sp))
-       (v (span-vec sp)))
-    ((or (fx>=? i n) (not (proc i (vector-ref v i))))
-     (fx>=? i n))))
+  (let ((start (span-beg sp))
+        (end   (span-end sp))
+        (v     (span-vec sp)))
+    (do ((i start (fx1+ i)))
+      ((or (fx>=? i end) (not (proc (fx- i start) (vector-ref v i))))
+        (fx>=? i end)))))
 
 
-;; (span-find) iterates forward on span elements from start
+;; (span-index) iterates forward on span elements from start
 ;; up to (fxmin end (span-length sp)),
 ;; and returns the index of first span element that causes (predicate elem) to return truish.
 ;; Returned index is always in the range [start, end)
 ;; Returns #f if no such element is found.
-(define (span-find sp start end predicate)
+(define (span-index sp start end predicate)
   (let ((end (fxmin end (span-length sp)))
         (ret #f))
     (do ((i start (fx1+ i)))
@@ -349,12 +350,12 @@
       (when (predicate (span-ref sp i))
         (set! ret i)))))
 
-;; (span-find) iterates backward on span elements
+;; (span-index) iterates backward on span elements
 ;; from (fx1- (fxmin end (span-length sp))) down to start
 ;; and returns the index of last span element that causes (predicate elem) to return truish.
 ;; Returned index is always in the range [start, end)
 ;; Returns #f if no such element is found.
-(define (span-rfind sp start end predicate)
+(define (span-index-right sp start end predicate)
   (let ((end (fxmin end (span-length sp)))
         (ret #f))
     (do ((i (fx1- end) (fx1- i)))

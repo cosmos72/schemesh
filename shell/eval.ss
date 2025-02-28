@@ -27,7 +27,7 @@
 
 (define (default-parser-for-file-extension path)
   (if (or (string-suffix? path ".sh")
-          (not (filename-rfind/char path #\.)))
+          (not (filename-index-right/char path #\.)))
     'shell
     'scheme))
 
@@ -35,7 +35,7 @@
 ;; return position of last character equal to ch in the filename part of path,
 ;; i.e. after the last slash.
 ;; return #f if ch is not present the filename part of path.
-(define (filename-rfind/char path ch)
+(define (filename-index-right/char path ch)
   (let* ((len   (string-length path))
          (slash (string-index-right path #\/ 0 len)))
     (string-index-right path ch (or slash 0) len)))
