@@ -63,6 +63,6 @@
   pipe fd becomes full and blocks further writes, preventing builtin "history" from finishing
   and causing a deadlock: "foo" is never started.
   The solution was: modify (sh-pipe) to always start builtins and multijobs in a subprocess
-* consume received signals, i.e. (sh-repl-lineedit) calls (sh-consume-sigchld),
+* consume received signals, i.e. (repl-lineedit) calls (sh-consume-sigchld),
   which calls C waitpid(-1, WNOHANG) for any child process, updates (sh-pid-table)
   and calls (sh-job-status) on all parents of each job that changes status.

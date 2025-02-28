@@ -7,7 +7,9 @@ It is primarily intended as a user-friendly Unix login shell, replacing bash, zs
 
 As such, it supports interactive line editing, autocompletion, history and the familiar Unix shell syntax:
 it can start commands, including redirections, pipelines, job concatenation with `;` `&&` `||`,
-groups surrounded by `{ }`, subshells surrounded by `[ ]`, and manage foreground/background jobs.
+groups surrounded by `{ }`, subshells surrounded by `[ ]` (traditional shells use `( )`),
+command substitution surrounded by `$[ ]` (traditional shells use `$( )`),
+and manage foreground/background jobs.
 
 For more complex tasks, it seamlessly integrates a full Lisp REPL backed by Chez Scheme.
 
@@ -38,6 +40,20 @@ schemesh will create a second line where you can continue typing.<br/>
 You can move between lines with the cursor keys, and use all the classical line-editing features including cut-and-paste.<br/>
 ![](doc/screenshot-2.png)
 
+Commands can be executed in a subshell by surrounding them in `[ ]` as for example:
+```shell
+grep -q old *.txt && [ sed -i -e 's/old/new/g' -- *.txt ]
+```
+traditional shells typically start subshells with `( )`, which has a different meaning in schemesh.
+
+Command substituion, i.e. using output of a first command as argument for a second command,
+can be performed by surrounding the first command in ``` `` ``` or `$[ ]` - example:
+```shell
+NOW=$[date]
+```
+traditional shells typically perform command substitution with ``` `` ``` or `$( )`:
+the latter will soon have a different meaning in schemesh.
+
 Switching between shell syntax and Lisp syntax is extremely simple, and can be done basically everywhere:
 * open parenthesis `(` temporarily switches to Lisp syntax until the corresponding `)`.
 
@@ -45,7 +61,7 @@ Switching between shell syntax and Lisp syntax is extremely simple, and can be d
 
 * open bracket i.e. `[` starts a new sub-form in current syntax until the corresponding `]`.<br/>
   If found in Lisp syntax, it is equivalent to `(`.<br/>
-  If found in shell syntax, it is similar to `{` with the difference that commands will be executed in a subshell.
+  If found in shell syntax, it is similar to `{` with the difference that commands will be executed in a **subshell**.
 
 * the directives `#!scheme` `#!chezscheme` and `#!r6rs` temporarily switch to Scheme syntax
   (with the appropriate flavor) until the end of current `( )`, `[ ]` or `{ }`.<br/>
@@ -93,7 +109,7 @@ instead of typical shell syntax, which is error prone as it's based on string ex
 and geared toward command execution, as for example:
 ```shell
 # Note: this is POSIX shell syntax for `if-then-else`. It will NOT work in schemesh.
-if some_command "$arg1" "$(sub_command)"
+if some_command "$arg1" "$[sub_command]"
 then
   then_run_this_command foo bar $VAR
 else
@@ -164,7 +180,9 @@ lists, strings, vectors, hashtables, etc. ...
 - [x] shell builtins
 - [x] shell environment variables
 - [x] shell pipelines `|` `|&`
-- [x] shell redirections `<` `>` `<>` `>>` `<&` `>&` `$()` ``` `` ```
+- [x] shell subshells `[ ]`
+- [x] shell command substitution `$[]`  ``` `` ```
+- [x] shell redirections `<` `>` `<>` `>>` `<&` `>&`
 - [x] shell wildcard expansion
 - [x] each job has its own current directory and environment variables,
       initially inherited from parent job
