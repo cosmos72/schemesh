@@ -340,6 +340,7 @@
     ((sp proc)
       (span-any sp proc 0 (span-length sp)))))
 
+
 ;; iterate on span elements, and call (proc i elem) on each one.
 ;; Stops iterating if (proc ...) returns #f.
 ;;
@@ -351,13 +352,18 @@
 ;;
 ;; It must NOT call any other function that modifies the span (insert or erase elements,
 ;; change the span size or capacity, etc).
-(define (span-iterate sp proc)
-  (let ((start (span-beg sp))
-        (end   (span-end sp))
-        (v     (span-vec sp)))
-    (do ((i start (fx1+ i)))
-      ((or (fx>=? i end) (not (proc (fx- i start) (vector-ref v i))))
-        (fx>=? i end)))))
+(define span-iterate
+  (case-lambda
+    ((sp proc start end)
+      (assert* 'span-iterate (fx<=? 0 start end (span-length sp)))
+      (assert* 'span-iterate (procedure? proc))
+      (do ((i start (fx1+ i))
+           (offset (span-beg sp))
+           (v      (span-vec sp)))
+        ((or (fx>=? i end) (not (proc i (vector-ref v (fx+ i offset)))))
+          (fx>=? i end))))
+    ((sp proc)
+      (span-iterate sp proc 0 (span-length sp)))))
 
 
 ;; (span-index) iterates forward on span elements from start
