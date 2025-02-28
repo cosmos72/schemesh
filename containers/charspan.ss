@@ -24,7 +24,7 @@
     charspan-insert-front/cspan!  charspan-insert-back/cspan!
     charspan-insert-front/string! charspan-insert-back/string!
     charspan-erase-front!         charspan-erase-back! charspan-iterate in-charspan
-    charspan-find charspan-rfind  charspan-find/char charspan-rfind/char
+    charspan-index charspan-index-right charspan-index/char charspan-index-right/char
     charspan-peek-data charspan-peek-beg charspan-peek-end
 
     string-replace-all) ; requires (charspan...)
@@ -414,62 +414,63 @@
 
 
 (define (charspan-iterate sp proc)
-  (do ((i (charspan-beg sp) (fx1+ i))
-       (n (charspan-end sp))
-       (v (charspan-str sp)))
-    ((or (fx>=? i n) (not (proc i (string-ref v i))))
-     (fx>=? i n))))
+  (let ((start (charspan-beg sp))
+        (end   (charspan-end sp))
+        (s     (charspan-str sp)))
+    (do ((i start (fx1+ i)))
+      ((or (fx>=? i end) (not (proc (fx- i start) (string-ref s i))))
+        (fx>=? i end)))))
 
 ;; iterate on charspan elements in range [start, end) and return the index
 ;; of first element that causes (predicate elem) to return truish.
 ;;
 ;; Return #f if no such element is found.
-(define charspan-find
+(define charspan-index
   (case-lambda
     ((sp start end predicate)
-      (assert* 'charspan-find (fx<=? 0 start end (charspan-length sp)))
+      (assert* 'charspan-index (fx<=? 0 start end (charspan-length sp)))
       (do ((i start (fx1+ i)))
           ((or (fx>=? i end) (predicate (charspan-ref sp i)))
             (if (fx>=? i end) #f i))))
     ((sp predicate)
-      (charspan-find sp 0 (charspan-length sp) predicate))))
+      (charspan-index sp 0 (charspan-length sp) predicate))))
 
 
 ;; iterate backward on charspan elements in the range [start, end)
 ;; and return the index of first (i.e. the highest index) charspan element that causes
 ;; (predicate elem) to return truish. Returns #f if no such element is found.
-(define charspan-rfind
+(define charspan-index-right
   (case-lambda
     ((sp start end predicate)
-      (assert* 'charspan-rfind (fx<=? 0 start end (charspan-length sp)))
+      (assert* 'charspan-index-right (fx<=? 0 start end (charspan-length sp)))
       (do ((i (fx1- end) (fx1- i)))
           ((or (fx<? i start) (predicate (charspan-ref sp i)))
             (if (fx<? i start) #f i))))
     ((sp predicate)
-      (charspan-rfind sp 0 (charspan-length sp) predicate))))
+      (charspan-index-right sp 0 (charspan-length sp) predicate))))
 
 
 ;; iterate on charspan elements in range [start, end) and return
 ;; the index of first charspan element equal to ch.
 ;;
 ;; Return #f if no such element is found.
-(define charspan-find/char
+(define charspan-index/char
   (case-lambda
     ((sp start end ch)
-      (charspan-find sp start end (lambda (e) (char=? e ch))))
+      (charspan-index sp start end (lambda (e) (char=? e ch))))
     ((sp ch)
-      (charspan-find sp (lambda (e) (char=? e ch))))))
+      (charspan-index sp (lambda (e) (char=? e ch))))))
 
 
 ;; iterate backward on charspan elements in the range [start, end)
 ;; and return the index of first (i.e. the highest index) charspan element equal to ch.
 ;; Returns #f if no such element is found.
-(define charspan-rfind/char
+(define charspan-index-right/char
   (case-lambda
     ((sp start end ch)
-      (charspan-rfind sp start end (lambda (e) (char=? e ch))))
+      (charspan-index-right sp start end (lambda (e) (char=? e ch))))
     ((sp ch)
-      (charspan-rfind sp (lambda (e) (char=? e ch))))))
+      (charspan-index-right sp (lambda (e) (char=? e ch))))))
 
 
 

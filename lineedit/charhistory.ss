@@ -9,7 +9,7 @@
   (export
     charhistory charhistory? make-charhistory
     charhistory-empty? charhistory-length charhistory-ref/cow charhistory-iterate
-    charhistory-find/starts-with charhistory-rfind/starts-with
+    charhistory-index/starts-with charhistory-index-right/starts-with
     charhistory-erase-empty-lines!
     charhistory-set*! charhistory-path charhistory-path-set!)
   (import
@@ -140,7 +140,7 @@
 ;;
 ;; return index of such charlines if found,
 ;; otherwise return #f
-(define (charhistory-find/starts-with hist start end prefix-lines prefix-x prefix-y)
+(define (charhistory-index/starts-with hist start end prefix-lines prefix-x prefix-y)
   (let ((start (fxmax 0 start))
         (end   (fxmin end (charhistory-length hist))))
     (do ((i start (fx1+ i)))
@@ -153,7 +153,7 @@
 ;;
 ;; return index of such charlines if found,
 ;; otherwise return #f
-(define (charhistory-rfind/starts-with hist start end prefix-lines prefix-x prefix-y)
+(define (charhistory-index-right/starts-with hist start end prefix-lines prefix-x prefix-y)
   (let ((start (fxmax 0 start))
         (end   (fxmin end (charhistory-length hist))))
     (do ((i (fx1- end) (fx1- i)))

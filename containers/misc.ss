@@ -8,7 +8,7 @@
 (library (schemesh containers misc (0 7 6))
   (export
     in-bytevector list->bytevector subbytevector
-    bytevector-fill-range! bytevector-find/u8 bytevector-compare
+    bytevector-fill-range! bytevector-index/u8 bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>? bytevector-iterate
 
     in-exact-range in-fixnum-range in-flonum-range in-range

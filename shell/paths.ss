@@ -11,8 +11,8 @@
           sh-subpath sh-subpath? sh-path->subpath text->sh-path*)
   (import
     (rnrs)
-    (only (chezscheme) fx1+ fx1- void)
-    (only (schemesh bootstrap) while)
+    (only (chezscheme)               fx1+ fx1- void)
+    (only (schemesh bootstrap)       assert* while)
     (schemesh containers charspan)
     (only (schemesh containers list) list-iterate))
 
@@ -66,7 +66,7 @@
 ;; return #t if argument is a path i.e. a charspan that does not contain #\nul,
 ;; otherwise return #f
 (define (sh-path? obj)
-  (and (charspan? obj) (not (charspan-find/char obj #\nul))))
+  (and (charspan? obj) (not (charspan-index/char obj #\nul))))
 
 
 ;; return #t if path is absolute i.e. it starts with "/" otherwise return #f
@@ -84,7 +84,7 @@
        (char=? #\/ (charspan-back path))))
 
 
-;; given a path, split its range [start, end) using "/" as separator
+;; given a charspan path, split its range [start, end) using "/" as separator
 ;; and call (proc path pos-start pos-end) on each component of the path,
 ;; where pos-start is the start index of the i-th component in the path,
 ;;   and pos-start is its end index.
@@ -102,22 +102,22 @@
 
 ;; same as (sh-path-iterate*), all arguments are mandatory
 (define (sh-path-iterate* path start end proc)
-  (let* ((len (charspan-length path))
-         (pos (fxmin len (fxmax 0 start)))
-         (end (fxmin len (fxmax 0 end)))
-         (continue? #t))
-    (while (and continue? (fx<? pos end))
-      (let ((sep (or (charspan-find/char path pos end #\/)
+  (assert* 'sh-path-iterate (fx<=? 0 start end (charspan-length path)))
+  (assert* 'sh-path-iterate (procedure? proc))
+  (let %loop ((pos start))
+    (if (fx>=? pos end)
+      #t
+      (let ((sep (or (charspan-index/char path pos end #\/)
                      end)))
         (if (proc path pos sep)
-          (set! pos (fx1+ sep))
-          (set! continue? #f))))
-    continue?))
+          (%loop (fx1+ sep))
+          #f)))))
+
 
 ;; given a path, return the length of its parent path.
 ;; returned length include the final "/" ONLY if it's the only character.
 (define (path-parent-len path)
-  (let ((pos (charspan-rfind/char path #\/)))
+  (let ((pos (charspan-index-right/char path #\/)))
     (cond
       ((not pos)     0) ;; parent of relative path "foo" is the empty string
       ((fxzero? pos) 1) ;; keep "/" because it's the only character

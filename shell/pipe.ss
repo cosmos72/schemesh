@@ -150,10 +150,7 @@
 (define (mj-pipe-continue caller mj wait-flags)
   (if (span-empty? (multijob-children mj))
     (job-status-set! caller mj (void))
-    (let ((pgid (job-pgid mj)))
-      (with-foreground-pgid wait-flags pgid
-        (pid-resume/maybe-sigcont    caller mj wait-flags #f pgid)
-        (mj-pipe-continue/maybe-wait caller mj wait-flags)))))
+    (mj-pipe-continue/maybe-wait caller mj wait-flags)))
 
 
 

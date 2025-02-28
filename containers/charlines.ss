@@ -10,7 +10,7 @@
     charlines charlines? strings->charlines strings->charlines*
     assert-charlines? charlines-shallow-copy charlines-copy-on-write charlines-iterate
     charlines-empty? charlines-length charlines-equal? charlines-ref charlines-set/cline!
-    charlines-clear! charlines-find/left charlines-find/right charlines-count/left charlines-count/right
+    charlines-clear! charlines-index charlines-index-right charlines-count charlines-count-right
     charlines-dirty-start-y charlines-dirty-end-y charlines-dirty-y-add! charlines-dirty-xy-unset!
     charlines-erase-at/cline! charlines-insert-at/cline! charlines-starts-with?
     charlines-next-xy charlines-prev-xy charlines-char-at-xy charlines-char-before-xy charlines-char-after-xy
@@ -164,7 +164,7 @@
 ;;        if x < 0 it is truncated to 0
 ;;        if x > (charline-length (charlines-ref lines y))
 ;;               it is truncated to charline-length
-(define (charlines-find/left lines x y pred)
+(define (charlines-index lines x y pred)
   (let ((ny (charlines-length lines))
         (ret 0))
     (set! y (fxmin y (fx1- ny)))
@@ -172,7 +172,7 @@
       (let* ((line (charlines-ref lines y))
              (len  (charline-length line))
              (xx   (fxmax 0 (fxmin x len)))
-             (pos  (charline-find/left line xx pred)))
+             (pos  (charline-index line xx pred)))
         (if pos
           (begin ;; match found
             (set! ret (fx+ ret (fx- xx pos)))
@@ -196,7 +196,7 @@
 ;;        if x < 0 it is truncated to 0
 ;;        if x > (charline-length (charlines-ref lines y))
 ;;               it is truncated to charline-length
-(define (charlines-find/right lines x y pred)
+(define (charlines-index-right lines x y pred)
   (let ((ny (charlines-length lines))
         (ret 0))
     (set! y (fxmax 0 y))
@@ -204,7 +204,7 @@
       (let* ((line (charlines-ref lines y))
              (len  (charline-length line))
              (xx   (fxmax 0 (fxmin x len)))
-             (pos  (charline-find/right line xx pred)))
+             (pos  (charline-index-right line xx pred)))
         (if pos
           (begin ;; match found
             (set! ret (fx+ ret (fx- pos xx)))
@@ -228,7 +228,7 @@
 ;;        if x < 0 it is truncated to 0
 ;;        if x > (charline-length (charlines-ref lines y))
 ;;               it is truncated to charline-length
-(define (charlines-count/left lines x y pred)
+(define (charlines-count lines x y pred)
   (let ((ny (charlines-length lines))
         (ret 0))
     (set! y (fxmin y (fx1- ny)))
@@ -236,7 +236,7 @@
       (let* ((line (charlines-ref lines y))
              (len  (charline-length line))
              (xx   (fxmax 0 (fxmin x len)))
-             (n    (charline-count/left line xx pred)))
+             (n    (charline-count line xx pred)))
         (set! ret (fx+ ret n))
         (if (fx=? n xx)
           (begin ;; all characters satisfy pred, continue on previous line
@@ -254,7 +254,7 @@
 ;;        if x < 0 it is truncated to 0
 ;;        if x > (charline-length (charlines-ref lines y))
 ;;               it is truncated to charline-length
-(define (charlines-count/right lines x y pred)
+(define (charlines-count-right lines x y pred)
   (let ((ny (charlines-length lines))
         (ret 0))
     (set! y (fxmax 0 y))
@@ -262,7 +262,7 @@
       (let* ((line (charlines-ref lines y))
              (len  (charline-length line))
              (xx   (fxmax 0 (fxmin x len)))
-             (n    (charline-count/right line xx pred)))
+             (n    (charline-count-right line xx pred)))
         (set! ret (fx+ ret n))
         (if (fx=? n (fx- len xx))
           (begin ;; all characters satisfy pred, continue on previous line

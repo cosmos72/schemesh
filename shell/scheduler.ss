@@ -62,7 +62,7 @@
       (job-pgid job)
       #f)
     (if (sh-multijob? job)
-      (let ((is-sh-list? (eq? sh-list (job-kind job))))
+      (let ((is-sh-list? (eq? sh-list (multijob-kind job))))
         (span-any (multijob-children job)
           (lambda (i child)
             (and (sh-job? child) (child-is-sync? job i is-sh-list?) (job-tree-find-pgid job)))))
@@ -71,7 +71,7 @@
 
 (define (child-is-sync? parent child-i parent-is-sh-list?)
   (not (and parent-is-sh-list?
-            (eq? '& (sh-multijob-child-ref job (fx+1 child-i))))))
+            (eq? '& (sh-multijob-child-ref parent (fx1+ child-i))))))
 
 
 ;; send SIGCONT to job and all its children, and also mark them 'running if they are 'stopped
@@ -117,7 +117,7 @@
 
         ;; ((and (sh-multijob? job) (eq? 'sh-pipe (multijob-kind job)))
         ;;   (mj-pipe-continue caller job wait-flags))
-
+      )
     ((stopped)
       (cond
         ((sh-wait-flag-wait-until-finished? wait-flags)
@@ -133,7 +133,7 @@
             (job-wait/impl caller job wait-flags)))))
 
     (else
-      (raise-errorf caller "job not started yet: ~s" job))))
+      (raise-errorf caller "job not started yet: ~s" job)))
   ;;x (debugf "<- job-wait\tjob=~a\tstatus=~s\tcaller=~s\twait-flags=~s id=~s pid=~s resume-proc=~s" (sh-job->string job) (job-last-status job) caller wait-flags (job-id job) (job-pid job) (job-resume-proc job))
   )
 

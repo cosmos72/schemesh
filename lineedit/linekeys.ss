@@ -137,7 +137,7 @@
   (let-values (((x y) (linectx-ixy lctx)))
     (let* ((hist (linectx-history lctx))
            (idx  (linectx-history-index lctx))
-           (next-idx (charhistory-find/starts-with
+           (next-idx (charhistory-index/starts-with
                        hist
                        (fx1+ idx)
                        (charhistory-length hist)
@@ -151,7 +151,7 @@
   (let-values (((x y) (linectx-ixy lctx)))
     (let* ((hist (linectx-history lctx))
            (idx  (linectx-history-index lctx))
-           (prev-idx (charhistory-rfind/starts-with hist 0 idx (linectx-vscreen lctx) x y)))
+           (prev-idx (charhistory-index-right/starts-with hist 0 idx (linectx-vscreen lctx) x y)))
       (when prev-idx
         (lineedit-navigate-history lctx (fx- prev-idx idx))
         (linectx-ixy-set! lctx x y)))))
@@ -163,7 +163,7 @@
     (unless (fxzero? n)
       (let-values (((x y) (vscreen-cursor-ixy screen)))
         (vscreen-insert-at-xy/cspan! screen x y clipboard))
-      (when (charspan-find/char clipboard #\newline)
+      (when (charspan-index/char clipboard #\newline)
         (vscreen-reflow screen))
       (vscreen-cursor-move/right! screen n))))
 

@@ -616,7 +616,7 @@
 (define (vcreen-split-line-after-first-newline screen y)
   (let* ((line (vscreen-line-at-y screen y))
          (end  (and line (charline-length line)))
-         (pos  (and line (charline-find/char line 0 end #\newline))))
+         (pos  (and line (charline-index/char line 0 end #\newline))))
     (when (and pos (fx<? (fx1+ pos) end))
       (let ((line2 (charline))
             (pos+1 (fx1+ pos)))
@@ -723,7 +723,7 @@
         (let-values (((x y line) (vscreen-insert-at-xy/prepare! screen x y)))
           (vscreen-dirty-set! screen #t)
           (charline-insert-at/cspan! line x csp csp-start csp-end)
-          (if (charspan-find/char csp csp-start csp-end #\newline)
+          (if (charspan-index/char csp csp-start csp-end #\newline)
             (vscreen-reflow screen)
             (vscreen-overflow-at-y screen y)))))))
 

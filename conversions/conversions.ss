@@ -18,8 +18,8 @@
     (only (schemesh bootstrap functions)   raise-assertf)
     (only (schemesh containers)  bytespan->bytevector bytespan->bytevector*!
                                  bytespan-reserve-back! bytespan-insert-back/string! bytespan-insert-back/u8!
-                                 bytevector<? bytevector-find/u8
-                                 charspan? charspan-empty? charspan-find/char charspan->utf8b charspan->utf8b/0
+                                 bytevector<? bytevector-index/u8
+                                 charspan? charspan-empty? charspan-index/char charspan->utf8b charspan->utf8b/0
                                  hashtable-iterate list-iterate make-bytespan string-index
                                  string->utf8b string->utf8b/0 utf8b->string utf8b->string
                                  vector-sort*!))
@@ -200,13 +200,13 @@
         (msg2 "\n\tConsider using the builtin \"split-at-0\""))
     (cond
       ((bytevector? x)
-        (when (bytevector-find/u8 x 0)
+        (when (bytevector-index/u8 x 0)
           (raise-assertf 'list->argv "~a(string->utf8b ~s)~a" msg1 (utf8b->string x) msg2)))
       ((string? x)
         (when (string-index x #\nul)
           (raise-assertf 'list->argv "~a~s~a" msg1 x msg2)))
       ((charspan? x)
-        (when (charspan-find/char x #\nul)
+        (when (charspan-index/char x #\nul)
           (raise-assertf 'list->argv "~a~s~a" msg1 x msg2)))
       (else
         (raise-assertf 'list->argv "~s is not bytevector, string or charspan" x)))
