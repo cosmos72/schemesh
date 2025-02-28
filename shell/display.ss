@@ -274,7 +274,8 @@
         ; because (sh-pipe) function inserted symbols '| between each pair of jobs,
         ; which is the syntax wanted by (sh-pipe*) function
         (display (if (eq? kind 'sh-pipe) 'sh-pipe* kind) port)
-        (job-write/children job port)
+        (unless (eq? kind 'sh-globals)
+          (job-write/children job port))
         (put-char port #\))))))
 
 

@@ -16,7 +16,7 @@
     paren-ok?       paren-recursive-ok?  paren-valid?
     paren-inner     paren-inner-empty?
     paren-inner-ref paren-inner-ref* paren-inner-append!
-    paren->values   paren->hashtable paren-hashtable-ref
+    paren->list     paren->hashtable paren-hashtable-ref
     paren-find/surrounds is-paren-char? debugf-paren)
   (import
     (rnrs)
@@ -181,9 +181,9 @@
   (hashtable-ref htable (xy->key x y) #f))
 
 
-;; extract fields name token start-x start-y end-x end-y from paren and return them
-(define (paren->values paren)
-  (values
+;; extract fields name token start-x start-y end-x end-y from paren and return them as a list
+(define (paren->list paren)
+  (list
     (paren-name        paren)
     (paren-start-token paren)
     (paren-start-x     paren)

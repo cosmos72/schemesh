@@ -110,7 +110,7 @@
                      (and (fx=? y ymin) (fx>=? x xmin)))
                (vscreen-char-before-xy screen x y)
                (values #f #f #f)))))
-    ; (debugf "%compute-stem paren=~s, xmin=~s, ymin=~s" (values->list (paren->values paren)) xmin ymin)
+    ; (debugf "%compute-stem paren=~s, xmin=~s, ymin=~s" (paren->list paren) xmin ymin)
     (charspan-clear! stem)
     (let %fill-stem ((x (vscreen-cursor-ix screen))
                      (y (vscreen-cursor-iy screen)))

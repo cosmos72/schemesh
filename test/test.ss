@@ -28,52 +28,77 @@
 
 (define (run-tests file-path)
   (let* ((tests  (sh-read-file file-path))
-         (n      (vector-length tests))
+         (vec-n  (vector-length tests))
+         (test-n (fx1+ (fx/ vec-n 2))) ; also count (run-tests-utf8b)
          (fail-n 0))
 
     (do ((i 0 (fx+ i 2)))
-        ((fx>=? i n))
+        ((fx>=? i vec-n))
       (unless (run-test (vector-ref tests i) (vector-ref tests (fx1+ i)))
         (set! fail-n (fx1+ fail-n))))
 
     (unless (run-tests-utf8b)
       (set! fail-n (fx1+ fail-n)))
 
-    (cons (fx1+ n) fail-n))) ; also count (run-tests-utf8b)
+    (cons test-n fail-n)))
 
 
 (define (run-test form expected-result)
   ; (format #t "test: ~s\n", form)
   (call/cc
     (lambda (return)
-      (with-exception-handler
-        (lambda (ex)
-          (let-values (((port get-string) (open-string-output-port)))
-            (display-condition ex port)
-            (format #t "test failed:\n    Scheme code  ~s\n    exception    ~a\n    expecting    ~s\n"
-              form (get-string) expected-result))
-          (return #f))
-        (lambda ()
-          (let* ((result (sh-eval form))
-                 (ok?    (equal-test? result expected-result)))
-            (unless ok?
-              (format #t "test failed:\n    Scheme code  ~s\n    evaluated to ~s\n    expecting    ~s\n"
-                form result (simplify-expected-result expected-result)))
-            ok?))))))
+      (let-values (((comparison exp-result) (parse-expected-result expected-result)))
+        (with-exception-handler
+          (lambda (ex)
+            (let-values (((port get-string) (open-string-output-port)))
+              (display-condition ex port)
+              (format #t "test failed:\n    Scheme code  ~s\n    exception    ~a\n    expecting    ~s\n"
+                form (get-string) exp-result))
+            (return #f))
+          (lambda ()
+            (test-ok? comparison form exp-result)))))))
 
 
-(define (simplify-expected-result expected-result)
-  (if (and (pair? expected-result)
-           (eq? 'unquote (car expected-result)))
-    (cadr expected-result)
-    expected-result))
+(define (parse-expected-result expected-result)
+  (cond
+    ((and (pair? expected-result) (eq? 'unquote (car expected-result)))
+      (values 'format-s (cadr expected-result)))
+    ((and (pair? expected-result) (eq? 'unquote-splicing (car expected-result)))
+      (values 'format-a (cadr expected-result)))
+    (else
+      (values 'equal expected-result))))
 
 
-(define (equal-test? result expected-result)
-  (if (and (pair? expected-result)
-           (eq? 'unquote (car expected-result)))
-    (string=? (format #f "~s" result) (format #f "~s" (cadr expected-result)))
-    (equal? result expected-result)))
+(define (test-ok? comparison form exp-result)
+  (let* ((result                (sh-eval form))
+         (comparable-result     (test->comparable comparison result))
+         (comparable-exp-result (test->comparable comparison exp-result))
+         (ok? (comparable-equal? comparison comparable-result comparable-exp-result)))
+    (unless ok?
+      (if (eq? 'format-s comparison)
+        (format #t "test failed:\n    Scheme code  ~s\n    evaluated to ~a\n    expecting    ~a\n"
+                form comparable-result comparable-exp-result)
+        (format #t "test failed:\n    Scheme code  ~s\n    evaluated to ~s\n    expecting    ~s\n"
+                form comparable-result comparable-exp-result)))
+    ok?))
+
+
+(define (test->comparable comparison result)
+  (case comparison
+    ((format-s)
+      (format #f "~s" result))
+    ((format-a)
+      (format #f "~a" result))
+    (else
+      result)))
+
+
+(define (comparable-equal? comparison comparable-result comparable-exp-result)
+  (case comparison
+    ((format-s format-a)
+      (string=? comparable-result comparable-exp-result))
+    (else
+      (equal? comparable-result comparable-exp-result))))
 
 
 (define (run-tests-utf8b)
