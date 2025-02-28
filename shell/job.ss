@@ -24,7 +24,7 @@
     make-sh-cmd sh-cmd
 
     ;; control.ss
-    sh-wait-flags sh-wait-flag-foreground-pgid? sh-wait-flag-resume-if-stopped?
+    sh-wait-flags sh-wait-flag-foreground-pgid? sh-wait-flag-continue-if-stopped?
     sh-wait-flag-wait-until-finished? sh-wait-flag-wait-until-stopped-or-finished?
     sh-current-job-suspend sh-current-job-yield
     sh-start sh-start* sh-bg sh-fg sh-wait sh-run sh-run/i sh-run/err? sh-run/ok? sh-wait
@@ -70,7 +70,7 @@
     sh-status->kind sh-status->result sh-status->results
 
     ;; types.ss
-    sh-cmd? sh-job? sh-job-copy sh-multijob? sh-current-job default-yield-proc
+    sh-cmd? sh-job? sh-job-copy sh-multijob? sh-current-job
 
     ;; wildcard
     sh-wildcard sh-wildcard* sh-wildcard/apply sh-wildcard/expand-tilde sh-wildcard->string
@@ -479,6 +479,7 @@
 (include "shell/dir.ss")
 (include "shell/redirect.ss")
 (include "shell/pipe.ss")
+(include "shell/scheduler.ss")
 (include "shell/control.ss")
 (include "shell/parse.ss")
 (include "shell/builtins2.ss")

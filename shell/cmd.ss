@@ -368,35 +368,12 @@
 
 
 (define (call/foreground-pgid wait-flags new-pgid proc)
-  (call/cc
-    ;; Capture the continuation representing THIS call to (call/foreground-pgid)
-    ;; and save it in (default-yield-proc): needed because proc calls job-resume-proc,
-    ;; which is a continuation and NEVER returns:
-    ;; it only yields to parent job or to (default-yield-proc).
-    (lambda (yield)
-      (let* ((our-pgid  (and new-pgid
-                          (sh-wait-flag-foreground-pgid? wait-flags)
-                          (sh-job-control?)
-                          (job-pgid (sh-globals))))
-             (outer-yield #f))
-        (dynamic-wind
-          (lambda () ; run before body
-            (when our-pgid
-              (%pgid-foreground our-pgid new-pgid))
-            (set! outer-yield (default-yield-proc))
-            (default-yield-proc yield))
-          proc
-          (lambda () ; run after body
-            (default-yield-proc outer-yield)
-            (when our-pgid
-              ;; try really hard to restore (sh-globals) as the foreground process group
-              (%pgid-foreground -1 our-pgid))))))))
-
+   (proc))
 
 (define-syntax with-foreground-pgid
   (syntax-rules ()
     ((_  wait-flags new-pgid body1 body2 ...)
-      (call/foreground-pgid wait-flags new-pgid (lambda () (body1 body2 ...))))))
+      (begin (body1 body2 ...)))))
 
 
 ;; Internal function called by (job-wait) for resuming a job with a pid or pgid.
@@ -413,34 +390,9 @@
       (let ((pid  (job-pid job))
             (pgid (job-pgid job)))
         (with-foreground-pgid wait-flags pgid
-          (pid-resume/maybe-sigcont caller job wait-flags pid pgid)
           (pid-resume/maybe-wait    caller job wait-flags pid pgid))))))
 
 
-;; Internal function called by (pid-resume) and by (mj-pipe-continue).
-;; If wait-flags contains 'resume-if-stopped then send SIGCONT to pgid (preferred) or to pid.
-;;
-;; Does nothing if wait-flags does not contain 'resume-if-stopped,
-;;   or if neither job-pid nor job-pgid are set.
-;;
-;; Ignores errors sending the signal, because pgid or pid may have exited in the meantime.
-;;
-;; Returns unspecified value.
-(define (pid-resume/maybe-sigcont caller job wait-flags pid pgid)
-  ;; (debugf "pid-resume/maybe-sigcont wait-flags=~s job=~a pid=~s pgid=~s" wait-flags (sh-job->string job) pid pgid)
-  (when (and (sh-wait-flag-resume-if-stopped? wait-flags) (or pid pgid))
-    (when pid
-      (assert* caller (integer? pid))
-      (assert* caller (> pid 0)))
-    (when pgid
-      (assert* caller (integer? pgid))
-      (assert* caller (> pgid 0)))
-
-    ;; if both pid and pgid are set, prefer pgid
-    (when (eqv? 0 (pid-kill (if (and pgid (> pgid 0)) (- pgid) pid) 'sigcont))
-       ;; SIGCONT signal sent successfully, assume job is now running
-       (job-status-set-running! 'pid-resume/maybe-sigcont job))
-    (void)))
 
 
 
@@ -467,113 +419,3 @@
       ;; else job may be running or finished. in both cases, return:
       ;; if job is running, caller will decide whether to invoke us again or not
     ))
-
-
-
-;; Core function in charge of waiting.
-;;
-;; Also executed when there's a foreground job to wait for,
-;; and no Scheme code to run immediately - not even the REPL prompt.
-;;
-;; For example, it's the default functions invoked by (job-yield) if the job has no resume continuation
-;; and
-;;
-;; If (sh-wait-flag-wait? wait-flags) is truish, call _once_ the C function wait4(),
-;; waiting for *some* subprocess to change status,
-;; and update the corresponding job status.
-;; Then proceed as if (sh-wait-flag-wait? wait-flags) is #f - see immediately below.
-;;
-;;
-;; If (sh-wait-flag-wait? wait-flags) is #f, call C function wait4(WNOHANG) in a loop,
-;; as long as it tells us that *some* subprocess changed status,
-;; and update the corresponding job status.
-;; Return when wait4(WNOHANG) does not report any subprocess status change.
-;;
-;; Also, proc-notify-status-change may be truish: in such case it must be a procedure
-;; and (proc-notify-status-change job) will be called for each job that changed status.
-;;
-;; Returns unspecified value.
-(define (scheduler-wait wait-flags)
-  (assert* 'scheduler-wait (default-yield-proc))
-
-  (when (sh-wait-flag-wait? wait-flags)
-    (scheduler-wait-once wait-flags))
-
-  (while (scheduler-wait-once (sh-wait-flags))))
-
-
-(define (maybe-queue-job-display-summary job)
-  (when (or (job-id job) (job-oid job))
-    (queue-job-display-summary job)))
-
-
-;; Call _once_ the C function wait4(), passing flag WNOHANG if requested.
-;; If some suprocess changed status, update the corresponding job status and call its (job-resume-proc) if set.
-;;
-;; Return #t is some job changed its status, otherwise return #f.
-(define (scheduler-wait-once wait-flags)
-
-  ;;x (debugf "->  scheduler-wait-once wait-flags=~s" wait-flags)
-
-  (signal-consume-sigchld)
-
-  (let* ((may-block   (if (sh-wait-flag-wait? wait-flags) 'blocking 'nonblocking))
-         (wait-result (pid-wait -1 may-block))
-         (job         (and (pair? wait-result) (pid->job (car wait-result)))))
-
-    ;;x (debugf "... scheduler-wait-once job=~a\twait-flags=~s wait-result=~s" (and job (sh-job->string job)) wait-flags wait-result)
-
-    (if job
-      (let* ((old-status  (job-last-status job))
-             (new-status  (pid-wait-result->status (cdr wait-result)))
-             (changed?    (status-changed? old-status new-status)))
-
-        (job-status-set! 'scheduler-wait-once job new-status)
-
-        ;;x (debugf "... scheduler-wait-once job=~a\tstatus=~s -> ~s changed?=~s\twait-flags=~s\tresume-proc=~s" (sh-job->string job) old-status new-status changed? wait-flags (job-resume-proc job))
-
-        (when changed?
-          (maybe-queue-job-display-summary job)
-
-          (check 'job-pids-wait (job-resume-proc job))
-
-          (when (job-resume-proc job)
-            ;;x (debugf "scheduler-wait-once job=~a\tcalling job-resume-proc... " (sh-job->string job))
-            (job-call-resume-proc job (sh-wait-flags))
-            ;;x (debugf "scheduler-wait-once job=~a\t...job-resume-proc returned" (sh-job->string job))
-          ))
-
-        ;;x (debugf "<-  scheduler-wait-once job=~a changed?=~s wait-flags=~s" (sh-job->string job) changed? wait-flags)
-        changed?)
-      (begin
-        ;;x (debugf "<-  scheduler-wait-once job=~a changed?=~s wait-flags=~s" #f #f wait-flags)
-        #f))))
-
-
-;; Internal function called by (pid-resume/maybe-wait)
-;; when job is stopped and wait-flags tell to wait until job finishes:
-;; call (break) then send 'sigcont to job
-;; if (break) raises an exception or resets scheme, then send 'sigint to job
-(define (pid-resume/break job pid pgid)
-   ; subshells should not directly perform I/O,
-   ; they cannot write the "break> " prompt then read commands
-   (when (sh-job-control?)
-     (let ((break-returned-normally? #f)
-           (our-pgid    (job-pgid (sh-globals)))
-           (kill-target (if (and pgid (> pgid 0)) (- pgid) pid)))
-      (dynamic-wind
-        (lambda () ; before body
-          ; grab the foreground
-          (%pgid-foreground -1 our-pgid))
-        (lambda () ; body
-          (job-id-set! job)
-          (break)
-          (set! break-returned-normally? #t))
-        (lambda ()
-          ; restore job to run in foreground
-          (%pgid-foreground our-pgid pgid)
-          ; send SIGCONT to job's process group, if present.
-          ; otherwise send SIGCONT to job's process id. Both may raise error
-          (pid-kill kill-target 'sigcont)
-          (unless break-returned-normally?
-            (pid-kill kill-target 'sigint)))))))

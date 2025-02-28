@@ -318,6 +318,27 @@
 
 
 ;; iterate on span elements, and call (proc i elem) on each one.
+;; if (proc ...) evaluates to truish, stop iterating and return such value.
+;;
+;; Returns #f if all calls to (proc i elem) evaluated to #f.
+;;
+;; The implementation of (proc ...) can call directly or indirectly functions
+;; that inspect the span without modifying it, and can also call (span-set! sp ...).
+;;
+;; It must NOT call any other function that modifies the span (insert or erase elements,
+;; change the span size or capacity, etc).
+(define (span-any sp proc)
+  (let ((start (span-beg sp))
+        (end   (span-end sp))
+        (v     (span-vec sp)))
+    (let %any ((i start))
+      (if (fx<? i end)
+        (or (proc (fx- i start) (vector-ref v i))
+            (%any (fx1+ i)))
+        #f))))
+
+
+;; iterate on span elements, and call (proc i elem) on each one.
 ;; Stops iterating if (proc ...) returns #f.
 ;;
 ;; Returns #t if all calls to (proc i elem) returned truish,

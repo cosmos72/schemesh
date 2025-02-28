@@ -300,3 +300,11 @@ See [doc/recent_changes.md](doc/recent_changes.md)
 * maybe add missing shell builtins "kill"
 * add syntax for evaluating a shell word i.e. a (sh-wildcard) from Scheme. TODO: associated to which job?
 * implement function `(string->sh-patterns)`
+
+## FIXME
+
+* replace calls (proc i elem) -> (proc (fx- i start) elem) in all functions (...-iterate) for spans, vectors, gbuffers etc
+
+## FIXED
+
+* in (job-tree...) ignore pgid and pid of sh-list async children i.e. the ones followed by '&

@@ -79,7 +79,8 @@
       job)))
 
 
-;; Parameter containing the continuation for resuming the current call to (job-resume).
+;; Parameter containing the default continuation for yielding a job
+;; and resuming the current call to (job-wait), (scheduler-wait) or similar.
 (define default-yield-proc
   (sh-make-thread-parameter #f
     (lambda (cont)

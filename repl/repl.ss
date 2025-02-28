@@ -362,7 +362,7 @@
                          (keyboard-interrupt-handler void))
             (repl-interrupt-show-who-msg-irritants break-args (console-error-port))
             (let ((port (console-output-port)))
-              (while (repl-interrupt-handler-once my-repl-args k port)))))))))
+              (while (repl-interrupt-handler-once my-repl-args break-args k port)))))))))
 
 
 ;; Print (break ...) arguments
@@ -384,7 +384,11 @@
 
 
 ;; Single iteration of (repl-interrupt-handler)
-(define (repl-interrupt-handler-once my-repl-args k out)
+(define (repl-interrupt-handler-once my-repl-args break-args k out)
+  (unless (null? break-args)
+    (put-string out "; break values: ")
+    (repl-print break-args))
+
   (put-string out "break> ")
   (flush-output-port out)
   (case (let-values (((type token start end) (read-token (console-input-port))))
@@ -395,20 +399,24 @@
               'exit)
             (else token)))
     ((a abort)        (abort) #f)
-    ((c e cont exit)  #f)
+    ((e exit)         #f)
     ((i inspect)      (inspect k) #t)
     ((n new)          (apply repl* my-repl-args) #t)
     ((q r quit reset) (reset) #f)
     ((t throw)        (error #f "user interrupt") #f)
+    ((s show)         (display break-args) (newline) #t)
+    ((v value)        (inspect break-args) #t)
     ((? help)
       (put-string out "
 Type ? or help for this help.
+     a or abort to abort schemesh. terminates the program!
+     e or exit to exit interrupt handler and continue
      i or inspect to inspect current continuation
      n or new to enter new repl
-     c or e to exit interrupt handler and continue
-     t or throw to raise an error condition
      q or r to quit current evaluation. returns to REPL
-     a or abort to abort schemesh. terminates the program!
+     s or show to display the break values
+     t or throw to raise an error condition
+     v or value to inspect the break values
      \n\n")
       (flush-output-port out)
       #t)
