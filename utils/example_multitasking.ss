@@ -55,7 +55,7 @@
            (lambda (task)
              (task-end task (start-proc task))))
          (task (%make-task id 'new #f wrapper-proc #f #f)))
-    (span-insert-back! all task)
+    (span-insert-right! all task)
     task))
 
 

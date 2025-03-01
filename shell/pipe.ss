@@ -199,4 +199,4 @@
         (job-status-set! 'advance-multijob-pipe/maybe-wait mj
           (if (span-empty? children)
             (void)
-            (job-last-status (span-back children))))))))
+            (job-last-status (span-ref-right children))))))))

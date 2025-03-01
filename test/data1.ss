@@ -143,21 +143,21 @@
   (values->list (bytespan-ref/char (bytespan #xf0 #x90 #x80 #x80) 0))  (#\x10000 4) ; U+10000
   (values->list (bytespan-ref/char (bytespan #xf4 #x8f #xBF #xBF) 0))  (#\x10FFFF 4); U+10FFFF
   (let ((sp (bytespan)))
-    (bytespan-insert-back/char! sp #\~) sp)                         ,(bytespan 126)
+    (bytespan-insert-right/char! sp #\~) sp)                         ,(bytespan 126)
   (let ((sp (bytespan)))
-    (bytespan-insert-back/char! sp (integer->char #xa3)) sp)        ,(bytespan 194 163)
+    (bytespan-insert-right/char! sp (integer->char #xa3)) sp)        ,(bytespan 194 163)
   (let ((sp (bytespan)))
-    (bytespan-insert-back/char! sp (integer->char #x20ac)) sp)      ,(bytespan 226 130 172)
+    (bytespan-insert-right/char! sp (integer->char #x20ac)) sp)      ,(bytespan 226 130 172)
   (let ((sp (bytespan)))
-    (bytespan-insert-front/char! sp (integer->char #x10348)) sp)    ,(bytespan 240 144 141 136)
+    (bytespan-insert-left/char! sp (integer->char #x10348)) sp)    ,(bytespan 240 144 141 136)
   (let ((sp (bytespan)))
-    (bytespan-insert-front/char! sp (integer->char #x10ffff)) sp)   ,(bytespan 244 143 191 191)
+    (bytespan-insert-left/char! sp (integer->char #x10ffff)) sp)   ,(bytespan 244 143 191 191)
   ;; ----------------- bytespan-fixnum-display ----------------------------
   (let ((sp (bytespan)))
     (for ((n (in-list '(0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000
                        9999998 10000000 12345678 -1 -9 -10 -87654321))))
-      (bytespan-display-back/fixnum! sp n)
-      (bytespan-insert-back/u8! sp 32))
+      (bytespan-display-right/fixnum! sp n)
+      (bytespan-insert-right/u8! sp 32))
     (utf8b-bytespan->string sp))
               "0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000 9999998 10000000 12345678 -1 -9 -10 -87654321 "
 
@@ -165,11 +165,11 @@
   (span 1 2 3)                             ,(span 1 2 3)
   (list->span '(foo bar baz))              ,(span foo bar baz)
   (span-length (span 1 2 3))               3
-  (span-capacity-front (span 1 2 3))       3
-  (span-capacity-back  (span 1 2 3))       3
+  (span-capacity-left (span 1 2 3))       3
+  (span-capacity-right  (span 1 2 3))       3
   (span-empty? (span))                     #t
   (span-empty? (span 'x))                  #f
-  (span-back (span 'x 'y))                 y
+  (span-ref-right (span 'x 'y))                 y
   (span-ref (span 'a 'b 'c) 1)             b
   (let* ((v  (vector 1 2 3))
          (sp (vector->span v)))
@@ -180,20 +180,20 @@
      ;; set! propagates to the span
      (vector-set! v 1 7) sp)               ,(span 1 7 3)
   (let ((sp (span 'p 'q 'r)))
-    (span-insert-front! sp 'i 'j) sp)      ,(span i j p q r)
+    (span-insert-left! sp 'i 'j) sp)      ,(span i j p q r)
   (let ((sp (span 'foo)))
-    (span-insert-back! sp 'bar 'qux) sp)   ,(span foo bar qux)
+    (span-insert-right! sp 'bar 'qux) sp)   ,(span foo bar qux)
   (let ((sp (span 1 2 3))
         (sp2 (span -1 0)))
-    (span-insert-front/span! sp sp2 0 2)
+    (span-insert-left/span! sp sp2 0 2)
     sp)                                    ,(span -1 0 1 2 3)
   (let ((sp (span 1 2 3))
         (sp2 (span -1 0)))
-    (span-insert-back/span! sp sp2) sp)    ,(span 1 2 3 -1 0)
+    (span-insert-right/span! sp sp2) sp)    ,(span 1 2 3 -1 0)
   (let ((sp (span 'a 'b 'c 'd)))
-    (span-erase-front! sp 3) sp)           ,(span d)
+    (span-erase-left! sp 3) sp)           ,(span d)
   (let ((sp (span 'a 'b 'c 'd)))
-    (span-erase-back! sp 1) sp)            ,(span a b c)
+    (span-erase-right! sp 1) sp)            ,(span a b c)
   (let ((sp (span 'a 'b 'c 'd)))
     (span-index sp 0 999
       (lambda (elem) (eq? 'c elem))))     2
@@ -203,10 +203,10 @@
   (bytevector->bytespan #vu8(7 19 88 255))         ,(bytespan 7 19 88 255)
   (bytespan->bytevector (bytespan 65 66 67))       #vu8(65 66 67)
   (bytespan-length (bytespan 1 2 3))               3
-  (bytespan-capacity-back (bytespan 1 2 3))        3
+  (bytespan-capacity-right (bytespan 1 2 3))        3
   (bytespan-empty? (bytespan))                     #t
   (bytespan-empty? (bytespan 250))                 #f
-  (bytespan-back/u8 (bytespan 251 252))            252
+  (bytespan-ref-right/u8 (bytespan 251 252))            252
   (bytespan-ref/u8 (bytespan 252 253 254 255) 2)   254
   (let* ((v (bytevector 1 2 3))
          (sp (bytevector->bytespan v)))
@@ -217,7 +217,7 @@
     ;; set! propagates to the bytespan
     (bytevector-u8-set! v 1 7)  sp)                ,(bytespan 1 7 3)
   (let ((sp (bytespan 4 5 6)))
-    (bytespan-insert-back/u8! sp 7 8) sp)          ,(bytespan 4 5 6 7 8)
+    (bytespan-insert-right/u8! sp 7 8) sp)          ,(bytespan 4 5 6 7 8)
   (let ((bsp (bytespan 9 10 11 12)))
     (bytespan-index/u8 bsp
       (lambda (elem) (fx=? 11 elem))))             2
@@ -228,10 +228,10 @@
   (string->charspan* "ouh[()&*U")                  ,(string->charspan* "ouh[()&*U")
   (charspan->string (string->charspan "pqrst"))    "pqrst"
   (charspan-length (charspan #\a #\b #\c))         3
-  (charspan-capacity-back (charspan #\a #\b #\c))  3
+  (charspan-capacity-right (charspan #\a #\b #\c))  3
   (charspan-empty? (charspan))                     #t
   (charspan-empty? (charspan #\~))                 #f
-  (charspan-back (charspan #\{ #\\))               #\\
+  (charspan-ref-right (charspan #\{ #\\))               #\\
   (charspan-ref (charspan #\x #\y #\z) 2)          #\z
   (charspan-range-count=
     (string->charspan* "abcdef") 2
@@ -248,13 +248,13 @@
     ;; set! propagates to the charspan
     (string-set! s 1 #\^) sp)                      ,(string->charspan* "a^c")
   (let ((sp (charspan #\A #\B)))
-    (charspan-insert-front! sp #\{ #\~) sp)        ,(string->charspan* "{~AB")
+    (charspan-insert-left! sp #\{ #\~) sp)        ,(string->charspan* "{~AB")
   (let ((sp (charspan #\4 #\5 #\6)))
-    (charspan-insert-back! sp #\7 #\8) sp)         ,(string->charspan* "45678")
+    (charspan-insert-right! sp #\7 #\8) sp)         ,(string->charspan* "45678")
   (let ((sp (string->charspan "qwerty")))
-    (charspan-erase-front! sp 1) sp)               ,(string->charspan* "werty")
+    (charspan-erase-left! sp 1) sp)               ,(string->charspan* "werty")
   (let ((sp (string->charspan "asdfuiop")))
-    (charspan-erase-back! sp 3) sp)                ,(string->charspan* "asdfu")
+    (charspan-erase-right! sp 3) sp)                ,(string->charspan* "asdfu")
   (let ((sp (charspan #\@ #\a #\b #\c)))
     (charspan-index sp
       (lambda (elem) (eq? #\b elem))))             2
@@ -302,21 +302,21 @@
         (pred (lambda (ch) (char=? ch #\b))))
     (do ((i 0 (fx1+ i)))
         ((fx>=? i 10) sp)
-      (span-insert-back! sp (charline-index-right line i pred))))
+      (span-insert-right! sp (charline-index-right line i pred))))
                                                    ,(span 4 4 4 4 4 #f #f #f #f #f)
   (let ((line (string->charline* "qwerty==="))
         (sp   (span))
         (pred (lambda (ch) (char=? ch #\=))))
     (do ((i 0 (fx1+ i)))
         ((fx>=? i 12) sp)
-      (span-insert-back! sp (charline-count line i pred))))
+      (span-insert-right! sp (charline-count line i pred))))
                                                    ,(span 0 0 0 0 0 0 0 1 2 3 3 3)
   (let ((line (string->charline* "qwerty==="))
         (sp   (span))
         (pred (lambda (ch) (char=? ch #\=))))
     (do ((i 0 (fx1+ i)))
         ((fx>=? i 12) sp)
-      (span-insert-back! sp (charline-count-right line i pred))))
+      (span-insert-right! sp (charline-count-right line i pred))))
                                                    ,(span 0 0 0 0 0 0 3 2 1 0 0 0)
   (let* ((l1 (string->charline* "foo/bar"))
          (l2 (charline-copy-on-write l1)))

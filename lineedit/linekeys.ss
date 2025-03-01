@@ -182,12 +182,12 @@
         (footer (string->utf8 " possibilities? (y or n) ")))
     (lambda (lctx table-n)
       (let ((wbuf (linectx-wbuf lctx)))
-        (bytespan-insert-back/bvector! wbuf header)
-        (bytespan-display-back/fixnum! wbuf table-n)
-        (bytespan-insert-back/bvector! wbuf footer)
+        (bytespan-insert-right/bvector! wbuf header)
+        (bytespan-display-right/fixnum! wbuf table-n)
+        (bytespan-insert-right/bvector! wbuf footer)
         (lineedit-flush lctx)
         (let ((ok? (lineedit-read-confirm-y-or-n? lctx)))
-          (bytespan-insert-back/u8! wbuf (if ok? 121 110) 10)
+          (bytespan-insert-right/u8! wbuf (if ok? 121 110) 10)
           ok?)))))
 
 

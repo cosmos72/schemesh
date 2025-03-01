@@ -94,16 +94,16 @@
     (let ((obj (car w)))
       (case obj
         ((* ?)
-          (charspan-insert-back! csp (if (eq? '* obj) #\* #\?)))
+          (charspan-insert-right! csp (if (eq? '* obj) #\* #\?)))
         ((% %!)
-          (charspan-insert-back! csp #\[)
+          (charspan-insert-right! csp #\[)
           (when (eq? '%! obj)
-            (charspan-insert-back! csp #\!))
-          (charspan-insert-back/string! csp (cadr w))
-          (charspan-insert-back! csp #\])
+            (charspan-insert-right! csp #\!))
+          (charspan-insert-right/string! csp (cadr w))
+          (charspan-insert-right! csp #\])
           (set! w (cdr w)))
         (else
-          (charspan-insert-back/string! csp obj))))
+          (charspan-insert-right/string! csp obj))))
     (set! w (cdr w))))
 
 
@@ -202,7 +202,7 @@
 ;;   (span "a/" (sh-pattern "b" '* "c/") "def/"))
 (define (sh-wildcard->sh-patterns w)
   (let ((ret (span)))
-    (span-insert-back! ret (span))
+    (span-insert-right! ret (span))
     (until (null? w)
       (when (%patterns/prepare1! (car w) ret)
         (let ((tail (cdr w)))
@@ -213,7 +213,7 @@
               (raise-errorf 'sh-wildcard "found ~s after shell wildcard symbol '~s, expected a string" pattern (car w)))
             (when (string-index pattern #\/)
               (%raise-invalid-wildcard-pattern (car w) pattern))
-            (span-insert-back! (span-back ret) pattern))
+            (span-insert-right! (span-ref-right ret) pattern))
             (set! w tail)))
       (set! w (cdr w)))
     (%patterns/simplify! ret)))
@@ -234,7 +234,7 @@
 (define (%patterns/prepare1! obj sp)
   (cond
     ((symbol? obj)
-      (span-insert-back! (span-back sp) obj)
+      (span-insert-right! (span-ref-right sp) obj)
       (memq obj '(% %!)))
     (else
       (assert* 'sh-wildcard (string? obj))
@@ -247,7 +247,7 @@
 ;; split non-empty string str around each delimiter / which is omitted.
 ;; and append each fragment to subspans inside sp, starting from subspan.
 (define (%split-string->paths sp str str-len)
-  (let ((subspan (span-back sp))
+  (let ((subspan (span-ref-right sp))
         (cspan #f))
     (do ((i 0 (fx1+ i)))
         ((fx>=? i str-len))
@@ -257,12 +257,12 @@
         (unless (and slash? (%last-is-slash? str i sp subspan))
           (unless cspan
             (set! cspan (%ensure-ends-with-charspan! subspan)))
-          (charspan-insert-back! cspan ch)
+          (charspan-insert-right! cspan ch)
           (when slash?
             ; create a new subspan
             (set! cspan #f)
             (set! subspan (span))
-            (span-insert-back! sp subspan)))))))
+            (span-insert-right! sp subspan)))))))
 
 
 (define (%last-is-slash? str str-index sp subspan)
@@ -275,11 +275,11 @@
 
 
 (define (%ensure-ends-with-charspan! subspan)
-  (if (or (span-empty? subspan) (not (charspan? (span-back subspan))))
+  (if (or (span-empty? subspan) (not (charspan? (span-ref-right subspan))))
     (let ((cspan (charspan)))
-      (span-insert-back! subspan cspan)
+      (span-insert-right! subspan cspan)
       cspan)
-    (span-back subspan)))
+    (span-ref-right subspan)))
 
 
 ;; simplify span in four steps:
@@ -311,9 +311,9 @@
             (span-set! sp i (span->sh-pattern* subspan)))))))
   ;; if last element is an empty subspan, remove it.
   (unless (span-empty? sp)
-    (let ((subspan (span-back sp)))
+    (let ((subspan (span-ref-right sp)))
       (when (and (span? subspan) (span-empty? subspan))
-        (span-erase-back! sp 1))))
+        (span-erase-right! sp 1))))
   sp)
 
 
@@ -326,7 +326,7 @@
       '()
       (let* ((ret  (span))
              (p    (span-ref sp 0))
-             (p0   (if (string? p) p (sh-pattern-front/string p)))
+             (p0   (if (string? p) p (sh-pattern-ref/string p)))
              (p0-absolute? (and (string? p0) (char=? #\/ (string-ref p0 0))))
              (dir  (if p0-absolute?
                      "/"
@@ -351,7 +351,7 @@
         (when (and (string-suffix/char? path #\/)
                    (not (%patterns-end-with/char? sp #\/)))
           (string-truncate! path (fx1- (string-length path))))
-        (span-insert-back! ret path))
+        (span-insert-right! ret path))
       ret)
     ((string? (span-ref sp i))
       (let ((subpath (%path-append path (span-ref sp i))))
@@ -361,8 +361,8 @@
           ret)))
     (else
       (let* ((p       (span-ref sp i))
-             (prefix  (or (sh-pattern-front/string p) ""))
-             (suffix  (or (sh-pattern-back/string p) ""))
+             (prefix  (or (sh-pattern-ref/string p) ""))
+             (suffix  (or (sh-pattern-ref-right/string p) ""))
              (path-or-dot (if (fxzero? (string-length path)) "." path))
              (i+1     (fx1+ i)))
         ; pattern p may end with #\/ thus:
@@ -381,8 +381,8 @@
 (define (%patterns-end-with/char? sp ch)
   (if (span-empty? sp)
     #f
-    (let* ((p   (span-back sp))
-           (key (if (string? p) p (sh-pattern-back/string p))))
+    (let* ((p   (span-ref-right sp))
+           (key (if (string? p) p (sh-pattern-ref-right/string p))))
       (and (string? key) (string-suffix/char? key ch)))))
 
 

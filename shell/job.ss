@@ -167,8 +167,8 @@
            (id       (job-id job)))
       (when (fx<? -1 id child-n)
         (span-set! children id #f)
-        (until (or (span-empty? children) (span-back children))
-          (span-erase-back! children 1)))
+        (until (or (span-empty? children) (span-ref-right children))
+          (span-erase-right! children 1)))
       (%job-id-set! job #f)))
   (job-last-status job))
 
@@ -196,7 +196,7 @@
 (define (%job-id-assign! job)
   (let* ((children (multijob-children (sh-globals)))
          (id       (span-length children)))
-    (span-insert-back! children job)
+    (span-insert-right! children job)
     (%job-id-set! job id)
     id))
 
@@ -282,7 +282,7 @@
     (span-iterate src
       (lambda (job-id job)
         (when (sh-job? job)
-          (span-insert-back! dst (cons job-id job)))))
+          (span-insert-right! dst (cons job-id job)))))
     dst))
 
 
@@ -420,10 +420,10 @@
             (slash 47))
         (if (and job-dir (not (fx=? slash (bytevector-u8-ref bvec 0))))
           (let ((bspan (charspan->utf8b job-dir)))
-            (unless (or (bytespan-empty? bspan) (fx=? slash (bytespan-back/u8 bspan)))
+            (unless (or (bytespan-empty? bspan) (fx=? slash (bytespan-ref-right/u8 bspan)))
               ;; append / after job's directory if missing
-              (bytespan-insert-back/u8! bspan slash))
-            (bytespan-insert-back/bvector! bspan bvec)
+              (bytespan-insert-right/u8! bspan slash))
+            (bytespan-insert-right/bvector! bspan bvec)
             (bytespan->bytevector bspan))
           bvec)))
     (else

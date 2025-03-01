@@ -79,17 +79,17 @@
          (hidden  0)
          (escape? #f)
          (%append-char (lambda (ch)
-           (bytespan-insert-back/char! prompt ch)
+           (bytespan-insert-right/char! prompt ch)
            (when (fx<=? hidden 0)
              (set! prompt-len (fx1+ prompt-len)))))
          (%append-charspan (lambda (csp)
-           (bytespan-insert-back/cspan! prompt csp)
+           (bytespan-insert-right/cspan! prompt csp)
            (when (fx<=? hidden 0)
              (set! prompt-len (fx+ prompt-len (charspan-length csp))))))
          (%append-string (lambda (str)
            (%append-charspan (string->charspan* str)))))
     (bytespan-clear! prompt)
-    (bytespan-reserve-back! prompt (string-length src))
+    (bytespan-reserve-right! prompt (string-length src))
     (string-iterate src
       (lambda (i ch)
         (if escape?
@@ -127,7 +127,7 @@
         (when (and (fx<=? home-len path-len)
                    (charspan-range=? (string->charspan* home) 0 path 0 home-len))
           (set! ret (string->charspan "~"))
-          (charspan-insert-back/cspan! ret path home-len path-len))))
+          (charspan-insert-right/cspan! ret path home-len path-len))))
     ret))
 
 

@@ -203,7 +203,7 @@
 (define (job-redirect/fd! job fd direction to)
   (unless (fx>=? to -1)
     (raise-errorf 'sh-redirect! "invalid redirect to fd, must be -1 or an unsigned fixnum: ~a" to))
-  (span-insert-back! (job-redirects job)
+  (span-insert-right! (job-redirects job)
     fd
     (%sh-redirect/fd-symbol->char 'sh-redirect! direction)
     to
@@ -212,7 +212,7 @@
 
 ;; Add a single file redirection to a job
 (define (job-redirect/file! job fd direction to)
-  (span-insert-back! (job-redirects job)
+  (span-insert-right! (job-redirects job)
     fd
     (%sh-redirect/file-symbol->char 'sh-redirect! direction)
     to
@@ -238,7 +238,7 @@
 (define (job-redirect/temp/fd! job fd direction to)
   (unless (fx>=? to -1)
     (raise-errorf 'sh-redirect! "invalid redirect to fd, must be -1 or an unsigned fixnum: ~a" to))
-  (span-insert-front! (job-redirects job)
+  (span-insert-left! (job-redirects job)
     fd
     (%sh-redirect/fd-symbol->char 'sh-redirect! direction)
     to
@@ -248,5 +248,5 @@
 
 ;; Remove all temporary redirections from a job
 (define (job-unredirect/temp/all! job)
-  (span-erase-front! (job-redirects job) (job-redirects-temp-n job))
+  (span-erase-left! (job-redirects job) (job-redirects-temp-n job))
   (job-redirects-temp-n-set! job 0))

@@ -14,9 +14,9 @@
 (library (schemesh containers utf8b utils (0 7 6))
   (export
     bytevector-ref/utf8b bytevector-set/utf8b! char->utf8b-length
-    bytespan-ref/char bytespan-set/char! bytespan-insert-front/char! bytespan-insert-back/char!
-    bytespan-insert-back/cspan! bytespan-insert-back/cbuffer!
-    bytespan-display-back/fixnum! bytespan-insert-back/string!
+    bytespan-ref/char bytespan-set/char! bytespan-insert-left/char! bytespan-insert-right/char!
+    bytespan-insert-right/cspan! bytespan-insert-right/cbuffer!
+    bytespan-display-right/fixnum! bytespan-insert-right/string!
     charspan->utf8b charspan->utf8b/0)
   (import
     (rename (rnrs)
@@ -227,64 +227,64 @@
 
 ;; convert a character to UTF-8b sequence and prefix it to bytespan.
 ;; Return length in bytes of inserted UTF-8b sequence
-(define (bytespan-insert-front/char! sp ch)
+(define (bytespan-insert-left/char! sp ch)
   (let ((new-len (fx+ (bytespan-length sp) (char->utf8b-length ch))))
-    (bytespan-resize-front! sp new-len)
+    (bytespan-resize-left! sp new-len)
     (bytespan-set/char! sp 0 ch)))
 
 ;; convert a character to UTF-8b sequence and append it to bytespan.
 ;; Return length in bytes of inserted UTF-8b sequence
-(define (bytespan-insert-back/char! sp ch)
+(define (bytespan-insert-right/char! sp ch)
   (let* ((old-len (bytespan-length sp))
          (new-len (fx+ old-len (char->utf8b-length ch))))
-    (bytespan-resize-back! sp new-len)
+    (bytespan-resize-right! sp new-len)
     (bytespan-set/char! sp old-len ch)))
 
 ;; convert a string to UTF-8b sequences and append it to bytespan.
-(define (bytespan-insert-back/string! sp str)
-  (bytespan-reserve-back! sp (fx+ (bytespan-length sp) (string-length str)))
+(define (bytespan-insert-right/string! sp str)
+  (bytespan-reserve-right! sp (fx+ (bytespan-length sp) (string-length str)))
   (string-iterate str
     (lambda (i ch)
-      (bytespan-insert-back/char! sp ch))))
+      (bytespan-insert-right/char! sp ch))))
 
 ;; convert a charspan to UTF-8b sequences and append it to bytespan.
-(define (bytespan-insert-back/cspan! sp csp)
-  (bytespan-reserve-back! sp (fx+ (bytespan-length sp) (charspan-length csp)))
+(define (bytespan-insert-right/cspan! sp csp)
+  (bytespan-reserve-right! sp (fx+ (bytespan-length sp) (charspan-length csp)))
   (charspan-iterate csp
     (lambda (i ch)
-      (bytespan-insert-back/char! sp ch))))
+      (bytespan-insert-right/char! sp ch))))
 
 ;; convert a chargbuffer to UTF-8b sequences and append it to bytespan.
-(define (bytespan-insert-back/cbuffer! sp cbuf)
-  (bytespan-reserve-back! sp (fx+ (bytespan-length sp) (chargbuffer-length cbuf)))
+(define (bytespan-insert-right/cbuffer! sp cbuf)
+  (bytespan-reserve-right! sp (fx+ (bytespan-length sp) (chargbuffer-length cbuf)))
   (chargbuffer-iterate cbuf
     (lambda (i ch)
-      (bytespan-insert-back/char! sp ch))))
+      (bytespan-insert-right/char! sp ch))))
 
 ;; convert a charspan to UTF-8b bytespan.
 (define (charspan->utf8b sp)
   (let ((ret (make-bytespan 0)))
-    (bytespan-insert-back/cspan! ret sp)
+    (bytespan-insert-right/cspan! ret sp)
     ret))
 
 ;; convert a charspan to UTF-8b bytespan, then append a final byte 0 if not already present.
 (define (charspan->utf8b/0 sp)
   (let ((ret (charspan->utf8b sp)))
-    (when (or (bytespan-empty? ret) (not (fxzero? (bytespan-back/u8 ret))))
-      (bytespan-insert-back/u8! ret 0))
+    (when (or (bytespan-empty? ret) (not (fxzero? (bytespan-ref-right/u8 ret))))
+      (bytespan-insert-right/u8! ret 0))
     ret))
 
 
 ;; convert a fixnum to decimal digits and append the digits to bytespan.
-(define (bytespan-display-back/fixnum! sp n)
+(define (bytespan-display-right/fixnum! sp n)
   (if (fx<? n 0)
-    (bytespan-insert-back/u8! sp 45) ; append '-'
+    (bytespan-insert-right/u8! sp 45) ; append '-'
     (set! n (fx- n)))                ; always work with negative fixnum: wider range
   (if (fx>=? n -9)
-    (bytespan-insert-back/u8! sp (fx- 48 n))                         ; |n| + '0'
+    (bytespan-insert-right/u8! sp (fx- 48 n))                         ; |n| + '0'
     (let ((max-digit-n (fx1+ (fxdiv (fx* (bitwise-length n) 3) 10))) ; upper bound
           (len (bytespan-length sp)))
-      (bytespan-reserve-back! sp (fx+ len max-digit-n))
+      (bytespan-reserve-right! sp (fx+ len max-digit-n))
       (let* ((beg (bytespan-peek-end sp)) ; we write after bytespan-peek-end
              (end (fx+ beg max-digit-n))
              (pos end)
@@ -294,12 +294,12 @@
           (let-values (((n/10 n%10) (fxdiv-and-mod n 10)))
             (set! n%10 (if (fxzero? n%10) 0 (fx- 10 n%10)))
             (set! pos (fx1- pos))
-            (assert* 'bytespan-display-back/fixnum! (fx>=? pos beg))
+            (assert* 'bytespan-display-right/fixnum! (fx>=? pos beg))
             (bytevector-u8-set! bv pos (fx+ 48 n%10))
             (set! n (if (fxzero? n%10) n/10 (fx1+ n/10)))))\n
         (let ((digit-n (fx- end pos)))
           (when (fx>? pos beg)
             (bytevector-copy! bv pos bv beg digit-n))
-          (bytespan-resize-back! sp (fx+ len digit-n)))))))
+          (bytespan-resize-right! sp (fx+ len digit-n)))))))
 
 ) ; close library

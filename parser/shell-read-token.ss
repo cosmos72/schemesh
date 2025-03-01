@@ -103,7 +103,7 @@
           ((rbrace)
             (set! again? #f))
           (else
-            (charspan-insert-back! csp ch)))))
+            (charspan-insert-right! csp ch)))))
     (list 'shell-env (charspan->string csp))))
 
 
@@ -119,12 +119,12 @@
           ((char=? #\\ ch)
             ; read next char, suppressing any special meaning it may have
             (let ((ch-i (read-char-after-backslash ctx csp)))
-              (when ch-i (charspan-insert-back! csp ch-i))))
+              (when ch-i (charspan-insert-right! csp ch-i))))
           ((or (char<=? #\0 ch #\9)
                (char<=? #\A ch #\Z)
                (char<=? #\a ch #\z)
                (char=?  #\_ ch))
-            (charspan-insert-back! csp ch))
+            (charspan-insert-right! csp ch))
           (else
             (set! again? #f)
             (parsectx-unread-char ctx ch)))))
@@ -166,7 +166,7 @@
           ((eof squote)
             (set! again? #f)) ; newline, or end of string reached
           (else
-            (charspan-insert-back! csp ch)))))
+            (charspan-insert-right! csp ch)))))
     (charspan->string csp)))
 
 
@@ -186,11 +186,11 @@
           ((backslash)
             ;; read next char, suppressing any special meaning it may have
             (let ((ch-i (read-char-after-backslash ctx csp)))
-              (when ch-i (charspan-insert-back! csp ch-i))))
+              (when ch-i (charspan-insert-right! csp ch-i))))
           (else
             ;; single quote, newline, semicolon, operators and parentheses
             ;; have no special meaning inside dquotes
-            (charspan-insert-back! csp ch)))))
+            (charspan-insert-right! csp ch)))))
     (charspan->string csp)))
 
 
@@ -249,7 +249,7 @@
           ((eq? type 'backslash)
             ;; read next char, suppressing any special meaning it may have
             (let ((ch2 (read-char-after-backslash ctx word)))
-              (when ch2 (charspan-insert-back! word ch2))))
+              (when ch2 (charspan-insert-right! word ch2))))
           ((and equal-is-operator? (eqv? ch #\=))
             (if (charspan-empty? word)
               (set! word '=)                 ; return '=
@@ -268,7 +268,7 @@
               (parsectx-unread-char ctx ch)) ; return word before ~
             (set! again? #f))
           ((eq? type 'char)
-            (charspan-insert-back! word ch))
+            (charspan-insert-right! word ch))
           ((eq? type 'lbrack)
             (if (charspan-empty? word)
               ; return beginning of wildcard pattern '% or '%!
@@ -319,7 +319,7 @@
             ; read next character and and append it literally
             (let ((ch2 (parsectx-read-char ctx)))
               (when (char? ch2)
-                (charspan-insert-back! word ch2))))
+                (charspan-insert-right! word ch2))))
           (else
-            (charspan-insert-back! word ch)))))
+            (charspan-insert-right! word ch)))))
     (charspan->string word)))

@@ -17,7 +17,7 @@
     (only (chezscheme)           condition-continuation continuation-condition? fx1+ fx1- void)
     (only (schemesh bootstrap functions)   raise-assertf)
     (only (schemesh containers)  bytespan->bytevector bytespan->bytevector*!
-                                 bytespan-reserve-back! bytespan-insert-back/string! bytespan-insert-back/u8!
+                                 bytespan-reserve-right! bytespan-insert-right/string! bytespan-insert-right/u8!
                                  bytevector<? bytevector-index/u8
                                  charspan? charspan-empty? charspan-index/char charspan->utf8b charspan->utf8b/0
                                  hashtable-iterate list-iterate make-bytespan string-index
@@ -216,11 +216,11 @@
 ;; convert two strings key and val to a bytevector0 containing key=value\x0;
 (define (key-value->bytevector0 key val)
   (let ((bsp (make-bytespan 0)))
-    (bytespan-reserve-back! bsp (fx+ 2 (fx+ (string-length key) (string-length val))))
-    (bytespan-insert-back/string! bsp key)
-    (bytespan-insert-back/u8!     bsp 61) ; #\=
-    (bytespan-insert-back/string! bsp val)
-    (bytespan-insert-back/u8!     bsp 0)  ; #\x0
+    (bytespan-reserve-right! bsp (fx+ 2 (fx+ (string-length key) (string-length val))))
+    (bytespan-insert-right/string! bsp key)
+    (bytespan-insert-right/u8!     bsp 61) ; #\=
+    (bytespan-insert-right/string! bsp val)
+    (bytespan-insert-right/u8!     bsp 0)  ; #\x0
     (bytespan->bytevector*! bsp)))
 
 

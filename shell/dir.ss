@@ -156,8 +156,8 @@
 
 (define (sh-pwd* job-or-id fd)
   (let ((wbuf (make-bytespan 0)))
-    (bytespan-insert-back/cspan! wbuf (sh-cwd job-or-id))
-    (bytespan-insert-back/u8! wbuf 10) ; newline
+    (bytespan-insert-right/cspan! wbuf (sh-cwd job-or-id))
+    (bytespan-insert-right/u8! wbuf 10) ; newline
      ; TODO: loop on short writes
     (fd-write fd (bytespan-peek-data wbuf)
               (bytespan-peek-beg wbuf) (bytespan-peek-end wbuf))

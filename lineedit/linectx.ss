@@ -196,8 +196,8 @@
          (rbuf  (bytespan))
          (wbuf  (bytespan))
          (history (charhistory)))
-    (bytespan-reserve-back! rbuf 1024)
-    (bytespan-reserve-back! wbuf 1024)
+    (bytespan-reserve-right! rbuf 1024)
+    (bytespan-reserve-right! wbuf 1024)
     (charhistory-path-set! history history-path)
     (%make-linectx
       rbuf wbuf
@@ -218,9 +218,9 @@
          (bv     (string->utf8b str))
          (prompt (linectx-prompt lctx)))
     (bytespan-clear! prompt)
-    (bytespan-insert-back/bvector! prompt bv)
+    (bytespan-insert-right/bvector! prompt bv)
     ; append colon and space after parser name
-    (bytespan-insert-back/u8! prompt 58 32)
+    (bytespan-insert-right/u8! prompt 58 32)
     ; we want length in characters, not in UTF-8b bytes
     (linectx-prompt-length-set! lctx (fx+ 2 (string-length str)))))
 

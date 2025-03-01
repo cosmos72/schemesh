@@ -101,11 +101,11 @@
          (delta  (fx- idx left-n)))
     (cond
       ((fx>? delta 0)
-        (span-insert-back/span! left right 0 delta)
-        (span-erase-front! right delta))
+        (span-insert-right/span! left right 0 delta)
+        (span-erase-left! right delta))
       ((fx<? delta 0)
-        (span-insert-front/span! right left idx left-n)
-        (span-erase-back! left (fx- delta))))))
+        (span-insert-left/span! right left idx left-n)
+        (span-erase-right! left (fx- delta))))))
 
 ;; insert val into gbuffer at position idx
 ;; prerequisite: (fx<=? 0 idx (gbuffer-length gb))
@@ -115,12 +115,12 @@
         (right  (gbuffer-right gb)))
     (cond
       ((fxzero? idx)
-        (span-insert-front! left val))
+        (span-insert-left! left val))
       ((fx=? idx (gbuffer-length gb))
-        (span-insert-back! right val))
+        (span-insert-right! right val))
       (else
         (gbuffer-split-at! gb idx)
-        (span-insert-back! left val)))))
+        (span-insert-right! left val)))))
 
 ; read elements in range [src-start, src-end) from span sp-src
 ; and insert them into gbuffer at position idx
@@ -136,12 +136,12 @@
           (assert-not* 'gbuffer-insert-at/span! (eq? right sp-src))
           (cond
             ((fxzero? idx)
-              (span-insert-front/span! left sp-src src-start src-end))
+              (span-insert-left/span! left sp-src src-start src-end))
             ((fx=? idx (gbuffer-length gb))
-              (span-insert-back/span! right sp-src src-start src-end))
+              (span-insert-right/span! right sp-src src-start src-end))
             (else
               (gbuffer-split-at! gb idx)
-              (span-insert-back/span! left sp-src src-start src-end))))))
+              (span-insert-right/span! left sp-src src-start src-end))))))
     ((gb idx sp-src)
       (gbuffer-insert-at/span! gb idx sp-src 0 (span-length sp-src)))))
 
@@ -159,19 +159,19 @@
       ((fxzero? n) (void)) ; nothing to do
       ((fxzero? start)
         (let ((head (fxmin n left-n)))
-          (span-erase-front! left head)
-          (span-erase-front! right (fx- n head))))
+          (span-erase-left! left head)
+          (span-erase-left! right (fx- n head))))
       ((fx=? end left-n)
-        (span-erase-back! left n))
+        (span-erase-right! left n))
       ((fx=? start left-n)
-        (span-erase-front! right n))
+        (span-erase-left! right n))
       ((fx=? end len)
         (let ((tail (fxmin n right-n)))
-          (span-erase-back! right tail)
-          (span-erase-back! left (fx- n tail))))
+          (span-erase-right! right tail)
+          (span-erase-right! left (fx- n tail))))
       (else
         (gbuffer-split-at! gb end)
-        (span-erase-back! left n)))))
+        (span-erase-right! left n)))))
 
 
 ;; create and return a closure that iterates on elements of gbuffer gb.

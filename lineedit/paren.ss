@@ -114,7 +114,7 @@
     (assert* 'paren-inner-append! (paren? nested-paren))
     (let ((inner (paren-inner paren)))
       (if (span? inner)
-        (span-insert-back! inner nested-paren)
+        (span-insert-right! inner nested-paren)
         (paren-inner-set! paren (span nested-paren))))))
 
 ;; traverse paren and convert it to a hashtable (+ x (* y 65536)) -> paren

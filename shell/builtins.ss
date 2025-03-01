@@ -19,7 +19,7 @@
     (only (schemesh containers hashtable) hashtable-iterate)
     (only (schemesh containers list)      list-iterate)
     (only (schemesh containers sort)      vector-sort*!)
-    (only (schemesh containers span)      span span-insert-back! span-iterate vector->span*)
+    (only (schemesh containers span)      span span-insert-right! span-iterate vector->span*)
     (only (schemesh containers string)    assert-string-list? string-is-unsigned-base10-integer?)
     (schemesh containers utf8b utils)
     (only (schemesh posix fd)             fd-write)
@@ -94,11 +94,11 @@
     (do ((tail args (cdr tail)))
         ((null? tail))
       (unless (eq? args tail)
-        (bytespan-insert-back/u8! wbuf 32)) ; space
-      (bytespan-insert-back/string! wbuf (car tail))
+        (bytespan-insert-right/u8! wbuf 32)) ; space
+      (bytespan-insert-right/string! wbuf (car tail))
       (when (fx>=? (bytespan-length wbuf) 4096)
         (fd-write/bspan! fd wbuf)))
-    (bytespan-insert-back/u8! wbuf 10) ; newline
+    (bytespan-insert-right/u8! wbuf 10) ; newline
     (fd-write/bspan! fd wbuf))
   (void))
 
@@ -111,8 +111,8 @@
         (fd   (sh-fd-stdout)))
     (do ((tail args (cdr tail)))
         ((null? tail))
-      (bytespan-insert-back/string! wbuf (car tail))
-      (bytespan-insert-back/u8! wbuf 0) ; #\nul
+      (bytespan-insert-right/string! wbuf (car tail))
+      (bytespan-insert-right/u8! wbuf 0) ; #\nul
       (when (fx>=? (bytespan-length wbuf) 4096)
         (fd-write/bspan! fd wbuf)))
     (fd-write/bspan! fd wbuf))
@@ -130,13 +130,13 @@
     (()
       (let* ((lctx (repl-args-linectx))
              (wbuf (linectx-wbuf lctx)))
-        (bytespan-insert-back/string! wbuf "schemesh version")
+        (bytespan-insert-right/string! wbuf "schemesh version")
         (let ((version (sh-version)))
           (do ((l version (cdr l)))
               ((null? l))
-            (bytespan-insert-back/u8! wbuf (if (eq? l version) 32 46))
-            (bytespan-display-back/fixnum! wbuf (car l))))
-        (bytespan-insert-back/string! wbuf "
+            (bytespan-insert-right/u8! wbuf (if (eq? l version) 32 46))
+            (bytespan-display-right/fixnum! wbuf (car l))))
+        (bytespan-insert-right/string! wbuf "
 Copyright (C) 2023-2025 Massimiliano Ghilardi <https://github.com/cosmos72/schemesh>
 
   schemesh comes with ABSOLUTELY NO WARRANTY; for details type 'help warranty'.
@@ -156,14 +156,14 @@ The following names are recognized as builtins:\n\n")
             (help-bvector (hashtable-ref (sh-builtins-help) name #f)))
         (if help-bvector
           (begin
-            (bytespan-insert-back/string!  wbuf name)
-            (bytespan-insert-back/bvector! wbuf help-bvector)
+            (bytespan-insert-right/string!  wbuf name)
+            (bytespan-insert-right/bvector! wbuf help-bvector)
             (fd-write/bspan! (sh-fd-stdout) wbuf)
             (void))
           (begin
-            (bytespan-insert-back/string! wbuf "schemesh: help: no help for builtin '")
-            (bytespan-insert-back/string! wbuf name)
-            (bytespan-insert-back/string! wbuf "'. Try 'help' or 'help help'.\n")
+            (bytespan-insert-right/string! wbuf "schemesh: help: no help for builtin '")
+            (bytespan-insert-right/string! wbuf name)
+            (bytespan-insert-right/string! wbuf "'. Try 'help' or 'help help'.\n")
             (fd-write/bspan! (sh-fd-stdout) wbuf)
             '(failed 1)))))))
 
@@ -182,13 +182,13 @@ The following names are recognized as builtins:\n\n")
           (let ((wbuf (make-bytespan 0)))
             (gbuffer-iterate (linectx-history lctx)
               (lambda (i lines)
-                (bytespan-insert-back/u8!      wbuf 32) ; space
-                (bytespan-display-back/fixnum! wbuf i)
-                (bytespan-insert-back/u8!      wbuf 9) ; tab
+                (bytespan-insert-right/u8!      wbuf 32) ; space
+                (bytespan-display-right/fixnum! wbuf i)
+                (bytespan-insert-right/u8!      wbuf 9) ; tab
                 (charlines-iterate lines
                   (lambda (j line)
-                    (bytespan-insert-back/cbuffer! wbuf line)))
-                (bytespan-insert-back/u8! wbuf 10) ; newline
+                    (bytespan-insert-right/cbuffer! wbuf line)))
+                (bytespan-insert-right/u8! wbuf 10) ; newline
                 (when (fx>=? (bytespan-length wbuf) 4096)
                   (fd-write/bspan! fd wbuf))))
             (fd-write/bspan! fd wbuf)
