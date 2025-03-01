@@ -45,10 +45,14 @@
           (job-start/on-exception caller job options k-continue ex))
         (lambda ()
           (job-start/may-throw caller job k-continue options)))))
-  (when (and (job-started? job) (options->spawn? options))
-    ; we can cleanup job's file descriptor, as it's running in a subprocess
+
+  (when (options->spawn? options)
+    ;; job is running in a subprocess, we no longer need fd remapping:
+    ;; they also may contain a dup() of pipe write file descriptors
+    ;; which prevents detecting eof on the corresponding pipe read file descriptor
     (job-unmap-fds! job)
     (job-unredirect/temp/all! job))
+
   (job-last-status job)) ; returns job status.
 
 
@@ -102,6 +106,7 @@
     (lambda (parent)
       (unless (eq? parent (sh-globals))
         (job-exception-set! parent ex))))
+  ;; (job-status-set!) also cleanups job-fds-to-remap and temp redirects
   (job-status-set! caller job (list 'exception ex))
   (if (options->catch? options)
     (k-continue (sh-exception-handler ex))
@@ -140,7 +145,7 @@
   (check-not 'job-finish (%job-resume-proc job))
   (assert* 'job-finish (job-yield-proc job))
   (let ((yield-proc (job-yield-proc job)))
-    ;;x (debugf "-> job-finish\tjob=~a\tstatus=~s\tyield-proc=~s" (sh-job->string job) (job-last-status job) yield-proc)
+    ;;e (debugf "-> job-finish\tjob=~a\tstatus=~s\tyield-proc=~s" (sh-job->string job) (job-last-status job) yield-proc)
     ;; we will not resume job again => unset its resume-proc
     (job-resume-proc-set! job #f)
     (unless (job-finished? job)
@@ -159,7 +164,7 @@
 (define (%job-suspend job status)
   (check-not 'job-suspend (%job-resume-proc job))
   (let ((yield-proc (job-yield-proc job)))
-    ;;x (debugf "-> job-suspend\tjob=~a\tstatus=~s\tyield-proc=~s" (sh-job->string job) (job-last-status job) yield-proc)
+    ;;e (debugf "-> job-suspend\tjob=~a\tstatus=~s\tyield-proc=~s" (sh-job->string job) (job-last-status job) yield-proc)
     (if yield-proc
       (begin
         (call/cc
@@ -173,7 +178,7 @@
             ;; suspend job by calling resume of its parent job, or default-yield-proc
             (yield-proc (void))))
 
-        ;;x (debugf "<- job-suspend\tjob=~a\tstatus=~s" (sh-job->string job) (job-last-status job))
+        ;;e (debugf "<- job-suspend\tjob=~a\tstatus=~s" (sh-job->string job) (job-last-status job))
         ;; ignore value returned by continuation (yield-proc)
         ;;
         ;; also, the resume continuation we set above is no longer useful
@@ -190,7 +195,7 @@
 (define (%job-yield job caller)
   (check-not 'job-yield (%job-resume-proc job))
   (let ((yield-proc (job-yield-proc job)))
-    ;;x (debugf "-> job-suspend\tjob=~a\tstatus=~s\tyield-proc=~s" (sh-job->string job) (job-last-status job) yield-proc)
+    ;;e (debugf "-> job-suspend\tjob=~a\tstatus=~s\tyield-proc=~s" (sh-job->string job) (job-last-status job) yield-proc)
     (if yield-proc
       (begin
         (call/cc
@@ -204,7 +209,7 @@
             ;; suspend job by calling resume of its parent job, or default-yield-proc
             (yield-proc (void))))
 
-        ;;x (debugf "<- job-suspend\tjob=~a\tstatus=~s" (sh-job->string job) (job-last-status job))
+        ;;e (debugf "<- job-suspend\tjob=~a\tstatus=~s" (sh-job->string job) (job-last-status job))
         ;; ignore value returned by continuation (yield-proc)
         ;;
         ;; also, the resume continuation we set above is no longer useful

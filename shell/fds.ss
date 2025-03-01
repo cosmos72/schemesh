@@ -77,7 +77,7 @@
 ;; return #t if if reference count becomes <= zero
 (define (s-fd-release fd)
   (assert* 's-fd-release (s-fd? fd))
-  (let* ((refcount      (fx1- (%s-fd-refcount fd)))
+  (let* ((refcount   (fx1- (%s-fd-refcount fd)))
          (unreserve? (fx<=? refcount 0)))
     (%s-fd-refcount-set! fd refcount)
     (when unreserve?

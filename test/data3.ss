@@ -140,13 +140,15 @@
       "echo" "abc" > "DEL_ME" &&
       "cat" "DEL_ME" > "/dev/null" &&
       "rm" "DEL_ME"))                                  ,@"#<void>"
+  (sh-run/string (shell
+      "echo" > "/dev/null"))                           ""
   #| FIXME: currently broken
   (sh-run/string (shell
-      "echo" "a" "b" "c" > "DEL_ME" &&
+      "echo" "d" "e" "f" > "DEL_ME" &&
       "cat" "DEL_ME" &&
       "rm" "DEL_ME" &&
       "echo" "ok" \x7C;\x7C;
-      "echo" "error"))                                 "a b c\nok\n"
+      "echo" "error"))                                 "d e f\nok\n"
   |#
   (sh-run/string (shell
      "echo" "foo  bar\n asdf" \x7C;

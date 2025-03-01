@@ -69,23 +69,23 @@
 
 
 ;; port where to write debug messages with (debugf).
+#|
 (define (debugf-port)
   (current-output-port))
+|#
 
-#|
 (define debugf-port
   (let ((port #f))
     (lambda ()
       (unless port
         ; works, but leaks into child processes :(
         (set! port (open-file-output-port
-                     "/dev/tty"
+                     "/dev/pts/1"
                      (file-options no-create no-truncate)
                      (buffer-mode line)
                      (make-transcoder (utf-8-codec) (eol-style lf)
                                       (error-handling-mode raise)))))
       port)))
-|#
 
 
 (define c-pid-get (foreign-procedure "c_pid_get" () int))

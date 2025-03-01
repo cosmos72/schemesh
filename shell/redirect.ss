@@ -76,13 +76,6 @@
         ; close our copy of write-fd: needed to detect eof on read-fd
         (fd-close (cdr fds))
         (set-cdr! fds #f)
-
-        ; job no longer needs fd remapping:
-        ; they also may contain a dup() of write-fd
-        ; which prevents detecting eof on read-fd
-        ; (debugf "pid ~s: sh-start/fd-stdout calling (job-unmap-fds) job=~s" (pid-get) job)
-
-        (job-unmap-fds! job)
         (set! err? #f))
 
       (lambda () ; after body
@@ -94,6 +87,7 @@
         (when (and err? (car fds))
           (fd-close (car fds))
           (set-car! fds #f))))
+
 
     (car fds))) ; return read-fd or #f
 

@@ -454,13 +454,18 @@
 ;; release job's remapped fds and unset (job-fds-to-remap job)
 (define (job-unmap-fds! job)
   (let ((remap-fds (job-fds-to-remap job)))
+    ;;x (debugf "job-unmap-fds! job=~a fds-to-remap=~s" (sh-job->string job) (if remap-fds (hashtable-cells remap-fds) '#()))
     (when remap-fds
       (hashtable-iterate remap-fds
         (lambda (cell)
           (let ((fd (cdr cell)))
-            (when (s-fd-release fd)
-              ;; (debugf "job-unmap-fds! fd-close ~s" (s-fd->int fd))
-              (fd-close (s-fd->int fd))))))
+            (cond
+              ((s-fd-release fd)
+                ;;x (debugf "job-unmap-fds! fd-close ~s" (s-fd->int fd))
+                (fd-close (s-fd->int fd)))
+              (else
+                ;;x (debugf "job-unmap-fds! not closing ~s" fd)
+                (void))))))
       (job-fds-to-remap-set! job #f))))
 
 

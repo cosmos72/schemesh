@@ -223,6 +223,59 @@
       (mj-not-loop job options))))
 
 
+;; called in subprocess by (spawn-procedure)
+;;
+;; returns job status
+(define (spawn-procedure/subprocess job options proc)
+  ;; cannot use (dynamic-wind) here, because (sh-wait) non-locally jumps to job's continuation
+  ;;
+  ;; deactivate job control in subprocess:
+  ;; a. do not create process groups => all child processes will
+  ;;    inherit process group from the subprocess itself
+  ;; b. do not change the foregroud process group
+  ;;
+  ;; note that code executed by the subprocess CAN reactivate job control,
+  ;; and in such case it will suspend itself until someone moves it to the foreground.
+  (sh-job-control? #f)
+
+  ;; in child process, suppress messages about started/completed jobs
+  (sh-job-display-summary? #f)
+
+  (let ((pid  (pid-get))
+        (pgid (pgid-get 0)))
+
+    ;; this process now "is" the job => update (sh-globals)' pid and pgid
+    (%job-pid-set!  (sh-globals) pid)
+    (%job-pgid-set! (sh-globals) pgid)
+    ;; cannot wait on our own process.
+    (%job-pid-set!  job #f)
+    (%job-pgid-set! job #f))
+
+  ;; warning: do not call (job-status-set! job ...)
+  ;; because it detects that job is running, and assigns a job-id to it,
+  ;; which is only annoying - cannot do anything useful with such job-id.
+  (%job-last-status-set! job '(running))
+
+  ;c (debugf "-> spawn-procedure job=~a subprocess calling proc ~s" (sh-job->string job) proc)
+
+  ;; if proc attempts to suspend or yield job,
+  ;; call (sh-wait job) below for resuming it until it finishes.
+  (call/cc
+    (lambda (yield)
+      (default-yield-proc yield)
+      ;; ignore value returned by (proc)
+      (proc job options)))
+        ;; (debugf ". spawn-procedure job=~a subprocess proc returned" (sh-job->string job))
+
+  ;; cleanup parameters before calling (sh-wait)
+  (default-yield-proc #f)
+  (sh-current-job #f)
+  ;;x (debugf "... spawn-procedure job=~a waiting for it to finish, pid=~s status=~s" (sh-job->string job) (job-pid job) (job-last-status job))
+  (let ((status (sh-wait job)))
+    ;;x (debugf "<-  spawn-procedure job=~a subprocess exiting with pid=~s status=~s" (sh-job->string job) (job-pid job) status)
+    status))
+
+
 
 ;; Fork a new subprocess, and in the child subprocess
 ;; call (proc job options) once, then call (sh-wait job) repeatedly - which calls (job-resume-proc job) -
@@ -246,7 +299,8 @@
       (assert* 'sh-start (logbit? 2  (procedure-arity-mask proc)))
       (assert* 'sh-start (list? options))
 
-      (let* ((process-group-id (options->process-group-id options))
+      (let* ((options          (options-filter-out        options '(spawn?)))
+             (process-group-id (options->process-group-id options))
              (_                (options->set-temp-parent! job options))
              (ret              (c-fork-pid (or process-group-id -1))))
 
@@ -254,59 +308,20 @@
           ((< ret 0) ; fork() failed
             (raise-c-errno 'sh-start 'fork ret))
           ((= ret 0) ; child
-            (let ((status '(exception #f)))
-              (dynamic-wind
-                (lambda () ; run before body
-                  ;; deactivate job control in subprocess:
-                  ;; a. do not create process groups => all child processes will
-                  ;;    inherit process group from the subprocess itself
-                  ;; b. do not change the foregroud process group
-                  ;;
-                  ;; note that code executed by the subprocess CAN reactivate job control,
-                  ;; and in such case it will suspend itself until someone moves it to the foreground.
-                  (sh-job-control? #f)
-
-                  ;; in child process, suppress messages about started/completed jobs
-                  (sh-job-display-summary? #f)
-
-                  (let ((pid  (pid-get))
-                        (pgid (pgid-get 0)))
-                    ; this process now "is" the job => update (sh-globals)' pid and pgid
-                    (%job-pid-set!  (sh-globals) pid)
-                    (%job-pgid-set! (sh-globals) pgid)
-                    ; cannot wait on our own process.
-                    (%job-pid-set!  job #f)
-                    (%job-pgid-set! job #f)
-
-                    ; we would like to set status to (void)
-                    ; but that causes (sh-wait job) below to think that job already finished.
-                    ;
-                    ; warning: do not call (job-status-set! job ...)
-                    ; because it detects that job is running, and assigns a job-id to it,
-                    ; which is only annoying - cannot do anything useful with such job-id.
-                    (%job-last-status-set! job '(running))))
-                (lambda () ; body
-                  ;c (debugf "-> [child] spawn-procedure job=~a subprocess calling proc ~s" (sh-job->string job) proc)
-
-                  ;; if proc attempts to suspend or yield job,
-                  ;; call (sh-wait job) below for resuming it until it finishes.
-                  (call/cc
-                    (lambda (yield)
-                      (default-yield-proc yield)
-                      ;; ignore value returned by (proc)
-                      (proc job options)))
-                      ;; (debugf ". [child] spawn-procedure job=~a subprocess proc returned" (sh-job->string job))
-
-                  ;; cleanup parameters before calling (sh-wait)
-                  (default-yield-proc #f)
-                  (sh-current-job #f)
-                  (set! status (sh-wait job)))
-                (lambda () ; run after body, even if it raised a condition
-                  ;c (debugf "<- [child] spawn-procedure job=~a subprocess exiting with pid=~s status=~s" (sh-job->string job) (job-pid job) status)
-                  (exit-with-job-status status)))))
+            ;; cannot use (dynamic-wind) here, because (spawn-procedure/subprocess)
+            ;; calls (sh-wait) which non-locally jumps to job's continuation
+            (with-exception-handler
+              (lambda (ex)
+                (exit-with-job-status (cons 'exception ex)))
+              (lambda ()
+                (exit-with-job-status
+                  (spawn-procedure/subprocess job options proc)))))
           ((> ret 0) ; parent
             (job-pid-set! job ret)
             (job-pgid-set! job process-group-id)
+            ;; we can cleanup job's file descriptor, as it's running in a subprocess
+            (job-unmap-fds! job)
+            (job-unredirect/temp/all! job)
             '(running)))))))
 
 
@@ -318,7 +333,7 @@
   ;c (debugf "call-or-spawn-procedure options=~s proc=~s job=~a" options proc (sh-job->string job))
   (if (options->spawn? options)
     ;; spawn a subprocess and run (%proc... job) inside it
-    (spawn-procedure job (options-filter-out options '(spawn?)) proc)
+    (spawn-procedure job options proc)
     ;; directly call (proc job options) in the caller's process
     (let ((options (options->set-temp-parent! job options)))
       (proc job options))))

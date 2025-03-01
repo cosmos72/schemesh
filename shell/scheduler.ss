@@ -23,6 +23,9 @@
                          (job-pgid (sh-globals))))
          (job-pgid  (and main-pgid
                          (job-tree-find-pgid job))))
+
+    ;;x (debugf "->  job-wait caller=~s wait-flags=~s job=~a status=~s job-pgid=~s main-pgid=~s" caller wait-flags (sh-job->string job) (job-last-status job) job-pgid main-pgid)
+
     ;; using (dynamic-wind) is useless here: (%job-wait) calls job's continuations,
     ;; which exit the (dynamic-wind) and later re-enter it.
     (when job-pgid
@@ -35,7 +38,10 @@
 
     (when job-pgid
       ;; try really hard to restore (sh-globals) as the foreground process group
-      (%pgid-foreground -1 main-pgid)))
+      (%pgid-foreground -1 main-pgid))
+
+    ;;x (debugf "<-  job-wait caller=~s wait-flags=~s job=~a status=~s job-pgid=~s main-pgid=~s" caller wait-flags (sh-job->string job) (job-last-status job) job-pgid main-pgid)
+    )
 
   (job-id-update! job)) ; returns job status
 
@@ -89,7 +95,7 @@
 ;;
 ;; returns unspecified value.
 (define (%job-wait caller job wait-flags)
-  ;;x (debugf "-> job-wait\tjob=~a\tstatus=~s\tcaller=~s\twait-flags=~s id=~s pid=~s resume-proc=~s" (sh-job->string job) (job-last-status job) caller wait-flags (job-id job) (job-pid job) (job-resume-proc job))
+  ;;e (debugf "-> job-wait\tjob=~a\tstatus=~s\tcaller=~s\twait-flags=~s id=~s pid=~s resume-proc=~s" (sh-job->string job) (job-last-status job) caller wait-flags (job-id job) (job-pid job) (job-resume-proc job))
   (case (job-last-status->kind job)
     ((ok exception failed killed)
       (void))
@@ -120,7 +126,7 @@
 
     (else
       (raise-errorf caller "job not started yet: ~s" job)))
-  ;;x (debugf "<- job-wait\tjob=~a\tstatus=~s\tcaller=~s\twait-flags=~s id=~s pid=~s resume-proc=~s" (sh-job->string job) (job-last-status job) caller wait-flags (job-id job) (job-pid job) (job-resume-proc job))
+  ;;e (debugf "<- job-wait\tjob=~a\tstatus=~s\tcaller=~s\twait-flags=~s id=~s pid=~s resume-proc=~s" (sh-job->string job) (job-last-status job) caller wait-flags (job-id job) (job-pid job) (job-resume-proc job))
   )
 
 
@@ -206,7 +212,7 @@
 ;; Return #t is some job changed its status, otherwise return #f.
 (define (scheduler-wait-once wait-flags)
 
-  ;;x (debugf "->  scheduler-wait-once wait-flags=~s" wait-flags)
+  ;;e (debugf "->  scheduler-wait-once wait-flags=~s" wait-flags)
 
   (signal-consume-sigchld)
 
@@ -214,7 +220,7 @@
          (wait-result (pid-wait -1 may-block))
          (job         (and (pair? wait-result) (pid->job (car wait-result)))))
 
-    ;;x (debugf "... scheduler-wait-once job=~a\twait-flags=~s wait-result=~s" (and job (sh-job->string job)) wait-flags wait-result)
+    ;;e (debugf "... scheduler-wait-once job=~a\twait-flags=~s wait-result=~s" (and job (sh-job->string job)) wait-flags wait-result)
 
     (if job
       (let* ((old-status  (job-last-status job))
@@ -223,20 +229,20 @@
 
         (job-status-set! 'scheduler-wait-once job new-status)
 
-        ;;x (debugf "... scheduler-wait-once job=~a\tstatus=~s -> ~s changed?=~s\twait-flags=~s\tresume-proc=~s" (sh-job->string job) old-status new-status changed? wait-flags (job-resume-proc job))
+        ;;e (debugf "... scheduler-wait-once job=~a\tstatus=~s -> ~s changed?=~s\twait-flags=~s\tresume-proc=~s" (sh-job->string job) old-status new-status changed? wait-flags (job-resume-proc job))
 
         (when changed?
           (maybe-queue-job-display-summary job)
 
-          ;;x (debugf "scheduler-wait-once job=~a\tcalling job-resume-proc... " (sh-job->string job))
+          ;;e (debugf "scheduler-wait-once job=~a\tcalling job-resume-proc... " (sh-job->string job))
           (job-call-resume-proc job (sh-wait-flags))
-          ;;x (debugf "scheduler-wait-once job=~a\t...job-resume-proc returned" (sh-job->string job))
+          ;;e (debugf "scheduler-wait-once job=~a\t...job-resume-proc returned" (sh-job->string job))
           )
 
-        ;;x (debugf "<-  scheduler-wait-once job=~a changed?=~s wait-flags=~s" (sh-job->string job) changed? wait-flags)
+        ;;e (debugf "<-  scheduler-wait-once job=~a changed?=~s wait-flags=~s" (sh-job->string job) changed? wait-flags)
         changed?)
       (begin
-        ;;x (debugf "<-  scheduler-wait-once job=~a changed?=~s wait-flags=~s" #f #f wait-flags)
+        ;;e (debugf "<-  scheduler-wait-once job=~a changed?=~s wait-flags=~s" #f #f wait-flags)
         #f))))
 
 

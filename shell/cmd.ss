@@ -212,6 +212,13 @@
                     (sh-env->argv c 'export)
                     (or process-group-id -1))))
         ;; (debugf "cmd-spawn pid=~s prog-and-args=~s job=~a " ret prog-and-args (sh-job->string c))
+
+        ;; job no longer needs fd remapping:
+        ;; they also may contain a dup() of write-fd
+        ;; which prevents detecting eof on read-fd
+        (job-unmap-fds! c)
+        (job-unredirect/temp/all! c)
+
         (when (< ret 0)
           (job-status-set! 'cmd-spawn c (list 'failed ret))
           (raise-c-errno 'sh-start 'fork ret))
