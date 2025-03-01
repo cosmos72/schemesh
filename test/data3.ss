@@ -19,7 +19,7 @@
       (and (integer? sz) (negative? sz))))             #t
 
   ;; ------------------------- posix --------------------------------------
-  (c-errno)                                            0
+  (fx<=? (c-errno) 0)                                  #t
   (file-type "." 'catch)                               dir
   (file-type "parser/parser.ss" 'catch)                file
   (directory-sort!
