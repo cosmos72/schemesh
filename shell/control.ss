@@ -167,8 +167,9 @@
           (lambda (cont)
             ;; store it as job's resume-proc
             (job-resume-proc-set! job cont)
-            (unless (job-pid job)
-              (%job-last-status-set! job (if (sh-stopped? status) status '(stopped sigtstp))))
+            (let ((new-status (if (sh-stopped? status) status '(stopped sigtstp))))
+              (unless (job-pid job)
+                (%job-last-status-set! job new-status)))
             ;; suspend job by calling resume of its parent job, or default-yield-proc
             (yield-proc (void))))
 
@@ -233,13 +234,17 @@
 ;; if suspend fails, immediately return #f to the caller of (job-suspend).
 ;;
 ;; Implementation note: if after a successful suspend, job status is 'stopped, suspend it again.
-(define (job-suspend job status)
-  (if (%job-suspend job status)
-    (let ((status (job-last-status job)))
-      (if (sh-stopped? status)
-        (%job-suspend job status)
-        #t))
-    #f))
+(define job-suspend
+  (case-lambda
+    ((job status)
+      (if (%job-suspend job status)
+        (let ((status (job-last-status job)))
+          (if (sh-stopped? status)
+            (%job-suspend job status)
+            #t))
+        #f))
+    ((job)
+      (job-suspend job (job-last-status job)))))
 
 
 ;; yield a running job and call (job-yield-proc) continuation,
@@ -251,10 +256,9 @@
 ;; Implementation note: if after a successful yield, job status is 'stopped, suspend it.
 (define (job-yield job caller)
   (if (%job-yield job caller)
-    (let ((status (job-last-status job)))
-      (if (sh-stopped? status)
-        (%job-suspend job status)
-        #t))
+    (if (job-stopped? job)
+      (job-suspend job)
+      #t)
     #f))
 
 
@@ -287,7 +291,7 @@
 (define (sh-current-job-suspend)
   (let ((job (sh-current-job)))
     (and job
-         (job-suspend job '(stopped sigtstp)))))
+         (job-suspend job))))
 
 
 ;; Yield current job and call its (job-yield-proc) continuation,

@@ -72,7 +72,7 @@
       ; Do not yet assign a job-id.
       (let ((pgid    (options->process-group-id options))
             (pipe-fd -1)
-            (n       (span-length multijob-children mj)))
+            (n       (span-length (multijob-children mj))))
         (job-pgid-set! mj pgid)
         (span-iterate (multijob-children mj)
           (lambda (i child)

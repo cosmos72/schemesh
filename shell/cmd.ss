@@ -226,22 +226,21 @@
 (define (cmd-loop c)
   ;; (debugf "->   cmd-loop cmd=~a" (sh-job->string cmd))
   (forever
-    (let ((status (job-last-status c)))
-      ;; (debugf "... cmd-loop cmd=~a status=~s" (sh-job->string cmd) status)
-      (case (sh-status->kind status)
-	((running)
-	  ;; (debugf "... cmd-loop cmd=~a --- calling yield" (sh-job->string cmd))
-          (job-yield c '(cmd-loop running))
-          ;; (debugf "... cmd-loop cmd=~a --- yield returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string cmd))
-	 )
-        ((stopped)
-           ;; (debugf "... cmd-loop cmd=~a --- calling suspend" (sh-job->string cmd))
-           (job-suspend c status)
-           ;; (debugf "... cmd-loop cmd=~a --- suspend returned,\n\t\tcalling resume on cmd, wait-flags=~s" (sh-job->string cmd))
-           )
-        (else
-          ;; (debugf "<-  cmd-loop cmd=~a status=~s" (sh-job->string cmd) status)
-          (job-yield c '(cmd-loop finished)))))))
+    ;; (debugf "... cmd-loop cmd=~a status=~s" (sh-job->string cmd) status)
+    (case (job-last-status->kind c)
+      ((running)
+        ;; (debugf "... cmd-loop cmd=~a --- calling yield" (sh-job->string cmd))
+        (job-yield c '(cmd-loop running))
+        ;; (debugf "... cmd-loop cmd=~a --- yield returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string cmd))
+       )
+      ((stopped)
+         ;; (debugf "... cmd-loop cmd=~a --- calling suspend" (sh-job->string cmd))
+         (job-suspend c)
+         ;; (debugf "... cmd-loop cmd=~a --- suspend returned,\n\t\tcalling resume on cmd, wait-flags=~s" (sh-job->string cmd))
+         )
+      (else
+        ;; (debugf "<-  cmd-loop cmd=~a status=~s" (sh-job->string cmd) status)
+        (job-finish c)))))
 
 
 
