@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh test (0 7 6))
+(library (schemesh test (0 7 7))
   (export
       run-tests)
   (import
@@ -22,7 +22,7 @@
 
 (define (INVOKELIB-SHELL-JOBS form)
   `(begin
-    (($primitive 3 $invoke-library) '(schemesh shell job) '(0 7 6) 'job)
+    (($primitive 3 $invoke-library) '(schemesh shell job) '(0 7 7) 'job)
     ,form))
 
 

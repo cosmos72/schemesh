@@ -102,27 +102,21 @@ static int compile_libraries(const char* source_dir) {
 }
 
 int main(int argc, const char* argv[]) {
-  int err;
   (void)argc;
   (void)argv;
 
   schemesh_init(NULL, &handle_scheme_exception);
-  if ((err = schemesh_register_c_functions()) != 0) {
-    goto finish;
-  }
-  if ((err = compile_libraries(".")) != 0) {
-    goto finish;
-  }
-  if ((err = schemesh_load_libraries(".")) != 0) {
-    goto finish;
+
+  if (schemesh_register_c_functions() == 0 && /*     */
+      compile_libraries(".") == 0 &&          /*     */
+      schemesh_load_libraries(".") == 0) {
+
+    schemesh_import_all_libraries();
+
+    (void)run_all_tests();
   }
 
-  schemesh_import_all_libraries();
-
-  err = run_all_tests();
-
-finish:
   schemesh_quit();
 
-  return err;
+  return 0;
 }

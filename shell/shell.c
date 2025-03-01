@@ -111,10 +111,6 @@ int schemesh_load_libraries(const char* override_library_dir) {
   return ret == Strue ? 0 : EINVAL;
 }
 
-void schemesh_import_minimal_libraries(void) {
-  schemesh_eval("(import (schemesh minimal))\n");
-}
-
 void schemesh_import_all_libraries(void) {
   schemesh_eval("(import (schemesh))\n");
 }
