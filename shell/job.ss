@@ -392,14 +392,19 @@
          (fd                   (span-ref redirects index))
          (direction-ch         (span-ref redirects (fx1+ index)))
          (to-fd-or-bytevector0 (job-extract-redirection-to-fd-or-bytevector0 job job-dir redirects index))
-         (remap-fd             (s-fd-allocate)))
-    ;; (debugf "job-remap-fd! fd=~s dir=~s remap-fd=~s to=~s" fd direction-ch remap-fd to-fd-or-bytevector0)
-    (let* ((fd-int (s-fd->int remap-fd))
-           (ret (fd-redirect fd-int direction-ch to-fd-or-bytevector0 #t))) ; #t close-on-exec?
-      (when (< ret 0)
-        (s-fd-release remap-fd)
-        (raise-c-errno 'sh-start 'c_fd_redirect ret fd-int direction-ch to-fd-or-bytevector0)))
-    (hashtable-set! (job-fds-to-remap job) fd remap-fd)))
+         (remap-fd             (s-fd-allocate))
+         (fd-int               (s-fd->int remap-fd))
+         (ret                  (fd-redirect fd-int direction-ch to-fd-or-bytevector0 #t))) ; #t close-on-exec?
+    ;;x (debugf "job-remap-fd! fd=~s dir=~s remap-fd=~s to=~s" fd direction-ch remap-fd to-fd-or-bytevector0)
+    (when (< ret 0)
+      (s-fd-release remap-fd)
+      (raise-c-errno 'sh-start 'c_fd_redirect ret fd-int direction-ch to-fd-or-bytevector0))
+
+    (let* ((remap-table  (job-fds-to-remap job))
+           (old-remap-fd (hashtable-ref remap-table fd #f)))
+      (when old-remap-fd
+        (unmap-fd old-remap-fd))
+      (hashtable-set! remap-table fd remap-fd))))
 
 
 
@@ -458,16 +463,18 @@
     (when remap-fds
       (hashtable-iterate remap-fds
         (lambda (cell)
-          (let ((fd (cdr cell)))
-            (cond
-              ((s-fd-release fd)
-                ;;x (debugf "job-unmap-fds! fd-close ~s" (s-fd->int fd))
-                (fd-close (s-fd->int fd)))
-              (else
-                ;;x (debugf "job-unmap-fds! not closing ~s" fd)
-                (void))))))
+          (unmap-fd (cdr cell))))
       (job-fds-to-remap-set! job #f))))
 
+
+;; release a single remapped fd
+(define (unmap-fd fd)
+  (if (s-fd-release fd)
+    ;;x (debugf "unmap-fd fd-close ~s" (s-fd->int fd))
+    (fd-close (s-fd->int fd))
+    (begin
+      ;;x (debugf "unmap-fd not closing ~s" fd)
+      (void))))
 
 
 

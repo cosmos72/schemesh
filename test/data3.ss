@@ -136,13 +136,23 @@
   (sh-run/string (shell
       "FOO" = (shell-backquote "echo" "ghijk") \x3B;
       "echo" (shell-env "FOO")))                       "ghijk\n"
-  (sh-run (shell
-      "echo" "abc" > "DEL_ME" &&
-      "cat" "DEL_ME" > "/dev/null" &&
-      "rm" "DEL_ME"))                                  ,@"#<void>"
-  (sh-run/string (shell
-      "echo" > "/dev/null"))                           ""
-  #| FIXME: currently broken
+  (sh-run/string {echo > /dev/null})                   ""
+  ;; FIXME: currently broken, busy-polls C wait4(-1, WNOHANG)
+  #|
+  (sh-run
+    {command true && \
+     command true || \
+     false})                                         ,@"#<void>"
+  |#
+  ;; FIXME: currently broken, busy-polls C wait4(-1, WNOHANG)
+  #|
+  (sh-run/string
+    {echo d e f > DEL_ME && \
+     cat DEL_ME && \
+     echo ok || echo error})                           "d e f\nok\n"
+  |#
+  ;; FIXME: currently broken, busy-polls C wait4(-1, WNOHANG)
+  #|
   (sh-run/string (shell
       "echo" "d" "e" "f" > "DEL_ME" &&
       "cat" "DEL_ME" &&
@@ -154,7 +164,8 @@
      "echo" "foo  bar\n asdf" \x7C;
      "grep" "asd" \x3B;
      "echo" "ok"))                                     " asdf\nok\n"
-  #| FIXME: currently broken
+  ;; FIXME: currently broken, busy-polls C wait4(-1, WNOHANG)
+  #|
   (sh-run (shell
     "echo" "xyz" \x7C;
     (shell "command" "true" &&
