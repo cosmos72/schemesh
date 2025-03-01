@@ -15,15 +15,15 @@
     list->charspan string->charspan string->charspan* make-charspan
     charspan->string charspan->string*!
     charspan charspan? assert-charspan? charspan-length charspan-empty? charspan-clear!
-    charspan-capacity charspan-capacity-front charspan-capacity-back charspan-ref
-    charspan-front charspan-back
+    charspan-capacity charspan-capacity-left charspan-capacity-right
+    charspan-ref charspan-ref-right
     charspan-set! charspan-fill! charspan-fill-range! charspan-copy charspan-copy!
     charspan=? charspan<? charspan-range-count= charspan-range=? charspan-range/string=?
-    charspan-reserve-front! charspan-reserve-back! charspan-resize-front! charspan-resize-back!
-    charspan-insert-front!        charspan-insert-back!
-    charspan-insert-front/cspan!  charspan-insert-back/cspan!
-    charspan-insert-front/string! charspan-insert-back/string!
-    charspan-erase-front!         charspan-erase-back! charspan-iterate in-charspan
+    charspan-reserve-left! charspan-reserve-right! charspan-resize-left! charspan-resize-right!
+    charspan-insert-left!        charspan-insert-right!
+    charspan-insert-left/cspan!  charspan-insert-right/cspan!
+    charspan-insert-left/string! charspan-insert-right/string!
+    charspan-erase-left!         charspan-erase-right! charspan-iterate in-charspan
     charspan-index charspan-index-right charspan-index/char charspan-index-right/char
     charspan-peek-data charspan-peek-beg charspan-peek-end
 
@@ -114,17 +114,22 @@
   (charspan-beg-set! sp 0)
   (charspan-end-set! sp 0))
 
-(define (charspan-ref sp idx)
-  (assert* 'charspan-ref (fx<? -1 idx (charspan-length sp)))
-  (string-ref (charspan-str sp) (fx+ idx (charspan-beg sp))))
+(define charspan-ref
+  (case-lambda
+    ((sp idx)
+      (assert* 'charspan-ref (fx<? -1 idx (charspan-length sp)))
+      (string-ref (charspan-str sp) (fx+ idx (charspan-beg sp))))
+    ((sp)
+      (charspan-ref sp 0))))
 
-(define (charspan-front sp)
-  (assert* 'charspan-front (not (charspan-empty? sp)))
-  (string-ref (charspan-str sp) (charspan-beg sp)))
-
-(define (charspan-back sp)
-  (assert* 'charspan-back (not (charspan-empty? sp)))
-  (string-ref (charspan-str sp) (fx1- (charspan-end sp))))
+(define charspan-ref-right
+  (case-lambda
+    ((sp idx)
+      (assert* 'charspan-ref-right (fx<? -1 idx (charspan-length sp)))
+      (let ((pos (fx- (charspan-length sp) (fx1+ idx))))
+        (string-ref (charspan-str sp) (fx+ pos (charspan-beg sp)))))
+    ((sp)
+      (charspan-ref-right sp 0))))
 
 (define (charspan-set! sp idx ch)
   (assert* 'charspan-set! (fx<? -1 idx (charspan-length sp)))
@@ -203,8 +208,8 @@
     right right-start
     n))
 
-(define (charspan-reallocate-front! sp len cap)
-  (assert* 'charspan-reallocate-front! (fx<=? 0 len cap))
+(define (charspan-reallocate-left! sp len cap)
+  (assert* 'charspan-reallocate-left! (fx<=? 0 len cap))
   (let ((copy-len (fxmin len (charspan-length sp)))
         (old-str (charspan-str sp))
         (new-str (make-string cap))
@@ -214,8 +219,8 @@
     (charspan-end-set! sp cap)
     (charspan-str-set! sp new-str)))
 
-(define (charspan-reallocate-back! sp len cap)
-  (assert* 'charspan-reallocate-back! (fx<=? 0 len cap))
+(define (charspan-reallocate-right! sp len cap)
+  (assert* 'charspan-reallocate-right! (fx<=? 0 len cap))
   (let ((copy-len (fxmin len (charspan-length sp)))
         (old-str (charspan-str sp))
         (new-str (make-string cap)))
@@ -225,21 +230,21 @@
     (charspan-str-set! sp new-str)))
 
 ;; return distance between begin of internal string and last element
-(define (charspan-capacity-front sp)
+(define (charspan-capacity-left sp)
   (charspan-end sp))
 
 ;; return distance between first element and end of internal string
-(define (charspan-capacity-back sp)
+(define (charspan-capacity-right sp)
   (fx- (string-length (charspan-str sp)) (charspan-beg sp)))
 
 ;; ensure distance between begin of internal string and last element is >= n.
 ;; does NOT change the length
-(define (charspan-reserve-front! sp len)
-  (assert* 'charspan-reserve-front! (fx>=? len 0))
+(define (charspan-reserve-left! sp len)
+  (assert* 'charspan-reserve-left! (fx>=? len 0))
   (let ((str (charspan-str sp))
-        (cap-front (charspan-capacity-front sp)))
+        (cap-left (charspan-capacity-left sp)))
     (cond
-      ((fx<=? len cap-front)
+      ((fx<=? len cap-left)
        ; nothing to do
        (void))
       ((fx<=? len (string-length str))
@@ -252,17 +257,17 @@
           (charspan-end-set! sp cap)))
       (else
        ; string is too small, reallocate it
-       (let ((new-cap (fxmax 8 len (fx* 2 cap-front))))
-         (charspan-reallocate-front! sp (charspan-length sp) new-cap))))))
+       (let ((new-cap (fxmax 8 len (fx* 2 cap-left))))
+         (charspan-reallocate-left! sp (charspan-length sp) new-cap))))))
 
 ;; ensure distance between first element and end of internal string is >= n.
 ;; does NOT change the length
-(define (charspan-reserve-back! sp len)
-  (assert* 'charspan-reserve-back! (fx>=? len 0))
+(define (charspan-reserve-right! sp len)
+  (assert* 'charspan-reserve-right! (fx>=? len 0))
   (let ((str (charspan-str sp))
-        (cap-back (charspan-capacity-back sp)))
+        (cap-right (charspan-capacity-right sp)))
     (cond
-      ((fx<=? len cap-back)
+      ((fx<=? len cap-right)
        ; nothing to do
        (void))
       ((fx<=? len (string-length str))
@@ -273,39 +278,39 @@
           (charspan-end-set! sp len)))
       (else
        ; string is too small, reallocate it
-       (let ((new-cap (fxmax 8 len (fx* 2 cap-back))))
-         (charspan-reallocate-back! sp (charspan-length sp) new-cap))))))
+       (let ((new-cap (fxmax 8 len (fx* 2 cap-right))))
+         (charspan-reallocate-right! sp (charspan-length sp) new-cap))))))
 
 ; grow or shrink charspan on the left (front), set length to n
-(define (charspan-resize-front! sp len)
-  (assert* 'charspan-resize-front! (fx>=? len 0))
-  (charspan-reserve-front! sp len)
-  (assert* 'charspan-resize-front! (fx>=? (charspan-capacity-front sp) len))
+(define (charspan-resize-left! sp len)
+  (assert* 'charspan-resize-left! (fx>=? len 0))
+  (charspan-reserve-left! sp len)
+  (assert* 'charspan-resize-left! (fx>=? (charspan-capacity-left sp) len))
   (charspan-beg-set! sp (fx- (charspan-end sp) len)))
 
 ; grow or shrink charspan on the right (back), set length to n
-(define (charspan-resize-back! sp len)
-  (assert* 'charspan-resize-back! (fx>=? len 0))
-  (charspan-reserve-back! sp len)
-  (assert* 'charspan-resize-back! (fx>=? (charspan-capacity-back sp) len))
+(define (charspan-resize-right! sp len)
+  (assert* 'charspan-resize-right! (fx>=? len 0))
+  (charspan-reserve-right! sp len)
+  (assert* 'charspan-resize-right! (fx>=? (charspan-capacity-right sp) len))
   (charspan-end-set! sp (fx+ len (charspan-beg sp))))
 
-(define (charspan-insert-front! sp . charlist)
+(define (charspan-insert-left! sp . charlist)
   (unless (null? charlist)
     (let ((pos 0)
           (new-len (fx+ (charspan-length sp) (length charlist))))
-      (charspan-resize-front! sp new-len)
+      (charspan-resize-left! sp new-len)
       (list-iterate charlist
         (lambda (ch)
           (charspan-set! sp pos ch)
           (set! pos (fx1+ pos)))))))
 
 
-(define (charspan-insert-back! sp . charlist)
+(define (charspan-insert-right! sp . charlist)
   (unless (null? charlist)
     (let* ((pos (charspan-length sp))
            (new-len (fx+ pos (length charlist))))
-      (charspan-resize-back! sp new-len)
+      (charspan-resize-right! sp new-len)
       (list-iterate charlist
         (lambda (elem)
           (charspan-set! sp pos elem)
@@ -313,80 +318,80 @@
 
 
 ;; insert range [start, end) of charspan sp-src at the beginning of charspan sp-dst
-(define charspan-insert-front/cspan!
+(define charspan-insert-left/cspan!
   (case-lambda
     ((sp-dst sp-src src-start src-end)
-      (assert* 'charspan-insert-front/cspan! (fx<=? 0 src-start src-end (charspan-length sp-src)))
-      (assert-not* 'charspan-insert-front/cspan! (eq? sp-dst sp-src))
+      (assert* 'charspan-insert-left/cspan! (fx<=? 0 src-start src-end (charspan-length sp-src)))
+      (assert-not* 'charspan-insert-left/cspan! (eq? sp-dst sp-src))
       (when (fx<? src-start src-end)
         (let ((src-n (fx- src-end src-start)))
-          (charspan-resize-front! sp-dst (fx+ src-n (charspan-length sp-dst)))
+          (charspan-resize-left! sp-dst (fx+ src-n (charspan-length sp-dst)))
           (charspan-copy! sp-src src-start sp-dst 0 src-n))))
     ((sp-dst sp-src)
-      (charspan-insert-front/cspan! sp-dst sp-src 0 (charspan-length sp-src)))))
+      (charspan-insert-left/cspan! sp-dst sp-src 0 (charspan-length sp-src)))))
 
 
 ; append range [start, end) of charspan sp-src at the end of charspan sp-dst
-(define charspan-insert-back/cspan!
+(define charspan-insert-right/cspan!
   (case-lambda
     ((sp-dst sp-src src-start src-end)
-      (assert* 'charspan-insert-back/cspan! (fx<=? 0 src-start src-end (charspan-length sp-src)))
-      (assert-not* 'charspan-insert-back/cspan! (eq? sp-dst sp-src))
+      (assert* 'charspan-insert-right/cspan! (fx<=? 0 src-start src-end (charspan-length sp-src)))
+      (assert-not* 'charspan-insert-right/cspan! (eq? sp-dst sp-src))
       (when (fx<? src-start src-end)
         (let ((pos (charspan-length sp-dst))
               (src-n (fx- src-end src-start)))
-          (charspan-resize-back! sp-dst (fx+ pos src-n))
+          (charspan-resize-right! sp-dst (fx+ pos src-n))
           (charspan-copy! sp-src src-start sp-dst pos src-n))))
     ((sp-dst sp-src)
-      (charspan-insert-back/cspan! sp-dst sp-src 0 (charspan-length sp-src)))))
+      (charspan-insert-right/cspan! sp-dst sp-src 0 (charspan-length sp-src)))))
 
 
 ; insert range [start, end) of string str-src at the beginning of charspan sp-dst
-(define charspan-insert-front/string!
+(define charspan-insert-left/string!
   (case-lambda
     ((sp-dst str-src src-start src-end)
-      (assert* 'charspan-insert-front/string! (fx<=? 0 src-start src-end (string-length str-src)))
+      (assert* 'charspan-insert-left/string! (fx<=? 0 src-start src-end (string-length str-src)))
       (when (fx<? src-start src-end)
         ;; check for (not (eq? src dst)) only if dst is non-empty,
         ;; because reusing the empty string is a common optimization of Scheme compilers
-        (assert-not* 'charspan-insert-front/string! (eq? (charspan-str sp-dst) str-src))
+        (assert-not* 'charspan-insert-left/string! (eq? (charspan-str sp-dst) str-src))
         (let ((src-n (fx- src-end src-start)))
-          (charspan-resize-front! sp-dst (fx+ src-n (charspan-length sp-dst)))
+          (charspan-resize-left! sp-dst (fx+ src-n (charspan-length sp-dst)))
           (string-copy! str-src src-start
                         (charspan-str sp-dst) (charspan-beg sp-dst)
                         src-n))))
     ((sp-dst str-src)
-      (charspan-insert-front/string! sp-dst str-src 0 (string-length str-src)))))
+      (charspan-insert-left/string! sp-dst str-src 0 (string-length str-src)))))
 
 
 ; append range [start, end) of string str-src at the end of charspan sp-dst
-(define charspan-insert-back/string!
+(define charspan-insert-right/string!
   (case-lambda
     ((sp-dst str-src src-start src-end)
-      (assert* 'charspan-insert-back/string! (fx<=? 0 src-start src-end (string-length str-src)))
+      (assert* 'charspan-insert-right/string! (fx<=? 0 src-start src-end (string-length str-src)))
       (when (fx<? src-start src-end)
         ;; check for (not (eq? src dst)) only if dst is non-empty,
         ;; because reusing the empty string is a common optimization of Scheme compilers
-        (assert-not* 'charspan-insert-back/string! (eq? (charspan-str sp-dst) str-src))
+        (assert-not* 'charspan-insert-right/string! (eq? (charspan-str sp-dst) str-src))
         (let ((pos (charspan-length sp-dst))
               (src-n (fx- src-end src-start)))
-          (charspan-resize-back! sp-dst (fx+ pos src-n))
+          (charspan-resize-right! sp-dst (fx+ pos src-n))
           (string-copy! str-src src-start
                         (charspan-str sp-dst) (fx- (charspan-end sp-dst) src-n)
                         src-n))))
     ((sp-dst str-src)
-      (charspan-insert-back/string! sp-dst str-src 0 (string-length str-src)))))
+      (charspan-insert-right/string! sp-dst str-src 0 (string-length str-src)))))
 
 
 ; erase n elements at the left (front) of charspan
-(define (charspan-erase-front! sp n)
-  (assert* 'charspan-erase-front! (fx<=? 0 n (charspan-length sp)))
+(define (charspan-erase-left! sp n)
+  (assert* 'charspan-erase-left! (fx<=? 0 n (charspan-length sp)))
   (unless (fxzero? n)
     (charspan-beg-set! sp (fx+ n (charspan-beg sp)))))
 
 ; erase n elements at the right (back) of charspan
-(define (charspan-erase-back! sp n)
-  (assert* 'charspan-erase-back! (fx<=? 0 n (charspan-length sp)))
+(define (charspan-erase-right! sp n)
+  (assert* 'charspan-erase-right! (fx<=? 0 n (charspan-length sp)))
   (unless (fxzero? n)
     (charspan-end-set! sp (fx- (charspan-end sp) n))))
 
@@ -485,7 +490,7 @@
       (let ((dst (charspan))
             (ch0 (string-ref old-str 0))
             (old-len (string-length old-str)))
-        (charspan-insert-back/string! dst str 0 start)
+        (charspan-insert-right/string! dst str 0 start)
         (let %loop ((i start))
           (let ((pos (string-index str ch0 i end)))
             ;; (debugf "string-replace-all dst=~s str=~s i=~s pos=~s end=~s old=~s new=~s" (charspan->string dst) str i pos end old-str new-str)
@@ -494,16 +499,16 @@
                     (fx<=? pos (fx- end old-len))
                     (string-range=? str pos old-str 0 old-len))
                 ;; found a match, replace it
-                (charspan-insert-back/string! dst str i pos)
-                (charspan-insert-back/string! dst new-str)
+                (charspan-insert-right/string! dst str i pos)
+                (charspan-insert-right/string! dst new-str)
                 (%loop (fx+ pos old-len)))
               (pos
                 ;; (string-ref str pos) matches ch0, but following characters don't match
-                (charspan-insert-back/string! dst str i (fx1+ pos))
+                (charspan-insert-right/string! dst str i (fx1+ pos))
                 (%loop (fx1+ pos)))
               (else
                 ;; no match, copy all remaining characters from str to dst
-                (charspan-insert-back/string! dst str i end)
+                (charspan-insert-right/string! dst str i end)
                 (charspan->string*! dst)))))))
     ((str old-str new-str)
       (string-replace-all str old-str new-str  0 (string-length str)))))

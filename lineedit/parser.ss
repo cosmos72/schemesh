@@ -305,9 +305,9 @@
 ;; read a simple identifier and return it as a string
 (define (parsectx-read-simple-identifier pctx)
   (let ((csp (charspan)))
-    (charspan-reserve-back! csp 10)
+    (charspan-reserve-right! csp 10)
     (while (parsectx-is-simple-identifier-char? (parsectx-peek-char pctx))
-      (charspan-insert-back! csp (parsectx-read-char pctx)))
+      (charspan-insert-right! csp (parsectx-read-char pctx)))
     (charspan->string csp)))
 
 

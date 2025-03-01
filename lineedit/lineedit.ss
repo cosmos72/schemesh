@@ -56,7 +56,7 @@
         (else  ; insert received bytes into current line
           (set! n (lineedit-insert/rbuf! lctx n))))
       (unless (fxzero? n)
-        (bytespan-erase-front! rbuf n)
+        (bytespan-erase-left! rbuf n)
         (when (bytespan-empty? rbuf)
           (bytespan-clear! rbuf))) ; set begin, end to 0
       (cond
@@ -394,7 +394,7 @@
          (rlen (bytespan-length rbuf))
          (got  0)
          (eof? #f))
-    (bytespan-reserve-back! rbuf (fx+ rlen max-n))
+    (bytespan-reserve-right! rbuf (fx+ rlen max-n))
     (try
       (if (fixnum? fd)
         ; fd is a file descriptor -> call (fd-select) then (fd-read)
@@ -415,7 +415,7 @@
           (set! eof? #t))))
     (assert* 'linectx-read (fixnum? got))
     (assert* 'linectx-read (fx<=? 0 got max-n))
-    (bytespan-resize-back! rbuf (fx+ rlen got))
+    (bytespan-resize-right! rbuf (fx+ rlen got))
     (if eof? -1 got)))
 
 
@@ -433,7 +433,7 @@
     (if (bytespan-empty? rbuf)
       #f
       (let ((u8 (bytespan-ref/u8 rbuf 0)))
-        (bytespan-erase-front! rbuf 1)
+        (bytespan-erase-left! rbuf 1)
         u8))))
 
 

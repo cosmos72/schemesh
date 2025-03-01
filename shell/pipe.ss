@@ -64,19 +64,25 @@
   ;; this runs in the main process, not in a subprocess.
   (assert* 'sh-pipe (eq? 'running (job-last-status->kind mj)))
   (assert* 'sh-pipe (fx=? -1 (multijob-current-child-index mj)))
-  (job-remap-fds! mj)
-  (job-env/apply-lazy! mj 'export)
-  ; Do not yet assign a job-id.
-  (let ((pgid (options->process-group-id options))
-        (n    (span-length (multijob-children mj)))
-        (pipe-fd -1))
-    (job-pgid-set! mj pgid)
-
-    (do ((i 0 (fx1+ i)))
-        ((fx>=? i n))
-      (when (sh-job? (sh-multijob-child-ref mj i))
-        (set! pipe-fd (mj-pipe-start-i mj i n pipe-fd))))
-  (multijob-current-child-index-set! mj 0)))
+  (call-or-spawn-procedure
+    mj options
+    (lambda (mj options)
+      (job-remap-fds! mj)
+      (job-env/apply-lazy! mj 'export)
+      ; Do not yet assign a job-id.
+      (let ((pgid    (options->process-group-id options))
+            (pipe-fd -1)
+            (n       (span-length multijob-children mj)))
+        (job-pgid-set! mj pgid)
+        (span-iterate (multijob-children mj)
+          (lambda (i child)
+            (when (sh-job? child)
+              (set! pipe-fd (mj-pipe-start-i mj i n pipe-fd))))))
+      (multijob-current-child-index-set! mj 0)
+      ;; no need to implement (mj-pipe-loop), we can reuse (mj-list-loop)
+      ;; as it's sufficiently general: waits for all children jobs
+      ;; and propagates last child status when it finishes
+      (mj-list-loop mj options))))
 
 
 ;; Start i-th child job of a pipe multijob.
@@ -141,66 +147,3 @@
 
 
     out-pipe-fd/read))
-
-
-;; Internal function called by (job-wait) called by (sh-wait) (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
-;; for waiting on children jobs of a sh-pipe.
-;;
-;; returns unspecified value.
-(define (mj-pipe-continue caller mj wait-flags)
-  (if (span-empty? (multijob-children mj))
-    (job-status-set! caller mj (void))
-    (mj-pipe-continue/maybe-wait caller mj wait-flags)))
-
-
-
-;; Internal function called by (job-wait) called by (sh-wait) (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
-;; for waiting on children jobs of a sh-pipe.
-;;
-;; returns unspecified value.
-(define (mj-pipe-continue/maybe-wait caller mj wait-flags)
-  ; (debugf "->   mj-pipe-continue/maybe-wait wait-flags=~s mj=~s" mj wait-flags)
-  (let* ((children  (multijob-children mj))
-         (n         (span-length children)))
-
-    ; call (sh-wait wait-flags ...) on each child job,
-    ; skipping the ones that already finished.
-    (let %again ((i (multijob-current-child-index mj)))
-      (let ((job (sh-multijob-child-ref mj i)))
-        (cond
-          ((not job)
-            (void))
-          ((symbol? job)
-            (%again (fx1+ i)))
-          (else
-            (multijob-current-child-index-set! mj i)
-            (when (sh-finished? (sh-wait job wait-flags))
-              (%again (fx1+ i)))))))
-
-
-    (let ((child (sh-multijob-child-ref mj (multijob-current-child-index mj))))
-      (assert* 'mj-pipe-continue/maybe-wait (sh-job? child))
-      (let* ((status (job-last-status child))
-             (kind   (sh-status->kind status)))
-        (case kind
-          ((running)
-            ;; a child is still running => set multijob status to running too.
-            (job-status-set-running! 'mj-pipe-continue/maybe-wait mj)
-
-            ;; if wait-flags tell to wait until job stops or finishes, then wait for child.
-            ;; otherwise return.
-            (when (sh-wait-flag-wait? wait-flags)
-               (mj-pipe-continue/maybe-wait caller mj wait-flags)))
-
-          ((stopped)
-            ;; a child is stopped.
-            ;; if wait-flags tell to wait until job finishes, then wait for child.
-            ;; otherwise set multijob status to stopped and return.
-            (if (sh-wait-flag-wait-until-finished? wait-flags)
-               (mj-pipe-continue/maybe-wait caller mj wait-flags)
-               (job-status-set! 'mj-pipe-continue/maybe-wait mj status)))
-
-          (else
-            ;; all children finished
-            (multijob-current-child-index-set! mj -1)
-            (job-status-set! 'mj-pipe-continue/maybe-wait mj status)))))))

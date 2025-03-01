@@ -77,7 +77,7 @@
     (let %again ()
       (let ((ch (read-lisp-string-chars ctx flavor)))
         (when (char? ch)
-          (charspan-insert-back! csp ch))
+          (charspan-insert-right! csp ch))
         (when ch
           (%again))))
     (%assert-next-char-is-separator ctx flavor "string")

@@ -62,7 +62,7 @@
       (catch (ex)
         (bytespan-clear! prompt)
         (let ((err-len (bytevector-length bv-prompt-error)))
-          (bytespan-insert-back/bvector! prompt bv-prompt-error 0 err-len)
+          (bytespan-insert-right/bvector! prompt bv-prompt-error 0 err-len)
           (linectx-prompt-length-set! lctx err-len))))))
 
 
@@ -286,10 +286,10 @@
       (lineterm-move-to lctx vx vy)
       (case style
         ((good)
-          (bytespan-insert-back/bvector! wbuf '#vu8(27 91 49 59 51 54 109)))  ; ESC[1;36m
+          (bytespan-insert-right/bvector! wbuf '#vu8(27 91 49 59 51 54 109)))  ; ESC[1;36m
         ((bad)
-          (bytespan-insert-back/bvector! wbuf '#vu8(27 91 49 59 51 49 109)))) ; ESC[1;31m
-      (bytespan-insert-back/char! wbuf ch)
+          (bytespan-insert-right/bvector! wbuf '#vu8(27 91 49 59 51 49 109)))) ; ESC[1;31m
+      (bytespan-insert-right/char! wbuf ch)
       (when (or (eq? 'good style) (eq? 'bad style))
-        (bytespan-insert-back/bvector! wbuf '#vu8(27 91 109))) ; ESC[m
+        (bytespan-insert-right/bvector! wbuf '#vu8(27 91 109))) ; ESC[m
       (linectx-term-xy-set! lctx (fx1+ vx) vy))))

@@ -172,7 +172,7 @@
       (unless vars
         (set! vars (span))
         (job-env-lazy-set! j vars))
-      (span-insert-back! vars name value-or-procedure))))
+      (span-insert-right! vars name value-or-procedure))))
 
 
 ;; Execute the procedures in lazy environment of a job,

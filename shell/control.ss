@@ -126,8 +126,28 @@
       (default-yield-proc))))
 
 
+;; finish a job and call (job-yield-proc) continuation,
+;; which non-locally resumes job's parent or resumes the current call to (job-wait).
+;;
+;; NEVER returns: it's only called by continuations containing infinite loops,
+;; and it is the mechanism to exit such loops.
+(define (%job-finish job)
+  (check-not 'job-finish (job-resume-proc job))
+  (assert* 'job-finish (job-yield-proc job))
+  (let ((yield-proc (job-yield-proc job)))
+    ;;x (debugf "-> job-finish\tjob=~a\tstatus=~s\tyield-proc=~s" (sh-job->string job) (job-last-status job) yield-proc)
+    ;; we will not resume job again => unset its resume-proc
+    (job-resume-proc-set! job #f)
+    (unless (job-finished? job)
+      (job-status-set! 'job-finish job (void)))
+    ;; call resume of parent job, or default-yield-proc
+    (yield-proc (void))
+    (let ((unreachable #f))
+      (assert* 'job-finish unreachable))))
+
+
 ;; suspend a job and call (job-yield-proc) continuation,
-;; which non-locally resumes job's parent or resumes the current call to (job-resume).
+;; which non-locally resumes job's parent or resumes the current call to (job-wait).
 ;;
 ;; if suspend succeeds and job is later resumed, it then returns #t to the caller of (job-suspend)
 ;; if suspend fails, immediately return #f to the caller of (job-suspend)
@@ -157,7 +177,7 @@
 
 
 ;; yield a running job and call (job-yield-proc) continuation,
-;; which non-locally resumes job's parent or resumes the current call to (job-resume).
+;; which non-locally resumes job's parent or resumes the current call to (job-wait).
 ;;
 ;; if yield succeeds and job is later resumed, it then returns #t to the caller of (job-yield)
 ;; if yield fails, immediately return #f to the caller of (job-yield)
@@ -187,8 +207,22 @@
       #f)))
 
 
+;; finish a job and call (job-yield-proc) continuation,
+;; which non-locally resumes job's parent or resumes the current call to (job-wait).
+;;
+;; NEVER returns - which is the desired behavior since it's called
+;; to exit from a continuation that contains an infinite loop.
+(define job-finish
+  (case-lambda
+    ((job)
+      (%job-finish job))
+    ((job status)
+      (job-status-set! 'job-finish job status)
+      (%job-finish job))))
+
+
 ;; suspend a job and call (job-yield-proc) continuation,
-;; which non-locally resumes job's parent or resumes the current call to (job-resume).
+;; which non-locally resumes job's parent or resumes the current call to (job-wait).
 ;;
 ;; if suspend succeeds and job is later resumed, it then returns #t to the caller of (job-suspend)
 ;; if suspend fails, immediately return #f to the caller of (job-suspend).
@@ -204,7 +238,7 @@
 
 
 ;; yield a running job and call (job-yield-proc) continuation,
-;; which non-locally resumes job's parent or resumes the current call to (job-resume).
+;; which non-locally resumes job's parent or resumes the current call to (job-wait).
 ;;
 ;; if yield succeeds and job is later resumed, it then returns #t to the caller of (job-yield)
 ;; if yield fails, immediately return #f to the caller of (job-yield)
@@ -217,6 +251,25 @@
         (%job-suspend job status)
         #t))
     #f))
+
+
+
+;; Finish current job and call its (job-yield-proc) continuation,
+;; which non-locally jumps to whoever started or resumed the job.
+;;
+;; NEVER returns - which is the desired behavior since it's called
+;; to exit from a continuation that possibly contains an infinite loop.
+(define sh-current-job-finish
+  (case-lambda
+    (()
+      (let ((current-job (sh-current-job)))
+        (assert* 'sh-current-job-finish current-job)
+        (job-finish current-job)))
+    ((status)
+      (let ((current-job (sh-current-job)))
+        (assert* 'sh-current-job-finish current-job)
+        (job-finish current-job status)))))
+
 
 
 ;; Suspend current job and call its (job-yield-proc) continuation,

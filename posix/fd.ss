@@ -87,13 +87,13 @@
 ;; read some bytes from fd and append them to specified bytespan
 ;; return number of bytes read
 (define (fd-read-some fd bsp)
-  (bytespan-reserve-back! bsp (fx+ 4096 (bytespan-length bsp)))
+  (bytespan-reserve-right! bsp (fx+ 4096 (bytespan-length bsp)))
   (let* ((beg (bytespan-peek-beg bsp))
          (end (bytespan-peek-end bsp))
-         (cap (bytespan-capacity-back bsp))
+         (cap (bytespan-capacity-right bsp))
          (n   (fd-read fd (bytespan-peek-data bsp) end (fx+ beg cap))))
      (when (fx>? n 0)
-       (bytespan-resize-back! bsp (fx+ (fx- end beg) n)))
+       (bytespan-resize-right! bsp (fx+ (fx- end beg) n)))
      n))
 
 

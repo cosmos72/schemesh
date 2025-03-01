@@ -126,7 +126,7 @@
         (fd      (sh-fd-stdout)))
     (hashtable-iterate (sh-aliases)
       (lambda (cell)
-        (span-insert-back! aliases cell)))
+        (span-insert-right! aliases cell)))
     (span-sort! (lambda (cell1 cell2) (string<? (car cell1) (car cell2))) aliases)
     (span-iterate aliases
       (lambda (i cell)
@@ -148,20 +148,20 @@
 
 
 (define (show-alias* name alias wbuf)
-  (bytespan-insert-back/string! wbuf "alias ")
-  (bytespan-insert-back/string! wbuf name)
+  (bytespan-insert-right/string! wbuf "alias ")
+  (bytespan-insert-right/string! wbuf name)
   (cond
     ((procedure? alias)
-      (bytespan-insert-back/string! wbuf " #<procedure>"))
+      (bytespan-insert-right/string! wbuf " #<procedure>"))
     ((list? alias)
       (list-iterate alias
         (lambda (elem)
           (if (string? elem)
             (begin
-              (bytespan-insert-back/u8! wbuf 32 39) ; #\space #\'
-              (bytespan-insert-back/string! wbuf elem)
-              (bytespan-insert-back/u8! wbuf 39))   ; #\'
-            (bytespan-insert-back/string! wbuf  elem " #<bad-value>")))))
+              (bytespan-insert-right/u8! wbuf 32 39) ; #\space #\'
+              (bytespan-insert-right/string! wbuf elem)
+              (bytespan-insert-right/u8! wbuf 39))   ; #\'
+            (bytespan-insert-right/string! wbuf  elem " #<bad-value>")))))
     (else
-      (bytespan-insert-back/string! wbuf " #<bad-value>")))
-  (bytespan-insert-back/u8! wbuf 10)) ; #\newline
+      (bytespan-insert-right/string! wbuf " #<bad-value>")))
+  (bytespan-insert-right/u8! wbuf 10)) ; #\newline

@@ -56,10 +56,10 @@
                  (sep-after?  (sh-path-absolute? next)))
             (cond
               ((and sep-before? sep-after?)
-                (charspan-erase-back! result 1))
+                (charspan-erase-right! result 1))
               ((not (or sep-before? sep-after?))
-                (charspan-insert-back! result #\/)))
-            (charspan-insert-back/cspan! result next))))
+                (charspan-insert-right! result #\/)))
+            (charspan-insert-right/cspan! result next))))
       result)))
 
 
@@ -72,7 +72,7 @@
 ;; return #t if path is absolute i.e. it starts with "/" otherwise return #f
 (define (sh-path-absolute? path)
   (and (not (charspan-empty? path))
-       (char=? #\/ (charspan-front path))))
+       (char=? #\/ (charspan-ref path 0))))
 
 ;; return #t if path is relative i.e. it does NOT start with "/" otherwise return #f
 (define (sh-path-relative? path)
@@ -81,7 +81,7 @@
 ;; return #t if path ends with "/" otherwise return #f
 (define (path-ends-with-sep? path)
   (and (not (charspan-empty? path))
-       (char=? #\/ (charspan-back path))))
+       (char=? #\/ (charspan-ref-right path))))
 
 
 ;; given a charspan path, split its range [start, end) using "/" as separator
@@ -142,31 +142,31 @@
 (define (sh-path-append! prefix suffix)
   (let ((prefix-len (trim-path-prefix-len prefix))
         (suffix-len (trim-path-suffix-len suffix)))
-    (charspan-resize-back! prefix prefix-len)
+    (charspan-resize-right! prefix prefix-len)
     (sh-path-iterate suffix 0 suffix-len
       (lambda (elem start end)
         (cond
           ((or (fx>=? start end) (path-is-dot? elem start end))
             (void))
           ((path-is-dot-dot? elem start end)
-            (charspan-resize-back! prefix (path-parent-len prefix)))
+            (charspan-resize-right! prefix (path-parent-len prefix)))
           (else
             (unless (path-ends-with-sep? prefix)
-              (charspan-insert-back! prefix #\/))
-            (charspan-insert-back/cspan! prefix suffix start end)))))))
+              (charspan-insert-right! prefix #\/))
+            (charspan-insert-right/cspan! prefix suffix start end)))))))
 
 
 (define (trim-path-prefix-len path)
   (let ((len (charspan-length path)))
     (if (and (fx>? len 1)
-             (char=? #\/ (charspan-back path)))
+             (char=? #\/ (charspan-ref-right path)))
       (fx1- len)
       len)))
 
 (define (trim-path-suffix-len path)
   (let ((len (charspan-length path)))
     (if (and (fx>? len 0)
-             (char=? #\/ (charspan-back path)))
+             (char=? #\/ (charspan-ref-right path)))
       (fx1- len)
       len)))
 
@@ -177,8 +177,8 @@
 (define (sh-path-append prefix suffix)
   (let ((result     (make-charspan 0))
         (prefix-len (charspan-length prefix)))
-    (charspan-reserve-back! result (fx+ prefix-len (charspan-length suffix)))
-    (charspan-insert-back/cspan! result prefix 0 prefix-len)
+    (charspan-reserve-right! result (fx+ prefix-len (charspan-length suffix)))
+    (charspan-insert-right/cspan! result prefix 0 prefix-len)
     (sh-path-append! result suffix)
     result))
 

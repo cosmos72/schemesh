@@ -8,7 +8,7 @@
 (library (schemesh posix pattern (0 7 6))
   (export
     sh-pattern sh-pattern? span->sh-pattern* sh-pattern->span*
-    sh-pattern-front/string sh-pattern-back/string
+    sh-pattern-ref/string sh-pattern-ref-right/string
     sh-pattern-match? sh-pattern-match-range? sh-wildcard?)
   (import
     (rnrs)
@@ -127,7 +127,7 @@
 
 ;; if first element in sh-pattern is a string, return it.
 ;; otherwise return #f
-(define (sh-pattern-front/string p)
+(define (sh-pattern-ref/string p)
   (let* ((sp     (pattern-span p))
          (key    (if (span-empty? sp) #f (span-ref sp 0))))
     (if (string? key) key #f)))
@@ -135,7 +135,7 @@
 
 ;; if last element in sh-pattern is a string, return it.
 ;; otherwise return #f
-(define (sh-pattern-back/string p)
+(define (sh-pattern-ref-right/string p)
   (let* ((sp     (pattern-span p))
          (sp-len (span-length sp))
          (key    (if (fxzero? sp-len) #f (%pattern-at sp (fx1- sp-len)))))

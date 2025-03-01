@@ -63,8 +63,8 @@
                    (len  (string-length name)))
               (when (and (fx>=? len stem-len) (charspan-range/string=? stem 0 name 0 stem-len))
                 (let ((csp (string->charspan* name)))
-                  (charspan-erase-front! csp stem-len)
-                  (span-insert-back! completions csp))))))
+                  (charspan-erase-left! csp stem-len)
+                  (span-insert-right! completions csp))))))
         (span-sort! charspan<? completions)))))
 
 
@@ -120,10 +120,10 @@
           ((not (and x1 y1 (char? ch))) ; reached start of paren or vscreen
              (values #t x y))
           ((char-is-ident-pred ch) ; found an identifier char, insert it and iterate
-             (charspan-insert-front! stem ch)
+             (charspan-insert-left! stem ch)
              (%fill-stem x1 y1))
           ((char-is-start-pred ch) ; found $ or some other char that starts the identifier, insert it and exit
-             (charspan-insert-front! stem ch)
+             (charspan-insert-left! stem ch)
              (values #f x y))
           (else ; found a non-identifier char, could be a blank
             (let %vscreen-contains-only-blanks-before-xy? ((screen screen) (x x) (y y))
@@ -183,10 +183,10 @@
       (lambda (elem)
         (let ((name (string->charspan* (utf8b->string (car elem)))))
           (when (or prefix-starts-with-dot? (not (char=? #\. (charspan-ref name 0))))
-            (charspan-erase-front! name prefix-len)
+            (charspan-erase-left! name prefix-len)
             (when (eq? 'dir (cdr elem))
-              (charspan-insert-back! name #\/))
-            (span-insert-back! completions name))))))
+              (charspan-insert-right! name #\/))
+            (span-insert-right! completions name))))))
   ; (debugf "lineedit-shell-list/directory completions = ~s" completions)
   )
 
@@ -203,8 +203,8 @@
         (when (and (fx>=? (string-length name) prefix-len)
                    (string-range=? name 0 prefix 1 prefix-len))
           (let ((cname (string->charspan* name)))
-            (charspan-erase-front! cname prefix-len)
-            (span-insert-back! completions cname))))))
+            (charspan-erase-left! cname prefix-len)
+            (span-insert-right! completions cname))))))
   ; (debugf "%list-shell-env completions = ~s" completions)
   (span-sort! charspan<? completions)
   ; (debugf "%list-shell-env completions sorted = ~s" completions)
@@ -227,8 +227,8 @@
     (list-iterate l
       (lambda (name)
         (let ((cname (string->charspan* name)))
-          (charspan-erase-front! cname prefix-len)
-          (span-insert-back! completions cname)))))
+          (charspan-erase-left! cname prefix-len)
+          (span-insert-right! completions cname)))))
   ; (debugf "%list-shell-commands prefix=~s, completions=~s" prefix completions)
   )
 

@@ -198,13 +198,13 @@
           (set! start (fx1+ start))
           (case b
             ((0) ; found an escaped newline, it marks the end charline
-              (bytespan-insert-back/u8! bspan 10)
+              (bytespan-insert-right/u8! bspan 10)
               (set! done? #t))
             ((10) ; found a newline, it marks the end of charlines
               (set! nl? #t)
               (set! done? #t))
             (else
-              (bytespan-insert-back/u8! bspan b)))))
+              (bytespan-insert-right/u8! bspan b)))))
       (when eof?
         (set! done? #t))
       ; (debugf "... charline-load-from-port bspan=~s start=~s end=~s nl?=~s eof?=~s" (utf8b-bytespan->string bspan) start end nl? eof?)

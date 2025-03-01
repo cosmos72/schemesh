@@ -46,14 +46,14 @@
 ;; returns (void)
 (define (fd-write-strings: fd prefix strings)
   (let ((wbuf (bytespan)))
-    (bytespan-insert-back/string! wbuf prefix)
+    (bytespan-insert-right/string! wbuf prefix)
     (list-iterate strings
       (lambda (arg)
-        (bytespan-insert-back/u8! wbuf 58 32) ; ": "
-        (bytespan-insert-back/string! wbuf arg)
+        (bytespan-insert-right/u8! wbuf 58 32) ; ": "
+        (bytespan-insert-right/string! wbuf arg)
         (when (fx>=? (bytespan-length wbuf) 4096)
           (fd-write/bspan! fd wbuf))))
-    (bytespan-insert-back/u8! wbuf 10)
+    (bytespan-insert-right/u8! wbuf 10)
     (fd-write/bspan! fd wbuf)))
 
 
@@ -261,11 +261,11 @@
 
 ;; display a single environment variable
 (define (%env-display-var name val wbuf)
-  (bytespan-insert-back/bvector! wbuf #vu8(115 101 116 32)) ; "set "
-  (bytespan-insert-back/string!  wbuf name)
-  (bytespan-insert-back/bvector! wbuf #vu8(32 39)) ; " '"
-  (bytespan-insert-back/string!  wbuf val)
-  (bytespan-insert-back/bvector! wbuf #vu8(39 10))) ; "'\n"
+  (bytespan-insert-right/bvector! wbuf #vu8(115 101 116 32)) ; "set "
+  (bytespan-insert-right/string!  wbuf name)
+  (bytespan-insert-right/bvector! wbuf #vu8(32 39)) ; " '"
+  (bytespan-insert-right/string!  wbuf val)
+  (bytespan-insert-right/bvector! wbuf #vu8(39 10))) ; "'\n"
 
 
 ;; display all environment variables of specified job - either all or only exported ones.
@@ -276,21 +276,21 @@
         (vec  (hashtable-cells (sh-env-copy job which))))
     (unless (fxzero? (vector-length vec))
       (vector-sort*! (lambda (e1 e2) (string<? (car e1) (car e2))) vec)
-      (bytespan-reserve-back! wbuf (fxmin 4096 (fx* 32 (vector-length vec))))
+      (bytespan-reserve-right! wbuf (fxmin 4096 (fx* 32 (vector-length vec))))
       (vector-iterate vec
         (lambda (i elem)
           (%env-display-var (car elem) (cdr elem) wbuf)
           (when (fx>=? (bytespan-length wbuf) 4096)
             (fd-write/bspan! fd wbuf))))
       (when (eq? 'export which)
-        (bytespan-insert-back/bvector! wbuf #vu8(101 120 112 111 114 116)) ; "export"
+        (bytespan-insert-right/bvector! wbuf #vu8(101 120 112 111 114 116)) ; "export"
         (vector-iterate vec
           (lambda (i elem)
-            (bytespan-insert-back/u8! wbuf 32)   ; " "
-            (bytespan-insert-back/string! wbuf (car elem))
+            (bytespan-insert-right/u8! wbuf 32)   ; " "
+            (bytespan-insert-right/string! wbuf (car elem))
             (when (fx>=? (bytespan-length wbuf) 4096)
               (fd-write/bspan! fd wbuf))))
-        (bytespan-insert-back/u8! wbuf 10))       ; "\n"
+        (bytespan-insert-right/u8! wbuf 10))       ; "\n"
       (fd-write/bspan! fd wbuf)))
   (void))
 
