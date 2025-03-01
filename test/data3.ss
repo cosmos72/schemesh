@@ -148,7 +148,6 @@
     {echo d e f > DEL_ME && \
      cat DEL_ME && \
      echo ok || echo error})                           "d e f\nok\n"
-  ;; FIXME: currently broken, busy-polls C wait4(-1, WNOHANG)
   (sh-run/string (shell
       "echo" "d" "e" "f" > "DEL_ME" &&
       "cat" "DEL_ME" &&
@@ -159,7 +158,6 @@
      "echo" "foo  bar\n asdf" \x7C;
      "grep" "asd" \x3B;
      "echo" "ok"))                                     " asdf\nok\n"
-  ;; FIXME: currently broken, busy-polls C wait4(-1, WNOHANG)
   (sh-run (shell
     "echo" "xyz" \x7C;
     (shell "command" "true" &&
