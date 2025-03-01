@@ -321,9 +321,6 @@
           ((> ret 0) ; parent
             (job-pid-set! job ret)
             (job-pgid-set! job process-group-id)
-            ;; we can cleanup job's file descriptor, as it's running in a subprocess
-            (job-unmap-fds! '(spawn-procedure parent) job)
-            (job-unredirect/temp/all! job)
             '(running)))))))
 
 

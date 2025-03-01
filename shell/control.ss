@@ -46,7 +46,7 @@
         (lambda ()
           (job-start/may-throw caller job k-continue options)))))
 
-  (when (options->spawn? options)
+  (when (and (job-started? job) (options->spawn? options))
     ;; job is running in a subprocess, we no longer need fd remapping:
     ;; they also may contain a dup() of pipe write file descriptors
     ;; which prevents detecting eof on the corresponding pipe read file descriptor
