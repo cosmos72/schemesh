@@ -342,7 +342,8 @@
   ;; ------------------------- shell macros -------------------------------
   (caddr (expand '{}))                                 (sh-cmd)
   (caddr (expand '(shell)))                            (sh-cmd)
-  (caddr (expand '{2 >& 1}))                           (sh-cmd* "2" 1 '>& 1) ; FIXME?
+  (caddr (expand '{2>& 1}))                            (sh-cmd* 2 '>& 1)
+  (caddr (expand '{echo 2>& 1}))                       (sh-cmd* "echo" 2 '>& 1)
   (caddr (expand '(shell 2 >& 1)))                     (sh-cmd* 2 '>& 1)
   (caddr (expand '{ls -l && wc -b || echo error &}))   (sh-list (sh-or (sh-and (sh-cmd "ls" "-l") (sh-cmd "wc" "-b"))
                                                                        (sh-cmd "echo" "error")) '&)
