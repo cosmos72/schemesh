@@ -73,9 +73,9 @@
         ;; (sh-fd-stdin) (sh-fd-stdout) (sh-fd-stderr) or more generally, (job-find-fd-remap)
         (begin
           (job-remap-fds! c)
-          (parameterize ((sh-fd-stdin  (job-find-fd-remap c 0))
-                         (sh-fd-stdout (job-find-fd-remap c 1))
-                         (sh-fd-stderr (job-find-fd-remap c 2)))
+          (sh-parameterize ((sh-fd-stdin  (job-find-fd-remap c 0))
+                            (sh-fd-stdout (job-find-fd-remap c 1))
+                            (sh-fd-stderr (job-find-fd-remap c 2)))
             (start-command-or-builtin-or-alias c
               (cmd-arg-list-call-closures c prog-and-args) options)))))))
 

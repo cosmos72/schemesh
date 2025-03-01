@@ -21,7 +21,7 @@
       warn-check-failed0 warn-check-failed1 warn-check-failed2 warn-check-failed3
       warn-check-failed4 warn-check-failed5 warnf warn-check-failedl
 
-      sh-make-parameter sh-make-thread-parameter sh-version)
+      sh-make-parameter sh-make-thread-parameter sh-parameterize sh-version)
   (import
     (rnrs)
     (rnrs base)
@@ -227,6 +227,29 @@
           #`(let ((texpr expr))
               (when texpr
                   (warn-check-failed caller #,form texpr))))))))
+
+
+;; reimplementation of (parameterize) with slightly different semantics:
+;; each time the dynamic scope is (re)entered, calls (param expr)...
+;; and each time the dynamic scope is (re)exited, calls (param previous-value) ...
+(define-syntax sh-parameterize
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ () body1 body2 ...)
+        #`(begin body1 body2 ...))
+      ((_ ((param expr) ...) body1 body2 ...)
+        (with-syntax (((proc ...) (generate-pretty-temporaries #'(param ...))))
+          (with-syntax (((outer-param ...) (generate-pretty-temporaries #'(param ...))))
+            #`(let ((proc param) ...
+                    (outer-param #f) ...)
+                (dynamic-wind
+                  (lambda ()
+                    (set! outer-param (proc)) ...
+                    (proc expr) ...)
+                  (lambda ()
+                    body1 body2 ...)
+                  (lambda ()
+                    (proc outer-param) ...)))))))))
 
 
 

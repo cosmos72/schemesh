@@ -335,6 +335,7 @@
     (let ((args (cons (cadr prog-and-args) ;; copy first argument as-is
                        ;; split after each #\nul the second and subsequent arguments
                       (string-list-split-after-nuls (cddr prog-and-args)))))
+      ;; (debugf "split-at-0\tjob=~a\tsh-fd-stdout=~s" (sh-job->string job) (sh-fd-stdout))
       (start-command-or-builtin-or-alias-from-another-builtin job args options))))
 
 
@@ -389,10 +390,12 @@
     ;; perform fd remapping, then start the builtin
     (begin
       (job-remap-fds! c)
-      (parameterize ((sh-fd-stdin  (job-find-fd-remap c 0))
-                     (sh-fd-stdout (job-find-fd-remap c 1))
-                     (sh-fd-stderr (job-find-fd-remap c 2)))
+      ;; (debugf "builtin-start\tjob=~a\tremapping stdout from fd=~s to fd=~s" (sh-job->string c) (sh-fd-stdout) (job-find-fd-remap c 1))
+      (sh-parameterize ((sh-fd-stdin  (job-find-fd-remap c 0))
+                        (sh-fd-stdout (job-find-fd-remap c 1))
+                        (sh-fd-stderr (job-find-fd-remap c 2)))
         (%builtin-start-already-redirected builtin c args options)))))
+
 
 
 ;; filled at the end of job.ss
