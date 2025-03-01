@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh shell eval (0 7 6))
+(library (schemesh shell eval (0 7 7))
   (export
     sh-eval-file sh-eval-file* sh-eval-fd* sh-eval-port* sh-eval-parsectx* sh-eval-string*
     sh-read-file sh-read-file* sh-read-fd* sh-read-port* sh-read-parsectx* sh-read-string*)

@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh bootstrap (0 7 6))
+(library (schemesh bootstrap (0 7 7))
   (export
       ;; bootstrap.ss
       assert* assert-not* catch check check-not define-macro debugf debugf-port

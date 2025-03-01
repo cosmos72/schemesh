@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh containers string (0 7 6))
+(library (schemesh containers string (0 7 7))
   (export
     assert-string-list? in-string
     string-any string-contains string-count string-every string-fill-range!

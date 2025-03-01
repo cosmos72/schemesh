@@ -9,7 +9,7 @@
 ;; Define the functions (s-fd-allocate) (s-fd-release) to manage reserved fds
 
 
-(library (schemesh shell fds (0 7 6))
+(library (schemesh shell fds (0 7 7))
   (export
     s-fd s-fd* s-fd? s-fd->int s-fd-copy s-fd-allocate s-fd-release
     sh-fd-stdin sh-fd-stdout sh-fd-stderr)

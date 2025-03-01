@@ -258,7 +258,7 @@ If `make -j` fails, do not panic :) Some issues are relatively minor and can be 
    This can be worked around by running `make -j CC="gcc -fno-lto"`
 
 If get some other error and you correctly installed the required dependencies,
-feel free to open a (GitHub issue)[https://github.com/cosmos72/schemesh/issues]
+feel free to open a [GitHub issue](https://github.com/cosmos72/schemesh/issues)
 describing the issue. Remember to include at least:
 * the exact `make ...` command you executed, and its output - especially the error messages
 * the output of the command `lsb_release -a`

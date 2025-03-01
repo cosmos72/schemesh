@@ -1,6 +1,11 @@
 ## RECENT CHANGES
 
-### release v0.7.6, 2025-03-01
+### release v0.7.7, 2025-03-01
+
+* fix (charhistory-save-to-path) not to raise exceptions: it was preventing schemesh
+  from exiting if ~/.cache/schemesh/ directory does not exist or was not writable
+
+### release v0.7.7, 2025-03-01
 
 * add new syntax for shell command substitution `$[ ]`  and deprecate the old syntax `$( )`
 * add string-related functions (string-any) (string-contains) (string-count) (string-every)

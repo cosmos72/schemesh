@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh lineedit parenmatcher (0 7 6))
+(library (schemesh lineedit parenmatcher (0 7 7))
   (export
     parenmatcher? make-custom-parenmatcher parenmatcher-clear!
     parenmatcher-paren parenmatcher-maybe-update!

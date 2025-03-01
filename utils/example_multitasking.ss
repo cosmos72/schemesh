@@ -1,6 +1,6 @@
 
 
-(library (schemesh example multitasking (0 7 6))
+(library (schemesh example multitasking (0 7 7))
   (export
     tasks make-task task-yield task-resume)
 
