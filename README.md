@@ -46,7 +46,7 @@ grep -q old *.txt && [ sed -i -e 's/old/new/g' -- *.txt ]
 ```
 traditional shells typically start subshells with `( )`, which has a different meaning in schemesh.
 
-Command substituion, i.e. using output of a first command as argument for a second command,
+Command substitution, i.e. using output of a first command as argument for a second command,
 can be performed by surrounding the first command in ``` `` ``` or `$[ ]` - example:
 ```shell
 NOW=$[date]
