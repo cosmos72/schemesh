@@ -2,6 +2,7 @@
 
 ### release v0.7.6, 2025-03-01
 
+* add new syntax for shell command substitution `$[ ]`  and deprecate the old syntax `$( )`
 * add string-related functions (string-any) (string-contains) (string-count) (string-every)
   (string-index) (string-index-right) (string-join) (string-map) (string-replace-all)
   (string-replace-prefix) (string-replace-suffix) (string-prefix?) (string-suffix?)
