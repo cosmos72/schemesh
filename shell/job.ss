@@ -127,12 +127,7 @@
       ((ok exception failed killed)
         (%job-last-status-set! job status)
 
-        ;; needed?
-        ;(while (job-resume-proc job)
-        ;  (job-wait 'job-status-set! job (sh-wait-flags)))
-
         ;; close file descriptors
-        ;; only after the loop (job-yield job) above
         (job-unmap-fds! job)
         (job-unredirect/temp/all! job) ; remove temporary redirections
         (job-temp-parent-set!  job #f) ; remove temporary parent job

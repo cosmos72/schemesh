@@ -117,13 +117,18 @@
   (flush-output-port port))
 
 
+;; return #f or the continuation to call for resuming a job or one of its parents.
+;; does NOT return (default-yield-proc)
+(define (job-resume-proc job)
+  (and job
+    (or (%job-resume-proc job)
+        (job-resume-proc (job-default-parent job)))))
+
+
 ;; return #f or the continuation to call for yielding job.
 (define (job-yield-proc job)
-  (let ((parent (job-default-parent job)))
-    (if parent
-      (or (job-resume-proc parent)
-          (job-yield-proc parent))
-      (default-yield-proc))))
+  (or (job-resume-proc (job-default-parent job))
+      (default-yield-proc)))
 
 
 ;; finish a job and call (job-yield-proc) continuation,
@@ -132,7 +137,7 @@
 ;; NEVER returns: it's only called by continuations containing infinite loops,
 ;; and it is the mechanism to exit such loops.
 (define (%job-finish job)
-  (check-not 'job-finish (job-resume-proc job))
+  (check-not 'job-finish (%job-resume-proc job))
   (assert* 'job-finish (job-yield-proc job))
   (let ((yield-proc (job-yield-proc job)))
     ;;x (debugf "-> job-finish\tjob=~a\tstatus=~s\tyield-proc=~s" (sh-job->string job) (job-last-status job) yield-proc)
@@ -152,7 +157,7 @@
 ;; if suspend succeeds and job is later resumed, it then returns #t to the caller of (job-suspend)
 ;; if suspend fails, immediately return #f to the caller of (job-suspend)
 (define (%job-suspend job status)
-  (check-not 'job-suspend (job-resume-proc job))
+  (check-not 'job-suspend (%job-resume-proc job))
   (let ((yield-proc (job-yield-proc job)))
     ;;x (debugf "-> job-suspend\tjob=~a\tstatus=~s\tyield-proc=~s" (sh-job->string job) (job-last-status job) yield-proc)
     (if yield-proc
@@ -182,7 +187,7 @@
 ;; if yield succeeds and job is later resumed, it then returns #t to the caller of (job-yield)
 ;; if yield fails, immediately return #f to the caller of (job-yield)
 (define (%job-yield job caller)
-  (check-not 'job-yield (job-resume-proc job))
+  (check-not 'job-yield (%job-resume-proc job))
   (let ((yield-proc (job-yield-proc job)))
     ;;x (debugf "-> job-suspend\tjob=~a\tstatus=~s\tyield-proc=~s" (sh-job->string job) (job-last-status job) yield-proc)
     (if yield-proc

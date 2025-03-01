@@ -31,7 +31,7 @@
                     ; receives as argument job followed by options,
                     ; must start the job, yield or suspend every time it needs to wait,
                     ; and set the job status when it's finished.
-    (mutable resume-proc)  ; #f or continuation to resume job
+    (mutable resume-proc %job-resume-proc job-resume-proc-set!) ; #f or continuation to resume job
     (mutable cwd %job-cwd %job-cwd-set!) ; charspan: working directory. if #f, use parent's cwd
     (mutable owd %job-owd %job-owd-set!) ; #f or charspan: previous working directory
     (mutable env)         ; #f or hashtable of overridden env variables: name -> value

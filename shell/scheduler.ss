@@ -9,8 +9,8 @@
 ;; this file should be included only by file shell/job.ss
 
 
-;; Common implementation of (sh-fg) (sh-bg) (sh-wait) (sh-wait) (sh-job-status)
-;; Resume and optionally wait for a job.
+;; Common implementation of (sh-bg) (sh-fg) (sh-job-status) (sh-wait)
+;; Continue and optionally wait for a job.
 ;;
 ;; Returns updated job status.
 (define (job-wait caller job wait-flags)
@@ -23,7 +23,7 @@
                          (job-pgid (sh-globals))))
          (job-pgid  (and main-pgid
                          (job-tree-find-pgid job))))
-    ;; using (dynamic-wind) is useless here: (job-wait/impl) calls job's continuations,
+    ;; using (dynamic-wind) is useless here: (%job-wait) calls job's continuations,
     ;; which exit the (dynamic-wind) and later re-enter it.
     (when job-pgid
       (%pgid-foreground main-pgid job-pgid))
@@ -31,21 +31,7 @@
     (when (sh-wait-flag-continue-if-stopped? wait-flags)
       (job-tree-continue caller job wait-flags))
 
-    (let ((other-yield-proc (default-yield-proc)))
-      (call/cc
-        ;; Capture the continuation representing THIS call to (job-wait)
-        ;; and save it in (default-yield-proc): needed because (job-wait/impl) calls job-resume-proc,
-        ;; which is a continuation and NEVER returns:
-        ;; it only yields to parent job or to (default-yield-proc).
-        ;;
-        ;; since job-resume-proc is a continuation, here (parameterize ((default-yield-proc)))
-        ;; and (dynamic-wind) are useless.
-        default-yield-proc)
-
-      (job-wait/impl caller job wait-flags)
-
-      ;; restore previous value of (default-yield-proc)
-      (default-yield-proc other-yield-proc))
+    (%job-wait caller job wait-flags)
 
     (when job-pgid
       ;; try really hard to restore (sh-globals) as the foreground process group
@@ -102,7 +88,7 @@
 ;; actual implementation of (job-wait): resume and optionally wait for a job.
 ;;
 ;; returns unspecified value.
-(define (job-wait/impl caller job wait-flags)
+(define (%job-wait caller job wait-flags)
   ;;x (debugf "-> job-wait\tjob=~a\tstatus=~s\tcaller=~s\twait-flags=~s id=~s pid=~s resume-proc=~s" (sh-job->string job) (job-last-status job) caller wait-flags (job-id job) (job-pid job) (job-resume-proc job))
   (case (job-last-status->kind job)
     ((ok exception failed killed)
@@ -113,7 +99,7 @@
 
       (when (job-wait-should-wait-again? job wait-flags)
         ;; caller asked to wait for job to finish (or to stop), cannot return yet: try again
-        (job-wait/impl caller job wait-flags))
+        (%job-wait caller job wait-flags))
 
         ;; ((and (sh-multijob? job) (eq? 'sh-pipe (multijob-kind job)))
         ;;   (mj-pipe-continue caller job wait-flags))
@@ -124,13 +110,13 @@
           ;; caller asked to wait for job to finish, cannot return yet.
           ;; But waiting for a stopped job is not very useful => call break handler
           (job-wait/break job)
-          (job-wait/impl caller job wait-flags))
+          (%job-wait caller job wait-flags))
 
         (else
           (scheduler-wait wait-flags)
           (when (job-wait-should-wait-again? job wait-flags)
             ;; caller asked to wait for job to finish (or to stop), cannot return yet: try again
-            (job-wait/impl caller job wait-flags)))))
+            (%job-wait caller job wait-flags)))))
 
     (else
       (raise-errorf caller "job not started yet: ~s" job)))
@@ -203,8 +189,6 @@
 ;;
 ;; Returns unspecified value.
 (define (scheduler-wait wait-flags)
-  (assert* 'scheduler-wait (default-yield-proc))
-
   (when (sh-wait-flag-wait? wait-flags)
     (scheduler-wait-once wait-flags))
 
@@ -244,13 +228,10 @@
         (when changed?
           (maybe-queue-job-display-summary job)
 
-          (check 'job-pids-wait (job-resume-proc job))
-
-          (when (job-resume-proc job)
-            ;;x (debugf "scheduler-wait-once job=~a\tcalling job-resume-proc... " (sh-job->string job))
-            (job-call-resume-proc job (sh-wait-flags))
-            ;;x (debugf "scheduler-wait-once job=~a\t...job-resume-proc returned" (sh-job->string job))
-          ))
+          ;;x (debugf "scheduler-wait-once job=~a\tcalling job-resume-proc... " (sh-job->string job))
+          (job-call-resume-proc job (sh-wait-flags))
+          ;;x (debugf "scheduler-wait-once job=~a\t...job-resume-proc returned" (sh-job->string job))
+          )
 
         ;;x (debugf "<-  scheduler-wait-once job=~a changed?=~s wait-flags=~s" (sh-job->string job) changed? wait-flags)
         changed?)
@@ -260,11 +241,29 @@
 
 
 
-;; call the continuation stored in job-resume-proc of a job for resuming it.
+;; jump to the continuation stored in job-resume-proc of a job for resuming it.
+;;
+;; when job and all its parents yield, they jump to the continuation (default-yield-proc)
+;; set by this procedure, which then returns normally.
 (define (job-call-resume-proc job wait-flags)
-  (assert* 'job-call-resume-proc (job-resume-proc job))
-  (let ((resume-proc (job-resume-proc job)))
-    (job-resume-proc-set!  job #f)
-    (resume-proc (void)))
+  (let ((other-yield-proc (default-yield-proc))
+        (resume-proc (job-resume-proc job)))
+    (when resume-proc
+      (call/cc
+        ;; Capture the continuation representing THIS call to (job-call-resume-proc)
+        ;; and save it in (default-yield-proc): needed because job-resume-proc
+        ;; is a continuation and NEVER returns:
+        ;; it only yields to parent job or to (default-yield-proc).
+        ;;
+        ;; since job-resume-proc is a continuation, here (parameterize ((default-yield-proc ...)))
+        ;; and (dynamic-wind) are useless.
+        (lambda (k)
+          (default-yield-proc k)
+            (job-resume-proc-set! job #f)
+            (resume-proc (void))))
+
+      ;; restore previous value of (default-yield-proc)
+      (default-yield-proc other-yield-proc)))
+
   ;; ignore the value returned by (resume-proc)
   (void))
