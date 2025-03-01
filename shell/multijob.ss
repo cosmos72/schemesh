@@ -262,17 +262,17 @@
   ;; call (sh-wait job) below for resuming it until it finishes.
   (call/cc
     (lambda (yield)
-      (default-yield-proc yield)
+      (override-yield-proc yield)
       ;; ignore value returned by (proc)
       (proc job options)))
         ;; (debugf ". spawn-procedure job=~a subprocess proc returned" (sh-job->string job))
 
   ;; cleanup parameters before calling (sh-wait)
-  (default-yield-proc #f)
+  (override-yield-proc #f)
   (sh-current-job #f)
-  ;;x (debugf "... spawn-procedure job=~a waiting for it to finish, pid=~s status=~s" (sh-job->string job) (job-pid job) (job-last-status job))
+  ;;f (debugf "... spawn-procedure job=~a waiting for it to finish, pid=~s status=~s" (sh-job->string job) (job-pid job) (job-last-status job))
   (let ((status (sh-wait job)))
-    ;;x (debugf "<-  spawn-procedure job=~a subprocess exiting with pid=~s status=~s" (sh-job->string job) (job-pid job) status)
+    ;;f (debugf "<-  spawn-procedure job=~a subprocess exiting with pid=~s status=~s" (sh-job->string job) (job-pid job) status)
     status))
 
 
@@ -344,31 +344,44 @@
 
 
 ;; start a child job and resume it until it finishes,
-;; yielding or suspending parent job as appropriate
+;; yielding or suspending parent job as appropriate.
+;;
+;; returns child job exit status
 (define (mj-child-loop-with-yield caller mj options child-i)
   (multijob-current-child-index-set! mj child-i)
   (let ((child (span-ref (multijob-children mj) child-i)))
-    ;; (debugf "->   mj-child-loop-with-yield mj=~a child=~a" (sh-job->string mj) (sh-job->string child))
+    ;;x (debugf "->  mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a" caller (sh-job->string mj) (sh-job->string child))
     (let %loop ()
-      ;; (debugf "... mj-child-loop-with-yield mj=~a child=~a status=~s" (sh-job->string mj) (sh-job->string child) status)
-      (let ((status (job-last-status child)))
-        (case (sh-status->kind status)
-          ((new)
-            (job-start caller child options)
-            (%loop))
-          ((running)
-            ;; (debugf "... mj-child-loop-with-yield mj=~a child=~a --- calling yield" (sh-job->string mj) (sh-job->string child))
-            (job-yield mj (list caller 'mj-child-loop-with-yield 'running))
-            ;; (debugf "... mj-child-loop-with-yield mj=~a child=~a --- yield returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string mj) (sh-job->string child))
-            (%loop))
-          ((stopped)
-            ;; (debugf "... mj-child-loop-with-yield mj=~a child=~a --- calling suspend" (sh-job->string mj) (sh-job->string child))
-            (job-suspend mj)
-            ;; (debugf "... mj-child-loop-with-yield mj=~a child=~a --- suspend returned,\n\t\tcalling resume on child, wait-flags=~s" (sh-job->string mj) (sh-job->string child))
-            (%loop))
-          (else
-            ;; child has finished, return its status
-            status))))))
+      (case (job-last-status->kind mj)
+        ((running)
+          (let ((status (job-last-status child)))
+            ;;x (debugf "... mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\tchild-status=~s" caller (sh-job->string mj) (sh-job->string child) status)
+            (case (sh-status->kind status)
+              ((new)
+                (job-start caller child options)
+                ;;x (debugf "... mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- child started with status=~s" caller (sh-job->string mj) (sh-job->string child) (job-last-status child))
+                (%loop))
+              ((running)
+                ;;x (debugf "... mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- calling yield" caller (sh-job->string mj) (sh-job->string child))
+                (job-yield mj (list caller 'mj-child-loop-with-yield 'running))
+                ;;x (debugf "... mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- yield returned, looping" caller (sh-job->string mj) (sh-job->string child))
+                (%loop))
+              ((stopped)
+                ;;x (debugf "... mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- calling suspend" caller (sh-job->string mj) (sh-job->string child))
+                (job-suspend mj)
+                ;;x (debugf "... mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- suspend returned, looping" caller (sh-job->string mj) (sh-job->string child))
+                (%loop))
+              (else
+                ;; child has finished, return its status
+                ;;x (debugf "<-  mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- returning, child-status=~s" caller (sh-job->string mj) (sh-job->string child) status)
+                status))))
+        ((stopped)
+          ;;x (debugf "<-  mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- calling suspend, parent-status=~s\t" caller (sh-job->string mj) (sh-job->string child) (job-last-status mj))
+          (job-suspend mj)
+          (%loop))
+        (else
+          ;;x (debugf "<-  mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- returning, parent-status=~s\tchild-status=~s" caller (sh-job->string mj) (sh-job->string child) (job-last-status mj) (job-last-status child))
+          (job-last-status child))))))
 
 
 ;; Run the children jobs in an "and" multijob .
@@ -376,6 +389,7 @@
 ;; NEVER returns normally, only yields
 (define (mj-and-loop mj options)
   (forever
+    ;;x (debugf "... mj-and-loop mj=~a\tstatus=~s" (sh-job->string mj) (job-last-status mj))
     (case (job-last-status->kind mj)
       ((running)
         (let ((options       (cons '(catch? . #t) options))
@@ -398,6 +412,7 @@
 ;; NEVER returns normally, only yields
 (define (mj-or-loop mj options)
   (forever
+    ;;x (debugf "... mj-or-loop  mj=~a\tstatus=~s" (sh-job->string mj) (job-last-status mj))
     (case (job-last-status->kind mj)
       ((running)
         (let ((options       (cons '(catch? . #t) options))

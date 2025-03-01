@@ -24,7 +24,7 @@
          (job-pgid  (and main-pgid
                          (job-tree-find-pgid job))))
 
-    ;;x (debugf "->  job-wait caller=~s wait-flags=~s job=~a status=~s job-pgid=~s main-pgid=~s" caller wait-flags (sh-job->string job) (job-last-status job) job-pgid main-pgid)
+    ;;f (debugf "->  job-wait caller=~s wait-flags=~s job=~a status=~s job-pgid=~s main-pgid=~s" caller wait-flags (sh-job->string job) (job-last-status job) job-pgid main-pgid)
 
     ;; using (dynamic-wind) is useless here: (%job-wait) calls job's continuations,
     ;; which exit the (dynamic-wind) and later re-enter it.
@@ -40,7 +40,7 @@
       ;; try really hard to restore (sh-globals) as the foreground process group
       (%pgid-foreground -1 main-pgid))
 
-    ;;x (debugf "<-  job-wait caller=~s wait-flags=~s job=~a status=~s job-pgid=~s main-pgid=~s" caller wait-flags (sh-job->string job) (job-last-status job) job-pgid main-pgid)
+    ;;f (debugf "<-  job-wait caller=~s wait-flags=~s job=~a status=~s job-pgid=~s main-pgid=~s" caller wait-flags (sh-job->string job) (job-last-status job) job-pgid main-pgid)
     )
 
   (job-id-update! job)) ; returns job status
@@ -95,7 +95,7 @@
 ;;
 ;; returns unspecified value.
 (define (%job-wait caller job wait-flags)
-  ;;e (debugf "-> job-wait\tjob=~a\tstatus=~s\tcaller=~s\twait-flags=~s id=~s pid=~s resume-proc=~s" (sh-job->string job) (job-last-status job) caller wait-flags (job-id job) (job-pid job) (job-resume-proc job))
+  ;;f (debugf "%job-wait\tjob=~a\tstatus=~s\tcaller=~s\twait-flags=~s id=~s pid=~s" (sh-job->string job) (job-last-status job) caller wait-flags (job-id job) (job-pid job))
   (case (job-last-status->kind job)
     ((ok exception failed killed)
       (void))
@@ -220,7 +220,7 @@
          (wait-result (pid-wait -1 may-block))
          (job         (and (pair? wait-result) (pid->job (car wait-result)))))
 
-    ;;e (debugf "... scheduler-wait-once job=~a\twait-flags=~s wait-result=~s" (and job (sh-job->string job)) wait-flags wait-result)
+    ;;x (debugf "... scheduler-wait-once job=~a\twait-flags=~s wait-result=~s" (and job (sh-job->string job)) wait-flags wait-result)
 
     (if job
       (let* ((old-status  (job-last-status job))

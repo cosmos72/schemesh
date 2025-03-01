@@ -35,7 +35,7 @@
 ;; Internal functions called by (sh-start) to actually start a job.
 ;; Returns job status.
 (define (job-start caller job options)
-;;e (debugf "job-start caller=~s job=~a options=~s status=~s" caller (sh-job->string job) options (job-last-status job))
+  ;;x (debugf "->  job-start caller=~s job=~a options=~s status=~s" caller (sh-job->string job) options (job-last-status job))
   (options-validate caller options)
   (job-raise-if-started/recursive caller job)
   (call/cc
@@ -52,6 +52,8 @@
     ;; which prevents detecting eof on the corresponding pipe read file descriptor
     (job-unmap-fds! job)
     (job-unredirect/temp/all! job))
+
+  ;;x (debugf "<-  job-start caller=~s job=~a options=~s status=~s" caller (sh-job->string job) options (job-last-status job))
 
   (job-last-status job)) ; returns job status.
 
@@ -93,8 +95,8 @@
      (unless (job-new? job)
        (job-status-set-new/recursive! job))
      (job-status-set-running! 'job-start/may-throw job)
-     (parameterize ((sh-current-job     job)
-                    (default-yield-proc k-continue))
+     (parameterize ((sh-current-job      job)
+                    (override-yield-proc k-continue))
        ;; set job's parent if requested.
        ;; must be done *before* calling procedures in (cmd-arg-list c)
        (let ((options (options->set-temp-parent! job options)))
@@ -123,11 +125,14 @@
 
 
 ;; return #f or the continuation to call for resuming a job or one of its parents.
-;; does NOT return (default-yield-proc)
+;; returns (override-yield-proc) if set, but ignores (default-yield-proc)
 (define (job-resume-proc job)
-  (and job
-    (or (%job-resume-proc job)
-        (job-resume-proc (job-default-parent job)))))
+  (or (override-yield-proc)
+    (let %loop ((job job))
+      (if job
+        (or (%job-resume-proc job)
+            (%loop (job-default-parent job)))
+        #f))))
 
 
 ;; return #f or the continuation to call for yielding job.
@@ -143,14 +148,15 @@
 ;; and it is the mechanism to exit such loops.
 (define (%job-finish job)
   (check-not 'job-finish (%job-resume-proc job))
-  (assert* 'job-finish (job-yield-proc job))
+  (check     'job-finish (job-yield-proc job))
+  ;;x (debugf "job-finish\tjob=~a\t%resume-proc=~s\tyield-proc=~s" (sh-job->string job) (%job-resume-proc job) (job-yield-proc job))
   (let ((yield-proc (job-yield-proc job)))
     ;;e (debugf "-> job-finish\tjob=~a\tstatus=~s\tyield-proc=~s" (sh-job->string job) (job-last-status job) yield-proc)
     ;; we will not resume job again => unset its resume-proc
     (job-resume-proc-set! job #f)
     (unless (job-finished? job)
       (job-status-set! 'job-finish job (void)))
-    ;; call resume of parent job, or default-yield-proc
+    ;; call (override-yield-proc) or resume of parent job, or (default-yield-proc)
     (yield-proc (void))
     (let ((unreachable #f))
       (assert* 'job-finish unreachable))))
@@ -175,7 +181,7 @@
             (let ((new-status (if (sh-stopped? status) status '(stopped sigtstp))))
               (unless (job-pid job)
                 (%job-last-status-set! job new-status)))
-            ;; suspend job by calling resume of its parent job, or default-yield-proc
+            ;; suspend job by calling (override-yield-proc) or resume of parent job, or (default-yield-proc)
             (yield-proc (void))))
 
         ;;e (debugf "<- job-suspend\tjob=~a\tstatus=~s" (sh-job->string job) (job-last-status job))
@@ -206,7 +212,7 @@
             (when (job-running? job)
               ;; try to update status '(running) -> '(running id)
               (job-status-set-running! 'job-yield job))
-            ;; suspend job by calling resume of its parent job, or default-yield-proc
+            ;; suspend job by calling (override-yield-proc) or resume of parent job, or (default-yield-proc)
             (yield-proc (void))))
 
         ;;e (debugf "<- job-suspend\tjob=~a\tstatus=~s" (sh-job->string job) (job-last-status job))

@@ -395,7 +395,7 @@
          (remap-fd             (s-fd-allocate))
          (fd-int               (s-fd->int remap-fd))
          (ret                  (fd-redirect fd-int direction-ch to-fd-or-bytevector0 #t))) ; #t close-on-exec?
-    ;;x (debugf "job-remap-fd! fd=~s dir=~s remap-fd=~s to=~s" fd direction-ch remap-fd to-fd-or-bytevector0)
+    ;;f (debugf "job-remap-fd! fd=~s dir=~s remap-fd=~s to=~s" fd direction-ch remap-fd to-fd-or-bytevector0)
     (when (< ret 0)
       (s-fd-release remap-fd)
       (raise-c-errno 'sh-start 'c_fd_redirect ret fd-int direction-ch to-fd-or-bytevector0))
@@ -459,7 +459,7 @@
 ;; release job's remapped fds and unset (job-fds-to-remap job)
 (define (job-unmap-fds! job)
   (let ((remap-fds (job-fds-to-remap job)))
-    ;;x (debugf "job-unmap-fds! job=~a fds-to-remap=~s" (sh-job->string job) (if remap-fds (hashtable-cells remap-fds) '#()))
+    ;;f (debugf "job-unmap-fds! job=~a fds-to-remap=~s" (sh-job->string job) (if remap-fds (hashtable-cells remap-fds) '#()))
     (when remap-fds
       (hashtable-iterate remap-fds
         (lambda (cell)
@@ -470,10 +470,10 @@
 ;; release a single remapped fd
 (define (unmap-fd fd)
   (if (s-fd-release fd)
-    ;;x (debugf "unmap-fd fd-close ~s" (s-fd->int fd))
+    ;;f (debugf "unmap-fd fd-close ~s" (s-fd->int fd))
     (fd-close (s-fd->int fd))
     (begin
-      ;;x (debugf "unmap-fd not closing ~s" fd)
+      ;;f (debugf "unmap-fd not closing ~s" fd)
       (void))))
 
 

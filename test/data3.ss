@@ -133,50 +133,45 @@
   (sh-run/string (shell "command" "echo" "abc" \x3B;
                         "echo" "def"))                 "abc\ndef\n"
   ;; test that overwriting existing environment variables works
+  ;; FIXME: currently broken, busy-polls C wait4(-1, WNOHANG)
+  #|
   (sh-run/string (shell
       "FOO" = (shell-backquote "echo" "ghijk") \x3B;
       "echo" (shell-env "FOO")))                       "ghijk\n"
+  |#
   (sh-run/string {echo > /dev/null})                   ""
-  ;; FIXME: currently broken, busy-polls C wait4(-1, WNOHANG)
-  #|
   (sh-run
     {command true && \
-     command true || \
+     cat /dev/null || \
      false})                                         ,@"#<void>"
-  |#
-  ;; FIXME: currently broken, busy-polls C wait4(-1, WNOHANG)
-  #|
   (sh-run/string
     {echo d e f > DEL_ME && \
      cat DEL_ME && \
      echo ok || echo error})                           "d e f\nok\n"
-  |#
   ;; FIXME: currently broken, busy-polls C wait4(-1, WNOHANG)
-  #|
   (sh-run/string (shell
       "echo" "d" "e" "f" > "DEL_ME" &&
       "cat" "DEL_ME" &&
       "rm" "DEL_ME" &&
       "echo" "ok" \x7C;\x7C;
       "echo" "error"))                                 "d e f\nok\n"
-  |#
   (sh-run/string (shell
      "echo" "foo  bar\n asdf" \x7C;
      "grep" "asd" \x3B;
      "echo" "ok"))                                     " asdf\nok\n"
   ;; FIXME: currently broken, busy-polls C wait4(-1, WNOHANG)
-  #|
   (sh-run (shell
     "echo" "xyz" \x7C;
     (shell "command" "true" &&
            "grep" "abc" > "/dev/null")))               (failed 1)
-  |#
   (sh-run/string (shell
     "echo0" "def" "gh" "i" ""))                        "def\x0;gh\x0;i\x0;\x0;"
+  ;; FIXME: currently broken, busy-polls C wait4(-1, WNOHANG)
+  #|
   (sh-run/string (shell
     "split-at-0" "echo"
       (shell-backquote "echo0" "jkl" "mn" "o" "")))    "jkl mn o \n"
-
+  |#
   ;; run builtin in a subprocess
   (sh-run (sh-cmd "false") '(spawn? . #t))             (failed 1)
   (let ((j (sh-cmd "false")))

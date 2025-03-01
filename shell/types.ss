@@ -79,6 +79,18 @@
       job)))
 
 
+;; Parameter containing the override continuation for yielding a job:
+;; if set, has higher precedence than job's resume-proc and (default-yield-proc),
+;; and it's used for resuming the current call to (job-start)
+(define override-yield-proc
+  (sh-make-thread-parameter #f
+    (lambda (cont)
+      (when cont
+        (unless (and (procedure? cont) (logbit? 1 (procedure-arity-mask cont)))
+          (raise-errorf 'sh-current-job "invalid override-yield, must be #f or a procedure accepting 1 argument: ~s" cont)))
+      cont)))
+
+
 ;; Parameter containing the default continuation for yielding a job
 ;; and resuming the current call to (job-wait), (scheduler-wait) or similar.
 (define default-yield-proc
