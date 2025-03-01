@@ -135,15 +135,15 @@
   ;; test that overwriting existing environment variables works
   ;; FIXME: currently broken, busy-polls C wait4(-1, WNOHANG)
   #|
-  (sh-run/string (shell
-      "FOO" = (shell-backquote "echo" "ghijk") \x3B;
-      "echo" (shell-env "FOO")))                       "ghijk\n"
+  (sh-run/string
+    {FOO=`echo ghijk`
+     echo $FOO})                                       "ghijk\n"
   |#
-  (sh-run/string {echo > /dev/null})                   ""
+  (sh-run/string {command echo > /dev/null})           ""
   (sh-run
     {command true && \
      cat /dev/null || \
-     false})                                         ,@"#<void>"
+     false})                                           ,@"#<void>"
   (sh-run/string
     {echo d e f > DEL_ME && \
      cat DEL_ME && \

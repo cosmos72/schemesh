@@ -258,6 +258,8 @@
 
   ;c (debugf "-> spawn-procedure job=~a subprocess calling proc ~s" (sh-job->string job) proc)
 
+  (default-yield-proc #f)
+
   ;; if proc attempts to suspend or yield job,
   ;; call (sh-wait job) below for resuming it until it finishes.
   (call/cc
