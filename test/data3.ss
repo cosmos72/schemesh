@@ -164,6 +164,9 @@
   (sh-run/string (shell
     "echo0" "def" "gh" "i" ""))                        "def\x0;gh\x0;i\x0;\x0;"
   ;; FIXME: currently broken
+  (sh-run/string
+    {echo (lambda () (sh-run/string {echo abc}))})     "abc\n\n"
+  ;; FIXME: currently broken
   (sh-run/string (shell
     "split-at-0" "echo"
       (shell-backquote "echo0" "jkl" "mn" "o" "")))    "jkl mn o \n"

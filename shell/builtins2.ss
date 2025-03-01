@@ -405,10 +405,10 @@
   (call-or-spawn-procedure job options
     (lambda (job options)
       ;; execute the builtin
-      ;c (debugf "builtin-start options=~s args=~s job=~a" options args (sh-job->string job))
+      ;;y (debugf "-> builtin-start job=~a\targs=~s\toptions=~s" (sh-job->string job) args options)
       (job-status-set! 'builtin-start job
         (let ((status  (builtin job args options)))
-          ;c (debugf "<- builtin-start options=~s args=~s job=~a status=~s" options args (sh-job->string job) status)
+          ;;y (debugf "<- builtin-start job=~a\tstatus=~s" (sh-job->string job) status)
           (if (or (sh-finished? status) (options->spawn? options)
                   (not (hashtable-ref (builtins-that-finish-immediately) builtin #f)))
             status

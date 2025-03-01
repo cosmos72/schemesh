@@ -53,8 +53,14 @@
     ;;
     ;; FIXME: this breaks the test (sh-run/string {echo `echo abc`})
     ;; but removing this code causes the test to hang.
-    (job-unmap-fds! '(job-start spawn) job)
-    (job-unredirect/temp/all! job))
+    (cond
+      (#t ; (job-pid job)
+        ;;y (debugf "job-start: unmapping fds for job=~a\tpid=~s\tstatus=~s" (sh-job->string job) (job-pid job) (job-last-status job))
+        (job-unmap-fds! '(job-start spawn) job)
+        (job-unredirect/temp/all! job))
+      (else
+        ;;y (debugf "job-start: NOT unmapping fds for job=~a\tpid=~s\tstatus=~s" (sh-job->string job) (job-pid job) (job-last-status job))
+        (void))))
 
   ;;g (debugf "<-  job-start caller=~s job=~a options=~s status=~s" caller (sh-job->string job) options (job-last-status job))
 
@@ -91,6 +97,7 @@
 ;; actually start a job.
 ;; returns unspecified value
 (define (job-start/may-throw caller job k-continue options)
+  ;;y (debugf "-> job-start/may-throw:         job=~a\toptions=~s" (sh-job->string job) options)
   (let ((start-proc (job-start-proc job)))
      (unless (procedure? start-proc)
         (raise-errorf caller "~s is not a valid start-proc for job ~s" start-proc job))
@@ -126,14 +133,20 @@
            (when first-reenter?
              (override-yield-proc k-continue)))
          (lambda ()
+           ;;y (debugf "job-start/may-throw: starting job=~a\toptions=~s" (sh-job->string job) options)
            (start-proc job options))  ; may throw
          (lambda ()
+           ;;y (debugf "job-start/may-throw: started  job=~a\toptions=~s\tfirst-reenter?=~s" (sh-job->string job) options first-reenter?)
            (when first-reenter?
-             (override-yield-proc saved-yield-proc)
-             (set! first-reenter? #f))
+             (override-yield-proc saved-yield-proc))
            (let ((current-job (sh-current-job)))
              (sh-current-job other-current-job)
-             (set! other-current-job current-job)))))))
+             (set! other-current-job current-job))))
+
+       (set! first-reenter? #f)))
+
+  ;;y (debugf "<- job-start/may-throw: started job=~a\toptions=~s" (sh-job->string job) options)
+  )
 
 
 
