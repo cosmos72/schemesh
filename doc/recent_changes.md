@@ -1,7 +1,16 @@
 ## RECENT CHANGES
 
-### in git main branch
+### release v0.7.6, 2025-03-01
 
+* add string-related functions (string-any) (string-contains) (string-count) (string-every)
+  (string-index) (string-index-right) (string-join) (string-map) (string-replace-all)
+  (string-replace-prefix) (string-replace-suffix) (string-prefix?) (string-suffix?)
+* export string-related functions (in-string) (string-fill-range!) (string-is-unsigned-base10-integer?)
+  (string-is-signed-base10-integer?) (string-iterate) (string-list?) (string-list-split-after-nuls)
+  (string-prefix/char?) (string-range-count=) (string-range=?) (string-range<?) (string-replace/char!)
+  (string-rtrim-newlines!) (string-split) (string-split-after-nuls) (string-suffix/char?) (string-trim-split-at-blanks)
+* automatically (import (schemesh)) at REPL
+* rename existing functions to follow r7rs naming conventions
 * fix (parse-shell-forms) to parse to nothing backslash-newline outside quotes
 * fix (parse-lisp-forms) to correctly parse backslash-whitespace-newline-whitespace inside double quotes
 * fix C function c_tty_setraw() to retrieve the current tty configuration at every call,
@@ -15,7 +24,7 @@
 * implement builtin "parent" executes another builtin with its parent job temporarily set to its grandparent job.
   if used multiple times, as for example "parent parent cd ..", the effects are cumulative.
 
-### release v0.7.6, 2025-02-14
+### release v0.7.5, 2025-02-14
 
 * fix `utils/find_chez_scheme_dir.sh` for Alpine linux
 * fix a pair of bugged assertions that were triggered by valid code {echo $A=}
