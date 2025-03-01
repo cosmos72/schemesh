@@ -85,6 +85,7 @@
           (job-status-set-new/recursive! elem))))))
 
 
+;; actually start a job.
 ;; returns unspecified value
 (define (job-start/may-throw caller job k-continue options)
   (let ((start-proc (job-start-proc job)))
@@ -95,12 +96,40 @@
      (unless (job-new? job)
        (job-status-set-new/recursive! job))
      (job-status-set-running! 'job-start/may-throw job)
-     (parameterize ((sh-current-job      job)
-                    (override-yield-proc k-continue))
-       ;; set job's parent if requested.
-       ;; must be done *before* calling procedures in (cmd-arg-list c)
-       (let ((options (options->set-temp-parent! job options)))
-         (start-proc job options)))))  ; may throw
+     ;; starting a job is tricky.
+     ;;
+     ;; most jobs are continuations that run an infinite loop, and never return normally:
+     ;; they only yield, i.e. call other continuations,
+     ;; and can be re-entered multiple times by resuming the job.
+     ;;
+     ;; For this reason, we must set (override-yield-proc) to guarantee that (job-start)
+     ;; will continue as soon as the job yields,
+     ;; but we must also guarantee that re-entering the job continuation from here
+     ;; does NOT set again (override-yield-proc)
+     ;;
+     ;; We must then call (sh-current-job job) each time the job is resumed,
+     ;; and restore the previous value each time it yields.
+     ;; Also set job's temp parent if requested.
+     ;; Both must be done *before* calling procedures in (cmd-arg-list c)
+     (let ((options (options->set-temp-parent! job options))
+           (outer-current-job #f)
+           (outer-yield-proc  #f)
+           (first-reenter?    #t))
+       (dynamic-wind
+         (lambda ()
+           (set! outer-current-job (sh-current-job))
+           (sh-current-job job)
+           (when first-reenter?
+             (set! outer-yield-proc (override-yield-proc))
+             (override-yield-proc k-continue)))
+         (lambda ()
+           (start-proc job options))  ; may throw
+         (lambda ()
+           (when first-reenter?
+             (override-yield-proc outer-yield-proc)
+             (set! first-reenter? #f))
+           (sh-current-job outer-current-job))))))
+
 
 
 (define (job-start/on-exception caller job options k-continue ex)

@@ -9,7 +9,6 @@
 ;;
 ;; odd elements are Scheme form to evaluate, even elements are expected result
 #(
-
   ;; -------------------------- tty ---------------------------------------
   ;; (tty-size) returs a cons (width . height), or c_errno() < 0 on error
   (let ((sz (tty-size)))
@@ -118,6 +117,7 @@
   (sh-run (shell-subshell "false"))                    (failed 1)
   (sh-run (shell-subshell "echo0"))                    ,@"#<void>"
   (sh-run (shell-subshell "expr" "210"))               (failed 210)
+
   ;; (sh-run/string)
   (sh-run/string (shell "echo"
     (shell-wildcard (shell-env "FOO") "=123" )))       "=123\n"
@@ -133,12 +133,11 @@
   (sh-run/string (shell "command" "echo" "abc" \x3B;
                         "echo" "def"))                 "abc\ndef\n"
   ;; test that overwriting existing environment variables works
-  ;; FIXME: currently broken, busy-polls C wait4(-1, WNOHANG)
-  #|
+  (sh-run
+    {true `echo 123`})                                 ,@"#<void>"
   (sh-run/string
     {FOO=`echo ghijk`
      echo $FOO})                                       "ghijk\n"
-  |#
   (sh-run/string {command echo > /dev/null})           ""
   (sh-run
     {command true && \
@@ -164,12 +163,10 @@
            "grep" "abc" > "/dev/null")))               (failed 1)
   (sh-run/string (shell
     "echo0" "def" "gh" "i" ""))                        "def\x0;gh\x0;i\x0;\x0;"
-  ;; FIXME: currently broken, busy-polls C wait4(-1, WNOHANG)
-  #|
+  ;; FIXME: currently broken
   (sh-run/string (shell
     "split-at-0" "echo"
       (shell-backquote "echo0" "jkl" "mn" "o" "")))    "jkl mn o \n"
-  |#
   ;; run builtin in a subprocess
   (sh-run (sh-cmd "false") '(spawn? . #t))             (failed 1)
   (let ((j (sh-cmd "false")))

@@ -102,20 +102,26 @@
 ;; because we need to read its standard output while it runs.
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
 (define (sh-run/bvector job . options)
-  (let ((read-fd #f))
-    ; temporarily suppress messages about started/completed jobs
-    (parameterize ((sh-job-display-summary? #f))
-      (dynamic-wind
-        void
-        (lambda ()
-          (set! read-fd (apply sh-start/fd-stdout job options))
-          ;; WARNING: job may internally dup write-fd into (job-fds-to-remap)
-          (fd-read-until-eof read-fd))
-        (lambda ()
-          (when read-fd
-            (fd-close read-fd))
-          (when (job-started? job)
-            (sh-wait job)))))))
+  (let ((read-fd #f)
+        (outer-display-summary? #f))
+    (dynamic-wind
+      (lambda ()
+        ; temporarily suppress messages about started/completed jobs
+        (set! outer-display-summary? (sh-job-display-summary?))
+        (sh-job-display-summary? #f))
+      (lambda ()
+        (set! read-fd (apply sh-start/fd-stdout job options))
+        ;; WARNING: job may internally dup write-fd into (job-fds-to-remap)
+        ;;x (debugf "... sh-run/bvector\tjob=~a\tcalling fd-read-until-eof..." (sh-job->string job))
+        (let ((ret (fd-read-until-eof read-fd)))
+          ;;x (debugf "... sh-run/bvector\tjob=~a\t... fd-read-until-eof returned" (sh-job->string job))
+          ret))
+      (lambda ()
+        (sh-job-display-summary? outer-display-summary?)
+        (when read-fd
+          (fd-close read-fd))
+        (when (job-started? job)
+          (sh-wait job))))))
 
 
 ;; Start a job and wait for it to exit.
