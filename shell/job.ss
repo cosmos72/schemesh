@@ -128,7 +128,7 @@
         (%job-last-status-set! job status)
 
         ;; close file descriptors
-        (job-unmap-fds! job)
+        (job-unmap-fds! '(job-status-set! finished) job)
         (job-unredirect/temp/all! job) ; remove temporary redirections
         (job-temp-parent-set!  job #f) ; remove temporary parent job
 
@@ -385,6 +385,27 @@
           (job-remap-fd! job job-dir i))))))
 
 
+(define (call/remapped-fds job proc)
+  (job-remap-fds! job)
+  (let ((fd0 (job-find-fd-remap job 0))
+        (fd1 (job-find-fd-remap job 1))
+        (fd2 (job-find-fd-remap job 2)))
+    ;;x (debugf "call/remapped-fds remapping stdout ~s -> ~s for job=~a\tpid=~s" (sh-fd-stdout) fd1 (sh-job->string job) (job-pid job))
+    (parameterize ((sh-fd-stdin  fd0)
+                   (sh-fd-stdout fd1)
+                   (sh-fd-stderr fd2))
+      (proc))))
+
+
+(define-syntax with-remapped-fds
+  (syntax-rules ()
+    ((_ job body1 body2 ...)
+      (call/remapped-fds job
+        (lambda ()
+          body1 body2 ...)))))
+
+
+
 ;; called by (job-remap-fds!)
 (define (job-remap-fd! job job-dir index)
   ;; redirects is span of quadruplets (fd mode to-fd-or-path-or-closure bytevector0)
@@ -457,7 +478,10 @@
 
 
 ;; release job's remapped fds and unset (job-fds-to-remap job)
-(define (job-unmap-fds! job)
+(define (job-unmap-fds! caller job)
+  ;;x (debugf "job-unmap-fds! job=~a\tpid=~s\tcaller=~s" (sh-job->string job) (job-pid job) caller)
+  ;(when (string=? "{echo #<procedure>}" (sh-job->string job))
+  ;  (sh-eval '(sleep (make-time 'time-duration 0 1))))
   (let ((remap-fds (job-fds-to-remap job)))
     ;;f (debugf "job-unmap-fds! job=~a fds-to-remap=~s" (sh-job->string job) (if remap-fds (hashtable-cells remap-fds) '#()))
     (when remap-fds

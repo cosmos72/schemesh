@@ -71,13 +71,9 @@
         ;; some command line argument is a closure:
         ;; setup fds remapping before calling them, because they may want to use
         ;; (sh-fd-stdin) (sh-fd-stdout) (sh-fd-stderr) or more generally, (job-find-fd-remap)
-        (begin
-          (job-remap-fds! c)
-          (sh-parameterize ((sh-fd-stdin  (job-find-fd-remap c 0))
-                            (sh-fd-stdout (job-find-fd-remap c 1))
-                            (sh-fd-stderr (job-find-fd-remap c 2)))
-            (start-command-or-builtin-or-alias c
-              (cmd-arg-list-call-closures c prog-and-args) options)))))))
+        (with-remapped-fds c
+          (start-command-or-builtin-or-alias c
+            (cmd-arg-list-call-closures c prog-and-args) options))))))
 
 
 ;; internal function called by (cmd-start):
@@ -216,7 +212,7 @@
         ;; job no longer needs fd remapping:
         ;; they also may contain a dup() of write-fd
         ;; which prevents detecting eof on read-fd
-        (job-unmap-fds! c)
+        (job-unmap-fds! 'cmd-spawn c)
         (job-unredirect/temp/all! c)
 
         (when (< ret 0)

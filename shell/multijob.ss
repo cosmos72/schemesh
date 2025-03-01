@@ -133,10 +133,10 @@
   (assert* 'sh-list (fx=? -1 (multijob-current-child-index job)))
   (call-or-spawn-procedure job options
     (lambda (job options)
-      (job-remap-fds! job)
-      (job-env/apply-lazy! job 'export)
-      ; Do not yet assign a job-id.
-      (mj-list-loop job options))))
+      (with-remapped-fds job
+        (job-env/apply-lazy! job 'export)
+        ; Do not yet assign a job-id.
+        (mj-list-loop job options)))))
 
 
 ;; internal function stored in (job-start-proc job) by (sh-subshell) multijobs
@@ -162,12 +162,12 @@
             (when history
               (charhistory-path-set! history #f)))))
 
-      (job-remap-fds! job)
-      (job-env/apply-lazy! job 'export)
+      (with-remapped-fds job
+        (job-env/apply-lazy! job 'export)
 
-      ;; pretend that running a sh-subshell is equivalent to running an sh-list in a subprocess.
-      ;; actually, that's quite accurate
-      (mj-list-loop job options))))
+        ;; pretend that running a sh-subshell is equivalent to running an sh-list in a subprocess.
+        ;; actually, that's quite accurate
+        (mj-list-loop job options)))))
 
 
 
@@ -180,12 +180,11 @@
   ;; this runs in the main process, not in a subprocess.
   (assert* 'sh-and (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-and (fx=? -1 (multijob-current-child-index job)))
-  (call-or-spawn-procedure
-    job options
+  (call-or-spawn-procedure job options
     (lambda (job options)
-      (job-remap-fds! job)
-      (job-env/apply-lazy! job 'export)
-      (mj-and-loop job options))))
+      (with-remapped-fds job
+        (job-env/apply-lazy! job 'export)
+        (mj-and-loop job options)))))
 
 
 
@@ -200,11 +199,11 @@
   (assert* 'sh-or (fx=? -1 (multijob-current-child-index job)))
   (call-or-spawn-procedure job options
     (lambda (job options)
-      (job-remap-fds! job)
-      (job-env/apply-lazy! job 'export)
-      ;; (debugf "mj-or-start ~s empty children? = ~s" job (span-empty? (multijob-children job)))
-      ;; Do not yet assign a job-id.
-      (mj-or-loop job options))))
+      (with-remapped-fds job
+        (job-env/apply-lazy! job 'export)
+        ;; (debugf "mj-or-start ~s empty children? = ~s" job (span-empty? (multijob-children job)))
+        ;; Do not yet assign a job-id.
+        (mj-or-loop job options)))))
 
 
 ;; Internal function stored in (job-start-proc job) by (sh-not),
@@ -217,10 +216,10 @@
   (assert* 'sh-not (fx=? -1 (multijob-current-child-index job)))
   (call-or-spawn-procedure job options
     (lambda (job options)
-      (job-remap-fds! job)
-      (job-env/apply-lazy! job 'export)
-      ;; Do not yet assign a job-id.
-      (mj-not-loop job options))))
+      (with-remapped-fds job
+        (job-env/apply-lazy! job 'export)
+        ;; Do not yet assign a job-id.
+        (mj-not-loop job options)))))
 
 
 ;; called in subprocess by (spawn-procedure)
@@ -286,7 +285,8 @@
 ;; The new subprocess is started in background, i.e. the foreground process group is NOT set
 ;; to the process group of the newly created subprocess.
 ;;
-;; Note: does not call (job-env/apply-lazy! job).
+;; Note: does not call (with-remapped-fds ...) or (job-env/apply-lazy! job):
+;; caller must manually invoke those if needed.
 ;;
 ;; Options is an association list, see (sh-start) for allowed keys and values.
 ;;   'spawn: a symbol. enabled by default, because this function always spawns a subprocess.
@@ -322,7 +322,7 @@
             (job-pid-set! job ret)
             (job-pgid-set! job process-group-id)
             ;; we can cleanup job's file descriptor, as it's running in a subprocess
-            (job-unmap-fds! job)
+            (job-unmap-fds! '(spawn-procedure parent) job)
             (job-unredirect/temp/all! job)
             '(running)))))))
 
@@ -352,37 +352,37 @@
 (define (mj-child-loop-with-yield caller mj options child-i)
   (multijob-current-child-index-set! mj child-i)
   (let ((child (span-ref (multijob-children mj) child-i)))
-    ;;x (debugf "->  mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a" caller (sh-job->string mj) (sh-job->string child))
+    ;;g (debugf "->  mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a" caller (sh-job->string mj) (sh-job->string child))
     (let %loop ()
       (case (job-last-status->kind mj)
         ((running)
           (let ((status (job-last-status child)))
-            ;;x (debugf "... mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\tchild-status=~s" caller (sh-job->string mj) (sh-job->string child) status)
+            ;;g (debugf "... mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\tchild-status=~s" caller (sh-job->string mj) (sh-job->string child) status)
             (case (sh-status->kind status)
               ((new)
                 (job-start caller child options)
-                ;;x (debugf "... mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- child started with status=~s" caller (sh-job->string mj) (sh-job->string child) (job-last-status child))
+                ;;g (debugf "... mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- child started with status=~s" caller (sh-job->string mj) (sh-job->string child) (job-last-status child))
                 (%loop))
               ((running)
-                ;;x (debugf "... mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- calling yield" caller (sh-job->string mj) (sh-job->string child))
+                ;;g (debugf "... mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- calling yield" caller (sh-job->string mj) (sh-job->string child))
                 (job-yield mj (list caller 'mj-child-loop-with-yield 'running))
-                ;;x (debugf "... mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- yield returned, looping" caller (sh-job->string mj) (sh-job->string child))
+                ;;g (debugf "... mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- yield returned, looping" caller (sh-job->string mj) (sh-job->string child))
                 (%loop))
               ((stopped)
-                ;;x (debugf "... mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- calling suspend" caller (sh-job->string mj) (sh-job->string child))
+                ;;g (debugf "... mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- calling suspend" caller (sh-job->string mj) (sh-job->string child))
                 (job-suspend mj)
-                ;;x (debugf "... mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- suspend returned, looping" caller (sh-job->string mj) (sh-job->string child))
+                ;;g (debugf "... mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- suspend returned, looping" caller (sh-job->string mj) (sh-job->string child))
                 (%loop))
               (else
                 ;; child has finished, return its status
-                ;;x (debugf "<-  mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- returning, child-status=~s" caller (sh-job->string mj) (sh-job->string child) status)
+                ;;g (debugf "<-  mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- returning, child-status=~s" caller (sh-job->string mj) (sh-job->string child) status)
                 status))))
         ((stopped)
-          ;;x (debugf "<-  mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- calling suspend, parent-status=~s\t" caller (sh-job->string mj) (sh-job->string child) (job-last-status mj))
+          ;;g (debugf "<-  mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- calling suspend, parent-status=~s\t" caller (sh-job->string mj) (sh-job->string child) (job-last-status mj))
           (job-suspend mj)
           (%loop))
         (else
-          ;;x (debugf "<-  mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- returning, parent-status=~s\tchild-status=~s" caller (sh-job->string mj) (sh-job->string child) (job-last-status mj) (job-last-status child))
+          ;;g (debugf "<-  mj-child-loop-with-yield\tcaller=~s\tmj=~a\tchild=~a\t--- returning, parent-status=~s\tchild-status=~s" caller (sh-job->string mj) (sh-job->string child) (job-last-status mj) (job-last-status child))
           (job-last-status child))))))
 
 
@@ -391,7 +391,7 @@
 ;; NEVER returns normally, only yields
 (define (mj-and-loop mj options)
   (forever
-    ;;x (debugf "... mj-and-loop mj=~a\tstatus=~s" (sh-job->string mj) (job-last-status mj))
+    ;;g (debugf "... mj-and-loop mj=~a\tstatus=~s" (sh-job->string mj) (job-last-status mj))
     (case (job-last-status->kind mj)
       ((running)
         (let ((options       (cons '(catch? . #t) options))
@@ -414,7 +414,7 @@
 ;; NEVER returns normally, only yields
 (define (mj-or-loop mj options)
   (forever
-    ;;x (debugf "... mj-or-loop  mj=~a\tstatus=~s" (sh-job->string mj) (job-last-status mj))
+    ;;g (debugf "... mj-or-loop  mj=~a\tstatus=~s" (sh-job->string mj) (job-last-status mj))
     (case (job-last-status->kind mj)
       ((running)
         (let ((options       (cons '(catch? . #t) options))

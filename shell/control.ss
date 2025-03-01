@@ -35,7 +35,7 @@
 ;; Internal functions called by (sh-start) to actually start a job.
 ;; Returns job status.
 (define (job-start caller job options)
-  ;;x (debugf "->  job-start caller=~s job=~a options=~s status=~s" caller (sh-job->string job) options (job-last-status job))
+  ;;g (debugf "->  job-start caller=~s job=~a options=~s status=~s" caller (sh-job->string job) options (job-last-status job))
   (options-validate caller options)
   (job-raise-if-started/recursive caller job)
   (call/cc
@@ -50,10 +50,13 @@
     ;; job is running in a subprocess, we no longer need fd remapping:
     ;; they also may contain a dup() of pipe write file descriptors
     ;; which prevents detecting eof on the corresponding pipe read file descriptor
-    (job-unmap-fds! job)
+    ;;
+    ;; FIXME: this breaks the test (sh-run/string {echo `echo abc`})
+    ;; but removing this code causes the test to hang.
+    (job-unmap-fds! '(job-start spawn) job)
     (job-unredirect/temp/all! job))
 
-  ;;x (debugf "<-  job-start caller=~s job=~a options=~s status=~s" caller (sh-job->string job) options (job-last-status job))
+  ;;g (debugf "<-  job-start caller=~s job=~a options=~s status=~s" caller (sh-job->string job) options (job-last-status job))
 
   (job-last-status job)) ; returns job status.
 
@@ -112,23 +115,25 @@
      ;; Also set job's temp parent if requested.
      ;; Both must be done *before* calling procedures in (cmd-arg-list c)
      (let ((options (options->set-temp-parent! job options))
-           (outer-current-job #f)
-           (outer-yield-proc  #f)
+           (other-current-job job)
+           (saved-yield-proc  (override-yield-proc))
            (first-reenter?    #t))
        (dynamic-wind
          (lambda ()
-           (set! outer-current-job (sh-current-job))
-           (sh-current-job job)
+           (let ((current-job (sh-current-job)))
+             (sh-current-job other-current-job)
+             (set! other-current-job current-job))
            (when first-reenter?
-             (set! outer-yield-proc (override-yield-proc))
              (override-yield-proc k-continue)))
          (lambda ()
            (start-proc job options))  ; may throw
          (lambda ()
            (when first-reenter?
-             (override-yield-proc outer-yield-proc)
+             (override-yield-proc saved-yield-proc)
              (set! first-reenter? #f))
-           (sh-current-job outer-current-job))))))
+           (let ((current-job (sh-current-job)))
+             (sh-current-job other-current-job)
+             (set! other-current-job current-job)))))))
 
 
 
@@ -178,7 +183,7 @@
 (define (%job-finish job)
   (check-not 'job-finish (%job-resume-proc job))
   (check     'job-finish (job-yield-proc job))
-  ;;x (debugf "job-finish\tjob=~a\t%resume-proc=~s\tyield-proc=~s" (sh-job->string job) (%job-resume-proc job) (job-yield-proc job))
+  ;;g (debugf "job-finish\tjob=~a\t%resume-proc=~s\tyield-proc=~s" (sh-job->string job) (%job-resume-proc job) (job-yield-proc job))
   (let ((yield-proc (job-yield-proc job)))
     ;;e (debugf "-> job-finish\tjob=~a\tstatus=~s\tyield-proc=~s" (sh-job->string job) (job-last-status job) yield-proc)
     ;; we will not resume job again => unset its resume-proc

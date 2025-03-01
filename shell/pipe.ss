@@ -64,25 +64,24 @@
   ;; this runs in the main process, not in a subprocess.
   (assert* 'sh-pipe (eq? 'running (job-last-status->kind mj)))
   (assert* 'sh-pipe (fx=? -1 (multijob-current-child-index mj)))
-  (call-or-spawn-procedure
-    mj options
+  (call-or-spawn-procedure mj options
     (lambda (mj options)
-      (job-remap-fds! mj)
-      (job-env/apply-lazy! mj 'export)
-      ; Do not yet assign a job-id.
-      (let ((pgid    (options->process-group-id options))
-            (pipe-fd -1)
-            (n       (span-length (multijob-children mj))))
-        (job-pgid-set! mj pgid)
-        (span-iterate (multijob-children mj)
-          (lambda (i child)
-            (when (sh-job? child)
-              (set! pipe-fd (mj-pipe-start-i mj i n pipe-fd))))))
-      (multijob-current-child-index-set! mj 0)
-      ;; no need to implement (mj-pipe-loop), we can reuse (mj-list-loop)
-      ;; as it's sufficiently general: waits for all children jobs
-      ;; and propagates last child status when it finishes
-      (mj-list-loop mj options))))
+      (with-remapped-fds mj
+        (job-env/apply-lazy! mj 'export)
+        ; Do not yet assign a job-id.
+        (let ((pgid    (options->process-group-id options))
+              (pipe-fd -1)
+              (n       (span-length (multijob-children mj))))
+          (job-pgid-set! mj pgid)
+          (span-iterate (multijob-children mj)
+            (lambda (i child)
+              (when (sh-job? child)
+                (set! pipe-fd (mj-pipe-start-i mj i n pipe-fd))))))
+        (multijob-current-child-index-set! mj 0)
+        ;; no need to implement (mj-pipe-loop), we can reuse (mj-list-loop)
+        ;; as it's sufficiently general: waits for all children jobs
+        ;; and propagates last child status when it finishes
+        (mj-list-loop mj options)))))
 
 
 ;; Start i-th child job of a pipe multijob.

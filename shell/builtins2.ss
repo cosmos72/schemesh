@@ -388,13 +388,8 @@
     ;; fd remapping already performed, proceed
     (%builtin-start-already-redirected builtin c args options)
     ;; perform fd remapping, then start the builtin
-    (begin
-      (job-remap-fds! c)
-      ;; (debugf "builtin-start\tjob=~a\tremapping stdout from fd=~s to fd=~s" (sh-job->string c) (sh-fd-stdout) (job-find-fd-remap c 1))
-      (sh-parameterize ((sh-fd-stdin  (job-find-fd-remap c 0))
-                        (sh-fd-stdout (job-find-fd-remap c 1))
-                        (sh-fd-stderr (job-find-fd-remap c 2)))
-        (%builtin-start-already-redirected builtin c args options)))))
+    (with-remapped-fds c
+      (%builtin-start-already-redirected builtin c args options))))
 
 
 

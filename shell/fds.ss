@@ -15,8 +15,8 @@
     sh-fd-stdin sh-fd-stdout sh-fd-stderr)
   (import
     (rnrs)
-    (only (chezscheme) fx1+ fx1- open-fd-output-port record-writer)
-    (only (schemesh bootstrap) assert* sh-make-thread-parameter raise-errorf)
+    (only (chezscheme) fx1+ fx1- open-fd-output-port record-writer top-level-bound? top-level-value)
+    (only (schemesh bootstrap) assert* debugf sh-make-thread-parameter raise-errorf)
     (schemesh containers bitmap)
     (only (schemesh containers hashtable) hashtable-iterate)
     (only (schemesh posix fd) fd-open-max))

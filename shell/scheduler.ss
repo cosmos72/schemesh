@@ -24,7 +24,7 @@
          (job-pgid  (and main-pgid
                          (job-tree-find-pgid job))))
 
-    ;;x (debugf "->  job-wait caller=~s wait-flags=~s job=~a status=~s job-pgid=~s main-pgid=~s" caller wait-flags (sh-job->string job) (job-last-status job) job-pgid main-pgid)
+    ;;g (debugf "->  job-wait caller=~s wait-flags=~s job=~a status=~s job-pgid=~s main-pgid=~s" caller wait-flags (sh-job->string job) (job-last-status job) job-pgid main-pgid)
 
     ;; using (dynamic-wind) is useless here: (%job-wait) calls job's continuations,
     ;; which exit the (dynamic-wind) and later re-enter it.
@@ -40,7 +40,7 @@
       ;; try really hard to restore (sh-globals) as the foreground process group
       (%pgid-foreground -1 main-pgid))
 
-    ;;x (debugf "<-  job-wait caller=~s wait-flags=~s job=~a status=~s job-pgid=~s main-pgid=~s" caller wait-flags (sh-job->string job) (job-last-status job) job-pgid main-pgid)
+    ;;g (debugf "<-  job-wait caller=~s wait-flags=~s job=~a status=~s job-pgid=~s main-pgid=~s" caller wait-flags (sh-job->string job) (job-last-status job) job-pgid main-pgid)
     )
 
   (job-id-update! job)) ; returns job status
@@ -57,7 +57,7 @@
       (let ((is-sh-list? (eq? sh-list (multijob-kind job))))
         (span-any (multijob-children job)
           (lambda (i child)
-            (and (sh-job? child) (child-is-sync? job i is-sh-list?) (job-tree-find-pgid job)))))
+            (and (sh-job? child) (child-is-sync? job i is-sh-list?) (job-tree-find-pgid child)))))
       #f)))
 
 
@@ -101,7 +101,7 @@
       (void))
 
     ((running)
-      (scheduler-wait wait-flags)
+      (%job-wait-running-once caller job wait-flags)
 
       (when (job-wait-should-wait-again? job wait-flags)
         ;; caller asked to wait for job to finish (or to stop), cannot return yet: try again
@@ -111,18 +111,11 @@
         ;;   (mj-pipe-continue caller job wait-flags))
       )
     ((stopped)
-      (cond
-        ((sh-wait-flag-wait-until-finished? wait-flags)
-          ;; caller asked to wait for job to finish, cannot return yet.
-          ;; But waiting for a stopped job is not very useful => call break handler
-          (job-wait/break job)
-          (%job-wait caller job wait-flags))
+      (%job-wait-stopped-once caller job wait-flags)
 
-        (else
-          (scheduler-wait wait-flags)
-          (when (job-wait-should-wait-again? job wait-flags)
-            ;; caller asked to wait for job to finish (or to stop), cannot return yet: try again
-            (%job-wait caller job wait-flags)))))
+      (when (job-wait-should-wait-again? job wait-flags)
+         ;; caller asked to wait for job to finish (or to stop), cannot return yet: try again
+         (%job-wait caller job wait-flags)))
     (else
       (raise-errorf caller "job not started yet: ~s" job)))
   ;;e (debugf "<- job-wait\tjob=~a\tstatus=~s\tcaller=~s\twait-flags=~s id=~s pid=~s resume-proc=~s" (sh-job->string job) (job-last-status job) caller wait-flags (job-id job) (job-pid job) (job-resume-proc job))
@@ -172,6 +165,32 @@
             (pid-kill kill-target 'sigint)))))))
 
 
+;; wait a single time for a running job
+(define (%job-wait-running-once caller job wait-flags)
+  (let ((current-job (sh-current-job)))
+    (if current-job
+      ;; cannot sleep from inside a job: yield instead
+      (when (sh-wait-flag-wait? wait-flags)
+        (job-yield current-job 'job-wait))
+      (scheduler-wait wait-flags))))
+
+
+;; wait a single time for a stopped job
+(define (%job-wait-stopped-once caller job wait-flags)
+  (if (sh-wait-flag-wait-until-finished? wait-flags)
+    ;; caller asked to wait for job to finish, cannot return yet.
+    ;; But waiting for a stopped job is not very useful
+    ;; => either suspend caller job or call break handler
+    (let ((current-job (sh-current-job)))
+      (if current-job
+        (job-suspend current-job (job-last-status job))
+        (job-wait/break job)))
+
+    ;; if no current job, non-blockingly check if any pid changed status
+    (unless (sh-current-job)
+      (scheduler-wait (sh-wait-flags)))))
+
+
 
 ;; Core function in charge of waiting.
 ;;
@@ -194,16 +213,12 @@
 ;;
 ;; Returns unspecified value.
 (define (scheduler-wait wait-flags)
-  (let ((current-job (sh-current-job)))
-    (cond
-      (current-job
-        ;; cannot sleep from inside a job: yield instead
-        (job-yield current-job 'scheduler-wait))
-      (else
-        (when (sh-wait-flag-wait? wait-flags)
-          (scheduler-wait-once wait-flags))
+  (check-not 'scheduler-wait (sh-current-job))
 
-        (while (scheduler-wait-once (sh-wait-flags)))))))
+  (when (sh-wait-flag-wait? wait-flags)
+    (scheduler-wait-once wait-flags))
+
+  (while (scheduler-wait-once (sh-wait-flags))))
 
 
 (define (maybe-queue-job-display-summary job)
@@ -225,7 +240,7 @@
          (wait-result (pid-wait -1 may-block))
          (job         (and (pair? wait-result) (pid->job (car wait-result)))))
 
-    ;;x (debugf "... scheduler-wait-once job=~a\twait-flags=~s wait-result=~s" (and job (sh-job->string job)) wait-flags wait-result)
+    ;;g (debugf "... scheduler-wait-once job=~a\twait-flags=~s wait-result=~s" (and job (sh-job->string job)) wait-flags wait-result)
     ; (when (null? wait-result) (sh-eval '(sleep (make-time 'time-duration 0 1))))
 
     (if job
@@ -240,9 +255,9 @@
         (when changed?
           (maybe-queue-job-display-summary job)
 
-          ;;x (debugf "... scheduler-wait-once job=~a\tstatus=~s\tcalling job-resume-proc... ~s parent=~a" (sh-job->string job) new-status (%job-resume-proc job) (let ((parent (job-parent job))) (and parent (sh-job->string parent))))
+          ;;g (debugf "... scheduler-wait-once job=~a\tstatus=~s\tcalling job-resume-proc... ~s parent=~a" (sh-job->string job) new-status (%job-resume-proc job) (let ((parent (job-parent job))) (and parent (sh-job->string parent))))
           (job-call-resume-proc job (sh-wait-flags))
-          ;;x (debugf "... scheduler-wait-once job=~a\tstatus=~s\t...job-resume-proc returned" (sh-job->string job) new-status)
+          ;;g (debugf "... scheduler-wait-once job=~a\tstatus=~s\t...job-resume-proc returned" (sh-job->string job) new-status)
           )
 
         ;;e (debugf "<-  scheduler-wait-once job=~a changed?=~s wait-flags=~s" (sh-job->string job) changed? wait-flags)
