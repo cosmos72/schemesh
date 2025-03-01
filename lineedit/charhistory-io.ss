@@ -35,33 +35,29 @@
 ;; save charhistory to file specified by path.
 ;; return #t if successful, otherwise return #f
 (define (charhistory-save-to-path hist path)
-  (call/cc
-    (lambda (cont)
-      (let ((temp-path (string-append path "." (number->string (pid-get))))
-            (remove-temp-path? #f)
-            (port #f)
-            (success? #f))
-        (dynamic-wind
-          void
-          (lambda ()
-            ;; write to a temporary file "history.txt.PID"
-            (set! port (open-file-output-port temp-path (file-options no-fail) (buffer-mode block)))
-            (set! remove-temp-path? #t)
-            (charhistory-save-to-port hist port)
-            (close-port port)
-            (set! port #f)
-            ;; atomically rename "history.txt.PID" -> "history.txt"
-            (when (ok? (file-rename temp-path path 'catch))
-              (set! remove-temp-path? #f)
-              (set! success? #t)))
-          (lambda ()
-            (when port
-              (close-port port)
-              (set! port #f))
-            (when remove-temp-path?
-              (file-delete temp-path 'catch)
-              (set! remove-temp-path? #f))
-            (cont success?)))))))
+  (let ((temp-path (string-append path "." (number->string (pid-get))))
+        (remove-temp-path? #f)
+        (port #f)
+        (success? #f))
+    (try
+        ;; write to a temporary file "history.txt.PID"
+        (set! port (open-file-output-port temp-path (file-options no-fail) (buffer-mode block)))
+        (set! remove-temp-path? #t)
+        (charhistory-save-to-port hist port)
+        (close-port port)
+        (set! port #f)
+        ;; atomically rename "history.txt.PID" -> "history.txt"
+        (when (ok? (file-rename temp-path path 'catch))
+          (set! remove-temp-path? #f)
+          (set! success? #t))
+      (catch (ex)
+        (void)))
+
+    (when port
+      (close-port port))
+    (when remove-temp-path?
+      (file-delete temp-path 'catch))
+    success?))
 
 
 ;; save charhistory to specified binary output port.
