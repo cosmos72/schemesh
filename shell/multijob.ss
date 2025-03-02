@@ -101,7 +101,8 @@
     (do ((tail children-jobs (cdr tail)))
         ((null? tail))
       (validate-job-proc kind (car tail))))
-  (let ((mj
+  (let* ((current-job (sh-current-job))
+         (mj
     (%make-multijob
       #f #f #f #f     ; id oid pid pgid
       '(new) #f       ; last-status exception
@@ -110,8 +111,8 @@
       #f #f           ; working directory, old working directory - initially inherited from parent job
       #f              ; overridden environment variables - initially none
       #f              ; env var assignments - initially none
-      #f              ; no temp parent.
-      (or (sh-current-job) (sh-globals)) ; default parent job
+      (and current-job (job-parent current-job)) ; temp parent job
+      (or current-job (sh-globals))              ; default parent job
       kind
       -1              ; no child running yet
       (list->span children-jobs))))
