@@ -6,7 +6,7 @@
 
   (import
     (rnrs)
-    (only (chezscheme)          procedure-arity-mask void)
+    (only (chezscheme)          logbit? procedure-arity-mask void)
     (only (schemesh bootstrap)  assert*)
     (schemesh containers span))
 
@@ -24,8 +24,8 @@
      (mutable result)
      start-proc
      (mutable resume-proc)
-     (mutable suspend-proc))
-  (nongenerative #{task hvcyofcpj596hi922bdsnfbh9-2}))
+     (mutable yield-proc))
+  (nongenerative #{task hvcyofcpj596hi922bdsnfbh9-3}))
 
 
 (define (task-find task-or-id)
@@ -73,22 +73,22 @@
           (when proc
             (task-status-set! task 'running)
             (task-result-set! task #f)
-            (task-suspend-proc-set! task susp)
+            (task-yield-proc-set! task susp)
             (proc task)))))))
 
 
-;; suspend this task and return intermediate-result to whoever called (task-resume task)
+;; yield this task and return intermediate-result to whoever called (task-resume task)
 (define (task-yield task intermediate-result)
-  (assert* 'task-yield (task-suspend-proc task))
+  (assert* 'task-yield (task-yield-proc task))
   (call/cc
     ;; Capture the continuation representing THIS call to task-yield
     (lambda (cont)
       ;; store it as task's resume-proc
       (task-resume-proc-set! task (lambda (task) (cont)))
-      ;; suspend task, i.e. call its suspend-proc, and also unset suspend-proc
-      (let ((susp (task-suspend-proc task)))
-        (task-suspend-proc-set! task #f)
-        (susp intermediate-result)))))
+      ;; yield task, i.e. call its yield-proc, and also unset yield-proc
+      (let ((yield (task-yield-proc task)))
+        (task-yield-proc-set! task #f)
+        (yield intermediate-result)))))
 
 
 ) ; close library
