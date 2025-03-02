@@ -40,7 +40,7 @@ schemesh will create a second line where you can continue typing.<br/>
 You can move between lines with the cursor keys, and use all the classical line-editing features including cut-and-paste.<br/>
 ![](doc/screenshot-2.png)
 
-#### Shell <-> Lisp syntax switching
+#### Switching syntax shell <-> Lisp
 
 Switching between shell syntax and Lisp syntax is extremely simple, and can be done basically everywhere:
 * open parenthesis `(` temporarily switches to Lisp syntax until the corresponding `)`.
@@ -57,6 +57,12 @@ Switching between shell syntax and Lisp syntax is extremely simple, and can be d
 
 * the directive `#!shell` temporarily switches to shell syntax until the end of current `( )`, `[ ]` or `{ }`.<br/>
   If entered at top level, it changes the default syntax until another directive is entered at top level.
+
+Syntax switching can be nested arbitrarily deep, i.e. you can write
+```
+{shell syntax (Scheme syntax {shell syntax (Scheme syntax {...} ...) ...} ...) ...}
+```
+with as many nesting levels as you want.
 
 #### Job control
 
@@ -106,10 +112,12 @@ the latter will soon have a different meaning in schemesh.
 
 #### Full Scheme REPL
 
-Schemesh contains a **full** Chez Scheme REPL:
+Schemesh contains a **full** Chez Scheme REPL:<br/>
 you can define variables, functions, macros, libraries, modules and use them with the classic Scheme syntax
 ```lisp
 (define (add a b) (+ a b))
+(add 7/3 (add 7/6 7/2))
+7
 
 (define-syntax while
   (syntax-rules ()
@@ -125,6 +133,7 @@ you can define variables, functions, macros, libraries, modules and use them wit
 (import (hello world))
 
 (greet "User")
+Hello, User!
 ```
 
 You can compile and load Scheme files and libraries,
@@ -204,12 +213,6 @@ the example above has the advantage that `for` can iterate simultaneously
 on multiple heterogenous containers: lists, strings, vectors, hashtables, etc. ...
 
 #### Even more examples
-
-Note: syntax switching can be nested arbitrarily deep, i.e. you can write
-```
-{shell syntax (Scheme syntax {shell syntax (Scheme syntax {...} ...) ...} ...) ...}
-```
-with as many nesting levels as you want.
 
 As a last example, all the following are equivalent:
 ```shell
