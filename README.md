@@ -40,19 +40,7 @@ schemesh will create a second line where you can continue typing.<br/>
 You can move between lines with the cursor keys, and use all the classical line-editing features including cut-and-paste.<br/>
 ![](doc/screenshot-2.png)
 
-Commands can be executed in a subshell by surrounding them in `[ ]` as for example:
-```shell
-grep -q old *.txt && [ sed -i -e 's/old/new/g' -- *.txt ]
-```
-traditional shells typically start subshells with `( )`, which has a different meaning in schemesh.
-
-Command substitution, i.e. using output of a first command as argument for a second command,
-can be performed by surrounding the first command in ``` `` ``` or `$[ ]` - example:
-```shell
-NOW=$[date]
-```
-traditional shells typically perform command substitution with ``` `` ``` or `$( )`:
-the latter will soon have a different meaning in schemesh.
+#### Switching syntax shell <-> Lisp
 
 Switching between shell syntax and Lisp syntax is extremely simple, and can be done basically everywhere:
 * open parenthesis `(` temporarily switches to Lisp syntax until the corresponding `)`.
@@ -70,9 +58,17 @@ Switching between shell syntax and Lisp syntax is extremely simple, and can be d
 * the directive `#!shell` temporarily switches to shell syntax until the end of current `( )`, `[ ]` or `{ }`.<br/>
   If entered at top level, it changes the default syntax until another directive is entered at top level.
 
-* shell syntax creates first-class Lisp `sh-job` objects, which can be started/stopped/managed from both syntaxes.
+Syntax switching can be nested arbitrarily deep, i.e. you can write
+```
+{shell syntax (Scheme syntax {shell syntax (Scheme syntax {...} ...) ...} ...) ...}
+```
+with as many nesting levels as you want.
 
-* `sh-job` objects are discoverable and pretty-printable:<br/>
+#### Job control
+
+Shell syntax creates first-class Lisp `sh-job` objects, which can be started/stopped/managed from both syntaxes.
+
+`sh-job` objects are discoverable and pretty-printable:<br/>
   `(values '{SOME-SHELL-SYNTAX})` shows how shell syntax is converted to `shell...` macros,<br/>
   `(expand '{SOME-SHELL-SYNTAX})` shows how `shell...` macros are expanded to `sh...` functions for creating jobs,<br/>
   `(values  {SOME-SHELL-SYNTAX})` - *without* quotes - pretty-prints the created `sh-job` objects.
@@ -97,6 +93,54 @@ Some more advanced Scheme functions:
 * `(sh-run/string job-object)` start a job in foreground, wait until job finishes, return its output as a Scheme string
 * `(sh-start/fd-stdout job-object)` start a job in background, return a file descriptor fixnum for reading its standard output - for example with `(open-fd-input-port fd)`
 
+#### Subshells and command substitution
+
+From shell syntax, commands can be executed in a subshell by surrounding them in `[ ]` as for example:
+```shell
+grep -q old *.txt && [ sed -i -e 's/old/new/g' -- *.txt ]
+```
+traditional shells typically start subshells with `( )`, which has a different meaning in schemesh.
+
+Command substitution, i.e. using output of a first command as argument for a second command,
+can be performed by surrounding the first command in ``` `` ``` or `$[ ]` - example:
+```shell
+NOW=$[date]
+```
+traditional shells typically perform command substitution with ``` `` ``` or `$( )`:
+the latter will soon have a different meaning in schemesh.
+
+
+#### Full Scheme REPL
+
+Schemesh contains a **full** Chez Scheme REPL:<br/>
+you can define variables, functions, macros, libraries, modules and use them with the classic Scheme syntax
+```lisp
+(define (add a b) (+ a b))
+(add 7/3 (add 7/6 7/2))
+7
+
+(define-syntax while
+  (syntax-rules ()
+    ((_ pred body ...) (do () ((not pred)) body ...))))
+
+(library (hello world)
+  (export greet)
+  (import (rnrs)
+          (only (chezscheme) format))
+  (define (greet who)
+    (format #t "Hello, ~a!\n" who)))
+
+(import (hello world))
+
+(greet "User")
+Hello, User!
+```
+
+You can compile and load Scheme files and libraries,
+including third-party libraries as the ones packaged by [https://akkuscm.org/](https://akkuscm.org/)
+by following the same instructions as for Chez Scheme.
+
+
 ### Examples
 
 You can mix shell command execution with Lisp control structures, loops and functions as for example:
@@ -116,7 +160,7 @@ else
   else_run_this_command foo bar $VAR
 fi
 ```
-more examples mixing shell and Lisp syntax:
+other examples mixing shell and Lisp syntax:
 ```shell
 find (lisp-function-returning-some-string) -type f | grep ^lib | wc -l &
 fg 1
@@ -132,6 +176,8 @@ fg 1
 (define txt (sh-run/string {git log}))
 (display txt)
 ```
+
+#### More examples
 
 ```shell
 sed -i -e 's/old/new/g' -- (directory-list ".")
@@ -163,8 +209,93 @@ or even
 (for ((f (in-list (sh-run/string-split-after-nuls {find -type f -print0}))))
   (file-rename f (string-replace-suffix f ".old" ".bak")))
 ```
-the last example has the advantage that `for` can iterate in parallel on multiple heterogenous containers:
-lists, strings, vectors, hashtables, etc. ...
+the example above has the advantage that `for` can iterate simultaneously
+on multiple heterogenous containers: lists, strings, vectors, hashtables, etc. ...
+
+#### Even more examples
+
+As a last example, all the following are equivalent:
+```shell
+{
+    TEMP=my-temp-dir
+    mkdir $TEMP                   && \
+    cd    $TEMP                   && \
+    tar xvf ../hello-world.tar.xz && \
+    cd    hello-world             && \
+    ./configure                   && \
+    make -j`nproc`
+}
+```
+```lisp
+(let ((temp "my-temp-dir"))
+  (sh-run
+    {
+      mkdir (values temp)           && \
+      cd    (values temp)           && \
+      tar xvf ../hello-world.tar.xz && \
+      cd    hello-world             && \
+      ./configure                   && \
+      make -j`nproc`
+    }))
+```
+```lisp
+(let ((temp "my-temp-dir"))
+  (sh-run
+    (sh-and
+      {mkdir (values temp)}
+      {cd    (values temp)}
+      {tar xvf ../hello-world.tar.xz}
+      {cd    hello-world}
+      {./configure}
+      {make -j`nproc`}
+    )))
+```
+```lisp
+(let ((temp "my-temp-dir"))
+  (sh-run
+    (sh-and
+      (sh-cmd "mkdir" temp)
+      (sh-cmd "cd"    temp)
+      (sh-cmd "tar" "xvf" "../hello-world.tar.xz")
+      (sh-cmd "cd"    "hello-world")
+      (sh-cmd "./configure")
+      (sh-cmd "make" (shell-wildcard "-j" (shell-backquote "nproc")))
+    )))
+```
+
+Note: by design, `cd` builtin and setting environment variables have local scope:<br/>
+their effect is limited to the surrounding `{ }` or `[ ]` or parent `(sh-...)` job.<br/>
+If you want them to have global effect, use `global cd SOME-DIR` or `global set NAME VALUE`
+
+There is no need to memorize the correspondence between shell syntax<br/>
+and its corresponding Scheme counterpart. You can type one of:
+* `(values '{shell syntax})`
+* `(expand '{shell syntax})`
+* `(values {shell syntax})` note: **no** quotes in this last expression
+
+and inspect the Scheme source or objects generated by shell syntax:
+```lisp
+> (values '{make > log && make install >> log && echo done})
+(shell "make" > "log" && "make" "install" >> "log" && "echo" "done")
+```
+```lisp
+> (expand '{make > log && make install >> log && echo done})
+(begin
+  (#3%$invoke-library
+    '(schemesh shell job)
+    '(0 7 7)
+    '#{job ly4j0bdptfcux94zntpcy9sqg-49})
+  (sh-and
+    (sh-cmd* "make" 1 '> "log")
+    (sh-cmd* "make" "install" 1 '>> "log")
+    (sh-cmd "echo" "done")))
+```
+```lisp
+> (values {make > log && make install >> log && echo done})
+(sh-and (sh-cmd* "make" 1 '> "log")
+        (sh-cmd* "make" "install" 1 '>> "log")
+        (sh-cmd "echo" "done"))
+```
 
 ### Features
 - [x] REPL with multi-line editing and parentheses highlighting
@@ -173,7 +304,7 @@ lists, strings, vectors, hashtables, etc. ...
 - [x] history searchable with PageUp and PageDown keys
 - [x] cut-and-paste
 - [x] context-sensitive autocompletion - some improvements pending
-- [x] UTF-8b for losslessly converting byte sequences that are not valid UTF-8
+- [x] UTF-8b for losslessly converting file names and environment variables that are not valid UTF-8
 - [x] shell commands, including `;` `&` `!` `&&` `||` `{` `}` `[` `]`
 - [x] shell job control
 - [x] shell aliases
@@ -265,8 +396,8 @@ describing the issue. Remember to include at least:
 * the output of the command `uname -a`
 * the output of the command `make --version`
 * the output of the command `cc --version`
-* the output of the command `( chezscheme --verbose || chez --verbose || scheme --verbose ) </dev/null >/dev/null`
-* the output of the command `git log | head -6`
+* the output of the command `( chez-scheme --verbose || chezscheme --verbose || chez --verbose || scheme --verbose ) </dev/null >/dev/null`
+* the output of the command `git log -2`
 
 
 ## RECENT CHANGES
