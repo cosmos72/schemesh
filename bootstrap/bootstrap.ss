@@ -252,13 +252,11 @@
 
 (define-syntax while
   (syntax-rules ()
-    ((_ pred)          (do () ((not pred))))
     ((_ pred body ...) (do () ((not pred)) body ...))))
 
 
 (define-syntax until
   (syntax-rules ()
-    ((_ pred)          (do () (pred)))
     ((_ pred body ...) (do () (pred) body ...))))
 
 

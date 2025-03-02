@@ -40,19 +40,7 @@ schemesh will create a second line where you can continue typing.<br/>
 You can move between lines with the cursor keys, and use all the classical line-editing features including cut-and-paste.<br/>
 ![](doc/screenshot-2.png)
 
-Commands can be executed in a subshell by surrounding them in `[ ]` as for example:
-```shell
-grep -q old *.txt && [ sed -i -e 's/old/new/g' -- *.txt ]
-```
-traditional shells typically start subshells with `( )`, which has a different meaning in schemesh.
-
-Command substitution, i.e. using output of a first command as argument for a second command,
-can be performed by surrounding the first command in ``` `` ``` or `$[ ]` - example:
-```shell
-NOW=$[date]
-```
-traditional shells typically perform command substitution with ``` `` ``` or `$( )`:
-the latter will soon have a different meaning in schemesh.
+#### Shell <-> Lisp syntax switching
 
 Switching between shell syntax and Lisp syntax is extremely simple, and can be done basically everywhere:
 * open parenthesis `(` temporarily switches to Lisp syntax until the corresponding `)`.
@@ -70,9 +58,11 @@ Switching between shell syntax and Lisp syntax is extremely simple, and can be d
 * the directive `#!shell` temporarily switches to shell syntax until the end of current `( )`, `[ ]` or `{ }`.<br/>
   If entered at top level, it changes the default syntax until another directive is entered at top level.
 
-* shell syntax creates first-class Lisp `sh-job` objects, which can be started/stopped/managed from both syntaxes.
+#### Job control
 
-* `sh-job` objects are discoverable and pretty-printable:<br/>
+Shell syntax creates first-class Lisp `sh-job` objects, which can be started/stopped/managed from both syntaxes.
+
+`sh-job` objects are discoverable and pretty-printable:<br/>
   `(values '{SOME-SHELL-SYNTAX})` shows how shell syntax is converted to `shell...` macros,<br/>
   `(expand '{SOME-SHELL-SYNTAX})` shows how `shell...` macros are expanded to `sh...` functions for creating jobs,<br/>
   `(values  {SOME-SHELL-SYNTAX})` - *without* quotes - pretty-prints the created `sh-job` objects.
@@ -96,6 +86,51 @@ The analogous job control mechanisms from Scheme syntax are:
 Some more advanced Scheme functions:
 * `(sh-run/string job-object)` start a job in foreground, wait until job finishes, return its output as a Scheme string
 * `(sh-start/fd-stdout job-object)` start a job in background, return a file descriptor fixnum for reading its standard output - for example with `(open-fd-input-port fd)`
+
+#### Subshells and command substitution
+
+From shell syntax, commands can be executed in a subshell by surrounding them in `[ ]` as for example:
+```shell
+grep -q old *.txt && [ sed -i -e 's/old/new/g' -- *.txt ]
+```
+traditional shells typically start subshells with `( )`, which has a different meaning in schemesh.
+
+Command substitution, i.e. using output of a first command as argument for a second command,
+can be performed by surrounding the first command in ``` `` ``` or `$[ ]` - example:
+```shell
+NOW=$[date]
+```
+traditional shells typically perform command substitution with ``` `` ``` or `$( )`:
+the latter will soon have a different meaning in schemesh.
+
+
+#### Full Scheme REPL
+
+Schemesh contains a **full** Chez Scheme REPL:
+you can define variables, functions, macros, libraries, modules and use them with the classic Scheme syntax
+```lisp
+(define (add a b) (+ a b))
+
+(define-syntax while
+  (syntax-rules ()
+    ((_ pred body ...) (do () ((not pred)) body ...))))
+
+(library (hello world)
+  (export greet)
+  (import (rnrs)
+          (only (chezscheme) format))
+  (define (greet who)
+    (format #t "Hello, ~a!\n" who)))
+
+(import (hello world))
+
+(greet "User")
+```
+
+You can compile and load Scheme files and libraries,
+including third-party libraries as the ones packaged by [https://akkuscm.org/](https://akkuscm.org/)
+by following the same instructions as for Chez Scheme.
+
 
 ### Examples
 
@@ -133,6 +168,8 @@ fg 1
 (display txt)
 ```
 
+#### More examples
+
 ```shell
 sed -i -e 's/old/new/g' -- (directory-list ".")
 ```
@@ -163,8 +200,58 @@ or even
 (for ((f (in-list (sh-run/string-split-after-nuls {find -type f -print0}))))
   (file-rename f (string-replace-suffix f ".old" ".bak")))
 ```
-the last example has the advantage that `for` can iterate in parallel on multiple heterogenous containers:
-lists, strings, vectors, hashtables, etc. ...
+the example above has the advantage that `for` can iterate simultaneously
+on multiple heterogenous containers: lists, strings, vectors, hashtables, etc. ...
+
+#### Even more examples
+
+Note: syntax switching can be nested arbitrarily deep, i.e. you can write
+```
+{shell syntax (Scheme syntax {shell syntax (Scheme syntax {...} ...) ...} ...) ...}
+```
+with as many nesting levels as you want.
+
+As a last example, all the following are equivalent:
+```shell
+{
+    TEMP=my-temp-dir
+    mkdir $TEMP                   && \
+    cd    $TEMP                   && \
+    tar xvf ../hello-world.tar.xz && \
+    cd    hello-world             && \
+    ./configure                   && \
+    make -j`nproc`
+}
+```
+```lisp
+(let ((temp "my-temp-dir"))
+  (sh-run
+    {
+      mkdir (values temp)           && \
+      cd    (values temp)           && \
+      tar xvf ../hello-world.tar.xz && \
+      cd    hello-world             && \
+      ./configure                   && \
+      make -j`nproc`
+    }))
+```
+```lisp
+(let ((temp "my-temp-dir"))
+  (sh-run
+    (sh-and
+      {mkdir (values temp)}
+      {cd    (values temp)}
+      {tar xvf ../hello-world.tar.xz}
+      {cd    hello-world}
+      {./configure}
+      {make -j`nproc`}
+    )))
+```
+
+Note: by design, `cd` builtin and setting environment variables have local scope:
+their effect is limited to the surrounding `{ }` or `[ ]`.
+If you want them to have global effect, use `global cd SOME-DIR` or `global set NAME VALUE`
+
 
 ### Features
 - [x] REPL with multi-line editing and parentheses highlighting
