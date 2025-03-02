@@ -6,7 +6,7 @@
 
   (import
     (rnrs)
-    (only (chezscheme)          procedure-arity-mask void)
+    (only (chezscheme)          logbit? procedure-arity-mask void)
     (only (schemesh bootstrap)  assert*)
     (schemesh containers span))
 
@@ -25,7 +25,7 @@
      start-proc
      (mutable resume-proc)
      (mutable yield-proc))
-  (nongenerative #{task hvcyofcpj596hi922bdsnfbh9-2}))
+  (nongenerative #{task hvcyofcpj596hi922bdsnfbh9-3}))
 
 
 (define (task-find task-or-id)

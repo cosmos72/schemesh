@@ -84,7 +84,7 @@
   (let ((l '()))
     (list-iterate prog-and-args
       (lambda (arg)
-        (set! l (cmd-arg-apply c arg l))))
+        (set! l (cmd-arg-call-closure c arg l))))
     (set! l (reverse! l))
     (assert-string-list? 'sh-start l)
     l))
@@ -95,13 +95,13 @@
 ;; Such procedure must return a string or list-of-strings, which are reverse-consed
 ;; at the beginning of list-of-strings l.
 ;; Return the updated list.
-(define (cmd-arg-apply c arg l)
+(define (cmd-arg-call-closure c arg l)
   (let ((expanded
           (cond
             ((not (procedure? arg)) arg)
             ((logbit? 1 (procedure-arity-mask arg)) (arg c)) ; call closure (lambda (job) ...)
             (else (arg)))))                                  ; call closure (lambda () ...)
-    ; (debugf "cmd-arg-apply cmd=~s arg=~s expanded=~s l=~s" c arg expanded l)
+    ; (debugf "cmd-arg-call-closure cmd=~s arg=~s expanded=~s l=~s" c arg expanded l)
     (cond
       ((eq? (void) expanded)
         l)
