@@ -143,8 +143,8 @@
       (let ((wbuf  (make-bytespan 0)))
         (show-alias* name alias wbuf)
         (fd-write/bspan! (sh-fd-stdout) wbuf)
-        (void)                                           ; success, return (void)
-      (write-builtin-error "alias" name "not found"))))) ; error, return '(failed 1)
+        (void))                                         ; success, return (void)
+      (write-builtin-error "alias" name "not found")))) ; error, return '(failed 1)
 
 
 (define (show-alias* name alias wbuf)
