@@ -412,9 +412,8 @@
                                                                                      "echo" "def"))
   (caddr (expand '(shell "A" =
     (shell-backquote "echo" "abc" \x3B;
-                     "echo" "def"))))                  ,@(sh-cmd* "A" '= (lambda (job) (sh-run/string-rtrim-newlines
-                                                           (sh-list (sh-cmd "echo" "abc") '\x3B; (sh-cmd "echo" "def"))
-                                                             (($primitive 2 cons) 'same-parent-as-job job))))
+                     "echo" "def"))))                  ,(sh-cmd* "A" '= (lambda () (sh-run/string-rtrim-newlines
+                                                           (sh-list (sh-cmd "echo" "abc") '\x3B; (sh-cmd "echo" "def")))))
   (caddr (expand '{FOO=$BAR/subdir echo}))
                                                        ,@(sh-cmd* "FOO" '= (lambda (job) (sh-wildcard job (lambda (job)
                                                            (sh-env-ref job "BAR")) "/subdir")) "echo")
@@ -423,8 +422,7 @@
   (caddr (expand
     '(shell (shell-wildcard "l" "s") ".")))            (sh-cmd* "ls" ".")
   (caddr (expand
-    '(shell (shell-backquote "echo" "ls"))))           ,@(sh-cmd* (lambda (job) (sh-run/string-rtrim-newlines (sh-cmd echo ls)
-                                                          (($primitive 2 cons) 'same-parent-as-job job))))
+    '(shell (shell-backquote "echo" "ls"))))           ,(sh-cmd* (lambda () (sh-run/string-rtrim-newlines (sh-cmd "echo" "ls"))))
   ;; test wildcards and patterns [...]
   '{echo *}                                            (shell "echo" (shell-wildcard *))
   (caddr (expand '{echo *}))                           ,@(sh-cmd* "echo" (lambda (job) (sh-wildcard job '*)))
@@ -440,8 +438,8 @@
   (caddr (expand '{echo A=B}))                         (sh-cmd "echo" "A=B")
   '{echo [ab]* ? [!z]}                                 (shell "echo" (shell-wildcard % "ab" *) (shell-wildcard ?) (shell-wildcard %! "z"))
   '{echo $[foo&&bar]}                                  (shell "echo" (shell-backquote "foo" && "bar"))
-  (caddr (expand '{echo $[foo&&bar]}))                 ,@(sh-cmd* "echo" (lambda (job) (sh-run/string-rtrim-newlines
-                                                           (sh-and (sh-cmd "foo") (sh-cmd "bar")) (($primitive 2 cons) 'same-parent-as-job job))))
+  (caddr (expand '{echo $[foo&&bar]}))                 ,(sh-cmd* "echo" (lambda () (sh-run/string-rtrim-newlines
+                                                           (sh-and (sh-cmd "foo") (sh-cmd "bar")))))
   (caddr (expand '{{ls} > log.txt &}))                 ,@(sh-list* (sh-cmd "ls") 1 '> "log.txt" '&)
   (caddr (expand
     '{echo abc > DEL_ME && cat DEL_ME && rm DEL_ME}))  ,(sh-and (sh-cmd* "echo" "abc" 1 '> "DEL_ME")

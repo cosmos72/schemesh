@@ -18,14 +18,6 @@
     (schemesh))
 
 
-(define OPTION-PARENT-JOB '(($primitive 2 cons) 'same-parent-as-job job))
-
-(define (INVOKELIB-SHELL-JOBS form)
-  `(begin
-    (($primitive 3 $invoke-library) '(schemesh shell job) '(0 7 7) 'job)
-    ,form))
-
-
 (define (run-tests file-path)
   (let* ((tests  (sh-read-file file-path))
          (vec-n  (vector-length tests))

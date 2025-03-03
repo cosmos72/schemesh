@@ -11,18 +11,20 @@
 
 
 (define (make-sh-cmd program-and-args)
-  (%make-cmd
-    #f #f #f        ; id pid pgid
-    '(new) #f       ; last-status exception
-    (span) 0 #f     ; redirections
-    cmd-start #f    ; start-proc step-proc
-    #f #f           ; resume-proc suspend-proc
-    #f #f           ; working directory, old working directory - initially inherited from parent job
-    #f              ; overridden environment variables - initially none
-    #f              ; env var assignments - initially none
-    #f (sh-globals) ; no temp parent. default parent job is initially the global job
-    program-and-args
-    #f))            ; expanded arg-list
+  (let ((current-job (sh-current-job)))
+    (%make-cmd
+      #f #f #f        ; id pid pgid
+      '(new) #f       ; last-status exception
+      (span) 0 #f     ; redirections
+      cmd-start #f    ; start-proc step-proc
+      #f #f           ; resume-proc suspend-proc
+      #f #f           ; working directory, old working directory - initially inherited from parent job
+      #f              ; overridden environment variables - initially none
+      #f              ; env var assignments - initially none
+      (and current-job (job-parent current-job)) ; temp parent job
+      (or current-job (sh-globals))              ; default parent job
+      program-and-args
+      #f)))           ; expanded arg-list
 
 
 ;; Create a cmd to later spawn it. Each argument must be a string.

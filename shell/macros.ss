@@ -28,7 +28,7 @@
   (syntax-rules ()
     ((_)               "")
     ;; NOTE: (sh-run/string-rtrim-newlines) cannot be stopped and resumed. But neither can $(...) or `...` in POSIX shells
-    ((_ arg ...)       (lambda (job) (sh-run/string-rtrim-newlines (shell arg ...) (cons 'same-parent-as-job job))))))
+    ((_ arg ...)       (lambda () (sh-run/string-rtrim-newlines (shell arg ...))))))
 
 
 (define-syntax shell-env
