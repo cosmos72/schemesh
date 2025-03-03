@@ -1,5 +1,5 @@
 # schemesh
-## Fusion between a Unix shell and a Lisp REPL
+# Fusion between a Unix shell and a Lisp REPL
 
 Schemesh is an interactive shell scriptable in Lisp.
 
@@ -26,7 +26,7 @@ For scripting and serious programming, schemesh completely replaces the slow, cl
 scripting language of a traditional shell (yes, the author has opinions) with a full-featured Lisp REPL,
 backed by the fast and open-source Chez Scheme compiler that generates highly optimized native code.
 
-### How to use
+## How to use
 
 As a traditional Unix shell: type a command and press Enter.<br/>
 As a Lisp REPL: type an expression starting with `(` and press Enter.<br/>
@@ -40,7 +40,7 @@ schemesh will create a second line where you can continue typing.<br/>
 You can move between lines with the cursor keys, and use all the classical line-editing features including cut-and-paste.<br/>
 ![](doc/screenshot-2.png)
 
-#### Switching syntax shell <-> Lisp
+### Switching syntax shell <-> Lisp
 
 Switching between shell syntax and Lisp syntax is extremely simple, and can be done basically everywhere:
 * open parenthesis `(` temporarily switches to Lisp syntax until the corresponding `)`.
@@ -94,7 +94,7 @@ Some more advanced Scheme functions:
 * `(sh-start/fd-stdout job-object)` start a job in background, return a file descriptor fixnum for reading its standard output - for example with `(open-fd-input-port fd)`
 
 
-##### [NEW in upcoming version 0.7.8]
+#### [NEW in upcoming version 0.7.8]
 
 Job control is now available also for Scheme code:
 
@@ -116,14 +116,14 @@ The same feature is also available from Scheme syntax:
 in that case, wrap the Scheme expression inside `(shell-expr ...)` to create the job,
 which can be executed immediately, saved in a variable for later execution, passed to a Scheme procedure, etc.
 Example:
-```
+```lisp
 > (define j (shell-expr (do ((i 0 (fx1+ i))) ((fx>=? i 1000000000) "done too!\n"))))
 > (sh-run/i j)
 (ok "done too!\n")
 ```
 
 
-#### Subshells and command substitution
+### Subshells and command substitution
 
 From shell syntax, commands can be executed in a subshell by surrounding them in `[ ]` as for example:
 ```shell
@@ -140,7 +140,7 @@ traditional shells typically perform command substitution with ``` `` ``` or `$(
 the latter has a different meaning in schemesh, see Job control above.
 
 
-#### Full Scheme REPL
+### Full Scheme REPL
 
 Schemesh contains a **full** Chez Scheme REPL:<br/>
 you can define variables, functions, macros, libraries, modules and use them with the classic Scheme syntax
@@ -171,7 +171,7 @@ including third-party libraries as the ones packaged by [https://akkuscm.org/](h
 by following the same instructions as for Chez Scheme.
 
 
-### Examples
+## Examples
 
 You can mix shell command execution with Lisp control structures, loops and functions as for example:
 ```lisp
