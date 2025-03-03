@@ -206,8 +206,8 @@
             (job-call-resume-proc job wait-flags))
           ((sh-multijob? job)
             (if (eq? 'sh-pipe (multijob-kind job))
-              (advance-multijob-pipe caller job wait-flags)
-              (advance-multijob      caller job wait-flags)))))
+              (mj-pipe-advance caller job wait-flags)
+              (mj-advance      caller job wait-flags)))))
       (else
         (raise-errorf caller "job not started yet: ~s" job)))
 
