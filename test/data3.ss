@@ -113,11 +113,11 @@
   (sh-run (shell "true"))                              ,@"#<void>"
   (sh-run (shell "false"))                             (failed 1)
   (sh-run (shell "echo0"))                             ,@"#<void>"
-  (sh-run (shell "expr" "210"))                        (failed 210)
+  (sh-run (shell "value" "210"))                       (failed 210)
   (sh-run (shell-subshell "true"))                     ,@"#<void>"
   (sh-run (shell-subshell "false"))                    (failed 1)
   (sh-run (shell-subshell "echo0"))                    ,@"#<void>"
-  (sh-run (shell-subshell "expr" "210"))               (failed 210)
+  (sh-run (shell-subshell "value" "210"))              (failed 210)
   ;; (sh-run/string)
   (sh-run/string (shell "echo"
     (shell-wildcard (shell-env "FOO") "=123" )))       "=123\n"
@@ -172,19 +172,19 @@
   (sh-run (shell
     "false" \x7C;
     "command" "true" \x7C;
-    "expr" "17"))                                      (failed 17)
+    "value" "17"))                                      (failed 17)
   ;; run a pipe in a subshell
   (sh-run (shell-subshell
     "builtin" "true" \x7C;
     "builtin" "command" "false" \x7C;
-    "global"  "expr" "19"))                            (failed 19)
+    "global"  "value" "19"))                            (failed 19)
 
   ;; ------------------------- job execution ---------------------------------
 
   (sh-run/i (sh-cmd "command" "true"))                 ,@"#<void>"
   (sh-run   (sh-cmd "command" "false"))                (failed 1)
-  (sh-run   (sh-cmd "expr" "0"))                       ,@"#<void>"
-  (sh-run   (sh-cmd "expr" "257"))                     (failed 257)
+  (sh-run   (sh-cmd "value" "0"))                      ,@"#<void>"
+  (sh-run   (sh-cmd "value" "257"))                    (failed 257)
   (sh-run/i {false
              true})                                    ,@"#<void>"
   (sh-run   {true
@@ -226,19 +226,18 @@
        (begin (define (fib n)
          (let %fib ((i n))
            (if (fx>? i 2) (fx+ (%fib (fx1- i)) (%fib (fx- i 2))) 1)))
-          (sh-run (shell \x3B;
-                         "FOO" = "bar" \x3B;
+          (sh-run (shell "FOO" = "bar" \x3B;
                          )))
   (sh-read-file "utils/test_file.sh")
        (begin
-         (sh-run (shell \x3B; \x3B;
+         (sh-run (shell
            "BAR" = "" \x3B;
            "foo" "a b" "c" \x7C;
            "bar" (shell-env "BAR") &&
            (shell "echo"
              (shell-backquote "baz" "--quiet")
                < "/dev/null" 2 >& "1" \x7C;\x7C;
-             "fail" "--verbose")  \x3B; \x3B;
+             "fail" "--verbose")  \x3B;
              ))
          (set! a 42))
 

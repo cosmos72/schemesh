@@ -147,7 +147,7 @@
     out-pipe-fd/read))
 
 
-;; Internal function called by (sh-resume) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
+;; Internal function called by (job-wait) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 (define (mj-pipe-advance caller mj wait-flags)
   ; (debugf ">   mj-pipe-advance wait-flags=~s mj=~s" mj wait-flags)
   (let ((pgid (job-pgid mj)))
@@ -161,7 +161,7 @@
 (define (mj-pipe-advance/maybe-sigcont mj wait-flags pgid)
   ; send SIGCONT to job's process group, if present.
   ; It may raise error.
-  (when (and pgid (jr-flag-sigcont? wait-flags))
+  (when (and pgid (sh-wait-flag-continue-if-stopped? wait-flags))
     ; (debugf "mj-pipe-advance/sigcont > ~s ~s" mj wait-flags)
     (pid-kill (- pgid) 'sigcont)))
 
@@ -172,12 +172,13 @@
          (n         (span-length children))
          (running-i (multijob-current-child-index mj)))
 
-    ; call (sh-resume wait-flags ...) on each child job,
+    ; call (job-wait wait-flags ...) on each child job,
     ; skipping the ones that already finished.
     (let %again ((i running-i))
       (let ((job (sh-multijob-child-ref mj i)))
         (when job
-          (when (or (symbol? job) (sh-finished? (sh-resume job wait-flags)))
+          (when (or (symbol? job)
+                    (sh-finished? (job-wait 'mj-pipe-advance/maybe-wait job wait-flags)))
             (set! running-i (fx1+ i))
             (%again (fx1+ i))))))
 
@@ -189,7 +190,7 @@
         ;; if some child is still running
         ;; and wait-flags tell to wait, then wait for child.
         ;; otherwise propagate child status and return.
-        (if (and (jr-flag-wait? wait-flags)
+        (if (and (sh-wait-flag-wait? wait-flags)
                  (eq? 'running (sh-status->kind (sh-multijob-child-status mj running-i))))
            (mj-pipe-advance/maybe-wait caller mj wait-flags)
            (job-last-status mj)))

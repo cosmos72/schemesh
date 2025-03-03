@@ -34,8 +34,6 @@
                     ; For cmds, will be called in fork()ed child process and
                     ; receives as argument job followed by options.
                     ; For cmds, its return value is passed to (exit-with-job-status)
-    (mutable resume-proc) ; #f or continuation to resume job
-    (mutable suspend-proc) ; #f or continuation to suspend job and return to whoever started/resumed it
     (mutable cwd %job-cwd %job-cwd-set!) ; charspan: working directory. if #f, use parent's cwd
     (mutable owd %job-owd %job-owd-set!) ; #f or charspan: previous working directory
     (mutable env)         ; #f or hashtable of overridden env variables: name -> value
@@ -43,7 +41,7 @@
     (mutable temp-parent) ; temporary parent job, contains default values of env variables.
                           ; Unset when job finishes
     (mutable default-parent)) ; default parent job, contains default values of env variables
-  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-30}))
+  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-33}))
 
 
 ;; Define the record type "cmd"
@@ -53,7 +51,18 @@
   (fields
     arg-list                     ; list of strings and closures: program-name and args
     (mutable expanded-arg-list)) ; #f or list of strings: program-name and args after applying closures and expanding aliases
-  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-31}))
+  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-34}))
+
+
+;; Define the record type "jexpr"
+(define-record-type
+  (jexpr %make-jexpr sh-expr?)
+  (parent job)
+  (fields
+    proc                    ; procedure to call for executing the job
+    (mutable resume-proc)   ; #f or continuation to resume job
+    (mutable suspend-proc)) ; #f or continuation to suspend job and return to whoever started/resumed it
+  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-35}))
 
 
 ;; Define the record type "multijob"
@@ -64,7 +73,7 @@
     kind                ; symbol: one of 'sh-and 'sh-or 'sh-not 'sh-list 'sh-subshell '#<global>
     (mutable current-child-index) ; -1 or index of currently running child job
     children)           ; span: children jobs.
-  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-32}))
+  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-36}))
 
 
 ;; Parameter containing the current job.
@@ -184,7 +193,6 @@
     0 #f                 ; redirects-temp-n fds-to-remap
     (job-start-proc j)
     (job-step-proc  j)
-    #f #f                ; resume-proc suspend-proc
     (let ((cwd (%job-cwd j)))
       (and cwd (charspan-copy cwd)))
     (let ((owd (job-owd j)))

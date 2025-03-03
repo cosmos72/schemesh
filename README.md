@@ -431,6 +431,3 @@ See [doc/recent_changes.md](doc/recent_changes.md)
 * maybe add missing shell builtins "kill"
 * add syntax for evaluating a shell word i.e. a (sh-wildcard) from Scheme. TODO: associated to which job?
 * implement function `(string->sh-patterns)`
-* ignore newline after shell operators & ; ! && || | |& < <> > >> <& >& { [
-* ignore newline after shell blank line
-* parse redirections after shell } or ]

@@ -275,10 +275,11 @@
                   (set! done?  #t)
                   (set! prefix #f)))))
           ((separator)
-            ; value can be #\& #\; or #\newline
-            (set! ret (cons (if (eq? value '&) '& '\x3B;) ret))
-            (set! equal-is-operator?    #t)
-            (set! lbracket-is-subshell? #t))
+            ; value can be '& #\; or #\newline
+            (set! lbracket-is-subshell? #t)
+            (unless (and (eqv? #\newline value) (should-ignore-newlines? ret))
+              (set! ret (cons (if (eq? value '&) '& '\x3B;) ret))
+              (set! equal-is-operator?    #t)))
           ((op string integer atom)
             (set! ret (cons value ret))
             (when (and (eq? type 'op)
@@ -347,6 +348,13 @@
       (values simplified parser))))
 
 
+;; return #t in order to ignore newlines
+;; after shell operators & ; ! && || | |& < <> > >> <& >& { [
+(define (should-ignore-newlines? forms-revlist)
+  (or (null? forms-revlist)
+      (memq (car forms-revlist) '(! && \x3B; \x7C;\x7C; \x7C; \x7C;&
+                                  < <> > >> <& >&))))
+
 
 (define (%simplify-parse-shell-forms end-type prefix ret)
   (cond
@@ -381,7 +389,7 @@
   (let-values (((ch type) (peek-shell-char ctx)))
     (case type
       ((eof lparen) #t)
-      ((separator) (read-shell-char ctx) #t) ; consume semicolon or newline
+      ((separator)  (read-shell-char ctx) #t) ; consume semicolon or newline
       (else         #f))))
 
 

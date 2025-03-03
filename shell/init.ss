@@ -29,7 +29,6 @@
          (void) #f                 ; last-status exception
          (span) 0 #f               ; redirections
          #f #f                     ; start-proc step-proc
-         #f #f                     ; resume-proc suspend-proc
          (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) #f ; current directory, old working directory
          (make-hashtable string-hash string=?) ; env variables
          #f                        ; no env var assignments
@@ -51,7 +50,6 @@
     (hashtable-set! bt "exec"       builtin-exec)
     (hashtable-set! bt "exit"       builtin-exit)
     (hashtable-set! bt "export"     builtin-export)
-    (hashtable-set! bt "expr"       builtin-expr)
     (hashtable-set! bt "fg"         builtin-fg)
     (hashtable-set! bt "global"     builtin-global)
     (hashtable-set! bt "jobs"       builtin-jobs)
@@ -63,10 +61,11 @@
     (hashtable-set! bt "unexport"   builtin-unexport)
     (hashtable-set! bt "unsafe"     builtin-unsafe)
     (hashtable-set! bt "unset"      builtin-unset)
+    (hashtable-set! bt "value"      builtin-value)
 
     ;; mark builtins that finish immediately i.e. cannot run commands or aliases
-    (list-iterate '("alias" "cd" "cd-" "echo" "echo0" "exit" "expr" "false"
-                    "jobs" "history" "pwd" "set" "true" "unalias" "unset")
+    (list-iterate '("alias" "cd" "cd-" "echo" "echo0" "exit" "false" "jobs"
+                    "history" "pwd" "set" "true" "unalias" "unset" "value")
       (lambda (name)
         (let ((builtin (hashtable-ref bt name #f)))
           (when builtin
@@ -140,12 +139,6 @@
                                  as exported in parent job.
 
     return success.\n"))
-
-    (hashtable-set! t "expr"   (string->utf8 " [int ...]
-    return INT value specified as first argument, or success if no arguments.
-
-    Usually invoked with a (lambda () (sh-bool ...)) as its only argument,
-    for running arbitrary Scheme code from a shell job.\n"))
 
     (hashtable-set! t "fg"      (string->utf8 " job-id
     move a job to the foreground.
@@ -224,6 +217,8 @@
 
     return success.\n"))
 
+    (hashtable-set! t "value"   (string->utf8 " [int ...]
+    return INT value specified as first argument, or success if no arguments.\n"))
   )
 
 ) ; close begin

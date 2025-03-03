@@ -52,7 +52,7 @@
     {echo|{cat;{true}}&})
                                                        "{echo | {cat ; true} &}"
   '{ls ;
-    [foo || bar &] & echo}                             (shell "ls" \x3B; \x3B;
+    [foo || bar &] & echo}                             (shell "ls" \x3B;
                                                          (shell-subshell "foo" \x7C;\x7C;
                                                            "bar" &) & "echo")
   '{ls && [A=1 foo || bar &] || [B=2 echo]}            (shell "ls" &&
@@ -148,14 +148,14 @@
   '(#!shell echo charlie >> log.txt)                   (shell "echo" "charlie" >> "log.txt")
   '(values foo bar
      #!shell baz >> log.txt ;
-             wc -l log.txt)                            (values foo bar (shell "baz" >> "log.txt" \x3B; \x3B;
+             wc -l log.txt)                            (values foo bar (shell "baz" >> "log.txt" \x3B;
                                                                               "wc" "-l" "log.txt"))
   (parse-forms1 (string->parsectx
     "ls ; #!shell echo" (parsers)) 'shell)             ((shell "ls" \x3B;
                                                                "echo"))
   ;; test multiple #!... directives
   '((+ a b) #!shell uiop -opt >> log.txt ;
-            #!scheme foo bar)                          ((+ a b) (shell "uiop" "-opt" >> "log.txt" \x3B; \x3B;
+            #!scheme foo bar)                          ((+ a b) (shell "uiop" "-opt" >> "log.txt" \x3B;
                                                                        foo bar))
 
   ;; character ( inside shell syntax switches to Scheme parser for a single Scheme form,
@@ -196,7 +196,7 @@
   ;; open bracket [ not at the beginning of a command starts a wildcard, not a subshell
   '{""[foo] [bar]}                                     (shell (shell-wildcard % "foo") (shell-wildcard % "bar"))
   '{jkl ~ ;
-      #!scheme (f a b)}                                (shell "jkl" (shell-wildcard ~) \x3B; \x3B;
+      #!scheme (f a b)}                                (shell "jkl" (shell-wildcard ~) \x3B;
                                                          (f a b))
 
 
@@ -360,7 +360,7 @@
   (caddr (expand '{{ls -al >> log.txt}}))              (sh-cmd* "ls" "-al" 1 '>> "log.txt")
   (caddr (expand '(shell-list
     (shell "ls" "-al" >> "log.txt"))))                 (sh-cmd* "ls" "-al" 1 '>> "log.txt")
-  (caddr (expand '(shell-expr (if a b c))))            (sh-cmd* "builtin" "expr" (lambda () (sh-bool (if a b c))))
+  (caddr (expand '(shell-expr (if a b c))))            (sh-cmd* "builtin" "value" (lambda () (if a b c)))
   (caddr (expand '{{{{echo|cat}}}}))                   (sh-pipe* (sh-cmd "echo") '\x7C; (sh-cmd "cat"))
   (caddr (expand '(sh-pipe* {echo} '\x7C; {cat})))     (sh-pipe* (sh-cmd "echo") '\x7C; (sh-cmd "cat"))
   (caddr (expand (parse-shell-form1 (string->parsectx
@@ -389,7 +389,7 @@
      "bar")))                                          (sh-list '\x3B; (sh-cmd "foo") '\x3B; (sh-cmd "bar"))
   {
      (shell "foo")
-     "bar"}                                            ,@"(sh-list '\\x3B; (sh-cmd \"foo\") '\\x3B; (sh-cmd \"bar\"))"
+     "bar"}                                            ,@"(sh-list (sh-cmd \"foo\") '\\x3B; (sh-cmd \"bar\"))"
   (caddr (expand
     '(shell (shell "ls" & "echo") 2 >& 1)))            (sh-redirect! (sh-list (sh-cmd "ls") '& (sh-cmd "echo")) 2 '>& 1)
   (parse-shell-form1 (string->parsectx "{{foo};bar}")) (shell (shell "foo") \x3B;

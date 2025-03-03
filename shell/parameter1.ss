@@ -83,8 +83,12 @@
              ;; retrieve existing parameters vector
              ((top-level-value 'sh-persistent-parameters* (interaction-environment)))
              ;; create a new parameters vector
-             (vector (make-parameter-environment)  (make-parameter-eval)
-                     (make-parameter-globals)      (make-parameter-pid-table) 0 #f)))
+             (vector (make-parameter-environment)
+                     (make-parameter-eval)
+                     (make-parameter-globals)
+                     (make-parameter-pid-table)
+                     0     ; sh-schemesh-reload-count
+                     #f))) ; repl-restart?
           ;; create closure around parameters vector
          (persistent-parameters (lambda () params)) ; displayed as #<procedure persistent-parameters>
          (proc persistent-parameters))              ; short alias

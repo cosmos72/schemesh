@@ -1,5 +1,16 @@
 ## RECENT CHANGES
 
+### git main branch
+
+* ignore newlines at the beginning of shell syntax:
+  allows writing Scheme code in a new line *under* the REPL prompt
+* ignore newlines after shell syntax tokens & ; ! && || | |& < <> > >> <& >& { [
+  in most cases, removes the need to end a line with \
+* always queue job status change notifications for later displaying them,
+  instead of sometimes displaying them immediately
+* rename shell builtin "expr" -> "value"
+* remove function (sh-bool)
+
 ### release v0.7.7, 2025-03-01
 
 * fix (charhistory-save-to-path) not to raise exceptions: it was preventing schemesh

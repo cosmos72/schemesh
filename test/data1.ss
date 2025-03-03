@@ -24,7 +24,6 @@
   (let-macro ((plus arg0 . args) `(+ ,arg0 ,@args))
      (plus 3 4 5))                                 12
   ;; '(expand-omit-library-invocations #t) (void)  do not use, requires Chez Scheme >= 10.0.0
-  (expand '(-> a b (c ^ d) (e f ^)))               (e f (c (b a) d))
   ;; '(begin (debugf \"warmup\") (debugf \"a\") (debugf \"b\") (debugf \"c\")) (void)
   ;; ----------------- containers/misc ------------------------------------
   (subvector '#(aa bb cc dd) 1 3)                  #(bb cc)

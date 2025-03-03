@@ -17,7 +17,6 @@
       '(new) #f       ; last-status exception
       (span) 0 #f     ; redirections
       cmd-start #f    ; start-proc step-proc
-      #f #f           ; resume-proc suspend-proc
       #f #f           ; working directory, old working directory - initially inherited from parent job
       #f              ; overridden environment variables - initially none
       #f              ; env var assignments - initially none

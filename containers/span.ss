@@ -17,7 +17,7 @@
     span-reserve-left! span-reserve-right! span-resize-left! span-resize-right!
     span-insert-left! span-insert-right! span-insert-left/span! span-insert-right/span!
     span-erase-left! span-erase-right! span-index span-index-right
-    in-span span-iterate
+    in-span span-iterate span-iterate-any
     span-peek-beg span-peek-end span-peek-data)
   (import
     (rnrs)
@@ -106,7 +106,8 @@
 
 
 ;; view the range [start, end) of span sp as a new span, and return it.
-;; note: modifying the content of either span may propagate to the other.
+;; note: setting the elements of either span will propagate to the other
+;; (provided they are in range of both spans) until one of the spans is reallocated.
 (define (span-range->span* sp start end)
   (assert* 'span-range->span* (fx<=? 0 start end (span-length sp)))
   (%make-span (fx+ start (span-beg sp)) (fx+ end (span-beg sp)) (span-vec sp)))
@@ -327,18 +328,20 @@
 ;;
 ;; It must NOT call any other function that modifies the span (insert or erase elements,
 ;; change the span size or capacity, etc).
-(define span-any
+(define span-iterate-any
   (case-lambda
-    ((sp proc start end)
-      (assert* 'span-any (fx<=? 0 start end (span-length sp)))
-      (assert* 'span-any (procedure? proc))
-      (let %any ((i start) (v (span-vec sp)))
-        (if (fx<? i end)
-          (or (proc (fx- i start) (vector-ref v i))
-              (%any (fx1+ i) v))
-          #f)))
+    ((sp start end proc)
+      (assert* 'span-iterate-any (fx<=? 0 start end (span-length sp)))
+      (assert* 'span-iterate-any (procedure? proc))
+      (let ((offset (span-beg sp))
+            (v (span-vec sp)))
+        (let %any ((i start))
+          (if (fx<? i end)
+            (or (proc i (vector-ref v (fx+ i offset)))
+                (%any (fx1+ i)))
+            #f))))
     ((sp proc)
-      (span-any sp proc 0 (span-length sp)))))
+      (span-iterate-any sp 0 (span-length sp) proc))))
 
 
 ;; iterate on span elements, and call (proc i elem) on each one.
@@ -354,7 +357,7 @@
 ;; change the span size or capacity, etc).
 (define span-iterate
   (case-lambda
-    ((sp proc start end)
+    ((sp start end proc)
       (assert* 'span-iterate (fx<=? 0 start end (span-length sp)))
       (assert* 'span-iterate (procedure? proc))
       (do ((i start (fx1+ i))
@@ -363,7 +366,7 @@
         ((or (fx>=? i end) (not (proc i (vector-ref v (fx+ i offset)))))
           (fx>=? i end))))
     ((sp proc)
-      (span-iterate sp proc 0 (span-length sp)))))
+      (span-iterate sp 0 (span-length sp) proc))))
 
 
 ;; (span-index) iterates forward on span elements from start

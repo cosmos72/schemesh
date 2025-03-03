@@ -32,38 +32,34 @@
           (else         (list 'failed  (fx- x 512))))))
 
 
-(define %pgid-foreground
-  (let ((c-pgid-foreground (foreign-procedure "c_pgid_foreground" (int int) int)))
-    (lambda (old-pgid new-pgid)
-      (let ((err (c-pgid-foreground old-pgid new-pgid)))
-        ; (c-pgid-foreground) may fail if new-pgid failed in the meantime
-        ; (when (< err 0)
-        ;  (raise-c-errno caller 'tcsetpgrp err new-pgid))
-        err))))
+(define %pgid-foreground (foreign-procedure "c_pgid_foreground" (int int) int))
+
+
+(define (call/foreground-pgid wait-flags new-pgid proc)
+  (let* ((new-pgid  new-pgid)
+         (our-pgid  (and new-pgid
+                         (sh-wait-flag-foreground-pgid? wait-flags)
+                         (sh-job-control?)
+                         (job-pgid (sh-globals)))))
+    (if our-pgid
+      (dynamic-wind
+        (lambda () ; run before body
+          (%pgid-foreground our-pgid new-pgid))
+        proc       ; body
+        (lambda () ; run after body
+          ;; try really hard to restore (sh-globals) as the foreground process group
+          (%pgid-foreground -1 our-pgid)))
+      (proc))))
 
 
 (define-syntax with-foreground-pgid
   (syntax-rules ()
-    ((_  wait-flags new-pgid body ...)
-      ;; hygienic macros sure are handy :)
-      (let* ((new-pgid  new-pgid)
-             (our-pgid  (and new-pgid
-                          (jr-flag-foreground? wait-flags)
-                          (sh-job-control?)
-                          (job-pgid (sh-globals)))))
-        (dynamic-wind
-          (lambda () ; run before body
-            (when our-pgid
-              (%pgid-foreground our-pgid new-pgid)))
-          (lambda ()
-            body ...)
-          (lambda () ; run after body
-            ;; try really hard to restore (sh-globals) as the foreground process group
-            (when our-pgid
-              (%pgid-foreground -1 our-pgid))))))))
+    ((_  wait-flags new-pgid body1 body2 ...)
+      (call/foreground-pgid wait-flags new-pgid
+        (lambda () body1 body2 ...)))))
 
 
-;; Internal function called by (sh-resume)
+;; Internal function called by (job-wait)
 (define (advance-pid caller job wait-flags)
   ; (debugf "> advance-pid wait-flags=~s job=~a pid=~s status=~s" wait-flags (sh-job->string job) (job-pid job) (job-last-status job))
   (cond
@@ -84,7 +80,7 @@
   (assert* caller (> pid 0))
   (when pgid
     (assert* caller (> pgid 0)))
-  (when (jr-flag-sigcont? wait-flags)
+  (when (sh-wait-flag-continue-if-stopped? wait-flags)
     ; send SIGCONT to job's process group, if present.
     ; otherwise send SIGCONT to job's process id. Both may raise error
     ; (debugf "advance-pid/sigcont wait-flags=~s job=~s" job wait-flags)
@@ -97,11 +93,11 @@
 ;; Internal function called by (advance-pid)
 (define (advance-pid/maybe-wait caller job wait-flags pid pgid)
   ;; cannot call (sh-job-status), it would recurse back here.
-  (let* ((blocking?  (jr-flag-wait? wait-flags))
+  (let* ((blocking?  (sh-wait-flag-wait? wait-flags))
          (old-status (job-last-status job))
          (new-status (if (sh-finished? old-status)
                        old-status
-                       (job-pids-wait job
+                       (scheduler-wait job
                          (if blocking? 'blocking 'nonblocking)))))
     ;; (debugf "advance-pid/maybe-wait old-status=~s new-status=~s pid=~s job=~a" old-status new-status (job-pid job) (sh-job->string job))
     ;; (sleep (make-time 'time-duration 0 1))
@@ -130,7 +126,7 @@
         ; if wait-flags tell to wait until job finishes,
         ;   call (break) then wait for it again (which blocks until it changes status again)
         ; otherwise propagate process status and return.
-        (if (jr-flag-wait-until-finished? wait-flags)
+        (if (sh-wait-flag-wait-until-finished? wait-flags)
           (begin
             (advance-pid/break              job            pid pgid)
             (advance-pid/maybe-wait  caller job wait-flags pid pgid))
@@ -159,8 +155,8 @@
 ;; Return when the preferred-pid happens to change status.
 ;;
 ;; In all cases, if preferred-job is set, return its updated status.
-(define (job-pids-wait preferred-job may-block)
-  ;c (debugf ">   job-pids-wait may-block=~s preferred-job=~a" may-block (if preferred-job (sh-job->string preferred-job) preferred-job))
+(define (scheduler-wait preferred-job may-block)
+  ;c (debugf ">   scheduler-wait may-block=~s preferred-job=~a" may-block (if preferred-job (sh-job->string preferred-job) preferred-job))
   (let ((done? #f))
     (until done?
       (let ((wait-result (pid-wait -1 may-block)))
@@ -168,11 +164,11 @@
           (let* ((job        (pid->job (car wait-result)))
                  (old-status (if job (job-last-status job) (void)))
                  (new-status (pid-wait-result->status (cdr wait-result))))
-            ;; (debugf "... job-pids-wait wait-result=~s new-status=~s job=~a preferred-job=~a" wait-result new-status (if job (sh-job->string job) #f) (if preferred-job (sh-job->string preferred-job) #f))
+            ;; (debugf "... scheduler-wait wait-result=~s new-status=~s job=~a preferred-job=~a" wait-result new-status (if job (sh-job->string job) #f) (if preferred-job (sh-job->string preferred-job) #f))
             (when job
-              (job-status-set! 'job-pids-wait job new-status)
+              (job-status-set! 'scheduler-wait job new-status)
 
-              ;; (debugf "... job-pids-wait old-status new-status=~s job=~a" old-status new-status (sh-job->string job))
+              ;; (debugf "... scheduler-wait old-status new-status=~s job=~a" old-status new-status (sh-job->string job))
 
               (if (eq? job preferred-job)
                 ;; the job we are interested in changed status => don't block again
@@ -181,23 +177,24 @@
 
                 ;; advance job that changed status and *all* it parents, before waiting again.
                 ;; do NOT advance preferred-job, because that's what our callers are already doing.
-                (let ((globals (sh-globals)))
+                (let* ((observe-preferred-job?   (and (eq? may-block 'blocking) (job-default-parents-contain? job preferred-job)))
+                       (preferred-job-old-status (and observe-preferred-job? (job-last-status preferred-job))))
+
                   (when (status-changed? old-status new-status)
                     (maybe-queue-job-display-summary job))
 
-                  (job-default-parents-iterate (job-parent job)
-                    (lambda (parent)
-                      (if (eq? parent globals)
-                        #f
-                        (let ((old-status (job-last-status parent))
-                              (new-status (sh-job-status parent)))
-                          ; (debugf "... job-pids-wait old-status=~s new-status=~s parent=~a" old-status new-status (sh-job->string parent))
-                          (when (status-changed? old-status new-status)
-                            (maybe-queue-job-display-summary job))))))))))
+                  (let ((parent (job-parent job)))
+                    (when (and parent (not (eq? parent (sh-globals))))
+                      (sh-job-status parent))) ; may recursively call scheduler-wait
+
+                  (when observe-preferred-job?
+                    (let ((preferred-job-new-status (job-last-status preferred-job)))
+                      (when (status-changed? preferred-job-old-status preferred-job-new-status)
+                        (set! done? #t))))))))
 
           (set! done? #t))))) ; (pid-wait) did not report any status change => return
   (let ((ret (if preferred-job (job-last-status preferred-job) (void))))
-    ;c (debugf "<   job-pids-wait ret=~s" ret)
+    ;c (debugf "<   scheduler-wait ret=~s" ret)
     ret))
 
 

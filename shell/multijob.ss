@@ -112,7 +112,6 @@
       (span) 0 #f     ; redirections
       start-proc      ; executed to start the job
       step-proc       ; executed when a child job changes status
-      #f #f           ; resume-proc suspend-proc
       #f #f           ; working directory, old working directory - initially inherited from parent job
       #f              ; overridden environment variables - initially none
       #f              ; env var assignments - initially none
@@ -331,13 +330,13 @@
     (proc job options)))
 
 
-;; Internal function called by (job-resume) called by (sh-fg) (sh-bg) (sh-resume) (sh-wait) (sh-job-status)
+;; Internal function called by (job-wait) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 (define (mj-advance caller mj wait-flags)
   ; (debugf ">  mj-advance wait-flags=~s job=~a id=~s status=~s" wait-flags (sh-job->string mj) (job-id mj) (job-last-status mj))
   (job-status-set/running! mj)
   (let* ((child (sh-multijob-child-ref mj (multijob-current-child-index mj)))
-         ;; call (job-resume) on child
-         (child-status (if (sh-job? child) (job-resume caller child wait-flags) (void)))
+         ;; call (job-wait) on child
+         (child-status (if (sh-job? child) (job-wait caller child wait-flags) (void)))
          (step-proc   (job-step-proc mj)))
     ;a (debugf ">  mj-advance job=~s child=~s child-status=~s" mj child child-status)
     (cond
@@ -358,14 +357,14 @@
         ;; child is still running.
         ;; if wait-flags tell to wait, then wait for child to change status again.
         ;; otherwise propagate child status and return.
-        (if (jr-flag-wait? wait-flags)
+        (if (sh-wait-flag-wait? wait-flags)
            (mj-advance caller mj wait-flags)
            (job-last-status mj)))
       ((sh-stopped? child-status)
         ;; child is stopped.
         ;; if wait-flags tell to wait until child finishes, then wait for child to change status again.
         ;; otherwise propagate child status and return
-        (if (jr-flag-wait-until-finished? wait-flags)
+        (if (sh-wait-flag-wait-until-finished? wait-flags)
           (mj-advance caller mj wait-flags)
           (job-status-set! 'mj-advance mj child-status)))
       (else

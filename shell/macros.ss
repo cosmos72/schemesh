@@ -77,12 +77,11 @@
   (sh-parse-datum (cons 'shell-subshell args)))
 
 
-;; macro: create a (sh-cmd) that evaluates specified Scheme expressions when executed,
-;; and returns success i.e. (void) if last expression is truish,
-;; or failure i.e '(failed 1) if last expression is #f.
+;; TODO: macro: create a (sh-expr) that evaluates specified Scheme expressions
+;; when executed, and returns the value of last expression.
 (define-syntax shell-expr
   (syntax-rules ()
-    ((_ expr exprs ...) (sh-cmd* "builtin" "expr" (lambda () (sh-bool (begin expr exprs ...)))))))
+    ((_ expr exprs ...) (sh-cmd* "builtin" "value" (lambda () expr exprs ...)))))
 
 
 (meta begin

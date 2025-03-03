@@ -10,7 +10,7 @@
       ;; bootstrap.ss
       assert* assert-not* catch check check-not define-macro debugf debugf-port
       first-value first-value-or-void forever let-macro raise-assert* repeat second-value
-      while until throws? trace-call try list->values values->list -> ^
+      while until throws? trace-call try list->values values->list
 
       ;; functions.ss
       generate-pretty-temporaries generate-pretty-temporary gensym-pretty
@@ -350,7 +350,7 @@
        form1 form2 ...))))
 
 
-
+#|
 (meta begin
   ;; helper function used by ->expand
   ;; traverse list, replacing the first object eq? to old with the object new.
@@ -397,6 +397,8 @@
 (define-syntax ^
   (lambda (arg)
     (syntax-violation "" "misplaced auxiliary keyword" arg)))
+|#
+
 
 #|
 ;; redefine obj as a local macro, simplifying repeated calls to verbose functions

@@ -28,8 +28,8 @@
 (define-record-type
   (%chargbuffer %make-chargbuffer %chargbuffer?)
   (fields
-     (mutable left  chargbuffer-left  chargbuffer-left-set!)
-     (mutable right chargbuffer-right chargbuffer-right-set!))
+     (mutable left  <-   chargbuffer-left-set!)
+     (mutable right -> chargbuffer-right-set!))
   (nongenerative #{%chargbuffer itah4n3k0nl66ucaakkpqk55m-16}))
 
 ;; type charline is a char gap-buffer with additional fields:
@@ -81,15 +81,15 @@
 ;; Return a copy-on-write clone of specified charline.
 (define (charline-copy-on-write line)
   (assert* 'charline-copy-on-write (charline? line))
-  (%make-charline (chargbuffer-left line) (chargbuffer-right line) (charline-share-inc! line)
+  (%make-charline (<- line) (-> line) (charline-share-inc! line)
                   (charline-dirty-start-x line) (charline-dirty-end-x line)))
 
 ;; if charline was a copy-on-write clone, actually clone it.
 (define (charline-unshare! line)
   (assert* 'charline-unshare! (charline? line))
   (when (charline-share-dec! line)
-    (chargbuffer-left-set!  line (charspan-copy (chargbuffer-left line)))
-    (chargbuffer-right-set! line (charspan-copy (chargbuffer-right line)))
+    (chargbuffer-left-set!  line (charspan-copy (<- line)))
+    (chargbuffer-right-set! line (charspan-copy (-> line)))
     (%charline-share-set!   line (cons 0 #f))))
 
 (define charline-empty?     chargbuffer-empty?)
@@ -115,8 +115,8 @@
   (assert* 'charline-equal? (charline? line1))
   (assert* 'charline-equal? (charline? line2))
   (or (eq? line1 line2)
-      (and (eq? (chargbuffer-left line1)  (chargbuffer-left line2))
-           (eq? (chargbuffer-right line1) (chargbuffer-right line2)))
+      (and (eq? (<- line1)  (<- line2))
+           (eq? (-> line1) (-> line2)))
       (let ((n1 (charline-length line1)))
         (and (fx=? n1 (charline-length line2))
           (do ((i 0 (fx1+ i)))

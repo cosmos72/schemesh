@@ -17,17 +17,15 @@
     ;; aliases.ss
     sh-alias-ref sh-alias-delete! sh-alias-set! sh-aliases sh-aliases-expand
 
-    ;; builtins2.ss
-    sh-bool
-
     ;; cmd.ss
     make-sh-cmd sh-cmd
 
     ;; control.ss
-    jr-flag-sigcont  jr-flag-foreground  jr-flag-wait-until-finished  jr-flag-wait-until-stopped-or-finished
-    jr-flag-sigcont? jr-flag-foreground? jr-flag-wait-until-finished? jr-flag-wait-until-stopped-or-finished?
     sh-current-job-suspend
-    sh-start sh-start* sh-bg sh-fg sh-resume sh-run sh-run/i sh-run/err? sh-run/ok? sh-wait
+    sh-start sh-start* sh-bg sh-fg sh-run sh-run/i sh-run/err? sh-run/ok? sh-wait
+
+    ; sh-wait-flag-foreground-pgid? sh-wait-flag-continue-if-stopped?
+    ; sh-wait-flag-wait? sh-wait-flag-wait-until-finished? sh-wait-flag-wait-until-stopped-or-finished?
 
     ;; dir.ss
     sh-cd sh-cd- sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
@@ -82,8 +80,8 @@
     (only (chezscheme) append! break console-output-port console-error-port
                        debug-condition display-condition foreign-procedure format fx1+ fx1-
                        hashtable-cells include inspect logand logbit? make-format-condition
-                       open-fd-output-port parameterize procedure-arity-mask record-writer
-                       reverse! sort! string-copy! string-truncate! void)
+                       meta open-fd-output-port parameterize procedure-arity-mask
+                       record-writer reverse! sort! string-copy! string-truncate! void)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh conversions)
@@ -110,8 +108,6 @@
 
 
 
-
-
 ;; set the status of a job and return it.
 ;; if specified status indicates that job finished,
 ;;   i.e. (sh-finished? status) returns true
@@ -133,8 +129,12 @@
           (job-unmap-fds! job)
           (job-unredirect/temp/all! job) ; remove temporary redirections
           (job-temp-parent-set!  job #f) ; remove temporary parent job
-          (job-resume-proc-set!  job #f)
-          (job-suspend-proc-set! job #f))
+          (cond
+            ((sh-expr? job)
+              (jexpr-resume-proc-set!  job #f)
+              (jexpr-suspend-proc-set! job #f))
+            ((sh-multijob? job)
+              (multijob-current-child-index-set! job -1))))
         status)
       (else
         (%job-last-status-set! job status)))))
@@ -312,11 +312,32 @@
 ;;
 ;; Returns #t if all calls to (proc job) returned truish,
 ;; otherwise returns #f.
-(define (job-default-parents-iterate job-or-id proc)
-  (do ((parent (sh-job job-or-id) (job-default-parent parent)))
-      ((not (and (sh-job? parent) (proc parent)))
-       (not (sh-job? parent)))))
+(define (job-default-parents-iterate job proc)
+  (let %loop ((job job))
+    (and (sh-job? job)
+         (proc job)
+         (%loop (job-default-parent job)))))
 
+
+;; call (proc job) on given job and each of its default parents.
+;; Stops iterating if (proc ...) returns truish.
+;;
+;; Returns value of last (proc ...) call.
+(define (job-default-parents-iterate-any job proc)
+  (let %any ((job job))
+    (and (sh-job? job)
+         (or (proc job)
+             (%any (job-default-parent job))))))
+
+
+;; Return #t if job or one if its default parents are eq? other-job,
+;; otherwise return #f
+(define (job-default-parents-contain? job other-job)
+  (if (job-default-parents-iterate-any job
+        (lambda (parent)
+          (eq? parent other-job)))
+    #t
+    #f))
 
 
 ;; return list containing all job's parents,
@@ -338,7 +359,7 @@
 
 (define (sh-consume-signals lctx)
   (while (signal-consume-sigchld)
-    (job-pids-wait #f 'nonblocking))
+    (scheduler-wait #f 'nonblocking))
   (display-status-changes lctx))
 
 

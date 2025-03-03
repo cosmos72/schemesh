@@ -199,7 +199,7 @@
 (define directory-list*
   (let ((c-directory-list (foreign-procedure "c_directory_list" (ptr ptr ptr int) ptr)))
     (lambda (dirpath options)
-      ; (debugf "directory-list-type dir=~s, options=~s" dirpath options)
+      ; (debugf "directory-list dir=~s, options=~s" dirpath options)
       (let ((ret (c-directory-list
                    (text->bytevector0 dirpath)
                    (%find-and-convert-text-option 'directory-list options 'prefix)
@@ -220,7 +220,7 @@
           ((memq 'catch options)
             '())
           (else
-            (raise-c-errno 'directory-list-type 'opendir ret dirpath)))))))
+            (raise-c-errno 'directory-list 'opendir ret dirpath)))))))
 
 
 

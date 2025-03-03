@@ -9,24 +9,8 @@
 ;; this file should be included only by file shell/job.ss
 
 
-;; convert Scheme obj to exit status string:
-;; if obj is truish. return "0", otherwise return "1"
-;;
-;; useful with builtin "expr", as for example:
-;;   expr (sh-bool (some-scheme-expression))
-
-;; or, to evaluate scheme expressions when builtin "expr" is actually executed,
-;;   expr (lambda () (sh-bool (some-scheme-expression)))
-;; which can be abbreviated to
-;;   (shell-expr (some-scheme-expression))
-(define (sh-bool obj)
-  (if obj "0" "1"))
-
-
-
-
-;; implementation of "expr" builtin, returns user-specified status
-(define (sh-expr kind . results)
+;; implementation of "value" builtin, returns user-specified status
+(define (sh-value kind . results)
   (status-normalize (cons kind results)))
 
 
@@ -143,18 +127,18 @@
     str))
 
 
-;; the "expr" builtin: return specified exit status,
+;; the "value" builtin: return specified exit status,
 ;; which must be a non-empty string containing only decimal digits.
 ;;
 ;; As all builtins do, must return job status.
-(define (builtin-expr job prog-and-args options)
-  (assert-string-list? 'builtin-expr prog-and-args)
+(define (builtin-value job prog-and-args options)
+  (assert-string-list? 'builtin-value prog-and-args)
   (let ((result (if (null? (cdr prog-and-args))
                   0
                   (try-string->base10-integer (cadr prog-and-args)))))
     (if (eqv? 0 result)
-      (sh-expr 'ok     (void))
-      (sh-expr 'failed result))))
+      (sh-value 'ok     (void))
+      (sh-value 'failed result))))
 
 
 ;; The "bg" builtin: continue a job-id by sending SIGCONT to it, and return immediately
