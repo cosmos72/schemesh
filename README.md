@@ -64,7 +64,7 @@ Syntax switching can be nested arbitrarily deep, i.e. you can write
 ```
 with as many nesting levels as you want.
 
-#### Job control
+### Job control
 
 Shell syntax creates first-class Lisp `sh-job` objects, which can be started/stopped/managed from both syntaxes.
 
@@ -94,7 +94,7 @@ Some more advanced Scheme functions:
 * `(sh-start/fd-stdout job-object)` start a job in background, return a file descriptor fixnum for reading its standard output - for example with `(open-fd-input-port fd)`
 
 
-#### [NEW in upcoming version 0.7.8]
+### [NEW in upcoming version 0.7.8]
 
 Job control is now available also for Scheme code:
 
@@ -140,7 +140,7 @@ traditional shells typically perform command substitution with ``` `` ``` or `$(
 the latter has a different meaning in schemesh, see Job control above.
 
 
-### Full Scheme REPL
+## Full Scheme REPL
 
 Schemesh contains a **full** Chez Scheme REPL:<br/>
 you can define variables, functions, macros, libraries, modules and use them with the classic Scheme syntax
