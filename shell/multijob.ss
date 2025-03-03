@@ -488,36 +488,3 @@
       ; propagate status of last sync child
       (multijob-current-child-index-set! mj -1)
       (job-status-set! 'mj-list-step mj prev-child-status))))
-
-
-(define (loop-start-resume-child-with-suspend caller mj options child)
-  (let %loop ((status '(new)))
-    ; (debugf "loop-start-resume-child-with-suspend child=~s status=~s" child status)
-    (case (sh-status->kind status)
-      ((new)
-        (%loop (job-start caller child options)))
-      ((running)
-        ;; TODO: we should mark mj as running, and yield it.
-        (%loop (sh-fg child)))
-      ((stopped)
-        (job-suspend mj)
-        (%loop (job-last-status child)))
-      (else
-        status))))
-
-
-;; Run the children jobs in a multijob list.
-;; Used by (sh-list), implements runtime behavior of shell syntax foo; bar & baz
-;; each child job can be optionally followed by '& or ';
-(define (run-multijob-list mj options)
-  (let* ((options  (cons '(catch? . #t) options))
-         (children (multijob-children mj))
-         (n        (span-length children)))
-    (do ((i 0 (fx1+ i)))
-        ((fx>=? i n))
-      (let ((child (span-ref children i)))
-        (when (sh-job? child)
-          (multijob-current-child-index-set! mj i)
-          (if (eq? '& (sh-multijob-child-ref mj (fx1+ i)))
-            (job-start 'sh-list child options)
-            (loop-start-resume-child-with-suspend 'sh-list mj options child)))))))

@@ -79,21 +79,17 @@
 
 
 (define (job-start/may-throw caller job k-continue options)
-  (call/cc
-    (lambda (susp)
-      (let ((start-proc (job-start-proc job)))
-        (unless (procedure? start-proc)
-          (raise-errorf caller "cannot start job ~s, bad or missing job-start-proc: ~s" job start-proc))
-        (job-oid-set! job #f)
-        (job-exception-set! job #f)
-        (unless (job-new? job)
-          (job-status-set-new/recursive! job))
-        (job-status-set/running! job)
-        (job-suspend-proc-set! job susp)
-        (parameterize ((sh-current-job job))
-          (start-proc job options)))))  ; may throw
-  ;; ignore value returned by job-start-proc,
-  ;; and ignore value returned by continuation (susp)
+  (let ((start-proc (job-start-proc job)))
+    (unless (procedure? start-proc)
+      (raise-errorf caller "cannot start job ~s, bad or missing job-start-proc: ~s" job start-proc))
+    (job-oid-set! job #f)
+    (job-exception-set! job #f)
+    (unless (job-new? job)
+      (job-status-set-new/recursive! job))
+    (job-status-set/running! job)
+    (parameterize ((sh-current-job job))
+      (start-proc job options)))  ; may throw
+  ;; ignore value returned by job-start-proc
   (void))
 
 
