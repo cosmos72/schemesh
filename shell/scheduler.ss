@@ -102,8 +102,7 @@
          (new-status (if (sh-finished? old-status)
                        old-status
                        (job-pids-wait job
-                         (if blocking? 'blocking 'nonblocking)
-                         queue-job-display-summary))))
+                         (if blocking? 'blocking 'nonblocking)))))
     ;; (debugf "advance-pid/maybe-wait old-status=~s new-status=~s pid=~s job=~a" old-status new-status (job-pid job) (sh-job->string job))
     ;; (sleep (make-time 'time-duration 0 1))
 
@@ -160,11 +159,7 @@
 ;; Return when the preferred-pid happens to change status.
 ;;
 ;; In all cases, if preferred-job is set, return its updated status.
-;;
-;; If proc-notify-status-change is truish, it must be a procedure
-;; and (proc-notify-status-change job)
-;; will be called for each job that changed status.
-(define (job-pids-wait preferred-job may-block proc-notify-status-change)
+(define (job-pids-wait preferred-job may-block)
   ;c (debugf ">   job-pids-wait may-block=~s preferred-job=~a" may-block (if preferred-job (sh-job->string preferred-job) preferred-job))
   (let ((done? #f))
     (until done?
@@ -187,18 +182,18 @@
                 ;; advance job that changed status and *all* it parents, before waiting again.
                 ;; do NOT advance preferred-job, because that's what our callers are already doing.
                 (let ((globals (sh-globals)))
-                  (when (and proc-notify-status-change (status-changed? old-status new-status))
-                    (proc-notify-status-change job))
+                  (when (status-changed? old-status new-status)
+                    (maybe-queue-job-display-summary job))
 
                   (job-default-parents-iterate (job-parent job)
                     (lambda (parent)
                       (if (eq? parent globals)
                         #f
-                        (let* ((old-status (job-last-status parent))
-                               (new-status (sh-job-status parent)))
+                        (let ((old-status (job-last-status parent))
+                              (new-status (sh-job-status parent)))
                           ; (debugf "... job-pids-wait old-status=~s new-status=~s parent=~a" old-status new-status (sh-job->string parent))
-                          (when (and proc-notify-status-change (status-changed? old-status new-status))
-                            (proc-notify-status-change job))))))))))
+                          (when (status-changed? old-status new-status)
+                            (maybe-queue-job-display-summary job))))))))))
 
           (set! done? #t))))) ; (pid-wait) did not report any status change => return
   (let ((ret (if preferred-job (job-last-status preferred-job) (void))))

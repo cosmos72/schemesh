@@ -189,7 +189,7 @@
       ;; replace job status '(running) -> '(running job-id)
       (job-status-set! 'job-id-set! job (list 'running id)))
     (unless (eqv? id old-id)
-      (sh-job-display-summary job)))
+      (queue-job-display-summary job)))
   (job-last-status job))
 
 
@@ -337,19 +337,9 @@
 
 
 (define (sh-consume-signals lctx)
-  (let ((proc-notify-status-change
-          (lambda (job)
-            (when (job-id job)
-              (lineedit-undraw lctx 'flush)
-              (sh-job-display-summary job)
-              (when (job-finished? job)
-                (job-id-unset! job))))))
-    (let ((job-list (queue-job-display-summary)))
-      (unless (null? job-list)
-        (list-iterate (list-remove-consecutive-duplicates! (sort! sh-job<? job-list) eq?)
-          proc-notify-status-change)))
-    (while (signal-consume-sigchld)
-      (job-pids-wait #f 'nonblocking proc-notify-status-change))))
+  (while (signal-consume-sigchld)
+    (job-pids-wait #f 'nonblocking))
+  (display-status-changes lctx))
 
 
 (define (display-status-changes lctx)
