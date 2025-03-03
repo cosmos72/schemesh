@@ -106,7 +106,7 @@
 (define (values->job-status . rets)
   (cond
     ((null? rets)
-      (void))
+      '(ok))
     ((null? (cdr rets))
       (let ((ret (car rets)))
         (cond ((eq? (void) ret) (void))

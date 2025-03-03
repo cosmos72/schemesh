@@ -93,6 +93,35 @@ Some more advanced Scheme functions:
 * `(sh-run/string job-object)` start a job in foreground, wait until job finishes, return its output as a Scheme string
 * `(sh-start/fd-stdout job-object)` start a job in background, return a file descriptor fixnum for reading its standard output - for example with `(open-fd-input-port fd)`
 
+
+[NEW in upcoming version 0.7.8]
+Job control is now available also for Scheme code:
+
+from shell syntax, simply type `$` before a Scheme expression in parentheses,
+and it gets encapsulated in a job that can be started, stopped and resumed just like any other job.
+Example:
+```shell
+> $(do ((i 0 (fx1+ i))) ((fx>=? i 1000000000) "done!\n"))
+
+CTRL+Z
+(stopped sigtstp)
+; job  1            (stopped sigtstp)   $( #<procedure>)
+
+> fg 1
+(ok "done!\n")
+```
+
+The same feature is also available from Scheme syntax:
+in that case, wrap the Scheme expression inside `(shell-expr ...)` to create the job,
+which can be executed immediately, saved in a variable for later execution, passed to a Scheme procedure, etc.
+Example:
+```
+> (define j (shell-expr (do ((i 0 (fx1+ i))) ((fx>=? i 1000000000) "done too!\n"))))
+> (sh-run/i j)
+(ok "done too!\n")
+```
+
+
 #### Subshells and command substitution
 
 From shell syntax, commands can be executed in a subshell by surrounding them in `[ ]` as for example:
@@ -107,7 +136,7 @@ can be performed by surrounding the first command in ``` `` ``` or `$[ ]` - exam
 NOW=$[date]
 ```
 traditional shells typically perform command substitution with ``` `` ``` or `$( )`:
-the latter will soon have a different meaning in schemesh.
+the latter has a different meaning in schemesh, see Job control above.
 
 
 #### Full Scheme REPL

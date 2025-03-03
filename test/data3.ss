@@ -179,7 +179,16 @@
     "builtin" "command" "false" \x7C;
     "global"  "value" "19"))                            (failed 19)
 
+
   ;; ------------------------- job execution ---------------------------------
+
+  (sh-run/i (shell (shell-expr -1 (* 7 8 9))))         ,(ok 504)
+  (sh-run/i {$(vector 1 2 3)})                         ,(ok #(1 2 3))
+  (sh-run/i {$(values)})                               ,(ok)
+  (sh-run/i {$(values (void))})                        ,@"#<void>"
+  (sh-run/i {$(values #t)})                            ,(ok #t)
+  (sh-run/i {$(values #f)})                            ,(failed #f)
+  (sh-run/i {$(values 4 5 6)})                         ,(ok 4 5 6)
 
   (sh-run/i (sh-cmd "command" "true"))                 ,@"#<void>"
   (sh-run   (sh-cmd "command" "false"))                (failed 1)
