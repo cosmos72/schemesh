@@ -346,7 +346,7 @@
       (values simplified parser))))
 
 
-;; helper function to invoke lisp parser
+;; helper function to invoke scheme parser
 (define (parse-scheme-forms ctx begin-type)
   (let ((lisp-parser (parser-parse-forms (get-parser ctx 'scheme 'parse-shell-forms))))
     (lisp-parser ctx begin-type)))
@@ -489,24 +489,23 @@
              (unless (eqv? start-ch #\")
                ;; paren not inside double quotes -> switch to scheme parser
                ;; recursion: call scheme parser on nested list
-               (let* ((other-parser       (get-parser-or-false ctx 'scheme))
-                      (other-parse-paren (and other-parser (parser-parse-paren other-parser)))
-                      (other-paren       (if other-parse-paren
-                                            (other-parse-paren ctx token)
-                                            (parse-shell-paren ctx token))))
+               (let ((other-paren (parse-scheme-paren ctx token)))
                  (when other-paren
                    (paren-inner-append! paren other-paren)))))
 
           ((or (fixnum? token) (memv token '(#\{ #\[ #\" #\`)))
              ;; inside double quotes, $( $[ ${ are special but plain ( [ or { aren't.
              ;; " inside double quotes is handled above by (eqv? token end-ch)
-             (unless (and (eqv? start-ch #\") (memv token '(#\[ #\{))) #|)|#
-               ;; recursion: call shell parser on nested list
+             (unless (and (eqv? start-ch #\") (memv token '(#\[ #\{)))
+               ;; recursion: call shell or lisp parser on nested list
                (let ((start-inner (cond ((eqv? token dollar+lparen) #\() #|)|#
                                         ((eqv? token dollar+lbrack) #\[) #|]|#
                                         ((eqv? token dollar+lbrace) #\{)
                                         (else                     token))))
-                 (paren-inner-append! paren (parse-shell-paren ctx start-inner)))))
+                 (paren-inner-append! paren
+                   (if (eqv? token dollar+lparen)
+                     (parse-scheme-paren ctx start-inner)
+                     (parse-shell-paren  ctx start-inner))))))
 
           ((eqv? token #\')
              ;; found single-quoted string, read it fully
@@ -533,6 +532,15 @@
 
     (paren-fill-end! ctx paren (and (eq? #t ret) end-ch))
     paren))
+
+
+;; helper function to invoke scheme parser
+(define (parse-scheme-paren ctx token)
+  (let* ((other-parser      (get-parser-or-false ctx 'scheme))
+         (other-parse-paren (and other-parser (parser-parse-paren other-parser))))
+    (if other-parse-paren
+      (other-parse-paren ctx token)
+      (parse-shell-paren ctx token))))
 
 
 (define (paren-fill-end! ctx paren end-token)

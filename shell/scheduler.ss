@@ -60,8 +60,8 @@
 
 
 ;; Internal function called by (job-wait)
-(define (advance-pid caller job wait-flags)
-  ; (debugf "> advance-pid wait-flags=~s job=~a pid=~s status=~s" wait-flags (sh-job->string job) (job-pid job) (job-last-status job))
+(define (pid-advance caller job wait-flags)
+  ; (debugf "> pid-advance wait-flags=~s job=~a pid=~s status=~s" wait-flags (sh-job->string job) (job-pid job) (job-last-status job))
   (cond
     ((job-finished? job)
       (job-last-status job)) ; job finished, exit status already available
@@ -71,27 +71,27 @@
       (let ((pid  (job-pid job))
             (pgid (job-pgid job)))
         (with-foreground-pgid wait-flags pgid
-          (advance-pid/maybe-sigcont caller job wait-flags pid pgid)
-          (advance-pid/maybe-wait    caller job wait-flags pid pgid))))))
+          (pid-advance/maybe-sigcont caller job wait-flags pid pgid)
+          (pid-advance/maybe-wait    caller job wait-flags pid pgid))))))
 
 
-;; Internal function called by (advance-pid)
-(define (advance-pid/maybe-sigcont caller job wait-flags pid pgid)
+;; Internal function called by (pid-advance)
+(define (pid-advance/maybe-sigcont caller job wait-flags pid pgid)
   (assert* caller (> pid 0))
   (when pgid
     (assert* caller (> pgid 0)))
   (when (sh-wait-flag-continue-if-stopped? wait-flags)
     ; send SIGCONT to job's process group, if present.
     ; otherwise send SIGCONT to job's process id. Both may raise error
-    ; (debugf "advance-pid/sigcont wait-flags=~s job=~s" job wait-flags)
+    ; (debugf "pid-advance/sigcont wait-flags=~s job=~s" job wait-flags)
     (pid-kill (if (and pgid (> pgid 0)) (- pgid) pid) 'sigcont)
     ;; assume job is now running
     (job-status-set/running! job)))
 
 
 
-;; Internal function called by (advance-pid)
-(define (advance-pid/maybe-wait caller job wait-flags pid pgid)
+;; Internal function called by (pid-advance)
+(define (pid-advance/maybe-wait caller job wait-flags pid pgid)
   ;; cannot call (sh-job-status), it would recurse back here.
   (let* ((blocking?  (sh-wait-flag-wait? wait-flags))
          (old-status (job-last-status job))
@@ -99,7 +99,7 @@
                        old-status
                        (scheduler-wait job
                          (if blocking? 'blocking 'nonblocking)))))
-    ;; (debugf "advance-pid/maybe-wait old-status=~s new-status=~s pid=~s job=~a" old-status new-status (job-pid job) (sh-job->string job))
+    ;; (debugf "pid-advance/maybe-wait old-status=~s new-status=~s pid=~s job=~a" old-status new-status (job-pid job) (sh-job->string job))
     ;; (sleep (make-time 'time-duration 0 1))
 
     ;; if blocking? is #f, new-status may be '(running)
@@ -110,13 +110,13 @@
         (let ((new-status2 (job-status-set/running! job)))
            (if blocking?
              ;; if wait-flags tell to wait until job stops or finishes, then wait again for pid
-             (advance-pid/maybe-wait caller job wait-flags pid pgid)
+             (pid-advance/maybe-wait caller job wait-flags pid pgid)
              ;; otherwise return job status
              new-status2)))
       ((ok exception failed killed)
         ; job finished, clean it up. Also allows user to later start it again.
         (pid->job-delete! (job-pid job))
-        (job-status-set! 'advance-pid/maybe-wait job new-status)
+        (job-status-set! 'pid-advance/maybe-wait job new-status)
         (job-id-unset! job)
         (job-pid-set!  job #f)
         (job-pgid-set! job #f)
@@ -128,10 +128,10 @@
         ; otherwise propagate process status and return.
         (if (sh-wait-flag-wait-until-finished? wait-flags)
           (begin
-            (advance-pid/break              job            pid pgid)
-            (advance-pid/maybe-wait  caller job wait-flags pid pgid))
+            (pid-advance/break              job            pid pgid)
+            (pid-advance/maybe-wait  caller job wait-flags pid pgid))
           (begin
-            (job-status-set! 'advance-pid/maybe-wait job new-status)
+            (job-status-set! 'pid-advance/maybe-wait job new-status)
             new-status)))
       (else
         (raise-errorf caller "job not started yet: ~s" job)))))
@@ -142,7 +142,7 @@
     (queue-job-display-summary job)))
 
 
-;; Internal function called by (advance-pid/maybe-wait):
+;; Internal function called by (pid-advance/maybe-wait):
 ;;
 ;; If may-block is 'nonblocking, call C function wait4(WNOHANG) in a loop,
 ;; as long as it tells us that *some* subprocess changed status,
@@ -198,11 +198,11 @@
     ret))
 
 
-;; Internal function called by (advance-pid/maybe-wait)
+;; Internal function called by (pid-advance/maybe-wait)
 ;; when job is stopped and wait-flags tell to wait until job finishes:
 ;; call (break) then send 'sigcont to job
 ;; if (break) raises an exception or resets scheme, then send 'sigint to job
-(define (advance-pid/break job pid pgid)
+(define (pid-advance/break job pid pgid)
    ; subshells should not directly perform I/O,
    ; they cannot write the "break> " prompt then read commands
    (when (sh-job-control?)

@@ -221,7 +221,8 @@
   ;; [] are grouping tokens in lisp syntax and `` are grouping tokens in shell syntax
   (string->paren "([{``}])")                           ,@"#<paren _([{``}])_>"
   ;; test $( $[ ${ shell syntax )
-  (string->paren "{$(`{}()`)}")                        ,@"#<paren _{(`{} ()`)}_>"
+  (string->paren "{$({``[]}())}")                      ,@"#<paren _{({`` []} ())}_>"
+  (string->paren "{$[`{}()`]}")                        ,@"#<paren _{[`{} ()`]}_>"
   (string->paren "{$[$({${}})]}")                      ,@"#<paren _{[({{}})]}_>"
   ;; test single-quoted strings in shell syntax
   (string->paren "{'foo\"bar{}[]()``baz'}")            ,@"#<paren _{''}_>"

@@ -218,10 +218,9 @@
           ((job-pid job)
             ;; either the job is a sh-cmd, or a builtin or multijob spawned in a child subprocess.
             ;; in all cases, we have a pid to wait on.
-            (advance-pid caller job wait-flags))
-          ((and (sh-expr? job) (jexpr-resume-proc job))
-            ;; we have a continuation to call for resuming the job
-            (jexpr-call-resume-proc job wait-flags))
+            (pid-advance caller job wait-flags))
+          ((sh-expr? job)
+            (jexpr-advance job wait-flags))
           ((sh-multijob? job)
             (if (eq? 'sh-pipe (multijob-kind job))
               (mj-pipe-advance caller job wait-flags)
@@ -230,30 +229,6 @@
         (raise-errorf caller "job not started yet: ~s" job)))
 
     (job-id-update! job))) ; returns job status
-
-
-;; call the continuation stored in jexpr-resume-proc of a job for resuming it.
-;; save the current continuation in its jexpr-suspend-proc
-(define (jexpr-call-resume-proc job wait-flags)
-  (call/cc
-    ;; Capture the continuation representing THIS call to (jexpr-call-resume-proc)
-    (lambda (susp)
-      (let ((resume-proc (jexpr-resume-proc job))
-            (pgid        (job-pgid job)))
-        (jexpr-resume-proc-set!  job #f)
-        (jexpr-suspend-proc-set! job susp)
-        (with-foreground-pgid wait-flags pgid
-          ;; send SIGCONT to job's process group, if present.
-          (when (and pgid (sh-wait-flag-continue-if-stopped? wait-flags))
-            (pid-kill (- pgid) 'sigcont))
-          (job-status-set/running! job)
-          (parameterize ((sh-current-job job)
-                         (sh-fd-stdin  (job-find-fd-remap job 0))
-                         (sh-fd-stdout (job-find-fd-remap job 1))
-                         (sh-fd-stderr (job-find-fd-remap job 2)))
-            (resume-proc (void)))))))
-  ;; ignore the value returned by (resume-proc) and by continuation (susp)
-  (void))
 
 
 ;; Return up-to-date status of a job or job-id, which can be one of:
