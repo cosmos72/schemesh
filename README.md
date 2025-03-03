@@ -94,7 +94,8 @@ Some more advanced Scheme functions:
 * `(sh-start/fd-stdout job-object)` start a job in background, return a file descriptor fixnum for reading its standard output - for example with `(open-fd-input-port fd)`
 
 
-[NEW in upcoming version 0.7.8]
+##### [NEW in upcoming version 0.7.8]
+
 Job control is now available also for Scheme code:
 
 from shell syntax, simply type `$` before a Scheme expression in parentheses,
