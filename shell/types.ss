@@ -222,7 +222,6 @@
       0 #f                 ; redirects-temp-n fds-to-remap
       (job-start-proc j)
       (job-step-proc  j)
-      #f #f                ; resume-proc suspend-proc
       (let ((cwd (%job-cwd j)))
         (and cwd (charspan-copy cwd)))
       (let ((owd (job-owd j)))
