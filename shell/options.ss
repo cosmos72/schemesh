@@ -45,12 +45,6 @@
 ;;     If present and flag is #t, any Scheme condition raised by starting
 ;;     the job will be captured, and job status will be set to (list exception #<condition>)
 ;;
-;;   (cons 'parent-job job-or-id) - job-or-id must resolve to an existing job via (sh-job job-or-id),
-;;     otherwise an exception will be raised.
-;;     If present, the job being started will have its parent job temporarily changed
-;;     to the job returned by (sh-job job-or-id).
-;;     Such change will be reverted when the job finishes.
-;;
 ;;   (cons 'process-group-id id) - id must be an integer and >= 0, otherwise an exception will be raised.
 ;;     If present, the new process will be inserted into the corresponding
 ;;     process group id - which must be either 0 or an already exist one.
@@ -128,30 +122,3 @@
     ; ignore requests to move a process into a specific process group id
     ; or to create a new process group id
     #f))
-
-
-;; if options contain '(parent-job . job-or-id)
-;; change the parent of job to specified job-or-id, or to its parent.
-;;
-;; Also returns a new options where all occurrences of
-;;   '(parent-job . job-or-id)
-;; have been removed.
-;; Returned options may share data with the original one.
-(define (options->set-temp-parent! job options)
-  (let ((parent #f))
-    (list-iterate options
-      (lambda (option)
-        (cond
-          ((not (pair? option))
-            #t) ; continue iteration
-          ((eq? 'parent-job (car option))
-            (set! parent (sh-job (cdr option)))
-            #f) ; stop iteration
-          (else
-            #t)))) ; continue iteration
-    (if parent
-      (begin
-        ; (debugf "job-temp-parent-set! job=~a parent=~a" (sh-job->string job) (sh-job->string parent))
-        (job-temp-parent-set! job parent)
-        (options-filter-out options '(parent-job)))
-      options))) ; nothing to remove

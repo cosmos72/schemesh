@@ -147,12 +147,9 @@
 (define (start-command-or-builtin-or-alias c program-and-args options)
   (assert* 'sh-cmd (sh-cmd? c))
 
-       ;; set parent job if requested. currently redundant,
-       ;; as we are only called by (job-start/throw) that already does the same.
-  (let ((options (options->set-temp-parent! c options))
-        ;; expand aliases in args
-        ;; sanity: (sh-aliases-expand) ignores aliases for "builtin"
-        (prog-and-args (sh-aliases-expand program-and-args)))
+  ;; expand aliases in args
+  ;; sanity: (sh-aliases-expand) ignores aliases for "builtin"
+  (let ((prog-and-args (sh-aliases-expand program-and-args)))
 
     ;; (debugf "cmd-start expanded-prog-and-args=~s builtin=~s" prog-and-args builtin)
     (unless (eq? prog-and-args (cmd-arg-list c))
@@ -201,7 +198,6 @@
   (let ((c-spawn-cmd (foreign-procedure "c_cmd_spawn" (ptr ptr ptr ptr int) int)))
     (lambda (c prog-and-args options)
       (let* ((process-group-id (options->process-group-id options))
-             (_                (options->set-temp-parent! c options))
              (job-dir (job-cwd-if-set c))
              (ret (c-spawn-cmd
                     (list->argv prog-and-args)
@@ -223,8 +219,7 @@
 (define exec-cmd
   (let ((c-exec-cmd (foreign-procedure "c_cmd_exec" (ptr ptr ptr ptr) int)))
     (lambda (c argv options)
-      (let* ((_       (options->set-temp-parent! c options))
-             (job-dir (job-cwd-if-set c))
+      (let* ((job-dir (job-cwd-if-set c))
              (ret (c-exec-cmd
                     argv
                     (if job-dir (text->bytevector0 job-dir) #f)

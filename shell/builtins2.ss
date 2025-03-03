@@ -217,8 +217,9 @@
     (let* ((args    (cdr prog-and-args))
            (builtin (sh-find-builtin args)))
       (if builtin
-        (start-builtin builtin job args
-            (cons '(parent-job . #t) options)) ; options will be processed again
+        (begin
+          (job-temp-parent-set! job (sh-globals))
+          (start-builtin builtin job args options))
         (write-builtin-error "global" "not a shell builtin" (car args))))))
 
 
@@ -253,10 +254,19 @@
            (builtin    (sh-find-builtin args))
            (old-parent (job-parent job))
            (new-parent (or (and old-parent (job-parent old-parent)) #t)))
-      (if builtin
-        (start-builtin builtin job args
-            (cons (cons 'parent-job new-parent) options)) ; options will be processed again
+      (builtin
+        (begin
+          (job-temp-parent-up! job)
+          (start-builtin builtin job args options))
         (write-builtin-error "parent" "not a shell builtin" (car args))))))
+
+
+;; set the temp-parent of job to job's grand-parent.
+(define (job-temp-parent-up! job)
+  (let* ((parent      (job-parent job))
+         (grandparent (and parent (job-parent parent))))
+    (when grandparent
+      (job-temp-parent-set! job grandparent))))
 
 
 ;; display a single environment variable

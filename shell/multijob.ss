@@ -276,7 +276,6 @@
       (assert* 'sh-start (logbit? 2  (procedure-arity-mask proc)))
       (assert* 'sh-start (list? options))
       (let* ((process-group-id (options->process-group-id options))
-             (_                (options->set-temp-parent! job options))
              (ret              (c-fork-pid (or process-group-id -1))))
         (cond
           ((< ret 0) ; fork() failed
@@ -329,8 +328,7 @@
     ;; spawn a subprocess and run (%proc... job) inside it
     (spawn-procedure job (options-filter-out options '(spawn?)) proc)
     ;; directly call (proc job options) in the caller's process
-    (let ((options (options->set-temp-parent! job options)))
-      (proc job options))))
+    (proc job options)))
 
 
 ;; Internal function called by (job-resume) called by (sh-fg) (sh-bg) (sh-resume) (sh-wait) (sh-job-status)

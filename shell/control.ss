@@ -61,10 +61,7 @@
         (job-status-set/running! job)
         (job-suspend-proc-set! job susp)
         (parameterize ((sh-current-job job))
-          ;; set job's parent if requested.
-          ;; must be done *before* calling procedures in (cmd-arg-list c)
-          (let ((options (options->set-temp-parent! job options)))
-            (start-proc job options))))))  ; may throw
+          (start-proc job options)))))  ; may throw
   ;; ignore value returned by job-start-proc,
   ;; and ignore value returned by continuation (susp)
   (void))
