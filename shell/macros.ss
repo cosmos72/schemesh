@@ -81,7 +81,7 @@
 ;; when executed, and returns the value of last expression.
 (define-syntax shell-expr
   (syntax-rules ()
-    ((_ expr exprs ...) (sh-cmd* "builtin" "value" (lambda () expr exprs ...)))))
+    ((_ expr exprs ...) (sh-expr (lambda () expr exprs ...)))))
 
 
 (meta begin

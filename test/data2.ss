@@ -360,7 +360,7 @@
   (caddr (expand '{{ls -al >> log.txt}}))              (sh-cmd* "ls" "-al" 1 '>> "log.txt")
   (caddr (expand '(shell-list
     (shell "ls" "-al" >> "log.txt"))))                 (sh-cmd* "ls" "-al" 1 '>> "log.txt")
-  (caddr (expand '(shell-expr (if a b c))))            (sh-cmd* "builtin" "value" (lambda () (if a b c)))
+  (caddr (expand '(shell-expr (if a b c))))            (sh-expr (lambda () (if a b c)))
   (caddr (expand '{{{{echo|cat}}}}))                   (sh-pipe* (sh-cmd "echo") '\x7C; (sh-cmd "cat"))
   (caddr (expand '(sh-pipe* {echo} '\x7C; {cat})))     (sh-pipe* (sh-cmd "echo") '\x7C; (sh-cmd "cat"))
   (caddr (expand (parse-shell-form1 (string->parsectx

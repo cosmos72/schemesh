@@ -95,7 +95,10 @@
 ;; same as (sh-job-display), except that all arguments are mandatory
 (define (sh-job-display* job-or-id port)
   (let* ((job (sh-job job-or-id))
-         (kind (if (sh-multijob? job) (multijob-kind job) #f)))
+         (kind (cond
+                 ((sh-multijob? job) (multijob-kind job))
+                 ((sh-expr?     job) 'sh-expr)
+                 (else               #f))))
     (job-display/open-paren  port kind)
     (job-display/any         job port precedence-lowest)
     (job-display/close-paren port kind)))
@@ -110,8 +113,9 @@
 
 (define (job-display/any job port outer-precedence)
   (cond
+    ((sh-cmd? job)      (job-display/cmd  job port))
+    ((sh-expr? job)     (job-display/expr job port))
     ((sh-multijob? job) (job-display/multijob job port outer-precedence))
-    ((sh-cmd? job)      (job-display/cmd job port))
     (else               (put-string port "???"))))
 
 
@@ -146,11 +150,19 @@
 
 
 (define (job-display/open-paren port kind)
-  (put-char port (if (eq? 'sh-subshell kind) #\[ #\{)))
+  (case kind
+    ((sh-expr)     (put-string port "$( "))
+    ((sh-subshell) (put-char   port #\[))
+    (else          (put-char   port #\{))))
 
 (define (job-display/close-paren port kind)
-  (put-char port (if (eq? 'sh-subshell kind) #\] #\})))
+  (put-char port (case kind ((sh-expr)     #\)) #| #\( |#
+                            ((sh-subshell) #\])
+                            (else          #\}))))
 
+
+(define (job-display/expr job port)
+  (put-datum port (jexpr-proc job)))
 
 (define (job-display/cmd job port)
   (job-display/env-lazy job port)
@@ -250,8 +262,9 @@
 
 (define (job-write/any job port)
   (cond
-    ((sh-multijob? job) (job-write/multijob job port))
     ((sh-cmd? job)      (job-write/cmd job port))
+    ((sh-expr? job)     (job-write/expr job port))
+    ((sh-multijob? job) (job-write/multijob job port))
     (else               (put-string port "#<unknown-job>"))))
 
 
@@ -352,6 +365,12 @@
                                        (%sh-redirect/file-char->symbol 'sh-job-write ch))))
     (put-char port #\space)
     (put-datum port to)))
+
+
+(define (job-write/expr job port)
+  (put-string port "(sh-expr ")
+  (put-datum  port (jexpr-proc job))
+  (put-string port ")"))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

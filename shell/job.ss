@@ -39,6 +39,9 @@
     sh-env-ref sh-env-set! sh-env-delete! sh-env-visibility-ref sh-env-visibility-set!
     sh-env-iterate/direct sh-env-set/lazy! sh-env-copy sh-env->argv
 
+    ;; expr.ss
+    sh-expr
+
     ;; job.ss
     sh-consume-signals sh-cwd
     sh-job sh-job-id sh-job-status sh-jobs sh-find-job sh-job-exception
@@ -482,6 +485,7 @@
 (include "shell/options.ss")
 (include "shell/params.ss")
 (include "shell/cmd.ss")
+(include "shell/expr.ss")
 (include "shell/multijob.ss")
 (include "shell/env.ss")
 (include "shell/dir.ss")

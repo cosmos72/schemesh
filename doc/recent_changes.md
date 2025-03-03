@@ -8,6 +8,7 @@
   in most cases, removes the need to end a line with \
 * always queue job status change notifications for later displaying them,
   instead of sometimes displaying them immediately
+* remove function (sh-resume) and subsume it into (sh-wait)
 * rename shell builtin "expr" -> "value"
 * remove function (sh-bool)
 

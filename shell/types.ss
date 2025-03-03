@@ -56,7 +56,7 @@
 
 ;; Define the record type "jexpr"
 (define-record-type
-  (jexpr %make-jexpr sh-expr?)
+  (jexpr %make-sh-expr sh-expr?)
   (parent job)
   (fields
     proc                    ; procedure to call for executing the job

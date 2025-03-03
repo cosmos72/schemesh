@@ -140,9 +140,9 @@
         (syntax-errorf ctx 'parse-shell "unexpected end-of-file after $"))
       ((lparen)
         (parsectx-read-char ctx) ; consume (
-        ; read a shell list surrounded by $(...)
-        (let-values (((form _) (parse-shell-forms ctx 'dollar+lparen)))
-          form))
+        ; read a Scheme list surrounded by $(...)
+        (let-values (((form _) (parse-scheme-forms ctx 'dollar+lparen)))
+          (list 'shell-expr form)))
       ((lbrack)
         (parsectx-read-char ctx) ; consume [
         ; read a shell list surrounded by $[...]

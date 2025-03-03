@@ -233,8 +233,7 @@
                      ((eof)    'eof)
                      (else     'rparen)))
          (prefix (case begin-type
-                     ((backquote dollar+lparen dollar+lbrack)
-                                'shell-backquote)
+                     ((backquote dollar+lbrack) 'shell-backquote)
                      ((lbrack)  'shell-subshell)
                      (else      'shell)))
          (can-change-parser?    #t)
@@ -296,30 +295,29 @@
               (let-values (((form _) (parse-shell-forms ctx type)))
                 (unless (null? form)
                   (set! ret (cons form ret))))))
-          ((lparen)
+          ((lparen dollar+lparen)
             ; switch to Scheme parser for a single form.
-            (let ((lisp-parser (parser-parse-forms (get-parser ctx 'scheme 'parse-shell-forms))))
-              (let-values (((lisp-forms _) (lisp-parser ctx type)))
-                (if (and (null? ret) (eq? 'eof end-type))
-                  ; lparen is the first token at shell top level:
-                  ; allow entering Scheme form
-                  (let ((return-lisp-form? (%after-lisp-forms-at-top-level ctx)))
-                    (if return-lisp-form?
-                      (let-values (((next-forms updated-parser) (parse-shell-forms ctx begin-type)))
-                        (when updated-parser
-                          (set! parser updated-parser))
-                        (set! ret (cons lisp-forms next-forms))
-                        (set! done? #t)
-                        (set! prefix #f))
-                      (set! ret (cons lisp-forms ret))))
-                  ; lparen was in the middle of shell syntax:
-                  ; just insert parsed Scheme form into current shell command
-                  (set! ret (cons lisp-forms ret))))))
-          ((lbrace lbrack dollar+lparen dollar+lbrack)
-            (when (eq? type 'dollar+lparen)
-              (warnf "; warning in ~a: shell syntax $( ) is deprecated and will soon change meaning. please use $[ ] instead\n" 'parse-shell-forms))
-
-            ; TODO: $(...) may be followed by other words without a space
+            (let-values (((lisp-forms _) (parse-scheme-forms ctx type)))
+              (if (and (null? ret) (eq? 'lparen type) (eq? 'eof end-type))
+                ; lparen is the first token at shell top level:
+                ; allow entering Scheme form
+                (let ((return-lisp-form? (%after-lisp-forms-at-top-level ctx)))
+                  (if return-lisp-form?
+                    (let-values (((next-forms updated-parser) (parse-shell-forms ctx begin-type)))
+                      (when updated-parser
+                        (set! parser updated-parser))
+                      (set! ret (cons lisp-forms next-forms))
+                      (set! done? #t)
+                      (set! prefix #f))
+                    (set! ret (cons lisp-forms ret))))
+                ; either lparen was in the middle of shell syntax, or dollar+lparen found:
+                ; just insert parsed Scheme form into current shell command
+                (set! ret (cons (if (eq? 'dollar+lparen type)
+                                  (list 'shell-expr lisp-forms)
+                                  lisp-forms)
+                                ret)))))
+          ((lbrace lbrack dollar+lbrack)
+            ; TODO: $[...] may be followed by other words without a space
             (let-values (((form _) (parse-shell-forms ctx type)))
               ; (debugf "... parse-shell-forms nested_form=~s ret=~s" form ret)
               (unless (null? form)
@@ -346,6 +344,12 @@
     (let ((simplified (%simplify-parse-shell-forms end-type prefix ret)))
       ; (debugf "<-  parse-shell-forms ret=~s" simplified)
       (values simplified parser))))
+
+
+;; helper function to invoke lisp parser
+(define (parse-scheme-forms ctx begin-type)
+  (let ((lisp-parser (parser-parse-forms (get-parser ctx 'scheme 'parse-shell-forms))))
+    (lisp-parser ctx begin-type)))
 
 
 ;; return #t in order to ignore newlines
