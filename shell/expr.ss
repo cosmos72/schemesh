@@ -48,18 +48,23 @@
   (assert* 'sh-expr (eq? 'running (job-last-status->kind job)))
   ;; jexpr-proc may want to use (sh-fd-stdin) (sh-fd-stdout) (sh-fd-stderr)
   ;; or more generally, (job-find-fd-remap)
-  (job-remap-fds! job))
+  (job-remap-fds! job)
+  ;; jobs are started non-blockingly,
+  ;; but running a jexpr job always blocks
+  ;; => stop the job and let caller decide whether to wait for it
+  (job-status-set! 'sh-expr job '(stopped sigtstp)))
 
 
 ;; continue a jexpr job
 (define (jexpr-advance job wait-flags)
   ;; jexpr jobs execute Scheme code, which always blocks:
-  ;; continue only if caller asked to wait.
-  (when (sh-wait-flag-wait? wait-flags)
+  ;; continue only if caller asked to continue job and wait.
+  (when (and (sh-wait-flag-wait? wait-flags)
+             (sh-wait-flag-continue-if-stopped? wait-flags))
     (let ((pgid (job-pgid job)))
       (with-foreground-pgid wait-flags pgid
         ;; send SIGCONT to job's process group, if present.
-        (when (and pgid (sh-wait-flag-continue-if-stopped? wait-flags))
+        (when pgid
           (pid-kill (- pgid) 'sigcont))
         (job-status-set/running! job)
         (unless (jexpr-resume-proc job)
