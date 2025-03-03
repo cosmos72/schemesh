@@ -102,7 +102,7 @@ from shell syntax, simply type `$` before a Scheme expression in parentheses,
 and it gets encapsulated in a job that can be started, stopped and resumed just like any other job.
 Example:
 ```shell
-> $(do ((i 0 (fx1+ i))) ((fx>=? i 1000000000) "done!\n"))
+> $(begin (repeat 1000000000 (void)) "done!\n")
 
 CTRL+Z
 (stopped sigtstp)
@@ -117,7 +117,7 @@ in that case, wrap the Scheme expression inside `(shell-expr ...)` to create the
 which can be executed immediately, saved in a variable for later execution, passed to a Scheme procedure, etc.
 Example:
 ```lisp
-> (define j (shell-expr (do ((i 0 (fx1+ i))) ((fx>=? i 1000000000) "done too!\n"))))
+> (define j (shell-expr (begin (repeat 1000000000 (void)) "done too!\n")))
 > (sh-run/i j)
 (ok "done too!\n")
 ```
