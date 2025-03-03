@@ -66,7 +66,7 @@
     sh-pipe sh-pipe*
 
     ;; status.ss
-    sh-ok? sh-started? sh-running? sh-stopped? sh-finished?
+    sh-ok? sh-new? sh-started? sh-running? sh-stopped? sh-finished?
     sh-status->kind sh-status->result sh-status->results
 
     ;; types.ss
@@ -161,15 +161,17 @@
 ;; Return job status
 (define (job-id-unset! job)
   (assert* 'job-id-unset! (sh-job? job))
-  (when (job-id job)
-    (let* ((children (multijob-children (sh-globals)))
-           (child-n  (span-length children))
-           (id       (job-id job)))
-      (when (fx<? -1 id child-n)
-        (span-set! children id #f)
-        (until (or (span-empty? children) (span-ref-right children))
-          (span-erase-right! children 1)))
-      (%job-id-set! job #f)))
+  (let ((id (job-id job)))
+    (when id
+      (let* ((jobs (multijob-children (sh-globals)))
+             (n    (span-length jobs)))
+        (when (fx<? -1 id n)
+          (span-set! jobs id #f)
+          (until (or (span-empty? jobs) (span-ref-right jobs))
+            (span-erase-right! jobs 1)))
+      (%job-id-set! job #f)
+      (job-oid-set! job id) ;; needed for later displaying it
+      (queue-job-display-summary job))))
   (job-last-status job))
 
 
@@ -350,17 +352,19 @@
       (job-pids-wait #f 'nonblocking proc-notify-status-change))))
 
 
-;; raise an exception if a job or one of it recursive children is already started
-(define (job-check-not-started caller job)
-  (when (job-started? job)
-    (if (job-id job)
-      (raise-errorf caller "job already started with job id ~s" (job-id job))
-      (raise-errorf caller "job already started")))
-  (when (sh-multijob? job)
-    (span-iterate (multijob-children job)
-      (lambda (i elem)
-        (when (sh-job? elem)
-          (job-check-not-started caller elem))))))
+(define (display-status-changes lctx)
+  (let ((job-list (queue-job-display-summary)))
+    (unless (null? job-list)
+      (lineedit-undraw lctx 'flush)
+      (list-iterate (list-remove-consecutive-duplicates! (sort! sh-job<? job-list) eq?)
+        (lambda (job)
+          (display-status-change job lctx))))))
+
+
+(define (display-status-change job lctx)
+  (when (or (job-id job) (job-oid job))
+    (sh-job-display-summary job)
+    (job-oid-set! job #f))) ; no longer needed, clear it
 
 
 ;; called when starting a builtin or multijob:
@@ -474,6 +478,7 @@
 (include "shell/pipe.ss")
 (include "shell/control.ss")
 (include "shell/parse.ss")
+(include "shell/scheduler.ss")
 (include "shell/builtins2.ss")
 (include "shell/aliases.ss")
 (include "shell/wildcard.ss")

@@ -25,7 +25,7 @@
 (define (sh-job-display-summary* job-or-id port)
   (when (sh-job-display-summary?)
     (let* ((job    (sh-job job-or-id))
-           (id     (job-id job))
+           (id     (or (job-id job) (job-oid job)))
            (pid    (job-pid job))
            (job-status (job-last-status job))
            (status (if (sh-ok? job-status) '(ok) job-status)))

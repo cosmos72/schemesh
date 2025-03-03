@@ -107,7 +107,7 @@
   (let* ((current-job (sh-current-job))
          (mj
     (%make-multijob
-      #f #f #f        ; id pid pgid
+      #f #f #f #f     ; id oid pid pgid
       '(new) #f       ; last-status exception
       (span) 0 #f     ; redirections
       start-proc      ; executed to start the job

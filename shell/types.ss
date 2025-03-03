@@ -14,6 +14,7 @@
   (job %make-job sh-job?)
   (fields
     (mutable id job-id %job-id-set!)       ; #f or fixnum >= 0: job id in (sh-globals)
+    (mutable oid)                          ; #f or fixnum >= 0: previous value of job id
     (mutable pid  job-pid  %job-pid-set!)  ; #f or integer > 0: process id
     (mutable pgid job-pgid %job-pgid-set!) ; #f or integer > 0: process group id
      ; cons: last known status, or (void) if job exited successfully
@@ -42,7 +43,7 @@
     (mutable temp-parent) ; temporary parent job, contains default values of env variables.
                           ; Unset when job finishes
     (mutable default-parent)) ; default parent job, contains default values of env variables
-  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-15}))
+  (nongenerative #{job lbuqbuslefybk7xurqc6uyhyv-30}))
 
 
 ;; Define the record type "cmd"
@@ -52,7 +53,7 @@
   (fields
     arg-list                     ; list of strings and closures: program-name and args
     (mutable expanded-arg-list)) ; #f or list of strings: program-name and args after applying closures and expanding aliases
-  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-16}))
+  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-31}))
 
 
 ;; Define the record type "multijob"
@@ -63,7 +64,7 @@
     kind                ; symbol: one of 'sh-and 'sh-or 'sh-not 'sh-list 'sh-subshell '#<global>
     (mutable current-child-index) ; -1 or index of currently running child job
     children)           ; span: children jobs.
-  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-17}))
+  (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-32}))
 
 
 ;; Parameter containing the current job.
@@ -176,7 +177,7 @@
 ;; Returned job will have no id, status '(new) and specified parent.
 (define (cmd-copy j parent)
   (%make-cmd
-    #f #f #f             ; id pid pgid
+    #f #f #f #f          ; id oid pid pgid
     '(new) #f            ; status exception
     (let ((redirects (job-redirects j)))
       (span-copy redirects (job-redirects-temp-n j) (span-length redirects)))
@@ -205,7 +206,7 @@
   (let* ((children (job-span-copy (multijob-children j)))
          (ret
     (%make-multijob
-      #f #f #f             ; id pid pgid
+      #f #f #f #f          ; id oid pid pgid
       '(new) #f            ; status exception
       (let ((redirects (job-redirects j)))
         ;; skip temporary redirects, copy the rest

@@ -103,6 +103,13 @@
     (else
       #f)))
 
+
+;; Return #t if status represents a new job, i.e. its kind is 'new
+;; otherwise return #f
+(define (sh-new? status)
+  (eq? 'new (sh-status->kind status)))
+
+
 ;; Return #t if status represents a started job, i.e. its kind is one of 'running 'stopped.
 ;; otherwise return #f
 (define (sh-started? status)
@@ -179,14 +186,18 @@
 
 
 
-;; Return truish if job was already started, otherwise return #f
+;; Return #t if job status is '(new ...), otherwise return #f
+(define (job-new? job)
+  (sh-new? (job-last-status job)))
+
+;; Return #t if job was already started, otherwise return #f
 (define (job-started? job)
   (sh-started? (job-last-status job)))
 
-;; Return truish if job was started and is still running (not stopped or finished), otherwise return #f
+;; Return #t if job was started and is still running (not stopped or finished), otherwise return #f
 (define (job-running? job)
   (sh-running? (job-last-status job)))
 
-;; Return truish if job has already finished, otherwise return #f
+;; Return #t if job has already finished, otherwise return #f
 (define (job-finished? job)
   (sh-finished? (job-last-status job)))

@@ -24,7 +24,8 @@
       ;; waiting for sh-globals to exit is not useful:
       ;; pretend it already finished successfully
       (%make-multijob
-         0 (pid-get) (pgid-get 0)  ; id pid pgid
+         0 #f                      ; id oid
+         (pid-get) (pgid-get 0)    ; pid pgid
          (void) #f                 ; last-status exception
          (span) 0 #f               ; redirections
          #f #f                     ; start-proc step-proc

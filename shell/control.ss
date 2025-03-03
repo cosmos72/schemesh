@@ -36,7 +36,7 @@
 (define (job-start caller job options)
   ;b (debugf "job-start ~a ~s" (sh-job->string job) options)
   (options-validate caller options)
-  (job-check-not-started caller job)
+  (job-raise-if-started/recursive caller job)
   (call/cc
     (lambda (k-continue)
       (with-exception-handler
@@ -51,13 +51,43 @@
   (job-last-status job)) ; returns job status. also checks if job finished
 
 
+;; raise an exception if a job or one of it recursive children is already started
+(define (job-raise-if-started/recursive caller job)
+  (when (job-started? job)
+    (if (job-id job)
+      (raise-errorf caller "job already started with job id ~s" (job-id job))
+      (raise-errorf caller "job already started")))
+  (when (sh-multijob? job)
+    (span-iterate (multijob-children job)
+      (lambda (i elem)
+        (when (sh-job? elem)
+          (job-raise-if-started/recursive caller elem))))))
+
+
+;; set status '(new) in job and all their recursive children.
+;; also set child-index of all visited multijobs to -1.
+(define (job-status-set-new/recursive! job)
+  (%job-last-status-set! job '(new))
+  (job-exception-set! job #f)
+  (job-resume-proc-set! job #f)
+  (when (sh-multijob? job)
+    (multijob-current-child-index-set! job -1)
+    (span-iterate (multijob-children job)
+      (lambda (i elem)
+        (when (sh-job? elem)
+          (job-status-set-new/recursive! elem))))))
+
+
 (define (job-start/may-throw caller job k-continue options)
   (call/cc
     (lambda (susp)
       (let ((start-proc (job-start-proc job)))
         (unless (procedure? start-proc)
           (raise-errorf caller "cannot start job ~s, bad or missing job-start-proc: ~s" job start-proc))
+        (job-oid-set! job #f)
         (job-exception-set! job #f)
+        (unless (job-new? job)
+          (job-status-set-new/recursive! job))
         (job-status-set/running! job)
         (job-suspend-proc-set! job susp)
         (parameterize ((sh-current-job job))
