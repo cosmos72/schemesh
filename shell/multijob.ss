@@ -301,10 +301,7 @@
       (assert* 'sh-start (procedure? proc))
       (assert* 'sh-start (logbit? 2  (procedure-arity-mask proc)))
       (assert* 'sh-start (list? options))
-
-      (let* ((options          (options-filter-out        options '(spawn?)))
-             (process-group-id (options->process-group-id options))
-             (_                (options->set-temp-parent! job options))
+      (let* ((process-group-id (options->process-group-id options))
              (ret              (c-fork-pid (or process-group-id -1))))
 
         (cond
@@ -335,8 +332,7 @@
     ;; spawn a subprocess and run (%proc... job) inside it
     (spawn-procedure job options proc)
     ;; directly call (proc job options) in the caller's process
-    (let ((options (options->set-temp-parent! job options)))
-      (proc job options))))
+    (proc job options)))
 
 
 

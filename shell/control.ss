@@ -121,8 +121,7 @@
      ;; and restore the previous value each time it yields.
      ;; Also set job's temp parent if requested.
      ;; Both must be done *before* calling procedures in (cmd-arg-list c)
-     (let ((options (options->set-temp-parent! job options))
-           (other-current-job job)
+     (let ((other-current-job job)
            (saved-yield-proc  (override-yield-proc))
            (first-reenter?    #t))
        (dynamic-wind

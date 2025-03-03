@@ -16,12 +16,10 @@
 (define (option-validate caller option)
   (assert* caller (pair?   option))
   (assert* caller (symbol? (car option)))
-  (assert* caller (memq    (car option) '(catch? parent-job process-group-id same-parent-as-job spawn?)))
+  (assert* caller (memq    (car option) '(catch? parent-job process-group-id spawn?)))
   (case (car option)
     ((catch? spawn?)
       (assert* caller (boolean? (cdr option))))
-    ((parent-job same-parent-as-job)
-      (assert* caller (sh-find-job (cdr option))))
     ((process-group-id)
       (assert* caller (integer? (cdr option)))
       (assert* caller (>= (cdr option) 0))))
@@ -47,21 +45,9 @@
 ;;     If present and flag is #t, any Scheme condition raised by starting
 ;;     the job will be captured, and job status will be set to (list exception #<condition>)
 ;;
-;;   (cons 'parent-job job-or-id) - job-or-id must resolve to an existing job via (sh-job job-or-id),
-;;     otherwise an exception will be raised.
-;;     If present, the job being started will have its parent job temporarily changed
-;;     to the job returned by (sh-job job-or-id).
-;;     Such change will be reverted when the job finishes.
-;;
 ;;   (cons 'process-group-id id) - id must be an integer and >= 0, otherwise an exception will be raised.
 ;;     If present, the new process will be inserted into the corresponding
 ;;     process group id - which must be either 0 or an already exist one.
-;;
-;;   (cons 'same-parent-as-job job-or-id) - job-or-id must resolve to an existing job via (sh-job job-or-id),
-;;     otherwise an exception will be raised.
-;;     If present, the job being started will have its parent job temporarily changed
-;;     to the *parent* of the job returned by (sh-job job-or-id).
-;;     Such change will be reverted when the job finishes.
 ;;
 ;;   (cons 'spawn? flag) - flag must be a boolean, otherwise an exception will be raised.
 ;;     If present and flag is #t, then job will be started in a subprocess.
@@ -136,33 +122,3 @@
     ; ignore requests to move a process into a specific process group id
     ; or to create a new process group id
     #f))
-
-
-;; if options contain '(parent-job . job-or-id) or '(same-parent-as-job . job-or-id)
-;; change the parent of job to specified job-or-id, or to its parent.
-;;
-;; Also returns a new options where all occurrences of
-;;   '(parent-job . job-or-id) and '(same-parent-as-job . job-or-id)
-;; have been removed.
-;; Returned options may share data with the original one.
-(define (options->set-temp-parent! job options)
-  (let ((parent #f))
-    (list-iterate options
-      (lambda (option)
-        (cond
-          ((not (pair? option))
-            #t) ; continue iteration
-          ((eq? 'parent-job (car option))
-            (set! parent (sh-job (cdr option)))
-            #f) ; stop iteration
-          ((eq? 'same-parent-as-job (car option))
-            (set! parent (job-parent (sh-job (cdr option))))
-            #f) ; stop iteration
-          (else
-            #t)))) ; continue iteration
-    (if parent
-      (begin
-        ; (debugf "job-temp-parent-set! job=~a parent=~a" (sh-job->string job) (sh-job->string parent))
-        (job-temp-parent-set! job parent)
-        (options-filter-out options '(parent-job same-parent-as-job)))
-      options))) ; nothing to remove
