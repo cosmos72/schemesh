@@ -165,7 +165,7 @@
       (let ((builtin (sh-find-builtin prog-and-args)))
         (if builtin
           ; expanded arg[0] is a builtin, call it.
-          (start-builtin builtin c prog-and-args options)  ; returns job status
+          (builtin-start builtin c prog-and-args options)  ; returns job status
           ; expanded arg[0] is a not builtin or alias, spawn a subprocess
           (spawn-cmd c prog-and-args options)))))) ; returns job status
 
@@ -187,7 +187,7 @@
       (let ((builtin (sh-find-builtin prog-and-args)))
         (if builtin
           ; expanded arg[0] is a builtin, call it.
-          (start-builtin builtin c prog-and-args options) ; returns job status
+          (builtin-start builtin c prog-and-args options) ; returns job status
           ; expanded arg[0] is a not builtin or alias, spawn a subprocess
           (spawn-cmd c prog-and-args options)))))) ; returns job status
 
@@ -216,16 +216,16 @@
 
 ;; internal function called by (builtin-exec) to exec a subprocess.
 ;; if C exec() fails, returns job status.
-(define exec-cmd
-  (let ((c-exec-cmd (foreign-procedure "c_cmd_exec" (ptr ptr ptr ptr) int)))
+(define cmd-exec
+  (let ((c-cmd-exec (foreign-procedure "c_cmd_exec" (ptr ptr ptr ptr) int)))
     (lambda (c argv options)
       (let* ((job-dir (job-cwd-if-set c))
-             (ret (c-exec-cmd
+             (ret (c-cmd-exec
                     argv
                     (if job-dir (text->bytevector0 job-dir) #f)
                     (job-make-c-redirect-vector c)
                     (sh-env->argv c 'export))))
-        ; (c-exec-cmd) returns only if it failed
+        ; (c-cmd-exec) returns only if it failed
         (list 'failed (if (and (integer? ret) (not (zero? ret))) ret -1))))))
 
 
