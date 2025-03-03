@@ -66,7 +66,7 @@
     sh-pipe sh-pipe*
 
     ;; status.ss
-    sh-ok? sh-started? sh-running? sh-stopped? sh-finished?
+    sh-ok? sh-new? sh-started? sh-running? sh-stopped? sh-finished?
     sh-status->kind sh-status->result sh-status->results
 
     ;; types.ss

@@ -365,10 +365,9 @@
 
 
 (meta begin
-
   ;; helper function used by macros (sh-wait-flag) and (sh-wait-flags)
   (define name->sh-wait-flag
-    (let ((alist '((foreground-pgid . 1) (continue-if-stopped . 2)
+    (let ((alist '((foreground-pgid . 1)     (continue-if-stopped . 2)
                    (wait-until-finished . 4) (wait-until-stopped-or-finished . 8))))
       (lambda (name)
         (let ((pair (assq name alist)))
