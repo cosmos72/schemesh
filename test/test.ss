@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh test (0 7 7))
+(library (schemesh test (0 8 0))
   (export
       run-tests)
   (import

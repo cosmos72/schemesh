@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh posix fd (0 7 7))
+(library (schemesh posix fd (0 8 0))
   (export
     c-errno c-errno->string c-exit c-hostname
     fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-read fd-write

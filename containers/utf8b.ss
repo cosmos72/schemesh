@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh containers utf8b (0 7 7))
+(library (schemesh containers utf8b (0 8 0))
   (export
     integer->char* string->utf8b string->utf8b/0
     utf8b->string utf8b->string utf8b-bytespan->string)

@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh posix signal (0 7 7))
+(library (schemesh posix signal (0 8 0))
   (export signal-raise signal-number->name signal-name->number
           signal-consume-sigchld signal-consume-sigtstp signal-consume-sigwinch
           signal-init-sigwinch signal-restore-sigwinch)

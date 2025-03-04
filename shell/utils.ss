@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh shell utils (0 7 7))
+(library (schemesh shell utils (0 8 0))
   (export
     sh-autocomplete sh-current-time sh-expand-ps1 sh-home->~ sh-make-linectx)
   (import

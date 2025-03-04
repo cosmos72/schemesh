@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh lineedit lineedit (0 7 7))
+(library (schemesh lineedit lineedit (0 8 0))
   (export
     ;; linedraw.ss
     lineedit-undraw

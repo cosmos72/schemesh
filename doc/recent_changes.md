@@ -1,23 +1,27 @@
 ## RECENT CHANGES
 
-### git main branch
+### release v0.8.0, 2025-03-04
 
+* add job-creating function `(sh-expr)` and corresponding macro `(shell-expr)`
+* implement job control also on arbitrary Scheme code running inside a `(shell-expr)`
+* update both shell parser and Scheme parser to expand `$( )` to `(shell-expr ( ))`
 * ignore newlines at the beginning of shell syntax:
   allows writing Scheme code in a new line *under* the REPL prompt
-* ignore newlines after shell syntax tokens & ; ! && || | |& < <> > >> <& >& { [
-  in most cases, removes the need to end a line with \
+* ignore newlines after shell syntax tokens
+  `{` `[` `!` `;` `&` `&&` `||` `|` `|&` `<` `<>` `>` `>>` `<&` `>&`
+  in most cases, this removes the need to end a line with `\`
 * always queue job status change notifications for later displaying them,
   instead of sometimes displaying them immediately
-* remove function (sh-resume) and subsume it into (sh-wait)
-* rename shell builtin "expr" -> "value"
-* remove function (sh-bool)
+* remove function `(sh-resume)` and subsume it into `(sh-wait)`
+* rename shell builtin `expr` -> `value`
+* remove function `(sh-bool)`
 
 ### release v0.7.7, 2025-03-01
 
 * fix (charhistory-save-to-path) not to raise exceptions: it was preventing schemesh
   from exiting if ~/.cache/schemesh/ directory does not exist or was not writable
 
-### release v0.7.7, 2025-03-01
+### release v0.7.6, 2025-03-01
 
 * add new syntax for shell command substitution `$[ ]`  and deprecate the old syntax `$( )`
 * add string-related functions (string-any) (string-contains) (string-count) (string-every)

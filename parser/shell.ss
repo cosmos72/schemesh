@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh parser shell (0 7 7))
+(library (schemesh parser shell (0 8 0))
   (export
     read-shell-char lex-shell parse-shell-word parse-shell-form1
     parse-shell-forms parser-shell)

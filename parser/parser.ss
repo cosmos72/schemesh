@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh parser (0 7 7))
+(library (schemesh parser (0 8 0))
   (export
     ; lisp.ss
     lex-lisp parse-lisp-forms parse-lisp-paren read-lisp-token

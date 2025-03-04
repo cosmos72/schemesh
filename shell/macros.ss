@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh shell macros (0 7 7))
+(library (schemesh shell macros (0 8 0))
   (export
     include/lang include/lang*
     shell shell-backquote shell-env shell-list shell-subshell shell-expr shell-wildcard)

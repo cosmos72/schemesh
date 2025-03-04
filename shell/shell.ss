@@ -7,7 +7,7 @@
 
 
 ;; define (schemesh shell) as a library that exports all its imported bindings
-(library-reexport (schemesh shell (0 7 7))
+(library-reexport (schemesh shell (0 8 0))
   (import
     (schemesh bootstrap functions)
     (schemesh shell autocomplete)
