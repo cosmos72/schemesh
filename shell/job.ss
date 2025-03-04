@@ -68,7 +68,7 @@
 
     ;; status.ss
     sh-ok? sh-new? sh-started? sh-running? sh-stopped? sh-finished?
-    sh-status->kind sh-status->result sh-status->results
+    sh-status->kind sh-status->value sh-status->value-list
 
     ;; types.ss
     sh-cmd? sh-job? sh-job-copy sh-multijob? sh-current-job

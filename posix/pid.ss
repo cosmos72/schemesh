@@ -94,10 +94,10 @@
       'failed)))
 
 
-;; reduced version of (sh-status->result) copy-pasted from shell/status.ss
+;; reduced version of (sh-status->value) copy-pasted from shell/status.ss
 ;;
 ;; Extract the first result of a status and return it.
-(define (status->result status)
+(define (status->value status)
   (cond
     ((eq? (void) status) 0)
     ((and (pair? status) (not (null? (cdr status))))
@@ -119,7 +119,7 @@
 (define (exit-with-job-status status)
   ;; (debugf "exit-with-job-status ~s" status)
   (let* ((kind   (status->kind status))
-         (result (status->result status)))
+         (result (status->value status)))
     (dynamic-wind
       void       ; before body
       (lambda () ; body

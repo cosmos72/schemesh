@@ -69,7 +69,7 @@
         ;; all command line arguments are strings, proceed
         (start-command-or-builtin-or-alias c prog-and-args options)
 
-        ;; some command line argument is a closure:
+        ;; some command line argument is a procedure or sh-expr:
         ;; setup fds remapping before calling them, because they may want to use
         ;; (sh-fd-stdin) (sh-fd-stdout) (sh-fd-stderr) or more generally, (job-find-fd-remap)
         (begin
@@ -78,17 +78,17 @@
                          (sh-fd-stdout (job-find-fd-remap c 1))
                          (sh-fd-stderr (job-find-fd-remap c 2)))
             (start-command-or-builtin-or-alias c
-              (cmd-arg-list-call-closures c prog-and-args) options)))))))
+              (cmd-arg-list-call-sh-expr-and-procedures c prog-and-args) options)))))))
 
 
 ;; internal function called by (cmd-start):
 ;; call procedures in prog-and-args.
 ;; Return the expanded command line, which is always a list of strings.
-(define (cmd-arg-list-call-closures c prog-and-args)
+(define (cmd-arg-list-call-sh-expr-and-procedures c prog-and-args)
   (let ((l '()))
     (list-iterate prog-and-args
       (lambda (arg)
-        (set! l (cmd-arg-apply c arg l))))
+        (set! l (cmd-arg-call-sh-expr-or-procedure c arg l))))
     (set! l (reverse! l))
     (assert-string-list? 'sh-start l)
     l))
@@ -99,13 +99,14 @@
 ;; Such procedure must return a string or list-of-strings, which are reverse-consed
 ;; at the beginning of list-of-strings l.
 ;; Return the updated list.
-(define (cmd-arg-apply c arg l)
+(define (cmd-arg-call-sh-expr-or-procedure c arg l)
   (let ((expanded
           (cond
+            ((sh-expr? arg) (sh-ok->values (sh-run arg)))    ; run sh-expr job, raise exception if zero or 2+ results
             ((not (procedure? arg)) arg)
-            ((logbit? 1 (procedure-arity-mask arg)) (arg c)) ; call closure (lambda (job) ...)
-            (else (arg)))))                                  ; call closure (lambda () ...)
-    ; (debugf "cmd-arg-apply cmd=~s arg=~s expanded=~s l=~s" c arg expanded l)
+            ((logbit? 1 (procedure-arity-mask arg)) (arg c)) ; call (proc job)
+            (else (arg)))))                                  ; call (proc)
+    ; (debugf "cmd-arg-call-sh-expr-or-procedure cmd=~s arg=~s expanded=~s l=~s" c arg expanded l)
     (cond
       ((eq? (void) expanded)
         l)
@@ -120,7 +121,7 @@
       ((string? expanded)
         (cons expanded l))
       (else
-        (raise-errorf 'sh-start "value ~s returned by closure ~s in job ~s is not a string, a list of strings, or (void)"
+        (raise-errorf 'sh-start "value ~s returned by ~s in job ~s is not a string, a list of strings, or (void)"
           expanded arg c)))))
 
 

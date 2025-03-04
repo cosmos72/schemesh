@@ -62,7 +62,7 @@
 
 ;; if (sh-finished? status) is #t, return the first result stored in status.
 ;; if (sh-finished? status) is #f or status contains zero results, return (void)
-(define (sh-status->result status)
+(define (sh-status->value status)
   (if (and (pair? status)
            (not (null? (cdr status)))
            (sh-finished? status))
@@ -76,7 +76,7 @@
 ;; if (sh-finished? status) is #f, return the empty list.
 ;;
 ;; DO NOT modify the returned list!
-(define sh-status->results
+(define sh-status->value-list
   (let ((list1-void (list (void))))
     (lambda (status)
       (cond
@@ -102,6 +102,41 @@
       #t)
     (else
       #f)))
+
+
+;; if (sh-ok? status) is #t, return the first result stored in status
+;; if (sh-ok? status) is #f or status contains zero results, return (void)
+(define (sh-ok->value status)
+  (if (and (pair? status)
+           (eq? 'ok (car status))
+           (not (null? (cdr status))))
+    (cadr status)
+    (void)))
+
+
+;; if (sh-ok? status) is #t, return the results as multiple values.
+;; if (sh-ok? status) is #f, return (void)
+(define (sh-ok->values status)
+  (if (and (pair? status) (eq? 'ok (car status)))
+    (apply values (cdr status))
+    (void)))
+
+
+;; if (sh-ok? status) is #t, return the results as a list.
+;;    Note: the status (void) represents a successfully finished job that returned (void)
+;;          thus the returned results is a single-element list containing (void)
+;; if (sh-ok? status) is #f, return the empty list.
+;;
+;; DO NOT modify the returned list!
+(define (sh-ok->value-list status)
+  (let ((list1-void (list (void))))
+    (cond
+      ((eq? status (void))
+        list1-void)
+      ((and (pair? status) (eq? 'ok (car status)))
+        (cdr status))
+      (else
+        '()))))
 
 
 ;; Return #t if status represents a new job, i.e. its kind is 'new

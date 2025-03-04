@@ -375,7 +375,7 @@
 
 
 ;; Create a cmd to later spawn it.
-;; Each argument must be a string, symbol, fixnum, procedure, or (void)
+;; Each argument must be a string, symbol, fixnum, procedure, sh-expr or (void)
 ;;
 ;; Symbol '= indicates an environment variable assignment, and must be preceded by
 ;; the variable name (a non-empty string) and followed by its value (a string or closure that returns a string).
@@ -390,8 +390,11 @@
 ;; Each argument that is not part of an assignment or a redirection must be one of:
 ;;   (void) - it will be ignored
 ;;   a string
-;;   a closure that accepts 0 or 1 arguments (the job)
+;;   a string list
+;;   a procedure that accepts 0 or 1 arguments (the job)
 ;;     and it must return a single value: a string, a list of strings, or (void)
+;;   a sh-expr job that, when executed,
+;;     must finish with a single value: a string, a list of strings, or (void)
 (define (sh-cmd* . args)
   (let-values (((program-and-args assignments redirections)
                   (cmd-parse-assignments-and-redirections
@@ -451,7 +454,7 @@
           (raise-errorf 'sh-cmd* "env assignments are not allowed after redirections, found ~s after ~s" args (car redirections)))
         (let ((assignment (cmd-parse-assignment args)))
           (%again (cdddr args) rets (cons assignment assignments) redirections)))
-      ((or (string? (car args)) (procedure? (car args)))
+      ((or (string? (car args)) (procedure? (car args)) (sh-expr? (car args)))
         (%again (cdr args) (cons (car args) rets) assignments redirections))
       ((redirection-sym? (car args))
         (let-values (((fd dir to) (parse-redirection2 args procedure?)))
