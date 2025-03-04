@@ -85,7 +85,8 @@ int schemesh_load_libraries(const char* override_library_dir) {
        "            (let ((port (current-error-port)))\n"
        "              (put-string port \"schemesh: \")"
        "              (display-condition ex port)\n"
-       "              (newline port))\n"
+       "              (newline port)\n"
+       "              (flush-output-port port))\n"
        "            (k-exit #f))\n" /* exception -> return #f */
        "          (lambda ()\n"
        "            (load path)\n"

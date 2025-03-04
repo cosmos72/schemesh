@@ -10,7 +10,7 @@
   (export pid-get pgid-get pid-kill pid-wait exit-with-job-status)
   (import
     (rnrs)
-    (only (chezscheme) foreign-procedure format void)
+    (only (chezscheme) console-error-port console-output-port foreign-procedure format void)
     (only (schemesh bootstrap)    assert* debugf)
     (schemesh posix fd)
     (only (schemesh conversions)  list->argv)
@@ -123,7 +123,9 @@
     (dynamic-wind
       void       ; before body
       (lambda () ; body
+        (flush-output-port (console-output-port))
         (flush-output-port (current-output-port))
+        (flush-output-port (console-error-port))
         (flush-output-port (current-error-port))
         (when (eq? 'killed kind)
           (let ((signal-name result))

@@ -84,10 +84,10 @@
     sh-wildcard->sh-patterns sh-patterns/expand
   )
   (import
-    (except (rnrs) current-output-port current-error-port)
+    (except (rnrs)     current-error-port current-output-port)
     (rnrs mutable-pairs)
     (only (chezscheme) append! break
-                       console-output-port console-error-port current-output-port current-error-port
+                       console-error-port console-output-port current-error-port current-output-port
                        debug debug-condition debug-on-exception display-condition
                        foreign-procedure format fx1+ fx1- hashtable-cells include inspect
                        logand logbit? make-format-condition meta open-fd-output-port
