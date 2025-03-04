@@ -23,7 +23,7 @@
       sh-make-parameter sh-make-thread-parameter sh-version)
   (import
     (rnrs)
-    (only (chezscheme) format gensym make-continuation-condition make-format-condition
+    (only (chezscheme) console-error-port format gensym make-continuation-condition make-format-condition
                        interaction-environment top-level-bound? top-level-value))
 
 
@@ -105,7 +105,7 @@
 
 
 (define (warnf-port)
-  (current-error-port))
+  (console-error-port))
 
 ;; Display a warning message to (warnf-port).
 (define (warnf format-string . format-args)

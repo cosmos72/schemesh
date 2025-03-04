@@ -40,6 +40,9 @@
   ;; Replace (current-output-port) with an UTF-8b textual output port that honors current job redirections
   (current-output-port (open-fd-redir-textual-output-port "sh-stdout" (lambda () (sh-fd 1))))
 
+  ;; Replace (current-error-port) with an UTF-8b textual output port that honors current job redirections
+  (current-error-port (open-fd-redir-textual-output-port "sh-stderr" (lambda () (sh-fd 2))))
+
 
   (let ((bt (sh-builtins))
         (ft (builtins-that-finish-immediately)))
