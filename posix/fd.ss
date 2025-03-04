@@ -9,7 +9,7 @@
   (export
     c-errno c-errno->string c-exit c-hostname
     fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-read fd-write
-    fd-read-until-eof fd-select fd-setnonblock open-file-fd open-pipe-fds
+    fd-read-all fd-select fd-setnonblock open-file-fd open-pipe-fds
     raise-c-errno)
   (import
     (rnrs)
@@ -78,7 +78,7 @@
 
 ;; read from fd until end-of-file.
 ;; return read bytes as a bytevector
-(define (fd-read-until-eof fd)
+(define (fd-read-all fd)
   (let ((bsp (make-bytespan 0)))
     (while (fx>? (fd-read-some fd bsp) 0))
     (bytespan->bytevector*! bsp)))

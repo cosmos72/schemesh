@@ -116,7 +116,7 @@
         (lambda ()
           (set! read-fd (apply sh-start/fd-stdout job options))
           ;; WARNING: job may internally dup write-fd into (job-fds-to-remap)
-          (fd-read-until-eof read-fd))
+          (fd-read-all read-fd))
         (lambda ()
           (when read-fd
             (fd-close read-fd))

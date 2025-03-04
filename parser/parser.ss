@@ -102,20 +102,20 @@
 ;; and return corresponding paren object
 ;;
 ;; Equivalent to (parse-paren pctx #f initial-parser)
-(define (parse-paren-until-eof pctx initial-parser)
+(define (parse-paren-all pctx initial-parser)
   (parse-paren pctx #f initial-parser))
 
 
-;; Simple wrapper around parse-paren-until-eof, useful for testing
+;; Simple wrapper around parse-paren-all, useful for testing
 (define string->paren
   (case-lambda
-    ((str)                (parse-paren-until-eof (string->parsectx str (parsers)) 'scheme))
-    ((str initial-parser) (parse-paren-until-eof (string->parsectx str (parsers)) initial-parser))))
+    ((str)                (parse-paren-all (string->parsectx str (parsers)) 'scheme))
+    ((str initial-parser) (parse-paren-all (string->parsectx str (parsers)) initial-parser))))
 
 
 ;; Create a parenmatcher that uses parse-paren to find matching parenthesis and grouping tokens
 (define (make-parenmatcher)
-  (make-custom-parenmatcher parse-paren-until-eof))
+  (make-custom-parenmatcher parse-paren-all))
 
 
 

@@ -18,7 +18,7 @@
     (only (schemesh containers list)   list-iterate)
     (only (schemesh containers string) assert-string-list? string-suffix? string-index-right)
     (only (schemesh containers utf8b)  utf8b->string)
-    (only (schemesh posix fd)          fd-close fd-read-until-eof fd-write open-file-fd)
+    (only (schemesh posix fd)          fd-close fd-read-all fd-write open-file-fd)
     (schemesh parser)
     (only (schemesh shell parameters)  sh-eval)
     (only (schemesh shell job)         sh-fd sh-builtins sh-builtins-help))
@@ -82,7 +82,7 @@
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
 (define (sh-read-fd* fd initial-parser enabled-parsers)
-  (sh-read-string* (utf8b->string (fd-read-until-eof fd)) initial-parser enabled-parsers))
+  (sh-read-string* (utf8b->string (fd-read-all fd)) initial-parser enabled-parsers))
 
 
 ;; read and parse multi-language source contents from specified textual input port,
