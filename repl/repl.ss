@@ -171,6 +171,7 @@
 
 ;; Print values or exit statuses.
 (define (repl-print . vals)
+  (flush-output-port (current-error-port))
   (do ((p (current-output-port))
        (tail vals (cdr tail)))
       ((null? tail) (flush-output-port p))
