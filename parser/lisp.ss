@@ -99,7 +99,7 @@
     ;; if type = 'quote, value can be one of:
     ;;    'quote  'quasiquote  'unquote  'unquote-splicing
     ;;    'syntax 'quasisyntax 'unsyntax 'unsyntax-splicing
-    ;;    'datum-comment
+    ;;    'datum-comment 'shell-expr
     ((quote)
       (let ((next (parse-lisp ctx flavor)))
         (if (eq? 'datum-comment value)

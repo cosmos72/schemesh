@@ -45,8 +45,15 @@
             ;;    {ls -l > log.txt}
             ;; is equivalent to
             ;;    (#!shell ls -l > log.txt)
-            (({)  (values #f 'lbrace))
-            ((})  (values #f 'rbrace))
+            ;;
+            ;; also, replace (values '$ 'atomic) with (values 'quote 'shell-expr)
+            ;; because we want to allow $(expr ...) also in Scheme syntax. For example,
+            ;;    $(string-append "/home" "/user")
+            ;; is equivalent to
+            ;;    (shell-expr (string-append "/home" "/user"))
+            (({)  (values #f  'lbrace))
+            ((})  (values #f     'rbrace))
+            (($)  (values 'shell-expr 'quote ))
             (else (values value type)))
           (values value type))))))
 

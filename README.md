@@ -93,7 +93,7 @@ Some more advanced Scheme functions:
 
 Job control is now available also for Scheme code:
 
-from shell syntax, simply type `$` before a Scheme expression in parentheses,
+from shell syntax or Scheme syntax, simply type `$` before a Scheme expression in parentheses,
 and it gets encapsulated in a job that can be started, stopped and resumed just like any other job.
 Example:
 ```shell
@@ -107,16 +107,16 @@ CTRL+Z
 (ok "done!\n")
 ```
 
-The same feature is also available from Scheme syntax:
-in that case, wrap the Scheme expression inside `(shell-expr ...)` to create the job,
-which can be executed immediately, saved in a variable for later execution, passed to a Scheme procedure, etc.
+This feature can also be written in long form `(shell-expr ...)` both from shell syntax and from Scheme syntax.
+
+If used from Scheme syntax, the job created by short or long form can be executed immediately,
+or saved in a variable for later execution, or passed to a procedure, etc.
 Example:
 ```lisp
-> (define j (shell-expr (begin (repeat 1000000000 (void)) "done too!\n")))
+> (define j $(begin (repeat 1000000000 (void)) "done too!\n"))
 > (sh-run/i j)
 (ok "done too!\n")
 ```
-
 
 ### Subshells and command substitution
 
