@@ -29,17 +29,22 @@
 ;; unconditionally draw all lines. does not update term-x, term-y
 (define (linectx-draw-lines lctx)
   (let* ((screen (linectx-vscreen lctx))
-         (width  (vscreen-width screen))
          (ymax   (fxmax 0 (fx1- (vscreen-length screen))))
          (nl?    #f))
     ; (debugf "linectx-draw-lines ~s" screen)
     (charlines-iterate screen
       (lambda (y line)
-        (lineterm-write/cbuffer lctx line 0 (charline-length line))
-        (unless (or (fx=? y ymax) (charline-nl? line))
-          (lineterm-write/u8 lctx 10))))
+        (let ((len (fx- (charline-length line)
+                        (if (charline-nl? line) 1 0))))
+        (lineterm-write/cbuffer lctx line 0 len)
+        (when (fx<? y ymax)
+          (when (fx<? len (vscreen-width-at-y screen y))
+            (lineterm-clear-to-eol lctx))
+          (when (charline-nl? line)
+            (lineterm-write/u8 lctx 10))))))
     (vscreen-dirty-set! screen #f)
     (lineterm-clear-to-eos lctx)))
+
 
 ;; sett term-x, term-y cursor to end of charlines
 (define (linectx-term-xy-set/end-lines! lctx)
