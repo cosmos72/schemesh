@@ -250,3 +250,33 @@
 (define (job-unredirect/temp/all! job)
   (span-erase-left! (job-redirects job) (job-redirects-temp-n job))
   (job-redirects-temp-n-set! job 0))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; Return the actual file descriptor to use for reading from, or writing to, logical file descriptor N.
+;; Needed because jobs can run in main process and have per-job redirections.
+(define (sh-fd n)
+  (let ((job (sh-current-job)))
+    (if job
+      (job-find-fd-remap job n)
+      n)))
+
+
+;; Return binary input port that reads bytes from (sh-fd 0)
+(define sh-stdin
+  (let ((p (open-fd-redir-input-port "sh-stdin" (lambda () (sh-fd 0)))))
+    (lambda () p)))
+
+
+;; Return binary output port that writes bytes to (sh-fd 1)
+(define sh-stdout
+  (let ((p (open-fd-redir-output-port "sh-stdout" (lambda () (sh-fd 1)))))
+    (lambda () p)))
+
+
+;; Return binary output port that writes bytes to (sh-fd 2)
+(define sh-stderr
+  (let ((p (open-fd-redir-output-port "sh-stderr" (lambda () (sh-fd 2)))))
+    (lambda () p)))

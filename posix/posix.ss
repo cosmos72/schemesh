@@ -11,6 +11,7 @@
   (import
     (schemesh posix fd)
     (schemesh posix dir)
+    (schemesh posix io)
     (schemesh posix pattern)
 
     ;; by default, do not re-export bindings from (schemesh posix replacements)

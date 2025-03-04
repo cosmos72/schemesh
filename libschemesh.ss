@@ -31,6 +31,7 @@
 
   (include "posix/fd.ss")
   (include "posix/dir.ss")
+  (include "posix/io.ss")
   (include "posix/pattern.ss")
   (include "posix/replacements.ss")
   (include "posix/signal.ss")

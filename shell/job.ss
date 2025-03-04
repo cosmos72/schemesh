@@ -59,8 +59,9 @@
     sh-options
 
     ;; redirect.ss
-    sh-redirect! sh-run/bvector sh-run/string sh-run/string-rtrim-newlines sh-run/string-split-after-nuls
-    sh-start/fd-stdout
+    sh-fd sh-stdin sh-stdout sh-stderr sh-redirect!
+    sh-run/bvector sh-run/string sh-run/string-rtrim-newlines sh-run/string-split-after-nuls sh-start/fd-stdout
+
 
     ;; params.ss
     sh-job-control-available? sh-job-control?
@@ -76,7 +77,7 @@
     sh-status->kind sh-status->value sh-status->value-list
 
     ;; types.ss
-    sh-cmd? sh-expr? sh-job? sh-job-copy sh-multijob? sh-current-job sh-fd
+    sh-cmd? sh-expr? sh-job? sh-job-copy sh-multijob? sh-current-job
 
     ;; wildcard
     sh-wildcard sh-wildcard* sh-wildcard/apply sh-wildcard/expand-tilde sh-wildcard->string
@@ -94,12 +95,7 @@
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh conversions)
-    (schemesh posix dir)
-    (schemesh posix fd)
-    (schemesh posix pattern)
-    (schemesh posix pid)
-    (schemesh posix signal)
-    (only (schemesh posix tty) tty-inspect)
+    (schemesh posix)
     (only (schemesh lineedit charhistory) charhistory-path-set!)
     (only (schemesh lineedit linectx) linectx? linectx-history linectx-save-history linectx-wbuf)
     (only (schemesh lineedit lineedit) lineedit-display-table lineedit-flush lineedit-undraw)
