@@ -68,11 +68,6 @@ with as many nesting levels as you want.
 
 Shell syntax creates first-class Lisp `sh-job` objects, which can be started/stopped/managed from both syntaxes.
 
-`sh-job` objects are discoverable and pretty-printable:<br/>
-  `(values '{SOME-SHELL-SYNTAX})` shows how shell syntax is converted to `shell...` macros,<br/>
-  `(expand '{SOME-SHELL-SYNTAX})` shows how `shell...` macros are expanded to `sh...` functions for creating jobs,<br/>
-  `(values  {SOME-SHELL-SYNTAX})` - *without* quotes - pretty-prints the created `sh-job` objects.
-
 The most common mechanisms to start/stop/manage jobs from shell syntax are:
 * CTRL+C      interrupt the current foreground job
 * CTRL+Z      suspend the current foreground job

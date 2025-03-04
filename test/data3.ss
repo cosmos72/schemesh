@@ -159,6 +159,9 @@
   (sh-run/string (shell
     "split-at-0" "echo"
       (shell-backquote "echo0" "jkl" "mn" "o" "")))    "jkl mn o \n"
+  (sh-run {
+     $(display "hello") | cat |
+     $(utf8b->string (fd-read-until-eof (sh-fd 0)))})  ,(ok "hello")
 
   ;; run builtin in a subprocess
   (sh-run (sh-cmd "false") '(spawn? . #t))             (failed 1)
