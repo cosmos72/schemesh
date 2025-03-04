@@ -266,17 +266,17 @@
 
 ;; Return binary input port that reads bytes from (sh-fd 0)
 (define sh-stdin
-  (let ((p (open-fd-redir-input-port "sh-stdin" (lambda () (sh-fd 0)))))
+  (let ((p (open-fd-redir-binary-input-port "sh-stdin" (lambda () (sh-fd 0)))))
     (lambda () p)))
 
 
 ;; Return binary output port that writes bytes to (sh-fd 1)
 (define sh-stdout
-  (let ((p (open-fd-redir-output-port "sh-stdout" (lambda () (sh-fd 1)))))
+  (let ((p (open-fd-redir-binary-output-port "sh-stdout" (lambda () (sh-fd 1)))))
     (lambda () p)))
 
 
 ;; Return binary output port that writes bytes to (sh-fd 2)
 (define sh-stderr
-  (let ((p (open-fd-redir-output-port "sh-stderr" (lambda () (sh-fd 2)))))
+  (let ((p (open-fd-redir-binary-output-port "sh-stderr" (lambda () (sh-fd 2)))))
     (lambda () p)))

@@ -241,11 +241,16 @@
     (bytespan-set/char! sp old-len ch)))
 
 ;; convert a string to UTF-8b sequences and append it to bytespan.
-(define (bytespan-insert-right/string! sp str)
-  (bytespan-reserve-right! sp (fx+ (bytespan-length sp) (string-length str)))
-  (string-iterate str
-    (lambda (i ch)
-      (bytespan-insert-right/char! sp ch))))
+(define bytespan-insert-right/string!
+  (case-lambda
+    ((sp str start end)
+      (assert* 'bytespan-insert-right/string! (fx<=? 0 start end (string-length str)))
+      (bytespan-reserve-right! sp (fx+ (bytespan-length sp) (fx- end start)))
+      (do ((i start (fx1+ i)))
+          ((fx>=? i end))
+        (bytespan-insert-right/char! sp (string-ref str i))))
+    ((sp str)
+      (bytespan-insert-right/string! sp str 0 (string-length str)))))
 
 ;; convert a charspan to UTF-8b sequences and append it to bytespan.
 (define (bytespan-insert-right/cspan! sp csp)

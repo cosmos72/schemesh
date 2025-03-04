@@ -171,11 +171,12 @@
 
 ;; Print values or exit statuses.
 (define (repl-print . vals)
-  (do ((tail vals (cdr tail)))
-      ((null? tail))
+  (do ((p (current-output-port))
+       (tail vals (cdr tail)))
+      ((null? tail) (flush-output-port p))
     (let ((value (car tail)))
       (unless (eq? (void) value)
-        (pretty-print value)))))
+        (pretty-print value p)))))
 
 
 ;; Parse and execute user input.
