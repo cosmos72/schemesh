@@ -92,6 +92,15 @@
       job)))
 
 
+;; Return the actual file descriptor to use for reading from, or writing to, logical file descriptor N.
+;; Needed because jobs can run in main process and have per-job redirections.
+(define (sh-fd n)
+  (let ((job (sh-current-job)))
+    (if job
+      (job-find-fd-remap job n)
+      n)))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;    convert  pid -> job     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

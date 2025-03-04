@@ -41,17 +41,17 @@
     (fd-write/bspan! fd wbuf)))
 
 
-;; print warning message to (sh-fd-stderr)
+;; print warning message to (sh-fd 2)
 ;; always returns (void)
 (define (write-builtin-warning . args)
-  (fd-write-strings: (sh-fd-stderr) "; warning" args)
+  (fd-write-strings: (sh-fd 2) "; warning" args)
   (void))
 
 
-;; print error message to (sh-fd-stderr)
+;; print error message to (sh-fd 2)
 ;; always returns '(failed 1)
 (define (write-builtin-error . args)
-  (fd-write-strings: (sh-fd-stderr) "schemesh" args)
+  (fd-write-strings: (sh-fd 2) "schemesh" args)
   '(failed 1))
 
 
@@ -77,7 +77,7 @@
 (define (builtin-command job prog-and-args options)
   (assert-string-list? 'builtin-command prog-and-args)
   (assert* 'builtin-command (string=? "command" (car prog-and-args)))
-  (spawn-cmd job (cdr prog-and-args) options)) ; returns job status
+  (cmd-spawn job (cdr prog-and-args) options)) ; returns job status
 
 
 ;; the "exec" builtin: replace the current process with specified command.
@@ -215,7 +215,7 @@
   (let ((src (multijob-children (sh-globals))))
     (unless (span-empty? src)
       ;; do NOT close port, it would close the fd!
-      (let ((port (open-fd-output-port (sh-fd-stdout) (buffer-mode block) transcoder-utf8)))
+      (let ((port (open-fd-output-port (sh-fd 1) (buffer-mode block) transcoder-utf8)))
         (span-iterate src
           (lambda (job-id job)
             (when (sh-job? job)
@@ -266,7 +266,7 @@
 ;; returns (void)
 (define (%env-display-vars job which)
   (let ((wbuf (bytespan))
-        (fd   (sh-fd-stdout))
+        (fd   (sh-fd 1))
         (vec  (hashtable-cells (sh-env-copy job which))))
     (unless (fxzero? (vector-length vec))
       (vector-sort*! (lambda (e1 e2) (string<? (car e1) (car e2))) vec)
@@ -305,7 +305,7 @@
           (if val
             (let ((wbuf (bytespan)))
               (%env-display-var name val wbuf)
-              (fd-write/bspan! (sh-fd-stdout) wbuf)
+              (fd-write/bspan! (sh-fd 1) wbuf)
               (void))          ; exit successfully
             '(failed 1)))) ; env variable not found => fail
       ((null? (cdddr prog-and-args))
@@ -384,10 +384,7 @@
     ;; perform fd remapping, then start the builtin
     (begin
       (job-remap-fds! c)
-      (parameterize ((sh-fd-stdin  (job-find-fd-remap c 0))
-                     (sh-fd-stdout (job-find-fd-remap c 1))
-                     (sh-fd-stderr (job-find-fd-remap c 2)))
-        (%builtin-start-already-redirected builtin c args options)))))
+        (%builtin-start-already-redirected builtin c args options))))
 
 
 ;; filled at the end of job.ss

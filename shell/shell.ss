@@ -11,7 +11,6 @@
   (import
     (schemesh bootstrap functions)
     (schemesh shell autocomplete)
-    (schemesh shell builtins)
     (schemesh shell eval)
     (schemesh shell fds)
     (schemesh shell job)

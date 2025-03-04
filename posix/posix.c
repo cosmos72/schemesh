@@ -1304,7 +1304,7 @@ static int c_pgid_set(int pid, int existing_pgid) {
  * if existing_pgid == 0 create a new process id (numerically equal to the process id)
  *                       and move process into it
  */
-static int c_fork_pid(int existing_pgid) {
+static int c_fork_pid(ptr vector_fds_redirect, int existing_pgid) {
   const int pid = fork();
   switch (pid) {
     case -1: /* fork() failed */
@@ -1312,8 +1312,11 @@ static int c_fork_pid(int existing_pgid) {
     case 0: { /* child */
       int err;
       if ((err = c_pgid_set(0, existing_pgid)) >= 0) {
-        err = c_signals_setdefault(); /* keeps SICHLD handler */
+        if ((err = c_signals_setdefault()) >= 0) { /* keeps SICHLD handler */
+          err = c_fds_redirect(vector_fds_redirect, Sfalse);
+        }
       }
+
       return err;
     }
     default: /* parent */

@@ -15,7 +15,6 @@
     (only (chezscheme) datum meta reverse!)
     (schemesh bootstrap)
     (only (schemesh posix pattern) sh-wildcard?)
-    (schemesh shell builtins)
     (schemesh shell job)
     (only (schemesh shell eval) sh-read-file))
 

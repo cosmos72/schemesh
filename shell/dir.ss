@@ -150,8 +150,8 @@
 
 (define sh-pwd
   (case-lambda
-    (()          (sh-pwd* #t (sh-fd-stdout)))
-    ((job-or-id) (sh-pwd* job-or-id (sh-fd-stdout)))))
+    (()          (sh-pwd* #t (sh-fd 1)))
+    ((job-or-id) (sh-pwd* job-or-id (sh-fd 1)))))
 
 
 (define (sh-pwd* job-or-id fd)

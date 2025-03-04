@@ -71,7 +71,7 @@
         ; redirection is automatically removed by (job-status-set!) when job finishes.
         (job-redirect/temp/fd! job 1 '>& (cdr fds))
         ; always start job in a subprocess, see above for reason.
-        (sh-start* job (cons '(spawn? . #t) options))
+        (sh-start* job `((spawn? . #t) (fd-close . ,(car fds)) ,@options))
 
         ; close our copy of write-fd: needed to detect eof on read-fd
         (fd-close (cdr fds))

@@ -11,14 +11,12 @@
 
 (library (schemesh shell fds (0 7 7))
   (export
-    s-fd s-fd* s-fd? s-fd->int s-fd-copy s-fd-allocate s-fd-release
-    sh-fd-stdin sh-fd-stdout sh-fd-stderr)
+    s-fd s-fd* s-fd? s-fd->int s-fd-copy s-fd-allocate s-fd-release)
   (import
     (rnrs)
-    (only (chezscheme) fx1+ fx1- open-fd-output-port record-writer)
-    (only (schemesh bootstrap) assert* sh-make-thread-parameter raise-errorf)
+    (only (chezscheme) fx1+ fx1- record-writer)
+    (only (schemesh bootstrap) assert* raise-errorf)
     (schemesh containers bitmap)
-    (only (schemesh containers hashtable) hashtable-iterate)
     (only (schemesh posix fd) fd-open-max))
 
 
@@ -85,39 +83,6 @@
         (assert* 's-fd-release (fx=? 1 (bitmap-ref fd-bitmap index)))
         (bitmap-set! fd-bitmap index 0)))
     unreserve?))
-
-
-;; thread parameter (sh-fd-stdin) must be an unsigned fixnum,
-;; it is used as shell's standard input file descriptor
-(define sh-fd-stdin
-  (sh-make-thread-parameter
-    0
-    (lambda (fd)
-      (unless (and (fixnum? fd) (fx<? -1 fd fd-max))
-        (raise-errorf 'sh-fd-stdin "invalid file descriptor, must be a fixnum in [0, fd-max): ~s" fd))
-      fd)))
-
-
-;; thread parameter (sh-fd-stdout) must be an unsigned fixnum,
-;; it is used as shell's standard output file descriptor
-(define sh-fd-stdout
-  (sh-make-thread-parameter
-    1
-    (lambda (fd)
-      (unless (and (fixnum? fd) (fx<? -1 fd fd-max))
-        (raise-errorf 'sh-fd-stdout "invalid file descriptor, must be a fixnum in [0, fd-max): ~s" fd))
-      fd)))
-
-
-;; thread parameter (sh-fd-stderr) must be an unsigned fixnum,
-;; it is used as shell's standard error file descriptor
-(define sh-fd-stderr
-  (sh-make-thread-parameter
-    2
-    (lambda (fd)
-      (unless (and (fixnum? fd) (fx<? -1 fd fd-max))
-        (raise-errorf 'sh-fd-stderr "invalid file descriptor, must be a fixnum in [0, fd-max): ~s" fd))
-      fd)))
 
 
 ; customize how "s-fd" objects are printed

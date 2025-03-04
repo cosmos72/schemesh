@@ -16,11 +16,11 @@
 (define (option-validate caller option)
   (assert* caller (pair?   option))
   (assert* caller (symbol? (car option)))
-  (assert* caller (memq    (car option) '(catch? parent-job process-group-id spawn?)))
+  (assert* caller (memq    (car option) '(catch? fd-close parent-job process-group-id spawn?)))
   (case (car option)
     ((catch? spawn?)
       (assert* caller (boolean? (cdr option))))
-    ((process-group-id)
+    ((fd-close process-group-id)
       (assert* caller (integer? (cdr option)))
       (assert* caller (>= (cdr option) 0))))
   option)
@@ -122,3 +122,13 @@
     ; ignore requests to move a process into a specific process group id
     ; or to create a new process group id
     #f))
+
+
+;; for each option '(fd-close . fd) in options, call (fd-close fd)
+;; return unspecified value
+(define (options->call-fd-close options)
+  (list-iterate options
+    (lambda (option)
+      (when (and (pair? option) (eq? 'fd-close (car option)))
+        (fd-close (cdr option))
+        (void)))))

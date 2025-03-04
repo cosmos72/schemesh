@@ -123,7 +123,7 @@
 (define (show-aliases)
   (let ((wbuf    (make-bytespan 0))
         (aliases (span))
-        (fd      (sh-fd-stdout)))
+        (fd      (sh-fd 1)))
     (hashtable-iterate (sh-aliases)
       (lambda (cell)
         (span-insert-right! aliases cell)))
@@ -142,7 +142,7 @@
     (if alias
       (let ((wbuf  (make-bytespan 0)))
         (show-alias* name alias wbuf)
-        (fd-write/bspan! (sh-fd-stdout) wbuf)
+        (fd-write/bspan! (sh-fd 1) wbuf)
         (void))                                         ; success, return (void)
       (write-builtin-error "alias" name "not found")))) ; error, return '(failed 1)
 

@@ -202,8 +202,7 @@
   ;; this runs in the main process, not in a subprocess.
   (assert* 'sh-and (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-and (fx=? -1 (multijob-current-child-index job)))
-  (call-or-spawn-procedure
-    job options
+  (call-or-spawn-procedure job options
     (lambda (job options)
       (job-remap-fds! job)
       (job-env/apply-lazy! job 'export)
@@ -268,14 +267,16 @@
 ;; Return job status, which is usually '(running ...)
 ;;   for a complete list of possible job statuses, see (sh-job-status)
 (define spawn-procedure
-  (let ((c-fork-pid (foreign-procedure "c_fork_pid" (int) int)))
+  (let ((c-fork-pid (foreign-procedure "c_fork_pid" (ptr int) int)))
     (lambda (job options proc)
       (assert* 'sh-start (sh-job? job))
       (assert* 'sh-start (procedure? proc))
       (assert* 'sh-start (logbit? 2  (procedure-arity-mask proc)))
       (assert* 'sh-start (list? options))
       (let* ((process-group-id (options->process-group-id options))
-             (ret              (c-fork-pid (or process-group-id -1))))
+             (ret              (c-fork-pid
+                                 (job-make-c-redirect-vector job)
+                                 (or process-group-id -1))))
         (cond
           ((< ret 0) ; fork() failed
             (raise-c-errno 'sh-start 'fork ret))
@@ -287,26 +288,30 @@
                   (sh-job-display-summary? #f)
                   (let ((pid  (pid-get))
                         (pgid (pgid-get 0)))
-                    ; this process now "is" the job => update (sh-globals)' pid and pgid
+                    ;; this process now "is" the job => update (sh-globals)' pid and pgid
                     (%job-pid-set!  (sh-globals) pid)
                     (%job-pgid-set! (sh-globals) pgid)
-                    ; cannot wait on our own process.
+                    ;; cannot wait on our own process.
                     (%job-pid-set!  job #f)
                     (%job-pgid-set! job #f)
 
-                    ; we would like to set status to (void)
-                    ; but that causes (sh-wait job) below to think that job already finished,
-                    ; and skips calls to (job-step-proc job) to start nested jobs.
-                    ;
-                    ; warning: do not call (job-status-set! job ...)
-                    ; because it detects that job is running, and assigns a job-id to it,
-                    ; which is only annoying - cannot do anything useful with such job-id.
+                    ;; warning: do not call (job-status-set! job ...)
+                    ;; because it detects that job is running, and assigns a job-id to it,
+                    ;; which is only annoying - cannot do anything useful with such job-id.
                     (%job-last-status-set! job '(running))))
                 (lambda () ; body
+                  (options->call-fd-close options)
+
+                  ;; BUGGED: breaks tests
+                  ;;(job-default-parents-iterate job
+                  ;;  (lambda (parent)
+                  ;;    (job-unmap-fds! parent)
+                  ;;    (job-unredirect/temp/all! parent)))
+
                   ;c (debugf "> [child] spawn-procedure job=~a subprocess calling proc ~s" (sh-job->string job) proc)
-                  (let ((ret (proc job options)))
-                    ;c (debugf ". [child] spawn-procedure job=~a subprocess proc returned ~s pid=~s" (sh-job->string job) ret (job-pid job))
-                    (void))
+                  (proc job (options-filter-out options '(fd-close)))
+
+                  ;c (debugf ". [child] spawn-procedure job=~a subprocess proc returned ~s pid=~s" (sh-job->string job) ret (job-pid job))
                   (set! status (sh-wait job)))
                 (lambda () ; run after body, even if it raised a condition
                   ;c (debugf "< [child] spawn-procedure job=~a subprocess exiting with pid=~s status=~s" (sh-job->string job) (job-pid job) status)

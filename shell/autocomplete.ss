@@ -25,8 +25,7 @@
     (schemesh lineedit paren)
     (only (schemesh lineedit linectx) linectx-completion-stem linectx-vscreen)
     (only (schemesh shell parameters) sh-current-environment)
-    (only (schemesh shell builtins)   sh-builtins)
-    (only (schemesh shell job)        sh-env-iterate/direct sh-aliases sh-env-ref))
+    (only (schemesh shell job)        sh-builtins sh-env-iterate/direct sh-aliases sh-env-ref))
 
 ;; each sh-autocomplete-... procedure accepts a prefix charspan and a span of charspans,
 ;; and fills the span with possible completions of prefix:

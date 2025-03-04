@@ -70,15 +70,11 @@
         (start-command-or-builtin-or-alias c prog-and-args options)
 
         ;; some command line argument is a procedure or sh-expr:
-        ;; setup fds remapping before calling them, because they may want to use
-        ;; (sh-fd-stdin) (sh-fd-stdout) (sh-fd-stderr) or more generally, (job-find-fd-remap)
+        ;; setup fds remapping before calling them, because they may want to use (sh-fd N)
         (begin
           (job-remap-fds! c)
-          (parameterize ((sh-fd-stdin  (job-find-fd-remap c 0))
-                         (sh-fd-stdout (job-find-fd-remap c 1))
-                         (sh-fd-stderr (job-find-fd-remap c 2)))
-            (start-command-or-builtin-or-alias c
-              (cmd-arg-list-call-sh-expr-and-procedures c prog-and-args) options)))))))
+          (start-command-or-builtin-or-alias c
+            (cmd-arg-list-call-sh-expr-and-procedures c prog-and-args) options))))))
 
 
 ;; internal function called by (cmd-start):
@@ -167,7 +163,7 @@
           ; expanded arg[0] is a builtin, call it.
           (builtin-start builtin c prog-and-args options)  ; returns job status
           ; expanded arg[0] is a not builtin or alias, spawn a subprocess
-          (spawn-cmd c prog-and-args options)))))) ; returns job status
+          (cmd-spawn c prog-and-args options)))))) ; returns job status
 
 
 ;; returns job status
@@ -189,25 +185,25 @@
           ; expanded arg[0] is a builtin, call it.
           (builtin-start builtin c prog-and-args options) ; returns job status
           ; expanded arg[0] is a not builtin or alias, spawn a subprocess
-          (spawn-cmd c prog-and-args options)))))) ; returns job status
+          (cmd-spawn c prog-and-args options)))))) ; returns job status
 
 
 ;; internal function called by (cmd-start) to spawn a subprocess.
 ;; returns job status.
-(define spawn-cmd
-  (let ((c-spawn-cmd (foreign-procedure "c_cmd_spawn" (ptr ptr ptr ptr int) int)))
+(define cmd-spawn
+  (let ((c-cmd-spawn (foreign-procedure "c_cmd_spawn" (ptr ptr ptr ptr int) int)))
     (lambda (c prog-and-args options)
       (let* ((process-group-id (options->process-group-id options))
              (job-dir (job-cwd-if-set c))
-             (ret (c-spawn-cmd
+             (ret (c-cmd-spawn
                     (list->argv prog-and-args)
                     (if job-dir (text->bytevector0 job-dir) #f)
                     (job-make-c-redirect-vector c)
                     (sh-env->argv c 'export)
                     (or process-group-id -1))))
-        ;; (debugf "spawn-cmd pid=~s prog-and-args=~s job=~a " ret prog-and-args (sh-job->string c))
+        ;; (debugf "cmd-spawn pid=~s prog-and-args=~s job=~a " ret prog-and-args (sh-job->string c))
         (when (< ret 0)
-          (job-status-set! 'spawn-cmd c (list 'failed ret))
+          (job-status-set! 'cmd-spawn c (list 'failed ret))
           (raise-c-errno 'sh-start 'fork ret))
         (job-pid-set! c ret)
         (job-pgid-set! c process-group-id)
@@ -229,7 +225,7 @@
         (list 'failed (if (and (integer? ret) (not (zero? ret))) ret -1))))))
 
 
-;; internal function called by (spawn-cmd)
+;; internal function called by (cmd-spawn)
 ;; creates and fills a vector with job's redirections and its parents redirections
 (define (job-make-c-redirect-vector job)
   (let* ((child-dir (job-cwd-if-set job))

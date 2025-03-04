@@ -17,6 +17,11 @@
     ;; aliases.ss
     sh-alias-ref sh-alias-delete! sh-alias-set! sh-aliases sh-aliases-expand
 
+    ;; builtins.ss
+    sh-builtins sh-builtins-help sh-find-builtin sh-exception-handler
+    sh-echo sh-false sh-help sh-history repl-args repl-args-linectx sh-true
+
+
     ;; cmd.ss
     make-sh-cmd sh-cmd
 
@@ -71,7 +76,7 @@
     sh-status->kind sh-status->value sh-status->value-list
 
     ;; types.ss
-    sh-cmd? sh-job? sh-job-copy sh-multijob? sh-current-job
+    sh-cmd? sh-expr? sh-job? sh-job-copy sh-multijob? sh-current-job sh-fd
 
     ;; wildcard
     sh-wildcard sh-wildcard* sh-wildcard/apply sh-wildcard/expand-tilde sh-wildcard->string
@@ -81,10 +86,11 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) append! break console-output-port console-error-port
-                       debug-condition display-condition foreign-procedure format fx1+ fx1-
-                       hashtable-cells include inspect logand logbit? make-format-condition
-                       meta open-fd-output-port parameterize procedure-arity-mask
-                       record-writer reverse! sort! string-copy! string-truncate! void)
+                       debug debug-condition debug-on-exception display-condition
+                       foreign-procedure format fx1+ fx1- hashtable-cells include inspect
+                       logand logbit? make-format-condition meta open-fd-output-port
+                       parameterize procedure-arity-mask record-writer reverse! sort!
+                       string-copy! string-truncate! void)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh conversions)
@@ -95,9 +101,8 @@
     (schemesh posix signal)
     (only (schemesh posix tty) tty-inspect)
     (only (schemesh lineedit charhistory) charhistory-path-set!)
-    (only (schemesh lineedit linectx) linectx? linectx-history linectx-save-history)
-    (only (schemesh lineedit lineedit) lineedit-flush lineedit-undraw)
-    (schemesh shell builtins)
+    (only (schemesh lineedit linectx) linectx? linectx-history linectx-save-history linectx-wbuf)
+    (only (schemesh lineedit lineedit) lineedit-display-table lineedit-flush lineedit-undraw)
     (schemesh shell fds)
     (schemesh shell parameters)
     (schemesh shell paths))
@@ -484,6 +489,7 @@
 
 (include "shell/options.ss")
 (include "shell/params.ss")
+(include "shell/builtins.ss")
 (include "shell/cmd.ss")
 (include "shell/expr.ss")
 (include "shell/multijob.ss")

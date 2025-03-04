@@ -151,7 +151,7 @@
 
 (define (job-display/open-paren port kind)
   (case kind
-    ((sh-expr)     (put-string port "$( "))
+    ((sh-expr)     (put-string port "$("))
     ((sh-subshell) (put-char   port #\[))
     (else          (put-char   port #\{))))
 

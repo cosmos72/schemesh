@@ -123,6 +123,8 @@
     (dynamic-wind
       void       ; before body
       (lambda () ; body
+        (flush-output-port (current-output-port))
+        (flush-output-port (current-error-port))
         (when (eq? 'killed kind)
           (let ((signal-name result))
             (unless (memq signal-name '(sigstop sigtstp sigcont sigttin sigttou))

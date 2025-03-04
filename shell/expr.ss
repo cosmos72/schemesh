@@ -46,13 +46,14 @@
 ;; Returns unspecified value.
 (define (jexpr-start job options)
   (assert* 'sh-expr (eq? 'running (job-last-status->kind job)))
-  ;; jexpr-proc may want to use (sh-fd-stdin) (sh-fd-stdout) (sh-fd-stderr)
-  ;; or more generally, (job-find-fd-remap)
-  (job-remap-fds! job)
-  ;; jobs are started non-blockingly,
-  ;; but running a jexpr job always blocks
-  ;; => stop the job and let caller decide whether to wait for it
-  (job-status-set! 'sh-expr job '(stopped sigtstp)))
+  (call-or-spawn-procedure job options
+    (lambda (job options)
+    ;; jexpr-proc may want to use (sh-fd N)
+    (job-remap-fds! job)
+    ;; jobs are started non-blockingly,
+    ;; but running a jexpr job always blocks
+    ;; => stop the job and let caller decide whether to wait for it
+    (job-status-set! 'sh-expr job '(stopped sigtstp)))))
 
 
 ;; continue a jexpr job
@@ -89,10 +90,8 @@
 ;; prepare and return a closure for running jexpr-proc
 (define (jexpr-resume-proc-prepare job)
   (lambda (unused)
-    (parameterize ((sh-current-job job)
-                   (sh-fd-stdin  (job-find-fd-remap job 0))
-                   (sh-fd-stdout (job-find-fd-remap job 1))
-                   (sh-fd-stderr (job-find-fd-remap job 2)))
+    ;; (debugf "jexpr-resume-proc-prepare job=~a remapping fd1 ~s -> ~s" (sh-job->string job) (sh-fd 1) (job-find-fd-remap job 1))
+    (parameterize ((sh-current-job job))
         (job-status-set! 'sh-expr job
           (try
             (call-with-values
@@ -103,6 +102,7 @@
                     (proc))))
               values->job-status)
             (catch (ex)
+              (debug-condition ex) ;; save obj into thread-parameter (debug-condition)
               (list 'exception ex)))))))
 
 

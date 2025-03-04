@@ -157,28 +157,33 @@
 ;; In all cases, if preferred-job is set, return its updated status.
 (define (scheduler-wait preferred-job may-block)
   ;c (debugf ">   scheduler-wait may-block=~s preferred-job=~a" may-block (if preferred-job (sh-job->string preferred-job) preferred-job))
-  (let ((done? #f))
+  (let ((current-job (sh-current-job))
+        (done? #f))
     (until done?
       (let ((wait-result (pid-wait -1 may-block)))
         (if (pair? wait-result)
           (let* ((job        (pid->job (car wait-result)))
                  (old-status (if job (job-last-status job) (void)))
                  (new-status (pid-wait-result->status (cdr wait-result))))
-            ;; (debugf "... scheduler-wait wait-result=~s new-status=~s job=~a preferred-job=~a" wait-result new-status (if job (sh-job->string job) #f) (if preferred-job (sh-job->string preferred-job) #f))
+
+            ;; (debugf "... scheduler-wait wait-result=~s new-status=~s job=~a preferred-job=~a current-job=~a" wait-result new-status (if job (sh-job->string job) #f) (if preferred-job (sh-job->string preferred-job) #f) (if current-job (sh-job->string current-job) #f))
+
             (when job
               (job-status-set! 'scheduler-wait job new-status)
 
               ;; (debugf "... scheduler-wait old-status new-status=~s job=~a" old-status new-status (sh-job->string job))
 
-              (if (eq? job preferred-job)
+              (if (or (eq? job preferred-job) (eq? job current-job))
                 ;; the job we are interested in changed status => don't block again
                 (when (eq? may-block 'blocking)
                   (set! done? #t))
 
-                ;; advance job that changed status and *all* it parents, before waiting again.
-                ;; do NOT advance preferred-job, because that's what our callers are already doing.
+                ;; advance job that changed status and its parents, before waiting again.
+                ;; do NOT advance preferred-job or current-job, because that's what our callers are already doing.
                 (let* ((observe-preferred-job?   (and (eq? may-block 'blocking) (job-default-parents-contain? job preferred-job)))
-                       (preferred-job-old-status (and observe-preferred-job? (job-last-status preferred-job))))
+                       (observe-current-job?     (and (eq? may-block 'blocking) (job-default-parents-contain? job current-job)))
+                       (preferred-job-old-status (and observe-preferred-job? (job-last-status preferred-job)))
+                       (current-job-old-status   (and observe-current-job?   (job-last-status current-job))))
 
                   (when (status-changed? old-status new-status)
                     (maybe-queue-job-display-summary job))
@@ -190,6 +195,11 @@
                   (when observe-preferred-job?
                     (let ((preferred-job-new-status (job-last-status preferred-job)))
                       (when (status-changed? preferred-job-old-status preferred-job-new-status)
+                        (set! done? #t))))
+
+                  (when observe-current-job?
+                    (let ((current-job-new-status (job-last-status current-job)))
+                      (when (status-changed? current-job-old-status current-job-new-status)
                         (set! done? #t))))))))
 
           (set! done? #t))))) ; (pid-wait) did not report any status change => return

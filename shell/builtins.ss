@@ -5,42 +5,6 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh shell builtins (0 7 7))
-  (export sh-builtins sh-builtins-help sh-find-builtin sh-exception-handler
-          sh-echo sh-false sh-help sh-history repl-args repl-args-linectx sh-true)
-  (import
-    (rnrs)
-    (only (chezscheme)        console-error-port debug debug-condition debug-on-exception
-                                 display-condition reset-handler void)
-    (only (schemesh bootstrap)     raise-errorf sh-make-thread-parameter sh-version while)
-    (schemesh containers bytespan)
-    (only (schemesh containers charlines) charlines-iterate)
-    (only (schemesh containers gbuffer)   gbuffer-iterate)
-    (only (schemesh containers hashtable) hashtable-iterate)
-    (only (schemesh containers list)      list-iterate)
-    (only (schemesh containers sort)      vector-sort*!)
-    (only (schemesh containers span)      span span-insert-right! span-iterate vector->span*)
-    (only (schemesh containers string)    assert-string-list? string-is-unsigned-base10-integer?)
-    (schemesh containers utf8b utils)
-    (only (schemesh posix fd)             fd-write)
-    (schemesh lineedit charhistory)
-    (only (schemesh lineedit linectx)     linectx? linectx-history linectx-wbuf)
-    (only (schemesh lineedit lineedit)    lineedit-display-table lineedit-flush)
-    (only (schemesh shell fds)            sh-fd-stdout sh-fd-stderr))
-
-
-;; copy-pasted from shell/builtins2.ss
-;;
-;; write contents of bytespan bsp to file descriptor fd,
-;; then clear bytespan bsp
-;;
-;; returns (void)
-(define (fd-write/bspan! fd bsp)
-  ; TODO: loop on short writes and call sh-consume-signals
-  (fd-write fd (bytespan-peek-data bsp)
-            (bytespan-peek-beg bsp) (bytespan-peek-end bsp))
-  (bytespan-clear! bsp))
-
 
 ;; thread parameter (repl-args) must be empty or a list
 ;;   (parser eval-func linectx repl-init-file-path repl-quit-file-path)
@@ -90,7 +54,7 @@
 ;; terminating character after arguments is #\newline
 (define (sh-echo . args)
   (let ((wbuf (make-bytespan 0))
-        (fd   (sh-fd-stdout)))
+        (fd   (sh-fd 1)))
     (do ((tail args (cdr tail)))
         ((null? tail))
       (unless (eq? args tail)
@@ -108,7 +72,7 @@
 ;; terminating character after arguments is #\nul
 (define (sh-echo0 . args)
   (let ((wbuf (make-bytespan 0))
-        (fd   (sh-fd-stdout)))
+        (fd   (sh-fd 1)))
     (do ((tail args (cdr tail)))
         ((null? tail))
       (bytespan-insert-right/string! wbuf (car tail))
@@ -158,13 +122,13 @@ The following names are recognized as builtins:\n\n")
           (begin
             (bytespan-insert-right/string!  wbuf name)
             (bytespan-insert-right/bvector! wbuf help-bvector)
-            (fd-write/bspan! (sh-fd-stdout) wbuf)
+            (fd-write/bspan! (sh-fd 1) wbuf)
             (void))
           (begin
             (bytespan-insert-right/string! wbuf "schemesh: help: no help for builtin '")
             (bytespan-insert-right/string! wbuf name)
             (bytespan-insert-right/string! wbuf "'. Try 'help' or 'help help'.\n")
-            (fd-write/bspan! (sh-fd-stdout) wbuf)
+            (fd-write/bspan! (sh-fd 1) wbuf)
             '(failed 1)))))))
 
 
@@ -176,7 +140,7 @@ The following names are recognized as builtins:\n\n")
     (()
       (sh-history (repl-args-linectx)))
     ((lctx)
-      (let ((fd   (sh-fd-stdout)))
+      (let ((fd   (sh-fd 1)))
         ; (debugf "sh-history ~s" lctx)
         (if (linectx? lctx)
           (let ((wbuf (make-bytespan 0)))
@@ -201,7 +165,7 @@ The following names are recognized as builtins:\n\n")
   (void))
 
 
-;; the "echo" builtin: write arguments to (sh-fd-stdout)
+;; the "echo" builtin: write arguments to (sh-fd 1)
 ;; separating each pair with a #\space and terminating them with a #\newline
 ;;
 ;; As all builtins do, must return job status.
@@ -210,7 +174,7 @@ The following names are recognized as builtins:\n\n")
   (apply sh-echo (cdr prog-and-args)))
 
 
-;; the "echo0" builtin: write arguments to (sh-fd-stdout)
+;; the "echo0" builtin: write arguments to (sh-fd 1)
 ;; terminating each one with a #\nul
 ;;
 ;; As all builtins do, must return job status.
@@ -227,7 +191,7 @@ The following names are recognized as builtins:\n\n")
   (sh-false))
 
 
-;; the "help" builtin: write help, or help for specified builtin, to (sh-fd-stdout).
+;; the "help" builtin: write help, or help for specified builtin, to (sh-fd 1).
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-help job prog-and-args options)
@@ -237,7 +201,7 @@ The following names are recognized as builtins:\n\n")
     (sh-help (cadr prog-and-args))))
 
 
-;; the "history" builtin: write current history to (sh-fd-stdout).
+;; the "history" builtin: write current history to (sh-fd 1).
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-history job prog-and-args options)
@@ -345,5 +309,3 @@ is usually available at <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html#
 
 
     (lambda () t)))
-
-) ; close library
