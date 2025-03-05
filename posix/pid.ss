@@ -125,7 +125,7 @@
       (lambda () ; body
         (flush-output-port (console-output-port))
         (flush-output-port (current-output-port))
-        (flush-output-port (console-error-port))
+        (flush-output-port (console-output-port))
         (flush-output-port (current-error-port))
         (when (eq? 'killed kind)
           (let ((signal-name result))

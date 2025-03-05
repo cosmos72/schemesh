@@ -37,6 +37,9 @@
 
   (c-environ->sh-global-env)
 
+  ;; Replace (current-input-port) with an UTF-8b textual output port that honors current job redirections
+  (current-input-port (make-utf8b-textual-input-port (sh-stdin)))
+
   ;; Replace (current-output-port) with an UTF-8b textual output port that honors current job redirections
   (current-output-port (make-utf8b-textual-output-port (sh-stdout)))
 

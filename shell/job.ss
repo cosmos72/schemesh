@@ -84,10 +84,10 @@
     sh-wildcard->sh-patterns sh-patterns/expand
   )
   (import
-    (except (rnrs)     current-error-port current-output-port)
+    (except (rnrs)     current-input-port current-output-port current-error-port)
     (rnrs mutable-pairs)
-    (only (chezscheme) append! break
-                       console-error-port console-output-port current-error-port current-output-port
+    (only (chezscheme) append! break console-output-port console-error-port
+                       current-input-port current-output-port current-error-port
                        debug debug-condition debug-on-exception display-condition
                        foreign-procedure format fx1+ fx1- hashtable-cells include inspect
                        logand logbit? make-format-condition meta open-fd-output-port
@@ -127,6 +127,10 @@
       ((ok exception failed killed)
         (%job-last-status-set! job status)
         (when (sh-finished? status)
+          (flush-output-port (current-output-port))
+          (flush-output-port (current-error-port))
+          (flush-output-port (sh-stdout))
+          (flush-output-port (sh-stderr))
           (when (sh-cmd? job)
             ; unset expanded arg-list, because next expansion may differ
             (cmd-expanded-arg-list-set! job #f))

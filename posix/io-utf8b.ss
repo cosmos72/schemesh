@@ -37,7 +37,7 @@
     (let-values (((byte-n char-n)
                     (utf8b->string-copy!
                        (bytespan-peek-data bsp) (bytespan-peek-beg bsp) (bytespan-peek-end bsp)
-                       str start (fx+ start n))))
+                       str start (fx+ start n) (tport-eof? p))))
       (bytespan-erase-left! bsp byte-n)
       char-n)))
 
