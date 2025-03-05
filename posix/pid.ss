@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh posix pid (0 8 0))
+(library (schemesh posix pid (0 8 1))
   (export pid-get pgid-get pid-kill pid-wait exit-with-job-status)
   (import
     (rnrs)

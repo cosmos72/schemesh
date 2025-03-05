@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh shell autocomplete (0 8 0))
+(library (schemesh shell autocomplete (0 8 1))
   (export
       sh-autocomplete-func sh-autocomplete-r6rs sh-autocomplete-scheme sh-autocomplete-shell)
   (import

@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh shell eval (0 8 0))
+(library (schemesh shell eval (0 8 1))
   (export
     sh-eval-file sh-eval-file* sh-eval-fd* sh-eval-port* sh-eval-parsectx* sh-eval-string*
     sh-read-file sh-read-file* sh-read-fd* sh-read-port* sh-read-parsectx* sh-read-string*)
@@ -18,7 +18,7 @@
     (only (schemesh containers list)   list-iterate)
     (only (schemesh containers string) assert-string-list? string-suffix? string-index-right)
     (only (schemesh containers utf8b)  utf8b->string)
-    (only (schemesh posix fd)          fd-close fd-read-all fd-write open-file-fd)
+    (only (schemesh posix fd)          fd-close fd-read-all fd-write-all open-file-fd)
     (schemesh parser)
     (only (schemesh shell parameters)  sh-eval)
     (only (schemesh shell job)         sh-fd sh-builtins sh-builtins-help))
@@ -262,12 +262,12 @@
   (assert-string-list? 'builtin-source prog-and-args)
   (cond
     ((null? (cdr prog-and-args))
-      (fd-write (sh-fd 2)
+      (fd-write-all (sh-fd 2)
         #vu8(115 99 104 101 109 101 115 104 58 32 115 111 117 114 99 101 58 32 116 111 111
              32 102 101 119 32 97 114 103 117 109 101 110 116 115 10)) ; "schemesh: source: too few arguments\n"
       '(failed 1))
     ((not (null? (cddr prog-and-args)))
-      (fd-write (sh-fd 2)
+      (fd-write-all (sh-fd 2)
         #vu8(115 99 104 101 109 101 115 104 58 32 115 111 117 114 99 101 58 32 116 111 111
              32 109 97 110 121 32 97 114 103 117 109 101 110 116 115 10)) ; "schemesh: source: too many arguments\n"
       '(failed 1))

@@ -5,18 +5,22 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh posix io (0 8 0))
+(library (schemesh posix io (0 8 1))
   (export
+    make-utf8b-textual-input-port make-utf8b-textual-input/output-port make-utf8b-textual-output-port
+
     open-fd-redir-binary-input-port open-fd-redir-binary-input/output-port open-fd-redir-binary-output-port
     open-fd-redir-textual-input-port open-fd-redir-textual-input/output-port open-fd-redir-textual-output-port)
   (import
     (rnrs)
-    (only (chezscheme) include make-custom-binary-input-port make-custom-binary-input/output-port make-custom-binary-output-port
-                               make-custom-textual-input-port make-custom-textual-input/output-port make-custom-textual-output-port)
+    (only (chezscheme)         make-custom-binary-input-port make-custom-binary-input/output-port make-custom-binary-output-port
+                               make-custom-textual-input-port make-custom-textual-input/output-port make-custom-textual-output-port
+                               console-error-port fx1+ include port-name)
     (only (schemesh bootstrap) assert*)
     (schemesh containers bytespan)
-    (schemesh containers utf8b utils)
-    (only (schemesh posix fd)  fd-read fd-write))
+    (only (schemesh containers utf8b)       utf8b->string-copy!)
+    (only (schemesh containers utf8b utils) bytespan-insert-right/string!)
+    (only (schemesh posix fd)               fd-read fd-write-all))
 
 
 (include "posix/io-utf8b.ss")
@@ -31,25 +35,25 @@
 
 
 (define (bport-read p bv start n)
-  (assert* 'fd-redir-binary-input-port-read (fx>=? start 0))
-  (assert* 'fd-redir-binary-input-port-read (fx>=? n 0))
-  (assert* 'fd-redir-binary-input-port-read (fx<=? (fx+ start n) (bytevector-length bv)))
-  (if (fxzero? n)
-    0
+  (if (and (bytevector? bv) (fixnum? start) (fixnum? n)
+           (< -1 start (+ start n) (fx1+ (bytevector-length bv))))
     (let ((ret (fd-read ((bport-proc p)) bv start (fx+ start n))))
-      (bport-pos-set! p (fx+ ret (bport-pos p)))
-      ret)))
+      (cond
+        ((and (integer? ret) (> ret 0))
+          (bport-pos-set! p (+ ret (bport-pos p)))
+          ret)
+        (else 0)))
+    0))
 
 
 (define (bport-write p bv start n)
-  (assert* 'fd-redir-binary-output-port-write (fx>=? start 0))
-  (assert* 'fd-redir-binary-output-port-write (fx>=? n 0))
-  (assert* 'fd-redir-binary-output-port-write (fx<=? (fx+ start n) (bytevector-length bv)))
-  (if (fxzero? n)
-    0
-    (let ((ret (fd-write ((bport-proc p)) bv start (fx+ start n))))
-      (bport-pos-set! p (fx+ ret (bport-pos p)))
-      ret)))
+  (if (and (bytevector? bv) (fixnum? start) (fixnum? n)
+           (< -1 start (+ start n) (fx1+ (bytevector-length bv))))
+    (begin
+      (fd-write-all ((bport-proc p)) bv start (fx+ start n))
+      (bport-pos-set! p (fx+ n (bport-pos p)))
+      n)
+    0))
 
 
 ;; create and return a binary input port that redirectably reads from a file descriptor.

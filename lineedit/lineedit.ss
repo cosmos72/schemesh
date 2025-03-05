@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh lineedit lineedit (0 8 0))
+(library (schemesh lineedit lineedit (0 8 1))
   (export
     ;; linedraw.ss
     lineedit-undraw
@@ -112,8 +112,7 @@
       (let ((bv (bytespan-peek-data wbuf))
             (stdout (linectx-stdout lctx)))
         (if (fixnum? stdout)
-          ; TODO: loop on short writes
-          (fd-write stdout bv beg end)
+          (fd-write-all stdout bv beg end)
           (put-bytevector stdout bv beg (fx- end beg)))
         (bytespan-clear! wbuf)))))
 
@@ -397,12 +396,16 @@
     (bytespan-reserve-right! rbuf (fx+ rlen max-n))
     (try
       (if (fixnum? fd)
-        ; fd is a file descriptor -> call (fd-select) then (fd-read)
+        ;; fd is a file descriptor -> call (fd-select) then (fd-read)
+        ;; fd-select raises exception on I/O errors,
         (when (eq? 'read (fd-select fd 'read read-timeout-milliseconds))
           (let ((end (bytespan-peek-end rbuf)))
-            ; fd-read raises exception on I/O errors
-            (set! got (fd-read fd (bytespan-peek-data rbuf) end (fx+ end max-n))))
-          (set! eof? (fxzero? got))) ; (fxzero? got) means end of file
+            ;; fd-read-noretry raises exception on I/O errors,
+            ;; and returns #t if interrupted.
+            (set! got (fd-read-noretry fd (bytespan-peek-data rbuf) end (fx+ end max-n))))
+          (set! eof? (eqv? 0 got)) ; means end of file
+          (unless (and (integer? got) (> got 0))
+            (set! got 0))) ; #t means interrupted
         ; fd is a binary input port -> call (get-bytevector-n!)
         (let ((n (get-bytevector-n! fd (bytespan-peek-data rbuf)
                                        (bytespan-peek-end rbuf) max-n)))

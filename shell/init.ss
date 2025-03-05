@@ -38,10 +38,10 @@
   (c-environ->sh-global-env)
 
   ;; Replace (current-output-port) with an UTF-8b textual output port that honors current job redirections
-  (current-output-port (open-fd-redir-textual-output-port "sh-stdout" (lambda () (sh-fd 1))))
+  (current-output-port (make-utf8b-textual-output-port (sh-stdout)))
 
   ;; Replace (current-error-port) with an UTF-8b textual output port that honors current job redirections
-  (current-error-port (open-fd-redir-textual-output-port "sh-stderr" (lambda () (sh-fd 2))))
+  (current-error-port (make-utf8b-textual-output-port (sh-stderr)))
 
 
   (let ((bt (sh-builtins))

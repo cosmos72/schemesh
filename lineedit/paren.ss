@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh lineedit paren (0 8 0))
+(library (schemesh lineedit paren (0 8 1))
   (export
     make-paren      make-paren/bad-close
     paren?          paren-name

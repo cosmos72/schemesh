@@ -567,44 +567,52 @@ static int c_fd_setnonblock(int fd) {
   return 0;
 }
 
-/** call read(). returns number of bytes read, or c_errno() < 0 on error */
-static iptr c_fd_read(int fd, ptr bytevector_read, iptr start, iptr end) {
+/**
+ * call read().
+ * returns number of bytes read, or #t if interrupted, or c_errno() < 0 on error
+ */
+static ptr c_fd_read(int fd, ptr bytevector_read, iptr start, iptr end) {
   char*   buf;
   iptr    len;
   ssize_t got_n;
   if (start < 0 || end < 0 || start > end || !Sbytevectorp(bytevector_read)) {
-    return c_errno_set(EINVAL);
+    return Sinteger(c_errno_set(EINVAL));
   }
   buf = (char*)Sbytevector_data(bytevector_read);
   len = Sbytevector_length(bytevector_read);
   if (end > len) {
-    return c_errno_set(EINVAL);
+    return Sinteger(c_errno_set(EINVAL));
   }
   buf += start;
   len = end - start;
-  while ((got_n = read(fd, buf, len)) < 0 && errno == EINTR) {
+  if ((got_n = read(fd, buf, len)) < 0 && errno == EINTR) {
+    return Strue;
   }
-  return got_n >= 0 ? got_n : c_errno();
+  return Sinteger(got_n >= 0 ? got_n : c_errno());
 }
 
-/** call write(). returns number of bytes written, or c_errno() < 0 on error */
-static iptr c_fd_write(int fd, ptr bytevector_towrite, iptr start, iptr end) {
+/**
+ * call write().
+ * returns number of bytes written, or #t if interrupted, or c_errno() < 0 on error
+ */
+static ptr c_fd_write(int fd, ptr bytevector_towrite, iptr start, iptr end) {
   const char* buf;
   iptr        len;
   ssize_t     sent_n;
   if (start < 0 || end < 0 || start > end || !Sbytevectorp(bytevector_towrite)) {
-    return c_errno_set(EINVAL);
+    return Sinteger(c_errno_set(EINVAL));
   }
   buf = (const char*)Sbytevector_data(bytevector_towrite);
   len = Sbytevector_length(bytevector_towrite);
   if (end > len) {
-    return c_errno_set(EINVAL);
+    return Sinteger(c_errno_set(EINVAL));
   }
   buf += start;
   len = end - start;
-  while ((sent_n = write(fd, buf, len)) < 0 && errno == EINTR) {
+  if ((sent_n = write(fd, buf, len)) < 0 && errno == EINTR) {
+    return Strue;
   }
-  return sent_n >= 0 ? sent_n : c_errno();
+  return Sinteger(sent_n >= 0 ? sent_n : c_errno());
 }
 
 enum read_write_mask {

@@ -19,9 +19,8 @@
 ;;
 ;; returns (void)
 (define (fd-write/bspan! fd wbuf)
-  ; TODO: loop on short writes and call sh-consume-signals
-  (fd-write fd (bytespan-peek-data wbuf)
-            (bytespan-peek-beg wbuf) (bytespan-peek-end wbuf))
+  (fd-write-all fd (bytespan-peek-data wbuf)
+                (bytespan-peek-beg wbuf) (bytespan-peek-end wbuf))
   (bytespan-clear! wbuf))
 
 

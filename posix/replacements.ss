@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh posix replacements (0 8 0))
+(library (schemesh posix replacements (0 8 1))
   (export
       ;; the following functions *intentionally* conflict with R6RS and Chez Scheme
       ;; functions with the same names,

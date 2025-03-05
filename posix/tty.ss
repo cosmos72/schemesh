@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh posix tty (0 8 0))
+(library (schemesh posix tty (0 8 1))
   (export tty-setraw! tty-restore! tty-inspect tty-size with-cooked-tty)
   (import
     (rnrs)

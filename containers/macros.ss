@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh containers macros (0 8 0))
+(library (schemesh containers macros (0 8 1))
   (export
     for for*)
   (import

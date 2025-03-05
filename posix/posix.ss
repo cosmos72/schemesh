@@ -7,7 +7,7 @@
 
 
 ;; define (schemesh posix) as a library that exports all its imported bindings
-(library-reexport (schemesh posix (0 8 0))
+(library-reexport (schemesh posix (0 8 1))
   (import
     (schemesh posix fd)
     (schemesh posix dir)

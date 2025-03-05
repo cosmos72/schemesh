@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh containers sort (0 8 0))
+(library (schemesh containers sort (0 8 1))
   (export
     span-sort! vector-sort*!) ; R6RS already defines (vector-sort!)
   (import

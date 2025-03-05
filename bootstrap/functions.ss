@@ -10,7 +10,7 @@
 ;; this is done by setting the top-level symbols sh-current-environment and sh-current-eval
 ;; only if they are not bound yet.
 
-(library (schemesh bootstrap functions (0 8 0))
+(library (schemesh bootstrap functions (0 8 1))
   (export
       generate-pretty-temporaries generate-pretty-temporary gensym-pretty
 
@@ -156,7 +156,7 @@
 
 ;; return schemesh version
 (define (sh-version)
-  (list 0 8 0))
+  (list 0 8 1))
 
 ) ; close library
 

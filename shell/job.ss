@@ -12,7 +12,7 @@
 ;; Convention: (sh) and (sh-...) are functions
 ;              (shell) and (shell-...) are macros
 
-(library (schemesh shell job (0 8 0))
+(library (schemesh shell job (0 8 1))
   (export
     ;; aliases.ss
     sh-alias-ref sh-alias-delete! sh-alias-set! sh-aliases sh-aliases-expand
@@ -446,6 +446,9 @@
             (bytespan-insert-right/bvector! bspan bvec)
             (bytespan->bytevector bspan))
           bvec)))
+    ;; wildcards may expand to a list of strings: accept them if they have length 1
+    ((and (pair? path-or-fd) (null? (cdr path-or-fd)) (string? (car path-or-fd)))
+      (%prefix-job-dir-if-relative-path job-dir (car path-or-fd)))
     (else
       (raise-assert1 'job-remap-fds
         "(or (fixnum? path-or-fd) (string? path-or-fd) (bytevector? path-or-fd))"

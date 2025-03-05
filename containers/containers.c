@@ -27,6 +27,11 @@ typedef struct {
   uint32_t length;
 } u32pair;
 
+typedef struct {
+  size_t byte_n;
+  size_t char_n;
+} sizepair;
+
 static signed char c_bytevector_compare(ptr left, ptr right) {
 #if 0 /* redundant, already checked by Scheme function (bytevector-compare) */
   if (Sbytevectorp(left) && Sbytevectorp(right))
@@ -264,28 +269,39 @@ static uint32_t c_utf8b_to_codepoint_length(const octet* in, size_t in_len) {
   return 1;
 }
 
+static u32pair c_utf8_ok(const uint32_t codepoint, const uint32_t length) {
+  u32pair ret;
+  ret.codepoint = codepoint;
+  ret.length    = length;
+  return ret;
+}
+
+static u32pair c_utf8_incomplete(u32pair ret, uptr in_len, ptr eof) {
+  if (eof == Sfalse) {
+    ret.codepoint = -1;
+    ret.length    = in_len;
+  }
+  return ret;
+}
+
 /**
  * convert a single UTF-8b sequence to Unicode codepoint, and return it.
- * Also return number of converted bytes.
+ * Also return number of converted bytes,
+ * or that *would* be converted if in_len was large enough.
  */
-static u32pair c_utf8b_to_codepoint(const octet* in, uptr in_len) {
+static u32pair c_utf8b_to_codepoint(const octet* in, uptr in_len, ptr eof) {
   u32pair  ret;
   uint32_t in0, in1, in2, in3;
   if (UNLIKELY(in_len == 0)) {
-    ret.codepoint = 0;
-    ret.length    = 0;
-    return ret;
+    return c_utf8_ok(0, 0);
   }
   in0 = in[0];
   if (LIKELY(in0 < 0x80)) {
-    ret.codepoint = in0;
-    ret.length    = 1;
-    return ret;
+    return c_utf8_ok(in0, 1);
   }
   /* default: invalid, overlong or truncated UTF-8 sequence. */
   /* Encoded by UTF-8b as 0xDC00 | in0 to allow lossless roundtrip of non UTF-8 data. */
-  ret.codepoint = 0xDC00 | in0;
-  ret.length    = 1;
+  ret = c_utf8_ok(0xDC00 | in0, 1);
 
   if (in0 < 0xC2 || in0 > 0xF4 || in_len == 1) {
     return ret; /* invalid, overlong or truncated UTF-8 sequence. */
@@ -295,12 +311,11 @@ static u32pair c_utf8b_to_codepoint(const octet* in, uptr in_len) {
     return ret; /* invalid continuation byte in UTF-8 sequence. */
   }
   if (in0 < 0xE0) {
-    ret.codepoint = (in0 & 0x1F) << 6 | (in1 & 0x3F);
-    ret.length    = 2;
-    return ret;
+    return c_utf8_ok((in0 & 0x1F) << 6 | (in1 & 0x3F), 2);
   }
   if (in_len == 2) {
-    return ret; /* truncated UTF-8 sequence. */
+    /* truncated UTF-8 sequence. */
+    return c_utf8_incomplete(ret, in_len, eof);
   }
   in2 = in[2];
   if ((in2 & 0xC0) != 0x80) {
@@ -309,22 +324,21 @@ static u32pair c_utf8b_to_codepoint(const octet* in, uptr in_len) {
   if (in0 < 0xF0) {
     const uint32_t val = (in0 & 0x0F) << 12 | (in1 & 0x3F) << 6 | (in2 & 0x3F);
     if (val >= 0x800 && (val < 0xD800 || val >= 0xE000)) {
-      ret.codepoint = val;
-      ret.length    = 3;
+      return c_utf8_ok(val, 3);
     } else {
       /* overlong UTF-8 sequence, or invalid codepoint in surrogate range 0xD000...0xDFFF */
     }
     return ret;
   }
   if (in_len == 3) {
-    return ret; /* truncated UTF-8 sequence. */
+    /* truncated UTF-8 sequence. */
+    return c_utf8_incomplete(ret, in_len, eof);
   }
   in3 = in[3];
   if (in0 <= 0xF4 && (in3 & 0xC0) == 0x80) {
     const uint32_t val = (in0 & 0x07) << 18 | (in1 & 0x3F) << 12 | (in2 & 0x3F) << 6 | (in3 & 0x3F);
     if (val >= 0x10000 && val < 0x110000) {
-      ret.codepoint = val;
-      ret.length    = 4;
+      return c_utf8_ok(val, 4);
     } else {
       /* overlong UTF-8 sequence, or invalid codepoint > 0x10FFFF */
     }
@@ -377,52 +391,81 @@ static iptr c_bytevector_utf8b_to_string_length(ptr bvec, iptr start, iptr end) 
   return 0;
 }
 
-/**
- * convert up to in_len bytes from an UTF-8b C char[] to a Scheme string,
- * starting at position str_start.
- * return the the number of Unicode codepoints written into the string,
- * or Sfalse if caller-provided string is too small.
- */
-static ptr c_bytes_utf8b_to_string_append(const octet* in, size_t in_len, ptr str, iptr str_start) {
-  iptr str_len = Sstring_length(str);
-  if (str_start <= str_len) {
-    iptr str_pos = str_start;
-    if (in_len == 0) {
-      return Sfixnum(0);
-    }
-    while (in_len > 0) {
-      const u32pair pair = c_utf8b_to_codepoint(in, in_len);
-      if (pair.length == 0 || pair.length > in_len || str_pos >= str_len) {
-        return Sfalse;
-      }
-      in += pair.length;
-      in_len -= pair.length;
-      Sstring_set(str, str_pos, pair.codepoint);
-      str_pos++;
-    }
-    return Sfixnum(str_pos - str_start);
-  }
-  return Sfalse;
+static sizepair c_sizepair(const size_t byte_n, const size_t char_n) {
+  sizepair ret;
+  ret.byte_n = byte_n;
+  ret.char_n = char_n;
+  return ret;
 }
 
 /**
- * convert up to bvec_end - bvec_start bytes from an UTF-8b bytevector to a Scheme string.
- * return the length of converted string, i.e. the number of Unicode codepoints written into it.
- * return Sfalse if caller-provided string is too small, bytevector range [start, end)
- *   is out-of-range, or any other error.
+ * convert up to in_len bytes from an UTF-8b C char[] to a Scheme string,
+ * starting at position str_start.
+ *
+ * if eof is truish it means incomplete UTF-8 sequences must be converted too,
+ * because no more bytes will arrive for these octets.
+ *
+ * return a pair containing:
+ *   the number bytes converted to UTF-8b,
+ *   the number of Unicode codepoints written into the string.
  */
-static ptr c_bytevector_utf8b_to_string_append(
-    ptr bvec, iptr bvec_start, iptr bvec_end, ptr str, iptr str_start) {
+static sizepair c_bytes_utf8b_to_string_append(
+    const octet* in, size_t in_len, ptr str, iptr str_start, iptr str_end, ptr eof) {
+  if (in_len == 0 || str_start >= str_end) {
+    return c_sizepair(0, 0);
+  }
+  size_t in_len_save = in_len;
+  iptr   str_pos     = str_start;
+  if (in_len == 0) {
+    return c_sizepair(0, 0);
+  }
+  while (in_len > 0) {
+    const u32pair pair = c_utf8b_to_codepoint(in, in_len, eof);
+    if (pair.length == 0 || pair.length > in_len || str_pos >= str_end) {
+      break;
+    }
+    in += pair.length;
+    in_len -= pair.length;
+    Sstring_set(str, str_pos, pair.codepoint);
+    str_pos++;
+  }
+  return c_sizepair(in_len_save - in_len, str_pos - str_start);
+}
+
+/**
+ * convert bytes from an UTF-8b bytevector to a Scheme string.
+ *
+ * cons_eof must be a cons: if (car cons_eof) is truish it means incomplete UTF-8 sequences
+ * must be converted too because no more bytes will arrive for this bytevector.
+ *
+ * cons_eof will be updated on return, setting:
+ *   car to the number bytes converted to UTF-8b,
+ *   cdr to the number of characters written into the string.
+ */
+static void c_bytevector_utf8b_to_string_append(
+    ptr bvec, iptr bvec_start, iptr bvec_end, ptr str, iptr str_start, iptr str_end, ptr cons_eof) {
+  if (!Spairp(cons_eof)) {
+    return;
+  }
   if (Sbytevectorp(bvec) && bvec_start >= 0 && bvec_end >= bvec_start && Sstringp(str) &&
-      str_start >= 0) {
+      str_start >= 0 && str_end >= str_start) {
     octet* bvec_data = Sbytevector_data(bvec);
     iptr   bvec_len  = Sbytevector_length(bvec);
-    if (bvec_start <= bvec_len && bvec_end <= bvec_len) {
-      return c_bytes_utf8b_to_string_append(
-          bvec_data + bvec_start, (size_t)(bvec_end - bvec_start), str, str_start);
+    if (bvec_end <= bvec_len) {
+
+      sizepair ret = c_bytes_utf8b_to_string_append(bvec_data + bvec_start,
+                                                    (size_t)(bvec_end - bvec_start),
+                                                    str,
+                                                    str_start,
+                                                    str_end,
+                                                    Scar(cons_eof));
+      Sset_car(cons_eof, Sfixnum(ret.byte_n));
+      Sset_cdr(cons_eof, Sfixnum(ret.char_n));
+      return;
     }
   }
-  return Sfalse;
+  Sset_car(cons_eof, Sfixnum(0));
+  Sset_cdr(cons_eof, Sfixnum(0));
 }
 
 /**
@@ -441,9 +484,9 @@ ptr schemesh_Sstring_utf8b(const char chars[], size_t len) {
     /* Smake_string() will raise condition */
     str_len = -1;
   }
-  ptr str     = Smake_string(str_len, 0);
-  ptr written = c_bytes_utf8b_to_string_append((const octet*)chars, len, str, 0);
-  if (Sfixnump(written) && Sfixnum_value(written) == str_len) {
+  ptr      str = Smake_string(str_len, 0);
+  sizepair ret = c_bytes_utf8b_to_string_append((const octet*)chars, len, str, 0, str_len, Strue);
+  if (ret.byte_n == len && ret.char_n == slen) {
     return str;
   }
   /* raise condition */

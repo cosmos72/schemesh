@@ -101,6 +101,8 @@
   (string->utf8b (string (integer->char* #xdc80)))           #vu8(#x80)
   (string->utf8b (string (integer->char* #xdcff)))           #vu8(#xff)
   (string->utf8b "\xdc80;\xdc81;\xdcfe;\xdcff;")             #vu8(#x80 #x81 #xfe #xff)
+  ;; test incomplete UTF-8 sequence #x80 at end of bytes
+  (utf8b->string (string->utf8b "abc\x20AC;\xDC80;"))        "abc\x20AC;\xDC80;"
   (list
     (char->utf8b-length (integer->char 0))
     (char->utf8b-length (integer->char #x7F))

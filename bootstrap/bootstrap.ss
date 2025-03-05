@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh bootstrap (0 8 0))
+(library (schemesh bootstrap (0 8 1))
   (export
       ;; bootstrap.ss
       assert* assert-not* catch check check-not define-macro debugf debugf-port
@@ -69,10 +69,11 @@
 
 
 ;; port where to write debug messages with (debugf).
-(define (debugf-port)
-  (current-output-port))
-
 #|
+(define (debugf-port)
+  (console-output-port))
+|#
+
 (define debugf-port
   (let ((port #f))
     (lambda ()
@@ -85,7 +86,6 @@
                      (make-transcoder (utf-8-codec) (eol-style lf)
                                       (error-handling-mode raise)))))
       port)))
-|#
 
 
 (define c-pid-get (foreign-procedure "c_pid_get" () int))

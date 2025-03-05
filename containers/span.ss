@@ -9,7 +9,7 @@
 ;;;;;;;;;;;;;  define Scheme type "span", a resizeable vector  ;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (schemesh containers span (0 8 0))
+(library (schemesh containers span (0 8 1))
   (export
     list->span vector->span vector->span* make-span span->list span->vector span span?
     span-length span-empty? span-clear! span-capacity span-capacity-left span-capacity-right

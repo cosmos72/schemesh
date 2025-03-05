@@ -5,7 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh containers charline (0 8 0))
+(library (schemesh containers charline (0 8 1))
   (export
     charline charline? string->charline string->charline* charline->string
     assert-charline? charline-nl? charline-copy-on-write charline-empty?

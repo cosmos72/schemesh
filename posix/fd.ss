@@ -5,15 +5,17 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
-(library (schemesh posix fd (0 8 0))
+(library (schemesh posix fd (0 8 1))
   (export
     c-errno c-errno->string c-exit c-hostname
-    fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-read fd-write
-    fd-read-all fd-select fd-setnonblock open-file-fd open-pipe-fds
+    fd-open-max fd-close fd-close-list fd-dup fd-dup2
+    fd-read fd-read-all fd-read-insert-right! fd-read-noretry
+    fd-write fd-write-all fd-write-noretry fd-select
+    fd-setnonblock open-file-fd open-pipe-fds
     raise-c-errno)
   (import
     (rnrs)
-    (only (chezscheme)               foreign-procedure void)
+    (only (chezscheme)               break foreign-procedure void)
     (only (schemesh bootstrap)       assert* raise-errorf while)
     (schemesh containers bytespan)
     (only (schemesh containers list) list-iterate)
@@ -36,7 +38,7 @@
 (define (raise-c-errno who c-who c-errno . c-args)
   ; (debugf "raise-c-errno ~s ~s" who c-errno)
   (raise-errorf who "C function ~s~s failed with error ~s: ~a"
-    c-who c-args c-errno (c-errno->string c-errno)))
+    c-who c-args c-errno (if (integer? c-errno) (c-errno->string c-errno) "unknown error")))
 
 ;; return the maximum number of open file descriptors for a process
 (define fd-open-max
@@ -77,60 +79,133 @@
 
 
 ;; read from fd until end-of-file.
-;; return read bytes as a bytevector
+;; return read bytes as a bytevector,
+;; or raise exception on I/O error.
+;;
+;; Note: if interrupted, calls (break) then tries again if (break) returns normally.
 (define (fd-read-all fd)
   (let ((bsp (make-bytespan 0)))
-    (while (fx>? (fd-read-some fd bsp) 0))
+    (let %loop ()
+      (let ((n (fd-read-insert-right! fd bsp)))
+        (when (and (integer? n) (> n 0))
+          (%loop))))
     (bytespan->bytevector*! bsp)))
 
 
 ;; read some bytes from fd and append them to specified bytespan
-;; return number of bytes read
-(define (fd-read-some fd bsp)
+;; return number of bytes actually read, which can be 0 only on end-of-file,
+;; or raise exception on I/O error.
+;;
+;; Note: if interrupted, calls (break) then tries again if (break) returns normally.
+(define (fd-read-insert-right! fd bsp)
   (bytespan-reserve-right! bsp (fx+ 4096 (bytespan-length bsp)))
   (let* ((beg (bytespan-peek-beg bsp))
          (end (bytespan-peek-end bsp))
          (cap (bytespan-capacity-right bsp))
          (n   (fd-read fd (bytespan-peek-data bsp) end (fx+ beg cap))))
-     (when (fx>? n 0)
+    (when (and (integer? n) (> n 0))
        (bytespan-resize-right! bsp (fx+ (fx- end beg) n)))
      n))
 
 
 ;; read some bytes from fd and copy them into bytevector
-;; return number of bytes read
+;; return number of bytes read, which can be 0 only on end-of-file or if (fx=? start end)
+;; or raise exception on I/O error.
+;;
+;; Note: if interrupted, calls (break) then tries again if (break) returns normally.
 (define fd-read
-  (let ((c-fd-read (foreign-procedure "c_fd_read" (int ptr iptr iptr) iptr)))
+  (case-lambda
+    ((fd bytevector-result start end)
+      (let %loop ()
+        (let ((ret (fd-read-noretry fd bytevector-result start end)))
+          (if (eq? #t ret)
+            (begin (break) (%loop))
+            ret))))
+    ((fd bytevector-result)
+      (fd-read fd bytevector-result 0 (bytevector-length bytevector-result)))))
+
+
+;; read some bytes from fd and copy them into bytevector.
+;; return number of bytes actually read, which can be 0 only on end-of-file or if (fx=? start end)
+;; or raise exception on I/O error.
+;;
+;; Note: if interrupted, returns #t
+(define fd-read-noretry
+  (let ((c-fd-read (foreign-procedure "c_fd_read" (int ptr iptr iptr) ptr)))
     (case-lambda
-      ((fd bytevector-result)
-        (fd-read fd bytevector-result 0 (bytevector-length bytevector-result)))
       ((fd bytevector-result start end)
         (let ((ret (c-fd-read fd bytevector-result start end)))
-          (if (>= ret 0)
+          ;; (debugf "fd-read-noretry ret=~s" ret)
+          (if (or (eq? #t ret) (and (integer? ret) (>= ret 0)))
             ret
-            (raise-c-errno 'fd-read 'read ret fd #vu8() start end)))))))
+            (raise-c-errno 'fd-read 'read ret fd #vu8() start end))))
+      ((fd bytevector-result)
+        (fd-read fd bytevector-result 0 (bytevector-length bytevector-result))))))
 
 
+;; write all specified bytevector range to fd, iterating in case of short writes.
+;; return void if successful,
+;; otherwise raise exception.
+;;
+;; Note: if interrupted, calls (break) then tries again if (break) returns normally.
+(define fd-write-all
+  (case-lambda
+    ((fd bytevector-towrite start end)
+      (let %loop ((pos start))
+        (if (fx=? pos end)
+          (void)
+          (let ((ret (fd-write fd bytevector-towrite pos end)))
+            (if (and (integer? ret) (> ret 0))
+              (%loop (+ pos ret))
+              (raise-c-errno 'fd-write 'write ret fd #vu8() start end))))))
+    ((fd bytevector-towrite)
+      (fd-write-all fd bytevector-towrite 0 (bytevector-length bytevector-towrite)))))
+
+
+;; write a portion of bytevector into fd.
+;; return number of bytes actually written, which may be less than (fx- end start)
+;; or raise exception on I/O error.
+;;
+;; Note: if interrupted, calls (break) then tries again if (break) returns normally.
 (define fd-write
-  (let ((c-fd-write (foreign-procedure "c_fd_write" (int ptr iptr iptr) iptr)))
+  (case-lambda
+    ((fd bytevector-towrite start end)
+      (let %loop ()
+        (let ((ret (fd-write-noretry fd bytevector-towrite start end)))
+          (if (eq? #t ret)
+            (begin (break) (%loop))
+            ret))))
+    ((fd bytevector-towrite)
+      (fd-write fd bytevector-towrite 0 (bytevector-length bytevector-towrite)))))
+
+
+;; write a portion of bytevector into fd.
+;; return number of bytes written,
+;; or raise exception on I/O error.
+;;
+;; Note: if interrupted, returns #t
+(define fd-write-noretry
+  (let ((c-fd-write (foreign-procedure "c_fd_write" (int ptr iptr iptr) ptr)))
     (case-lambda
       ((fd bytevector-towrite start end)
         (let ((ret (c-fd-write fd bytevector-towrite start end)))
-          (if (>= ret 0)
+          (if (or (eq? #t ret) (and (integer? ret) (>= ret 0)))
             ret
             (raise-c-errno 'fd-write 'write ret fd #vu8() start end))))
       ((fd bytevector-towrite)
         (fd-write fd bytevector-towrite 0 (bytevector-length bytevector-towrite))))))
 
 
-; (fd-select fd direction timeout-milliseconds) waits up to timeout-milliseconds
-; for file descriptor fd to become ready for input, output or both.
-;
-; direction must be one of: 'read 'write 'rw
-; timeout-milliseconds < 0 means infinite timeout
-;
-; On success, returns one of: 'timeout 'read 'write 'rw
-; On error, raises condition.
+;; (fd-select fd direction timeout-milliseconds) waits up to timeout-milliseconds
+;; for file descriptor fd to become ready for input, output or both.
+;;
+;; direction must be one of: 'read 'write 'rw
+;; timeout-milliseconds < 0 means infinite timeout
+;;
+;; On success, returns one of: 'timeout 'read 'write 'rw
+;; On error, raises condition.
+;;
+;; If interrupted, returns 'timeout
 (define fd-select
   (let ((c-fd-select (foreign-procedure "c_fd_select" (int int int) int))
         (c-errno-eio ((foreign-procedure "c_errno_eio" () int)))
@@ -149,6 +224,7 @@
           ((< ret 4) (vector-ref '#(timeout read write rw) ret))
           ; c_fd_select() called poll() which set (revents & POLLERR)
           (else      (raise-c-errno 'fd-select 'select c-errno-eio fd rw-mask timeout-milliseconds)))))))
+
 
 (define fd-setnonblock
   (let ((c-fd-setnonblock (foreign-procedure "c_fd_setnonblock" (int) int)))
@@ -181,6 +257,7 @@
         (if (>= ret 0)
           ret
           (apply raise-c-errno 'open-file-fd 'open ret filepath flags))))))
+
 
 ;; create a pipe.
 ;; Arguments:

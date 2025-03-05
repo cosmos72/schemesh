@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh posix dir (0 8 0))
+(library (schemesh posix dir (0 8 1))
   (export
       directory-list directory-list* directory-list-type directory-sort!
       file-delete file-rename file-type mkdir ok?)

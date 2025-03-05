@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh repl (0 8 0))
+(library (schemesh repl (0 8 1))
   (export repl repl* repl-eval repl-eval-list
           repl-lineedit repl-parse repl-print
           repl-exception-handler repl-interrupt-handler
@@ -349,22 +349,23 @@
 ;; React to calls to (break), to keyboard CTRL+C and to SIGTSTP signal:
 ;; either enter the debugger, or, if possible, suspend the current job.
 (define (repl-interrupt-handler my-repl-args break-args)
-  ;; invoked also for SIGTSTP, because signal.h installs
-  ;; a SIGTSTP handler that intentionally calls raise(SIGINT)
-  ;;
-  ;; reason: it's the simplest mechanism to quickly suspend a long-running Scheme procedure
-  (let ((suspend? (signal-consume-sigtstp)))
-    ;; try to suspend ourselves and our caller
-    (unless (and suspend? (sh-current-job-suspend))
-      (put-string (console-error-port)
-        (if suspend? "\n; suspended\n" "\n; interrupted\n"))
-      (call/cc
-        (lambda (k)
-          (parameterize ((break-handler void)
-                         (keyboard-interrupt-handler void))
+  (parameterize ((break-handler void)
+                 (keyboard-interrupt-handler void))
+    ;; invoked also for SIGTSTP, because signal.h installs
+    ;; a SIGTSTP handler that intentionally calls raise(SIGINT)
+    ;;
+    ;; reason: it's the simplest mechanism to quickly suspend a long-running Scheme procedure
+    (let ((suspend? (signal-consume-sigtstp)))
+      ;; try to suspend current job
+      (unless (and suspend? (sh-current-job-suspend))
+        (put-string (console-error-port)
+          (if suspend? "\n; suspended\n" "\n; interrupted\n"))
+        (call/cc
+          (lambda (k)
             (repl-interrupt-show-who-msg-irritants break-args (console-error-port))
             (let ((port (console-output-port)))
-              (while (repl-interrupt-handler-once my-repl-args k port)))))))))
+              (while
+                 (repl-interrupt-handler-once my-repl-args k port)))))))))
 
 
 ;; Print (break ...) arguments
