@@ -20,10 +20,10 @@
   (bytespan-length (tport-bspan p)))
 
 
-(define (tport-read-refill p)
+(define (tport-read-refill p n)
   (let* ((bsp   (tport-bspan p))
          (len   (bytespan-length bsp))
-         (delta 8192))
+         (delta (fxmax 0 (fx- n len))))
     (bytespan-reserve-right! bsp (fx+ len delta))
     (let ((got (get-bytevector-n! (tport-bin-port p) (bytespan-peek-data bsp)
                                   (bytespan-peek-end bsp) delta)))
@@ -39,6 +39,9 @@
                        (bytespan-peek-data bsp) (bytespan-peek-beg bsp) (bytespan-peek-end bsp)
                        str start (fx+ start n) (tport-eof? p))))
       (bytespan-erase-left! bsp byte-n)
+      ;; port may be redirected, or current job may finish,
+      ;; and next time it may not be at EOF
+      (tport-eof?-set! p #f)
       char-n)))
 
 
@@ -48,8 +51,8 @@
     (let ((bsp-len (tport-bspan-length p)))
       ;; make-custom-input-port documentation states that read procedure may return
       ;; fewer characters than requested - but at least one, because zero means EOF.
-      (when (and (fx<? bsp-len (fxmax 4 n)) (not (tport-eof? p)))
-        (tport-read-refill p))
+      (when (and (fx<? bsp-len n) (not (tport-eof? p)))
+        (tport-read-refill p n))
       (tport-read-consume p str start n))
     0))
 
@@ -78,7 +81,6 @@
   (assert* 'make-utf8b-textual-output-port (binary-port? binary-in-port))
   (let* ((bsp (make-bytespan 0))
          (port (make-tport binary-in-port bsp #f)))
-    (bytespan-reserve-right! bsp 8192)
     (make-custom-textual-input-port
       (string-append "utf8b " (port-name binary-in-port))
       (lambda (str start n) (tport-read port str start n))
@@ -100,8 +102,6 @@
          (bsp2 (make-bytespan 0))
          (port1 (make-tport binary-in/out-port bsp1 #f))
          (port2 (make-tport binary-in/out-port bsp2 #f)))
-    (bytespan-reserve-right! bsp1 8192)
-    (bytespan-reserve-right! bsp2 8192)
     (make-custom-textual-input/output-port
       (string-append "utf8b " (port-name binary-in/out-port))
       (lambda (str start n) (tport-read port1 str start n))
@@ -120,7 +120,6 @@
   (assert* 'make-utf8b-textual-output-port (binary-port? binary-out-port))
   (let* ((bsp (make-bytespan 0))
          (port (make-tport binary-out-port bsp #f)))
-    (bytespan-reserve-right! bsp 8192)
     (make-custom-textual-output-port
       (string-append "utf8b " (port-name binary-out-port))
       (lambda (str start n) (tport-write port str start n))

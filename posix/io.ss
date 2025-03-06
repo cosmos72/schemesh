@@ -13,9 +13,13 @@
     open-fd-redir-textual-input-port open-fd-redir-textual-input/output-port open-fd-redir-textual-output-port)
   (import
     (rnrs)
-    (only (chezscheme)         make-custom-binary-input-port make-custom-binary-input/output-port make-custom-binary-output-port
+    (only (chezscheme)         make-custom-binary-input-port  make-custom-binary-input/output-port  make-custom-binary-output-port
                                make-custom-textual-input-port make-custom-textual-input/output-port make-custom-textual-output-port
-                               console-error-port fx1+ include port-name)
+                               fx1+ include port-name
+                               set-binary-port-input-buffer!   set-binary-port-input-index!   set-binary-port-input-size!
+                               set-binary-port-output-buffer!  set-binary-port-output-index!  set-binary-port-output-size!
+                               set-textual-port-input-buffer!  set-textual-port-input-index!  set-textual-port-input-size!
+                               set-textual-port-output-buffer! set-textual-port-output-index! set-textual-port-output-size!)
     (only (schemesh bootstrap) assert*)
     (schemesh containers bytespan)
     (only (schemesh containers utf8b)       utf8b->string-copy!)
@@ -60,51 +64,79 @@
 ;;
 ;; fd-proc must be a no-argument procedure that returns an integer file descriptor;
 ;; the returned file descriptor *may* change from one call to the next.
-(define (open-fd-redir-binary-input-port name fd-proc)
-  (assert* 'open-fd-redir-binary-input-port (procedure? fd-proc))
-  (let ((port (make-bport fd-proc 0)))
-    (make-custom-binary-input-port
-      name
-      (lambda (bv start n) (bport-read port bv start n))
-      (lambda ()           (bport-pos  port))
-      #f    ; no pos-set!
-      #f))) ; do nothing on close
+(define open-fd-redir-binary-input-port
+  (case-lambda
+    ((name fd-proc buffer-size)
+      (assert* 'open-fd-redir-binary-input-port (procedure? fd-proc))
+      (when buffer-size
+        (assert* 'open-fd-redir-binary-input-port (fx>=? buffer-size 0)))
+      (let* ((bport (make-bport fd-proc 0))
+             (ret   (make-custom-binary-input-port
+                      name
+                      (lambda (bv start n) (bport-read bport bv start n))
+                      (lambda ()           (bport-pos  bport))
+                      #f    ; no pos-set!
+                      #f))) ; do nothing on close
+        (when buffer-size
+          (set-binary-port-input-size!   ret 0)
+          (set-binary-port-input-index!  ret 0)
+          (set-binary-port-input-buffer! ret (make-bytevector buffer-size)))
+        ret))
+    ((name fd-proc)
+      (open-fd-redir-binary-input-port name fd-proc #f))))
 
 
 ;; create and return a binary input/output port that redirectably reads from/writes to a file descriptor.
 ;;
-;; fd-in-proc and fd-out-proc must be no-argument procedures that return an integer file descriptor;
+;; fd-proc must be no-argument procedures that return an integer file descriptor;
 ;; the returned file descriptor *may* change from one call to the next.
 (define open-fd-redir-binary-input/output-port
   (case-lambda
-    ((name fd-in-proc fd-out-proc)
-      (assert* 'open-fd-redir-binary-input-port (procedure? fd-in-proc))
-      (assert* 'open-fd-redir-binary-input-port (procedure? fd-out-proc))
-      (let ((in-port (make-bport fd-in-proc 0))
-            (out-port (make-bport fd-out-proc 0)))
-        (make-custom-binary-input/output-port
-          name
-          (lambda (bv start n) (bport-read in-port bv start n))
-          (lambda (bv start n) (bport-write out-port bv start n))
-          #f    ; no pos: there is no "single" position, in/out file descriptors may differ and may be non-seekable
-          #f    ; no pos-set!
-          #f))) ; do nothing on close
+    ((name fd-proc buffer-size)
+      (assert* 'open-fd-redir-binary-input/output-port (procedure? fd-proc))
+      (when buffer-size
+        (assert* 'open-fd-redir-binary-input/output-port (fx>=? buffer-size 0)))
+      (let* ((bport (make-bport fd-proc 0))
+             (ret   (make-custom-binary-input/output-port
+                      name
+                      (lambda (bv start n) (bport-read bport bv start n))
+                      (lambda (bv start n) (bport-write bport bv start n))
+                      #f    ; no pos: there is no "single" position, in/out file descriptors may differ and may be non-seekable
+                      #f    ; no pos-set!
+                      #f))) ; do nothing on close
+        (when buffer-size
+          (set-binary-port-input-size!   ret 0)
+          (set-binary-port-input-index!  ret 0)
+          (set-binary-port-input-buffer! ret (make-bytevector buffer-size))
+          (set-binary-port-output-index!  ret 0)
+          (set-binary-port-output-size!   ret 0)
+          (set-binary-port-output-buffer! ret (make-bytevector buffer-size)))
+        ret))
     ((name fd-proc)
-      (open-fd-redir-binary-input/output-port name fd-proc fd-proc))))
+      (open-fd-redir-binary-input/output-port name fd-proc #f))))
 
 
 ;; create and return a binary output port that redirectably writes to a file descriptor.
 ;;
 ;; fd-proc must be a no-argument procedure that returns an integer file descriptor;
 ;; the returned file descriptor *may* change from one call to the next.
-(define (open-fd-redir-binary-output-port name fd-proc)
-  (assert* 'open-fd-redir-binary-output-port (procedure? fd-proc))
-  (let ((port (make-bport fd-proc 0)))
-    (make-custom-binary-output-port
-      name
-      (lambda (bv start n) (bport-write port bv start n))
-      (lambda ()           (bport-pos  port))
-      #f    ; no pos-set!
-      #f))) ; do nothing on close
+(define open-fd-redir-binary-output-port
+  (case-lambda
+    ((name fd-proc buffer-size)
+      (assert* 'open-fd-redir-binary-output-port (procedure? fd-proc))
+      (let* ((bport (make-bport fd-proc 0))
+             (ret   (make-custom-binary-output-port
+                      name
+                      (lambda (bv start n) (bport-write bport bv start n))
+                      (lambda ()           (bport-pos  bport))
+                      #f    ; no pos-set!
+                      #f))) ; do nothing on close
+        (when buffer-size
+          (set-binary-port-output-size!   ret 0)
+          (set-binary-port-output-index!  ret 0)
+          (set-binary-port-output-buffer! ret (make-bytevector buffer-size)))
+        ret))
+    ((name fd-proc)
+      (open-fd-redir-binary-input-port name fd-proc #f))))
 
 ) ; close library

@@ -91,8 +91,8 @@
                        debug debug-condition debug-on-exception display-condition
                        foreign-procedure format fx1+ fx1- hashtable-cells include inspect
                        logand logbit? make-format-condition meta open-fd-output-port
-                       parameterize procedure-arity-mask record-writer reverse! sort!
-                       string-copy! string-truncate! void)
+                       parameterize procedure-arity-mask record-writer reverse!
+                       set-port-eof! sort! string-copy! string-truncate! void)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh conversions)
@@ -493,13 +493,13 @@
 
 (include "shell/options.ss")
 (include "shell/params.ss")
+(include "shell/redirect.ss")
 (include "shell/builtins.ss")
 (include "shell/cmd.ss")
 (include "shell/expr.ss")
 (include "shell/multijob.ss")
 (include "shell/env.ss")
 (include "shell/dir.ss")
-(include "shell/redirect.ss")
 (include "shell/pipe.ss")
 (include "shell/control.ss")
 (include "shell/parse.ss")

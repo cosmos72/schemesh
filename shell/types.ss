@@ -76,23 +76,6 @@
   (nongenerative #{multijob lbuqbuslefybk7xurqc6uyhyv-36}))
 
 
-;; Parameter containing the current job.
-;; It is truish only if called from one of the dynamic contexts listed below,
-;; or from some code called directly or indirectly by them:
-;;
-;; * one of the procedures stored in (job-start-proc)
-;; * a closure injected in a sh-job, as for example {echo (lambda () ...)}
-;; * an expression inside (shell-expr ...)
-;;
-(define sh-current-job
-  (sh-make-thread-parameter #f
-    (lambda (job)
-      (when (and job (not (sh-job? job)))
-        (raise-errorf 'sh-current-job "invalid current job, must be #f or a sh-job: ~s" job))
-      job)))
-
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;    convert  pid -> job     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

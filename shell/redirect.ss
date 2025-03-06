@@ -266,17 +266,49 @@
 
 ;; Return binary input port that reads bytes from (sh-fd 0)
 (define sh-stdin
-  (let ((p (open-fd-redir-binary-input-port "sh-stdin" (lambda () (sh-fd 0)))))
+  (let ((p (open-fd-redir-binary-input/output-port "sh-stdin" (lambda () (sh-fd 0)) 0)))
     (lambda () p)))
 
 
 ;; Return binary output port that writes bytes to (sh-fd 1)
 (define sh-stdout
-  (let ((p (open-fd-redir-binary-output-port "sh-stdout" (lambda () (sh-fd 1)))))
+  (let ((p (open-fd-redir-binary-input/output-port "sh-stdout" (lambda () (sh-fd 1)) 0)))
     (lambda () p)))
 
 
 ;; Return binary output port that writes bytes to (sh-fd 2)
 (define sh-stderr
-  (let ((p (open-fd-redir-binary-output-port "sh-stderr" (lambda () (sh-fd 2)))))
+  (let ((p (open-fd-redir-binary-input/output-port "sh-stderr" (lambda () (sh-fd 2)) 0)))
     (lambda () p)))
+
+
+(define (port-cleanup port)
+  (when (input-port? port)
+    (set-port-eof! port #f))
+  (when (output-port? port)
+    (flush-output-port port)))
+
+
+;; Parameter containing the current job.
+;; It is truish only if called from one of the dynamic contexts listed below,
+;; or from some code called directly or indirectly by them:
+;;
+;; * one of the procedures stored in (job-start-proc)
+;; * a closure injected in a sh-job, as for example {echo (lambda () ...)}
+;; * an expression inside (shell-expr ...)
+;;
+(define sh-current-job
+  (sh-make-thread-parameter #f
+    (lambda (job)
+      (when (and job (not (sh-job? job)))
+        (raise-errorf 'sh-current-job "invalid current job, must be #f or a sh-job: ~s" job))
+      ;; when current job changes, we must unset the eof flag on stdin, stdout and stderr
+      ;; because the underlying file descriptors may change and their eof status may differ
+      (port-cleanup (current-input-port))
+      (port-cleanup (current-output-port))
+      (port-cleanup (current-error-port))
+      (port-cleanup (sh-stdin))
+      (port-cleanup (sh-stdout))
+      (port-cleanup (sh-stderr))
+
+      job)))
