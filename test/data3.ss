@@ -234,13 +234,13 @@
     (display (+ 1 2)) {hjk}" 'scheme #t)               (begin (display (+ 1 2)) (sh-run (shell "hjk")))
   (sh-read-string* "#!/some/other/path\n\
     (display (* 3 4)); bnm"  'shell #t)                (begin (display (* 3 4)) (sh-run (shell "bnm")))
-  (sh-read-file "utils/test_file.ss")
+  (sh-read-file "test/test_file.ss")
        (begin (define (fib n)
          (let %fib ((i n))
            (if (fx>? i 2) (fx+ (%fib (fx1- i)) (%fib (fx- i 2))) 1)))
           (sh-run (shell "FOO" = "bar" \x3B;
                          )))
-  (sh-read-file "utils/test_file.sh")
+  (sh-read-file "test/test_file.sh")
        (begin
          (sh-run (shell
            "BAR" = "" \x3B;

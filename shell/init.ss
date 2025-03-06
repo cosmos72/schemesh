@@ -38,7 +38,7 @@
   (c-environ->sh-global-env)
 
   ;; install a yield-handler
-  (yield-handler sh-current-job-suspend)
+  (yield-handler sh-current-job-yield)
 
   ;; Replace (current-input-port) with an UTF-8b textual output port that honors current job redirections
   ;;

@@ -135,15 +135,33 @@
     (if suspend-proc #t #f))) ; ignore value returned by continuations (suspend-proc) and (cont)
 
 
+
+;; Yield current job: call (scheduler-wait job 'nonblocking) to detect stopped,
+;; resumed and finished subprocesses and advance their parents.
+;; If some child stopped, call (sh-current-job-suspend) and return its value.
+;; Otherwise return #t.
+;;
+;; Note: if (sh-current-job) is not set, or (sh-job-control?) is #f,
+;; does nothing and immediately returns #f
+(define (sh-current-job-yield)
+  (let ((job (sh-current-job)))
+    (if (and job (sh-job-control?))
+      (if (sh-stopped? (scheduler-wait #f 'nonblocking))
+        (jexpr-suspend job)
+        #t))))
+
+
+
 ;; Suspend current job and call its (job-suspend-proc) continuation,
 ;; which non-locally jumps to whoever started or resumed the job.
 ;;
 ;; if job is later resumed, it then returns #t to the caller of (sh-current-job-suspend)
 ;; if there was no job to suspend, immediately return #f to the caller of (sh-current-job-suspend)
 ;;
-;; Note: has effect only if (sh-current-job) is set
+;; Note: if (sh-current-job) is not set, or (sh-job-control?) is #f,
+;; does nothing and immediately returns #f
 (define (sh-current-job-suspend)
-  (jexpr-suspend (sh-current-job)))
+  (and (sh-job-control?) (jexpr-suspend (sh-current-job))))
 
 
 (meta begin

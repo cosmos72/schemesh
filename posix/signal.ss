@@ -44,9 +44,9 @@
           (c-signal-raise signal-number)
           c-errno-einval)))))
 
-(define signal-consume-sigchld  (foreign-procedure "c_sigchld_consume" () ptr))
-(define signal-consume-sigtstp  (foreign-procedure "c_sigtstp_consume" () ptr))
-(define signal-consume-sigwinch (foreign-procedure "c_sigwinch_consume" () ptr))
+(define signal-consume-sigchld   (foreign-procedure "c_sigchld_consume" () ptr))
+(define signal-consume-sigtstp   (foreign-procedure "c_sigtstp_consume" () ptr))
+(define signal-consume-sigwinch  (foreign-procedure "c_sigwinch_consume" () ptr))
 
 (define signal-init-sigwinch
   (let ((c-signal-init-sigwinch (foreign-procedure "c_sigwinch_init" () int)))

@@ -50,6 +50,9 @@
     (lambda (job options)
     ;; jexpr-proc may want to use (sh-fd N)
     (job-remap-fds! job)
+
+    (jexpr-resume-proc-set! job (jexpr-prepare-resume-proc job))
+
     ;; jobs are started non-blockingly,
     ;; but running a jexpr job always blocks
     ;; => stop the job and let caller decide whether to wait for it
@@ -63,9 +66,8 @@
   ; (debugf "jexpr-advance job=~s wait-flags=~s" (sh-job->string job) wait-flags)
   (when (and (sh-wait-flag-wait? wait-flags)
              (sh-wait-flag-continue-if-stopped? wait-flags))
-    (unless (jexpr-resume-proc job)
-      (jexpr-resume-proc-set! job (jexpr-prepare-resume-proc job)))
-    (jexpr-call-resume-proc job)))
+    (when (jexpr-resume-proc job)
+      (jexpr-call-resume-proc job))))
 
 
 ;; call the continuation stored in jexpr-resume-proc of a job for resuming it.

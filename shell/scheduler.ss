@@ -162,10 +162,12 @@
 ;; Return when the preferred-pid happens to change status.
 ;;
 ;; In all cases, if preferred-job is set, return its updated status.
+;; Otherwise return the status of some job that stopped - needed by (sh-current-job-yield)
 (define (scheduler-wait preferred-job may-block)
   ;c (debugf ">   scheduler-wait may-block=~s preferred-job=~a" may-block (if preferred-job (sh-job->string preferred-job) preferred-job))
   (let ((current-job   (sh-current-job))
-        (done? #f))
+        (done? #f)
+        (ret   (void)))
     (until done?
       (let ((wait-result (pid-wait -1 may-block)))
         (if (pair? wait-result)
@@ -177,6 +179,8 @@
 
             (when job
               (job-status-set! 'scheduler-wait job new-status)
+              (when (sh-stopped? new-status)
+                (set! ret new-status))
 
               ;; (debugf "... scheduler-wait old-status new-status=~s job=~a" old-status new-status (sh-job->string job))
 
@@ -215,10 +219,8 @@
                       (when (status-changed? current-job-old-status current-job-new-status)
                         (set! done? #t))))))))
 
-          (set! done? #t))))) ; (pid-wait) did not report any status change => return
-  (let ((ret (if preferred-job (job-last-status preferred-job) (void))))
-    ;c (debugf "<   scheduler-wait ret=~s" ret)
-    ret))
+          (set! done? #t)))) ; (pid-wait) did not report any status change => return
+    (if preferred-job (job-last-status preferred-job) ret)))
 
 
 ;; Internal function called by (pid-advance/maybe-wait)

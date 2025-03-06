@@ -24,9 +24,9 @@
     (format (console-output-port) "read one char: ~s\n" ch)
     (flush-output-port (console-output-port))))
 
-(define j1 {{echo0 abc; sleep 1; echo def; sleep 1} | $(loop-fd-read-u8 (sh-fd 0))})
-(define j2 {{echo0 abc; sleep 1; echo def; sleep 1} | $(loop-port-read-u8 (sh-stdin))})
-(define j3 {{echo0 abc; sleep 1; echo def; sleep 1} | $(loop-port-read-char (current-input-port))})
+(define j1 {sleep 1 | {echo0 abc; sleep 2; echo def; sleep 3} | $(loop-fd-read-u8 (sh-fd 0))})
+(define j2 {sleep 1 | {echo0 abc; sleep 2; echo def; sleep 3} | $(loop-port-read-u8 (sh-stdin))})
+(define j3 {sleep 1 | {echo0 abc; sleep 2; echo def; sleep 3} | $(loop-port-read-char (current-input-port))})
 
 #;(sh-run/i j1)
 #;(sh-run/i j2)
@@ -35,3 +35,5 @@
 #;(sh-run j1)
 #;(sh-run j2)
 #;(sh-run j3)
+
+(void)

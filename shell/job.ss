@@ -26,7 +26,7 @@
     make-sh-cmd sh-cmd
 
     ;; control.ss
-    sh-current-job-suspend
+    sh-current-job-suspend sh-current-job-yield
     sh-start sh-start* sh-bg sh-fg sh-run sh-run/i sh-run/err? sh-run/ok? sh-wait
 
     ; sh-wait-flag-foreground-pgid? sh-wait-flag-continue-if-stopped?
@@ -191,15 +191,19 @@
 ;; Return updated job status
 (define (job-id-set! job)
   (assert* 'job-id-set! (sh-job? job))
-  (let* ((old-id (job-id job))
-         (id     (or old-id (%job-id-assign! job)))
-         (status (job-last-status job))
-         (kind   (sh-status->kind status)))
-    (when (and (eq? kind 'running) (or (null? (cdr status)) (not (eqv? id (cadr status)))))
-      ;; replace job status '(running) -> '(running job-id)
-      (job-status-set! 'job-id-set! job (list 'running id)))
-    (unless (eqv? id old-id)
-      (queue-job-display-summary job)))
+  ;; the children of (sh-pipe) jobs are not supposed to be started/stopped individually:
+  ;; the parent (sh-pipe) job always starts/stops all of them collectively.
+  ;; thus assigning a job-id to such children usually just adds noise.
+  (unless (sh-multijob-pipe? (job-default-parent job))
+    (let* ((old-id (job-id job))
+           (id     (or old-id (%job-id-assign! job)))
+           (status (job-last-status job))
+           (kind   (sh-status->kind status)))
+      (when (and (eq? kind 'running) (or (null? (cdr status)) (not (eqv? id (cadr status)))))
+        ;; replace job status '(running) -> '(running job-id)
+        (job-status-set! 'job-id-set! job (list 'running id)))
+      (unless (eqv? id old-id)
+        (queue-job-display-summary job))))
   (job-last-status job))
 
 
@@ -224,20 +228,14 @@
 ;;
 ;; Note: does not create job-id for children of (sh-pipe) jobs.
 (define (job-id-update! job)
-  (let ((parent (job-parent job))
-        (status (job-last-status job)))
-    (if (sh-multijob-pipe? parent)
-      ;; the children of (sh-pipe) jobs are not supposed to be started/stopped individually:
-      ;; the parent (sh-pipe) job always starts/stops all of them collectively.
-      ;; thus assigning a job-id to such children usually just adds noise.
-      (job-id-unset! job)
-      (case (sh-status->kind status)
-        ((running stopped)
-          (job-id-set! job))
-        ((ok exception failed killed)
-          (job-id-unset! job))
-        (else
-          status)))))
+  (let ((status (job-last-status job)))
+    (case (sh-status->kind status)
+      ((running stopped)
+        (job-id-set! job))
+      ((ok exception failed killed)
+        (job-id-unset! job))
+      (else
+        status))))
 
 
 
