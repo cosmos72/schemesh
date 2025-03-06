@@ -34,11 +34,11 @@
     (schemesh posix signal)
     (schemesh posix tty)
     (only (schemesh shell)
+       repl-args repl-args-linectx repl-restart repl-restart?
        sh-consume-signals sh-current-job-suspend sh-exception-handler
-       repl-restart repl-restart? sh-schemesh-reload-count
        sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
        sh-job-control? sh-job-control-available? sh-make-linectx
-       repl-args sh-run/i sh-xdg-cache-home/ sh-xdg-config-home/))
+       sh-schemesh-reload-count sh-run/i sh-xdg-cache-home/ sh-xdg-config-home/))
 
 
 
@@ -171,6 +171,7 @@
 
 ;; Print values or exit statuses.
 (define (repl-print . vals)
+  (sh-consume-signals (repl-args-linectx))
   (flush-output-port (console-error-port))
   (do ((p (console-output-port))
        (tail vals (cdr tail)))

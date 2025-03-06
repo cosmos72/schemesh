@@ -368,7 +368,8 @@
 (define (sh-consume-signals lctx)
   (while (signal-consume-sigchld)
     (scheduler-wait #f 'nonblocking))
-  (display-status-changes lctx))
+  (when lctx
+    (display-status-changes lctx)))
 
 
 (define (display-status-changes lctx)
