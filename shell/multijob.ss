@@ -17,16 +17,19 @@
     (span-length (multijob-children mj))
     0))
 
+
 ;; Return i-th child in specified multijob.
 ;; Return #f if mj is not a multijob, or i is out-of-bounds.
 ;; If i-th child is not a job (may be a job separator as ; &), return it.
 (define (sh-multijob-child-ref mj idx)
+  ;; (debugf "sh-multijob-child-ref mj=~a\tidx=~s" (sh-job->string mj) idx)
   (if (sh-multijob? mj)
     (let ((children (multijob-children mj)))
       (if (fx<? -1 idx (span-length children))
         (span-ref children idx)
         #f))
     #f))
+
 
 ;; Return status of i-th child in specified multijob.
 ;; Return #f if mj is not a multijob, or i is out-of-bounds,
@@ -157,30 +160,9 @@
 (define (mj-subshell-start job options)
   (assert* 'sh-subshell (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-subshell (fx=? -1 (multijob-current-child-index job)))
+  ;; run closure in a subprocess
   (spawn-procedure job options
     (lambda (job options)
-      ;; this will be executed in a subprocess.
-      ;;
-      ;; deactivate job control:
-      ;; a. do not create process groups => all child processes will
-      ;;    inherit process group from the subshell itself
-      ;; b. do not change the foregroud process group
-      ;;
-      ;; note that commands executed by the subshell CAN reactivate job control:
-      ;; in such case, (sh-job-control? #t) will self-suspend the subshell with SIGTTIN
-      ;; until the user resumes it in the foreground.
-      (sh-job-control? #f)
-
-      ;; do not output status changes of children jobs.
-      (sh-job-display-summary? #f)
-
-      ;; do not save history when subshell exits.
-      (let ((lctx (repl-args-linectx)))
-        (when (linectx? lctx)
-          (let ((history (linectx-history lctx)))
-            (when history
-              (charhistory-path-set! history #f)))))
-
       (job-remap-fds! job)
       (job-env/apply-lazy! job 'export)
 
@@ -189,7 +171,8 @@
       ;; and (sh-wait) needs it to know what to do with children jobs.
       (job-step-proc-set! job mj-list-step)
 
-      (sh-wait job)))) ; execute and wait each child job
+      ;; no need to wait for job, (spawn-procedure) already does that
+      (sh-wait job))))
 
 
 
@@ -251,6 +234,38 @@
       (mj-not-step job (void)))))
 
 
+;; executed in subprocesses for setting up their parameters:
+;;   prepare to run silently and without job control
+;;   store new pid and pgid into (sh-globals)
+(define (spawn-procedure-child-before job)
+  ;; in child process, deactivate job control
+  ;;
+  ;; a. do not create process groups => all child processes will
+  ;;    inherit process group from the subshell itself
+  ;; b. do not change the foregroud process group
+  ;;
+  ;; note that commands executed by the subprocess CAN reactivate job control:
+  ;; in such case, (sh-job-control? #t) will self-suspend the subshell with SIGTTIN
+  ;; until the user resumes it in the foreground.
+  (sh-job-control? #f)
+
+  ;; in child process, suppress messages about started/completed jobs
+  (sh-job-display-summary? #f)
+
+  (let ((pid  (pid-get))
+        (pgid (pgid-get 0)))
+    ;; this process now "is" the job => update (sh-globals)' pid and pgid
+    (%job-pid-set!  (sh-globals) pid)
+    (%job-pgid-set! (sh-globals) pgid)
+    ;; cannot wait on our own process.
+    (%job-pid-set!  job #f)
+    (%job-pgid-set! job #f)
+
+    ;; warning: do not call (job-status-set! job ...)
+    ;; because it detects that job is running, and assigns a job-id to it,
+    ;; which is only annoying - cannot do anything useful with such job-id.
+  (%job-last-status-set! job '(running))))
+
 
 ;; Fork a new subprocess, and in the child subprocess
 ;; call (proc job options) once, then call (sh-wait job) repeatedly - which calls (job-step-proc job) if set -
@@ -284,21 +299,7 @@
             (let ((status '(exception #f)))
               (dynamic-wind
                 (lambda () ; run before body
-                  ; in child process, suppress messages about started/completed jobs
-                  (sh-job-display-summary? #f)
-                  (let ((pid  (pid-get))
-                        (pgid (pgid-get 0)))
-                    ;; this process now "is" the job => update (sh-globals)' pid and pgid
-                    (%job-pid-set!  (sh-globals) pid)
-                    (%job-pgid-set! (sh-globals) pgid)
-                    ;; cannot wait on our own process.
-                    (%job-pid-set!  job #f)
-                    (%job-pgid-set! job #f)
-
-                    ;; warning: do not call (job-status-set! job ...)
-                    ;; because it detects that job is running, and assigns a job-id to it,
-                    ;; which is only annoying - cannot do anything useful with such job-id.
-                    (%job-last-status-set! job '(running))))
+                  (spawn-procedure-child-before job))
                 (lambda () ; body
                   (options->call-fd-close options)
 
@@ -309,7 +310,7 @@
                   ;;    (job-unredirect/temp/all! parent)))
 
                   ;c (debugf "> [child] spawn-procedure job=~a subprocess calling proc ~s" (sh-job->string job) proc)
-                  (proc job (options-filter-out options '(fd-close)))
+                  (proc job (options-filter-out options '(fd-close spawn?)))
 
                   ;c (debugf ". [child] spawn-procedure job=~a subprocess proc returned ~s pid=~s" (sh-job->string job) ret (job-pid job))
                   (set! status (sh-wait job)))
@@ -329,8 +330,8 @@
 (define (call-or-spawn-procedure job options proc)
   ;c (debugf "call-or-spawn-procedure options=~s proc=~s job=~a" options proc (sh-job->string job))
   (if (options->spawn? options)
-    ;; spawn a subprocess and run (%proc... job) inside it
-    (spawn-procedure job (options-filter-out options '(spawn?)) proc)
+    ;; spawn a subprocess and run (proc... job) inside it
+    (spawn-procedure job options proc)
     ;; directly call (proc job options) in the caller's process
     (proc job options)))
 

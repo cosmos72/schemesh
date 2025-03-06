@@ -229,9 +229,13 @@
 (define (job-started? job)
   (sh-started? (job-last-status job)))
 
-;; Return #t if job was started and is still running (not stopped or finished), otherwise return #f
+;; Return #t if job was started and is currently running (not stopped or finished), otherwise return #f
 (define (job-running? job)
   (sh-running? (job-last-status job)))
+
+;; Return #t if job was started and is currently stopped (not running or finished), otherwise return #f
+(define (job-stopped? job)
+  (sh-stopped? (job-last-status job)))
 
 ;; Return #t if job has already finished, otherwise return #f
 (define (job-finished? job)

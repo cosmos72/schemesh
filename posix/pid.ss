@@ -46,16 +46,19 @@
 ;; Returns 0 on success.
 ;; Otherwise < 0 if signal-name is unknown, or if C function kill() fails with C errno != 0.
 (define pid-kill
-  (let ((c-pid-kill (foreign-procedure "c_pid_kill" (int int) int))
+  (let ((c-pid-kill (foreign-procedure "c_pid_kill" (int int int) int))
         (c-errno-einval ((foreign-procedure "c_errno_einval" () int))))
-    (lambda (pid signal-name-or-number)
-      ; (format #t "pid-kill ~s ~s" pid signal-name)
-      (let ((signal-number (if (fixnum? signal-name-or-number)
-                             signal-name-or-number
-                             (signal-name->number signal-name-or-number))))
-        (if (fixnum? signal-number)
-          (c-pid-kill pid signal-number)
-          c-errno-einval)))))
+    (case-lambda
+      ((pid signal-name-or-number pause-if-successful?)
+        ;; (format #t "pid-kill ~s ~s" pid signal-name)
+        (let ((signal-number (if (fixnum? signal-name-or-number)
+                               signal-name-or-number
+                               (signal-name->number signal-name-or-number))))
+          (if (fixnum? signal-number)
+            (c-pid-kill pid signal-number (if pause-if-successful? 1 0))
+            c-errno-einval)))
+      ((pid signal-name-or-number)
+        (pid-kill pid signal-name-or-number #f)))))
 
 
 ;; (pid-wait pid may-block) calls waitpid(pid, WUNTRACED) i.e. checks if process specified by pid finished or stopped.
@@ -94,18 +97,19 @@
       'failed)))
 
 
-;; reduced version of (sh-status->value) copy-pasted from shell/status.ss
+;; reduced version of (sh-status->value) extraced from shell/status.ss
 ;;
-;; Extract the first result of a status and return it.
+;; Extract the first value of a status, convert it to a fixnum, and return it.
 (define (status->value status)
   (cond
-    ((eq? (void) status) 0)
-    ((and (pair? status) (not (null? (cdr status))))
-      (if (eq? 'ok status)
-        0
-        (cadr status)))
+    ((eq? (void) status)
+      0)
+    ((and (pair? status) (eq? 'ok (car status)))
+      0)
     (else
-      255)))
+      (let* ((value0 (if (and (pair? status) (not (null? (cdr status)))) (cadr status) #f))
+             (value  (fxand 255 (if (fixnum? value0) value0 -1))))
+        (if (fxzero? value) 1 value)))))
 
 
 ;; Call C functions kill() or exit() to terminate current process with job-status,
@@ -136,10 +140,7 @@
               (when (fixnum? signal-number)
                 (set! result (fx+ 128 signal-number)))))))
       (lambda () ; after body
-        (c-exit
-          (if (and (fixnum? result) (fx<=? 0 result 255))
-            result
-            255))))))
+        (c-exit (fxand result 255))))))
 
 
 ) ; close library

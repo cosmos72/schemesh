@@ -19,6 +19,7 @@
     (only (schemesh containers string) assert-string-list? string-suffix? string-index-right)
     (only (schemesh containers utf8b)  utf8b->string)
     (only (schemesh posix fd)          fd-close fd-read-all fd-write-all open-file-fd)
+    (only (schemesh posix io)          open-fd-redir-utf8b-input-port open-file-utf8b-input-port)
     (schemesh parser)
     (only (schemesh shell parameters)  sh-eval)
     (only (schemesh shell job)         sh-fd sh-builtins sh-builtins-help))
@@ -63,14 +64,14 @@
 ;; same as (sh-read-file), with the difference that all arguments are mandatory
 (define (sh-read-file* path initial-parser enabled-parsers)
   (assert* 'sh-read-file (symbol? initial-parser))
-  (let ((fd #f))
+  (let ((port #f))
     (dynamic-wind
       (lambda () ; before body
-        (set! fd (open-file-fd path 'read)))
+        (set! port (open-file-utf8b-input-port path)))
       (lambda () ; body
-        (sh-read-fd* fd initial-parser enabled-parsers))
+        (sh-read-port* port initial-parser enabled-parsers))
       (lambda () ; after body
-        (when fd (fd-close fd) (set! fd #f))))))
+        (when port (close-port port) (set! port #f))))))
 
 
 ;; read and parse multi-language source contents from specified file descriptor,
@@ -82,7 +83,12 @@
 ;;                     or a hashtable hashtable symbol -> parser
 ;;                     or #t that means all known parsers i.e. (parsers)
 (define (sh-read-fd* fd initial-parser enabled-parsers)
-  (sh-read-string* (utf8b->string (fd-read-all fd)) initial-parser enabled-parsers))
+  (sh-read-port*
+    (open-fd-redir-utf8b-input-port
+      (string-append "fd " (number->string fd))
+      (lambda () fd))
+    initial-parser
+    enabled-parsers))
 
 
 ;; read and parse multi-language source contents from specified textual input port,

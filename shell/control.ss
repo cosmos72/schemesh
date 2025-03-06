@@ -115,12 +115,12 @@
 
 
 
-;; suspend a job and call its (job-suspend-proc) continuation,
+;; suspend a sh-expr and call its (jexpr-suspend-proc) continuation,
 ;; which non-locally jumps to whoever started or resumed the job.
 ;;
 ;; if job is later resumed, it then returns #t to the caller of (job-suspend)
 ;; if there was no job to suspend, immediately return #f to the caller of (job-suspend)
-(define (job-suspend job)
+(define (jexpr-suspend job)
   (let ((suspend-proc (and (sh-expr? job) (jexpr-suspend-proc job))))
     (when suspend-proc
       (call/cc
@@ -143,7 +143,7 @@
 ;;
 ;; Note: has effect only if (sh-current-job) is set
 (define (sh-current-job-suspend)
-  (job-suspend (sh-current-job)))
+  (jexpr-suspend (sh-current-job)))
 
 
 (meta begin
@@ -203,31 +203,44 @@
   (not (fxzero? (fxand wait-flags 12))))
 
 
+(define (job-wait-once caller job wait-flags)
+  ;; (debugf ">  job-wait caller=~s wait-flags=~s job=~a id=~s pid=~s status=~s" caller wait-flags (sh-job->string job) (job-id job) (job-pid job) (job-last-status job))
+  (case (job-last-status->kind job)
+    ((ok exception failed killed)
+      (void)) ; job finished
+    ((running stopped)
+      (cond
+        ((job-pid job)
+          ;; either the job is a sh-cmd, or a builtin or multijob spawned in a child subprocess.
+          ;; in all cases, we have a pid to wait on.
+          (pid-advance caller job wait-flags))
+        ((sh-expr? job)
+          (jexpr-advance job wait-flags))
+        ((sh-multijob-pipe? job)
+          (mj-pipe-advance caller job wait-flags))
+        ((sh-multijob? job)
+          (mj-advance      caller job wait-flags))))
+    (else
+      (raise-errorf caller "job not started yet: ~s" job))))
+
+
 ;; Common implementation of (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 ;; Resume and optionally wait for a job.
 ;;
 ;; Returns updated job status.
 (define (job-wait caller job-or-id wait-flags)
   (let ((job (sh-job job-or-id)))
-    ;; (debugf ">  job-wait caller=~s wait-flags=~s job=~a id=~s pid=~s status=~s" caller wait-flags (sh-job->string job) (job-id job) (job-pid job) (job-last-status job))
-    (case (job-last-status->kind job)
-      ((ok exception failed killed)
-        (void)) ; job finished
-      ((running stopped)
-        (cond
-          ((job-pid job)
-            ;; either the job is a sh-cmd, or a builtin or multijob spawned in a child subprocess.
-            ;; in all cases, we have a pid to wait on.
-            (pid-advance caller job wait-flags))
-          ((sh-expr? job)
-            (jexpr-advance job wait-flags))
-          ((sh-multijob? job)
-            (if (eq? 'sh-pipe (multijob-kind job))
-              (mj-pipe-advance caller job wait-flags)
-              (mj-advance      caller job wait-flags)))))
-      (else
-        (raise-errorf caller "job not started yet: ~s" job)))
-
+    (let %loop ()
+      (job-wait-once caller job wait-flags)
+      (case (job-last-status->kind job)
+        ((running)
+          (when (sh-wait-flag-wait? wait-flags)
+            (%loop)))
+        ((stopped)
+          (when (and (sh-wait-flag-wait-until-finished? wait-flags)
+                     (not (sh-wait-flag-wait-until-stopped-or-finished? wait-flags)))
+            (yield)
+            (%loop)))))
     (job-id-update! job))) ; returns job status
 
 
@@ -287,10 +300,10 @@
 (define sh-wait
   (case-lambda
     ((job-or-id)
-      (job-wait 'sh-sigcont+wait job-or-id
+      (job-wait 'sh-wait job-or-id
         (sh-wait-flags foreground-pgid continue-if-stopped wait-until-finished)))
     ((job-or-id wait-flags)
-      (job-wait 'sh-sigcont+wait job-or-id wait-flags))))
+      (job-wait 'sh-wait job-or-id wait-flags))))
 
 
 ;; Start a job and wait for it to exit or stop.

@@ -15,8 +15,8 @@
     parser-name parser-parse-forms parser-parse-paren
     get-parser-or-false get-parser to-parser
 
-    parsectx-peek-char parsectx-read-char parsectx-unread-char parsectx-skip-whitespace
-    parsectx-skip-line parsectx-skip-until-char
+    parsectx-peek-char parsectx-read-char parsectx-unread-char parsectx-unread-char/port
+    parsectx-skip-whitespace parsectx-skip-line parsectx-skip-until-char
     parsectx-try-read-directive parsectx-read-directive parsectx-read-simple-identifier
     parsectx-is-simple-identifier-char?
 
@@ -104,11 +104,12 @@
     in           ; textual input port to read from
     width        ; fixnum, screen width
     prompt-end-x ; fixnum, column where prompt ends
+    (mutable next-ch) ; next character to consume, or #f to read from in
     pos          ; pair (x . y) containing two fixnums: current x and y position in the input port
     prev-pos     ; pair (x . y) containing two fixnums: previous x and y position in the input port
     pprev-pos    ; pair (x . y) containing two fixnums: previous previous x and y position in the input port
     enabled-parsers) ; #f or an hashtable symbol -> parser
-  (nongenerative #{parsectx ghczmwc88jnt51nkrv9gaocnv-423}))
+  (nongenerative #{parsectx lldgq81nltbcy4ul57vfrk5l8-0}))
 
 
 ;; create a new parsectx. Arguments are
@@ -149,7 +150,7 @@
               (parser (cdr cell)))
           (assert* 'make-parsectx* (symbol? name))
           (assert* 'make-parsectx* (parser? parser))))))
-  (%make-parsectx in width prompt-end-x (cons x y) (cons -1 -1) (cons -1 -1) enabled-parsers))
+  (%make-parsectx in width prompt-end-x #f (cons x y) (cons -1 -1) (cons -1 -1) enabled-parsers))
 
 
 ;; create a new parsectx. Arguments are
@@ -236,7 +237,8 @@
 ;; Peek a character from textual input port (parsectx-in pctx)
 (define (parsectx-peek-char pctx)
   (assert* 'parsectx-peek-char (parsectx? pctx))
-  (peek-char (parsectx-in pctx)))
+  (or (parsectx-next-ch pctx)
+      (peek-char (parsectx-in pctx))))
 
 
 ;; Read a character from textual input port (parsectx-in pctx)
@@ -244,17 +246,33 @@
 ;; also updates (parsectx-pos pctx)
 (define (parsectx-read-char pctx)
   (assert* 'parsectx-read-char (parsectx? pctx))
-  (let ((ch (read-char (parsectx-in pctx))))
+  (let* ((ch1 (parsectx-next-ch pctx))
+         (ch (if ch1
+                (begin
+                  (parsectx-next-ch-set! pctx #f)
+                  ch1)
+                (read-char (parsectx-in pctx)))))
     (parsectx-increment-pos pctx ch)
     ch))
 
 
-;; Try to unread a character from textual input port (parsectx-in pctx)
+;; Unread a character and store it into (parsectx-next-ch pctx).
 ;;
-;; Raise condition if Chez Scheme (unread-char ch in) fails:
+;; Raise condition if parsectx-next-ch is already set.
+(define (parsectx-unread-char pctx ch)
+  (assert* 'parsectx-unread-char (not (parsectx-next-ch pctx)))
+  (parsectx-next-ch-set! pctx ch)
+  (parsectx-decrement-pos pctx ch))
+
+
+;; Unread a character from textual input port (parsectx-in pctx)
+;;
+;; Raise condition if parsectx-next-ch is set,
+;; or if Chez Scheme (unread-char ch in) fails:
 ;; it will happen ch is different from last character read from input port,
 ;; or if attempting to unread multiple characters without reading them back first.
-(define (parsectx-unread-char pctx ch)
+(define (parsectx-unread-char/port pctx ch)
+  (assert* 'parsectx-unread-char/port (not (parsectx-next-ch pctx)))
   (let ((in (parsectx-in pctx)))
     (unread-char ch in)
     (assert* 'parsectx-unread-char (eqv? ch (peek-char in)))
@@ -346,7 +364,7 @@
           (parsectx-read-char pctx)
           (parsectx-read-directive pctx))
         ; #\# not followed by #\! : unread everything and return #f
-        (parsectx-unread-char pctx #\#)))
+        (parsectx-unread-char/port pctx #\#)))
     #f))
 
 

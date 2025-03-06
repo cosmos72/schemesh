@@ -12,14 +12,36 @@
     fd-read fd-read-all fd-read-insert-right! fd-read-noretry
     fd-write fd-write-all fd-write-noretry fd-select
     fd-setnonblock open-file-fd open-pipe-fds
-    raise-c-errno)
+    raise-c-errno yield yield-handler)
   (import
     (rnrs)
-    (only (chezscheme)               break foreign-procedure void)
-    (only (schemesh bootstrap)       assert* raise-errorf while)
+    (only (chezscheme)               break foreign-procedure logbit? void procedure-arity-mask)
+    (only (schemesh bootstrap)       assert* raise-errorf sh-make-thread-parameter while)
     (schemesh containers bytespan)
     (only (schemesh containers list) list-iterate)
     (only (schemesh conversions)     text->bytevector0 transcoder-utf8))
+
+
+(define yield-handler
+  (sh-make-thread-parameter
+    (lambda () #f)
+    (lambda (proc)
+      (unless (procedure? proc)
+        (raise-errorf 'yield-handler "~s is not a procedure" proc))
+      (unless (logbit? 0 (procedure-arity-mask proc))
+        (raise-errorf 'yield-handler "~s is not zero-argument procedure" proc))
+      proc)))
+
+;; Try to suspend current dynamic context, for example current job execution,
+;; and resume whoever started or continued it.
+;;
+;; If successful, does not return immediately: eventually returns only
+;; when current dynamic context is continued.
+;;
+;; Return #t if successful, otherwise immediately return #f
+(define (yield)
+  ((yield-handler)))
+
 
 (define c-errno
   (foreign-procedure "c_errno" () int))
@@ -82,7 +104,7 @@
 ;; return read bytes as a bytevector,
 ;; or raise exception on I/O error.
 ;;
-;; Note: if interrupted, calls (break) then tries again if (break) returns normally.
+;; Note: if interrupted, calls (yield) then tries again if (yield) returns normally.
 (define (fd-read-all fd)
   (let ((bsp (make-bytespan 0)))
     (let %loop ()
@@ -96,7 +118,7 @@
 ;; return number of bytes actually read, which can be 0 only on end-of-file,
 ;; or raise exception on I/O error.
 ;;
-;; Note: if interrupted, calls (break) then tries again if (break) returns normally.
+;; Note: if interrupted, calls (yield) then tries again if (yield) returns normally.
 (define (fd-read-insert-right! fd bsp)
   (bytespan-reserve-right! bsp (fx+ 4096 (bytespan-length bsp)))
   (let* ((beg (bytespan-peek-beg bsp))
@@ -112,14 +134,14 @@
 ;; return number of bytes read, which can be 0 only on end-of-file or if (fx=? start end)
 ;; or raise exception on I/O error.
 ;;
-;; Note: if interrupted, calls (break) then tries again if (break) returns normally.
+;; Note: if interrupted, calls (yield) then tries again if (yield) returns normally.
 (define fd-read
   (case-lambda
     ((fd bytevector-result start end)
       (let %loop ()
         (let ((ret (fd-read-noretry fd bytevector-result start end)))
           (if (eq? #t ret)
-            (begin (break) (%loop))
+            (begin (yield) (%loop))
             ret))))
     ((fd bytevector-result)
       (fd-read fd bytevector-result 0 (bytevector-length bytevector-result)))))
@@ -147,7 +169,7 @@
 ;; return void if successful,
 ;; otherwise raise exception.
 ;;
-;; Note: if interrupted, calls (break) then tries again if (break) returns normally.
+;; Note: if interrupted, calls (yield) then tries again if (yield) returns normally.
 (define fd-write-all
   (case-lambda
     ((fd bytevector-towrite start end)
@@ -166,14 +188,14 @@
 ;; return number of bytes actually written, which may be less than (fx- end start)
 ;; or raise exception on I/O error.
 ;;
-;; Note: if interrupted, calls (break) then tries again if (break) returns normally.
+;; Note: if interrupted, calls (yield) then tries again if (yield) returns normally.
 (define fd-write
   (case-lambda
     ((fd bytevector-towrite start end)
       (let %loop ()
         (let ((ret (fd-write-noretry fd bytevector-towrite start end)))
           (if (eq? #t ret)
-            (begin (break) (%loop))
+            (begin (yield) (%loop))
             ret))))
     ((fd bytevector-towrite)
       (fd-write fd bytevector-towrite 0 (bytevector-length bytevector-towrite)))))

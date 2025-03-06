@@ -37,14 +37,23 @@
 
   (c-environ->sh-global-env)
 
+  ;; install a yield-handler
+  (yield-handler sh-current-job-suspend)
+
   ;; Replace (current-input-port) with an UTF-8b textual output port that honors current job redirections
-  (current-input-port (make-utf8b-textual-input/output-port (sh-stdin)))
+  ;;
+  ;; Cannot create a buffered port: input buffer would need to be per-job
+  (current-input-port (make-utf8b-input/output-port (sh-stdin) (buffer-mode none)))
 
   ;; Replace (current-output-port) with an UTF-8b textual output port that honors current job redirections
-  (current-output-port (make-utf8b-textual-input/output-port (sh-stdout)))
+  ;;
+  ;; Cannot create a buffered port: input buffer would need to be per-job
+  (current-output-port (make-utf8b-input/output-port (sh-stdout) (buffer-mode none)))
 
   ;; Replace (current-error-port) with an UTF-8b textual output port that honors current job redirections
-  (current-error-port (make-utf8b-textual-input/output-port (sh-stderr)))
+  ;;
+  ;; Cannot create a buffered port: input buffer would need to be per-job
+  (current-error-port (make-utf8b-input/output-port (sh-stderr) (buffer-mode none)))
 
 
   (let ((bt (sh-builtins))

@@ -42,11 +42,17 @@
                          (sh-job-control?)
                          (job-pgid (sh-globals)))))
     (if our-pgid
-      (dynamic-wind
-        (lambda () ; run before body
-          (%pgid-foreground our-pgid new-pgid))
-        proc       ; body
-        (lambda () ; run after body
+      ;; cannot use (dynamic-wind) here: some job to be resumed may be an sh-expr
+      ;; which is resumed by calling a continuation that exits
+      ;; the (dynamic-wind) scope and later re-enters it
+      (with-exception-handler
+        (lambda (ex)
+          ;; try really hard to restore (sh-globals) as the foreground process group
+          (%pgid-foreground -1 our-pgid)
+          (raise ex))
+        (lambda ()
+          (%pgid-foreground our-pgid new-pgid)
+          (proc)
           ;; try really hard to restore (sh-globals) as the foreground process group
           (%pgid-foreground -1 our-pgid)))
       (proc))))
@@ -84,7 +90,8 @@
     ; send SIGCONT to job's process group, if present.
     ; otherwise send SIGCONT to job's process id. Both may raise error
     ; (debugf "pid-advance/sigcont wait-flags=~s job=~s" job wait-flags)
-    (pid-kill (if (and pgid (> pgid 0)) (- pgid) pid) 'sigcont)
+    (pid-kill (if (and pgid (> pgid 0)) (- pgid) pid)
+              'sigcont)
     ;; assume job is now running
     (job-status-set/running! job)))
 
@@ -122,10 +129,10 @@
         (job-pgid-set! job #f)
         new-status)
       ((stopped)
-        ; process is stopped.
-        ; if wait-flags tell to wait until job finishes,
-        ;   call (break) then wait for it again (which blocks until it changes status again)
-        ; otherwise propagate process status and return.
+        ;; process is stopped.
+        ;; if wait-flags tell to wait until job finishes,
+        ;;   call (break) then wait for it again (which blocks until it changes status again)
+        ;; otherwise propagate process status and return.
         (if (sh-wait-flag-wait-until-finished? wait-flags)
           (begin
             (pid-advance/break              job            pid pgid)
@@ -157,7 +164,7 @@
 ;; In all cases, if preferred-job is set, return its updated status.
 (define (scheduler-wait preferred-job may-block)
   ;c (debugf ">   scheduler-wait may-block=~s preferred-job=~a" may-block (if preferred-job (sh-job->string preferred-job) preferred-job))
-  (let ((current-job (sh-current-job))
+  (let ((current-job   (sh-current-job))
         (done? #f))
     (until done?
       (let ((wait-result (pid-wait -1 may-block)))
@@ -188,8 +195,14 @@
                   (when (status-changed? old-status new-status)
                     (maybe-queue-job-display-summary job))
 
-                  (let ((parent (job-parent job)))
-                    (when (and parent (not (eq? parent (sh-globals))))
+                  (let ((parent (job-default-parent job)))
+                    ;; (sh-job-status) behaves badly on (sh-expr) and their parents: it stops them, so avoid it
+                    (unless (or (not parent)
+                                (eq? parent preferred-job)
+                                (eq? parent current-job)
+                                (eq? parent (sh-globals))
+                                (sh-expr? job)
+                                (sh-expr? parent))
                       (sh-job-status parent))) ; may recursively call scheduler-wait
 
                   (when observe-preferred-job?

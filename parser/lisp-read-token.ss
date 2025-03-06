@@ -197,7 +197,7 @@
     ((#\\)
       (read-lisp-character ctx flavor))
     (else
-      (parsectx-unread-char ctx #\#)
+      (parsectx-unread-char/port ctx #\#)
       (%read-token ctx))))
 
 

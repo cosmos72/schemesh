@@ -845,8 +845,14 @@ static int c_fds_redirect(ptr vector_fds_redirect, ptr close_on_exec) {
  *
  * Return 0 on success, otherwise return c_errno()
  */
-static int c_pid_kill(int pid, int sig) {
-  return kill(pid, sig) >= 0 ? 0 : c_errno();
+static int c_pid_kill(int pid, int sig, int pause_if_successful) {
+  if (kill(pid, sig) < 0) {
+    return c_errno();
+  }
+  if (pause_if_successful) {
+    pause();
+  }
+  return 0;
 }
 
 static int c_exit(int status) {

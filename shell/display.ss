@@ -8,7 +8,7 @@
 
 ;; this file should be included only by file shell/job.ss
 
-;; if set to #f, (sh-job-display-summary) does nothing.
+;; if set to #f, (sh-job-display-summary) and (sh-job-display-summary*) do nothing.
 ;; useful in forked sub-processes
 (define sh-job-display-summary?
   (sh-make-thread-parameter #t))
@@ -17,8 +17,8 @@
 ;; always returns (void) - useful for builtins
 (define sh-job-display-summary
   (case-lambda
-    ((job-or-id)      (sh-job-display-summary* job-or-id (console-output-port)))
-    ((job-or-id port) (sh-job-display-summary* job-or-id port))))
+    ((job-or-id port) (sh-job-display-summary* job-or-id port))
+    ((job-or-id)      (sh-job-display-summary* job-or-id (console-output-port)))))
 
 
 ;; always returns (void) - useful for builtins
@@ -28,7 +28,7 @@
            (id     (or (job-id job) (job-oid job)))
            (pid    (job-pid job))
            (job-status (job-last-status job))
-           (status (if (sh-ok? job-status) '(ok) job-status)))
+           (status (if (eq? (void) job-status) '(ok) job-status)))
       (if id
         (if pid
           (format port "; job ~a~s pid ~a~s ~s \t" (pad/job-id id) id (pad/pid pid) pid status)
@@ -151,18 +151,23 @@
 
 (define (job-display/open-paren port kind)
   (case kind
-    ((sh-expr)     (put-string port "$("))
+    ((sh-expr)     (void))
     ((sh-subshell) (put-char   port #\[))
     (else          (put-char   port #\{))))
 
+
 (define (job-display/close-paren port kind)
-  (put-char port (case kind ((sh-expr)     #\)) #| #\( |#
-                            ((sh-subshell) #\])
-                            (else          #\}))))
+  (case kind
+    ((sh-expr)     (void))
+    ((sh-subshell) (put-char   port #\]))
+    (else          (put-char   port #\}))))
 
 
 (define (job-display/expr job port)
-  (put-datum port (jexpr-proc job)))
+  (put-string port "$(")
+  (put-datum port (jexpr-proc job))
+  (put-string port ")"))
+
 
 (define (job-display/cmd job port)
   (job-display/env-lazy job port)
@@ -283,12 +288,21 @@
         (job-write/multijob* job port))
       (else
         (put-char port #\()
-        ; we must write (sh-pipe* ...) instead of (sh-pipe ...)
-        ; because (sh-pipe) function inserted symbols '| between each pair of jobs,
-        ; which is the syntax wanted by (sh-pipe*) function
-        (display (if (eq? kind 'sh-pipe) 'sh-pipe* kind) port)
-        (unless (eq? kind 'sh-globals)
-          (job-write/children job port))
+        (put-datum port kind)
+        (case kind
+          ((sh-globals)
+            (void))
+          ((sh-pipe)
+            ;; if all odd-indexed children are the symbol '|
+            ;; then write job in simplified form without '|
+            ;; as (sh-pipe) function expects
+           (span-iterate (multijob-children job)
+             (lambda (i child)
+               (unless (symbol? child)
+                 (put-char  port #\space)
+                 (put-datum port child)))))
+          (else
+            (job-write/children job port)))
         (put-char port #\))))))
 
 

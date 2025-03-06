@@ -60,17 +60,12 @@
 (define (jexpr-advance job wait-flags)
   ;; jexpr jobs execute Scheme code, which always blocks:
   ;; continue only if caller asked to continue job and wait.
+  ; (debugf "jexpr-advance job=~s wait-flags=~s" (sh-job->string job) wait-flags)
   (when (and (sh-wait-flag-wait? wait-flags)
              (sh-wait-flag-continue-if-stopped? wait-flags))
-    (let ((pgid (job-pgid job)))
-      (with-foreground-pgid wait-flags pgid
-        ;; send SIGCONT to job's process group, if present.
-        (when pgid
-          (pid-kill (- pgid) 'sigcont))
-        (job-status-set/running! job)
-        (unless (jexpr-resume-proc job)
-          (jexpr-resume-proc-set! job (jexpr-resume-proc-prepare job)))
-        (jexpr-call-resume-proc job)))))
+    (unless (jexpr-resume-proc job)
+      (jexpr-resume-proc-set! job (jexpr-prepare-resume-proc job)))
+    (jexpr-call-resume-proc job)))
 
 
 ;; call the continuation stored in jexpr-resume-proc of a job for resuming it.
@@ -82,28 +77,41 @@
       (let ((resume-proc (jexpr-resume-proc job)))
         (jexpr-resume-proc-set!  job #f)
         (jexpr-suspend-proc-set! job susp)
-        (resume-proc (void)))))
+        ;; (format (debugf-port) "-> jexpr job=~s\tstatus=~s\tcalling resume-proc ~s ...\n" job (job-last-status job) resume-proc)
+        (resume-proc (void))
+        ;; (format (debugf-port) "<- jexpr job=~s\tstatus=~s\t... resume-proc ~s returned\n" job (job-last-status job) resume-proc)
+        )))
   ;; ignore the value returned by (resume-proc) and by continuation (susp)
   (void))
 
 
 ;; prepare and return a closure for running jexpr-proc
-(define (jexpr-resume-proc-prepare job)
-  (lambda (unused)
-    ;; (debugf "jexpr-resume-proc-prepare job=~a remapping fd1 ~s -> ~s" (sh-job->string job) (sh-fd 1) (job-find-fd-remap job 1))
-    (parameterize ((sh-current-job job))
-        (job-status-set! 'sh-expr job
-          (try
-            (call-with-values
-              (lambda ()
-                (let ((proc (jexpr-proc job)))
-                  (if (logbit? 1 (procedure-arity-mask proc))
-                    (proc job)
-                    (proc))))
-              values->job-status)
-            (catch (ex)
-              (debug-condition ex) ;; save obj into thread-parameter (debug-condition)
-              (list 'exception ex)))))))
+(define (jexpr-prepare-resume-proc job)
+  (let ((jexpr-initial-resume-proc
+    (lambda (unused)
+      ;; (debugf "jexpr-prepare-resume-proc job=~a remapping fd1 ~s -> ~s" (sh-job->string job) (sh-fd 1) (job-find-fd-remap job 1))
+      (dynamic-wind
+        (lambda ()
+          (when (job-stopped? job)
+            (job-status-set/running! job)))
+        (lambda ()
+          (parameterize ((sh-current-job job))
+            (job-status-set! 'sh-expr job
+              (try
+                (call-with-values
+                  (lambda ()
+                    (let ((proc (jexpr-proc job)))
+                      (if (logbit? 1 (procedure-arity-mask proc))
+                        (proc job)
+                        (proc))))
+                  values->job-status)
+                (catch (ex)
+                  (debug-condition ex) ;; save obj into thread-parameter (debug-condition)
+                  (list 'exception ex))))))
+        (lambda ()
+          (when (job-running? job)
+            (job-status-set! 'sh-expr job '(stopped sigtstp))))))))
+    jexpr-initial-resume-proc))
 
 
 ;; convert arbitrary Scheme values returned by jexpr-proc

@@ -88,6 +88,7 @@
     (rnrs mutable-pairs)
     (only (chezscheme) append! break console-output-port console-error-port
                        current-input-port current-output-port current-error-port
+                       current-time
                        debug debug-condition debug-on-exception display-condition
                        foreign-procedure format fx1+ fx1- hashtable-cells include inspect
                        logand logbit? make-format-condition meta open-fd-output-port
@@ -225,7 +226,7 @@
 (define (job-id-update! job)
   (let ((parent (job-parent job))
         (status (job-last-status job)))
-    (if (and (sh-multijob? parent) (eq? 'sh-pipe (multijob-kind parent)))
+    (if (sh-multijob-pipe? parent)
       ;; the children of (sh-pipe) jobs are not supposed to be started/stopped individually:
       ;; the parent (sh-pipe) job always starts/stops all of them collectively.
       ;; thus assigning a job-id to such children usually just adds noise.

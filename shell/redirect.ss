@@ -265,20 +265,26 @@
 
 
 ;; Return binary input port that reads bytes from (sh-fd 0)
+;;
+;; Cannot create a buffered port: input buffer would need to be per-job
 (define sh-stdin
-  (let ((p (open-fd-redir-binary-input/output-port "sh-stdin" (lambda () (sh-fd 0)) 0)))
+  (let ((p (open-fd-redir-binary-input/output-port "sh-stdin" (lambda () (sh-fd 0)) (buffer-mode none))))
     (lambda () p)))
 
 
 ;; Return binary output port that writes bytes to (sh-fd 1)
+;;
+;; Cannot create a buffered port: input buffer would need to be per-job
 (define sh-stdout
-  (let ((p (open-fd-redir-binary-input/output-port "sh-stdout" (lambda () (sh-fd 1)) 0)))
+  (let ((p (open-fd-redir-binary-input/output-port "sh-stdout" (lambda () (sh-fd 1)) (buffer-mode none))))
     (lambda () p)))
 
 
 ;; Return binary output port that writes bytes to (sh-fd 2)
+;;
+;; Cannot create a buffered port: input buffer would need to be per-job
 (define sh-stderr
-  (let ((p (open-fd-redir-binary-input/output-port "sh-stderr" (lambda () (sh-fd 2)) 0)))
+  (let ((p (open-fd-redir-binary-input/output-port "sh-stderr" (lambda () (sh-fd 2)) (buffer-mode none))))
     (lambda () p)))
 
 

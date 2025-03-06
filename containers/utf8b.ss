@@ -142,7 +142,7 @@
             (assert* 'utf8b->string (fx<=? char-n (fx- s-end s-start)))
             (values byte-n char-n))))
       ((bvec str eof?)
-         (utf8b->string-copy! bvec 0 (bytevector-length bvec) str 0 (string-length str)))
+         (utf8b->string-copy! bvec 0 (bytevector-length bvec) str 0 (string-length str) eof?))
       ((bvec str)
          (utf8b->string-copy! bvec 0 (bytevector-length bvec) str 0 (string-length str) #t)))))
 

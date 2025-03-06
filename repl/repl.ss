@@ -17,11 +17,11 @@
     (rnrs)
     (only (rnrs mutable-pairs) set-car!)
     (only (chezscheme)
-      abort base-exception-handler break-handler
-      console-input-port console-output-port console-error-port
-      default-exception-handler display-condition
-      eval exit-handler expand inspect keyboard-interrupt-handler
-      parameterize pretty-print read-token reset reset-handler void)
+        abort base-exception-handler break-handler
+        console-input-port console-output-port console-error-port
+        default-exception-handler display-condition
+        eval exit-handler expand inspect keyboard-interrupt-handler
+        parameterize pretty-print read-token reset reset-handler void)
     (schemesh bootstrap)
     (only (schemesh containers) list-iterate)
     (only (schemesh lineedit charhistory) charhistory-path-set!)
@@ -171,8 +171,8 @@
 
 ;; Print values or exit statuses.
 (define (repl-print . vals)
-  (flush-output-port (current-error-port))
-  (do ((p (current-output-port))
+  (flush-output-port (console-error-port))
+  (do ((p (console-output-port))
        (tail vals (cdr tail)))
       ((null? tail) (flush-output-port p))
     (let ((value (car tail)))
@@ -356,16 +356,17 @@
     ;;
     ;; reason: it's the simplest mechanism to quickly suspend a long-running Scheme procedure
     (let ((suspend? (signal-consume-sigtstp)))
-      ;; try to suspend current job
-      (unless (and suspend? (sh-current-job-suspend))
-        (put-string (console-error-port)
-          (if suspend? "\n; suspended\n" "\n; interrupted\n"))
-        (call/cc
-          (lambda (k)
-            (repl-interrupt-show-who-msg-irritants break-args (console-error-port))
-            (let ((port (console-output-port)))
-              (while
-                 (repl-interrupt-handler-once my-repl-args k port)))))))))
+      (when (sh-job-control?)
+        ;; try to suspend current job
+        (unless (and suspend? (sh-current-job-suspend))
+          (put-string (console-error-port)
+            (if suspend? "\n; suspended\n" "\n; interrupted\n"))
+          (call/cc
+            (lambda (k)
+              (repl-interrupt-show-who-msg-irritants break-args (console-error-port))
+              (let ((port (console-output-port)))
+                (while
+                   (repl-interrupt-handler-once my-repl-args k port))))))))))
 
 
 ;; Print (break ...) arguments

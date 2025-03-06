@@ -8,11 +8,11 @@
 (library (schemesh lineedit charhistory io (0 8 1))
   (export
     charhistory-load!           charhistory-save
-    charhistory-load-from-path! charhistory-save-to-path
+    charhistory-load-from-file! charhistory-save-to-path
     charhistory-load-from-port! charhistory-save-to-port)
   (import
     (rnrs)
-    (only (chezscheme)                 fx1+ void)
+    (only (chezscheme)                 #| console-error-port display-condition |# fx1+ void)
     (only (schemesh bootstrap)         try catch until)
     (only (schemesh containers string) string-replace/char!)
     (only (schemesh containers utf8b)  string->utf8b utf8b-bytespan->string)
@@ -22,6 +22,7 @@
     (schemesh containers charlines)
     (only (schemesh posix pid)         pid-get)
     (only (schemesh posix dir)         file-delete file-rename ok?)
+    (only (schemesh posix io)          open-file-binary-input-port)
     (schemesh lineedit charhistory))
 
 
@@ -41,6 +42,7 @@
         (success? #f))
     (try
         ;; write to a temporary file "history.txt.PID"
+        ;; TODO: implement our own (open-file-binary-output-port) and use it
         (set! port (open-file-output-port temp-path (file-options no-fail) (buffer-mode block)))
         (set! remove-temp-path? #t)
         (charhistory-save-to-port hist port)
@@ -91,24 +93,33 @@
 ;; return #t if successful, otherwise return #f
 (define (charhistory-load! hist)
   (let ((path (charhistory-path hist)))
-    (and path (charhistory-load-from-path! hist path))))
+    (and path (charhistory-load-from-file! hist path))))
 
 
 ;; load charhistory from specified file path.
 ;; return #t if successful, otherwise return #f
-(define (charhistory-load-from-path! hist path)
+(define (charhistory-load-from-file! hist path)
   (let ((port #f))
     (try
       (dynamic-wind
         (lambda ()
           ;; we do our own buffering in (charhistory-load-from-port)
-          (set! port (open-file-input-port path (file-options) (buffer-mode none))))
+          (set! port (open-file-binary-input-port path (file-options) (buffer-mode none))))
         (lambda ()
           (charhistory-load-from-port! hist port))
         (lambda ()
           (when port
-            (close-port port))))
+            (close-port port)
+            (set! port #f))))
       (catch (ex)
+        #|
+        (let ((port (console-error-port)))
+          (put-string port "; error loading ")
+          (put-string port path)
+          (display-condition ex port)
+          (newline port)
+          (flush-output-port port))
+        |#
         #f))))
 
 
@@ -207,7 +218,9 @@
       )
 
     (values
-      (if (and eof? (bytespan-empty? bspan)) #f (string->charline* (utf8b-bytespan->string bspan)))
+      (if (and eof? (bytespan-empty? bspan))
+        #f
+        (string->charline* (utf8b-bytespan->string bspan)))
       start
       end
       (if nl? 'nl (if (and eof? (fx>=? start end)) 'eof #f)))))

@@ -98,7 +98,8 @@
          (us-str-len (string-length us-str))
          (zeropad-time (if (fx<? us-str-len 6) (make-string (fx- 6 us-str-len) #\0) "")))
     (apply format out (string-append "; [pid ~a] ~a.~a~a " format-string "\n")
-      (c-pid-get) (time-second t) zeropad-time us-str args)))
+      (c-pid-get) (time-second t) zeropad-time us-str args)
+    (flush-output-port out)))
 
 
 ;; Expands to the correct (raise-assert...) depending on the number of arguments
