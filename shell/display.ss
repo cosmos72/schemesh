@@ -106,9 +106,11 @@
 
 ;; return a string describing a job, using terse shell syntax {foo && bar || baz ...}
 (define (sh-job->string job-or-id)
-  (let-values (((port get-string) (open-string-output-port)))
-    (sh-job-display* job-or-id port)
-    (get-string)))
+  (if job-or-id
+    (let-values (((port get-string) (open-string-output-port)))
+      (sh-job-display* job-or-id port)
+      (get-string))
+    ""))
 
 
 (define (job-display/any job port outer-precedence)
@@ -260,9 +262,11 @@
 
 ;; return a string describing a job, using verbose Scheme syntax (sh-or (sh-and (sh-cmd "foo") (sh-cmd "bar")) ...)
 (define (sh-job->verbose-string job-or-id)
-  (let-values (((port get-string) (open-string-output-port)))
-    (sh-job-write* job-or-id port)
-    (get-string)))
+  (if job-or-id
+    (let-values (((port get-string) (open-string-output-port)))
+      (sh-job-write* job-or-id port)
+      (get-string))
+    ""))
 
 
 (define (job-write/any job port)

@@ -7,7 +7,7 @@
 
 
 (library (schemesh repl (0 8 1))
-  (export repl repl* repl-eval repl-eval-list
+  (export repl repl* repl-eval repl-eval-print-list
           repl-lineedit repl-parse repl-print
           repl-exception-handler repl-interrupt-handler
 
@@ -37,8 +37,9 @@
        repl-args repl-args-linectx repl-restart repl-restart?
        sh-consume-signals sh-current-job-suspend sh-exception-handler
        sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
-       sh-job-control? sh-job-control-available? sh-make-linectx
-       sh-schemesh-reload-count sh-run/i sh-xdg-cache-home/ sh-xdg-config-home/))
+       sh-foreground-pgid sh-job-control? sh-job-control-available? sh-job-pgid
+       sh-make-linectx sh-schemesh-reload-count
+       sh-run/i sh-xdg-cache-home/ sh-xdg-config-home/))
 
 
 
@@ -149,9 +150,9 @@
 ;;   which causes Chez Scheme to suspend long/infinite evaluations
 ;;   and call (break) - a feature we want to preserve.
 ;;
-;;   For these reasons, the loop (do ... (repl-eval ...))
+;;   For these reasons, the loop (for-each ...)
 ;;   is wrapped inside (dynamic-wind tty-restore! (lambda () ...) tty-setraw!)
-(define (repl-eval-list forms print-func)
+(define (repl-eval-print-list forms eval-print-func)
   ; (debugf "evaluating list: ~s" forms)
   (unless (null? forms)
     (dynamic-wind
@@ -159,13 +160,7 @@
       (lambda ()
         (do ((tail forms (cdr tail)))
             ((null? tail))
-          (if print-func
-            (call-with-values
-              (lambda () (repl-eval (car tail)))
-              print-func)
-            (begin
-              (repl-eval (car tail))
-              (void)))))
+          (eval-print-func (car tail))))
       tty-setraw!)))
 
 
@@ -182,10 +177,10 @@
 
 
 ;; Parse and execute user input.
-;; Calls in sequence (repl-lineedit) (repl-parse) (repl-eval-list)
+;; Calls in sequence (repl-lineedit) (repl-parse) (repl-eval-print-list)
 ;;
 ;; Returns updated parser to use, or #f if got end-of-file.
-(define (repl-once initial-parser print-func lctx)
+(define (repl-once initial-parser eval-print-func lctx)
   (linectx-parser-name-set! lctx (parser-name initial-parser))
   ;; (debugf "repl-once ready")
   (let ((in (repl-lineedit lctx)))
@@ -202,8 +197,19 @@
                                          0 0)
                                     initial-parser)))
           (unless (eq? (void) forms)
-            (repl-eval-list forms print-func))
+            (repl-eval-print-list forms eval-print-func))
           updated-parser)))))
+
+
+;; helper for repl-loop and repl-once:
+;; wrap a print-func in a closure that evals forms then calls print-func on results
+(define (make-eval-print-func print-func)
+  (if print-func
+    (lambda (form)
+      (call-with-values
+        (lambda () (repl-eval form))
+        print-func))
+    repl-eval))
 
 
 ;; main loop of (repl) and (repl*)
@@ -213,7 +219,8 @@
   ;; set to #f the init-file-path and quit-file-path saved in (repl-args):
   ;; if (repl* ...) is called from an interrupt handler, we do NOT want to load them again
   (let ((my-repl-args (list parser print-func lctx #f #f))
-        (reload-count (sh-schemesh-reload-count)))
+        (reload-count (sh-schemesh-reload-count))
+        (eval-print-func (make-eval-print-func print-func)))
     (repl-restart #f)
     (call/cc
       (lambda (k-exit)
@@ -232,7 +239,7 @@
             (call/cc (lambda (k) (set! k-reset k)))
             ; when the (reset-handler) we installed is called, resume from here
             (while parser
-              (set! parser (repl-once parser print-func lctx))
+              (set! parser (repl-once parser eval-print-func lctx))
               (cond
                 (parser
                   (set-car! my-repl-args parser)
@@ -360,14 +367,16 @@
       (when (sh-job-control?)
         ;; try to suspend current job
         (unless (and suspend? (sh-current-job-suspend))
-          (put-string (console-error-port)
-            (if suspend? "\n; suspended\n" "\n; interrupted\n"))
-          (call/cc
-            (lambda (k)
-              (repl-interrupt-show-who-msg-irritants break-args (console-error-port))
-              (let ((port (console-output-port)))
-                (while
-                   (repl-interrupt-handler-once my-repl-args k port))))))))))
+          ;; no current job. grab the foreground and interact with the user.
+          (parameterize ((sh-foreground-pgid (sh-job-pgid #t)))
+            (put-string (console-error-port)
+              (if suspend? "\n; suspended\n" "\n; interrupted\n"))
+            (call/cc
+              (lambda (k)
+                (repl-interrupt-show-who-msg-irritants break-args (console-error-port))
+                (let ((port (console-output-port)))
+                  (while
+                     (repl-interrupt-handler-once my-repl-args k port)))))))))))
 
 
 ;; Print (break ...) arguments

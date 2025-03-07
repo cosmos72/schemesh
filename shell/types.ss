@@ -87,14 +87,16 @@
 
 ;; Adds an entry to the global hashtable pid -> job
 (define (pid->job-set! pid job)
-  (assert* 'pid->job-set! (fixnum? pid))
-  (assert* 'pid->job-set! (sh-job? job))
-  (hashtable-set! (sh-pid-table) pid job))
+  (when pid
+    (assert* 'pid->job-set! (fixnum? pid))
+    (assert* 'pid->job-set! (sh-job? job))
+    (hashtable-set! (sh-pid-table) pid job)))
 
 ;; Removes an entry from the global hashtable pid -> job
 (define (pid->job-delete! pid)
-  (assert* 'pid->job-delete! (fixnum? pid))
-  (hashtable-delete! (sh-pid-table) pid))
+  (when pid
+    (assert* 'pid->job-delete! (fixnum? pid))
+    (hashtable-delete! (sh-pid-table) pid)))
 
 
 
@@ -102,9 +104,21 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;   manage job's id, pid and pgid   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; return the job-id of a job, or #f if not set
-(define (sh-job-id job)
-  (job-id job))
+;; return the id of a job-or-id, or #f if not set
+(define (sh-job-id job-or-id)
+  (job-id   (sh-job job-or-id)))
+
+
+;; return the process group id of a job-or-id, or #f if not set
+(define (sh-job-pid job-or-id)
+  (job-pid (sh-job job-or-id)))
+
+
+;; return the process group id of a job-or-id, or #f if not set
+(define (sh-job-pgid job-or-id)
+  (job-pgid (sh-job job-or-id)))
+
+
 
 
 ;; set the process id of specified job
@@ -115,7 +129,6 @@
   (when new-pid
     (pid->job-set! new-pid job))
   (%job-pid-set! job new-pid))
-
 
 ;; set the process group id of specified job
 (define (job-pgid-set! job pgid)

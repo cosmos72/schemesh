@@ -1506,12 +1506,35 @@ static int c_cmd_spawn(ptr vector_of_bytevector0_cmdline,
 }
 
 /**
+ * get the foreground process group id.
+ *
+ * return pgid >= 0 on success, otherwise error code < 0.
+ */
+static int c_pgid_foreground_get() {
+  const int pgid = tcgetpgrp(tty_fd);
+  return pgid >= 0 ? pgid : c_errno();
+}
+
+/**
+ * set the foreground process group id.
+ *
+ * return = 0 on success, otherwise error code < 0.
+ */
+static int c_pgid_foreground_set(int new_pgid) {
+  return tcsetpgrp(tty_fd, new_pgid) >= 0 ? 0 : c_errno();
+}
+
+/**
+ * compare-and-swap the foreground process group id.
+ *
  * if old_pgid < 0, unconditionally set new_pgid as the foreground process group.
  *
  * if old_pgid >= 0 and the foreground process group == old_pgid,
  * then set new_pgid as the foreground process group.
+ *
+ * return 0 on success, otherwise error code < 0.
  */
-static int c_pgid_foreground(int old_pgid, int new_pgid) {
+static int c_pgid_foreground_cas(int old_pgid, int new_pgid) {
   if (old_pgid >= 0) {
     const int current_pgid = tcgetpgrp(tty_fd);
     if (current_pgid < 0) {
@@ -1664,7 +1687,9 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_pgid_get", &c_pgid_get);
   Sregister_symbol("c_fork_pid", &c_fork_pid);
   Sregister_symbol("c_pid_wait", &c_pid_wait);
-  Sregister_symbol("c_pgid_foreground", &c_pgid_foreground);
+  Sregister_symbol("c_pgid_foreground_get", &c_pgid_foreground_get);
+  Sregister_symbol("c_pgid_foreground_set", &c_pgid_foreground_set);
+  Sregister_symbol("c_pgid_foreground_cas", &c_pgid_foreground_cas);
   Sregister_symbol("c_pid_kill", &c_pid_kill);
 
   Sregister_symbol("c_get_hostname", &c_get_hostname);

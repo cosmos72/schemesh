@@ -227,7 +227,14 @@
     (sh-bg j))                                         (running 1)
   (sh-run {[true
             false]})                                   (failed 1)
-
+  ;; if stopped, schemesh forgets to restore its process group as fg => lineedit read() fails => fatal error
+  (sh-run $(sh-run
+    { {echo a
+       sleep 0
+       echo b
+       sleep 0
+       echo c} |
+     $(get-string-all (current-input-port))}))         (ok (ok "a\nb\nc\n"))
 
   ;; ------------------------- sh-read ------------------------------------
   (sh-read-string* "#!/some/path some-arg\n\

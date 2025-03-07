@@ -21,7 +21,7 @@
       warn-check-failed0 warn-check-failed1 warn-check-failed2 warn-check-failed3
       warn-check-failed4 warn-check-failed5 warnf warn-check-failedl
 
-      sh-make-parameter sh-make-thread-parameter sh-version)
+      sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter sh-version)
   (import
     (rnrs)
     (rnrs base)

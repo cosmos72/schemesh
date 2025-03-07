@@ -145,6 +145,7 @@
 ;; does nothing and immediately returns #f
 (define (sh-current-job-yield)
   (let ((job (sh-current-job)))
+    ;; (debugf "sh-current-job-yield current-job=~s\tjob-control=~s" job (sh-job-control?))
     (if (and job (sh-job-control?))
       (if (sh-stopped? (scheduler-wait #f 'nonblocking))
         (jexpr-suspend job)
@@ -242,6 +243,34 @@
       (raise-errorf caller "job not started yet: ~s" job))))
 
 
+
+;; Internal function called by (job-wait) when job is stopped
+;; and caller asked to wait until job finishes:
+;;
+;; call (break) then send 'sigcont to job
+;; if (break) raises an exception or resets scheme, then send 'sigint to job
+(define (job-break job)
+   ;; subshells should not directly perform I/O,
+   ;; they cannot write the "break> " prompt then read commands
+   (when (sh-job-control?)
+     (let* ((break-returned-normally? #f)
+            (pgid       (job-pgid job))
+            (target-pid (if (and pgid (> pgid 0)) (- pgid) (job-pid  job))))
+      (dynamic-wind
+        void
+        (lambda () ; body
+          (job-id-set! job)
+          (break)
+          (set! break-returned-normally? #t))
+        (lambda ()
+          ; send SIGCONT to job's process group, if present.
+          ; otherwise send SIGCONT to job's process id.
+          (when target-pid
+            (pid-kill target-pid 'sigcont)
+            (unless break-returned-normally?
+              (pid-kill target-pid 'sigint))))))))
+
+
 ;; Common implementation of (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 ;; Resume and optionally wait for a job.
 ;;
@@ -255,9 +284,11 @@
           (when (sh-wait-flag-wait? wait-flags)
             (%loop)))
         ((stopped)
-          (when (and (sh-wait-flag-wait-until-finished? wait-flags)
-                     (not (sh-wait-flag-wait-until-stopped-or-finished? wait-flags)))
-            (yield)
+          (when (sh-wait-flag-wait-until-finished? wait-flags)
+            ;; (debugf "job-wait job=~a\tcurrent-job=~s\tcalling sh-current-job-suspend..." (sh-job->string job) (sh-current-job))
+            (or (sh-current-job-suspend)
+                (job-break job))
+            ;; (debugf "job-wait job=~a\tcurrent-job=~s ... sh-current-job-suspend returned" (sh-job->string job) (sh-current-job))
             (%loop)))))
     (job-id-update! job))) ; returns job status
 

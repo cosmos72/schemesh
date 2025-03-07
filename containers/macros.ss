@@ -7,38 +7,69 @@
 
 (library (schemesh containers macros (0 8 1))
   (export
-    for for*)
+    begin^ for for* if^ unless^ when^)
   (import
     (rnrs)
+    (only (chezscheme) void)
     (only (schemesh bootstrap) generate-pretty-temporaries))
+
+
+;; extended (begin body ...) that also accepts empty body
+(define-syntax begin^
+  (syntax-rules ()
+    ((_)          (void))
+    ((_ body)     body)
+    ((_ body ...) (begin body ...))))
+
+
+;; extended (if expr then else) that also accepts empty then and else
+(define-syntax if^
+  (syntax-rules ()
+    ((_ expr)           (begin expr (void)))
+    ((_ expr then)      (if expr then (void)))
+    ((_ expr then else) (if expr then else))))
+
+
+;; extended (unless expr body ...) that also accepts empty body
+(define-syntax unless^
+  (syntax-rules ()
+    ((_ expr)          (begin expr (void)))
+    ((_ expr body ...) (if expr (void) (begin^ body ...)))))
+
+
+;; extended (when expr body ...) that also accepts empty body
+(define-syntax when^
+  (syntax-rules ()
+    ((_ expr)          (begin expr (void)))
+    ((_ expr body ...) (if expr (begin^ body ...) (void)))))
 
 
 (define-syntax %for-inner-part
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((vars ... flag iter) ...) body1 body2 ...)
+      ((_ ((vars ... flag iter) ...) body ...)
         #`(let-values (((vars ... flag) (iter)) ...)
-            (when (and flag ...)
-              body1 body2 ...))))))
+            (when^ (and flag ...)
+              body ...))))))
 
 
 (define-syntax %for*-inner-part
   (lambda (stx)
     (syntax-case stx ()
-      ((_ () body1 body2 ...)
-        #`(begin body1 body2 ...))
-      ((_ ((vars ... flag iter)) body1 body2 ...)
+      ((_ () body ...)
+        #`(begin^ body ...))
+      ((_ ((vars ... flag iter)) body ...)
         #`(let-values (((vars ... flag) (iter)))
-            (when flag
-              body1 body2 ...)))
-      ((_ ((vars ... flag iter) (vars2 ... flag2 iter2) ...) body1 body2 ...)
+            (when^ flag
+              body ...)))
+      ((_ ((vars ... flag iter) (vars2 ... flag2 iter2) ...) body ...)
         #`(let-values (((vars ... flag) (iter)))
-            (when flag
+            (when^ flag
               (%for*-inner-part ((vars2 ... flag2 iter2) ...)
-                body1 body2 ...)))))))
+                body ...)))))))
 
 
-;; repeatedly call (begin body1 body2 ...) in a loop,
+;; repeatedly call (begin body ...) in a loop,
 ;; with vars bound to successive elements produced by corresponding iterators.
 ;;
 ;; the loop finishes when some iterator reaches reach its end.
@@ -47,17 +78,17 @@
 (define-syntax for
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((vars ... iterator) ...) body1 body2 ...)
+      ((_ ((vars ... iterator) ...) body ...)
         (with-syntax (((flag ...) (generate-pretty-temporaries #'(iterator ...))))
           (with-syntax (((iter ...) (generate-pretty-temporaries #'(iterator ...))))
             #`(let ((iter iterator) ...)
                 (let for-loop ()
                   (%for-inner-part ((vars ... flag iter) ...)
-                    body1 body2 ...
+                    body ...
                     (for-loop))))))))))
 
 
-;; repeatedly call (begin body1 body2 ...) in a loop,
+;; repeatedly call (begin body ...) in a loop,
 ;; with vars bound to successive elements produced by corresponding iterators.
 ;;
 ;; the loop finishes when some iterator reaches its end.
@@ -71,13 +102,13 @@
 (define-syntax for*
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((vars ... iterator) ...) body1 body2 ...)
+      ((_ ((vars ... iterator) ...) body ...)
         (with-syntax (((flag ...) (generate-pretty-temporaries #'(iterator ...))))
           (with-syntax (((iter ...) (generate-pretty-temporaries #'(iterator ...))))
             #`(let ((iter iterator) ...)
                 (let for*-loop ()
                   (%for*-inner-part ((vars ... flag iter) ...)
-                    body1 body2 ...
+                    body ...
                     (for*-loop))))))))))
 
 ) ; close library

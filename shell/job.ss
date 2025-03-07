@@ -49,7 +49,7 @@
 
     ;; job.ss
     sh-consume-signals sh-cwd
-    sh-job sh-job-id sh-job-status sh-jobs sh-find-job sh-job-exception
+    sh-job sh-job-id sh-job-pid sh-job-pgid sh-job-status sh-jobs sh-find-job sh-job-exception
 
     ;; multijob.ss
     sh-and sh-or sh-not sh-list sh-subshell
@@ -72,6 +72,9 @@
     ;; pipe.ss
     sh-pipe sh-pipe*
 
+    ;; scheduler.ss
+    sh-foreground-pgid
+
     ;; status.ss
     sh-ok? sh-new? sh-started? sh-running? sh-stopped? sh-finished?
     sh-status->kind sh-status->value sh-status->value-list
@@ -88,8 +91,7 @@
     (rnrs mutable-pairs)
     (only (chezscheme) append! break console-output-port console-error-port
                        current-input-port current-output-port current-error-port
-                       current-time
-                       debug debug-condition debug-on-exception display-condition
+                       current-time debug debug-condition debug-on-exception display-condition
                        foreign-procedure format fx1+ fx1- hashtable-cells include inspect
                        logand logbit? make-format-condition meta open-fd-output-port
                        parameterize procedure-arity-mask record-writer reverse!
@@ -127,24 +129,29 @@
         (job-status-set/running! job))
       ((ok exception failed killed)
         (%job-last-status-set! job status)
-        (when (sh-finished? status)
-          (flush-output-port (current-output-port))
-          (flush-output-port (current-error-port))
-          (flush-output-port (sh-stdout))
-          (flush-output-port (sh-stderr))
-          (when (sh-cmd? job)
-            ; unset expanded arg-list, because next expansion may differ
+
+        (flush-output-port (current-output-port))
+        (flush-output-port (current-error-port))
+        (flush-output-port (sh-stdout))
+        (flush-output-port (sh-stderr))
+
+        (job-pid-set!  job #f) ; also updates (sh-pid-table)
+        (job-pgid-set! job #f)
+
+        ; (debugf "job-status-set! caller=~s job=~s status=~s" caller job status)
+        (job-unmap-fds! job)
+        (job-unredirect/temp/all! job) ; remove temporary redirections
+        (job-temp-parent-set!  job #f) ; remove temporary parent job
+
+        (cond
+          ((sh-cmd? job)
+            ;; unset expanded arg-list, because next expansion may differ
             (cmd-expanded-arg-list-set! job #f))
-          ; (debugf "job-status-set! caller=~s job=~s status=~s" caller job status)
-          (job-unmap-fds! job)
-          (job-unredirect/temp/all! job) ; remove temporary redirections
-          (job-temp-parent-set!  job #f) ; remove temporary parent job
-          (cond
-            ((sh-expr? job)
-              (jexpr-resume-proc-set!  job #f)
-              (jexpr-suspend-proc-set! job #f))
-            ((sh-multijob? job)
-              (multijob-current-child-index-set! job -1))))
+          ((sh-expr? job)
+            (jexpr-resume-proc-set!  job #f)
+            (jexpr-suspend-proc-set! job #f))
+          ((sh-multijob? job)
+            (multijob-current-child-index-set! job -1)))
         status)
       (else
         (%job-last-status-set! job status)))))
@@ -204,6 +211,7 @@
         (job-status-set! 'job-id-set! job (list 'running id)))
       (unless (eqv? id old-id)
         (queue-job-display-summary job))))
+  ;; (debugf "job-id-set! job=~a\tid=~s" (sh-job->string job) (job-id job))
   (job-last-status job))
 
 

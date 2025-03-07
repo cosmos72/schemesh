@@ -32,36 +32,51 @@
           (else         (list 'failed  (fx- x 512))))))
 
 
-(define %pgid-foreground (foreign-procedure "c_pgid_foreground" (int int) int))
+(define %foreground-pgid-cas  (foreign-procedure "c_pgid_foreground_cas" (int int) int))
 
 
-(define (call/foreground-pgid wait-flags new-pgid proc)
+(define foreground-pgid-get
+  (let ((c-foreground-pgid-get (foreign-procedure "c_pgid_foreground_get" () int)))
+    (lambda ()
+      (if (sh-job-control?)
+        (c-foreground-pgid-get)
+        -1))))
+
+
+(define foreground-pgid-set!
+  (let ((c-foreground-pgid-set! (foreign-procedure "c_pgid_foreground_set" (int) int)))
+    (lambda (pgid)
+      (if (sh-job-control?)
+        (c-foreground-pgid-set! pgid)
+        -1))))
+
+
+(define sh-foreground-pgid
+  (sh-make-volatile-parameter foreground-pgid-get foreground-pgid-set!))
+
+
+(define (call-with-foreground-pgid wait-flags new-pgid proc)
   (let* ((new-pgid  new-pgid)
          (our-pgid  (and new-pgid
                          (sh-wait-flag-foreground-pgid? wait-flags)
                          (sh-job-control?)
                          (job-pgid (sh-globals)))))
     (if our-pgid
-      ;; cannot use (dynamic-wind) here: some job to be resumed may be an sh-expr
-      ;; which is resumed by calling a continuation that exits
-      ;; the (dynamic-wind) scope and later re-enters it
-      (with-exception-handler
-        (lambda (ex)
+      (dynamic-wind
+        (lambda () ; before body
+          ;; (debugf "call-dynamic-wind setting fg job pgid=~s" new-pgid)
+          (%foreground-pgid-cas our-pgid new-pgid))
+        proc       ; run   body
+        (lambda () ; after body
           ;; try really hard to restore (sh-globals) as the foreground process group
-          (%pgid-foreground -1 our-pgid)
-          (raise ex))
-        (lambda ()
-          (%pgid-foreground our-pgid new-pgid)
-          (proc)
-          ;; try really hard to restore (sh-globals) as the foreground process group
-          (%pgid-foreground -1 our-pgid)))
+          ;; (debugf "call-dynamic-wind restoring main pgid=~s" our-pgid)
+          (%foreground-pgid-cas -1 our-pgid)))
       (proc))))
-
 
 (define-syntax with-foreground-pgid
   (syntax-rules ()
     ((_  wait-flags new-pgid body1 body2 ...)
-      (call/foreground-pgid wait-flags new-pgid
+      (call-with-foreground-pgid wait-flags new-pgid
         (lambda () body1 body2 ...)))))
 
 
@@ -77,12 +92,11 @@
       (let ((pid  (job-pid job))
             (pgid (job-pgid job)))
         (with-foreground-pgid wait-flags pgid
-          (pid-advance/maybe-sigcont caller job wait-flags pid pgid)
-          (pid-advance/maybe-wait    caller job wait-flags pid pgid))))))
+          (pid-advance-wait    caller job wait-flags pid pgid 'sigcont))))))
 
 
 ;; Internal function called by (pid-advance)
-(define (pid-advance/maybe-sigcont caller job wait-flags pid pgid)
+(define (pid-advance-signal caller job wait-flags pid pgid signal-name)
   (assert* caller (> pid 0))
   (when pgid
     (assert* caller (> pgid 0)))
@@ -91,14 +105,17 @@
     ; otherwise send SIGCONT to job's process id. Both may raise error
     ; (debugf "pid-advance/sigcont wait-flags=~s job=~s" job wait-flags)
     (pid-kill (if (and pgid (> pgid 0)) (- pgid) pid)
-              'sigcont)
+              signal-name)
     ;; assume job is now running
     (job-status-set/running! job)))
 
 
 
 ;; Internal function called by (pid-advance)
-(define (pid-advance/maybe-wait caller job wait-flags pid pgid)
+(define (pid-advance-wait caller job wait-flags pid pgid signal-name)
+  (when signal-name
+    (pid-advance-signal caller job wait-flags pid pgid signal-name))
+
   ;; cannot call (sh-job-status), it would recurse back here.
   (let* ((blocking?  (sh-wait-flag-wait? wait-flags))
          (old-status (job-last-status job))
@@ -106,42 +123,17 @@
                        old-status
                        (scheduler-wait job
                          (if blocking? 'blocking 'nonblocking)))))
-    ;; (debugf "pid-advance/maybe-wait old-status=~s new-status=~s pid=~s job=~a" old-status new-status (job-pid job) (sh-job->string job))
+    ;; (debugf "pid-advance-wait old-status=~s new-status=~s pid=~s job=~a" old-status new-status (job-pid job) (sh-job->string job))
     ;; (sleep (make-time 'time-duration 0 1))
 
     ;; if blocking? is #f, new-status may be '(running)
     ;; indicating job status did not change i.e. it's (expected to be) still running
     (case (sh-status->kind new-status)
-      ((running)
-        ; if new-status is '(running), try to return '(running job-id)
-        (let ((new-status2 (job-status-set/running! job)))
-           (if blocking?
-             ;; if wait-flags tell to wait until job stops or finishes, then wait again for pid
-             (pid-advance/maybe-wait caller job wait-flags pid pgid)
-             ;; otherwise return job status
-             new-status2)))
-      ((ok exception failed killed)
-        ; job finished, clean it up. Also allows user to later start it again.
-        (pid->job-delete! (job-pid job))
-        (job-status-set! 'pid-advance/maybe-wait job new-status)
-        (job-id-unset! job)
-        (job-pid-set!  job #f)
-        (job-pgid-set! job #f)
+      ((running stopped ok exception failed killed)
         new-status)
-      ((stopped)
-        ;; process is stopped.
-        ;; if wait-flags tell to wait until job finishes,
-        ;;   call (break) then wait for it again (which blocks until it changes status again)
-        ;; otherwise propagate process status and return.
-        (if (sh-wait-flag-wait-until-finished? wait-flags)
-          (begin
-            (pid-advance/break              job            pid pgid)
-            (pid-advance/maybe-wait  caller job wait-flags pid pgid))
-          (begin
-            (job-status-set! 'pid-advance/maybe-wait job new-status)
-            new-status)))
       (else
         (raise-errorf caller "job not started yet: ~s" job)))))
+
 
 
 (define (maybe-queue-job-display-summary job)
@@ -149,7 +141,7 @@
     (queue-job-display-summary job)))
 
 
-;; Internal function called by (pid-advance/maybe-wait):
+;; Core scheduler function, in charge of waiting:
 ;;
 ;; If may-block is 'nonblocking, call C function wait4(WNOHANG) in a loop,
 ;; as long as it tells us that *some* subprocess changed status,
@@ -175,7 +167,7 @@
                  (old-status (if job (job-last-status job) (void)))
                  (new-status (pid-wait-result->status (cdr wait-result))))
 
-            ;; (debugf "... scheduler-wait wait-result=~s new-status=~s job=~a preferred-job=~a current-job=~a" wait-result new-status (if job (sh-job->string job) #f) (if preferred-job (sh-job->string preferred-job) #f) (if current-job (sh-job->string current-job) #f))
+            ;; (debugf "... scheduler-wait job=~a\told-status=~s\tnew-status=~s\twait-result=~s\tpreferred-job=~a\tcurrent-job=~a" (sh-job->string job) old-status new-status wait-result (sh-job->string preferred-job) (sh-job->string current-job))
 
             (when job
               (job-status-set! 'scheduler-wait job new-status)
@@ -221,32 +213,3 @@
 
           (set! done? #t)))) ; (pid-wait) did not report any status change => return
     (if preferred-job (job-last-status preferred-job) ret)))
-
-
-;; Internal function called by (pid-advance/maybe-wait)
-;; when job is stopped and wait-flags tell to wait until job finishes:
-;; call (break) then send 'sigcont to job
-;; if (break) raises an exception or resets scheme, then send 'sigint to job
-(define (pid-advance/break job pid pgid)
-   ; subshells should not directly perform I/O,
-   ; they cannot write the "break> " prompt then read commands
-   (when (sh-job-control?)
-     (let ((break-returned-normally? #f)
-           (our-pgid    (job-pgid (sh-globals)))
-           (kill-target (if (and pgid (> pgid 0)) (- pgid) pid)))
-      (dynamic-wind
-        (lambda () ; before body
-          ; grab the foreground
-          (%pgid-foreground -1 our-pgid))
-        (lambda () ; body
-          (job-id-set! job)
-          (break)
-          (set! break-returned-normally? #t))
-        (lambda ()
-          ; restore job to run in foreground
-          (%pgid-foreground our-pgid pgid)
-          ; send SIGCONT to job's process group, if present.
-          ; otherwise send SIGCONT to job's process id. Both may raise error
-          (pid-kill kill-target 'sigcont)
-          (unless break-returned-normally?
-            (pid-kill kill-target 'sigint)))))))

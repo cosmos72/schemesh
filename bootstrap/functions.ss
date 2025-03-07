@@ -20,7 +20,7 @@
       warn-check-failed0 warn-check-failed1 warn-check-failed2 warn-check-failed3
       warn-check-failed4 warn-check-failed5 warnf warn-check-failedl
 
-      sh-make-parameter sh-make-thread-parameter sh-version)
+      sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter sh-version)
   (import
     (rnrs)
     (only (chezscheme) console-error-port format gensym make-continuation-condition make-format-condition
@@ -133,7 +133,7 @@
   (warnf "; warning in ~a: failed check ~a with arguments ~s\n" who form args))
 
 
-  ;; portable reimplementation of Chez Scheme (make-parameter)
+;; portable reimplementation of Chez Scheme (make-parameter)
 (define sh-make-parameter
   (case-lambda
     ((initial-value updater-proc)
@@ -152,6 +152,14 @@
   (if (top-level-bound? 'make-thread-parameter)
     (top-level-value 'make-thread-parameter)
     sh-make-parameter))
+
+
+;; alternate version of (make-parameter), where parameter value is expected to change
+;; due to external reasons and must be retrieved each time by calling a procedure.
+(define (sh-make-volatile-parameter getter-proc updater-proc)
+  (case-lambda
+    (()          (getter-proc))
+    ((new-value) (updater-proc new-value))))
 
 
 ;; return schemesh version

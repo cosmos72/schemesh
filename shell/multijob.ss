@@ -371,7 +371,9 @@
         ;; if wait-flags tell to wait until child finishes, then wait for child to change status again.
         ;; otherwise propagate child status and return
         (if (sh-wait-flag-wait-until-finished? wait-flags)
-          (mj-advance caller mj wait-flags)
+          (begin
+            (sh-current-job-suspend)
+            (mj-advance caller mj wait-flags))
           (job-status-set! 'mj-advance mj child-status)))
       (else
         (raise-errorf caller "child job not started yet: ~s" child)))))

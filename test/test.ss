@@ -13,8 +13,8 @@
     (except (rnrs) file-exists? delete-file)
     (rnrs base)
     (rnrs exceptions)
-    (only (rnrs mutable-strings)      string-set!)
-    (only (chezscheme)                display-condition format fx1+ fx1- fx/)
+    (only (rnrs mutable-strings)  string-set!)
+    (only (chezscheme)            console-output-port display-condition format fx1+ fx1- fx/)
     (schemesh))
 
 
@@ -134,8 +134,9 @@
   (if (char=? ch1 ch2)
     #t
     (begin
-      (format #t "test failed:\n    (utf8b->string (string->utf8b ...)) \n    evaluated to U+0x~x\n    expecting    U+0x~x\n"
-              (char->integer ch1) (char->integer ch2))
+      (format (console-output-port)
+         "test failed:\n    (utf8b->string (string->utf8b ...)) \n    evaluated to U+0x~x\n    expecting    U+0x~x\n"
+         (char->integer ch1) (char->integer ch2))
       #f)))
 
 ) ; close library
