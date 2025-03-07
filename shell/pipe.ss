@@ -178,10 +178,17 @@
   (when (sh-wait-flag-continue-if-stopped? wait-flags)
     (when pgid
       ;; (debugf "mj-pipe-advance/sigcont > ~s ~s" mj wait-flags)
-      ;; we must wait for SIGCHLD to arrive before resuming mj children jobs,
-      ;; because if the last child is an sh-expr and it's running when SIGCHLD arrives,
-      ;; the sh-expr will suspend itself.
-      (pid-kill (- pgid) 'sigcont (if (job-stopped? mj) 'pause #f)))))
+      ;;
+      ;; if SIGCHLD arrives late, i.e. after we later resume mj children jobs,
+      ;; any child sh-expr that is already resumed may receive an EINTR error
+      ;; from system calls such as read() invoked by (fd-read),
+      ;; which triggers a call to (yield).
+      ;;
+      ;; Luckily, (yield) is sufficiently robust and will detect that no subprocess was stopped,
+      ;; deducing that it does not need to suspend the sh-expr.
+      ;;
+      ;; Thus we do not need to pause() until SIGCHLD arrives, which is inherently racy.
+      (pid-kill (- pgid) 'sigcont)))) ; (if (job-stopped? mj) 'pause #f)
 
 
 (define (mj-pipe-advance/maybe-wait caller mj wait-flags)
