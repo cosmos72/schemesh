@@ -16,7 +16,12 @@ For more complex tasks, it seamlessly integrates a full Lisp REPL backed by Chez
 Schemesh can be used as:
 * a replacement for traditional interactive Unix shell, as for example bash/zsh/pdksh etc.
 
-* a Unix shell scriptable in Chez Scheme.
+* a Unix shell scriptable in Chez Scheme:<br/>
+  just execute the command `schemesh PATH-TO-SOME-FILE`.
+
+  You can also create a schemesh script file, let's say `my_script`,
+  write `#!/usr/bin/env schemesh` in its first line, then  `chmod +x my_script`
+  and launch it as an executable by typing `./my_script`
 
 * a Scheme REPL with additional syntax and functions to start, redirect and manage Unix processes.
 
