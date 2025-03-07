@@ -162,12 +162,10 @@
 ;; Internal function called by (job-wait) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 (define (mj-pipe-advance caller mj wait-flags)
   ;; (debugf "->  mj-pipe-advance\tcaller=~s\tjob=~a\twait-flags=~s\tstatus=~s" caller (sh-job->string mj) wait-flags (job-last-status mj))
-  (let ((pgid (job-pgid mj))
-        (last-child (sh-multijob-child-ref mj (fx1- (sh-multijob-child-length mj)))))
-    ;; if last child is a sh-expr, run other children in foreground:
-    ;;   resuming the last sh-expr will temporarily exit the dynamic-wind below.
-    ;; otherwise, there's no need to set foreground pgid, because each child will set it by its own
-    (with-foreground-pgid wait-flags (and (sh-expr? last-child) pgid)
+  (let ((pgid (job-pgid mj)))
+    ;; we must run children in foreground,
+    ;; otherwise they will not receive SIGTSTP when user types CTRL+Z
+    (with-foreground-pgid wait-flags pgid
       ;; (debugf "mj-pipe-advance before sigcont job=~s\tstatus=~s" (sh-job->string mj) (job-last-status mj))
       (mj-pipe-advance-sigcont        mj wait-flags pgid)
       (job-status-set/running! mj)
