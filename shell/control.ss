@@ -241,7 +241,7 @@
 (define (notrace-call arg)
   arg)
 
-(define (%job-wait-once caller job wait-flags)
+(define (job-wait-once caller job wait-flags)
   ;; (debugf "job-wait-once\tcaller=~s\twait-flags=~s\tjob=~a\tid=~s\tpid=~s\tstatus=~s" caller wait-flags job (job-id job) (job-pid job) (job-last-status job))
   (case (job-last-status->kind job)
     ((ok exception failed killed)
@@ -251,20 +251,17 @@
         ((job-pid job)
           ;; either the job is a sh-cmd, or a builtin or multijob spawned in a child subprocess.
           ;; in all cases, we have a pid to wait on.
-          (notrace-call (pid-advance caller job wait-flags)))
+          (notrace-call (pid-advance     caller job wait-flags)))
         ((sh-expr? job)
-          (notrace-call (jexpr-advance caller job wait-flags)))
+          (notrace-call (jexpr-advance   caller job wait-flags)))
         ((sh-multijob-pipe? job)
           (notrace-call (mj-pipe-advance caller job wait-flags)))
         ((sh-multijob? job)
           (notrace-call (mj-advance      caller job wait-flags))))
+      ;x (debugf "...job-wait-once job=~s\tstatus=~s" job (job-last-status job))
       (job-last-status job))
     (else
       (raise-errorf caller "job not started yet: ~s" job))))
-
-
-(define (job-wait-once caller job wait-flags)
-  (notrace-call (%job-wait-once caller job wait-flags)))
 
 
 ;; Internal function called by (job-wait) when job is stopped
@@ -331,7 +328,7 @@
 (define (sh-job-status job-or-id)
   (let* ((job    (sh-job job-or-id))
          (status (job-last-status job)))
-    ; (debugf ">  sh-job-status job=~a" job)
+    ; (debugf ">  sh-job-status job=~s" job)
     (if (started? status)
       (job-wait 'sh-job-status job (sh-wait-flags))
       status)))

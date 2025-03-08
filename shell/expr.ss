@@ -97,7 +97,7 @@
 (define (jexpr-prepare-resume-proc job)
   (let ((jexpr-initial-resume-proc
     (lambda (unused)
-      ;; (debugf "jexpr-prepare-resume-proc job=~a remapping fd1 ~s -> ~s" job (sh-fd 1) (job-find-fd-remap job 1))
+      ;; (debugf "jexpr-prepare-resume-proc job=~s remapping fd1 ~s -> ~s" job (sh-fd 1) (job-find-fd-remap job 1))
       (dynamic-wind
         (lambda ()
           (when (job-stopped? job)

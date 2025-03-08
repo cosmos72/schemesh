@@ -132,7 +132,7 @@
           ; we must redirect job's fd 2 *before* any redirection configured in the job itself
           (job-redirect/temp/fd! job 2 '>& fd/write))))
 
-    ; (debugf "... mj-pipe-start-i starting job=~a, options=~s, redirect-in=~s, redirect-out=~s" job options redirect-in? redirect-out?)
+    ; (debugf "... mj-pipe-start-i starting job=~s, options=~s, redirect-in=~s, redirect-out=~s" job options redirect-in? redirect-out?)
 
     ; Do not yet assign a job-id. Reuse mj process group id
     (job-start 'sh-pipe job options)
@@ -170,14 +170,20 @@
       (mj-pipe-advance-sigcont        mj wait-flags pgid)
       (job-status-set/running! mj)
       ;; (debugf "mj-pipe-advance after  sigcont job=~s\tstatus=~s" mj (job-last-status mj))
-      (mj-pipe-advance-wait    caller mj wait-flags)))
+      (call/cc
+        (lambda (k)
+          (let ((k-stop
+                  (lambda (status)
+                    (mj-pipe-advance-stop mj status)
+                    (k status))))
+            (mj-pipe-advance-wait caller mj wait-flags k-stop))))))
   ;; (debugf "<-  mj-pipe-advance\tcaller=~s\tjob=~a\twait-flags=~s\tjob-status=~s" caller (job-last-status mj) wait-flags (job-last-status mj))
   )
 
 
 (define (mj-pipe-advance-sigcont mj wait-flags pgid)
   ;; send SIGCONT to job's process group, if present.
-  ;; (debugf "mj-pipe-advance-sigcont job=~a\twait-flags=~s" mj wait-flags)
+  ;; (debugf "mj-pipe-advance-sigcont job=~s\twait-flags=~s" mj wait-flags)
   (when (and pgid (sh-wait-flag-continue-if-stopped? wait-flags))
     ;;
     ;; if SIGCHLD arrives late, i.e. after we later resume mj children jobs,
@@ -201,66 +207,72 @@
     wait-flags))
 
 
+(define (mj-pipe-advance-stop mj status)
+  (mj-pipe-signal-sigtstp mj)
+  ;x (debugf "... mj-pipe-advance-stop status=~s" status)
+  (job-status-set! 'mj-pipe-advance-wait-stop mj status))
+
+
+
 ;; returns updated job status
-(define (mj-pipe-advance-wait caller mj wait-flags)
+(define (mj-pipe-advance-wait caller mj wait-flags k-stop)
   ; (debugf ">   mj-pipe-advance-wait wait-flags=~s mj=~s" mj wait-flags)
+
+  ;; cannot use a local variable mj-stop and set/test it,
+  ;; because it would be preserved across continuations
+  ;; called by resuming sh-expr children jobs
+  ;; => if we need to suspend this sh-pipe, call the continuation (k-stop)
   (let* ((children  (multijob-children mj))
-         (n         (span-length children))
-         (running-i (multijob-current-child-index mj))
-         (mj-stop   #f))
+         (n         (span-length children)))
 
     ;; if last child is a sh-expr, call (job-wait wait-flags ...) on it:
     ;; it's the only child possibly running in main process,
     ;; and sh-exprs need to be explicitly continued.
     (let ((job (sh-multijob-child-ref mj (fx1- n))))
-      ;; (debugf "->  mj-pipe-advance/w\tcaller=~s\tlast-job=~a\twait-flags=~s\tlast-job-status=~s\tsh-expr?=~s" caller job wait-flags (job-last-status job) (sh-expr? job))
+      ;; (debugf "->  mj-pipe-advance/w\tcaller=~s\tlast-job=~s\twait-flags=~s\tlast-job-status=~s\tsh-expr?=~s" caller job wait-flags (job-last-status job) (sh-expr? job))
       (when (and (sh-expr? job) (job-started? job))
         ;; cannot wait until sh-expr finishes: if user presses CTRL+Z,
         ;; both the sh-expr and the other foreground jobs get stopped,
         ;; and before waiting again for sh-expr we must send SIGCONT to the other foreground jobs
         (let* ((expr-wait-flags (mj-pipe-wait-flags-for-sh-expr wait-flags))
                (status          (job-wait 'mj-pipe-advance-wait-expr job expr-wait-flags)))
-           ;; (debugf "... mj-pipe-advance/wait\tcaller=~s\tlast-job=~a\twait-flags=~s\tlast-job-status=~s" caller job wait-flags (job-last-status job))
+           ;x (debugf "... mj-pipe-advance-wait-expr\tcaller=~s\twait-flags=~s\tlast-job=~s\tlast-job-status=~s" caller wait-flags job status)
            (when (stopped? status)
-             (set! mj-stop status)))))
+             ;x (debugf "... mj-pipe-advance-wait **STOP** expr=~s\tstatus=~s" job status)
+             (k-stop status)))))
 
     ;; call (job-wait wait-flags ...) on each child job,
     ;; skipping the ones that already finished.
-    (unless mj-stop
-      (let %again ((i running-i))
-        (let ((job (sh-multijob-child-ref mj i)))
-          (cond
-            ((fx>=? i n)
-              (set! running-i i))
-            ((symbol? job)
-              (%again (fx1+ i)))
-            ((sh-job? job)
-              (let ((status (job-wait 'mj-pipe-advance-wait job wait-flags)))
-                (case (status->kind status)
-                  ((ok exception failed killed)
-                    (%again (fx1+ i)))
-                  ((stopped) ; stop iterating
-                    (set! mj-stop status)
-                    (set! running-i i))
-                  (else      ; stop iterating
-                    (set! running-i i)))))))))
+    (let %again ((i (fxmax 0 (multijob-current-child-index mj))))
+      (multijob-current-child-index-set! mj i)
+      (let ((job (sh-multijob-child-ref mj i)))
+        (cond
+          ((fx>=? i n)
+            (void)) ; stop iterating
+          ((symbol? job)
+            (%again (fx1+ i)))
+          ((sh-job? job)
+            (let ((status (job-wait 'mj-pipe-advance-wait job wait-flags)))
+              ;x (debugf "... mj-pipe-advance-wait\tcaller=~s\twait-flags=~s\tchild-job=~s\tchild-status=~s" caller wait-flags job status)
+              (case (status->kind status)
+                ((ok exception failed killed)
+                  (%again (fx1+ i)))
+                ((stopped) ; stop iterating
+                  ;x (debugf "... mj-pipe-advance-wait **STOP** child=~s\tstatus=~s" job status)
+                  (k-stop status))
+                )))))) ; else stop iterating
 
     (cond
-      (mj-stop
-        (multijob-current-child-index-set! mj running-i)
-        (mj-pipe-signal-sigtstp mj)
-        (job-status-set! 'mj-pipe-advance-wait-stop mj mj-stop))
-
-      ((fx<? running-i n)
-        ;; if some child is still running or stopped
-        (multijob-current-child-index-set! mj running-i)
-        (job-last-status mj))
+      ((fx<? (multijob-current-child-index mj) n)
+        ;; some child is still running
+        ;x (debugf "... mj-pipe-advance-wait-running")
+        (job-status-set/running! mj))
       (else
-        (multijob-current-child-index-set! mj -1)
-        (job-status-set! 'mj-pipe-advance-wait mj
-          (if (span-empty? children)
-            (void)
-            (job-last-status (span-ref-right children))))))))
+        (let ((status (if (span-empty? children)
+                        (ok)
+                        (job-last-status (span-ref-right children)))))
+          ;x (debugf "... mj-pipe-advance-wait-finish status=~s" status)
+          (job-status-set! 'mj-pipe-advance-wait mj status))))))
 
 
 (define (mj-pipe-signal-sigtstp mj)

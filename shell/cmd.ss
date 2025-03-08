@@ -201,7 +201,7 @@
                     (job-make-c-redirect-vector c)
                     (sh-env->argv c 'export)
                     (or process-group-id -1))))
-        ;; (debugf "cmd-spawn pid=~s prog-and-args=~s job=~a " ret prog-and-args c)
+        ;; (debugf "cmd-spawn pid=~s prog-and-args=~s job=~s " ret prog-and-args c)
         (when (< ret 0)
           (job-status-set! 'cmd-spawn c (failed ret))
           (raise-c-errno 'sh-start 'fork ret))

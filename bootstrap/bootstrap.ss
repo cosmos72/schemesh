@@ -10,7 +10,7 @@
       ;; bootstrap.ss
       assert* assert-not* catch check check-not define-macro debugf debugf-port
       first-value first-value-or-void forever let-macro raise-assert* repeat second-value
-      while until throws? trace-call try list->values values->list
+      while until throws? trace-call trace-define try list->values values->list
 
       ;; functions.ss
       generate-pretty-temporaries generate-pretty-temporary gensym-pretty
@@ -230,20 +230,33 @@
                   (warn-check-failed caller #,form texpr))))))))
 
 
-
 ;; wrap a procedure call, and write two debug messages to (debugf-port):
 ;; the first before calling the procedure, showing the arguments values
 ;; the second after the procedure returned, showing the return values
 (define-syntax trace-call
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ (proc args ...))
-        #'(let ((tproc proc) ; proc must be evaluated before args
-                (targs (list args ...)))
-            (begin (debugf "-> ~s args ~s" 'proc targs))
-            (let ((rets (values->list (apply tproc targs))))
-              (begin (debugf "<- ~s rets ~s args ~s" 'proc rets targs))
-              (list->values rets)))))))
+  (syntax-rules ()
+    ((_ (proc args ...))
+       (let ((tproc proc) ; proc must be evaluated before args
+             (targs (list args ...)))
+         (begin (debugf "-> ~s args ~s" 'proc targs))
+         (let ((rets (values->list (apply tproc targs))))
+           (begin (debugf "<- ~s rets ~s args ~s" 'proc rets targs))
+           (list->values rets))))))
+
+
+;; wrap a procedure definition, and write two debug messages to (debugf-port)
+;; each time the procedure is calles:
+;; the first when entering the procedure, showing the arguments values
+;; the second when returning from the procedure, showing the return values
+(define-syntax trace-define
+  (syntax-rules ()
+    ((_ (name arg ...) body1 body2 ...)
+      (define name
+        (lambda (arg ...)
+          (begin (debugf "-> ~s args ~s" 'name (list arg ...)))
+          (let ((rets (values->list (begin body1 body2 ...))))
+            (begin (debugf "<- ~s rets ~s args ~s" 'name rets (list arg ...)))
+            (list->values rets)))))))
 
 
 (define-syntax repeat

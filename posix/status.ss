@@ -201,7 +201,7 @@
 ;; return #t if status kind is 'ok, i.e. if job finished successfully.
 ;; otherwise return #f
 (define (ok? status)
-  (or (eq? (void) status) (eq? 'ok (%status->kind status))))
+  (eq? 'ok (status->kind status)))
 
 
 ;; Extract the first value of a status, convert it to a fixnum, and return it.
@@ -224,6 +224,7 @@
 (define (exit-with-status status)
   ;; (debugf "exit-with-status ~s" status)
   (let ((c-exit-value (status->c-exit-value status)))
+    ;x (debugf "exit-with-status status=~s" status)
     (dynamic-wind
       void       ; before body
       (lambda () ; body

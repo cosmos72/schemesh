@@ -49,7 +49,7 @@
   (let ((queue '()))
     (case-lambda
       ((job)
-        ; (debugf "queue-job-display-summary add job=~a id=~s" job (job-id job))
+        ; (debugf "queue-job-display-summary add job=~s id=~s" job (job-id job))
         (set! queue (cons job queue)))
       (()
         ; (debugf "queue-job-display-summary return jobs=~a" (reverse queue))
@@ -406,17 +406,17 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define sh-job-syntax-for-display
+(define sh-job-display-style
   (sh-make-parameter
     'scheme
     (lambda (sym)
-      (assert* 'sh-job-syntax-for-display (memq sym '(scheme shell)))
+      (assert* 'sh-job-display-style (memq sym '(scheme shell)))
       sym)))
 
 
 ;; customize how "job" and subtype objects are printed
 (record-writer (record-type-descriptor job)
   (lambda (obj port writer)
-    (if (eq? 'scheme (sh-job-syntax-for-display))
+    (if (eq? 'scheme (sh-job-display-style))
       (sh-job-write* obj port)
       (sh-job-display* obj port))))

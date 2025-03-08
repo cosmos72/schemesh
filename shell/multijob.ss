@@ -309,13 +309,13 @@
                   ;;    (job-unmap-fds! parent)
                   ;;    (job-unredirect/temp/all! parent)))
 
-                  ;c (debugf "> [child] spawn-procedure job=~a subprocess calling proc ~s" job proc)
+                  ;c (debugf "> [child] spawn-procedure job=~s subprocess calling proc ~s" job proc)
                   (proc job (options-filter-out options '(fd-close spawn?)))
 
-                  ;c (debugf ". [child] spawn-procedure job=~a subprocess proc returned ~s pid=~s" job ret (job-pid job))
+                  ;c (debugf ". [child] spawn-procedure job=~s subprocess proc returned ~s pid=~s" job ret (job-pid job))
                   (set! status (sh-wait job)))
                 (lambda () ; run after body, even if it raised a condition
-                  ;c (debugf "< [child] spawn-procedure job=~a subprocess exiting with pid=~s status=~s" job (job-pid job) status)
+                  ;c (debugf "< [child] spawn-procedure job=~s subprocess exiting with pid=~s status=~s" job (job-pid job) status)
                   (exit-with-status status)))))
           ((> ret 0) ; parent
             (job-pid-set! job ret)
@@ -328,7 +328,7 @@
 ;;
 ;; WARNING (proc job options) must call (sh-job-status-set! job), because the return value of (proc ...) is ignored
 (define (call-or-spawn-procedure job options proc)
-  ;c (debugf "call-or-spawn-procedure options=~s proc=~s job=~a" options proc job)
+  ;c (debugf "call-or-spawn-procedure options=~s proc=~s job=~s" options proc job)
   (if (options->spawn? options)
     ;; spawn a subprocess and run (proc... job) inside it
     (spawn-procedure job options proc)
@@ -338,7 +338,7 @@
 
 ;; Internal function called by (job-wait) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 (define (mj-advance caller mj wait-flags)
-  ; (debugf ">  mj-advance wait-flags=~s job=~a id=~s status=~s" wait-flags mj (job-id mj) (job-last-status mj))
+  ; (debugf ">  mj-advance wait-flags=~s job=~s id=~s status=~s" wait-flags mj (job-id mj) (job-last-status mj))
   (job-status-set/running! mj)
   (let* ((child (sh-multijob-child-ref mj (multijob-current-child-index mj)))
          ;; call (job-wait) on child
