@@ -171,7 +171,7 @@
   ;; helper function used by macros (sh-wait-flag) and (sh-wait-flags)
   (define name->sh-wait-flag
     (let ((alist '((foreground-pgid . 1) (continue-if-stopped . 2)
-                   (wait-until-finished . 4) (wait-until-stopped-or-finished . 8))))
+                   (wait-until-stopped-or-finished . 4) (wait-until-finished . 8))))
       (lambda (name)
         (let ((pair (assq name alist)))
           (unless pair
@@ -207,16 +207,32 @@
         (names->sh-wait-flags (syntax->datum #'names))))))
 
 
+(define-syntax sh-wait-flags-add
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ name-to-add ... wait-flags)
+        #`(fxior #,(names->sh-wait-flags (syntax->datum #'(name-to-add ...)))
+                 wait-flags)))))
+
+
+(define-syntax sh-wait-flags-remove
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ name-to-remove ... wait-flags)
+        #`(fxand (fxnot #,(names->sh-wait-flags (syntax->datum #'(name-to-remove ...))))
+                 wait-flags)))))
+
+
 (define (sh-wait-flag-foreground-pgid? wait-flags)
   (not (fxzero? (fxand wait-flags 1))))
 
 (define (sh-wait-flag-continue-if-stopped? wait-flags)
   (not (fxzero? (fxand wait-flags 2))))
 
-(define (sh-wait-flag-wait-until-finished? wait-flags)
+(define (sh-wait-flag-wait-until-stopped-or-finished? wait-flags)
   (not (fxzero? (fxand wait-flags 4))))
 
-(define (sh-wait-flag-wait-until-stopped-or-finished? wait-flags)
+(define (sh-wait-flag-wait-until-finished? wait-flags)
   (not (fxzero? (fxand wait-flags 8))))
 
 (define (sh-wait-flag-wait? wait-flags)
@@ -241,7 +257,8 @@
         ((sh-multijob-pipe? job)
           (notrace-call (mj-pipe-advance caller job wait-flags)))
         ((sh-multijob? job)
-          (notrace-call (mj-advance      caller job wait-flags)))))
+          (notrace-call (mj-advance      caller job wait-flags))))
+      (job-last-status job))
     (else
       (raise-errorf caller "job not started yet: ~s" job))))
 

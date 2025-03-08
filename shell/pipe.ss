@@ -193,12 +193,21 @@
       (pid-kill (- pgid) 'sigcont)))) ; (if (job-stopped? mj) 'pause #f)
 
 
+(define (mj-pipe-wait-flags-for-sh-expr wait-flags)
+  (if (sh-wait-flag-wait-until-finished? wait-flags)
+    (sh-wait-flags-remove
+      wait-until-finished
+      (sh-wait-flags-add wait-until-stopped-or-finished
+                         wait-flags))
+    wait-flags))
+
+
 (define (mj-pipe-advance-wait caller mj wait-flags)
   ; (debugf ">   mj-pipe-advance-wait wait-flags=~s mj=~s" mj wait-flags)
   (let* ((children  (multijob-children mj))
          (n         (span-length children))
          (running-i (multijob-current-child-index mj))
-         (stopped?  #f))
+         (mj-stop? #f))
 
     ;; if last child is a sh-expr, call (job-wait wait-flags ...) on it:
     ;; it's the only child possibly running in main process,
@@ -206,14 +215,18 @@
     (let ((job (sh-multijob-child-ref mj (fx1- n))))
       ;; (debugf "->  mj-pipe-advance/w\tcaller=~s\tlast-job=~a\twait-flags=~s\tlast-job-status=~s\tsh-expr?=~s" caller job wait-flags (job-last-status job) (sh-expr? job))
       (when (and (sh-expr? job) (job-started? job))
-        (job-wait 'mj-pipe-advance-wait job wait-flags)
-        ;; (debugf "... mj-pipe-advance/w\tcaller=~s\tlast-job=~a\twait-flags=~s\tlast-job-status=~s" caller job wait-flags (job-last-status job))
-        (when (job-stopped? job)
-          (set! stopped? #t))))
+        ;; cannot wait until sh-expr finishes: if user presses CTRL+Z,
+        ;; both the sh-expr and the other foreground jobs get stopped,
+        ;; and before waiting again for sh-expr we must send SIGCONT to the other foreground jobs
+        (let* ((expr-wait-flags (mj-pipe-wait-flags-for-sh-expr wait-flags))
+               (status          (job-wait 'mj-pipe-advance-wait-expr job expr-wait-flags)))
+           ;; (debugf "... mj-pipe-advance/wait\tcaller=~s\tlast-job=~a\twait-flags=~s\tlast-job-status=~s" caller job wait-flags (job-last-status job))
+           (when (stopped? status)
+             (set! mj-stop? #t)))))
 
     ;; call (job-wait wait-flags ...) on each child job,
     ;; skipping the ones that already finished.
-    (unless stopped?
+    (unless mj-stop?
       (let %again ((i running-i))
         (let ((job (sh-multijob-child-ref mj i)))
           (cond
@@ -226,13 +239,13 @@
                 ((ok exception failed killed)
                   (%again (fx1+ i)))
                 ((stopped) ; stop iterating
-                  (set! stopped? #t)
+                  (set! mj-stop? #t)
                   (set! running-i i))
                 (else      ; stop iterating
                   (set! running-i i))))))))
 
     (cond
-      (stopped?
+      (mj-stop?
         (multijob-current-child-index-set! mj running-i)
         (mj-pipe-signal-sigtstp mj)
         (job-last-status mj))
