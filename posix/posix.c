@@ -861,17 +861,39 @@ static int c_exit(int status) {
   return -EINVAL;
 }
 
-/** return Scheme string, or Scheme integer on error */
-static ptr c_get_hostname(void) {
-#ifdef HOST_NAME_MAX
-  char buf[HOST_NAME_MAX + 1];
-#else
-  char buf[256];
-#endif
-  if (gethostname(buf, sizeof(buf)) != 0) {
+static ptr c_get_hostname_buf(char* buf, size_t len) {
+  if (gethostname(buf, len) != 0) {
     return Sinteger(c_errno());
   }
+  buf[len - 1] = '\0';
   return schemesh_Sstring_utf8b(buf, -1);
+}
+
+#ifdef HOST_NAME_MAX
+#define STACK_HOST_NAME_MAX (HOST_NAME_MAX + 1)
+#else
+#define STACK_HOST_NAME_MAX 256
+#endif
+
+static ptr c_get_hostname_stack(void) {
+  char buf[STACK_HOST_NAME_MAX];
+  return c_get_hostname_buf(buf, sizeof(buf));
+}
+
+/** return Scheme string containing hostname, or Scheme integer on error */
+static ptr c_get_hostname(void) {
+#ifdef _SC_HOST_NAME_MAX
+  long len = sysconf(_SC_HOST_NAME_MAX);
+  if (len >= STACK_HOST_NAME_MAX) {
+    char* buf = malloc(len + 1);
+    if (buf) {
+      ptr ret = c_get_hostname_buf(buf, len + 1);
+      free(buf);
+      return ret;
+    }
+  }
+#endif
+  return c_get_hostname_stack();
 }
 
 /**
