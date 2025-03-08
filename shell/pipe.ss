@@ -249,8 +249,6 @@
         (cond
           ((fx>=? i n)
             (void)) ; stop iterating
-          ((symbol? job)
-            (%again (fx1+ i)))
           ((sh-job? job)
             (let ((status (job-wait 'mj-pipe-advance-wait job wait-flags)))
               ;x (debugf "... mj-pipe-advance-wait\tcaller=~s\twait-flags=~s\tchild-job=~s\tchild-status=~s" caller wait-flags job status)
@@ -260,7 +258,9 @@
                 ((stopped) ; stop iterating
                   ;x (debugf "... mj-pipe-advance-wait **STOP** child=~s\tstatus=~s" job status)
                   (k-stop status))
-                )))))) ; else stop iterating
+                ))) ; else stop iterating
+          (else
+            (%again (fx1+ i))))))
 
     (cond
       ((fx<? (multijob-current-child-index mj) n)
