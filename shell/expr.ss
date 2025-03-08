@@ -69,7 +69,7 @@
 (define (jexpr-advance caller job wait-flags)
   ;; jexpr jobs execute Scheme code, which always blocks:
   ;; continue only if caller asked to continue job and wait.
-  ; (debugf "jexpr-advance\tcaller=~s\tjob=~a\twait-flags=~s" caller (sh-job->string job) wait-flags)
+  ; (debugf "jexpr-advance\tcaller=~s\tjob=~a\twait-flags=~s" caller job wait-flags)
   (when (and (sh-wait-flag-wait? wait-flags)
              (sh-wait-flag-continue-if-stopped? wait-flags))
     (when (jexpr-resume-proc job)
@@ -97,7 +97,7 @@
 (define (jexpr-prepare-resume-proc job)
   (let ((jexpr-initial-resume-proc
     (lambda (unused)
-      ;; (debugf "jexpr-prepare-resume-proc job=~a remapping fd1 ~s -> ~s" (sh-job->string job) (sh-fd 1) (job-find-fd-remap job 1))
+      ;; (debugf "jexpr-prepare-resume-proc job=~a remapping fd1 ~s -> ~s" job (sh-fd 1) (job-find-fd-remap job 1))
       (dynamic-wind
         (lambda ()
           (when (job-stopped? job)

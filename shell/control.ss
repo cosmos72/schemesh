@@ -34,7 +34,7 @@
 
 ;; Internal functions called by (sh-start)
 (define (job-start caller job options)
-  ;b (debugf "job-start ~a ~s" (sh-job->string job) options)
+  ;b (debugf "job-start ~a ~s" job options)
   (options-validate caller options)
   (job-raise-if-started/recursive caller job)
   (call/cc
@@ -226,7 +226,7 @@
   arg)
 
 (define (%job-wait-once caller job wait-flags)
-  ;; (debugf "job-wait-once\tcaller=~s\twait-flags=~s\tjob=~a\tid=~s\tpid=~s\tstatus=~s" caller wait-flags (sh-job->string job) (job-id job) (job-pid job) (job-last-status job))
+  ;; (debugf "job-wait-once\tcaller=~s\twait-flags=~s\tjob=~a\tid=~s\tpid=~s\tstatus=~s" caller wait-flags job (job-id job) (job-pid job) (job-last-status job))
   (case (job-last-status->kind job)
     ((ok exception failed killed)
       (void)) ; job finished
@@ -291,10 +291,10 @@
             (%loop)))
         ((stopped)
           (when (sh-wait-flag-wait-until-finished? wait-flags)
-            ;x (debugf "...job-wait\tcaller=~s\tjob=~a\tcurrent-job=~s\tcalling sh-current-job-suspend..." caller (sh-job->string job) (sh-job->string (sh-current-job)))
+            ;x (debugf "...job-wait\tcaller=~s\tjob=~a\tcurrent-job=~s\tcalling sh-current-job-suspend..." caller job (sh-current-job))
             (or (sh-current-job-suspend)
                 (job-break job))
-            ;x (debugf "...job-wait\tcaller=~s\tjob=~a\tcurrent-job=~s ... sh-current-job-suspend returned" caller (sh-job->string job) (sh-job->string (sh-current-job)))
+            ;x (debugf "...job-wait\tcaller=~s\tjob=~a\tcurrent-job=~s ... sh-current-job-suspend returned" caller job (sh-current-job))
             (%loop)))))
     (job-id-update! job))) ; returns job status
 
@@ -314,7 +314,7 @@
 (define (sh-job-status job-or-id)
   (let* ((job    (sh-job job-or-id))
          (status (job-last-status job)))
-    ; (debugf ">  sh-job-status job=~a" (sh-job->string job))
+    ; (debugf ">  sh-job-status job=~a" job)
     (if (started? status)
       (job-wait 'sh-job-status job (sh-wait-flags))
       status)))

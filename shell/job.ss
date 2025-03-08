@@ -120,7 +120,7 @@
 (define (job-status-set! caller job new-status)
   (let* ((status new-status)
          (kind   (status->kind status)))
-    ;; (debugf "job-status-set! caller=~s job=~a status=~s normalized-status=~s" caller (sh-job->string job) new-status status)
+    ;; (debugf "job-status-set! caller=~s job=~a status=~s normalized-status=~s" caller job new-status status)
     (case kind
       ((running)
         (job-status-set/running! job))
@@ -206,7 +206,7 @@
         (job-status-set! 'job-id-set! job (running id)))
       (unless (eqv? id old-id)
         (queue-job-display-summary job))))
-  ;; (debugf "job-id-set! job=~a\tid=~s" (sh-job->string job) (job-id job))
+  ;; (debugf "job-id-set! job=~a\tid=~s" job (job-id job))
   (job-last-status job))
 
 

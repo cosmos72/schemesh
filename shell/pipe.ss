@@ -132,7 +132,7 @@
           ; we must redirect job's fd 2 *before* any redirection configured in the job itself
           (job-redirect/temp/fd! job 2 '>& fd/write))))
 
-    ; (debugf "... mj-pipe-start-i starting job=~a, options=~s, redirect-in=~s, redirect-out=~s" (sh-job->string job) options redirect-in? redirect-out?)
+    ; (debugf "... mj-pipe-start-i starting job=~a, options=~s, redirect-in=~s, redirect-out=~s" job options redirect-in? redirect-out?)
 
     ; Do not yet assign a job-id. Reuse mj process group id
     (job-start 'sh-pipe job options)
@@ -161,15 +161,15 @@
 
 ;; Internal function called by (job-wait) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 (define (mj-pipe-advance caller mj wait-flags)
-  ;; (debugf "->  mj-pipe-advance\tcaller=~s\tjob=~a\twait-flags=~s\tstatus=~s" caller (sh-job->string mj) wait-flags (job-last-status mj))
+  ;; (debugf "->  mj-pipe-advance\tcaller=~s\tjob=~a\twait-flags=~s\tstatus=~s" caller mj wait-flags (job-last-status mj))
   (let ((pgid (job-pgid mj)))
     ;; we must run children in foreground,
     ;; otherwise they will not receive SIGTSTP when user types CTRL+Z
     (with-foreground-pgid wait-flags pgid
-      ;; (debugf "mj-pipe-advance before sigcont job=~s\tstatus=~s" (sh-job->string mj) (job-last-status mj))
+      ;; (debugf "mj-pipe-advance before sigcont job=~s\tstatus=~s" mj (job-last-status mj))
       (mj-pipe-advance-sigcont        mj wait-flags pgid)
       (job-status-set/running! mj)
-      ;; (debugf "mj-pipe-advance after  sigcont job=~s\tstatus=~s" (sh-job->string mj) (job-last-status mj))
+      ;; (debugf "mj-pipe-advance after  sigcont job=~s\tstatus=~s" mj (job-last-status mj))
       (mj-pipe-advance-wait    caller mj wait-flags)))
   ;; (debugf "<-  mj-pipe-advance\tcaller=~s\tjob=~a\twait-flags=~s\tjob-status=~s" caller (job-last-status mj) wait-flags (job-last-status mj))
   )
@@ -177,7 +177,7 @@
 
 (define (mj-pipe-advance-sigcont mj wait-flags pgid)
   ;; send SIGCONT to job's process group, if present.
-  ;; (debugf "mj-pipe-advance-sigcont job=~a\twait-flags=~s" (sh-job->string mj) wait-flags)
+  ;; (debugf "mj-pipe-advance-sigcont job=~a\twait-flags=~s" mj wait-flags)
   (when (sh-wait-flag-continue-if-stopped? wait-flags)
     (when pgid
       ;;
@@ -204,10 +204,10 @@
     ;; it's the only child possibly running in main process,
     ;; and sh-exprs need to be explicitly continued.
     (let ((job (sh-multijob-child-ref mj (fx1- n))))
-      ;; (debugf "->  mj-pipe-advance/w\tcaller=~s\tlast-job=~a\twait-flags=~s\tlast-job-status=~s\tsh-expr?=~s" caller (sh-job->string job) wait-flags (job-last-status job) (sh-expr? job))
+      ;; (debugf "->  mj-pipe-advance/w\tcaller=~s\tlast-job=~a\twait-flags=~s\tlast-job-status=~s\tsh-expr?=~s" caller job wait-flags (job-last-status job) (sh-expr? job))
       (when (and (sh-expr? job) (job-started? job))
         (job-wait 'mj-pipe-advance-wait job wait-flags)
-        ;; (debugf "... mj-pipe-advance/w\tcaller=~s\tlast-job=~a\twait-flags=~s\tlast-job-status=~s" caller (sh-job->string job) wait-flags (job-last-status job))
+        ;; (debugf "... mj-pipe-advance/w\tcaller=~s\tlast-job=~a\twait-flags=~s\tlast-job-status=~s" caller job wait-flags (job-last-status job))
         (when (job-stopped? job)
           (set! stopped? #t))))
 

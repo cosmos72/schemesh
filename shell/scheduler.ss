@@ -82,7 +82,7 @@
 
 ;; Internal function called by (job-wait)
 (define (pid-advance caller job wait-flags)
-  ; (debugf "> pid-advance wait-flags=~s job=~a pid=~s status=~s" wait-flags (sh-job->string job) (job-pid job) (job-last-status job))
+  ; (debugf "> pid-advance wait-flags=~s job=~a pid=~s status=~s" wait-flags job (job-pid job) (job-last-status job))
   (cond
     ((job-finished? job)
       (job-last-status job)) ; job finished, exit status already available
@@ -123,7 +123,7 @@
                        old-status
                        (scheduler-wait job
                          (if blocking? 'blocking 'nonblocking)))))
-    ;; (debugf "pid-advance-wait old-status=~s new-status=~s pid=~s job=~a" old-status new-status (job-pid job) (sh-job->string job))
+    ;; (debugf "pid-advance-wait old-status=~s new-status=~s pid=~s job=~a" old-status new-status (job-pid job) job)
     ;; (sleep (make-time 'time-duration 0 1))
 
     ;; if blocking? is #f, new-status may be 'running
@@ -156,7 +156,7 @@
 ;; In all cases, if preferred-job is set, return its updated status.
 ;; Otherwise return the status of some job that stopped - needed by (sh-current-job-yield)
 (define (scheduler-wait preferred-job may-block)
-  ;c (debugf ">   scheduler-wait may-block=~s preferred-job=~a" may-block (if preferred-job (sh-job->string preferred-job) preferred-job))
+  ;c (debugf ">   scheduler-wait may-block=~s preferred-job=~a" may-block preferred-job)
   (let ((current-job   (sh-current-job))
         (done? #f)
         (ret   (void)))
@@ -167,14 +167,14 @@
                  (old-status (if job (job-last-status job) (void)))
                  (new-status (pid-wait-result->status (cdr wait-result))))
 
-            ;; (debugf "... scheduler-wait job=~a\told-status=~s\tnew-status=~s\twait-result=~s\tpreferred-job=~a\tcurrent-job=~a" (sh-job->string job) old-status new-status wait-result (sh-job->string preferred-job) (sh-job->string current-job))
+            ;; (debugf "... scheduler-wait job=~a\told-status=~s\tnew-status=~s\twait-result=~s\tpreferred-job=~a\tcurrent-job=~a" job old-status new-status wait-result preferred-job current-job)
 
             (when job
               (job-status-set! 'scheduler-wait job new-status)
               (when (stopped? new-status)
                 (set! ret new-status))
 
-              ;; (debugf "... scheduler-wait old-status new-status=~s job=~a" old-status new-status (sh-job->string job))
+              ;; (debugf "... scheduler-wait old-status new-status=~s job=~a" old-status new-status job)
 
               (if (or (eq? job preferred-job) (eq? job current-job))
                 ;; the job we are interested in changed status => don't block again

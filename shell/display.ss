@@ -49,7 +49,7 @@
   (let ((queue '()))
     (case-lambda
       ((job)
-        ; (debugf "queue-job-display-summary add job=~a id=~s" (sh-job->string job) (job-id job))
+        ; (debugf "queue-job-display-summary add job=~a id=~s" job (job-id job))
         (set! queue (cons job queue)))
       (()
         ; (debugf "queue-job-display-summary return jobs=~a" (reverse queue))
