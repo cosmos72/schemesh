@@ -17,7 +17,7 @@
     (mutable oid)                          ; #f or fixnum >= 0: previous value of job id
     (mutable pid  job-pid  %job-pid-set!)  ; #f or integer > 0: process id
     (mutable pgid job-pgid %job-pgid-set!) ; #f or integer > 0: process group id
-     ; cons: last known status, or (void) if job exited successfully
+     ; status: last known status
     (mutable last-status job-last-status %job-last-status-set!)
     ; #f or exception that caused the job to terminate
     (mutable exception)
@@ -33,7 +33,7 @@
                     ; For multijobs, will be called when a child job changes status.
                     ; For cmds, will be called in fork()ed child process and
                     ; receives as argument job followed by options.
-                    ; For cmds, its return value is passed to (exit-with-job-status)
+                    ; For cmds, its return value is passed to (exit-with-status)
     (mutable cwd %job-cwd %job-cwd-set!) ; charspan: working directory. if #f, use parent's cwd
     (mutable owd %job-owd %job-owd-set!) ; #f or charspan: previous working directory
     (mutable env)         ; #f or hashtable of overridden env variables: name -> value
@@ -169,7 +169,7 @@
 
 
 ;; Create a copy of job and all its children jobs, and return it.
-;; Returned job will have no id, status '(new) and specified parent, or (sh-globals) if not specified
+;; Returned job will have no id, status 'new and specified parent, or (sh-globals) if not specified
 (define sh-job-copy
   (case-lambda
     ((job parent)
@@ -180,11 +180,11 @@
 
 
 ;; Create a copy of sh-cmd j, and return it.
-;; Returned job will have no id, status '(new) and specified parent.
+;; Returned job will have no id, status 'new and specified parent.
 (define (cmd-copy j parent)
   (%make-cmd
     #f #f #f #f          ; id oid pid pgid
-    '(new) #f            ; status exception
+    (new) #f   ; status exception
     (let ((redirects (job-redirects j)))
       (span-copy redirects (job-redirects-temp-n j) (span-length redirects)))
     0 #f                 ; redirects-temp-n fds-to-remap
@@ -205,14 +205,14 @@
 
 
 ;; Create a copy of sh-multijob j, and return it.
-;; Returned job will have no id, status '(new) and specified parent.
+;; Returned job will have no id, status 'new and specified parent.
 ;; Children jobs will be copied recursively.
 (define (multijob-copy j parent)
   (let* ((children (job-span-copy (multijob-children j)))
          (ret
     (%make-multijob
       #f #f #f #f          ; id oid pid pgid
-      '(new) #f            ; status exception
+      (new) #f   ; status exception
       (let ((redirects (job-redirects j)))
         ;; skip temporary redirects, copy the rest
         (span-copy redirects (job-redirects-temp-n j) (span-length redirects)))
@@ -240,7 +240,7 @@
 
 
 ;; Create a copy of span containing jobs and symbols, and return it.
-;; Returned jobs will have no id, status '(new) and parent (sh-globals)
+;; Returned jobs will have no id, status 'new and parent (sh-globals)
 ;; Children jobs will be copied recursively.
 (define (job-span-copy src)
   (let ((dst (make-span (span-length src))))

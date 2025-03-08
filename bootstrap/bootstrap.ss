@@ -240,10 +240,10 @@
       ((_ (proc args ...))
         #'(let ((tproc proc) ; proc must be evaluated before args
                 (targs (list args ...)))
-            (begin (debugf "-> ~s call ~s" 'proc (cons 'proc targs)))
-            (let ((ret (values->list (apply tproc targs))))
-              (begin (debugf "<- ~s rets ~s" 'proc ret))
-              (list->values ret)))))))
+            (begin (debugf "-> ~s args ~s" 'proc targs))
+            (let ((rets (values->list (apply tproc targs))))
+              (begin (debugf "<- ~s rets ~s args ~s" 'proc rets targs))
+              (list->values rets)))))))
 
 
 (define-syntax repeat

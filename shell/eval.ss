@@ -20,6 +20,7 @@
     (only (schemesh containers utf8b)  utf8b->string)
     (only (schemesh posix fd)          fd-close fd-read-all fd-write-all open-file-fd)
     (only (schemesh posix io)          open-fd-redir-utf8b-input-port open-file-utf8b-input-port)
+    (only (schemesh posix status)      ok failed)
     (schemesh parser)
     (only (schemesh shell parameters)  sh-eval)
     (only (schemesh shell job)         sh-fd sh-builtins sh-builtins-help))
@@ -248,19 +249,6 @@
 
 
 
-;; copy-pasted from shell/status.ss
-;;
-;; normalize job status, converting unexpected status values to '(failed ...)
-(define (status-normalize status)
-  (cond
-    ((eq? (void) status)
-      status)
-    ((and (pair? status) (memq (car status) '(new running stopped ok exception failed killed)))
-      status)
-    (else
-      (list 'failed status))))
-
-
 ;; the "source" builtin: read a file containing shell script or Scheme source and eval it.
 ;;
 ;; As all builtins do, must return job status.
@@ -271,15 +259,14 @@
       (fd-write-all (sh-fd 2)
         #vu8(115 99 104 101 109 101 115 104 58 32 115 111 117 114 99 101 58 32 116 111 111
              32 102 101 119 32 97 114 103 117 109 101 110 116 115 10)) ; "schemesh: source: too few arguments\n"
-      '(failed 1))
+      (failed 1))
     ((not (null? (cddr prog-and-args)))
       (fd-write-all (sh-fd 2)
         #vu8(115 99 104 101 109 101 115 104 58 32 115 111 117 114 99 101 58 32 116 111 111
              32 109 97 110 121 32 97 114 103 117 109 101 110 116 115 10)) ; "schemesh: source: too many arguments\n"
-      '(failed 1))
+      (failed 1))
     (else
-      (status-normalize
-        (sh-eval-file (cadr prog-and-args))))))
+      (ok (sh-eval-file (cadr prog-and-args))))))
 
 
 (begin

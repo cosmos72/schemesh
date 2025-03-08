@@ -32,6 +32,7 @@
         (raise-errorf 'yield-handler "~s is not zero-argument procedure" proc))
       proc)))
 
+
 ;; Try to suspend current dynamic context, for example current job execution,
 ;; and resume whoever started or continued it.
 ;;

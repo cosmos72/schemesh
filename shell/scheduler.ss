@@ -13,23 +13,23 @@
 ;;
 ;; If (pid-wait) succeeds, it returns a pair (pid . wait-status).
 ;; Passing wait-status to this function converts it to a job status as follows:
-;;   not a fixnum, or < 0 => return (list 'failed wait-status)
+;;   not a fixnum, or < 0 => return (failed wait-status)
 ;;   0                    => return (void)
-;;   1..255               => return (list 'failed  wait-status)
-;;   256 + kill_signal    => return (list 'killed  signal-name)
-;;   512 + stop_signal    => return (list 'stopped signal-name)
-;;   768                  => return (list 'running)
-;;   > 768                => return (list 'failed  (fx- wait-status 512))
+;;   1..255               => return (failed  wait-status)
+;;   256 + kill_signal    => return (killed  signal-name)
+;;   512 + stop_signal    => return (stopped signal-name)
+;;   768                  => return (running)
+;;   > 768                => return (failed  (fx- wait-status 512))
 ;;
 (define (pid-wait-result->status wait-status)
   (let ((x wait-status))
-    (cond ((not (fixnum? x)) (list 'failed x))
+    (cond ((not (fixnum? x)) (failed x))
           ((fx=? x   0) (void))
-          ((fx<? x 256) (list 'failed  x))
-          ((fx<? x 512) (list 'killed  (signal-number->name (fxand x 255))))
-          ((fx<? x 768) (list 'stopped (signal-number->name (fxand x 255))))
-          ((fx=? x 768) '(running))
-          (else         (list 'failed  (fx- x 512))))))
+          ((fx<? x 256) (failed  x))
+          ((fx<? x 512) (killed  (signal-number->name (fxand x 255))))
+          ((fx<? x 768) (stopped (signal-number->name (fxand x 255))))
+          ((fx=? x 768) (running))
+          (else         (failed  (fx- x 512))))))
 
 
 (define %foreground-pgid-cas  (foreign-procedure "c_pgid_foreground_cas" (int int) int))
@@ -119,16 +119,16 @@
   ;; cannot call (sh-job-status), it would recurse back here.
   (let* ((blocking?  (sh-wait-flag-wait? wait-flags))
          (old-status (job-last-status job))
-         (new-status (if (sh-finished? old-status)
+         (new-status (if (finished? old-status)
                        old-status
                        (scheduler-wait job
                          (if blocking? 'blocking 'nonblocking)))))
     ;; (debugf "pid-advance-wait old-status=~s new-status=~s pid=~s job=~a" old-status new-status (job-pid job) (sh-job->string job))
     ;; (sleep (make-time 'time-duration 0 1))
 
-    ;; if blocking? is #f, new-status may be '(running)
+    ;; if blocking? is #f, new-status may be 'running
     ;; indicating job status did not change i.e. it's (expected to be) still running
-    (case (sh-status->kind new-status)
+    (case (status->kind new-status)
       ((running stopped ok exception failed killed)
         new-status)
       (else
@@ -171,7 +171,7 @@
 
             (when job
               (job-status-set! 'scheduler-wait job new-status)
-              (when (sh-stopped? new-status)
+              (when (stopped? new-status)
                 (set! ret new-status))
 
               ;; (debugf "... scheduler-wait old-status new-status=~s job=~a" old-status new-status (sh-job->string job))

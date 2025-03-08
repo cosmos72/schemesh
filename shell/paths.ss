@@ -197,16 +197,16 @@
   (and
     (sh-path? obj)
     (let ((path obj)
-          (ok? #t))
+          (good? #t))
       (sh-path-iterate path
         (lambda (elem start end)
           ;; only first component can be empty i.e. path can start with "/"
           (when (or (and (fx>=? start end) (not (fxzero? start)))
                     (path-is-dot? elem start end)
                     (path-is-dot-dot? elem start end))
-            (set! ok? #f))
-          ok?)) ; exits early from sh-path-iterate if ok? is #f
-      ok?)))
+            (set! good? #f))
+          good?)) ; exits early from sh-path-iterate if good? is #f
+      good?)))
 
 
 ;; convert a path to a subpath.

@@ -186,9 +186,9 @@
         (bytespan-display-right/fixnum! wbuf table-n)
         (bytespan-insert-right/bvector! wbuf footer)
         (lineedit-flush lctx)
-        (let ((ok? (lineedit-read-confirm-y-or-n? lctx)))
-          (bytespan-insert-right/u8! wbuf (if ok? 121 110) 10)
-          ok?)))))
+        (let ((good? (lineedit-read-confirm-y-or-n? lctx)))
+          (bytespan-insert-right/u8! wbuf (if good? 121 110) 10)
+          good?)))))
 
 
 (define (%lineedit-update-with-completions lctx)

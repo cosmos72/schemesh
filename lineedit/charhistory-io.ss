@@ -21,7 +21,7 @@
     (schemesh containers charline)
     (schemesh containers charlines)
     (only (schemesh posix pid)         pid-get)
-    (only (schemesh posix dir)         file-delete file-rename ok?)
+    (only (schemesh posix dir)         file-delete file-rename)
     (only (schemesh posix io)          open-file-binary-input-port)
     (schemesh lineedit charhistory))
 
@@ -49,7 +49,7 @@
         (close-port port)
         (set! port #f)
         ;; atomically rename "history.txt.PID" -> "history.txt"
-        (when (ok? (file-rename temp-path path 'catch))
+        (when (eq? (void) (file-rename temp-path path 'catch))
           (set! remove-temp-path? #f)
           (set! success? #t))
       (catch (ex)

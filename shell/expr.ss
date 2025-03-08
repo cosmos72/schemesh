@@ -21,7 +21,7 @@
   (let ((current-job (sh-current-job)))
     (%make-sh-expr
       #f #f #f #f    ; id oid pid pgid
-      '(new) #f      ; last-status exception
+      (new) #f       ; last-status exception
       (span) 0 #f    ; redirections
       jexpr-start #f ; start-proc step-proc
       #f #f          ; working directory, old working directory - initially inherited from parent job
@@ -56,14 +56,14 @@
     ;; jobs are started non-blockingly,
     ;; but running a jexpr job always blocks
     ;; => stop the job and let caller decide whether to wait for it
-    (job-status-set! 'sh-expr job '(stopped sigtstp)))))
+    (job-status-set! 'sh-expr job (stopped 'sigtstp)))))
 
 
 ;; continue a jexpr job
-(define (jexpr-advance job wait-flags)
+(define (jexpr-advance caller job wait-flags)
   ;; jexpr jobs execute Scheme code, which always blocks:
   ;; continue only if caller asked to continue job and wait.
-  ; (debugf "jexpr-advance job=~s wait-flags=~s" (sh-job->string job) wait-flags)
+  ; (debugf "jexpr-advance\tcaller=~s\tjob=~a\twait-flags=~s" caller (sh-job->string job) wait-flags)
   (when (and (sh-wait-flag-wait? wait-flags)
              (sh-wait-flag-continue-if-stopped? wait-flags))
     (when (jexpr-resume-proc job)
@@ -106,26 +106,11 @@
                       (if (logbit? 1 (procedure-arity-mask proc))
                         (proc job)
                         (proc))))
-                  values->job-status)
+                  ok)
                 (catch (ex)
                   (debug-condition ex) ;; save obj into thread-parameter (debug-condition)
-                  (list 'exception ex))))))
+                  (exception ex))))))
         (lambda ()
           (when (job-running? job)
-            (job-status-set! 'sh-expr job '(stopped sigtstp))))))))
+            (job-status-set! 'sh-expr job (stopped 'sigtstp))))))))
     jexpr-initial-resume-proc))
-
-
-;; convert arbitrary Scheme values returned by jexpr-proc
-;; to job status
-(define (values->job-status . rets)
-  (cond
-    ((null? rets)
-      '(ok))
-    ((null? (cdr rets))
-      (let ((ret (car rets)))
-        (cond ((eq? (void) ret) (void))
-              ((not ret)        '(failed #f))
-              (else             (cons 'ok rets)))))
-    (else
-      (cons 'ok rets))))

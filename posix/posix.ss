@@ -26,5 +26,6 @@
     ;; (schemesh posix replacements)
 
     (schemesh posix signal)
+    (schemesh posix status)
     (schemesh posix tty)
     (schemesh posix pid)))

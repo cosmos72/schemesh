@@ -75,10 +75,6 @@
     ;; scheduler.ss
     sh-foreground-pgid
 
-    ;; status.ss
-    sh-ok? sh-new? sh-started? sh-running? sh-stopped? sh-finished?
-    sh-status->kind sh-status->value sh-status->value-list
-
     ;; types.ss
     sh-cmd? sh-expr? sh-job? sh-job-copy sh-multijob? sh-current-job
 
@@ -118,11 +114,11 @@
 
 ;; set the status of a job and return it.
 ;; if specified status indicates that job finished,
-;;   i.e. (sh-finished? status) returns true
+;;   i.e. (finished? status) returns true
 ;;   also close the job fds that need to be closed.
 (define (job-status-set! caller job new-status)
-  (let* ((status (status-normalize new-status))
-         (kind   (sh-status->kind status)))
+  (let* ((status new-status)
+         (kind   (status->kind status)))
     ;; (debugf "job-status-set! caller=~s job=~a status=~s normalized-status=~s" caller (sh-job->string job) new-status status)
     (case kind
       ((running)
@@ -157,18 +153,16 @@
         (%job-last-status-set! job status)))))
 
 
-;; set job status to (list 'running job-id)
+;; set job status to (running job-id)
 ;; and return such status
 (define (job-status-set/running! job)
   (let* ((id     (job-id job))
          (status (job-last-status job))
-         (kind   (sh-status->kind status))
-         (old-id (if (and (pair? status) (not (null? (cdr status))))
-                   (cadr status)
-                   #f)))
-    (if (and (eq? 'running status) (eqv? id old-id))
+         (kind   (status->kind status))
+         (old-id (status->value status)))
+    (if (and (eq? 'running kind) (eqv? id old-id))
       status
-      (let ((new-status (list 'running id)))
+      (let ((new-status (running id)))
         (%job-last-status-set! job new-status)
         new-status))))
 
@@ -194,7 +188,7 @@
 
 
 ;; If job has no job-id, assign a job-id to it, by appending it to (multijob-children (sh-globals)).
-;; If job status is '(running) update it to '(running job-id)
+;; If job status is 'running update it to '(running job-id)
 ;; Return updated job status
 (define (job-id-set! job)
   (assert* 'job-id-set! (sh-job? job))
@@ -205,10 +199,10 @@
     (let* ((old-id (job-id job))
            (id     (or old-id (%job-id-assign! job)))
            (status (job-last-status job))
-           (kind   (sh-status->kind status)))
-      (when (and (eq? kind 'running) (or (null? (cdr status)) (not (eqv? id (cadr status)))))
-        ;; replace job status '(running) -> '(running job-id)
-        (job-status-set! 'job-id-set! job (list 'running id)))
+           (kind   (status->kind status)))
+      (when (and (eq? kind 'running) (not (eqv? id (status->value status))))
+        ;; replace job status (running) -> (running job-id)
+        (job-status-set! 'job-id-set! job (running id)))
       (unless (eqv? id old-id)
         (queue-job-display-summary job))))
   ;; (debugf "job-id-set! job=~a\tid=~s" (sh-job->string job) (job-id job))
@@ -231,13 +225,13 @@
 
 ;; if job is running or stopped, then create a new job-id for it.
 ;; if job has terminated, clear its job id and close its fds.
-;; Also replace any job status '(running) -> '(running job-id)
+;; Also replace any job status (running) -> (running job-id)
 ;; Return updated job status.
 ;;
 ;; Note: does not create job-id for children of (sh-pipe) jobs.
 (define (job-id-update! job)
   (let ((status (job-last-status job)))
-    (case (sh-status->kind status)
+    (case (status->kind status)
       ((running stopped)
         (job-id-set! job))
       ((ok exception failed killed)

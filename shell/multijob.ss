@@ -111,7 +111,7 @@
          (mj
     (%make-multijob
       #f #f #f #f     ; id oid pid pgid
-      '(new) #f       ; last-status exception
+      (new) #f       ; last-status exception
       (span) 0 #f     ; redirections
       start-proc      ; executed to start the job
       step-proc       ; executed when a child job changes status
@@ -212,10 +212,10 @@
       (job-env/apply-lazy! job 'export)
       ;; (debugf "mj-or-start ~s empty children? = ~s" job (span-empty? (multijob-children job)))
       (if (span-empty? (multijob-children job))
-        ;; (sh-or) with zero children -> job fails with '(failed 256)
-        (job-status-set! 'mj-or-start job '(failed 256))
+        ;; (sh-or) with zero children -> job fails with (failed 256)
+        (job-status-set! 'mj-or-start job (failed 256))
         ;; Do not yet assign a job-id.
-        (mj-or-step job '(failed 256))))))
+        (mj-or-step job (failed 256))))))
 
 
 ;; Internal function stored in (job-start-proc job) by (sh-not),
@@ -264,7 +264,7 @@
     ;; warning: do not call (job-status-set! job ...)
     ;; because it detects that job is running, and assigns a job-id to it,
     ;; which is only annoying - cannot do anything useful with such job-id.
-  (%job-last-status-set! job '(running))))
+  (%job-last-status-set! job (running))))
 
 
 ;; Fork a new subprocess, and in the child subprocess
@@ -296,7 +296,7 @@
           ((< ret 0) ; fork() failed
             (raise-c-errno 'sh-start 'fork ret))
           ((= ret 0) ; child
-            (let ((status '(exception #f)))
+            (let ((status (exception #f)))
               (dynamic-wind
                 (lambda () ; run before body
                   (spawn-procedure-child-before job))
@@ -316,11 +316,11 @@
                   (set! status (sh-wait job)))
                 (lambda () ; run after body, even if it raised a condition
                   ;c (debugf "< [child] spawn-procedure job=~a subprocess exiting with pid=~s status=~s" (sh-job->string job) (job-pid job) status)
-                  (exit-with-job-status status)))))
+                  (exit-with-status status)))))
           ((> ret 0) ; parent
             (job-pid-set! job ret)
             (job-pgid-set! job process-group-id)
-            '(running)))))))
+            (running)))))))
 
 
 ;; if options contain '(spawn? . #t) then remove such options and call (spawn-procedure job options proc)
@@ -344,37 +344,32 @@
          ;; call (job-wait) on child
          (child-status (if (sh-job? child) (job-wait caller child wait-flags) (void)))
          (step-proc   (job-step-proc mj)))
-    ;a (debugf ">  mj-advance job=~s child=~s child-status=~s" mj child child-status)
+    ;; (debugf ">  mj-advance job=~s child=~s child-status=~s" mj child child-status)
     (cond
       ((or (not step-proc) (status-stops-or-ends-multijob? child-status))
-        ; propagate child exit status and return
+        ;; propagate child exit status and return
         (job-status-set! 'mj-advance mj child-status)
         child-status)
-      ((sh-finished? child-status)
-        ; child failed: advance multijob by calling (job-step-proc)
-        ; then call (mj-advance) again multijob if job is still running.
-        ; (debugf "... mj-advance > step-proc ~s status=~s" mj (job-last-status mj))
+      ((finished? child-status)
+        ;; child failed: advance multijob by calling (job-step-proc)
+        ;; then call (mj-advance) again multijob if job is still running.
+        ;; (debugf "... mj-advance > step-proc ~s status=~s" mj (job-last-status mj))
         (step-proc mj child-status)
-        ; (debugf "... mj-advance < step-proc ~s status=~s" mj (job-last-status mj))
+        ;; (debugf "... mj-advance < step-proc ~s status=~s" mj (job-last-status mj))
         (if (job-running? mj)
           (mj-advance caller mj wait-flags)
           (job-last-status mj)))
-      ((sh-running? child-status)
+      ((running? child-status)
         ;; child is still running.
         ;; if wait-flags tell to wait, then wait for child to change status again.
         ;; otherwise propagate child status and return.
         (if (sh-wait-flag-wait? wait-flags)
            (mj-advance caller mj wait-flags)
            (job-last-status mj)))
-      ((sh-stopped? child-status)
-        ;; child is stopped.
-        ;; if wait-flags tell to wait until child finishes, then wait for child to change status again.
-        ;; otherwise propagate child status and return
-        (if (sh-wait-flag-wait-until-finished? wait-flags)
-          (begin
-            (sh-current-job-suspend)
-            (mj-advance caller mj wait-flags))
-          (job-status-set! 'mj-advance mj child-status)))
+      ((stopped? child-status)
+        ;; child is stopped: propagate child status and return.
+        ;; if caller wants to wait until child or mj finished, he will invoke (mj-advance) again
+        (job-status-set! 'mj-advance mj child-status))
       (else
         (raise-errorf caller "child job not started yet: ~s" child)))))
 
@@ -385,13 +380,13 @@
 (define (mj-and-step mj prev-child-status)
   (let* ((idx     (fx1+ (multijob-current-child-index mj)))
          (child   (sh-multijob-child-ref mj idx)))
-    ;a (debugf "mj-and-step idx=~s child=~s prev-child-status=~s" idx child prev-child-status)
-    (if (and (sh-ok? prev-child-status) (sh-job? child))
+    ;; (debugf "mj-and-step idx=~s child=~s prev-child-status=~s" idx child prev-child-status)
+    (if (and (ok? prev-child-status) (sh-job? child))
       (begin
         ; start next child job
         (multijob-current-child-index-set! mj idx)
         (let ((child-status (job-start 'sh-and child options-catch)))
-          (when (sh-finished? child-status)
+          (when (finished? child-status)
             ; child job already finished, iterate
             (mj-and-step mj child-status))))
       (begin
@@ -406,14 +401,14 @@
 (define (mj-or-step mj prev-child-status)
   (let* ((idx     (fx1+ (multijob-current-child-index mj)))
          (child   (sh-multijob-child-ref mj idx)))
-    (if (and (not (sh-ok? prev-child-status))
+    (if (and (not (ok? prev-child-status))
              (not (status-ends-multijob? prev-child-status))
              (sh-job? child))
       (begin
         ; start next child job
         (multijob-current-child-index-set! mj idx)
         (let ((child-status (job-start 'sh-or child options-catch)))
-          (when (sh-finished? child-status)
+          (when (finished? child-status)
             ; child job already finished, iterate
             (mj-or-step mj child-status))))
       (begin
@@ -436,7 +431,7 @@
         ; start child job
         (multijob-current-child-index-set! mj idx)
         (let ((child-status (job-start 'sh-not child options-catch)))
-          (when (sh-finished? child-status)
+          (when (finished? child-status)
             ; child job already finished, iterate
             (mj-not-step mj child-status))))
       (begin
@@ -444,7 +439,7 @@
         (multijob-current-child-index-set! mj -1)
         (job-status-set! 'mj-not-step mj
           (cond
-            ((sh-ok? prev-child-status) '(failed 1))
+            ((ok? prev-child-status) (failed 1))
             ((status-ends-multijob? prev-child-status) prev-child-status)
             (else (void))))))))
 
@@ -458,7 +453,7 @@
          (iterate? #t)
          (interrupted? #f))
     ; (debugf "mj-list-step > ~s idx=~s prev-child-status=~s" mj (fx1- idx) prev-child-status)
-    (assert* 'mj-list-step (sh-finished? prev-child-status))
+    (assert* 'mj-list-step (finished? prev-child-status))
     ; idx = 0 if called by (mj-list-start)
     (assert* 'mj-list-step (fx>=? idx 0))
     (while (and iterate? (not interrupted?) (fx<=? idx child-n))
@@ -468,7 +463,7 @@
           ;; start next child job
           (let* ((child-async? (eq? '& (sh-multijob-child-ref mj (fx1+ idx))))
                  (child-status (job-start 'sh-list child options-catch))
-                 (child-started? (sh-started? child-status)))
+                 (child-started? (started? child-status)))
             ; iterate on subsequent child jobs in two cases:
             ; if child job is followed by '&
             ; if child job has already finished
@@ -490,7 +485,7 @@
       (set! idx (fx1+ idx)))
     (when (or interrupted?
               (and (fx>? idx child-n)
-                   (sh-finished? prev-child-status)))
+                   (finished? prev-child-status)))
       ; end of children reached, or sync child interrupted.
       ; propagate status of last sync child
       (multijob-current-child-index-set! mj -1)

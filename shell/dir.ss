@@ -95,7 +95,7 @@
       (job-cwd-set! job dir)
       (raise-errorf 'cd "~s: ~a"
         (if (string? path) path (charspan->string path))
-        (c-errno->string c-err))))) ; returns '(failed 1)
+        (c-errno->string c-err))))) ; returns (failed 1)
 
 
 ;; internal function called by (sh-cd) -> (job-cd)

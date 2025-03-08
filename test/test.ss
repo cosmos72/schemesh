@@ -65,14 +65,14 @@
   (let* ((result                (sh-eval form))
          (comparable-result     (test->comparable comparison result))
          (comparable-exp-result (test->comparable comparison exp-result))
-         (ok? (comparable-equal? comparison comparable-result comparable-exp-result)))
-    (unless ok?
+         (same? (comparable-equal? comparison comparable-result comparable-exp-result)))
+    (unless same?
       (if (eq? 'format-s comparison)
         (format #t "test failed:\n    Scheme code  ~s\n    evaluated to ~a\n    expecting    ~a\n"
                 form comparable-result comparable-exp-result)
         (format #t "test failed:\n    Scheme code  ~s\n    evaluated to ~s\n    expecting    ~s\n"
                 form comparable-result comparable-exp-result)))
-    ok?))
+    same?))
 
 
 (define (test->comparable comparison result)
@@ -96,11 +96,11 @@
 (define (run-tests-utf8b)
   (let* ((maxlen 1024)
          (s (make-string maxlen))
-         (ok? #t))
+         (good? #t))
     (do ((i 0 (fx+ i maxlen)))
-        ((fx>? i #x10FFFF) ok?)
+        ((fx>? i #x10FFFF) good?)
       (unless (run-test-utf8b s i)
-        (set! ok? #f)))))
+        (set! good? #f)))))
 
 
 (define (run-test-utf8b s first-codepoint)

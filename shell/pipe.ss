@@ -177,9 +177,9 @@
 
 (define (mj-pipe-advance-sigcont mj wait-flags pgid)
   ;; send SIGCONT to job's process group, if present.
+  ;; (debugf "mj-pipe-advance-sigcont job=~a\twait-flags=~s" (sh-job->string mj) wait-flags)
   (when (sh-wait-flag-continue-if-stopped? wait-flags)
     (when pgid
-      ;; (debugf "mj-pipe-advance/sigcont > ~s ~s" mj wait-flags)
       ;;
       ;; if SIGCHLD arrives late, i.e. after we later resume mj children jobs,
       ;; any child sh-expr that is already resumed may receive an EINTR error
@@ -222,7 +222,7 @@
             ((symbol? job)
               (%again (fx1+ i)))
             ((sh-job? job)
-              (case (sh-status->kind (job-wait 'mj-pipe-advance-wait job wait-flags))
+              (case (status->kind (job-wait 'mj-pipe-advance-wait job wait-flags))
                 ((ok exception failed killed)
                   (%again (fx1+ i)))
                 ((stopped) ; stop iterating
@@ -233,6 +233,7 @@
 
     (cond
       (stopped?
+        (multijob-current-child-index-set! mj running-i)
         (mj-pipe-signal-sigtstp mj)
         (job-last-status mj))
 
@@ -252,4 +253,4 @@
   (let ((pgid (job-pgid mj)))
     (when pgid
       (pid-kill (- pgid) 'sigtstp)))
-  (job-status-set! 'mj-pipe-signal-sigtstp mj '(stopped sigtstp)))
+  (job-status-set! 'mj-pipe-signal-sigtstp mj (stopped 'sigtstp)))

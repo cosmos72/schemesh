@@ -76,15 +76,15 @@
     (hashtable-set! bt "pwd"        builtin-pwd)
     (hashtable-set! bt "set"        builtin-set)
     (hashtable-set! bt "split-at-0" builtin-split-at-0)
+    (hashtable-set! bt "status"     builtin-status)
     (hashtable-set! bt "unalias"    builtin-unalias)
     (hashtable-set! bt "unexport"   builtin-unexport)
     (hashtable-set! bt "unsafe"     builtin-unsafe)
     (hashtable-set! bt "unset"      builtin-unset)
-    (hashtable-set! bt "value"      builtin-value)
 
     ;; mark builtins that finish immediately i.e. cannot run commands or aliases
     (list-iterate '("alias" "cd" "cd-" "echo" "echo0" "exit" "false" "jobs"
-                    "history" "pwd" "set" "true" "unalias" "unset" "value")
+                    "history" "pwd" "set" "status" "true" "unalias" "unset")
       (lambda (name)
         (let ((builtin (hashtable-ref bt name #f)))
           (when builtin
@@ -213,6 +213,9 @@
 
     return exit status of executed alias, builtin or command.\n"))
 
+    (hashtable-set! t "status"   (string->utf8 " [int ...]
+    return INT value specified as first argument, or success if no arguments.\n"))
+
     (hashtable-set! t "unalias"    (string->utf8 " [name ...]
     remove each NAME ... from the list of defined aliases.
 
@@ -235,9 +238,6 @@
     remove each VAR ... environment variable from parent job.
 
     return success.\n"))
-
-    (hashtable-set! t "value"   (string->utf8 " [int ...]
-    return INT value specified as first argument, or success if no arguments.\n"))
   )
 
 ) ; close begin

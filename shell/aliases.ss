@@ -144,7 +144,7 @@
         (show-alias* name alias wbuf)
         (fd-write/bspan! (sh-fd 1) wbuf)
         (void))                                         ; success, return (void)
-      (write-builtin-error "alias" name "not found")))) ; error, return '(failed 1)
+      (write-builtin-error "alias" name "not found")))) ; error, return (failed 1)
 
 
 (define (show-alias* name alias wbuf)

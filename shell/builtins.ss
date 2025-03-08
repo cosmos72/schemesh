@@ -83,9 +83,9 @@
   (void))
 
 
-;; implementation of "false" builtin, always exits with failure exit status '(failed 1)
+;; implementation of "false" builtin, always exits with failure exit status (failed 1)
 (define (sh-false . ignored-args)
-  '(failed 1))
+  (failed 1))
 
 
 ;; implementation of "help" builtin, display general help or help for specified builtin.
@@ -129,7 +129,7 @@ The following names are recognized as builtins:\n\n")
             (bytespan-insert-right/string! wbuf name)
             (bytespan-insert-right/string! wbuf "'. Try 'help' or 'help help'.\n")
             (fd-write/bspan! (sh-fd 1) wbuf)
-            '(failed 1)))))))
+            (failed 1)))))))
 
 
 
@@ -157,7 +157,7 @@ The following names are recognized as builtins:\n\n")
                   (fd-write/bspan! fd wbuf))))
             (fd-write/bspan! fd wbuf)
             (void)) ; return (void), means builtin finished successfully
-          '(failed 1))))))
+          (failed 1))))))
 
 
 ;; implementation of "true" builtin, always exits successfully i.e. with exit status (void)
@@ -183,7 +183,7 @@ The following names are recognized as builtins:\n\n")
   (apply sh-echo0 (cdr prog-and-args)))
 
 
-;; the "false" builtin: return '(failed 1)
+;; the "false" builtin: return (failed 1)
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-false job prog-and-args options)
@@ -287,7 +287,7 @@ is usually available at <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html#
     return success.\n"))
 
     (hashtable-set! t "false"   (string->utf8 " [arg ...]
-    ignore arguments. return failure i.e. '(failed 1).\n"))
+    ignore arguments. return failure i.e. (failed 1).\n"))
 
     (hashtable-set! t "help"    (string->utf8 " [name]
     display available builtins, or help about builtin NAME.

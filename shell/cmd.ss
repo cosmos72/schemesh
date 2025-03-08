@@ -14,7 +14,7 @@
   (let ((current-job (sh-current-job)))
     (%make-cmd
       #f #f #f #f     ; id oid pid pgid
-      '(new) #f       ; last-status exception
+      (new) #f       ; last-status exception
       (span) 0 #f     ; redirections
       cmd-start #f    ; start-proc step-proc
       #f #f           ; working directory, old working directory - initially inherited from parent job
@@ -58,7 +58,7 @@
 ;;   into the corresponding process group id - which must already exist.
 ;;
 ;; Returns job status, which is also stored in (sh-job-last-status)
-;;   and may be one of (void) '(ok ...) '(failed ...) '(running ...) '(stopped ...) '(killed ...) '(exception ...) etc.
+;;   and may be one of (void) (ok ...) (failed ...) (running ...) (stopped ...) (killed ...) (exception ...) etc.
 ;;   For the complete list of possible returned job statuses, see (sh-job-status).
 (define (cmd-start c options)
   (assert* 'sh-cmd (eq? 'running (job-last-status->kind c)))
@@ -98,7 +98,7 @@
 (define (cmd-arg-call-sh-expr-or-procedure c arg l)
   (let ((expanded
           (cond
-            ((sh-expr? arg) (sh-ok->values (sh-run arg)))    ; run sh-expr job, raise exception if zero or 2+ results
+            ((sh-expr? arg) (ok->values (sh-run arg)))    ; run sh-expr job, raise exception if zero or 2+ results
             ((not (procedure? arg)) arg)
             ((logbit? 1 (procedure-arity-mask arg)) (arg c)) ; call (proc job)
             (else (arg)))))                                  ; call (proc)
@@ -138,7 +138,7 @@
 ;; optionally inserting it into an existing process group.
 ;;
 ;; Returns job status,
-;;   which may be one of (void) '(failed ...) '(running ...) etc.
+;;   which may be one of (void) (failed ...) (running ...) etc.
 ;;   For the complete list of possible returned job statuses, see (sh-job-status).
 (define (start-command-or-builtin-or-alias c program-and-args options)
   (assert* 'sh-cmd (sh-cmd? c))
@@ -203,7 +203,7 @@
                     (or process-group-id -1))))
         ;; (debugf "cmd-spawn pid=~s prog-and-args=~s job=~a " ret prog-and-args (sh-job->string c))
         (when (< ret 0)
-          (job-status-set! 'cmd-spawn c (list 'failed ret))
+          (job-status-set! 'cmd-spawn c (failed ret))
           (raise-c-errno 'sh-start 'fork ret))
         (job-pid-set! c ret)
         (job-pgid-set! c process-group-id)
@@ -222,7 +222,7 @@
                     (job-make-c-redirect-vector c)
                     (sh-env->argv c 'export))))
         ; (c-cmd-exec) returns only if it failed
-        (list 'failed (if (and (integer? ret) (not (zero? ret))) ret -1))))))
+        (failed (if (and (integer? ret) (not (zero? ret))) ret -1))))))
 
 
 ;; internal function called by (cmd-spawn)

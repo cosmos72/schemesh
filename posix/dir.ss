@@ -9,7 +9,7 @@
 (library (schemesh posix dir (0 8 1))
   (export
       directory-list directory-list* directory-list-type directory-sort!
-      file-delete file-rename file-type mkdir ok?)
+      file-delete file-rename file-type mkdir)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -21,20 +21,6 @@
 
 
 (define c-errno-einval ((foreign-procedure "c_errno_einval" () int)))
-
-;; return #t if return-status is either (void) or '(ok ...), that indicate success.
-;; otherwise return #f
-;;
-;; intentionally identical to function (sh-ok?) exported by library (schemesh shell job)
-(define (ok? return-status)
-  (cond
-    ((eq? return-status (void))
-      #t)
-    ((and (pair? return-status)
-          (eq? 'ok (car return-status)))
-      #t)
-    (else
-      #f)))
 
 
 (define (%find-and-convert-fixnum-option caller options key default)

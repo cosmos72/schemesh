@@ -111,13 +111,13 @@
 
   ;; ------------------------- builtin execution ------------------------------
   (sh-run (shell "true"))                              ,@"#<void>"
-  (sh-run (shell "false"))                             (failed 1)
+  (sh-run (shell "false"))                             ,(failed 1)
   (sh-run (shell "echo0"))                             ,@"#<void>"
-  (sh-run (shell "value" "210"))                       (failed 210)
+  (sh-run (shell "status" "210"))                      ,(failed 210)
   (sh-run (shell-subshell "true"))                     ,@"#<void>"
-  (sh-run (shell-subshell "false"))                    (failed 1)
+  (sh-run (shell-subshell "false"))                    ,(failed 1)
   (sh-run (shell-subshell "echo0"))                    ,@"#<void>"
-  (sh-run (shell-subshell "value" "210"))              (failed 210)
+  (sh-run (shell-subshell "status" "213"))             ,(failed 213)
   ;; (sh-run/string)
   (sh-run/string (shell "echo"
     (shell-wildcard (shell-env "FOO") "=123" )))       "=123\n"
@@ -153,7 +153,7 @@
   (sh-run (shell
     "echo" "xyz" \x7C;
     (shell "command" "true" &&
-           "grep" "abc" > "/dev/null")))               (failed 1)
+           "grep" "abc" > "/dev/null")))               ,(failed 1)
   (sh-run/string (shell
     "echo0" "def" "gh" "i" ""))                        "def\x0;gh\x0;i\x0;\x0;"
   (sh-run/string (shell
@@ -161,26 +161,26 @@
       (shell-backquote "echo0" "jkl" "mn" "o" "")))    "jkl mn o \n"
   (sh-run {
      $(display "hello") | cat |
-     $(utf8b->string (fd-read-all (sh-fd 0)))})  ,(ok "hello")
+     $(utf8b->string (fd-read-all (sh-fd 0)))})        ,(ok "hello")
 
   ;; run builtin in a subprocess
-  (sh-run (sh-cmd "false") '(spawn? . #t))             (failed 1)
+  (sh-run (sh-cmd "false") '(spawn? . #t))             ,(failed 1)
   (let ((j (sh-cmd "false")))
     (sh-start j '(spawn? . #t))
-    (sh-wait j))                                       (failed 1)
+    (sh-wait j))                                       ,(failed 1)
   ;; run a pipe in current shell
   (sh-run (shell
     "command" "true" \x7C;
-    "false"))                                          (failed 1)
+    "false"))                                          ,(failed 1)
   (sh-run (shell
     "false" \x7C;
     "command" "true" \x7C;
-    "value" "17"))                                      (failed 17)
+    "status" "17"))                                    ,(failed 17)
   ;; run a pipe in a subshell
   (sh-run (shell-subshell
     "builtin" "true" \x7C;
     "builtin" "command" "false" \x7C;
-    "global"  "value" "19"))                            (failed 19)
+    "global"  "status" "19"))                          ,(failed 19)
 
 
   ;; ------------------------- job execution ---------------------------------
@@ -194,39 +194,39 @@
   (sh-run/i {$(values 4 5 6)})                         ,(ok 4 5 6)
 
   (sh-run/i (sh-cmd "command" "true"))                 ,@"#<void>"
-  (sh-run   (sh-cmd "command" "false"))                (failed 1)
-  (sh-run   (sh-cmd "value" "0"))                      ,@"#<void>"
-  (sh-run   (sh-cmd "value" "257"))                    (failed 257)
+  (sh-run   (sh-cmd "command" "false"))                ,(failed 1)
+  (sh-run   (sh-cmd "status" "0"))                     ,@"#<void>"
+  (sh-run   (sh-cmd "status" "257"))                   ,(failed 257)
   (sh-run/i {false
              true})                                    ,@"#<void>"
   (sh-run   {true
-             false})                                   (failed 1)
-  (sh-run/i {true && false})                           (failed 1)
-  (sh-run   {true && false})                           (failed 1)
+             false})                                   ,(failed 1)
+  (sh-run/i {true && false})                           ,(failed 1)
+  (sh-run   {true && false})                           ,(failed 1)
   (sh-run/i {true || false})                           ,@"#<void>"
   (sh-run   {true || false})                           ,@"#<void>"
-  (sh-run   {false || false})                          (failed 1)
-  (sh-run/i {! true})                                  (failed 1)
-  (sh-run   {! true})                                  (failed 1)
+  (sh-run   {false || false})                          ,(failed 1)
+  (sh-run/i {! true})                                  ,(failed 1)
+  (sh-run   {! true})                                  ,(failed 1)
   (sh-run/i {! false})                                 ,@"#<void>"
   (sh-run   {! false})                                 ,@"#<void>"
   (let ((j {true && command false}))
     (sh-start j)
     (sh-bg j)
-    (sh-fg j))                                         (failed 1)
+    (sh-fg j))                                         ,(failed 1)
   (let ((j {true |& command false}))
     (sh-start j)
     (sh-bg j)
-    (sh-wait j))                                       (failed 1)
+    (sh-wait j))                                       ,(failed 1)
   ;; (sh-start) of a builtin, or a multijob containing (recursively) only builtins,
   ;; directly returns their exit status, as (sh-run) would do.
   ;; Reason: there is no spawned external process to wait for.
-  (sh-start {true && false})                           (failed 1)
+  (sh-start {true && false})                           ,(failed 1)
   (let ((j {sleep 1}))
     (sh-start j)
-    (sh-bg j))                                         (running 1)
+    (sh-bg j))                                         ,(running 1)
   (sh-run {[true
-            false]})                                   (failed 1)
+            false]})                                   ,(failed 1)
   ;; if stopped, schemesh forgets to restore its process group as fg => lineedit read() fails => fatal error
   (sh-run $(sh-run
     { {echo a
@@ -234,7 +234,7 @@
        echo b
        sleep 0
        echo c} |
-     $(get-string-all (current-input-port))}))         (ok (ok "a\nb\nc\n"))
+     $(get-string-all (current-input-port))}))         ,(ok "a\nb\nc\n")
 
   ;; ------------------------- sh-read ------------------------------------
   (sh-read-string* "#!/some/path some-arg\n\
