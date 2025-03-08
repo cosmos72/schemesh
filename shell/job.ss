@@ -39,6 +39,7 @@
     sh-job-display sh-job-display* sh-job->string
     sh-job-write   sh-job-write* sh-job->verbose-string
     sh-job-display-summary? sh-job-display-summary sh-job-display-summary*
+    sh-job-syntax-for-display
 
     ;; env.ss
     sh-env-ref sh-env-set! sh-env-delete! sh-env-visibility-ref sh-env-visibility-set!

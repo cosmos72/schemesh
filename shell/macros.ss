@@ -12,7 +12,7 @@
     shell shell-backquote shell-env shell-list shell-subshell shell-expr shell-wildcard)
   (import
     (rnrs)
-    (only (chezscheme) datum meta reverse!)
+    (only (chezscheme) datum format fx1- meta parameterize reverse!)
     (schemesh bootstrap)
     (only (schemesh posix pattern) sh-wildcard?)
     (schemesh shell job)
@@ -76,11 +76,18 @@
   (sh-parse-datum (cons 'shell-subshell args)))
 
 
-;; TODO: macro: create a (sh-expr) that evaluates specified Scheme expressions
+;; macro: create a (sh-expr) that evaluates specified Scheme expressions
 ;; when executed, and returns the value of last expression.
 (define-syntax shell-expr
-  (syntax-rules ()
-    ((_ expr exprs ...) (sh-expr (lambda () expr exprs ...)))))
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ expr)
+        (let ((label (format #f "~s" (datum expr))))
+          (if (fx<=? (string-length label) 80)
+            #`(sh-expr (lambda () expr) #,label)
+            #`(sh-expr (lambda () expr)))))
+      ((_ expr exprs ...)
+        #`(shell-expr (begin expr exprs ...))))))
 
 
 (meta begin

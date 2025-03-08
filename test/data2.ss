@@ -361,7 +361,7 @@
   (caddr (expand '{{ls -al >> log.txt}}))              (sh-cmd* "ls" "-al" 1 '>> "log.txt")
   (caddr (expand '(shell-list
     (shell "ls" "-al" >> "log.txt"))))                 (sh-cmd* "ls" "-al" 1 '>> "log.txt")
-  (caddr (expand '(shell-expr (if a b c))))            (sh-expr (lambda () (if a b c)))
+  (caddr (expand '(shell-expr (if a b c))))            (sh-expr (lambda () (if a b c)) "(if a b c)")
   (caddr (expand '{{{{echo|cat}}}}))                   (sh-pipe* (sh-cmd "echo") '\x7C; (sh-cmd "cat"))
   (caddr (expand '(sh-pipe* {echo} '\x7C; {cat})))     (sh-pipe* (sh-cmd "echo") '\x7C; (sh-cmd "cat"))
   (caddr (expand (parse-shell-form1 (string->parsectx
@@ -454,4 +454,9 @@
   {echo abc > DEL_ME && cat DEL_ME && rm DEL_ME}       ,@"(sh-and (sh-cmd* \"echo\" \"abc\" 1 '> \"DEL_ME\") \
                                                                 (sh-cmd \"cat\" \"DEL_ME\") \
                                                                 (sh-cmd \"rm\" \"DEL_ME\"))"
+
+  (caddr (expand '(shell-expr a (b) c)))               (sh-expr (lambda () a (b) c) "(begin a (b) c)")
+  (caddr (expand '$(foo x y z)))                       (sh-expr (lambda () (foo x y z)) "(foo x y z)")
+  $(+ a b c)                                           ,(sh-expr (lambda () (+ a b c)))
+
 ) #!eof

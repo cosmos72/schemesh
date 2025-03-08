@@ -11,27 +11,33 @@
 
 ;; Create a sh-job subclass that will run Scheme procedure proc
 ;; when the job is executed,
-;; and return its value wrapped in a job-status.
+;; and return its value wrapped in a status.
 ;;
 ;; Procedure proc must accept zero or one arguments - the job itself.
-(define (sh-expr proc)
-  (assert* 'sh-expr (procedure? proc))
-  (unless (logbit? 0 (procedure-arity-mask proc))
-    (assert* 'sh-expr (logbit? 1 (procedure-arity-mask proc))))
-  (let ((current-job (sh-current-job)))
-    (%make-sh-expr
-      #f #f #f #f    ; id oid pid pgid
-      (new) #f       ; last-status exception
-      (span) 0 #f    ; redirections
-      jexpr-start #f ; start-proc step-proc
-      #f #f          ; working directory, old working directory - initially inherited from parent job
-      #f             ; overridden environment variables - initially none
-      #f             ; env var assignments - initially none
-      (and current-job (job-parent current-job)) ; temp parent job
-      (or current-job (sh-globals))              ; default parent job
-      proc                                       ; procedure to call for executing the job
-      #f #f)))                                   ; resume-proc suspend-proc
-
+(define sh-expr
+  (case-lambda
+    ((proc label)
+      (assert* 'sh-expr (procedure? proc))
+      (unless (logbit? 0 (procedure-arity-mask proc))
+        (assert* 'sh-expr (logbit? 1 (procedure-arity-mask proc))))
+      (when label
+        (assert* 'sh-expr (string? label)))
+      (let ((current-job (sh-current-job)))
+        (%make-sh-expr
+          #f #f #f #f    ; id oid pid pgid
+          (new) #f       ; last-status exception
+          (span) 0 #f    ; redirections
+          jexpr-start #f ; start-proc step-proc
+          #f #f          ; working directory, old working directory - initially inherited from parent job
+          #f             ; overridden environment variables - initially none
+          #f             ; env var assignments - initially none
+          (and current-job (job-parent current-job)) ; temp parent job
+          (or current-job (sh-globals))              ; default parent job
+          proc                                       ; procedure to call for executing the job
+          label
+          #f #f)))                                   ; resume-proc suspend-proc
+    ((proc)
+      (sh-expr proc #f))))
 
 
 ;; NOTE: this is an internal implementation function, use (sh-start) instead.

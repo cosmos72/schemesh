@@ -166,9 +166,14 @@
 
 
 (define (job-display/expr job port)
-  (put-string port "$(")
-  (put-datum port (jexpr-proc job))
-  (put-string port ")"))
+  (put-char port #\$)
+  (let ((label (jexpr-label job)))
+    (if label
+      (put-string port label)
+      (begin
+        (put-char port #\()
+        (put-datum port (jexpr-proc job))
+        (put-char port #\))))))
 
 
 (define (job-display/cmd job port)
@@ -387,7 +392,13 @@
 
 (define (job-write/expr job port)
   (put-string port "(sh-expr ")
-  (put-datum  port (jexpr-proc job))
+  (let ((label (jexpr-label job)))
+    (if label
+      (begin
+        (put-string port "(lambda () ")
+        (put-string port label)
+        (put-string port ")"))
+      (put-datum  port (jexpr-proc job))))
   (put-string port ")"))
 
 
@@ -395,11 +406,17 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define job-print-with-scheme-syntax? #t)
+(define sh-job-syntax-for-display
+  (sh-make-parameter
+    'scheme
+    (lambda (sym)
+      (assert* 'sh-job-syntax-for-display (memq sym '(scheme shell)))
+      sym)))
+
 
 ;; customize how "job" and subtype objects are printed
 (record-writer (record-type-descriptor job)
   (lambda (obj port writer)
-    (if job-print-with-scheme-syntax?
+    (if (eq? 'scheme (sh-job-syntax-for-display))
       (sh-job-write* obj port)
       (sh-job-display* obj port))))

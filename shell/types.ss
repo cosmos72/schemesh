@@ -60,9 +60,10 @@
   (parent job)
   (fields
     proc                    ; procedure to call for executing the job
+    label                   ; #f or source fragment that compiled to proc
     (mutable resume-proc)   ; #f or continuation to resume job
     (mutable suspend-proc)) ; #f or continuation to suspend job and return to whoever started/resumed it
-  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-35}))
+  (nongenerative #{cmd lbuqbuslefybk7xurqc6uyhyv-37}))
 
 
 ;; Define the record type "multijob"
