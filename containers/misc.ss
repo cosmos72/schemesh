@@ -11,7 +11,7 @@
     bytevector-fill-range! bytevector-index/u8 bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>? bytevector-iterate
 
-    in-exact-range in-fixnum-range in-flonum-range in-range
+    constant in-constant in-exact-range in-fixnum-range in-flonum-range in-range
 
     in-fxvector
     in-flvector ; requires Chez Scheme >= 10.0.0
@@ -26,6 +26,26 @@
 
 (include "containers/bytevector.ss")
 (include "containers/vector.ss")
+
+
+;; create and return a closure that always returns specified arguments
+(define constant
+  (case-lambda
+   (() (let ((%constant0 (lambda () (values))))
+	 %constant0))
+   ((x) (let ((%constant1 (lambda () x)))
+	  %constant1))
+   ((x y) (let ((%constant2 (lambda () (values x y))))
+            %constant2))
+   ((x y z) (let ((%constant3 (lambda () (values x y z))))
+            %constant3))
+   (args  (let ((%constants (lambda () (apply values args))))
+	    %constants))))
+
+
+;; create and return a closure that always returns n + 1 values: args followed by #t
+(define (in-constant . args)
+  (apply constant (append args '(#t))))
 
 
 
