@@ -43,10 +43,11 @@
 (define (status? status)
   (or (eq? (void) status) (%status? status)))
 
-(define s-new      (%make-status 'new '()))
+(define s-new      (%make-status 'new #t))
 (define s-running  (%make-status 'running  #f))
 (define s-stopped-sigtstp (%make-status 'stopped 'sigtstp))
 (define s-failed-f (%make-status 'failed #f))
+(define s-failed-1 (%make-status 'failed 1))
 (define s-ok-empty (%make-status 'ok '()))
 (define list1-void (list (void)))
 
@@ -93,9 +94,10 @@
 
 ;; create a status 'failed with value val
 (define (failed val)
-  (if val
-    (%make-status 'failed val)
-    s-failed-f))
+  (case val
+    ((#f)  s-failed-f)
+    ((1)   s-failed-1)
+    (else  (%make-status 'failed val))))
 
 
 ;; create a status 'ok with zero or more values,
@@ -112,7 +114,7 @@
     ((and (pair? vals) (null? (cdr vals)))
       (let ((val (car vals)))
         (cond ((not val)      s-failed-f)
-              ((status? val)  val)
+              ((status? val)  val) ;; also catches (void)
               (else           (%make-status 'ok vals)))))
     (else
       (%make-status 'ok vals))))
@@ -246,17 +248,21 @@
   (lambda (status port writer)
     (let ((kind (%status->kind status))
           (val  (%status->val status)))
-      (put-char  port #\()  #| ) |#
+      (put-string port "(")
       (put-datum port kind)
-      (if (eq? 'ok kind)
-        (do ((vals val (cdr vals)))
-            ((null? vals))
-          (put-char  port #\space)
-          (put-datum port (car vals)))
-        (begin
-          (put-char port #\space)
-          (put-datum port val)))
- #| ( |#  (put-char port #\)))))
+      (case kind
+        ((new)
+          (void))
+        ((ok)
+          (do ((vals val (cdr vals)))
+              ((null? vals))
+            (put-char  port #\space)
+            (put-datum port (car vals))))
+        (else
+          (when (or val (not (eq? 'running kind)))
+            (put-char port #\space)
+            (put-datum port val))))
+      (put-string port ")"))))
 
 
 ) ; close library
