@@ -55,7 +55,7 @@
 * add command line option `--load-file FILE` and support for loading compiled Scheme libraries *.so
 * add functions (alist->eq-hashtable) (alist->eqv-hashtable) (alist->hashtable) (file-rename)
   (in-bytevector) (in-bytespan) (in-chargbuffer) (in-charline) (in-charlines) (in-charspan)
-  (in-gbuffer) (in-hashtable) (in-list) (in-span) (in-string) (in-vector)
+  (in-gbuffer) (in-hash) (in-list) (in-span) (in-string) (in-vector)
   (in-fixnum-range) (in-flonum-range) (in-range) (on-list)
   (sh-bool) (sh-run/string-split-after-nuls) (sh-version) (string-replace)
 * add macros (for) (for*) (library-reexport) (shell-test)

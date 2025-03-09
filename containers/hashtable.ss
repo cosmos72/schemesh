@@ -8,7 +8,7 @@
 (library (schemesh containers hashtable (0 8 1))
   (export
     make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-cell hash-iterator-next!
-    in-hashtable hashtable-iterate hashtable-transpose
+    in-hash in-hash-keys in-hash-values hashtable-iterate hashtable-transpose
     eq-hashtable eqv-hashtable (rename (%hashtable hashtable))
     alist->eq-hashtable alist->eqv-hashtable alist->hashtable)
   (import
@@ -122,7 +122,7 @@
 ;; the returned closure accepts no arguments, and each call to it returns three values:
 ;; either (values key val #t) i.e. the next key and value in hashtable t and #t,
 ;; or (values #<unspecified> #<unspecified> #f) if end of hashtable is reached.
-(define (in-hashtable htable)
+(define (in-hash htable)
   (let* ((iter (make-hash-iterator htable))
          (next (hash-iterator-cell iter)))
      (lambda ()
@@ -131,6 +131,38 @@
            (set! next (hash-iterator-next! iter))
            (values (car cell) (cdr cell) #t))
          (values #f #f #f)))))
+
+
+;; create and return a closure that iterates on keys of hashtable t.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values key #t) i.e. the next key in hashtable t and #t,
+;; or (values #<unspecified> #f) if end of hashtable is reached.
+(define (in-hash-keys htable)
+  (let* ((iter (make-hash-iterator htable))
+         (next (hash-iterator-cell iter)))
+     (lambda ()
+       (if (pair? next)
+         (let ((cell next))
+           (set! next (hash-iterator-next! iter))
+           (values (car cell) #t))
+         (values #f#f)))))
+
+
+;; create and return a closure that iterates on values of hashtable t.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values key #t) i.e. the next key in hashtable t and #t,
+;; or (values #<unspecified> #f) if end of hashtable is reached.
+(define (in-hash-values htable)
+  (let* ((iter (make-hash-iterator htable))
+         (next (hash-iterator-cell iter)))
+     (lambda ()
+       (if (pair? next)
+         (let ((cell next))
+           (set! next (hash-iterator-next! iter))
+           (values (cdr cell) #t))
+         (values #f#f)))))
 
 
 ;; iterate on all elements of given hashtable, and call (proc (cons key value))

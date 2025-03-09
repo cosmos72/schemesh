@@ -74,7 +74,7 @@
 ;;
 ;; the loop finishes when some iterator reaches reach its end.
 ;;
-;; typical iterators expressions are (in-list ...) (in-vector ...) (in-hashtable ...) etc.
+;; typical iterators expressions are (in-list ...) (in-vector ...) (in-hash ...) etc.
 (define-syntax for
   (lambda (stx)
     (syntax-case stx ()
@@ -93,7 +93,7 @@
 ;;
 ;; the loop finishes when some iterator reaches its end.
 ;;
-;; typical iterators expressions are (in-list ...) (in-vector ...) (in-hashtable ...) etc.
+;; typical iterators expressions are (in-list ...) (in-vector ...) (in-hash ...) etc.
 ;;
 ;; the only difference between (for) and (for*) is:
 ;;   (for) evaluates all (iterator) in parallel, then checks if some of them reached their end.

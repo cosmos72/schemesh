@@ -11,7 +11,7 @@
     bytevector-fill-range! bytevector-index/u8 bytevector-compare
     bytevector<=? bytevector<? bytevector>=? bytevector>? bytevector-iterate
 
-    constant in-constant in-exact-range in-fixnum-range in-flonum-range in-range
+    constant in-value in-exact-range in-fixnum-range in-flonum-range in-range
     in-numbers number->cflonum
 
     in-fxvector
@@ -45,8 +45,8 @@
 	    %constants))))
 
 
-;; create and return a closure that always returns n + 1 values: args followed by #t
-(define (in-constant . args)
+;; create and return a closure that always returns the same N+1 values: args followed by #t
+(define (in-value . args)
   (apply constant (append args '(#t))))
 
 
