@@ -35,7 +35,7 @@
     (schemesh posix tty)
     (only (schemesh shell)
        repl-args repl-args-linectx repl-restart repl-restart?
-       sh-consume-signals sh-current-job-suspend sh-exception-handler
+       sh-consume-signals sh-current-job-kill sh-current-job-suspend sh-exception-handler
        sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
        sh-foreground-pgid sh-job-control? sh-job-control-available? sh-job-pgid
        sh-make-linectx sh-schemesh-reload-count
@@ -366,16 +366,23 @@
     (let ((suspend? (signal-consume-sigtstp)))
       (when (sh-job-control?)
         ;; try to suspend current job
-        (unless (and suspend? (sh-current-job-suspend))
-          ;; no current job, or not a suspend. grab the foreground and interact with the user.
-          (parameterize ((sh-foreground-pgid (sh-job-pgid #t)))
-            (put-string (console-error-port)
-              (if suspend? "\n; suspended\n" "\n; interrupted\n"))
-            (call/cc
-              (lambda (k)
-                (repl-interrupt-show-who-msg-irritants break-args (console-error-port))
-                (let ((port (console-output-port)))
-                  (while (repl-interrupt-handler-once my-repl-args k port)))))))))))
+        (cond
+          ((and suspend? (sh-current-job-suspend))
+            (void))
+          ;; also try to kill current job, because (sh-current-job-yield) is sometimes called too late
+          ;; FIXME: this is racy, SIGINT may arrive too late!
+          ((and (signal-consume-sigint) (sh-current-job-kill))
+            (void))
+          ;; no current job, to suspend or kill. grab the foreground and interact with the user.
+          (else
+            (parameterize ((sh-foreground-pgid (sh-job-pgid #t)))
+              (put-string (console-error-port)
+                (if suspend? "\n; suspended\n" "\n; interrupted\n"))
+              (call/cc
+                (lambda (k)
+                  (repl-interrupt-show-who-msg-irritants break-args (console-error-port))
+                  (let ((port (console-output-port)))
+                    (while (repl-interrupt-handler-once my-repl-args k port))))))))))))
 
 
 ;; Print (break ...) arguments

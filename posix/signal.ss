@@ -7,7 +7,7 @@
 
 (library (schemesh posix signal (0 8 1))
   (export signal-raise signal-number->name signal-name->number
-          signal-consume-sigchld signal-consume-sigtstp signal-consume-sigwinch
+          signal-consume-sigchld signal-consume-sigint signal-consume-sigtstp signal-consume-sigwinch
           signal-init-sigwinch signal-restore-sigwinch)
   (import
     (rnrs)
@@ -44,6 +44,7 @@
           (c-signal-raise signal-number)
           c-errno-einval)))))
 
+(define signal-consume-sigint   (foreign-procedure "c_sigint_consume" () ptr))
 (define signal-consume-sigchld   (foreign-procedure "c_sigchld_consume" () ptr))
 (define signal-consume-sigtstp   (foreign-procedure "c_sigtstp_consume" () ptr))
 (define signal-consume-sigwinch  (foreign-procedure "c_sigwinch_consume" () ptr))

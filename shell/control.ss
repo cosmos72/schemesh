@@ -135,6 +135,24 @@
     (if suspend-proc #t #f))) ; ignore value returned by continuations (suspend-proc) and (cont)
 
 
+;; Kill current job and call its suspend-proc continuation, which does NOT return here.
+;;
+;; called by (repl-interrupt-handler), because (sh-current-job-yield) is sometimes called too late
+;; also called by (sh-current-job-yield), because (repl-interrupt-handler) is sometimes called too late
+;;
+;; on failure, return #f.
+(define (sh-current-job-kill)
+  (let* ((job (sh-current-job))
+         (suspend-proc (and (sh-expr? job) (job-started? job) (jexpr-suspend-proc job))))
+    ;y (debugf "sh-current-job-kill job=~s suspend-proc=~s" job suspend-proc)
+    (if suspend-proc
+      (begin
+        (job-status-set! 'sh-current-job-kill job (killed 'sigint))
+        (suspend-proc (void))
+        #t) ;; should not be reached
+       #f)))
+
+
 ;; Yield current job: call (scheduler-wait job 'nonblocking) to detect stopped,
 ;; resumed and finished subprocesses and advance their parents.
 ;; If some child stopped, call (sh-current-job-suspend) and return its value.
@@ -144,12 +162,23 @@
 ;; does nothing and immediately returns #f
 (define (sh-current-job-yield)
   (let ((job (sh-current-job)))
-    ;; (debugf "sh-current-job-yield current-job=~s\tjob-control=~s" job (sh-job-control?))
-    (if (and job (sh-job-control?))
-      (if (stopped? (scheduler-wait #f 'nonblocking))
-        (jexpr-suspend job)
+    ;y (debugf "sh-current-job-yield current-job=~s\tjob-control=~s" job (sh-job-control?))
+    (cond
+      ;; also check for SIGINT, because (repl-interrupt-handler) is sometimes called too late
+      ;; FIXME: this is racy, SIGINT may arrive too late!
+      ((and (signal-consume-sigint) (sh-current-job-kill))
         #t)
-      #f)))
+      (else
+        ;; if some other job is running in foreground, for example a child of sh-pipe,
+        ;; and user presses CTRL+Z, we do not receive SIGTSTP:
+        ;; the foreground job receives it, and we only see some job become stopped.
+        ;;
+        ;; use that as an indication that we must suspend current job.
+        (if (and (sh-expr? job) (job-started? job))
+          (if (stopped? (scheduler-wait #f 'nonblocking))
+            (jexpr-suspend job)
+            #t)
+          #f)))))
 
 
 ;; Suspend current job and call its (job-suspend-proc) continuation,

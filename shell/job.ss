@@ -26,7 +26,7 @@
     make-sh-cmd sh-cmd
 
     ;; control.ss
-    sh-current-job-suspend sh-current-job-yield
+    sh-current-job-kill sh-current-job-suspend sh-current-job-yield
     sh-start sh-start* sh-bg sh-fg sh-run sh-run/i sh-run/err? sh-run/ok? sh-wait
 
     ; sh-wait-flag-foreground-pgid? sh-wait-flag-continue-if-stopped?
