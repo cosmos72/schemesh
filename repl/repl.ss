@@ -367,7 +367,7 @@
       (when (sh-job-control?)
         ;; try to suspend current job
         (unless (and suspend? (sh-current-job-suspend))
-          ;; no current job. grab the foreground and interact with the user.
+          ;; no current job, or not a suspend. grab the foreground and interact with the user.
           (parameterize ((sh-foreground-pgid (sh-job-pgid #t)))
             (put-string (console-error-port)
               (if suspend? "\n; suspended\n" "\n; interrupted\n"))
@@ -375,8 +375,7 @@
               (lambda (k)
                 (repl-interrupt-show-who-msg-irritants break-args (console-error-port))
                 (let ((port (console-output-port)))
-                  (while
-                     (repl-interrupt-handler-once my-repl-args k port)))))))))))
+                  (while (repl-interrupt-handler-once my-repl-args k port)))))))))))
 
 
 ;; Print (break ...) arguments

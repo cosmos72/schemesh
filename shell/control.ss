@@ -135,7 +135,6 @@
     (if suspend-proc #t #f))) ; ignore value returned by continuations (suspend-proc) and (cont)
 
 
-
 ;; Yield current job: call (scheduler-wait job 'nonblocking) to detect stopped,
 ;; resumed and finished subprocesses and advance their parents.
 ;; If some child stopped, call (sh-current-job-suspend) and return its value.
@@ -151,7 +150,6 @@
         (jexpr-suspend job)
         #t)
       #f)))
-
 
 
 ;; Suspend current job and call its (job-suspend-proc) continuation,
