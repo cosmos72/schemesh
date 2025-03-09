@@ -12,6 +12,7 @@
     bytevector<=? bytevector<? bytevector>=? bytevector>? bytevector-iterate
 
     constant in-constant in-exact-range in-fixnum-range in-flonum-range in-range
+    in-numbers number->cflonum
 
     in-fxvector
     in-flvector ; requires Chez Scheme >= 10.0.0
@@ -19,7 +20,8 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)         bytevector foreign-procedure fx1+ fx1- fxvector-length fxvector-ref
+    (only (chezscheme)         bytevector cflonum? cfl+ fl-make-rectangular
+                               foreign-procedure fx1+ fx1- fxvector-length fxvector-ref
                                import include meta-cond library-exports scheme-version)
     (only (schemesh bootstrap) assert* generate-pretty-temporaries raise-errorf))
 
@@ -174,6 +176,61 @@
       (in-range start end 1))
     ((end)
       (in-range 0 end 1))))
+
+
+;; convert an exact or inexact real or complex number to an inexact complex number, i.e. a cflonum.
+(define (number->cflonum num)
+  (assert* 'number->cflonum (number? num))
+  (cond
+    ((cflonum? num)
+      num)
+    ((real? num)
+      (fl-make-rectangular (real->flonum num) 0.0))
+    (else
+      (fl-make-rectangular (real->flonum (real-part num)) (real->flonum (imag-part num))))))
+
+
+;; create and return a closure that returns an unlimited sequence
+;; of exact or inexact real or complex numbers,
+;; starting from start and adding step at each iteration, which defaults to 1.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; (values elem #t) i.e. the next element and #t.
+(define in-numbers
+  (case-lambda
+    ((start step)
+      (assert* 'in-numbers (number? start))
+      (assert* 'in-numbers (number? step))
+      (cond
+        ((and (exact? start) (exact? step))
+          (let ((in-exact-numbers
+                  (lambda ()
+                    (let ((ret start))
+                      (set! start (+ start step))
+                        (values ret #t)))))
+            in-exact-numbers))
+        ((and (real? start) (real? step))
+          (let* ((start (real->flonum start))
+                 (step  (real->flonum step))
+                 (in-flonum-numbers
+                   (lambda ()
+                     (let ((ret start))
+                       (set! start (fl+ start step))
+                         (values ret #t)))))
+            in-flonum-numbers))
+        (else
+          (let* ((start (number->cflonum start))
+                 (step  (number->cflonum step))
+                 (in-cflonum-numbers
+                   (lambda ()
+                     (let ((ret start))
+                       (set! start (cfl+ start step))
+                         (values ret #t)))))
+            in-cflonum-numbers))))
+    ((start)
+      (in-numbers start 1))
+    (()
+      (in-numbers 0 1))))
 
 
 ) ; close library
