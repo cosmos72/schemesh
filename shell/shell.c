@@ -13,6 +13,7 @@
 #include "../posix/posix.h"
 
 #include <errno.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,6 +29,13 @@
 #ifdef SCHEMESH_LIBDIR
 #define SCHEMESH_LIBDIR_STR STR(SCHEMESH_LIBDIR)
 #endif
+
+static void c_cleanup_signals(void) {
+  sigset_t set;
+  if (sigemptyset(&set) == 0) {
+    (void)sigprocmask(SIG_SETMASK, &set, NULL);
+  }
+}
 
 /**
  * return i-th environment variable i.e. environ[i]
@@ -118,6 +126,9 @@ void schemesh_import_all_libraries(void) {
 
 void schemesh_init(const char* override_boot_dir, void (*on_scheme_exception)(void)) {
   int loaded = 0;
+
+  c_cleanup_signals();
+
   Sscheme_init(on_scheme_exception);
   if (override_boot_dir != NULL) {
     size_t dir_len   = strlen(override_boot_dir);
