@@ -25,11 +25,10 @@
 #include <pwd.h>    /* getpwnam_r() */
 #include <signal.h> /* kill(), sigaction(), SIG... */
 #include <stdatomic.h>
-#include <stddef.h> /* size_t, NULL */
-#include <stdio.h>  /* remove(), rename() ... */
-#include <stdlib.h> /* getenv(), strtoul() */
-#include <string.h>
-#include <string.h>    /* strlen() */
+#include <stddef.h>    /* size_t, NULL */
+#include <stdio.h>     /* remove(), rename() ... */
+#include <stdlib.h>    /* getenv(), strtoul() */
+#include <string.h>    /* strlen(), strerror() */
 #include <sys/ioctl.h> /* ioctl(), TIOCGWINSZ */
 #include <sys/stat.h>  /* fstatat() */
 #include <sys/types.h>
