@@ -21,7 +21,8 @@
 #define ATOMIC volatile
 #endif
 
-#if 0
+#undef SCHEMESH_C_DEBUG
+#ifdef SCHEMESH_C_DEBUG
 #define C_DEBUG_WRITE(fd, str) ((void)write(fd, str, sizeof(str) - 1))
 #else
 #define C_DEBUG_WRITE(fd, str) ((void)0)
@@ -35,6 +36,11 @@ static ATOMIC int c_sigtstp_received  = 0;
 static ATOMIC int c_sigwinch_received = 0;
 
 static ATOMIC int c_sigint_consumed_while_pending = 0;
+
+static void c_sched_yield(void) {
+  /* this is a workaround */
+  (void)sched_yield();
+}
 
 static void c_sigchld_handler(int sig_num) {
   (void)sig_num;
@@ -95,8 +101,10 @@ static ptr c_sigint_consume_while_pending() {
   sigset_t set;
   int      err = sigpending(&set);
   int      ret = sigismember(&set, SIGINT);
+#ifdef SCHEMESH_C_DEBUG
   fprintf(stdout, "<- c_sigint_consume.while_pending: err = %d, ret = %d\n", err, ret);
   fflush(stdout);
+#endif
   if (err == 0 && ret > 0) {
     atomic_store(&c_sigint_consumed_while_pending, 1);
     return Strue;
@@ -302,6 +310,7 @@ static ptr c_signals_list(void) {
 }
 
 static void c_register_c_functions_posix_signals(void) {
+  Sregister_symbol("c_sched_yield", &c_sched_yield);
   Sregister_symbol("c_signals_list", &c_signals_list);
   Sregister_symbol("c_signal_raise", &c_signal_raise);
   Sregister_symbol("c_sigint_consume", &c_sigint_consume);

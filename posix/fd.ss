@@ -16,7 +16,7 @@
   (import
     (rnrs)
     (only (chezscheme)               break foreign-procedure logbit? void procedure-arity-mask)
-    (only (schemesh bootstrap)       assert* raise-errorf sh-make-thread-parameter while)
+    (only (schemesh bootstrap)       assert* debugf raise-errorf sh-make-thread-parameter while)
     (schemesh containers bytespan)
     (only (schemesh containers list) list-iterate)
     (only (schemesh conversions)     text->bytevector0 transcoder-utf8))
@@ -158,7 +158,6 @@
     (case-lambda
       ((fd bytevector-result start end)
         (let ((ret (c-fd-read fd bytevector-result start end)))
-          ;; (debugf "fd-read-noretry ret=~s" ret)
           (if (or (eq? #t ret) (and (integer? ret) (>= ret 0)))
             ret
             (raise-c-errno 'fd-read 'read ret fd #vu8() start end))))

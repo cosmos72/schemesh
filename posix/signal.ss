@@ -11,8 +11,8 @@
           signal-init-sigwinch signal-restore-sigwinch)
   (import
     (rnrs)
-    (only (chezscheme) assertion-violationf foreign-procedure logbit?
-                       procedure-arity-mask void)
+    (only (chezscheme) assertion-violationf foreign-procedure fx1-
+                       logbit? procedure-arity-mask void)
     (only (schemesh bootstrap)            assert* debugf)
     (only (schemesh containers hashtable) eq-hashtable hashtable-transpose))
 
@@ -44,13 +44,21 @@
           (c-signal-raise signal-number)
           c-errno-einval)))))
 
-(define c-signal-consume-sigint (foreign-procedure "c_sigint_consume" () ptr))
+(define c-sched-yield            (foreign-procedure "c_sched_yield" () void))
+(define c-signal-consume-sigint  (foreign-procedure "c_sigint_consume" () ptr))
 (define c-signal-consume-sigtstp (foreign-procedure "c_sigtstp_consume" () ptr))
 
 (define (signal-consume-sigint caller)
-  (let ((ret (c-signal-consume-sigint)))
+  (let %retry ((i 10))
+    (if (fxzero? i)
+      #f
+      (or (c-signal-consume-sigint)
+          (begin
+            ;; this is a workaround
+            (c-sched-yield)
+            (%retry (fx1- i)))))))
     ;; (debugf "signal-consume-sigint\tcaller=~s\tret=~s" caller ret)
-    ret))
+
 
 (define (signal-consume-sigtstp caller)
   (let ((ret (c-signal-consume-sigtstp)))

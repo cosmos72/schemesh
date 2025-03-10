@@ -23,6 +23,7 @@
 #include <limits.h>
 #include <poll.h>
 #include <pwd.h>    /* getpwnam_r() */
+#include <sched.h>  /* sched_yield() */
 #include <signal.h> /* kill(), sigaction(), SIG... */
 #include <stdatomic.h>
 #include <stddef.h>    /* size_t, NULL */
@@ -584,9 +585,12 @@ static ptr c_fd_read(int fd, ptr bytevector_read, iptr start, iptr end) {
   }
   buf += start;
   len = end - start;
+  C_DEBUG_WRITE(1, "-> c_fd_read\n");
   if ((got_n = read(fd, buf, len)) < 0 && errno == EINTR) {
+    C_DEBUG_WRITE(1, "<- c_fd_read ret = EINTR\n");
     return Strue;
   }
+  C_DEBUG_WRITE(1, "<- c_fd_read ret >= 0\n");
   return Sinteger(got_n >= 0 ? got_n : c_errno());
 }
 

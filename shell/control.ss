@@ -177,6 +177,9 @@
         (if (stopped? (scheduler-wait #f 'nonblocking))
           (jexpr-suspend job)
           #t))
+      ((signal-consume-sigint 'sh-current-job-yield-nojob)
+        (break)
+        #f)
       (else
         #f))))
 
