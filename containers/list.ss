@@ -29,7 +29,6 @@
 ;;;;;;;;;;;;;;;;;;;;     some additional list functions    ;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
 ;; create and return a closure that iterates on elements of list l.
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns two values:

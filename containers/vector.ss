@@ -6,7 +6,18 @@
 ;;; (at your option) any later version.
 
 
-;; this file should be included only by file containers/misc.ss
+(library (schemesh containers vector (0 8 1))
+  (export
+    in-fxvector
+    in-flvector ; requires Chez Scheme >= 10.0.0
+    in-vector vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable! vector-range->list)
+  (import
+    (rnrs)
+    (rnrs mutable-pairs)
+    (only (chezscheme)         cflonum? cfl+ fl-make-rectangular
+                               fx1+ fx1- fxvector-length fxvector-ref
+                               import include meta-cond library-exports scheme-version)
+    (only (schemesh bootstrap) assert* raise-errorf))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -64,12 +75,14 @@
     ((v start end step)
       (assert* 'in-vector (fx<=? 0 start end (vector-length v)))
       (assert* 'in-vector (fx>=? step 0))
-      (lambda ()
-        (if (fx<? start end)
-          (let ((elem (vector-ref v start)))
-            (set! start (fx+ start step))
-            (values elem #t))
-          (values #f #f))))
+      (let ((%in-vector ; name shown when displaying the closure
+              (lambda ()
+                (if (fx<? start end)
+                  (let ((elem (vector-ref v start)))
+                    (set! start (fx+ start step))
+                    (values elem #t))
+                  (values #f #f)))))
+        %in-vector))
     ((v start end)
       (in-vector v start end 1))
     ((v)
@@ -170,3 +183,5 @@
             (raise-missing-flvector))
           ((v)
             (raise-missing-flvector)))))))
+
+) ; close library

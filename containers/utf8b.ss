@@ -17,7 +17,7 @@
     (only (chezscheme) bytevector foreign-procedure fx1+ fx1- string-truncate!)
     (only (schemesh bootstrap)             assert* raise-assertf)
     (only (schemesh containers bytespan)   bytespan? bytespan-length bytespan-peek-data bytespan-peek-beg bytespan-peek-end)
-    (only (schemesh containers misc)       bytevector-fill-range!))
+    (only (schemesh containers bytevector) bytevector-fill-range!))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

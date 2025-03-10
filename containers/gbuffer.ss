@@ -20,8 +20,8 @@
   (import
     (rnrs)
     (only (chezscheme) fx1+ record-writer void)
-    (only (schemesh bootstrap)       assert* assert-not*)
-    (only (schemesh containers misc) vector-copy!)
+    (only (schemesh bootstrap)         assert* assert-not*)
+    (only (schemesh containers vector) vector-copy!)
     (schemesh containers span))
 
 (define-record-type
@@ -184,12 +184,14 @@
     ((gb start end step)
       (assert* 'in-gbuffer (fx<=? 0 start end (gbuffer-length gb)))
       (assert* 'in-gbuffer (fx>=? step 0))
-      (lambda ()
-        (if (fx<? start end)
-          (let ((elem (gbuffer-ref gb start)))
-            (set! start (fx+ start step))
-            (values elem #t))
-          (values #f #f))))
+      (let ((%in-gbuffer ; name shown when displaying the closure
+              (lambda ()
+                (if (fx<? start end)
+                  (let ((elem (gbuffer-ref gb start)))
+                    (set! start (fx+ start step))
+                    (values elem #t))
+                  (values #f #f)))))
+        %in-gbuffer))
     ((gb start end)
       (in-gbuffer gb start end 1))
     ((gb)

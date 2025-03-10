@@ -9,6 +9,19 @@
 ;; this file should be included only by file containers/misc.ss
 
 
+(library (schemesh containers bytevector (0 8 1))
+  (export
+    in-bytevector list->bytevector subbytevector
+    bytevector-fill-range! bytevector-index bytevector-compare
+    bytevector<=? bytevector<? bytevector>=? bytevector>? bytevector-iterate)
+  (import
+    (rnrs)
+    (rnrs mutable-pairs)
+    (only (chezscheme)         bytevector foreign-procedure fx1+ logbit? procedure-arity-mask)
+    (only (schemesh bootstrap) assert*))
+
+
+;; each element in list l must be a fixnum in the range [-128, 255]
 (define (list->bytevector l)
   (apply bytevector l))
 
@@ -16,33 +29,58 @@
 ;; return a copy of bytevector bvec containing only elements
 ;; from start (inclusive) to end (exclusive)
 (define (subbytevector bvec start end)
-  (assert* 'subbytevector (fx<=? 0 start end (bytevector-length bvec)))
+  (assert* 'subbytevector (fx<=? 0 start end))
+  (assert* 'subbytevector (fx<=? end (bytevector-length bvec)))
   (let* ((n (fx- end start))
          (dst (make-bytevector n)))
     (bytevector-copy! bvec start dst 0 n)
     dst))
 
-(define (bytevector-fill-range! bvec start end val)
-  (assert* 'bytevector-fill-range! (fx<=? 0 start end (bytevector-length bvec)))
-  (do ((i start (fx1+ i)))
-      ((fx>=? i end))
-    (bytevector-u8-set! bvec i val)))
+(define bytevector-fill-range!
+  (let ((c-bytevector-fill-range (foreign-procedure "c_bytevector_fill_range" (ptr int int int) void)))
+    (lambda (bvec start end val)
+      ;; assert* allocates if too many arguments
+      (assert* 'bytevector-fill-range! (fx<=? 0 start end))
+      (assert* 'bytevector-fill-range! (fx<=? end (bytevector-length bvec)))
+      (assert* 'bytevector-fill-range! (fx<=? -128 val 255))
+      (let ((val (fxand val 255))
+            (n   (fx- end start)))
+        (if (fx<? n 3)
+          (unless (fxzero? n)
+            (bytevector-u8-set! bvec start val)
+            (when (fx>? n 1)
+              (bytevector-u8-set! bvec (fx1+ start) val)))
+          (c-bytevector-fill-range bvec start end val))))))
 
 
-;; search bytevector range [start, end) and return index of first byte equal to b.
+;; search bytevector range [start, end) and return index of first byte equal to u8 or that satisfies pred.
 ;; returned numerical index will be in the range [start, end).
 ;; return #f if no such byte is found in range.
-(define bytevector-index/u8
-  (case-lambda
-    ((bvec start end b)
-      (assert* 'bytevector-index/u8 (bytevector? bvec))
-      (assert* 'bytevector-index/u8 (fx<=? 0 start end (bytevector-length bvec)))
-      (assert* 'bytevector-index/u8 (fx<=? 0 b 255))
-      (do ((i start (fx1+ i)))
-          ((or (fx>=? i end) (fx=? b (bytevector-u8-ref bvec i)))
-            (if (fx>=? i end) #f i))))
-    ((bvec b)
-      (bytevector-index/u8 bvec 0 (bytevector-length bvec) b))))
+(define bytevector-index
+  (let ((c-bytevector-index-u8 (foreign-procedure "c_bytevector_index_u8" (ptr int int int) ptr)))
+    (case-lambda
+      ((bvec start end byte-or-pred)
+        ;; assert* allocates if too many arguments
+        (assert* 'bytevector-index (bytevector? bvec))
+        (assert* 'bytevector-index (fx<=? 0 start end))
+        (assert* 'bytevector-index (fx<=? end (bytevector-length bvec)))
+        (if (fixnum? byte-or-pred)
+          (begin
+            (assert* 'bytevector-index (fx<=? -128 byte-or-pred 255))
+            (let ((u8 (fxand byte-or-pred 255)))
+              (if (fx<? (fx- end start) 4)
+                (do ((i start (fx1+ i)))
+                    ((or (fx>=? i end) (fx=? u8 (bytevector-u8-ref bvec i)))
+                      (if (fx<? i end) i #f)))
+                (c-bytevector-index-u8 bvec start end u8))))
+          (begin
+            (assert* 'bytevector-index (logbit? 1 (procedure-arity-mask byte-or-pred)))
+            (let ((pred byte-or-pred))
+              (do ((i start (fx1+ i)))
+                ((or (fx>=? i end) (pred (bytevector-u8-ref bvec i)))
+                  (if (fx<? i end) i #f)))))))
+      ((bvec byte-or-pred)
+        (bytevector-index bvec 0 (bytevector-length bvec) byte-or-pred)))))
 
 
 
@@ -56,12 +94,14 @@
     ((sp start end step)
       (assert* 'in-bytevector (fx<=? 0 start end (bytevector-length sp)))
       (assert* 'in-bytevector (fx>=? step 0))
-      (lambda ()
-        (if (fx<? start end)
-          (let ((elem (bytevector-u8-ref sp start)))
-            (set! start (fx+ start step))
-            (values elem #t)))
-          (values 0 #f)))
+      (let ((%in-bytevector ; name shown when displaying the closure
+              (lambda ()
+                (if (fx<? start end)
+                  (let ((elem (bytevector-u8-ref sp start)))
+                    (set! start (fx+ start step))
+                    (values elem #t)))
+                  (values 0 #f))))
+        %in-bytevector))
     ((sp start end)
       (in-bytevector sp start end 1))
     ((sp)
@@ -80,6 +120,7 @@
       ((or (fx>=? i n) (not (proc i (bytevector-u8-ref bvec i))))
        (fx>=? i n))))
 
+
 ;; compare the two bytevectors bvec1 and bvec2.
 ;; return -1 if bvec1 is lexicographically lesser than bvec2,
 ;; return 0 if they are equal,
@@ -93,6 +134,7 @@
       (or (eq? bvec1 bvec2)
           (c-bytevector-compare bvec1 bvec2)))))
 
+
 (define (bytevector<=? bvec1 bvec2)
   (fx<=? (bytevector-compare bvec1 bvec2) 0))
 
@@ -104,3 +146,5 @@
 
 (define (bytevector>? bvec1 bvec2)
   (fx>? (bytevector-compare bvec1 bvec2) 0))
+
+) ; close library

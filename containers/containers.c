@@ -51,6 +51,29 @@ static signed char c_bytevector_compare(ptr left, ptr right) {
   }
 }
 
+/** fill with value a bytevector range  */
+static void c_bytevector_fill_range(ptr bvec, iptr start, iptr end, int value) {
+  if (Sbytevectorp(bvec) && 0 <= start && start < end && end <= Sbytevector_length(bvec)) {
+    memset(Sbytevector_data(bvec) + start, value & 0xFF, (size_t)end - (size_t)start);
+  }
+}
+
+/**
+ * find first byte equal to value in bytevector range,
+ * and return its position in the range [start, end)
+ * return #f if no such byte was found.
+ */
+static ptr c_bytevector_index_u8(ptr bvec, iptr start, iptr end, int value) {
+  if (Sbytevectorp(bvec) && 0 <= start && start < end && end <= Sbytevector_length(bvec)) {
+    const octet* data  = Sbytevector_data(bvec) + start;
+    const octet* match = (const octet*)memchr(data, value & 0xFF, (size_t)end - (size_t)start);
+    if (match) {
+      return Sfixnum((size_t)(match - data));
+    }
+  }
+  return Sfalse;
+}
+
 /**
  * INTENTIONALLY fills string with Unicode codepoints in the surrogate range 0xDC80..0xDCFF,
  * which cannot be created with (integer->char).
@@ -366,6 +389,7 @@ static size_t c_bytes_utf8b_to_string_length(const octet* bytes, size_t len) {
   return ret;
 }
 
+#if 0
 /**
  * convert the range [start, end) of UTF-8b bytevector to UTF-32 string.
  * and return ONLY the length of converted string i.e. the number of Unicode codepoints.
@@ -390,6 +414,7 @@ static iptr c_bytevector_utf8b_to_string_length(ptr bvec, iptr start, iptr end) 
   }
   return 0;
 }
+#endif /* 0 */
 
 static sizepair c_sizepair(const size_t byte_n, const size_t char_n) {
   sizepair ret;
@@ -511,12 +536,14 @@ ptr schemesh_Sbytevector(const char chars[], const size_t len) {
 
 void schemesh_register_c_functions_containers(void) {
   Sregister_symbol("c_bytevector_compare", &c_bytevector_compare);
+  Sregister_symbol("c_bytevector_fill_range", &c_bytevector_fill_range);
+  Sregister_symbol("c_bytevector_index_u8", &c_bytevector_index_u8);
   Sregister_symbol("c_string_fill_utf8b_surrogate_chars", &c_string_fill_utf8b_surrogate_chars);
   Sregister_symbol("c_string_to_utf8b_length", &c_string_to_utf8b_length);
   Sregister_symbol("c_string_to_utf8b_append", &c_string_to_utf8b_append);
 #if 0
   Sregister_symbol("c_string_to_utf8b", &c_string_to_utf8b);
-#endif /* 0 */
   Sregister_symbol("c_bytevector_utf8b_to_string_length", &c_bytevector_utf8b_to_string_length);
+#endif /* 0 */
   Sregister_symbol("c_bytevector_utf8b_to_string_append", &c_bytevector_utf8b_to_string_append);
 }
