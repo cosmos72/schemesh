@@ -162,7 +162,7 @@
 ;; does nothing and immediately returns #f
 (define (sh-current-job-yield)
   (let ((job (sh-current-job)))
-    (debugf "sh-current-job-yield current-job=~s\tjob-control=~s" job (sh-job-control?))
+    ;; (debugf "sh-current-job-yield current-job=~s\tjob-control=~s" job (sh-job-control?))
     (cond
       ;; also check for SIGINT, because (repl-interrupt-handler) is sometimes called too late
       ;; FIXME: this is racy, SIGINT may arrive too late!
