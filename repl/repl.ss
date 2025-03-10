@@ -35,7 +35,7 @@
     (schemesh posix tty)
     (only (schemesh shell)
        repl-args repl-args-linectx repl-restart repl-restart?
-       sh-consume-signals sh-current-job-kill sh-current-job-suspend sh-exception-handler
+       sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-exception-handler
        sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
        sh-foreground-pgid sh-job-control? sh-job-control-available? sh-job-pgid
        sh-make-linectx sh-schemesh-reload-count
@@ -363,7 +363,8 @@
     ;; a SIGTSTP handler that intentionally calls raise(SIGINT)
     ;;
     ;; reason: it's the simplest mechanism to quickly suspend a long-running Scheme procedure
-    (let ((suspend? (signal-consume-sigtstp)))
+    ;; (debugf "repl-interrupt-handler")
+    (let ((suspend? (signal-consume-sigtstp 'repl-interrupt-handler)))
       (when (sh-job-control?)
         ;; try to suspend current job
         (cond
@@ -371,10 +372,11 @@
             (void))
           ;; also try to kill current job, because (sh-current-job-yield) is sometimes called too late
           ;; FIXME: this is racy, SIGINT may arrive too late!
-          ((and (signal-consume-sigint) (sh-current-job-kill))
+          ((and (sh-current-job) (signal-consume-sigint 'repl-interrupt-handler) (sh-current-job-kill))
             (void))
-          ;; no current job, to suspend or kill. grab the foreground and interact with the user.
+          ;; no current job to suspend or kill. grab the foreground and interact with the user.
           (else
+            (signal-consume-sigint 'repl-interrupt-handler2)
             (parameterize ((sh-foreground-pgid (sh-job-pgid #t)))
               (put-string (console-error-port)
                 (if suspend? "\n; suspended\n" "\n; interrupted\n"))

@@ -21,6 +21,12 @@
 #define ATOMIC volatile
 #endif
 
+#if 0
+#define C_DEBUG_WRITE(fd, str) ((void)write(fd, str, sizeof(str) - 1))
+#else
+#define C_DEBUG_WRITE(fd, str) ((void)0)
+#endif
+
 static struct sigaction c_sigint_oldaction;
 
 static ATOMIC int c_sigint_received   = 0;
@@ -28,13 +34,35 @@ static ATOMIC int c_sigchld_received  = 0;
 static ATOMIC int c_sigtstp_received  = 0;
 static ATOMIC int c_sigwinch_received = 0;
 
+static ATOMIC int c_sigint_consumed_while_pending = 0;
+
 static void c_sigchld_handler(int sig_num) {
   (void)sig_num;
   atomic_store(&c_sigchld_received, 1);
 }
 
 static void c_sigint_handler(int sig_num) {
-  atomic_store(&c_sigint_received, 1);
+  /**
+   * Chez Scheme sometimes blocks SIGINT.
+   *
+   * c_sigint_consume() may be called while SIGINT is blocked and pending,
+   * i.e. before this handler is called, and for correctness it must return true.
+   *
+   * But that "consumes" SIGINT from schemesh point of view,
+   * thus when c_sigint_handler() is eventually called,
+   * it must NOT set c_sigint_received = 1.
+   *
+   * Use a flag c_sigint_consumed_while_pending to recognize this case
+   * and handle it correctly.
+   */
+  C_DEBUG_WRITE(1, "-> c_sigint_handler\n");
+  if (atomic_exchange(&c_sigint_consumed_while_pending, 0) == 0) {
+    atomic_store(&c_sigint_received, 1);
+    C_DEBUG_WRITE(1, "...c_sigint_handler: set c_sigint_received = 1\n");
+  } else {
+    C_DEBUG_WRITE(1, "...c_sigint_handler: set consumed_while_pending = 0\n");
+  }
+  C_DEBUG_WRITE(1, "<- c_sigint_handler\n");
   if (c_sigint_oldaction.sa_handler) {
     /* daisy-chain Chez Scheme SIGINT signal handler, as in the old DOS times */
     (*c_sigint_oldaction.sa_handler)(sig_num);
@@ -44,12 +72,11 @@ static void c_sigint_handler(int sig_num) {
 static void c_sigtstp_handler(int sig_num) {
   (void)sig_num;
   atomic_store(&c_sigtstp_received, 1);
-  if (c_sigint_oldaction.sa_handler) {
-    /* daisy-chain Chez Scheme SIGINT signal handler, as in the old DOS times */
-    (*c_sigint_oldaction.sa_handler)(sig_num);
-  } else {
-    (void)raise(SIGINT);
-  }
+  /*
+   * do NOT directly call Chez Scheme SIGINT signal handler:
+   * it may have blocked SIGINT and not expect the handler to be called.
+   */
+  (void)raise(SIGINT);
 }
 
 static void c_sigwinch_handler(int sig_num) {
@@ -57,8 +84,33 @@ static void c_sigwinch_handler(int sig_num) {
   atomic_store(&c_sigwinch_received, 1);
 }
 
+/**
+ * Chez Scheme sometimes blocks SIGINT.
+ *
+ * If SIGINT is pending, mark it as "consumed" by setting
+ * c_sigint_consumed_while_pending = 1, then return Strue.
+ * Otherwise return Sfalse.
+ */
+static ptr c_sigint_consume_while_pending() {
+  sigset_t set;
+  int      err = sigpending(&set);
+  int      ret = sigismember(&set, SIGINT);
+  fprintf(stdout, "<- c_sigint_consume.while_pending: err = %d, ret = %d\n", err, ret);
+  fflush(stdout);
+  if (err == 0 && ret > 0) {
+    atomic_store(&c_sigint_consumed_while_pending, 1);
+    return Strue;
+  }
+  return Sfalse;
+}
+
 static ptr c_sigint_consume(void) {
-  return atomic_exchange(&c_sigint_received, 0) ? Strue : Sfalse;
+  C_DEBUG_WRITE(1, "-> c_sigint_consume\n");
+  if (atomic_exchange(&c_sigint_received, 0)) {
+    C_DEBUG_WRITE(1, "<- c_sigint_consume: ret = Strue\n");
+    return Strue;
+  }
+  return c_sigint_consume_while_pending();
 }
 
 static ptr c_sigchld_consume(void) {
@@ -66,7 +118,17 @@ static ptr c_sigchld_consume(void) {
 }
 
 static ptr c_sigtstp_consume(void) {
-  return atomic_exchange(&c_sigtstp_received, 0) ? Strue : Sfalse;
+  if (atomic_exchange(&c_sigtstp_received, 0)) {
+    /**
+     * c_sigtstp_handler above handler intentionally raises SIGINT
+     * to reuse Chez Scheme detection of signals: consume it,
+     * otherwise we will think that a SIGINT was received,
+     * and kill some job or interrupt some procedure.
+     */
+    atomic_store(&c_sigint_received, 0);
+    return Strue;
+  }
+  return Sfalse;
 }
 
 static ptr c_sigwinch_consume(void) {

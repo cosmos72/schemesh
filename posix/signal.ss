@@ -13,7 +13,7 @@
     (rnrs)
     (only (chezscheme) assertion-violationf foreign-procedure logbit?
                        procedure-arity-mask void)
-    (only (schemesh bootstrap)            assert* sh-make-thread-parameter)
+    (only (schemesh bootstrap)            assert* debugf)
     (only (schemesh containers hashtable) eq-hashtable hashtable-transpose))
 
 (define signal-table-number->name
@@ -44,9 +44,21 @@
           (c-signal-raise signal-number)
           c-errno-einval)))))
 
-(define signal-consume-sigint   (foreign-procedure "c_sigint_consume" () ptr))
+(define c-signal-consume-sigint (foreign-procedure "c_sigint_consume" () ptr))
+(define c-signal-consume-sigtstp (foreign-procedure "c_sigtstp_consume" () ptr))
+
+(define (signal-consume-sigint caller)
+  (let ((ret (c-signal-consume-sigint)))
+    ;; (debugf "signal-consume-sigint\tcaller=~s\tret=~s" caller ret)
+    ret))
+
+(define (signal-consume-sigtstp caller)
+  (let ((ret (c-signal-consume-sigtstp)))
+    ;; (debugf "signal-consume-sigtstp\tcaller=~s\tret=~s" caller ret)
+    ret))
+
+
 (define signal-consume-sigchld   (foreign-procedure "c_sigchld_consume" () ptr))
-(define signal-consume-sigtstp   (foreign-procedure "c_sigtstp_consume" () ptr))
 (define signal-consume-sigwinch  (foreign-procedure "c_sigwinch_consume" () ptr))
 
 (define signal-init-sigwinch

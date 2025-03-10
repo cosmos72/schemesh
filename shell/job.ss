@@ -86,7 +86,8 @@
   (import
     (except (rnrs)     current-input-port current-output-port current-error-port)
     (rnrs mutable-pairs)
-    (only (chezscheme) append! break console-output-port console-error-port
+    (only (chezscheme) append! break
+                       console-input-port console-output-port console-error-port
                        current-input-port current-output-port current-error-port
                        current-time debug debug-condition debug-on-exception display-condition
                        foreign-procedure format fx1+ fx1- hashtable-cells include inspect
@@ -379,14 +380,17 @@
   (let ((job-list (queue-job-display-summary)))
     (unless (null? job-list)
       (lineedit-undraw lctx 'flush)
-      (list-iterate (list-remove-consecutive-duplicates! (sort! sh-job<? job-list) eq?)
-        (lambda (job)
-          (display-status-change job lctx))))))
+      (let ((port (console-output-port)))
+        (list-iterate (list-remove-consecutive-duplicates! (sort! sh-job<? job-list) eq?)
+          (lambda (job)
+            (display-status-change job port)))
+        (flush-output-port port)))))
 
 
-(define (display-status-change job lctx)
+
+(define (display-status-change job port)
   (when (or (job-id job) (job-oid job))
-    (sh-job-display-summary job)
+    (sh-job-display-summary* job port)
     (job-oid-set! job #f))) ; no longer needed, clear it
 
 

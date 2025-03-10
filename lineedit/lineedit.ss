@@ -113,7 +113,9 @@
             (stdout (linectx-stdout lctx)))
         (if (fixnum? stdout)
           (fd-write-all stdout bv beg end)
-          (put-bytevector stdout bv beg (fx- end beg)))
+          (begin
+            (put-bytevector stdout bv beg (fx- end beg))
+            (flush-output-port stdout)))
         (bytespan-clear! wbuf)))))
 
 

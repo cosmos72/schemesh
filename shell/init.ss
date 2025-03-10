@@ -40,20 +40,21 @@
   ;; install a yield-handler
   (yield-handler sh-current-job-yield)
 
-  ;; Replace (current-input-port) with an UTF-8b textual output port that honors current job redirections
-  ;;
-  ;; Cannot create a buffered port: input buffer would need to be per-job
-  (current-input-port (make-utf8b-input/output-port (sh-stdin) (buffer-mode none)))
 
-  ;; Replace (current-output-port) with an UTF-8b textual output port that honors current job redirections
+  ;; Replace (console-input-port) (console-output-port) (console-error-port)
+  ;; with UTF-8b textual input/output ports that can be interrupted
+  (console-input-port  (open-fd-redir-utf8b-input/output-port "stdin" (lambda () 0) (buffer-mode none)))
+  (console-output-port (open-fd-redir-utf8b-input/output-port "stdout" (lambda () 1) (buffer-mode none)))
+  (console-error-port  (open-fd-redir-utf8b-input/output-port "stderr" (lambda () 2) (buffer-mode none)))
+
+
+  ;; Replace (current-input-port) (current-output-port) (current-error-port)
+  ;; with UTF-8b textual input/output ports that can be interrupted and honor current job redirections
   ;;
-  ;; Cannot create a buffered port: input buffer would need to be per-job
+  ;; Cannot create buffered ports: input buffers would need to be per-job
+  (current-input-port  (make-utf8b-input/output-port (sh-stdin) (buffer-mode none)))
   (current-output-port (make-utf8b-input/output-port (sh-stdout) (buffer-mode none)))
-
-  ;; Replace (current-error-port) with an UTF-8b textual output port that honors current job redirections
-  ;;
-  ;; Cannot create a buffered port: input buffer would need to be per-job
-  (current-error-port (make-utf8b-input/output-port (sh-stderr) (buffer-mode none)))
+  (current-error-port  (make-utf8b-input/output-port (sh-stderr) (buffer-mode none)))
 
 
   (let ((bt (sh-builtins))
