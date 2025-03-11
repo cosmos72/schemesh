@@ -25,7 +25,7 @@
 
 
 ;; Read a word, possibly containing single or double quotes, assignment operator =
-;; wildcard operators ? * [...] and shell variable assignmens, as for example:
+;; wildcard operators ? * [...] and shell variable assignments, as for example:
 ;;  FOO=BAR
 ;;  ls [ab]*.txt
 ;;  some$foo' text'"other text ${bar} "
@@ -51,9 +51,6 @@
               (syntax-errorf ctx 'parse-shell
                 "unexpected end-of-file inside double-quoted string ~s" (reverse! ret)))
             (set! again? #f))
-          ((squote)
-            (%append (read-subword-single-quoted ctx))
-            (set! lbracket-is-subshell? #f))
           ((dquote)
             (set! dquote? (not dquote?))
             (set! lbracket-is-subshell? #f)
@@ -72,6 +69,9 @@
                     (%append form))))))
           (else
             (cond
+              ((and (eq? 'squote type) (not dquote?))
+                (%append (read-subword-single-quoted ctx))
+                (set! lbracket-is-subshell? #f))
               (dquote?
                 (set! lbracket-is-subshell? #f)
                 (%append (read-subword-double-quoted ctx)))

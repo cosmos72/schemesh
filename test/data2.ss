@@ -69,7 +69,7 @@
         3>>logfile 4>otherfile 5>&/dev/null}           (shell "foo" 0 < "/dev/zero" 1 <> "/dev/urandom" 2 <& "-"
                                                                     3 >> "logfile"  4 > "otherfile" 5 >& "/dev/null")
   '{ls "-l" '.'}                                       (shell "ls" "-l" ".")
-  '{ls "some"'file'path}                               (shell "ls" (shell-wildcard "some" "file" "path"))
+  '{ls "'so'me'"'file'path}                            (shell "ls" (shell-wildcard "'so'me'" "file" "path"))
   '{ls `cmd1 && cmd2 || cmd3 -arg3`}                   (shell "ls" (shell-backquote "cmd1" && "cmd2" \x7C;\x7C;
                                                                                     "cmd3" "-arg3"))
   '{ls $vv1 "$vv2" '$vv3'}                             (shell "ls" (shell-env "vv1") (shell-env "vv2") "$vv3")
