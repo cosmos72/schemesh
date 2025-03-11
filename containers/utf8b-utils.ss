@@ -19,11 +19,10 @@
     bytespan-display-right/fixnum! bytespan-insert-right/string!
     charspan->utf8b charspan->utf8b/0)
   (import
-    (rename (rnrs)
-      (fxarithmetic-shift-left  fxshl)
-      (fxarithmetic-shift-right fxshr))
+    (rename (rnrs) (fxarithmetic-shift-left  fxshl)
+                   (fxarithmetic-shift-right fxshr))
     (only (chezscheme) fx1+ fx1-)
-    (only (schemesh bootstrap) assert*)
+    (only (schemesh bootstrap)              assert* fx<=?*)
     (schemesh containers bytespan)
     (schemesh containers charspan)
     (only (schemesh containers chargbuffer) chargbuffer-iterate chargbuffer-length)
@@ -93,7 +92,7 @@
 (define bytevector-ref/utf8b
   (case-lambda
     ((vec start end)
-      (assert* 'bytevector-ref/utf8b (fx<=? 0 start end (bytevector-length vec)))
+      (assert* 'bytevector-ref/utf8b (fx<=?* 0 start end (bytevector-length vec)))
       (let* ((max-n (fx- end start))
              (b0    (if (fx>? max-n 0) (bytevector-u8-ref vec start) -1)))
         (cond
@@ -213,7 +212,7 @@
 (define bytespan-ref/char
   (case-lambda
     ((sp start end)
-      (assert* 'bytespan-ref/char (fx<=? 0 start end (bytespan-length sp)))
+      (assert* 'bytespan-ref/char (fx<=?* 0 start end (bytespan-length sp)))
       (let ((offset (bytespan-peek-beg sp)))
         (bytevector-ref/utf8b (bytespan-peek-data sp) (fx+ start offset) (fx+ end offset))))
     ((sp start)
@@ -222,7 +221,7 @@
 
 ;; convert char to UTF-8b sequence and write it into bytespan starting at offset idx
 (define (bytespan-set/char! sp idx ch)
-  (assert* 'bytespan-set/char! (fx<=? 0 idx (fx+ (bytespan-length sp) (char->utf8b-length ch))))
+  (assert* 'bytespan-set/char! (fx<=?* 0 idx (fx+ (bytespan-length sp) (char->utf8b-length ch))))
   (bytevector-set/utf8b! (bytespan-peek-data sp) (fx+ idx (bytespan-peek-beg sp)) ch))
 
 ;; convert a character to UTF-8b sequence and prefix it to bytespan.
@@ -244,7 +243,7 @@
 (define bytespan-insert-right/string!
   (case-lambda
     ((sp str start end)
-      (assert* 'bytespan-insert-right/string! (fx<=? 0 start end (string-length str)))
+      (assert* 'bytespan-insert-right/string! (fx<=?* 0 start end (string-length str)))
       (bytespan-reserve-right! sp (fx+ (bytespan-length sp) (fx- end start)))
       (do ((i start (fx1+ i)))
           ((fx>=? i end))

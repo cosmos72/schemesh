@@ -12,7 +12,7 @@
   (import
     (rnrs)
     (only (chezscheme)               fx1+ fx1- void)
-    (only (schemesh bootstrap)       assert* while)
+    (only (schemesh bootstrap)       assert* fx<=?* while)
     (schemesh containers charspan)
     (only (schemesh containers list) list-iterate))
 
@@ -102,7 +102,7 @@
 
 ;; same as (sh-path-iterate*), all arguments are mandatory
 (define (sh-path-iterate* path start end proc)
-  (assert* 'sh-path-iterate (fx<=? 0 start end (charspan-length path)))
+  (assert* 'sh-path-iterate (fx<=?* 0 start end (charspan-length path)))
   (assert* 'sh-path-iterate (procedure? proc))
   (let %loop ((pos start))
     (if (fx>=? pos end)

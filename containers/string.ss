@@ -22,7 +22,7 @@
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
     (only (chezscheme) fx1+ fx1- reverse! string-copy! string-truncate! substring-fill! void)
-    (only (schemesh bootstrap) assert* while)
+    (only (schemesh bootstrap) assert* fx<=?* while)
     (only (schemesh containers list) list-iterate))
 
 
@@ -275,7 +275,7 @@
 
 ;; set characters in range [start, end) of string str to character ch
 (define (string-fill-range! str start end ch)
-  (assert* 'string-fill-range! (fx<=? 0 start end (string-length str)))
+  (assert* 'string-fill-range! (fx<=?* 0 start end (string-length str)))
   (when (fx<? start end)
     (substring-fill! str start end ch)))
 
@@ -288,7 +288,7 @@
 (define in-string
   (case-lambda
     ((str start end step)
-      (assert* 'in-string (fx<=? 0 start end (string-length str)))
+      (assert* 'in-string (fx<=?* 0 start end (string-length str)))
       (assert* 'in-string (fx>=? step 0))
       (lambda ()
         (if (fx<? start end)
@@ -339,7 +339,7 @@
   (case-lambda
     ((str ch start end)
       (assert* 'string-index/char (string? str))
-      (assert* 'string-index/char (fx<=? 0 start end (string-length str)))
+      (assert* 'string-index/char (fx<=?* 0 start end (string-length str)))
       (assert* 'string-index/char (char? ch))
       (do ((i start (fx1+ i)))
           ((or (fx>=? i end) (char=? ch (string-ref str i)))
@@ -358,7 +358,7 @@
     ((str predicate start end)
       (assert* 'string-index/pred (string? str))
       (assert* 'string-index/pred (procedure? predicate))
-      (assert* 'string-index/pred (fx<=? 0 start end (string-length str)))
+      (assert* 'string-index/pred (fx<=?* 0 start end (string-length str)))
       (do ((i start (fx1+ i)))
           ((or (fx>=? i end) (predicate (string-ref str i)))
             (if (fx>=? i end) #f i))))
@@ -389,7 +389,7 @@
   (case-lambda
     ((str ch start end)
       (assert* 'string-index-right/char (string? str))
-      (assert* 'string-index-right/char (fx<=? 0 start end (string-length str)))
+      (assert* 'string-index-right/char (fx<=?* 0 start end (string-length str)))
       (assert* 'string-index-right/char (char? ch))
       (do ((i (fx1- end) (fx1- i)))
           ((or (fx<? i start) (char=? ch (string-ref str i)))
@@ -408,7 +408,7 @@
     ((str predicate start end)
       (assert* 'string-index-right/pred (string? str))
       (assert* 'string-index-right/pred (procedure? predicate))
-      (assert* 'string-index-right/pred (fx<=? 0 start end (string-length str)))
+      (assert* 'string-index-right/pred (fx<=?* 0 start end (string-length str)))
       (do ((i (fx1- end) (fx1- i)))
           ((or (fx<? i start) (predicate (string-ref str i)))
             (if (fx<? i start) #f i))))
@@ -502,7 +502,7 @@
   (case-lambda
     ((str delim start end)
       (assert* 'string-split (string? str))
-      (assert* 'string-split (fx<=? 0 start end (string-length str)))
+      (assert* 'string-split (fx<=?* 0 start end (string-length str)))
       (let ((l '()))
         (while start
           (let ((pos (string-index/char str delim start end)))
@@ -533,7 +533,7 @@
       (string-trim-split-at-blanks str 0 (string-length str)))
     ((str start end)
       (assert* 'string-trim-split-at-blanks (string? str))
-      (assert* 'string-trim-split-at-blanks (fx<=? 0 start end (string-length str)))
+      (assert* 'string-trim-split-at-blanks (fx<=?* 0 start end (string-length str)))
       (let ((l '())
             (pos-not-blank (or (string-index/pred str char-is-not-blank? start end) end)))
         (while (fx<? pos-not-blank end)
@@ -551,10 +551,10 @@
 ;; return the leftmost position, starting from 0, containing different characters,
 ;; or n if the two ranges contain the same characters
 (define (string-range-count= left left-start right right-start n)
-  (assert* 'string-range-count= (fx<=? 0 left-start (string-length left)))
-  (assert* 'string-range-count= (fx<=? 0 right-start (string-length right)))
-  (assert* 'string-range-count= (fx<=? 0 n (fx- (string-length left) left-start)))
-  (assert* 'string-range-count= (fx<=? 0 n (fx- (string-length right) right-start)))
+  (assert* 'string-range-count= (fx<=?* 0 left-start (string-length left)))
+  (assert* 'string-range-count= (fx<=?* 0 right-start (string-length right)))
+  (assert* 'string-range-count= (fx<=?* 0 n (fx- (string-length left) left-start)))
+  (assert* 'string-range-count= (fx<=?* 0 n (fx- (string-length right) right-start)))
   (cond
     ((fxzero? n)
       n)
@@ -615,8 +615,8 @@
 (define string-contains
   (case-lambda
     ((str key str-start str-end key-start key-end)
-      (assert* 'string-contains (fx<=? 0 str-start str-end (string-length str)))
-      (assert* 'string-contains (fx<=? 0 key-start key-end (string-length key)))
+      (assert* 'string-contains (fx<=?* 0 str-start str-end (string-length str)))
+      (assert* 'string-contains (fx<=?* 0 key-start key-end (string-length key)))
       (let* ((key-len (fx- key-end key-start))
              (last    (fx- str-end key-len)))
         (do ((i str-start (fx1+ i)))

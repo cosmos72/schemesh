@@ -19,8 +19,8 @@
     (rnrs)
     (only (rnrs mutable-pairs)   set-car!)
     (only (rnrs mutable-strings) string-set!)
-    (only (chezscheme) fx1+ fx1- record-writer string-copy!)
-    (only (schemesh bootstrap) assert*)
+    (only (chezscheme)           fx1+ fx1- record-writer string-copy!)
+    (only (schemesh bootstrap)   assert* fx<=?*)
     (schemesh containers charspan)
     (schemesh containers chargbuffer))
 
@@ -262,7 +262,7 @@
 (define in-charline
   (case-lambda
     ((line start end step)
-      (assert* 'in-charline (fx<=? 0 start end (charline-length line)))
+      (assert* 'in-charline (fx<=?* 0 start end (charline-length line)))
       (assert* 'in-charline (fx>=? step 0))
       (let ((%in-charline ; name shown when displaying the closure
               (lambda ()

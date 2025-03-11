@@ -27,7 +27,7 @@
   (import
     (rnrs)
     (only (chezscheme)         bytevector-truncate! fx1+ fx1- record-writer void)
-    (only (schemesh bootstrap) assert* assert-not*)
+    (only (schemesh bootstrap) assert* assert-not* fx<=?*)
     (only (schemesh containers list) list-iterate)
     (schemesh containers bytevector))
 
@@ -112,8 +112,7 @@
                           (bytespan-end sp) u8))
 
 (define (bytespan-fill-range! sp start end u8)
-  (assert* 'bytespan-fill-range! (fx<=? 0 start end))
-  (assert* 'bytespan-fill-range! (fx<=? end (bytespan-length sp)))
+  (assert* 'bytespan-fill-range! (fx<=?* 0 start end (bytespan-length sp)))
   (let ((offset (bytespan-beg sp)))
     (bytevector-fill-range! (bytespan-vec sp) (fx+ start offset) (fx+ end offset) u8)))
 
@@ -125,11 +124,8 @@
     dst))
 
 (define (bytespan-copy! src src-start dst dst-start n)
-  ;; assert* allocates if too many arguments
-  (assert* 'bytespan-copy! (fx<=? 0 src-start (fx+ src-start n)))
-  (assert* 'bytespan-copy! (fx<=? 0 dst-start (fx+ dst-start n)))
-  (assert* 'bytespan-copy! (fx<=? (fx+ src-start n) (bytespan-length src)))
-  (assert* 'bytespan-copy! (fx<=? (fx+ dst-start n) (bytespan-length dst)))
+  (assert* 'bytespan-copy! (fx<=?* 0 src-start (fx+ src-start n) (bytespan-length src)))
+  (assert* 'bytespan-copy! (fx<=?* 0 dst-start (fx+ dst-start n) (bytespan-length dst)))
   (bytevector-copy! (bytespan-vec src) (fx+ src-start (bytespan-beg src))
                 (bytespan-vec dst) (fx+ dst-start (bytespan-beg dst)) n))
 
@@ -259,7 +255,7 @@
   (case-lambda
     ((sp-dst sp-src src-start src-end)
       (assert-not* 'bytespan-insert-left/bspan! (eq? sp-dst sp-src))
-      (assert*     'bytespan-insert-left/bspan! (fx<=? 0 src-start src-end (bytespan-length sp-src)))
+      (assert*     'bytespan-insert-left/bspan! (fx<=?* 0 src-start src-end (bytespan-length sp-src)))
       (when (fx<? src-start src-end)
         ;; check for (not (eq? src dst)) only if dst is non-empty,
         ;; because reusing the empty bytevector is a common optimization of Scheme compilers
@@ -276,7 +272,7 @@
 (define bytespan-insert-left/bvector!
   (case-lambda
     ((sp-dst bv-src src-start src-end)
-      (assert*     'bytespan-insert-left/bvector! (fx<=? 0 src-start src-end (bytevector-length bv-src)))
+      (assert*     'bytespan-insert-left/bvector! (fx<=?* 0 src-start src-end (bytevector-length bv-src)))
       (when (fx<? src-start src-end)
         ;; check for (not (eq? src dst)) only if dst is non-empty,
         ;; because reusing the empty bytevector is a common optimization of Scheme compilers
@@ -289,10 +285,8 @@
 (define bytespan-insert-right/bspan!
   (case-lambda
     ((sp-dst sp-src src-start src-end)
-      ;; assert* allocates if too many arguments
       (assert-not* 'bytespan-insert-right/bspan! (eq? sp-dst sp-src))
-      (assert*     'bytespan-insert-right/bspan! (fx<=? 0 src-start src-end))
-      (assert*     'bytespan-insert-right/bspan! (fx<=? src-end (bytespan-length sp-src)))
+      (assert*     'bytespan-insert-right/bspan! (fx<=?* 0 src-start src-end src-end (bytespan-length sp-src)))
       (when (fx<? src-start src-end)
         ;; check for (not (eq? src dst)) only if dst is non-empty,
         ;; because reusing the empty bytevector is a common optimization of Scheme compilers
@@ -335,8 +329,7 @@
 (define in-bytespan
   (case-lambda
     ((sp start end step)
-      (assert* 'in-bytespan (fx<=? 0 start end))
-      (assert* 'in-bytespan (fx<=? end (bytespan-length sp)))
+      (assert* 'in-bytespan (fx<=?* 0 start end (bytespan-length sp)))
       (assert* 'in-bytespan (fx>=? step 0))
       (let ((offset (bytespan-beg sp)))
         (in-bytevector (bytespan-vec sp) (fx+ start offset) (fx+ end offset) step)))
@@ -364,7 +357,7 @@
 (define bytespan-index/u8
   (case-lambda
     ((sp start end predicate)
-      (assert* 'bytespan-index/u8 (fx<=? 0 start end (bytespan-length sp)))
+      (assert* 'bytespan-index/u8 (fx<=?* 0 start end (bytespan-length sp)))
       (do ((i start (fx1+ i)))
           ((or (fx>=? i end) (predicate (bytespan-ref/u8 sp i)))
            (if (fx>=? i end) #f i))))

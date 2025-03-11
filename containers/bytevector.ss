@@ -18,7 +18,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme)         bytevector foreign-procedure fx1+ logbit? procedure-arity-mask)
-    (only (schemesh bootstrap) assert*))
+    (only (schemesh bootstrap) assert* fx<=?*))
 
 
 ;; each element in list l must be a fixnum in the range [-128, 255]
@@ -29,8 +29,7 @@
 ;; return a copy of bytevector bvec containing only elements
 ;; from start (inclusive) to end (exclusive)
 (define (subbytevector bvec start end)
-  (assert* 'subbytevector (fx<=? 0 start end))
-  (assert* 'subbytevector (fx<=? end (bytevector-length bvec)))
+  (assert* 'subbytevector (fx<=?* 0 start end (bytevector-length bvec)))
   (let* ((n (fx- end start))
          (dst (make-bytevector n)))
     (bytevector-copy! bvec start dst 0 n)
@@ -39,9 +38,7 @@
 (define bytevector-fill-range!
   (let ((c-bytevector-fill-range (foreign-procedure "c_bytevector_fill_range" (ptr int int int) void)))
     (lambda (bvec start end val)
-      ;; assert* allocates if too many arguments
-      (assert* 'bytevector-fill-range! (fx<=? 0 start end))
-      (assert* 'bytevector-fill-range! (fx<=? end (bytevector-length bvec)))
+      (assert* 'bytevector-fill-range! (fx<=?* 0 start end (bytevector-length bvec)))
       (assert* 'bytevector-fill-range! (fx<=? -128 val 255))
       (let ((val (fxand val 255))
             (n   (fx- end start)))
@@ -60,10 +57,8 @@
   (let ((c-bytevector-index-u8 (foreign-procedure "c_bytevector_index_u8" (ptr int int int) ptr)))
     (case-lambda
       ((bvec start end byte-or-pred)
-        ;; assert* allocates if too many arguments
         (assert* 'bytevector-index (bytevector? bvec))
-        (assert* 'bytevector-index (fx<=? 0 start end))
-        (assert* 'bytevector-index (fx<=? end (bytevector-length bvec)))
+        (assert* 'bytevector-index (fx<=?* 0 start end (bytevector-length bvec)))
         (if (fixnum? byte-or-pred)
           (begin
             (assert* 'bytevector-index (fx<=? -128 byte-or-pred 255))
@@ -92,7 +87,7 @@
 (define in-bytevector
   (case-lambda
     ((sp start end step)
-      (assert* 'in-bytevector (fx<=? 0 start end (bytevector-length sp)))
+      (assert* 'in-bytevector (fx<=?* 0 start end (bytevector-length sp)))
       (assert* 'in-bytevector (fx>=? step 0))
       (let ((%in-bytevector ; name shown when displaying the closure
               (lambda ()

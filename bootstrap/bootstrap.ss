@@ -13,7 +13,7 @@
       while until throws? trace-call trace-define try list->values values->list
 
       ;; functions.ss
-      generate-pretty-temporaries generate-pretty-temporary gensym-pretty
+      fx<=?* generate-pretty-temporaries generate-pretty-temporary gensym-pretty
 
       raise-assert0 raise-assert1 raise-assert2 raise-assert3
       raise-assert4 raise-assert5 raise-assertf raise-assertl raise-errorf

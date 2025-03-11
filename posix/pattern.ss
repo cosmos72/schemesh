@@ -13,7 +13,7 @@
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx1- record-writer void)
-    (only (schemesh bootstrap) assert* raise-assertf)
+    (only (schemesh bootstrap) assert* fx<=?* raise-assertf)
     (only (schemesh containers string) string-index string-index-right string-range=?)
     (schemesh containers charspan)
     (schemesh containers span))
@@ -165,7 +165,7 @@
   (let* ((sp  (pattern-span p))
          (n   (span-length sp))
          (len (fx- str-end str-start)))
-    (assert* 'sh-pattern-match-range? (fx<=? 0 str-start str-end (string-length str)))
+    (assert* 'sh-pattern-match-range? (fx<=?* 0 str-start str-end (string-length str)))
     ;; handle special cases first
     (cond
       ((span-empty? sp)

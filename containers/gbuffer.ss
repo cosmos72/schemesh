@@ -20,7 +20,7 @@
   (import
     (rnrs)
     (only (chezscheme) fx1+ record-writer void)
-    (only (schemesh bootstrap)         assert* assert-not*)
+    (only (schemesh bootstrap)         assert* assert-not* fx<=?*)
     (only (schemesh containers vector) vector-copy!)
     (schemesh containers span))
 
@@ -128,7 +128,7 @@
   (case-lambda
     ((gb idx sp-src src-start src-end)
       (assert* 'gbuffer-insert-at/span! (fx<=? 0 idx (gbuffer-length gb)))
-      (assert* 'gbuffer-insert-at/span! (fx<=? 0 src-start src-end (span-length sp-src)))
+      (assert* 'gbuffer-insert-at/span! (fx<=?* 0 src-start src-end (span-length sp-src)))
       (when (fx<? src-start src-end)
         (let ((left   (<- gb))
               (right  (-> gb)))
@@ -154,7 +154,7 @@
          (right-n (span-length right))
          (len     (fx+ left-n right-n))
          (n       (fx- end start)))
-    (assert* 'gbuffer-erase-range! (fx<=? 0 start end len))
+    (assert* 'gbuffer-erase-range! (fx<=?* 0 start end len))
     (cond
       ((fxzero? n) (void)) ; nothing to do
       ((fxzero? start)
@@ -182,7 +182,7 @@
 (define in-gbuffer
   (case-lambda
     ((gb start end step)
-      (assert* 'in-gbuffer (fx<=? 0 start end (gbuffer-length gb)))
+      (assert* 'in-gbuffer (fx<=?* 0 start end (gbuffer-length gb)))
       (assert* 'in-gbuffer (fx>=? step 0))
       (let ((%in-gbuffer ; name shown when displaying the closure
               (lambda ()

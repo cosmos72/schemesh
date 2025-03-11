@@ -23,7 +23,7 @@
   (import
     (rnrs)
     (only (chezscheme) fx1+ record-writer string-copy! void)
-    (only (schemesh bootstrap) assert* assert-not*)
+    (only (schemesh bootstrap) assert* assert-not* fx<=?*)
     (schemesh containers charspan))
 
 (define-record-type
@@ -135,7 +135,7 @@
   (case-lambda
     ((gb idx csp-src src-start src-end)
       (assert* 'chargbuffer-insert-at/cspan! (fx<=? 0 idx (chargbuffer-length gb)))
-      (assert* 'chargbuffer-insert-at/cspan! (fx<=? 0 src-start src-end (charspan-length csp-src)))
+      (assert* 'chargbuffer-insert-at/cspan! (fx<=?* 0 src-start src-end (charspan-length csp-src)))
       (when (fx<? src-start src-end)
         (let* ((left   (<- gb))
                (right  (-> gb))
@@ -161,7 +161,7 @@
   (case-lambda
     ((gb idx gb-src src-start src-end)
       (assert* 'chargbuffer-insert-at/cbuf! (fx<=? 0 idx (chargbuffer-length gb)))
-      (assert* 'chargbuffer-insert-at/cbuf! (fx<=? 0 src-start src-end (chargbuffer-length gb-src)))
+      (assert* 'chargbuffer-insert-at/cbuf! (fx<=?* 0 src-start src-end (chargbuffer-length gb-src)))
       (when (fx<? src-start src-end)
         (assert-not* 'chargbuffer-insert-at/cbuf! (eq? gb gb-src))
         (let* ((left   (<- gb-src))
@@ -190,7 +190,7 @@
          (right-n (charspan-length right))
          (len     (fx+ left-n right-n))
          (n       (fx- end start)))
-    (assert* 'chargbuffer-erase-range! (fx<=? 0 start end len))
+    (assert* 'chargbuffer-erase-range! (fx<=?* 0 start end len))
     (cond
       ((fxzero? n)
         (void)) ; nothing to do
@@ -219,7 +219,7 @@
 (define in-chargbuffer
   (case-lambda
     ((gb start end step)
-      (assert* 'in-chargbuffer (fx<=? 0 start end (chargbuffer-length gb)))
+      (assert* 'in-chargbuffer (fx<=?* 0 start end (chargbuffer-length gb)))
       (assert* 'in-chargbuffer (fx>=? step 0))
       (let ((%in-chargbuffer ; name shown when displaying the closure
               (lambda ()

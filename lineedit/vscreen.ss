@@ -27,8 +27,8 @@
 
   (import
     (rnrs)
-    (only (chezscheme) format fx1+ fx1- record-writer)
-    (only (schemesh bootstrap) assert* debugf while)
+    (only (chezscheme)         format fx1+ fx1- record-writer)
+    (only (schemesh bootstrap) assert* fx<=?* while)
     (schemesh containers charspan)
     (schemesh containers span)
     (schemesh containers charline)
@@ -718,7 +718,7 @@
     ((screen x y csp)
       (vscreen-insert-at-xy/cspan! screen x y csp 0 (charspan-length csp)))
     ((screen x y csp csp-start csp-end)
-      (assert* 'vscreen-insert-at-xy/cspan! (fx<=? 0 csp-start csp-end (charspan-length csp)))
+      (assert* 'vscreen-insert-at-xy/cspan! (fx<=?* 0 csp-start csp-end (charspan-length csp)))
       (when (fx<? csp-start csp-end)
         (let-values (((x y line) (vscreen-insert-at-xy/prepare! screen x y)))
           (vscreen-dirty-set! screen #t)

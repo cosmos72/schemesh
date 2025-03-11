@@ -17,7 +17,7 @@
     (only (chezscheme)         cflonum? cfl+ fl-make-rectangular
                                fx1+ fx1- fxvector-length fxvector-ref
                                import include meta-cond library-exports scheme-version)
-    (only (schemesh bootstrap) assert* raise-errorf))
+    (only (schemesh bootstrap) assert* fx<=?* raise-errorf))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -42,7 +42,7 @@
 ;; return a copy of vector vec containing only elements
 ;; in range [start, end) i.e. from start (inclusive) to end (exclusive)
 (define (subvector vec start end)
-  (assert* 'subvector (fx<=? 0 start end (vector-length vec)))
+  (assert* 'subvector (fx<=?* 0 start end (vector-length vec)))
   (let* ((n (fx- end start))
          (dst (make-vector n)))
     (vector-copy! vec start dst 0 n)
@@ -50,7 +50,7 @@
 
 ;; set elements in range [start, end) of vector vec specified value
 (define (vector-fill-range! vec start end val)
-  (assert* 'vector-fill-range! (fx<=? 0 start end (vector-length vec)))
+  (assert* 'vector-fill-range! (fx<=?* 0 start end (vector-length vec)))
   (do ((i start (fx1+ i)))
       ((fx>=? i end))
     (vector-set! vec i val)))
@@ -73,7 +73,7 @@
 (define in-vector
   (case-lambda
     ((v start end step)
-      (assert* 'in-vector (fx<=? 0 start end (vector-length v)))
+      (assert* 'in-vector (fx<=?* 0 start end (vector-length v)))
       (assert* 'in-vector (fx>=? step 0))
       (let ((%in-vector ; name shown when displaying the closure
               (lambda ()
@@ -126,7 +126,7 @@
 (define in-fxvector
   (case-lambda
     ((v start end step)
-      (assert* 'in-fxvector (fx<=? 0 start end (fxvector-length v)))
+      (assert* 'in-fxvector (fx<=?* 0 start end (fxvector-length v)))
       (assert* 'in-fxvector (fx>=? step 0))
       (lambda ()
         (if (fx<? start end)
@@ -159,7 +159,7 @@
       (case-lambda
         ((v start end step)
           (import (only (chezscheme) flvector-length flvector-ref))
-          (assert* 'in-flvector (fx<=? 0 start end (flvector-length v)))
+          (assert* 'in-flvector (fx<=?* 0 start end (flvector-length v)))
           (assert* 'in-flvector (fx>=? step 0))
           (lambda ()
             (if (fx<? start end)

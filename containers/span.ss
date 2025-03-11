@@ -22,7 +22,7 @@
   (import
     (rnrs)
     (only (chezscheme) break fx1+ fx1- record-writer reverse! vector-copy void)
-    (only (schemesh bootstrap)         assert* assert-not*)
+    (only (schemesh bootstrap)         assert* assert-not* fx<=?*)
     (only (schemesh containers list)   list-iterate)
     (only (schemesh containers vector) subvector vector-copy! vector-fill-range! vector-range->list))
 
@@ -100,7 +100,7 @@
   (vector-fill-range! (span-vec sp) (span-beg sp) (span-end sp) val))
 
 (define (span-fill-range! sp start end val)
-  (assert* 'span-fill-range! (fx<=? 0 start end (span-length sp)))
+  (assert* 'span-fill-range! (fx<=?* 0 start end (span-length sp)))
   (let ((offset (span-beg sp)))
     (vector-fill-range! (span-vec sp) (fx+ start offset) (fx+ end offset) val)))
 
@@ -109,7 +109,7 @@
 ;; note: setting the elements of either span will propagate to the other
 ;; (provided they are in range of both spans) until one of the spans is reallocated.
 (define (span-range->span* sp start end)
-  (assert* 'span-range->span* (fx<=? 0 start end (span-length sp)))
+  (assert* 'span-range->span* (fx<=?* 0 start end (span-length sp)))
   (%make-span (fx+ start (span-beg sp)) (fx+ end (span-beg sp)) (span-vec sp)))
 
 
@@ -118,7 +118,7 @@
 (define span-copy
   (case-lambda
     ((src start end)
-      (assert* 'span-copy (fx<=? 0 start end (span-length src)))
+      (assert* 'span-copy (fx<=?* 0 start end (span-length src)))
       (let* ((n (fx- end start))
              (dst (make-span n)))
         (vector-copy! (span-vec src) (fx+ (span-beg src) start)
@@ -130,8 +130,8 @@
 
 ;; copy a range of elements from span src to span dst.
 (define (span-copy! src src-start dst dst-start n)
-  (assert* 'span-copy! (fx<=? 0 src-start (fx+ src-start n) (span-length src)))
-  (assert* 'span-copy! (fx<=? 0 dst-start (fx+ dst-start n) (span-length dst)))
+  (assert* 'span-copy! (fx<=?* 0 src-start (fx+ src-start n) (span-length src)))
+  (assert* 'span-copy! (fx<=?* 0 dst-start (fx+ dst-start n) (span-length dst)))
   (vector-copy! (span-vec src) (fx+ src-start (span-beg src))
                 (span-vec dst) (fx+ dst-start (span-beg dst)) n))
 
@@ -248,7 +248,7 @@
 (define span-insert-left/span!
   (case-lambda
     ((sp-dst sp-src src-start src-end)
-      (assert*     'span-insert-left/span! (fx<=? 0 src-start src-end (span-length sp-src)))
+      (assert*     'span-insert-left/span! (fx<=?* 0 src-start src-end (span-length sp-src)))
       (when (fx<? src-start src-end)
         ;; check for (not (eq? src dst)) only if dst is non-empty,
         ;; because reusing the empty vector is a common optimization of Scheme compilers
@@ -266,7 +266,7 @@
 (define span-insert-right/span!
   (case-lambda
     ((sp-dst sp-src src-start src-end)
-      (assert*     'span-insert-right/span! (fx<=? 0 src-start src-end (span-length sp-src)))
+      (assert*     'span-insert-right/span! (fx<=?* 0 src-start src-end (span-length sp-src)))
       (when (fx<? src-start src-end)
         ;; check for (not (eq? src dst)) only if dst is non-empty,
         ;; because reusing the empty vector is a common optimization of Scheme compilers
@@ -304,7 +304,7 @@
 (define in-span
   (case-lambda
     ((sp start end step)
-      (assert* 'in-span (fx<=? 0 start end (span-length sp)))
+      (assert* 'in-span (fx<=?* 0 start end (span-length sp)))
       (assert* 'in-span (fx>=? step 0))
       (lambda ()
         (if (fx<? start end)
@@ -331,7 +331,7 @@
 (define span-iterate-any
   (case-lambda
     ((sp start end proc)
-      (assert* 'span-iterate-any (fx<=? 0 start end (span-length sp)))
+      (assert* 'span-iterate-any (fx<=?* 0 start end (span-length sp)))
       (assert* 'span-iterate-any (procedure? proc))
       (let ((offset (span-beg sp))
             (v (span-vec sp)))
@@ -358,7 +358,7 @@
 (define span-iterate
   (case-lambda
     ((sp start end proc)
-      (assert* 'span-iterate (fx<=? 0 start end (span-length sp)))
+      (assert* 'span-iterate (fx<=?* 0 start end (span-length sp)))
       (assert* 'span-iterate (procedure? proc))
       (do ((i start (fx1+ i))
            (offset (span-beg sp))

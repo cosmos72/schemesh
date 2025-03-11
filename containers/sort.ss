@@ -13,28 +13,11 @@
     (rnrs)
     (only (chezscheme) eval-when format fx1+ fx1- fxarithmetic-shift-right logbit?
                        mutable-vector? optimize-level pariah procedure-arity-mask void)
-    ;;(only (schemesh bootstrap) assert*)
+    (only (schemesh bootstrap) assert* fx<=?*)
     (schemesh containers span))
 
 
 (eval-when (compile) (optimize-level 3) (debug-level 0))
-
-(define (raise-assert0 caller message)
-  (raise
-    (condition
-      (make-assertion-violation)
-      (make-non-continuable-violation)
-      (make-who-condition (if (symbol? caller) caller (format #f "~s" caller)))
-      (make-message-condition message))))
-
-
-;; optimized assert*, does not allocate. Error messages are less informative.
-(define-syntax assert*
-  (lambda (stx)
-    (let ((message (format #f "assertion failed: ~s" (caddr (syntax->datum stx)))))
-      (syntax-case stx ()
-        ((_ caller expr)
-          #`(if expr (void) (pariah (raise-assert0 caller #,message) (void))))))))
 
 
 (define (%vector-swap! v x0 x1)
@@ -219,7 +202,7 @@
       (assert* 'vector-sort*! (mutable-vector? v))
       (assert* 'vector-sort*! (fixnum? start))
       (assert* 'vector-sort*! (fixnum? end))
-      (assert* 'vector-sort*! (fx<=? 0 start end (vector-length v)))
+      (assert* 'vector-sort*! (fx<=?* 0 start end (vector-length v)))
       (%vector-sort! is<? v start end))))
 
 
@@ -235,7 +218,7 @@
       (assert* 'span-sort! (mutable-vector? (span-peek-data sp)))
       (assert* 'span-sort! (fixnum? start))
       (assert* 'span-sort! (fixnum? end))
-      (assert* 'span-sort! (fx<=? 0 start end (span-length sp)))
+      (assert* 'span-sort! (fx<=?* 0 start end (span-length sp)))
       (let ((beg (span-peek-beg sp)))
         (%vector-sort! is<? (span-peek-data sp) (fx+ beg start) (fx+ beg end))))))
 

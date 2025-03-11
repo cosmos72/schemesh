@@ -12,6 +12,7 @@
 
 (library (schemesh bootstrap functions (0 8 1))
   (export
+      fx<=?*
       generate-pretty-temporaries generate-pretty-temporary gensym-pretty
 
       raise-assert0 raise-assert1 raise-assert2 raise-assert3
@@ -25,6 +26,16 @@
     (rnrs)
     (only (chezscheme) console-error-port format gensym make-continuation-condition make-format-condition
                        interaction-environment top-level-bound? top-level-value))
+
+
+;; fx<=? that does not allocate, and allows up to 6 arguments
+(define fx<=?*
+  (case-lambda
+    ((a b)         (fx<=? a b))
+    ((a b c)       (fx<=? a b c))
+    ((a b c d)     (and (fx<=? a b c) (fx<=? c d)))
+    ((a b c d e)   (and (fx<=? a b c) (fx<=? c d e)))
+    ((a b c d e f) (and (fx<=? a b c) (fx<=? c d e) (fx<=? e f)))))
 
 
 (define (gensym-pretty x)

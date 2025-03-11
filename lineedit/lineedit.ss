@@ -143,7 +143,7 @@
 ;; and insert them into vscreen at cursor.
 ;; Also moves cursor (fx- end start) characters to the right, and reflows vscreen as needed.
 (define (linectx-insert/cspan! lctx csp start end)
-  (assert* 'linectx-insert/cspan! (fx<=? 0 start end (charspan-length csp)))
+  (assert* 'linectx-insert/cspan! (fx<=?* 0 start end (charspan-length csp)))
   (when (fx<? start end)
     (vscreen-insert/cspan! (linectx-vscreen lctx) csp start end)))
 
@@ -155,7 +155,7 @@
 ;; Moves cursor appropriately to the right, and reflows vscreen as needed.
 ;; return number of bytes actually read from bytespan and inserted.
 (define (linectx-insert/bspan! lctx bsp start end)
-  (assert* 'linectx-insert/bspan! (fx<=? 0 start end (bytespan-length bsp)))
+  (assert* 'linectx-insert/bspan! (fx<=?* 0 start end (bytespan-length bsp)))
   (let ((pos start)
         (incomplete-utf8? #f))
     (do ()

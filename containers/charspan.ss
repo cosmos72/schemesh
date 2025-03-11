@@ -32,7 +32,7 @@
     (rnrs)
     (rnrs mutable-strings)
     (only (chezscheme) fx1+ fx1- record-writer string-copy! string-truncate! void)
-    (only (schemesh bootstrap)         assert* assert-not*)
+    (only (schemesh bootstrap)         assert* assert-not* fx<=?*)
     (only (schemesh containers list)   list-iterate)
     (only (schemesh containers string) string-fill-range! string-index string-range<? string-range=? string-range-count=))
 
@@ -78,7 +78,7 @@
 (define charspan->string
   (case-lambda
     ((sp start end)
-      (assert* 'charspan->string (fx<=? 0 start end (charspan-length sp)))
+      (assert* 'charspan->string (fx<=?* 0 start end (charspan-length sp)))
       (if (fx<? start end)
         (let ((offset (charspan-beg sp)))
           (substring (charspan-str sp) (fx+ offset start) (fx+ offset end)))
@@ -139,7 +139,7 @@
   (string-fill-range! (charspan-str sp) (charspan-beg sp) (charspan-end sp) ch))
 
 (define (charspan-fill-range! sp start end ch)
-  (assert* 'charspan-fill-range! (fx<=? 0 start end (charspan-length sp)))
+  (assert* 'charspan-fill-range! (fx<=?* 0 start end (charspan-length sp)))
   (let ((offset (charspan-beg sp)))
     (string-fill-range! (charspan-str sp) (fx+ start offset) (fx+ end offset) ch)))
 
@@ -152,8 +152,8 @@
     dst))
 
 (define (charspan-copy! src src-start dst dst-start n)
-  (assert* 'charspan-copy! (fx<=? 0 src-start (fx+ src-start n) (charspan-length src)))
-  (assert* 'charspan-copy! (fx<=? 0 dst-start (fx+ dst-start n) (charspan-length dst)))
+  (assert* 'charspan-copy! (fx<=?* 0 src-start (fx+ src-start n) (charspan-length src)))
+  (assert* 'charspan-copy! (fx<=?* 0 dst-start (fx+ dst-start n) (charspan-length dst)))
   (string-copy! (charspan-str src) (fx+ src-start (charspan-beg src))
                 (charspan-str dst) (fx+ dst-start (charspan-beg dst)) n))
 
@@ -182,8 +182,8 @@
 ;; return the leftmost position, starting from 0, containing different characters,
 ;; or n if the two ranges contain the same characters
 (define (charspan-range-count= left left-start right right-start n)
-  (assert* 'charspan-range-count= (fx<=? 0 left-start  (fx+ left-start n)  (charspan-length left)))
-  (assert* 'charspan-range-count= (fx<=? 0 right-start (fx+ right-start n) (charspan-length right)))
+  (assert* 'charspan-range-count= (fx<=?* 0 left-start  (fx+ left-start n)  (charspan-length left)))
+  (assert* 'charspan-range-count= (fx<=?* 0 right-start (fx+ right-start n) (charspan-length right)))
   (string-range-count=
     (charspan-str left)  (fx+ left-start  (charspan-beg left))
     (charspan-str right) (fx+ right-start (charspan-beg right))
@@ -192,8 +192,8 @@
 
 ;; compare a range of two charspans
 (define (charspan-range=? left left-start right right-start n)
-  (assert* 'charspan-range=? (fx<=? 0 left-start  (fx+ left-start n)  (charspan-length left)))
-  (assert* 'charspan-range=? (fx<=? 0 right-start (fx+ right-start n) (charspan-length right)))
+  (assert* 'charspan-range=? (fx<=?* 0 left-start  (fx+ left-start n)  (charspan-length left)))
+  (assert* 'charspan-range=? (fx<=?* 0 right-start (fx+ right-start n) (charspan-length right)))
   (string-range=?
     (charspan-str left)  (fx+ left-start  (charspan-beg left))
     (charspan-str right) (fx+ right-start (charspan-beg right))
@@ -201,8 +201,8 @@
 
 ;; compare a range of a charspan and a string
 (define (charspan-range/string=? left left-start right right-start n)
-  (assert* 'charspan-range/string=? (fx<=? 0 left-start  (fx+ left-start n)  (charspan-length left)))
-  (assert* 'charspan-range/string=? (fx<=? 0 right-start (fx+ right-start n) (string-length right)))
+  (assert* 'charspan-range/string=? (fx<=?* 0 left-start  (fx+ left-start n)  (charspan-length left)))
+  (assert* 'charspan-range/string=? (fx<=?* 0 right-start (fx+ right-start n) (string-length right)))
   (string-range=?
     (charspan-str left)  (fx+ left-start  (charspan-beg left))
     right right-start
@@ -321,7 +321,7 @@
 (define charspan-insert-left/cspan!
   (case-lambda
     ((sp-dst sp-src src-start src-end)
-      (assert* 'charspan-insert-left/cspan! (fx<=? 0 src-start src-end (charspan-length sp-src)))
+      (assert* 'charspan-insert-left/cspan! (fx<=?* 0 src-start src-end (charspan-length sp-src)))
       (assert-not* 'charspan-insert-left/cspan! (eq? sp-dst sp-src))
       (when (fx<? src-start src-end)
         (let ((src-n (fx- src-end src-start)))
@@ -335,7 +335,7 @@
 (define charspan-insert-right/cspan!
   (case-lambda
     ((sp-dst sp-src src-start src-end)
-      (assert* 'charspan-insert-right/cspan! (fx<=? 0 src-start src-end (charspan-length sp-src)))
+      (assert* 'charspan-insert-right/cspan! (fx<=?* 0 src-start src-end (charspan-length sp-src)))
       (assert-not* 'charspan-insert-right/cspan! (eq? sp-dst sp-src))
       (when (fx<? src-start src-end)
         (let ((pos (charspan-length sp-dst))
@@ -350,7 +350,7 @@
 (define charspan-insert-left/string!
   (case-lambda
     ((sp-dst str-src src-start src-end)
-      (assert* 'charspan-insert-left/string! (fx<=? 0 src-start src-end (string-length str-src)))
+      (assert* 'charspan-insert-left/string! (fx<=?* 0 src-start src-end (string-length str-src)))
       (when (fx<? src-start src-end)
         ;; check for (not (eq? src dst)) only if dst is non-empty,
         ;; because reusing the empty string is a common optimization of Scheme compilers
@@ -368,7 +368,7 @@
 (define charspan-insert-right/string!
   (case-lambda
     ((sp-dst str-src src-start src-end)
-      (assert* 'charspan-insert-right/string! (fx<=? 0 src-start src-end (string-length str-src)))
+      (assert* 'charspan-insert-right/string! (fx<=?* 0 src-start src-end (string-length str-src)))
       (when (fx<? src-start src-end)
         ;; check for (not (eq? src dst)) only if dst is non-empty,
         ;; because reusing the empty string is a common optimization of Scheme compilers
@@ -404,7 +404,7 @@
 (define in-charspan
   (case-lambda
     ((sp start end step)
-      (assert* 'in-charspan (fx<=? 0 start end (charspan-length sp)))
+      (assert* 'in-charspan (fx<=?* 0 start end (charspan-length sp)))
       (assert* 'in-charspan (fx>=? step 0))
       (let ((%in-charspan ; name shown when displaying the closure
               (lambda ()
@@ -435,7 +435,7 @@
 (define charspan-index
   (case-lambda
     ((sp start end predicate)
-      (assert* 'charspan-index (fx<=? 0 start end (charspan-length sp)))
+      (assert* 'charspan-index (fx<=?* 0 start end (charspan-length sp)))
       (do ((i start (fx1+ i)))
           ((or (fx>=? i end) (predicate (charspan-ref sp i)))
             (if (fx>=? i end) #f i))))
@@ -449,7 +449,7 @@
 (define charspan-index-right
   (case-lambda
     ((sp start end predicate)
-      (assert* 'charspan-index-right (fx<=? 0 start end (charspan-length sp)))
+      (assert* 'charspan-index-right (fx<=?* 0 start end (charspan-length sp)))
       (do ((i (fx1- end) (fx1- i)))
           ((or (fx<? i start) (predicate (charspan-ref sp i)))
             (if (fx<? i start) #f i))))
@@ -485,7 +485,7 @@
 (define string-replace-all
   (case-lambda
     ((str old-str new-str start end)
-      (assert* 'string-replace-all (fx<=? 0 start end (string-length str)))
+      (assert* 'string-replace-all (fx<=?* 0 start end (string-length str)))
       (assert* 'string-replace-all (string? old-str))
       (assert* 'string-replace-all (string? new-str))
       (assert-not* 'string-replace-all (fxzero? (string-length old-str)))
