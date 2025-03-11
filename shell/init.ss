@@ -41,11 +41,15 @@
   (yield-handler sh-current-job-yield)
 
 
+  #|
   ;; Replace (console-input-port) (console-output-port) (console-error-port)
   ;; with UTF-8b textual input/output ports that can be interrupted
+  ;;
+  ;; DISABLED: breaks (inspect) and (debug)
   (console-input-port  (open-fd-redir-utf8b-input/output-port "stdin" (lambda () 0) (buffer-mode none)))
   (console-output-port (open-fd-redir-utf8b-input/output-port "stdout" (lambda () 1) (buffer-mode none)))
   (console-error-port  (open-fd-redir-utf8b-input/output-port "stderr" (lambda () 2) (buffer-mode none)))
+  |#
 
 
   ;; Replace (current-input-port) (current-output-port) (current-error-port)
