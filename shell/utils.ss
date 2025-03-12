@@ -8,11 +8,11 @@
 
 (library (schemesh shell utils (0 8 1))
   (export
-    sh-autocomplete sh-current-time sh-expand-ps1 sh-home->~ sh-make-linectx)
+    sh-autocomplete sh-current-time sh-default-ps1 sh-expand-ps1 sh-home->~ sh-make-linectx)
   (import
     (rnrs)
     (rnrs mutable-strings)
-    (only (chezscheme) current-date date-hour date-minute date-second foreign-procedure fx1+ fx1-)
+    (only (chezscheme) current-date date-hour date-minute date-second foreign-procedure fx1+ fx1- string->immutable-string)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh lineedit linectx)
@@ -118,18 +118,20 @@
 
 (define s+ string-append)
 
-(define sh-fancy-ps1
+(define default-ps1
   (let ((user-color (if (eqv? 0 (current-euid)) red+ cyan+)))
-    (s+ (window-title (s+ e-user "@" e-host " " e-cwd))
-        (green        (s+ e-syntax " "))
-        (user-color   e-user) "@"
-        (yellow+      e-host) ":"
-        (blue+        e-cwd)  ":")))
+    (string->immutable-string
+     (s+ (window-title (s+ e-user "@" e-host " " e-cwd))
+         (green        (s+ e-syntax " "))
+         (user-color   e-user) "@"
+         (yellow+      e-host) ":"
+         (blue+        e-cwd)  ":"))))
 
+(define (sh-default-ps1) default-ps1)
 
 ; update linectx-prompt and linectx-prompt-length with new prompt
 (define (sh-expand-ps1 lctx)
-  (let* ((src (sh-env-ref #t "SCHEMESH_PS1" sh-fancy-ps1)) ; string
+  (let* ((src (sh-env-ref #t "SCHEMESH_PS1" default-ps1)) ; string
          (prompt (linectx-prompt lctx))
          (prompt-len 0)
          (hidden  0)
