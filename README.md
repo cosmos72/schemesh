@@ -430,13 +430,7 @@ If get some other error and you correctly installed the required dependencies,
 feel free to open a [GitHub issue](https://github.com/cosmos72/schemesh/issues)
 describing the issue. Remember to include at least:
 * the exact `make ...` command you executed, and its output - especially the error messages
-* the output of the command `lsb_release -a`
-* the output of the command `uname -a`
-* the output of the command `make --version`
-* the output of the command `cc --version`
-* the output of the command `( chez-scheme --verbose || chezscheme --verbose || chez --verbose || scheme --verbose ) </dev/null >/dev/null`
-* the output of the command `git log -2`
-
+* the output of the command `./utils/show_system_info.sh`
 
 ## RECENT CHANGES
 
