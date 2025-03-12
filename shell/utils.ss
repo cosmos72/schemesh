@@ -12,7 +12,7 @@
   (import
     (rnrs)
     (rnrs mutable-strings)
-    (only (chezscheme) current-date date-hour date-minute date-second fx1+ fx1-)
+    (only (chezscheme) current-date date-hour date-minute date-second foreign-procedure fx1+ fx1-)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh lineedit linectx)
@@ -69,7 +69,63 @@
       (%display str 6 (date-second d)))
     str))
 
-(define sh-fancy-ps1 "\\[\\e]0;\\u@\\h \\w\\a\\]\\[\\e[0;32m\\]\\s \\[\\e[1;36m\\]\\u\\[\\e[m\\]@\\[\\e[1;33m\\]\\h\\[\\e[m\\]:\\[\\e[1;34m\\]\\w\\[\\e[m\\]:")
+
+(define current-euid
+  (let ((ret ((foreign-procedure "c_euid_get" () int))))
+    (lambda ()
+      ret)))
+
+(define uid->username (foreign-procedure "c_get_username" (int) ptr))
+
+(define username
+  (let ((c-username (uid->username (current-euid))))
+    (lambda ()
+      (if (string? c-username)
+        c-username
+        (sh-env-ref #t "USER")))))
+
+(define (color high? fg str)
+  (string-append (if high? "\\[\\e[1;3" "\\[\\e[;3") fg "m\\]"
+                 str
+                 "\\[\\e[m\\]"))
+
+(define (black    str) (color #f "0" str))
+(define (red      str) (color #f "1" str))
+(define (green    str) (color #f "2" str))
+(define (yellow   str) (color #f "3" str))
+(define (blue     str) (color #f "4" str))
+(define (magenta  str) (color #f "5" str))
+(define (cyan     str) (color #f "6" str))
+(define (white    str) (color #f "7" str))
+
+(define (black+   str) (color #t "0" str))
+(define (red+     str) (color #t "1" str))
+(define (green+   str) (color #t "2" str))
+(define (yellow+  str) (color #t "3" str))
+(define (blue+    str) (color #t "4" str))
+(define (magenta+ str) (color #t "5" str))
+(define (cyan+    str) (color #t "6" str))
+(define (white+   str) (color #t "7" str))
+
+(define e-host   "\\h")
+(define e-syntax "\\s")
+(define e-user   "\\u")
+(define e-time   "\\t")
+(define e-cwd    "\\w")
+
+(define (window-title str)
+  (string-append "\\[\\e]0;" str "\\a\\]"))
+
+(define s+ string-append)
+
+(define sh-fancy-ps1
+  (let ((user-color (if (eqv? 0 (current-euid)) red+ cyan+)))
+    (s+ (window-title (s+ e-user "@" e-host " " e-cwd))
+        (green        (s+ e-syntax " "))
+        (user-color   e-user) "@"
+        (yellow+      e-host) ":"
+        (blue+        e-cwd)  ":")))
+
 
 ; update linectx-prompt and linectx-prompt-length with new prompt
 (define (sh-expand-ps1 lctx)
@@ -82,12 +138,14 @@
            (bytespan-insert-right/char! prompt ch)
            (when (fx<=? hidden 0)
              (set! prompt-len (fx1+ prompt-len)))))
+         (%append-string (lambda (str)
+           (bytespan-insert-right/string! prompt str)
+           (when (fx<=? hidden 0)
+             (set! prompt-len (fx+ prompt-len (string-length str))))))
          (%append-charspan (lambda (csp)
            (bytespan-insert-right/cspan! prompt csp)
            (when (fx<=? hidden 0)
-             (set! prompt-len (fx+ prompt-len (charspan-length csp))))))
-         (%append-string (lambda (str)
-           (%append-charspan (string->charspan* str)))))
+             (set! prompt-len (fx+ prompt-len (charspan-length csp)))))))
     (bytespan-clear! prompt)
     (bytespan-reserve-right! prompt (string-length src))
     (string-iterate src
@@ -99,12 +157,13 @@
               ((#\])     (set! hidden (fx1- hidden)))
               ((#\a)     (%append-char     #\x07))
               ((#\e)     (%append-char     #\x1B))
-              ((#\h #\H) (%append-string (c-hostname)))
+              ((#\h #\H) (%append-string   (c-hostname)))
               ; ((#\n)   (%append-char     #\newline)) ; breaks computing prompt-end-x/y
               ; ((#\r)   (%append-char     #\return))  ; breaks computing prompt-end-x/y
               ((#\s)     (%append-string   (symbol->string (linectx-parser-name lctx))))
-              ((#\@ #\A #\T #\t)    (%append-string (sh-current-time ch)))
-              ((#\u)     (%append-string   (sh-env-ref #t "USER")))
+              ((#\@ #\A
+                #\T #\t) (%append-string   (sh-current-time ch)))
+              ((#\u)     (%append-string   (username)))
               ((#\w)     (%append-charspan (sh-home->~ (sh-cwd))))
               (else      (%append-char     ch)))
             (set! escape? #f))
@@ -114,20 +173,20 @@
     (linectx-prompt-length-set! lctx prompt-len)))
 
 
-;; if charspan path begins with user's $HOME,
-;; return a copy of it where the initial user's $HOME is replaced by "~"
+;; if charspan path begins with user's home directory,
+;; return a copy of it where the initial user's home directory is replaced by "~"
 ;;
 ;; otherwise return path.
 (define (sh-home->~ path)
-  (let ((ret path)
-        (home (sh-env-ref #t "HOME" #f)))
-    (when (string? home)
-      (let ((home-len (string-length home))
-            (path-len (charspan-length path)))
-        (when (and (fx<=? home-len path-len)
-                   (charspan-range=? (string->charspan* home) 0 path 0 home-len))
-          (set! ret (string->charspan "~"))
-          (charspan-insert-right/cspan! ret path home-len path-len))))
+  (let* ((ret path)
+         (home (sh-env-ref #t "HOME" #f))
+         (home-len (if (string? home) (string-length home) 0))
+         (path-len (charspan-length path)))
+    (when (and (not (fxzero? home-len))
+               (fx<=? home-len path-len)
+               (charspan-range=? (string->charspan* home) 0 path 0 home-len))
+      (set! ret (string->charspan "~"))
+      (charspan-insert-right/cspan! ret path home-len path-len))
     ret))
 
 

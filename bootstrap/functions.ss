@@ -12,7 +12,7 @@
 
 (library (schemesh bootstrap functions (0 8 1))
   (export
-      fx<=?*
+      check-interrupts fx<=?*
       generate-pretty-temporaries generate-pretty-temporary gensym-pretty
 
       raise-assert0 raise-assert1 raise-assert2 raise-assert3
@@ -24,11 +24,22 @@
       sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter sh-version)
   (import
     (rnrs)
-    (only (chezscheme) console-error-port format gensym make-continuation-condition make-format-condition
-                       interaction-environment top-level-bound? top-level-value))
+    (only (chezscheme) $primitive console-error-port format gensym make-continuation-condition
+                       make-format-condition interaction-environment top-level-bound? top-level-value))
 
 
-;; fx<=? that does not allocate, and allows up to 6 arguments
+;; immediately check if an event occurred:
+;; * an interrupt from the keyboard
+;; * a POSIX signal with a register-signal-handler for it
+;; * the expiration of an internal timer set by set-timer
+;; * a breakpoint caused by a call to break
+;; * a request from the storage manager to initiate a garbage collection
+;;
+;; depending on the event and on user's commands, may or may not return.
+(define check-interrupts ($primitive 3 $event))
+
+
+;; version of fx<=? that does not allocate, and allows up to 6 arguments
 (define fx<=?*
   (case-lambda
     ((a b)         (fx<=? a b))

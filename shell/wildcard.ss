@@ -177,14 +177,14 @@
         (cons userhome tail))
       (let* ((slash    (string-index arg1 #\/))
              (username (if slash (substring arg1 0 slash) arg1))
-             (userhome (get-userhome (string->utf8b/0 username))))
+             (userhome (username->homedir (string->utf8b/0 username))))
         (if (string? userhome)
           (if slash
             ; remove the initial '~ and the portion of arg1 before the slash
             (cons userhome (cons (substring arg1 slash (string-length arg1)) w))
             ; remove the initial '~ and the whole arg1
             (cons userhome (cdr tail)))
-          ;; (get-userhome) failed: replace symbol '~ with string "~", keep arg1
+          ;; (username->homedir) failed: replace symbol '~ with string "~", keep arg1
           (cons "~" tail))))))
 
 

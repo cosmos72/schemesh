@@ -9,7 +9,7 @@
 
 /** this file should be included only by posix/posix.c */
 #ifndef SCHEMESH_POSIX_POSIX_C
-#error "posix/signal.h should only be #included by posix/posix.h"
+#error "posix/signal.h should only be #included by posix/posix.c"
 #endif
 
 #define N_OF(array) (sizeof(array) / sizeof((array)[0]))

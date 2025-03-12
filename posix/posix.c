@@ -22,7 +22,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <poll.h>
-#include <pwd.h>    /* getpwnam_r() */
+#include <pwd.h>    /* getpwnam_r(), getpwuid_r() */
 #include <sched.h>  /* sched_yield() */
 #include <signal.h> /* kill(), sigaction(), SIG... */
 #include <stdatomic.h>
@@ -34,7 +34,8 @@
 #include <sys/stat.h>  /* fstatat() */
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <unistd.h> /* sysconf(), write() */
+#include <unistd.h> /* geteuid(), getpid(), sysconf(), write() */
+
 #ifdef __linux__
 #define SCHEMESH_USE_TTY_IOCTL
 #else
@@ -900,6 +901,38 @@ static ptr c_get_hostname(void) {
 }
 
 /**
+ * get user name of specified uid.
+ * return a Scheme string, or Scheme integer on error
+ */
+static ptr c_get_username(int uid) {
+  struct passwd  pwd;
+  struct passwd* result = NULL;
+  ptr            ret;
+  char*          buf;
+  long           bufsize = -1;
+  int            err;
+
+#ifdef _SC_GETPW_R_SIZE_MAX
+  bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+#endif
+  if (bufsize < 0) {
+    bufsize = 16384;
+  }
+  buf = malloc(bufsize);
+  if (!buf) {
+    return Sinteger(c_errno());
+  }
+  err = getpwuid_r((uid_t)uid, &pwd, buf, bufsize, &result);
+  if (err == 0 && result && result->pw_name) {
+    ret = schemesh_Sstring_utf8b(result->pw_name, -1);
+  } else {
+    ret = Sinteger(c_errno_set(err != 0 ? err : ENOENT));
+  }
+  free(buf);
+  return ret;
+}
+
+/**
  * get home directory of specified username, which must be a 0-terminated bytevector.
  * return Scheme string, or Scheme integer on error
  */
@@ -1302,13 +1335,19 @@ c_directory_list1(DIR* dir, struct dirent* entry, const s_directory_list_opts* o
   return ret;
 }
 
-/** return pid of current process. */
+/** return effective user id of current process, or c_errno() < 0 on error */
+static int c_euid_get(void) {
+  int uid = geteuid();
+  return uid >= 0 ? uid : c_errno();
+}
+
+/** return pid of current process, or c_errno() < 0 on error */
 static int c_pid_get(void) {
   int pid = getpid();
   return pid >= 0 ? pid : c_errno();
 }
 
-/** return process group of specified process (0 = current process), or c_errno() on error */
+/** return process group of specified process (0 = current process), or c_errno() < 0 on error */
 static int c_pgid_get(int pid) {
   int pgid = getpgid((pid_t)pid);
   return pgid >= 0 ? pgid : c_errno();
@@ -1708,6 +1747,7 @@ int schemesh_register_c_functions_posix(void) {
 
   Sregister_symbol("c_cmd_exec", &c_cmd_exec);
   Sregister_symbol("c_cmd_spawn", &c_cmd_spawn);
+  Sregister_symbol("c_euid_get", &c_euid_get);
   Sregister_symbol("c_pid_get", &c_pid_get);
   Sregister_symbol("c_pgid_get", &c_pgid_get);
   Sregister_symbol("c_fork_pid", &c_fork_pid);
@@ -1718,6 +1758,7 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_pid_kill", &c_pid_kill);
 
   Sregister_symbol("c_get_hostname", &c_get_hostname);
+  Sregister_symbol("c_get_username", &c_get_username);
   Sregister_symbol("c_get_userhome", &c_get_userhome);
   Sregister_symbol("c_exit", &c_exit);
   Sregister_symbol("c_directory_list", &c_directory_list);
