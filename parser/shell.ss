@@ -14,7 +14,6 @@
     (rnrs)
     (only (chezscheme) append! fx1+ fx1- include inspect reverse! unread-char void)
     (only (schemesh bootstrap) assert* debugf until warnf while)
-    (only (schemesh containers list)   list-iterate)
     (only (schemesh containers string) string-is-unsigned-base10-integer?)
     (schemesh containers charspan)
     (schemesh lineedit paren)

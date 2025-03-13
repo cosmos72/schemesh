@@ -27,7 +27,6 @@
     (only (chezscheme) format fx1+ fx1- make-continuation-condition
                        make-format-condition record-writer unread-char void)
     (only (schemesh bootstrap) assert* until while)
-    (only (schemesh containers list)      list-iterate)
     (only (schemesh containers hashtable) hashtable-iterate)
     (schemesh containers span)
     (schemesh containers charspan))

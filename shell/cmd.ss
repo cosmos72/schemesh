@@ -82,9 +82,8 @@
 ;; Return the expanded command line, which is always a list of strings.
 (define (cmd-arg-list-call-sh-expr-and-procedures c prog-and-args)
   (let ((l '()))
-    (list-iterate prog-and-args
-      (lambda (arg)
-        (set! l (cmd-arg-call-sh-expr-or-procedure c arg l))))
+    (for-list ((arg prog-and-args))
+      (set! l (cmd-arg-call-sh-expr-or-procedure c arg l)))
     (set! l (reverse! l))
     (assert-string-list? 'sh-start l)
     l))
@@ -109,10 +108,9 @@
       ((null? expanded)
         l)
       ((pair? expanded)
-        (list-iterate expanded
-          (lambda (e)
-            (assert* 'sh-start (string? e))
-            (set! l (cons e l))))
+        (for-list ((e expanded))
+          (assert* 'sh-start (string? e))
+          (set! l (cons e l)))
         l)
       ((string? expanded)
         (cons expanded l))

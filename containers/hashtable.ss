@@ -14,7 +14,7 @@
   (import
     (rnrs)
     (only (chezscheme) $primitive fx1+ include record-writer)
-    (only (schemesh containers list) list-iterate))
+    (only (schemesh containers list) for-list))
 
 
 ;; NOTE: (hash-table-for-each) exported by Chez Scheme at least up to version 10.0.0
@@ -200,9 +200,8 @@
 ;; Returns the new hashtable.
 (define (alist->eq-hashtable l)
   (let ((dst (make-eq-hashtable (length l))))
-    (list-iterate l
-      (lambda (cell)
-        (hashtable-set! dst (car cell) (cdr cell))))
+    (for-list ((cell l))
+      (hashtable-set! dst (car cell) (cdr cell)))
     dst))
 
 
@@ -213,9 +212,8 @@
 ;; Returns the new hashtable.
 (define (alist->eqv-hashtable l)
   (let ((dst (make-eqv-hashtable (length l))))
-    (list-iterate l
-      (lambda (cell)
-        (hashtable-set! dst (car cell) (cdr cell))))
+    (for-list ((cell l))
+      (hashtable-set! dst (car cell) (cdr cell)))
     dst))
 
 
@@ -226,9 +224,8 @@
 ; Returns the created hashtable.
 (define (alist->hashtable hash-proc eq-proc l)
   (let ((dst (make-hashtable hash-proc eq-proc (length l))))
-    (list-iterate l
-      (lambda (cell)
-        (hashtable-set! dst (car cell) (cdr cell))))
+    (for-list ((cell l))
+      (hashtable-set! dst (car cell) (cdr cell)))
     dst))
 
 

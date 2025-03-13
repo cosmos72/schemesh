@@ -108,6 +108,7 @@ static int c_init_failed(const char label[]) {
           "error initializing POSIX subsystem: %s failed with error %s\n",
           label,
           c_strerror(err));
+  fflush(stderr);
   return err;
 }
 
@@ -477,7 +478,7 @@ static int c_job_control_change(int enable) {
     }
     err = pgid = c_create_foreground_pgid(pgid);
 
-  } else { /* enable < 0 */
+  } else { /* enable <= 0 */
 
     err = c_signals_setdefault(); /* keeps SICHLD handler */
   }
@@ -596,6 +597,29 @@ static ptr c_fd_read(int fd, ptr bytevector_read, iptr start, iptr end) {
 }
 
 /**
+ * call read(), retrieve a single byte and return it as a fixnum in [0, 255]
+ * returns #t if interrupted, or #f on eof, or c_errno() < 0 on error
+ */
+static ptr c_fd_read_u8(int fd) {
+  char    buf[1];
+  ssize_t n = read(fd, buf, sizeof(buf));
+  int     err;
+  switch (n) {
+    case 1:
+      return Sfixnum(buf[0]);
+    case 0:
+      return Sfalse; /* EOF */
+    default:
+      break;
+  }
+  err = c_errno();
+  if (err == -EINTR) {
+    return Strue; /* interrupted */
+  }
+  return Sinteger(err);
+}
+
+/**
  * call write().
  * returns number of bytes written, or #t if interrupted, or c_errno() < 0 on error
  */
@@ -617,6 +641,25 @@ static ptr c_fd_write(int fd, ptr bytevector_towrite, iptr start, iptr end) {
     return Strue;
   }
   return Sinteger(sent_n >= 0 ? sent_n : c_errno());
+}
+
+/**
+ * call write() and send a single byte.
+ * return 0 if success, or #t if interrupted, or c_errno() < 0 on error
+ */
+static ptr c_fd_write_u8(int fd, int byte) {
+  char buf[1];
+  int  err;
+
+  buf[0] = byte & 0xFF;
+  if (write(fd, buf, sizeof(buf)) == 1) {
+    return Sfixnum(0);
+  }
+  err = c_errno();
+  if (err == -EINTR) {
+    return Strue; /* interrupted */
+  }
+  return Sinteger(err);
 }
 
 enum read_write_mask {
@@ -1732,7 +1775,9 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_fd_dup", &c_fd_dup);
   Sregister_symbol("c_fd_dup2", &c_fd_dup2);
   Sregister_symbol("c_fd_read", &c_fd_read);
+  Sregister_symbol("c_fd_read_u8", &c_fd_read_u8);
   Sregister_symbol("c_fd_write", &c_fd_write);
+  Sregister_symbol("c_fd_write_u8", &c_fd_write_u8);
   Sregister_symbol("c_fd_select", &c_fd_select);
   Sregister_symbol("c_fd_setnonblock", &c_fd_setnonblock);
   Sregister_symbol("c_fd_redirect", &c_fd_redirect);

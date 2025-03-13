@@ -26,7 +26,7 @@
     make-sh-cmd sh-cmd
 
     ;; control.ss
-    sh-current-job-kill sh-current-job-suspend sh-current-job-yield
+    sh-current-job-kill sh-current-job-suspend
     sh-start sh-start* sh-bg sh-fg sh-run sh-run/i sh-run/err? sh-run/ok? sh-wait
 
     ; sh-wait-flag-foreground-pgid? sh-wait-flag-continue-if-stopped?
@@ -86,14 +86,15 @@
   (import
     (except (rnrs)     current-input-port current-output-port current-error-port)
     (rnrs mutable-pairs)
-    (only (chezscheme) append! break
+    (only (chezscheme) append! break break-handler
                        console-input-port console-output-port console-error-port
                        current-input-port current-output-port current-error-port
                        current-time debug debug-condition debug-on-exception display-condition
                        foreign-procedure format fx1+ fx1- hashtable-cells include inspect
-                       logand logbit? make-format-condition meta open-fd-output-port
-                       parameterize procedure-arity-mask record-writer reverse!
-                       set-port-eof! sort! string-copy! string-truncate! void)
+                       keyboard-interrupt-handler logand logbit? make-format-condition meta
+                       open-fd-output-port parameterize procedure-arity-mask record-writer
+                       register-signal-handler reverse! set-port-eof! sort!
+                       string-copy! string-truncate! void)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh conversions)
@@ -370,7 +371,8 @@
 
 
 (define (sh-consume-signals lctx)
-  (while (signal-consume-sigchld)
+  (check-interrupts)
+  (while #f ; (_signal-consume-sigchld)
     (scheduler-wait #f 'nonblocking))
   (when lctx
     (display-status-changes lctx)))
@@ -381,9 +383,8 @@
     (unless (null? job-list)
       (lineedit-undraw lctx 'flush)
       (let ((port (console-output-port)))
-        (list-iterate (list-remove-consecutive-duplicates! (sort! sh-job<? job-list) eq?)
-          (lambda (job)
-            (display-status-change job port)))
+        (for-list ((job (list-remove-consecutive-duplicates! (sort! sh-job<? job-list) eq?)))
+          (display-status-change job port))
         (flush-output-port port)))))
 
 

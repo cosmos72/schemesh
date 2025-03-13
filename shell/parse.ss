@@ -404,14 +404,12 @@
       (raise-errorf 'sh-cmd* "unsafe command detected: non-constant expressions, as for example wildcards, are not allowed as the first argument of a command.\n\tReason: the command actually executed can only be determined at runtime, and may even depend on the contents of current directory. \n\tIf you REALLY want to do that, use \"unsafe command ARGS\".\n\tFull command:   ~s\n\tParsed command: ~s"
         args program-and-args))
     (let ((cmd (make-sh-cmd program-and-args)))
-      (list-iterate assignments
-        (lambda (assignment)
-          (let ((name (car assignment))
-                (value (cdr assignment)))
-            (sh-env-set/lazy! cmd name value))))
-      (list-iterate redirections
-        (lambda (redirection)
-          (sh-redirect! cmd (car redirection) (cadr redirection) (caddr redirection))))
+      (for-list ((assignment assignments))
+        (let ((name (car assignment))
+              (value (cdr assignment)))
+          (sh-env-set/lazy! cmd name value)))
+      (for-list ((redirection redirections))
+        (sh-redirect! cmd (car redirection) (cadr redirection) (caddr redirection)))
       cmd)))
 
 

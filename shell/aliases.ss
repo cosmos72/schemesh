@@ -154,14 +154,13 @@
     ((procedure? alias)
       (bytespan-insert-right/string! wbuf " #<procedure>"))
     ((list? alias)
-      (list-iterate alias
-        (lambda (elem)
-          (if (string? elem)
-            (begin
-              (bytespan-insert-right/u8! wbuf 32 39) ; #\space #\'
-              (bytespan-insert-right/string! wbuf elem)
-              (bytespan-insert-right/u8! wbuf 39))   ; #\'
-            (bytespan-insert-right/string! wbuf  elem " #<bad-value>")))))
+      (for-list ((elem alias))
+        (if (string? elem)
+          (begin
+            (bytespan-insert-right/u8! wbuf 32 39) ; #\space #\'
+            (bytespan-insert-right/string! wbuf elem)
+            (bytespan-insert-right/u8! wbuf 39))   ; #\'
+          (bytespan-insert-right/string! wbuf  elem " #<bad-value>"))))
     (else
       (bytespan-insert-right/string! wbuf " #<bad-value>")))
   (bytespan-insert-right/u8! wbuf 10)) ; #\newline

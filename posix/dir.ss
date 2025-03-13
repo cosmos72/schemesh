@@ -15,7 +15,7 @@
     (rnrs mutable-pairs)
     (only (chezscheme) foreign-procedure make-continuation-condition make-format-condition sort! void)
     (only (schemesh bootstrap) catch raise-assertf try)
-    (only (schemesh containers) bytevector<? charspan? list-iterate string->utf8b)
+    (only (schemesh containers) bytevector<? charspan? for-list string->utf8b)
     (only (schemesh conversions) text->bytevector text->bytevector0)
     (only (schemesh posix fd) c-errno->string raise-c-errno))
 
@@ -199,9 +199,8 @@
             ret)
           ((pair? ret)
             (when (memq 'types options)
-              (list-iterate ret
-                (lambda (entry)
-                  (set-cdr! entry (c-type->file-type (cdr entry))))))
+              (for-list ((entry ret))
+                (set-cdr! entry (c-type->file-type (cdr entry)))))
             ret)
           ((memq 'catch options)
             '())

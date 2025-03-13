@@ -154,9 +154,9 @@
 ;; Return when the preferred-pid happens to change status.
 ;;
 ;; In all cases, if preferred-job is set, return its updated status.
-;; Otherwise return the status of some job that stopped - needed by (sh-current-job-yield)
+;; Otherwise return the status of some job that stopped - needed by (_sh-current-job-yield)
 (define (scheduler-wait preferred-job may-block)
-  ;c (debugf ">   scheduler-wait may-block=~s preferred-job=~s" may-block preferred-job)
+  ;; (debugf ">   scheduler-wait may-block=~s preferred-job=~s" may-block preferred-job)
   (let ((current-job   (sh-current-job))
         (done? #f)
         (ret   (void)))

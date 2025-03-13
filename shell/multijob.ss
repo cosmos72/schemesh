@@ -125,10 +125,9 @@
       (list->span children-jobs))))
 
     ;; set the parent of children-jobs
-    (list-iterate children-jobs
-      (lambda (elem)
-        (when (sh-job? elem)
-          (job-default-parent-set! elem mj))))
+    (for-list ((elem children-jobs))
+      (when (sh-job? elem)
+        (job-default-parent-set! elem mj)))
     mj))
 
 

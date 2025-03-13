@@ -33,7 +33,7 @@
     (rnrs mutable-strings)
     (only (chezscheme) fx1+ fx1- record-writer string-copy! string-truncate! void)
     (only (schemesh bootstrap)         assert* assert-not* fx<=?*)
-    (only (schemesh containers list)   list-iterate)
+    (only (schemesh containers list)   for-list)
     (only (schemesh containers string) string-fill-range! string-index string-range<? string-range=? string-range-count=))
 
 
@@ -300,10 +300,9 @@
     (let ((pos 0)
           (new-len (fx+ (charspan-length sp) (length charlist))))
       (charspan-resize-left! sp new-len)
-      (list-iterate charlist
-        (lambda (ch)
-          (charspan-set! sp pos ch)
-          (set! pos (fx1+ pos)))))))
+      (for-list ((ch charlist))
+        (charspan-set! sp pos ch)
+        (set! pos (fx1+ pos))))))
 
 
 (define (charspan-insert-right! sp . charlist)
@@ -311,10 +310,9 @@
     (let* ((pos (charspan-length sp))
            (new-len (fx+ pos (length charlist))))
       (charspan-resize-right! sp new-len)
-      (list-iterate charlist
-        (lambda (elem)
-          (charspan-set! sp pos elem)
-          (set! pos (fx1+ pos)))))))
+      (for-list ((ch charlist))
+        (charspan-set! sp pos ch)
+        (set! pos (fx1+ pos))))))
 
 
 ;; insert range [start, end) of charspan sp-src at the beginning of charspan sp-dst

@@ -13,7 +13,8 @@
       while until throws? trace-call trace-define try list->values values->list
 
       ;; functions.ss
-      fx<=?* generate-pretty-temporaries generate-pretty-temporary gensym-pretty
+      check-interrupts fx<=?* nop
+      generate-pretty-temporaries generate-pretty-temporary gensym-pretty
 
       raise-assert0 raise-assert1 raise-assert2 raise-assert3
       raise-assert4 raise-assert5 raise-assertf raise-assertl raise-errorf
@@ -80,7 +81,7 @@
       (unless port
         ; works, but leaks into child processes :(
         (set! port (open-file-output-port
-                     "/dev/pts/0"
+                     "/dev/tty"
                      (file-options no-create no-truncate)
                      (buffer-mode line)
                      (make-transcoder (utf-8-codec) (eol-style lf)

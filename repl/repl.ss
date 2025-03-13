@@ -9,7 +9,7 @@
 (library (schemesh repl (0 8 1))
   (export repl repl* repl-eval repl-eval-print-list
           repl-lineedit repl-parse repl-print
-          repl-exception-handler repl-interrupt-handler
+          repl-exception-handler repl-break-handler
 
           sh-eval-file/print sh-eval-file/print* sh-eval-port/print*
           sh-eval-parsectx/print* sh-eval-string/print*)
@@ -19,11 +19,10 @@
     (only (chezscheme)
         abort base-exception-handler break-handler
         console-input-port console-output-port console-error-port
-        default-exception-handler display-condition
-        eval exit-handler expand inspect keyboard-interrupt-handler
-        parameterize pretty-print read-token reset reset-handler void)
+        default-exception-handler display-condition eval exit-handler expand
+        inspect parameterize pretty-print read-token reset reset-handler void)
     (schemesh bootstrap)
-    (only (schemesh containers) list-iterate)
+    (only (schemesh containers) for-list)
     (only (schemesh lineedit charhistory) charhistory-path-set!)
     (schemesh lineedit charlines io)
     (schemesh lineedit linectx)
@@ -228,11 +227,8 @@
                        (base-exception-handler repl-exception-handler)
                        (break-handler
                          (lambda break-args
-                           (repl-interrupt-handler my-repl-args break-args)))
+                           (repl-break-handler break-args my-repl-args)))
                        (exit-handler k-exit)
-                       (keyboard-interrupt-handler
-                         (lambda ()
-                           (repl-interrupt-handler my-repl-args '())))
                        (reset-handler (reset-handler)))
           (let ((k-reset k-exit))
             (reset-handler (lambda () (k-reset)))
@@ -353,38 +349,16 @@
         (if quit-file-path? quit-file-path (sh-xdg-config-home/ "schemesh/repl_quit.ss"))))))
 
 
-
-;; React to calls to (break), to keyboard CTRL+C and to SIGTSTP signal:
-;; either enter the debugger, or, if possible, suspend the current job.
-(define (repl-interrupt-handler my-repl-args break-args)
-  (parameterize ((break-handler void)
-                 (keyboard-interrupt-handler void))
-    ;; invoked also for SIGTSTP, because signal.h installs
-    ;; a SIGTSTP handler that intentionally calls raise(SIGINT)
-    ;;
-    ;; reason: it's the simplest mechanism to quickly suspend a long-running Scheme procedure
-    ;; (debugf "repl-interrupt-handler")
-    (let ((suspend? (signal-consume-sigtstp 'repl-interrupt-handler)))
-      (when (sh-job-control?)
-        ;; try to suspend current job
-        (cond
-          ((and suspend? (sh-current-job-suspend))
-            (void))
-          ;; also try to kill current job, because (sh-current-job-yield) is sometimes called too late
-          ;; FIXME: this is racy, SIGINT may arrive too late!
-          ((and (sh-current-job) (signal-consume-sigint 'repl-interrupt-handler) (sh-current-job-kill))
-            (void))
-          ;; no current job to suspend or kill. grab the foreground and interact with the user.
-          (else
-            (signal-consume-sigint 'repl-interrupt-handler2)
-            (parameterize ((sh-foreground-pgid (sh-job-pgid #t)))
-              (put-string (console-error-port)
-                (if suspend? "\n; suspended\n" "\n; interrupted\n"))
-              (call/cc
-                (lambda (k)
-                  (repl-interrupt-show-who-msg-irritants break-args (console-error-port))
-                  (let ((port (console-output-port)))
-                    (while (repl-interrupt-handler-once my-repl-args k port))))))))))))
+;; React to calls to (break): enter the debugger
+(define (repl-break-handler break-args my-repl-args)
+  ;; grab the foreground and interact with the user
+  (parameterize ((break-handler      nop)
+                 (sh-foreground-pgid (sh-job-pgid #t)))
+    (call/cc
+      (lambda (k)
+        (repl-interrupt-show-who-msg-irritants break-args (console-error-port))
+          (let ((port (console-output-port)))
+            (while (repl-break-handler-once my-repl-args k port)))))))
 
 
 ;; Print (break ...) arguments
@@ -398,15 +372,14 @@
      (put-datum  port who)
      (put-string port ": ")
      (put-string port msg)
-     (list-iterate irritants
-       (lambda (value)
-         (put-char   port #\space)
-         (put-datum  port value)))
+     (for-list ((value irritants))
+       (put-char   port #\space)
+       (put-datum  port value))
      (put-char   port #\newline))))
 
 
-;; Single iteration of (repl-interrupt-handler)
-(define (repl-interrupt-handler-once my-repl-args k out)
+;; Single iteration of (repl-break-handler)
+(define (repl-break-handler-once my-repl-args k out)
   (put-string out "break> ")
   (flush-output-port out)
   (case (let-values (((type token start end) (read-token (console-input-port))))

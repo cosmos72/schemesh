@@ -229,10 +229,8 @@ Also, `(sh-run/string-split-after-nuls)` combines well with `{find ... -print0}`
 ```
 which can also be written as
 ```lisp
-(list-iterate
-  (sh-run/string-split-after-nuls {find -type f -print0})
-  (lambda (f)
-    (file-rename f (string-replace-suffix f ".old" ".bak"))))
+(for-list ((f (sh-run/string-split-after-nuls {find -type f -print0})))
+  (file-rename f (string-replace-suffix f ".old" ".bak")))
 ```
 or even
 ```lisp

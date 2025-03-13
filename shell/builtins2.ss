@@ -25,12 +25,11 @@
 (define (fd-write-strings: fd prefix strings)
   (let ((wbuf (bytespan)))
     (bytespan-insert-right/string! wbuf prefix)
-    (list-iterate strings
-      (lambda (arg)
-        (bytespan-insert-right/u8! wbuf 58 32) ; ": "
-        (bytespan-insert-right/string! wbuf arg)
-        (when (fx>=? (bytespan-length wbuf) 4096)
-          (fd-write/bspan! fd wbuf))))
+    (for-list ((arg strings))
+      (bytespan-insert-right/u8! wbuf 58 32) ; ": "
+      (bytespan-insert-right/string! wbuf arg)
+      (when (fx>=? (bytespan-length wbuf) 4096)
+        (fd-write/bspan! fd wbuf)))
     (bytespan-insert-right/u8! wbuf 10)
     (fd-write/bspan! fd wbuf)))
 
@@ -109,9 +108,8 @@
     (if (null? (cdr prog-and-args))
       (%env-display-vars parent 'export) ; returns (void)
       (begin
-        (list-iterate (cdr prog-and-args)
-          (lambda (name)
-            (sh-env-visibility-set! parent name 'export)))
+        (for-list ((name (cdr prog-and-args)))
+          (sh-env-visibility-set! parent name 'export))
         (void)))))
 
 
@@ -332,9 +330,8 @@
 (define (builtin-unexport job prog-and-args options)
   (assert-string-list? 'builtin-unexport prog-and-args)
   (let ((parent (job-parent job)))
-    (list-iterate (cdr prog-and-args)
-      (lambda (name)
-        (sh-env-visibility-set! parent name 'private))))
+    (for-list ((name (cdr prog-and-args)))
+      (sh-env-visibility-set! parent name 'private)))
   (void))
 
 
@@ -354,9 +351,8 @@
 (define (builtin-unset job prog-and-args options)
   (assert-string-list? 'builtin-unset prog-and-args)
   (let ((parent (job-parent job)))
-    (list-iterate (cdr prog-and-args)
-      (lambda (name)
-        (sh-env-delete! parent name)))
+    (for-list ((name (cdr prog-and-args)))
+      (sh-env-delete! parent name))
     (void))) ; exit successfully
 
 

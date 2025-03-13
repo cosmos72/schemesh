@@ -37,10 +37,6 @@
 
   (c-environ->sh-global-env)
 
-  ;; install a yield-handler
-  (yield-handler sh-current-job-yield)
-
-
   #|
   ;; Replace (console-input-port) (console-output-port) (console-error-port)
   ;; with UTF-8b textual input/output ports that can be interrupted
@@ -88,12 +84,11 @@
     (hashtable-set! bt "unset"      builtin-unset)
 
     ;; mark builtins that finish immediately i.e. cannot run commands or aliases
-    (list-iterate '("alias" "cd" "cd-" "echo" "echo0" "exit" "false" "jobs"
-                    "history" "pwd" "set" "status" "true" "unalias" "unset")
-      (lambda (name)
-        (let ((builtin (hashtable-ref bt name #f)))
-          (when builtin
-            (hashtable-set! ft builtin #t))))))
+    (for-list ((name '("alias" "cd" "cd-" "echo" "echo0" "exit" "false" "jobs"
+                      "history" "pwd" "set" "status" "true" "unalias" "unset")))
+      (let ((builtin (hashtable-ref bt name #f)))
+        (when builtin
+          (hashtable-set! ft builtin #t)))))
 
 
   (let ((t (sh-builtins-help)))

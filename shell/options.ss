@@ -30,9 +30,8 @@
 ;; raise an exception if it contains one or more unsupported options.
 (define (options-validate caller options)
   (assert* caller (list? options))
-  (list-iterate options
-    (lambda (option)
-      (option-validate caller option))))
+  (for-list ((option options))
+    (option-validate caller option)))
 
 
 ;; create and return association list usable for (sh-start) job options.
@@ -127,8 +126,6 @@
 ;; for each option '(fd-close . fd) in options, call (fd-close fd)
 ;; return unspecified value
 (define (options->call-fd-close options)
-  (list-iterate options
-    (lambda (option)
-      (when (and (pair? option) (eq? 'fd-close (car option)))
-        (fd-close (cdr option))
-        (void)))))
+  (for-list ((option options))
+    (when (and (pair? option) (eq? 'fd-close (car option)))
+      (fd-close (cdr option)))))

@@ -8,6 +8,68 @@
 
 ;; this file should be included only by file shell/job.ss
 
+(define msg-interrupted (string->utf8b "; interrupted\n"))
+(define msg-quit        (string->utf8b "; quit\n"))
+(define msg-suspended   (string->utf8b "; suspended\n"))
+(define fd-stderr       2)
+
+(define (signal-handler-sigint)
+  ;; received a SIGINT, for example from a keyboard CTRL+C.
+  ;; If there's a sh-expr job running, try to kill it.
+  ;; If that fails and there's a non-trivial break handler,
+  ;; show what's happening and invoke the break handler.
+  (unless (sh-current-job-kill 'sigint)
+    (unless (eq? nop (break-handler))
+      (fd-write-noretry fd-stderr msg-interrupted)
+      (break))))
+
+
+(define (signal-handler-sigquit sig)
+  ;; received a SIGQUIT, for example from a keyboard CTRL+4 or CTRL+\.
+  ;; If there's a sh-expr job running, try to kill it.
+  ;; If that fails and there's a non-trivial break handler,
+  ;; show what's happening and invoke the break handler.
+  (unless (sh-current-job-kill 'sigquit)
+    (unless (eq? nop (break-handler))
+      (fd-write-noretry fd-stderr msg-quit)
+      (break))))
+
+
+(define (signal-handler-sigtstp sig)
+  ;; received a SIGTSTP, for example from a keyboard CTRL+Z.
+  ;; If there's a sh-expr job running, try to suspend it.
+  ;; If that fails and there's a non-trivial break handler,
+  ;; show what's happening and invoke the break handler.
+  (unless (sh-current-job-suspend 'sigtstp)
+    (unless (eq? nop (break-handler))
+      (fd-write-noretry fd-stderr msg-suspended)
+      (break))))
+
+
+(define (signal-handler-sigchld sig)
+  ;; (warnf "; signal sigchld\n")
+  ;; TODO: implement.
+  ;;
+  ;; Note: if (sh-current-job) is set, and (scheduler-wait) reports that some subprocess stopped,
+  ;; it means a CTRL+Z was sent to them => suspend (sh-current-job) too.
+  ;;
+  ;; Note: be careful when calling (scheduler-wait) because either (sh-current-job) or some Scheme code
+  ;; may be currently inside (job-wait)
+  (void))
+
+
+;; install Scheme procedures invoked when process receives SIGQUIT or SIGTSTP
+(define (install-signal-handlers)
+  ;; Chez Scheme has a dedicated parameter for SIGINT handler
+  (keyboard-interrupt-handler signal-handler-sigint)
+
+  (for-list ((name    '(sigchld sigquit sigtstp))
+            (handler (list signal-handler-sigchld
+                           signal-handler-sigquit
+                           signal-handler-sigtstp)))
+    (let ((sig (signal-name->number name)))
+      (register-signal-handler sig handler))))
+
 
 ;; Start a job and return immediately, without waiting for it to finish.
 ;; For possible values of options, see (sh-options)
@@ -115,13 +177,28 @@
 
 
 
-;; suspend a sh-expr and call its (jexpr-suspend-proc) continuation,
+;; Kill a sh-expr and call its suspend-proc continuation,
 ;; which non-locally jumps to whoever started or resumed the job.
 ;;
-;; if job is later resumed, it then returns #t to the caller of (job-suspend)
-;; if there was no job to suspend, immediately return #f to the caller of (job-suspend)
-(define (jexpr-suspend job)
+;; If job is not an sh-expr or is not running, immediately return #f.
+(define (jexpr-kill job signal-name)
   (let ((suspend-proc (and (sh-expr? job) (jexpr-suspend-proc job))))
+    ;;y (debugf "jexpr-kill job=~s suspend-proc=~s" job suspend-proc)
+    (when suspend-proc
+      (job-status-set! 'sh-current-job-kill job (killed signal-name))
+      (suspend-proc (void))) ;; should not return
+    (if suspend-proc #t #f))) ; ignore value returned by continuation (suspend-proc)
+
+
+
+;; Suspend a sh-expr and call its suspend-proc continuation,
+;; which non-locally jumps to whoever started or resumed the job.
+;;
+;; If job is later resumed, it eventually returns #t to the caller of (jexpr-suspend)
+;; If job is not an sh-expr or is not running, immediately return #f.
+(define (jexpr-suspend job signal-name)
+  (let ((suspend-proc (and (sh-expr? job) (jexpr-suspend-proc job))))
+    ;;y (debugf "jexpr-suspend job=~s suspend-proc=~s" job suspend-proc)
     (when suspend-proc
       (call/cc
         ;; Capture the continuation representing THIS call to (job-suspend)
@@ -129,75 +206,33 @@
           ;; store it as job's resume-proc
           (jexpr-resume-proc-set!  job cont)
           (jexpr-suspend-proc-set! job #f)
-          (%job-last-status-set! job (stopped 'sigtstp))
+          (%job-last-status-set! job (stopped signal-name))
+          (job-id-update! job)
           ;; suspend job, i.e. call its suspend-proc
           (suspend-proc (void)))))
-    (if suspend-proc #t #f))) ; ignore value returned by continuations (suspend-proc) and (cont)
+    (if suspend-proc #t #f))) ; ignore value returned by continuation (suspend-proc)
 
 
-;; Kill current job and call its suspend-proc continuation, which does NOT return here.
-;;
-;; called by (repl-interrupt-handler), because (sh-current-job-yield) is sometimes called too late
-;; also called by (sh-current-job-yield), because (repl-interrupt-handler) is sometimes called too late
-;;
-;; on failure, return #f.
-(define (sh-current-job-kill)
-  (let* ((job (sh-current-job))
-         (suspend-proc (and (sh-expr? job) (job-started? job) (jexpr-suspend-proc job))))
-    ;y (debugf "sh-current-job-kill job=~s suspend-proc=~s" job suspend-proc)
-    (if suspend-proc
-      (begin
-        (job-status-set! 'sh-current-job-kill job (killed 'sigint))
-        (suspend-proc (void))
-        #t) ;; should not be reached
-      #f)))
-
-
-;; Yield current job: call (scheduler-wait job 'nonblocking) to detect stopped,
-;; resumed and finished subprocesses and advance their parents.
-;; If some child stopped, call (sh-current-job-suspend) and return its value.
-;; Otherwise return #t.
-;;
-;; Note: if (sh-current-job) is not set, or (sh-job-control?) is #f,
-;; does nothing and immediately returns #f
-(define (sh-current-job-yield)
-  (let ((job (sh-current-job)))
-    ;; (debugf "sh-current-job-yield current-job=~s\tjob-control=~s" job (sh-job-control?))
-    (cond
-      ;; also check for SIGINT, because (repl-interrupt-handler) is sometimes called too late
-      ;; FIXME: this is racy, SIGINT may arrive too late!
-      ((and job (signal-consume-sigint 'sh-current-job-yield) (sh-current-job-kill))
-        #t)
-      ((and (sh-expr? job) (job-started? job))
-        ;; if some other job is running in foreground, for example a child of sh-pipe,
-        ;; and user presses CTRL+Z, we do not receive SIGTSTP:
-        ;; the foreground job receives it, and we only see some job become stopped.
-        ;;
-        ;; use that as an indication that we must suspend current job.
-        (if (stopped? (scheduler-wait #f 'nonblocking))
-          (jexpr-suspend job)
-          #t))
-      ((signal-consume-sigint 'sh-current-job-yield-nojob)
-        (break)
-        #f)
-      (else
-        #f))))
-
-
-;; Suspend current job and call its (job-suspend-proc) continuation,
+;; Kill current job and call its suspend-proc continuation,
 ;; which non-locally jumps to whoever started or resumed the job.
+;; If current job is not an sh-expr or is not running, immediately return #f.
 ;;
-;; if job is later resumed, it then returns #t to the caller of (sh-current-job-suspend)
-;; if there was no job to suspend, immediately return #f to the caller of (sh-current-job-suspend)
+;; Used by (signal-handler-sigint) and (signal-handler-sigquit) to kill sh-expr jobs.
+(define (sh-current-job-kill signal-name)
+  (jexpr-kill (sh-current-job) signal-name))
+
+
+;; Suspend current job and call its suspend-proc continuation,
+;; which non-locally jumps to whoever started or resumed the job.
+;; If current job is not an sh-expr or is not running, immediately return #f.
 ;;
-;; Note: if (sh-current-job) is not set, or (sh-job-control?) is #f,
-;; does nothing and immediately returns #f
-(define (sh-current-job-suspend)
-  (and (sh-job-control?) (jexpr-suspend (sh-current-job))))
+;; If current job is later resumed, it eventually returns #t to the caller of (sh-current-job-suspend).
+(define (sh-current-job-suspend signal-name)
+  (jexpr-suspend (sh-current-job) signal-name))
+
 
 
 (meta begin
-
   ;; helper function used by macros (sh-wait-flag) and (sh-wait-flags)
   (define name->sh-wait-flag
     (let ((alist '((foreground-pgid . 1) (continue-if-stopped . 2)
@@ -294,7 +329,7 @@
       (raise-errorf caller "job not started yet: ~s" job))))
 
 
-;; Internal function called by (job-wait) when job is stopped
+;; Internal function called by (job-wait) when a job is stopped
 ;; and caller asked to wait until job finishes:
 ;;
 ;; call (break) then send 'sigcont to job
@@ -310,6 +345,7 @@
         void
         (lambda () ; body
           (job-id-set! job)
+          (warnf "; suspended job: ~a\n" (sh-job->string job))
           (break)
           (set! break-returned-normally? #t))
         (lambda ()
@@ -329,17 +365,18 @@
   (let ((job (sh-job job-or-id)))
     (let %loop ()
       (job-wait-once caller job wait-flags)
-      (case (job-last-status->kind job)
-        ((running)
-          (when (sh-wait-flag-wait? wait-flags)
-            (%loop)))
-        ((stopped)
-          (when (sh-wait-flag-wait-until-finished? wait-flags)
-            ;x (debugf "...job-wait\tcaller=~s\tjob=~a\tcurrent-job=~s\tcalling sh-current-job-suspend..." caller job (sh-current-job))
-            (or (sh-current-job-suspend)
-                (job-break job))
-            ;x (debugf "...job-wait\tcaller=~s\tjob=~a\tcurrent-job=~s ... sh-current-job-suspend returned" caller job (sh-current-job))
-            (%loop)))))
+      (let ((status (job-last-status job)))
+        (case (status->kind status)
+          ((running)
+            (when (sh-wait-flag-wait? wait-flags)
+              (%loop)))
+          ((stopped)
+            (when (sh-wait-flag-wait-until-finished? wait-flags)
+              ;x (debugf "...job-wait\tcaller=~s\tjob=~a\tcurrent-job=~s\tcalling sh-current-job-suspend..." caller job (sh-current-job))
+              (or (sh-current-job-suspend (status->value status))
+                  (job-break job))
+              ;x (debugf "...job-wait\tcaller=~s\tjob=~a\tcurrent-job=~s ... sh-current-job-suspend returned" caller job (sh-current-job))
+              (%loop))))))
     (job-id-update! job))) ; returns job status
 
 

@@ -23,7 +23,7 @@
     (rnrs mutable-strings)
     (only (chezscheme) fx1+ fx1- reverse! string-copy! string-truncate! substring-fill! void)
     (only (schemesh bootstrap) assert* fx<=?* while)
-    (only (schemesh containers list) list-iterate))
+    (only (schemesh containers list) for-list))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -197,9 +197,8 @@
 ;; return a string-list containing each produced fragment.
 (define (string-list-split-after-nuls l)
   (let ((ret '()))
-    (list-iterate l
-       (lambda (elem)
-          (set! ret (%string-split-after-nuls elem ret))))
+    (for-list ((elem l))
+      (set! ret (%string-split-after-nuls elem ret)))
     ; (debugf "builtin-split-at-0 args=~s split=~s" prog-and-args (reverse ret)
     (reverse! ret)))
 

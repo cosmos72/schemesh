@@ -28,7 +28,7 @@
     (rnrs)
     (only (chezscheme)         bytevector-truncate! fx1+ fx1- record-writer void)
     (only (schemesh bootstrap) assert* assert-not* fx<=?*)
-    (only (schemesh containers list) list-iterate)
+    (only (schemesh containers list) for-list)
     (schemesh containers bytevector))
 
 (define-record-type
@@ -234,20 +234,18 @@
     (let ((pos 0)
           (new-len (fx+ (bytespan-length sp) (length u8vals))))
       (bytespan-resize-left! sp new-len)
-      (list-iterate u8vals
-        (lambda (elem)
-          (bytespan-set/u8! sp pos elem)
-          (set! pos (fx1+ pos)))))))
+      (for-list ((elem u8vals))
+        (bytespan-set/u8! sp pos elem)
+        (set! pos (fx1+ pos))))))
 
 (define (bytespan-insert-right/u8! sp . u8vals)
   (unless (null? u8vals)
     (let* ((pos (bytespan-length sp))
            (new-len (fx+ pos (length u8vals))))
       (bytespan-resize-right! sp new-len)
-      (list-iterate u8vals
-        (lambda (elem)
-          (bytespan-set/u8! sp pos elem)
-          (set! pos (fx1+ pos)))))))
+      (for-list ((elem u8vals))
+        (bytespan-set/u8! sp pos elem)
+        (set! pos (fx1+ pos))))))
 
 ;; insert range [src-start, src-end) of bytespan bv-src
 ;; at the beginning of bytespan sp-dst

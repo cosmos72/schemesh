@@ -15,14 +15,15 @@
 
 (library (schemesh containers list (0 8 1))
   (export
-    any count every in-list
-    list-iterate list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
+    any count every for-list in-list
+    list-index list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
     on-list)
 
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) fx1+ fx1-))
+    (only (chezscheme)         fx1+ fx1- list-copy void)
+    (only (schemesh bootstrap) generate-pretty-temporaries))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -42,6 +43,23 @@
         (set! l (cdr l))
         (values elem #t)))))
 
+(define %dot-args-always-create-new-list?
+  (let ((args '(a)))
+    (eq? args (apply list args))))
+
+;; return a copy of list l, or list l itself if (lambda (args . l) l) always creates a new list l,
+;; even when called with (apply)
+(define (list-copy* l)
+  (if %dot-args-always-create-new-list? l (list-copy list)))
+
+
+;; given list l whose elements are lists too,
+;; modify l in-place by replacing each inner list with its cdr.
+;; return l.
+(define (%for-each-skip-car! l)
+  (do ((tail l (cdr tail)))
+      ((null? tail) l)
+    (set-car! tail (cadr tail))))
 
 
 ;; apply proc element-wise to the (car) of each list
@@ -56,123 +74,175 @@
     (or (proc (car l)) (%any1 proc (cdr l)))))
 
 
-;; apply proc element-wise to the elements of the lists, stop at the first truish value returned by (proc elem ...) and return it.
+;; apply proc element-wise to the elements of the lists,
+;; stop at the first truish value returned by (proc elem ...) and return such value.
+;;
 ;; If all calls to (proc elem ...) return #f, then return #f.
+;;
 ;; If not all lists have the same length, iteration terminates when the end of shortest list is reached.
 ;; Proc must accept as many elements as there are lists, and must return a single value.
 (define any
   (case-lambda
-    ((proc)
-      #f)
     ((proc l)
       (%any1 proc l))
     ((proc l1 l2)
-      (let %any ((proc proc) (tail1 l1) (tail2 l2))
-        (if (or (null? tail1) (null? tail2))
+      (let %any ((proc proc) (l1 l1) (tail2 l2))
+        (if (or (null? l1) (null? tail2))
           #f
-          (or      (proc (car tail1) (car tail2))
-              (%any proc (cdr tail1) (cdr tail2))))))
+          (or      (proc (car l1) (car tail2))
+              (%any proc (cdr l1) (cdr tail2))))))
     ((proc l1 l2 l3)
-      (let %any ((proc proc) (tail1 l1) (tail2 l2) (tail3 l3))
-        (if (or (null? tail1) (null? tail2) (null? tail3))
+      (let %any ((proc proc) (l1 l1) (tail2 l2) (tail3 l3))
+        (if (or (null? l1) (null? tail2) (null? tail3))
           #f
-          (or      (proc (car tail1) (car tail2) (car tail3))
-              (%any proc (cdr tail1) (cdr tail2) (cdr tail3))))))
+          (or      (proc (car l1) (car tail2) (car tail3))
+              (%any proc (cdr l1) (cdr tail2) (cdr tail3))))))
+    ((proc l1 l2 l3 l4)
+      (let %any ((proc proc) (l1 l1) (tail2 l2) (tail3 l3))
+        (if (or (null? l1) (null? tail2) (null? tail3))
+          #f
+          (or      (proc (car l1) (car tail2) (car tail3))
+              (%any proc (cdr l1) (cdr tail2) (cdr tail3))))))
     ((proc . lists)
-      (let %any ((proc proc) (tails lists))
+      (let %any ((proc proc) (tails (list-copy* lists)))
         (if (%any1 null? tails)
           #f
           (or (%apply-proc proc tails)
-              (%any proc (map cdr tails))))))))
+              (%any proc (%for-each-skip-car! tails))))))))
 
 
-;; apply proc element-wise to the elements of the lists, and count and return how many times (proc elem ...) evaluates to truish.
+;; apply proc element-wise to the elements of the lists,
+;; and count and return how many times (proc elem ...) evaluates to truish.
+;;
 ;; If not all lists have the same length, iteration terminates when the end of shortest list is reached.
+;;
 ;; Proc must accept as many elements as there are lists, and must return a single value.
 (define count
   (case-lambda
     ((proc)
       0)
     ((proc l)
-      (let %count ((proc proc) (tail l) (ret 0))
-        (if (null? tail)
+      (let %count ((ret 0) (proc proc) (l l))
+        (if (null? l)
           ret
-          (%count
-            proc
-            (cdr tail)
-            (if (proc (car tail)) (fx1+ ret) ret)))))
+          (%count (if (proc (car l)) (fx1+ ret) ret)
+                  proc (cdr l)))))
     ((proc l1 l2)
-      (let %count ((proc proc) (tail1 l1) (tail2 l2) (ret 0))
-        (if (or (null? tail1) (null? tail2))
+      (let %count ((ret 0) (proc proc) (l1 l1) (tail2 l2))
+        (if (or (null? l1) (null? tail2))
           ret
-          (%count
-            proc
-            (cdr tail1)
-            (cdr tail2)
-            (if (proc (car tail1) (car tail2)) (fx1+ ret) ret)))))
+          (%count (if (proc (car l1) (car tail2)) (fx1+ ret) ret)
+                  proc (cdr l1) (cdr tail2)))))
     ((proc l1 l2 l3)
-      (let %count ((proc proc) (tail1 l1) (tail2 l2) (tail3 l3) (ret 0))
-        (if (or (null? tail1) (null? tail2) (null? tail3))
+      (let %count ((ret 0) (proc proc) (l1 l1) (tail2 l2) (tail3 l3))
+        (if (or (null? l1) (null? tail2) (null? tail3))
           ret
-          (%count
-            proc
-            (if (proc (car tail1) (car tail2) (car tail3)) (fx1+ ret) ret)
-            (cdr tail1)
-            (cdr tail2)
-            (cdr tail3)))))
+          (%count (if (proc (car l1) (car tail2) (car tail3)) (fx1+ ret) ret)
+                  proc (cdr l1) (cdr tail2) (cdr tail3)))))
     ((proc . lists)
-      (let %count ((proc proc) (tails lists) (ret 0))
+      (let %count ((ret 0) (proc proc) (tails (list-copy* lists)))
         (if (%any1 null? tails)
           ret
-          (%count
-            proc
-            (map cdr tails)
-            (if (%apply-proc proc lists) (fx1+ ret) ret)))))))
+          (let ((ret (if (%apply-proc proc tails) (fx1+ ret) ret)))
+            (%count ret proc (%for-each-skip-car! tails))))))))
 
 
-;; apply proc element-wise to the elements of the lists, stop at the first #f returned by (proc elem ...) and return it.
-;; If all calls to (proc elem ...) return truish, then return #t.
+;; apply proc element-wise to the elements of the lists,
+;; stop at the first #f returned by (proc elem ...) and return it.
+;; If all calls to (proc elem ...) return truish, then return the value returned by the last call to (proc elem).
+;;
 ;; If not all lists have the same length, iteration terminates when the end of shortest list is reached.
+;;
 ;; Proc must accept as many elements as there are lists, and must return a single value.
 (define every
   (case-lambda
     ((proc)
       #t)
     ((proc l)
-      (let %every ((proc proc) (tail l))
-        (if (null? tail)
-          #t
-          (and (proc (car tail))
-               (%every proc (cdr tail))))))
+      (let %every ((ret #t) (proc proc) (l l))
+        (if (or (not ret) (null? l))
+          ret
+          (%every (proc (car l))
+                  proc (cdr l)))))
     ((proc l1 l2)
-      (let %every ((proc proc) (tail1 l1) (tail2 l2))
-        (if (or (null? tail1) (null? tail2))
-          #t
-          (and (proc (car tail1) (car tail2))
-               (%every proc (cdr tail1) (cdr tail2))))))
+      (let %every ((ret #t) (proc proc) (l1 l1) (tail2 l2))
+        (if (or (not ret) (null? l1) (null? tail2))
+          ret
+          (%every (proc (car l1) (car tail2))
+                  proc (cdr l1) (cdr tail2)))))
     ((proc l1 l2 l3)
-      (let %every ((proc proc) (tail1 l1) (tail2 l2) (tail3 l3))
-        (if (or (null? tail1) (null? tail2) (null? tail3))
-          #t
-          (and (proc (car tail1) (car tail2) (car tail3))
-               (%every proc (cdr tail1) (cdr tail2) (cdr tail3))))))
+      (let %every ((ret #t) (proc proc) (l1 l1) (tail2 l2) (tail3 l3))
+        (if (or (not ret) (null? l1) (null? tail2) (null? tail3))
+          ret
+          (%every (proc (car l1) (car tail2) (car tail3))
+                  proc (cdr l1) (cdr tail2) (cdr tail3)))))
     ((proc . lists)
-      (let %every ((proc proc) (tails lists))
-        (if (%any1 null? tails)
-          #t
-          (and (%apply-proc proc tails)
-               (%every proc (map cdr tails))))))))
+      (let %every ((ret #t) (proc proc) (tails (list-copy* lists)))
+        (if (or (not ret) (%any1 null? tails))
+          ret
+          (let ((ret (%apply-proc proc tails)))
+            (%every ret proc (%for-each-skip-car! tails))))))))
 
 
-;; (list-iterate l proc) iterates on all elements of given list l,
-;; and calls (proc elem) on each element. Stops iterating if (proc ...) returns #f
+;; Iterate in parallel on elements of given lists l ..., and evaluate body ... on each element.
+;; Stop iterating when the shortest list is exhausted,
+;; and return unspecified value.
 ;;
-;; Returns #t if all calls to (proc elem) returned truish,
-;; otherwise returns #f.
-(define (list-iterate l proc)
-  (do ((tail l (cdr tail)))
-      ((or (null? tail) (not (proc (car tail))))
-       (null? tail))))
+;; Note: body ... must evaluate to a single value.
+(define-syntax for-list
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ ((elem l)) body1 body2 ...)
+        #'(for-each (lambda (elem) body1 body2 ...) l))
+      ((_ ((elem l) ...) body1 body2 ...)
+        (not (null? #'(l ...)))
+        (with-syntax (((tail ...) (generate-pretty-temporaries #'(l ...))))
+          #'(let %for-list ((tail l) ...)
+              (unless (or (null? tail) ...)
+                (let ((elem (car tail)) ...)
+                  body1 body2 ...)
+                (%for-list (cdr tail) ...))))))))
+
+
+
+;; apply proc element-wise to the elements of the lists,
+;; stop at the first truish value returned by (proc elem ...) and return the *index* of such value.
+;;
+;; If all calls to (proc elem ...) return #f, then return #f.
+;;
+;; If not all lists have the same length, iteration terminates when the end of shortest list is reached.
+;;
+;; Proc must accept as many elements as there are lists, and must return a single value.
+(define list-index
+  (case-lambda
+    ((proc l)
+      (let %list-index ((i 0) (proc proc) (l l))
+         (cond
+           ((null? l)      #f)
+           ((proc (car l)) i)
+           (else
+             (%list-index (fx1+ i) proc (cdr l))))))
+    ((proc l1 l2)
+      (let %list-index ((i 0) (proc proc) (l1 l1) (l2 l2))
+         (cond
+           ((or (null? l1) (null? l2)) #f)
+           ((proc (car l1) (car l2))   i)
+           (else
+             (%list-index (fx1+ i) proc (cdr l1) (cdr l2))))))
+    ((proc l1 l2 l3)
+      (let %list-index ((i 0) (proc proc) (l1 l1) (l2 l2) (l3 l3))
+         (cond
+           ((or (null? l1) (null? l2) (null? l3)) #f)
+           ((proc (car l1) (car l2) (car l3))     i)
+           (else
+             (%list-index (fx1+ i) proc (cdr l1) (cdr l2) (cdr l3))))))
+    ((proc . lists)
+      (let %list-index ((i 0) (proc proc) (lists (list-copy* lists)))
+         (cond
+           ((%any1 null? lists)      #f)
+           ((%apply-proc proc lists) i)
+           (else
+             (%list-index (fx1+ i) proc (%for-each-skip-car! lists))))))))
 
 
 ;; For each item in items (which must be a list), when found in list l destructively
@@ -210,7 +280,7 @@
             (%step new-head new-tail)))))))
 
 
-;; remove consecutive duplicates from a list, and return it.
+;; in-place remove consecutive duplicates from a list, and return it.
 ;; elements are considered duplicates if (equal-pred elem1 elem2) returns truish.
 (define (list-remove-consecutive-duplicates! l equal-pred)
   (let %recurse ((tail l))

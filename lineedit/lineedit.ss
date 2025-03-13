@@ -26,7 +26,7 @@
     lineedit-read lineedit-read-confirm-y-or-n? lineedit-flush)
   (import
     (rnrs)
-    (only (chezscheme)    console-output-port console-error-port
+    (only (chezscheme)    break-handler console-output-port console-error-port
                           display-condition format fx1+ fx1- fx/ include inspect
                           make-time record-writer sleep top-level-value void)
     (schemesh bootstrap)
@@ -277,11 +277,11 @@
                   (linectx-parser-name lctx)
                   x y))
               (catch (ex)
-                (let ((port (console-output-port)))
-                  (put-string port "\n; Exception in parenmatcher-find/at: ")
-                  (display-condition ex port)
-                  (newline port)
-                  (flush-output-port port))))))))
+                (let ((out (console-error-port)))
+                  (put-string out "\n; Exception in parenmatcher-find/at: ")
+                  (display-condition ex out)
+                  (newline out)
+                  (flush-output-port out))))))))
     ret))
 
 ;; return #f or innermost paren object surrounding the cursor.
@@ -416,8 +416,8 @@
             (set! eof? (fxzero? n))))) ; (fxzero? n) means end of file
       (catch (ex)
         (lineedit-show-error lctx "Fatal error, schemesh exiting" ex)
-        (when (fxzero? got)
-          (set! eof? #t))))
+        (set! got 0)
+        (set! eof? #t)))
     (assert* 'linectx-read (fixnum? got))
     (assert* 'linectx-read (fx<=? 0 got max-n))
     (bytespan-resize-right! rbuf (fx+ rlen got))
@@ -481,7 +481,7 @@
             ; got some bytes, call again (linectx-keytable-iterate) and return its value
              (linectx-keytable-iterate lctx))
           ((fxzero? n)
-             ; read timed out, return #t
+             ; read interrupted or timed out, return #t
              (linectx-consume-sigwinch lctx)
              #t)
           (else
@@ -490,18 +490,28 @@
       ; propagate return value of first (linectx-keytable-iterate)
       ret)))
 
+(define (parameter-swapper param value-to-set)
+  (lambda ()
+    (let ((current (param)))
+      (param value-to-set)
+      (set! value-to-set current))))
+
 ;; wrapper around (%%lineedit-read)
 (define (%lineedit-read lctx timeout-milliseconds)
-  (dynamic-wind
-    (lambda () ; before body
-      (flush-output-port (console-output-port))
-      (linectx-consume-sigwinch lctx)
-      (linectx-redraw-as-needed lctx)
-      (lineedit-flush lctx))
-    (lambda () ; body
-      (%%lineedit-read lctx timeout-milliseconds))
-    (lambda () ; after body
-      (lineedit-flush lctx))))
+  (let* ((break-swapper (parameter-swapper break-handler nop)))
+    (dynamic-wind
+      (lambda () ; before body
+        (break-swapper)
+        (flush-output-port (console-output-port))
+        (flush-output-port (console-error-port))
+        (linectx-consume-sigwinch lctx)
+        (linectx-redraw-as-needed lctx)
+        (lineedit-flush lctx))
+      (lambda () ; body
+        (%%lineedit-read lctx timeout-milliseconds))
+      (lambda () ; after body
+        (lineedit-flush lctx)
+        (break-swapper)))))
 
 ;; Main entry point of lineedit library.
 ;; Reads user input from linectx-stdin and processes it.
@@ -539,7 +549,7 @@
   (%add t lineedit-key-transpose-char   20) ; CTRL+T
   (%add t lineedit-key-del-line-left    21) ; CTRL+U
   (%add t lineedit-key-insert-clipboard 25) ; CTRL+Y
-  (%add t lineedit-key-inspect-linectx  28) ; CTRL+4, CTRL+BACKSPACE
+  (%add t lineedit-key-inspect-linectx  28) ; CTRL+4, CTRL+BACKSLASH
   ; CTRL+W, CTRL+BACKSPACE, ALT+BACKSPACE
   (%add t lineedit-key-del-word-left 23 31 '(27 127))
   ; sequences starting with ESC
