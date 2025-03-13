@@ -190,7 +190,7 @@
            ;; send signals to job's process group, if present.
            ;; otherwise send signals to job's process id.
            (target-pid (if (and pgid (> pgid 0)) (- pgid) (job-pid job))))
-      ;; (job-id-set! job) ; TODO: needed?
+      (job-id-set! job) ; slightly redundant if REPL is directly waiting for job, but needed in all other cases
       (when target-pid
         (pid-kill target-pid 'sigcont)
         (pid-kill target-pid signal-name))
