@@ -490,11 +490,6 @@
       ; propagate return value of first (linectx-keytable-iterate)
       ret)))
 
-(define (parameter-swapper param value-to-set)
-  (lambda ()
-    (let ((current (param)))
-      (param value-to-set)
-      (set! value-to-set current))))
 
 ;; wrapper around (%%lineedit-read)
 (define (%lineedit-read lctx timeout-milliseconds)

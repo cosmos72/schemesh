@@ -356,6 +356,30 @@
     (void))) ; exit successfully
 
 
+;; The "wait" builtin: continue a job-id by sending SIGCONT to it, then wait for it to exit.
+;; Does NOT return if job stops.
+;;
+;; As all builtins do, must return job status. For possible returned statuses, see (sh-fg)
+(define (builtin-wait job prog-and-args options)
+  (assert-string-list? 'builtin-wait prog-and-args)
+  ;; TODO: implement (builtin-wait) with no args
+  (let* ((arg (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
+                "\"\""
+                (cadr prog-and-args)))
+         (job (and (string-is-unsigned-base10-integer? arg)
+                   (sh-find-job (string->number arg)))))
+      (if job
+        (let* ((old-status (job-last-status job))
+               (new-status (sh-wait job)))
+          (if (finished? new-status)
+            ; job finished, return its exit status as "fg" exit status.
+            new-status
+            ; job still exists, show its running/stopped status.
+            ; return (void) i.e. builtin "fg" exiting successfully.
+            (queue-job-display-summary job)))
+        (write-builtin-error "wait" arg "no such job")))) ; returns (failed 1)
+
+
 ;; start a builtin and return its status.
 ;; performs sanity checks on exit status returned by the call (builtin job args options)
 ;;

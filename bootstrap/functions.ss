@@ -12,7 +12,7 @@
 
 (library (schemesh bootstrap functions (0 8 1))
   (export
-      check-interrupts fx<=?* nop
+      check-interrupts fx<=?* nop parameter-swapper
       generate-pretty-temporaries generate-pretty-temporary gensym-pretty
 
       raise-assert0 raise-assert1 raise-assert2 raise-assert3
@@ -169,6 +169,30 @@
   (warnf "; warning in ~a: failed check ~a with arguments ~s ~s ~s ~s ~s\n" who form arg1 arg2 arg3 arg4 arg5))
 (define (warn-check-failedl who form args)
   (warnf "; warning in ~a: failed check ~a with arguments ~s\n" who form args))
+
+
+;; low-level alternative to (parameterize):
+;; create and return a closure that swaps value of parameter (param)
+;; with value-to-set each time it is invoked.
+;;
+;; For example, the two fragments below are equivalent:
+;;
+;; (parameterize ((current-output-port my-port))
+;;   body ...)
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; (let ((swap (parameter-swapper current-output-port my-port)))
+;;   (dynamic-wind
+;;     swap
+;;     (lambda () body ...)
+;;     swap))
+;;
+(define (parameter-swapper param value-to-set)
+  (lambda ()
+    (let ((current (param)))
+      (param value-to-set)
+      (set! value-to-set current))))
 
 
 ;; portable reimplementation of Chez Scheme (make-parameter)

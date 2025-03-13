@@ -82,6 +82,7 @@
     (hashtable-set! bt "unexport"   builtin-unexport)
     (hashtable-set! bt "unsafe"     builtin-unsafe)
     (hashtable-set! bt "unset"      builtin-unset)
+    (hashtable-set! bt "wait"       builtin-wait)
 
     ;; mark builtins that finish immediately i.e. cannot run commands or aliases
     (for-list ((name '("alias" "cd" "cd-" "echo" "echo0" "exit" "false" "jobs"
@@ -106,7 +107,7 @@
     (hashtable-set! t "bg"      (string->utf8 " job-id
     move a job to the background.
 
-    return success if job-id was found, otherwise return failure.\n"))
+    return updated job status, or failure if job-id was not found.\n"))
 
     (hashtable-set! t "builtin" (string->utf8 " [builtin-name [arg ...]]
     execute a builtin with specified arguments.
@@ -162,7 +163,7 @@
     (hashtable-set! t "fg"      (string->utf8 " job-id
     move a job to the foreground.
 
-    return success if job-id was found, otherwise return failure.\n"))
+    return updated job status, or failure if job-id was not found.\n"))
 
     (hashtable-set! t "global"     (string->utf8 " [builtin-name [arg ...]]
     execute a builtin with its parent temporarily set to the shell itself.
@@ -238,6 +239,13 @@
     remove each VAR ... environment variable from parent job.
 
     return success.\n"))
+
+    (hashtable-set! t "wait"      (string->utf8 " job-id
+    move a job to the foreground and wait for it to finish.
+    does NOT return if job is stopped.
+
+    return job exit status, or failure if job was not found.\n"))
+
   )
 
 ) ; close begin

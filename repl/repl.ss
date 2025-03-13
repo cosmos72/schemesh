@@ -401,10 +401,14 @@ Type ? or help for this help.
      i or inspect to inspect current continuation
      n or new to enter new repl
      c or e to exit interrupt handler and continue
-     t or throw to raise an error condition
-     q or r to quit current evaluation. returns to REPL
-     a or abort to abort schemesh. terminates the program!
-     \n\n")
+     t or throw to raise an error condition")
+      (if (sh-current-job)
+        (put-string out "
+     q or r to quit current evaluation. KILLS CURRENT JOB then returns to repl")
+        (put-string out "
+     q or r to quit current evaluation. returns to repl"))
+      (put-string out "
+     a or abort to abort schemesh. terminates the program!\n\n")
       (flush-output-port out)
       #t)
     (else (put-string out "Invalid command.  Type ? for help.\n")
