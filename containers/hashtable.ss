@@ -18,8 +18,8 @@
     hashtable-transpose)
   (import
     (rnrs)
-    (only (chezscheme) $primitive fx1+ include record-writer)
-    (only (schemesh bootstrap functions) generate-pretty-temporaries)
+    (only (chezscheme)               $primitive fx1+ include record-writer)
+    (only (schemesh bootstrap)       assert* generate-pretty-temporaries)
     (only (schemesh containers list) for-list))
 
 
@@ -196,6 +196,7 @@
 ;; Iterate on elements of given hashtables htable, and call (proc key value) on each key and value.
 ;; Return unspecified value.
 (define (hash-for-each proc htable)
+  (assert* 'hash-for-each (procedure? proc))
   (hash-for-each-pair (lambda (cell) (proc (car cell) (cdr cell)))
                       htable))
 
@@ -203,6 +204,7 @@
 ;; Iterate on elements of given hashtables htable, and call (proc key) on each key.
 ;; Return unspecified value.
 (define (hash-for-each-key proc htable)
+  (assert* 'hash-for-each-key (procedure? proc))
   (hash-for-each-pair (lambda (cell) (proc (car cell)))
                       htable))
 
@@ -212,6 +214,7 @@
 ;;
 ;; Do NOT modify the (car) of any pair!
 (define (hash-for-each-pair proc htable)
+  (assert* 'hash-for-each-pair (procedure? proc))
   (let ((iter (make-hash-iterator htable)))
     (do ((cell (hash-iterator-pair iter) (hash-iterator-next! iter)))
         ((not cell))
@@ -221,6 +224,7 @@
 ;; Iterate on elements of given hashtables htable, and call (proc value) on each value.
 ;; Return unspecified value.
 (define (hash-for-each-value proc htable)
+  (assert* 'hash-for-each-value (procedure? proc))
   (hash-for-each-pair (lambda (cell) (proc (cdr cell)))
                       htable))
 
