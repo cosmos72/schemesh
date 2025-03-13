@@ -16,7 +16,7 @@
 (library (schemesh containers list (0 8 1))
   (export
     any count every for-list in-list
-    list-index list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
+    list-copy* list-index list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
     on-list)
 
   (import
