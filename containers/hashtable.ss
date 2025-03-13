@@ -10,9 +10,12 @@
     make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-cell hash-iterator-next!
 
     for-hash for-hash-keys for-hash-pairs for-hash-values
+    hash-for-each hash-for-each-key hash-for-each-pair hash-for-each-value
     in-hash in-hash-keys in-hash-pairs in-hash-values
+
     eq-hashtable eqv-hashtable (rename (%hashtable hashtable))
-    alist->eq-hashtable alist->eqv-hashtable alist->hashtable hashtable-transpose)
+    alist->eq-hashtable alist->eqv-hashtable alist->hashtable
+    hashtable-transpose)
   (import
     (rnrs)
     (only (chezscheme) $primitive fx1+ include record-writer)
@@ -189,6 +192,37 @@
          (values #f #f)))))
 
 
+;; Iterate on elements of given hashtables htable, and call (proc key value) on each key and value.
+;; Return unspecified value.
+(define (hash-for-each proc htable)
+  (hash-for-each-pair (lambda (cell) (proc (car cell) (cdr cell)))
+                      htable))
+
+
+;; Iterate on elements of given hashtables htable, and call (proc key) on each key.
+;; Return unspecified value.
+(define (hash-for-each-key proc htable)
+  (hash-for-each-pair (lambda (cell) (proc (car cell)))
+                      htable))
+
+
+;; Iterate on elements of given hashtables htable, and call (proc pair) on each pair (key . value).
+;; Return unspecified value.
+;;
+;; Do NOT modify the (car) of any pair!
+(define (hash-for-each-pair proc htable)
+  (let ((iter (make-hash-iterator htable)))
+    (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter)))
+        ((not cell))
+      (proc cell))))
+
+
+;; Iterate on elements of given hashtables htable, and call (proc value) on each value.
+;; Return unspecified value.
+(define (hash-for-each-value proc htable)
+  (hash-for-each-pair (lambda (cell) (proc (cdr cell)))
+                      htable))
+
 ;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each key and value.
 ;; Stop iterating when the smallest hashtable is exhausted,
 ;; and return unspecified value.
@@ -198,12 +232,12 @@
   (lambda (stx)
     (syntax-case stx ()
       ((_ ((key val htable)) body1 body2 ...)
-        #'(let ((iter (make-hash-iterator htable)))
-            (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter)))
-                ((not cell))
+        #'(hash-for-each-pair
+            (lambda (cell)
               (let ((key (car cell))
                     (val (cdr cell)))
-                body1 body2 ...))))
+                body1 body2 ...))
+            htable))
       ((_ ((key val htable) ...) body1 body2 ...)
         (not (null? #'(htable ...)))
         (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
@@ -225,11 +259,11 @@
   (lambda (stx)
     (syntax-case stx ()
       ((_ ((key htable)) body1 body2 ...)
-        #'(let ((iter (make-hash-iterator htable)))
-            (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter)))
-                ((not cell))
+        #'(hash-for-each-pair
+            (lambda (cell)
               (let ((key (car cell)))
-                body1 body2 ...))))
+                body1 body2 ...))
+            htable))
       ((_ ((key htable) ...) body1 body2 ...)
         (not (null? #'(htable ...)))
         (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
@@ -256,10 +290,10 @@
   (lambda (stx)
     (syntax-case stx ()
       ((_ ((pair htable)) body1 body2 ...)
-        #'(let ((iter (make-hash-iterator htable)))
-            (do ((pair (hash-iterator-cell iter) (hash-iterator-next! iter)))
-                ((not pair))
-              body1 body2 ...)))
+        #'(hash-for-each-pair
+            (lambda (pair)
+              body1 body2 ...)
+            htable))
       ((_ ((pair htable) ...) body1 body2 ...)
         (not (null? #'(htable ...)))
         (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
@@ -278,11 +312,11 @@
   (lambda (stx)
     (syntax-case stx ()
       ((_ ((val htable)) body1 body2 ...)
-        #'(let ((iter (make-hash-iterator htable)))
-            (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter)))
-                ((not cell))
+        #'(hash-for-each-pair
+            (lambda (cell)
               (let ((val (cdr cell)))
-                body1 body2 ...))))
+                body1 body2 ...))
+            htable))
       ((_ ((val htable) ...) body1 body2 ...)
         (not (null? #'(htable ...)))
         (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
