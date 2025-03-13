@@ -125,18 +125,27 @@ Example:
 
 ### [NEW in version 0.8.1]
 
-Scheme code running as a job i.e. inside `$()` can be used in pipelines, as for example:
+Standard Scheme textual ports `(current-input-port)` `(current-output-port)` `(current-error-port)`
+automatically honor job redirections. Example:
+```shell
+> $(display "hello from Scheme!\n") > greet.txt
+
+> cat greet.txt
+hello from Scheme!
+```
+
+If you prefer binary ports, you can use `(sh-stdin)` `(sh-stdout)` and `(sh-stderr)` instead:
+they automatically honor job redirections too. Example:
+```lisp
+> (put-bytevector (sh-stdout) #vu8(72 105 33 10))
+Hi!
+```
+
+Scheme jobs `$()` can be used in pipelines, as for example:
 ```shell
 > $(display "hello") | cat | $(get-string-all (current-input-port))
 (ok "hello")
 ```
-
-Also, standard Scheme ports `(current-input-port)` `(current-output-port)` `(current-error-port)`
-automatically honor job redirections, as shown in the example above:
-
-in the job `$(get-string-all (current-input-port))`, the expression `(current-input-port)`
-is the **job**'s standard input - which happens to be a pipe in this case,
-but could be a file or whatever the job redirections have set.
 
 
 ### Subshells and command substitution
