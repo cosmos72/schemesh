@@ -15,7 +15,7 @@
     (only (schemesh bootstrap)            values->list)
     (only (schemesh containers list)      for-list list-remove-consecutive-duplicates!)
     (only (schemesh containers string)    string-range=? string-split string-prefix?)
-    (only (schemesh containers hashtable) hashtable-iterate)
+    (only (schemesh containers hashtable) for-hash-keys)
     (schemesh containers charspan)
     (schemesh containers span)
     (schemesh containers sort)
@@ -241,11 +241,9 @@
 ;; find hashtable keys starting with prefix, cons them onto list l, and return l
 (define (%list-htable-keys htable prefix l)
   (let ((prefix-len (string-length prefix)))
-    (hashtable-iterate htable
-      (lambda (cell)
-        (let ((name (car cell)))
-          (when (string-prefix? name prefix)
-            (set! l (cons name l)))))))
+    (for-hash-keys ((name htable))
+      (when (string-prefix? name prefix)
+        (set! l (cons name l)))))
   l)
 
 ;; find programs in $PATH that start with prefix, cons them onto list l, and return l

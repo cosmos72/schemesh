@@ -144,9 +144,8 @@
   (assert* 'sh-env-iterate/direct (logbit? 3 (procedure-arity-mask proc)))
   (let ((vars (job-env (sh-job job-or-id))))
     (if vars
-      (hashtable-iterate vars
-        (lambda (cell)
-          (proc (car cell) (cddr cell) (cadr cell))))
+      (for-hash ((key val vars))
+        (proc key (cdr val) (car val)))
       #t)))
 
 

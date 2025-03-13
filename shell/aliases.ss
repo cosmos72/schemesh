@@ -124,9 +124,8 @@
   (let ((wbuf    (make-bytespan 0))
         (aliases (span))
         (fd      (sh-fd 1)))
-    (hashtable-iterate (sh-aliases)
-      (lambda (cell)
-        (span-insert-right! aliases cell)))
+    (for-hash-pairs ((cell (sh-aliases)))
+      (span-insert-right! aliases cell))
     (span-sort! (lambda (cell1 cell2) (string<? (car cell1) (car cell2))) aliases)
     (span-iterate aliases
       (lambda (i cell)

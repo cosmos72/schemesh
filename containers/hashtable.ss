@@ -8,17 +8,20 @@
 (library (schemesh containers hashtable (0 8 1))
   (export
     make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-cell hash-iterator-next!
-    in-hash in-hash-keys in-hash-values hashtable-iterate hashtable-transpose
+
+    for-hash for-hash-keys for-hash-pairs for-hash-values
+    in-hash in-hash-keys in-hash-pairs in-hash-values
     eq-hashtable eqv-hashtable (rename (%hashtable hashtable))
-    alist->eq-hashtable alist->eqv-hashtable alist->hashtable)
+    alist->eq-hashtable alist->eqv-hashtable alist->hashtable hashtable-transpose)
   (import
     (rnrs)
     (only (chezscheme) $primitive fx1+ include record-writer)
+    (only (schemesh bootstrap functions) generate-pretty-temporaries)
     (only (schemesh containers list) for-list))
 
 
 ;; NOTE: (hash-table-for-each) exported by Chez Scheme at least up to version 10.0.0
-;; is not suitable for implementing (hashtable-iterate) because it only works on eq-hashtable:s.
+;; is not suitable for implementing iterators, (for-hash) or (in-hash) because it only works on eq-hashtable:s.
 
 
 (include "containers/hashtable-types.ss")
@@ -133,10 +136,10 @@
          (values #f #f #f)))))
 
 
-;; create and return a closure that iterates on keys of hashtable t.
+;; create and return a closure that iterates on keys of hashtable htable.
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns two values:
-;; either (values key #t) i.e. the next key in hashtable t and #t,
+;; either (values key #t) i.e. the next key in hashtable and #t,
 ;; or (values #<unspecified> #f) if end of hashtable is reached.
 (define (in-hash-keys htable)
   (let* ((iter (make-hash-iterator htable))
@@ -146,7 +149,28 @@
          (let ((cell next))
            (set! next (hash-iterator-next! iter))
            (values (car cell) #t))
-         (values #f#f)))))
+         (values #f #f)))))
+
+
+;; create and return a closure that iterates on each pair containing (key . value) of htable.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values pair #t) i.e. the next pair containing (key . value) in hashtable and #t,
+;; or (values #<unspecified> #f) if end of hashtable is reached.
+;;
+;; Assigning the (cdr) of a pair propagates to the hashtable,
+;; i.e. changes the value associated to key in hashtable.
+;;
+;; Do NOT modify the (car) of any pair!
+(define (in-hash-pairs htable)
+  (let* ((iter (make-hash-iterator htable))
+         (next (hash-iterator-cell iter)))
+     (lambda ()
+       (if (pair? next)
+         (let ((cell next))
+           (set! next (hash-iterator-next! iter))
+           (values (cell #t)))
+         (values #f #f)))))
 
 
 ;; create and return a closure that iterates on values of hashtable t.
@@ -162,24 +186,112 @@
          (let ((cell next))
            (set! next (hash-iterator-next! iter))
            (values (cdr cell) #t))
-         (values #f#f)))))
+         (values #f #f)))))
 
 
-;; iterate on all elements of given hashtable, and call (proc (cons key value))
-;; for each element. stop iterating if (proc ...) returns #f
+;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each key and value.
+;; Stop iterating when the smallest hashtable is exhausted,
+;; and return unspecified value.
 ;;
-;; Returns #t if all calls to (proc ...) returned truish,
-;; otherwise returns #f.
+;; Note: body ... must evaluate to a single value.
+(define-syntax for-hash
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ ((key val htable)) body1 body2 ...)
+        #'(let ((iter (make-hash-iterator htable)))
+            (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter)))
+                ((not cell))
+              (let ((key (car cell))
+                    (val (cdr cell)))
+                body1 body2 ...))))
+      ((_ ((key val htable) ...) body1 body2 ...)
+        (not (null? #'(htable ...)))
+        (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
+          (with-syntax (((cell ...) (generate-pretty-temporaries #'(htable ...))))
+            #'(let ((iter (make-hash-iterator htable)) ...)
+                (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter)) ...)
+                    ((not (and cell) ...))
+                  (let ((key (car cell)) ...
+                        (val (cdr cell)) ...)
+                    body1 body2 ...)))))))))
+
+
+;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each key.
+;; Stop iterating when the smallest hashtable is exhausted,
+;; and return unspecified value.
 ;;
-;; Assigning the (cdr) of an element propagates to the hashtable,
+;; Note: body ... must evaluate to a single value.
+(define-syntax for-hash-keys
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ ((key htable)) body1 body2 ...)
+        #'(let ((iter (make-hash-iterator htable)))
+            (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter)))
+                ((not cell))
+              (let ((key (car cell)))
+                body1 body2 ...))))
+      ((_ ((key htable) ...) body1 body2 ...)
+        (not (null? #'(htable ...)))
+        (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
+          (with-syntax (((cell ...) (generate-pretty-temporaries #'(htable ...))))
+            #'(let ((iter (make-hash-iterator htable)) ...)
+                (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter)) ...)
+                    ((not (and cell) ...))
+                  (let ((key (car cell)) ...)
+                    body1 body2 ...)))))))))
+
+
+;; Iterate in parallel on elements of given hashtables ht ...,
+;; and evaluate body ... on each pair containing (key . value).
+;; Stop iterating when the smallest hashtable is exhausted,
+;; and return unspecified value.
+;;
+;; Assigning the (cdr) of a pair propagates to the hashtable,
 ;; i.e. changes the value associated to key in hashtable.
 ;;
-;; Do NOT modify the (car) of any element!
-(define (hashtable-iterate htable proc)
-  (let ((iter (make-hash-iterator htable)))
-    (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter)))
-        ((not (and cell (proc cell)))
-         (not cell)))))
+;; Do NOT modify the (car) of any pair!
+;;
+;; Note: body ... must evaluate to a single value.
+(define-syntax for-hash-pairs
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ ((pair htable)) body1 body2 ...)
+        #'(let ((iter (make-hash-iterator htable)))
+            (do ((pair (hash-iterator-cell iter) (hash-iterator-next! iter)))
+                ((not pair))
+              body1 body2 ...)))
+      ((_ ((pair htable) ...) body1 body2 ...)
+        (not (null? #'(htable ...)))
+        (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
+          #'(let ((iter (make-hash-iterator htable)) ...)
+              (do ((pair (hash-iterator-cell iter) (hash-iterator-next! iter)) ...)
+                  ((not (and pair) ...))
+                body1 body2 ...)))))))
+
+
+;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each value.
+;; Stop iterating when the smallest hashtable is exhausted,
+;; and return unspecified value.
+;;
+;; Note: body ... must evaluate to a single value.
+(define-syntax for-hash-values
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ ((val htable)) body1 body2 ...)
+        #'(let ((iter (make-hash-iterator htable)))
+            (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter)))
+                ((not cell))
+              (let ((val (cdr cell)))
+                body1 body2 ...))))
+      ((_ ((val htable) ...) body1 body2 ...)
+        (not (null? #'(htable ...)))
+        (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
+          (with-syntax (((cell ...) (generate-pretty-temporaries #'(htable ...))))
+            #'(let ((iter (make-hash-iterator htable)) ...)
+                (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter)) ...)
+                    ((not (and cell) ...))
+                  (let ((val (cdr cell)) ...)
+                    body1 body2 ...)))))))))
 
 
 ; (hashtable-transpose src dst) iterates on all (key . value) elements of hashtable src,
@@ -187,9 +299,8 @@
 ;
 ; Returns dst.
 (define (hashtable-transpose src dst)
-  (hashtable-iterate src
-    (lambda (cell)
-      (hashtable-set! dst (cdr cell) (car cell))))
+  (for-hash ((key val src))
+    (hashtable-set! dst val key))
   dst)
 
 

@@ -488,12 +488,10 @@
 (define (job-unmap-fds! job)
   (let ((remap-fds (job-fds-to-remap job)))
     (when remap-fds
-      (hashtable-iterate remap-fds
-        (lambda (cell)
-          (let ((fd (cdr cell)))
-            (when (s-fd-release fd)
-              ;; (debugf "job-unmap-fds! fd-close ~s" (s-fd->int fd))
-              (fd-close (s-fd->int fd))))))
+      (for-hash-values ((fd remap-fds))
+        (when (s-fd-release fd)
+          ;; (debugf "job-unmap-fds! fd-close ~s" (s-fd->int fd))
+          (fd-close (s-fd->int fd))))
       (job-fds-to-remap-set! job #f))))
 
 

@@ -20,7 +20,7 @@
                                  bytespan-reserve-right! bytespan-insert-right/string! bytespan-insert-right/u8!
                                  bytevector<? bytevector-index
                                  charspan? charspan-empty? charspan-index/char charspan->utf8b charspan->utf8b/0
-                                 for-list hashtable-iterate make-bytespan string-index
+                                 for-hash for-list make-bytespan string-index
                                  string->utf8b string->utf8b/0 utf8b->string utf8b->string
                                  vector-sort*!))
 
@@ -229,10 +229,9 @@
   (let* ((i 0)
          (n (hashtable-size htable))
          (vec (make-vector n)))
-    (hashtable-iterate htable
-      (lambda (cell)
-        (vector-set! vec i (key-value->bytevector0 (car cell) (cdr cell)))
-        (set! i (fx1+ i))))
+    (for-hash ((key val htable))
+      (vector-set! vec i (key-value->bytevector0 key val))
+      (set! i (fx1+ i)))
     (vector-sort*! bytevector<? vec)
     vec))
 
