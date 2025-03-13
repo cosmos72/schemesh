@@ -7,7 +7,7 @@
 
 (library (schemesh containers hashtable (0 8 1))
   (export
-    make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-cell hash-iterator-next!
+    make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-pair hash-iterator-next!
 
     for-hash for-hash-keys for-hash-pairs for-hash-values
     hash-for-each hash-for-each-key hash-for-each-pair hash-for-each-value
@@ -23,8 +23,9 @@
     (only (schemesh containers list) for-list))
 
 
-;; NOTE: (hash-table-for-each) exported by Chez Scheme at least up to version 10.0.0
-;; is not suitable for implementing iterators, (for-hash) or (in-hash) because it only works on eq-hashtable:s.
+;; NOTE: (hash-table-for-each) exported by Chez Scheme
+;; is not suitable for implementing iterators, (for-hash) or (in-hash)
+;; because at least up to Chez Scheme v10.0.0 it works *only* on eq-hashtable:s.
 
 
 (include "containers/hashtable-types.ss")
@@ -70,7 +71,7 @@
 ; i.e. it is equivalent to setting the value associated to key in the hashtable
 ;
 ; NEVER set or modify in any way the car of returned element!
-(define (hash-iterator-cell iter)
+(define (hash-iterator-pair iter)
   (bucket-keyval (iter-bucket iter)))
 
 
@@ -78,7 +79,7 @@
 ; return next hashtable element (key . val) if more elements are available,
 ; otherwise return #f
 ;
-; as (hash-iterator-cell), setting the cdr of returned element propagates back
+; as (hash-iterator-pair), setting the cdr of returned element propagates back
 ; to the hashtable.
 (define (hash-iterator-next! iter)
   (let* ((index  (iter-index  iter))
@@ -130,7 +131,7 @@
 ;; or (values #<unspecified> #<unspecified> #f) if end of hashtable is reached.
 (define (in-hash htable)
   (let* ((iter (make-hash-iterator htable))
-         (next (hash-iterator-cell iter)))
+         (next (hash-iterator-pair iter)))
      (lambda ()
        (if (pair? next)
          (let ((cell next))
@@ -146,7 +147,7 @@
 ;; or (values #<unspecified> #f) if end of hashtable is reached.
 (define (in-hash-keys htable)
   (let* ((iter (make-hash-iterator htable))
-         (next (hash-iterator-cell iter)))
+         (next (hash-iterator-pair iter)))
      (lambda ()
        (if (pair? next)
          (let ((cell next))
@@ -167,7 +168,7 @@
 ;; Do NOT modify the (car) of any pair!
 (define (in-hash-pairs htable)
   (let* ((iter (make-hash-iterator htable))
-         (next (hash-iterator-cell iter)))
+         (next (hash-iterator-pair iter)))
      (lambda ()
        (if (pair? next)
          (let ((cell next))
@@ -183,7 +184,7 @@
 ;; or (values #<unspecified> #f) if end of hashtable is reached.
 (define (in-hash-values htable)
   (let* ((iter (make-hash-iterator htable))
-         (next (hash-iterator-cell iter)))
+         (next (hash-iterator-pair iter)))
      (lambda ()
        (if (pair? next)
          (let ((cell next))
@@ -212,7 +213,7 @@
 ;; Do NOT modify the (car) of any pair!
 (define (hash-for-each-pair proc htable)
   (let ((iter (make-hash-iterator htable)))
-    (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter)))
+    (do ((cell (hash-iterator-pair iter) (hash-iterator-next! iter)))
         ((not cell))
       (proc cell))))
 
@@ -243,7 +244,7 @@
         (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
           (with-syntax (((cell ...) (generate-pretty-temporaries #'(htable ...))))
             #'(let ((iter (make-hash-iterator htable)) ...)
-                (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter)) ...)
+                (do ((cell (hash-iterator-pair iter) (hash-iterator-next! iter)) ...)
                     ((not (and cell) ...))
                   (let ((key (car cell)) ...
                         (val (cdr cell)) ...)
@@ -269,7 +270,7 @@
         (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
           (with-syntax (((cell ...) (generate-pretty-temporaries #'(htable ...))))
             #'(let ((iter (make-hash-iterator htable)) ...)
-                (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter)) ...)
+                (do ((cell (hash-iterator-pair iter) (hash-iterator-next! iter)) ...)
                     ((not (and cell) ...))
                   (let ((key (car cell)) ...)
                     body1 body2 ...)))))))))
@@ -298,7 +299,7 @@
         (not (null? #'(htable ...)))
         (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
           #'(let ((iter (make-hash-iterator htable)) ...)
-              (do ((pair (hash-iterator-cell iter) (hash-iterator-next! iter)) ...)
+              (do ((pair (hash-iterator-pair iter) (hash-iterator-next! iter)) ...)
                   ((not (and pair) ...))
                 body1 body2 ...)))))))
 
@@ -322,7 +323,7 @@
         (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
           (with-syntax (((cell ...) (generate-pretty-temporaries #'(htable ...))))
             #'(let ((iter (make-hash-iterator htable)) ...)
-                (do ((cell (hash-iterator-cell iter) (hash-iterator-next! iter)) ...)
+                (do ((cell (hash-iterator-pair iter) (hash-iterator-next! iter)) ...)
                     ((not (and cell) ...))
                   (let ((val (cdr cell)) ...)
                     body1 body2 ...)))))))))
