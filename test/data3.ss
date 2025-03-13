@@ -163,6 +163,9 @@
   (sh-run {
      $(display "hello") | cat |
      $(utf8b->string (fd-read-all (sh-fd 0)))})        ,(ok "hello")
+  (sh-run {
+     $(display "greet") | cat |
+     $(get-string-all (current-input-port))})          ,(ok "greet")
 
   ;; run builtin in a subprocess
   (sh-run (sh-cmd "false") '(spawn? . #t))             ,(failed 1)

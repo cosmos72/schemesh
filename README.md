@@ -99,7 +99,7 @@ Some more advanced Scheme functions:
 Job control is now available also for Scheme code:
 
 from shell syntax or Scheme syntax, simply type `$` before a Scheme expression in parentheses,
-and it gets encapsulated in a job that can be started, stopped and resumed just like any other job.
+and it gets encapsulated in a `shell-expr` job that can be started, stopped and resumed just like any other job.
 Example:
 ```shell
 > $(begin (repeat 1000000000 (void)) "done!\n")
@@ -122,6 +122,22 @@ Example:
 > (sh-run/i j)
 (ok "done too!\n")
 ```
+
+### [NEW in version 0.8.1]
+
+Scheme code running as a job i.e. inside `$()` can be used in pipelines, as for example:
+```shell
+> $(display "hello") | cat | $(get-string-all (current-input-port))
+(ok "hello")
+```
+
+Also, standard Scheme ports `(current-input-port)` `(current-output-port)` `(current-error-port)`
+automatically honor job redirections, as shown in the example above:
+
+in the job `$(get-string-all (current-input-port))`, the expression `(current-input-port)`
+is the **job**'s standard input - which happens to be a pipe in this case,
+but could be a file or whatever the job redirections have set.
+
 
 ### Subshells and command substitution
 
