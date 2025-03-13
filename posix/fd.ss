@@ -227,7 +227,7 @@
     (lambda (fd u8)
       (check-interrupts)
       (let %loop ()
-        (let ((ret (c-fd-write-u8 fd)))
+        (let ((ret (c-fd-write-u8 fd u8)))
           (cond
             ((eqv? 0 ret)
               (void))
