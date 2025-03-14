@@ -116,11 +116,11 @@
 (define fd-read
   (case-lambda
     ((fd bytevector-result start end)
-      (check-interrupts)
       (let %loop ()
+        (check-interrupts)
         (let ((ret (fd-read-noretry fd bytevector-result start end)))
           (if (eq? #t ret)
-            (begin (check-interrupts) (%loop))
+            (%loop)
             ret))))
     ((fd bytevector-result)
       (fd-read fd bytevector-result 0 (bytevector-length bytevector-result)))))
@@ -150,14 +150,14 @@
 (define fd-read-u8
   (let ((c-fd-read-u8 (foreign-procedure "c_fd_read_u8" (int) ptr)))
     (lambda (fd)
-      (check-interrupts)
       (let %loop ()
+        (check-interrupts)
         (let ((ret (c-fd-read-u8 fd)))
           (cond
             ((and (fixnum? ret) (fx<=? 0 ret 255))
               ret)
             ((eq? #t ret)
-              (check-interrupts) (%loop))
+              (%loop))
             ((eq? #f ret)
               (eof-object))
             (else
@@ -191,11 +191,11 @@
 (define fd-write
   (case-lambda
     ((fd bytevector-towrite start end)
-      (check-interrupts)
       (let %loop ()
+        (check-interrupts)
         (let ((ret (fd-write-noretry fd bytevector-towrite start end)))
           (if (eq? #t ret)
-            (begin (check-interrupts) (%loop))
+            (%loop)
             ret))))
     ((fd bytevector-towrite)
       (fd-write fd bytevector-towrite 0 (bytevector-length bytevector-towrite)))))
@@ -225,16 +225,13 @@
 (define fd-write-u8
   (let ((c-fd-write-u8 (foreign-procedure "c_fd_write_u8" (int int) ptr)))
     (lambda (fd u8)
-      (check-interrupts)
       (let %loop ()
+        (check-interrupts)
         (let ((ret (c-fd-write-u8 fd u8)))
           (cond
-            ((eqv? 0 ret)
-              (void))
-            ((eq? #t ret)
-              (check-interrupts) (%loop))
-            (else
-              (raise-c-errno 'fd-write-u8 'write ret fd #vu8()))))))))
+            ((eqv? 0 ret)   (void))
+            ((eq? #t ret)   (%loop))
+            (else           (raise-c-errno 'fd-write-u8 'write ret fd #vu8()))))))))
 
 
 ;; (fd-select fd direction timeout-milliseconds) waits up to timeout-milliseconds

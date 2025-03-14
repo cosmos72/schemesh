@@ -318,3 +318,8 @@
       (port-cleanup (sh-stderr))
 
       job)))
+
+
+;; Parameter set to truish when inside (job-wait).
+;; Needed to avoid re-entering (job-wait) from signal handlers.
+(define waiting-for-job (sh-make-thread-parameter #f))

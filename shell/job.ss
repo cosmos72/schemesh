@@ -27,7 +27,7 @@
 
     ;; control.ss
     sh-current-job-kill sh-current-job-suspend
-    sh-start sh-start* sh-bg sh-fg sh-run sh-run/i sh-run/err? sh-run/ok? sh-wait
+    sh-start sh-start* sh-bg sh-fg sh-kill sh-run sh-run/i sh-run/err? sh-run/ok? sh-wait
 
     ; sh-wait-flag-foreground-pgid? sh-wait-flag-continue-if-stopped?
     ; sh-wait-flag-wait? sh-wait-flag-wait-until-finished? sh-wait-flag-wait-until-stopped-or-finished?

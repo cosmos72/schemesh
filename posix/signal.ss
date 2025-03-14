@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 (library (schemesh posix signal (0 8 1))
-  (export signal-raise signal-number->name signal-name->number
+  (export signal-raise signal-number->name signal-name->number signal-name-is-usually-fatal?
           signal-consume-sigwinch signal-init-sigwinch signal-restore-sigwinch)
   (import
     (rnrs)
@@ -30,6 +30,12 @@
 ;; return #f if signal name was not found.
 (define (signal-name->number name)
   (hashtable-ref signal-table-name->number name #f))
+
+(define (signal-name-is-usually-fatal? name)
+  (if (memq name '(sigabrt sigbus sigfpe #|sighup|# sigill sigint sigkill #|sigpipe|#
+                   sigquit sigsegv sigterm #|sigstkflt|# sigxcpu #|sigxfsz|#))
+    #t
+    #f))
 
 ; (signal-raise signal-name) calls C functions sigaction(sig, SIG_DFL),
 ; then calls C function raise(sig)
