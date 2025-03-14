@@ -8,8 +8,8 @@
 
 (library (schemesh containers vector (0 8 1))
   (export
-    in-fxvector
-    in-flvector ; requires Chez Scheme >= 10.0.0
+    for-vector
+    in-fxvector in-flvector ; requires Chez Scheme >= 10.0.0
     in-vector vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable! vector-range->list)
   (import
     (rnrs)
@@ -99,6 +99,28 @@
        (n (vector-length vec)))
       ((or (fx>=? i n) (not (proc i (vector-ref vec i))))
        (fx>=? i n))))
+
+
+
+;; Iterate in parallel on elements of given vector v ..., and evaluate body ... on each element.
+;; Stop iterating when the shortest vector is exhausted,
+;; and return unspecified value.
+;;
+;; The implementation of body ... can call directly or indirectly functions
+;; that inspect the vectors without modifying them, and can also call (vector-set! ...).
+;;
+;; It must NOT call any other function that modify the vector, as for example (vector-truncate!)
+;;
+;; Return unspecified value.
+(define-syntax for-vector
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ ((elem v) ...) body1 body2 ...)
+        (not (null? #'(v ...)))
+        #'(do ((i 0 (fx1+ i)) (n (fxmin (vector-length v) ...)) (v v) ...)
+              ((fx>=? i n))
+            (let ((elem (vector-ref v i)) ...)
+              body1 body2 ...))))))
 
 
 ;; (vector->hashtable! vec htable) iterates on all elements of given vector vec,

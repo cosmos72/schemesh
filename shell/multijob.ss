@@ -41,6 +41,19 @@
       #f)))
 
 
+;; Create and return vector containing status of each child of multijob mj,
+;; or empty vector if mj is not a multijob
+(define (multijob-children-last-status mj)
+  (if (sh-multijob? mj)
+    (let* ((children (multijob-children mj))
+           (vec      (make-vector (span-length children) (void))))
+      (span-iterate children
+        (lambda (i child)
+          (when (sh-job? child)
+            (vector-set! vec i (job-last-status child)))))
+      vec)
+    '#()))
+
 
 ;; Create a multijob to later start it. Each element in children-jobs must be a sh-job or subtype.
 
@@ -489,3 +502,19 @@
       ; propagate status of last sync child
       (multijob-current-child-index-set! mj -1)
       (job-status-set! 'mj-list-step mj prev-child-status))))
+
+
+;; recursively kill a multijob and all its children jobs.
+;; return unspecified value.
+(define (multijob-kill mj signal-name)
+  (let ((is-list? (eq? 'sh-list (multijob-kind mj))))
+    (span-iterate (multijob-children mj)
+      (lambda (i elem)
+        (when (and (sh-job? elem) (job-started? elem))
+          (unless (and is-list? (eq? '& (sh-multijob-child-ref mj (fx1+ i))))
+            ;; try to kill children sh-expr jobs only if they have a pid or pgid.
+            ;; Reason: killing other sh-expr jobs may non-locally jump to their continuation
+            ;;         and this loop would not continue.
+            (when (or (job-pid elem) (job-pgid elem) (not (sh-expr? elem)))
+              (job-kill elem signal-name))))
+        #t)))) ; continue iteration

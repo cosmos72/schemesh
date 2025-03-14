@@ -232,62 +232,6 @@
     #f))
 
 
-;; recursively kill a multijob.
-;; return unspecified value.
-(define (multijob-kill mj signal-name)
-  (let ((is-list? (eq? 'sh-list (multijob-kind mj))))
-    (span-iterate (multijob-children mj)
-      (lambda (i elem)
-        (when (and (sh-job? elem) (job-started? elem))
-          (unless (and is-list? (eq? '& (sh-multijob-child-ref mj (fx1+ i))))
-            ;; try to kill children sh-expr jobs only if they have a pid or pgid.
-            ;; Reason: killing other sh-expr jobs may non-locally jump to their continuation
-            ;;         and this loop would not continue.
-            (when (or (job-pid elem) (job-pgid elem) (not (sh-expr? elem)))
-              (job-kill elem signal-name))))
-        #t)))) ; continue iteration
-
-
-;; React to a SIGCHLD: if job is an sh-expr,
-;; check whether some other job stopped (TBD: or was killed?)
-;; and in such case suspend job.
-;;
-;; Return #t if job is a sh-expr, otherwise return #f.
-;; May also not return i.e. non-locally jump to job's suspend-proc.
-(define (jexpr-sigchld job)
-  (if (sh-expr? job)
-    ;; Note: calling (scheduler-wait) may not return:
-    ;; when it detects that some job stopped, it advances the job's parents
-    ;; which may suspend this sh-expr too.
-    (let ((some-job-status (scheduler-wait #f 'nonblocking)))
-      ;;z (debugf "; sigchld, current job=~a, scheduler-wait returned ~s" (sh-job->string job) some-job-status)
-      (when (stopped? some-job-status)
-        (jexpr-suspend job (status->value some-job-status)))
-      #t)
-    #f))
-
-
-;; Suspend a sh-expr and call its suspend-proc continuation,
-;; which non-locally jumps to whoever started or resumed the job.
-;;
-;; If job is later resumed, it eventually returns #t to the caller of (jexpr-suspend)
-;; If job is not an sh-expr or is not running, immediately return #f.
-(define (jexpr-suspend job signal-name)
-  (let ((suspend-proc (and (sh-expr? job) (jexpr-suspend-proc job))))
-    ;;y (debugf "jexpr-suspend job=~s suspend-proc=~s" job suspend-proc)
-    (when suspend-proc
-      (call/cc
-        ;; Capture the continuation representing THIS call to (job-suspend)
-        (lambda (cont)
-          ;; store it as job's resume-proc
-          (jexpr-resume-proc-set!  job cont)
-          (jexpr-suspend-proc-set! job #f)
-          (%job-last-status-set! job (stopped signal-name))
-          (job-id-update! job)
-          ;; suspend job, i.e. call its suspend-proc
-          (suspend-proc (void)))))
-    (if suspend-proc #t #f))) ; ignore value returned by continuation (suspend-proc)
-
 
 ;; Kill current job and call its suspend-proc continuation,
 ;; which non-locally jumps to whoever started or resumed the job.

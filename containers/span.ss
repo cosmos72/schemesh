@@ -17,7 +17,7 @@
     span-reserve-left! span-reserve-right! span-resize-left! span-resize-right!
     span-insert-left! span-insert-right! span-insert-left/span! span-insert-right/span!
     span-erase-left! span-erase-right! span-index span-index-right
-    in-span span-iterate span-iterate-any
+    for-span in-span span-iterate span-iterate-any
     span-peek-beg span-peek-end span-peek-data)
   (import
     (rnrs)
@@ -314,6 +314,28 @@
       (in-span sp start end 1))
     ((sp)
       (in-span sp 0 (span-length sp) 1))))
+
+
+;; Iterate in parallel on elements of given spans sp ..., and evaluate body ... on each element.
+;; Stop iterating when the shortest span is exhausted,
+;; and return unspecified value.
+;;
+;; The implementation of body ... can call directly or indirectly functions
+;; that inspect the spans without modifying them, and can also call (span-set! ...).
+;;
+;; It must NOT call any other function that modify the spans (insert or erase elements,
+;; change any span size or capacity, etc).
+;;
+;; Return unspecified value.
+(define-syntax for-span
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ ((elem sp) ...) body1 body2 ...)
+        (not (null? #'(sp ...)))
+        #'(do ((i 0 (fx1+ i)) (n (fxmin (span-length sp) ...)) (sp sp) ...)
+              ((fx>=? i n))
+            (let ((elem (span-ref sp i)) ...)
+              body1 body2 ...))))))
 
 
 ;; iterate on span elements, and call (proc i elem) on each one.

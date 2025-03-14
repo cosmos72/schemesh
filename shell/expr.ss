@@ -120,3 +120,56 @@
           (when (job-running? job)
             (job-status-set! 'sh-expr job (stopped 'sigtstp))))))))
     jexpr-initial-resume-proc))
+
+
+
+;; React to a SIGCHLD: if job is an sh-expr,
+;; check whether some other job stopped (TBD: or was killed?)
+;; and in such case suspend job.
+;;
+;; Return #t if job is a sh-expr, otherwise return #f.
+;; May also not return i.e. non-locally jump to job's suspend-proc.
+(define (jexpr-sigchld job)
+  (if (sh-expr? job)
+    (let* ((parent (job-default-parent job))
+           (siblings-old-status (multijob-children-last-status parent)))
+
+      ;; Note: calling (scheduler-wait) may not return:
+      ;; when it detects that some job stopped, it advances the job's parents
+      ;; which may suspend this sh-expr too.
+      (scheduler-wait #f 'nonblocking)
+
+      (let ((siblings-new-status (multijob-children-last-status parent))
+            (some-sibling-stopped-status #f))
+        (for-vector ((old siblings-old-status)
+                     (new siblings-new-status))
+          (when (and (stopped? new) (not (stopped? old)))
+            (set! some-sibling-stopped-status new)))
+
+        ;; (debugf "jexpr-sigchld job=~s\tsiblings-old-status=~s\tsiblings-new-status=~s" (sh-job->string job) siblings-old-status siblings-new-status)
+        (when some-sibling-stopped-status
+          (jexpr-suspend job (status->value some-sibling-stopped-status)))
+        #t))
+    #f))
+
+
+;; Suspend a sh-expr and call its suspend-proc continuation,
+;; which non-locally jumps to whoever started or resumed the job.
+;;
+;; If job is later resumed, it eventually returns #t to the caller of (jexpr-suspend)
+;; If job is not an sh-expr or is not running, immediately return #f.
+(define (jexpr-suspend job signal-name)
+  (let ((suspend-proc (and (sh-expr? job) (jexpr-suspend-proc job))))
+    ;;y (debugf "jexpr-suspend job=~s suspend-proc=~s" job suspend-proc)
+    (when suspend-proc
+      (call/cc
+        ;; Capture the continuation representing THIS call to (job-suspend)
+        (lambda (cont)
+          ;; store it as job's resume-proc
+          (jexpr-resume-proc-set!  job cont)
+          (jexpr-suspend-proc-set! job #f)
+          (%job-last-status-set! job (stopped signal-name))
+          (job-id-update! job)
+          ;; suspend job, i.e. call its suspend-proc
+          (suspend-proc (void)))))
+    (if suspend-proc #t #f))) ; ignore value returned by continuation (suspend-proc)

@@ -372,8 +372,6 @@
 
 (define (sh-consume-signals lctx)
   (check-interrupts)
-  (while #f ; (_signal-consume-sigchld)
-    (scheduler-wait #f 'nonblocking))
   (when lctx
     (display-status-changes lctx)))
 
