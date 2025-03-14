@@ -174,49 +174,78 @@
 
 ;; Kill a job-or-id.
 ;;
-;; If job is running, may non-locally jump to its continuation.
-;; If job is not running, immediately return #f.
+;; If job is running, return its updated status. Note: may not return, i.e. non-locally jump to job's continuation.
+;; If job is not found or not started, raise exception.
 (define sh-kill
   (case-lambda
     ((job-or-id signal-name)
-      (job-kill (sh-job job-or-id) signal-name))
+      (let ((job (sh-job job-or-id)))
+        (if (job-kill job signal-name)
+          (job-last-status job)
+          (raise-errorf 'sh-kill "job not started: ~s" job))))
     ((job-or-id)
-      (job-kill (sh-job job-or-id) 'sigint))))
+      (sh-kill job-or-id 'sigint))))
 
 
-;; Kill a job.
-;; If job is a sh-expr, also call its suspend-proc continuation,
+;; Recursively kill a job and all its children.
+;; If job is a sh-expr, may also call its suspend-proc continuation,
 ;; which non-locally jumps to whoever started or resumed the job.
 ;;
-;; If job is not running, immediately return #f.
+;; If job is started, return #t. Note: may not return, i.e. non-locally jump to job's continuation.
+;; If job is not started, immediately return #f.
 (define (job-kill job signal-name)
-  ;; FIXME: recursively search for pids and pgids of started children jobs,
-  ;; and send signal to them all (unless they are async children of sh-list).
-  ;;
   ;;y (debugf "job-kill job=~s suspend-proc=~s" job suspend-proc)
-  (if (sh-job? job)
-    (let* ((suspend-proc (and (sh-expr? job) (jexpr-suspend-proc job)))
+  (if (and (sh-job? job) (job-started? job))
+    (let* ((fatal? (signal-name-is-usually-fatal? signal-name))
+           (suspend-proc (and (sh-expr? job) (jexpr-suspend-proc job)))
+           (pid  (job-pid job))
            (pgid (job-pgid job))
            ;; send signals to job's process group, if present.
            ;; otherwise send signals to job's process id.
-           (target-pid (if (and pgid (> pgid 0)) (- pgid) (job-pid job))))
-      ;; set job id and notify its status: causes slightly verbose notifications
-      ;; if REPL is directly waiting for job. needed in some other case?
+           (target-pid (if (and pgid (> pgid 0)) (- pgid) pid)))
+      ;; set job id and notify its status? causes verbose notifications...
       ;; (job-id-set! job)
       ;; (queue-job-display-summary job)
 
-      (when target-pid
-        (pid-kill target-pid 'sigcont)
-        (pid-kill target-pid signal-name))
-      (if (and target-pid (sh-cmd? job))
-        ;; if job is a sh-cmd with a pid/pgid, status will be set when subprocess exits
-        (job-status-set/running! job)
-        (when (signal-name-is-usually-fatal? signal-name)
-          (job-status-set! 'sh-current-job-kill job (killed signal-name))))
-      (when suspend-proc
-        (suspend-proc (void))) ;; should not return
-      #t) ; ignore value returned by continuation (suspend-proc)
+      (cond
+        (target-pid ; also catches sh-pipe multijobs
+          (when fatal?
+            (pid-kill target-pid 'sigcont))
+          (pid-kill target-pid signal-name)
+
+          (cond
+            ((and pid (or fatal? (eq? 'sigcont signal-name)))
+              ;; if job has a pid, status will be set when subprocess exits
+              (job-status-set/running! job))
+            (fatal?
+              (job-status-set! 'job-kill job (killed signal-name)))))
+        (suspend-proc
+          (when fatal?
+            (job-status-set! 'job-kill job (killed signal-name))
+            ;; should not return
+            (suspend-proc (void))))
+        ((sh-multijob? job)
+          (when fatal?
+            (job-status-set! 'job-kill job (killed signal-name)))
+          (multijob-kill job signal-name)))
+      #t)
     #f))
+
+
+;; recursively kill a multijob.
+;; return unspecified value.
+(define (multijob-kill mj signal-name)
+  (let ((is-list? (eq? 'sh-list (multijob-kind mj))))
+    (span-iterate (multijob-children mj)
+      (lambda (i elem)
+        (when (and (sh-job? elem) (job-started? elem))
+          (unless (and is-list? (eq? '& (sh-multijob-child-ref mj (fx1+ i))))
+            ;; try to kill children sh-expr jobs only if they have a pid or pgid.
+            ;; Reason: killing other sh-expr jobs may non-locally jump to their continuation
+            ;;         and this loop would not continue.
+            (when (or (job-pid elem) (job-pgid elem) (not (sh-expr? elem)))
+              (job-kill elem signal-name))))
+        #t)))) ; continue iteration
 
 
 ;; React to a SIGCHLD: if job is an sh-expr,
