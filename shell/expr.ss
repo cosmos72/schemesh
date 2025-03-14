@@ -140,7 +140,7 @@
       (scheduler-wait #f 'nonblocking)
 
       (let ((siblings-new-status (multijob-children-last-status parent))
-            (some-sibling-stopped-status #f))
+            (some-sibling-stopped-status #f)) ; #f is not a job status
         (for-vector ((old siblings-old-status)
                      (new siblings-new-status))
           (when (and (stopped? new) (not (stopped? old)))

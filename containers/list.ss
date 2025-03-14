@@ -103,8 +103,8 @@
           #f
           (or      (proc (car l1) (car tail2) (car tail3))
               (%any proc (cdr l1) (cdr tail2) (cdr tail3))))))
-    ((proc . lists)
-      (let %any ((proc proc) (tails (list-copy* lists)))
+    ((proc l1 . lists)
+      (let %any ((proc proc) (tails (list-copy* (cons l1 lists))))
         (if (%any1 null? tails)
           #f
           (or (%apply-proc proc tails)

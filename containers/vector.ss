@@ -9,8 +9,8 @@
 (library (schemesh containers vector (0 8 1))
   (export
     for-vector
-    in-fxvector in-flvector ; requires Chez Scheme >= 10.0.0
-    in-vector vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable! vector-range->list)
+    in-vector in-fxvector in-flvector ; in-flvector requires Chez Scheme >= 10.0.0
+    vector-any vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable! vector-range->list)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -121,6 +121,56 @@
               ((fx>=? i n))
             (let ((elem (vector-ref v i)) ...)
               body1 body2 ...))))))
+
+
+;; apply proc element-wise to the i-th element of each vector
+(define (%apply-proc i proc vecs)
+  (apply proc (map (lambda (vec) (vector-ref vec i)) vecs)))
+
+
+;; apply proc element-wise to the elements of the vectors,
+;; stop at the first truish value returned by (proc elem ...) and return such value.
+;;
+;; If all calls to (proc elem ...) return #f, then return #f.
+;;
+;; If not vectors have the same length, iteration terminates when the end of shortest vector is reached.
+;; Proc must accept as many elements as there are lists, and must return a single value.
+(define vector-any
+  (case-lambda
+    ((proc vec)
+      (let %vector-any ((i 0) (n (vector-length vec)) (proc proc) (vec vec))
+        (if (fx>=? i n)
+          #f
+          (or (proc (vector-ref vec i))
+              (%vector-any (fx1+ i) n proc vec)))))
+    ((proc vec1 vec2)
+      (let %vector-any ((i 0) (n (fxmin (vector-length vec1) (vector-length vec2)))
+                        (proc proc) (vec1 vec1) (vec2 vec2))
+        (if (fx>=? i n)
+          #f
+          (or (proc (vector-ref vec1 i) (vector-ref vec2 i))
+              (%vector-any (fx1+ i) n proc vec1 vec2)))))
+    ((proc vec1 vec2 vec3)
+      (let %vector-any ((i 0) (n (fxmin (vector-length vec1) (vector-length vec2) (vector-length vec3)))
+                        (proc proc) (vec1 vec1) (vec2 vec2) (vec3 vec3))
+        (if (fx>=? i n)
+          #f
+          (or (proc (vector-ref vec1 i) (vector-ref vec2 i) (vector-ref vec3 i))
+              (%vector-any (fx1+ i) n proc vec1 vec2 vec3)))))
+    ((proc vec1 vec2 vec3 vec4)
+      (let %vector-any ((i 0) (n (fxmin (vector-length vec1) (vector-length vec2) (vector-length vec3) (vector-length vec4)))
+                        (proc proc) (vec1 vec1) (vec2 vec2) (vec3 vec3) (vec4 vec4))
+        (if (fx>=? i n)
+          #f
+          (or (proc (vector-ref vec1 i) (vector-ref vec2 i) (vector-ref vec3 i) (vector-ref vec4 i))
+              (%vector-any (fx1+ i) n proc vec1 vec2 vec3 vec4)))))
+    ((proc vec1 . vecs)
+      (let %vector-any ((i 0) (n (apply fxmin (map vector-length (cons vec1 vecs))))
+                        (proc proc) (vecs (cons vec1 vecs)))
+        (if (fx>=? i n)
+          #f
+          (or (%apply-proc proc i vecs)
+              (%vector-any (fx1+ i) n proc vecs)))))))
 
 
 ;; (vector->hashtable! vec htable) iterates on all elements of given vector vec,
