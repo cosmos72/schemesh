@@ -132,8 +132,13 @@ To inspect a job status, use `(status->kind)` and `(status->value)`, as for exam
 > (define j {ls /does-not-exist})
 > (define status (sh-run j))
 ls: cannot access '/does-not-exist': No such file or directory
+
+> (display status)
+(failed 2)
+
 > (status->kind status)
 failed
+
 > (status->value status)
 2
 ```
@@ -146,12 +151,16 @@ to access all the values, because `(status->value)` returns only the first one:
 > (define status (sh-run j))
 > (display status)
 (ok "a" b #\c)
+
 > (status->kind status)
 ok
+
 > (status->value status)
 "a"
+
 > (ok->list status)
 ("a" b #\c)
+
 > (ok->values status)
 "a"
 b
