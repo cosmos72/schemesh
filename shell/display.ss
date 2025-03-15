@@ -343,10 +343,9 @@
         "(sh-cmd*"
         "(sh-cmd"))
     (job-write/env-lazy job port)
-    (list-iterate arg-list
-      (lambda (arg)
-        (put-char port #\space)
-        (put-datum port arg)))
+    (for-list ((arg arg-list))
+      (put-char port #\space)
+      (put-datum port arg))
     (job-write/redirects job port)
     (put-string port ")")))
 

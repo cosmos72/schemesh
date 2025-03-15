@@ -20,7 +20,7 @@
                                  bytespan-reserve-right! bytespan-insert-right/string! bytespan-insert-right/u8!
                                  bytevector<? bytevector-index
                                  charspan? charspan-empty? charspan-index/char charspan->utf8b charspan->utf8b/0
-                                 hashtable-iterate list-iterate make-bytespan string-index
+                                 for-hash for-list make-bytespan string-index
                                  string->utf8b string->utf8b/0 utf8b->string utf8b->string
                                  vector-sort*!))
 
@@ -114,16 +114,15 @@
 (define (any->bytevector0 . args)
   (let-values (((port get-bytevector)
                 (open-bytevector-output-port transcoder-utf8)))
-    (list-iterate args
-      (lambda (e)
-        (cond
-          ; suboptimal: this performs a lossless roundtrip
-          ; bytevector -> string -> bytevector using UTF-8b decoding/enconding
-          ((bytevector? e) (display (utf8b->string e) port))
-          ((string? e)     (display e port))
-          ((eq? (void) e)  #f)
-          (else            (display-any e port)))))
-    (display #\nul port)
+    (for-list ((e args))
+      (cond
+        ; suboptimal: this performs a lossless roundtrip
+        ; bytevector -> string -> bytevector using UTF-8b decoding/enconding
+        ((bytevector? e) (put-string port (utf8b->string e)))
+        ((string? e)     (put-string port e))
+        ((eq? (void) e)  #f)
+        (else            (display-any e port))))
+    (put-char port #\nul)
     (get-bytevector)))
 
 (define bv0 #vu8(0))
@@ -230,10 +229,9 @@
   (let* ((i 0)
          (n (hashtable-size htable))
          (vec (make-vector n)))
-    (hashtable-iterate htable
-      (lambda (cell)
-        (vector-set! vec i (key-value->bytevector0 (car cell) (cdr cell)))
-        (set! i (fx1+ i))))
+    (for-hash ((key val htable))
+      (vector-set! vec i (key-value->bytevector0 key val))
+      (set! i (fx1+ i)))
     (vector-sort*! bytevector<? vec)
     vec))
 

@@ -17,13 +17,13 @@
     span-reserve-left! span-reserve-right! span-resize-left! span-resize-right!
     span-insert-left! span-insert-right! span-insert-left/span! span-insert-right/span!
     span-erase-left! span-erase-right! span-index span-index-right
-    in-span span-iterate span-iterate-any
+    for-span in-span span-iterate span-iterate-any
     span-peek-beg span-peek-end span-peek-data)
   (import
     (rnrs)
     (only (chezscheme) break fx1+ fx1- record-writer reverse! vector-copy void)
     (only (schemesh bootstrap)         assert* assert-not* fx<=?*)
-    (only (schemesh containers list)   list-iterate)
+    (only (schemesh containers list)   for-list)
     (only (schemesh containers vector) subvector vector-copy! vector-fill-range! vector-range->list))
 
 (define-record-type
@@ -223,26 +223,24 @@
   (assert* 'span-resize-right! (fx>=? (span-capacity-right sp) len))
   (span-end-set! sp (fx+ len (span-beg sp))))
 
+(define (span-copy-list! sp pos l)
+  (do ((tail l   (cdr tail))
+       (pos  pos (fx1+ pos)))
+      ((null? tail))
+    (span-set! sp pos (car tail))))
+
 (define (span-insert-left! sp . vals)
   (unless (null? vals)
-    (let ((pos 0)
-          (new-len (fx+ (span-length sp) (length vals))))
-      (span-resize-left! sp new-len)
-      (list-iterate vals
-        (lambda (elem)
-          (span-set! sp pos elem)
-          (set! pos (fx1+ pos)))))))
+    (let ((new-len (fx+ (span-length sp) (length vals))))
+      (span-resize-left! sp new-len))
+    (span-copy-list! sp 0 vals)))
 
 (define (span-insert-right! sp . vals)
   (unless (null? vals)
     (let* ((pos (span-length sp))
            (new-len (fx+ pos (length vals))))
       (span-resize-right! sp new-len)
-      (list-iterate vals
-        (lambda (elem)
-          (span-set! sp pos elem)
-          (set! pos (fx1+ pos)))))))
-
+      (span-copy-list! sp pos vals))))
 
 ;; prefix range [src-start, src-end) of another span into this span
 (define span-insert-left/span!
@@ -316,6 +314,28 @@
       (in-span sp start end 1))
     ((sp)
       (in-span sp 0 (span-length sp) 1))))
+
+
+;; Iterate in parallel on elements of given spans sp ..., and evaluate body ... on each element.
+;; Stop iterating when the shortest span is exhausted,
+;; and return unspecified value.
+;;
+;; The implementation of body ... can call directly or indirectly functions
+;; that inspect the spans without modifying them, and can also call (span-set! ...).
+;;
+;; It must NOT call any other function that modify the spans (insert or erase elements,
+;; change any span size or capacity, etc).
+;;
+;; Return unspecified value.
+(define-syntax for-span
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ ((elem sp) ...) body1 body2 ...)
+        (not (null? #'(sp ...)))
+        #'(do ((i 0 (fx1+ i)) (n (fxmin (span-length sp) ...)) (sp sp) ...)
+              ((fx>=? i n))
+            (let ((elem (span-ref sp i)) ...)
+              body1 body2 ...))))))
 
 
 ;; iterate on span elements, and call (proc i elem) on each one.

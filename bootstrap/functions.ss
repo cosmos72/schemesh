@@ -12,7 +12,7 @@
 
 (library (schemesh bootstrap functions (0 8 1))
   (export
-      check-interrupts fx<=?*
+      check-interrupts fx<=?* nop parameter-swapper
       generate-pretty-temporaries generate-pretty-temporary gensym-pretty
 
       raise-assert0 raise-assert1 raise-assert2 raise-assert3
@@ -25,14 +25,15 @@
   (import
     (rnrs)
     (only (chezscheme) $primitive console-error-port format gensym make-continuation-condition
-                       make-format-condition interaction-environment top-level-bound? top-level-value))
+                       make-format-condition interaction-environment top-level-bound? top-level-value
+                       void))
 
 
 ;; immediately check if an event occurred:
 ;; * an interrupt from the keyboard
 ;; * a POSIX signal with a register-signal-handler for it
-;; * the expiration of an internal timer set by set-timer
-;; * a breakpoint caused by a call to break
+;; * the expiration of an internal timer set by (set-timer)
+;; * a breakpoint caused by a call to (break)
 ;; * a request from the storage manager to initiate a garbage collection
 ;;
 ;; depending on the event and on user's commands, may or may not return.
@@ -47,6 +48,19 @@
     ((a b c d)     (and (fx<=? a b c) (fx<=? c d)))
     ((a b c d e)   (and (fx<=? a b c) (fx<=? c d e)))
     ((a b c d e f) (and (fx<=? a b c) (fx<=? c d e) (fx<=? e f)))))
+
+
+;; ignore all arguments, do nothing and return (void)
+(define nop
+  (case-lambda
+    (() (void))
+    ((a) (void))
+    ((a b) (void))
+    ((a b c) (void))
+    ((a b c d) (void))
+    ((a b c d e) (void))
+    ((a b c d e f) (void))
+    ((a b c d e f g . args) (void))))
 
 
 (define (gensym-pretty x)
@@ -131,7 +145,9 @@
 
 ;; Display a warning message to (warnf-port).
 (define (warnf format-string . format-args)
-  (apply format (warnf-port) format-string format-args))
+  (let ((out (warnf-port)))
+    (apply format out format-string format-args)
+    (flush-output-port out)))
 
 
 ;; Display a warning message describing a failed check evaluating a form.
@@ -153,6 +169,30 @@
   (warnf "; warning in ~a: failed check ~a with arguments ~s ~s ~s ~s ~s\n" who form arg1 arg2 arg3 arg4 arg5))
 (define (warn-check-failedl who form args)
   (warnf "; warning in ~a: failed check ~a with arguments ~s\n" who form args))
+
+
+;; low-level alternative to (parameterize):
+;; create and return a closure that swaps value of parameter (param)
+;; with value-to-set each time it is invoked.
+;;
+;; For example, the two fragments below are equivalent:
+;;
+;; (parameterize ((current-output-port my-port))
+;;   body ...)
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; (let ((swap (parameter-swapper current-output-port my-port)))
+;;   (dynamic-wind
+;;     swap
+;;     (lambda () body ...)
+;;     swap))
+;;
+(define (parameter-swapper param value-to-set)
+  (lambda ()
+    (let ((current (param)))
+      (param value-to-set)
+      (set! value-to-set current))))
 
 
 ;; portable reimplementation of Chez Scheme (make-parameter)

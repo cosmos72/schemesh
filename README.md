@@ -99,7 +99,7 @@ Some more advanced Scheme functions:
 Job control is now available also for Scheme code:
 
 from shell syntax or Scheme syntax, simply type `$` before a Scheme expression in parentheses,
-and it gets encapsulated in a job that can be started, stopped and resumed just like any other job.
+and it gets encapsulated in a `shell-expr` job that can be started, stopped and resumed just like any other job.
 Example:
 ```shell
 > $(begin (repeat 1000000000 (void)) "done!\n")
@@ -122,6 +122,31 @@ Example:
 > (sh-run/i j)
 (ok "done too!\n")
 ```
+
+### [NEW in version 0.8.1]
+
+Standard Scheme textual ports `(current-input-port)` `(current-output-port)` `(current-error-port)`
+automatically honor job redirections. Example:
+```shell
+> $(display "hello from Scheme!\n") > greet.txt
+
+> cat greet.txt
+hello from Scheme!
+```
+
+If you prefer binary ports, you can use `(sh-stdin)` `(sh-stdout)` and `(sh-stderr)` instead:
+they automatically honor job redirections too. Example:
+```lisp
+> (put-bytevector (sh-stdout) #vu8(72 105 33 10))
+Hi!
+```
+
+Scheme jobs `$()` can be used in pipelines, as for example:
+```shell
+> $(display "hello") | cat | $(get-string-all (current-input-port))
+(ok "hello")
+```
+
 
 ### Subshells and command substitution
 
@@ -229,10 +254,8 @@ Also, `(sh-run/string-split-after-nuls)` combines well with `{find ... -print0}`
 ```
 which can also be written as
 ```lisp
-(list-iterate
-  (sh-run/string-split-after-nuls {find -type f -print0})
-  (lambda (f)
-    (file-rename f (string-replace-suffix f ".old" ".bak"))))
+(for-list ((f (sh-run/string-split-after-nuls {find -type f -print0})))
+  (file-rename f (string-replace-suffix f ".old" ".bak")))
 ```
 or even
 ```lisp

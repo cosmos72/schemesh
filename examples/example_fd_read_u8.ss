@@ -1,10 +1,3 @@
-(define fd-read-u8
-  (let ((bv (make-bytevector 1)))
-    (lambda (fd)
-      (let ((n (fd-read fd bv 0 1)))
-        (if (and (fixnum? n) (fx>? n 0))
-          (bytevector-u8-ref bv 0)
-          (eof-object))))))
 
 (define (loop-fd-read-u8 fd)
   (do ((b (fd-read-u8 fd) (fd-read-u8 fd)))

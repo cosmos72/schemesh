@@ -14,7 +14,7 @@
     (only (chezscheme)               fx1+ fx1- void)
     (only (schemesh bootstrap)       assert* fx<=?* while)
     (schemesh containers charspan)
-    (only (schemesh containers list) list-iterate))
+    (only (schemesh containers list) for-list))
 
 
 ;; convert a string or a charspan to charspan
@@ -49,17 +49,16 @@
     (charspan)
     (let* ((first (car strings-or-charspans))
            (result (if (charspan? first) (charspan-copy first) (string->charspan first))))
-      (list-iterate (cdr strings-or-charspans)
-        (lambda (item)
-          (let* ((next (if (charspan? item) item (string->charspan* item)))
-                 (sep-before? (path-ends-with-sep? result))
-                 (sep-after?  (sh-path-absolute? next)))
-            (cond
-              ((and sep-before? sep-after?)
-                (charspan-erase-right! result 1))
-              ((not (or sep-before? sep-after?))
-                (charspan-insert-right! result #\/)))
-            (charspan-insert-right/cspan! result next))))
+      (for-list ((item (cdr strings-or-charspans)))
+        (let* ((next (if (charspan? item) item (string->charspan* item)))
+               (sep-before? (path-ends-with-sep? result))
+               (sep-after?  (sh-path-absolute? next)))
+          (cond
+            ((and sep-before? sep-after?)
+              (charspan-erase-right! result 1))
+            ((not (or sep-before? sep-after?))
+              (charspan-insert-right! result #\/)))
+          (charspan-insert-right/cspan! result next)))
       result)))
 
 

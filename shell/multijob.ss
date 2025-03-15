@@ -41,6 +41,19 @@
       #f)))
 
 
+;; Create and return vector containing status of each child of multijob mj,
+;; or empty vector if mj is not a multijob
+(define (multijob-children-last-status mj)
+  (if (sh-multijob? mj)
+    (let* ((children (multijob-children mj))
+           (vec      (make-vector (span-length children) (void))))
+      (span-iterate children
+        (lambda (i child)
+          (when (sh-job? child)
+            (vector-set! vec i (job-last-status child)))))
+      vec)
+    '#()))
+
 
 ;; Create a multijob to later start it. Each element in children-jobs must be a sh-job or subtype.
 
@@ -125,10 +138,9 @@
       (list->span children-jobs))))
 
     ;; set the parent of children-jobs
-    (list-iterate children-jobs
-      (lambda (elem)
-        (when (sh-job? elem)
-          (job-default-parent-set! elem mj))))
+    (for-list ((elem children-jobs))
+      (when (sh-job? elem)
+        (job-default-parent-set! elem mj)))
     mj))
 
 
@@ -156,7 +168,7 @@
 ;; passing the job job as only argument,
 ;;
 ;; Options are the same as described in (sh-start).
-;; Option '(spawn? . #t) is enabled by default, because this function always spawns a subprocess.
+;; Option 'spawn? #t is enabled by default, because this function always spawns a subprocess.
 (define (mj-subshell-start job options)
   (assert* 'sh-subshell (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-subshell (fx=? -1 (multijob-current-child-index job)))
@@ -287,7 +299,7 @@
       (assert* 'sh-start (sh-job? job))
       (assert* 'sh-start (procedure? proc))
       (assert* 'sh-start (logbit? 2  (procedure-arity-mask proc)))
-      (assert* 'sh-start (list? options))
+      (assert* 'sh-start (plist? options))
       (let* ((process-group-id (options->process-group-id options))
              (ret              (c-fork-pid
                                  (job-make-c-redirect-vector job)
@@ -323,7 +335,7 @@
             (running)))))))
 
 
-;; if options contain '(spawn? . #t) then remove such options and call (spawn-procedure job options proc)
+;; if options contain 'spawn? #t then remove such options and call (spawn-procedure job options proc)
 ;; otherwise directly call (proc job options)
 ;;
 ;; WARNING (proc job options) must call (sh-job-status-set! job), because the return value of (proc ...) is ignored
@@ -373,7 +385,7 @@
       (else
         (raise-errorf caller "child job not started yet: ~s" child)))))
 
-(define options-catch '((catch? . #t)))
+(define options-catch '(catch? #t))
 
 ;; Run next child job in a multijob containing an "and" of children jobs.
 ;; Used by (sh-and), implements runtime behavior of shell syntax foo && bar && baz
@@ -490,3 +502,19 @@
       ; propagate status of last sync child
       (multijob-current-child-index-set! mj -1)
       (job-status-set! 'mj-list-step mj prev-child-status))))
+
+
+;; recursively kill a multijob and all its children jobs.
+;; return unspecified value.
+(define (multijob-kill mj signal-name)
+  (let ((is-list? (eq? 'sh-list (multijob-kind mj))))
+    (span-iterate (multijob-children mj)
+      (lambda (i elem)
+        (when (and (sh-job? elem) (job-started? elem))
+          (unless (and is-list? (eq? '& (sh-multijob-child-ref mj (fx1+ i))))
+            ;; try to kill children sh-expr jobs only if they have a pid or pgid.
+            ;; Reason: killing other sh-expr jobs may non-locally jump to their continuation
+            ;;         and this loop would not continue.
+            (when (or (job-pid elem) (job-pgid elem) (not (sh-expr? elem)))
+              (job-kill elem signal-name))))
+        #t)))) ; continue iteration

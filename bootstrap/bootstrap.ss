@@ -8,12 +8,13 @@
 (library (schemesh bootstrap (0 8 1))
   (export
       ;; bootstrap.ss
-      assert* assert-not* catch check check-not define-macro debugf debugf-port
+      assert* assert-not* begin* catch check check-not define-macro debugf debugf-port
       first-value first-value-or-void forever let-macro raise-assert* repeat second-value
       while until throws? trace-call trace-define try list->values values->list
 
       ;; functions.ss
-      fx<=?* generate-pretty-temporaries generate-pretty-temporary gensym-pretty
+      check-interrupts fx<=?* nop parameter-swapper
+      generate-pretty-temporaries generate-pretty-temporary gensym-pretty
 
       raise-assert0 raise-assert1 raise-assert2 raise-assert3
       raise-assert4 raise-assert5 raise-assertf raise-assertl raise-errorf
@@ -61,13 +62,6 @@
       (call-with-values (lambda () expr) (lambda args (cdr args))))))
 
 
-
-(define-syntax forever
-  (syntax-rules ()
-    ((_ body ...)
-      (do () (#f) body ...))))
-
-
 ;; port where to write debug messages with (debugf).
 #|
 (define (debugf-port)
@@ -80,7 +74,7 @@
       (unless port
         ; works, but leaks into child processes :(
         (set! port (open-file-output-port
-                     "/dev/pts/0"
+                     "/dev/tty"
                      (file-options no-create no-truncate)
                      (buffer-mode line)
                      (make-transcoder (utf-8-codec) (eol-style lf)
@@ -264,29 +258,43 @@
             (list->values rets)))))))
 
 
+;; version of (begin) that also accepts empty body
+(define-syntax begin*
+  (syntax-rules ()
+    ((_)      (void))
+    ((_ body) body)
+    ((_ body1 body2 ...) (begin body1 body2 ...))))
+
+
+(define-syntax forever
+  (syntax-rules ()
+    ((_ body ...)  (let %forever () body ... %(forever)))))
+
+
 (define-syntax repeat
   (syntax-rules ()
-    ((_ n body ...) (do ((i n (fx1- i))) ((fx<=? i 0)) body ...))))
+    ((_ n body ...) (let %repeat ((i (fxmax 0 n)))
+                      (unless (fxzero? i) body ... (%repeat (fx1- i)))))))
 
 
 (define-syntax while
   (syntax-rules ()
-    ((_ pred body ...) (do () ((not pred)) body ...))))
+    ((_ pred body ...) (let %while () (when pred body ... (%while))))))
 
 
 (define-syntax until
   (syntax-rules ()
-    ((_ pred body ...) (do () (pred) body ...))))
+    ((_ pred body ...) (let %until () (unless pred body ... (%until))))))
 
 
 (define-syntax try
   (syntax-rules (catch)
-    ((_ try-body1 try-body2 ... (catch (exception) catch-body1 catch-body2 ...))
+    ((_ try-body1 try-body2 ... (catch (exception) catch-body ...))
       (call/cc
         (lambda (k-exit)
           (with-exception-handler
             (lambda (exception)
-              (k-exit (begin catch-body1 catch-body2 ...)))
+              (k-exit (begin* catch-body ...)))
             (lambda ()
               try-body1 try-body2 ...)))))
     ((_ bad-body ...)

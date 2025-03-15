@@ -144,9 +144,8 @@
   (assert* 'sh-env-iterate/direct (logbit? 3 (procedure-arity-mask proc)))
   (let ((vars (job-env (sh-job job-or-id))))
     (if vars
-      (hashtable-iterate vars
-        (lambda (cell)
-          (proc (car cell) (cddr cell) (cadr cell))))
+      (for-hash ((key val vars))
+        (proc key (cdr val) (car val)))
       #t)))
 
 
@@ -246,18 +245,17 @@
   (let* ((vars           (make-hashtable string-hash string=?))
          (also-private?  (eq? 'all which))
          (only-exported? (not also-private?)))
-    (list-iterate (job-parents-revlist job-or-id)
-      (lambda (job)
-        (sh-env-iterate/direct job
-          (lambda (name val visibility)
-            ; (debugf "sh-env-copy name=~s\tval=~s\tvisibility=~s" name val visibility)
-            (cond
-              ((or (eq? 'delete visibility)
-                   (and only-exported? (eq? 'private visibility)))
-                (hashtable-delete! vars name))
-              ((or (eq? 'export visibility)
-                   (and also-private? (eq? 'private visibility)))
-                (hashtable-set! vars name val)))))))
+    (for-list ((job (job-parents-revlist job-or-id)))
+      (sh-env-iterate/direct job
+        (lambda (name val visibility)
+          ; (debugf "sh-env-copy name=~s\tval=~s\tvisibility=~s" name val visibility)
+          (cond
+            ((or (eq? 'delete visibility)
+                 (and only-exported? (eq? 'private visibility)))
+              (hashtable-delete! vars name))
+            ((or (eq? 'export visibility)
+                 (and also-private? (eq? 'private visibility)))
+              (hashtable-set! vars name val))))))
     vars))
 
 

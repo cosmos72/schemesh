@@ -11,111 +11,102 @@
 
 ;; validate a single (sh-start) job option.
 ;;
-;; if option is valid, return it.
-;; otherwise raise an exception.
-(define (option-validate caller option)
-  (assert* caller (pair?   option))
-  (assert* caller (symbol? (car option)))
-  (assert* caller (memq    (car option) '(catch? fd-close parent-job process-group-id spawn?)))
-  (case (car option)
-    ((catch? spawn?)
-      (assert* caller (boolean? (cdr option))))
+;; return unspecified value.
+;; if key or value is not valid, raise an exception.
+(define (option-validate caller key value)
+  (assert* caller (symbol? key))
+  (assert* caller (memq    key '(catch? fd-close process-group-id spawn?)))
+  (case key
     ((fd-close process-group-id)
-      (assert* caller (integer? (cdr option)))
-      (assert* caller (>= (cdr option) 0))))
-  option)
+      (assert* caller (integer? value))
+      (assert* caller (>= value 0)))
+    (else
+      (assert* caller (boolean? value)))))
 
 
-;; validate an association list of (sh-start) job options:
+;; validate a property list of (sh-start) job options:
 ;; raise an exception if it contains one or more unsupported options.
 (define (options-validate caller options)
-  (assert* caller (list? options))
-  (list-iterate options
-    (lambda (option)
-      (option-validate caller option))))
+  (assert* caller (plist? options))
+  (for-plist ((key value options))
+    (option-validate caller key value)))
 
 
-;; create and return association list usable for (sh-start) job options.
+;; create and return property list usable for (sh-start) job options.
 ;;
-;; each option must be one of the following:
+;; options must be a list containing zero or more:
 ;;
-;;   (void) or #f - ignored, and omitted from returned list.
+;;   (void) or #f followed by arbitrary value - ignored, and omitted from returned list.
 ;;
-;;   (cons 'catch? flag) - flag must be a boolean, otherwise an exception will be raised.
+;;   'catch? flag - flag must be a boolean, otherwise an exception will be raised.
 ;;     If present and flag is #t, any Scheme condition raised by starting
 ;;     the job will be captured, and job status will be set to (list exception #<condition>)
 ;;
-;;   (cons 'process-group-id id) - id must be an integer and >= 0, otherwise an exception will be raised.
+;;   'fd-close fd - fd must be an integer and >= 0, otherwise an exception will be raised.
+;;     If present, specified file descriptor will be closed when starting the job.
+;;     Useful mostly together with 'spawn? #t because the file descriptor will be closed
+;;     only in the subprocess.
+;;
+;;   'process-group-id id - id must be an integer and >= 0, otherwise an exception will be raised.
 ;;     If present, the new process will be inserted into the corresponding
 ;;     process group id - which must be either 0 or an already exist one.
 ;;
-;;   (cons 'spawn? flag) - flag must be a boolean, otherwise an exception will be raised.
+;;   'spawn? flag - flag must be a boolean, otherwise an exception will be raised.
 ;;     If present and flag is #t, then job will be started in a subprocess.
 ;;     By design, commands and (sh-subshell) are always started in a subprocess,
 ;;     and for them the 'spawn option has no effect - it is enabled by default.
 ;;
-;;     Instead builtins and multijobs such as (sh-and) (sh-or) (sh-list) (sh-pipe) ...
-;;     are usually started in the main schemesh process:
-;;     this is convenient and fast, but may deadlock if their file descriptors
-;;     contain pipes whose other end is read/written by the main schemesh process too.
+;;     Instead builtins and multijobs such as (sh-and) (sh-or) (sh-list) (sh-pipe) (sh-expr) ...
+;;     are usually started in the main schemesh process: this is convenient and fast,
+;;     but may deadlock if their file descriptors contain pipes whose other end
+;;     is read/written by the main schemesh process too.
 ;;
-;;     The option '(spawn? . #t) causes builtins and multijobs to start in a subprocess too.
+;;     The option 'spawn? #t causes builtins and multijobs to start in a subprocess too.
 ;;     It is slower, but has the beneficial effect that reading/writing
 ;;     their redirected file descriptors from main schemesh process will no longer deadlock.
 ;;
-(define (sh-options . options-or-false)
-  (filter
-    (lambda (option)
-      (if (and option (not (eq? (void) option)))
-        (option-validate 'sh-options option)
-        #f))
-    options-or-false))
+(define (sh-options options)
+  (let ((ret '()))
+    (for-plist ((key value options))
+      (when (and key (not (eq? (void) key)))
+        (option-validate 'sh-options key value)
+        (set! ret (cons value (cons key ret)))))
+    (reverse! ret)))
 
 
-;; return a copy of association list options without any occurrence of keys-to-remove
+;; return a copy of property list options without any occurrence of keys-to-remove
 (define (options-filter-out options keys-to-remove)
   (if (null? keys-to-remove)
     options
-    (filter
-      (lambda (option)
-        (assert* 'options-filter-out (pair? option))
-        (assert* 'options-filter-out (symbol? (car option)))
-        (not (memq (car option) keys-to-remove)))
-      options)))
+    (plist-delete/pred options (lambda (key) (memq key keys-to-remove)))))
 
 
-;; if options contain '(catch? . flag), return such flag.
+;; if options contain 'catch? flag, return such flag.
 ;; otherwise return #f
 (define (options->catch? options)
-  (let ((option (assq 'catch? options)))
-    (if option
-      (let ((caller 'options->catch))
-        (assert* caller (boolean? (cdr option)))
-        (cdr option))
-      #f)))
+  (let ((val (plist-ref options 'catch?)))
+    (assert* 'options->catch? (boolean? val))
+    val))
 
 
-;; if options contain '(spawn? . flag), return such flag.
+;; if options contain 'spawn? flag, return such flag.
 ;; otherwise return #f
 (define (options->spawn? options)
-  (let ((option (assq 'spawn? options)))
-    (if option
-      (let ((caller 'options->spawn))
-        (assert* caller (boolean? (cdr option)))
-        (cdr option))
-      #f)))
+  (let ((val (plist-ref options 'spawn?)))
+    (assert* 'options->spawn? (boolean? val))
+    val))
 
 
-;; if job control is active and options contain '(process-group-id . id), return such id.
+;; if job control is active and options contain 'process-group-id id, return such id.
 ;; otherwise return #f
 (define (options->process-group-id options)
   (if (sh-job-control?)
-    (let ((option (assq 'process-group-id options)))
-      (if option
+    (let ((val (plist-ref options 'process-group-id)))
+      (if val
         (let ((caller 'options->process-group-id))
-          (assert* caller (integer? (cdr option)))
-          (assert* caller (>= (cdr option) 0))
-          (cdr option))
+          (assert* caller (integer? val))
+          (assert* caller (>= val 0))
+          val)
         0)) ; default: create a new process group
 
     ; if job control is inactive, as for example in a subshell,
@@ -124,11 +115,9 @@
     #f))
 
 
-;; for each option '(fd-close . fd) in options, call (fd-close fd)
+;; for each option 'fd-close fd in options, call (fd-close fd)
 ;; return unspecified value
 (define (options->call-fd-close options)
-  (list-iterate options
-    (lambda (option)
-      (when (and (pair? option) (eq? 'fd-close (car option)))
-        (fd-close (cdr option))
-        (void)))))
+  (for-plist ((key val options))
+    (when (eq? 'fd-close key)
+      (fd-close val))))

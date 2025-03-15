@@ -13,9 +13,9 @@
     (rnrs)
     (only (chezscheme) environment-symbols fx1+ fx1- sort!)
     (only (schemesh bootstrap)            values->list)
-    (only (schemesh containers list)      list-iterate list-remove-consecutive-duplicates!)
+    (only (schemesh containers list)      for-list list-remove-consecutive-duplicates!)
     (only (schemesh containers string)    string-range=? string-split string-prefix?)
-    (only (schemesh containers hashtable) hashtable-iterate)
+    (only (schemesh containers hashtable) for-hash-keys)
     (schemesh containers charspan)
     (schemesh containers span)
     (schemesh containers sort)
@@ -56,14 +56,13 @@
            (%list-directory "." (charspan->string stem) #f completions)))
       ; list top-level scheme symbols
       (begin
-        (list-iterate (environment-symbols (sh-current-environment))
-          (lambda (sym)
-            (let* ((name (symbol->string sym))
-                   (len  (string-length name)))
-              (when (and (fx>=? len stem-len) (charspan-range/string=? stem 0 name 0 stem-len))
-                (let ((csp (string->charspan* name)))
-                  (charspan-erase-left! csp stem-len)
-                  (span-insert-right! completions csp))))))
+        (for-list ((sym (environment-symbols (sh-current-environment))))
+          (let* ((name (symbol->string sym))
+                 (len  (string-length name)))
+            (when (and (fx>=? len stem-len) (charspan-range/string=? stem 0 name 0 stem-len))
+              (let ((csp (string->charspan* name)))
+                (charspan-erase-left! csp stem-len)
+                (span-insert-right! completions csp)))))
         (span-sort! charspan<? completions)))))
 
 
@@ -178,14 +177,13 @@
          (prefix-len (string-length prefix))
          (prefix?    (not (fxzero? prefix-len)))
          (prefix-starts-with-dot? (and prefix? (char=? #\. (string-ref prefix 0)))))
-    (list-iterate (directory-sort! (directory-list-type dir 'prefix prefix 'bytes 'catch))
-      (lambda (elem)
-        (let ((name (string->charspan* (utf8b->string (car elem)))))
-          (when (or prefix-starts-with-dot? (not (char=? #\. (charspan-ref name 0))))
-            (charspan-erase-left! name prefix-len)
-            (when (eq? 'dir (cdr elem))
-              (charspan-insert-right! name #\/))
-            (span-insert-right! completions name))))))
+    (for-list ((elem (directory-sort! (directory-list-type dir (list 'prefix prefix 'bytes 'catch)))))
+      (let ((name (string->charspan* (utf8b->string (car elem)))))
+        (when (or prefix-starts-with-dot? (not (char=? #\. (charspan-ref name 0))))
+          (charspan-erase-left! name prefix-len)
+          (when (eq? 'dir (cdr elem))
+            (charspan-insert-right! name #\/))
+          (span-insert-right! completions name)))))
   ; (debugf "lineedit-shell-list/directory completions = ~s" completions)
   )
 
@@ -223,11 +221,10 @@
     ; (debugf "%list-shell-commands prefix=~s, list-with-duplicates   =~s" prefix l)
     (list-remove-consecutive-duplicates! l string=?)
     ; (debugf "%list-shell-commands prefix=~s, list-without-duplicates=~s" prefix l)
-    (list-iterate l
-      (lambda (name)
-        (let ((cname (string->charspan* name)))
-          (charspan-erase-left! cname prefix-len)
-          (span-insert-right! completions cname)))))
+    (for-list ((name l))
+      (let ((cname (string->charspan* name)))
+        (charspan-erase-left! cname prefix-len)
+        (span-insert-right! completions cname))))
   ; (debugf "%list-shell-commands prefix=~s, completions=~s" prefix completions)
   )
 
@@ -244,11 +241,9 @@
 ;; find hashtable keys starting with prefix, cons them onto list l, and return l
 (define (%list-htable-keys htable prefix l)
   (let ((prefix-len (string-length prefix)))
-    (hashtable-iterate htable
-      (lambda (cell)
-        (let ((name (car cell)))
-          (when (string-prefix? name prefix)
-            (set! l (cons name l)))))))
+    (for-hash-keys ((name htable))
+      (when (string-prefix? name prefix)
+        (set! l (cons name l)))))
   l)
 
 ;; find programs in $PATH that start with prefix, cons them onto list l, and return l
@@ -256,12 +251,10 @@
   (let* (($path      (sh-env-ref #t "PATH"))
          (dirs       (string-split $path #\:))
          (prefix-len (string-length prefix)))
-    (list-iterate dirs
-      (lambda (dir)
-        (list-iterate (directory-list-type dir 'prefix prefix 'catch) ; no need to sort directory list
-          (lambda (elem)
-            (when (eq? 'file (cdr elem))
-              (set! l (cons (car elem) l))))))))
+    (for-list ((dir dirs))
+      (for-list ((elem (directory-list-type dir (list 'prefix prefix 'catch)))) ; no need to sort directory list
+        (when (eq? 'file (cdr elem))
+          (set! l (cons (car elem) l))))))
   l)
 
 ;; return the correct autocompletion function for specified parser name,

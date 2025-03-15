@@ -6,22 +6,23 @@
 ;;; (at your option) any later version.
 
 (library (schemesh posix signal (0 8 1))
-  (export signal-raise signal-number->name signal-name->number
-          signal-consume-sigchld signal-consume-sigint signal-consume-sigtstp signal-consume-sigwinch
-          signal-init-sigwinch signal-restore-sigwinch)
+  (export signal-raise signal-number->name signal-name->number signal-name-is-usually-fatal?
+          signal-consume-sigwinch signal-init-sigwinch signal-restore-sigwinch)
   (import
     (rnrs)
     (only (chezscheme) assertion-violationf foreign-procedure fx1-
                        logbit? procedure-arity-mask void)
     (only (schemesh bootstrap)            assert* debugf)
-    (only (schemesh containers hashtable) eq-hashtable hashtable-transpose))
+    (only (schemesh containers hashtable) alist->eq-hashtable hashtable-transpose))
 
 (define signal-table-number->name
-  (apply eq-hashtable ((foreign-procedure "c_signals_list" () ptr))))
+  (alist->eq-hashtable ((foreign-procedure "c_signals_list" () ptr))))
 
 (define signal-table-name->number
-  (hashtable-transpose signal-table-number->name (make-eq-hashtable)))
+  (hashtable-transpose signal-table-number->name (make-eqv-hashtable)))
 
+;; convert a signal number (must be a fixnum) to signal name.
+;; return #f if signal number was not found.
 (define (signal-number->name number)
   (hashtable-ref signal-table-number->name number #f))
 
@@ -29,6 +30,12 @@
 ;; return #f if signal name was not found.
 (define (signal-name->number name)
   (hashtable-ref signal-table-name->number name #f))
+
+(define (signal-name-is-usually-fatal? name)
+  (if (memq name '(sigabrt sigbus sigfpe #|sighup|# sigill sigint sigkill #|sigpipe|#
+                   sigquit sigsegv sigterm #|sigstkflt|# sigxcpu #|sigxfsz|#))
+    #t
+    #f))
 
 ; (signal-raise signal-name) calls C functions sigaction(sig, SIG_DFL),
 ; then calls C function raise(sig)
@@ -44,36 +51,14 @@
           (c-signal-raise signal-number)
           c-errno-einval)))))
 
-(define c-sched-yield            (foreign-procedure "c_sched_yield" () void))
-(define c-signal-consume-sigint  (foreign-procedure "c_sigint_consume" () ptr))
-(define c-signal-consume-sigtstp (foreign-procedure "c_sigtstp_consume" () ptr))
 
-(define (signal-consume-sigint caller)
-  (let %retry ((i 10))
-    (if (fxzero? i)
-      #f
-      (or (c-signal-consume-sigint)
-          (begin
-            ;; this is a workaround
-            (c-sched-yield)
-            (%retry (fx1- i)))))))
-    ;; (debugf "signal-consume-sigint\tcaller=~s\tret=~s" caller ret)
-
-
-(define (signal-consume-sigtstp caller)
-  (let ((ret (c-signal-consume-sigtstp)))
-    ;; (debugf "signal-consume-sigtstp\tcaller=~s\tret=~s" caller ret)
-    ret))
-
-
-(define signal-consume-sigchld   (foreign-procedure "c_sigchld_consume" () ptr))
-(define signal-consume-sigwinch  (foreign-procedure "c_sigwinch_consume" () ptr))
+(define signal-consume-sigwinch  (foreign-procedure "c_signal_consume_sigwinch" () ptr))
 
 (define signal-init-sigwinch
-  (let ((c-signal-init-sigwinch (foreign-procedure "c_sigwinch_init" () int)))
+  (let ((c-signal-init-sigwinch (foreign-procedure "c_signal_init_sigwinch" () int)))
     (lambda ()
       (assert* 'signal-init-sigwinch (fxzero? (c-signal-init-sigwinch))))))
 
-(define signal-restore-sigwinch (foreign-procedure "c_sigwinch_restore" () int))
+(define signal-restore-sigwinch (foreign-procedure "c_signal_restore_sigwinch" () int))
 
 ) ; close library

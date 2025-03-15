@@ -21,15 +21,16 @@
     linectx-parser-name linectx-parser-name-set!
     linectx-parsers linectx-parsers-set!
     linectx-history linectx-history-index linectx-history-index-set! linectx-to-history*
+    linectx-clear!  linectx-flush linectx-read linectx-read-some linectx-show-error
     linectx-load-history! linectx-save-history
-    linectx-clear!  linectx-eof? linectx-eof-set! linectx-redraw? linectx-redraw-set!
+    linectx-eof? linectx-eof-set! linectx-redraw? linectx-redraw-set!
     linectx-return? linectx-return-set! linectx-mark-not-bol? linectx-mark-not-bol-set!
     linectx-default-keytable linectx-keytable linectx-keytable-find linectx-keytable-insert!
     linectx-last-key linectx-last-key-set!)
 
   (import
     (rnrs)
-    (only (chezscheme) fx1+ fx1- record-writer void)
+    (only (chezscheme) console-error-port display-condition fx1+ fx1- record-writer void)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh posix fd)
@@ -251,6 +252,89 @@
   (linectx-return-set! lctx #f))
 
 
+
+;; Write all pending output to tty.
+(define (linectx-flush lctx)
+  (let* ((wbuf (linectx-wbuf lctx))
+         (beg  (bytespan-peek-beg wbuf))
+         (end  (bytespan-peek-end wbuf)))
+    (when (fx<? beg end)
+      (let ((bv (bytespan-peek-data wbuf))
+            (stdout (linectx-stdout lctx)))
+        (if (fixnum? stdout)
+          (fd-write-all stdout bv beg end)
+          (begin
+            (put-bytevector stdout bv beg (fx- end beg))
+            (flush-output-port stdout)))
+        (bytespan-clear! wbuf)))))
+
+
+;; read some bytes, blocking at most for read-timeout-milliseconds
+;;   (0 = non-blocking, -1 = unlimited timeout)
+;; from (linectx-stdin lctx) and append them to (linectx-rbuf lctx).
+;; return number of read bytes, or 0 on timeout, or -1 on eof
+(define (linectx-read lctx read-timeout-milliseconds)
+  (linectx-flush lctx)
+  (linectx-read-some lctx 1024 read-timeout-milliseconds))
+
+
+;; read some bytes, blocking at most for read-timeout-milliseconds
+;;   (0 = non-blocking, -1 = unlimited timeout)
+;; from (linectx-stdin lctx) and append them to (linectx-rbuf lctx).
+;; return number of read bytes, or 0 on timeout, or -1 on eof or I/O error.
+(define (linectx-read-some lctx max-n read-timeout-milliseconds)
+  (let* ((fd   (linectx-stdin lctx))
+         (rbuf (linectx-rbuf lctx))
+         (rlen (bytespan-length rbuf))
+         (got  0)
+         (eof? #f))
+    (bytespan-reserve-right! rbuf (fx+ rlen max-n))
+    (try
+      (if (fixnum? fd)
+        ;; fd is a file descriptor -> call (fd-select) then (fd-read)
+        ;; fd-select raises exception on I/O errors,
+        (when (eq? 'read (fd-select fd 'read read-timeout-milliseconds))
+          (let ((end (bytespan-peek-end rbuf)))
+            ;; fd-read-noretry raises exception on I/O errors,
+            ;; and returns #t if interrupted.
+            (set! got (fd-read-noretry fd (bytespan-peek-data rbuf) end (fx+ end max-n))))
+          (set! eof? (eqv? 0 got)) ; means end of file
+          (unless (and (integer? got) (> got 0))
+            (set! got 0))) ; #t means interrupted
+        ; fd is a binary input port -> call (get-bytevector-n!)
+        (let ((n (get-bytevector-n! fd (bytespan-peek-data rbuf)
+                                       (bytespan-peek-end rbuf) max-n)))
+          (when (fixnum? n)
+            (set! got n)
+            (set! eof? (fxzero? n))))) ; (fxzero? n) means end of file
+      (catch (ex)
+        (linectx-show-error lctx "Fatal error, schemesh exiting" ex)
+        (set! got 0)
+        (set! eof? #t)))
+    (assert* 'linectx-read (fixnum? got))
+    (assert* 'linectx-read (fx<=? 0 got max-n))
+    (bytespan-resize-right! rbuf (fx+ rlen got))
+    (if eof? -1 got)))
+
+
+;; invoked when some function called by linectx-read or lineedit-read raises a condition:
+;;
+;; display the condition on (console-error-port)
+(define (linectx-show-error lctx message ex)
+  ; remove offending input that triggered the exception
+  (bytespan-clear! (linectx-rbuf lctx))
+  ; display the condition
+  (let ((port (console-error-port)))
+    (put-string port "\n; ")
+    (put-string port message)
+    (put-string port ": ")
+    (display-condition ex port)
+    (newline port)
+    (flush-output-port port)))
+
+
+
+
 (define (linectx-clipboard-clear! lctx)
   (charspan-clear! (linectx-clipboard lctx)))
 
@@ -272,7 +356,6 @@
 ;; save history to file. return #t if successful, otherwise return #f
 (define (linectx-save-history lctx)
   (charhistory-save (linectx-history lctx)))
-
 
 (define (linectx-keytable-insert! keytable proc . keysequences)
   (letrec
@@ -297,6 +380,7 @@
     (do ((l keysequences (cdr l)))
         ((null? l))
       (%add-bytelist keytable (%any->bytelist (car l))))))
+
 
 (define (linectx-keytable-find keytable rbuf)
   (assert* 'linectx-keytable-find (bytespan? rbuf))

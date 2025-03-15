@@ -22,7 +22,7 @@
     (only (rnrs mutable-strings) string-set!)
     (only (chezscheme) fx1+ fx1- record-writer string-copy!)
     (only (schemesh bootstrap)   assert* fx<=?* while)
-    (only (schemesh containers list) list-iterate)
+    (only (schemesh containers list) for-list)
     (schemesh containers span)
     (schemesh containers charline)
     (schemesh containers gbuffer))
@@ -50,9 +50,10 @@
   (unless (charlines? lines)
     (assertion-violation who "not a charlines" lines)))
 
-;; create a charlines from zero or more charline
+;; create a charlines from zero or more charline elements
 (define (charlines . cline)
-  (list-iterate cline (lambda (val) (assert-charline? 'charlines val)))
+  (for-list ((line cline))
+    (assert-charline? 'charlines line))
   (%make-charlines (span) (list->span cline) (greatest-fixnum) 0))
 
 

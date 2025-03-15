@@ -27,8 +27,7 @@
     (only (chezscheme) format fx1+ fx1- make-continuation-condition
                        make-format-condition record-writer unread-char void)
     (only (schemesh bootstrap) assert* until while)
-    (only (schemesh containers list)      list-iterate)
-    (only (schemesh containers hashtable) hashtable-iterate)
+    (only (schemesh containers hashtable) for-hash)
     (schemesh containers span)
     (schemesh containers charspan))
 
@@ -144,12 +143,9 @@
   (assert* 'make-parsectx* (fx>=? x 0))
   (assert* 'make-parsectx* (fx>=? y 0))
   (when enabled-parsers
-    (hashtable-iterate enabled-parsers
-      (lambda (cell)
-        (let ((name  (car cell))
-              (parser (cdr cell)))
-          (assert* 'make-parsectx* (symbol? name))
-          (assert* 'make-parsectx* (parser? parser))))))
+    (for-hash ((name parser enabled-parsers))
+      (assert* 'make-parsectx* (symbol? name))
+      (assert* 'make-parsectx* (parser? parser))))
   (%make-parsectx in width prompt-end-x #f (cons x y) (cons -1 -1) (cons -1 -1) enabled-parsers))
 
 

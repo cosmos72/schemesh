@@ -398,11 +398,9 @@
             (vscreen-cursor-iy screen) screen))        ,(2 1 (vscreen* 9 30 "abcdefgh0" "12\n" "qwerty"))
   ;; --------------------- list -------------------------------------------
   (let ((ret '()))
-    (list-iterate '(a b c)
-      (lambda (elem)
-        (set! ret (cons elem ret))
-        ;; stop iterating if (eq? 'b elem)
-        (not (eq? 'b elem))))  ret)                    (b a)
+    (for-list ((elem '(a b c)))
+      (set! ret (cons elem ret)))
+    ret)                                               (c b a)
   (list-reverse*! (list))                              ()
   (list-reverse*! (list 1))                            (1)
   (list-reverse*! (list 1 2))                          (2 . 1)
@@ -429,9 +427,8 @@
     (hashtable string-hash string=?
       '("A" . "X") '("B" . "Y") '("C" . "Z")))         #(#vu8(65 61 88 0) #vu8(66 61 89 0) #vu8(67 61 90 0))
   (let ((ret '()))
-    (hashtable-iterate (eqv-hashtable '(1.0 . A) '(2.1 . B) '(3 . C))
-      (lambda (cell)
-        (set! ret (cons cell ret))))
+    (for-hash-pairs ((cell (eqv-hashtable '(1.0 . A) '(2.1 . B) '(3 . C))))
+      (set! ret (cons cell ret)))
     (sort!
       (lambda (cell1 cell2) (< (car cell1) (car cell2)))
       ret))                                            ((1.0 . A) (2.1 . B) (3 . C))

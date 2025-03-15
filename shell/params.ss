@@ -15,14 +15,14 @@
 ;;   (make-job-parameter current-value) creates and returns a global parameter,
 ;;   i.e. a closure that captures a reference to current-value and behaves as follows:
 ;;     (parameter)           returns current-value
-;;     (parameter new-value) sets captured current-value to new-value and returns it.
+;;     (parameter new-value) sets current-value to new-value and returns it.
 ;;                           further calls to (parameter) will return updated current value.
 ;;
-;;   (make-job-parameter changer) creates and returns a global parameter,
+;;   (make-job-parameter current-value changer) creates and returns a global parameter,
 ;;   i.e. a closure that captures a reference to current-value and behaves as follows:
 ;;     (parameter)           returns current value
 ;;     (parameter new-value) calls (changer current-value new-value),
-;;                           then sets captured current-value to the object returned by (changer ...)
+;;                           then sets current-value to the value returned by (changer ...)
 ;;                           and finally returns updated current-value.
 ;;                           further calls to (parameter) will return updated current value.
 ;;
@@ -68,7 +68,7 @@
 ;; Once set to #f, cannot be changed anymore.
 (define sh-job-control-available?
   (make-job-parameter
-    (= 1 ((foreign-procedure "c_job_control_available" () int)))
+    (eqv? 1 ((foreign-procedure "c_job_control_available" () int)))
     job-control-available-change!))
 
 
@@ -85,11 +85,13 @@
               (pid-get) new-flag)
           old-flag)
         ((and new-flag (sh-job-control-available?))
-          ; try to activate job control
+          ;; try to activate job control
           (let ((pgid-or-error (c-job-control-change 1)))
             (if (>= pgid-or-error 0)
               (let ((pgid pgid-or-error))
-                ; our process group id may have changed
+                ;; install Scheme procedures invoked when process receives SIGTSTP or SIGQUIT
+                (install-signal-handlers)
+                ;; our process group id may have changed, reload it
                 (job-pgid-set! (sh-globals) (if (zero? pgid) (pgid-get 0) pgid))
                 new-flag)
               (let ((err pgid-or-error))
@@ -101,15 +103,15 @@
             (pid-get))
           old-flag)
         (old-flag
-          ; try to deactivate job control
+          ;; try to deactivate job control
           (let ((err (c-job-control-change 0)))
             (when (< err 0)
               (format (console-error-port) "; schemesh (pid ~s) warning: failed deactivating job control: C function c_job_control_change(0) failed with error ~s: ~a\n"
                    (pid-get) err (c-errno->string err))))
-          ; set job-control to inactive even if c_job_control_change() failed
+          ;; set job-control to inactive even if c_job_control_change() failed
           new-flag)
         (else ; should not happen
-          new-flag)))))
+          old-flag)))))
 
 
 ;; Global parameter indicating whether job control is active.

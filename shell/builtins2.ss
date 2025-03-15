@@ -25,12 +25,11 @@
 (define (fd-write-strings: fd prefix strings)
   (let ((wbuf (bytespan)))
     (bytespan-insert-right/string! wbuf prefix)
-    (list-iterate strings
-      (lambda (arg)
-        (bytespan-insert-right/u8! wbuf 58 32) ; ": "
-        (bytespan-insert-right/string! wbuf arg)
-        (when (fx>=? (bytespan-length wbuf) 4096)
-          (fd-write/bspan! fd wbuf))))
+    (for-list ((arg strings))
+      (bytespan-insert-right/u8! wbuf 58 32) ; ": "
+      (bytespan-insert-right/string! wbuf arg)
+      (when (fx>=? (bytespan-length wbuf) 4096)
+        (fd-write/bspan! fd wbuf)))
     (bytespan-insert-right/u8! wbuf 10)
     (fd-write/bspan! fd wbuf)))
 
@@ -109,9 +108,8 @@
     (if (null? (cdr prog-and-args))
       (%env-display-vars parent 'export) ; returns (void)
       (begin
-        (list-iterate (cdr prog-and-args)
-          (lambda (name)
-            (sh-env-visibility-set! parent name 'export)))
+        (for-list ((name (cdr prog-and-args)))
+          (sh-env-visibility-set! parent name 'export))
         (void)))))
 
 
@@ -332,9 +330,8 @@
 (define (builtin-unexport job prog-and-args options)
   (assert-string-list? 'builtin-unexport prog-and-args)
   (let ((parent (job-parent job)))
-    (list-iterate (cdr prog-and-args)
-      (lambda (name)
-        (sh-env-visibility-set! parent name 'private))))
+    (for-list ((name (cdr prog-and-args)))
+      (sh-env-visibility-set! parent name 'private)))
   (void))
 
 
@@ -354,16 +351,39 @@
 (define (builtin-unset job prog-and-args options)
   (assert-string-list? 'builtin-unset prog-and-args)
   (let ((parent (job-parent job)))
-    (list-iterate (cdr prog-and-args)
-      (lambda (name)
-        (sh-env-delete! parent name)))
+    (for-list ((name (cdr prog-and-args)))
+      (sh-env-delete! parent name))
     (void))) ; exit successfully
+
+
+;; The "wait" builtin: continue a job-id by sending SIGCONT to it, then wait for it to exit.
+;; Does NOT return if job stops.
+;;
+;; As all builtins do, must return job status. For possible returned statuses, see (sh-fg)
+(define (builtin-wait job prog-and-args options)
+  (assert-string-list? 'builtin-wait prog-and-args)
+  ;; TODO: implement (builtin-wait) with no args
+  (let* ((arg (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
+                "\"\""
+                (cadr prog-and-args)))
+         (job (and (string-is-unsigned-base10-integer? arg)
+                   (sh-find-job (string->number arg)))))
+      (if job
+        (let* ((old-status (job-last-status job))
+               (new-status (sh-wait job)))
+          (if (finished? new-status)
+            ; job finished, return its exit status as "fg" exit status.
+            new-status
+            ; job still exists, show its running/stopped status.
+            ; return (void) i.e. builtin "fg" exiting successfully.
+            (queue-job-display-summary job)))
+        (write-builtin-error "wait" arg "no such job")))) ; returns (failed 1)
 
 
 ;; start a builtin and return its status.
 ;; performs sanity checks on exit status returned by the call (builtin job args options)
 ;;
-;; if options list contain '(spawn? . #t), then the builtin will be started asynchronously
+;; if options plist contain 'spawn? #t, then the builtin will be started asynchronously
 ;;   in a subprocess, thus the returned status can be (running ...)
 ;; if builtin is builtin-command, by design it spawns asynchronously
 ;;   an external subprocess and returns immediately,

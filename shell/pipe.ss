@@ -50,20 +50,19 @@
 (define (validate-pipe*-args args)
   (let ((i 0)
         (kind 'sh-pipe))
-    (list-iterate args
-      (lambda (arg)
-        (assert-is-job-or-pipe-symbol 'sh-pipe* arg)
-        (if (fxeven? i)
-          (unless (sh-job? arg)
-            (raise-errorf 'sh-pipe* "even-indexed arguments must be sh-job or subtype, found instead ~s" arg))
-          (case arg
-            ((\x7C;
-               ) (void))
-            ((\x7C;&
-               ) (set! kind 'sh-pipe*))
-            (else
-              (raise-errorf 'sh-pipe* "odd-indexed arguments must be a pipe symbol '| '|& found instead ~s" arg))))
-        (set! i (fx1+ i))))
+    (for-list ((arg args))
+      (assert-is-job-or-pipe-symbol 'sh-pipe* arg)
+      (if (fxeven? i)
+        (unless (sh-job? arg)
+          (raise-errorf 'sh-pipe* "even-indexed arguments must be sh-job or subtype, found instead ~s" arg))
+        (case arg
+          ((\x7C;
+             ) (void))
+          ((\x7C;&
+             ) (set! kind 'sh-pipe*))
+          (else
+            (raise-errorf 'sh-pipe* "odd-indexed arguments must be a pipe symbol '| '|& found instead ~s" arg))))
+      (set! i (fx1+ i)))
     kind))
 
 
@@ -112,10 +111,10 @@
          ; optimization: no need to run the last job in a subprocess
          ; TO DO: investigate wrong exit value if spawn? is unconditionally #t
          (spawn?   redirect-out?)
-         (options  (sh-options
-                     (and spawn? '(spawn? . #t))
-                     (and pgid   (cons 'process-group-id pgid))
-                     '(catch? . #t))))
+         (options  (sh-options (list
+                     (if spawn? 'spawn? #f)           spawn?
+                     (if pgid   'process-group-id #f) pgid
+                     'catch? #t))))
 
 
     ; Apply redirections. Will be removed by (mj-pipe-advance-wait) when job finishes.
@@ -189,9 +188,9 @@
     ;; if SIGCHLD arrives late, i.e. after we later resume mj children jobs,
     ;; any child sh-expr that is already resumed may receive an EINTR error
     ;; from system calls such as read() invoked by (fd-read),
-    ;; which triggers a call to (yield).
+    ;; which triggers a call to (check-interrupts).
     ;;
-    ;; Luckily, (yield) is sufficiently robust and will detect that no subprocess was stopped,
+    ;; Luckily, (check-interrupts) is sufficiently robust and will detect that no subprocess was stopped,
     ;; deducing that it does not need to suspend the sh-expr.
     ;;
     ;; Thus we do not need to pause() until SIGCHLD arrives, which is inherently racy.

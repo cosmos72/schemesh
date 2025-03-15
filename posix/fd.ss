@@ -9,39 +9,16 @@
   (export
     c-errno c-errno->string c-exit c-hostname
     fd-open-max fd-close fd-close-list fd-dup fd-dup2
-    fd-read fd-read-all fd-read-insert-right! fd-read-noretry
-    fd-write fd-write-all fd-write-noretry fd-select
-    fd-setnonblock open-file-fd open-pipe-fds
-    raise-c-errno yield yield-handler)
+    fd-read fd-read-all fd-read-insert-right! fd-read-noretry fd-read-u8
+    fd-write fd-write-all fd-write-noretry fd-write-u8
+    fd-select fd-setnonblock open-file-fd open-pipe-fds
+    raise-c-errno)
   (import
     (rnrs)
     (only (chezscheme)               break foreign-procedure logbit? void procedure-arity-mask)
-    (only (schemesh bootstrap)       assert* debugf raise-errorf sh-make-thread-parameter while)
+    (only (schemesh bootstrap)       assert* check-interrupts raise-errorf sh-make-thread-parameter while)
     (schemesh containers bytespan)
-    (only (schemesh containers list) list-iterate)
     (only (schemesh conversions)     text->bytevector0 transcoder-utf8))
-
-
-(define yield-handler
-  (sh-make-thread-parameter
-    (lambda () #f)
-    (lambda (proc)
-      (unless (procedure? proc)
-        (raise-errorf 'yield-handler "~s is not a procedure" proc))
-      (unless (logbit? 0 (procedure-arity-mask proc))
-        (raise-errorf 'yield-handler "~s is not zero-argument procedure" proc))
-      proc)))
-
-
-;; Try to suspend current dynamic context, for example current job execution,
-;; and resume whoever started or continued it.
-;;
-;; If successful, does not return immediately: eventually returns only
-;; when current dynamic context is continued.
-;;
-;; Return #t if successful, otherwise immediately return #f
-(define (yield)
-  ((yield-handler)))
 
 
 (define c-errno
@@ -105,7 +82,7 @@
 ;; return read bytes as a bytevector,
 ;; or raise exception on I/O error.
 ;;
-;; Note: if interrupted, calls (yield) then tries again if (yield) returns normally.
+;; Note: if interrupted, calls (check-interrupts) then tries again if (check-interrupts) returns normally.
 (define (fd-read-all fd)
   (let ((bsp (make-bytespan 0)))
     (let %loop ()
@@ -119,7 +96,7 @@
 ;; return number of bytes actually read, which can be 0 only on end-of-file,
 ;; or raise exception on I/O error.
 ;;
-;; Note: if interrupted, calls (yield) then tries again if (yield) returns normally.
+;; Note: if interrupted, calls (check-interrupts) then tries again if (check-interrupts) returns normally.
 (define (fd-read-insert-right! fd bsp)
   (bytespan-reserve-right! bsp (fx+ 4096 (bytespan-length bsp)))
   (let* ((beg (bytespan-peek-beg bsp))
@@ -135,21 +112,22 @@
 ;; return number of bytes read, which can be 0 only on end-of-file or if (fx=? start end)
 ;; or raise exception on I/O error.
 ;;
-;; Note: if interrupted, calls (yield) then tries again if (yield) returns normally.
+;; Note: if interrupted, calls (check-interrupts) then tries again if (check-interrupts) returns normally.
 (define fd-read
   (case-lambda
     ((fd bytevector-result start end)
       (let %loop ()
+        (check-interrupts)
         (let ((ret (fd-read-noretry fd bytevector-result start end)))
           (if (eq? #t ret)
-            (begin (yield) (%loop))
+            (%loop)
             ret))))
     ((fd bytevector-result)
       (fd-read fd bytevector-result 0 (bytevector-length bytevector-result)))))
 
 
 ;; read some bytes from fd and copy them into bytevector.
-;; return number of bytes actually read, which can be 0 only on end-of-file or if (fx=? start end)
+;; return number of bytes actually read, which can be 0 only on end-of-file or if (fx>=? start end)
 ;; or raise exception on I/O error.
 ;;
 ;; Note: if interrupted, returns #t
@@ -165,11 +143,32 @@
         (fd-read fd bytevector-result 0 (bytevector-length bytevector-result))))))
 
 
+;; read a single byte from fd and return it.
+;; Return (eof-object) on end-of-file, or raise exception on I/O error.
+;;
+;; Note: if interrupted, calls (check-interrupts) then tries again if (check-interrupts) returns normally.
+(define fd-read-u8
+  (let ((c-fd-read-u8 (foreign-procedure "c_fd_read_u8" (int) ptr)))
+    (lambda (fd)
+      (let %loop ()
+        (check-interrupts)
+        (let ((ret (c-fd-read-u8 fd)))
+          (cond
+            ((and (fixnum? ret) (fx<=? 0 ret 255))
+              ret)
+            ((eq? #t ret)
+              (%loop))
+            ((eq? #f ret)
+              (eof-object))
+            (else
+              (raise-c-errno 'fd-read-u8 'read ret fd #vu8()))))))))
+
+
 ;; write all specified bytevector range to fd, iterating in case of short writes.
 ;; return void if successful,
 ;; otherwise raise exception.
 ;;
-;; Note: if interrupted, calls (yield) then tries again if (yield) returns normally.
+;; Note: if interrupted, calls (check-interrupts) then tries again if (check-interrupts) returns normally.
 (define fd-write-all
   (case-lambda
     ((fd bytevector-towrite start end)
@@ -188,14 +187,15 @@
 ;; return number of bytes actually written, which may be less than (fx- end start)
 ;; or raise exception on I/O error.
 ;;
-;; Note: if interrupted, calls (yield) then tries again if (yield) returns normally.
+;; Note: if interrupted, calls (check-interrupts) then tries again if (check-interrupts) returns normally.
 (define fd-write
   (case-lambda
     ((fd bytevector-towrite start end)
       (let %loop ()
+        (check-interrupts)
         (let ((ret (fd-write-noretry fd bytevector-towrite start end)))
           (if (eq? #t ret)
-            (begin (yield) (%loop))
+            (%loop)
             ret))))
     ((fd bytevector-towrite)
       (fd-write fd bytevector-towrite 0 (bytevector-length bytevector-towrite)))))
@@ -216,6 +216,22 @@
             (raise-c-errno 'fd-write 'write ret fd #vu8() start end))))
       ((fd bytevector-towrite)
         (fd-write fd bytevector-towrite 0 (bytevector-length bytevector-towrite))))))
+
+
+;; write a single byte to fd, and return unspecified value.
+;; Raise exception on I/O error.
+;;
+;; Note: if interrupted, calls (check-interrupts) then tries again if (check-interrupts) returns normally.
+(define fd-write-u8
+  (let ((c-fd-write-u8 (foreign-procedure "c_fd_write_u8" (int int) ptr)))
+    (lambda (fd u8)
+      (let %loop ()
+        (check-interrupts)
+        (let ((ret (c-fd-write-u8 fd u8)))
+          (cond
+            ((eqv? 0 ret)   (void))
+            ((eq? #t ret)   (%loop))
+            (else           (raise-c-errno 'fd-write-u8 'write ret fd #vu8()))))))))
 
 
 ;; (fd-select fd direction timeout-milliseconds) waits up to timeout-milliseconds

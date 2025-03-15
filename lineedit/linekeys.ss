@@ -211,21 +211,21 @@
             ; erase prompt and lines (also sets flag "redraw prompt and lines"),
             ; then list all possible table
             (lineedit-undraw lctx)
-            (lineedit-display-table lctx stem table max-len 'ask-if-large 'display-dashes)))))))
+            (lineedit-display-table lctx stem table max-len '(ask-if-large display-dashes))))))))
 
 
 (define lineedit-display-table
   (case-lambda
-    ((lctx table)
-      (lineedit-display-table lctx (charspan) table (%table-max-len table)))
-    ((lctx stem table max-len . options)
+    ((lctx stem table max-len options)
       (let ((column-width (fx+ 2 (fx+ max-len (charspan-length stem))))
             (table-n      (span-length table)))
         (let-values (((column-n row-n) (%lineedit-table-column-n-row-n lctx table-n column-width)))
           (when (or (not (memq 'ask-if-large options))
                     (%lineedit-table-fit-vscreen? lctx column-n row-n)
                     (%linectx-confirm-display-table? lctx table-n))
-            (%lineedit-display-table lctx stem table column-width column-n row-n options)))))))
+            (%lineedit-display-table lctx stem table column-width column-n row-n options)))))
+    ((lctx table)
+      (lineedit-display-table lctx (charspan) table (%table-max-len table) '()))))
 
 
 ;; analyze table, and return the length of longest element

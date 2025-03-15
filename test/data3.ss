@@ -20,10 +20,10 @@
 
   ;; ------------------------- posix --------------------------------------
   (fx<=? (c-errno) 0)                                  #t
-  (file-type "." 'catch)                               dir
-  (file-type "parser/parser.ss" 'catch)                file
+  (file-type "." '(catch))                             dir
+  (file-type "parser/parser.ss" '(catch))              file
   (directory-sort!
-    (directory-list "parser" 'types))        (("." . dir) (".." . dir) ("lisp-read-token.ss" . file)
+    (directory-list "parser" '(types)))      (("." . dir) (".." . dir) ("lisp-read-token.ss" . file)
                                               ("lisp.ss" . file) ("parser.ss" . file) ("r6rs.ss" . file)
                                               ("scheme.ss" . file) ("shell-read-token.ss" . file) ("shell.ss" . file))
 
@@ -163,11 +163,14 @@
   (sh-run {
      $(display "hello") | cat |
      $(utf8b->string (fd-read-all (sh-fd 0)))})        ,(ok "hello")
+  (sh-run {
+     $(display "greet") | cat |
+     $(get-string-all (current-input-port))})          ,(ok "greet")
 
   ;; run builtin in a subprocess
-  (sh-run (sh-cmd "false") '(spawn? . #t))             ,(failed 1)
+  (sh-run (sh-cmd "false") '(spawn? #t))               ,(failed 1)
   (let ((j (sh-cmd "false")))
-    (sh-start j '(spawn? . #t))
+    (sh-start j '(spawn? #t))
     (sh-wait j))                                       ,(failed 1)
   ;; run a pipe in current shell
   (sh-run (shell

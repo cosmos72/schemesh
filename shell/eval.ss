@@ -15,7 +15,7 @@
     (rnrs mutable-pairs)
     (only (chezscheme)                 void)
     (only (schemesh bootstrap) assert* raise-errorf until)
-    (only (schemesh containers list)   list-iterate)
+    (only (schemesh containers list)   for-list)
     (only (schemesh containers string) assert-string-list? string-suffix? string-index-right)
     (only (schemesh containers utf8b)  utf8b->string)
     (only (schemesh posix fd)          fd-close fd-read-all fd-write-all open-file-fd)
@@ -140,13 +140,12 @@
       (assert* 'sh-read-file (list? enabled-parsers))
       (let ((ret (make-eq-hashtable))
             (all-parsers (parsers)))
-        (list-iterate enabled-parsers
-          (lambda (parser-name)
-            (assert* 'sh-read-file (symbol? parser-name))
-            (let ((parser (hashtable-ref all-parsers parser-name #f)))
-              (unless (parser? parser)
-                (raise-errorf 'sh-read-file "unknown parser name: ~s" parser-name))
-              (hashtable-set! ret parser-name parser))))
+        (for-list ((parser-name enabled-parsers))
+          (assert* 'sh-read-file (symbol? parser-name))
+          (let ((parser (hashtable-ref all-parsers parser-name #f)))
+            (unless (parser? parser)
+              (raise-errorf 'sh-read-file "unknown parser name: ~s" parser-name))
+            (hashtable-set! ret parser-name parser)))
         ret))))
 
 
