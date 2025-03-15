@@ -96,9 +96,9 @@ Some more advanced Scheme functions:
 
 ### [NEW in version 0.8.0]
 
-Scheme jobs:
+Scheme jobs: it is now possible to run arbitrary Scheme code inside jobs, and apply job control to it.
 
-from shell syntax or Scheme syntax, type `$` before a Scheme expression in parentheses,
+From shell syntax or Scheme syntax, type `$` before a Scheme expression in parentheses,
 and it gets encapsulated in a job that can be started, stopped and resumed just like any other job.
 Example:
 ```shell
@@ -138,8 +138,8 @@ failed
 2
 ```
 
-If a job exited successfully, `(status->kind)` will return `'ok`.
-In the case of Scheme jobs that can return multiple values, use `(ok->list)` or `(ok->values)`
+If a job exited successfully, `(status->kind)` will return the symbol `'ok`.
+In the case of Scheme jobs that return multiple values, use `(ok->list)` or `(ok->values)`
 to access all the values, because `(status->value)` returns only the first one:
 ```lisp
 > (define j $(values "a" 'b #\c))
