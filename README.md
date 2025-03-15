@@ -319,9 +319,9 @@ As a last example, all the following are equivalent:
     make -j`nproc`
 }
 ```
-note: in schemesh versions >= 0.8.0, the character `\` at the end of a line
-for continuing a shell command in the next line is optional
-after `{` `[` `!` `;` `&` `&&` `||` `|` `|&` `<` `<>` `>` `>>` `<&` or `>&`
+note: in schemesh versions >= 0.8.0, the character `\` at the end of a line,
+for continuing a shell command in the next line,
+is optional after `{` `[` `!` `;` `&` `&&` `||` `|` `|&` `<` `<>` `>` `>>` `<&` or `>&`
 ```lisp
 (let ((temp "my-temp-dir"))
   (sh-run/i
