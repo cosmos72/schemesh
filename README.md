@@ -96,10 +96,10 @@ Some more advanced Scheme functions:
 
 ### [NEW in version 0.8.0]
 
-Job control is now available also for Scheme code:
+Scheme jobs:
 
-from shell syntax or Scheme syntax, simply type `$` before a Scheme expression in parentheses,
-and it gets encapsulated in a `shell-expr` job that can be started, stopped and resumed just like any other job.
+from shell syntax or Scheme syntax, type `$` before a Scheme expression in parentheses,
+and it gets encapsulated in a job that can be started, stopped and resumed just like any other job.
 Example:
 ```shell
 > $(begin (repeat 1000000000 (void)) "done!\n")
@@ -123,6 +123,42 @@ Example:
 (ok "done too!\n")
 ```
 
+Scheme jobs currently cannot run in background - they stop themselves if you try -
+but in exchange they can execute arbitrary Scheme code, and can also return
+any Scheme value or even multiple values, not just an 8-bit exit status.
+
+To inspect a job status, use `(status->kind)` and `(status->value)`, as for example:
+```lisp
+> (define j {ls /does-not-exist})
+> (define status (sh-run j))
+ls: cannot access '/does-not-exist': No such file or directory
+> (status->kind status)
+failed
+> (status->value status)
+2
+```
+
+If a job exited successfully, `(status->kind)` will return `'ok`.
+In the case of Scheme jobs that can return multiple values, use `(ok->list)` or `(ok->values)`
+to access all the values, because `(status->value)` returns only the first one:
+```lisp
+> (define j $(values "a" 'b #\c))
+> (define status (sh-run j))
+> (display status)
+(ok "a" b #\c)
+> (status->kind status)
+ok
+> (status->value status)
+"a"
+> (ok->list status)
+("a" b #\c)
+> (ok->values status)
+"a"
+b
+#\c
+```
+
+
 ### [NEW in version 0.8.1]
 
 Standard Scheme textual ports `(current-input-port)` `(current-output-port)` `(current-error-port)`
@@ -141,9 +177,13 @@ they automatically honor job redirections too. Example:
 Hi!
 ```
 
-Scheme jobs `$()` can be used in pipelines, as for example:
+Scheme jobs `$()` support job control also when used in pipelines, as for example:
 ```shell
-> $(display "hello") | cat | $(get-string-all (current-input-port))
+> sleep 5 | $(display "hello") | cat | $(get-string-all (current-input-port))
+CTRL+Z
+(stopped sigtstp)
+
+> fg 1
 (ok "hello")
 ```
 
