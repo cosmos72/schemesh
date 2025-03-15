@@ -13,10 +13,10 @@
     (only (chezscheme) assertion-violationf foreign-procedure fx1-
                        logbit? procedure-arity-mask void)
     (only (schemesh bootstrap)            assert* debugf)
-    (only (schemesh containers hashtable) eq-hashtable hashtable-transpose))
+    (only (schemesh containers hashtable) alist->eq-hashtable hashtable-transpose))
 
 (define signal-table-number->name
-  (apply eq-hashtable ((foreign-procedure "c_signals_list" () ptr))))
+  (alist->eq-hashtable ((foreign-procedure "c_signals_list" () ptr))))
 
 (define signal-table-name->number
   (hashtable-transpose signal-table-number->name (make-eqv-hashtable)))

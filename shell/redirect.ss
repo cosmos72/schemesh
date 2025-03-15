@@ -55,47 +55,51 @@
 ;; Implementation note: job is always started in a subprocess,
 ;; because we need to read its standard output while it runs.
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
-(define (sh-start/fd-stdout job . options)
-  (options-validate 'sh-start/fd-stdout options)
-  (let ((fds (cons #f #f))
-        (err? #t))
-    (dynamic-wind
-      (lambda () ; run before body
-        ; create pipe fds, both are close-on-exec
-        (let-values (((read-fd write-fd) (open-pipe-fds #t #t)))
-          (set-car! fds read-fd)
-          (set-cdr! fds write-fd)))
+(define sh-start/fd-stdout
+  (case-lambda
+    ((job)
+      (sh-start/fd-stdout job '()))
+    ((job options)
+      (options-validate 'sh-start/fd-stdout options)
+      (let ((fds (cons #f #f))
+            (err? #t))
+        (dynamic-wind
+          (lambda () ; run before body
+            ; create pipe fds, both are close-on-exec
+            (let-values (((read-fd write-fd) (open-pipe-fds #t #t)))
+              (set-car! fds read-fd)
+              (set-cdr! fds write-fd)))
 
-      (lambda () ; body
-        ; temporarily redirect job's stdout to write-fd.
-        ; redirection is automatically removed by (job-status-set!) when job finishes.
-        (job-redirect/temp/fd! job 1 '>& (cdr fds))
-        ; always start job in a subprocess, see above for reason.
-        (sh-start* job `((spawn? . #t) (fd-close . ,(car fds)) ,@options))
+          (lambda () ; body
+            ; temporarily redirect job's stdout to write-fd.
+            ; redirection is automatically removed by (job-status-set!) when job finishes.
+            (job-redirect/temp/fd! job 1 '>& (cdr fds))
+            ; always start job in a subprocess, see above for reason.
+            (sh-start job `(spawn? #t fd-close ,(car fds) ,@options))
 
-        ; close our copy of write-fd: needed to detect eof on read-fd
-        (fd-close (cdr fds))
-        (set-cdr! fds #f)
+            ; close our copy of write-fd: needed to detect eof on read-fd
+            (fd-close (cdr fds))
+            (set-cdr! fds #f)
 
-        ; job no longer needs fd remapping:
-        ; they also may contain a dup() of write-fd
-        ; which prevents detecting eof on read-fd
-        ; (debugf "pid ~s: sh-start/fd-stdout calling (job-unmap-fds) job=~s" (pid-get) job)
+            ; job no longer needs fd remapping:
+            ; they also may contain a dup() of write-fd
+            ; which prevents detecting eof on read-fd
+            ; (debugf "pid ~s: sh-start/fd-stdout calling (job-unmap-fds) job=~s" (pid-get) job)
 
-        (job-unmap-fds! job)
-        (set! err? #f))
+            (job-unmap-fds! job)
+            (set! err? #f))
 
-      (lambda () ; after body
-        ; close our copy of write-fd: needed to detect eof on read-fd
-        (when (cdr fds)
-          (fd-close (cdr fds))
-          (set-cdr! fds #f))
+          (lambda () ; after body
+            ; close our copy of write-fd: needed to detect eof on read-fd
+            (when (cdr fds)
+              (fd-close (cdr fds))
+              (set-cdr! fds #f))
 
-        (when (and err? (car fds))
-          (fd-close (car fds))
-          (set-car! fds #f))))
+            (when (and err? (car fds))
+              (fd-close (car fds))
+              (set-car! fds #f))))
 
-    (car fds))) ; return read-fd or #f
+        (car fds))))) ; return read-fd or #f
 
 
 ;; Start a job and wait for it to exit.
@@ -107,21 +111,27 @@
 ;; Implementation note: job is always started in a subprocess,
 ;; because we need to read its standard output while it runs.
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
-(define (sh-run/bvector job . options)
-  (let ((read-fd #f))
-    ; temporarily suppress messages about started/completed jobs
-    (parameterize ((sh-job-display-summary? #f))
-      (dynamic-wind
-        void
-        (lambda ()
-          (set! read-fd (apply sh-start/fd-stdout job options))
-          ;; WARNING: job may internally dup write-fd into (job-fds-to-remap)
-          (fd-read-all read-fd))
-        (lambda ()
-          (when read-fd
-            (fd-close read-fd))
-          (when (job-started? job)
-            (sh-wait job)))))))
+(define sh-run/bvector
+  (case-lambda
+    ((job)
+      (sh-run/bvector job '()))
+    ((job options)
+      (let ((read-fd #f)
+            (display-summary-swapper (parameter-swapper sh-job-display-summary? #f)))
+        (dynamic-wind
+          ;; temporarily suppress messages about started/completed jobs
+          display-summary-swapper
+          (lambda ()
+            (set! read-fd (sh-start/fd-stdout job options))
+            ;; WARNING: job may internally dup write-fd into (job-fds-to-remap)
+            (fd-read-all read-fd))
+          (lambda ()
+            (display-summary-swapper)
+            (when read-fd
+              (fd-close read-fd)
+              (set! read-fd #f)) ; in case dynamic-wind is re-entered
+            (when (job-started? job)
+              (sh-wait job))))))))
 
 
 ;; Start a job and wait for it to exit.
@@ -133,8 +143,12 @@
 ;; Implementation note: job is started from a subshell,
 ;; because we need to read its standard output while it runs.
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
-(define (sh-run/string job . options)
-  (utf8b->string (apply sh-run/bvector job options)))
+(define sh-run/string
+  (case-lambda
+    ((job)
+      (sh-run/string job '()))
+    ((job options)
+      (utf8b->string (sh-run/bvector job options)))))
 
 
 ;; Start a job and wait for it to exit.
@@ -147,8 +161,12 @@
 ;; Implementation note: job is started from a subshell,
 ;; because we need to read its standard output while it runs.
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
-(define (sh-run/string-rtrim-newlines job . options)
-  (string-rtrim-newlines! (utf8b->string (apply sh-run/bvector job options))))
+(define sh-run/string-rtrim-newlines
+  (case-lambda
+    ((job)
+      (sh-run/string-rtrim-newlines job '()))
+    ((job options)
+      (string-rtrim-newlines! (utf8b->string (sh-run/bvector job options))))))
 
 
 ;; Start a job and wait for it to exit.
@@ -162,8 +180,12 @@
 ;; Implementation note: job is started from a subshell,
 ;; because we need to read its standard output while it runs.
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
-(define (sh-run/string-split-after-nuls job . options)
-  (string-split-after-nuls (utf8b->string (apply sh-run/bvector job options))))
+(define sh-run/string-split-after-nuls
+  (case-lambda
+    ((job)
+      (sh-run/string-split-after-nuls job '()))
+    ((job options)
+      (string-split-after-nuls (utf8b->string (sh-run/bvector job options))))))
 
 
 ;; Add multiple redirections for cmd or job. Return cmd or job.

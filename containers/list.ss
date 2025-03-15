@@ -17,12 +17,13 @@
   (export
     any count every for-list in-list
     list-copy* list-index list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
-    on-list)
+    on-list
+    for-plist plist? plist-add plist-ref plist-delete plist-delete/pred)
 
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)         fx1+ fx1- list-copy void)
+    (only (chezscheme)         fx1+ fx1- list-copy reverse! void)
     (only (schemesh bootstrap) generate-pretty-temporaries))
 
 
@@ -45,7 +46,7 @@
 
 (define %dot-args-always-create-new-list?
   (let ((args '(a)))
-    (eq? args (apply list args))))
+    (not (eq? args (apply list args)))))
 
 ;; return a copy of list l, or list l itself if (lambda (args . l) l) always creates a new list l,
 ;; even when called with (apply)
@@ -187,8 +188,6 @@
 ;; Iterate in parallel on elements of given lists l ..., and evaluate body ... on each element.
 ;; Stop iterating when the shortest list is exhausted,
 ;; and return unspecified value.
-;;
-;; Note: body ... must evaluate to a single value.
 (define-syntax for-list
   (lambda (stx)
     (syntax-case stx ()
@@ -306,5 +305,96 @@
       (let ((tail l))
         (set! l (cdr l))
         (values tail #t)))))
+
+
+;; return #t if plist is a property list, otherwise return #f
+;; Note: return #f for all improper lists, including cyclic lists.
+(define (plist? plist)
+  (and (list? plist)
+       (even? (length plist))))
+
+
+;; given a property list plist, i.e. a list containing alternate keys and values,
+;; return a new property list also containing key and value, followed by the old plist (which is not modified)
+(define (plist-add plist key value)
+  (cons key (cons value plist)))
+
+
+
+;; given a property list plist, i.e. a list containing alternate keys and values,
+;; find the first key eq? to specified key and return the corresponding value.
+;;
+;; If no such key is found then return default, which defaults to #f
+(define plist-ref
+  (case-lambda
+    ((plist key default)
+      (let %plist-ref ((plist plist) (key key) (default default))
+        (cond
+          ((null? plist)
+            default)
+          ((eq? key (car plist))
+            (cadr plist))
+          (else
+            (%plist-ref (cddr plist) key default)))))
+    ((plist key)
+      (plist-ref plist key #f))))
+
+
+;; given a property list plist, i.e. a list containing alternate keys and values,
+;; return a new new property list where all occurrences of key and the corresponding values have been removed.
+;; Does not modify plist.
+(define (plist-delete plist key)
+  (let %plist-delete ((ret '()) (plist plist) (key key))
+    (cond
+      ((null? plist)
+        (reverse! ret))
+      ((eq? key (car plist))
+        (%plist-delete ret (cddr plist) key))
+      (else
+        ;; insert value and key at the beginning of ret
+        (%plist-delete (cons (cadr plist) (cons (car plist) ret))
+                       (cddr plist)
+                       key)))))
+
+
+;; given a property list plist, i.e. a list containing alternate keys and values,
+;; return a new new property list all keys that cause (pred key) to return truish have been removed.
+;; Does not modify plist.
+(define (plist-delete/pred plist pred)
+  (let %plist-delete/pred ((ret '()) (plist plist) (pred pred))
+    (cond
+      ((null? plist)
+        (reverse! ret))
+      ((pred (car plist))
+        (%plist-delete/pred ret (cddr plist) pred))
+      (else
+        ;; insert value and key at the beginning of ret
+        (%plist-delete/pred (cons (cadr plist) (cons (car plist) ret))
+                            (cddr plist)
+                            pred)))))
+
+
+;; Iterate in parallel on elements of given property lists plist ..., and evaluate body ... on each element.
+;; Stop iterating when the shortest property list is exhausted,
+;; and return unspecified value.
+(define-syntax for-plist
+ (lambda (stx)
+    (syntax-case stx ()
+      ((_ ((key val plist)) body1 body2 ...)
+        #'(let %for-plist ((tail plist))
+            (unless (null? tail)
+              (let ((key (car tail))
+                    (val (cadr tail)))
+                body1 body2 ...)
+              (%for-plist (cddr tail)))))
+      ((_ ((key val plist) ...) body1 body2 ...)
+        (not (null? #'(plist ...)))
+        (with-syntax (((tail ...) (generate-pretty-temporaries #'(plist ...))))
+          #'(let %for-plist ((tail plist) ...)
+              (unless (or (null? tail) ...)
+                (let ((key (car tail)) ...
+                      (val (cadr tail)) ...)
+                  body1 body2 ...)
+                (%for-plist (cddr tail) ...))))))))
 
 ) ; close library

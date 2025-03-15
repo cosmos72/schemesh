@@ -111,10 +111,10 @@
          ; optimization: no need to run the last job in a subprocess
          ; TO DO: investigate wrong exit value if spawn? is unconditionally #t
          (spawn?   redirect-out?)
-         (options  (sh-options
-                     (and spawn? '(spawn? . #t))
-                     (and pgid   (cons 'process-group-id pgid))
-                     '(catch? . #t))))
+         (options  (sh-options (list
+                     (if spawn? 'spawn? #f)           spawn?
+                     (if pgid   'process-group-id #f) pgid
+                     'catch? #t))))
 
 
     ; Apply redirections. Will be removed by (mj-pipe-advance-wait) when job finishes.

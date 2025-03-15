@@ -224,13 +224,13 @@
 ;;
 ;; Return a vector, fxvector or bytevector containing parsed forms.
 ;; Raise syntax-errorf if mismatched end token is found, as for example ] instead of )
-(define (parse-vector ctx vec-type length flavor)
+(define (parse-vector ctx vec-type len flavor)
   (let-values (((values _) (parse-lisp-forms ctx vec-type flavor)))
     (case vec-type
-      ((vflnparen) (create-flvector   length values))
-      ((vfxnparen) (create-fxvector   length values))
-      ((vnparen)   (create-vector     length values))
-      ((vu8nparen) (create-bytevector length values))
+      ((vflnparen) (create-flvector   len values))
+      ((vfxnparen) (create-fxvector   len values))
+      ((vnparen)   (create-vector     len values))
+      ((vu8nparen) (create-bytevector len values))
       ((vflparen)  (apply (top-level-value 'flvector) values)) ; requires Chez Scheme >= 10.0.0
       ((vfxparen)  (apply fxvector   values))
       ((vparen)    (apply vector     values))
@@ -238,23 +238,23 @@
       (else  (syntax-errorf ctx (caller-for flavor) "unexpected ~a" vec-type)))))
 
 ;; requires Chez Scheme >= 10.0.0
-(define (create-flvector length values)
-  (%create-vector length values 0.0 (top-level-value 'make-flvector) (top-level-value 'flvector-set!)))
+(define (create-flvector len values)
+  (%create-vector len values 0.0 (top-level-value 'make-flvector) (top-level-value 'flvector-set!)))
 
-(define (create-fxvector length values)
-  (%create-vector length values 0 make-fxvector fxvector-set!))
+(define (create-fxvector len values)
+  (%create-vector len values 0 make-fxvector fxvector-set!))
 
-(define (create-vector length values)
-  (%create-vector length values 0 make-vector vector-set!))
+(define (create-vector len values)
+  (%create-vector len values 0 make-vector vector-set!))
 
-(define (create-bytevector length values)
-  (%create-vector length values 0 make-bytevector bytevector-u8-set!))
+(define (create-bytevector len values)
+  (%create-vector len values 0 make-bytevector bytevector-u8-set!))
 
-(define (%create-vector length values default-value vector-maker vector-setter!)
-  (let ((vec (vector-maker length))
+(define (%create-vector len values default-value vector-maker vector-setter!)
+  (let ((vec (vector-maker len))
         (elem (if (null? values) default-value (car values))))
     (do ((i 0 (fx1+ i)))
-        ((fx>=? i length) vec)
+        ((fx>=? i len) vec)
       (vector-setter! vec i elem)
       (unless (null? values)
         ;; if we run out of values, fill remainder with last element in values

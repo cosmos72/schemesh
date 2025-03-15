@@ -83,17 +83,13 @@
 ;;   or a command that exits very quickly.
 ;;   For these reasons, the returned job status may be different from (running job-id)
 ;;   and may indicate that the job has already finished.
-;;
-;; FIXME: pass options as a single optional argument
-(define (sh-start job . options)
-  (sh-start* job options))
-
-
-;; same as sh-start, options must be passed as a single association list.
-(define (sh-start* job options)
-  (job-start 'sh-start job options)
-  (job-id-update! job)) ; sets job-id if started, otherwise unsets it. also returns job status
-
+(define sh-start
+  (case-lambda
+    ((job options)
+      (job-start 'sh-start job options)
+      (job-id-update! job)) ; sets job-id if started, otherwise unsets it. also returns job status
+    ((job)
+      (sh-start job '()))))
 
 
 ;; Internal functions called by (sh-start)
@@ -497,10 +493,14 @@
 ;; For the possible options, see (sh-options)
 ;;
 ;; Return job status, possible values are the same as (sh-fg)
-(define (sh-run/i job . options)
-  (if (started? (job-start 'sh-run/i job options))
-    (sh-fg job)
-    (job-id-update! job))) ; sets job-id if started, otherwise unsets it. also returns job status
+(define sh-run/i
+  (case-lambda
+    ((job options)
+      (if (started? (job-start 'sh-run/i job options))
+        (sh-fg job)
+        (job-id-update! job))) ; sets job-id if started, otherwise unsets it. also returns job status
+    ((job)
+      (sh-run/i job '()))))
 
 
 ;; Start a job and wait for it to exit.
@@ -509,9 +509,13 @@
 ;; For the possible options, see (sh-options)
 ;;
 ;; Return job status, possible values are the same as (sh-wait)
-(define (sh-run job . options)
-  (job-start 'sh-run job options)
-  (sh-wait job))
+(define sh-run
+  (case-lambda
+    ((job options)
+      (job-start 'sh-run job options)
+      (sh-wait job))
+    ((job)
+      (sh-run job '()))))
 
 
 ;; Start a job and wait for it to exit.
@@ -520,8 +524,12 @@
 ;; For the possible options, see (sh-options)
 ;;
 ;; Return #t if job failed successfully, otherwise return #f.
-(define (sh-run/ok? job . options)
-  (ok? (apply sh-run job options)))
+(define sh-run/ok?
+  (case-lambda
+    ((job options)
+      (ok? (sh-run job options)))
+    ((job)
+      (sh-run/ok? job '()))))
 
 
 ;; Start a job and wait for it to exit.
@@ -530,7 +538,11 @@
 ;; For the possible options, see (sh-options)
 ;;
 ;; Return #f if job exited successfully,
-;; otherwise return job exit status, which is a cons and hence truish.
-(define (sh-run/err? job . options)
-  (let ((status (apply sh-run job options)))
-    (if (ok? status) #f status)))
+;; otherwise return job exit status, which is a status object and hence truish.
+(define sh-run/err?
+  (case-lambda
+    ((job options)
+      (let ((status (sh-run job options)))
+        (if (ok? status) #f status)))
+    ((job)
+      (sh-run/err? job '()))))

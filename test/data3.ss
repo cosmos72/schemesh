@@ -168,9 +168,9 @@
      $(get-string-all (current-input-port))})          ,(ok "greet")
 
   ;; run builtin in a subprocess
-  (sh-run (sh-cmd "false") '(spawn? . #t))             ,(failed 1)
+  (sh-run (sh-cmd "false") '(spawn? #t))               ,(failed 1)
   (let ((j (sh-cmd "false")))
-    (sh-start j '(spawn? . #t))
+    (sh-start j '(spawn? #t))
     (sh-wait j))                                       ,(failed 1)
   ;; run a pipe in current shell
   (sh-run (shell

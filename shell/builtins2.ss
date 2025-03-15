@@ -383,7 +383,7 @@
 ;; start a builtin and return its status.
 ;; performs sanity checks on exit status returned by the call (builtin job args options)
 ;;
-;; if options list contain '(spawn? . #t), then the builtin will be started asynchronously
+;; if options plist contain 'spawn? #t, then the builtin will be started asynchronously
 ;;   in a subprocess, thus the returned status can be (running ...)
 ;; if builtin is builtin-command, by design it spawns asynchronously
 ;;   an external subprocess and returns immediately,

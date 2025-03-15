@@ -168,7 +168,7 @@
 ;; passing the job job as only argument,
 ;;
 ;; Options are the same as described in (sh-start).
-;; Option '(spawn? . #t) is enabled by default, because this function always spawns a subprocess.
+;; Option 'spawn? #t is enabled by default, because this function always spawns a subprocess.
 (define (mj-subshell-start job options)
   (assert* 'sh-subshell (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-subshell (fx=? -1 (multijob-current-child-index job)))
@@ -299,7 +299,7 @@
       (assert* 'sh-start (sh-job? job))
       (assert* 'sh-start (procedure? proc))
       (assert* 'sh-start (logbit? 2  (procedure-arity-mask proc)))
-      (assert* 'sh-start (list? options))
+      (assert* 'sh-start (plist? options))
       (let* ((process-group-id (options->process-group-id options))
              (ret              (c-fork-pid
                                  (job-make-c-redirect-vector job)
@@ -335,7 +335,7 @@
             (running)))))))
 
 
-;; if options contain '(spawn? . #t) then remove such options and call (spawn-procedure job options proc)
+;; if options contain 'spawn? #t then remove such options and call (spawn-procedure job options proc)
 ;; otherwise directly call (proc job options)
 ;;
 ;; WARNING (proc job options) must call (sh-job-status-set! job), because the return value of (proc ...) is ignored
@@ -385,7 +385,7 @@
       (else
         (raise-errorf caller "child job not started yet: ~s" child)))))
 
-(define options-catch '((catch? . #t)))
+(define options-catch '(catch? #t))
 
 ;; Run next child job in a multijob containing an "and" of children jobs.
 ;; Used by (sh-and), implements runtime behavior of shell syntax foo && bar && baz
