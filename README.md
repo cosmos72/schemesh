@@ -324,7 +324,7 @@ for continuing a shell command in the next line is optional
 after `{` `[` `!` `;` `&` `&&` `||` `|` `|&` `<` `<>` `>` `>>` `<&` or `>&`
 ```lisp
 (let ((temp "my-temp-dir"))
-  (sh-run
+  (sh-run/i
     {
       mkdir (values temp)           &&
       cd    (values temp)           &&
@@ -336,7 +336,7 @@ after `{` `[` `!` `;` `&` `&&` `||` `|` `|&` `<` `<>` `>` `>>` `<&` or `>&`
 ```
 ```lisp
 (let ((temp "my-temp-dir"))
-  (sh-run
+  (sh-run/i
     (sh-and
       {mkdir (values temp)}
       {cd    (values temp)}
@@ -348,7 +348,7 @@ after `{` `[` `!` `;` `&` `&&` `||` `|` `|&` `<` `<>` `>` `>>` `<&` or `>&`
 ```
 ```lisp
 (let ((temp "my-temp-dir"))
-  (sh-run
+  (sh-run/i
     (sh-and
       (sh-cmd "mkdir" temp)
       (sh-cmd "cd"    temp)
