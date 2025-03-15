@@ -96,7 +96,7 @@ Some more advanced Scheme functions:
 
 ### [NEW in version 0.8.0]
 
-Scheme jobs: it is now possible to run arbitrary Scheme code inside jobs, and apply job control to it.
+It is now possible to run arbitrary Scheme code inside jobs, and apply job control to it.
 
 From shell syntax or Scheme syntax, type `$` before a Scheme expression in parentheses,
 and it gets encapsulated in a job that can be started, stopped and resumed just like any other job.
@@ -112,7 +112,8 @@ CTRL+Z
 (ok "done!\n")
 ```
 
-This feature can also be written in long form `(shell-expr ...)` both from shell syntax and from Scheme syntax.
+This feature is named "Scheme jobs" and can also be written in long form `(shell-expr ...)`
+both from shell syntax and from Scheme syntax.
 
 If used from Scheme syntax, the job created by short or long form can be executed immediately,
 or saved in a variable for later execution, or passed to a procedure, etc.
@@ -440,7 +441,7 @@ sudo apt update
 sudo apt install build-essential chezscheme-dev liblz4-dev libncurses-dev git uuid-dev zlib1g-dev
 git clone https://github.com/cosmos72/schemesh
 cd schemesh
-git checkout -f v0.8.0
+git checkout -f v0.8.1
 make -j
 sudo make install
 ```
@@ -450,7 +451,7 @@ On Fedora Linux:
 sudo dnf install gcc make chez-scheme-devel lz4-devel ncurses-devel git libuuid-devel zlib-devel
 git clone https://github.com/cosmos72/schemesh
 cd schemesh
-git checkout -f v0.8.0
+git checkout -f v0.8.1
 make -j
 sudo make install
 ```
@@ -460,7 +461,7 @@ On FreeBSD:
 pkg install chez-scheme gcc git gmake  # must be executed as root
 git clone https://github.com/cosmos72/schemesh
 cd schemesh
-git checkout -f v0.8.0
+git checkout -f v0.8.1
 gmake -j
 gmake install  # must be executed as root
 ```
@@ -470,7 +471,7 @@ On Mac OS X:
 sudo xcode-select --install # only needed if you don't already have XCode Command Line Tools
 brew install chezscheme lz4
 git clone https://github.com/cosmos72/schemesh
-git checkout -f v0.8.0
+git checkout -f v0.8.1
 cd schemesh
 make -j
 sudo make install
