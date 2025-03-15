@@ -110,7 +110,7 @@
         ;; no need to call Chez Scheme (cd path)
         ;; it autodetects that current process changed its current directory
         (c-chdir path-bv0)
-        (let ((ret (file-type path-bv0 'catch)))
+        (let ((ret (file-type path-bv0 '(catch))))
           (cond
             ((eq? ret 'dir)
               0)

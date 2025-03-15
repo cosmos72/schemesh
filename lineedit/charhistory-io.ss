@@ -58,7 +58,7 @@
     (when port
       (close-port port))
     (when remove-temp-path?
-      (file-delete temp-path 'catch))
+      (file-delete temp-path '(catch)))
     success?))
 
 

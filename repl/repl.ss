@@ -252,7 +252,7 @@
 
 
 (define (try-eval-file path)
-  (and (string? path) (symbol? (file-type path 'catch))
+  (and (string? path) (symbol? (file-type path '(catch)))
     (try
       (sh-eval-file path)
       #t
@@ -299,17 +299,8 @@
         (linectx-save-history lctx)))))
 
 
-;; top-level interactive repl with optional arguments:
-;; 'history history-path    - string,    defaults to (sh-xdg-cache-dir/ "schemesh/history.txt")
-;; 'init    init-file-path  - string,    defaults to (sh-xdg-config-dir/ "schemesh/repl_init.sh")
-;; 'parser  initial-parser  - symbol,    defaults to 'shell
-;; 'parsers enabled-parsers - hashtable, defaults to (parsers)
-;; 'print   print-func      - procedure, defaults to repl-print
-;; 'quit    quit-file-path  - string,    defaults to (sh-xdg-config-dir/ "schemesh/repl_quit.sh")
-;; 'linectx lctx            - linectx,   defaults to (sh-make-linectx* enabled-parsers history-path)
-;;
-;; Returns first value passed to (exit), or (void) on linectx eof
-(define (repl . options)
+;; parse (repl) options, and return a list of values suitable for calling (repl*)
+(define (repl-parse-options options)
   ; (debugf "repl options=~s" options)
   (let ((history-path #f)    (history-path? #f)
         (initial-parser #f)  (initial-parser? #f)
@@ -336,17 +327,37 @@
       (linectx-parsers-set! lctx enabled-parsers))
     (when (and lctx? history-path?)
       (charhistory-path-set! (linectx-history lctx) history-path))
-    (first-value-or-void
-      (repl*
-        (if initial-parser?  initial-parser  'shell)
-        (if print?   print   repl-print)
-        (if lctx?
-          lctx
-          (sh-make-linectx
-            (if enabled-parsers? enabled-parsers (parsers))
-            (if history-path?    history-path    (sh-xdg-cache-home/ "schemesh/history.txt"))))
-        (if init-file-path? init-file-path (sh-xdg-config-home/ "schemesh/repl_init.ss"))
-        (if quit-file-path? quit-file-path (sh-xdg-config-home/ "schemesh/repl_quit.ss"))))))
+    (list
+      (if initial-parser?  initial-parser  'shell)
+      (if print?   print   repl-print)
+      (if lctx?
+        lctx
+        (sh-make-linectx
+          (if enabled-parsers? enabled-parsers (parsers))
+          (if history-path?    history-path    (sh-xdg-cache-home/ "schemesh/history.txt"))))
+      (if init-file-path? init-file-path (sh-xdg-config-home/ "schemesh/repl_init.ss"))
+      (if quit-file-path? quit-file-path (sh-xdg-config-home/ "schemesh/repl_quit.ss")))))
+
+
+;; top-level interactive repl.
+;; optional argument options must be a list containing zero or more:
+;; 'history history-path    - string,    defaults to (sh-xdg-cache-dir/ "schemesh/history.txt")
+;; 'init    init-file-path  - string,    defaults to (sh-xdg-config-dir/ "schemesh/repl_init.sh")
+;; 'parser  initial-parser  - symbol,    defaults to 'shell
+;; 'parsers enabled-parsers - hashtable, defaults to (parsers)
+;; 'print   print-func      - procedure, defaults to repl-print
+;; 'quit    quit-file-path  - string,    defaults to (sh-xdg-config-dir/ "schemesh/repl_quit.sh")
+;; 'linectx lctx            - linectx,   defaults to (sh-make-linectx* enabled-parsers history-path)
+;;
+;; Returns first value passed to (exit), or (void) on linectx eof
+(define repl
+  (case-lambda
+    ((options)
+      (first-value-or-void
+        (apply repl* (repl-parse-options options))))
+    (()
+      (repl '()))))
+
 
 
 ;; React to calls to (break): enter the debugger

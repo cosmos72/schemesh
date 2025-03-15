@@ -56,7 +56,7 @@
         ; all elements are strings -> concatenate them
         (let ((str (sh-wildcard->string w)))
           (cond
-            ((file-type str 'catch 'symlinks)
+            ((file-type str '(catch symlinks))
               (list str)) ; path exists, return a list containing only it
             (string-if-no-match?
               str)        ; path does not exist, return a string
@@ -345,7 +345,7 @@
   ; (debugf "%patterns/expand patterns=~s, path=~s" (span-range->span* sp i sp-end) path)
   (cond
     ((fx>=? i sp-end) ; check that path exists
-      (when (file-type path 'catch 'symlinks)
+      (when (file-type path '(catch symlinks))
         ; if patterns do not end with #\/ then remove any final #\/ from path
         (when (and (string-suffix/char? path #\/)
                    (not (%patterns-end-with/char? sp #\/)))
@@ -355,7 +355,7 @@
     ((string? (span-ref sp i))
       (let ((subpath (%path-append path (span-ref sp i))))
         ; check that subpath exists.
-        (if (file-type subpath 'catch)
+        (if (file-type subpath '(catch))
           (%patterns/expand sp (fx1+ i) sp-end subpath ret)
           ret)))
     (else
@@ -367,7 +367,9 @@
         ; pattern p may end with #\/ thus:
         ; 1. must add option 'append-slash to mark directories with a final #\/
         ; 2. cannot add option 'symlinks because it would not mark symlinks with a final #\/ even if they point to a directory
-        (for-list ((name (directory-sort! (directory-list path-or-dot 'append-slash 'catch 'prefix prefix 'suffix suffix))))
+        (for-list ((name (directory-sort!
+                           (directory-list path-or-dot
+                                           (list 'append-slash 'catch 'prefix prefix 'suffix suffix)))))
           (when (sh-pattern-match? p name)
             (%patterns/expand sp i+1 sp-end (%path-append path name) ret)))
         ret))))

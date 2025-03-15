@@ -169,7 +169,7 @@
           (jexpr-resume-proc-set!  job cont)
           (jexpr-suspend-proc-set! job #f)
           (%job-last-status-set! job (stopped signal-name))
-          (job-id-update! job)
+          ; (job-id-update! job) ; verbose
           ;; suspend job, i.e. call its suspend-proc
           (suspend-proc (void)))))
     (if suspend-proc #t #f))) ; ignore value returned by continuation (suspend-proc)

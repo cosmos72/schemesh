@@ -177,7 +177,7 @@
          (prefix-len (string-length prefix))
          (prefix?    (not (fxzero? prefix-len)))
          (prefix-starts-with-dot? (and prefix? (char=? #\. (string-ref prefix 0)))))
-    (for-list ((elem (directory-sort! (directory-list-type dir 'prefix prefix 'bytes 'catch))))
+    (for-list ((elem (directory-sort! (directory-list-type dir (list 'prefix prefix 'bytes 'catch)))))
       (let ((name (string->charspan* (utf8b->string (car elem)))))
         (when (or prefix-starts-with-dot? (not (char=? #\. (charspan-ref name 0))))
           (charspan-erase-left! name prefix-len)
@@ -252,7 +252,7 @@
          (dirs       (string-split $path #\:))
          (prefix-len (string-length prefix)))
     (for-list ((dir dirs))
-      (for-list ((elem (directory-list-type dir 'prefix prefix 'catch))) ; no need to sort directory list
+      (for-list ((elem (directory-list-type dir (list 'prefix prefix 'catch)))) ; no need to sort directory list
         (when (eq? 'file (cdr elem))
           (set! l (cons (car elem) l))))))
   l)

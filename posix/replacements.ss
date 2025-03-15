@@ -40,7 +40,7 @@
 (define delete-file
   (case-lambda
     ((path error?)
-      (let ((err (file-delete path 'catch)))
+      (let ((err (file-delete path '(catch))))
         (cond
           ((eq? (void) err) #t)
           (error?           (%raise-io-filename-error 'delete-file path err))
@@ -63,8 +63,8 @@
 (define delete-directory
   (case-lambda
     ((path error?)
-      (let ((err (if (eq? 'dir (file-type path 'catch 'symlinks))
-                   (file-delete path 'catch)
+      (let ((err (if (eq? 'dir (file-type path '(catch symlinks)))
+                   (file-delete path '(catch))
                    c-errno-enotdir)))
         (cond
           ((eq? (void) err) #t)
@@ -101,11 +101,11 @@
 (define file-exists?
   (case-lambda
     ((path)
-      (symbol? (file-type path 'catch)))
+      (symbol? (file-type path '(catch))))
     ((path follow?)
       (symbol? (if follow?
-                 (file-type path 'catch)
-                 (file-type path 'catch 'symlinks))))))
+                 (file-type path '(catch))
+                 (file-type path '(catch symlinks)))))))
 
 
 ;; Check if a filesystem path is a directory.
@@ -122,11 +122,11 @@
 (define file-directory?
   (case-lambda
     ((path)
-      (eq? 'dir (file-type path 'catch)))
+      (eq? 'dir (file-type path '(catch))))
     ((path follow?)
       (eq? 'dir (if follow?
-                  (file-type path 'catch)
-                  (file-type path 'catch 'symlinks))))))
+                  (file-type path '(catch))
+                  (file-type path '(catch symlinks)))))))
 
 
 ;; Check if a filesystem path is a regular file.
@@ -143,11 +143,11 @@
 (define file-regular?
   (case-lambda
     ((path)
-      (eq? 'file (file-type path 'catch)))
+      (eq? 'file (file-type path '(catch))))
     ((path follow?)
       (eq? 'file (if follow?
-                   (file-type path 'catch)
-                   (file-type path 'catch 'symlinks))))))
+                   (file-type path '(catch))
+                   (file-type path '(catch symlinks)))))))
 
 
 ;; Check if a filesystem path is a symbolic link.
@@ -160,7 +160,7 @@
 ;;
 ;; If filesystem path exists and is a symbolic link, return #t. Otherwise return #f.
 (define (file-symbolic-link? path)
-  (eq? 'symlink (file-type path 'catch 'symlinks)))
+  (eq? 'symlink (file-type path '(catch symlinks))))
 
 
 ) ; close library

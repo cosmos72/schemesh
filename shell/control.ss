@@ -380,7 +380,7 @@
       (dynamic-wind
         current-job-swap ; before body
         (lambda () ; body
-          (job-id-set! job)
+          ; (job-id-set! job) ; verbose
           (warnf "; suspended job: ~a\n" (sh-job->string job))
           (break)
           (set! break-returned-normally? #t))

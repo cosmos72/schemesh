@@ -20,10 +20,10 @@
 
   ;; ------------------------- posix --------------------------------------
   (fx<=? (c-errno) 0)                                  #t
-  (file-type "." 'catch)                               dir
-  (file-type "parser/parser.ss" 'catch)                file
+  (file-type "." '(catch))                             dir
+  (file-type "parser/parser.ss" '(catch))              file
   (directory-sort!
-    (directory-list "parser" 'types))        (("." . dir) (".." . dir) ("lisp-read-token.ss" . file)
+    (directory-list "parser" '(types)))      (("." . dir) (".." . dir) ("lisp-read-token.ss" . file)
                                               ("lisp.ss" . file) ("parser.ss" . file) ("r6rs.ss" . file)
                                               ("scheme.ss" . file) ("shell-read-token.ss" . file) ("shell.ss" . file))
 
