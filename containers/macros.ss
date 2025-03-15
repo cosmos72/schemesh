@@ -7,7 +7,7 @@
 
 (library (schemesh containers macros (0 8 1))
   (export
-    begin^ for for* if^ unless^ when^)
+    begin^ for for* if^ let^ let-values^ unless^ when^)
   (import
     (rnrs)
     (only (chezscheme) void)
@@ -44,13 +44,70 @@
     ((_ expr body ...) (if expr (begin^ body ...) (void)))))
 
 
-(define-syntax %for-inner-part
+;; extended (let ((var expr) ...) body ...) that also accepts empty body
+(define-syntax let^
+  (syntax-rules ()
+    ((_ () body ...)
+      (begin^ body ...))
+    ((_ ((var expr) ...))
+      (let ((var expr) ...)
+        (void)))
+    ((_ ((var expr) ...) body ...)
+      (let ((var expr) ...)
+        body ...))))
+
+
+;; extended (let-values (((var ...) expr) ...) body ...)
+;; that optimizes single-value bindings and also accepts empty body
+(define-syntax let-values^
+  (syntax-rules ()
+    ((_ () body ...)
+      (begin^ body ...))
+    ((_ (((var) expr) more-vars ...) body ...)
+      (let ((var expr))
+        (let-values^ (more-vars ...)
+          body ...)))
+    ((_ (((var vars ...) expr) more-vars ...) body ...)
+      (let-values (((var vars ...) expr))
+        (let-values^ (more-vars ...)
+          body ...)))))
+
+
+(define-syntax %for-body
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((vars ... flag iter) ...) body ...)
-        #`(let-values (((vars ... flag) (iter)) ...)
-            (when^ (and flag ...)
-              body ...))))))
+      ((_ for-loop () body ...)
+        #'(begin body ... (for-loop)))
+      ((_ for-loop ((vars ... flag iter) more-vars ...) body ...)
+        #'(let-values^ (((vars ... flag) (iter)))
+            (when^ flag
+              (%for-body for-loop (more-vars ...)
+                body ...)))))))
+
+
+(define-syntax %for-sequence
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ () (bind ...) body ...)
+        #'(let for-loop ()
+            (%for-body for-loop (bind ...) body ...)))
+      ;; Racket-compatible syntax: (for (((var ...) sequence)) body ...)
+      ((_ (((var ...) sequence) clause2 ...) (bind ...) body ...)
+        #'(%for-sequence ((var ... sequence)) (bind ...) body ...))
+      ;; Simplified syntax: (for ((var ... sequence)) body ...)
+      ((_ ((var ... sequence) clause2 ...) (bind ...) body ...)
+        #'(let ((iter sequence))
+            (%for-sequence (clause2 ...) (bind ... (var ... flag iter)) body ...))))))
+
+
+(define-syntax for
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ () body ...)
+        #'(begin^ body ... ))
+      ((_ (clause1 clause2 ...) body ...)
+        #'(%for-sequence (clause1 clause2 ...) () body ... )))))
+
 
 
 (define-syntax %for*-inner-part
@@ -59,33 +116,14 @@
       ((_ () body ...)
         #`(begin^ body ...))
       ((_ ((vars ... flag iter)) body ...)
-        #`(let-values (((vars ... flag) (iter)))
+        #`(let-values^ (((vars ... flag) (iter)))
             (when^ flag
               body ...)))
       ((_ ((vars ... flag iter) (vars2 ... flag2 iter2) ...) body ...)
-        #`(let-values (((vars ... flag) (iter)))
+        #`(let-values^ (((vars ... flag) (iter)))
             (when^ flag
               (%for*-inner-part ((vars2 ... flag2 iter2) ...)
                 body ...)))))))
-
-
-;; repeatedly call (begin body ...) in a loop,
-;; with vars bound to successive elements produced by corresponding iterators.
-;;
-;; the loop finishes when some iterator reaches reach its end.
-;;
-;; typical iterators expressions are (in-list ...) (in-vector ...) (in-hash ...) etc.
-(define-syntax for
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ ((vars ... iterator) ...) body ...)
-        (with-syntax (((flag ...) (generate-pretty-temporaries #'(iterator ...))))
-          (with-syntax (((iter ...) (generate-pretty-temporaries #'(iterator ...))))
-            #`(let ((iter iterator) ...)
-                (let for-loop ()
-                  (%for-inner-part ((vars ... flag iter) ...)
-                    body ...
-                    (for-loop))))))))))
 
 
 ;; repeatedly call (begin body ...) in a loop,
