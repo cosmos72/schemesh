@@ -13,6 +13,12 @@
 (define msg-suspended   (string->utf8b "; suspended\n"))
 (define fd-stderr       2)
 
+(define (fd-write-retry fd bvec)
+  ;; called from signal handlers. intentionally does NOT call check-interrupts
+  (while (eq? #t (fd-write-noretry fd bvec))
+    (void)))
+
+
 (define (signal-handler-sigint)
   ;; received a SIGINT, for example from a keyboard CTRL+C.
   ;; If there's a sh-expr job running, try to kill it.
@@ -20,7 +26,7 @@
   ;; show what's happening and invoke the break handler.
   (unless (sh-current-job-kill 'sigint)
     (unless (eq? nop (break-handler))
-      (fd-write-noretry fd-stderr msg-interrupted)
+      (fd-write-retry fd-stderr msg-interrupted)
       (break))))
 
 
@@ -31,7 +37,7 @@
   ;; show what's happening and invoke the break handler.
   (unless (sh-current-job-kill 'sigquit)
     (unless (eq? nop (break-handler))
-      (fd-write-noretry fd-stderr msg-quit)
+      (fd-write-retry fd-stderr msg-quit)
       (break))))
 
 
@@ -42,7 +48,7 @@
   ;; show what's happening and invoke the break handler.
   (unless (sh-current-job-suspend 'sigtstp)
     (unless (eq? nop (break-handler))
-      (fd-write-noretry fd-stderr msg-suspended)
+      (fd-write-retry fd-stderr msg-suspended)
       (break))))
 
 
