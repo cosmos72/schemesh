@@ -28,30 +28,30 @@
 
 ### release v0.7.7, 2025-03-01
 
-* fix (charhistory-save-to-path) not to raise exceptions: it was preventing schemesh
+* fix `(charhistory-save-to-path)` not to raise exceptions: it was preventing schemesh
   from exiting if ~/.cache/schemesh/ directory does not exist or was not writable
 
 ### release v0.7.6, 2025-03-01
 
 * add new syntax for shell command substitution `$[ ]`  and deprecate the old syntax `$( )`
-* add string-related functions (string-any) (string-contains) (string-count) (string-every)
+* add string-related functions `(string-any) (string-contains) (string-count) (string-every)
   (string-index) (string-index-right) (string-join) (string-map) (string-replace-all)
-  (string-replace-prefix) (string-replace-suffix) (string-prefix?) (string-suffix?)
-* export string-related functions (in-string) (string-fill-range!) (string-is-unsigned-base10-integer?)
+  (string-replace-prefix) (string-replace-suffix) (string-prefix?) (string-suffix?)`
+* export string-related functions `(in-string) (string-fill-range!) (string-is-unsigned-base10-integer?)
   (string-is-signed-base10-integer?) (string-iterate) (string-list?) (string-list-split-after-nuls)
   (string-prefix/char?) (string-range-count=) (string-range=?) (string-range<?) (string-replace/char!)
-  (string-rtrim-newlines!) (string-split) (string-split-after-nuls) (string-suffix/char?) (string-trim-split-at-blanks)
-* automatically (import (schemesh)) at REPL
+  (string-rtrim-newlines!) (string-split) (string-split-after-nuls) (string-suffix/char?) (string-trim-split-at-blanks)`
+* automatically `(import (schemesh))` at REPL
 * rename existing functions to follow r7rs naming conventions
-* fix (parse-shell-forms) to parse to nothing backslash-newline outside quotes
-* fix (parse-lisp-forms) to correctly parse backslash-whitespace-newline-whitespace inside double quotes
-* fix C function c_tty_setraw() to retrieve the current tty configuration at every call,
+* fix `(parse-shell-forms)` to parse to nothing backslash-newline outside quotes
+* fix `(parse-lisp-forms)` to correctly parse backslash-whitespace-newline-whitespace inside double quotes
+* fix C function `c_tty_setraw()` to retrieve the current tty configuration at every call,
   because one of the executed commands may have changed it: we want to preserve such changes for future commands
-* fix bugs in (on-list) and (in-fixnum-range)
-* add functions (directory-list) (directory-list-type) (file-delete) (in-exact-range)
-  (mkdir) (ok?) (string-replace-start) (string-replace-end)
-* refactor function (in-range) to call one of (in-fixnum-range) (in-exact-range) (in-flonum-range)
-* rename shell builtin "test" -> "expr" and rename macro (shell-test) -> (shell-expr)
+* fix bugs in `(on-list)` and `(in-fixnum-range)`
+* add functions `(directory-list) (directory-list-type) (file-delete) (in-exact-range)
+  (mkdir) (ok?) (string-replace-start) (string-replace-end)`
+* refactor function `(in-range)` to call one of `(in-fixnum-range) (in-exact-range) (in-flonum-range)`
+* rename shell builtin "test" -> "expr" and rename macro `(shell-test)` -> `(shell-expr)`
 * implement builtin "cd-" changes current directory of *parent* job to its previous value.
 * implement builtin "parent" executes another builtin with its parent job temporarily set to its grandparent job.
   if used multiple times, as for example "parent parent cd ..", the effects are cumulative.
@@ -63,12 +63,12 @@
 * fix support for Chez Scheme down to 9.5.8
 * rename shell builtin "error" -> "test"
 * add command line option `--load-file FILE` and support for loading compiled Scheme libraries *.so
-* add functions (alist->eq-hashtable) (alist->eqv-hashtable) (alist->hashtable) (file-rename)
+* add functions `(alist->eq-hashtable) (alist->eqv-hashtable) (alist->hashtable) (file-rename)
   (in-bytevector) (in-bytespan) (in-chargbuffer) (in-charline) (in-charlines) (in-charspan)
   (in-gbuffer) (in-hash) (in-list) (in-span) (in-string) (in-vector)
   (in-fixnum-range) (in-flonum-range) (in-range) (on-list)
-  (sh-bool) (sh-run/string-split-after-nuls) (sh-version) (string-replace)
-* add macros (for) (for*) (library-reexport) (shell-test)
+  (sh-bool) (sh-run/string-split-after-nuls) (sh-version) (string-replace)`
+* add macros `(for) (for*) (library-reexport) (shell-test)`
 * add Fedora Linux build instructions to README.md
 * add "Troubleshooting" section to README.md
 * add more examples to README.md
