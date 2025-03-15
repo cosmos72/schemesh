@@ -143,7 +143,7 @@ failed
 2
 ```
 
-If a job exited successfully, `(status->kind)` will return the symbol `'ok`.
+If a job exited successfully, `(status->kind status)` will return the symbol `'ok` and `(ok? status)` will return `#t`.
 In the case of Scheme jobs that return multiple values, use `(ok->list)` or `(ok->values)`
 to access all the values, because `(status->value)` returns only the first one:
 ```lisp
