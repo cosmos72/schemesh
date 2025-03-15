@@ -15,10 +15,11 @@
 
 (library (schemesh containers list (0 8 1))
   (export
-    any count every for-list in-list
+    any count every for-list for-plist in-list in-plist on-list
+
     list-copy* list-index list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
-    on-list
-    for-plist plist? plist-add plist-ref plist-delete plist-delete/pred)
+
+    plist? plist-add plist-ref plist-delete plist-delete/pred)
 
   (import
     (rnrs)
@@ -372,6 +373,22 @@
         (%plist-delete/pred (cons (cadr plist) (cons (car plist) ret))
                             (cddr plist)
                             pred)))))
+
+
+
+;; create and return a closure that iterates on elements of property list plist.
+;;
+;; the returned closure accepts no arguments, and each call to it returns three values:
+;; either (values key val #t) i.e. the next key and value in plist and #t,
+;; or (values #<unspecified> #<unspecified> #f) if end of plist is reached.
+(define (in-plist plist)
+  (lambda ()
+    (if (null? plist)
+      (values #f #f)
+      (let ((key (car plist))
+            (val (cadr plist)))
+        (set! plist (cddr plist))
+        (values key val #t)))))
 
 
 ;; Iterate in parallel on elements of given property lists plist ..., and evaluate body ... on each element.
