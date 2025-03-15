@@ -1,8 +1,18 @@
 ## RECENT CHANGES
 
+### release v0.8.1, 2025-03-15
+
+* fix job control on Scheme jobs `$()` running inside a pipeline
+* replace standard Scheme textual ports `(current-input-port)` `(current-output-port)` `(current-error-port)`
+  with interruptible ones that honor job redirections and use UTF-8b
+* update Scheme binary ports `(sh-stdin)` `(sh-stdout)` `(sh-stderr)`
+  to be interruptible and honor job redirections
+* export several new functions to iterate on lists, hashtables, strings, etc.
+* internally rewrite and cleanup POSIX signal handlers
+
 ### release v0.8.0, 2025-03-04
 
-* add job-creating function `(sh-expr)` and corresponding macro `(shell-expr)`
+* add job-creating syntax `$( )` and macro `(shell-expr)` and corresponding function `(sh-expr)`
 * implement job control also on arbitrary Scheme code running inside a `(shell-expr)`
 * update both shell parser and Scheme parser to expand `$( )` to `(shell-expr ( ))`
 * ignore newlines at the beginning of shell syntax:
