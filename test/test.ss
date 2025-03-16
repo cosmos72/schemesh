@@ -10,7 +10,8 @@
   (export
       run-tests)
   (import
-    (except (rnrs) file-exists? delete-file)
+    (except (rnrs) file-exists? delete-file
+                   get-char get-datum get-line get-string-all get-string-n)
     (rnrs base)
     (rnrs exceptions)
     (only (rnrs mutable-strings)  string-set!)

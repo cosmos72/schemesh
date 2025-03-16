@@ -15,7 +15,8 @@
     (schemesh posix pattern)
 
     ;; by default, do not re-export bindings from (schemesh posix replacements)
-    ;; because they intentionally conflict with R6RS functions (file-exists?) and (delete-file)
+    ;; because they intentionally conflict with R6RS functions (file-exists?) (delete-file)
+    ;; (get-char) (get-datum) (get-line) (get-string-all) (get-string-n) (get-string-some)
     ;; and with Chez Scheme functions for accessing the filesystem.
     ;;
     ;; Reason for the conflict: the functions in (schemesh posix replacements)
