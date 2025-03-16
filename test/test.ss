@@ -11,7 +11,8 @@
       run-tests)
   (import
     (except (rnrs) file-exists? delete-file
-                   get-char get-datum get-line get-string-all get-string-n)
+                   get-char get-datum get-line get-string-all get-string-n
+                   put-char put-datum put-string)
     (rnrs base)
     (rnrs exceptions)
     (only (rnrs mutable-strings)  string-set!)

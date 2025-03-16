@@ -16,18 +16,23 @@
       delete-directory delete-file
       file-directory? file-exists? file-regular? file-symbolic-link?
 
-      get-char get-datum get-line get-string-all get-string-n get-string-some)
+      get-char get-datum get-line get-string-all get-string-n get-string-some
+      put-char put-datum put-string put-string-some)
   (import
     (rename (except (rnrs) delete-file file-exists?)
                                (get-char        r6rs:get-char)
                                (get-datum       r6rs:get-datum)
                                (get-line        r6rs:get-line)
                                (get-string-all  r6rs:get-string-all)
-                               (get-string-n    r6rs:get-string-n))
+                               (get-string-n    r6rs:get-string-n)
+                               (put-char        r6rs:put-char)
+                               (put-datum       r6rs:put-datum)
+                               (put-string      r6rs:put-string))
 
-    (rename (only (chezscheme) foreign-procedure format get-string-some
-                               make-continuation-condition make-format-condition sort! void)
-                               (get-string-some chez:get-string-some))
+    (rename (only (chezscheme) foreign-procedure format get-string-some make-continuation-condition
+                               make-format-condition put-string-some sort! void)
+                               (get-string-some chez:get-string-some)
+                               (put-string-some chez:put-string-some))
 
     (only (schemesh posix fd)  c-errno->string)
     (only (schemesh posix dir) file-type file-delete))
@@ -97,6 +102,63 @@
   (case-lambda
     (()     (chez:get-string-some (current-input-port)))
     ((port) (chez:get-string-some port))))
+
+
+;;; Write char to textual-output-port, which defaults to (current-output-port).
+;;; Port's position advances by one character.
+;;;
+;;; Return unspecified value.
+(define put-char
+  (case-lambda
+    ((ch)      (r6rs:put-char (current-output-port) ch))
+    ((port ch) (r6rs:put-char port ch))))
+
+
+;;; Write an external representation of obj to textual-output-port, which defaults to (current-output-port).
+;;; If obj does not have an external representation as a datum, the behavior is implementation-dependent.
+;;;
+;;; The precise external representation is implementation-dependent, but when obj does have an external representation as a datum,
+;;; put-datum should produce a sequence of characters that can later be read by get-datum
+;;; as an object equivalent (in the sense of equal?) to obj
+;;;
+;;; Return unspecified value.
+(define put-datum
+  (case-lambda
+    ((obj)      (r6rs:put-datum (current-output-port) obj))
+    ((port obj) (r6rs:put-datum port obj))))
+
+
+;;; If supplied, start and n must be nonnegative exact integers, and the sum of start and n must not exceed the length of string.
+;;; If not supplied, start defaults to zero and n defaults to the difference between the length of string and start.
+;;;
+;;; Write the n characters of string starting at start to the port.
+;;; Port's position advances by n characters.
+;;;
+;;; Return unspecified value.
+(define put-string
+  (case-lambda
+    ((string)              (r6rs:put-string (current-output-port) string))
+    ((port string)         (r6rs:put-string port string))
+    ((port string start)   (r6rs:put-string port string start))
+    ((port string start n) (r6rs:put-string port string start n))))
+
+
+;;; If supplied, start and n must be nonnegative exact integers, and the sum of start and n must not exceed the length of string.
+;;; If not supplied, start defaults to zero and n defaults to the difference between the length of string and start.
+;;;
+;;; This procedure normally writes the n characters of string starting at start to the port.
+;;; If the port is in nonblocking mode (see set-port-nonblocking!), however,
+;;; the number of characters written may be less than n, if the system would have to block to write more characters.
+;;;
+;;; Port's position advances by the number of characters actually written.
+;;;
+;;; Return the number of characters actually written.
+(define put-string-some
+  (case-lambda
+    ((string)              (chez:put-string-some (current-output-port) string))
+    ((port string)         (chez:put-string-some port string))
+    ((port string start)   (chez:put-string-some port string start))
+    ((port string start n) (chez:put-string-some port string start n))))
 
 
 
