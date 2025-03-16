@@ -74,10 +74,11 @@ with as many nesting levels as you want.
 Shell syntax creates first-class Lisp `sh-job` objects, which can be started/stopped/managed from both syntaxes.
 
 The most common mechanisms to start/stop/manage jobs from shell syntax are:
-* CTRL+C      interrupt the current foreground job
-* CTRL+Z      suspend the current foreground job
-* `bg job-id` resume a job in background
-* `fg job-id` resume a job in foreground
+* CTRL+C        interrupt the current foreground job
+* CTRL+Z        suspend the current foreground job
+* `bg job-id`   resume a job in background, return immediately
+* `fg job-id`   resume a job in foreground, wait until job finishes or is suspended
+* `wait job-id` resume a job in foreground, wait until job finishes
 
 The analogous job control mechanisms from Scheme syntax are:
 * CTRL+C      as above
