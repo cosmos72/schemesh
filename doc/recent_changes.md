@@ -1,5 +1,18 @@
 ## RECENT CHANGES
 
+
+### git main branch
+
+* add functions `(get-char) (get-datum) (get-line) (get-string-all) (get-string-n)`
+  and `(put-char) (put-datum) (put-string) (put-string-some)`
+  they are exported only by libraries `(schemesh)` or `(schemesh posix replacements)`
+  because they intentionally conflict with with R6RS and Chez Scheme functions with the same names:
+  they are intended as replacements.
+  They are equivalent to their R6RS or Chez Scheme counterparts,
+  with the addition that textual-port is optional and defaults respectively
+  to `(current-input-port)` for `(get-...)` functions
+  and to `(current-output-port)` for `(put-...)` functions
+
 ### release v0.8.1, 2025-03-15
 
 * fix job control on Scheme jobs `$()` running inside a pipeline
