@@ -12,7 +12,7 @@
 (library (schemesh containers bytespan (0 8 1))
   (export
     list->bytespan bytevector->bytespan bytevector->bytespan* make-bytespan
-    bytespan->bytevector bytespan->bytevector*!
+    bytespan->bytevector bytespan->bytevector*! bytespan->bytevector0
     bytespan bytespan? bytespan-length bytespan-empty? bytespan-clear!
     bytespan-capacity bytespan-capacity-left bytespan-capacity-right
     bytespan-ref/u8 bytespan-ref-right/u8 bytespan-set/u8!
@@ -67,6 +67,18 @@
     (if (fx>=? beg end)
       #vu8()
       (subbytevector (bytespan-vec sp) beg end))))
+
+;; convert a bytespan to 0-terminated bytevector
+(define (bytespan->bytevector0 sp)
+  (let ((beg (bytespan-beg sp))
+        (end (bytespan-end sp)))
+    (if (fx>=? beg end)
+      #vu8(0) ;; allocated every time, can be modified
+      (let* ((n   (fx- end beg))
+             (ret (make-bytevector (fx1+ n))))
+        (bytevector-copy! (bytespan-vec sp) beg ret 0 n)
+        (bytevector-u8-set! ret n 0)
+        ret))))
 
 ;; if possible, truncate bytespan to its length and view it as a bytevector.
 ;; otherwise convert it to bytevector as (bytespan->bytevector) does.

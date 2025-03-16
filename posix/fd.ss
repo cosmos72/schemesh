@@ -8,21 +8,33 @@
 (library (schemesh posix fd (0 8 1))
   (export
     c-errno c-errno->string c-exit c-hostname
-    fd-open-max fd-close fd-close-list fd-dup fd-dup2
+    fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-seek
     fd-read fd-read-all fd-read-insert-right! fd-read-noretry fd-read-u8
     fd-write fd-write-all fd-write-noretry fd-write-u8
     fd-select fd-setnonblock open-file-fd open-pipe-fds
     raise-c-errno)
   (import
     (rnrs)
-    (only (chezscheme)               break foreign-procedure logbit? void procedure-arity-mask)
+    (only (chezscheme)     break foreign-procedure lock-object logbit? void procedure-arity-mask unlock-object)
     (only (schemesh bootstrap)       assert* check-interrupts raise-errorf sh-make-thread-parameter while)
     (schemesh containers bytespan)
     (only (schemesh conversions)     text->bytevector0 transcoder-utf8))
 
 
+(define-syntax with-locked-objects
+  (syntax-rules ()
+    ((_ (obj1 obj2 ...) body1 body2 ...)
+      (dynamic-wind
+        (lambda () (lock-object obj1) (lock-object obj2) ...)
+        (lambda () body1 body2 ...)
+        (lambda () (unlock-object obj1) (lock-object obj2) ...)))))
+
+
 (define c-errno
   (foreign-procedure "c_errno" () int))
+
+(define c-errno-einval
+  ((foreign-procedure "c_errno_einval" () int)))
 
 (define c-errno->string
   (foreign-procedure "c_strerror_string" (int) ptr))
@@ -76,6 +88,27 @@
         (if (>= ret 0)
           (void)
           (raise-c-errno 'fd-dup2 'dup2 ret old-fd new-fd))))))
+
+
+(define (int64? obj)
+  (and (integer? obj) (exact? obj)
+       (<= #x-10000000000000000 obj #xFFFFFFFFFFFFFFFF)))
+
+
+;; change current position on file descriptor fd.
+;; offset must be an exact integer representable as C int64_t
+;; and from must be one of the symbols: 'seek-set 'seek-cur 'seek-end
+;;
+;; return updated position, counted in bytes from start of file,
+;; or < 0 on error
+(define fd-seek
+  (let ((c-fd-seek (foreign-procedure __collect_safe "c_fd_seek" (int integer-64 fixnum) integer-64)))
+    (lambda (fd offset from)
+      (if (and (fixnum? fd)
+               (int64? offset)
+               (memq from '(seek-set seek-cur seek-end)))
+        (c-fd-seek fd offset (case from ((seek-cur) 1) ((seek-end) 2) (else 0)))
+        c-errno-einval))))
 
 
 ;; read from fd until end-of-file.
@@ -132,10 +165,11 @@
 ;;
 ;; Note: if interrupted, returns #t
 (define fd-read-noretry
-  (let ((c-fd-read (foreign-procedure "c_fd_read" (int ptr fixnum fixnum) ptr)))
+  (let ((c-fd-read (foreign-procedure __collect_safe "c_fd_read" (int ptr fixnum fixnum) ptr)))
     (case-lambda
       ((fd bytevector-result start end)
-        (let ((ret (c-fd-read fd bytevector-result start end)))
+        (let ((ret (with-locked-objects (bytevector-result)
+                     (c-fd-read fd bytevector-result start end))))
           (if (or (eq? #t ret) (and (integer? ret) (>= ret 0)))
             ret
             (raise-c-errno 'fd-read 'read ret fd #vu8() start end))))
@@ -148,7 +182,7 @@
 ;;
 ;; Note: if interrupted, calls (check-interrupts) then tries again if (check-interrupts) returns normally.
 (define fd-read-u8
-  (let ((c-fd-read-u8 (foreign-procedure "c_fd_read_u8" (int) ptr)))
+  (let ((c-fd-read-u8 (foreign-procedure __collect_safe "c_fd_read_u8" (int) ptr)))
     (lambda (fd)
       (let %loop ()
         (check-interrupts)
@@ -207,10 +241,11 @@
 ;;
 ;; Note: if interrupted, returns #t
 (define fd-write-noretry
-  (let ((c-fd-write (foreign-procedure "c_fd_write" (int ptr fixnum fixnum) ptr)))
+  (let ((c-fd-write (foreign-procedure __collect_safe "c_fd_write" (int ptr fixnum fixnum) ptr)))
     (case-lambda
       ((fd bytevector-towrite start end)
-        (let ((ret (c-fd-write fd bytevector-towrite start end)))
+        (let ((ret (with-locked-objects (bytevector-towrite)
+                     (c-fd-write fd bytevector-towrite start end))))
           (if (or (eq? #t ret) (and (integer? ret) (>= ret 0)))
             ret
             (raise-c-errno 'fd-write 'write ret fd #vu8() start end))))
@@ -223,7 +258,7 @@
 ;;
 ;; Note: if interrupted, calls (check-interrupts) then tries again if (check-interrupts) returns normally.
 (define fd-write-u8
-  (let ((c-fd-write-u8 (foreign-procedure "c_fd_write_u8" (int int) ptr)))
+  (let ((c-fd-write-u8 (foreign-procedure __collect_safe "c_fd_write_u8" (int int) ptr)))
     (lambda (fd u8)
       (let %loop ()
         (check-interrupts)
@@ -245,7 +280,7 @@
 ;;
 ;; If interrupted, returns 'timeout
 (define fd-select
-  (let ((c-fd-select (foreign-procedure "c_fd_select" (int int int) int))
+  (let ((c-fd-select (foreign-procedure __collect_safe "c_fd_select" (int int int) int))
         (c-errno-eio ((foreign-procedure "c_errno_eio" () int)))
         (c-errno-eintr ((foreign-procedure "c_errno_eintr" () int))))
     (lambda (fd direction timeout-milliseconds)
@@ -265,7 +300,7 @@
 
 
 (define fd-setnonblock
-  (let ((c-fd-setnonblock (foreign-procedure "c_fd_setnonblock" (int) int)))
+  (let ((c-fd-setnonblock (foreign-procedure __collect_safe "c_fd_setnonblock" (int) int)))
     (lambda (fd)
       (let ((ret (c-fd-setnonblock fd)))
         (if (>= ret 0)
@@ -275,26 +310,29 @@
 
 ;; open a file and returns its file descriptor.
 ;; Arguments:
-;;   filepath must be string or bytevector.
-;;   each flag must be one of: 'read 'write 'rw 'create 'truncate 'append
-;;   at least one of 'read 'write 'rw must be present
+;;   mandatory filepath must be string, bytevector, bytespan or charspan.
+;;   mandatory direction must be one of the symbols: 'read 'write 'rw
+;;   optional flags must be a list containing zero or more: 'create 'truncate 'append
 (define open-file-fd
-  (let ((c-open-file-fd (foreign-procedure "c_open_file_fd"
+  (let ((c-open-file-fd (foreign-procedure __collect_safe "c_open_file_fd"
                           (ptr int int int int) int)))
-    (lambda (filepath . flags)
-      (let* ([filepath0 (text->bytevector0 filepath)]
-             [flag-rw (cond ((memq 'rw    flags) 2)
-                            ((memq 'write flags) 1)
-                            ((memq 'read  flags) 0)
-                            (else (error 'open-file-fd
-                                    "flags must contain one of 'read 'write 'rw" flags)))]
-             [flag-create   (if (memq 'create   flags) 1 0)]
-             [flag-truncate (if (memq 'truncate flags) 1 0)]
-             [flag-append   (if (memq 'append   flags) 1 0)]
-             [ret (c-open-file-fd filepath0 flag-rw flag-create flag-truncate flag-append)])
-        (if (>= ret 0)
-          ret
-          (apply raise-c-errno 'open-file-fd 'open ret filepath flags))))))
+    (case-lambda
+      ((filepath direction)
+        (open-file-fd filepath direction '()))
+      ((filepath direction flags)
+        (let* ((filepath0 (text->bytevector0 filepath))
+               (dir (case direction
+                      ((read) 0) ((write) 1) ((rw) 2)
+                      (else (error 'open-file-fd
+                              "direction must be one of 'read 'write 'rw" direction))))
+               (flag-create   (if (memq 'create   flags) 1 0))
+               (flag-truncate (if (memq 'truncate flags) 1 0))
+               (flag-append   (if (memq 'append   flags) 1 0))
+               (ret (with-locked-objects (filepath0)
+                      (c-open-file-fd filepath0 dir flag-create flag-truncate flag-append))))
+          (if (>= ret 0)
+            ret
+            (apply raise-c-errno 'open-file-fd 'open ret filepath direction flags)))))))
 
 
 ;; create a pipe.

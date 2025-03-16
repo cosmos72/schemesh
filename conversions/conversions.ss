@@ -16,7 +16,7 @@
     (only (rnrs mutable-pairs)   set-car!)
     (only (chezscheme)           condition-continuation continuation-condition? fx1+ fx1- void)
     (only (schemesh bootstrap functions)   raise-assertf)
-    (only (schemesh containers)  bytespan->bytevector bytespan->bytevector*!
+    (only (schemesh containers)  bytespan? bytespan->bytevector bytespan->bytevector*! bytespan->bytevector0
                                  bytespan-reserve-right! bytespan-insert-right/string! bytespan-insert-right/u8!
                                  bytevector<? bytevector-index
                                  charspan? charspan-empty? charspan-index/char charspan->utf8b charspan->utf8b/0
@@ -125,14 +125,15 @@
     (put-char port #\nul)
     (get-bytevector)))
 
-(define bv0 #vu8(0))
-
 ;; convert bytevector to 0-terminated bytevector
+;;
+;; returned bytevector can be modified,
+;; but note that it can share data with original bytevector.
 (define (bytevector->bytevector0 x)
   (let ((len (bytevector-length x)))
     (cond
       ((fxzero? len)
-        bv0)
+        #vu8(0))
       ((fxzero? (bytevector-u8-ref x (fx1- len)))
         x)
       (else
@@ -141,22 +142,27 @@
           (bytevector-u8-set! ret len 0)
           ret)))))
 
-;; convert a bytevector, string or charspan to terminated bytevector, then appends a byte 0.
+;; convert a bytevector, bytespan, string or charspan to bytevector, then appends a byte 0.
 ;; uses UTF-8b to convert characters to bytes.
+;;
+;; returned bytevector can be modified,
+;; but note that it can share data with original bytevector.
 (define (text->bytevector0 x)
   (cond
     ((bytevector? x)
        (bytevector->bytevector0 x))
     ((string? x)
        (if (fxzero? (string-length x))
-         bv0
+         #vu8(0)
          (string->utf8b/0 x)))
+    ((bytespan? x)
+       (bytespan->bytevector0 x))
     ((charspan? x)
        (if (charspan-empty? x)
-         bv0
-         (bytespan->bytevector (charspan->utf8b/0 x))))
+         #vu8(0)
+         (bytespan->bytevector*! (charspan->utf8b/0 x))))
     (else
-      (raise-assertf 'text->bytevector0 "~s is not bytevector, string or charspan" x))))
+      (raise-assertf 'text->bytevector0 "~s is not bytevector, bytespan, string or charspan" x))))
 
 
 ;; convert a bytevector, string or charspan to bytevector
@@ -182,7 +188,7 @@
   (utf8b->string x 0 (fx1- (bytevector-length x))))
 
 
-;; convert a list of strings, bytevectors or charspans to vector-of-bytevector0
+;; convert a list of strings, bytevectors, bytespans or charspans to vector-of-bytevector0
 ;; i.e. to a vector of 0-terminated UTF-8b bytevectors
 ;;
 ;; Note: throws if a string, bytevector or charspan to be converted contains #\nul

@@ -30,7 +30,7 @@
 ;; Intentionally shadows R6RS and Chez Scheme (delete-file) ad provides compatible API and semantics,
 ;; adding support for non-UTF-8 paths.
 ;;
-;; Mandatory first argument path must be a bytevector, string or charspan.
+;; Mandatory first argument path must be a string, bytevector, bytespan or charspan.
 ;; Further optional argument can contain:
 ;;   truish - if operation fails, raise an &i/o-filename exception
 ;;   #f     - (default) if operation fails, return #f without raising exceptions
@@ -53,7 +53,7 @@
 ;; Intentionally shadows Chez Scheme (delete-directory) ad provides compatible API and semantics,
 ;; adding support for non-UTF-8 paths.
 ;;
-;; Mandatory first argument path must be a bytevector, string or charspan.
+;; Mandatory first argument path must be a string, bytevector, bytespan or charspan.
 ;; Further optional argument can contain:
 ;;   truish - if operation fails, raise an &i/o-filename exception
 ;;   #f     - (default) if operation fails, return #f without raising exceptions
@@ -92,7 +92,7 @@
 ;; Intentionally shadows Chez Scheme (file-exists?) ad provides compatible API and semantics,
 ;; adding support for non-UTF-8 paths.
 ;;
-;; Mandatory first argument path must be a bytevector, string or charspan.
+;; Mandatory first argument path must be a string, bytevector, bytespan or charspan.
 ;; Further optional argument can contain:
 ;;   truish - (default) follow symbolic links
 ;;   #f     - don't follow symbolic links
@@ -113,7 +113,7 @@
 ;; Intentionally shadows Chez Scheme (file-directory?) ad provides compatible API and semantics,
 ;; adding support for non-UTF-8 paths.
 ;;
-;; Mandatory first argument path must be a bytevector, string or charspan.
+;; Mandatory first argument path must be a string, bytevector, bytespan or charspan.
 ;; Further optional argument can contain:
 ;;   truish - (default) follow symbolic links
 ;;   #f     - don't follow symbolic links
@@ -134,7 +134,7 @@
 ;; Intentionally shadows R6R6 and Chez Scheme (file-regular?) ad provides compatible API and semantics,
 ;; adding support for non-UTF-8 paths.
 ;;
-;; Mandatory first argument path must be a bytevector, string or charspan.
+;; Mandatory first argument path must be a bytevector, string, bytespan or charspan.
 ;; Further optional argument can contain:
 ;;   truish - (default) follow symbolic links
 ;;   #f     - don't follow symbolic links

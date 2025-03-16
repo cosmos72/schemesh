@@ -49,7 +49,7 @@
 ;;   otherwise raises an exception.
 ;;
 ;; Differences between (mkdir) and Chez Scheme (mkdir):
-;; 1. (mkdir) also accepts bytevectors or charspans, not only strings.
+;; 1. (mkdir) also accepts bytevectors, bytespans or charspans, not only strings.
 ;; 3. (mkdir) converts strings and charspans to UTF-8b bytevectors instead of UTF-8.
 ;; 4. (mkdir) accepts option 'catch, instead Chez Scheme (mkdir) always raises an exception of failure.
 ;; 5. (mkdir) returns (void) on success and error code on failure, instead of an unspecified value.
@@ -82,7 +82,7 @@
 ;;
 ;; Differences between (file-delete) and Chez Scheme (delete-file):
 ;; 1. (file-delete) also deletes empty directories
-;; 2. (file-delete) also accepts bytevectors or charspans, not only strings.
+;; 2. (file-delete) also accepts bytevectors, bytespans or charspans, not only strings.
 ;; 3. (file-delete) converts strings and charspans to UTF-8b bytevectors instead of UTF-8.
 ;; 4. (file-delete) accepts optional list instead of optional boolean argument errors?
 ;; 5. (file-delete) returns (void) on success and error code on failure, instead of a boolean
@@ -115,7 +115,7 @@
 ;;   otherwise raises an exception.
 ;;
 ;; Differs from Chez Scheme (rename-file) in three aspects:
-;; 1. (file-rename) also accepts bytevectors and charspans, not only strings.
+;; 1. (file-rename) also accepts bytevectors, bytespans and charspans, not only strings.
 ;; 2. (file-rename) converts strings and charspans to UTF-8b, instead of UTF-8.
 ;; 3. (file-rename) also accepts option 'catch, while Chez (rename-file) always raises an exception on failure.
 ;; 4. (file-rename) returns (void) on success and error code on failure, instead of an unspecified value.
@@ -142,7 +142,7 @@
 
 
 ;; Check existence and type of a filesystem path.
-;; Mandatory first argument path must be a bytevector, string or charspan.
+;; Mandatory first argument path must be a bytevector, string, bytespan or charspan.
 ;; Second optional argument options must be a list containing zero or more:
 ;;   'catch    - return numeric c-errno instead of raising a condition on C functions error
 ;;   'symlinks - returned filenames that are symlinks will have type 'symlink
@@ -189,7 +189,7 @@
 ;; List contents of a filesystem directory, in arbitrary order.
 ;; WARNING: Chez Scheme also defines a function (directory-list) with different options.
 ;;
-;; Mandatory first argument dirpath must be a bytevector, string or charspan.
+;; Mandatory first argument dirpath must be a bytevector, string, bytespan or charspan.
 ;; Optional second argument options must be a list containing zero or more:
 ;;   'append-slash - if a returned type is 'dir then a '/' will be appended
 ;;            to corresponding filename

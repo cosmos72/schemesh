@@ -26,7 +26,7 @@
     (schemesh containers bytespan)
     (only (schemesh containers utf8b)       utf8b->string utf8b->string-copy!)
     (only (schemesh containers utf8b utils) bytespan-insert-right/string!)
-    (only (schemesh posix fd)               fd-close fd-read fd-write-all open-file-fd))
+    (only (schemesh posix fd)               fd-close fd-seek fd-read fd-write open-file-fd))
 
 
 (define (%set-buffer-mode! port b-mode)
@@ -58,31 +58,37 @@
 ;; binary input and/or output port reading from/writing to a file descriptor returned by a closure.
 (define-record-type bport
   (fields
-    (immutable proc)  ; fd-proc
-    (mutable   pos))  ; position
-  (nongenerative #{bport n9keti0sj3bih8de7dh3r7n4y-0}))
+    (immutable proc))  ; fd-proc
+  (nongenerative #{bport n9keti0sj3bih8de7dh3r7n4y-1}))
 
+(define (bport-fd p)
+  ((bport-proc p)))
 
 (define (bport-read p bv start n)
   (if (and (bytevector? bv) (fixnum? start) (fixnum? n)
            (< -1 start (+ start n) (fx1+ (bytevector-length bv))))
-    (let ((ret (fd-read ((bport-proc p)) bv start (fx+ start n))))
-      (cond
-        ((and (integer? ret) (> ret 0))
-          (bport-pos-set! p (+ ret (bport-pos p)))
-          ret)
-        (else 0)))
+    (let ((ret (fd-read (bport-fd p) bv start (fx+ start n))))
+      (if (and (integer? ret) (> ret 0))
+        ret
+        0))
     0))
 
 
 (define (bport-write p bv start n)
   (if (and (bytevector? bv) (fixnum? start) (fixnum? n)
            (< -1 start (+ start n) (fx1+ (bytevector-length bv))))
-    (begin
-      (fd-write-all ((bport-proc p)) bv start (fx+ start n))
-      (bport-pos-set! p (fx+ n (bport-pos p)))
-      n)
+    (let ((ret (fd-write (bport-fd p) bv start (fx+ start n))))
+      (if (and (integer? ret) (>= ret 0))
+        ret
+        0))
     0))
+
+
+(define (bport-seek p pos from)
+  (let ((ret (fd-seek (bport-fd p) pos from)))
+    (if (and (integer? ret) (>= ret 0))
+      ret
+      0)))
 
 
 ;; create and return a binary input port that redirectably reads from a file descriptor.
@@ -94,12 +100,12 @@
     ((name fd-proc b-mode proc-on-close)
       (assert* 'open-fd-redir-binary-input-port (procedure? fd-proc))
       (assert* 'open-fd-redir-binary-input-port (buffer-mode? b-mode))
-      (let* ((bport (make-bport fd-proc 0))
+      (let* ((bport (make-bport fd-proc))
              (ret   (make-custom-binary-input-port
                       name
                       (lambda (bv start n) (bport-read bport bv start n))
-                      (lambda ()           (bport-pos  bport))
-                      #f    ; no pos-set!
+                      (lambda ()           (bport-seek bport 0   'seek-cur))
+                      (lambda (pos)        (bport-seek bport pos 'seek-set))
                       proc-on-close)))
         (%set-buffer-mode! ret b-mode)))
 
@@ -119,13 +125,13 @@
     ((name fd-proc b-mode proc-on-close)
       (assert* 'open-fd-redir-binary-input/output-port (procedure? fd-proc))
       (assert* 'open-fd-redir-binary-input/output-port (buffer-mode? b-mode))
-      (let* ((bport (make-bport fd-proc 0))
+      (let* ((bport (make-bport fd-proc))
              (ret   (make-custom-binary-input/output-port
                       name
                       (lambda (bv start n) (bport-read bport bv start n))
                       (lambda (bv start n) (bport-write bport bv start n))
-                      #f    ; no pos: there is no "single" position, in/out file descriptors may differ and may be non-seekable
-                      #f    ; no pos-set!
+                      (lambda ()           (bport-seek bport 0   'seek-cur))
+                      (lambda (pos)        (bport-seek bport pos 'seek-set))
                       proc-on-close)))
         (%set-buffer-mode! ret b-mode)))
 
@@ -145,12 +151,12 @@
     ((name fd-proc b-mode proc-on-close)
       (assert* 'open-fd-redir-binary-output-port (procedure? fd-proc))
       (assert* 'open-fd-redir-binary-output-port (buffer-mode? b-mode))
-      (let* ((bport (make-bport fd-proc 0))
+      (let* ((bport (make-bport fd-proc))
              (ret   (make-custom-binary-output-port
                       name
                       (lambda (bv start n) (bport-write bport bv start n))
-                      (lambda ()           (bport-pos  bport))
-                      #f    ; no pos-set!
+                      (lambda ()           (bport-seek bport 0   'seek-cur))
+                      (lambda (pos)        (bport-seek bport pos 'seek-set))
                       proc-on-close)))
         (%set-buffer-mode! ret b-mode)))
 

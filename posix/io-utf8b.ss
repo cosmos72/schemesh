@@ -86,8 +86,12 @@
              (ret (make-custom-textual-input-port
                     (string-append "utf8b " (port-name binary-in-port))
                     (lambda (str start n) (tport-read tport str start n))
-                    #f    ; no pos
-                    #f    ; no pos-set!
+                    (if (port-has-port-position? binary-in-port)
+                      (lambda () (port-position binary-in-port))
+                      #f)
+                    (if (port-has-set-port-position!? binary-in-port)
+                      (lambda (pos) (set-port-position! binary-in-port pos))
+                      #f)
                     ;; on close, also close underlying binary port
                     (lambda () (close-port binary-in-port)))))
         (%set-buffer-mode! ret b-mode)))
@@ -112,8 +116,12 @@
                     (string-append "utf8b " (port-name binary-in/out-port))
                     (lambda (str start n) (tport-read tport1 str start n))
                     (lambda (str start n) (tport-write tport2 str start n))
-                    #f    ; no pos
-                    #f    ; no pos-set!
+                    (if (port-has-port-position? binary-in/out-port)
+                      (lambda () (port-position binary-in/out-port))
+                      #f)
+                    (if (port-has-set-port-position!? binary-in/out-port)
+                      (lambda (pos) (set-port-position! binary-in/out-port pos))
+                      #f)
                     ;; on close, also close underlying binary port
                     (lambda () (close-port binary-in/out-port)))))
         (%set-buffer-mode! ret b-mode)))
@@ -135,8 +143,12 @@
              (ret (make-custom-textual-output-port
                     (string-append "utf8b " (port-name binary-out-port))
                     (lambda (str start n) (tport-write tport str start n))
-                    #f    ; no pos
-                    #f    ; no pos-set!
+                    (if (port-has-port-position? binary-out-port)
+                      (lambda () (port-position binary-out-port))
+                      #f)
+                    (if (port-has-set-port-position!? binary-out-port)
+                      (lambda (pos) (set-port-position! binary-out-port pos))
+                      #f)
                     ;; on close, also close underlying binary port
                     (lambda () (close-port binary-out-port)))))
         (%set-buffer-mode! ret b-mode)))
@@ -195,7 +207,7 @@
 ;; create and return a textual input port that reads
 ;; UTF-8b sequences from a file and converts them to characters.
 ;;
-;; path must be a string or bytevector.
+;; path must be a string, bytevector, bytespan or charspan.
 (define open-file-utf8b-input-port
   (case-lambda
     ((path f-options b-mode)

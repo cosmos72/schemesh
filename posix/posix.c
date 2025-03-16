@@ -29,6 +29,7 @@
 #include <signal.h> /* kill(), sigaction(), SIG... */
 #include <stdatomic.h>
 #include <stddef.h>    /* size_t, NULL */
+#include <stdint.h>    /* int64_t */
 #include <stdio.h>     /* remove(), rename() ... */
 #include <stdlib.h>    /* getenv(), strtoul() */
 #include <string.h>    /* strlen(), strerror() */
@@ -569,6 +570,41 @@ static int c_fd_setnonblock(int fd) {
     }
   }
   return 0;
+}
+
+/**
+ * call lseek(fd, offset, from) to reposition file offset,
+ * and return updated offset in bytes from start of file.
+ *
+ * returns >= 0 on success, or c_errno() on error
+ *
+ * allowed 'from' values are:
+ *   0 : means SEEK_SET
+ *   1 : means SEEK_CUR
+ *   2 : means SEEK_END
+ */
+static int64_t c_fd_seek(int fd, int64_t offset, iptr from) {
+  int64_t ret;
+  int     whence;
+  switch (from) {
+    case 0:
+      whence = SEEK_SET;
+      break;
+    case 1:
+      whence = SEEK_CUR;
+      break;
+    case 2:
+      whence = SEEK_END;
+      break;
+    default:
+      return c_errno_set(EINVAL);
+  }
+  while ((ret = lseek(fd, (off_t)offset, whence)) < 0) {
+    if (errno != EINTR) {
+      return c_errno();
+    }
+  }
+  return ret;
 }
 
 /**
@@ -1783,6 +1819,7 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_fd_close_list", &c_fd_close_list);
   Sregister_symbol("c_fd_dup", &c_fd_dup);
   Sregister_symbol("c_fd_dup2", &c_fd_dup2);
+  Sregister_symbol("c_fd_seek", &c_fd_seek);
   Sregister_symbol("c_fd_read", &c_fd_read);
   Sregister_symbol("c_fd_read_u8", &c_fd_read_u8);
   Sregister_symbol("c_fd_write", &c_fd_write);
