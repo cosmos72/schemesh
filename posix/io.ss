@@ -16,8 +16,6 @@
   (import
     (rnrs)
     (only (chezscheme)  enum-set? fx1+ include port-name
-                        make-custom-binary-input-port  make-custom-binary-input/output-port  make-custom-binary-output-port
-                        make-custom-textual-input-port make-custom-textual-input/output-port make-custom-textual-output-port
                         set-binary-port-input-buffer!   set-binary-port-input-index!   set-binary-port-input-size!
                         set-binary-port-output-buffer!  set-binary-port-output-index!  set-binary-port-output-size!
                         set-textual-port-input-buffer!  set-textual-port-input-index!  set-textual-port-input-size!

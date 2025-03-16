@@ -19,7 +19,7 @@
     (only (chezscheme)
         abort base-exception-handler break-handler
         console-input-port console-output-port console-error-port
-        default-exception-handler display-condition eval exit-handler expand
+        default-exception-handler display-condition eval exit-handler
         inspect parameterize pretty-print read-token reset reset-handler void)
     (schemesh bootstrap)
     (only (schemesh containers) for-list)
