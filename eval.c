@@ -59,23 +59,8 @@ ptr schemesh_call3(const char symbol_name[], ptr arg1, ptr arg2, ptr arg3) {
  */
 ptr schemesh_eval(const char str[]) {
   /* this must work even if libschemesh is not loaded -> cannot use (sh-eval...) */
-  return schemesh_call1
-      ("eval", schemesh_call1
-       ("read", schemesh_call1
-        ("open-string-input-port",
-         schemesh_Sstring_utf8b(str, -1))));
-}
-
-/**
- * call Scheme (sh-eval->bytevector) on a C UTF8 string, which also converts
- * returned Scheme value to bytevector with (any->bytevector).
- * @return length and pointer to memory of a Scheme-allocated bytevector.
- *
- * Returned pointer CANNOT be dereferenced anymore after calling further Scheme code,
- * because it may be moved or garbage collected.
- */
-bytes schemesh_eval_to_bytevector(const char str[]) {
-  ptr   bytevec = schemesh_call1("sh-eval->bytevector", schemesh_Sstring_utf8b(str, -1));
-  bytes ret     = {Sbytevector_length(bytevec), Sbytevector_data(bytevec)};
-  return ret;
+  return schemesh_call1(
+      "eval",
+      schemesh_call1("read",
+                     schemesh_call1("open-string-input-port", schemesh_Sstring_utf8b(str, -1))));
 }

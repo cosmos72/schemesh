@@ -38,21 +38,14 @@ struct timespec now(void) {
   (void)clock_gettime(CLOCK_REALTIME, &t);
   return t;
 }
-#endif
 
 static double diff(const struct timespec start, const struct timespec end) {
   return (end.tv_sec - start.tv_sec) + 1e-9 * (end.tv_nsec - start.tv_nsec);
 }
+#endif
 
 static void handle_scheme_exception(void) {
   longjmp(jmp_env, on_exception);
-}
-
-static void show(FILE* out, bytes bv) {
-  if (bv.size != 0) {
-    fwrite(bv.data, 1, bv.size, out);
-    fputc('\n', out);
-  }
 }
 
 static int usage(const char* name) {
@@ -267,8 +260,6 @@ int main(int argc, const char* argv[]) {
 
   schemesh_import_all_libraries();
 
-  (void)&show;
-  (void)&diff;
   Senable_expeditor(NULL);
   errno = 0;
 
@@ -288,25 +279,8 @@ again:
     err = Sfixnump(ret) ? Sfixnum_value(ret) : -1;
 
   } while (schemesh_call0("repl-restart?") == Strue);
-#elif 0
-  Sscheme_start(argc, argv);
 #else
-{
-  enum { LEN = 1024 };
-  char            buf[LEN];
-  struct timespec start, end;
-
-  while (fgets(buf, LEN, stdin) != NULL) {
-    start = now();
-
-    bytes bv = eval_to_bytevector(buf);
-    show(stdout, bv);
-
-    end = now();
-    fprintf(stdout, "; elapsed: %.09f\n", diff(start, end));
-  }
-  fprintf(stdout, "; got EOF. exiting.\n");
-}
+  Sscheme_start(argc, argv);
 #endif /*0*/
 finish:
   on_exception = QUIT_FAILED;

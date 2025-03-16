@@ -46,20 +46,4 @@ ptr schemesh_call3(const char symbol_name[], ptr arg1, ptr arg2, ptr arg3);
  */
 ptr schemesh_eval(const char str[]);
 
-typedef struct {
-  iptr                 size;
-  const unsigned char* data;
-} bytes;
-
-/**
- * call Scheme (sh-eval->bytevector) on a C UTF8 string, which also converts
- * returned Scheme value to bytevector with (any->bytevector).
- * @return length and pointer to internal span of a Scheme-allocated
- * bytevector.
- *
- * Returned pointer CANNOT be dereferenced anymore after calling Scheme code,
- * because it may be moved or garbage collected.
- */
-bytes schemesh_eval_to_bytevector(const char str[]);
-
 #endif /* SCHEMESH_EVAL_H */

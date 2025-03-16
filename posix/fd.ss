@@ -132,7 +132,7 @@
 ;;
 ;; Note: if interrupted, returns #t
 (define fd-read-noretry
-  (let ((c-fd-read (foreign-procedure "c_fd_read" (int ptr iptr iptr) ptr)))
+  (let ((c-fd-read (foreign-procedure "c_fd_read" (int ptr fixnum fixnum) ptr)))
     (case-lambda
       ((fd bytevector-result start end)
         (let ((ret (c-fd-read fd bytevector-result start end)))
@@ -207,7 +207,7 @@
 ;;
 ;; Note: if interrupted, returns #t
 (define fd-write-noretry
-  (let ((c-fd-write (foreign-procedure "c_fd_write" (int ptr iptr iptr) ptr)))
+  (let ((c-fd-write (foreign-procedure "c_fd_write" (int ptr fixnum fixnum) ptr)))
     (case-lambda
       ((fd bytevector-towrite start end)
         (let ((ret (c-fd-write fd bytevector-towrite start end)))

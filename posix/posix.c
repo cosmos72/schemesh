@@ -13,6 +13,8 @@
 #define _BSD_SOURCE             /* DT_... SIGWINCH */
 #endif
 
+#define _FILE_OFFSET_BITS 64
+
 #include "posix.h"
 #include "../containers/containers.h" /* schemesh_Sbytevector() */
 #include "../eval.h"                  /* eval() */
@@ -638,7 +640,7 @@ static ptr c_fd_write(int fd, ptr bytevector_towrite, iptr start, iptr end) {
   buf += start;
   len = end - start;
   if ((sent_n = write(fd, buf, len)) < 0 && errno == EINTR) {
-    return Strue;
+    return Strue; /* interrupted */
   }
   return Sinteger(sent_n >= 0 ? sent_n : c_errno());
 }
@@ -909,11 +911,18 @@ static int c_exit(int status) {
 }
 
 static ptr c_get_hostname_buf(char* buf, size_t len) {
+  const char* end;
   if (gethostname(buf, len) != 0) {
     return Sinteger(c_errno());
   }
-  buf[len - 1] = '\0';
-  return schemesh_Sstring_utf8b(buf, -1);
+  /*
+   * gethostname() does not guarantee to write final '\0'
+   * if hostname length is >= buffer length
+   */
+  if ((end = (const char*)memchr(buf, 0, len)) != NULL) {
+    len = end - buf;
+  }
+  return schemesh_Sstring_utf8b(buf, len);
 }
 
 #ifdef HOST_NAME_MAX
