@@ -72,26 +72,6 @@
       (register-signal-handler sig handler))))
 
 
-;; Start a job and return immediately, without waiting for it to finish.
-;; For possible values of options, see (sh-options)
-;;
-;; Returns job status, typically (running job-id) but other values are allowed.
-;; For the complete list of possible returned job statuses, see (sh-job-status).
-;;
-;; Note that job may finish immediately, for example because it is a builtin,
-;;   or a multijob that only (recursively) contains builtins,
-;;   or a command that exits very quickly.
-;;   For these reasons, the returned job status may be different from (running job-id)
-;;   and may indicate that the job has already finished.
-(define sh-start
-  (case-lambda
-    ((job options)
-      (job-start 'sh-start job options)
-      (job-id-update! job)) ; sets job-id if started, otherwise unsets it. also returns job status
-    ((job)
-      (sh-start job '()))))
-
-
 ;; Internal functions called by (sh-start)
 (define (job-start caller job options)
   ;b (debugf "job-start ~a ~s" job options)
@@ -174,19 +154,39 @@
   (flush-output-port port))
 
 
+;; Start a job and return immediately, without waiting for it to finish.
+;; For possible values of options, see (sh-options)
+;;
+;; Returns job status, typically (running job-id) but other values are allowed.
+;; For the complete list of possible returned job statuses, see (sh-job-status).
+;;
+;; Note that job may finish immediately, for example because it is a builtin,
+;;   or a multijob that only (recursively) contains builtins,
+;;   or a command that exits very quickly.
+;;   For these reasons, the returned job status may be different from (running job-id)
+;;   and may indicate that the job has already finished.
+(define sh-start
+  (case-lambda
+    ((job)
+      (sh-start job '()))
+    ((job options)
+      (job-start 'sh-start job options)
+      (job-id-update! job)))) ; sets job-id if started, otherwise unsets it. also returns job status
+
+
 ;; Kill a job-or-id.
 ;;
 ;; If job is running, return its updated status. Note: may not return, i.e. non-locally jump to job's continuation.
 ;; If job is not found or not started, raise exception.
 (define sh-kill
   (case-lambda
+    ((job-or-id)
+      (sh-kill job-or-id 'sigint))
     ((job-or-id signal-name)
       (let ((job (sh-job job-or-id)))
         (if (job-kill job signal-name)
           (job-last-status job)
-          (raise-errorf 'sh-kill "job not started: ~s" job))))
-    ((job-or-id)
-      (sh-kill job-or-id 'sigint))))
+          (raise-errorf 'sh-kill "job not started: ~s" job))))))
 
 
 ;; Recursively kill a job and all its children.
@@ -401,8 +401,8 @@
 ;; Resume and optionally wait for a job.
 ;;
 ;; Returns updated job status.
-(define (job-wait caller job-or-id wait-flags)
-  (let ((job (sh-job job-or-id)))
+(define (job-wait caller job wait-flags)
+  (when (job-started? job)
     (parameterize ((waiting-for-job job))
       (let %loop ()
         (job-wait-once caller job wait-flags)
@@ -422,8 +422,19 @@
                     ;; then invoke break-handler, which lets them decide how to proceed.
                     (job-break job))
                 ;x (debugf "...job-wait\tcaller=~s\tjob=~a\tcurrent-job=~s ... sh-current-job-suspend returned" caller job (sh-current-job))
-                (%loop))))))
-      (job-id-update! job)))) ; returns job status
+                (%loop))))))))
+  (job-last-status job))
+
+
+;; Common implementation of (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
+;; Resume and optionally wait for a job.
+;; Sets or unsets job's id as needed.
+;;
+;; Returns updated job status.
+(define (job-wait/id caller job-or-id wait-flags)
+  (let ((job (sh-job job-or-id)))
+    (job-wait caller job wait-flags)
+    (job-id-update! job))) ; returns updated job status
 
 
 ;; Return up-to-date status of a job or job-id, which can be one of:
@@ -439,18 +450,13 @@
 ;;
 ;; Note: this function also non-blocking checks if job status changed.
 (define (sh-job-status job-or-id)
-  (let* ((job    (sh-job job-or-id))
-         (status (job-last-status job)))
-    ; (debugf ">  sh-job-status job=~s" job)
-    (if (started? status)
-      (job-wait 'sh-job-status job (sh-wait-flags))
-      status)))
+  (job-wait/id 'sh-job-status job-or-id (sh-wait-flags)))
 
 
 ;; Continue a job or job-id in background by sending SIGCONT to it, and return immediately.
 ;; Return job status. For possible job statuses, see (sh-job-status)
 (define (sh-bg job-or-id)
-  (job-wait 'sh-bg job-or-id (sh-wait-flags continue-if-stopped)))
+  (job-wait/id 'sh-bg job-or-id (sh-wait-flags continue-if-stopped)))
 
 
 ;; Continue a job or job-id by sending SIGCONT to it, then wait for it to exit or stop,
@@ -460,10 +466,8 @@
 ;;   upon invocation, sets the job as fg process group.
 ;;   And before returning, restores current shell as fg process group.
 (define (sh-fg job-or-id)
-  (job-wait
-    'sh-fg
-    job-or-id
-    (sh-wait-flags foreground-pgid continue-if-stopped wait-until-stopped-or-finished)))
+   (job-wait/id 'sh-fg job-or-id
+                (sh-wait-flags foreground-pgid continue-if-stopped wait-until-stopped-or-finished)))
 
 
 ;; General function to resume and optionally wait for a job.
@@ -482,10 +486,10 @@
 (define sh-wait
   (case-lambda
     ((job-or-id)
-      (job-wait 'sh-wait job-or-id
-        (sh-wait-flags foreground-pgid continue-if-stopped wait-until-finished)))
+      (sh-wait job-or-id
+               (sh-wait-flags foreground-pgid continue-if-stopped wait-until-finished)))
     ((job-or-id wait-flags)
-      (job-wait 'sh-wait job-or-id wait-flags))))
+      (job-wait/id 'sh-wait job-or-id wait-flags))))
 
 
 ;; Start a job and wait for it to exit or stop.
@@ -495,12 +499,11 @@
 ;; Return job status, possible values are the same as (sh-fg)
 (define sh-run/i
   (case-lambda
-    ((job options)
-      (if (started? (job-start 'sh-run/i job options))
-        (sh-fg job)
-        (job-id-update! job))) ; sets job-id if started, otherwise unsets it. also returns job status
     ((job)
-      (sh-run/i job '()))))
+      (sh-run/i job '()))
+    ((job options)
+      (job-start 'sh-run/i job options)
+      (sh-fg job))))
 
 
 ;; Start a job and wait for it to exit.
@@ -511,11 +514,11 @@
 ;; Return job status, possible values are the same as (sh-wait)
 (define sh-run
   (case-lambda
+    ((job)
+      (sh-run job '()))
     ((job options)
       (job-start 'sh-run job options)
-      (sh-wait job))
-    ((job)
-      (sh-run job '()))))
+      (sh-wait job))))
 
 
 ;; Start a job and wait for it to exit.
@@ -526,10 +529,10 @@
 ;; Return #t if job failed successfully, otherwise return #f.
 (define sh-run/ok?
   (case-lambda
-    ((job options)
-      (ok? (sh-run job options)))
     ((job)
-      (sh-run/ok? job '()))))
+      (sh-run/ok? job '()))
+    ((job options)
+      (ok? (sh-run job options)))))
 
 
 ;; Start a job and wait for it to exit.
@@ -541,8 +544,8 @@
 ;; otherwise return job exit status, which is a status object and hence truish.
 (define sh-run/err?
   (case-lambda
+    ((job)
+      (sh-run/err? job '()))
     ((job options)
       (let ((status (sh-run job options)))
-        (if (ok? status) #f status)))
-    ((job)
-      (sh-run/err? job '()))))
+        (if (ok? status) #f status)))))

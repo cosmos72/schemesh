@@ -234,6 +234,7 @@
 ;; Note: does not create job-id for children of (sh-pipe) jobs.
 (define (job-id-update! job)
   (let ((status (job-last-status job)))
+    ;; (debugf "job-id-update! status=~s\tjob=~a" status job)
     (case (status->kind status)
       ((running stopped)
         (job-id-set! job))
