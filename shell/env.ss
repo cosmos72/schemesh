@@ -182,27 +182,43 @@
 (define (job-env/apply-lazy! j visibility)
   (assert* 'job-env/apply-lazy! (memq visibility '(maintain export private)))
   (let ((env-lazy (job-env-lazy j)))
-    (if env-lazy
-      (do ((i 0 (fx+ i 2))
-           (n (span-length env-lazy)))
-          ((fx>? (fx+ i 2) n)
-           (void))
+    (when env-lazy
+      (do ((i   0 (fx+ i 2))
+           (n-2 (fx- (span-length env-lazy) 2)))
+          ((fx>? i n-2))
         (let ((name  (span-ref env-lazy i))
               (value (job-env/apply1 j (span-ref env-lazy (fx1+ i)))))
           ; (debugf "job-env/apply-lazy! env name=~s, value=~s" name value)
-          (if (eq? #f value)
-            (sh-env-delete! j name)
-            (sh-env-set*! j name value visibility))))
-      (void))))
+          (if value
+            (sh-env-set*! j name value visibility)
+            (sh-env-delete! j name)))))
+    (void)))
 
 
 ;; internal function called by job-env/apply-lazy!
+;; computes an environment variable's new value to set
 (define (job-env/apply1 j value-or-procedure)
-  (if (procedure? value-or-procedure)
-    (if (logbit? 1 (procedure-arity-mask value-or-procedure))
-      (value-or-procedure j)
-      (value-or-procedure))
-    value-or-procedure))
+  (let ((val (cond
+               ((not (procedure? value-or-procedure))
+                 value-or-procedure)
+               ((logbit? 1 (procedure-arity-mask value-or-procedure))
+                 (value-or-procedure j))
+               (else
+                 (value-or-procedure)))))
+    ;; val can be one of: #f, a string, a list containing zero or one strings.
+    ;; needed because "NAME=~..." expands "~" to (sh-wildcard '~ ...)
+    ;; that returns either a string or a list of strings
+    (cond
+      ((not     val) val)
+      ((string? val) val)
+      ((null?   val) "")
+      (else
+        (assert* 'job-env/apply-lazy (pair? val))
+        (assert* 'job-env/apply-lazy (null? (cdr val)))
+        (assert* 'job-env/apply-lazy (string? (car val)))
+        (car val)))))
+
+
 
 
 ;; Return direct environment variables of job, creating them if needed.

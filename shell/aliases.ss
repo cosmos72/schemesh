@@ -152,7 +152,7 @@
   (cond
     ((procedure? alias)
       (bytespan-insert-right/string! wbuf " #<procedure>"))
-    ((list? alias)
+    ((or (pair? alias) (null? alias))
       (for-list ((elem alias))
         (if (string? elem)
           (begin

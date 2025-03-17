@@ -23,6 +23,7 @@
     (schemesh posix)
     (schemesh posix replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
     (schemesh shell)
+    (schemesh shell replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
     (schemesh repl)))
 
 
@@ -30,9 +31,24 @@
 ;; fixes error "compiled program requires a different compilation instance of (schemesh ...)""
 (eval-when (eval)
   (let ()
-    (import (rnrs) (only (chezscheme) top-level-bound? eval))
+    (import (rnrs)
+            (only (chezscheme) top-level-bound? eval))
 
+    (when (top-level-bound? 'sh-version)
+      (eval '(import (schemesh bootstrap))))
+    (when (top-level-bound? 'subbytevector)
+      (eval '(import (schemesh containers))))
+    (when (top-level-bound? 'text->bytevector)
+      (eval '(import (schemesh conversions))))
+    (when (top-level-bound? 'lineedit-read)
+      (eval '(import (schemesh lineedit))))
+    (when (top-level-bound? 'parsers)
+      (eval '(import (schemesh parser))))
+    (when (top-level-bound? 'pid-wait)
+      (eval '(import (schemesh posix)))
+      (eval '(import (schemesh posix replacements))))
     (when (top-level-bound? 'sh-persistent-parameters)
-      (eval '(import (schemesh shell))))
+      (eval '(import (schemesh shell)))
+      (eval '(import (schemesh shell replacements))))
     (when (top-level-bound? 'repl)
       (eval '(import (schemesh repl))))))

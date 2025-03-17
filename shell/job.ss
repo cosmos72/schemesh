@@ -271,12 +271,13 @@
 ;; job-or-id can be either a job,
 ;; or #t which means (sh-globals),
 ;; or a fixnum indicating the job-id of one of the running jobs
-;;   stored in (multijob-children (sh-globals))
+;;    stored in (multijob-children (sh-globals))
 ;;
 ;; Raises error if no job matches job-or-id.
 (define (sh-job job-or-id)
   (cond
-    ((eq? #t job-or-id) (sh-globals))
+    ((eq? #t job-or-id)
+      (sh-globals))
     ((fixnum? job-or-id)
       (let* ((all-jobs (multijob-children (sh-globals)))
              (job (when (and (fx>? job-or-id 0) ; job-ids start at 1
@@ -285,8 +286,10 @@
         (unless (sh-job? job)
           (raise-errorf 'sh-job "job not found: ~s" job-or-id))
         job))
-    ((sh-job? job-or-id) job-or-id)
-    (else (raise-errorf 'sh-job "not a job-id: ~s" job-or-id))))
+    ((sh-job? job-or-id)
+      job-or-id)
+    (else
+      (raise-errorf 'sh-job "~s is not a job-id" job-or-id))))
 
 
 ;; return currently running jobs

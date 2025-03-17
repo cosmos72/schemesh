@@ -20,14 +20,14 @@
       put-char put-datum put-string put-string-some)
   (import
     (rename (except (rnrs) delete-file file-exists?)
-                               (get-char        r6rs:get-char)
-                               (get-datum       r6rs:get-datum)
-                               (get-line        r6rs:get-line)
-                               (get-string-all  r6rs:get-string-all)
-                               (get-string-n    r6rs:get-string-n)
-                               (put-char        r6rs:put-char)
-                               (put-datum       r6rs:put-datum)
-                               (put-string      r6rs:put-string))
+        (get-char        r6rs:get-char)
+        (get-datum       r6rs:get-datum)
+        (get-line        r6rs:get-line)
+        (get-string-all  r6rs:get-string-all)
+        (get-string-n    r6rs:get-string-n)
+        (put-char        r6rs:put-char)
+        (put-datum       r6rs:put-datum)
+        (put-string      r6rs:put-string))
 
     (rename (only (chezscheme) foreign-procedure format get-string-some make-continuation-condition
                                make-format-condition put-string-some sort! void)
