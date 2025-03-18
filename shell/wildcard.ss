@@ -9,6 +9,37 @@
 ;; this file should be included only by file shell/job.ss
 
 
+;; call a closure (lambda () ...) or (lambda (job) ...)
+;; and return the list of strings produced by the closure
+(define sh-call
+  (case-lambda
+    ((arg)
+      (sh-call #f arg))
+    ((job-or-id arg)
+      (cond
+        ((eq? (void) arg)
+          '())
+        ((string? arg)
+          (list arg))
+        ((or (pair? arg) (null? arg))
+          (assert* 'sh-call (string-list? arg))
+          arg)
+        (else
+          (assert* 'sh-call (procedure? arg))
+          (let* ((proc arg)
+                 (ret (if (logbit? 1 (procedure-arity-mask proc))
+                        (proc (sh-job job-or-id))
+                        (proc))))
+            (cond
+              ((eq? (void) ret)
+                '())
+              ((string? ret)
+                (list ret))
+              (else
+                (assert* 'sh-call (string-list? ret))
+                ret))))))))
+
+
 ;; expand a path containing wildcards to the list of filesystem entries that match such wildcards.
 ;;
 ;; each w must be a string, a wildcard symbol ? * ~ % %!

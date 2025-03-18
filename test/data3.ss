@@ -205,6 +205,10 @@
              true})                                    ,@"#<void>"
   (sh-run   {true
              false})                                   ,(failed 1)
+  (sh-run   {true A=1 \
+B=2})                                                  ,@"#<void>"
+  (sh-run   {true A=3 \
+             B=4})                                     ,@"#<void>"
   (sh-run/i {true && false})                           ,(failed 1)
   (sh-run   {true && false})                           ,(failed 1)
   (sh-run/i {true || false})                           ,@"#<void>"

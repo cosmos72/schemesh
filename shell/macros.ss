@@ -8,8 +8,8 @@
 
 (library (schemesh shell macros (0 8 1))
   (export
-    include/lang include/lang*
-    shell shell-backquote shell-env shell-list shell-subshell shell-expr shell-wildcard)
+    sh-include sh-include*
+    shell shell-backquote shell-env shell-expr shell-glob shell-list shell-subshell shell-wildcard)
   (import
     (rnrs)
     (only (chezscheme) datum format fx1- meta parameterize reverse!)
@@ -41,7 +41,7 @@
 ;; optional arguments:
 ;;   initial-parser - one of the symbols: scheme shell r6rs
 ;;   enables-parsers - a list containing one or more symbols among: scheme shell r6rs
-(define-syntax include/lang
+(define-syntax sh-include
   (lambda (x)
     (syntax-case x ()
       ((k path)
@@ -57,23 +57,12 @@
 ;; macro: read specified file path, parse it with (sh-read-file)
 ;; and execute its contents at macroexpansion time.
 ;;
-;; same as (include/lang*), with the difference that all arguments are mandatory
-(define-syntax include/lang*
+;; same as (sh-include*), with the difference that all arguments are mandatory
+(define-syntax sh-include*
   (lambda (x)
     (syntax-case x ()
       ((k path initial-parser enabled-parsers)
         (datum->syntax #'k (sh-read-file (datum path) (datum initial-parser) (datum enabled-parsers)))))))
-
-
-(define-syntax shell-list
-  (syntax-rules ()
-    ((_)               (sh-cmd))
-    ((_ arg)           arg)
-    ((_ arg0 arg1 ...) (sh-list arg0 arg1 ...))))
-
-
-(define-macro (shell-subshell . args)
-  (sh-parse-datum (cons 'shell-subshell args)))
 
 
 ;; macro: create a (sh-expr) that evaluates specified Scheme expressions
@@ -88,6 +77,34 @@
             #`(sh-expr (lambda () expr)))))
       ((_ expr exprs ...)
         #`(shell-expr (begin expr exprs ...))))))
+
+
+;; extract the single argument inside a (shell ...) macro,
+;; assume it's a closure returning a string or list of strings
+;; and wrap it in a (sh-call) for executing it.
+(define-syntax shell-glob
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ (macro-name arg))
+        #'(shell-glob #f (macro-name arg)))
+      ((_ job-or-id (macro-name arg))
+        (free-identifier=? #'shell #'macro-name)
+        (if (string? (syntax->datum #'arg))
+          #'(list arg)
+          #'(sh-call job-or-id arg))))))
+
+
+(define-syntax shell-list
+  (syntax-rules ()
+    ((_)               (sh-cmd))
+    ((_ arg)           arg)
+    ((_ arg0 arg1 ...) (sh-list arg0 arg1 ...))))
+
+
+
+
+(define-macro (shell-subshell . args)
+  (sh-parse-datum (cons 'shell-subshell args)))
 
 
 (meta begin

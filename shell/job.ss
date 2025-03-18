@@ -80,6 +80,7 @@
     sh-cmd? sh-expr? sh-job? sh-job-copy sh-multijob? sh-current-job
 
     ;; wildcard
+    sh-call
     sh-wildcard sh-wildcard* sh-wildcard/apply sh-wildcard/expand-tilde sh-wildcard->string
     sh-wildcard->sh-patterns sh-patterns/expand
   )
@@ -248,6 +249,7 @@
 ;; Convert job-or-id to job.
 ;; job-or-id can be either a job,
 ;; or #t which means (sh-globals),
+;; or #f which means (or (sh-current-job) (sh-globals))
 ;; or a fixnum indicating the job-id of one of the running jobs
 ;;   stored in (multijob-children (sh-globals))
 ;;
@@ -256,6 +258,8 @@
   (cond
     ((eq? #t job-or-id)
       (sh-globals))
+    ((not job-or-id)
+      (or (sh-current-job) (sh-globals)))
     ((fixnum? job-or-id)
       (let ((all-jobs (multijob-children (sh-globals))))
         (if (fx<? 0 job-or-id (span-length all-jobs)) ; job-ids start at 1
@@ -270,6 +274,7 @@
 ;; Convert job-or-id to job.
 ;; job-or-id can be either a job,
 ;; or #t which means (sh-globals),
+;; or #f which means (or (sh-current-job) (sh-globals))
 ;; or a fixnum indicating the job-id of one of the running jobs
 ;;    stored in (multijob-children (sh-globals))
 ;;
@@ -278,6 +283,8 @@
   (cond
     ((eq? #t job-or-id)
       (sh-globals))
+    ((not job-or-id)
+      (or (sh-current-job) (sh-globals)))
     ((fixnum? job-or-id)
       (let* ((all-jobs (multijob-children (sh-globals)))
              (job (when (and (fx>? job-or-id 0) ; job-ids start at 1
