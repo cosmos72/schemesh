@@ -16,37 +16,31 @@
             (status->kind new-status))))
 
 
-
-
-;; Return #t if status represents a child job status
-;; that causes a parent multijob to stop or end, i.e. one of:
-;; '(exception ...)
-;; '(stopped ...)
-;; '(killed  sigint)
-;; '(killed  sigquit)
-;;
-(define (status-stops-or-ends-multijob? status)
-  (let ((kind (status->kind status)))
-    (if (or (memq kind '(exception stopped))
-            (and (eq? kind 'killed)
-                 (status->value status) '(sigint sigquit)))
-      #t
-      #f)))
-
-
 ;; Return #t if status represents a child job status
 ;; that causes a parent multijob to end, i.e. one of:
-;; '(exception ...)
-;; '(killed  sigint)
-;; '(killed  sigquit)
+;; (exception ...)
+;; (killed 'sigint)
+;; (killed 'sigquit)
 ;;
 (define (status-ends-multijob? status)
   (let ((kind (status->kind status)))
     (if (or (eq? kind 'exception)
             (and (eq? kind 'killed)
-                 (status->value status) '(sigint sigquit)))
+                 (memq (status->value status) '(sigint sigquit))))
       #t
       #f)))
+
+
+;; Return #t if status represents a child job status
+;; that causes a parent multijob to stop or end, i.e. one of:
+;; (stopped ...)
+;; (exception ...)
+;; (killed 'sigint)
+;; (killed 'sigquit)
+;;
+(define (status-stops-or-ends-multijob? status)
+  (or (stopped? status)
+      (status-ends-multijob? status)))
 
 
 ;; Convert job's last-status to one of: 'new 'running 'stopped 'ok 'failed 'exception 'killed

@@ -79,28 +79,11 @@
         #`(shell-expr (begin expr exprs ...))))))
 
 
-;; extract the single argument inside a (shell ...) macro,
-;; assume it's a closure returning a string or list of strings
-;; and wrap it in a (sh-call) for executing it.
-(define-syntax shell-glob
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ (macro-name arg))
-        #'(shell-glob #f (macro-name arg)))
-      ((_ job-or-id (macro-name arg))
-        (free-identifier=? #'shell #'macro-name)
-        (if (string? (syntax->datum #'arg))
-          #'(list arg)
-          #'(sh-call job-or-id arg))))))
-
-
 (define-syntax shell-list
   (syntax-rules ()
     ((_)               (sh-cmd))
     ((_ arg)           arg)
     ((_ arg0 arg1 ...) (sh-list arg0 arg1 ...))))
-
-
 
 
 (define-macro (shell-subshell . args)
@@ -128,15 +111,31 @@
 
   ;; flatten nested macros (shell-wildcard ... (shell-wildcard ...) ...)
   ;; replace (shell-wildcard ...) containing only strings with the concatenation of those strings
-  (define-macro (%shell-wildcard-simplify proc job . args)
+  ;;
+  ;; wrap non-constant (shell-wildcard ...) in a (lambda (,job) (,proc ,job ...))
+  (define-macro (%shell-wildcard proc job . args)
     (let-values (((wildcards? rev-args) (%sh-wildcard-simplify #f '() args)))
       (let ((args (reverse! rev-args)))
         (if wildcards?
           `(lambda (,job) (,proc ,job ,@args))
           (apply string-append args)))))
 
+  ;; flatten nested macros (shell-wildcard ... (shell-wildcard ...) ...)
+  ;; replace (shell-wildcard ...) containing only strings with the concatenation of those strings
+  ;;
+  ;; wrap non-constant (shell-wildcard ...) in a (,proc ,job-or-id ...)
+  (define-macro (%shell-glob proc job-or-id . args)
+    (let-values (((wildcards? rev-args) (%sh-wildcard-simplify #f '() args)))
+      (let ((args (reverse! rev-args)))
+        (if wildcards?
+          `(,proc ,job-or-id ,@args)
+          (apply string-append args)))))
+
+
 ) ; close meta
 
+;; simplify a tree of (shell-wildcard) calls
+;; and wrap them inside a (lambda (job) ..) if they contain wildcards
 (define-syntax shell-wildcard
   (lambda (stx)
     (syntax-case stx ()
@@ -147,8 +146,21 @@
         ; if arg is a string
         (string? (syntax->datum (syntax arg)))
         #`arg)
-      ((_ arg0 ...) #`(%shell-wildcard-simplify sh-wildcard job arg0 ...)))))
+      ((_ arg ...)
+        #`(%shell-wildcard sh-wildcard job arg ...)))))
 
+
+;; extract the arguments inside a (shell (shell-wildcard ...)) macro,
+;; simplify them, and wrap them in a (sh-wildcard) for executing them.
+(define-syntax shell-glob
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ (macro-name arg))
+        #'(shell-glob #f (macro-name arg)))
+      ((_ job-or-id (macro-name (submacro-name arg ...)))
+        (and (free-identifier=? #'macro-name #'shell )
+             (free-identifier=? #'submacro-name #'shell-wildcard))
+        #`(%shell-glob sh-wildcard job-or-id arg ...)))))
 
 
 ) ; close library

@@ -80,9 +80,8 @@
     sh-cmd? sh-expr? sh-job? sh-job-copy sh-multijob? sh-current-job
 
     ;; wildcard
-    sh-call
-    sh-wildcard sh-wildcard* sh-wildcard/apply sh-wildcard/expand-tilde sh-wildcard->string
-    sh-wildcard->sh-patterns sh-patterns/expand
+    sh-wildcard sh-wildcard* sh-wildcard/apply sh-wildcard/expand-tilde
+    sh-wildcard->string sh-wildcard->sh-patterns sh-patterns/expand
   )
   (import
     (except (rnrs)     current-input-port current-output-port current-error-port)

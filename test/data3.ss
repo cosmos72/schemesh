@@ -94,15 +94,20 @@
     "abc.zzz.abc^abc")                                 #t
 
   ;; ------------------------- wildcard expansion -------------------------
-  (sh-wildcard #t "a" "bcd" "" "ef")                   "abcdef"
+  (sh-wildcard #t "a" "bcd" "" "ef")                   ("abcdef")
   (sh-wildcard->sh-patterns '(*))                      ,@(span (sh-pattern '*))
   (sh-wildcard->sh-patterns '("/" * ".so"))            ,@(span "/" (sh-pattern '* ".so"))
   (sh-wildcard->sh-patterns '("//abc//" "//def//"))    ,@(span "/" "abc/" "def/")
   (sh-wildcard->sh-patterns '("/foo/" * "/" "/bar"))   ,@(span "/" "foo/" (sh-pattern '* "/") "bar")
   (sh-wildcard #t '* "/" '* ".c")                      ("containers/containers.c" "posix/posix.c" "shell/shell.c"
                                                         "utils/benchmark_async_signal_handler.c")
-  (sh-wildcard #t "Makefile")                          ("Makefile") ; file exists => returned as list
-  (sh-wildcard #t "_does_not_exist_")                  "_does_not_exist_" ; file does not exists => returned as string
+  (sh-wildcard #t "Makefile")                          ("Makefile")
+  (sh-wildcard #t "_does_not_exist_")                  ("_does_not_exist_")
+  (sh-wildcard* #t '("_does_not_exist_"))              ()
+  (sh-wildcard* #t '("_does_not_exist_")
+               '(if-no-match? string))                 "_does_not_exist_"
+  (sh-wildcard* #t '("_does_not_exist_")
+               '(if-no-match? string-list))            ("_does_not_exist_")
   (caddr (expand '{ls [ab]*}))                         ,@(sh-cmd* "ls" (lambda (job) (sh-wildcard job '% "ab" '*)))
   (caddr (expand '(shell-wildcard *)))                 ,@(lambda (job) (sh-wildcard job '*))
   (caddr (expand '(shell-wildcard ?)))                 ,@(lambda (job) (sh-wildcard job '?))

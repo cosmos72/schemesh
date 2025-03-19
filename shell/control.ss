@@ -431,10 +431,13 @@
 ;; Sets or unsets job's id as needed.
 ;;
 ;; Returns updated job status.
-(define (job-wait/id caller job-or-id wait-flags)
+(define (job-wait/id+raise caller job-or-id wait-flags)
   (let ((job (sh-job job-or-id)))
     (job-wait caller job wait-flags)
-    (job-id-update! job))) ; returns updated job status
+    (let ((status (job-id-update! job)))
+      (if (eq? 'exception (status->kind status))
+	(raise (status->value status))
+	status))))
 
 
 ;; Return up-to-date status of a job or job-id, which can be one of:
@@ -450,13 +453,13 @@
 ;;
 ;; Note: this function also non-blocking checks if job status changed.
 (define (sh-job-status job-or-id)
-  (job-wait/id 'sh-job-status job-or-id (sh-wait-flags)))
+  (job-wait 'sh-job-status (sh-job job-or-id) (sh-wait-flags)))
 
 
 ;; Continue a job or job-id in background by sending SIGCONT to it, and return immediately.
 ;; Return job status. For possible job statuses, see (sh-job-status)
 (define (sh-bg job-or-id)
-  (job-wait/id 'sh-bg job-or-id (sh-wait-flags continue-if-stopped)))
+  (job-wait/id+raise 'sh-bg job-or-id (sh-wait-flags continue-if-stopped)))
 
 
 ;; Continue a job or job-id by sending SIGCONT to it, then wait for it to exit or stop,
@@ -466,7 +469,7 @@
 ;;   upon invocation, sets the job as fg process group.
 ;;   And before returning, restores current shell as fg process group.
 (define (sh-fg job-or-id)
-   (job-wait/id 'sh-fg job-or-id
+   (job-wait/id+raise 'sh-fg job-or-id
                 (sh-wait-flags foreground-pgid continue-if-stopped wait-until-stopped-or-finished)))
 
 
@@ -489,7 +492,7 @@
       (sh-wait job-or-id
                (sh-wait-flags foreground-pgid continue-if-stopped wait-until-finished)))
     ((job-or-id wait-flags)
-      (job-wait/id 'sh-wait job-or-id wait-flags))))
+      (job-wait/id+raise 'sh-wait job-or-id wait-flags))))
 
 
 ;; Start a job and wait for it to exit or stop.
