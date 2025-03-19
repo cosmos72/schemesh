@@ -1,5 +1,6 @@
+/countdown
 /schemesh
 /schemesh_test
+/.vscode
 *.o
 *.so
-/.vscode

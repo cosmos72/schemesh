@@ -55,10 +55,10 @@ LIBSCHEMESH_C_SO=libschemesh_c_0.8.1.so
 SRCS=containers/containers.c eval.c posix/posix.c shell/shell.c
 OBJS=containers.o eval.o posix.o shell.o
 
-all: schemesh schemesh_test $(LIBSCHEMESH_SO)
+all: schemesh schemesh_test $(LIBSCHEMESH_SO) countdown
 
 clean:
-	rm -f *~ *.o *.so schemesh schemesh_test
+	rm -f *~ *.o *.so schemesh schemesh_test $(LIBSCHEMESH_SO) countdown
 
 containers.o: containers/containers.c containers/containers.h eval.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I"$(CHEZ_SCHEME_DIR)"
@@ -91,17 +91,20 @@ schemesh_test: test.o $(OBJS)
 $(LIBSCHEMESH_SO): schemesh_test
 	./schemesh_test
 
+countdown: utils/countdown.c
+	$(CC) -o $@ $< $(CFLAGS)  $(LDFLAGS)
+
 
 installdirs:
 	$(MKDIR_P) "$(DESTDIR)$(bindir)"
 	$(MKDIR_P) "$(DESTDIR)$(SCHEMESH_LIBDIR)"
 
 install: all installdirs
-	$(INSTALL_PROGRAM) schemesh "$(DESTDIR)$(bindir)"
+	$(INSTALL_PROGRAM) schemesh countdown "$(DESTDIR)$(bindir)"
 	$(INSTALL_DATA) $(LIBSCHEMESH_SO) "$(DESTDIR)$(SCHEMESH_LIBDIR)"
 
 uninstall:
-	rm -f "$(DESTDIR)$(bindir)/schemesh" "$(DESTDIR)$(SCHEMESH_LIBDIR)/$(LIBSCHEMESH_SO)" "$(DESTDIR)$(SCHEMESH_LIBDIR)/$(LIBSCHEMESH_C_SO)"
+	rm -f "$(DESTDIR)$(bindir)/schemesh" "$(DESTDIR)$(bindir)/countdown" "$(DESTDIR)$(SCHEMESH_LIBDIR)/$(LIBSCHEMESH_SO)" "$(DESTDIR)$(SCHEMESH_LIBDIR)/$(LIBSCHEMESH_C_SO)"
 
 
 # by default, C shared library is not compiled.
