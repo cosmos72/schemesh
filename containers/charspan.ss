@@ -143,7 +143,7 @@
   (let ((offset (charspan-beg sp)))
     (string-fill-range! (charspan-str sp) (fx+ start offset) (fx+ end offset) ch)))
 
-; make a copy of charspan and return it
+;; make a copy of charspan and return it
 (define (charspan-copy src)
   (let* ((n (charspan-length src))
          (dst (make-charspan n)))
@@ -151,6 +151,7 @@
                   (charspan-str dst) (charspan-beg dst) n)
     dst))
 
+;; copy n characters from a charspan to another one
 (define (charspan-copy! src src-start dst dst-start n)
   (assert* 'charspan-copy! (fx<=?* 0 src-start (fx+ src-start n) (charspan-length src)))
   (assert* 'charspan-copy! (fx<=?* 0 dst-start (fx+ dst-start n) (charspan-length dst)))

@@ -15,7 +15,8 @@
   (export
     in-chargbuffer list->chargbuffer string->chargbuffer string->chargbuffer*
     charspan->chargbuffer charspan->chargbuffer*
-    make-chargbuffer chargbuffer chargbuffer? chargbuffer->charspan chargbuffer->string
+    make-chargbuffer chargbuffer chargbuffer?
+    chargbuffer->charspan chargbuffer->charspans* chargbuffer->string
     chargbuffer-length chargbuffer-empty?
     chargbuffer-ref chargbuffer-set! chargbuffer-clear! chargbuffer-split-at!
     chargbuffer-insert-at! chargbuffer-insert-at/cspan! chargbuffer-insert-at/cbuf!
@@ -33,20 +34,26 @@
      (mutable right -> chargbuffer-right-set!))
   (nongenerative #{%chargbuffer itah4n3k0nl66ucaakkpqk55m-16}))
 
+;; convert a list of characters to chargbuffer
 (define (list->chargbuffer l)
   (%make-chargbuffer (charspan) (list->charspan l)))
 
+;; convert a string to chargbuffer
 (define (string->chargbuffer str)
   (%make-chargbuffer (charspan) (string->charspan str)))
 
-; view a string as chargbuffer
+;; view a string as chargbuffer
 (define (string->chargbuffer* str)
   (%make-chargbuffer (charspan) (string->charspan* str)))
 
+;; convert a charspan to chargbuffer
 (define (charspan->chargbuffer csp)
   (%make-chargbuffer (charspan) (charspan-copy csp)))
 
-; view a charspan as chargbuffer
+;; view a charspan as chargbuffer
+;;
+;; modifications to the charspan will propagate to the returned chargbuffer
+;; until the chargbuffer reallocates its internal storage.
 (define (charspan->chargbuffer* csp)
   (%make-chargbuffer (charspan) csp))
 
@@ -55,6 +62,7 @@
     ((n)      (%make-chargbuffer (charspan) (make-charspan n)))
     ((n fill) (%make-chargbuffer (charspan) (make-charspan n fill)))))
 
+;; convert a chargbuffer to string
 (define (chargbuffer->string gb)
   (let* ((left    (<- gb))
          (right   (-> gb))
@@ -67,11 +75,23 @@
                   dst left-n right-n)
     dst))
 
+;; convert a chargbuffer to charspan
 (define (chargbuffer->charspan gb)
   (string->charspan* (chargbuffer->string gb)))
 
-(define (chargbuffer . vals)
-  (list->chargbuffer vals))
+;; view a chargbuffer as two charspans.
+;;
+;; modifications to the returned charspans will propagate to the chargbuffer
+;; (and vice-versa) until the chargbuffer reallocates its internal storage.
+;;
+;; returns two values: the two charspans
+(define (chargbuffer->charspans* gb)
+  (values (<- gb) (-> gb)))
+
+
+;; create a chargbuffer from zero or more characters
+(define (chargbuffer . chars)
+  (list->chargbuffer chars))
 
 (define (chargbuffer-length gb)
   (fx+ (charspan-length (<- gb))

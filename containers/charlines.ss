@@ -9,8 +9,9 @@
   (export
     charlines charlines? strings->charlines strings->charlines*
     assert-charlines? charlines-shallow-copy charlines-copy-on-write charlines-iterate
-    charlines-empty? charlines-length charlines-equal? charlines-ref charlines-set/cline!
-    charlines-clear! charlines-index charlines-index-right charlines-count charlines-count-right
+    charlines->charspan charlines->string charlines-empty? charlines-length charlines-equal?
+    charlines-char-length charlines-ref charlines-set/cline! charlines-clear!
+    charlines-index charlines-index-right charlines-count charlines-count-right
     charlines-dirty-start-y charlines-dirty-end-y charlines-dirty-y-add! charlines-dirty-xy-unset!
     charlines-erase-at/cline! charlines-insert-at/cline! charlines-starts-with?
     charlines-next-xy charlines-prev-xy charlines-char-at-xy charlines-char-before-xy charlines-char-after-xy
@@ -24,7 +25,9 @@
     (only (schemesh bootstrap)   assert* fx<=?* while)
     (only (schemesh containers list) for-list)
     (schemesh containers span)
+    (schemesh containers charspan)
     (schemesh containers charline)
+    (schemesh containers chargbuffer)
     (schemesh containers gbuffer))
 
 
@@ -72,6 +75,25 @@
 (define charlines-iterate    gbuffer-iterate)
 (define charlines-empty?     gbuffer-empty?)
 (define charlines-length     gbuffer-length)
+
+
+;; concatenate charlines and convert them to charspan
+(define (charlines->charspan clines)
+  (let %charlines-copy! ((ret (make-charspan (charlines-char-length clines)))
+                         (pos 0) (y 0) (yn (charlines-length clines)) (clines clines))
+    (if (fx<? y yn)
+      (let-values (((left right) (chargbuffer->charspans* (charlines-ref clines y))))
+        (let ((left-n (charspan-length left))
+              (right-n (charspan-length right)))
+          (charspan-copy! left 0 ret pos left-n)
+          (charspan-copy! right 0 ret (fx+ pos left-n) right-n)
+          (%charlines-copy! ret (fx+ (fx+ pos left-n) right-n) (fx1+ y) yn clines)))
+      ret)))
+
+
+;; concatenate charlines and convert them to string
+(define (charlines->string clines)
+  (charspan->string*! (charlines->charspan clines)))
 
 
 ;; return #t if lines1 and lines2 contain the same number of charline
@@ -122,6 +144,17 @@
   (%make-charlines (gbuffer-left lines) (gbuffer-right lines)
       (charlines-dirty-start-y lines)
       (charlines-dirty-end-y   lines)))
+
+
+;; return the number of characters in a charlines
+(define (charlines-char-length clines)
+  (let %charlines-char-length ((ret 0) (clines clines)
+                               (y 0)   (yn (charlines-length clines)))
+    (if (fx<? y yn)
+      (%charlines-char-length
+        (fx+ ret (charline-length (charlines-ref clines y)))
+        clines (fx1+ y) yn)
+      ret)))
 
 
 ;; get n-th line
