@@ -27,8 +27,8 @@
 (define-record-type
   (%gbuffer %make-gbuffer gbuffer?)
   (fields
-    (mutable left  <-  gbuffer-left-set!)
-    (mutable right -> gbuffer-right-set!))
+    (mutable left  g<  gbuffer-left-set!)
+    (mutable right g> gbuffer-right-set!))
   (nongenerative #{%gbuffer ejch98ka4vi1n9dn4ybq4gzwe-0}))
 
 (define (list->gbuffer l)
@@ -49,8 +49,8 @@
   (%make-gbuffer (span) sp))
 
 (define (gbuffer->vector gb)
-  (let* ((left  (<- gb))
-         (right (-> gb))
+  (let* ((left  (g< gb))
+         (right (g> gb))
          (left-n  (span-length left))
          (right-n (span-length right))
          (dst (make-vector (fx+ left-n right-n))))
@@ -70,33 +70,33 @@
   (list->gbuffer vals))
 
 (define (gbuffer-length gb)
-  (fx+ (span-length (<- gb)) (span-length (-> gb))))
+  (fx+ (span-length (g< gb)) (span-length (g> gb))))
 
 (define (gbuffer-empty? gb)
-  (and (span-empty? (<- gb)) (span-empty? (-> gb))))
+  (and (span-empty? (g< gb)) (span-empty? (g> gb))))
 
 (define (gbuffer-ref gb n)
   (assert* 'gbuffer-ref (fx<? -1 n (gbuffer-length gb)))
-  (let ((left-n (span-length (<- gb))))
+  (let ((left-n (span-length (g< gb))))
     (if (fx<? n left-n)
-      (span-ref (<- gb) n)
-      (span-ref (-> gb) (fx- n left-n)))))
+      (span-ref (g< gb) n)
+      (span-ref (g> gb) (fx- n left-n)))))
 
 (define (gbuffer-set! gb idx val)
   (assert* 'gbuffer-set! (fx<? -1 idx (gbuffer-length gb)))
-  (let ((left-n (span-length (<- gb))))
+  (let ((left-n (span-length (g< gb))))
     (if (fx<? idx left-n)
-      (span-set! (<- gb) idx val)
-      (span-set! (-> gb) (fx- idx left-n) val))))
+      (span-set! (g< gb) idx val)
+      (span-set! (g> gb) (fx- idx left-n) val))))
 
 (define (gbuffer-clear! gb)
-  (span-clear! (<- gb))
-  (span-clear! (-> gb)))
+  (span-clear! (g< gb))
+  (span-clear! (g> gb)))
 
 (define (gbuffer-split-at! gb idx)
   (assert* 'gbuffer-split-at! (fx<=? 0 idx (gbuffer-length gb)))
-  (let* ((left   (<- gb))
-         (right  (-> gb))
+  (let* ((left   (g< gb))
+         (right  (g> gb))
          (left-n (span-length left))
          (delta  (fx- idx left-n)))
     (cond
@@ -111,8 +111,8 @@
 ;; prerequisite: (fx<=? 0 idx (gbuffer-length gb))
 (define (gbuffer-insert-at! gb idx val)
   (assert* 'gbuffer-insert-at! (fx<=? 0 idx (gbuffer-length gb)))
-  (let ((left   (<- gb))
-        (right  (-> gb)))
+  (let ((left   (g< gb))
+        (right  (g> gb)))
     (cond
       ((fxzero? idx)
         (span-insert-left! left val))
@@ -130,8 +130,8 @@
       (assert* 'gbuffer-insert-at/span! (fx<=? 0 idx (gbuffer-length gb)))
       (assert* 'gbuffer-insert-at/span! (fx<=?* 0 src-start src-end (span-length sp-src)))
       (when (fx<? src-start src-end)
-        (let ((left   (<- gb))
-              (right  (-> gb)))
+        (let ((left   (g< gb))
+              (right  (g> gb)))
           (assert-not* 'gbuffer-insert-at/span! (eq? left sp-src))
           (assert-not* 'gbuffer-insert-at/span! (eq? right sp-src))
           (cond
@@ -148,8 +148,8 @@
 
 ; remove elements in range [start, end) from gbuffer gb
 (define (gbuffer-erase-range! gb start end)
-  (let* ((left    (<- gb))
-         (right   (-> gb))
+  (let* ((left    (g< gb))
+         (right   (g> gb))
          (left-n  (span-length left))
          (right-n (span-length right))
          (len     (fx+ left-n right-n))
