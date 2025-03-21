@@ -290,13 +290,13 @@
               (set! lbracket-is-subshell? flag)))
           ((splice)
             (set! can-change-parser?      #f)
-            (set! lbracket-is-subshell?   #f)
             ;; preserve equal-is-operator?
+            (set! lbracket-is-subshell?   #f)
             (set! ret (append! (reverse! value) ret)))
           ((backquote)
             (set! can-change-parser?    #f)
-            (set! lbracket-is-subshell? #f)
             (set! equal-is-operator?    #f)
+            (set! lbracket-is-subshell? #f)
             (if (eq? type end-type)
               (set! done? #t)
               ; TODO: `...` may be followed by other words without a space
@@ -305,8 +305,8 @@
                   (set! ret (cons form ret))))))
           ((lparen dollar+lparen)
             (set! can-change-parser?    #f)
-            (set! lbracket-is-subshell? #f)
             (set! equal-is-operator?    #f)
+            (set! lbracket-is-subshell? #f)
             ; switch to Scheme parser for a single form.
             (let-values (((lisp-forms _) (parse-scheme-forms ctx type)))
               (if (and (null? ret) (eq? 'lparen type) (eq? 'eof end-type))
@@ -329,8 +329,8 @@
                                 ret)))))
           ((lbrace lbrack dollar+lbrack)
             (set! can-change-parser?    #f)
-            (set! lbracket-is-subshell? #f)
             (set! equal-is-operator?    #f)
+            (set! lbracket-is-subshell? #f)
             ; TODO: $[...] may be followed by other words without a space
             (let-values (((form _) (parse-shell-forms ctx type)))
               ; (debugf "... parse-shell-forms nested_form=~s ret=~s" form ret)
@@ -338,8 +338,8 @@
                 (set! ret (cons form ret)))))
           ((rbrace rbrack rparen)
             (set! can-change-parser?    #f)
-            (set! lbracket-is-subshell? #f)
             (set! equal-is-operator?    #f)
+            (set! lbracket-is-subshell? #f)
             (unless (eq? type end-type)
               (syntax-errorf ctx 'parse-shell-forms "unexpected token ~a, expecting ~a"
                 (paren-type->string type) (paren-type->string end-type)))
