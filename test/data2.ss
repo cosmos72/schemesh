@@ -191,14 +191,15 @@
                                                                         "bar"))
   '{[foo; bar]}                                        (shell (shell-subshell "foo" \x3B;
                                                                               "bar"))
-  '{[foo] [bar]}                                       (shell (shell-subshell "foo") (shell-subshell "bar"))
+  '{[foo] [bar]}                                       (shell (shell-subshell "foo") (shell-wildcard % "bar"))
+  '{[foo]; [bar]}                                      (shell (shell-subshell "foo") \x3B;
+                                                              (shell-subshell "bar"))
 
   ;; open bracket [ not at the beginning of a command starts a wildcard, not a subshell
   '{""[foo] [bar]}                                     (shell (shell-wildcard % "foo") (shell-wildcard % "bar"))
   '{jkl ~ ;
       #!scheme (f a b)}                                (shell "jkl" (shell-wildcard ~) \x3B;
                                                          (f a b))
-
 
   ;; ------------------------ parse-paren --------------------------------
   (paren->list (string->paren "{"))                    (scheme #t 0 0 #t 1 0)
@@ -321,7 +322,6 @@
   (sh-find-job 0)                                      #f
   (sh-find-job 1)                                      #f
   (sh-find-job #t)                                     ,@(sh-globals)
-
 
   ;; ------------------------- shell syntax -------------------------------
   (sh-parse-datum

@@ -191,7 +191,6 @@
     "builtin" "command" "false" \x7C;
     "global"  "status" "19"))                          ,(failed 19)
 
-
   ;; ------------------------- job execution ---------------------------------
 
   (sh-run/i (shell (shell-expr -1 (* 7 8 9))))         ,(ok 504)
@@ -308,4 +307,4 @@ B=2})                                                  ,@"#<void>"
   (first-value (repl-parse (string->parsectx
      "{#!scheme 1 2 3}" (parsers)) 'shell))            ((shell (1 2 3)))
 
-)
+) #!eof
