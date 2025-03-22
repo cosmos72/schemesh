@@ -13,7 +13,7 @@
     fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-seek
     fd-read fd-read-all fd-read-insert-right! fd-read-noretry fd-read-u8
     fd-write fd-write-all fd-write-noretry fd-write-u8
-    fd-select fd-setnonblock open-file-fd open-pipe-fds
+    fd-select fd-setnonblock open-file-fd open-pipe-fds open-socketpair-fds
     raise-c-errno)
   (import
     (rnrs)
@@ -344,6 +344,7 @@
 ;; Returns two file descriptors:
 ;;   the read side of the pipe
 ;;   the write side of the pipe
+;; On errors, raises an exception
 (define open-pipe-fds
   (let ((c-open-pipe-fds (foreign-procedure "c_open_pipe_fds" (ptr ptr) ptr)))
     (lambda (read-fd-close-on-exec? write-fd-close-on-exec?)
@@ -351,5 +352,23 @@
         (if (pair? ret)
           (values (car ret) (cdr ret))
           (raise-c-errno 'open-pipe-fds 'pipe ret))))))
+
+
+;; create a pair of mutually connected AF_UNIX socket file descriptors.
+;; Arguments:
+;;   fd1-close-on-exec? if truish the first socket will be close-on-exec
+;;   fd2-close-on-exec? if truish the second socket will be close-on-exec
+;; Returns two file descriptors:
+;;   the first socket
+;;   the second socket
+;; On errors, raises an exception
+(define open-socketpair-fds
+  (let ((c-open-socketpair-fds (foreign-procedure "c_open_socketpair_fds" (ptr ptr) ptr)))
+    (lambda (fd1-close-on-exec? fd2-close-on-exec?)
+      (let ((ret (c-open-socketpair-fds fd1-close-on-exec? fd2-close-on-exec?)))
+        (if (pair? ret)
+          (values (car ret) (cdr ret))
+          (raise-c-errno 'open-socketpair-fds 'socketpair ret))))))
+
 
 ) ; close library

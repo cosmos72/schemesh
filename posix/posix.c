@@ -28,13 +28,14 @@
 #include <sched.h>  /* sched_yield() */
 #include <signal.h> /* kill(), sigaction(), SIG... */
 #include <stdatomic.h>
-#include <stddef.h>    /* size_t, NULL */
-#include <stdint.h>    /* int64_t */
-#include <stdio.h>     /* remove(), rename() ... */
-#include <stdlib.h>    /* getenv(), strtoul() */
-#include <string.h>    /* strlen(), strerror() */
-#include <sys/ioctl.h> /* ioctl(), TIOCGWINSZ */
-#include <sys/stat.h>  /* fstatat() */
+#include <stddef.h>     /* size_t, NULL */
+#include <stdint.h>     /* int64_t */
+#include <stdio.h>      /* remove(), rename() ... */
+#include <stdlib.h>     /* getenv(), strtoul() */
+#include <string.h>     /* strlen(), strerror() */
+#include <sys/ioctl.h>  /* ioctl(), TIOCGWINSZ */
+#include <sys/socket.h> /* socketpair(), AF_UNIX, SOCK_STREAM */
+#include <sys/stat.h>   /* fstatat() */
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>   /* clock_nanosleep(), CLOCK_MONOTONIC, nanosleep() */
@@ -770,11 +771,10 @@ static int c_open_file_fd(ptr bytevector0_filepath,
 /** call pipe() and return a Scheme cons (pipe_read_fd . pipe_write_fd), or c_errno() on error */
 static ptr c_open_pipe_fds(ptr read_fd_close_on_exec, ptr write_fd_close_on_exec) {
   int fds[2];
-  int ret = pipe(fds);
-  if (ret < 0) {
+  int err = pipe(fds);
+  if (err < 0) {
     return Sinteger(c_errno());
   }
-  int err = 0;
   if (read_fd_close_on_exec != Sfalse) {
     err = fcntl(fds[0], F_SETFD, FD_CLOEXEC);
   }
@@ -788,6 +788,37 @@ static ptr c_open_pipe_fds(ptr read_fd_close_on_exec, ptr write_fd_close_on_exec
   (void)close(fds[0]);
   (void)close(fds[1]);
   return Sinteger(err);
+}
+
+/**
+ * call socketpair(AF_UNIX, SOCK_STREAM) and return a Scheme cons (socket1_fd . socket2_fd),
+ * or c_errno() on error
+ */
+static ptr c_open_socketpair_fds(ptr fd1_close_on_exec, ptr fd2_close_on_exec) {
+#if defined(AF_UNIX) && defined(SOCK_STREAM)
+  int fds[2];
+  int err = socketpair(AF_UNIX, SOCK_STREAM, 0, fds);
+  if (err < 0) {
+    return Sinteger(c_errno());
+  }
+  if (fd1_close_on_exec != Sfalse) {
+    err = fcntl(fds[0], F_SETFD, FD_CLOEXEC);
+  }
+  if (err == 0 && fd2_close_on_exec != Sfalse) {
+    err = fcntl(fds[1], F_SETFD, FD_CLOEXEC);
+  }
+  if (err == 0) {
+    return Scons(Sinteger(fds[0]), Sinteger(fds[1]));
+  }
+  err = c_errno();
+  (void)close(fds[0]);
+  (void)close(fds[1]);
+  return Sinteger(err);
+#elif defined(EAFNOSUPPORT)
+  return c_errno_set(EAFNOSUPPORT);
+#else
+  return c_errno_set(EINVAL);
+#endif
 }
 
 /* convert a redirection char < > ≶ (means <>) » (means >>) to open() flags */
@@ -1831,6 +1862,7 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_fd_redirect", &c_fd_redirect);
   Sregister_symbol("c_open_file_fd", &c_open_file_fd);
   Sregister_symbol("c_open_pipe_fds", &c_open_pipe_fds);
+  Sregister_symbol("c_open_socketpair_fds", &c_open_socketpair_fds);
 
   Sregister_symbol("c_tty_restore", &c_tty_restore);
   Sregister_symbol("c_tty_setraw", &c_tty_setraw);
