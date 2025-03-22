@@ -23,6 +23,8 @@
      (plus 3 4 5))                                 12
   (let-macro ((plus arg0 . args) `(+ ,arg0 ,@args))
      (plus 3 4 5))                                 12
+  (-> + 1 2 -> / 4)                                4/3
+  (-> + 2 3 -> / _ 4)                              5/4
   ;; '(expand-omit-library-invocations #t) (void)  do not use, requires Chez Scheme >= 10.0.0
   ;; '(begin (debugf \"warmup\") (debugf \"a\") (debugf \"b\") (debugf \"c\")) (void)
   ;; ----------------- containers/misc ------------------------------------

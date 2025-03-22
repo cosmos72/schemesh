@@ -173,7 +173,7 @@
        (if (pair? next)
          (let ((cell next))
            (set! next (hash-iterator-next! iter))
-           (values (cell #t)))
+           (values cell #t))
          (values #f #f)))))
 
 

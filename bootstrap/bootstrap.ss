@@ -8,6 +8,8 @@
 (library (schemesh bootstrap (0 8 1))
   (export
       ;; bootstrap.ss
+
+      -> ;; _ is already exported by (rnrs)
       assert* assert-not* begin* catch check check-not define-macro debugf debugf-port
       first-value first-value-or-void forever let-macro raise-assert* repeat second-value
       while until throws? trace-call trace-define try list->values values->list
@@ -25,10 +27,10 @@
       sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter sh-version)
   (import
     (rnrs)
-    (rnrs base)
     (rnrs exceptions)
-    (only (chezscheme) current-time eval-when format foreign-procedure fx1- fx/ gensym
-                       meta pariah reverse! time-second time-nanosecond void)
+    (rnrs mutable-pairs)
+    (only (chezscheme) append! current-time eval-when format foreign-procedure fx1+ fx1- fx/ gensym
+                       list-copy list-head meta pariah reverse! time-second time-nanosecond void)
     (schemesh bootstrap functions))
 
 
@@ -377,54 +379,64 @@
        form1 form2 ...))))
 
 
-#|
 (meta begin
-  ;; helper function used by ->expand
-  ;; traverse list, replacing the first object eq? to old with the object new.
-  ;; does NOT traverse sublists.
-  (define (replace-first new old l)
-    (let %again ((tail l)
-                 (ret  '())
-                 (replace? #t))
+  ;; helper function used by ->
+  ;; traverse list, find element eq? to key, and return its position in the list as an exact integer.
+  ;; return #f if no element eq? to key was found
+  (define (list-index/eq l key)
+    (let %list-index ((l l) (key key) (pos 0))
       (cond
-        ((null? tail)
-          (reverse! ret))
-        ((and replace? (eq? old (car tail)))
-          (%again (cdr tail) (cons new ret) #f))
+        ((null? l)         #f)
+        ((eq? key (car l)) pos)
+        (else              (%list-index (cdr l) key (fx1+ pos))))))
+
+  ;; set the n-th car of a list
+  (define (list-set! l n obj)
+    (set-car! (list-tail l n) obj))
+
+  ;; helper function used by ->proc
+  (define (->compose head tail)
+    (let* ((tail (list-copy tail))
+           (pos1 (list-index/eq tail '_))
+           (pos2 (list-index/eq tail '->)))
+      (cond
+        ((and pos1 (or (not pos2) (fx<? pos1 pos2)))
+          ;; found _ before ->
+          (list-set! tail pos1 head))
+        (pos2
+          ;; _ not found before ->
+          (let ((splice (list-tail tail pos2)))
+            (list-set! tail pos2 (cons head splice))))
         (else
-          (%again (cdr tail) (cons (car tail) ret) replace?)))))
+          ;; -> not found
+          (append! tail (list head))))
+      (if pos2
+        (cons '-> tail) ; tail contains further -> that must be processed
+        tail)))
 
 
-  ;; helper function used by -->
-  (define (->expand obj accessor)
-    (unless (and (pair? accessor) (memq '^ accessor))
-      (syntax-violation "" "invalid syntax, missing ^ in nested list after" accessor '->))
-    (replace-first obj '^ accessor))
+  ;; implementation of macro ->
+  (define (->proc l)
+    (when (null? l)
+      (syntax-violation "" "invalid syntax, need at least one argument after" '->))
+    (let ((pos (list-index/eq l '->)))
+      (if pos
+        (->compose (list-head l pos) (list-tail l (fx1+ pos)))
+        l)))
+
 
 
 ) ; close meta
 
 
-;; symplify accessors chaining, allows writing (-> obj accessor1 accessor2 ...)
-;; instead of (... (accessor2 (accessor1 obj)))
-(define-macro (-> . args)
-  (when (or (null? args) (not (pair? (cdr args))))
-    (syntax-violation "" "invalid syntax, need at least two arguments after" (cons '-> args) '->))
-  (let ((obj (car args))
-        (accessor0 (cadr args))
-        (accessors (cddr args)))
-    (if (null? accessors)
-      (if (pair? accessor0)
-        (->expand obj accessor0)
-        (list accessor0 obj))
-      `(-> (-> ,obj ,accessor0) . ,accessors))))
+;; symplify procedure chaining, allows writing (-> proc1 a -> proc2 _ b c -> proc3 d ...)
+;; instead of (proc3 d ... (proc2 (proc1 a) b c))
+(define-syntax ->
+  (lambda (stx)
+    (syntax-case stx ()
+      ((xname . args)
+        (datum->syntax #'xname (->proc (syntax->datum #'args)))))))
 
-
-;; export aux keyword ^, needed by ->
-(define-syntax ^
-  (lambda (arg)
-    (syntax-violation "" "misplaced auxiliary keyword" arg)))
-|#
 
 
 #|
