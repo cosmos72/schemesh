@@ -5,6 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;  define Scheme type "gbuffer", a gap buffer  ;;;;;;;;;;;;;;;;;;;
@@ -29,7 +30,7 @@
   (fields
     (mutable left  g<  gbuffer-left-set!)
     (mutable right g> gbuffer-right-set!))
-  (nongenerative #{%gbuffer ejch98ka4vi1n9dn4ybq4gzwe-0}))
+  (nongenerative %gbuffer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 (define (list->gbuffer l)
   (%make-gbuffer (span) (list->span l)))

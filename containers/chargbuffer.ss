@@ -5,6 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;  define Scheme type "chargbuffer", a gap buffer containing chars. ;;;;;;;
@@ -32,7 +33,7 @@
   (fields
      (mutable left  c< chargbuffer-left-set!)
      (mutable right c> chargbuffer-right-set!))
-  (nongenerative #{%chargbuffer itah4n3k0nl66ucaakkpqk55m-16}))
+  (nongenerative %chargbuffer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 ;; convert a list of characters to chargbuffer
 (define (list->chargbuffer l)

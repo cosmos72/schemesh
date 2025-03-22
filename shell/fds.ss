@@ -5,8 +5,10 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
 
 ;; Define the functions (s-fd-allocate) (s-fd-release) to manage reserved fds
+;; Define the record-type (s-fd) containing a reference-counted file descriptor
 
 
 (library (schemesh shell fds (0 8 1))
@@ -36,7 +38,7 @@
   (fields
     (immutable int s-fd->int) ; unsigned fixnum: file descriptor
     (mutable   refcount))     ; fixnum: reference count
-  (nongenerative #{%s-fd cjsh4sku94arywo64878o3mil-0}))
+  (nongenerative %s-fd-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 ;; wrap a file descriptor (an unsigned fixnum) and an optional reference count into s-fd

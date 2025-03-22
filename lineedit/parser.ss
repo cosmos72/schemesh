@@ -5,6 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
 
 (library (schemesh lineedit parser (0 8 1))
   (export
@@ -42,7 +43,7 @@
     name
     parse-forms
     parse-paren)
-  (nongenerative #{parser cd39kg38a9c4cnwzwhghs827-25}))
+  (nongenerative parser-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 ;; create a new parser
@@ -108,7 +109,7 @@
     prev-pos     ; pair (x . y) containing two fixnums: previous x and y position in the input port
     pprev-pos    ; pair (x . y) containing two fixnums: previous previous x and y position in the input port
     enabled-parsers) ; #f or an hashtable symbol -> parser
-  (nongenerative #{parsectx lldgq81nltbcy4ul57vfrk5l8-0}))
+  (nongenerative parsectx-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 ;; create a new parsectx. Arguments are

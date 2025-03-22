@@ -5,6 +5,8 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;   define Scheme type "bitmap", a fixed size bit vector   ;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -25,7 +27,7 @@
     (mutable   length     bitmap-length     bitmap-length-set!)
     ; unsigned fixnum, position of last zero, or -1 if all bits are one.
     (mutable   last-zero  bitmap-last-zero  bitmap-last-zero-set!))
-  (nongenerative #{%bitmap f7pgyor7q9839cgjbgqhv381w-0}))
+  (nongenerative %bitmap-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 ;; create a zero-filled bitmap with specified bit length.

@@ -5,6 +5,8 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
+
 (library (schemesh posix io (0 8 1))
   (export
     make-utf8b-input-port make-utf8b-input/output-port make-utf8b-output-port
@@ -57,7 +59,7 @@
 (define-record-type bport
   (fields
     (immutable proc))  ; fd-proc
-  (nongenerative #{bport n9keti0sj3bih8de7dh3r7n4y-1}))
+  (nongenerative bport-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 (define (bport-fd p)
   ((bport-proc p)))

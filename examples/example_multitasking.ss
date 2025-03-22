@@ -25,7 +25,7 @@
      start-proc
      (mutable resume-proc)
      (mutable yield-proc))
-  (nongenerative #{task hvcyofcpj596hi922bdsnfbh9-3}))
+  (nongenerative task-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 (define (task-find task-or-id)

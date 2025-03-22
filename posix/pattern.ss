@@ -5,6 +5,8 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
+
 (library (schemesh posix pattern (0 8 1))
   (export
     sh-pattern sh-pattern? span->sh-pattern* sh-pattern->span*
@@ -32,7 +34,7 @@
      min-len    ; length of shortest string that can be matched
      max-len    ; length of longest string that can be matched, or #f if unlimited
      fixed?)    ; #t if sp contains only strings
-  (nongenerative #{%pattern y20ej9ny9anof5y82rq0r1qh-632}))
+  (nongenerative pattern-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 ;; create a sh-pattern containing a list of strings and wildcard symbols.

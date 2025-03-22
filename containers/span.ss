@@ -5,6 +5,8 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;  define Scheme type "span", a resizeable vector  ;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -32,7 +34,7 @@
      (mutable beg span-beg span-beg-set!)
      (mutable end span-end span-end-set!)
      (mutable vec span-vec span-vec-set!))
-  (nongenerative #{%span ng1h8vurkk5k61p0jsryrbk99-0}))
+  (nongenerative %span-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 (define span-peek-beg span-beg)
 (define span-peek-end span-end)

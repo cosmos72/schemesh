@@ -5,6 +5,8 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
+
 (library (schemesh containers hashtable (0 8 1))
   (export
     make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-pair hash-iterator-next!
@@ -41,23 +43,29 @@
     (mutable bucket iter-bucket iter-bucket-set!)
     (mutable vec1   iter-vec1   iter-vec1-set!)
     (mutable vec2   iter-vec2   iter-vec2-set!))
-  (nongenerative #{%hash-iterator lq4zmtggul3p4izcxd4jinmdw-0})
+  (nongenerative %hash-iterator-7c46d04b-34f4-4046-b5c7-b63753c1be39)
   (sealed #t))
 
 (define (bucket-valid? bucket)
-  (or (pair? bucket) (#3%$tlc? bucket)))
+  (or (pair? bucket) (($primitive 3 $tlc?) bucket)))
 
 (define (bucket-keyval bucket)
   (cond
-    ((pair? bucket)    (car bucket))
-    ((#3%$tlc? bucket) (#3%$tlc-keyval bucket))
-    (else              #f)))
+    ((pair? bucket)
+      (car bucket))
+    ((($primitive 3 $tlc?) bucket)
+      (($primitive 3 $tlc-keyval) bucket))
+    (else
+      #f)))
 
 (define (bucket-next bucket)
   (cond
-    ((pair? bucket)    (cdr bucket))
-    ((#3%$tlc? bucket) (#3%$tlc-next bucket))
-    (else              #f)))
+    ((pair? bucket)
+      (cdr bucket))
+    ((($primitive 3 $tlc?) bucket)
+      (($primitive 3 $tlc-next) bucket))
+    (else
+      #f)))
 
 ; make a copy of specified hash-iterator
 (define (hash-iterator-copy iter)

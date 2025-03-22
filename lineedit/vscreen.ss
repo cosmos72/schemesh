@@ -5,6 +5,8 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
+
 (library (schemesh lineedit vscreen (0 8 1))
   (export
     make-vscreen  vscreen*  vscreen?  assert-vscreen?
@@ -41,7 +43,7 @@
   (fields
      (mutable left  gbuffer-left  gbuffer-left-set!)
      (mutable right gbuffer-right gbuffer-right-set!))
-  (nongenerative #{%gbuffer ejch98ka4vi1n9dn4ybq4gzwe-0}))
+  (nongenerative %gbuffer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 ;; copy-pasted from containers/charlines.ss
@@ -53,7 +55,7 @@
     ;; are completely dirty i.e. must be fully redrawn on screen
     (mutable dirty-start-y) ;; fixnum
     (mutable dirty-end-y))  ;; fixnum
-  (nongenerative #{%charlines lf2lr8d65f8atnffcpi1ja7l0-439}))
+  (nongenerative %charlines-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 ;; vscreen is an in-memory representation of user-typed input and how it is split
@@ -71,7 +73,7 @@
     (mutable prompt-end-y) ;; fixnum, y row where prompt ends
     (mutable cursor-ix)    ;; fixnum, cursor x position
     (mutable cursor-iy))   ;; fixnum, cursor y position
-  (nongenerative #{%vscreen jrk9oih6lhpsih9dh3qu06xvo-525}))
+  (nongenerative vscreen-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 (define (assert-vscreen? who screen)

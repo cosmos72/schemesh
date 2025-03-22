@@ -5,6 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
 
 ;; UTF-8b textual input and/or output port reading from/writing to a binary input and/our output port.
 (define-record-type tport
@@ -12,7 +13,7 @@
     bin-port ; binary port
     bspan    ; bytespan buffer
     (mutable eof?))
-  (nongenerative #{tport ncfagw2gtqduasri71nnqdxvw-1}))
+  (nongenerative tport-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 (define (tport-bspan-length p)

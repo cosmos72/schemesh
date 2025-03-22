@@ -5,6 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;  define Scheme type "charspan", a resizeable string  ;;;;;;;;;;;;;;;
@@ -43,7 +44,7 @@
      (mutable beg charspan-beg charspan-beg-set!)
      (mutable end charspan-end charspan-end-set!)
      (mutable str charspan-str charspan-str-set!))
-  (nongenerative #{%charspan b847ikzm9lftljwelbq0cknyh-0}))
+  (nongenerative %charspan-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 (define (assert-charspan? who line)
   (unless (charspan? line)

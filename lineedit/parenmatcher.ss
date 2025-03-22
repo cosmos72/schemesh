@@ -5,6 +5,8 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
+
 (library (schemesh lineedit parenmatcher (0 8 1))
   (export
     parenmatcher? make-custom-parenmatcher parenmatcher-clear!
@@ -26,7 +28,7 @@
     update-func       ; procedure (parsectx initial-parser) -> state
     (mutable paren)   ; #f or outermost paren object
     (mutable htable)) ; #f or hashtable (+ x (* y 65536)) -> paren
-  (nongenerative #{parenmatcher oy6xm1zt7ltnfh0bwpj3pu0mh-559}))
+  (nongenerative %parenmatcher-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 ;; Create a parenmatcher containing user-specified procedure.
 ;;

@@ -5,6 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;; define Scheme type "bytespan", a resizeable bytevector  ;;;;;;;;;;;;;
@@ -38,7 +39,7 @@
      (mutable beg bytespan-beg bytespan-beg-set!)
      (mutable end bytespan-end bytespan-end-set!)
      (mutable vec bytespan-vec bytespan-vec-set!))
-  (nongenerative #{%bytespan 1j9oboeqc5j4db1bamcd28yz-0}))
+  (nongenerative %bytespan-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 (define bytespan-peek-beg bytespan-beg)
 (define bytespan-peek-end bytespan-end)

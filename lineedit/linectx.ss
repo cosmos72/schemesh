@@ -5,6 +5,8 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
+
 (library (schemesh lineedit linectx (0 8 1))
   (export
     make-linectx make-linectx* linectx? linectx-rbuf linectx-wbuf
@@ -75,7 +77,7 @@
     (mutable last-key)      ; #f or procedure, last executed lineedit-key... procedure
     (mutable history-index) ; index of last used item in history
     history)                ; charhistory, history of entered commands
-  (nongenerative #{linectx nuxrmccfi39or6fxntagza5ob-987}))
+  (nongenerative linectx-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 (define flag-eof? 1)

@@ -5,6 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
 
 (library (schemesh posix status (0 8 1))
   (export
@@ -36,7 +37,8 @@
   (fields
     (immutable kind %status->kind) ; symbol
     (immutable val  %status->val))
-  (nongenerative #{status bg891e4psxwj5jhy1psrmyy2t-0}))
+  (nongenerative %status-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+
 
 
 ;; return #t if s is a status, otherwise return #f

@@ -5,6 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
 
 (library (schemesh lineedit paren (0 8 1))
   (export
@@ -40,7 +41,7 @@
     (mutable end-x)     ; fixnum, x position of end parenthesis/bracket/brace/quote
     (mutable end-y)     ; fixnum, y position of end parenthesis/bracket/brace/quote
     (mutable inner))    ; #f or span of nested paren appearing between start and end
-  (nongenerative #{paren e1s38b5dr3myvj5mwxrpzkl27-400}))
+  (nongenerative %paren-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 (define (make-paren name start-token)

@@ -5,6 +5,8 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
+
 (library (schemesh lineedit charhistory (0 8 1))
   (export
     charhistory charhistory? make-charhistory
@@ -28,7 +30,7 @@
   (fields
     (mutable left  gbuffer-left  gbuffer-left-set!)
     (mutable right gbuffer-right gbuffer-right-set!))
-  (nongenerative #{%gbuffer ejch98ka4vi1n9dn4ybq4gzwe-0}))
+  (nongenerative %gbuffer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 ;; type charhistory is a gbuffer containing charlines elements (the history itself)
@@ -37,7 +39,7 @@
   (parent %gbuffer)
   (fields
     (mutable path charhistory-path %charhistory-path-set!)) ; #f or string path where to load/save history
-  (nongenerative #{%charhistory db0fmss41lc1voqx7uww5xnhu-28}))
+  (nongenerative %charhistory-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 (define (charhistory . vals)

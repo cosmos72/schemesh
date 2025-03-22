@@ -5,6 +5,8 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
+
 (library (schemesh containers charlines (0 8 1))
   (export
     charlines charlines? strings->charlines strings->charlines*
@@ -37,7 +39,7 @@
   (fields
      (mutable left  gbuffer-left  gbuffer-left-set!)
      (mutable right gbuffer-right gbuffer-right-set!))
-  (nongenerative #{%gbuffer ejch98ka4vi1n9dn4ybq4gzwe-0}))
+  (nongenerative %gbuffer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 ;; type charlines is a gap-buffer, containing charline elements
 (define-record-type
@@ -46,7 +48,7 @@
   (fields
     (mutable dirty-start-y charlines-dirty-start-y charlines-dirty-start-y-set!)
     (mutable dirty-end-y   charlines-dirty-end-y   charlines-dirty-end-y-set!))
-  (nongenerative #{%charlines lf2lr8d65f8atnffcpi1ja7l0-439}))
+  (nongenerative %charlines-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 (define (assert-charlines? who lines)
