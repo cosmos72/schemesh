@@ -31,7 +31,7 @@
     (rnrs)
     (rnrs exceptions)
     (rnrs mutable-pairs)
-    (only (chezscheme) append! current-time eval-when format foreign-procedure fx1+ fx1- fx/ gensym
+    (only (chezscheme) append! current-time format foreign-procedure fx1+ fx1- fx/
                        list-copy list-head meta pariah reverse! time-second time-nanosecond void)
     (schemesh bootstrap functions))
 
