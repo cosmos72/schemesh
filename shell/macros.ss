@@ -8,12 +8,13 @@
 
 (library (schemesh shell macros (0 8 1))
   (export
-    sh-include sh-include*
+    in-shell-glob sh-include sh-include*
     shell shell-backquote shell-env shell-expr shell-glob shell-list shell-subshell shell-wildcard)
   (import
     (rnrs)
     (only (chezscheme) datum format fx1- meta parameterize reverse!)
     (schemesh bootstrap)
+    (only (schemesh containers list) in-list)
     (only (schemesh posix pattern) sh-wildcard?)
     (schemesh shell job)
     (only (schemesh shell eval) sh-read-file))
@@ -162,5 +163,11 @@
              (free-identifier=? #'submacro-name #'shell-wildcard))
         #`(%shell-glob sh-wildcard job-or-id arg ...)))))
 
+
+;; (in-shell-glob ...) is a shortcut for (in-list (shell-glob ...))
+(define-syntax in-shell-glob
+  (syntax-rules ()
+    ((_ . args)
+      (in-list (shell-glob . args)))))
 
 ) ; close library
