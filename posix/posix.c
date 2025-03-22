@@ -647,7 +647,8 @@ static ptr c_fd_read_u8(int fd) {
   int     err;
   switch (n) {
     case 1:
-      return Sfixnum(buf[0]);
+      /* char may be a signed type */
+      return Sfixnum((unsigned)(unsigned char)buf[0]);
     case 0:
       return Sfalse; /* EOF */
     default:
@@ -692,7 +693,7 @@ static ptr c_fd_write_u8(int fd, int byte) {
   char buf[1];
   int  err;
 
-  buf[0] = byte & 0xFF;
+  buf[0] = (char)byte;
   if (write(fd, buf, sizeof(buf)) == 1) {
     return Sfixnum(0);
   }
