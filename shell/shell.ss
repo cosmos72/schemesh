@@ -5,6 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
 
 ;; define (schemesh shell) as a library that exports all its imported bindings
 (library-reexport (schemesh shell (0 8 1))

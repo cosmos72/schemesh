@@ -5,6 +5,8 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
+
 (library (schemesh containers macros (0 8 1))
   (export
     begin^ for for* if^ let^ let-values^ unless^ when^)

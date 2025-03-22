@@ -5,6 +5,8 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
+
 (library (schemesh posix fd (0 8 1))
   (export
     c-errno c-errno->string c-exit c-hostname

@@ -10,6 +10,8 @@
 ;; this is done by setting the top-level symbols sh-current-environment and sh-current-eval
 ;; only if they are not bound yet.
 
+#!r6rs
+
 (library (schemesh bootstrap functions (0 8 1))
   (export
       check-interrupts fx<=?* nop parameter-swapper

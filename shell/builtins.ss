@@ -5,6 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
 
 ;; thread parameter (repl-args) must be empty or a list
 ;;   (parser eval-func linectx repl-init-file-path repl-quit-file-path)

@@ -5,6 +5,8 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
+
 ;; if this file is loaded multiple times, only the first one has any effect.
 ;; implementation note:
 ;; this is done by setting the top-level symbol sh-persistent-parameters

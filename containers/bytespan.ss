@@ -5,6 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;; define Scheme type "bytespan", a resizeable bytevector  ;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -250,14 +251,31 @@
         (bytespan-set/u8! sp pos elem)
         (set! pos (fx1+ pos))))))
 
-(define (bytespan-insert-right/u8! sp . u8vals)
-  (unless (null? u8vals)
-    (let* ((pos (bytespan-length sp))
-           (new-len (fx+ pos (length u8vals))))
-      (bytespan-resize-right! sp new-len)
-      (for-list ((elem u8vals))
-        (bytespan-set/u8! sp pos elem)
-        (set! pos (fx1+ pos))))))
+(define bytespan-insert-right/u8!
+  (case-lambda
+    ((sp u8)
+      (let ((pos (bytespan-length sp)))
+        (bytespan-resize-right! sp (fx1+ pos))
+        (bytespan-set/u8! sp pos u8)))
+    ((sp u8a u8b)
+      (let ((pos (bytespan-length sp)))
+        (bytespan-resize-right! sp (fx+ pos 2))
+        (bytespan-set/u8! sp pos u8a)
+        (bytespan-set/u8! sp (fx1+ pos) u8b)))
+    ((sp u8a u8b u8c)
+      (let ((pos (bytespan-length sp)))
+        (bytespan-resize-right! sp (fx+ pos 3))
+        (bytespan-set/u8! sp pos u8a)
+        (bytespan-set/u8! sp (fx1+ pos) u8b)
+        (bytespan-set/u8! sp (fx+ pos 2) u8c)))
+    ((sp . u8vals)
+      (unless (null? u8vals)
+        (let* ((pos (bytespan-length sp))
+               (new-len (fx+ pos (length u8vals))))
+          (bytespan-resize-right! sp new-len)
+          (for-list ((elem u8vals))
+            (bytespan-set/u8! sp pos elem)
+            (set! pos (fx1+ pos))))))))
 
 ;; insert range [src-start, src-end) of bytespan bv-src
 ;; at the beginning of bytespan sp-dst

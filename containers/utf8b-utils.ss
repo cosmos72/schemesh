@@ -5,6 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
 
 ;;; define Scheme utility functions on containers:
 ;;; a. converting chars from/to UTF8 and reading/writing them into "bytevector" and "bytespan"
@@ -300,7 +301,7 @@
             (set! pos (fx1- pos))
             (assert* 'bytespan-display-right/fixnum! (fx>=? pos beg))
             (bytevector-u8-set! bv pos (fx+ 48 n%10))
-            (set! n (if (fxzero? n%10) n/10 (fx1+ n/10)))))\n
+            (set! n (if (fxzero? n%10) n/10 (fx1+ n/10)))))
         (let ((digit-n (fx- end pos)))
           (when (fx>? pos beg)
             (bytevector-copy! bv pos bv beg digit-n))

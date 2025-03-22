@@ -5,6 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
 
 ;; this file should be included only by file parser/lisp.ss
 
@@ -51,8 +52,10 @@
             ;;    $(string-append "/home" "/user")
             ;; is equivalent to
             ;;    (shell-expr (string-append "/home" "/user"))
-            (({)  (values #f  'lbrace))
-            ((})  (values #f     'rbrace))
+            ((\x7B;)  ;  '{
+                  (values #f 'lbrace))
+            ((\x7D;)  ;  '}
+                  (values #f 'rbrace))
             (($)  (values 'shell-expr 'quote ))
             (else (values value type)))
           (values value type))))))

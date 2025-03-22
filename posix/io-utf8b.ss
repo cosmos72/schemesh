@@ -6,7 +6,6 @@
 ;;; (at your option) any later version.
 
 
-
 ;; UTF-8b textual input and/or output port reading from/writing to a binary input and/our output port.
 (define-record-type tport
   (fields

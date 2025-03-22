@@ -5,8 +5,9 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
 
-;; Define the record types "job" "cmd" "multijob" and functions operating on them.
+;; Define the record types "sh-job" "sh-cmd" "sh-multijob" "sh-expr" and functions operating on them.
 ;; Define the functions (sh-env...) and (sh-fd...)
 ;
 ;; Convention: (sh) and (sh-...) are functions

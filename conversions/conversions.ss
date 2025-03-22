@@ -5,6 +5,8 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
+
 (library (schemesh conversions (0 8 1))
   (export
     display-condition* display-any display-bytevector0 write-bytevector0

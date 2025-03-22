@@ -5,6 +5,8 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
+
 (library (schemesh posix signal (0 8 1))
   (export countdown
           signal-raise signal-number->name signal-name->number signal-name-is-usually-fatal?
