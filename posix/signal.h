@@ -213,7 +213,49 @@ static ptr c_signals_list(void) {
   return ret;
 }
 
+/**
+ * Pause for user-specified duration.
+ *
+ * The duration to pause include only the interval this program is running:
+ * if suspended with CTRL+Z or SIGTSTP, the suspended interval is not counted.
+ *
+ * This effectively works as a countdown from NUMBER seconds to zero,
+ * that can be suspended with CTRL+Z or SIGTSTP and resumed by continuing this program.
+ *
+ * duration_inout must be a pair (seconds_int64 . nanoseconds_int32)
+ * and if the returned value is > 0, duration it will be updated
+ * with the remaining duration to sleep.
+ */
+static int c_countdown(ptr duration_inout) {
+  struct timespec duration, left = {};
+  int             err;
+  if (!Spairp(duration_inout)) {
+    return c_errno_set(EINVAL);
+  }
+  duration.tv_sec  = Sinteger64_value(Scar(duration_inout));
+  duration.tv_nsec = Sinteger32_value(Scdr(duration_inout));
+  if (duration.tv_sec < 0 || (duration.tv_sec == 0 && duration.tv_nsec <= 0)) {
+    return 0;
+  }
+#ifdef CLOCK_MONOTONIC
+  err = clock_nanosleep(CLOCK_MONOTONIC, 0, &duration, &left);
+#else
+  if (nanosleep(&interval, &left) != 0) {
+    err = errno;
+  }
+#endif
+  if (err == 0) {
+    return 0;
+  } else if (err != EINTR) {
+    return c_errno_set(err);
+  }
+  Sset_car(duration_inout, Sinteger64(left.tv_sec));
+  Sset_cdr(duration_inout, Sinteger32(left.tv_nsec));
+  return 1;
+}
+
 static void c_register_c_functions_posix_signals(void) {
+  Sregister_symbol("c_countdown", &c_countdown);
   Sregister_symbol("c_signals_list", &c_signals_list);
   Sregister_symbol("c_signal_raise", &c_signal_raise);
   Sregister_symbol("c_signal_consume_sigwinch", &c_signal_consume_sigwinch);

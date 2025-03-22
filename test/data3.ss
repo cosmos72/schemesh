@@ -20,6 +20,17 @@
 
   ;; ------------------------- posix --------------------------------------
   (fx<=? (c-errno) 0)                                  #t
+
+  (countdown 0)                                        #t
+  (countdown 0.0)                                      #t
+  (countdown '(0 . 0))                                 #t
+  (countdown (make-time 'time-duration 0 0))           #t
+  (fx<? (countdown -1) 0)                              #t
+  (fx<? (countdown -1.0) 0)                            #t
+  (fx<? (countdown '(0 . -1)) 0)                       #t
+  (fx<? (countdown (make-time 'time-duration
+                              999999999 -1)) 0)        #t
+
   (file-type "." '(catch))                             dir
   (file-type "parser/parser.ss" '(catch))              file
   (directory-sort!

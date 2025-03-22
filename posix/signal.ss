@@ -6,14 +6,86 @@
 ;;; (at your option) any later version.
 
 (library (schemesh posix signal (0 8 1))
-  (export signal-raise signal-number->name signal-name->number signal-name-is-usually-fatal?
+  (export countdown
+          signal-raise signal-number->name signal-name->number signal-name-is-usually-fatal?
           signal-consume-sigwinch signal-init-sigwinch signal-restore-sigwinch)
   (import
     (rnrs)
-    (only (chezscheme) assertion-violationf foreign-procedure fx1-
-                       logbit? procedure-arity-mask void)
-    (only (schemesh bootstrap)            assert* debugf)
+    (only (chezscheme) assertion-violationf foreign-procedure fx1- integer-length logbit?
+                       procedure-arity-mask time? time-nanosecond time-second time-type void)
+    (only (schemesh bootstrap)            assert* check-interrupts)
     (only (schemesh containers hashtable) alist->eq-hashtable hashtable-transpose))
+
+
+(define c-errno-einval ((foreign-procedure "c_errno_einval" () int)))
+
+
+;; Pause for user-specified duration.
+;;
+;; The duration to pause include only the interval the caller's process or job is running:
+;; if suspended with CTRL+Z or SIGTSTP, the suspended interval is not counted.
+;;
+;; This effectively works as a countdown from NUMBER seconds to zero,
+;; that can be suspended with CTRL+Z or SIGTSTP and resumed by continuing this program.
+;;
+;; duration must be one of:
+;; * an exact or inexact real, indicating the number of seconds (non-integer values are supported too)
+;; * a pair (seconds . nanoseconds) where both are exact integers
+;; * a time object with type 'time-duration
+;;
+;; returns #t on success, or < 0 on errors.
+(define countdown
+  (let ((c-countdown (foreign-procedure "c_countdown" (ptr) int)))
+    (lambda (duration)
+      (let %countdown ((pair (%duration->pair duration)))
+        (check-interrupts)
+        (let ((err (c-countdown pair)))
+          (case err
+            ((0) #t)
+            ((1) (%countdown pair))
+            (else err)))))))
+
+;; convert one of:
+;; * an exact or inexact real, indicating the number of seconds
+;; * a pair (seconds . nanoseconds) where both are exact integers
+;; * a time object with type 'time-duration
+;;
+;; to a mutable pair (seconds_int64 . nanoseconds_int32)
+(define (%duration->pair duration)
+  (cond
+    ((real? duration)
+      (let* ((seconds (exact (floor duration)))
+             (ns      (exact (round (* 1e9 (- duration seconds))))))
+        (%make-c-duration seconds ns)))
+    ((pair? duration)
+      (%make-c-duration (car duration) (cdr duration)))
+    ((and (time? duration) (eq? 'time-duration (time-type duration)))
+      (%make-c-duration (time-second duration) (time-nanosecond duration)))
+    (else
+      #f)))
+
+
+;; if seconds and nanoseconds are exact integers suitable for C nanosleep(), return a pair (seconds . nanoseconds)
+;; otherwise return #f
+(define (%make-c-duration s ns)
+  (cond
+    ((not (and (exact? s)  (integer? s)
+               (exact? ns) (integer? ns)))
+      ;; (debugf "make-c-duration not exact integer: s=~s ns=~s" s ns)
+      #f)
+    ((and (>= s 0) (<= (integer-length s) 63) (<= 0 ns 999999999))
+      ;; (debugf "make-c-duration ok: s=~s ns=~s" s ns)
+      (cons s ns))
+    (else
+      ;; normalize nanoseconds to the range [0, 1e9) and try again
+      (let-values (((carry ns) (div-and-mod ns 1000000000)))
+        (let ((s (+ s carry)))
+          ;; (debugf "make-c-duration normalized: s=~s ns=~s" s ns)
+          (if (and (>= s 0) (<= (integer-length s) 63) (<= 0 ns 999999999))
+            (cons s ns)
+            #f))))))
+
+
 
 (define signal-table-number->name
   (alist->eq-hashtable ((foreign-procedure "c_signals_list" () ptr))))
@@ -43,8 +115,7 @@
 ;
 ; Returns < 0 if signal-name is unknown, or if C function raise() fails with C errno != 0.
 (define signal-raise
-  (let ((c-signal-raise (foreign-procedure "c_signal_raise" (int) int))
-        (c-errno-einval ((foreign-procedure "c_errno_einval" () int))))
+  (let ((c-signal-raise (foreign-procedure "c_signal_raise" (int) int)))
     (lambda (signal-name)
       (let ((signal-number (signal-name->number signal-name)))
         (if (fixnum? signal-number)

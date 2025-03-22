@@ -37,6 +37,7 @@
 #include <sys/stat.h>  /* fstatat() */
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <time.h>   /* clock_nanosleep(), CLOCK_MONOTONIC, nanosleep() */
 #include <unistd.h> /* geteuid(), getpid(), sysconf(), write() */
 
 #ifdef __linux__
@@ -55,6 +56,7 @@
 
 /** needed by signal.h */
 static int c_errno(void);
+static int c_errno_set(int errno_value);
 static int c_init_failed(const char label[]);
 
 /** signal.h defines a lot of static functions */
