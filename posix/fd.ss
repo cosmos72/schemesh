@@ -258,6 +258,8 @@
 ;; write a single byte to fd, and return unspecified value.
 ;; Raise exception on I/O error.
 ;;
+;; The byte must be an exact integer in [-128, 255]
+;;
 ;; Note: if interrupted, calls (check-interrupts) then tries again if (check-interrupts) returns normally.
 (define fd-write-u8
   (let ((c-fd-write-u8 (foreign-procedure __collect_safe "c_fd_write_u8" (int int) ptr)))

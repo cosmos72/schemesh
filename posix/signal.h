@@ -139,9 +139,8 @@ static int c_signal_setdefault(int sig) {
 }
 
 static int c_signal_raise(int sig) {
-  if (sig == SIGTTIN || sig == SIGTTOU) {
-    (void)c_signal_setdefault(sig);
-  }
+  (void)c_signal_setdefault(sig);
+
   if (raise(sig) < 0) { /* better than kill(getpid(), sig) in multi-threaded-programs */
     return c_errno();
   }

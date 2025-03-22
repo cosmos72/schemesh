@@ -31,6 +31,26 @@
   (fx<? (countdown (make-time 'time-duration
                               999999999 -1)) 0)        #t
 
+  (let-values (((rfd wfd) (open-pipe-fds #t #t)))
+    (dynamic-wind
+      void
+      (lambda ()
+        (fd-write-u8 wfd -1)
+        (fd-read-u8 rfd))
+      (lambda ()
+        (fd-close wfd)
+        (fd-close rfd))))                              255
+
+  (let-values (((fd1 fd2) (open-socketpair-fds #t #t)))
+    (dynamic-wind
+      void
+      (lambda ()
+        (fd-write-u8 fd1 -2)
+        (fd-read-u8 fd2))
+      (lambda ()
+        (fd-close fd2)
+        (fd-close fd1))))                              254
+
   (file-type "." '(catch))                             dir
   (file-type "parser/parser.ss" '(catch))              file
   (directory-sort!

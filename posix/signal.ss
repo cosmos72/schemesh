@@ -111,11 +111,11 @@
     #t
     #f))
 
-; (signal-raise signal-name) calls C functions sigaction(sig, SIG_DFL),
-; then calls C function raise(sig)
-; i.e. sends specified signal to the thread itself.
-;
-; Returns < 0 if signal-name is unknown, or if C function raise() fails with C errno != 0.
+;; (signal-raise signal-name) calls C functions sigaction(sig, SIG_DFL),
+;; then calls C function raise(sig)
+;; i.e. sends specified signal to the thread itself.
+;;
+;; Returns < 0 if signal-name is unknown, or if C function raise() fails with C errno != 0.
 (define signal-raise
   (let ((c-signal-raise (foreign-procedure "c_signal_raise" (int) int)))
     (lambda (signal-name)
