@@ -44,7 +44,7 @@
   (else
     (define flvector-native? #f)
     (define flvector         vector)
-    (define (flvector?)      #f)
+    (define (flvector? obj)  #f)
     (define flvector-length  vector-length)
     (define flvector-ref     vector-ref)
     (define flvector-set!    vector-set!)

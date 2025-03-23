@@ -17,7 +17,7 @@
       while until throws? trace-call trace-define try list->values values->list
 
       ;; flvector.ss
-      flvector-native? flvector? flvector-length flvector-ref flvector-set! make-flvector
+      flvector-native? flvector flvector? flvector-length flvector-ref flvector-set! make-flvector
 
       ;; functions.ss
       check-interrupts fx<=?* nop parameter-swapper
