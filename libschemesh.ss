@@ -6,6 +6,7 @@
 ;;; (at your option) any later version.
 
 (begin
+  (include "bootstrap/flvector.ss")
   (include "bootstrap/functions.ss")
   (include "bootstrap/bootstrap.ss")
 
@@ -30,6 +31,8 @@
   (include "containers/containers.ss")
 
   (include "conversions/conversions.ss")
+
+  ;; (include "wire/wire.ss")
 
   (include "posix/fd.ss")
   (include "posix/dir.ss")

@@ -18,7 +18,7 @@
     (only (chezscheme)         cflonum? cfl+ fl-make-rectangular
                                fx1+ fx1- fxvector-length fxvector-ref
                                import include meta-cond library-exports scheme-version)
-    (only (schemesh bootstrap) assert* fx<=?* raise-errorf))
+    (only (schemesh bootstrap) assert* flvector-length flvector-ref fx<=?* raise-errorf))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -225,36 +225,19 @@
 ;; either (values elem #t) i.e. the next element in flvector v and #t,
 ;; or (values #<unspecified> #f) if end of vector is reached.
 (define in-flvector
-  (meta-cond
-    ((let ((exports (library-exports '(chezscheme))))
-       (and (memq 'flvector-length exports)
-            (memq 'flvector-ref    exports)))
-      (case-lambda
-        ((v start end step)
-          (import (only (chezscheme) flvector-length flvector-ref))
-          (assert* 'in-flvector (fx<=?* 0 start end (flvector-length v)))
-          (assert* 'in-flvector (fx>=? step 0))
-          (lambda ()
-            (if (fx<? start end)
-              (let ((elem (flvector-ref v start)))
-                (set! start (fx+ start step))
-                (values elem #t))
-              (values #f #f))))
-        ((v start end)
-          (in-flvector v start end 1))
-        ((v)
-          (import (only (chezscheme) flvector-length))
-          (in-flvector v 0 (flvector-length v) 1))))
-    (else
-      (let ((raise-missing-flvector
-              (lambda ()
-                (raise-errorf 'in-flvector "flvector is only supported in Chez Scheme Version 10.0.0 or higher, found ~a" (scheme-version)))))
-        (case-lambda
-          ((v start end step)
-            (raise-missing-flvector))
-          ((v start end)
-            (raise-missing-flvector))
-          ((v)
-            (raise-missing-flvector)))))))
+  (case-lambda
+    ((v start end step)
+      (assert* 'in-flvector (fx<=?* 0 start end (flvector-length v)))
+      (assert* 'in-flvector (fx>=? step 0))
+      (lambda ()
+        (if (fx<? start end)
+          (let ((elem (flvector-ref v start)))
+            (set! start (fx+ start step))
+            (values elem #t))
+          (values #f #f))))
+    ((v start end)
+      (in-flvector v start end 1))
+    ((v)
+      (in-flvector v 0 (flvector-length v) 1))))
 
 ) ; close library

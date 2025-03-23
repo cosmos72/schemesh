@@ -18,6 +18,7 @@
     (only (chezscheme)
       append! box bytevector char-name fx1+ fx1- fxvector fxvector-set! include
       make-fxvector read-token reverse! top-level-value void)
+    (schemesh bootstrap flvector)
     (only (schemesh bootstrap)            assert* debugf while until)
     (only (schemesh containers charspan)  charspan charspan-insert-right! charspan->string*!)
     (only (schemesh containers hashtable) hashtable)
@@ -233,15 +234,15 @@
       ((vfxnparen) (create-fxvector   len values))
       ((vnparen)   (create-vector     len values))
       ((vu8nparen) (create-bytevector len values))
-      ((vflparen)  (apply (top-level-value 'flvector) values)) ; requires Chez Scheme >= 10.0.0
+      ((vflparen)  (apply flvector   values))
       ((vfxparen)  (apply fxvector   values))
       ((vparen)    (apply vector     values))
       ((vu8paren)  (apply bytevector values))
       (else  (syntax-errorf ctx (caller-for flavor) "unexpected ~a" vec-type)))))
 
-;; requires Chez Scheme >= 10.0.0
+;; flvectors require Chez Scheme >= 10.0.0, otherwise they are emulated with plain vectors
 (define (create-flvector len values)
-  (%create-vector len values 0.0 (top-level-value 'make-flvector) (top-level-value 'flvector-set!)))
+  (%create-vector len values 0.0 make-flvector flvector-set!))
 
 (define (create-fxvector len values)
   (%create-vector len values 0 make-fxvector fxvector-set!))

@@ -5,6 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+
 ;; if this file is loaded multiple times, only the first one has any effect.
 ;; implementation note:
 ;; this is done by setting the top-level symbols sh-current-environment and sh-current-eval
@@ -27,8 +28,8 @@
   (import
     (rnrs)
     (only (chezscheme) $primitive console-error-port format gensym make-continuation-condition
-                       make-format-condition interaction-environment top-level-bound? top-level-value
-                       void))
+                       make-format-condition interaction-environment library-exports
+                       top-level-bound? top-level-value void))
 
 
 ;; immediately check if an event occurred:
