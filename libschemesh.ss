@@ -32,7 +32,7 @@
 
   (include "conversions/conversions.ss")
 
-  ;; (include "wire/wire.ss")
+  (include "wire/wire.ss")
 
   (include "posix/fd.ss")
   (include "posix/dir.ss")
