@@ -35,8 +35,7 @@
   ;; ------------------------ parser shell -------------------------------
   ;; invariant: {#!scheme ...} is always equivalent to (...)
   '{#!scheme 1 2 (3 . 4)}                              (1 2 (3 . 4))
-  (eq? (void)
-       (parse-shell-form1 (string->parsectx "")))      #t
+  (parse-shell-form1 (string->parsectx ""))            ,@"#<void>"
   '{}                                                  (shell)
   '{{}}                                                (shell (shell))
   '{ls -l>/dev/null&}                                  (shell "ls" "-l" > "/dev/null" &)
@@ -331,6 +330,10 @@
   (sh-parse-datum '(shell "find" "-type" "f" \x7C;&
                           "wc" &))                     (sh-list (sh-pipe* (sh-cmd "find" "-type" "f") '\x7C;&
                                                                           (sh-cmd "wc")) '&)
+  ;; relaxed syntax: sh-parse-datum converts unexpected symbols to strings
+  (sh-parse-datum '(shell ls -l a b c \x7C;&
+                          wc -l &))                    (sh-list (sh-pipe* (sh-cmd "ls" "-l" "a" "b" "c") '\x7C;&
+                                                                          (sh-cmd "wc" "-l")) '&)
   ;; (sh-parse) does not alter nested (shell "foo") and returns it verbatim
   (sh-parse-datum '(shell (shell "foo") \x3B;
                           "bar"))                      (sh-list (shell "foo") '\x3B; (sh-cmd "bar"))

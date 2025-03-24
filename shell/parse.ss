@@ -65,7 +65,6 @@
              (else
                (syntax-violation 'sh-parse-datum "syntax error, shell DSL form should start with 'shell or 'shell-subshell, found:"
                  saved-args arg0)))))
-    (validate-datum args)
     ; (debugf ">   sh-parse-datum args = ~s" saved-args)
     (until (null? args)
       (let-values (((parsed tail) (parse-or args)))
@@ -110,26 +109,12 @@
         ;; the alternative is worse: if we do *not* unwrap single-element ret,
         ;;   then a plain "cd PATH" is returned as "{ cd PATH }" which has no effect,
         ;;   because it only changes the current directory of the enclosing "{ ... }"
-        (let ((ret0 (car ret)))
-          (if (eq? 'sh-list ret-prefix)
-            ret0
-            (cons ret-prefix ret))))
+        (if (eq? 'sh-list ret-prefix)
+          (car ret)
+          (cons ret-prefix ret)))
       (else
        (cons ret-prefix (reverse! (list-quoteq! '(& \x3B;
                                                   ) ret)))))))
-
-
-;; validate-datum list containing a sequence of shell commands separated by ; & ! && || |
-(define (validate-datum args)
-  (unless (or (null? args) (null? (cdr args)))
-    (let ((arg1 (car args))
-          (arg2 (cadr args)))
-      (when (and (symbol? arg1) (symbol? arg2) (not (eq? '! arg2)))
-        (unless (and (eq? arg1 '\x3B;) (job-terminator? arg2))
-          (syntax-violation 'sh-parse-datum "syntax error, invalid consecutive shell DSL operators:"
-              args arg2))))
-    (validate-datum (cdr args))))
-
 
 
 ;; Parse a list starting with one redirection. Used only for redirections after a group
@@ -339,10 +324,17 @@
             (set! args (cdr args))
             (set! done? #t)
             (set! prefix #f))
-          ((or (string? arg) (fixnum? arg) (eq? '= arg) (pair? arg) (redirection-sym? arg) (sh-wildcard? arg))
-            (when (or (fixnum? arg) (symbol? arg) (pair? arg))
+          ((or (fixnum? arg) (pair? arg) (symbol? arg) (string? arg))
+
+            (when (and (symbol? arg) (not (eq? '= arg)) (not (redirection-sym? arg)) (not (sh-wildcard? arg)))
+              ;; relaxed syntax: convert unexpected symbols to strings.
+              ;; converts (shell ls -l) to (shell "ls" "-l")
+              (set! arg (symbol->string arg)))
+
+            (unless (string? arg)
               ; (sh-cmd) does not support env assignment, redirections and closures, use (sh-cmd*)
               (set! prefix 'sh-cmd*))
+
             (cond
               ((fixnum? arg)
                 (let-values (((fd dir to) (parse-redirection3 args pair?)))
