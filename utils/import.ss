@@ -19,6 +19,7 @@
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh conversions)
+    (schemesh wire)
     (schemesh lineedit)
     (schemesh parser)
     (schemesh posix)

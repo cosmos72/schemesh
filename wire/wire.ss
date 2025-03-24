@@ -25,7 +25,7 @@
 ;;;       1 => datum is fixnum 1
 ;;;       2 => datum is fixnum 2
 ;;;       3 => datum is fixnum -1
-;;;       4 => datum is exact integer, signed, little endian, datum-byte-n is dlen-1 bytes
+;;;       4 => datum is exact integer, signed, little endian, datum-byte-n is dlen bytes
 ;;;       5 => datum is exact ratio, encoded as 2 messages: numerator, denominator
 ;;;       6 => datum is exact complex, encoded as 2 messages: real, imag
 ;;;       7 => datum is flonum, 8 byte IEEE float64 little-endian
@@ -40,10 +40,10 @@
 ;;;      16 => datum is box:         followed by message
 ;;;      17 => datum is pair:        encoded as 2 messages: car, cdr
 ;;;      18 => datum is vector:      n encoded as dlen, followed by n messages
-;;;      19 => datum is bytevector:  n is dlen-1, followed by n raw bytes
+;;;      19 => datum is bytevector:  n is dlen, followed by n raw bytes
 ;;;      20 => datum is string:      n encoded as dlen, followed by characters each encoded as dlen
 ;;;      21 => datum is fxvector:    n encoded as dlen, followed by n messages
-;;;      22 => datum is flvector:    n is (dlen-1)/8, followed by n * 8 IEEE float64 little-endian
+;;;      22 => datum is flvector:    n is dlen/8, followed by n * 8 IEEE float64 little-endian
 ;;;      23 UNUSED. stencil-vector?
 ;;;      24 => datum is symbol:      n encoded as dlen, followed by characters each encoded as dlen
 ;;;      25 => datum is eq-hashtable:  n encoded as dlen, followed by 2 * n messages
@@ -52,7 +52,7 @@
 ;;;                                      followed by n encoded as dlen, followed by 2 * n messages
 ;;
 ;;;      32 => datum is span:        n encoded as dlen, followed by n messages
-;;;      33 => datum is bytespan:    n is dlen-1, followed by n raw bytes
+;;;      33 => datum is bytespan:    n is dlen, followed by n raw bytes
 ;;;      34 => datum is charspan:    n encoded as dlen, followed by characters each encoded as dlen
 ;;;      35 => datum is gbuffer:     n encoded as dlen, followed by n messages
 ;;;      36 => datum is bytegbuffer: NOT IMPLEMENTED
@@ -369,8 +369,7 @@
       (header+ pos)) ; only header, datum is 0 bytes
     (else
       (cond
-        ((not (valid-message-len? pos))
-           #f)
+        ((not pos)         #f)
         ((fixnum? obj)     (len/exact-int  obj pos))
         ((char?   obj)     (len/char       obj pos))
         ((flonum? obj)     (len/flonum     obj pos))
@@ -413,8 +412,7 @@
       (put/header bv pos tag-nil 0)) ; only header, datum is 0 bytes
     (else
       (cond
-        ((not (valid-message-len? pos))
-           #f)
+        ((not pos)         #f)
         ((fixnum? obj)     (put/exact-int  bv pos obj))
         ((char?   obj)     (put/char       bv pos obj))
         ((flonum? obj)     (put/flonum     bv pos obj))

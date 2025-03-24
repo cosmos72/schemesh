@@ -39,7 +39,7 @@ static void run_scheme_tests(unsigned long* run_n, unsigned long* failed_n, cons
 }
 
 static int run_all_tests(void) {
-  const char*   test_files[] = {"test/data1.ss", "test/data2.ss", "test/data3.ss"};
+  const char*   test_files[] = {"test/data0.ss", "test/data1.ss", "test/data2.ss", "test/data3.ss"};
   unsigned long run_n        = 0;
   unsigned long failed_n     = 0;
 
