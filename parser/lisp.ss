@@ -18,8 +18,8 @@
     (only (chezscheme)
       append! box bytevector char-name fx1+ fx1- fxvector fxvector-set! include
       make-fxvector read-token reverse! top-level-value void)
-    (schemesh bootstrap flvector)
     (only (schemesh bootstrap)            assert* debugf while until)
+    (schemesh containers flvector)
     (only (schemesh containers charspan)  charspan charspan-insert-right! charspan->string*!)
     (only (schemesh containers hashtable) hashtable)
     (only (schemesh containers list)      list-reverse*!)

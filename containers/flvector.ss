@@ -6,14 +6,9 @@
 ;;; (at your option) any later version.
 
 
-;; if this file is loaded multiple times, only the first one has any effect.
-;; implementation note:
-;; this is done by setting the top-level symbols sh-current-environment and sh-current-eval
-;; only if they are not bound yet.
-
 #!r6rs
 
-(library (schemesh bootstrap flvector (0 8 1))
+(library (schemesh containers flvector (0 8 1))
   (export
     flvector-native? flvector flvector? flvector-length flvector-ref flvector-set! make-flvector)
   (import
@@ -49,5 +44,6 @@
     (define flvector-ref     vector-ref)
     (define flvector-set!    vector-set!)
     (define make-flvector    make-vector)))
+
 
 ) ; close library

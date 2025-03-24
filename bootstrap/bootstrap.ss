@@ -16,9 +16,6 @@
       first-value first-value-or-void forever let-macro raise-assert* repeat second-value
       while until throws? trace-call trace-define try list->values values->list
 
-      ;; flvector.ss
-      flvector-native? flvector flvector? flvector-length flvector-ref flvector-set! make-flvector
-
       ;; functions.ss
       check-interrupts fx<=?* nop parameter-swapper
       generate-pretty-temporaries generate-pretty-temporary gensym-pretty
@@ -36,7 +33,6 @@
     (rnrs mutable-pairs)
     (only (chezscheme) append! current-time format foreign-procedure fx1+ fx1- fx/
                        list-copy list-head meta pariah reverse! time-second time-nanosecond void)
-    (schemesh bootstrap flvector)
     (schemesh bootstrap functions))
 
 

@@ -6,12 +6,12 @@
 ;;; (at your option) any later version.
 
 (begin
-  (include "bootstrap/flvector.ss")
   (include "bootstrap/functions.ss")
   (include "bootstrap/bootstrap.ss")
 
   (include "containers/bitmap.ss")
   (include "containers/bytevector.ss")
+  (include "containers/flvector.ss")
   (include "containers/in.ss")
   (include "containers/list.ss")
   (include "containers/string.ss")

@@ -18,7 +18,8 @@
     (only (chezscheme)         cflonum? cfl+ fl-make-rectangular
                                fx1+ fx1- fxvector-length fxvector-ref
                                import include meta-cond library-exports scheme-version)
-    (only (schemesh bootstrap) assert* flvector-length flvector-ref fx<=?* raise-errorf))
+    (only (schemesh bootstrap) assert* fx<=?* raise-errorf)
+    (only (schemesh containers flvector) flvector-length flvector-ref))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

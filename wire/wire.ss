@@ -72,8 +72,8 @@
                        fxvector? fxvector-length fxvector-ref fxvector-set! make-fxvector
                        integer-length
                        void)
-    (schemesh bootstrap flvector)
     (only (schemesh bootstrap) assert*)
+    (schemesh containers flvector)
     (schemesh containers bytespan))
 
 
