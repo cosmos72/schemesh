@@ -101,12 +101,13 @@
 (define tag-bwp      15)
 (define tag-box      16)
 (define tag-pair     17)
-(define tag-vector   18)
-(define tag-bvector  19) ; bytevector
-(define tag-string   20)
-(define tag-fxvector 21)
-(define tag-flvector 22)
-(define tag-symbol   24)
+(define tag-list     18)
+(define tag-vector   19)
+(define tag-bvector  20) ; bytevector
+(define tag-string   21)
+(define tag-fxvector 22)
+(define tag-flvector 23)
+(define tag-symbol   25)
 
 (define len-char     3) ;; each character is encoded as 3 bytes
 (define len-flonum   8) ;; each flonum is encoded as 8 bytes
@@ -179,7 +180,7 @@
         ;; datum is sign-extended, two's complement little-endian bytes
         (let* ((datum-byte-n (fx1+ (fxsrl (integer-length obj) 3)))
                (pos (put/header bv pos tag-int datum-byte-n)))
-          (bytevector-sint-set! bv pos obj datum-byte-n endian)
+          (bytevector-sint-set! bv pos obj endian datum-byte-n)
           (fx+ pos datum-byte-n))))))
 
 
@@ -235,13 +236,13 @@
         (let* ((end0 (fx+ pos dlen+tag))
                (end1 (put/exact-int bv end0 (numerator obj)))
                (end2 (put/exact-int bv end1 (denominator obj))))
-            (put/header bv pos tag-ratio (fx- end2 pos))
+            (put/header bv pos tag-ratio (fx- end2 end0))
             end2))
       ;; exact complex: encoded as header, (real-part, imag-part)
       (let* ((end0 (fx+ pos dlen+tag))
              (end1 (put/number bv end0 (real-part obj)))
              (end2 (put/number bv end1 (imag-part obj))))
-          (put/header bv pos tag-complex (fx- end2 pos))
+          (put/header bv pos tag-complex (fx- end2 end0))
           end2))
     ;; inexact number. assume flonum or cflonum
     (if (flonum? obj)
@@ -250,12 +251,12 @@
 
 
 (define (len/char obj pos)
-  (header+ dlen pos)) ;; dlen = 3 byte datum
+  (header+ len-char pos))
 
 ;; write header and one character into bytevector starting at position pos.
 ;; return updated position, or raise exception on errors.
 (define (put/char bv pos obj)
-  (let ((pos (put/header bv pos tag-char dlen))) ;; dlen = 3 byte datum
+  (let ((pos (put/header bv pos tag-char len-char)))
     (put/u24 bv pos (char->integer obj))))
 
 
@@ -264,21 +265,31 @@
     (len/any (unbox obj) pos)))
 
 (define (put/box bv pos obj)
-  (let ((end (put/any bv (fx+ pos dlen+tag) (unbox obj))))
-    (put/header bv pos tag-box (fx- end pos))
-    end))
+  (let* ((end0 (fx+ pos dlen+tag))
+         (end1 (put/any bv end0 (unbox obj))))
+    (put/header bv pos tag-box (fx- end1 end0))
+    end1))
+
+
+(define (len/list obj pos)
+  (let %len/list ((l obj) (pos pos))
+    (if (and pos (not (null? l)))
+      (%len/list (cdr l) (len/any (car l) pos))
+      (header+ dlen pos)))) ; n is encoded as dlen
 
 
 (define (len/pair obj pos)
-  (header+
-    (len/any (cdr obj)
-      (len/any (car obj) pos))))
+  (if #f ; (list? obj)
+    (len/list obj pos)
+    (header+
+      (len/any (cdr obj)
+        (len/any (car obj) pos)))))
 
 (define (put/pair bv pos obj)
   (let* ((end0 (fx+ pos dlen+tag))
          (end1 (put/any bv end0 (car obj)))
          (end2 (put/any bv end1 (cdr obj))))
-    (put/header bv pos tag-pair (fx- end2 pos))
+    (put/header bv pos tag-pair (fx- end2 end0))
     end2))
 
 

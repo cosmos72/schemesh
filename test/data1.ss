@@ -210,5 +210,9 @@
       (vscreen-resize! screen 9 30)
       (list (vscreen-cursor-ix screen)
             (vscreen-cursor-iy screen) screen))        ,(2 1 (vscreen* 9 30 "abcdefgh0" "12\n" "qwerty"))
-
+  ;; ------------------------ wire ----------------------------------------
+  (let ((bsp (bytespan)))
+    (wire-put bsp (list 1 2 3 127 255 (box #\a)))
+    (bytespan->bytevector*! bsp))                      #vu8(59 0 0 17 0 0 0 1 51 0 0 17 0 0 0 2 43 0 0 17 1 0 0 4 3 34 0 0 17 1 0 0 4
+                                                            127 25 0 0 17 2 0 0 4 255 0 15 0 0 17 7 0 0 16 3 0 0 9 97 0 0 0 0 0 12)
 )
