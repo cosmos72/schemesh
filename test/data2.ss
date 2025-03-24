@@ -330,10 +330,14 @@
   (sh-parse-datum '(shell "find" "-type" "f" \x7C;&
                           "wc" &))                     (sh-list (sh-pipe* (sh-cmd "find" "-type" "f") '\x7C;&
                                                                           (sh-cmd "wc")) '&)
-  ;; relaxed syntax: sh-parse-datum converts unexpected symbols to strings
+  ;; relaxed syntax: sh-parse-datum converts non-operator symbols to strings
   (sh-parse-datum '(shell ls -l a b c \x7C;&
                           wc -l &))                    (sh-list (sh-pipe* (sh-cmd "ls" "-l" "a" "b" "c") '\x7C;&
                                                                           (sh-cmd "wc" "-l")) '&)
+  ;; redirections after '& or '; are a sh-cmd*
+  ;; relaxed syntax: sh-parse-datum converts non-operator symbols to strings also after redirections
+  (sh-parse-datum '(shell ls -l & > /dev/null))        (sh-list (sh-cmd "ls" "-l") '&
+                                                                (sh-cmd* 1 '> "/dev/null"))
   ;; (sh-parse) does not alter nested (shell "foo") and returns it verbatim
   (sh-parse-datum '(shell (shell "foo") \x3B;
                           "bar"))                      (sh-list (shell "foo") '\x3B; (sh-cmd "bar"))
