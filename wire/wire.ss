@@ -108,7 +108,9 @@
 (define tag-flvector 22)
 (define tag-symbol   24)
 
-(define len-flonum   8)
+(define len-char     3) ;; each character is encoded as 3 bytes
+(define len-flonum   8) ;; each flonum is encoded as 8 bytes
+(define len-cflonum 16) ;; each cflonum is encoded as 16 bytes
 
 (define endian (endianness little))
 
@@ -131,7 +133,7 @@
 ;; write exact unsigned integer as 3 bytes into bytevector starting at position pos.
 ;; return updated position, or raise exception on errors.
 (define (put/u24 bv pos u24)
-  (bytevector-u8-set! bv pos u24)
+  (bytevector-u24-set! bv pos u24 endian)
   (fx+ pos 3))
 
 ;; write message header (dlen, tag) into bytevector starting at position pos.
@@ -194,7 +196,7 @@
   (header+ (* 2 len-flonum) pos))
 
 (define (put/cflonum bv obj pos)
-  (let ((pos (put/header bv pos tag-cflonum (* 2 len-flonum))))
+  (let ((pos (put/header bv pos tag-cflonum len-cflonum)))
     (bytevector-ieee-double-set! bv pos (real-part obj) endian)
     (let ((pos (fx+ pos len-flonum)))
       (bytevector-ieee-double-set! bv pos (imag-part obj) endian)
@@ -210,8 +212,8 @@
         (len/exact-int obj pos)
         ;; exact ratio: encoded as header, (numerator, denominator)
         (header+
-          (len/number (numerator obj)
-             (len/number (denominator obj) pos))))
+          (len/exact-int (denominator obj)
+             (len/exact-int (numerator obj) pos))))
       ;; exact complex
       (header+
         (len/number (imag-part obj)
@@ -221,8 +223,30 @@
       (len/flonum obj pos)
       (len/cflonum obj pos))))
 
+
 (define (put/number bv obj pos)
-  pos) ; TODO implement
+  (if (exact? obj)
+    ;; exact number
+    (if (real? obj)
+      (if (integer? obj)
+        ;; exact integer
+        (put/exact-int bv obj pos)
+        ;; exact ratio: encoded as header, (numerator, denominator)
+        (let* ((end0 (fx+ pos dlen+tag))
+               (end1 (put/exact-int bv end0 (numerator obj)))
+               (end2 (put/exact-int bv end1 (denominator obj))))
+            (put/header bv pos tag-ratio (fx- end2 pos))
+            end2))
+      ;; exact complex: encoded as header, (real-part, imag-part)
+      (let* ((end0 (fx+ pos dlen+tag))
+             (end1 (put/number bv end0 (real-part obj)))
+             (end2 (put/number bv end1 (imag-part obj))))
+          (put/header bv pos tag-complex (fx- end2 pos))
+          end2))
+    ;; inexact number. assume flonum or cflonum
+    (if (flonum? obj)
+      (put/flonum bv obj pos)
+      (put/cflonum bv obj pos))))
 
 
 (define (len/char obj pos)
@@ -274,7 +298,11 @@
     (header+ (fx+ dlen datum-byte-n) pos)))
 
 (define (put/bytevector bv pos obj)
-  pos) ; TODO: implement
+  (let ((datum-byte-n (bytevector-length obj))
+        (end0         (fx+ pos dlen+tag)))
+    (put/header bv pos tag-bvector datum-byte-n)
+    (bytevector-copy! obj 0 bv end0 datum-byte-n)
+    (fx+ end0 datum-byte-n)))
 
 
 (define (len/fxvector obj pos)
@@ -289,16 +317,24 @@
 
 
 (define (len/flvector obj pos)
-  (let ((datum-byte-n (fx* 8 (flvector-length obj)))) ;; each flonum is 8 bytes
+  (let ((datum-byte-n (fx* len-flonum (flvector-length obj))))
     (header+ (fx+ dlen datum-byte-n) pos)))
 
 (define (put/flvector bv pos obj)
-  pos) ; TODO: implement
+  (let* ((n (flvector-length obj))
+         (datum-byte-n (fx* len-flonum n)))
+    (put/header bv pos tag-flvector datum-byte-n)
+    (do ((i 0 (fx1+ i))
+         (end (fx+ pos dlen+tag) (fx+ end len-flonum)))
+        ((fx>=? i n)
+           end)
+      (bytevector-ieee-double-set! bv end (flvector-ref obj i) endian))))
+
 
 
 (define (len/string obj pos)
-  (let ((datum-byte-n (fx* dlen (string-length obj)))) ;; each character is 3 bytes
-    (header+ (fx+ dlen datum-byte-n) pos)))
+  (let ((datum-byte-n (fx* len-char (string-length obj)))) ;; each character is 3 bytes
+    (header+ (fx+ len-char datum-byte-n) pos)))
 
 (define (put/string bv pos obj)
   pos) ; TODO: implement

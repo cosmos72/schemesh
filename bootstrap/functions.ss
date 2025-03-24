@@ -24,12 +24,12 @@
       warn-check-failed0 warn-check-failed1 warn-check-failed2 warn-check-failed3
       warn-check-failed4 warn-check-failed5 warnf warn-check-failedl
 
-      sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter sh-version)
+      sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter sh-version sh-version-number)
   (import
     (rnrs)
     (only (chezscheme) $primitive console-error-port format gensym make-continuation-condition
                        make-format-condition interaction-environment library-exports
-                       top-level-bound? top-level-value void))
+                       string->immutable-string top-level-bound? top-level-value void))
 
 
 ;; immediately check if an event occurred:
@@ -227,9 +227,16 @@
     ((new-value) (updater-proc new-value))))
 
 
-;; return schemesh version
-(define (sh-version)
-  (list 0 8 1))
+;; return Schemesh version string
+(define sh-version
+  (let ((ret (string->immutable-string "Schemesh Version 0.8.1")))
+    (lambda ()
+      ret)))
+
+
+;; return three values: schemesh version MAJOR, MINOR and PATCH fixnums
+(define (sh-version-number)
+  (values 0 8 1))
 
 ) ; close library
 
