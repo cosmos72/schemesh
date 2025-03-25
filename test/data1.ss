@@ -221,6 +221,8 @@
     '#(#\a #\xFF #\xFFFF #\x10FFFF "bcd" #vfx(-1 1)))  #vu8(28 0 0 39 6 0 0 31 97 31 255 32 255 255 33 255 255 16 41 3 0 0 98 99 100 43 2 0 0 15 1)
   (wire-put->bytevector
     (eq-hashtable (void) 1.5 '() #x123456789))         #vu8(24 0 0 60 2 0 0 27 20 5 0 0 137 103 69 35 1 28 23 0 0 0 0 0 0 248 63)
-  (wire-put->bytevector
-    (hashtable string-hash string=? "a" 1 "b" 2))      #vu8(17 0 0 62 48 2 0 0 41 1 0 0 98 2 41 1 0 0 97 1)
+  (let ((bv (wire-put->bytevector
+              (hashtable string-hash string=? "a" 1 "b" 2))))
+    (or (bytevector=? bv #vu8(17 0 0 62 48 2 0 0 41 1 0 0 98 2 41 1 0 0 97 1))
+        (bytevector=? bv #vu8(17 0 0 62 48 2 0 0 41 1 0 0 97 1 41 1 0 0 98 2))))       #t
 )
