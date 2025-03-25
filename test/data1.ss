@@ -211,7 +211,8 @@
       (list (vscreen-cursor-ix screen)
             (vscreen-cursor-iy screen) screen))        ,(2 1 (vscreen* 9 30 "abcdefgh0" "12\n" "qwerty"))
   ;; ------------------------ wire ----------------------------------------
-  (let ((bsp (bytespan)))
-    (wire-put bsp (list 1 2 3 127 255 (box #\a)))
-    (bytespan->bytevector*! bsp))                      #vu8(36 0 0 20 6 0 0 0 0 0 1 0 0 0 2 1 0 0 4 3 1 0 0 4 127 2 0 0 4 255 0 5 0 0 16 1 0 0 9 97)
+  (wire-put->bytevector
+    (void))                                            #vu8(0 0 0)
+  (wire-put->bytevector
+    (list 1 2 3 127 255 (box #\a)))                    #vu8(15 0 0 38 6 0 0 1 2 3 16 127 17 255 0 34 31 97)
 )
