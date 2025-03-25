@@ -70,7 +70,7 @@
 ;;;      46 => datum is symbol:        n encoded as dlen, followed by characters each encoded as 3 bytes
 ;;;      47 => datum is eq-hashtable:  n encoded as dlen, followed by 2 * n tag+datum
 ;;;      48 => datum is eqv-hashtable: n encoded as dlen, followed by 2 * n tag+datum
-;;;      49 => datum is equal-hashtable: equal function name encoded as message - must be a symbol, checked against a whitelist
+;;;      49 => datum is equal-hashtable: equal function name encoded as symbol, checked against a whitelist
 ;;;                                      followed by n encoded as dlen, followed by 2 * n tag+datum
 ;;;
 ;;;      50 => datum is status:      followed by kind encoded as fixnum tag+datum, followed by values encoded as list tag+datum
@@ -93,14 +93,19 @@
                        bytevector-sint-ref        bytevector-sint-set!
                        bytevector-s24-ref         bytevector-s24-set!
                        bytevector-u24-ref         bytevector-u24-set!
-                       fx1+ fxsrl fxsll
+                       cfl= fx1+ fxsrl fxsll
                        fxvector? fxvector-length fxvector-ref fxvector-set! make-fxvector
-                       integer-length meta-cond
-                       void)
+                       integer-length meta-cond time=? void)
+
+    ;; these predicates are equivalent to their r6rs counterparts,
+    ;; only extended to also accept 1 argument
+    (prefix (only (chezscheme) char=? char-ci=? string=? string-ci=?)
+            chez:)
+
     (only (schemesh bootstrap) assert*)
     (schemesh containers flvector)
     (schemesh containers bytespan)
-    (only (schemesh containers hashtable) hash-for-each))
+    (only (schemesh containers hashtable) eq-hashtable hash-for-each))
 
 
 (define dlen 3)     ; dlen is encoded as 3 bytes
@@ -157,9 +162,13 @@
 (define tag-flvector 44)
 (define tag-symbol8  45)
 (define tag-symbol   46)
-(define tag-eq-hashtable    47)
-(define tag-eqv-hashtable   48)
-(define tag-equal-hashtable 49)
+(define tag-symbol-bytevector=? 47)
+(define tag-symbol-string=?     48)
+(define tag-symbol-string-ci=?  49)
+(define tag-symbol-time=?       50)
+(define tag-eq-hashtable  60)
+(define tag-eqv-hashtable 61)
+(define tag-hashtable     62)
 
 (define max-len-char 3) ;; each character is encoded as <= 3 bytes
 (define len-flonum   8) ;; each flonum is encoded as 8 bytes
@@ -574,51 +583,70 @@
 
 
 (define (len/symbol pos obj)
-  (len/string pos (symbol->string obj)))
+  (case obj
+    ((bytevector=? string=? string-ci=? time=?)
+      (tag+ pos))
+    (else
+      (len/string pos (symbol->string obj)))))
 
 (define (put/symbol bv pos obj)
-  (let* ((end (put/string bv pos (symbol->string obj)))
-         (old-tag (get/tag bv pos))
-         (new-tag (fx+ old-tag (fx- tag-symbol tag-string))))
-    (put/tag bv pos new-tag)
-    end))
+  (case obj
+    ((bytevector=?)
+      (put/tag bv pos tag-symbol-bytevector=?))
+    ((string=?)
+      (put/tag bv pos tag-symbol-string=?))
+    ((string-ci=?)
+      (put/tag bv pos tag-symbol-string-ci=?))
+    ((time=?)
+      (put/tag bv pos tag-symbol-time=?))
+    (else
+      (let* ((end (put/string bv pos (symbol->string obj)))
+             (old-tag (get/tag bv pos))
+             (new-tag (fx+ old-tag (fx- tag-symbol tag-string))))
+        (put/tag bv pos new-tag)
+        end))))
 
-(define (hashtable->eq-sym obj)
-  (let ((proc (hashtable-equivalence-function obj)))
-    (cond
-      ((eq? proc eq?)  'eq?)
-      ((eq? proc eqv?) 'eqv?)
-      (else            #f))))
+(define proc-table
+  (eq-hashtable
+    boolean=? 'boolean=? ; boolean keys are not very useful in a hashtable...
+    bytevector=? 'bytevector=? cfl= 'cfl=? char=? 'char=? char-ci=? 'char-ci=?
+    enum-set=? 'enum-set=? eq? 'eq? eqv? 'eqv? fl=? 'fl=? fx=? 'fx=?
+    string=? 'string=? string-ci=? 'string-ci=? symbol=? 'symbol=? time=? 'time=?
+    chez:char=? 'char=? chez:char-ci=? 'char-ci=?
+    chez:string=? 'string=? chez:string-ci=? 'string-ci=?))
+
+(define (htable->sym obj)
+  (hashtable-ref proc-table (hashtable-equivalence-function obj) #f))
 
 (define (len/hashtable pos obj)
-  (let ((sym (hashtable->eq-sym obj)))
-    (case sym
-      ((eq? eqv?)
-        (let* ((n (hashtable-size obj))
-               (pos (dlen+ (tag+ pos)))) ;; n is encoded as dlen
-          (hash-for-each
-            (lambda (k v)
-              (set! pos (len/any (len/any pos k) v)))
-            obj)
-          pos))
-      ;; TODO: implement equal-hashtable, symbol-hashtable
-      (else #f))))
-
+  (let ((sym (htable->sym obj)))
+    (if sym
+      (let* ((pos (tag+ pos))
+             (pos (case sym ((eq? eqv?) pos)
+                            (else (len/symbol pos sym))))
+             (pos (dlen+ pos))) ; n is encoded as dlen
+        (hash-for-each
+          (lambda (k v)
+            (set! pos (len/any (len/any pos k) v)))
+          obj)
+        pos)
+      #f)))
 
 (define (put/hashtable bv pos obj)
-  (let ((sym (hashtable->eq-sym obj)))
-    (case sym
-      ((eq? eqv?)
-        (let* ((n    (hashtable-size obj))
-               (end0 (put/tag bv pos (case sym ((eq?) tag-eq-hashtable) (else tag-eqv-hashtable))))
-               (pos  (put/dlen bv end0 n)))
-          (hash-for-each
-            (lambda (k v)
-              (set! pos (put/any bv (put/any bv pos k) v)))
-            obj)
-          pos))
-      ;; TODO: implement equal-hashtable, symbol-hashtable
-      (else #f))))
+  (let ((sym (htable->sym obj)))
+    (if sym
+      (let* ((pos (put/tag bv pos (case sym ((eq?)  tag-eq-hashtable)
+                                            ((eqv?) tag-eqv-hashtable)
+                                            (else   tag-hashtable))))
+             (pos (case sym ((eq? eqv?) pos)
+                            (else (put/symbol bv pos sym))))
+             (pos (put/dlen bv pos (hashtable-size obj)))) ; n is encoded as dlen
+        (hash-for-each
+          (lambda (k v)
+            (set! pos (put/any bv (put/any bv pos k) v)))
+          obj)
+        pos)
+      #f)))
 
 
 (define (len/record pos obj)
