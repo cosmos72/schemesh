@@ -270,7 +270,7 @@
     (else
       ;; datum is exact integer, sign-extended, two's complement little-endian
       (let ((datum-byte-n (fx1+ (fxsrl (integer-length obj) 3))))
-          (tag+ pos datum-byte-n)))))
+        (dlen+ (tag+ pos) datum-byte-n)))))
 
 
 ;; write header and exact integer into bytevector starting at position pos.
@@ -297,7 +297,8 @@
     (else
       ;; datum is exact integer, sign-extended, two's complement little-endian
       (let* ((datum-byte-n (fx1+ (fxsrl (integer-length obj) 3)))
-             (pos (put/tag bv pos tag-sint)))
+             (pos (put/tag bv pos tag-sint))
+             (pos (put/dlen bv pos datum-byte-n)))
         (bytevector-sint-set! bv pos obj endian datum-byte-n)
         (fx+ pos datum-byte-n)))))
 
