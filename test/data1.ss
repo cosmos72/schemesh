@@ -220,5 +220,5 @@
   (wire-put->bytevector
     '#(#\a #\xFF #\xFFFF #\x10FFFF "bcd" #vfx(-1 1)))  #vu8(28 0 0 39 6 0 0 31 97 31 255 32 255 255 33 255 255 16 41 3 0 0 98 99 100 43 2 0 0 15 1)
   (wire-put->bytevector
-    (eq-hashtable (void) '()))                         #vu8(6 0 0 47 1 0 0 28 27)
+    (eq-hashtable (void) 1.5 '() (/ 1.0 0.0)))         #vu8(24 0 0 47 2 0 0 27 23 0 0 0 0 0 0 240 127 28 23 0 0 0 0 0 0 248 63)
 )
