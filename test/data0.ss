@@ -214,7 +214,7 @@
   (vector-sort
     (lambda (cell1 cell2) (< (car cell1) (car cell2)))
     (hashtable-cells (eq-hashtable
-      '(3 . C) '(2 . B) '(1 . A))))                    #((1 . A) (2 . B) (3 . C))
+      3 'C 2 'B 1 'A)))                                #((1 . A) (2 . B) (3 . C))
   (vector-sort
     (lambda (cell1 cell2) (< (car cell1) (car cell2)))
     (hashtable-cells (alist->eqv-hashtable
@@ -222,17 +222,17 @@
   (vector-sort
     (lambda (cell1 cell2) (< (car cell1) (car cell2)))
     (hashtable-cells (eqv-hashtable
-      '(3.1 . C) '(2 . B) '(1 . A))))                  #((1 . A) (2 . B) (3.1 . C))
+      3.1 'C 2 'B 1 'A)))                              #((1 . A) (2 . B) (3.1 . C))
   (vector-sort
     (lambda (cell1 cell2) (string<? (car cell1) (car cell2)))
     (hashtable-cells
       (hashtable string-hash string=?
-        '("a" . 1) '("B" . 2) '("+" . 3))))            #(("+" . 3) ("B" . 2) ("a" . 1))
+        "a" 1 "B" 2 "+" 3)))                           #(("+" . 3) ("B" . 2) ("a" . 1))
   (string-hashtable->argv
     (hashtable string-hash string=?
-      '("A" . "X") '("B" . "Y") '("C" . "Z")))         #(#vu8(65 61 88 0) #vu8(66 61 89 0) #vu8(67 61 90 0))
+      "A" "X" "B" "Y" "C" "Z"))                        #(#vu8(65 61 88 0) #vu8(66 61 89 0) #vu8(67 61 90 0))
   (let ((ret '()))
-    (for-hash-pairs ((cell (eqv-hashtable '(1.0 . A) '(2.1 . B) '(3 . C))))
+    (for-hash-pairs ((cell (alist->eqv-hashtable '((1.0 . A) (2.1 . B) (3 . C)))))
       (set! ret (cons cell ret)))
     (sort!
       (lambda (cell1 cell2) (< (car cell1) (car cell2)))

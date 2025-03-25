@@ -17,12 +17,13 @@
 
     eq-hashtable eqv-hashtable (rename (%hashtable hashtable))
     alist->eq-hashtable alist->eqv-hashtable alist->hashtable
+    plist->eq-hashtable plist->eqv-hashtable plist->hashtable
     hashtable-transpose)
   (import
     (rnrs)
-    (only (chezscheme)               $primitive fx1+ include record-writer)
+    (only (chezscheme)               $primitive fx1+ fx/ include record-writer)
     (only (schemesh bootstrap)       assert* generate-pretty-temporaries)
-    (only (schemesh containers list) for-list))
+    (only (schemesh containers list) for-list for-plist))
 
 
 ;; NOTE: (hash-table-for-each) exported by Chez Scheme
@@ -363,7 +364,7 @@
     dst))
 
 
-;; (alist->eqv-hashtable l) iterates on all (key . value) elements of list l,
+;; iterate on all (key . value) elements of alist l,
 ;; and inserts each of them into a new hashtable created with
 ;; (make-eqv-hashtable (length l)).
 ;;
@@ -374,8 +375,7 @@
       (hashtable-set! dst (car cell) (cdr cell)))
     dst))
 
-
-; (alist->hashtable hash-proc eq-proc l) iterates on all (key . value) elements of list l,
+; iterate on all (key . value) elements of alist l,
 ; and inserts each of them into a new hashtable created with
 ;   (make-hashtable hash-proc eq-proc (length pairs)).
 ;
@@ -387,31 +387,66 @@
     dst))
 
 
-;; (eq-hashtable . pairs) iterates on all (key . value) elements of pairs,
+;; iterate on all key value elements of plist l,
 ;; and inserts each of them into a new hashtable created with
-;;   (make-eq-hashtable (length pairs)).
+;; (make-eq-hashtable (length l)).
 ;;
-;; Returns the created hashtable.
-(define (eq-hashtable . pairs)
-  (alist->eq-hashtable pairs))
+;; Returns the new hashtable.
+(define (plist->eq-hashtable plist)
+  (let ((dst (make-eq-hashtable (fx/ (length plist) 2))))
+    (for-plist ((key value plist))
+      (hashtable-set! dst key value))
+    dst))
 
 
-;; (eqv-hashtable . pairs) iterates on all (key . value) elements of pairs,
+;; iterate on all key value elements of plist l,
 ;; and inserts each of them into a new hashtable created with
-;; (make-eqv-hashtable (length pairs)).
+;; (make-eqv-hashtable (length l)).
 ;;
-;; Returns the created hashtable.
-(define (eqv-hashtable . pairs)
-  (alist->eqv-hashtable pairs))
+;; Returns the new hashtable.
+(define (plist->eqv-hashtable plist)
+  (let ((dst (make-eqv-hashtable (fx/ (length plist) 2))))
+    (for-plist ((key value plist))
+      (hashtable-set! dst key value))
+    dst))
 
 
-; (hashtable hash-proc eq-proc l) iterates on all (key . value) elements of list l,
+; iterate on all key value elements of plist l,
 ; and inserts each of them into a new hashtable created with
 ;   (make-hashtable hash-proc eq-proc (length pairs)).
 ;
 ; Returns the created hashtable.
-(define (%hashtable hash-proc eq-proc . pairs)
-  (alist->hashtable hash-proc eq-proc pairs))
+(define (plist->hashtable hash-proc eq-proc plist)
+  (let ((dst (make-hashtable hash-proc eq-proc (fx/ (length plist) 2))))
+    (for-plist ((key value plist))
+      (hashtable-set! dst key value))
+    dst))
+
+;; iterates on all key value elements of plist,
+;; and inserts each of them into a new hashtable created with
+;;   (make-eq-hashtable (fx/ (length plist) 2)).
+;;
+;; Returns the created hashtable.
+(define (eq-hashtable . plist)
+  (plist->eq-hashtable plist))
+
+
+;; iterate on all key value elements of plist,
+;; and inserts each of them into a new hashtable created with
+;; (make-eqv-hashtable (fx/ (length plist) 2)).
+;;
+;; Returns the created hashtable.
+(define (eqv-hashtable . plist)
+  (plist->eqv-hashtable plist))
+
+
+; iterate on all key value elements of plist,
+; and inserts each of them into a new hashtable created with
+;   (make-hashtable hash-proc eq-proc (fx/ (length plist) 2)).
+;
+; Returns the created hashtable.
+(define (%hashtable hash-proc eq-proc . plist)
+  (plist->hashtable hash-proc eq-proc plist))
 
 
 ; customize how "hash-iterator" objects are printed

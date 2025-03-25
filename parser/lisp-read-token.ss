@@ -223,9 +223,9 @@
 
 ;; standard character names
 (define %char-names (hashtable string-hash string=?
-   '("alarm" . #\alarm) '("backspace" . #\backspace) '("delete" . #\delete) '("esc" . #\esc)
-   '("linefeed" . #\linefeed) '("newline" . #\newline) '("page" #\page) '("return" . #\return)
-   '("space" . #\space) '("tab" . #\tab) '("vtab" . #\vtab)))
+   "alarm" #\alarm "backspace" #\backspace "delete" #\delete "esc" #\esc
+   "linefeed" #\linefeed "newline" #\newline "page" #\page "return" #\return
+   "space" #\space "tab" #\tab "vtab" #\vtab))
 
 
 ;; if flavor is 'scheme and name contains exactly three octal digits in the range 000 ... 377,

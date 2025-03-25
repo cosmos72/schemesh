@@ -99,7 +99,8 @@
                        void)
     (only (schemesh bootstrap) assert*)
     (schemesh containers flvector)
-    (schemesh containers bytespan))
+    (schemesh containers bytespan)
+    (only (schemesh containers hashtable) hash-for-each))
 
 
 (define dlen 3)     ; dlen is encoded as 3 bytes
@@ -156,6 +157,9 @@
 (define tag-flvector 44)
 (define tag-symbol8  45)
 (define tag-symbol   46)
+(define tag-eq-hashtable    47)
+(define tag-eqv-hashtable   48)
+(define tag-equal-hashtable 49)
 
 (define max-len-char 3) ;; each character is encoded as <= 3 bytes
 (define len-flonum   8) ;; each flonum is encoded as 8 bytes
@@ -179,6 +183,21 @@
       (and (fixnum? pos) (fx+ pos len-tag)))
     ((pos n)
       (and (fixnum? pos) (fixnum? n) (fx+ (fx+ pos n) len-tag)))))
+
+;; read one signed byte from bytevector at position pos, and return it
+(define get/s8 bytevector-s8-ref)
+;; read one byte from bytevector at position pos, and return it
+(define get/u8 bytevector-u8-ref)
+
+;; read 2 bytes as exact signed integer from bytevector starting at position pos, and return it.
+(define (get/s16 bv pos) (bytevector-s16-ref bv pos endian))
+;; read exact unsigned integer as 2 bytes from bytevector starting at position pos, and return it.
+(define (get/u16 bv pos) (bytevector-u16-ref bv pos endian))
+
+;; read 3 bytes as exact signed integer from bytevector starting at position pos, and return it.
+(define (get/s24 bv pos) (bytevector-s24-ref bv pos endian))
+;; read 3 bytes as exact unsigned integer from bytevector starting at position pos, and return it.
+(define (get/u24 bv pos) (bytevector-u24-ref bv pos endian))
 
 ;; write one signed byte into bytevector starting at position pos.
 ;; return updated position, or raise exception on errors.
@@ -227,10 +246,12 @@
 (define (put/dlen bv pos count)
   (put/u24 bv pos count))
 
-;; write tag (1 byte) into bytevector starting at position pos.
+;; read 1-byte tag from bytevector at position pos, and return it.
+(define get/tag get/u8)
+
+;; write 1-byte tag into bytevector starting at position pos.
 ;; return updated position, or raise exception on errors.
-(define (put/tag bv pos tag)
-  (put/u8 bv pos tag))
+(define put/tag put/u8)
 
 (define (len/exact-int pos obj)
   (cond
@@ -438,12 +459,16 @@
 
 (define (put/pair bv pos obj)
   (let ((tail (cdr obj)))
-    (if (or (null? tail) (pair? tail))
-      (put/list bv pos obj)
-      (let* ((end0 (put/tag bv pos tag-pair))
-             (end1 (put/any bv end0 (car obj)))
-             (end2 (put/any bv end1 (cdr obj))))
-        end2))))
+    (cond
+      ((null? tail)
+        (put/list1 bv pos obj))
+      ((pair? tail)
+        (put/list bv pos obj))
+      (else
+        (let* ((end0 (put/tag bv pos tag-pair))
+               (end1 (put/any bv end0 (car obj)))
+               (end2 (put/any bv end1 (cdr obj))))
+          end2)))))
 
 
 (define (len/vector pos obj)
@@ -482,8 +507,8 @@
         (v obj))
     (let %len/fxvector ((i 0) (pos (dlen+ (tag+ pos)))) ; n is encoded as dlen
       (if (and pos (fx<? i n))
-        (%len/fxvector (fx1+ i) (len/exact-int pos (vector-ref v i)))
-        pos)))) ; n is encoded as dlen
+        (%len/fxvector (fx1+ i) (len/exact-int pos (fxvector-ref v i)))
+        pos))))
 
 (define (put/fxvector bv pos obj)
   (let* ((n (fxvector-length obj))
@@ -511,40 +536,87 @@
            pos)
       (bytevector-ieee-double-set! bv pos (flvector-ref v i) endian))))
 
-
+;; return #t if all characters in string obj are char<=? #\xFF
+(define (string8? obj)
+  (do ((i 0 (fx1+ i))
+       (n (string-length obj)))
+      ((or (fx>=? i n) (char>? (string-ref obj i) #\xFF))
+        (fx>=? i n))))
 
 (define (len/string pos obj)
   (let ((n (string-length obj)))
     ;; n is encoded as dlen
-    ;; each character is max-len-char bytes
-    (dlen+ (tag+ pos (fx* n max-len-char)))))
+    (dlen+ (tag+ pos
+      (if (string8? obj)
+        ;; each character is encoded as 1 byte
+        n
+        ;; each character is encoded as max-len-char bytes
+        (fx* n max-len-char))))))
+
 
 (define (put/string bv pos obj)
   (let* ((n (string-length obj))
          (v obj)
-         (end0 (put/tag  bv pos tag-string))
-         (end1 (put/dlen bv end0 n))) ; n is encoded as dlen
+         (str8? (string8? v))
+         (end0 (put/tag  bv pos (if str8? tag-string8 tag-string)))
+         (end1 (put/dlen bv end0 n)) ; n is encoded as dlen
+         (step (if str8? 1 max-len-char)))
     (do ((i 0 (fx1+ i))
-         (pos end1 (fx+ pos max-len-char)))
+         (pos end1 (fx+ pos step)))
         ((fx>=? i n)
            pos)
-      (put/u24 bv pos (char->integer (string-ref v i))))))
+        (let ((ch-int (char->integer (string-ref v i))))
+          (if str8?
+            (put/u8  bv pos ch-int)
+            (put/u24 bv pos ch-int))))))
 
 
 (define (len/symbol pos obj)
   (len/string pos (symbol->string obj)))
 
 (define (put/symbol bv pos obj)
-  (let ((end (put/string bv pos (symbol->string obj))))
-    (put/tag bv pos tag-symbol)
+  (let* ((end (put/string bv pos (symbol->string obj)))
+         (old-tag (get/tag bv pos))
+         (new-tag (fx+ old-tag (fx- tag-symbol tag-string))))
+    (put/tag bv pos new-tag)
     end))
 
+(define (hashtable->eq-sym obj)
+  (let ((proc (hashtable-equivalence-function obj)))
+    (cond
+      ((eq? proc eq?)  'eq?)
+      ((eq? proc eqv?) 'eqv?)
+      (else            #f))))
 
 (define (len/hashtable pos obj)
-  #f) ;; TODO: implement
+  (let ((sym (hashtable->eq-sym obj)))
+    (case sym
+      ((eq? eqv?)
+        (let* ((n (hashtable-size obj))
+               (pos (dlen+ (tag+ pos)))) ;; n is encoded as dlen
+          (hash-for-each
+            (lambda (k v)
+              (set! pos (len/any (len/any pos k) v)))
+            obj)
+          pos))
+      ;; TODO: implement equal-hashtable, symbol-hashtable
+      (else #f))))
+
 
 (define (put/hashtable bv pos obj)
-  #f) ;; TODO: implement
+  (let ((sym (hashtable->eq-sym obj)))
+    (case sym
+      ((eq? eqv?)
+        (let* ((n    (hashtable-size obj))
+               (end0 (put/tag bv pos (case sym ((eq?) tag-eq-hashtable) (else tag-eqv-hashtable))))
+               (pos  (put/dlen bv end0 n)))
+          (hash-for-each
+            (lambda (k v)
+              (set! pos (put/any bv (put/any bv pos k) v)))
+            obj)
+          pos))
+      ;; TODO: implement equal-hashtable, symbol-hashtable
+      (else #f))))
 
 
 (define (len/record pos obj)
@@ -569,8 +641,8 @@
         ((pair?   obj)     (len/pair       pos obj))
         ((symbol? obj)     (len/symbol     pos obj))
         ((eq? (void) obj)  (tag+ pos)) ; only tag, datum is 0 bytes
-        ((eof-object? obj) (tag+ pos)) ; only header, datum is 0 bytes
-        ((bwp-object? obj) (tag+ pos)) ; only header, datum is 0 bytes
+        ((eof-object? obj) (tag+ pos)) ; only tag, datum is 0 bytes
+        ((bwp-object? obj) (tag+ pos)) ; only tag, datum is 0 bytes
         ((procedure? obj)   #f)
         ;; these are slower to check
         ((box?    obj)     (len/box        pos obj))
@@ -588,36 +660,30 @@
 ;; recursively traverse obj, serialize it and write it into bytevector bv starting at position pos.
 ;; return updated position, or #f on errors.
 (define (put/any bv pos obj)
-  (case obj
-    ((#f)
-      (put/tag bv pos tag-f)) ; only tag, datum is 0 bytes
-    ((#t)
-      (put/tag bv pos tag-t)) ; only tag, datum is 0 bytes
-    ((())
-      (put/tag bv pos tag-nil)) ; only tag, datum is 0 bytes
-    (else
-      (cond
-        ((not pos)         #f)
-        ((fixnum? obj)     (put/exact-int  bv pos obj))
-        ((char?   obj)     (put/char       bv pos obj))
-        ((flonum? obj)     (put/flonum     bv pos obj))
-        ((pair?   obj)     (put/pair       bv pos obj))
-        ((symbol? obj)     (put/symbol     bv pos obj))
-        ((eq? (void) obj)  (put/tag bv pos tag-void)) ; only tag, datum is 0 bytes
-        ((eof-object? obj) (put/tag bv pos tag-eof))  ; only tag, datum is 0 bytes
-        ((bwp-object? obj) (put/tag bv pos tag-bwp))  ; only tag, datum is 0 bytes
-        ((procedure? obj)   #f)
-        ;; these are slower to check
-        ((box?    obj)     (put/box        bv pos obj))
-        ((number? obj)     (put/number     bv pos obj))
-        ((vector? obj)     (put/vector     bv pos obj))
-        ((bytevector? obj) (put/bytevector bv pos obj))
-        ((fxvector? obj)   (put/fxvector   bv pos obj))
-        ((flvector? obj)   (put/flvector   bv pos obj))
-        ((string? obj)     (put/string     bv pos obj))
-        ((hashtable? obj)  (put/hashtable  bv pos obj))
-        ((record? obj)     (put/record     bv pos obj))
-        (else              #f)))))
+  (cond
+    ((not pos)         #f)
+    ((fixnum? obj)     (put/exact-int  bv pos obj))
+    ((char?   obj)     (put/char       bv pos obj))
+    ((flonum? obj)     (put/flonum     bv pos obj))
+    ((pair?   obj)     (put/pair       bv pos obj))
+    ((symbol? obj)     (put/symbol     bv pos obj))
+    ((null? obj)       (put/tag bv pos tag-nil))  ; only tag, datum is 0 bytes
+    ((eq? (void) obj)  (put/tag bv pos tag-void)) ; only tag, datum is 0 bytes
+    ((eof-object? obj) (put/tag bv pos tag-eof))  ; only tag, datum is 0 bytes
+    ((bwp-object? obj) (put/tag bv pos tag-bwp))  ; only tag, datum is 0 bytes
+    ((boolean? obj)    (put/tag bv pos (if obj tag-t tag-f))) ; only tag, datum is 0 bytes
+    ((procedure? obj)   #f)
+    ;; these are slower to check
+    ((box?    obj)     (put/box        bv pos obj))
+    ((number? obj)     (put/number     bv pos obj))
+    ((vector? obj)     (put/vector     bv pos obj))
+    ((bytevector? obj) (put/bytevector bv pos obj))
+    ((fxvector? obj)   (put/fxvector   bv pos obj))
+    ((flvector? obj)   (put/flvector   bv pos obj))
+    ((string? obj)     (put/string     bv pos obj))
+    ((hashtable? obj)  (put/hashtable  bv pos obj))
+    ((record? obj)     (put/record     bv pos obj))
+    (else              #f)))
 
 
 ;; recursively traverse obj and return the number of bytes needed to serialize it.

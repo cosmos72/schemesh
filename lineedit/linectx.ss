@@ -174,7 +174,7 @@
 
 
 
-(define linectx-default-keytable (eq-hashtable))
+(define linectx-default-keytable (make-eq-hashtable))
 
 ;; Variant of (make-linectx) where all arguments are mandatory
 ;;
@@ -367,7 +367,7 @@
           (hashtable-set! htable byte proc)
           (let ((inner-htable (hashtable-ref htable byte #f)))
             (unless (hashtable? inner-htable)
-              (set! inner-htable (eq-hashtable))
+              (set! inner-htable (make-eq-hashtable))
               (hashtable-set! htable byte inner-htable))
             (%add-bytelist inner-htable (cdr bytelist)))))))
      (%any->bytelist (lambda (keyseq)
