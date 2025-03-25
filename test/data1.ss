@@ -214,7 +214,7 @@
   (wire-put->bytevector
     (void))                                            #vu8(0 0 0)
   (wire-put->bytevector
-    (list (void)))                                     #vu8(2 0 0 36 28)
+    (list (void) -7/3 1/2+1i))                         #vu8(14 0 0 38 3 0 0 28 21 16 249 3 22 21 1 2 1)
   (wire-put->bytevector
     (list 1 2 3 127 255 (box (eof-object))))           #vu8(14 0 0 38 6 0 0 1 2 3 16 127 17 255 0 34 29)
   (wire-put->bytevector

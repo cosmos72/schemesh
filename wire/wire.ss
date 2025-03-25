@@ -331,13 +331,14 @@
         ;; exact integer
         (len/exact-int pos obj)
         ;; exact ratio: encoded as tag, numerator, denominator
-        (tag+
-          (len/exact-int (denominator obj)
-             (len/exact-int (numerator obj) pos))))
+        (len/exact-int
+          (len/exact-int (tag+ pos) (numerator obj))
+          (denominator obj)))
       ;; exact complex: encoded as tag, real-part, imag-part
-      (tag+
-        (len/number (imag-part obj)
-          (len/number (real-part obj) pos))))
+      (len/number
+        (len/number (tag+ pos) (real-part obj))
+        (imag-part obj)))
+
     ;; inexact number. assume flonum or cflonum
     (if (flonum? obj)
       (len/flonum pos obj)
