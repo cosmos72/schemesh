@@ -256,9 +256,9 @@
     ((_ (name arg ...) body1 body2 ...)
       (define name
         (lambda (arg ...)
-          (begin (debugf "-> ~s args ~s" 'name (list arg ...)))
+          (begin (debugf "-> ~s        \targs ~s" 'name (list arg ...)))
           (let ((rets (values->list (begin body1 body2 ...))))
-            (begin (debugf "<- ~s rets ~s args ~s" 'name rets (list arg ...)))
+            (begin (debugf "<- ~s rets ~s\targs ~s" 'name rets (list arg ...)))
             (list->values rets)))))))
 
 

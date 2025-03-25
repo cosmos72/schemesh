@@ -68,9 +68,9 @@
                        bytevector-sint-ref        bytevector-sint-set!
                        bytevector-u8-ref          bytevector-u8-set!
                        bytevector-u24-ref         bytevector-u24-set!
-                       fx1+ fxsrl
+                       fx1+ fxsrl fxsll
                        fxvector? fxvector-length fxvector-ref fxvector-set! make-fxvector
-                       integer-length
+                       integer-length meta-cond
                        void)
     (only (schemesh bootstrap) assert*)
     (schemesh containers flvector)
@@ -101,15 +101,17 @@
 (define tag-bwp      15)
 (define tag-box      16)
 (define tag-pair     17)
-(define tag-list     18)
-(define tag-vector   19)
-(define tag-bvector  20) ; bytevector
-(define tag-string   21)
-(define tag-fxvector 22)
-(define tag-flvector 23)
-(define tag-symbol   25)
+(define tag-list1    18)
+(define tag-list*    19)
+(define tag-list     20)
+(define tag-vector   21)
+(define tag-bvector  22) ; bytevector
+(define tag-string   23)
+(define tag-fxvector 24)
+(define tag-flvector 25)
+(define tag-symbol   27)
 
-(define len-char     3) ;; each character is encoded as 3 bytes
+(define max-len-char 3) ;; each character is encoded as <= 3 bytes
 (define len-flonum   8) ;; each flonum is encoded as 8 bytes
 (define len-cflonum 16) ;; each cflonum is encoded as 16 bytes
 
@@ -120,10 +122,10 @@
 
 (define header+
   (case-lambda
-    ((n)
-      (and (fixnum? n) (fx+ n dlen+tag)))
-    ((n pos)
-      (and (fixnum? n) (fixnum? pos) (fx+ (fx+ n pos) dlen+tag)))))
+    ((pos)
+      (and (fixnum? pos) (fx+ pos dlen+tag)))
+    ((pos n)
+      (and (fixnum? pos) (fixnum? n)  (fx+ (fx+ pos n) dlen+tag)))))
 
 ;; write one byte into bytevector starting at position pos.
 ;; return updated position, or raise exception on errors.
@@ -131,31 +133,47 @@
   (bytevector-u8-set! bv pos u8)
   (fx1+ pos))
 
+;; write exact unsigned integer as 2 bytes into bytevector starting at position pos.
+;; return updated position, or raise exception on errors.
+(define (put/u16 bv pos u16)
+  (bytevector-u16-set! bv pos u16 endian)
+  (fx+ pos 2))
+
 ;; write exact unsigned integer as 3 bytes into bytevector starting at position pos.
 ;; return updated position, or raise exception on errors.
 (define (put/u24 bv pos u24)
   (bytevector-u24-set! bv pos u24 endian)
   (fx+ pos 3))
 
+;; write exact unsigned integer as 4 bytes into bytevector starting at position pos.
+;; return updated position, or raise exception on errors.
+(define (put/u32 bv pos u32)
+  (bytevector-u32-set! bv pos u32 endian)
+  (fx+ pos 4))
+
 ;; write message header (dlen, tag) into bytevector starting at position pos.
 ;; return updated position, or raise exception on errors.
 (define (put/header bv pos tag datum-byte-n)
-  (let ((pos (put/u24 bv pos datum-byte-n)))
-    (put/u8 bv pos tag)))
+  (meta-cond
+    ((fixnum? #xFFFFFFFF)
+      (put/u32 bv pos (fxior datum-byte-n (fxsll tag 24))))
+    (else
+      (let ((pos (put/u24 bv pos datum-byte-n)))
+        (put/u8 bv pos tag)))))
 
 
-(define (len/exact-int obj pos)
+(define (len/exact-int pos obj)
   (case obj
     ((0 1 2 -1)
       (header+ pos)) ; only header, datum is 0 bytes
     (else
       (if (or (not (fixnum? pos))
               (and (fixnum? obj) (fx<=? -128 obj 127)))
-        (header+ 1 pos)) ; 1-byte datum
+        (header+ pos 1)) ; 1-byte datum
 
         ;; datum is sign-extended, two's complement little-endian bytes
         (let ((datum-byte-n (fx1+ (fxsrl (integer-length obj) 3))))
-          (header+ datum-byte-n pos)))))
+          (header+ pos datum-byte-n)))))
 
 
 ;; write header and exact integer into bytevector starting at position pos.
@@ -184,19 +202,19 @@
           (fx+ pos datum-byte-n))))))
 
 
-(define (len/flonum obj pos)
-  (header+ len-flonum pos))
+(define (len/flonum pos obj)
+  (header+ pos len-flonum))
 
-(define (put/flonum bv obj pos)
+(define (put/flonum bv pos obj)
   (let ((pos (put/header bv pos tag-flonum len-flonum)))
     (bytevector-ieee-double-set! bv pos obj endian)
     (fx+ pos len-flonum)))
 
 
-(define (len/cflonum obj pos)
-  (header+ (* 2 len-flonum) pos))
+(define (len/cflonum pos obj)
+  (header+ pos len-cflonum))
 
-(define (put/cflonum bv obj pos)
+(define (put/cflonum bv pos obj)
   (let ((pos (put/header bv pos tag-cflonum len-cflonum)))
     (bytevector-ieee-double-set! bv pos (real-part obj) endian)
     (let ((pos (fx+ pos len-flonum)))
@@ -204,13 +222,13 @@
       (fx+ pos len-flonum))))
 
 
-(define (len/number obj pos)
+(define (len/number pos obj)
   (if (exact? obj)
     ;; exact number
     (if (real? obj)
       (if (integer? obj)
         ;; exact integer
-        (len/exact-int obj pos)
+        (len/exact-int pos obj)
         ;; exact ratio: encoded as header, (numerator, denominator)
         (header+
           (len/exact-int (denominator obj)
@@ -221,17 +239,17 @@
           (len/number (real-part obj) pos))))
     ;; inexact number. assume flonum or cflonum
     (if (flonum? obj)
-      (len/flonum obj pos)
-      (len/cflonum obj pos))))
+      (len/flonum pos obj)
+      (len/cflonum pos obj))))
 
 
-(define (put/number bv obj pos)
+(define (put/number bv pos obj)
   (if (exact? obj)
     ;; exact number
     (if (real? obj)
       (if (integer? obj)
         ;; exact integer
-        (put/exact-int bv obj pos)
+        (put/exact-int bv pos obj)
         ;; exact ratio: encoded as header, (numerator, denominator)
         (let* ((end0 (fx+ pos dlen+tag))
                (end1 (put/exact-int bv end0 (numerator obj)))
@@ -246,23 +264,36 @@
           end2))
     ;; inexact number. assume flonum or cflonum
     (if (flonum? obj)
-      (put/flonum bv obj pos)
-      (put/cflonum bv obj pos))))
+      (put/flonum bv pos obj)
+      (put/cflonum bv pos obj))))
 
 
-(define (len/char obj pos)
-  (header+ len-char pos))
+(define (len/char pos obj)
+  (header+ pos
+    (cond ((char<=? obj #\xFF)   1)
+          ((char<=? obj #\xFFFF) 2)
+          (else                  max-len-char))))
 
 ;; write header and one character into bytevector starting at position pos.
 ;; return updated position, or raise exception on errors.
 (define (put/char bv pos obj)
-  (let ((pos (put/header bv pos tag-char len-char)))
-    (put/u24 bv pos (char->integer obj))))
+  (cond
+    ((char<=? obj #\xFF)
+       (let ((pos (put/header bv pos tag-char 1)))
+         (put/u8 bv pos (char->integer obj))))
+
+    ((char<=? obj #\xFFFF)
+       (let ((pos (put/header bv pos tag-char 2)))
+         (put/u16 bv pos (char->integer obj))))
+
+    (else
+       (let ((pos (put/header bv pos tag-char max-len-char)))
+         (put/u24 bv pos (char->integer obj))))))
 
 
-(define (len/box obj pos)
+(define (len/box pos obj)
   (header+
-    (len/any (unbox obj) pos)))
+    (len/any pos (unbox obj))))
 
 (define (put/box bv pos obj)
   (let* ((end0 (fx+ pos dlen+tag))
@@ -271,42 +302,93 @@
     end1))
 
 
-(define (len/list obj pos)
-  (let %len/list ((l obj) (pos pos))
-    (if (and pos (not (null? l)))
-      (%len/list (cdr l) (len/any (car l) pos))
-      (header+ dlen pos)))) ; n is encoded as dlen
+;; 1-element proper list
+(define (len/list1 pos obj)
+  (header+ (len/any pos (car obj))))
+
+;; 1-element proper list
+(define (put/list1 bv pos obj)
+  (let* ((end0 (fx+ pos dlen+tag))
+         (end1 (put/any bv end0 (car obj))))
+    (put/header bv pos tag-list1 (fx- end1 end0))
+    end1))
+
+;; proper or improper list
+(define (len/list pos obj)
+  (let %len/list ((pos pos) (l obj))
+    (cond
+      ((not pos)
+        pos)
+      ((null? l)
+        (header+ pos dlen)) ; n is encoded as dlen
+      ((pair? l)
+        (%len/list (len/any pos (car l)) (cdr l)))
+      (else
+        ;; improper list
+        (header+ (len/any pos l) dlen)))))
 
 
-(define (len/pair obj pos)
-  (if #f ; (list? obj)
-    (len/list obj pos)
-    (header+
-      (len/any (cdr obj)
-        (len/any (car obj) pos)))))
+(define (put/list bv pos obj)
+  (let* ((end0 (header+ pos))
+         (end1 (header+ pos dlen))) ; n is encoded as dlen
+    (let %put/list ((end end1) (n 0) (l obj))
+      ;; (debugf "%put-list l=~s n=~s end=~s" l n end)
+      (cond
+        ((not end)
+          end)
+        ((null? l)
+          (put/header bv pos tag-list (fx- end end0)) ; n is encoded as dlen
+          (put/u24 bv end0 n)
+          end)
+        ((pair? l)
+          (let ((end (put/any bv end (car l))))
+            (%put/list end (fx1+ n) (cdr l))))
+        (else
+          ;; improper list
+          (let ((end (put/any bv end obj)))
+            (put/header bv pos tag-list* (fx- end end0)) ; n is encoded as dlen
+            (put/u24 bv end0 n)
+           end))))))
+
+
+(define (len/pair pos obj)
+  (let ((tail (cdr obj)))
+    (cond
+      ((null? tail)
+        (len/list1 pos obj))
+      ((pair? tail)
+        (len/list pos obj))
+      (else
+        (header+
+          (len/any tail
+            (len/any pos (car obj))))))))
+
 
 (define (put/pair bv pos obj)
-  (let* ((end0 (fx+ pos dlen+tag))
-         (end1 (put/any bv end0 (car obj)))
-         (end2 (put/any bv end1 (cdr obj))))
-    (put/header bv pos tag-pair (fx- end2 end0))
-    end2))
+  (let ((tail (cdr obj)))
+    (if (or (null? tail) (pair? tail))
+      (put/list bv pos obj)
+      (let* ((end0 (fx+ pos dlen+tag))
+             (end1 (put/any bv end0 (car obj)))
+             (end2 (put/any bv end1 (cdr obj))))
+        (put/header bv pos tag-pair (fx- end2 end0))
+        end2))))
 
 
-(define (len/vector obj pos)
+(define (len/vector pos obj)
   (let ((n (vector-length obj)))
     (let %len/vector ((v obj) (i 0) (n n) (pos pos))
       (if (and pos (fx<? i n))
-        (%len/vector v (fx1+ i) n (len/any (vector-ref v i) pos))
-        (header+ dlen pos))))) ; n is encoded as dlen
+        (%len/vector v (fx1+ i) n (len/any pos (vector-ref v i)))
+        (header+ pos dlen))))) ; n is encoded as dlen
 
 (define (put/vector bv pos obj)
   pos) ; TODO: implement
 
 
-(define (len/bytevector obj pos)
+(define (len/bytevector pos obj)
   (let ((datum-byte-n (bytevector-length obj)))
-    (header+ (fx+ dlen datum-byte-n) pos)))
+    (header+ pos (fx+ dlen datum-byte-n))))
 
 (define (put/bytevector bv pos obj)
   (let ((datum-byte-n (bytevector-length obj))
@@ -316,20 +398,20 @@
     (fx+ end0 datum-byte-n)))
 
 
-(define (len/fxvector obj pos)
+(define (len/fxvector pos obj)
   (let ((n (fxvector-length obj)))
     (let %len/fxvector ((v obj) (i 0) (n n) (pos pos))
       (if (and pos (fx<? i n))
         (%len/fxvector v (fx1+ i) n (len/exact-int (vector-ref v i) pos))
-        (header+ dlen pos))))) ; n is encoded as dlen
+        (header+ pos dlen))))) ; n is encoded as dlen
 
 (define (put/fxvector bv pos obj)
   pos) ; TODO: implement
 
 
-(define (len/flvector obj pos)
+(define (len/flvector pos obj)
   (let ((datum-byte-n (fx* len-flonum (flvector-length obj))))
-    (header+ (fx+ dlen datum-byte-n) pos)))
+    (header+ pos (fx+ dlen datum-byte-n))))
 
 (define (put/flvector bv pos obj)
   (let* ((n (flvector-length obj))
@@ -343,29 +425,29 @@
 
 
 
-(define (len/string obj pos)
-  (let ((datum-byte-n (fx* len-char (string-length obj)))) ;; each character is 3 bytes
-    (header+ (fx+ len-char datum-byte-n) pos)))
+(define (len/string pos obj)
+  (let ((datum-byte-n (fx* max-len-char (string-length obj)))) ;; each character is max-len-char bytes
+    (header+ pos (fx+ dlen datum-byte-n)))) ;; n is encoded as dlen
 
 (define (put/string bv pos obj)
   pos) ; TODO: implement
 
 
-(define (len/symbol obj pos)
-  (len/string (symbol->string obj) pos))
+(define (len/symbol pos obj)
+  (len/string pos (symbol->string obj)))
 
 (define (put/symbol bv pos obj)
   pos) ; TODO: implement
 
 
-(define (len/hashtable obj pos)
+(define (len/hashtable pos obj)
   #f) ;; TODO: implement
 
 (define (put/hashtable bv pos obj)
   #f) ;; TODO: implement
 
 
-(define (len/record obj pos)
+(define (len/record pos obj)
   #f) ;; TODO: implement
 
 (define (put/record bv pos obj)
@@ -374,32 +456,32 @@
 
 ;; recursively traverse obj and return the number of bytes needed to serialize obj
 ;; Return #f if obj contains some datum that cannot be serialized: procedures, unregistered record-types, etc.
-(define (len/any obj pos)
+(define (len/any pos obj)
   (case obj
     ((0 1 2 -1 #f #t ())
       (header+ pos)) ; only header, datum is 0 bytes
     (else
       (cond
         ((not pos)         #f)
-        ((fixnum? obj)     (len/exact-int  obj pos))
-        ((char?   obj)     (len/char       obj pos))
-        ((flonum? obj)     (len/flonum     obj pos))
-        ((pair?   obj)     (len/pair       obj pos))
-        ((symbol? obj)     (len/symbol     obj pos))
+        ((fixnum? obj)     (len/exact-int  pos obj))
+        ((char?   obj)     (len/char       pos obj))
+        ((flonum? obj)     (len/flonum     pos obj))
+        ((pair?   obj)     (len/pair       pos obj))
+        ((symbol? obj)     (len/symbol     pos obj))
         ((eq? (void) obj)  (header+ pos)) ; only header, datum is 0 bytes
         ((eof-object? obj) (header+ pos)) ; only header, datum is 0 bytes
         ((bwp-object? obj) (header+ pos)) ; only header, datum is 0 bytes
         ((procedure? obj)   #f)
         ;; these are slower to check
-        ((box?    obj)     (len/box        obj pos))
-        ((number? obj)     (len/number     obj pos))
-        ((vector? obj)     (len/vector     obj pos))
-        ((bytevector? obj) (len/bytevector obj pos))
-        ((fxvector? obj)   (len/fxvector   obj pos))
-        ((flvector? obj)   (len/flvector   obj pos))
-        ((string? obj)     (len/string     obj pos))
-        ((hashtable? obj)  (len/hashtable  obj pos))
-        ((record? obj)     (len/record     obj pos))
+        ((box?    obj)     (len/box        pos obj))
+        ((number? obj)     (len/number     pos obj))
+        ((vector? obj)     (len/vector     pos obj))
+        ((bytevector? obj) (len/bytevector pos obj))
+        ((fxvector? obj)   (len/fxvector   pos obj))
+        ((flvector? obj)   (len/flvector   pos obj))
+        ((string? obj)     (len/string     pos obj))
+        ((hashtable? obj)  (len/hashtable  pos obj))
+        ((record? obj)     (len/record     pos obj))
         (else              #f)))))
 
 
@@ -449,7 +531,7 @@
 ;; recursively traverse obj and return the number of bytes needed to serialize it.
 ;; Return #f if obj contains some datum that cannot be serialized: procedures, unregistered record-types, etc.
 (define (wire-length obj)
-  (let ((pos (len/any obj 0)))
+  (let ((pos (len/any 0 obj)))
     (if (valid-message-len? pos) pos #f)))
 
 
@@ -463,7 +545,7 @@
         (let ((pos (bytespan-length bsp)))
           (bytespan-resize-right! bsp (fx+ pos message-wire-len))
           (let ((end (put/any (bytespan-peek-data bsp)
-                              (fx+ (bytespan-peek-beg bsp) pos)
+                              (fx+ pos (bytespan-peek-beg bsp))
                               obj)))
             (assert* 'wire-put (fx=? end (bytespan-length bsp)))
             message-wire-len))
