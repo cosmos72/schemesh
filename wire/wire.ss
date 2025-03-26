@@ -6,8 +6,6 @@
 ;;; (at your option) any later version.
 
 
-#!r6rs
-
 ;;; Wire serialization/deserialization format.
 ;;;
 ;;; magic bytes: #x6 #x0 #x0 #xFF w i r e #x0 #x0
@@ -68,18 +66,19 @@
 ;;;      44 => datum is flvector:      n encoded as dlen, followed by n IEEE float64 little-endian, each occupying 8 bytes
 ;;;      46 => datum is symbol8:       n encoded as dlen, followed by characters each encoded as 1 byte
 ;;;      46 => datum is symbol:        n encoded as dlen, followed by characters each encoded as 3 bytes
-;;;      47 => datum is eq-hashtable:  n encoded as dlen, followed by 2 * n tag+datum
-;;;      48 => datum is eqv-hashtable: n encoded as dlen, followed by 2 * n tag+datum
-;;;      49 => datum is equal-hashtable: equal function name encoded as symbol, checked against a whitelist
+;;;      50 => datum is eq-hashtable:  n encoded as dlen, followed by 2 * n tag+datum
+;;;      51 => datum is eqv-hashtable: n encoded as dlen, followed by 2 * n tag+datum
+;;;      52 => datum is equal-hashtable: hash function name encoded as symbol, checked against a whitelist
+;;;                                      followed by equal function name encoded as symbol, checked against a whitelist
 ;;;                                      followed by n encoded as dlen, followed by 2 * n tag+datum
 ;;;
-;;;      50 => datum is status:      followed by kind encoded as fixnum tag+datum, followed by values encoded as list tag+datum
-;;;      51 => datum is span:        n encoded as dlen, followed by n tag+datum
-;;;      52 => datum is bytespan:    n encoded as dlen, followed by n bytes
-;;;      53 => datum is charspan:    n encoded as dlen, followed by n characters each encoded as dlen
-;;;      54 => datum is gbuffer:     n encoded as dlen, followed by n tag+datum
-;;;      55 => datum is bytegbuffer: NOT IMPLEMENTED
-;;;      56 => datum is chargbuffer: n encoded as dlen, followed by n characters each encoded as dlen
+;;;      53 => datum is status:      followed by kind encoded as fixnum tag+datum, followed by values encoded as list tag+datum
+;;;      54 => datum is span:        n encoded as dlen, followed by n tag+datum
+;;;      55 => datum is bytespan:    n encoded as dlen, followed by n bytes
+;;;      56 => datum is charspan:    n encoded as dlen, followed by n characters each encoded as dlen
+;;;      57 => datum is gbuffer:     n encoded as dlen, followed by n tag+datum
+;;;      58 => datum is bytegbuffer: NOT IMPLEMENTED
+;;;      59 => datum is chargbuffer: n encoded as dlen, followed by n characters each encoded as dlen
 ;;;     254 => datum is magic string: bytes #\w #\i #\r #\e VERSION-LO VERSION-HI
 ;;;     255 => datum starts with extended tag
 
@@ -88,24 +87,27 @@
   (export  wire-length wire-get wire-put wire-put->bytevector)
   (import
     (rnrs)
+    (rnrs mutable-strings)
     (only (chezscheme) box box? bwp-object? fxsrl unbox
                        bytevector-ieee-double-ref bytevector-ieee-double-set!
                        bytevector-sint-ref        bytevector-sint-set!
                        bytevector-s24-ref         bytevector-s24-set!
                        bytevector-u24-ref         bytevector-u24-set!
-                       cfl= fx1+ fxsrl fxsll
+                       cfl= cfl+ fx1+ fx1- fxsrl fxsll
                        fxvector? fxvector-length fxvector-ref fxvector-set! make-fxvector
-                       integer-length meta-cond time=? void)
+                       include integer-length meta-cond reverse! time=? void)
 
     ;; these predicates are equivalent to their r6rs counterparts,
     ;; only extended to also accept 1 argument
     (prefix (only (chezscheme) char=? char-ci=? string=? string-ci=?)
             chez:)
 
-    (only (schemesh bootstrap) assert*)
+    (only (schemesh bootstrap) assert* fx<=?*)
     (schemesh containers flvector)
     (schemesh containers bytespan)
-    (only (schemesh containers hashtable) eq-hashtable hash-for-each))
+    (only (schemesh containers hashtable) eq-hashtable for-hash hashtable-transpose)
+    (only (schemesh containers list)      for-plist)
+    (only (schemesh containers utf8b)     integer->char*))
 
 
 (define dlen 3)     ; dlen is encoded as 3 bytes
@@ -162,13 +164,23 @@
 (define tag-flvector 44)
 (define tag-symbol8  45)
 (define tag-symbol   46)
-(define tag-symbol-bytevector=? 47)
-(define tag-symbol-string=?     48)
-(define tag-symbol-string-ci=?  49)
-(define tag-symbol-time=?       50)
-(define tag-eq-hashtable  60)
-(define tag-eqv-hashtable 61)
-(define tag-hashtable     62)
+(define tag-eq-hashtable  50)
+(define tag-eqv-hashtable 51)
+(define tag-hashtable     52)
+
+
+(define table-symbol->tag
+  (eq-hashtable
+    'boolean=? 53 'bytevector=? 54 'cfl= 55 'char=? 56 'char-ci=? 57
+    'enum-set=? 58 'eq? 59 'eqv? 60 'equal? 61 'equal-hash 62
+    'fl=? 63 'fx=? 64
+    'string=? 65 'string-ci=? 66 'string-hash 67 'string-ci-hash 68
+    'symbol=? 69 'symbol-hash 70 'time=? 71))
+
+(define (symbol->tag sym)
+  (hashtable-ref table-symbol->tag sym #f))
+
+
 
 (define max-len-char 3) ;; each character is encoded as <= 3 bytes
 (define len-flonum   8) ;; each flonum is encoded as 8 bytes
@@ -207,6 +219,10 @@
 (define (get/s24 bv pos) (bytevector-s24-ref bv pos endian))
 ;; read 3 bytes as exact unsigned integer from bytevector starting at position pos, and return it.
 (define (get/u24 bv pos) (bytevector-u24-ref bv pos endian))
+
+;; read 4 bytes as exact signed integer from bytevector starting at position pos, and return it.
+(define (get/s32 bv pos) (bytevector-s32-ref bv pos endian))
+
 
 ;; write one signed byte into bytevector starting at position pos.
 ;; return updated position, or raise exception on errors.
@@ -250,12 +266,17 @@
   (bytevector-u32-set! bv pos u32 endian)
   (fx+ pos 4))
 
+;; read message header or dlen from bytevector starting at position pos.
+;; return dlen, or raise exception on errors.
+(define get/dlen get/u24)
+
 ;; write message header or dlen into bytevector starting at position pos.
 ;; return updated position, or raise exception on errors.
 (define (put/dlen bv pos count)
   (put/u24 bv pos count))
 
 ;; read 1-byte tag from bytevector at position pos, and return it.
+;; raise exception on errors.
 (define get/tag get/u8)
 
 ;; write 1-byte tag into bytevector starting at position pos.
@@ -347,7 +368,6 @@
       (len/number
         (len/number (tag+ pos) (real-part obj))
         (imag-part obj)))
-
     ;; inexact number. assume flonum or cflonum
     (if (flonum? obj)
       (len/flonum pos obj)
@@ -583,68 +603,72 @@
 
 
 (define (len/symbol pos obj)
-  (case obj
-    ((bytevector=? string=? string-ci=? time=?)
-      (tag+ pos))
-    (else
-      (len/string pos (symbol->string obj)))))
+  (if (symbol->tag obj)
+    (tag+ pos)
+    (len/string pos (symbol->string obj))))
+
 
 (define (put/symbol bv pos obj)
-  (case obj
-    ((bytevector=?)
-      (put/tag bv pos tag-symbol-bytevector=?))
-    ((string=?)
-      (put/tag bv pos tag-symbol-string=?))
-    ((string-ci=?)
-      (put/tag bv pos tag-symbol-string-ci=?))
-    ((time=?)
-      (put/tag bv pos tag-symbol-time=?))
-    (else
+  (let ((tag (symbol->tag obj)))
+    (if tag
+      (put/tag bv pos tag)
       (let* ((end (put/string bv pos (symbol->string obj)))
              (old-tag (get/tag bv pos))
              (new-tag (fx+ old-tag (fx- tag-symbol tag-string))))
         (put/tag bv pos new-tag)
         end))))
 
-(define proc-table
+(define known-cmp-sym
   (eq-hashtable
     boolean=? 'boolean=? ; boolean keys are not very useful in a hashtable...
-    bytevector=? 'bytevector=? cfl= 'cfl=? char=? 'char=? char-ci=? 'char-ci=?
-    enum-set=? 'enum-set=? eq? 'eq? eqv? 'eqv? fl=? 'fl=? fx=? 'fx=?
+    bytevector=? 'bytevector=? cfl= 'cfl= char=? 'char=? char-ci=? 'char-ci=?
+    enum-set=? 'enum-set=? eq? 'eq? eqv? 'eqv? equal? 'equal? fl=? 'fl=? fx=? 'fx=?
     string=? 'string=? string-ci=? 'string-ci=? symbol=? 'symbol=? time=? 'time=?
     chez:char=? 'char=? chez:char-ci=? 'char-ci=?
     chez:string=? 'string=? chez:string-ci=? 'string-ci=?))
 
-(define (htable->sym obj)
-  (hashtable-ref proc-table (hashtable-equivalence-function obj) #f))
+(define known-hash-sym
+  (eq-hashtable
+     equal-hash 'equal-hash string-hash 'string-hash string-ci-hash 'string-ci-hash
+     symbol-hash 'symbol-hash))
+
+(define (htable->cmp-sym obj)
+  (hashtable-ref known-cmp-sym (hashtable-equivalence-function obj) #f))
+
+(define (htable->hash-sym obj)
+  (hashtable-ref known-hash-sym (hashtable-hash-function obj) #f))
 
 (define (len/hashtable pos obj)
-  (let ((sym (htable->sym obj)))
-    (if sym
+  (let ((cmp-sym (htable->cmp-sym obj))
+        (hash-sym (htable->hash-sym obj)))
+    (if (and cmp-sym (or hash-sym (memq cmp-sym '(eq? eqv?))))
       (let* ((pos (tag+ pos))
-             (pos (case sym ((eq? eqv?) pos)
-                            (else (len/symbol pos sym))))
+             (pos (case cmp-sym ((eq? eqv?) pos)
+                                (else (len/symbol pos hash-sym))))
+             (pos (case cmp-sym ((eq? eqv?) pos)
+                                (else (len/symbol pos cmp-sym))))
              (pos (dlen+ pos))) ; n is encoded as dlen
-        (hash-for-each
-          (lambda (k v)
-            (set! pos (len/any (len/any pos k) v)))
-          obj)
+        (when pos
+          (for-hash ((k v obj))
+            (set! pos (len/any (len/any pos k) v))))
         pos)
       #f)))
 
 (define (put/hashtable bv pos obj)
-  (let ((sym (htable->sym obj)))
-    (if sym
-      (let* ((pos (put/tag bv pos (case sym ((eq?)  tag-eq-hashtable)
-                                            ((eqv?) tag-eqv-hashtable)
-                                            (else   tag-hashtable))))
-             (pos (case sym ((eq? eqv?) pos)
-                            (else (put/symbol bv pos sym))))
+  (let ((cmp-sym (htable->cmp-sym obj))
+        (hash-sym (htable->hash-sym obj)))
+    (if (and cmp-sym (or hash-sym (memq cmp-sym '(eq? eqv?))))
+      (let* ((pos (put/tag bv pos (case cmp-sym ((eq?)  tag-eq-hashtable)
+                                                ((eqv?) tag-eqv-hashtable)
+                                                (else   tag-hashtable))))
+             (pos (case cmp-sym ((eq? eqv?) pos)
+                                (else (put/symbol bv pos hash-sym))))
+             (pos (case cmp-sym ((eq? eqv?) pos)
+                                (else (put/symbol bv pos cmp-sym))))
              (pos (put/dlen bv pos (hashtable-size obj)))) ; n is encoded as dlen
-        (hash-for-each
-          (lambda (k v)
-            (set! pos (put/any bv (put/any bv pos k) v)))
-          obj)
+        (when pos
+          (for-hash ((k v obj))
+            (set! pos (put/any bv (put/any bv pos k) v))))
         pos)
       #f)))
 
@@ -659,32 +683,30 @@
 ;; recursively traverse obj and return the number of bytes needed to serialize obj
 ;; Return #f if obj contains some datum that cannot be serialized: procedures, unregistered record-types, etc.
 (define (len/any pos obj)
-  (case obj
-    ((0 1 2 3 4 5 6 7 8 9 10 -5 -4 -3 -2 -1 #f #t ())
-      (tag+ pos)) ; only tag, datum is 0 bytes
-    (else
-      (cond
-        ((not pos)         #f)
-        ((fixnum? obj)     (len/exact-int  pos obj))
-        ((char?   obj)     (len/char       pos obj))
-        ((flonum? obj)     (len/flonum     pos obj))
-        ((pair?   obj)     (len/pair       pos obj))
-        ((symbol? obj)     (len/symbol     pos obj))
-        ((eq? (void) obj)  (tag+ pos)) ; only tag, datum is 0 bytes
-        ((eof-object? obj) (tag+ pos)) ; only tag, datum is 0 bytes
-        ((bwp-object? obj) (tag+ pos)) ; only tag, datum is 0 bytes
-        ((procedure? obj)   #f)
-        ;; these are slower to check
-        ((box?    obj)     (len/box        pos obj))
-        ((number? obj)     (len/number     pos obj))
-        ((vector? obj)     (len/vector     pos obj))
-        ((bytevector? obj) (len/bytevector pos obj))
-        ((fxvector? obj)   (len/fxvector   pos obj))
-        ((flvector? obj)   (len/flvector   pos obj))
-        ((string? obj)     (len/string     pos obj))
-        ((hashtable? obj)  (len/hashtable  pos obj))
-        ((record? obj)     (len/record     pos obj))
-        (else              #f)))))
+  (cond
+    ((not pos)         #f)
+    ((fixnum? obj)     (len/exact-int  pos obj))
+    ((char?   obj)     (len/char       pos obj))
+    ((pair?   obj)     (len/pair       pos obj))
+    ((symbol? obj)     (len/symbol     pos obj))
+    ((flonum? obj)     (len/flonum     pos obj))
+    ((null? obj)       (tag+ pos)) ; only tag, datum is 0 bytes
+    ((eq? (void) obj)  (tag+ pos)) ; only tag, datum is 0 bytes
+    ((boolean? obj)    (tag+ pos)) ; only tag, datum is 0 bytes
+    ((eof-object? obj) (tag+ pos)) ; only tag, datum is 0 bytes
+    ((bwp-object? obj) (tag+ pos)) ; only tag, datum is 0 bytes
+    ((procedure? obj)  #f)
+    ;; these are slower to check
+    ((box?    obj)     (len/box        pos obj))
+    ((number? obj)     (len/number     pos obj))
+    ((vector? obj)     (len/vector     pos obj))
+    ((bytevector? obj) (len/bytevector pos obj))
+    ((string? obj)     (len/string     pos obj))
+    ((hashtable? obj)  (len/hashtable  pos obj))
+    ((fxvector? obj)   (len/fxvector   pos obj))
+    ((flvector? obj)   (len/flvector   pos obj))
+    ((record? obj)     (len/record     pos obj))
+    (else              #f)))
 
 
 ;; recursively traverse obj, serialize it and write it into bytevector bv starting at position pos.
@@ -694,24 +716,24 @@
     ((not pos)         #f)
     ((fixnum? obj)     (put/exact-int  bv pos obj))
     ((char?   obj)     (put/char       bv pos obj))
-    ((flonum? obj)     (put/flonum     bv pos obj))
     ((pair?   obj)     (put/pair       bv pos obj))
     ((symbol? obj)     (put/symbol     bv pos obj))
+    ((flonum? obj)     (put/flonum     bv pos obj))
     ((null? obj)       (put/tag bv pos tag-nil))  ; only tag, datum is 0 bytes
+    ((boolean? obj)    (put/tag bv pos (if obj tag-t tag-f))) ; only tag, datum is 0 bytes
     ((eq? (void) obj)  (put/tag bv pos tag-void)) ; only tag, datum is 0 bytes
     ((eof-object? obj) (put/tag bv pos tag-eof))  ; only tag, datum is 0 bytes
     ((bwp-object? obj) (put/tag bv pos tag-bwp))  ; only tag, datum is 0 bytes
-    ((boolean? obj)    (put/tag bv pos (if obj tag-t tag-f))) ; only tag, datum is 0 bytes
-    ((procedure? obj)   #f)
+    ((procedure? obj)  #f)
     ;; these are slower to check
     ((box?    obj)     (put/box        bv pos obj))
     ((number? obj)     (put/number     bv pos obj))
     ((vector? obj)     (put/vector     bv pos obj))
     ((bytevector? obj) (put/bytevector bv pos obj))
-    ((fxvector? obj)   (put/fxvector   bv pos obj))
-    ((flvector? obj)   (put/flvector   bv pos obj))
     ((string? obj)     (put/string     bv pos obj))
     ((hashtable? obj)  (put/hashtable  bv pos obj))
+    ((fxvector? obj)   (put/fxvector   bv pos obj))
+    ((flvector? obj)   (put/flvector   bv pos obj))
     ((record? obj)     (put/record     bv pos obj))
     (else              #f)))
 
@@ -755,12 +777,6 @@
       (bytespan->bytevector*! bsp)
       #f)))
 
-
-;; read byte range [start, end) from bytevector bv and deserialize an object from it.
-;; Return two values:
-;;   either object and updated start position in range [start, end)
-;;   or #f #f
-(define (wire-get bv start end)
-  (values #f #f)) ; TODO: implement
+(include "wire/get.ss")
 
 ) ; close library

@@ -6,9 +6,6 @@
 ;;; (at your option) any later version.
 
 
-;; this file should be included only by file containers/misc.ss
-
-
 (library (schemesh containers bytevector (0 8 1))
   (export
     in-bytevector list->bytevector subbytevector

@@ -216,13 +216,25 @@
   (wire-put->bytevector
     (list 1 2 3 127 255 (box (eof-object))))           #vu8(14 0 0 38 6 0 0 1 2 3 16 127 17 255 0 34 29)
   (wire-put->bytevector
-    (list (void) -7/3 1/2+1i 'bytevector=? 'string=?)) #vu8(16 0 0 38 5 0 0 28 21 16 249 3 22 21 1 2 1 47 48)
+    (list (void) -7/3 1/2+1i 'bytevector=? 'string=?)) #vu8(16 0 0 38 5 0 0 28 21 16 249 3 22 21 1 2 1 54 65)
   (wire-put->bytevector
     '#(#\a #\xFF #\xFFFF #\x10FFFF "bcd" #vfx(-1 1)))  #vu8(28 0 0 39 6 0 0 31 97 31 255 32 255 255 33 255 255 16 41 3 0 0 98 99 100 43 2 0 0 15 1)
   (wire-put->bytevector
-    (eq-hashtable (void) 1.5 '() #x123456789))         #vu8(24 0 0 60 2 0 0 27 20 5 0 0 137 103 69 35 1 28 23 0 0 0 0 0 0 248 63)
+    (eq-hashtable (void) 1.5 '() #x123456789))         #vu8(24 0 0 50 2 0 0 27 20 5 0 0 137 103 69 35 1 28 23 0 0 0 0 0 0 248 63)
+  (wire-put->bytevector
+    (eqv-hashtable #\{ 0.5+2.0i))                      #vu8(23 0 0 51 1 0 0 31 123 24 0 0 0 0 0 0 224 63 0 0 0 0 0 0 0 64)
   (let ((bv (wire-put->bytevector
               (hashtable string-hash string=? "a" 1 "b" 2))))
-    (or (bytevector=? bv #vu8(17 0 0 62 48 2 0 0 41 1 0 0 98 2 41 1 0 0 97 1))
-        (bytevector=? bv #vu8(17 0 0 62 48 2 0 0 41 1 0 0 97 1 41 1 0 0 98 2))))       #t
+    (or (bytevector=? bv #vu8(18 0 0 52 67 65 2 0 0 41 1 0 0 97 1 41 1 0 0 98 2))
+        (bytevector=? bv #vu8(18 0 0 52 67 65 2 0 0 41 1 0 0 98 2 41 1 0 0 97 1))))       #t
+
+  (values->list
+    (wire-get
+      (wire-put->bytevector
+        (vector
+          (bitwise-arithmetic-shift 1 64)
+          (bitwise-arithmetic-shift -1 60)
+          #\xDC80 #\xDCFF 'foo "bar\x20AC;"
+          '#vfx(0)))))                                 (#(18446744073709551616 -1152921504606846976
+                                                          #\xDC80 #\xDCFF foo "bar\x20AC;" #vfx(0)) 66)
 )
