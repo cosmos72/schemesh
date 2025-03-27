@@ -218,6 +218,9 @@
   (wire-put->bytevector
     '#(#\a #\xFF #\xFFFF #\x10FFFF "bcd" #vfx(-1 1)))  #vu8(28 0 0 39 6 0 0 31 97 31 255 32 255 255 33 255 255 16 41 3 0 0 98 99 100 43 2 0 0 15 1)
   (wire-put->bytevector
+    (gbuffer (span #vu8(1)) (ok 9 10) (charspan #\a #\xFF)
+             (chargbuffer #\< #\>)))                   #vu8(33 0 0 247 4 0 0 246 1 0 0 40 1 0 0 1 245 6 38 2 0 0 9 10 250 2 0 0 97 255 252 2 0 0 60 62)
+  (wire-put->bytevector
     (eq-hashtable (void) 1.5 '() #x123456789))         #vu8(24 0 0 50 2 0 0 27 20 5 0 0 137 103 69 35 1 28 23 0 0 0 0 0 0 248 63)
   (wire-put->bytevector
     (eqv-hashtable #\{ 0.5+2.0i))                      #vu8(23 0 0 51 1 0 0 31 123 24 0 0 0 0 0 0 224 63 0 0 0 0 0 0 0 64)
@@ -236,10 +239,21 @@
           '#vfx(0)))))                                 (#(18446744073709551616 -1152921504606846976
                                                           #\xDC80 #\xDCFF foo "bar\x20AC;" #vfx(0)) 66)
 
+  (values->list (wire-get  #vu8(4 0 0 245 6 36 27)))           ,((ok ()) 7)
+  (values->list (wire-get  #vu8(5 0 0 246 1 0 0 25)))          ,((span #f) 8)
+  (values->list (wire-get  #vu8(5 0 0 247 1 0 0 26)))          ,((gbuffer #t) 8)
+  ; (values->list (wire-get  #vu8(4 0 0 248 0 0 0)))           ,((bytespan) 7)
+  ; (values->list (wire-get  #vu8(4 0 0 249 0 0 0)))           ,((bytegbuffer) 7)
+  (values->list (wire-get  #vu8(5 0 0 250 1 0 0 95)))          ,((string->charspan* "_") 8)
+  (values->list (wire-get  #vu8(7 0 0 251 1 0 0 96 0 0)))      ,((string->charspan* "`") 10)
+  (values->list (wire-get  #vu8(5 0 0 252 1 0 0 97)))          ,((string->chargbuffer* "a") 8)
+  (values->list (wire-get  #vu8(7 0 0 253 1 0 0 98 0 0)))      ,((string->chargbuffer* "b") 10)
+
   (let ((ht (first-value (wire-get #vu8(20 0 0 52 67 65 2 0 0 41 2 0 0 99 100 15 41 2 0 0 101 102 14)))))
     (vector-sort
       (lambda (cell1 cell2)
         (string<? (car cell1) (car cell2)))
       (hashtable-cells ht)))                           #(("cd" . -1) ("ef" . -2))
+
 
 )

@@ -152,40 +152,6 @@
             (%get/list (fx1- n) pos (cons elem ret)))))))
 
 
-(define (get/container bv pos end constructor set-proc!)
-  (let ((n (get/dlen bv pos))
-        (pos (dlen+ pos)))
-    (if (and pos (fx<=? n (fx- end pos)))
-      (let ((ret (constructor n)))
-        (let %get/container ((i 0) (pos pos))
-          ;; (debugf "...get/container i=~s n=~s pos=~s end=~s" i n pos end)
-          (cond
-            ((or (not pos) (fx>? (fx- pos i) (fx- end n)))
-              (values #f #f))
-            ((fx>=? i n)
-              (values ret pos))
-            (else
-              (let-values (((elem pos) (get/any bv pos end)))
-                (set-proc! ret i elem)
-                (%get/container (fx1+ i) pos))))))
-      (values #f #f))))
-
-
-(define (get/vector bv pos end)
-  (get/container bv pos end make-vector vector-set!))
-
-
-
-(define (get/bvector bv pos end)
-  (let ((n (get/dlen bv pos))
-        (pos (dlen+ pos)))
-    (if (and pos (fx<=? n (fx- end pos)))
-      (let ((ret (make-bytevector n)))
-        (bytevector-copy! bv pos ret 0 n)
-        (values bv (fx+ pos n) end)))
-    (values #f #f)))
-
-
 (define (get/string8 bv pos end)
   (let ((n   (get/dlen bv pos))
         (pos (dlen+ pos)))
@@ -196,6 +162,7 @@
           (string-set! ret i (integer->char (get/u8 bv (fx+ pos i)))))
         (values ret (fx+ pos n)))
       (values #f #f))))
+
 
 (define (get/string bv pos end)
   (let ((n   (get/dlen bv pos))
@@ -215,39 +182,6 @@
           (else
             (values ret pos))))
       (values #f #f))))
-
-(define (get/fxvector bv pos end)
-  (let ((n   (get/dlen bv pos))
-        (pos (dlen+ pos)))
-    (if (and pos (fx<=? n (fx- end pos)))
-      (let %get/fxvector ((ret (make-fxvector n)) (i 0) (pos pos))
-        (cond
-          ((or (not pos) (fx>? (fx- pos i) (fx- end n)))
-            (values #f #f))
-          ((fx<? i n)
-            (let-values (((elem pos) (%get/exact-int bv pos end)))
-              ;; (debugf "...get/fxvector i=~s n=~s elem=~s pos=~s end=~s" i n elem pos end)
-              (if (and (fixnum? elem) pos)
-                (begin
-                  (fxvector-set! ret i elem)
-                  (%get/fxvector ret (fx1+ i) pos))
-                (values #f #f))))
-          (else
-            (values ret pos))))
-      (values #f #f))))
-
-(define (get/flvector bv pos end)
-  (let ((n   (get/dlen bv pos))
-        (pos (dlen+ pos)))
-    (if (and pos (fx<=? (fx* n len-flonum) (fx- end pos)))
-      (do ((ret (make-flvector n))
-           (i 0 (fx1+ i))
-           (pos pos (fx+ pos len-flonum)))
-          ((fx>=? i n)
-            (values ret pos))
-        (flvector-set! ret i (bytevector-ieee-double-ref bv pos endian)))
-      (values #f #f))))
-
 
 (define (get/symbol8 bv pos end)
   (let-values (((str pos) (get/string8 bv pos end)))
@@ -315,7 +249,7 @@
                 tag-f #f tag-t #t tag-nil '() tag-void (void) tag-eof (eof-object) tag-bwp #!bwp
                 tag-char8 get/char8 tag-char16 get/char16 tag-char24 get/char24 tag-box get/box
                 tag-pair get/pair tag-list1 get/list1 tag-list* get/list* tag-list get/list
-                tag-vector get/vector tag-bvector get/bvector tag-string8 get/string8 tag-string get/string
+                tag-vector get/vector tag-bytevector get/bytevector tag-string8 get/string8 tag-string get/string
                 tag-fxvector get/fxvector tag-flvector get/flvector tag-symbol8 get/symbol8 tag-symbol get/symbol
                 tag-eq-hashtable get/eq-hashtable tag-eqv-hashtable get/eqv-hashtable tag-hashtable get/hashtable))
         (vec (make-vector 256 (void))))
@@ -327,7 +261,7 @@
 
 (define min-tag-to-allocate 87)
 (define max-tag-to-allocate 253)
-(define next-tag-to-allocate 247)
+(define next-tag-to-allocate 244)
 
 ;; reserve a fixnum tag to use when serializing a custom record type
 ;; return the fixnum tag value, or #f if tags are exhausted.

@@ -273,7 +273,7 @@
             (put-datum port val))))
       (put-string port ")"))))
 
-(wire-register-rtd (record-type-descriptor %status) wire-tag/status
+(wire-register-rtd (record-type-descriptor %status) tag-status
                    wire-len/status wire-get/status wire-put/status)
 
 

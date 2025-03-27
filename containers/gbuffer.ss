@@ -20,7 +20,7 @@
     gbuffer-insert-at! gbuffer-erase-range! in-gbuffer gbuffer-iterate)
   (import
     (rnrs)
-    (only (chezscheme) fx1+ record-writer void)
+    (only (chezscheme) fx1+ fx/ record-writer void)
     (only (schemesh bootstrap)         assert* assert-not* fx<=?*)
     (only (schemesh containers vector) vector-copy!)
     (schemesh containers span))
@@ -64,8 +64,8 @@
 
 (define make-gbuffer
   (case-lambda
-    ((n)      (%make-gbuffer (span) (make-span n)))
-    ((n fill) (%make-gbuffer (span) (make-span n fill)))))
+    ((n)      (%make-gbuffer (make-span (fx/ n 2))      (make-span (fx/ (fx1+ n) 2))))
+    ((n fill) (%make-gbuffer (make-span (fx/ n 2) fill) (make-span (fx/ (fx1+ n) 2) fill)))))
 
 (define (gbuffer . vals)
   (list->gbuffer vals))

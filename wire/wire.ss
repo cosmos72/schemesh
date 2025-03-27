@@ -71,15 +71,9 @@
 ;;;      52 => datum is equal-hashtable: hash function name encoded as symbol, checked against a whitelist
 ;;;                                      followed by equal function name encoded as symbol, checked against a whitelist
 ;;;                                      followed by n encoded as dlen, followed by 2 * n tag+datum
-;;       53 .. 86 => datum is a known symbol
-;;;
-;;;     247 => datum is status:      followed by kind encoded as fixnum tag+datum, followed by values encoded as list tag+datum
-;;;     248 => datum is span:        n encoded as dlen, followed by n tag+datum
-;;;     249 => datum is bytespan:    n encoded as dlen, followed by n bytes
-;;;     250 => datum is charspan:    n encoded as dlen, followed by n characters each encoded as dlen
-;;;     251 => datum is gbuffer:     n encoded as dlen, followed by n tag+datum
-;;;     252 => datum is bytegbuffer: NOT IMPLEMENTED
-;;;     253 => datum is chargbuffer: n encoded as dlen, followed by n characters each encoded as dlen
+;;       53 ... 86  => datum is a known symbol
+;;;      87 ... 244 => datum is a registered record type
+;;;     245 ... 253 => datum is a pre-registered record type
 ;;;     254 => datum is magic string: bytes #\w #\i #\r #\e VERSION-LO VERSION-HI
 ;;;     255 => datum starts with extended tag
 
@@ -159,23 +153,25 @@
 (define tag-list*    37)
 (define tag-list     38)
 (define tag-vector   39)
-(define tag-bvector  40) ; bytevector
-(define tag-string8  41)
-(define tag-string   42)
-(define tag-fxvector 43)
-(define tag-flvector 44)
-(define tag-symbol8  45)
-(define tag-symbol   46)
+(define tag-bytevector 40)
+(define tag-string8    41)
+(define tag-string     42)
+(define tag-fxvector   43)
+(define tag-flvector   44)
+(define tag-symbol8    45)
+(define tag-symbol     46)
 (define tag-eq-hashtable  50)
 (define tag-eqv-hashtable 51)
 (define tag-hashtable     52)
 
-(define tag-status       247) ; implemented in posix/wire-status.ss
-(define tag-span         248)
-(define tag-bytespan     249)
-(define tag-charspan     250)
-(define tag-gbuffer      251)
-(define tag-bytegbuffer  252) ; NOT IMPLEMENTED
+(define tag-status       245) ; implemented in posix/wire-status.ss
+(define tag-span         246)
+(define tag-gbuffer      247)
+(define tag-bytespan     248)
+(define tag-bytegbuffer  249) ; NOT IMPLEMENTED
+(define tag-charspan8    250)
+(define tag-charspan     251)
+(define tag-chargbuffer8 252)
 (define tag-chargbuffer  253)
 (define tag-magic-string 254)
 
@@ -528,74 +524,6 @@
                (end2 (put/any bv end1 (cdr obj))))
           end2)))))
 
-
-(define (len/container pos v n ref-proc)
-  (let %len/container ((i 0) (pos (dlen+ (tag+ pos)))) ; n is encoded as dlen
-    (if (and pos (fx<? i n))
-      (%len/container (fx1+ i) (len/any pos (ref-proc v i)))
-      pos)))
-
-(define (put/container bv pos tag v n ref-proc)
-  (let* ((end0 (put/tag  bv pos tag))
-         (end1 (put/dlen bv end0 n))) ; n is encoded as dlen
-    (let %put/container ((i 0) (pos end1))
-      (if (and pos (fx<? i n))
-        (%put/container (fx1+ i) (put/any bv pos (ref-proc v i)))
-        pos))))
-
-(define (len/vector pos obj)
-  (len/container pos obj (vector-length obj) vector-ref))
-
-(define (put/vector bv pos obj)
-  (put/container bv pos tag-vector obj (vector-length obj) vector-ref))
-
-
-(define (len/bytevector pos obj)
-  (let ((n (bytevector-length obj)))
-    (dlen+ (tag+ pos) n)))
-
-(define (put/bytevector bv pos obj)
-  (let* ((n     (bytevector-length obj))
-         (end0 (put/tag  bv pos tag-bvector))
-         (end1 (put/dlen bv end0 n))) ; n is encoded as dlen
-    (bytevector-copy! obj 0 bv end1 n)
-    (fx+ end1 n)))
-
-
-(define (len/fxvector pos obj)
-  (let ((n (fxvector-length obj))
-        (v obj))
-    (let %len/fxvector ((i 0) (pos (dlen+ (tag+ pos)))) ; n is encoded as dlen
-      (if (and pos (fx<? i n))
-        (%len/fxvector (fx1+ i) (len/exact-int pos (fxvector-ref v i)))
-        pos))))
-
-(define (put/fxvector bv pos obj)
-  (let* ((n (fxvector-length obj))
-         (v obj)
-         (end0 (put/tag  bv pos tag-fxvector))
-         (end1 (put/dlen bv end0 n))) ; n is encoded as dlen
-    (let %put/vector ((i 0) (pos end1))
-      (if (and pos (fx<? i n))
-        (%put/vector (fx1+ i) (put/exact-int bv pos (fxvector-ref v i)))
-        pos))))
-
-
-(define (len/flvector pos obj)
-  (let ((n (flvector-length obj)))
-    (dlen+ (tag+ pos) (fx* n len-flonum))))
-
-(define (put/flvector bv pos obj)
-  (let* ((n (flvector-length obj))
-         (v obj)
-         (end0 (put/tag  bv pos tag-flvector))
-         (end1 (put/dlen bv end0 n))) ; n is encoded as dlen
-    (do ((i 0 (fx1+ i))
-         (pos end1 (fx+ pos len-flonum)))
-        ((fx>=? i n)
-           pos)
-      (bytevector-ieee-double-set! bv pos (flvector-ref v i) endian))))
-
 ;; return #t if all characters in string obj are char<=? #\xFF
 (define (string8? obj)
   (do ((i 0 (fx1+ i))
@@ -733,6 +661,7 @@
       ((cdr procs) bv pos obj)
       #f)))
 
+(include "wire/vector.ss")
 
 ;; recursively traverse obj and return the number of bytes needed to serialize obj
 ;; Return #f if obj contains some datum that cannot be serialized: procedures, unregistered record-types, etc.
@@ -835,8 +764,13 @@
 (include "wire/container.ss")
 
 (begin
-  (wire-register-rtd (record-rtd (span))    tag-span    len/span    get/span    put/span)
-  (wire-register-rtd (record-rtd (gbuffer)) tag-gbuffer len/gbuffer get/gbuffer put/gbuffer)
+  (wire-register-rtd (record-rtd (span))        tag-span        len/span        get/span        put/span)
+  (wire-register-rtd (record-rtd (gbuffer))     tag-gbuffer     len/gbuffer     get/gbuffer     put/gbuffer)
+  (wire-register-rtd (record-rtd (charspan))    tag-charspan    len/charspan    get/charspan    put/charspan)
+  (wire-register-rtd (record-rtd (chargbuffer)) tag-chargbuffer len/chargbuffer get/chargbuffer put/chargbuffer)
+
+  (vector-set! known-tag tag-charspan8    get/charspan8)
+  (vector-set! known-tag tag-chargbuffer8 get/chargbuffer8)
 
 ) ; close begin
 

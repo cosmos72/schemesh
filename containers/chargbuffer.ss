@@ -24,7 +24,7 @@
     chargbuffer-erase-range! chargbuffer-iterate)
   (import
     (rnrs)
-    (only (chezscheme) fx1+ record-writer string-copy! void)
+    (only (chezscheme) fx1+ fx/ record-writer string-copy! void)
     (only (schemesh bootstrap) assert* assert-not* fx<=?*)
     (schemesh containers charspan))
 
@@ -60,8 +60,8 @@
 
 (define make-chargbuffer
   (case-lambda
-    ((n)      (%make-chargbuffer (charspan) (make-charspan n)))
-    ((n fill) (%make-chargbuffer (charspan) (make-charspan n fill)))))
+    ((n)      (%make-chargbuffer (make-charspan (fx/ n 2))      (make-charspan (fx/ (fx1+ n) 2))))
+    ((n fill) (%make-chargbuffer (make-charspan (fx/ n 2) fill) (make-charspan (fx/ (fx1+ n) 2) fill)))))
 
 ;; convert a chargbuffer to string
 (define (chargbuffer->string gb)

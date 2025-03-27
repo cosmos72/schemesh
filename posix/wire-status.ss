@@ -9,7 +9,7 @@
 
 ;; customize how "status" objects are serialized/deserialized
 
-(define wire-tag/status 247)
+(define tag-status 245) ; must match tag-status in wire/wire.ss
 
 (define known-kind (plist->eq-hashtable '(new 0 running 1 stopped 2 exception 3 failed 4 killed 5 ok 6)))
 
@@ -40,6 +40,6 @@
 
 (define (wire-put/status bv pos obj)
   (let ((kind (%status->kind obj)))
-    (bytevector-u8-set! bv pos wire-tag/status)
+    (bytevector-u8-set! bv pos tag-status)
     (bytevector-u8-set! bv (fx1+ pos) (kind->int kind))
     (wire-put-datum bv (fx+ pos 2) (%status->val obj))))
