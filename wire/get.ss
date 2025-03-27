@@ -70,7 +70,7 @@
   (let*-values (((real pos) (%get/exact-real bv pos end))
                 ((imag pos) (%get/exact-real bv pos end)))
     (if (and real imag pos)
-      (values (+ real (* imag 0+1i)) pos)
+      (values (make-rectangular real imag) pos)
       (values #f #f))))
 
 
@@ -81,7 +81,7 @@
 (define (get/cflonum bv pos end)
   (let ((real (bytevector-ieee-double-ref bv pos endian))
         (imag (bytevector-ieee-double-ref bv (fx+ pos len-flonum) endian)))
-    (values (cfl+ real (fl* imag 0.0+1.0i))
+    (values (fl-make-rectangular real imag)
             (fx+ pos len-cflonum))))
 
 
@@ -152,13 +152,13 @@
             (%get/list (fx1- n) pos (cons elem ret)))))))
 
 
-(define (get/vector bv pos end)
+(define (get/container bv pos end constructor set-proc!)
   (let ((n (get/dlen bv pos))
         (pos (dlen+ pos)))
-    (if (fx<=? n (fx- end pos))
-      (let ((ret (make-vector n)))
-        (let %get/vector ((i 0) (pos pos))
-          ;; (debugf "...get/vector i=~s n=~s pos=~s end=~s" i n pos end)
+    (if (and pos (fx<=? n (fx- end pos)))
+      (let ((ret (constructor n)))
+        (let %get/container ((i 0) (pos pos))
+          ;; (debugf "...get/container i=~s n=~s pos=~s end=~s" i n pos end)
           (cond
             ((or (not pos) (fx>? (fx- pos i) (fx- end n)))
               (values #f #f))
@@ -166,16 +166,20 @@
               (values ret pos))
             (else
               (let-values (((elem pos) (get/any bv pos end)))
-                (vector-set! ret i elem)
-                (%get/vector (fx1+ i) pos))))))
+                (set-proc! ret i elem)
+                (%get/container (fx1+ i) pos))))))
       (values #f #f))))
+
+
+(define (get/vector bv pos end)
+  (get/container bv pos end make-vector vector-set!))
 
 
 
 (define (get/bvector bv pos end)
   (let ((n (get/dlen bv pos))
         (pos (dlen+ pos)))
-    (if (fx<=? n (fx- end pos))
+    (if (and pos (fx<=? n (fx- end pos)))
       (let ((ret (make-bytevector n)))
         (bytevector-copy! bv pos ret 0 n)
         (values bv (fx+ pos n) end)))
@@ -185,7 +189,7 @@
 (define (get/string8 bv pos end)
   (let ((n   (get/dlen bv pos))
         (pos (dlen+ pos)))
-    (if (fx<=? n (fx- end pos))
+    (if (and pos (fx<=? n (fx- end pos)))
       (let ((ret (make-string n)))
         (do ((i 0 (fx1+ i)))
             ((fx>=? i n))
@@ -194,9 +198,9 @@
       (values #f #f))))
 
 (define (get/string bv pos end)
-  (let ((n (get/dlen bv pos))
+  (let ((n   (get/dlen bv pos))
         (pos (dlen+ pos)))
-    (if (fx<=? n (fx* max-len-char (fx- end pos)))
+    (if (and pos (fx<=? n (fx* max-len-char (fx- end pos))))
       (let %get/string ((ret (make-string n)) (i 0) (pos pos))
         (cond
           ((not pos)
@@ -213,9 +217,9 @@
       (values #f #f))))
 
 (define (get/fxvector bv pos end)
-  (let ((n (get/dlen bv pos))
+  (let ((n   (get/dlen bv pos))
         (pos (dlen+ pos)))
-    (if (fx<=? n (fx- end pos))
+    (if (and pos (fx<=? n (fx- end pos)))
       (let %get/fxvector ((ret (make-fxvector n)) (i 0) (pos pos))
         (cond
           ((or (not pos) (fx>? (fx- pos i) (fx- end n)))
@@ -233,9 +237,9 @@
       (values #f #f))))
 
 (define (get/flvector bv pos end)
-  (let ((n (get/dlen bv pos))
+  (let ((n   (get/dlen bv pos))
         (pos (dlen+ pos)))
-    (if (fx<=? (fx* n len-flonum) (fx- end pos))
+    (if (and pos (fx<=? (fx* n len-flonum) (fx- end pos)))
       (do ((ret (make-flvector n))
            (i 0 (fx1+ i))
            (pos pos (fx+ pos len-flonum)))
@@ -254,16 +258,54 @@
     (values (if pos (string->symbol str) #f) pos)))
 
 
+(define known-cmp-proc  (hashtable-transpose known-cmp-sym (make-eq-hashtable)))
+(define known-hash-proc (hashtable-transpose known-hash-sym (make-eq-hashtable)))
+
+(define (cmp-sym->proc sym)  (hashtable-ref known-cmp-proc sym #f))
+(define (hash-sym->proc sym) (hashtable-ref known-hash-proc sym #f))
+
+(define (%fill/hashtable bv pos end n ret)
+  (if (fxzero? n)
+    (values ret pos)
+    (let*-values (((key pos) (get/any bv pos end))
+                  ((val pos) (get/any bv pos end)))
+      (if pos
+        (begin
+          (hashtable-set! ret key val)
+          (%fill/hashtable bv pos end (fx1- n) ret))
+        (values #f #f)))))
+
 (define (get/eq-hashtable bv pos end)
-  (values #f #f)) ; TODO implement
+  (let ((n   (get/dlen bv pos))
+        (pos (dlen+ pos)))
+    (if (and pos (fx<=? n (fx- end pos)))
+      (%fill/hashtable bv pos end n (make-eq-hashtable n))
+      (values #f #f))))
 
 (define (get/eqv-hashtable bv pos end)
-  (values #f #f)) ; TODO implement
+  (let ((n   (get/dlen bv pos))
+        (pos (dlen+ pos)))
+    (if (and pos (fx<=? n (fx- end pos)))
+      (%fill/hashtable bv pos end n (make-eqv-hashtable n))
+      (values #f #f))))
 
 (define (get/hashtable bv pos end)
-  (values #f #f)) ; TODO implement
+  (let*-values (((hash-sym pos) (get/any bv pos end))
+                ((cmp-sym pos)  (get/any bv pos end)))
+    (let ((n   (get/dlen bv pos))
+          (pos (dlen+ pos)))
+      ;; (debugf "...get/hashtable pos=~s n=~s hash-sym=~s cmp-sym=~s" pos n hash-sym cmp-sym)
+      (if (and pos (fx<=? n (fx- end pos)) (symbol? hash-sym) (symbol? cmp-sym))
+        (let ((hash-proc (hash-sym->proc hash-sym))
+              (cmp-proc  (cmp-sym->proc cmp-sym)))
+          ;; (debugf "...get/hashtable hash-proc=~s cmp-proc=~s" hash-proc cmp-proc)
+          (if (and hash-proc cmp-proc)
+            (%fill/hashtable bv pos end n (make-hashtable hash-proc cmp-proc n))
+            (values #f #f)))
+        (values #f #f)))))
 
-(define tag->obj
+
+(define known-tag
   (let ((plist
           (list tag-0 0 tag-1 1 tag-2 2 tag-3 3 tag-4 4 tag-5 5 tag-6 6 tag-7 7 tag-8 8
                 tag-9 9 tag-10 10 tag--5 -5 tag--4 -4 tag--3 -3 tag--2 -2 tag--1 -1
@@ -279,10 +321,26 @@
         (vec (make-vector 256 (void))))
     (for-plist ((tag obj plist))
       (vector-set! vec tag obj))
-    (for-hash ((sym tag table-symbol->tag))
+    (for-hash ((sym tag known-sym))
       (vector-set! vec tag sym))
-    (lambda (tag)
-      (vector-ref vec tag))))
+    vec))
+
+(define min-tag-to-allocate 87)
+(define max-tag-to-allocate 253)
+(define next-tag-to-allocate 247)
+
+;; reserve a fixnum tag to use when serializing a custom record type
+;; return the fixnum tag value, or #f if tags are exhausted.
+(define (wire-reserve-tag)
+  (let ((ret next-tag-to-allocate))
+    (if (fx>=? ret min-tag-to-allocate)
+      (begin
+        (set! next-tag-to-allocate (fx1- ret))
+        ret)
+      #f)))
+
+(define (tag->obj tag)
+  (vector-ref known-tag tag))
 
 
 ;; read byte range [pos, end) from bytevector bv and deserialize an object from it.
@@ -324,7 +382,7 @@
         (values #f available)))))
 
 
-;; read bytes from bytespan bv and deserialize an object from them.
+;; read bytes from bytevector or bytespan stc and deserialize an object from them.
 ;; Return two values:
 ;;   either object and number of consumed bytes,
 ;;   or #f #f if serialized bytes are invalid

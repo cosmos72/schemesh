@@ -15,8 +15,10 @@
        new? started? running? stopped? finished? ok?)
   (import
     (rnrs)
-    (only (chezscheme)            console-output-port console-error-port record-writer void)
-    (only (schemesh bootstrap)    assert* debugf)
+    (only (chezscheme)            console-output-port console-error-port fx1+ include record-writer void)
+    (only (schemesh bootstrap)    assert*)
+    (only (schemesh containers hashtable) for-hash plist->eq-hashtable)
+    (schemesh wire)
     (only (schemesh posix fd)     c-exit)
     (only (schemesh posix signal) signal-name->number signal-raise))
 
@@ -246,6 +248,10 @@
         (c-exit (fxand c-exit-value 255))))))
 
 
+; customize how "status" objects are serialized/deserialized
+(include "posix/wire-status.ss")
+
+
 ; customize how "status" objects are printed
 (record-writer (record-type-descriptor %status)
   (lambda (status port writer)
@@ -266,6 +272,9 @@
             (put-char port #\space)
             (put-datum port val))))
       (put-string port ")"))))
+
+(wire-register-rtd (record-type-descriptor %status) wire-tag/status
+                   wire-len/status wire-get/status wire-put/status)
 
 
 ) ; close library

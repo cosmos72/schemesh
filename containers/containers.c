@@ -11,7 +11,7 @@
 #include "../eval.h"
 
 #include <errno.h>  /* errno */
-#include <stdint.h> /* uint32_t */
+#include <stdint.h> /* SIZE_MAX, uint32_t */
 #include <string.h> /* memcmp(), memmove() */
 
 #if defined(__GNUC__) && __GNUC__ >= 4
@@ -31,6 +31,35 @@ typedef struct {
   size_t byte_n;
   size_t char_n;
 } sizepair;
+
+static size_t c_fnv1a(const octet data[], const size_t n) {
+#if SIZE_MAX <= 0xFFFFFFFFu
+  const size_t prime = 0x01000193u;
+  size_t       hash  = 0x811c9dc5u;
+#else
+  const size_t prime = 0x00000100000001b3ul;
+  size_t       hash  = 0xcbf29ce484222325ul;
+#endif
+  size_t i;
+
+  for (i = 0; i < n; i++) {
+    hash ^= (unsigned char)data[i];
+    hash *= prime;
+  }
+  return hash;
+}
+
+static ptr c_fnv1a_unsigned_fixnum(const octet data[], const size_t n) {
+  const size_t hash = c_fnv1a(data, n);
+
+  /* Sfixnum(n) multiplies n by X (usually 8), then uses top bit as sign */
+  ptr fxhash = Sfixnum(hash);
+  if (Sfixnum_value(fxhash) < 0) {
+    /* may happen because top bit is used as sign */
+    fxhash = Sfixnum(~hash);
+  }
+  return fxhash;
+}
 
 static signed char c_bytevector_compare(ptr left, ptr right) {
 #if 0 /* redundant, already checked by Scheme function (bytevector-compare) */
@@ -55,6 +84,16 @@ static signed char c_bytevector_compare(ptr left, ptr right) {
 static void c_bytevector_fill_range(ptr bvec, iptr start, iptr end, int value) {
   if (Sbytevectorp(bvec) && 0 <= start && start < end && end <= Sbytevector_length(bvec)) {
     memset(Sbytevector_data(bvec) + start, value & 0xFF, (size_t)end - (size_t)start);
+  }
+}
+
+/** @return hash of a bytevector  */
+static ptr c_bytevector_hash(ptr bvec) {
+#if 0 /* redundant, already checked by Scheme function (bytevector-hash) */
+  if (Sbytevectorp(bvec))
+#endif
+  {
+    return c_fnv1a_unsigned_fixnum(Sbytevector_data(bvec), Sbytevector_length(bvec));
   }
 }
 
@@ -537,6 +576,7 @@ ptr schemesh_Sbytevector(const char chars[], const size_t len) {
 void schemesh_register_c_functions_containers(void) {
   Sregister_symbol("c_bytevector_compare", &c_bytevector_compare);
   Sregister_symbol("c_bytevector_fill_range", &c_bytevector_fill_range);
+  Sregister_symbol("c_bytevector_hash", &c_bytevector_hash);
   Sregister_symbol("c_bytevector_index_u8", &c_bytevector_index_u8);
   Sregister_symbol("c_string_fill_utf8b_surrogate_chars", &c_string_fill_utf8b_surrogate_chars);
   Sregister_symbol("c_string_to_utf8b_length", &c_string_to_utf8b_length);

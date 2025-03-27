@@ -71,20 +71,26 @@
 ;;;      52 => datum is equal-hashtable: hash function name encoded as symbol, checked against a whitelist
 ;;;                                      followed by equal function name encoded as symbol, checked against a whitelist
 ;;;                                      followed by n encoded as dlen, followed by 2 * n tag+datum
+;;       53 .. 86 => datum is a known symbol
 ;;;
-;;;      53 => datum is status:      followed by kind encoded as fixnum tag+datum, followed by values encoded as list tag+datum
-;;;      54 => datum is span:        n encoded as dlen, followed by n tag+datum
-;;;      55 => datum is bytespan:    n encoded as dlen, followed by n bytes
-;;;      56 => datum is charspan:    n encoded as dlen, followed by n characters each encoded as dlen
-;;;      57 => datum is gbuffer:     n encoded as dlen, followed by n tag+datum
-;;;      58 => datum is bytegbuffer: NOT IMPLEMENTED
-;;;      59 => datum is chargbuffer: n encoded as dlen, followed by n characters each encoded as dlen
+;;;     247 => datum is status:      followed by kind encoded as fixnum tag+datum, followed by values encoded as list tag+datum
+;;;     248 => datum is span:        n encoded as dlen, followed by n tag+datum
+;;;     249 => datum is bytespan:    n encoded as dlen, followed by n bytes
+;;;     250 => datum is charspan:    n encoded as dlen, followed by n characters each encoded as dlen
+;;;     251 => datum is gbuffer:     n encoded as dlen, followed by n tag+datum
+;;;     252 => datum is bytegbuffer: NOT IMPLEMENTED
+;;;     253 => datum is chargbuffer: n encoded as dlen, followed by n characters each encoded as dlen
 ;;;     254 => datum is magic string: bytes #\w #\i #\r #\e VERSION-LO VERSION-HI
 ;;;     255 => datum starts with extended tag
 
 
 (library (schemesh wire (0 8 1))
-  (export  wire-length wire-get wire-put wire-put->bytevector)
+  (export wire-length wire-get wire-put wire-put->bytevector
+          wire-register-rtd  wire-reserve-tag
+          ;; internal functions, exported for types that want to define their own serializer/deserializer
+          (rename (len/any wire-len-datum)
+                  (get/any wire-get-datum)
+                  (put/any wire-put-datum)))
   (import
     (rnrs)
     (rnrs mutable-strings)
@@ -93,9 +99,10 @@
                        bytevector-sint-ref        bytevector-sint-set!
                        bytevector-s24-ref         bytevector-s24-set!
                        bytevector-u24-ref         bytevector-u24-set!
-                       cfl= cfl+ fx1+ fx1- fxsrl fxsll
+                       cfl= cfl+ fl-make-rectangular fx1+ fx1- fxsrl fxsll
                        fxvector? fxvector-length fxvector-ref fxvector-set! make-fxvector
-                       include integer-length meta-cond reverse! time=? void)
+                       include integer-length logbit? meta-cond reverse!
+                       procedure-arity-mask time=? void)
 
     ;; these predicates are equivalent to their r6rs counterparts,
     ;; only extended to also accept 1 argument
@@ -103,12 +110,7 @@
             chez:)
 
     (only (schemesh bootstrap) assert* fx<=?*)
-    (schemesh containers flvector)
-    (schemesh containers bytespan)
-    (only (schemesh containers hashtable) eq-hashtable for-hash hashtable-transpose)
-    (only (schemesh containers list)      for-plist)
-    (only (schemesh containers utf8b)     integer->char*))
-
+    (schemesh containers))
 
 (define dlen 3)     ; dlen is encoded as 3 bytes
 (define dlen+tag 4) ; dlen+tag is encoded as 4 bytes
@@ -168,17 +170,42 @@
 (define tag-eqv-hashtable 51)
 (define tag-hashtable     52)
 
+(define tag-status       247) ; implemented in posix/wire-status.ss
+(define tag-span         248)
+(define tag-bytespan     249)
+(define tag-charspan     250)
+(define tag-gbuffer      251)
+(define tag-bytegbuffer  252) ; NOT IMPLEMENTED
+(define tag-chargbuffer  253)
+(define tag-magic-string 254)
 
-(define table-symbol->tag
+;;;     248 => datum is :        n encoded as dlen, followed by n tag+datum
+;;;     249 => datum is :    n encoded as dlen, followed by n bytes
+;;;     250 => datum is :    n encoded as dlen, followed by n characters each encoded as dlen
+;;;     251 => datum is :     n encoded as dlen, followed by n tag+datum
+;;;     252 => datum is : NOT IMPLEMENTED
+;;;     253 => datum is : n encoded as dlen, followed by n characters each encoded as dlen
+;;;     254 => datum is magic string: bytes #\w #\i #\r #\e VERSION-LO VERSION-HI
+;;;     255 => datum starts with extended tag
+
+(define known-sym
   (eq-hashtable
-    'boolean=? 53 'bytevector=? 54 'cfl= 55 'char=? 56 'char-ci=? 57
-    'enum-set=? 58 'eq? 59 'eqv? 60 'equal? 61 'equal-hash 62
-    'fl=? 63 'fx=? 64
-    'string=? 65 'string-ci=? 66 'string-hash 67 'string-ci-hash 68
-    'symbol=? 69 'symbol-hash 70 'time=? 71))
+    'boolean=? 53 'boolean-hash 54
+    'bytevector=? 55 'bytevector-hash 56
+    'cfl= 57 'cfl-hash 58
+    'char=? 59 'char-ci=? 60 'char->integer 61 ; usable as hash function for char=?
+    'enum-set=? 62 'enum-set-hash 63
+    'eq? 64 'eqv? 65 'equal? 66 'equal-hash 67
+    'fl=? 68 'fl-hash 69
+    'fx=? 70 'fx-hash 71
+    'string=? 72 'string-ci=? 73 'string-hash 74 'string-ci-hash 75
+    'symbol=? 76 'symbol-hash 77
+    'time=? 78 'time-collector-cpu 79 'time-collector-real 80
+    'time-duration 81 'time-hash 82 'time-monotonic 83
+    'time-process 84 'time-thread 85 'time-utc 86))
 
 (define (symbol->tag sym)
-  (hashtable-ref table-symbol->tag sym #f))
+  (hashtable-ref known-sym sym #f))
 
 
 
@@ -502,23 +529,25 @@
           end2)))))
 
 
-(define (len/vector pos obj)
-  (let ((n (vector-length obj))
-        (v obj))
-    (let %len/vector ((i 0) (pos (dlen+ (tag+ pos)))) ; n is encoded as dlen
+(define (len/container pos v n ref-proc)
+  (let %len/container ((i 0) (pos (dlen+ (tag+ pos)))) ; n is encoded as dlen
+    (if (and pos (fx<? i n))
+      (%len/container (fx1+ i) (len/any pos (ref-proc v i)))
+      pos)))
+
+(define (put/container bv pos tag v n ref-proc)
+  (let* ((end0 (put/tag  bv pos tag))
+         (end1 (put/dlen bv end0 n))) ; n is encoded as dlen
+    (let %put/container ((i 0) (pos end1))
       (if (and pos (fx<? i n))
-        (%len/vector (fx1+ i) (len/any pos (vector-ref v i)))
+        (%put/container (fx1+ i) (put/any bv pos (ref-proc v i)))
         pos))))
 
+(define (len/vector pos obj)
+  (len/container pos obj (vector-length obj) vector-ref))
+
 (define (put/vector bv pos obj)
-  (let* ((n (vector-length obj))
-         (v obj)
-         (end0 (put/tag  bv pos tag-vector))
-         (end1 (put/dlen bv end0 n))) ; n is encoded as dlen
-    (let %put/vector ((i 0) (pos end1))
-      (if (and pos (fx<? i n))
-        (%put/vector (fx1+ i) (put/any bv pos (vector-ref v i)))
-        pos))))
+  (put/container bv pos tag-vector obj (vector-length obj) vector-ref))
 
 
 (define (len/bytevector pos obj)
@@ -618,6 +647,7 @@
         (put/tag bv pos new-tag)
         end))))
 
+
 (define known-cmp-sym
   (eq-hashtable
     boolean=? 'boolean=? ; boolean keys are not very useful in a hashtable...
@@ -629,7 +659,9 @@
 
 (define known-hash-sym
   (eq-hashtable
-     equal-hash 'equal-hash string-hash 'string-hash string-ci-hash 'string-ci-hash
+     bytevector-hash 'bytevector-hash char->integer 'char->integer ; usable as hash function for char=?
+     equal-hash 'equal-hash
+     string-hash 'string-hash string-ci-hash 'string-ci-hash
      symbol-hash 'symbol-hash))
 
 (define (htable->cmp-sym obj)
@@ -673,11 +705,33 @@
       #f)))
 
 
+(define known-rtd (make-eq-hashtable))
+
+(define (wire-register-rtd rtd tag-value len-proc get-proc put-proc)
+  (assert* 'wire-register-rtd (record-type-descriptor? rtd))
+  (assert* 'wire-register-rtd (fixnum? tag-value))
+  (assert* 'wire-register-rtd (fx<=? min-tag-to-allocate tag-value max-tag-to-allocate))
+  (assert* 'wire-register-rtd (procedure? len-proc))
+  (assert* 'wire-register-rtd (procedure? get-proc))
+  (assert* 'wire-register-rtd (procedure? put-proc))
+  (assert* 'wire-register-rtd (logbit? 2 (procedure-arity-mask len-proc)))
+  (assert* 'wire-register-rtd (logbit? 3 (procedure-arity-mask get-proc)))
+  (assert* 'wire-register-rtd (logbit? 3 (procedure-arity-mask put-proc)))
+  (hashtable-set! known-rtd rtd (cons len-proc put-proc))
+  (vector-set! known-tag tag-value get-proc))
+
+
 (define (len/record pos obj)
-  #f) ;; TODO: implement
+  (let ((procs (hashtable-ref known-rtd (record-rtd obj) #f)))
+    (if procs
+      ((car procs) pos obj)
+      #f)))
 
 (define (put/record bv pos obj)
-  #f) ;; TODO: implement
+  (let ((procs (hashtable-ref known-rtd (record-rtd obj) #f)))
+    (if procs
+      ((cdr procs) bv pos obj)
+      #f)))
 
 
 ;; recursively traverse obj and return the number of bytes needed to serialize obj
@@ -778,5 +832,12 @@
       #f)))
 
 (include "wire/get.ss")
+(include "wire/container.ss")
+
+(begin
+  (wire-register-rtd (record-rtd (span))    tag-span    len/span    get/span    put/span)
+  (wire-register-rtd (record-rtd (gbuffer)) tag-gbuffer len/gbuffer get/gbuffer put/gbuffer)
+
+) ; close begin
 
 ) ; close library

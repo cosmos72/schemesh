@@ -9,7 +9,7 @@
 (library (schemesh containers bytevector (0 8 1))
   (export
     in-bytevector list->bytevector subbytevector
-    bytevector-fill-range! bytevector-index bytevector-compare
+    bytevector-compare bytevector-fill-range! bytevector-hash bytevector-index
     bytevector<=? bytevector<? bytevector>=? bytevector>? bytevector-iterate)
   (import
     (rnrs)
@@ -138,5 +138,11 @@
 
 (define (bytevector>? bvec1 bvec2)
   (fx>? (bytevector-compare bvec1 bvec2) 0))
+
+(define bytevector-hash
+  (let ((c-bytevector-hash (foreign-procedure "c_bytevector_hash" (ptr) ptr)))
+    (lambda (bvec)
+      (assert* 'bytevector-hash (bytevector? bvec))
+      (c-bytevector-hash bvec))))
 
 ) ; close library
