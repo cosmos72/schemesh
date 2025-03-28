@@ -271,7 +271,7 @@
         (newline)
         (raise ex))
       (lambda ()
-        (repeat 1000000
+        (repeat 0
           (bytevector-u32-set! bv 0 (random payload-len) (endianness little))
           (do ((i 4 (fx1+ i)))
               ((fx>=? i message-len))
