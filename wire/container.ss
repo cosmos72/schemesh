@@ -76,7 +76,7 @@
       (let ((ret (constructor n)))
         (do ((i 0 (fx1+ i)))
             ((fx>=? i n))
-          (set-proc! ret i (integer->char (get/u8 bv (fx+ pos i)))))
+          (set-proc! ret i (integer->char (%get/u8 bv (fx+ pos i)))))
         (values ret (fx+ pos n)))
       (values #f #f))))
 
@@ -88,7 +88,7 @@
           ((not pos)
             (values #f #f))
           ((fx<? i n)
-            (let ((ch (get/char24* bv pos)))
+            (let ((ch (%get/char24 bv pos)))
               (if ch
                 (begin
                   (set-proc! ret i ch)

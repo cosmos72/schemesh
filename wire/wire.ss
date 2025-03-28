@@ -226,24 +226,24 @@
       (and (fixnum? pos) (fixnum? n) (fx+ (fx+ pos n) len-tag)))))
 
 ;; read one signed byte from bytevector at position pos, and return it
-(define get/s8 bytevector-s8-ref)
+(define %get/s8 bytevector-s8-ref)
 ;; read one byte from bytevector at position pos, and return it
-(define get/u8 bytevector-u8-ref)
+(define %get/u8 bytevector-u8-ref)
 
 ;; read 2 bytes as exact signed integer from bytevector starting at position pos, and return it.
-(define (get/s16 bv pos) (bytevector-s16-ref bv pos endian))
+(define (%get/s16 bv pos) (bytevector-s16-ref bv pos endian))
 ;; read exact unsigned integer as 2 bytes from bytevector starting at position pos, and return it.
-(define (get/u16 bv pos) (bytevector-u16-ref bv pos endian))
+(define (%get/u16 bv pos) (bytevector-u16-ref bv pos endian))
 
 ;; read 3 bytes as exact signed integer from bytevector starting at position pos, and return it.
-(define (get/s24 bv pos) (bytevector-s24-ref bv pos endian))
+(define (%get/s24 bv pos) (bytevector-s24-ref bv pos endian))
 ;; read 3 bytes as exact unsigned integer from bytevector starting at position pos, and return it.
-(define (get/u24 bv pos) (bytevector-u24-ref bv pos endian))
+(define (%get/u24 bv pos) (bytevector-u24-ref bv pos endian))
 
 ;; read 4 bytes as exact signed integer from bytevector starting at position pos, and return it.
-(define (get/s32 bv pos) (bytevector-s32-ref bv pos endian))
+(define (%get/s32 bv pos) (bytevector-s32-ref bv pos endian))
 ;; read 4 bytes as exact unsigned integer from bytevector starting at position pos, and return it.
-(define (get/u32 bv pos) (bytevector-u32-ref bv pos endian))
+(define (%get/u32 bv pos) (bytevector-u32-ref bv pos endian))
 
 
 ;; write one signed byte into bytevector starting at position pos.
@@ -295,8 +295,12 @@
   (fx+ pos 4))
 
 ;; read message length from bytevector starting at position pos.
-;; return message length u32, or raise exception on errors.
-(define get/header get/u32)
+;; return two values: message length as u32, and updated pos
+;; or #f #f on errors.
+(define (get/header bv pos end)
+  (if (and (fixnum? pos) (fx<=? pos (fx- end len-header)))
+    (values (%get/u32 bv pos) (fx+ pos len-header))
+    (values #f #f)))
 
 ;; write message length into bytevector starting at position pos.
 ;; return updated position, or raise exception on errors.
@@ -305,7 +309,7 @@
 
 ;; read 1-byte tag from bytevector at position pos, and return it.
 ;; raise exception on errors.
-(define get/tag get/u8)
+(define %get/tag %get/u8)
 
 ;; write 1-byte tag into bytevector starting at position pos.
 ;; return updated position, or raise exception on errors.
@@ -630,7 +634,7 @@
     (if tag
       (put/tag bv pos tag)
       (let* ((end (put/string bv pos (symbol->string obj)))
-             (old-tag (get/tag bv pos))
+             (old-tag (%get/tag bv pos))
              (new-tag (fx+ old-tag (fx- tag-symbol tag-string))))
         (put/tag bv pos new-tag)
         end))))

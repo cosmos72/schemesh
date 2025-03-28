@@ -229,31 +229,58 @@
     (or (bytevector=? bv #vu8(12 0 0 0 52 74 72 2 41 1 97 1 41 1 98 2))
         (bytevector=? bv #vu8(12 0 0 0 52 74 72 2 41 1 98 2 41 1 97 1))))       #t
 
-  (values->list
-    (wire->datum
-      (datum->wire
-        (vector
-          (bitwise-arithmetic-shift 1 64)
-          (bitwise-arithmetic-shift -1 60)
-          #\xDC80 #\xDCFF 'foo "bar\x20AC;" '#vfx(0)
-          #vu8(255 254 253) (bytespan 7)))))           ,(#(18446744073709551616 -1152921504606846976 #\xDC80 #\xDCFF
-                                                           foo "bar\x20AC;" #vfx(0) #vu8(255 254 253) (bytespan 7)) 63)
+  (values->list (wire->datum  #vu8(4 0 0 0 245 6 36 27)))  ,((ok ()) 8)
+  (values->list (wire->datum  #vu8(3 0 0 0 246 1 25)))     ,((span #f) 7)
+  (values->list (wire->datum  #vu8(3 0 0 0 247 1 26)))     ,((gbuffer #t) 7)
+  (values->list (wire->datum  #vu8(2 0 0 0 248 0)))        ,((bytespan) 6)
+  ;(values->list (wire->datum  #vu8(2 0 0 0 249 0)))       ,((bytegbuffer) 6)
+  (values->list (wire->datum  #vu8(3 0 0 0 250 1 95)))     ,((string->charspan* "_") 7)
+  (values->list (wire->datum  #vu8(5 0 0 0 251 1 96 0 0))) ,((string->charspan* "`") 9)
+  (values->list (wire->datum  #vu8(3 0 0 0 252 1 97)))     ,((string->chargbuffer* "a") 7)
+  (values->list (wire->datum  #vu8(5 0 0 0 253 1 98 0 0))) ,((string->chargbuffer* "b") 9)
 
-  (values->list (wire->datum  #vu8(4 0 0 0 245 6 36 27)))   ,((ok ()) 8)
-  (values->list (wire->datum  #vu8(3 0 0 0 246 1 25)))      ,((span #f) 7)
-  (values->list (wire->datum  #vu8(3 0 0 0 247 1 26)))      ,((gbuffer #t) 7)
-  ;(values->list (wire->datum  #vu8(2 0 0 0 248 0)))        ,((bytespan) 6)
-  ;(values->list (wire->datum  #vu8(2 0 0 0 249 0)))        ,((bytegbuffer) 6)
-  (values->list (wire->datum  #vu8(3 0 0 0 250 1 95)))      ,((string->charspan* "_") 7)
-  (values->list (wire->datum  #vu8(5 0 0 0 251 1 96 0 0)))  ,((string->charspan* "`") 9)
-  (values->list (wire->datum  #vu8(3 0 0 0 252 1 97)))      ,((string->chargbuffer* "a") 7)
-  (values->list (wire->datum  #vu8(5 0 0 0 253 1 98 0 0)))  ,((string->chargbuffer* "b") 9)
+  (datum->wire (vector
+    (bitwise-arithmetic-shift 1 64)
+    (bitwise-arithmetic-shift -1 60)
+    #\xDC80 #\xDCFF 'foo "bar\x20AC;" '#vfx(0)
+    #vu8(255 254 253) (bytespan 7)))                        #vu8(59 0 0 0 39 9 20 9 0 0 0 0 0 0 0 0 1 20 8 0 0 0 0 0 0 0 240 32
+                                                                 128 220 32 255 220 45 3 102 111 111 42 4 98 0 0 97 0 0 114 0 0
+                                                                 172 32 0 43 1 0 40 3 255 254 253 248 1 7)
+
+  (values->list (wire->datum
+     #vu8(59 0 0 0 39 9 20 9 0 0 0 0 0 0 0 0 1 20 8 0 0 0 0 0 0 0 240 32
+         128 220 32 255 220 45 3 102 111 111 42 4 98 0 0 97 0 0 114 0 0
+         172 32 0 43 1 0 40 3 255 254 253 248 1 7)))       ,(#(18446744073709551616 -1152921504606846976
+                                                               #\xDC80 #\xDCFF foo "bar€" #vfx(0)
+                                                               #vu8(255 254 253) (bytespan 7)) 63)
 
   (let ((ht (first-value (wire->datum #vu8(14 0 0 0 52 67 65 2 41 2 99 100 15 41 2 101 102 14)))))
     (vector-sort
       (lambda (cell1 cell2)
         (string<? (car cell1) (car cell2)))
-      (hashtable-cells ht)))                           #(("cd" . -1) ("ef" . -2))
+      (hashtable-cells ht)))                               #(("cd" . -1) ("ef" . -2))
 
+  (let* ((payload-len (random 512))
+         (message-len (fx+ 4 payload-len))
+         (bv (make-bytevector message-len)))
+    (with-exception-handler
+      (lambda (ex)
+        (display-condition ex)
+        (newline)
+        (write bv (current-output-port))
+        (newline)
+        (raise ex))
+      (lambda ()
+        (repeat 0
+          (bytevector-u32-set! bv 0 (random payload-len) (endianness little))
+          (do ((i 4 (fx1+ i)))
+              ((fx>=? i message-len))
+            (bytevector-u8-set! bv i (random 256)))
+          (let-values (((obj pos) (wire->datum bv)))
+            (when pos
+              (unless (eq? (void) obj)
+                (format #t "~s\n" obj))
+              (assert* 'test-wire->datum
+                       (fx<=? pos payload-len))))))))          ,@"#<void>"
 
 )

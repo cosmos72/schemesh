@@ -9,20 +9,27 @@
 ;; this file should be included only by file wire/wire.ss
 
 (define (get/exact-s8 bv pos end)
-  (values (get/s8 bv pos) (fx1+ pos)))
+  ;; caller is (get/any) or similar, and guarantees that (fx<? pos end)
+  (values (%get/s8 bv pos) (fx1+ pos)))
 
 (define (get/exact-s16 bv pos end)
-  (values (get/s16 bv pos) (fx+ pos 2)))
+  (if (and (fixnum? pos) (fx>=? (fx- end pos) 2))
+    (values (%get/s16 bv pos) (fx+ pos 2))
+    (values #f #f)))
 
 (define (get/exact-s24 bv pos end)
-  (values (get/s24 bv pos) (fx+ pos 3)))
+  (if (and (fixnum? pos) (fx>=? (fx- end pos) 3))
+    (values (%get/s24 bv pos) (fx+ pos 3))
+    (values #f #f)))
 
 (define (get/exact-s32 bv pos end)
-  (values (get/s32 bv pos) (fx+ pos 4)))
+  (if (and (fixnum? pos) (fx>=? (fx- end pos) 4))
+    (values (%get/s32 bv pos) (fx+ pos 4))
+    (values #f #f)))
 
 (define (get/exact-sint bv pos end)
   (let-values (((n pos) (get/vlen bv pos end)))
-    (if (fx<=? n (fx- end pos))
+    (if (and pos (fx<=? 1 n (fx- end pos))) ; n must be > 0
       (values (bytevector-sint-ref bv pos endian n) (fx+ pos n))
       (values #f #f))))
 
@@ -38,19 +45,19 @@
 ;; return two values: vlen and updated position, or #f #f on errors.
 (define (get/vlen bv pos end)
   (if (and pos (fx<? pos end))
-    (let ((lo  (get/u8 bv pos))
+    (let ((lo  (%get/u8 bv pos))
           (pos (fx1+ pos)))
       (if (fx<=? lo #x7f)
         (vlen-values lo pos end)
         (if (fx<? pos end)
-          (let* ((mid    (get/u8 bv pos))
+          (let* ((mid    (%get/u8 bv pos))
                  (mid+lo (fxior (fxand #x7f lo) (fxsll mid 7)))
                  (pos    (fx1+ pos)))
             (if (fx<=? mid #x7f)
               (vlen-values mid+lo pos end)
               (if (fx<? (fx1+ pos) end)
                 (let ((mid+lo (fxand mid+lo #x3ffff))
-                      (hi     (get/u16 bv pos)))
+                      (hi     (%get/u16 bv pos)))
                   (meta-cond
                     ((fixnum? #x3fffffff)
                       (vlen-values (fxior mid+lo (fxsll hi 14)) (fx+ pos 2) end))
@@ -71,38 +78,46 @@
 ;; returns two values: deserialized exact integer and updated pos,
 ;; or (values #f #f) on errors
 (define (%get/exact-int bv pos end)
-  (let* ((tag (get/tag bv pos))
-         (obj (tag->obj tag))
-         (pos (tag+ pos)))
-    (cond
-      ((fixnum? obj)
-        (values obj pos))
-      ((fx<=? tag tag-ratio)
-        (obj bv pos end))
-      (else
-        (values #f #f)))))
+  (if (and pos (fx<? pos end))
+    (let* ((tag (%get/tag bv pos))
+           (obj (tag->obj tag))
+           (pos (tag+ pos)))
+      (cond
+        ((not pos)
+          (values #f #f))
+        ((fixnum? obj)
+          (values obj pos))
+        ((and (fx<? pos end) (fx<=? tag tag-ratio))
+          (obj bv pos end))
+        (else
+          (values #f #f))))
+    (values #f #f)))
 
 
 ;; reads tag, unlike most other (get/...) functions
 ;; returns two values: deserialized exact real and updated pos,
 ;; or (values #f #f) on errors
 (define (%get/exact-real bv pos end)
-  (let* ((tag (get/tag bv pos))
-         (obj (tag->obj tag))
-         (pos (tag+ pos)))
-    (cond
-      ((fixnum? obj)
-        (values obj pos))
-      ((fx<=? tag tag-ratio)
-        (obj bv pos end))
-      (else
-        (values #f #f)))))
+  (if (and pos (fx<? pos end))
+    (let* ((tag (%get/tag bv pos))
+           (obj (tag->obj tag))
+           (pos (tag+ pos)))
+      (cond
+        ((not pos)
+          (values #f #f))
+        ((fixnum? obj)
+          (values obj pos))
+        ((and (fx<? pos end) (fx<=? tag tag-ratio))
+          (obj bv pos end))
+        (else
+          (values #f #f))))
+    (values #f #f)))
 
 
 (define (get/ratio bv pos end)
   (let*-values (((num pos) (%get/exact-int bv pos end))
                 ((den pos) (%get/exact-int bv pos end)))
-    (if (and num den pos)
+    (if (and num den pos (not (zero? den)))
       (values (/ num den) pos)
       (values #f #f))))
 
@@ -115,32 +130,39 @@
 
 
 (define (get/flonum bv pos end)
-  (values (bytevector-ieee-double-ref bv pos endian)
-          (fx+ pos len-flonum)))
+  (if (fx>=? (fx- end pos) len-flonum)
+    (values (bytevector-ieee-double-ref bv pos endian)
+            (fx+ pos len-flonum))
+    (values #f #f)))
 
 (define (get/cflonum bv pos end)
-  (let ((real (bytevector-ieee-double-ref bv pos endian))
-        (imag (bytevector-ieee-double-ref bv (fx+ pos len-flonum) endian)))
-    (values (fl-make-rectangular real imag)
-            (fx+ pos len-cflonum))))
+  (if (fx>=? (fx- end pos) len-cflonum)
+    (let ((real (bytevector-ieee-double-ref bv pos endian))
+          (imag (bytevector-ieee-double-ref bv (fx+ pos len-flonum) endian)))
+      (values (fl-make-rectangular real imag)
+              (fx+ pos len-cflonum)))
+    (values #f #f)))
 
 
 (define (get/char8 bv pos end)
-  (values (integer->char (get/u8 bv pos)) (fx1+ pos)))
+  ;; caller is (get/any) or similar, and guarantees that (fx<? pos end)
+  (values (integer->char (%get/u8 bv pos)) (fx1+ pos)))
 
 (define (get/char16 bv pos end)
-  (let ((x (get/u16 bv pos)))
-    (cond
-      ((or (fx<=? x #xD7FF) (fx>=? x #xE000))
-        (values (integer->char x) (fx+ pos 2)))
-      ((fx<=? #xDC80 x #xDCFF)
-        (values (integer->char* x) (fx+ pos 2)))
-      (else
-        (values #f #f)))))
+  (if (fx>=? (fx- end pos) 2)
+    (let ((x (%get/u16 bv pos)))
+      (cond
+        ((or (fx<=? x #xD7FF) (fx>=? x #xE000))
+          (values (integer->char x) (fx+ pos 2)))
+        ((fx<=? #xDC80 x #xDCFF)
+          (values (integer->char* x) (fx+ pos 2)))
+        (else
+          (values #f #f))))
+    (values #f #f)))
 
 ;; return one value: char deserialized from 3 bytes, or #f on error
-(define (get/char24* bv pos)
-  (let ((x (get/u24 bv pos)))
+(define (%get/char24 bv pos)
+  (let ((x (%get/u24 bv pos)))
     (cond
       ((or (fx<=? x #xD7FF) (fx<=? #xE000 x #x10FFFF))
         (integer->char x))
@@ -153,8 +175,10 @@
 ;;   char deserialized from 3 bytes and updated pos,
 ;;   or (values #f #f) on error
 (define (get/char24 bv pos end)
-  (let ((ch(get/char24* bv pos)))
-    (values ch (if ch (fx+ pos 3) #f))))
+  (if (fx>=? (fx- end pos) 3)
+    (let ((ch (%get/char24 bv pos)))
+      (values ch (if ch (fx+ pos 3) #f)))
+    (values #f #f)))
 
 (define (get/box bv pos end)
   (let-values (((obj pos) (get/any bv pos end)))
@@ -175,7 +199,8 @@
       (values (list obj) pos)
       (values #f #f))))
 
-(define (%get/list bv pos end n ret)
+
+(define (get/list-impl bv pos end n ret)
   (cond
     ((or (not pos) (fx>? n (fx- end pos)))
       (values #f #f))
@@ -183,21 +208,22 @@
       (values ret pos))
     (else
       (let-values (((elem pos) (get/any bv pos end)))
-        (%get/list bv pos end (fx1- n) (cons elem ret))))))
+        (get/list-impl bv pos end (fx1- n) (cons elem ret))))))
 
 (define (get/list* bv pos end)
-  (let*-values (((n pos)   (get/header bv pos))
-                ((ret pos) (%get/list bv pos end n '())))
-    (if ret
+  (let*-values (((n pos)   (get/header bv pos end))
+                ((ret pos) (get/list-impl bv pos end n '())))
+    (if (and ret pos)
       (values (list-reverse*! ret) pos)
       (values #f #f))))
 
 (define (get/list bv pos end)
-  (let*-values (((n pos)   (get/header bv pos))
-                ((ret pos) (%get/list bv pos end n '())))
-    (if ret
+  (let*-values (((n pos)   (get/header bv pos end))
+                ((ret pos) (get/list-impl bv pos end n '())))
+    (if (and ret pos)
       (values (reverse! ret) pos)
       (values #f #f))))
+
 
 (define (get/string8 bv pos end)
   (let-values (((n pos) (get/vlen bv pos end)))
@@ -205,7 +231,7 @@
       (let ((ret (make-string n)))
         (do ((i 0 (fx1+ i)))
             ((fx>=? i n))
-          (string-set! ret i (integer->char (get/u8 bv (fx+ pos i)))))
+          (string-set! ret i (integer->char (%get/u8 bv (fx+ pos i)))))
         (values ret (fx+ pos n)))
       (values #f #f))))
 
@@ -218,7 +244,7 @@
           ((not pos)
             (values #f #f))
           ((fx<? i n)
-            (let ((ch (get/char24* bv pos)))
+            (let ((ch (%get/char24 bv pos)))
               (if ch
                 (begin
                   (string-set! ret i ch)
@@ -324,8 +350,8 @@
 ;;   either object and updated start position in range [pos, end)
 ;;   or #f #f if serialized bytes are invalid
 (define (get/any bv pos end)
-  (if (fx<? pos end)
-    (let ((obj (tag->obj (get/tag bv pos)))
+  (if (and (fixnum? pos) (fx<? pos end))
+    (let ((obj (tag->obj (%get/tag bv pos)))
           (pos (tag+ pos)))
       (if (procedure? obj)
         (obj bv pos end)
@@ -340,11 +366,11 @@
 ;;   or #f #f if serialized bytes are invalid
 ;;   or #f -NNN if not enough bytes are available and at least NNN bytes should be added after end.
 (define (wire-get bv start end)
-  (let* ((pos       (header+ start))
-         (available (fx- end pos)))
+  (assert* 'wire-get (fx<=?* 0 start end (bytevector-length bv)))
+  (let-values (((len pos) (get/header bv start end)))
     (cond
-      ((fx>=? available 0)
-        (let ((len (get/header bv start)))
+      ((and len pos)
+        (let ((available (fx- end pos)))
           (if (fx>=? available len)
             (if (fxzero? len)
               (values (void) pos) ; (void) can be encoded as header = 0
@@ -354,8 +380,12 @@
                     (values ret end1)
                     (values #f #f)))))
             (values #f (fx- available len)))))
+      ((fx>=? start end)
+        (values #f (fx- len-header)))
+      ((fx>=? (fx- end start) len-header)
+        (values #f #f)) ; header probably contains too large length
       (else
-        (values #f available)))))
+        (values (fx- len-header (fx- end start)))))))
 
 
 ;; read bytes from bytevector or bytespan stc and deserialize an object from them.
