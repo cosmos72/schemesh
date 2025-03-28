@@ -8,12 +8,12 @@
 
 ;;; Wire serialization/deserialization format.
 ;;;
-;;; magic bytes: #x6 #x0 #x0 #xFF w i r e #x0 #x0
-;;;              the last two bytes are version-lo version-hi
+;;; magic bytes: #x8 #x0 #x0 #x0 #xFF w i r e #x0 #x0 #x0
+;;;              the last three bytes are version-lo version-mid version-hi
 ;;;
 ;;; each message is: dlen + payload (tag + datum)
 ;;;
-;;; dlen: 3 bytes LO MID HI, max is 2^24 - 1
+;;; dlen: 4 bytes BOT LO HI TOP, max is 2^32 - 1 or (greatest-fixnum), whatever is smaller
 ;;;       indicates the number of bytes occupied by tag + datum
 ;;;       does NOT include the number of bytes occupied by dlen
 ;;;
@@ -106,12 +106,12 @@
     (only (schemesh bootstrap) assert* fx<=?*)
     (schemesh containers))
 
-(define dlen 3)     ; dlen is encoded as 3 bytes
-(define dlen+tag 4) ; dlen+tag is encoded as 4 bytes
+(define dlen 4)     ; dlen is encoded as 4 bytes
+(define dlen+tag 5) ; dlen+tag is encoded as 5 bytes
 
 (define len-tag 1)  ; tag is encoded as 1 byte
 
-(define max-len #xFFFFFF)  ; maximum length of tag + datum
+(define max-len (min #xFFFFFFFF (greatest-fixnum)))  ; maximum length of tag + datum
 
 (define tag-0         0)
 (define tag-1         1)
@@ -245,6 +245,8 @@
 
 ;; read 4 bytes as exact signed integer from bytevector starting at position pos, and return it.
 (define (get/s32 bv pos) (bytevector-s32-ref bv pos endian))
+;; read 4 bytes as exact unsigned integer from bytevector starting at position pos, and return it.
+(define (get/u32 bv pos) (bytevector-u32-ref bv pos endian))
 
 
 ;; write one signed byte into bytevector starting at position pos.
@@ -283,6 +285,12 @@
   (bytevector-u24-set! bv pos u24 endian)
   (fx+ pos 3))
 
+;; write exact signed integer as 4 bytes into bytevector starting at position pos.
+;; return updated position, or raise exception on errors.
+(define (put/s32 bv pos s32)
+  (bytevector-s32-set! bv pos s32 endian)
+  (fx+ pos 4))
+
 ;; write exact unsigned integer as 4 bytes into bytevector starting at position pos.
 ;; return updated position, or raise exception on errors.
 (define (put/u32 bv pos u32)
@@ -291,12 +299,12 @@
 
 ;; read message header or dlen from bytevector starting at position pos.
 ;; return dlen, or raise exception on errors.
-(define get/dlen get/u24)
+(define get/dlen get/u32)
 
 ;; write message header or dlen into bytevector starting at position pos.
 ;; return updated position, or raise exception on errors.
 (define (put/dlen bv pos count)
-  (put/u24 bv pos count))
+  (put/u32 bv pos count))
 
 ;; read 1-byte tag from bytevector at position pos, and return it.
 ;; raise exception on errors.
@@ -320,6 +328,8 @@
           (tag+ pos 2)) ; 2-byte datum
         (else
           (tag+ pos 3)))) ; 3-byte datum
+    ((<= #x-80000000 obj #x7fffffff)
+      (tag+ pos 4)) ; 4-byte datum
     (else
       ;; datum is exact integer, sign-extended, two's complement little-endian
       (let ((datum-byte-n (fx1+ (fxsrl (integer-length obj) 3))))
@@ -347,6 +357,9 @@
         (else
           (let ((pos (put/tag bv pos tag-s24)))
             (put/s24 bv pos obj)))))  ; 3-byte datum
+    ((<= #x-80000000 obj #x7fffffff)
+      (let ((pos (put/tag bv pos tag-s32)))
+        (put/s32 bv pos obj)))  ; 4-byte datum
     (else
       ;; datum is exact integer, sign-extended, two's complement little-endian
       (let* ((datum-byte-n (fx1+ (fxsrl (integer-length obj) 3)))
@@ -485,7 +498,7 @@
           end)
         ((null? l)
           (put/tag bv pos tag-list)
-          (put/u24 bv end0 n) ; n is encoded as dlen
+          (put/dlen bv end0 n) ; n is encoded as dlen
           end)
         ((pair? l)
           (let ((end (put/any bv end (car l))))
@@ -494,7 +507,7 @@
           ;; last element of an improper list
           (let ((end (put/any bv end obj)))
             (put/tag bv pos tag-list*)
-            (put/u24 bv end0 n) ; n is encoded as dlen
+            (put/dlen bv end0 n) ; n is encoded as dlen
             end))))))
 
 
