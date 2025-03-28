@@ -488,6 +488,7 @@ nix run github:cosmos72/schemesh
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     schemesh.url = "github:cosmos72/schemesh";
+    schemesh.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs = { self, nixpkgs, ... } @ inputs:
