@@ -10,22 +10,21 @@
 ;; this file should be included only by file wire/wire.ss
 
 (define (len/container pos c n ref-proc)
-  (let %len/container ((i 0) (pos (dlen+ (tag+ pos)))) ; n is encoded as dlen
+  (let %len/container ((i 0) (pos (vlen+ n (tag+ pos)))) ; n is encoded as vlen
     (if (and pos (fx<? i n))
       (%len/container (fx1+ i) (len/any pos (ref-proc c i)))
       pos)))
 
 (define (put/container bv pos tag c n ref-proc)
   (let* ((end0 (put/tag  bv pos tag))
-         (end1 (put/dlen bv end0 n))) ; n is encoded as dlen
+         (end1 (put/vlen bv end0 n))) ; n is encoded as vlen
     (let %put/container ((i 0) (pos end1))
       (if (and pos (fx<? i n))
         (%put/container (fx1+ i) (put/any bv pos (ref-proc c i)))
         pos))))
 
 (define (get/container bv pos end constructor set-proc!)
-  (let ((n (get/dlen bv pos))
-        (pos (dlen+ pos)))
+  (let-values (((n pos) (get/vlen bv pos end)))
     (if (and pos (fx<=? n (fx- end pos)))
       (let ((ret (constructor n)))
         (let %get/container ((i 0) (pos pos))
@@ -51,16 +50,16 @@
 
 
 (define (len/char-container pos c n ref-proc)
-  ;; n is encoded as dlen
-  (dlen+ (tag+ pos
-    (if (char-container8? c n ref-proc)
-      n ;; each character is encoded as 1 byte
-      (fx* n max-len-char))))) ;; each character is encoded as max-len-char bytes
+  (vlen+ n ;; n is encoded as vlen
+    (tag+ pos
+      (if (char-container8? c n ref-proc)
+        n ;; each character is encoded as 1 byte
+        (fx* n max-len-char))))) ;; each character is encoded as max-len-char bytes
 
 (define (put/char-container bv pos tag tag8 c n ref-proc)
   (let* ((container8? (char-container8? c n ref-proc))
          (end0 (put/tag  bv pos (if container8? tag8 tag)))
-         (end1 (put/dlen bv end0 n)) ; n is encoded as dlen
+         (end1 (put/vlen bv end0 n)) ; n is encoded as vlen
          (step (if container8? 1 max-len-char)))
     (do ((i 0 (fx1+ i))
          (pos end1 (fx+ pos step)))
@@ -72,8 +71,7 @@
             (put/u24 bv pos ch-int))))))
 
 (define (get/char-container8 bv pos end constructor set-proc!)
-  (let ((n   (get/dlen bv pos))
-        (pos (dlen+ pos)))
+  (let-values (((n pos) (get/vlen bv pos end)))
     (if (and pos (fx<=? n (fx- end pos)))
       (let ((ret (constructor n)))
         (do ((i 0 (fx1+ i)))
@@ -83,8 +81,7 @@
       (values #f #f))))
 
 (define (get/char-container bv pos end constructor set-proc!)
-  (let ((n   (get/dlen bv pos))
-        (pos (dlen+ pos)))
+  (let-values (((n pos) (get/vlen bv pos end)))
     (if (and pos (fx<=? n (fx* max-len-char (fx- end pos))))
       (let %get/char-container ((ret (constructor n)) (i 0) (pos pos))
         (cond

@@ -21,13 +21,53 @@
   (values (get/s32 bv pos) (fx+ pos 4)))
 
 (define (get/exact-sint bv pos end)
-  (let ((n (get/dlen bv pos))
-        (pos (dlen+ pos)))
+  (let-values (((n pos) (get/vlen bv pos end)))
     (if (fx<=? n (fx- end pos))
       (values (bytevector-sint-ref bv pos endian n) (fx+ pos n))
       (values #f #f))))
 
-;; reads tag, unlike most other (get/...) functions
+
+;; validate vlen before returning it
+(define (vlen-values vlen pos end)
+  (if (and (fixnum? pos) (fx<=? vlen (fx- end pos)))
+    (values vlen pos)
+    (values #f #f)))
+
+
+;; read unsigned fixnum vlen from bytevector starting at position pos.
+;; return two values: vlen and updated position, or #f #f on errors.
+(define (get/vlen bv pos end)
+  (if (and pos (fx<? pos end))
+    (let ((lo  (get/u8 bv pos))
+          (pos (fx1+ pos)))
+      (if (fx<=? lo #x7f)
+        (vlen-values lo pos end)
+        (if (fx<? pos end)
+          (let* ((mid    (get/u8 bv pos))
+                 (mid+lo (fxior (fxand #x7f lo) (fxsll mid 7)))
+                 (pos    (fx1+ pos)))
+            (if (fx<=? mid #x7f)
+              (vlen-values mid+lo pos end)
+              (if (fx<? (fx1+ pos) end)
+                (let ((mid+lo (fxand mid+lo #x3ffff))
+                      (hi     (get/u16 bv pos)))
+                  (meta-cond
+                    ((fixnum? #x3fffffff)
+                      (vlen-values (fxior mid+lo (fxsll hi 14)) (fx+ pos 2) end))
+                    (else
+                      (let ((hi (bitwise-arithmetic-shift-left hi 14)))
+                        (if (fixnum? hi)
+                          (vlen-values (fxior mid+lo hi) (fx+ pos 2) end)
+                          ;; message may have been serialized on a different system with larger (greatest-fixnum)
+                          ;; but this system does not support containers with such a large number of elements
+                          (values #f #f))))))
+                (values #f #f))))
+          (values #f #f))))
+    (values #f #f)))
+
+
+
+;; also reads tag, unlike most other (get/...) functions
 ;; returns two values: deserialized exact integer and updated pos,
 ;; or (values #f #f) on errors
 (define (%get/exact-int bv pos end)
@@ -139,9 +179,8 @@
   (values #f #f)) ; TODO implement
 
 (define (get/list bv pos end)
-  (let %get/list ((n   (get/dlen bv pos))
-                  (pos (dlen+ pos))
-                  (ret '()))
+  (let-values (((n pos) (get/header bv pos)))
+    (let %get/list ((n n) (pos pos) (ret '()))
       (cond
         ((or (not pos) (fx>? n (fx- end pos)))
           (values #f #f))
@@ -149,12 +188,11 @@
           (values (reverse! ret) pos))
         (else
           (let-values (((elem pos) (get/any bv pos end)))
-            (%get/list (fx1- n) pos (cons elem ret)))))))
+            (%get/list (fx1- n) pos (cons elem ret))))))))
 
 
 (define (get/string8 bv pos end)
-  (let ((n   (get/dlen bv pos))
-        (pos (dlen+ pos)))
+  (let-values (((n pos) (get/vlen bv pos end)))
     (if (and pos (fx<=? n (fx- end pos)))
       (let ((ret (make-string n)))
         (do ((i 0 (fx1+ i)))
@@ -165,8 +203,7 @@
 
 
 (define (get/string bv pos end)
-  (let ((n   (get/dlen bv pos))
-        (pos (dlen+ pos)))
+  (let-values (((n pos) (get/vlen bv pos end)))
     (if (and pos (fx<=? n (fx* max-len-char (fx- end pos))))
       (let %get/string ((ret (make-string n)) (i 0) (pos pos))
         (cond
@@ -210,33 +247,30 @@
         (values #f #f)))))
 
 (define (get/eq-hashtable bv pos end)
-  (let ((n   (get/dlen bv pos))
-        (pos (dlen+ pos)))
+  (let-values (((n pos) (get/vlen bv pos end)))
     (if (and pos (fx<=? n (fx- end pos)))
       (%fill/hashtable bv pos end n (make-eq-hashtable n))
       (values #f #f))))
 
 (define (get/eqv-hashtable bv pos end)
-  (let ((n   (get/dlen bv pos))
-        (pos (dlen+ pos)))
+  (let-values (((n pos) (get/vlen bv pos end)))
     (if (and pos (fx<=? n (fx- end pos)))
       (%fill/hashtable bv pos end n (make-eqv-hashtable n))
       (values #f #f))))
 
 (define (get/hashtable bv pos end)
   (let*-values (((hash-sym pos) (get/any bv pos end))
-                ((cmp-sym pos)  (get/any bv pos end)))
-    (let ((n   (get/dlen bv pos))
-          (pos (dlen+ pos)))
-      ;; (debugf "...get/hashtable pos=~s n=~s hash-sym=~s cmp-sym=~s" pos n hash-sym cmp-sym)
-      (if (and pos (fx<=? n (fx- end pos)) (symbol? hash-sym) (symbol? cmp-sym))
-        (let ((hash-proc (hash-sym->proc hash-sym))
-              (cmp-proc  (cmp-sym->proc cmp-sym)))
-          ;; (debugf "...get/hashtable hash-proc=~s cmp-proc=~s" hash-proc cmp-proc)
-          (if (and hash-proc cmp-proc)
-            (%fill/hashtable bv pos end n (make-hashtable hash-proc cmp-proc n))
-            (values #f #f)))
-        (values #f #f)))))
+                ((cmp-sym pos)  (get/any bv pos end))
+                ((n pos)        (get/vlen bv pos end)))
+    ;; (debugf "...get/hashtable pos=~s n=~s hash-sym=~s cmp-sym=~s" pos n hash-sym cmp-sym)
+    (if (and pos (fx<=? n (fx- end pos)) (symbol? hash-sym) (symbol? cmp-sym))
+      (let ((hash-proc (hash-sym->proc hash-sym))
+            (cmp-proc  (cmp-sym->proc cmp-sym)))
+        ;; (debugf "...get/hashtable hash-proc=~s cmp-proc=~s" hash-proc cmp-proc)
+        (if (and hash-proc cmp-proc)
+          (%fill/hashtable bv pos end n (make-hashtable hash-proc cmp-proc n))
+          (values #f #f)))
+      (values #f #f))))
 
 
 (define known-tag
@@ -297,15 +331,15 @@
 ;;   either object and updated start position in range [start, end)
 ;;   or #f #f if serialized bytes are invalid
 ;;   or #f -NNN if not enough bytes are available and at least NNN bytes should be added after end.
-(define (wire-get/bvector bv start end)
-  (let* ((pos       (fx+ start dlen))
+(define (wire-get bv start end)
+  (let* ((pos       (header+ start))
          (available (fx- end pos)))
     (cond
       ((fx>=? available 0)
-        (let ((len (get/dlen bv start)))
+        (let ((len (get/header bv start)))
           (if (fx>=? available len)
             (if (fxzero? len)
-              (values (void) pos) ; (void) can be encoded as dlen = 0
+              (values (void) pos) ; (void) can be encoded as header = 0
               (let ((end0 (fx+ pos len)))
                 (let-values (((ret end1) (get/any bv pos end)))
                   (if (and end1 (fx=? end0 end1))
@@ -321,19 +355,19 @@
 ;;   either object and number of consumed bytes,
 ;;   or #f #f if serialized bytes are invalid
 ;;   or #f -NNN if not enough bytes are available and at least NNN bytes should be added to the bytespan end.
-(define wire-get
+(define wire->datum
   (case-lambda
     ((src)
       (if (bytevector? src)
-        (wire-get/bvector src 0 (bytevector-length src))
-        (wire-get/bvector (bytespan-peek-data src) (bytespan-peek-beg src) (bytespan-peek-end src))))
+        (wire-get src 0 (bytevector-length src))
+        (wire-get (bytespan-peek-data src) (bytespan-peek-beg src) (bytespan-peek-end src))))
     ((src start end)
       (if (bytevector? src)
         (let ((len (bytevector-length src)))
           (if (fx<=?* 0 start end len)
-            (wire-get/bvector src start end)
+            (wire-get src start end)
             (values #f #f)))
         (let ((offset (bytespan-peek-beg src)))
           (if (fx<=?* 0 start end (bytespan-length src))
-            (wire-get/bvector (bytespan-peek-data src) (fx+ start offset) (fx+ end offset))
+            (wire-get (bytespan-peek-data src) (fx+ start offset) (fx+ end offset))
             (values #f #f)))))))

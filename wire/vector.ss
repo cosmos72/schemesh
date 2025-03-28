@@ -11,7 +11,7 @@
 
 (define (len/vector pos obj)
   (let ((n (vector-length obj)))
-    (let %len/vector ((i 0) (pos (dlen+ (tag+ pos)))) ; n is encoded as dlen
+    (let %len/vector ((i 0) (pos (vlen+ n (tag+ pos)))) ; n is encoded as vlen
       (if (and pos (fx<? i n))
         (%len/vector (fx1+ i) (len/any pos (vector-ref obj i)))
         pos))))
@@ -19,15 +19,14 @@
 (define (put/vector bv pos obj)
   (let* ((n    (vector-length obj))
          (end0 (put/tag  bv pos tag-vector))
-         (end1 (put/dlen bv end0 n))) ; n is encoded as dlen
+         (end1 (put/vlen bv end0 n))) ; n is encoded as vlen
     (let %put/vector ((i 0) (pos end1))
       (if (and pos (fx<? i n))
         (%put/vector (fx1+ i) (put/any bv pos (vector-ref obj i)))
         pos))))
 
-(define (get/vector obj pos end)
-  (let ((n (get/dlen obj pos))
-        (pos (dlen+ pos)))
+(define (get/vector bv pos end)
+  (let-values (((n pos) (get/vlen bv pos end)))
     (if (and pos (fx<=? n (fx- end pos)))
       (let ((ret (make-vector n)))
         (let %get/vector ((i 0) (pos pos))
@@ -38,7 +37,7 @@
             ((fx>=? i n)
               (values ret pos))
             (else
-              (let-values (((elem pos) (get/any obj pos end)))
+              (let-values (((elem pos) (get/any bv pos end)))
                 (vector-set! ret i elem)
                 (%get/vector (fx1+ i) pos))))))
       (values #f #f))))
@@ -47,18 +46,20 @@
 
 (define (len/bytevector pos bv)
   (let ((n (bytevector-length bv)))
-    (dlen+ (tag+ pos) n)))
+    (vlen+ n (tag+ pos) n)))
 
 (define (put/bytevector bv pos obj)
-  (let* ((n     (bytevector-length obj))
+  (let* ((n    (bytevector-length obj))
          (end0 (put/tag  bv pos tag-bytevector))
-         (end1 (put/dlen bv end0 n))) ; n is encoded as dlen
-    (bytevector-copy! obj 0 bv end1 n)
-    (fx+ end1 n)))
+         (end1 (put/vlen bv end0 n))) ; n is encoded as vlen
+    (if end1
+      (begin
+        (bytevector-copy! obj 0 bv end1 n)
+        (fx+ end1 n))
+      #f)))
 
 (define (get/bytevector bv pos end)
-  (let ((n (get/dlen bv pos))
-        (pos (dlen+ pos)))
+  (let-values (((n pos) (get/vlen bv pos end)))
     (if (and pos (fx<=? n (fx- end pos)))
       (let ((ret (make-bytevector n)))
         (bytevector-copy! bv pos ret 0 n)
@@ -69,23 +70,22 @@
 
 (define (len/fxvector pos obj)
   (let ((n (fxvector-length obj)))
-    (let %len/fxvector ((i 0) (pos (dlen+ (tag+ pos)))) ; n is encoded as dlen
+    (let %len/fxvector ((i 0) (pos (vlen+ n (tag+ pos)))) ; n is encoded as clen
       (if (and pos (fx<? i n))
-        (%len/fxvector (fx1+ i) (len/exact-int pos (fxvector-ref obj i)))
+        (%len/fxvector (fx1+ i) (len/exact-sint pos (fxvector-ref obj i)))
         pos))))
 
 (define (put/fxvector bv pos obj)
   (let* ((n (fxvector-length obj))
          (end0 (put/tag  bv pos tag-fxvector))
-         (end1 (put/dlen bv end0 n))) ; n is encoded as dlen
+         (end1 (put/vlen bv end0 n))) ; n is encoded as vlen
     (let %put/vector ((i 0) (pos end1))
       (if (and pos (fx<? i n))
-        (%put/vector (fx1+ i) (put/exact-int bv pos (fxvector-ref obj i)))
+        (%put/vector (fx1+ i) (put/exact-sint bv pos (fxvector-ref obj i)))
         pos))))
 
 (define (get/fxvector bv pos end)
-  (let ((n   (get/dlen bv pos))
-        (pos (dlen+ pos)))
+  (let-values (((n pos) (get/vlen bv pos end)))
     (if (and pos (fx<=? n (fx- end pos)))
       (let %get/fxvector ((ret (make-fxvector n)) (i 0) (pos pos))
         (cond
@@ -107,12 +107,12 @@
 
 (define (len/flvector pos obj)
   (let ((n (flvector-length obj)))
-    (dlen+ (tag+ pos) (fx* n len-flonum))))
+    (vlen+ n (tag+ pos) (fx* n len-flonum))))
 
 (define (put/flvector bv pos obj)
   (let* ((n (flvector-length obj))
          (end0 (put/tag  bv pos tag-flvector))
-         (end1 (put/dlen bv end0 n))) ; n is encoded as dlen
+         (end1 (put/vlen bv end0 n))) ; n is encoded as vlen
     (do ((i 0 (fx1+ i))
          (pos end1 (fx+ pos len-flonum)))
         ((fx>=? i n)
@@ -120,8 +120,7 @@
       (bytevector-ieee-double-set! bv pos (flvector-ref obj i) endian))))
 
 (define (get/flvector bv pos end)
-  (let ((n   (get/dlen bv pos))
-        (pos (dlen+ pos)))
+  (let-values (((n pos) (get/vlen bv pos end)))
     (if (and pos (fx<=? (fx* n len-flonum) (fx- end pos)))
       (do ((ret (make-flvector n))
            (i 0 (fx1+ i))

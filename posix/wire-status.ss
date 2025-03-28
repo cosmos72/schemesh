@@ -26,13 +26,13 @@
         #f))))
 
 (define (wire-len/status pos obj)
-  (wire-len-datum (fx+ pos 2) (%status->val obj)))
+  (wire-inner-len (fx+ pos 2) (%status->val obj)))
 
 ;; tag was already read and consumed. only read serialized kind and val.
 (define (wire-get/status bv pos end)
   (let ((kind (int->kind (bytevector-u8-ref bv pos))))
     (if kind
-      (let-values (((value pos) (wire-get-datum bv (fx1+ pos) end)))
+      (let-values (((value pos) (wire-inner-get bv (fx1+ pos) end)))
         (if pos
           (values (%make-status kind value) pos)
           (values #f #f)))
@@ -42,4 +42,4 @@
   (let ((kind (%status->kind obj)))
     (bytevector-u8-set! bv pos tag-status)
     (bytevector-u8-set! bv (fx1+ pos) (kind->int kind))
-    (wire-put-datum bv (fx+ pos 2) (%status->val obj))))
+    (wire-inner-put bv (fx+ pos 2) (%status->val obj))))

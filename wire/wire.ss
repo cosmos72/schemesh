@@ -8,14 +8,19 @@
 
 ;;; Wire serialization/deserialization format.
 ;;;
-;;; magic bytes: #x8 #x0 #x0 #x0 #xFF w i r e #x0 #x0 #x0
-;;;              the last three bytes are version-lo version-mid version-hi
+;;; Hardcoded limits:
 ;;;
-;;; each message is: dlen + payload (tag + datum)
+;;; Serialization format is message based,
+;;; and length of each message can be at most 2^32 + 3 bytes, including header (see below)
 ;;;
-;;; dlen: 4 bytes BOT LO HI TOP, max is 2^32 - 1 or (greatest-fixnum), whatever is smaller
+;;; Each container (vector, string, hashtable ...) serialized in the message can have at most 2^30-1 elements
+;;; or (greatest-fixnum) elements, whatever is smaller.
+;;;
+;;; Each message contains: header + payload (tag + datum)
+;;;
+;;; header: 4 bytes BOT LO HI TOP, max is 2^32 - 1 or (greatest-fixnum), whatever is smaller
 ;;;       indicates the number of bytes occupied by tag + datum
-;;;       does NOT include the number of bytes occupied by dlen
+;;;       does NOT include the number of bytes occupied by header
 ;;;
 ;;; tag: 0 byte => datum is (void)
 ;;;      1 byte => indicates the type of datum and possibly its value
@@ -39,7 +44,7 @@
 ;;;      17 => datum is 2-byte signed exact integer, little endian
 ;;;      18 => datum is 3-byte signed exact integer, little endian
 ;;;      19 => datum is 4-byte signed exact integer, little endian
-;;;      20 => datum is dlen followed by dlen bytes: signed exact integer, little endian
+;;;      20 => datum is vlen followed by vlen bytes: signed exact integer, little endian
 ;;;      21 => datum is exact ratio, encoded as 2 tag+datum: numerator, denominator
 ;;;      22 => datum is exact complex, encoded as 2 tag+datum: real, imag
 ;;;      23 => datum is flonum, 8 byte IEEE float64 little-endian
@@ -56,21 +61,21 @@
 ;;;      34 => datum is box:               followed by unboxed tag+datum
 ;;;      35 => datum is pair:              encoded as 2 tag+datum: car, cdr
 ;;;      36 => datum is one-element list:  encoded as tag+datum: car
-;;;      37 => datum is improper list:     n encoded as dlen, followed by n tag+datum: elements
-;;;      38 => datum is proper list:       n encoded as dlen, followed by n tag+datum: elements
-;;;      39 => datum is vector:        n encoded as dlen, followed by n tag+datum
-;;;      40 => datum is bytevector:    n encoded as dlen, followed by n bytes
-;;;      41 => datum is string8:       n encoded as dlen, followed by characters each encoded as 1 byte
-;;;      42 => datum is string:        n encoded as dlen, followed by characters each encoded as 3 bytes
-;;;      43 => datum is fxvector:      n encoded as dlen, followed by n tag+datum
-;;;      44 => datum is flvector:      n encoded as dlen, followed by n IEEE float64 little-endian, each occupying 8 bytes
-;;;      46 => datum is symbol8:       n encoded as dlen, followed by characters each encoded as 1 byte
-;;;      46 => datum is symbol:        n encoded as dlen, followed by characters each encoded as 3 bytes
-;;;      50 => datum is eq-hashtable:  n encoded as dlen, followed by 2 * n tag+datum
-;;;      51 => datum is eqv-hashtable: n encoded as dlen, followed by 2 * n tag+datum
+;;;      37 => datum is improper list:     n encoded as header, followed by n tag+datum: elements
+;;;      38 => datum is proper list:       n encoded as header, followed by n tag+datum: elements
+;;;      39 => datum is vector:        n encoded as vlen, followed by n tag+datum
+;;;      40 => datum is bytevector:    n encoded as vlen, followed by n bytes
+;;;      41 => datum is string8:       n encoded as vlen, followed by characters each encoded as 1 byte
+;;;      42 => datum is string:        n encoded as vlen, followed by characters each encoded as 3 bytes
+;;;      43 => datum is fxvector:      n encoded as vlen, followed by n tag+datum
+;;;      44 => datum is flvector:      n encoded as vlen, followed by n IEEE float64 little-endian, each occupying 8 bytes
+;;;      46 => datum is symbol8:       n encoded as vlen, followed by characters each encoded as 1 byte
+;;;      46 => datum is symbol:        n encoded as vlen, followed by characters each encoded as 3 bytes
+;;;      50 => datum is eq-hashtable:  n encoded as vlen, followed by 2 * n tag+datum
+;;;      51 => datum is eqv-hashtable: n encoded as vlen, followed by 2 * n tag+datum
 ;;;      52 => datum is equal-hashtable: hash function name encoded as symbol, checked against a whitelist
 ;;;                                      followed by equal function name encoded as symbol, checked against a whitelist
-;;;                                      followed by n encoded as dlen, followed by 2 * n tag+datum
+;;;                                      followed by n encoded as vlen, followed by 2 * n tag+datum
 ;;       53 ... 86  => datum is a known symbol
 ;;;      87 ... 244 => datum is a registered record type
 ;;;     245 ... 253 => datum is a pre-registered record type
@@ -79,12 +84,12 @@
 
 
 (library (schemesh wire (0 8 1))
-  (export wire-length wire-get wire-put wire-put->bytevector
+  (export datum->wire wire->datum wire-get wire-length wire-put
           wire-register-rtd  wire-reserve-tag
           ;; internal functions, exported for types that want to define their own serializer/deserializer
-          (rename (len/any wire-len-datum)
-                  (get/any wire-get-datum)
-                  (put/any wire-put-datum)))
+          (rename (len/any wire-inner-len)
+                  (get/any wire-inner-get)
+                  (put/any wire-inner-put)))
   (import
     (rnrs)
     (rnrs mutable-strings)
@@ -106,12 +111,10 @@
     (only (schemesh bootstrap) assert* fx<=?*)
     (schemesh containers))
 
-(define dlen 4)     ; dlen is encoded as 4 bytes
-(define dlen+tag 5) ; dlen+tag is encoded as 5 bytes
+(define len-header 4)  ; header is encoded as 4 bytes
+(define len-tag    1)  ; tag is encoded as 1 byte
 
-(define len-tag 1)  ; tag is encoded as 1 byte
-
-(define max-len (min #xFFFFFFFF (greatest-fixnum)))  ; maximum length of tag + datum
+(define max-len-payload (min #xFFFFFFFF (greatest-fixnum)))  ; maximum length of tag + datum
 
 (define tag-0         0)
 (define tag-1         1)
@@ -133,7 +136,7 @@
 (define tag-s16      17) ; exact integer, signed, 16 bit, little endian
 (define tag-s24      18) ; exact integer, signed, 24 bit, little endian
 (define tag-s32      19) ; exact integer, signed, 32 bit, little endian
-(define tag-sint     20) ; dlen followed by: exact integer, signed, dlen bytes, little endian
+(define tag-sint     20) ; vlen followed by: exact integer, signed, vlen bytes, little endian
 (define tag-ratio    21) ; exact ratio
 (define tag-complex  22) ; exact complex
 (define tag-flonum   23)
@@ -165,24 +168,18 @@
 (define tag-hashtable     52)
 
 (define tag-status       245) ; implemented in posix/wire-status.ss
-(define tag-span         246)
-(define tag-gbuffer      247)
-(define tag-bytespan     248)
+(define tag-span         246) ; n encoded as vlen, followed by n elements each encoded as tag+datum
+(define tag-gbuffer      247) ; n encoded as vlen, followed by n elements each encoded as tag+datum
+(define tag-bytespan     248) ; n encoded as vlen, followed by n bytes
 (define tag-bytegbuffer  249) ; NOT IMPLEMENTED
-(define tag-charspan8    250)
-(define tag-charspan     251)
-(define tag-chargbuffer8 252)
-(define tag-chargbuffer  253)
-(define tag-magic-string 254)
+(define tag-charspan8    250) ; n encoded as vlen, followed by n characters each encoded as u8
+(define tag-charspan     251) ; n encoded as vlen, followed by n characters each encoded as u24
+(define tag-chargbuffer8 252) ; n encoded as vlen, followed by n characters each encoded as u8
+(define tag-chargbuffer  253) ; n encoded as vlen, followed by n characters each encoded as u24
+(define tag-magic-bytes  254)
 
-;;;     248 => datum is :        n encoded as dlen, followed by n tag+datum
-;;;     249 => datum is :    n encoded as dlen, followed by n bytes
-;;;     250 => datum is :    n encoded as dlen, followed by n characters each encoded as dlen
-;;;     251 => datum is :     n encoded as dlen, followed by n tag+datum
-;;;     252 => datum is : NOT IMPLEMENTED
-;;;     253 => datum is : n encoded as dlen, followed by n characters each encoded as dlen
-;;;     254 => datum is magic string: bytes #\w #\i #\r #\e VERSION-LO VERSION-HI
-;;;     255 => datum starts with extended tag
+;;; magic bytes: #x8 #x0 #x0 #x0 #xFF w i r e #x0 #x0 #x0
+;;;              the last three bytes are version-lo version-mid version-hi
 
 (define known-sym
   (eq-hashtable
@@ -212,14 +209,14 @@
 (define endian (endianness little))
 
 (define (valid-payload-len? n)
-  (and (fixnum? n) (fx<=? 0 n max-len)))
+  (and (fixnum? n) (fx<=? 0 n max-len-payload)))
 
-(define dlen+
+(define header+
   (case-lambda
     ((pos)
-      (and (fixnum? pos) (fx+ pos dlen)))
+      (and (fixnum? pos) (fx+ pos len-header)))
     ((pos n)
-      (and (fixnum? pos) (fixnum? n) (fx+ (fx+ pos n) dlen)))))
+      (and (fixnum? pos) (fixnum? n) (fx+ (fx+ pos n) len-header)))))
 
 (define tag+
   (case-lambda
@@ -297,13 +294,13 @@
   (bytevector-u32-set! bv pos u32 endian)
   (fx+ pos 4))
 
-;; read message header or dlen from bytevector starting at position pos.
-;; return dlen, or raise exception on errors.
-(define get/dlen get/u32)
+;; read message length from bytevector starting at position pos.
+;; return message length u32, or raise exception on errors.
+(define get/header get/u32)
 
-;; write message header or dlen into bytevector starting at position pos.
+;; write message length into bytevector starting at position pos.
 ;; return updated position, or raise exception on errors.
-(define (put/dlen bv pos count)
+(define (put/header bv pos count)
   (put/u32 bv pos count))
 
 ;; read 1-byte tag from bytevector at position pos, and return it.
@@ -314,7 +311,59 @@
 ;; return updated position, or raise exception on errors.
 (define put/tag put/u8)
 
-(define (len/exact-int pos obj)
+;; the maximum supported number of elements in a container (vector, string, hashtable ...)
+(define max-vlen (min (greatest-fixnum) #x3fffffff))
+
+(define (%vlen+ vlen pos)
+  (cond
+    ((fx<=? vlen #x7f)     (fx1+ pos))
+    ((fx<=? vlen #x3fff)   (fx+ pos 2))
+    ((fx<=? vlen max-vlen) (fx+ pos 4))
+    (else                  #f)))
+
+
+;; length of unsigned fixnum vlen, which is encoded as a variable number of bytes:
+;;      0 ... #x7f       are encoded as u8
+;;   #x80 ... #x3fff     are encoded as u16 where first byte has top bit set
+;; #x3fff ... #x3fffffff are encoded as u32 where first and second bytes have top bit set
+;; larger values are NOT supported and cause serialization to fail
+(define vlen+
+  (case-lambda
+    ((vlen pos)
+      (and (fixnum? pos) (%vlen+ vlen pos)))
+    ((vlen pos n)
+      (and (fixnum? pos) (fixnum? n) (%vlen+ vlen (fx+ pos n))))))
+
+
+;; write unsigned fixnum vlen bytevector starting at position pos.
+;; return updated position, or raise exception on errors.
+(define (put/vlen bv pos vlen)
+  (cond
+    ((not pos)
+      pos)
+    ((fx<=? vlen #x7f)
+      (put/u8 bv pos vlen))
+    ((fx<=? vlen #x3fff)
+      (let ((lo (fxand vlen #x7f))
+            (hi (fxand (fxsll vlen 1) #x7f00)))
+        (put/u16 bv pos (fxior hi #x80 lo))))
+    ((fx<=? vlen max-vlen)
+      (meta-cond
+        ((fixnum? #xffffffff)
+          (let ((lo  (fxand vlen #x7f))
+                (mid (fxand (fxsll vlen 1) #x7f00))
+                (hi  (fxand (fxsll vlen 2) #xffff0000)))
+            (put/u32 bv pos (fxior hi #x8080 mid lo))))
+        (else
+          (let ((lo  (fxand vlen #x7f))
+                (mid (fxand (fxsll vlen 1) #x7f00))
+                (hi  (bitwise-and (bitwise-arithmetic-shift-left vlen 2) #xffff0000)))
+            (put/u32 bv pos (bitwise-ior hi (fxior #x8080 mid lo)))))))
+    (else
+      #f)))
+
+
+(define (len/exact-sint pos obj)
   (cond
     ((not pos)
       pos)
@@ -331,14 +380,14 @@
     ((<= #x-80000000 obj #x7fffffff)
       (tag+ pos 4)) ; 4-byte datum
     (else
-      ;; datum is exact integer, sign-extended, two's complement little-endian
-      (let ((datum-byte-n (fx1+ (fxsrl (integer-length obj) 3))))
-        (dlen+ (tag+ pos) datum-byte-n)))))
+      ;; datum is exact integer, sign-extended n bytes, two's complement little-endian
+      (let ((n (fx1+ (fxsrl (integer-length obj) 3))))
+        (vlen+ n (tag+ pos) n)))))
 
 
-;; write header and exact integer into bytevector starting at position pos.
+;; write tag and exact integer into bytevector starting at position pos.
 ;; return updated position, or raise exception on errors.
-(define (put/exact-int bv pos obj)
+(define (put/exact-sint bv pos obj)
   (cond
     ((not pos)
       pos)
@@ -364,7 +413,7 @@
       ;; datum is exact integer, sign-extended, two's complement little-endian
       (let* ((datum-byte-n (fx1+ (fxsrl (integer-length obj) 3)))
              (pos (put/tag bv pos tag-sint))
-             (pos (put/dlen bv pos datum-byte-n)))
+             (pos (put/vlen bv pos datum-byte-n)))
         (bytevector-sint-set! bv pos obj endian datum-byte-n)
         (fx+ pos datum-byte-n)))))
 
@@ -395,10 +444,10 @@
     (if (real? obj)
       (if (integer? obj)
         ;; exact integer
-        (len/exact-int pos obj)
+        (len/exact-sint pos obj)
         ;; exact ratio: encoded as tag, numerator, denominator
-        (len/exact-int
-          (len/exact-int (tag+ pos) (numerator obj))
+        (len/exact-sint
+          (len/exact-sint (tag+ pos) (numerator obj))
           (denominator obj)))
       ;; exact complex: encoded as tag, real-part, imag-part
       (len/number
@@ -416,11 +465,11 @@
     (if (real? obj)
       (if (integer? obj)
         ;; exact integer
-        (put/exact-int bv pos obj)
+        (put/exact-sint bv pos obj)
         ;; exact ratio: encoded as tag, (numerator, denominator)
         (let* ((end0 (put/tag bv pos tag-ratio))
-               (end1 (put/exact-int bv end0 (numerator obj)))
-               (end2 (put/exact-int bv end1 (denominator obj))))
+               (end1 (put/exact-sint bv end0 (numerator obj)))
+               (end2 (put/exact-sint bv end1 (denominator obj))))
           end2))
       ;; exact complex: encoded as tag, (real-part, imag-part)
       (let* ((end0 (put/tag bv pos tag-complex))
@@ -476,7 +525,7 @@
 
 ;; proper or improper list
 (define (len/list pos obj)
-  (let %len/list ((pos (dlen+ (tag+ pos))) (l obj)) ; n is encoded as dlen
+  (let %len/list ((pos (header+ (tag+ pos))) (l obj)) ; n is encoded as header
     (cond
       ((not pos)
         pos)
@@ -491,14 +540,14 @@
 
 (define (put/list bv pos obj)
   (let ((end0 (tag+ pos)))
-    (let %put/list ((end (dlen+ end0)) (n 0) (l obj)) ; n is encoded as dlen
+    (let %put/list ((end (header+ end0)) (n 0) (l obj)) ; n is encoded as header
       ;; (debugf "%put-list l=~s n=~s end=~s" l n end)
       (cond
         ((not end)
           end)
         ((null? l)
           (put/tag bv pos tag-list)
-          (put/dlen bv end0 n) ; n is encoded as dlen
+          (put/header bv end0 n) ; n is encoded as header
           end)
         ((pair? l)
           (let ((end (put/any bv end (car l))))
@@ -507,7 +556,7 @@
           ;; last element of an improper list
           (let ((end (put/any bv end obj)))
             (put/tag bv pos tag-list*)
-            (put/dlen bv end0 n) ; n is encoded as dlen
+            (put/header bv end0 n) ; n is encoded as header
             end))))))
 
 
@@ -546,13 +595,11 @@
 
 (define (len/string pos obj)
   (let ((n (string-length obj)))
-    ;; n is encoded as dlen
-    (dlen+ (tag+ pos
-      (if (string8? obj)
-        ;; each character is encoded as 1 byte
-        n
-        ;; each character is encoded as max-len-char bytes
-        (fx* n max-len-char))))))
+    (vlen+ n ;; n is encoded as vlen
+      (tag+ pos
+        (if (string8? obj)
+          n ;; each character is encoded as 1 byte
+          (fx* n max-len-char))))))  ;; each character is encoded as max-len-char bytes
 
 
 (define (put/string bv pos obj)
@@ -560,7 +607,7 @@
          (v obj)
          (str8? (string8? v))
          (end0 (put/tag  bv pos (if str8? tag-string8 tag-string)))
-         (end1 (put/dlen bv end0 n)) ; n is encoded as dlen
+         (end1 (put/vlen bv end0 n)) ; n is encoded as vlen
          (step (if str8? 1 max-len-char)))
     (do ((i 0 (fx1+ i))
          (pos end1 (fx+ pos step)))
@@ -620,7 +667,7 @@
                                 (else (len/symbol pos hash-sym))))
              (pos (case cmp-sym ((eq? eqv?) pos)
                                 (else (len/symbol pos cmp-sym))))
-             (pos (dlen+ pos))) ; n is encoded as dlen
+             (pos (vlen+ (hashtable-size obj) pos))) ; n is encoded as vlen
         (when pos
           (for-hash ((k v obj))
             (set! pos (len/any (len/any pos k) v))))
@@ -638,7 +685,7 @@
                                 (else (put/symbol bv pos hash-sym))))
              (pos (case cmp-sym ((eq? eqv?) pos)
                                 (else (put/symbol bv pos cmp-sym))))
-             (pos (put/dlen bv pos (hashtable-size obj)))) ; n is encoded as dlen
+             (pos (put/vlen bv pos (hashtable-size obj)))) ; n is encoded as vlen
         (when pos
           (for-hash ((k v obj))
             (set! pos (put/any bv (put/any bv pos k) v))))
@@ -681,7 +728,7 @@
 (define (len/any pos obj)
   (cond
     ((not pos)         #f)
-    ((fixnum? obj)     (len/exact-int  pos obj))
+    ((fixnum? obj)     (len/exact-sint  pos obj))
     ((char?   obj)     (len/char       pos obj))
     ((pair?   obj)     (len/pair       pos obj))
     ((symbol? obj)     (len/symbol     pos obj))
@@ -710,7 +757,7 @@
 (define (put/any bv pos obj)
   (cond
     ((not pos)         #f)
-    ((fixnum? obj)     (put/exact-int  bv pos obj))
+    ((fixnum? obj)     (put/exact-sint  bv pos obj))
     ((char?   obj)     (put/char       bv pos obj))
     ((pair?   obj)     (put/pair       bv pos obj))
     ((symbol? obj)     (put/symbol     bv pos obj))
@@ -738,8 +785,8 @@
 ;; Return #f if obj contains some datum that cannot be serialized: procedures, unregistered record-types, etc.
 (define (wire-length obj)
   (if (eq? (void) obj)
-    dlen
-    (let ((pos (len/any dlen obj))) ; header is dlen bytes
+    len-header
+    (let ((pos (len/any len-header obj)))
       (if (valid-payload-len? pos) pos #f))))
 
 
@@ -747,27 +794,27 @@
 ;; return number of written bytes, or #f on errors.
 (define wire-put
   (case-lambda
-    ((bsp obj message-wire-len)
+    ((bsp obj len-wire-message)
       (assert* 'wire-put (bytespan? bsp))
-      (if (and (fixnum? message-wire-len) (valid-payload-len? (fx- message-wire-len dlen)))
-        (let ((payload-wire-len (fx- message-wire-len dlen))
+      (if (and (fixnum? len-wire-message) (valid-payload-len? (fx- len-wire-message len-header)))
+        (let ((payload-wire-len (fx- len-wire-message len-header))
               (len-before (bytespan-length bsp)))
-          (bytespan-resize-right! bsp (fx+ len-before message-wire-len))
+          (bytespan-resize-right! bsp (fx+ len-before len-wire-message))
           (let* ((bv   (bytespan-peek-data bsp))
                  (pos  (fx+ len-before (bytespan-peek-beg bsp)))
-                 (end0 (put/dlen bv pos payload-wire-len))
+                 (end0 (put/header bv pos payload-wire-len))
                  (end  (if (eq? (void) obj)
                           end0
                           (put/any bv end0 obj))))
             (assert* 'wire-put (fx=? end (bytespan-length bsp)))
-            message-wire-len))
+            len-wire-message))
         #f))
     ((bsp obj)
       (wire-put bsp obj (wire-length obj)))))
 
 ;; recursively traverse obj, serialize it and return bytevector containing serialized bytes,
 ;; or #f on errors
-(define (wire-put->bytevector obj)
+(define (datum->wire obj)
   (let ((bsp (bytespan)))
     (if (wire-put bsp obj)
       (bytespan->bytevector*! bsp)
