@@ -554,9 +554,9 @@
             (%put/list end (fx1+ n) (cdr l))))
         (else
           ;; last element of an improper list
-          (let ((end (put/any bv end obj)))
+          (let ((end (put/any bv end l)))
             (put/tag bv pos tag-list*)
-            (put/header bv end0 n) ; n is encoded as header
+            (put/header bv end0 (fx1+ n)) ; n is encoded as header
             end))))))
 
 
@@ -569,8 +569,8 @@
         (len/list pos obj))
       (else
         (tag+
-          (len/any tail
-            (len/any pos (car obj))))))))
+          (len/any (len/any pos (car obj))
+                   tail))))))
 
 
 (define (put/pair bv pos obj)
@@ -826,6 +826,7 @@
 (begin
   (wire-register-rtd (record-rtd (span))        tag-span        len/span        get/span        put/span)
   (wire-register-rtd (record-rtd (gbuffer))     tag-gbuffer     len/gbuffer     get/gbuffer     put/gbuffer)
+  (wire-register-rtd (record-rtd (bytespan))    tag-bytespan    len/bytespan    get/bytespan    put/bytespan)
   (wire-register-rtd (record-rtd (charspan))    tag-charspan    len/charspan    get/charspan    put/charspan)
   (wire-register-rtd (record-rtd (chargbuffer)) tag-chargbuffer len/chargbuffer get/chargbuffer put/chargbuffer)
 

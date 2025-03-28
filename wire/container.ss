@@ -160,3 +160,31 @@
 
 (define (put/chargbuffer bv pos obj)
   (put/char-container bv pos tag-chargbuffer tag-chargbuffer8 obj (chargbuffer-length obj) chargbuffer-ref))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; customize how "bytespan" objects are serialized/deserialized
+
+(define (len/bytespan pos bv)
+  (let ((n (bytespan-length bv)))
+    (vlen+ n (tag+ pos) n)))
+
+(define (put/bytespan bv pos obj)
+  (let* ((n    (bytespan-length obj))
+         (end0 (put/tag  bv pos tag-bytespan))
+         (end1 (put/vlen bv end0 n))) ; n is encoded as vlen
+    (if end1
+      (begin
+        (bytevector-copy! (bytespan-peek-data obj)
+                          (bytespan-peek-beg obj) bv end1 n)
+        (fx+ end1 n))
+      #f)))
+
+(define (get/bytespan bv pos end)
+  (let-values (((n pos) (get/vlen bv pos end)))
+    (if (and pos (fx<=? n (fx- end pos)))
+      (let ((ret (make-bytevector n)))
+        (bytevector-copy! bv pos ret 0 n)
+        (values (bytevector->bytespan* ret) (fx+ pos n)))
+      (values #f #f))))

@@ -175,21 +175,29 @@
       (values (list obj) pos)
       (values #f #f))))
 
+(define (%get/list bv pos end n ret)
+  (cond
+    ((or (not pos) (fx>? n (fx- end pos)))
+      (values #f #f))
+    ((fxzero? n)
+      (values ret pos))
+    (else
+      (let-values (((elem pos) (get/any bv pos end)))
+        (%get/list bv pos end (fx1- n) (cons elem ret))))))
+
 (define (get/list* bv pos end)
-  (values #f #f)) ; TODO implement
+  (let*-values (((n pos)   (get/header bv pos))
+                ((ret pos) (%get/list bv pos end n '())))
+    (if ret
+      (values (list-reverse*! ret) pos)
+      (values #f #f))))
 
 (define (get/list bv pos end)
-  (let-values (((n pos) (get/header bv pos)))
-    (let %get/list ((n n) (pos pos) (ret '()))
-      (cond
-        ((or (not pos) (fx>? n (fx- end pos)))
-          (values #f #f))
-        ((fxzero? n)
-          (values (reverse! ret) pos))
-        (else
-          (let-values (((elem pos) (get/any bv pos end)))
-            (%get/list (fx1- n) pos (cons elem ret))))))))
-
+  (let*-values (((n pos)   (get/header bv pos))
+                ((ret pos) (%get/list bv pos end n '())))
+    (if ret
+      (values (reverse! ret) pos)
+      (values #f #f))))
 
 (define (get/string8 bv pos end)
   (let-values (((n pos) (get/vlen bv pos end)))

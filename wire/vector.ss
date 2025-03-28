@@ -63,8 +63,8 @@
     (if (and pos (fx<=? n (fx- end pos)))
       (let ((ret (make-bytevector n)))
         (bytevector-copy! bv pos ret 0 n)
-        (values bv (fx+ pos n) end)))
-    (values #f #f)))
+        (values ret (fx+ pos n)))
+      (values #f #f))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

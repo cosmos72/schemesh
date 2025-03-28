@@ -214,7 +214,7 @@
   (datum->wire
     (list 1 2 3 127 255 (box (eof-object))))           #vu8(15 0 0 0 38 6 0 0 0 1 2 3 16 127 17 255 0 34 29)
   (datum->wire
-    (list (void) -7/3 1/2+1i 'bytevector=? 'string=?)) #vu8(17 0 0 0 38 5 0 0 0 28 21 16 249 3 22 21 1 2 1 55 72)
+    (list* (void) -7/3 1/2+1i 'fl=? 'string=?))        #vu8(17 0 0 0 37 5 0 0 0 28 21 16 249 3 22 21 1 2 1 68 72)
   (datum->wire
     '#(#\a #\xFF #\xFFFF #\x10FFFF "bcd" #vfx(-1 1)))  #vu8(22 0 0 0 39 6 31 97 31 255 32 255 255 33 255 255 16 41 3 98 99 100 43 2 15 1)
   (datum->wire
@@ -235,9 +235,9 @@
         (vector
           (bitwise-arithmetic-shift 1 64)
           (bitwise-arithmetic-shift -1 60)
-          #\xDC80 #\xDCFF 'foo "bar\x20AC;"
-          '#vfx(0)))))                                 (#(18446744073709551616 -1152921504606846976
-                                                          #\xDC80 #\xDCFF foo "bar\x20AC;" #vfx(0)) 55)
+          #\xDC80 #\xDCFF 'foo "bar\x20AC;" '#vfx(0)
+          #vu8(255 254 253) (bytespan 7)))))           ,(#(18446744073709551616 -1152921504606846976 #\xDC80 #\xDCFF
+                                                           foo "bar\x20AC;" #vfx(0) #vu8(255 254 253) (bytespan 7)) 63)
 
   (values->list (wire->datum  #vu8(4 0 0 0 245 6 36 27)))   ,((ok ()) 8)
   (values->list (wire->datum  #vu8(3 0 0 0 246 1 25)))      ,((span #f) 7)

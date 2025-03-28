@@ -437,8 +437,8 @@
   '{echo .*[a-z]?.so}                                  (shell "echo" (shell-wildcard "." * % "a-z" ? ".so"))
   (caddr (expand '{echo .*[a-z]?.so}))                 ,@(sh-cmd* "echo" (lambda (job) (sh-wildcard job "." '* '% "a-z" '? ".so")))
   '{A=* B=* echo}                                      (shell "A" = "*" "B" = "*" "echo")
-  ;; TODO: keep as is or prevent tilde expansion in B=~ ?
-  ;; currently it's not usable because (shell-wildcard ~) expands to a list ("/home/user")
+  ;; (shell-wildcard ~) expands to a list ("/home/user")
+  ;; but env variable assignments in (sh-cmd*) allow value to be a 1-element list
   '{A=* B=~ ls ~bar}                                   (shell "A" = "*" "B" = (shell-wildcard ~) "ls" (shell-wildcard ~ "bar"))
   '{echo ab'c'"d*?"*?[a-z]}                            (shell "echo" (shell-wildcard "ab" "c" "d*?" (shell-wildcard * ? % "a-z")))
   ;; in shell syntax, = is an operator only before command name
