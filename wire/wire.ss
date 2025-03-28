@@ -639,6 +639,7 @@
         (put/tag bv pos new-tag)
         end))))
 
+(define (always-true x) #t)
 
 (define known-cmp-sym
   (eq-hashtable
@@ -651,10 +652,20 @@
 
 (define known-hash-sym
   (eq-hashtable
-     bytevector-hash 'bytevector-hash char->integer 'char->integer ; usable as hash function for char=?
+     bytevector-hash 'bytevector-hash
+     char->integer 'char->integer ; usable as hash function for char=?
      equal-hash 'equal-hash
      string-hash 'string-hash string-ci-hash 'string-ci-hash
      symbol-hash 'symbol-hash))
+
+(define known-hash-key-type-validator
+  (eq-hashtable
+     'bytevector-hash bytevector?
+     'char->integer   char?
+     'equal-hash      always-true
+     'string-hash     string?
+     'string-ci-hash  string?
+     'symbol-hash     symbol?))
 
 (define (htable->cmp-sym obj)
   (hashtable-ref known-cmp-sym (hashtable-equivalence-function obj) #f))

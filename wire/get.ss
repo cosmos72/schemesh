@@ -269,27 +269,27 @@
 (define (cmp-sym->proc sym)  (hashtable-ref known-cmp-proc sym #f))
 (define (hash-sym->proc sym) (hashtable-ref known-hash-proc sym #f))
 
-(define (%fill/hashtable bv pos end n ret)
+(define (%fill/hashtable bv pos end key-validator n ret)
   (if (fxzero? n)
     (values ret pos)
     (let*-values (((key pos) (get/any bv pos end))
                   ((val pos) (get/any bv pos end)))
-      (if pos
+      (if (and pos (key-validator key))
         (begin
           (hashtable-set! ret key val)
-          (%fill/hashtable bv pos end (fx1- n) ret))
+          (%fill/hashtable bv pos end key-validator (fx1- n) ret))
         (values #f #f)))))
 
 (define (get/eq-hashtable bv pos end)
   (let-values (((n pos) (get/vlen bv pos end)))
     (if (and pos (fx<=? n (fx- end pos)))
-      (%fill/hashtable bv pos end n (make-eq-hashtable n))
+      (%fill/hashtable bv pos end always-true n (make-eq-hashtable n))
       (values #f #f))))
 
 (define (get/eqv-hashtable bv pos end)
   (let-values (((n pos) (get/vlen bv pos end)))
     (if (and pos (fx<=? n (fx- end pos)))
-      (%fill/hashtable bv pos end n (make-eqv-hashtable n))
+      (%fill/hashtable bv pos end always-true n (make-eqv-hashtable n))
       (values #f #f))))
 
 (define (get/hashtable bv pos end)
@@ -299,10 +299,11 @@
     ;; (debugf "...get/hashtable pos=~s n=~s hash-sym=~s cmp-sym=~s" pos n hash-sym cmp-sym)
     (if (and pos (fx<=? n (fx- end pos)) (symbol? hash-sym) (symbol? cmp-sym))
       (let ((hash-proc (hash-sym->proc hash-sym))
-            (cmp-proc  (cmp-sym->proc cmp-sym)))
+            (cmp-proc  (cmp-sym->proc cmp-sym))
+            (key-validator (hashtable-ref known-hash-key-type-validator hash-sym #f)))
         ;; (debugf "...get/hashtable hash-proc=~s cmp-proc=~s" hash-proc cmp-proc)
         (if (and hash-proc cmp-proc)
-          (%fill/hashtable bv pos end n (make-hashtable hash-proc cmp-proc n))
+          (%fill/hashtable bv pos end key-validator n (make-hashtable hash-proc cmp-proc n))
           (values #f #f)))
       (values #f #f))))
 

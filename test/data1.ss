@@ -260,7 +260,7 @@
         (string<? (car cell1) (car cell2)))
       (hashtable-cells ht)))                               #(("cd" . -1) ("ef" . -2))
 
-  (let* ((payload-len (random 512))
+  (let* ((payload-len 512)
          (message-len (fx+ 4 payload-len))
          (bv (make-bytevector message-len)))
     (with-exception-handler
@@ -271,7 +271,7 @@
         (newline)
         (raise ex))
       (lambda ()
-        (repeat 0
+        (repeat 1000000
           (bytevector-u32-set! bv 0 (random payload-len) (endianness little))
           (do ((i 4 (fx1+ i)))
               ((fx>=? i message-len))
