@@ -201,7 +201,7 @@ CTRL+Z
 
 Shell syntax that expands to strings can be used also from Scheme
 with macro `(shell-glob {...})`, that returns a list of strings,
-and macro `(shell-string {...})`, that returns a single string. Examples:
+and with macro `(shell-string {...})`, that returns a single string. Examples:
 ```lisp
 > (shell-glob {/*})
 ("/bin" "/boot" "/dev" "/etc" "/home" "/lib" "/lost+found" "/mnt"
