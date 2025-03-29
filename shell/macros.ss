@@ -10,7 +10,7 @@
 (library (schemesh shell macros (0 8 1))
   (export
     in-shell-glob sh-include sh-include*
-    shell shell-backquote shell-env shell-expr shell-glob shell-list shell-subshell shell-wildcard)
+    shell shell-backquote shell-env shell-expr shell-glob shell-list shell-string shell-subshell shell-wildcard)
   (import
     (rnrs)
     (only (chezscheme) datum format fx1- meta parameterize reverse!)
@@ -152,7 +152,7 @@
         #`(%shell-wildcard sh-wildcard job arg ...)))))
 
 
-;; extract the arguments inside a (shell (shell-wildcard ...)) or (shell (shell-env ...)) macro,
+;; extract the arguments inside a (shell-glob {...}) macro,
 ;; simplify them, and return a form that executes them from Scheme syntax and returns a list of strings.
 ;;
 ;; Example: (shell-glob {~/*.txt}) expands to an (sh-wildcard ...) form that, when executed,
@@ -162,6 +162,20 @@
 ;; it will return a list containing a single string: the shell glob pattern converted to string.
 ;;;
 ;; In the example above, the list would be ("~/*.txt")
+;;
+;; If the argument of shell-glob is a NOT a shell glob pattern, then it must be a sequence of literal strings
+;; and shell environment variable names, possibly starting with ~ or ~user that means a user's home directory.
+;;
+;; Example: (shell-glob {~bob}) expands to an (sh-wildcard ...) form that, when executed,
+;; return a list containing a single string: the home directory of user "bob"
+;;
+;; Example: (shell-glob {$PATH:$HOME/bin}) expands to an (sh-wildcard ...) form that, when executed,
+;; return a list containing a single string: the contatenation of
+;; 1. value of environment variable "PATH"
+;; 2. string ":"
+;; 3. value of environment variable "HOME"
+;; 2. string "/bin"
+
 (define-syntax shell-glob
   (lambda (stx)
     (syntax-case stx ()
@@ -175,6 +189,41 @@
         (and (free-identifier=? #'macro-name #'shell )
              (free-identifier=? #'submacro-name #'shell-wildcard))
         #`(%shell-glob sh-wildcard job-or-id arg ...)))))
+
+
+;; extract the arguments inside a (shell-string {...}) macro,
+;; simplify them, and return a form that will execute them from Scheme syntax and return a *single* string,
+;; or raises an exception if the form would return multiple strings.
+;;
+;; If the argument inside {...} must be either a shell glob pattern or a sequence of literal strings
+;; and shell environment variable names, possibly starting with ~ or ~user that means a user's home directory.
+
+;; Example: (shell-string {$FOO-$BAR}) expands to an (sh-wildcard ...) form that, when executed,
+;; returns a string containing the concatenation of:
+;; 1. value of environment variable "FOO"
+;; 2. string "-"
+;; 3. value of environment variable "BAR"
+;;
+;; If the arguments inside {...} are a shell glob pattern, and they match a single filesystem path,
+;; such path is returned as string.
+;;
+;; Example: (shell-string {~/my/file.txt}) expands to a form that, when executed,
+;; returns a string containing user's home directory followed by "/my/file.txt"
+;;;
+;; If the shell glob pattern matches multiple filesystem paths, the form will raise an exception when executed.
+(define-syntax shell-string
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ (macro-name arg))
+        #'(shell-string #f (macro-name arg)))
+      ((_ job-or-id (macro-name (submacro-name arg)))
+        (and (free-identifier=? #'macro-name #'shell )
+             (free-identifier=? #'submacro-name #'shell-env))
+        #`(sh-env-ref job-or-id arg))
+      ((_ job-or-id (macro-name (submacro-name arg ...)))
+        (and (free-identifier=? #'macro-name #'shell )
+             (free-identifier=? #'submacro-name #'shell-wildcard))
+        #`(%shell-glob sh-wildcard1 job-or-id arg ...)))))
 
 
 ;; (in-shell-glob ...) is a shortcut for (in-list (shell-glob ...))

@@ -81,7 +81,7 @@
     sh-cmd? sh-expr? sh-job? sh-job-copy sh-multijob? sh-current-job
 
     ;; wildcard
-    sh-wildcard sh-wildcard* sh-wildcard/apply sh-wildcard/expand-tilde
+    sh-wildcard sh-wildcard1 sh-wildcard* sh-wildcard/apply sh-wildcard/expand-tilde
     sh-wildcard->string sh-wildcard->sh-patterns sh-patterns/expand
   )
   (import

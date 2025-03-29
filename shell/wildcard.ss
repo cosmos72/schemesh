@@ -26,6 +26,30 @@
   (sh-wildcard* job-or-id w '(if-no-match? string-list)))
 
 
+;; expand a path containing wildcards to the single filesystem entry that match such wildcards.
+;;
+;; each w must be a string, a wildcard symbol ? * ~ % %!
+;; or a closure (lambda (job) ...) or (lambda () ...) that returns a string or a list of strings.
+;;
+;; if first w is the symbol ~ expand it to specified user's home directory,
+;; then call each closure and replace it with the returned string or list of strings,
+;; finally expand wildcard symbols to matching filesystem paths.
+;;
+;; returns a single string, containing the only filesystem path matched by w.
+;; raises an exception if w matches multiple filesystem paths.
+;; if w does not match any filesystem path, return w converted back to string with shell wildcard syntax.
+(define (sh-wildcard1 job-or-id . w)
+  (let ((ret (sh-wildcard* job-or-id w '(if-no-match? string))))
+    (cond
+      ((string? ret)
+        ret)
+      ((and (pair? ret) (string? (car ret)) (null? (cdr ret)))
+        (car ret))
+      (else
+        (raise-errorf 'sh-wildcard1 "shell glob ~s matches multiple filesystem paths"
+                      (sh-wildcard->string w))))))
+
+
 ;; TL;DR similar to (sh-wildcard), with two differences:
 ;;  1. w must be passed as a list
 ;;  2. if w does not match any filesystem path, returned value depends on options:
