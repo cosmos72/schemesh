@@ -225,6 +225,8 @@
     (gbuffer (span #vu8(1)) (ok 9 10) (charspan #\a #\xFF)
              (chargbuffer #\< #\>)))                   #vu8(24 0 0 0 245 4 244 1 40 1 1 243 6 38 2 0 0 0 9 10 248 2 97 255 251 2 60 62)
   (datum->wire
+    (make-time 'time-utc 999999999 #x80000000))        #vu8(14 0 0 0 242 88 19 255 201 154 59 20 5 0 0 0 128 0)
+  (datum->wire
     (eq-hashtable (void) 1.5 '() #x123456789))         #vu8(20 0 0 0 51 2 27 20 5 137 103 69 35 1 28 23 0 0 0 0 0 0 248 63)
   (datum->wire
     (eqv-hashtable #\{ 0.5+2.0i))                      #vu8(21 0 0 0 52 1 31 123 24 0 0 0 0 0 0 224 63 0 0 0 0 0 0 0 64)
@@ -245,6 +247,8 @@
   (values->list (wire->datum  #vu8(3 0 0 0 251 1 67)))     ,((string->chargbuffer* "C") 7)
   (values->list (wire->datum  #vu8(4 0 0 0 252 1 68 0)))   ,((string->chargbuffer* "D") 8)
   (values->list (wire->datum  #vu8(5 0 0 0 253 1 69 0 0))) ,((string->chargbuffer* "E") 9)
+  (values->list (wire->datum  #vu8(14 0 0 0 242
+     88 19 255 201 154 59 20 5 255 255 255 255 0)))        ,@"(#<time-utc 4294967295.999999999> 18)"
 
   (datum->wire (vector
     (bitwise-arithmetic-shift 1 64)

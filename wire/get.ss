@@ -361,10 +361,6 @@
       (vector-set! vec tag sym))
     vec))
 
-(define min-tag-to-allocate 87)
-(define max-tag-to-allocate 253)
-(define next-tag-to-allocate 244)
-
 ;; reserve a fixnum tag to use when serializing a custom record type
 ;; return the fixnum tag value, or #f if tags are exhausted.
 (define (wire-reserve-tag)

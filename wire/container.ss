@@ -189,8 +189,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; customize how "bytespan" objects are serialized/deserialized
 
-(define (len/bytespan pos bv)
-  (let ((n (bytespan-length bv)))
+(define (len/bytespan pos obj)
+  (let ((n (bytespan-length obj)))
     (vlen+ n (tag+ pos) n)))
 
 (define (put/bytespan bv pos obj)

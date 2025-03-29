@@ -73,16 +73,17 @@
 ;;;      46 => datum is symbol8:       n encoded as vlen, followed by characters each encoded as 1 byte
 ;;;      47 => datum is symbol16:      n encoded as vlen, followed by characters each encoded as 2 bytes
 ;;;      48 => datum is symbol24:      n encoded as vlen, followed by characters each encoded as 3 bytes
-;;;      49 => datum is time:          encoded as 3 tag+datum: time-type, time-second, time-nanosecond
+;;;      49    UNUSED
 ;;;      50 => datum is enum-set
 ;;;      51 => datum is eq-hashtable:  n encoded as vlen, followed by 2 * n tag+datum
 ;;;      52 => datum is eqv-hashtable: n encoded as vlen, followed by 2 * n tag+datum
 ;;;      53 => datum is equal-hashtable: hash function name encoded as symbol, checked against a whitelist
 ;;;                                      followed by equal function name encoded as symbol, checked against a whitelist
 ;;;                                      followed by n encoded as vlen, followed by 2 * n tag+datum
+;;;      54     UNUSED
 ;;       55 ... 88  => datum is a known symbol
-;;;      89 ... 244 => datum is a registered record type
-;;;     245 ... 253 => datum is a pre-registered record type
+;;;      89 ... 241 => datum is a user-registered record type
+;;;     242 ... 253 => datum is a pre-registered record type
 ;;;     254 => datum is magic string: bytes #\w #\i #\r #\e VERSION-LO VERSION-HI
 ;;;     255 => datum starts with extended tag
 
@@ -102,10 +103,11 @@
                        bytevector-sint-ref        bytevector-sint-set!
                        bytevector-s24-ref         bytevector-s24-set!
                        bytevector-u24-ref         bytevector-u24-set!
-                       cfl= cfl+ fl-make-rectangular fx1+ fx1- fxsrl fxsll
-                       fxvector? fxvector-length fxvector-ref fxvector-set! make-fxvector
-                       include integer-length logbit? meta-cond reverse!
-                       procedure-arity-mask time=? void)
+                       cfl= cfl+ current-time fl-make-rectangular fx1+ fx1- fxsrl fxsll
+                       fxvector? fxvector-length fxvector-ref fxvector-set!
+                       include integer-length logbit? make-fxvector make-time meta-cond
+                       reverse! procedure-arity-mask
+                       time=? time-type time-second time-nanosecond void)
 
     ;; these predicates are equivalent to their r6rs counterparts,
     ;; only extended to also accept 1 argument
@@ -169,12 +171,16 @@
 (define tag-symbol8    46)
 (define tag-symbol16   47)
 (define tag-symbol24   48)
-(define tag-time       49)
 (define tag-enum-set   50)
 (define tag-eq-hashtable  51)
 (define tag-eqv-hashtable 52)
 (define tag-hashtable     53)
 
+(define min-tag-to-allocate   89)
+(define next-tag-to-allocate 241)
+(define max-tag-to-allocate  253)
+
+(define tag-time          242)
 (define tag-status        243) ; implemented in posix/wire-status.ss
 (define tag-span          244) ; n encoded as vlen, followed by n elements each encoded as tag+datum
 (define tag-gbuffer       245) ; n encoded as vlen, followed by n elements each encoded as tag+datum
@@ -856,13 +862,15 @@
 
 (include "wire/get.ss")
 (include "wire/container.ss")
+(include "wire/misc.ss")
 
 (begin
-  (wire-register-rtd (record-rtd (span))        tag-span          len/span        get/span          put/span)
-  (wire-register-rtd (record-rtd (gbuffer))     tag-gbuffer       len/gbuffer     get/gbuffer       put/gbuffer)
-  (wire-register-rtd (record-rtd (bytespan))    tag-bytespan      len/bytespan    get/bytespan      put/bytespan)
-  (wire-register-rtd (record-rtd (charspan))    tag-charspan24    len/charspan    get/charspan24    put/charspan)
-  (wire-register-rtd (record-rtd (chargbuffer)) tag-chargbuffer24 len/chargbuffer get/chargbuffer24 put/chargbuffer)
+  (wire-register-rtd (record-rtd (current-time)) tag-time          len/time        get/time          put/time)
+  (wire-register-rtd (record-rtd (span))         tag-span          len/span        get/span          put/span)
+  (wire-register-rtd (record-rtd (gbuffer))      tag-gbuffer       len/gbuffer     get/gbuffer       put/gbuffer)
+  (wire-register-rtd (record-rtd (bytespan))     tag-bytespan      len/bytespan    get/bytespan      put/bytespan)
+  (wire-register-rtd (record-rtd (charspan))     tag-charspan24    len/charspan    get/charspan24    put/charspan)
+  (wire-register-rtd (record-rtd (chargbuffer))  tag-chargbuffer24 len/chargbuffer get/chargbuffer24 put/chargbuffer)
 
   (vector-set! known-tag tag-charspan8     get/charspan8)
   (vector-set! known-tag tag-charspan16    get/charspan16)
