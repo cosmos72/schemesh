@@ -152,8 +152,16 @@
         #`(%shell-wildcard sh-wildcard job arg ...)))))
 
 
-;; extract the arguments inside a (shell (shell-wildcard ...)) macro,
-;; simplify them, and wrap them in a (sh-wildcard) for executing them.
+;; extract the arguments inside a (shell (shell-wildcard ...)) or (shell (shell-env ...)) macro,
+;; simplify them, and return a form that executes them from Scheme syntax and returns a list of strings.
+;;
+;; Example: (shell-glob {~/*.txt}) expands to an (sh-wildcard ...) form that, when executed,
+;; returns a list of strings containing all the filesystem paths matching the shell glob pattern ~/*.txt
+;;
+;; If no filesystem path matches the shell glob pattern, when the form is executed
+;; it will return a list containing a single string: the shell glob pattern converted to string.
+;;;
+;; In the example above, the list would be ("~/*.txt")
 (define-syntax shell-glob
   (lambda (stx)
     (syntax-case stx ()
