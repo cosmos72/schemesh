@@ -209,6 +209,9 @@ and with macro `(shell-string {...})`, that returns a single string. Examples:
 
 > (shell-string {$PATH:$HOME/.local/bin})
 "/usr/local/bin:/usr/bin:/bin:/home/user/.local/bin"
+
+> (shell-string {abc`echo def`})
+"abcdef"
 ```
 
 ### Subshells and command substitution
