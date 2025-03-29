@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh shell autocomplete (0 8 1))
+(library (schemesh shell autocomplete (0 8 2))
   (export
       sh-autocomplete-func sh-autocomplete-r6rs sh-autocomplete-scheme sh-autocomplete-shell)
   (import

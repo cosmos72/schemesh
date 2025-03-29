@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh posix io (0 8 1))
+(library (schemesh posix io (0 8 2))
   (export
     make-utf8b-input-port make-utf8b-input/output-port make-utf8b-output-port
 

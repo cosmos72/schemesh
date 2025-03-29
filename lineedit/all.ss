@@ -8,7 +8,7 @@
 #!r6rs
 
 ;; define (schemesh lineedit) as a library that exports all imported bindings
-(library-reexport (schemesh lineedit (0 8 1))
+(library-reexport (schemesh lineedit (0 8 2))
   (import
     (schemesh lineedit charlines io)
     (schemesh lineedit charhistory)

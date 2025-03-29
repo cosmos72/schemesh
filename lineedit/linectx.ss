@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit linectx (0 8 1))
+(library (schemesh lineedit linectx (0 8 2))
   (export
     make-linectx make-linectx* linectx? linectx-rbuf linectx-wbuf
     linectx-vscreen linectx-width linectx-height linectx-end-y

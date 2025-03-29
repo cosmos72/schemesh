@@ -10,7 +10,7 @@
 ;;;
 ;;; Lexer and parser for r6rs Scheme syntax.
 ;;;
-(library (schemesh parser r6rs (0 8 1))
+(library (schemesh parser r6rs (0 8 2))
   (export
     lex-r6rs parse-r6rs-forms parser-r6rs)
   (import

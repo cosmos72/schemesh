@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh containers macros (0 8 1))
+(library (schemesh containers macros (0 8 2))
   (export
     begin^ for for* if^ let^ let-values^ unless^ when^)
   (import

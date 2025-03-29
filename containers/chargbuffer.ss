@@ -12,7 +12,7 @@
 ;;;;; Implementation: contains two charspans, a "left" and a "right" ones ;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (schemesh containers chargbuffer (0 8 1))
+(library (schemesh containers chargbuffer (0 8 2))
   (export
     in-chargbuffer list->chargbuffer string->chargbuffer string->chargbuffer*
     charspan->chargbuffer charspan->chargbuffer*

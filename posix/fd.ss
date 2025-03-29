@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh posix fd (0 8 1))
+(library (schemesh posix fd (0 8 2))
   (export
     c-errno c-errno->string c-exit c-hostname
     fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-seek

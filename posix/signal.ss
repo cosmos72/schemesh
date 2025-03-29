@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh posix signal (0 8 1))
+(library (schemesh posix signal (0 8 2))
   (export countdown
           signal-raise signal-number->name signal-name->number signal-name-is-usually-fatal?
           signal-consume-sigwinch signal-init-sigwinch signal-restore-sigwinch)

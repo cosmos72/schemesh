@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit parenmatcher (0 8 1))
+(library (schemesh lineedit parenmatcher (0 8 2))
   (export
     parenmatcher? make-custom-parenmatcher parenmatcher-clear!
     parenmatcher-paren parenmatcher-maybe-update!

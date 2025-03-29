@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh containers hashtable (0 8 1))
+(library (schemesh containers hashtable (0 8 2))
   (export
     make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-pair hash-iterator-next!
 

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit vscreen (0 8 1))
+(library (schemesh lineedit vscreen (0 8 2))
   (export
     make-vscreen  vscreen*  vscreen?  assert-vscreen?
     vscreen-width        vscreen-height     vscreen-width-at-y  vscreen-resize!

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh conversions (0 8 1))
+(library (schemesh conversions (0 8 2))
   (export
     display-condition* display-any display-bytevector0 write-bytevector0
     any->bytevector text->bytevector

@@ -10,7 +10,7 @@
 #ifndef SCHEMESH_SHELL_SHELL_H
 #define SCHEMESH_SHELL_SHELL_H
 
-#define LIBSCHEMESH_SO "libschemesh_0.8.1.so"
+#define LIBSCHEMESH_SO "libschemesh_0.8.2.so"
 
 /**
  * initialize Chez Scheme.

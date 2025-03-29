@@ -1,7 +1,7 @@
 ## RECENT CHANGES
 
 
-### git main branch
+### release v0.8.2, 2025-03-29
 
 * fix issue #12: bug in shell syntax when parsing assignment after backslash+newline
 * fix macro `(in-hash-pairs)`
@@ -12,6 +12,9 @@
 * add macro `(in-shell-glob)` as a shortcut for `(in-list (shell-glob))`
 * add functions `(bytespan->bytevector0) (countdown) (chargbuffer->charspans*) (chargbuffer->string)`
   `(charlines->charspan) (charlines->string) (fd-seek) (open-socketpair-fds)`
+  and macro `(with-raw-tty)`
+* rename function `(sh-version)` -> `(sh-version-number)`
+  and add function `(sh-version)` that returns a string
 * add functions `(getenv) (putenv)`
   `(get-bytevector-all) (get-bytevector-n) (get-bytevector-some)`
   `(get-char) (get-datum) (get-line) (get-string-all) (get-string-n) (get-u8)`
@@ -39,6 +42,7 @@
   `(delete-directory) (delete-file) (directory-list) (directory-list-type) (mkdir)`
   `(file-delete) (file-directory?) (file-exists?) (file-rename) (file-regular?) (file-type)`
   `(open-file-fd) (open-file-utf8b-input-port) (text->bytevector) (text->bytevector0)`
+* rewrite macro `(for)`
 * improve source code conformance to r6rs, and start creating an - incomplete - Racket compatibility layer
   to use when compiling schemesh from Racket #!r6rs mode
 

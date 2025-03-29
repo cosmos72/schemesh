@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh containers charlines (0 8 1))
+(library (schemesh containers charlines (0 8 2))
   (export
     charlines charlines? strings->charlines strings->charlines*
     assert-charlines? charlines-shallow-copy charlines-copy-on-write charlines-iterate

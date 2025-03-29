@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh containers list (0 8 1))
+(library (schemesh containers list (0 8 2))
   (export
     any count every for-list for-plist in-list in-plist on-list
 

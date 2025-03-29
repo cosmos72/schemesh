@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh containers bytevector (0 8 1))
+(library (schemesh containers bytevector (0 8 2))
   (export
     in-bytevector list->bytevector subbytevector
     bytevector-compare bytevector-fill-range! bytevector-hash bytevector-index

@@ -83,7 +83,7 @@
 ;;;     255 => datum starts with extended tag
 
 
-(library (schemesh wire (0 8 1))
+(library (schemesh wire (0 8 2))
   (export datum->wire wire->datum wire-get wire-length wire-put
           wire-register-rtd  wire-reserve-tag
           ;; internal functions, exported for types that want to define their own serializer/deserializer

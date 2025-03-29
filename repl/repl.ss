@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh repl (0 8 1))
+(library (schemesh repl (0 8 2))
   (export repl repl* repl-eval repl-eval-print-list
           repl-lineedit repl-parse repl-print
           repl-exception-handler repl-break-handler
