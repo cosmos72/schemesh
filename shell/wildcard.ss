@@ -36,7 +36,7 @@
 ;; finally expand wildcard symbols to matching filesystem paths.
 ;;
 ;; returns a single string, containing the only filesystem path matched by w.
-;; raises an exception if w matches multiple filesystem paths.
+;; raises an exception if w matches multiple filesystem entries.
 ;; if w does not match any filesystem path, return w converted back to string with shell wildcard syntax.
 (define (sh-wildcard1 job-or-id . w)
   (let ((ret (sh-wildcard* job-or-id w '(if-no-match? string))))
@@ -46,7 +46,7 @@
       ((and (pair? ret) (string? (car ret)) (null? (cdr ret)))
         (car ret))
       (else
-        (raise-errorf 'sh-wildcard1 "shell glob ~s matches multiple filesystem paths"
+        (raise-errorf 'sh-wildcard1 "shell glob ~s matches multiple filesystem entries"
                       (sh-wildcard->string w))))))
 
 

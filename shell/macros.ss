@@ -29,7 +29,7 @@
   (syntax-rules ()
     ((_)               "")
     ;; NOTE: (sh-run/string-rtrim-newlines) cannot be stopped and resumed. But neither can $(...) or `...` in POSIX shells
-    ((_ arg ...)       (lambda () (sh-run/string-rtrim-newlines (shell arg ...))))))
+    ((_ . args)       (lambda () (sh-run/string-rtrim-newlines (shell . args))))))
 
 
 (define-syntax shell-env
@@ -148,12 +148,14 @@
         ; if arg is a string
         (string? (syntax->datum (syntax arg)))
         #`arg)
-      ((_ arg ...)
-        #`(%shell-wildcard sh-wildcard job arg ...)))))
+      ((_ . args)
+        #`(%shell-wildcard sh-wildcard job . args)))))
 
 
 ;; extract the arguments inside a (shell-glob {...}) macro,
 ;; simplify them, and return a form that executes them from Scheme syntax and returns a list of strings.
+;;
+;; WARNING: will also execute commands found inside shell job substitution syntax `...` or $[...]
 ;;
 ;; Example: (shell-glob {~/*.txt}) expands to an (sh-wildcard ...) form that, when executed,
 ;; returns a list of strings containing all the filesystem paths matching the shell glob pattern ~/*.txt
@@ -185,15 +187,21 @@
         (and (free-identifier=? #'macro-name #'shell )
              (free-identifier=? #'submacro-name #'shell-env))
         #`(list (sh-env-ref job-or-id arg)))
-      ((_ job-or-id (macro-name (submacro-name arg ...)))
+      ((_ job-or-id (macro-name (submacro-name . args)))
+        (and (free-identifier=? #'macro-name #'shell )
+             (free-identifier=? #'submacro-name #'shell-backquote))
+        #`(%shell-glob sh-wildcard job-or-id (shell-backquote . args)))
+      ((_ job-or-id (macro-name (submacro-name . args)))
         (and (free-identifier=? #'macro-name #'shell )
              (free-identifier=? #'submacro-name #'shell-wildcard))
-        #`(%shell-glob sh-wildcard job-or-id arg ...)))))
+        #`(%shell-glob sh-wildcard job-or-id . args)))))
 
 
 ;; extract the arguments inside a (shell-string {...}) macro,
 ;; simplify them, and return a form that will execute them from Scheme syntax and return a *single* string,
 ;; or raises an exception if the form would return multiple strings.
+;;
+;; WARNING: will also execute commands found inside shell job substitution syntax `...` or $[...]
 ;;
 ;; If the argument inside {...} must be either a shell glob pattern or a sequence of literal strings
 ;; and shell environment variable names, possibly starting with ~ or ~user that means a user's home directory.
@@ -204,13 +212,13 @@
 ;; 2. string "-"
 ;; 3. value of environment variable "BAR"
 ;;
-;; If the arguments inside {...} are a shell glob pattern, and they match a single filesystem path,
+;; If the arguments inside {...} are a shell glob pattern, and they match a single filesystem entry,
 ;; such path is returned as string.
 ;;
 ;; Example: (shell-string {~/my/file.txt}) expands to a form that, when executed,
 ;; returns a string containing user's home directory followed by "/my/file.txt"
 ;;;
-;; If the shell glob pattern matches multiple filesystem paths, the form will raise an exception when executed.
+;; If the shell glob pattern matches multiple filesystem entries, the form will raise an exception when executed.
 (define-syntax shell-string
   (lambda (stx)
     (syntax-case stx ()
@@ -220,10 +228,14 @@
         (and (free-identifier=? #'macro-name #'shell )
              (free-identifier=? #'submacro-name #'shell-env))
         #`(sh-env-ref job-or-id arg))
-      ((_ job-or-id (macro-name (submacro-name arg ...)))
+      ((_ job-or-id (macro-name (submacro-name . args)))
+        (and (free-identifier=? #'macro-name #'shell )
+             (free-identifier=? #'submacro-name #'shell-backquote))
+        #`(%shell-glob sh-wildcard1 job-or-id (shell-backquote . args)))
+      ((_ job-or-id (macro-name (submacro-name . args)))
         (and (free-identifier=? #'macro-name #'shell )
              (free-identifier=? #'submacro-name #'shell-wildcard))
-        #`(%shell-glob sh-wildcard1 job-or-id arg ...)))))
+        #`(%shell-glob sh-wildcard1 job-or-id . args)))))
 
 
 ;; (in-shell-glob ...) is a shortcut for (in-list (shell-glob ...))
