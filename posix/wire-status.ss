@@ -9,7 +9,7 @@
 
 ;; customize how "status" objects are serialized/deserialized
 
-(define tag-status 245) ; must match tag-status in wire/wire.ss
+(define tag-status 243) ; must match tag-status in wire/wire.ss
 
 (define known-kind (plist->eq-hashtable '(new 0 running 1 stopped 2 exception 3 failed 4 killed 5 ok 6)))
 

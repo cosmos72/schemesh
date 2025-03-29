@@ -144,21 +144,20 @@
     (values #f #f)))
 
 
-(define (get/char8 bv pos end)
-  ;; caller is (get/any) or similar, and guarantees that (fx<? pos end)
-  (values (integer->char (%get/u8 bv pos)) (fx1+ pos)))
+;; return one value: char deserialized from 1 byte.
+(define (%get/char8 bv pos)
+  (integer->char (%get/u8 bv pos)))
 
-(define (get/char16 bv pos end)
-  (if (fx>=? (fx- end pos) 2)
-    (let ((x (%get/u16 bv pos)))
-      (cond
-        ((or (fx<=? x #xD7FF) (fx>=? x #xE000))
-          (values (integer->char x) (fx+ pos 2)))
-        ((fx<=? #xDC80 x #xDCFF)
-          (values (integer->char* x) (fx+ pos 2)))
-        (else
-          (values #f #f))))
-    (values #f #f)))
+;; return one value: char deserialized from 2 bytes, or #f on error
+(define (%get/char16 bv pos)
+  (let ((x (%get/u16 bv pos)))
+    (cond
+      ((or (fx<=? x #xD7FF) (fx>=? x #xE000))
+        (integer->char x))
+      ((fx<=? #xDC80 x #xDCFF)
+        (integer->char* x))
+      (else
+        #f))))
 
 ;; return one value: char deserialized from 3 bytes, or #f on error
 (define (%get/char24 bv pos)
@@ -170,6 +169,22 @@
         (integer->char* x))
       (else
         #f))))
+
+
+;; return two values:
+;;   char deserialized from 1 byte and updated pos
+(define (get/char8 bv pos end)
+  ;; caller is (get/any) or similar, and guarantees that (fx<? pos end)
+  (values (%get/char8 bv pos) (fx1+ pos)))
+
+;; return two values:
+;;   char deserialized from 2 bytes and updated pos,
+;;   or (values #f #f) on error
+(define (get/char16 bv pos end)
+  (if (fx>=? (fx- end pos) 2)
+    (let ((ch (%get/char16 bv pos)))
+      (values ch (if ch (fx+ pos 2) #f)))
+    (values #f #f)))
 
 ;; return two values:
 ;;   char deserialized from 3 bytes and updated pos,
@@ -229,37 +244,53 @@
   (let-values (((n pos) (get/vlen bv pos end)))
     (if (and pos (fx<=? n (fx- end pos)))
       (let ((ret (make-string n)))
-        (do ((i 0 (fx1+ i)))
-            ((fx>=? i n))
-          (string-set! ret i (integer->char (%get/u8 bv (fx+ pos i)))))
-        (values ret (fx+ pos n)))
+        (do ((i 0 (fx1+ i)) (pos pos (fx1+ pos)))
+            ((fx>=? i n)
+              (values ret pos))
+          (string-set! ret i (%get/char8 bv pos))))
       (values #f #f))))
 
-
-(define (get/string bv pos end)
+(define (get/string16 bv pos end)
   (let-values (((n pos) (get/vlen bv pos end)))
-    (if (and pos (fx<=? n (fx* max-len-char (fx- end pos))))
-      (let %get/string ((ret (make-string n)) (i 0) (pos pos))
-        (cond
-          ((not pos)
-            (values #f #f))
-          ((fx<? i n)
+    (let ((bytes-per-char 2))
+      (if (and pos (fx<=? (fx* n bytes-per-char) (fx- end pos)))
+        (let %get-string16 ((i 0) (pos pos) (ret (make-string n)))
+          (if (and pos (fx<? i n))
+            (let ((ch (%get/char16 bv pos)))
+              (if ch
+                (begin
+                  (string-set! ret i ch)
+                  (%get-string16 (fx1+ i) (fx+ pos bytes-per-char) ret))
+                (values #f #f)))
+            (values (if pos ret #f) pos)))
+        (values #f #f)))))
+
+(define (get/string24 bv pos end)
+  (let-values (((n pos) (get/vlen bv pos end)))
+    (let ((bytes-per-char 3))
+      (if (and pos (fx<=? (fx* n bytes-per-char) (fx- end pos)))
+        (let %get-string24 ((i 0) (pos pos) (ret (make-string n)))
+          (if (and pos (fx<? i n))
             (let ((ch (%get/char24 bv pos)))
               (if ch
                 (begin
                   (string-set! ret i ch)
-                  (%get/string ret (fx1+ i) (fx+ pos max-len-char)))
-                (values #f #f))))
-          (else
-            (values ret pos))))
-      (values #f #f))))
+                  (%get-string24 (fx1+ i) (fx+ pos bytes-per-char) ret))
+                (values #f #f)))
+            (values (if pos ret #f) pos)))
+        (values #f #f)))))
+
 
 (define (get/symbol8 bv pos end)
   (let-values (((str pos) (get/string8 bv pos end)))
     (values (if pos (string->symbol str) #f) pos)))
 
-(define (get/symbol bv pos end)
-  (let-values (((str pos) (get/string bv pos end)))
+(define (get/symbol16 bv pos end)
+  (let-values (((str pos) (get/string16 bv pos end)))
+    (values (if pos (string->symbol str) #f) pos)))
+
+(define (get/symbol24 bv pos end)
+  (let-values (((str pos) (get/string24 bv pos end)))
     (values (if pos (string->symbol str) #f) pos)))
 
 
@@ -318,8 +349,10 @@
                 tag-f #f tag-t #t tag-nil '() tag-void (void) tag-eof (eof-object) tag-bwp #!bwp
                 tag-char8 get/char8 tag-char16 get/char16 tag-char24 get/char24 tag-box get/box
                 tag-pair get/pair tag-list1 get/list1 tag-list* get/list* tag-list get/list
-                tag-vector get/vector tag-bytevector get/bytevector tag-string8 get/string8 tag-string get/string
-                tag-fxvector get/fxvector tag-flvector get/flvector tag-symbol8 get/symbol8 tag-symbol get/symbol
+                tag-vector   get/vector   tag-bytevector get/bytevector
+                tag-string8  get/string8  tag-string16   get/string16   tag-string24 get/string24
+                tag-fxvector get/fxvector tag-flvector   get/flvector
+                tag-symbol8  get/symbol8  tag-symbol16   get/symbol16   tag-symbol24 get/symbol24
                 tag-eq-hashtable get/eq-hashtable tag-eqv-hashtable get/eqv-hashtable tag-hashtable get/hashtable))
         (vec (make-vector 256 (void))))
     (for-plist ((tag obj plist))

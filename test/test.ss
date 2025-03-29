@@ -40,7 +40,7 @@
 
 
 (define (run-test form expected-result)
-  ; (format #t "test: ~s\n", form)
+  ;; (format #t "test: ~s\n" form)
   (call/cc
     (lambda (return)
       (let-values (((comparison exp-result) (parse-expected-result expected-result)))

@@ -66,18 +66,22 @@
 ;;;      39 => datum is vector:        n encoded as vlen, followed by n tag+datum
 ;;;      40 => datum is bytevector:    n encoded as vlen, followed by n bytes
 ;;;      41 => datum is string8:       n encoded as vlen, followed by characters each encoded as 1 byte
-;;;      42 => datum is string:        n encoded as vlen, followed by characters each encoded as 3 bytes
-;;;      43 => datum is fxvector:      n encoded as vlen, followed by n tag+datum
-;;;      44 => datum is flvector:      n encoded as vlen, followed by n IEEE float64 little-endian, each occupying 8 bytes
+;;;      42 => datum is string16:      n encoded as vlen, followed by characters each encoded as 2 bytes
+;;;      43 => datum is string24:      n encoded as vlen, followed by characters each encoded as 3 bytes
+;;;      44 => datum is fxvector:      n encoded as vlen, followed by n tag+datum
+;;;      45 => datum is flvector:      n encoded as vlen, followed by n IEEE float64 little-endian, each occupying 8 bytes
 ;;;      46 => datum is symbol8:       n encoded as vlen, followed by characters each encoded as 1 byte
-;;;      46 => datum is symbol:        n encoded as vlen, followed by characters each encoded as 3 bytes
-;;;      50 => datum is eq-hashtable:  n encoded as vlen, followed by 2 * n tag+datum
-;;;      51 => datum is eqv-hashtable: n encoded as vlen, followed by 2 * n tag+datum
-;;;      52 => datum is equal-hashtable: hash function name encoded as symbol, checked against a whitelist
+;;;      47 => datum is symbol16:      n encoded as vlen, followed by characters each encoded as 2 bytes
+;;;      48 => datum is symbol24:      n encoded as vlen, followed by characters each encoded as 3 bytes
+;;;      49 => datum is time:          encoded as 3 tag+datum: time-type, time-second, time-nanosecond
+;;;      50 => datum is enum-set
+;;;      51 => datum is eq-hashtable:  n encoded as vlen, followed by 2 * n tag+datum
+;;;      52 => datum is eqv-hashtable: n encoded as vlen, followed by 2 * n tag+datum
+;;;      53 => datum is equal-hashtable: hash function name encoded as symbol, checked against a whitelist
 ;;;                                      followed by equal function name encoded as symbol, checked against a whitelist
 ;;;                                      followed by n encoded as vlen, followed by 2 * n tag+datum
-;;       53 ... 86  => datum is a known symbol
-;;;      87 ... 244 => datum is a registered record type
+;;       55 ... 88  => datum is a known symbol
+;;;      89 ... 244 => datum is a registered record type
 ;;;     245 ... 253 => datum is a pre-registered record type
 ;;;     254 => datum is magic string: bytes #\w #\i #\r #\e VERSION-LO VERSION-HI
 ;;;     255 => datum starts with extended tag
@@ -108,7 +112,7 @@
     (prefix (only (chezscheme) char=? char-ci=? string=? string-ci=?)
             chez:)
 
-    (only (schemesh bootstrap) assert* fx<=?*)
+    (only (schemesh bootstrap) assert* fx<=?* trace-define)
     (schemesh containers))
 
 (define len-header 4)  ; header is encoded as 4 bytes
@@ -158,44 +162,50 @@
 (define tag-vector   39)
 (define tag-bytevector 40)
 (define tag-string8    41)
-(define tag-string     42)
-(define tag-fxvector   43)
-(define tag-flvector   44)
-(define tag-symbol8    45)
-(define tag-symbol     46)
-(define tag-eq-hashtable  50)
-(define tag-eqv-hashtable 51)
-(define tag-hashtable     52)
+(define tag-string16   42)
+(define tag-string24   43)
+(define tag-fxvector   44)
+(define tag-flvector   45)
+(define tag-symbol8    46)
+(define tag-symbol16   47)
+(define tag-symbol24   48)
+(define tag-time       49)
+(define tag-enum-set   50)
+(define tag-eq-hashtable  51)
+(define tag-eqv-hashtable 52)
+(define tag-hashtable     53)
 
-(define tag-status       245) ; implemented in posix/wire-status.ss
-(define tag-span         246) ; n encoded as vlen, followed by n elements each encoded as tag+datum
-(define tag-gbuffer      247) ; n encoded as vlen, followed by n elements each encoded as tag+datum
-(define tag-bytespan     248) ; n encoded as vlen, followed by n bytes
-(define tag-bytegbuffer  249) ; NOT IMPLEMENTED
-(define tag-charspan8    250) ; n encoded as vlen, followed by n characters each encoded as u8
-(define tag-charspan     251) ; n encoded as vlen, followed by n characters each encoded as u24
-(define tag-chargbuffer8 252) ; n encoded as vlen, followed by n characters each encoded as u8
-(define tag-chargbuffer  253) ; n encoded as vlen, followed by n characters each encoded as u24
-(define tag-magic-bytes  254)
+(define tag-status        243) ; implemented in posix/wire-status.ss
+(define tag-span          244) ; n encoded as vlen, followed by n elements each encoded as tag+datum
+(define tag-gbuffer       245) ; n encoded as vlen, followed by n elements each encoded as tag+datum
+(define tag-bytespan      246) ; n encoded as vlen, followed by n bytes
+(define tag-bytegbuffer   247) ; NOT IMPLEMENTED
+(define tag-charspan8     248) ; n encoded as vlen, followed by n characters each encoded as u8
+(define tag-charspan16    249) ; n encoded as vlen, followed by n characters each encoded as u16
+(define tag-charspan24    250) ; n encoded as vlen, followed by n characters each encoded as u24
+(define tag-chargbuffer8  251) ; n encoded as vlen, followed by n characters each encoded as u8
+(define tag-chargbuffer16 252) ; n encoded as vlen, followed by n characters each encoded as u16
+(define tag-chargbuffer24 253) ; n encoded as vlen, followed by n characters each encoded as u24
+(define tag-magic-bytes   254)
 
 ;;; magic bytes: #x8 #x0 #x0 #x0 #xFF w i r e #x0 #x0 #x0
 ;;;              the last three bytes are version-lo version-mid version-hi
 
 (define known-sym
   (eq-hashtable
-    'boolean=? 53 'boolean-hash 54
-    'bytevector=? 55 'bytevector-hash 56
-    'cfl= 57 'cfl-hash 58
-    'char=? 59 'char-ci=? 60 'char->integer 61 ; usable as hash function for char=?
-    'enum-set=? 62 'enum-set-hash 63
-    'eq? 64 'eqv? 65 'equal? 66 'equal-hash 67
-    'fl=? 68 'fl-hash 69
-    'fx=? 70 'fx-hash 71
-    'string=? 72 'string-ci=? 73 'string-hash 74 'string-ci-hash 75
-    'symbol=? 76 'symbol-hash 77
-    'time=? 78 'time-collector-cpu 79 'time-collector-real 80
-    'time-duration 81 'time-hash 82 'time-monotonic 83
-    'time-process 84 'time-thread 85 'time-utc 86))
+    'boolean=? 55 'boolean-hash 56
+    'bytevector=? 57 'bytevector-hash 58
+    'cfl= 59 'cfl-hash 60
+    'char=? 61 'char-ci=? 62 'char->integer 63 ; usable as hash function for char=?
+    'enum-set=? 64 'enum-set-hash 65
+    'eq? 66 'eqv? 67 'equal? 68 'equal-hash 69
+    'fl=? 70 'fl-hash 71
+    'fx=? 72 'fx-hash 73
+    'string=? 74 'string-ci=? 75 'string-hash 76 'string-ci-hash 77
+    'symbol=? 78 'symbol-hash 79
+    'time=? 80 'time-collector-cpu 81 'time-collector-real 82
+    'time-duration 83 'time-hash 84 'time-monotonic 85
+    'time-process 86 'time-thread 87 'time-utc 88))
 
 (define (symbol->tag sym)
   (hashtable-ref known-sym sym #f))
@@ -512,9 +522,9 @@
     (len/any pos (unbox obj))))
 
 (define (put/box bv pos obj)
-  (let* ((end0 (put/tag bv pos tag-box))
-         (end1 (put/any bv end0 (unbox obj))))
-    end1))
+  (let* ((pos (put/tag bv pos tag-box))
+         (pos (put/any bv pos (unbox obj))))
+    pos))
 
 
 ;; 1-element proper list
@@ -590,37 +600,46 @@
                (end2 (put/any bv end1 (cdr obj))))
           end2)))))
 
-;; return #t if all characters in string obj are char<=? #\xFF
-(define (string8? obj)
-  (do ((i 0 (fx1+ i))
-       (n (string-length obj)))
-      ((or (fx>=? i n) (char>? (string-ref obj i) #\xFF))
-        (fx>=? i n))))
+;; return the higher-numbered character between ch1 and ch2
+(define (char-max ch1 ch2)
+  (if (char<? ch1 ch2) ch2 ch1))
+
+;; return the number of bytes needed to serialize given character: either 1, 2 or 3
+(define (char-len ch)
+  (cond ((char<=? ch #\xFF)   1)
+        ((char<=? ch #\xFFFF) 2)
+        (else                 3)))
+
+;; return the number of bytes needed to serialize
+;; the highest-numbered character in string: either 1, 2 or 3
+(define (bytes-per-char/string s n)
+  (let %again ((i 0) (max-ch #\nul))
+    (if (and (fx<? i n) (char<=? max-ch #\xFFFF))
+      (%again (fx1+ i) (char-max max-ch (string-ref s i)))
+      (char-len max-ch))))
 
 (define (len/string pos obj)
-  (let ((n (string-length obj)))
+  (let* ((n (string-length obj))
+         (bytes-per-char (bytes-per-char/string obj n)))
     (vlen+ n ;; n is encoded as vlen
-      (tag+ pos
-        (if (string8? obj)
-          n ;; each character is encoded as 1 byte
-          (fx* n max-len-char))))))  ;; each character is encoded as max-len-char bytes
+      (tag+ pos (fx* n bytes-per-char))))) ;; each character is encoded as bytes-per-char bytes
 
+(define tags-string (vector tag-string8 tag-string16 tag-string24))
 
 (define (put/string bv pos obj)
   (let* ((n (string-length obj))
-         (v obj)
-         (str8? (string8? v))
-         (end0 (put/tag  bv pos (if str8? tag-string8 tag-string)))
-         (end1 (put/vlen bv end0 n)) ; n is encoded as vlen
-         (step (if str8? 1 max-len-char)))
+         (bytes-per-char (bytes-per-char/string obj n))
+         (end0 (put/tag  bv pos (vector-ref tags-string (fx1- bytes-per-char))))
+         (end1 (put/vlen bv end0 n))) ; n is encoded as vlen
     (do ((i 0 (fx1+ i))
-         (pos end1 (fx+ pos step)))
+         (pos end1 (fx+ pos bytes-per-char)))
         ((fx>=? i n)
            pos)
-        (let ((ch-int (char->integer (string-ref v i))))
-          (if str8?
-            (put/u8  bv pos ch-int)
-            (put/u24 bv pos ch-int))))))
+        (let ((ch-int (char->integer (string-ref obj i))))
+          (case bytes-per-char
+            ((1)  (put/u8  bv pos ch-int))
+            ((2)  (put/u16 bv pos ch-int))
+            (else (put/u24 bv pos ch-int)))))))
 
 
 (define (len/symbol pos obj)
@@ -635,7 +654,7 @@
       (put/tag bv pos tag)
       (let* ((end (put/string bv pos (symbol->string obj)))
              (old-tag (%get/tag bv pos))
-             (new-tag (fx+ old-tag (fx- tag-symbol tag-string))))
+             (new-tag (fx+ old-tag (fx- tag-symbol8 tag-string8))))
         (put/tag bv pos new-tag)
         end))))
 
@@ -839,14 +858,16 @@
 (include "wire/container.ss")
 
 (begin
-  (wire-register-rtd (record-rtd (span))        tag-span        len/span        get/span        put/span)
-  (wire-register-rtd (record-rtd (gbuffer))     tag-gbuffer     len/gbuffer     get/gbuffer     put/gbuffer)
-  (wire-register-rtd (record-rtd (bytespan))    tag-bytespan    len/bytespan    get/bytespan    put/bytespan)
-  (wire-register-rtd (record-rtd (charspan))    tag-charspan    len/charspan    get/charspan    put/charspan)
-  (wire-register-rtd (record-rtd (chargbuffer)) tag-chargbuffer len/chargbuffer get/chargbuffer put/chargbuffer)
+  (wire-register-rtd (record-rtd (span))        tag-span          len/span        get/span          put/span)
+  (wire-register-rtd (record-rtd (gbuffer))     tag-gbuffer       len/gbuffer     get/gbuffer       put/gbuffer)
+  (wire-register-rtd (record-rtd (bytespan))    tag-bytespan      len/bytespan    get/bytespan      put/bytespan)
+  (wire-register-rtd (record-rtd (charspan))    tag-charspan24    len/charspan    get/charspan24    put/charspan)
+  (wire-register-rtd (record-rtd (chargbuffer)) tag-chargbuffer24 len/chargbuffer get/chargbuffer24 put/chargbuffer)
 
-  (vector-set! known-tag tag-charspan8    get/charspan8)
-  (vector-set! known-tag tag-chargbuffer8 get/chargbuffer8)
+  (vector-set! known-tag tag-charspan8     get/charspan8)
+  (vector-set! known-tag tag-charspan16    get/charspan16)
+  (vector-set! known-tag tag-chargbuffer8  get/chargbuffer8)
+  (vector-set! known-tag tag-chargbuffer16 get/chargbuffer16)
 
 ) ; close begin
 
