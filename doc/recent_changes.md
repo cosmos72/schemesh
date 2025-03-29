@@ -3,8 +3,20 @@
 
 ### git main branch
 
-* add functions `(get-char) (get-datum) (get-line) (get-string-all) (get-string-n)`
-  and `(put-char) (put-datum) (put-string) (put-string-some)`
+* fix issue #12: bug in shell syntax when parsing assignment after backslash+newline
+* fix macro `(in-hash-pairs)`
+* implement shell builtin `wait`
+* add standalone executable `countdown` as an alternative to `sleep`
+* add macros `(shell-glob)` and `(shell-string)` for expanding shell syntax to, respectively,
+  a list of strings or a single string.
+* add macro `(in-shell-glob)` as a shortcut for `(in-list (shell-glob))`
+* add functions `(bytespan->bytevector0) (countdown) (chargbuffer->charspans*) (chargbuffer->string)`
+  `(charlines->charspan) (charlines->string) (fd-seek) (open-socketpair-fds)`
+* add functions `(getenv) (putenv)`
+  `(get-bytevector-all) (get-bytevector-n) (get-bytevector-some)`
+  `(get-char) (get-datum) (get-line) (get-string-all) (get-string-n) (get-u8)`
+  `(put-bytevector) (put-bytevector-some)`
+  `(put-char) (put-datum) (put-string) (put-string-some) (put-u8)`
   they are exported only by libraries `(schemesh)` or `(schemesh posix replacements)`
   because they intentionally conflict with with R6RS and Chez Scheme functions with the same names:
   they are intended as replacements.
@@ -12,6 +24,23 @@
   with the addition that textual-port is optional and defaults respectively
   to `(current-input-port)` for `(get-...)` functions
   and to `(current-output-port)` for `(put-...)` functions
+* add functions `(datum->wire) (wire->datum) (wire-get) (wire-length) (wire-put)`
+  for serializing/deserializing arbitrary data from/to a bytevector
+* add functions `(wire-register-rtd) (wire-reserve-tag) (wire-inner-len) (wire-inner-get) (wire-inner-put)`
+  for registering and implementing custom serializers and deserializers
+* extend functions `(sh-find-job)` and `(sh-job)` to accept `#f`
+  as a shortcut for `(or (sh-current-job) (sh-globals))`
+* improve functions `(sh-fg) (sh-bg) (sh-wait)` to re-raise exceptions thrown by Scheme jobs
+* allow getting/setting port position in ports returned by functions
+  `(open-fd-redir-...-port) (open-file-binary-input-port) (open-file-utf8b-input-port)`
+  `(current-input-port) (current-out-port) (current-error-port) (sh-stdin) (sh-stdout) (sh-stderr)`
+  if the underlying file descriptor supports seeking.
+* improve the following functions to also accepts bytespan paths in addition to bytevector, string and charspan:
+  `(delete-directory) (delete-file) (directory-list) (directory-list-type) (mkdir)`
+  `(file-delete) (file-directory?) (file-exists?) (file-rename) (file-regular?) (file-type)`
+  `(open-file-fd) (open-file-utf8b-input-port) (text->bytevector) (text->bytevector0)`
+* improve source code conformance to r6rs, and start creating an - incomplete - Racket compatibility layer
+  to use when compiling schemesh from Racket #!r6rs mode
 
 ### release v0.8.1, 2025-03-15
 
