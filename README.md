@@ -169,20 +169,6 @@ b
 #\c
 ```
 
-### [NEW in version 0.8.2]
-
-Shell syntax that expands to strings can be used also from Scheme
-with macro `(shell-glob {...})`, that returns a list of strings,
-and macro `(shell-string {...})`, that returns a single string. Examples:
-```lisp
-> (shell-glob {/*})
-("/bin" "/boot" "/dev" "/etc" "/home" "/lib" "/lost+found" "/mnt"
- "/proc" "/root" "/run" "/sbin" "/srv" "/sys" "/tmp" "/usr" "/var")
-
-> (shell-string {$PATH:$HOME/.local/bin})
-"/usr/local/bin:/usr/bin:/bin:/home/user/.local/bin"
-```
-
 ### [NEW in version 0.8.1]
 
 Standard Scheme textual ports `(current-input-port)` `(current-output-port)` `(current-error-port)`
@@ -211,6 +197,19 @@ CTRL+Z
 (ok "hello")
 ```
 
+### [NEW in version 0.8.2]
+
+Shell syntax that expands to strings can be used also from Scheme
+with macro `(shell-glob {...})`, that returns a list of strings,
+and macro `(shell-string {...})`, that returns a single string. Examples:
+```lisp
+> (shell-glob {/*})
+("/bin" "/boot" "/dev" "/etc" "/home" "/lib" "/lost+found" "/mnt"
+ "/proc" "/root" "/run" "/sbin" "/srv" "/sys" "/tmp" "/usr" "/var")
+
+> (shell-string {$PATH:$HOME/.local/bin})
+"/usr/local/bin:/usr/bin:/bin:/home/user/.local/bin"
+```
 
 ### Subshells and command substitution
 
