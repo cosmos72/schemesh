@@ -34,7 +34,7 @@ exec_prefix = $(prefix)
 bindir      = $(exec_prefix)/bin
 libdir      = $(exec_prefix)/lib
 
-SCHEMESH_LIBDIR = $(libdir)/schemesh
+SCHEMESH_DIR = $(libdir)/schemesh
 
 
 # installation programs. Names and values are taken from GNU Makefile conventions
@@ -70,7 +70,7 @@ posix.o: posix/posix.c posix/posix.h posix/signal.h eval.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I"$(CHEZ_SCHEME_DIR)"
 
 shell.o: shell/shell.c shell/shell.h containers/containers.h eval.h posix/posix.h
-	$(CC) -o $@ -c $< $(CFLAGS) -I"$(CHEZ_SCHEME_DIR)" -DCHEZ_SCHEME_DIR="$(CHEZ_SCHEME_DIR)" -DSCHEMESH_LIBDIR="$(SCHEMESH_LIBDIR)"
+	$(CC) -o $@ -c $< $(CFLAGS) -I"$(CHEZ_SCHEME_DIR)" -DCHEZ_SCHEME_DIR="$(CHEZ_SCHEME_DIR)" -DSCHEMESH_DIR="$(SCHEMESH_DIR)"
 
 
 
@@ -97,21 +97,21 @@ countdown: utils/countdown.c
 
 installdirs:
 	$(MKDIR_P) "$(DESTDIR)$(bindir)"
-	$(MKDIR_P) "$(DESTDIR)$(SCHEMESH_LIBDIR)"
+	$(MKDIR_P) "$(DESTDIR)$(SCHEMESH_DIR)"
 
 install: all installdirs
 	$(INSTALL_PROGRAM) schemesh countdown "$(DESTDIR)$(bindir)"
-	$(INSTALL_DATA) $(LIBSCHEMESH_SO) "$(DESTDIR)$(SCHEMESH_LIBDIR)"
+	$(INSTALL_DATA) $(LIBSCHEMESH_SO) "$(DESTDIR)$(SCHEMESH_DIR)"
 
 uninstall:
-	rm -f "$(DESTDIR)$(bindir)/schemesh" "$(DESTDIR)$(bindir)/countdown" "$(DESTDIR)$(SCHEMESH_LIBDIR)/$(LIBSCHEMESH_SO)" "$(DESTDIR)$(SCHEMESH_LIBDIR)/$(LIBSCHEMESH_C_SO)"
+	rm -f "$(DESTDIR)$(bindir)/schemesh" "$(DESTDIR)$(bindir)/countdown" "$(DESTDIR)$(SCHEMESH_DIR)/$(LIBSCHEMESH_SO)" "$(DESTDIR)$(SCHEMESH_DIR)/$(LIBSCHEMESH_C_SO)"
 
 
 # by default, C shared library is not compiled.
 c_so: $(LIBSCHEMESH_C_SO)
 
 $(LIBSCHEMESH_C_SO): $(SRCS)
-	$(CC_SO) -o $@ $^ $(CFLAGS) -I"$(CHEZ_SCHEME_DIR)" -DCHEZ_SCHEME_DIR="$(CHEZ_SCHEME_DIR)" -DSCHEMESH_LIBDIR="$(SCHEMESH_LIBDIR)" $(LDFLAGS)
+	$(CC_SO) -o $@ $^ $(CFLAGS) -I"$(CHEZ_SCHEME_DIR)" -DCHEZ_SCHEME_DIR="$(CHEZ_SCHEME_DIR)" -DSCHEMESH_DIR="$(SCHEMESH_DIR)" $(LDFLAGS)
 
 install_c_so: $(LIBSCHEMESH_C_SO) installdirs
-	$(INSTALL_DATA) $(LIBSCHEMESH_C_SO) "$(DESTDIR)$(SCHEMESH_LIBDIR)"
+	$(INSTALL_DATA) $(LIBSCHEMESH_C_SO) "$(DESTDIR)$(SCHEMESH_DIR)"
