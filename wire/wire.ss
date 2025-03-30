@@ -90,7 +90,7 @@
 
 (library (schemesh wire (0 8 2))
   (export datum->wire wire->datum wire-get wire-length wire-put
-          wire-register-rtd  wire-reserve-tag
+          wire-register-rtd  wire-register-rtd-fields  wire-reserve-tag
           ;; internal functions, exported for types that want to define their own serializer/deserializer
           (rename (len/any wire-inner-len)
                   (get/any wire-inner-get)
@@ -111,7 +111,7 @@
 
     ;; these predicates are equivalent to their r6rs counterparts,
     ;; only extended to also accept 1 argument
-    (prefix (only (chezscheme) char=? char-ci=? string=? string-ci=?)
+    (prefix (only (chezscheme) char=? char-ci=? record-constructor string=? string-ci=?)
             chez:)
 
     (only (schemesh bootstrap) assert* fx<=?* trace-define)
@@ -733,34 +733,7 @@
       #f)))
 
 
-(define known-rtd (make-eq-hashtable))
-
-(define (wire-register-rtd rtd tag-value len-proc get-proc put-proc)
-  (assert* 'wire-register-rtd (record-type-descriptor? rtd))
-  (assert* 'wire-register-rtd (fixnum? tag-value))
-  (assert* 'wire-register-rtd (fx<=? min-tag-to-allocate tag-value max-tag-to-allocate))
-  (assert* 'wire-register-rtd (procedure? len-proc))
-  (assert* 'wire-register-rtd (procedure? get-proc))
-  (assert* 'wire-register-rtd (procedure? put-proc))
-  (assert* 'wire-register-rtd (logbit? 2 (procedure-arity-mask len-proc)))
-  (assert* 'wire-register-rtd (logbit? 3 (procedure-arity-mask get-proc)))
-  (assert* 'wire-register-rtd (logbit? 3 (procedure-arity-mask put-proc)))
-  (hashtable-set! known-rtd rtd (cons len-proc put-proc))
-  (vector-set! known-tag tag-value get-proc))
-
-
-(define (len/record pos obj)
-  (let ((procs (hashtable-ref known-rtd (record-rtd obj) #f)))
-    (if procs
-      ((car procs) pos obj)
-      #f)))
-
-(define (put/record bv pos obj)
-  (let ((procs (hashtable-ref known-rtd (record-rtd obj) #f)))
-    (if procs
-      ((cdr procs) bv pos obj)
-      #f)))
-
+(include "wire/record.ss")
 (include "wire/vector.ss")
 
 ;; recursively traverse obj and return the number of bytes needed to serialize obj
