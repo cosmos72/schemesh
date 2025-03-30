@@ -423,6 +423,9 @@
 ;;   either object and number of consumed bytes,
 ;;   or #f #f if serialized bytes are invalid
 ;;   or #f -NNN if not enough bytes are available and at least NNN bytes should be added to the bytespan end.
+;;
+;; raises exception if src is not a bytevector or a bytespan,
+;; or if start and end are out-of-range.
 (define wire->datum
   (case-lambda
     ((src)
@@ -432,10 +435,11 @@
     ((src start end)
       (if (bytevector? src)
         (let ((len (bytevector-length src)))
-          (if (fx<=?* 0 start end len)
-            (wire-get src start end)
-            (values #f #f)))
-        (let ((offset (bytespan-peek-beg src)))
-          (if (fx<=?* 0 start end (bytespan-length src))
-            (wire-get (bytespan-peek-data src) (fx+ start offset) (fx+ end offset))
-            (values #f #f)))))))
+          (assert* 'wire->datum (fx<=?* 0 start end len))
+          (wire-get src start end))
+        (begin
+          (assert* 'wire->datum (bytespan? src))
+          (let ((len (bytevector-length src))
+                (offset (bytespan-peek-beg src)))
+            (assert* 'wire->datum (fx<=?* 0 start end len))
+            (wire-get (bytespan-peek-data src) (fx+ start offset) (fx+ end offset))))))))
