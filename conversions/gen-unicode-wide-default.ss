@@ -1,0 +1,13 @@
+(or
+  (char<=? #\x2F00 ch #\x2FD5)
+  (char<=? #\x3250 ch #\xA48C)
+  (char<=? #\xAC00 ch #\xD7A3)
+  (char<=? #\xF900 ch #\xFAFF)
+  (char<=? #\x17000 ch #\x187F7)
+  (char<=? #\x18800 ch #\x18CD5)
+  (char<=? #\x1B000 ch #\x1B122)
+  (char<=? #\x1B170 ch #\x1B2FB)
+  (char<=? #\x1F442 ch #\x1F4FC)
+  (char<=? #\x1F947 ch #\x1F9FF)
+  (char<=? #\x20000 ch #\x3FFFF)
+)
