@@ -1,9 +1,10 @@
 #!/usr/bin/env schemesh
 
-(sh-run {
-  curl http://www.unicode.org/Public/UCD/latest/ucd/EastAsianWidth.txt --output gen-unicode-width.txt &&
-  grep '^[0-9A-F]' gen-unicode-width.txt | cut -d'#' -f1 | grep '; [FW]' | cut -d';' -f1 | tr '.' ' ' > gen-unicode-wide.txt
-})
+(unless (file-type "gen-unicode-wide.txt")
+  (sh-run
+    {curl http://www.unicode.org/Public/UCD/latest/ucd/EastAsianWidth.txt --output gen-unicode-width.txt &&
+     grep '^[0-9A-F]' gen-unicode-width.txt | cut -d'#' -f1 | grep '; [FW]' | cut -d';' -f1 | tr '.' ' ' > gen-unicode-wide.txt}))
+
 
 ; The unassigned code points in the following blocks default to "W":
 ;         CJK Unified Ideographs Extension A: U+3400..U+4DBF
