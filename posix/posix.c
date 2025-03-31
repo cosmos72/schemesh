@@ -1607,6 +1607,11 @@ static int c_cmd_spawn_or_exec(ptr vector_of_bytevector0_cmdline,
       break;
 
     case 0: { /* child */
+      /*
+       * only call async-safe functions until execv(), in case parent process is multi-threaded
+       * and malloc() or other global resources  were locked or in an inconsistent state
+       * (in the middle of a call) when fork() was executed.
+       */
       char** saved_environ = environ;
 
       if (is_spawn) {
