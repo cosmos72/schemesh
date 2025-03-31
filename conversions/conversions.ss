@@ -12,7 +12,10 @@
     display-condition* display-any display-bytevector0 write-bytevector0
     any->bytevector text->bytevector
     any->bytevector0 bytevector->bytevector0 text->bytevector0
-    any->string argv->list list->argv string-hashtable->argv transcoder-utf8)
+    any->string argv->list list->argv string-hashtable->argv transcoder-utf8
+
+    ;; unicode.ss
+    char-display-wide?)
   (import
     (rnrs)
     (only (rnrs mutable-pairs)   set-car!)
@@ -24,7 +27,8 @@
                                  charspan? charspan-empty? charspan-index/char charspan->utf8b charspan->utf8b/0
                                  for-hash for-list make-bytespan string-index
                                  string->utf8b string->utf8b/0 utf8b->string utf8b->string
-                                 vector-sort*!))
+                                 vector-sort*!)
+    (schemesh conversions unicode))
 
 
 (define display-condition*

@@ -26,8 +26,8 @@
 #define STR_(arg) #arg
 #define STR(arg) STR_(arg)
 #define CHEZ_SCHEME_DIR_STR STR(CHEZ_SCHEME_DIR)
-#ifdef SCHEMESH_LIBDIR
-#define SCHEMESH_LIBDIR_STR STR(SCHEMESH_LIBDIR)
+#ifdef SCHEMESH_DIR
+#define SCHEMESH_DIR_STR STR(SCHEMESH_DIR)
 #endif
 
 static void c_cleanup_signals(void) {
@@ -106,8 +106,8 @@ int schemesh_load_libraries(const char* override_library_dir) {
   if (override_library_dir != NULL) {
     ret = call_try_load(try_load_proc, override_library_dir);
   } else {
-#ifdef SCHEMESH_LIBDIR_STR
-    ret = call_try_load(try_load_proc, SCHEMESH_LIBDIR_STR);
+#ifdef SCHEMESH_DIR_STR
+    ret = call_try_load(try_load_proc, SCHEMESH_DIR_STR);
 #endif
     if (ret != Strue) {
       ret = call_try_load(try_load_proc, "/usr/local/lib/schemesh");

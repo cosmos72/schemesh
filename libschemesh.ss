@@ -30,6 +30,7 @@
   (include "containers/macros.ss")
   (include "containers/containers.ss")
 
+  (include "conversions/unicode.ss")
   (include "conversions/conversions.ss")
 
   (include "wire/wire.ss")
