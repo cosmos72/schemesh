@@ -78,7 +78,9 @@
     ((linectx-redraw? lctx)
       (linectx-redraw-all lctx))
     ((vscreen-dirty? (linectx-vscreen lctx))
-      (linectx-redraw-dirty lctx 'highlight))))
+      (linectx-redraw-dirty lctx 'highlight))
+    (else
+      (linectx-redraw-cursor+paren lctx))))
 
 
 ;; erase everything, then set flag "redraw prompt and lines"
