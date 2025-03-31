@@ -211,7 +211,8 @@
         (new-paren (lineedit-paren-find/before-cursor lctx)))
     (unless (paren-equal-xy? old-paren new-paren)
       (linectx-draw-paren lctx old-paren 'plain)
-      (linectx-draw-paren lctx new-paren 'highlight)
+      (linectx-draw-paren lctx new-paren 'highlight))
+    (unless (eq? old-paren new-paren)
       (linectx-paren-set! lctx new-paren)))
 
   ;; move the cursor to final position, and update term-x and term-y accordingly
