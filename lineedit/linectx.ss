@@ -20,7 +20,7 @@
     linectx-parenmatcher linectx-paren linectx-paren-set!
     linectx-clipboard linectx-clipboard-clear!
     linectx-completions linectx-completion-stem linectx-completion-func
-    linectx-parser-name linectx-parser-name-set!
+    linectx-flags linectx-parser-name linectx-parser-name-set!
     linectx-parsers linectx-parsers-set!
     linectx-history linectx-history-index linectx-history-index-set! linectx-to-history*
     linectx-clear!  linectx-flush linectx-read linectx-read-some linectx-show-error
@@ -267,8 +267,8 @@
           (fd-write-all stdout bv beg end)
           (begin
             (put-bytevector stdout bv beg (fx- end beg))
-            (flush-output-port stdout)))
-        (bytespan-clear! wbuf)))))
+            (flush-output-port stdout))))
+      (bytespan-clear! wbuf))))
 
 
 ;; read some bytes, blocking at most for read-timeout-milliseconds
@@ -277,6 +277,7 @@
 ;; return number of read bytes, or 0 on timeout, or -1 on eof
 (define (linectx-read lctx read-timeout-milliseconds)
   (linectx-flush lctx)
+  ;;a (debugf "...before read  lineedit-read rbuf=~s wbuf=~s flags=~s vscreen=~s" (linectx-rbuf lctx) (linectx-wbuf lctx) (linectx-flags lctx) (linectx-vscreen lctx))
   (linectx-read-some lctx 1024 read-timeout-milliseconds))
 
 

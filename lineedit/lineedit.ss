@@ -32,10 +32,12 @@
     (rnrs)
     (only (chezscheme)    break-handler console-output-port console-error-port
                           display-condition format fx1+ fx1- fx/ include inspect
-                          make-time record-writer sleep top-level-value void)
+                          parameterize record-writer sleep top-level-value void)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh posix fd)
+    (only (schemesh posix signal) countdown signal-consume-sigwinch)
+    (schemesh posix tty)
     (schemesh lineedit vscreen)
     (schemesh lineedit charhistory)
     (schemesh lineedit paren)
@@ -43,9 +45,8 @@
     (schemesh lineedit linectx)
     (schemesh lineedit lineterm)
     (only (schemesh lineedit parser) make-parsectx*)
-    (only (schemesh lineedit charlines io) open-charlines-input-port)
-    (schemesh posix tty)
-    (only (schemesh posix signal) signal-consume-sigwinch))
+    (only (schemesh lineedit charlines io) open-charlines-input-port))
+
 
 
 ;; find one key sequence in linectx-keytable matching rbuf and execute it
@@ -200,6 +201,7 @@
       (linectx-clear! lctx) ;; clear vscreen
       lines)))
 
+
 ;; repeatedly call (linectx-keytable-call) until ENTER is found and processed,
 ;; or until no more keytable matches are found.
 ;; if user pressed ENTER, return a reference to internal charlines (linectx-vscreen)
@@ -219,9 +221,12 @@
       (linectx-eof-set! lctx #f)
       ;; set flag "redraw prompt and lines" in case lctx is used by an outer repl
       (linectx-redraw-set! lctx #t)
-      ;; return
+      ;; return end-of-file
       #f)
-    (else #t)))
+    (else
+      ;; need more keypresses. caller will sleep, draw before sleeping
+      (linectx-redraw-as-needed lctx)
+      #t)))
 
 
 ;; return x y position immediately to the left of cursor.
@@ -395,45 +400,32 @@
 
 
 ;; actual implementation of (lineedit-read)
-(define (%%lineedit-read lctx timeout-milliseconds)
-  (let ((ret (if (bytespan-empty? (linectx-rbuf lctx))
-               #t ; need more input
-               ; some bytes already in rbuf, try to consume them
-               (linectx-keytable-iterate lctx))))
-    (if (eq? #t ret)
-      ; need more input
-      (let ((n (linectx-read lctx timeout-milliseconds)))
-        (cond
-          ((fx>? n 0)
-            ; got some bytes, call again (linectx-keytable-iterate) and return its value
-             (linectx-keytable-iterate lctx))
-          ((fxzero? n)
-             ; read interrupted or timed out, return #t
-             (linectx-consume-sigwinch lctx)
-             #t)
-          (else
-             ; end-of-file, return #f
-             #f)))
-      ; propagate return value of first (linectx-keytable-iterate)
-      ret)))
-
-
-;; wrapper around (%%lineedit-read)
 (define (%lineedit-read lctx timeout-milliseconds)
-  (let* ((break-swapper (parameter-swapper break-handler nop)))
-    (dynamic-wind
-      (lambda () ; before body
-        (break-swapper)
-        (flush-output-port (console-output-port))
-        (flush-output-port (console-error-port))
-        (linectx-consume-sigwinch lctx)
-        (linectx-redraw-as-needed lctx)
-        (lineedit-flush lctx))
-      (lambda () ; body
-        (%%lineedit-read lctx timeout-milliseconds))
-      (lambda () ; after body
-        (lineedit-flush lctx)
-        (break-swapper)))))
+  (flush-output-port (console-output-port))
+  (flush-output-port (console-error-port))
+  (linectx-consume-sigwinch lctx)
+
+  (let ((ret (linectx-keytable-iterate lctx)))
+    (cond
+      ((eq? #t ret)
+        ;; need more input.
+        (let ((n (linectx-read lctx timeout-milliseconds)))
+          (cond
+            ((fx>? n 0)
+              ; got some bytes, call again (linectx-keytable-iterate)
+              (linectx-keytable-iterate lctx))
+            ((fxzero? n)
+               ; read interrupted or timed out, return #t
+               (linectx-consume-sigwinch lctx)
+               #t)
+            (else
+               ; end-of-file, return #f
+               #f))))
+      (else
+        ;; propagate return value of first (linectx-keytable-iterate)
+        ;;a (debugf "...skipped read lineedit-read rbuf=~s wbuf=~s flags=~s vscreen=~s ret=~s" (linectx-rbuf lctx) (linectx-wbuf lctx) (linectx-flags lctx) (linectx-vscreen lctx) ret)
+        ret))))
+
 
 ;; Main entry point of lineedit library.
 ;; Reads user input from linectx-stdin and processes it.
@@ -443,11 +435,14 @@
 ;; if got end-of-file, return #f
 (define (lineedit-read lctx timeout-milliseconds)
   (try
-    (%lineedit-read lctx timeout-milliseconds)
+    (parameterize ((break-handler nop))
+      (let ((ret (%lineedit-read lctx timeout-milliseconds)))
+        (linectx-flush lctx)
+        ret))
     (catch (ex)
       (linectx-show-error lctx "Exception in lineedit-read" ex)
       ;; sleep 0.2 seconds, to rate-limit error messages
-      (sleep (make-time 'time-duration 200000000 0))
+      (countdown '(0 . 200000000))
       ;; assume error is recoverable, return "waiting for more keypresses"
       #t)))
 
