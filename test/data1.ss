@@ -209,66 +209,66 @@
       (list (vscreen-cursor-ix screen)
             (vscreen-cursor-iy screen) screen))        ,(2 1 (vscreen* 9 30 "abcdefgh0" "12\n" "qwerty"))
   ;; ------------------------ wire ----------------------------------------
-  (datum->wire (void))                                 #vu8(0 0 0 0)
-  (datum->wire "\xFF;")                                #vu8(3 0 0 0 41 1 255)
-  (datum->wire "\x100;")                               #vu8(4 0 0 0 42 1 0 1)
-  (datum->wire "\xFFFF;")                              #vu8(4 0 0 0 42 1 255 255)
-  (datum->wire "\x10000;")                             #vu8(5 0 0 0 43 1 0 0 1)
-  (datum->wire "\x10FFFF;")                            #vu8(5 0 0 0 43 1 255 255 16)
+  (datum->wire (void))                                 #vu8(0)
+  (datum->wire "\xFF;")                                #vu8(3 41 1 255)
+  (datum->wire "\x100;")                               #vu8(4 42 1 0 1)
+  (datum->wire "\xFFFF;")                              #vu8(4 42 1 255 255)
+  (datum->wire "\x10000;")                             #vu8(5 43 1 0 0 1)
+  (datum->wire "\x10FFFF;")                            #vu8(5 43 1 255 255 16)
   (datum->wire
-    (list 1 2 3 127 255 (box (eof-object))))           #vu8(15 0 0 0 38 6 0 0 0 1 2 3 16 127 17 255 0 34 29)
+    (list 1 2 3 127 255 (box (eof-object))))           #vu8(15 38 6 0 0 0 1 2 3 16 127 17 255 0 34 29)
   (datum->wire
-    (list* (void) -7/3 1/2+1i 'fl=? 'string=?))        #vu8(17 0 0 0 37 5 0 0 0 28 21 16 249 3 22 21 1 2 1 70 74)
+    (list* (void) -7/3 1/2+1i 'fl=? 'string=?))        #vu8(17 37 5 0 0 0 28 21 16 249 3 22 21 1 2 1 70 74)
   (datum->wire
-    '#(#\a #\xFF #\xFFFF #\x10FFFF "bcd" #vfx(-1 1)))  #vu8(22 0 0 0 39 6 31 97 31 255 32 255 255 33 255 255 16 41 3 98 99 100 44 2 15 1)
+    '#(#\a #\xFF #\xFFFF #\x10FFFF "bcd" #vfx(-1 1)))  #vu8(22 39 6 31 97 31 255 32 255 255 33 255 255 16 41 3 98 99 100 44 2 15 1)
   (datum->wire
     (gbuffer (span #vu8(1)) (ok 9 10) (charspan #\a #\xFF)
-             (chargbuffer #\< #\>)))                   #vu8(24 0 0 0 245 4 244 1 40 1 1 243 6 38 2 0 0 0 9 10 248 2 97 255 251 2 60 62)
+             (chargbuffer #\< #\>)))                   #vu8(24 245 4 244 1 40 1 1 243 6 38 2 0 0 0 9 10 248 2 97 255 251 2 60 62)
   (datum->wire
-    (make-time 'time-utc 999999999 #x80000000))        #vu8(14 0 0 0 242 88 19 255 201 154 59 20 5 0 0 0 128 0)
+    (make-time 'time-utc 999999999 #x80000000))        #vu8(14 242 88 19 255 201 154 59 20 5 0 0 0 128 0)
   (datum->wire
-    (eq-hashtable (void) 1.5 '() #x123456789))         #vu8(20 0 0 0 51 2 27 20 5 137 103 69 35 1 28 23 0 0 0 0 0 0 248 63)
+    (eq-hashtable (void) 1.5 '() #x123456789))         #vu8(20 51 2 27 20 5 137 103 69 35 1 28 23 0 0 0 0 0 0 248 63)
   (datum->wire
-    (eqv-hashtable #\{ 0.5+2.0i))                      #vu8(21 0 0 0 52 1 31 123 24 0 0 0 0 0 0 224 63 0 0 0 0 0 0 0 64)
+    (eqv-hashtable #\{ 0.5+2.0i))                      #vu8(21 52 1 31 123 24 0 0 0 0 0 0 224 63 0 0 0 0 0 0 0 64)
   (let ((bv (datum->wire
               (hashtable string-hash string=? "a" 1 "b" 2))))
-    (or (bytevector=? bv #vu8(12 0 0 0 53 76 74 2 41 1 97 1 41 1 98 2))
-        (bytevector=? bv #vu8(12 0 0 0 53 76 74 2 41 1 98 2 41 1 97 1))))       #t
+    (or (bytevector=? bv #vu8(12 53 76 74 2 41 1 97 1 41 1 98 2))
+        (bytevector=? bv #vu8(12 53 76 74 2 41 1 98 2 41 1 97 1))))       #t
 
 
-  (values->list (wire->datum  #vu8(4 0 0 0 243 6 36 27)))  ,((ok ()) 8)
-  (values->list (wire->datum  #vu8(3 0 0 0 244 1 25)))     ,((span #f) 7)
-  (values->list (wire->datum  #vu8(3 0 0 0 245 1 26)))     ,((gbuffer #t) 7)
-  (values->list (wire->datum  #vu8(2 0 0 0 246 0)))        ,((bytespan) 6)
-  ;(values->list (wire->datum  #vu8(2 0 0 0 247 0)))       ,((bytegbuffer) 6)
-  (values->list (wire->datum  #vu8(3 0 0 0 248 1 64)))     ,((string->charspan* "@") 7)
-  (values->list (wire->datum  #vu8(4 0 0 0 249 1 65 0)))   ,((string->charspan* "A") 8)
-  (values->list (wire->datum  #vu8(5 0 0 0 250 1 66 0 0))) ,((string->charspan* "B") 9)
-  (values->list (wire->datum  #vu8(3 0 0 0 251 1 67)))     ,((string->chargbuffer* "C") 7)
-  (values->list (wire->datum  #vu8(4 0 0 0 252 1 68 0)))   ,((string->chargbuffer* "D") 8)
-  (values->list (wire->datum  #vu8(5 0 0 0 253 1 69 0 0))) ,((string->chargbuffer* "E") 9)
-  (values->list (wire->datum  #vu8(14 0 0 0 242
-     88 19 255 201 154 59 20 5 255 255 255 255 0)))        ,@"(#<time-utc 4294967295.999999999> 18)"
+  (values->list (wire->datum  #vu8(4 243 6 36 27)))    ,((ok ()) 5)
+  (values->list (wire->datum  #vu8(3 244 1 25)))       ,((span #f) 4)
+  (values->list (wire->datum  #vu8(3 245 1 26)))       ,((gbuffer #t) 4)
+  (values->list (wire->datum  #vu8(2 246 0)))          ,((bytespan) 3)
+  ;(values->list (wire->datum  #vu8(2 247 0)))         ,((bytegbuffer) 3)
+  (values->list (wire->datum  #vu8(3 248 1 64)))       ,((string->charspan* "@") 4)
+  (values->list (wire->datum  #vu8(4 249 1 65 0)))     ,((string->charspan* "A") 5)
+  (values->list (wire->datum  #vu8(5 250 1 66 0 0)))   ,((string->charspan* "B") 6)
+  (values->list (wire->datum  #vu8(3 251 1 67)))       ,((string->chargbuffer* "C") 4)
+  (values->list (wire->datum  #vu8(4 252 1 68 0)))     ,((string->chargbuffer* "D") 5)
+  (values->list (wire->datum  #vu8(5 253 1 69 0 0)))   ,((string->chargbuffer* "E") 6)
+  (values->list (wire->datum  #vu8(14 242 88 19
+      255 201 154 59 20 5 255 255 255 255 0)))         ,@"(#<time-utc 4294967295.999999999> 15)"
 
   (datum->wire (vector
     (bitwise-arithmetic-shift 1 64)
     (bitwise-arithmetic-shift -1 60)
     #\xDC80 #\xDCFF 'foo "bar\x20AC;" '#vfx(0)
-    #vu8(255 254 253) (bytespan 7)))                       #vu8(55 0 0 0 39 9 20 9 0 0 0 0 0 0 0 0 1 20 8 0 0 0 0 0 0 0 240 32
+    #vu8(255 254 253) (bytespan 7)))                       #vu8(55 39 9 20 9 0 0 0 0 0 0 0 0 1 20 8 0 0 0 0 0 0 0 240 32
                                                                 128 220 32 255 220 46 3 102 111 111 42 4 98 0 97 0 114 0
                                                                 172 32 44 1 0 40 3 255 254 253 246 1 7)
 
   (values->list (wire->datum
-     #vu8(59 0 0 0 39 9 20 9 0 0 0 0 0 0 0 0 1 20 8 0 0 0 0 0 0 0 240 32
+     #vu8(59 39 9 20 9 0 0 0 0 0 0 0 0 1 20 8 0 0 0 0 0 0 0 240 32
           ;; here "bar\x20AC;" is unnecessarily serialized with tag-string24
           ;; instead of the more compact tag-string16.
           ;; harmless, and we want to test that it works too
           128 220 32 255 220 46 3 102 111 111 43 4 98 0 0 97 0 0 114 0 0
           172 32 0 44 1 0 40 3 255 254 253 246 1 7)))      ,(#(18446744073709551616 -1152921504606846976
                                                                #\xDC80 #\xDCFF foo "bar\x20AC;" #vfx(0)
-                                                               #vu8(255 254 253) (bytespan 7)) 63)
+                                                               #vu8(255 254 253) (bytespan 7)) 60)
 
-  (let ((ht (first-value (wire->datum #vu8(14 0 0 0 53 76 74 2 41 2 99 100 15 41 2 101 102 14)))))
+  (let ((ht (first-value (wire->datum #vu8(14 53 76 74 2 41 2 101 102 14 41 2 99 100 15)))))
     (vector-sort
       (lambda (cell1 cell2)
         (string<? (car cell1) (car cell2)))
@@ -286,13 +286,12 @@
         (raise ex))
       (lambda ()
         (repeat 0
-          (bytevector-u32-set! bv 0 (random payload-len) (endianness little))
-          (do ((i 4 (fx1+ i)))
+          (do ((i 0 (fx1+ i)))
               ((fx>=? i message-len))
-            (bytevector-u8-set! bv i (random 256)))
+            (bytevector-u8-set! bv i (random 128)))
           (let-values (((obj pos) (wire->datum bv)))
-            (when pos
-              (unless (eq? (void) obj)
+            (when (and (fixnum? pos) (fx>? pos 0))
+              (unless (or (boolean? obj) (eq? (void) obj) (fixnum? obj) (symbol? obj) (char? obj))
                 (format #t "~s\n" obj))
               (assert* 'test-wire->datum
                        (fx<=? pos payload-len))))))))          ,@"#<void>"

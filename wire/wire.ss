@@ -10,17 +10,16 @@
 ;;;
 ;;; Hardcoded limits:
 ;;;
-;;; Serialization format is message based,
-;;; and length of each message can be at most 2^32 + 3 bytes, including header (see below)
-;;;
-;;; Each container (vector, string, hashtable ...) serialized in the message can have at most 2^30-1 elements
-;;; or (greatest-fixnum) elements, whatever is smaller.
+;;; Serialization format is message based, and length of each message
+;;        can be at most 2^32 - 1 bytes or (greatest-fixnum) bytes,
+;;;       whatever is smaller, including header (see below)
 ;;;
 ;;; Each message contains: header + payload (tag + datum)
 ;;;
-;;; header: 4 bytes BOT LO HI TOP, max is 2^32 - 1 or (greatest-fixnum), whatever is smaller
-;;;       indicates the number of bytes occupied by tag + datum
-;;;       does NOT include the number of bytes occupied by header
+;;; header: vlen, encoded either as 1 byte or 4 bytes little-endian,
+;;        maximum is 2^31 - 5 or (greatest-fixnum) - 4, whatever is smaller.
+;;;       Indicates the number of bytes occupied by payload (tag + datum)
+;;;       does NOT include the number of bytes occupied by vlen
 ;;;
 ;;; tag: 0 byte => datum is (void)
 ;;;      1 byte => indicates the type of datum and possibly its value
@@ -61,8 +60,8 @@
 ;;;      34 => datum is box:               followed by unboxed tag+datum
 ;;;      35 => datum is pair:              encoded as 2 tag+datum: car, cdr
 ;;;      36 => datum is one-element list:  encoded as tag+datum: car
-;;;      37 => datum is improper list:     n encoded as header, followed by n tag+datum: elements
-;;;      38 => datum is proper list:       n encoded as header, followed by n tag+datum: elements
+;;;      37 => datum is improper list:     n encoded as u32, followed by n tag+datum: elements
+;;;      38 => datum is proper list:       n encoded as u32, followed by n tag+datum: elements
 ;;;      39 => datum is vector:        n encoded as vlen, followed by n tag+datum
 ;;;      40 => datum is bytevector:    n encoded as vlen, followed by n bytes
 ;;;      41 => datum is string8:       n encoded as vlen, followed by characters each encoded as 1 byte
@@ -74,7 +73,7 @@
 ;;;      47 => datum is symbol16:      n encoded as vlen, followed by characters each encoded as 2 bytes
 ;;;      48 => datum is symbol24:      n encoded as vlen, followed by characters each encoded as 3 bytes
 ;;;      49    UNUSED
-;;;      50 => datum is enum-set
+;;;      50    UNUSED
 ;;;      51 => datum is eq-hashtable:  n encoded as vlen, followed by 2 * n tag+datum
 ;;;      52 => datum is eqv-hashtable: n encoded as vlen, followed by 2 * n tag+datum
 ;;;      53 => datum is equal-hashtable: hash function name encoded as symbol, checked against a whitelist
@@ -103,11 +102,11 @@
                        bytevector-sint-ref        bytevector-sint-set!
                        bytevector-s24-ref         bytevector-s24-set!
                        bytevector-u24-ref         bytevector-u24-set!
-                       cfl= cfl+ current-time fl-make-rectangular fx1+ fx1- fxsrl fxsll
-                       fxvector? fxvector-length fxvector-ref fxvector-set!
+                       cfl= cfl+ cflonum? current-time enum-set? fl-make-rectangular
+                       fx1+ fx1- fxsrl fxsll fxvector? fxvector-length fxvector-ref fxvector-set!
                        include integer-length logbit? make-fxvector make-time meta-cond
                        reverse! procedure-arity-mask
-                       time=? time-type time-second time-nanosecond void)
+                       time? time=? time-type time-second time-nanosecond void)
 
     ;; these predicates are equivalent to their r6rs counterparts,
     ;; only extended to also accept 1 argument
@@ -117,10 +116,18 @@
     (only (schemesh bootstrap) assert* fx<=?* trace-define)
     (schemesh containers))
 
-(define len-header 4)  ; header is encoded as 4 bytes
-(define len-tag    1)  ; tag is encoded as 1 byte
 
-(define max-len-payload (min #xFFFFFFFF (greatest-fixnum)))  ; maximum length of tag + datum
+
+(define min-len-vlen 1) ; vlen is encoded as 1 or 4 bytes
+(define max-len-vlen 4) ; vlen is encoded as 1 or 4 bytes
+
+;; maximum supported number of elements in a container (vector, string, hashtable ...)
+(define max-vlen (fx- (min #x7fffffff (greatest-fixnum)) max-len-vlen))
+
+;; maximum length of payload = tag + datum
+(define max-len-payload max-vlen)
+
+(define len-tag    1)  ; tag is encoded as 1 byte
 
 (define tag-0         0)
 (define tag-1         1)
@@ -171,10 +178,12 @@
 (define tag-symbol8    46)
 (define tag-symbol16   47)
 (define tag-symbol24   48)
-(define tag-enum-set   50)
+;; (define tag-...        49) UNUSED
+;; (define tag-...        50) UNUSED
 (define tag-eq-hashtable  51)
 (define tag-eqv-hashtable 52)
 (define tag-hashtable     53)
+;; (define tag-...        54) UNUSED
 
 (define min-tag-to-allocate   89)
 (define next-tag-to-allocate 241)
@@ -199,19 +208,19 @@
 
 (define known-sym
   (eq-hashtable
-    'boolean=? 55 'boolean-hash 56
+    'boolean=? 55 ; UNUSED 56
     'bytevector=? 57 'bytevector-hash 58
-    'cfl= 59 'cfl-hash 60
+    'cfl= 59 ; UNUSED 60
     'char=? 61 'char-ci=? 62 'char->integer 63 ; usable as hash function for char=?
-    'enum-set=? 64 'enum-set-hash 65
+    'enum-set=? 64  ; UNUSED 65
     'eq? 66 'eqv? 67 'equal? 68 'equal-hash 69
-    'fl=? 70 'fl-hash 71
-    'fx=? 72 'fx-hash 73
+    'fl=? 70 ; UNUSED 71
+    'fx=? 72 ; UNUSED 72
     'string=? 74 'string-ci=? 75 'string-hash 76 'string-ci-hash 77
     'symbol=? 78 'symbol-hash 79
     'time=? 80 'time-collector-cpu 81 'time-collector-real 82
-    'time-duration 83 'time-hash 84 'time-monotonic 85
-    'time-process 86 'time-thread 87 'time-utc 88))
+    'time-duration 83 ; UNUSED 84
+    'time-monotonic 85 'time-process 86 'time-thread 87 'time-utc 88))
 
 (define (symbol->tag sym)
   (hashtable-ref known-sym sym #f))
@@ -227,12 +236,12 @@
 (define (valid-payload-len? n)
   (and (fixnum? n) (fx<=? 0 n max-len-payload)))
 
-(define header+
+(define u32+
   (case-lambda
     ((pos)
-      (and (fixnum? pos) (fx+ pos len-header)))
+      (and (fixnum? pos) (fx+ pos 4)))
     ((pos n)
-      (and (fixnum? pos) (fixnum? n) (fx+ (fx+ pos n) len-header)))))
+      (and (fixnum? pos) (fixnum? n) (fx+ (fx+ pos n) 4)))))
 
 (define tag+
   (case-lambda
@@ -240,27 +249,6 @@
       (and (fixnum? pos) (fx+ pos len-tag)))
     ((pos n)
       (and (fixnum? pos) (fixnum? n) (fx+ (fx+ pos n) len-tag)))))
-
-;; read one signed byte from bytevector at position pos, and return it
-(define %get/s8 bytevector-s8-ref)
-;; read one byte from bytevector at position pos, and return it
-(define %get/u8 bytevector-u8-ref)
-
-;; read 2 bytes as exact signed integer from bytevector starting at position pos, and return it.
-(define (%get/s16 bv pos) (bytevector-s16-ref bv pos endian))
-;; read exact unsigned integer as 2 bytes from bytevector starting at position pos, and return it.
-(define (%get/u16 bv pos) (bytevector-u16-ref bv pos endian))
-
-;; read 3 bytes as exact signed integer from bytevector starting at position pos, and return it.
-(define (%get/s24 bv pos) (bytevector-s24-ref bv pos endian))
-;; read 3 bytes as exact unsigned integer from bytevector starting at position pos, and return it.
-(define (%get/u24 bv pos) (bytevector-u24-ref bv pos endian))
-
-;; read 4 bytes as exact signed integer from bytevector starting at position pos, and return it.
-(define (%get/s32 bv pos) (bytevector-s32-ref bv pos endian))
-;; read 4 bytes as exact unsigned integer from bytevector starting at position pos, and return it.
-(define (%get/u32 bv pos) (bytevector-u32-ref bv pos endian))
-
 
 ;; write one signed byte into bytevector starting at position pos.
 ;; return updated position, or raise exception on errors.
@@ -310,18 +298,26 @@
   (bytevector-u32-set! bv pos u32 endian)
   (fx+ pos 4))
 
-;; read message length from bytevector starting at position pos.
-;; return two values: message length as u32, and updated pos
-;; or #f #f on errors.
-(define (get/header bv pos end)
-  (if (and (fixnum? pos) (fx<=? pos (fx- end len-header)))
-    (values (%get/u32 bv pos) (fx+ pos len-header))
-    (values #f #f)))
 
-;; write message length into bytevector starting at position pos.
-;; return updated position, or raise exception on errors.
-(define (put/header bv pos count)
-  (put/u32 bv pos count))
+;; read one signed byte from bytevector at position pos, and return it
+(define %get/s8 bytevector-s8-ref)
+;; read one byte from bytevector at position pos, and return it
+(define %get/u8 bytevector-u8-ref)
+
+;; read 2 bytes as exact signed integer from bytevector starting at position pos, and return it.
+(define (%get/s16 bv pos) (bytevector-s16-ref bv pos endian))
+;; read exact unsigned integer as 2 bytes from bytevector starting at position pos, and return it.
+(define (%get/u16 bv pos) (bytevector-u16-ref bv pos endian))
+
+;; read 3 bytes as exact signed integer from bytevector starting at position pos, and return it.
+(define (%get/s24 bv pos) (bytevector-s24-ref bv pos endian))
+;; read 3 bytes as exact unsigned integer from bytevector starting at position pos, and return it.
+(define (%get/u24 bv pos) (bytevector-u24-ref bv pos endian))
+
+;; read 4 bytes as exact signed integer from bytevector starting at position pos, and return it.
+(define (%get/s32 bv pos) (bytevector-s32-ref bv pos endian))
+;; read 4 bytes as exact unsigned integer from bytevector starting at position pos, and return it.
+(define (%get/u32 bv pos) (bytevector-u32-ref bv pos endian))
 
 ;; read 1-byte tag from bytevector at position pos, and return it.
 ;; raise exception on errors.
@@ -331,21 +327,36 @@
 ;; return updated position, or raise exception on errors.
 (define put/tag put/u8)
 
-;; the maximum supported number of elements in a container (vector, string, hashtable ...)
-(define max-vlen (min (greatest-fixnum) #x3fffffff))
+
+;; write unsigned fixnum, limited to 32 bits, into bytevector starting at position pos.
+;; return updated position, or raise exception on errors.
+(define (put/u32-fixnum bv pos n)
+  (meta-cond
+    ((fixnum? #xFFFFFFFF)
+      (assert* 'put/u32-fixnum (fx<=? n #xFFFFFFFF))))
+  (bytevector-u32-set! bv pos n endian)
+  (fx+ pos 4))
+
+;; read unsigned fixnum, limited to 32 bits, from bytevector starting at position pos.
+;; return two values: unsigned fixnum, and updated pos
+;; or #f #f on errors.
+(define (get/u32-fixnum bv pos end)
+  (let ((u32 (and (fixnum? pos) (fx<=? pos (fx- end 4)) (%get/u32 bv pos))))
+    (if (fixnum? u32)
+      (values u32 (fx+ pos 4))
+      (values #f #f))))
+
 
 (define (%vlen+ vlen pos)
   (cond
-    ((fx<=? vlen #x7f)     (fx1+ pos))
-    ((fx<=? vlen #x3fff)   (fx+ pos 2))
-    ((fx<=? vlen max-vlen) (fx+ pos 4))
+    ((fx<=? vlen #x7f)     (fx+ pos min-len-vlen))
+    ((fx<=? vlen max-vlen) (fx+ pos max-len-vlen))
     (else                  #f)))
 
 
-;; length of unsigned fixnum vlen, which is encoded as a variable number of bytes:
-;;      0 ... #x7f       are encoded as u8
-;;   #x80 ... #x3fff     are encoded as u16 where first byte has top bit set
-;; #x3fff ... #x3fffffff are encoded as u32 where first and second bytes have top bit set
+;; add space occupied by unsigned fixnum vlen, which is encoded as a variable number of bytes:
+;;    0 ... #x7f       are encoded as u8
+;; #x80 ... #x7fffffff are encoded as u32 where first byte has top bit set
 ;; larger values are NOT supported and cause serialization to fail
 (define vlen+
   (case-lambda
@@ -354,31 +365,46 @@
     ((vlen pos n)
       (and (fixnum? pos) (fixnum? n) (%vlen+ vlen (fx+ pos n))))))
 
+;; subtract space occupied by unsigned fixnum vlen, which is encoded as a variable number of bytes:
+;;    0 ... #x7f       are encoded as u8
+;; #x80 ... #x7fffffff are encoded as u32 where first byte has top bit set
+;; larger values are NOT supported and cause serialization to fail
+(define (vlen- message-wire-len)
+  (if (fixnum? message-wire-len)
+    (let ((payload-wire-len1 (fx- message-wire-len min-len-vlen)))
+      (assert* 'wire-put (fx>=? payload-wire-len1 0))
+      (if (fx<=? payload-wire-len1 #x7f)
+        payload-wire-len1
+        ;; large message, vlen is encoded as u32
+        (fx- payload-wire-len1 3)))
+    (let ((payload-wire-len2 (- message-wire-len max-len-vlen)))
+      (assert* 'wire-put (fixnum? payload-wire-len2))
+      (assert* 'wire-put (fx>=? payload-wire-len2 -3))
+      (if (fx<=? payload-wire-len2 (fx- #x7f 3))
+        (fx+ payload-wire-len2 3)
+        ;; large message, vlen is encoded as u32
+        payload-wire-len2))))
+
+
 
 ;; write unsigned fixnum vlen bytevector starting at position pos.
-;; return updated position, or raise exception on errors.
+;; return updated position, or #f on errors.
 (define (put/vlen bv pos vlen)
   (cond
-    ((not pos)
-      pos)
+    ((or (not pos) (not (fixnum? vlen)) (fx<? vlen 0))
+      #f)
     ((fx<=? vlen #x7f)
       (put/u8 bv pos vlen))
-    ((fx<=? vlen #x3fff)
-      (let ((lo (fxand vlen #x7f))
-            (hi (fxand (fxsll vlen 1) #x7f00)))
-        (put/u16 bv pos (fxior hi #x80 lo))))
     ((fx<=? vlen max-vlen)
       (meta-cond
         ((fixnum? #xffffffff)
           (let ((lo  (fxand vlen #x7f))
-                (mid (fxand (fxsll vlen 1) #x7f00))
-                (hi  (fxand (fxsll vlen 2) #xffff0000)))
-            (put/u32 bv pos (fxior hi #x8080 mid lo))))
+                (hi  (fxand (fxsll vlen 1) #xffffff00)))
+            (put/u32 bv pos (fxior hi #x80 lo))))
         (else
           (let ((lo  (fxand vlen #x7f))
-                (mid (fxand (fxsll vlen 1) #x7f00))
-                (hi  (bitwise-and (bitwise-arithmetic-shift-left vlen 2) #xffff0000)))
-            (put/u32 bv pos (bitwise-ior hi (fxior #x8080 mid lo)))))))
+                (hi  (bitwise-and (bitwise-arithmetic-shift-left vlen 1) #xffffff00)))
+            (put/u32 bv pos (bitwise-ior hi (fxior #x80 lo)))))))
     (else
       #f)))
 
@@ -508,7 +534,7 @@
           ((char<=? obj #\xFFFF) 2)
           (else                  3))))
 
-;; write header and one character into bytevector starting at position pos.
+;; write tag and one character into bytevector starting at position pos.
 ;; return updated position, or raise exception on errors.
 (define (put/char bv pos obj)
   (cond
@@ -545,7 +571,7 @@
 
 ;; proper or improper list
 (define (len/list pos obj)
-  (let %len/list ((pos (header+ (tag+ pos))) (l obj)) ; n is encoded as header
+  (let %len/list ((pos (u32+ (tag+ pos))) (l obj)) ; n is encoded as u32
     (cond
       ((not pos)
         pos)
@@ -560,14 +586,14 @@
 
 (define (put/list bv pos obj)
   (let ((end0 (tag+ pos)))
-    (let %put/list ((end (header+ end0)) (n 0) (l obj)) ; n is encoded as header
+    (let %put/list ((end (u32+ end0)) (n 0) (l obj)) ; n is encoded as u32
       ;; (debugf "%put-list l=~s n=~s end=~s" l n end)
       (cond
         ((not end)
           end)
         ((null? l)
           (put/tag bv pos tag-list)
-          (put/header bv end0 n) ; n is encoded as header
+          (put/u32-fixnum bv end0 n) ; n is encoded as u32
           end)
         ((pair? l)
           (let ((end (put/any bv end (car l))))
@@ -576,7 +602,7 @@
           ;; last element of an improper list
           (let ((end (put/any bv end l)))
             (put/tag bv pos tag-list*)
-            (put/header bv end0 (fx1+ n)) ; n is encoded as header
+            (put/u32-fixnum bv end0 (fx1+ n)) ; n is encoded as u32
             end))))))
 
 
@@ -682,6 +708,24 @@
      equal-hash 'equal-hash
      string-hash 'string-hash string-ci-hash 'string-ci-hash
      symbol-hash 'symbol-hash))
+
+(define known-cmp-key-type-validator
+  (eq-hashtable
+     'boolean=?       boolean?
+     'bytevector=?    bytevector?
+     'cfl=            cflonum?
+     'char=?          char?
+     'char-ci=?       char?
+     'enum-set=?      enum-set?
+     'eq?             always-true
+     'eqv?            always-true
+     'equal?          always-true
+     'fl=?            flonum?
+     'fx=?            fixnum?
+     'string=?        string?
+     'string-ci=?     string?
+     'symbol=?        symbol?
+     'time=?          time?))
 
 (define known-hash-key-type-validator
   (eq-hashtable
@@ -798,30 +842,31 @@
 ;; Return #f if obj contains some datum that cannot be serialized: procedures, unregistered record-types, etc.
 (define (wire-length obj)
   (if (eq? (void) obj)
-    len-header
-    (let ((pos (len/any len-header obj)))
-      (if (valid-payload-len? pos) pos #f))))
+    (vlen+ 0 0)
+    (let ((pos (len/any 0 obj)))
+      (if (valid-payload-len? pos) (vlen+ pos pos)))))
 
 
 ;; recursively traverse obj, serialize it and append it to bytespan bsp.
 ;; return number of written bytes, or #f on errors.
 (define wire-put
   (case-lambda
-    ((bsp obj len-wire-message)
+    ((bsp obj message-wire-len)
       (assert* 'wire-put (bytespan? bsp))
-      (if (and (fixnum? len-wire-message) (valid-payload-len? (fx- len-wire-message len-header)))
-        (let ((payload-wire-len (fx- len-wire-message len-header))
-              (len-before (bytespan-length bsp)))
-          (bytespan-resize-right! bsp (fx+ len-before len-wire-message))
-          (let* ((bv   (bytespan-peek-data bsp))
-                 (pos  (fx+ len-before (bytespan-peek-beg bsp)))
-                 (end0 (put/header bv pos payload-wire-len))
-                 (end  (if (eq? (void) obj)
-                          end0
-                          (put/any bv end0 obj))))
-            (assert* 'wire-put (fx=? end (bytespan-length bsp)))
-            len-wire-message))
-        #f))
+      (let ((payload-wire-len (vlen- message-wire-len))
+            (len-before       (bytespan-length bsp)))
+        (if (valid-payload-len? payload-wire-len)
+          (begin
+            (bytespan-resize-right! bsp (fx+ len-before message-wire-len))
+            (let* ((bv   (bytespan-peek-data bsp))
+                   (pos  (fx+ len-before (bytespan-peek-beg bsp)))
+                   (end0 (put/vlen bv pos payload-wire-len))
+                   (end  (if (eq? (void) obj)
+                            end0
+                            (put/any bv end0 obj))))
+              (assert* 'wire-put (fx=? end (bytespan-length bsp)))
+              message-wire-len))
+          #f)))
     ((bsp obj)
       (wire-put bsp obj (wire-length obj)))))
 

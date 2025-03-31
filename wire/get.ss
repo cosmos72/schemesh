@@ -8,6 +8,7 @@
 
 ;; this file should be included only by file wire/wire.ss
 
+
 (define (get/exact-s8 bv pos end)
   ;; caller is (get/any) or similar, and guarantees that (fx<? pos end)
   (values (%get/s8 bv pos) (fx1+ pos)))
@@ -36,41 +37,40 @@
 
 ;; validate vlen before returning it
 (define (vlen-values vlen pos end)
-  (if (and (fixnum? pos) (fx<=? vlen (fx- end pos)))
-    (values vlen pos)
-    (values #f #f)))
+  (cond
+    ((or (not (fixnum? vlen)) (fx>? vlen max-vlen))
+      ;; message may have been serialized on a different system with larger (greatest-fixnum)
+      ;; but this system does not support containers with such a large number of elements
+      (values #f #f))
+    ((fx<=? vlen (fx- end pos))
+      (values vlen pos))
+    (else
+      ;; vlen exceeds remaining message length
+      (values vlen #f))))
 
 
 ;; read unsigned fixnum vlen from bytevector starting at position pos.
 ;; return two values: vlen and updated position, or #f #f on errors.
 (define (get/vlen bv pos end)
-  (if (and pos (fx<? pos end))
-    (let ((lo  (%get/u8 bv pos))
-          (pos (fx1+ pos)))
-      (if (fx<=? lo #x7f)
-        (vlen-values lo pos end)
-        (if (fx<? pos end)
-          (let* ((mid    (%get/u8 bv pos))
-                 (mid+lo (fxior (fxand #x7f lo) (fxsll mid 7)))
-                 (pos    (fx1+ pos)))
-            (if (fx<=? mid #x7f)
-              (vlen-values mid+lo pos end)
-              (if (fx<? (fx1+ pos) end)
-                (let ((mid+lo (fxand mid+lo #x3ffff))
-                      (hi     (%get/u16 bv pos)))
-                  (meta-cond
-                    ((fixnum? #x3fffffff)
-                      (vlen-values (fxior mid+lo (fxsll hi 14)) (fx+ pos 2) end))
-                    (else
-                      (let ((hi (bitwise-arithmetic-shift-left hi 14)))
-                        (if (fixnum? hi)
-                          (vlen-values (fxior mid+lo hi) (fx+ pos 2) end)
-                          ;; message may have been serialized on a different system with larger (greatest-fixnum)
-                          ;; but this system does not support containers with such a large number of elements
-                          (values #f #f))))))
-                (values #f #f))))
-          (values #f #f))))
-    (values #f #f)))
+  (let ((lo (and pos (fx<? pos end) (%get/u8 bv pos))))
+    (cond
+      ((not lo)
+        (values #f #f))
+      ((fx<=? lo #x7f)
+        (vlen-values lo (fx1+ pos) end))
+      ((fx<=? pos (fx- end max-len-vlen))
+        (let ((u32 (%get/u32 bv pos)))
+          (meta-cond
+            ((fixnum? #xffffffff)
+              (let ((lo (fxand u32 #x7f))
+                    (hi (fxsrl (fxand u32 #xffffff00) 1)))
+                (vlen-values (fxior lo hi) (fx+ pos max-len-vlen) end)))
+            (else
+              (let ((lo (fxand lo #x7f))
+                    (hi (bitwise-arithmetic-shift-right (bitwise-and u32 #xffffff00) 1)))
+                (vlen-values (bitwise-ior lo hi) (fx+ pos max-len-vlen) end))))))
+      (else
+        (values #f #f)))))
 
 
 
@@ -226,14 +226,14 @@
         (get/list-impl bv pos end (fx1- n) (cons elem ret))))))
 
 (define (get/list* bv pos end)
-  (let*-values (((n pos)   (get/header bv pos end))
+  (let*-values (((n pos)   (get/u32-fixnum bv pos end))
                 ((ret pos) (get/list-impl bv pos end n '())))
     (if (and ret pos)
       (values (list-reverse*! ret) pos)
       (values #f #f))))
 
 (define (get/list bv pos end)
-  (let*-values (((n pos)   (get/header bv pos end))
+  (let*-values (((n pos)   (get/u32-fixnum bv pos end))
                 ((ret pos) (get/list-impl bv pos end n '())))
     (if (and ret pos)
       (values (reverse! ret) pos)
@@ -300,27 +300,27 @@
 (define (cmp-sym->proc sym)  (hashtable-ref known-cmp-proc sym #f))
 (define (hash-sym->proc sym) (hashtable-ref known-hash-proc sym #f))
 
-(define (%fill/hashtable bv pos end key-validator n ret)
+(define (%fill/hashtable bv pos end key-hash-validator key-cmp-validator n ret)
   (if (fxzero? n)
     (values ret pos)
     (let*-values (((key pos) (get/any bv pos end))
                   ((val pos) (get/any bv pos end)))
-      (if (and pos (key-validator key))
+      (if (and pos (key-hash-validator key) (key-cmp-validator key))
         (begin
           (hashtable-set! ret key val)
-          (%fill/hashtable bv pos end key-validator (fx1- n) ret))
+          (%fill/hashtable bv pos end key-hash-validator key-cmp-validator (fx1- n) ret))
         (values #f #f)))))
 
 (define (get/eq-hashtable bv pos end)
   (let-values (((n pos) (get/vlen bv pos end)))
     (if (and pos (fx<=? n (fx- end pos)))
-      (%fill/hashtable bv pos end always-true n (make-eq-hashtable n))
+      (%fill/hashtable bv pos end always-true always-true n (make-eq-hashtable n))
       (values #f #f))))
 
 (define (get/eqv-hashtable bv pos end)
   (let-values (((n pos) (get/vlen bv pos end)))
     (if (and pos (fx<=? n (fx- end pos)))
-      (%fill/hashtable bv pos end always-true n (make-eqv-hashtable n))
+      (%fill/hashtable bv pos end always-true always-true n (make-eqv-hashtable n))
       (values #f #f))))
 
 (define (get/hashtable bv pos end)
@@ -331,10 +331,12 @@
     (if (and pos (fx<=? n (fx- end pos)) (symbol? hash-sym) (symbol? cmp-sym))
       (let ((hash-proc (hash-sym->proc hash-sym))
             (cmp-proc  (cmp-sym->proc cmp-sym))
-            (key-validator (hashtable-ref known-hash-key-type-validator hash-sym #f)))
+            (key-hash-validator (hashtable-ref known-hash-key-type-validator hash-sym #f))
+            (key-cmp-validator  (hashtable-ref known-cmp-key-type-validator cmp-sym #f)))
         ;; (debugf "...get/hashtable hash-proc=~s cmp-proc=~s" hash-proc cmp-proc)
-        (if (and hash-proc cmp-proc)
-          (%fill/hashtable bv pos end key-validator n (make-hashtable hash-proc cmp-proc n))
+        (if (and hash-proc cmp-proc key-hash-validator key-cmp-validator)
+          (%fill/hashtable bv pos end key-hash-validator key-cmp-validator n
+                           (make-hashtable hash-proc cmp-proc n))
           (values #f #f)))
       (values #f #f))))
 
@@ -393,11 +395,12 @@
 ;; read byte range [start, end) from bytevector bv and deserialize an object from it.
 ;; Return two values:
 ;;   either object and updated start position in range [start, end)
-;;   or #f #f if serialized bytes are invalid
-;;   or #f -NNN if not enough bytes are available and at least NNN bytes should be added after end.
+;;   or #f #f if serialized bytes are invalid and cannot be parsed;
+;;   or #f -NNN if not enough bytes are available and at least NNN bytes should be added after end;
+;;   or #t -NNN if serialized bytes are invalid and NNN bytes should be discarded.
 (define (wire-get bv start end)
   (assert* 'wire-get (fx<=?* 0 start end (bytevector-length bv)))
-  (let-values (((len pos) (get/header bv start end)))
+  (let-values (((len pos) (get/vlen bv start end)))
     (cond
       ((and len pos)
         (let ((available (fx- end pos)))
@@ -408,14 +411,20 @@
                 (let-values (((ret end1) (get/any bv pos end)))
                   (if (and end1 (fx=? end0 end1))
                     (values ret end1)
-                    (values #f #f)))))
+                    ;; message deserialized, but it ends at unexpected position:
+                    ;; discard it, and tell how many bytes should be discarded.
+                    (values #t (fx- (fx+ len pos)))))))
+            ;; not enough bytes to deserialize message: tell how many more bytes are needed
             (values #f (fx- available len)))))
       ((fx>=? start end)
-        (values #f (fx- len-header)))
-      ((fx>=? (fx- end start) len-header)
-        (values #f #f)) ; header probably contains too large length
+        ;; zero bytes provided, need at least min-len-vlen
+        (values #f (fx- min-len-vlen)))
+      (len
+        ;; not enough bytes to deserialize message: tell how many more bytes are needed
+        (values #f (fx- (fx- end start) (vlen+ len len))))
       (else
-        (values (fx- len-header (fx- end start)))))))
+        ;; could not deserialize vlen
+        (values #f #f)))))
 
 
 ;; read bytes from bytevector or bytespan stc and deserialize an object from them.
