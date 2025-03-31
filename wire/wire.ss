@@ -365,25 +365,30 @@
     ((vlen pos n)
       (and (fixnum? pos) (fixnum? n) (%vlen+ vlen (fx+ pos n))))))
 
+
 ;; subtract space occupied by unsigned fixnum vlen, which is encoded as a variable number of bytes:
 ;;    0 ... #x7f       are encoded as u8
 ;; #x80 ... #x7fffffff are encoded as u32 where first byte has top bit set
 ;; larger values are NOT supported and cause serialization to fail
 (define (vlen- message-wire-len)
-  (if (fixnum? message-wire-len)
-    (let ((payload-wire-len1 (fx- message-wire-len min-len-vlen)))
-      (assert* 'wire-put (fx>=? payload-wire-len1 0))
-      (if (fx<=? payload-wire-len1 #x7f)
-        payload-wire-len1
-        ;; large message, vlen is encoded as u32
-        (fx- payload-wire-len1 3)))
-    (let ((payload-wire-len2 (- message-wire-len max-len-vlen)))
-      (assert* 'wire-put (fixnum? payload-wire-len2))
-      (assert* 'wire-put (fx>=? payload-wire-len2 -3))
-      (if (fx<=? payload-wire-len2 (fx- #x7f 3))
-        (fx+ payload-wire-len2 3)
-        ;; large message, vlen is encoded as u32
-        payload-wire-len2))))
+  (cond
+    ((fixnum? message-wire-len)
+      (let ((payload-wire-len1 (fx- message-wire-len min-len-vlen)))
+        (assert* 'wire-put (fx>=? payload-wire-len1 0))
+        (if (fx<=? payload-wire-len1 #x7f)
+          payload-wire-len1
+          ;; large message, vlen is encoded as u32
+          (fx- payload-wire-len1 3))))
+    (message-wire-len
+      (let ((payload-wire-len2 (- message-wire-len max-len-vlen)))
+        (assert* 'wire-put (fixnum? payload-wire-len2))
+        (assert* 'wire-put (fx>=? payload-wire-len2 -3))
+        (if (fx<=? payload-wire-len2 (fx- #x7f 3))
+          (fx+ payload-wire-len2 3)
+          ;; large message, vlen is encoded as u32
+          payload-wire-len2)))
+    (else
+      #f)))
 
 
 
@@ -844,7 +849,7 @@
   (if (eq? (void) obj)
     (vlen+ 0 0)
     (let ((pos (len/any 0 obj)))
-      (if (valid-payload-len? pos) (vlen+ pos pos)))))
+      (and (valid-payload-len? pos) (vlen+ pos pos)))))
 
 
 ;; recursively traverse obj, serialize it and append it to bytespan bsp.
