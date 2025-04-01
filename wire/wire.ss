@@ -373,12 +373,12 @@
 (define (vlen- message-wire-len)
   (and
     (fixnum? message-wire-len)
-    (let ((payload-wire-len1 (fx- message-wire-len min-len-vlen)))
-      (assert* 'wire-put (fx>=? payload-wire-len1 0))
-      (if (fx<=? payload-wire-len1 #x7f)
-        payload-wire-len1
-        ;; large message, vlen is encoded as u32
-        (fx- payload-wire-len1 3)))))
+    (fx<=? (fx- message-wire-len max-len-vlen) max-vlen)
+    (begin
+      (assert* 'wire-put (fx>=? message-wire-len min-len-vlen))
+      (if (fx<=? message-wire-len #x80)
+        (fx- message-wire-len min-len-vlen)     ;; small message, vlen is encoded as u8
+        (fx- message-wire-len max-len-vlen))))) ;; large message, vlen is encoded as u32
 
 
 
