@@ -132,8 +132,8 @@
 ;; simultaneous (fd-read-all read-fd) and (sh-wait job)
 ;; assumes that job writes to the peer of read-fd
 (define (sh-wait-fd-read-all job read-fd)
-  (with-foreground-pgid (sh-wait-flags foreground-pgid continue-if-stopped wait-until-finished)
-                        (job-pgid job)
+  (parameterize ((waiting-for-job job)
+                 (sh-foreground-pgid (job-pgid job)))
     (let %loop ((bsp (make-bytespan 0)))
       (bytespan-reserve-right! bsp (fx+ 4096 (bytespan-length bsp)))
       (let* ((beg (bytespan-peek-beg bsp))

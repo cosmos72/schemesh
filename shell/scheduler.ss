@@ -47,7 +47,7 @@
 (define foreground-pgid-set!
   (let ((c-foreground-pgid-set! (foreign-procedure "c_pgid_foreground_set" (int) int)))
     (lambda (pgid)
-      (if (sh-job-control?)
+      (if (and pgid (sh-job-control?))
         (c-foreground-pgid-set! pgid)
         -1))))
 
