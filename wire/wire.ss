@@ -371,24 +371,14 @@
 ;; #x80 ... #x7fffffff are encoded as u32 where first byte has top bit set
 ;; larger values are NOT supported and cause serialization to fail
 (define (vlen- message-wire-len)
-  (cond
-    ((fixnum? message-wire-len)
-      (let ((payload-wire-len1 (fx- message-wire-len min-len-vlen)))
-        (assert* 'wire-put (fx>=? payload-wire-len1 0))
-        (if (fx<=? payload-wire-len1 #x7f)
-          payload-wire-len1
-          ;; large message, vlen is encoded as u32
-          (fx- payload-wire-len1 3))))
-    (message-wire-len
-      (let ((payload-wire-len2 (- message-wire-len max-len-vlen)))
-        (assert* 'wire-put (fixnum? payload-wire-len2))
-        (assert* 'wire-put (fx>=? payload-wire-len2 -3))
-        (if (fx<=? payload-wire-len2 (fx- #x7f 3))
-          (fx+ payload-wire-len2 3)
-          ;; large message, vlen is encoded as u32
-          payload-wire-len2)))
-    (else
-      #f)))
+  (and
+    (fixnum? message-wire-len)
+    (let ((payload-wire-len1 (fx- message-wire-len min-len-vlen)))
+      (assert* 'wire-put (fx>=? payload-wire-len1 0))
+      (if (fx<=? payload-wire-len1 #x7f)
+        payload-wire-len1
+        ;; large message, vlen is encoded as u32
+        (fx- payload-wire-len1 3)))))
 
 
 
@@ -858,6 +848,8 @@
   (case-lambda
     ((bsp obj message-wire-len)
       (assert* 'wire-put (bytespan? bsp))
+      (when message-wire-len
+        (assert* 'wire-put (fixnum? message-wire-len)))
       (let ((payload-wire-len (vlen- message-wire-len))
             (len-before       (bytespan-length bsp)))
         (if (valid-payload-len? payload-wire-len)
