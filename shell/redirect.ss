@@ -129,8 +129,8 @@
         ret))))
 
 
-;; simultaneous fd-read-all from read-fd
-;; and wait for job that writes to the counterpart of read-fd
+;; simultaneous (fd-read-all read-fd) and (sh-wait job)
+;; assumes that job writes to the peer of read-fd
 (define (sh-wait-fd-read-all job read-fd)
   (with-foreground-pgid (sh-wait-flags foreground-pgid continue-if-stopped wait-until-finished)
                         (job-pgid job)
