@@ -65,8 +65,7 @@
     ((job-id)
       (if job-id
         (begin
-          (assert* 'running (fixnum? job-id))
-          (assert* 'running (fx>? job-id 0))
+          (assert* 'running (fixnum? job-id)) ;; job-id may also be -1 or #f
           (%make-status 'running job-id))
         s-running))
     (()

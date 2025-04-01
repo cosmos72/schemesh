@@ -55,13 +55,14 @@
 (define sh-foreground-pgid
   (sh-make-volatile-parameter foreground-pgid-get foreground-pgid-set!))
 
+(define (global-pgid-if-fg wait-flags pgid)
+   (and pgid
+        (sh-wait-flag-foreground-pgid? wait-flags)
+        (sh-job-control?)
+        (job-pgid (sh-globals))))
 
 (define (call-with-foreground-pgid wait-flags new-pgid proc)
-  (let* ((new-pgid  new-pgid)
-         (our-pgid  (and new-pgid
-                         (sh-wait-flag-foreground-pgid? wait-flags)
-                         (sh-job-control?)
-                         (job-pgid (sh-globals)))))
+  (let ((our-pgid (global-pgid-if-fg wait-flags new-pgid)))
     (if our-pgid
       (dynamic-wind
         (lambda () ; before body

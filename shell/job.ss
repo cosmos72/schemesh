@@ -399,9 +399,12 @@
 
 
 (define (display-status-change job port)
-  (when (or (job-id job) (job-oid job))
-    (sh-job-display-summary* job port)
-    (job-oid-set! job #f))) ; no longer needed, clear it
+  (let ((id  (job-id job))
+        (oid (job-oid job)))
+    (when (or id oid)
+      (unless (or (eqv? -1 id) (eqv? -1 oid))
+        (sh-job-display-summary* job port))
+      (job-oid-set! job #f)))) ; no longer needed, clear it
 
 
 ;; called when starting a builtin or multijob:

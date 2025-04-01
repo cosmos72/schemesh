@@ -117,22 +117,40 @@
     ((job)
       (sh-run/bvector job '()))
     ((job options)
-      (let ((read-fd #f)
-            (display-summary-swapper (parameter-swapper sh-job-display-summary? #f)))
-        (dynamic-wind
-          ;; temporarily suppress messages about started/completed jobs
-          display-summary-swapper
-          (lambda ()
-            (set! read-fd (sh-start/fd-stdout job options))
-            ;; WARNING: job may internally dup write-fd into (job-fds-to-remap)
-            (fd-read-all read-fd))
-          (lambda ()
-            (display-summary-swapper)
-            (when read-fd
-              (fd-close read-fd)
-              (set! read-fd #f)) ; in case dynamic-wind is re-entered
-            (when (job-started? job)
-              (sh-wait job))))))))
+      (job-raise-if-started/recursive 'sh-run/bvector job)
+      (%job-id-set! job -1) ;; prevents showing job notifications
+      (let* ((read-fd (sh-start/fd-stdout job options))
+             (ret     (sh-wait-fd-read-all job read-fd)))
+        ;; WARNING: job may internally dup write-fd into (job-fds-to-remap)
+        (when read-fd
+          (fd-close read-fd))
+        (when (job-started? job)
+          (sh-wait job))
+        ret))))
+
+
+;; simultaneous fd-read-all from read-fd
+;; and wait for job that writes to the counterpart of read-fd
+(define (sh-wait-fd-read-all job read-fd)
+  (with-foreground-pgid (sh-wait-flags foreground-pgid continue-if-stopped wait-until-finished)
+                        (job-pgid job)
+    (let %loop ((bsp (make-bytespan 0)))
+      (bytespan-reserve-right! bsp (fx+ 4096 (bytespan-length bsp)))
+      (let* ((beg (bytespan-peek-beg bsp))
+             (end (bytespan-peek-end bsp))
+             (cap (bytespan-capacity-right bsp))
+             (n   (fd-read-noretry read-fd (bytespan-peek-data bsp) end (fx+ beg cap))))
+        (cond
+          ((and (integer? n) (> n 0))
+            (bytespan-resize-right! bsp (fx+ (fx- end beg) n))
+            (%loop bsp))
+          ((eqv? 0 n)
+            (job-wait 'fd-read-all-job-wait job (sh-wait-flags continue-if-stopped wait-until-finished))
+            (bytespan->bytevector*! bsp))
+          (else
+            (check-interrupts)
+            (job-kill job 'sigcont)
+            (%loop bsp)))))))
 
 
 ;; Start a job and wait for it to exit.
