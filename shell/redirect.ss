@@ -103,11 +103,77 @@
         (car fds))))) ; return read-fd or #f
 
 
+;; if status is one of:
+;;   (exception ...)
+;;   (killed 'sigint)
+;;   (killed 'sigquit)
+;; tries to kill (sh-current-job) then raises exception
+(define (try-kill-current-job-or-raise status)
+  (case (status->kind status)
+    ((exception)
+      (let ((ex (status->value status)))
+        (sh-current-job-kill ex)
+        ;; in case (sh-current-job-kill) returns
+        (raise ex)))
+    ((killed)
+      (let ((signal-name (status->value status)))
+        (when (memq signal-name '(sigint sigquit))
+          (sh-current-job-kill signal-name)
+          ;; in case (sh-current-job-kill) returns
+          (error 'sh-run/bvector
+            (if (eq? 'sigint signal-name) "user interrupt" "user quit")))))))
+
+
+;; Simultaneous (fd-read-all read-fd) and (sh-wait job)
+;; assumes that job writes to the peer of read-fd.
+;;
+;; Closes read-fd before returning.
+;;
+;; if job finishes with a status
+;;   (exception ...)
+;;   (killed 'sigint)
+;;   (killed 'sigquit)
+;; tries to kill (sh-current-job) then raises exception
+(define (sh-wait/fd-read-all job read-fd)
+  (parameterize ((sh-foreground-pgid (job-pgid job)))
+    (let %loop ((bsp (make-bytespan 0)))
+      (bytespan-reserve-right! bsp (fx+ 4096 (bytespan-length bsp)))
+      (let* ((beg (bytespan-peek-beg bsp))
+             (end (bytespan-peek-end bsp))
+             (cap (bytespan-capacity-right bsp))
+             (n   (fd-read-noretry read-fd (bytespan-peek-data bsp) end (fx+ beg cap))))
+        (cond
+          ((and (integer? n) (> n 0))
+            (bytespan-resize-right! bsp (fx+ (fx- end beg) n))
+            (%loop bsp))
+          ((eq? #t n)
+            (check-interrupts)
+            (when (stopped? (job-last-status job))
+              ;; react as is we received a SIGTSTP
+              (signal-handler-sigtstp (signal-name->number 'sigtstp)))
+            (job-kill job 'sigcont)
+            (%loop bsp))
+          (else ; end-of-file or I/O error
+            ;; cannot move (fd-close) to the "after" section of a dynamic-wind,
+            ;; because (check-interrupts) above may suspend us (= exit dynamic scope)
+            ;; and resume us (= re-enter dynamic scope) multiple times
+            (fd-close read-fd)
+            (let ((status (job-wait 'sh-run/bvector job (sh-wait-flags continue-if-stopped wait-until-finished))))
+              (try-kill-current-job-or-raise status))
+            (bytespan->bytevector*! bsp)))))))
+
+
 ;; Start a job and wait for it to exit.
 ;; Reads job's standard output and returns it converted to bytespan.
 ;;
 ;; Does NOT return early if job is stopped, use (sh-run/i) for that.
-;; Options are the same as (sh-start)
+;; Options are the same as (sh-start).
+;;
+;; If job finishes with a status
+;;   (exception ...)
+;;   (killed 'sigint)
+;;   (killed 'sigquit)
+;; tries to kill (sh-current-job) then raises exception.
 ;;
 ;; Implementation note: job is always started in a subprocess,
 ;; because we need to read its standard output while it runs.
@@ -119,38 +185,10 @@
     ((job options)
       (job-raise-if-started/recursive 'sh-run/bvector job)
       (%job-id-set! job -1) ;; prevents showing job notifications
-      (let* ((read-fd (sh-start/fd-stdout job options))
-             (ret     (sh-wait-fd-read-all job read-fd)))
+      (let ((read-fd (sh-start/fd-stdout job options)))
         ;; WARNING: job may internally dup write-fd into (job-fds-to-remap)
-        (when read-fd
-          (fd-close read-fd))
-        (when (job-started? job)
-          (sh-wait job))
-        ret))))
+        (sh-wait/fd-read-all job read-fd)))))
 
-
-;; simultaneous (fd-read-all read-fd) and (sh-wait job)
-;; assumes that job writes to the peer of read-fd
-(define (sh-wait-fd-read-all job read-fd)
-  (parameterize ((waiting-for-job job)
-                 (sh-foreground-pgid (job-pgid job)))
-    (let %loop ((bsp (make-bytespan 0)))
-      (bytespan-reserve-right! bsp (fx+ 4096 (bytespan-length bsp)))
-      (let* ((beg (bytespan-peek-beg bsp))
-             (end (bytespan-peek-end bsp))
-             (cap (bytespan-capacity-right bsp))
-             (n   (fd-read-noretry read-fd (bytespan-peek-data bsp) end (fx+ beg cap))))
-        (cond
-          ((and (integer? n) (> n 0))
-            (bytespan-resize-right! bsp (fx+ (fx- end beg) n))
-            (%loop bsp))
-          ((eqv? 0 n)
-            (job-wait 'fd-read-all-job-wait job (sh-wait-flags continue-if-stopped wait-until-finished))
-            (bytespan->bytevector*! bsp))
-          (else
-            (check-interrupts)
-            (job-kill job 'sigcont)
-            (%loop bsp)))))))
 
 
 ;; Start a job and wait for it to exit.

@@ -183,9 +183,9 @@
   (case-lambda
     ((job-or-id)
       (sh-kill job-or-id 'sigint))
-    ((job-or-id signal-name)
+    ((job-or-id signal-name-or-condition-object)
       (let ((job (sh-job job-or-id)))
-        (if (job-kill job signal-name)
+        (if (job-kill job signal-name-or-condition-object)
           (job-last-status job)
           (raise-errorf 'sh-kill "job not started: ~s" job))))))
 
@@ -195,11 +195,16 @@
 ;; which non-locally jumps to whoever started or resumed the job.
 ;;
 ;; If job is started, return #t. Note: may not return, i.e. non-locally jump to job's continuation.
-;; If job is not started, immediately return #f.
-(define (job-kill job signal-name)
+;; If job is not a sh-job or is not started, immediately return #f.
+(define (job-kill job signal-name-or-condition-object)
   ;;y (debugf "job-kill job=~s suspend-proc=~s" job suspend-proc)
   (if (and (sh-job? job) (job-started? job))
-    (let* ((fatal? (signal-name-is-usually-fatal? signal-name))
+    (let* ((signal-name  (if (symbol? signal-name-or-condition-object)
+                           signal-name-or-condition-object
+                           'sigint))
+           (ex           (and (not (symbol? signal-name-or-condition-object))
+                              signal-name-or-condition-object))
+           (fatal?       (or ex (signal-name-is-usually-fatal? signal-name)))
            (suspend-proc (and (sh-expr? job) (jexpr-suspend-proc job)))
            (pid  (job-pid job))
            (pgid (job-pgid job))
@@ -209,6 +214,9 @@
       ;; set job id and notify its status? causes verbose notifications...
       ;; (job-id-set! job)
       ;; (queue-job-display-summary job)
+
+      (when ex
+        (assert* 'job-kill (condition? ex)))
 
       (cond
         (target-pid ; also catches sh-pipe multijobs
@@ -224,15 +232,17 @@
               (job-status-set! 'job-kill job (killed signal-name)))))
         (suspend-proc
           (when fatal?
-            (job-status-set! 'job-kill job (killed signal-name))
+            (job-status-set! 'job-kill job
+              (if ex (exception ex) (killed signal-name)))
             ;; should not return
             (suspend-proc (void))))
         ((sh-multijob? job)
           (when fatal?
-            (job-status-set! 'job-kill job (killed signal-name)))
+            (job-status-set! 'job-kill job
+              (if ex (exception ex) (killed signal-name))))
           (multijob-kill job signal-name)))
-      #t)
-    #f))
+        #t)
+      #f))
 
 
 
@@ -241,8 +251,8 @@
 ;; If current job is not an sh-expr or is not running, immediately return #f.
 ;;
 ;; Used by (signal-handler-sigint) and (signal-handler-sigquit) to kill sh-expr jobs.
-(define (sh-current-job-kill signal-name)
-  (job-kill (sh-current-job) signal-name))
+(define (sh-current-job-kill signal-name-or-condition-object)
+  (job-kill (sh-current-job) signal-name-or-condition-object))
 
 
 ;; React to a SIGCHLD: if (sh-current-job) is an sh-expr job,
