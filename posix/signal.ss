@@ -9,17 +9,41 @@
 
 (library (schemesh posix signal (0 8 2))
   (export countdown
+          &received-signal make-received-signal raise-condition-received-signal
+          received-signal? received-signal-name
+
           signal-raise signal-number->name signal-name->number signal-name-is-usually-fatal?
           signal-consume-sigwinch signal-init-sigwinch signal-restore-sigwinch)
   (import
     (rnrs)
-    (only (chezscheme) assertion-violationf foreign-procedure fx1- integer-length logbit?
-                       procedure-arity-mask time? time-nanosecond time-second time-type void)
+    (only (chezscheme) assertion-violationf foreign-procedure format fx1- integer-length logbit?
+                       make-continuation-condition make-format-condition procedure-arity-mask
+                       time? time-nanosecond time-second time-type void)
     (only (schemesh bootstrap)            assert* check-interrupts)
     (only (schemesh containers hashtable) alist->eq-hashtable hashtable-transpose))
 
 
 (define c-errno-einval ((foreign-procedure "c_errno_einval" () int)))
+
+;; condition that wraps a C signal name represented as a symbol
+(define-condition-type &received-signal &condition make-received-signal received-signal?
+  (name received-signal-name))
+
+
+;; raise a condition object that recognizably contains signal-name
+(define (raise-condition-received-signal who signal-name message . message-args)
+  (call/cc
+    (lambda (k)
+      (raise
+        (condition
+          (make-error)
+          (make-continuation-condition k)
+          (make-non-continuable-violation)
+          (make-received-signal signal-name)
+          (make-who-condition (if (symbol? who) who (format #f "~s" who)))
+          (make-format-condition)
+          (make-message-condition (or message "received signal: ~s"))
+          (make-irritants-condition (if message message-args (list signal-name))))))))
 
 
 ;; Pause for user-specified duration.

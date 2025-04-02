@@ -73,20 +73,33 @@
         ;; setup fds remapping before calling them, because they may want to use (sh-fd N)
         (begin
           (job-remap-fds! c)
-          (start-command-or-builtin-or-alias c
-            (cmd-arg-list-call-sh-expr-and-procedures c prog-and-args) options))))))
+          (let ((l (cmd-arg-list-call-sh-expr-and-procedures c prog-and-args)))
+            (if (or (pair? l) (null? l))
+              (start-command-or-builtin-or-alias c l options)
+              l)))))))
 
 
 ;; internal function called by (cmd-start):
 ;; call procedures in prog-and-args.
 ;; Return the expanded command line, which is always a list of strings.
+;;
+;; if calling procedures in prog-and-args raises a condition,
+;; return the condition object wrapped in an (exception) status.
 (define (cmd-arg-list-call-sh-expr-and-procedures c prog-and-args)
-  (let ((l '()))
-    (for-list ((arg prog-and-args))
-      (set! l (cmd-arg-call-sh-expr-or-procedure c arg l)))
-    (set! l (reverse! l))
-    (assert-string-list? 'sh-start l)
-    l))
+  (try
+    (let %loop-call-sh-expr-and-procedures ((args prog-and-args) (l '()))
+      (if (null? args)
+        (let ((l (reverse! l)))
+          (assert-string-list? 'sh-start l)
+          ;; return list of strings
+          l)
+        (let ((l (cmd-arg-call-sh-expr-or-procedure c (car args) l)))
+          (%loop-call-sh-expr-and-procedures (cdr args) l))))
+    (catch (ex)
+      (if (received-signal? ex)
+        (killed (received-signal-name ex))
+        ;; return condition object wrapped in an (exception) status
+        (exception ex)))))
 
 
 ;; internal function called by (cmd-start):

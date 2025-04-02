@@ -221,11 +221,12 @@
       (raise
         (condition
           (make-i/o-filename-error path)
+          (make-continuation-condition k)
+          (make-non-continuable-violation)
           (make-who-condition (if (symbol? who) who (format #f "~s" who)))
           (make-format-condition)
           (make-message-condition "failed for ~a: ~a")
-          (make-irritants-condition (list path (c-errno->string err)))
-          (make-continuation-condition k))))))
+          (make-irritants-condition (list path (c-errno->string err))))))))
 
 
 ;; Check existence of a filesystem path.

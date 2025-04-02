@@ -109,6 +109,7 @@
 ;;   (killed 'sigquit)
 ;; tries to kill (sh-current-job) then raises exception
 (define (try-kill-current-job-or-raise status)
+  ;; (debugf "try-kill-current-job-or-raise status=~s" status)
   (case (status->kind status)
     ((exception)
       (let ((ex (status->value status)))
@@ -117,11 +118,13 @@
         (raise ex)))
     ((killed)
       (let ((signal-name (status->value status)))
-        (when (memq signal-name '(sigint sigquit))
+        (when (signal-name-is-usually-fatal? signal-name)
           (sh-current-job-kill signal-name)
           ;; in case (sh-current-job-kill) returns
-          (error 'sh-run/bvector
-            (if (eq? 'sigint signal-name) "user interrupt" "user quit")))))))
+          (raise-condition-received-signal 'sh-run/bvector signal-name
+                                           (case signal-name ((sigint) "user interrupt")
+                                                             ((sigquit) "user quit")
+                                                             (else #f))))))))
 
 
 ;; Simultaneous (fd-read-all read-fd) and (sh-wait job)

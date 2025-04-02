@@ -78,7 +78,7 @@
       (unless port
         ; works, but leaks into child processes :(
         (set! port (open-file-output-port
-                     "/dev/tty"
+                     "/dev/pts/1"
                      (file-options no-create no-truncate)
                      (buffer-mode line)
                      (make-transcoder (utf-8-codec) (eol-style lf)
