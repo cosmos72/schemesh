@@ -84,7 +84,7 @@
 ;; Return the expanded command line, which is always a list of strings.
 ;;
 ;; if calling procedures in prog-and-args raises a condition,
-;; return the condition object wrapped in an (exception) status.
+;; return the condition object wrapped in an (exception) or  (killed) status.
 (define (cmd-arg-list-call-sh-expr-and-procedures c prog-and-args)
   (try
     (let %loop-call-sh-expr-and-procedures ((args prog-and-args) (l '()))
@@ -97,8 +97,9 @@
           (%loop-call-sh-expr-and-procedures (cdr args) l))))
     (catch (ex)
       (if (received-signal? ex)
+        ;; return a (killed) status containing the signal name extracted from (received-signal) condition object
         (killed (received-signal-name ex))
-        ;; return condition object wrapped in an (exception) status
+        ;; return an (exception) status containing the condition object
         (exception ex)))))
 
 
