@@ -493,6 +493,38 @@ make -j
 sudo make install
 ```
 
+#### Nix/NixOS
+```nix
+# Try before you install (requires flakes):
+nix run github:cosmos72/schemesh
+
+# flake.nix
+{
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    schemesh.url = "github:cosmos72/schemesh";
+    schemesh.inputs.nixpkgs.follows = "nixpkgs";
+  };
+
+  outputs = { self, nixpkgs, ... } @ inputs:
+  {
+    nixosConfigurations.your-machine = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      specialArgs = { inherit inputs; };
+      modules = [ ./configuration.nix ];
+    };
+  };
+}
+
+# configuration.nix
+{ pkgs, inputs, ... }:
+{
+  environment.systemPackages = [
+    inputs.schemesh.packages.${pkgs.system}.default
+  ];
+}
+```
+
 #### other systems
 For Unix-like systems not listed above, the instructions above can (hopefully) be adapted as needed.
 
