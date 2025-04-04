@@ -29,6 +29,7 @@
   (include "containers/utf8b-utils.ss") ; requires containers/utf8b.ss containers/chargbuffer.ss
   (include "containers/macros.ss")
   (include "containers/containers.ss")
+  (include "containers/replacements.ss")
 
   (include "conversions/unicode.ss")
   (include "conversions/conversions.ss")

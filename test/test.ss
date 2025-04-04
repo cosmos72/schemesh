@@ -11,7 +11,9 @@
   (export
       run-tests)
   (import
-    (except (rnrs) file-exists? delete-file
+    (except (rnrs) bytevector-sint-ref ; bytevector-sint-set!
+                   bytevector-uint-ref bytevector-uint-set!
+                   file-exists? delete-file
                    get-bytevector-all get-bytevector-n get-bytevector-some
                    get-char get-datum get-line get-string-all get-string-n get-u8
                    put-bytevector put-char put-datum put-string put-u8)

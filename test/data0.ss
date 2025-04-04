@@ -28,7 +28,8 @@
   (-> + 2 3 -> / _ 4)                              5/4
   ;; '(expand-omit-library-invocations #t) (void)  do not use, requires Chez Scheme >= 10.0.0
   ;; '(begin (debugf \"warmup\") (debugf \"a\") (debugf \"b\") (debugf \"c\")) (void)
-  ;; ----------------- containers/misc ------------------------------------
+
+  ;; ----------------- containers/bytevector ------------------------------------
   (subvector '#(aa bb cc dd) 1 3)                  #(bb cc)
   (subbytevector #vu8(44 55 66 77) 2 3)            #vu8(66)
   (bytevector-compare #vu8(44 55) #vu8(44 55))     0
@@ -37,6 +38,40 @@
   (bytevector-compare #vu8(79) #vu8(78 0))         1
   (string-range-count= "qwertyuiop" 2 "_ertyuio7"
                         1 8)                       7
+  (let* ((n 511)
+         (bv (make-bytevector n))
+         (top (bitwise-arithmetic-shift-left 1 (fx1- (fx* n 8)))))
+    (import (prefix (only (rnrs)   bytevector-sint-ref bytevector-sint-set!)
+            rnrs:))
+    (do ((i 32 (fx1- i)))
+        ((fxzero? i) #t)
+      (let* ((uint (random top))
+             (sint (if (fxeven? i) uint (bitwise-not uint))))
+        ;(bytevector-sint-set*! bv 0 sint (endianness little) n)
+        ;(assert (eqv? sint (bytevector-uint-ref      bv 0 (endianness little) n)))
+        ;(assert (eqv? sint (rnrs:bytevector-uint-ref bv 0 (endianness little) n)))
+
+        (rnrs:bytevector-sint-set! bv 0 sint (endianness little) n)
+        (assert (eqv? sint (bytevector-sint-ref      bv 0 (endianness little) n)))
+        (assert (eqv? sint (rnrs:bytevector-sint-ref bv 0 (endianness little) n))))))  #t
+
+  (let* ((n 513)
+         (bv (make-bytevector n))
+         (top (bitwise-arithmetic-shift-left 1 (fx* n 8))))
+    (import (prefix (only (rnrs)   bytevector-uint-ref bytevector-uint-set!)
+            rnrs:))
+    (do ((i 32 (fx1- i)))
+        ((fxzero? i) #t)
+      (let ((uint (random top)))
+        (bytevector-uint-set*! bv 0 uint (endianness little) n)
+        (assert (eqv? uint (bytevector-uint-ref      bv 0 (endianness little) n)))
+        (assert (eqv? uint (rnrs:bytevector-uint-ref bv 0 (endianness little) n)))
+
+        (rnrs:bytevector-uint-set! bv 0 uint (endianness little) n)
+        (assert (eqv? uint (bytevector-uint-ref      bv 0 (endianness little) n)))
+        (assert (eqv? uint (rnrs:bytevector-uint-ref bv 0 (endianness little) n))))))  #t
+
+  ;; ----------------- containers/string ------------------------------------
   (string-replace-all "abcdbacdabcd" "ab" "0")     "0cdbacd0cd"
   (string-split "" #\:)                            ("")
   (string-split ":" #\:)                           ("" "")

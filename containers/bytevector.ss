@@ -9,16 +9,21 @@
 (library (schemesh containers bytevector (0 8 2))
   (export
     in-bytevector list->bytevector subbytevector
+
     bytevector-compare bytevector-fill-range! bytevector-hash bytevector-index
     bytevector<=? bytevector<? bytevector>=? bytevector>? bytevector-iterate
+
+    bytevector-sint-ref*
     bytevector-uint-ref* bytevector-uint-set*! )
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)         bytevector
+    (only (chezscheme)         1+ bytevector
+                               bytevector-s24-ref  bytevector-s40-ref  bytevector-s48-ref  bytevector-s56-ref
+                               bytevector-s24-set! bytevector-s40-set! bytevector-s48-set! bytevector-s56-set!
                                bytevector-u24-ref  bytevector-u40-ref  bytevector-u48-ref  bytevector-u56-ref
                                bytevector-u24-set! bytevector-u40-set! bytevector-u48-set! bytevector-u56-set!
-                               foreign-procedure fx1+ fx/ logbit? procedure-arity-mask)
+                               foreign-procedure fx1+ fx1- fx/ logbit? procedure-arity-mask void)
     (only (schemesh bootstrap) assert* fx<=?*))
 
 
@@ -152,11 +157,11 @@
 
 (define (bytevector-uint-ref/little bv pos size)
   (if (fx>? size 8)
-    (let* ((size1 (fx/ size 2))
-           (size2 (fx- size size1))
-           (lo    (bytevector-uint-ref/little bv pos             size1))
-           (hi    (bytevector-uint-ref/little bv (fx+ pos size1) size2)))
-      (bitwise-ior lo (bitwise-arithmetic-shift-left hi (* size1 8))))
+    (let* ((sizehi (fx/ size 2))
+           (sizelo (fx- size sizehi))
+           (lo     (bytevector-uint-ref/little bv pos              sizelo))
+           (hi     (bytevector-uint-ref/little bv (fx+ pos sizelo) sizehi)))
+      (bitwise-ior lo (bitwise-arithmetic-shift-left hi (* sizelo 8))))
     (case size
       ((8) (bytevector-u64-ref bv pos (endianness little)))
       ((7) (bytevector-u56-ref bv pos (endianness little)))
@@ -166,16 +171,16 @@
       ((3) (bytevector-u24-ref bv pos (endianness little)))
       ((2) (bytevector-u16-ref bv pos (endianness little)))
       ((1) (bytevector-u8-ref  bv pos))
-      (else 0)))) ; should not happen
+      (else 0))))
 
 
 (define (bytevector-uint-ref/big bv pos size)
   (if (fx>? size 8)
-    (let* ((size1 (fx/ size 2))
-           (size2 (fx- size size1))
-           (hi    (bytevector-uint-ref/big bv pos             size1))
-           (lo    (bytevector-uint-ref/big bv (fx+ pos size1) size2)))
-      (bitwise-ior lo (bitwise-arithmetic-shift-left hi (* size1 8))))
+    (let* ((sizehi (fx/ size 2))
+           (sizelo (fx- size sizehi))
+           (hi     (bytevector-uint-ref/big bv pos              sizehi))
+           (lo     (bytevector-uint-ref/big bv (fx+ pos sizehi) sizelo)))
+      (bitwise-ior lo (bitwise-arithmetic-shift-left hi (* sizelo 8))))
     (case size
       ((8) (bytevector-u64-ref bv pos (endianness big)))
       ((7) (bytevector-u56-ref bv pos (endianness big)))
@@ -185,7 +190,8 @@
       ((3) (bytevector-u24-ref bv pos (endianness big)))
       ((2) (bytevector-u16-ref bv pos (endianness big)))
       ((1) (bytevector-u8-ref  bv pos))
-      (else 0)))) ; should not happen
+      (else 0))))
+
 
 ;; optimized (bytevector-uint-ref)
 (define (bytevector-uint-ref* bv pos eness size)
@@ -198,12 +204,12 @@
 
 (define (bytevector-uint-set/little! bv pos uint size)
   (if (fx>? size 8)
-    (let* ((size1 (fx/ size 2))
-           (size2 (fx- size size1))
-           (lo    (bitwise-and uint (bitwise-not (bitwise-arithmetic-shift-left -1 (* size1 8)))))
-           (hi    (bitwise-arithmetic-shift-right uint (* size1 8))))
-      (bytevector-uint-set/little! bv pos lo size1)
-      (bytevector-uint-set/little! bv (fx+ pos size1) hi size2))
+    (let* ((sizehi (fx/ size 2))
+           (sizelo (fx- size sizehi))
+           (lo     (bitwise-and uint (bitwise-not (bitwise-arithmetic-shift-left -1 (* sizelo 8)))))
+           (hi     (bitwise-arithmetic-shift-right uint (* sizelo 8))))
+      (bytevector-uint-set/little! bv pos lo sizelo)
+      (bytevector-uint-set/little! bv (fx+ pos sizelo) hi sizehi))
     (case size
       ((8) (bytevector-u64-set! bv pos uint (endianness little)))
       ((7) (bytevector-u56-set! bv pos uint (endianness little)))
@@ -213,17 +219,17 @@
       ((3) (bytevector-u24-set! bv pos uint (endianness little)))
       ((2) (bytevector-u16-set! bv pos uint (endianness little)))
       ((1) (bytevector-u8-set!  bv pos uint))
-      (else 0)))) ; should not happen
+      (else (void)))))
 
 
 (define (bytevector-uint-set/big! bv pos uint size)
   (if (fx>? size 8)
-    (let* ((size1 (fx/ size 2))
-           (size2 (fx- size size1))
-           (lo    (bitwise-and uint (bitwise-not (bitwise-arithmetic-shift-left -1 (* size1 8)))))
-           (hi    (bitwise-arithmetic-shift-right uint (* size1 8))))
-      (bytevector-uint-set/big! bv pos hi size1)
-      (bytevector-uint-set/big! bv (fx+ pos size1) lo size2))
+    (let* ((sizehi (fx/ size 2))
+           (sizelo (fx- size sizehi))
+           (lo    (bitwise-and uint (bitwise-not (bitwise-arithmetic-shift-left -1 (* sizelo 8)))))
+           (hi    (bitwise-arithmetic-shift-right uint (* sizelo 8))))
+      (bytevector-uint-set/big! bv pos hi sizehi)
+      (bytevector-uint-set/big! bv (fx+ pos sizehi) lo sizelo))
     (case size
       ((8) (bytevector-u64-set! bv pos uint (endianness little)))
       ((7) (bytevector-u56-set! bv pos uint (endianness little)))
@@ -233,7 +239,7 @@
       ((3) (bytevector-u24-set! bv pos uint (endianness little)))
       ((2) (bytevector-u16-set! bv pos uint (endianness little)))
       ((1) (bytevector-u8-set!  bv pos uint))
-      (else 0)))) ; should not happen
+      (else (void)))))
 
 
 
@@ -247,6 +253,74 @@
     ((little) (bytevector-uint-set/little! bv pos uint size))
     ((big)    (bytevector-uint-set/big!    bv pos uint size))
     (else     (syntax-violation 'bytevector-uint-set*! "invalid endianness" eness))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(define (bytevector-sint-ref/little bv pos size)
+  (if (fx>? size 8)
+    (let* ((sizehi (fx/ size 2))
+           (sizelo (fx- size sizehi))
+           (lo    (bytevector-uint-ref/little bv pos              sizelo))
+           (hi    (bytevector-sint-ref/little bv (fx+ pos sizelo) sizehi)))
+      (bitwise-ior lo (bitwise-arithmetic-shift-left hi (* sizelo 8))))
+    (case size
+      ((8) (bytevector-s64-ref bv pos (endianness little)))
+      ((7) (bytevector-s56-ref bv pos (endianness little)))
+      ((6) (bytevector-s48-ref bv pos (endianness little)))
+      ((5) (bytevector-s40-ref bv pos (endianness little)))
+      ((4) (bytevector-s32-ref bv pos (endianness little)))
+      ((3) (bytevector-s24-ref bv pos (endianness little)))
+      ((2) (bytevector-s16-ref bv pos (endianness little)))
+      ((1) (bytevector-s8-ref  bv pos))
+      (else 0))))
+
+
+(define (bytevector-sint-ref/big bv pos size)
+  (if (fx>? size 8)
+    (let* ((sizehi (fx/ size 2))
+           (sizelo (fx- size sizehi))
+           (hi     (bytevector-sint-ref/big bv pos              sizehi))
+           (lo     (bytevector-uint-ref/big bv (fx+ pos sizehi) sizelo)))
+      (bitwise-ior lo (bitwise-arithmetic-shift-left hi (* sizelo 8))))
+    (case size
+      ((8) (bytevector-s64-ref bv pos (endianness big)))
+      ((7) (bytevector-s56-ref bv pos (endianness big)))
+      ((6) (bytevector-s48-ref bv pos (endianness big)))
+      ((5) (bytevector-s40-ref bv pos (endianness big)))
+      ((4) (bytevector-s32-ref bv pos (endianness big)))
+      ((3) (bytevector-s24-ref bv pos (endianness big)))
+      ((2) (bytevector-s16-ref bv pos (endianness big)))
+      ((1) (bytevector-s8-ref  bv pos))
+      (else 0))))
+
+
+(define (%trim-size/little bv pos size)
+  (if (or (fxzero? size) (not (fxzero? (bytevector-u8-ref bv (fx1- (fx+ pos size))))))
+    size
+    (%trim-size/little bv pos (fx1- size))))
+
+
+(define (%trim-size/big bv pos size)
+  (let %skip ((n 0))
+    (if (or (fx=? n size) (not (fxzero? (bytevector-u8-ref bv (fx+ pos n)))))
+      n
+      (%skip (fx1+ n)))))
+
+
+;; optimized (bytevector-sint-ref)
+(define (bytevector-sint-ref* bv pos eness size)
+  (assert* 'bytevector-sint-ref* (fx>? size 0))
+  (case eness
+    ((little)
+      (let ((size (%trim-size/little bv pos size)))
+        (bytevector-sint-ref/little bv pos size)))
+    ((big)
+      (let ((n (%trim-size/big bv pos size)))
+        (bytevector-sint-ref/big bv (fx+ pos n) (fx- size n))))
+    (else
+      (syntax-violation 'bytevector-sint-ref* "invalid endianness" eness))))
 
 
 ) ; close library
