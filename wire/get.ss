@@ -6,8 +6,11 @@
 ;;; (at your option) any later version.
 
 
+#!r6rs
+
 ;; this file should be included only by file wire/wire.ss
 
+(include "wire/bwp.ss")
 
 (define (get/exact-s8 bv pos end)
   ;; caller is (get/any) or similar, and guarantees that (fx<? pos end)
@@ -348,7 +351,7 @@
                 tag-s8 get/exact-s8 tag-s16 get/exact-s16 tag-s24 get/exact-s24 tag-s32 get/exact-s32
                 tag-sint get/exact-sint tag-ratio get/ratio tag-complex get/complex
                 tag-flonum get/flonum tag-cflonum get/cflonum
-                tag-f #f tag-t #t tag-nil '() tag-void (void) tag-eof (eof-object) tag-bwp #!bwp
+                tag-f #f tag-t #t tag-nil '() tag-void (void) tag-eof (eof-object) tag-bwp (bwp-object)
                 tag-char8 get/char8 tag-char16 get/char16 tag-char24 get/char24 tag-box get/box
                 tag-pair get/pair tag-list1 get/list1 tag-list* get/list* tag-list get/list
                 tag-vector   get/vector   tag-bytevector get/bytevector

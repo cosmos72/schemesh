@@ -5,6 +5,7 @@
 ;;; the Free Software Foundation; either version 2 of the License, or
 ;;; (at your option) any later version.
 
+#!r6rs
 
 ;;; Wire serialization/deserialization format.
 ;;;
@@ -112,7 +113,7 @@
     (prefix (only (chezscheme) char=? char-ci=? record-constructor string=? string-ci=?)
             chez:)
 
-    (only (schemesh bootstrap) assert* fx<=?* trace-define)
+    (only (schemesh bootstrap) assert* fx<=?*)
     (schemesh containers))
 
 
