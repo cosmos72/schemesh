@@ -14,7 +14,7 @@
 ;;;
 (library (schemesh channel (0 8 2))
   (export channel? channel-close channel-fd channel-pipe-pair channel-socket-pair
-          channel-get channel-eof? channel-put)
+          channel-get channel-eof? channel-put in-channel)
   (import
     (rnrs)
     (only (chezscheme)         record-writer)
@@ -124,6 +124,7 @@
         (let ((read-n (fd-read-insert-right! fd rbuf)))
           (if (fxzero? read-n)
             (begin
+              ;; TODO: if fd is a socket it should be shutdown instead, allowing more writes to it.
               (fd-close fd)
               (channel-read-fd-set! c #f)
               (eof-object))
@@ -157,6 +158,16 @@
 (define (channel-eof? c)
   (not (channel-read-fd c)))
 
+
+;; create and return a closure that iterates on data read from channel c.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values datum #t) i.e. the next read datum and #t,
+;; or (values #<unspecified> #f) if end-of-file is reached.
+(define (in-channel c)
+  (lambda ()
+    (let ((datum (channel-get c)))
+      (values datum (not (and (eof-object? datum) (channel-eof? c)))))))
 
 
 ;; customize how "channel" objects are printed

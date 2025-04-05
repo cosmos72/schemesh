@@ -59,7 +59,7 @@
 ;; * a pair (seconds . nanoseconds) where both are exact integers
 ;; * a time object with type 'time-duration
 ;;
-;; returns #t on success, or < 0 on errors.
+;; returns (void) on success, or < 0 on errors.
 (define countdown
   (let ((c-countdown (foreign-procedure "c_countdown" (ptr) int)))
     (lambda (duration)
@@ -67,7 +67,7 @@
         (check-interrupts)
         (let ((err (c-countdown pair)))
           (case err
-            ((0) #t)
+            ((0) (void))
             ((1) (%countdown pair))
             (else err)))))))
 
