@@ -133,12 +133,15 @@
 ;; read serialized data from the channel's read file descriptor,
 ;; repeating until a whole wire message is available,
 ;; then deserialize the message and return it.
-;;
-;; return (eof-object) on end-of-file, or if channel's read-fd is closed or not set.
-;; Note: peer *can* send serialized (eof-object) to emulate end-of-file.
-;; Caller can invoke (channel-eof? c) to check if channel's read-fd is closed, not set or reached-end-of-file.
-;;
 ;; may block while reading from file descriptor.
+;;
+;; return deserialized datum.
+;; return (eof-object) on end-of-file, or if channel's read-fd is closed or not set.
+;;
+;; Note: peer *can* send serialized (eof-object) to emulate end-of-file.
+;; If needed, caller can invoke (channel-eof? c) to distinguish between an actual and an emulated end-of-file:
+;; (channel-eof? c) returns #t only if channel's read-fd is closed, not set or actually reached end-of-file.
+;;
 ;;
 ;; raise exception on I/O error or if serialized data cannot be parsed.
 (define (channel-get c)
@@ -149,7 +152,7 @@
       (eof-object))))
 
 
-;; return #t if channel's read-fd is closed, not set or reached-end-of-file.
+;; return #t if channel's read-fd is closed, not set or reached end-of-file.
 ;; otherwise return #f
 (define (channel-eof? c)
   (not (channel-read-fd c)))
