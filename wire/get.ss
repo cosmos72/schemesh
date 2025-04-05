@@ -31,7 +31,7 @@
 (define (get/exact-sint bv pos end)
   (let-values (((n pos) (get/vlen bv pos end)))
     (if (and pos (fx<=? 1 n (fx- end pos))) ; n must be > 0
-      (values (bytevector-sint-ref bv pos endian n) (fx+ pos n))
+      (values (bytevector-sint-ref* bv pos endian n) (fx+ pos n))
       (values #f #f))))
 
 

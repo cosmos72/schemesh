@@ -247,13 +247,21 @@
 ;; and defines a library that automatically exports all imported bindings.
 ;;
 ;; defining it in a library is not very useful, because one would need to (import) it
-;; before calling (library-reexports) at top level
+;; before calling (library-reexport) at top level
 ;;
 (define-syntax library-reexport
-  (lambda (stx)
-    (syntax-case stx (import)
-      ((k name (import . imported-library-names))
-        (let ((export-list (apply append (map library-exports (datum imported-library-names)))))
-          #`(library name
-            (export . #,(datum->syntax (syntax k) export-list))
-            (import . imported-library-names)))))))
+  (let ((library-exports-with-excepts
+          (lambda (library-name)
+            (if (and (pair? library-name) (eq? 'except (car library-name)))
+              (let ((except-syms (cddr library-name)))
+                (filter (lambda (sym)
+                          (not (memq sym except-syms)))
+                  (library-exports (cadr library-name))))
+              (library-exports library-name)))))
+    (lambda (stx)
+      (syntax-case stx (import)
+        ((k name (import . imported-library-names))
+          (let ((export-list (apply append (map library-exports-with-excepts (datum imported-library-names)))))
+            #`(library name
+              (export . #,(datum->syntax (syntax k) export-list))
+              (import . imported-library-names))))))))

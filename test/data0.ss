@@ -39,8 +39,8 @@
   (string-range-count= "qwertyuiop" 2 "_ertyuio7"
                         1 8)                       7
 
-  (let* ((n 513)
-         (bv (make-bytevector n))
+  (let* ((n   513)
+         (bv  (make-bytevector n))
          (top (bitwise-arithmetic-shift-left 1 (fx* n 8))))
     (import (prefix (only (rnrs)   bytevector-uint-ref bytevector-uint-set!)
             rnrs:))
@@ -63,32 +63,31 @@
         (assert* 'test-bytevector-uint-g (eqv? uint (rnrs:bytevector-uint-ref bv 0 (endianness big) n)))
         (assert* 'test-bytevector-uint-h (eqv? uint (bytevector-uint-ref*     bv 0 (endianness big) n))))))   #t
 
-  ; currently bugged
-  (let* ((n 511)
-         (bv (make-bytevector n))
+  (let* ((n   511)
+         (bv  (make-bytevector n))
          (top (bitwise-arithmetic-shift-left 1 (fx1- (fx* n 8)))))
     (import (prefix (only (rnrs)   bytevector-sint-ref bytevector-sint-set!)
             rnrs:))
     (do ((i 32 (fx1- i)))
-        (#t #t ) ; ((fxzero? i) #t)
+        ((fxzero? i) #t)
       (let* ((uint (random top))
              (sint (if (fxeven? i) uint (bitwise-not uint))))
         (rnrs:bytevector-sint-set! bv 0 sint (endianness little) n)
-        (assert* 'test-bytevector-sint (eqv? sint (rnrs:bytevector-sint-ref bv 0 (endianness little) n)))
-        (assert* 'test-bytevector-sint (eqv? sint (bytevector-sint-ref*     bv 0 (endianness little) n)))
+        (assert* 'test-bytevector-sint-a (eqv? sint (rnrs:bytevector-sint-ref bv 0 (endianness little) n)))
+        (assert* 'test-bytevector-sint-b (eqv? sint (bytevector-sint-ref*     bv 0 (endianness little) n)))
 
-        ;(bytevector-sint-set*! bv 0 sint (endianness little) n)
-        ;(assert* 'test-bytevector-sint (eqv? sint (rnrs:bytevector-uint-ref bv 0 (endianness little) n)))
-        ;(assert* 'test-bytevector-sint (eqv? sint (bytevector-uint-ref*     bv 0 (endianness little) n)))
+        (bytevector-sint-set*! bv 0 sint (endianness little) n)
+        (assert* 'test-bytevector-sint-c (eqv? sint (rnrs:bytevector-sint-ref bv 0 (endianness little) n)))
+        (assert* 'test-bytevector-sint-d (eqv? sint (bytevector-sint-ref*     bv 0 (endianness little) n)))
 
         (rnrs:bytevector-sint-set! bv 0 sint (endianness big) n)
-        (assert* 'test-bytevector-sint (eqv? sint (rnrs:bytevector-sint-ref bv 0 (endianness big) n)))
-        (assert* 'test-bytevector-sint (eqv? sint (bytevector-sint-ref*     bv 0 (endianness big) n)))
+        (assert* 'test-bytevector-sint-e (eqv? sint (rnrs:bytevector-sint-ref bv 0 (endianness big) n)))
+        (assert* 'test-bytevector-sint-f (eqv? sint (bytevector-sint-ref*     bv 0 (endianness big) n)))
 
-        ;(bytevector-sint-set*! bv 0 sint (endianness big) n)
-        ;(assert* 'test-bytevector-sint (eqv? sint (rnrs:bytevector-sint-ref bv 0 (endianness big) n)))
-        ;(assert* 'test-bytevector-sint (eqv? sint (bytevector-sint-ref*     bv 0 (endianness big) n)))
-        )))  #t
+        (bytevector-sint-set*! bv 0 sint (endianness big) n)
+        (assert* 'test-bytevector-sint-g (eqv? sint (rnrs:bytevector-sint-ref bv 0 (endianness big) n)))
+        (assert* 'test-bytevector-sint-h (eqv? sint (bytevector-sint-ref*     bv 0 (endianness big) n))))))    #t
+
 
   ;; ----------------- containers/string ------------------------------------
   (string-replace-all "abcdbacdabcd" "ab" "0")     "0cdbacd0cd"

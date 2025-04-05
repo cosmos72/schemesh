@@ -11,7 +11,7 @@
   (export
       run-tests)
   (import
-    (except (rnrs) bytevector-sint-ref ; bytevector-sint-set!
+    (except (rnrs) bytevector-sint-ref bytevector-sint-set!
                    bytevector-uint-ref bytevector-uint-set!
                    file-exists? delete-file
                    get-bytevector-all get-bytevector-n get-bytevector-some

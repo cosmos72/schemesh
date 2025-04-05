@@ -13,7 +13,32 @@
           (schemesh repl)))
 
 
-;; define (schemesh) as a library that exports all its imported bindings
+;; library (schemesh rnrs) exports the same bindings as (rnrs),
+;; except for few bindings that are replaced with improved alternatives:
+;;
+;;   bytevector-sint-ref bytevector-sint-set!
+;;   bytevector-uint-ref bytevector-uint-set!
+;;   file-exists? delete-file
+;;   get-bytevector-all get-bytevector-n get-bytevector-some
+;;   get-char get-datum get-line get-string-all get-string-n get-u8
+;;   put-bytevector put-char put-datum put-string put-u8
+;;
+(library-reexport (schemesh rnrs (0 8 2))
+  (import
+    (except (rnrs) bytevector-sint-ref bytevector-sint-set!
+                   bytevector-uint-ref bytevector-uint-set!
+                   file-exists? delete-file
+                   get-bytevector-all get-bytevector-n get-bytevector-some
+                   get-char get-datum get-line get-string-all get-string-n get-u8
+                   put-bytevector put-char put-datum put-string put-u8)
+    (schemesh containers replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
+    (schemesh posix replacements)      ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
+    (schemesh shell replacements)))    ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
+
+
+;; library (schemesh) collects and exports *all* bindings defined by all libschemesh sub-libraries,
+;; including few bindings that intentionally conflict with some R6RS and Chez Scheme functions
+;; because they are intended as replacements
 (library-reexport (schemesh (0 8 2))
   (import
     (schemesh bootstrap)
