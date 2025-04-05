@@ -99,7 +99,7 @@
     (parenmatcher-htable-set! pm #f)))
 
 
-; customize how "parenmatcher" objects are printed
+;; customize how "parenmatcher" objects are printed
 (record-writer (record-type-descriptor parenmatcher)
   (lambda (pm port writer)
     (display "#<parenmatcher>" port)))

@@ -18,8 +18,8 @@
 
 (define tty-setraw! (foreign-procedure "c_tty_setraw" () int))
 
-; (tty-size) calls C functions c_tty_size(),
-; which returns controlling tty size as pair (width . height), or c_errno() < 0 on error
+;; (tty-size) calls C functions c_tty_size(),
+;; which returns controlling tty size as pair (width . height), or c_errno() < 0 on error
 (define tty-size   (foreign-procedure "c_tty_size" () ptr))
 
 (define-syntax with-cooked-tty

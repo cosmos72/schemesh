@@ -74,7 +74,7 @@
   (fx- (span-end sp) (span-beg sp)))
 
 ;; return length of internal vector, i.e. maximum number of elements
-; that can be stored without reallocating
+;; that can be stored without reallocating
 (define (span-capacity sp)
   (vector-length (span-vec sp)))
 

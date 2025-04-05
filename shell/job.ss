@@ -9,9 +9,9 @@
 
 ;; Define the record types "sh-job" "sh-cmd" "sh-multijob" "sh-expr" and functions operating on them.
 ;; Define the functions (sh-env...) and (sh-fd...)
-;
+;;
 ;; Convention: (sh) and (sh-...) are functions
-;              (shell) and (shell-...) are macros
+;;             (shell) and (shell-...) are macros
 
 (library (schemesh shell job (0 8 2))
   (export

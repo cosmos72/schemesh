@@ -87,7 +87,7 @@
     unreserve?))
 
 
-; customize how "s-fd" objects are printed
+;; customize how "s-fd" objects are printed
 (record-writer (record-type-descriptor %s-fd)
   (lambda (fd port writer)
     (display "(s-fd " port)

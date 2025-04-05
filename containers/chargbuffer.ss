@@ -133,7 +133,7 @@
         (charspan-insert-left/cspan! right left idx (fx- idx delta))
         (charspan-erase-right! left (fx- delta))))))
 
-; insert one char into chargbuffer at position idx
+;; insert one char into chargbuffer at position idx
 (define (chargbuffer-insert-at! gb idx ch)
   (assert* 'chargbuffer-insert-at! (fx<=? 0 idx (chargbuffer-length gb)))
   (let* ((left   (c< gb))
@@ -150,8 +150,8 @@
         (charspan-insert-right! left ch)))))
 
 
-; read elements in range [src-start, src-end) from charspan csp-src
-; and insert them into chargbuffer at position idx
+;; read elements in range [src-start, src-end) from charspan csp-src
+;; and insert them into chargbuffer at position idx
 (define chargbuffer-insert-at/cspan!
   (case-lambda
     ((gb idx csp-src src-start src-end)
@@ -176,8 +176,8 @@
       (chargbuffer-insert-at/cspan! gb idx csp-src 0 (charspan-length csp-src)))))
 
 
-; read elements in range [src-start, src-end) from charspan csp-src
-; and insert them into chargbuffer at position idx
+;; read elements in range [src-start, src-end) from charspan csp-src
+;; and insert them into chargbuffer at position idx
 (define chargbuffer-insert-at/cbuf!
   (case-lambda
     ((gb idx gb-src src-start src-end)
@@ -203,7 +203,7 @@
       (chargbuffer-insert-at/cbuf! gb idx gb-src 0 (chargbuffer-length gb-src)))))
 
 
-; remove elements in range [start, end) from chargbuffer gb
+;; remove elements in range [start, end) from chargbuffer gb
 (define (chargbuffer-erase-range! gb start end)
   (let* ((left    (c< gb))
          (right   (c> gb))
@@ -262,7 +262,7 @@
     ((or (fx>=? i n) (not (proc i (chargbuffer-ref gb i))))
      (fx>=? i n))))
 
-; customize how "chargbuffer" objects are printed
+;; customize how "chargbuffer" objects are printed
 (record-writer (record-type-descriptor %chargbuffer)
   (lambda (gb port writer)
     (display "(string->chargbuffer* " port)

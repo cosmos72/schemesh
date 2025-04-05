@@ -283,14 +283,14 @@
        (let ((new-cap (fxmax 8 len (fx* 2 cap-right))))
          (charspan-reallocate-right! sp (charspan-length sp) new-cap))))))
 
-; grow or shrink charspan on the left (front), set length to n
+;; grow or shrink charspan on the left (front), set length to n
 (define (charspan-resize-left! sp len)
   (assert* 'charspan-resize-left! (fx>=? len 0))
   (charspan-reserve-left! sp len)
   (assert* 'charspan-resize-left! (fx>=? (charspan-capacity-left sp) len))
   (charspan-beg-set! sp (fx- (charspan-end sp) len)))
 
-; grow or shrink charspan on the right (back), set length to n
+;; grow or shrink charspan on the right (back), set length to n
 (define (charspan-resize-right! sp len)
   (assert* 'charspan-resize-right! (fx>=? len 0))
   (charspan-reserve-right! sp len)
@@ -331,7 +331,7 @@
       (charspan-insert-left/cspan! sp-dst sp-src 0 (charspan-length sp-src)))))
 
 
-; append range [start, end) of charspan sp-src at the end of charspan sp-dst
+;; append range [start, end) of charspan sp-src at the end of charspan sp-dst
 (define charspan-insert-right/cspan!
   (case-lambda
     ((sp-dst sp-src src-start src-end)
@@ -346,7 +346,7 @@
       (charspan-insert-right/cspan! sp-dst sp-src 0 (charspan-length sp-src)))))
 
 
-; insert range [start, end) of string str-src at the beginning of charspan sp-dst
+;; insert range [start, end) of string str-src at the beginning of charspan sp-dst
 (define charspan-insert-left/string!
   (case-lambda
     ((sp-dst str-src src-start src-end)
@@ -364,7 +364,7 @@
       (charspan-insert-left/string! sp-dst str-src 0 (string-length str-src)))))
 
 
-; append range [start, end) of string str-src at the end of charspan sp-dst
+;; append range [start, end) of string str-src at the end of charspan sp-dst
 (define charspan-insert-right/string!
   (case-lambda
     ((sp-dst str-src src-start src-end)
@@ -383,13 +383,13 @@
       (charspan-insert-right/string! sp-dst str-src 0 (string-length str-src)))))
 
 
-; erase n elements at the left (front) of charspan
+;; erase n elements at the left (front) of charspan
 (define (charspan-erase-left! sp n)
   (assert* 'charspan-erase-left! (fx<=? 0 n (charspan-length sp)))
   (unless (fxzero? n)
     (charspan-beg-set! sp (fx+ n (charspan-beg sp)))))
 
-; erase n elements at the right (back) of charspan
+;; erase n elements at the right (back) of charspan
 (define (charspan-erase-right! sp n)
   (assert* 'charspan-erase-right! (fx<=? 0 n (charspan-length sp)))
   (unless (fxzero? n)
@@ -517,7 +517,7 @@
 
 
 
-; customize how charspan objects are printed
+;; customize how charspan objects are printed
 (record-writer (record-type-descriptor %charspan)
   (lambda (sp port writer)
     (display "(string->charspan* " port)

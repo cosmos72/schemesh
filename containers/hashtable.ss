@@ -34,9 +34,9 @@
 (include "containers/hashtable-types.ss")
 
 
-; Note: eqv hashtables contain two inner hashtables:
-; one for keys comparable with eq, and one for all other keys.
-; We must retrieve both vectors from them and iterate on both.
+;; Note: eqv hashtables contain two inner hashtables:
+;; one for keys comparable with eq, and one for all other keys.
+;; We must retrieve both vectors from them and iterate on both.
 (define-record-type
   (%hash-iterator %make-iter hash-iterator?)
   (fields
@@ -68,28 +68,28 @@
     (else
       #f)))
 
-; make a copy of specified hash-iterator
+;; make a copy of specified hash-iterator
 (define (hash-iterator-copy iter)
   (%make-iter (iter-index iter) (iter-bucket iter) (iter-vec1 iter) (iter-vec2 iter)))
 
 
-; return hashtable element (key . val) corresponding to current position
-; of hash-iterator, or #f if end of hashtable is reached
-;
-; setting the cdr of returned element propagates back to the hashtable,
-; i.e. it is equivalent to setting the value associated to key in the hashtable
-;
-; NEVER set or modify in any way the car of returned element!
+;; return hashtable element (key . val) corresponding to current position
+;; of hash-iterator, or #f if end of hashtable is reached
+;;
+;; setting the cdr of returned element propagates back to the hashtable,
+;; i.e. it is equivalent to setting the value associated to key in the hashtable
+;;
+;; NEVER set or modify in any way the car of returned element!
 (define (hash-iterator-pair iter)
   (bucket-keyval (iter-bucket iter)))
 
 
-; modify hash-iterator in place to point to next hashtable element.
-; return next hashtable element (key . val) if more elements are available,
-; otherwise return #f
-;
-; as (hash-iterator-pair), setting the cdr of returned element propagates back
-; to the hashtable.
+;; modify hash-iterator in place to point to next hashtable element.
+;; return next hashtable element (key . val) if more elements are available,
+;; otherwise return #f
+;;
+;; as (hash-iterator-pair), setting the cdr of returned element propagates back
+;; to the hashtable.
 (define (hash-iterator-next! iter)
   (let* ((index  (iter-index  iter))
          (bucket (bucket-next (iter-bucket iter)))
@@ -118,7 +118,7 @@
           (hash-iterator-next! iter))))))
 
 
-; return hash-iterator to first element in hashtable
+;; return hash-iterator to first element in hashtable
 (define (make-hash-iterator h)
   (if (fxzero? (hashtable-size h))
     ; hashtable is empty, return empty iterator
@@ -342,10 +342,10 @@
                     body1 body2 ...)))))))))
 
 
-; (hashtable-transpose src dst) iterates on all (key . value) elements of hashtable src,
-; and inserts each of them into hashtable dst as transposed (value . key)
+;; (hashtable-transpose src dst) iterates on all (key . value) elements of hashtable src,
+;; and inserts each of them into hashtable dst as transposed (value . key)
 ;
-; Returns dst.
+;; Returns dst.
 (define (hashtable-transpose src dst)
   (for-hash ((key val src))
     (hashtable-set! dst val key))
@@ -375,11 +375,11 @@
       (hashtable-set! dst (car cell) (cdr cell)))
     dst))
 
-; iterate on all (key . value) elements of alist l,
-; and inserts each of them into a new hashtable created with
-;   (make-hashtable hash-proc eq-proc (length pairs)).
+;; iterate on all (key . value) elements of alist l,
+;; and inserts each of them into a new hashtable created with
+;;   (make-hashtable hash-proc eq-proc (length pairs)).
 ;
-; Returns the created hashtable.
+;; Returns the created hashtable.
 (define (alist->hashtable hash-proc eq-proc l)
   (let ((dst (make-hashtable hash-proc eq-proc (length l))))
     (for-list ((cell l))
@@ -411,11 +411,11 @@
     dst))
 
 
-; iterate on all key value elements of plist l,
-; and inserts each of them into a new hashtable created with
-;   (make-hashtable hash-proc eq-proc (length pairs)).
+;; iterate on all key value elements of plist l,
+;; and inserts each of them into a new hashtable created with
+;;   (make-hashtable hash-proc eq-proc (length pairs)).
 ;
-; Returns the created hashtable.
+;; Returns the created hashtable.
 (define (plist->hashtable hash-proc eq-proc plist)
   (let ((dst (make-hashtable hash-proc eq-proc (fx/ (length plist) 2))))
     (for-plist ((key value plist))
@@ -440,16 +440,16 @@
   (plist->eqv-hashtable plist))
 
 
-; iterate on all key value elements of plist,
-; and inserts each of them into a new hashtable created with
-;   (make-hashtable hash-proc eq-proc (fx/ (length plist) 2)).
+;; iterate on all key value elements of plist,
+;; and inserts each of them into a new hashtable created with
+;;   (make-hashtable hash-proc eq-proc (fx/ (length plist) 2)).
 ;
-; Returns the created hashtable.
+;; Returns the created hashtable.
 (define (%hashtable hash-proc eq-proc . plist)
   (plist->hashtable hash-proc eq-proc plist))
 
 
-; customize how "hash-iterator" objects are printed
+;; customize how "hash-iterator" objects are printed
 (record-writer (record-type-descriptor %hash-iterator)
   (lambda (iter port writer)
     (display "#<hash-iterator>" port)))

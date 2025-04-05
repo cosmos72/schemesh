@@ -6,14 +6,14 @@
      grep '^[0-9A-F]' gen-unicode-width.txt | cut -d'#' -f1 | grep '; [FW]' | cut -d';' -f1 | tr '.' ' ' > gen-unicode-wide.txt}))
 
 
-; The unassigned code points in the following blocks default to "W":
-;         CJK Unified Ideographs Extension A: U+3400..U+4DBF
-;         CJK Unified Ideographs:             U+4E00..U+9FFF
-;         CJK Compatibility Ideographs:       U+F900..U+FAFF
-;  - All undesignated code points in Planes 2 and 3, whether inside or
-;      outside of allocated blocks, default to "W":
-;         Plane 2:                            U+20000..U+2FFFD
-;         Plane 3:                            U+30000..U+3FFFD
+;; The unassigned code points in the following blocks default to "W":
+;;         CJK Unified Ideographs Extension A: U+3400..U+4DBF
+;;         CJK Unified Ideographs:             U+4E00..U+9FFF
+;;         CJK Compatibility Ideographs:       U+F900..U+FAFF
+;;  - All undesignated code points in Planes 2 and 3, whether inside or
+;;      outside of allocated blocks, default to "W":
+;;         Plane 2:                            U+20000..U+2FFFD
+;;         Plane 3:                            U+30000..U+3FFFD
 
 (define table (make-bytevector #x110000 0))
 
@@ -97,5 +97,5 @@
 (sh-run {$(display (lowest-wide))  > "gen-unicode-wide-lowest.ss"})
 (sh-run {$(display (highest-wide)) > "gen-unicode-wide-highest.ss"})
 
-; (file-delete "gen-unicode-width.txt")
-; (file-delete "gen-unicode-wide.txt")
+;; (file-delete "gen-unicode-width.txt")
+;; (file-delete "gen-unicode-wide.txt")

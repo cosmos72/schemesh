@@ -48,8 +48,8 @@
     (or (sh-autocomplete-func parser-name) sh-autocomplete-shell)))
 
 
-; return string containing current time in 24-hour HH:MM:SS format.
-; return number of appended bytes
+;; return string containing current time in 24-hour HH:MM:SS format.
+;; return number of appended bytes
 (define (sh-current-time ch)
   (let* ((%display (lambda (str pos val)
            (let-values (((hi lo) (div-and-mod val 10)))
@@ -130,7 +130,7 @@
 
 (define (sh-default-ps1) default-ps1)
 
-; update linectx-prompt and linectx-prompt-length with new prompt
+;; update linectx-prompt and linectx-prompt-length with new prompt
 (define (sh-expand-ps1 lctx)
   (let* ((src (sh-env-ref #t "SCHEMESH_PS1" default-ps1)) ; string
          (prompt (linectx-prompt lctx))

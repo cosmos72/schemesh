@@ -148,8 +148,8 @@
   (charline-dirty-x-add! line x (charline-length line)))
 
 
-; read elements in range [src-start, src-end) from charspan csp-src,
-; and insert them into charline line at position x
+;; read elements in range [src-start, src-end) from charspan csp-src,
+;; and insert them into charline line at position x
 (define charline-insert-at/cspan!
   (case-lambda
     ((line x csp-src src-start src-end)
@@ -161,8 +161,8 @@
       (charline-insert-at/cspan! line x csp-src 0 (charspan-length csp-src)))))
 
 
-; read elements in range [src-start, src-end) from charbuffer or charline csp-src,
-; and insert them into charline at position x
+;; read elements in range [src-start, src-end) from charbuffer or charline csp-src,
+;; and insert them into charline at position x
 (define charline-insert-at/cbuf!
   (case-lambda
     ((line x cbuf-src src-start src-end)
@@ -174,7 +174,7 @@
       (charline-insert-at/cbuf! line x cbuf-src 0 (chargbuffer-length cbuf-src)))))
 
 
-; erase the chars in range [start, end) from charline
+;; erase the chars in range [start, end) from charline
 (define (charline-erase-range! line start end)
   (when (fx<? start end)
     (charline-unshare! line)

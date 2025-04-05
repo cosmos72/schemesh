@@ -159,7 +159,7 @@
 
 
 
-; customize how "channel" objects are printed
+;; customize how "channel" objects are printed
 (record-writer (record-type-descriptor %channel)
   (lambda (c port writer)
     (display "(channel-fd " port)

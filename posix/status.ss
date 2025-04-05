@@ -247,11 +247,11 @@
         (c-exit (fxand c-exit-value 255))))))
 
 
-; customize how "status" objects are serialized/deserialized
+;; customize how "status" objects are serialized/deserialized
 (include "posix/wire-status.ss")
 
 
-; customize how "status" objects are printed
+;; customize how "status" objects are printed
 (record-writer (record-type-descriptor %status)
   (lambda (status port writer)
     (let ((kind (%status->kind status))

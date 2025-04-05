@@ -84,7 +84,7 @@
            (bitmap-last-zero-set! b i))))))
 
 
-; customize how "bitmap" objects are printed
+;; customize how "bitmap" objects are printed
 (record-writer (record-type-descriptor %bitmap)
   (lambda (b port writer)
     (display "(bitmap" port)

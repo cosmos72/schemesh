@@ -38,14 +38,14 @@
 (define (vector->gbuffer str)
   (%make-gbuffer (span) (vector->span str)))
 
-; view a vector as gbuffer
+;; view a vector as gbuffer
 (define (vector->gbuffer* str)
   (%make-gbuffer (span) (vector->span* str)))
 
 (define (span->gbuffer sp)
   (%make-gbuffer (span) (span-copy sp)))
 
-; view a span as gbuffer
+;; view a span as gbuffer
 (define (span->gbuffer* sp)
   (%make-gbuffer (span) sp))
 
@@ -123,8 +123,8 @@
         (gbuffer-split-at! gb idx)
         (span-insert-right! left val)))))
 
-; read elements in range [src-start, src-end) from span sp-src
-; and insert them into gbuffer at position idx
+;; read elements in range [src-start, src-end) from span sp-src
+;; and insert them into gbuffer at position idx
 (define gbuffer-insert-at/span!
   (case-lambda
     ((gb idx sp-src src-start src-end)
@@ -147,7 +147,7 @@
       (gbuffer-insert-at/span! gb idx sp-src 0 (span-length sp-src)))))
 
 
-; remove elements in range [start, end) from gbuffer gb
+;; remove elements in range [start, end) from gbuffer gb
 (define (gbuffer-erase-range! gb start end)
   (let* ((left    (g< gb))
          (right   (g> gb))
@@ -217,7 +217,7 @@
      (fx>=? i n))))
 
 
-; customize how "gbuffer" objects are printed
+;; customize how "gbuffer" objects are printed
 (record-writer (record-type-descriptor %gbuffer)
   (lambda (sp port writer)
     (display "(gbuffer" port)
