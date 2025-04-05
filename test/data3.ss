@@ -130,7 +130,7 @@
   (sh-wildcard->sh-patterns '("/" * ".so"))            ,@(span "/" (sh-pattern '* ".so"))
   (sh-wildcard->sh-patterns '("//abc//" "//def//"))    ,@(span "/" "abc/" "def/")
   (sh-wildcard->sh-patterns '("/foo/" * "/" "/bar"))   ,@(span "/" "foo/" (sh-pattern '* "/") "bar")
-  (sh-wildcard #t '* "/" '* ".c")                      ("containers/containers.c" "posix/posix.c" "shell/shell.c"
+  (sh-wildcard #t '* "/" '* ".c")                      ("containers/containers.c" "posix/posix.c" "shell/shell.c" "test/test.c"
                                                         "utils/benchmark_async_signal_handler.c" "utils/countdown.c")
   (sh-wildcard #t "Makefile")                          ("Makefile")
   (sh-wildcard #t "_does_not_exist_")                  ("_does_not_exist_")

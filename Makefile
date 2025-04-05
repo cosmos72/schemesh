@@ -75,10 +75,10 @@ shell.o: shell/shell.c shell/shell.h containers/containers.h eval.h posix/posix.
 
 
 
-main.o: main.c main.h eval.h shell/shell.h
+main.o: main.c eval.h shell/shell.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I"$(CHEZ_SCHEME_DIR)"
 
-test.o: test.c test.h eval.h shell/shell.h
+test.o: test/test.c eval.h shell/shell.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I"$(CHEZ_SCHEME_DIR)"
 
 

@@ -7,9 +7,9 @@
  * (at your option) any later version.
  */
 
-#include "containers/containers.h" /* schemesh_Sstring_utf8b() */
-#include "eval.h"
-#include "shell/shell.h"
+#include "../containers/containers.h" /* schemesh_Sstring_utf8b() */
+#include "../eval.h"
+#include "../shell/shell.h"
 
 #include <errno.h>
 #include <stdio.h>

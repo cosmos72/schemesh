@@ -9,7 +9,6 @@
 
 #define _POSIX_C_SOURCE 200809L
 
-#include "main.h"
 #include "containers/containers.h" /* schemesh_Sstring_utf8b() */
 #include "eval.h"
 #include "posix/posix.h"
