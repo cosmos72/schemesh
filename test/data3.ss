@@ -58,6 +58,16 @@
                                               ("lisp.ss" . file) ("parser.ss" . file) ("r6rs.ss" . file)
                                               ("scheme.ss" . file) ("shell-read-token.ss" . file) ("shell.ss" . file))
 
+  ;; ------------------------ channel -------------------------------------
+  (let-values (((rchan wchan) (channel-pipe-pair)))
+    (let ((datum1 (bitwise-arithmetic-shift 1 999))) ; serialized to 132 bytes, less than pipe buffer size = 512 bytes
+      (channel-put wchan datum1)
+      (let ((datum2 (channel-get rchan)))
+        (channel-close rchan)
+        (channel-close wchan)
+        (list (eqv? datum1 datum2)
+              (channel-eof? rchan)
+              (channel-eof? wchan)))))                 (#t #t #t)
 
   ;; ------------------------ lineedit io ---------------------------------
   (get-string-all

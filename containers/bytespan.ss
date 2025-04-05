@@ -105,6 +105,7 @@
 (define (bytespan-empty? sp)
   (fx>=? (bytespan-beg sp) (bytespan-end sp)))
 
+;; set bytespan to empty. return (void)
 (define (bytespan-clear! sp)
   (bytespan-beg-set! sp 0)
   (bytespan-end-set! sp 0))

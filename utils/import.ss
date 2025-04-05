@@ -50,6 +50,7 @@
     (schemesh parser)
     (schemesh posix)
     (schemesh posix replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
+    (schemesh channel)
     (schemesh shell)
     (schemesh shell replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
     (schemesh repl)))
