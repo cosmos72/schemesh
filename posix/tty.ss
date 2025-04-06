@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh posix tty (0 8 2))
+(library (schemesh posix tty (0 8 3))
   (export tty-setraw! tty-restore! tty-inspect tty-size with-cooked-tty with-raw-tty)
   (import
     (rnrs)

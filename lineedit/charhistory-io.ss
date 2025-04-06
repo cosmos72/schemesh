@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit charhistory io (0 8 2))
+(library (schemesh lineedit charhistory io (0 8 3))
   (export
     charhistory-load!           charhistory-save
     charhistory-load-from-file! charhistory-save-to-path

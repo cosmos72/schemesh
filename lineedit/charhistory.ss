@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit charhistory (0 8 2))
+(library (schemesh lineedit charhistory (0 8 3))
   (export
     charhistory charhistory? make-charhistory
     charhistory-empty? charhistory-length charhistory-ref/cow charhistory-iterate

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh conversions unicode (0 8 2))
+(library (schemesh conversions unicode (0 8 3))
   (export char-display-wide?)
   (import
     (rnrs)

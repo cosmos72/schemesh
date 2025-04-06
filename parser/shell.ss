@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh parser shell (0 8 2))
+(library (schemesh parser shell (0 8 3))
   (export
     read-shell-char lex-shell parse-shell-word parse-shell-form1
     parse-shell-forms parser-shell)

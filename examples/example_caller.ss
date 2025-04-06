@@ -1,4 +1,4 @@
-(library (schemesh example caller (0 8 2))
+(library (schemesh example caller (0 8 3))
   (export call^ apply^)
   (import
     (rnrs)

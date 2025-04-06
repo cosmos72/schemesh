@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh posix pattern (0 8 2))
+(library (schemesh posix pattern (0 8 3))
   (export
     sh-pattern sh-pattern? span->sh-pattern* sh-pattern->span*
     sh-pattern-ref/string sh-pattern-ref-right/string

@@ -12,7 +12,7 @@
 ;;;
 ;;; data is serialized/deserialized with library (schemesh wire)
 ;;;
-(library (schemesh channel (0 8 2))
+(library (schemesh channel (0 8 3))
   (export channel? channel-close channel-fd channel-pipe-pair channel-socket-pair
           channel-get channel-eof? channel-put in-channel)
   (import

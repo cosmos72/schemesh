@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh containers replacements (0 8 2))
+(library (schemesh containers replacements (0 8 3))
   ;; the following functions *intentionally* conflict with R6RS and Chez Scheme
   ;; functions with the same names,
   ;;

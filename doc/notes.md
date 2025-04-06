@@ -14,14 +14,14 @@ Instructions to compile C shared libraries may differ on other systems.
 ```
 make clean
 make -j CC='cc -fPIC'
-cc -shared -o libschemesh_c_0.8.2.so containers.o eval.o posix.o shell.o
+cc -shared -o libschemesh_c_0.8.3.so containers.o eval.o posix.o shell.o
 scheme
 ```
 then, from Chez Scheme repl:
 ```
-(load-shared-object "./libschemesh_c_0.8.2.so")
+(load-shared-object "./libschemesh_c_0.8.3.so")
 ((foreign-procedure "schemesh_register_c_functions" () int)) ; should return 0
-(load "./libschemesh_0.8.2.so")
+(load "./libschemesh_0.8.3.so")
 (import (schemesh))
 (repl)
 ```

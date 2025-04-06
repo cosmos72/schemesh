@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh containers utf8b (0 8 2))
+(library (schemesh containers utf8b (0 8 3))
   (export
     integer->char* string->utf8b string->utf8b/0
     utf8b->string utf8b->string-copy! utf8b-bytespan->string)

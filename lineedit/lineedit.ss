@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit lineedit (0 8 2))
+(library (schemesh lineedit lineedit (0 8 3))
   (export
     ;; linedraw.ss
     lineedit-undraw linectx-redraw-all
