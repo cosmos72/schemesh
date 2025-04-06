@@ -1,5 +1,20 @@
 ## RECENT CHANGES
 
+### release v0.8.3, 2025-04-06
+
+* fix a visual glitch when pasting multiple lines at REPL, and last line does not end with a #\newline
+* remove Apache-licensed file containers/hashtable-types.ss that was copy-pasted from Chez Scheme sources.
+  Replace it with accessor functions obtained from record-type-descriptor objects.
+* define optimized versions of standard - but currently slow - functions
+  `(bytevector-sint-ref) (bytevector-sint-set!) (bytevector-uint-ref)(bytevector-uint-set!)`
+* add functions `(channel?) (channel-fd) (channel-pipe-pair) (channel-socket-pair)`
+  `(channel-close) (channel-get) (channel-eof?) (channel-put) (in-channel)`
+  for exchanging data between different processes through a socket, pipe or analogous file descriptor.
+  They internally serialize and deserialize data using library `(schemesh wire)`
+* improve `(sh-run/string)` and `(sh-run/bvector)` behavior if job being executed receives a signal
+* add function `(wire-register-rtd-fields)` to quickly create serializer and deserializer
+  for user-defined record types.
+* add support for serializing and deserializing Chez Scheme `time` object to library `(schemesh wire)`
 
 ### release v0.8.2, 2025-03-29
 
