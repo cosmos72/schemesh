@@ -457,7 +457,7 @@ sudo apt update
 sudo apt install build-essential chezscheme-dev liblz4-dev libncurses-dev git uuid-dev zlib1g-dev
 git clone https://github.com/cosmos72/schemesh
 cd schemesh
-git checkout -f v0.8.2
+git checkout -f v0.8.3
 make -j
 sudo make install
 ```
@@ -467,7 +467,7 @@ sudo make install
 sudo dnf install gcc make chez-scheme-devel lz4-devel ncurses-devel git libuuid-devel zlib-devel
 git clone https://github.com/cosmos72/schemesh
 cd schemesh
-git checkout -f v0.8.2
+git checkout -f v0.8.3
 make -j
 sudo make install
 ```
@@ -477,7 +477,7 @@ sudo make install
 pkg install chez-scheme gcc git gmake  # must be executed as root
 git clone https://github.com/cosmos72/schemesh
 cd schemesh
-git checkout -f v0.8.2
+git checkout -f v0.8.3
 gmake -j
 gmake install  # must be executed as root
 ```
@@ -487,7 +487,7 @@ gmake install  # must be executed as root
 sudo xcode-select --install # only needed if you don't already have XCode Command Line Tools
 brew install chezscheme lz4
 git clone https://github.com/cosmos72/schemesh
-git checkout -f v0.8.2
+git checkout -f v0.8.3
 cd schemesh
 make -j
 sudo make install
