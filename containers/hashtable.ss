@@ -15,15 +15,16 @@
     hash-for-each hash-for-each-key hash-for-each-pair hash-for-each-value
     in-hash in-hash-keys in-hash-pairs in-hash-values
 
-    eq-hashtable eqv-hashtable (rename (%hashtable hashtable))
+    eq-hashtable eqv-hashtable hashtable
     alist->eq-hashtable alist->eqv-hashtable alist->hashtable
     plist->eq-hashtable plist->eqv-hashtable plist->hashtable
     hashtable-transpose)
   (import
     (rnrs)
-    (only (chezscheme)               $primitive fx1+ fx/ include record-writer)
-    (only (schemesh bootstrap)       assert* generate-pretty-temporaries)
-    (only (schemesh containers list) for-list for-plist))
+    (only (chezscheme)                 $primitive fx1+ fx/ include meta record-writer)
+    (only (schemesh bootstrap)         assert* generate-pretty-temporaries)
+    (only (schemesh containers list)   for-list for-plist)
+    (only (schemesh containers vector) vector-index))
 
 
 ;; NOTE: (hash-table-for-each) exported by Chez Scheme
@@ -31,7 +32,7 @@
 ;; because at least up to Chez Scheme v10.0.0 it works *only* on eq-hashtable:s.
 
 
-(include "containers/hashtable-types.ss")
+(include "containers/hashtable-accessors.ss")
 
 
 ;; Note: eqv hashtables contain two inner hashtables:
@@ -124,9 +125,13 @@
     ; hashtable is empty, return empty iterator
     (%make-iter 0 #f (vector) (vector))
     ; hashtable is not empty, seek to first bucket
-    (let* ((is-eqv (eqv-ht? h))
-           (vec1 (if is-eqv (ht-vec (eqv-ht-eqht h))  (ht-vec h)))
-           (vec2 (if is-eqv (ht-vec (eqv-ht-genht h)) (vector)))
+    (let* ((is-eqv (and (not (hashtable-hash-function h))
+                        (eq? eqv? (hashtable-equivalence-function h))))
+           (vec1 (%hashtable->vector
+                   (if is-eqv (%eqv-hashtable->eq-hashtable h) h)))
+           (vec2 (if is-eqv
+                   (%hashtable->vector (%eqv-hashtable->gen-hashtable h))
+                   '#()))
            (iter (%make-iter -1 #f vec1 vec2)))
       ; advance iterator to first bucket
       (hash-iterator-next! iter)
@@ -445,7 +450,7 @@
 ;;   (make-hashtable hash-proc eq-proc (fx/ (length plist) 2)).
 ;
 ;; Returns the created hashtable.
-(define (%hashtable hash-proc eq-proc . plist)
+(define (hashtable hash-proc eq-proc . plist)
   (plist->hashtable hash-proc eq-proc plist))
 
 

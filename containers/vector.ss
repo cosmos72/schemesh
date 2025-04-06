@@ -11,7 +11,7 @@
   (export
     for-vector
     in-vector in-fxvector in-flvector ; in-flvector requires Chez Scheme >= 10.0.0
-    vector-any vector-copy! subvector vector-fill-range! vector-iterate vector->hashtable! vector-range->list)
+    vector-any vector-copy! subvector vector-fill-range! vector-index vector-iterate vector->hashtable! vector-range->list)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -135,7 +135,7 @@
 ;;
 ;; If all calls to (proc elem ...) return #f, then return #f.
 ;;
-;; If not vectors have the same length, iteration terminates when the end of shortest vector is reached.
+;; If not all vectors have the same length, iteration terminates when the end of shortest vector is reached.
 ;; Proc must accept as many elements as there are lists, and must return a single value.
 (define vector-any
   (case-lambda
@@ -173,6 +173,63 @@
           #f
           (or (%apply-proc proc i vecs)
               (%vector-any (fx1+ i) n proc vecs)))))))
+
+
+;; apply proc element-wise to the elements of the vectors,
+;; stop at the first truish value returned by (proc elem ...) and return the index of such elements.
+;;
+;; If all calls to (proc elem ...) return #f, then return #f.
+;;
+;; If not all vectors have the same length, iteration terminates when the end of shortest vector is reached.
+;; Proc must accept as many elements as there are lists, and must return a single value.
+;;
+;; Extension: if only one vector is specified and proc is not a procedure,
+;; search for first element eqv? to proc.
+(define vector-index
+  (case-lambda
+    ((proc vec)
+      (let %vector-index ((i 0)
+                          (n (vector-length vec))
+                          (proc (if (procedure? proc) proc (lambda (elem) (eqv? proc elem))))
+                          (vec vec))
+        (if (fx>=? i n)
+          #f
+          (if (proc (vector-ref vec i))
+            i
+            (%vector-index (fx1+ i) n proc vec)))))
+    ((proc vec1 vec2)
+      (let %vector-index ((i 0) (n (fxmin (vector-length vec1) (vector-length vec2)))
+                        (proc proc) (vec1 vec1) (vec2 vec2))
+        (if (fx>=? i n)
+          #f
+          (if (proc (vector-ref vec1 i) (vector-ref vec2 i))
+            i
+            (%vector-index (fx1+ i) n proc vec1 vec2)))))
+    ((proc vec1 vec2 vec3)
+      (let %vector-index ((i 0) (n (fxmin (vector-length vec1) (vector-length vec2) (vector-length vec3)))
+                        (proc proc) (vec1 vec1) (vec2 vec2) (vec3 vec3))
+        (if (fx>=? i n)
+          #f
+          (if (proc (vector-ref vec1 i) (vector-ref vec2 i) (vector-ref vec3 i))
+            i
+            (%vector-index (fx1+ i) n proc vec1 vec2 vec3)))))
+    ((proc vec1 vec2 vec3 vec4)
+      (let %vector-index ((i 0) (n (fxmin (vector-length vec1) (vector-length vec2) (vector-length vec3) (vector-length vec4)))
+                        (proc proc) (vec1 vec1) (vec2 vec2) (vec3 vec3) (vec4 vec4))
+        (if (fx>=? i n)
+          #f
+          (if (proc (vector-ref vec1 i) (vector-ref vec2 i) (vector-ref vec3 i) (vector-ref vec4 i))
+            i
+            (%vector-index (fx1+ i) n proc vec1 vec2 vec3 vec4)))))
+    ((proc vec1 . vecs)
+      (let %vector-index ((i 0) (n (apply fxmin (map vector-length (cons vec1 vecs))))
+                        (proc proc) (vecs (cons vec1 vecs)))
+        (if (fx>=? i n)
+          #f
+          (if (%apply-proc proc i vecs)
+            i
+            (%vector-index (fx1+ i) n proc vecs)))))))
+
 
 
 ;; (vector->hashtable! vec htable) iterates on all elements of given vector vec,

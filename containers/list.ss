@@ -207,10 +207,15 @@
 ;; If not all lists have the same length, iteration terminates when the end of shortest list is reached.
 ;;
 ;; Proc must accept as many elements as there are lists, and must return a single value.
+;;
+;; Extension: if only one list is specified and proc is not a procedure,
+;; search for first element eqv? to proc.
 (define list-index
   (case-lambda
     ((proc l)
-      (let %list-index ((i 0) (proc proc) (l l))
+      (let %list-index ((i 0)
+                        (proc (if (procedure? proc) proc (lambda (elem) (eqv? proc elem))))
+                        (l l))
          (cond
            ((null? l)      #f)
            ((proc (car l)) i)
