@@ -38,8 +38,7 @@
 
 
 ;; copy-pasted from containers/gbuffer.ss
-(define-record-type
-  (%gbuffer %make-gbuffer %gbuffer?)
+(define-record-type (%gbuffer %make-gbuffer %gbuffer?)
   (fields
      (mutable left  gbuffer-left  gbuffer-left-set!)
      (mutable right gbuffer-right gbuffer-right-set!))
@@ -47,8 +46,7 @@
 
 
 ;; copy-pasted from containers/charlines.ss
-(define-record-type
-  (%charlines %make-charlines %charlines?)
+(define-record-type (%charlines %make-charlines %charlines?)
   (parent %gbuffer)
   (fields
     ;; lines between y >= dirty-start-y and y < dirty-end-y
@@ -62,8 +60,7 @@
 ;; in multiple lines, each limited either by a newline or by screen width.
 ;;
 ;; vscreen must always contain at least one (possibly empty) charline.
-(define-record-type
-  (vscreen %make-vscreen vscreen?)
+(define-record-type (vscreen %make-vscreen vscreen?)
   (parent %charlines)
   (fields
     (mutable dirty? vscreen-dirty? %vscreen-dirty-set!) ;; boolean, #t if some line is dirty

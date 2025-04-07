@@ -12,7 +12,7 @@
 ;;;
 ;;; data is serialized/deserialized with library (schemesh wire)
 ;;;
-(library (schemesh channel (0 8 3))
+(library (schemesh ipc channel (0 8 3))
   (export channel? channel-close channel-fd channel-pipe-pair channel-socket-pair
           channel-get channel-eof? channel-put in-channel)
   (import
@@ -23,14 +23,13 @@
     (schemesh posix fd)
     (schemesh wire))
 
-(define-record-type
-  (%channel %make-channel channel?)
+(define-record-type channel
   (fields
-    (mutable read-fd      channel-read-fd   channel-read-fd-set!)   ; #f or unsigned fixnum, read file descriptor
-    (mutable write-fd     channel-write-fd  channel-write-fd-set!)  ; #f or unsigned fixnum, write file descriptor
-    (immutable rbuf       channel-rbuf)      ; #f or bytespan, read buffer
-    (immutable wbuf       channel-wbuf))     ; #f or bytespan, write buffer
-  (nongenerative %channel-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+    (mutable read-fd)   ; #f or unsigned fixnum, read file descriptor
+    (mutable write-fd)  ; #f or unsigned fixnum, write file descriptor
+    rbuf                ; #f or bytespan, read buffer
+    wbuf)               ; #f or bytespan, write buffer
+  (nongenerative channel-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 ;; close the file descriptor(s) used by channel
@@ -61,10 +60,10 @@
       (when write-fd-or-false
         (assert* 'channel-fd (fixnum? write-fd-or-false))
         (assert* 'channel-fd (fx>=? write-fd-or-false 0)))
-      (%make-channel read-fd-or-false
-                     write-fd-or-false
-                     (and read-fd-or-false (bytespan))
-                     (and write-fd-or-false (bytespan))))))
+      (make-channel read-fd-or-false
+                    write-fd-or-false
+                    (and read-fd-or-false (bytespan))
+                    (and write-fd-or-false (bytespan))))))
 
 
 ;; create and return two connected channels:
@@ -171,7 +170,7 @@
 
 
 ;; customize how "channel" objects are printed
-(record-writer (record-type-descriptor %channel)
+(record-writer (record-type-descriptor channel)
   (lambda (c port writer)
     (display "(channel-fd " port)
     (let ((read-fd  (channel-read-fd c))

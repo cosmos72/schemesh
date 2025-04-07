@@ -34,16 +34,14 @@
 
 
 ;; copy-pasted from containers/gbuffer.ss
-(define-record-type
-  (%gbuffer %make-gbuffer %gbuffer?)
+(define-record-type (%gbuffer %make-gbuffer %gbuffer?)
   (fields
      (mutable left  gbuffer-left  gbuffer-left-set!)
      (mutable right gbuffer-right gbuffer-right-set!))
   (nongenerative %gbuffer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 ;; type charlines is a gap-buffer, containing charline elements
-(define-record-type
-  (%charlines %make-charlines charlines?)
+(define-record-type (%charlines %make-charlines charlines?)
   (parent %gbuffer)
   (fields
     (mutable dirty-start-y charlines-dirty-start-y charlines-dirty-start-y-set!)

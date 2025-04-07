@@ -37,8 +37,7 @@
 ;;   parser-parse-forms will parse multiple forms, and return them
 ;;   parser-parse-paren will scan a list of forms and return matching parentheses/brackets/braces/quotes
 ;;
-(define-record-type
-  (parser %make-parser parser?)
+(define-record-type (parser %make-parser parser?)
   (fields
     name
     parse-forms
@@ -98,8 +97,7 @@
 ;;   parsectx-pos is a pair (x . y) representing the current position in the input port
 ;;   parsectx-enabled-parsers is #f or an hashtable symbol -> parser containing enabled parsers,
 ;;     see (parsers) in parser/parser.ss
-(define-record-type
-  (parsectx %make-parsectx parsectx?)
+(define-record-type (parsectx %make-parsectx parsectx?)
   (fields
     in           ; textual input port to read from
     width        ; fixnum, screen width

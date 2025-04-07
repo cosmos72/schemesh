@@ -13,13 +13,13 @@
 ;; analogous to Chez Scheme (make-parameter), with two differences - see below
 ;;
 ;; full behavior:
-;;   (make-job-parameter current-value) creates and returns a global parameter,
+;;   (make-stateful-parameter current-value) creates and returns a global parameter,
 ;;   i.e. a closure that captures a reference to current-value and behaves as follows:
 ;;     (parameter)           returns current-value
 ;;     (parameter new-value) sets current-value to new-value and returns it.
 ;;                           further calls to (parameter) will return updated current value.
 ;;
-;;   (make-job-parameter current-value changer) creates and returns a global parameter,
+;;   (make-stateful-parameter current-value changer) creates and returns a global parameter,
 ;;   i.e. a closure that captures a reference to current-value and behaves as follows:
 ;;     (parameter)           returns current value
 ;;     (parameter new-value) calls (changer current-value new-value),
@@ -30,7 +30,7 @@
 ;; differences from Chez Scheme (make-parameter):
 ;; 1. changer-proc receives both current value and the new value to set,
 ;; 2. calling (parameter new-value) returns the value actually set.
-(define make-job-parameter
+(define make-stateful-parameter
   (case-lambda
     ((initial-value changer-proc)
       (let ((value (changer-proc initial-value initial-value)))
@@ -38,7 +38,7 @@
           (()          value)
           ((new-value) (set! value (changer-proc value new-value)) value))))
     ((initial-value)
-      (make-job-parameter initial-value (lambda (old-value new-value) new-value)))))
+      (make-stateful-parameter initial-value (lambda (old-value new-value) new-value)))))
 
 
 
@@ -68,7 +68,7 @@
 ;; Calling (sh-job-control-available? new-value) returns the value actually set.
 ;; Once set to #f, cannot be changed anymore.
 (define sh-job-control-available?
-  (make-job-parameter
+  (make-stateful-parameter
     (eqv? 1 ((foreign-procedure "c_job_control_available" () int)))
     job-control-available-change!))
 
@@ -132,4 +132,4 @@
 ;; Activating job control requires taking control of the terminal foreground/background mechanism,
 ;; and thus for sanity will suspend this process if it's running in the background.
 ;;
-(define sh-job-control? (make-job-parameter #f job-control-change!))
+(define sh-job-control? (make-stateful-parameter #f job-control-change!))

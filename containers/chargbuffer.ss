@@ -28,8 +28,7 @@
     (only (schemesh bootstrap) assert* assert-not* fx<=?*)
     (schemesh containers charspan))
 
-(define-record-type
-  (%chargbuffer %make-chargbuffer chargbuffer?)
+(define-record-type (%chargbuffer %make-chargbuffer chargbuffer?)
   (fields
      (mutable left  c< chargbuffer-left-set!)
      (mutable right c> chargbuffer-right-set!))

@@ -10,8 +10,7 @@
 ;; this file should be included only by file shell/job.ss
 
 
-(define-record-type
-  (job %make-job sh-job?)
+(define-record-type (job %make-job sh-job?)
   (fields
     (mutable id job-id %job-id-set!)       ; #f or fixnum >= 0: job id in (sh-globals)
     (mutable oid)                          ; #f or fixnum >= 0: previous value of job id
@@ -45,8 +44,7 @@
 
 
 ;; Define the record type "cmd"
-(define-record-type
-  (cmd %make-cmd sh-cmd?)
+(define-record-type (cmd %make-cmd sh-cmd?)
   (parent job)
   (fields
     arg-list                     ; list of strings and closures: program-name and args
@@ -55,8 +53,7 @@
 
 
 ;; Define the record type "jexpr"
-(define-record-type
-  (jexpr %make-sh-expr sh-expr?)
+(define-record-type (jexpr %make-sh-expr sh-expr?)
   (parent job)
   (fields
     proc                    ; procedure to call for executing the job
@@ -67,8 +64,7 @@
 
 
 ;; Define the record type "multijob"
-(define-record-type
-  (multijob %make-multijob sh-multijob?)
+(define-record-type (multijob %make-multijob sh-multijob?)
   (parent job)
   (fields
     kind                ; symbol: one of 'sh-and 'sh-or 'sh-not 'sh-list 'sh-subshell '#<global>

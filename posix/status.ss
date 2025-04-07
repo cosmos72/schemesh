@@ -34,8 +34,7 @@
 ;;   if kind is 'killed    -> val is a signal-name represented as a symbol
 ;;   if kind is 'ok        -> val is a possibly empty list of arbitrary Scheme values
 ;;
-(define-record-type
-  (%status %make-status %status?)
+(define-record-type (%status %make-status %status?)
   (fields
     (immutable kind %status->kind) ; symbol
     (immutable val  %status->val))

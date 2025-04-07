@@ -33,8 +33,7 @@
     (only (schemesh containers list) for-list)
     (schemesh containers bytevector))
 
-(define-record-type
-  (%bytespan %make-bytespan bytespan?)
+(define-record-type (%bytespan %make-bytespan bytespan?)
   (fields
      (mutable beg bytespan-beg bytespan-beg-set!)
      (mutable end bytespan-end bytespan-end-set!)

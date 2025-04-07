@@ -19,8 +19,7 @@
     (only (chezscheme) fx1+ fx1- record-writer void)
     (only (schemesh bootstrap) assert*))
 
-(define-record-type
-  (%bitmap %make-bitmap bitmap?)
+(define-record-type (%bitmap %make-bitmap bitmap?)
   (fields
     (immutable data       bitmap-data)   ; bytevector
     ; unsigned fixnum, length in bits

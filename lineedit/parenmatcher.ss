@@ -22,8 +22,7 @@
 ;; to be filled by an actual function that matches parenthesis
 ;; - as for example sh-parenmatcher
 
-(define-record-type
-  (parenmatcher %make-parenmatcher parenmatcher?)
+(define-record-type (parenmatcher %make-parenmatcher parenmatcher?)
   (fields
     update-func       ; procedure (parsectx initial-parser) -> state
     (mutable paren)   ; #f or outermost paren object

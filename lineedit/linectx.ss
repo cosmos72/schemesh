@@ -48,8 +48,7 @@
 
 
 ;; linectx is the top-level object used by most lineedit functions
-(define-record-type
-  (linectx %make-linectx linectx?)
+(define-record-type (linectx %make-linectx linectx?)
   (fields
     rbuf              ; bytespan, buffer for stdin
     wbuf              ; bytespan, buffer for stdout

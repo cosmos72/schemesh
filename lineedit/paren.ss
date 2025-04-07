@@ -30,8 +30,7 @@
 
 ;; paren is an object containing information about the matching parentheses/brackets/braces/quotes
 ;; in some text to be parsed
-(define-record-type
-  (paren %make-paren paren?)
+(define-record-type (paren %make-paren paren?)
   (fields
     name  ; symbol, name of parser that created this paren object (may differ in sub-objects)
     start-token         ; #f if missing, or #t if not visible, or character - one of: # ( [ { " ' ` |

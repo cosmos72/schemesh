@@ -27,8 +27,7 @@
     (schemesh containers chargbuffer))
 
 ;; copy-pasted from containers/cbuffer.ss
-(define-record-type
-  (%chargbuffer %make-chargbuffer %chargbuffer?)
+(define-record-type (%chargbuffer %make-chargbuffer %chargbuffer?)
   (fields
      (mutable left  c< chargbuffer-left-set!)
      (mutable right c> chargbuffer-right-set!))
@@ -42,8 +41,7 @@
 ;; - charline-dirty-start-x and charline-dirty-end-x fixnums indicating the range of characters
 ;;   that were recently modified and not yet redrawn
 
-(define-record-type
-  (%charline %make-charline charline?)
+(define-record-type (%charline %make-charline charline?)
   (parent %chargbuffer)
   (fields
     (mutable share) ; a cons (share-count . #f)

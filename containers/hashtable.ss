@@ -38,8 +38,7 @@
 ;; Note: eqv hashtables contain two inner hashtables:
 ;; one for keys comparable with eq, and one for all other keys.
 ;; We must retrieve both vectors from them and iterate on both.
-(define-record-type
-  (%hash-iterator %make-iter hash-iterator?)
+(define-record-type (%hash-iterator %make-iter hash-iterator?)
   (fields
     (mutable index  iter-index  iter-index-set!)
     (mutable bucket iter-bucket iter-bucket-set!)

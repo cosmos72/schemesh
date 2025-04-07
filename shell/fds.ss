@@ -33,8 +33,7 @@
 
 
 ;; reference-counted file descriptor
-(define-record-type
-  (%s-fd %make-s-fd s-fd?)
+(define-record-type (%s-fd %make-s-fd s-fd?)
   (fields
     (immutable int s-fd->int) ; unsigned fixnum: file descriptor
     (mutable   refcount))     ; fixnum: reference count

@@ -38,8 +38,7 @@
     (only (schemesh containers string) string-fill-range! string-index string-range<? string-range=? string-range-count=))
 
 
-(define-record-type
-  (%charspan %make-charspan charspan?)
+(define-record-type (%charspan %make-charspan charspan?)
   (fields
      (mutable beg charspan-beg charspan-beg-set!)
      (mutable end charspan-end charspan-end-set!)

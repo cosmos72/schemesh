@@ -27,8 +27,7 @@
   (and (symbol? obj) (memq obj '(* ? ~ % %!)) #t))
 
 
-(define-record-type
-  (pattern %make-pattern sh-pattern?)
+(define-record-type (pattern %make-pattern sh-pattern?)
   (fields
      span       ; span of strings and symbols
      min-len    ; length of shortest string that can be matched

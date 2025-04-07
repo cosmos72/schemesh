@@ -47,7 +47,9 @@
   (include "posix/pid.ss")
   (include "posix/posix.ss")
 
-  (include "channel/channel.ss") ; requires wire/wire.ss posix/fd.ss
+  (include "ipc/channel.ss") ; requires wire/wire.ss posix/fd.ss
+  (include "ipc/fifo.ss")
+  (include "ipc/ipc.ss")
 
   (include "lineedit/vscreen.ss")
   (include "lineedit/charhistory.ss")

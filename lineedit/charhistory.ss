@@ -25,8 +25,7 @@
     (schemesh containers charlines))
 
 ;; copy-pasted from containers/gbuffer.ss
-(define-record-type
-  (%gbuffer %make-gbuffer %gbuffer?)
+(define-record-type (%gbuffer %make-gbuffer %gbuffer?)
   (fields
     (mutable left  gbuffer-left  gbuffer-left-set!)
     (mutable right gbuffer-right gbuffer-right-set!))
@@ -34,8 +33,7 @@
 
 
 ;; type charhistory is a gbuffer containing charlines elements (the history itself)
-(define-record-type
-  (%charhistory %make-charhistory charhistory?)
+(define-record-type (%charhistory %make-charhistory charhistory?)
   (parent %gbuffer)
   (fields
     (mutable path charhistory-path %charhistory-path-set!)) ; #f or string path where to load/save history

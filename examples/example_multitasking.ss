@@ -16,8 +16,7 @@
     (lambda () sp)))
 
 
-(define-record-type
-  (task %make-task task?)
+(define-record-type (task %make-task task?)
   (fields
      id
      (mutable status) ; one of: 'new 'running 'failed

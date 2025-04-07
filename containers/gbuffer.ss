@@ -25,8 +25,7 @@
     (only (schemesh containers vector) vector-copy!)
     (schemesh containers span))
 
-(define-record-type
-  (%gbuffer %make-gbuffer gbuffer?)
+(define-record-type (%gbuffer %make-gbuffer gbuffer?)
   (fields
     (mutable left  g<  gbuffer-left-set!)
     (mutable right g> gbuffer-right-set!))

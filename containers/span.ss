@@ -28,8 +28,7 @@
     (only (schemesh containers list)   for-list)
     (only (schemesh containers vector) subvector vector-copy! vector-fill-range! vector-range->list))
 
-(define-record-type
-  (%span %make-span span?)
+(define-record-type (%span %make-span span?)
   (fields
      (mutable beg span-beg span-beg-set!)
      (mutable end span-end span-end-set!)
