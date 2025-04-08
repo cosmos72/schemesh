@@ -98,6 +98,8 @@
               ((eqv? 0 timeout)
                 (values #f 'timeout))
               (else
+                ;; (condition-wait) is somewhat bugged at least on Linux:
+                ;; if CTRL+C is pressed twice before it returns, leaves mutex in inconsistent state
                 (condition-wait (consumer-changed c) (consumer-mutex c) timeout)
                 (values #f 'timeout))))
           ((pair? obj)
