@@ -493,6 +493,32 @@ make -j
 sudo make install
 ```
 
+#### Nix/NixOS
+```shell
+# Build and run by cloning source repository
+git clone https://github.com/cosmos72/schemesh
+cd schemesh
+nix-build && ./result/bin/schemesh
+```
+
+```nix
+# Install on NixOS as package
+{ pkgs, ... }:
+let
+  schemesh = pkgs.fetchgit {
+    url = "https://github.com/cosmos72/schemesh.git";
+    rev = "refs/tags/v0.8.3"; # or: "refs/heads/main"
+    sha256 = ""; # insert sha256 when ready
+  };
+{
+  environment.systemPackages = [
+    # ...
+    pkgs.chez
+    (callPackage schemesh {})
+  ];
+}
+```
+
 #### other systems
 For Unix-like systems not listed above, the instructions above can (hopefully) be adapted as needed.
 
