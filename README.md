@@ -507,7 +507,7 @@ nix-build && ./result/bin/schemesh
 let
   schemesh = pkgs.fetchgit {
     url = "https://github.com/cosmos72/schemesh.git";
-    rev = "refs/heads/main"; # or: "refs/tags/v0.8.4"
+    rev = "refs/tags/v0.8.3"; # or: "refs/heads/main"
     sha256 = ""; # insert sha256 when ready
   };
 {
