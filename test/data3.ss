@@ -62,7 +62,7 @@
   (let-values (((rchan wchan) (channel-pipe-pair)))
     (let ((datum1 (bitwise-arithmetic-shift 1 999))) ; serializes to 132 bytes, less than pipe buffer size = 512 bytes
       (channel-put wchan datum1)
-      (let ((datum2 (channel-get rchan)))
+      (let ((datum2 (first-value-or-void (channel-get rchan))))
         (channel-close rchan)
         (channel-close wchan)
         (list (eqv? datum1 datum2)

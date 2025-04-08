@@ -27,6 +27,7 @@
   (fields
     (mutable read-fd)   ; #f or unsigned fixnum, read file descriptor
     (mutable write-fd)  ; #f or unsigned fixnum, write file descriptor
+    (mutable read-eof?) ; boolean, #t if read file descriptor reached end-of-file
     rbuf                ; #f or bytespan, read buffer
     wbuf)               ; #f or bytespan, write buffer
   (nongenerative channel-7c46d04b-34f4-4046-b5c7-b63753c1be39))
@@ -62,6 +63,7 @@
         (assert* 'channel-fd (fx>=? write-fd-or-false 0)))
       (make-channel read-fd-or-false
                     write-fd-or-false
+                    (not read-fd-or-false)
                     (and read-fd-or-false (bytespan))
                     (and write-fd-or-false (bytespan))))))
 
@@ -114,7 +116,7 @@
       ((fx>=? pos 0)
         (let ((consumed-n (fx- pos (bytespan-peek-beg rbuf))))
           (bytespan-erase-left! rbuf consumed-n))
-        datum)
+        (values datum #t))
       (datum ; must discard (fx- pos) bytes and try again
         (bytespan-erase-left! rbuf (fx- pos))
         (%channel-get c fd rbuf))
@@ -123,10 +125,9 @@
         (let ((read-n (fd-read-insert-right! fd rbuf)))
           (if (fxzero? read-n)
             (begin
-              ;; TODO: if fd is a socket it should be shutdown instead, allowing more writes to it.
-              (fd-close fd)
-              (channel-read-fd-set! c #f)
-              (eof-object))
+              (channel-read-eof?-set! c #t)
+              (bytespan-clear! rbuf)
+              (values #f #f))
             (%channel-get c fd rbuf)))))))
 
 
@@ -135,27 +136,23 @@
 ;; then deserialize the message and return it.
 ;; may block while reading from file descriptor.
 ;;
-;; return deserialized datum.
-;; return (eof-object) on end-of-file, or if channel's read-fd is closed or not set.
-;;
-;; Note: peer *can* send serialized (eof-object) to emulate end-of-file.
-;; If needed, caller can invoke (channel-eof? c) to distinguish between an actual and an emulated end-of-file:
-;; (channel-eof? c) returns #t only if channel's read-fd is closed, not set or actually reached end-of-file.
-;;
+;; return two values:
+;;   deserialized datum, and #t
+;;   or <unspecified> and #f on end-of-file, or if channel's read-fd is closed or not set.
 ;;
 ;; raise exception on I/O error or if serialized data cannot be parsed.
 (define (channel-get c)
-  (let ((read-fd (channel-read-fd c))
-        (rbuf    (channel-rbuf c)))
-    (if (and read-fd rbuf)
-      (%channel-get c read-fd rbuf)
-      (eof-object))))
+  (if (channel-eof? c)
+    (values #f #f)
+    (%channel-get c (channel-read-fd c) (channel-rbuf c))))
 
 
 ;; return #t if channel's read-fd is closed, not set or reached end-of-file.
 ;; otherwise return #f
 (define (channel-eof? c)
-  (not (channel-read-fd c)))
+  (or (channel-read-eof? c)
+      (not (channel-read-fd c))
+      (not (channel-rbuf c))))
 
 
 ;; create and return a closure that iterates on data read from channel c.
