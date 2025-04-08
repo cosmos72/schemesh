@@ -9,6 +9,8 @@
 
 (library (schemesh lineedit linectx (0 8 3))
   (export
+    linectx-prompt-proc linectx-completion-proc
+
     make-linectx make-linectx* linectx? linectx-rbuf linectx-wbuf
     linectx-vscreen linectx-width linectx-height linectx-end-y
     linectx-ix     linectx-iy     linectx-ixy  linectx-ixy-set!
@@ -16,10 +18,10 @@
     linectx-term-x linectx-term-y linectx-term-xy-set!
     linectx-stdin  linectx-stdin-set! linectx-stdout linectx-stdout-set!
     linectx-prompt      linectx-prompt-end-x  linectx-prompt-end-y
-    linectx-prompt-func linectx-prompt-length linectx-prompt-length-set!
+    linectx-prompt-length linectx-prompt-length-set!
     linectx-parenmatcher linectx-paren linectx-paren-set!
     linectx-clipboard linectx-clipboard-clear!
-    linectx-completions linectx-completion-stem linectx-completion-func
+    linectx-completions linectx-completion-stem
     linectx-flags linectx-parser-name linectx-parser-name-set!
     linectx-parsers linectx-parsers-set!
     linectx-history linectx-history-index linectx-history-index-set! linectx-to-history*
@@ -32,7 +34,7 @@
 
   (import
     (rnrs)
-    (only (chezscheme) console-error-port display-condition fx1+ fx1- record-writer void)
+    (only (chezscheme) console-error-port display-condition fx1+ fx1- logbit? procedure-arity-mask record-writer void)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh posix fd)
@@ -45,6 +47,7 @@
     (only (schemesh lineedit charlines io) open-charlines-input-port)
     (schemesh posix tty)
     (only (schemesh posix signal) signal-consume-sigwinch))
+
 
 
 ;; linectx is the top-level object used by most lineedit functions
@@ -63,20 +66,54 @@
     (mutable parser-name)   ; symbol, name of current parser
     (mutable parsers)       ; #f or hashtable symbol -> parser, table of enabled parsers
     prompt                  ; bytespan, prompt
-    ; procedure, receives linectx as argument and should update prompt and prompt-length
-    (mutable prompt-func)
     parenmatcher
     (mutable paren)         ; #f or paren containing current parenthes to be highlighted
     clipboard               ; charspan
     completions             ; span of charspans, possible completions
     completion-stem         ; charspan, chars from vscreen used as stem
-    ; procedure, receives linectx as argument and should update completions and stem
-    (mutable completion-func)
     (mutable keytable)      ; hashtable, contains keybindings. Usually eq? linectx-default-keytable
     (mutable last-key)      ; #f or procedure, last executed lineedit-key... procedure
     (mutable history-index) ; index of last used item in history
     history)                ; charhistory, history of entered commands
-  (nongenerative linectx-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+  (nongenerative linectx-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+
+
+
+
+
+;; parameter containing the current procedure that updates
+;; linectx-prompt and linectx-prompt-length with new prompt
+;;
+;; initially set to #f, will be set to sh-expand-ps1 by shell/utils.ss
+(define linectx-prompt-proc
+  (sh-make-parameter
+    #f
+    (lambda (proc)
+      (when proc
+        (unless (procedure? proc)
+          (raise-errorf 'linectx-prompt-proc "~s is not a procedure" proc))
+        (unless (logbit? 1 (procedure-arity-mask proc))
+          (raise-errorf 'linectx-prompt-proc "~s is not a is not a procedure accepting 1 argument" proc)))
+      proc)))
+
+
+
+
+;; parameter containing the current function that updates
+;; linectx-completion-stem and linectx-completions with possible completions.
+;;
+;; initially set to #f.
+(define linectx-completion-proc
+  (sh-make-parameter
+    #f
+    (lambda (proc)
+      (when proc
+        (unless (procedure? proc)
+          (raise-errorf 'sh-current-autocomplete-proc "~s is not a procedure" proc))
+        (unless (logbit? 1 (procedure-arity-mask proc))
+          (raise-errorf 'sh-current-autocomplete-proc "~s is not a is not a procedure accepting 1 argument" proc)))
+      proc)))
+
 
 
 (define flag-eof? 1)
@@ -177,19 +214,10 @@
 
 ;; Variant of (make-linectx) where all arguments are mandatory
 ;;
-;; argument prompt-func must be a procedure accepting linectx,
-;; and updating linectx-prompt and linectx-prompt-length.
-;;
 ;; argument parenmatcher must be #f or a parenmatcher
-;;
-;; argument prompt-func must be #f or a procedure accepting linectx,
-;; and updating linectx-completions
-(define (make-linectx* prompt-func parenmatcher completion-func enabled-parsers history-path)
-  (assert* 'make-linectx* (procedure? prompt-func))
+(define (make-linectx* parenmatcher enabled-parsers history-path)
   (when parenmatcher
     (assert* 'make-linectx* (parenmatcher? parenmatcher)))
-  (when completion-func
-    (assert* 'make-linectx* (procedure? completion-func)))
   (when enabled-parsers
     (assert* 'make-linectx* (hashtable? enabled-parsers)))
   (when history-path
@@ -208,40 +236,25 @@
       0 1 -1 flag-redraw?         ; stdin stdout read-timeout flags
       'shell enabled-parsers      ; parser-name parsers
       (bytespan)                  ; prompt
-      prompt-func                 ; prompt-func
       parenmatcher #f             ; parenmatcher paren
       (charspan)                  ; clipboard
-      (span) (charspan) completion-func ; completions stem completion-func
+      (span) (charspan)           ; completions stem
       linectx-default-keytable #f ; keytable last-key
       0 history)))                ; history
 
-(define (default-prompt-func lctx)
-  (let* ((str    (symbol->string (linectx-parser-name lctx)))
-         (bv     (string->utf8b str))
-         (prompt (linectx-prompt lctx)))
-    (bytespan-clear! prompt)
-    (bytespan-insert-right/bvector! prompt bv)
-    ; append colon and space after parser name
-    (bytespan-insert-right/u8! prompt 58 32)
-    ; we want length in characters, not in UTF-8b bytes
-    (linectx-prompt-length-set! lctx (fx+ 2 (string-length str)))))
 
 
 ;; Create and return a linectx
 (define make-linectx
   (case-lambda
     (()
-       (make-linectx* default-prompt-func #f #f #f #f))
-    ((prompt-func)
-       (make-linectx* prompt-func #f #f #f #f))
+       (make-linectx* #f #f #f))
     ((prompt-func parenmatcher)
-       (make-linectx* prompt-func parenmatcher #f #f #f))
-    ((prompt-func parenmatcher completion-func)
-       (make-linectx* prompt-func parenmatcher completion-func #f #f))
-    ((prompt-func parenmatcher completion-func enabled-parsers)
-       (make-linectx* prompt-func parenmatcher completion-func enabled-parsers #f))
-    ((prompt-func parenmatcher completion-func enabled-parsers history-path)
-       (make-linectx* prompt-func parenmatcher completion-func enabled-parsers history-path))))
+       (make-linectx* parenmatcher #f #f))
+    ((prompt-func parenmatcher enabled-parsers)
+       (make-linectx* parenmatcher enabled-parsers #f))
+    ((prompt-func parenmatcher enabled-parsers history-path)
+       (make-linectx* parenmatcher enabled-parsers history-path))))
 
 
 ;; Clear and recreate empty vscreen: it may have been saved to history,

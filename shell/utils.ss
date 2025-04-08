@@ -9,14 +9,12 @@
 
 (library (schemesh shell utils (0 8 3))
   (export
-    sh-current-autocomplete-proc   sh-autocomplete
-    sh-current-prompt-proc         sh-expand-ps1
-    sh-current-time sh-default-ps1 sh-home->~ sh-make-linectx)
+    sh-autocomplete sh-expand-ps1 sh-current-time sh-default-ps1 sh-home->~ sh-make-linectx)
   (import
     (rnrs)
     (rnrs mutable-strings)
     (only (chezscheme) current-date date-hour date-minute date-second foreign-procedure fx1+ fx1-
-                       logbit? procedure-arity-mask string->immutable-string)
+                       string->immutable-string)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh lineedit linectx)
@@ -32,7 +30,7 @@
 
 
 ;; update linectx-completion-stem and linectx-completions with possible completions.
-;; usually stored inside linectx as (linectx-completion-func)
+;; usually stored in parameter (linectx-completion-proc)
 (define (sh-autocomplete lctx)
   (let* ((paren (lineedit-paren-find/surrounds-cursor lctx))
          (func  (%sh-autocomplete-func lctx paren))
@@ -197,43 +195,6 @@
     ret))
 
 
-;; parameter containing the current function that updates
-;; linectx-prompt and linectx-prompt-length with new prompt
-;;
-;; initially set to sh-expand-ps1.
-(define sh-current-prompt-proc
-  (sh-make-parameter
-    sh-expand-ps1
-    (lambda (proc)
-      (unless (procedure? proc)
-        (raise-errorf 'sh-current-prompt-proc "~s is not a procedure" proc))
-      (unless (logbit? 1 (procedure-arity-mask proc))
-        (raise-errorf 'sh-current-prompt-proc "~s is not a is not a procedure accepting 1 argument" proc))
-      proc)))
-
-
-
-
-;; parameter containing the current function that updates
-;; linectx-completion-stem and linectx-completions with possible completions.
-;;
-;; initially set to sh-autocomplete.
-(define sh-current-autocomplete-proc
-  (sh-make-parameter
-    sh-autocomplete
-    (lambda (proc)
-      (unless (procedure? proc)
-        (raise-errorf 'sh-current-autocomplete-proc "~s is not a procedure" proc))
-      (unless (logbit? 1 (procedure-arity-mask proc))
-        (raise-errorf 'sh-current-autocomplete-proc "~s is not a is not a procedure accepting 1 argument" proc))
-      proc)))
-
-
-
-(define (sh-make-linectx* enabled-parsers history-path)
-  (make-linectx* (sh-current-prompt-proc) (make-parenmatcher)
-                 (sh-current-autocomplete-proc) enabled-parsers history-path))
-
 
 (define sh-make-linectx
   (case-lambda
@@ -244,5 +205,18 @@
     ((enabled-parsers history-path)
       (sh-make-linectx* enabled-parsers history-path))))
 
+
+(define (sh-make-linectx* enabled-parsers history-path)
+  (make-linectx* (make-parenmatcher) enabled-parsers history-path))
+
+
+(begin
+  (unless (linectx-prompt-proc)
+    (linectx-prompt-proc sh-expand-ps1))
+
+  (unless (linectx-completion-proc)
+    (linectx-completion-proc sh-autocomplete))
+
+) ; close begin
 
 ) ; close library

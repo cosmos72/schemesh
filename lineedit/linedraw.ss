@@ -58,13 +58,26 @@
     (linectx-term-xy-set! lctx vx vy)))
 
 
+(define (minimal-prompt-proc lctx)
+  (let* ((str    (symbol->string (linectx-parser-name lctx)))
+         (bv     (string->utf8b str))
+         (prompt (linectx-prompt lctx)))
+    (bytespan-clear! prompt)
+    (bytespan-insert-right/bvector! prompt bv)
+    ; append colon and space after parser name
+    (bytespan-insert-right/u8! prompt 58 32)
+    ; we want length in characters, not in UTF-8b bytes
+    (linectx-prompt-length-set! lctx (fx+ 2 (string-length str)))))
+
+
 (define bv-prompt-error (string->utf8b "error expanding prompt $ "))
 
 ;; update prompt
 (define (linectx-update-prompt lctx)
-  (let ((prompt (linectx-prompt lctx)))
+  (let ((prompt (linectx-prompt lctx))
+        (proc   (or (linectx-prompt-proc) minimal-prompt-proc)))
     (assert* 'linectx-update-prompt (bytespan? prompt))
-    (try ((linectx-prompt-func lctx) lctx)
+    (try (proc lctx)
       (catch (ex)
         (bytespan-clear! prompt)
         (let ((err-len (bytevector-length bv-prompt-error)))

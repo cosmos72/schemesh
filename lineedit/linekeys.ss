@@ -172,9 +172,9 @@
   (linectx-redraw-set! lctx #t))
 
 (define (lineedit-key-tab lctx)
-  (let ((func (linectx-completion-func lctx)))
-    (when func
-      (func lctx)
+  (let ((proc (linectx-completion-proc)))
+    (when proc
+      (proc lctx)
       (%lineedit-update-with-completions lctx))))
 
 
