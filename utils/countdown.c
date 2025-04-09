@@ -53,16 +53,26 @@ static void c_sigtstp_setdefault(void) {
   (void)sigaction(SIGTSTP, &action, NULL);
 }
 
-static int c_sleep(timespec interval) {
+static int c_countdown(timespec interval) {
   timespec left = {};
   int      err;
   while ((interval.tv_sec > 0 || (interval.tv_sec == 0 && interval.tv_nsec > 0))) {
     c_sigtstp_sethandler();
+#if defined(CLOCK_MONOTONIC) && defined(__linux__)
     err = clock_nanosleep(CLOCK_MONOTONIC, 0, &interval, &left);
+#else
+    if (nanosleep(&interval, &left) != 0) {
+      err = errno;
+    }
+#endif
     if (err == 0) {
       break;
     } else if (err != EINTR) {
+#if defined(CLOCK_MONOTONIC) && defined(__linux__)
       return c_fail("clock_nanosleep(CLOCK_MONOTONIC)", err);
+#else
+      return c_fail("nanosleep()", err);
+#endif
     }
     interval = left;
     if (atomic_exchange(&c_sigtstp_received, 0)) {
@@ -115,7 +125,7 @@ int main(int argc, char** argv) {
     timespec interval;
     interval.tv_sec  = (time_t)seconds;
     interval.tv_nsec = (long)(1e9 * (seconds - (double)interval.tv_sec));
-    return c_sleep(interval);
+    return c_countdown(interval);
   }
   return 0;
 }
