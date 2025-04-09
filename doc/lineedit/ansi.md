@@ -21,7 +21,12 @@ because they should **not** read from or write to the current terminal.
 
 ### schemesh lineedit linectx
 
-The library `(schemesh lineedit linectx)` provides two functions for prompt customization:
+The library `(schemesh lineedit linectx)` provides the following functions for prompt customization:
+
+`(linectx-prompt-proc)` returns the current prompt updater
+
+`(linectx-prompt-proc proc)` registers procedure `proc` as the prompt updater:
+  `proc` will be invoked with a single argument `lctx` each time schemesh needs to draw the prompt
 
 `(linectx-prompt-ansi-text lctx)` extracts the current prompt from `lctx` object and converts it to a mutable `ansi-text` object
 
@@ -81,10 +86,10 @@ The library `(schemesh lineedit ansi)` provides several functions for inspecting
 `(white+ a string)`   appends string to the current text, highlighting it in bold/bright white foreground
 
 
-`(color a col-seq string)` is a general-purpose string highliting function:
+`(color a col-seq string)` is a general-purpose string highlighting function:
   appends string to the current text, highlighting it with specified ansi attribute.
   The argument `col-seq` must be a string containing a semicolon-separated list of ansi colors codes
-  supported by the current terminal. Some examples supported by most terminals:
+  supported by the current terminal. Some codes supported by most terminals:
 - `"0"`  reset foreground, background and bright or bold to default
 - `"1"`  bright or bold foreground
 - `"30"` black   foreground
