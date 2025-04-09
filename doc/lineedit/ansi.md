@@ -49,20 +49,35 @@ The library `(schemesh lineedit ansi)` provides several functions for inspecting
   must be specified too
 
 `(black a string)`    appends string to the current text, highlighting it in black foreground
+
 `(black+ a string)`   appends string to the current text, highlighting it in bold black or bright black (= grey) foreground
+
 `(red a string)`      appends string to the current text, highlighting it in red foreground
+
 `(red+ a string)`     appends string to the current text, highlighting it in bold/bright red foreground
+
 `(green a string)`    appends string to the current text, highlighting it in green foreground
+
 `(green+ a string)`   appends string to the current text, highlighting it in bold/bright green foreground
+
 `(yellow a string)`   appends string to the current text, highlighting it in yellow foreground
+
 `(yellow+ a string)`  appends string to the current text, highlighting it in bold/bright yellow foreground
+
 `(blue a string)`     appends string to the current text, highlighting it in blue foreground
+
 `(blue+ a string)`    appends string to the current text, highlighting it in bold/bright blue foreground
+
 `(magenta a string)`  appends string to the current text, highlighting it in magenta foreground
+
 `(magenta+ a string)` appends string to the current text, highlighting it in bold/bright magenta foreground
+
 `(cyan a string)`     appends string to the current text, highlighting it in cyan foreground
+
 `(cyan+ a string)`    appends string to the current text, highlighting it in bold/bright cyan foreground
+
 `(white a string)`    appends string to the current text, highlighting it in white foreground
+
 `(white+ a string)`   appends string to the current text, highlighting it in bold/bright white foreground
 
 
