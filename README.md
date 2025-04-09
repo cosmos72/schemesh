@@ -559,7 +559,7 @@ and help for each builtin can be viewed by typing `help NAME` at the prompt.
 
 Scheme functions are not (yet) documented.
 
-Prompt customization **is** documented: see [doc/linedit/ansi.md](doc/linedit/ansi.md)
+Prompt customization **is** documented: see [doc/lineedit/ansi.md](doc/lineedit/ansi.md)
 
 ## FREQUENTLY ASKED QUESTIONS
 
