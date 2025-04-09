@@ -236,7 +236,7 @@ static int c_countdown(ptr duration_inout) {
   if (duration.tv_sec < 0 || (duration.tv_sec == 0 && duration.tv_nsec <= 0)) {
     return 0;
   }
-#if defined(CLOCK_MONOTONIC) && defined(__linux__)
+#if defined(CLOCK_MONOTONIC) && !defined(__APPLE__)
   err = clock_nanosleep(CLOCK_MONOTONIC, 0, &duration, &left);
 #else
   if (nanosleep(&interval, &left) != 0) {
