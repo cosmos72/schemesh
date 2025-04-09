@@ -16,9 +16,10 @@
     linectx-ix     linectx-iy     linectx-ixy  linectx-ixy-set!
     linectx-vx     linectx-vy
     linectx-term-x linectx-term-y linectx-term-xy-set!
-    linectx-stdin  linectx-stdin-set! linectx-stdout linectx-stdout-set!
-    linectx-prompt      linectx-prompt-end-x  linectx-prompt-end-y
+    linectx-stdin  linectx-stdin-set!   linectx-stdout        linectx-stdout-set!
+    linectx-prompt linectx-prompt-set!  linectx-prompt-end-x  linectx-prompt-end-y
     linectx-prompt-length linectx-prompt-length-set!
+    linectx-prompt-ansi-text            linectx-prompt-ansi-text-set!
     linectx-parenmatcher linectx-paren linectx-paren-set!
     linectx-clipboard linectx-clipboard-clear!
     linectx-completions linectx-completion-stem
@@ -38,6 +39,7 @@
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh posix fd)
+    (schemesh lineedit ansi)
     (schemesh lineedit vscreen)
     (schemesh lineedit charhistory)
     (schemesh lineedit charhistory io)
@@ -65,7 +67,7 @@
     (mutable flags)
     (mutable parser-name)   ; symbol, name of current parser
     (mutable parsers)       ; #f or hashtable symbol -> parser, table of enabled parsers
-    prompt                  ; bytespan, prompt
+    (mutable prompt)        ; bytespan, prompt
     parenmatcher
     (mutable paren)         ; #f or paren containing current parenthes to be highlighted
     clipboard               ; charspan
@@ -76,44 +78,6 @@
     (mutable history-index) ; index of last used item in history
     history)                ; charhistory, history of entered commands
   (nongenerative linectx-7c46d04b-34f4-4046-b5c7-b63753c1be40))
-
-
-
-
-
-;; parameter containing the current procedure that updates
-;; linectx-prompt and linectx-prompt-length with new prompt
-;;
-;; initially set to #f, will be set to sh-expand-ps1 by shell/utils.ss
-(define linectx-prompt-proc
-  (sh-make-parameter
-    #f
-    (lambda (proc)
-      (when proc
-        (unless (procedure? proc)
-          (raise-errorf 'linectx-prompt-proc "~s is not a procedure" proc))
-        (unless (logbit? 1 (procedure-arity-mask proc))
-          (raise-errorf 'linectx-prompt-proc "~s is not a is not a procedure accepting 1 argument" proc)))
-      proc)))
-
-
-
-
-;; parameter containing the current function that updates
-;; linectx-completion-stem and linectx-completions with possible completions.
-;;
-;; initially set to #f.
-(define linectx-completion-proc
-  (sh-make-parameter
-    #f
-    (lambda (proc)
-      (when proc
-        (unless (procedure? proc)
-          (raise-errorf 'sh-current-autocomplete-proc "~s is not a procedure" proc))
-        (unless (logbit? 1 (procedure-arity-mask proc))
-          (raise-errorf 'sh-current-autocomplete-proc "~s is not a is not a procedure accepting 1 argument" proc)))
-      proc)))
-
 
 
 (define flag-eof? 1)
@@ -410,6 +374,52 @@
           ((procedure? entry) (values entry rpos+1))
           ((hashtable? entry) (%find  entry rpos+1))
           (else               (values #f    (bytespan-length rbuf))))))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; parameter containing the current procedure that updates
+;; linectx-prompt and linectx-prompt-length with new prompt
+;;
+;; initially set to #f, will be set to sh-expand-ps1 by shell/utils.ss
+(define linectx-prompt-proc
+  (sh-make-parameter
+    #f
+    (lambda (proc)
+      (when proc
+        (unless (procedure? proc)
+          (raise-errorf 'linectx-prompt-proc "~s is not a procedure" proc))
+        (unless (logbit? 1 (procedure-arity-mask proc))
+          (raise-errorf 'linectx-prompt-proc "~s is not a is not a procedure accepting 1 argument" proc)))
+      proc)))
+
+
+;; parameter containing the current function that updates
+;; linectx-completion-stem and linectx-completions with possible completions.
+;;
+;; initially set to #f.
+(define linectx-completion-proc
+  (sh-make-parameter
+    #f
+    (lambda (proc)
+      (when proc
+        (unless (procedure? proc)
+          (raise-errorf 'sh-current-autocomplete-proc "~s is not a procedure" proc))
+        (unless (logbit? 1 (procedure-arity-mask proc))
+          (raise-errorf 'sh-current-autocomplete-proc "~s is not a is not a procedure accepting 1 argument" proc)))
+      proc)))
+
+
+;; view linectx prompt as mutable ansi-text
+(define (linectx-prompt-ansi-text lctx)
+  (make-ansi-text (linectx-prompt lctx) ; reuse bytespan containing prompt
+                  (vscreen-prompt-length (linectx-vscreen lctx))))
+
+
+;; store ansi-text as linectx-prompt
+(define (linectx-prompt-ansi-text-set! lctx a)
+  (linectx-prompt-set! lctx (ansi-text-bytes a))
+  (vscreen-prompt-length-set! (linectx-vscreen lctx) (ansi-text-visible-length a)))
 
 
 ;; customize how "linectx" objects are printed

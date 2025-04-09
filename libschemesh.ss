@@ -51,6 +51,7 @@
   (include "ipc/fifo.ss")
   (include "ipc/ipc.ss")
 
+  (include "lineedit/ansi.ss")
   (include "lineedit/vscreen.ss")
   (include "lineedit/charhistory.ss")
   (include "lineedit/charhistory-io.ss")

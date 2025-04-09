@@ -9,7 +9,7 @@
 
 (library (schemesh shell utils (0 8 3))
   (export
-    sh-autocomplete sh-expand-ps1 sh-current-time sh-default-ps1 sh-home->~ sh-make-linectx)
+    c-username sh-autocomplete sh-expand-ps1 sh-current-time sh-default-ps1 sh-home->~ sh-make-linectx)
   (import
     (rnrs)
     (rnrs mutable-strings)
@@ -79,11 +79,11 @@
 
 (define uid->username (foreign-procedure "c_get_username" (int) ptr))
 
-(define username
-  (let ((c-username (uid->username (current-euid))))
+(define c-username
+  (let ((c-username-value (uid->username (current-euid))))
     (lambda ()
       (if (string? c-username)
-        c-username
+        c-username-value
         (sh-env-ref #t "USER")))))
 
 (define (color high? fg str)
@@ -168,7 +168,7 @@
               ((#\s)     (%append-string   (symbol->string (linectx-parser-name lctx))))
               ((#\@ #\A
                 #\T #\t) (%append-string   (sh-current-time ch)))
-              ((#\u)     (%append-string   (username)))
+              ((#\u)     (%append-string   (c-username)))
               ((#\w)     (%append-charspan (sh-home->~ (sh-cwd))))
               (else      (%append-char     ch)))
             (set! escape? #f))
