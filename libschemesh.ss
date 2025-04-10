@@ -48,7 +48,9 @@
   (include "posix/posix.ss")
 
   (include "ipc/channel.ss") ; requires wire/wire.ss posix/fd.ss
-  (include "ipc/fifo.ss")
+  (meta-cond
+    ((threaded?) (include "ipc/fifo-thread.ss"))
+    (else        (include "ipc/fifo-nothread.ss")))
   (include "ipc/ipc.ss")
 
   (include "lineedit/ansi.ss")

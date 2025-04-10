@@ -13,7 +13,7 @@
     flvector-native? flvector flvector? flvector-length flvector-ref flvector-set! make-flvector)
   (import
     (rnrs)
-    (only (chezscheme) import library-exports meta meta-cond))
+    (only (chezscheme) import library-exports meta-cond))
 
 
 (meta-cond
