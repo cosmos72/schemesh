@@ -18,8 +18,8 @@
     charspan charspan? assert-charspan? charspan-length charspan-empty? charspan-clear!
     charspan-capacity charspan-capacity-left charspan-capacity-right
     charspan-ref charspan-ref-right
-    charspan-set! charspan-fill! charspan-fill-range! charspan-copy charspan-copy!
-    charspan=? charspan<? charspan-range-count= charspan-range=? charspan-range/string=?
+    charspan-set! charspan-fill! charspan-copy charspan-copy!
+    charspan=? charspan<? charspan-count= charspan=? charspan/string=?
     charspan-reserve-left! charspan-reserve-right! charspan-resize-left! charspan-resize-right!
     charspan-insert-left!        charspan-insert-right!
     charspan-insert-left/cspan!  charspan-insert-right/cspan!
@@ -32,10 +32,10 @@
   (import
     (rnrs)
     (rnrs mutable-strings)
-    (only (chezscheme) fx1+ fx1- record-writer string-copy! string-truncate! void)
+    (only (chezscheme) fx1+ fx1- record-writer string-copy! string-truncate! substring-fill! void)
     (only (schemesh bootstrap)         assert* assert-not* fx<=?*)
     (only (schemesh containers list)   for-list)
-    (only (schemesh containers string) string-fill-range! string-index string-range<? string-range=? string-range-count=))
+    (only (schemesh containers string) string-index substring<? substring=? string-count=))
 
 
 (define-record-type (%charspan %make-charspan charspan?)
@@ -135,13 +135,14 @@
   (assert* 'charspan-set! (fx<? -1 idx (charspan-length sp)))
   (string-set! (charspan-str sp) (fx+ idx (charspan-beg sp)) ch))
 
-(define (charspan-fill! sp ch)
-  (string-fill-range! (charspan-str sp) (charspan-beg sp) (charspan-end sp) ch))
-
-(define (charspan-fill-range! sp start end ch)
-  (assert* 'charspan-fill-range! (fx<=?* 0 start end (charspan-length sp)))
-  (let ((offset (charspan-beg sp)))
-    (string-fill-range! (charspan-str sp) (fx+ start offset) (fx+ end offset) ch)))
+(define charspan-fill!
+  (case-lambda
+    ((sp ch)
+      (substring-fill! (charspan-str sp) (charspan-beg sp) (charspan-end sp) ch))
+    ((sp start end ch)
+      (assert* 'charspan-fill! (fx<=?* 0 start end (charspan-length sp)))
+      (let ((offset (charspan-beg sp)))
+        (substring-fill! (charspan-str sp) (fx+ start offset) (fx+ end offset) ch)))))
 
 ;; make a copy of charspan and return it
 (define (charspan-copy src)
@@ -161,53 +162,72 @@
 
 ;; compare two charspans
 (define (charspan<? left right)
-  (string-range<?
+  (substring<?
     (charspan-str left)  (charspan-beg left)  (charspan-end left)
     (charspan-str right) (charspan-beg right) (charspan-end right)))
 
 
-(define (charspan=? left right)
-  (or
-    (eq? left right)
-    (let ((n1 (charspan-length left))
-          (n2 (charspan-length right)))
-      (and (fx=? n1 n2)
-           (string-range=?
-             (charspan-str left) (charspan-beg left)
-             (charspan-str right) (charspan-beg right)
-             n1)))))
+
+;; compare two charspans, or a range of two charspans
+(define charspan=?
+  (case-lambda
+    ((left left-start right right-start n)
+      (assert* 'charspan=? (fx<=?* 0 left-start (fx+ left-start n) (charspan-length left)))
+      (assert* 'charspan=? (fx<=?* 0 right-start (fx+ left-start n) (charspan-length right)))
+      (substring=?
+        (charspan-str left)  (fx+ left-start  (charspan-beg left))
+        (charspan-str right) (fx+ right-start (charspan-beg right))
+        n))
+    ((left left-start right right-start)
+      (let ((n1 (fx- (charspan-length left)  left-start))
+            (n2 (fx- (charspan-length right) right-start)))
+        (and (fx=? n1 n2)
+             (charspan=? left left-start right right-start n1))))
+    ((left right)
+      (charspan=? left 0 right 0))))
+
+
+;; compare a range of a charspan and a string
+(define charspan/string=?
+  (case-lambda
+    ((left left-start right right-start n)
+      (assert* 'charspan/string=? (fx<=?* 0 left-start  (fx+ left-start n)  (charspan-length left)))
+      (assert* 'charspan/string=? (fx<=?* 0 right-start (fx+ right-start n) (string-length right)))
+      (substring=?
+        (charspan-str left)  (fx+ left-start  (charspan-beg left))
+        right right-start
+        n))
+    ((left left-start right right-start)
+      (let ((n1 (fx- (charspan-length left)  left-start))
+            (n2 (fx- (string-length right)  right-start)))
+        (and (fx=? n1 n2)
+             (charspan/string=? left left-start right right-start n1))))
+    ((left right)
+      (charspan/string=? left 0 right 0))))
 
 
 ;; compare the range [left-start, left-start + n) of left charspan
 ;; with the range [right-start, right-start + n) of right charspan.
 ;; return the leftmost position, starting from 0, containing different characters,
 ;; or n if the two ranges contain the same characters
-(define (charspan-range-count= left left-start right right-start n)
-  (assert* 'charspan-range-count= (fx<=?* 0 left-start  (fx+ left-start n)  (charspan-length left)))
-  (assert* 'charspan-range-count= (fx<=?* 0 right-start (fx+ right-start n) (charspan-length right)))
-  (string-range-count=
-    (charspan-str left)  (fx+ left-start  (charspan-beg left))
-    (charspan-str right) (fx+ right-start (charspan-beg right))
-    n))
+(define charspan-count=
+  (case-lambda
+    ((left left-start right right-start n)
+      (assert* 'charspan-count= (fx<=?* 0 left-start  (fx+ left-start n)  (charspan-length left)))
+      (assert* 'charspan-count= (fx<=?* 0 right-start (fx+ right-start n) (charspan-length right)))
+      (string-count=
+        (charspan-str left)  (fx+ left-start  (charspan-beg left))
+        (charspan-str right) (fx+ right-start (charspan-beg right))
+        n))
+    ((left left-start right right-start)
+      (charspan-count= left left-start right right-start
+                       (fxmin (fx- (charspan-length left) left-start)
+                              (fx- (charspan-length right) right-start))))
+    ((left right)
+      (charspan-count= left 0 right 0
+                       (fxmin (charspan-length left)
+                              (charspan-length right))))))
 
-
-;; compare a range of two charspans
-(define (charspan-range=? left left-start right right-start n)
-  (assert* 'charspan-range=? (fx<=?* 0 left-start  (fx+ left-start n)  (charspan-length left)))
-  (assert* 'charspan-range=? (fx<=?* 0 right-start (fx+ right-start n) (charspan-length right)))
-  (string-range=?
-    (charspan-str left)  (fx+ left-start  (charspan-beg left))
-    (charspan-str right) (fx+ right-start (charspan-beg right))
-    n))
-
-;; compare a range of a charspan and a string
-(define (charspan-range/string=? left left-start right right-start n)
-  (assert* 'charspan-range/string=? (fx<=?* 0 left-start  (fx+ left-start n)  (charspan-length left)))
-  (assert* 'charspan-range/string=? (fx<=?* 0 right-start (fx+ right-start n) (string-length right)))
-  (string-range=?
-    (charspan-str left)  (fx+ left-start  (charspan-beg left))
-    right right-start
-    n))
 
 (define (charspan-reallocate-left! sp len cap)
   (assert* 'charspan-reallocate-left! (fx<=? 0 len cap))
@@ -498,7 +518,7 @@
             (cond
               ((and pos
                     (fx<=? pos (fx- end old-len))
-                    (string-range=? str pos old-str 0 old-len))
+                    (substring=? str pos old-str 0 old-len))
                 ;; found a match, replace it
                 (charspan-insert-right/string! dst str i pos)
                 (charspan-insert-right/string! dst new-str)

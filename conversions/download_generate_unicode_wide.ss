@@ -18,10 +18,10 @@
 (define table (make-bytevector #x110000 0))
 
 (define (wide-set! lo hi)
-  (bytevector-fill-range! table lo (fx1+ hi) 1))
+  (subbytevector-fill! table lo (fx1+ hi) 1))
 
 (define (set-narrow! lo hi)
-  (bytevector-fill-range! table lo (fx1+ hi) 0))
+  (subbytevector-fill! table lo (fx1+ hi) 0))
 
 ;; these are always wide
 (wide-set! #x3400 #x4DBF)

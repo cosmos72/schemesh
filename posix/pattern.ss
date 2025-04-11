@@ -11,12 +11,12 @@
   (export
     sh-pattern sh-pattern? span->sh-pattern* sh-pattern->span*
     sh-pattern-ref/string sh-pattern-ref-right/string
-    sh-pattern-match? sh-pattern-match-range? sh-wildcard?)
+    sh-pattern-match? sh-wildcard?)
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx1- record-writer void)
     (only (schemesh bootstrap) assert* fx<=?* raise-assertf)
-    (only (schemesh containers string) string-index string-index-right string-range=?)
+    (only (schemesh containers string) string-index string-index-right substring=?)
     (schemesh containers charspan)
     (schemesh containers span))
 
@@ -153,51 +153,50 @@
 ;; 2. if sh-pattern p starts with a wildcard symbol,
 ;;    it intentionally never matches strings starting with "."
 ;;
-(define (sh-pattern-match? p str)
-  (assert* 'sh-pattern-match? (sh-pattern? p))
-  (assert* 'sh-pattern-match? (string? str))
-  (sh-pattern-match-range? p str 0 (string-length str)))
-
-
-(define (sh-pattern-match-range? p str str-start str-end)
-  ; (debugf "sh-pattern-match p=~s str=~s" p str)
-  (assert* 'sh-pattern-match-range? (sh-pattern? p))
-  (assert* 'sh-pattern-match-range? (string? str))
-  (let* ((sp  (pattern-span p))
-         (n   (span-length sp))
-         (len (fx- str-end str-start)))
-    (assert* 'sh-pattern-match-range? (fx<=?* 0 str-start str-end (string-length str)))
-    ;; handle special cases first
-    (cond
-      ((span-empty? sp)
-        ; an empty pattern can only match the empty string
-        (fxzero? len))
-      ((or (fx<? len (pattern-min-len p))
-           (and (pattern-max-len p)
-                (fx>? len (pattern-max-len p))))
-        ; name is shorter than minimum length, or longer than maximum length - cannot be matched
-        #f)
-      ((fxzero? len)
-        ; an empty name can only be matched by an empty pattern (already checked above)
-        ; or by a sequence of '* with nothing else
-        (%pattern-all-keys-are? sp 0 n '*))
-      ((pattern-fixed? p)
-        ; a non-empty pattern without wilcards only matches the string (span-ref sp 0)
-        (let ((key (span-ref sp 0)))
-          (and (fx=? len (string-length key))
-               (string-range=? key 0 str str-start len))))
-      ((and (fx<=? len 2) (string-range=? str str-start ".." 0 len))
-        ; the special directory names "." and ".." cannot be matched
-        ; by any pattern containing wildcards
-        #f)
-      ((and (char=? #\. (string-ref str str-start)) (symbol? (span-ref sp 0)))
-        ; names starting with #\. cannot be matched
-        ; by a pattern starting with a wildcard
-        #f)
-      (else
-        (if (%pattern-match/left sp 0 n 0 str str-start str-end)
-          #t
-          #f)))))
+(define sh-pattern-match?
+  (case-lambda
+    ((p str str-start str-end)
+      ; (debugf "sh-pattern-match p=~s str=~s" p str)
+      (assert* 'sh-pattern-match? (sh-pattern? p))
+      (assert* 'sh-pattern-match? (string? str))
+      (let* ((sp  (pattern-span p))
+             (n   (span-length sp))
+             (len (fx- str-end str-start)))
+        (assert* 'sh-pattern-match? (fx<=?* 0 str-start str-end (string-length str)))
+        ;; handle special cases first
+        (cond
+          ((span-empty? sp)
+            ; an empty pattern can only match the empty string
+            (fxzero? len))
+          ((or (fx<? len (pattern-min-len p))
+               (and (pattern-max-len p)
+                    (fx>? len (pattern-max-len p))))
+            ; name is shorter than minimum length, or longer than maximum length - cannot be matched
+            #f)
+          ((fxzero? len)
+            ; an empty name can only be matched by an empty pattern (already checked above)
+            ; or by a sequence of '* with nothing else
+            (%pattern-all-keys-are? sp 0 n '*))
+          ((pattern-fixed? p)
+            ; a non-empty pattern without wilcards only matches the string (span-ref sp 0)
+            (let ((key (span-ref sp 0)))
+              (and (fx=? len (string-length key))
+                   (substring=? key 0 str str-start len))))
+          ((and (fx<=? len 2) (substring=? str str-start ".." 0 len))
+            ; the special directory names "." and ".." cannot be matched
+            ; by any pattern containing wildcards
+            #f)
+          ((and (char=? #\. (string-ref str str-start)) (symbol? (span-ref sp 0)))
+            ; names starting with #\. cannot be matched
+            ; by a pattern starting with a wildcard
+            #f)
+          (else
+            (if (%pattern-match/left sp 0 n 0 str str-start str-end)
+              #t
+              #f)))))
+    ((p str)
+      (assert* 'sh-pattern-match? (string? str))
+      (sh-pattern-match? p str 0 (string-length str)))))
 
 
 ;; recursively determine whether the range [sp-start, sp-end) of the span sp,
@@ -382,7 +381,7 @@
          (str-len   (fx- str-end str-start))
          (compare-n (fxmin key-len str-len)))
     (if (and (fx=? key-len compare-n)
-             (string-range=? key 0 str str-start compare-n))
+             (substring=? key 0 str str-start compare-n))
       1
       #f)))
 
@@ -397,7 +396,7 @@
          (str-len   (fx- str-end str-start))
          (compare-n (fxmin key-len str-len)))
     (if (and (fx=? key-len compare-n)
-             (string-range=? key 0 str (fx- str-end compare-n) compare-n))
+             (substring=? key 0 str (fx- str-end compare-n) compare-n))
       1
       #f)))
 

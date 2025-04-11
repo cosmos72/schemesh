@@ -11,7 +11,7 @@
   (export
     for-vector
     in-vector in-fxvector in-flvector ; in-flvector requires Chez Scheme >= 10.0.0
-    vector-any vector-copy! subvector vector-fill-range! vector-index vector-iterate vector->hashtable! vector-range->list)
+    vector-any vector-copy! subvector subvector-fill! vector-index vector-iterate vector->hashtable! subvector->list)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -51,15 +51,15 @@
     dst))
 
 ;; set elements in range [start, end) of vector vec specified value
-(define (vector-fill-range! vec start end val)
-  (assert* 'vector-fill-range! (fx<=?* 0 start end (vector-length vec)))
+(define (subvector-fill! vec start end val)
+  (assert* 'subvector-fill! (fx<=?* 0 start end (vector-length vec)))
   (do ((i start (fx1+ i)))
       ((fx>=? i end))
     (vector-set! vec i val)))
 
 ;; read elements from vector range [start, end) and copy them into a list.
 ;; return such list.
-(define (vector-range->list vec start end)
+(define (subvector->list vec start end)
   (let %again ((pos (fx1- end))
                (ret '()))
     (if (fx>=? pos start)

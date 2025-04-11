@@ -36,7 +36,7 @@
   (bytevector-compare #vu8(66 77) #vu8(66 77 0))   -1
   (bytevector-compare #vu8(66 77) #vu8(66 78))     -1
   (bytevector-compare #vu8(79) #vu8(78 0))         1
-  (string-range-count= "qwertyuiop" 2 "_ertyuio7"
+  (string-count= "qwertyuiop" 2 "_ertyuio7"
                         1 8)                       7
 
   (let* ((n   513)
@@ -109,7 +109,7 @@
       (assert* 'test (fx=? i (char->integer (integer->char* i))))
       (unless (throws? (integer->char* i))
         (error 'integer->char* "should throw" i)))) #t
-  (string-range<? "abcdef" 1 5 "_abxyef" 2 4)       #t
+  (substring<? "abcdef" 1 5 "_abxyef" 2 4)       #t
   ;; ----------------- containers/sort ------------------------------------
   (let ((v (vector 9 8 7 6 5 4 3 2 1 0)))
     (vector-sort*! fx<? v 1 9)

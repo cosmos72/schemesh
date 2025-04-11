@@ -19,7 +19,7 @@
     (only (chezscheme) bytevector foreign-procedure fx1+ fx1- string-truncate!)
     (only (schemesh bootstrap)             assert* fx<=?* raise-assertf)
     (only (schemesh containers bytespan)   bytespan? bytespan-length bytespan-peek-data bytespan-peek-beg bytespan-peek-end)
-    (only (schemesh containers bytevector) bytevector-fill-range!))
+    (only (schemesh containers bytevector) subbytevector-fill!))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -75,7 +75,7 @@
               (unless (and (fixnum? written-n) (fx=? byte-n written-n))
                 (raise-string->utf8b-error written-n))
               (when (fx>? zeropad-byte-n 0)
-                (bytevector-fill-range! bvec byte-n (fx+ byte-n zeropad-byte-n) 0))
+                (subbytevector-fill! bvec byte-n (fx+ byte-n zeropad-byte-n) 0))
               bvec))
           ; (fx>=? start end)
           (if (fxzero? zeropad-byte-n)

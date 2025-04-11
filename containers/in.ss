@@ -9,7 +9,7 @@
 
 (library (schemesh containers in (0 8 3))
   (export
-    constant in-value in-range in-numbers
+    constant in-value in-interval in-numbers
     in-roundrobin in-list-roundrobin in-sequences number->cflonum)
   (import
     (rnrs)
@@ -40,27 +40,27 @@
   (apply constant (append args '(#t))))
 
 
-;; create and return a closure that returns exact or inexact real numbers in the range [start, end)
+;; create and return a closure that returns exact or inexact real numbers in the interval [start, end)
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns two values:
-;; either (values elem #t) i.e. the next element in range [start, end) and #t,
-;; or (values #<unspecified> #f) if end of range is reached.
+;; either (values elem #t) i.e. the next element in interval [start, end) and #t,
+;; or (values #<unspecified> #f) if end of interval is reached.
 ;;
-;; If step is zero or a very small inexact real, the closure may never reach end of range.
+;; If step is zero or a very small inexact real, the closure may never reach end of interval.
 ;;
 ;; Implementation:
-;;  if all arguments are fixnums, calls (in-fixnum-range)
-;;  otherwise, if all arguments are exact, calls (in-exact-range)
-;;  otherwise calls (in-flonum-range)
-(define in-range
+;;  if all arguments are fixnums, calls (in-fixnum-interval)
+;;  otherwise, if all arguments are exact, calls (in-exact-interval)
+;;  otherwise calls (in-flonum-interval)
+(define in-interval
   (case-lambda
     ((start end step)
-      (assert* 'in-range (real? start))
-      (assert* 'in-range (real? end))
-      (assert* 'in-range (real? step))
+      (assert* 'in-interval (real? start))
+      (assert* 'in-interval (real? end))
+      (assert* 'in-interval (real? step))
       (cond
         ((and (fixnum? start) (fixnum? end) (fixnum? step))
-          (let ((in-fixnum-range ; name shown when displaying the closure
+          (let ((in-fixnum-interval ; name shown when displaying the closure
                   (if (fx>=? step 0)
                     (lambda ()
                       (if (fx<? start end)
@@ -74,9 +74,9 @@
                           (set! start (fx+ start step))
                           (values ret #t))
                         (values end #f))))))
-            in-fixnum-range))
+            in-fixnum-interval))
         ((and (exact? start) (exact? end) (exact? step))
-          (let ((in-exact-range ; name shown when displaying the closure
+          (let ((in-exact-interval ; name shown when displaying the closure
                   (if (>= step 0)
                     (lambda ()
                       (if (< start end)
@@ -90,12 +90,12 @@
                           (set! start (+ start step))
                           (values ret #t))
                         (values end #f))))))
-            in-exact-range))
+            in-exact-interval))
         (else
           (let ((start (real->flonum start))
                 (end   (real->flonum end))
                 (step  (real->flonum step)))
-            (let ((in-flonum-range ; name shown when displaying the closure
+            (let ((in-flonum-interval ; name shown when displaying the closure
                     (if (fl>=? step 0.0)
                       (lambda ()
                         (if (fl<? start end)
@@ -109,11 +109,11 @@
                             (set! start (fl+ start step))
                             (values ret #t))
                           (values end #f))))))
-              in-flonum-range)))))
+              in-flonum-interval)))))
     ((start end)
-      (in-range start end 1))
+      (in-interval start end 1))
     ((end)
-      (in-range 0 end 1))))
+      (in-interval 0 end 1))))
 
 
 ;; convert an exact or inexact real or complex number to an inexact complex number, i.e. a cflonum.

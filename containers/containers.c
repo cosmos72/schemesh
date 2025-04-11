@@ -81,7 +81,7 @@ static signed char c_bytevector_compare(ptr left, ptr right) {
 }
 
 /** fill with value a bytevector range  */
-static void c_bytevector_fill_range(ptr bvec, iptr start, iptr end, int value) {
+static void c_subbytevector_fill(ptr bvec, iptr start, iptr end, int value) {
   if (Sbytevectorp(bvec) && 0 <= start && start < end && end <= Sbytevector_length(bvec)) {
     memset(Sbytevector_data(bvec) + start, value & 0xFF, (size_t)end - (size_t)start);
   }
@@ -575,7 +575,7 @@ ptr schemesh_Sbytevector(const char chars[], const size_t len) {
 
 void schemesh_register_c_functions_containers(void) {
   Sregister_symbol("c_bytevector_compare", &c_bytevector_compare);
-  Sregister_symbol("c_bytevector_fill_range", &c_bytevector_fill_range);
+  Sregister_symbol("c_subbytevector_fill", &c_subbytevector_fill);
   Sregister_symbol("c_bytevector_hash", &c_bytevector_hash);
   Sregister_symbol("c_bytevector_index_u8", &c_bytevector_index_u8);
   Sregister_symbol("c_string_fill_utf8b_surrogate_chars", &c_string_fill_utf8b_surrogate_chars);

@@ -101,7 +101,7 @@
   (string-replace-prefix) (string-replace-suffix) (string-prefix?) (string-suffix?)`
 * export string-related functions `(in-string) (string-fill-range!) (string-is-unsigned-base10-integer?)
   (string-is-signed-base10-integer?) (string-iterate) (string-list?) (string-list-split-after-nuls)
-  (string-prefix/char?) (string-range-count=) (string-range=?) (string-range<?) (string-replace/char!)
+  (string-prefix/char?) (string-count=) (substring=?) (substring<?) (string-replace/char!)
   (string-rtrim-newlines!) (string-split) (string-split-after-nuls) (string-suffix/char?) (string-trim-split-at-blanks)`
 * automatically `(import (schemesh))` at REPL
 * rename existing functions to follow r7rs naming conventions
@@ -109,10 +109,10 @@
 * fix `(parse-lisp-forms)` to correctly parse backslash-whitespace-newline-whitespace inside double quotes
 * fix C function `c_tty_setraw()` to retrieve the current tty configuration at every call,
   because one of the executed commands may have changed it: we want to preserve such changes for future commands
-* fix bugs in `(on-list)` and `(in-fixnum-range)`
-* add functions `(directory-list) (directory-list-type) (file-delete) (in-exact-range)
+* fix bugs in `(on-list)` and `(in-fixnum-interval)`
+* add functions `(directory-list) (directory-list-type) (file-delete) (in-exact-interval)
   (mkdir) (ok?) (string-replace-start) (string-replace-end)`
-* refactor function `(in-range)` to call one of `(in-fixnum-range) (in-exact-range) (in-flonum-range)`
+* refactor function `(in-interval)` to call one of `(in-fixnum-interval) (in-exact-interval) (in-flonum-interval)`
 * rename shell builtin `test` -> `expr` and rename macro `(shell-test)` -> `(shell-expr)`
 * implement builtin `cd-` changes current directory of *parent* job to its previous value.
 * implement builtin `parent` executes another builtin with its parent job temporarily set to its grandparent job.
@@ -128,7 +128,7 @@
 * add functions `(alist->eq-hashtable) (alist->eqv-hashtable) (alist->hashtable) (file-rename)
   (in-bytevector) (in-bytespan) (in-chargbuffer) (in-charline) (in-charlines) (in-charspan)
   (in-gbuffer) (in-hash) (in-list) (in-span) (in-string) (in-vector)
-  (in-fixnum-range) (in-flonum-range) (in-range) (on-list)
+  (in-fixnum-interval) (in-flonum-interval) (in-interval) (on-list)
   (sh-bool) (sh-run/string-split-after-nuls) (sh-version) (string-replace)`
 * add macros `(for) (for*) (library-reexport) (shell-test)`
 * add Fedora Linux build instructions to README.md

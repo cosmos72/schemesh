@@ -17,7 +17,7 @@
     list->gbuffer vector->gbuffer vector->gbuffer* span->gbuffer span->gbuffer*
     make-gbuffer gbuffer gbuffer? gbuffer->vector gbuffer->span
     gbuffer-length gbuffer-empty? gbuffer-ref gbuffer-set! gbuffer-clear! gbuffer-split-at!
-    gbuffer-insert-at! gbuffer-erase-range! in-gbuffer gbuffer-iterate)
+    gbuffer-insert-at! gbuffer-delete! in-gbuffer gbuffer-iterate)
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx/ record-writer void)
@@ -147,14 +147,14 @@
 
 
 ;; remove elements in range [start, end) from gbuffer gb
-(define (gbuffer-erase-range! gb start end)
+(define (gbuffer-delete! gb start end)
   (let* ((left    (g< gb))
          (right   (g> gb))
          (left-n  (span-length left))
          (right-n (span-length right))
          (len     (fx+ left-n right-n))
          (n       (fx- end start)))
-    (assert* 'gbuffer-erase-range! (fx<=?* 0 start end len))
+    (assert* 'gbuffer-delete! (fx<=?* 0 start end len))
     (cond
       ((fxzero? n) (void)) ; nothing to do
       ((fxzero? start)

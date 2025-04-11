@@ -46,10 +46,10 @@
   (charspan-empty? (charspan #\~))                 #f
   (charspan-ref-right (charspan #\{ #\\))               #\\
   (charspan-ref (charspan #\x #\y #\z) 2)          #\z
-  (charspan-range-count=
+  (charspan-count=
     (string->charspan* "abcdef") 2
     (string->charspan* "1cde34") 1 4)              3
-  (charspan-range=?
+  (charspan=?
     (string->charspan* "abcdef") 2
     (string->charspan* "1cde34") 1 3)              #t
   (let* ((s "abc")
@@ -85,7 +85,7 @@
       (lambda (i elem)
         (gbuffer-set! gb i (fx- i)))) gb)          ,(gbuffer 0 -1 -2 -3 -4)
   (let ((gb (gbuffer 'a 'b 'c 'd 'e)))
-    (gbuffer-erase-range! gb 2 4)
+    (gbuffer-delete! gb 2 4)
     (gbuffer-insert-at! gb 1 'x) gb)               ,(gbuffer a x b e)
   ;; --------------------- chargbuffer ------------------------------------
   (chargbuffer #\X #\Y #\Z)                        ,(string->chargbuffer* "XYZ")
@@ -98,7 +98,7 @@
         (chargbuffer-set! gb i (integer->char (fx+ i 64)))))
     gb)                                            ,(string->chargbuffer* "@ABCD")
   (let ((gb (chargbuffer #\a #\b #\c #\d #\e)))
-    (chargbuffer-erase-range! gb 2 4)
+    (chargbuffer-delete! gb 2 4)
     (chargbuffer-insert-at! gb 1 #\x)
     gb)                                            ,(string->chargbuffer* "axbe")
   ;; ------------------------ charline ------------------------------------
@@ -133,7 +133,7 @@
                                                    ,(span 0 0 0 0 0 0 3 2 1 0 0 0)
   (let* ((l1 (string->charline* "foo/bar"))
          (l2 (charline-copy-on-write l1)))
-    (charline-erase-range! l1 3 4)
+    (charline-delete! l1 3 4)
     (charline-insert-at! l2 3 #\~)
     (list l1 l2))                                  ,((string->charline* "foobar") (string->charline* "foo~/bar"))
   (let* ((l1 (string->charline* "abcdefgh"))

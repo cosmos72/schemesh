@@ -263,7 +263,7 @@
                  (common-i-len
                    (if (fxzero? common-len)
                      0
-                     (charspan-range-count= elem 0 elem-i 0 (fxmin common-len elem-i-len)))))
+                     (charspan-count= elem 0 elem-i 0 (fxmin common-len elem-i-len)))))
             ; (debugf "... %table-analyze common-i-len = ~s" common-i-len)
             (when (fx>? common-len common-i-len)
               (set! common-len common-i-len))

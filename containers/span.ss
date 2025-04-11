@@ -15,7 +15,7 @@
   (export
     list->span vector->span vector->span* make-span span->list span->vector span span?
     span-length span-empty? span-clear! span-capacity span-capacity-left span-capacity-right
-    span-ref span-ref-right span-set! span-fill! span-fill-range! span-range->span* span-copy span-copy!
+    span-ref span-ref-right span-set! span-fill! subspan/shared span-copy span-copy!
     span-reserve-left! span-reserve-right! span-resize-left! span-resize-right!
     span-insert-left! span-insert-right! span-insert-left/span! span-insert-right/span!
     span-erase-left! span-erase-right! span-index span-index-right
@@ -26,7 +26,7 @@
     (only (chezscheme) break fx1+ fx1- record-writer reverse! vector-copy void)
     (only (schemesh bootstrap)         assert* assert-not* fx<=?*)
     (only (schemesh containers list)   for-list)
-    (only (schemesh containers vector) subvector vector-copy! vector-fill-range! vector-range->list))
+    (only (schemesh containers vector) subvector vector-copy! subvector-fill! subvector->list))
 
 (define-record-type (%span %make-span span?)
   (fields
@@ -57,7 +57,7 @@
     ((n fill) (%make-span 0 n (make-vector n fill)))))
 
 (define (span->list sp)
-  (vector-range->list (span-vec sp) (span-beg sp) (span-end sp)))
+  (subvector->list (span-vec sp) (span-beg sp) (span-end sp)))
 
 (define (span->vector sp)
   (let ((beg (span-beg sp))
@@ -97,20 +97,21 @@
   (assert* 'span-set! (fx<? -1 idx (span-length sp)))
   (vector-set! (span-vec sp) (fx+ idx (span-beg sp)) val))
 
-(define (span-fill! sp val)
-  (vector-fill-range! (span-vec sp) (span-beg sp) (span-end sp) val))
-
-(define (span-fill-range! sp start end val)
-  (assert* 'span-fill-range! (fx<=?* 0 start end (span-length sp)))
-  (let ((offset (span-beg sp)))
-    (vector-fill-range! (span-vec sp) (fx+ start offset) (fx+ end offset) val)))
+(define span-fill!
+  (case-lambda
+    ((sp val)
+      (subvector-fill! (span-vec sp) (span-beg sp) (span-end sp) val))
+    ((sp start end val)
+      (assert* 'span-fill! (fx<=?* 0 start end (span-length sp)))
+      (let ((offset (span-beg sp)))
+        (subvector-fill! (span-vec sp) (fx+ start offset) (fx+ end offset) val)))))
 
 
 ;; view the range [start, end) of span sp as a new span, and return it.
 ;; note: setting the elements of either span will propagate to the other
 ;; (provided they are in range of both spans) until one of the spans is reallocated.
-(define (span-range->span* sp start end)
-  (assert* 'span-range->span* (fx<=?* 0 start end (span-length sp)))
+(define (subspan/shared sp start end)
+  (assert* 'subspan/shared (fx<=?* 0 start end (span-length sp)))
   (%make-span (fx+ start (span-beg sp)) (fx+ end (span-beg sp)) (span-vec sp)))
 
 

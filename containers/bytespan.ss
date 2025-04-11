@@ -18,7 +18,7 @@
     bytespan bytespan? bytespan-length bytespan-empty? bytespan-clear!
     bytespan-capacity bytespan-capacity-left bytespan-capacity-right
     bytespan-ref/u8 bytespan-ref-right/u8 bytespan-set/u8!
-    bytespan-fill! bytespan-fill-range! bytespan-copy bytespan-copy! bytespan=?
+    bytespan-fill! bytespan-copy bytespan-copy! bytespan=?
     bytespan-reserve-left! bytespan-reserve-right! bytespan-resize-left! bytespan-resize-right!
     bytespan-insert-left/u8! bytespan-insert-right/u8!
     bytespan-insert-left/bspan! bytespan-insert-right/bspan!
@@ -121,14 +121,15 @@
   (assert* 'bytespan-set/u8! (fx<? -1 idx (bytespan-length sp)))
   (bytevector-u8-set! (bytespan-vec sp) (fx+ idx (bytespan-beg sp)) u8))
 
-(define (bytespan-fill! sp u8)
-  (bytevector-fill-range! (bytespan-vec sp) (bytespan-beg sp)
-                          (bytespan-end sp) u8))
-
-(define (bytespan-fill-range! sp start end u8)
-  (assert* 'bytespan-fill-range! (fx<=?* 0 start end (bytespan-length sp)))
-  (let ((offset (bytespan-beg sp)))
-    (bytevector-fill-range! (bytespan-vec sp) (fx+ start offset) (fx+ end offset) u8)))
+(define bytespan-fill!
+  (case-lambda
+    ((sp u8)
+      (subbytevector-fill! (bytespan-vec sp) (bytespan-beg sp)
+                              (bytespan-end sp) u8))
+    ((sp start end u8)
+      (assert* 'bytespan-fill! (fx<=?* 0 start end (bytespan-length sp)))
+      (let ((offset (bytespan-beg sp)))
+        (subbytevector-fill! (bytespan-vec sp) (fx+ start offset) (fx+ end offset) u8)))))
 
 (define (bytespan-copy src)
   (let* ((n (bytespan-length src))

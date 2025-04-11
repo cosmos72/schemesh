@@ -109,7 +109,7 @@
 (define (charhistory-erase-empty-lines! hist idx)
   (let ((i (fx1- (fxmin idx (charhistory-length hist)))))
     (while (and (fx>=? i 0) (%charlines-empty? (gbuffer-ref hist i)))
-      (gbuffer-erase-range! hist i (fx1+ i))
+      (gbuffer-delete! hist i (fx1+ i))
       (set! i (fx1- i)))
     i))
 

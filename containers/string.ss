@@ -10,12 +10,12 @@
 (library (schemesh containers string (0 8 3))
   (export
     assert-string-list? in-string
-    string-any string-contains string-count string-every string-fill-range!
+    string-any string-contains string-count string-every
     string-index string-index-right
     string-is-unsigned-base10-integer? string-is-signed-base10-integer? string-iterate
     string-join string-list? string-list-split-after-nuls
     string-map string-prefix? string-prefix/char?
-    string-range-count= string-range=? string-range<?
+    string-count= substring=? substring<?
     string-replace-prefix string-replace-suffix string-replace/char! string-rtrim-newlines!
     string-split string-split-after-nuls string-suffix? string-suffix/char?
     string-trim-split-at-blanks)
@@ -23,7 +23,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme) fx1+ fx1- reverse! string-copy! string-truncate! substring-fill! void)
+    (only (chezscheme) fx1+ fx1- reverse! string-copy! string-truncate! void)
     (only (schemesh bootstrap) assert* fx<=?* while)
     (only (schemesh containers list) for-list list-copy*))
 
@@ -287,13 +287,6 @@
         (string-is-unsigned-base10-integer? obj 1 n))
       (else
         (string-is-unsigned-base10-integer? obj 0 n)))))
-
-
-;; set characters in range [start, end) of string str to character ch
-(define (string-fill-range! str start end ch)
-  (assert* 'string-fill-range! (fx<=?* 0 start end (string-length str)))
-  (when (fx<? start end)
-    (substring-fill! str start end ch)))
 
 
 ;; create and return a closure that iterates on elements of string str.
@@ -566,43 +559,52 @@
 ;; with the range [right-start, right-start + n) of right string.
 ;; return the leftmost position, starting from 0, containing different characters,
 ;; or n if the two ranges contain the same characters
-(define (string-range-count= left left-start right right-start n)
-  (assert* 'string-range-count= (fx<=?* 0 left-start (string-length left)))
-  (assert* 'string-range-count= (fx<=?* 0 right-start (string-length right)))
-  (assert* 'string-range-count= (fx<=?* 0 n (fx- (string-length left) left-start)))
-  (assert* 'string-range-count= (fx<=?* 0 n (fx- (string-length right) right-start)))
-  (cond
-    ((fxzero? n)
-      n)
-    ((and (eq? left right) (fx=? left-start right-start))
-      n)
-    (else
-      (do ((i 0 (fx1+ i)))
-          ((or
-             (fx>=? i n)
-             (not (char=? (string-ref left (fx+ i left-start))
-                          (string-ref right (fx+ i right-start)))))
-            i)))))
+(define string-count=
+  (case-lambda
+    ((left left-start right right-start n)
+      (assert* 'string-count= (fx<=?* 0 left-start (string-length left)))
+      (assert* 'string-count= (fx<=?* 0 right-start (string-length right)))
+      (assert* 'string-count= (fx<=?* 0 n (fx- (string-length left) left-start)))
+      (assert* 'string-count= (fx<=?* 0 n (fx- (string-length right) right-start)))
+      (cond
+        ((fxzero? n)
+          n)
+        ((and (eq? left right) (fx=? left-start right-start))
+          n)
+        (else
+          (do ((i 0 (fx1+ i)))
+              ((or
+                 (fx>=? i n)
+                 (not (char=? (string-ref left (fx+ i left-start))
+                              (string-ref right (fx+ i right-start)))))
+                i)))))
+    ((left left-start right right-start)
+      (string-count= left left-start right right-start
+                     (fxmin (fx- (string-length left) left-start)
+                            (fx- (string-length right) right-start))))
+    ((left right)
+      (string-count= left 0 right 0
+                     (fxmin (string-length left) (string-length right))))))
 
 
 ;; return #t if range [left-start, left-start + n) of left string contains
 ;; the same characters as range [right-start, right-start + n) of right string.
 ;; otherwise return #f
-(define (string-range=? left left-start right right-start n)
-  (fx=? n (string-range-count= left left-start right right-start n)))
+(define (substring=? left left-start right right-start n)
+  (fx=? n (string-count= left left-start right right-start n)))
 
 
 
-(define (string-range<? left  left-start  left-end
+(define (substring<? left  left-start  left-end
                         right right-start right-end)
-   ; (debugf "-> string-range<? left=~s, left-start=~s, left-end=~s, right=~s, right-start=~s, right-end=~s"
+   ; (debugf "-> substring<? left=~s, left-start=~s, left-end=~s, right=~s, right-start=~s, right-end=~s"
    ;         left left-start left-end right right-start right-end)
    (let ((done? #f)
          (ret   #f))
      (do ((i left-start  (fx1+ i))
           (j right-start (fx1+ j)))
          (done?)
-       ; (debugf ". string-range<? i=~s, j=~s" i j)
+       ; (debugf ". substring<? i=~s, j=~s" i j)
        (cond
          ((fx>=? i left-end)
            (set! done? #t))
@@ -618,7 +620,7 @@
                   (set! done? #t))
                 ((char>? ch1 ch2)
                   (set! done? #t)))))))
-     ; (debugf "<- string-range<? ret=~s" ret)
+     ; (debugf "<- substring<? ret=~s" ret)
      ret))
 
 
@@ -636,7 +638,7 @@
       (let* ((key-len (fx- key-end key-start))
              (last    (fx- str-end key-len)))
         (do ((i str-start (fx1+ i)))
-            ((or (fx>? i last) (string-range=? str i key key-start key-len))
+            ((or (fx>? i last) (substring=? str i key key-start key-len))
               (if (fx<=? i last) i #f)))))
     ((str key)
       (string-contains str key 0 (string-length str) 0 (string-length key)))))
@@ -648,7 +650,7 @@
   (let ((str-len    (string-length str))
         (prefix-len (string-length prefix)))
     (and (fx>=? str-len prefix-len)
-         (string-range=? str 0 prefix 0 prefix-len))))
+         (substring=? str 0 prefix 0 prefix-len))))
 
 
 ;; return #t if string str ends with specified string suffix.
@@ -657,7 +659,7 @@
   (let ((str-len    (string-length str))
         (suffix-len (string-length suffix)))
     (and (fx>=? str-len suffix-len)
-         (string-range=? str (fx- str-len suffix-len) suffix 0 suffix-len))))
+         (substring=? str (fx- str-len suffix-len) suffix 0 suffix-len))))
 
 
 ;; if string str begins with string old-prefix, create and return a copy of str

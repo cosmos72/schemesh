@@ -189,7 +189,7 @@
          (path-len (charspan-length path)))
     (when (and (not (fxzero? home-len))
                (fx<=? home-len path-len)
-               (charspan-range=? (string->charspan* home) 0 path 0 home-len))
+               (charspan=? (string->charspan* home) 0 path 0 home-len))
       (set! ret (string->charspan "~"))
       (charspan-insert-right/cspan! ret path home-len path-len))
     ret))

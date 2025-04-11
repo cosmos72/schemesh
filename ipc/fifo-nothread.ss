@@ -16,8 +16,9 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)         record-writer)
-    (only (schemesh bootstrap) raise-errorf))
+    (only (chezscheme)            record-writer)
+    (only (schemesh bootstrap)    raise-errorf)
+    (only (schemesh posix signal) countdown))
 
 
 (define-record-type (producer %make-producer producer?)
@@ -41,16 +42,27 @@
   (producer-mutex p))
 
 
+;; Close specified producer.
+;; Notifies all attached consumers that no more data can be received.
+;; Each attached consumer will still receive any pending data.
+;;
+;; This procedure is for non-threaded build of Chez Scheme.
 (define (producer-close p)
   (set-cdr! (producer-tail p) #f))
 
 
+;; put a datum into the producer, which will be visible to all
+;; consumers attached *before* this call to (producer-put).
+;;
 ;; raises exception if producer is closed
+;;
+;; This procedure is for non-threaded build of Chez Scheme.
 (define (producer-put p obj)
   (let ((old-tail (producer-tail p)))
     (unless (null? (cdr old-tail))
       (raise-errorf 'producer-put "~s is already closed" p))
-    (let ((new-tail (cons obj '())))
+    (set-car! old-tail obj)
+    (let ((new-tail (cons #f '())))
       (set-cdr! old-tail new-tail)
       (producer-tail-set! p new-tail))))
 
@@ -64,9 +76,11 @@
   (nongenerative consumer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
-;; create and return a consumer that receives data put into the producer.
+;; create a consumer attached to specified producer, and return it.
 ;; multiple consumers can be attached to the same producer, and each consumer
-;; receives in order each datum put to the producer *after* the consumer was created.
+;; receives in order all data put to the producer *after* the consumer was created.
+;;
+;; This procedure is for non-threaded build of Chez Scheme.
 (define (make-consumer p)
   (%make-consumer (producer-tail p) #f (producer-mutex p) (producer-changed p)))
 
@@ -74,28 +88,34 @@
 (define (consumer-name c)
   (consumer-mutex c))
 
+(define huge-timeout (* 86400 365))
 
 (define (consumer-timed-get-once c timeout)
-  (let ((obj (cdr (consumer-head c))))
+  (let* ((head (consumer-head c))
+         (tail (cdr head)))
     (cond
-      ((not obj)
+      ((not tail)
         (consumer-eof?-set! c #t)
         (values #f 'eof))
-      ((null? obj)
+      ((null? tail)
+        (unless (eqv? 0 timeout)
+          (countdown timeout))
         (values #f 'timeout))
-      ((pair? obj)
-        (consumer-head-set! c obj)
-        (values (car obj) 'ok)))))
+      ((pair? tail)
+        (consumer-head-set! c tail)
+        (values (car head) 'ok)))))
 
 
 ;; block until a datum is received from producer, and return two values:
 ;;   datum and #t
 ;;   or <unspecified> and #f if producer has been closed and all data has been received.
+;;
+;; This procedure is for non-threaded build of Chez Scheme.
 (define (consumer-get c)
   (if (consumer-eof? c)
     (values #f #f)
     (let %consumer-get ((c c))
-      (let-values (((datum flag) (consumer-timed-get-once c #f)))
+      (let-values (((datum flag) (consumer-timed-get-once c huge-timeout)))
         (if (eq? flag 'timeout)
           (%consumer-get c)
           (values datum (eq? flag 'ok)))))))
@@ -105,6 +125,8 @@
 ;;   received datum and 'ok
 ;;   or <unspecified> and 'eof if producer has been closed and all data has been received
 ;;   or <unspecified> and 'timeout on timeout
+;;
+;; This procedure is for non-threaded build of Chez Scheme.
 (define (consumer-try-get c)
   (if (consumer-eof? c)
     (values #f 'eof)

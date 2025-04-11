@@ -10,7 +10,7 @@
   (export
     in-bytevector list->bytevector subbytevector
 
-    bytevector-compare bytevector-fill-range! bytevector-hash bytevector-index
+    bytevector-compare subbytevector-fill! bytevector-hash bytevector-index
     bytevector<=? bytevector<? bytevector>=? bytevector>? bytevector-iterate
 
     bytevector-sint-ref* bytevector-sint-set*!
@@ -41,11 +41,11 @@
     (bytevector-copy! bvec start dst 0 n)
     dst))
 
-(define c-bytevector-fill-range! (foreign-procedure "c_bytevector_fill_range" (ptr int int int) void))
+(define c-subbytevector-fill! (foreign-procedure "c_subbytevector_fill" (ptr int int int) void))
 
-(define (bytevector-fill-range! bvec start end val)
-  (assert* 'bytevector-fill-range! (fx<=?* 0 start end (bytevector-length bvec)))
-  (assert* 'bytevector-fill-range! (fx<=? -128 val 255))
+(define (subbytevector-fill! bvec start end val)
+  (assert* 'subbytevector-fill! (fx<=?* 0 start end (bytevector-length bvec)))
+  (assert* 'subbytevector-fill! (fx<=? -128 val 255))
   (let ((val (fxand val 255))
         (n   (fx- end start)))
     (if (fx<? n 3)
@@ -53,7 +53,7 @@
         (bytevector-u8-set! bvec start val)
         (when (fx>? n 1)
           (bytevector-u8-set! bvec (fx1+ start) val)))
-      (c-bytevector-fill-range! bvec start end val))))
+      (c-subbytevector-fill! bvec start end val))))
 
 
 ;; search bytevector range [start, end) and return index of first byte equal to u8 or that satisfies pred.
@@ -208,7 +208,7 @@
 (define (bytevector-uint-set/little! bv pos uint size)
   (if (fx>? size 8)
     (if (eqv? uint 0)
-      (c-bytevector-fill-range! bv pos (fx+ pos size) 0)
+      (c-subbytevector-fill! bv pos (fx+ pos size) 0)
       (let* ((sizehi   (fx/ size 2))
              (sizelo   (fx- size sizehi))
              (sizelo*8 (* sizelo 8))
@@ -231,7 +231,7 @@
 (define (bytevector-uint-set/big! bv pos uint size)
   (if (fx>? size 8)
     (if (eqv? uint 0)
-      (c-bytevector-fill-range! bv pos (fx+ pos size) 0)
+      (c-subbytevector-fill! bv pos (fx+ pos size) 0)
       (let* ((sizehi (fx/ size 2))
              (sizelo (fx- size sizehi))
              (sizelo*8 (* sizelo 8))
@@ -372,9 +372,9 @@
   (if (fx>? size 8)
     (case sint
       ((0)
-        (c-bytevector-fill-range! bv pos (fx+ pos size) 0))
+        (c-subbytevector-fill! bv pos (fx+ pos size) 0))
       ((-1)
-        (c-bytevector-fill-range! bv pos (fx+ pos size) #xff))
+        (c-subbytevector-fill! bv pos (fx+ pos size) #xff))
       (else
         (let* ((sizehi   (fx/ size 2))
                (sizelo   (fx- size sizehi))
@@ -399,9 +399,9 @@
   (if (fx>? size 8)
     (case sint
       ((0)
-        (c-bytevector-fill-range! bv pos (fx+ pos size) 0))
+        (c-subbytevector-fill! bv pos (fx+ pos size) 0))
       ((-1)
-        (c-bytevector-fill-range! bv pos (fx+ pos size) #xff))
+        (c-subbytevector-fill! bv pos (fx+ pos size) #xff))
       (else
         (let* ((sizehi   (fx/ size 2))
                (sizelo   (fx- size sizehi))

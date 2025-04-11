@@ -459,6 +459,11 @@ git clone https://github.com/cosmos72/schemesh
 cd schemesh
 git checkout -f v0.8.3
 make -j
+
+# try schemesh without installing it
+./schemesh --library-dir .
+
+# install schemesh
 sudo make install
 ```
 
@@ -469,6 +474,11 @@ git clone https://github.com/cosmos72/schemesh
 cd schemesh
 git checkout -f v0.8.3
 make -j
+
+# try schemesh without installing it
+./schemesh --library-dir .
+
+# install schemesh
 sudo make install
 ```
 
@@ -479,6 +489,11 @@ git clone https://github.com/cosmos72/schemesh
 cd schemesh
 git checkout -f v0.8.3
 gmake -j
+
+# try schemesh without installing it
+./schemesh --library-dir .
+
+# install schemesh
 gmake install  # must be executed as root
 ```
 
@@ -490,6 +505,11 @@ git clone https://github.com/cosmos72/schemesh
 git checkout -f v0.8.3
 cd schemesh
 make -j
+
+# try schemesh without installing it
+./schemesh --library-dir .
+
+# install schemesh
 sudo make install
 ```
 
