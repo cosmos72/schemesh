@@ -227,7 +227,7 @@
 
 
 ;; optimized version of (substring), avoids making a copy if extracting the whole string
-(define (%substring str start end)
+(define (substring/shared str start end)
   (if (and (fxzero? start) (fx=? end (string-length str)))
     str
     (substring str start end)))
@@ -244,7 +244,7 @@
             (fx1+ pos)
             (cons (substring str start pos) ret))
           (if (fx<? start end)
-            (cons (%substring str start end) ret)
+            (cons (substring/shared str start end) ret)
             ret))))))
 
 
@@ -596,7 +596,7 @@
 
 
 (define (substring<? left  left-start  left-end
-                        right right-start right-end)
+                     right right-start right-end)
    ; (debugf "-> substring<? left=~s, left-start=~s, left-end=~s, right=~s, right-start=~s, right-end=~s"
    ;         left left-start left-end right right-start right-end)
    (let ((done? #f)
