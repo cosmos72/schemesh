@@ -38,7 +38,7 @@
           (format port "; job pid ~a~s ~s \t" pid (pad/pid pid) status)
           (format port "; job            ~s \t" status)))
       (sh-job-display* job port)
-      (put-char port #\newline)))
+      (newline port)))
   (void))
 
 

@@ -134,28 +134,55 @@
       (failed result))))
 
 
+;; extract a job-id from string list prog-and-args and return it,
+;; or return preferred job id if prog-and-args is null
+(define (prog-and-args->job-id prog-and-args)
+  (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
+    (values (sh-preferred-job-id) #f)
+    (let ((arg (cadr prog-and-args)))
+      (values
+        (if (string-is-unsigned-base10-integer? arg) (string->number arg) -1)
+        arg))))
+
+
+;; extract a job-id from string list prog-and-args and return the corresponding job,
+;; or return preferred job if prog-and-args is null
+(define (prog-and-args->job prog-and-args)
+  (let-values (((id arg) (prog-and-args->job-id prog-and-args)))
+    (let ((job (sh-find-job id)))
+      (when (and job (not arg))
+        ;; show the preferred job being resumed
+        (sh-preferred-job-display-summary job id))
+      (values job arg))))
+
+
+(define (sh-preferred-job-display-summary job id)
+  (let ((pid (job-pid job))
+        (out (current-output-port)))
+    (if pid
+      (format out "; job ~a~s pid ~a~s \t" (pad/job-id id) id (pad/pid pid) pid)
+      (format out "; job ~a~s            \t" (pad/job-id id) id))
+    (sh-job-display* job out)
+    (newline out)
+    (flush-output-port out)))
+
+
 ;; The "bg" builtin: continue a job-id by sending SIGCONT to it, and return immediately
 ;; Continue a job or job-id in background by sending SIGCONT to it, and return immediately.
 ;;
 ;; As all builtins do, must return job status. For possible returned statuses, see (sh-bg)
 (define (builtin-bg job prog-and-args options)
   (assert-string-list? 'builtin-bg prog-and-args)
-  ;; TODO: implement (builtin-bg) with no args
-  (let* ((arg (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
-                "\"\""
-                (cadr prog-and-args)))
-         (job (and (string-is-unsigned-base10-integer? arg)
-                   (sh-find-job (string->number arg)))))
+  (let-values (((job arg) (prog-and-args->job prog-and-args)))
       (if job
-        (let* ((old-status (job-last-status job))
-               (new-status (sh-bg job)))
+        (let ((new-status (sh-bg job)))
           (if (finished? new-status)
             ; job finished, return its exit status as "bg" exit status.
             new-status
             ; job still exists, show its running/stopped status.
             ; return (void) i.e. builtin "fg" exiting successfully.
             (queue-job-display-summary job)))
-        (write-builtin-error "bg" arg "no such job")))) ; returns (failed 1)
+        (write-builtin-error "bg" (or arg "\"\"") "no such job")))) ; returns (failed 1)
 
 
 ;; The "fg" builtin: continue a job-id by sending SIGCONT to it, then wait for it to exit or stop.
@@ -163,22 +190,16 @@
 ;; As all builtins do, must return job status. For possible returned statuses, see (sh-fg)
 (define (builtin-fg job prog-and-args options)
   (assert-string-list? 'builtin-fg prog-and-args)
-  ;; TODO: implement (builtin-fg) with no args
-  (let* ((arg (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
-                "\"\""
-                (cadr prog-and-args)))
-         (job (and (string-is-unsigned-base10-integer? arg)
-                   (sh-find-job (string->number arg)))))
+  (let-values (((job arg) (prog-and-args->job prog-and-args)))
       (if job
-        (let* ((old-status (job-last-status job))
-               (new-status (sh-fg job)))
+        (let ((new-status (sh-fg job)))
           (if (finished? new-status)
             ; job finished, return its exit status as "fg" exit status.
             new-status
             ; job still exists, show its running/stopped status.
             ; return (void) i.e. builtin "fg" exiting successfully.
             (queue-job-display-summary job)))
-        (write-builtin-error "fg" arg "no such job")))) ; returns (failed 1)
+        (write-builtin-error "fg" (or arg "\"\"") "no such job")))) ; returns (failed 1)
 
 
 ;; the "global" builtin: run the builtin passed as first argument
@@ -363,22 +384,16 @@
 ;; As all builtins do, must return job status. For possible returned statuses, see (sh-fg)
 (define (builtin-wait job prog-and-args options)
   (assert-string-list? 'builtin-wait prog-and-args)
-  ;; TODO: implement (builtin-wait) with no args
-  (let* ((arg (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
-                "\"\""
-                (cadr prog-and-args)))
-         (job (and (string-is-unsigned-base10-integer? arg)
-                   (sh-find-job (string->number arg)))))
+  (let-values (((job arg) (prog-and-args->job prog-and-args)))
       (if job
-        (let* ((old-status (job-last-status job))
-               (new-status (sh-wait job)))
+        (let ((new-status (sh-wait job)))
           (if (finished? new-status)
-            ; job finished, return its exit status as "fg" exit status.
+            ; job finished, return its exit status as "wait" exit status.
             new-status
             ; job still exists, show its running/stopped status.
-            ; return (void) i.e. builtin "fg" exiting successfully.
+            ; return (void) i.e. builtin "wait" exiting successfully.
             (queue-job-display-summary job)))
-        (write-builtin-error "wait" arg "no such job")))) ; returns (failed 1)
+        (write-builtin-error "wait" (or arg "\"\"") "no such job")))) ; returns (failed 1)
 
 
 ;; start a builtin and return its status.

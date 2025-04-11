@@ -105,7 +105,7 @@
 
     return success, unless 'alias NAME' is executed and no such alias is defined.\n"))
 
-    (hashtable-set! t "bg"      (string->utf8 " job-id
+    (hashtable-set! t "bg"      (string->utf8 " [job-id]
     move a job to the background.
 
     return updated job status, or failure if job-id was not found.\n"))
@@ -161,7 +161,7 @@
 
     return success.\n"))
 
-    (hashtable-set! t "fg"      (string->utf8 " job-id
+    (hashtable-set! t "fg"      (string->utf8 " [job-id]
     move a job to the foreground.
 
     return updated job status, or failure if job-id was not found.\n"))
@@ -241,7 +241,7 @@
 
     return success.\n"))
 
-    (hashtable-set! t "wait"      (string->utf8 " job-id
+    (hashtable-set! t "wait"      (string->utf8 " [job-id]
     move a job to the foreground and wait for it to finish.
     does NOT return if job is stopped.
 

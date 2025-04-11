@@ -27,7 +27,7 @@
     make-sh-cmd sh-cmd
 
     ;; control.ss
-    sh-current-job-kill sh-current-job-suspend
+    sh-current-job-kill sh-current-job-suspend sh-preferred-job-id
     sh-start sh-bg sh-fg sh-kill sh-run sh-run/i sh-run/err? sh-run/ok? sh-wait
 
     ; sh-wait-flag-foreground-pgid? sh-wait-flag-continue-if-stopped?
@@ -207,6 +207,9 @@
       (when (and (eq? kind 'running) (not (eqv? id (status->value status))))
         ;; replace job status (running) -> (running job-id)
         (job-status-set! 'job-id-set! job (running id)))
+      (when (fx<? (sh-preferred-job-id) 0)
+        ;; no preferred job id, set it to this job id
+        (sh-preferred-job-id-set! id))
       (unless (eqv? id old-id)
         (queue-job-display-summary job))))
   ;; (debugf "job-id-set! job=~s\tid=~s" job (job-id job))

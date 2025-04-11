@@ -109,9 +109,9 @@
 (define put-bytevector
   (case-lambda
     ((bytevector)               (r6rs:put-bytevector (sh-stdout) bytevector))
-    ((port bytevector)	        (r6rs:put-bytevector port bytevector))
-    ((port bytevector start)	(r6rs:put-bytevector port bytevector start))
-    ((port bytevector start n)	(r6rs:put-bytevector port bytevector start n))))
+    ((port bytevector)          (r6rs:put-bytevector port bytevector))
+    ((port bytevector start)    (r6rs:put-bytevector port bytevector start))
+    ((port bytevector start n)  (r6rs:put-bytevector port bytevector start n))))
 
 
 ;;; If supplied, start and n must be nonnegative exact integers, and the sum of start and n must not exceed the length of bytevector.
@@ -127,9 +127,9 @@
 (define put-bytevector-some
   (case-lambda
     ((bytevector)               (chez:put-bytevector-some (sh-stdout) bytevector))
-    ((port bytevector)	        (chez:put-bytevector-some port bytevector))
-    ((port bytevector start)	(chez:put-bytevector-some port bytevector start))
-    ((port bytevector start n)	(chez:put-bytevector-some port bytevector start n))))
+    ((port bytevector)          (chez:put-bytevector-some port bytevector))
+    ((port bytevector start)    (chez:put-bytevector-some port bytevector start))
+    ((port bytevector start n)  (chez:put-bytevector-some port bytevector start n))))
 
 
 ;;; Write byte u8 to binary-output-port, which defaults to (sh-stdout).

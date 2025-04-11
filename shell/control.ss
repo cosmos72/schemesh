@@ -444,12 +444,43 @@
 ;;
 ;; Returns updated job status.
 (define (job-wait/id+raise caller job-or-id wait-flags)
-  (let ((job (sh-job job-or-id)))
+  (let* ((job (sh-job job-or-id))
+         (id  (job-id job)))
     (job-wait caller job wait-flags)
-    (let ((status (job-id-update! job)))
+    (let* ((status (job-id-update! job))
+           (id     (or id (job-id job))))
+      (cond
+        ((and (started? status) (sh-wait-flag-foreground-pgid? wait-flags))
+          (sh-preferred-job-id-set! id))
+        ((and (finished? status) (eqv? id (sh-preferred-job-id)))
+          (sh-preferred-job-id-update!)))
       (if (eq? 'exception (status->kind status))
-	(raise (status->value status))
-	status))))
+        (raise (status->value status))
+        status))))
+
+
+;; get preferred job-id, or -1
+(define (sh-preferred-job-id)
+  (multijob-current-child-index (sh-globals)))
+
+;; set preferred job-id
+(define (sh-preferred-job-id-set! id)
+  (when (and id (fx>? id 0))
+    (multijob-current-child-index-set! (sh-globals) id)))
+
+;; increase preferred job-id until a started job is found
+(define (sh-preferred-job-id-update!)
+  (let* ((g      (sh-globals))
+         (old-id (multijob-current-child-index g))
+         (jobs   (multijob-children g))
+         (n      (span-length jobs)))
+    (let %loop ((id (fxmax 1 (if (and old-id (fx>? old-id 0)) (fx1+ old-id) 1))))
+      (if (fx<? id n)
+        (let ((job (span-ref jobs id)))
+          (if (and (sh-job? job) (job-started? job))
+            (multijob-current-child-index-set! g id)
+            (%loop (fx1+ id))))
+        (multijob-current-child-index-set! g -1)))))
 
 
 ;; Return up-to-date status of a job or job-id, which can be one of:
@@ -500,11 +531,11 @@
 ;; Returns updated job status.
 (define sh-wait
   (case-lambda
+    ((job-or-id wait-flags)
+      (job-wait/id+raise 'sh-wait job-or-id wait-flags))
     ((job-or-id)
       (sh-wait job-or-id
-               (sh-wait-flags foreground-pgid continue-if-stopped wait-until-finished)))
-    ((job-or-id wait-flags)
-      (job-wait/id+raise 'sh-wait job-or-id wait-flags))))
+               (sh-wait-flags foreground-pgid continue-if-stopped wait-until-finished)))))
 
 
 ;; Start a job and wait for it to exit or stop.
@@ -514,11 +545,11 @@
 ;; Return job status, possible values are the same as (sh-fg)
 (define sh-run/i
   (case-lambda
-    ((job)
-      (sh-run/i job '()))
     ((job options)
       (job-start 'sh-run/i job options)
-      (sh-fg job))))
+      (sh-fg job))
+    ((job)
+      (sh-run/i job '()))))
 
 
 ;; Start a job and wait for it to exit.
@@ -529,11 +560,11 @@
 ;; Return job status, possible values are the same as (sh-wait)
 (define sh-run
   (case-lambda
-    ((job)
-      (sh-run job '()))
     ((job options)
       (job-start 'sh-run job options)
-      (sh-wait job))))
+      (sh-wait job))
+    ((job)
+      (sh-run job '()))))
 
 
 ;; Start a job and wait for it to exit.
@@ -544,10 +575,10 @@
 ;; Return #t if job failed successfully, otherwise return #f.
 (define sh-run/ok?
   (case-lambda
-    ((job)
-      (sh-run/ok? job '()))
     ((job options)
-      (ok? (sh-run job options)))))
+      (ok? (sh-run job options)))
+    ((job)
+      (ok? (sh-run job '())))))
 
 
 ;; Start a job and wait for it to exit.
@@ -559,8 +590,8 @@
 ;; otherwise return job exit status, which is a status object and hence truish.
 (define sh-run/err?
   (case-lambda
-    ((job)
-      (sh-run/err? job '()))
     ((job options)
       (let ((status (sh-run job options)))
-        (if (ok? status) #f status)))))
+        (if (ok? status) #f status)))
+    ((job)
+      (sh-run/err? job '()))))
