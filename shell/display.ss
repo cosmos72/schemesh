@@ -18,22 +18,27 @@
 ;; always returns (void) - useful for builtins
 (define sh-job-display-summary
   (case-lambda
-    ((job-or-id port) (sh-job-display-summary* job-or-id port))
-    ((job-or-id)      (sh-job-display-summary* job-or-id (console-output-port)))))
+    ((job-or-id)
+      (let ((job (sh-job job-or-id)))
+        (sh-job-display-summary* job (job-last-status job) (console-output-port))))
+    ((job-or-id port)
+      (let ((job (sh-job job-or-id)))
+        (sh-job-display-summary* job (job-last-status job) port)))
+    ((job-or-id status port)
+      (sh-job-display-summary* (sh-job job-or-id) status port))))
 
 
 ;; always returns (void) - useful for builtins
-(define (sh-job-display-summary* job-or-id port)
+(define (sh-job-display-summary* job status port)
   (when (sh-job-display-summary?)
-    (let* ((job    (sh-job job-or-id))
-           (id     (or (job-id job) (job-oid job)))
+    (let* ((id     (or (job-id job) (job-oid job)))
            (pid    (job-pid job))
-           (job-status (job-last-status job))
-           (status (if (eq? (void) job-status) '(ok) job-status)))
+           (status (if (eq? (void) status) '(ok) status)))
       (if id
-        (if pid
-          (format port "; job ~a~s pid ~a~s ~s \t" (pad/job-id id) id (pad/pid pid) pid status)
-          (format port "; job ~a~s            ~s \t" (pad/job-id id) id status))
+        (let ((preferred-mark (if (eqv? id (sh-preferred-job-id)) #\+ #\space)))
+          (if pid
+            (format port "; job ~a~s~a pid ~a~s ~s \t" (pad/job-id id) id preferred-mark (pad/pid pid) pid status)
+            (format port "; job ~a~s~a            ~s \t" (pad/job-id id) id preferred-mark status))
         (if pid
           (format port "; job pid ~a~s ~s \t" pid (pad/pid pid) status)
           (format port "; job            ~s \t" status)))

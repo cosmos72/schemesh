@@ -406,7 +406,7 @@
         (oid (job-oid job)))
     (when (or id oid)
       (unless (or (eqv? -1 id) (eqv? -1 oid))
-        (sh-job-display-summary* job port))
+        (sh-job-display-summary job port))
       (job-oid-set! job #f)))) ; no longer needed, clear it
 
 

@@ -152,19 +152,6 @@
     (values (sh-find-job id) arg)))
 
 
-(define (sh-preferred-job-display-summary job)
-  (let* ((id  (job-id job))
-         (pid (job-pid job))
-         (out (current-output-port))
-         (status (running id)))
-    (if pid
-      (format out "; job ~a~s pid ~a~s ~s \t" (pad/job-id id) id (pad/pid pid) pid status)
-      (format out "; job ~a~s            ~s \t" (pad/job-id id) id status))
-    (sh-job-display* job out)
-    (newline out)
-    (flush-output-port out)))
-
-
 ;; The "bg" builtin: continue a job-id by sending SIGCONT to it, and return immediately
 ;; Continue a job or job-id in background by sending SIGCONT to it, and return immediately.
 ;;
@@ -190,10 +177,11 @@
   (assert-string-list? 'builtin-fg prog-and-args)
   (let-values (((job arg) (prog-and-args->job prog-and-args)))
       (if job
-        (begin
+        (let ((out (current-output-port)))
           (when (and job (not arg))
             ;; show the preferred job being resumed
-            (sh-preferred-job-display-summary job))
+            (sh-job-display-summary job (running (job-id job)) out)
+            (flush-output-port out))
           (let ((new-status (sh-fg job)))
             (if (finished? new-status)
               ;; job finished, return its exit status as "fg" exit status.
@@ -235,7 +223,7 @@
         (span-iterate src
           (lambda (job-id job)
             (when (sh-job? job)
-              (sh-job-display-summary* job port))))
+              (sh-job-display-summary job port))))
         (flush-output-port port))))
   (void))
 
@@ -388,10 +376,11 @@
   (assert-string-list? 'builtin-wait prog-and-args)
   (let-values (((job arg) (prog-and-args->job prog-and-args)))
       (if job
-        (begin
+        (let ((out (current-output-port)))
           (when (and job (not arg))
             ;; show the preferred job being resumed
-            (sh-preferred-job-display-summary job))
+            (sh-job-display-summary job (running (job-id job)) out)
+            (flush-output-port out))
           (let ((new-status (sh-wait job)))
             (if (finished? new-status)
               ;; job finished, return its exit status as "wait" exit status.
