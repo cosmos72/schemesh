@@ -606,5 +606,4 @@ Prompt customization **is** documented: see [doc/lineedit/ansi.md](doc/lineedit/
 * autocomplete shell paths and scheme strings: when autocompleting inside single or double quotes, the stem starts at the quotes.
 * autocomplete shell paths starting with ~
 * maybe add missing shell builtins "kill"
-* add syntax for evaluating a shell word i.e. a (sh-wildcard) from Scheme. TODO: associated to which job?
 * implement function `(string->sh-patterns)`
