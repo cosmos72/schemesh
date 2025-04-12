@@ -54,7 +54,7 @@
 ;; As all builtins do, must return job status.
 ;; returns (failed 1) if specified builtin is not found.
 (define (builtin-builtin job prog-and-args options)
-  ; (debugf "builtin-builtin ~s" prog-and-args)
+  ;; (debugf "builtin-builtin ~s" prog-and-args)
   (assert-string-list? 'builtin-builtin prog-and-args)
   (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
     (void)
@@ -85,8 +85,8 @@
   (let ((lctx (repl-args-linectx)))
     (when (linectx? lctx)
       (linectx-save-history lctx)))
-  ; on success, does not return: this process does not exist anymore.
-  ; on failure, returns job status
+  ;; on success, does not return: this process does not exist anymore.
+  ;; on failure, returns job status
   (cmd-exec job (list->argv (cdr prog-and-args)) options))
 
 
@@ -149,19 +149,17 @@
 ;; or return preferred job if prog-and-args is null
 (define (prog-and-args->job prog-and-args)
   (let-values (((id arg) (prog-and-args->job-id prog-and-args)))
-    (let ((job (sh-find-job id)))
-      (when (and job (not arg))
-        ;; show the preferred job being resumed
-        (sh-preferred-job-display-summary job id))
-      (values job arg))))
+    (values (sh-find-job id) arg)))
 
 
-(define (sh-preferred-job-display-summary job id)
-  (let ((pid (job-pid job))
-        (out (current-output-port)))
+(define (sh-preferred-job-display-summary job)
+  (let* ((id  (job-id job))
+         (pid (job-pid job))
+         (out (current-output-port))
+         (status (running id)))
     (if pid
-      (format out "; job ~a~s pid ~a~s \t" (pad/job-id id) id (pad/pid pid) pid)
-      (format out "; job ~a~s            \t" (pad/job-id id) id))
+      (format out "; job ~a~s pid ~a~s ~s \t" (pad/job-id id) id (pad/pid pid) pid status)
+      (format out "; job ~a~s            ~s \t" (pad/job-id id) id status))
     (sh-job-display* job out)
     (newline out)
     (flush-output-port out)))
@@ -177,10 +175,10 @@
       (if job
         (let ((new-status (sh-bg job)))
           (if (finished? new-status)
-            ; job finished, return its exit status as "bg" exit status.
+            ;; job finished, return its exit status as "bg" exit status.
             new-status
-            ; job still exists, show its running/stopped status.
-            ; return (void) i.e. builtin "fg" exiting successfully.
+            ;; job still exists, show its running/stopped status.
+            ;; return (void) i.e. builtin "fg" exiting successfully.
             (queue-job-display-summary job)))
         (write-builtin-error "bg" (or arg "\"\"") "no such job")))) ; returns (failed 1)
 
@@ -192,13 +190,17 @@
   (assert-string-list? 'builtin-fg prog-and-args)
   (let-values (((job arg) (prog-and-args->job prog-and-args)))
       (if job
-        (let ((new-status (sh-fg job)))
-          (if (finished? new-status)
-            ; job finished, return its exit status as "fg" exit status.
-            new-status
-            ; job still exists, show its running/stopped status.
-            ; return (void) i.e. builtin "fg" exiting successfully.
-            (queue-job-display-summary job)))
+        (begin
+          (when (and job (not arg))
+            ;; show the preferred job being resumed
+            (sh-preferred-job-display-summary job))
+          (let ((new-status (sh-fg job)))
+            (if (finished? new-status)
+              ;; job finished, return its exit status as "fg" exit status.
+              new-status
+              ;; job still exists, show its running/stopped status.
+              ;; return (void) i.e. builtin "fg" exiting successfully.
+              (queue-job-display-summary job))))
         (write-builtin-error "fg" (or arg "\"\"") "no such job")))) ; returns (failed 1)
 
 
@@ -208,7 +210,7 @@
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-global job prog-and-args options)
-  ; (debugf "builtin-global ~s" prog-and-args)
+  ;; (debugf "builtin-global ~s" prog-and-args)
   (assert-string-list? 'builtin-global prog-and-args)
   (if (null? (cdr prog-and-args))
     (void)
@@ -244,7 +246,7 @@
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-parent job prog-and-args options)
-  ; (debugf "builtin-parent ~s" prog-and-args)
+  ;; (debugf "builtin-parent ~s" prog-and-args)
   (assert-string-list? 'builtin-parent prog-and-args)
   (if (null? (cdr prog-and-args))
     (void)
@@ -386,13 +388,17 @@
   (assert-string-list? 'builtin-wait prog-and-args)
   (let-values (((job arg) (prog-and-args->job prog-and-args)))
       (if job
-        (let ((new-status (sh-wait job)))
-          (if (finished? new-status)
-            ; job finished, return its exit status as "wait" exit status.
-            new-status
-            ; job still exists, show its running/stopped status.
-            ; return (void) i.e. builtin "wait" exiting successfully.
-            (queue-job-display-summary job)))
+        (begin
+          (when (and job (not arg))
+            ;; show the preferred job being resumed
+            (sh-preferred-job-display-summary job))
+          (let ((new-status (sh-wait job)))
+            (if (finished? new-status)
+              ;; job finished, return its exit status as "wait" exit status.
+              new-status
+              ;; job still exists, show its running/stopped status.
+              ;; return (void) i.e. builtin "wait" exiting successfully.
+              (queue-job-display-summary job))))
         (write-builtin-error "wait" (or arg "\"\"") "no such job")))) ; returns (failed 1)
 
 
