@@ -354,14 +354,22 @@
   (case eness
     ((little)
       (let ((skip-n (%examine-right bv pos size)))
-        (if (fx>=? skip-n 0)
-          (bytevector-sint-ref/little bv pos (fx- size skip-n))
-          (bytevector-uint-ref/little bv pos (fx+ size skip-n)))))
+        (cond
+          ((fx=? skip-n size)
+            -1)
+          ((fx>=? skip-n 0)
+            (bytevector-sint-ref/little bv pos (fx- size skip-n)))
+          (else
+            (bytevector-uint-ref/little bv pos (fx+ size skip-n))))))
     ((big)
       (let ((skip-n (%examine-left bv pos size)))
-        (if (fx>=? skip-n 0)
-          (bytevector-sint-ref/big bv (fx+ pos skip-n) (fx- size skip-n))
-          (bytevector-uint-ref/big bv (fx- pos skip-n) (fx+ size skip-n)))))
+        (cond
+          ((fx=? skip-n size)
+            -1)
+          ((fx>=? skip-n 0)
+            (bytevector-sint-ref/big bv (fx+ pos skip-n) (fx- size skip-n)))
+          (else
+            (bytevector-uint-ref/big bv (fx- pos skip-n) (fx+ size skip-n))))))
     (else
       (syntax-violation 'bytevector-sint-ref* "invalid endianness" eness))))
 

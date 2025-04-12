@@ -39,6 +39,13 @@
   (string-count= "qwertyuiop" 2 "_ertyuio7"
                         1 8)                       7
 
+  (let* ((n   100)
+         (bv  (make-bytevector n)))
+    (bytevector-fill! bv 255)
+    (list
+      (bytevector-sint-ref* bv 0 (endianness little) n)
+      (bytevector-sint-ref* bv 0 (endianness big) n)))                (-1 -1)
+
   (let* ((n   513)
          (bv  (make-bytevector n))
          (top (bitwise-arithmetic-shift-left 1 (fx* n 8))))
