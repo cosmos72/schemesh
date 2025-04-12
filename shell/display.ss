@@ -38,7 +38,7 @@
         (let ((preferred-mark (if (eqv? id (sh-preferred-job-id)) #\+ #\space)))
           (if pid
             (format port "; job ~a~s~a pid ~a~s ~s \t" (pad/job-id id) id preferred-mark (pad/pid pid) pid status)
-            (format port "; job ~a~s~a            ~s \t" (pad/job-id id) id preferred-mark status))
+            (format port "; job ~a~s~a            ~s \t" (pad/job-id id) id preferred-mark status)))
         (if pid
           (format port "; job pid ~a~s ~s \t" pid (pad/pid pid) status)
           (format port "; job            ~s \t" status)))
