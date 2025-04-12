@@ -6,28 +6,24 @@
 ;;; (at your option) any later version.
 
 
+#!r6rs
+
 ;;; inter-thread communication library:
 ;;;
 ;;; exchanges arbitrary objects through thread-safe FIFO
 ;;;
 (library (schemesh ipc fifo (0 8 3))
   (export make-producer producer? producer-close producer-name producer-put
-          make-consumer consumer? consumer-get consumer-eof? consumer-try-get)
+          make-consumer consumer? consumer-get consumer-eof? consumer-timed-get consumer-try-get)
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)            record-writer)
-    (only (schemesh bootstrap)    raise-errorf)
+    (only (chezscheme)            include record-writer time? time-type time-second time-nanosecond)
+    (only (schemesh bootstrap)    assert* check-interrupts raise-errorf)
     (only (schemesh posix signal) countdown))
 
 
-(define-record-type (producer %make-producer producer?)
-  (fields
-    (mutable tail)
-    mutex
-    changed)
-  (nongenerative producer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
-
+(include "ipc/fifo-common.ss")
 
 ;; create and return a producer.
 (define make-producer
@@ -67,13 +63,7 @@
       (producer-tail-set! p new-tail))))
 
 
-(define-record-type (consumer %make-consumer consumer?)
-  (fields
-    (mutable head)
-    (mutable eof?)
-    mutex
-    changed)
-  (nongenerative consumer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+
 
 
 ;; create a consumer attached to specified producer, and return it.
@@ -91,6 +81,7 @@
 (define huge-timeout (* 86400 365))
 
 (define (consumer-timed-get-once c timeout)
+  (check-interrupts)
   (let* ((head (consumer-head c))
          (tail (cdr head)))
     (cond
@@ -98,9 +89,11 @@
         (consumer-eof?-set! c #t)
         (values #f 'eof))
       ((null? tail)
-        (unless (eqv? 0 timeout)
-          (countdown timeout))
-        (values #f 'timeout))
+        (if (eqv? 0 timeout)
+          (values #f 'timeout)
+          (begin
+            (countdown timeout)
+            (consumer-timed-get-once c 0))))
       ((pair? tail)
         (consumer-head-set! c tail)
         (values (car head) 'ok)))))
@@ -119,6 +112,23 @@
         (if (eq? flag 'timeout)
           (%consumer-get c)
           (values datum (eq? flag 'ok)))))))
+
+
+;; block with timeout until a datum is received from producer, and return two values:
+;;   received datum and 'ok
+;;   or <unspecified> and 'eof if producer has been closed and all data has been received
+;;   or <unspecified> and 'timeout on timeout
+;;
+;; timeout must be one of:
+;; * an exact or inexact real, indicating the number of seconds (non-integer values are supported too)
+;; * a pair (seconds . nanoseconds) where both are exact integers
+;; * a time object with type 'time-duration
+;;
+;; This procedure is for non-threaded build of Chez Scheme.
+(define (consumer-timed-get c timeout)
+  (if (consumer-eof? c)
+    (values #f 'eof)
+    (consumer-timed-get-once c timeout)))
 
 
 ;; non-blockingly try to receive a datum from producer, and return two values:

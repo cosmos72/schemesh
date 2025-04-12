@@ -12,22 +12,18 @@
 ;;;
 (library (schemesh ipc fifo (0 8 3))
   (export make-producer producer? producer-close producer-name producer-put
-          make-consumer consumer? consumer-get consumer-eof? consumer-try-get)
+          make-consumer consumer? consumer-get consumer-eof? consumer-timed-get consumer-try-get)
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)         condition-broadcast condition-wait
-                               make-condition make-mutex mutex-name make-time
-                               record-writer with-interrupts-disabled with-mutex)
-    (only (schemesh bootstrap) check-interrupts raise-errorf))
+    (only (chezscheme)         condition-broadcast condition-wait include
+                               make-condition make-mutex mutex-name make-time record-writer
+                               time<=? time? time-difference! time-type time-second time-nanosecond
+                               with-interrupts-disabled with-mutex)
+    (only (schemesh bootstrap) assert* check-interrupts raise-errorf))
 
 
-(define-record-type (producer %make-producer producer?)
-  (fields
-    (mutable tail)
-    mutex
-    changed)
-  (nongenerative producer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+(include "ipc/fifo-common.ss")
 
 
 ;; create and return a producer.
@@ -74,15 +70,6 @@
   (condition-broadcast (producer-changed p)))
 
 
-(define-record-type (consumer %make-consumer consumer?)
-  (fields
-    (mutable head)
-    (mutable eof?)
-    mutex
-    changed)
-  (nongenerative consumer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
-
-
 ;; create and return a consumer that receives data put into the producer.
 ;; multiple consumers can be attached to the same producer, and each consumer
 ;; receives in order each datum put to the producer *after* the consumer was created.
@@ -99,12 +86,13 @@
 
 
 (define short-timeout (make-time 'time-duration 500000000 0))
+(define zero-timeout  (make-time 'time-duration 0 0))
 
 
 (define (consumer-timed-get-once c timeout)
   (check-interrupts)
-  (with-interrupts-disabled
-    (with-mutex (consumer-mutex c)
+  (with-mutex (consumer-mutex c)
+    (with-interrupts-disabled
       (let* ((head (consumer-head c))
              (tail (cdr head)))
         (cond
@@ -114,7 +102,8 @@
           ((null? tail)
             (unless (eqv? 0 timeout)
               ;; (condition-wait) is somewhat bugged at least on Linux:
-              ;; if CTRL+C is pressed twice before it returns, leaves mutex in inconsistent state
+              ;; if CTRL+C is pressed once, it does nothing.
+              ;; if CTRL+C is pressed twice before it returns, leaves mutex in inconsistent state.
               (condition-wait (consumer-changed c) (consumer-mutex c) timeout))
             (values #f 'timeout))
           ((pair? tail)
@@ -128,7 +117,8 @@
 ;;   or <unspecified> and #f if producer has been closed and all data has been received.
 ;;
 ;; This procedure is thread safe: multiple threads can concurrently
-;; call (consumer-get) on the same or different consumers.
+;; call (consumer-get) (consumer-timed-get) or (consumer-try-get)
+;; on the same or different consumers.
 (define (consumer-get c)
   (if (consumer-eof? c)
     (values #f #f)
@@ -139,13 +129,44 @@
           (values datum (eq? flag 'ok)))))))
 
 
+;; block with timeout until a datum is received from producer, and return two values:
+;;   received datum and 'ok
+;;   or <unspecified> and 'eof if producer has been closed and all data has been received
+;;   or <unspecified> and 'timeout on timeout
+;;
+;; timeout must be one of:
+;; * an exact or inexact real, indicating the number of seconds (non-integer values are supported too)
+;; * a pair (seconds . nanoseconds) where both are exact integers
+;; * a time object with type 'time-duration
+;;
+;; This procedure is thread safe: multiple threads can concurrently
+;; call (consumer-get) (consumer-timed-get) or (consumer-try-get)
+;; on the same or different consumers.
+(define (consumer-timed-get c timeout)
+  (let ((timeout (make-time-duration timeout)))
+    (cond
+      ((consumer-eof? c)
+        (values #f 'eof))
+      ((time<=? timeout zero-timeout)
+        (consumer-timed-get-once c 0))
+      (else
+        (let %consumer-get ((c c) (timeout timeout))
+          (let ((tiny-timeout? (time<=? timeout short-timeout)))
+            (let-values (((datum flag) (consumer-timed-get-once c
+                                         (if tiny-timeout? timeout short-timeout))))
+              (if (and (eq? flag 'timeout) (not tiny-timeout?))
+                (%consumer-get c (time-difference! timeout short-timeout))
+                (values datum flag)))))))))
+
+
 ;; non-blockingly try to receive a datum from producer, and return two values:
 ;;   received datum and 'ok
 ;;   or <unspecified> and 'eof if producer has been closed and all data has been received
 ;;   or <unspecified> and 'timeout on timeout
 ;;
 ;; This procedure is thread safe: multiple threads can concurrently
-;; call (consumer-try-get) on the same or different consumers.
+;; call (consumer-get) (consumer-timed-get) or (consumer-try-get)
+;; on the same or different consumers.
 (define (consumer-try-get c)
   (if (consumer-eof? c)
     (values #f 'eof)
