@@ -18,7 +18,7 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme)            include record-writer time? time-type time-second time-nanosecond)
+    (only (chezscheme)            include make-time record-writer time? time-type time-second time-nanosecond)
     (only (schemesh bootstrap)    assert* check-interrupts raise-errorf)
     (only (schemesh posix signal) countdown))
 
