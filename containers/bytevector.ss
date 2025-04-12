@@ -350,15 +350,17 @@
 ;; optimized (bytevector-sint-ref)
 (define (bytevector-sint-ref* bv pos eness size)
   (assert* 'bytevector-sint-ref* (fx>? size 0))
-  (assert* 'bytevector-uint-ref* (fx<=?* 0 pos (fx+ pos size) (bytevector-length bv)))
+  (assert* 'bytevector-sint-ref* (fx<=?* 0 pos (fx+ pos size) (bytevector-length bv)))
   (case eness
     ((little)
       (let ((skip-n (%examine-right bv pos size)))
         (cond
           ((fx=? skip-n size)
             -1)
-          ((fx>=? skip-n 0)
-            (bytevector-sint-ref/little bv pos (fx- size skip-n)))
+          ((fx>? skip-n 0)
+            (bytevector-sint-ref/little bv pos (fx1+ (fx- size skip-n))))
+          ((fxzero? skip-n)
+            (bytevector-sint-ref/little bv pos size))
           (else
             (bytevector-uint-ref/little bv pos (fx+ size skip-n))))))
     ((big)
@@ -366,8 +368,11 @@
         (cond
           ((fx=? skip-n size)
             -1)
-          ((fx>=? skip-n 0)
-            (bytevector-sint-ref/big bv (fx+ pos skip-n) (fx- size skip-n)))
+          ((fx>? skip-n 0)
+            (let ((delta (fx1- skip-n)))
+              (bytevector-sint-ref/big bv (fx+ pos delta) (fx- size delta))))
+          ((fxzero? skip-n)
+            (bytevector-sint-ref/big bv pos size))
           (else
             (bytevector-uint-ref/big bv (fx- pos skip-n) (fx+ size skip-n))))))
     (else

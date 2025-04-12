@@ -39,12 +39,19 @@
   (string-count= "qwertyuiop" 2 "_ertyuio7"
                         1 8)                       7
 
-  (let* ((n   100)
+  (let* ((n   9)
          (bv  (make-bytevector n)))
     (bytevector-fill! bv 255)
-    (list
-      (bytevector-sint-ref* bv 0 (endianness little) n)
-      (bytevector-sint-ref* bv 0 (endianness big) n)))                (-1 -1)
+    (let ((s1 (bytevector-sint-ref* bv 0 (endianness little) n))
+          (s2 (bytevector-sint-ref* bv 0 (endianness big) n)))
+      (bytevector-fill! bv 0)
+      (bytevector-u8-set! bv (fx1- n) 255)
+      (let ((s3 (bytevector-sint-ref* bv 0 (endianness little) n)))
+        (bytevector-u8-set! bv (fx1- n) 0)
+        (bytevector-u8-set! bv 0 255)
+        (let ((s4 (bytevector-sint-ref* bv 0 (endianness big) n)))
+          (list s1 s2 s3 s4)))))
+                                                   (-1 -1 -18446744073709551616 -18446744073709551616)
 
   (let* ((n   513)
          (bv  (make-bytevector n))
