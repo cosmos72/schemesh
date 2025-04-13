@@ -181,7 +181,7 @@
         ;; do NOT insert repl-history into itself
         (unless (eq? (repl-history) value)
           ;; do NOT insert potentially huge sh-history into repl-history
-          (unless (eq? (sh-history (repl-args-linectx)) value)
+          (unless (eq? (sh-history) value)
             (repl-history-append! value)))
         (pretty-print value p)))))
 

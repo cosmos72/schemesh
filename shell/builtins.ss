@@ -139,9 +139,13 @@ The following names are recognized as builtins:\n\n")
 (define sh-history
   (case-lambda
     (()
-      (sh-history (repl-args-linectx)))
-    ((lctx)
-      (and (linectx? lctx) (linectx-history lctx)))))
+      (let ((lctx (repl-args-linectx)))
+        (and (linectx? lctx) (linectx-history lctx))))
+    ((n)
+      (let* ((ch (sh-history))
+             (len (if ch (gbuffer-length ch) 0)))
+        (and (fx<? -1 n len)
+             (gbuffer-ref ch n))))))
 
 
 ;; implementation of "history" builtin, display previous commands saved to history.
