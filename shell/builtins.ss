@@ -134,15 +134,24 @@ The following names are recognized as builtins:\n\n")
 
 
 
-
-;; implementation of "history" builtin, display previous commands saved to history.
+;; return gbuffer containing previous commands saved to history,
+;; or #f if not available.
 (define sh-history
   (case-lambda
     (()
       (sh-history (repl-args-linectx)))
     ((lctx)
+      (and (linectx? lctx) (linectx-history lctx)))))
+
+
+;; implementation of "history" builtin, display previous commands saved to history.
+(define sh-history-display
+  (case-lambda
+    (()
+      (sh-history-display (repl-args-linectx)))
+    ((lctx)
       (let ((fd   (sh-fd 1)))
-        ; (debugf "sh-history ~s" lctx)
+        ; (debugf "sh-history-display ~s" lctx)
         (if (linectx? lctx)
           (let ((wbuf (make-bytespan 0)))
             (gbuffer-iterate (linectx-history lctx)
@@ -207,7 +216,7 @@ The following names are recognized as builtins:\n\n")
 ;; As all builtins do, must return job status.
 (define (builtin-history job prog-and-args options)
   (assert-string-list? 'builtin-history prog-and-args)
-  (sh-history))
+  (sh-history-display))
 
 
 ;; the "true" builtin: return (void)

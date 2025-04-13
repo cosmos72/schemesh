@@ -9,7 +9,7 @@
 
 (library (schemesh repl (0 8 3))
   (export ;; repl/history.ss
-          display-history history history-append! history-clear! history-ref
+          repl-history-display repl-history repl-history-append! repl-history-clear! repl-history-max-length
 
           ;; repl/repl.ss
           repl repl* repl-eval repl-eval-print-list
@@ -42,7 +42,7 @@
        sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-exception-handler
        sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
        sh-foreground-pgid sh-job-control? sh-job-control-available? sh-job-pgid
-       sh-make-linectx sh-schemesh-reload-count
+       sh-history sh-make-linectx sh-schemesh-reload-count
        sh-run/i sh-xdg-cache-home/ sh-xdg-config-home/)
     (schemesh repl history))
 
@@ -178,9 +178,11 @@
       ((null? tail) (flush-output-port p))
     (let ((value (car tail)))
       (unless (eq? (void) value)
-        (unless (eq? (history) value)
-          ;; do NOT insert history into itself
-          (history-append! value))
+        ;; do NOT insert repl-history into itself
+        (unless (eq? (repl-history) value)
+          ;; do NOT insert potentially huge sh-history into repl-history
+          (unless (eq? (sh-history (repl-args-linectx)) value)
+            (repl-history-append! value)))
         (pretty-print value p)))))
 
 

@@ -8,47 +8,60 @@
 #!r6rs
 
 (library (schemesh repl history (0 8 3))
-  (export display-history history history-append! history-clear! history-ref)
+  (export repl-history-display repl-history repl-history-append! repl-history-clear! repl-history-max-length)
   (import
     (rnrs)
     (only (chezscheme) fx1+ void)
+    (only (schemesh bootstrap) assert*)
     (schemesh containers span))
 
 
-;; return span of recent values produced by code evaluated at REPL.
-(define history
+;; return span containing all recent values produced by code evaluated at REPL,
+;; or n-th recent value produced by code evaluated at REPL,
+;; or (void) if n is out of range.
+(define repl-history
   (let ((h (make-span 0)))
-    (lambda () h)))
+    (case-lambda
+      (()
+        h)
+      ((n)
+        (if (fx<? -1 n (span-length h))
+          (span-ref h n)
+          (void))))))
 
 
-;; append obj to recent values produced by code evaluated at REPL.
-(define (history-append! obj)
-  (let ((h (history)))
-    (when (fx>? (span-length h) 1000)
-      (span-erase-left! (fx- (span-length h) 1000)))
+;; set or retrieve maximum length of (repl-history)
+(define repl-history-max-length
+  (let ((max-len 1000))
+    (case-lambda
+      (()
+        max-len)
+      ((new-max-len)
+        (assert* 'repl-history-max-length (fixnum? new-max-len))
+        (assert* 'repl-history-max-length (fx>=? new-max-len 0))
+        (set! max-len new-max-len)))))
+
+
+;; append obj to (repl-history)
+(define (repl-history-append! obj)
+  (let ((h (repl-history))
+        (max-len (repl-history-max-length)))
+    (when (fx>? (span-length h) max-len)
+      (span-erase-left! (fx- (span-length h) max-len)))
     (span-insert-right! h obj)))
 
 
-;; clear recent values produced by code evaluated at REPL.
-(define (history-clear!)
-  (span-clear! (history)))
+;; clear (repl-history)
+(define (repl-history-clear!)
+  (span-clear! (repl-history)))
 
 
-;; return n-th recent value produced by code evaluated at REPL,
-;; or (void) if n is out of range.
-(define (history-ref n)
-  (let ((h (history)))
-    (if (fx<? -1 n (span-length h))
-      (span-ref h n)
-      (void))))
-
-
-;; display recent values produced by code evaluated at REPL to port,
+;; display (repl-history) to port,
 ;; which defaults to (current-output-port)
-(define display-history
+(define repl-history-display
   (case-lambda
     ((port)
-      (let ((h (history)))
+      (let ((h (repl-history)))
         (do ((i 0 (fx1+ i))
              (n (span-length h)))
             ((fx>=? i n))
@@ -57,6 +70,6 @@
           (write      (span-ref h i) port)
           (newline    port))))
     (()
-      (display-history (current-output-port)))))
+      (repl-history-display (current-output-port)))))
 
 ) ; close library
