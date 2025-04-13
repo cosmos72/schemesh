@@ -8,7 +8,11 @@
 #!r6rs
 
 (library (schemesh repl (0 8 3))
-  (export repl repl* repl-eval repl-eval-print-list
+  (export ;; repl/history.ss
+          display-history history history-append! history-clear! history-ref
+
+          ;; repl/repl.ss
+          repl repl* repl-eval repl-eval-print-list
           repl-lineedit repl-parse repl-print
           repl-exception-handler repl-break-handler
 
@@ -39,7 +43,8 @@
        sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
        sh-foreground-pgid sh-job-control? sh-job-control-available? sh-job-pgid
        sh-make-linectx sh-schemesh-reload-count
-       sh-run/i sh-xdg-cache-home/ sh-xdg-config-home/))
+       sh-run/i sh-xdg-cache-home/ sh-xdg-config-home/)
+    (schemesh repl history))
 
 
 
@@ -173,6 +178,9 @@
       ((null? tail) (flush-output-port p))
     (let ((value (car tail)))
       (unless (eq? (void) value)
+        (unless (eq? (history) value)
+          ;; do NOT insert history into itself
+          (history-append! value))
         (pretty-print value p)))))
 
 

@@ -84,6 +84,7 @@
   (include "shell/utils.ss")
   (include "shell/shell.ss")
 
+  (include "repl/history.ss")
   (include "repl/repl.ss")
 
   (include "utils/import.ss")
