@@ -20,7 +20,7 @@
 
     ;; builtins.ss
     sh-builtins sh-builtins-help sh-find-builtin sh-exception-handler
-    sh-echo sh-false sh-help sh-history sh-history-display repl-args repl-args-linectx sh-true
+    sh-echo sh-false sh-help repl-history repl-history-display repl-args repl-args-linectx sh-true
 
 
     ;; cmd.ss

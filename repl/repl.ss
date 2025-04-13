@@ -8,8 +8,8 @@
 #!r6rs
 
 (library (schemesh repl (0 8 3))
-  (export ;; repl/history.ss
-          repl-history-display repl-history repl-history-append! repl-history-clear! repl-history-max-length
+  (export ;; repl/answers.ss
+          repl-answers-display repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
 
           ;; repl/repl.ss
           repl repl* repl-eval repl-eval-print-list
@@ -42,9 +42,9 @@
        sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-exception-handler
        sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
        sh-foreground-pgid sh-job-control? sh-job-control-available? sh-job-pgid
-       sh-history sh-make-linectx sh-schemesh-reload-count
+       repl-history sh-make-linectx sh-schemesh-reload-count
        sh-run/i sh-xdg-cache-home/ sh-xdg-config-home/)
-    (schemesh repl history))
+    (schemesh repl answers))
 
 
 
@@ -178,11 +178,11 @@
       ((null? tail) (flush-output-port p))
     (let ((value (car tail)))
       (unless (eq? (void) value)
-        ;; do NOT insert repl-history into itself
-        (unless (eq? (repl-history) value)
-          ;; do NOT insert potentially huge sh-history into repl-history
-          (unless (eq? (sh-history) value)
-            (repl-history-append! value)))
+        ;; do NOT insert repl-answers into itself
+        (unless (eq? (repl-answers) value)
+          ;; do NOT insert potentially huge repl-history into repl-answers
+          (unless (eq? (repl-history) value)
+            (repl-answers-append! value)))
         (pretty-print value p)))))
 
 

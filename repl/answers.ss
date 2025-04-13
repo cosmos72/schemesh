@@ -7,8 +7,8 @@
 
 #!r6rs
 
-(library (schemesh repl history (0 8 3))
-  (export repl-history-display repl-history repl-history-append! repl-history-clear! repl-history-max-length)
+(library (schemesh repl answers (0 8 3))
+  (export repl-answers-display repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length)
   (import
     (rnrs)
     (only (chezscheme) fx1+ void)
@@ -19,7 +19,7 @@
 ;; return span containing all recent values produced by code evaluated at REPL,
 ;; or n-th recent value produced by code evaluated at REPL,
 ;; or (void) if n is out of range.
-(define repl-history
+(define repl-answers
   (let ((h (make-span 0)))
     (case-lambda
       (()
@@ -30,38 +30,38 @@
           (void))))))
 
 
-;; set or retrieve maximum length of (repl-history)
-(define repl-history-max-length
+;; set or retrieve maximum length of (repl-answers)
+(define repl-answers-max-length
   (let ((max-len 1000))
     (case-lambda
       (()
         max-len)
       ((new-max-len)
-        (assert* 'repl-history-max-length (fixnum? new-max-len))
-        (assert* 'repl-history-max-length (fx>=? new-max-len 0))
+        (assert* 'repl-answers-max-length (fixnum? new-max-len))
+        (assert* 'repl-answers-max-length (fx>=? new-max-len 0))
         (set! max-len new-max-len)))))
 
 
-;; append obj to (repl-history)
-(define (repl-history-append! obj)
-  (let ((h (repl-history))
-        (max-len (repl-history-max-length)))
+;; append obj to (repl-answers)
+(define (repl-answers-append! obj)
+  (let ((h (repl-answers))
+        (max-len (repl-answers-max-length)))
     (when (fx>? (span-length h) max-len)
       (span-erase-left! (fx- (span-length h) max-len)))
     (span-insert-right! h obj)))
 
 
-;; clear (repl-history)
-(define (repl-history-clear!)
-  (span-clear! (repl-history)))
+;; clear (repl-answers)
+(define (repl-answers-clear!)
+  (span-clear! (repl-answers)))
 
 
-;; display (repl-history) to port,
+;; display (repl-answers) to port,
 ;; which defaults to (current-output-port)
-(define repl-history-display
+(define repl-answers-display
   (case-lambda
     ((port)
-      (let ((h (repl-history)))
+      (let ((h (repl-answers)))
         (do ((i 0 (fx1+ i))
              (n (span-length h)))
             ((fx>=? i n))
@@ -70,6 +70,6 @@
           (write      (span-ref h i) port)
           (newline    port))))
     (()
-      (repl-history-display (current-output-port)))))
+      (repl-answers-display (current-output-port)))))
 
 ) ; close library
