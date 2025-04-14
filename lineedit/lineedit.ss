@@ -449,11 +449,11 @@
 
 (let ((t linectx-default-keytable)
       (%add linectx-keytable-insert!))
-  (%add t lineedit-key-bol          1) ; CTRL+A
+  (%add t lineedit-key-bof          1) ; CTRL+A
   (%add t lineedit-key-left         2) ; CTRL+B
   (%add t lineedit-key-break        3) ; CTRL+C
   (%add t lineedit-key-ctrl-d       4) ; CTRL+D
-  (%add t lineedit-key-eol          5) ; CTRL+E
+  (%add t lineedit-key-eof          5) ; CTRL+E
   (%add t lineedit-key-right        6) ; CTRL+F
   (%add t lineedit-key-del-left 8 127) ; CTRL+H, BACKSPACE
   (%add t lineedit-key-tab          9) ; CTRL+I, TAB

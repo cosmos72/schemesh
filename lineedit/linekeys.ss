@@ -50,6 +50,10 @@
     (when (and x y n (fx>? n 0))
       (linectx-ixy-set! lctx x y))))
 
+;; move to start of input
+(define (lineedit-key-bof lctx)
+  (linectx-ixy-set! lctx 0 0))
+
 ;; move to start of line
 (define (lineedit-key-bol lctx)
   (linectx-ixy-set! lctx 0 (linectx-iy lctx)))
@@ -57,6 +61,10 @@
 ;; move to end of line
 (define (lineedit-key-eol lctx)
   (linectx-ixy-set! lctx (greatest-fixnum) (linectx-iy lctx)))
+
+;; move to end of input
+(define (lineedit-key-eof lctx)
+  (linectx-ixy-set! lctx (greatest-fixnum) (greatest-fixnum)))
 
 (define (lineedit-key-break lctx)
   (linectx-clear! lctx)
