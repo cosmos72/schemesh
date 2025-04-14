@@ -18,19 +18,9 @@
   (import
     (rnrs)
     (only (chezscheme)     break foreign-procedure lock-object logbit? void procedure-arity-mask unlock-object)
-    (only (schemesh bootstrap)       assert* check-interrupts raise-errorf sh-make-thread-parameter while)
+    (only (schemesh bootstrap)       assert* check-interrupts raise-errorf sh-make-thread-parameter with-locked-objects while)
     (schemesh containers bytespan)
     (only (schemesh conversions)     text->bytevector0 transcoder-utf8))
-
-
-(define-syntax with-locked-objects
-  (syntax-rules ()
-    ((_ (obj1 obj2 ...) body1 body2 ...)
-      (dynamic-wind
-        (lambda () (lock-object obj1) (lock-object obj2) ...)
-        (lambda () body1 body2 ...)
-        (lambda () (unlock-object obj1) (lock-object obj2) ...)))))
-
 
 (define c-errno
   (foreign-procedure "c_errno" () int))

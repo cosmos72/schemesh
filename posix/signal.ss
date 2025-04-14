@@ -19,7 +19,7 @@
     (only (chezscheme) assertion-violationf foreign-procedure format fx1- integer-length logbit?
                        make-continuation-condition make-format-condition procedure-arity-mask
                        time? time-nanosecond time-second time-type void)
-    (only (schemesh bootstrap)            assert* check-interrupts)
+    (only (schemesh bootstrap)            assert* check-interrupts with-locked-objects)
     (only (schemesh containers hashtable) alist->eq-hashtable hashtable-transpose))
 
 
@@ -61,11 +61,12 @@
 ;;
 ;; returns (void) on success, or < 0 on errors.
 (define countdown
-  (let ((c-countdown (foreign-procedure "c_countdown" (ptr) int)))
+  (let ((c-countdown (foreign-procedure __collect_safe "c_countdown" (ptr) int)))
     (lambda (duration)
       (let %countdown ((pair (%duration->pair duration)))
         (check-interrupts)
-        (let ((err (c-countdown pair)))
+        (let ((err (with-locked-objects (pair)
+                     (c-countdown pair))))
           (case err
             ((0) (void))
             ((1) (%countdown pair))

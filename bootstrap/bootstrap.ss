@@ -14,7 +14,7 @@
       -> ;; _ is already exported by (rnrs)
       assert* assert-not* begin* catch check check-not define-macro debugf debugf-port
       first-value first-value-or-void forever let-macro raise-assert* repeat second-value
-      while until throws? trace-call trace-define try list->values values->list
+      with-locked-objects while until throws? trace-call trace-define try list->values values->list
 
       ;; functions.ss
       check-interrupts fx<=?* nop parameter-swapper
@@ -32,7 +32,8 @@
     (rnrs exceptions)
     (rnrs mutable-pairs)
     (only (chezscheme) append! current-time format foreign-procedure fx1+ fx1- fx/
-                       list-copy list-head meta pariah reverse! time-second time-nanosecond void)
+                       list-copy list-head lock-object meta pariah reverse!
+                       time-second time-nanosecond unlock-object void)
     (schemesh bootstrap functions))
 
 
@@ -320,6 +321,15 @@
         #f
         (catch (ex)
           (or ex #t))))))
+
+
+(define-syntax with-locked-objects
+  (syntax-rules ()
+    ((_ (obj1 obj2 ...) body1 body2 ...)
+      (dynamic-wind
+        (lambda () (lock-object obj1) (lock-object obj2) ...)
+        (lambda () body1 body2 ...)
+        (lambda () (unlock-object obj1) (lock-object obj2) ...)))))
 
 
 ;; Scheme implementation of Common Lisp defmacro, defines a global macro.
