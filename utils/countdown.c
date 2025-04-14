@@ -126,7 +126,7 @@ int main(int argc, char** argv) {
   if (seconds > 0.0) {
     timespec interval;
     interval.tv_sec  = (time_t)seconds;
-    interval.tv_nsec = (long)(1e9 * (seconds - (double)interval.tv_sec));
+    interval.tv_nsec = (long)(0.5 + 1e9 * (seconds - (double)interval.tv_sec));
     return c_countdown(interval);
   }
   return 0;
