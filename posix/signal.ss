@@ -59,18 +59,17 @@
 ;; * a pair (seconds . nanoseconds) where both are exact integers
 ;; * a time object with type 'time-duration
 ;;
-;; returns (void) on success, or < 0 on errors.
+;; returns 0 on success, or < 0 on errors.
 (define countdown
   (let ((c-countdown (foreign-procedure __collect_safe "c_countdown" (ptr) int)))
     (lambda (duration)
       (let %countdown ((pair (%duration->pair duration)))
         (check-interrupts)
-        (let ((err (with-locked-objects (pair)
+        (let ((ret (with-locked-objects (pair)
                      (c-countdown pair))))
-          (case err
-            ((0) (void))
-            ((1) (%countdown pair))
-            (else err)))))))
+          (if (eqv? 1 ret)
+            (%countdown pair)
+            err))))))
 
 ;; convert one of:
 ;; * an exact or inexact real, indicating the number of seconds
