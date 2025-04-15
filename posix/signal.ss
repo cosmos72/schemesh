@@ -69,7 +69,7 @@
                      (c-countdown pair))))
           (if (eqv? 1 ret)
             (%countdown pair)
-            err))))))
+            ret))))))
 
 ;; convert one of:
 ;; * an exact or inexact real, indicating the number of seconds

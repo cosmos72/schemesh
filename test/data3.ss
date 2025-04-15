@@ -21,10 +21,10 @@
   ;; ------------------------- posix --------------------------------------
   (fx<=? (c-errno) 0)                                  #t
 
-  (countdown 0)                                        ,@"#<void>"
-  (countdown 0.0)                                      ,@"#<void>"
-  (countdown '(0 . 0))                                 ,@"#<void>"
-  (countdown (make-time 'time-duration 0 0))           ,@"#<void>"
+  (countdown 0)                                        0
+  (countdown 0.0)                                      0
+  (countdown '(0 . 0))                                 0
+  (countdown (make-time 'time-duration 0 0))           0
   (fx<? (countdown -1) 0)                              #t
   (fx<? (countdown -1.0) 0)                            #t
   (fx<? (countdown '(0 . -1)) 0)                       #t
