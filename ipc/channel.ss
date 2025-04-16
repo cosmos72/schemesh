@@ -162,8 +162,7 @@
 ;; or (values #<unspecified> #f) if end-of-file is reached.
 (define (in-channel c)
   (lambda ()
-    (let ((datum (channel-get c)))
-      (values datum (not (and (eof-object? datum) (channel-eof? c)))))))
+    (channel-get c)))
 
 
 ;; customize how "channel" objects are printed
