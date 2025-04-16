@@ -158,8 +158,8 @@
 ;; create and return a closure that iterates on data read from channel c.
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns two values:
-;; either (values datum #t) i.e. the next read datum and #t,
-;; or (values #<unspecified> #f) if end-of-file is reached.
+;; either (values datum #t) i.e. the next datum read from channel and #t,
+;; or (values #<unspecified> #f) if channel reached end-of-file.
 (define (in-channel c)
   (lambda ()
     (channel-get c)))
