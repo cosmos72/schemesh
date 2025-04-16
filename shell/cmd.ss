@@ -308,6 +308,38 @@
       parent-dir)))
 
 
+;; executed in subprocesses for setting up their parameters:
+;;   prepare to run silently and without job control
+;;   store new pid and pgid into (sh-globals)
+(define (spawn-job-procedure-child-before job)
+  ;; in child process, deactivate job control
+  ;;
+  ;; a. do not create process groups => all child processes will
+  ;;    inherit process group from the subshell itself
+  ;; b. do not change the foregroud process group
+  ;;
+  ;; note that commands executed by the subprocess CAN reactivate job control:
+  ;; in such case, (sh-job-control? #t) will self-suspend the subshell with SIGTTIN
+  ;; until the user resumes it in the foreground.
+  (sh-job-control? #f)
+
+  ;; in child process, suppress messages about started/completed jobs
+  (sh-job-display-summary? #f)
+
+  (let ((pid  (pid-get))
+        (pgid (pgid-get 0)))
+    ;; this process now "is" the job => update (sh-globals)' pid and pgid
+    (%job-pid-set!  (sh-globals) pid)
+    (%job-pgid-set! (sh-globals) pgid)
+    ;; cannot wait on our own process.
+    (%job-pid-set!  job #f)
+    (%job-pgid-set! job #f)
+
+    ;; warning: do not call (job-status-set! job ...)
+    ;; because it detects that job is running, and assigns a job-id to it,
+    ;; which is only annoying - cannot do anything useful with such job-id.
+  (%job-last-status-set! job (running))))
+
 
 ;; Fork a new subprocess, and in the child subprocess
 ;; call (proc job options) once, then call (sh-wait job) repeatedly - which calls (job-step-proc job) if set -
@@ -318,10 +350,10 @@
 ;;
 ;; Note: does not call (job-env/apply-lazy! job).
 ;;
-;; Options is an association list, see (sh-start) for allowed keys and values.
+;; Options is an association list, see (sh-options) for allowed keys and values.
 ;;   Option 'spawn is enabled by default, because this function always spawns a subprocess.
 ;;
-;; Return job status, which is usually '(running ...)
+;; Return job status, which is usually (running ...)
 ;;   for a complete list of possible job statuses, see (sh-job-status)
 ;;
 ;; WARNING (proc job options) must call (sh-job-status-set! job), because the return value of (proc ...) is ignored
@@ -378,3 +410,50 @@
     (spawn-job-procedure job options proc)
     ;; directly call (proc job options) in the caller's process
     (proc job options)))
+
+
+;; Fork a new subprocess, and in the child subprocess call (proc) once.
+;;
+;; The new subprocess is started in background, i.e. the foreground process group is NOT set
+;; to the process group of the newly created subprocess.
+;;
+;; Options is an association list, see (sh-options) for allowed keys and values.
+;;   Option 'spawn is enabled by default, because this function always spawns a subprocess.
+;;
+;; Automatically creates a job wrapping the subprocess, and return its job status,
+;;   which is usually (running job-id).
+;;   for a complete list of possible job statuses, see (sh-job-status)
+(define fork-process
+  (let ((c-fork-pid (foreign-procedure "c_fork_pid" (ptr int) int)))
+    (case-lambda
+      ((proc options)
+        (assert* 'fork-process (procedure? proc))
+        (assert* 'fork-process (logbit? 0 (procedure-arity-mask proc)))
+        (assert* 'fork-process (plist? options))
+        (let* ((job  (sh-expr void (format #f "~s" proc)))
+               (pgid (options->process-group-id options))
+               (ret  (c-fork-pid '#() (or pgid -1))))
+          (cond
+            ((< ret 0) ; fork() failed
+              (raise-c-errno 'fork-process 'fork ret))
+            ((= ret 0) ; child
+              (let ((status (exception #f)))
+                (dynamic-wind
+                  (lambda () ; run before body
+                    (spawn-job-procedure-child-before job)
+                    (sh-current-job job))
+                  (lambda () ; body
+                    (options->call-fd-close options)
+
+                    (set! status (call-with-values proc ok)))
+
+                (lambda () ; run after body, even if it raised a condition
+                  ;c (debugf "< [child] fork-process job=~s subprocess exiting with pid=~s status=~s" job (job-pid job) status)
+                  (exit-with-status status)))))
+            ((> ret 0) ; parent
+              (job-pid-set! job ret)
+              (job-pgid-set! job pgid)
+              (job-status-set/running! job)
+              (job-id-set! job))))) ; returns job status (running job-id)
+      ((proc)
+        (fork-process proc '())))))

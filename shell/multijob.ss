@@ -246,38 +246,6 @@
       (mj-not-step job (void)))))
 
 
-;; executed in subprocesses for setting up their parameters:
-;;   prepare to run silently and without job control
-;;   store new pid and pgid into (sh-globals)
-(define (spawn-job-procedure-child-before job)
-  ;; in child process, deactivate job control
-  ;;
-  ;; a. do not create process groups => all child processes will
-  ;;    inherit process group from the subshell itself
-  ;; b. do not change the foregroud process group
-  ;;
-  ;; note that commands executed by the subprocess CAN reactivate job control:
-  ;; in such case, (sh-job-control? #t) will self-suspend the subshell with SIGTTIN
-  ;; until the user resumes it in the foreground.
-  (sh-job-control? #f)
-
-  ;; in child process, suppress messages about started/completed jobs
-  (sh-job-display-summary? #f)
-
-  (let ((pid  (pid-get))
-        (pgid (pgid-get 0)))
-    ;; this process now "is" the job => update (sh-globals)' pid and pgid
-    (%job-pid-set!  (sh-globals) pid)
-    (%job-pgid-set! (sh-globals) pgid)
-    ;; cannot wait on our own process.
-    (%job-pid-set!  job #f)
-    (%job-pgid-set! job #f)
-
-    ;; warning: do not call (job-status-set! job ...)
-    ;; because it detects that job is running, and assigns a job-id to it,
-    ;; which is only annoying - cannot do anything useful with such job-id.
-  (%job-last-status-set! job (running))))
-
 
 ;; Internal function called by (job-wait) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 (define (mj-advance caller mj wait-flags)

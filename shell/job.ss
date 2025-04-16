@@ -24,7 +24,7 @@
 
 
     ;; cmd.ss
-    make-sh-cmd sh-cmd
+    fork-process make-sh-cmd sh-cmd
 
     ;; control.ss
     sh-current-job-kill sh-current-job-suspend sh-preferred-job-id
@@ -192,7 +192,7 @@
 
 
 ;; If job has no job-id, assign a job-id to it, by appending it to (multijob-children (sh-globals)).
-;; If job status is 'running update it to '(running job-id)
+;; If job status is (running) update it to (running job-id)
 ;; Return updated job status
 (define (job-id-set! job)
   (assert* 'job-id-set! (sh-job? job))
