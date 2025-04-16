@@ -11,7 +11,7 @@
   (export
     sh-pattern sh-pattern? span->sh-pattern* sh-pattern->span*
     sh-pattern-ref/string sh-pattern-ref-right/string
-    sh-pattern-match? sh-wildcard?)
+    sh-pattern-match? wildcard?)
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx1- record-writer void)
@@ -23,7 +23,7 @@
 
 ;; return #t if obj is a wildcard symbol, i.e. one of * ? ~ % %!
 ;; otherwise return #f
-(define (sh-wildcard? obj)
+(define (wildcard? obj)
   (and (symbol? obj) (memq obj '(* ? ~ % %!)) #t))
 
 
@@ -88,7 +88,7 @@
             (when (fxzero? str-len)
               (raise-assertf 'sh-pattern "empty strings are not allowed: ~s" obj))
             (%validate-span sp (fx1+ i) n contains-wildcard? #t))) ; prev-is-string?
-        ((sh-wildcard? obj)
+        ((wildcard? obj)
           (when (memq obj '(% %!))
             (when (fx=? i+1 n)
               (raise-assertf 'sh-pattern "missing string after wildcard symbol '~a" obj))
@@ -99,7 +99,7 @@
           (%validate-span sp (fx1+ i) n #t ; contains-wildcard?
                              #f)) ; prev-is-string?
         (else
-          (raise-assertf 'sh-pattern "expecting a string or sh-wildcard? symbol, found ~s" obj))))))
+          (raise-assertf 'sh-pattern "expecting a string or wildcard? symbol, found ~s" obj))))))
 
 
 ;; analyze range [i, end) of span sp and return two values;
@@ -116,14 +116,14 @@
             (%pattern-minmax-length sp (fx1+ i) end
               (fx+ min-len str-len)                    ; updated min-len
               (if max-len (fx+ max-len str-len) #f)))) ; updated max-len
-        ((sh-wildcard? obj)
+        ((wildcard? obj)
           (%pattern-minmax-length sp
               (if (memq obj '(% %!)) (fx1+ i+1) i+1) ; updated i
               end
               (if (eq? obj '*) min-len (fx1+ min-len))                  ; updated min-len
               (if (and max-len (not (eq? obj '*))) (fx1+ max-len) #f))) ; updated max-len
         (else
-          (raise-assertf 'sh-pattern "expecting a string or sh-wildcard? symbol, found ~s" obj))))))
+          (raise-assertf 'sh-pattern "expecting a string or wildcard? symbol, found ~s" obj))))))
 
 
 ;; if first element in sh-pattern is a string, return it.

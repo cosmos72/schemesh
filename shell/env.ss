@@ -205,7 +205,7 @@
                (else
                  (value-or-procedure)))))
     ;; val can be one of: #f, a string, a list containing zero or one strings.
-    ;; needed because "NAME=~..." expands "~" to (sh-wildcard '~ ...)
+    ;; needed because "NAME=~..." expands "~" to (wildcard '~ ...)
     ;; that returns either a string or a list of strings
     (cond
       ((not     val) val)

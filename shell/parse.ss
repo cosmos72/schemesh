@@ -36,7 +36,7 @@
            (cmd-separator? token)
            (pipe-sym? token)
            (redirection-sym? token)
-           (sh-wildcard? token))))
+           (wildcard? token))))
 
 ;; Parse args using shell syntax, and return corresponding sh-cmd or sh-multijob object.
 ;; Current implementation is (sh-eval (sh-parse-datum (cons 'shell args))), which uses (sh-parse-datum)

@@ -135,26 +135,26 @@
     "abc.zzz.abc^abc")                                 #t
 
   ;; ------------------------- wildcard expansion -------------------------
-  (sh-wildcard #t "a" "bcd" "" "ef")                   ("abcdef")
-  (sh-wildcard->sh-patterns '(*))                      ,@(span (sh-pattern '*))
-  (sh-wildcard->sh-patterns '("/" * ".so"))            ,@(span "/" (sh-pattern '* ".so"))
-  (sh-wildcard->sh-patterns '("//abc//" "//def//"))    ,@(span "/" "abc/" "def/")
-  (sh-wildcard->sh-patterns '("/foo/" * "/" "/bar"))   ,@(span "/" "foo/" (sh-pattern '* "/") "bar")
-  (sh-wildcard #t '* "/" '* ".c")                      ("containers/containers.c" "posix/posix.c" "shell/shell.c" "test/test.c"
+  (wildcard #t "a" "bcd" "" "ef")                   ("abcdef")
+  (wildcard->sh-patterns '(*))                      ,@(span (sh-pattern '*))
+  (wildcard->sh-patterns '("/" * ".so"))            ,@(span "/" (sh-pattern '* ".so"))
+  (wildcard->sh-patterns '("//abc//" "//def//"))    ,@(span "/" "abc/" "def/")
+  (wildcard->sh-patterns '("/foo/" * "/" "/bar"))   ,@(span "/" "foo/" (sh-pattern '* "/") "bar")
+  (wildcard #t '* "/" '* ".c")                      ("containers/containers.c" "posix/posix.c" "shell/shell.c" "test/test.c"
                                                         "utils/benchmark_async_signal_handler.c" "utils/countdown.c")
-  (sh-wildcard #t "Makefile")                          ("Makefile")
-  (sh-wildcard #t "_does_not_exist_")                  ("_does_not_exist_")
-  (sh-wildcard* #t '("_does_not_exist_"))              ()
-  (sh-wildcard* #t '("_does_not_exist_")
+  (wildcard #t "Makefile")                          ("Makefile")
+  (wildcard #t "_does_not_exist_")                  ("_does_not_exist_")
+  (wildcard* #t '("_does_not_exist_"))              ()
+  (wildcard* #t '("_does_not_exist_")
                '(if-no-match? string))                 "_does_not_exist_"
-  (sh-wildcard* #t '("_does_not_exist_")
+  (wildcard* #t '("_does_not_exist_")
                '(if-no-match? string-list))            ("_does_not_exist_")
-  (caddr (expand '{ls [ab]*}))                         ,@(sh-cmd* "ls" (lambda (job) (sh-wildcard job '% "ab" '*)))
-  (caddr (expand '(shell-wildcard *)))                 ,@(lambda (job) (sh-wildcard job '*))
-  (caddr (expand '(shell-wildcard ?)))                 ,@(lambda (job) (sh-wildcard job '?))
-  (caddr (expand '(shell-wildcard ~)))                 ,@(lambda (job) (sh-wildcard job '~))
+  (caddr (expand '{ls [ab]*}))                         ,@(sh-cmd* "ls" (lambda (job) (wildcard job '% "ab" '*)))
+  (caddr (expand '(shell-wildcard *)))                 ,@(lambda (job) (wildcard job '*))
+  (caddr (expand '(shell-wildcard ?)))                 ,@(lambda (job) (wildcard job '?))
+  (caddr (expand '(shell-wildcard ~)))                 ,@(lambda (job) (wildcard job '~))
   (caddr (expand '(shell-wildcard
-   "a" (shell-wildcard ~ "b/" *) ? % "def" %! "ghi"))) ,@(lambda (job) (sh-wildcard job "a" '~ "b/" '* '? '% "def" '%! "ghi"))
+   "a" (shell-wildcard ~ "b/" *) ? % "def" %! "ghi"))) ,@(lambda (job) (wildcard job "a" '~ "b/" '* '? '% "def" '%! "ghi"))
 
   ;; ------------------------- builtin execution ------------------------------
   (sh-run (shell "true"))                              ,@"#<void>"

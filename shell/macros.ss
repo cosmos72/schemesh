@@ -16,7 +16,7 @@
     (only (chezscheme) datum format fx1- meta parameterize reverse!)
     (schemesh bootstrap)
     (only (schemesh containers list) in-list)
-    (only (schemesh posix pattern) sh-wildcard?)
+    (only (schemesh posix pattern) wildcard?)
     (schemesh shell job)
     (only (schemesh shell eval) sh-read-file))
 
@@ -93,17 +93,17 @@
 
 
 (meta begin
-  (define (%sh-wildcard-simplify wildcards? ret args)
+  (define (%wildcard-simplify wildcards? ret args)
     (do ((args args (cdr args)))
         ((null? args) (values wildcards? ret))
-      ; (debugf "... %sh-wildcard-simplify ret=~s args=~s" (reverse ret) args)
+      ; (debugf "... %wildcard-simplify ret=~s args=~s" (reverse ret) args)
       (let ((arg (car args)))
         (cond
           ((and (pair? arg) (eq? 'shell-wildcard (car arg)))
-            (let-values (((inner-wildcards? inner-ret) (%sh-wildcard-simplify wildcards? ret (cdr arg))))
+            (let-values (((inner-wildcards? inner-ret) (%wildcard-simplify wildcards? ret (cdr arg))))
               (set! wildcards? inner-wildcards?)
               (set! ret        inner-ret)))
-          ((sh-wildcard? arg)
+          ((wildcard? arg)
             (set! wildcards? #t)
             (set! ret (cons (list 'quote arg) ret)))
           (else
@@ -116,7 +116,7 @@
   ;;
   ;; wrap non-constant (shell-wildcard ...) in a (lambda (,job) (,proc ,job ...))
   (define-macro (%shell-wildcard proc job . args)
-    (let-values (((wildcards? rev-args) (%sh-wildcard-simplify #f '() args)))
+    (let-values (((wildcards? rev-args) (%wildcard-simplify #f '() args)))
       (let ((args (reverse! rev-args)))
         (if wildcards?
           `(lambda (,job) (,proc ,job ,@args))
@@ -127,7 +127,7 @@
   ;;
   ;; wrap non-constant (shell-wildcard ...) in a (,proc ,job-or-id ...)
   (define-macro (%shell-glob proc job-or-id . args)
-    (let-values (((wildcards? rev-args) (%sh-wildcard-simplify #f '() args)))
+    (let-values (((wildcards? rev-args) (%wildcard-simplify #f '() args)))
       (let ((args (reverse! rev-args)))
         (if wildcards?
           `(,proc ,job-or-id ,@args)
@@ -149,7 +149,7 @@
         (string? (syntax->datum (syntax arg)))
         #`arg)
       ((_ . args)
-        #`(%shell-wildcard sh-wildcard job . args)))))
+        #`(%shell-wildcard wildcard job . args)))))
 
 
 ;; extract the arguments inside a (shell-glob {...}) macro,
@@ -157,7 +157,7 @@
 ;;
 ;; WARNING: will also execute commands found inside shell job substitution syntax `...` or $[...]
 ;;
-;; Example: (shell-glob {~/*.txt}) expands to an (sh-wildcard ...) form that, when executed,
+;; Example: (shell-glob {~/*.txt}) expands to an (wildcard ...) form that, when executed,
 ;; returns a list of strings containing all the filesystem paths matching the shell glob pattern ~/*.txt
 ;;
 ;; If no filesystem path matches the shell glob pattern, when the form is executed
@@ -168,10 +168,10 @@
 ;; If the argument of shell-glob is a NOT a shell glob pattern, then it must be a sequence of literal strings
 ;; and shell environment variable names, possibly starting with ~ or ~user that means a user's home directory.
 ;;
-;; Example: (shell-glob {~bob}) expands to an (sh-wildcard ...) form that, when executed,
+;; Example: (shell-glob {~bob}) expands to an (wildcard ...) form that, when executed,
 ;; return a list containing a single string: the home directory of user "bob"
 ;;
-;; Example: (shell-glob {$PATH:$HOME/bin}) expands to an (sh-wildcard ...) form that, when executed,
+;; Example: (shell-glob {$PATH:$HOME/bin}) expands to an (wildcard ...) form that, when executed,
 ;; return a list containing a single string: the contatenation of
 ;; 1. value of environment variable "PATH"
 ;; 2. string ":"
@@ -190,11 +190,11 @@
       ((_ job-or-id (macro-name (submacro-name . args)))
         (and (free-identifier=? #'macro-name #'shell )
              (free-identifier=? #'submacro-name #'shell-backquote))
-        #`(%shell-glob sh-wildcard job-or-id (shell-backquote . args)))
+        #`(%shell-glob wildcard job-or-id (shell-backquote . args)))
       ((_ job-or-id (macro-name (submacro-name . args)))
         (and (free-identifier=? #'macro-name #'shell )
              (free-identifier=? #'submacro-name #'shell-wildcard))
-        #`(%shell-glob sh-wildcard job-or-id . args)))))
+        #`(%shell-glob wildcard job-or-id . args)))))
 
 
 ;; extract the arguments inside a (shell-string {...}) macro,
@@ -206,7 +206,7 @@
 ;; If the argument inside {...} must be either a shell glob pattern or a sequence of literal strings
 ;; and shell environment variable names, possibly starting with ~ or ~user that means a user's home directory.
 
-;; Example: (shell-string {$FOO-$BAR}) expands to an (sh-wildcard ...) form that, when executed,
+;; Example: (shell-string {$FOO-$BAR}) expands to an (wildcard ...) form that, when executed,
 ;; returns a string containing the concatenation of:
 ;; 1. value of environment variable "FOO"
 ;; 2. string "-"
@@ -231,11 +231,11 @@
       ((_ job-or-id (macro-name (submacro-name . args)))
         (and (free-identifier=? #'macro-name #'shell )
              (free-identifier=? #'submacro-name #'shell-backquote))
-        #`(%shell-glob sh-wildcard1 job-or-id (shell-backquote . args)))
+        #`(%shell-glob wildcard1 job-or-id (shell-backquote . args)))
       ((_ job-or-id (macro-name (submacro-name . args)))
         (and (free-identifier=? #'macro-name #'shell )
              (free-identifier=? #'submacro-name #'shell-wildcard))
-        #`(%shell-glob sh-wildcard1 job-or-id . args)))))
+        #`(%shell-glob wildcard1 job-or-id . args)))))
 
 
 ;; (in-shell-glob ...) is a shortcut for (in-list (shell-glob ...))

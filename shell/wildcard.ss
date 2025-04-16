@@ -22,8 +22,8 @@
 ;; returns a non-empty list of strings, containing matching filesystem paths.
 ;; if w does not match any filesystem path, return a list containing a single string:
 ;;   w converted back to string with shell wildcard syntax.
-(define (sh-wildcard job-or-id . w)
-  (sh-wildcard* job-or-id w '(if-no-match? string-list)))
+(define (wildcard job-or-id . w)
+  (wildcard* job-or-id w '(if-no-match? string-list)))
 
 
 ;; expand a path containing wildcards to the single filesystem entry that match such wildcards.
@@ -38,19 +38,19 @@
 ;; returns a single string, containing the only filesystem path matched by w.
 ;; raises an exception if w matches multiple filesystem entries.
 ;; if w does not match any filesystem path, return w converted back to string with shell wildcard syntax.
-(define (sh-wildcard1 job-or-id . w)
-  (let ((ret (sh-wildcard* job-or-id w '(if-no-match? string))))
+(define (wildcard1 job-or-id . w)
+  (let ((ret (wildcard* job-or-id w '(if-no-match? string))))
     (cond
       ((string? ret)
         ret)
       ((and (pair? ret) (string? (car ret)) (null? (cdr ret)))
         (car ret))
       (else
-        (raise-errorf 'sh-wildcard1 "shell glob ~s matches multiple filesystem entries"
-                      (sh-wildcard->string w))))))
+        (raise-errorf 'wildcard1 "shell glob ~s matches multiple filesystem entries"
+                      (wildcard->string w))))))
 
 
-;; TL;DR similar to (sh-wildcard), with two differences:
+;; TL;DR similar to (wildcard), with two differences:
 ;;  1. w must be passed as a list
 ;;  2. if w does not match any filesystem path, returned value depends on options:
 ;;     empty list, or w converted to string, or list containing w converted to string
@@ -68,27 +68,27 @@
 ;;
 ;; returns a list of strings, containing matching filesystem paths.
 ;; if does not match any filesystem path, returned value depends on options - see above.
-(define sh-wildcard*
+(define wildcard*
   (case-lambda
     ((w)
-      (sh-wildcard* #f w '()))
+      (wildcard* #f w '()))
     ((job-or-id w)
-      (sh-wildcard* job-or-id w '()))
+      (wildcard* job-or-id w '()))
     ((job-or-id w options)
       (let* ((job  (sh-job job-or-id))
-             (w (sh-wildcard/apply job (sh-wildcard/expand-tilde job w))))
+             (w (wildcard/apply job (wildcard/expand-tilde job w))))
         (cond
           ((null? w)
             (%wildcard-wrap-string "" options))
           ((every string? w)
             ; all elements are strings -> concatenate them
-            (let ((str (sh-wildcard->string w)))
+            (let ((str (wildcard->string w)))
               (if (file-type str '(catch symlinks))
                 (list str) ; path exists, return a list containing only it
                 (%wildcard-wrap-string str options)))) ; path does not exist
           (else
             ; actually expand wildcards and match them against filesystem paths
-            (let* ((patterns (sh-wildcard->sh-patterns w))
+            (let* ((patterns (wildcard->sh-patterns w))
                    (ret (sh-patterns/expand job patterns)))
               (if (pair? ret)
                 ret
@@ -106,16 +106,16 @@
   (case (plist-ref options 'if-no-match?)
     ;; wildcard does not match any filesystem path
     ;; convert back wildcard to the string it was generated from,
-    ;; except that ~ expanded by (sh-wildcard/expand-tilde) must be preserved.
+    ;; except that ~ expanded by (wildcard/expand-tilde) must be preserved.
     ;; reason: ~/foo/bar must be expanded to $HOME/foo/bar
     ;; even if no such path exists
-    ((string)      (sh-wildcard->string w))
-    ((string-list) (list (sh-wildcard->string w)))
+    ((string)      (wildcard->string w))
+    ((string-list) (list (wildcard->string w)))
     (else          '())))
 
 
-(define (sh-wildcard->string w)
-  ; (debugf "sh-wildcard->string w=~s" w)
+(define (wildcard->string w)
+  ; (debugf "wildcard->string w=~s" w)
   (let ((csp (charspan)))
     (%wildcard->charspan-append! w csp)
     (charspan->string*! csp)))
@@ -146,7 +146,7 @@
 ;; each procedure must return a string or a list of strings.
 ;; return the new list of strings and wildcard symbols ? * ~ % %!
 ;; which may share data with w
-(define (sh-wildcard/apply job w)
+(define (wildcard/apply job w)
   (if (list-contains-procedure? w)
     (let* ((ret '())
            (%insert!
@@ -154,7 +154,7 @@
                (set! ret (cons arg ret)))))
       (for-list ((arg w))
         (cond
-          ((or (string? arg) (sh-wildcard? arg))
+          ((or (string? arg) (wildcard? arg))
             (%insert! arg))
           ((procedure? arg)
             (let ((obj (if (logbit? 1 (procedure-arity-mask arg))
@@ -163,10 +163,10 @@
               (if (string? obj)
                 (%insert! obj)
                 (begin
-                  (assert-string-list? 'sh-wildcard obj)
+                  (assert-string-list? 'wildcard obj)
                   (for-each %insert! obj)))))
           (else
-            (raise-assert1 'sh-wildcard "(or (string? arg) (sh-wildcard? arg) (procedure? arg))" arg))))
+            (raise-assert1 'wildcard "(or (string? arg) (wildcard? arg) (procedure? arg))" arg))))
       (reverse! ret))
     w))
 
@@ -175,7 +175,7 @@
 ;; replace every other occurrence of symbol '~ with string "~"
 ;; return list containing replacement result, which may share data with w.
 ;; does NOT modify w.
-(define (sh-wildcard/expand-tilde job w)
+(define (wildcard/expand-tilde job w)
   (if (list-contains-tilde? w)
     (let ((w (if (eq? '~ (car w))
                (expand-initial-tilde job w)
@@ -234,17 +234,17 @@
 ;;   (list "a/b" '* "c/def/")
 ;; will be converted to
 ;;   (span "a/" (sh-pattern "b" '* "c/") "def/"))
-(define (sh-wildcard->sh-patterns w)
+(define (wildcard->sh-patterns w)
   (let ((ret (span)))
     (span-insert-right! ret (span))
     (until (null? w)
       (when (%patterns/prepare1! (car w) ret)
         (let ((tail (cdr w)))
           (when (null? tail)
-            (raise-errorf 'sh-wildcard "missing string after shell wildcard symbol '~s" (car w)))
+            (raise-errorf 'wildcard "missing string after shell wildcard symbol '~s" (car w)))
           (let ((pattern (car tail)))
             (unless (string? pattern)
-              (raise-errorf 'sh-wildcard "found ~s after shell wildcard symbol '~s, expected a string" pattern (car w)))
+              (raise-errorf 'wildcard "found ~s after shell wildcard symbol '~s, expected a string" pattern (car w)))
             (when (string-index pattern #\/)
               (%raise-invalid-wildcard-pattern (car w) pattern))
             (span-insert-right! (span-ref-right ret) pattern))
@@ -254,7 +254,7 @@
 
 
 (define (%raise-invalid-wildcard-pattern sym pattern)
-  (raise-errorf 'sh-wildcard "invalid shell wildcard pattern ~s, must not contain /"
+  (raise-errorf 'wildcard "invalid shell wildcard pattern ~s, must not contain /"
     (string-append
       (if (eq? sym '%) "[" "[!")
       pattern
@@ -271,7 +271,7 @@
       (span-insert-right! (span-ref-right sp) obj)
       (memq obj '(% %!)))
     (else
-      (assert* 'sh-wildcard (string? obj))
+      (assert* 'wildcard (string? obj))
       (let ((str-len (string-length obj)))
         (unless (fxzero? str-len)
           (%split-string->paths sp obj str-len))

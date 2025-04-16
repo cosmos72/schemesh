@@ -410,7 +410,7 @@
   (caddr (expand (parse-shell-form1 (string->parsectx
     "{A=B ls}"))))                                     (sh-cmd* "A" '= "B" "ls")
   '{FOO=$BAR/subdir echo}                              (shell "FOO" = (shell-wildcard (shell-env "BAR") "/subdir") "echo")
-  (caddr (expand '{FOO=$BAR/subdir echo}))             ,@(sh-cmd* FOO '= (lambda (job) (sh-wildcard job
+  (caddr (expand '{FOO=$BAR/subdir echo}))             ,@(sh-cmd* FOO '= (lambda (job) (wildcard job
                                                            (lambda (job) (sh-env-ref job BAR)) /subdir)) echo)
   '{A=$[echo abc
         echo def]}                                     (shell "A" = (shell-backquote "echo" "abc" \x3B;
@@ -423,7 +423,7 @@
                      "echo" "def"))))                  ,(sh-cmd* "A" '= (lambda () (sh-run/string-rtrim-newlines
                                                            (sh-list (sh-cmd "echo" "abc") '\x3B; (sh-cmd "echo" "def")))))
   (caddr (expand '{FOO=$BAR/subdir echo}))
-                                                       ,@(sh-cmd* "FOO" '= (lambda (job) (sh-wildcard job (lambda (job)
+                                                       ,@(sh-cmd* "FOO" '= (lambda (job) (wildcard job (lambda (job)
                                                            (sh-env-ref job "BAR")) "/subdir")) "echo")
   (caddr (expand
     '(shell (shell-wildcard "l" "s"))))                (sh-cmd* "ls")
@@ -433,9 +433,9 @@
     '(shell (shell-backquote "echo" "ls"))))           ,(sh-cmd* (lambda () (sh-run/string-rtrim-newlines (sh-cmd "echo" "ls"))))
   ;; test wildcards and patterns [...]
   '{echo *}                                            (shell "echo" (shell-wildcard *))
-  (caddr (expand '{echo *}))                           ,@(sh-cmd* "echo" (lambda (job) (sh-wildcard job '*)))
+  (caddr (expand '{echo *}))                           ,@(sh-cmd* "echo" (lambda (job) (wildcard job '*)))
   '{echo .*[a-z]?.so}                                  (shell "echo" (shell-wildcard "." * % "a-z" ? ".so"))
-  (caddr (expand '{echo .*[a-z]?.so}))                 ,@(sh-cmd* "echo" (lambda (job) (sh-wildcard job "." '* '% "a-z" '? ".so")))
+  (caddr (expand '{echo .*[a-z]?.so}))                 ,@(sh-cmd* "echo" (lambda (job) (wildcard job "." '* '% "a-z" '? ".so")))
   '{A=* B=* echo}                                      (shell "A" = "*" "B" = "*" "echo")
   ;; (shell-wildcard ~) expands to a list ("/home/user")
   ;; but env variable assignments in (sh-cmd*) allow value to be a 1-element list
