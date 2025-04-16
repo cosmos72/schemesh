@@ -129,45 +129,45 @@
     (vector-sort*! fx<? v 1 9)
     v)                                              #(9 1 2 3 4 5 6 7 8 0)
   ;; ----------------- bytevector/utf8 ------------------------------------
-  (values->list (bytevector-ref/utf8b #vu8()))               (#t      0)   ; incomplete UTF-8
-  (values->list (bytevector-ref/utf8b #vu8(1)))              (#\x01   1)
-  (values->list (bytevector-ref/utf8b #vu8(33)))             (#\!     1)
-  (values->list (bytevector-ref/utf8b #vu8(#x7E)))           (#\~     1)
-  (values->list (bytevector-ref/utf8b #vu8(#x7F)))           (#\x7F   1)
-  (values->list (bytevector-ref/utf8b #vu8(#x80)))           (#\xDC80 1) ; invalid UTF-8
-  (values->list (bytevector-ref/utf8b #vu8(#xC0 #x80) 0 1))  (#t      1) ; incomplete UTF-8
-  (values->list (bytevector-ref/utf8b #vu8(#xC0 #x80)))      (#\xDCC0 1) ; overlong UTF-8
-  (values->list (bytevector-ref/utf8b #vu8(#xC1 #xBF)))      (#\xDCC1 1) ; overlong UTF-8
-  (values->list (bytevector-ref/utf8b #vu8(#xC2 #x7F)))      (#\xDCC2 1) ; bad UTF-8 2nd byte
-  (values->list (bytevector-ref/utf8b #vu8(#xC2 #x80)))      (#\x80   2) ; U+0080
-  (values->list (bytevector-ref/utf8b #vu8(#xC2 #xA3)))      (#\xA3   2) ; U+00A3
-  (values->list (bytevector-ref/utf8b #vu8(#xC2 #xBF)))      (#\xBF   2) ; U+00BF
-  (values->list (bytevector-ref/utf8b #vu8(#xC2 #xC0)))      (#\xDCC2 1) ; bad UTF-8 2nd byte
-  (values->list (bytevector-ref/utf8b #vu8(#xC3 #x80)))      (#\xC0   2) ; U+00C0
-  (values->list (bytevector-ref/utf8b #vu8(#xDF #xBF)))      (#\x7FF  2) ; U+07FF
-  (values->list (bytevector-ref/utf8b #vu8(#xE0 #x80)))      (#t      2) ; incomplete UTF-8
-  (values->list (bytevector-ref/utf8b #vu8(#xE0 #x80 #x80))) (#\xDCE0 1) ; overlong UTF-8
-  (values->list (bytevector-ref/utf8b #vu8(#xE0 #x9F #xBF))) (#\xDCE0 1) ; overlong UTF-8
-  (values->list (bytevector-ref/utf8b #vu8(#xE0 #xA0 #x80))) (#\x800  3) ; U+0800
-  (values->list (bytevector-ref/utf8b #vu8(#xED #x80 #x80))) (#\xD000 3) ; U+D000
-  (values->list (bytevector-ref/utf8b #vu8(#xED #x9F #xBF))) (#\xD7FF 3) ; U+D7FF
-  (values->list (bytevector-ref/utf8b #vu8(#xED #xA0 #x80))) (#\xDCED 1) ; invalid UTF-8, would encode U+D800
-  (values->list (bytevector-ref/utf8b #vu8(#xED #xB2 #x80))) (#\xDCED 1) ; invalid UTF-8, would encode U+DC80
-  (values->list (bytevector-ref/utf8b #vu8(#xED #xB3 #xBF))) (#\xDCED 1) ; invalid UTF-8, would encode U+DCFF
-  (values->list (bytevector-ref/utf8b #vu8(#xED #xBF #xBF))) (#\xDCED 1) ; invalid UTF-8, would encode U+DFFF
-  (values->list (bytevector-ref/utf8b #vu8(#xee #x80 #x80))) (#\xE000 3) ; U+E000
-  (values->list (bytevector-ref/utf8b #vu8(#xef #xBF #xBF))) (#\xFFFF 3) ; U+FFFF
-  (values->list (bytevector-ref/utf8b #vu8(#xf0 #x80 #x80 #x80) 0 3)) (#t 3)      ; incomplete UTF-8
-  (values->list (bytevector-ref/utf8b #vu8(#xf0 #x80 #x80 #x80)))     (#\xDCF0 1) ; overlong UTF-8
-  (values->list (bytevector-ref/utf8b #vu8(#xf0 #x8f #xBF #xBF)))     (#\xDCF0 1) ; overlong UTF-8
-  (values->list (bytevector-ref/utf8b #vu8(#xf0 #x90 #x80 #x80)))    (#\x10000 4) ; U+10000
-  (values->list (bytevector-ref/utf8b #vu8(#xf4 #x8f #xBF #xBF)))   (#\x10FFFF 4) ; U+10FFFF
-  (values->list (bytevector-ref/utf8b #vu8(#xf4 #x90 #x80 #x80)))     (#\xDCF4 1) ; invalid UTF-8
-  (values->list (bytevector-ref/utf8b #vu8(#xf4 #xBF #xBF #xBF)))     (#\xDCF4 1) ; invalid UTF-8
-  (values->list (bytevector-ref/utf8b #vu8(#xf5 #x80 #x80 #x80)))     (#\xDCF5 1) ; invalid UTF-8
-  (values->list (bytevector-ref/utf8b #vu8(#xf6)))                    (#\xDCF6 1) ; invalid UTF-8
-  (values->list (bytevector-ref/utf8b #vu8(#xfe)))                    (#\xDCFE 1) ; invalid UTF-8
-  (values->list (bytevector-ref/utf8b #vu8(#xff)))                    (#\xDCFF 1) ; invalid UTF-8
+  (values->list (bytevector-char-ref #vu8()))               (#t      0)   ; incomplete UTF-8
+  (values->list (bytevector-char-ref #vu8(1)))              (#\x01   1)
+  (values->list (bytevector-char-ref #vu8(33)))             (#\!     1)
+  (values->list (bytevector-char-ref #vu8(#x7E)))           (#\~     1)
+  (values->list (bytevector-char-ref #vu8(#x7F)))           (#\x7F   1)
+  (values->list (bytevector-char-ref #vu8(#x80)))           (#\xDC80 1) ; invalid UTF-8
+  (values->list (bytevector-char-ref #vu8(#xC0 #x80) 0 1))  (#t      1) ; incomplete UTF-8
+  (values->list (bytevector-char-ref #vu8(#xC0 #x80)))      (#\xDCC0 1) ; overlong UTF-8
+  (values->list (bytevector-char-ref #vu8(#xC1 #xBF)))      (#\xDCC1 1) ; overlong UTF-8
+  (values->list (bytevector-char-ref #vu8(#xC2 #x7F)))      (#\xDCC2 1) ; bad UTF-8 2nd byte
+  (values->list (bytevector-char-ref #vu8(#xC2 #x80)))      (#\x80   2) ; U+0080
+  (values->list (bytevector-char-ref #vu8(#xC2 #xA3)))      (#\xA3   2) ; U+00A3
+  (values->list (bytevector-char-ref #vu8(#xC2 #xBF)))      (#\xBF   2) ; U+00BF
+  (values->list (bytevector-char-ref #vu8(#xC2 #xC0)))      (#\xDCC2 1) ; bad UTF-8 2nd byte
+  (values->list (bytevector-char-ref #vu8(#xC3 #x80)))      (#\xC0   2) ; U+00C0
+  (values->list (bytevector-char-ref #vu8(#xDF #xBF)))      (#\x7FF  2) ; U+07FF
+  (values->list (bytevector-char-ref #vu8(#xE0 #x80)))      (#t      2) ; incomplete UTF-8
+  (values->list (bytevector-char-ref #vu8(#xE0 #x80 #x80))) (#\xDCE0 1) ; overlong UTF-8
+  (values->list (bytevector-char-ref #vu8(#xE0 #x9F #xBF))) (#\xDCE0 1) ; overlong UTF-8
+  (values->list (bytevector-char-ref #vu8(#xE0 #xA0 #x80))) (#\x800  3) ; U+0800
+  (values->list (bytevector-char-ref #vu8(#xED #x80 #x80))) (#\xD000 3) ; U+D000
+  (values->list (bytevector-char-ref #vu8(#xED #x9F #xBF))) (#\xD7FF 3) ; U+D7FF
+  (values->list (bytevector-char-ref #vu8(#xED #xA0 #x80))) (#\xDCED 1) ; invalid UTF-8, would encode U+D800
+  (values->list (bytevector-char-ref #vu8(#xED #xB2 #x80))) (#\xDCED 1) ; invalid UTF-8, would encode U+DC80
+  (values->list (bytevector-char-ref #vu8(#xED #xB3 #xBF))) (#\xDCED 1) ; invalid UTF-8, would encode U+DCFF
+  (values->list (bytevector-char-ref #vu8(#xED #xBF #xBF))) (#\xDCED 1) ; invalid UTF-8, would encode U+DFFF
+  (values->list (bytevector-char-ref #vu8(#xee #x80 #x80))) (#\xE000 3) ; U+E000
+  (values->list (bytevector-char-ref #vu8(#xef #xBF #xBF))) (#\xFFFF 3) ; U+FFFF
+  (values->list (bytevector-char-ref #vu8(#xf0 #x80 #x80 #x80) 0 3)) (#t 3)      ; incomplete UTF-8
+  (values->list (bytevector-char-ref #vu8(#xf0 #x80 #x80 #x80)))     (#\xDCF0 1) ; overlong UTF-8
+  (values->list (bytevector-char-ref #vu8(#xf0 #x8f #xBF #xBF)))     (#\xDCF0 1) ; overlong UTF-8
+  (values->list (bytevector-char-ref #vu8(#xf0 #x90 #x80 #x80)))    (#\x10000 4) ; U+10000
+  (values->list (bytevector-char-ref #vu8(#xf4 #x8f #xBF #xBF)))   (#\x10FFFF 4) ; U+10FFFF
+  (values->list (bytevector-char-ref #vu8(#xf4 #x90 #x80 #x80)))     (#\xDCF4 1) ; invalid UTF-8
+  (values->list (bytevector-char-ref #vu8(#xf4 #xBF #xBF #xBF)))     (#\xDCF4 1) ; invalid UTF-8
+  (values->list (bytevector-char-ref #vu8(#xf5 #x80 #x80 #x80)))     (#\xDCF5 1) ; invalid UTF-8
+  (values->list (bytevector-char-ref #vu8(#xf6)))                    (#\xDCF6 1) ; invalid UTF-8
+  (values->list (bytevector-char-ref #vu8(#xfe)))                    (#\xDCFE 1) ; invalid UTF-8
+  (values->list (bytevector-char-ref #vu8(#xff)))                    (#\xDCFF 1) ; invalid UTF-8
   (string->utf8b (string (integer->char* #xdc80)))           #vu8(#x80)
   (string->utf8b (string (integer->char* #xdcff)))           #vu8(#xff)
   (string->utf8b "\xdc80;\xdc81;\xdcfe;\xdcff;")             #vu8(#x80 #x81 #xfe #xff)
@@ -183,19 +183,19 @@
     (char->utf8b-length (integer->char #x10000))
     (char->utf8b-length (integer->char #x10ffff)))          (1 1 2 2 3 3 4 4)
   (let ((bv (make-bytevector 1)))
-    (bytevector-set/utf8b! bv 0 #\~)
+    (bytevector-char-set! bv 0 #\~)
     bv)                                                      #vu8(#x7e)
   (let ((bv (make-bytevector 2)))
-    (bytevector-set/utf8b! bv 0 (integer->char #xa3))        ; pound sign
+    (bytevector-char-set! bv 0 (integer->char #xa3))        ; pound sign
     bv)                                                      #vu8(#xc2 #xa3)
   (let ((bv (make-bytevector 3)))
-    (bytevector-set/utf8b! bv 0 (integer->char #x20ac))      ; euro sign
+    (bytevector-char-set! bv 0 (integer->char #x20ac))      ; euro sign
     bv)                                                      #vu8(#xe2 #x82 #xac)
   (let ((bv (make-bytevector 4)))
-    (bytevector-set/utf8b! bv 0 (integer->char #x10348))
+    (bytevector-char-set! bv 0 (integer->char #x10348))
     bv)                                                      #vu8(#xf0 #x90 #x8d #x88)
   (let ((bv (make-bytevector 4)))
-    (bytevector-set/utf8b! bv 0 (integer->char #x10ffff))
+    (bytevector-char-set! bv 0 (integer->char #x10ffff))
     bv)                                                      #vu8(#xf4 #x8f #xbf #xbf)
   ;; ----------------- bytespan-ref/char -------------------------------------
   (values->list (bytespan-ref/char (bytespan) 0))                      (#t 0)       ; incomplete UTF-8

@@ -14,7 +14,7 @@
 
 (library (schemesh containers utf8b utils (0 8 3))
   (export
-    bytevector-ref/utf8b bytevector-set/utf8b! char->utf8b-length
+    bytevector-char-ref bytevector-char-set! char->utf8b-length
     bytespan-ref/char bytespan-set/char! bytespan-insert-left/char! bytespan-insert-right/char!
     bytespan-insert-right/cspan! bytespan-insert-right/cbuffer!
     bytespan-display-right/fixnum! bytespan-insert-right/string!
@@ -90,10 +90,10 @@
 ;;   in such case, length is always (fx- end start) and should NOT be considered "consumed".
 ;; If UTF-8 sequence is invalid, convert a single raw byte according to UTF-8b:
 ;;   return converted char and length equal to 1.
-(define bytevector-ref/utf8b
+(define bytevector-char-ref
   (case-lambda
     ((vec start end)
-      (assert* 'bytevector-ref/utf8b (fx<=?* 0 start end (bytevector-length vec)))
+      (assert* 'bytevector-char-ref (fx<=?* 0 start end (bytevector-length vec)))
       (let* ((max-n (fx- end start))
              (b0    (if (fx>? max-n 0) (bytevector-u8-ref vec start) -1)))
         (cond
@@ -122,9 +122,9 @@
           (else
             (utf8b-singlet->char b0)))))
     ((vec pos)
-      (bytevector-ref/utf8b vec pos (bytevector-length vec)))
+      (bytevector-char-ref vec pos (bytevector-length vec)))
     ((vec)
-      (bytevector-ref/utf8b vec 0 (bytevector-length vec)))))
+      (bytevector-char-ref vec 0 (bytevector-length vec)))))
 
 
 ;; convert char to 2-byte UTF-8 sequence and return two values: the two converted bytes.
@@ -159,8 +159,8 @@
 ;; Returns one value: the length in bytes of written UTF-8b sequence.
 ;; Raises condition if writing the UTF-8b sequence into bytevector starting
 ;; from offset = start exceeds bytevector's length.
-(define (bytevector-set/utf8b! vec start ch)
-  (assert* 'bytevector-set/utf8b! (fx<? -1 start (bytevector-length vec)))
+(define (bytevector-char-set! vec start ch)
+  (assert* 'bytevector-char-set! (fx<? -1 start (bytevector-length vec)))
   (let ((n (char->integer ch)))
     (cond
       ((fx<? n 0) 0) ; should not happen
@@ -215,7 +215,7 @@
     ((sp start end)
       (assert* 'bytespan-ref/char (fx<=?* 0 start end (bytespan-length sp)))
       (let ((offset (bytespan-peek-beg sp)))
-        (bytevector-ref/utf8b (bytespan-peek-data sp) (fx+ start offset) (fx+ end offset))))
+        (bytevector-char-ref (bytespan-peek-data sp) (fx+ start offset) (fx+ end offset))))
     ((sp start)
       (bytespan-ref/char sp start (bytespan-length sp)))))
 
@@ -223,7 +223,7 @@
 ;; convert char to UTF-8b sequence and write it into bytespan starting at offset idx
 (define (bytespan-set/char! sp idx ch)
   (assert* 'bytespan-set/char! (fx<=?* 0 idx (fx+ (bytespan-length sp) (char->utf8b-length ch))))
-  (bytevector-set/utf8b! (bytespan-peek-data sp) (fx+ idx (bytespan-peek-beg sp)) ch))
+  (bytevector-char-set! (bytespan-peek-data sp) (fx+ idx (bytespan-peek-beg sp)) ch))
 
 ;; convert a character to UTF-8b sequence and prefix it to bytespan.
 ;; Return length in bytes of inserted UTF-8b sequence

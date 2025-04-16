@@ -412,7 +412,7 @@
     (proc job options)))
 
 
-;; Fork a new subprocess, and in the child subprocess call (proc) once.
+;; Fork a new subprocess, and call (proc) in the child subprocess.
 ;;
 ;; The new subprocess is started in background, i.e. the foreground process group is NOT set
 ;; to the process group of the newly created subprocess.
@@ -420,9 +420,12 @@
 ;; Options is an association list, see (sh-options) for allowed keys and values.
 ;;   Option 'spawn is enabled by default, because this function always spawns a subprocess.
 ;;
-;; Automatically creates a job wrapping the subprocess, and return its job status,
+;; Automatically creates a job wrapping the subprocess, and returns its job status,
 ;;   which is usually (running job-id).
-;;   for a complete list of possible job statuses, see (sh-job-status)
+;;   for a complete list of possible job statuses, see (sh-job-status).
+;;
+;; The child subprocess will exit when (proc) returns, and the job will then exit
+;; with values returned by (proc) converted to an exit status with (call-with-values proc ok).
 (define fork-process
   (let ((c-fork-pid (foreign-procedure "c_fork_pid" (ptr int) int)))
     (case-lambda
