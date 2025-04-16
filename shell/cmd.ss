@@ -317,11 +317,15 @@
   ;; a. do not create process groups => all child processes will
   ;;    inherit process group from the subshell itself
   ;; b. do not change the foregroud process group
+  ;; c. restore most signals to default handler
   ;;
   ;; note that commands executed by the subprocess CAN reactivate job control:
   ;; in such case, (sh-job-control? #t) will self-suspend the subshell with SIGTTIN
   ;; until the user resumes it in the foreground.
   (sh-job-control? #f)
+
+  ;; no longer intercept SIGINT
+  (signal-setdefault 'sigint)
 
   ;; in child process, suppress messages about started/completed jobs
   (sh-job-display-summary? #f)
@@ -420,9 +424,7 @@
 ;; Options is an association list, see (sh-options) for allowed keys and values.
 ;;   Option 'spawn is enabled by default, because this function always spawns a subprocess.
 ;;
-;; Automatically creates a job wrapping the subprocess, and returns its job status,
-;;   which is usually (running job-id).
-;;   for a complete list of possible job statuses, see (sh-job-status).
+;; Automatically creates a job wrapping the subprocess, and returns such job.
 ;;
 ;; The child subprocess will exit when (proc) returns, and the job will then exit
 ;; with values returned by (proc) converted to an exit status with (call-with-values proc ok).
@@ -443,20 +445,19 @@
               (let ((status (exception #f)))
                 (dynamic-wind
                   (lambda () ; run before body
-                    (spawn-job-procedure-child-before job)
-                    (sh-current-job job))
+                    (spawn-job-procedure-child-before job))
                   (lambda () ; body
                     (options->call-fd-close options)
-
+                    (sh-current-job job)
                     (set! status (call-with-values proc ok)))
-
-                (lambda () ; run after body, even if it raised a condition
-                  ;c (debugf "< [child] fork-process job=~s subprocess exiting with pid=~s status=~s" job (job-pid job) status)
-                  (exit-with-status status)))))
+                  (lambda () ; run after body, even if it raised a condition
+                    ;c (debugf "< [child] fork-process job=~s subprocess exiting with pid=~s status=~s" job (job-pid job) status)
+                    (exit-with-status status)))))
             ((> ret 0) ; parent
               (job-pid-set! job ret)
               (job-pgid-set! job pgid)
               (job-status-set/running! job)
-              (job-id-set! job))))) ; returns job status (running job-id)
+              (job-id-set! job)
+              job))))
       ((proc)
         (fork-process proc '())))))

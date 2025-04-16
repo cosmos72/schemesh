@@ -76,7 +76,7 @@
 (define job-control-change!
   (let ((c-job-control-change (foreign-procedure "c_job_control_change" (int) int)))
     (lambda (old-flag new-flag)
-      ; (debugf "job-control-change! ~s -> ~s" old-flag new-flag)
+      ;; (debugf "job-control-change! ~s -> ~s" old-flag new-flag)
       (cond
         ((eq? old-flag new-flag)
           old-flag)

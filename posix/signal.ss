@@ -12,7 +12,8 @@
           &received-signal make-received-signal raise-condition-received-signal
           received-signal? received-signal-name
 
-          signal-raise signal-number->name signal-name->number signal-name-is-usually-fatal?
+          signal-raise signal-setdefault signal-number->name signal-name->number
+          signal-name-is-usually-fatal?
           signal-consume-sigwinch signal-init-sigwinch signal-restore-sigwinch)
   (import
     (rnrs)
@@ -146,6 +147,19 @@
       (let ((signal-number (signal-name->number signal-name)))
         (if (fixnum? signal-number)
           (c-signal-raise signal-number)
+          c-errno-einval)))))
+
+
+;; (signal-setdefault signal-name) calls C functions sigaction(sig, SIG_DFL)
+;; i.e. restores default handler for specified signal.
+;;
+;; Returns < 0 if signal-name is unknown, or if C function sigaction() fails with C errno != 0.
+(define signal-setdefault
+  (let ((c-signal-setdefault (foreign-procedure "c_signal_setdefault" (int) int)))
+    (lambda (signal-name)
+      (let ((signal-number (signal-name->number signal-name)))
+        (if (fixnum? signal-number)
+          (c-signal-setdefault signal-number)
           c-errno-einval)))))
 
 

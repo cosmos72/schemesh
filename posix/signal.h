@@ -257,6 +257,7 @@ static void c_register_c_functions_posix_signals(void) {
   Sregister_symbol("c_countdown", &c_countdown);
   Sregister_symbol("c_signals_list", &c_signals_list);
   Sregister_symbol("c_signal_raise", &c_signal_raise);
+  Sregister_symbol("c_signal_setdefault", &c_signal_setdefault);
   Sregister_symbol("c_signal_consume_sigwinch", &c_signal_consume_sigwinch);
   Sregister_symbol("c_signal_init_sigwinch", &c_signal_init_sigwinch);
   Sregister_symbol("c_signal_restore_sigwinch", &c_signal_restore_sigwinch);

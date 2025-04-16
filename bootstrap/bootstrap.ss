@@ -31,8 +31,8 @@
     (rnrs)
     (rnrs exceptions)
     (rnrs mutable-pairs)
-    (only (chezscheme) append! current-time format foreign-procedure fx1+ fx1- fx/
-                       list-copy list-head lock-object meta pariah reverse!
+    (only (chezscheme) append! console-output-port current-time format foreign-procedure
+                       fx1+ fx1- fx/ list-copy list-head lock-object meta pariah reverse!
                        time-second time-nanosecond unlock-object void)
     (schemesh bootstrap functions))
 
@@ -68,11 +68,10 @@
 
 
 ;; port where to write debug messages with (debugf).
-#|
 (define (debugf-port)
   (console-output-port))
-|#
 
+#|
 (define debugf-port
   (let ((port #f))
     (lambda ()
@@ -85,6 +84,7 @@
                      (make-transcoder (utf-8-codec) (eol-style lf)
                                       (error-handling-mode raise)))))
       port)))
+|#
 
 
 (define c-pid-get (foreign-procedure "c_pid_get" () int))
