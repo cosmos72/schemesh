@@ -53,7 +53,7 @@
 ;; Returns unspecified value.
 (define (jexpr-start job options)
   (assert* 'sh-expr (eq? 'running (job-last-status->kind job)))
-  (call-or-spawn-procedure job options
+  (call-or-spawn-job-procedure job options
     (lambda (job options)
     ;; jexpr-proc may want to use (sh-fd N)
     (job-remap-fds! job)

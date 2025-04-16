@@ -17,7 +17,7 @@
     (only (schemesh posix signal) signal-name->number))
 
 
-;; (pid-get) returns pid of current process
+;; return pid of current process
 (define pid-get
   (let ((c-pid-get (foreign-procedure "c_pid_get" () int)))
     (lambda ()
@@ -26,7 +26,7 @@
           (raise-c-errno 'pid-get 'getpid ret))
         ret))))
 
-;; (pgid-get) returns process group of specified process (0 = current process)
+;; return process group of specified process (0 = current process)
 (define pgid-get
   (let ((c-pgid-get (foreign-procedure "c_pgid_get" (int) int)))
     (lambda (pid)
@@ -36,8 +36,7 @@
         ret))))
 
 
-;; (pid-kill pid signal-name-or-number) calls C function kill(pid, sig)
-;; i.e. sends specified signal to the process(es) identified by pid.
+;; call C function kill(pid, sig) i.e. send specified signal to the process(es) identified by pid.
 ;; Notes:
 ;;   pid ==  0 means "all processes in the same process group as the caller".
 ;;   pid == -1 means "all processes".

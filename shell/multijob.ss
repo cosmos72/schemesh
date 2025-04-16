@@ -151,7 +151,7 @@
 (define (mj-list-start job options)
   (assert* 'sh-list (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-list (fx=? -1 (multijob-current-child-index job)))
-  (call-or-spawn-procedure job options
+  (call-or-spawn-job-procedure job options
     (lambda (job options)
       (job-remap-fds! job)
       (job-env/apply-lazy! job 'export)
@@ -173,7 +173,7 @@
   (assert* 'sh-subshell (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-subshell (fx=? -1 (multijob-current-child-index job)))
   ;; run closure in a subprocess
-  (spawn-procedure job options
+  (spawn-job-procedure job options
     (lambda (job options)
       (job-remap-fds! job)
       (job-env/apply-lazy! job 'export)
@@ -183,7 +183,7 @@
       ;; and (sh-wait) needs it to know what to do with children jobs.
       (job-step-proc-set! job mj-list-step)
 
-      ;; no need to wait for job, (spawn-procedure) already does that
+      ;; no need to wait for job, (spawn-job-procedure) already does that
       (sh-wait job))))
 
 
@@ -197,7 +197,7 @@
   ;; this runs in the main process, not in a subprocess.
   (assert* 'sh-and (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-and (fx=? -1 (multijob-current-child-index job)))
-  (call-or-spawn-procedure job options
+  (call-or-spawn-job-procedure job options
     (lambda (job options)
       (job-remap-fds! job)
       (job-env/apply-lazy! job 'export)
@@ -218,7 +218,7 @@
   ;; this runs in the main process, not in a subprocess.
   (assert* 'sh-or (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-or (fx=? -1 (multijob-current-child-index job)))
-  (call-or-spawn-procedure job options
+  (call-or-spawn-job-procedure job options
     (lambda (job options)
       (job-remap-fds! job)
       (job-env/apply-lazy! job 'export)
@@ -238,7 +238,7 @@
   ;; this runs in the main process, not in a subprocess.
   (assert* 'sh-not (eq? 'running (job-last-status->kind job)))
   (assert* 'sh-not (fx=? -1 (multijob-current-child-index job)))
-  (call-or-spawn-procedure job options
+  (call-or-spawn-job-procedure job options
     (lambda (job options)
       (job-remap-fds! job)
       (job-env/apply-lazy! job 'export)
@@ -249,7 +249,7 @@
 ;; executed in subprocesses for setting up their parameters:
 ;;   prepare to run silently and without job control
 ;;   store new pid and pgid into (sh-globals)
-(define (spawn-procedure-child-before job)
+(define (spawn-job-procedure-child-before job)
   ;; in child process, deactivate job control
   ;;
   ;; a. do not create process groups => all child processes will
@@ -289,11 +289,11 @@
 ;; Note: does not call (job-env/apply-lazy! job).
 ;;
 ;; Options is an association list, see (sh-start) for allowed keys and values.
-;;   'spawn: a symbol. enabled by default, because this function always spawns a subprocess.
+;;   Option 'spawn is enabled by default, because this function always spawns a subprocess.
 ;;
 ;; Return job status, which is usually '(running ...)
 ;;   for a complete list of possible job statuses, see (sh-job-status)
-(define spawn-procedure
+(define spawn-job-procedure
   (let ((c-fork-pid (foreign-procedure "c_fork_pid" (ptr int) int)))
     (lambda (job options proc)
       (assert* 'sh-start (sh-job? job))
@@ -311,7 +311,7 @@
             (let ((status (exception #f)))
               (dynamic-wind
                 (lambda () ; run before body
-                  (spawn-procedure-child-before job))
+                  (spawn-job-procedure-child-before job))
                 (lambda () ; body
                   (options->call-fd-close options)
 
@@ -321,13 +321,13 @@
                   ;;    (job-unmap-fds! parent)
                   ;;    (job-unredirect/temp/all! parent)))
 
-                  ;c (debugf "> [child] spawn-procedure job=~s subprocess calling proc ~s" job proc)
+                  ;c (debugf "> [child] spawn-job-procedure job=~s subprocess calling proc ~s" job proc)
                   (proc job (options-filter-out options '(fd-close spawn?)))
 
-                  ;c (debugf ". [child] spawn-procedure job=~s subprocess proc returned ~s pid=~s" job ret (job-pid job))
+                  ;c (debugf ". [child] spawn-job-procedure job=~s subprocess proc returned ~s pid=~s" job ret (job-pid job))
                   (set! status (sh-wait job)))
                 (lambda () ; run after body, even if it raised a condition
-                  ;c (debugf "< [child] spawn-procedure job=~s subprocess exiting with pid=~s status=~s" job (job-pid job) status)
+                  ;c (debugf "< [child] spawn-job-procedure job=~s subprocess exiting with pid=~s status=~s" job (job-pid job) status)
                   (exit-with-status status)))))
           ((> ret 0) ; parent
             (job-pid-set! job ret)
@@ -335,15 +335,15 @@
             (running)))))))
 
 
-;; if options contain 'spawn? #t then remove such options and call (spawn-procedure job options proc)
+;; if options contain 'spawn? #t then remove such options and call (spawn-job-procedure job options proc)
 ;; otherwise directly call (proc job options)
 ;;
 ;; WARNING (proc job options) must call (sh-job-status-set! job), because the return value of (proc ...) is ignored
-(define (call-or-spawn-procedure job options proc)
-  ;c (debugf "call-or-spawn-procedure options=~s proc=~s job=~s" options proc job)
+(define (call-or-spawn-job-procedure job options proc)
+  ;c (debugf "call-or-spawn-job-procedure options=~s proc=~s job=~s" options proc job)
   (if (options->spawn? options)
     ;; spawn a subprocess and run (proc... job) inside it
-    (spawn-procedure job options proc)
+    (spawn-job-procedure job options proc)
     ;; directly call (proc job options) in the caller's process
     (proc job options)))
 

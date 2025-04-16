@@ -421,7 +421,7 @@
 ;; internal function called by (builtin-start) to execute a builtin.
 ;; returns job status.
 (define (%builtin-start-already-redirected builtin job args options)
-  (call-or-spawn-procedure job options
+  (call-or-spawn-job-procedure job options
     (lambda (job options)
       ;; execute the builtin
       ;c (debugf "builtin-start options=~s args=~s job=~s" options args job)
