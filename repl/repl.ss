@@ -43,7 +43,7 @@
        sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
        sh-foreground-pgid sh-job-control? sh-job-control-available? sh-job-pgid
        repl-history sh-make-linectx sh-schemesh-reload-count
-       sh-run/i sh-xdg-cache-home/ sh-xdg-config-home/)
+       sh-run/i xdg-cache-home/ xdg-config-home/)
     (schemesh repl answers))
 
 
@@ -345,19 +345,19 @@
         lctx
         (sh-make-linectx
           (if enabled-parsers? enabled-parsers (parsers))
-          (if history-path?    history-path    (sh-xdg-cache-home/ "schemesh/history.txt"))))
-      (if init-file-path? init-file-path (sh-xdg-config-home/ "schemesh/repl_init.ss"))
-      (if quit-file-path? quit-file-path (sh-xdg-config-home/ "schemesh/repl_quit.ss")))))
+          (if history-path?    history-path    (xdg-cache-home/ "schemesh/history.txt"))))
+      (if init-file-path? init-file-path (xdg-config-home/ "schemesh/repl_init.ss"))
+      (if quit-file-path? quit-file-path (xdg-config-home/ "schemesh/repl_quit.ss")))))
 
 
 ;; top-level interactive repl.
 ;; optional argument options must be a list containing zero or more:
-;; 'history history-path    - string,    defaults to (sh-xdg-cache-dir/ "schemesh/history.txt")
-;; 'init    init-file-path  - string,    defaults to (sh-xdg-config-dir/ "schemesh/repl_init.sh")
+;; 'history history-path    - string,    defaults to (xdg-cache-dir/ "schemesh/history.txt")
+;; 'init    init-file-path  - string,    defaults to (xdg-config-dir/ "schemesh/repl_init.sh")
 ;; 'parser  initial-parser  - symbol,    defaults to 'shell
 ;; 'parsers enabled-parsers - hashtable, defaults to (parsers)
 ;; 'print   print-func      - procedure, defaults to repl-print
-;; 'quit    quit-file-path  - string,    defaults to (sh-xdg-config-dir/ "schemesh/repl_quit.sh")
+;; 'quit    quit-file-path  - string,    defaults to (xdg-config-dir/ "schemesh/repl_quit.sh")
 ;; 'linectx lctx            - linectx,   defaults to (sh-make-linectx* enabled-parsers history-path)
 ;;
 ;; Returns first value passed to (exit), or (void) on linectx eof

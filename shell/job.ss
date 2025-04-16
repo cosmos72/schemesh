@@ -34,7 +34,7 @@
     ; sh-wait-flag-wait? sh-wait-flag-wait-until-finished? sh-wait-flag-wait-until-stopped-or-finished?
 
     ;; dir.ss
-    sh-cd sh-cd- sh-pwd sh-userhome sh-xdg-cache-home/ sh-xdg-config-home/
+    sh-cd sh-cd- sh-pwd sh-userhome xdg-cache-home/ xdg-config-home/
 
     ;; display.ss
     sh-job-display sh-job-display* sh-job->string

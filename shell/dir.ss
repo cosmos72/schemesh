@@ -242,7 +242,7 @@
 
 ;; if subpath is specified, return (string-append (xdg-cache-home) "/" subpath)
 ;; otherwise return (string-append (xdg-cache-home) "/")
-(define sh-xdg-cache-home/
+(define xdg-cache-home/
   (case-lambda
     (()         (string-append (xdg-cache-home) "/"))
     ((subpath)  (string-append (xdg-cache-home) "/" subpath))))
@@ -250,7 +250,7 @@
 
 ;; if subpath is specified, return (string-append (xdg-config-home) "/" subpath)
 ;; otherwise return (string-append (xdg-config-home) "/")
-(define sh-xdg-config-home/
+(define xdg-config-home/
   (case-lambda
     (()         (string-append (xdg-config-home) "/"))
     ((subpath)  (string-append (xdg-config-home) "/" subpath))))
