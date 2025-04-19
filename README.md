@@ -498,11 +498,19 @@ gmake install  # must be executed as root
 ```
 
 #### Mac OS X
+
+**WARNING**
+There are significant bugs running schemesh on Mac OS X, see issue #17.
+
+At this time, support for Mac OS X can be considered experimental at best.
+
+The author is actively working on this issue, and updates may be (hopefully) available soon.
+
 ```shell
 sudo xcode-select --install # only needed if you don't already have XCode Command Line Tools
 brew install chezscheme lz4
 git clone https://github.com/cosmos72/schemesh
-git checkout -f v0.8.3
+git checkout -f main  # version v0.8.3 does not support Mac OS X
 cd schemesh
 make -j
 
