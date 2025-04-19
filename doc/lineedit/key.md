@@ -60,7 +60,7 @@ Example:
 
 `(lineedit-key-eof lctx)` moves cursor to the end of *last* line
 
-`(lineedit-key-break lctx)` deletes all lines
+`(lineedit-key-clear lctx)` deletes all lines
 
 `(lineedit-key-ctrl-d lctx)` deletes one character to the right. Acts as end-of-file if lines are empty.
 

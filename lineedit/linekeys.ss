@@ -66,7 +66,7 @@
 (define (lineedit-key-eof lctx)
   (linectx-ixy-set! lctx (greatest-fixnum) (greatest-fixnum)))
 
-(define (lineedit-key-break lctx)
+(define (lineedit-key-clear lctx)
   (linectx-clear! lctx)
   (linectx-return-set! lctx #t))
 
