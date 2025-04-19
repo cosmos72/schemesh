@@ -499,12 +499,7 @@ gmake install  # must be executed as root
 
 #### Mac OS X
 
-**WARNING**
-There are significant bugs running schemesh on Mac OS X, see [issue #17](https://github.com/cosmos72/schemesh/issues/17).
-
-At this time, support for Mac OS X can be considered experimental at best.
-
-The author is actively working on this issue, and updates may be (hopefully) available soon.
+*WARNING* support for Mac OS X is only slightly tested.
 
 ```shell
 sudo xcode-select --install # only needed if you don't already have XCode Command Line Tools
