@@ -1863,6 +1863,17 @@ static char** vector_to_c_argz(ptr vector_of_bytevector0) {
   return c_argz;
 }
 
+#if 0 /* not used yet */
+static uptr c_thread_count(void) {
+#ifdef FEATURE_PTHREADS
+  extern volatile uptr S_nthreads;
+  return S_nthreads;
+#else
+  return 1;
+#endif
+}
+#endif /* 0 */
+
 int schemesh_register_c_functions_posix(void) {
   int err;
   if ((err = c_tty_init()) < 0) {
