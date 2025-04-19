@@ -20,19 +20,19 @@
 ;; or n-th recent value produced by code evaluated at REPL,
 ;; or (void) if n is out of range.
 (define repl-answers
-  (let ((h (make-span 0)))
+  (let ((ans (make-span 0)))
     (case-lambda
       (()
-        h)
+        ans)
       ((n)
-        (if (fx<? -1 n (span-length h))
-          (span-ref h n)
+        (if (fx<? -1 n (span-length ans))
+          (span-ref ans n)
           (void))))))
 
 
 ;; set or retrieve maximum length of (repl-answers)
 (define repl-answers-max-length
-  (let ((max-len 1000))
+  (let ((max-len 128))
     (case-lambda
       (()
         max-len)
@@ -44,11 +44,14 @@
 
 ;; append obj to (repl-answers)
 (define (repl-answers-append! obj)
-  (let ((h (repl-answers))
-        (max-len (repl-answers-max-length)))
-    (when (fx>? (span-length h) max-len)
-      (span-erase-left! (fx- (span-length h) max-len)))
-    (span-insert-right! h obj)))
+  (let* ((ans (repl-answers))
+         (len (span-length ans))
+         (max-len (repl-answers-max-length))
+         (delta (fx- len max-len)))
+    (when (fx>? delta 0)
+      (span-fill! ans 0 delta (void)) ; helps GC
+      (span-erase-left! ans delta))
+    (span-insert-right! ans obj)))
 
 
 ;; clear (repl-answers)
@@ -61,13 +64,13 @@
 (define repl-answers-display
   (case-lambda
     ((port)
-      (let ((h (repl-answers)))
+      (let ((ans (repl-answers)))
         (do ((i 0 (fx1+ i))
-             (n (span-length h)))
+             (n (span-length ans)))
             ((fx>=? i n))
           (write      i port)
           (write-char #\tab port)
-          (write      (span-ref h i) port)
+          (write      (span-ref ans i) port)
           (newline    port))))
     (()
       (repl-answers-display (current-output-port)))))
