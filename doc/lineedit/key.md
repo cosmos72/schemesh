@@ -4,17 +4,19 @@ The effect of key presses at REPL is controlled the library `(schemesh lineedit)
 Users can change these effects, and define new ones.
 
 The library `(schemesh lineedit)` contains default key bindings suitable for most terminals:<br/>
-they are stored in the scheme global variable `linectx-default-keytable`<br/>
-which is a hashtable and can be accessed by calling
+they are stored in the scheme global variable `linectx-default-keytable`<br/> which is a hashtable and can be accessed by calling
 * `(values linectx-default-keytable)`
-* or `(hashtable-cells linectx-default-keytable)`
+* `(hashtable-cells linectx-default-keytable)`
 * or any equivalent mechanism that inspects the content of hashtable `linectx-default-keytable`.
 
 To change a key binding, or create a new one, call
-`(linectx-keytable-insert! linectx-default-keytable PROCEDURE BYTE-SEQUENCE)` where
+```scheme
+(linectx-keytable-insert! linectx-default-keytable PROCEDURE BYTE-SEQUENCE)
+```
+where
 * `PROCEDURE` is the scheme procedure to execute when the desired key is pressed
-* `BYTE-SEQUENCE` is the sequence of bytes produced by such key press,
-  which must be encoded as one of: a fixnum, a list of fixnums, a bytevector or a string.
+* `BYTE-SEQUENCE` is the sequence of bytes produced by such key press,<br/>
+  and must be encoded as one of: a fixnum, a list of fixnums, a bytevector or a string.
 
 Example:
 ```scheme
