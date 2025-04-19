@@ -236,6 +236,7 @@ static int c_countdown(ptr duration_inout) {
   if (duration.tv_sec < 0 || (duration.tv_sec == 0 && duration.tv_nsec <= 0)) {
     return 0;
   }
+  /* macOS lacks clock_nanosleep(). How to test for clock_nanosleep() availability? */
 #if defined(CLOCK_MONOTONIC) && !defined(__APPLE__)
   err = clock_nanosleep(CLOCK_MONOTONIC, 0, &duration, &left);
 #else

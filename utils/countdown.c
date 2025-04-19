@@ -59,11 +59,11 @@ static int c_countdown(timespec interval) {
   while ((interval.tv_sec > 0 || (interval.tv_sec == 0 && interval.tv_nsec > 0))) {
     c_sigtstp_sethandler();
 
-    /* temporary workaround. How to test for clock_nanosleep() availability? */
+    /* macOS lacks clock_nanosleep(). How to test for clock_nanosleep() availability? */
 #if defined(CLOCK_MONOTONIC) && !defined(__APPLE__)
     err = clock_nanosleep(CLOCK_MONOTONIC, 0, &interval, &left);
 #else
-    if (nanosleep(&interval, &left) != 0) {
+    if ((err = nanosleep(&interval, &left)) != 0) {
       err = errno;
     }
 #endif
