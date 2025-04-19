@@ -3,34 +3,33 @@
 The effect of key presses at REPL is controlled the library `(schemesh lineedit)`.
 Users can change these effects, and define new ones.
 
-The library `(schemesh lineedit)` contains default key bindings suitable for most terminals:
-they are stored in the scheme global variable `linectx-default-keytable`
-which is a hashtable and can be accessed by calling `(values linectx-default-keytable)`
-or `(hashtable-cells linectx-default-keytable)`
-or any equivalent mechanism that inspects the content of hashtable `linectx-default-keytable`.
+The library `(schemesh lineedit)` contains default key bindings suitable for most terminals:<br/>
+they are stored in the scheme global variable `linectx-default-keytable`<br/>
+which is a hashtable and can be accessed by calling
+* `(values linectx-default-keytable)`
+* or `(hashtable-cells linectx-default-keytable)`
+* or any equivalent mechanism that inspects the content of hashtable `linectx-default-keytable`.
 
 To change a key binding, or create a new one, call
-`(linectx-keytable-insert! linectx-default-keytable PROCEDURE BYTE-SEQUENCE)`
-where `PROCEDURE` is the scheme procedure to execute when the desired key is pressed,
-and `BYTE-SEQUENCE` is the sequence of bytes produced by such key press,
-which must be encoded as one of: a fixnum, a list of fixnums, a bytevector or a string.
+`(linectx-keytable-insert! linectx-default-keytable PROCEDURE BYTE-SEQUENCE)` where
+* `PROCEDURE` is the scheme procedure to execute when the desired key is pressed
+* `BYTE-SEQUENCE` is the sequence of bytes produced by such key press,
+  which must be encoded as one of: a fixnum, a list of fixnums, a bytevector or a string.
 
 Example:
 ```scheme
 (linectx-keytable-insert! linectx-default-keytable lineedit-key-history-prev "\x1b;[[A")
 ```
-associates the byte sequence `"\x1b;[[A"` i.e. `ESC [ [ A`, usually produced by key F1,
-to the procedure `lineedit-key-history-prev` that searches backward in history
-(see below for a more detailed description).
+associates the byte sequence `"\x1b;[[A"` i.e. `ESC [ [ A`, usually produced by key F1,<br/>
+to the procedure `lineedit-key-history-prev` that searches backward in history.
 
-Defining new procedures that can be passed as arguments to `(linectx-keytable-insert!)`
-is currently not documented, because such procedures need to access internals of `linectx` objects,
-which are undocumented too.
+Defining new procedures that can be passed as arguments to `(linectx-keytable-insert!)` is currently not documented,<br/>
+because such procedures need to access internals of `linectx` objects, which are undocumented too.
 
 The following procedures are predefined by library `(schemesh lineedit)` and can be passed
 as arguments to `(linectx-keytable-insert!)`.
 
-Note: you need to pass the procedures itself - not call it - thus the parentheses must be omitted.
+Note: you need to pass the procedures itself - not call it - thus the parentheses must be omitted.<br/>
 Example:
 ```scheme
 (linectx-keytable-insert! linectx-default-keytable lineedit-key-nop "\x12;")
