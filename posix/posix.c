@@ -1763,8 +1763,8 @@ static int c_pgid_foreground_cas(int old_pgid, int new_pgid) {
 static ptr c_pid_wait(int pid, int may_block) {
   int   wstatus = 0;
   int   result  = 0;
+  int   retry_n = 1;
   pid_t ret_pid;
-
   /*
    * avoid WCONTINUED on macOS:
    * it repeatedly reports the same pid as "continued", causing a busy loop
@@ -1774,26 +1774,39 @@ static ptr c_pid_wait(int pid, int may_block) {
 #else
   const int options = WUNTRACED;
 #endif
-  ret_pid = waitpid((pid_t)pid, &wstatus, options | (may_block ? 0 : WNOHANG));
 
-#if 0
-  fprintf(stderr,
-          "c_pid_wait(pid = %d, may_block = %d) -> ret = %d, errno = %d\n",
-          pid,
-          may_block,
-          ret_pid,
-          errno);
-  fflush(stderr);
-#endif /* 0 */
+again:
+  ret_pid = waitpid((pid_t)pid, &wstatus, options | (may_block ? 0 : WNOHANG));
 
   if (ret_pid <= 0) { /* 0 if children exist but did not change status */
     int err = 0;
     if (ret_pid < 0) {
       err = c_errno();
+      /*
+       * when a child stops on macOS, waitpid() fails with err == -EINTR
+       * and we must call waitpid() again to get stopped child's pid.
+       *
+       * Retrying on EINTR may help on other systems too, thus do it unconditionally
+       */
+      if (retry_n > 0 && err == -EINTR) {
+        retry_n--;
+        may_block = 0;
+        goto again;
+      }
       if (err == -EAGAIN || err == -EINTR || err == -ECHILD) {
         err = 0; /* no child changed status */
       }
     }
+#ifdef SCHEMESH_DEBUG_WAIT_PID
+    fprintf(stderr,
+            "c_pid_wait(pid = %d, may_block = %d) -> pid = %d, errno = %d %s\n",
+            pid,
+            may_block,
+            ret_pid,
+            errno,
+            strerror(errno));
+    fflush(stderr);
+#endif /* DEBUG_WAIT_PID */
     return err == 0 ? Snil : Sinteger(err);
   } else if (WIFEXITED(wstatus)) {
     result = (int)(unsigned char)WEXITSTATUS(wstatus);
@@ -1808,6 +1821,16 @@ static ptr c_pid_wait(int pid, int may_block) {
   } else {
     return Sinteger(c_errno_set(EINVAL));
   }
+#ifdef SCHEMESH_DEBUG_WAIT_PID
+  fprintf(stderr,
+          "c_pid_wait(pid = %d, may_block = %d) -> pid = %d, result = %d\n",
+          pid,
+          may_block,
+          ret_pid,
+          result);
+  fflush(stderr);
+#endif /* SCHEMESH_DEBUG_WAIT_PID */
+
   return Scons(Sinteger(ret_pid), Sinteger(result));
 }
 
