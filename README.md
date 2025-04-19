@@ -500,7 +500,7 @@ gmake install  # must be executed as root
 #### Mac OS X
 
 **WARNING**
-There are significant bugs running schemesh on Mac OS X, see issue #17.
+There are significant bugs running schemesh on Mac OS X, see [issue #17](https://github.com/cosmos72/schemesh/issues/17).
 
 At this time, support for Mac OS X can be considered experimental at best.
 
