@@ -580,9 +580,13 @@ See [doc/recent_changes.md](doc/recent_changes.md)
 Shell builtins can be listed by typing `help` at the prompt,
 and help for each builtin can be viewed by typing `help NAME` at the prompt.
 
-Scheme functions are not (yet) documented.
+The documented scheme functions currently include:
 
-Prompt customization **is** documented: see [doc/lineedit/ansi.md](doc/lineedit/ansi.md)
+* Prompt customization, see [doc/lineedit/ansi.md](doc/lineedit/ansi.md)
+
+* Key bindings customization, see [doc/lineedit/key.md](doc/lineedit/key.md)
+
+Most other scheme functions are not (yet) documented.
 
 ## FREQUENTLY ASKED QUESTIONS
 

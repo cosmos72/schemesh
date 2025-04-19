@@ -17,7 +17,8 @@
 
     lineedit-clear!     lineedit-display-table
     lineedit-lines-set! lineedit-insert/rbuf!
-    lineedit-key-nop lineedit-key-left lineedit-key-right lineedit-key-up lineedit-key-down
+    lineedit-key-autocomplete lineedit-key-nop
+    lineedit-key-left lineedit-key-right lineedit-key-up lineedit-key-down
     lineedit-key-word-left lineedit-key-word-right lineedit-key-bol lineedit-key-eol
     lineedit-key-break lineedit-key-ctrl-d lineedit-key-transpose-char
     lineedit-key-del-left lineedit-key-del-right
@@ -25,7 +26,7 @@
     lineedit-key-del-line lineedit-key-del-line-left lineedit-key-del-line-right
     lineedit-key-enter lineedit-key-newline-left lineedit-key-newline-right
     lineedit-key-history-next lineedit-key-history-prev lineedit-key-insert-clipboard
-    lineedit-key-redraw lineedit-key-tab lineedit-key-toggle-insert
+    lineedit-key-redraw lineedit-key-toggle-insert
     lineedit-paren-find/before-cursor lineedit-paren-find/surrounds-cursor
     lineedit-read lineedit-read-confirm-y-or-n? lineedit-flush)
   (import
@@ -456,7 +457,7 @@
   (%add t lineedit-key-eof          5) ; CTRL+E
   (%add t lineedit-key-right        6) ; CTRL+F
   (%add t lineedit-key-del-left 8 127) ; CTRL+H, BACKSPACE
-  (%add t lineedit-key-tab          9) ; CTRL+I, TAB
+  (%add t lineedit-key-autocomplete 9) ; CTRL+I, TAB
   (%add t lineedit-key-enter    10 13) ; CTRL+J or ENTER, CTRL+M
   (%add t lineedit-key-del-line-right   11) ; CTRL+K
   (%add t lineedit-key-redraw           12) ; CTRL+L

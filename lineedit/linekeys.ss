@@ -179,7 +179,7 @@
 (define (lineedit-key-redraw lctx)
   (linectx-redraw-set! lctx #t))
 
-(define (lineedit-key-tab lctx)
+(define (lineedit-key-autocomplete lctx)
   (let ((proc (linectx-completion-proc)))
     (when proc
       (proc lctx)
