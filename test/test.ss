@@ -25,6 +25,7 @@
 
 
 (define (run-tests file-path)
+  (status-display-color? #f)
   (let* ((tests  (sh-read-file file-path))
          (vec-n  (vector-length tests))
          (test-n (fx1+ (fx/ vec-n 2))) ; also count (run-tests-utf8b)

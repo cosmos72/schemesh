@@ -9,14 +9,14 @@
 
 (library (schemesh posix status (0 8 3))
   (export
-       exit-with-status
+       exit-with-status status-display-color?
        new running stopped exception failed killed ok
        status? status->kind status->value list->ok ok->list ok->values
        new? started? running? stopped? finished? ok?)
   (import
     (rnrs)
     (only (chezscheme)            console-output-port console-error-port fx1+ include record-writer void)
-    (only (schemesh bootstrap)    assert*)
+    (only (schemesh bootstrap)    assert* sh-make-parameter)
     (only (schemesh containers hashtable) for-hash plist->eq-hashtable)
     (schemesh wire)
     (only (schemesh posix fd)     c-exit)
@@ -249,14 +249,25 @@
 ;; customize how "status" objects are serialized/deserialized
 (include "posix/wire-status.ss")
 
+(define status-display-color?
+  (sh-make-parameter #t))
 
 ;; customize how "status" objects are printed
 (record-writer (record-type-descriptor %status)
   (lambda (status port writer)
-    (let ((kind (%status->kind status))
-          (val  (%status->val status)))
-      (put-string port "(")
+    (let ((kind   (%status->kind status))
+          (val    (%status->val status))
+          (color? (status-display-color?)))
+      (put-string port
+        (case (and color? kind)
+          ((running)                 "(\x1b;[1;36m")
+          ((stopped)                 "(\x1b;[1;33m")
+          ((exception failed killed) "(\x1b;[1;31m")
+          ((ok)                      "(\x1b;[1;32m")
+          (else                      "(")))
       (put-datum port kind)
+      (when color?
+        (put-string port "\x1b;[m"))
       (case kind
         ((new)
           (void))
