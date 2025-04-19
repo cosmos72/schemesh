@@ -1765,10 +1765,16 @@ static ptr c_pid_wait(int pid, int may_block) {
   int   result  = 0;
   pid_t ret_pid;
 
-#ifndef WCONTINUED
-#define WCONTINUED 0
+  /*
+   * avoid WCONTINUED on macOS:
+   * it repeatedly reports the same pid as "continued", causing a busy loop
+   */
+#if defined(WCONTINUED) && !defined(__APPLE__)
+  const int options = WUNTRACED | WCONTINUED;
+#else
+  const int options = WUNTRACED;
 #endif
-  ret_pid = waitpid((pid_t)pid, &wstatus, WUNTRACED | WCONTINUED | (may_block ? 0 : WNOHANG));
+  ret_pid = waitpid((pid_t)pid, &wstatus, options | (may_block ? 0 : WNOHANG));
 
 #if 0
   fprintf(stderr,
