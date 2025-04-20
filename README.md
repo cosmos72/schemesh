@@ -574,8 +574,8 @@ If `make -j` fails, do not panic :) Some issues are relatively minor and can be 
 
    In such case you can manually specify it, as for example `make -j CHEZ_SCHEME_DIR="/usr/local/lib/csv10.0.0/ta6le"`
 
-2. on Ubuntu 22.04, you may get the error message
-   `lto1: fatal error: bytecode stream in file ‘/usr/lib/csv9.5.4/ta6le/kernel.o’ generated with LTO version 9.4 instead of the expected 11.3`
+2. on Ubuntu, you may get the error message
+   `lto1: fatal error: bytecode stream in file ‘/usr/lib/csv.../ta6le/kernel.o’ generated with LTO version NNN instead of the expected MMM`
 
    This can be worked around by running `make -j CC="gcc -fno-lto"`
 
