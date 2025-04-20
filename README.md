@@ -491,6 +491,11 @@ make -j
 sudo make install
 ```
 
+#### Windows
+On Windows 10 or later, install [Windows Subsystem for Linux (WSL)](https://learn.microsoft.com/en-us/windows/wsl/)
+then, at Linux shell prompt, follow the Linux instructions above matching the distribution that you installed:
+by default, WSL installs [Ubuntu Linux](#ubuntu-linux)
+
 #### FreeBSD
 ```shell
 pkg install chez-scheme gcc git gmake  # must be executed as root
@@ -550,11 +555,6 @@ let
   ];
 }
 ```
-
-#### Windows
-On Windows 10 or later, install [Windows Subsystem for Linux (WSL)](https://learn.microsoft.com/en-us/windows/wsl/)
-then, at Linux shell prompt, follow the Linux instructions above matching the distribution that you installed:
-by default, WSL installs [Ubuntu Linux](#ubuntu-linux)
 
 #### other systems
 For Unix-like systems not listed above, the instructions above can (hopefully) be adapted as needed.
