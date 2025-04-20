@@ -467,6 +467,15 @@ make -j
 sudo make install
 ```
 
+#### Ubuntu Linux
+Follow the same instructions as for [Debian Linux](#debian-linux) above.
+
+If you get errors similar to
+```
+lto1: fatal error: bytecode stream in file '/usr/lib/csv.../ta6le/kernel.o' generated with LTO version NNN instead of the expected MMM
+```
+then replace the command `make -j` with `make -j CC='gcc -fno-lto'`
+
 #### Fedora Linux
 ```shell
 sudo dnf install gcc make chez-scheme-devel lz4-devel ncurses-devel git libuuid-devel zlib-devel
@@ -541,6 +550,11 @@ let
   ];
 }
 ```
+
+#### Windows
+On Windows 10 or later, install [Windows Subsystem for Linux (WSL)](https://learn.microsoft.com/en-us/windows/wsl/)
+then, at Linux shell prompt, follow the Linux instructions above matching the distribution that you installed:
+by default, WSL installs [Ubuntu Linux](#ubuntu-linux)
 
 #### other systems
 For Unix-like systems not listed above, the instructions above can (hopefully) be adapted as needed.
