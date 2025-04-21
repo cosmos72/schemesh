@@ -8,7 +8,7 @@
 #!r6rs
 
 (library (schemesh bootstrap arrow (0 8 3))
-  (export ->compose ->expand)
+  (export expand?=>)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -16,16 +16,33 @@
                        fx1+ fx1- fx/ gensym list-copy list-head))
 
 
+;; scan template for '_ and replace '_ with item.
+;; if template contains no '_ then append item to template.
+;;
+;; return modified of template.
+(define (replace_! item template)
+  (let ((place (memq '_ template)))
+    (if place
+      (begin
+        (set-car! place item)
+        template)
+      (append! template (list item)))))
 
-;; helper function used by ->
-;; traverse list, find element eq? to key, and return its position in the list as an exact integer.
-;; return #f if no element eq? to key was found
-(define (list-index/eq l key)
-  (let %list-index ((l l) (key key) (pos 0))
+
+;; helper function used by expand?=>
+;;
+;; traverse list, find first element eq? to '=> or '?=> and return two values:
+;;  its position in the list and the symbol found,
+;;  or #f #f if no such element was found
+(define (scan=> l)
+  (let %scan=> ((l l) (pos 0))
     (cond
-      ((null? l)         #f)
-      ((eq? key (car l)) pos)
-      (else              (%list-index (cdr l) key (fx1+ pos))))))
+      ((null? l)
+        (values #f #f))
+      ((memq (car l) '(=> ?=>))
+        (values pos (car l)))
+      (else
+        (%scan=> (cdr l) (fx1+ pos))))))
 
 
 ;; set the n-th car of a list
@@ -33,51 +50,52 @@
   (set-car! (list-tail l n) obj))
 
 
-;; helper function used by ->expand
-(define (->compose head arrow? tail)
-  ;; (format #t "->compose head=~s arrow?=~s tail=~s\n" head arrow? tail)
-  (let* ((tail (list-copy tail))
-         (pos1 (list-index/eq tail '_))
-         (pos2 (list-index/eq tail '->))
-         (pos3 (list-index/eq tail '?>))
-         (ret  tail))
-    (cond
-      ((and pos1 (or (not pos2) (fx<? pos1 pos2))
-                 (or (not pos3) (fx<? pos1 pos3)))
-        ;; found _ before next -> or ?>
-        (if arrow?
-          (list-set! tail pos1 head)
-          (let ((g (gensym)))
-            (list-set! tail pos1 g)
-            (set! ret `(let ((,g ,head))
-                         (and ,g ,tail))))))
-      ((and pos2 (or (not pos3) (fx<? pos2 pos3)))
-        ;; found -> before next _ or ?>
-        (let ((splice (list-tail tail pos2)))
-          (list-set! tail pos2 (cons head splice))))
-      (pos3
-        ;; found ?> before next _ or ->
-        (let ((splice (list-tail tail pos3)))
-          (list-set! tail pos3 (cons head splice))))
-      (else
-        ;; next -> or ?> not found
-        (append! tail (list head))))
-    (if (or pos2 pos3)
-      (cons '-> ret) ; ret contains further -> that must be processed
-      ret)))
-
-
-;; implementation of macro ->
-(define (->expand l)
-  (when (null? l)
-    (syntax-violation "" "invalid syntax, need at least one argument after" '->))
-  (let* ((pos1   (list-index/eq l '->))
-         (pos2   (list-index/eq l '?>))
-         (arrow? (and pos1 (or (not pos2) (fx<? pos1 pos2))))
-         (pos    (if arrow? pos1 pos2)))
+;; expand (=> head rest)
+(define (compose=> head rest)
+  (let-values (((pos sym) (scan=> rest)))
     (if pos
-      (->compose (list-head l pos) arrow? (list-tail l (fx1+ pos)))
-      l)))
+      (let* ((mid  (list-head rest pos))
+             (tail (list-tail rest (fx1+ pos)))
+             (mid* (replace_! head mid)))
+        (if (eq? sym '=>)
+          (compose=> mid* tail)
+          (compose?=> mid* tail)))
+      (replace_! head (list-copy rest)))))
+
+
+;; expand (?=> head rest)
+(define (compose?=> head rest)
+  (let-values (((pos sym) (scan=> rest)))
+    (if pos
+      (let* ((mid  (list-head rest pos))
+             (tail (list-tail rest (fx1+ pos)))
+             (g    (gensym))
+             (mid* (replace_! g mid)))
+        (if (eq? sym '=>)
+          `(let ((,g ,head))
+             (and ,g ,(compose=> mid* tail)))
+          `(let ((,g ,head))
+             (and ,g ,(compose?=> mid* tail)))))
+      (let* ((g     (gensym))
+             (rest* (replace_! g (list-copy rest))))
+         `(let ((,g ,head))
+            (and ,g ,rest*))))))
+
+
+
+
+;; implementation of macro ?=>
+(define (expand?=> l)
+  (when (null? l)
+    (syntax-violation "" "invalid syntax, need at least one argument after" '?=>))
+  (let-values (((pos sym) (scan=> l)))
+    (case sym
+      ((=>)
+        (compose=> (list-head l pos) (list-tail l (fx1+ pos))))
+      ((?=>)
+        (compose?=> (list-head l pos) (list-tail l (fx1+ pos))))
+      (else
+        l))))
 
 
 

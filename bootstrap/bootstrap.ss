@@ -11,7 +11,7 @@
   (export
       ;; bootstrap.ss
 
-      -> ;; _ is already exported by (rnrs)
+      ?=> ;; _ is already exported by (rnrs)
       assert* assert-not* begin* catch check check-not define-macro debugf debugf-port
       first-value first-value-or-void forever let-macro raise-assert* repeat second-value
       with-locked-objects while until throws? trace-call trace-define try list->values values->list
@@ -392,13 +392,13 @@
        form1 form2 ...))))
 
 
-;; symplify procedure chaining, allows writing (-> proc1 a -> proc2 _ b c -> proc3 d ...)
+;; symplify procedure chaining, allows writing (?=> proc1 a => proc2 _ b c => proc3 d ...)
 ;; instead of (proc3 d ... (proc2 (proc1 a) b c))
-(define-syntax ->
+(define-syntax ?=>
   (lambda (stx)
     (syntax-case stx ()
       ((xname . args)
-        (datum->syntax #'xname (->expand (syntax->datum #'args)))))))
+        (datum->syntax #'xname (expand?=> (syntax->datum #'args)))))))
 
 
 
