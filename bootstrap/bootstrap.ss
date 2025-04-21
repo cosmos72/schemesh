@@ -32,8 +32,9 @@
     (rnrs exceptions)
     (rnrs mutable-pairs)
     (only (chezscheme) append! console-output-port current-time format foreign-procedure
-                       fx1+ fx1- fx/ list-copy list-head lock-object meta pariah reverse!
+                       fx1+ fx1- fx/ gensym list-copy list-head lock-object meta pariah reverse!
                        time-second time-nanosecond unlock-object void)
+    (schemesh bootstrap arrow)
     (schemesh bootstrap functions))
 
 
@@ -391,63 +392,13 @@
        form1 form2 ...))))
 
 
-(meta begin
-  ;; helper function used by ->
-  ;; traverse list, find element eq? to key, and return its position in the list as an exact integer.
-  ;; return #f if no element eq? to key was found
-  (define (list-index/eq l key)
-    (let %list-index ((l l) (key key) (pos 0))
-      (cond
-        ((null? l)         #f)
-        ((eq? key (car l)) pos)
-        (else              (%list-index (cdr l) key (fx1+ pos))))))
-
-  ;; set the n-th car of a list
-  (define (list-set! l n obj)
-    (set-car! (list-tail l n) obj))
-
-  ;; helper function used by ->proc
-  (define (->compose head tail)
-    (let* ((tail (list-copy tail))
-           (pos1 (list-index/eq tail '_))
-           (pos2 (list-index/eq tail '->)))
-      (cond
-        ((and pos1 (or (not pos2) (fx<? pos1 pos2)))
-          ;; found _ before ->
-          (list-set! tail pos1 head))
-        (pos2
-          ;; _ not found before ->
-          (let ((splice (list-tail tail pos2)))
-            (list-set! tail pos2 (cons head splice))))
-        (else
-          ;; -> not found
-          (append! tail (list head))))
-      (if pos2
-        (cons '-> tail) ; tail contains further -> that must be processed
-        tail)))
-
-
-  ;; implementation of macro ->
-  (define (->proc l)
-    (when (null? l)
-      (syntax-violation "" "invalid syntax, need at least one argument after" '->))
-    (let ((pos (list-index/eq l '->)))
-      (if pos
-        (->compose (list-head l pos) (list-tail l (fx1+ pos)))
-        l)))
-
-
-
-) ; close meta
-
-
 ;; symplify procedure chaining, allows writing (-> proc1 a -> proc2 _ b c -> proc3 d ...)
 ;; instead of (proc3 d ... (proc2 (proc1 a) b c))
 (define-syntax ->
   (lambda (stx)
     (syntax-case stx ()
       ((xname . args)
-        (datum->syntax #'xname (->proc (syntax->datum #'args)))))))
+        (datum->syntax #'xname (->expand (syntax->datum #'args)))))))
 
 
 

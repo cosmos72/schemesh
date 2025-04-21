@@ -8,6 +8,7 @@
 #!r6rs
 
 (begin
+  (include "bootstrap/arrow.ss")
   (include "bootstrap/functions.ss")
   (include "bootstrap/bootstrap.ss")
 
