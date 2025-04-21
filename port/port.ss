@@ -144,23 +144,23 @@
     ((in mode)
       (let %read-bytes-line ((bsp (make-bytespan 0)))
         (let ((b (get-u8 in)))
-          (if (eof-object? b)
-            (if (bytespan-empty? bsp)
-              b
+          (cond
+            ((eof-object? b)
+              (if (bytespan-empty? bsp)
+                b
+                (bytespan->bytevector*! bsp)))
+            ((memv b '(10 13))
+              (let ((next (lookahead-u8 in)))
+                (when (and (memv next '(10 13)) (not (eqv? b next)))
+                  ;; coalesce CR+LF and LF+CR
+                  (get-u8 in)))
               (bytespan->bytevector*! bsp))
-            (case b
-              ((10 13)
-                (let ((next (lookahead-u8 in)))
-                  (when (and (memv next '(10 13)) (not (eqv? b next)))
-                    ;; coalesce CR+LF and LF+CR
-                    (get-u8 in)))
-                (bytespan->bytevector*! bsp))
-              (else
-                (bytespan-insert-right/u8! bsp b)
-                (%read-bytes-line bsp)))))))
+            (else
+              (bytespan-insert-right/u8! bsp b)
+              (%read-bytes-line bsp))))))
     ((in)
       (read-bytes-line in 'any))
     (()
-      (read-bytes-line (current-input-port)))))
+      (read-bytes-line (sh-stdin) 'any))))
 
 ) ; close library
