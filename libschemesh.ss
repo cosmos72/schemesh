@@ -49,6 +49,9 @@
   (include "posix/pid.ss")
   (include "posix/posix.ss")
 
+  (include "port/stdio.ss")
+  (include "port/port.ss")
+
   (include "ipc/channel.ss") ; requires wire/wire.ss posix/fd.ss
   (meta-cond
     ((threaded?) (include "ipc/fifo-thread.ss"))

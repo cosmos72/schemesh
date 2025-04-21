@@ -48,6 +48,7 @@
     (schemesh wire)
     (schemesh lineedit)
     (schemesh parser)
+    (schemesh port)
     (schemesh posix)
     (schemesh posix replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
     (schemesh ipc)

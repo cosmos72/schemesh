@@ -61,7 +61,7 @@
     sh-options
 
     ;; redirect.ss
-    sh-fd sh-stdin sh-stdout sh-stderr sh-redirect!
+    sh-fd sh-redirect!
     sh-run/bvector sh-run/string sh-run/string-rtrim-newlines sh-run/string-split-after-nuls sh-start/fd-stdout
 
 
@@ -100,6 +100,7 @@
     (schemesh containers)
     (schemesh conversions)
     (schemesh posix)
+    (schemesh port stdio)
     (only (schemesh lineedit charhistory) charhistory-path-set!)
     (only (schemesh lineedit linectx) linectx? linectx-history linectx-save-history linectx-wbuf)
     (only (schemesh lineedit lineedit) lineedit-display-table lineedit-flush lineedit-undraw)

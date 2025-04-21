@@ -30,8 +30,8 @@
     (rename (only (chezscheme) put-bytevector-some)
         (put-bytevector-some chez:put-bytevector-some))
 
-    (only (schemesh shell job) sh-current-job sh-env-set! sh-env-visibility-ref sh-globals
-                               sh-stdin sh-stdout))
+    (schemesh port stdio)
+    (only (schemesh shell job) sh-current-job sh-env-set! sh-env-visibility-ref sh-globals))
 
 ;;; key must be a string.
 ;;; Return the exported environment value associated with key in current job's environment,
