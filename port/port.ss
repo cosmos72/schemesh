@@ -12,7 +12,8 @@
 ;;; https://docs.racket-lang.org/reference/port-lib.html
 ;;;
 (library (schemesh port (0 8 3))
-  (export port->list port->string port->bytes port->lines port->bytes-lines
+  (export byte-lines->port lines->port
+          port->list port->string port->bytes port->lines port->bytes-lines
           read-line read-bytes-line
           sh-stdin sh-stdout sh-stderr)
   (import
@@ -21,6 +22,48 @@
     (only (schemesh bootstrap) assert*)
     (schemesh containers bytespan)
     (schemesh port stdio))
+
+
+;; Given a list of bytevectors, write each one to port out, appending a newline after each bytevector.
+;; The line-mode argument is ignored.
+;;
+;; out defaults to (sh-stdout) and close? defaults to #f
+(define byte-lines->port
+  (case-lambda
+    ((lines out line-mode close?)
+      (do ((l lines (cdr l)))
+          ((null? l))
+        (put-bytevector out (car l))
+        (put-u8 out 10))
+      (when close?
+        (close-port out)))
+    ((lines out line-mode)
+      (byte-lines->port lines out line-mode #f))
+    ((lines out)
+      (byte-lines->port lines out 'any #f))
+    ((lines)
+      (byte-lines->port lines (sh-stdout) 'any #f))))
+
+
+;; Given a list of strings, write each one to port out, appending a newline after each string.
+;; The line-mode argument is ignored.
+;;
+;; out defaults to (current-out-port) and close? defaults to #f
+(define lines->port
+  (case-lambda
+    ((lines out line-mode close?)
+      (do ((l lines (cdr l)))
+          ((null? l))
+        (put-string out (car l))
+        (put-char out #\newline))
+      (when close?
+        (close-port out)))
+    ((lines out line-mode)
+      (lines->port lines out line-mode #f))
+    ((lines out)
+      (lines->port lines out 'any #f))
+    ((lines)
+      (lines->port lines (current-output-port) 'any #f))))
 
 
 ;; return a list whose elements are produced by calling proc on in until it produces eof.
