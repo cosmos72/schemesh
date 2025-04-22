@@ -95,11 +95,27 @@ Some more advanced Scheme functions:
 * `(sh-start/fd-stdout job-object)` start a job in background, return a file descriptor fixnum for reading its standard output - for example with `(open-fd-input-port fd)`
 
 
-### [NEW in version 0.8.0]
+### Subshells and command substitution
 
-It is now possible to run arbitrary Scheme code inside jobs, and apply job control to it.
+From shell syntax, commands can be executed in a subshell by surrounding them in `[ ]` as for example:
+```shell
+grep -q old *.txt && [ sed -i -e 's/old/new/g' -- *.txt ]
+```
+traditional shells typically start subshells with `( )`, which has a different meaning in schemesh.
 
-From shell syntax or Scheme syntax, type `$` before a Scheme expression in parentheses,
+Command substitution, i.e. using output of a first command as argument for a second command,
+can be performed by surrounding the first command in ``` `` ``` or `$[ ]` - example:
+```shell
+NOW=$[date]
+```
+traditional shells typically perform command substitution with ``` `` ``` or `$( )`:
+the latter has a different meaning in schemesh, see Job control above.
+
+### Scheme jobs
+
+Shell jobs can also contain arbitrary Scheme code:
+
+from shell syntax or Scheme syntax, type `$` before a Scheme expression in parentheses,
 and it gets encapsulated in a job that can be started, stopped and resumed just like any other job.
 Example:
 ```shell
@@ -169,7 +185,7 @@ b
 #\c
 ```
 
-### [NEW in version 0.8.1]
+### Scheme ports redirection
 
 Standard Scheme textual ports `(current-input-port)` `(current-output-port)` `(current-error-port)`
 automatically honor job redirections. Example:
@@ -197,9 +213,9 @@ CTRL+Z
 (ok "hello")
 ```
 
-### [NEW in version 0.8.2]
+### Shell wildcards
 
-Shell syntax that expands to strings can be used also from Scheme
+Shell wildcards and other shell syntax that expands to strings can be used also from Scheme
 with macro `(shell-glob {...})`, that returns a list of strings,
 and with macro `(shell-string {...})`, that returns a single string. Examples:
 ```lisp
@@ -213,23 +229,6 @@ and with macro `(shell-string {...})`, that returns a single string. Examples:
 > (shell-string {abc`echo def`})
 "abcdef"
 ```
-
-### Subshells and command substitution
-
-From shell syntax, commands can be executed in a subshell by surrounding them in `[ ]` as for example:
-```shell
-grep -q old *.txt && [ sed -i -e 's/old/new/g' -- *.txt ]
-```
-traditional shells typically start subshells with `( )`, which has a different meaning in schemesh.
-
-Command substitution, i.e. using output of a first command as argument for a second command,
-can be performed by surrounding the first command in ``` `` ``` or `$[ ]` - example:
-```shell
-NOW=$[date]
-```
-traditional shells typically perform command substitution with ``` `` ``` or `$( )`:
-the latter has a different meaning in schemesh, see Job control above.
-
 
 ## Full Scheme REPL
 
@@ -260,7 +259,6 @@ Hello, User!
 You can compile and load Scheme files and libraries,
 including third-party libraries as the ones packaged by [https://akkuscm.org/](https://akkuscm.org/)
 by following the same instructions as for Chez Scheme.
-
 
 ## Examples
 
