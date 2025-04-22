@@ -106,9 +106,8 @@ traditional shells typically start subshells with `( )`, which has a different m
 Command substitution, i.e. using output of a first command as argument for a second command,
 can be performed by surrounding the first command in ``` `` ``` or `$[ ]` - example:
 ```shell
-NOW=$[date]
-echo $NOW
-
+> NOW=$[date]
+> echo $NOW
 Mon Mar 31 12:00:01 PM GMT 2025
 ```
 traditional shells typically perform command substitution with ``` `` ``` or `$( )`:
