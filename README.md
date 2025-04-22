@@ -107,9 +107,12 @@ Command substitution, i.e. using output of a first command as argument for a sec
 can be performed by surrounding the first command in ``` `` ``` or `$[ ]` - example:
 ```shell
 NOW=$[date]
+echo $NOW
+
+Mon Mar 31 12:00:01 PM GMT 2025
 ```
 traditional shells typically perform command substitution with ``` `` ``` or `$( )`:
-the latter has a different meaning in schemesh, see Job control above.
+the former is supported, while the latter has a different meaning in schemesh - see Scheme jobs below.
 
 ### Scheme jobs
 
