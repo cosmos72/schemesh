@@ -157,8 +157,8 @@ CTRL+Z
 (ok "hello")
 ```
 
-This last example also shows an additional feature of Scheme jobs:
-they can exit with a status that contains an arbitrary Scheme value
+The examples above also show an additional feature of Scheme jobs:
+they can exit with a status containing an arbitrary Scheme value
 or even multiple values, not just an 8-bit exit status.
 
 To inspect a job status, use `(status->kind)` and `(status->value)`, as for example:
