@@ -10,7 +10,7 @@
 (library (schemesh containers string (0 8 3))
   (export
     assert-string-list? in-string
-    string-any string-contains string-count string-every
+    string-any string-contains string-count string-empty? string-every
     string-index string-index-right
     string-is-unsigned-base10-integer? string-is-signed-base10-integer? string-iterate
     string-join string-list? string-list-split-after-nuls
@@ -127,6 +127,10 @@
                 ret))
             ret))))))
 
+
+;; return #t if string has zero length, otherwise return #t
+(define (string-empty? str)
+  (fxzero? (string-length str)))
 
 ;; apply proc element-wise to the elements of the strings, stop at the first #f returned by (proc elem ...) and return it.
 ;; If all calls to (proc elem ...) return truish, then return the value of last (proc elem ...) call.

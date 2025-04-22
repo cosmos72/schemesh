@@ -8,7 +8,7 @@
 #!r6rs
 
 (library (schemesh bootstrap arrow (0 8 3))
-  (export expand?=>)
+  (export expand==>)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -29,9 +29,9 @@
       (append! template (list item)))))
 
 
-;; helper function used by expand?=>
+;; helper function used by expand==>
 ;;
-;; traverse list, find first element eq? to '=> or '?=> and return two values:
+;; traverse list, find first element eq? to '==> or '?=> and return two values:
 ;;  its position in the list and the symbol found,
 ;;  or #f #f if no such element was found
 (define (scan=> l)
@@ -39,7 +39,7 @@
     (cond
       ((null? l)
         (values #f #f))
-      ((memq (car l) '(=> ?=>))
+      ((memq (car l) '(==> ?=>))
         (values pos (car l)))
       (else
         (%scan=> (cdr l) (fx1+ pos))))))
@@ -50,15 +50,15 @@
   (set-car! (list-tail l n) obj))
 
 
-;; expand (=> head rest)
-(define (compose=> head rest)
+;; expand (==> head rest)
+(define (compose==> head rest)
   (let-values (((pos sym) (scan=> rest)))
     (if pos
       (let* ((mid  (list-head rest pos))
              (tail (list-tail rest (fx1+ pos)))
              (mid* (replace_! head mid)))
-        (if (eq? sym '=>)
-          (compose=> mid* tail)
+        (if (eq? sym '==>)
+          (compose==> mid* tail)
           (compose?=> mid* tail)))
       (replace_! head (list-copy rest)))))
 
@@ -71,9 +71,9 @@
              (tail (list-tail rest (fx1+ pos)))
              (g    (gensym))
              (mid* (replace_! g mid)))
-        (if (eq? sym '=>)
+        (if (eq? sym '==>)
           `(let ((,g ,head))
-             (and ,g ,(compose=> mid* tail)))
+             (and ,g ,(compose==> mid* tail)))
           `(let ((,g ,head))
              (and ,g ,(compose?=> mid* tail)))))
       (let* ((g     (gensym))
@@ -84,14 +84,14 @@
 
 
 
-;; implementation of macro ?=>
-(define (expand?=> l)
+;; implementation of macro ==>
+(define (expand==> l)
   (when (null? l)
-    (syntax-violation "" "invalid syntax, need at least one argument after" '?=>))
+    (syntax-violation "" "invalid syntax, need at least one argument after" '==>))
   (let-values (((pos sym) (scan=> l)))
     (case sym
-      ((=>)
-        (compose=> (list-head l pos) (list-tail l (fx1+ pos))))
+      ((==>)
+        (compose==> (list-head l pos) (list-tail l (fx1+ pos))))
       ((?=>)
         (compose?=> (list-head l pos) (list-tail l (fx1+ pos))))
       (else

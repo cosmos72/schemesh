@@ -24,10 +24,10 @@
      (plus 3 4 5))                                 12
   (let-macro ((plus arg0 . args) `(+ ,arg0 ,@args))
      (plus 3 4 5))                                 12
-  (?=> + 1 2 => / 4)                               4/3
-  (?=> + 2 3 => / _ 4)                             5/4
-  (?=> and 1 2 ?=> or _ 3)                         2
-  (?=> and 1 #f ?=> (error 'test-arrow))           #f
+  (==> + 1 2 ==> / 4)                               4/3
+  (==> + 2 3 ==> / _ 4)                             5/4
+  (==> and 1 2 ?=> or _ 3)                         2
+  (==> and 1 #f ?=> (error 'test-arrow))           #f
 
   ;; '(expand-omit-library-invocations #t) (void)  do not use, requires Chez Scheme >= 10.0.0
   ;; '(begin (debugf \"warmup\") (debugf \"a\") (debugf \"b\") (debugf \"c\")) (void)
@@ -129,7 +129,7 @@
   (substring<? "abcdef" 1 5 "_abxyef" 2 4)       #t
   ;; ----------------- containers/sort ------------------------------------
   (let ((v (vector 9 8 7 6 5 4 3 2 1 0)))
-    (vector-sort*! fx<? v 1 9)
+    (subvector-sort! fx<? v 1 9)
     v)                                              #(9 1 2 3 4 5 6 7 8 0)
   ;; ----------------- bytevector/utf8 ------------------------------------
   (values->list (bytevector-char-ref #vu8()))               (#t      0)   ; incomplete UTF-8

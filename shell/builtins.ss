@@ -112,7 +112,7 @@ Type 'help' to display this text. Type 'help name' for help about the builtin 'n
 The following names are recognized as builtins:\n\n")
 
         (let ((names (hashtable-keys (sh-builtins))))
-          (vector-sort*! string<? names)
+          (subvector-sort! string<? names)
           (lineedit-display-table lctx (vector->span* names)))
         (lineedit-flush lctx)
         (void)))

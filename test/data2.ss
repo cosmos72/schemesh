@@ -466,10 +466,8 @@
   (caddr (expand '$(foo x y z)))                       (sh-expr (lambda () (foo x y z)) "(foo x y z)")
   $(+ a b c)                                           ,(sh-expr (lambda () (+ a b c)))
 
-  ;; currently broken, see issue #20
-  #|
+  ;; test issue #20
   (caddr (expand
     '{cat /dev/null | (foo) > log}))                   (sh-pipe* (sh-cmd "cat" "/dev/null") '\x7C; (sh-redirect! (foo) 1 '> "log"))
-  |#
 
 ) #!eof

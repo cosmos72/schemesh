@@ -9,7 +9,7 @@
 
 (library (schemesh containers sort (0 8 3))
   (export
-    span-sort! vector-sort*!) ; R6RS already defines (vector-sort!)
+    span-sort! subvector-sort!) ; R6RS already defines (vector-sort!)
   (import
     (rnrs)
     (only (chezscheme) eval-when format fx1+ fx1- fxarithmetic-shift-right logbit?
@@ -191,19 +191,19 @@
 
 
 ;; do not use the name (vector-sort!), R6RS already defines it
-(define vector-sort*!
+(define subvector-sort!
   (case-lambda
     ((is<? v)
-      (assert* 'vector-sort*! (vector? v))
-      (vector-sort*! is<? v 0 (vector-length v)))
+      (assert* 'subvector-sort! (vector? v))
+      (subvector-sort! is<? v 0 (vector-length v)))
     ((is<? v start end)
-      (assert* 'vector-sort*! (procedure? is<?))
-      (assert* 'vector-sort*! (logbit? 2 (procedure-arity-mask is<?)))
-      (assert* 'vector-sort*! (vector? v))
-      (assert* 'vector-sort*! (mutable-vector? v))
-      (assert* 'vector-sort*! (fixnum? start))
-      (assert* 'vector-sort*! (fixnum? end))
-      (assert* 'vector-sort*! (fx<=?* 0 start end (vector-length v)))
+      (assert* 'subvector-sort! (procedure? is<?))
+      (assert* 'subvector-sort! (logbit? 2 (procedure-arity-mask is<?)))
+      (assert* 'subvector-sort! (vector? v))
+      (assert* 'subvector-sort! (mutable-vector? v))
+      (assert* 'subvector-sort! (fixnum? start))
+      (assert* 'subvector-sort! (fixnum? end))
+      (assert* 'subvector-sort! (fx<=?* 0 start end (vector-length v)))
       (%vector-sort! is<? v start end))))
 
 

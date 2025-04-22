@@ -273,7 +273,7 @@
         (fd   (sh-fd 1))
         (vec  (hashtable-cells (sh-env-copy job which))))
     (unless (fxzero? (vector-length vec))
-      (vector-sort*! (lambda (e1 e2) (string<? (car e1) (car e2))) vec)
+      (subvector-sort! (lambda (e1 e2) (string<? (car e1) (car e2))) vec)
       (bytespan-reserve-right! wbuf (fxmin 4096 (fx* 32 (vector-length vec))))
       (vector-iterate vec
         (lambda (i elem)

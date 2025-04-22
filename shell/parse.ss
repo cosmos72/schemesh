@@ -78,7 +78,7 @@
                  saved-args arg0)))))
     ; (debugf ">   sh-parse-datum args = ~s" saved-args)
     (until (null? args)
-      (let-values (((parsed tail) (parse-or args)))
+      (let-values (((parsed tail) (parse-or args 'parse-list)))
         (unless (null? parsed)
           (set! ret (cons parsed ret)))
         (set! args tail)
@@ -132,7 +132,7 @@
 
 
 ;; Parse a list starting with one redirection. Used only for redirections after a group
-;; i.e. { ... } REDIRECTIONS or [ ... ] REDIRECTIONS
+;; i.e. after one of {} [] () $()
 ;; Return two values:
 ;;   A list containing a single parsed redirection, in reverse order;
 ;;   The remaining, unparsed args.
@@ -219,11 +219,11 @@
 ;; Return two values:
 ;;   A list containing parsed args;
 ;;   The remaining, unparsed args.
-(define (parse-or args)
+(define (parse-or args caller)
   (let ((ret '())
         (done? (null? args)))
     (until done?
-      (let-values (((parsed tail) (parse-and args)))
+      (let-values (((parsed tail) (parse-and args (if (null? ret) caller 'parse-or))))
         (unless (null? parsed)
           (set! ret (cons parsed ret)))
         (set! args tail))
@@ -248,11 +248,11 @@
 ;;   A list containing parsed args;
 ;;   The remaining, unparsed args.
 ;;
-(define (parse-and args)
+(define (parse-and args caller)
   (let ((ret '())
         (done? (null? args)))
     (until done?
-      (let-values (((parsed tail) (parse-pipe args)))
+      (let-values (((parsed tail) (parse-pipe args (if (null? ret) caller 'parse-and))))
         (unless (null? parsed)
           (set! ret (cons parsed ret)))
         (set! args tail))
@@ -276,11 +276,11 @@
 ;;   A list containing parsed args;
 ;;   The remaining, unparsed args.
 ;;
-(define (parse-pipe args)
+(define (parse-pipe args caller)
   (let ((ret '())
         (done? (null? args)))
     (until done?
-      (let-values (((parsed tail) (parse-not args)))
+      (let-values (((parsed tail) (parse-not args (if (null? ret) caller 'parse-pipe))))
         (unless (null? parsed)
           (set! ret (cons parsed ret)))
         (set! args tail))
@@ -308,18 +308,19 @@
 ;;   A list containing parsed args;
 ;;   The remaining, unparsed args.
 ;;
-(define (parse-not args)
+(define (parse-not args caller)
   (let %again ((negate? #f)
-               (args args))
+               (args args)
+               (caller caller))
     ; (debugf "parse-not iterate: negate? = ~s, args = ~s" negate? args)
     (cond
       ((and (not (null? args)) (eq? '! (car args)))
-        (%again (not negate?) (cdr args)))
+        (%again (not negate?) (cdr args) 'parse-not))
       (negate?
-        (let-values (((parsed tail) (parse-cmd args)))
+        (let-values (((parsed tail) (parse-cmd args caller)))
           (values (list 'sh-not parsed) tail)))
       (else
-        (parse-cmd args)))))
+        (parse-cmd args caller)))))
 
 
 ;; Parse args for a single shell command, i.e. everything before the first ; & && || |
@@ -327,7 +328,7 @@
 ;;   A list containing parsed args;
 ;;   The remaining, unparsed args.
 ;
-(define (parse-cmd args)
+(define (parse-cmd args caller)
   (let ((saved-args args)
         (ret '())
         (prefix 'sh-cmd)
@@ -340,10 +341,12 @@
           ((cmd-separator? arg)
             (set! done? #t)) ; separator => exit loop without consuming it
           ((and (null? ret) (pair? arg) (not (%cmd-subform? arg)))
-            ; shell command starts with a Scheme or shell subform
-            ; => return it as-is, without wrapping in (sh-cmd ...)
-            (set! ret arg)
-            (set! args (cdr args))
+            ;; shell command starts with a Scheme or shell subform
+            ;; => return it as-is, without wrapping in (sh-cmd ...)
+            ;; but parse trailing redirections
+            (let-values (((form rest) (parse-cmd-scheme args caller)))
+              (set! ret form)
+              (set! args rest))
             (set! done? #t)
             (set! prefix #f))
           ((or (fixnum? arg) (pair? arg) (symbol? arg) (string? arg))
@@ -354,7 +357,8 @@
               (set! arg (symbol->string arg)))
 
             (unless (string? arg)
-              ; (sh-cmd) does not support env assignment, redirections and closures, use (sh-cmd*)
+              ;; (sh-cmd) does not support env assignment, redirections and closures
+              ;; => use (sh-cmd*)
               (set! prefix 'sh-cmd*))
 
             (cond
@@ -385,8 +389,39 @@
 
 (define (%cmd-subform? form)
   (and (pair? form)
-       ; fragile, recognizes known macros by name and treats them specially
+       ;; fragile, recognizes known macros by name and treats them specially
        (memq (car form) '(shell-backquote shell-wildcard))))
+
+
+;; Parse a single shell command starting with a cons, as for example ( ... ) or $( ... )
+;; possibly followed by redirections.
+;; Return two values:
+;;   A list containing parsed args;
+;;   The remaining, unparsed args.
+(define (parse-cmd-scheme args caller)
+  (let ((ret  (list (car args)))
+        (args (cdr args))
+        ;; if caller is sh-parse-datum, don't parse redirections: caller will parse them
+        (done? (eq? caller 'parse-list))
+        (reverse? #f))
+    (until (or done? (null? args))
+      (let ((arg (car args)))
+        (cond
+          ((fixnum? arg)
+            (let-values (((fd dir to) (parse-redirection3 args pair?)))
+              (set! ret (cons to (cons (list 'quote dir) (cons fd ret))))
+              (set! args (cdddr args))
+              (set! reverse? #t)))
+          ((redirection-sym? arg)
+            (let-values (((fd dir to) (parse-redirection2 args pair?)))
+              (set! ret (cons to (cons (list 'quote dir) (cons fd ret))))
+              (set! args (cddr args))
+              (set! reverse? #t)))
+          (else
+            (set! done? #t)))))
+    (values
+      (if reverse? (cons 'sh-redirect! (reverse! ret)) (car ret))
+      args)))
 
 
 ;; Create a cmd to later spawn it.

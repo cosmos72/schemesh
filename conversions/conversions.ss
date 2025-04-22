@@ -27,7 +27,7 @@
                                  charspan? charspan-empty? charspan-index/char charspan->utf8b charspan->utf8b/0
                                  for-hash for-list make-bytespan string-index
                                  string->utf8b string->utf8b/0 utf8b->string utf8b->string
-                                 vector-sort*!)
+                                 subvector-sort!)
     (schemesh conversions unicode))
 
 
@@ -244,7 +244,7 @@
     (for-hash ((key val htable))
       (vector-set! vec i (key-value->bytevector0 key val))
       (set! i (fx1+ i)))
-    (vector-sort*! bytevector<? vec)
+    (subvector-sort! bytevector<? vec)
     vec))
 
 
