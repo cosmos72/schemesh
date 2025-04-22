@@ -141,9 +141,25 @@ Example:
 (ok "done too!\n")
 ```
 
-Scheme jobs currently cannot run in background - they stop themselves if you try -
-but in exchange they can execute arbitrary Scheme code, and can also return
-any Scheme value or even multiple values, not just an 8-bit exit status.
+By default, Scheme jobs cannot run in background - they stop themselves if you try.
+
+If you need to run a Scheme job in background, place it inside a subshell
+or inside a pipeline (exception: if the last job in a pipeline is a Scheme job,
+it cannot run in background).
+
+Example:
+```shell
+> sleep 5 | $(display "hello") | cat | $(get-string-all (current-input-port))
+CTRL+Z
+(stopped sigtstp)
+
+> fg 1
+(ok "hello")
+```
+
+This last example also shows an additional feature of Scheme jobs:
+they can exit with a status that contains an arbitrary Scheme value
+or even multiple values, not just an 8-bit exit status.
 
 To inspect a job status, use `(status->kind)` and `(status->value)`, as for example:
 ```lisp
@@ -203,21 +219,13 @@ they automatically honor job redirections too. Example:
 Hi!
 ```
 
-Scheme jobs `$()` support job control also when used in pipelines, as for example:
-```shell
-> sleep 5 | $(display "hello") | cat | $(get-string-all (current-input-port))
-CTRL+Z
-(stopped sigtstp)
-
-> fg 1
-(ok "hello")
-```
-
 ### Shell wildcards
 
-Shell wildcards and other shell syntax that expands to strings can be used also from Scheme
-with macro `(shell-glob {...})`, that returns a list of strings,
-and with macro `(shell-string {...})`, that returns a single string. Examples:
+Shell wildcards and other shell syntax that expands to strings can also be used from Scheme:
+* macro `(shell-glob {...})` returns a list of strings
+* macro `(shell-string {...})` returns a single string
+
+Examples:
 ```lisp
 > (shell-glob {/*})
 ("/bin" "/boot" "/dev" "/etc" "/home" "/lib" "/lost+found" "/mnt"
