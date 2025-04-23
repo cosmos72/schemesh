@@ -19,22 +19,30 @@
   ;;
   ;; May be parameterized to a different value in subshells.
   (unless (sh-globals)
-    (sh-globals
-      ;; assign job-id 0 to sh-globals itself.
-      ;;
-      ;; waiting for sh-globals to exit is not useful:
-      ;; pretend it already finished successfully
-      (%make-multijob
-         0 #f                      ; id oid
-         (pid-get) (pgid-get 0)    ; pid pgid
-         (void) #f                 ; last-status exception
-         (span) 0 #f #f            ; redirections ports
-         #f #f                     ; start-proc step-proc
-         (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) #f ; current directory, old working directory
-         (make-hashtable string-hash string=?) ; env variables
-         #f                        ; no env var assignments
-         #f #f                     ; no temp parent, no default parent
-         'sh-globals -1 (span #t)))) ; skip job-id 0, is used by (sh-globals) itself
+    (let ((port0 (open-fd-redir-binary-input/output-port "sh-stdin"  (lambda () (sh-fd #t 0))))
+          (port1 (open-fd-redir-binary-input/output-port "sh-stdout" (lambda () (sh-fd #t 1))))
+          (port2 (open-fd-redir-binary-input/output-port "sh-stderr" (lambda () (sh-fd #t 2)))))
+      (sh-globals
+        ;; assign job-id 0 to sh-globals itself.
+        ;;
+        ;; waiting for sh-globals to exit is not useful:
+        ;; pretend it already finished successfully
+        (%make-multijob
+           0 #f                      ; id oid
+           (pid-get) (pgid-get 0)    ; pid pgid
+           (void) #f                 ; last-status exception
+           (span) 0 #f               ; redirections
+           (eqv-hashtable            ; ports
+             0 port0  1 port1  2 port2
+             (fxnot 0) (make-utf8b-input/output-port port0)
+             (fxnot 1) (make-utf8b-input/output-port port1)
+             (fxnot 2) (make-utf8b-input/output-port port2))
+           #f #f                     ; start-proc step-proc
+           (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) #f ; current directory, old working directory
+           (make-hashtable string-hash string=?) ; env variables
+           #f                        ; no env var assignments
+           #f #f                     ; no temp parent, no default parent
+           'sh-globals -1 (span #t))))) ; skip job-id 0, is used by (sh-globals) itself
 
   (c-environ->sh-global-env)
 

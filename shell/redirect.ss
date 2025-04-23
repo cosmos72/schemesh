@@ -460,19 +460,32 @@
         ports)))
 
 
+(define (job-ensure-binary-port job remapped-fd)
+  (let ((ports (job-ensure-ports job)))
+    (or (hashtable-ref ports remapped-fd #f)
+        (let ((port (open-fd-redir-binary-input/output-port
+                       (format #f "fd ~s" remapped-fd)
+                       (lambda () remapped-fd) (buffer-mode block) #f)))
+          (hashtable-set! ports remapped-fd port)
+          port))))
+
+
+(define (job-ensure-textual-port job remapped-fd)
+  (let ((ports (job-ensure-ports job)))
+    (or (hashtable-ref ports (fxnot remapped-fd) #f)
+        (let* ((binary-port (job-ensure-binary-port job remapped-fd))
+               (port        (make-utf8b-input/output-port binary-port)))
+          (hashtable-set! ports (fxnot remapped-fd) port)
+          port))))
+
+
 ;; return the binary input/output port for specified job's fd (crearing it if needed)
 ;; or raise exception if no remapping was found
 (define (job-remap-find-binary-port job fd)
   (let-values (((parent remapped-fd) (job-remap-find-fd* job fd)))
     (unless parent
       (raise-errorf 'sh-binary-port "port not found for file descriptor ~s in job ~s" fd job))
-    (let ((ports (job-ensure-ports parent)))
-      (or (hashtable-ref ports remapped-fd #f)
-          (let ((port (open-fd-redir-binary-input/output-port
-                         (format #f "fd ~s" remapped-fd)
-                         (lambda () remapped-fd) (buffer-mode block) #f)))
-            (hashtable-set! ports remapped-fd port)
-            port)))))
+    (job-ensure-binary-port parent remapped-fd)))
 
 
 ;; return the textual input/output port for specified job's fd (crearing it if needed)
@@ -481,13 +494,7 @@
   (let-values (((parent remapped-fd) (job-remap-find-fd* job fd)))
     (unless parent
       (raise-errorf 'sh-textual-port "port not found for file descriptor ~s in job ~s" fd job))
-    (let ((ports (job-ensure-ports parent)))
-      (or (hashtable-ref ports (fxnot remapped-fd) #f)
-          (let ((port (open-fd-redir-utf8b-input/output-port
-                         (format #f "fd ~s" remapped-fd)
-                         (lambda () remapped-fd) (buffer-mode block) #f)))
-            (hashtable-set! ports (fxnot remapped-fd) port)
-            port)))))
+    (job-ensure-textual-port parent remapped-fd)))
 
 
 
