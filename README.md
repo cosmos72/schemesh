@@ -124,10 +124,12 @@ Example:
 > $(begin (repeat 1000000000 (void)) "done!\n")
 
 CTRL+Z
+; job  1+            (stopped sigtstp)  $(begin (repeat 1000000000 (void)) "done!\n")
 (stopped sigtstp)
-; job  1            (stopped sigtstp)   $( #<procedure>)
 
 > fg 1
+; job  1+            (running 1)        $(begin (repeat 1000000000 (void)) "done!\n")
+; job  1+            (ok "done!\n")     $(begin (repeat 1000000000 (void)) "done!\n")
 (ok "done!\n")
 ```
 
@@ -153,9 +155,11 @@ Example:
 ```shell
 > sleep 5 | $(display "hello") | cat | $(get-string-all (current-input-port))
 CTRL+Z
+; job  1+            (stopped sigtstp)  {sleep 5 | $(display "hello") | cat | $(get-string-all (current-input-port))}
 (stopped sigtstp)
 
 > fg 1
+; job  1             (ok "hello")       {sleep 5 | $(display "hello") | cat | $(get-string-all (current-input-port))}
 (ok "hello")
 ```
 
