@@ -280,7 +280,7 @@
          (fd            (span-ref redirects index))
          (direction-ch  (span-ref redirects (fx1+ index)))
          ;; fd may need to be redirected to a different file descriptor due to fd remapping
-         (remapped-fd   (job-find-fd-remap job fd))
+         (remapped-fd   (job-remap-find-fd job fd))
          (to            (if (fx=? fd remapped-fd)
                           ; no remapping found, extract redirection.
                           (job-extract-redirection-to-fd-or-bytevector0 job dir redirects index)

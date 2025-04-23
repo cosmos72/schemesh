@@ -117,6 +117,123 @@
 
 
 
+;; call (proc job) on given job and each of its parents.
+;; Stops iterating if (proc ...) returns #f.
+;;
+;; Returns #t if all calls to (proc job) returned truish,
+;; otherwise returns #f.
+(define (job-parents-iterate job-or-id proc)
+  (do ((parent (sh-job job-or-id) (job-parent parent)))
+      ((not (and (sh-job? parent) (proc parent)))
+       (not (sh-job? parent)))))
+
+
+;; call (proc job) on given job and each of its default parents.
+;; Stops iterating if (proc ...) returns #f.
+;;
+;; Returns #t if all calls to (proc job) returned truish,
+;; otherwise returns #f.
+(define (job-default-parents-iterate job proc)
+  (let %loop ((job job))
+    (and (sh-job? job)
+         (proc job)
+         (%loop (job-default-parent job)))))
+
+
+;; call (proc job) on given job and each of its default parents.
+;; Stops iterating if (proc ...) returns truish.
+;;
+;; Returns value of last (proc ...) call.
+(define (job-default-parents-iterate-any job proc)
+  (let %any ((job job))
+    (and (sh-job? job)
+         (or (proc job)
+             (%any (job-default-parent job))))))
+
+
+;; Return #t if job or one if its default parents are eq? other-job,
+;; otherwise return #f
+(define (job-default-parents-contain? job other-job)
+  (if (job-default-parents-iterate-any job
+        (lambda (parent)
+          (eq? parent other-job)))
+    #t
+    #f))
+
+
+;; return list containing all job's parents,
+;; starting from (sh-globals), until job itself.
+(define (job-parents-revlist job-or-id)
+  (let ((jlist '()))
+    (job-parents-iterate job-or-id
+      (lambda (job)
+        (set! jlist (cons job jlist))))
+    jlist))
+
+
+#|
+;; unused. return list containing job followed by all its parents.
+(define (job-parents-list job-or-id)
+  (reverse! (job-parents-revlist job-or-id)))
+|#
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(define (port-cleanup port)
+  (when (input-port? port)
+    (set-port-eof! port #f))
+  (when (output-port? port)
+    (flush-output-port port)))
+
+
+(define (job-ports-flush job)
+  (let ((ports (job-ports job)))
+    (when ports
+      (for-hash ((fd port ports))
+        (flush-output-port port)))))
+
+(define (job-default-parents-ports-flush job)
+  (job-default-parents-iterate job job-ports-flush))
+
+
+;; Parameter containing the current job.
+;; It is truish only if called from one of the dynamic contexts listed below,
+;; or from some code called directly or indirectly by them:
+;;
+;; * one of the procedures stored in (job-start-proc)
+;; * a closure injected in a sh-job, as for example {echo (lambda () ...)}
+;; * an expression inside (shell-expr ...)
+;;
+(define sh-current-job
+  (sh-make-thread-parameter #f
+    (lambda (job)
+      (when (and job (not (sh-job? job)))
+        (raise-errorf 'sh-current-job "invalid current job, must be #f or a sh-job: ~s" job))
+      ;; when current job changes, flush its output ports
+      (job-default-parents-ports-flush job)
+      ;; we must unset the eof flag on stdin, stdout and stderr
+      ;; when current job changes, we must unset the eof flag on stdin, stdout and stderr
+      ;; because the underlying file descriptors may change and their eof status may differ
+      (port-cleanup (current-input-port))
+      (port-cleanup (current-output-port))
+      (port-cleanup (current-error-port))
+      (port-cleanup (sh-stdin))
+      (port-cleanup (sh-stdout))
+      (port-cleanup (sh-stderr))
+
+      job)))
+
+
+;; Parameter set to truish when inside (job-wait).
+;; Needed to avoid re-entering (job-wait) from signal handlers.
+(define waiting-for-job (sh-make-thread-parameter #f))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
 ;; set the status of a job and return it.
 ;; if specified status indicates that job finished,
 ;;   i.e. (finished? status) returns true
@@ -324,66 +441,6 @@
   (job-exception (sh-job job-or-id)))
 
 
-;; call (proc job) on given job and each of its parents.
-;; Stops iterating if (proc ...) returns #f.
-;;
-;; Returns #t if all calls to (proc job) returned truish,
-;; otherwise returns #f.
-(define (job-parents-iterate job-or-id proc)
-  (do ((parent (sh-job job-or-id) (job-parent parent)))
-      ((not (and (sh-job? parent) (proc parent)))
-       (not (sh-job? parent)))))
-
-
-;; call (proc job) on given job and each of its default parents.
-;; Stops iterating if (proc ...) returns #f.
-;;
-;; Returns #t if all calls to (proc job) returned truish,
-;; otherwise returns #f.
-(define (job-default-parents-iterate job proc)
-  (let %loop ((job job))
-    (and (sh-job? job)
-         (proc job)
-         (%loop (job-default-parent job)))))
-
-
-;; call (proc job) on given job and each of its default parents.
-;; Stops iterating if (proc ...) returns truish.
-;;
-;; Returns value of last (proc ...) call.
-(define (job-default-parents-iterate-any job proc)
-  (let %any ((job job))
-    (and (sh-job? job)
-         (or (proc job)
-             (%any (job-default-parent job))))))
-
-
-;; Return #t if job or one if its default parents are eq? other-job,
-;; otherwise return #f
-(define (job-default-parents-contain? job other-job)
-  (if (job-default-parents-iterate-any job
-        (lambda (parent)
-          (eq? parent other-job)))
-    #t
-    #f))
-
-
-;; return list containing all job's parents,
-;; starting from (sh-globals), until job itself.
-(define (job-parents-revlist job-or-id)
-  (let ((jlist '()))
-    (job-parents-iterate job-or-id
-      (lambda (job)
-        (set! jlist (cons job jlist))))
-    jlist))
-
-
-#|
-;; unused. return list containing job followed by all its parents.
-(define (job-parents-list job-or-id)
-  (reverse! (job-parents-revlist job-or-id)))
-|#
-
 
 (define (sh-consume-signals lctx)
   (check-interrupts)
@@ -409,106 +466,6 @@
       (unless (or (eqv? -1 id) (eqv? -1 oid))
         (sh-job-display-summary job port))
       (job-oid-set! job #f)))) ; no longer needed, clear it
-
-
-;; called when starting a builtin or multijob:
-;; create fd redirections and store them into (job-fds-to-remap)
-;;
-;; Reason: builtins and multijobs are executed in main schemesh process,
-;; a redirection may overwrite fds 0 1 2 or some other fd already used
-;; by main schemesh process, and we don't want to alter them:
-;;
-;; we need an additional layer of indirection that keeps track of the job's redirected fds
-;; and to which (private) fds they are actually mapped to
-(define (job-remap-fds! job)
-  (let ((n (span-length (job-redirects job))))
-    (unless (or (fxzero? n) (job-fds-to-remap job)) ; if fds are already remapped, do nothing
-      (let ((job-dir (job-cwd-if-set job))
-            (remaps  (make-eqv-hashtable n)))
-        (job-fds-to-remap-set! job remaps)
-        (do ((i 0 (fx+ i 4)))
-            ((fx>? i (fx- n 4)))
-          (job-remap-fd! job job-dir i))))))
-
-
-;; called by (job-remap-fds!)
-(define (job-remap-fd! job job-dir index)
-  ;; redirects is span of quadruplets (fd mode to-fd-or-path-or-closure bytevector0)
-  (let* ((redirects            (job-redirects job))
-         (fd                   (span-ref redirects index))
-         (direction-ch         (span-ref redirects (fx1+ index)))
-         (to-fd-or-bytevector0 (job-extract-redirection-to-fd-or-bytevector0 job job-dir redirects index))
-         (remap-fd             (s-fd-allocate)))
-    ;; (debugf "job-remap-fd! fd=~s dir=~s remap-fd=~s to=~s" fd direction-ch remap-fd to-fd-or-bytevector0)
-    (let* ((fd-int (s-fd->int remap-fd))
-           (ret (fd-redirect fd-int direction-ch to-fd-or-bytevector0 #t))) ; #t close-on-exec?
-      (when (< ret 0)
-        (s-fd-release remap-fd)
-        (raise-c-errno 'sh-start 'c_fd_redirect ret fd-int direction-ch to-fd-or-bytevector0)))
-    (hashtable-set! (job-fds-to-remap job) fd remap-fd)))
-
-
-
-;; extract the destination fd or bytevector0 from a redirection
-(define (job-extract-redirection-to-fd-or-bytevector0 job job-dir redirects index)
-  (%prefix-job-dir-if-relative-path job-dir
-    (or (span-ref redirects (fx+ 3 index))
-        (let ((to (span-ref redirects (fx+ 2 index))))
-          (if (procedure? to)
-            (if (logbit? 1 (procedure-arity-mask to)) (to job) (to))
-            to)))))
-
-
-(define (%prefix-job-dir-if-relative-path job-dir path-or-fd)
-  (cond
-    ((fixnum? path-or-fd)
-      path-or-fd)
-    ((or (string? path-or-fd) (bytevector? path-or-fd))
-      (let ((bvec (text->bytevector0 path-or-fd))
-            (slash 47))
-        (if (and job-dir (not (fx=? slash (bytevector-u8-ref bvec 0))))
-          (let ((bspan (charspan->utf8b job-dir)))
-            (unless (or (bytespan-empty? bspan) (fx=? slash (bytespan-ref-right/u8 bspan)))
-              ;; append / after job's directory if missing
-              (bytespan-insert-right/u8! bspan slash))
-            (bytespan-insert-right/bvector! bspan bvec)
-            (bytespan->bytevector bspan))
-          bvec)))
-    ;; wildcards may expand to a list of strings: accept them if they have length 1
-    ((and (pair? path-or-fd) (null? (cdr path-or-fd)) (string? (car path-or-fd)))
-      (%prefix-job-dir-if-relative-path job-dir (car path-or-fd)))
-    (else
-      (raise-assert1 'job-remap-fds
-        "(or (fixnum? path-or-fd) (string? path-or-fd) (bytevector? path-or-fd))"
-        path-or-fd))))
-
-
-;; redirect a file descriptor. returns < 0 on error
-;; arguments: fd direction-ch to-fd-or-bytevector0 close-on-exec?
-(define fd-redirect
-  (foreign-procedure "c_fd_redirect" (ptr ptr ptr ptr) int))
-
-
-;; return the remapped file descriptor for specified fd,
-;; or fd itself if no remapping was found
-(define (job-find-fd-remap job fd)
-  (do ((parent job (job-parent parent)))
-      ((not parent) fd)
-    (let* ((remap-fds (job-fds-to-remap parent))
-           (remap-fd  (and remap-fds (hashtable-ref remap-fds fd #f))))
-      (when remap-fd
-        (set! fd (s-fd->int remap-fd))))))
-
-
-;; release job's remapped fds and unset (job-fds-to-remap job)
-(define (job-unmap-fds! job)
-  (let ((remap-fds (job-fds-to-remap job)))
-    (when remap-fds
-      (for-hash-values ((fd remap-fds))
-        (when (s-fd-release fd)
-          ;; (debugf "job-unmap-fds! fd-close ~s" (s-fd->int fd))
-          (fd-close (s-fd->int fd))))
-      (job-fds-to-remap-set! job #f))))
 
 
 

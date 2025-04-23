@@ -337,48 +337,187 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-;; Return the actual file descriptor to use for reading from, or writing to, logical file descriptor N.
+
+;; called when starting a builtin or multijob:
+;; create fd redirections and store them into (job-fds-to-remap)
+;;
+;; Reason: builtins and multijobs are executed in main schemesh process,
+;; a redirection may overwrite fds 0 1 2 or some other fd already used
+;; by main schemesh process, and we don't want to alter them:
+;;
+;; we need an additional layer of indirection that keeps track of the job's redirected fds
+;; and to which (private) fds they are actually mapped to
+(define (job-remap-fds! job)
+  (let ((n (span-length (job-redirects job))))
+    (unless (or (fxzero? n) (job-fds-to-remap job)) ; if fds are already remapped, do nothing
+      (let ((job-dir (job-cwd-if-set job))
+            (remaps  (make-eqv-hashtable n)))
+        (job-fds-to-remap-set! job remaps)
+        (do ((i 0 (fx+ i 4)))
+            ((fx>? i (fx- n 4)))
+          (job-remap-fd! job job-dir i))))))
+
+
+;; redirect a file descriptor. returns < 0 on error
+;; arguments: fd direction-ch to-fd-or-bytevector0 close-on-exec?
+(define fd-redirect
+  (foreign-procedure "c_fd_redirect" (ptr ptr ptr ptr) int))
+
+
+;; called by (job-remap-fds!)
+(define (job-remap-fd! job job-dir index)
+  ;; redirects is span of quadruplets (fd mode to-fd-or-path-or-closure bytevector0)
+  (let* ((redirects            (job-redirects job))
+         (fd                   (span-ref redirects index))
+         (direction-ch         (span-ref redirects (fx1+ index)))
+         (to-fd-or-bytevector0 (job-extract-redirection-to-fd-or-bytevector0 job job-dir redirects index))
+         (remap-fd             (s-fd-allocate)))
+    ;; (debugf "job-remap-fd! fd=~s dir=~s remap-fd=~s to=~s" fd direction-ch remap-fd to-fd-or-bytevector0)
+    (let* ((fd-int (s-fd->int remap-fd))
+           (ret (fd-redirect fd-int direction-ch to-fd-or-bytevector0 #t))) ; #t close-on-exec?
+      (when (< ret 0)
+        (s-fd-release remap-fd)
+        (raise-c-errno 'sh-start 'c_fd_redirect ret fd-int direction-ch to-fd-or-bytevector0)))
+    (hashtable-set! (job-fds-to-remap job) fd remap-fd)))
+
+
+
+;; extract the destination fd or bytevector0 from a redirection
+(define (job-extract-redirection-to-fd-or-bytevector0 job job-dir redirects index)
+  (%prefix-job-dir-if-relative-path job-dir
+    (or (span-ref redirects (fx+ 3 index))
+        (let ((to (span-ref redirects (fx+ 2 index))))
+          (if (procedure? to)
+            (if (logbit? 1 (procedure-arity-mask to)) (to job) (to))
+            to)))))
+
+
+(define (%prefix-job-dir-if-relative-path job-dir path-or-fd)
+  (cond
+    ((fixnum? path-or-fd)
+      path-or-fd)
+    ((or (string? path-or-fd) (bytevector? path-or-fd))
+      (let ((bvec (text->bytevector0 path-or-fd))
+            (slash 47))
+        (if (and job-dir (not (fx=? slash (bytevector-u8-ref bvec 0))))
+          (let ((bspan (charspan->utf8b job-dir)))
+            (unless (or (bytespan-empty? bspan) (fx=? slash (bytespan-ref-right/u8 bspan)))
+              ;; append / after job's directory if missing
+              (bytespan-insert-right/u8! bspan slash))
+            (bytespan-insert-right/bvector! bspan bvec)
+            (bytespan->bytevector bspan))
+          bvec)))
+    ;; wildcards may expand to a list of strings: accept them if they have length 1
+    ((and (pair? path-or-fd) (null? (cdr path-or-fd)) (string? (car path-or-fd)))
+      (%prefix-job-dir-if-relative-path job-dir (car path-or-fd)))
+    (else
+      (raise-assert1 'job-remap-fds
+        "(or (fixnum? path-or-fd) (string? path-or-fd) (bytevector? path-or-fd))"
+        path-or-fd))))
+
+
+;; release job's remapped fds and unset (job-fds-to-remap job)
+(define (job-unmap-fds! job)
+  (let ((remap-fds (job-fds-to-remap job)))
+    (when remap-fds
+      (for-hash-values ((fd remap-fds))
+        (when (s-fd-release fd)
+          ;; (debugf "job-unmap-fds! fd-close ~s" (s-fd->int fd))
+          (fd-close (s-fd->int fd))))
+      (job-fds-to-remap-set! job #f))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; return two values:
+;;   the ancestor job and its remapped file descriptor for specified fd,
+;;   or #f fd if no remapping was found
+(define (job-remap-find-fd* job fd)
+  (let %again ((job job) (job-with-redirect #f) (fd fd))
+    (let* ((remap-fds (and job (job-fds-to-remap job)))
+           (remap-fd  (and remap-fds (hashtable-ref remap-fds fd #f))))
+      (if remap-fd
+        (%again (job-parent job) job (s-fd->int remap-fd))
+        (let ((parent (and job (job-parent job))))
+          (if parent
+            (%again parent job-with-redirect fd)
+            (values job-with-redirect fd)))))))
+
+
+;; return the remapped file descriptor for specified job's fd,
+;; or fd itself if no remapping was found
+(define (job-remap-find-fd job fd)
+  (let-values (((job-with-redirect ret-fd) (job-remap-find-fd* job fd)))
+    ret-fd))
+
+
+;; return (job-ports job), creating it if needed
+(define (job-ensure-ports job)
+  (or (job-ports job)
+      (let ((ports (make-eqv-hashtable)))
+        (job-ports-set! job ports)
+        ports)))
+
+
+;; return the binary input/output port for specified job's fd (crearing it if needed)
+;; or raise exception if no remapping was found
+(define (job-remap-find-binary-port job fd)
+  (let-values (((parent remapped-fd) (job-remap-find-fd* job fd)))
+    (unless parent
+      (raise-errorf 'sh-binary-port "port not found for file descriptor ~s in job ~s" fd job))
+    (let ((ports (job-ensure-ports parent)))
+      (or (hashtable-ref ports remapped-fd #f)
+          (let ((port (open-fd-redir-binary-input/output-port
+                         (format #f "fd ~s" remapped-fd)
+                         (lambda () remapped-fd) (buffer-mode block) #f)))
+            (hashtable-set! ports remapped-fd port)
+            port)))))
+
+
+;; return the textual input/output port for specified job's fd (crearing it if needed)
+;; or raise exception if no remapping was found
+(define (job-remap-find-textual-port job fd)
+  (let-values (((parent remapped-fd) (job-remap-find-fd* job fd)))
+    (unless parent
+      (raise-errorf 'sh-textual-port "port not found for file descriptor ~s in job ~s" fd job))
+    (let ((ports (job-ensure-ports parent)))
+      (or (hashtable-ref ports (fxnot remapped-fd) #f)
+          (let ((port (open-fd-redir-utf8b-input/output-port
+                         (format #f "fd ~s" remapped-fd)
+                         (lambda () remapped-fd) (buffer-mode block) #f)))
+            (hashtable-set! ports (fxnot remapped-fd) port)
+            port)))))
+
+
+
+
+;; Return the actual file descriptor to use inside a job
+;; for reading from, or writing to, logical file descriptor N.
 ;; Needed because jobs can run in main process and have per-job redirections.
-(define (sh-fd n)
-  (let ((job (sh-current-job)))
-    (if job
-      (job-find-fd-remap job n)
-      n)))
+(define sh-fd
+  (case-lambda
+    ((job-or-id fd)
+      (job-remap-find-fd (sh-job job-or-id) fd))
+    ((fd)
+      (sh-fd #f fd))))
 
 
-
-(define (port-cleanup port)
-  (when (input-port? port)
-    (set-port-eof! port #f))
-  (when (output-port? port)
-    (flush-output-port port)))
-
-
-;; Parameter containing the current job.
-;; It is truish only if called from one of the dynamic contexts listed below,
-;; or from some code called directly or indirectly by them:
-;;
-;; * one of the procedures stored in (job-start-proc)
-;; * a closure injected in a sh-job, as for example {echo (lambda () ...)}
-;; * an expression inside (shell-expr ...)
-;;
-(define sh-current-job
-  (sh-make-thread-parameter #f
-    (lambda (job)
-      (when (and job (not (sh-job? job)))
-        (raise-errorf 'sh-current-job "invalid current job, must be #f or a sh-job: ~s" job))
-      ;; when current job changes, we must unset the eof flag on stdin, stdout and stderr
-      ;; because the underlying file descriptors may change and their eof status may differ
-      (port-cleanup (current-input-port))
-      (port-cleanup (current-output-port))
-      (port-cleanup (current-error-port))
-      (port-cleanup (sh-stdin))
-      (port-cleanup (sh-stdout))
-      (port-cleanup (sh-stderr))
-
-      job)))
+;; Return the binary input/output port to use inside a job for reading/writing specified file descriptor.
+;; Needed because jobs can run in main process and have per-job redirections.
+(define sh-binary-port
+  (case-lambda
+    ((job-or-id fd)
+      (job-remap-find-binary-port (sh-job job-or-id) fd))
+    ((fd)
+      (sh-binary-port #f fd))))
 
 
-;; Parameter set to truish when inside (job-wait).
-;; Needed to avoid re-entering (job-wait) from signal handlers.
-(define waiting-for-job (sh-make-thread-parameter #f))
+;; Return the binary input/output port to use inside a job for reading/writing specified file descriptor.
+;; Needed because jobs can run in main process and have per-job redirections.
+(define sh-textual-port
+  (case-lambda
+    ((job-or-id fd)
+      (job-remap-find-textual-port (sh-job job-or-id) fd))
+    ((fd)
+      (sh-textual-port #f fd))))
