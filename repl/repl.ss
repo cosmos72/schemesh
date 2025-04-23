@@ -37,6 +37,7 @@
     (only (schemesh posix dir) file-type)
     (schemesh posix signal)
     (schemesh posix tty)
+    (only (schemesh port stdio) sh-stdio-flush)
     (only (schemesh shell)
        repl-args repl-args-linectx repl-restart repl-restart?
        sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-exception-handler
@@ -165,7 +166,8 @@
       (lambda ()
         (do ((tail forms (cdr tail)))
             ((null? tail))
-          (eval-print-func (car tail))))
+          (eval-print-func (car tail)))
+        (sh-stdio-flush))
       tty-setraw!)))
 
 

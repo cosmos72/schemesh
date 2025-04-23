@@ -50,6 +50,7 @@
   (include "posix/pid.ss")
   (include "posix/posix.ss")
 
+  (include "port/redir.ss")
   (include "port/stdio.ss")
   (include "port/port.ss")
 

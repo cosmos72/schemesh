@@ -31,7 +31,11 @@
            0 #f                      ; id oid
            (pid-get) (pgid-get 0)    ; pid pgid
            (void) #f                 ; last-status exception
-           (span) 0 #f               ; redirections
+           (span) 0                  ; redirections
+
+           (eqv-hashtable            ; fds-to-remap
+             0 (s-fd 0) 1 (s-fd 1) 2 (s-fd 2))
+
            (eqv-hashtable            ; ports
              0 port0  1 port1  2 port2
              (fxnot 0) (make-utf8b-input/output-port port0)
@@ -59,20 +63,16 @@
 
   ;; Replace (sh-stdin) (sh-stdout) (sh-stderr)
   ;; with binary input/output ports that can be interrupted and honor current job redirections
-  ;;
-  ;; Cannot create buffered ports: input buffers would need to be per-job
-  (sh-stdin  (open-fd-redir-binary-input/output-port "sh-stdin"  (lambda () (sh-fd 0)) (buffer-mode none)))
-  (sh-stdout (open-fd-redir-binary-input/output-port "sh-stdout" (lambda () (sh-fd 1)) (buffer-mode none)))
-  (sh-stderr (open-fd-redir-binary-input/output-port "sh-stderr" (lambda () (sh-fd 2)) (buffer-mode none)))
+  (sh-stdin  (make-redir-binary-input/output-port "sh-stdin"  (lambda () (sh-binary-port #f 0))))
+  (sh-stdout (make-redir-binary-input/output-port "sh-stdout" (lambda () (sh-binary-port #f 1))))
+  (sh-stderr (make-redir-binary-input/output-port "sh-stderr" (lambda () (sh-binary-port #f 2))))
 
 
   ;; Replace (current-input-port) (current-output-port) (current-error-port)
   ;; with UTF-8b textual input/output ports that can be interrupted and honor current job redirections
-  ;;
-  ;; Cannot create buffered ports: input buffers would need to be per-job
-  (current-input-port  (make-utf8b-input/output-port (sh-stdin)  (buffer-mode none)))
-  (current-output-port (make-utf8b-input/output-port (sh-stdout) (buffer-mode none)))
-  (current-error-port  (make-utf8b-input/output-port (sh-stderr) (buffer-mode none)))
+  (current-input-port  (make-redir-textual-input/output-port "current-input-port"  (lambda () (sh-textual-port #f 0))))
+  (current-output-port (make-redir-textual-input/output-port "current-output-port" (lambda () (sh-textual-port #f 1))))
+  (current-error-port  (make-redir-textual-input/output-port "current-error-port"  (lambda () (sh-textual-port #f 2))))
 
 
   (let ((bt (sh-builtins))

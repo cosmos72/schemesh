@@ -12,10 +12,12 @@
 ;;; https://docs.racket-lang.org/reference/port-lib.html
 ;;;
 (library (schemesh port stdio (0 8 3))
-  (export sh-stdin sh-stdout sh-stderr)
+  (export
+          sh-stdio-cleanup sh-stdio-flush sh-stdin sh-stdout sh-stderr)
   (import
     (rnrs)
     (rnrs mutable-pairs)
+    (only (chezscheme) set-port-eof! )
     (only (schemesh bootstrap) assert* sh-make-parameter))
 
 
@@ -47,6 +49,32 @@
       (when port
         (assert* 'sh-stderr (binary-port? port)))
       port)))
+
+
+(define (try-port-cleanup port)
+  (when (input-port? port)
+    (set-port-eof! port #f)))
+
+(define (try-port-flush port)
+  (when (output-port? port)
+    (flush-output-port port)))
+
+(define (sh-stdio-cleanup)
+  (try-port-cleanup (current-input-port))
+  (try-port-cleanup (current-output-port))
+  (try-port-cleanup (current-error-port))
+  (try-port-cleanup (sh-stdin))
+  (try-port-cleanup (sh-stdout))
+  (try-port-cleanup (sh-stderr)))
+
+
+(define (sh-stdio-flush)
+  (try-port-flush (current-input-port))
+  (try-port-flush (current-output-port))
+  (try-port-flush (current-error-port))
+  (try-port-flush (sh-stdin))
+  (try-port-flush (sh-stdout))
+  (try-port-flush (sh-stderr)))
 
 
 

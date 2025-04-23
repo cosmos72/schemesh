@@ -61,7 +61,7 @@
     sh-options
 
     ;; redirect.ss
-    sh-fd sh-redirect!
+    sh-fd sh-binary-port sh-textual-port sh-redirect!
     sh-run/bvector sh-run/string sh-run/string-rtrim-newlines sh-run/string-split-after-nuls sh-start/fd-stdout
 
 
@@ -94,12 +94,13 @@
                        foreign-procedure format fx1+ fx1- hashtable-cells include inspect
                        keyboard-interrupt-handler list-copy logand logbit? make-format-condition meta
                        open-fd-output-port parameterize procedure-arity-mask record-writer
-                       register-signal-handler reverse! set-port-eof! sort!
+                       register-signal-handler reverse! sort!
                        string-copy! string-truncate! void)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh conversions)
     (schemesh posix)
+    (schemesh port redir)
     (schemesh port stdio)
     (only (schemesh lineedit charhistory) charhistory-path-set!)
     (only (schemesh lineedit linectx) linectx? linectx-history linectx-save-history linectx-wbuf)
@@ -181,13 +182,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(define (port-cleanup port)
-  (when (input-port? port)
-    (set-port-eof! port #f))
-  (when (output-port? port)
-    (flush-output-port port)))
-
-
 (define (job-ports-flush job)
   (let ((ports (job-ports job)))
     (when ports
@@ -198,7 +192,11 @@
   (job-default-parents-iterate job job-ports-flush))
 
 
-;; Parameter containing the current job.
+;; internally used by (sh-current-job)
+(define %current-job (sh-make-thread-parameter #f))
+
+
+;; Thread parameter containing the current job.
 ;; It is truish only if called from one of the dynamic contexts listed below,
 ;; or from some code called directly or indirectly by them:
 ;;
@@ -207,23 +205,22 @@
 ;; * an expression inside (shell-expr ...)
 ;;
 (define sh-current-job
-  (sh-make-thread-parameter #f
-    (lambda (job)
+  (case-lambda
+    (()
+      (%current-job))
+    ((job)
       (when (and job (not (sh-job? job)))
         (raise-errorf 'sh-current-job "invalid current job, must be #f or a sh-job: ~s" job))
-      ;; when current job changes, flush its output ports
-      (job-default-parents-ports-flush job)
-      ;; we must unset the eof flag on stdin, stdout and stderr
-      ;; when current job changes, we must unset the eof flag on stdin, stdout and stderr
-      ;; because the underlying file descriptors may change and their eof status may differ
-      (port-cleanup (current-input-port))
-      (port-cleanup (current-output-port))
-      (port-cleanup (current-error-port))
-      (port-cleanup (sh-stdin))
-      (port-cleanup (sh-stdout))
-      (port-cleanup (sh-stderr))
-
-      job)))
+      ;; when current job changes, we must flush stdin, stdout and stderr and unset their eof flag
+      ;; because the underlying port may change and their eof status may differ
+      (let ((old-job (%current-job)))
+        (unless (eq? job old-job)
+          (sh-stdio-cleanup)
+          (sh-stdio-flush))
+        (when old-job
+          (job-default-parents-ports-flush old-job))
+        (unless (eq? job old-job)
+          (%current-job job))))))
 
 
 ;; Parameter set to truish when inside (job-wait).
