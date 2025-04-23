@@ -12,8 +12,7 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) append! format
-                       fx1+ fx1- fx/ gensym list-copy list-head))
+    (only (chezscheme) append! fx1+ gensym list-copy list-head))
 
 
 ;; scan template for '_ and replace '_ with item.
