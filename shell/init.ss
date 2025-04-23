@@ -28,7 +28,7 @@
          0 #f                      ; id oid
          (pid-get) (pgid-get 0)    ; pid pgid
          (void) #f                 ; last-status exception
-         (span) 0 #f               ; redirections
+         (span) 0 #f #f            ; redirections ports
          #f #f                     ; start-proc step-proc
          (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) #f ; current directory, old working directory
          (make-hashtable string-hash string=?) ; env variables

@@ -92,7 +92,7 @@
                        current-input-port current-output-port current-error-port
                        current-time debug debug-condition debug-on-exception display-condition
                        foreign-procedure format fx1+ fx1- hashtable-cells include inspect
-                       keyboard-interrupt-handler logand logbit? make-format-condition meta
+                       keyboard-interrupt-handler list-copy logand logbit? make-format-condition meta
                        open-fd-output-port parameterize procedure-arity-mask record-writer
                        register-signal-handler reverse! set-port-eof! sort!
                        string-copy! string-truncate! void)

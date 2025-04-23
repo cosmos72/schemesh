@@ -14,8 +14,8 @@
   (let ((current-job (sh-current-job)))
     (%make-cmd
       #f #f #f #f     ; id oid pid pgid
-      (new) #f       ; last-status exception
-      (span) 0 #f     ; redirections
+      (new) #f        ; last-status exception
+      (span) 0 #f #f  ; redirections ports
       cmd-start #f    ; start-proc step-proc
       #f #f           ; working directory, old working directory - initially inherited from parent job
       #f              ; overridden environment variables - initially none

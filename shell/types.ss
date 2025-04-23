@@ -26,6 +26,8 @@
     (mutable redirects-temp-n) ; fixnum, number elements at front of (job-redirects)
                                ; inserted by temporary redirections
     (mutable fds-to-remap) ; for builtins or multijobs, #f or hashmap job-logical-fd -> (s-fd) to actually use
+    (mutable ports)        ; #f or hashtable fd -> binary input/output port,
+                           ; and (fxnot fd) -> textual input/output port.
     start-proc      ; #f or procedure to run in main process.
                     ; receives as argument job followed by options.
     (mutable step-proc) ; #f or procedure.
@@ -37,10 +39,10 @@
     (mutable owd %job-owd %job-owd-set!) ; #f or charspan: previous working directory
     (mutable env)         ; #f or hashtable of overridden env variables: name -> value
     (mutable env-lazy)    ; #f or span of env variable name each followed by string or procedure
-    (mutable temp-parent) ; temporary parent job, contains default values of env variables.
-                          ; Unset when job finishes
-    (mutable default-parent)) ; default parent job, contains default values of env variables
-  (nongenerative job-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+    (mutable temp-parent) ; #f or temporary parent job, contains default values of env variables.
+                          ; Set to #f when job finishes
+    (mutable default-parent)) ; default parent job, contains default values of env variables, cwd and redirections
+  (nongenerative job-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
 ;; Define the record type "cmd"
@@ -49,7 +51,7 @@
   (fields
     arg-list                     ; list of strings and closures: program-name and args
     (mutable expanded-arg-list)) ; #f or list of strings: program-name and args after applying closures and expanding aliases
-  (nongenerative cmd-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+  (nongenerative cmd-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
 ;; Define the record type "jexpr"
@@ -60,7 +62,7 @@
     label                   ; #f or source fragment that compiled to proc
     (mutable resume-proc)   ; #f or continuation to resume job
     (mutable suspend-proc)) ; #f or continuation to suspend job and return to whoever started/resumed it
-  (nongenerative jexpr-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+  (nongenerative jexpr-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
 ;; Define the record type "multijob"
@@ -70,7 +72,7 @@
     kind                ; symbol: one of 'sh-and 'sh-or 'sh-not 'sh-list 'sh-subshell '#<global>
     (mutable current-child-index) ; -1 or index of currently running child job
     children)           ; span: children jobs.
-  (nongenerative multijob-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+  (nongenerative multijob-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -181,10 +183,10 @@
 (define (cmd-copy j parent)
   (%make-cmd
     #f #f #f #f          ; id oid pid pgid
-    (new) #f   ; status exception
+    (new) #f             ; status exception
     (let ((redirects (job-redirects j)))
       (span-copy redirects (job-redirects-temp-n j) (span-length redirects)))
-    0 #f                 ; redirects-temp-n fds-to-remap
+    0 #f #f              ; redirects-temp-n fds-to-remap ports
     (job-start-proc j)
     (job-step-proc  j)
     (let ((cwd (%job-cwd j)))
@@ -197,7 +199,7 @@
       (and env-lazy (span-copy env-lazy)))
     #f                   ; temp-parent
     parent               ; default-parent
-    (filter (lambda (x) #t) (cmd-arg-list j)) ; copy arg-list
+    (list-copy (cmd-arg-list j)) ; copy arg-list
     #f))                 ; expanded-arg-list
 
 
@@ -213,7 +215,7 @@
       (let ((redirects (job-redirects j)))
         ;; skip temporary redirects, copy the rest
         (span-copy redirects (job-redirects-temp-n j) (span-length redirects)))
-      0 #f                 ; redirects-temp-n fds-to-remap
+      0 #f #f              ; redirects-temp-n fds-to-remap ports
       (job-start-proc j)
       (job-step-proc  j)
       (let ((cwd (%job-cwd j)))

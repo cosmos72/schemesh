@@ -27,7 +27,7 @@
         (%make-sh-expr
           #f #f #f #f    ; id oid pid pgid
           (new) #f       ; last-status exception
-          (span) 0 #f    ; redirections
+          (span) 0 #f #f ; redirections ports
           jexpr-start #f ; start-proc step-proc
           #f #f          ; working directory, old working directory - initially inherited from parent job
           #f             ; overridden environment variables - initially none

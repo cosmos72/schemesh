@@ -124,8 +124,8 @@
          (mj
     (%make-multijob
       #f #f #f #f     ; id oid pid pgid
-      (new) #f       ; last-status exception
-      (span) 0 #f     ; redirections
+      (new) #f        ; last-status exception
+      (span) 0 #f #f  ; redirections ports
       start-proc      ; executed to start the job
       step-proc       ; executed when a child job changes status
       #f #f           ; working directory, old working directory - initially inherited from parent job
