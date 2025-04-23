@@ -45,11 +45,6 @@
         (%scan=> (cdr l) (fx1+ pos))))))
 
 
-;; set the n-th car of a list
-(define (list-set! l n obj)
-  (set-car! (list-tail l n) obj))
-
-
 ;; expand (==> head rest)
 (define (compose==> head rest)
   (let-values (((pos sym) (scan=> rest)))
@@ -79,8 +74,6 @@
              (rest* (replace_! g (list-copy rest))))
          `(let ((,g ,head))
             (and ,g ,rest*))))))
-
-
 
 
 ;; implementation of macro ==>
