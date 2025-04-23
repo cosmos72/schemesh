@@ -430,25 +430,25 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-;; return two values:
-;;   the ancestor job and its remapped file descriptor for specified fd,
+;; return three values:
+;;   the ancestor job, its target file descriptor for specified fd, and its remapped file descriptor for specified fd.
 ;;   or #f fd if no remapping was found
 (define (job-remap-find-fd* job fd)
-  (let %again ((job job) (job-with-redirect #f) (fd fd))
+  (let %again ((job job) (job-with-redirect #f) (target-fd fd) (last-remap-fd fd))
     (let* ((remap-fds (and job (job-fds-to-remap job)))
-           (remap-fd  (and remap-fds (hashtable-ref remap-fds fd #f))))
+           (remap-fd  (and remap-fds (hashtable-ref remap-fds last-remap-fd #f))))
       (if remap-fd
-        (%again (job-parent job) job (s-fd->int remap-fd))
+        (%again (job-parent job) job last-remap-fd (s-fd->int remap-fd))
         (let ((parent (and job (job-parent job))))
           (if parent
-            (%again parent job-with-redirect fd)
-            (values job-with-redirect fd)))))))
+            (%again parent job-with-redirect target-fd last-remap-fd)
+            (values job-with-redirect target-fd last-remap-fd)))))))
 
 
 ;; return the remapped file descriptor for specified job's fd,
 ;; or fd itself if no remapping was found
 (define (job-remap-find-fd job fd)
-  (let-values (((job-with-redirect ret-fd) (job-remap-find-fd* job fd)))
+  (let-values (((unused1 unused2 ret-fd) (job-remap-find-fd* job fd)))
     ret-fd))
 
 
@@ -460,20 +460,20 @@
         ports)))
 
 
-(define (job-ensure-binary-port job remapped-fd)
+(define (job-ensure-binary-port job target-fd remapped-fd)
   (let ((ports (job-ensure-ports job)))
     (or (hashtable-ref ports remapped-fd #f)
-        (let ((port (open-fd-redir-binary-input/output-port
-                       (format #f "fd ~s" remapped-fd)
-                       (lambda () remapped-fd) (buffer-mode block) #f)))
+        (let ((port (open-fd-binary-input/output-port
+                       (string-append "fd " (number->string target-fd))
+                       remapped-fd (buffer-mode block) #f)))
           (hashtable-set! ports remapped-fd port)
           port))))
 
 
-(define (job-ensure-textual-port job remapped-fd)
+(define (job-ensure-textual-port job target-fd remapped-fd)
   (let ((ports (job-ensure-ports job)))
     (or (hashtable-ref ports (fxnot remapped-fd) #f)
-        (let* ((binary-port (job-ensure-binary-port job remapped-fd))
+        (let* ((binary-port (job-ensure-binary-port job target-fd remapped-fd))
                (port        (make-utf8b-input/output-port binary-port)))
           (hashtable-set! ports (fxnot remapped-fd) port)
           port))))
@@ -482,19 +482,19 @@
 ;; return the binary input/output port for specified job's fd (crearing it if needed)
 ;; or raise exception if no remapping was found
 (define (job-remap-find-binary-port job fd)
-  (let-values (((parent remapped-fd) (job-remap-find-fd* job fd)))
+  (let-values (((parent target-fd remapped-fd) (job-remap-find-fd* job fd)))
     (unless parent
       (raise-errorf 'sh-binary-port "port not found for file descriptor ~s in job ~s" fd job))
-    (job-ensure-binary-port parent remapped-fd)))
+    (job-ensure-binary-port parent target-fd remapped-fd)))
 
 
 ;; return the textual input/output port for specified job's fd (crearing it if needed)
 ;; or raise exception if no remapping was found
 (define (job-remap-find-textual-port job fd)
-  (let-values (((parent remapped-fd) (job-remap-find-fd* job fd)))
+  (let-values (((parent target-fd remapped-fd) (job-remap-find-fd* job fd)))
     (unless parent
       (raise-errorf 'sh-textual-port "port not found for file descriptor ~s in job ~s" fd job))
-    (job-ensure-textual-port parent remapped-fd)))
+    (job-ensure-textual-port parent target-fd remapped-fd)))
 
 
 

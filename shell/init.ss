@@ -19,9 +19,9 @@
   ;;
   ;; May be parameterized to a different value in subshells.
   (unless (sh-globals)
-    (let ((port0 (open-fd-redir-binary-input/output-port "sh-stdin"  (lambda () (sh-fd #t 0))))
-          (port1 (open-fd-redir-binary-input/output-port "sh-stdout" (lambda () (sh-fd #t 1))))
-          (port2 (open-fd-redir-binary-input/output-port "sh-stderr" (lambda () (sh-fd #t 2)))))
+    (let ((port0 (open-fd-binary-input/output-port "sh-stdin"  0))
+          (port1 (open-fd-binary-input/output-port "sh-stdout" 1))
+          (port2 (open-fd-binary-input/output-port "sh-stderr" 2)))
       (sh-globals
         ;; assign job-id 0 to sh-globals itself.
         ;;
@@ -55,9 +55,9 @@
   ;; with UTF-8b textual input/output ports that can be interrupted
   ;;
   ;; DISABLED: breaks (inspect) and (debug)
-  (console-input-port  (open-fd-redir-utf8b-input/output-port "stdin"  (lambda () 0) (buffer-mode none)))
-  (console-output-port (open-fd-redir-utf8b-input/output-port "stdout" (lambda () 1) (buffer-mode none)))
-  (console-error-port  (open-fd-redir-utf8b-input/output-port "stderr" (lambda () 2) (buffer-mode none)))
+  (console-input-port  (make-redir-textual-input/output-port "console-input-port"  (lambda () (sh-textual-port #t 0))))
+  (console-output-port (make-redir-textual-input/output-port "console-output-port" (lambda () (sh-textual-port #t 1))))
+  (console-error-port  (make-redir-textual-input/output-port "console-error-port"  (lambda () (sh-textual-port #t 2))))
   |#
 
 

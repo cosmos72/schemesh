@@ -72,10 +72,8 @@
     0))
 
 
-;; create and return an UTF-8b textual input port that redirectably reads from a file descriptor.
-;;
-;; fd-proc must be a no-argument procedure that returns an integer file descriptor;
-;; the returned file descriptor *may* change from one call to the next.
+;; create and return a textual input port that reads UTF-8b bytes from a binary input port
+;; and transcodes them to characters
 (define make-utf8b-input-port
   (case-lambda
     ((binary-in-port b-mode)
@@ -99,10 +97,8 @@
       (make-utf8b-input-port binary-in-port #f))))
 
 
-;; create and return a textual input/output port that converts characters to UTF-8b bytes
-;; and writes such bytes to the binary-in/out-port.
-;; It also reads bytes from binary-in/out-port, converts them to characters using UTF-8b
-;; and returns the converted characters.
+;; create and return a textual input/output port transcodes between characters and UTF-8b bytes,
+;; which are read/written to the specified binary-in/out-port.
 (define make-utf8b-input/output-port
   (case-lambda
     ((binary-in/out-port b-mode)
@@ -129,10 +125,8 @@
       (make-utf8b-input/output-port binary-in/out-port (buffer-mode block)))))
 
 
-;; create and return a textual output port that converts characters to UTF-8b bytes
-;; and writes such bytes to a binary output port.
-;;
-;; binary-out-port must be a binary output port
+;; create and return a textual output port that transcodes characters to UTF-8b bytes
+;; and writes such bytes to binary-out-port.
 (define make-utf8b-output-port
   (case-lambda
     ((binary-out-port b-mode)
@@ -159,47 +153,44 @@
 ;; create and return a textual input port that redirectably reads
 ;; UTF-8b sequences from a file descriptor and converts them to characters.
 ;;
-;; fd-proc must be a no-argument procedure that returns an integer file descriptor;
-;; the returned file descriptor *may* change from one call to the next.
-(define open-fd-redir-utf8b-input-port
+;; fd must be an unsigned fixnum corresponding to an open file descriptor.
+(define open-fd-utf8b-input-port
   (case-lambda
-    ((name fd-proc b-mode)
+    ((name fd b-mode)
       (make-utf8b-input-port
-        (open-fd-redir-binary-input-port name fd-proc b-mode)
+        (open-fd-binary-input-port name fd b-mode)
         b-mode))
-    ((name fd-proc)
-      (open-fd-redir-utf8b-input-port fd-proc (buffer-mode block)))))
+    ((name fd)
+      (open-fd-utf8b-input-port fd (buffer-mode block)))))
 
 
 ;; create and return a textual input/output port that:
 ;; 1. redirectably reads UTF-8b bytes from a file descriptor and converts them to characters.
 ;; 2. converts characters to UTF-8b bytes and redirectably writes them to a file descriptor.
 ;;
-;; fd-proc must be a no-argument procedure that returns an integer file descriptor;
-;; the returned file descriptor *may* change from one call to the next.
-(define open-fd-redir-utf8b-input/output-port
+;; fd must be an unsigned fixnum corresponding to an open file descriptor.
+(define open-fd-utf8b-input/output-port
   (case-lambda
-    ((name fd-proc b-mode)
+    ((name fd b-mode)
       (make-utf8b-input/output-port
-        (open-fd-redir-binary-input/output-port name fd-proc b-mode)
+        (open-fd-binary-input/output-port name fd b-mode)
         b-mode))
-    ((name fd-proc)
-      (open-fd-redir-utf8b-input/output-port fd-proc #f))))
+    ((name fd)
+      (open-fd-utf8b-input/output-port fd #f))))
 
 
 ;; create and return a textual output port that converts characters to UTF-8b bytes
 ;; and redirectably writes such bytes to a file descriptor.
 ;;
-;; fd-proc must be a no-argument procedure that returns an integer file descriptor;
-;; the returned file descriptor *may* change from one call to the next.
-(define open-fd-redir-utf8b-output-port
+;; fd must be an unsigned fixnum corresponding to an open file descriptor.
+(define open-fd-utf8b-output-port
   (case-lambda
-    ((name fd-proc b-mode)
+    ((name fd b-mode)
       (make-utf8b-output-port
-        (open-fd-redir-binary-output-port name fd-proc b-mode)
+        (open-fd-binary-output-port name fd b-mode)
         b-mode))
-    ((name fd-proc)
-      (open-fd-redir-utf8b-output-port fd-proc #f))))
+    ((name fd)
+      (open-fd-utf8b-output-port fd #f))))
 
 
 

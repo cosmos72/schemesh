@@ -92,13 +92,69 @@
 
 
 ;; create and return a handler suitable for Chez Scheme (make-input/output-port)
-(define (make-textual-input/output-port-handler name nested-port-proc on-close-proc)
-  (let ((proc nested-port-proc))
-    (lambda (msg . args)
-      ;; (debugf "handler for ~s: ~s" (proc) (cons msg args))
-      (record-case (cons msg args)
-        (block-read (p str len) (block-read (proc) str len))
-        (block-write (p str len)
+(define (make-textual-input/output-port-handler name proc on-close-proc)
+  (case-lambda
+    ((msg p)
+      (case msg
+        ((char-ready?)
+          (char-ready? (proc)))
+        ((clear-input-port)
+          (clear-input-port (proc)))
+        ((clear-output-port)
+          (with-interrupts-disabled
+            (set-port-output-index! p 0))
+          (clear-output-port (proc)))
+        ((close-port)
+          (mark-port-closed! p)
+          (when on-close-proc (on-close-proc)))
+        ((flush-output-port)
+          (with-interrupts-disabled
+            (let ((buf (textual-port-output-buffer p))
+                  (idx (textual-port-output-index  p)))
+              (block-write (proc) buf idx) ;; also flushes iop
+              (unless (fxzero? idx)
+                (set-port-output-index! p 0)
+                (set-port-bol! p (char=? (string-ref buf (fx1- idx)) #\newline))))))
+        ((file-position)
+          (file-position (proc)))
+        ((file-length)
+          (file-length (proc)))
+        ((peek-char)
+          (peek-char (proc)))
+        ((port-name)
+          name)
+        ((read-char)
+          (read-char (proc)))
+        (else
+          (raise-bad-msg msg))))
+    ((msg c p)
+      (case msg
+        ((file-position)
+          (file-position (proc) p))
+        ((unread-char)
+          (unread-char c (proc)))
+        ((write-char)
+          (with-interrupts-disabled
+            (let* ((buf (textual-port-output-buffer p))
+                   (idx (textual-port-output-index p))
+                   (idx+1 (fx1+ idx))
+                 (cap (textual-port-output-size p)))
+            (assert* 'write-char (fx<? idx cap))
+            (string-set! buf idx c)
+            (cond
+              ((fx=? idx+1 cap)
+                (put-string (proc) buf idx+1)
+                (set-port-output-index! p 0))
+              (else
+                (set-port-output-index! p idx+1))))
+            (set-port-bol! p (char=? c #\newline))))
+        (else
+          (raise-bad-msg msg))))
+    ((msg p str len)
+      (case msg
+        ((block-read)
+          (block-read (proc) str len))
+        ((block-write)
           (let ((iop (proc)))
             ;; Chez Scheme documentation for (block-write) states:
             ;; If the port is buffered and the buffer is nonempty, the buffer is flushed before the contents of string are written.
@@ -113,44 +169,11 @@
               (unless (fxzero? len)
                 (block-write iop str len)
                 (set-port-bol! p (char=? (string-ref str (fx1- len)) #\newline))))))
-        (char-ready? (p) (char-ready? (proc)))
-        (clear-input-port (p) (clear-input-port (proc)))
-        (clear-output-port (p)
-          (with-interrupts-disabled
-            (set-port-output-index! p 0))
-          (clear-output-port (proc)))
-        (close-port (p) (mark-port-closed! p) (when on-close-proc (on-close-proc)))
-        (flush-output-port (p)
-          (with-interrupts-disabled
-            (let ((buf (textual-port-output-buffer p))
-                  (idx (textual-port-output-index  p)))
-             (block-write (proc) buf idx) ;; also flushes iop
-             (unless (fxzero? idx)
-               (set-port-output-index! p 0)
-               (set-port-bol! p (char=? (string-ref buf (fx1- idx)) #\newline))))))
-        (file-position (p . pos) (apply file-position (proc) pos))
-        (file-length (p) (file-length (proc)))
-        (peek-char (p) (peek-char (proc)))
-        (port-name (p) name)
-        (read-char (p) (read-char (proc)))
-        (unread-char (c p) (unread-char c (proc)))
-        (write-char (c p)
-          (with-interrupts-disabled
-            (let* ((buf (textual-port-output-buffer p))
-                   (idx (textual-port-output-index p))
-                   (idx+1 (fx1+ idx))
-                   (cap (textual-port-output-size p)))
-              (assert* 'write-char (fx<? idx cap))
-              (string-set! buf idx c)
-              (cond
-                ((fx=? idx+1 cap)
-                  (put-string (proc) buf idx+1)
-                  (set-port-output-index! p 0))
-                (else
-                  (set-port-output-index! p idx+1))))
-            (set-port-bol! p (char=? c #\newline))))
         (else
-          (assertion-violationf 'make-redir-textual-input/output-port "operation ~s not handled" msg))))))
+          (raise-bad-msg msg))))))
 
+
+(define (raise-bad-msg msg)
+  (assertion-violationf 'make-redir-textual-input/output-port "operation ~s not handled" msg))
 
 ) ; close library

@@ -20,7 +20,7 @@
     (only (schemesh containers string) assert-string-list? string-suffix? string-index-right)
     (only (schemesh containers utf8b)  utf8b->string)
     (only (schemesh posix fd)          fd-close fd-read-all fd-write-all open-file-fd)
-    (only (schemesh posix io)          open-fd-redir-utf8b-input-port open-file-utf8b-input-port)
+    (only (schemesh posix io)          open-fd-utf8b-input-port open-file-utf8b-input-port)
     (only (schemesh posix status)      ok failed)
     (schemesh parser)
     (only (schemesh shell parameters)  sh-eval)
@@ -86,9 +86,9 @@
 ;;                     or #t that means all known parsers i.e. (parsers)
 (define (sh-read-fd* fd initial-parser enabled-parsers)
   (sh-read-port*
-    (open-fd-redir-utf8b-input-port
+    (open-fd-utf8b-input-port
       (string-append "fd " (number->string fd))
-      (lambda () fd))
+      fd)
     initial-parser
     enabled-parsers))
 
