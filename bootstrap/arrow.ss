@@ -19,7 +19,7 @@
 ;; scan template for '_ and replace '_ with item.
 ;; if template contains no '_ then append item to template.
 ;;
-;; return modified of template.
+;; return template, modified in-place
 (define (replace_! item template)
   (let ((place (memq '_ template)))
     (if place
@@ -55,8 +55,8 @@
   (let-values (((pos sym) (scan=> rest)))
     (if pos
       (let* ((mid  (list-head rest pos))
-             (tail (list-tail rest (fx1+ pos)))
-             (mid* (replace_! head mid)))
+             (mid* (replace_! head mid))
+             (tail (list-tail rest (fx1+ pos))))
         (if (eq? sym '==>)
           (compose==> mid* tail)
           (compose?=> mid* tail)))
@@ -67,15 +67,14 @@
 (define (compose?=> head rest)
   (let-values (((pos sym) (scan=> rest)))
     (if pos
-      (let* ((mid  (list-head rest pos))
-             (tail (list-tail rest (fx1+ pos)))
-             (g    (gensym))
-             (mid* (replace_! g mid)))
-        (if (eq? sym '==>)
-          `(let ((,g ,head))
-             (and ,g ,(compose==> mid* tail)))
-          `(let ((,g ,head))
-             (and ,g ,(compose?=> mid* tail)))))
+      (let* ((g    (gensym))
+             (mid  (list-head rest pos))
+             (mid* (replace_! g mid))
+             (tail (list-tail rest (fx1+ pos))))
+        `(let ((,g ,head))
+           (and ,g ,(if (eq? sym '==>)
+                      (compose==> mid* tail)
+                      (compose?=> mid* tail)))))
       (let* ((g     (gensym))
              (rest* (replace_! g (list-copy rest))))
          `(let ((,g ,head))
