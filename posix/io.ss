@@ -30,27 +30,29 @@
 
 
 (define (%set-buffer-mode! port b-mode)
-  (let ((buffer-size (case b-mode
-                       ((none) 1) ; Chez Scheme streams do not support zero buffer-size
-                       ((line) 128)
-                       (else   8192))))
+  (let* ((out-buffer-size (case b-mode
+                            ((none) 0)
+                            ((line) 128)
+                            (else   4096)))
+         ;; Chez Scheme custom input ports do not support zero input-buffer-size
+         (in-buffer-size (fxmax 1 out-buffer-size)))
     (when (textual-port? port)
       (when (input-port? port)
-        (set-textual-port-input-buffer! port (make-string buffer-size))
-        (set-textual-port-input-size!   port 0)
-        (set-textual-port-input-index!  port 0))
+        (set-textual-port-input-buffer! port (make-string in-buffer-size))
+        (set-textual-port-input-size!   port in-buffer-size)
+        (set-textual-port-input-index!  port in-buffer-size))
       (when (output-port? port)
-        (set-textual-port-output-buffer! port (make-string buffer-size))
-        (set-textual-port-output-size!   port 0)
+        (set-textual-port-output-buffer! port (make-string out-buffer-size))
+        (set-textual-port-output-size!   port out-buffer-size)
         (set-textual-port-output-index!  port 0)))
     (when (binary-port? port)
       (when (input-port? port)
-        (set-binary-port-input-buffer! port (make-bytevector buffer-size))
-        (set-binary-port-input-size!   port 0)
-        (set-binary-port-input-index!  port 0))
+        (set-binary-port-input-buffer! port (make-bytevector in-buffer-size))
+        (set-binary-port-input-size!   port in-buffer-size)
+        (set-binary-port-input-index!  port in-buffer-size))
       (when (output-port? port)
-        (set-binary-port-output-buffer! port (make-bytevector buffer-size))
-        (set-binary-port-output-size!   port 0)
+        (set-binary-port-output-buffer! port (make-bytevector out-buffer-size))
+        (set-binary-port-output-size!   port out-buffer-size)
         (set-binary-port-output-index!  port 0))))
   port)
 

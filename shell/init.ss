@@ -54,10 +54,10 @@
   ;; Replace (console-input-port) (console-output-port) (console-error-port)
   ;; with UTF-8b textual input/output ports that can be interrupted
   ;;
-  ;; DISABLED: breaks (inspect) and (debug)
-  (console-input-port  (make-redir-textual-input/output-port "console-input-port"  (lambda () (sh-textual-port #t 0))))
-  (console-output-port (make-redir-textual-input/output-port "console-output-port" (lambda () (sh-textual-port #t 1))))
-  (console-error-port  (make-redir-textual-input/output-port "console-error-port"  (lambda () (sh-textual-port #t 2))))
+  ;; DISABLED: breaks (inspect) and (debug) because of buffering in (sh-textual-port #t NNN)
+  (console-input-port  (make-redir-textual-input/output-port "console-input-port"  (lambda () (sh-textual-port #t 0)) #f 0))
+  (console-output-port (make-redir-textual-input/output-port "console-output-port" (lambda () (sh-textual-port #t 1)) #f 0))
+  (console-error-port  (make-redir-textual-input/output-port "console-error-port"  (lambda () (sh-textual-port #t 2)) #f 0))
   |#
 
 

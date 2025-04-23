@@ -80,12 +80,15 @@
 ;; the returned textual port *may* change from one call to the next.
 (define make-redir-textual-input/output-port
   (case-lambda
-    ((name nested-port-proc on-close-proc)
+    ((name nested-port-proc on-close-proc out-buffer-size)
       (assert* 'make-redir-textual-input/output-port (procedure? nested-port-proc))
       (make-input/output-port
         (make-textual-input/output-port-handler name nested-port-proc on-close-proc)
         (make-string 0)
-        (make-string 4096)))
+        (make-string out-buffer-size)))
+
+    ((name nested-port-proc on-close-proc)
+      (make-redir-textual-input/output-port name nested-port-proc #f 4096))
 
     ((name nested-port-proc)
       (make-redir-textual-input/output-port name nested-port-proc #f))))
@@ -95,6 +98,7 @@
 (define (make-textual-input/output-port-handler name proc on-close-proc)
   (case-lambda
     ((msg p)
+      ;; (debugf "port handler for ~s: (~s ~s)" (proc) msg p)
       (case msg
         ((char-ready?)
           (char-ready? (proc)))
@@ -128,6 +132,7 @@
         (else
           (raise-bad-msg msg))))
     ((msg c p)
+      ;; (debugf "port handler for ~s: (~s ~s ~s)" (proc) msg c p)
       (case msg
         ((file-position)
           (file-position (proc) p))
@@ -135,22 +140,25 @@
           (unread-char c (proc)))
         ((write-char)
           (with-interrupts-disabled
-            (let* ((buf (textual-port-output-buffer p))
+            (let* ((iop (proc))
+                   (buf (textual-port-output-buffer p))
                    (idx (textual-port-output-index p))
-                   (idx+1 (fx1+ idx))
-                 (cap (textual-port-output-size p)))
-            (assert* 'write-char (fx<? idx cap))
-            (string-set! buf idx c)
-            (cond
-              ((fx=? idx+1 cap)
-                (put-string (proc) buf idx+1)
-                (set-port-output-index! p 0))
-              (else
-                (set-port-output-index! p idx+1))))
+                   (cap (textual-port-output-size p)))
+              (when (fx=? idx cap)
+                (put-string iop buf idx)
+                (set-port-output-index! p 0)
+                (set! idx 0))
+              (cond
+                ((fx=? idx cap)
+                  (put-char iop c))
+                (else
+                  (string-set! buf idx c)
+                  (set-port-output-index! p (fx1+ idx)))))
             (set-port-bol! p (char=? c #\newline))))
         (else
           (raise-bad-msg msg))))
     ((msg p str len)
+      ;; (debugf "port handler for ~s: (~s ~s ~s ~s)" (proc) msg p str len)
       (case msg
         ((block-read)
           (block-read (proc) str len))
@@ -166,8 +174,8 @@
                   (block-write iop buf idx)
                   (set-port-output-index! p 0)
                   (set-port-bol! p (char=? (string-ref buf (fx1- idx)) #\newline))))
+              (block-write iop str len) ; needed also when len = 0, flushes iop
               (unless (fxzero? len)
-                (block-write iop str len)
                 (set-port-bol! p (char=? (string-ref str (fx1- len)) #\newline))))))
         (else
           (raise-bad-msg msg))))))

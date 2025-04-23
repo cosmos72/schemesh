@@ -8,6 +8,8 @@
 #!r6rs
 
 ;; UTF-8b textual input and/or output port reading from/writing to a binary input and/our output port.
+;;
+;; FIXME: rewrite using (make-input/output-port)
 (define-record-type tport
   (fields
     bin-port ; binary port
