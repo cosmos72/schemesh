@@ -17,6 +17,9 @@
   (nongenerative tport-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
+(define (tport-buffered? p)
+  (fx>? (tport-buffer-size p) 0))
+
 (define (tport-bspan-length p)
   (bytespan-length (tport-bspan p)))
 
@@ -129,50 +132,54 @@
 
 (define (utf8b-port-peek-char p tport)
   (assert* 'utfb-port-peek-char tport)
-  (with-interrupts-disabled
-    (let ((buf (textual-port-input-buffer p))
-          (idx (textual-port-input-index  p))
-          (cap (textual-port-input-size   p)))
-      (cond
-        ((fx<? idx cap)
-          (string-ref buf idx))
-        ((fxzero? cap)
-          (tport-peek-char tport))
-        (else
-          (let* ((n (tport-read-some tport buf 0 cap))
-                 (idx (fx- cap n)))
-            (unless (or (fxzero? n) (fxzero? idx))
-              (substring-move! buf 0 n idx))
-            (set-textual-port-input-index! p idx)
-            (if (fxzero? n)
-              (eof-object)
-              (string-ref buf idx))))))))
+  (if (tport-buffered? tport)
+    (with-interrupts-disabled
+      (let ((buf (textual-port-input-buffer p))
+            (idx (textual-port-input-index  p))
+            (cap (textual-port-input-size   p)))
+        (cond
+          ((fx<? idx cap)
+            (string-ref buf idx))
+          ((fxzero? cap)
+            (tport-peek-char tport))
+          (else
+            (let* ((n (tport-read-some tport buf 0 cap))
+                   (idx (fx- cap n)))
+              (unless (or (fxzero? n) (fxzero? idx))
+                (substring-move! buf 0 n idx))
+              (set-textual-port-input-index! p idx)
+              (if (fxzero? n)
+                (eof-object)
+                (string-ref buf idx)))))))
+    (tport-peek-char tport)))
 
 
 (define (utf8b-port-read-char p tport)
   (assert* 'utfb-port-read-char tport)
-  (with-interrupts-disabled
-    (let ((buf (textual-port-input-buffer p))
-          (idx (textual-port-input-index p))
-          (cap (textual-port-input-size p)))
-      (cond
-        ((fx<? idx cap)
-          (set-textual-port-input-index! p (fx1+ idx))
-          (string-ref buf idx))
-        ((fxzero? cap)
-          (tport-read-char tport))
-        (else
-          (let* ((n (tport-read-some tport buf 0 cap))
-                 (idx (fx- cap n)))
-            (unless (or (fxzero? n) (fxzero? idx))
-              (substring-move! buf 0 n idx))
-            (cond
-              ((fxzero? n)
-                (set-textual-port-input-index! p idx)
-                (eof-object))
-              (else
-                (set-textual-port-input-index! p (fx1+ idx))
-                (string-ref buf idx)))))))))
+  (if (tport-buffered? tport)
+    (with-interrupts-disabled
+      (let ((buf (textual-port-input-buffer p))
+            (idx (textual-port-input-index p))
+            (cap (textual-port-input-size p)))
+        (cond
+          ((fx<? idx cap)
+            (set-textual-port-input-index! p (fx1+ idx))
+            (string-ref buf idx))
+          ((fxzero? cap)
+            (tport-read-char tport))
+          (else
+            (let* ((n (tport-read-some tport buf 0 cap))
+                   (idx (fx- cap n)))
+              (unless (or (fxzero? n) (fxzero? idx))
+                (substring-move! buf 0 n idx))
+              (cond
+                ((fxzero? n)
+                  (set-textual-port-input-index! p idx)
+                  (eof-object))
+                (else
+                  (set-textual-port-input-index! p (fx1+ idx))
+                  (string-ref buf idx))))))))
+    (tport-read-char tport)))
 
 
 (define (utf8b-port-block-read p tport str start len)
@@ -185,21 +192,23 @@
 
 (define (utf8b-port-write-char p tport ch)
   (assert* 'utfb-port-write-char tport)
-  (with-interrupts-disabled
-    (let* ((buf (textual-port-output-buffer p))
-           (idx (textual-port-output-index p))
-           (cap (textual-port-output-size p)))
-      (when (fx=? idx cap)
-        (tport-write tport buf 0 idx)
-        (set-textual-port-output-index! p 0)
-        (set! idx 0))
-      (cond
-        ((fx=? idx cap)
-          (tport-write-char tport ch))
-        (else
-          (string-set! buf idx ch)
-          (set-textual-port-output-index! p (fx1+ idx)))))
-    (set-port-bol! p (char=? ch #\newline))))
+  (if (tport-buffered? tport)
+    (with-interrupts-disabled
+      (let* ((buf (textual-port-output-buffer p))
+             (idx (textual-port-output-index p))
+             (cap (textual-port-output-size p)))
+        (when (fx=? idx cap)
+          (tport-write tport buf 0 idx)
+          (set-textual-port-output-index! p 0)
+          (set! idx 0))
+        (cond
+          ((fx=? idx cap)
+            (tport-write-char tport ch))
+          (else
+            (string-set! buf idx ch)
+            (set-textual-port-output-index! p (fx1+ idx)))))
+    (tport-write-char tport ch)))
+  (set-port-bol! p (char=? ch #\newline)))
 
 
 (define (utf8b-port-block-write p tport str start n)
@@ -207,28 +216,30 @@
   ;; If the port is buffered and the buffer is nonempty, the buffer is flushed before the contents of string are written.
   ;; In any case, the contents of string are written immediately, without passing through the buffer.
   (assert* 'utf8b-port-block-write tport)
-  (with-interrupts-disabled
-    (let ((buf (textual-port-output-buffer p))
-          (idx (textual-port-output-index  p)))
-      (unless (fxzero? idx)
-        (tport-write tport buf 0 idx)
-        (set-textual-port-output-index! p 0)
-        (set-port-bol! p (char=? (string-ref buf (fx1- idx)) #\newline))))
-    (unless (fxzero? n)
-      (set-port-bol! p (char=? (string-ref str (fx1- n)) #\newline))))
+  (when (tport-buffered? tport)
+    (with-interrupts-disabled
+      (let ((buf (textual-port-output-buffer p))
+            (idx (textual-port-output-index  p)))
+        (unless (fxzero? idx)
+          (tport-write tport buf 0 idx)
+          (set-textual-port-output-index! p 0)
+          (set-port-bol! p (char=? (string-ref buf (fx1- idx)) #\newline))))))
+  (unless (fxzero? n)
+    (set-port-bol! p (char=? (string-ref str (fx1- n)) #\newline)))
   (tport-write tport str start n)
   (tport-flush tport))
 
 
 (define (utf8b-port-flush p tport)
   (assert* 'utfb-port-flush tport)
-  (with-interrupts-disabled
-    (let ((buf (textual-port-output-buffer p))
-          (idx (textual-port-output-index  p)))
-      (unless (fxzero? idx)
-        (tport-write tport buf 0 idx)
-        (set-textual-port-output-index! p 0)
-        (set-port-bol! p (char=? (string-ref buf (fx1- idx)) #\newline)))))
+  (when (tport-buffered? tport)
+    (with-interrupts-disabled
+      (let ((buf (textual-port-output-buffer p))
+            (idx (textual-port-output-index  p)))
+        (unless (fxzero? idx)
+          (tport-write tport buf 0 idx)
+          (set-textual-port-output-index! p 0)
+          (set-port-bol! p (char=? (string-ref buf (fx1- idx)) #\newline))))))
   (tport-flush tport))
 
 

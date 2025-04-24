@@ -187,13 +187,13 @@
                 (unless (fxzero? idx)
                   (block-write iop buf idx)
                   (set-port-output-index! p 0)
-                  (set-port-bol! p (char=? (string-ref buf (fx1- idx)) #\newline))))
-              (block-write iop str len)
-              (unless (fxzero? len)
-                (set-port-bol! p (char=? (string-ref str (fx1- len)) #\newline)))
-              ;; if p is unbuffered, behave as if iop is unbuffered too
-              (when (fxzero? (textual-port-output-size p))
-                (flush-output-port iop)))))
+                  (set-port-bol! p (char=? (string-ref buf (fx1- idx)) #\newline)))))
+            (block-write iop str len)
+            (unless (fxzero? len)
+              (set-port-bol! p (char=? (string-ref str (fx1- len)) #\newline)))
+            ;; if p is unbuffered, behave as if iop is unbuffered too
+            (when (fxzero? (textual-port-output-size p))
+              (flush-output-port iop))))
         (else
           (raise-bad-msg msg))))))
 
