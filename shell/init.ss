@@ -51,7 +51,7 @@
   (c-environ->sh-global-env)
 
   ;; Replace (console-input-port) (console-output-port) (console-error-port)
-  ;; with UTF-8b textual input/output ports that can be interrupted
+  ;; with unbuffered UTF-8b textual input/output ports that can be interrupted
   (let ((port0 (sh-textual-port #t 0))
         (port1 (sh-textual-port #t 1))
         (port2 (sh-textual-port #t 2)))
@@ -61,14 +61,14 @@
 
 
   ;; Replace (sh-stdin) (sh-stdout) (sh-stderr)
-  ;; with binary input/output ports that can be interrupted and honor current job redirections
+  ;; with buffered binary input/output ports that can be interrupted and honor current job redirections
   (sh-stdin  (make-redir-binary-input/output-port "sh-stdin"  (lambda () (sh-binary-port #f 0))))
   (sh-stdout (make-redir-binary-input/output-port "sh-stdout" (lambda () (sh-binary-port #f 1))))
   (sh-stderr (make-redir-binary-input/output-port "sh-stderr" (lambda () (sh-binary-port #f 2))))
 
 
   ;; Replace (current-input-port) (current-output-port) (current-error-port)
-  ;; with UTF-8b textual input/output ports that can be interrupted and honor current job redirections
+  ;; with buffered UTF-8b textual input/output ports that can be interrupted and honor current job redirections
   (current-input-port  (make-redir-textual-input/output-port "current-input-port"  (lambda () (sh-textual-port #f 0))))
   (current-output-port (make-redir-textual-input/output-port "current-output-port" (lambda () (sh-textual-port #f 1))))
   (current-error-port  (make-redir-textual-input/output-port "current-error-port"  (lambda () (sh-textual-port #f 2))))

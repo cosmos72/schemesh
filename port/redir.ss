@@ -21,7 +21,7 @@
                         set-port-bol! set-port-output-index!
                         textual-port-output-buffer textual-port-output-index textual-port-output-size
                         unread-char with-interrupts-disabled)
-    (only (schemesh bootstrap) assert*))
+    (only (schemesh bootstrap) assert* with-interrupts-enabled))
 
 
 (define (b-mode->input-buffer-size b-mode)
@@ -161,7 +161,8 @@
                 (set! idx 0))
               (cond
                 ((fx=? idx cap)
-                  (put-char iop c))
+                  (with-interrupts-enabled
+                    (put-char iop c)))
                 (else
                   (string-set! buf idx c)
                   (set-port-output-index! p (fx1+ idx))))

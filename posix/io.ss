@@ -27,7 +27,7 @@
                         textual-port-input-buffer       textual-port-input-index       textual-port-input-size
                         textual-port-output-buffer      textual-port-output-index      textual-port-output-size
                         with-interrupts-disabled)
-    (only (schemesh bootstrap)              assert*)
+    (only (schemesh bootstrap)              assert* with-interrupts-enabled)
     (schemesh containers bytespan)
     (only (schemesh containers string)      substring-move!)
     (only (schemesh containers utf8b)       integer->char* utf8b->string utf8b->string-copy!)

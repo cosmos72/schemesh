@@ -141,7 +141,8 @@
           ((fx<? idx cap)
             (string-ref buf idx))
           ((fxzero? cap)
-            (tport-peek-char tport))
+            (with-interrupts-enabled
+              (tport-peek-char tport)))
           (else
             (let* ((n (tport-read-some tport buf 0 cap))
                    (idx (fx- cap n)))
@@ -166,7 +167,8 @@
             (set-textual-port-input-index! p (fx1+ idx))
             (string-ref buf idx))
           ((fxzero? cap)
-            (tport-read-char tport))
+            (with-interrupts-enabled
+              (tport-read-char tport)))
           (else
             (let* ((n (tport-read-some tport buf 0 cap))
                    (idx (fx- cap n)))
@@ -203,7 +205,8 @@
           (set! idx 0))
         (cond
           ((fx=? idx cap)
-            (tport-write-char tport ch))
+            (with-interrupts-enabled
+              (tport-write-char tport ch)))
           (else
             (string-set! buf idx ch)
             (set-textual-port-output-index! p (fx1+ idx)))))
