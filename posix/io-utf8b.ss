@@ -236,7 +236,7 @@
 
 ;; create and return a textual input port handler that reads/writes UTF-8b bytes from/to a binary input port
 ;; and transcodes them to characters
-(define (make-utfb-port-handler in-port input-buffer-size out-port output-buffer-size)
+(define (make-utfb-port-handler in-port input-buffer-size out-port output-buffer-size proc-before-write)
   (let ((name   (string-append "utf8b " (port-name (or in-port out-port))))
         (tport1 (and in-port  (make-tport in-port  (make-bytespan 0) input-buffer-size #f)))
         (tport2 (and out-port (make-tport out-port (make-bytespan 0) output-buffer-size #f))))
@@ -266,6 +266,8 @@
             (when out-port
               (close-port out-port)))
           ((flush-output-port)
+            (when proc-before-write
+              (proc-before-write))
             (utf8b-port-flush p tport2))
           ((file-position)
             (port-position (or in-port out-port)))
@@ -291,6 +293,8 @@
             (assert* 'utfb-port-unread-char in-port)
             (bytespan-insert-left/char! (tport-bspan in-port) c))
           ((write-char)
+            (when proc-before-write
+              (proc-before-write))
             (utf8b-port-write-char p tport2 c))
           (else
             (raise-bad-msg msg))))
@@ -300,133 +304,59 @@
           ((block-read)
             (utf8b-port-block-read p tport1 str 0 len))
           ((block-write)
+            (when proc-before-write
+              (proc-before-write))
             (utf8b-port-block-write p tport2 str 0 len))
           (else
             (raise-bad-msg msg)))))))
 
 
 
-;; create and return a textual input port that reads UTF-8b bytes from a binary input port
-;; and transcodes them to characters
-(define make-utf8b-input-port
+
+
+;; create and return a textual input and/or output port that reads from and/or writes from an underlying binary port
+;; and transcodes between characters and UTF-8b bytes
+(define port->utf8b-port
   (case-lambda
-    ((binary-in-port b-mode)
-      (assert* 'make-utf8b-input-port (input-port? binary-in-port))
-      (assert* 'make-utf8b-input-port (binary-port? binary-in-port))
-      (assert* 'make-utf8b-input-port (buffer-mode? b-mode))
-      (let* ((in-buffer-size (b-mode->input-buffer-size b-mode))
-             (p (make-input-port
-                  (make-utfb-port-handler binary-in-port in-buffer-size #f 0)
-                  (make-string in-buffer-size))))
-        (set-textual-port-input-index! p in-buffer-size)
-        p))
-    ((binary-in-port)
-      (make-utf8b-input-port binary-in-port #f))))
+    ((bin-port b-mode proc-before-write)
+      (assert* 'port->utf8b-port (binary-port? bin-port))
+      (assert* 'port->utf8b-port (buffer-mode? b-mode))
+      (when proc-before-write
+        (assert* 'port->utf8b-port (procedure? proc-before-write))
+        (assert* 'port->utf8b-port (logbit? 0 (procedure-arity-mask proc-before-write))))
+      (cond
+        ((and (input-port? bin-port) (output-port? bin-port))
+          (let* ((in-buffer-size  (b-mode->input-buffer-size b-mode))
+                 (out-buffer-size (b-mode->output-buffer-size b-mode))
+                 (p (make-input/output-port
+                      (make-utfb-port-handler bin-port in-buffer-size bin-port out-buffer-size proc-before-write)
+                      (make-string in-buffer-size)
+                      (make-string out-buffer-size))))
+            (set-textual-port-input-index! p in-buffer-size)
+            p))
+        ((input-port? bin-port)
+          (let* ((in-buffer-size (b-mode->input-buffer-size b-mode))
+                 (p (make-input-port
+                      (make-utfb-port-handler bin-port in-buffer-size #f 0 proc-before-write)
+                      (make-string in-buffer-size))))
+            (set-textual-port-input-index! p in-buffer-size)
+            p))
+        (else
+          (let* ((out-buffer-size (b-mode->output-buffer-size b-mode))
+                 (p (make-output-port
+                      (make-utfb-port-handler #f 0 bin-port out-buffer-size proc-before-write)
+                      (make-string out-buffer-size))))
+            p))))
+    ((bin-port b-mode)
+      (port->utf8b-port bin-port b-mode #f))
+    ((bin-port)
+      (port->utf8b-port bin-port (buffer-mode block) #f))))
 
 
-;; create and return a textual input/output port transcodes between characters and UTF-8b bytes,
-;; which are read/written to the specified binary-in/out-port.
-(define make-utf8b-input/output-port
-  (case-lambda
-    ((binary-in/out-port b-mode)
-      (assert* 'make-utf8b-input/output-port (input-port? binary-in/out-port))
-      (assert* 'make-utf8b-input/output-port (output-port? binary-in/out-port))
-      (assert* 'make-utf8b-input/output-port (binary-port? binary-in/out-port))
-      (assert* 'make-utf8b-input/output-port (buffer-mode? b-mode))
-      (let* ((in-buffer-size (b-mode->input-buffer-size b-mode))
-             (out-buffer-size (b-mode->output-buffer-size b-mode))
-             (p (make-input/output-port
-                  (make-utfb-port-handler binary-in/out-port in-buffer-size binary-in/out-port out-buffer-size)
-                  (make-string in-buffer-size)
-                  (make-string out-buffer-size))))
-        (set-textual-port-input-index! p in-buffer-size)
-        p))
-    ((binary-in/out-port)
-      (make-utf8b-input/output-port binary-in/out-port (buffer-mode block)))))
-
-
-;; create and return a textual output port that transcodes characters to UTF-8b bytes
-;; and writes such bytes to binary-out-port.
-(define make-utf8b-output-port
-  (case-lambda
-    ((binary-out-port b-mode)
-      (assert* 'make-utf8b-output-port (output-port? binary-out-port))
-      (assert* 'make-utf8b-output-port (binary-port? binary-out-port))
-      (assert* 'make-utf8b-output-port (buffer-mode? b-mode))
-      (let* ((out-buffer-size (b-mode->output-buffer-size b-mode))
-             (p (make-output-port
-                  (make-utfb-port-handler #f 0 binary-out-port out-buffer-size)
-                  (make-string out-buffer-size))))
-        p))
-    ((binary-out-port)
-      (make-utf8b-output-port binary-out-port (buffer-mode block)))))
-
-
-;; create and return a textual input port that redirectably reads
-;; UTF-8b sequences from a file descriptor and converts them to characters.
+;; create and return a textual input and/or output port that reads from and/or writes to a file descriptor.
 ;;
 ;; fd must be an unsigned fixnum corresponding to an open file descriptor.
-(define fd->textual-input-port
-  (case-lambda
-    ((name fd b-mode)
-      (make-utf8b-input-port
-        (fd->binary-input-port name fd b-mode)
-        b-mode))
-    ((name fd)
-      (fd->textual-input-port fd (buffer-mode block)))))
-
-
-;; create and return a textual input/output port that:
-;; 1. redirectably reads UTF-8b bytes from a file descriptor and converts them to characters.
-;; 2. converts characters to UTF-8b bytes and redirectably writes them to a file descriptor.
-;;
-;; fd must be an unsigned fixnum corresponding to an open file descriptor.
-(define fd->textual-input/output-port
-  (case-lambda
-    ((name fd b-mode)
-      (make-utf8b-input/output-port
-        (fd->binary-input/output-port name fd b-mode)
-        b-mode))
-    ((name fd)
-      (fd->textual-input/output-port name fd (buffer-mode block)))))
-
-
-;; create and return a textual output port that converts characters to UTF-8b bytes
-;; and redirectably writes such bytes to a file descriptor.
-;;
-;; fd must be an unsigned fixnum corresponding to an open file descriptor.
-(define fd->textual-output-port
-  (case-lambda
-    ((name fd b-mode)
-      (make-utf8b-output-port
-        (fd->binary-output-port name fd b-mode)
-        b-mode))
-    ((name fd)
-      (fd->textual-output-port fd name (buffer-mode block)))))
-
-
-
-
-;; create and return a textual input port that reads
-;; UTF-8b sequences from a file and converts them to characters.
-;;
-;; path must be a string, bytevector, bytespan or charspan.
-(define open-file-textual-input-port
-  (case-lambda
-    ((path f-options b-mode)
-      (make-utf8b-input-port
-        (open-file-binary-input-port path f-options b-mode)
-        b-mode))
-    ((path f-options)
-      (open-file-textual-input-port path f-options (buffer-mode block)))
-    ((path)
-      (open-file-textual-input-port path (file-options) (buffer-mode block)))))
-
-
-
-;; customize how "tport" objects are printed
-(record-writer (record-type-descriptor tport)
-  (lambda (tp port writer)
-    (display "#<tport " port)
-    (display (tport-bin-port tp) port)
-    (display ">" port)))
+(define (fd->textual-port fd dir b-mode name proc-on-close)
+  (port->utf8b-port
+     (fd->binary-port fd dir b-mode name proc-on-close)
+     b-mode))

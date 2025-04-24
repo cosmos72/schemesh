@@ -42,7 +42,7 @@
       (else
         (values #f #f)))))
 
-(let ((in (open-file-textual-input-port "gen-unicode-wide.txt")))
+(let ((in (file->port "gen-unicode-wide.txt" 'read '() 'utf8b)))
   (dynamic-wind
     void
     (lambda ()

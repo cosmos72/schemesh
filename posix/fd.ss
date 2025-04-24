@@ -13,7 +13,7 @@
     fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-seek
     fd-read fd-read-all fd-read-insert-right! fd-read-noretry fd-read-u8
     fd-write fd-write-all fd-write-noretry fd-write-u8
-    fd-select fd-setnonblock open-file-fd open-pipe-fds open-socketpair-fds
+    fd-select fd-setnonblock file->fd open-pipe-fds open-socketpair-fds
     raise-c-errno)
   (import
     (rnrs)
@@ -307,17 +307,15 @@
 ;;   mandatory filepath must be string, bytevector, bytespan or charspan.
 ;;   mandatory direction must be one of the symbols: 'read 'write 'rw
 ;;   optional flags must be a list containing zero or more: 'create 'truncate 'append
-(define open-file-fd
+(define file->fd
   (let ((c-open-file-fd (foreign-procedure __collect_safe "c_open_file_fd"
                           (ptr int int int int) int)))
     (case-lambda
-      ((filepath direction)
-        (open-file-fd filepath direction '()))
       ((filepath direction flags)
         (let* ((filepath0 (text->bytevector0 filepath))
                (dir (case direction
                       ((read) 0) ((write) 1) ((rw) 2)
-                      (else (error 'open-file-fd
+                      (else (error 'file->fd
                               "direction must be one of 'read 'write 'rw" direction))))
                (flag-create   (if (memq 'create   flags) 1 0))
                (flag-truncate (if (memq 'truncate flags) 1 0))
@@ -326,7 +324,9 @@
                       (c-open-file-fd filepath0 dir flag-create flag-truncate flag-append))))
           (if (>= ret 0)
             ret
-            (apply raise-c-errno 'open-file-fd 'open ret filepath direction flags)))))))
+            (apply raise-c-errno 'file->fd 'open ret filepath direction flags))))
+      ((filepath direction)
+        (file->fd filepath direction '())))))
 
 
 ;; create a pipe.

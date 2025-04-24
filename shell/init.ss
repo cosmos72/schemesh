@@ -19,9 +19,9 @@
   ;;
   ;; May be parameterized to a different value in subshells.
   (unless (sh-globals)
-    (let ((port0 (fd->binary-input/output-port "sh-stdin"  0))
-          (port1 (fd->binary-input/output-port "sh-stdout" 1))
-          (port2 (fd->binary-input/output-port "sh-stderr" 2)))
+    (let ((port0 (fd->port 0 'rw 'binary (buffer-mode block) "sh-stdin"))
+          (port1 (fd->port 1 'rw 'binary (buffer-mode block) "sh-stdout"))
+          (port2 (fd->port 2 'rw 'binary (buffer-mode block) "sh-stderr")))
       (sh-globals
         ;; assign job-id 0 to sh-globals itself.
         ;;
@@ -38,9 +38,9 @@
 
            (eqv-hashtable            ; ports
              0 port0  1 port1  2 port2
-             (fxnot 0) (make-utf8b-input/output-port port0)
-             (fxnot 1) (make-utf8b-input/output-port port1)
-             (fxnot 2) (make-utf8b-input/output-port port2))
+             (fxnot 0) (port->utf8b-port port0 (buffer-mode block))
+             (fxnot 1) (port->utf8b-port port1 (buffer-mode block))
+             (fxnot 2) (port->utf8b-port port2 (buffer-mode block)))
            #f #f                     ; start-proc step-proc
            (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) #f ; current directory, old working directory
            (make-hashtable string-hash string=?) ; env variables

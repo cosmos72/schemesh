@@ -24,7 +24,7 @@
     (schemesh containers charlines)
     (only (schemesh posix pid)         pid-get)
     (only (schemesh posix dir)         file-delete file-rename)
-    (only (schemesh posix io)          open-file-binary-input-port)
+    (only (schemesh posix io)          file->port)
     (schemesh lineedit charhistory))
 
 
@@ -106,7 +106,7 @@
       (dynamic-wind
         (lambda ()
           ;; we do our own buffering in (charhistory-load-from-port)
-          (set! port (open-file-binary-input-port path (file-options) (buffer-mode none))))
+          (set! port (file->port path 'read '() 'binary (buffer-mode none))))
         (lambda ()
           (charhistory-load-from-port! hist port))
         (lambda ()

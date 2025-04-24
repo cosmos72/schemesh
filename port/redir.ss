@@ -54,56 +54,58 @@
 
 ;; create and return a binary input/output port that redirectably reads from and writes to another binary port.
 ;;
-;; nested-port-proc must be a no-argument procedure that returns another binary port;
+;; proc-nested-port must be a no-argument procedure that returns another binary port;
 ;; the returned binary port *may* change from one call to the next.
 (define make-redir-binary-input/output-port
   (case-lambda
-    ((name nested-port-proc on-close-proc)
-      (assert* 'make-redir-binary-input/output-port (procedure? nested-port-proc))
+    ((name proc-nested-port proc-on-close)
+      (assert* 'make-redir-binary-input/output-port (procedure? proc-nested-port))
       (set-binary-buffer-mode!
         (make-custom-binary-input/output-port
           name
           (lambda (bv start n)
-            (get-bytevector-some! (nested-port-proc) bv start n))
+            (get-bytevector-some! (proc-nested-port) bv start n))
           (lambda (bv start n)
-            (let ((port (nested-port-proc)))
+            (let ((port (proc-nested-port)))
               (put-bytevector port bv start n)
               (flush-output-port port)
               n))
-          (lambda ()           (port-position        (nested-port-proc)))
-          (lambda (pos)        (set-port-position!   (nested-port-proc) pos))
-          (case on-close-proc
+          (lambda ()
+            (port-position (proc-nested-port)))
+          (lambda (pos)
+            (set-port-position! (proc-nested-port) pos))
+          (case proc-on-close
             ((#f) #f)
-            ((#t) (lambda () (close-port (nested-port-proc))))
-            (else on-close-proc)))
+            ((#t) (lambda () (close-port (proc-nested-port))))
+            (else proc-on-close)))
         'none))
 
-    ((name nested-port-proc)
-      (make-redir-binary-input/output-port name nested-port-proc #f))))
+    ((name proc-nested-port)
+      (make-redir-binary-input/output-port name proc-nested-port #f))))
 
 
 ;; create and return a textual input/output port that redirectably reads from and writes to another textual port.
 ;;
-;; nested-port-proc must be a no-argument procedure that returns another textual port;
+;; proc-nested-port must be a no-argument procedure that returns another textual port;
 ;; the returned textual port *may* change from one call to the next.
 (define make-redir-textual-input/output-port
   (case-lambda
-    ((name nested-port-proc on-close-proc out-buffer-size)
-      (assert* 'make-redir-textual-input/output-port (procedure? nested-port-proc))
+    ((name proc-nested-port proc-on-close out-buffer-size)
+      (assert* 'make-redir-textual-input/output-port (procedure? proc-nested-port))
       (make-input/output-port
-        (make-textual-input/output-port-handler name nested-port-proc on-close-proc)
+        (make-textual-input/output-port-handler name proc-nested-port proc-on-close)
         (make-string 0)
         (make-string out-buffer-size)))
 
-    ((name nested-port-proc on-close-proc)
-      (make-redir-textual-input/output-port name nested-port-proc #f 4096))
+    ((name proc-nested-port proc-on-close)
+      (make-redir-textual-input/output-port name proc-nested-port #f 4096))
 
-    ((name nested-port-proc)
-      (make-redir-textual-input/output-port name nested-port-proc #f))))
+    ((name proc-nested-port)
+      (make-redir-textual-input/output-port name proc-nested-port #f))))
 
 
 ;; create and return a handler suitable for Chez Scheme (make-input/output-port)
-(define (make-textual-input/output-port-handler name proc on-close-proc)
+(define (make-textual-input/output-port-handler name proc proc-on-close)
   ;; return a closure
   (case-lambda
     ((msg p)
@@ -119,7 +121,7 @@
           (clear-output-port (proc)))
         ((close-port)
           (mark-port-closed! p)
-          (when on-close-proc (on-close-proc)))
+          (when proc-on-close (proc-on-close)))
         ((flush-output-port)
           (with-interrupts-disabled
             (let ((buf (textual-port-output-buffer p))

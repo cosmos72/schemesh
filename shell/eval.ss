@@ -19,8 +19,8 @@
     (only (schemesh containers list)   for-list)
     (only (schemesh containers string) assert-string-list? string-suffix? string-index-right)
     (only (schemesh containers utf8b)  utf8b->string)
-    (only (schemesh posix fd)          fd-close fd-read-all fd-write-all open-file-fd)
-    (only (schemesh posix io)          fd->textual-input-port open-file-textual-input-port)
+    (only (schemesh posix fd)          fd-close fd-read-all fd-write-all file->fd)
+    (only (schemesh posix io)          fd->port file->port)
     (only (schemesh posix status)      ok failed)
     (schemesh parser)
     (only (schemesh shell parameters)  sh-eval)
@@ -69,7 +69,7 @@
   (let ((port #f))
     (dynamic-wind
       (lambda () ; before body
-        (set! port (open-file-textual-input-port path)))
+        (set! port (file->port path 'read '() 'utf8b)))
       (lambda () ; body
         (sh-read-port* port initial-parser enabled-parsers))
       (lambda () ; after body
@@ -86,9 +86,7 @@
 ;;                     or #t that means all known parsers i.e. (parsers)
 (define (sh-read-fd* fd initial-parser enabled-parsers)
   (sh-read-port*
-    (fd->textual-input-port
-      (string-append "fd " (number->string fd))
-      fd)
+    (fd->port fd 'read 'utf8b)
     initial-parser
     enabled-parsers))
 

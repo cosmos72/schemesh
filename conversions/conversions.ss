@@ -10,7 +10,7 @@
 (library (schemesh conversions (0 8 3))
   (export
     display-condition* display-any display-bytevector0 write-bytevector0
-    any->bytevector text->bytevector
+    any->bytevector text->bytevector text->string
     any->bytevector0 bytevector->bytevector0 text->bytevector0
     any->string argv->list list->argv string-hashtable->argv transcoder-utf8
 
@@ -24,10 +24,10 @@
     (only (schemesh containers)  bytespan? bytespan->bytevector bytespan->bytevector*! bytespan->bytevector0
                                  bytespan-reserve-right! bytespan-insert-right/string! bytespan-insert-right/u8!
                                  bytevector<? bytevector-index
-                                 charspan? charspan-empty? charspan-index/char charspan->utf8b charspan->utf8b/0
+                                 charspan? charspan-empty? charspan-index/char charspan->string charspan->utf8b charspan->utf8b/0
                                  for-hash for-list make-bytespan string-index
                                  string->utf8b string->utf8b/0 utf8b->string utf8b->string
-                                 subvector-sort!)
+                                 subvector-sort! utf8b-bytespan->string)
     (schemesh conversions unicode))
 
 
@@ -171,7 +171,7 @@
       (raise-assertf 'text->bytevector0 "~s is not bytevector, bytespan, string or charspan" x))))
 
 
-;; convert a bytevector, string or charspan to bytevector
+;; convert a bytevector, string or charspan to bytevector.
 ;; uses UTF-8b to convert characters to bytes.
 (define (text->bytevector x)
   (cond
@@ -185,6 +185,23 @@
       (if (charspan-empty? x)
         #vu8()
         (bytespan->bytevector (charspan->utf8b x))))
+    (else
+      (raise-assertf 'text->bytevector "~s is not bytevector, string or charspan" x))))
+
+
+
+;; convert a bytevector, string or charspan to string.
+;; uses UTF-8b to convert bytes to characters.
+(define (text->string x)
+  (cond
+    ((bytevector? x)
+      (utf8b->string x))
+    ((string? x)
+      x)
+    ((bytespan? x)
+      (utf8b-bytespan->string x))
+    ((charspan? x)
+      (charspan->string x))
     (else
       (raise-assertf 'text->bytevector "~s is not bytevector, string or charspan" x))))
 

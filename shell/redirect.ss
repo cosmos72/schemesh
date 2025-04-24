@@ -463,9 +463,8 @@
 (define (job-ensure-binary-port job target-fd remapped-fd)
   (let ((ports (job-ensure-ports job)))
     (or (hashtable-ref ports remapped-fd #f)
-        (let ((port (fd->binary-input/output-port
-                       (string-append "fd " (number->string target-fd))
-                       remapped-fd (buffer-mode block) #f)))
+        (let ((port (fd->port remapped-fd 'rw 'binary (buffer-mode block)
+                              (string-append "fd " (number->string target-fd)))))
           (hashtable-set! ports remapped-fd port)
           port))))
 
@@ -474,7 +473,7 @@
   (let ((ports (job-ensure-ports job)))
     (or (hashtable-ref ports (fxnot remapped-fd) #f)
         (let* ((binary-port (job-ensure-binary-port job target-fd remapped-fd))
-               (port        (make-utf8b-input/output-port binary-port)))
+               (port        (port->utf8b-port binary-port (buffer-mode block))))
           (hashtable-set! ports (fxnot remapped-fd) port)
           port))))
 
