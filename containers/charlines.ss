@@ -15,7 +15,7 @@
     charlines-char-length charlines-ref charlines-set/cline! charlines-clear!
     charlines-index charlines-index-right charlines-count charlines-count-right
     charlines-dirty-start-y charlines-dirty-end-y charlines-dirty-y-add! charlines-dirty-xy-unset!
-    charlines-erase-at/cline! charlines-insert-at/cline! charlines-starts-with?
+    charlines-delete-at/cline! charlines-insert-at/cline! charlines-starts-with?
     charlines-next-xy charlines-prev-xy charlines-char-at-xy charlines-char-before-xy charlines-char-after-xy
     in-charlines write-charlines)
 
@@ -173,7 +173,7 @@
 
 
 ;; erase a charline from lines at y
-(define (charlines-erase-at/cline! lines y)
+(define (charlines-delete-at/cline! lines y)
   (let ((yn (charlines-length lines)))
     (when (fx<? -1 y yn)
       (charlines-dirty-y-add! lines y yn)

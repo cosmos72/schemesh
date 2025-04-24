@@ -347,7 +347,7 @@
   (unless (span-empty? sp)
     (let ((subspan (span-ref-right sp)))
       (when (and (span? subspan) (span-empty? subspan))
-        (span-erase-right! sp 1))))
+        (span-delete-right! sp 1))))
   sp)
 
 

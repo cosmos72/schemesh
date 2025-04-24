@@ -115,10 +115,10 @@
         (raise-errorf 'channel-get "failed parsing wire-serialized data read from file descriptor ~s" fd))
       ((fx>=? pos 0)
         (let ((consumed-n (fx- pos (bytespan-peek-beg rbuf))))
-          (bytespan-erase-left! rbuf consumed-n))
+          (bytespan-delete-left! rbuf consumed-n))
         (values datum #t))
       (datum ; must discard (fx- pos) bytes and try again
-        (bytespan-erase-left! rbuf (fx- pos))
+        (bytespan-delete-left! rbuf (fx- pos))
         (%channel-get c fd rbuf))
       (else ; must read at least (fx- pos) more bytes and try again
         (bytespan-reserve-right! rbuf (fx+ (fxmax 4096 (fx- pos)) (bytespan-length rbuf)))

@@ -127,10 +127,10 @@
     (cond
       ((fx>? delta 0)
         (charspan-insert-right/cspan! left right 0 delta)
-        (charspan-erase-left! right delta))
+        (charspan-delete-left! right delta))
       ((fx<? delta 0)
         (charspan-insert-left/cspan! right left idx (fx- idx delta))
-        (charspan-erase-right! left (fx- delta))))))
+        (charspan-delete-right! left (fx- delta))))))
 
 ;; insert one char into chargbuffer at position idx
 (define (chargbuffer-insert-at! gb idx ch)
@@ -216,19 +216,19 @@
         (void)) ; nothing to do
       ((fxzero? start)
         (let ((head (fxmin n left-n)))
-          (charspan-erase-left! left head)
-          (charspan-erase-left! right (fx- n head))))
+          (charspan-delete-left! left head)
+          (charspan-delete-left! right (fx- n head))))
       ((fx=? end left-n)
-        (charspan-erase-right! left n))
+        (charspan-delete-right! left n))
       ((fx=? start left-n)
-        (charspan-erase-left! right n))
+        (charspan-delete-left! right n))
       ((fx=? end len)
         (let ((tail (fxmin n right-n)))
-          (charspan-erase-right! right tail)
-          (charspan-erase-right! left (fx- n tail))))
+          (charspan-delete-right! right tail)
+          (charspan-delete-right! left (fx- n tail))))
       (else
         (chargbuffer-split-at! gb end)
-        (charspan-erase-right! left n)))))
+        (charspan-delete-right! left n)))))
 
 
 ;; create and return a closure that iterates on elements of chargbuffer gb.

@@ -21,8 +21,8 @@
     vscreen-count-before-xy/left  vscreen-count-at-xy/right
     vscreen-clear!       vscreen-empty?
     vscreen-cursor-move/left! vscreen-cursor-move/right!  vscreen-cursor-move/up!  vscreen-cursor-move/down!
-    vscreen-erase-left/n!     vscreen-erase-right/n!      vscreen-erase-at-xy!
-    vscreen-erase-left/line!  vscreen-erase-right/line!
+    vscreen-delete-left/n!     vscreen-delete-right/n!      vscreen-delete-at-xy!
+    vscreen-delete-left/line!  vscreen-delete-right/line!
     vscreen-insert-at-xy/char!  vscreen-insert-at-xy/newline! vscreen-insert-at-xy/cspan!
     vscreen-insert/char!        vscreen-insert/cspan!         vscreen-assign*!
     vscreen-reflow       write-vscreen)
@@ -262,11 +262,11 @@
 
 
 ;; remove a line from screen. Last line cannot be removed, it will be cleared instead.
-(define (vscreen-erase-at/cline! screen y)
+(define (vscreen-delete-at/cline! screen y)
   (vscreen-dirty-set! screen #t)
   (if (and (fxzero? y) (fx=? 1 (vscreen-length screen)))
     (charline-clear! (charlines-ref screen 0))
-    (charlines-erase-at/cline! screen y)))
+    (charlines-delete-at/cline! screen y)))
 
 
 
@@ -366,7 +366,7 @@
               (unless (and (or (charline-nl? line1)
                                (fx>=? (charline-length line1) (vscreen-width-at-y screen y)))
                            (fx>=? y+1 (fx1- (vscreen-length screen))))
-                (vscreen-erase-at/cline! screen y+1)))))))))
+                (vscreen-delete-at/cline! screen y+1)))))))))
 
 
 ;; for each vscreen line at y or later *without* a newline and shorter than vscreen width,
@@ -385,13 +385,13 @@
 ;; if the newline of a charline is erased, the following line(s)
 ;; are merged into the current charline and reflowed according to vscreen width.
 ;; return number of characters actually erased.
-(define (vscreen-erase-at-xy! screen x y n)
+(define (vscreen-delete-at-xy! screen x y n)
   (let ((saved-n n))
     (when (fx>? n 0)
       (vscreen-dirty-set! screen #t)
       (let ((saved-y y))
         (while (and (fx>? n 0) (fx<? -1 y (vscreen-length screen)))
-          ; (debugf "vscreen-erase-at-xy! ~s chars to delete at y = ~s" n y)
+          ; (debugf "vscreen-delete-at-xy! ~s chars to delete at y = ~s" n y)
           (let* ((line (charlines-ref screen y))
                  (len  (charline-length line))
                  (i    (fxmin n (fx- len x))))
@@ -405,7 +405,7 @@
               (set! x 0)
               (if (and (fxzero? len) (not (vscreen-empty? screen)))
                 ;; line is empty, remove it
-                (vscreen-erase-at/cline! screen y)
+                (vscreen-delete-at/cline! screen y)
                 ;; line is not empty, move to next line
                 (set! y (fx1+ y))))))
         (unless (fx=? saved-n n)
@@ -417,27 +417,27 @@
 ;; if the newline of a charline is erased, the following line(s)
 ;; are merged into the current charline and reflowed according to vscreen width.
 ;; return number of characters actually erased.
-(define vscreen-erase-left/n!
+(define vscreen-delete-left/n!
   (case-lambda
     ((screen n)
-      (vscreen-erase-left/n! screen n #f))
+      (vscreen-delete-left/n! screen n #f))
     ((screen n clipboard)
       (clipboard-insert-vscreen/left! clipboard screen n)
       (let ((n (vscreen-cursor-move/left! screen n)))
-        (vscreen-erase-at-xy! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen) n)))))
+        (vscreen-delete-at-xy! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen) n)))))
 
 
 ;; erase n characters from vscreen, starting at cursor and moving rightward.
 ;; if the newline of a charline is erased, the following line(s)
 ;; are merged into the current charline and reflowed according to vscreen width.
 ;; return number of characters actually erased.
-(define vscreen-erase-right/n!
+(define vscreen-delete-right/n!
   (case-lambda
     ((screen n)
-      (vscreen-erase-right/n! screen n #f))
+      (vscreen-delete-right/n! screen n #f))
     ((screen n clipboard)
       (clipboard-insert-vscreen/right! clipboard screen n)
-      (vscreen-erase-at-xy! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen) n))))
+      (vscreen-delete-at-xy! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen) n))))
 
 
 
@@ -478,7 +478,7 @@
 ;; erase leftward, starting 1 char left of vscreen cursor and continuing
 ;; (possibly to previous lines) until a newline is found.
 ;; The newline is not erased.
-(define (vscreen-erase-left/until-nl! screen clipboard)
+(define (vscreen-delete-left/until-nl! screen clipboard)
   (let* ((x    (vscreen-cursor-ix screen))
          (y    (vscreen-cursor-iy screen))
          (line (vscreen-line-at-y screen y)))
@@ -491,7 +491,7 @@
       (set! line (vscreen-line-at-y screen y))
       (while (and line (not (charline-nl? line)))
         (clipboard-insert-charline/left! clipboard line 0 (charline-length line))
-        (vscreen-erase-at/cline! screen y)
+        (vscreen-delete-at/cline! screen y)
         (set! y    (fx1- y))
         (set! line (vscreen-line-at-y screen y)))
       (vscreen-cursor-iy-set! screen (fx1+ y)))))
@@ -500,7 +500,7 @@
 ;; erase rightward, starting at vscreen cursor and continuing
 ;; (possibly to next lines) until a newline is found.
 ;; The newline is not erased.
-(define (vscreen-erase-right/until-nl! screen clipboard)
+(define (vscreen-delete-right/until-nl! screen clipboard)
   (let* ((x    (vscreen-cursor-ix screen))
          (y    (vscreen-cursor-iy screen))
          (line (vscreen-line-at-y screen y))
@@ -515,37 +515,37 @@
           (set! x 0)
           (set! y (fx1+ y))
           (set! line (vscreen-line-at-y screen y)))))
-    (vscreen-erase-right/n! screen n clipboard)))
+    (vscreen-delete-right/n! screen n clipboard)))
 
 
 ;; erase leftward, starting 1 char left of vscreen cursor and continuing
 ;; (possibly to previous lines) until a newline is found.
 ;; The newline is only erased if it's the first character found.
-(define vscreen-erase-left/line!
+(define vscreen-delete-left/line!
   (case-lambda
     ((screen)
-      (vscreen-erase-left/line! screen #f))
+      (vscreen-delete-left/line! screen #f))
     ((screen clipboard)
       (let ((x    (vscreen-cursor-ix screen))
             (line (vscreen-line-at-y screen (fx1- (vscreen-cursor-iy screen)))))
         (if (and (fxzero? x) line (charline-nl? line))
-          (vscreen-erase-left/n! screen 1 clipboard)
-          (vscreen-erase-left/until-nl! screen clipboard))))))
+          (vscreen-delete-left/n! screen 1 clipboard)
+          (vscreen-delete-left/until-nl! screen clipboard))))))
 
 
 ;; erase rightward, starting at vscreen cursor and continuing
 ;; (possibly to next lines) until a newline is found.
 ;; The newline is only erased if it's the first character found.
-(define vscreen-erase-right/line!
+(define vscreen-delete-right/line!
   (case-lambda
     ((screen)
-      (vscreen-erase-right/line! screen #f))
+      (vscreen-delete-right/line! screen #f))
     ((screen clipboard)
       (let ((x    (vscreen-cursor-ix screen))
             (line (vscreen-line-at-y screen (vscreen-cursor-iy screen))))
         (if (and line (eqv? #\newline (charline-at line x)))
-          (vscreen-erase-right/n! screen 1 clipboard)
-          (vscreen-erase-right/until-nl! screen clipboard))))))
+          (vscreen-delete-right/n! screen 1 clipboard)
+          (vscreen-delete-right/until-nl! screen clipboard))))))
 
 
 ;; move characters from end of vscreen line at y to the beginning of line at y+1

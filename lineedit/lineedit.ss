@@ -62,7 +62,7 @@
         (else  ; insert received bytes into current line
           (set! n (lineedit-insert/rbuf! lctx n))))
       (unless (fxzero? n)
-        (bytespan-erase-left! rbuf n)
+        (bytespan-delete-left! rbuf n)
         (when (bytespan-empty? rbuf)
           (bytespan-clear! rbuf))) ; set begin, end to 0
       (cond
@@ -197,7 +197,7 @@
     (linectx-history-index-set! lctx (fxmax 0 y (fx1- (charhistory-length hist))))
     (let* ((screen (linectx-vscreen lctx))
            (lines (linectx-to-history* lctx)))
-      (charhistory-erase-empty-lines! hist (charhistory-length hist))
+      (charhistory-delete-empty-lines! hist (charhistory-length hist))
       (linectx-history-index-set! lctx (charhistory-length hist))
       (linectx-clear! lctx) ;; clear vscreen
       lines)))
@@ -387,7 +387,7 @@
     (if (bytespan-empty? rbuf)
       #f
       (let ((u8 (bytespan-ref/u8 rbuf 0)))
-        (bytespan-erase-left! rbuf 1)
+        (bytespan-delete-left! rbuf 1)
         u8))))
 
 

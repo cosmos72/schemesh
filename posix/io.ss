@@ -11,49 +11,61 @@
   (export
     make-utf8b-input-port make-utf8b-input/output-port make-utf8b-output-port
 
-    open-fd-binary-input-port open-fd-binary-input/output-port open-fd-binary-output-port
-    open-fd-utf8b-input-port open-fd-utf8b-input/output-port open-fd-utf8b-output-port
+    fd->binary-input-port fd->binary-input/output-port fd->binary-output-port
+    fd->textual-input-port fd->textual-input/output-port fd->textual-output-port
 
-    open-file-binary-input-port open-file-utf8b-input-port)
+    open-file-binary-input-port open-file-textual-input-port)
   (import
     (rnrs)
-    (only (chezscheme)  enum-set? fx1+ include port-name
+    (rnrs mutable-strings)
+    (only (chezscheme)  assertion-violationf clear-input-port clear-output-port enum-set? fx1+ fx1- include input-port-ready?
+                        make-input-port make-input/output-port make-output-port mark-port-closed! port-length port-name record-writer
+
                         set-binary-port-input-buffer!   set-binary-port-input-index!   set-binary-port-input-size!
                         set-binary-port-output-buffer!  set-binary-port-output-index!  set-binary-port-output-size!
+                        set-port-bol!
                         set-textual-port-input-buffer!  set-textual-port-input-index!  set-textual-port-input-size!
-                        set-textual-port-output-buffer! set-textual-port-output-index! set-textual-port-output-size!)
-    (only (schemesh bootstrap) assert*)
+                        set-textual-port-output-buffer! set-textual-port-output-index! set-textual-port-output-size!
+
+                        textual-port-input-buffer       textual-port-input-index       textual-port-input-size
+                        textual-port-output-buffer      textual-port-output-index      textual-port-output-size
+                        with-interrupts-disabled)
+    (only (schemesh bootstrap)              assert* trace-define)
     (schemesh containers bytespan)
-    (only (schemesh containers utf8b)       utf8b->string utf8b->string-copy!)
-    (only (schemesh containers utf8b utils) bytespan-insert-right/string!)
+    (only (schemesh containers string)      substring-move!)
+    (only (schemesh containers utf8b)       integer->char* utf8b->string utf8b->string-copy!)
+    (only (schemesh containers utf8b utils) bytespan-insert-left/char! bytespan-insert-right/char!
+                                            bytespan-insert-right/string! bytespan-ref/char)
     (only (schemesh posix fd)               fd-close fd-seek fd-read fd-write open-file-fd))
 
 
-(define (%set-buffer-mode! port b-mode)
-  (let* ((out-buffer-size (case b-mode
-                            ((none) 0)
-                            ((line) 128)
-                            (else   4096)))
-         ;; Chez Scheme custom input ports do not support zero input-buffer-size
-         (in-buffer-size (fxmax 1 out-buffer-size)))
-    (when (textual-port? port)
-      (when (input-port? port)
-        (set-textual-port-input-buffer! port (make-string in-buffer-size))
-        (set-textual-port-input-size!   port in-buffer-size)
-        (set-textual-port-input-index!  port in-buffer-size))
-      (when (output-port? port)
-        (set-textual-port-output-buffer! port (make-string out-buffer-size))
-        (set-textual-port-output-size!   port out-buffer-size)
-        (set-textual-port-output-index!  port 0)))
-    (when (binary-port? port)
-      (when (input-port? port)
-        (set-binary-port-input-buffer! port (make-bytevector in-buffer-size))
-        (set-binary-port-input-size!   port in-buffer-size)
-        (set-binary-port-input-index!  port in-buffer-size))
-      (when (output-port? port)
-        (set-binary-port-output-buffer! port (make-bytevector out-buffer-size))
-        (set-binary-port-output-size!   port out-buffer-size)
-        (set-binary-port-output-index!  port 0))))
+
+(define (b-mode->input-buffer-size b-mode)
+  (case b-mode
+    ((none) 1) ;; Chez Scheme custom ports do not support zero input-buffer-size
+    ((line) 128)
+    (else   4096)))
+
+
+(define (b-mode->output-buffer-size b-mode)
+  (case b-mode
+    ((none) 0)
+    ((line) 128)
+    (else   4096)))
+
+
+
+(define (%set-binary-buffer-mode! port b-mode)
+  (when (input-port? port)
+    (let ((in-buffer-size (b-mode->input-buffer-size b-mode)))
+      (set-binary-port-input-buffer! port (make-bytevector in-buffer-size))
+      (set-binary-port-input-size!   port in-buffer-size)
+      (set-binary-port-input-index!  port in-buffer-size)))
+  (when (output-port? port)
+    (let ((out-buffer-size (b-mode->output-buffer-size b-mode)))
+      (set-binary-port-output-buffer! port (make-bytevector out-buffer-size))
+      (set-binary-port-output-size!   port out-buffer-size)
+      (set-binary-port-output-index!  port 0)))
   port)
 
 
@@ -87,34 +99,34 @@
 ;; create and return a binary input port that redirectably reads from a file descriptor.
 ;;
 ;; fd must be an unsigned fixnum corresponding to an open file descriptor.
-(define open-fd-binary-input-port
+(define fd->binary-input-port
   (case-lambda
     ((name fd b-mode proc-on-close)
-      (assert* 'open-fd-binary-input-port (fx>=? fd 0))
-      (assert* 'open-fd-binary-input-port (buffer-mode? b-mode))
+      (assert* 'fd->binary-input-port (fx>=? fd 0))
+      (assert* 'fd->binary-input-port (buffer-mode? b-mode))
       (let ((ret (make-custom-binary-input-port
                     name
                     (lambda (bv start n) (bport-read fd bv start n))
                     (lambda ()           (bport-seek fd 0   'seek-cur))
                     (lambda (pos)        (bport-seek fd pos 'seek-set))
                     proc-on-close)))
-        (%set-buffer-mode! ret b-mode)))
+        (%set-binary-buffer-mode! ret b-mode)))
 
     ((name fd b-mode)
-      (open-fd-binary-input-port name fd b-mode #f))
+      (fd->binary-input-port name fd b-mode #f))
 
     ((name fd)
-      (open-fd-binary-input-port name fd (buffer-mode block) #f))))
+      (fd->binary-input-port name fd (buffer-mode block) #f))))
 
 
 ;; create and return a binary input/output port that redirectably reads from/writes to a file descriptor.
 ;;
 ;; fd must be an unsigned fixnum corresponding to an open file descriptor.
-(define open-fd-binary-input/output-port
+(define fd->binary-input/output-port
   (case-lambda
     ((name fd b-mode proc-on-close)
-      (assert* 'open-fd-binary-input/output-port (fx>=? fd 0))
-      (assert* 'open-fd-binary-input/output-port (buffer-mode? b-mode))
+      (assert* 'fd->binary-input/output-port (fx>=? fd 0))
+      (assert* 'fd->binary-input/output-port (buffer-mode? b-mode))
       (let ((ret (make-custom-binary-input/output-port
                    name
                    (lambda (bv start n) (bport-read fd bv start n))
@@ -122,36 +134,36 @@
                    (lambda ()           (bport-seek fd 0   'seek-cur))
                    (lambda (pos)        (bport-seek fd pos 'seek-set))
                    proc-on-close)))
-        (%set-buffer-mode! ret b-mode)))
+        (%set-binary-buffer-mode! ret b-mode)))
 
     ((name fd b-mode)
-      (open-fd-binary-input/output-port name fd b-mode #f))
+      (fd->binary-input/output-port name fd b-mode #f))
 
     ((name fd)
-      (open-fd-binary-input/output-port name fd (buffer-mode block) #f))))
+      (fd->binary-input/output-port name fd (buffer-mode block) #f))))
 
 
 ;; create and return a binary output port that redirectably writes to a file descriptor.
 ;;
 ;; fd must be an unsigned fixnum corresponding to an open file descriptor.
-(define open-fd-binary-output-port
+(define fd->binary-output-port
   (case-lambda
     ((name fd b-mode proc-on-close)
-      (assert* 'open-fd-binary-output-port (fx>=? fd 0))
-      (assert* 'open-fd-binary-output-port (buffer-mode? b-mode))
+      (assert* 'fd->binary-output-port (fx>=? fd 0))
+      (assert* 'fd->binary-output-port (buffer-mode? b-mode))
       (let ((ret (make-custom-binary-output-port
                    name
                    (lambda (bv start n) (bport-write fd bv start n))
                    (lambda ()           (bport-seek fd 0   'seek-cur))
                    (lambda (pos)        (bport-seek fd pos 'seek-set))
                    proc-on-close)))
-        (%set-buffer-mode! ret b-mode)))
+        (%set-binary-buffer-mode! ret b-mode)))
 
     ((name fd b-mode)
-      (open-fd-binary-output-port name fd b-mode #f))
+      (fd->binary-output-port name fd b-mode #f))
 
     ((name fd)
-      (open-fd-binary-output-port name fd (buffer-mode block) #f))))
+      (fd->binary-output-port name fd (buffer-mode block) #f))))
 
 
 ;; create and return a binary input port that reads
@@ -165,7 +177,7 @@
       (assert* 'open-file-binary-input-port (buffer-mode? b-mode))
       (let ((name (if (string? path) path (utf8b->string path)))
             (fd   (open-file-fd path 'read)))
-        (open-fd-binary-input-port name fd b-mode (lambda () (fd-close fd)))))
+        (fd->binary-input-port name fd b-mode (lambda () (fd-close fd)))))
     ((path)
       (open-file-binary-input-port path (file-options) (buffer-mode block)))))
 

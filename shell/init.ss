@@ -19,9 +19,9 @@
   ;;
   ;; May be parameterized to a different value in subshells.
   (unless (sh-globals)
-    (let ((port0 (open-fd-binary-input/output-port "sh-stdin"  0))
-          (port1 (open-fd-binary-input/output-port "sh-stdout" 1))
-          (port2 (open-fd-binary-input/output-port "sh-stderr" 2)))
+    (let ((port0 (fd->binary-input/output-port "sh-stdin"  0))
+          (port1 (fd->binary-input/output-port "sh-stdout" 1))
+          (port2 (fd->binary-input/output-port "sh-stderr" 2)))
       (sh-globals
         ;; assign job-id 0 to sh-globals itself.
         ;;

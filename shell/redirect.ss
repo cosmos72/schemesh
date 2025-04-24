@@ -330,7 +330,7 @@
 
 ;; Remove all temporary redirections from a job
 (define (job-unredirect/temp/all! job)
-  (span-erase-left! (job-redirects job) (job-redirects-temp-n job))
+  (span-delete-left! (job-redirects job) (job-redirects-temp-n job))
   (job-redirects-temp-n-set! job 0))
 
 
@@ -463,7 +463,7 @@
 (define (job-ensure-binary-port job target-fd remapped-fd)
   (let ((ports (job-ensure-ports job)))
     (or (hashtable-ref ports remapped-fd #f)
-        (let ((port (open-fd-binary-input/output-port
+        (let ((port (fd->binary-input/output-port
                        (string-append "fd " (number->string target-fd))
                        remapped-fd (buffer-mode block) #f)))
           (hashtable-set! ports remapped-fd port)

@@ -102,10 +102,10 @@
     (cond
       ((fx>? delta 0)
         (span-insert-right/span! left right 0 delta)
-        (span-erase-left! right delta))
+        (span-delete-left! right delta))
       ((fx<? delta 0)
         (span-insert-left/span! right left idx left-n)
-        (span-erase-right! left (fx- delta))))))
+        (span-delete-right! left (fx- delta))))))
 
 ;; insert val into gbuffer at position idx
 ;; prerequisite: (fx<=? 0 idx (gbuffer-length gb))
@@ -159,19 +159,19 @@
       ((fxzero? n) (void)) ; nothing to do
       ((fxzero? start)
         (let ((head (fxmin n left-n)))
-          (span-erase-left! left head)
-          (span-erase-left! right (fx- n head))))
+          (span-delete-left! left head)
+          (span-delete-left! right (fx- n head))))
       ((fx=? end left-n)
-        (span-erase-right! left n))
+        (span-delete-right! left n))
       ((fx=? start left-n)
-        (span-erase-left! right n))
+        (span-delete-left! right n))
       ((fx=? end len)
         (let ((tail (fxmin n right-n)))
-          (span-erase-right! right tail)
-          (span-erase-right! left (fx- n tail))))
+          (span-delete-right! right tail)
+          (span-delete-right! left (fx- n tail))))
       (else
         (gbuffer-split-at! gb end)
-        (span-erase-right! left n)))))
+        (span-delete-right! left n)))))
 
 
 ;; create and return a closure that iterates on elements of gbuffer gb.

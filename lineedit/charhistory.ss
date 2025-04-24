@@ -12,7 +12,7 @@
     charhistory charhistory? make-charhistory
     charhistory-empty? charhistory-length charhistory-ref/cow charhistory-iterate
     charhistory-index/starts-with charhistory-index-right/starts-with
-    charhistory-erase-empty-lines!
+    charhistory-delete-empty-lines!
     charhistory-set*! charhistory-path charhistory-path-set!)
   (import
     (rnrs)
@@ -106,7 +106,7 @@
 
 ;; remove empty charlines before index idx in charhistory.
 ;; stop as soon as a non-empty charlines is found.
-(define (charhistory-erase-empty-lines! hist idx)
+(define (charhistory-delete-empty-lines! hist idx)
   (let ((i (fx1- (fxmin idx (charhistory-length hist)))))
     (while (and (fx>=? i 0) (%charlines-empty? (gbuffer-ref hist i)))
       (gbuffer-delete! hist i (fx1+ i))

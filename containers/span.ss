@@ -18,7 +18,7 @@
     span-ref span-ref-right span-set! span-fill! subspan/shared span-copy span-copy!
     span-reserve-left! span-reserve-right! span-resize-left! span-resize-right!
     span-insert-left! span-insert-right! span-insert-left/span! span-insert-right/span!
-    span-erase-left! span-erase-right! span-index span-index-right
+    span-delete-left! span-delete-right! span-index span-index-right
     for-span in-span span-iterate span-iterate-any
     span-peek-beg span-peek-end span-peek-data)
   (import
@@ -281,16 +281,16 @@
 
 
 ;; erase n elements at the left (front) of span
-(define (span-erase-left! sp n)
-  (assert* 'span-erase-left! (fx<=? 0 n (span-length sp)))
+(define (span-delete-left! sp n)
+  (assert* 'span-delete-left! (fx<=? 0 n (span-length sp)))
   (unless (fxzero? n)
     ; TODO: zero-fill erased range? Helps GC
     (span-beg-set! sp (fx+ n (span-beg sp)))))
 
 
 ;; erase n elements at the right (back) of span
-(define (span-erase-right! sp n)
-  (assert* 'span-erase-right! (fx<=? 0 n (span-length sp)))
+(define (span-delete-right! sp n)
+  (assert* 'span-delete-right! (fx<=? 0 n (span-length sp)))
   (unless (fxzero? n)
     ; TODO: zero-fill erased range? Helps GC
     (span-end-set! sp (fx- (span-end sp) n))))

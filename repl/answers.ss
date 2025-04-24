@@ -50,7 +50,7 @@
          (delta (fx- len max-len)))
     (when (fx>? delta 0)
       (span-fill! ans 0 delta (void)) ; helps GC
-      (span-erase-left! ans delta))
+      (span-delete-left! ans delta))
     (span-insert-right! ans obj)))
 
 

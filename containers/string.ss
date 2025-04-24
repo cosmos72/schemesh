@@ -14,11 +14,11 @@
     string-index string-index-right
     string-is-unsigned-base10-integer? string-is-signed-base10-integer? string-iterate
     string-join string-list? string-list-split-after-nuls
-    string-map string-prefix? string-prefix/char?
-    string-count= substring=? substring<?
+    string-map string-prefix? string-prefix/char? string-count=
     string-replace-prefix string-replace-suffix string-replace/char! string-rtrim-newlines!
     string-split string-split-after-nuls string-suffix? string-suffix/char?
-    string-trim-split-at-blanks)
+    string-trim-split-at-blanks
+    substring=? substring<? substring-move!)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -626,6 +626,27 @@
                   (set! done? #t)))))))
      ; (debugf "<- substring<? ret=~s" ret)
      ret))
+
+
+;; copy string range [src-start, src-end) to range [dst-start, ...)
+;; the two ranges CAN overlap.
+(define (substring-move! str src-start src-end dst-start)
+  (let ((len (string-length str))
+        (dst-end (fx+ dst-start (fx- src-end src-start))))
+    (assert* 'substring-move! (fx<=?* 0 src-start src-end len))
+    (assert* 'substring-move! (fx<=?* 0 dst-start dst-end len))
+    (cond
+      ((fx<? dst-start src-start)
+        (do ((i src-start (fx1+ i))
+             (j dst-start (fx1+ j)))
+            ((fx>=? i src-end))
+          (string-set! str j (string-ref str i))))
+      ((fx>? dst-start src-start)
+        (do ((i (fx1- src-end) (fx1- i))
+             (j (fx1- dst-end) (fx1- j)))
+            ((fx<? i src-start))
+          (string-set! str j (string-ref str i)))))))
+
 
 
 ;; if string str contains specified string key, return index of the first occurrence,

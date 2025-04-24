@@ -14,8 +14,8 @@
     (rnrs)
     (rnrs mutable-strings)
     (only (chezscheme)  assertion-violationf block-read block-write char-ready? clear-input-port clear-output-port
-                        file-length file-position fx1- fx1+
-                        get-bytevector-some! make-input/output-port mark-port-closed! put-bytevector-some record-case
+                        file-length file-position fx1- fx1+ get-bytevector-some! get-string-some!
+                        make-input/output-port mark-port-closed! put-bytevector-some record-case
                         set-binary-port-input-buffer!   set-binary-port-input-index!   set-binary-port-input-size!
                         set-binary-port-output-buffer!  set-binary-port-output-index!  set-binary-port-output-size!
                         set-port-bol! set-port-output-index!
@@ -24,22 +24,30 @@
     (only (schemesh bootstrap) assert*))
 
 
-(define (b-mode->buffer-size b-mode)
+(define (b-mode->input-buffer-size b-mode)
   (case b-mode
-    ((none) 1) ; Chez Scheme streams do not support zero buffer-size
+    ((none) 1) ; Chez Scheme custom streams do not support zero input-buffer-size
+    ((line) 128)
+    (else   8192)))
+
+
+(define (b-mode->output-buffer-size b-mode)
+  (case b-mode
+    ((none) 0)
     ((line) 128)
     (else   8192)))
 
 
 (define (set-binary-buffer-mode! port b-mode)
-  (let ((buffer-size (b-mode->buffer-size b-mode)))
-    (when (input-port? port)
-      (set-binary-port-input-buffer! port (make-bytevector buffer-size))
-      (set-binary-port-input-size!   port 0)
-      (set-binary-port-input-index!  port 0))
-    (when (output-port? port)
-      (set-binary-port-output-buffer! port (make-bytevector buffer-size))
-      (set-binary-port-output-size!   port 0)
+  (when (input-port? port)
+    (let ((in-buffer-size (b-mode->input-buffer-size b-mode)))
+      (set-binary-port-input-buffer! port (make-bytevector in-buffer-size))
+      (set-binary-port-input-size!   port in-buffer-size)
+      (set-binary-port-input-index!  port in-buffer-size)))
+  (when (output-port? port)
+    (let ((out-buffer-size (b-mode->output-buffer-size b-mode)))
+      (set-binary-port-output-buffer! port (make-bytevector out-buffer-size))
+      (set-binary-port-output-size!   port out-buffer-size)
       (set-binary-port-output-index!  port 0)))
   port)
 
@@ -96,9 +104,10 @@
 
 ;; create and return a handler suitable for Chez Scheme (make-input/output-port)
 (define (make-textual-input/output-port-handler name proc on-close-proc)
+  ;; return a closure
   (case-lambda
     ((msg p)
-      ;; (debugf "port handler for ~s: (~s ~s)" (proc) msg p)
+      ;; (debugf "redir port handler for ~s: (~s ~s)" (proc) msg p)
       (case msg
         ((char-ready?)
           (char-ready? (proc)))
@@ -132,7 +141,7 @@
         (else
           (raise-bad-msg msg))))
     ((msg c p)
-      ;; (debugf "port handler for ~s: (~s ~s ~s)" (proc) msg c p)
+      ;; (debugf "redir port handler for ~s: (~s ~s ~s)" (proc) msg c p)
       (case msg
         ((file-position)
           (file-position (proc) p))
@@ -158,10 +167,10 @@
         (else
           (raise-bad-msg msg))))
     ((msg p str len)
-      ;; (debugf "port handler for ~s: (~s ~s ~s ~s)" (proc) msg p str len)
+      ;; (debugf "redir port handler for ~s: (~s ~s ~s ~s)" (proc) msg p str len)
       (case msg
         ((block-read)
-          (block-read (proc) str len))
+          (get-string-some! (proc) str 0 len))
         ((block-write)
           (let ((iop (proc)))
             ;; Chez Scheme documentation for (block-write) states:

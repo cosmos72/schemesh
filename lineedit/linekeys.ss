@@ -83,13 +83,13 @@
 ;; delete one character to the left of cursor.
 ;; moves cursor one character to the left.
 (define (lineedit-key-del-left lctx)
-  (vscreen-erase-left/n! (linectx-vscreen lctx) 1)
+  (vscreen-delete-left/n! (linectx-vscreen lctx) 1)
   (void))
 
 ;; delete one character under cursor.
 ;; does not move cursor.
 (define (lineedit-key-del-right lctx)
-  (vscreen-erase-right/n! (linectx-vscreen lctx) 1)
+  (vscreen-delete-right/n! (linectx-vscreen lctx) 1)
   (void))
 
 ;; delete from cursor to start of word under cursor.
@@ -98,7 +98,7 @@
   (let-values (((x y n) (linectx-find-left/word-begin lctx)))
     (when (and x y n (fx>? n 0))
       (lineedit-clipboard-maybe-clear! lctx)
-      (vscreen-erase-left/n! (linectx-vscreen lctx) n (linectx-clipboard lctx))
+      (vscreen-delete-left/n! (linectx-vscreen lctx) n (linectx-clipboard lctx))
       (void))))
 
 ;; delete from cursor to end of word under cursor.
@@ -107,7 +107,7 @@
   (let-values (((x y n) (linectx-find-right/word-end lctx)))
     (when (and x y n (fx>? n 0))
       (lineedit-clipboard-maybe-clear! lctx)
-      (vscreen-erase-right/n! (linectx-vscreen lctx) n (linectx-clipboard lctx))
+      (vscreen-delete-right/n! (linectx-vscreen lctx) n (linectx-clipboard lctx))
       (void))))
 
 
@@ -121,11 +121,11 @@
 
 (define (lineedit-key-del-line-left lctx)
   (lineedit-clipboard-maybe-clear! lctx)
-  (vscreen-erase-left/line! (linectx-vscreen lctx) (linectx-clipboard lctx)))
+  (vscreen-delete-left/line! (linectx-vscreen lctx) (linectx-clipboard lctx)))
 
 (define (lineedit-key-del-line-right lctx)
   (lineedit-clipboard-maybe-clear! lctx)
-  (vscreen-erase-right/line! (linectx-vscreen lctx) (linectx-clipboard lctx)))
+  (vscreen-delete-right/line! (linectx-vscreen lctx) (linectx-clipboard lctx)))
 
 (define (lineedit-key-newline-left lctx)
   (let ((screen (linectx-vscreen lctx)))

@@ -23,7 +23,7 @@
     bytespan-insert-left/u8! bytespan-insert-right/u8!
     bytespan-insert-left/bspan! bytespan-insert-right/bspan!
     bytespan-insert-left/bvector! bytespan-insert-right/bvector!
-    bytespan-erase-left! bytespan-erase-right! bytespan-index/u8
+    bytespan-delete-left! bytespan-delete-right! bytespan-index/u8
     in-bytespan bytespan-iterate
     bytespan-peek-beg bytespan-peek-end bytespan-peek-data)
   (import
@@ -339,14 +339,14 @@
       (bytespan-insert-right/bvector! sp-dst bv-src 0 (bytevector-length bv-src)))))
 
 ;; erase n elements at the left (front) of bytespan
-(define (bytespan-erase-left! sp n)
-  (assert* 'bytespan-erase-left! (fx<=? 0 n (bytespan-length sp)))
+(define (bytespan-delete-left! sp n)
+  (assert* 'bytespan-delete-left! (fx<=? 0 n (bytespan-length sp)))
   (unless (fxzero? n)
     (bytespan-beg-set! sp (fx+ n (bytespan-beg sp)))))
 
 ;; erase n elements at the right (back) of bytespan
-(define (bytespan-erase-right! sp n)
-  (assert* 'bytespan-erase-right! (fx<=? 0 n (bytespan-length sp)))
+(define (bytespan-delete-right! sp n)
+  (assert* 'bytespan-delete-right! (fx<=? 0 n (bytespan-length sp)))
   (unless (fxzero? n)
     (bytespan-end-set! sp (fx- (bytespan-end sp) n))))
 

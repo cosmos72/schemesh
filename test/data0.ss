@@ -265,9 +265,9 @@
         (sp2 (span -1 0)))
     (span-insert-right/span! sp sp2) sp)    ,(span 1 2 3 -1 0)
   (let ((sp (span 'a 'b 'c 'd)))
-    (span-erase-left! sp 3) sp)           ,(span d)
+    (span-delete-left! sp 3) sp)           ,(span d)
   (let ((sp (span 'a 'b 'c 'd)))
-    (span-erase-right! sp 1) sp)            ,(span a b c)
+    (span-delete-right! sp 1) sp)            ,(span a b c)
   (let ((sp (span 'a 'b 'c 'd)))
     (span-index sp 0 999
       (lambda (elem) (eq? 'c elem))))     2

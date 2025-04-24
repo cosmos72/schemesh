@@ -57,7 +57,7 @@
                (sep-after?  (sh-path-absolute? next)))
           (cond
             ((and sep-before? sep-after?)
-              (charspan-erase-right! result 1))
+              (charspan-delete-right! result 1))
             ((not (or sep-before? sep-after?))
               (charspan-insert-right! result #\/)))
           (charspan-insert-right/cspan! result next)))

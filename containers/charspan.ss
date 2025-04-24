@@ -24,7 +24,7 @@
     charspan-insert-left!        charspan-insert-right!
     charspan-insert-left/cspan!  charspan-insert-right/cspan!
     charspan-insert-left/string! charspan-insert-right/string!
-    charspan-erase-left!         charspan-erase-right! charspan-iterate in-charspan
+    charspan-delete-left!         charspan-delete-right! charspan-iterate in-charspan
     charspan-index charspan-index-right charspan-index/char charspan-index-right/char
     charspan-peek-data charspan-peek-beg charspan-peek-end
 
@@ -403,14 +403,14 @@
 
 
 ;; erase n elements at the left (front) of charspan
-(define (charspan-erase-left! sp n)
-  (assert* 'charspan-erase-left! (fx<=? 0 n (charspan-length sp)))
+(define (charspan-delete-left! sp n)
+  (assert* 'charspan-delete-left! (fx<=? 0 n (charspan-length sp)))
   (unless (fxzero? n)
     (charspan-beg-set! sp (fx+ n (charspan-beg sp)))))
 
 ;; erase n elements at the right (back) of charspan
-(define (charspan-erase-right! sp n)
-  (assert* 'charspan-erase-right! (fx<=? 0 n (charspan-length sp)))
+(define (charspan-delete-right! sp n)
+  (assert* 'charspan-delete-right! (fx<=? 0 n (charspan-length sp)))
   (unless (fxzero? n)
     (charspan-end-set! sp (fx- (charspan-end sp) n))))
 
