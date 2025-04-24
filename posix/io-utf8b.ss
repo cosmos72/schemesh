@@ -186,7 +186,8 @@
 
 (define (utf8b-port-block-read p tport str start len)
   (assert* 'utfb-port-block-read tport)
-  (let ((n (tport-read-some tport str start len)))
+  (let ((n (with-interrupts-enabled
+             (tport-read-some tport str start len))))
     (if (and (fxzero? n) (not (fxzero? len)))
       (eof-object)
       n)))
@@ -229,8 +230,9 @@
           (set-port-bol! p (char=? (string-ref buf (fx1- idx)) #\newline))))))
   (unless (fxzero? n)
     (set-port-bol! p (char=? (string-ref str (fx1- n)) #\newline)))
-  (tport-write tport str start n)
-  (tport-flush tport))
+  (with-interrupts-enabled
+    (tport-write tport str start n)
+    (tport-flush tport)))
 
 
 (define (utf8b-port-flush p tport)
@@ -243,7 +245,8 @@
           (tport-write tport buf 0 idx)
           (set-textual-port-output-index! p 0)
           (set-port-bol! p (char=? (string-ref buf (fx1- idx)) #\newline))))))
-  (tport-flush tport))
+  (with-interrupts-enabled
+    (tport-flush tport)))
 
 
 (define (raise-bad-msg msg)
