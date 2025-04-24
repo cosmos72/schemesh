@@ -116,14 +116,14 @@
         ((clear-input-port)
           (clear-input-port (proc)))
         ((clear-output-port)
-          (with-interrupts-disabled
+          (begin ; with-interrupts-disabled
             (set-port-output-index! p 0))
           (clear-output-port (proc)))
         ((close-port)
           (mark-port-closed! p)
           (when proc-on-close (proc-on-close)))
         ((flush-output-port)
-          (with-interrupts-disabled
+          (begin ; with-interrupts-disabled
             (let ((buf (textual-port-output-buffer p))
                   (idx (textual-port-output-index  p)))
               (block-write (proc) buf idx) ;; also flushes iop
@@ -150,7 +150,7 @@
         ((unread-char)
           (unread-char c (proc)))
         ((write-char)
-          (with-interrupts-disabled
+          (begin ; with-interrupts-disabled
             (let* ((iop (proc))
                    (buf (textual-port-output-buffer p))
                    (idx (textual-port-output-index p))
@@ -168,7 +168,8 @@
                   (set-port-output-index! p (fx1+ idx))))
               ;; if p is unbuffered, behave as if iop is unbuffered too
               (when (fxzero? cap)
-                (flush-output-port iop))
+                (with-interrupts-enabled
+                  (flush-output-port iop)))
             (set-port-bol! p (char=? c #\newline)))))
         (else
           (raise-bad-msg msg))))
@@ -182,19 +183,21 @@
             ;; Chez Scheme documentation for (block-write) states:
             ;; If the port is buffered and the buffer is nonempty, the buffer is flushed before the contents of string are written.
             ;; In any case, the contents of string are written immediately, without passing through the buffer.
-            (with-interrupts-disabled
+            (begin ; with-interrupts-disabled
               (let ((buf (textual-port-output-buffer p))
                     (idx (textual-port-output-index  p)))
                 (unless (fxzero? idx)
                   (block-write iop buf idx)
                   (set-port-output-index! p 0)
                   (set-port-bol! p (char=? (string-ref buf (fx1- idx)) #\newline)))))
-            (block-write iop str len)
+            (with-interrupts-enabled
+              (block-write iop str len))
             (unless (fxzero? len)
               (set-port-bol! p (char=? (string-ref str (fx1- len)) #\newline)))
             ;; if p is unbuffered, behave as if iop is unbuffered too
             (when (fxzero? (textual-port-output-size p))
-              (flush-output-port iop))))
+              (with-interrupts-enabled
+                (flush-output-port iop)))))
         (else
           (raise-bad-msg msg))))))
 

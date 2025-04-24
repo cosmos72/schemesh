@@ -38,9 +38,9 @@
 
            (eqv-hashtable            ; ports
              0 port0  1 port1  2 port2
-             (fxnot 0) (port->utf8b-port port0 (buffer-mode block))
-             (fxnot 1) (port->utf8b-port port1 (buffer-mode block))
-             (fxnot 2) (port->utf8b-port port2 (buffer-mode block)))
+             (fxnot 0) (port->utf8b-port port0)
+             (fxnot 1) (port->utf8b-port port1)
+             (fxnot 2) (port->utf8b-port port2))
            #f #f                     ; start-proc step-proc
            (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) #f ; current directory, old working directory
            (make-hashtable string-hash string=?) ; env variables

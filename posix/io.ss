@@ -25,8 +25,7 @@
                         set-textual-port-output-buffer! set-textual-port-output-index! set-textual-port-output-size!
 
                         textual-port-input-buffer       textual-port-input-index       textual-port-input-size
-                        textual-port-output-buffer      textual-port-output-index      textual-port-output-size
-                        with-interrupts-disabled)
+                        textual-port-output-buffer      textual-port-output-index      textual-port-output-size)
     (only (schemesh bootstrap)              assert* with-interrupts-enabled)
     (schemesh containers bytespan)
     (only (schemesh containers string)      substring-move!)
@@ -149,7 +148,7 @@
     ((fd dir ?transcoder-sym b-mode name)
       (fd->port fd dir ?transcoder-sym b-mode name #f))
     ((fd dir ?transcoder-sym b-mode)
-      (fd->port fd dir ?transcoder-sym (string-append "fd " (number->string fd)) #f))
+      (fd->port fd dir ?transcoder-sym b-mode (string-append "fd " (number->string fd)) #f))
     ((fd dir ?transcoder-sym)
       (fd->port fd dir ?transcoder-sym (buffer-mode block)))
     ((fd dir)

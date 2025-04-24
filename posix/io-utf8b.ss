@@ -133,7 +133,7 @@
 (define (utf8b-port-peek-char p tport)
   (assert* 'utfb-port-peek-char tport)
   (if (tport-buffered? tport)
-    (with-interrupts-disabled
+    (begin ; with-interrupts-disabled
       (let ((buf (textual-port-input-buffer p))
             (idx (textual-port-input-index  p))
             (cap (textual-port-input-size   p)))
@@ -158,7 +158,7 @@
 (define (utf8b-port-read-char p tport)
   (assert* 'utfb-port-read-char tport)
   (if (tport-buffered? tport)
-    (with-interrupts-disabled
+    (begin ; with-interrupts-disabled
       (let ((buf (textual-port-input-buffer p))
             (idx (textual-port-input-index p))
             (cap (textual-port-input-size p)))
@@ -195,7 +195,7 @@
 (define (utf8b-port-write-char p tport ch)
   (assert* 'utfb-port-write-char tport)
   (if (tport-buffered? tport)
-    (with-interrupts-disabled
+    (begin ; with-interrupts-disabled
       (let* ((buf (textual-port-output-buffer p))
              (idx (textual-port-output-index p))
              (cap (textual-port-output-size p)))
@@ -220,7 +220,7 @@
   ;; In any case, the contents of string are written immediately, without passing through the buffer.
   (assert* 'utf8b-port-block-write tport)
   (when (tport-buffered? tport)
-    (with-interrupts-disabled
+    (begin ; with-interrupts-disabled
       (let ((buf (textual-port-output-buffer p))
             (idx (textual-port-output-index  p)))
         (unless (fxzero? idx)
@@ -236,7 +236,7 @@
 (define (utf8b-port-flush p tport)
   (assert* 'utfb-port-flush tport)
   (when (tport-buffered? tport)
-    (with-interrupts-disabled
+    (begin ; with-interrupts-disabled
       (let ((buf (textual-port-output-buffer p))
             (idx (textual-port-output-index  p)))
         (unless (fxzero? idx)
@@ -263,7 +263,7 @@
         (case msg
           ((char-ready?)
             (assert* 'utfb-port-char-ready? in-port)
-            (or (with-interrupts-disabled
+            (or (begin ; with-interrupts-disabled
                   (fx>? (textual-port-output-index p) 0))
                 (fx>? (tport-bspan-length tport1) 0)
                 (input-port-ready? in-port)))
@@ -272,7 +272,7 @@
             (clear-input-port in-port))
           ((clear-output-port)
             (assert* 'utfb-port-clear-output-port out-port)
-            (with-interrupts-disabled
+            (begin ; with-interrupts-disabled
               (set-textual-port-output-index! p 0))
             (clear-output-port out-port))
           ((close-port)
@@ -328,11 +328,18 @@
 ;; and transcodes between characters and UTF-8b bytes
 (define port->utf8b-port
   (case-lambda
-    ((bin-port b-mode)
+    ((bin-port dir b-mode)
       (assert* 'port->utf8b-port (binary-port? bin-port))
       (assert* 'port->utf8b-port (buffer-mode? b-mode))
-      (cond
-        ((and (input-port? bin-port) (output-port? bin-port))
+      (case dir
+        ((read)
+          (let* ((in-buffer-size (b-mode->input-buffer-size b-mode))
+                 (p (make-input-port
+                      (make-utfb-port-handler bin-port in-buffer-size #f 0)
+                      (make-string in-buffer-size))))
+            (set-textual-port-input-index! p in-buffer-size)
+            p))
+        ((rw)
           (let* ((in-buffer-size  (b-mode->input-buffer-size b-mode))
                  (out-buffer-size (b-mode->output-buffer-size b-mode))
                  (p (make-input/output-port
@@ -341,21 +348,21 @@
                       (make-string out-buffer-size))))
             (set-textual-port-input-index! p in-buffer-size)
             p))
-        ((input-port? bin-port)
-          (let* ((in-buffer-size (b-mode->input-buffer-size b-mode))
-                 (p (make-input-port
-                      (make-utfb-port-handler bin-port in-buffer-size #f 0)
-                      (make-string in-buffer-size))))
-            (set-textual-port-input-index! p in-buffer-size)
-            p))
-        (else
+        ((write)
           (let* ((out-buffer-size (b-mode->output-buffer-size b-mode))
                  (p (make-output-port
                       (make-utfb-port-handler #f 0 bin-port out-buffer-size)
                       (make-string out-buffer-size))))
-            p))))
+            p))
+        (else
+          (assert* 'port->utf8b-port (memq dir '(read write rw))))))
+    ((bin-port dir)
+      (port->utf8b-port bin-port dir (buffer-mode block)))
     ((bin-port)
-      (port->utf8b-port bin-port (buffer-mode block)))))
+      (port->utf8b-port
+        bin-port
+        (if (input-port? bin-port) (if (output-port? bin-port) 'rw 'read) 'write)
+        (buffer-mode block)))))
 
 
 ;; create and return a textual input and/or output port that reads from and/or writes to a file descriptor.
@@ -364,4 +371,4 @@
 (define (fd->textual-port fd dir b-mode name proc-on-close)
   (port->utf8b-port
      (fd->binary-port fd dir b-mode name proc-on-close)
-     b-mode))
+     dir b-mode))
