@@ -26,8 +26,10 @@
          (len   (bytespan-length bsp))
          (delta (fxmax 0 (fx- n len))))
     (bytespan-reserve-right! bsp (fx+ len delta))
-    (let ((got (get-bytevector-n! (tport-bin-port p) (bytespan-peek-data bsp)
-                                  (bytespan-peek-end bsp) delta)))
+    ;; return as soon as 1 or more bytes have been read:
+    ;; do NOT wait until delta bytes have been read.
+    (let ((got (get-bytevector-some! (tport-bin-port p) (bytespan-peek-data bsp)
+                                     (bytespan-peek-end bsp) delta)))
       (if (and (fixnum? got) (fx>? got 0))
         (bytespan-resize-right! bsp (fx+ len got))
         (tport-eof?-set! p #t)))))
@@ -236,7 +238,7 @@
 
 ;; create and return a textual input port handler that reads/writes UTF-8b bytes from/to a binary input port
 ;; and transcodes them to characters
-(define (make-utfb-port-handler in-port input-buffer-size out-port output-buffer-size proc-before-write)
+(define (make-utfb-port-handler in-port input-buffer-size out-port output-buffer-size)
   (let ((name   (string-append "utf8b " (port-name (or in-port out-port))))
         (tport1 (and in-port  (make-tport in-port  (make-bytespan 0) input-buffer-size #f)))
         (tport2 (and out-port (make-tport out-port (make-bytespan 0) output-buffer-size #f))))
@@ -266,8 +268,6 @@
             (when out-port
               (close-port out-port)))
           ((flush-output-port)
-            (when proc-before-write
-              (proc-before-write))
             (utf8b-port-flush p tport2))
           ((file-position)
             (port-position (or in-port out-port)))
@@ -293,8 +293,6 @@
             (assert* 'utfb-port-unread-char in-port)
             (bytespan-insert-left/char! (tport-bspan in-port) c))
           ((write-char)
-            (when proc-before-write
-              (proc-before-write))
             (utf8b-port-write-char p tport2 c))
           (else
             (raise-bad-msg msg))))
@@ -304,8 +302,6 @@
           ((block-read)
             (utf8b-port-block-read p tport1 str 0 len))
           ((block-write)
-            (when proc-before-write
-              (proc-before-write))
             (utf8b-port-block-write p tport2 str 0 len))
           (else
             (raise-bad-msg msg)))))))
@@ -318,18 +314,15 @@
 ;; and transcodes between characters and UTF-8b bytes
 (define port->utf8b-port
   (case-lambda
-    ((bin-port b-mode proc-before-write)
+    ((bin-port b-mode)
       (assert* 'port->utf8b-port (binary-port? bin-port))
       (assert* 'port->utf8b-port (buffer-mode? b-mode))
-      (when proc-before-write
-        (assert* 'port->utf8b-port (procedure? proc-before-write))
-        (assert* 'port->utf8b-port (logbit? 0 (procedure-arity-mask proc-before-write))))
       (cond
         ((and (input-port? bin-port) (output-port? bin-port))
           (let* ((in-buffer-size  (b-mode->input-buffer-size b-mode))
                  (out-buffer-size (b-mode->output-buffer-size b-mode))
                  (p (make-input/output-port
-                      (make-utfb-port-handler bin-port in-buffer-size bin-port out-buffer-size proc-before-write)
+                      (make-utfb-port-handler bin-port in-buffer-size bin-port out-buffer-size)
                       (make-string in-buffer-size)
                       (make-string out-buffer-size))))
             (set-textual-port-input-index! p in-buffer-size)
@@ -337,20 +330,18 @@
         ((input-port? bin-port)
           (let* ((in-buffer-size (b-mode->input-buffer-size b-mode))
                  (p (make-input-port
-                      (make-utfb-port-handler bin-port in-buffer-size #f 0 proc-before-write)
+                      (make-utfb-port-handler bin-port in-buffer-size #f 0)
                       (make-string in-buffer-size))))
             (set-textual-port-input-index! p in-buffer-size)
             p))
         (else
           (let* ((out-buffer-size (b-mode->output-buffer-size b-mode))
                  (p (make-output-port
-                      (make-utfb-port-handler #f 0 bin-port out-buffer-size proc-before-write)
+                      (make-utfb-port-handler #f 0 bin-port out-buffer-size)
                       (make-string out-buffer-size))))
             p))))
-    ((bin-port b-mode)
-      (port->utf8b-port bin-port b-mode #f))
     ((bin-port)
-      (port->utf8b-port bin-port (buffer-mode block) #f))))
+      (port->utf8b-port bin-port (buffer-mode block)))))
 
 
 ;; create and return a textual input and/or output port that reads from and/or writes to a file descriptor.

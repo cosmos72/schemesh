@@ -245,11 +245,7 @@
       ((ok exception failed killed)
         (%job-last-status-set! job status)
 
-        (flush-output-port (current-output-port))
-        (flush-output-port (current-error-port))
-        (flush-output-port (sh-stdout))
-        (flush-output-port (sh-stderr))
-
+        (sh-stdio-flush)
         (job-pid-set!  job #f) ; also updates (sh-pid-table)
         (job-pgid-set! job #f)
 

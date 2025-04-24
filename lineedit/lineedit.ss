@@ -402,8 +402,6 @@
 
 ;; actual implementation of (lineedit-read)
 (define (%lineedit-read lctx timeout-milliseconds)
-  (flush-output-port (console-output-port))
-  (flush-output-port (console-error-port))
   (linectx-consume-sigwinch lctx)
 
   (let ((ret (linectx-keytable-iterate lctx)))

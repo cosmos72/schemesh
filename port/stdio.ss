@@ -69,12 +69,10 @@
 
 
 (define (sh-stdio-flush)
+  ;; these also flush the underlying binary ports (sh-stdin) (sh-stdout) (sh-stderr)
   (try-port-flush (current-input-port))
   (try-port-flush (current-output-port))
-  (try-port-flush (current-error-port))
-  (try-port-flush (sh-stdin))
-  (try-port-flush (sh-stdout))
-  (try-port-flush (sh-stderr)))
+  (try-port-flush (current-error-port)))
 
 
 

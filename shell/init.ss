@@ -50,15 +50,14 @@
 
   (c-environ->sh-global-env)
 
-  #|
   ;; Replace (console-input-port) (console-output-port) (console-error-port)
   ;; with UTF-8b textual input/output ports that can be interrupted
-  ;;
-  ;; DISABLED: breaks (inspect) and (debug) because of buffering in (sh-textual-port #t NNN)
-  (console-input-port  (make-redir-textual-input/output-port "console-input-port"  (lambda () (sh-textual-port #t 0)) #f 0))
-  (console-output-port (make-redir-textual-input/output-port "console-output-port" (lambda () (sh-textual-port #t 1)) #f 0))
-  (console-error-port  (make-redir-textual-input/output-port "console-error-port"  (lambda () (sh-textual-port #t 2)) #f 0))
-  |#
+  (let ((port0 (sh-textual-port #t 0))
+        (port1 (sh-textual-port #t 1))
+        (port2 (sh-textual-port #t 2)))
+    (console-input-port  (make-redir-textual-input/output-port "console-input-port"  (lambda () port0) #f 0))
+    (console-output-port (make-redir-textual-input/output-port "console-output-port" (lambda () port1) #f 0))
+    (console-error-port  (make-redir-textual-input/output-port "console-error-port"  (lambda () port2) #f 0)))
 
 
   ;; Replace (sh-stdin) (sh-stdout) (sh-stderr)

@@ -13,7 +13,8 @@
   (import
     (rnrs)
     (rnrs mutable-strings)
-    (only (chezscheme)  assertion-violationf clear-input-port clear-output-port enum-set? fx1+ fx1- include input-port-ready?
+    (only (chezscheme)  assertion-violationf clear-input-port clear-output-port enum-set? fx1+ fx1-
+                        get-bytevector-some! include input-port-ready?
                         logbit? make-input-port make-input/output-port make-output-port mark-port-closed!
                         port-length port-name procedure-arity-mask record-writer
 
