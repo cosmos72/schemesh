@@ -228,7 +228,7 @@
 
 ;; create and return a textual input port handler that reads/writes from/to an underlying binary port
 ;; and transcodes between characters and UTF-8b byte sequences
-(define (make-utfb-port-handler in-port input-buffer-size out-port output-buffer-size)
+(define (make-utfb-port-handler in-port input-buffer-size out-port output-buffer-size options)
   (let ((name   (string-append "utf8b " (port-name (or in-port out-port))))
         (tport1 (and in-port  (make-tport in-port  (make-bytespan 0) input-buffer-size #f)))
         (tport2 (and out-port (make-tport out-port (make-bytespan 0) output-buffer-size #f))))
@@ -250,11 +250,13 @@
             (set-textual-port-output-index! p 0)
             (clear-output-port out-port))
           ((close-port)
-            (mark-port-closed! p)
-            (when in-port
-              (close-port in-port))
-            (when out-port
-              (close-port out-port)))
+            (when (plist-ref options 'close? #t)
+              (mark-port-closed! p)
+              (when (plist-ref options 'close-inner? #t)
+                (when in-port
+                  (close-port in-port))
+                (when out-port
+                  (close-port out-port)))))
           ((flush-output-port)
             (utf8b-port-flush p tport2))
           ((file-position)
@@ -300,16 +302,21 @@
 
 ;; create and return a textual input and/or output port that reads/write from/to an underlying binary port
 ;; and transcodes between characters and UTF-8b byte sequences
+;;
+;; options must be a plist containing zero or more of:
+;;   'close? BOOL       - if BOOL is #f (default is #t), attempts to close the returned port are ignored
+;;   'close-inner? BOOL - if BOOL is #f (default is #t), closing the returned port does not close the underlying binary port
 (define port->utf8b-port
   (case-lambda
-    ((bin-port dir b-mode)
+    ((bin-port dir b-mode options)
       (assert* 'port->utf8b-port (binary-port? bin-port))
       (assert* 'port->utf8b-port (buffer-mode? b-mode))
+      (assert* 'port->utf8b-port (plist? options))
       (case dir
         ((read)
           (let* ((in-buffer-size (b-mode->input-buffer-size b-mode))
                  (p (make-input-port
-                      (make-utfb-port-handler bin-port in-buffer-size #f 0)
+                      (make-utfb-port-handler bin-port in-buffer-size #f 0 options)
                       (make-string in-buffer-size))))
             (set-textual-port-input-index! p in-buffer-size)
             p))
@@ -317,7 +324,7 @@
           (let* ((in-buffer-size  (b-mode->input-buffer-size b-mode))
                  (out-buffer-size (b-mode->output-buffer-size b-mode))
                  (p (make-input/output-port
-                      (make-utfb-port-handler bin-port in-buffer-size bin-port out-buffer-size)
+                      (make-utfb-port-handler bin-port in-buffer-size bin-port out-buffer-size options)
                       (make-string in-buffer-size)
                       (make-string out-buffer-size))))
             (set-textual-port-input-index! p in-buffer-size)
@@ -325,18 +332,21 @@
         ((write)
           (let* ((out-buffer-size (b-mode->output-buffer-size b-mode))
                  (p (make-output-port
-                      (make-utfb-port-handler #f 0 bin-port out-buffer-size)
+                      (make-utfb-port-handler #f 0 bin-port out-buffer-size options)
                       (make-string out-buffer-size))))
             p))
         (else
           (assert* 'port->utf8b-port (memq dir '(read write rw))))))
+    ((bin-port dir b-mode)
+      (port->utf8b-port bin-port dir b-mode '()))
     ((bin-port dir)
-      (port->utf8b-port bin-port dir (buffer-mode block)))
+      (port->utf8b-port bin-port dir (buffer-mode block) '()))
     ((bin-port)
       (port->utf8b-port
         bin-port
         (if (input-port? bin-port) (if (output-port? bin-port) 'rw 'read) 'write)
-        (buffer-mode block)))))
+        (buffer-mode block)
+        '()))))
 
 
 ;; create and return a textual input and/or output port that reads from and/or writes to a file descriptor.

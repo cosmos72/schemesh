@@ -28,6 +28,7 @@
                         textual-port-output-buffer      textual-port-output-index      textual-port-output-size)
     (only (schemesh bootstrap)              assert*)
     (schemesh containers bytespan)
+    (only (schemesh containers list)        plist? plist-ref)
     (only (schemesh containers string)      substring-move!)
     (only (schemesh containers utf8b)       integer->char* utf8b->string utf8b->string-copy!)
     (only (schemesh containers utf8b utils) bytespan-insert-left/char! bytespan-insert-right/char!
