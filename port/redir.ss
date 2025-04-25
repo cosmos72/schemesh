@@ -9,13 +9,13 @@
 
 (library (schemesh port redir (0 8 3))
   (export
-    make-redir-binary-input/output-port make-redir-textual-input/output-port)
+    binary-port-lambda->port textual-port-lambda->port)
   (import
     (rnrs)
     (rnrs mutable-strings)
     (only (chezscheme)  assertion-violationf block-read block-write char-ready? clear-input-port clear-output-port
-                        file-length file-position fx1- fx1+ get-bytevector-some! get-string-some!
-                        make-input/output-port mark-port-closed! put-bytevector-some record-case
+                        file-length file-position fx1- fx1+ get-bytevector-some! get-string-some! logbit?
+                        make-input/output-port mark-port-closed! put-bytevector-some procedure-arity-mask record-case
                         set-binary-port-input-buffer!   set-binary-port-input-index!   set-binary-port-input-size!
                         set-binary-port-output-buffer!  set-binary-port-output-index!  set-binary-port-output-size!
                         set-port-bol! set-port-output-index!
@@ -51,60 +51,75 @@
   port)
 
 
-;; create and return a binary input/output port that redirectably reads from and writes to another binary port.
+;; create and return an unbuffered binary input/output port that redirectably reads from and writes to another binary port.
 ;;
-;; proc-nested-port must be a no-argument procedure that returns another binary port;
+;; port-lambda must be a no-argument procedure that returns another binary port;
 ;; the returned binary port *may* change from one call to the next.
-(define make-redir-binary-input/output-port
+(define binary-port-lambda->port
   (case-lambda
-    ((name proc-nested-port proc-on-close)
-      (assert* 'make-redir-binary-input/output-port (procedure? proc-nested-port))
+    ((name port-lambda proc-on-close)
+      (assert* 'binary-port-lambda->port (string? name))
+      (assert* 'binary-port-lambda->port (procedure? port-lambda))
+      (assert* 'binary-port-lambda->port (logbit? 0 (procedure-arity-mask port-lambda)))
       (set-binary-buffer-mode!
         (make-custom-binary-input/output-port
           name
           (lambda (bv start n)
-            (get-bytevector-some! (proc-nested-port) bv start n))
+            (get-bytevector-some! (port-lambda) bv start n))
           (lambda (bv start n)
-            (let ((port (proc-nested-port)))
+            (let ((port (port-lambda)))
               (put-bytevector port bv start n)
               (flush-output-port port)
               n))
           (lambda ()
-            (port-position (proc-nested-port)))
+            (port-position (port-lambda)))
           (lambda (pos)
-            (set-port-position! (proc-nested-port) pos))
+            (set-port-position! (port-lambda) pos))
           (case proc-on-close
             ((#f) #f)
-            ((#t) (lambda () (close-port (proc-nested-port))))
+            ((#t) (lambda () (close-port (port-lambda))))
             (else proc-on-close)))
+        ;; (make-custom-binary-input/output-port) does not run user code on (flush-output-port)
+        ;; thus we cannot flush the underlying stream when needed => return an unbuffered stream
         'none))
 
-    ((name proc-nested-port)
-      (make-redir-binary-input/output-port name proc-nested-port #f))))
+    ((name port-lambda)
+      (binary-port-lambda->port name port-lambda #f))))
 
 
 ;; create and return a textual input/output port that redirectably reads from and writes to another textual port.
 ;;
-;; proc-nested-port must be a no-argument procedure that returns another textual port;
+;; port-lambda must be a no-argument procedure that returns another textual port;
 ;; the returned textual port *may* change from one call to the next.
-(define make-redir-textual-input/output-port
+(define textual-port-lambda->port
   (case-lambda
-    ((name proc-nested-port proc-on-close out-buffer-size)
-      (assert* 'make-redir-textual-input/output-port (procedure? proc-nested-port))
+    ((name port-lambda proc-on-close proc-before-write out-buffer-size)
+      (assert* 'textual-port-lambda->port (string? name))
+      (assert* 'textual-port-lambda->port (procedure? port-lambda))
+      (assert* 'textual-port-lambda->port (logbit? 0 (procedure-arity-mask port-lambda)))
+      (when proc-on-close
+        (assert* 'textual-port-lambda->port (procedure? proc-on-close))
+        (assert* 'textual-port-lambda->port (logbit? 0 (procedure-arity-mask proc-on-close))))
+      (when proc-before-write
+        (assert* 'textual-port-lambda->port (procedure? proc-before-write))
+        (assert* 'textual-port-lambda->port (logbit? 0 (procedure-arity-mask proc-before-write))))
       (make-input/output-port
-        (make-textual-input/output-port-handler name proc-nested-port proc-on-close)
+        (textual-port-lambda-handler name port-lambda proc-on-close proc-before-write)
         (make-string 0)
         (make-string out-buffer-size)))
 
-    ((name proc-nested-port proc-on-close)
-      (make-redir-textual-input/output-port name proc-nested-port #f 4096))
+    ((name port-lambda proc-on-close proc-before-write)
+      (textual-port-lambda->port name port-lambda proc-on-close proc-before-write 4096))
 
-    ((name proc-nested-port)
-      (make-redir-textual-input/output-port name proc-nested-port #f))))
+    ((name port-lambda proc-on-close)
+      (textual-port-lambda->port name port-lambda proc-on-close #f))
+
+    ((name port-lambda)
+      (textual-port-lambda->port name port-lambda #f #f))))
 
 
 ;; create and return a handler suitable for Chez Scheme (make-input/output-port)
-(define (make-textual-input/output-port-handler name proc proc-on-close)
+(define (textual-port-lambda-handler name proc proc-on-close proc-before-write)
   ;; return a closure
   (case-lambda
     ((msg p)
@@ -121,6 +136,8 @@
           (mark-port-closed! p)
           (when proc-on-close (proc-on-close)))
         ((flush-output-port)
+          (when proc-before-write
+            (proc-before-write))
           (let ((buf (textual-port-output-buffer p))
                 (idx (textual-port-output-index  p)))
             (block-write (proc) buf idx) ;; also flushes iop
@@ -147,6 +164,8 @@
         ((unread-char)
           (unread-char c (proc)))
         ((write-char)
+          (when proc-before-write
+            (proc-before-write))
           (let* ((iop (proc))
                  (buf (textual-port-output-buffer p))
                  (idx (textual-port-output-index p))
@@ -173,6 +192,8 @@
         ((block-read)
           (get-string-some! (proc) str 0 len))
         ((block-write)
+          (when proc-before-write
+            (proc-before-write))
           (let ((iop (proc)))
             ;; Chez Scheme documentation for (block-write) states:
             ;; If the port is buffered and the buffer is nonempty, the buffer is flushed before the contents of string are written.
@@ -194,6 +215,6 @@
 
 
 (define (raise-bad-msg msg)
-  (assertion-violationf 'make-redir-textual-input/output-port "operation ~s not handled" msg))
+  (assertion-violationf 'textual-port-lambda->port "operation ~s not handled" msg))
 
 ) ; close library

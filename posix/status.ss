@@ -230,8 +230,6 @@
     (dynamic-wind
       void       ; before body
       (lambda () ; body
-        (flush-output-port (console-output-port))
-        (flush-output-port (console-error-port))
         (flush-output-port (current-output-port))
         (flush-output-port (current-error-port))
         (when (eq? 'killed (status->kind status))

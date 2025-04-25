@@ -447,8 +447,7 @@
       (lineedit-undraw lctx 'flush)
       (let ((port (console-output-port)))
         (for-list ((job (list-remove-consecutive-duplicates! (sort! sh-job<? job-list) eq?)))
-          (display-status-change job port))
-        (flush-output-port port)))))
+          (display-status-change job port))))))
 
 
 

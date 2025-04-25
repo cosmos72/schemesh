@@ -69,7 +69,8 @@
 
 
 (define (sh-stdio-flush)
-  ;; these also flush the underlying binary ports (sh-stdin) (sh-stdout) (sh-stderr)
+  ;; the ports (console-input-port) (console-output-port) (console-error-port)
+  ;; and (sh-stdin) (sh-stdout) (sh-stderr) are unbuffered, no need to flush them
   (try-port-flush (current-input-port))
   (try-port-flush (current-output-port))
   (try-port-flush (current-error-port)))

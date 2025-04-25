@@ -16,7 +16,7 @@
           byte-lines->port lines->port read-line read-bytes-line
 
           ;; redir.ss
-          make-redir-binary-input/output-port make-redir-textual-input/output-port
+          binary-port-lambda->port textual-port-lambda->port
 
           ;; stdio.ss
           sh-stdio-cleanup sh-stdio-flush sh-stdin sh-stdout sh-stderr)

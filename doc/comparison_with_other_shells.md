@@ -58,7 +58,7 @@ Rash has several limitations, sometimes due to design choices, that schemesh sol
 3. shell commands are Lisp functions, not Lisp objects.
    Inspecting and redirecting them after they have been created is difficult
 4. being written in Racket, has larger RAM footprint than schemesh running on vanilla Chez Scheme:
-   at startup, ~160MB vs. ~32MB
+   at startup, ~160MB vs. ~40MB
 5. support for multi-language at REPL is limited: once you do `#lang racket`, you cannot go back to `#lang rash`
    This is a limitation imposed by the underlying Racket system, and Rash can do relatively little to remove it.
 

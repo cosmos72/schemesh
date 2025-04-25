@@ -538,7 +538,7 @@
 ;; 1. delimiters are not included in returned list of substrings.
 ;; 2. multiple consecutive delimiters are coalesced together.
 ;; 3. if original string starts and/or ends with delimiters, such delimiters are ignored.
-;; 4. if the original string is empty, the returned list will contain zero elements.
+;; 4. if the original string is empty or only contains delimiters, the returned list will contain zero elements.
 (define string-trim-split-at-blanks
   (case-lambda
     ((str)

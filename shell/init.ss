@@ -54,24 +54,32 @@
   ;; with unbuffered UTF-8b textual input/output ports that can be interrupted
   (let ((port0 (sh-textual-port #t 0))
         (port1 (sh-textual-port #t 1))
-        (port2 (sh-textual-port #t 2)))
-    (console-input-port  (make-redir-textual-input/output-port "console-input-port"  (lambda () port0) #f 0))
-    (console-output-port (make-redir-textual-input/output-port "console-output-port" (lambda () port1) #f 0))
-    (console-error-port  (make-redir-textual-input/output-port "console-error-port"  (lambda () port2) #f 0)))
+        (port2 (sh-textual-port #t 2))
+        (try-flush-port-lambda
+          (lambda (port-lambda)
+            (try
+              (let ((port (port-lambda)))
+                (when (output-port? port)
+                  (flush-output-port port)))
+              (catch (ex)
+                (void))))))
+    (console-input-port  (textual-port-lambda->port "console-input-port"  (lambda () port0) #f (lambda () (try-flush-port-lambda current-input-port))  0))
+    (console-output-port (textual-port-lambda->port "console-output-port" (lambda () port1) #f (lambda () (try-flush-port-lambda current-output-port)) 0))
+    (console-error-port  (textual-port-lambda->port "console-error-port"  (lambda () port2) #f (lambda () (try-flush-port-lambda current-error-port))  0)))
 
 
   ;; Replace (sh-stdin) (sh-stdout) (sh-stderr)
   ;; with buffered binary input/output ports that can be interrupted and honor current job redirections
-  (sh-stdin  (make-redir-binary-input/output-port "sh-stdin"  (lambda () (sh-binary-port #f 0))))
-  (sh-stdout (make-redir-binary-input/output-port "sh-stdout" (lambda () (sh-binary-port #f 1))))
-  (sh-stderr (make-redir-binary-input/output-port "sh-stderr" (lambda () (sh-binary-port #f 2))))
+  (sh-stdin  (binary-port-lambda->port "sh-stdin"  (lambda () (sh-binary-port #f 0))))
+  (sh-stdout (binary-port-lambda->port "sh-stdout" (lambda () (sh-binary-port #f 1))))
+  (sh-stderr (binary-port-lambda->port "sh-stderr" (lambda () (sh-binary-port #f 2))))
 
 
   ;; Replace (current-input-port) (current-output-port) (current-error-port)
   ;; with buffered UTF-8b textual input/output ports that can be interrupted and honor current job redirections
-  (current-input-port  (make-redir-textual-input/output-port "current-input-port"  (lambda () (sh-textual-port #f 0))))
-  (current-output-port (make-redir-textual-input/output-port "current-output-port" (lambda () (sh-textual-port #f 1))))
-  (current-error-port  (make-redir-textual-input/output-port "current-error-port"  (lambda () (sh-textual-port #f 2))))
+  (current-input-port  (textual-port-lambda->port "current-input-port"  (lambda () (sh-textual-port #f 0))))
+  (current-output-port (textual-port-lambda->port "current-output-port" (lambda () (sh-textual-port #f 1))))
+  (current-error-port  (textual-port-lambda->port "current-error-port"  (lambda () (sh-textual-port #f 2))))
 
 
   (let ((bt (sh-builtins))
