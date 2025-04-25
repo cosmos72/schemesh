@@ -178,8 +178,8 @@
                  (buf (textual-port-output-buffer p))
                  (idx (textual-port-output-index p))
                  (cap (textual-port-output-size p)))
-            (when (fx=? idx cap)
-              (put-string iop buf idx)
+            (when (and (not (fxzero? idx)) (fx=? idx cap))
+              (put-string iop buf 0 idx)
               (set-port-output-index! p 0)
               (set! idx 0))
             (cond
