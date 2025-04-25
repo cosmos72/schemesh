@@ -19,9 +19,8 @@
                         set-binary-port-input-buffer!   set-binary-port-input-index!   set-binary-port-input-size!
                         set-binary-port-output-buffer!  set-binary-port-output-index!  set-binary-port-output-size!
                         set-port-bol! set-port-output-index!
-                        textual-port-output-buffer textual-port-output-index textual-port-output-size
-                        unread-char with-interrupts-disabled)
-    (only (schemesh bootstrap) assert* with-interrupts-enabled))
+                        textual-port-output-buffer textual-port-output-index textual-port-output-size unread-char)
+    (only (schemesh bootstrap) assert*))
 
 
 (define (b-mode->input-buffer-size b-mode)
@@ -116,20 +115,18 @@
         ((clear-input-port)
           (clear-input-port (proc)))
         ((clear-output-port)
-          (begin ; with-interrupts-disabled
-            (set-port-output-index! p 0))
+          (set-port-output-index! p 0)
           (clear-output-port (proc)))
         ((close-port)
           (mark-port-closed! p)
           (when proc-on-close (proc-on-close)))
         ((flush-output-port)
-          (begin ; with-interrupts-disabled
-            (let ((buf (textual-port-output-buffer p))
-                  (idx (textual-port-output-index  p)))
-              (block-write (proc) buf idx) ;; also flushes iop
-              (unless (fxzero? idx)
-                (set-port-output-index! p 0)
-                (set-port-bol! p (char=? (string-ref buf (fx1- idx)) #\newline))))))
+          (let ((buf (textual-port-output-buffer p))
+                (idx (textual-port-output-index  p)))
+            (block-write (proc) buf idx) ;; also flushes iop
+            (unless (fxzero? idx)
+              (set-port-output-index! p 0)
+              (set-port-bol! p (char=? (string-ref buf (fx1- idx)) #\newline)))))
         ((file-position)
           (file-position (proc)))
         ((file-length)
@@ -150,27 +147,24 @@
         ((unread-char)
           (unread-char c (proc)))
         ((write-char)
-          (begin ; with-interrupts-disabled
-            (let* ((iop (proc))
-                   (buf (textual-port-output-buffer p))
-                   (idx (textual-port-output-index p))
-                   (cap (textual-port-output-size p)))
-              (when (fx=? idx cap)
-                (put-string iop buf idx)
-                (set-port-output-index! p 0)
-                (set! idx 0))
-              (cond
-                ((fx=? idx cap)
-                  (with-interrupts-enabled
-                    (put-char iop c)))
-                (else
-                  (string-set! buf idx c)
-                  (set-port-output-index! p (fx1+ idx))))
-              ;; if p is unbuffered, behave as if iop is unbuffered too
-              (when (fxzero? cap)
-                (with-interrupts-enabled
-                  (flush-output-port iop)))
-            (set-port-bol! p (char=? c #\newline)))))
+          (let* ((iop (proc))
+                 (buf (textual-port-output-buffer p))
+                 (idx (textual-port-output-index p))
+                 (cap (textual-port-output-size p)))
+            (when (fx=? idx cap)
+              (put-string iop buf idx)
+              (set-port-output-index! p 0)
+              (set! idx 0))
+            (cond
+              ((fx=? idx cap)
+                (put-char iop c))
+              (else
+                (string-set! buf idx c)
+                (set-port-output-index! p (fx1+ idx))))
+            ;; if p is unbuffered, behave as if iop is unbuffered too
+            (when (fxzero? cap)
+              (flush-output-port iop)))
+          (set-port-bol! p (char=? c #\newline)))
         (else
           (raise-bad-msg msg))))
     ((msg p str len)
@@ -183,21 +177,18 @@
             ;; Chez Scheme documentation for (block-write) states:
             ;; If the port is buffered and the buffer is nonempty, the buffer is flushed before the contents of string are written.
             ;; In any case, the contents of string are written immediately, without passing through the buffer.
-            (begin ; with-interrupts-disabled
-              (let ((buf (textual-port-output-buffer p))
-                    (idx (textual-port-output-index  p)))
-                (unless (fxzero? idx)
-                  (block-write iop buf idx)
-                  (set-port-output-index! p 0)
-                  (set-port-bol! p (char=? (string-ref buf (fx1- idx)) #\newline)))))
-            (with-interrupts-enabled
-              (block-write iop str len))
+            (let ((buf (textual-port-output-buffer p))
+                  (idx (textual-port-output-index  p)))
+              (unless (fxzero? idx)
+                (block-write iop buf idx)
+                (set-port-output-index! p 0)
+                (set-port-bol! p (char=? (string-ref buf (fx1- idx)) #\newline))))
+            (block-write iop str len)
             (unless (fxzero? len)
               (set-port-bol! p (char=? (string-ref str (fx1- len)) #\newline)))
             ;; if p is unbuffered, behave as if iop is unbuffered too
             (when (fxzero? (textual-port-output-size p))
-              (with-interrupts-enabled
-                (flush-output-port iop)))))
+              (flush-output-port iop))))
         (else
           (raise-bad-msg msg))))))
 

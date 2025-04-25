@@ -14,7 +14,7 @@
       ==> ;; _ is already exported by (rnrs)
       assert* assert-not* begin* catch check check-not define-macro debugf debugf-port
       first-value first-value-or-void forever let-macro raise-assert* repeat second-value
-      with-interrupts-enabled with-locked-objects while until
+      with-locked-objects while until
       throws? trace-call trace-define try list->values values->list
 
       ;; functions.ss
@@ -332,15 +332,6 @@
         (lambda () (lock-object obj1) (lock-object obj2) ...)
         (lambda () body1 body2 ...)
         (lambda () (unlock-object obj1) (lock-object obj2) ...)))))
-
-
-(define-syntax with-interrupts-enabled
-  (syntax-rules ()
-    ((_ body1 body2 ...)
-      (dynamic-wind
-        enable-interrupts
-        (lambda () body1 body2 ...)
-        disable-interrupts))))
 
 
 ;; Scheme implementation of Common Lisp defmacro, defines a global macro.
