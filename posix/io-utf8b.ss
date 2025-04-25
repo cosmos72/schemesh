@@ -128,7 +128,7 @@
     (flush-output-port bin-port)))
 
 
-;; called only if no buffered characters are available
+;; called only if input buffer is empty.
 (define (utf8b-port-peek-char p tport)
   (assert* 'utfb-port-peek-char tport)
   (let* ((buf (textual-port-input-buffer p))
@@ -145,7 +145,7 @@
             (string-ref buf 0)))))))
 
 
-;; called only if no buffered characters are available
+;; called only if input buffer is empty.
 (define (utf8b-port-read-char p tport)
   (assert* 'utfb-port-read-char tport)
   (let* ((buf (textual-port-input-buffer p))
@@ -165,7 +165,7 @@
               (string-ref buf 0))))))))
 
 
-;; called only if no buffered characters are available
+;; called only if input buffer is empty.
 (define (utf8b-port-block-read p tport str start len)
   (assert* 'utfb-port-block-read tport)
   (let ((n (tport-read-some tport str start len)))
@@ -174,9 +174,11 @@
       n)))
 
 
+;; called only if output buffer is full.
 (define (utf8b-port-write-char p tport ch)
   (assert* 'utfb-port-write-char tport)
   (let ((len (textual-port-output-size p)))
+    ;; (debugf "utfb-port-write-char port=~s idx=~s len=~s cap=~s" (port-name p) (textual-port-output-index p) len (string-length (textual-port-output-buffer p)))
     (if (fxzero? len)
       (tport-write-char tport ch)
       (let ((buf (textual-port-output-buffer p))
@@ -190,13 +192,14 @@
   (set-port-bol! p (char=? ch #\newline)))
 
 
+;; Comply with Chez Scheme documentation for (block-write), that states:
+;; If the port is buffered and the buffer is nonempty, the buffer is flushed before the contents of string are written.
+;; In any case, the contents of string are written immediately, without passing through the buffer.
 (define (utf8b-port-block-write p tport str start n)
-  ;; Chez Scheme documentation for (block-write) states:
-  ;; If the port is buffered and the buffer is nonempty, the buffer is flushed before the contents of string are written.
-  ;; In any case, the contents of string are written immediately, without passing through the buffer.
   (assert* 'utf8b-port-block-write tport)
   (let ((buf (textual-port-output-buffer p))
         (idx (textual-port-output-index  p)))
+    ;; (debugf "utfb-port-block-write port=~s idx=~s len=~s cap=~s string-to-write=~s" (port-name p) idx  (textual-port-output-size p) (string-length buf) (substring str start (fx+ start n)))
     (unless (fxzero? idx)
       (tport-write tport buf 0 idx)
       (set-textual-port-output-index! p 0)
@@ -211,6 +214,7 @@
   (assert* 'utfb-port-flush tport)
   (let ((buf (textual-port-output-buffer p))
         (idx (textual-port-output-index  p)))
+    ;; (debugf "utfb-port-flush port=~s idx=~s len=~s cap=~s" (port-name p) idx (textual-port-output-size p) (string-length buf))
     (unless (fxzero? idx)
       (tport-write tport buf 0 idx)
       (set-textual-port-output-index! p 0)
