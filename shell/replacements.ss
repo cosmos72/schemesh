@@ -31,15 +31,14 @@
         (put-bytevector-some chez:put-bytevector-some))
 
     (schemesh port stdio)
-    (only (schemesh shell job) sh-current-job sh-env-set! sh-env-visibility-ref sh-globals))
+    (only (schemesh shell job) sh-env-set! sh-env-visibility-ref))
 
 ;;; key must be a string.
 ;;; Return the exported environment value associated with key in current job's environment,
 ;;    or in (sh-globals) environment if current job is not set.
 ;;; If no exported environment value is associated with key, return #f
 (define (getenv key)
-  (let-values (((value visibility)
-                  (sh-env-visibility-ref (or (sh-current-job) (sh-globals)) key)))
+  (let-values (((value visibility) (sh-env-visibility-ref #f key)))
     (if (eq? 'export visibility)
       value
       #f)))
@@ -49,8 +48,8 @@
 ;;; Stores key and value in the exported environment of current job's,
 ;;;    or in (sh-globals) if current job is not set,
 ;;; where it is available to the current process (e.g., via getenv) and any spawned processes.
-(define (putenv key)
-  (sh-env-set! (or (sh-current-job) (sh-globals)) key 'export))
+(define (putenv key value)
+  (sh-env-set! #f key value 'export))
 
 
 ;;; If binary-input-port, which defaults to (sh-stdin), is at end of file, the eof object is returned.
@@ -86,7 +85,7 @@
 ;;; (see set-port-nonblocking!) and no input is ready. In this case, an empty bytevector is returned.
 (define get-bytevector-some
   (case-lambda
-    (()     (r6rs:get-bytevector-some (current-input-port)))
+    (()     (r6rs:get-bytevector-some (sh-stdout)))
     ((port) (r6rs:get-bytevector-some port))))
 
 
