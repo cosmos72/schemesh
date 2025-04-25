@@ -230,8 +230,8 @@
   (assertion-violationf 'utfb-port "operation ~s not handled" msg))
 
 
-;; create and return a textual input port handler that reads/writes UTF-8b bytes from/to a binary input port
-;; and transcodes them to characters
+;; create and return a textual input port handler that reads/writes from/to an underlying binary port
+;; and transcodes between characters and UTF-8b byte sequences
 (define (make-utfb-port-handler in-port input-buffer-size out-port output-buffer-size)
   (let ((name   (string-append "utf8b " (port-name (or in-port out-port))))
         (tport1 (and in-port  (make-tport in-port  (make-bytespan 0) input-buffer-size #f)))
@@ -302,8 +302,8 @@
 
 
 
-;; create and return a textual input and/or output port that reads from and/or writes from an underlying binary port
-;; and transcodes between characters and UTF-8b bytes
+;; create and return a textual input and/or output port that reads/write from/to an underlying binary port
+;; and transcodes between characters and UTF-8b byte sequences
 (define port->utf8b-port
   (case-lambda
     ((bin-port dir b-mode)
