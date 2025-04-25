@@ -63,23 +63,23 @@
                   (flush-output-port port)))
               (catch (ex)
                 (void))))))
-    (console-input-port  (textual-port-lambda->port "console-input-port"  (lambda () port0) #t (lambda () (try-flush-port-lambda current-input-port))  0))
-    (console-output-port (textual-port-lambda->port "console-output-port" (lambda () port1) #t (lambda () (try-flush-port-lambda current-output-port)) 0))
-    (console-error-port  (textual-port-lambda->port "console-error-port"  (lambda () port2) #t (lambda () (try-flush-port-lambda current-error-port))  0)))
+    (console-input-port  (textual-port-lambda->port "console-input-port"  (lambda () port0) 'rw #t (lambda () (try-flush-port-lambda current-input-port))  0))
+    (console-output-port (textual-port-lambda->port "console-output-port" (lambda () port1) 'rw #t (lambda () (try-flush-port-lambda current-output-port)) 0))
+    (console-error-port  (textual-port-lambda->port "console-error-port"  (lambda () port2) 'rw #t (lambda () (try-flush-port-lambda current-error-port))  0)))
 
 
   ;; Replace (sh-stdin) (sh-stdout) (sh-stderr)
   ;; with buffered binary input/output ports that can be interrupted and honor current job redirections
-  (sh-stdin  (binary-port-lambda->port "sh-stdin"  (lambda () (sh-binary-port #f 0))))
-  (sh-stdout (binary-port-lambda->port "sh-stdout" (lambda () (sh-binary-port #f 1))))
-  (sh-stderr (binary-port-lambda->port "sh-stderr" (lambda () (sh-binary-port #f 2))))
+  (sh-stdin  (binary-port-lambda->port "sh-stdin"  (lambda () (sh-binary-port #f 0)) 'rw))
+  (sh-stdout (binary-port-lambda->port "sh-stdout" (lambda () (sh-binary-port #f 1)) 'rw))
+  (sh-stderr (binary-port-lambda->port "sh-stderr" (lambda () (sh-binary-port #f 2)) 'rw))
 
 
   ;; Replace (current-input-port) (current-output-port) (current-error-port)
   ;; with buffered UTF-8b textual input/output ports that can be interrupted and honor current job redirections
-  (current-input-port  (textual-port-lambda->port "current-input-port"  (lambda () (sh-textual-port #f 0)) #t))
-  (current-output-port (textual-port-lambda->port "current-output-port" (lambda () (sh-textual-port #f 1)) #t))
-  (current-error-port  (textual-port-lambda->port "current-error-port"  (lambda () (sh-textual-port #f 2)) #t))
+  (current-input-port  (textual-port-lambda->port "current-input-port"  (lambda () (sh-textual-port #f 0)) 'rw #t))
+  (current-output-port (textual-port-lambda->port "current-output-port" (lambda () (sh-textual-port #f 1)) 'rw #t))
+  (current-error-port  (textual-port-lambda->port "current-error-port"  (lambda () (sh-textual-port #f 2)) 'rw #t))
 
 
   (let ((bt (sh-builtins))

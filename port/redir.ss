@@ -15,7 +15,8 @@
     (rnrs mutable-strings)
     (only (chezscheme)  assertion-violationf block-read block-write char-ready? clear-input-port clear-output-port
                         file-length file-position fx1- fx1+ get-bytevector-some! get-string-some! logbit?
-                        make-input/output-port mark-port-closed! put-bytevector-some procedure-arity-mask record-case
+                        make-input-port make-input/output-port make-output-port mark-port-closed!
+                        put-bytevector-some procedure-arity-mask record-case
                         set-binary-port-input-buffer!   set-binary-port-input-index!   set-binary-port-input-size!
                         set-binary-port-output-buffer!  set-binary-port-output-index!  set-binary-port-output-size!
                         set-port-bol! set-port-output-index!
@@ -57,38 +58,62 @@
 ;; the returned binary port *may* change from one call to the next.
 (define binary-port-lambda->port
   (case-lambda
-    ((name port-lambda proc-on-close)
+    ((name port-lambda dir proc-on-close)
       (assert* 'binary-port-lambda->port (string? name))
       (assert* 'binary-port-lambda->port (procedure? port-lambda))
       (assert* 'binary-port-lambda->port (logbit? 0 (procedure-arity-mask port-lambda)))
       (unless (boolean? proc-on-close)
-        (assert* 'textual-port-lambda->port (procedure? proc-on-close))
-        (assert* 'textual-port-lambda->port (logbit? 0 (procedure-arity-mask proc-on-close))))
-      (letrec ((p
-        (make-custom-binary-input/output-port
-          name
-          (lambda (bv start n)
-            (get-bytevector-some! (port-lambda) bv start n))
-          (lambda (bv start n)
-            (let ((port (port-lambda)))
-              (put-bytevector port bv start n)
-              (flush-output-port port)
-              n))
-          (lambda ()
-            (port-position (port-lambda)))
-          (lambda (pos)
-            (set-port-position! (port-lambda) pos))
-          (case proc-on-close
-            ((#f) #f)
-            ((#t) (lambda () (close-port (port-lambda))))
-            (else proc-on-close)))))
+        (assert* 'binary-port-lambda->port (procedure? proc-on-close))
+        (assert* 'binary-port-lambda->port (logbit? 0 (procedure-arity-mask proc-on-close))))
+      (let*
+        ((get-pos
+           (lambda ()
+             (port-position (port-lambda))))
+         (set-pos!
+           (lambda (pos)
+             (set-port-position! (port-lambda) pos)))
+         (close
+           (case proc-on-close
+             ((#f) #f)
+             ((#t) (lambda () (close-port (port-lambda))))
+             (else proc-on-close)))
+         (p
+           (case dir
+             ((read)
+               (make-custom-binary-input-port name
+                 (lambda (bv start n)
+                   (get-bytevector-some! (port-lambda) bv start n))
+                 get-pos set-pos! close))
+             ((rw)
+               (make-custom-binary-input/output-port name
+                 (lambda (bv start n)
+                   (get-bytevector-some! (port-lambda) bv start n))
+                 (lambda (bv start n)
+                   (let ((port (port-lambda)))
+                     (put-bytevector port bv start n)
+                     (flush-output-port port)
+                     n))
+                 get-pos set-pos! close))
+             ((write)
+               (make-custom-binary-output-port name
+                 (lambda (bv start n)
+                   (let ((port (port-lambda)))
+                     (put-bytevector port bv start n)
+                     (flush-output-port port)
+                     n))
+                 get-pos set-pos! close))
+             (else
+               (assert* 'binary-port-lambda->port (memq dir '(read 'write rw)))))))
 
         ;; (make-custom-binary-input/output-port) does not run user code on (flush-output-port)
         ;; thus we cannot flush the underlying stream when needed => return an unbuffered stream
         (set-binary-buffer-mode! p 'none)))
 
+    ((name port-lambda dir)
+      (binary-port-lambda->port name port-lambda dir #f))
+
     ((name port-lambda)
-      (binary-port-lambda->port name port-lambda #f))))
+      (binary-port-lambda->port name port-lambda 'rw #f))))
 
 
 ;; create and return a textual input/output port that redirectably reads from and writes to another textual port.
@@ -99,7 +124,7 @@
 ;; if proc-on-close is #t, attempts to close returned port are ignored
 (define textual-port-lambda->port
   (case-lambda
-    ((name port-lambda proc-on-close proc-before-write out-buffer-size)
+    ((name port-lambda dir proc-on-close proc-before-write out-buffer-size)
       (assert* 'textual-port-lambda->port (string? name))
       (assert* 'textual-port-lambda->port (procedure? port-lambda))
       (assert* 'textual-port-lambda->port (logbit? 0 (procedure-arity-mask port-lambda)))
@@ -109,19 +134,28 @@
       (when proc-before-write
         (assert* 'textual-port-lambda->port (procedure? proc-before-write))
         (assert* 'textual-port-lambda->port (logbit? 0 (procedure-arity-mask proc-before-write))))
-      (make-input/output-port
-        (textual-port-lambda-handler name port-lambda proc-on-close proc-before-write)
-        (make-string 0)
-        (make-string out-buffer-size)))
+      (let ((handler (textual-port-lambda-handler name port-lambda proc-on-close proc-before-write)))
+        (case dir
+          ((read)
+            (make-input-port handler (make-string 0)))
+          ((rw)
+            (make-input/output-port handler (make-string 0) (make-string out-buffer-size)))
+          ((write)
+            (make-output-port handler (make-string out-buffer-size)))
+          (else
+            (assert* 'textual-port-lambda->port (memq dir '(read 'write rw)))))))
 
-    ((name port-lambda proc-on-close proc-before-write)
-      (textual-port-lambda->port name port-lambda proc-on-close proc-before-write 4096))
+    ((name port-lambda dir proc-on-close proc-before-write)
+      (textual-port-lambda->port name port-lambda dir proc-on-close proc-before-write 4096))
 
-    ((name port-lambda proc-on-close)
-      (textual-port-lambda->port name port-lambda proc-on-close #f))
+    ((name port-lambda dir proc-on-close)
+      (textual-port-lambda->port name port-lambda dir proc-on-close #f))
+
+    ((name port-lambda dir)
+      (textual-port-lambda->port name port-lambda dir #f #f))
 
     ((name port-lambda)
-      (textual-port-lambda->port name port-lambda #f #f))))
+      (textual-port-lambda->port name port-lambda 'rw #f #f))))
 
 
 ;; create and return a handler suitable for Chez Scheme (make-input/output-port)
