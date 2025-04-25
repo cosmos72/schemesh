@@ -171,7 +171,7 @@
           (file-position (proc) p))
         ((unread-char)
           (unread-char c (proc)))
-        ((write-char)
+        ((write-char) ; called only if output buffer is full.
           (when proc-before-write
             (proc-before-write))
           (let* ((iop (proc))
