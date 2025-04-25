@@ -128,17 +128,14 @@
     (flush-output-port bin-port)))
 
 
+;; called only if no buffered characters are available
 (define (utf8b-port-peek-char p tport)
   (assert* 'utfb-port-peek-char tport)
   (let* ((buf (textual-port-input-buffer p))
-         (idx (textual-port-input-index  p))
-         (len (textual-port-input-size   p))
          (cap (string-length buf)))
     (cond
       ((fxzero? cap)
         (tport-peek-char tport))
-      ((fx<? idx len)
-        (string-ref buf idx))
       (else
         (let ((n (tport-read-some tport buf 0 cap)))
           (set-textual-port-input-index! p 0)
@@ -148,18 +145,14 @@
             (string-ref buf 0)))))))
 
 
+;; called only if no buffered characters are available
 (define (utf8b-port-read-char p tport)
   (assert* 'utfb-port-read-char tport)
   (let* ((buf (textual-port-input-buffer p))
-         (idx (textual-port-input-index p))
-         (len (textual-port-input-size p))
          (cap (string-length buf)))
     (cond
       ((fxzero? cap)
         (tport-read-char tport))
-      ((fx<? idx len)
-        (set-textual-port-input-index! p (fx1+ idx))
-        (string-ref buf idx))
       (else
         (let ((n (tport-read-some tport buf 0 cap)))
           (set-textual-port-input-size! p n)
@@ -172,6 +165,7 @@
               (string-ref buf 0))))))))
 
 
+;; called only if no buffered characters are available
 (define (utf8b-port-block-read p tport str start len)
   (assert* 'utfb-port-block-read tport)
   (let ((n (tport-read-some tport str start len)))
