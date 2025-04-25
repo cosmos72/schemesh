@@ -19,7 +19,7 @@
                         set-binary-port-input-buffer!   set-binary-port-input-index!   set-binary-port-input-size!
                         set-binary-port-output-buffer!  set-binary-port-output-index!  set-binary-port-output-size!
                         set-port-bol! set-port-output-index!
-                        textual-port-output-buffer textual-port-output-index textual-port-output-size unread-char)
+                        textual-port-output-buffer textual-port-output-index textual-port-output-size unread-char void)
     (only (schemesh bootstrap) assert*))
 
 
@@ -61,7 +61,10 @@
       (assert* 'binary-port-lambda->port (string? name))
       (assert* 'binary-port-lambda->port (procedure? port-lambda))
       (assert* 'binary-port-lambda->port (logbit? 0 (procedure-arity-mask port-lambda)))
-      (set-binary-buffer-mode!
+      (unless (boolean? proc-on-close)
+        (assert* 'textual-port-lambda->port (procedure? proc-on-close))
+        (assert* 'textual-port-lambda->port (logbit? 0 (procedure-arity-mask proc-on-close))))
+      (letrec ((p
         (make-custom-binary-input/output-port
           name
           (lambda (bv start n)
@@ -78,10 +81,11 @@
           (case proc-on-close
             ((#f) #f)
             ((#t) (lambda () (close-port (port-lambda))))
-            (else proc-on-close)))
+            (else proc-on-close)))))
+
         ;; (make-custom-binary-input/output-port) does not run user code on (flush-output-port)
         ;; thus we cannot flush the underlying stream when needed => return an unbuffered stream
-        'none))
+        (set-binary-buffer-mode! p 'none)))
 
     ((name port-lambda)
       (binary-port-lambda->port name port-lambda #f))))
@@ -91,13 +95,15 @@
 ;;
 ;; port-lambda must be a no-argument procedure that returns another textual port;
 ;; the returned textual port *may* change from one call to the next.
+;;
+;; if proc-on-close is #t, attempts to close returned port are ignored
 (define textual-port-lambda->port
   (case-lambda
     ((name port-lambda proc-on-close proc-before-write out-buffer-size)
       (assert* 'textual-port-lambda->port (string? name))
       (assert* 'textual-port-lambda->port (procedure? port-lambda))
       (assert* 'textual-port-lambda->port (logbit? 0 (procedure-arity-mask port-lambda)))
-      (when proc-on-close
+      (unless (boolean? proc-on-close)
         (assert* 'textual-port-lambda->port (procedure? proc-on-close))
         (assert* 'textual-port-lambda->port (logbit? 0 (procedure-arity-mask proc-on-close))))
       (when proc-before-write
@@ -133,8 +139,10 @@
           (set-port-output-index! p 0)
           (clear-output-port (proc)))
         ((close-port)
-          (mark-port-closed! p)
-          (when proc-on-close (proc-on-close)))
+          (case proc-on-close
+            ((#t) (void))
+            ((#f) (mark-port-closed! p))
+            (else (mark-port-closed! p) (proc-on-close))))
         ((flush-output-port)
           (when proc-before-write
             (proc-before-write))

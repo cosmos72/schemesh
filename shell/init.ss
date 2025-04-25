@@ -63,9 +63,9 @@
                   (flush-output-port port)))
               (catch (ex)
                 (void))))))
-    (console-input-port  (textual-port-lambda->port "console-input-port"  (lambda () port0) #f (lambda () (try-flush-port-lambda current-input-port))  0))
-    (console-output-port (textual-port-lambda->port "console-output-port" (lambda () port1) #f (lambda () (try-flush-port-lambda current-output-port)) 0))
-    (console-error-port  (textual-port-lambda->port "console-error-port"  (lambda () port2) #f (lambda () (try-flush-port-lambda current-error-port))  0)))
+    (console-input-port  (textual-port-lambda->port "console-input-port"  (lambda () port0) #t (lambda () (try-flush-port-lambda current-input-port))  0))
+    (console-output-port (textual-port-lambda->port "console-output-port" (lambda () port1) #t (lambda () (try-flush-port-lambda current-output-port)) 0))
+    (console-error-port  (textual-port-lambda->port "console-error-port"  (lambda () port2) #t (lambda () (try-flush-port-lambda current-error-port))  0)))
 
 
   ;; Replace (sh-stdin) (sh-stdout) (sh-stderr)
@@ -77,9 +77,9 @@
 
   ;; Replace (current-input-port) (current-output-port) (current-error-port)
   ;; with buffered UTF-8b textual input/output ports that can be interrupted and honor current job redirections
-  (current-input-port  (textual-port-lambda->port "current-input-port"  (lambda () (sh-textual-port #f 0))))
-  (current-output-port (textual-port-lambda->port "current-output-port" (lambda () (sh-textual-port #f 1))))
-  (current-error-port  (textual-port-lambda->port "current-error-port"  (lambda () (sh-textual-port #f 2))))
+  (current-input-port  (textual-port-lambda->port "current-input-port"  (lambda () (sh-textual-port #f 0)) #t))
+  (current-output-port (textual-port-lambda->port "current-output-port" (lambda () (sh-textual-port #f 1)) #t))
+  (current-error-port  (textual-port-lambda->port "current-error-port"  (lambda () (sh-textual-port #f 2)) #t))
 
 
   (let ((bt (sh-builtins))
