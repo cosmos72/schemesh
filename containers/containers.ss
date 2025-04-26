@@ -24,6 +24,7 @@
           (schemesh containers charspan)    ; requires (schemesh containers string)
           (schemesh containers span)        ; requires (schemesh containers vector)
 
+          (schemesh containers palette)     ; requires (schemesh containers span)
           (schemesh containers utf8b)       ; requires (schemesh containers bytespan)
           (schemesh containers utf8b utils)
 

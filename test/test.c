@@ -43,6 +43,8 @@ static int run_all_tests(void) {
   unsigned long run_n        = 0;
   unsigned long failed_n     = 0;
 
+  fprintf(stdout, "%s", "running tests ...\n");
+
   schemesh_call1("load", schemesh_Sstring_utf8b("test/test.ss", -1));
   schemesh_eval("(import (schemesh test))");
 

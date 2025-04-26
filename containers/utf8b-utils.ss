@@ -20,8 +20,8 @@
     bytespan-display-right/fixnum! bytespan-insert-right/string!
     charspan->utf8b charspan->utf8b/0)
   (import
-    (rename (rnrs) (fxarithmetic-shift-left  <<)
-                   (fxarithmetic-shift-right >>))
+    (rename (rnrs) (fxarithmetic-shift-left  fx<<)
+                   (fxarithmetic-shift-right fx>>))
     (only (chezscheme) fx1+ fx1-)
     (only (schemesh bootstrap)              assert* fx<=?*)
     (schemesh containers bytespan)
@@ -42,8 +42,8 @@
 (define (utf8b-pair->char b0 b1)
   (if (fx=? #x80 (fxand #xc0 b1)) ; is b1 valid continuation byte ?
     (let ((n (fxior
-               (<< (fxand #x1f b0) 6)
-               (<< (fxand #x3f b1) 0))))
+               (fx<< (fxand #x1f b0) 6)
+               (fx<< (fxand #x3f b1) 0))))
       (if (fx<=? #x80 n #x7ff)
         (values (integer->char n) 2)
         ; overlong UTF-8 sequence, encode a single raw byte as UTF-8b
@@ -57,9 +57,9 @@
 (define (utf8b-triplet->char b0 b1 b2)
   (if (fx=? #x80 (fxand #xc0 (fxior b1 b2)))  ; are b1, b2 valid continuation byte ?
     (let ((n (fxior
-               (<< (fxand #x0f b0) 12)
-               (<< (fxand #x3f b1)  6)
-               (<< (fxand #x3f b2)  0))))
+               (fx<< (fxand #x0f b0) 12)
+               (fx<< (fxand #x3f b1)  6)
+               (fx<< (fxand #x3f b2)  0))))
       (if (or (fx<=? #x800 n #xd7ff) (fx>=? n #xe000))
         (values (integer->char n) 3)
         (utf8b-singlet->char b0))) ; invalid surrogate half, or overlong UTF-8 sequence
@@ -71,10 +71,10 @@
 (define (utf8b-quadruplet->char b0 b1 b2 b3)
   (if (fx=? #x80 (fxand #xc0 (fxior b1 b2 b3)))  ; are b1, b2, b3 valid continuation bytes ?
     (let ((n (fxior
-               (<< (fxand #x07 b0) 18)
-               (<< (fxand #x3f b1) 12)
-               (<< (fxand #x3f b2)  6)
-               (<< (fxand #x3f b3)  0))))
+               (fx<< (fxand #x07 b0) 18)
+               (fx<< (fxand #x3f b1) 12)
+               (fx<< (fxand #x3f b2)  6)
+               (fx<< (fxand #x3f b3)  0))))
       (if (fx<=? #x10000 n #x10ffff)
         (values (integer->char n) 4)
         ; overlong UTF-8 sequence, or beyond #x10ffff
@@ -132,7 +132,7 @@
 (define (char->utf8-pair ch)
   (let ((n (char->integer ch)))
     (values
-      (fxior #xc0 (fxand #x3f (>> n 6)))
+      (fxior #xc0 (fxand #x3f (fx>> n 6)))
       (fxior #x80 (fxand #x3f n)))))
 
 ;; convert char to 3-byte UTF-8 sequence and return three values: the three converted bytes.
@@ -140,8 +140,8 @@
 (define (char->utf8-triplet ch)
   (let ((n (char->integer ch)))
     (values
-      (fxior #xe0 (fxand #x0f (>> n 12)))
-      (fxior #x80 (fxand #x3f (>> n 6)))
+      (fxior #xe0 (fxand #x0f (fx>> n 12)))
+      (fxior #x80 (fxand #x3f (fx>> n 6)))
       (fxior #x80 (fxand #x3f n)))))
 
 ;; convert char to 4-byte UTF-8 sequence and return four values: the four converted bytes.
@@ -149,10 +149,11 @@
 (define (char->utf8-quadruplet ch)
   (let ((n (char->integer ch)))
     (values
-      (fxior #xf0 (fxand #x07 (>> n 18)))
-      (fxior #x80 (fxand #x3f (>> n 12)))
-      (fxior #x80 (fxand #x3f (>> n 6)))
+      (fxior #xf0 (fxand #x07 (fx>> n 18)))
+      (fxior #x80 (fxand #x3f (fx>> n 12)))
+      (fxior #x80 (fxand #x3f (fx>> n 6)))
       (fxior #x80 (fxand #x3f n)))))
+
 
 ;; convert a char to UTF-8b sequence and write it into given bytevector
 ;; from offset = start.
@@ -173,8 +174,8 @@
           (bytevector-u8-set! vec start b0))
         2)
       ((fx<=? #xdc80 n #xdcff)
-        ; char is unpaired surrogate half, used by UTF-8b
-        ; to represent raw bytes in the range #x80 .. #xff
+        ;; char is unpaired surrogate half, used by UTF-8b
+        ;; to represent raw bytes in the range #x80 .. #xff
         (bytevector-u8-set! vec start (fxand n #xff))
         1)
       ((fx<? n #x10000)
@@ -204,6 +205,9 @@
       ((fx<? n #x110000) 4)
       (else 0)))) ; should not happen
 
+
+
+
 ;; read byte range [start, end) from bytespan at offset idx, interpret
 ;; bytes as UTF-8b sequence and convert them to the corresponding char.
 ;;
@@ -220,7 +224,8 @@
       (bytespan-ref/char sp start (bytespan-length sp)))))
 
 
-;; convert char to UTF-8b sequence and write it into bytespan starting at offset idx
+;; convert char to UTF-8b sequence and write it into bytespan starting at offset idx.
+;; Return length in bytes of written UTF-8b sequence
 (define (bytespan-set/char! sp idx ch)
   (assert* 'bytespan-set/char! (fx<=?* 0 idx (fx+ (bytespan-length sp) (char->utf8b-length ch))))
   (bytevector-char-set! (bytespan-peek-data sp) (fx+ idx (bytespan-peek-beg sp)) ch))

@@ -25,6 +25,9 @@
   (include "containers/span.ss")        ; requires containers/vector.ss
   (include "containers/sort.ss")        ; requires containers/span.ss
   (include "containers/utf8b.ss")       ; requires containers/bytespan.ss
+  (include "containers/cellvector.ss")  ; requires containers/bytevector.ss containers/utf8b.ss
+  (include "containers/cellspan.ss")    ; requires containers/cellvector.ss
+  (include "containers/palette.ss")     ; requires containers/span.ss containers/utf8b.ss
   (include "containers/chargbuffer.ss") ; requires containers/charspan.ss
   (include "containers/gbuffer.ss")     ; requires containers/span.ss
   (include "containers/charline.ss")    ; requires containers/gbuffer.ss
