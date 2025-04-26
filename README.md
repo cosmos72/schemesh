@@ -635,7 +635,6 @@ Most other scheme functions are not (yet) documented.
 
 ## TO DO
 
-* autocomplete shell paths and scheme strings: when autocompleting inside single or double quotes, the stem starts at the quotes.
 * autocomplete shell paths starting with ~
 * maybe add missing shell builtins "kill"
 * implement function `(string->sh-patterns)`

@@ -109,9 +109,9 @@
 ;;   #t if stem is at beginning of a shell command, otherwise return #f
 ;;   vscreen x and y of stopping character before stem
 (define (%compute-shell-stem lctx paren)
-  (let* ((stem   (linectx-completion-stem lctx))
-         (screen (linectx-vscreen lctx))
-         (token  (paren-start-token paren))
+  (let* ((screen (linectx-vscreen lctx))
+         (stem   (linectx-completion-stem lctx))
+         (token  (and paren (paren-start-token paren)))
          (quote? (memv token '(#\" #\')))
          (xmin   (if paren
                    (fx+ (paren-start-x paren)
@@ -174,13 +174,15 @@
 ;;   #t if stem starts at beginning of paren, otherwise return #f
 ;;   vscreen x and y of stopping character before stem
 (define (%compute-scheme-stem lctx paren)
-  (let* ((stem   (linectx-completion-stem lctx))
-         (screen (linectx-vscreen lctx))
-         (xmin  (if paren
-                   (fx+ (paren-start-x paren)
-                        (if (char? (paren-start-token paren)) 2 1))
-                   0))
-         (ymin  (if paren (paren-start-y paren) 0))
+  (let* ((screen  (linectx-vscreen lctx))
+         (stem    (linectx-completion-stem lctx))
+         (token   (and paren (paren-start-token paren)))
+         (dquote? (eqv? token #\"))
+         (xmin    (if paren
+                     (fx+ (paren-start-x paren)
+                          (if (char? token) 2 1))
+                     0))
+         (ymin    (if paren (paren-start-y paren) 0))
          (%vscreen-char-before-xy
            (lambda (screen x y)
              (if (or (fx>? y ymin)
@@ -196,7 +198,7 @@
         (cond
           ((not (and x1 y1 (char? ch))) ; reached start of paren or vscreen
              (values #t x y))
-          ((%char-is-scheme-identifier? ch) ; found an identifier char, insert it and iterate
+          ((or dquote? (%char-is-scheme-identifier? ch)) ; found an identifier char, insert it and iterate
              (charspan-insert-left! stem ch)
              (%fill-stem x1 y1))
           (else ; found a non-identifier char, could be a blank
