@@ -9,7 +9,7 @@
 
 (library (schemesh containers utf8b (0 8 3))
   (export
-    integer->char* string->utf8b string->utf8b/0
+    codepoint? codepoint-utf8b? integer->char* string->utf8b string->utf8b/0
     utf8b->string utf8b->string-copy! utf8b-bytespan->string)
 
   (import
@@ -39,6 +39,31 @@
       (if (fx<=? #xDC80 codepoint #xDCFF)
         (string-ref surrogate-chars (fxand #x7F codepoint))
         (integer->char codepoint))))) ; may raise exception
+
+
+;; return #t if n is a fixnum in the range 0 .. #x10FFFF
+;; that can be converted to unicode char according to UTF-8b specifications.
+;;
+;; never throws.
+;;
+;; if (codepoint-utf8b? n) returns #t, (integer->char* n) is guaranteed not to throw
+(define (codepoint-utf8b? n)
+  (and (fixnum? n)
+       (or (fx<=?      0 n #xD7FF)
+           (fx<=? #xDC80 n #xDCFF) ;; UTF-8b
+           (fx<=? #xE000 n #x10FFFF))))
+
+
+;; return #t if n is a fixnum in the range 0 .. #x10FFFF
+;; that can be converted to unicode char according to Unicode specifications.
+;;
+;; never throws.
+;;
+;; if (codepoint? n) returns #t, (integer->char n) is guaranteed not to throw
+(define (codepoint? n)
+  (and (fixnum? n)
+       (or (fx<=?      0 n #xD7FF)
+           (fx<=? #xE000 n #x10FFFF))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
