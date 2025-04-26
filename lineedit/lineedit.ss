@@ -20,7 +20,7 @@
     lineedit-key-autocomplete lineedit-key-nop
     lineedit-key-left lineedit-key-right lineedit-key-up lineedit-key-down
     lineedit-key-word-left lineedit-key-word-right lineedit-key-bol lineedit-key-eol
-    lineedit-key-clear lineedit-key-ctrl-d lineedit-key-transpose-char
+    lineedit-key-break lineedit-key-clear lineedit-key-ctrl-d lineedit-key-transpose-char
     lineedit-key-del-left lineedit-key-del-right
     lineedit-key-del-word-left lineedit-key-del-word-right
     lineedit-key-del-line lineedit-key-del-line-left lineedit-key-del-line-right
@@ -450,7 +450,7 @@
       (%add linectx-keytable-insert!))
   (%add t lineedit-key-bof          1) ; CTRL+A
   (%add t lineedit-key-left         2) ; CTRL+B
-  (%add t lineedit-key-clear        3) ; CTRL+C
+  (%add t lineedit-key-break        3) ; CTRL+C
   (%add t lineedit-key-ctrl-d       4) ; CTRL+D
   (%add t lineedit-key-eof          5) ; CTRL+E
   (%add t lineedit-key-right        6) ; CTRL+F

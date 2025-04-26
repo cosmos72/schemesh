@@ -66,9 +66,11 @@
 (define (lineedit-key-eof lctx)
   (linectx-ixy-set! lctx (greatest-fixnum) (greatest-fixnum)))
 
-(define (lineedit-key-clear lctx)
+(define (lineedit-key-break lctx)
   (linectx-clear! lctx)
   (linectx-return-set! lctx #t))
+
+(define lineedit-key-clear linectx-clear!)
 
 ;; delete one character to the right.
 ;; acts as end-of-file if vscreen is empty.
