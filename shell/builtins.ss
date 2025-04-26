@@ -62,9 +62,9 @@
         (bytespan-insert-right/u8! wbuf 32)) ; space
       (bytespan-insert-right/string! wbuf (car tail))
       (when (fx>=? (bytespan-length wbuf) 4096)
-        (fd-write/bspan! fd wbuf)))
+        (fd-write/bytespan! fd wbuf)))
     (bytespan-insert-right/u8! wbuf 10) ; newline
-    (fd-write/bspan! fd wbuf))
+    (fd-write/bytespan! fd wbuf))
   (void))
 
 
@@ -79,8 +79,8 @@
       (bytespan-insert-right/string! wbuf (car tail))
       (bytespan-insert-right/u8! wbuf 0) ; #\nul
       (when (fx>=? (bytespan-length wbuf) 4096)
-        (fd-write/bspan! fd wbuf)))
-    (fd-write/bspan! fd wbuf))
+        (fd-write/bytespan! fd wbuf)))
+    (fd-write/bytespan! fd wbuf))
   (void))
 
 
@@ -122,14 +122,14 @@ The following names are recognized as builtins:\n\n")
         (if help-bvector
           (begin
             (bytespan-insert-right/string!  wbuf name)
-            (bytespan-insert-right/bvector! wbuf help-bvector)
-            (fd-write/bspan! (sh-fd 1) wbuf)
+            (bytespan-insert-right/bytevector! wbuf help-bvector)
+            (fd-write/bytespan! (sh-fd 1) wbuf)
             (void))
           (begin
             (bytespan-insert-right/string! wbuf "schemesh: help: no help for builtin '")
             (bytespan-insert-right/string! wbuf name)
             (bytespan-insert-right/string! wbuf "'. Try 'help' or 'help help'.\n")
-            (fd-write/bspan! (sh-fd 1) wbuf)
+            (fd-write/bytespan! (sh-fd 1) wbuf)
             (failed 1)))))))
 
 
@@ -168,8 +168,8 @@ The following names are recognized as builtins:\n\n")
                     (bytespan-insert-right/cbuffer! wbuf line)))
                 (bytespan-insert-right/u8! wbuf 10) ; newline
                 (when (fx>=? (bytespan-length wbuf) 4096)
-                  (fd-write/bspan! fd wbuf))))
-            (fd-write/bspan! fd wbuf)
+                  (fd-write/bytespan! fd wbuf))))
+            (fd-write/bytespan! fd wbuf)
             (void)) ; return (void), means builtin finished successfully
           (failed 1))))))
 

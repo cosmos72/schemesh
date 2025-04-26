@@ -11,7 +11,7 @@
   `(channel-close) (channel-get) (channel-eof?) (channel-put) (in-channel)`
   for exchanging data between different processes through a socket, pipe or analogous file descriptor.
   They internally serialize and deserialize data using library `(schemesh wire)`
-* improve `(sh-run/string)` and `(sh-run/bvector)` behavior if job being executed receives a signal
+* improve `(sh-run/string)` and `(sh-run/bytevector)` behavior if job being executed receives a signal
 * add function `(wire-register-rtd-fields)` to quickly create serializer and deserializer
   for user-defined record types.
 * add support for serializing and deserializing Chez Scheme `time` object to library `(schemesh wire)`

@@ -62,7 +62,7 @@
 
     ;; redirect.ss
     sh-fd sh-binary-port sh-textual-port sh-redirect!
-    sh-run/bvector sh-run/string sh-run/string-rtrim-newlines sh-run/string-split-after-nuls sh-start/fd-stdout
+    sh-run/bytevector sh-run/string sh-run/string-rtrim-newlines sh-run/string-split-after-nuls sh-start/fd-stdout
 
 
     ;; params.ss

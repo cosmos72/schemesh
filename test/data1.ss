@@ -138,7 +138,7 @@
     (list l1 l2))                                  ,((string->charline* "foobar") (string->charline* "foo~/bar"))
   (let* ((l1 (string->charline* "abcdefgh"))
          (l2 (charline-copy-on-write l1)))
-    (charline-insert-at/cbuf! l1 5 (string->charline* "012345") 2 5)
+    (charline-insert-at/chargbuffer! l1 5 (string->charline* "012345") 2 5)
     (list l1 l2))                                  ,((string->charline* "abcde234fgh") (string->charline* "abcdefgh"))
   ;; ------------------------ charlines -----------------------------------
   (charlines (string->charline* "foo/bar")
@@ -188,7 +188,7 @@
     (vscreen-insert-at-xy/newline! screen 4 0)
     screen)                                        ,(vscreen* 8 30 "abcd\n" "ef012\n" "")
   (let ((screen (vscreen* 8 30 "abcdefgh" "012\n")))
-    (vscreen-insert-at-xy/cspan! screen 4 0 (string->charspan* "uwxyz"))
+    (vscreen-insert-at-xy/charspan! screen 4 0 (string->charspan* "uwxyz"))
     screen)                                        ,(vscreen* 8 30 "abcduwxy" "zefgh012" "\n" "")
   (let ((screen (vscreen* 8 30 "abcdefgh" "012\n")))
     (values->list

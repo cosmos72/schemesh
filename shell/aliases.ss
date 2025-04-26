@@ -132,8 +132,8 @@
       (lambda (i cell)
         (show-alias* (car cell) (cdr cell) wbuf)
         (when (fx>=? (bytespan-length wbuf) 4096)
-          (fd-write/bspan! fd wbuf))))
-    (fd-write/bspan! fd wbuf)
+          (fd-write/bytespan! fd wbuf))))
+    (fd-write/bytespan! fd wbuf)
     (void))) ; return (void), means builtin finished, successfully
 
 
@@ -142,7 +142,7 @@
     (if alias
       (let ((wbuf  (make-bytespan 0)))
         (show-alias* name alias wbuf)
-        (fd-write/bspan! (sh-fd 1) wbuf)
+        (fd-write/bytespan! (sh-fd 1) wbuf)
         (void))                                         ; success, return (void)
       (write-builtin-error "alias" name "not found")))) ; error, return (failed 1)
 

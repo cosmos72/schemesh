@@ -20,8 +20,8 @@
     cellspan-set! cellspan-fill! cellspan-copy cellspan-copy!
     cellspan-reserve-left! cellspan-reserve-right! cellspan-resize-left! cellspan-resize-right!
     cellspan-insert-left!        cellspan-insert-right!
+    cellspan-insert-left/cellspan!  cellspan-insert-right/cellspan!
     #|
-    cellspan-insert-left/cspan!  cellspan-insert-right/cspan!
     cellspan-insert-left/string! cellspan-insert-right/string!
     |#
     cellspan-delete-left!        cellspan-delete-right! cellspan-iterate in-cellspan)
@@ -259,36 +259,37 @@
         (cellspan-set! csp pos ch)
         (set! pos (fx1+ pos))))))
 
-#|
+
 ;; insert range [start, end) of cellspan csp-src at the beginning of cellspan csp-dst
-(define cellspan-insert-left/cspan!
+(define cellspan-insert-left/cellspan!
   (case-lambda
     ((csp-dst csp-src src-start src-end)
-      (assert* 'cellspan-insert-left/cspan! (fx<=?* 0 src-start src-end (cellspan-length csp-src)))
-      (assert-not* 'cellspan-insert-left/cspan! (eq? csp-dst csp-src))
+      (assert* 'cellspan-insert-left/cellspan! (fx<=?* 0 src-start src-end (cellspan-length csp-src)))
+      (assert-not* 'cellspan-insert-left/cellspan! (eq? csp-dst csp-src))
       (when (fx<? src-start src-end)
         (let ((src-n (fx- src-end src-start)))
           (cellspan-resize-left! csp-dst (fx+ src-n (cellspan-length csp-dst)))
           (cellspan-copy! csp-src src-start csp-dst 0 src-n))))
     ((csp-dst csp-src)
-      (cellspan-insert-left/cspan! csp-dst csp-src 0 (cellspan-length csp-src)))))
+      (cellspan-insert-left/cellspan! csp-dst csp-src 0 (cellspan-length csp-src)))))
 
 
 ;; append range [start, end) of cellspan csp-src at the end of cellspan csp-dst
-(define cellspan-insert-right/cspan!
+(define cellspan-insert-right/cellspan!
   (case-lambda
     ((csp-dst csp-src src-start src-end)
-      (assert* 'cellspan-insert-right/cspan! (fx<=?* 0 src-start src-end (cellspan-length csp-src)))
-      (assert-not* 'cellspan-insert-right/cspan! (eq? csp-dst csp-src))
+      (assert* 'cellspan-insert-right/cellspan! (fx<=?* 0 src-start src-end (cellspan-length csp-src)))
+      (assert-not* 'cellspan-insert-right/cellspan! (eq? csp-dst csp-src))
       (when (fx<? src-start src-end)
         (let ((pos (cellspan-length csp-dst))
               (src-n (fx- src-end src-start)))
           (cellspan-resize-right! csp-dst (fx+ pos src-n))
           (cellspan-copy! csp-src src-start csp-dst pos src-n))))
     ((csp-dst csp-src)
-      (cellspan-insert-right/cspan! csp-dst csp-src 0 (cellspan-length csp-src)))))
+      (cellspan-insert-right/cellspan! csp-dst csp-src 0 (cellspan-length csp-src)))))
 
 
+#|
 ;; insert range [start, end) of string vec-src at the beginning of cellspan csp-dst
 (define cellspan-insert-left/string!
   (case-lambda

@@ -21,8 +21,8 @@
     bytespan-fill! bytespan-copy bytespan-copy! bytespan=?
     bytespan-reserve-left! bytespan-reserve-right! bytespan-resize-left! bytespan-resize-right!
     bytespan-insert-left/u8! bytespan-insert-right/u8!
-    bytespan-insert-left/bspan! bytespan-insert-right/bspan!
-    bytespan-insert-left/bvector! bytespan-insert-right/bvector!
+    bytespan-insert-left/bytespan! bytespan-insert-right/bytespan!
+    bytespan-insert-left/bytevector! bytespan-insert-right/bytevector!
     bytespan-delete-left! bytespan-delete-right! bytespan-index/u8
     in-bytespan bytespan-iterate
     bytespan-peek-beg bytespan-peek-end bytespan-peek-data)
@@ -281,62 +281,62 @@
 
 ;; insert range [src-start, src-end) of bytespan bv-src
 ;; at the beginning of bytespan sp-dst
-(define bytespan-insert-left/bspan!
+(define bytespan-insert-left/bytespan!
   (case-lambda
     ((sp-dst sp-src src-start src-end)
-      (assert-not* 'bytespan-insert-left/bspan! (eq? sp-dst sp-src))
-      (assert*     'bytespan-insert-left/bspan! (fx<=?* 0 src-start src-end (bytespan-length sp-src)))
+      (assert-not* 'bytespan-insert-left/bytespan! (eq? sp-dst sp-src))
+      (assert*     'bytespan-insert-left/bytespan! (fx<=?* 0 src-start src-end (bytespan-length sp-src)))
       (when (fx<? src-start src-end)
         ;; check for (not (eq? src dst)) only if dst is non-empty,
         ;; because reusing the empty bytevector is a common optimization of Scheme compilers
-        (assert-not* 'bytespan-insert-left/bspan! (eq? (bytespan-vec sp-dst) (bytespan-vec sp-src)))
+        (assert-not* 'bytespan-insert-left/bytespan! (eq? (bytespan-vec sp-dst) (bytespan-vec sp-src)))
         (let ((len    (bytespan-length sp-dst))
               (src-n  (fx- src-end src-start)))
           (bytespan-resize-left! sp-dst (fx+ len src-n))
           (bytespan-copy! sp-src src-start sp-dst 0 src-n))))
     ((sp-dst sp-src)
-      (bytespan-insert-left/bspan! sp-dst sp-src 0 (bytespan-length sp-src)))))
+      (bytespan-insert-left/bytespan! sp-dst sp-src 0 (bytespan-length sp-src)))))
 
 ;; insert range [src-start, src-end) of bytevector bv-src
 ;; at the beginning of bytespan sp-dst
-(define bytespan-insert-left/bvector!
+(define bytespan-insert-left/bytevector!
   (case-lambda
     ((sp-dst bv-src src-start src-end)
-      (assert*     'bytespan-insert-left/bvector! (fx<=?* 0 src-start src-end (bytevector-length bv-src)))
+      (assert*     'bytespan-insert-left/bytevector! (fx<=?* 0 src-start src-end (bytevector-length bv-src)))
       (when (fx<? src-start src-end)
         ;; check for (not (eq? src dst)) only if dst is non-empty,
         ;; because reusing the empty bytevector is a common optimization of Scheme compilers
-        (assert-not* 'bytespan-insert-left/bvector! (eq? (bytespan-vec sp-dst) bv-src))
-        (bytespan-insert-left/bspan! sp-dst (bytevector->bytespan* bv-src) src-start src-end)))
+        (assert-not* 'bytespan-insert-left/bytevector! (eq? (bytespan-vec sp-dst) bv-src))
+        (bytespan-insert-left/bytespan! sp-dst (bytevector->bytespan* bv-src) src-start src-end)))
     ((sp-dst bv-src)
-      (bytespan-insert-left/bvector! sp-dst bv-src 0 (bytevector-length bv-src)))))
+      (bytespan-insert-left/bytevector! sp-dst bv-src 0 (bytevector-length bv-src)))))
 
 ;; append a portion of another bytespan to this bytespan
-(define bytespan-insert-right/bspan!
+(define bytespan-insert-right/bytespan!
   (case-lambda
     ((sp-dst sp-src src-start src-end)
-      (assert-not* 'bytespan-insert-right/bspan! (eq? sp-dst sp-src))
-      (assert*     'bytespan-insert-right/bspan! (fx<=?* 0 src-start src-end src-end (bytespan-length sp-src)))
+      (assert-not* 'bytespan-insert-right/bytespan! (eq? sp-dst sp-src))
+      (assert*     'bytespan-insert-right/bytespan! (fx<=?* 0 src-start src-end src-end (bytespan-length sp-src)))
       (when (fx<? src-start src-end)
         ;; check for (not (eq? src dst)) only if dst is non-empty,
         ;; because reusing the empty bytevector is a common optimization of Scheme compilers
-        (assert-not* 'bytespan-insert-right/bspan! (eq? (bytespan-vec sp-dst) (bytespan-vec sp-src)))
+        (assert-not* 'bytespan-insert-right/bytespan! (eq? (bytespan-vec sp-dst) (bytespan-vec sp-src)))
         (let ((pos   (bytespan-length sp-dst))
               (src-n (fx- src-end src-start)))
           (bytespan-resize-right! sp-dst (fx+ pos src-n))
           (bytespan-copy! sp-src src-start sp-dst pos src-n))))
     ((sp-dst sp-src)
-      (bytespan-insert-right/bspan! sp-dst sp-src 0 (bytespan-length sp-src)))))
+      (bytespan-insert-right/bytespan! sp-dst sp-src 0 (bytespan-length sp-src)))))
 
 ;; append a portion of a bytevector to this bytespan
-(define bytespan-insert-right/bvector!
+(define bytespan-insert-right/bytevector!
   (case-lambda
     ((sp-dst bv-src src-start src-end)
       (unless (fx=? src-start src-end)
         ; call bytespan-insert... accepting a bytespan second argument
-        (bytespan-insert-right/bspan! sp-dst (bytevector->bytespan* bv-src) src-start src-end)))
+        (bytespan-insert-right/bytespan! sp-dst (bytevector->bytespan* bv-src) src-start src-end)))
     ((sp-dst bv-src)
-      (bytespan-insert-right/bvector! sp-dst bv-src 0 (bytevector-length bv-src)))))
+      (bytespan-insert-right/bytevector! sp-dst bv-src 0 (bytevector-length bv-src)))))
 
 ;; erase n elements at the left (front) of bytespan
 (define (bytespan-delete-left! sp n)

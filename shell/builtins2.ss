@@ -14,7 +14,7 @@
 ;; then clear bytespan wbuf
 ;;
 ;; returns (void)
-(define (fd-write/bspan! fd wbuf)
+(define (fd-write/bytespan! fd wbuf)
   (fd-write-all fd (bytespan-peek-data wbuf)
                 (bytespan-peek-beg wbuf) (bytespan-peek-end wbuf))
   (bytespan-clear! wbuf))
@@ -30,9 +30,9 @@
       (bytespan-insert-right/u8! wbuf 58 32) ; ": "
       (bytespan-insert-right/string! wbuf arg)
       (when (fx>=? (bytespan-length wbuf) 4096)
-        (fd-write/bspan! fd wbuf)))
+        (fd-write/bytespan! fd wbuf)))
     (bytespan-insert-right/u8! wbuf 10)
-    (fd-write/bspan! fd wbuf)))
+    (fd-write/bytespan! fd wbuf)))
 
 
 ;; print warning message to (sh-fd 2)
@@ -259,11 +259,11 @@
 
 ;; display a single environment variable
 (define (%env-display-var name val wbuf)
-  (bytespan-insert-right/bvector! wbuf #vu8(115 101 116 32)) ; "set "
+  (bytespan-insert-right/bytevector! wbuf #vu8(115 101 116 32)) ; "set "
   (bytespan-insert-right/string!  wbuf name)
-  (bytespan-insert-right/bvector! wbuf #vu8(32 39)) ; " '"
+  (bytespan-insert-right/bytevector! wbuf #vu8(32 39)) ; " '"
   (bytespan-insert-right/string!  wbuf val)
-  (bytespan-insert-right/bvector! wbuf #vu8(39 10))) ; "'\n"
+  (bytespan-insert-right/bytevector! wbuf #vu8(39 10))) ; "'\n"
 
 
 ;; display all environment variables of specified job - either all or only exported ones.
@@ -279,17 +279,17 @@
         (lambda (i elem)
           (%env-display-var (car elem) (cdr elem) wbuf)
           (when (fx>=? (bytespan-length wbuf) 4096)
-            (fd-write/bspan! fd wbuf))))
+            (fd-write/bytespan! fd wbuf))))
       (when (eq? 'export which)
-        (bytespan-insert-right/bvector! wbuf #vu8(101 120 112 111 114 116)) ; "export"
+        (bytespan-insert-right/bytevector! wbuf #vu8(101 120 112 111 114 116)) ; "export"
         (vector-iterate vec
           (lambda (i elem)
             (bytespan-insert-right/u8! wbuf 32)   ; " "
             (bytespan-insert-right/string! wbuf (car elem))
             (when (fx>=? (bytespan-length wbuf) 4096)
-              (fd-write/bspan! fd wbuf))))
+              (fd-write/bytespan! fd wbuf))))
         (bytespan-insert-right/u8! wbuf 10))       ; "\n"
-      (fd-write/bspan! fd wbuf)))
+      (fd-write/bytespan! fd wbuf)))
   (void))
 
 
@@ -309,7 +309,7 @@
           (if val
             (let ((wbuf (bytespan)))
               (%env-display-var name val wbuf)
-              (fd-write/bspan! (sh-fd 1) wbuf)
+              (fd-write/bytespan! (sh-fd 1) wbuf)
               (void))          ; exit successfully
             (failed 1)))) ; env variable not found => fail
       ((null? (cdddr prog-and-args))

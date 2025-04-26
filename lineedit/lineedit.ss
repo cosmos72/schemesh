@@ -136,10 +136,10 @@
 ;; read chars in the range [start, end) from charspan csp,
 ;; and insert them into vscreen at cursor.
 ;; Also moves cursor (fx- end start) characters to the right, and reflows vscreen as needed.
-(define (linectx-insert/cspan! lctx csp start end)
-  (assert* 'linectx-insert/cspan! (fx<=?* 0 start end (charspan-length csp)))
+(define (linectx-insert/charspan! lctx csp start end)
+  (assert* 'linectx-insert/charspan! (fx<=?* 0 start end (charspan-length csp)))
   (when (fx<? start end)
-    (vscreen-insert/cspan! (linectx-vscreen lctx) csp start end)))
+    (vscreen-insert/charspan! (linectx-vscreen lctx) csp start end)))
 
 
 ;; read up to n bytes from bytespan bsp, starting at offset = start,
@@ -148,8 +148,8 @@
 ;; Also stops at incomplete utf-8 sequences.
 ;; Moves cursor appropriately to the right, and reflows vscreen as needed.
 ;; return number of bytes actually read from bytespan and inserted.
-(define (linectx-insert/bspan! lctx bsp start end)
-  (assert* 'linectx-insert/bspan! (fx<=?* 0 start end (bytespan-length bsp)))
+(define (linectx-insert/bytespan! lctx bsp start end)
+  (assert* 'linectx-insert/bytespan! (fx<=?* 0 start end (bytespan-length bsp)))
   (let ((pos start)
         (incomplete-utf8? #f))
     (do ()
@@ -169,7 +169,7 @@
 ;; read up to n bytes from rbuf and insert them into current line.
 ;; return number of bytes actually read from rbuf and inserted
 (define (lineedit-insert/rbuf! lctx n)
-  (linectx-insert/bspan! lctx (linectx-rbuf lctx) 0 n))
+  (linectx-insert/bytespan! lctx (linectx-rbuf lctx) 0 n))
 
 
 (include "lineedit/linekeys.ss")

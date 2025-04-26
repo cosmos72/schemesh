@@ -148,7 +148,7 @@
            (when (fx<=? hidden 0)
              (set! prompt-len (fx+ prompt-len (string-length str))))))
          (%append-charspan (lambda (csp)
-           (bytespan-insert-right/cspan! prompt csp)
+           (bytespan-insert-right/charspan! prompt csp)
            (when (fx<=? hidden 0)
              (set! prompt-len (fx+ prompt-len (charspan-length csp)))))))
     (bytespan-clear! prompt)
@@ -191,7 +191,7 @@
                (fx<=? home-len path-len)
                (charspan=? (string->charspan* home) 0 path 0 home-len))
       (set! ret (string->charspan "~"))
-      (charspan-insert-right/cspan! ret path home-len path-len))
+      (charspan-insert-right/charspan! ret path home-len path-len))
     ret))
 
 

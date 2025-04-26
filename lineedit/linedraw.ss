@@ -25,7 +25,7 @@
 ;; unconditionally draw prompt. does not update term-x, term-y
 (define (linectx-draw-prompt lctx)
   ; (debugf "linectx-draw-prompt: prompt = ~s" (linectx-prompt lctx))
-  (lineterm-write/bspan lctx (linectx-prompt lctx)))
+  (lineterm-write/bytespan lctx (linectx-prompt lctx)))
 
 ;; unconditionally draw all lines. does not update term-x, term-y
 (define (linectx-draw-lines lctx)
@@ -63,7 +63,7 @@
          (bv     (string->utf8b str))
          (prompt (linectx-prompt lctx)))
     (bytespan-clear! prompt)
-    (bytespan-insert-right/bvector! prompt bv)
+    (bytespan-insert-right/bytevector! prompt bv)
     ; append colon and space after parser name
     (bytespan-insert-right/u8! prompt 58 32)
     ; we want length in characters, not in UTF-8b byte sequences
@@ -81,7 +81,7 @@
       (catch (ex)
         (bytespan-clear! prompt)
         (let ((err-len (bytevector-length bv-prompt-error)))
-          (bytespan-insert-right/bvector! prompt bv-prompt-error 0 err-len)
+          (bytespan-insert-right/bytevector! prompt bv-prompt-error 0 err-len)
           (linectx-prompt-length-set! lctx err-len))))))
 
 
@@ -306,10 +306,10 @@
       (lineterm-move-to lctx vx vy)
       (case style
         ((good)
-          (bytespan-insert-right/bvector! wbuf '#vu8(27 91 49 59 51 54 109)))  ; ESC[1;36m
+          (bytespan-insert-right/bytevector! wbuf '#vu8(27 91 49 59 51 54 109)))  ; ESC[1;36m
         ((bad)
-          (bytespan-insert-right/bvector! wbuf '#vu8(27 91 49 59 51 49 109)))) ; ESC[1;31m
+          (bytespan-insert-right/bytevector! wbuf '#vu8(27 91 49 59 51 49 109)))) ; ESC[1;31m
       (bytespan-insert-right/char! wbuf ch)
       (when (or (eq? 'good style) (eq? 'bad style))
-        (bytespan-insert-right/bvector! wbuf '#vu8(27 91 109))) ; ESC[m
+        (bytespan-insert-right/bytevector! wbuf '#vu8(27 91 109))) ; ESC[m
       (linectx-term-xy-set! lctx (fx1+ vx) vy))))

@@ -173,7 +173,7 @@
          (n         (charspan-length clipboard)))
     (unless (fxzero? n)
       (let-values (((x y) (vscreen-cursor-ixy screen)))
-        (vscreen-insert-at-xy/cspan! screen x y clipboard))
+        (vscreen-insert-at-xy/charspan! screen x y clipboard))
       (when (charspan-index/char clipboard #\newline)
         (vscreen-reflow screen))
       (vscreen-cursor-move/right! screen n))))
@@ -193,9 +193,9 @@
         (footer (string->utf8 " possibilities? (y or n) ")))
     (lambda (lctx table-n)
       (let ((wbuf (linectx-wbuf lctx)))
-        (bytespan-insert-right/bvector! wbuf header)
+        (bytespan-insert-right/bytevector! wbuf header)
         (bytespan-display-right/fixnum! wbuf table-n)
-        (bytespan-insert-right/bvector! wbuf footer)
+        (bytespan-insert-right/bytevector! wbuf footer)
         (lineedit-flush lctx)
         (let ((good? (lineedit-read-confirm-y-or-n? lctx)))
           (bytespan-insert-right/u8! wbuf (if good? 121 110) 10)
@@ -214,7 +214,7 @@
           ((not (fxzero? common-len))
             ; insert common prefix of all completions
             (let ((elem-0 (span-ref table 0)))
-              (linectx-insert/cspan! lctx elem-0 0 common-len)
+              (linectx-insert/charspan! lctx elem-0 0 common-len)
               (when (and (fx=? 1 table-n)
                          (not (char=? #\/ (charspan-ref elem-0 (fx1- common-len)))))
                 (linectx-insert/char! lctx #\space))))
@@ -318,14 +318,14 @@
 
 
 (define (%lineedit-display-table-cell lctx stem elem column-width)
-  (lineterm-write/cspan lctx stem)
+  (lineterm-write/charspan lctx stem)
   (let ((elem-len
           (cond
             ((string? elem)
               (lineterm-write/string lctx elem)
               (string-length elem))
             ((charspan? elem)
-              (lineterm-write/cspan lctx elem)
+              (lineterm-write/charspan lctx elem)
               (charspan-length elem))
             (else
               0))))
@@ -360,7 +360,7 @@
 
 (define (lineedit-key-cmd-ls lctx)
   (lineterm-move-to lctx (linectx-prompt-end-x lctx) (linectx-prompt-end-y lctx))
-  (lineterm-write/bvector lctx #vu8(108 115 27 91 74 10)) ; l s ESC [ J \n
+  (lineterm-write/bytevector lctx #vu8(108 115 27 91 74 10)) ; l s ESC [ J \n
   (lineedit-flush lctx)
   ((top-level-value 'sh-run) ((top-level-value 'sh-cmd) "ls"))
   ; make enough space after command output for prompt and current line(s)

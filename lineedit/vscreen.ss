@@ -23,8 +23,8 @@
     vscreen-cursor-move/left! vscreen-cursor-move/right!  vscreen-cursor-move/up!  vscreen-cursor-move/down!
     vscreen-delete-left/n!     vscreen-delete-right/n!      vscreen-delete-at-xy!
     vscreen-delete-left/line!  vscreen-delete-right/line!
-    vscreen-insert-at-xy/char!  vscreen-insert-at-xy/newline! vscreen-insert-at-xy/cspan!
-    vscreen-insert/char!        vscreen-insert/cspan!         vscreen-assign*!
+    vscreen-insert-at-xy/char!  vscreen-insert-at-xy/newline! vscreen-insert-at-xy/charspan!
+    vscreen-insert/char!        vscreen-insert/charspan!         vscreen-assign*!
     vscreen-reflow       write-vscreen)
 
   (import
@@ -355,7 +355,7 @@
             (when (fx>? i 0)
               (vscreen-dirty-set! screen #t)
               ;; insert chars into line1
-              (charline-insert-at/cbuf! line1 (charline-length line1) line2 0 i)
+              (charline-insert-at/chargbuffer! line1 (charline-length line1) line2 0 i)
               ;; remove chars from line2
               (charline-delete! line2 0 i)
               (set! n (fx- n i)))
@@ -574,7 +574,7 @@
             (charlines-insert-at/cline! screen y+1 line2))
           (when (fx<? line1-pos line1-end)
             ;; insert chars into line2
-            (charline-insert-at/cbuf! line2 0 line1 line1-pos line1-end)
+            (charline-insert-at/chargbuffer! line2 0 line1 line1-pos line1-end)
             ;; remove chars from line1
             (charline-delete! line1 line1-pos line1-end))
           ; (debugf "while1 vscreen-overflow-at-y ~s ~s ~s" y line1 screen)
@@ -619,7 +619,7 @@
     (when (and pos (fx<? (fx1+ pos) end))
       (let ((line2 (charline))
             (pos+1 (fx1+ pos)))
-        (charline-insert-at/cbuf! line2 0 line pos+1 end)
+        (charline-insert-at/chargbuffer! line2 0 line pos+1 end)
         (charline-delete!    line pos+1 end)
         (charlines-insert-at/cline! screen (fx1+ y) line2)))))
 
@@ -696,7 +696,7 @@
       (when (fx<? x+1 line1-end+1)
         ;; (debugf "vscreen-insert-at-xy/newline! before moving range [~s,~s): line1=~s, line2=~s" x+1 line1-end+1 line1 line2)
         ;; insert into line2 the chars from line1 after inserted newline
-        (charline-insert-at/cbuf! line2 0 line1 x+1 line1-end+1)
+        (charline-insert-at/chargbuffer! line2 0 line1 x+1 line1-end+1)
         ;; remove from line1 the chars after inserted newline
         (charline-delete! line1 x+1 line1-end+1))
         ;; (debugf "vscreen-insert-at-xy/newline! after  moving range [~s,~s): line1=~s, line2=~s" x+1 line1-end+1 line1 line2)
@@ -712,16 +712,16 @@
 ;; i.e. reflows them according to vscreen width.
 ;;
 ;; If one or more #\newline are inserted, performs a full (vscreen-reflow)
-(define vscreen-insert-at-xy/cspan!
+(define vscreen-insert-at-xy/charspan!
   (case-lambda
     ((screen x y csp)
-      (vscreen-insert-at-xy/cspan! screen x y csp 0 (charspan-length csp)))
+      (vscreen-insert-at-xy/charspan! screen x y csp 0 (charspan-length csp)))
     ((screen x y csp csp-start csp-end)
-      (assert* 'vscreen-insert-at-xy/cspan! (fx<=?* 0 csp-start csp-end (charspan-length csp)))
+      (assert* 'vscreen-insert-at-xy/charspan! (fx<=?* 0 csp-start csp-end (charspan-length csp)))
       (when (fx<? csp-start csp-end)
         (let-values (((x y line) (vscreen-insert-at-xy/prepare! screen x y)))
           (vscreen-dirty-set! screen #t)
-          (charline-insert-at/cspan! line x csp csp-start csp-end)
+          (charline-insert-at/charspan! line x csp csp-start csp-end)
           (if (charspan-index/char csp csp-start csp-end #\newline)
             (vscreen-reflow screen)
             (vscreen-overflow-at-y screen y)))))))
@@ -746,9 +746,9 @@
 ;; i.e. reflows them according to vscreen width.
 ;;
 ;; If one or more #\newline are inserted, performs a full (vscreen-reflow)
-(define (vscreen-insert/cspan! screen csp csp-start csp-end)
+(define (vscreen-insert/charspan! screen csp csp-start csp-end)
   (when (fx<? csp-start csp-end)
-    (vscreen-insert-at-xy/cspan! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen)
+    (vscreen-insert-at-xy/charspan! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen)
                                  csp csp-start csp-end)
     (vscreen-cursor-move/right! screen (fx- csp-end csp-start))))
 

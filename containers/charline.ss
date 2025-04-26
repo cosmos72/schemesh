@@ -12,7 +12,7 @@
     charline charline? string->charline string->charline* charline->string
     assert-charline? charline-nl? charline-copy-on-write charline-empty?
     charline-length charline-ref charline-at charline-equal? charline-set! charline-clear!
-    charline-delete! charline-insert-at! charline-insert-at/cspan! charline-insert-at/cbuf!
+    charline-delete! charline-insert-at! charline-insert-at/charspan! charline-insert-at/chargbuffer!
     charline-index charline-index-right charline-index/char charline-count charline-count-right
     charline-dirty-start-x charline-dirty-end-x charline-dirty-x-add! charline-dirty-x-unset!
     in-charline)
@@ -148,28 +148,28 @@
 
 ;; read elements in range [src-start, src-end) from charspan csp-src,
 ;; and insert them into charline line at position x
-(define charline-insert-at/cspan!
+(define charline-insert-at/charspan!
   (case-lambda
     ((line x csp-src src-start src-end)
       (when (fx<? src-start src-end)
         (charline-unshare! line)
-        (chargbuffer-insert-at/cspan! line x csp-src src-start src-end)
+        (chargbuffer-insert-at/charspan! line x csp-src src-start src-end)
         (charline-dirty-x-add! line x (charline-length line))))
     ((line x csp-src)
-      (charline-insert-at/cspan! line x csp-src 0 (charspan-length csp-src)))))
+      (charline-insert-at/charspan! line x csp-src 0 (charspan-length csp-src)))))
 
 
-;; read elements in range [src-start, src-end) from charbuffer or charline csp-src,
+;; read elements in range [src-start, src-end) from chargbuffer or charline csp-src,
 ;; and insert them into charline at position x
-(define charline-insert-at/cbuf!
+(define charline-insert-at/chargbuffer!
   (case-lambda
     ((line x cbuf-src src-start src-end)
       (when (fx<? src-start src-end)
         (charline-unshare! line)
-        (chargbuffer-insert-at/cbuf! line x cbuf-src src-start src-end)
+        (chargbuffer-insert-at/chargbuffer! line x cbuf-src src-start src-end)
         (charline-dirty-x-add! line x (charline-length line))))
     ((line x cbuf-src)
-      (charline-insert-at/cbuf! line x cbuf-src 0 (chargbuffer-length cbuf-src)))))
+      (charline-insert-at/chargbuffer! line x cbuf-src 0 (chargbuffer-length cbuf-src)))))
 
 
 ;; erase the chars in range [start, end) from charline

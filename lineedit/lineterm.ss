@@ -10,7 +10,7 @@
 (library (schemesh lineedit lineterm (0 8 3))
   (export
     lineterm-write/u8
-    lineterm-write/bvector lineterm-write/bspan lineterm-write/cspan lineterm-write/cbuffer lineterm-write/string
+    lineterm-write/bytevector lineterm-write/bytespan lineterm-write/charspan lineterm-write/cbuffer lineterm-write/string
     lineterm-move-dx lineterm-move-dy lineterm-move-to-bol lineterm-clear-to-eol lineterm-clear-to-eos
     lineterm-move lineterm-move-from lineterm-move-to lineterm-write-not-bol-marker)
 
@@ -30,24 +30,24 @@
   (bytespan-insert-right/u8! (linectx-wbuf ctx) u8))
 
 ;; write a portion of given bytevector to wbuf
-(define lineterm-write/bvector
+(define lineterm-write/bytevector
   (case-lambda
     ((ctx bv)
-      (bytespan-insert-right/bvector! (linectx-wbuf ctx) bv))
+      (bytespan-insert-right/bytevector! (linectx-wbuf ctx) bv))
     ((ctx bv start end)
-      (bytespan-insert-right/bvector! (linectx-wbuf ctx) bv start end))))
+      (bytespan-insert-right/bytevector! (linectx-wbuf ctx) bv start end))))
 
 ;; write a portion of given bytespan to wbuf
-(define lineterm-write/bspan
+(define lineterm-write/bytespan
   (case-lambda
     ((ctx bsp)
-      (bytespan-insert-right/bspan! (linectx-wbuf ctx) bsp))
+      (bytespan-insert-right/bytespan! (linectx-wbuf ctx) bsp))
     ((ctx bsp start end)
-      (bytespan-insert-right/bspan! (linectx-wbuf ctx) bsp start end))))
+      (bytespan-insert-right/bytespan! (linectx-wbuf ctx) bsp start end))))
 
 ;; write given charspan to wbuf
-(define (lineterm-write/cspan ctx csp)
-  (bytespan-insert-right/cspan! (linectx-wbuf ctx) csp))
+(define (lineterm-write/charspan ctx csp)
+  (bytespan-insert-right/charspan! (linectx-wbuf ctx) csp))
 
 ;; write a portion of given chargbuffer to wbuf
 (define (lineterm-write/cbuffer ctx cgb start end)
@@ -70,14 +70,14 @@
     ((fxzero? dx) ; do nothing
       (void))
     ((fx=? dx 1) ; move right by 1
-      (lineterm-write/bvector ctx #vu8(27 91 67)))        ; ESC [ C
+      (lineterm-write/bytevector ctx #vu8(27 91 67)))        ; ESC [ C
     ((fx>? dx 1) ; move right by dx                        ;
       (let ((wbuf (linectx-wbuf ctx)))                     ;
         (bytespan-insert-right/u8! wbuf 27 91)              ; ESC [
         (bytespan-display-right/fixnum! wbuf dx)            ; n
         (bytespan-insert-right/u8! wbuf 67)))               ; C
     ((fx>=? dx -3) ; move left by 1, 2 or 3                ;
-      (lineterm-write/bvector ctx #vu8(8 8 8) 0 (fx- dx))) ; ^H ^H ^H
+      (lineterm-write/bytevector ctx #vu8(8 8 8) 0 (fx- dx))) ; ^H ^H ^H
     ((fx<? dx -3)  ; move left by -dx                      ;
       (let ((wbuf (linectx-wbuf ctx)))                     ;
         (bytespan-insert-right/u8! wbuf 27 91)              ; ESC [
@@ -94,9 +94,9 @@
     ((fxzero? dy) ; do nothing
       (void))
     ((fx=? dy 1)  ; move down by 1
-      (lineterm-write/bvector ctx #vu8(27 91 66)))  ; ESC [ B
+      (lineterm-write/bytevector ctx #vu8(27 91 66)))  ; ESC [ B
     ((fx=? dy -1) ; move up by 1
-      (lineterm-write/bvector ctx #vu8(27 91 65)))  ; ESC [ A
+      (lineterm-write/bytevector ctx #vu8(27 91 65)))  ; ESC [ A
     ((fx>? dy 1) ; move down by dy
       (let ((wbuf (linectx-wbuf ctx)))
         (bytespan-insert-right/u8! wbuf 27 91)     ; ESC [
@@ -114,11 +114,11 @@
 
 ;; send escape sequence "clear from cursor to end-of-line"
 (define (lineterm-clear-to-eol ctx)
-  (lineterm-write/bvector ctx #vu8(27 91 75))) ; ESC [ K
+  (lineterm-write/bytevector ctx #vu8(27 91 75))) ; ESC [ K
 
 ;; send escape sequence "clear from cursor to end-of-screen"
 (define (lineterm-clear-to-eos ctx)
-  (lineterm-write/bvector ctx #vu8(27 91 74))) ; ESC [ J
+  (lineterm-write/bytevector ctx #vu8(27 91 74))) ; ESC [ J
 
 ;; move tty cursor from tty position from-x from-y to tty position to-x to-y
 ;; does not check or update linectx
@@ -157,10 +157,10 @@
     (lambda (ctx)
       (let ((wbuf  (linectx-wbuf ctx))
             (width (linectx-width ctx)))
-        (bytespan-insert-right/bvector! wbuf #vu8(27 91 55 109 32 27 91 109)) ; ESC [ 7 m SPACE ESC [ m
+        (bytespan-insert-right/bytevector! wbuf #vu8(27 91 55 109 32 27 91 109)) ; ESC [ 7 m SPACE ESC [ m
         (do ((write-n (fx1- width) (fx- write-n space-n)))
             ((fx<=? write-n 0))
-          (bytespan-insert-right/bvector! wbuf spaces 0 (fxmin write-n space-n)))))))
+          (bytespan-insert-right/bytevector! wbuf spaces 0 (fxmin write-n space-n)))))))
 
 
 ) ; close library

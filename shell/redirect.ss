@@ -121,7 +121,7 @@
         (when (signal-name-is-usually-fatal? signal-name)
           (sh-current-job-kill signal-name)
           ;; in case (sh-current-job-kill) returns
-          (raise-condition-received-signal 'sh-run/bvector signal-name
+          (raise-condition-received-signal 'sh-run/bytevector signal-name
                                            (case signal-name ((sigint) "user interrupt")
                                                              ((sigquit) "user quit")
                                                              (else #f))))))))
@@ -161,7 +161,7 @@
             ;; because (check-interrupts) above may suspend us (= exit dynamic scope)
             ;; and resume us (= re-enter dynamic scope) multiple times
             (fd-close read-fd)
-            (let ((status (job-wait 'sh-run/bvector job (sh-wait-flags continue-if-stopped wait-until-finished))))
+            (let ((status (job-wait 'sh-run/bytevector job (sh-wait-flags continue-if-stopped wait-until-finished))))
               (try-kill-current-job-or-raise status))
             (bytespan->bytevector*! bsp)))))))
 
@@ -181,12 +181,12 @@
 ;; Implementation note: job is always started in a subprocess,
 ;; because we need to read its standard output while it runs.
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
-(define sh-run/bvector
+(define sh-run/bytevector
   (case-lambda
     ((job)
-      (sh-run/bvector job '()))
+      (sh-run/bytevector job '()))
     ((job options)
-      (job-raise-if-started/recursive 'sh-run/bvector job)
+      (job-raise-if-started/recursive 'sh-run/bytevector job)
       (%job-id-set! job -1) ;; prevents showing job notifications
       (let ((read-fd (sh-start/fd-stdout job options)))
         ;; WARNING: job may internally dup write-fd into (job-fds-to-remap)
@@ -208,7 +208,7 @@
     ((job)
       (sh-run/string job '()))
     ((job options)
-      (utf8b->string (sh-run/bvector job options)))))
+      (utf8b->string (sh-run/bytevector job options)))))
 
 
 ;; Start a job and wait for it to exit.
@@ -226,7 +226,7 @@
     ((job)
       (sh-run/string-rtrim-newlines job '()))
     ((job options)
-      (string-rtrim-newlines! (utf8b->string (sh-run/bvector job options))))))
+      (string-rtrim-newlines! (utf8b->string (sh-run/bytevector job options))))))
 
 
 ;; Start a job and wait for it to exit.
@@ -245,7 +245,7 @@
     ((job)
       (sh-run/string-split-after-nuls job '()))
     ((job options)
-      (string-split-after-nuls (utf8b->string (sh-run/bvector job options))))))
+      (string-split-after-nuls (utf8b->string (sh-run/bytevector job options))))))
 
 
 ;; Add multiple redirections for cmd or job. Return cmd or job.
@@ -404,7 +404,7 @@
             (unless (or (bytespan-empty? bspan) (fx=? slash (bytespan-ref-right/u8 bspan)))
               ;; append / after job's directory if missing
               (bytespan-insert-right/u8! bspan slash))
-            (bytespan-insert-right/bvector! bspan bvec)
+            (bytespan-insert-right/bytevector! bspan bvec)
             (bytespan->bytevector bspan))
           bvec)))
     ;; wildcards may expand to a list of strings: accept them if they have length 1

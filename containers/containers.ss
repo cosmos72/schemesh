@@ -12,6 +12,7 @@
   (import (schemesh containers bitmap)
           (schemesh containers bytespan)
           (schemesh containers bytevector)
+          (schemesh containers cellgbuffer)
           (schemesh containers cellvector)
           (schemesh containers cellspan)
           (schemesh containers chargbuffer)

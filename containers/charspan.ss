@@ -22,7 +22,7 @@
     charspan=? charspan<? charspan-count= charspan=? charspan/string=?
     charspan-reserve-left! charspan-reserve-right! charspan-resize-left! charspan-resize-right!
     charspan-insert-left!        charspan-insert-right!
-    charspan-insert-left/cspan!  charspan-insert-right/cspan!
+    charspan-insert-left/charspan!  charspan-insert-right/charspan!
     charspan-insert-left/string! charspan-insert-right/string!
     charspan-delete-left!         charspan-delete-right! charspan-iterate in-charspan
     charspan-index charspan-index-right charspan-index/char charspan-index-right/char
@@ -337,32 +337,32 @@
 
 
 ;; insert range [start, end) of charspan sp-src at the beginning of charspan sp-dst
-(define charspan-insert-left/cspan!
+(define charspan-insert-left/charspan!
   (case-lambda
     ((sp-dst sp-src src-start src-end)
-      (assert* 'charspan-insert-left/cspan! (fx<=?* 0 src-start src-end (charspan-length sp-src)))
-      (assert-not* 'charspan-insert-left/cspan! (eq? sp-dst sp-src))
+      (assert* 'charspan-insert-left/charspan! (fx<=?* 0 src-start src-end (charspan-length sp-src)))
+      (assert-not* 'charspan-insert-left/charspan! (eq? sp-dst sp-src))
       (when (fx<? src-start src-end)
         (let ((src-n (fx- src-end src-start)))
           (charspan-resize-left! sp-dst (fx+ src-n (charspan-length sp-dst)))
           (charspan-copy! sp-src src-start sp-dst 0 src-n))))
     ((sp-dst sp-src)
-      (charspan-insert-left/cspan! sp-dst sp-src 0 (charspan-length sp-src)))))
+      (charspan-insert-left/charspan! sp-dst sp-src 0 (charspan-length sp-src)))))
 
 
 ;; append range [start, end) of charspan sp-src at the end of charspan sp-dst
-(define charspan-insert-right/cspan!
+(define charspan-insert-right/charspan!
   (case-lambda
     ((sp-dst sp-src src-start src-end)
-      (assert* 'charspan-insert-right/cspan! (fx<=?* 0 src-start src-end (charspan-length sp-src)))
-      (assert-not* 'charspan-insert-right/cspan! (eq? sp-dst sp-src))
+      (assert* 'charspan-insert-right/charspan! (fx<=?* 0 src-start src-end (charspan-length sp-src)))
+      (assert-not* 'charspan-insert-right/charspan! (eq? sp-dst sp-src))
       (when (fx<? src-start src-end)
         (let ((pos (charspan-length sp-dst))
               (src-n (fx- src-end src-start)))
           (charspan-resize-right! sp-dst (fx+ pos src-n))
           (charspan-copy! sp-src src-start sp-dst pos src-n))))
     ((sp-dst sp-src)
-      (charspan-insert-right/cspan! sp-dst sp-src 0 (charspan-length sp-src)))))
+      (charspan-insert-right/charspan! sp-dst sp-src 0 (charspan-length sp-src)))))
 
 
 ;; insert range [start, end) of string str-src at the beginning of charspan sp-dst

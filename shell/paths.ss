@@ -60,7 +60,7 @@
               (charspan-delete-right! result 1))
             ((not (or sep-before? sep-after?))
               (charspan-insert-right! result #\/)))
-          (charspan-insert-right/cspan! result next)))
+          (charspan-insert-right/charspan! result next)))
       result)))
 
 
@@ -154,7 +154,7 @@
           (else
             (unless (path-ends-with-sep? prefix)
               (charspan-insert-right! prefix #\/))
-            (charspan-insert-right/cspan! prefix suffix start end)))))))
+            (charspan-insert-right/charspan! prefix suffix start end)))))))
 
 
 (define (trim-path-prefix-len path)
@@ -179,7 +179,7 @@
   (let ((result     (make-charspan 0))
         (prefix-len (charspan-length prefix)))
     (charspan-reserve-right! result (fx+ prefix-len (charspan-length suffix)))
-    (charspan-insert-right/cspan! result prefix 0 prefix-len)
+    (charspan-insert-right/charspan! result prefix 0 prefix-len)
     (sh-path-append! result suffix)
     result))
 
