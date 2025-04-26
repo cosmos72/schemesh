@@ -123,16 +123,13 @@
       (assert* 'cellvector-fill! (fx<=?* 0 start end (cellvector-length clv)))
       (assert* 'cellvector-fill! (cell? cell))
       (let* ((bstart (*cell start))
-             (bend   (*cell end)))
-        (cond
-          ((zero? cell)
-            (subbytevector-fill! clv bstart bend 0))
-          ((= cell cell-max)
-            (subbytevector-fill! clv bstart bend #xff))
-          (else
-            (do ((i bstart (fx+ i cell-bytes)))
-                ((fx>=? i bend))
-              (bytevector-u32-native-set! clv i cell))))))
+             (bend   (*cell end))
+             (u8     (bitwise-and cell #xff)))
+        (if (= cell (* #x1010101 u8))
+          (subbytevector-fill! clv bstart bend u8)
+          (do ((bi bstart (fx+ bi cell-bytes)))
+              ((fx>=? bi bend))
+            (bytevector-u32-native-set! clv bi cell)))))
     ((clv cell)
       (cellvector-fill! clv 0 (cellvector-length clv) cell))))
 
