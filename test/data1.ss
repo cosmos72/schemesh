@@ -34,6 +34,46 @@
   (let ((bsp (bytespan 9 10 11 12)))
     (bytespan-index/u8 bsp
       (lambda (elem) (fx=? 11 elem))))             2
+  ;; ----------------------- cellspan -------------------------------------
+  (cellspan #\1 #\2 #\3)                           ,(string->cellspan "123")
+  (list->cellspan '(#\i #\j #\k #\l))              ,(string->cellspan "ijkl")
+  (string->cellspan "pqrst")                       ,(string->cellspan "pqrst")
+  (string->cellspan "ouh[()&*U")                   ,(string->cellspan "ouh[()&*U")
+  (cellspan->string (string->cellspan "pqrst"))    "pqrst"
+  (cellspan-length (cellspan #\a #\b #\c))         3
+  (cellspan-capacity-right (cellspan #\a #\b #\c)) 3
+  (cellspan-empty? (cellspan))                     #t
+  (cellspan-empty? (cellspan #\~))                 #f
+  (cell->char
+    (cellspan-ref-right (cellspan #\{ #\\)))       #\\
+  (cell->char
+    (cellspan-ref (cellspan #\x #\y #\z) 2))       #\z
+  #|
+  (cellspan-count=
+    (string->cellspan "abcdef") 2
+    (string->cellspan "1cde34") 1 4)               3
+  (cellspan=?
+    (string->cellspan "abcdef") 2
+    (string->cellspan "1cde34") 1 3)               #t
+  |#
+  (let ((sp (cellspan #\A #\B)))
+    (cellspan-insert-left! sp #\{ #\~) sp)         ,(string->cellspan "{~AB")
+  (let ((sp (cellspan #\4 #\5 #\6)))
+    (cellspan-insert-right! sp #\7 #\8) sp)        ,(string->cellspan "45678")
+  (let ((sp (string->cellspan "qwerty")))
+    (cellspan-delete-left! sp 1) sp)               ,(string->cellspan "werty")
+  (let ((sp (string->cellspan "asdfuiop")))
+    (cellspan-delete-right! sp 3) sp)              ,(string->cellspan "asdfu")
+  #|
+  (let ((sp (cellspan #\@ #\a #\b #\c)))
+    (cellspan-index sp
+      (lambda (elem) (eq? #\b elem))))             2
+  |#
+  (string->utf8b (cellspan->string (string->cellspan
+    "\x7c; \xdcce;\xdc98; \xdce0;\xdca4;\xdcb9; \xdcf0;\xdc90;\xdc8d;\xdc88;")))
+                                                   #vu8(124 32 206 152 32 224 164 185 32 240 144 141 136)
+  (text->bytevector (cellspan->string (string->cellspan
+    "123\x0;")))                                   #vu8(49 50 51 0)
   ;; ----------------------- charspan -------------------------------------
   (charspan #\1 #\2 #\3)                           ,(string->charspan* "123")
   (list->charspan '(#\i #\j #\k #\l))              ,(string->charspan* "ijkl")
@@ -61,13 +101,13 @@
     ;; set! propagates to the charspan
     (string-set! s 1 #\^) sp)                      ,(string->charspan* "a^c")
   (let ((sp (charspan #\A #\B)))
-    (charspan-insert-left! sp #\{ #\~) sp)        ,(string->charspan* "{~AB")
+    (charspan-insert-left! sp #\{ #\~) sp)         ,(string->charspan* "{~AB")
   (let ((sp (charspan #\4 #\5 #\6)))
-    (charspan-insert-right! sp #\7 #\8) sp)         ,(string->charspan* "45678")
+    (charspan-insert-right! sp #\7 #\8) sp)        ,(string->charspan* "45678")
   (let ((sp (string->charspan "qwerty")))
     (charspan-delete-left! sp 1) sp)               ,(string->charspan* "werty")
   (let ((sp (string->charspan "asdfuiop")))
-    (charspan-delete-right! sp 3) sp)                ,(string->charspan* "asdfu")
+    (charspan-delete-right! sp 3) sp)              ,(string->charspan* "asdfu")
   (let ((sp (charspan #\@ #\a #\b #\c)))
     (charspan-index sp
       (lambda (elem) (eq? #\b elem))))             2

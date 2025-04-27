@@ -17,7 +17,7 @@
 
     make-cellvector list->cellvector string->cellvector cellvector->string
     cellvector-length cellvector-empty? cellvector-ref
-    cellvector-set! cellvector-set/char! cellvector-set/colors! cellvector-set/palette!
+    cellvector-set! cellvector-update/char! cellvector-update/colors! cellvector-update/palette!
     cellvector-fill! cellvector-copy! cellvector-copy/string!
 
     cellvector-display cellvector-write)
@@ -89,9 +89,10 @@
     ((n)
       (make-bytevector (cell<< n) 0))
     ((n fill)
-      (assert* 'make-cellvector (cell? fill))
+      (unless (cell? fill)
+        (assert* 'make-cellvector (char? fill)))
       (let ((ret (make-cellvector n)))
-        (unless (fxzero? fill)
+        (unless (memv fill '(0 #\nul))
           (cellvector-fill! ret 0 n fill))
         ret))))
 
@@ -111,37 +112,44 @@
       (bytevector-s32-native-ref clv 0))))
 
 
-(define (cellvector-set! clv idx cl)
-  (bytevector-s32-native-set! clv (cell<< idx) cl))
+;; c must be a character or cell
+(define (cellvector-set! clv idx c)
+  (bytevector-s32-native-set! clv (cell<< idx) (if (char? c) (cell c) c)))
 
-(define (cellvector-set/char! clv idx ch)
+;; replace character at index idx, keeping the current colors
+(define (cellvector-update/char! clv idx ch)
   (let ((palette (cell->palette (cellvector-ref clv idx))))
     (cellvector-set! clv idx (cell ch palette))))
 
-(define (cellvector-set/colors! clv idx cols)
+;; replace the colors at index idx, keeping the current character
+(define (cellvector-update/colors! clv idx cols)
   (let ((ch (cell->char (cellvector-ref clv idx))))
     (cellvector-set! clv idx (cell ch cols))))
 
-(define (cellvector-set/palette! clv idx palette)
+;; replace the palette at index idx, keeping the current character
+(define (cellvector-update/palette! clv idx palette)
   (let ((ch (cell->char (cellvector-ref clv idx))))
     (cellvector-set! clv idx (cell ch palette))))
 
 
+;; c must be a character or cell
 (define cellvector-fill!
   (case-lambda
-    ((clv start end cell)
+    ((clv start end c)
       (assert* 'cellvector-fill! (fx<=?* 0 start end (cellvector-length clv)))
-      (assert* 'cellvector-fill! (cell? cell))
+      (unless (char? c)
+        (assert* 'cellvector-fill! (cell? c)))
       (let* ((bstart (cell<< start))
              (bend   (cell<< end))
-             (u8     (bitwise-and cell #xff)))
-        (if (= cell (* #x1010101 u8))
+             (cl     (if (char? c) (cell c) c))
+             (u8     (bitwise-and cl #xff)))
+        (if (= cl (* #x1010101 u8))
           (subbytevector-fill! clv bstart bend u8)
           (do ((bi bstart (fx+ bi cell-bytes)))
               ((fx>=? bi bend))
-            (bytevector-s32-native-set! clv bi cell)))))
-    ((clv cell)
-      (cellvector-fill! clv 0 (cellvector-length clv) cell))))
+            (bytevector-s32-native-set! clv bi cl)))))
+    ((clv c)
+      (cellvector-fill! clv 0 (cellvector-length clv) c))))
 
 
 ;; copy n cells from a cellvector to another one
@@ -164,14 +172,16 @@
 
 
 
-;; convert cell list to cellvector
-(define (list->cellvector l)
-  (let* ((n   (length l))
+;; convert list of cells or characters to cellvector
+(define (list->cellvector c-list)
+  (let* ((n   (length c-list))
          (dst (make-cellvector n)))
     (do ((i 0 (fx1+ i))
-         (tail l (cdr tail)))
+         (tail c-list (cdr tail)))
         ((null? tail) dst)
-      (cellvector-set! dst i (car tail)))))
+      (let* ((c (car tail))
+             (cl (if (char? c) (cell c) c)))
+        (cellvector-set! dst i cl)))))
 
 
 ;; convert a portion of string to cellvector

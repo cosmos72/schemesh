@@ -64,9 +64,9 @@
       (%make-cellspan 0 n (make-cellvector n fill)))))
 
 
-;; convert cell list to cellspan
-(define (list->cellspan l)
-  (let ((clv (list->cellvector l)))
+;; c-list must be a list of cells or characters
+(define (list->cellspan c-list)
+  (let ((clv (list->cellvector c-list)))
     (%make-cellspan 0 (cellvector-length clv) clv)))
 
 
@@ -86,9 +86,9 @@
     ((csp)
       (cellspan->string csp 0 (cellspan-length csp)))))
 
-
-(define (cellspan . cl-list)
-  (list->cellspan cl-list))
+;; c-list must be a list of cells or characters
+(define (cellspan . c-list)
+  (list->cellspan c-list))
 
 (define (cellspan-length csp)
   (fx- (cellspan-end csp) (cellspan-beg csp)))
@@ -122,16 +122,18 @@
     ((csp)
       (cellspan-ref-right csp 0))))
 
-(define (cellspan-set! csp idx cl)
+;; c must be a character or cell
+(define (cellspan-set! csp idx c)
   (assert* 'cellspan-set! (fx<? -1 idx (cellspan-length csp)))
-  (cellvector-set! (cellspan-vec csp) (fx+ idx (cellspan-beg csp)) cl))
+  (cellvector-set! (cellspan-vec csp) (fx+ idx (cellspan-beg csp)) c))
 
+;; c must be a character or cell
 (define cellspan-fill!
   (case-lambda
-    ((csp start end cl)
+    ((csp start end c)
       (assert* 'cellspan-fill! (fx<=?* 0 start end (cellspan-length csp)))
       (let ((offset (cellspan-beg csp)))
-        (cellvector-fill! (cellspan-vec csp) (fx+ offset start) (fx+ offset end) cl)))
+        (cellvector-fill! (cellspan-vec csp) (fx+ offset start) (fx+ offset end) c)))
     ((csp cell)
       (cellspan-fill! csp 0 (cellspan-length csp) cell))))
 
@@ -240,23 +242,26 @@
   (assert* 'cellspan-resize-right! (fx>=? (cellspan-capacity-right csp) len))
   (cellspan-end-set! csp (fx+ len (cellspan-beg csp))))
 
-(define (cellspan-insert-left! csp . cl-list)
-  (unless (null? cl-list)
+
+;; c-list must be a list of cells or characters
+(define (cellspan-insert-left! csp . c-list)
+  (unless (null? c-list)
     (let ((pos 0)
-          (new-len (fx+ (cellspan-length csp) (length cl-list))))
+          (new-len (fx+ (cellspan-length csp) (length c-list))))
       (cellspan-resize-left! csp new-len)
-      (for-list ((ch cl-list))
+      (for-list ((ch c-list))
         (cellspan-set! csp pos ch)
         (set! pos (fx1+ pos))))))
 
 
-(define (cellspan-insert-right! csp . cl-list)
-  (unless (null? cl-list)
+;; c-list must be a list of cells or characters
+(define (cellspan-insert-right! csp . c-list)
+  (unless (null? c-list)
     (let* ((pos (cellspan-length csp))
-           (new-len (fx+ pos (length cl-list))))
+           (new-len (fx+ pos (length c-list))))
       (cellspan-resize-right! csp new-len)
-      (for-list ((ch cl-list))
-        (cellspan-set! csp pos ch)
+      (for-list ((c c-list))
+        (cellspan-set! csp pos c)
         (set! pos (fx1+ pos))))))
 
 
@@ -371,7 +376,7 @@
 (record-writer (record-type-descriptor %cellspan)
   (lambda (csp port writer)
     (display "(string->cellspan " port)
-    (write (cellspan->string csp) port)
+    (cellvector-write (cellspan-vec csp)(cellspan-beg csp) (cellspan-end csp) port)
     (display ")" port)))
 
 ) ; close library
