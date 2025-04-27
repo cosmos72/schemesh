@@ -13,11 +13,12 @@
 
 (library (schemesh containers cellvector (0 8 3))
   (export
-    cell cell? cell->char cell->tty-palette cell->tty-colors
+    cell cell? cell->char cell->palette cell->colors
 
     make-cellvector list->cellvector string->cellvector cellvector->string
     cellvector-length cellvector-empty? cellvector-ref
-    cellvector-set! cellvector-fill! cellvector-copy!
+    cellvector-set! cellvector-set/char! cellvector-set/colors! cellvector-set/palette!
+    cellvector-fill! cellvector-copy!
 
     cellvector-display cellvector-write)
 
@@ -70,11 +71,11 @@
 (define (cell->char cl)
   (integer->char* (fxand cl char-max)))
 
-(define (cell->tty-palette cl)
+(define (cell->palette cl)
   (fx>> cl char-bits))
 
-(define (cell->tty-colors cl)
-  (tty-palette->colors (cell->tty-palette cl)))
+(define (cell->colors cl)
+  (tty-palette->colors (cell->palette cl)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -112,6 +113,18 @@
 
 (define (cellvector-set! clv idx cl)
   (bytevector-s32-native-set! clv (cell<< idx) cl))
+
+(define (cellvector-set/char! clv idx ch)
+  (let ((palette (cell->palette (cellvector-ref clv idx))))
+    (cellvector-set! clv idx (cell ch palette))))
+
+(define (cellvector-set/colors! clv idx cols)
+  (let ((ch (cell->char (cellvector-ref clv idx))))
+    (cellvector-set! clv idx (cell ch cols))))
+
+(define (cellvector-set/palette! clv idx palette)
+  (let ((ch (cell->char (cellvector-ref clv idx))))
+    (cellvector-set! clv idx (cell ch palette))))
 
 
 (define cellvector-fill!
@@ -180,7 +193,7 @@
       (cellvector->string clv 0 (cellvector-length clv)))))
 
 
-;; display cellvector, including colors, to textual output port
+;; display a range of cellvector, including colors, to textual output port
 (define cellvector-display
   (case-lambda
     ((clv start end port)
@@ -189,7 +202,7 @@
             ((fx>=? i end))
           (let* ((cell    (cellvector-ref clv i))
                  (ch      (cell->char cell))
-                 (palette (cell->tty-palette cell)))
+                 (palette (cell->palette cell)))
             (unless (fx=? palette old-palette)
               (tty-palette-display palette port)
               (set! old-palette palette))
@@ -203,17 +216,17 @@
 
 
 
-;; write cellvector, including colors, to textual output port
+;; write a range of cellvector, including colors, to textual output port
 (define cellvector-write
   (case-lambda
     ((clv start end port)
-      (put-char port #\")
+      (put-string port "(string->cellvector \"")
       (let ((old-palette 0))
         (do ((i start (fx1+ i)))
             ((fx>=? i end))
           (let* ((cell    (cellvector-ref clv i))
                  (ch      (cell->char cell))
-                 (palette (cell->tty-palette cell)))
+                 (palette (cell->palette cell)))
             (unless (fx=? palette old-palette)
               (tty-palette-display palette port)
               (set! old-palette palette))

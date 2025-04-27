@@ -23,10 +23,14 @@
     (schemesh containers span))
 
 
-(define-syntax palette-bits (identifier-syntax 9))
-(define-syntax palette-min  (identifier-syntax #x-100))
-(define-syntax palette-max  (identifier-syntax #xff))
-(define-syntax palette-n    (identifier-syntax #x200))
+(define-syntax palette-bits (meta-cond ((fixnum? #x7fffffff) (identifier-syntax 11))
+                                       (else                 (identifier-syntax 9))))
+(define-syntax palette-min  (meta-cond ((fixnum? #x7fffffff) (identifier-syntax #x-400))
+                                       (else                 (identifier-syntax #x-100))))
+(define-syntax palette-max  (meta-cond ((fixnum? #x7fffffff) (identifier-syntax #x3ff))
+                                       (else                 (identifier-syntax #xff))))
+(define-syntax palette-n    (meta-cond ((fixnum? #x7fffffff) (identifier-syntax #x800))
+                                       (else                 (identifier-syntax #x200))))
 
 (define-syntax color-min  (identifier-syntax #x-100))
 (define-syntax color-max  (identifier-syntax #xffffff))
@@ -83,13 +87,13 @@
 ;; #f is NOT a valid tty-colors.
 (define-record-type (%colors %make-colors tty-colors?)
   (fields
-    (immutable fg      tty-colors->fg)
-    (immutable bg      tty-colors->bg)
-    (immutable palette tty-colors->palette))
+    (immutable fg      tty-colors->fg)        ; tty-color
+    (immutable bg      tty-colors->bg)        ; tty-color
+    (immutable palette tty-colors->palette))  ; tty-palette
   (nongenerative %colors-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
-;; global conversion table palette -> tty-colors.
+;; global conversion table tty-palette -> tty-colors.
 (define palette-span (span (%make-colors #f #f 0)))
 
 ;; global conversion table fg -> bg -> tty-colors.
@@ -206,7 +210,7 @@
 ;; customize how "tty-colors" objects are printed
 (record-writer (record-type-descriptor %colors)
   (lambda (cols port writer)
-    (display "(tty-color " port)
+    (display "(tty-colors " port)
     (tty-color-write (tty-colors->fg cols) port)
     (display " " port)
     (tty-color-write (tty-colors->bg cols) port)
