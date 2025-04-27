@@ -10,7 +10,7 @@
 
 (library (schemesh containers palette (0 8 3))
   (export
-    tty-color? tty-rgb24 tty-rgb8 tty-rgb4 tty-gray5
+    tty-color? tty-rgb24 tty-rgb8 tty-rgb4 tty-gray5 symbol->tty-rgb4
     tty-colors tty-colors? tty-colors->fg tty-colors->bg tty-colors->palette
     tty-palette? tty-palette->colors
 
@@ -19,6 +19,7 @@
     (rnrs)
     (only (chezscheme)                    fx1- meta-cond record-writer)
     (only (schemesh bootstrap)            assert*)
+    (only (schemesh containers list)      list-index)
     (only (schemesh containers hashtable) eqv-hashtable)
     (schemesh containers span))
 
@@ -77,6 +78,21 @@
   (assert* 'tty-rgb4 (fx<=? 0 b 1))
   (assert* 'tty-rgb4 (fx<=? 0 high 1))
   (fxnot (fxior r (fx<< g 1) (fx<< b 2) (fx<< high 3))))
+
+;; create and return tty-color indicating ANSI/VGA color.
+;; name must be one of the symbols:
+;;  'black 'red 'green 'yellow 'blue 'magenta 'cyan 'white
+;; if high is truish, create and return high intensity color
+(define symbol->tty-rgb4
+  (let ((names '(black red green yellow blue magenta cyan white)))
+    (case-lambda
+      ((name high?)
+        (let ((idx (list-index (lambda (e) (eq? e name)) names)))
+          (unless idx
+            (assert* 'symbol->tty-rgb4 (memq name names)))
+          (fxnot (fxior idx (if high? 8 0)))))
+      ((name)
+        (symbol->tty-rgb4 name #f)))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
