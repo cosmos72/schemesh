@@ -289,44 +289,36 @@
       (cellspan-insert-right/cellspan! csp-dst csp-src 0 (cellspan-length csp-src)))))
 
 
-#|
-;; insert range [start, end) of string vec-src at the beginning of cellspan csp-dst
+;; insert range [start, end) of string str-src at the beginning of cellspan csp-dst
 (define cellspan-insert-left/string!
   (case-lambda
-    ((csp-dst vec-src src-start src-end)
-      (assert* 'cellspan-insert-left/string! (fx<=?* 0 src-start src-end (string-length vec-src)))
-      (when (fx<? src-start src-end)
-        ;; check for (not (eq? src dst)) only if dst is non-empty,
-        ;; because reusing the empty string is a common optimization of Scheme compilers
-        (assert-not* 'cellspan-insert-left/string! (eq? (cellspan-vec csp-dst) vec-src))
+    ((csp-dst str-src src-start src-end)
+      (assert* 'cellspan-insert-left/string! (fx<=?* 0 src-start src-end (string-length str-src)))
+      (unless (fx=? src-start src-end)
         (let ((src-n (fx- src-end src-start)))
           (cellspan-resize-left! csp-dst (fx+ src-n (cellspan-length csp-dst)))
-          (string-copy! vec-src src-start
-                        (cellspan-vec csp-dst) (cellspan-beg csp-dst)
-                        src-n))))
-    ((csp-dst vec-src)
-      (cellspan-insert-left/string! csp-dst vec-src 0 (string-length vec-src)))))
+          (cellvector-copy/string! str-src src-start
+                                   (cellspan-vec csp-dst) (cellspan-beg csp-dst)
+                                   src-n))))
+    ((csp-dst str-src)
+      (cellspan-insert-left/string! csp-dst str-src 0 (string-length str-src)))))
 
 
-;; append range [start, end) of string vec-src at the end of cellspan csp-dst
+;; append range [start, end) of string str-src at the end of cellspan csp-dst
 (define cellspan-insert-right/string!
   (case-lambda
-    ((csp-dst vec-src src-start src-end)
-      (assert* 'cellspan-insert-right/string! (fx<=?* 0 src-start src-end (string-length vec-src)))
+    ((csp-dst str-src src-start src-end)
+      (assert* 'cellspan-insert-right/string! (fx<=?* 0 src-start src-end (string-length str-src)))
       (when (fx<? src-start src-end)
-        ;; check for (not (eq? src dst)) only if dst is non-empty,
-        ;; because reusing the empty string is a common optimization of Scheme compilers
-        (assert-not* 'cellspan-insert-right/string! (eq? (cellspan-vec csp-dst) vec-src))
         (let ((pos (cellspan-length csp-dst))
               (src-n (fx- src-end src-start)))
           (cellspan-resize-right! csp-dst (fx+ pos src-n))
-          (string-copy! vec-src src-start
-                        (cellspan-vec csp-dst) (fx- (cellspan-end csp-dst) src-n)
-                        src-n))))
-    ((csp-dst vec-src)
-      (cellspan-insert-right/string! csp-dst vec-src 0 (string-length vec-src)))))
+          (cellvector-copy/string! str-src src-start
+                                   (cellspan-vec csp-dst) (fx- (cellspan-end csp-dst) src-n)
+                                   src-n))))
+    ((csp-dst str-src)
+      (cellspan-insert-right/string! csp-dst str-src 0 (string-length str-src)))))
 
-|#
 
 ;; erase n elements at the left (front) of cellspan
 (define (cellspan-delete-left! csp n)

@@ -18,7 +18,7 @@
     make-cellvector list->cellvector string->cellvector cellvector->string
     cellvector-length cellvector-empty? cellvector-ref
     cellvector-set! cellvector-set/char! cellvector-set/colors! cellvector-set/palette!
-    cellvector-fill! cellvector-copy!
+    cellvector-fill! cellvector-copy! cellvector-copy/string!
 
     cellvector-display cellvector-write)
 
@@ -152,6 +152,17 @@
                     dst (cell<< dst-start) (cell<< n)))
 
 
+;; copy n characters from a string to a cellvector
+(define (cellvector-copy/string! str-src src-start clv-dst dst-start n)
+  (assert* 'cellvector-copy/string! (fx<=?* 0 src-start (fx+ src-start n) (string-length str-src)))
+  (assert* 'cellvector-copy/string! (fx<=?* 0 dst-start (fx+ dst-start n) (cellvector-length clv-dst)))
+  (do ((si src-start (fx1+ si))
+       (di dst-start (fx1+ di))
+       (dend (fx+ dst-start n)))
+      ((fx>=? di dend))
+    (cellvector-set! clv-dst di (cell (string-ref str-src si)))))
+
+
 
 ;; convert cell list to cellvector
 (define (list->cellvector l)
@@ -220,7 +231,7 @@
 (define cellvector-write
   (case-lambda
     ((clv start end port)
-      (put-string port "(string->cellvector \"")
+      (put-char port #\")
       (let ((old-palette 0))
         (do ((i start (fx1+ i)))
             ((fx>=? i end))
