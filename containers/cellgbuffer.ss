@@ -17,15 +17,15 @@
     in-cellgbuffer list->cellgbuffer string->cellgbuffer
     cellspan->cellgbuffer cellspan->cellgbuffer*
     make-cellgbuffer cellgbuffer cellgbuffer?
-    cellgbuffer->cellspans*
     cellgbuffer-length cellgbuffer-empty?
     cellgbuffer-ref cellgbuffer-set! cellgbuffer-clear! cellgbuffer-split-at!
     cellgbuffer-insert-at! cellgbuffer-insert-at/cellspan! cellgbuffer-insert-at/cellgbuffer!
-    cellgbuffer-delete! cellgbuffer-iterate)
+    cellgbuffer-delete! cellgbuffer-iterate cellgbuffer-write)
   (import
     (rnrs)
-    (only (chezscheme) fx1+ fx/ record-writer void)
-    (only (schemesh bootstrap) assert* assert-not* fx<=?*)
+    (only (chezscheme)                  fx1+ fx/ record-writer void)
+    (only (schemesh bootstrap)          assert* assert-not* fx<=?*)
+    (only (schemesh containers palette) cell->char cell->palette tty-palette-display)
     (schemesh containers cellspan))
 
 (define-record-type (%cellgbuffer %make-cellgbuffer cellgbuffer?)
@@ -59,16 +59,6 @@
     ((n fill) (%make-cellgbuffer (make-cellspan (fx/ n 2) fill) (make-cellspan (fx/ (fx1+ n) 2) fill)))))
 
 
-;; view a cellgbuffer as two cellspans.
-;;
-;; modifications to the returned cellspans will propagate to the cellgbuffer
-;; (and vice-versa) until the cellgbuffer reallocates its internal storage.
-;;
-;; returns two values: the two cellspans
-(define (cellgbuffer->cellspans* cgb)
-  (values (c< cgb) (c> cgb)))
-
-
 ;; create a cellgbuffer from zero or more cellacters
 (define (cellgbuffer . cells)
   (list->cellgbuffer cells))
@@ -88,12 +78,13 @@
       (cellspan-ref (c< cgb) idx)
       (cellspan-ref (c> cgb) (fx- idx left-n)))))
 
-(define (cellgbuffer-set! cgb idx ch)
+;; c must be a character or cell
+(define (cellgbuffer-set! cgb idx c)
   (assert* 'cellgbuffer-set! (fx<? -1 idx (cellgbuffer-length cgb)))
   (let ((left-n (cellspan-length (c< cgb))))
     (if (fx<? idx left-n)
-      (cellspan-set! (c< cgb) idx ch)
-      (cellspan-set! (c> cgb) (fx- idx left-n) ch))))
+      (cellspan-set! (c< cgb) idx c)
+      (cellspan-set! (c> cgb) (fx- idx left-n) c))))
 
 (define (cellgbuffer-clear! cgb)
   (cellspan-clear! (c< cgb))
@@ -112,8 +103,8 @@
         (cellspan-insert-left/cellspan! right left idx (fx- idx delta))
         (cellspan-delete-right! left (fx- delta))))))
 
-;; insert one cell into cellgbuffer at position idx
-(define (cellgbuffer-insert-at! cgb idx ch)
+;; insert one character or cell into cellgbuffer at position idx
+(define (cellgbuffer-insert-at! cgb idx c)
   (assert* 'cellgbuffer-insert-at! (fx<=? 0 idx (cellgbuffer-length cgb)))
   (let* ((left   (c< cgb))
          (right  (c> cgb))
@@ -121,12 +112,12 @@
          (delta  (fx- idx left-n)))
     (cond
       ((fxzero? idx)
-        (cellspan-insert-left! left ch))
+        (cellspan-insert-left! left c))
       ((fx=? idx (cellgbuffer-length cgb))
-        (cellspan-insert-right! right ch))
+        (cellspan-insert-right! right c))
       (else
         (cellgbuffer-split-at! cgb idx)
-        (cellspan-insert-right! left ch)))))
+        (cellspan-insert-right! left c)))))
 
 
 ;; read elements in range [src-start, src-end) from cellspan csp-src
@@ -241,11 +232,37 @@
     ((or (fx>=? i n) (not (proc i (cellgbuffer-ref cgb i))))
      (fx>=? i n))))
 
+
+(define cellgbuffer-write
+  (case-lambda
+    ((cgb start end port)
+      (assert* 'cellgbuffer-write (fx<=?* 0 start end (cellgbuffer-length cgb)))
+      (put-char port #\")
+      (let ((old-palette 0))
+        (do ((i start (fx1+ i)))
+            ((fx>=? i end))
+          (let* ((cell    (cellgbuffer-ref cgb i))
+                 (ch      (cell->char cell))
+                 (palette (cell->palette cell)))
+            (unless (fx=? palette old-palette)
+              (tty-palette-display palette port)
+              (set! old-palette palette))
+            (if (and (char<=? #\space ch #\~) (not (char=? ch #\")) (not (char=? ch #\\)))
+              (put-char port ch)
+              (let ((n (char->integer ch)))
+                (put-string port "\\x")
+                (display (number->string n 16) port)
+                (put-char port #\;))))))
+      (put-char port #\"))
+    ((cgb port)
+      (cellgbuffer-write cgb 0 (cellgbuffer-length cgb) port))))
+
+
 ;; customize how "cellgbuffer" objects are printed
 (record-writer (record-type-descriptor %cellgbuffer)
   (lambda (cgb port writer)
-    (display "(string->cellgbuffer* " port)
-    (display "..." port) ;; (write (cellgbuffer->string cgb) port)
+    (display "(string->cellgbuffer " port)
+    (cellgbuffer-write cgb port)
     (display ")" port)))
 
 ) ; close library

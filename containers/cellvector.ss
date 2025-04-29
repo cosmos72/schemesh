@@ -13,9 +13,7 @@
 
 (library (schemesh containers cellvector (0 8 3))
   (export
-    cell cell? cell->char cell->palette cell->colors
-
-    make-cellvector list->cellvector string->cellvector cellvector->string
+    make-cellvector list->cellvector string->cellvector
     cellvector-length cellvector-empty? cellvector-ref
     cellvector-set! cellvector-update/char! cellvector-update/colors! cellvector-update/palette!
     cellvector-fill! cellvector-copy! cellvector-copy/string!
@@ -28,19 +26,14 @@
     (only (chezscheme)                     fx1+ fx1- fx/ meta-cond)
     (only (schemesh bootstrap)             assert* assert-not* fx<=?*)
     (only (schemesh containers bytevector) subbytevector-fill!)
-    (schemesh containers palette)
-    (only (schemesh containers utf8b)      integer->char*))
+    (schemesh containers palette))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 (define-syntax cell-bytes-log2 (identifier-syntax 2))
 (define-syntax cell-bytes      (identifier-syntax 4))
-(define-syntax cell-min        (identifier-syntax #x-20000000))
-(define-syntax cell-max        (identifier-syntax #x1fffffff))
-
-(define-syntax char-bits       (identifier-syntax 21))
-(define-syntax char-max        (identifier-syntax #x1fffff))
 
 (define-syntax fx<< (identifier-syntax fxarithmetic-shift-left))
 (define-syntax fx>> (identifier-syntax fxarithmetic-shift-right))
@@ -52,30 +45,6 @@
 (define-syntax cell>>
   (syntax-rules ()
     ((_ expr) (fx>> expr cell-bytes-log2))))
-
-
-(define (cell? cl)
-  (and (fixnum? cl)  (fx<=? cell-min cl cell-max)))
-
-(define cell
-  (case-lambda
-    ((ch)
-      (char->integer ch))
-    ((ch palette-or-tty-colors)
-      (let ((palette (if (tty-palette? palette-or-tty-colors)
-                       palette-or-tty-colors
-                       (tty-colors->palette palette-or-tty-colors))))
-        (fxior (fx<< palette char-bits) (char->integer ch))))))
-
-
-(define (cell->char cl)
-  (integer->char* (fxand cl char-max)))
-
-(define (cell->palette cl)
-  (fx>> cl char-bits))
-
-(define (cell->colors cl)
-  (tty-palette->colors (cell->palette cl)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -197,21 +166,6 @@
           (cellvector-set! dst di (cell (string-ref str si))))))
     ((str)
       (string->cellvector str 0 (string-length str)))))
-
-
-;; convert a portion of cellvector to string
-(define cellvector->string
-  (case-lambda
-    ((clv start end)
-      (assert* 'cellvector->string (fx<=?* 0 start end (cellvector-length clv)))
-      (let* ((n   (fx- end start))
-             (dst (make-string n)))
-        (do ((si start (fx1+ si))
-             (di   0   (fx1+ di)))
-            ((fx>=? di n) dst)
-          (string-set! dst di (cell->char (cellvector-ref clv si))))))
-    ((clv)
-      (cellvector->string clv 0 (cellvector-length clv)))))
 
 
 ;; display a range of cellvector, including colors, to textual output port

@@ -45,7 +45,7 @@
   (parent %chargbuffer)
   (fields
     (mutable share) ; a cons (share-count . #f)
-    (mutable dirty-x-start charline-dirty-start-x charline-dirty-start-x-set!)
+    (mutable dirty-start-x charline-dirty-start-x charline-dirty-start-x-set!)
     (mutable dirty-end-x   charline-dirty-end-x   charline-dirty-end-x-set!))
   (nongenerative %charline-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 

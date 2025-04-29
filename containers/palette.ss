@@ -10,6 +10,8 @@
 
 (library (schemesh containers palette (0 8 3))
   (export
+    cell cell? cell->char cell->palette cell->colors
+
     tty-color? tty-rgb24 tty-rgb8 tty-rgb4 tty-gray5 symbol->tty-rgb4
     tty-colors tty-colors? tty-colors->fg tty-colors->bg tty-colors->palette
     tty-palette? tty-palette->colors
@@ -21,7 +23,16 @@
     (only (schemesh bootstrap)            assert*)
     (only (schemesh containers list)      list-index)
     (only (schemesh containers hashtable) eqv-hashtable)
-    (schemesh containers span))
+    (schemesh containers span)
+    (only (schemesh containers utf8b)      integer->char*))
+
+(define-syntax cell-bytes-log2 (identifier-syntax 2))
+(define-syntax cell-bytes      (identifier-syntax 4))
+(define-syntax cell-min        (identifier-syntax #x-20000000))
+(define-syntax cell-max        (identifier-syntax #x1fffffff))
+
+(define-syntax char-bits       (identifier-syntax 21))
+(define-syntax char-max        (identifier-syntax #x1fffff))
 
 
 (define-syntax palette-bits (meta-cond ((fixnum? #x7fffffff) (identifier-syntax 11))
@@ -39,6 +50,33 @@
 (define-syntax fx<< (identifier-syntax fxarithmetic-shift-left))
 (define-syntax fx>> (identifier-syntax fxarithmetic-shift-right))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; cell is a colored char, contains a palette to indicate the fg ad bg colors
+(define (cell? cl)
+  (and (fixnum? cl)  (fx<=? cell-min cl cell-max)))
+
+(define cell
+  (case-lambda
+    ((ch)
+      (char->integer ch))
+    ((ch palette-or-tty-colors)
+      (let ((palette (if (tty-palette? palette-or-tty-colors)
+                       palette-or-tty-colors
+                       (tty-colors->palette palette-or-tty-colors))))
+        (fxior (fx<< palette char-bits) (char->integer ch))))))
+
+
+(define (cell->char cl)
+  (integer->char* (fxand cl char-max)))
+
+(define (cell->palette cl)
+  (fx>> cl char-bits))
+
+(define (cell->colors cl)
+  (tty-palette->colors (cell->palette cl)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -20,4 +20,5 @@
     (schemesh lineedit paren)
     (schemesh lineedit parenmatcher)
     (schemesh lineedit parser)
+    (schemesh lineedit vline)
     (schemesh lineedit vscreen)))

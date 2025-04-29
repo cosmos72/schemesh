@@ -39,7 +39,6 @@
   (list->cellspan '(#\i #\j #\k #\l))              ,(string->cellspan "ijkl")
   (string->cellspan "pqrst")                       ,(string->cellspan "pqrst")
   (string->cellspan "ouh[()&*U")                   ,(string->cellspan "ouh[()&*U")
-  (cellspan->string (string->cellspan "pqrst"))    "pqrst"
   (cellspan-length (cellspan #\a #\b #\c))         3
   (cellspan-capacity-right (cellspan #\a #\b #\c)) 3
   (cellspan-empty? (cellspan))                     #t
@@ -69,11 +68,6 @@
     (cellspan-index sp
       (lambda (elem) (eq? #\b elem))))             2
   |#
-  (string->utf8b (cellspan->string (string->cellspan
-    "\x7c; \xdcce;\xdc98; \xdce0;\xdca4;\xdcb9; \xdcf0;\xdc90;\xdc8d;\xdc88;")))
-                                                   #vu8(124 32 206 152 32 224 164 185 32 240 144 141 136)
-  (text->bytevector (cellspan->string (string->cellspan
-    "123\x0;")))                                   #vu8(49 50 51 0)
   ;; ----------------------- charspan -------------------------------------
   (charspan #\1 #\2 #\3)                           ,(string->charspan* "123")
   (list->charspan '(#\i #\j #\k #\l))              ,(string->charspan* "ijkl")

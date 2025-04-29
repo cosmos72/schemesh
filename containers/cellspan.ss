@@ -13,7 +13,7 @@
 
 (library (schemesh containers cellspan (0 8 3))
   (export
-    list->cellspan string->cellspan make-cellspan cellspan->string
+    list->cellspan string->cellspan make-cellspan
     cellspan cellspan? assert-cellspan? cellspan-length cellspan-empty? cellspan-clear!
     cellspan-capacity cellspan-capacity-left cellspan-capacity-right
     cellspan-ref cellspan-ref-right
@@ -24,7 +24,8 @@
     #|
     cellspan-insert-left/string! cellspan-insert-right/string!
     |#
-    cellspan-delete-left!        cellspan-delete-right! cellspan-iterate in-cellspan)
+    cellspan-delete-left!        cellspan-delete-right! cellspan-iterate in-cellspan
+    cellspan-write)
 
   (import
     (rnrs)
@@ -75,16 +76,6 @@
   (let ((n (string-length str)))
     (%make-cellspan 0 n (string->cellvector str))))
 
-
-;; convert a portion of cellspan to string
-(define cellspan->string
-  (case-lambda
-    ((csp start end)
-      (assert* 'cellspan->string (fx<=?* 0 start end (cellspan-length csp)))
-      (let ((offset (cellspan-beg csp)))
-        (cellvector->string (cellspan-vec csp) (fx+ offset start) (fx+ offset end))))
-    ((csp)
-      (cellspan->string csp 0 (cellspan-length csp)))))
 
 ;; c-list must be a list of cells or characters
 (define (cellspan . c-list)
@@ -243,26 +234,47 @@
   (cellspan-end-set! csp (fx+ len (cellspan-beg csp))))
 
 
-;; c-list must be a list of cells or characters
-(define (cellspan-insert-left! csp . c-list)
-  (unless (null? c-list)
-    (let ((pos 0)
-          (new-len (fx+ (cellspan-length csp) (length c-list))))
-      (cellspan-resize-left! csp new-len)
-      (for-list ((ch c-list))
-        (cellspan-set! csp pos ch)
-        (set! pos (fx1+ pos))))))
+;; each c must be a character or cell
+(define cellspan-insert-left!
+  (case-lambda
+    ((csp)
+      (void))
+    ((csp c1)
+      (cellspan-resize-left! csp (fx1+ (cellspan-length csp)))
+      (cellspan-set! csp 0 c1))
+    ((csp c1 c2)
+      (cellspan-resize-left! csp (fx+ 2 (cellspan-length csp)))
+      (cellspan-set! csp 0 c1)
+      (cellspan-set! csp 1 c2))
+    ((csp . c-list)
+      (cellspan-resize-left! csp (fx+ (cellspan-length csp) (length c-list)))
+      (do ((pos 0 (fx1+ pos))
+           (tail c-list (cdr tail)))
+          ((null? tail))
+        (cellspan-set! csp pos (car tail))))))
 
 
-;; c-list must be a list of cells or characters
-(define (cellspan-insert-right! csp . c-list)
-  (unless (null? c-list)
-    (let* ((pos (cellspan-length csp))
-           (new-len (fx+ pos (length c-list))))
-      (cellspan-resize-right! csp new-len)
-      (for-list ((c c-list))
-        (cellspan-set! csp pos c)
-        (set! pos (fx1+ pos))))))
+;; each c must be a character or cell
+(define cellspan-insert-right!
+  (case-lambda
+    ((csp)
+      (void))
+    ((csp c1)
+      (let ((len (cellspan-length csp)))
+        (cellspan-resize-right! csp (fx1+ len))
+        (cellspan-set! csp len c1)))
+    ((csp c1 c2)
+      (let ((len (cellspan-length csp)))
+        (cellspan-resize-right! csp (fx+ 2 len))
+        (cellspan-set! csp len c1)
+        (cellspan-set! csp (fx1+ len) c2)))
+    ((csp . c-list)
+      (let ((len (cellspan-length csp)))
+        (cellspan-resize-right! csp (fx+ len (length c-list)))
+        (do ((pos len (fx1- pos))
+             (tail c-list (cdr tail)))
+            ((null? tail))
+          (cellspan-set! csp pos (car tail)))))))
 
 
 ;; insert range [start, end) of cellspan csp-src at the beginning of cellspan csp-dst
@@ -371,12 +383,21 @@
         (fx>=? i end)))))
 
 
+(define cellspan-write
+  (case-lambda
+    ((csp start end port)
+      (assert* 'cellspan-display! (fx<=?* 0 start end (cellspan-length csp)))
+      (let ((offset (cellspan-beg csp)))
+        (cellvector-write (cellspan-vec csp) (fx+ offset start) (fx+ offset end) port)))
+    ((csp port)
+      (cellvector-write (cellspan-vec csp) (cellspan-beg csp) (cellspan-end csp) port))))
+
 
 ;; customize how cellspan objects are printed
 (record-writer (record-type-descriptor %cellspan)
   (lambda (csp port writer)
     (display "(string->cellspan " port)
-    (cellvector-write (cellspan-vec csp)(cellspan-beg csp) (cellspan-end csp) port)
+    (cellspan-write csp port)
     (display ")" port)))
 
 ) ; close library
