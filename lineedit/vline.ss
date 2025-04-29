@@ -9,14 +9,14 @@
 
 (library (schemesh lineedit vline (0 8 3))
   (export
-    vline vline? string->vline
-    assert-vline? vline-nl? vline-copy-on-write vline-empty?
+    vline vline? assert-vline?
+    vline-nl? vline-copy-on-write vline-empty?
     vline-length vline-ref vline-ref/char vline-at vline-at/char
     vline-equal/chars? vline-set! vline-clear!
     vline-delete! vline-insert-at! vline-insert-at/cellspan! vline-insert-at/cellgbuffer!
     vline-index vline-index-right vline-index/char vline-count vline-count-right
     vline-dirty-start-x vline-dirty-end-x vline-dirty-x-add! vline-dirty-x-unset!
-    in-vline)
+    in-vline vline-write)
 
   (import
     (rnrs)
@@ -77,8 +77,14 @@
       (set-car! pair (fx1- count)))
     shared?))
 
-(define (vline)
-  (make-vline (cellspan) (cellspan)))
+(define vline
+  (case-lambda
+    (()
+      (make-vline (cellspan) (cellspan)))
+    ;; convert string to vline
+    ((str)
+      (make-vline (cellspan) (string->cellspan str)))))
+
 
 ;; Return a copy-on-write clone of specified vline.
 (define (vline-copy-on-write line)
@@ -291,17 +297,15 @@
       (in-vline line 0 (vline-length line) 1))))
 
 
-;; make a copy of string str and store it into a newly created vline
-;; return the created vline
-(define (string->vline str)
-  (make-vline (cellspan) (string->cellspan str)))
 
+;; write a textual representation of vline to output port
+(define vline-write cellgbuffer-write)
 
 ;; customize how "vline" objects are printed
 (record-writer (record-type-descriptor %vline)
   (lambda (line port writer)
-    (display "(string->vline " port)
-    (cellgbuffer-write line port)
+    (display "(vline " port)
+    (vline-write line port)
     (display ")" port)))
 
 ) ; close library

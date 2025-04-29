@@ -127,19 +127,19 @@
   (linectx-to-history* lctx)
   (vscreen-assign*! (linectx-vscreen lctx) lines))
 
-;; insert a single character into vscreen at cursor.
+;; insert a single character or cell into vscreen at cursor.
 ;; Also moves vscreen cursor one character to the right, and reflows vscreen as needed.
-(define (linectx-insert/char! lctx ch)
-  (vscreen-insert/char! (linectx-vscreen lctx) ch))
+(define (linectx-insert/c! lctx c)
+  (vscreen-insert/c! (linectx-vscreen lctx) c))
 
 
 ;; read chars in the range [start, end) from charspan csp,
 ;; and insert them into vscreen at cursor.
 ;; Also moves cursor (fx- end start) characters to the right, and reflows vscreen as needed.
-(define (linectx-insert/charspan! lctx csp start end)
-  (assert* 'linectx-insert/charspan! (fx<=?* 0 start end (charspan-length csp)))
+(define (linectx-insert/cellspan! lctx csp start end)
+  (assert* 'linectx-insert/cellspan! (fx<=?* 0 start end (cellspan-length csp)))
   (when (fx<? start end)
-    (vscreen-insert/charspan! (linectx-vscreen lctx) csp start end)))
+    (vscreen-insert/cellspan! (linectx-vscreen lctx) csp start end)))
 
 
 ;; read up to n bytes from bytespan bsp, starting at offset = start,
@@ -163,7 +163,7 @@
           ((eq? #t ch)
             (set! incomplete-utf8? #t))
           ((and (char? ch) (char>=? ch #\space))
-            (linectx-insert/char! lctx ch)))))
+            (linectx-insert/c! lctx ch)))))
     (fx- pos start))) ; return number of bytes actually inserted
 
 ;; read up to n bytes from rbuf and insert them into current line.

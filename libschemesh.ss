@@ -66,6 +66,7 @@
 
   (include "lineedit/ansi.ss")
   (include "lineedit/vline.ss")
+  (include "lineedit/vlines.ss")
   (include "lineedit/vscreen.ss")
   (include "lineedit/charhistory.ss")
   (include "lineedit/charhistory-io.ss")

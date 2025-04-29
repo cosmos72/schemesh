@@ -17,21 +17,19 @@
     cellspan cellspan? assert-cellspan? cellspan-length cellspan-empty? cellspan-clear!
     cellspan-capacity cellspan-capacity-left cellspan-capacity-right
     cellspan-ref cellspan-ref-right
-    cellspan-set! cellspan-fill! cellspan-copy cellspan-copy!
+    cellspan-set! cellspan-fill!  cellspan-copy cellspan-copy!
     cellspan-reserve-left! cellspan-reserve-right! cellspan-resize-left! cellspan-resize-right!
-    cellspan-insert-left!        cellspan-insert-right!
+    cellspan-insert-left!         cellspan-insert-right!
     cellspan-insert-left/cellspan!  cellspan-insert-right/cellspan!
-    #|
-    cellspan-insert-left/string! cellspan-insert-right/string!
-    |#
-    cellspan-delete-left!        cellspan-delete-right! cellspan-iterate in-cellspan
-    cellspan-write)
+    cellspan-delete-left!         cellspan-delete-right! cellspan-index cellspan-index/char
+    cellspan-iterate in-cellspan  cellspan-write)
 
   (import
     (rnrs)
     (only (chezscheme)                  fx1+ fx1- record-writer bytevector-truncate! void)
     (only (schemesh bootstrap)          assert* assert-not* fx<=?*)
     (only (schemesh containers list)    for-list)
+    (only (schemesh containers palette) cell->char)
     (schemesh containers cellvector))
 
 
@@ -291,6 +289,7 @@
       (cellspan-insert-left/cellspan! csp-dst csp-src 0 (cellspan-length csp-src)))))
 
 
+
 ;; append range [start, end) of cellspan csp-src at the end of cellspan csp-dst
 (define cellspan-insert-right/cellspan!
   (case-lambda
@@ -306,37 +305,6 @@
       (cellspan-insert-right/cellspan! csp-dst csp-src 0 (cellspan-length csp-src)))))
 
 
-;; insert range [start, end) of string str-src at the beginning of cellspan csp-dst
-(define cellspan-insert-left/string!
-  (case-lambda
-    ((csp-dst str-src src-start src-end)
-      (assert* 'cellspan-insert-left/string! (fx<=?* 0 src-start src-end (string-length str-src)))
-      (unless (fx=? src-start src-end)
-        (let ((src-n (fx- src-end src-start)))
-          (cellspan-resize-left! csp-dst (fx+ src-n (cellspan-length csp-dst)))
-          (cellvector-copy/string! str-src src-start
-                                   (cellspan-vec csp-dst) (cellspan-beg csp-dst)
-                                   src-n))))
-    ((csp-dst str-src)
-      (cellspan-insert-left/string! csp-dst str-src 0 (string-length str-src)))))
-
-
-;; append range [start, end) of string str-src at the end of cellspan csp-dst
-(define cellspan-insert-right/string!
-  (case-lambda
-    ((csp-dst str-src src-start src-end)
-      (assert* 'cellspan-insert-right/string! (fx<=?* 0 src-start src-end (string-length str-src)))
-      (when (fx<? src-start src-end)
-        (let ((pos (cellspan-length csp-dst))
-              (src-n (fx- src-end src-start)))
-          (cellspan-resize-right! csp-dst (fx+ pos src-n))
-          (cellvector-copy/string! str-src src-start
-                                   (cellspan-vec csp-dst) (fx- (cellspan-end csp-dst) src-n)
-                                   src-n))))
-    ((csp-dst str-src)
-      (cellspan-insert-right/string! csp-dst str-src 0 (string-length str-src)))))
-
-
 ;; erase n elements at the left (front) of cellspan
 (define (cellspan-delete-left! csp n)
   (assert* 'cellspan-delete-left! (fx<=? 0 n (cellspan-length csp)))
@@ -348,6 +316,33 @@
   (assert* 'cellspan-delete-right! (fx<=? 0 n (cellspan-length csp)))
   (unless (fxzero? n)
     (cellspan-end-set! csp (fx- (cellspan-end csp) n))))
+
+
+;; iterate on cellspan elements in range [start, end) and return the index
+;; of first element that causes (predicate elem) to return truish.
+;;
+;; Return #f if no such element is found.
+(define cellspan-index
+  (case-lambda
+    ((sp start end predicate)
+      (assert* 'cellspan-index (fx<=?* 0 start end (cellspan-length sp)))
+      (do ((i start (fx1+ i)))
+          ((or (fx>=? i end) (predicate (cellspan-ref sp i)))
+            (if (fx>=? i end) #f i))))
+    ((sp predicate)
+      (cellspan-index sp 0 (cellspan-length sp) predicate))))
+
+
+;; iterate on cellspan elements in range [start, end) and return
+;; the index of first cellspan element equal to character ch.
+;;
+;; Return #f if no such element is found.
+(define cellspan-index/char
+  (case-lambda
+    ((sp start end ch)
+      (cellspan-index sp start end (lambda (e) (char=? ch (cell->char e)))))
+    ((sp ch)
+      (cellspan-index sp (lambda (e) (char=? ch (cell->char e)))))))
 
 
 ;; create and return a closure that iterates on elements of cellspan csp.

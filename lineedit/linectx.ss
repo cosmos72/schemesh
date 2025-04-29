@@ -70,8 +70,8 @@
     (mutable prompt)        ; bytespan, prompt
     parenmatcher
     (mutable paren)         ; #f or paren containing current parenthes to be highlighted
-    clipboard               ; charspan
-    completions             ; span of charspans, possible completions
+    clipboard               ; cellspan
+    completions             ; span of cellspans, possible completions
     completion-stem         ; charspan, chars from vscreen used as stem
     (mutable keytable)      ; hashtable, contains keybindings. Usually eq? linectx-default-keytable
     (mutable last-key)      ; #f or procedure, last executed lineedit-key... procedure
@@ -195,13 +195,13 @@
     (charhistory-path-set! history history-path)
     (%make-linectx
       rbuf wbuf
-      (vscreen* (if (pair? sz) (car sz) 80) (if (pair? sz) (cdr sz) 24) "")
+      (vscreen (if (pair? sz) (car sz) 80) (if (pair? sz) (cdr sz) 24) "")
       0 0                         ; term-x term-y
       0 1 -1 flag-redraw?         ; stdin stdout read-timeout flags
       'shell enabled-parsers      ; parser-name parsers
       (bytespan)                  ; prompt
       parenmatcher #f             ; parenmatcher paren
-      (charspan)                  ; clipboard
+      (cellspan)                  ; clipboard
       (span) (charspan)           ; completions stem
       linectx-default-keytable #f ; keytable last-key
       0 history)))                ; history
@@ -315,7 +315,7 @@
 
 
 (define (linectx-clipboard-clear! lctx)
-  (charspan-clear! (linectx-clipboard lctx)))
+  (cellspan-clear! (linectx-clipboard lctx)))
 
 
 ;; save to history a shallow clone of charlines in linectx-vscreen,

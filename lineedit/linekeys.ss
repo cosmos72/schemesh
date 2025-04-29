@@ -123,11 +123,11 @@
 
 (define (lineedit-key-del-line-left lctx)
   (lineedit-clipboard-maybe-clear! lctx)
-  (vscreen-delete-left/line! (linectx-vscreen lctx) (linectx-clipboard lctx)))
+  (vscreen-delete-left/vline! (linectx-vscreen lctx) (linectx-clipboard lctx)))
 
 (define (lineedit-key-del-line-right lctx)
   (lineedit-clipboard-maybe-clear! lctx)
-  (vscreen-delete-right/line! (linectx-vscreen lctx) (linectx-clipboard lctx)))
+  (vscreen-delete-right/vline! (linectx-vscreen lctx) (linectx-clipboard lctx)))
 
 (define (lineedit-key-newline-left lctx)
   (let ((screen (linectx-vscreen lctx)))
@@ -173,8 +173,8 @@
          (n         (charspan-length clipboard)))
     (unless (fxzero? n)
       (let-values (((x y) (vscreen-cursor-ixy screen)))
-        (vscreen-insert-at-xy/charspan! screen x y clipboard))
-      (when (charspan-index/char clipboard #\newline)
+        (vscreen-insert-at-xy/cellspan! screen x y clipboard))
+      (when (cellspan-index/char clipboard #\newline)
         (vscreen-reflow screen))
       (vscreen-cursor-move/right! screen n))))
 
@@ -214,10 +214,10 @@
           ((not (fxzero? common-len))
             ; insert common prefix of all completions
             (let ((elem-0 (span-ref table 0)))
-              (linectx-insert/charspan! lctx elem-0 0 common-len)
+              (linectx-insert/cellspan! lctx elem-0 0 common-len)
               (when (and (fx=? 1 table-n)
                          (not (char=? #\/ (charspan-ref elem-0 (fx1- common-len)))))
-                (linectx-insert/char! lctx #\space))))
+                (linectx-insert/c! lctx #\space))))
           ((fx>? table-n 1)
             ; erase prompt and lines (also sets flag "redraw prompt and lines"),
             ; then list all possible table

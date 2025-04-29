@@ -10,7 +10,7 @@
 
 (library (schemesh containers palette (0 8 3))
   (export
-    cell cell? cell->char cell->palette cell->colors
+    cell cell? cell->char cell->palette cell->colors cell-write
 
     tty-color? tty-rgb24 tty-rgb8 tty-rgb4 tty-gray5 symbol->tty-rgb4
     tty-colors tty-colors? tty-colors->fg tty-colors->bg tty-colors->palette
@@ -49,34 +49,6 @@
 
 (define-syntax fx<< (identifier-syntax fxarithmetic-shift-left))
 (define-syntax fx>> (identifier-syntax fxarithmetic-shift-right))
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-;; cell is a colored char, contains a palette to indicate the fg ad bg colors
-(define (cell? cl)
-  (and (fixnum? cl)  (fx<=? cell-min cl cell-max)))
-
-(define cell
-  (case-lambda
-    ((ch)
-      (char->integer ch))
-    ((ch palette-or-tty-colors)
-      (let ((palette (if (tty-palette? palette-or-tty-colors)
-                       palette-or-tty-colors
-                       (tty-colors->palette palette-or-tty-colors))))
-        (fxior (fx<< palette char-bits) (char->integer ch))))))
-
-
-(define (cell->char cl)
-  (integer->char* (fxand cl char-max)))
-
-(define (cell->palette cl)
-  (fx>> cl char-bits))
-
-(define (cell->colors cl)
-  (tty-palette->colors (cell->palette cl)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -259,6 +231,58 @@
       (display "#x" port)
       (display (number->string col 16) port))
     (display "#f" port)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; cell is a colored char, contains a palette to indicate the fg ad bg colors
+(define (cell? cl)
+  (and (fixnum? cl)  (fx<=? cell-min cl cell-max)))
+
+(define cell
+  (case-lambda
+    ((ch)
+      (char->integer ch))
+    ((ch palette-or-tty-colors)
+      (let ((palette (if (tty-palette? palette-or-tty-colors)
+                       palette-or-tty-colors
+                       (tty-colors->palette palette-or-tty-colors))))
+        (fxior (fx<< palette char-bits) (char->integer ch))))))
+
+
+(define (cell->char cl)
+  (integer->char* (fxand cl char-max)))
+
+(define (cell->palette cl)
+  (fx>> cl char-bits))
+
+(define (cell->colors cl)
+  (tty-palette->colors (cell->palette cl)))
+
+;; write colored char to textual output port
+(define (cell-write cl old-palette port)
+  (let ((ch      (cell->char    cl))
+        (palette (cell->palette cl)))
+    (unless (fx=? palette old-palette)
+      (tty-palette-display palette port))
+    (cond
+      ((or (char=? #\" ch) (char=? #\\ ch))
+        (put-char port #\\)
+        (put-char port ch))
+      ((char<=? #\space ch #\~)
+        (put-char port ch))
+      ((char=? #\newline ch)
+        (put-char port #\\)
+        (put-char port #\n))
+      (else
+        (let ((n (char->integer ch)))
+          (put-string port "\\x")
+          (display (number->string n 16) port)
+          (put-char port #\;))))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 ;; customize how "tty-colors" objects are printed

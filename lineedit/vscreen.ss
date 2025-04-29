@@ -9,32 +9,33 @@
 
 (library (schemesh lineedit vscreen (0 8 3))
   (export
-    make-vscreen  vscreen*  vscreen?  assert-vscreen?
+    make-vscreen  (rename (%vscreen vscreen))  vscreen?  assert-vscreen?
     vscreen-width        vscreen-height     vscreen-width-at-y  vscreen-resize!
     vscreen-dirty?       vscreen-dirty-set!
     vscreen-cursor-ix    vscreen-cursor-iy  vscreen-cursor-ixy  vscreen-cursor-ixy-set!
     vscreen-cursor-vx    vscreen-cursor-vy  vscreen-cursor-vxy  vscreen-cursor-vxy-set!
     vscreen-prompt-end-x vscreen-prompt-end-y vscreen-prompt-length  vscreen-prompt-length-set!
-    vscreen-length-at-y  vscreen-length
+    vscreen-length-at-y  vscreen-length     vscreen-cell-at-xy
     vscreen-char-at-xy   vscreen-char-before-xy  vscreen-char-after-xy
     vscreen-next-xy      vscreen-prev-xy   vscreen-next-xy/or-self  vscreen-prev-xy/or-self
     vscreen-count-before-xy/left  vscreen-count-at-xy/right
     vscreen-clear!       vscreen-empty?
     vscreen-cursor-move/left! vscreen-cursor-move/right!  vscreen-cursor-move/up!  vscreen-cursor-move/down!
     vscreen-delete-left/n!     vscreen-delete-right/n!      vscreen-delete-at-xy!
-    vscreen-delete-left/line!  vscreen-delete-right/line!
-    vscreen-insert-at-xy/char!  vscreen-insert-at-xy/newline! vscreen-insert-at-xy/charspan!
-    vscreen-insert/char!        vscreen-insert/charspan!         vscreen-assign*!
-    vscreen-reflow       write-vscreen)
+    vscreen-delete-left/vline!  vscreen-delete-right/vline!
+    vscreen-insert-at-xy/c!  vscreen-insert-at-xy/newline! vscreen-insert-at-xy/cellspan!
+    vscreen-insert/c!        vscreen-insert/cellspan!         vscreen-assign*!
+    vscreen-reflow       vscreen-write)
 
   (import
     (rnrs)
     (only (chezscheme)         format fx1+ fx1- record-writer)
     (only (schemesh bootstrap) assert* fx<=?* while)
-    (schemesh containers charspan)
+    (schemesh containers cellspan)
     (schemesh containers span)
-    (schemesh containers charline)
-    (schemesh containers charlines))
+    (only (schemesh containers palette) cell->char)
+    (schemesh lineedit vline)
+    (schemesh lineedit vlines))
 
 
 ;; copy-pasted from containers/gbuffer.ss
@@ -45,23 +46,23 @@
   (nongenerative %gbuffer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
-;; copy-pasted from containers/charlines.ss
-(define-record-type (%charlines %make-charlines %charlines?)
+;; copy-pasted from containers/vlines.ss
+(define-record-type (%vlines %make-vlines %vlines?)
   (parent %gbuffer)
   (fields
     ;; lines between y >= dirty-start-y and y < dirty-end-y
     ;; are completely dirty i.e. must be fully redrawn on screen
     (mutable dirty-start-y) ;; fixnum
     (mutable dirty-end-y))  ;; fixnum
-  (nongenerative %charlines-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+  (nongenerative %vlines-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 ;; vscreen is an in-memory representation of user-typed input and how it is split
 ;; in multiple lines, each limited either by a newline or by screen width.
 ;;
-;; vscreen must always contain at least one (possibly empty) charline.
+;; vscreen must always contain at least one (possibly empty) vline.
 (define-record-type (vscreen %make-vscreen vscreen?)
-  (parent %charlines)
+  (parent %vlines)
   (fields
     (mutable dirty? vscreen-dirty? %vscreen-dirty-set!) ;; boolean, #t if some line is dirty
     (mutable width)        ;; fixnum, screen width
@@ -80,21 +81,23 @@
 
 ;; create a vscreen
 (define (make-vscreen)
-  (%make-vscreen (span) (span (charline)) (greatest-fixnum) 0 #f 80 24 0 0 0 0))
+  (%make-vscreen (span) (span (vline)) (greatest-fixnum) 0 #f 80 24 0 0 0 0))
 
 
-;; create a vscreen referencing specified strings, one per charline.
+;; create a vscreen referencing specified vlines or strings
 ;; note: created screen should be reflowed, i.e. caller should invoke (vscreen-reflow screen)
-(define (vscreen* width height . strings)
-  (let ((sp (list->span strings)))
+(define (%vscreen width height . l)
+  (let ((sp (list->span l)))
     (span-iterate sp
-      (lambda (i elem)
-        (span-set! sp i (string->charline* elem))))
+      (lambda (i line)
+        (if (string? line)
+         (span-set! sp i (vline line))
+         (assert-vline? 'vlines line))))
     (%make-vscreen (span) sp (greatest-fixnum) 0 #f width height 0 0 0 0)))
 
 
-;; return number of charlines in vscreen
-(define vscreen-length charlines-length)
+;; return number of vlines in vscreen
+(define vscreen-length vlines-length)
 
 ;; return prompt length in characters
 (define (vscreen-prompt-length screen)
@@ -116,10 +119,10 @@
 
 (define (vscreen-dirty-set! screen flag?)
   (unless flag?
-    (charlines-dirty-xy-unset! screen))
+    (vlines-dirty-xy-unset! screen))
   (%vscreen-dirty-set! screen flag?))
 
-;; return vscreen width i.e. maximum charline length at specified y
+;; return vscreen width i.e. maximum vline length at specified y
 ;; it is equal (vscreen-width), except when y = 0 where prompt length is subtracted
 (define (vscreen-width-at-y screen y)
   (fx- (vscreen-width screen)
@@ -129,31 +132,37 @@
 ;; return vscreen line at specified y, or #f if y is out of range
 (define (vscreen-line-at-y screen y)
   (if (fx<? -1 y (vscreen-length screen))
-    (charlines-ref screen y)
+    (vlines-ref screen y)
     #f))
 
-;; return charline length at specified y, or 0 if y is out of range.
+;; return vline length at specified y, or 0 if y is out of range.
 (define (vscreen-length-at-y screen y)
   (if (fx<? -1 y (vscreen-length screen))
-    (charline-length (charlines-ref screen y))
+    (vline-length (vlines-ref screen y))
     0))
+
+
+;; return vscreen cell at specified x y, or #f if x y are out of range
+(define (vscreen-cell-at-xy screen x y)
+  (vlines-cell-at-xy screen x y))
+
 
 ;; return vscreen char at specified x y, or #f if x y are out of range
 (define (vscreen-char-at-xy screen x y)
-  (charlines-char-at-xy screen x y))
+  (cell->char (vlines-cell-at-xy screen x y)))
 
-;; return tow values: cursor x and y position in input charlines
+;; return tow values: cursor x and y position in input vlines
 (define (vscreen-cursor-ixy screen)
   (values (vscreen-cursor-ix screen) (vscreen-cursor-iy screen)))
 
 
-;; set cursor x and y position in input charlines. notes:
-;; * x and y values will be clamped to existing charlines and their lengths
-;; * x can also be set to immediately after the end of *last* charline
+;; set cursor x and y position in input vlines. notes:
+;; * x and y values will be clamped to existing vlines and their lengths
+;; * x can also be set to immediately after the end of *last* vline
 (define (vscreen-cursor-ixy-set! screen x y)
   (let* ((ymax  (fx1- (vscreen-length screen)))
          (y     (fxmax 0 (fxmin y ymax)))
-         ;; allow positioning cursor after end of line only for *last* charline
+         ;; allow positioning cursor after end of line only for *last* vline
          (xmax  (fx- (vscreen-length-at-y screen y)
                      (if (fx=? y ymax) 0 1)))
          (x     (fxmax 0 (fxmin x xmax))))
@@ -190,24 +199,24 @@
     (vscreen-cursor-ixy-set! screen ix iy)))
 
 
-;; return total number of characters in vscreen before position x y,
+;; return total number of cells in vscreen before position x y,
 ;; including characters in previous lines if y > 0.
 (define (vscreen-count-to-start screen x y)
   (let ((n     x)
         (end-y (vscreen-length screen)))
     (while (fx<? 0 y end-y)
       (set! y (fx1- y))
-      (set! n (fx+ n (charline-length (charlines-ref screen y)))))
+      (set! n (fx+ n (vline-length (vlines-ref screen y)))))
     n))
 
 
-;; return total number of characters in vscreen at position x y or after it,
-;; including characters in next lines if y < maximum y.
+;; return total number of cells in vscreen at position x y or after it,
+;; including cells in next lines if y < maximum y.
 (define (vscreen-count-to-end screen x y)
   (let ((n     0)
         (end-y (vscreen-length screen)))
     (while (fx<? 0 y end-y)
-      (let* ((len (charline-length (charlines-ref screen y)))
+      (let* ((len (vline-length (vlines-ref screen y)))
              (xx  (fxmax 0 (fxmin x len))))
         (set! n (fx+ n (fx- len xx)))
         (set! x 0)
@@ -243,30 +252,30 @@
 ;; remove all existing lines from screen, insert a new empty line, and set cursor to 0 0.
 (define (vscreen-clear! screen)
   (vscreen-dirty-set! screen #t)
-  (charlines-dirty-y-add! screen 0 (vscreen-length screen))
+  (vlines-dirty-y-add! screen 0 (vscreen-length screen))
   ;; Implementation note: linectx-to-history* saves a shallow copy of vscreen to history,
   ;; which references the gbuffer-left and gbuffer-right internal spans of vscreen,
   ;; so we cannot continue using them: create new ones
   (gbuffer-left-set! screen (span))
-  (gbuffer-right-set! screen (span (charline)))
+  (gbuffer-right-set! screen (span (vline)))
   (vscreen-cursor-ix-set! screen 0)
   (vscreen-cursor-iy-set! screen 0))
 
 
-;; return #t if vscreen is empty i.e. it contains at most a single charline having zero length
+;; return #t if vscreen is empty i.e. it contains at most a single vline having zero length
 (define (vscreen-empty? screen)
   (case (vscreen-length screen)
     ((0) #t)
-    ((1) (fxzero? (charline-length (charlines-ref screen 0))))
+    ((1) (fxzero? (vline-length (vlines-ref screen 0))))
     (else #f)))
 
 
 ;; remove a line from screen. Last line cannot be removed, it will be cleared instead.
-(define (vscreen-delete-at/cline! screen y)
+(define (vscreen-delete-at/vline! screen y)
   (vscreen-dirty-set! screen #t)
   (if (and (fxzero? y) (fx=? 1 (vscreen-length screen)))
-    (charline-clear! (charlines-ref screen 0))
-    (charlines-delete-at/cline! screen y)))
+    (vline-clear! (vlines-ref screen 0))
+    (vlines-delete-at! screen y)))
 
 
 
@@ -345,28 +354,28 @@
 ;; Callers should use (vscreen-underflow) instead
 (define (vscreen-underflow-at-y screen y)
   (let ((line1 (vscreen-line-at-y screen y)))
-    (when (and line1 (not (charline-nl? line1)))
-      (let ((n (fx- (vscreen-width-at-y screen y) (charline-length line1)))
+    (when (and line1 (not (vline-nl? line1)))
+      (let ((n (fx- (vscreen-width-at-y screen y) (vline-length line1)))
             (y+1 (fx1+ y)))
         (while (and (fx>? n 0) (fx<? y+1 (vscreen-length screen)))
-          (let* ((line2 (charlines-ref screen y+1))
-                 (line2-nl? (charline-nl? line2))
-                 (i     (fxmin n (charline-length line2))))
+          (let* ((line2 (vlines-ref screen y+1))
+                 (line2-nl? (vline-nl? line2))
+                 (i     (fxmin n (vline-length line2))))
             (when (fx>? i 0)
               (vscreen-dirty-set! screen #t)
               ;; insert chars into line1
-              (charline-insert-at/chargbuffer! line1 (charline-length line1) line2 0 i)
+              (vline-insert-at/cellgbuffer! line1 (vline-length line1) line2 0 i)
               ;; remove chars from line2
-              (charline-delete! line2 0 i)
+              (vline-delete! line2 0 i)
               (set! n (fx- n i)))
-            (when (charline-empty? line2)
+            (when (vline-empty? line2)
               (when line2-nl?
                 (set! n 0)) ;; newline found, stop refilling line1
               ;; we consumed all chars from line2, erase it unless line1 is full and line2 is last line
-              (unless (and (or (charline-nl? line1)
-                               (fx>=? (charline-length line1) (vscreen-width-at-y screen y)))
+              (unless (and (or (vline-nl? line1)
+                               (fx>=? (vline-length line1) (vscreen-width-at-y screen y)))
                            (fx>=? y+1 (fx1- (vscreen-length screen))))
-                (vscreen-delete-at/cline! screen y+1)))))))))
+                (vscreen-delete-at/vline! screen y+1)))))))))
 
 
 ;; for each vscreen line at y or later *without* a newline and shorter than vscreen width,
@@ -382,8 +391,8 @@
       ((screen y) (%vscreen-underflow screen y)))))
 
 ;; erase n characters of vscreen starting from specified x and y and moving rightward.
-;; if the newline of a charline is erased, the following line(s)
-;; are merged into the current charline and reflowed according to vscreen width.
+;; if the newline of a vline is erased, the following line(s)
+;; are merged into the current vline and reflowed according to vscreen width.
 ;; return number of characters actually erased.
 (define (vscreen-delete-at-xy! screen x y n)
   (let ((saved-n n))
@@ -392,12 +401,12 @@
       (let ((saved-y y))
         (while (and (fx>? n 0) (fx<? -1 y (vscreen-length screen)))
           ; (debugf "vscreen-delete-at-xy! ~s chars to delete at y = ~s" n y)
-          (let* ((line (charlines-ref screen y))
-                 (len  (charline-length line))
+          (let* ((line (vlines-ref screen y))
+                 (len  (vline-length line))
                  (i    (fxmin n (fx- len x))))
             (when (fx>? i 0)
               ;; erase i characters
-              (charline-delete! line x (fx+ x i))
+              (vline-delete! line x (fx+ x i))
               (set! n (fx- n i))
               (set! len (fx- len i)))
             (when (fx>=? x len)
@@ -405,7 +414,7 @@
               (set! x 0)
               (if (and (fxzero? len) (not (vscreen-empty? screen)))
                 ;; line is empty, remove it
-                (vscreen-delete-at/cline! screen y)
+                (vscreen-delete-at/vline! screen y)
                 ;; line is not empty, move to next line
                 (set! y (fx1+ y))))))
         (unless (fx=? saved-n n)
@@ -414,8 +423,8 @@
 
 
 ;; erase n characters from vscreen, starting 1 char left of cursor and moving leftward.
-;; if the newline of a charline is erased, the following line(s)
-;; are merged into the current charline and reflowed according to vscreen width.
+;; if the newline of a vline is erased, the following line(s)
+;; are merged into the current vline and reflowed according to vscreen width.
 ;; return number of characters actually erased.
 (define vscreen-delete-left/n!
   (case-lambda
@@ -428,8 +437,8 @@
 
 
 ;; erase n characters from vscreen, starting at cursor and moving rightward.
-;; if the newline of a charline is erased, the following line(s)
-;; are merged into the current charline and reflowed according to vscreen width.
+;; if the newline of a vline is erased, the following line(s)
+;; are merged into the current vline and reflowed according to vscreen width.
 ;; return number of characters actually erased.
 (define vscreen-delete-right/n!
   (case-lambda
@@ -451,7 +460,7 @@
           (set! y y1)
           (set! n (fx1- n))
           (when ch
-            (charspan-insert-left! clipboard ch)))))))
+            (cellspan-insert-left! clipboard ch)))))))
 
 
 (define (clipboard-insert-vscreen/right! clipboard screen n)
@@ -459,7 +468,7 @@
     (let-values (((x y) (vscreen-cursor-ixy screen)))
       (let ((ch (vscreen-char-at-xy screen x y)))
         (while (and x y ch (fx>? n 0))
-          (charspan-insert-right! clipboard ch)
+          (cellspan-insert-right! clipboard ch)
           (let-values (((x1 y1 ch1) (vscreen-char-after-xy screen x y)))
             (set! x x1)
             (set! y y1)
@@ -467,11 +476,11 @@
             (set! n (fx1- n))))))))
 
 
-(define (clipboard-insert-charline/left! clipboard line start end)
+(define (clipboard-insert-vline/left! clipboard line start end)
   (when clipboard
     (while (fx<? start end)
       (let ((pos (fx1- end)))
-        (charspan-insert-left! clipboard (charline-ref line pos))
+        (cellspan-insert-left! clipboard (vline-ref/char line pos))
         (set! end pos)))))
 
 
@@ -483,15 +492,15 @@
          (y    (vscreen-cursor-iy screen))
          (line (vscreen-line-at-y screen y)))
     (when line
-      (clipboard-insert-charline/left! clipboard line 0 x)
+      (clipboard-insert-vline/left! clipboard line 0 x)
       (vscreen-dirty-set! screen #t)
-      (charline-delete! line 0 x)
+      (vline-delete! line 0 x)
       (vscreen-cursor-ix-set! screen 0)
       (set! y    (fx1- y))
       (set! line (vscreen-line-at-y screen y))
-      (while (and line (not (charline-nl? line)))
-        (clipboard-insert-charline/left! clipboard line 0 (charline-length line))
-        (vscreen-delete-at/cline! screen y)
+      (while (and line (not (vline-nl? line)))
+        (clipboard-insert-vline/left! clipboard line 0 (vline-length line))
+        (vscreen-delete-at/vline! screen y)
         (set! y    (fx1- y))
         (set! line (vscreen-line-at-y screen y)))
       (vscreen-cursor-iy-set! screen (fx1+ y)))))
@@ -507,11 +516,11 @@
          (n    0))
     (while line
       (cond
-        ((charline-nl? line)
-          (set! n (fx+ n (fxmax 0 (fx1- (fx- (charline-length line) x)))))
+        ((vline-nl? line)
+          (set! n (fx+ n (fxmax 0 (fx1- (fx- (vline-length line) x)))))
           (set! line #f))
         (else
-          (set! n (fx+ n (fxmax 0 (fx- (charline-length line) x))))
+          (set! n (fx+ n (fxmax 0 (fx- (vline-length line) x))))
           (set! x 0)
           (set! y (fx1+ y))
           (set! line (vscreen-line-at-y screen y)))))
@@ -521,14 +530,14 @@
 ;; erase leftward, starting 1 char left of vscreen cursor and continuing
 ;; (possibly to previous lines) until a newline is found.
 ;; The newline is only erased if it's the first character found.
-(define vscreen-delete-left/line!
+(define vscreen-delete-left/vline!
   (case-lambda
     ((screen)
-      (vscreen-delete-left/line! screen #f))
+      (vscreen-delete-left/vline! screen #f))
     ((screen clipboard)
       (let ((x    (vscreen-cursor-ix screen))
             (line (vscreen-line-at-y screen (fx1- (vscreen-cursor-iy screen)))))
-        (if (and (fxzero? x) line (charline-nl? line))
+        (if (and (fxzero? x) line (vline-nl? line))
           (vscreen-delete-left/n! screen 1 clipboard)
           (vscreen-delete-left/until-nl! screen clipboard))))))
 
@@ -536,16 +545,16 @@
 ;; erase rightward, starting at vscreen cursor and continuing
 ;; (possibly to next lines) until a newline is found.
 ;; The newline is only erased if it's the first character found.
-(define vscreen-delete-right/line!
+(define vscreen-delete-right/vline!
   (case-lambda
-    ((screen)
-      (vscreen-delete-right/line! screen #f))
     ((screen clipboard)
       (let ((x    (vscreen-cursor-ix screen))
             (line (vscreen-line-at-y screen (vscreen-cursor-iy screen))))
-        (if (and line (eqv? #\newline (charline-at line x)))
+        (if (and line (eqv? #\newline (vline-at line x)))
           (vscreen-delete-right/n! screen 1 clipboard)
-          (vscreen-delete-right/until-nl! screen clipboard))))))
+          (vscreen-delete-right/until-nl! screen clipboard))))
+    ((screen)
+      (vscreen-delete-right/vline! screen #f))))
 
 
 ;; move characters from end of vscreen line at y to the beginning of line at y+1
@@ -558,25 +567,25 @@
   (let ((line1 (vscreen-line-at-y screen y)))
     (when line1
       (while (and (fx<? y (vscreen-length screen))
-                  (fx>? (charline-length line1) (vscreen-width-at-y screen y)))
+                  (fx>? (vline-length line1) (vscreen-width-at-y screen y)))
         ; (debugf "while0 vscreen-overflow-at-y ~s ~s ~s" y line1 screen)
         (vscreen-dirty-set! screen #t)
-        (let* ((line1-nl?  (charline-nl? line1))
-               (line1-end  (charline-length line1))
+        (let* ((line1-nl?  (vline-nl? line1))
+               (line1-end  (vline-length line1))
                (line1-pos  (vscreen-width-at-y screen y))
                (y+1        (fx1+ y))
                (line2-new? (or line1-nl? (fx=? y+1 (vscreen-length screen))))
                (line2      (if line2-new?
-                             (charline)
-                             (charlines-ref screen y+1)))
-               (line2-nl? (charline-nl? line2)))
+                             (vline)
+                             (vlines-ref screen y+1)))
+               (line2-nl? (vline-nl? line2)))
           (when line2-new?
-            (charlines-insert-at/cline! screen y+1 line2))
+            (vlines-insert-at! screen y+1 line2))
           (when (fx<? line1-pos line1-end)
             ;; insert chars into line2
-            (charline-insert-at/chargbuffer! line2 0 line1 line1-pos line1-end)
+            (vline-insert-at/cellgbuffer! line2 0 line1 line1-pos line1-end)
             ;; remove chars from line1
-            (charline-delete! line1 line1-pos line1-end))
+            (vline-delete! line1 line1-pos line1-end))
           ; (debugf "while1 vscreen-overflow-at-y ~s ~s ~s" y line1 screen)
           ;; iterate on line2, as it may now have length >= vscreen-width-at-y
           (set! y y+1)
@@ -591,9 +600,9 @@
          (y  (fx1- yn))
          (line (vscreen-line-at-y screen y)))
     (when (or (not line)
-              (charline-nl? line)
-              (fx=? (charline-length line) (vscreen-width-at-y screen y)))
-      (charlines-insert-at/cline! screen yn (charline)))))
+              (vline-nl? line)
+              (fx=? (vline-length line) (vscreen-width-at-y screen y)))
+      (vlines-insert-at! screen yn (vline)))))
 
 
 ;; for each vscreen line at y or later that exceeds vscreen width,
@@ -614,14 +623,14 @@
 ;; thus not followed anymore by other characters.
 (define (vcreen-split-line-after-first-newline screen y)
   (let* ((line (vscreen-line-at-y screen y))
-         (end  (and line (charline-length line)))
-         (pos  (and line (charline-index/char line 0 end #\newline))))
+         (end  (and line (vline-length line)))
+         (pos  (and line (vline-index/char line 0 end #\newline))))
     (when (and pos (fx<? (fx1+ pos) end))
-      (let ((line2 (charline))
+      (let ((line2 (vline))
             (pos+1 (fx1+ pos)))
-        (charline-insert-at/chargbuffer! line2 0 line pos+1 end)
-        (charline-delete!    line pos+1 end)
-        (charlines-insert-at/cline! screen (fx1+ y) line2)))))
+        (vline-insert-at/cellgbuffer! line2 0 line pos+1 end)
+        (vline-delete!    line pos+1 end)
+        (vlines-insert-at! screen (fx1+ y) line2)))))
 
 
 ;; for each vscreen line that contains a #\newline followed by some other characters,
@@ -641,39 +650,40 @@
 
 
 ;; prepare vscreen for insertion at specified x and y
-;; return three values: x and y clamped to valid range, and charline at clamped y.
+;; return three values: x and y clamped to valid range, and vline at clamped y.
 ;; may insert additional lines if needed.
 (define (vscreen-insert-at-xy/prepare! screen x y)
-  (when (charlines-empty? screen) ;; should not happen
-    (charlines-insert-at/cline! screen 0 (charline)))
+  (when (vlines-empty? screen) ;; should not happen
+    (vlines-insert-at! screen 0 (vline)))
   (let* ((ylen (vscreen-length screen))
          (y    (fxmax 0 (fxmin y (fx1- ylen))))
-         (line (charlines-ref screen y))
-         (xlen (charline-length line))
+         (line (vlines-ref screen y))
+         (xlen (vline-length line))
          (x    (fxmax 0 (fxmin x xlen))))
-    (if (or (and (fx=? x xlen) (charline-nl? line))
+    (if (or (and (fx=? x xlen) (vline-nl? line))
             (fx=? x (vscreen-width-at-y screen y)))
       ;; cannot insert after a newline or at screen width,
       ;; return beginning of following line instead
       (let ((y+1 (fx1+ y)))
         (when (fx=? y+1 ylen)
-          (charlines-insert-at/cline! screen y+1 (charline)))
-        (values 0 y+1 (charlines-ref screen y+1)))
+          (vlines-insert-at! screen y+1 (vline)))
+        (values 0 y+1 (vlines-ref screen y+1)))
       ;; return position inside line, or at end of it
       (values x y line))))
 
 
-;; insert a single character into vscreen at specified x and y.
+;; insert a single character or cell into vscreen at specified x and y.
 ;; Character must be printable, i.e. (char>=? ch #\space).
 ;; If the line at y becomes longer than vscreen-width-at-y,
 ;; move extra characters into the following line(s)
 ;; i.e. reflow them according to vscreen width.
 ;; Both x and y are clamped to valid range.
-(define (vscreen-insert-at-xy/char! screen x y ch)
-  (assert* 'vscreen-insert-at-xy/char! (char>=? ch #\space))
+(define (vscreen-insert-at-xy/c! screen x y c)
+  (let ((ch (if (char? c) c (cell->char c))))
+    (assert* 'vscreen-insert-at-xy/c! (char>=? ch #\space)))
   (let-values (((x y line) (vscreen-insert-at-xy/prepare! screen x y)))
     (vscreen-dirty-set! screen #t)
-    (charline-insert-at! line x ch)
+    (vline-insert-at! line x c)
     (vscreen-overflow-at-y screen y)))
 
 
@@ -685,25 +695,25 @@
     (let* ((x+1   (fx1+ x))
            (y+1   (fx1+ y))
            ;; line1 length after we insert the newline
-           (line1-end+1   (fx1+ (charline-length line1)))
-           (create-line2? (or (charline-nl? line1)
+           (line1-end+1   (fx1+ (vline-length line1)))
+           (create-line2? (or (vline-nl? line1)
                               (fx=? y+1 (vscreen-length screen))))
-           (line2 (if create-line2? (charline) (charlines-ref screen y+1))))
+           (line2 (if create-line2? (vline) (vlines-ref screen y+1))))
       (vscreen-dirty-set! screen #t)
-      (charline-insert-at! line1 x #\newline)
+      (vline-insert-at! line1 x #\newline)
       (when create-line2?
-        (charlines-insert-at/cline! screen y+1 line2))
+        (vlines-insert-at! screen y+1 line2))
       (when (fx<? x+1 line1-end+1)
         ;; (debugf "vscreen-insert-at-xy/newline! before moving range [~s,~s): line1=~s, line2=~s" x+1 line1-end+1 line1 line2)
         ;; insert into line2 the chars from line1 after inserted newline
-        (charline-insert-at/chargbuffer! line2 0 line1 x+1 line1-end+1)
+        (vline-insert-at/cellgbuffer! line2 0 line1 x+1 line1-end+1)
         ;; remove from line1 the chars after inserted newline
-        (charline-delete! line1 x+1 line1-end+1))
+        (vline-delete! line1 x+1 line1-end+1))
         ;; (debugf "vscreen-insert-at-xy/newline! after  moving range [~s,~s): line1=~s, line2=~s" x+1 line1-end+1 line1 line2)
       (vscreen-reflow screen))))
 
 
-;; insert chars in range [start, end) of charspan csp
+;; insert chars in range [start, end) of cellspan csp
 ;; into vscreen at specified x and y.
 ;; Both x and y are clamped to valid range.
 ;;
@@ -712,33 +722,33 @@
 ;; i.e. reflows them according to vscreen width.
 ;;
 ;; If one or more #\newline are inserted, performs a full (vscreen-reflow)
-(define vscreen-insert-at-xy/charspan!
+(define vscreen-insert-at-xy/cellspan!
   (case-lambda
     ((screen x y csp)
-      (vscreen-insert-at-xy/charspan! screen x y csp 0 (charspan-length csp)))
+      (vscreen-insert-at-xy/cellspan! screen x y csp 0 (cellspan-length csp)))
     ((screen x y csp csp-start csp-end)
-      (assert* 'vscreen-insert-at-xy/charspan! (fx<=?* 0 csp-start csp-end (charspan-length csp)))
+      (assert* 'vscreen-insert-at-xy/cellspan! (fx<=?* 0 csp-start csp-end (cellspan-length csp)))
       (when (fx<? csp-start csp-end)
         (let-values (((x y line) (vscreen-insert-at-xy/prepare! screen x y)))
           (vscreen-dirty-set! screen #t)
-          (charline-insert-at/charspan! line x csp csp-start csp-end)
-          (if (charspan-index/char csp csp-start csp-end #\newline)
+          (vline-insert-at/cellspan! line x csp csp-start csp-end)
+          (if (cellspan-index/char csp csp-start csp-end #\newline)
             (vscreen-reflow screen)
             (vscreen-overflow-at-y screen y)))))))
 
 
-;; insert a char, which can be a #\newline, into vscreen at cursor position
+;; insert a character or cell, which can be a #\newline, into vscreen at cursor position
 ;; then move cursor right by one.
-(define (vscreen-insert/char! screen ch)
+(define (vscreen-insert/c! screen c)
   (let ((x (vscreen-cursor-ix screen))
         (y (vscreen-cursor-iy screen)))
-    (if (char=? ch #\newline)
+    (if (char=? #\newline (if (char? c) c (cell->char c)))
       (vscreen-insert-at-xy/newline! screen x y)
-      (vscreen-insert-at-xy/char! screen x y ch))
+      (vscreen-insert-at-xy/c! screen x y c))
     (vscreen-cursor-move/right! screen 1)))
 
 
-;; insert chars in range [start, end) of charspan scp into vscreen at cursor position,
+;; insert chars in range [start, end) of cellspan csp into vscreen at cursor position,
 ;; then move screen cursor right by (fx- csp-end csp-start)
 ;;
 ;; If the line at cursor position becomes longer than vscreen-width-at-y,
@@ -746,10 +756,10 @@
 ;; i.e. reflows them according to vscreen width.
 ;;
 ;; If one or more #\newline are inserted, performs a full (vscreen-reflow)
-(define (vscreen-insert/charspan! screen csp csp-start csp-end)
+(define (vscreen-insert/cellspan! screen csp csp-start csp-end)
   (when (fx<? csp-start csp-end)
-    (vscreen-insert-at-xy/charspan! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen)
-                                 csp csp-start csp-end)
+    (vscreen-insert-at-xy/cellspan! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen)
+                                    csp csp-start csp-end)
     (vscreen-cursor-move/right! screen (fx- csp-end csp-start))))
 
 
@@ -757,14 +767,14 @@
 ;; returned position may be on the previous line.
 ;; return #f #f if x y is out of range or is the first valid position.
 (define (vscreen-prev-xy screen x y)
-  (charlines-prev-xy x y))
+  (vlines-prev-xy x y))
 
 
 ;; return position one character to the right of x y.
 ;; returned position may be on the next line.
 ;; return #f #f if x y is out of range or is the last valid position.
 (define (vscreen-next-xy screen x y)
-  (charlines-next-xy x y))
+  (vlines-next-xy x y))
 
 
 ;; return position one character to the left of x y, and n+1.
@@ -789,14 +799,16 @@
 ;; return position immediately before x y, and char at such position.
 ;; return #f #f #f if x y are out of range or 0 0.
 (define (vscreen-char-before-xy screen x y)
-  (charlines-char-before-xy screen x y))
+  (let-values (((x y cl) (vlines-cell-before-xy screen x y)))
+    (values x y (and cl (cell->char cl)))))
 
 
 ;; return position immediately after x y, and char at such position.
 ;; return #f #f #f if x y are out of range.
 ;; return x+1 y #f if x y correspond to the last character in the last line
 (define (vscreen-char-after-xy screen x y)
-  (charlines-char-after-xy screen x y))
+  (let-values (((x y cl) (vlines-cell-after-xy screen x y)))
+    (values x y (and cl (cell->char cl)))))
 
 
 ;; return count of consecutive characters starting immediately before x y and moving backward
@@ -833,12 +845,12 @@
     (values x y n)))
 
 
-;; completely replace vscreen contents, setting it to specified charlines.
-;; note: charlines will be retained and modified!
+;; completely replace vscreen contents, setting it to specified vlines.
+;; note: vlines will be retained and modified!
 ;; Sets vscreen cursor to 0 0.
 (define (vscreen-assign*! screen lines)
   (vscreen-dirty-set! screen #t)
-  (charlines-dirty-y-add! screen 0 (vscreen-length screen))
+  (vlines-dirty-y-add! screen 0 (vscreen-length screen))
   ;; Implementation note: linectx-to-history* saves a shallow copy of vscreen to history,
   ;; which references the gbuffer-left and gbuffer-right internal spans of vscreen,
   ;; so we cannot continue using them: create new ones
@@ -847,26 +859,25 @@
   (vscreen-reflow screen)
   (vscreen-cursor-ix-set! screen 0)
   (vscreen-cursor-iy-set! screen 0)
-  (charlines-dirty-y-add! screen 0 (vscreen-length screen)))
+  (vlines-dirty-y-add! screen 0 (vscreen-length screen)))
 
 
 ;; write a textual representation of vscreen to output port
-(define (write-vscreen screen port)
-  (assert-vscreen? "write-vscreen" screen)
-  (display "(vscreen* " port)
+(define (vscreen-write screen port)
   (display (vscreen-width screen) port)
   (display #\space port)
   (display (vscreen-height screen) port)
-  (charlines-iterate screen
+  (vlines-iterate screen
     (lambda (i line)
       (display #\space port)
-      (write (charline->string line) port)))
-  (display ")" port))
+      (vline-write line port))))
 
 
 ;; customize how "vscreen" objects are printed
 (record-writer (record-type-descriptor vscreen)
   (lambda (screen port writer)
-    (write-vscreen screen port)))
+    (display "(vscreen " port)
+    (vscreen-write screen port)
+    (display ")" port)))
 
 ) ; close library

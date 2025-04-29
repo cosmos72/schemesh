@@ -245,9 +245,9 @@
                    'plain)))
       ; each token can be a char, or #f which means missing, or #t which means BOF/EOF
       (when (char? (paren-start-token paren))
-        (linectx-draw-char-at-xy lctx (paren-start-x paren) (paren-start-y paren) style))
+        (linectx-draw-cell-at-xy lctx (paren-start-x paren) (paren-start-y paren) style))
       (when (char? (paren-end-token paren))
-        (linectx-draw-char-at-xy lctx (paren-end-x paren)   (paren-end-y paren)   style)))))
+        (linectx-draw-cell-at-xy lctx (paren-end-x paren)   (paren-end-y paren)   style)))))
 
 
 
@@ -296,12 +296,13 @@
 ;; if position x y is inside current charlines, redraw char at x y with specified style.
 ;; used to highlight/unhighlight parentheses, brackes, braces and quotes.
 ;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
-(define (linectx-draw-char-at-xy lctx x y style)
-  (let ((ch    (vscreen-char-at-xy (linectx-vscreen lctx) x y))
-        (wbuf  (linectx-wbuf  lctx))
-        (vx    (if (fxzero? y) (fx+ x (linectx-prompt-end-x lctx)) x)) ;; also count prompt length!
-        (vy    (fx+ y (linectx-prompt-end-y lctx))))                   ;; also count prompt length!
-    ; (debugf "linectx-draw-char-at-xy at (~s ~s) char ~s" x y ch)
+(define (linectx-draw-cell-at-xy lctx x y style)
+  (let* ((cell  (vscreen-cell-at-xy (linectx-vscreen lctx) x y))
+         (ch    (cell->char cell))
+         (wbuf  (linectx-wbuf  lctx))
+         (vx    (if (fxzero? y) (fx+ x (linectx-prompt-end-x lctx)) x)) ;; also count prompt length!
+         (vy    (fx+ y (linectx-prompt-end-y lctx))))                   ;; also count prompt length!
+    ; (debugf "linectx-draw-cell-at-xy at (~s ~s) char ~s" x y ch)
     (when (and ch (char>=? ch #\space))
       (lineterm-move-to lctx vx vy)
       (case style

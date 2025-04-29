@@ -9,15 +9,15 @@
 
 (library (schemesh lineedit vlines (0 8 3))
   (export
-    vlines vlines? strings->vlines
-    assert-vlines? vlines-shallow-copy vlines-copy-on-write vlines-iterate
+    vlines vlines? assert-vlines?
+    vlines-shallow-copy vlines-copy-on-write vlines-iterate
     vlines-empty? vlines-length vlines-equal/chars?
     vlines-cell-length vlines-ref vlines-set! vlines-clear!
     vlines-index vlines-index-right vlines-count vlines-count-right
     vlines-dirty-start-y vlines-dirty-end-y vlines-dirty-y-add! vlines-dirty-xy-unset!
     vlines-delete-at! vlines-insert-at! vlines-starts-with?
     vlines-next-xy vlines-prev-xy vlines-cell-at-xy vlines-cell-before-xy vlines-cell-after-xy
-    in-vlines write-vlines)
+    in-vlines)
 
   (import
     (rnrs)
@@ -53,17 +53,15 @@
   (unless (vlines? lines)
     (assertion-violation who "not a vlines" lines)))
 
-;; create a vlines from zero or more vline elements
-(define (vlines . line-list)
-  (for-list ((line line-list))
-    (assert-vline? 'vlines line))
-  (%make-vlines (span) (list->span cline) (greatest-fixnum) 0))
-
-
-;; make a copy of specified strings and store them into a newly created vlines.
-;; return the created vlines.
-(define (strings->vlines . str)
-  (apply vlines (map string->vline str)))
+;; create a vlines from zero or more vline or string elements
+(define (vlines . l)
+  (let ((sp (list->span l)))
+    (span-iterate sp
+      (lambda (i line)
+        (if (string? line)
+         (span-set! sp i (vline line))
+         (assert-vline? 'vlines line))))
+    (%make-vlines (span) sp (greatest-fixnum) 0)))
 
 
 (define vlines-iterate    gbuffer-iterate)
@@ -391,19 +389,14 @@
       (in-vlines lines 0 (vlines-length lines) 1))))
 
 
-;; write a textual representation of vlines to output port
-(define (write-vlines lines port)
-  (assert-vlines? "write-vlines" lines)
-  (display "(strings->vlines*" port)
-  (vlines-iterate lines
-    (lambda (i line)
-      (display #\space port)
-      (write (vline->cellvector line) port)))
-  (display ")" port))
-
 ;; customize how "vlines" objects are printed
 (record-writer (record-type-descriptor %vlines)
   (lambda (lines port writer)
-    (write-vlines lines port)))
+    (display "(vlines " port)
+    (vlines-iterate lines
+      (lambda (i line)
+        (display #\space port)
+        (write line port)))
+    (display ")" port)))
 
 ) ; close library
