@@ -29,7 +29,7 @@
     (schemesh bootstrap)
     (only (schemesh containers) for-list)
     (only (schemesh lineedit charhistory) charhistory-path-set!)
-    (schemesh lineedit charlines io)
+    (schemesh lineedit vlines io)
     (schemesh lineedit linectx)
     (only (schemesh lineedit lineterm) lineterm-write/u8)
     (schemesh lineedit lineedit)
@@ -106,7 +106,7 @@
     (sh-consume-signals lctx)
     (if (boolean? ret)
       ret
-      (open-charlines-input-port ret))))
+      (open-vlines-input-port ret))))
 
 
 ;; Parse user input.

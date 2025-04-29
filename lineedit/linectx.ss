@@ -46,7 +46,7 @@
     (schemesh lineedit paren)
     (schemesh lineedit parenmatcher)
     (only (schemesh lineedit parser) make-parsectx*)
-    (only (schemesh lineedit charlines io) open-charlines-input-port)
+    (only (schemesh lineedit vlines io) open-vlines-input-port)
     (schemesh posix tty)
     (only (schemesh posix signal) signal-consume-sigwinch))
 

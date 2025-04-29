@@ -30,8 +30,8 @@
 
 (define-record-type (%chargbuffer %make-chargbuffer chargbuffer?)
   (fields
-     (mutable left  c< chargbuffer-left-set!)
-     (mutable right c> chargbuffer-right-set!))
+     (mutable left  ch< chargbuffer-left-set!)
+     (mutable right ch> chargbuffer-right-set!))
   (nongenerative %chargbuffer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 ;; convert a list of characters to chargbuffer
@@ -64,8 +64,8 @@
 
 ;; convert a chargbuffer to string
 (define (chargbuffer->string cgb)
-  (let* ((left    (c< cgb))
-         (right   (c> cgb))
+  (let* ((left    (ch< cgb))
+         (right   (ch> cgb))
          (left-n  (charspan-length left))
          (right-n (charspan-length right))
          (dst (make-string (fx+ left-n right-n))))
@@ -86,7 +86,7 @@
 ;;
 ;; returns two values: the two charspans
 (define (chargbuffer->charspans* cgb)
-  (values (c< cgb) (c> cgb)))
+  (values (ch< cgb) (ch> cgb)))
 
 
 ;; create a chargbuffer from zero or more characters
@@ -94,35 +94,35 @@
   (list->chargbuffer chars))
 
 (define (chargbuffer-length cgb)
-  (fx+ (charspan-length (c< cgb))
-       (charspan-length (c> cgb))))
+  (fx+ (charspan-length (ch< cgb))
+       (charspan-length (ch> cgb))))
 
 (define (chargbuffer-empty? cgb)
-  (and (charspan-empty? (c< cgb))
-       (charspan-empty? (c> cgb))))
+  (and (charspan-empty? (ch< cgb))
+       (charspan-empty? (ch> cgb))))
 
 (define (chargbuffer-ref cgb idx)
   (assert* 'chargbuffer-ref (fx<? -1 idx (chargbuffer-length cgb)))
-  (let ((left-n (charspan-length (c< cgb))))
+  (let ((left-n (charspan-length (ch< cgb))))
     (if (fx<? idx left-n)
-      (charspan-ref (c< cgb) idx)
-      (charspan-ref (c> cgb) (fx- idx left-n)))))
+      (charspan-ref (ch< cgb) idx)
+      (charspan-ref (ch> cgb) (fx- idx left-n)))))
 
 (define (chargbuffer-set! cgb idx ch)
   (assert* 'chargbuffer-set! (fx<? -1 idx (chargbuffer-length cgb)))
-  (let ((left-n (charspan-length (c< cgb))))
+  (let ((left-n (charspan-length (ch< cgb))))
     (if (fx<? idx left-n)
-      (charspan-set! (c< cgb) idx ch)
-      (charspan-set! (c> cgb) (fx- idx left-n) ch))))
+      (charspan-set! (ch< cgb) idx ch)
+      (charspan-set! (ch> cgb) (fx- idx left-n) ch))))
 
 (define (chargbuffer-clear! cgb)
-  (charspan-clear! (c< cgb))
-  (charspan-clear! (c> cgb)))
+  (charspan-clear! (ch< cgb))
+  (charspan-clear! (ch> cgb)))
 
 (define (chargbuffer-split-at! cgb idx)
   (assert* 'chargbuffer-split-at! (fx<=? 0 idx (chargbuffer-length cgb)))
-  (let* ((left  (c< cgb))
-         (right (c> cgb))
+  (let* ((left  (ch< cgb))
+         (right (ch> cgb))
          (delta (fx- idx (charspan-length left))))
     (cond
       ((fx>? delta 0)
@@ -135,8 +135,8 @@
 ;; insert one char into chargbuffer at position idx
 (define (chargbuffer-insert-at! cgb idx ch)
   (assert* 'chargbuffer-insert-at! (fx<=? 0 idx (chargbuffer-length cgb)))
-  (let* ((left   (c< cgb))
-         (right  (c> cgb))
+  (let* ((left   (ch< cgb))
+         (right  (ch> cgb))
          (left-n (charspan-length left))
          (delta  (fx- idx left-n)))
     (cond
@@ -157,8 +157,8 @@
       (assert* 'chargbuffer-insert-at/charspan! (fx<=? 0 idx (chargbuffer-length cgb)))
       (assert* 'chargbuffer-insert-at/charspan! (fx<=?* 0 src-start src-end (charspan-length csp-src)))
       (when (fx<? src-start src-end)
-        (let* ((left   (c< cgb))
-               (right  (c> cgb))
+        (let* ((left   (ch< cgb))
+               (right  (ch> cgb))
                (left-n (charspan-length left))
                (delta  (fx- idx left-n)))
           (assert-not* 'chargbuffer-insert-at/chargbuffer! (eq? left  csp-src))
@@ -184,17 +184,17 @@
       (assert* 'chargbuffer-insert-at/chargbuffer! (fx<=?* 0 src-start src-end (chargbuffer-length cgb-src)))
       (when (fx<? src-start src-end)
         (assert-not* 'chargbuffer-insert-at/chargbuffer! (eq? cgb cgb-src))
-        (let* ((left   (c< cgb-src))
-               (right  (c> cgb-src))
+        (let* ((left   (ch< cgb-src))
+               (right  (ch> cgb-src))
                (left-n (charspan-length left)))
           (when (fx<? src-start left-n)
-            ; read from (c< cgb-src) and insert into cgb
+            ; read from (ch< cgb-src) and insert into cgb
             (let ((pos (fxmin left-n src-end)))
               (chargbuffer-insert-at/charspan! cgb idx left src-start pos)
               (set! idx (fx+ idx (fx- pos src-start)))
               (set! src-start pos)))
           (when (fx<? src-start src-end)
-            ; read from (c> cgb-src) and insert into cgb
+            ; read from (ch> cgb-src) and insert into cgb
             (let ((pos (fx- src-start left-n))
                   (end (fx- src-end   left-n)))
               (chargbuffer-insert-at/charspan! cgb idx right pos end))))))
@@ -204,8 +204,8 @@
 
 ;; remove elements in range [start, end) from chargbuffer cgb
 (define (chargbuffer-delete! cgb start end)
-  (let* ((left    (c< cgb))
-         (right   (c> cgb))
+  (let* ((left    (ch< cgb))
+         (right   (ch> cgb))
          (left-n  (charspan-length left))
          (right-n (charspan-length right))
          (len     (fx+ left-n right-n))

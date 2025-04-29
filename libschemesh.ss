@@ -24,16 +24,16 @@
   (include "containers/charspan.ss")    ; requires containers/string.ss
   (include "containers/span.ss")        ; requires containers/vector.ss
   (include "containers/utf8b.ss")       ; requires containers/bytespan.ss
-  (include "containers/palette.ss")     ; requires containers/hashtable.ss containers/span.ss containers/utf8b.ss
   (include "containers/sort.ss")        ; requires containers/span.ss
-  (include "containers/cellvector.ss")  ; requires containers/bytevector.ss containers/palette.ss containers/utf8b.ss
-  (include "containers/cellspan.ss")    ; requires containers/cellvector.ss
-  (include "containers/cellgbuffer.ss") ; requires containers/cellspan.ss
   (include "containers/chargbuffer.ss") ; requires containers/charspan.ss
   (include "containers/gbuffer.ss")     ; requires containers/span.ss
   (include "containers/charline.ss")    ; requires containers/gbuffer.ss
   (include "containers/charlines.ss")   ; requires containers/charlines.ss
   (include "containers/utf8b-utils.ss") ; requires containers/utf8b.ss containers/chargbuffer.ss
+  (include "containers/palette.ss")     ; requires containers/hashtable.ss containers/span.ss containers/utf8b-utils.ss
+  (include "containers/cellvector.ss")  ; requires containers/bytevector.ss containers/palette.ss
+  (include "containers/cellspan.ss")    ; requires containers/cellvector.ss
+  (include "containers/cellgbuffer.ss") ; requires containers/cellspan.ss
   (include "containers/macros.ss")
   (include "containers/containers.ss")
   (include "containers/replacements.ss")
@@ -67,10 +67,10 @@
   (include "lineedit/ansi.ss")
   (include "lineedit/vline.ss")
   (include "lineedit/vlines.ss")
+  (include "lineedit/vlines-io.ss")
   (include "lineedit/vscreen.ss")
   (include "lineedit/charhistory.ss")
   (include "lineedit/charhistory-io.ss")
-  (include "lineedit/charlines-io.ss")
   (include "lineedit/paren.ss")
   (include "lineedit/parenmatcher.ss")
   (include "lineedit/parser.ss")

@@ -9,7 +9,7 @@
 
 (library (schemesh lineedit vlines (0 8 3))
   (export
-    vlines vlines? assert-vlines?
+    vlines vlines? assert-vlines? vlines->string
     vlines-shallow-copy vlines-copy-on-write vlines-iterate
     vlines-empty? vlines-length vlines-equal/chars?
     vlines-cell-length vlines-ref vlines-set! vlines-clear!
@@ -26,6 +26,8 @@
     (only (chezscheme) fx1+ fx1- record-writer string-copy!)
     (only (schemesh bootstrap)   assert* fx<=?* while)
     (only (schemesh containers list) for-list)
+    (only (schemesh containers charspan) make-charspan charspan-insert-right! charspan->string*!)
+    (only (schemesh containers palette)  cell->char)
     (schemesh containers span)
     (schemesh containers cellspan)
     (schemesh containers cellgbuffer)
@@ -69,6 +71,15 @@
 (define vlines-length     gbuffer-length)
 
 
+;; convert vlines to string, removing all palette colors
+(define (vlines->string lines)
+  (let ((csp (make-charspan 0)))
+    (vlines-iterate lines
+      (lambda (y line)
+        (vline-iterate line
+          (lambda (x c)
+            (charspan-insert-right! csp (cell->char c))))))
+    (charspan->string*! csp)))
 
 
 ;; return #t if lines1 and lines2 contain the same number of vline

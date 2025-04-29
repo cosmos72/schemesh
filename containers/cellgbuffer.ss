@@ -30,8 +30,8 @@
 
 (define-record-type (%cellgbuffer %make-cellgbuffer cellgbuffer?)
   (fields
-     (mutable left  c< cellgbuffer-left-set!)
-     (mutable right c> cellgbuffer-right-set!))
+     (mutable left  cl< cellgbuffer-left-set!)
+     (mutable right cl> cellgbuffer-right-set!))
   (nongenerative %cellgbuffer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 ;; convert a list of cellacters to cellgbuffer
@@ -64,36 +64,36 @@
   (list->cellgbuffer cells))
 
 (define (cellgbuffer-length cgb)
-  (fx+ (cellspan-length (c< cgb))
-       (cellspan-length (c> cgb))))
+  (fx+ (cellspan-length (cl< cgb))
+       (cellspan-length (cl> cgb))))
 
 (define (cellgbuffer-empty? cgb)
-  (and (cellspan-empty? (c< cgb))
-       (cellspan-empty? (c> cgb))))
+  (and (cellspan-empty? (cl< cgb))
+       (cellspan-empty? (cl> cgb))))
 
 (define (cellgbuffer-ref cgb idx)
   (assert* 'cellgbuffer-ref (fx<? -1 idx (cellgbuffer-length cgb)))
-  (let ((left-n (cellspan-length (c< cgb))))
+  (let ((left-n (cellspan-length (cl< cgb))))
     (if (fx<? idx left-n)
-      (cellspan-ref (c< cgb) idx)
-      (cellspan-ref (c> cgb) (fx- idx left-n)))))
+      (cellspan-ref (cl< cgb) idx)
+      (cellspan-ref (cl> cgb) (fx- idx left-n)))))
 
 ;; c must be a character or cell
 (define (cellgbuffer-set! cgb idx c)
   (assert* 'cellgbuffer-set! (fx<? -1 idx (cellgbuffer-length cgb)))
-  (let ((left-n (cellspan-length (c< cgb))))
+  (let ((left-n (cellspan-length (cl< cgb))))
     (if (fx<? idx left-n)
-      (cellspan-set! (c< cgb) idx c)
-      (cellspan-set! (c> cgb) (fx- idx left-n) c))))
+      (cellspan-set! (cl< cgb) idx c)
+      (cellspan-set! (cl> cgb) (fx- idx left-n) c))))
 
 (define (cellgbuffer-clear! cgb)
-  (cellspan-clear! (c< cgb))
-  (cellspan-clear! (c> cgb)))
+  (cellspan-clear! (cl< cgb))
+  (cellspan-clear! (cl> cgb)))
 
 (define (cellgbuffer-split-at! cgb idx)
   (assert* 'cellgbuffer-split-at! (fx<=? 0 idx (cellgbuffer-length cgb)))
-  (let* ((left  (c< cgb))
-         (right (c> cgb))
+  (let* ((left  (cl< cgb))
+         (right (cl> cgb))
          (delta (fx- idx (cellspan-length left))))
     (cond
       ((fx>? delta 0)
@@ -106,8 +106,8 @@
 ;; insert one character or cell into cellgbuffer at position idx
 (define (cellgbuffer-insert-at! cgb idx c)
   (assert* 'cellgbuffer-insert-at! (fx<=? 0 idx (cellgbuffer-length cgb)))
-  (let* ((left   (c< cgb))
-         (right  (c> cgb))
+  (let* ((left   (cl< cgb))
+         (right  (cl> cgb))
          (left-n (cellspan-length left))
          (delta  (fx- idx left-n)))
     (cond
@@ -128,8 +128,8 @@
       (assert* 'cellgbuffer-insert-at/cellspan! (fx<=? 0 idx (cellgbuffer-length cgb)))
       (assert* 'cellgbuffer-insert-at/cellspan! (fx<=?* 0 src-start src-end (cellspan-length csp-src)))
       (when (fx<? src-start src-end)
-        (let* ((left   (c< cgb))
-               (right  (c> cgb))
+        (let* ((left   (cl< cgb))
+               (right  (cl> cgb))
                (left-n (cellspan-length left))
                (delta  (fx- idx left-n)))
           (assert-not* 'cellgbuffer-insert-at/cellspan! (eq? left  csp-src))
@@ -155,17 +155,17 @@
       (assert* 'cellgbuffer-insert-at/cellgbuffer! (fx<=?* 0 src-start src-end (cellgbuffer-length cgb-src)))
       (when (fx<? src-start src-end)
         (assert-not* 'cellgbuffer-insert-at/cellgbuffer! (eq? cgb cgb-src))
-        (let* ((left   (c< cgb-src))
-               (right  (c> cgb-src))
+        (let* ((left   (cl< cgb-src))
+               (right  (cl> cgb-src))
                (left-n (cellspan-length left)))
           (when (fx<? src-start left-n)
-            ; read from (c< cgb-src) and insert into cgb
+            ; read from (cl< cgb-src) and insert into cgb
             (let ((pos (fxmin left-n src-end)))
               (cellgbuffer-insert-at/cellspan! cgb idx left src-start pos)
               (set! idx (fx+ idx (fx- pos src-start)))
               (set! src-start pos)))
           (when (fx<? src-start src-end)
-            ; read from (c> cgb-src) and insert into cgb
+            ; read from (cl> cgb-src) and insert into cgb
             (let ((pos (fx- src-start left-n))
                   (end (fx- src-end   left-n)))
               (cellgbuffer-insert-at/cellspan! cgb idx right pos end))))))
@@ -175,8 +175,8 @@
 
 ;; remove elements in range [start, end) from cellgbuffer cgb
 (define (cellgbuffer-delete! cgb start end)
-  (let* ((left    (c< cgb))
-         (right   (c> cgb))
+  (let* ((left    (cl< cgb))
+         (right   (cl> cgb))
          (left-n  (cellspan-length left))
          (right-n (cellspan-length right))
          (len     (fx+ left-n right-n))

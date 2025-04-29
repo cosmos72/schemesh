@@ -19,7 +19,7 @@
     (schemesh containers)
     (schemesh lineedit linectx)
     (schemesh lineedit lineedit)
-    (schemesh lineedit charlines io)
+    (schemesh lineedit vlines io)
     (only (schemesh lineedit paren) paren-name)
     (schemesh lineedit parser)
     (schemesh lineedit vscreen)

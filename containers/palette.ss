@@ -10,21 +10,24 @@
 
 (library (schemesh containers palette (0 8 3))
   (export
-    cell cell? cell->char cell->palette cell->colors cell-write
+    cell cell? cell->char cell->palette cell->colors cell-write cell-display/bytespan
 
     tty-color? tty-rgb24 tty-rgb8 tty-rgb4 tty-gray5 symbol->tty-rgb4
     tty-colors tty-colors? tty-colors->fg tty-colors->bg tty-colors->palette
     tty-palette? tty-palette->colors
 
-    tty-fg-display tty-bg-display tty-colors-display tty-palette-display)
+    tty-fg-display tty-bg-display tty-colors-display tty-palette-display
+    tty-fg-display/bytespan tty-bg-display/bytespan  tty-colors-display/bytespan tty-palette-display/bytespan)
   (import
     (rnrs)
-    (only (chezscheme)                    fx1- meta-cond record-writer)
-    (only (schemesh bootstrap)            assert*)
-    (only (schemesh containers list)      list-index)
-    (only (schemesh containers hashtable) eqv-hashtable)
+    (only (chezscheme)                      fx1- meta-cond record-writer)
+    (only (schemesh bootstrap)              assert*)
+    (schemesh containers bytespan)
+    (only (schemesh containers list)        list-index)
+    (only (schemesh containers hashtable)   eqv-hashtable)
     (schemesh containers span)
-    (only (schemesh containers utf8b)      integer->char*))
+    (only (schemesh containers utf8b)       integer->char*)
+    (only (schemesh containers utf8b utils) bytespan-display-right/fixnum! bytespan-insert-right/char!))
 
 (define-syntax cell-bytes-log2 (identifier-syntax 2))
 (define-syntax cell-bytes      (identifier-syntax 4))
@@ -169,20 +172,20 @@
   (cond
     ((not fg) ; keep default foreground color
       #f)
-    ((fx>=? fg 0)   ; 24-bit RGB
+    ((fx>=? fg 0)   ; 24-bit RGB fg color
       (put-string port ";38;2;")
       (display (fxand #xff fg) port)
       (put-char port #\;)
       (display (fxand #xff (fx>> fg 8)) port)
       (put-char port #\;)
       (display (fxand #xff (fx>> fg 16)) port))
-    ((fx>=? fg -8)  ; low-intensity VGA/ANSI color
+    ((fx>=? fg -8)  ; low-intensity VGA/ANSI fg color
       (put-string port ";3")
       (display (fxnot fg) port))
-    ((fx>=? fg -16) ; high-intensity VGA/ANSI color
+    ((fx>=? fg -16) ; high-intensity VGA/ANSI fg color
       (put-string port ";1;3")
       (display (fxand 7 (fxnot fg)) port))
-    (else           ; 8-bit RGB
+    (else           ; 8-bit RGB fg color
       (put-string port ";38;5;")
       (display (fxnot fg) port))))
 
@@ -192,19 +195,67 @@
   (cond
     ((not bg) ; keep default foreground color
       #f)
-    ((fx>=? bg 0)   ; 24-bit RGB
+    ((fx>=? bg 0)   ; 24-bit RGB bg color
       (put-string port ";48;2;")
       (display (fxand #xff bg) port)
       (put-char port #\;)
       (display (fxand #xff (fx>> bg 8)) port)
       (put-char port #\;)
       (display (fxand #xff (fx>> bg 16)) port))
-    ((fx>=? bg -8)  ; low-intensity VGA/ANSI color
+    ((fx>=? bg -8)  ; low-intensity VGA/ANSI bg color
       (put-string port ";4")
       (display (fxnot bg) port))
-    (else           ; 8-bit RGB
-      (put-string port ";38;5;")
+    ;; high-intensity VGA/ANSI bg color are not standard
+    ;; => use instead 8-bit RGB bg color
+    (else           ; 8-bit RGB bg color
+      (put-string port ";48;5;")
       (display (fxnot bg) port))))
+
+
+;; append to bytespan the ANSI escape sequences for setting terminal foreground color.
+(define (tty-fg-display/bytespan fg wbuf)
+  (cond
+    ((not fg) ; keep default foreground color
+      #f)
+    ((fx>=? fg 0)   ; 24-bit RGB
+      (bytespan-insert-right/bytevector! wbuf #vu8(59 51 56 59 50 59))
+      (bytespan-display-right/fixnum!    wbuf (fxand #xff fg) wbuf)
+      (bytespan-insert-right/u8!         wbuf 59)
+      (bytespan-display-right/fixnum!    wbuf (fxand #xff (fx>> fg 8)))
+      (bytespan-insert-right/u8!         wbuf 59)
+      (bytespan-display-right/fixnum!    wbuf (fxand #xff (fx>> fg 16))))
+    ((fx>=? fg -8)  ; low-intensity VGA/ANSI color
+      (bytespan-insert-right/bytevector! wbuf #vu8(59 51))
+      (bytespan-display-right/fixnum!    wbuf (fxnot fg)))
+    ((fx>=? fg -16) ; high-intensity VGA/ANSI color
+      (bytespan-insert-right/bytevector! wbuf #vu8(59 49 59 51))
+      (bytespan-display-right/fixnum!    wbuf (fxand 7 (fxnot fg))))
+    (else           ; 8-bit RGB
+      (bytespan-insert-right/bytevector! wbuf #vu8(59 51 56 59 53 59))
+      (bytespan-display-right/fixnum!    wbuf (fxnot fg)))))
+
+
+
+;; append to bytespan the ANSI escape sequences for setting terminal foreground color.
+(define (tty-bg-display/bytespan fg wbuf)
+  (cond
+    ((not fg) ; keep default background color
+      #f)
+    ((fx>=? fg 0)   ; 24-bit RGB
+      (bytespan-insert-right/bytevector! wbuf #vu8(59 52 56 59 50 59))
+      (bytespan-display-right/fixnum!    wbuf (fxand #xff fg) wbuf)
+      (bytespan-insert-right/u8!         wbuf 59)
+      (bytespan-display-right/fixnum!    wbuf (fxand #xff (fx>> fg 8)))
+      (bytespan-insert-right/u8!         wbuf 59)
+      (bytespan-display-right/fixnum!    wbuf (fxand #xff (fx>> fg 16))))
+    ((fx>=? fg -8)  ; low-intensity VGA/ANSI color
+      (bytespan-insert-right/bytevector! wbuf #vu8(59 52))
+      (bytespan-display-right/fixnum!    wbuf (fxnot fg)))
+    ;; high-intensity VGA/ANSI bg color are not standard
+    ;; => use instead 8-bit RGB bg color
+    (else           ; 8-bit RGB
+      (bytespan-insert-right/bytevector! wbuf #vu8(59 52 56 59 53 59))
+      (bytespan-display-right/fixnum!    wbuf (fxnot fg)))))
 
 
 ;; send to textual port the ANSI escape sequence for setting
@@ -216,11 +267,26 @@
   (put-char port #\m))
 
 
+;; append to bytespan the ANSI escape sequence for setting
+;; terminal foreground and background colors to specified tty-colors.
+(define (tty-colors-display/bytespan cols wbuf)
+  (bytespan-insert-right/u8! wbuf 27 91) ; reset fg and bg to default
+  (tty-fg-display/bytespan (and cols (tty-colors->fg cols)) wbuf)
+  (tty-bg-display/bytespan (and cols (tty-colors->bg cols)) wbuf)
+  (bytespan-insert-right/u8! wbuf 109))
+
+
+
 ;; send to textual port the ANSI escape sequences for setting
 ;; terminal foreground and background colors to specified palette.
 (define (tty-palette-display palette port)
   (tty-colors-display (tty-palette->colors palette) port))
 
+
+;; append to bytespan the ANSI escape sequences for setting
+;; terminal foreground and background colors to specified palette.
+(define (tty-palette-display/bytespan palette wbuf)
+  (tty-colors-display/bytespan (tty-palette->colors palette) wbuf))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -260,7 +326,7 @@
 (define (cell->colors cl)
   (tty-palette->colors (cell->palette cl)))
 
-;; write colored char to textual output port
+;; write colored char to textual output port, escaping special characters
 (define (cell-write cl old-palette port)
   (let ((ch      (cell->char    cl))
         (palette (cell->palette cl)))
@@ -281,6 +347,14 @@
           (display (number->string n 16) port)
           (put-char port #\;))))))
 
+
+;; write colored char to bytespan, NOT escaping special characters
+(define (cell-display/bytespan cl old-palette wbuf)
+  (let ((ch      (cell->char    cl))
+        (palette (cell->palette cl)))
+    (unless (fx=? palette old-palette)
+      (tty-palette-display/bytespan palette wbuf))
+    (bytespan-insert-right/char! wbuf ch)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

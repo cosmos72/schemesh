@@ -11,7 +11,7 @@
 (library-reexport (schemesh lineedit (0 8 3))
   (import
     (schemesh lineedit ansi)
-    (schemesh lineedit charlines io)
+    (schemesh lineedit vlines io)
     (schemesh lineedit charhistory)
     (schemesh lineedit charhistory io)
     (schemesh lineedit linectx)

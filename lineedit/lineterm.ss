@@ -10,7 +10,7 @@
 (library (schemesh lineedit lineterm (0 8 3))
   (export
     lineterm-write/u8
-    lineterm-write/bytevector lineterm-write/bytespan lineterm-write/charspan lineterm-write/cbuffer lineterm-write/string
+    lineterm-write/bytevector lineterm-write/bytespan lineterm-write/charspan lineterm-write/cellgbuffer lineterm-write/string
     lineterm-move-dx lineterm-move-dy lineterm-move-to-bol lineterm-clear-to-eol lineterm-clear-to-eos
     lineterm-move lineterm-move-from lineterm-move-to lineterm-write-not-bol-marker)
 
@@ -49,12 +49,20 @@
 (define (lineterm-write/charspan ctx csp)
   (bytespan-insert-right/charspan! (linectx-wbuf ctx) csp))
 
-;; write a portion of given chargbuffer to wbuf
-(define (lineterm-write/cbuffer ctx cgb start end)
-  (do ((wbuf (linectx-wbuf ctx))
-       (pos start (fx1+ pos)))
-      ((fx>=? pos end))
-    (bytespan-insert-right/char! wbuf (chargbuffer-ref cgb pos))))
+;; write a portion of given cellgbuffer to wbuf
+(define (lineterm-write/cellgbuffer ctx cgb start end)
+  (let ((wbuf (linectx-wbuf ctx))
+        (old-palette 0))
+    (do ((pos start (fx1+ pos)))
+        ((fx>=? pos end))
+      (let* ((cl      (cellgbuffer-ref cgb pos))
+             (palette (cell->palette cl)))
+        (cell-display/bytespan cl old-palette wbuf)
+        (unless (fx=? old-palette palette)
+          (set! old-palette palette))))
+    (unless (fxzero? old-palette)
+      (tty-palette-display/bytespan 0 wbuf))))
+
 
 ;; write given string to wbuf
 (define (lineterm-write/string ctx str)

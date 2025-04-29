@@ -46,7 +46,7 @@
     (schemesh lineedit linectx)
     (schemesh lineedit lineterm)
     (only (schemesh lineedit parser) make-parsectx*)
-    (only (schemesh lineedit charlines io) open-charlines-input-port))
+    (only (schemesh lineedit vlines io) open-vlines-input-port))
 
 
 
@@ -266,7 +266,7 @@
               (set! ret
                 (parenmatcher-find/at
                   parenmatcher
-                  (lambda () (make-parsectx* (open-charlines-input-port screen)
+                  (lambda () (make-parsectx* (open-vlines-input-port screen)
                                              parsers
                                              (vscreen-width screen)
                                              (vscreen-prompt-end-x screen)
@@ -298,7 +298,7 @@
           (set! ret
             (parenmatcher-find/surrounds
               parenmatcher
-              (lambda () (make-parsectx* (open-charlines-input-port screen)
+              (lambda () (make-parsectx* (open-vlines-input-port screen)
                                          parsers
                                          (vscreen-width screen)
                                          (vscreen-prompt-end-x screen)
@@ -331,7 +331,7 @@
       (when parsers
         (parenmatcher-maybe-update!
           parenmatcher
-          (lambda () (make-parsectx* (open-charlines-input-port screen)
+          (lambda () (make-parsectx* (open-vlines-input-port screen)
                                      parsers
                                      (vscreen-width screen)
                                      (vscreen-prompt-end-x screen)

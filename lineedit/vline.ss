@@ -16,7 +16,7 @@
     vline-delete! vline-insert-at! vline-insert-at/cellspan! vline-insert-at/cellgbuffer!
     vline-index vline-index-right vline-index/char vline-count vline-count-right
     vline-dirty-start-x vline-dirty-end-x vline-dirty-x-add! vline-dirty-x-unset!
-    in-vline vline-write)
+    in-vline vline-iterate vline-write)
 
   (import
     (rnrs)
@@ -31,8 +31,8 @@
 ;; copy-pasted from containers/cellgbuffer.ss
 (define-record-type (%cellgbuffer %make-cellgbuffer %cellgbuffer?)
   (fields
-     (mutable left  c< cellgbuffer-left-set!)
-     (mutable right c> cellgbuffer-right-set!))
+     (mutable left  cl< cellgbuffer-left-set!)
+     (mutable right cl> cellgbuffer-right-set!))
   (nongenerative %cellgbuffer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 ;; type vline is a cell gap-buffer with additional fields:
@@ -89,15 +89,15 @@
 ;; Return a copy-on-write clone of specified vline.
 (define (vline-copy-on-write line)
   (assert* 'vline-copy-on-write (vline? line))
-  (%make-vline (c< line) (c> line) (vline-share-inc! line)
+  (%make-vline (cl< line) (cl> line) (vline-share-inc! line)
                   (vline-dirty-start-x line) (vline-dirty-end-x line)))
 
 ;; if vline was a copy-on-write clone, actually clone it.
 (define (vline-unshare! line)
   (assert* 'vline-unshare! (vline? line))
   (when (vline-share-dec! line)
-    (cellgbuffer-left-set!  line (cellspan-copy (c< line)))
-    (cellgbuffer-right-set! line (cellspan-copy (c> line)))
+    (cellgbuffer-left-set!  line (cellspan-copy (cl< line)))
+    (cellgbuffer-right-set! line (cellspan-copy (cl> line)))
     (%vline-share-set!   line (cons 0 #f))))
 
 (define vline-empty?     cellgbuffer-empty?)
@@ -133,8 +133,8 @@
   (assert* 'vline-equal/chars? (vline? line1))
   (assert* 'vline-equal/chars? (vline? line2))
   (or (eq? line1 line2)
-      (and (eq? (c< line1) (c< line2))
-           (eq? (c> line1) (c> line2)))
+      (and (eq? (cl< line1) (cl< line2))
+           (eq? (cl> line1) (cl> line2)))
       (let ((n1 (vline-length line1)))
         (and (fx=? n1 (vline-length line2))
           (do ((i 0 (fx1+ i)))
@@ -296,6 +296,7 @@
     ((line)
       (in-vline line 0 (vline-length line) 1))))
 
+(define vline-iterate cellgbuffer-iterate)
 
 
 ;; write a textual representation of vline to output port
