@@ -49,18 +49,7 @@
 
 
 (define (alias-validate caller name alias)
-  (assert-string-list? caller alias)
-  (when (null? alias)
-    (raise-errorf caller "an alias cannot be empty.\n\tReason: it would be functionally equivalent to \"unsafe\" builtin.\n\tFound: ~s"
-      (list "alias" name)))
-  (when (string-list-starts-with-unsafe? alias)
-    (raise-errorf caller "an alias cannot expand to \"unsafe\".\n\tReason: it would allow hiding the \"unsafe\" builtin.\n\tFound: ~s"
-      (cons "alias" (cons name alias)))))
-
-
-(define (string-list-starts-with-unsafe? l)
-  (and (not (null? l))
-       (string=? "unsafe" (car l))))
+  (assert-string-list? caller alias))
 
 
 ;; add an alias to (sh-aliases) table.

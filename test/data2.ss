@@ -318,11 +318,13 @@
   (sh-cmd "echo"  "foo" " bar ")                       ,(sh-cmd "echo" "foo" " bar ")
   (sh-cmd* "ls" (lambda (j) "."))                      ,@"(sh-cmd* \"ls\" #<procedure>)"
   (sh-cmd* "A" '= "B" "echo")                          ,@"(sh-cmd* \"A\" '= \"B\" \"echo\")"
+  (sh-cmd* (shell-wildcard (shell-env "VAR")
+                           "/foo" "/bar"))             ,@"(sh-cmd* #<procedure>)"
   (sh-find-job 0)                                      #f
   (sh-find-job 1)                                      #f
   (sh-find-job #t)                                     ,@(sh-globals)
 
-  ;; ------------------------- shell syntax -------------------------------
+  ;; ------------------------- shell form parser -------------------------------
   (sh-parse-datum
     '(shell "wc" "-l" "myfile" > "mylog" \x3B;
             "echo" "done"))                            (sh-list (sh-cmd* "wc" "-l" "myfile" 1 '> "mylog") '\x3B;
@@ -469,5 +471,9 @@
   ;; test issue #20
   (caddr (expand
     '{cat /dev/null | (foo) > log}))                   (sh-pipe* (sh-cmd "cat" "/dev/null") '\x7C; (sh-redirect! (foo) 1 '> "log"))
+
+  ;; ------------------------- shell syntax -------------------------------
+
+  {${VAR}/foo/bar arg}                                 ,@"(sh-cmd* #<procedure> \"arg\")"
 
 ) #!eof
