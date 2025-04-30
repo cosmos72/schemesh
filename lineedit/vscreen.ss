@@ -149,7 +149,8 @@
 
 ;; return vscreen char at specified x y, or #f if x y are out of range
 (define (vscreen-char-at-xy screen x y)
-  (cell->char (vlines-cell-at-xy screen x y)))
+  (let ((cl (vlines-cell-at-xy screen x y)))
+    (and cl (cell->char cl))))
 
 ;; return tow values: cursor x and y position in input vlines
 (define (vscreen-cursor-ixy screen)
@@ -798,17 +799,13 @@
 
 ;; return position immediately before x y, and char at such position.
 ;; return #f #f #f if x y are out of range or 0 0.
-(define (vscreen-char-before-xy screen x y)
-  (let-values (((x y cl) (vlines-cell-before-xy screen x y)))
-    (values x y (and cl (cell->char cl)))))
+(define vscreen-char-before-xy vlines-char-before-xy)
 
 
 ;; return position immediately after x y, and char at such position.
 ;; return #f #f #f if x y are out of range.
 ;; return x+1 y #f if x y correspond to the last character in the last line
-(define (vscreen-char-after-xy screen x y)
-  (let-values (((x y cl) (vlines-cell-after-xy screen x y)))
-    (values x y (and cl (cell->char cl)))))
+(define vscreen-char-after-xy vlines-char-after-xy)
 
 
 ;; return count of consecutive characters starting immediately before x y and moving backward

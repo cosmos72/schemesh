@@ -293,24 +293,23 @@
 (define (linectx-draw-bad-paren/end lctx paren style)
   (void))
 
+(define palette-good (tty-colors (symbol->tty-rgb4 'cyan 'high) #f))
+(define palette-bad  (tty-colors (symbol->tty-rgb4 'red  'high) #f))
+
 ;; if position x y is inside current vlines, redraw char at x y with specified style.
 ;; used to highlight/unhighlight parentheses, brackes, braces and quotes.
 ;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
 (define (linectx-draw-cell-at-xy lctx x y style)
   (let* ((cell  (vscreen-cell-at-xy (linectx-vscreen lctx) x y))
-         (ch    (cell->char cell))
-         (wbuf  (linectx-wbuf  lctx))
-         (vx    (if (fxzero? y) (fx+ x (linectx-prompt-end-x lctx)) x)) ;; also count prompt length!
-         (vy    (fx+ y (linectx-prompt-end-y lctx))))                   ;; also count prompt length!
+         (ch    (and cell (cell->char cell))))
     ; (debugf "linectx-draw-cell-at-xy at (~s ~s) char ~s" x y ch)
     (when (and ch (char>=? ch #\space))
-      (lineterm-move-to lctx vx vy)
-      (case style
-        ((good)
-          (bytespan-insert-right/bytevector! wbuf '#vu8(27 91 49 59 51 54 109)))  ; ESC[1;36m
-        ((bad)
-          (bytespan-insert-right/bytevector! wbuf '#vu8(27 91 49 59 51 49 109)))) ; ESC[1;31m
-      (bytespan-insert-right/char! wbuf ch)
-      (when (or (eq? 'good style) (eq? 'bad style))
-        (bytespan-insert-right/bytevector! wbuf '#vu8(27 91 109))) ; ESC[m
-      (linectx-term-xy-set! lctx (fx1+ vx) vy))))
+      (let ((vx    (if (fxzero? y) (fx+ x (linectx-prompt-end-x lctx)) x)) ;; also count prompt length!
+            (vy    (fx+ y (linectx-prompt-end-y lctx)))                    ;; also count prompt length!
+            (cl    (case style
+                     ((good) (cell ch palette-good))
+                     ((bad)  (cell ch palette-bad))
+                     (else   cell))))
+        (lineterm-move-to lctx vx vy)
+        (cell-display/bytespan cl (linectx-wbuf  lctx))
+        (linectx-term-xy-set! lctx (fx1+ vx) vy)))))

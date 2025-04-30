@@ -351,7 +351,7 @@
   (and
     (fxeven?
       (vlines-count (linectx-vscreen lctx) (greatest-fixnum) (greatest-fixnum)
-        (lambda (ch) (char=? ch #\\))))
+        (lambda (cl) (char=? #\\ (cell->char cl)))))
     (let* ((parenmatcher (linectx-parenmatcher lctx))
            (paren (and parenmatcher (parenmatcher-paren parenmatcher))))
       (or (not paren)
