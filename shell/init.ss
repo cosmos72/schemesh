@@ -105,7 +105,6 @@
     (hashtable-set! bt "status"     builtin-status)
     (hashtable-set! bt "unalias"    builtin-unalias)
     (hashtable-set! bt "unexport"   builtin-unexport)
-    (hashtable-set! bt "unsafe"     builtin-unsafe)
     (hashtable-set! bt "unset"      builtin-unset)
     (hashtable-set! bt "wait"       builtin-wait)
 
@@ -251,14 +250,6 @@
     mark each VAR ... environment variable as private in parent job.
 
     return success.\n"))
-
-    (hashtable-set! t "unsafe"     (string->utf8 " [alias-or-builtin-or-cmd [arg ...]]
-    execute the specified alias, builtin or command.
-
-    this builtin is only needed when ALIAS-OR-BUILTIN-OR-CMD is a non-constant expression,
-    as for example a wildcard or the value of an environment variable.
-
-    return exit status of executed alias, builtin or command.\n"))
 
     (hashtable-set! t "unset"      (string->utf8 " [var ...]
     remove each VAR ... environment variable from parent job.

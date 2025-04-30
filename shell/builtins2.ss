@@ -347,16 +347,6 @@
   (void))
 
 
-;; the "unsafe" builtin: run whatever command, builtin or alias is in the remaining command line.
-;;
-;; As all builtins do, must return job status.
-(define (builtin-unsafe job prog-and-args options)
-  (assert-string-list? 'builtin-unsafe prog-and-args)
-  (if (null? (cdr prog-and-args))
-    (void)
-    (start-command-or-builtin-or-alias-from-another-builtin job (cdr prog-and-args) options)))
-
-
 ;; the "unset" builtin: delete zero or more environment variables of parent job
 ;;
 ;; As all builtins do, must return job status.

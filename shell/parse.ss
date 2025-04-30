@@ -449,10 +449,6 @@
   (let-values (((program-and-args assignments redirections)
                   (cmd-parse-assignments-and-redirections
                     (cmd-expand-string-lists args))))
-    (when (and (not (null? program-and-args))
-               (not (string? (car program-and-args))))
-      (raise-errorf 'sh-cmd* "unsafe command detected: non-constant expressions, as for example wildcards, are not allowed as the first argument of a command.\n\tReason: the command actually executed can only be determined at runtime, and may even depend on the contents of current directory. \n\tIf you REALLY want to do that, use \"unsafe command ARGS\".\n\tFull command:   ~s\n\tParsed command: ~s"
-        args program-and-args))
     (let ((cmd (make-sh-cmd program-and-args)))
       (for-list ((assignment assignments))
         (let ((name (car assignment))
