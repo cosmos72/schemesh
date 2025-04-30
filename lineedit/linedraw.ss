@@ -37,7 +37,7 @@
       (lambda (y line)
         (let ((len (fx- (charline-length line)
                         (if (charline-nl? line) 1 0))))
-        (lineterm-write/cellgbuffer lctx line 0 len)
+        (lineterm-write/vline lctx line 0 len)
         (when (fx<? y ymax)
           (when (fx<? len (vscreen-width-at-y screen y))
             (lineterm-clear-to-eol lctx))
@@ -169,7 +169,7 @@
               ; (debugf "linectx-redraw-dirty i = ~s, len = ~s, width-at-i = ~s, xdirty0 = ~s -> ~s, xdirty1 = ~s -> ~s, nl = ~s"
               ;         i len width-at-i xdirty0 xdraw0 xdirty1 xdraw1 nl)
               (lineterm-move lctx vx vy (fx+ xdraw0 vxoffset) vi)
-              (lineterm-write/cellgbuffer lctx line xdraw0 (fx- xdraw1 nl)) ;; do not print the newline yet
+              (lineterm-write/vline lctx line xdraw0 (fx- xdraw1 nl)) ;; do not print the newline yet
               ;; clear to end-of-line only when
               ;; * xdirty1 extends beyond end of charline
               ;; * and charline is shorter than screen width

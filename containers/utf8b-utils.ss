@@ -16,7 +16,7 @@
   (export
     bytevector-char-ref bytevector-char-set! char->utf8b-length
     bytespan-ref/char bytespan-set/char! bytespan-insert-left/char! bytespan-insert-right/char!
-    bytespan-insert-right/charspan! bytespan-insert-right/cbuffer!
+    bytespan-insert-right/charspan!
     bytespan-display-right/fixnum! bytespan-insert-right/string!
     charspan->utf8b charspan->utf8b/0)
   (import
@@ -264,12 +264,6 @@
     (lambda (i ch)
       (bytespan-insert-right/char! sp ch))))
 
-;; convert a chargbuffer to UTF-8b sequences and append it to bytespan.
-(define (bytespan-insert-right/cbuffer! sp cbuf)
-  (bytespan-reserve-right! sp (fx+ (bytespan-length sp) (chargbuffer-length cbuf)))
-  (chargbuffer-iterate cbuf
-    (lambda (i ch)
-      (bytespan-insert-right/char! sp ch))))
 
 ;; convert a charspan to UTF-8b bytespan.
 (define (charspan->utf8b sp)

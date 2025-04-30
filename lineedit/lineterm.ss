@@ -10,7 +10,7 @@
 (library (schemesh lineedit lineterm (0 8 3))
   (export
     lineterm-write/u8
-    lineterm-write/bytevector lineterm-write/bytespan lineterm-write/charspan lineterm-write/cellgbuffer lineterm-write/string
+    lineterm-write/bytevector lineterm-write/bytespan lineterm-write/charspan lineterm-write/vline lineterm-write/string
     lineterm-move-dx lineterm-move-dy lineterm-move-to-bol lineterm-clear-to-eol lineterm-clear-to-eos
     lineterm-move lineterm-move-from lineterm-move-to lineterm-write-not-bol-marker)
 
@@ -20,6 +20,7 @@
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh posix fd)
+    (only (schemesh lineedit vline)   vline-ref vline-display/bytespan)
     (only (schemesh lineedit vscreen) vscreen-height vscreen-width)
     (schemesh lineedit linectx)
     (schemesh posix tty))
@@ -49,19 +50,9 @@
 (define (lineterm-write/charspan ctx csp)
   (bytespan-insert-right/charspan! (linectx-wbuf ctx) csp))
 
-;; write a portion of given cellgbuffer to wbuf
-(define (lineterm-write/cellgbuffer ctx cgb start end)
-  (let ((wbuf (linectx-wbuf ctx))
-        (old-palette 0))
-    (do ((pos start (fx1+ pos)))
-        ((fx>=? pos end))
-      (let* ((cl      (cellgbuffer-ref cgb pos))
-             (palette (cell->palette cl)))
-        (cell-display/bytespan cl old-palette wbuf)
-        (unless (fx=? old-palette palette)
-          (set! old-palette palette))))
-    (unless (fxzero? old-palette)
-      (tty-palette-display/bytespan 0 wbuf))))
+;; write a portion of given vline, including colors, to wbuf
+(define (lineterm-write/vline ctx line start end)
+  (vline-display/bytespan line start end (linectx-wbuf ctx)))
 
 
 ;; write given string to wbuf

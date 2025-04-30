@@ -16,7 +16,7 @@
     vline-delete! vline-insert-at! vline-insert-at/cellspan! vline-insert-at/cellgbuffer!
     vline-index vline-index-right vline-index/char vline-count vline-count-right
     vline-dirty-start-x vline-dirty-end-x vline-dirty-x-add! vline-dirty-x-unset!
-    in-vline vline-iterate vline-write)
+    in-vline vline-iterate vline-display/bytespan vline-write)
 
   (import
     (rnrs)
@@ -24,7 +24,7 @@
     (only (rnrs mutable-strings) string-set!)
     (only (chezscheme)           fx1+ fx1- record-writer string-copy!)
     (only (schemesh bootstrap)   assert* fx<=?*)
-    (only (schemesh containers cell) cell->char)
+    (schemesh containers cell)
     (schemesh containers cellspan)
     (schemesh containers cellgbuffer))
 
@@ -305,6 +305,20 @@
     (vline-iterate line
       (lambda (i c)
         (string-set! str i (cell->char c))))))
+
+
+;; write colored vline to bytespan, NOT escaping special characters
+(define (vline-display/bytespan line start end wbuf)
+  (let ((old-palette 0))
+    (do ((pos start (fx1+ pos)))
+        ((fx>=? pos end))
+      (let* ((cl      (vline-ref line pos))
+             (palette (cell->palette cl)))
+        (cell-display/bytespan cl old-palette wbuf)
+        (unless (fx=? old-palette palette)
+          (set! old-palette palette))))
+    (unless (fxzero? old-palette)
+      (tty-palette-display/bytespan 0 wbuf))))
 
 
 ;; write a textual representation of vline to output port
