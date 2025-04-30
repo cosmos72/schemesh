@@ -461,7 +461,7 @@
           (set! y y1)
           (set! n (fx1- n))
           (when ch
-            (vcellspan-insert-left! clipboard ch)))))))
+            (charspan-insert-left! clipboard ch)))))))
 
 
 (define (clipboard-insert-vscreen/right! clipboard screen n)
@@ -469,7 +469,7 @@
     (let-values (((x y) (vscreen-cursor-ixy screen)))
       (let ((ch (vscreen-char-at-xy screen x y)))
         (while (and x y ch (fx>? n 0))
-          (vcellspan-insert-right! clipboard ch)
+          (charspan-insert-right! clipboard ch)
           (let-values (((x1 y1 ch1) (vscreen-char-after-xy screen x y)))
             (set! x x1)
             (set! y y1)
@@ -481,7 +481,7 @@
   (when clipboard
     (while (fx<? start end)
       (let ((pos (fx1- end)))
-        (vcellspan-insert-left! clipboard (vline-ref/char line pos))
+        (charspan-insert-left! clipboard (vline-ref/char line pos))
         (set! end pos)))))
 
 
