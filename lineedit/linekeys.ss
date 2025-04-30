@@ -173,8 +173,8 @@
          (n         (charspan-length clipboard)))
     (unless (fxzero? n)
       (let-values (((x y) (vscreen-cursor-ixy screen)))
-        (vscreen-insert-at-xy/cellspan! screen x y clipboard))
-      (when (cellspan-index/char clipboard #\newline)
+        (vscreen-insert-at-xy/vcellspan! screen x y clipboard))
+      (when (vcellspan-index/char clipboard #\newline)
         (vscreen-reflow screen))
       (vscreen-cursor-move/right! screen n))))
 
@@ -214,7 +214,7 @@
           ((not (fxzero? common-len))
             ; insert common prefix of all completions
             (let ((elem-0 (span-ref table 0)))
-              (linectx-insert/cellspan! lctx elem-0 0 common-len)
+              (linectx-insert/vcellspan! lctx elem-0 0 common-len)
               (when (and (fx=? 1 table-n)
                          (not (char=? #\/ (charspan-ref elem-0 (fx1- common-len)))))
                 (linectx-insert/c! lctx #\space))))

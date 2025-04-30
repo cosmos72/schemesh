@@ -39,14 +39,15 @@
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh posix fd)
+    (schemesh screen vcellspan)
+    (schemesh screen vscreen)
+    (schemesh screen vhistory)
+    (schemesh screen vhistory io)
+    (schemesh screen vlines io)
     (schemesh lineedit ansi)
-    (schemesh lineedit vscreen)
-    (schemesh lineedit vhistory)
-    (schemesh lineedit vhistory io)
     (schemesh lineedit paren)
     (schemesh lineedit parenmatcher)
     (only (schemesh lineedit parser) make-parsectx*)
-    (only (schemesh lineedit vlines io) open-vlines-input-port)
     (schemesh posix tty)
     (only (schemesh posix signal) signal-consume-sigwinch))
 
@@ -70,7 +71,7 @@
     (mutable prompt)        ; bytespan, prompt
     parenmatcher
     (mutable paren)         ; #f or paren containing current parenthes to be highlighted
-    clipboard               ; cellspan
+    clipboard               ; vcellspan
     completions             ; span of cellspans, possible completions
     completion-stem         ; charspan, chars from vscreen used as stem
     (mutable keytable)      ; hashtable, contains keybindings. Usually eq? linectx-default-keytable
@@ -201,7 +202,7 @@
       'shell enabled-parsers      ; parser-name parsers
       (bytespan)                  ; prompt
       parenmatcher #f             ; parenmatcher paren
-      (cellspan)                  ; clipboard
+      (vcellspan)                  ; clipboard
       (span) (charspan)           ; completions stem
       linectx-default-keytable #f ; keytable last-key
       0 history)))                ; history
@@ -315,7 +316,7 @@
 
 
 (define (linectx-clipboard-clear! lctx)
-  (cellspan-clear! (linectx-clipboard lctx)))
+  (vcellspan-clear! (linectx-clipboard lctx)))
 
 
 ;; save to history a shallow clone of vlines in linectx-vscreen,

@@ -34,39 +34,39 @@
   (let ((bsp (bytespan 9 10 11 12)))
     (bytespan-index/u8 bsp
       (lambda (elem) (fx=? 11 elem))))             2
-  ;; ----------------------- cellspan -------------------------------------
-  (cellspan #\1 #\2 #\3)                           ,(string->cellspan "123")
-  (list->cellspan '(#\i #\j #\k #\l))              ,(string->cellspan "ijkl")
-  (string->cellspan "pqrst")                       ,(string->cellspan "pqrst")
-  (string->cellspan "ouh[()&*U")                   ,(string->cellspan "ouh[()&*U")
-  (cellspan-length (cellspan #\a #\b #\c))         3
-  (cellspan-capacity-right (cellspan #\a #\b #\c)) 3
-  (cellspan-empty? (cellspan))                     #t
-  (cellspan-empty? (cellspan #\~))                 #f
-  (cell->char
-    (cellspan-ref-right (cellspan #\{ #\\)))       #\\
-  (cell->char
-    (cellspan-ref (cellspan #\x #\y #\z) 2))       #\z
+  ;; ----------------------- vcellspan -------------------------------------
+  (vcellspan #\1 #\2 #\3)                           ,(string->vcellspan "123")
+  (list->vcellspan '(#\i #\j #\k #\l))              ,(string->vcellspan "ijkl")
+  (string->vcellspan "pqrst")                       ,(string->vcellspan "pqrst")
+  (string->vcellspan "ouh[()&*U")                   ,(string->vcellspan "ouh[()&*U")
+  (vcellspan-length (vcellspan #\a #\b #\c))         3
+  (vcellspan-capacity-right (vcellspan #\a #\b #\c)) 3
+  (vcellspan-empty? (vcellspan))                     #t
+  (vcellspan-empty? (vcellspan #\~))                 #f
+  (vcell->char
+    (vcellspan-ref-right (vcellspan #\{ #\\)))       #\\
+  (vcell->char
+    (vcellspan-ref (vcellspan #\x #\y #\z) 2))       #\z
   #|
-  (cellspan-count=
-    (string->cellspan "abcdef") 2
-    (string->cellspan "1cde34") 1 4)               3
-  (cellspan=?
-    (string->cellspan "abcdef") 2
-    (string->cellspan "1cde34") 1 3)               #t
+  (vcellspan-count=
+    (string->vcellspan "abcdef") 2
+    (string->vcellspan "1cde34") 1 4)               3
+  (vcellspan=?
+    (string->vcellspan "abcdef") 2
+    (string->vcellspan "1cde34") 1 3)               #t
   |#
-  (let ((sp (cellspan #\A #\B)))
-    (cellspan-insert-left! sp #\{ #\~) sp)         ,(string->cellspan "{~AB")
-  (let ((sp (cellspan #\4 #\5 #\6)))
-    (cellspan-insert-right! sp #\7 #\8) sp)        ,(string->cellspan "45678")
-  (let ((sp (string->cellspan "qwerty")))
-    (cellspan-delete-left! sp 1) sp)               ,(string->cellspan "werty")
-  (let ((sp (string->cellspan "asdfuiop")))
-    (cellspan-delete-right! sp 3) sp)              ,(string->cellspan "asdfu")
-  (let ((sp (cellspan #\@ #\a #\b #\c)))
-    (cellspan-index sp
+  (let ((sp (vcellspan #\A #\B)))
+    (vcellspan-insert-left! sp #\{ #\~) sp)         ,(string->vcellspan "{~AB")
+  (let ((sp (vcellspan #\4 #\5 #\6)))
+    (vcellspan-insert-right! sp #\7 #\8) sp)        ,(string->vcellspan "45678")
+  (let ((sp (string->vcellspan "qwerty")))
+    (vcellspan-delete-left! sp 1) sp)               ,(string->vcellspan "werty")
+  (let ((sp (string->vcellspan "asdfuiop")))
+    (vcellspan-delete-right! sp 3) sp)              ,(string->vcellspan "asdfu")
+  (let ((sp (vcellspan #\@ #\a #\b #\c)))
+    (vcellspan-index sp
       (lambda (elem)
-        (eq? #\b (cell->char elem)))))             2
+        (eq? #\b (vcell->char elem)))))             2
   ;; ----------------------- charspan -------------------------------------
   (charspan #\1 #\2 #\3)                           ,(string->charspan* "123")
   (list->charspan '(#\i #\j #\k #\l))              ,(string->charspan* "ijkl")
@@ -129,21 +129,21 @@
     (vline "qwerty=<>") 0 9 #\=)                   6
   (let ((line (vline "foo/bar"))
         (sp   (span))
-        (pred (lambda (cl) (char=? #\b (cell->char cl)))))
+        (pred (lambda (cl) (char=? #\b (vcell->char cl)))))
     (do ((i 0 (fx1+ i)))
         ((fx>=? i 10) sp)
       (span-insert-right! sp (vline-index-right line i pred))))
                                                    ,(span 4 4 4 4 4 #f #f #f #f #f)
   (let ((line (vline "qwerty==="))
         (sp   (span))
-        (pred (lambda (cl) (char=? #\= (cell->char cl)))))
+        (pred (lambda (cl) (char=? #\= (vcell->char cl)))))
     (do ((i 0 (fx1+ i)))
         ((fx>=? i 12) sp)
       (span-insert-right! sp (vline-count line i pred))))
                                                    ,(span 0 0 0 0 0 0 0 1 2 3 3 3)
   (let ((line (vline "qwerty==="))
         (sp   (span))
-        (pred (lambda (cl) (char=? #\= (cell->char cl)))))
+        (pred (lambda (cl) (char=? #\= (vcell->char cl)))))
     (do ((i 0 (fx1+ i)))
         ((fx>=? i 12) sp)
       (span-insert-right! sp (vline-count-right line i pred))))
@@ -155,23 +155,23 @@
     (list l1 l2))                                  ,((vline "foobar") (vline "foo~/bar"))
   (let* ((l1 (vline "abcdefgh"))
          (l2 (vline-copy-on-write l1)))
-    (vline-insert-at/cellgbuffer! l1 5 (vline "012345") 2 5)
+    (vline-insert-at/vbuffer! l1 5 (vline "012345") 2 5)
     (list l1 l2))                                  ,((vline "abcde234fgh") (vline "abcdefgh"))
   ;; ------------------------ vlines -----------------------------------
   (vlines (vline "foo/bar") (vline "\n"))              ,(vlines "foo/bar" "\n")
   (vlines-index (vlines "qwerty@$%" "asdf")
     4 1
-    (lambda (cl) (char=? #\@ (cell->char cl))))        7
+    (lambda (cl) (char=? #\@ (vcell->char cl))))        7
   (vlines-index-right (vlines
     (vline "IOHPR$\n") "ORJZX")
     0 0
-    (lambda (cl) (char=? #\Z (cell->char cl))))        10
+    (lambda (cl) (char=? #\Z (vcell->char cl))))        10
   (vlines-count (vlines "abc\n" "ccc")
     4 1
-    (lambda (cl) (char=? #\c (cell->char cl))))        3
+    (lambda (cl) (char=? #\c (vcell->char cl))))        3
   (vlines-count-right (vlines "abc\n" "ccc")
     3 0
-    (lambda (cl) (not (char=? #\c (cell->char cl)))))  1
+    (lambda (cl) (not (char=? #\c (vcell->char cl)))))  1
   ;; ------------------------ vscreen -------------------------------------
   (let ((screen (vscreen 8 30 "qwerty\n" "asdfgh")))
     (vscreen-cursor-vxy-set! screen 3 1)
@@ -203,7 +203,7 @@
     (vscreen-insert-at-xy/newline! screen 4 0)
     screen)                                            ,(vscreen 8 30 "abcd\n" "ef012\n" "")
   (let ((screen (vscreen 8 30 "abcdefgh" "012\n")))
-    (vscreen-insert-at-xy/cellspan! screen 4 0 (string->cellspan "uwxyz"))
+    (vscreen-insert-at-xy/vcellspan! screen 4 0 (string->vcellspan "uwxyz"))
     screen)                                            ,(vscreen 8 30 "abcduwxy" "zefgh012" "\n" "")
   (let ((screen (vscreen 8 30 "abcdefgh" "012\n")))
     (values->list

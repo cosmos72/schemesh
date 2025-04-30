@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit vhistory io (0 8 3))
+(library (schemesh screen vhistory io (0 8 3))
   (export
     vhistory-load!           vhistory-save
     vhistory-load-from-file! vhistory-save-to-path
@@ -23,9 +23,9 @@
     (only (schemesh posix pid)         pid-get)
     (only (schemesh posix dir)         file-delete file-rename)
     (only (schemesh posix io)          file->port)
-    (schemesh lineedit vline)
-    (schemesh lineedit vlines)
-    (schemesh lineedit vhistory))
+    (schemesh screen vline)
+    (schemesh screen vlines)
+    (schemesh screen vhistory))
 
 
 ;; save vhistory to file (vhistory-path hist)

@@ -39,11 +39,13 @@
     (schemesh posix fd)
     (only (schemesh posix signal) countdown signal-consume-sigwinch)
     (schemesh posix tty)
-    (schemesh lineedit vline)
-    (schemesh lineedit vlines)
-    (only (schemesh lineedit vlines io) open-vlines-input-port)
-    (schemesh lineedit vscreen)
-    (schemesh lineedit vhistory)
+    (schemesh screen vcell)
+    (schemesh screen vcellspan)
+    (schemesh screen vline)
+    (schemesh screen vlines)
+    (schemesh screen vlines io)
+    (schemesh screen vscreen)
+    (schemesh screen vhistory)
     (schemesh lineedit paren)
     (schemesh lineedit parenmatcher)
     (schemesh lineedit linectx)
@@ -138,10 +140,10 @@
 ;; read chars in the range [start, end) from charspan csp,
 ;; and insert them into vscreen at cursor.
 ;; Also moves cursor (fx- end start) characters to the right, and reflows vscreen as needed.
-(define (linectx-insert/cellspan! lctx csp start end)
-  (assert* 'linectx-insert/cellspan! (fx<=?* 0 start end (cellspan-length csp)))
+(define (linectx-insert/vcellspan! lctx csp start end)
+  (assert* 'linectx-insert/vcellspan! (fx<=?* 0 start end (vcellspan-length csp)))
   (when (fx<? start end)
-    (vscreen-insert/cellspan! (linectx-vscreen lctx) csp start end)))
+    (vscreen-insert/vcellspan! (linectx-vscreen lctx) csp start end)))
 
 
 ;; read up to n bytes from bytespan bsp, starting at offset = start,
@@ -351,7 +353,7 @@
   (and
     (fxeven?
       (vlines-count (linectx-vscreen lctx) (greatest-fixnum) (greatest-fixnum)
-        (lambda (cl) (char=? #\\ (cell->char cl)))))
+        (lambda (cl) (char=? #\\ (vcell->char cl)))))
     (let* ((parenmatcher (linectx-parenmatcher lctx))
            (paren (and parenmatcher (parenmatcher-paren parenmatcher))))
       (or (not paren)

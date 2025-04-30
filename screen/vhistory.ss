@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit vhistory (0 8 3))
+(library (schemesh screen vhistory (0 8 3))
   (export
     vhistory vhistory? make-vhistory
     vhistory-empty? vhistory-length vhistory-ref/cow vhistory-iterate
@@ -21,8 +21,8 @@
     (only (schemesh containers list) for-list)
     (only (schemesh containers span) span make-span list->span)
     (schemesh containers gbuffer)
-    (only (schemesh lineedit vline) vline-empty?)
-    (schemesh lineedit vlines))
+    (only (schemesh screen vline) vline-empty?)
+    (schemesh screen vlines))
 
 ;; copy-pasted from containers/gbuffer.ss
 (define-record-type (%gbuffer %make-gbuffer %gbuffer?)

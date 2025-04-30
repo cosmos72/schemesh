@@ -7,11 +7,11 @@
 
 #!r6rs
 
-(library (schemesh lineedit vlines io (0 8 3))
+(library (schemesh screen vlines io (0 8 3))
   (export open-vlines-input-port)
   (import
     (rnrs)
-    (only (schemesh lineedit vlines) vlines->string))
+    (only (schemesh screen vlines) vlines->string))
 
 
 ;; create an input port reading from a vlines

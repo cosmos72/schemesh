@@ -20,8 +20,8 @@
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh posix fd)
-    (only (schemesh lineedit vline)   vline-ref vline-display/bytespan)
-    (only (schemesh lineedit vscreen) vscreen-height vscreen-width)
+    (only (schemesh screen vline)   vline-ref vline-display/bytespan)
+    (only (schemesh screen vscreen) vscreen-height vscreen-width)
     (schemesh lineedit linectx)
     (schemesh posix tty))
 

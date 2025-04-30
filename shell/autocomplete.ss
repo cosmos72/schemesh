@@ -22,7 +22,7 @@
     (schemesh containers sort)
     (only (schemesh containers utf8b) codepoint-utf8b? integer->char* utf8b->string)
     (only (schemesh posix dir)        directory-list-type directory-sort!)
-    (only (schemesh lineedit vscreen) vscreen-char-before-xy vscreen-cursor-ix vscreen-cursor-iy)
+    (only (schemesh screen vscreen)   vscreen-char-before-xy vscreen-cursor-ix vscreen-cursor-iy)
     (schemesh lineedit paren)
     (only (schemesh lineedit linectx) linectx-completion-stem linectx-vscreen)
     (only (schemesh shell parameters) sh-current-environment)

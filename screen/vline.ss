@@ -7,13 +7,13 @@
 
 #!r6rs
 
-(library (schemesh lineedit vline (0 8 3))
+(library (schemesh screen vline (0 8 3))
   (export
     vline vline? assert-vline? vline->string
     vline-nl? vline-copy-on-write vline-empty?
     vline-length vline-ref vline-ref/char vline-at vline-at/char
     vline-equal/chars? vline-set! vline-clear!
-    vline-delete! vline-insert-at! vline-insert-at/cellspan! vline-insert-at/cellgbuffer!
+    vline-delete! vline-insert-at! vline-insert-at/vcellspan! vline-insert-at/vbuffer!
     vline-index vline-index-right vline-index/char vline-count vline-count-right
     vline-dirty-start-x vline-dirty-end-x vline-dirty-x-add! vline-dirty-x-unset!
     in-vline vline-iterate vline-display/bytespan vline-write)
@@ -24,16 +24,16 @@
     (only (rnrs mutable-strings) string-set!)
     (only (chezscheme)           fx1+ fx1- record-writer string-copy!)
     (only (schemesh bootstrap)   assert* fx<=?*)
-    (schemesh containers cell)
-    (schemesh containers cellspan)
-    (schemesh containers cellgbuffer))
+    (schemesh screen vcell)
+    (schemesh screen vcellspan)
+    (schemesh screen vbuffer))
 
-;; copy-pasted from containers/cellgbuffer.ss
-(define-record-type (%cellgbuffer %make-cellgbuffer %cellgbuffer?)
+;; copy-pasted from containers/vbuffer.ss
+(define-record-type (%vbuffer %make-vbuffer %vbuffer?)
   (fields
-     (mutable left  cl< cellgbuffer-left-set!)
-     (mutable right cl> cellgbuffer-right-set!))
-  (nongenerative %cellgbuffer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+     (mutable left  cl< vbuffer-left-set!)
+     (mutable right cl> vbuffer-right-set!))
+  (nongenerative %vbuffer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 ;; type vline is a cell gap-buffer with additional fields:
 ;;
@@ -44,7 +44,7 @@
 ;;   that were recently modified and not yet redrawn
 
 (define-record-type (%vline %make-vline vline?)
-  (parent %cellgbuffer)
+  (parent %vbuffer)
   (fields
     (mutable share) ; a cons (share-count . #f)
     (mutable dirty-start-x vline-dirty-start-x vline-dirty-start-x-set!)
@@ -56,8 +56,8 @@
     (assertion-violation who "not a vline" line)))
 
 (define (make-vline left-span right-span)
-  (assert* 'make-vline (cellspan? left-span))
-  (assert* 'make-vline (cellspan? right-span))
+  (assert* 'make-vline (vcellspan? left-span))
+  (assert* 'make-vline (vcellspan? right-span))
   (%make-vline left-span right-span (cons 0 #f) (greatest-fixnum) 0))
 
 ;; increment vline share count by 1.
@@ -80,10 +80,10 @@
 (define vline
   (case-lambda
     (()
-      (make-vline (cellspan) (cellspan)))
+      (make-vline (vcellspan) (vcellspan)))
     ;; convert string to vline
     ((str)
-      (make-vline (cellspan) (string->cellspan str)))))
+      (make-vline (vcellspan) (string->vcellspan str)))))
 
 
 ;; Return a copy-on-write clone of specified vline.
@@ -96,17 +96,17 @@
 (define (vline-unshare! line)
   (assert* 'vline-unshare! (vline? line))
   (when (vline-share-dec! line)
-    (cellgbuffer-left-set!  line (cellspan-copy (cl< line)))
-    (cellgbuffer-right-set! line (cellspan-copy (cl> line)))
+    (vbuffer-left-set!  line (vcellspan-copy (cl< line)))
+    (vbuffer-right-set! line (vcellspan-copy (cl> line)))
     (%vline-share-set!   line (cons 0 #f))))
 
-(define vline-empty?     cellgbuffer-empty?)
-(define vline-length     cellgbuffer-length)
-(define vline-ref        cellgbuffer-ref)
+(define vline-empty?     vbuffer-empty?)
+(define vline-length     vbuffer-length)
+(define vline-ref        vbuffer-ref)
 
 ;; return char at position x
 (define (vline-ref/char line x)
-  (cell->char (cellgbuffer-ref line x)))
+  (vcell->char (vbuffer-ref line x)))
 
 
 ;; return cell at position x, or #f if x is out of range
@@ -155,40 +155,40 @@
 ;; c must be a character or cell
 (define (vline-set! line x c)
   (vline-unshare! line)
-  (cellgbuffer-set! line x c)
+  (vbuffer-set! line x c)
   (vline-dirty-x-add! line x (fx1+ x)))
 
 ;; insert one character or cell into line at position x
 (define (vline-insert-at! line x c)
   (vline-unshare! line)
-  (cellgbuffer-insert-at! line x c)
+  (vbuffer-insert-at! line x c)
   (vline-dirty-x-add! line x (vline-length line)))
 
 
-;; read elements in range [src-start, src-end) from cellspan csp-src,
+;; read elements in range [src-start, src-end) from vcellspan csp-src,
 ;; and insert them into vline line at position x
-(define vline-insert-at/cellspan!
+(define vline-insert-at/vcellspan!
   (case-lambda
     ((line x csp-src src-start src-end)
       (when (fx<? src-start src-end)
         (vline-unshare! line)
-        (cellgbuffer-insert-at/cellspan! line x csp-src src-start src-end)
+        (vbuffer-insert-at/vcellspan! line x csp-src src-start src-end)
         (vline-dirty-x-add! line x (vline-length line))))
     ((line x csp-src)
-      (vline-insert-at/cellspan! line x csp-src 0 (cellspan-length csp-src)))))
+      (vline-insert-at/vcellspan! line x csp-src 0 (vcellspan-length csp-src)))))
 
 
-;; read elements in range [src-start, src-end) from cellgbuffer or vline csp-src,
+;; read elements in range [src-start, src-end) from vbuffer or vline csp-src,
 ;; and insert them into vline at position x
-(define vline-insert-at/cellgbuffer!
+(define vline-insert-at/vbuffer!
   (case-lambda
     ((line x cbuf-src src-start src-end)
       (when (fx<? src-start src-end)
         (vline-unshare! line)
-        (cellgbuffer-insert-at/cellgbuffer! line x cbuf-src src-start src-end)
+        (vbuffer-insert-at/vbuffer! line x cbuf-src src-start src-end)
         (vline-dirty-x-add! line x (vline-length line))))
     ((line x cbuf-src)
-      (vline-insert-at/cellgbuffer! line x cbuf-src 0 (cellgbuffer-length cbuf-src)))))
+      (vline-insert-at/vbuffer! line x cbuf-src 0 (vbuffer-length cbuf-src)))))
 
 
 ;; erase the chars in range [start, end) from vline
@@ -196,7 +196,7 @@
   (when (fx<? start end)
     (vline-unshare! line)
     (let ((len (vline-length line)))
-      (cellgbuffer-delete! line start end)
+      (vbuffer-delete! line start end)
       ;; mark as dirty until original end of line
       (vline-dirty-x-add! line start len))))
 
@@ -205,7 +205,7 @@
   (let ((len (vline-length line)))
     (unless (fxzero? len)
       (vline-unshare! line)
-      (cellgbuffer-clear! line)
+      (vbuffer-clear! line)
       (vline-dirty-x-add! line 0 len))))
 
 
@@ -296,7 +296,7 @@
     ((line)
       (in-vline line 0 (vline-length line) 1))))
 
-(define vline-iterate cellgbuffer-iterate)
+(define vline-iterate vbuffer-iterate)
 
 
 ;; convert vline to string, removing all palette colors
@@ -304,7 +304,7 @@
   (let ((str (make-string (vline-length line))))
     (vline-iterate line
       (lambda (i c)
-        (string-set! str i (cell->char c))))))
+        (string-set! str i (vcell->char c))))))
 
 
 ;; write colored vline to bytespan, NOT escaping special characters
@@ -313,16 +313,16 @@
     (do ((pos start (fx1+ pos)))
         ((fx>=? pos end))
       (let* ((cl      (vline-ref line pos))
-             (palette (cell->palette cl)))
-        (cell-display/bytespan cl old-palette wbuf)
+             (palette (vcell->vpalette cl)))
+        (vcell-display/bytespan cl old-palette wbuf)
         (unless (fx=? old-palette palette)
           (set! old-palette palette))))
     (unless (fxzero? old-palette)
-      (tty-palette-display/bytespan 0 wbuf))))
+      (vpalette-display/bytespan 0 wbuf))))
 
 
 ;; write a textual representation of vline to output port
-(define vline-write cellgbuffer-write)
+(define vline-write vbuffer-write)
 
 ;; customize how "vline" objects are printed
 (record-writer (record-type-descriptor %vline)

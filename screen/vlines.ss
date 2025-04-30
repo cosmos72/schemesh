@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit vlines (0 8 3))
+(library (schemesh screen vlines (0 8 3))
   (export
     vlines vlines? assert-vlines? vlines->string
     vlines-shallow-copy vlines-copy-on-write vlines-iterate
@@ -28,12 +28,12 @@
     (only (schemesh bootstrap)   assert* fx<=?* while)
     (only (schemesh containers list) for-list)
     (only (schemesh containers charspan) make-charspan charspan-insert-right! charspan->string*!)
-    (only (schemesh containers cell)  cell->char)
     (schemesh containers span)
-    (schemesh containers cellspan)
-    (schemesh containers cellgbuffer)
     (schemesh containers gbuffer)
-    (schemesh lineedit vline))
+    (only (schemesh screen vcell)  vcell->char)
+    (schemesh screen vcellspan)
+    (schemesh screen vbuffer)
+    (schemesh screen vline))
 
 
 ;; copy-pasted from containers/gbuffer.ss
@@ -80,7 +80,7 @@
       (lambda (y line)
         (vline-iterate line
           (lambda (x c)
-            (string-set! str i (cell->char c))
+            (string-set! str i (vcell->char c))
             (set! i (fx1+ i))))))
     str))
 
