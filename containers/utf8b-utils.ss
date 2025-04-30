@@ -26,7 +26,6 @@
     (only (schemesh bootstrap)              assert* fx<=?*)
     (schemesh containers bytespan)
     (schemesh containers charspan)
-    (only (schemesh containers chargbuffer) chargbuffer-iterate chargbuffer-length)
     (only (schemesh containers string)      string-iterate)
     (schemesh containers utf8b))
 

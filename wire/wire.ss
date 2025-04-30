@@ -886,12 +886,9 @@
   (wire-register-rtd (record-rtd (gbuffer))      tag-gbuffer       len/gbuffer     get/gbuffer       put/gbuffer)
   (wire-register-rtd (record-rtd (bytespan))     tag-bytespan      len/bytespan    get/bytespan      put/bytespan)
   (wire-register-rtd (record-rtd (charspan))     tag-charspan24    len/charspan    get/charspan24    put/charspan)
-  (wire-register-rtd (record-rtd (chargbuffer))  tag-chargbuffer24 len/chargbuffer get/chargbuffer24 put/chargbuffer)
 
   (vector-set! known-tag tag-charspan8     get/charspan8)
   (vector-set! known-tag tag-charspan16    get/charspan16)
-  (vector-set! known-tag tag-chargbuffer8  get/chargbuffer8)
-  (vector-set! known-tag tag-chargbuffer16 get/chargbuffer16)
 
 ) ; close begin
 

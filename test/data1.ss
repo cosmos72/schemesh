@@ -120,20 +120,6 @@
   (let ((gb (gbuffer 'a 'b 'c 'd 'e)))
     (gbuffer-delete! gb 2 4)
     (gbuffer-insert-at! gb 1 'x) gb)               ,(gbuffer a x b e)
-  ;; --------------------- chargbuffer ------------------------------------
-  (chargbuffer #\X #\Y #\Z)                        ,(string->chargbuffer* "XYZ")
-  (string->chargbuffer* "qwerty")                  ,(string->chargbuffer* "qwerty")
-  (charspan->chargbuffer* (string->charspan* "abcdef"))
-                                                   ,(string->chargbuffer* "abcdef")
-  (let ((gb (make-chargbuffer 5 #\@)))
-    (chargbuffer-iterate gb
-      (lambda (i elem)
-        (chargbuffer-set! gb i (integer->char (fx+ i 64)))))
-    gb)                                            ,(string->chargbuffer* "@ABCD")
-  (let ((gb (chargbuffer #\a #\b #\c #\d #\e)))
-    (chargbuffer-delete! gb 2 4)
-    (chargbuffer-insert-at! gb 1 #\x)
-    gb)                                            ,(string->chargbuffer* "axbe")
   ;; ------------------------ vline ------------------------------------
   (vline "abc 123")                                ,(vline "abc 123")
   (vline "echo \n")                                ,(vline "echo \n")
@@ -251,9 +237,6 @@
   (datum->wire
     '#(#\a #\xFF #\xFFFF #\x10FFFF "bcd" #vfx(-1 1)))  #vu8(22 39 6 31 97 31 255 32 255 255 33 255 255 16 41 3 98 99 100 44 2 15 1)
   (datum->wire
-    (gbuffer (span #vu8(1)) (ok 9 10) (charspan #\a #\xFF)
-             (chargbuffer #\< #\>)))                   #vu8(24 245 4 244 1 40 1 1 243 6 38 2 0 0 0 9 10 248 2 97 255 251 2 60 62)
-  (datum->wire
     (make-time 'time-utc 999999999 #x80000000))        #vu8(14 242 88 19 255 201 154 59 20 5 0 0 0 128 0)
   (datum->wire
     (eq-hashtable (void) 1.5 '() #x123456789))         #vu8(20 51 2 27 20 5 137 103 69 35 1 28 23 0 0 0 0 0 0 248 63)
@@ -273,9 +256,6 @@
   (values->list (wire->datum  #vu8(3 248 1 64)))       ,((string->charspan* "@") 4)
   (values->list (wire->datum  #vu8(4 249 1 65 0)))     ,((string->charspan* "A") 5)
   (values->list (wire->datum  #vu8(5 250 1 66 0 0)))   ,((string->charspan* "B") 6)
-  (values->list (wire->datum  #vu8(3 251 1 67)))       ,((string->chargbuffer* "C") 4)
-  (values->list (wire->datum  #vu8(4 252 1 68 0)))     ,((string->chargbuffer* "D") 5)
-  (values->list (wire->datum  #vu8(5 253 1 69 0 0)))   ,((string->chargbuffer* "E") 6)
   (values->list (wire->datum  #vu8(14 242 88 19
       255 201 154 59 20 5 255 255 255 255 0)))         ,@"(#<time-utc 4294967295.999999999> 15)"
 
