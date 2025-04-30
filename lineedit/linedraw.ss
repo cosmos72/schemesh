@@ -70,6 +70,8 @@
     (linectx-prompt-length-set! lctx (fx+ 2 (string-length str)))))
 
 
+(define palette-good    (vcolors (symbol->vrgb/4 'cyan 'high) #f))
+(define palette-bad     (vcolors (symbol->vrgb/4 'red  'high) #f))
 (define bv-prompt-error (string->utf8b "error expanding prompt $ "))
 
 ;; update prompt
@@ -137,10 +139,10 @@
 
 
 ;; redraw only dirty parts of vscreen.
-;; paren-option should be one of:
+;; paren-style should be one of:
 ;;   'plain     to de-highlight bad and matching parentheses
 ;;   'highlight to re-highlight bad and matching parentheses
-(define (linectx-redraw-dirty lctx paren-option)
+(define (linectx-redraw-dirty lctx paren-style)
   (linectx-draw-bad-parens lctx 'plain)
   (linectx-draw-paren lctx (linectx-paren lctx) 'plain)
   (let* ((screen (linectx-vscreen lctx))
@@ -205,10 +207,10 @@
 
   ;; highlight matching parentheses
   (parenmatcher-clear! (linectx-parenmatcher lctx))
-  (when (eq? 'highlight paren-option)
+  (when (eq? 'highlight paren-style)
     (linectx-paren-update! lctx)
-    (linectx-draw-bad-parens lctx 'highlight)
-    (linectx-draw-paren lctx (linectx-paren lctx) 'highlight))
+    (linectx-draw-bad-parens lctx paren-style)
+    (linectx-draw-paren lctx (linectx-paren lctx) paren-style))
 
   ;; move the cursor to final position, and update term-x and term-y accordingly
   (let ((vx (linectx-vx lctx))
@@ -240,14 +242,24 @@
 (define (linectx-draw-paren lctx paren style)
   ; (debugf " linectx-draw-paren paren=~s style=~s" paren style)
   (when (paren? paren)
-    (let ((style (if (eq? style 'highlight)
-                   (if (paren-valid? paren) 'good 'bad)
-                   'plain)))
-      ; each token can be a char, or #f which means missing, or #t which means BOF/EOF
-      (when (char? (paren-start-token paren))
-        (linectx-draw-cell-at-xy lctx (paren-start-x paren) (paren-start-y paren) style))
-      (when (char? (paren-end-token paren))
-        (linectx-draw-cell-at-xy lctx (paren-end-x paren)   (paren-end-y paren)   style)))))
+    ;; each token can be a char, or #f which means missing, or #t which means BOF/EOF
+    (let* ((start-token? (char? (paren-start-token paren)))
+           (end-token?   (char? (paren-end-token   paren)))
+           (old-palette  0)
+           (opt-palette  (cond
+                           ((eq? 'plain style)             #f)
+                           ((and start-token? end-token?)  palette-good)
+                           (else                           palette-bad))))
+      (when (or start-token? end-token?)
+        (when start-token?
+          (set! old-palette
+            (linectx-draw-cell-at-xy lctx (paren-start-x paren) (paren-start-y paren) old-palette opt-palette)))
+        (when end-token?
+          (set! old-palette
+            (linectx-draw-cell-at-xy lctx (paren-end-x paren)   (paren-end-y paren)   old-palette opt-palette)))
+        ;; after drawing paren, restore terminal to default colors
+        (unless (fxzero? old-palette)
+          (vpalette-display/bytespan 0 (linectx-wbuf lctx)))))))
 
 
 
@@ -255,61 +267,64 @@
 ;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
 (define (linectx-draw-bad-parens lctx style)
   (when #f ;; currently disabled, is broken by optimization in (lineedit-paren-find/before-cursor)
-    (let ((paren (parenmatcher-paren (linectx-parenmatcher lctx))))
-      (linectx-draw-bad-paren-recurse/start lctx paren style)
-      (linectx-draw-bad-paren-recurse/end lctx paren style))))
+    (let ((paren       (parenmatcher-paren (linectx-parenmatcher lctx)))
+          (opt-palette (if (eq? 'highlight style) palette-bad #f)))
+      (linectx-draw-bad-paren-recurse/start lctx paren opt-palette)
+      (linectx-draw-bad-paren-recurse/end lctx paren opt-palette))))
 
-;; draw the start of specified paren and the start of all contained parens using specified style.
+;; draw the start of specified paren and the start of all contained parens using specified palette.
 ;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
-(define (linectx-draw-bad-paren-recurse/start lctx paren style)
+(define (linectx-draw-bad-paren-recurse/start lctx paren opt-palette)
   (when paren
-    (linectx-draw-bad-paren/start lctx paren style)
+    (linectx-draw-bad-paren/start lctx paren opt-palette)
     (let ((inner-span (paren-inner paren)))
       (when inner-span
         (span-iterate inner-span
           (lambda (i inner-paren)
-            (linectx-draw-bad-paren-recurse/start lctx inner-paren style)))))))
+            (linectx-draw-bad-paren-recurse/start lctx inner-paren opt-palette)))))))
 
 
-;; draw the end of specified paren and the start of all contained parens using specified style.
+;; draw the end of specified paren and the start of all contained parens using specified palette.
 ;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
-(define (linectx-draw-bad-paren-recurse/end lctx paren style)
+(define (linectx-draw-bad-paren-recurse/end lctx paren opt-palette)
   (when paren
     (let ((inner-span (paren-inner paren)))
       (when inner-span
         (span-iterate inner-span
           (lambda (i inner-paren)
-            (linectx-draw-bad-paren-recurse/end lctx inner-paren style)))))
-    (linectx-draw-bad-paren/end lctx paren style)))
+            (linectx-draw-bad-paren-recurse/end lctx inner-paren opt-palette)))))
+    (linectx-draw-bad-paren/end lctx paren opt-palette)))
 
 
-;; draw the start of a single invalid parentheses using specified style.
+;; draw the start of a single invalid parentheses using specified opt-palette.
 ;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
-(define (linectx-draw-bad-paren/start lctx paren style)
+(define (linectx-draw-bad-paren/start lctx paren opt-palette)
   (void))
 
-;; draw the end of a single invalid parentheses using specified style.
+;; draw the end of a single invalid parentheses using specified opt-palette.
 ;; assumes linectx-term-x linectx-term term-x are up to date and updates them.
-(define (linectx-draw-bad-paren/end lctx paren style)
+(define (linectx-draw-bad-paren/end lctx paren opt-palette)
   (void))
 
-(define palette-good (vcolors (symbol->vrgb/4 'cyan 'high) #f))
-(define palette-bad  (vcolors (symbol->vrgb/4 'red  'high) #f))
-
-;; if position x y is inside current vlines, redraw char at x y with specified style.
+;; if position x y is inside current vlines, redraw char at x y with specified opt-palette.
 ;; used to highlight/unhighlight parentheses, brackes, braces and quotes.
 ;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
-(define (linectx-draw-cell-at-xy lctx x y style)
+;;
+;; terminal current colors are set to the opt-palette of the displayed cell,
+;; and caller is expected to manually restore terminal default colors with (vpalette/display 0 wbuf)
+;;
+;; return actually used palette
+(define (linectx-draw-cell-at-xy lctx x y old-palette opt-palette)
   (let* ((cl (vscreen-cell-at-xy (linectx-vscreen lctx) x y))
          (ch (and cl (vcell->char cl))))
     ; (debugf "linectx-draw-cell-at-xy at (~s ~s) char ~s" x y ch)
-    (when (and ch (char>=? ch #\space))
-      (let ((vx    (if (fxzero? y) (fx+ x (linectx-prompt-end-x lctx)) x)) ;; also count prompt length!
-            (vy    (fx+ y (linectx-prompt-end-y lctx)))                    ;; also count prompt length!
-            (cl    (case style
-                     ((good) (vcell ch palette-good))
-                     ((bad)  (vcell ch palette-bad))
-                     (else   cl))))
+    (if (and ch (char>=? ch #\space))
+      (let ((wbuf (linectx-wbuf lctx))
+            (vx   (if (fxzero? y) (fx+ x (linectx-prompt-end-x lctx)) x)) ;; also count prompt length!
+            (vy   (fx+ y (linectx-prompt-end-y lctx)))                    ;; also count prompt length!
+            (cl   (if opt-palette (vcell ch opt-palette) cl)))
         (lineterm-move-to lctx vx vy)
-        (vcell-display/bytespan cl (linectx-wbuf  lctx))
-        (linectx-term-xy-set! lctx (fx1+ vx) vy)))))
+        (vcell-display/bytespan cl old-palette wbuf)
+        (linectx-term-xy-set! lctx (fx1+ vx) vy)
+        (vcell->vpalette cl))
+      old-palette)))
