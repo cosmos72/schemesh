@@ -31,6 +31,7 @@
     (rnrs)
     (only (chezscheme)         format fx1+ fx1- record-writer)
     (only (schemesh bootstrap) assert* fx<=?* while)
+    (only (schemesh containers charspan) charspan-insert-left! charspan-insert-right!)
     (schemesh containers span)
     (only (schemesh screen vcell) vcell->char)
     (schemesh screen vcellspan)
