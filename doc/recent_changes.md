@@ -90,7 +90,7 @@
 
 ### release v0.7.7, 2025-03-01
 
-* fix `(charhistory-save-to-path)` not to raise exceptions: it was preventing schemesh
+* fix `(vhistory-save-to-path)` not to raise exceptions: it was preventing schemesh
   from exiting if directory `~/.cache/schemesh/` does not exist or is not writable
 
 ### release v0.7.6, 2025-03-01

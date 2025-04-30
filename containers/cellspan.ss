@@ -29,7 +29,7 @@
     (only (chezscheme)                  fx1+ fx1- record-writer bytevector-truncate! void)
     (only (schemesh bootstrap)          assert* assert-not* fx<=?*)
     (only (schemesh containers list)    for-list)
-    (only (schemesh containers palette) cell->char)
+    (only (schemesh containers cell) cell->char)
     (schemesh containers cellvector))
 
 

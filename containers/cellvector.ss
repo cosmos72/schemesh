@@ -26,7 +26,7 @@
     (only (chezscheme)                     fx1+ fx1- fx/ meta-cond)
     (only (schemesh bootstrap)             assert* assert-not* fx<=?*)
     (only (schemesh containers bytevector) subbytevector-fill!)
-    (schemesh containers palette))
+    (schemesh containers cell))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

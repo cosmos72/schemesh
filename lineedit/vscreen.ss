@@ -33,7 +33,7 @@
     (only (schemesh bootstrap) assert* fx<=?* while)
     (schemesh containers cellspan)
     (schemesh containers span)
-    (only (schemesh containers palette) cell->char)
+    (only (schemesh containers cell) cell->char)
     (schemesh lineedit vline)
     (schemesh lineedit vlines))
 

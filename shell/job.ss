@@ -102,7 +102,7 @@
     (schemesh posix)
     (schemesh port redir)
     (schemesh port stdio)
-    (only (schemesh lineedit charhistory) charhistory-path-set!)
+    (only (schemesh lineedit vhistory) vhistory-path-set!)
     (only (schemesh lineedit linectx) linectx? linectx-history linectx-save-history linectx-wbuf)
     (only (schemesh lineedit lineedit) lineedit-display-table lineedit-flush lineedit-undraw)
     (schemesh shell fds)

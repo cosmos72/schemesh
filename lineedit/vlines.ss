@@ -27,7 +27,7 @@
     (only (schemesh bootstrap)   assert* fx<=?* while)
     (only (schemesh containers list) for-list)
     (only (schemesh containers charspan) make-charspan charspan-insert-right! charspan->string*!)
-    (only (schemesh containers palette)  cell->char)
+    (only (schemesh containers cell)  cell->char)
     (schemesh containers span)
     (schemesh containers cellspan)
     (schemesh containers cellgbuffer)
@@ -73,13 +73,15 @@
 
 ;; convert vlines to string, removing all palette colors
 (define (vlines->string lines)
-  (let ((csp (make-charspan 0)))
+  (let ((str (make-string (vlines-cell-length lines)))
+        (i 0))
     (vlines-iterate lines
       (lambda (y line)
         (vline-iterate line
           (lambda (x c)
-            (charspan-insert-right! csp (cell->char c))))))
-    (charspan->string*! csp)))
+            (string-set! str i (cell->char c))
+            (set! i (fx1+ i))))))
+    str))
 
 
 ;; return #t if lines1 and lines2 contain the same number of vline

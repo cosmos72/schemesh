@@ -25,7 +25,7 @@
     (rnrs)
     (only (chezscheme)                  fx1+ fx/ record-writer void)
     (only (schemesh bootstrap)          assert* assert-not* fx<=?*)
-    (only (schemesh containers palette) cell->char cell->palette cell-write tty-palette-display)
+    (only (schemesh containers cell) cell->char cell->palette cell-write tty-palette-display)
     (schemesh containers cellspan))
 
 (define-record-type (%cellgbuffer %make-cellgbuffer cellgbuffer?)

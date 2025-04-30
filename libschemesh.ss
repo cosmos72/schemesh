@@ -30,8 +30,8 @@
   (include "containers/charline.ss")    ; requires containers/gbuffer.ss
   (include "containers/charlines.ss")   ; requires containers/charlines.ss
   (include "containers/utf8b-utils.ss") ; requires containers/utf8b.ss containers/chargbuffer.ss
-  (include "containers/palette.ss")     ; requires containers/hashtable.ss containers/span.ss containers/utf8b-utils.ss
-  (include "containers/cellvector.ss")  ; requires containers/bytevector.ss containers/palette.ss
+  (include "containers/cell.ss")        ; requires containers/hashtable.ss containers/span.ss containers/utf8b-utils.ss
+  (include "containers/cellvector.ss")  ; requires containers/bytevector.ss containers/cell.ss
   (include "containers/cellspan.ss")    ; requires containers/cellvector.ss
   (include "containers/cellgbuffer.ss") ; requires containers/cellspan.ss
   (include "containers/macros.ss")
@@ -69,8 +69,8 @@
   (include "lineedit/vlines.ss")
   (include "lineedit/vlines-io.ss")
   (include "lineedit/vscreen.ss")
-  (include "lineedit/charhistory.ss")
-  (include "lineedit/charhistory-io.ss")
+  (include "lineedit/vhistory.ss")
+  (include "lineedit/vhistory-io.ss")
   (include "lineedit/paren.ss")
   (include "lineedit/parenmatcher.ss")
   (include "lineedit/parser.ss")

@@ -40,7 +40,7 @@
     (only (schemesh posix signal) countdown signal-consume-sigwinch)
     (schemesh posix tty)
     (schemesh lineedit vscreen)
-    (schemesh lineedit charhistory)
+    (schemesh lineedit vhistory)
     (schemesh lineedit paren)
     (schemesh lineedit parenmatcher)
     (schemesh lineedit linectx)
@@ -194,11 +194,11 @@
   (let* ((y (linectx-history-index lctx))
          (hist (linectx-history lctx)))
     ; always overwrite last history slot
-    (linectx-history-index-set! lctx (fxmax 0 y (fx1- (charhistory-length hist))))
+    (linectx-history-index-set! lctx (fxmax 0 y (fx1- (vhistory-length hist))))
     (let* ((screen (linectx-vscreen lctx))
            (lines (linectx-to-history* lctx)))
-      (charhistory-delete-empty-lines! hist (charhistory-length hist))
-      (linectx-history-index-set! lctx (charhistory-length hist))
+      (vhistory-delete-empty-lines! hist (vhistory-length hist))
+      (linectx-history-index-set! lctx (vhistory-length hist))
       (linectx-clear! lctx) ;; clear vscreen
       lines)))
 

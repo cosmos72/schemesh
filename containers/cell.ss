@@ -8,7 +8,7 @@
 #!r6rs
 
 
-(library (schemesh containers palette (0 8 3))
+(library (schemesh containers cell (0 8 3))
   (export
     cell cell? cell->char cell->palette cell->colors cell-write cell-display/bytespan
 

@@ -148,10 +148,10 @@
   (let-values (((x y) (linectx-ixy lctx)))
     (let* ((hist (linectx-history lctx))
            (idx  (linectx-history-index lctx))
-           (next-idx (charhistory-index/starts-with
+           (next-idx (vhistory-index/starts-with
                        hist
                        (fx1+ idx)
-                       (charhistory-length hist)
+                       (vhistory-length hist)
                        (linectx-vscreen lctx)
                        x y)))
     (when next-idx
@@ -162,7 +162,7 @@
   (let-values (((x y) (linectx-ixy lctx)))
     (let* ((hist (linectx-history lctx))
            (idx  (linectx-history-index lctx))
-           (prev-idx (charhistory-index-right/starts-with hist 0 idx (linectx-vscreen lctx) x y)))
+           (prev-idx (vhistory-index-right/starts-with hist 0 idx (linectx-vscreen lctx) x y)))
       (when prev-idx
         (lineedit-navigate-history lctx (fx- prev-idx idx))
         (linectx-ixy-set! lctx x y)))))
@@ -371,9 +371,9 @@
 (define (lineedit-navigate-history lctx delta-y)
   (let ((y      (fx+ delta-y (linectx-history-index lctx)))
         (hist   (linectx-history lctx)))
-    (when (fx<? -1 y (charhistory-length hist))
+    (when (fx<? -1 y (vhistory-length hist))
       ; also saves a copy of current linectx-vscreen to history
-      (lineedit-lines-set! lctx (charhistory-ref/cow hist y))
+      (lineedit-lines-set! lctx (vhistory-ref/cow hist y))
       (linectx-history-index-set! lctx y)
       ;; if moving up, set vscreen cursor to end of first line
       ;; if moving down, set vscreen cursor to end of last line

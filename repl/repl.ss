@@ -28,7 +28,7 @@
         inspect parameterize pretty-print read-token reset reset-handler void)
     (schemesh bootstrap)
     (only (schemesh containers) for-list)
-    (only (schemesh lineedit charhistory) charhistory-path-set!)
+    (only (schemesh lineedit vhistory) vhistory-path-set!)
     (schemesh lineedit vlines io)
     (schemesh lineedit linectx)
     (only (schemesh lineedit lineterm) lineterm-write/u8)
@@ -339,7 +339,7 @@
     (when (and lctx? enabled-parsers?)
       (linectx-parsers-set! lctx enabled-parsers))
     (when (and lctx? history-path?)
-      (charhistory-path-set! (linectx-history lctx) history-path))
+      (vhistory-path-set! (linectx-history lctx) history-path))
     (list
       (if initial-parser?  initial-parser  'shell)
       (if print?   print   repl-print)

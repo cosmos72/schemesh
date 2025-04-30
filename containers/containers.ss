@@ -25,7 +25,7 @@
           (schemesh containers list)
           (schemesh containers hashtable)
           (schemesh containers macros)
-          (schemesh containers palette)
+          (schemesh containers cell)
           (schemesh containers sort)
           (schemesh containers span)
           (schemesh containers string)

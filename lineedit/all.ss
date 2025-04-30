@@ -12,8 +12,8 @@
   (import
     (schemesh lineedit ansi)
     (schemesh lineedit vlines io)
-    (schemesh lineedit charhistory)
-    (schemesh lineedit charhistory io)
+    (schemesh lineedit vhistory)
+    (schemesh lineedit vhistory io)
     (schemesh lineedit linectx)
     (schemesh lineedit lineterm)
     (schemesh lineedit lineedit)

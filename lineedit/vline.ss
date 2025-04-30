@@ -9,7 +9,7 @@
 
 (library (schemesh lineedit vline (0 8 3))
   (export
-    vline vline? assert-vline?
+    vline vline? assert-vline? vline->string
     vline-nl? vline-copy-on-write vline-empty?
     vline-length vline-ref vline-ref/char vline-at vline-at/char
     vline-equal/chars? vline-set! vline-clear!
@@ -24,7 +24,7 @@
     (only (rnrs mutable-strings) string-set!)
     (only (chezscheme)           fx1+ fx1- record-writer string-copy!)
     (only (schemesh bootstrap)   assert* fx<=?*)
-    (only (schemesh containers palette) cell->char)
+    (only (schemesh containers cell) cell->char)
     (schemesh containers cellspan)
     (schemesh containers cellgbuffer))
 
@@ -297,6 +297,14 @@
       (in-vline line 0 (vline-length line) 1))))
 
 (define vline-iterate cellgbuffer-iterate)
+
+
+;; convert vline to string, removing all palette colors
+(define (vline->string line)
+  (let ((str (make-string (vline-length line))))
+    (vline-iterate line
+      (lambda (i c)
+        (string-set! str i (cell->char c))))))
 
 
 ;; write a textual representation of vline to output port
