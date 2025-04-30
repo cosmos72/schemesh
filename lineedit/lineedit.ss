@@ -32,8 +32,8 @@
   (import
     (rnrs)
     (only (chezscheme)    break-handler console-output-port console-error-port
-                          display-condition format fx1+ fx1- fx/ include inspect
-                          parameterize record-writer sleep top-level-value void)
+                          debug-condition display-condition format fx1+ fx1- fx/ include
+                          inspect parameterize record-writer sleep top-level-value void)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh posix fd)
@@ -441,6 +441,7 @@
         (linectx-flush lctx)
         ret))
     (catch (ex)
+      (debug-condition ex)
       (linectx-show-error lctx "Exception in lineedit-read" ex)
       ;; sleep 0.2 seconds, to rate-limit error messages
       (countdown '(0 . 200000000))

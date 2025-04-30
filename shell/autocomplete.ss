@@ -83,21 +83,21 @@
                           ((#\") %escape-shell-dquoted)
                           (else  %escape-shell-unquoted)))
            (dollar?   (eqv? #\$ stem-ch0))
-           (dir-start (if (memv stem-ch0 '(#\' #\")) 1 0))
+           (offset    (if (memv stem-ch0 '(#\' #\")) 1 0))
            (slash-pos (and stem? (not dollar?) (charspan-index-right/char stem #\/))))
       ; (debugf "sh-autocomplete-shell stem=~s, stem-is-first-word?=~s" stem stem-is-first-word?)
       (cond
         (dollar?
           (%list-shell-env lctx (charspan->string stem) completions))
         (slash-pos ; list contents of a directory
-          (let ((dir    (unescape-func stem dir-start (fx1+ slash-pos)))
+          (let ((dir    (unescape-func stem offset (fx1+ slash-pos)))
                 (prefix (unescape-func stem (fx1+ slash-pos) stem-len)))
             (%list-directory dir prefix slash-pos escape-func completions)))
         ((or stem-is-first-word? (%stem-is-after-shell-separator? (linectx-vscreen lctx) x y))
           ; list builtins, aliases and programs in $PATH
           (%list-shell-commands lctx (charspan->string stem) completions))
         (else ; list contents of current directory
-          (let ((prefix (unescape-func stem dir-start stem-len)))
+          (let ((prefix (unescape-func stem offset stem-len)))
             (%list-directory "." prefix #f escape-func completions)))))))
 
 
