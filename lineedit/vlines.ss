@@ -405,11 +405,11 @@
 ;; customize how "vlines" objects are printed
 (record-writer (record-type-descriptor %vlines)
   (lambda (lines port writer)
-    (display "(vlines " port)
+    (display "(vlines" port)
     (vlines-iterate lines
       (lambda (i line)
         (display #\space port)
-        (write line port)))
+        (vline-write line port)))
     (display ")" port)))
 
 ) ; close library

@@ -119,7 +119,7 @@
 (define (linectx-mark-not-bol-set! lctx flag?)
   (linectx-flag-set! lctx flag-mark-not-bol? flag?))
 
-;; return number of charlines
+;; return number of vlines
 (define (linectx-end-y lctx)
   (vscreen-length (linectx-vscreen lctx)))
 
@@ -318,8 +318,8 @@
   (cellspan-clear! (linectx-clipboard lctx)))
 
 
-;; save to history a shallow clone of charlines in linectx-vscreen,
-;; remove empty charlines from history, and return such clone
+;; save to history a shallow clone of vlines in linectx-vscreen,
+;; remove empty vlines from history, and return such clone
 (define (linectx-to-history* lctx)
   (let-values (((ret idx) (vhistory-set*! (linectx-history lctx) (linectx-history-index lctx) (linectx-vscreen lctx))))
     (linectx-history-index-set! lctx idx)

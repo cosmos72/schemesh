@@ -33,21 +33,21 @@
          (ymax   (fxmax 0 (fx1- (vscreen-length screen))))
          (nl?    #f))
     ; (debugf "linectx-draw-lines ~s" screen)
-    (charlines-iterate screen
+    (vlines-iterate screen
       (lambda (y line)
-        (let ((len (fx- (charline-length line)
-                        (if (charline-nl? line) 1 0))))
+        (let ((len (fx- (vline-length line)
+                        (if (vline-nl? line) 1 0))))
         (lineterm-write/vline lctx line 0 len)
         (when (fx<? y ymax)
           (when (fx<? len (vscreen-width-at-y screen y))
             (lineterm-clear-to-eol lctx))
-          (when (charline-nl? line)
+          (when (vline-nl? line)
             (lineterm-write/u8 lctx 10))))))
     (vscreen-dirty-set! screen #f)
     (lineterm-clear-to-eos lctx)))
 
 
-;; sett term-x, term-y cursor to end of charlines
+;; sett term-x, term-y cursor to end of vlines
 (define (linectx-term-xy-set/end-lines! lctx)
   (let* ((screen (linectx-vscreen lctx))
          (iy (fxmax 0 (fx1- (vscreen-length screen))))
@@ -122,7 +122,7 @@
   (linectx-update-prompt lctx)
   (linectx-draw-prompt lctx)
   (linectx-draw-lines lctx)
-  ;; set term-x and term-y to end of charlines
+  ;; set term-x and term-y to end of vlines
   (linectx-term-xy-set/end-lines! lctx)
   (parenmatcher-clear! (linectx-parenmatcher lctx))
   (linectx-paren-update! lctx)
@@ -144,41 +144,41 @@
   (linectx-draw-bad-parens lctx 'plain)
   (linectx-draw-paren lctx (linectx-paren lctx) 'plain)
   (let* ((screen (linectx-vscreen lctx))
-         (ymin   (charlines-dirty-start-y screen))
-         (ymax   (fx1- (charlines-dirty-end-y screen)))
+         (ymin   (vlines-dirty-start-y screen))
+         (ymax   (fx1- (vlines-dirty-end-y screen)))
          (vx     (linectx-term-x lctx))
          (vy     (linectx-term-y lctx))
          (prompt-x (vscreen-prompt-end-x screen))
          (prompt-y (vscreen-prompt-end-y screen))
          (width  (vscreen-width screen)))
     ;; lines with (fx<=? ymin i ymax) are fully dirty
-    (charlines-iterate screen
+    (vlines-iterate screen
       (lambda (i line)
         (let* ((fully-dirty? (fx<=? ymin i ymax))
-               (len          (charline-length line))
+               (len          (vline-length line))
                (width-at-i   (vscreen-width-at-y screen i))
-               (xdirty0      (if fully-dirty? 0 (fxmin width-at-i (charline-dirty-start-x line))))
-               (xdirty1      (if fully-dirty? width-at-i (charline-dirty-end-x line))))
+               (xdirty0      (if fully-dirty? 0 (fxmin width-at-i (vline-dirty-start-x line))))
+               (xdirty1      (if fully-dirty? width-at-i (vline-dirty-end-x line))))
           (when (fx<? xdirty0 xdirty1)
             (let* ((vxoffset (if (fxzero? i) prompt-x 0))
                    (vi       (fx+ i prompt-y))
                    ;; xdraw0 and xdraw1 are xdirty0 and xdirty1 clamped to line length
                    (xdraw0   (fxmax 0 (fxmin xdirty0 len)))
                    (xdraw1   (fxmax 0 (fxmin xdirty1 len)))
-                   (nl       (if (and (charline-nl? line) (fx=? xdraw1 len)) 1 0))) ;; 1 if newline, 0 otherwise
+                   (nl       (if (and (vline-nl? line) (fx=? xdraw1 len)) 1 0))) ;; 1 if newline, 0 otherwise
               ; (debugf "linectx-redraw-dirty i = ~s, len = ~s, width-at-i = ~s, xdirty0 = ~s -> ~s, xdirty1 = ~s -> ~s, nl = ~s"
               ;         i len width-at-i xdirty0 xdraw0 xdirty1 xdraw1 nl)
               (lineterm-move lctx vx vy (fx+ xdraw0 vxoffset) vi)
               (lineterm-write/vline lctx line xdraw0 (fx- xdraw1 nl)) ;; do not print the newline yet
               ;; clear to end-of-line only when
-              ;; * xdirty1 extends beyond end of charline
-              ;; * and charline is shorter than screen width
+              ;; * xdirty1 extends beyond end of vline
+              ;; * and vline is shorter than screen width
               ;; note: cursor cannot be at right of rightmost vscreen char,
               ;; and printing end-of-line when cursor is *at* rightmost char erases it
               (when (and (fx>? xdirty1 len) (fx<? len width-at-i))
                 (lineterm-clear-to-eol lctx))
-              (if (or (fx=? nl 1) ;; newline must be printed as part of charline
-                      (fx<? (fx1+ i) (charlines-length screen))) ; more lines will follow
+              (if (or (fx=? nl 1) ;; newline must be printed as part of vline
+                      (fx<? (fx1+ i) (vlines-length screen))) ; more lines will follow
                 (begin
                   ;; cursor move down does not scroll, so print a newline.
                   (lineterm-write/u8 lctx 10)
@@ -189,7 +189,7 @@
                   (set! vy vi))))))))
 
     ;; if there is a dirty area below the last line, clear it
-    (let ((yn (charlines-length screen)))
+    (let ((yn (vlines-length screen)))
       (when (fx>=? ymax yn)
         (let ((vyn (fx+ prompt-y yn)))
           ; (debugf "linectx-redraw-dirty move (~s . ~s) -> (~s . ~s) then clear-to-eos" vx vy 0 vyn)
@@ -293,7 +293,7 @@
 (define (linectx-draw-bad-paren/end lctx paren style)
   (void))
 
-;; if position x y is inside current charlines, redraw char at x y with specified style.
+;; if position x y is inside current vlines, redraw char at x y with specified style.
 ;; used to highlight/unhighlight parentheses, brackes, braces and quotes.
 ;; assumes linectx-term-x and linectx-term-x are up to date and updates them.
 (define (linectx-draw-cell-at-xy lctx x y style)

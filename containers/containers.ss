@@ -17,7 +17,6 @@
           (schemesh containers cellspan)
           (schemesh containers chargbuffer)
           (schemesh containers charline)
-          (schemesh containers charlines)
           (schemesh containers charspan)
           (schemesh containers flvector)
           (schemesh containers in)

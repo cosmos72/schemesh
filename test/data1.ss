@@ -134,62 +134,58 @@
     (chargbuffer-delete! gb 2 4)
     (chargbuffer-insert-at! gb 1 #\x)
     gb)                                            ,(string->chargbuffer* "axbe")
-  ;; ------------------------ charline ------------------------------------
-  (string->charline "abc 123")                     ,(string->charline* "abc 123")
-  (string->charline* "echo \n")                    ,(string->charline* "echo \n")
-  (charline-nl? (string->charline "echo \n"))      #t
-  (charline-length (string->charline "echo \n"))   6
-  (charline-index
-    (string->charline* "qwerty=<>")
-    9
-    (lambda (ch) (char=? ch #\=)))                 6
-  (let ((line (string->charline* "foo/bar"))
+  ;; ------------------------ vline ------------------------------------
+  (vline "abc 123")                                ,(vline "abc 123")
+  (vline "echo \n")                                ,(vline "echo \n")
+  (vline-nl? (vline "echo \n"))                    #t
+  (vline-length (vline "echo \n"))                 6
+  (vline-index/char
+    (vline "qwerty=<>") 0 9 #\=)                   6
+  (let ((line (vline "foo/bar"))
         (sp   (span))
-        (pred (lambda (ch) (char=? ch #\b))))
+        (pred (lambda (cl) (char=? #\b (cell->char cl)))))
     (do ((i 0 (fx1+ i)))
         ((fx>=? i 10) sp)
-      (span-insert-right! sp (charline-index-right line i pred))))
+      (span-insert-right! sp (vline-index-right line i pred))))
                                                    ,(span 4 4 4 4 4 #f #f #f #f #f)
-  (let ((line (string->charline* "qwerty==="))
+  (let ((line (vline "qwerty==="))
         (sp   (span))
-        (pred (lambda (ch) (char=? ch #\=))))
+        (pred (lambda (cl) (char=? #\= (cell->char cl)))))
     (do ((i 0 (fx1+ i)))
         ((fx>=? i 12) sp)
-      (span-insert-right! sp (charline-count line i pred))))
+      (span-insert-right! sp (vline-count line i pred))))
                                                    ,(span 0 0 0 0 0 0 0 1 2 3 3 3)
-  (let ((line (string->charline* "qwerty==="))
+  (let ((line (vline "qwerty==="))
         (sp   (span))
-        (pred (lambda (ch) (char=? ch #\=))))
+        (pred (lambda (cl) (char=? #\= (cell->char cl)))))
     (do ((i 0 (fx1+ i)))
         ((fx>=? i 12) sp)
-      (span-insert-right! sp (charline-count-right line i pred))))
+      (span-insert-right! sp (vline-count-right line i pred))))
                                                    ,(span 0 0 0 0 0 0 3 2 1 0 0 0)
-  (let* ((l1 (string->charline* "foo/bar"))
-         (l2 (charline-copy-on-write l1)))
-    (charline-delete! l1 3 4)
-    (charline-insert-at! l2 3 #\~)
-    (list l1 l2))                                  ,((string->charline* "foobar") (string->charline* "foo~/bar"))
-  (let* ((l1 (string->charline* "abcdefgh"))
-         (l2 (charline-copy-on-write l1)))
-    (charline-insert-at/chargbuffer! l1 5 (string->charline* "012345") 2 5)
-    (list l1 l2))                                  ,((string->charline* "abcde234fgh") (string->charline* "abcdefgh"))
-  ;; ------------------------ charlines -----------------------------------
-  (charlines (string->charline* "foo/bar")
-    (string->charline "\n"))                       ,(strings->charlines* "foo/bar" "\n")
-  (charlines-index (strings->charlines* "qwerty@$%" "asdf")
+  (let* ((l1 (vline "foo/bar"))
+         (l2 (vline-copy-on-write l1)))
+    (vline-delete! l1 3 4)
+    (vline-insert-at! l2 3 #\~)
+    (list l1 l2))                                  ,((vline "foobar") (vline "foo~/bar"))
+  (let* ((l1 (vline "abcdefgh"))
+         (l2 (vline-copy-on-write l1)))
+    (vline-insert-at/cellgbuffer! l1 5 (vline "012345") 2 5)
+    (list l1 l2))                                  ,((vline "abcde234fgh") (vline "abcdefgh"))
+  ;; ------------------------ vlines -----------------------------------
+  (vlines (vline "foo/bar") (vline "\n"))              ,(vlines "foo/bar" "\n")
+  (vlines-index (vlines "qwerty@$%" "asdf")
     4 1
-    (lambda (ch) (char=? ch #\@)))                 7
-  (charlines-index-right (charlines
-    (string->charline* "IOHPR$\n")
-    (string->charline* "ORJZX"))
+    (lambda (cl) (char=? #\@ (cell->char cl))))        7
+  (vlines-index-right (vlines
+    (vline "IOHPR$\n") "ORJZX")
     0 0
-    (lambda (ch) (char=? ch #\Z)))                 10
-  (charlines-count (strings->charlines* "abc\n" "ccc")
+    (lambda (cl) (char=? #\Z (cell->char cl))))        10
+  (vlines-count (vlines "abc\n" "ccc")
     4 1
-    (lambda (ch) (char=? ch #\c)))                 3
-  (charlines-count-right (strings->charlines* "abc\n" "ccc")
+    (lambda (cl) (char=? #\c (cell->char cl))))        3
+  (vlines-count-right (vlines "abc\n" "ccc")
     3 0
-    (lambda (ch) (not (char=? ch #\c))))           1
+    (lambda (cl) (not (char=? #\c (cell->char cl)))))  1
   ;; ------------------------ vscreen -------------------------------------
   (let ((screen (vscreen 8 30 "qwerty\n" "asdfgh")))
     (vscreen-cursor-vxy-set! screen 3 1)

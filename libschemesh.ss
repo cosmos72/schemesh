@@ -28,7 +28,6 @@
   (include "containers/chargbuffer.ss") ; requires containers/charspan.ss
   (include "containers/gbuffer.ss")     ; requires containers/span.ss
   (include "containers/charline.ss")    ; requires containers/gbuffer.ss
-  (include "containers/charlines.ss")   ; requires containers/charlines.ss
   (include "containers/utf8b-utils.ss") ; requires containers/utf8b.ss containers/chargbuffer.ss
   (include "containers/cell.ss")        ; requires containers/hashtable.ss containers/span.ss containers/utf8b-utils.ss
   (include "containers/cellvector.ss")  ; requires containers/bytevector.ss containers/cell.ss

@@ -39,14 +39,16 @@
     (schemesh posix fd)
     (only (schemesh posix signal) countdown signal-consume-sigwinch)
     (schemesh posix tty)
+    (schemesh lineedit vline)
+    (schemesh lineedit vlines)
+    (only (schemesh lineedit vlines io) open-vlines-input-port)
     (schemesh lineedit vscreen)
     (schemesh lineedit vhistory)
     (schemesh lineedit paren)
     (schemesh lineedit parenmatcher)
     (schemesh lineedit linectx)
     (schemesh lineedit lineterm)
-    (only (schemesh lineedit parser) make-parsectx*)
-    (only (schemesh lineedit vlines io) open-vlines-input-port))
+    (only (schemesh lineedit parser) make-parsectx*))
 
 
 
@@ -120,10 +122,10 @@
 
 
 ;; save current linectx-vscreen to history,
-;; then replace them with specified charlines.
+;; then replace them with specified vlines.
 ;; Sets vscreen cursor to 0 0.
 (define (lineedit-lines-set! lctx lines)
-  (assert-charlines? 'lineedit-lines-set! lines)
+  (assert-vlines? 'lineedit-lines-set! lines)
   (linectx-to-history* lctx)
   (vscreen-assign*! (linectx-vscreen lctx) lines))
 
@@ -179,7 +181,7 @@
 ;; if linectx-vscreen is empty, return a shallow copy of it.
 ;; otherwise, append a shallow copy of it to history, and return such copy.
 ;;
-;; in either case, returned charlines must NOT be modified - not even temporarily -
+;; in either case, returned vlines must NOT be modified - not even temporarily -
 ;; because in one case they are the vscreen, and in the other case history references it.
 (define (linectx-return-lines* lctx)
   ; also un-highlights bad parentheses and current parentheses
@@ -205,7 +207,7 @@
 
 ;; repeatedly call (linectx-keytable-call) until ENTER is found and processed,
 ;; or until no more keytable matches are found.
-;; if user pressed ENTER, return a reference to internal charlines (linectx-vscreen)
+;; if user pressed ENTER, return a reference to internal vlines (linectx-vscreen)
 ;; if waiting for more keypresses, return #t
 ;; if got end-of-file, return #f
 (define (linectx-keytable-iterate lctx)
@@ -348,7 +350,7 @@
 (define (linectx-paren-recursive-ok? lctx)
   (and
     (fxeven?
-      (charlines-count (linectx-vscreen lctx) (greatest-fixnum) (greatest-fixnum)
+      (vlines-count (linectx-vscreen lctx) (greatest-fixnum) (greatest-fixnum)
         (lambda (ch) (char=? ch #\\))))
     (let* ((parenmatcher (linectx-parenmatcher lctx))
            (paren (and parenmatcher (parenmatcher-paren parenmatcher))))
