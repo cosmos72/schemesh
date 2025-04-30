@@ -308,17 +308,8 @@
 
 
 ;; write colored vline to bytespan, NOT escaping special characters
-(define (vline-display/bytespan line start end wbuf)
-  (let ((old-palette 0))
-    (do ((pos start (fx1+ pos)))
-        ((fx>=? pos end))
-      (let* ((cl      (vline-ref line pos))
-             (palette (vcell->vpalette cl)))
-        (vcell-display/bytespan cl old-palette wbuf)
-        (unless (fx=? old-palette palette)
-          (set! old-palette palette))))
-    (unless (fxzero? old-palette)
-      (vpalette-display/bytespan 0 wbuf))))
+(define vline-display/bytespan vbuffer-display/bytespan)
+
 
 
 ;; write a textual representation of vline to output port

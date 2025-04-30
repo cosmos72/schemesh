@@ -20,12 +20,13 @@
     vbuffer-length vbuffer-empty?
     vbuffer-ref vbuffer-set! vbuffer-clear! vbuffer-split-at!
     vbuffer-insert-at! vbuffer-insert-at/vcellspan! vbuffer-insert-at/vbuffer!
-    vbuffer-delete! vbuffer-iterate vbuffer-write)
+    vbuffer-delete! vbuffer-iterate
+    vbuffer-display/bytespan vbuffer-write)
   (import
     (rnrs)
     (only (chezscheme)             fx1+ fx/ record-writer void)
     (only (schemesh bootstrap)     assert* assert-not* fx<=?*)
-    (only (schemesh screen vcell)  vcell->char vcell->vpalette vcell-write vpalette-display)
+    (only (schemesh screen vcell)  vcell->char vcell->vpalette vcell-write vcell-display/bytespan vpalette-display vpalette-display/bytespan)
     (schemesh screen vcellspan))
 
 ;; a gap-buffer containing vcells
@@ -232,6 +233,23 @@
        (n (vbuffer-length cgb)))
     ((or (fx>=? i n) (not (proc i (vbuffer-ref cgb i))))
      (fx>=? i n))))
+
+
+(define vbuffer-display/bytespan
+  (case-lambda
+    ((line start end wbuf)
+      (let ((old-palette 0))
+        (do ((pos start (fx1+ pos)))
+            ((fx>=? pos end))
+          (let* ((cl      (vbuffer-ref line pos))
+                 (palette (vcell->vpalette cl)))
+            (vcell-display/bytespan cl old-palette wbuf)
+            (unless (fx=? old-palette palette)
+              (set! old-palette palette))))
+        (unless (fxzero? old-palette)
+          (vpalette-display/bytespan 0 wbuf))))
+    ((line wbuf)
+     (vbuffer-display/bytespan line 0 (vbuffer-length line) wbuf))))
 
 
 (define vbuffer-write

@@ -471,7 +471,7 @@
         (when (and x y ch (fx>? n 0))
           (vcellspan-insert-right! clipboard ch)
           (let-values (((x1 y1 ch1) (vscreen-char-after-xy screen x y)))
-            (%loop x1 y1 ch1 (fx1- n))))))))
+            (%loop x1 y1 (fx1- n) ch1)))))))
 
 
 (define (clipboard-insert-vline/left! clipboard line start end)
