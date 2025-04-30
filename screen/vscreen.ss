@@ -23,9 +23,9 @@
     vscreen-cursor-move/left! vscreen-cursor-move/right!  vscreen-cursor-move/up!  vscreen-cursor-move/down!
     vscreen-delete-left/n!     vscreen-delete-right/n!      vscreen-delete-at-xy!
     vscreen-delete-left/vline!  vscreen-delete-right/vline!
-    vscreen-insert-at-xy/c!  vscreen-insert-at-xy/newline! vscreen-insert-at-xy/vcellspan!
-    vscreen-insert/c!        vscreen-insert/vcellspan!         vscreen-assign*!
-    vscreen-reflow       vscreen-write)
+    vscreen-insert/c!            vscreen-insert-at-xy/c!
+    vscreen-insert-at-xy/newline! vscreen-insert-at-xy/vcellspan!
+    vscreen-assign*!  vscreen-reflow  vscreen-write)
 
   (import
     (rnrs)
@@ -714,7 +714,19 @@
       (vscreen-reflow screen))))
 
 
-;; insert chars in range [start, end) of vcellspan csp
+
+;; insert a character or cell, which can be a #\newline, into vscreen at cursor position
+;; then move cursor right by one.
+(define (vscreen-insert/c! screen c)
+  (let ((x (vscreen-cursor-ix screen))
+        (y (vscreen-cursor-iy screen)))
+    (if (char=? #\newline (if (char? c) c (vcell->char c)))
+      (vscreen-insert-at-xy/newline! screen x y)
+      (vscreen-insert-at-xy/c! screen x y c))
+    (vscreen-cursor-move/right! screen 1)))
+
+
+;; insert cells in range [start, end) of vcellspan csp
 ;; into vscreen at specified x and y.
 ;; Both x and y are clamped to valid range.
 ;;
@@ -736,32 +748,6 @@
           (if (vcellspan-index/char csp csp-start csp-end #\newline)
             (vscreen-reflow screen)
             (vscreen-overflow-at-y screen y)))))))
-
-
-;; insert a character or cell, which can be a #\newline, into vscreen at cursor position
-;; then move cursor right by one.
-(define (vscreen-insert/c! screen c)
-  (let ((x (vscreen-cursor-ix screen))
-        (y (vscreen-cursor-iy screen)))
-    (if (char=? #\newline (if (char? c) c (vcell->char c)))
-      (vscreen-insert-at-xy/newline! screen x y)
-      (vscreen-insert-at-xy/c! screen x y c))
-    (vscreen-cursor-move/right! screen 1)))
-
-
-;; insert chars in range [start, end) of vcellspan csp into vscreen at cursor position,
-;; then move screen cursor right by (fx- csp-end csp-start)
-;;
-;; If the line at cursor position becomes longer than vscreen-width-at-y,
-;; moves extra characters into the following line(s)
-;; i.e. reflows them according to vscreen width.
-;;
-;; If one or more #\newline are inserted, performs a full (vscreen-reflow)
-(define (vscreen-insert/vcellspan! screen csp csp-start csp-end)
-  (when (fx<? csp-start csp-end)
-    (vscreen-insert-at-xy/vcellspan! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen)
-                                    csp csp-start csp-end)
-    (vscreen-cursor-move/right! screen (fx- csp-end csp-start))))
 
 
 ;; return position one character to the left of x y.

@@ -206,21 +206,21 @@
   (let* ((stem    (linectx-completion-stem lctx))
          (table   (linectx-completions lctx))
          (table-n (span-length table)))
-    ; (debugf "%lineedit-update-with-completions stem=~s, table=~s ..." stem table)
+    ;; (debugf "%lineedit-update-with-completions stem=~s, table=~s ..." stem table)
     (unless (fxzero? table-n)
       (let-values (((common-len max-len) (%table-analyze table)))
-        ; (debugf "%lineedit-update-with-completions stem=~s, common-len=~s, table=~s" stem common-len table)
+        ;; (debugf "%lineedit-update-with-completions stem=~s, common-len=~s, table=~s" stem common-len table)
         (cond
           ((not (fxzero? common-len))
-            ; insert common prefix of all completions
+            ;; insert common prefix of all completions
             (let ((elem-0 (span-ref table 0)))
-              (linectx-insert/vcellspan! lctx elem-0 0 common-len)
+              (linectx-insert/charspan! lctx elem-0 0 common-len)
               (when (and (fx=? 1 table-n)
                          (not (char=? #\/ (charspan-ref elem-0 (fx1- common-len)))))
                 (linectx-insert/c! lctx #\space))))
           ((fx>? table-n 1)
-            ; erase prompt and lines (also sets flag "redraw prompt and lines"),
-            ; then list all possible table
+            ;; erase prompt and lines (also sets flag "redraw prompt and lines"),
+            ;; then list all possible table
             (lineedit-undraw lctx)
             (lineedit-display-table lctx stem table max-len '(ask-if-large display-dashes))))))))
 

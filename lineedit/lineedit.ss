@@ -137,13 +137,19 @@
   (vscreen-insert/c! (linectx-vscreen lctx) c))
 
 
-;; read chars in the range [start, end) from charspan csp,
+;; read up to n chars from charspan bsp, starting at offset = start
 ;; and insert them into vscreen at cursor.
-;; Also moves cursor (fx- end start) characters to the right, and reflows vscreen as needed.
-(define (linectx-insert/vcellspan! lctx csp start end)
-  (assert* 'linectx-insert/vcellspan! (fx<=?* 0 start end (vcellspan-length csp)))
-  (when (fx<? start end)
-    (vscreen-insert/vcellspan! (linectx-vscreen lctx) csp start end)))
+;;
+;; Moves cursor appropriately to the right, and reflows vscreen as needed.
+(define linectx-insert/charspan!
+  (case-lambda
+    ((lctx csp start end)
+      (assert* 'linectx-insert/charspan! (fx<=?* 0 start end (charspan-length csp)))
+      (do ((i start (fx1+ i)))
+          ((fx>=? i end))
+        (linectx-insert/c! lctx (charspan-ref csp i))))
+    ((lctx bsp)
+      (linectx-insert/bytespan! lctx bsp 0 (bytespan-length bsp)))))
 
 
 ;; read up to n bytes from bytespan bsp, starting at offset = start,
@@ -152,23 +158,28 @@
 ;; Also stops at incomplete utf-8 sequences.
 ;; Moves cursor appropriately to the right, and reflows vscreen as needed.
 ;; return number of bytes actually read from bytespan and inserted.
-(define (linectx-insert/bytespan! lctx bsp start end)
-  (assert* 'linectx-insert/bytespan! (fx<=?* 0 start end (bytespan-length bsp)))
-  (let ((pos start)
-        (incomplete-utf8? #f))
-    (do ()
-        ((or incomplete-utf8?
-             (fx>=? pos end)
-             ; stop at any byte < 32, unless it's the first byte (which we skip)
-             (and (fx>? pos start) (fx<? (bytespan-ref/u8 bsp pos) 32))))
-      (let-values (((ch len) (bytespan-ref/char bsp pos end)))
-        (set! pos (fxmin end (fx+ pos len)))
-        (cond
-          ((eq? #t ch)
-            (set! incomplete-utf8? #t))
-          ((and (char? ch) (char>=? ch #\space))
-            (linectx-insert/c! lctx ch)))))
-    (fx- pos start))) ; return number of bytes actually inserted
+(define linectx-insert/bytespan!
+  (case-lambda
+    ((lctx bsp start end)
+      (assert* 'linectx-insert/bytespan! (fx<=?* 0 start end (bytespan-length bsp)))
+      (let ((pos start)
+            (incomplete-utf8? #f))
+        (do ()
+            ((or incomplete-utf8?
+                 (fx>=? pos end)
+                 ; stop at any byte < 32, unless it's the first byte (which we skip)
+                 (and (fx>? pos start) (fx<? (bytespan-ref/u8 bsp pos) 32))))
+          (let-values (((ch len) (bytespan-ref/char bsp pos end)))
+            (set! pos (fxmin end (fx+ pos len)))
+            (cond
+              ((eq? #t ch)
+                (set! incomplete-utf8? #t))
+              ((and (char? ch) (char>=? ch #\space))
+                (linectx-insert/c! lctx ch)))))
+        (fx- pos start))) ; return number of bytes actually inserted
+    ((lctx bsp)
+      (linectx-insert/bytespan! lctx bsp 0 (bytespan-length bsp)))))
+
 
 ;; read up to n bytes from rbuf and insert them into current line.
 ;; return number of bytes actually read from rbuf and inserted

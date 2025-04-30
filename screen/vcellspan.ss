@@ -29,6 +29,7 @@
     (only (chezscheme)                fx1+ fx1- record-writer bytevector-truncate! void)
     (only (schemesh bootstrap)        assert* assert-not* fx<=?*)
     (only (schemesh containers list)  for-list)
+    (schemesh containers charspan)
     (only (schemesh screen vcell)     vcell->char)
     (schemesh screen vcellvector))
 
@@ -70,10 +71,12 @@
 
 
 ;; create vcellspan copying contents of specified string
-(define (string->vcellspan str)
-  (let ((n (string-length str)))
-    (%make-vcellspan 0 n (string->vcellvector str))))
-
+(define string->vcellspan
+  (case-lambda
+    ((str start end)
+      (%make-vcellspan 0 (fx- end start) (string->vcellvector str start end)))
+    ((str)
+      (string->vcellspan str 0 (string-length str)))))
 
 ;; c-list must be a list of cells or characters
 (define (vcellspan . c-list)

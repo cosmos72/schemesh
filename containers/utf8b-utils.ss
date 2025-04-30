@@ -256,19 +256,30 @@
     ((sp str)
       (bytespan-insert-right/string! sp str 0 (string-length str)))))
 
+
 ;; convert a charspan to UTF-8b sequences and append it to bytespan.
-(define (bytespan-insert-right/charspan! sp csp)
-  (bytespan-reserve-right! sp (fx+ (bytespan-length sp) (charspan-length csp)))
-  (charspan-iterate csp
-    (lambda (i ch)
-      (bytespan-insert-right/char! sp ch))))
+(define bytespan-insert-right/charspan!
+  (case-lambda
+    ((sp csp start end)
+      (assert* 'bytespan-insert-right/charspan! (fx<=?* 0 start end (charspan-length csp)))
+      (bytespan-reserve-right! sp (fx+ (bytespan-length sp) (fx- end start)))
+      (do ((i start (fx1+ i)))
+          ((fx>=? i end))
+        (bytespan-insert-right/char! sp (charspan-ref csp i))))
+    ((sp csp)
+      (bytespan-insert-right/charspan! sp csp 0 (charspan-length csp)))))
 
 
 ;; convert a charspan to UTF-8b bytespan.
-(define (charspan->utf8b sp)
-  (let ((ret (make-bytespan 0)))
-    (bytespan-insert-right/charspan! ret sp)
-    ret))
+(define charspan->utf8b
+  (case-lambda
+    ((sp start end)
+      (let ((ret (make-bytespan 0)))
+        (bytespan-insert-right/charspan! ret sp start end)
+        ret))
+    ((sp)
+      (charspan->utf8b sp 0 (charspan-length sp)))))
+
 
 ;; convert a charspan to UTF-8b bytespan, then append a final byte 0 if not already present.
 (define (charspan->utf8b/0 sp)
