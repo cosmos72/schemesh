@@ -88,7 +88,7 @@
 ;; return length of internal vcellvector, i.e. maximum number of elements
 ;; that can be stored without reallocating
 (define (vcellspan-capacity csp)
-  (vcellspan-length (vcellspan-vec csp)))
+  (vcellvector-length (vcellspan-vec csp)))
 
 (define (vcellspan-empty? csp)
   (fx>=? (vcellspan-beg csp) (vcellspan-end csp)))
@@ -135,7 +135,7 @@
   (let* ((n (vcellspan-length src))
          (dst (make-vcellspan n)))
     (vcellvector-copy! (vcellspan-vec src) (vcellspan-beg src)
-                      (vcellspan-vec dst) (vcellspan-beg dst) n)
+                       (vcellspan-vec dst) (vcellspan-beg dst) n)
     dst))
 
 ;; copy n cells from a vcellspan to another one
@@ -143,7 +143,7 @@
   (assert* 'vcellspan-copy! (fx<=?* 0 src-start (fx+ src-start n) (vcellspan-length src)))
   (assert* 'vcellspan-copy! (fx<=?* 0 dst-start (fx+ dst-start n) (vcellspan-length dst)))
   (vcellvector-copy! (vcellspan-vec src) (fx+ src-start (vcellspan-beg src))
-                    (vcellspan-vec dst) (fx+ dst-start (vcellspan-beg dst)) n))
+                     (vcellspan-vec dst) (fx+ dst-start (vcellspan-beg dst)) n))
 
 
 
@@ -180,45 +180,45 @@
 ;; does NOT change the length
 (define (vcellspan-reserve-left! csp len)
   (assert* 'vcellspan-reserve-left! (fx>=? len 0))
-  (let ((vec (vcellspan-vec csp))
+  (let ((vec      (vcellspan-vec csp))
         (cap-left (vcellspan-capacity-left csp)))
     (cond
       ((fx<=? len cap-left)
-       ; nothing to do
-       (void))
+        ;; nothing to do
+        (void))
       ((fx<=? len (vcellvector-length vec))
-        ; vcellvector is large enough, move elements to the back
-        (let* ((cap (vcellspan-capacity csp))
+        ;; vcellvector is large enough, move elements to the back
+        (let* ((cap     (vcellspan-capacity csp))
                (old-len (vcellspan-length csp))
                (new-beg (fx- cap old-len)))
           (vcellvector-copy! vec (vcellspan-beg csp) vec new-beg old-len)
           (vcellspan-beg-set! csp new-beg)
           (vcellspan-end-set! csp cap)))
       (else
-       ; vcellvector is too small, reallocate it
-       (let ((new-cap (fxmax 8 len (fx* 2 cap-left))))
-         (vcellspan-reallocate-left! csp (vcellspan-length csp) new-cap))))))
+        ;; vcellvector is too small, reallocate it
+        (let ((new-cap (fxmax 8 len (fx* 2 cap-left))))
+          (vcellspan-reallocate-left! csp (vcellspan-length csp) new-cap))))))
 
 ;; ensure distance between first element and end of internal vcellvector is >= n.
 ;; does NOT change the length
 (define (vcellspan-reserve-right! csp len)
   (assert* 'vcellspan-reserve-right! (fx>=? len 0))
-  (let ((vec (vcellspan-vec csp))
+  (let ((vec       (vcellspan-vec csp))
         (cap-right (vcellspan-capacity-right csp)))
     (cond
       ((fx<=? len cap-right)
-       ; nothing to do
-       (void))
+        ;; nothing to do
+        (void))
       ((fx<=? len (vcellvector-length vec))
-        ; vcellvector is large enough, move elements to the front
+        ;; vcellvector is large enough, move elements to the front
         (let ((len (vcellspan-length csp)))
           (vcellvector-copy! vec (vcellspan-beg csp) vec 0 len)
           (vcellspan-beg-set! csp 0)
           (vcellspan-end-set! csp len)))
       (else
-       ; vcellvector is too small, reallocate it
-       (let ((new-cap (fxmax 8 len (fx* 2 cap-right))))
-         (vcellspan-reallocate-right! csp (vcellspan-length csp) new-cap))))))
+        ;; vcellvector is too small, reallocate it
+        (let ((new-cap (fxmax 8 len (fx* 2 cap-right))))
+          (vcellspan-reallocate-right! csp (vcellspan-length csp) new-cap))))))
 
 ;; grow or shrink vcellspan on the left (front), set length to n
 (define (vcellspan-resize-left! csp len)
@@ -375,9 +375,9 @@
 (define (vcellspan-iterate csp proc)
   (let ((start (vcellspan-beg csp))
         (end   (vcellspan-end csp))
-        (s     (vcellspan-vec csp)))
+        (vec   (vcellspan-vec csp)))
     (do ((i start (fx1+ i)))
-      ((or (fx>=? i end) (not (proc (fx- i start) (vcellspan-ref s i))))
+      ((or (fx>=? i end) (not (proc (fx- i start) (vcellspan-ref vec i))))
         (fx>=? i end)))))
 
 
