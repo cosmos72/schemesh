@@ -170,7 +170,7 @@
 (define (lineedit-key-insert-clipboard lctx)
   (let* ((screen    (linectx-vscreen lctx))
          (clipboard (linectx-clipboard lctx))
-         (n         (charspan-length clipboard)))
+         (n         (vcellspan-length clipboard)))
     (unless (fxzero? n)
       (let-values (((x y) (vscreen-cursor-ixy screen)))
         (vscreen-insert-at-xy/vcellspan! screen x y clipboard))

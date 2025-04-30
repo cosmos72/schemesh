@@ -444,11 +444,11 @@
 ;; return number of characters actually erased.
 (define vscreen-delete-right/n!
   (case-lambda
-    ((screen n)
-      (vscreen-delete-right/n! screen n #f))
     ((screen n clipboard)
       (clipboard-insert-vscreen/right! clipboard screen n)
-      (vscreen-delete-at-xy! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen) n))))
+      (vscreen-delete-at-xy! screen (vscreen-cursor-ix screen) (vscreen-cursor-iy screen) n))
+    ((screen n)
+      (vscreen-delete-right/n! screen n #f))))
 
 
 
@@ -456,34 +456,31 @@
   ; (debugf "->   linectx-clipboard-insert/left! n=~s" char-count-leftward-before-cursor)
   (when (and clipboard (fx>? n 0))
     (let-values (((x y) (vscreen-cursor-ixy screen)))
-      (while (and x y (fx>? n 0))
-        (let-values (((x1 y1 ch) (vscreen-char-before-xy screen x y)))
-          (set! x x1)
-          (set! y y1)
-          (set! n (fx1- n))
-          (when ch
-            (charspan-insert-left! clipboard ch)))))))
+      (let %loop ((x x) (y y) (n n))
+        (when (and x y (fx>? n 0))
+          (let-values (((x1 y1 ch) (vscreen-char-before-xy screen x y)))
+            (when ch
+              (vcellspan-insert-left! clipboard ch))
+            (%loop x1 y1 (fx1- n))))))))
 
 
 (define (clipboard-insert-vscreen/right! clipboard screen n)
   (when (and clipboard (fx>? n 0))
     (let-values (((x y) (vscreen-cursor-ixy screen)))
-      (let ((ch (vscreen-char-at-xy screen x y)))
-        (while (and x y ch (fx>? n 0))
-          (charspan-insert-right! clipboard ch)
+      (let %loop ((x x) (y y) (n n) (ch (vscreen-char-at-xy screen x y)))
+        (when (and x y ch (fx>? n 0))
+          (vcellspan-insert-right! clipboard ch)
           (let-values (((x1 y1 ch1) (vscreen-char-after-xy screen x y)))
-            (set! x x1)
-            (set! y y1)
-            (set! ch ch1)
-            (set! n (fx1- n))))))))
+            (%loop x1 y1 ch1 (fx1- n))))))))
 
 
 (define (clipboard-insert-vline/left! clipboard line start end)
   (when clipboard
-    (while (fx<? start end)
-      (let ((pos (fx1- end)))
-        (charspan-insert-left! clipboard (vline-ref/char line pos))
-        (set! end pos)))))
+    (let %loop ((end end))
+      (when (fx<? start end)
+        (let ((pos (fx1- end)))
+          (vcellspan-insert-left! clipboard (vline-ref/char line pos))
+          (%loop pos))))))
 
 
 ;; erase leftward, starting 1 char left of vscreen cursor and continuing
@@ -498,14 +495,14 @@
       (vscreen-dirty-set! screen #t)
       (vline-delete! line 0 x)
       (vscreen-cursor-ix-set! screen 0)
-      (set! y    (fx1- y))
-      (set! line (vscreen-line-at-y screen y))
-      (while (and line (not (vline-nl? line)))
-        (clipboard-insert-vline/left! clipboard line 0 (vline-length line))
-        (vscreen-delete-at/vline! screen y)
-        (set! y    (fx1- y))
-        (set! line (vscreen-line-at-y screen y)))
-      (vscreen-cursor-iy-set! screen (fx1+ y)))))
+      (let* ((y    (fx1- y))
+             (line (vscreen-line-at-y screen y)))
+        (while (and line (not (vline-nl? line)))
+          (clipboard-insert-vline/left! clipboard line 0 (vline-length line))
+          (vscreen-delete-at/vline! screen y)
+          (set! y    (fx1- y))
+          (set! line (vscreen-line-at-y screen y)))
+        (vscreen-cursor-iy-set! screen (fx1+ y))))))
 
 
 ;; erase rightward, starting at vscreen cursor and continuing
@@ -738,8 +735,6 @@
 ;; If one or more #\newline are inserted, performs a full (vscreen-reflow)
 (define vscreen-insert-at-xy/vcellspan!
   (case-lambda
-    ((screen x y csp)
-      (vscreen-insert-at-xy/vcellspan! screen x y csp 0 (vcellspan-length csp)))
     ((screen x y csp csp-start csp-end)
       (assert* 'vscreen-insert-at-xy/vcellspan! (fx<=?* 0 csp-start csp-end (vcellspan-length csp)))
       (when (fx<? csp-start csp-end)
@@ -748,7 +743,9 @@
           (vline-insert-at/vcellspan! line x csp csp-start csp-end)
           (if (vcellspan-index/char csp csp-start csp-end #\newline)
             (vscreen-reflow screen)
-            (vscreen-overflow-at-y screen y)))))))
+            (vscreen-overflow-at-y screen y)))))
+    ((screen x y csp)
+      (vscreen-insert-at-xy/vcellspan! screen x y csp 0 (vcellspan-length csp)))))
 
 
 ;; return position one character to the left of x y.

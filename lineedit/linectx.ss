@@ -202,7 +202,7 @@
       'shell enabled-parsers      ; parser-name parsers
       (bytespan)                  ; prompt
       parenmatcher #f             ; parenmatcher paren
-      (vcellspan)                  ; clipboard
+      (vcellspan)                 ; clipboard
       (span) (charspan)           ; completions stem
       linectx-default-keytable #f ; keytable last-key
       0 history)))                ; history
