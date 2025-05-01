@@ -496,8 +496,6 @@
     (job-ensure-textual-port parent target-fd remapped-fd)))
 
 
-
-
 ;; Return the actual file descriptor to use inside a job
 ;; for reading from, or writing to, logical file descriptor N.
 ;; Needed because jobs can run in main process and have per-job redirections.

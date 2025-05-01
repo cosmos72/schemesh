@@ -93,7 +93,7 @@
                        current-time debug debug-condition debug-on-exception display-condition
                        foreign-procedure format fx1+ fx1- hashtable-cells include inspect
                        keyboard-interrupt-handler list-copy logand logbit? make-format-condition meta
-                       open-fd-output-port parameterize procedure-arity-mask record-writer
+                       open-fd-output-port parameterize port-closed? procedure-arity-mask record-writer
                        register-signal-handler reverse! sort!
                        string-copy! string-truncate! void)
     (schemesh bootstrap)
@@ -187,8 +187,9 @@
 (define (job-ports-flush job)
   (let ((ports (job-ports job)))
     (when ports
-      (for-hash ((fd port ports))
-        (flush-output-port port)))))
+      (for-hash-values ((port ports))
+        (when (and (output-port? port) (not (port-closed? port)))
+          (flush-output-port port))))))
 
 (define (job-default-parents-ports-flush job)
   (job-default-parents-iterate job job-ports-flush))
@@ -248,6 +249,13 @@
         (%job-last-status-set! job status)
 
         (sh-stdio-flush)
+
+        (let ((ports (job-ports job)))
+          (when ports
+            (job-ports-flush job)
+            (unless (eq? job (sh-globals))
+              (hashtable-clear! ports))))
+
         (job-pid-set!  job #f) ; also updates (sh-pid-table)
         (job-pgid-set! job #f)
 

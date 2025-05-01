@@ -218,8 +218,7 @@
   (assert-string-list? 'builtin-jobs prog-and-args)
   (let ((src (multijob-children (sh-globals))))
     (unless (span-empty? src)
-      ;; do NOT close port, it would close the fd!
-      (let ((port (open-fd-output-port (sh-fd 1) (buffer-mode block) transcoder-utf8)))
+      (let ((port (current-output-port)))
         (span-iterate src
           (lambda (job-id job)
             (when (sh-job? job)
