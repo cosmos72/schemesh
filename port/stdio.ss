@@ -17,38 +17,50 @@
   (import
     (rnrs)
     (rnrs mutable-pairs)
-    (only (chezscheme) set-port-eof! )
-    (only (schemesh bootstrap) assert* sh-make-parameter))
+    (only (chezscheme)         logbit? procedure-arity-mask set-port-eof!)
+    (only (schemesh bootstrap) assert*))
+
+
+(define (validate-stdio-proc caller old-proc new-proc)
+  (assert* caller (not old-proc))
+  (assert* caller (procedure? new-proc))
+  (assert* caller (logbit? 0 (procedure-arity-mask new-proc))))
 
 
 ;; Return binary input port that reads or writes bytes from current standard input
 (define sh-stdin
-  (sh-make-parameter
-    #f
-    (lambda (port)
-      (when port
-        (assert* 'sh-stdin (binary-port? port)))
-      port)))
+  (let ((proc #f))
+    (case-lambda
+      (()
+        ;; shell/init.ss will install a procedure returning binary standard input port of current job
+        (and proc (proc)))
+      ((new-proc)
+        (validate-stdio-proc 'sh-stdin proc new-proc)
+        (set! proc new-proc)))))
 
 
 ;; Return binary output port that reads or writes bytes to current standard output
 (define sh-stdout
-  (sh-make-parameter
-    #f
-    (lambda (port)
-      (when port
-        (assert* 'sh-stdout (binary-port? port)))
-      port)))
+  (let ((proc #f))
+    (case-lambda
+      (()
+        ;; shell/init.ss will install a procedure returning binary standard output port of current job
+        (and proc (proc)))
+      ((new-proc)
+        (validate-stdio-proc 'sh-stdout proc new-proc)
+        (set! proc new-proc)))))
 
 
 ;; Return binary output port that reads or writes bytes to current standard error
 (define sh-stderr
-  (sh-make-parameter
-    #f
-    (lambda (port)
-      (when port
-        (assert* 'sh-stderr (binary-port? port)))
-      port)))
+  (let ((proc #f))
+    (case-lambda
+      (()
+        ;; shell/init.ss will install a procedure returning binary standard error port of current job
+        (and proc (proc)))
+      ((new-proc)
+        (validate-stdio-proc 'sh-stderr proc new-proc)
+        (set! proc new-proc)))))
 
 
 (define (try-port-cleanup port)
@@ -62,15 +74,14 @@
 (define (sh-stdio-cleanup)
   (try-port-cleanup (current-input-port))
   (try-port-cleanup (current-output-port))
-  (try-port-cleanup (current-error-port))
-  (try-port-cleanup (sh-stdin))
-  (try-port-cleanup (sh-stdout))
-  (try-port-cleanup (sh-stderr)))
+  (try-port-cleanup (current-error-port)))
 
 
 (define (sh-stdio-flush)
   ;; the ports (console-input-port) (console-output-port) (console-error-port)
-  ;; and (sh-stdin) (sh-stdout) (sh-stderr) are unbuffered, no need to flush them
+  ;; are unbuffered, no need to flush them
+  ;;
+  ;; flushing (current-...-port) also flushes (sh-stdin) (sh-stdout) and (sh-stderr)
   (try-port-flush (current-input-port))
   (try-port-flush (current-output-port))
   (try-port-flush (current-error-port)))

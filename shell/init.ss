@@ -19,9 +19,9 @@
   ;;
   ;; May be parameterized to a different value in subshells.
   (unless (sh-globals)
-    (let ((port0 (fd->port 0 'rw 'binary (buffer-mode block) "sh-stdin"))
-          (port1 (fd->port 1 'rw 'binary (buffer-mode block) "sh-stdout"))
-          (port2 (fd->port 2 'rw 'binary (buffer-mode block) "sh-stderr")))
+    (let ((stdin  (fd->port 0 'rw 'binary (buffer-mode block) "sh-stdin"))
+          (stdout (fd->port 1 'rw 'binary (buffer-mode block) "sh-stdout"))
+          (stderr (fd->port 2 'rw 'binary (buffer-mode block) "sh-stderr")))
       (sh-globals
         ;; assign job-id 0 to sh-globals itself.
         ;;
@@ -37,10 +37,11 @@
              0 (s-fd 0) 1 (s-fd 1) 2 (s-fd 2))
 
            (eqv-hashtable            ; ports
-             0 port0  1 port1  2 port2
-             (fxnot 0) (port->utf8b-port port0 'rw (buffer-mode block) '(close? #f))
-             (fxnot 1) (port->utf8b-port port1 'rw (buffer-mode block) '(close? #f))
-             (fxnot 2) (port->utf8b-port port2 'rw (buffer-mode block) '(close? #f)))
+             0 stdin  1 stdout  2 stderr
+             ;; sanity: ignore attempts to close textual stdin/stdout/stderr ports of (sh-globals) job
+             (fxnot 0) (port->utf8b-port stdin  'rw (buffer-mode block) '(close? #f))
+             (fxnot 1) (port->utf8b-port stdout 'rw (buffer-mode block) '(close? #f))
+             (fxnot 2) (port->utf8b-port stderr 'rw (buffer-mode block) '(close? #f)))
            #f #f                     ; start-proc step-proc
            (string->charspan* ((foreign-procedure "c_get_cwd" () ptr))) #f ; current directory, old working directory
            (make-hashtable string-hash string=?) ; env variables
@@ -52,6 +53,7 @@
 
   ;; Replace (console-input-port) (console-output-port) (console-error-port)
   ;; with unbuffered UTF-8b textual input/output ports that can be interrupted
+  ;; and are ordered with (current-input-port) (current-output-port) (current-error-port)
   (let ((port0 (sh-textual-port #t 0))
         (port1 (sh-textual-port #t 1))
         (port2 (sh-textual-port #t 2))
@@ -69,14 +71,27 @@
 
 
   ;; Replace (sh-stdin) (sh-stdout) (sh-stderr)
-  ;; with buffered binary input/output ports that can be interrupted and honor current job redirections
-  (sh-stdin  (binary-port-lambda->port "sh-stdin"  (lambda () (sh-binary-port #f 0)) 'rw))
-  (sh-stdout (binary-port-lambda->port "sh-stdout" (lambda () (sh-binary-port #f 1)) 'rw))
-  (sh-stderr (binary-port-lambda->port "sh-stderr" (lambda () (sh-binary-port #f 2)) 'rw))
+  ;; with buffered binary input/output ports that can be interrupted and honor current job redirections.
+  ;;
+  ;; trick: install closures that extract ports from current job, creating them on demand.
+  (sh-stdin  (lambda () (sh-binary-port #f 0)))
+  (sh-stdout (lambda () (sh-binary-port #f 1)))
+  (sh-stderr (lambda () (sh-binary-port #f 2)))
 
 
   ;; Replace (current-input-port) (current-output-port) (current-error-port)
-  ;; with buffered UTF-8b textual input/output ports that can be interrupted and honor current job redirections
+  ;; with buffered UTF-8b textual input/output ports that can be interrupted and honor current job redirections.
+  ;;
+  ;; We cannot use the same trick as above for (sh-stdin) (sh-stdout) (sh-stderr) that extract ports from current job,
+  ;; because (current-...-port) cannot execute arbitrary code:
+  ;; they merely return the last saved value, which must be a port.
+  ;;
+  ;; Thus we install only once a triplet of global textual ports that forward each request to current job's ports.
+  ;;
+  ;; The alternative is calling (current-...-port some-port) i.e. installing a port each time the current job changes,
+  ;; which requires eagerly creating textual i/o ports for each job: expensive both in RAM and CPU.
+  ;;
+  ;; sanity: ignore attempts to close (current-input-port) (current-output-port) (current-error-port)
   (current-input-port  (textual-port-lambda->port "current-input-port"  (lambda () (sh-textual-port #f 0)) 'rw #t))
   (current-output-port (textual-port-lambda->port "current-output-port" (lambda () (sh-textual-port #f 1)) 'rw #t))
   (current-error-port  (textual-port-lambda->port "current-error-port"  (lambda () (sh-textual-port #f 2)) 'rw #t))
