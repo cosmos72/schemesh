@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh containers in (0 8 3))
+(library (schemesh containers in (0 9 0))
   (export
     constant in-value in-interval in-numbers
     in-roundrobin in-list-roundrobin in-sequences number->cflonum)

@@ -11,7 +11,7 @@
 ;;;;;;;  define Scheme type "vcellspan", a resizeable vector of cells  ;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (schemesh screen vcellspan (0 8 3))
+(library (schemesh screen vcellspan (0 9 0))
   (export
     list->vcellspan string->vcellspan make-vcellspan
     vcellspan vcellspan? assert-vcellspan? vcellspan-length vcellspan-empty? vcellspan-clear!

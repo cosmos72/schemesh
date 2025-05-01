@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh screen vhistory io (0 8 3))
+(library (schemesh screen vhistory io (0 9 0))
   (export
     vhistory-load!           vhistory-save
     vhistory-load-from-file! vhistory-save-to-path

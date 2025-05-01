@@ -8,7 +8,7 @@
 #!r6rs
 
 ;; define (schemesh screen) as a library that exports all its imported bindings
-(library-reexport (schemesh screen (0 8 3))
+(library-reexport (schemesh screen (0 9 0))
   (import (schemesh screen vbuffer)
           (schemesh screen vcell)
           (schemesh screen vcellspan)

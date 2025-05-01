@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh screen vlines (0 8 3))
+(library (schemesh screen vlines (0 9 0))
   (export
     vlines vlines? assert-vlines? vlines->string
     vlines-shallow-copy vlines-copy-on-write vlines-iterate

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh repl (0 8 3))
+(library (schemesh repl (0 9 0))
   (export ;; repl/answers.ss
           repl-answers-display repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
 

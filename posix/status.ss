@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh posix status (0 8 3))
+(library (schemesh posix status (0 9 0))
   (export
        exit-with-status status-display-color?
        new running stopped exception failed killed ok

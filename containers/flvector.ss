@@ -8,7 +8,7 @@
 
 #!r6rs
 
-(library (schemesh containers flvector (0 8 3))
+(library (schemesh containers flvector (0 9 0))
   (export
     flvector-native? flvector flvector? flvector-length flvector-ref flvector-set! make-flvector)
   (import

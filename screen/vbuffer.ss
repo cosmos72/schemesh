@@ -12,7 +12,7 @@
 ;;;;; Implementation: contains two vcellspans, a "left" and a "right" one  ;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (schemesh screen vbuffer (0 8 3))
+(library (schemesh screen vbuffer (0 9 0))
   (export
     in-vbuffer list->vbuffer string->vbuffer
     vcellspan->vbuffer vcellspan->vbuffer*

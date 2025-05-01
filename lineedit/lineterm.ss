@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit lineterm (0 8 3))
+(library (schemesh lineedit lineterm (0 9 0))
   (export
     lineterm-write/u8
     lineterm-write/bytevector lineterm-write/bytespan lineterm-write/charspan lineterm-write/vline lineterm-write/string

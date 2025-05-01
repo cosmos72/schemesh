@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh containers vector (0 8 3))
+(library (schemesh containers vector (0 9 0))
   (export
     for-vector
     in-vector in-fxvector in-flvector ; in-flvector requires Chez Scheme >= 10.0.0

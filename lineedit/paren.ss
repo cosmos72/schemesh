@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit paren (0 8 3))
+(library (schemesh lineedit paren (0 9 0))
   (export
     make-paren      make-paren/bad-close
     paren?          paren-name

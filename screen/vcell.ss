@@ -8,7 +8,7 @@
 #!r6rs
 
 
-(library (schemesh screen vcell (0 8 3))
+(library (schemesh screen vcell (0 9 0))
   (export
     vcell vcell? vcell->char vcell->vpalette vcell->vcolors vcell-write vcell-display/bytespan
 

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh shell utils (0 8 3))
+(library (schemesh shell utils (0 9 0))
   (export
     c-username sh-autocomplete sh-expand-ps1 sh-current-time sh-default-ps1 sh-home->~ sh-make-linectx)
   (import

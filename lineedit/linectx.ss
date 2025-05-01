@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit linectx (0 8 3))
+(library (schemesh lineedit linectx (0 9 0))
   (export
     linectx-prompt-proc linectx-completion-proc
 

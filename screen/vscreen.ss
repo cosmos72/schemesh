@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh screen vscreen (0 8 3))
+(library (schemesh screen vscreen (0 9 0))
   (export
     make-vscreen  (rename (%vscreen vscreen))  vscreen?  assert-vscreen?
     vscreen-width        vscreen-height     vscreen-width-at-y  vscreen-resize!

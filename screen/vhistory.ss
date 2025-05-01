@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh screen vhistory (0 8 3))
+(library (schemesh screen vhistory (0 9 0))
   (export
     vhistory vhistory? make-vhistory
     vhistory-empty? vhistory-length vhistory-ref/cow vhistory-iterate

@@ -12,7 +12,7 @@
 ;;
 ;; then it can be imported from Racket #!r6rs files with the usual (import (chez compat))
 ;;
-(library (chez compat (0 8 3))
+(library (chez compat (0 9 0))
   (export append!
           check-interrupts current-time
           chez:car chez:cdr chez:cons chez:list chez:pair?
