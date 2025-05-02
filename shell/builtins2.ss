@@ -178,7 +178,7 @@
   (let-values (((job arg) (prog-and-args->job prog-and-args)))
     (if job
       (let ((out (current-output-port)))
-        (when (and job (not arg) (not (job-finished? job)))
+        (unless (or arg (job-finished? job))
           ;; show the preferred job being resumed
           (sh-job-display-summary job (running (job-id job)) out)
           (flush-output-port out))
