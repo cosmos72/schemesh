@@ -84,7 +84,7 @@
          (bv  (make-bytevector n))
          (top (bitwise-arithmetic-shift-left 1 (fx1- (fx* n 8)))))
     (import (prefix (only (rnrs)   bytevector-sint-ref bytevector-sint-set!)
-            rnrs:))
+                    rnrs:))
     (do ((i 32 (fx1- i)))
         ((fxzero? i) #t)
       (let* ((uint (random top))

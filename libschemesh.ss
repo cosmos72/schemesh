@@ -43,6 +43,7 @@
   (include "posix/replacements.ss")
   (include "posix/signal.ss")
   (include "posix/status.ss")
+  (include "posix/thread.ss")
   (include "posix/tty.ss")
   (include "posix/pid.ss")
   (include "posix/posix.ss")

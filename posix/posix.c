@@ -1863,7 +1863,6 @@ static char** vector_to_c_argz(ptr vector_of_bytevector0) {
   return c_argz;
 }
 
-#if 0 /* not used yet */
 static uptr c_thread_count(void) {
 #ifdef FEATURE_PTHREADS
   extern volatile uptr S_nthreads;
@@ -1872,7 +1871,35 @@ static uptr c_thread_count(void) {
   return 1;
 #endif
 }
-#endif /* 0 */
+
+typedef struct s_mutex_t scheme_mutex_t;
+
+extern void S_mutex_acquire(scheme_mutex_t* m);
+extern void S_mutex_release(scheme_mutex_t* m);
+
+static ptr c_thread_list(void) {
+  extern volatile ptr S_threads;
+
+  ptr ls;
+  ptr ret = Snil;
+
+#ifdef FEATURE_PTHREADS
+  extern scheme_mutex_t S_tc_mutex;
+  extern int            S_tc_mutex_depth;
+
+  S_mutex_acquire(&S_tc_mutex);
+  S_tc_mutex_depth += 1;
+#endif
+
+  for (ls = S_threads; ls != Snil; ls = Scdr(ls)) {
+    ret = Scons(Scar(ls), ret);
+  }
+#ifdef FEATURE_PTHREADS
+  S_tc_mutex_depth -= 1;
+  S_mutex_release(&S_tc_mutex);
+#endif
+  return ret;
+}
 
 int schemesh_register_c_functions_posix(void) {
   int err;
@@ -1915,6 +1942,9 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_tty_size", &c_tty_size);
   Sregister_symbol("c_job_control_available", &c_job_control_available);
   Sregister_symbol("c_job_control_change", &c_job_control_change);
+
+  Sregister_symbol("c_thread_count", &c_thread_count);
+  Sregister_symbol("c_thread_list", &c_thread_list);
 
   Sregister_symbol("c_cmd_exec", &c_cmd_exec);
   Sregister_symbol("c_cmd_spawn", &c_cmd_spawn);

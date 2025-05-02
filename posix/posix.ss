@@ -29,5 +29,6 @@
 
     (schemesh posix signal)
     (schemesh posix status)
+    (schemesh posix thread)
     (schemesh posix tty)
     (schemesh posix pid)))
