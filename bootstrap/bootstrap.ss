@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh bootstrap (0 8 3))
+(library (schemesh bootstrap (0 9 0))
   (export
       ;; bootstrap.ss
 
@@ -245,7 +245,7 @@
        (let ((tproc proc) ; proc must be evaluated before args
              (targs (list args ...)))
          (begin (debugf "-> ~s args ~s" 'proc targs))
-         (let ((rets (values->list (apply tproc targs))))
+         (let-values ((rets (apply tproc targs)))
            (begin (debugf "<- ~s rets ~s args ~s" 'proc rets targs))
            (list->values rets))))))
 

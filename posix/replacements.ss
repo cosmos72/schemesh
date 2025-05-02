@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh posix replacements (0 8 3))
+(library (schemesh posix replacements (0 9 0))
   (export
       ;; the following functions *intentionally* conflict with R6RS and Chez Scheme
       ;; functions with the same names,

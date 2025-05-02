@@ -96,7 +96,7 @@
       (let* ((lctx (repl-args-linectx))
              (wbuf (linectx-wbuf lctx)))
         (bytespan-insert-right/string! wbuf "schemesh version")
-        (let ((version (values->list (sh-version-number))))
+        (let-values ((version (sh-version-number)))
           (do ((l version (cdr l)))
               ((null? l))
             (bytespan-insert-right/u8! wbuf (if (eq? l version) 32 46))
@@ -158,14 +158,14 @@ The following names are recognized as builtins:\n\n")
         ; (debugf "repl-history-display ~s" lctx)
         (if (linectx? lctx)
           (let ((wbuf (make-bytespan 0)))
-            (gbuffer-iterate (linectx-history lctx)
+            (vhistory-iterate (linectx-history lctx)
               (lambda (i lines)
                 (bytespan-insert-right/u8!      wbuf 32) ; space
                 (bytespan-display-right/fixnum! wbuf i)
                 (bytespan-insert-right/u8!      wbuf 9) ; tab
-                (charlines-iterate lines
+                (vlines-iterate lines
                   (lambda (j line)
-                    (bytespan-insert-right/cbuffer! wbuf line)))
+                    (vline-display/bytespan line wbuf)))
                 (bytespan-insert-right/u8! wbuf 10) ; newline
                 (when (fx>=? (bytespan-length wbuf) 4096)
                   (fd-write/bytespan! fd wbuf))))

@@ -11,7 +11,7 @@
 ;;; procedure names and effect are intentionally compatible with
 ;;; https://docs.racket-lang.org/reference/port-lib.html
 ;;;
-(library (schemesh port (0 8 3))
+(library (schemesh port (0 9 0))
   (export port->list port->string port->bytes port->lines port->bytes-lines
           byte-lines->port lines->port read-line read-bytes-line
 
@@ -19,7 +19,7 @@
           binary-port-lambda->port textual-port-lambda->port
 
           ;; stdio.ss
-          sh-stdio-cleanup sh-stdio-flush sh-stdin sh-stdout sh-stderr)
+          sh-stdio-cleanup sh-stdin sh-stdout sh-stderr)
   (import
     (rnrs)
     (rnrs mutable-pairs)

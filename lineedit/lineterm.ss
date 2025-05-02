@@ -7,10 +7,10 @@
 
 #!r6rs
 
-(library (schemesh lineedit lineterm (0 8 3))
+(library (schemesh lineedit lineterm (0 9 0))
   (export
     lineterm-write/u8
-    lineterm-write/bytevector lineterm-write/bytespan lineterm-write/charspan lineterm-write/cbuffer lineterm-write/string
+    lineterm-write/bytevector lineterm-write/bytespan lineterm-write/charspan lineterm-write/vline lineterm-write/string
     lineterm-move-dx lineterm-move-dy lineterm-move-to-bol lineterm-clear-to-eol lineterm-clear-to-eos
     lineterm-move lineterm-move-from lineterm-move-to lineterm-write-not-bol-marker)
 
@@ -20,7 +20,8 @@
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh posix fd)
-    (only (schemesh lineedit vscreen) vscreen-height vscreen-width)
+    (only (schemesh screen vline)   vline-ref vline-display/bytespan)
+    (only (schemesh screen vscreen) vscreen-height vscreen-width)
     (schemesh lineedit linectx)
     (schemesh posix tty))
 
@@ -49,12 +50,10 @@
 (define (lineterm-write/charspan ctx csp)
   (bytespan-insert-right/charspan! (linectx-wbuf ctx) csp))
 
-;; write a portion of given chargbuffer to wbuf
-(define (lineterm-write/cbuffer ctx cgb start end)
-  (do ((wbuf (linectx-wbuf ctx))
-       (pos start (fx1+ pos)))
-      ((fx>=? pos end))
-    (bytespan-insert-right/char! wbuf (chargbuffer-ref cgb pos))))
+;; write a portion of given vline, including colors, to wbuf
+(define (lineterm-write/vline ctx line start end)
+  (vline-display/bytespan line start end (linectx-wbuf ctx)))
+
 
 ;; write given string to wbuf
 (define (lineterm-write/string ctx str)

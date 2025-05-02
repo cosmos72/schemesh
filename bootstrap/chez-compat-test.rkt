@@ -11,9 +11,8 @@
     (lambda (p) (display p) (newline))
   (list append!
           check-interrupts current-time
-          chez:car chez:cdr chez:cons chez:list chez:pair? 
+          chez:car chez:cdr chez:cons chez:list chez:pair?
           fx1+ fx1- fx/ #|foreign-procedure|# format
-          keyboard-interrupt-handler
           list-copy #|list-head|# load-shared-object lock-object
           #|pariah|#
           read-token register-signal-handler reverse!
@@ -30,4 +29,3 @@
      (lambda ()
        (display (foreign-procedure "Sbox" (ptr) ptr))))))
 (newline)
-

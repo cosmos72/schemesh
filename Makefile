@@ -49,8 +49,8 @@ MKDIR_P         = mkdir -p
 ######################################################################################
 # no user-serviceable parts below this line
 ######################################################################################
-LIBSCHEMESH_SO=libschemesh_0.8.3.so
-LIBSCHEMESH_C_SO=libschemesh_c_0.8.3.so
+LIBSCHEMESH_SO=libschemesh_0.9.0.so
+LIBSCHEMESH_C_SO=libschemesh_c_0.9.0.so
 
 SRCS=containers/containers.c eval.c posix/posix.c shell/shell.c
 OBJS=containers.o eval.o posix.o shell.o
@@ -58,7 +58,7 @@ OBJS=containers.o eval.o posix.o shell.o
 all: schemesh schemesh_test $(LIBSCHEMESH_SO) countdown
 
 clean:
-	rm -f *~ *.o *.so schemesh schemesh_test $(LIBSCHEMESH_SO) countdown
+	rm -f *~ *.o *.so schemesh schemesh_test countdown
 
 containers.o: containers/containers.c containers/containers.h eval.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I"$(CHEZ_SCHEME_DIR)"

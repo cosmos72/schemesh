@@ -8,7 +8,7 @@
 #!r6rs
 
 ;; define (schemesh minimal) as a library that exports all its imported bindings
-(library-reexport (schemesh minimal (0 8 3))
+(library-reexport (schemesh minimal (0 9 0))
   (import (schemesh shell)
           (schemesh repl)))
 
@@ -23,7 +23,7 @@
 ;;   get-char get-datum get-line get-string-all get-string-n get-u8
 ;;   put-bytevector put-char put-datum put-string put-u8
 ;;
-(library-reexport (schemesh rnrs (0 8 3))
+(library-reexport (schemesh rnrs (0 9 0))
   (import
     (except (rnrs) bytevector-sint-ref bytevector-sint-set!
                    bytevector-uint-ref bytevector-uint-set!
@@ -39,13 +39,14 @@
 ;; library (schemesh) collects and exports *all* bindings defined by all libschemesh sub-libraries,
 ;; including few bindings that intentionally conflict with some R6RS and Chez Scheme functions
 ;; because they are intended as replacements
-(library-reexport (schemesh (0 8 3))
+(library-reexport (schemesh (0 9 0))
   (import
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh containers replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
     (schemesh conversions)
     (schemesh wire)
+    (schemesh screen)
     (schemesh lineedit)
     (schemesh parser)
     (schemesh port)
@@ -71,6 +72,8 @@
       (eval '(import (schemesh containers replacements))))
     (when (top-level-bound? 'text->bytevector)
       (eval '(import (schemesh conversions))))
+    (when (top-level-bound? 'vcell)
+      (eval '(import (schemesh screen))))
     (when (top-level-bound? 'lineedit-read)
       (eval '(import (schemesh lineedit))))
     (when (top-level-bound? 'parsers)

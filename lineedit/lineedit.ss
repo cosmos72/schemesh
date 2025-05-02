@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit lineedit (0 8 3))
+(library (schemesh lineedit lineedit (0 9 0))
   (export
     ;; linedraw.ss
     lineedit-undraw linectx-redraw-all
@@ -32,21 +32,25 @@
   (import
     (rnrs)
     (only (chezscheme)    break-handler console-output-port console-error-port
-                          display-condition format fx1+ fx1- fx/ include inspect
-                          parameterize record-writer sleep top-level-value void)
+                          debug-condition display-condition format fx1+ fx1- fx/ include
+                          inspect parameterize record-writer sleep top-level-value void)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh posix fd)
     (only (schemesh posix signal) countdown signal-consume-sigwinch)
     (schemesh posix tty)
-    (schemesh lineedit vscreen)
-    (schemesh lineedit charhistory)
+    (schemesh screen vcell)
+    (schemesh screen vcellspan)
+    (schemesh screen vline)
+    (schemesh screen vlines)
+    (schemesh screen vlines io)
+    (schemesh screen vscreen)
+    (schemesh screen vhistory)
     (schemesh lineedit paren)
     (schemesh lineedit parenmatcher)
     (schemesh lineedit linectx)
     (schemesh lineedit lineterm)
-    (only (schemesh lineedit parser) make-parsectx*)
-    (only (schemesh lineedit charlines io) open-charlines-input-port))
+    (only (schemesh lineedit parser) make-parsectx*))
 
 
 
@@ -120,26 +124,32 @@
 
 
 ;; save current linectx-vscreen to history,
-;; then replace them with specified charlines.
+;; then replace them with specified vlines.
 ;; Sets vscreen cursor to 0 0.
 (define (lineedit-lines-set! lctx lines)
-  (assert-charlines? 'lineedit-lines-set! lines)
+  (assert-vlines? 'lineedit-lines-set! lines)
   (linectx-to-history* lctx)
   (vscreen-assign*! (linectx-vscreen lctx) lines))
 
-;; insert a single character into vscreen at cursor.
+;; insert a single character or cell into vscreen at cursor.
 ;; Also moves vscreen cursor one character to the right, and reflows vscreen as needed.
-(define (linectx-insert/char! lctx ch)
-  (vscreen-insert/char! (linectx-vscreen lctx) ch))
+(define (linectx-insert/c! lctx c)
+  (vscreen-insert/c! (linectx-vscreen lctx) c))
 
 
-;; read chars in the range [start, end) from charspan csp,
+;; read up to n chars from charspan bsp, starting at offset = start
 ;; and insert them into vscreen at cursor.
-;; Also moves cursor (fx- end start) characters to the right, and reflows vscreen as needed.
-(define (linectx-insert/charspan! lctx csp start end)
-  (assert* 'linectx-insert/charspan! (fx<=?* 0 start end (charspan-length csp)))
-  (when (fx<? start end)
-    (vscreen-insert/charspan! (linectx-vscreen lctx) csp start end)))
+;;
+;; Moves cursor appropriately to the right, and reflows vscreen as needed.
+(define linectx-insert/charspan!
+  (case-lambda
+    ((lctx csp start end)
+      (assert* 'linectx-insert/charspan! (fx<=?* 0 start end (charspan-length csp)))
+      (do ((i start (fx1+ i)))
+          ((fx>=? i end))
+        (linectx-insert/c! lctx (charspan-ref csp i))))
+    ((lctx bsp)
+      (linectx-insert/bytespan! lctx bsp 0 (bytespan-length bsp)))))
 
 
 ;; read up to n bytes from bytespan bsp, starting at offset = start,
@@ -148,23 +158,28 @@
 ;; Also stops at incomplete utf-8 sequences.
 ;; Moves cursor appropriately to the right, and reflows vscreen as needed.
 ;; return number of bytes actually read from bytespan and inserted.
-(define (linectx-insert/bytespan! lctx bsp start end)
-  (assert* 'linectx-insert/bytespan! (fx<=?* 0 start end (bytespan-length bsp)))
-  (let ((pos start)
-        (incomplete-utf8? #f))
-    (do ()
-        ((or incomplete-utf8?
-             (fx>=? pos end)
-             ; stop at any byte < 32, unless it's the first byte (which we skip)
-             (and (fx>? pos start) (fx<? (bytespan-ref/u8 bsp pos) 32))))
-      (let-values (((ch len) (bytespan-ref/char bsp pos end)))
-        (set! pos (fxmin end (fx+ pos len)))
-        (cond
-          ((eq? #t ch)
-            (set! incomplete-utf8? #t))
-          ((and (char? ch) (char>=? ch #\space))
-            (linectx-insert/char! lctx ch)))))
-    (fx- pos start))) ; return number of bytes actually inserted
+(define linectx-insert/bytespan!
+  (case-lambda
+    ((lctx bsp start end)
+      (assert* 'linectx-insert/bytespan! (fx<=?* 0 start end (bytespan-length bsp)))
+      (let ((pos start)
+            (incomplete-utf8? #f))
+        (do ()
+            ((or incomplete-utf8?
+                 (fx>=? pos end)
+                 ; stop at any byte < 32, unless it's the first byte (which we skip)
+                 (and (fx>? pos start) (fx<? (bytespan-ref/u8 bsp pos) 32))))
+          (let-values (((ch len) (bytespan-ref/char bsp pos end)))
+            (set! pos (fxmin end (fx+ pos len)))
+            (cond
+              ((eq? #t ch)
+                (set! incomplete-utf8? #t))
+              ((and (char? ch) (char>=? ch #\space))
+                (linectx-insert/c! lctx ch)))))
+        (fx- pos start))) ; return number of bytes actually inserted
+    ((lctx bsp)
+      (linectx-insert/bytespan! lctx bsp 0 (bytespan-length bsp)))))
+
 
 ;; read up to n bytes from rbuf and insert them into current line.
 ;; return number of bytes actually read from rbuf and inserted
@@ -179,7 +194,7 @@
 ;; if linectx-vscreen is empty, return a shallow copy of it.
 ;; otherwise, append a shallow copy of it to history, and return such copy.
 ;;
-;; in either case, returned charlines must NOT be modified - not even temporarily -
+;; in either case, returned vlines must NOT be modified - not even temporarily -
 ;; because in one case they are the vscreen, and in the other case history references it.
 (define (linectx-return-lines* lctx)
   ; also un-highlights bad parentheses and current parentheses
@@ -194,18 +209,18 @@
   (let* ((y (linectx-history-index lctx))
          (hist (linectx-history lctx)))
     ; always overwrite last history slot
-    (linectx-history-index-set! lctx (fxmax 0 y (fx1- (charhistory-length hist))))
+    (linectx-history-index-set! lctx (fxmax 0 y (fx1- (vhistory-length hist))))
     (let* ((screen (linectx-vscreen lctx))
            (lines (linectx-to-history* lctx)))
-      (charhistory-delete-empty-lines! hist (charhistory-length hist))
-      (linectx-history-index-set! lctx (charhistory-length hist))
+      (vhistory-delete-empty-lines! hist (vhistory-length hist))
+      (linectx-history-index-set! lctx (vhistory-length hist))
       (linectx-clear! lctx) ;; clear vscreen
       lines)))
 
 
 ;; repeatedly call (linectx-keytable-call) until ENTER is found and processed,
 ;; or until no more keytable matches are found.
-;; if user pressed ENTER, return a reference to internal charlines (linectx-vscreen)
+;; if user pressed ENTER, return a reference to internal vlines (linectx-vscreen)
 ;; if waiting for more keypresses, return #t
 ;; if got end-of-file, return #f
 (define (linectx-keytable-iterate lctx)
@@ -266,7 +281,7 @@
               (set! ret
                 (parenmatcher-find/at
                   parenmatcher
-                  (lambda () (make-parsectx* (open-charlines-input-port screen)
+                  (lambda () (make-parsectx* (open-vlines-input-port screen)
                                              parsers
                                              (vscreen-width screen)
                                              (vscreen-prompt-end-x screen)
@@ -298,7 +313,7 @@
           (set! ret
             (parenmatcher-find/surrounds
               parenmatcher
-              (lambda () (make-parsectx* (open-charlines-input-port screen)
+              (lambda () (make-parsectx* (open-vlines-input-port screen)
                                          parsers
                                          (vscreen-width screen)
                                          (vscreen-prompt-end-x screen)
@@ -331,7 +346,7 @@
       (when parsers
         (parenmatcher-maybe-update!
           parenmatcher
-          (lambda () (make-parsectx* (open-charlines-input-port screen)
+          (lambda () (make-parsectx* (open-vlines-input-port screen)
                                      parsers
                                      (vscreen-width screen)
                                      (vscreen-prompt-end-x screen)
@@ -348,8 +363,8 @@
 (define (linectx-paren-recursive-ok? lctx)
   (and
     (fxeven?
-      (charlines-count (linectx-vscreen lctx) (greatest-fixnum) (greatest-fixnum)
-        (lambda (ch) (char=? ch #\\))))
+      (vlines-count (linectx-vscreen lctx) (greatest-fixnum) (greatest-fixnum)
+        (lambda (cl) (char=? #\\ (vcell->char cl)))))
     (let* ((parenmatcher (linectx-parenmatcher lctx))
            (paren (and parenmatcher (parenmatcher-paren parenmatcher))))
       (or (not paren)
@@ -439,6 +454,7 @@
         (linectx-flush lctx)
         ret))
     (catch (ex)
+      (debug-condition ex)
       (linectx-show-error lctx "Exception in lineedit-read" ex)
       ;; sleep 0.2 seconds, to rate-limit error messages
       (countdown '(0 . 200000000))

@@ -12,11 +12,11 @@
 ;;; b. converting integers to decimal and writing them into "bytevector" and "bytespan"
 
 
-(library (schemesh containers utf8b utils (0 8 3))
+(library (schemesh containers utf8b utils (0 9 0))
   (export
     bytevector-char-ref bytevector-char-set! char->utf8b-length
     bytespan-ref/char bytespan-set/char! bytespan-insert-left/char! bytespan-insert-right/char!
-    bytespan-insert-right/charspan! bytespan-insert-right/cbuffer!
+    bytespan-insert-right/charspan!
     bytespan-display-right/fixnum! bytespan-insert-right/string!
     charspan->utf8b charspan->utf8b/0)
   (import
@@ -26,7 +26,6 @@
     (only (schemesh bootstrap)              assert* fx<=?*)
     (schemesh containers bytespan)
     (schemesh containers charspan)
-    (only (schemesh containers chargbuffer) chargbuffer-iterate chargbuffer-length)
     (only (schemesh containers string)      string-iterate)
     (schemesh containers utf8b))
 
@@ -257,25 +256,30 @@
     ((sp str)
       (bytespan-insert-right/string! sp str 0 (string-length str)))))
 
-;; convert a charspan to UTF-8b sequences and append it to bytespan.
-(define (bytespan-insert-right/charspan! sp csp)
-  (bytespan-reserve-right! sp (fx+ (bytespan-length sp) (charspan-length csp)))
-  (charspan-iterate csp
-    (lambda (i ch)
-      (bytespan-insert-right/char! sp ch))))
 
-;; convert a chargbuffer to UTF-8b sequences and append it to bytespan.
-(define (bytespan-insert-right/cbuffer! sp cbuf)
-  (bytespan-reserve-right! sp (fx+ (bytespan-length sp) (chargbuffer-length cbuf)))
-  (chargbuffer-iterate cbuf
-    (lambda (i ch)
-      (bytespan-insert-right/char! sp ch))))
+;; convert a charspan to UTF-8b sequences and append it to bytespan.
+(define bytespan-insert-right/charspan!
+  (case-lambda
+    ((sp csp start end)
+      (assert* 'bytespan-insert-right/charspan! (fx<=?* 0 start end (charspan-length csp)))
+      (bytespan-reserve-right! sp (fx+ (bytespan-length sp) (fx- end start)))
+      (do ((i start (fx1+ i)))
+          ((fx>=? i end))
+        (bytespan-insert-right/char! sp (charspan-ref csp i))))
+    ((sp csp)
+      (bytespan-insert-right/charspan! sp csp 0 (charspan-length csp)))))
+
 
 ;; convert a charspan to UTF-8b bytespan.
-(define (charspan->utf8b sp)
-  (let ((ret (make-bytespan 0)))
-    (bytespan-insert-right/charspan! ret sp)
-    ret))
+(define charspan->utf8b
+  (case-lambda
+    ((sp start end)
+      (let ((ret (make-bytespan 0)))
+        (bytespan-insert-right/charspan! ret sp start end)
+        ret))
+    ((sp)
+      (charspan->utf8b sp 0 (charspan-length sp)))))
+
 
 ;; convert a charspan to UTF-8b bytespan, then append a final byte 0 if not already present.
 (define (charspan->utf8b/0 sp)

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit linectx (0 8 3))
+(library (schemesh lineedit linectx (0 9 0))
   (export
     linectx-prompt-proc linectx-completion-proc
 
@@ -39,14 +39,15 @@
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh posix fd)
+    (schemesh screen vcellspan)
+    (schemesh screen vscreen)
+    (schemesh screen vhistory)
+    (schemesh screen vhistory io)
+    (schemesh screen vlines io)
     (schemesh lineedit ansi)
-    (schemesh lineedit vscreen)
-    (schemesh lineedit charhistory)
-    (schemesh lineedit charhistory io)
     (schemesh lineedit paren)
     (schemesh lineedit parenmatcher)
     (only (schemesh lineedit parser) make-parsectx*)
-    (only (schemesh lineedit charlines io) open-charlines-input-port)
     (schemesh posix tty)
     (only (schemesh posix signal) signal-consume-sigwinch))
 
@@ -70,13 +71,13 @@
     (mutable prompt)        ; bytespan, prompt
     parenmatcher
     (mutable paren)         ; #f or paren containing current parenthes to be highlighted
-    clipboard               ; charspan
-    completions             ; span of charspans, possible completions
+    clipboard               ; vcellspan
+    completions             ; span of cellspans, possible completions
     completion-stem         ; charspan, chars from vscreen used as stem
     (mutable keytable)      ; hashtable, contains keybindings. Usually eq? linectx-default-keytable
     (mutable last-key)      ; #f or procedure, last executed lineedit-key... procedure
     (mutable history-index) ; index of last used item in history
-    history)                ; charhistory, history of entered commands
+    history)                ; vhistory, history of entered commands
   (nongenerative linectx-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
@@ -119,7 +120,7 @@
 (define (linectx-mark-not-bol-set! lctx flag?)
   (linectx-flag-set! lctx flag-mark-not-bol? flag?))
 
-;; return number of charlines
+;; return number of vlines
 (define (linectx-end-y lctx)
   (vscreen-length (linectx-vscreen lctx)))
 
@@ -189,19 +190,19 @@
   (let* ((sz    (tty-size))
          (rbuf  (bytespan))
          (wbuf  (bytespan))
-         (history (charhistory)))
+         (history (vhistory)))
     (bytespan-reserve-right! rbuf 1024)
     (bytespan-reserve-right! wbuf 1024)
-    (charhistory-path-set! history history-path)
+    (vhistory-path-set! history history-path)
     (%make-linectx
       rbuf wbuf
-      (vscreen* (if (pair? sz) (car sz) 80) (if (pair? sz) (cdr sz) 24) "")
+      (vscreen (if (pair? sz) (car sz) 80) (if (pair? sz) (cdr sz) 24) "")
       0 0                         ; term-x term-y
       0 1 -1 flag-redraw?         ; stdin stdout read-timeout flags
       'shell enabled-parsers      ; parser-name parsers
       (bytespan)                  ; prompt
       parenmatcher #f             ; parenmatcher paren
-      (charspan)                  ; clipboard
+      (vcellspan)                 ; clipboard
       (span) (charspan)           ; completions stem
       linectx-default-keytable #f ; keytable last-key
       0 history)))                ; history
@@ -315,26 +316,26 @@
 
 
 (define (linectx-clipboard-clear! lctx)
-  (charspan-clear! (linectx-clipboard lctx)))
+  (vcellspan-clear! (linectx-clipboard lctx)))
 
 
-;; save to history a shallow clone of charlines in linectx-vscreen,
-;; remove empty charlines from history, and return such clone
+;; save to history a shallow clone of vlines in linectx-vscreen,
+;; remove empty vlines from history, and return such clone
 (define (linectx-to-history* lctx)
-  (let-values (((ret idx) (charhistory-set*! (linectx-history lctx) (linectx-history-index lctx) (linectx-vscreen lctx))))
+  (let-values (((ret idx) (vhistory-set*! (linectx-history lctx) (linectx-history-index lctx) (linectx-vscreen lctx))))
     (linectx-history-index-set! lctx idx)
     ret))
 
 ;; load history from file. return #t if successful, otherwise return #f
 (define (linectx-load-history! lctx)
   (let ((hist (linectx-history lctx)))
-     (charhistory-load! hist)
-     (linectx-history-index-set! lctx (charhistory-length hist))))
+     (vhistory-load! hist)
+     (linectx-history-index-set! lctx (vhistory-length hist))))
 
 
 ;; save history to file. return #t if successful, otherwise return #f
 (define (linectx-save-history lctx)
-  (charhistory-save (linectx-history lctx)))
+  (vhistory-save (linectx-history lctx)))
 
 (define (linectx-keytable-insert! keytable proc . keysequences)
   (letrec

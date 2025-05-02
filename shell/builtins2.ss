@@ -176,20 +176,20 @@
 (define (builtin-fg job prog-and-args options)
   (assert-string-list? 'builtin-fg prog-and-args)
   (let-values (((job arg) (prog-and-args->job prog-and-args)))
-      (if job
-        (let ((out (current-output-port)))
-          (when (and job (not arg))
-            ;; show the preferred job being resumed
-            (sh-job-display-summary job (running (job-id job)) out)
-            (flush-output-port out))
-          (let ((new-status (sh-fg job)))
-            (if (finished? new-status)
-              ;; job finished, return its exit status as "fg" exit status.
-              new-status
-              ;; job still exists, show its running/stopped status.
-              ;; return (void) i.e. builtin "fg" exiting successfully.
-              (queue-job-display-summary job))))
-        (write-builtin-error "fg" (or arg "\"\"") "no such job")))) ; returns (failed 1)
+    (if job
+      (let ((out (current-output-port)))
+        (unless (or arg (job-finished? job))
+          ;; show the preferred job being resumed
+          (sh-job-display-summary job (running (job-id job)) out)
+          (flush-output-port out))
+        (let ((new-status (sh-fg job)))
+          (if (finished? new-status)
+            ;; job finished, return its exit status as "fg" exit status.
+            new-status
+            ;; job still exists, show its running/stopped status.
+            ;; return (void) i.e. builtin "fg" exiting successfully.
+            (queue-job-display-summary job))))
+      (write-builtin-error "fg" (or arg "\"\"") "no such job")))) ; returns (failed 1)
 
 
 ;; the "global" builtin: run the builtin passed as first argument
@@ -218,8 +218,7 @@
   (assert-string-list? 'builtin-jobs prog-and-args)
   (let ((src (multijob-children (sh-globals))))
     (unless (span-empty? src)
-      ;; do NOT close port, it would close the fd!
-      (let ((port (open-fd-output-port (sh-fd 1) (buffer-mode block) transcoder-utf8)))
+      (let ((port (current-output-port)))
         (span-iterate src
           (lambda (job-id job)
             (when (sh-job? job)

@@ -88,7 +88,7 @@
 ;;;     255 => datum starts with extended tag
 
 
-(library (schemesh wire (0 8 3))
+(library (schemesh wire (0 9 0))
   (export datum->wire wire->datum wire-get wire-length wire-put
           wire-register-rtd  wire-register-rtd-fields  wire-reserve-tag
           ;; internal functions, exported for types that want to define their own serializer/deserializer
@@ -886,12 +886,9 @@
   (wire-register-rtd (record-rtd (gbuffer))      tag-gbuffer       len/gbuffer     get/gbuffer       put/gbuffer)
   (wire-register-rtd (record-rtd (bytespan))     tag-bytespan      len/bytespan    get/bytespan      put/bytespan)
   (wire-register-rtd (record-rtd (charspan))     tag-charspan24    len/charspan    get/charspan24    put/charspan)
-  (wire-register-rtd (record-rtd (chargbuffer))  tag-chargbuffer24 len/chargbuffer get/chargbuffer24 put/chargbuffer)
 
   (vector-set! known-tag tag-charspan8     get/charspan8)
   (vector-set! known-tag tag-charspan16    get/charspan16)
-  (vector-set! known-tag tag-chargbuffer8  get/chargbuffer8)
-  (vector-set! known-tag tag-chargbuffer16 get/chargbuffer16)
 
 ) ; close begin
 

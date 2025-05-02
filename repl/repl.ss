@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh repl (0 8 3))
+(library (schemesh repl (0 9 0))
   (export ;; repl/answers.ss
           repl-answers-display repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
 
@@ -28,8 +28,8 @@
         inspect parameterize pretty-print read-token reset reset-handler void)
     (schemesh bootstrap)
     (only (schemesh containers) for-list)
-    (only (schemesh lineedit charhistory) charhistory-path-set!)
-    (schemesh lineedit charlines io)
+    (only (schemesh screen vhistory) vhistory-path-set!)
+    (schemesh screen vlines io)
     (schemesh lineedit linectx)
     (only (schemesh lineedit lineterm) lineterm-write/u8)
     (schemesh lineedit lineedit)
@@ -37,14 +37,13 @@
     (only (schemesh posix dir) file-type)
     (schemesh posix signal)
     (schemesh posix tty)
-    (only (schemesh port stdio) sh-stdio-flush)
     (only (schemesh shell)
        repl-args repl-args-linectx repl-restart repl-restart?
        sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-exception-handler
        sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
        sh-foreground-pgid sh-job-control? sh-job-control-available? sh-job-pgid
        repl-history sh-make-linectx sh-schemesh-reload-count
-       sh-run/i xdg-cache-home/ xdg-config-home/)
+       sh-run/i sh-stdio-flush xdg-cache-home/ xdg-config-home/)
     (schemesh repl answers))
 
 
@@ -106,7 +105,7 @@
     (sh-consume-signals lctx)
     (if (boolean? ret)
       ret
-      (open-charlines-input-port ret))))
+      (open-vlines-input-port ret))))
 
 
 ;; Parse user input.
@@ -339,7 +338,7 @@
     (when (and lctx? enabled-parsers?)
       (linectx-parsers-set! lctx enabled-parsers))
     (when (and lctx? history-path?)
-      (charhistory-path-set! (linectx-history lctx) history-path))
+      (vhistory-path-set! (linectx-history lctx) history-path))
     (list
       (if initial-parser?  initial-parser  'shell)
       (if print?   print   repl-print)

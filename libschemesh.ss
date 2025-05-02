@@ -23,17 +23,10 @@
   (include "containers/bytespan.ss")    ; requires containers/bytevector.ss containers/list.ss
   (include "containers/charspan.ss")    ; requires containers/string.ss
   (include "containers/span.ss")        ; requires containers/vector.ss
-  (include "containers/palette.ss")     ; requires containers/hashtable.ss containers/span.ss
   (include "containers/sort.ss")        ; requires containers/span.ss
-  (include "containers/utf8b.ss")       ; requires containers/bytespan.ss
-  (include "containers/cellvector.ss")  ; requires containers/bytevector.ss containers/palette.ss containers/utf8b.ss
-  (include "containers/cellspan.ss")    ; requires containers/cellvector.ss
-  (include "containers/cellgbuffer.ss") ; requires containers/cellspan.ss
-  (include "containers/chargbuffer.ss") ; requires containers/charspan.ss
   (include "containers/gbuffer.ss")     ; requires containers/span.ss
-  (include "containers/charline.ss")    ; requires containers/gbuffer.ss
-  (include "containers/charlines.ss")   ; requires containers/charlines.ss
-  (include "containers/utf8b-utils.ss") ; requires containers/utf8b.ss containers/chargbuffer.ss
+  (include "containers/utf8b.ss")       ; requires containers/bytespan.ss
+  (include "containers/utf8b-utils.ss") ; requires containers/utf8b.ss
   (include "containers/macros.ss")
   (include "containers/containers.ss")
   (include "containers/replacements.ss")
@@ -58,6 +51,19 @@
   (include "port/stdio.ss")
   (include "port/port.ss")
 
+  (include "screen/vcell.ss")
+  (include "screen/vcellvector.ss")
+  (include "screen/vcellspan.ss")
+  (include "screen/vbuffer.ss")
+  (include "screen/vline.ss")
+  (include "screen/vlines.ss")
+  (include "screen/vlines-io.ss")
+  (include "screen/vscreen.ss")
+  (include "screen/vhistory.ss")
+  (include "screen/vhistory-io.ss")
+  (include "screen/all.ss")
+
+
   (include "ipc/channel.ss") ; requires wire/wire.ss posix/fd.ss
   (meta-cond
     ((threaded?) (include "ipc/fifo-thread.ss"))
@@ -65,10 +71,6 @@
   (include "ipc/ipc.ss")
 
   (include "lineedit/ansi.ss")
-  (include "lineedit/vscreen.ss")
-  (include "lineedit/charhistory.ss")
-  (include "lineedit/charhistory-io.ss")
-  (include "lineedit/charlines-io.ss")
   (include "lineedit/paren.ss")
   (include "lineedit/parenmatcher.ss")
   (include "lineedit/parser.ss")

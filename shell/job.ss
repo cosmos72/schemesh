@@ -13,7 +13,7 @@
 ;; Convention: (sh) and (sh-...) are functions
 ;;             (shell) and (shell-...) are macros
 
-(library (schemesh shell job (0 8 3))
+(library (schemesh shell job (0 9 0))
   (export
     ;; aliases.ss
     sh-alias-ref sh-alias-delete! sh-alias-set! sh-aliases sh-aliases-expand
@@ -63,6 +63,7 @@
     ;; redirect.ss
     sh-fd sh-binary-port sh-textual-port sh-redirect!
     sh-run/bytevector sh-run/string sh-run/string-rtrim-newlines sh-run/string-split-after-nuls sh-start/fd-stdout
+    sh-stdio-flush
 
 
     ;; params.ss
@@ -87,23 +88,25 @@
   (import
     (except (rnrs)     current-input-port current-output-port current-error-port)
     (rnrs mutable-pairs)
-    (only (chezscheme) append! break break-handler
+    (only (chezscheme) append! binary-port-output-index break break-handler
                        console-input-port console-output-port console-error-port
                        current-input-port current-output-port current-error-port
                        current-time debug debug-condition debug-on-exception display-condition
-                       foreign-procedure format fx1+ fx1- hashtable-cells include inspect
-                       keyboard-interrupt-handler list-copy logand logbit? make-format-condition meta
-                       open-fd-output-port parameterize procedure-arity-mask record-writer
-                       register-signal-handler reverse! sort!
-                       string-copy! string-truncate! void)
+                       foreign-procedure format fx1+ fx1- get-thread-id hashtable-cells include inspect
+                       list-copy logand logbit? make-continuation-condition make-format-condition meta meta-cond
+                       open-fd-output-port parameterize port-closed? procedure-arity-mask record-writer
+                       register-signal-handler reverse! sort! string-copy! string-truncate!
+                       textual-port-output-index threaded? void)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh conversions)
     (schemesh posix)
     (schemesh port redir)
     (schemesh port stdio)
-    (only (schemesh lineedit charhistory) charhistory-path-set!)
-    (only (schemesh lineedit linectx) linectx? linectx-history linectx-save-history linectx-wbuf)
+    (only (schemesh screen vline)      vline-display/bytespan)
+    (only (schemesh screen vlines)     vlines-iterate)
+    (only (schemesh screen vhistory)   vhistory-iterate vhistory-path-set!)
+    (only (schemesh lineedit linectx)  linectx? linectx-history linectx-save-history linectx-wbuf)
     (only (schemesh lineedit lineedit) lineedit-display-table lineedit-flush lineedit-undraw)
     (schemesh shell fds)
     (schemesh shell parameters)
@@ -182,11 +185,20 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
+(define (job-ports-close job)
+  (let ((ports (job-ports job)))
+    (when ports
+      (for-hash-values ((port ports))
+        (close-port port)))))
+
+
 (define (job-ports-flush job)
   (let ((ports (job-ports job)))
     (when ports
-      (for-hash ((fd port ports))
-        (flush-output-port port)))))
+      (for-hash-values ((port ports))
+        (when (and (output-port? port) (not (port-closed? port)))
+          (flush-output-port port))))))
+
 
 (define (job-default-parents-ports-flush job)
   (job-default-parents-iterate job job-ports-flush))
@@ -246,6 +258,14 @@
         (%job-last-status-set! job status)
 
         (sh-stdio-flush)
+
+        (let ((ports (job-ports job)))
+          (when ports
+            (job-ports-flush job)
+            (unless (eq? job (sh-globals))
+              (job-ports-close job)
+              (hashtable-clear! ports))))
+
         (job-pid-set!  job #f) ; also updates (sh-pid-table)
         (job-pgid-set! job #f)
 

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh shell utils (0 8 3))
+(library (schemesh shell utils (0 9 0))
   (export
     c-username sh-autocomplete sh-expand-ps1 sh-current-time sh-default-ps1 sh-home->~ sh-make-linectx)
   (import
@@ -19,12 +19,12 @@
     (schemesh containers)
     (schemesh lineedit linectx)
     (schemesh lineedit lineedit)
-    (schemesh lineedit charlines io)
     (only (schemesh lineedit paren) paren-name)
     (schemesh lineedit parser)
-    (schemesh lineedit vscreen)
     (only (schemesh posix fd) c-hostname)
     (schemesh parser)
+    (schemesh screen vlines io)
+    (schemesh screen vscreen)
     (schemesh shell autocomplete)
     (schemesh shell job))
 

@@ -8,16 +8,10 @@
 #!r6rs
 
 ;; define (schemesh containers) as a library that exports all its imported bindings
-(library-reexport (schemesh containers (0 8 3))
+(library-reexport (schemesh containers (0 9 0))
   (import (schemesh containers bitmap)
           (schemesh containers bytespan)
           (schemesh containers bytevector)
-          (schemesh containers cellgbuffer)
-          (schemesh containers cellvector)
-          (schemesh containers cellspan)
-          (schemesh containers chargbuffer)
-          (schemesh containers charline)
-          (schemesh containers charlines)
           (schemesh containers charspan)
           (schemesh containers flvector)
           (schemesh containers in)
@@ -25,7 +19,6 @@
           (schemesh containers list)
           (schemesh containers hashtable)
           (schemesh containers macros)
-          (schemesh containers palette)
           (schemesh containers sort)
           (schemesh containers span)
           (schemesh containers string)

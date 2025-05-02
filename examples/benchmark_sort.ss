@@ -2,7 +2,7 @@
 ;; example file containing a benchmark for (vector-sort!) and (subvector-sort!)
 ;; it is not read, compiled nor evaluated.
 
-(library (schemesh benchmark sort (0 8 3))
+(library (schemesh benchmark sort (0 9 0))
   (export
     benchmark-make-vector benchmark-vector-sort! benchmark-subvector-sort! )
   (import

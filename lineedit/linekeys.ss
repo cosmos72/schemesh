@@ -123,11 +123,11 @@
 
 (define (lineedit-key-del-line-left lctx)
   (lineedit-clipboard-maybe-clear! lctx)
-  (vscreen-delete-left/line! (linectx-vscreen lctx) (linectx-clipboard lctx)))
+  (vscreen-delete-left/vline! (linectx-vscreen lctx) (linectx-clipboard lctx)))
 
 (define (lineedit-key-del-line-right lctx)
   (lineedit-clipboard-maybe-clear! lctx)
-  (vscreen-delete-right/line! (linectx-vscreen lctx) (linectx-clipboard lctx)))
+  (vscreen-delete-right/vline! (linectx-vscreen lctx) (linectx-clipboard lctx)))
 
 (define (lineedit-key-newline-left lctx)
   (let ((screen (linectx-vscreen lctx)))
@@ -148,10 +148,10 @@
   (let-values (((x y) (linectx-ixy lctx)))
     (let* ((hist (linectx-history lctx))
            (idx  (linectx-history-index lctx))
-           (next-idx (charhistory-index/starts-with
+           (next-idx (vhistory-index/starts-with
                        hist
                        (fx1+ idx)
-                       (charhistory-length hist)
+                       (vhistory-length hist)
                        (linectx-vscreen lctx)
                        x y)))
     (when next-idx
@@ -162,7 +162,7 @@
   (let-values (((x y) (linectx-ixy lctx)))
     (let* ((hist (linectx-history lctx))
            (idx  (linectx-history-index lctx))
-           (prev-idx (charhistory-index-right/starts-with hist 0 idx (linectx-vscreen lctx) x y)))
+           (prev-idx (vhistory-index-right/starts-with hist 0 idx (linectx-vscreen lctx) x y)))
       (when prev-idx
         (lineedit-navigate-history lctx (fx- prev-idx idx))
         (linectx-ixy-set! lctx x y)))))
@@ -170,11 +170,11 @@
 (define (lineedit-key-insert-clipboard lctx)
   (let* ((screen    (linectx-vscreen lctx))
          (clipboard (linectx-clipboard lctx))
-         (n         (charspan-length clipboard)))
+         (n         (vcellspan-length clipboard)))
     (unless (fxzero? n)
       (let-values (((x y) (vscreen-cursor-ixy screen)))
-        (vscreen-insert-at-xy/charspan! screen x y clipboard))
-      (when (charspan-index/char clipboard #\newline)
+        (vscreen-insert-at-xy/vcellspan! screen x y clipboard))
+      (when (vcellspan-index/char clipboard #\newline)
         (vscreen-reflow screen))
       (vscreen-cursor-move/right! screen n))))
 
@@ -206,21 +206,21 @@
   (let* ((stem    (linectx-completion-stem lctx))
          (table   (linectx-completions lctx))
          (table-n (span-length table)))
-    ; (debugf "%lineedit-update-with-completions stem=~s, table=~s ..." stem table)
+    ;; (debugf "%lineedit-update-with-completions stem=~s, table=~s ..." stem table)
     (unless (fxzero? table-n)
       (let-values (((common-len max-len) (%table-analyze table)))
-        ; (debugf "%lineedit-update-with-completions stem=~s, common-len=~s, table=~s" stem common-len table)
+        ;; (debugf "%lineedit-update-with-completions stem=~s, common-len=~s, table=~s" stem common-len table)
         (cond
           ((not (fxzero? common-len))
-            ; insert common prefix of all completions
+            ;; insert common prefix of all completions
             (let ((elem-0 (span-ref table 0)))
               (linectx-insert/charspan! lctx elem-0 0 common-len)
               (when (and (fx=? 1 table-n)
                          (not (char=? #\/ (charspan-ref elem-0 (fx1- common-len)))))
-                (linectx-insert/char! lctx #\space))))
+                (linectx-insert/c! lctx #\space))))
           ((fx>? table-n 1)
-            ; erase prompt and lines (also sets flag "redraw prompt and lines"),
-            ; then list all possible table
+            ;; erase prompt and lines (also sets flag "redraw prompt and lines"),
+            ;; then list all possible table
             (lineedit-undraw lctx)
             (lineedit-display-table lctx stem table max-len '(ask-if-large display-dashes))))))))
 
@@ -371,9 +371,9 @@
 (define (lineedit-navigate-history lctx delta-y)
   (let ((y      (fx+ delta-y (linectx-history-index lctx)))
         (hist   (linectx-history lctx)))
-    (when (fx<? -1 y (charhistory-length hist))
+    (when (fx<? -1 y (vhistory-length hist))
       ; also saves a copy of current linectx-vscreen to history
-      (lineedit-lines-set! lctx (charhistory-ref/cow hist y))
+      (lineedit-lines-set! lctx (vhistory-ref/cow hist y))
       (linectx-history-index-set! lctx y)
       ;; if moving up, set vscreen cursor to end of first line
       ;; if moving down, set vscreen cursor to end of last line

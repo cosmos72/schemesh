@@ -138,7 +138,7 @@
   (put/container bv pos tag-gbuffer obj (gbuffer-length obj) gbuffer-ref))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; customize how "chargbuffer" objects are serialized/deserialized
+;; customize how "charspan" objects are serialized/deserialized
 
 (define (len/charspan pos obj)
   (len/char-container pos obj (charspan-length obj) charspan-ref))
@@ -159,30 +159,6 @@
 
 (define (put/charspan bv pos obj)
   (put/char-container bv pos tags-charspan obj (charspan-length obj) charspan-ref))
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; customize how "chargbuffer" objects are serialized/deserialized
-
-(define (len/chargbuffer pos obj)
-  (len/char-container pos obj (chargbuffer-length obj) chargbuffer-ref))
-
-;; tag-chargbuffer8 was already read and consumed. only read serialized n and elements
-(define (get/chargbuffer8 bv pos end)
-  (get/char-container8 bv pos end make-chargbuffer chargbuffer-set!))
-
-;; tag-chargbuffer16 was already read and consumed. only read serialized n and elements
-(define (get/chargbuffer16 bv pos end)
-  (get/char-container16 bv pos end make-chargbuffer chargbuffer-set!))
-
-;; tag-chargbuffer24 was already read and consumed. only read serialized n and elements
-(define (get/chargbuffer24 bv pos end)
-  (get/char-container24 bv pos end make-chargbuffer chargbuffer-set!))
-
-(define tags-chargbuffer (vector tag-chargbuffer8 tag-chargbuffer16 tag-chargbuffer24))
-
-(define (put/chargbuffer bv pos obj)
-  (put/char-container bv pos tags-chargbuffer obj (chargbuffer-length obj) chargbuffer-ref))
 
 
 

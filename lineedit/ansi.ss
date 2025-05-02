@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit ansi (0 8 3))
+(library (schemesh lineedit ansi (0 9 0))
   (export
     ansi-text ansi-text? ansi-text-bytes ansi-text-clear! ansi-text-visible-length make-ansi-text
     string+ color

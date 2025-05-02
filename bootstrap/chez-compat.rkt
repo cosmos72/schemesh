@@ -12,12 +12,11 @@
 ;;
 ;; then it can be imported from Racket #!r6rs files with the usual (import (chez compat))
 ;;
-(library (chez compat (0 8 3))
+(library (chez compat (0 9 0))
   (export append!
           check-interrupts current-time
           chez:car chez:cdr chez:cons chez:list chez:pair?
           fx1+ fx1- fx/ foreign-procedure format
-          keyboard-interrupt-handler
           list-copy #|list-head|# load-shared-object lock-object
           #|pariah|#
           read-token register-signal-handler reverse!
@@ -50,7 +49,6 @@
       obj)))
 
 (define check-interrupts           (vm-eval (chez:list '$primitive 3 '$event)))
-(define keyboard-interrupt-handler (vm-primitive 'keyboard-interrupt-handler))
 (define format                     (vm-primitive 'format))
 (define fx1+                       (vm-primitive 'fx1+))
 (define fx1-                       (vm-primitive 'fx1-))

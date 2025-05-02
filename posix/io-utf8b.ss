@@ -229,7 +229,7 @@
 ;; create and return a textual input port handler that reads/writes from/to an underlying binary port
 ;; and transcodes between characters and UTF-8b byte sequences
 (define (make-utfb-port-handler in-port input-buffer-size out-port output-buffer-size options)
-  (let ((name   (string-append "utf8b " (port-name (or in-port out-port))))
+  (let ((name   (port-name (or in-port out-port)))
         (tport1 (and in-port  (make-tport in-port  (make-bytespan 0) input-buffer-size #f)))
         (tport2 (and out-port (make-tport out-port (make-bytespan 0) output-buffer-size #f))))
     ;; return a closure

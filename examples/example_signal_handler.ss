@@ -1,4 +1,4 @@
-(library (schemesh example signal handler (0 8 3))
+(library (schemesh example signal handler (0 9 0))
   (export check-interrupts init-signal-handlers)
   (import
     (rnrs)

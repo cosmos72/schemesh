@@ -9,7 +9,6 @@
 ;;
 ;; odd elements are Scheme form to evaluate, even elements are expected result
 #(
-
   ;; -------------------------- tty ---------------------------------------
   ;; (tty-size) returs a cons (width . height), or c_errno() < 0 on error
   (let ((sz (tty-size)))
@@ -70,23 +69,12 @@
               (channel-eof? wchan)))))                 (#t #t #t)
 
   ;; ------------------------ lineedit io ---------------------------------
-  (get-string-all
-    (open-charline-input-port
-      (string->charline* "58gu405gu*(&)\n")))          "58gu405gu*(&)\n"
-  (get-string-all
-    (open-charlines-input-port
-      (charlines
-        (string->charline* "085ug&^%}\n"))))           "085ug&^%}\n"
   (read
-    (open-charline-input-port
-      (string->charline*
-        "(re8u (+ -) [* /] 'foo bar . baz)")))         (re8u (+ -) (* /) 'foo bar . baz)
-  (read
-    (open-charlines-input-port
-      (charlines
-        (string->charline* "(urehg* (a . 'b) 12")
-        (charline)
-        (string->charline* "3.45e3 . #\\m\n)"))))      (urehg* (a quote b) 123450.0 . #\m)
+    (open-vlines-input-port
+      (vlines
+        "(urehg* (a . 'b) 12"
+        ""
+        "3.45e3 . #\\m\n)")))                          (urehg* (a quote b) 123450.0 . #\m)
 
   ;; ------------------------- posix patterns -----------------------------
   (sh-pattern "foo" '* ".bar" '? '% "[a-z]" '%! "A-Z") ,@(sh-pattern "foo" '* ".bar" '? '% "[a-z]" '%! "A-Z")
@@ -197,6 +185,9 @@
      "echo" "foo  bar\n asdf" \x7C;
      "grep" "asd" \x3B;
      "echo" "ok"))                                     " asdf\nok\n"
+  (sh-run (shell
+    "echo" "xyz" \x7C;
+    "grep" "abc" > "/dev/null"))                       ,(failed 1)
   (sh-run (shell
     "echo" "xyz" \x7C;
     (shell "command" "true" &&

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh test (0 8 3))
+(library (schemesh test (0 9 0))
   (export
       run-tests)
   (import
@@ -38,6 +38,9 @@
 
     (unless (run-tests-utf8b)
       (set! fail-n (fx1+ fail-n)))
+
+    (flush-output-port (current-output-port))
+    (flush-output-port (current-error-port))
 
     (cons test-n fail-n)))
 
