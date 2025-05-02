@@ -185,12 +185,20 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
+(define (job-ports-close job)
+  (let ((ports (job-ports job)))
+    (when ports
+      (for-hash-values ((port ports))
+        (close-port port)))))
+
+
 (define (job-ports-flush job)
   (let ((ports (job-ports job)))
     (when ports
       (for-hash-values ((port ports))
         (when (and (output-port? port) (not (port-closed? port)))
           (flush-output-port port))))))
+
 
 (define (job-default-parents-ports-flush job)
   (job-default-parents-iterate job job-ports-flush))
@@ -255,6 +263,7 @@
           (when ports
             (job-ports-flush job)
             (unless (eq? job (sh-globals))
+              (job-ports-close job)
               (hashtable-clear! ports))))
 
         (job-pid-set!  job #f) ; also updates (sh-pid-table)

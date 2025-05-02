@@ -523,7 +523,7 @@
                (to         (or (job-redirection-to  job redirect-i) target-fd))
                (port       (fd->port remapped-fd dir 'binary (buffer-mode block)
                               (if (string? to) to (string-append "sh-fd " (number->string target-fd))))))
-          (debugf "created binary  port ~s\tfor remapping ~s -> ~s\tof job ~a" port target-fd remapped-fd (sh-job->string job))
+          ;; (debugf "created binary  port ~s\tfor remapping ~s -> ~s\tof job ~a" port target-fd remapped-fd (sh-job->string job))
           (hashtable-set! ports remapped-fd port)
           port))))
 
@@ -533,7 +533,7 @@
     (or (hashtable-ref ports (fxnot remapped-fd) #f)
         (let* ((binary-port (job-ensure-binary-port job target-fd remapped-fd))
                (port        (port->utf8b-port binary-port (%port->direction binary-port) (buffer-mode block))))
-          (debugf "created textual port ~s\tfor remapping ~s -> ~s\tof job ~a" port target-fd remapped-fd (sh-job->string job))
+          ;; (debugf "created textual port ~s\tfor remapping ~s -> ~s\tof job ~a" port target-fd remapped-fd (sh-job->string job))
           (hashtable-set! ports (fxnot remapped-fd) port)
           port))))
 
@@ -616,7 +616,7 @@
 
 
 ;; flush current-...-port and corresponding per-job binary and textual ports if they have been created
-(define (try-flush-ports fd current-port)
+(define (flush-ports-if-needed fd current-port)
   (if (fxzero? (textual-port-output-index current-port))
     ;; current-...-port has nothing to flush, only flush per-job ports
     (let* ((job       (or (sh-current-job) (sh-globals)))
@@ -636,7 +636,7 @@
   ;; the ports (console-input-port) (console-output-port) (console-error-port)
   ;; are unbuffered, no need to flush them
   ;;
-  ;; flushing (current-...-port) also flushes the corresponding per-job textual and binary ports
-  (try-flush-ports 0 (current-input-port))
-  (try-flush-ports 1 (current-output-port))
-  (try-flush-ports 2 (current-error-port)))
+  ;; flushing (current-...-port) also flushes the corresponding per-job binary and textual ports
+  (flush-ports-if-needed 0 (current-input-port))
+  (flush-ports-if-needed 1 (current-output-port))
+  (flush-ports-if-needed 2 (current-error-port)))
