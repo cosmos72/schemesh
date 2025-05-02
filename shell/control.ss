@@ -20,62 +20,118 @@
     (void)))
 
 
+(define (main-thread?)
+  (meta-cond ((threaded?) (eqv? 0 (get-thread-id)))
+             (else        #t)))
 
-(define (signal-handler-sigint)
+
+(define (raise-thread-interrupted signal-name)
+  (meta-cond
+    ((threaded?)
+      (call/cc
+        (lambda (k)
+          (raise
+            (condition
+              (make-error)
+              (make-continuation-condition k)
+              (make-non-continuable-violation)
+              (make-format-condition)
+              (make-message-condition "thread ~s interrupted by signal ~s")
+              (make-irritants-condition (list (get-thread-id) signal-name)))))))))
+
+
+(define (raise-cannot-start-jobs-from-secondary-thread)
+  (meta-cond
+    ((threaded?)
+      (call/cc
+        (lambda (k)
+          (raise
+            (condition
+              (make-error)
+              (make-continuation-condition k)
+              (make-non-continuable-violation)
+              (make-message-condition "starting jobs from secondary thread is not supported. consider using a subprocess instead"))))))))
+
+
+(define (signal-handler-sigint sig)
   ;; received a SIGINT, for example from a keyboard CTRL+C.
-  ;; If there's a sh-expr job running, try to kill it.
-  ;; If that fails and there's a non-trivial break handler,
-  ;; show what's happening and invoke the break handler.
-  (unless (sh-current-job-kill 'sigint)
-    (unless (eq? nop (break-handler))
-      (fd-write-retry fd-stderr msg-interrupted)
-      (break))))
+  (if (main-thread?)
+    ;; SIGINT in main thread:
+    ;; if there's a current job running, try to kill it.
+    ;; It that fails, and there's a non-trivial break handler,
+    ;; show what's happening and invoke the break handler.
+    (unless (sh-current-job-kill 'sigint)
+      (unless (eq? nop (break-handler))
+        (fd-write-retry fd-stderr msg-interrupted)
+        (break)))
+    ;; SIGINT in secondary thread: interrupt the thread
+    (raise-thread-interrupted 'sigint)))
 
 
 (define (signal-handler-sigquit sig)
   ;; received a SIGQUIT, for example from a keyboard CTRL+4 or CTRL+\.
-  ;; If there's a sh-expr job running, try to kill it.
-  ;; If that fails and there's a non-trivial break handler,
-  ;; show what's happening and invoke the break handler.
-  (unless (sh-current-job-kill 'sigquit)
-    (unless (eq? nop (break-handler))
-      (fd-write-retry fd-stderr msg-quit)
-      (break))))
+  (if (main-thread?)
+    ;; SIGQUIT in main thread:
+    ;; if there's a current job running, try to kill it.
+    ;; It that fails, and there's a non-trivial break handler,
+    ;; show what's happening and invoke the break handler.
+    (unless (sh-current-job-kill 'sigquit)
+      (unless (eq? nop (break-handler))
+        (fd-write-retry fd-stderr msg-quit)
+        (break)))
+    ;; SIGQUIT in secondary thread: interrupt the thread
+    (raise-thread-interrupted 'sigquit)))
 
 
 (define (signal-handler-sigtstp sig)
   ;; received a SIGTSTP, for example from a keyboard CTRL+Z.
-  ;; If there's a sh-expr job running, try to suspend it.
-  ;; If that fails and there's a non-trivial break handler,
-  ;; show what's happening and invoke the break handler.
-  (unless (sh-current-job-suspend 'sigtstp)
-    (unless (eq? nop (break-handler))
-      (fd-write-retry fd-stderr msg-suspended)
-      (break))))
+  (if (main-thread?)
+    ;; SIGTSTP in main thread:
+    ;; If there's a sh-expr job running, try to suspend it.
+    ;; If that fails and there's a non-trivial break handler,
+    ;; show what's happening and invoke the break handler.
+    (unless (sh-current-job-suspend 'sigtstp)
+      (unless (eq? nop (break-handler))
+        (fd-write-retry fd-stderr msg-suspended)
+        (break)))
+    ;; SIGTSTP in secondary thread: interrupt the thread
+    (raise-thread-interrupted 'sigtstp)))
 
 
 (define (signal-handler-sigchld sig)
-  (unless (sh-current-job-sigchld)
-    (unless (waiting-for-job)
-      ;;z (debugf "; sigchld, no current job, not waiting for job => calling (scheduler-wait #f 'nonblocking)\n")
-      (scheduler-wait #f 'nonblocking))))
+  (when (main-thread?)
+    (unless (sh-current-job-sigchld)
+      (unless (waiting-for-job)
+        ;;z (debugf "; sigchld, no current job, not waiting for job => calling (scheduler-wait #f 'nonblocking)\n")
+        (scheduler-wait #f 'nonblocking)))))
 
 
 ;; install Scheme procedures invoked when process receives SIGQUIT or SIGTSTP
 (define (install-signal-handlers)
-  ;; Chez Scheme has a dedicated parameter for SIGINT handler
-  (keyboard-interrupt-handler signal-handler-sigint)
+  ;; Chez Scheme has a dedicated parameter (keyboard-interrupt-handler)
+  ;; that contains the procedure to be called upon receiving SIGINT in main thread,
+  ;;
+  ;; but the built-in Chez Scheme signal handler for SIGINT
+  ;; ignores SIGINT in secondary threads.
+  ;;
+  ;; => use (register-signal-handler) also for SIGINT
 
-  (for-list ((name    '(sigchld sigquit sigtstp))
-            (handler (list signal-handler-sigchld
-                           signal-handler-sigquit
-                           signal-handler-sigtstp)))
+  ;; (keyboard-interrupt-handler signal-handler-sigint)
+
+  (for-list ((name    '(sigchld sigint sigquit sigtstp))
+             (handler (list signal-handler-sigchld
+                            signal-handler-sigint
+                            signal-handler-sigquit
+                            signal-handler-sigtstp)))
     (let ((sig (signal-name->number name)))
       (register-signal-handler sig handler))))
 
 
 ;; Internal functions called by (sh-start)
 (define (job-start caller job options)
+  (unless (main-thread?)
+    (raise-cannot-start-jobs-from-secondary-thread))
+
   ;b (debugf "job-start ~a ~s" job options)
   (options-validate caller options)
   (job-raise-if-started/recursive caller job)
