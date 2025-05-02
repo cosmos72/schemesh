@@ -237,12 +237,21 @@ Examples:
 ("/bin" "/boot" "/dev" "/etc" "/home" "/lib" "/lost+found" "/mnt"
  "/proc" "/root" "/run" "/sbin" "/srv" "/sys" "/tmp" "/usr" "/var")
 
+> (for-list ((i (shell-glob {*.[ch]})))
+    (format #t "~s " i))
+"chezscheme.h" "eval.c" "eval.h" "main.c"
+
 > (shell-string {$PATH:$HOME/.local/bin})
 "/usr/local/bin:/usr/bin:/bin:/home/user/.local/bin"
 
 > (shell-string {abc`echo def`})
 "abcdef"
 ```
+
+Together, the macros `(shell-glob)` and `(shell-string)` can be used to replace most traditional shell-based loops
+with faster Scheme-based iteration that is immune to classic shell scripting pitfalls:
+spaces or newlines in file names, paths starting with `-`, misconfigured environment variable `$IFS`, etc.
+
 
 ## Full Scheme REPL
 
