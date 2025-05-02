@@ -19,7 +19,7 @@
           binary-port-lambda->port textual-port-lambda->port
 
           ;; stdio.ss
-          sh-stdio-cleanup sh-stdio-flush sh-stdin sh-stdout sh-stderr)
+          sh-stdio-cleanup sh-stdin sh-stdout sh-stderr)
   (import
     (rnrs)
     (rnrs mutable-pairs)

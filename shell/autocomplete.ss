@@ -13,7 +13,6 @@
   (import
     (rnrs)
     (only (chezscheme)                    environment-symbols fx1+ fx1- sort!)
-    (only (schemesh bootstrap)            debugf values->list)
     (only (schemesh containers list)      for-list list-remove-consecutive-duplicates!)
     (only (schemesh containers string)    substring=? string-split string-prefix?)
     (only (schemesh containers hashtable) for-hash-keys)

@@ -96,7 +96,7 @@
       (let* ((lctx (repl-args-linectx))
              (wbuf (linectx-wbuf lctx)))
         (bytespan-insert-right/string! wbuf "schemesh version")
-        (let ((version (values->list (sh-version-number))))
+        (let-values ((version (sh-version-number)))
           (do ((l version (cdr l)))
               ((null? l))
             (bytespan-insert-right/u8! wbuf (if (eq? l version) 32 46))

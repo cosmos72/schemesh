@@ -63,6 +63,7 @@
     ;; redirect.ss
     sh-fd sh-binary-port sh-textual-port sh-redirect!
     sh-run/bytevector sh-run/string sh-run/string-rtrim-newlines sh-run/string-split-after-nuls sh-start/fd-stdout
+    sh-stdio-flush
 
 
     ;; params.ss
@@ -87,15 +88,15 @@
   (import
     (except (rnrs)     current-input-port current-output-port current-error-port)
     (rnrs mutable-pairs)
-    (only (chezscheme) append! break break-handler
+    (only (chezscheme) append! binary-port-output-index break break-handler
                        console-input-port console-output-port console-error-port
                        current-input-port current-output-port current-error-port
                        current-time debug debug-condition debug-on-exception display-condition
                        foreign-procedure format fx1+ fx1- hashtable-cells include inspect
                        keyboard-interrupt-handler list-copy logand logbit? make-format-condition meta
                        open-fd-output-port parameterize port-closed? procedure-arity-mask record-writer
-                       register-signal-handler reverse! sort!
-                       string-copy! string-truncate! void)
+                       register-signal-handler reverse! sort! string-copy! string-truncate!
+                       textual-port-output-index void)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh conversions)

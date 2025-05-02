@@ -37,14 +37,13 @@
     (only (schemesh posix dir) file-type)
     (schemesh posix signal)
     (schemesh posix tty)
-    (only (schemesh port stdio) sh-stdio-flush)
     (only (schemesh shell)
        repl-args repl-args-linectx repl-restart repl-restart?
        sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-exception-handler
        sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
        sh-foreground-pgid sh-job-control? sh-job-control-available? sh-job-pgid
        repl-history sh-make-linectx sh-schemesh-reload-count
-       sh-run/i xdg-cache-home/ xdg-config-home/)
+       sh-run/i sh-stdio-flush xdg-cache-home/ xdg-config-home/)
     (schemesh repl answers))
 
 

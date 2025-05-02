@@ -9,7 +9,6 @@
 ;;
 ;; odd elements are Scheme form to evaluate, even elements are expected result
 #(
-
   ;; -------------------------- tty ---------------------------------------
   ;; (tty-size) returs a cons (width . height), or c_errno() < 0 on error
   (let ((sz (tty-size)))
@@ -186,6 +185,9 @@
      "echo" "foo  bar\n asdf" \x7C;
      "grep" "asd" \x3B;
      "echo" "ok"))                                     " asdf\nok\n"
+  (sh-run (shell
+    "echo" "xyz" \x7C;
+    "grep" "abc" > "/dev/null"))                       ,(failed 1)
   (sh-run (shell
     "echo" "xyz" \x7C;
     (shell "command" "true" &&

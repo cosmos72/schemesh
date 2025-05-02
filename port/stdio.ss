@@ -13,7 +13,7 @@
 ;;;
 (library (schemesh port stdio (0 9 0))
   (export
-          sh-stdio-cleanup sh-stdio-flush sh-stdin sh-stdout sh-stderr)
+          sh-stdio-cleanup sh-stdin sh-stdout sh-stderr)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -67,25 +67,10 @@
   (when (input-port? port)
     (set-port-eof! port #f)))
 
-(define (try-port-flush port)
-  (when (output-port? port)
-    (flush-output-port port)))
-
 (define (sh-stdio-cleanup)
   (try-port-cleanup (current-input-port))
   (try-port-cleanup (current-output-port))
   (try-port-cleanup (current-error-port)))
-
-
-(define (sh-stdio-flush)
-  ;; the ports (console-input-port) (console-output-port) (console-error-port)
-  ;; are unbuffered, no need to flush them
-  ;;
-  ;; flushing (current-...-port) also flushes (sh-stdin) (sh-stdout) and (sh-stderr)
-  (try-port-flush (current-input-port))
-  (try-port-flush (current-output-port))
-  (try-port-flush (current-error-port)))
-
 
 
 ) ; close library

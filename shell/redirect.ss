@@ -47,6 +47,13 @@
       (raise-errorf caller "invalid redirect to file character, must be < <> > or >>: ~a" ch))))
 
 
+(define (%sh-redirect/char->direction ch)
+  (case (char->integer ch)
+    ((#x3c)        'read)
+    ((#x3e #x00bb) 'write)
+    (else          'rw)))
+
+
 ;; Start a job and return immediately.
 ;; Redirects job's standard output to a pipe and returns the read side of that pipe,
 ;; which is an integer file descriptor.
@@ -334,6 +341,54 @@
   (job-redirects-temp-n-set! job 0))
 
 
+;; find the job's last redirection for file descriptor fd,
+;; and return index of such redirection in job-redirects,
+;; or #f if not found
+(define (job-find-redirection job fd)
+  (let* ((sp (job-redirects job))
+         (n  (fxand -4 (span-length sp))))
+    (let %job-find-redirection ((i (fx- 4 n)))
+      (cond
+        ((fx<? i 0)
+          #f)
+        ((fx=? fd (span-ref sp i))
+          i)
+        (else
+          (%job-find-redirection (fx- 4 i)))))))
+
+
+
+;; given a job redirection index, return the direction of such redirection,
+;; represented as one of: 'read 'write 'rw
+;; or #f if index is out-of-range or not a fixnum
+(define (job-redirection-dir job i)
+  (and (fixnum? i)
+    (let* ((sp (job-redirects job))
+           (n  (span-length sp)))
+      (and (fx<=? 0 i (fx- n 4))
+        (%sh-redirect/char->direction (span-ref sp (fx1+ i)))))))
+
+
+;; given a job redirection index, return the fd or string path of such redirection,
+;; or #f if index is out-of-range or not a fixnum
+(define (job-redirection-to job i)
+  (and (fixnum? i)
+    (let* ((sp (job-redirects job))
+           (n  (span-length sp)))
+      (and (fx<=? 0 i (fx- n 4))
+        (let ((to (span-ref sp (fx+ i 2))))
+          (if (or (fixnum? to) (string? to))
+            to
+            (let ((bv0 (span-ref sp (fx+ i 3))))
+              (if (bytevector? bv0)
+                (let* ((str (utf8b->string bv0))
+                       (len (string-length str)))
+                  (when (and (not (fxzero? len)) (char=? #\nul (string-ref str (fx1- len))))
+                    (string-truncate! str (fx1- n)))
+                  str)))))))))
+
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
@@ -463,8 +518,12 @@
 (define (job-ensure-binary-port job target-fd remapped-fd)
   (let ((ports (job-ensure-ports job)))
     (or (hashtable-ref ports remapped-fd #f)
-        (let ((port (fd->port remapped-fd 'rw 'binary (buffer-mode block)
-                              (string-append "fd " (number->string target-fd)))))
+        (let* ((redirect-i (job-find-redirection job target-fd))
+               (dir        (or (job-redirection-dir job redirect-i) 'rw))
+               (to         (or (job-redirection-to  job redirect-i) target-fd))
+               (port       (fd->port remapped-fd dir 'binary (buffer-mode block)
+                              (if (string? to) to (string-append "sh-fd " (number->string target-fd))))))
+          (debugf "created binary  port ~s\tfor remapping ~s -> ~s\tof job ~a" port target-fd remapped-fd (sh-job->string job))
           (hashtable-set! ports remapped-fd port)
           port))))
 
@@ -473,27 +532,53 @@
   (let ((ports (job-ensure-ports job)))
     (or (hashtable-ref ports (fxnot remapped-fd) #f)
         (let* ((binary-port (job-ensure-binary-port job target-fd remapped-fd))
-               (port        (port->utf8b-port binary-port 'rw (buffer-mode block))))
+               (port        (port->utf8b-port binary-port (%port->direction binary-port) (buffer-mode block))))
+          (debugf "created textual port ~s\tfor remapping ~s -> ~s\tof job ~a" port target-fd remapped-fd (sh-job->string job))
           (hashtable-set! ports (fxnot remapped-fd) port)
           port))))
 
+(define (%port->direction port)
+  (let ((i (fxior (if (input-port?  port) 1 0)
+                  (if (output-port? port) 2 0))))
+    (vector-ref '#(rw read write rw) i)))
 
-;; return the binary input/output port for specified job's fd (crearing it if needed)
+;; return the binary input/output port for specified job's fd (creating it if needed)
 ;; or raise exception if no remapping was found
-(define (job-remap-find-binary-port job fd)
+(define (job-remap-ensure-binary-port job fd)
   (let-values (((parent target-fd remapped-fd) (job-remap-find-fd* job fd)))
     (unless parent
       (raise-errorf 'sh-binary-port "port not found for file descriptor ~s in job ~s" fd job))
     (job-ensure-binary-port parent target-fd remapped-fd)))
 
 
-;; return the textual input/output port for specified job's fd (crearing it if needed)
+;; return the binary input/output port for specified job's fd, or #f if it was not created yet.
+;; Return #f if no remapping was found
+(define (job-remap-find-binary-port job fd)
+  (let-values (((parent target-fd remapped-fd) (job-remap-find-fd* job fd)))
+    (and parent
+         (let ((ports (job-ports parent)))
+           (and ports
+                (hashtable-ref ports remapped-fd #f))))))
+
+
+;; return the textual input/output port for specified job's fd (creating it if needed)
 ;; or raise exception if no remapping was found
-(define (job-remap-find-textual-port job fd)
+(define (job-remap-ensure-textual-port job fd)
   (let-values (((parent target-fd remapped-fd) (job-remap-find-fd* job fd)))
     (unless parent
       (raise-errorf 'sh-textual-port "port not found for file descriptor ~s in job ~s" fd job))
     (job-ensure-textual-port parent target-fd remapped-fd)))
+
+
+;; return the textual input/output port for specified job's fd, or #f if it was not created yet.
+;; Return #f if no remapping was found
+(define (job-remap-find-textual-port job fd)
+  (let-values (((parent target-fd remapped-fd) (job-remap-find-fd* job fd)))
+    (and parent
+         (let ((ports (job-ports parent)))
+           (and ports
+                (hashtable-ref ports (fxnot remapped-fd) #f))))))
+
 
 
 ;; Return the actual file descriptor to use inside a job
@@ -507,21 +592,51 @@
       (sh-fd #f fd))))
 
 
-;; Return the binary input/output port to use inside a job for reading/writing specified file descriptor.
+;; Return the binary input/output port to use inside a job for reading/writing specified file descriptor,
+;; creating it if needed.
 ;; Needed because jobs can run in main process and have per-job redirections.
 (define sh-binary-port
   (case-lambda
     ((job-or-id fd)
-      (job-remap-find-binary-port (sh-job job-or-id) fd))
+      (job-remap-ensure-binary-port (sh-job job-or-id) fd))
     ((fd)
       (sh-binary-port #f fd))))
 
 
-;; Return the binary input/output port to use inside a job for reading/writing specified file descriptor.
+
+;; Return the textual input/output port to use inside a job for reading/writing specified file descriptor,
+;; creating it if needed.
 ;; Needed because jobs can run in main process and have per-job redirections.
 (define sh-textual-port
   (case-lambda
     ((job-or-id fd)
-      (job-remap-find-textual-port (sh-job job-or-id) fd))
+      (job-remap-ensure-textual-port (sh-job job-or-id) fd))
     ((fd)
       (sh-textual-port #f fd))))
+
+
+;; flush current-...-port and corresponding per-job binary and textual ports if they have been created
+(define (try-flush-ports fd current-port)
+  (if (fxzero? (textual-port-output-index current-port))
+    ;; current-...-port has nothing to flush, only flush per-job ports
+    (let* ((job       (or (sh-current-job) (sh-globals)))
+           (bin-port  (job-remap-find-binary-port job fd)))
+      (when (and bin-port (output-port? bin-port))
+        (let ((txt-port (job-remap-find-textual-port job fd)))
+          (cond
+            ((and txt-port (not (fxzero? (textual-port-output-index txt-port))))
+              (flush-output-port txt-port))
+            ((not (fxzero? (binary-port-output-index bin-port)))
+              (flush-output-port bin-port))))))
+    ;; current-...-port has something to flush, flushing it will create per-job binary and textual ports if needed
+    (flush-output-port current-port)))
+
+
+(define (sh-stdio-flush)
+  ;; the ports (console-input-port) (console-output-port) (console-error-port)
+  ;; are unbuffered, no need to flush them
+  ;;
+  ;; flushing (current-...-port) also flushes the corresponding per-job textual and binary ports
+  (try-flush-ports 0 (current-input-port))
+  (try-flush-ports 1 (current-output-port))
+  (try-flush-ports 2 (current-error-port)))
