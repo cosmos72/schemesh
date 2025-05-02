@@ -153,13 +153,13 @@ it cannot run in background).
 
 Example:
 ```shell
-> sleep 5 | $(display "hello") | cat | $(get-string-all (current-input-port))
+> sleep 5 | $(display "hello") | cat | $(get-string-all)
 CTRL+Z
-; job  1+            (stopped sigtstp)  {sleep 5 | $(display "hello") | cat | $(get-string-all (current-input-port))}
+; job  1+            (stopped sigtstp)  {sleep 5 | $(display "hello") | cat | $(get-string-all)}
 (stopped sigtstp)
 
 > fg 1
-; job  1             (ok "hello")       {sleep 5 | $(display "hello") | cat | $(get-string-all (current-input-port))}
+; job  1             (ok "hello")       {sleep 5 | $(display "hello") | cat | $(get-string-all)}
 (ok "hello")
 ```
 
@@ -218,7 +218,7 @@ automatically honor job redirections. Example:
 hello from Scheme!
 ```
 
-If you prefer binary ports, you can use `(sh-stdin)` `(sh-stdout)` and `(sh-stderr)` instead:
+If you prefer binary ports, you can use `(sh-stdin)` `(sh-stdout)` and `(sh-stderr)` instead:<br/>
 they automatically honor job redirections too. Example:
 ```lisp
 > (put-bytevector (sh-stdout) #vu8(72 105 33 10))

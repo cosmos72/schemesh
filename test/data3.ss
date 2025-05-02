@@ -202,7 +202,7 @@
      $(utf8b->string (fd-read-all (sh-fd 0)))})        ,(ok "hello")
   (sh-run {
      $(display "greet") | cat |
-     $(get-string-all (current-input-port))})          ,(ok "greet")
+     $(get-string-all)})                               ,(ok "greet")
 
   ;; run builtin in a subprocess
   (sh-run (sh-cmd "false") '(spawn? #t))               ,(failed 1)
@@ -278,7 +278,7 @@ B=2})                                                  ,@"#<void>"
        echo b
        sleep 0
        echo c} |
-     $(get-string-all (current-input-port))}))         ,(ok "a\nb\nc\n")
+     $(get-string-all)}))                              ,(ok "a\nb\nc\n")
 
   ;; ------------------------- sh-read ------------------------------------
   (sh-read-string* "#!/some/path some-arg\n\
