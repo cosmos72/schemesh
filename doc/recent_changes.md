@@ -1,5 +1,37 @@
 ## RECENT CHANGES
 
+### release v0.9.0, 2025-05-02
+
+* fix job control bugs on macOS, fixes issue #17
+* fix bugs in replacement functions `(get-bytevector-some) (putenv) (bytevector-sint-ref)`
+* fix signal handlers to correctly react to signals received by secondary threads
+* display colored job exit status
+* add build instructions for Windows using WSL and for NixOS
+* add per-job ports, needed for buffering input/output of redirected Scheme jobs
+* add macro `(==>)`
+* add functions `(sh-binary-port) (sh-textual-port)` for accessing redirections of Scheme jobs
+* add functions `(fork-process) (repl-answers) (repl-answers-display) (repl-history) (repl-history-display)`
+* add functions
+  `(ansi-text) (ansi-text?) (ansi-text-bytes) (ansi-text-clear!) (ansi-text-visible-length) (make-ansi-text) (string+) (color)`
+  `(black) (black+) (red) (red+) (green) (green+) (yellow) (yellow+) (blue) (blue+) (magenta) (magenta+) (cyan) (cyan+) (white) (white+)`
+  for creating customized, colored prompt.
+* add Racket-compatible functions
+  `(port->list) (port->string) (port->bytes) (port->lines) (port->bytes-lines)`
+  `(read-line) (read-bytes-line) (lines->port) (byte-lines->port)`
+* add functions `(make-consumer) (consumer?) (consumer-get) (consumer-eof?) (consumer-timed-get) (consumer-try-get)`
+* improve shell builtins `fg` `bg` and `wait`: job-id is now optional
+* delete shell builtin `unsafe`, fixes issue #23
+* refactor type `vscreen` to contain colored chars: will allow implementing syntax highlighting
+* document prompt customization
+* improve autocompletion inside single or double quotes
+* rename several undocumented functions
+* replace `(console-input-port)` `(console-output-port)` and `(console-error-port)`
+  with interruptible, unbuffered UTF-8b ports
+* sanity: do not allow closing standard ports
+  `(console-input-port) (console-output-port) (console-error-port)`
+  `(current-input-port) (current-output-port) (current-error-port)`
+
+
 ### release v0.8.3, 2025-04-06
 
 * fix a visual glitch when pasting multiple lines at REPL, and last line does not end with a #\newline
