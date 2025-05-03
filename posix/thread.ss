@@ -10,7 +10,8 @@
 ;; define all the bindings present in Chez Scheme 10.0.0 with threads
 ;; also on older versions and also on non-threaded builds,
 ;;
-;; plus some useful functions: (get-thread) (thread-count) (thread-find) (thread-id) (threads)
+;; plus improved function (thread-join) that now accepts optional timeout
+;; plus some useful functions (get-thread) (thread-count) (thread-find) (thread-id) (threads)
 
 (library (schemesh posix thread (0 9 0))
   (export get-initial-thread get-thread get-thread-id thread thread? threaded?
