@@ -25,7 +25,8 @@ Schemesh can be used as:
 
 * a Scheme REPL with additional syntax and functions to start, redirect and manage Unix processes.
 
-* a Scheme library for starting, redirecting and managing Unix processes.
+* a Scheme library for starting, redirecting and managing Unix processes:
+  see [Loading schemesh from plain Chez Scheme](doc/schemesh_as_library.md)
 
 For scripting and serious programming, schemesh completely replaces the slow, clumsy and error-prone
 scripting language of a traditional shell (yes, the author has opinions) with a full-featured Lisp REPL,
@@ -615,11 +616,13 @@ See [doc/recent_changes.md](doc/recent_changes.md)
 Shell builtins can be listed by typing `help` at the prompt,
 and help for each builtin can be viewed by typing `help NAME` at the prompt.
 
-The documented scheme functions currently include:
+The documentation currently include:
 
 * Prompt customization, see [doc/lineedit/ansi.md](doc/lineedit/ansi.md)
 
 * Key bindings customization, see [doc/lineedit/key.md](doc/lineedit/key.md)
+
+* Loading schemesh as a library from plain Chez Scheme, see [doc/schemesh_as_library.md](doc/schemesh_as_library.md)
 
 Most other scheme functions are not (yet) documented.
 
