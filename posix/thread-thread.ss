@@ -148,14 +148,14 @@
 
 (define c-phtread-self (foreign-procedure "c_pthread_self" () uptr))
 
+(define c-signal-setblocked! (foreign-procedure "c_signal_setblocked" (int int) int))
 
+;; hashtable thread-id -> pthread_t
 (define pthread-ids
   (let ((ht (make-eqv-hashtable)))
-    (when (eqv? 0 (get-thread-id))
-      ;; register main thread's pthread_id
-      (hashtable-set! ht 0 (c-phtread-self)))
+    ;; register caller's thread pthread_id
+    (hashtable-set! ht (get-thread-id) (c-phtread-self))
     ht))
-
 
 
 (define pthread-ids-mutex
@@ -164,12 +164,12 @@
     (make-mutex 'pthread-ids)))
 
 
-(define (thread-register-pthread-id)
+(define (thread-register-self)
   (with-mutex pthread-ids-mutex
     (hashtable-set! pthread-ids (get-thread-id) (c-phtread-self))))
 
 
-(define (thread-unregister-pthread-id)
+(define (thread-unregister-self)
   (with-mutex pthread-ids-mutex
     (hashtable-delete! pthread-ids (get-thread-id))))
 
@@ -194,18 +194,18 @@
   (assert* 'fork-thread (procedure? thunk))
   (assert* 'fork-thread (logbit? 0 (procedure-arity-mask thunk)))
 
-  (when (eqv? 0 (get-thread-id))
-    ;; register main thread's pthread_id
-    (thread-register-pthread-id))
+  ;; register caller's thread pthread_id in case it's missing
+  (thread-register-self)
 
   (chez:fork-thread
     (lambda ()
+      ;; we need to receive SIGCHLD in main thread
+      (c-signal-setblocked! (signal-name->number 'sigchld) 1)
       (apply-thread-initial-bindings)
-      ;; TODO: block SIGCHLD
       (dynamic-wind
-        thread-register-pthread-id
+        thread-register-self
         thunk
-        thread-unregister-pthread-id))))
+        thread-unregister-self))))
 
 
 ;; send a POSIX signal to specified thread.
@@ -216,6 +216,7 @@
   (let ((c-pthread-kill (foreign-procedure "c_pthread_kill" (uptr int) int))
         (c-errno-einval ((foreign-procedure "c_errno_einval" () int))))
     (lambda (thread signal-name)
+
       (assert* 'thread-kill (thread? thread))
       (let ((id (thread-id thread))
             (signal-number (signal-name->number signal-name)))

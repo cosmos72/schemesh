@@ -138,9 +138,29 @@ static int c_signal_setdefault(int sig) {
   return 0;
 }
 
+/**
+ * if block != 0, add signal sig to the set of blocked signals for caller's thread.
+ * otherwise remove sig from the set of blocked signals for caller's thread
+ */
+static int c_signal_setblocked(int sig, int block) {
+  sigset_t sigset;
+  sigemptyset(&sigset);
+  sigaddset(&sigset, sig);
+  if (pthread_sigmask(block ? SIG_BLOCK : SIG_UNBLOCK, &sigset, NULL) < 0) {
+    return c_errno();
+  }
+  return 0;
+}
+
+/**
+ * if unset_sighandler != 0, set handler for signal sig to SIG_DFL then unblock the signal.
+ *
+ * raise signal sig.
+ */
 static int c_signal_raise(int sig, int unset_sighandler) {
   if (unset_sighandler) {
     (void)c_signal_setdefault(sig);
+    (void)c_signal_setblocked(sig, 0);
   }
 
   if (raise(sig) < 0) { /* better than kill(getpid(), sig) in multi-threaded-programs */
@@ -259,6 +279,7 @@ static int c_countdown(ptr duration_inout) {
 static void c_register_c_functions_posix_signals(void) {
   Sregister_symbol("c_countdown", &c_countdown);
   Sregister_symbol("c_signals_list", &c_signals_list);
+  Sregister_symbol("c_signal_setblocked", &c_signal_setblocked);
   Sregister_symbol("c_signal_raise", &c_signal_raise);
   Sregister_symbol("c_signal_setdefault", &c_signal_setdefault);
   Sregister_symbol("c_signal_consume_sigwinch", &c_signal_consume_sigwinch);
