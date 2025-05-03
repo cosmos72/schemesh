@@ -1,7 +1,7 @@
 ## Loading schemesh as a library from plain Chez Scheme
 
 Works at least on Linux.<br/>
-Instructions to compile C shared library below may differ on other systems.
+On other systems, the commands for compiling a C shared library may differ.
 
 First, download schemesh following the [build instructions](../README.md#build-instructions) for your system.<br/>
 For example, on Debian Linux one would do:
@@ -14,7 +14,7 @@ git checkout -f v0.9.0
 ```
 
 Then compile schemesh as a C shared library:<br/>
-the commands below work at least on Linux, they may differ on other systems.
+the following commands work at least on Linux, on other systems they may differ.
 ```shell
 make clean
 make -j CC='cc -fPIC'
