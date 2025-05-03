@@ -11,7 +11,7 @@
   (export get-initial-thread thread thread-count thread-find thread-id thread-list)
   (import
     (rnrs)
-    (only (chezscheme)         $primitive meta-cond foreign-procedure import thread? threaded?)
+    (only (chezscheme)         $primitive library-exports meta-cond foreign-procedure import thread? threaded?)
     (only (schemesh bootstrap) assert* raise-errorf))
 
 
@@ -82,7 +82,10 @@
 
 (define get-initial-thread
   (meta-cond
-    ((threaded?)
+    ;; Chez Scheme exports get-initial-thread only in versions >= 10.0.0
+    ;; and only in threaded builds: check if it's actually present,
+    ;; rather than relying on version numbers
+    ((memq 'get-initial-thread? (library-exports '(chezscheme)))
       (let ()
          (import (prefix (only (chezscheme) get-initial-thread)
                          chez:))
