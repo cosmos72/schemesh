@@ -201,6 +201,7 @@
   (chez:fork-thread
     (lambda ()
       (apply-thread-initial-bindings)
+      ;; TODO: block SIGCHLD
       (dynamic-wind
         thread-register-pthread-id
         thunk
