@@ -1,14 +1,27 @@
-## loading schemesh as library from plain Chez Scheme
+## Loading schemesh as a library from plain Chez Scheme
 
-Works at least on Linux.
-Instructions to compile C shared libraries may differ on other systems.
+Works at least on Linux.<br/>
+Instructions to compile C shared library below may differ on other systems.
 
+First, download schemesh following the [build instructions](../README.md#build-instructions) for your system.<br/>
+For example, on Debian Linux one would do:
+```shell
+sudo apt update
+sudo apt install build-essential chezscheme-dev liblz4-dev libncurses-dev git uuid-dev zlib1g-dev
+git clone https://github.com/cosmos72/schemesh
+cd schemesh
+git checkout -f v0.9.0
+```
+
+Then compile schemesh as a C shared library:<br/>
+the commands below work at least on Linux, they may differ on other systems.
 ```shell
 make clean
 make -j CC='cc -fPIC'
 cc -shared -o libschemesh_c_0.9.0.so containers.o eval.o posix.o shell.o
 ```
-then, from Chez Scheme REPL:
+
+Finally, from Chez Scheme REPL:
 ```lisp
 (load-shared-object "./libschemesh_c_0.9.0.so")
 ((foreign-procedure "schemesh_register_c_functions" () int)) ; should return 0
