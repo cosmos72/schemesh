@@ -24,9 +24,10 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <poll.h>
-#include <pwd.h>    /* getpwnam_r(), getpwuid_r() */
-#include <sched.h>  /* sched_yield() */
-#include <signal.h> /* kill(), sigaction(), SIG... */
+#include <pthread.h> /* pthread_self() */
+#include <pwd.h>     /* getpwnam_r(), getpwuid_r() */
+#include <sched.h>   /* sched_yield() */
+#include <signal.h>  /* kill(), sigaction(), SIG... */
 #include <stdatomic.h>
 #include <stddef.h>     /* size_t, NULL */
 #include <stdint.h>     /* int64_t */
@@ -1863,6 +1864,17 @@ static char** vector_to_c_argz(ptr vector_of_bytevector0) {
   return c_argz;
 }
 
+enum { check_pthread_t_cast = sizeof(char[sizeof(pthread_t) <= sizeof(uptr) ? 1 : -1]) };
+
+static int c_pthread_kill(uptr id, int signal_number) {
+  return pthread_kill((pthread_t)id, signal_number);
+}
+
+static uptr c_pthread_self(void) {
+
+  return (uptr)pthread_self();
+}
+
 static uptr c_thread_count(void) {
 #ifdef FEATURE_PTHREADS
   extern volatile uptr S_nthreads;
@@ -1920,6 +1932,8 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_job_control_available", &c_job_control_available);
   Sregister_symbol("c_job_control_change", &c_job_control_change);
 
+  Sregister_symbol("c_pthread_kill", &c_pthread_kill);
+  Sregister_symbol("c_pthread_self", &c_pthread_self);
   Sregister_symbol("c_thread_count", &c_thread_count);
   Sregister_symbol("c_threads", &c_threads);
 

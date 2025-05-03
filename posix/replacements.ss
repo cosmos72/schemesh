@@ -21,9 +21,9 @@
       put-char put-datum put-string put-string-some
 
       ;; posix/thread.ss
-      get-initial-thread get-thread get-thread-id thread thread? threaded?
-      thread-count thread-find thread-id thread-join thread-preserve-ownership!
-      threads)
+      fork-thread get-initial-thread get-thread get-thread-id
+      thread thread? threaded? thread-alive? thread-count thread-find thread-id thread-initial-bindings
+      thread-join thread-kill thread-preserve-ownership! threads)
   (import
     (rename (except (rnrs) delete-file file-exists?)
         (get-char        r6rs:get-char)

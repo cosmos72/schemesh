@@ -40,11 +40,11 @@
   (include "posix/dir.ss")
   (include "posix/io.ss")
   (include "posix/pattern.ss")
-  (include "posix/thread.ss")
-  (include "posix/replacements.ss") ; requires posix/thread.ss
   (include "posix/signal.ss")
   (include "posix/status.ss")
+  (include "posix/thread.ss")       ; requires posix/signal.ss
   (include "posix/tty.ss")
+  (include "posix/replacements.ss") ; requires posix/thread.ss
   (include "posix/pid.ss")
   (include "posix/posix.ss")
 

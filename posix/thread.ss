@@ -10,53 +10,26 @@
 ;; define all the thread-related bindings present in Chez Scheme 10.0.0 with threads
 ;; also on older versions and also on non-threaded builds,
 ;;
-;; plus improved function (thread-join) that is interruptible and accepts optional timeout
-;; plus some useful functions (get-thread) (thread-count) (thread-find) (thread-id) (threads)
+;; plus some useful functions
+;;   (get-thread) (thread) (thread-alive?) (thread-count) (thread-find)
+;;   (thread-id) (thread-initial-bindings) (thread-kill) (threads)
+;;
+;; plus improved functions:
+;;  (fork-thread) also sets the new thread's thread-local parameters to values returned by (thread-initial-bindings)
+;;  (thread-join) also accepts an optional timeout and is interruptible
 
 (library (schemesh posix thread (0 9 0))
-  (export get-initial-thread get-thread get-thread-id thread thread? threaded?
-          thread-count thread-find thread-id thread-join thread-preserve-ownership!
-          threads)
+  (export fork-thread get-initial-thread get-thread get-thread-id
+          thread thread? threaded? thread-alive? thread-count thread-find thread-id thread-initial-bindings
+          thread-join thread-kill thread-preserve-ownership! threads)
   (import
     (rnrs)
-    (only (chezscheme)          $primitive add-duration current-time eval foreign-procedure get-thread-id
-                                import library-exports make-time meta-cond sleep thread? threaded?
-                                time? time<=? time-difference time-type void)
-    (only (schemesh bootstrap)  assert* assert-not* catch check-interrupts raise-errorf until try))
+    (only (chezscheme)            $primitive add-duration current-time eval foreign-procedure get-thread-id import include
+                                  library-exports logbit? make-parameter make-time meta-cond procedure-arity-mask
+                                  sleep thread? threaded? time? time<=? time-difference time-type void)
+    (only (schemesh bootstrap)    assert* assert-not* catch check-interrupts raise-errorf until try)
+    (only (schemesh posix signal) signal-name->number signal-raise))
 
-
-;; disable interrupts and acquire $tc-mutex
-(define-syntax with-tc-mutex
-  (meta-cond
-    ((threaded?)
-      (syntax-rules ()
-        ((_ body1 body2 ...)
-          (let ()
-            (import (only (chezscheme) enable-interrupts disable-interrupts mutex-acquire mutex-release))
-            (dynamic-wind
-              (lambda () (disable-interrupts) (mutex-acquire ($primitive $tc-mutex)))
-              (lambda () body1 body2 ...)
-              (lambda () (mutex-release ($primitive $tc-mutex)) (enable-interrupts)))))))
-    (else
-      (let ()
-        (import (only (chezscheme) with-interrupts-disabled))
-        (identifier-syntax with-interrupts-disabled)))))
-
-
-;; acquire $tc-mutex, but don't disable interrupts
-(define-syntax with-tc-mutex*
-  (meta-cond
-    ((threaded?)
-      (syntax-rules ()
-        ((_ body1 body2 ...)
-          (let ()
-            (import (only (chezscheme) mutex-acquire mutex-release))
-            (dynamic-wind
-              (lambda () (mutex-acquire ($primitive $tc-mutex)))
-              (lambda () body1 body2 ...)
-              (lambda () (mutex-release ($primitive $tc-mutex))))))))
-    (else
-      (identifier-syntax begin))))
 
 
 ;; must be called with locked $tc-mutex
@@ -76,6 +49,13 @@
 ;; Note: threads may be created or destroyed after this call and before
 ;; the returned value is used.
 (define thread-count (foreign-procedure "c_thread_count" () uptr))
+
+
+(meta-cond
+  ((threaded?)
+    (include "posix/thread-thread.ss"))
+  (else
+    (include "posix/thread-nothread.ss")))
 
 
 ;; return a copy of the current threads list.
@@ -98,23 +78,9 @@
     (%locked-thread-id thread)))
 
 
-;; find and return a thread given its thread-id, which must be #f or an exact integer.
-;;
-;; if no thread with specified thread-id is found, return #f
-(define (thread-find thread-id)
-  (and thread-id
-    (unless (fixnum? thread-id)
-      (assert* 'thread-find (integer? thread-id))
-      (assert* 'thread-find (exact? thread-id)))
-    (with-tc-mutex
-      (let %thread-find ((tl (%locked-threads)))
-        (cond
-          ((null? tl)
-            #f)
-          ((eqv? thread-id (%locked-thread-id (car tl)))
-            (car tl))
-          (else
-            (%thread-find (cdr tl))))))))
+;; return #t if thread is running, or #f if it's destroyed
+(define (thread-alive? thread)
+  (if (thread-id thread) #t #f))
 
 
 ;; find and return a thread given its thread-id, which must be #f or an exact integer.
@@ -125,87 +91,6 @@
     (unless t
       (raise-errorf 'thread "thread not found: ~s" thread-id))
     t))
-
-
-(define short-timeout (make-time 'time-duration 500000000 0))
-
-
-;; actual implementation of (thread-join) with no timeout
-(define (%thread-join thread)
-  (assert* 'thread-join (thread? thread))
-
-  ;; Chez Scheme exports thread-join only in versions >= 10.0.0
-  ;; and only in threaded builds, and it's not interruptible:
-  ;; roll our own
-  (meta-cond
-    ((and (threaded?) (try (eval '($primitive $terminated-cond)) #t (catch (ex) #f)))
-      (let ()
-        (import (only (chezscheme) condition-wait))
-        (with-tc-mutex*
-          (let %%thread-join ((tc-cond  ($primitive $terminated-cond))
-                              (tc-mutex ($primitive $tc-mutex)))
-            (unless (eqv? 0 (%locked-thread-tc thread))
-              (check-interrupts)
-              ;; condition-wait is not interruptible, use a short timeout
-              (condition-wait tc-cond tc-mutex short-timeout)
-              (%%thread-join tc-cond tc-mutex))))))
-    (else
-      ;; there's no $terminated-cond we can wait for
-      (until (eqv? 0 (with-tc-mutex* (%locked-thread-tc thread)))
-        (check-interrupts)
-        (sleep short-timeout)))) ; sleep is interruptible
-  (void))
-
-
-;; actual implementation of (thread-join) with timeout
-(define (%thread-timed-join thread timeout)
-  (assert* 'thread-join (thread? thread))
-  (assert* 'thread-join (time? timeout))
-
-  (let ((deadline (cond ((eq? 'time-utc (time-type timeout))
-                          timeout)
-                        (else
-                          (assert* 'thread-join (eq? 'time-duration (time-type timeout)))
-                          (add-duration (current-time 'time-utc) timeout)))))
-
-    ;; Chez Scheme exports thread-join only in versions >= 10.0.0
-    ;; and only in threaded builds, and it's not interruptible nor accepts timeout:
-    ;; roll our own
-    (meta-cond
-      ((and (threaded?) (try (eval '($primitive $terminated-cond)) #t (catch (ex) #f)))
-        (let ()
-          (import (only (chezscheme) condition-wait))
-          (with-tc-mutex*
-            (let %%thread-timed-join ((tc-cond  ($primitive $terminated-cond))
-                                      (tc-mutex ($primitive $tc-mutex))
-                                      (now      (current-time 'time-utc)))
-              (cond
-                ((eqv? 0 (%locked-thread-tc thread))
-                  (void))
-                ((time<=? deadline now)
-                  #f)
-                (else
-                  (check-interrupts)
-                  ;; condition-wait is not interruptible, use a short timeout
-                  (condition-wait tc-cond tc-mutex
-                    (let ((short-deadline (add-duration now short-timeout)))
-                      (if (time<=? short-deadline deadline) short-deadline deadline)))
-                  (%%thread-timed-join tc-cond tc-mutex (current-time 'time-utc))))))))
-      (else
-        ;; there's no $terminated-cond we can wait for
-        (let %%thread-timed-join ((now (current-time 'time-utc)))
-          (cond
-            ((eqv? 0 (with-tc-mutex* (%locked-thread-tc thread)))
-              (void))
-            ((time<=? deadline now)
-              #f)
-            (else
-              (check-interrupts)
-              ; sleep is interruptible
-              (sleep
-                (let ((max-timeout (time-difference deadline now)))
-                  (if (time<=? short-timeout max-timeout) short-timeout max-timeout)))
-              (%%thread-timed-join (current-time 'time-utc)))))))))
 
 
 ;; wait for specified thread to exit.
@@ -231,18 +116,11 @@
     ;; check if it's actually present, rather than relying on version numbers
     ((memq 'get-initial-thread (library-exports '(chezscheme)))
       (let ()
-         (import (prefix (only (chezscheme) get-initial-thread)
-                         chez:))
+         (import (prefix (only (chezscheme) get-initial-thread) chez:))
          chez:get-initial-thread))
     (else
       (with-tc-mutex
         (car (%locked-threads))))))
-
-
-
-;; return caller's thread
-(define (get-thread)
-  (thread (get-thread-id)))
 
 
 (define thread-preserve-ownership!
@@ -252,8 +130,7 @@
     ;; check if it's actually present, rather than relying on version numbers
     ((memq 'thread-preserve-ownership! (library-exports '(chezscheme)))
       (let ()
-         (import (prefix (only (chezscheme) thread-preserve-ownership!)
-                         chez:))
+         (import (prefix (only (chezscheme) thread-preserve-ownership!) chez:))
          chez:thread-preserve-ownership!))
     (else
       (case-lambda
@@ -261,6 +138,32 @@
           (void))
         ((thread)
           (assert* 'thread-preserve-ownership! (thread? thread)))))))
+
+
+;; thread parameter containing an alist ((param . thunk) ...) where each param and thunk are procedures.
+;;
+;; each time (fork-thread thunk) is invoked, the new thread will iterate on such alist
+;; and call (param (thunk)) on each element, allowing for example to establish initial values
+;; for other thread parameters.
+;;
+;; this is similar in spirit to *default-special-bindings* provided by Common Lisp library Bordeaux Threads.
+;;
+;; NOTE: callers are supposed to prefix pairs into the alist, for example with
+;;   (thread-initial-bindings (cons (cons my-param my-thunk) (thread-initial-bindings)))
+;; while *removing* or *modifying* alist elements is almost always a bug
+(define thread-initial-bindings
+  (make-thread-parameter
+    '()
+    (lambda (alist)
+      (assert* 'thread-initial-bindings (list? alist))
+      (do ((tail alist (cdr tail)))
+          ((null? tail) alist)
+        (let ((a (car tail)))
+          (assert* 'thread-initial-bindings (pair? a))
+          (assert* 'thread-initial-bindings (procedure? (car a)))
+          (assert* 'thread-initial-bindings (procedure? (cdr a)))
+          (assert* 'thread-initial-bindings (logbit? 1 (procedure-arity-mask (car a))))
+          (assert* 'thread-initial-bindings (logbit? 0 (procedure-arity-mask (cdr a)))))))))
 
 
 ) ; close library

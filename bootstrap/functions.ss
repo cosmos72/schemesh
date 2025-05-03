@@ -27,8 +27,8 @@
       sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter sh-version sh-version-number)
   (import
     (rnrs)
-    (only (chezscheme) $primitive console-error-port format gensym make-continuation-condition
-                       make-format-condition interaction-environment library-exports
+    (only (chezscheme) $primitive console-error-port format gensym import make-continuation-condition
+                       make-format-condition meta-cond interaction-environment library-exports
                        string->immutable-string top-level-bound? top-level-value void))
 
 
@@ -215,9 +215,14 @@
 ;; calls (make-thread-parameter) if available,
 ;; otherwise calls (sh-make-parameter) above.
 (define sh-make-thread-parameter
-  (if (top-level-bound? 'make-thread-parameter)
-    (top-level-value 'make-thread-parameter)
-    sh-make-parameter))
+  (meta-cond
+    ((memq 'make-thread-parameter (library-exports '(chezscheme)))
+      (let ()
+         (import (prefix (only (chezscheme) make-thread-parameter)
+                         chez:))
+         chez:make-thread-parameter))
+    (else
+      sh-make-parameter)))
 
 
 ;; alternate version of (make-parameter), where parameter value is expected to change

@@ -138,8 +138,10 @@ static int c_signal_setdefault(int sig) {
   return 0;
 }
 
-static int c_signal_raise(int sig) {
-  (void)c_signal_setdefault(sig);
+static int c_signal_raise(int sig, int unset_sighandler) {
+  if (unset_sighandler) {
+    (void)c_signal_setdefault(sig);
+  }
 
   if (raise(sig) < 0) { /* better than kill(getpid(), sig) in multi-threaded-programs */
     return c_errno();
