@@ -218,7 +218,7 @@
 ;; wait for specified thread to exit.
 ;; timeout is optional: it defaults to #f, and must be #f or a time object with type 'time-utc or 'time-duration
 ;;
-;; if timeout is not specified or is #f, or thread exits before timeout, returns void.
+;; if timeout is not specified or is #f, or thread exits before timeout, returns (void).
 ;; if timeout is specified and not #f, and thread is still alive after timeout, returns #f
 (define thread-join
   (case-lambda
