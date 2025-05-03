@@ -18,15 +18,18 @@
           threads)
   (import
     (rnrs)
-    (only (chezscheme)         $primitive library-exports meta-cond foreign-procedure import void)
-    (prefix (only (chezscheme) thread? threaded?) chez:)
-    (only (schemesh bootstrap) assert* assert-not* raise-errorf))
+    (only (chezscheme)            $primitive add-duration current-time eval foreign-procedure import library-exports
+                                  make-time meta-cond sleep time? time<=? time-difference time-type void)
+    (prefix (only (chezscheme)    thread? threaded?) chez:)
+    (only (schemesh bootstrap)    assert* assert-not* catch check-interrupts raise-errorf until try))
 
 
 (define thread? chez:thread?)
 
 (define threaded? chez:threaded?)
 
+
+;; disable interrupts and acquire $tc-mutex
 (define-syntax with-tc-mutex
   (meta-cond
     ((chez:threaded?)
@@ -44,13 +47,32 @@
         (identifier-syntax with-interrupts-disabled)))))
 
 
+;; acquire $tc-mutex, but don't disable interrupts
+(define-syntax with-tc-mutex*
+  (meta-cond
+    ((chez:threaded?)
+      (syntax-rules ()
+        ((_ body1 body2 ...)
+          (let ()
+            (import (only (chezscheme) mutex-acquire mutex-release))
+            (dynamic-wind
+              (lambda () (mutex-acquire ($primitive $tc-mutex)))
+              (lambda () body1 body2 ...)
+              (lambda () (mutex-release ($primitive $tc-mutex))))))))
+    (else
+      (identifier-syntax begin))))
+
+
+;; must be called with locked $tc-mutex
+(define %locked-thread-tc ($primitive $thread-tc))
+
 ;; must be called with locked $tc-mutex
 (define %locked-threads (foreign-procedure "c_threads" () ptr))
 
 ;; must be called with locked $tc-mutex
 (define (%locked-thread-id thread)
-  (let ((tc (($primitive $thread-tc) thread)))
-    (and (not (eqv? tc 0)) (($primitive $tc-field) 'threadno tc))))
+  (let ((tc (%locked-thread-tc thread)))
+    (if (eqv? tc 0) #f (($primitive $tc-field) 'threadno tc))))
 
 
 ;; return current number of threads.
@@ -109,24 +131,102 @@
     t))
 
 
-;; wait for specified thread to exit
-(define (thread-join thread)
-  (assert* 'thread-join (thread? thread))
-  ;; a thread cannot wait for itself
-  (assert-not* 'thread-join (eq? thread (get-thread)))
+(define short-timeout (make-time 'time-duration 500000000 0))
 
+
+;; actual implementation of (thread-join) with no timeout
+(define (%thread-join thread)
+  (assert* 'thread-join (thread? thread))
+
+  ;; Chez Scheme exports thread-join only in versions >= 10.0.0
+  ;; and only in threaded builds, and it's not interruptible:
+  ;; roll our own
   (meta-cond
-    ;; Chez Scheme exports thread-join only in versions >= 10.0.0
-    ;; and only in threaded builds:
-    ;; check if it's actually present, rather than relying on version numbers
-    ((memq 'thread-join (library-exports '(chezscheme)))
+    ((and (chez:threaded?) (try (eval '($primitive $terminated-cond)) #t (catch (ex) #f)))
       (let ()
-         (import (prefix (only (chezscheme) thread-join)
-                         chez:))
-         (chez:thread-join thread)))
+        (import (only (chezscheme) condition-wait))
+        (with-tc-mutex*
+          (let %%thread-join ((tc-cond  ($primitive $terminated-cond))
+                              (tc-mutex ($primitive $tc-mutex)))
+            (unless (eqv? 0 (%locked-thread-tc thread))
+              (check-interrupts)
+              ;; condition-wait is not interruptible, use a short timeout
+              (condition-wait tc-cond tc-mutex short-timeout)
+              (%%thread-join tc-cond tc-mutex))))))
     (else
       ;; there's no $terminated-cond we can wait for
-      (raise-errorf 'thread-join "unimplemented"))))
+      (until (eqv? 0 (with-tc-mutex* (%locked-thread-tc thread)))
+        (check-interrupts)
+        (sleep short-timeout)))) ; sleep is interruptible
+  (void))
+
+
+;; actual implementation of (thread-join) with timeout
+(define (%thread-timed-join thread timeout)
+  (assert* 'thread-join (thread? thread))
+  (assert* 'thread-join (time? timeout))
+
+  (let ((deadline (cond ((eq? 'time-utc (time-type timeout))
+                          timeout)
+                        (else
+                          (assert* 'thread-join (eq? 'time-duration (time-type timeout)))
+                          (add-duration (current-time 'time-utc) timeout)))))
+
+    ;; Chez Scheme exports thread-join only in versions >= 10.0.0
+    ;; and only in threaded builds, and it's not interruptible nor accepts timeout:
+    ;; roll our own
+    (meta-cond
+      ((and (chez:threaded?) (try (eval '($primitive $terminated-cond)) #t (catch (ex) #f)))
+        (let ()
+          (import (only (chezscheme) condition-wait))
+          (with-tc-mutex*
+            (let %%thread-timed-join ((tc-cond  ($primitive $terminated-cond))
+                                      (tc-mutex ($primitive $tc-mutex))
+                                      (now      (current-time 'time-utc)))
+              (cond
+                ((eqv? 0 (%locked-thread-tc thread))
+                  (void))
+                ((time<=? deadline now)
+                  #f)
+                (else
+                  (check-interrupts)
+                  ;; condition-wait is not interruptible, use a short timeout
+                  (condition-wait tc-cond tc-mutex
+                    (let ((short-deadline (add-duration now short-timeout)))
+                      (if (time<=? short-deadline deadline) short-deadline deadline)))
+                  (%%thread-timed-join tc-cond tc-mutex (current-time 'time-utc))))))))
+      (else
+        ;; there's no $terminated-cond we can wait for
+        (let %%thread-timed-join ((now (current-time 'time-utc)))
+          (cond
+            ((eqv? 0 (with-tc-mutex* (%locked-thread-tc thread)))
+              (void))
+            ((time<=? deadline now)
+              #f)
+            (else
+              (check-interrupts)
+              ; sleep is interruptible
+              (sleep
+                (if deadline
+                  (let ((max-timeout (time-difference deadline now)))
+                    (if (time<=? short-timeout max-timeout) short-timeout max-timeout))
+                  short-timeout))
+              (%%thread-timed-join (current-time 'time-utc)))))))))
+
+
+;; wait for specified thread to exit.
+;; timeout is optional: it defaults to #f, and must be #f or a time object with type 'time-utc or 'time-duration
+;;
+;; if timeout is not specified or is #f, or thread exits before timeout, returns void.
+;; if timeout is specified and not #f, and thread is still alive after timeout, returns #f
+(define thread-join
+  (case-lambda
+    ((thread)
+      (%thread-join thread))
+    ((thread timeout)
+      (if timeout
+        (%thread-timed-join thread timeout)
+        (%thread-join thread)))))
 
 
 ;; return main thread
@@ -154,7 +254,7 @@
 
 
 ;; return caller's thread
-(define get-thread
+(define (get-thread)
   (thread (get-thread-id)))
 
 
