@@ -92,15 +92,15 @@
                        console-input-port console-output-port console-error-port
                        current-input-port current-output-port current-error-port
                        current-time debug debug-condition debug-on-exception display-condition
-                       foreign-procedure format fx1+ fx1- get-thread-id hashtable-cells include inspect
+                       foreign-procedure format fx1+ fx1- hashtable-cells include inspect
                        list-copy logand logbit? make-continuation-condition make-format-condition meta meta-cond
                        open-fd-output-port parameterize port-closed? procedure-arity-mask record-writer
                        register-signal-handler reverse! sort! string-copy! string-truncate!
-                       textual-port-output-index threaded? void)
+                       textual-port-output-index void)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh conversions)
-    (schemesh posix)
+    (schemesh posix) ; contains (schemesh posix threads) that exports (get-thread-id) (threaded?)
     (schemesh port redir)
     (schemesh port stdio)
     (only (schemesh screen vline)      vline-display/bytespan)
