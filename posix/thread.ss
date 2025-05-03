@@ -19,21 +19,16 @@
           threads)
   (import
     (rnrs)
-    (only (chezscheme)            $primitive add-duration current-time eval foreign-procedure import library-exports
-                                  make-time meta-cond sleep time? time<=? time-difference time-type void)
-    (prefix (only (chezscheme)    thread? threaded?) chez:)
-    (only (schemesh bootstrap)    assert* assert-not* catch check-interrupts raise-errorf until try))
-
-
-(define thread? chez:thread?)
-
-(define threaded? chez:threaded?)
+    (only (chezscheme)          $primitive add-duration current-time eval foreign-procedure get-thread-id
+                                import library-exports make-time meta-cond sleep thread? threaded?
+                                time? time<=? time-difference time-type void)
+    (only (schemesh bootstrap)  assert* assert-not* catch check-interrupts raise-errorf until try))
 
 
 ;; disable interrupts and acquire $tc-mutex
 (define-syntax with-tc-mutex
   (meta-cond
-    ((chez:threaded?)
+    ((threaded?)
       (syntax-rules ()
         ((_ body1 body2 ...)
           (let ()
@@ -51,7 +46,7 @@
 ;; acquire $tc-mutex, but don't disable interrupts
 (define-syntax with-tc-mutex*
   (meta-cond
-    ((chez:threaded?)
+    ((threaded?)
       (syntax-rules ()
         ((_ body1 body2 ...)
           (let ()
@@ -143,7 +138,7 @@
   ;; and only in threaded builds, and it's not interruptible:
   ;; roll our own
   (meta-cond
-    ((and (chez:threaded?) (try (eval '($primitive $terminated-cond)) #t (catch (ex) #f)))
+    ((and (threaded?) (try (eval '($primitive $terminated-cond)) #t (catch (ex) #f)))
       (let ()
         (import (only (chezscheme) condition-wait))
         (with-tc-mutex*
@@ -177,7 +172,7 @@
     ;; and only in threaded builds, and it's not interruptible nor accepts timeout:
     ;; roll our own
     (meta-cond
-      ((and (chez:threaded?) (try (eval '($primitive $terminated-cond)) #t (catch (ex) #f)))
+      ((and (threaded?) (try (eval '($primitive $terminated-cond)) #t (catch (ex) #f)))
         (let ()
           (import (only (chezscheme) condition-wait))
           (with-tc-mutex*
@@ -245,13 +240,6 @@
       (with-tc-mutex
         (car (%locked-threads))))))
 
-
-;; return caller's thread-id
-(define get-thread-id
-  (let ()
-    (import (prefix (only (chezscheme) get-thread-id)
-                    chez:))
-    chez:get-thread-id))
 
 
 ;; return caller's thread

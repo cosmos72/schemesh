@@ -18,7 +18,12 @@
       file-directory? file-exists? file-regular? file-symbolic-link?
 
       get-char get-datum get-line get-string-all get-string-n get-string-some
-      put-char put-datum put-string put-string-some)
+      put-char put-datum put-string put-string-some
+
+      ;; posix/thread.ss
+      get-initial-thread get-thread get-thread-id thread thread? threaded?
+      thread-count thread-find thread-id thread-join thread-preserve-ownership!
+      threads)
   (import
     (rename (except (rnrs) delete-file file-exists?)
         (get-char        r6rs:get-char)
@@ -36,7 +41,8 @@
                                (put-string-some chez:put-string-some))
 
     (only (schemesh posix fd)  c-errno->string)
-    (only (schemesh posix dir) file-type file-delete))
+    (only (schemesh posix dir) file-type file-delete)
+    (schemesh posix thread))
 
 
 ;;; read and return the next character from textual-input-port,

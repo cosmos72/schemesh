@@ -15,10 +15,10 @@
     (schemesh posix io)
     (schemesh posix pattern)
 
-    ;; by default, do not re-export bindings from (schemesh posix replacements)
+    ;; by default, do not re-export bindings from (schemesh posix replacements) or (schemesh posix thread)
     ;; because they intentionally conflict with R6RS functions (file-exists?) (delete-file)
     ;; (get-char) (get-datum) (get-line) (get-string-all) (get-string-n) (get-string-some)
-    ;; and with Chez Scheme functions for accessing the filesystem.
+    ;; and with Chez Scheme functions for accessing the filesystem and managing threads.
     ;;
     ;; Reason for the conflict: the functions in (schemesh posix replacements)
     ;; are intended as replacements for the default ones, and they add UTF-8b support.
@@ -29,6 +29,5 @@
 
     (schemesh posix signal)
     (schemesh posix status)
-    (schemesh posix thread)
     (schemesh posix tty)
     (schemesh posix pid)))

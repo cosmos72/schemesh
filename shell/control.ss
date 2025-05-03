@@ -575,7 +575,7 @@
 ;;   And before returning, restores current shell as fg process group.
 (define (sh-fg job-or-id)
    (job-wait/id+raise 'sh-fg job-or-id
-                (sh-wait-flags foreground-pgid continue-if-stopped wait-until-stopped-or-finished)))
+     (sh-wait-flags foreground-pgid continue-if-stopped wait-until-stopped-or-finished)))
 
 
 ;; General function to resume and optionally wait for a job.
