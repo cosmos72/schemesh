@@ -40,7 +40,7 @@
               (make-irritants-condition (list (get-thread-id) signal-name)))))))))
 
 
-(define (raise-cannot-start-jobs-from-secondary-thread)
+(define (raise-threaded-message-condition msg)
   (meta-cond
     ((threaded?)
       (call/cc
@@ -50,7 +50,8 @@
               (make-error)
               (make-continuation-condition k)
               (make-non-continuable-violation)
-              (make-message-condition "starting jobs from secondary thread is not supported. consider using a subprocess instead"))))))))
+              (make-message-condition msg))))))))
+
 
 
 (define (signal-handler-sigint sig)
@@ -130,7 +131,8 @@
 ;; Internal functions called by (sh-start)
 (define (job-start caller job options)
   (unless (main-thread?)
-    (raise-cannot-start-jobs-from-secondary-thread))
+    (raise-threaded-message-condition
+      "starting jobs from secondary thread is not supported. consider using a subprocess instead"))
 
   ;b (debugf "job-start ~a ~s" job options)
   (options-validate caller options)
@@ -470,6 +472,10 @@
 ;;
 ;; Returns updated job status.
 (define (job-wait caller job wait-flags)
+  (unless (main-thread?)
+    (raise-threaded-message-condition
+      "waiting for jobs from secondary thread is not supported"))
+
   (when (job-started? job)
     (parameterize ((waiting-for-job job))
       (let %loop ()
