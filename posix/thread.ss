@@ -7,10 +7,10 @@
 
 #!r6rs
 
-;; define all the bindings present in Chez Scheme 10.0.0 with threads
+;; define all the thread-related bindings present in Chez Scheme 10.0.0 with threads
 ;; also on older versions and also on non-threaded builds,
 ;;
-;; plus improved function (thread-join) that now accepts optional timeout
+;; plus improved function (thread-join) that is interruptible and accepts optional timeout
 ;; plus some useful functions (get-thread) (thread-count) (thread-find) (thread-id) (threads)
 
 (library (schemesh posix thread (0 9 0))
@@ -203,10 +203,8 @@
               (check-interrupts)
               ; sleep is interruptible
               (sleep
-                (if deadline
-                  (let ((max-timeout (time-difference deadline now)))
-                    (if (time<=? short-timeout max-timeout) short-timeout max-timeout))
-                  short-timeout))
+                (let ((max-timeout (time-difference deadline now)))
+                  (if (time<=? short-timeout max-timeout) short-timeout max-timeout)))
               (%%thread-timed-join (current-time 'time-utc)))))))))
 
 
