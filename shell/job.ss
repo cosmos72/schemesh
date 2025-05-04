@@ -93,15 +93,15 @@
                        current-input-port current-output-port current-error-port
                        current-time debug debug-condition debug-on-exception display-condition
                        foreign-procedure format fx1+ fx1- get-thread-id hashtable-cells include inspect
-                       list-copy logand logbit? make-continuation-condition make-format-condition meta meta-cond
-                       open-fd-output-port parameterize port-closed? procedure-arity-mask record-writer
-                       register-signal-handler reverse! sort! string-copy! string-truncate!
-                       textual-port-output-index threaded? void)
+                       keyboard-interrupt-handler list-copy logand logbit? make-continuation-condition
+                       make-format-condition meta meta-cond open-fd-output-port parameterize port-closed?
+                       procedure-arity-mask record-writer register-signal-handler reverse! sort!
+                       string-copy! string-truncate! textual-port-output-index threaded? void)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh conversions)
     (schemesh posix)
-    (only (schemesh posix thread)      thread-count)
+    (only (schemesh posix thread)      thread-count thread-signal-handle)
     (schemesh port redir)
     (schemesh port stdio)
     (only (schemesh screen vline)      vline-display/bytespan)

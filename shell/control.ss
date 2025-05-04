@@ -94,8 +94,10 @@
   ;; ignores SIGINT in secondary threads.
   ;;
   ;; => use (register-signal-handler) also for SIGINT
-
-  ;; (keyboard-interrupt-handler signal-handler-sigint)
+  ;;
+  ;; also, (schemesh posix thread) expects (keyboard-signal-handler)
+  ;; to be set to (thread-signal-handle)
+  (keyboard-interrupt-handler thread-signal-handle)
 
   (for-list ((name    '(sigchld sigint sigquit sigtstp))
              (handler (list signal-handler-sigchld

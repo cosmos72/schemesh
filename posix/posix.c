@@ -20,7 +20,7 @@
 #include "../eval.h"                  /* eval() */
 
 #include <dirent.h> /* opendir(), readdir(), closedir() */
-#include <errno.h>  /* EINVAL, EIO, errno */
+#include <errno.h>  /* EINVAL, EIO, ESRCH, errno */
 #include <fcntl.h>
 #include <limits.h>
 #include <poll.h>
@@ -99,6 +99,10 @@ static int c_errno_enoent(void) {
 
 static int c_errno_enotdir(void) {
   return -ENOTDIR;
+}
+
+static int c_errno_esrch(void) {
+  return -ESRCH;
 }
 
 static const char* c_strerror(int err) {
@@ -1922,6 +1926,7 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_errno_einval", &c_errno_einval);
   Sregister_symbol("c_errno_enoent", &c_errno_enoent);
   Sregister_symbol("c_errno_enotdir", &c_errno_enotdir);
+  Sregister_symbol("c_errno_esrch", &c_errno_esrch);
 
   Sregister_symbol("c_strerror_string", &c_strerror_string);
 
