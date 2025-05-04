@@ -183,11 +183,14 @@
 
 
 ;; extract and return the sthread parameter from specified thread-context tc,
-;; or #f if tc is zero or sthread parameter is not set
+;; or #f if tc is zero or sthread parameter is not set or is inherited from a parent thread.
 (define ($tc-sthread tc)
   (if (eqv? 0 tc)
     #f
-    (vector-ref ($tc-field 'parameters tc) (car sthread-parameter-index))))
+    (let ((sthread (vector-ref ($tc-field 'parameters tc) (car sthread-parameter-index))))
+      (if (and (sthread? sthread) (eqv? ($tc-id tc) (sthread-id sthread)))
+        sthread
+        #f))))
 
 
 ;; set the sthread parameter of specified thread-context tc.
@@ -198,12 +201,11 @@
 
 (define (thread-register-self)
   (with-tc-mutex
-    (let ((tc ($tc)))
-      (unless (eqv? 0 tc)
-        (let ((thread-id   ($tc-field 'threadno tc))
-              (old-sthread ($tc-sthread tc)))
-          (unless (and old-sthread (eqv? thread-id (sthread-id old-sthread)))
-            ($tc-sthread-set! tc (new-sthread thread-id))))))))
+    (let* ((tc          ($tc))
+           (thread-id   ($tc-id tc))
+           (old-sthread ($tc-sthread tc)))
+      (unless old-sthread
+        ($tc-sthread-set! tc (new-sthread thread-id))))))
 
 
 (define (thread-unregister-self)
@@ -297,12 +299,16 @@
 ;; NOTE: the only supported signal names are 'sigint 'sigtstp 'sigcont
 (define ($thread-kill t signal-name)
   (let* ((tc      ($thread-tc t))
-         (id      ($tc-id tc))
          (sthread ($tc-sthread tc)))
     ;; check that sthread is set and not inherited from a parent thread
-    (if (and (sthread? sthread) (eqv? id (sthread-id sthread)))
+    (if sthread
       ($tc-kill tc sthread signal-name)
-      c-errno-einval)))
+      (begin
+        ;; trigger the thread's call to (thread-signal-apply)
+        ;; so that it registers its own sthread object
+        ($tc-field 'keyboard-interrupt-pending tc #t)
+        ($tc-field 'something-pending tc #t)
+        c-errno-einval))))
 
 
 ;; send a signal to specified thread-context tc.
@@ -334,10 +340,12 @@
 ;; should be called by (keyboard-interrupt-handler) in every secondary thread.
 (define (thread-signal-apply)
   (with-tc-mutex
-    (let* ((tc ($tc))
+    (let* ((tc      ($tc))
            (sthread ($tc-sthread tc)))
-      (when (sthread? sthread)
-        ($tc-signal-apply tc sthread)))))
+      (if (sthread? sthread)
+        ($tc-signal-apply tc sthread)
+        ;; store missing sthread into tc
+        ($tc-sthread-set! tc (new-sthread ($tc-id tc)))))))
 
 
 ;; implementation of (thread-signal-apply)
