@@ -304,7 +304,8 @@
   (let ((str (make-string (vline-length line))))
     (vline-iterate line
       (lambda (i c)
-        (string-set! str i (vcell->char c))))))
+        (string-set! str i (vcell->char c))))
+    str))
 
 
 ;; write colored vline to bytespan, NOT escaping special characters

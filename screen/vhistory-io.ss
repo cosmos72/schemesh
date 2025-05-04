@@ -44,10 +44,13 @@
         (success? #f))
     (try
         ;; write to a temporary file "history.txt.PID"
-        ;; TODO: implement our own (open-file-binary-output-port) and use it
+        ;; TODO: debug our own (file->port)
+        ;; (set! port (file->port temp-path 'write '(create)))
         (set! port (open-file-output-port temp-path (file-options no-fail) (buffer-mode block)))
         (set! remove-temp-path? #t)
+        ;;2 (debugf "> vhistory-save-to-port ~s" temp-path)
         (vhistory-save-to-port hist port)
+        ;;2 (debugf "< vhistory-save-to-port ~s" temp-path)
         (close-port port)
         (set! port #f)
         ;; atomically rename "history.txt.PID" -> "history.txt"
@@ -55,7 +58,14 @@
           (set! remove-temp-path? #f)
           (set! success? #t))
       (catch (ex)
-        (void)))
+        #|
+        (let ((port (current-error-port)))
+          (put-string port "; error saving ")
+          (put-string port temp-path)
+          (display-condition ex port)
+          (newline port)
+          (flush-output-port port))
+        #f))
 
     (when port
       (close-port port))
@@ -88,7 +98,6 @@
 ;; return #t if successful, otherwise return #f
 (define (vline-save-to-port line port)
   (put-bytevector port (string->utf8b (string-replace/char! (vline->string line) #\newline #\nul))))
-
 
 
 ;; load vhistory from file (vhistory-path hist)
