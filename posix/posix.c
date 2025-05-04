@@ -1506,6 +1506,17 @@ static int c_pgid_set(int pid, int existing_pgid) {
  *                       and move process into it
  */
 static int c_fork_pid(ptr vector_fds_redirect, int existing_pgid) {
+  /**
+   * fix issue #26: all open FILE* streams, such as stdout and stderr,
+   * must be flushed before fork(), because any buffered data will survive the fork()
+   * and will be flushed when the forked child exits:
+   *
+   * buffered data may be written to the wrong destination
+   * (the child's file descriptors may be redirected)
+   * and possibly multiple times: one per forked child.
+   */
+  (void)fflush(NULL); /* flushes ALL open output streams */
+
   const int pid = fork();
   switch (pid) {
     case -1: /* fork() failed */
@@ -1588,7 +1599,13 @@ static int c_cmd_spawn_or_exec(ptr vector_of_bytevector0_cmdline,
   fprintf(stdout, "c_cmd_spawn %s ...\n", argv[0]);
   fflush(stdout);
 #endif
+
   if (is_spawn) {
+    /**
+     * issue #26: no need to call fflush(NULL) here,
+     * the child will immediately execv() or _exit(),
+     * and neither of them flushes open FILE* streams
+     */
     err = fork();
   } else {
     err = 0; /* pretend we are already in the child */
@@ -1610,7 +1627,7 @@ static int c_cmd_spawn_or_exec(ptr vector_of_bytevector0_cmdline,
     case 0: { /* child */
       /*
        * only call async-safe functions until execv(), in case parent process is multi-threaded
-       * and malloc() or other global resources  were locked or in an inconsistent state
+       * and malloc() or other global resources were locked or in an inconsistent state
        * (in the middle of a call) when fork() was executed.
        */
       char** saved_environ = environ;
@@ -1644,7 +1661,8 @@ static int c_cmd_spawn_or_exec(ptr vector_of_bytevector0_cmdline,
       }
     child_out:
       if (is_spawn) {
-        exit(err < 0 ? 1 : 127);
+        /** not exit(), because it would flush a fork()ed copy of open FILE* streams */
+        _exit(err < 0 ? 1 : 127);
       }
       if (envp) {
         environ = saved_environ;
