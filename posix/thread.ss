@@ -25,11 +25,10 @@
   (import
     (rnrs)
     (only (chezscheme)            $primitive add-duration current-time eval foreign-procedure get-thread-id import include
-                                  keyboard-interrupt-handler library-exports logbit? make-continuation-condition make-format-condition
-                                  make-parameter make-time meta-cond
-                                  procedure-arity-mask sleep thread? threaded? time? time<=? time-difference time-type void)
+                                  keyboard-interrupt-handler library-exports logbit? meta-cond make-time procedure-arity-mask
+                                  sleep thread? threaded? time? time<=? time-difference time-type void)
     (only (schemesh bootstrap)    assert* assert-not* catch check-interrupts raise-errorf until trace-define try)
-    (only (schemesh posix signal) signal-name->number signal-raise)
+    (only (schemesh posix signal) raise-condition-received-signal signal-name->number signal-raise)
     (only (schemesh posix status) running stopped))
 
 

@@ -365,14 +365,5 @@
 (define (raise-thread-interrupted caller thread-id signal-name)
   (meta-cond
     ((threaded?)
-      (call/cc
-        (lambda (k)
-          (raise
-            (condition
-              (make-error)
-              (make-continuation-condition k)
-              (make-non-continuable-violation)
-              (make-who-condition caller)
-              (make-format-condition)
-              (make-message-condition "thread ~s interrupted by signal ~s")
-              (make-irritants-condition (list thread-id signal-name)))))))))
+      (raise-condition-received-signal caller signal-name "thread ~s interrupted by signal ~s"
+        thread-id signal-name))))
