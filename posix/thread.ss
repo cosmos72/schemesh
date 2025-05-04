@@ -21,28 +21,48 @@
 (library (schemesh posix thread (0 9 0))
   (export fork-thread get-initial-thread get-thread get-thread-id
           thread thread? threaded? thread-alive? thread-count thread-find thread-id thread-initial-bindings
-          thread-join thread-kill thread-preserve-ownership! threads)
+          thread-join thread-kill thread-preserve-ownership! thread-status threads)
   (import
     (rnrs)
     (only (chezscheme)            $primitive add-duration current-time eval foreign-procedure get-thread-id import include
-                                  library-exports logbit? make-parameter make-time meta-cond procedure-arity-mask
-                                  sleep thread? threaded? time? time<=? time-difference time-type void)
-    (only (schemesh bootstrap)    assert* assert-not* catch check-interrupts raise-errorf until try)
-    (only (schemesh posix signal) signal-name->number signal-raise))
+                                  keyboard-interrupt-handler library-exports logbit? make-continuation-condition make-format-condition
+                                  make-parameter make-time meta-cond
+                                  procedure-arity-mask sleep thread? threaded? time? time<=? time-difference time-type void)
+    (only (schemesh bootstrap)    assert* assert-not* catch check-interrupts raise-errorf until trace-define try)
+    (only (schemesh posix signal) signal-name->number signal-raise)
+    (only (schemesh posix status) running stopped))
 
 
 
+;; return number of existing threads.
 ;; must be called with locked $tc-mutex
-(define %locked-thread-tc ($primitive $thread-tc))
+(define $threads (foreign-procedure "c_threads" () ptr))
 
+
+;; return thread-context i.e. tc of specified thread
 ;; must be called with locked $tc-mutex
-(define %locked-threads (foreign-procedure "c_threads" () ptr))
+(define $thread-tc ($primitive $thread-tc))
 
+
+;; return current thread-context i.e. tc of current thread
 ;; must be called with locked $tc-mutex
-(define (%locked-thread-id thread)
-  (let ((tc (%locked-thread-tc thread)))
-    (if (eqv? tc 0) #f (($primitive $tc-field) 'threadno tc))))
+(define $tc ($primitive $tc))
 
+
+;; procedure to access thread-context fields by name
+(define $tc-field ($primitive $tc-field))
+
+
+;; return thread-id of specified thread-context tc, or #f if tc is not set.
+;; must be called with locked $tc-mutex
+(define ($tc-id tc)
+  (if (eqv? tc 0) #f ($tc-field 'threadno tc)))
+
+
+;; return thread-id of specified thread, or #f if thread is destroyed.
+;; must be called with locked $tc-mutex
+(define ($thread-id thread)
+  ($tc-id ($thread-tc thread)))
 
 
 (meta-cond
@@ -58,8 +78,8 @@
 ;; the returned value is used.
 (define (threads)
   (with-tc-mutex
-    ;; copy and reverse the list returned by (%locked-threads)
-    (let %threads ((ret '()) (tl (%locked-threads)))
+    ;; copy and reverse the list returned by ($threads)
+    (let %threads ((ret '()) (tl ($threads)))
       (if (null? tl)
         ret
         (%threads (cons (car tl) ret) (cdr tl))))))
@@ -69,7 +89,7 @@
 (define (thread-id thread)
   (assert* 'thread-id (thread? thread))
   (with-tc-mutex
-    (%locked-thread-id thread)))
+    ($thread-id thread)))
 
 
 ;; return #t if thread is running, or #f if it's destroyed
@@ -114,7 +134,7 @@
          chez:get-initial-thread))
     (else
       (with-tc-mutex
-        (car (%locked-threads))))))
+        (car ($threads))))))
 
 
 (define thread-preserve-ownership!

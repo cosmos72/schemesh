@@ -27,16 +27,7 @@
 #define C_DEBUG_WRITE(fd, str) ((void)0)
 #endif
 
-static ATOMIC int c_sigwinch_received = 0;
-
-static void c_sigwinch_handler(int sig_num) {
-  (void)sig_num;
-  atomic_store(&c_sigwinch_received, 1);
-}
-
-static ptr c_signal_consume_sigwinch(void) {
-  return atomic_exchange(&c_sigwinch_received, 0) ? Strue : Sfalse;
-}
+/* ------------------------------------ signals handling ---------------------------------------- */
 
 static const int signals_tohandle[] = {
     SIGCHLD, /* c_signals_setdefault() assumes SIGCHLD is the first */
@@ -86,7 +77,7 @@ static int c_signals_init(void) {
   size_t i = 0;
 
   for (i = 0; i < N_OF(signals_tohandle); i++) {
-    /* cannot ignore SIGCHLD, it would break wait4() */
+    /* cannot ignore SIGCHLD, it would break waitpid() */
     action.sa_handler = i == 0 ? SIG_DFL : SIG_IGN;
     if (sigaction(signals_tohandle[i], &action, NULL) < 0) {
       return c_init_failed(labels[i]);
@@ -109,6 +100,42 @@ static int c_signals_setdefault(void) {
   return 0;
 }
 
+/* ------------------------------------ SIGCONT handling ---------------------------------------- */
+
+/**
+ * do-nothing handler for SIGCONT
+ * used to react to SIGCONT in secondary threads and interrupt blocking system calls
+ */
+static void c_sigcont_handler(int sig_num) {
+  (void)sig_num;
+}
+
+/**
+ * install a do-nothing signal handler for SIGCONT.
+ * used to react to SIGCONT in secondary threads and interrupt blocking system calls
+ */
+static int c_signal_init_sigcont(void) {
+  struct sigaction action = {};
+  action.sa_handler       = &c_sigcont_handler;
+  if (sigaction(SIGCONT, &action, NULL) < 0) {
+    return c_init_failed("sigaction(SIGCONT)");
+  }
+  return 0;
+}
+
+/* ------------------------------------ SIGWINCH handling --------------------------------------- */
+
+static ATOMIC int c_sigwinch_received = 0;
+
+static void c_sigwinch_handler(int sig_num) {
+  (void)sig_num;
+  atomic_store(&c_sigwinch_received, 1);
+}
+
+static ptr c_signal_consume_sigwinch(void) {
+  return atomic_exchange(&c_sigwinch_received, 0) ? Strue : Sfalse;
+}
+
 static struct sigaction c_sigwinch_saved_action;
 
 static int c_signal_init_sigwinch(void) {
@@ -127,6 +154,8 @@ static int c_signal_restore_sigwinch(void) {
   }
   return 0;
 }
+
+/* ------------------------------------ signal utilities ---------------------------------------- */
 
 static int c_signal_setdefault(int sig) {
   struct sigaction action = {};
@@ -234,6 +263,8 @@ static ptr c_signals_list(void) {
   return ret;
 }
 
+/* ------------------------------------- sleep -------------------------------------------------- */
+
 /**
  * Pause for user-specified duration.
  *
@@ -276,7 +307,11 @@ static int c_countdown(ptr duration_inout) {
   return 1;
 }
 
-static void c_register_c_functions_posix_signals(void) {
+static int c_register_c_functions_posix_signals(void) {
+  int err;
+  if ((err = c_signal_init_sigcont()) < 0) {
+    return err;
+  }
   Sregister_symbol("c_countdown", &c_countdown);
   Sregister_symbol("c_signals_list", &c_signals_list);
   Sregister_symbol("c_signal_setblocked", &c_signal_setblocked);
@@ -285,6 +320,7 @@ static void c_register_c_functions_posix_signals(void) {
   Sregister_symbol("c_signal_consume_sigwinch", &c_signal_consume_sigwinch);
   Sregister_symbol("c_signal_init_sigwinch", &c_signal_init_sigwinch);
   Sregister_symbol("c_signal_restore_sigwinch", &c_signal_restore_sigwinch);
+  return 0;
 }
 
 #undef N_OF

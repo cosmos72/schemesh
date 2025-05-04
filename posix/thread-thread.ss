@@ -14,6 +14,10 @@
     chez:make-thread-parameter))
 
 
+;; the global Chez Scheme mutex protecting thread creation and destruction
+(define $tc-mutex ($primitive $tc-mutex))
+
+
 ;; acquire mutex, execute body1 body2 ... finally release mutex
 (define-syntax with-mutex
   (let ()
@@ -25,7 +29,7 @@
 (define-syntax with-tc-mutex*
   (syntax-rules ()
     ((_ body1 body2 ...)
-      (with-mutex ($primitive $tc-mutex)
+      (with-mutex $tc-mutex
         body1 body2 ...))))
 
 
@@ -36,9 +40,9 @@
       (let ()
         (import (only (chezscheme) enable-interrupts disable-interrupts mutex-acquire mutex-release))
         (dynamic-wind
-          (lambda () (disable-interrupts) (mutex-acquire ($primitive $tc-mutex)))
+          (lambda () (disable-interrupts) (mutex-acquire $tc-mutex))
           (lambda () body1 body2 ...)
-          (lambda () (mutex-release ($primitive $tc-mutex)) (enable-interrupts)))))))
+          (lambda () (mutex-release $tc-mutex) (enable-interrupts)))))))
 
 
 ;; return current number of threads.
@@ -57,11 +61,11 @@
       (assert* 'thread-find (integer? thread-id))
       (assert* 'thread-find (exact? thread-id)))
     (with-tc-mutex
-      (let %thread-find ((tl (%locked-threads)))
+      (let %thread-find ((tl ($threads)))
         (cond
           ((null? tl)
             #f)
-          ((eqv? thread-id (%locked-thread-id (car tl)))
+          ((eqv? thread-id ($thread-id (car tl)))
             (car tl))
           (else
             (%thread-find (cdr tl))))))))
@@ -87,16 +91,15 @@
       (let ()
         (import (only (chezscheme) condition-wait))
         (with-tc-mutex*
-          (let %%thread-join ((tc-cond  ($primitive $terminated-cond))
-                              (tc-mutex ($primitive $tc-mutex)))
-            (unless (eqv? 0 (%locked-thread-tc thread))
+          (let %%thread-join (($tc-cond ($primitive $terminated-cond)))
+            (unless (eqv? 0 ($thread-tc thread))
               (check-interrupts)
               ;; condition-wait is not interruptible, use a short timeout
-              (condition-wait tc-cond tc-mutex short-timeout)
-              (%%thread-join tc-cond tc-mutex))))))
+              (condition-wait $tc-cond $tc-mutex short-timeout)
+              (%%thread-join $tc-cond))))))
     (else
       ;; there's no $terminated-cond we can wait for
-      (until (eqv? 0 (with-tc-mutex* (%locked-thread-tc thread)))
+      (until (eqv? 0 (with-tc-mutex* ($thread-tc thread)))
         (check-interrupts)
         (sleep short-timeout)))) ; sleep is interruptible
   (void))
@@ -121,26 +124,25 @@
         (let ()
           (import (only (chezscheme) condition-wait))
           (with-tc-mutex*
-            (let %%thread-timed-join ((tc-cond  ($primitive $terminated-cond))
-                                      (tc-mutex ($primitive $tc-mutex))
+            (let %%thread-timed-join (($tc-cond ($primitive $terminated-cond))
                                       (now      (current-time 'time-utc)))
               (cond
-                ((eqv? 0 (%locked-thread-tc thread))
+                ((eqv? 0 ($thread-tc thread))
                   (void))
                 ((time<=? deadline now)
                   #f)
                 (else
                   (check-interrupts)
                   ;; condition-wait is not interruptible, use a short timeout
-                  (condition-wait tc-cond tc-mutex
+                  (condition-wait $tc-cond $tc-mutex
                     (let ((short-deadline (add-duration now short-timeout)))
                       (if (time<=? short-deadline deadline) short-deadline deadline)))
-                  (%%thread-timed-join tc-cond tc-mutex (current-time 'time-utc))))))))
+                  (%%thread-timed-join $tc-cond (current-time 'time-utc))))))))
       (else
         ;; there's no $terminated-cond we can wait for
         (let %%thread-timed-join ((now (current-time 'time-utc)))
           (cond
-            ((eqv? 0 (with-tc-mutex* (%locked-thread-tc thread)))
+            ((eqv? 0 (with-tc-mutex* ($thread-tc thread)))
               (void))
             ((time<=? deadline now)
               #f)
@@ -153,32 +155,70 @@
               (%%thread-timed-join (current-time 'time-utc)))))))))
 
 
+(define c-errno-einval ((foreign-procedure "c_errno_einval" () int)))
+
 (define c-phtread-self (foreign-procedure "c_pthread_self" () uptr))
 
 (define c-signal-setblocked! (foreign-procedure "c_signal_setblocked" (int int) int))
 
-;; hashtable thread-id -> pthread_t
-(define pthread-ids
-  (let ((ht (make-eqv-hashtable)))
-    ;; register caller's thread pthread_id
-    (hashtable-set! ht (get-thread-id) (c-phtread-self))
-    ht))
+
+;; helper containing per-thread data: thread-id, pthread_t, and action protected by a mutex and condition
+(define-record-type sthread
+  (fields
+    id ; thread-id, needed to check for sthread inherited from parent thread
+    pthread-id
+    (mutable action) ; one of: 'sigint 'sigtstp 'sigcont
+    (mutable status) ; a status object
+    changed)         ; condition
+  (nongenerative sthread-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
-(define pthread-ids-mutex
-  (let ()
-    (import (only (chezscheme) make-mutex))
-    (make-mutex 'pthread-ids)))
+(define (new-sthread thread-id)
+  (let ((name (string->symbol (string-append "sthread-" (number->string thread-id)))))
+    (import (only (chezscheme) make-condition))
+    (make-sthread thread-id (c-phtread-self) 'sigcont (running) (make-condition name))))
+
+
+(define sthread-parameter-index (($primitive $allocate-thread-parameter) #f))
+
+
+;; extract and return the sthread parameter from specified thread-context tc,
+;; or #f if tc is zero or sthread parameter is not set
+(define ($tc-sthread tc)
+  (if (eqv? 0 tc)
+    #f
+    (vector-ref ($tc-field 'parameters tc) (car sthread-parameter-index))))
+
+
+;; set the sthread parameter of specified thread-context tc.
+(define ($tc-sthread-set! tc sthread-obj)
+  (unless (eqv? 0 tc)
+    (vector-set! ($tc-field 'parameters tc) (car sthread-parameter-index) sthread-obj)))
 
 
 (define (thread-register-self)
-  (with-mutex pthread-ids-mutex
-    (hashtable-set! pthread-ids (get-thread-id) (c-phtread-self))))
+  (with-tc-mutex
+    (let ((tc ($tc)))
+      (unless (eqv? 0 tc)
+        (let ((thread-id   ($tc-field 'threadno tc))
+              (old-sthread ($tc-sthread tc)))
+          (unless (and old-sthread (eqv? thread-id (sthread-id old-sthread)))
+            ($tc-sthread-set! tc (new-sthread thread-id))))))))
 
 
 (define (thread-unregister-self)
-  (with-mutex pthread-ids-mutex
-    (hashtable-delete! pthread-ids (get-thread-id))))
+  (with-tc-mutex
+    ($tc-sthread-set! ($tc) #f)))
+
+
+;; return status of specified thread, i.e. a status object among (running) (stopped) or (void)
+(define (thread-status thread)
+  (assert* 'thread-status (thread? thread))
+  (with-tc-mutex
+    (let ((sthread ($tc-sthread ($thread-tc thread))))
+      (if (sthread? sthread)
+        (sthread-status sthread)
+        (void)))))
 
 
 ;; in newly created thread, call (param (thunk)) for each alist element (param . thunk) in (thread-initial-bindings)
@@ -206,49 +246,125 @@
 
   (chez:fork-thread
     (lambda ()
-      ;; allow receiving SIGINT, SIGQUIT and SIGTSTP in new thread
-      (c-signal-setblocked! (signal-name->number 'sigint)  0)
-      (c-signal-setblocked! (signal-name->number 'sigquit) 0)
-      (c-signal-setblocked! (signal-name->number 'sigtstp) 0)
-
-      ;; block SIGCHLD in new thread, we need to receive it in main thread
+      ;; block SIGINT, SIGQUIT, SIGTSTP and SIGCHLD in new thread:
+      ;; we need to receive them in main thread
+      (c-signal-setblocked! (signal-name->number 'sigint)  1)
+      (c-signal-setblocked! (signal-name->number 'sigquit) 1)
+      (c-signal-setblocked! (signal-name->number 'sigtstp) 1)
       (c-signal-setblocked! (signal-name->number 'sigchld) 1)
 
+      ;; allow receiving SIGCONT in new thread
+      (c-signal-setblocked! (signal-name->number 'sigcont) 0)
+
       (apply-thread-initial-bindings)
+      (keyboard-interrupt-handler thread-signal-apply)
       (dynamic-wind
         thread-register-self
         thunk
         thread-unregister-self))))
 
 
-;; send a POSIX signal to specified thread or thread-id.
-;; signal-name is optional and defaults to 'sigint
+;; send a signal to specified thread or thread-id.
+;; signal-name is optional and defaults to 'sigint.
 ;;
-;; Returns (void) if successful, or < 0 if thread or signal-name are unknown,
-;; or if C function pthread_kill() fails with C errno != 0.
+;; return (void) if successfull, otherwise return c_errno() < 0
 ;;
-;; WARNING: this currently works only on Chez Scheme <= 10.0.0
-;; because version 10.1.0 forwards signals to the main thread, see
-;;   https://github.com/cisco/ChezScheme/pull/813
-;;   https://github.com/cisco/ChezScheme/issues/943
+;; NOTE: the only supported signal names are 'sigint 'sigtstp 'sigcont
 (define thread-kill
+  (case-lambda
+    ((thread-or-id signal-name)
+      (assert* 'thread-kill (memq signal-name '(sigint sigtstp sigcont)))
+      (let* ((t   (if (thread? thread-or-id) thread-or-id (thread thread-or-id)))
+             (ret (with-tc-mutex* ($thread-kill t signal-name))))
+        (if (sthread? ret)
+          (let ()
+            (import (only (chezscheme) condition-broadcast))
+            (condition-broadcast (sthread-changed ret))
+            (void))
+          ret)))
+    ((thread-or-id)
+      (thread-kill thread-or-id 'sigint))))
+
+
+;; send a signal to specified thread t.
+;; must be called with locked $tc-mutex.
+;;
+;; if successful return updated sthread object,
+;; otherwise return c_errno() < 0
+;;
+;; NOTE: the only supported signal names are 'sigint 'sigtstp 'sigcont
+(define ($thread-kill t signal-name)
+  (let* ((tc      ($thread-tc t))
+         (id      ($tc-id tc))
+         (sthread ($tc-sthread tc)))
+    ;; check that sthread is set and not inherited from a parent thread
+    (if (and (sthread? sthread) (eqv? id (sthread-id sthread)))
+      ($tc-kill tc sthread signal-name)
+      c-errno-einval)))
+
+
+;; send a signal to specified thread-context tc.
+;; must be called with locked $tc-mutex.
+;;
+;; if successful return updated sthread object,
+;; otherwise return c_errno() < 0
+;;
+;; NOTE: the only supported signal names are 'sigint 'sigtstp 'sigcont
+(define $tc-kill
   (let ((c-pthread-kill (foreign-procedure "c_pthread_kill" (uptr int) int))
-        (c-errno-einval ((foreign-procedure "c_errno_einval" () int))))
-    (case-lambda
-      ((thread-or-id signal-name)
-        (let* ((id (if (thread? thread-or-id)
-                     (thread-id thread-or-id)
-                     (begin ; check that desired thread exists
-                       (thread thread-or-id)
-                       thread-or-id)))
-               (signal-number (signal-name->number signal-name)))
-          (if (and id (fixnum? signal-number))
-            (with-mutex pthread-ids-mutex
-              (let ((pthread-id (hashtable-ref pthread-ids id #f)))
-                (if pthread-id
-                  (let ((ret (c-pthread-kill pthread-id signal-number)))
-                    (if (eqv? 0 ret) (void) ret))
-                  c-errno-einval)))
-            c-errno-einval)))
-      ((thread-or-id)
-        (thread-kill thread-or-id 'sigint)))))
+        (sigcont        (signal-name->number 'sigcont)))
+    (lambda (tc sthread signal-name)
+      ;; set sthread-action indicating what thread should do
+      (sthread-action-set! sthread signal-name)
+      ;; set tc fields indicating a pending keyboard interrupt.
+      ;; we cannot emulate any other POSIX signal,
+      ;; because Chez Scheme ($event) checks for signals queued by C signal handlers,
+      ;; and we have no simple way to enqueue them.
+      ($tc-field 'keyboard-interrupt-pending tc #t)
+      ($tc-field 'something-pending tc #t)
+      ;; send SIGCONT to thread, to interrupt any blocking system call
+      (c-pthread-kill (sthread-pthread-id sthread) sigcont)
+      ;; success, return sthread
+      sthread)))
+
+
+;; execute the action corresponding to signal sent to current thread by (thread-kill)
+;; should be called by (keyboard-interrupt-handler) in every secondary thread.
+(define (thread-signal-apply)
+  (with-tc-mutex
+    (let* ((tc ($tc))
+           (sthread ($tc-sthread tc)))
+      (when (sthread? sthread)
+        ($tc-signal-apply tc sthread)))))
+
+
+;; implementation of (thread-signal-apply)
+(define ($tc-signal-apply tc sthread)
+  (let ((action (sthread-action sthread)))
+    (import (only (chezscheme) condition-wait))
+    (case (sthread-action sthread)
+      ((sigint)
+        (sthread-status-set! sthread (running))
+        (raise-thread-interrupted 'thread-signal-apply ($tc-id tc) action))
+      ((sigtstp)
+        (sthread-status-set! sthread (stopped 'sigtstp))
+        (condition-wait (sthread-changed sthread) $tc-mutex)
+        ($tc-signal-apply tc sthread))
+      (else
+        (sthread-status-set! sthread (running))))))
+
+
+(define (raise-thread-interrupted caller thread-id signal-name)
+  (meta-cond
+    ((threaded?)
+      (call/cc
+        (lambda (k)
+          (raise
+            (condition
+              (make-error)
+              (make-continuation-condition k)
+              (make-non-continuable-violation)
+              (make-who-condition caller)
+              (make-format-condition)
+              (make-message-condition "thread ~s interrupted by signal ~s")
+              (make-irritants-condition (list thread-id signal-name)))))))))

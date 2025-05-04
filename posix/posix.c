@@ -1889,7 +1889,6 @@ static int c_pthread_kill(uptr id, int signal_number) {
 }
 
 static uptr c_pthread_self(void) {
-
   return (uptr)pthread_self();
 }
 
@@ -1911,6 +1910,9 @@ static ptr c_threads(void) {
 int schemesh_register_c_functions_posix(void) {
   int err;
   if ((err = c_tty_init()) < 0) {
+    return err;
+  }
+  if ((err = c_register_c_functions_posix_signals()) < 0) {
     return err;
   }
 
@@ -1976,7 +1978,6 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_file_rename", &c_file_rename);
   Sregister_symbol("c_file_type", &c_file_type);
 
-  c_register_c_functions_posix_signals();
   return 0;
 }
 

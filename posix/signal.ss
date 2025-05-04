@@ -20,7 +20,7 @@
     (only (chezscheme) assertion-violationf foreign-procedure format fx1- integer-length logbit?
                        make-continuation-condition make-format-condition procedure-arity-mask
                        time? time-nanosecond time-second time-type void)
-    (only (schemesh bootstrap)            assert* check-interrupts with-locked-objects)
+    (only (schemesh bootstrap)            assert* check-interrupts debugf with-locked-objects)
     (only (schemesh containers hashtable) alist->eq-hashtable hashtable-transpose))
 
 
@@ -163,7 +163,7 @@
           c-errno-einval)))))
 
 
-(define signal-consume-sigwinch  (foreign-procedure "c_signal_consume_sigwinch" () ptr))
+(define signal-consume-sigwinch (foreign-procedure "c_signal_consume_sigwinch" () ptr))
 
 (define signal-init-sigwinch
   (let ((c-signal-init-sigwinch (foreign-procedure "c_signal_init_sigwinch" () int)))

@@ -75,3 +75,8 @@
           (let ((ret (c-signal-raise signal-number 0))) ; 0 = preserve signal handler
             (if (eqv? 0 ret) (void) ret))
           c-errno-einval)))))
+
+
+(define (thread-status thread)
+  (assert* 'thread-status (thread? thread))
+  (running))

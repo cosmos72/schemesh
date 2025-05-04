@@ -25,21 +25,6 @@
              (else        #t)))
 
 
-(define (raise-thread-interrupted signal-name)
-  (meta-cond
-    ((threaded?)
-      (call/cc
-        (lambda (k)
-          (raise
-            (condition
-              (make-error)
-              (make-continuation-condition k)
-              (make-non-continuable-violation)
-              (make-format-condition)
-              (make-message-condition "thread ~s interrupted by signal ~s")
-              (make-irritants-condition (list (get-thread-id) signal-name)))))))))
-
-
 (define (raise-threaded-message-condition msg)
   (meta-cond
     ((threaded?)
@@ -53,10 +38,9 @@
               (make-message-condition msg))))))))
 
 
-
 (define (signal-handler-sigint sig)
   ;; received a SIGINT, for example from a keyboard CTRL+C.
-  (if (main-thread?)
+  (when (main-thread?)
     ;; SIGINT in main thread:
     ;; if there's a current job running, try to kill it.
     ;; It that fails, and there's a non-trivial break handler,
@@ -64,14 +48,12 @@
     (unless (sh-current-job-kill 'sigint)
       (unless (eq? nop (break-handler))
         (fd-write-retry fd-stderr msg-interrupted)
-        (break)))
-    ;; SIGINT in secondary thread: interrupt the thread
-    (raise-thread-interrupted 'sigint)))
+        (break)))))
 
 
 (define (signal-handler-sigquit sig)
   ;; received a SIGQUIT, for example from a keyboard CTRL+4 or CTRL+\.
-  (if (main-thread?)
+  (when (main-thread?)
     ;; SIGQUIT in main thread:
     ;; if there's a current job running, try to kill it.
     ;; It that fails, and there's a non-trivial break handler,
@@ -79,14 +61,12 @@
     (unless (sh-current-job-kill 'sigquit)
       (unless (eq? nop (break-handler))
         (fd-write-retry fd-stderr msg-quit)
-        (break)))
-    ;; SIGQUIT in secondary thread: interrupt the thread
-    (raise-thread-interrupted 'sigquit)))
+        (break)))))
 
 
 (define (signal-handler-sigtstp sig)
   ;; received a SIGTSTP, for example from a keyboard CTRL+Z.
-  (if (main-thread?)
+  (when (main-thread?)
     ;; SIGTSTP in main thread:
     ;; If there's a sh-expr job running, try to suspend it.
     ;; If that fails and there's a non-trivial break handler,
@@ -94,9 +74,7 @@
     (unless (sh-current-job-suspend 'sigtstp)
       (unless (eq? nop (break-handler))
         (fd-write-retry fd-stderr msg-suspended)
-        (break)))
-    ;; SIGTSTP in secondary thread: interrupt the thread
-    (raise-thread-interrupted 'sigtstp)))
+        (break)))))
 
 
 (define (signal-handler-sigchld sig)
