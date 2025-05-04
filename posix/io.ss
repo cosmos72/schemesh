@@ -42,14 +42,14 @@
   (case b-mode
     ((none) 1) ;; Chez Scheme custom ports do not support zero input-buffer-size
     ((line) 128)
-    (else   4096)))
+    (else   8192)))
 
 
 (define (b-mode->output-buffer-size b-mode)
   (case b-mode
     ((none) 0)
     ((line) 128)
-    (else   4096)))
+    (else   8192)))
 
 
 
@@ -62,7 +62,7 @@
   (when (output-port? port)
     (let ((out-buffer-size (b-mode->output-buffer-size b-mode)))
       (set-binary-port-output-buffer! port (make-bytevector out-buffer-size))
-      (set-binary-port-output-size!   port out-buffer-size)
+      (set-binary-port-output-size!   port (fxmax 0 (fx1- out-buffer-size))) ; leave 1 byte for (put-u8)
       (set-binary-port-output-index!  port 0)))
   port)
 

@@ -44,13 +44,9 @@
         (success? #f))
     (try
         ;; write to a temporary file "history.txt.PID"
-        ;; TODO: debug our own (file->port)
-        ;; (set! port (file->port temp-path 'write '(create)))
-        (set! port (open-file-output-port temp-path (file-options no-fail) (buffer-mode block)))
+        (set! port (file->port temp-path 'write '(create)))
         (set! remove-temp-path? #t)
-        ;;2 (debugf "> vhistory-save-to-port ~s" temp-path)
         (vhistory-save-to-port hist port)
-        ;;2 (debugf "< vhistory-save-to-port ~s" temp-path)
         (close-port port)
         (set! port #f)
         ;; atomically rename "history.txt.PID" -> "history.txt"
