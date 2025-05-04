@@ -65,6 +65,7 @@
           (display-condition ex port)
           (newline port)
           (flush-output-port port))
+        |#
         #f))
 
     (when port
