@@ -44,6 +44,7 @@ static int run_all_tests(void) {
   unsigned long failed_n     = 0;
 
   fprintf(stdout, "%s", "running tests ...\n");
+  fflush(stdout);
 
   schemesh_call1("load", schemesh_Sstring_utf8b("test/test.ss", -1));
   schemesh_eval("(import (schemesh test))");
@@ -54,11 +55,11 @@ static int run_all_tests(void) {
 
   if (failed_n == 0) {
     fprintf(stdout, "all %lu tests passed\n", run_n);
-    return 0;
   } else {
     fprintf(stdout, "%lu tests failed out of %lu\n", failed_n, run_n);
-    return 1;
   }
+  fflush(stdout);
+  return failed_n == 0 ? 0 : 1;
 }
 
 static void handle_scheme_exception(void) {
