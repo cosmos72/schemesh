@@ -101,6 +101,7 @@
     (schemesh containers)
     (schemesh conversions)
     (schemesh posix)
+    (only (schemesh posix thread)      thread-count)
     (schemesh port redir)
     (schemesh port stdio)
     (only (schemesh screen vline)      vline-display/bytespan)

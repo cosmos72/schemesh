@@ -112,6 +112,10 @@
 ;; Create a multijob to later start it.
 ;; Internal function, accepts an optional function to validate each element in children-jobs
 (define (make-multijob kind validate-job-proc start-proc step-proc children-jobs)
+  (unless (main-thread?)
+    (raise-threaded-message-condition
+      "creating jobs from secondary thread is not supported. consider using a subprocess instead"))
+
   (assert* 'make-multijob (symbol? kind))
   (assert* 'make-multijob (procedure? start-proc))
   (when step-proc

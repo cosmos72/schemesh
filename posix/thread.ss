@@ -44,12 +44,6 @@
     (if (eqv? tc 0) #f (($primitive $tc-field) 'threadno tc))))
 
 
-;; return current number of threads.
-;;
-;; Note: threads may be created or destroyed after this call and before
-;; the returned value is used.
-(define thread-count (foreign-procedure "c_thread_count" () uptr))
-
 
 (meta-cond
   ((threaded?)

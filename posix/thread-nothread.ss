@@ -23,6 +23,9 @@
   (identifier-syntax begin))
 
 
+(define (thread-count) 1)
+
+
 (define (thread-find thread-id)
   (and thread-id
     (unless (fixnum? thread-id)
@@ -40,13 +43,13 @@
 (define (%thread-timed-join thread timeout)
   (assert* 'thread-join (thread? thread))
   (assert* 'thread-join (time? timeout))
-  (sleep
-    (cond
-      ((eq? 'time-duration (time-type timeout))
-        timeout)
-      (else
-        (assert* 'thread-join (eq? 'time-utc (time-type timeout)))
-        (time-difference timeout (current-time 'time-utc))))))
+  (sleep (cond
+           ((eq? 'time-duration (time-type timeout))
+             timeout)
+           (else
+             (assert* 'thread-join (eq? 'time-utc (time-type timeout)))
+             (time-difference timeout (current-time 'time-utc)))))
+  #f)
 
 
 (define long-duration (make-time 'time-duration 0 86400))
@@ -54,7 +57,8 @@
 
 (define (%thread-join thread)
   (assert* 'thread-join (thread? thread))
-  (sleep long-duration))
+  (do () (#f)
+    (sleep long-duration)))
 
 
 (define (fork-thread thunk)
@@ -68,5 +72,6 @@
       (assert* 'thread-kill (thread? thread))
       (let ((signal-number (signal-name->number signal-name)))
         (if (fixnum? signal-number)
-          (c-signal-raise signal-number 0) ; 0 = preserve signal handler
+          (let ((ret (c-signal-raise signal-number 0))) ; 0 = preserve signal handler
+            (if (eqv? 0 ret) (void) ret))
           c-errno-einval)))))

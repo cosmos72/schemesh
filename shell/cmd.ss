@@ -364,6 +364,10 @@
 (define spawn-job-procedure
   (let ((c-fork-pid (foreign-procedure "c_fork_pid" (ptr int) int)))
     (lambda (job options proc)
+      (unless (eqv? 1 (thread-count))
+        (raise-threaded-message-condition
+          "cannot create subshells when multiple threads are running. consider moving secondary threads to a subprocess"))
+
       (assert* 'sh-start (sh-job? job))
       (assert* 'sh-start (procedure? proc))
       (assert* 'sh-start (logbit? 2  (procedure-arity-mask proc)))

@@ -41,6 +41,13 @@
           (lambda () (mutex-release ($primitive $tc-mutex)) (enable-interrupts)))))))
 
 
+;; return current number of threads.
+;;
+;; Note: threads may be created or destroyed after this call and before
+;; the returned value is used.
+(define thread-count (foreign-procedure "c_thread_count" () uptr))
+
+
 ;; find and return a thread given its thread-id, which must be #f or an exact integer.
 ;;
 ;; if no thread with specified thread-id is found, return #f
@@ -199,8 +206,14 @@
 
   (chez:fork-thread
     (lambda ()
-      ;; we need to receive SIGCHLD in main thread
+      ;; allow receiving SIGINT, SIGQUIT and SIGTSTP in new thread
+      (c-signal-setblocked! (signal-name->number 'sigint)  0)
+      (c-signal-setblocked! (signal-name->number 'sigquit) 0)
+      (c-signal-setblocked! (signal-name->number 'sigtstp) 0)
+
+      ;; block SIGCHLD in new thread, we need to receive it in main thread
       (c-signal-setblocked! (signal-name->number 'sigchld) 1)
+
       (apply-thread-initial-bindings)
       (dynamic-wind
         thread-register-self
@@ -208,22 +221,29 @@
         thread-unregister-self))))
 
 
-;; send a POSIX signal to specified thread.
+;; send a POSIX signal to specified thread or thread-id.
+;; signal-name is optional and defaults to 'sigint
 ;;
-;; Returns 0 if successful, or < 0 if thread or signal-name are unknown,
+;; Returns (void) if successful, or < 0 if thread or signal-name are unknown,
 ;; or if C function pthread_kill() fails with C errno != 0.
 (define thread-kill
   (let ((c-pthread-kill (foreign-procedure "c_pthread_kill" (uptr int) int))
         (c-errno-einval ((foreign-procedure "c_errno_einval" () int))))
-    (lambda (thread signal-name)
-
-      (assert* 'thread-kill (thread? thread))
-      (let ((id (thread-id thread))
-            (signal-number (signal-name->number signal-name)))
-        (if (and id (fixnum? signal-number))
-          (with-mutex pthread-ids-mutex
-            (let ((pthread-id (hashtable-ref pthread-ids id #f)))
-              (if pthread-id
-                (c-pthread-kill pthread-id signal-number)
-                c-errno-einval)))
-          c-errno-einval)))))
+    (case-lambda
+      ((thread-or-id signal-name)
+        (let* ((id (if (thread? thread-or-id)
+                     (thread-id thread-or-id)
+                     (begin ; check that desired thread exists
+                       (thread thread-or-id)
+                       thread-or-id)))
+               (signal-number (signal-name->number signal-name)))
+          (if (and id (fixnum? signal-number))
+            (with-mutex pthread-ids-mutex
+              (let ((pthread-id (hashtable-ref pthread-ids id #f)))
+                (if pthread-id
+                  (let ((ret (c-pthread-kill pthread-id signal-number)))
+                    (if (eqv? 0 ret) (void) ret))
+                  c-errno-einval)))
+            c-errno-einval)))
+      ((thread-or-id)
+        (thread-kill thread-or-id 'sigint)))))
