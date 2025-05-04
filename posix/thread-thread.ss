@@ -226,6 +226,11 @@
 ;;
 ;; Returns (void) if successful, or < 0 if thread or signal-name are unknown,
 ;; or if C function pthread_kill() fails with C errno != 0.
+;;
+;; WARNING: this currently works only on Chez Scheme <= 10.0.0
+;; because version 10.1.0 forwards signals to the main thread, see
+;;   https://github.com/cisco/ChezScheme/pull/813
+;;   https://github.com/cisco/ChezScheme/issues/943
 (define thread-kill
   (let ((c-pthread-kill (foreign-procedure "c_pthread_kill" (uptr int) int))
         (c-errno-einval ((foreign-procedure "c_errno_einval" () int))))
