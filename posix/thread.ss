@@ -21,7 +21,7 @@
 (library (schemesh posix thread (0 9 0))
   (export fork-thread get-initial-thread get-thread get-thread-id
           thread thread? threaded? thread-alive? thread-count thread-find thread-id thread-initial-bindings
-          thread-join thread-kill thread-preserve-ownership! thread-status threads)
+          thread-join thread-kill thread-preserve-ownership! thread-signal-handle thread-status threads)
   (import
     (rnrs)
     (only (chezscheme)            $primitive add-duration current-time eval foreign-procedure get-thread-id import include

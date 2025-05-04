@@ -201,11 +201,10 @@
 
 (define (thread-register-self)
   (with-tc-mutex
-    (let* ((tc          ($tc))
-           (thread-id   ($tc-id tc))
-           (old-sthread ($tc-sthread tc)))
-      (unless old-sthread
-        ($tc-sthread-set! tc (new-sthread thread-id))))))
+    (let* ((tc      ($tc))
+           (sthread ($tc-sthread tc)))
+      (unless sthread
+        ($tc-sthread-set! tc (new-sthread ($tc-id tc)))))))
 
 
 (define (thread-unregister-self)
@@ -261,7 +260,7 @@
       (c-signal-setblocked! (signal-name->number 'sigcont) 0)
 
       (apply-thread-initial-bindings)
-      (keyboard-interrupt-handler thread-signal-apply)
+      (keyboard-interrupt-handler thread-signal-handle)
       (dynamic-wind
         thread-register-self
         thunk
@@ -298,17 +297,11 @@
 ;;
 ;; NOTE: the only supported signal names are 'sigint 'sigtstp 'sigcont
 (define ($thread-kill t signal-name)
-  (let* ((tc      ($thread-tc t))
-         (sthread ($tc-sthread tc)))
+  (let ((tc ($thread-tc t)))
     ;; check that sthread is set and not inherited from a parent thread
-    (if sthread
-      ($tc-kill tc sthread signal-name)
-      (begin
-        ;; trigger the thread's call to (thread-signal-apply)
-        ;; so that it registers its own sthread object
-        ($tc-field 'keyboard-interrupt-pending tc #t)
-        ($tc-field 'something-pending tc #t)
-        c-errno-einval))))
+    (if (eqv? 0 tc)
+      c-errno-einval
+      ($tc-kill tc ($tc-sthread tc) signal-name))))
 
 
 ;; send a signal to specified thread-context tc.
@@ -322,23 +315,27 @@
   (let ((c-pthread-kill (foreign-procedure "c_pthread_kill" (uptr int) int))
         (sigcont        (signal-name->number 'sigcont)))
     (lambda (tc sthread signal-name)
-      ;; set sthread-action indicating what thread should do
-      (sthread-action-set! sthread signal-name)
+      (when sthread
+        ;; set sthread-action indicating what thread should do
+        (sthread-action-set! sthread signal-name))
       ;; set tc fields indicating a pending keyboard interrupt.
       ;; we cannot emulate any other POSIX signal,
       ;; because Chez Scheme ($event) checks for signals queued by C signal handlers,
       ;; and we have no simple way to enqueue them.
       ($tc-field 'keyboard-interrupt-pending tc #t)
       ($tc-field 'something-pending tc #t)
-      ;; send SIGCONT to thread, to interrupt any blocking system call
-      (c-pthread-kill (sthread-pthread-id sthread) sigcont)
-      ;; success, return sthread
-      sthread)))
+      (if sthread
+        ;; send SIGCONT to pthread, to interrupt any blocking system call
+        (let ((ret (c-pthread-kill (sthread-pthread-id sthread) sigcont)))
+          (if (eqv? 0 ret)
+            sthread ;; success, return sthread
+            ret))
+        c-errno-einval))))
 
 
 ;; execute the action corresponding to signal sent to current thread by (thread-kill)
 ;; should be called by (keyboard-interrupt-handler) in every secondary thread.
-(define (thread-signal-apply)
+(define (thread-signal-handle)
   (with-tc-mutex
     (let* ((tc      ($tc))
            (sthread ($tc-sthread tc)))
@@ -348,14 +345,15 @@
         ($tc-sthread-set! tc (new-sthread ($tc-id tc)))))))
 
 
-;; implementation of (thread-signal-apply)
+;; implementation of (thread-signal-handle)
 (define ($tc-signal-apply tc sthread)
   (let ((action (sthread-action sthread)))
     (import (only (chezscheme) condition-wait))
     (case (sthread-action sthread)
       ((sigint)
         (sthread-status-set! sthread (running))
-        (raise-thread-interrupted 'thread-signal-apply ($tc-id tc) action))
+        (sthread-action-set! sthread 'sigcont) ; consume signal
+        (raise-thread-interrupted 'thread-signal-handle ($tc-id tc) action))
       ((sigtstp)
         (sthread-status-set! sthread (stopped 'sigtstp))
         (condition-wait (sthread-changed sthread) $tc-mutex)

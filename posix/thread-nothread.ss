@@ -80,3 +80,7 @@
 (define (thread-status thread)
   (assert* 'thread-status (thread? thread))
   (running))
+
+
+(define (thread-signal-handle)
+  (void))
