@@ -215,10 +215,12 @@
 (define (thread-status thread)
   (assert* 'thread-status (thread? thread))
   (with-tc-mutex
-    (let ((sthread ($tc-sthread ($thread-tc thread))))
-      (if (sthread? sthread)
-        (sthread-status sthread)
-        (void)))))
+    (let* ((tc      ($thread-tc thread))
+           (sthread ($tc-sthread tc)))
+      (cond
+        ((sthread? sthread) (sthread-status sthread))
+        ((eqv? 0 tc)        (void)) ; thread exited
+        (else               (running))))))
 
 
 ;; in newly created thread, call (param (thunk)) for each alist element (param . thunk) in (thread-initial-bindings)
