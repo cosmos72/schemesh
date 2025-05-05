@@ -74,25 +74,21 @@
 (define thread-count (foreign-procedure "c_thread_count" () uptr))
 
 
-(define box-threads-status-changes (box '()))
+(define status-changes '())
 
 
 ;; consume and return alist (id . status) of threads that changed status
 (define (threads-status-changes)
-  (let ((ret (unbox box-threads-status-changes)))
-    (if (and (pair? ret) (not (box-cas! box-threads-status-changes ret '())))
-      (threads-status-changes) ; atomic swap failed, try again
+  (with-tc-mutex
+    (let ((ret status-changes))
+      (unless (null? ret)
+        (set! status-changes '()))
       ret)))
 
 
 ;; must be called with with locked $tc-mutex.
 (define ($threads-status-changes-insert! id status)
-  ;; keep retrying until atomic swap succeeds
-  (let %box-insert ((head (cons (cons id status) #f)))
-    (let ((tail (unbox box-threads-status-changes)))
-      (set-cdr! head tail)
-      (unless (box-cas! box-threads-status-changes tail head)
-        (%box-insert head))))
+  (set! status-changes (cons (cons id status) status-changes))
 
   ;; wake up main thread, to let it display thread status change
   (let ((tc ($thread-tc (get-initial-thread))))

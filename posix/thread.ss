@@ -26,11 +26,11 @@
   (import
     (rnrs)
     (only (rnrs mutable-pairs)    set-cdr!)
-    (only (chezscheme)            $primitive add-duration box box-cas! current-time eval foreign-procedure
+    (only (chezscheme)            $primitive add-duration current-time eval foreign-procedure
                                   get-thread-id import include keyboard-interrupt-handler library-exports logbit?
                                   meta-cond make-ephemeron-eq-hashtable make-parameter make-time
                                   procedure-arity-mask sleep thread? threaded? time? time<=? time-difference time-type
-                                  unbox void)
+                                  void)
     (only (schemesh bootstrap)    assert* assert-not* catch check-interrupts raise-errorf until try)
     (only (schemesh posix signal) raise-condition-received-signal signal-name->number signal-raise)
     (only (schemesh posix status) running stopped ok exception))
