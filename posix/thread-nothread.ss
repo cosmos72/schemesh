@@ -26,6 +26,11 @@
 (define (thread-count) 1)
 
 
+;; return alist (id . status) of threads that changed status
+(define (threads-status-changes)
+  '())
+
+
 (define (thread-find thread-id)
   (and thread-id
     (unless (fixnum? thread-id)

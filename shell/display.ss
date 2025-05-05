@@ -47,6 +47,13 @@
   (void))
 
 
+(define (display-thread-status-change pair port)
+  (let* ((id      (car pair))
+         (status* (cdr pair))
+         (status  (if (eq? (void) status*) (ok) status*)))
+    (format port "; thread ~a~s          ~s\n" (pad/job-id id) id status)))
+
+
 ;; add a job to an internal queue, and return (void)
 ;;
 ;; if called without arguments, return all queued jobs as a list

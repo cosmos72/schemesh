@@ -101,7 +101,7 @@
     (schemesh containers)
     (schemesh conversions)
     (schemesh posix)
-    (only (schemesh posix thread)      thread-count thread-signal-handle)
+    (only (schemesh posix thread)      thread-count thread-signal-handle threads-status-changes)
     (schemesh port redir)
     (schemesh port stdio)
     (only (schemesh screen vline)      vline-display/bytespan)
@@ -455,6 +455,13 @@
   (job-exception (sh-job job-or-id)))
 
 
+(define (car<? pa pb)
+  (< (car pa) (car pb)))
+
+
+(define (car-eqv? pa pb)
+  (eqv? (car pa) (car pb)))
+
 
 (define (sh-consume-signals lctx)
   (check-interrupts)
@@ -463,24 +470,28 @@
 
 
 (define (display-status-changes lctx)
-  (let ((job-list (queue-job-display-summary)))
-    (unless (null? job-list)
-      (lineedit-undraw lctx 'flush)
-      (let ((port (console-output-port)))
-        (for-list ((job (list-remove-consecutive-duplicates! (sort! sh-job<? job-list) eq?)))
-          (display-status-change job port))))))
+  (let ((thread-alist (threads-status-changes))
+        (job-list     (queue-job-display-summary)))
+    (unless (and (null? thread-alist) (null? job-list))
+      (when (sh-job-display-summary?)
+        (lineedit-undraw lctx 'flush)
+        (let ((port (console-output-port)))
+          (for-list ((pair (list-remove-consecutive-duplicates! (sort! car<? thread-alist) car-eqv?)))
+            (display-thread-status-change pair port))
+
+          (for-list ((job (list-remove-consecutive-duplicates! (sort! sh-job<? job-list) eq?)))
+            (display-job-status-change job port))))
+      ;; more notifications may have arrived in the meantime
+      (display-status-changes lctx))))
 
 
-
-(define (display-status-change job port)
+(define (display-job-status-change job port)
   (let ((id  (job-id job))
         (oid (job-oid job)))
     (when (or id oid)
       (unless (or (eqv? -1 id) (eqv? -1 oid))
         (sh-job-display-summary job port))
       (job-oid-set! job #f)))) ; no longer needed, clear it
-
-
 
 
 (include "shell/options.ss")

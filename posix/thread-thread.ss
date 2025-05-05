@@ -18,10 +18,17 @@
   (nongenerative xthread-7c46d04b-34f4-4046-b5c7-b63753c1be43))
 
 
+(define c-pthread-kill (foreign-procedure "c_pthread_kill" (uptr int) int))
+
 (define c-pthread-self (foreign-procedure "c_pthread_self" () uptr))
 
 (define c-thread-signals-block-most (foreign-procedure "c_thread_signals_block_most" () int))
 
+(define n-sigcont (signal-name->number 'sigcont))
+
+(define s-running (running))
+
+(define s-stopped (stopped 'sigtstp))
 
 (define make-thread-parameter
   (let ()
@@ -65,6 +72,38 @@
 ;; Note: threads may be created or destroyed after this call and before
 ;; the returned value is used.
 (define thread-count (foreign-procedure "c_thread_count" () uptr))
+
+
+(define box-threads-status-changes (box '()))
+
+
+;; consume and return alist (id . status) of threads that changed status
+(define (threads-status-changes)
+  (let ((ret (unbox box-threads-status-changes)))
+    (if (and (pair? ret) (not (box-cas! box-threads-status-changes ret '())))
+      (threads-status-changes) ; atomic swap failed, try again
+      ret)))
+
+
+;; must be called with with locked $tc-mutex.
+(define ($threads-status-changes-insert! id status)
+  ;; keep retrying until atomic swap succeeds
+  (let %box-insert ((head (cons (cons id status) #f)))
+    (let ((tail (unbox box-threads-status-changes)))
+      (set-cdr! head tail)
+      (unless (box-cas! box-threads-status-changes tail head)
+        (%box-insert head))))
+
+  ;; wake up main thread, to let it display thread status change
+  (let ((tc ($thread-tc (get-initial-thread))))
+    (unless (eqv? 0 tc)
+      ; ($tc-field 'signal-interrupt-pending tc #t)
+      ; ($tc-field 'something-pending tc #t)
+      (let ((xthread ($tc-xthread tc)))
+        (when xthread
+          (let ((pthread-id (xthread-pthread-id xthread)))
+            (when pthread-id
+              (c-pthread-kill pthread-id n-sigcont))))))))
 
 
 ;; find and return a thread given its thread-id, which must be #f or an exact integer.
@@ -201,7 +240,7 @@
            (xthread (vector-ref params (car xthread-parameter-index))))
       (cond
         ((not (and xthread (eqv? ($tc-id tc) (xthread-id xthread))))
-          ;; xthread is not set, or it's inherited from a parent thread
+          ;; xthread is not set, or it's inherited from a parent thread: replace it
           (let ((xthread (new-xthread tc)))
             (vector-set! params (car xthread-parameter-index)
             xthread)))
@@ -235,8 +274,12 @@
               (void))
             (else
               (running)))))
-      ((thread status)
-        (hashtable-set! ht thread status)))))
+      ((thread tc new-status)
+        (let ((old-status (hashtable-ref ht thread s-running)))
+          (hashtable-set! ht thread new-status)
+          (unless (eq? old-status new-status)
+            ;; queue thread status change notification
+            ($threads-status-changes-insert! ($tc-id tc) new-status)))))))
 
 
 
@@ -286,10 +329,8 @@
                 (catch (ex)
                   (exception ex))))
             (thread (get-thread)))
-        ;; TODO queue thread exit notification
-        ;; race condition, thread may exit before (fork-thread) sets thread variable
         (with-tc-mutex
-          ($thread-status thread status))))))
+          ($thread-status thread ($tc) status))))))
 
 
 ;; send a signal to specified thread or thread-id.
@@ -301,7 +342,8 @@
 (define thread-kill
   (case-lambda
     ((thread-or-id signal-name)
-      (assert* 'thread-kill (memq signal-name '(sigint sigtstp sigcont)))
+      (let ((thread-supported-signals '(sigint sigtstp sigcont)))
+        (assert* 'thread-kill (memq signal-name thread-supported-signals)))
       (let* ((t   (if (thread? thread-or-id) thread-or-id (thread thread-or-id)))
              (ret (with-tc-mutex* ($thread-kill t signal-name))))
         (if (xthread? ret)
@@ -335,32 +377,29 @@
 ;; otherwise return c_errno() < 0
 ;;
 ;; NOTE: the only supported signal names are 'sigint 'sigtstp 'sigcont
-(define $tc-kill
-  (let ((c-pthread-kill (foreign-procedure "c_pthread_kill" (uptr int) int))
-        (sigcont        (signal-name->number 'sigcont)))
-    (lambda (tc xthread signal-name)
-      (when xthread
-        ;; set xthread-signal indicating what thread should do
-        (xthread-signal-set! xthread signal-name))
-      ;; set tc fields indicating a pending keyboard interrupt.
-      ;; we cannot emulate any other POSIX signal,
-      ;; because Chez Scheme ($event) checks for signals queued by C signal handlers,
-      ;; and we have no simple way to enqueue them.
-      ($tc-field 'keyboard-interrupt-pending tc #t)
-      ($tc-field 'something-pending tc #t)
-      (let ((pthread-id (and xthread (xthread-pthread-id xthread))))
-        (cond
-          (pthread-id
-            ;; send SIGCONT to pthread, to interrupt any blocking system call
-            (let ((ret (c-pthread-kill pthread-id sigcont)))
-              (if (eqv? 0 ret)
-                xthread ;; success, return xthread
-                ret)))
-          (xthread
-            ;; thread exists, but its pthread-id is not known
-            c-errno-eagain)
-          (else
-            c-errno-esrch))))))
+(define ($tc-kill tc xthread signal-name)
+  (when xthread
+    ;; set xthread-signal indicating what thread should do
+    (xthread-signal-set! xthread signal-name))
+  ;; set tc fields indicating a pending keyboard interrupt.
+  ;; we cannot emulate any other POSIX signal,
+  ;; because Chez Scheme ($event) checks for signals queued by C signal handlers,
+  ;; and we have no simple way to enqueue them.
+  ($tc-field 'keyboard-interrupt-pending tc #t)
+  ($tc-field 'something-pending tc #t)
+  (let ((pthread-id (and xthread (xthread-pthread-id xthread))))
+    (cond
+      (pthread-id
+        ;; send SIGCONT to pthread, to interrupt any blocking system call
+        (let ((ret (c-pthread-kill pthread-id n-sigcont)))
+          (if (eqv? 0 ret)
+            xthread ;; success, return xthread
+            ret)))
+      (xthread
+        ;; thread exists, but its pthread-id is not known
+        c-errno-eagain)
+      (else
+        c-errno-esrch))))
 
 
 ;; handle the signal sent to current thread by (thread-kill)
@@ -380,15 +419,15 @@
   (let ((signal-name (xthread-signal xthread)))
     (case signal-name
       ((sigint)
-        ($thread-status thread (running))
+        ($thread-status thread tc s-running)
         (xthread-signal-set! xthread 'sigcont) ; consume signal
         (raise-thread-interrupted 'thread-signal-handle ($tc-id tc) signal-name))
       ((sigtstp)
-        ($thread-status thread (stopped 'sigtstp))
+        ($thread-status thread tc s-stopped)
         (condition-wait (xthread-changed xthread) $tc-mutex)
         ($tc-signal-handle thread tc xthread))
       (else
-        ($thread-status thread (running))))))
+        ($thread-status thread tc s-running)))))
 
 
 (define (raise-thread-interrupted caller thread-id signal-name)
