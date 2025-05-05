@@ -155,64 +155,59 @@
               (%%thread-timed-join (current-time 'time-utc)))))))))
 
 
-(define c-errno-einval ((foreign-procedure "c_errno_einval" () int)))
+(define c-pthread-self (foreign-procedure "c_pthread_self" () uptr))
 
-(define c-errno-esrch ((foreign-procedure "c_errno_esrch" () int)))
-
-(define c-phtread-self (foreign-procedure "c_pthread_self" () uptr))
-
-(define c-signal-setblocked! (foreign-procedure "c_signal_setblocked" (int int) int))
+(define c-thread-signals-block-most (foreign-procedure "c_thread_signals_block_most" () int))
 
 
 ;; helper containing per-thread data: thread-id, pthread_t, and signal protected by a mutex and condition
 (define-record-type xthread
   (fields
-    id ; thread-id, needed to check for xthread inherited from parent thread
-    pthread-id
-    (mutable signal) ; one of: 'sigint 'sigtstp 'sigcont
-    (mutable status) ; a status object
-    changed)         ; condition
-  (nongenerative xthread-7c46d04b-34f4-4046-b5c7-b63753c1be41))
+    id                   ; thread-id, needed to check for xthread inherited from parent thread
+    (mutable pthread-id) ; pthread_t of thread, or #f if not known yet
+    (mutable signal)     ; one of: 'sigint 'sigtstp 'sigcont
+    (mutable status)     ; a status object
+    changed)             ; condition
+  (nongenerative xthread-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
-(define (new-xthread thread-id)
-  (let ((name (string->symbol (string-append "xthread-" (number->string thread-id)))))
-    (import (only (chezscheme) make-condition))
-    (make-xthread thread-id (c-phtread-self) 'sigcont (running) (make-condition name))))
+(define (new-xthread tc)
+  (import (only (chezscheme) make-condition))
+  (let* ((id ($tc-id tc))
+         (name (string->symbol (string-append "xthread-" (number->string id)))))
+    ;; call pthread_self() only if xthread is for current thread
+    (make-xthread id (if (eqv? tc ($tc)) (c-pthread-self) #f)
+                  'sigcont (running) (make-condition name))))
 
 
 (define xthread-parameter-index (($primitive $allocate-thread-parameter) #f))
 
 
-;; extract and return the xthread parameter from specified thread-context tc,
-;; or #f if tc is zero or xthread parameter is not set or is inherited from a parent thread.
+;; extract and return the xthread parameter from specified thread-context tc, creating it if needed.
+;; Return #f if tc is not set.
 (define ($tc-xthread tc)
   (if (eqv? 0 tc)
     #f
-    (let ((xthread (vector-ref ($tc-field 'parameters tc) (car xthread-parameter-index))))
-      ;; check that xthread is set and not inherited from a parent thread
-      (if (and (xthread? xthread) (eqv? ($tc-id tc) (xthread-id xthread)))
-        xthread
-        #f))))
-
-
-;; set the xthread parameter of specified thread-context tc.
-(define ($tc-xthread-set! tc xthread-obj)
-  (unless (eqv? 0 tc)
-    (vector-set! ($tc-field 'parameters tc) (car xthread-parameter-index) xthread-obj)))
+    (let* ((params  ($tc-field 'parameters tc))
+           (xthread (vector-ref params (car xthread-parameter-index))))
+      (cond
+        ((not (and xthread (eqv? ($tc-id tc) (xthread-id xthread))))
+          ;; xthread is not set, or it's inherited from a parent thread
+          (let ((xthread (new-xthread tc)))
+            (vector-set! params (car xthread-parameter-index)
+            xthread)))
+        ((not (xthread-pthread-id xthread))
+          ;; pthread-id is not known yet, update it if xthread is for current thread
+          (when (eqv? tc ($tc))
+            (xthread-pthread-id-set! xthread (c-pthread-self)))
+          xthread)
+        (else
+          xthread)))))
 
 
 (define (thread-register-self)
   (with-tc-mutex
-    (let* ((tc      ($tc))
-           (xthread ($tc-xthread tc)))
-      (unless xthread
-        ($tc-xthread-set! tc (new-xthread ($tc-id tc)))))))
-
-
-(define (thread-unregister-self)
-  (with-tc-mutex
-    ($tc-xthread-set! ($tc) #f)))
+    ($tc-xthread ($tc))))
 
 
 ;; return status of specified thread, i.e. a status object among (running) (stopped) or (void)
@@ -221,17 +216,16 @@
   (with-tc-mutex
     (let* ((tc      ($thread-tc thread))
            (xthread ($tc-xthread tc)))
-      (cond
-        ((xthread? xthread) (xthread-status xthread))
-        ((eqv? 0 tc)        (void)) ; thread exited
-        (else               (running))))))
+      (if xthread
+        (xthread-status xthread)
+        (void))))) ; thread exited
 
 
 ;; in newly created thread, call (param (thunk)) for each alist element (param . thunk) in (thread-initial-bindings)
 (define (apply-thread-initial-bindings)
   (do ((tail (thread-initial-bindings) (cdr tail)))
       ((null? tail))
-    (let* ((a (car tail))
+    (let* ((a     (car tail))
            (param (car a))
            (thunk (cdr a)))
       (param (thunk)))))
@@ -252,22 +246,14 @@
 
   (chez:fork-thread
     (lambda ()
-      ;; block SIGINT, SIGQUIT, SIGTSTP and SIGCHLD in new thread:
+      ;; block most signals in new thread:
       ;; we need to receive them in main thread
-      (c-signal-setblocked! (signal-name->number 'sigint)  1)
-      (c-signal-setblocked! (signal-name->number 'sigquit) 1)
-      (c-signal-setblocked! (signal-name->number 'sigtstp) 1)
-      (c-signal-setblocked! (signal-name->number 'sigchld) 1)
-
-      ;; allow receiving SIGCONT in new thread
-      (c-signal-setblocked! (signal-name->number 'sigcont) 0)
-
+      ;; Exception: allow receiving SIGCONT in new thread
+      (c-thread-signals-block-most)
+      (thread-register-self)
       (apply-thread-initial-bindings)
       (keyboard-interrupt-handler thread-signal-handle)
-      (dynamic-wind
-        thread-register-self
-        thunk
-        thread-unregister-self))))
+      (thunk))))
 
 
 ;; send a signal to specified thread or thread-id.
@@ -326,13 +312,19 @@
       ;; and we have no simple way to enqueue them.
       ($tc-field 'keyboard-interrupt-pending tc #t)
       ($tc-field 'something-pending tc #t)
-      (if xthread
-        ;; send SIGCONT to pthread, to interrupt any blocking system call
-        (let ((ret (c-pthread-kill (xthread-pthread-id xthread) sigcont)))
-          (if (eqv? 0 ret)
-            xthread ;; success, return xthread
-            ret))
-        c-errno-einval))))
+      (let ((pthread-id (and xthread (xthread-pthread-id xthread))))
+        (cond
+          (pthread-id
+            ;; send SIGCONT to pthread, to interrupt any blocking system call
+            (let ((ret (c-pthread-kill pthread-id sigcont)))
+              (if (eqv? 0 ret)
+                xthread ;; success, return xthread
+                ret)))
+          (xthread
+            ;; thread exists, but its pthread-id is not known
+            c-errno-eagain)
+          (else
+            c-errno-esrch))))))
 
 
 ;; handle the signal sent to current thread by (thread-kill)
@@ -341,21 +333,19 @@
   (with-tc-mutex
     (let* ((tc      ($tc))
            (xthread ($tc-xthread tc)))
-      (if (xthread? xthread)
-        ($tc-signal-handle tc xthread)
-        ;; store missing xthread into tc
-        ($tc-xthread-set! tc (new-xthread ($tc-id tc)))))))
+      (when xthread
+        ($tc-signal-handle tc xthread)))))
 
 
 ;; implementation of (thread-signal-handle)
 (define ($tc-signal-handle tc xthread)
-  (let ((signal (xthread-signal xthread)))
-    (import (only (chezscheme) condition-wait))
-    (case (xthread-signal xthread)
+  (import (only (chezscheme) condition-wait))
+  (let ((signal-name (xthread-signal xthread)))
+    (case signal-name
       ((sigint)
         (xthread-status-set! xthread (running))
         (xthread-signal-set! xthread 'sigcont) ; consume signal
-        (raise-thread-interrupted 'thread-signal-handle ($tc-id tc) signal))
+        (raise-thread-interrupted 'thread-signal-handle ($tc-id tc) signal-name))
       ((sigtstp)
         (xthread-status-set! xthread (stopped 'sigtstp))
         (condition-wait (xthread-changed xthread) $tc-mutex)

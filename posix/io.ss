@@ -105,24 +105,24 @@
       ((read)
         (make-custom-binary-input-port
           name
-          (lambda (bv start n) (bport-read fd bv start n))
-          (lambda ()           (bport-seek fd 0   'seek-cur))
-          (lambda (pos)        (bport-seek fd pos 'seek-set))
+          (lambda (bv start n) (bport-read  fd bv start n))
+          (lambda ()           (bport-seek  fd 0   'seek-cur))
+          (lambda (pos)        (bport-seek  fd pos 'seek-set))
           proc-on-close))
       ((rw)
         (make-custom-binary-input/output-port
           name
-          (lambda (bv start n) (bport-read fd bv start n))
+          (lambda (bv start n) (bport-read  fd bv start n))
           (lambda (bv start n) (bport-write fd bv start n))
-          (lambda ()           (bport-seek fd 0   'seek-cur))
-          (lambda (pos)        (bport-seek fd pos 'seek-set))
+          (lambda ()           (bport-seek  fd 0   'seek-cur))
+          (lambda (pos)        (bport-seek  fd pos 'seek-set))
           proc-on-close))
       ((write)
         (make-custom-binary-output-port
           name
           (lambda (bv start n) (bport-write fd bv start n))
-          (lambda ()           (bport-seek fd 0   'seek-cur))
-          (lambda (pos)        (bport-seek fd pos 'seek-set))
+          (lambda ()           (bport-seek  fd 0   'seek-cur))
+          (lambda (pos)        (bport-seek  fd pos 'seek-set))
           proc-on-close))
       (else
         (assert* 'fd->binary-port (memq dir '(read write rw)))))))

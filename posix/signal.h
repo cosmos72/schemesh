@@ -29,6 +29,8 @@
 
 /* ------------------------------------ signals handling ---------------------------------------- */
 
+static int c_thread_signal_setblocked(int sig, int block);
+
 static const int signals_tohandle[] = {
     SIGCHLD, /* c_signals_setdefault() assumes SIGCHLD is the first */
     SIGALRM,
@@ -100,14 +102,169 @@ static int c_signals_setdefault(void) {
   return 0;
 }
 
+static int c_signal_setdefault(int sig) {
+  struct sigaction action = {};
+  action.sa_handler       = SIG_DFL;
+
+  if (sigaction(sig, &action, NULL) < 0) {
+    return c_errno();
+  }
+  return 0;
+}
+
+static const struct {
+  int         sig;
+  const char* name;
+} signals_known[] = {
+    {SIGABRT, "sigabrt"},     {SIGALRM, "sigalrm"}, {SIGBUS, "sigbus"},   {SIGCHLD, "sigchld"},
+    {SIGCONT, "sigcont"},     {SIGFPE, "sigfpe"},   {SIGHUP, "sighup"},   {SIGILL, "sigill"},
+    {SIGINT, "sigint"},       {SIGKILL, "sigkill"}, {SIGPIPE, "sigpipe"}, {SIGQUIT, "sigquit"},
+    {SIGSEGV, "sigsegv"},     {SIGSTOP, "sigstop"}, {SIGTERM, "sigterm"}, {SIGTSTP, "sigtstp"},
+    {SIGTTIN, "sigttin"},     {SIGTTOU, "sigttou"}, {SIGUSR1, "sigusr1"}, {SIGUSR2, "sigusr2"},
+
+    {SIGWINCH, "sigwinch"}, /* not fully standard, but we need it */
+
+#ifdef SIGINFO /* synonym for SIGPWR */
+    {SIGINFO, "siginfo"},
+#endif
+#ifdef SIGIO
+    {SIGIO, "sigio"},
+#endif
+#ifdef SIGPOLL
+    {SIGPOLL, "sigpoll"},
+#endif
+#ifdef SIGPROF
+    {SIGPROF, "sigprof"},
+#endif
+#ifdef SIGPWR
+    {SIGPWR, "sigpwr"},
+#endif
+#ifdef SIGSTKFLT
+    {SIGSTKFLT, "sigstkflt"},
+#endif
+#ifdef SIGSYS
+    {SIGSYS, "sigsys"},
+#endif
+#ifdef SIGTRAP
+    {SIGTRAP, "sigtrap"},
+#endif
+#ifdef SIGURG
+    {SIGURG, "sigurg"},
+#endif
+#ifdef SIGVTALRM
+    {SIGVTALRM, "sigvtalrm"},
+#endif
+#ifdef SIGXCPU
+    {SIGXCPU, "sigxcpu"},
+#endif
+#ifdef SIGXFSZ
+    {SIGXFSZ, "sigxfsz"},
+#endif
+};
+
+/**
+ * return a Scheme list containing pairs (sig . name)
+ * where sig is a fixnum and name is a symbol
+ */
+static ptr c_signals_list(void) {
+
+  ptr    ret = Snil;
+  size_t i;
+  for (i = 0; i < N_OF(signals_known); i++) {
+    ptr name = Sstring_to_symbol(signals_known[i].name);
+    ptr num  = Sfixnum(signals_known[i].sig);
+    ret      = Scons(Scons(num, name), ret);
+  }
+  return ret;
+}
+
+/**
+ * if unset_sighandler != 0, set handler for signal sig to SIG_DFL then unblock the signal.
+ *
+ * raise signal sig.
+ */
+static int c_thread_signal_raise(int sig, int unset_sighandler) {
+  int err;
+  if (unset_sighandler) {
+    (void)c_signal_setdefault(sig);
+  }
+  (void)c_thread_signal_setblocked(sig, 0);
+
+  if ((err = pthread_kill(pthread_self(), sig)) <
+      0) { /* better than kill(getpid(), sig) in multi-threaded-programs */
+    return c_errno();
+  }
+  return 0;
+}
+
+/**
+ * if block != 0, add signal sig to the set of blocked signals for caller's thread.
+ * otherwise remove sig from the set of blocked signals for caller's thread
+ */
+static int c_thread_signal_setblocked(int sig, int block) {
+  sigset_t sigset;
+  sigemptyset(&sigset);
+  sigaddset(&sigset, sig);
+  if (pthread_sigmask(block ? SIG_BLOCK : SIG_UNBLOCK, &sigset, NULL) < 0) {
+    return c_errno();
+  }
+  return 0;
+}
+
+/**
+ * unblock most signals: we need to receive them in main thread
+ * Exception: if SIGHUP is blocked, keep it blocked.
+ */
+static int c_signals_unblock_most(void) {
+  sigset_t sigset;
+  size_t   i = 0;
+
+  sigemptyset(&sigset);
+  for (i = 0; i < N_OF(signals_known); i++) {
+    const int sig = signals_known[i].sig;
+    if (sig != SIGHUP) {
+      sigaddset(&sigset, sig);
+    }
+  }
+  if (sigprocmask(SIG_UNBLOCK, &sigset, NULL) < 0) {
+    return c_errno();
+  }
+  return 0;
+}
+
+/**
+ * block most signals in caller's thread: we need to receive them in main thread
+ * Exception: allow receiving SIGCONT in caller's thread
+ */
+static int c_thread_signals_block_most(void) {
+  static const int block_signals[] = {SIGHUP, SIGINT, SIGQUIT, SIGPIPE, SIGCHLD, SIGWINCH};
+  sigset_t         sigset;
+  size_t           i;
+
+  sigemptyset(&sigset);
+  for (i = 0; i < N_OF(block_signals); i++) {
+    sigaddset(&sigset, block_signals[i]);
+  }
+  if (pthread_sigmask(SIG_BLOCK, &sigset, NULL) < 0) {
+    return c_errno();
+  }
+
+  sigemptyset(&sigset);
+  sigaddset(&sigset, SIGCONT);
+  if (pthread_sigmask(SIG_UNBLOCK, &sigset, NULL) < 0) {
+    return c_errno();
+  }
+  return 0;
+}
+
 /* ------------------------------------ SIGCONT handling ---------------------------------------- */
 
 /**
  * do-nothing handler for SIGCONT
  * used to react to SIGCONT in secondary threads and interrupt blocking system calls
  */
-static void c_sigcont_handler(int sig_num) {
-  (void)sig_num;
+static void c_sigcont_handler(int sig) {
+  (void)sig;
 }
 
 /**
@@ -118,7 +275,7 @@ static int c_signal_init_sigcont(void) {
   struct sigaction action = {};
   action.sa_handler       = &c_sigcont_handler;
   if (sigaction(SIGCONT, &action, NULL) < 0) {
-    return c_init_failed("sigaction(SIGCONT)");
+    return c_errno();
   }
   return 0;
 }
@@ -127,8 +284,8 @@ static int c_signal_init_sigcont(void) {
 
 static ATOMIC int c_sigwinch_received = 0;
 
-static void c_sigwinch_handler(int sig_num) {
-  (void)sig_num;
+static void c_sigwinch_handler(int sig) {
+  (void)sig;
   atomic_store(&c_sigwinch_received, 1);
 }
 
@@ -153,114 +310,6 @@ static int c_signal_restore_sigwinch(void) {
     return c_errno();
   }
   return 0;
-}
-
-/* ------------------------------------ signal utilities ---------------------------------------- */
-
-static int c_signal_setdefault(int sig) {
-  struct sigaction action = {};
-  action.sa_handler       = SIG_DFL;
-
-  if (sigaction(sig, &action, NULL) < 0) {
-    return c_errno();
-  }
-  return 0;
-}
-
-/**
- * if block != 0, add signal sig to the set of blocked signals for caller's thread.
- * otherwise remove sig from the set of blocked signals for caller's thread
- */
-static int c_signal_setblocked(int sig, int block) {
-  sigset_t sigset;
-  sigemptyset(&sigset);
-  sigaddset(&sigset, sig);
-  if (pthread_sigmask(block ? SIG_BLOCK : SIG_UNBLOCK, &sigset, NULL) < 0) {
-    return c_errno();
-  }
-  return 0;
-}
-
-/**
- * if unset_sighandler != 0, set handler for signal sig to SIG_DFL then unblock the signal.
- *
- * raise signal sig.
- */
-static int c_signal_raise(int sig, int unset_sighandler) {
-  if (unset_sighandler) {
-    (void)c_signal_setdefault(sig);
-    (void)c_signal_setblocked(sig, 0);
-  }
-
-  if (raise(sig) < 0) { /* better than kill(getpid(), sig) in multi-threaded-programs */
-    return c_errno();
-  }
-  return 0;
-}
-
-/**
- * return a Scheme list containing pairs (sig_num . sig_name)
- * where sig_num is a fixnum and sig_name is a symbol
- */
-static ptr c_signals_list(void) {
-  static const struct {
-    int         sig_num;
-    const char* sig_name;
-  } sigtable[] = {
-      {SIGABRT, "sigabrt"},     {SIGALRM, "sigalrm"}, {SIGBUS, "sigbus"},   {SIGCHLD, "sigchld"},
-      {SIGCONT, "sigcont"},     {SIGFPE, "sigfpe"},   {SIGHUP, "sighup"},   {SIGILL, "sigill"},
-      {SIGINT, "sigint"},       {SIGKILL, "sigkill"}, {SIGPIPE, "sigpipe"}, {SIGQUIT, "sigquit"},
-      {SIGSEGV, "sigsegv"},     {SIGSTOP, "sigstop"}, {SIGTERM, "sigterm"}, {SIGTSTP, "sigtstp"},
-      {SIGTTIN, "sigttin"},     {SIGTTOU, "sigttou"}, {SIGUSR1, "sigusr1"}, {SIGUSR2, "sigusr2"},
-
-      {SIGWINCH, "sigwinch"}, /* not fully standard, but we need it */
-
-#ifdef SIGINFO /* synonym for SIGPWR */
-      {SIGINFO, "siginfo"},
-#endif
-#ifdef SIGIO
-      {SIGIO, "sigio"},
-#endif
-#ifdef SIGPOLL
-      {SIGPOLL, "sigpoll"},
-#endif
-#ifdef SIGPROF
-      {SIGPROF, "sigprof"},
-#endif
-#ifdef SIGPWR
-      {SIGPWR, "sigpwr"},
-#endif
-#ifdef SIGSTKFLT
-      {SIGSTKFLT, "sigstkflt"},
-#endif
-#ifdef SIGSYS
-      {SIGSYS, "sigsys"},
-#endif
-#ifdef SIGTRAP
-      {SIGTRAP, "sigtrap"},
-#endif
-#ifdef SIGURG
-      {SIGURG, "sigurg"},
-#endif
-#ifdef SIGVTALRM
-      {SIGVTALRM, "sigvtalrm"},
-#endif
-#ifdef SIGXCPU
-      {SIGXCPU, "sigxcpu"},
-#endif
-#ifdef SIGXFSZ
-      {SIGXFSZ, "sigxfsz"},
-#endif
-  };
-
-  ptr    ret = Snil;
-  size_t i;
-  for (i = 0; i < sizeof(sigtable) / sizeof(sigtable[0]); i++) {
-    ptr name = Sstring_to_symbol(sigtable[i].sig_name);
-    ptr num  = Sfixnum(sigtable[i].sig_num);
-    ret      = Scons(Scons(num, name), ret);
-  }
-  return ret;
 }
 
 /* ------------------------------------- sleep -------------------------------------------------- */
@@ -308,18 +357,20 @@ static int c_countdown(ptr duration_inout) {
 }
 
 static int c_register_c_functions_posix_signals(void) {
-  int err;
-  if ((err = c_signal_init_sigcont()) < 0) {
-    return err;
+  if (c_signal_init_sigcont() < 0) {
+    return c_init_failed("sigaction(SIGCONT)");
+  }
+  if (c_signals_unblock_most() < 0) {
+    return c_init_failed("sigprocmask(SIG_UNBLOCK)");
   }
   Sregister_symbol("c_countdown", &c_countdown);
   Sregister_symbol("c_signals_list", &c_signals_list);
-  Sregister_symbol("c_signal_setblocked", &c_signal_setblocked);
-  Sregister_symbol("c_signal_raise", &c_signal_raise);
+  Sregister_symbol("c_thread_signal_raise", &c_thread_signal_raise);
   Sregister_symbol("c_signal_setdefault", &c_signal_setdefault);
   Sregister_symbol("c_signal_consume_sigwinch", &c_signal_consume_sigwinch);
   Sregister_symbol("c_signal_init_sigwinch", &c_signal_init_sigwinch);
   Sregister_symbol("c_signal_restore_sigwinch", &c_signal_restore_sigwinch);
+  Sregister_symbol("c_thread_signals_block_most", &c_thread_signals_block_most);
   return 0;
 }
 

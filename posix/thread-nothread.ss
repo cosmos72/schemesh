@@ -66,8 +66,7 @@
 
 
 (define thread-kill
-  (let ((c-signal-raise (foreign-procedure "c_signal_raise" (int int) int))
-        (c-errno-einval ((foreign-procedure "c_errno_einval" () int))))
+  (let ((c-signal-raise (foreign-procedure "c_thread_signal_raise" (int int) int)))
     (lambda (thread signal-name)
       (assert* 'thread-kill (thread? thread))
       (let ((signal-number (signal-name->number signal-name)))

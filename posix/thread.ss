@@ -25,8 +25,8 @@
   (import
     (rnrs)
     (only (chezscheme)            $primitive add-duration current-time eval foreign-procedure get-thread-id import include
-                                  keyboard-interrupt-handler library-exports logbit? meta-cond make-time procedure-arity-mask
-                                  sleep thread? threaded? time? time<=? time-difference time-type void)
+                                  keyboard-interrupt-handler library-exports logbit? meta-cond make-parameter make-time
+                                  procedure-arity-mask sleep thread? threaded? time? time<=? time-difference time-type void)
     (only (schemesh bootstrap)    assert* assert-not* catch check-interrupts raise-errorf until trace-define try)
     (only (schemesh posix signal) raise-condition-received-signal signal-name->number signal-raise)
     (only (schemesh posix status) running stopped))
@@ -63,6 +63,10 @@
 (define ($thread-id thread)
   ($tc-id ($thread-tc thread)))
 
+
+(define c-errno-eagain ((foreign-procedure "c_errno_eagain" () int)))
+(define c-errno-einval ((foreign-procedure "c_errno_einval" () int)))
+(define c-errno-esrch  ((foreign-procedure "c_errno_esrch"  () int)))
 
 (meta-cond
   ((threaded?)

@@ -137,12 +137,12 @@
     #f))
 
 ;; (signal-raise signal-name) calls C functions sigaction(sig, SIG_DFL),
-;; then calls C function raise(sig)
+;; then calls C function pthread_kill(pthread_self(), sig)
 ;; i.e. sends specified signal to the thread itself.
 ;;
 ;; Returns 0 if successful, or < 0 if signal-name is unknown, or if C function raise() fails with C errno != 0.
 (define signal-raise
-  (let ((c-signal-raise (foreign-procedure "c_signal_raise" (int int) int)))
+  (let ((c-signal-raise (foreign-procedure "c_thread_signal_raise" (int int) int)))
     (lambda (signal-name)
       (let ((signal-number (signal-name->number signal-name)))
         (if (fixnum? signal-number)

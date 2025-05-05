@@ -81,6 +81,10 @@ static int c_errno_set(int errno_value) {
   return -(errno = errno_value);
 }
 
+static int c_errno_eagain(void) {
+  return -EAGAIN;
+}
+
 static int c_errno_eio(void) {
   return -EIO;
 }
@@ -1921,6 +1925,7 @@ int schemesh_register_c_functions_posix(void) {
   }
 
   Sregister_symbol("c_errno", &c_errno);
+  Sregister_symbol("c_errno_eagain", &c_errno_eagain);
   Sregister_symbol("c_errno_eio", &c_errno_eio);
   Sregister_symbol("c_errno_eintr", &c_errno_eintr);
   Sregister_symbol("c_errno_einval", &c_errno_einval);
