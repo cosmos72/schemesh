@@ -62,7 +62,9 @@ static int usage(const char* name) {
       "    --load-file FILE            load and execute FILE as compiled scheme library\n"
       "    -h, --help                  display this help and exit immediately\n"
       "    -i, --repl                  unconditionally start the interactive repl\n"
-      "                                (default: start only if no files or strings are specified)\n"
+      "                                (default: start only if no files, strings or --version\n"
+      "                                are specified)\n"
+      "    --version                   display version information\n"
       "    -l, --login                 ignored. accepted for compatibility with other shells\n"
       "    --boot-dir DIR              load Chez Scheme boot files from DIR\n"
       "    --library-dir DIR           load schemesh libraries from DIR\n"
@@ -84,6 +86,11 @@ static int usage(const char* name) {
       name);
 
   exit(0);
+}
+
+static void display_version(void) {
+  fputs("0.9.0\n", stdout);
+  fflush(stdout);
 }
 
 static int unknown_option(const char* name, const char* arg) {
@@ -155,6 +162,10 @@ static void parse_command_line(int argc, const char* argv[], struct cmdline* cmd
       cmd->force_repl = 1;
     } else if (!strcmp(arg, "-l") || !strcmp(arg, "--login")) {
       /* nop */
+    } else if (!strcmp(arg, "--version")) {
+      /* disable repl unless cmd->force_repl is set */
+      cmd->have_file_or_string = 1;
+      display_version();
     } else if (!strncmp(arg, "-", 1)) {
       unknown_option(argv[0], arg);
     } else {
