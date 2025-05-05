@@ -24,13 +24,19 @@
           thread-join thread-kill thread-preserve-ownership! thread-signal-handle thread-status threads)
   (import
     (rnrs)
-    (only (chezscheme)            $primitive add-duration current-time eval foreign-procedure get-thread-id import include
-                                  keyboard-interrupt-handler library-exports logbit? meta-cond make-parameter make-time
-                                  procedure-arity-mask sleep thread? threaded? time? time<=? time-difference time-type void)
-    (only (schemesh bootstrap)    assert* assert-not* catch check-interrupts raise-errorf until trace-define try)
+    (only (chezscheme)            $primitive add-duration current-time eval foreign-procedure get-thread-id
+                                  import include keyboard-interrupt-handler library-exports logbit?
+                                  meta-cond make-ephemeron-eq-hashtable make-parameter make-time
+                                  procedure-arity-mask sleep thread? threaded? time? time<=? time-difference time-type
+                                  void)
+    (only (schemesh bootstrap)    assert* assert-not* catch check-interrupts raise-errorf until try)
     (only (schemesh posix signal) raise-condition-received-signal signal-name->number signal-raise)
-    (only (schemesh posix status) running stopped))
+    (only (schemesh posix status) running stopped ok exception))
 
+
+(define c-errno-eagain ((foreign-procedure "c_errno_eagain" () int)))
+(define c-errno-einval ((foreign-procedure "c_errno_einval" () int)))
+(define c-errno-esrch  ((foreign-procedure "c_errno_esrch"  () int)))
 
 
 ;; return number of existing threads.
@@ -63,10 +69,6 @@
 (define ($thread-id thread)
   ($tc-id ($thread-tc thread)))
 
-
-(define c-errno-eagain ((foreign-procedure "c_errno_eagain" () int)))
-(define c-errno-einval ((foreign-procedure "c_errno_einval" () int)))
-(define c-errno-esrch  ((foreign-procedure "c_errno_esrch"  () int)))
 
 (meta-cond
   ((threaded?)
@@ -113,8 +115,10 @@
 ;; wait for specified thread to exit.
 ;; timeout is optional: it defaults to #f, and must be #f or a time object with type 'time-utc or 'time-duration
 ;;
-;; if timeout is not specified or is #f, or thread exits before timeout, returns (void).
-;; if timeout is specified and not #f, and thread is still alive after timeout, returns #f
+;; if timeout is not specified or is #f, or thread exits before timeout,
+;;   returns thread exit status: a status object
+;; if timeout is specified and not #f, and thread is still alive after timeout,
+;;   returns thread current status: (running) or (stopped ...)
 (define thread-join
   (case-lambda
     ((thread)

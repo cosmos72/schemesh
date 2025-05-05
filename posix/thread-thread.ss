@@ -8,6 +8,21 @@
 #!r6rs
 
 
+;; helper containing per-thread data: thread-id, pthread_t and signal protected by global $tc-mutex and a condition
+(define-record-type xthread
+  (fields
+    id                   ; thread-id, needed to check for xthread inherited from parent thread
+    (mutable pthread-id) ; pthread_t of thread, or #f if not known yet
+    (mutable signal)     ; one of: 'sigint 'sigtstp 'sigcont
+    changed)             ; condition
+  (nongenerative xthread-7c46d04b-34f4-4046-b5c7-b63753c1be43))
+
+
+(define c-pthread-self (foreign-procedure "c_pthread_self" () uptr))
+
+(define c-thread-signals-block-most (foreign-procedure "c_thread_signals_block_most" () int))
+
+
 (define make-thread-parameter
   (let ()
     (import (prefix (only (chezscheme) make-thread-parameter) chez:))
@@ -79,7 +94,8 @@
 (define short-timeout (make-time 'time-duration 500000000 0))
 
 
-;; actual implementation of (thread-join) with no timeout
+;; actual implementation of (thread-join) with no timeout.
+;; returns thread exit status: a status object
 (define (%thread-join thread)
   (assert* 'thread-join (thread? thread))
 
@@ -92,20 +108,26 @@
         (import (only (chezscheme) condition-wait))
         (with-tc-mutex*
           (let %%thread-join (($tc-cond ($primitive $terminated-cond)))
-            (unless (eqv? 0 ($thread-tc thread))
-              (check-interrupts)
-              ;; condition-wait is not interruptible, use a short timeout
-              (condition-wait $tc-cond $tc-mutex short-timeout)
-              (%%thread-join $tc-cond))))))
+            (cond
+              ((eqv? 0 ($thread-tc thread))
+                ($thread-status thread))
+              (else
+                (check-interrupts)
+                ;; condition-wait is not interruptible, use a short timeout
+                (condition-wait $tc-cond $tc-mutex short-timeout)
+                (%%thread-join $tc-cond)))))))
     (else
       ;; there's no $terminated-cond we can wait for
       (until (eqv? 0 (with-tc-mutex* ($thread-tc thread)))
         (check-interrupts)
-        (sleep short-timeout)))) ; sleep is interruptible
-  (void))
+        (sleep short-timeout)) ; sleep is interruptible
+      (with-tc-mutex*
+        ($thread-status thread)))))
 
 
 ;; actual implementation of (thread-join) with timeout
+;; returns thread exit status: a status object,
+;; or (running) if thread is still alive when timeout expires.
 (define (%thread-timed-join thread timeout)
   (assert* 'thread-join (thread? thread))
   (assert* 'thread-join (time? timeout))
@@ -128,9 +150,9 @@
                                       (now      (current-time 'time-utc)))
               (cond
                 ((eqv? 0 ($thread-tc thread))
-                  (void))
+                  ($thread-status thread))
                 ((time<=? deadline now)
-                  #f)
+                  (running))
                 (else
                   (check-interrupts)
                   ;; condition-wait is not interruptible, use a short timeout
@@ -143,9 +165,10 @@
         (let %%thread-timed-join ((now (current-time 'time-utc)))
           (cond
             ((eqv? 0 (with-tc-mutex* ($thread-tc thread)))
-              (void))
+              (with-tc-mutex*
+                ($thread-status thread)))
             ((time<=? deadline now)
-              #f)
+              (running))
             (else
               (check-interrupts)
               ; sleep is interruptible
@@ -155,20 +178,6 @@
               (%%thread-timed-join (current-time 'time-utc)))))))))
 
 
-(define c-pthread-self (foreign-procedure "c_pthread_self" () uptr))
-
-(define c-thread-signals-block-most (foreign-procedure "c_thread_signals_block_most" () int))
-
-
-;; helper containing per-thread data: thread-id, pthread_t, and signal protected by a mutex and condition
-(define-record-type xthread
-  (fields
-    id                   ; thread-id, needed to check for xthread inherited from parent thread
-    (mutable pthread-id) ; pthread_t of thread, or #f if not known yet
-    (mutable signal)     ; one of: 'sigint 'sigtstp 'sigcont
-    (mutable status)     ; a status object
-    changed)             ; condition
-  (nongenerative xthread-7c46d04b-34f4-4046-b5c7-b63753c1be42))
 
 
 (define (new-xthread tc)
@@ -177,7 +186,7 @@
          (name (string->symbol (string-append "xthread-" (number->string id)))))
     ;; call pthread_self() only if xthread is for current thread
     (make-xthread id (if (eqv? tc ($tc)) (c-pthread-self) #f)
-                  'sigcont (running) (make-condition name))))
+                  'sigcont (make-condition name))))
 
 
 (define xthread-parameter-index (($primitive $allocate-thread-parameter) #f))
@@ -210,15 +219,32 @@
     ($tc-xthread ($tc))))
 
 
+;; set or return status for a thread.
+;; if thread was not found, return (void) if it's exited otherwise return (running)
+;;
+;; must be called with locked $tc-mutex.
+(define $thread-status
+  (let ((ht (make-ephemeron-eq-hashtable)))
+    (case-lambda
+      ((thread)
+        (let ((status (hashtable-ref ht thread #f)))
+          (cond
+            (status
+              status)
+            ((eqv? 0 ($thread-tc thread)) ; thread has exited
+              (void))
+            (else
+              (running)))))
+      ((thread status)
+        (hashtable-set! ht thread status)))))
+
+
+
 ;; return status of specified thread, i.e. a status object among (running) (stopped) or (void)
 (define (thread-status thread)
   (assert* 'thread-status (thread? thread))
-  (with-tc-mutex
-    (let* ((tc      ($thread-tc thread))
-           (xthread ($tc-xthread tc)))
-      (if xthread
-        (xthread-status xthread)
-        (void))))) ; thread exited
+  (with-tc-mutex*
+    ($thread-status thread)))
 
 
 ;; in newly created thread, call (param (thunk)) for each alist element (param . thunk) in (thread-initial-bindings)
@@ -253,7 +279,17 @@
       (thread-register-self)
       (apply-thread-initial-bindings)
       (keyboard-interrupt-handler thread-signal-handle)
-      (thunk))))
+      ;; convert (thunk) return values to status
+      (let ((status
+              (try
+                (call-with-values thunk ok)
+                (catch (ex)
+                  (exception ex))))
+            (thread (get-thread)))
+        ;; TODO queue thread exit notification
+        ;; race condition, thread may exit before (fork-thread) sets thread variable
+        (with-tc-mutex
+          ($thread-status thread status))))))
 
 
 ;; send a signal to specified thread or thread-id.
@@ -330,28 +366,29 @@
 ;; handle the signal sent to current thread by (thread-kill)
 ;; should be called by (keyboard-interrupt-handler) in every secondary thread.
 (define (thread-signal-handle)
-  (with-tc-mutex
-    (let* ((tc      ($tc))
-           (xthread ($tc-xthread tc)))
-      (when xthread
-        ($tc-signal-handle tc xthread)))))
+  (let ((thread (get-thread)))
+    (with-tc-mutex
+      (let* ((tc      ($tc))
+             (xthread ($tc-xthread tc)))
+        (when xthread
+          ($tc-signal-handle thread tc xthread))))))
 
 
 ;; implementation of (thread-signal-handle)
-(define ($tc-signal-handle tc xthread)
+(define ($tc-signal-handle thread tc xthread)
   (import (only (chezscheme) condition-wait))
   (let ((signal-name (xthread-signal xthread)))
     (case signal-name
       ((sigint)
-        (xthread-status-set! xthread (running))
+        ($thread-status thread (running))
         (xthread-signal-set! xthread 'sigcont) ; consume signal
         (raise-thread-interrupted 'thread-signal-handle ($tc-id tc) signal-name))
       ((sigtstp)
-        (xthread-status-set! xthread (stopped 'sigtstp))
+        ($thread-status thread (stopped 'sigtstp))
         (condition-wait (xthread-changed xthread) $tc-mutex)
-        ($tc-signal-handle tc xthread))
+        ($tc-signal-handle thread tc xthread))
       (else
-        (xthread-status-set! xthread (running))))))
+        ($thread-status thread (running))))))
 
 
 (define (raise-thread-interrupted caller thread-id signal-name)
