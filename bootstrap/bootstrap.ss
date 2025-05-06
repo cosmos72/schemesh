@@ -393,7 +393,7 @@
        form1 form2 ...))))
 
 
-;; symplify procedure chaining, allows writing (==> proc1 a ==> proc2 _ b c ==> proc3 d ...)
+;; symplify procedure chaining, allows writing (==> proc1 a => proc2 _ b c => proc3 d ...)
 ;; instead of (proc3 d ... (proc2 (proc1 a) b c))
 (define-syntax ==>
   (lambda (stx)

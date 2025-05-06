@@ -38,21 +38,21 @@
     (cond
       ((null? l)
         (values #f #f))
-      ((memq (car l) '(==> ?=>))
+      ((memq (car l) '(=> ?=>))
         (values pos (car l)))
       (else
         (%scan=> (cdr l) (fx1+ pos))))))
 
 
 ;; expand (==> head rest)
-(define (compose==> head rest)
+(define (compose=> head rest)
   (let-values (((pos sym) (scan=> rest)))
     (if pos
       (let* ((mid  (list-head rest pos))
              (mid* (replace_! head mid))
              (tail (list-tail rest (fx1+ pos))))
-        (if (eq? sym '==>)
-          (compose==> mid* tail)
+        (if (eq? sym '=>)
+          (compose=> mid* tail)
           (compose?=> mid* tail)))
       (replace_! head (list-copy rest)))))
 
@@ -66,8 +66,8 @@
              (mid* (replace_! g mid))
              (tail (list-tail rest (fx1+ pos))))
         `(let ((,g ,head))
-           (and ,g ,(if (eq? sym '==>)
-                      (compose==> mid* tail)
+           (and ,g ,(if (eq? sym '=>)
+                      (compose=> mid* tail)
                       (compose?=> mid* tail)))))
       (let* ((g     (gensym))
              (rest* (replace_! g (list-copy rest))))
@@ -81,8 +81,8 @@
     (syntax-violation "" "invalid syntax, need at least one argument after" '==>))
   (let-values (((pos sym) (scan=> l)))
     (case sym
-      ((==>)
-        (compose==> (list-head l pos) (list-tail l (fx1+ pos))))
+      ((=>)
+        (compose=> (list-head l pos) (list-tail l (fx1+ pos))))
       ((?=>)
         (compose?=> (list-head l pos) (list-tail l (fx1+ pos))))
       (else
