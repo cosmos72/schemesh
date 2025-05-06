@@ -236,8 +236,8 @@
         ((not (and xthread (eqv? ($tc-id tc) (xthread-id xthread))))
           ;; xthread is not set, or it's inherited from a parent thread: replace it
           (let ((xthread (new-xthread tc)))
-            (vector-set! params (car xthread-parameter-index)
-            xthread)))
+            (vector-set! params (car xthread-parameter-index) xthread)
+            xthread))
         ((not (xthread-pthread-id xthread))
           ;; pthread-id is not known yet, update it if xthread is for current thread
           (when (eqv? tc ($tc))
@@ -370,10 +370,13 @@
 ;;
 ;; NOTE: the only supported signal names are 'sigint 'sigtstp 'sigcont
 (define ($thread-kill thread signal-name)
-  (let ((tc ($thread-tc thread)))
+  (let* ((tc      ($thread-tc thread))
+         (xthread ($tc-xthread tc)))
     (if (eqv? 0 tc)
-      c-errno-esrch
-      ($tc-kill tc ($tc-xthread tc) signal-name))))
+      c-errno-esrch)
+      ($tc-kill tc xthread (eqv? 0 ($tc-id tc))
+                (and xthread (xthread-pthread-id xthread))
+                signal-name)))
 
 
 ;; send a signal to specified thread-context tc.
@@ -383,40 +386,46 @@
 ;; otherwise return c_errno() < 0
 ;;
 ;; NOTE: the only supported signal names are 'sigint 'sigtstp 'sigcont
-(define ($tc-kill tc xthread signal-name)
-  (when xthread
-    ;; set xthread-signal indicating what thread should do
+(define ($tc-kill tc xthread main-thread? pthread-id signal-name)
+  (when (and xthread (not main-thread?))
+    ;; set xthread-signal indicating what secondary thread should do
     (xthread-signal-set! xthread signal-name))
   ;; set tc fields indicating a pending keyboard interrupt.
   ;; we cannot emulate any other POSIX signal,
   ;; because Chez Scheme ($event) checks for signals queued by C signal handlers,
   ;; and we have no simple way to enqueue them.
-  ($tc-field 'keyboard-interrupt-pending tc #t)
+  (if main-thread?
+    ($tc-field 'signal-interrupt-pending tc #t)
+    ($tc-field 'keyboard-interrupt-pending tc #t))
   ($tc-field 'something-pending tc #t)
-  (let ((pthread-id (and xthread (xthread-pthread-id xthread))))
-    (cond
-      (pthread-id
-        ;; send SIGCONT to pthread, to interrupt any blocking system call
-        (let ((ret (c-pthread-kill pthread-id n-sigcont)))
-          (if (eqv? 0 ret)
-            xthread ;; success, return xthread
-            ret)))
-      (xthread
-        ;; thread exists, but its pthread-id is not known
-        c-errno-eagain)
-      (else
-        c-errno-esrch))))
+  (cond
+    (pthread-id
+      ;; send actual signal to main thread,
+      ;; or SIGCONT to secondary threads, for interrupting any blocking system call
+      (let* ((sig (if main-thread? (signal-name->number signal-name) n-sigcont))
+             (ret (c-pthread-kill pthread-id sig)))
+        (if (eqv? 0 ret)
+          xthread ;; success, return xthread
+          ret)))
+    (xthread
+      ;; thread exists, but its pthread-id is not known
+      c-errno-eagain)
+    (else
+      c-errno-esrch)))
 
 
 ;; handle the signal sent to current thread by (thread-kill)
 ;; should be called by (keyboard-interrupt-handler) in every secondary thread.
 (define (thread-signal-handle)
-  (let ((thread (get-thread)))
-    (with-tc-mutex
-      (let* ((tc      ($tc))
-             (xthread ($tc-xthread tc)))
-        (when xthread
-          ($tc-signal-handle thread tc xthread))))))
+  ;; main thread has its own signal handling mechanism,
+  ;; this is for secondary threads only
+  (unless (eqv? 0 (get-thread-id))
+    (let ((thread (get-thread)))
+      (with-tc-mutex
+        (let* ((tc      ($tc))
+               (xthread ($tc-xthread tc)))
+          (when xthread
+            ($tc-signal-handle thread tc xthread)))))))
 
 
 ;; implementation of (thread-signal-handle)
