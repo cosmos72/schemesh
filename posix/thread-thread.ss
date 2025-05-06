@@ -90,7 +90,7 @@
 (define ($threads-status-changes-insert! id status)
   (set! status-changes (cons (cons id status) status-changes))
 
-  ;; wake up main thread, to let it display thread status change
+  ;; wake up main thread, to let it display thread status changes
   (let ((tc ($thread-tc (get-initial-thread))))
     (unless (eqv? 0 tc)
       ; ($tc-field 'signal-interrupt-pending tc #t)
@@ -107,18 +107,16 @@
 ;; if no thread with specified thread-id is found, return #f
 (define (thread-find thread-id)
   (and thread-id
-    (unless (fixnum? thread-id)
-      (assert* 'thread-find (integer? thread-id))
-      (assert* 'thread-find (exact? thread-id)))
-    (with-tc-mutex
-      (let %thread-find ((tl ($threads)))
-        (cond
-          ((null? tl)
-            #f)
-          ((eqv? thread-id ($thread-id (car tl)))
-            (car tl))
-          (else
-            (%thread-find (cdr tl))))))))
+       (thread-id-validate thread-id)
+       (with-tc-mutex
+         (let %thread-find ((tl ($threads)))
+           (cond
+             ((null? tl)
+               #f)
+             ((eqv? thread-id ($thread-id (car tl)))
+               (car tl))
+             (else
+               (%thread-find (cdr tl))))))))
 
 
 ;; return caller's thread
@@ -280,10 +278,10 @@
 
 
 ;; return status of specified thread, i.e. a status object among (running) (stopped) or (void)
-(define (thread-status thread)
-  (assert* 'thread-status (thread? thread))
-  (with-tc-mutex*
-    ($thread-status thread)))
+(define (thread-status thread-or-id)
+  (let ((thread (datum->thread thread-or-id)))
+    (with-tc-mutex*
+      ($thread-status thread))))
 
 
 ;; in newly created thread, call (param (thunk)) for each alist element (param . thunk) in (thread-initial-bindings)
@@ -294,7 +292,6 @@
            (param (car a))
            (thunk (cdr a)))
       (param (thunk)))))
-
 
 
 ;; create a new thread, establish its initial thread parameters as specified by (thread-initial-bindings)
@@ -309,24 +306,37 @@
   ;; register caller's thread pthread_id in case it's missing
   (thread-register-self)
 
-  (chez:fork-thread
-    (lambda ()
-      ;; block most signals in new thread:
-      ;; we need to receive them in main thread
-      ;; Exception: allow receiving SIGCONT in new thread
-      (c-thread-signals-block-most)
-      (thread-register-self)
-      (apply-thread-initial-bindings)
-      (keyboard-interrupt-handler thread-signal-handle)
-      ;; convert (thunk) return values to status
-      (let ((status
-              (try
-                (call-with-values thunk ok)
-                (catch (ex)
-                  (exception ex))))
-            (thread (get-thread)))
-        (with-tc-mutex
-          ($thread-status thread ($tc) status))))))
+  (let ((ret #f))
+    (set! ret
+          (chez:fork-thread
+            (lambda ()
+              ;; block most signals in new thread:
+              ;; we need to receive them in main thread
+              ;; Exception: allow receiving SIGCONT in new thread
+              (c-thread-signals-block-most)
+              (thread-register-self)
+              (apply-thread-initial-bindings)
+              (keyboard-interrupt-handler thread-signal-handle)
+              (let ((status
+                      (call/cc
+                        (lambda (k)
+                          ;; intercept raised exceptions and calls to (abort) (exit) (reset)
+                          (let ((on-success   (lambda args (k (apply ok args))))
+                                (on-failure   (case-lambda
+                                                (()    (k (failed (void))))
+                                                ((arg) (k (failed arg)))))
+                                (on-exception (lambda (ex) (k (exception ex)))))
+                            (parameterize ((abort-handler          on-failure)
+                                           (base-exception-handler on-exception)
+                                           (exit-handler           on-success)
+                                           (reset-handler          on-failure))
+                              ;; convert (thunk) return values to status
+                              (call-with-values thunk ok))))))
+                    ;; race condition: may be executed before set! ret above
+                    (thread (or ret (get-thread))))
+                (with-tc-mutex
+                  ($thread-status thread ($tc) status))))))
+    ret))
 
 
 ;; send a signal to specified thread or thread-id.
@@ -340,8 +350,8 @@
     ((thread-or-id signal-name)
       (let ((thread-supported-signals '(sigint sigtstp sigcont)))
         (assert* 'thread-kill (memq signal-name thread-supported-signals)))
-      (let* ((t   (if (thread? thread-or-id) thread-or-id (thread thread-or-id)))
-             (ret (with-tc-mutex* ($thread-kill t signal-name))))
+      (let* ((thread (datum->thread thread-or-id))
+             (ret    (with-tc-mutex* ($thread-kill thread signal-name))))
         (if (xthread? ret)
           (let ()
             (import (only (chezscheme) condition-broadcast))
@@ -352,15 +362,15 @@
       (thread-kill thread-or-id 'sigint))))
 
 
-;; send a signal to specified thread t.
+;; send a signal to specified thread.
 ;; must be called with locked $tc-mutex.
 ;;
 ;; if successful return updated xthread object,
 ;; otherwise return c_errno() < 0
 ;;
 ;; NOTE: the only supported signal names are 'sigint 'sigtstp 'sigcont
-(define ($thread-kill t signal-name)
-  (let ((tc ($thread-tc t)))
+(define ($thread-kill thread signal-name)
+  (let ((tc ($thread-tc thread)))
     (if (eqv? 0 tc)
       c-errno-esrch
       ($tc-kill tc ($tc-xthread tc) signal-name))))

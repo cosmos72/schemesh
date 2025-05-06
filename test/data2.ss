@@ -320,9 +320,9 @@
   (sh-cmd* "A" '= "B" "echo")                          ,@"(sh-cmd* \"A\" '= \"B\" \"echo\")"
   (sh-cmd* (shell-wildcard (shell-env "VAR")
                            "/foo" "/bar"))             ,@"(sh-cmd* #<procedure>)"
-  (sh-find-job 0)                                      #f
-  (sh-find-job 1)                                      #f
-  (sh-find-job #t)                                     ,@(sh-globals)
+  (sh-job-find 0)                                      #f
+  (sh-job-find 1)                                      #f
+  (sh-job-find #t)                                     ,@(sh-globals)
 
   ;; ------------------------- shell form parser -------------------------------
   (sh-parse-datum

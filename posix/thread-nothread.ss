@@ -20,7 +20,7 @@
 
 ;; disable interrupts and acquire $tc-mutex
 (define-syntax with-tc-mutex
-  (identifier-syntax begin))
+  (identifier-syntax with-interrupts-disabled))
 
 
 (define (thread-count) 1)
@@ -33,16 +33,15 @@
 
 (define (thread-find thread-id)
   (and thread-id
-    (unless (fixnum? thread-id)
-      (assert* 'thread-find (integer? thread-id))
-      (assert* 'thread-find (exact? thread-id)))
-    (and (eqv? 0 thread-id)
-         (get-thread))))
+       (thread-id-validate thread-id)
+       (eqv? 0 thread-id)
+       (get-thread)))
 
 
 ;; return caller's thread
 (define (get-thread)
-  (car (threads)))
+  (with-tc-mutex
+    (car ($threads))))
 
 
 (define (%thread-timed-join thread timeout)
@@ -72,8 +71,8 @@
 
 (define thread-kill
   (let ((c-signal-raise (foreign-procedure "c_thread_signal_raise" (int int) int)))
-    (lambda (thread signal-name)
-      (assert* 'thread-kill (thread? thread))
+    (lambda (thread-or-id signal-name)
+      (datum->thread thread-or-id) ; validate thread-or-id
       (let ((signal-number (signal-name->number signal-name)))
         (if (fixnum? signal-number)
           (let ((ret (c-signal-raise signal-number 0))) ; 0 = preserve signal handler

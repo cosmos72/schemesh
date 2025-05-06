@@ -19,7 +19,7 @@
     sh-alias-ref sh-alias-delete! sh-alias-set! sh-aliases sh-aliases-expand
 
     ;; builtins.ss
-    sh-builtins sh-builtins-help sh-find-builtin sh-exception-handler
+    sh-builtins sh-builtins-help sh-builtin-find sh-exception-handler
     sh-echo sh-false sh-help repl-history repl-history-display repl-args repl-args-linectx sh-true
 
 
@@ -51,7 +51,7 @@
 
     ;; job.ss
     sh-consume-signals sh-cwd
-    sh-job sh-job-id sh-job-pid sh-job-pgid sh-job-status sh-jobs sh-find-job sh-job-exception
+    sh-job sh-job-id sh-job-pid sh-job-pgid sh-job-status sh-jobs sh-job-find sh-job-exception
 
     ;; multijob.ss
     sh-and sh-or sh-not sh-list sh-subshell
@@ -390,7 +390,7 @@
 ;;   stored in (multijob-children (sh-globals))
 ;;
 ;; Returns job object, or #f if job was not found.
-(define (sh-find-job job-or-id)
+(define (sh-job-find job-or-id)
   (cond
     ((eq? #t job-or-id)
       (sh-globals))

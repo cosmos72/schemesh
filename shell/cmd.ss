@@ -170,7 +170,7 @@
 
     (if (null? prog-and-args)
       (job-env-copy-into-parent! c) ; return (void) job status = success
-      (let ((builtin (sh-find-builtin prog-and-args)))
+      (let ((builtin (sh-builtin-find prog-and-args)))
         (if builtin
           ; expanded arg[0] is a builtin, call it.
           (builtin-start builtin c prog-and-args options)  ; returns job status
@@ -192,7 +192,7 @@
     ; lazy environment was applied already by the outer (start-command-or-builtin-or-alias)
     (if (null? prog-and-args)
       (void) ; return success
-      (let ((builtin (sh-find-builtin prog-and-args)))
+      (let ((builtin (sh-builtin-find prog-and-args)))
         (if builtin
           ; expanded arg[0] is a builtin, call it.
           (builtin-start builtin c prog-and-args options) ; returns job status

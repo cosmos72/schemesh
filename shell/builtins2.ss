@@ -59,7 +59,7 @@
   (if (or (null? prog-and-args) (null? (cdr prog-and-args)))
     (void)
     (let* ((args (cdr prog-and-args))
-           (builtin (sh-find-builtin args)))
+           (builtin (sh-builtin-find args)))
       (if builtin
         (builtin-start builtin job args options)
         (write-builtin-error "builtin" "not a shell builtin" (car args))))))
@@ -149,7 +149,7 @@
 ;; or return preferred job if prog-and-args is null
 (define (prog-and-args->job prog-and-args)
   (let-values (((id arg) (prog-and-args->job-id prog-and-args)))
-    (values (sh-find-job id) arg)))
+    (values (sh-job-find id) arg)))
 
 
 ;; The "bg" builtin: continue a job-id by sending SIGCONT to it, and return immediately
@@ -203,7 +203,7 @@
   (if (null? (cdr prog-and-args))
     (void)
     (let* ((args    (cdr prog-and-args))
-           (builtin (sh-find-builtin args)))
+           (builtin (sh-builtin-find args)))
       (if builtin
         (begin
           (job-temp-parent-set! job (sh-globals))
@@ -238,7 +238,7 @@
   (if (null? (cdr prog-and-args))
     (void)
     (let* ((args       (cdr prog-and-args))
-           (builtin    (sh-find-builtin args))
+           (builtin    (sh-builtin-find args))
            (old-parent (job-parent job))
            (new-parent (or (and old-parent (job-parent old-parent)) #t)))
       (builtin

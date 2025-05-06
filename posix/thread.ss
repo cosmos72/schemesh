@@ -26,14 +26,14 @@
   (import
     (rnrs)
     (only (rnrs mutable-pairs)    set-cdr!)
-    (only (chezscheme)            $primitive add-duration current-time eval foreign-procedure
-                                  get-thread-id import include keyboard-interrupt-handler library-exports logbit?
-                                  meta-cond make-ephemeron-eq-hashtable make-parameter make-time
-                                  procedure-arity-mask sleep thread? threaded? time? time<=? time-difference time-type
-                                  void)
+    (only (chezscheme)            $primitive abort-handler add-duration base-exception-handler current-time eval exit-handler
+                                  foreign-procedure get-thread-id import include keyboard-interrupt-handler library-exports
+                                  logbit? meta-cond make-ephemeron-eq-hashtable make-parameter make-time
+                                  parameterize procedure-arity-mask reset-handler sleep thread? threaded?
+                                  time? time<=? time-difference time-type void with-interrupts-disabled)
     (only (schemesh bootstrap)    assert* assert-not* catch check-interrupts raise-errorf until try)
     (only (schemesh posix signal) raise-condition-received-signal signal-name->number signal-raise)
-    (only (schemesh posix status) running stopped ok exception))
+    (only (schemesh posix status) running stopped ok exception failed))
 
 
 (define c-errno-eagain ((foreign-procedure "c_errno_eagain" () int)))
@@ -70,6 +70,13 @@
 ;; must be called with locked $tc-mutex
 (define ($thread-id thread)
   ($tc-id ($thread-tc thread)))
+
+
+(define (thread-id-validate thread-id)
+  (unless (fixnum? thread-id)
+    (unless (and (integer? thread-id) (exact? thread-id))
+      (raise-errorf 'thread-find "~s is not an exact integer thread-id" thread-id)))
+  #t)
 
 
 (meta-cond
@@ -114,7 +121,13 @@
     t))
 
 
-;; wait for specified thread to exit.
+(define (datum->thread thread-or-id)
+  (if (thread? thread-or-id)
+    thread-or-id
+    (thread thread-or-id)))
+
+
+;; wait for specified thread or thread-id to exit.
 ;; timeout is optional: it defaults to #f, and must be #f or a time object with type 'time-utc or 'time-duration
 ;;
 ;; if timeout is not specified or is #f, or thread exits before timeout,
@@ -123,12 +136,13 @@
 ;;   returns thread current status: (running) or (stopped ...)
 (define thread-join
   (case-lambda
-    ((thread)
-      (%thread-join thread))
-    ((thread timeout)
-      (if timeout
-        (%thread-timed-join thread timeout)
-        (%thread-join thread)))))
+    ((thread-or-id)
+      (%thread-join (datum->thread thread-or-id)))
+    ((thread-or-id timeout)
+      (let ((thread (datum->thread thread-or-id)))
+        (if timeout
+          (%thread-timed-join thread timeout)
+          (%thread-join thread))))))
 
 
 ;; return main thread

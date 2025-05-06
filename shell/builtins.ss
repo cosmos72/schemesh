@@ -235,7 +235,7 @@ The following names are recognized as builtins:\n\n")
 ;; extract the first string and return the corresponding builtin.
 ;; Return #f if no corresponding builtin is found.
 ;; Return builtin-true if prog-and-args is the empty list.
-(define (sh-find-builtin prog-and-args)
+(define (sh-builtin-find prog-and-args)
   (if (null? prog-and-args)
     builtin-true ; empty command line, run it with (builtin-true)
     (hashtable-ref (sh-builtins) (car prog-and-args) #f)))
