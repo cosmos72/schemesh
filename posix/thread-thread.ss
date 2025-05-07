@@ -11,11 +11,12 @@
 ;; helper containing per-thread data: thread-id, pthread_t and signal protected by global $tc-mutex and a condition
 (define-record-type xthread
   (fields
+    thread               ; thread, for speeding up (thread) function
     id                   ; thread-id, needed to check for xthread inherited from parent thread
     (mutable pthread-id) ; pthread_t of thread, or #f if not known yet
     (mutable signal)     ; one of: 'sigint 'sigtstp 'sigcont
     changed)             ; condition
-  (nongenerative xthread-7c46d04b-34f4-4046-b5c7-b63753c1be43))
+  (nongenerative xthread-7c46d04b-34f4-4046-b5c7-b63753c1be44))
 
 
 (define c-pthread-kill (foreign-procedure "c_pthread_kill" (uptr int) int))
@@ -91,11 +92,12 @@
   (set! status-changes (cons (cons id status) status-changes))
 
   ;; wake up main thread, to let it display thread status changes
-  (let ((tc ($thread-tc (get-initial-thread))))
+  (let* ((t  (get-initial-thread))
+         (tc ($thread-tc t)))
     (unless (eqv? 0 tc)
       ; ($tc-field 'signal-interrupt-pending tc #t)
       ; ($tc-field 'something-pending tc #t)
-      (let ((xthread ($tc-xthread tc)))
+      (let ((xthread ($thread-xthread t tc)))
         (when xthread
           (let ((pthread-id (xthread-pthread-id xthread)))
             (when pthread-id
@@ -119,9 +121,27 @@
                (%thread-find (cdr tl))))))))
 
 
+;; return caller's thread.
+;; must be called with locked $tc-mutex
+(define ($get-thread)
+  (let* ((xthread ($tc-xthread-nocreate ($tc))))
+    (if xthread
+      (xthread-thread xthread)
+      ;; thread not found in ($tc) => scan all threads
+      (let %get-thread ((tl ($threads)) (thread-id (get-thread-id)))
+        (cond
+          ((null? tl)
+            (raise-errorf 'thread "thread not found: ~s" thread-id))
+          ((eqv? thread-id ($thread-id (car tl)))
+            (car tl))
+          (else
+            (%get-thread (cdr tl) thread-id)))))))
+
+
 ;; return caller's thread
 (define (get-thread)
-  (thread (get-thread-id)))
+  (with-tc-mutex
+     ($get-thread)))
 
 
 (define short-timeout (make-time 'time-duration 500000000 0))
@@ -213,21 +233,21 @@
 
 
 
-(define (new-xthread tc)
+(define ($new-xthread thread tc)
   (import (only (chezscheme) make-condition))
-  (let* ((id ($tc-id tc))
+  (let* ((id   ($tc-id tc))
          (name (string->symbol (string-append "xthread-" (number->string id)))))
     ;; call pthread_self() only if xthread is for current thread
-    (make-xthread id (if (eqv? tc ($tc)) (c-pthread-self) #f)
+    (make-xthread thread id (if (eqv? tc ($tc)) (c-pthread-self) #f)
                   'sigcont (make-condition name))))
 
 
 (define xthread-parameter-index (($primitive $allocate-thread-parameter) #f))
 
 
-;; extract and return the xthread parameter from specified thread-context tc, creating it if needed.
+;; extract and return the xthread parameter from specified thread, creating it if missing.
 ;; Return #f if tc is not set.
-(define ($tc-xthread tc)
+(define ($thread-xthread thread tc)
   (if (eqv? 0 tc)
     #f
     (let* ((params  ($tc-field 'parameters tc))
@@ -235,7 +255,7 @@
       (cond
         ((not (and xthread (eqv? ($tc-id tc) (xthread-id xthread))))
           ;; xthread is not set, or it's inherited from a parent thread: replace it
-          (let ((xthread (new-xthread tc)))
+          (let ((xthread ($new-xthread thread tc)))
             (vector-set! params (car xthread-parameter-index) xthread)
             xthread))
         ((not (xthread-pthread-id xthread))
@@ -247,9 +267,23 @@
           xthread)))))
 
 
+;; extract and return the xthread parameter from specified thread-context.
+;; does NOT create it if missing.
+;; Return #f if tc or xthread are not set.
+(define ($tc-xthread-nocreate tc)
+  (if (eqv? 0 tc)
+    #f
+    (let* ((params  ($tc-field 'parameters tc))
+           (xthread (vector-ref params (car xthread-parameter-index))))
+      (if (and xthread (eqv? ($tc-id tc) (xthread-id xthread)))
+        xthread
+        ;; xthread is not set, or it's inherited from a parent thread: cannot return it
+        #f))))
+
+
 (define (thread-register-self)
   (with-tc-mutex
-    ($tc-xthread ($tc))))
+    ($thread-xthread ($get-thread) ($tc))))
 
 
 ;; set or return status for a thread.
@@ -371,7 +405,7 @@
 ;; NOTE: the only supported signal names are 'sigint 'sigtstp 'sigcont
 (define ($thread-kill thread signal-name)
   (let* ((tc      ($thread-tc thread))
-         (xthread ($tc-xthread tc)))
+         (xthread ($thread-xthread thread tc)))
     (if (eqv? 0 tc)
       c-errno-esrch)
       ($tc-kill tc xthread (eqv? 0 ($tc-id tc))
@@ -420,16 +454,16 @@
   ;; main thread has its own signal handling mechanism,
   ;; this is for secondary threads only
   (unless (eqv? 0 (get-thread-id))
-    (let ((thread (get-thread)))
-      (with-tc-mutex
-        (let* ((tc      ($tc))
-               (xthread ($tc-xthread tc)))
-          (when xthread
-            ($tc-signal-handle thread tc xthread)))))))
+    (with-tc-mutex
+      (let* ((thread  ($get-thread))
+             (tc      ($tc))
+             (xthread ($thread-xthread thread tc)))
+        (when xthread
+          ($thread-signal-handle thread tc xthread))))))
 
 
 ;; implementation of (thread-signal-handle)
-(define ($tc-signal-handle thread tc xthread)
+(define ($thread-signal-handle thread tc xthread)
   (import (only (chezscheme) condition-wait))
   (let ((signal-name (xthread-signal xthread)))
     (case signal-name
@@ -440,7 +474,7 @@
       ((sigtstp)
         ($thread-status thread tc s-stopped)
         (condition-wait (xthread-changed xthread) $tc-mutex)
-        ($tc-signal-handle thread tc xthread))
+        ($thread-signal-handle thread tc xthread))
       (else
         ($thread-status thread tc s-running)))))
 

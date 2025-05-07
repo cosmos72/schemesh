@@ -12,7 +12,7 @@
 ;;
 ;; plus some useful functions
 ;;   (get-thread) (thread) (thread-alive?) (thread-count) (thread-find)
-;;   (thread-id) (thread-initial-bindings) (thread-kill) (threads)
+;;   (thread-id) (thread-initial-bindings) (thread-kill) (threads) (threads-status)
 ;;
 ;; plus improved functions:
 ;;  (fork-thread) also sets the new thread's thread-local parameters to values returned by (thread-initial-bindings)
@@ -22,7 +22,7 @@
   (export fork-thread get-initial-thread get-thread get-thread-id
           thread thread? threaded? thread-alive? thread-count thread-find thread-id thread-initial-bindings
           thread-join thread-kill thread-preserve-ownership! thread-signal-handle thread-status
-          threads threads-status-changes)
+          threads threads-status threads-status-changes)
   (import
     (rnrs)
     (only (rnrs mutable-pairs)    set-cdr!)
@@ -97,6 +97,21 @@
       (if (null? tl)
         ret
         (%threads (cons (car tl) ret) (cdr tl))))))
+
+
+;; return an alist containing a copy of the current threads list, and the status of each thread,
+;; organized as ((thread . status) ...)
+;;
+;; Note: threads may be created or destroyed after this call and before
+;; the returned value is used.
+(define (threads-status)
+  (with-tc-mutex
+    ;; copy and reverse the list returned by ($threads)
+    (let %threads ((ret '()) (tl ($threads)))
+      (if (null? tl)
+        ret
+        (let ((t (car tl)))
+          (%threads (cons (cons t ($thread-status t)) ret) (cdr tl)))))))
 
 
 ;; return thread-id of specified thread, or #f if thread is destroyed
@@ -202,5 +217,9 @@
           (assert* 'thread-initial-bindings (logbit? 1 (procedure-arity-mask (car a))))
           (assert* 'thread-initial-bindings (logbit? 0 (procedure-arity-mask (cdr a)))))))))
 
+
+(meta-cond
+  ((threaded?)
+    (thread-register-self)))
 
 ) ; close library

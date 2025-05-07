@@ -9,7 +9,7 @@
 
 (library (schemesh containers list (0 9 0))
   (export
-    any count every for-list for-plist in-list in-plist on-list
+    any count every for-alist for-list for-plist in-alist in-list in-plist on-list
 
     list-copy* list-index list-quoteq! list-reverse*! list-remove-consecutive-duplicates!
 
@@ -305,6 +305,44 @@
       (let ((tail l))
         (set! l (cdr l))
         (values tail #t)))))
+
+
+;; create and return a closure that iterates on elements of association list alist.
+;;
+;; the returned closure accepts no arguments, and each call to it returns three values:
+;; either (values key val #t) i.e. the next key and value in alist and #t,
+;; or (values #<unspecified> #<unspecified> #f) if end of alist is reached.
+(define (in-alist alist)
+  (lambda ()
+    (if (null? alist)
+      (values #f #f #f)
+      (let ((key (caar alist))
+            (val (cdar alist)))
+        (set! alist (cdr alist))
+        (values key val #t)))))
+
+
+;; Iterate in parallel on elements of given alists, and evaluate body ... on each element.
+;; Stop iterating when the shortest list is exhausted,
+;; and return unspecified value.
+(define-syntax for-alist
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ ((key val alist)) body1 body2 ...)
+        #'(for-each (lambda (elem)
+                      (let ((key (car elem))
+                            (val (cdr elem)))
+                        body1 body2 ...))
+                    alist))
+      ((_ ((key val alist) ...) body1 body2 ...)
+        (not (null? #'(alist ...)))
+        (with-syntax (((tail ...) (generate-pretty-temporaries #'(alist ...))))
+          #'(let %for-alist ((tail alist) ...)
+              (unless (or (null? tail) ...)
+                (let ((key (caar tail)) ...
+                      (val (cdar tail)) ...)
+                  body1 body2 ...)
+                (%for-alist (cdr tail) ...))))))))
 
 
 ;; return #t if plist is a property list, otherwise return #f

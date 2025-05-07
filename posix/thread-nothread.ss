@@ -80,9 +80,13 @@
           c-errno-einval)))))
 
 
+(define ($thread-status thread)
+  (running))
+
+
 (define (thread-status thread)
   (assert* 'thread-status (thread? thread))
-  (running))
+  ($thread-status thread))
 
 
 (define (thread-signal-handle)

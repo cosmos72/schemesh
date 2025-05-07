@@ -211,7 +211,7 @@
         (write-builtin-error "global" "not a shell builtin" (car args))))))
 
 
-;; the "jobs" builtin: list currently running jobs
+;; the "jobs" builtin: list known jobs
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-jobs job prog-and-args options)
@@ -333,6 +333,18 @@
                        ;; split after each #\nul the second and subsequent arguments
                       (string-list-split-after-nuls (cddr prog-and-args)))))
       (start-command-or-builtin-or-alias-from-another-builtin job args options))))
+
+
+;; the "threads" builtin: list currently running threads
+;;
+;; As all builtins do, must return job status.
+(define (builtin-threads job prog-and-args options)
+  (assert-string-list? 'builtin-jobs prog-and-args)
+  (let ((port (current-output-port)))
+    (for-alist ((thread status (threads-status)))
+      (thread-display-summary (thread-id thread) status port))
+    (flush-output-port port))
+  (void))
 
 
 ;; the "unexport" builtin: unexport zero or more environment variables of parent job

@@ -280,6 +280,15 @@
   (list-reverse*! (list 1))                            (1)
   (list-reverse*! (list 1 2))                          (2 . 1)
   (list-reverse*! (list 1 2 3 4 5 6))                  (6 5 4 3 2 . 1)
+
+  (let ((ret '()))
+    (for-alist ((k v '((#\a . 1.0) (#\b 2.0) (#\c (3.0)))))
+      (set! ret (cons (cons k v) ret)))
+    (reverse! ret))                                    ((#\a . 1.0) (#\b 2.0) (#\c (3.0)))
+
+  (let ((i (in-alist '((1 . a) (2 . b) (3 . c) (4 . d)))))
+    (let*-values ((a (i)) (b (i)) (c (i)) (d (i)) (e (i)))
+      (list a b c d e)))                               ((1 a #t) (2 b #t) (3 c #t) (4 d #t) (#f #f #f))
   ;; ------------------------ hashtable -----------------------------------
   (vector-sort
     (lambda (cell1 cell2) (< (car cell1) (car cell2)))

@@ -47,11 +47,9 @@
   (void))
 
 
-(define (display-thread-status-change pair port)
-  (let* ((id      (car pair))
-         (status* (cdr pair))
-         (status  (if (eq? (void) status*) (ok) status*)))
-    (format port "; thread ~a~s          ~s\n" (pad/job-id id) id status)))
+(define (thread-display-summary id status port)
+  (format port "; thread ~a~s          ~s\n"
+          (pad/job-id id) id (if (eq? (void) status) (ok) status)))
 
 
 ;; add a job to an internal queue, and return (void)
