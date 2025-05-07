@@ -32,6 +32,8 @@
                                   parameterize procedure-arity-mask reset-handler sleep thread? threaded?
                                   time? time<=? time-difference time-type void with-interrupts-disabled)
     (only (schemesh bootstrap)    assert* assert-not* catch check-interrupts raise-errorf until try)
+    (only (schemesh containers hashtable) for-hash)
+    (only (schemesh containers list)      for-list)
     (only (schemesh posix signal) raise-condition-received-signal signal-name->number signal-raise)
     (only (schemesh posix status) running stopped ok exception failed))
 
@@ -97,21 +99,6 @@
       (if (null? tl)
         ret
         (%threads (cons (car tl) ret) (cdr tl))))))
-
-
-;; return an alist containing a copy of the current threads list, and the status of each thread,
-;; organized as ((thread . status) ...)
-;;
-;; Note: threads may be created or destroyed after this call and before
-;; the returned value is used.
-(define (threads-status)
-  (with-tc-mutex
-    ;; copy and reverse the list returned by ($threads)
-    (let %threads ((ret '()) (tl ($threads)))
-      (if (null? tl)
-        ret
-        (let ((t (car tl)))
-          (%threads (cons (cons t ($thread-status t)) ret) (cdr tl)))))))
 
 
 ;; return thread-id of specified thread, or #f if thread is destroyed

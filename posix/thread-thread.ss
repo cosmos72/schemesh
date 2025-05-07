@@ -286,29 +286,38 @@
     ($thread-xthread ($get-thread) ($tc))))
 
 
-;; set or return status for a thread.
-;; if thread was not found, return (void) if it's exited otherwise return (running)
+;; hashtable thread -> (id . status)
+(define status-map (make-ephemeron-eq-hashtable))
+
+;; return status for a thread.
+;; if thread was not found, return (void) if thread exited otherwise return (running)
 ;;
 ;; must be called with locked $tc-mutex.
-(define $thread-status
-  (let ((ht (make-ephemeron-eq-hashtable)))
-    (case-lambda
-      ((thread)
-        (let ((status (hashtable-ref ht thread #f)))
-          (cond
-            (status
-              status)
-            ((eqv? 0 ($thread-tc thread)) ; thread has exited
-              (void))
-            (else
-              (running)))))
-      ((thread tc new-status)
-        (let ((old-status (hashtable-ref ht thread s-running)))
-          (hashtable-set! ht thread new-status)
-          (unless (eq? old-status new-status)
-            ;; queue thread status change notification
-            ($threads-status-changes-insert! ($tc-id tc) new-status)))))))
+(define ($thread-status thread)
+  (let ((pair (hashtable-ref status-map thread #f)))
+    (cond
+      (pair
+        (cdr pair))
+      ((eqv? 0 ($thread-tc thread)) ; thread exited
+        (void))
+      (else
+        (running)))))
 
+
+;; set status for a thread.
+;; must be called with locked $tc-mutex.
+(define ($thread-status-set! thread tc new-status)
+  (let* ((old-pair     (hashtable-ref status-map thread #f))
+         (thread-id    ($tc-id tc))
+         (same-status? (cond ((pair? old-pair) (eq? (cdr old-pair) new-status))
+                             (else             (eq? s-running      new-status)))))
+    (if old-pair
+      (set-cdr! old-pair new-status)
+      (hashtable-set! status-map thread (cons thread-id new-status)))
+
+    (unless same-status?
+      ;; queue thread status change notification
+      ($threads-status-changes-insert! thread-id new-status))))
 
 
 ;; return status of specified thread, i.e. a status object among (running) (stopped) or (void)
@@ -316,6 +325,24 @@
   (let ((thread (datum->thread thread-or-id)))
     (with-tc-mutex*
       ($thread-status thread))))
+
+
+
+;; return a fresh hashtable containing the known threads, their id and status
+;; organized as id -> (thread . status)
+;;
+;; Note: threads may be created or destroyed after this call and before
+;; the returned value is used.
+(define (threads-status)
+  (let ((ret (make-eqv-hashtable)))
+    (with-tc-mutex
+      (for-hash ((t id.status status-map))
+        (hashtable-set! ret (car id.status) (cons t (cdr id.status))))
+      (for-list ((t ($threads)))
+        (let ((id ($thread-id t)))
+          (when (and id (not (hashtable-ref ret id #f)))
+            (hashtable-set! ret id (cons t ($thread-status t)))))))
+    ret))
 
 
 ;; in newly created thread, call (param (thunk)) for each alist element (param . thunk) in (thread-initial-bindings)
@@ -369,7 +396,7 @@
                     ;; race condition: may be executed before set! ret above
                     (thread (or ret (get-thread))))
                 (with-tc-mutex
-                  ($thread-status thread ($tc) status))))))
+                  ($thread-status-set! thread ($tc) status))))))
     ret))
 
 
@@ -468,15 +495,15 @@
   (let ((signal-name (xthread-signal xthread)))
     (case signal-name
       ((sigint)
-        ($thread-status thread tc s-running)
+        ($thread-status-set! thread tc s-running)
         (xthread-signal-set! xthread 'sigcont) ; consume signal
         (raise-thread-interrupted 'thread-signal-handle ($tc-id tc) signal-name))
       ((sigtstp)
-        ($thread-status thread tc s-stopped)
+        ($thread-status-set! thread tc s-stopped)
         (condition-wait (xthread-changed xthread) $tc-mutex)
         ($thread-signal-handle thread tc xthread))
       (else
-        ($thread-status thread tc s-running)))))
+        ($thread-status-set! thread tc s-running)))))
 
 
 (define (raise-thread-interrupted caller thread-id signal-name)

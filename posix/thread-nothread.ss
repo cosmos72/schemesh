@@ -80,13 +80,20 @@
           c-errno-einval)))))
 
 
-(define ($thread-status thread)
+(define (thread-status thread)
+  (assert* 'thread-status (thread? thread))
   (running))
 
 
-(define (thread-status thread)
-  (assert* 'thread-status (thread? thread))
-  ($thread-status thread))
+;; return a fresh hashtable containing the known threads, their id and status
+;; organized as id -> (thread . status)
+;;
+;; Note: threads may be created or destroyed after this call and before
+;; the returned value is used.
+(define (threads-status)
+  (let ((ret (make-eqv-hashtable)))
+    (hashtable-set! ret 0 (cons (get-initial-thread) (running)))
+    ret))
 
 
 (define (thread-signal-handle)

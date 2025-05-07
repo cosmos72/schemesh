@@ -335,14 +335,17 @@
       (start-command-or-builtin-or-alias-from-another-builtin job args options))))
 
 
-;; the "threads" builtin: list currently running threads
+;; the "threads" builtin: list known threads
 ;;
 ;; As all builtins do, must return job status.
 (define (builtin-threads job prog-and-args options)
   (assert-string-list? 'builtin-jobs prog-and-args)
-  (let ((port (current-output-port)))
-    (for-alist ((thread status (threads-status)))
-      (thread-display-summary (thread-id thread) status port))
+  (let ((port  (current-output-port))
+        (alist '()))
+    (for-hash ((id t.status (threads-status)))
+      (set! alist (cons (cons id t.status) alist)))
+    (for-alist ((id t.status (sort! car<? alist)))
+      (thread-display-summary id (cdr t.status) port))
     (flush-output-port port))
   (void))
 
