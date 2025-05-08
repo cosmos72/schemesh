@@ -70,11 +70,10 @@
 
 
 ;; port where to write debug messages with (debugf).
-#|
 (define (debugf-port)
   (console-output-port))
-|#
 
+#|
 (define debugf-port
   (let ((port #f))
     (lambda ()
@@ -87,7 +86,7 @@
                      (make-transcoder (utf-8-codec) (eol-style lf)
                                       (error-handling-mode raise)))))
       port)))
-
+|#
 
 (define c-pid-get (foreign-procedure "c_pid_get" () int))
 

@@ -62,7 +62,8 @@
 
     ;; redirect.ss
     sh-fd sh-binary-port sh-textual-port sh-redirect!
-    sh-run/bytevector sh-run/string sh-run/string-rtrim-newlines sh-run/string-split-after-nuls sh-start/fd-stdout
+    sh-run/bytevector sh-run/string sh-run/string-rtrim-newlines sh-run/string-split-after-nuls
+    sh-start/fd-stdout sh-start/fds-stdio sh-start/fds
     sh-stdio-flush
 
 
@@ -92,11 +93,11 @@
                        console-input-port console-output-port console-error-port
                        current-input-port current-output-port current-error-port
                        current-time debug debug-condition debug-on-exception display-condition
-                       foreign-procedure format fx1+ fx1- get-thread-id hashtable-cells include inspect
-                       keyboard-interrupt-handler list-copy logand logbit? make-continuation-condition
-                       make-format-condition meta meta-cond open-fd-output-port parameterize port-closed?
-                       procedure-arity-mask record-writer register-signal-handler reverse! sort!
-                       string-copy! string-truncate! textual-port-output-index threaded? void)
+                       foreign-procedure format fx1+ fx1- fxarithmetic-shift-right get-thread-id
+                       hashtable-cells include inspect keyboard-interrupt-handler list-copy logand logbit?
+                       make-continuation-condition make-format-condition meta meta-cond open-fd-output-port
+                       parameterize port-closed? procedure-arity-mask record-writer register-signal-handler
+                       reverse! sort! string-copy! string-truncate! textual-port-output-index threaded? void)
     (schemesh bootstrap)
     (schemesh containers)
     (schemesh conversions)

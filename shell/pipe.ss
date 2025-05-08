@@ -121,16 +121,16 @@
     ; Apply redirections. Will be removed by (mj-pipe-advance-wait) when job finishes.
     (when redirect-in?
       ; we must redirect job fd 0 *before* any redirection configured in the job itself
-      (job-redirect/temp/fd! job 0 '<& in-pipe-fd))
+      (job-redirect-temp-fd! job 0 '<& in-pipe-fd))
     (when redirect-out?
       (let-values (((fd/read fd/write) (open-pipe-fds #t #t)))
         (set! out-pipe-fd/read  fd/read)
         (set! out-pipe-fd/write fd/write)
         ; we must redirect job's fd 1 *before* any redirection configured in the job itself
-        (job-redirect/temp/fd! job 1 '>& fd/write)
+        (job-redirect-temp-fd! job 1 '>& fd/write)
         (when redirect-err?
           ; we must redirect job's fd 2 *before* any redirection configured in the job itself
-          (job-redirect/temp/fd! job 2 '>& fd/write))))
+          (job-redirect-temp-fd! job 2 '>& fd/write))))
 
     ; (debugf "... mj-pipe-start-i starting job=~s, options=~s, redirect-in=~s, redirect-out=~s" job options redirect-in? redirect-out?)
 

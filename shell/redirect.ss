@@ -15,8 +15,9 @@
   (case symbol
     ((<&) #\<)
     ((>&) #\>)
+    ((<>&) (integer->char #x2276)) ; #\≶
     (else
-      (raise-errorf caller "invalid redirect to fd direction, must be <& or >&: ~a" symbol))))
+      (raise-errorf caller "invalid redirect to fd direction ~s is not one of <& >& <>&" symbol))))
 
 
 (define (%sh-redirect/file-symbol->char caller symbol)
@@ -26,7 +27,7 @@
     ((<>) (integer->char #x2276)) ; #\≶
     ((>>) (integer->char #x00bb)) ; #\»
     (else
-      (raise-errorf caller "invalid redirect to file direction, must be < > <> or >>: ~a" symbol))))
+      (raise-errorf caller "invalid redirect to file direction ~s is not one of < > <> >>" symbol))))
 
 
 (define (%sh-redirect/fd-char->symbol caller ch)
@@ -54,6 +55,157 @@
     (else          'rw)))
 
 
+(define (fd? obj)
+  (and (fixnum? obj) (fx<? -2 obj (fd-open-max))))
+
+
+;; return normally if redirections is a plist where keys are file descriptors
+;; and values are one of '< '> '<>
+;; otherwise raise exception.
+(define (assert-redirection-plist caller redirections)
+  (unless (null? redirections)
+    (assert* caller (pair? redirections))
+    (assert* caller (pair? (cdr redirections)))
+    (let ((fd  (car redirections))
+          (dir (cadr redirections)))
+      (assert* caller (fd? fd))
+      (%sh-redirect/fd-symbol->char caller dir)
+      (assert-redirection-plist caller (cddr redirections)))))
+
+
+;; create pipe or socket fds to redirect child process file descriptors.
+;; all created fds are close-on-exec: child will get a dup2() of them
+(define (open-redirection-fds redirections fdv i)
+  (unless (null? redirections)
+    (let ((from-fd (car redirections))
+          (dir     (cadr redirections)))
+      (cond
+        ((fx=? -1 from-fd)
+          (vector-set! fdv i (cons #f -1)))
+
+        ((memq dir '(< >))
+          ;; create pipe fds, all are close-on-exec
+          (let-values (((read-fd write-fd) (open-pipe-fds #t #t)))
+            (vector-set! fdv i
+              ;; in fdv, each pair is (our-fd . child-fd)
+              (if (eq? '< dir) (cons write-fd read-fd)
+                               (cons read-fd write-fd)))))
+        (else
+          (let-values (((sock1 sock2) (open-socketpair-fds #t #t)))
+            (vector-set! fdv i (cons sock1 sock2))))))
+    ;; iterate on remaining redirections
+    (open-redirection-fds (cddr redirections) fdv (fx1+ i))))
+
+
+;; temporarily redirect job's file descriptors.
+;; redirections are automatically removed by (job-status-set!) when job finishes.
+(define (job-redirect-temp-fds! job redirections fdv i options)
+  (if (null? redirections)
+    `(spawn? #t ,@options)
+    (let ((to-fds  (vector-ref fdv i))
+          (from-fd (car redirections))
+          (dir     (case (cadr redirections)
+                     ((<) '<&)
+                     ((>) '>&)
+                     (else '<>&))))
+      ;; in fdv, each pair is (our-fd . child-fd)
+      (job-redirect-temp-fd! job from-fd dir (cdr to-fds)) ; child to-fd
+
+      ;; iterate on remaining redirections, and instruct child to close (car to-fds) i.e. our-fd
+      (job-redirect-temp-fds! job (cddr redirections) fdv (fx1+ i)
+                              `(fd-close ,(car to-fds) ,@options)))))
+
+
+(define (close-redirection-fds redirections fdv i err?)
+  (unless (null? redirections)
+    (let* ((from-fd  (car redirections))
+           (to-fds   (vector-ref fdv i))
+           (our-fd   (car to-fds))
+           (child-fd (cdr to-fds)))
+      (when (and err? our-fd (fx>=? our-fd 0))
+        ;; close our side of each pair
+        (fd-close our-fd)
+        (set-car! to-fds #f))
+      (when (and child-fd (fx>=? child-fd 0))
+        ;; close child side of each pair
+        (fd-close child-fd)
+        (set-cdr! to-fds #f)))
+    (close-redirection-fds (cddr redirections) fdv (fx1+ i) err?)))
+
+
+;; given a vector of pairs, return a list containing the car of each pair.
+(define (extract-vector-cars v)
+  (let %extract-vector-cars ((ret '()) (i (fx1- (vector-length v))))
+     (if (fx<? i 0)
+       ret
+       (%extract-vector-cars (cons (car (vector-ref v i)) ret) (fx1- i)))))
+
+
+;; Start a job and return immediately.
+;; Redirects job's file descriptors 0, 1 and 2 to a pipe and returns the other side of such pipes,
+;; which are a list of integer file descriptors.
+;;
+;; May raise exceptions. On errors, return #f.
+;;
+;; Implementation note: job is always started in a subprocess,
+;; because we need to read its standard output while it runs.
+;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
+(define sh-start/fds
+  (case-lambda
+    ((redirections job options)
+      (assert-redirection-plist 'sh-start/fds redirections)
+      (options-validate 'sh-start/fd-stdout options)
+      (let* ((n    (fxarithmetic-shift-right (length redirections) 1))
+             ;; vector of pipe pairs. car is our side, cdr is child side
+             (fdv  (make-vector n))
+             (err? #t))
+        (dynamic-wind
+          (lambda () ; run before body
+            (open-redirection-fds redirections fdv 0))
+
+          (lambda () ; body
+            (let ((options (job-redirect-temp-fds! job redirections fdv 0 options)))
+              ;; always start job in a subprocess, see above for reason.
+              (sh-start job options))
+
+            ;; close the fds we don't use: needed to detect eof on read fds
+            (close-redirection-fds redirections fdv 0 #f)
+
+            ;; job no longer needs fd remapping:
+            ;; they also may contain a dup() of write-fd
+            ;; which prevents detecting eof on read-fd
+            ;; (debugf "pid ~s: sh-start/fd-stdout calling (job-unmap-fds) job=~s" (pid-get) job)
+
+            (job-unmap-fds! job)
+            (set! err? #f))
+
+          (lambda () ; after body
+            ;; close the fds we don't use: needed to detect eof on read fds
+            (close-redirection-fds redirections fdv 0 err?)))
+
+        (extract-vector-cars fdv))) ; return list of our fds, or list of multiple #f on error
+    ((redirections job)
+      (sh-start/fds redirections job '()))))
+
+
+;; Start a job and return immediately.
+;; Redirects job's standard input, output and error to pipes and return the list of pipes
+;; for communicating with job's standard input, output and error.
+;;
+;; May raise exceptions. On errors, return #f.
+;;
+;; Implementation note: job is always started in a subprocess,
+;; because we need to read its standard output while it runs.
+;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
+(define sh-start/fds-stdio
+  (case-lambda
+    ((job options)
+      (sh-start/fds '(0 <& 1 >& 2 >&) job options))
+    ((job)
+      (sh-start/fds-stdio job '()))))
+
+
+
 ;; Start a job and return immediately.
 ;; Redirects job's standard output to a pipe and returns the read side of that pipe,
 ;; which is an integer file descriptor.
@@ -65,49 +217,11 @@
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
 (define sh-start/fd-stdout
   (case-lambda
-    ((job)
-      (sh-start/fd-stdout job '()))
     ((job options)
-      (options-validate 'sh-start/fd-stdout options)
-      (let ((fds (cons #f #f))
-            (err? #t))
-        (dynamic-wind
-          (lambda () ; run before body
-            ; create pipe fds, both are close-on-exec
-            (let-values (((read-fd write-fd) (open-pipe-fds #t #t)))
-              (set-car! fds read-fd)
-              (set-cdr! fds write-fd)))
-
-          (lambda () ; body
-            ; temporarily redirect job's stdout to write-fd.
-            ; redirection is automatically removed by (job-status-set!) when job finishes.
-            (job-redirect/temp/fd! job 1 '>& (cdr fds))
-            ; always start job in a subprocess, see above for reason.
-            (sh-start job `(spawn? #t fd-close ,(car fds) ,@options))
-
-            ; close our copy of write-fd: needed to detect eof on read-fd
-            (fd-close (cdr fds))
-            (set-cdr! fds #f)
-
-            ; job no longer needs fd remapping:
-            ; they also may contain a dup() of write-fd
-            ; which prevents detecting eof on read-fd
-            ; (debugf "pid ~s: sh-start/fd-stdout calling (job-unmap-fds) job=~s" (pid-get) job)
-
-            (job-unmap-fds! job)
-            (set! err? #f))
-
-          (lambda () ; after body
-            ; close our copy of write-fd: needed to detect eof on read-fd
-            (when (cdr fds)
-              (fd-close (cdr fds))
-              (set-cdr! fds #f))
-
-            (when (and err? (car fds))
-              (fd-close (car fds))
-              (set-car! fds #f))))
-
-        (car fds))))) ; return read-fd or #f
+      ;; return read-fd or #f
+      (car (sh-start/fds '(1 >&) job options)))
+    ((job)
+      (sh-start/fd-stdout job '()))))
 
 
 ;; if status is one of:
@@ -324,7 +438,7 @@
 
 
 ;; Prefix a single temporary fd redirection to a job
-(define (job-redirect/temp/fd! job fd direction to)
+(define (job-redirect-temp-fd! job fd direction to)
   (unless (fx>=? to -1)
     (raise-errorf 'sh-redirect! "invalid redirect to fd, must be -1 or an unsigned fixnum: ~a" to))
   (span-insert-left! (job-redirects job)

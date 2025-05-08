@@ -15,8 +15,8 @@
 ;; return unspecified value.
 ;; if key or value is not valid, raise an exception.
 (define (option-validate caller key value)
-  (assert* caller (symbol? key))
-  (assert* caller (memq    key '(catch? fd-close process-group-id spawn?)))
+  (let ((job-supported-options '(catch? fd-close process-group-id spawn?)))
+    (assert* caller (memq key job-supported-options)))
   (case key
     ((fd-close process-group-id)
       (assert* caller (integer? value))
