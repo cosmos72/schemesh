@@ -94,17 +94,17 @@ The analogous job control mechanisms from Scheme syntax are:
 Some more advanced Scheme functions:
 * `(sh-run/string job-object)` start a job in foreground, wait until job finishes, return its output as a Scheme string
 * `(sh-start/ports job-object)` start a job in background, return a list containing three binary ports:<br/>
-  the first one for writing to job's standard input<br/>for example with `(put-bytevector port bytevector)`,<br/>
-  the second one for reading from job's standard output<br/>for example with `(get-bytevector-some port bytevector)`,<br/>
-  the third one for reading from job's standard error<br/>for example with `(get-bytevector-some port bytevector)`.<br/>
+  the first one for writing to job's standard input - for example with `(put-bytevector port bytevector)`,<br/>
+  the second one for reading from job's standard output - for example with `(get-bytevector-some port bytevector)`,<br/>
+  the third one for reading from job's standard error - for example with `(get-bytevector-some port bytevector)`.<br/>
   Ports must be closed with `(close-port)` when no longer needed.
 * `(sh-start/fd-stdout job-object)` start a job in background, return a file descriptor fixnum<br/>
   for reading job's standard output - for example with `(open-fd-input-port fd)` or `(fd-read-some fd bytevector)`
   File descriptor must be closed with `(fd-close)` when no longer needed.
 * `(sh-start/fds job-object)` start a job in background, return a list containing three file descriptor fixnums:<br/>
-  the first one for writing to job's standard input<br/>for example with `(open-fd-output-port fd)` or `(fd-write fd bytevector)`,<br/>
-  the second one for reading from job's standard output<br/>for example with `(open-fd-input-port fd)` or `(fd-read fd bytevector)`,<br/>
-  the third one for reading from job's standard error<br/>for example with `(open-fd-input-port fd)` or `(fd-read fd bytevector)`.<br/>
+  the first one for writing to job's standard input - for example with `(open-fd-output-port fd)` or `(fd-write fd bytevector)`,<br/>
+  the second one for reading from job's standard output - for example with `(open-fd-input-port fd)` or `(fd-read fd bytevector)`,<br/>
+  the third one for reading from job's standard error - for example with `(open-fd-input-port fd)` or `(fd-read fd bytevector)`.<br/>
   File descriptors must be closed with `(fd-close)` when no longer needed.
 
 
