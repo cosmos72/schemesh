@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit parser (0 9 0))
+(library (schemesh lineedit parser (0 9 1))
   (export
     make-parsectx make-parsectx* parsectx? string->parsectx
     parsectx-in parsectx-current-pos parsectx-previous-pos parsectx-enabled-parsers

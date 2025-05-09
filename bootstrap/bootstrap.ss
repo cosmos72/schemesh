@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh bootstrap (0 9 0))
+(library (schemesh bootstrap (0 9 1))
   (export
       ;; bootstrap.ss
 

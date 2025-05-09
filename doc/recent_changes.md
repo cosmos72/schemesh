@@ -1,5 +1,16 @@
 ## RECENT CHANGES
 
+### release v0.9.1, 2025-05-09
+
+* fix saving history to `~/.cache/schemesh/history.txt`
+* fix issue #26: flush all open C `FILE*` streams before `fork()`ing a subshell
+* add shell builtin `threads`
+* add functions `(sh-start/fds)` `(sh-start/ports)`
+* add functions `(get-thread)` `(thread)` `(thread-alive?)` `(thread-count)` `(thread-find)`
+  `(thread-id)` `(thread-initial-bindings)` `(thread-kill)` `(threads)` `(threads-status)`
+* add macro `(for-alist)` and function `(in-alist)`
+
+
 ### release v0.9.0, 2025-05-02
 
 * fix job control bugs on macOS, fixes issue #17

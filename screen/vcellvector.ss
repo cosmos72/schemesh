@@ -11,7 +11,7 @@
 ;;;;;;;      define Scheme type "vcellvector", a vector of cells       ;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (schemesh screen vcellvector (0 9 0))
+(library (schemesh screen vcellvector (0 9 1))
   (export
     make-vcellvector list->vcellvector string->vcellvector
     vcellvector-length vcellvector-empty? vcellvector-ref

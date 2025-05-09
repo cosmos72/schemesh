@@ -18,7 +18,7 @@
 ;;  (fork-thread) also sets the new thread's thread-local parameters to values returned by (thread-initial-bindings)
 ;;  (thread-join) also accepts an optional timeout and is interruptible
 
-(library (schemesh posix thread (0 9 0))
+(library (schemesh posix thread (0 9 1))
   (export fork-thread get-initial-thread get-thread get-thread-id
           thread thread? threaded? thread-alive? thread-count thread-find thread-id thread-initial-bindings
           thread-join thread-kill thread-preserve-ownership! thread-signal-handle thread-status

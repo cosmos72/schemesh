@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh posix signal (0 9 0))
+(library (schemesh posix signal (0 9 1))
   (export countdown
           &received-signal make-received-signal raise-condition-received-signal
           received-signal? received-signal-name

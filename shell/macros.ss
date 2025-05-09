@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh shell macros (0 9 0))
+(library (schemesh shell macros (0 9 1))
   (export
     in-shell-glob sh-include sh-include*
     shell shell-backquote shell-env shell-expr shell-glob shell-list shell-string shell-subshell shell-wildcard)

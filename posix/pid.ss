@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh posix pid (0 9 0))
+(library (schemesh posix pid (0 9 1))
   (export pid-get pgid-get pid-kill pid-wait)
   (import
     (rnrs)

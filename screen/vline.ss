@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh screen vline (0 9 0))
+(library (schemesh screen vline (0 9 1))
   (export
     vline vline? assert-vline? vline->string
     vline-nl? vline-copy-on-write vline-empty?

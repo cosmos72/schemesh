@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh screen vlines io (0 9 0))
+(library (schemesh screen vlines io (0 9 1))
   (export open-vlines-input-port)
   (import
     (rnrs)

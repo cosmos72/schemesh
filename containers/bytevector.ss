@@ -6,7 +6,7 @@
 ;;; (at your option) any later version.
 
 
-(library (schemesh containers bytevector (0 9 0))
+(library (schemesh containers bytevector (0 9 1))
   (export
     in-bytevector list->bytevector subbytevector
 

@@ -11,7 +11,7 @@
 ;;;;;;;;;;;  define Scheme type "charspan", a resizeable string  ;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (schemesh containers charspan (0 9 0))
+(library (schemesh containers charspan (0 9 1))
   (export
     list->charspan string->charspan string->charspan* make-charspan
     charspan->string charspan->string*!

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh parser (0 9 0))
+(library (schemesh parser (0 9 1))
   (export
     ; lisp.ss
     lex-lisp parse-lisp-forms parse-lisp-paren read-lisp-token
