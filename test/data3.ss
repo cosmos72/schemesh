@@ -144,7 +144,7 @@
   (caddr (expand '(shell-wildcard
    "a" (shell-wildcard ~ "b/" *) ? % "def" %! "ghi"))) ,@(lambda (job) (wildcard job "a" '~ "b/" '* '? '% "def" '%! "ghi"))
 
-  ;; ------------------------- builtin execution ------------------------------
+  ;; ------------------------- job execution ------------------------------
   (sh-run (shell "true"))                              ,@"#<void>"
   (sh-run (shell "false"))                             ,(failed 1)
   (sh-run (shell "echo0"))                             ,@"#<void>"
@@ -197,6 +197,21 @@
   (sh-run/string (shell
     "split-at-0" "echo"
       (shell-backquote "echo0" "jkl" "mn" "o" "")))    "jkl mn o \n"
+
+  (let* ((job   {grep xyz})
+         (ports (sh-start/ports job))
+         (in    (car ports))
+         (out   (cadr ports))
+         (err   (caddr ports)))
+    (put-bytevector in (string->utf8b "_abc_\n"))
+    (put-bytevector in (string->utf8b "_xyz_\n"))
+    (close-port in)
+    (let ((ret (get-bytevector-all out)))
+      (close-port out)
+      (close-port err)
+      (sh-wait job)
+      ret))                                            ,#vu8(95 120 121 122 95 10)
+
   (sh-run {
      $(display "hello") | cat |
      $(utf8b->string (fd-read-all (sh-fd 0)))})        ,(ok "hello")
@@ -222,8 +237,6 @@
     "builtin" "true" \x7C;
     "builtin" "command" "false" \x7C;
     "global"  "status" "19"))                          ,(failed 19)
-
-  ;; ------------------------- job execution ---------------------------------
 
   (sh-run/i (shell (shell-expr -1 (* 7 8 9))))         ,(ok 504)
   (sh-run/i {$(vector 1 2 3)})                         ,(ok #(1 2 3))
@@ -271,7 +284,6 @@ B=2})                                                  ,@"#<void>"
     (sh-bg j))                                         ,(running 1)
   (sh-run {[true
             false]})                                   ,(failed 1)
-  ;; if stopped, schemesh forgets to restore its process group as fg => lineedit read() fails => fatal error
   (sh-run $(sh-run
     { {echo a
        sleep 0

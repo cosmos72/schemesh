@@ -56,7 +56,7 @@
 
 
 (define (fd? obj)
-  (and (fixnum? obj) (fx<? -2 obj (fd-open-max))))
+  (and (fixnum? obj) (fx<? -1 obj (fd-open-max))))
 
 
 ;; return normally if redirections is a plist where keys are file descriptors
@@ -79,20 +79,17 @@
   (unless (null? redirections)
     (let ((from-fd (car redirections))
           (dir     (cadr redirections)))
-      (cond
-        ((fx=? -1 from-fd)
-          (vector-set! fdv i (cons #f -1)))
-
-        ((memq dir '(< >))
-          ;; create pipe fds, all are close-on-exec
-          (let-values (((read-fd write-fd) (open-pipe-fds #t #t)))
-            (vector-set! fdv i
-              ;; in fdv, each pair is (our-fd . child-fd)
-              (if (eq? '< dir) (cons write-fd read-fd)
-                               (cons read-fd write-fd)))))
-        (else
-          (let-values (((sock1 sock2) (open-socketpair-fds #t #t)))
-            (vector-set! fdv i (cons sock1 sock2))))))
+      (if (memq dir '(<& >&))
+        ;; create pipe fds, all are close-on-exec
+        (let-values (((read-fd write-fd) (open-pipe-fds #t #t)))
+          (vector-set! fdv i
+            ;; in fdv, each pair is (our-fd . child-fd)
+            (if (eq? dir '<&) (cons write-fd read-fd)
+                              (cons read-fd write-fd))))
+        ;; direction is '<>&
+        ;; create socketpair fds, all are close-on-exec
+        (let-values (((sock1 sock2) (open-socketpair-fds #t #t)))
+          (vector-set! fdv i (cons sock1 sock2)))))
     ;; iterate on remaining redirections
     (open-redirection-fds (cddr redirections) fdv (fx1+ i))))
 
@@ -104,10 +101,7 @@
     `(spawn? #t ,@options)
     (let ((to-fds  (vector-ref fdv i))
           (from-fd (car redirections))
-          (dir     (case (cadr redirections)
-                     ((<) '<&)
-                     ((>) '>&)
-                     (else '<>&))))
+          (dir     (cadr redirections)))
       ;; in fdv, each pair is (our-fd . child-fd)
       (job-redirect-temp-fd! job from-fd dir (cdr to-fds)) ; child to-fd
 
@@ -142,17 +136,23 @@
 
 
 ;; Start a job and return immediately.
-;; Redirects job's file descriptors 0, 1 and 2 to a pipe and returns the other side of such pipes,
+;; Redirects job's file descriptors to pipes and returns the other side of such pipes,
 ;; which are a list of integer file descriptors.
 ;;
-;; May raise exceptions. On errors, return #f.
+;; Optional argument redirections must be a plist containing zero or more pairs, whose
+;;   car is file-descriptor-to-redirect: a small fixnum, usually 0, 1 or 2
+;;   cdr is direction: a symbol, must be one of: '<& '>& '<>&
+;; If redirections is not specified, it defaults to '(0 <& 1 >& 2 >&)
+;;
+;; May raise exceptions.
+;; On errors redirecting a file descriptor, such file descriptor may be returned as #f.
 ;;
 ;; Implementation note: job is always started in a subprocess,
 ;; because we need to read its standard output while it runs.
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
 (define sh-start/fds
   (case-lambda
-    ((redirections job options)
+    ((job redirections options)
       (assert-redirection-plist 'sh-start/fds redirections)
       (options-validate 'sh-start/fd-stdout options)
       (let* ((n    (fxarithmetic-shift-right (length redirections) 1))
@@ -184,26 +184,10 @@
             (close-redirection-fds redirections fdv 0 err?)))
 
         (extract-vector-cars fdv))) ; return list of our fds, or list of multiple #f on error
-    ((redirections job)
-      (sh-start/fds redirections job '()))))
-
-
-;; Start a job and return immediately.
-;; Redirects job's standard input, output and error to pipes and return the list of pipes
-;; for communicating with job's standard input, output and error.
-;;
-;; May raise exceptions. On errors, return #f.
-;;
-;; Implementation note: job is always started in a subprocess,
-;; because we need to read its standard output while it runs.
-;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
-(define sh-start/fds-stdio
-  (case-lambda
-    ((job options)
-      (sh-start/fds '(0 <& 1 >& 2 >&) job options))
+    ((job redirections)
+      (sh-start/fds job redirections '()))
     ((job)
-      (sh-start/fds-stdio job '()))))
-
+      (sh-start/fds job '(0 <& 1 >& 2 >&) '()))))
 
 
 ;; Start a job and return immediately.
@@ -217,11 +201,68 @@
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
 (define sh-start/fd-stdout
   (case-lambda
-    ((job options)
+    ((job job-options)
       ;; return read-fd or #f
-      (car (sh-start/fds '(1 >&) job options)))
+      (car (sh-start/fds job '(1 >&) job-options)))
     ((job)
-      (sh-start/fd-stdout job '()))))
+      ;; return read-fd or #f
+      (car (sh-start/fds job '(1 >&) '())))))
+
+
+;; Start a job and return immediately.
+;; Redirects job's file descriptors to pipes and returns the other side of such pipes,
+;; converted to binary or textual ports.
+;;
+;; Arguments:
+;;   mandatory job            the sh-job to start
+;;   optional redirections    a plist containing zero or more pairs,
+;;                            whose car is file-descriptor-to-redirect: a small fixnum, usually 0, 1 or 2
+;;                            whose cdr is direction: a symbol, must be one of: '<& '>& '<>&
+;;                            if not specified, defaults to '(0 <& 1 >& 2 >&)
+;;   optional ?transcoder-sym must be one of: #f 'binary 'text 'utf8b and defaults to #f
+;;   optional b-mode          a buffer-mode, defaults to 'block
+;;   optional job-options     a possibly empty list as described in (sh-options)
+;;
+;; May raise exceptions.
+;; On errors redirecting a file descriptor, such file descriptor may be returned as #f.
+;;
+;; Implementation note: job is always started in a subprocess,
+;; because we need to read its standard output while it runs.
+;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
+(define sh-start/ports
+  (case-lambda
+    ((job redirections ?transcoder-sym b-mode job-options)
+      (let ((ret (sh-start/fds job redirections job-options))
+            (err? #t))
+        (dynamic-wind
+          void
+          (lambda ()
+            (do ((l ret (cdr l))
+                 (redirs redirections (cddr redirs)))
+                ((null? l))
+              (let ((fd (car l)))
+                (when fd
+                  (set-car! l (fd->port fd (case (cdr redirs) ((<&) 'read) ((>&) 'write) (else 'rw))
+                                        ?transcoder-sym b-mode
+                                        (string-append "fd " (number->string (car redirs)))
+                                        (lambda () (fd-close fd)))))))
+            (set! err? #f)
+            ret)
+          (lambda ()
+            (when err?
+              (for-list ((x ret))
+                (cond
+                  ((fixnum? x) (fd-close x))
+                  ((port? x)   (close-port x)))))))))
+    ((job redirections ?transcoder-sym b-mode)
+      (sh-start/ports job redirections ?transcoder-sym b-mode '()))
+    ((job redirections ?transcoder-sym)
+      (sh-start/ports job redirections ?transcoder-sym 'block '()))
+    ((job redirections)
+      (sh-start/ports job redirections #f 'block '()))
+    ((job)
+      (sh-start/ports job '(0 <& 1 >& 2 >&) #f 'block '()))))
+
 
 
 ;; if status is one of:
