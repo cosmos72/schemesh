@@ -151,7 +151,8 @@
         ((text utf8b)
           (fd->textual-port fd dir b-mode name proc-on-close))
         (else
-          (assert* 'fd->port (memq ?transcoder-sym '(#f binary text utf8b))))))
+          (let ((allowed-transcoder-syms '(#f binary text utf8b)))
+            (assert* 'fd->port (memq ?transcoder-sym allowed-transcoder-syms))))))
     ((fd dir ?transcoder-sym b-mode name)
       (fd->port fd dir ?transcoder-sym b-mode name #f))
     ((fd dir ?transcoder-sym b-mode)

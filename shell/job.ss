@@ -61,7 +61,7 @@
     sh-options
 
     ;; redirect.ss
-    sh-fd sh-binary-port sh-textual-port sh-redirect!
+    sh-fd sh-port sh-redirect!
     sh-run/bytevector sh-run/string sh-run/string-rtrim-newlines sh-run/string-split-after-nuls
     sh-start/fd-stdout sh-start/fds sh-start/ports
     sh-stdio-flush

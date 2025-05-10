@@ -1,5 +1,9 @@
 ## RECENT CHANGES
 
+### main branch
+* subsume functions `(sh-binary-port)` and `(sh-textual-port)` into the new function `(sh-port)`
+  for accessing redirections of Scheme jobs
+
 ### release v0.9.1, 2025-05-09
 
 * fix saving history to `~/.cache/schemesh/history.txt`

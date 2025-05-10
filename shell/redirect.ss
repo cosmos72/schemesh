@@ -702,7 +702,7 @@
 (define (job-remap-ensure-binary-port job fd)
   (let-values (((parent target-fd remapped-fd) (job-remap-find-fd* job fd)))
     (unless parent
-      (raise-errorf 'sh-binary-port "port not found for file descriptor ~s in job ~s" fd job))
+      (raise-errorf 'sh-port "port not found for file descriptor ~s in job ~s" fd job))
     (job-ensure-binary-port parent target-fd remapped-fd)))
 
 
@@ -721,7 +721,7 @@
 (define (job-remap-ensure-textual-port job fd)
   (let-values (((parent target-fd remapped-fd) (job-remap-find-fd* job fd)))
     (unless parent
-      (raise-errorf 'sh-textual-port "port not found for file descriptor ~s in job ~s" fd job))
+      (raise-errorf 'sh-port "port not found for file descriptor ~s in job ~s" fd job))
     (job-ensure-textual-port parent target-fd remapped-fd)))
 
 
@@ -747,27 +747,25 @@
       (sh-fd #f fd))))
 
 
-;; Return the binary input/output port to use inside a job for reading/writing specified file descriptor,
+;; Return the binary or textual input/output port to use inside a job for reading/writing specified file descriptor,
 ;; creating it if needed.
 ;; Needed because jobs can run in main process and have per-job redirections.
-(define sh-binary-port
+(define sh-port
   (case-lambda
+    ((job-or-id fd ?transcoder-sym)
+      (let ((job (sh-job job-or-id)))
+        (case ?transcoder-sym
+          ((#f binary)
+            (job-remap-ensure-binary-port job fd))
+          ((text utf8b)
+            (job-remap-ensure-textual-port job fd))
+          (else
+            (let ((allowed-transcoder-syms '(#f binary text utf8b)))
+              (assert* 'sh-port (memq ?transcoder-sym allowed-transcoder-syms)))))))
     ((job-or-id fd)
-      (job-remap-ensure-binary-port (sh-job job-or-id) fd))
+      (sh-port job-or-id fd 'binary))
     ((fd)
-      (sh-binary-port #f fd))))
-
-
-
-;; Return the textual input/output port to use inside a job for reading/writing specified file descriptor,
-;; creating it if needed.
-;; Needed because jobs can run in main process and have per-job redirections.
-(define sh-textual-port
-  (case-lambda
-    ((job-or-id fd)
-      (job-remap-ensure-textual-port (sh-job job-or-id) fd))
-    ((fd)
-      (sh-textual-port #f fd))))
+      (sh-port #f fd 'binary))))
 
 
 ;; flush current-...-port and corresponding per-job binary and textual ports if they have been created

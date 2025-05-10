@@ -54,9 +54,9 @@
   ;; Replace (console-input-port) (console-output-port) (console-error-port)
   ;; with unbuffered UTF-8b textual input/output ports that can be interrupted
   ;; and are ordered with (current-input-port) (current-output-port) (current-error-port)
-  (let ((port0 (sh-textual-port #t 0))
-        (port1 (sh-textual-port #t 1))
-        (port2 (sh-textual-port #t 2))
+  (let ((port0 (sh-port #t 0 'text))
+        (port1 (sh-port #t 1 'text))
+        (port2 (sh-port #t 2 'text))
         (try-flush-port-lambda
           (lambda (port-lambda)
             (try
@@ -74,9 +74,9 @@
   ;; with buffered binary input/output ports that can be interrupted and honor current job redirections.
   ;;
   ;; trick: install closures that extract ports from current job, creating them on demand.
-  (sh-stdin  (lambda () (sh-binary-port #f 0)))
-  (sh-stdout (lambda () (sh-binary-port #f 1)))
-  (sh-stderr (lambda () (sh-binary-port #f 2)))
+  (sh-stdin  (lambda () (sh-port #f 0 'binary)))
+  (sh-stdout (lambda () (sh-port #f 1 'binary)))
+  (sh-stderr (lambda () (sh-port #f 2 'binary)))
 
 
   ;; Replace (current-input-port) (current-output-port) (current-error-port)
@@ -92,9 +92,9 @@
   ;; which requires eagerly creating textual i/o ports for each job: expensive both in RAM and CPU.
   ;;
   ;; sanity: ignore attempts to close (current-input-port) (current-output-port) (current-error-port)
-  (current-input-port  (textual-port-lambda->port "current-input-port"  (lambda () (sh-textual-port #f 0)) 'rw #t))
-  (current-output-port (textual-port-lambda->port "current-output-port" (lambda () (sh-textual-port #f 1)) 'rw #t))
-  (current-error-port  (textual-port-lambda->port "current-error-port"  (lambda () (sh-textual-port #f 2)) 'rw #t))
+  (current-input-port  (textual-port-lambda->port "current-input-port"  (lambda () (sh-port #f 0 'text)) 'rw #t))
+  (current-output-port (textual-port-lambda->port "current-output-port" (lambda () (sh-port #f 1 'text)) 'rw #t))
+  (current-error-port  (textual-port-lambda->port "current-error-port"  (lambda () (sh-port #f 2 'text)) 'rw #t))
 
 
   (let ((bt (sh-builtins))
