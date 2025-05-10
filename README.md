@@ -104,8 +104,7 @@ Some more advanced Scheme functions:
   connected to the spawned subprocess.<br/>
   Ports must be closed with `(close-port)` when no longer needed.
 
-For more information about `(sh-run/bytevector)` `(sh-run/string)` `(sh-start/ports)` `(sh-start/fds)` `(sh-start/fd-stdout)`
-and other functions for redirecting jobs input and output, see [doc/shell/redirection.md](doc/shell/redirection.md)
+For more information about functions for redirecting jobs input and output, see [doc/shell/redirect.md](doc/shell/redirect.md)
 
 ### Subshells and command substitution
 
@@ -633,7 +632,7 @@ The documentation currently include:
 
 * Key bindings customization, see [doc/lineedit/key.md](doc/lineedit/key.md)
 
-* Job redirection, see [doc/shell/redirection.md](doc/shell/redirection.md)
+* Job redirection, see [doc/shell/redirect.md](doc/shell/redirect.md)
 
 * Loading schemesh as a library from plain Chez Scheme, see [doc/schemesh_as_library.md](doc/schemesh_as_library.md)
 
