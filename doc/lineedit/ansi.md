@@ -6,13 +6,13 @@ schemesh prompt can be customized using two alternative mechanisms:
    as described in section "PROMPTING" of `man bash` and available online at
    https://www.man7.org/linux/man-pages//man1/bash.1.html#PROMPTING
 
-2. by registering a user-defined procedure that will be executed each time schemesh needs to draw the prompt.
-   Such procedure must accept a single `lctx` argument and can update the prompt stored into `lctx` as it sees fit.
+2. by registering a user-defined function that will be executed each time schemesh needs to draw the prompt.
+   Such function must accept a single `lctx` argument and can update the prompt stored into `lctx` as it sees fit.
 
-Such a prompt-updating procedure can be registered into schemesh by calling
+Such a prompt-updating function can be registered into schemesh by calling
 `(linectx-prompt-proc MY-PROCEDURE)`
 
-The registered procedure can run arbitrary Scheme code, and can also launch external commands
+The registered function can run arbitrary Scheme code, and can also launch external commands
 (possibly slow, but supported) either with Chez Scheme function `(open-process-ports)`
 or with schemesh facilities for running jobs and capturing their output, as for example `(sh-run/string)`.
 
@@ -25,7 +25,7 @@ The library `(schemesh lineedit linectx)` provides the following functions for p
 
 `(linectx-prompt-proc)` returns the current prompt updater
 
-`(linectx-prompt-proc proc)` registers procedure `proc` as the prompt updater:
+`(linectx-prompt-proc proc)` registers function `proc` as the prompt updater:
   `proc` will be invoked with a single argument `lctx` each time schemesh needs to draw the prompt
 
 `(linectx-prompt-ansi-text lctx)` extracts the current prompt from `lctx` object and converts it to a mutable `ansi-text` object
@@ -126,7 +126,7 @@ Example:
 (linectx-prompt-proc my-prompt)
 ```
 
-To restore the default prompt procedure, that reads and interprets the environment variable `$SCHEMESH_PS1`, execute
+To restore the default prompt function, that reads and interprets the environment variable `$SCHEMESH_PS1`, execute
 ```lisp
 (linectx-prompt-proc sh-expand-ps1)
 ```

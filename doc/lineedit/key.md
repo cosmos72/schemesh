@@ -1,6 +1,6 @@
 # schemesh lineedit key bindings
 
-The effect of key presses at REPL is controlled the library `(schemesh lineedit)`.
+The effect of key presses at REPL is controlled the library `(schemesh lineedit)` which is also included in `(schemesh)`.
 Users can change these effects, and define new ones.
 
 The library `(schemesh lineedit)` contains default key bindings suitable for most terminals:<br/>
@@ -14,7 +14,7 @@ To change a key binding, or create a new one, call
 (linectx-keytable-insert! linectx-default-keytable PROCEDURE BYTE-SEQUENCE)
 ```
 where
-* `PROCEDURE` is the scheme procedure to execute when the desired key is pressed
+* `PROCEDURE` is the scheme function to execute when the desired key is pressed
 * `BYTE-SEQUENCE` is the sequence of bytes produced by such key press,<br/>
   and must be encoded as one of: a fixnum, a list of fixnums, a bytevector or a string.
 
@@ -23,15 +23,15 @@ Example:
 (linectx-keytable-insert! linectx-default-keytable lineedit-key-history-prev "\x1b;[[A")
 ```
 associates the byte sequence `"\x1b;[[A"` i.e. `ESC [ [ A`, usually produced by key F1,<br/>
-to the procedure `lineedit-key-history-prev` that searches backward in history.
+to the function `lineedit-key-history-prev` that searches backward in history.
 
-Defining new procedures that can be passed as arguments to `(linectx-keytable-insert!)` is currently not documented,<br/>
-because such procedures need to access internals of `linectx` objects, which are undocumented too.
+Defining new functions that can be passed as arguments to `(linectx-keytable-insert!)` is currently not documented,<br/>
+because such functions need to access internals of `linectx` objects, which are undocumented too.
 
-The following procedures are predefined by library `(schemesh lineedit)` and can be passed
+The following functions are predefined by library `(schemesh lineedit)` and can be passed
 as arguments to `(linectx-keytable-insert!)`.
 
-Note: you need to pass the procedures itself - not call it - thus the parentheses must be omitted.<br/>
+Note: you need to pass the functions itself - not call it - thus the parentheses must be omitted.<br/>
 Example:
 ```scheme
 (linectx-keytable-insert! linectx-default-keytable lineedit-key-nop "\x12;")
@@ -99,7 +99,7 @@ Example:
 
 `(lineedit-key-redraw lctx)` redraws current lines
 
-`(lineedit-key-autocomplete lctx)` tries to autocomplete current word by calling the procedure
+`(lineedit-key-autocomplete lctx)` tries to autocomplete current word by calling the function
   stored in parameter `(linectx-completion-proc)`
 
 `(lineedit-key-inspect-linectx lctx)` debugging helper: calls Chez Scheme `(inspect)` on `linectx` object passed as argument

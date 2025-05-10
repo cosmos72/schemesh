@@ -329,7 +329,7 @@
 
 
 ;; Start a job and wait for it to exit.
-;; Reads job's standard output and returns it converted to bytespan.
+;; Reads job's standard output and returns it converted to bytevector.
 ;;
 ;; Does NOT return early if job is stopped, use (sh-run/i) for that.
 ;; Options are the same as (sh-start).
@@ -345,14 +345,14 @@
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
 (define sh-run/bytevector
   (case-lambda
-    ((job)
-      (sh-run/bytevector job '()))
     ((job options)
       (job-raise-if-started/recursive 'sh-run/bytevector job)
       (%job-id-set! job -1) ;; prevents showing job notifications
       (let ((read-fd (sh-start/fd-stdout job options)))
         ;; WARNING: job may internally dup write-fd into (job-fds-to-remap)
-        (sh-wait/fd-read-all job read-fd)))))
+        (sh-wait/fd-read-all job read-fd)))
+    ((job)
+      (sh-run/bytevector job '()))))
 
 
 
