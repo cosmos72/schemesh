@@ -32,17 +32,21 @@ wait for it to finish, and return the output produced by the job.
 The added redirections are *temporary* i.e. they are automatically removed when the job finishes.
 
 ##### (sh-run/bytevector)
-`(sh-run/bytevector job)` or `(sh-run/bytevector job job-options)` starts a job in foreground and waits for it to exit.<br/>
+`(sh-run/bytevector job)` or `(sh-run/bytevector job options)` starts a job in foreground and waits for it to exit.<br/>
 Does NOT return early if job is stopped, use `(sh-run/i)` for that. Options are the same as `(sh-start)`.<br/>
 Reads job's standard output and returns it converted to bytevector.<br/>
 Note: if job finishes with a status `(exception ...)` `(killed 'sigint)` `(killed 'sigquit)` tries to kill `(sh-current-job)` then raises exception.
 
+Optional argument `options` is described in `(sh-start)` and defaults to the empty list.
+
 ##### (sh-run/string)
-`(sh-run/string job)` or `(sh-run/string job job-options)` same as [`(sh-run/bytevector)`](#sh-runbytevector), except that job's output is converted to a string:<br/>
+`(sh-run/string job)` or `(sh-run/string job options)` same as [`(sh-run/bytevector)`](#sh-runbytevector), except that job's output is converted to a string:<br/>
 starts a job in foreground and waits for it to exit.<br/>
 Does NOT return early if job is stopped, use `(sh-run/i)` for that. Options are the same as `(sh-start)`.<br/>
 Reads job's standard output and returns it converted to string.<br/>
 Note: if job finishes with a status `(exception ...)` `(killed 'sigint)` `(killed 'sigquit)` tries to kill `(sh-current-job)` then raises exception.
+
+Optional argument `options` is described in `(sh-start)` and defaults to the empty list.
 
 ### Start a job with redirections
 
@@ -57,9 +61,11 @@ The added redirections are *temporary* i.e. they are automatically removed when 
 
 ##### (sh-start/fd-stdout)
 `(sh-start/fd-stdout job)` or `(sh-start/fd-stdout job options)` starts a job in background, returns a file descriptor fixnum<br/>
-for reading job's standard output - for example with `(open-fd-input-port fd)` or `(fd-read-some fd bytevector)`.<br/>
-Options are the same as `(sh-start)`. File descriptor must be closed with `(fd-close)` when no longer needed.
+for reading job's standard output - for example with `(open-fd-input-port fd)` or `(fd-read-some fd bytevector)`.
 
+Optional argument `options` is described in `(sh-start)` and defaults to the empty list.
+
+Returned file descriptor must be closed with `(fd-close)` when no longer needed.
 
 ##### (sh-start/ports)
 `(sh-start/ports job [redirections [transcoder-sym [buffer-mode [options]]]]))` starts a job in background,<br/>
@@ -103,10 +109,12 @@ Optional arguments are:
 ##### (sh-start/fds)
 `(sh-start/fds job [redirections [options]])` is a lower-level alternative to [`(sh-start/ports)`](#sh-startports):<br>
 starts a job in background, returns a list of file descriptors connected to the job.<br/>
-Optional argument `redirections` is described in [`(sh-start/ports)`](#sh-startports) above and again defaults to `'(0 <& 1 >& 2 >&)` <br/>
-Optional argument `options` is described in `(sh-start)` and defaults to the empty list.<br/>
-Returned file descriptors must be closed with `(fd-close)` when no longer needed.
 
+Optional arguments are:
+* `redirections` is described in [`(sh-start/ports)`](#sh-startports) above and again defaults to `'(0 <& 1 >& 2 >&)`
+* `options` is described in `(sh-start)` and defaults to the empty list.
+
+Returned file descriptors must be closed with `(fd-close)` when no longer needed, because each one consumes an OS-level file descriptor.
 
 ### Access redirected ports from a Scheme job
 
