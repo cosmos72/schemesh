@@ -764,9 +764,9 @@
             (let ((allowed-transcoder-syms '(binary text utf8b)))
               (assert* 'sh-port (memq transcoder-sym allowed-transcoder-syms)))))))
     ((job-or-id fd)
-      (sh-port job-or-id fd 'binary))
+      (sh-port job-or-id fd 'text))
     ((fd)
-      (sh-port #f fd 'binary))))
+      (sh-port #f fd 'text))))
 
 
 ;; flush current-...-port and corresponding per-job binary and textual ports if they have been created

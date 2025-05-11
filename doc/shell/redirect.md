@@ -10,6 +10,9 @@ Scheme functions to **create** shell jobs are not documented yet.
 Scheme functions to **redirect** existing shell jobs, and to access redirected file descriptors of a Scheme job, are documented below.
 
 ### Index
+* [`(current-input-port)`](current-input-port)
+* [`(current-error-port)`](current-error-port)
+* [`(current-output-port)`](current-output-port)
 * [`(sh-fd)`](#sh-fd)
 * [`(sh-port)`](#sh-port)
 * [`(sh-run/bytevector)`](#sh-runbytevector)
@@ -107,10 +110,11 @@ Returned file descriptors must be closed with `(fd-close)` when no longer needed
 
 ### Access redirected ports from a Scheme job
 
-As described in the main [README.md](../../README.md), Scheme jobs are wrappers around arbitrary Scheme code and are treated as jobs:
+As described in the main [README.md](../../README.md#scheme-jobs), Scheme jobs are wrappers around arbitrary Scheme code and are treated as jobs:<br/>
 their file descriptors can be redirected with the usual shell syntax, they can be stopped and resumed, they can be used in a pipeline, etc.
 
-The syntax for creating a Scheme jobs is trivial: just prefix `$` to any parenthesized Scheme expression or declaration. Examples:
+The syntax for creating a Scheme jobs is trivial: just prefix `$` to any parenthesized Scheme expression or declaration.<br/>
+Examples:
 ```lisp
 $(display "hello\n") > greet.txt
 
@@ -123,8 +127,8 @@ $(display
 ```
 
 Inside a Scheme job, the standard ports `(current-input-port)` `(current-output-port)` and `(current-error-port)`
-automatically honor redirections:
-in the examples above, `$(display "hello\n") > greet.txt` writes to the file `greet.txt` in current directory
+automatically honor redirections:<br/>
+in the examples above, `$(display "hello\n") > greet.txt` writes to the file `greet.txt` in current directory<br/>
 and `$(display (let %fib ...)) | cat` writes the 10th Fibonacci number to the pipe connected to `cat`.
 
 If you prefer binary ports, you can use `(sh-stdin)` `(sh-stdout)` and `(sh-stderr)` or, more in general, `(sh-port N)`.
@@ -136,23 +140,38 @@ If you want OS-level file descriptors, there's also `(sh-fd 0)` `(sh-fd 1)` and 
 corresponding to file descriptor `fd` for specified `job-or-id`, or for current job if `job-or-id` is not specified or is `#f`.
 
 If `transcoder-sym` is `'binary`, the returned port is a binary port.
-In all other cases - not specified or one of `'text` `'utf8b` - the returned port will be textual
-and will use UTF-8b for converting between bytes and characters.
+In all other cases - not specified or one of `'text` `'utf8b` - the returned port is textual
+and uses UTF-8b for converting between bytes and characters.
 
 Ports returned by this function are always buffered - they use `(buffer-mode block)` -
 and are closed automatically when the corresponding job finishes.
 
+##### (current-input-port)
+If not set to a different value, `(current-input-port)` returns a wrapper port that reads from/writes to the textual port
+corresponding to file descriptor `0` for current job.
+It is logically equivalent to `(sh-port #f 0 'text)`, although it may return a different port.
+
+##### (current-output-port)
+If not set to a different value, `(current-output-port)` returns a wrapper port that reads from/writes to the textual port
+corresponding to file descriptor `1` for current job.
+It is logically equivalent to `(sh-port #f 1 'text)`, although it may return a different port.
+
+##### (current-error-port)
+If not set to a different value, `(current-error-port)` returns a wrapper port that reads from/writes to the textual port
+corresponding to file descriptor `2` for current job.
+It is logically equivalent to `(sh-port #f 2 'text)`, although it may return a different port.
+
 ##### (sh-stdin)
 `(sh-stdin)` returns the binary port corresponding to file descriptor `0` for current job.
-It is equivalent to `(sh-port #f 0 'binary)`.
+It returns the same port as `(sh-port #f 0 'binary)`.
 
 ##### (sh-stdout)
 `(sh-stdout)` returns the binary port corresponding to file descriptor `1` for current job.
-It is equivalent to `(sh-port #f 1 'binary)`.
+It returns the same port as `(sh-port #f 1 'binary)`.
 
 ##### (sh-stderr)
 `(sh-stderr)` returns the binary port corresponding to file descriptor `2` for current job.
-It is equivalent to `(sh-port #f 2 'binary)`.
+It returns the same port as `(sh-port #f 2 'binary)`.
 
 ##### (sh-fd)
 `(sh-fd fd)` or `(sh-fd job-or-id fd)` returns the OS-level file descriptor corresponding to `fd` for specified `job-or-id`,

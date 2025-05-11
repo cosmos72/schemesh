@@ -172,7 +172,7 @@
 ;;   mandatory path           must be a string, bytevector, bytespan or charspan.
 ;;   optional dir             must be one of: 'read 'write 'rw and defaults to 'rw
 ;;   optional flags           must be a list containing zero or more: 'create 'truncate 'append
-;;   optional transcoder-sym must be one of: #f 'binary 'text 'utf8b and defaults to #f
+;;   optional transcoder-sym  must be one of: 'binary 'text 'utf8b and defaults to 'text
 ;;   optional b-mode          must be a buffer-mode and defaults to 'block
 (define file->port
   (case-lambda
@@ -184,11 +184,11 @@
     ((path dir flags transcoder-sym)
       (file->port path dir flags transcoder-sym (buffer-mode block)))
     ((path dir flags)
-      (file->port path dir flags 'binary (buffer-mode block)))
+      (file->port path dir flags 'text (buffer-mode block)))
     ((path dir)
-      (file->port path dir '() 'binary (buffer-mode block)))
+      (file->port path dir '() 'text (buffer-mode block)))
     ((path)
-      (file->port path 'rw '() 'binary (buffer-mode block)))))
+      (file->port path 'rw '() 'text (buffer-mode block)))))
 
 
 ;; customize how "tport" objects are printed
