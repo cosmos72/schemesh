@@ -13,8 +13,8 @@ Scheme functions to **redirect** existing shell jobs are documented below.
 * [`(sh-run/bytevector)`](#sh-runbytevector)
 * [`(sh-run/string)`](#sh-runstring)
 * [`(sh-start/fd-stdout)`](#sh-startfd-stdout)
-* [`(sh-start/ports)`](#sh-startports)
 * [`(sh-start/fds)`](#sh-startfds)
+* [`(sh-start/ports)`](#sh-startports)
 
 ### Run a job with redirections
 
@@ -63,6 +63,7 @@ Optional arguments are:
 * `redirections` a property list i.e. an even-sized list containing zero or redirections.
   Each redirection is a file descriptor fixnum followed by a direction symbol '<& '>& or '<>&
   Examples:
+
   `'(1 >&)` redirect job's standard output i.e. file descriptor 1 to write to a pipe.
            The function will return a list containing one element: the read side of such pipe, converted to an input port.
 
@@ -77,7 +78,6 @@ Optional arguments are:
      redirect job's file descriptors 0 to read from a pipe, and 17 file descriptor to read and write from a socketpair.
      The function will return a list containing two elements: the write side of job's standard input pipe, converted to output port,
      and the socketpair connected to job's file descriptor 17, converted to input/output port.
-
 
 * `?transcoder-sym` must be one of: `#f` `'binary` `'text` `'utf8b`<br/>
   If not specified or one of `#f` `'binary`, returned ports will be binary ports.<br/>

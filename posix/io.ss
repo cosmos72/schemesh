@@ -139,8 +139,8 @@
 ;;   mandatory fd             must be an unsigned fixnum corresponding to an open file descriptor.
 ;;   optional dir             must be one of: 'read 'write 'rw and defaults to 'rw
 ;;   optional ?transcoder-sym must be one of: #f 'binary 'text 'utf8b and defaults to #f
-;;   optional name            must be a string and defaults to (string-append "fd " (number->string fd))
 ;;   optional b-mode          must be a buffer-mode and defaults to 'block
+;;   optional name            must be a string and defaults to (string-append "fd " (number->string fd))
 ;;   optional proc-on-close   must be a #f or a procedure and defaults to #f
 (define fd->port
   (case-lambda

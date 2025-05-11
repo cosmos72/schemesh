@@ -259,9 +259,9 @@
     ((job redirections ?transcoder-sym)
       (sh-start/ports job redirections ?transcoder-sym 'block '()))
     ((job redirections)
-      (sh-start/ports job redirections #f 'block '()))
+      (sh-start/ports job redirections 'binary 'block '()))
     ((job)
-      (sh-start/ports job '(0 <& 1 >& 2 >&) #f 'block '()))))
+      (sh-start/ports job '(0 <& 1 >& 2 >&) 'binary 'block '()))))
 
 
 
