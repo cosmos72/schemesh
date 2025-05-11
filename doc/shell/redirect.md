@@ -114,7 +114,8 @@ Optional arguments are:
 * `redirections` is described in [`(sh-start/ports)`](#sh-startports) above and again defaults to `'(0 <& 1 >& 2 >&)`
 * `options` is described in `(sh-start)` and defaults to the empty list.
 
-Returned file descriptors must be closed with `(fd-close)` when no longer needed, because each one consumes an OS-level file descriptor.
+Each returned file descriptor must be closed with `(fd-close)` when no longer needed,
+because each one consumes an OS-level file descriptor.
 
 ### Access redirected ports from a Scheme job
 
