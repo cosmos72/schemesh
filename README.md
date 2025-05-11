@@ -236,6 +236,8 @@ they automatically honor job redirections too. Example:
 Hi!
 ```
 
+See [doc/shell/redirect.md](doc/shell/redirect.md) for more details.
+
 ### Shell wildcards
 
 Shell wildcards and other shell syntax that expands to strings can also be used from Scheme:

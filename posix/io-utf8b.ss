@@ -250,6 +250,8 @@
             (set-textual-port-output-index! p 0)
             (clear-output-port out-port))
           ((close-port)
+            (when (and tport2 (not (port-closed? p)))
+              (utf8b-port-flush p tport2))
             (when (plist-ref options 'close? #t)
               (mark-port-closed! p)
               (when (plist-ref options 'close-inner? #t)

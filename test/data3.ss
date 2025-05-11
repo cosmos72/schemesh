@@ -203,14 +203,14 @@
          (in    (car ports))
          (out   (cadr ports))
          (err   (caddr ports)))
-    (put-bytevector in (string->utf8b "_abc_\n"))
-    (put-bytevector in (string->utf8b "_xyz_\n"))
+    (put-string in "_abc_\n")
+    (put-string in "_xyz_\n")
     (close-port in)
-    (let ((ret (get-bytevector-all out)))
+    (let ((ret (get-string-all out)))
       (close-port out)
       (close-port err)
       (sh-wait job)
-      ret))                                            ,#vu8(95 120 121 122 95 10)
+      ret))                                            "_xyz_\n"
 
   (sh-run {
      $(display "hello") | cat |

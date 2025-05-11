@@ -219,7 +219,7 @@
 ;;                            whose car is file-descriptor-to-redirect: a small fixnum, usually 0, 1 or 2
 ;;                            whose cdr is direction: a symbol, must be one of: '<& '>& '<>&
 ;;                            if not specified, defaults to '(0 <& 1 >& 2 >&)
-;;   optional ?transcoder-sym must be one of: #f 'binary 'text 'utf8b and defaults to #f
+;;   optional transcoder-sym  must be one of: 'binary 'text 'utf8b and defaults to 'text
 ;;   optional b-mode          a buffer-mode, defaults to 'block
 ;;   optional job-options     a possibly empty list as described in (sh-options)
 ;;
@@ -231,7 +231,7 @@
 ;; Doing that from the main process may deadlock if the job is a multijob or a builtin.
 (define sh-start/ports
   (case-lambda
-    ((job redirections ?transcoder-sym b-mode job-options)
+    ((job redirections transcoder-sym b-mode job-options)
       (let ((ret (sh-start/fds job redirections job-options))
             (err? #t))
         (dynamic-wind
@@ -242,9 +242,10 @@
                 ((null? l))
               (let ((fd (car l)))
                 (when fd
-                  (set-car! l (fd->port fd (case (cdr redirs) ((<&) 'read) ((>&) 'write) (else 'rw))
-                                        ?transcoder-sym b-mode
-                                        (string-append "fd " (number->string (car redirs)))
+                  ;; we return the other side of pipes created for child job => reverse direction
+                  (set-car! l (fd->port fd (case (cadr redirs) ((<&) 'write) ((>&) 'read) (else 'rw))
+                                        transcoder-sym b-mode
+                                        (string-append "job-pipe-fd " (number->string (car redirs)))
                                         (lambda () (fd-close fd)))))))
             (set! err? #f)
             ret)
@@ -254,14 +255,14 @@
                 (cond
                   ((fixnum? x) (fd-close x))
                   ((port? x)   (close-port x)))))))))
-    ((job redirections ?transcoder-sym b-mode)
-      (sh-start/ports job redirections ?transcoder-sym b-mode '()))
-    ((job redirections ?transcoder-sym)
-      (sh-start/ports job redirections ?transcoder-sym 'block '()))
+    ((job redirections transcoder-sym b-mode)
+      (sh-start/ports job redirections transcoder-sym b-mode '()))
+    ((job redirections transcoder-sym)
+      (sh-start/ports job redirections transcoder-sym 'block '()))
     ((job redirections)
-      (sh-start/ports job redirections 'binary 'block '()))
+      (sh-start/ports job redirections 'text 'block '()))
     ((job)
-      (sh-start/ports job '(0 <& 1 >& 2 >&) 'binary 'block '()))))
+      (sh-start/ports job '(0 <& 1 >& 2 >&) 'text 'block '()))))
 
 
 
@@ -752,16 +753,16 @@
 ;; Needed because jobs can run in main process and have per-job redirections.
 (define sh-port
   (case-lambda
-    ((job-or-id fd ?transcoder-sym)
+    ((job-or-id fd transcoder-sym)
       (let ((job (sh-job job-or-id)))
-        (case ?transcoder-sym
-          ((#f binary)
+        (case transcoder-sym
+          ((binary)
             (job-remap-ensure-binary-port job fd))
           ((text utf8b)
             (job-remap-ensure-textual-port job fd))
           (else
-            (let ((allowed-transcoder-syms '(#f binary text utf8b)))
-              (assert* 'sh-port (memq ?transcoder-sym allowed-transcoder-syms)))))))
+            (let ((allowed-transcoder-syms '(binary text utf8b)))
+              (assert* 'sh-port (memq transcoder-sym allowed-transcoder-syms)))))))
     ((job-or-id fd)
       (sh-port job-or-id fd 'binary))
     ((fd)

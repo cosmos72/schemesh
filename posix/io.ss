@@ -16,7 +16,7 @@
     (only (chezscheme)  assertion-violationf clear-input-port clear-output-port enum-set? fx1+ fx1-
                         get-bytevector-some! include input-port-ready?
                         logbit? make-input-port make-input/output-port make-output-port mark-port-closed!
-                        port-length port-name procedure-arity-mask record-writer
+                        port-closed? port-length port-name procedure-arity-mask record-writer
 
                         set-binary-port-input-buffer!   set-binary-port-input-index!   set-binary-port-input-size!
                         set-binary-port-output-buffer!  set-binary-port-output-index!  set-binary-port-output-size!
@@ -26,7 +26,7 @@
 
                         textual-port-input-buffer       textual-port-input-index       textual-port-input-size
                         textual-port-output-buffer      textual-port-output-index      textual-port-output-size)
-    (only (schemesh bootstrap)              assert*)
+    (only (schemesh bootstrap)              assert* trace-define)
     (schemesh containers bytespan)
     (only (schemesh containers list)        plist? plist-ref)
     (only (schemesh containers string)      substring-move!)
@@ -138,31 +138,31 @@
 ;; Arguments:
 ;;   mandatory fd             must be an unsigned fixnum corresponding to an open file descriptor.
 ;;   optional dir             must be one of: 'read 'write 'rw and defaults to 'rw
-;;   optional ?transcoder-sym must be one of: #f 'binary 'text 'utf8b and defaults to #f
+;;   optional transcoder-sym  must be one of: 'binary 'text 'utf8b and defaults to 'text
 ;;   optional b-mode          must be a buffer-mode and defaults to 'block
 ;;   optional name            must be a string and defaults to (string-append "fd " (number->string fd))
 ;;   optional proc-on-close   must be a #f or a procedure and defaults to #f
 (define fd->port
   (case-lambda
-    ((fd dir ?transcoder-sym b-mode name proc-on-close)
-      (case ?transcoder-sym
-        ((#f binary)
+    ((fd dir transcoder-sym b-mode name proc-on-close)
+      (case transcoder-sym
+        ((binary)
           (fd->binary-port fd dir b-mode name proc-on-close))
         ((text utf8b)
           (fd->textual-port fd dir b-mode name proc-on-close))
         (else
-          (let ((allowed-transcoder-syms '(#f binary text utf8b)))
-            (assert* 'fd->port (memq ?transcoder-sym allowed-transcoder-syms))))))
-    ((fd dir ?transcoder-sym b-mode name)
-      (fd->port fd dir ?transcoder-sym b-mode name #f))
-    ((fd dir ?transcoder-sym b-mode)
-      (fd->port fd dir ?transcoder-sym b-mode (string-append "fd " (number->string fd)) #f))
-    ((fd dir ?transcoder-sym)
-      (fd->port fd dir ?transcoder-sym (buffer-mode block)))
+          (let ((allowed-transcoder-syms '(binary text utf8b)))
+            (assert* 'fd->port (memq transcoder-sym allowed-transcoder-syms))))))
+    ((fd dir transcoder-sym b-mode name)
+      (fd->port fd dir transcoder-sym b-mode name #f))
+    ((fd dir transcoder-sym b-mode)
+      (fd->port fd dir transcoder-sym b-mode (string-append "fd " (number->string fd)) #f))
+    ((fd dir transcoder-sym)
+      (fd->port fd dir transcoder-sym (buffer-mode block)))
     ((fd dir)
-      (fd->port fd dir 'binary (buffer-mode block)))
+      (fd->port fd dir 'text (buffer-mode block)))
     ((fd)
-      (fd->port fd 'rw 'binary (buffer-mode block)))))
+      (fd->port fd 'rw 'text (buffer-mode block)))))
 
 
 ;; create and return a binary or textual input and/or output port that reads from/writes to
@@ -172,17 +172,17 @@
 ;;   mandatory path           must be a string, bytevector, bytespan or charspan.
 ;;   optional dir             must be one of: 'read 'write 'rw and defaults to 'rw
 ;;   optional flags           must be a list containing zero or more: 'create 'truncate 'append
-;;   optional ?transcoder-sym must be one of: #f 'binary 'text 'utf8b and defaults to #f
+;;   optional transcoder-sym must be one of: #f 'binary 'text 'utf8b and defaults to #f
 ;;   optional b-mode          must be a buffer-mode and defaults to 'block
 (define file->port
   (case-lambda
-    ((path dir flags ?transcoder-sym b-mode)
-      (assert* 'file->port (memq ?transcoder-sym '(#f binary text utf8b)))
+    ((path dir flags transcoder-sym b-mode)
+      (assert* 'file->port (memq transcoder-sym '(binary text utf8b)))
       (assert* 'file->port (buffer-mode? b-mode))
       (let ((fd (file->fd path dir flags)))
-        (fd->port fd dir ?transcoder-sym b-mode (text->string path) (lambda () (fd-close fd)))))
-    ((path dir flags ?transcoder-sym)
-      (file->port path dir flags ?transcoder-sym (buffer-mode block)))
+        (fd->port fd dir transcoder-sym b-mode (text->string path) (lambda () (fd-close fd)))))
+    ((path dir flags transcoder-sym)
+      (file->port path dir flags transcoder-sym (buffer-mode block)))
     ((path dir flags)
       (file->port path dir flags 'binary (buffer-mode block)))
     ((path dir)
