@@ -65,35 +65,35 @@ Options are the same as `(sh-start)`. File descriptor must be closed with `(fd-c
 `(sh-start/ports job [redirections [transcoder-sym [buffer-mode [options]]]]))` starts a job in background,<br/>
 returns a list of binary or textual ports connected to the job.<br/>
 
-Again, each port must be explicitly closed when no longer needed, because it consumes an OS-level file descriptor.
+Again, each returned port must be explicitly closed when no longer needed, because it consumes an OS-level file descriptor.
 
 Optional arguments are:
 * `redirections` a property list i.e. an even-sized list containing zero or redirections.
-  Each redirection is a file descriptor fixnum followed by a direction symbol '<& '>& or '<>&
+  Each redirection is a file descriptor fixnum followed by a direction symbol `'<&` `'>&` or `'<>&`.
   Examples:
 
-  `'(1 >&)` redirect job's standard output i.e. file descriptor 1 to write to a pipe.
-           The function will return a list containing one element: the read side of such pipe, converted to an input port.
+  `'(1 >&)` redirect job's standard output i.e. file descriptor `1` to write to a pipe.
+     The function will return a list containing one element: the read side of such pipe, converted to an input port.
 
   `'(0 <& 1 >& 2 >&)`
-     redirect job's standard input i.e. file descriptor 0 to read from a pipe,
-     redirect job's standard output i.e. file descriptor 1 to write to a pipe,
-     redirect job's standard error i.e. file descriptor 2 to write to a pipe.
+     redirect job's standard input i.e. file descriptor `0` to read from a pipe,
+     redirect job's standard output i.e. file descriptor `1` to write to a pipe,
+     redirect job's standard error i.e. file descriptor `2` to write to a pipe.
      this is also the default if redirections are not specified.
      The function will return a list containing three element: the other side of such pipes, appropriately converted to input or output ports.
 
   `'(0 <& 17 <>&)`
-     redirect job's file descriptors 0 to read from a pipe, and 17 file descriptor to read and write from a socketpair.
-     The function will return a list containing two elements: the write side of job's standard input pipe, converted to output port,
-     and the socketpair connected to job's file descriptor 17, converted to input/output port.
+     redirect job's file descriptors 0 to read from a pipe, and file descriptor `17` to read and write from a socketpair.
+     The function will return a list containing two elements: the write side of job's file descriptor `0`, converted to output port,
+     and the socketpair connected to job's file descriptor `17`, converted to input/output port.
 
-* `transcoder-sym` must be one of: `'binary` `'text` `'utf8b`<br/>
-  If `'binary`, returned ports will be binary.
+* `transcoder-sym` must be one of: `'binary` `'text` or `'utf8b`.<br/>
+  If `'binary`, returned ports will be binary.<br/>
   In all other cases - not specified or one of `'text` `'utf8b` - returned ports will be textual
   and will use UTF-8b for converting between bytes and characters.
 
-* `buffer-mode` must be a valid port buffer-mode, i.e. one of `'block` `'line` `'none`.
-  If not specified, defaults to `'block`.
+* `buffer-mode` must be a valid port buffer-mode, i.e. one of `'block` `'line` or `'none`.<br/>
+  If not specified, defaults to `'block`.<br/>
   The usual Scheme convention applies: we recommend writing it as one of `(buffer-mode block)` `(buffer-mode line)` `(buffer-mode none)`
   as they better describe the meaning and check for validity at compile-time.
 
