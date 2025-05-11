@@ -10,9 +10,9 @@ Scheme functions to **create** shell jobs are not documented yet.
 Scheme functions to **redirect** existing shell jobs, and to access redirected file descriptors of a Scheme job, are documented below.
 
 ### Index
-* [`(current-input-port)`](current-input-port)
-* [`(current-error-port)`](current-error-port)
-* [`(current-output-port)`](current-output-port)
+* [`(current-input-port)`](#current-input-port)
+* [`(current-error-port)`](#current-error-port)
+* [`(current-output-port)`](#current-output-port)
 * [`(sh-fd)`](#sh-fd)
 * [`(sh-port)`](#sh-port)
 * [`(sh-run/bytevector)`](#sh-runbytevector)
