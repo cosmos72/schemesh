@@ -445,6 +445,8 @@
 
 ;; Append a single fd or file redirection to a job
 (define (job-redirect! job fd direction to)
+  (unless (sh-job? job)
+    (raise-errorf 'sh-redirect "~s is not a job" job))
   (unless (and (fixnum? fd) (fx>=? fd 0))
     (raise-errorf 'sh-redirect "invalid redirect fd, must be an unsigned fixnum: ~a" fd))
   (if (or (eq? '<& direction) (eq? '>& direction))

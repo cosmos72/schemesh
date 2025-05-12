@@ -128,6 +128,10 @@ The added redirections are *permanent* i.e. they are not automatically removed w
 `(sh-redirect job dir to [more-redirections ...])` or `(sh-redirect job fd dir to [more-redirections ...])`
 redirect file descriptor `fd` of specified job to read from and/or write to specified destination `to`.
 
+This function should be called before starting a job, or after it has finished.<br/>
+Calling it on a running or stopped job may or *may not* affect job's current execution,<br/>
+but is guaranteed to affect *future* executions of the same job.
+
 Optional arguments are:
 * `fd` is the job's file descriptor to redirect, must be an unsigned fixnum.<br/>
    If not specified, defaults to `0` if `dir` is `'<` or `'<&` otherwise defaults to `1`.
