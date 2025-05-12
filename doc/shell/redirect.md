@@ -9,7 +9,7 @@ Scheme functions to **create** shell jobs are not documented yet.
 
 Scheme functions to **redirect** existing shell jobs, and to access redirected file descriptors of a Scheme job, are documented below.
 
-### Index
+### Alphabetical index
 * [`(current-input-port)`](#current-input-port)
 * [`(current-error-port)`](#current-error-port)
 * [`(current-output-port)`](#current-output-port)
@@ -140,18 +140,20 @@ Mandatory arguments are:
 * `dir` indicates whether the redirection is for reading, writing, or both
    and whether the destination is a file or a file descriptor.<br/>
    It must be one of the symbols:
-   * `'<` - read from file
-   * `'>` - write to file, truncating it if it exists
-   * `'>>` - write to file, appending to it if it exists
-   * `'<>` - read/write from start of file and do NOT truncate it
-   * `'<&` - read from another file descriptor: `fd` fd will become a copy of file descriptor `to`
-   * `'>&` - write to another file descriptor: `fd` fd will become a copy of file descriptor `to`
+   * `'<`  read from file
+   * `'>`  write to file, truncating it if it exists
+   * `'>>` write to file, appending to it if it exists
+   * `'<>` read/write from start of file and do NOT truncate it
+   * `'<&` read from another file descriptor: `fd` fd will become a copy of file descriptor `to`
+   * `'>&` write to another file descriptor: `fd` fd will become a copy of file descriptor `to`
 * `to` is the destination. It must be one of:
    * `-1` indicates to close `fd` in child job
    * an unsigned fixnum: the file descriptor to make a copy of
    * a bytevector or a string, indicating the file path to read/write
-   * a function accepting zero or one argument, and returning one of the cases above:
-     `-1`, an unsigned fixnum, a bytevector, or a string
+   * a function accepting zero or one argument, and returning one of the cases above:<br/>
+     `-1`, an unsigned fixnum, a bytevector, or a string.<br/>
+     The function will be called each time the job is started (passing the job itself as only argument if accepted),<br/>
+     and each invocation can also return a different value.
 
 Note: redirections are applied in order, thus later redirections (or later calls to `(sh-redirect)`) can overwrite earlier ones.
 
