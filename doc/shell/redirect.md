@@ -15,6 +15,7 @@ Scheme functions to **redirect** existing shell jobs, and to access redirected f
 * [`(current-output-port)`](#current-output-port)
 * [`(sh-fd)`](#sh-fd)
 * [`(sh-port)`](#sh-port)
+* [`(sh-redirect)`](#sh-redirect)
 * [`(sh-run/bytevector)`](#sh-runbytevector)
 * [`(sh-run/string)`](#sh-runstring)
 * [`(sh-start/fd-stdout)`](#sh-startfd-stdout)
@@ -105,7 +106,6 @@ Optional arguments are:
 
 * `options` is described in `(sh-start)` and defaults to the empty list.
 
-
 ##### (sh-start/fds)
 `(sh-start/fds job [redirections [options]])` is a lower-level alternative to [`(sh-start/ports)`](#sh-startports):<br>
 starts a job in background, returns a list of file descriptors connected to the job.<br/>
@@ -116,6 +116,45 @@ Optional arguments are:
 
 Each returned file descriptor must be closed with `(fd-close)` when no longer needed,
 because each one consumes an OS-level file descriptor.
+
+
+### Redirect a job without starting it
+
+The following functions add redirections to an existing job, without starting it.
+
+The added redirections are *permanent* i.e. they are not automatically removed when the job finishes.
+
+##### (sh-redirect)
+`(sh-redirect job dir to [more-redirections])` or `(sh-redirect job fd dir to [more-redirections])`
+redirect file descriptor `fd` of specified job to read from and/or write to specified destination `to`.
+
+Optional arguments are:
+* `fd` is the job's file descriptor to redirect. Must be an unsigned fixnum.
+   If not specified, defaults to `0` if `dir` is `'<` or `'<&` otherwise defaults to `1`.
+* `more-redirections` optional further redirections, must be a sequence containing
+   zero or more pairs `dir to` and/or triplets `fd dir to`.
+   Specifying some redirections as pairs and some as triplets is allowed.
+
+Mandatory arguments are:
+* `job` the job to redirect
+* `dir` indicates whether the redirection is for reading, writing, or both
+   and whether the destination is a file or a file descriptor.
+   It must be one of the symbols:
+   `'<` - read from file
+   `'>` - write to file, truncating it if it exists
+   `'>>` - write to file, appending to it if it exists
+   `'<>` - read/write from start of file and do NOT truncate it
+   `'<&` - read from another file descriptor: `fd` fd will become a copy of file descriptor `to`
+   `'>&` - write to another file descriptor: `fd` fd will become a copy of file descriptor `to`
+* `to` is the destination. It must be one of:
+   * `-1` indicates to close `fd` in child job
+   * an unsigned fixnum: the file descriptor to make a copy of
+   * a bytevector or a string, indicating the file path to read/write
+   * a function accepting zero or one argument, and returning one of the cases above:
+     `-1`, an unsigned fixnum, a bytevector, or a string
+
+Note: redirections are applied in order, thus later redirections (or later calls to `(sh-redirect)`) can overwrite earlier ones.
+
 
 ### Access redirected ports from a Scheme job
 

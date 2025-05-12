@@ -411,37 +411,46 @@
       (string-split-after-nuls (utf8b->string (sh-run/bytevector job options))))))
 
 
-;; Add multiple redirections for cmd or job. Return cmd or job.
+;; Add zero or more redirections to a job. Return the job.
 ;; Each redirection must be a two-argument DIRECTION TO-FD-OR-FILE-PATH
 ;; or a three-argument FROM-FD DIRECTION TO-FD-OR-FILE-PATH
-(define (sh-redirect job-or-id . redirections)
-  (let ((job (sh-job job-or-id))
-        (args redirections))
-    (until (null? args)
-      (when (null? (cdr args))
-        (raise-errorf 'sh-redirect "invalid redirect, need two or three arguments, found one: ~s" args))
-      (let ((arg (car args)))
+(define sh-redirect
+  (case-lambda
+    ((job dir to)
+      (job-redirect! job (if (memq dir '(< <&)) 0 1) dir to))
+    ((job fd dir to)
+      (job-redirect! job fd dir to))
+    ((job dir1 to1 dir2 to2)
+      (job-redirect! job (if (memq dir1 '(< <&)) 0 1) dir1 to1)
+      (job-redirect! job (if (memq dir2 '(< <&)) 0 1) dir2 to2))
+    ((job . args)
+      (let %sh-redirect ((job job) (args args))
         (cond
-          ((fixnum? arg)
+          ((null? args)
+            job)
+          ((null? (cdr args))
+            (raise-errorf 'sh-redirect "invalid redirect, need two or three arguments, found one: ~s" args))
+          ((fixnum? (car args))
             (when (null? (cddr args))
               (raise-errorf 'sh-redirect "invalid three-argument redirect, found only two arguments: ~s" args))
-            (job-redirect! job arg (cadr args) (caddr args))
-            (set! args (cdddr args)))
-          ((redirection-sym? arg)
-            (job-redirect! job (if (eq? '<& arg) 0 1) arg (cadr args))
-            (set! args (cddr args)))
+            (job-redirect! job (car args) (cadr args) (caddr args))
+            (%sh-redirect job (cdddr args)))
+          ((redirection-sym? (car args))
+            (let ((dir (car args)))
+              (job-redirect! job (if (eq? '<& dir) 0 1) dir (cadr args)))
+            (%sh-redirect job (cddr args)))
           (else
-            (raise-errorf 'sh-redirect "invalid redirect, first argument must a fixnum or a redirection symbol: ~s" args)))))
-    job))
+            (raise-errorf 'sh-redirect "invalid redirect, first argument must a fixnum or a redirection symbol: ~s" args)))))))
 
 
-;; Append a single redirection to a job
+;; Append a single fd or file redirection to a job
 (define (job-redirect! job fd direction to)
-  (unless (fx>=? fd 0)
+  (unless (and (fixnum? fd) (fx>=? fd 0))
     (raise-errorf 'sh-redirect "invalid redirect fd, must be an unsigned fixnum: ~a" fd))
   (if (or (eq? '<& direction) (eq? '>& direction))
     (job-redirect/fd!   job fd direction to)
-    (job-redirect/file! job fd direction to)))
+    (job-redirect/file! job fd direction to))
+  job)
 
 
 ;; Append a single fd redirection to a job
