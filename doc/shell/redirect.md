@@ -125,7 +125,7 @@ The following functions add redirections to an existing job, without starting it
 The added redirections are *permanent* i.e. they are not automatically removed when the job finishes.
 
 ##### (sh-redirect)
-`(sh-redirect job dir to [more-redirections])` or `(sh-redirect job fd dir to [more-redirections])`
+`(sh-redirect job dir to [more-redirections ...])` or `(sh-redirect job fd dir to [more-redirections ...])`
 redirect file descriptor `fd` of specified job to read from and/or write to specified destination `to`.
 
 Optional arguments are:
