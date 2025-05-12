@@ -414,31 +414,31 @@
 ;; Add multiple redirections for cmd or job. Return cmd or job.
 ;; Each redirection must be a two-argument DIRECTION TO-FD-OR-FILE-PATH
 ;; or a three-argument FROM-FD DIRECTION TO-FD-OR-FILE-PATH
-(define (sh-redirect! job-or-id . redirections)
+(define (sh-redirect job-or-id . redirections)
   (let ((job (sh-job job-or-id))
         (args redirections))
     (until (null? args)
       (when (null? (cdr args))
-        (raise-errorf 'sh-redirect! "invalid redirect, need two or three arguments, found one: ~s" args))
+        (raise-errorf 'sh-redirect "invalid redirect, need two or three arguments, found one: ~s" args))
       (let ((arg (car args)))
         (cond
           ((fixnum? arg)
             (when (null? (cddr args))
-              (raise-errorf 'sh-redirect! "invalid three-argument redirect, found only two arguments: ~s" args))
+              (raise-errorf 'sh-redirect "invalid three-argument redirect, found only two arguments: ~s" args))
             (job-redirect! job arg (cadr args) (caddr args))
             (set! args (cdddr args)))
           ((redirection-sym? arg)
             (job-redirect! job (if (eq? '<& arg) 0 1) arg (cadr args))
             (set! args (cddr args)))
           (else
-            (raise-errorf 'sh-redirect! "invalid redirect, first argument must a fixnum or a redirection symbol: ~s" args)))))
+            (raise-errorf 'sh-redirect "invalid redirect, first argument must a fixnum or a redirection symbol: ~s" args)))))
     job))
 
 
 ;; Append a single redirection to a job
 (define (job-redirect! job fd direction to)
   (unless (fx>=? fd 0)
-    (raise-errorf 'sh-redirect! "invalid redirect fd, must be an unsigned fixnum: ~a" fd))
+    (raise-errorf 'sh-redirect "invalid redirect fd, must be an unsigned fixnum: ~a" fd))
   (if (or (eq? '<& direction) (eq? '>& direction))
     (job-redirect/fd!   job fd direction to)
     (job-redirect/file! job fd direction to)))
@@ -447,10 +447,10 @@
 ;; Append a single fd redirection to a job
 (define (job-redirect/fd! job fd direction to)
   (unless (fx>=? to -1)
-    (raise-errorf 'sh-redirect! "invalid redirect to fd, must be -1 or an unsigned fixnum: ~a" to))
+    (raise-errorf 'sh-redirect "invalid redirect to fd, must be -1 or an unsigned fixnum: ~a" to))
   (span-insert-right! (job-redirects job)
     fd
-    (%sh-redirect/fd-symbol->char 'sh-redirect! direction)
+    (%sh-redirect/fd-symbol->char 'sh-redirect direction)
     to
     #f))
 
@@ -459,33 +459,33 @@
 (define (job-redirect/file! job fd direction to)
   (span-insert-right! (job-redirects job)
     fd
-    (%sh-redirect/file-symbol->char 'sh-redirect! direction)
+    (%sh-redirect/file-symbol->char 'sh-redirect direction)
     to
     (cond
       ((string? to)
         (when (fxzero? (string-length to))
-          (raise-errorf 'sh-redirect! "invalid redirect to file, string must be non-empty: ~s" to))
+          (raise-errorf 'sh-redirect "invalid redirect to file, string must be non-empty: ~s" to))
         (string->utf8b/0 to))
       ((bytevector? to)
         (let ((to0 (bytevector->bytevector0 to)))
           (when (fx<=? (bytevector-length to0) 1)
-            (raise-errorf 'sh-redirect! "invalid redirect to file, bytevector must be non-empty: ~a" to))
+            (raise-errorf 'sh-redirect "invalid redirect to file, bytevector must be non-empty: ~a" to))
           to0))
       ((procedure? to)
         (when (zero? (logand 3 (procedure-arity-mask to)))
-          (raise-errorf 'sh-redirect! "invalid redirect to procedure, must accept 0 or 1 arguments: ~a" to))
+          (raise-errorf 'sh-redirect "invalid redirect to procedure, must accept 0 or 1 arguments: ~a" to))
         #f)
       (else
-        (raise-errorf 'sh-redirect! "invalid redirect to fd or file, target must be a string, bytevector or procedure: ~s" to)))))
+        (raise-errorf 'sh-redirect "invalid redirect to fd or file, target must be a string, bytevector or procedure: ~s" to)))))
 
 
 ;; Prefix a single temporary fd redirection to a job
 (define (job-redirect-temp-fd! job fd direction to)
   (unless (fx>=? to -1)
-    (raise-errorf 'sh-redirect! "invalid redirect to fd, must be -1 or an unsigned fixnum: ~a" to))
+    (raise-errorf 'sh-redirect "invalid redirect to fd, must be -1 or an unsigned fixnum: ~a" to))
   (span-insert-left! (job-redirects job)
     fd
-    (%sh-redirect/fd-symbol->char 'sh-redirect! direction)
+    (%sh-redirect/fd-symbol->char 'sh-redirect direction)
     to
     #f)
   (job-redirects-temp-n-set! job (fx+ 4 (job-redirects-temp-n job))))

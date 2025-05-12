@@ -387,9 +387,9 @@
                      bar}))                            (sh-list (sh-cmd "foo") '\x3B; (sh-cmd "bar"))
   (caddr (expand '(shell (shell "foo") \x3B;
                          "bar")))                      (sh-list (sh-cmd "foo") '\x3B; (sh-cmd "bar"))
-  (caddr (expand '(shell {ls & echo} 2 >& 1)))         (sh-redirect! (sh-list (sh-cmd "ls") '& (sh-cmd "echo")) 2 '>& 1)
+  (caddr (expand '(shell {ls & echo} 2 >& 1)))         (sh-redirect (sh-list (sh-cmd "ls") '& (sh-cmd "echo")) 2 '>& 1)
   (caddr (expand '(shell (shell "ls" &
-                                "echo") 2 >& 1)))      (sh-redirect! (sh-list (sh-cmd "ls") '& (sh-cmd "echo")) 2 '>& 1)
+                                "echo") 2 >& 1)))      (sh-redirect (sh-list (sh-cmd "ls") '& (sh-cmd "echo")) 2 '>& 1)
   (caddr (expand
     '{echo|{cat;{true}}&}))                            (sh-list (sh-pipe* (sh-cmd "echo") '\x7C;
                                                                           (sh-list (sh-cmd "cat") '\x3B;
@@ -401,7 +401,7 @@
      (shell "foo")
      "bar"}                                            ,@"(sh-list (sh-cmd \"foo\") '\\x3B; (sh-cmd \"bar\"))"
   (caddr (expand
-    '(shell (shell "ls" & "echo") 2 >& 1)))            (sh-redirect! (sh-list (sh-cmd "ls") '& (sh-cmd "echo")) 2 '>& 1)
+    '(shell (shell "ls" & "echo") 2 >& 1)))            (sh-redirect (sh-list (sh-cmd "ls") '& (sh-cmd "echo")) 2 '>& 1)
   (parse-shell-form1 (string->parsectx "{{foo};bar}")) (shell (shell "foo") \x3B;
                                                               "bar")
   '{A=B ls}                                            (shell "A" = "B" "ls")
@@ -470,7 +470,7 @@
 
   ;; test issue #20
   (caddr (expand
-    '{cat /dev/null | (foo) > log}))                   (sh-pipe* (sh-cmd "cat" "/dev/null") '\x7C; (sh-redirect! (foo) 1 '> "log"))
+    '{cat /dev/null | (foo) > log}))                   (sh-pipe* (sh-cmd "cat" "/dev/null") '\x7C; (sh-redirect (foo) 1 '> "log"))
 
   ;; ------------------------- shell syntax -------------------------------
 

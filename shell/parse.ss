@@ -109,7 +109,7 @@
     ; (debugf "<   sh-parse-datum ret = ~s, args = ~s, job-n = ~s, redirections? = ~s, terminators? = ~s" (reverse ret) args job-n redirections? terminators?)
     (when (and redirections? (eq? 'sh-list ret-prefix))
       (if (and (fx=? job-n 1) (not terminators?))
-        (set! ret-prefix 'sh-redirect!)
+        (set! ret-prefix 'sh-redirect)
         (set! ret-prefix 'sh-list*)))
     (cond
       ((null? ret)
@@ -420,7 +420,7 @@
           (else
             (set! done? #t)))))
     (values
-      (if reverse? (cons 'sh-redirect! (reverse! ret)) (car ret))
+      (if reverse? (cons 'sh-redirect (reverse! ret)) (car ret))
       args)))
 
 
@@ -455,7 +455,7 @@
               (value (cdr assignment)))
           (sh-env-set/lazy! cmd name value)))
       (for-list ((redirection redirections))
-        (sh-redirect! cmd (car redirection) (cadr redirection) (caddr redirection)))
+        (sh-redirect cmd (car redirection) (cadr redirection) (caddr redirection)))
       cmd)))
 
 
@@ -552,13 +552,13 @@
           (%assert-last-is-job jobs arg children-jobs-with-redirections-colon-ampersand)
           (let-values (((fd dir to) (parse-redirection2 args procedure?)))
             ; modify last job in-place
-            (sh-redirect! (car jobs) fd dir to)
+            (sh-redirect (car jobs) fd dir to)
             (%again jobs (cddr args))))
         ((fixnum? arg)
           (%assert-last-is-job jobs arg children-jobs-with-redirections-colon-ampersand)
           (let-values (((fd dir to) (parse-redirection3 args procedure?)))
             ; modify last job in-place
-            (sh-redirect! (car jobs) fd dir to)
+            (sh-redirect (car jobs) fd dir to)
             (%again jobs (cdddr args))))
         (else
           (raise-errorf 'sh-list* "expecting job, redirection or ; &, found:"

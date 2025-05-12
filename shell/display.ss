@@ -336,7 +336,7 @@
 
 
 (define (job-write/multijob* job port)
-  (put-string port "(sh-redirect! (")
+  (put-string port "(sh-redirect (")
   (display (multijob-kind job) port)
   (job-write/children job port)
   (put-string port ")")
