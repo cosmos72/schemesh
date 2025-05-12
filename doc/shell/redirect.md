@@ -129,8 +129,8 @@ The added redirections are *permanent* i.e. they are not automatically removed w
 redirect file descriptor `fd` of specified job to read from and/or write to specified destination `to`.
 
 This function should be called before starting a job, or after it has finished.<br/>
-Calling it on a running or stopped job may or *may not* affect job's current execution,<br/>
-but is guaranteed to affect *future* executions of the same job.
+Calling it on a running or stopped job is guaranteed to affect *future* executions of the same job,<br/>
+but may or *may not* affect job's *current* execution.
 
 Optional arguments are:
 * `fd` is the job's file descriptor to redirect, must be an unsigned fixnum.<br/>
