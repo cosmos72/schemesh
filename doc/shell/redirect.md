@@ -129,7 +129,7 @@ The added redirections are *permanent* i.e. they are not automatically removed w
 redirect file descriptor `fd` of specified job to read from and/or write to specified destination `to`.
 
 Optional arguments are:
-* `fd` is the job's file descriptor to redirect. Must be an unsigned fixnum.
+* `fd` is the job's file descriptor to redirect, must be an unsigned fixnum.<br/>
    If not specified, defaults to `0` if `dir` is `'<` or `'<&` otherwise defaults to `1`.
 * `more-redirections` optional further redirections, must be a sequence containing
    zero or more pairs `dir to` and/or triplets `fd dir to`.
@@ -138,14 +138,14 @@ Optional arguments are:
 Mandatory arguments are:
 * `job` the job to redirect
 * `dir` indicates whether the redirection is for reading, writing, or both
-   and whether the destination is a file or a file descriptor.
+   and whether the destination is a file or a file descriptor.<br/>
    It must be one of the symbols:
-   `'<` - read from file
-   `'>` - write to file, truncating it if it exists
-   `'>>` - write to file, appending to it if it exists
-   `'<>` - read/write from start of file and do NOT truncate it
-   `'<&` - read from another file descriptor: `fd` fd will become a copy of file descriptor `to`
-   `'>&` - write to another file descriptor: `fd` fd will become a copy of file descriptor `to`
+   * `'<` - read from file
+   * `'>` - write to file, truncating it if it exists
+   * `'>>` - write to file, appending to it if it exists
+   * `'<>` - read/write from start of file and do NOT truncate it
+   * `'<&` - read from another file descriptor: `fd` fd will become a copy of file descriptor `to`
+   * `'>&` - write to another file descriptor: `fd` fd will become a copy of file descriptor `to`
 * `to` is the destination. It must be one of:
    * `-1` indicates to close `fd` in child job
    * an unsigned fixnum: the file descriptor to make a copy of
