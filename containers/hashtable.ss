@@ -244,8 +244,6 @@
 ;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each key and value.
 ;; Stop iterating when the smallest hashtable is exhausted,
 ;; and return unspecified value.
-;;
-;; Note: body ... must evaluate to a single value.
 (define-syntax for-hash
   (lambda (stx)
     (syntax-case stx ()
@@ -266,8 +264,6 @@
 ;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each key.
 ;; Stop iterating when the smallest hashtable is exhausted,
 ;; and return unspecified value.
-;;
-;; Note: body ... must evaluate to a single value.
 (define-syntax for-hash-keys
   (lambda (stx)
     (syntax-case stx ()
@@ -293,8 +289,6 @@
 ;; i.e. changes the value associated to key in hashtable.
 ;;
 ;; Do NOT modify the (car) of any pair!
-;;
-;; Note: body ... must evaluate to a single value.
 (define-syntax for-hash-pairs
   (lambda (stx)
     (syntax-case stx ()
@@ -312,8 +306,6 @@
 ;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each value.
 ;; Stop iterating when the smallest hashtable is exhausted,
 ;; and return unspecified value.
-;;
-;; Note: body ... must evaluate to a single value.
 (define-syntax for-hash-values
   (lambda (stx)
     (syntax-case stx ()

@@ -549,7 +549,7 @@
     ((screen clipboard)
       (let ((x    (vscreen-cursor-ix screen))
             (line (vscreen-line-at-y screen (vscreen-cursor-iy screen))))
-        (if (and line (eqv? #\newline (vline-at line x)))
+        (if (and line (eqv? #\newline (vline-at/char line x)))
           (vscreen-delete-right/n! screen 1 clipboard)
           (vscreen-delete-right/until-nl! screen clipboard))))
     ((screen)
