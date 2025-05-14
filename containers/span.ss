@@ -24,7 +24,7 @@
   (import
     (rnrs)
     (only (chezscheme) break fx1+ fx1- record-writer reverse! vector-copy void)
-    (only (schemesh bootstrap)         assert* assert-not* fx<=?*)
+    (only (schemesh bootstrap)         assert* assert-not* fx<=?* generate-pretty-temporaries with-while-until)
     (only (schemesh containers list)   for-list)
     (only (schemesh containers vector) subvector vector-copy! subvector-fill! subvector->list))
 
@@ -334,10 +334,14 @@
     (syntax-case stx ()
       ((_ ((elem sp) ...) body1 body2 ...)
         (not (null? #'(sp ...)))
-        #'(do ((i 0 (fx1+ i)) (n (fxmin (span-length sp) ...)) (sp sp) ...)
-              ((fx>=? i n))
-            (let ((elem (span-ref sp i)) ...)
-              body1 body2 ...))))))
+        (with-syntax (((tsp ...) (generate-pretty-temporaries #'(sp ...))))
+          #'(let ((tsp sp) ...)
+              (let %for-span ((i 0) (n (fxmin (span-length sp) ...)))
+                (when (fx<? i n)
+                  (let ((elem (span-ref tsp i)) ...)
+                    (with-while-until
+                      body1 body2 ...
+                      (%for-span (fx1+ i) n)))))))))))
 
 
 ;; iterate on span elements, and call (proc i elem) on each one.

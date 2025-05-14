@@ -18,7 +18,7 @@
     (only (chezscheme)         cflonum? cfl+ fl-make-rectangular
                                fx1+ fx1- fxvector-length fxvector-ref
                                import include meta-cond library-exports scheme-version)
-    (only (schemesh bootstrap) assert* fx<=?* raise-errorf)
+    (only (schemesh bootstrap) assert* fx<=?* raise-errorf generate-pretty-temporaries with-while-until)
     (only (schemesh containers flvector) flvector-length flvector-ref))
 
 
@@ -111,7 +111,7 @@
 ;; The implementation of body ... can call directly or indirectly functions
 ;; that inspect the vectors without modifying them, and can also call (vector-set! ...).
 ;;
-;; It must NOT call any other function that modify the vector, as for example (vector-truncate!)
+;; It must NOT call any other function that modifies the vector, as for example (vector-truncate!)
 ;;
 ;; Return unspecified value.
 (define-syntax for-vector
@@ -119,10 +119,14 @@
     (syntax-case stx ()
       ((_ ((elem v) ...) body1 body2 ...)
         (not (null? #'(v ...)))
-        #'(do ((i 0 (fx1+ i)) (n (fxmin (vector-length v) ...)) (v v) ...)
-              ((fx>=? i n))
-            (let ((elem (vector-ref v i)) ...)
-              body1 body2 ...))))))
+        (with-syntax (((tv ...) (generate-pretty-temporaries #'(v ...))))
+          #'(let ((tv v) ...)
+              (let %for-vector ((i 0) (n (fxmin (vector-length v) ...)))
+                (when (fx<? i n)
+                  (let ((elem (vector-ref tv i)) ...)
+                    (with-while-until
+                      body1 body2 ...
+                      (%for-vector (fx1+ i) n)))))))))))
 
 
 ;; apply proc element-wise to the i-th element of each vector
