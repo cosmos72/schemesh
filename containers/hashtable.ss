@@ -22,7 +22,7 @@
   (import
     (rnrs)
     (only (chezscheme)                 $primitive fx1+ fx/ include meta record-writer)
-    (only (schemesh bootstrap)         assert* generate-pretty-temporaries)
+    (only (schemesh bootstrap)         assert* generate-pretty-temporaries with-while-until)
     (only (schemesh containers list)   for-list for-plist)
     (only (schemesh containers vector) vector-index))
 
@@ -249,23 +249,18 @@
 (define-syntax for-hash
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((key val htable)) body1 body2 ...)
-        #'(hash-for-each-pair
-            (lambda (cell)
-              (let ((key (car cell))
-                    (val (cdr cell)))
-                body1 body2 ...))
-            htable))
       ((_ ((key val htable) ...) body1 body2 ...)
         (not (null? #'(htable ...)))
         (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
           (with-syntax (((cell ...) (generate-pretty-temporaries #'(htable ...))))
             #'(let ((iter (make-hash-iterator htable)) ...)
-                (do ((cell (hash-iterator-pair iter) (hash-iterator-next! iter)) ...)
-                    ((not (and cell) ...))
-                  (let ((key (car cell)) ...
-                        (val (cdr cell)) ...)
-                    body1 body2 ...)))))))))
+                (let %for-hash ((cell (hash-iterator-pair iter)) ...)
+                  (when (and cell ...)
+                    (let ((key (car cell)) ...
+                          (val (cdr cell)) ...)
+                      (with-while-until
+                        body1 body2 ...
+                        (%for-hash (hash-iterator-next! iter) ...))))))))))))
 
 
 ;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each key.
@@ -276,21 +271,17 @@
 (define-syntax for-hash-keys
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((key htable)) body1 body2 ...)
-        #'(hash-for-each-pair
-            (lambda (cell)
-              (let ((key (car cell)))
-                body1 body2 ...))
-            htable))
       ((_ ((key htable) ...) body1 body2 ...)
         (not (null? #'(htable ...)))
         (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
           (with-syntax (((cell ...) (generate-pretty-temporaries #'(htable ...))))
             #'(let ((iter (make-hash-iterator htable)) ...)
-                (do ((cell (hash-iterator-pair iter) (hash-iterator-next! iter)) ...)
-                    ((not (and cell) ...))
-                  (let ((key (car cell)) ...)
-                    body1 body2 ...)))))))))
+                (let %for-hash-keys ((cell (hash-iterator-pair iter)) ...)
+                  (when (and cell ...)
+                    (let ((key (car cell)) ...)
+                      (with-while-until
+                        body1 body2 ...
+                        (%for-hash-keys (hash-iterator-next! iter) ...))))))))))))
 
 
 ;; Iterate in parallel on elements of given hashtables ht ...,
@@ -307,18 +298,15 @@
 (define-syntax for-hash-pairs
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((pair htable)) body1 body2 ...)
-        #'(hash-for-each-pair
-            (lambda (pair)
-              body1 body2 ...)
-            htable))
       ((_ ((pair htable) ...) body1 body2 ...)
         (not (null? #'(htable ...)))
         (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
           #'(let ((iter (make-hash-iterator htable)) ...)
-              (do ((pair (hash-iterator-pair iter) (hash-iterator-next! iter)) ...)
-                  ((not (and pair) ...))
-                body1 body2 ...)))))))
+              (let %for-hash-pairs ((pair (hash-iterator-pair iter)) ...)
+                (when (and pair ...)
+                  (with-while-until
+                    body1 body2 ...
+                    (%for-hash-pairs (hash-iterator-next! iter) ...))))))))))
 
 
 ;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each value.
@@ -329,21 +317,17 @@
 (define-syntax for-hash-values
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((val htable)) body1 body2 ...)
-        #'(hash-for-each-pair
-            (lambda (cell)
-              (let ((val (cdr cell)))
-                body1 body2 ...))
-            htable))
       ((_ ((val htable) ...) body1 body2 ...)
         (not (null? #'(htable ...)))
         (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
           (with-syntax (((cell ...) (generate-pretty-temporaries #'(htable ...))))
             #'(let ((iter (make-hash-iterator htable)) ...)
-                (do ((cell (hash-iterator-pair iter) (hash-iterator-next! iter)) ...)
-                    ((not (and cell) ...))
-                  (let ((val (cdr cell)) ...)
-                    body1 body2 ...)))))))))
+                (let %for-hash-keys ((cell (hash-iterator-pair iter)) ...)
+                  (when (and cell ...)
+                    (let ((val (cdr cell)) ...)
+                      (with-while-until
+                        body1 body2 ...
+                        (%for-hash-keys (hash-iterator-next! iter) ...))))))))))))
 
 
 ;; (hashtable-transpose src dst) iterates on all (key . value) elements of hashtable src,

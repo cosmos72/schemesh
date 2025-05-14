@@ -19,7 +19,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme)         fx1+ fx1- list-copy reverse! void)
-    (only (schemesh bootstrap) generate-pretty-temporaries))
+    (only (schemesh bootstrap) generate-pretty-temporaries with-while-until))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -186,16 +186,16 @@
 (define-syntax for-list
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((elem l)) body1 body2 ...)
-        #'(for-each (lambda (elem) body1 body2 ...) l))
       ((_ ((elem l) ...) body1 body2 ...)
         (not (null? #'(l ...)))
         (with-syntax (((tail ...) (generate-pretty-temporaries #'(l ...))))
           #'(let %for-list ((tail l) ...)
-              (unless (or (null? tail) ...)
+              (if (or (null? tail) ...)
+                (void)
                 (let ((elem (car tail)) ...)
-                  body1 body2 ...)
-                (%for-list (cdr tail) ...))))))))
+                  (with-while-until
+                    body1 body2 ...
+                    (%for-list (cdr tail) ...))))))))))
 
 
 
@@ -328,21 +328,17 @@
 (define-syntax for-alist
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((key val alist)) body1 body2 ...)
-        #'(for-each (lambda (elem)
-                      (let ((key (car elem))
-                            (val (cdr elem)))
-                        body1 body2 ...))
-                    alist))
       ((_ ((key val alist) ...) body1 body2 ...)
         (not (null? #'(alist ...)))
         (with-syntax (((tail ...) (generate-pretty-temporaries #'(alist ...))))
           #'(let %for-alist ((tail alist) ...)
-              (unless (or (null? tail) ...)
+              (if (or (null? tail) ...)
+                (void)
                 (let ((key (caar tail)) ...
                       (val (cdar tail)) ...)
-                  body1 body2 ...)
-                (%for-alist (cdr tail) ...))))))))
+                  (with-while-until
+                    body1 body2 ...
+                    (%for-alist (cdr tail) ...))))))))))
 
 
 ;; return #t if plist is a property list, otherwise return #f
@@ -432,23 +428,18 @@
 ;; Stop iterating when the shortest property list is exhausted,
 ;; and return unspecified value.
 (define-syntax for-plist
- (lambda (stx)
+  (lambda (stx)
     (syntax-case stx ()
-      ((_ ((key val plist)) body1 body2 ...)
-        #'(let %for-plist ((tail plist))
-            (unless (null? tail)
-              (let ((key (car tail))
-                    (val (cadr tail)))
-                body1 body2 ...)
-              (%for-plist (cddr tail)))))
       ((_ ((key val plist) ...) body1 body2 ...)
         (not (null? #'(plist ...)))
         (with-syntax (((tail ...) (generate-pretty-temporaries #'(plist ...))))
           #'(let %for-plist ((tail plist) ...)
-              (unless (or (null? tail) ...)
+              (if (or (null? tail) ...)
+                (void)
                 (let ((key (car tail)) ...
                       (val (cadr tail)) ...)
-                  body1 body2 ...)
-                (%for-plist (cddr tail) ...))))))))
+                  (with-while-until
+                    body1 body2 ...
+                    (%for-plist (cddr tail) ...))))))))))
 
 ) ; close library
