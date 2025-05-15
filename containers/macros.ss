@@ -13,7 +13,7 @@
   (import
     (rnrs)
     (only (chezscheme) void)
-    (only (schemesh bootstrap) generate-pretty-temporaries))
+    (only (schemesh bootstrap) generate-pretty-temporaries with-while-until))
 
 
 ;; extended (begin body ...) that also accepts empty body
@@ -76,56 +76,52 @@
 
 
 (define-syntax %for-body
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ for-loop () body ...)
-        #'(begin body ... (for-loop)))
-      ((_ for-loop ((vars ... flag iter) more-vars ...) body ...)
-        #'(let-values^ (((vars ... flag) (iter)))
-            (when^ flag
-              (%for-body for-loop (more-vars ...)
-                body ...)))))))
+  (syntax-rules ()
+    ((_ for-loop () body ...)
+      (with-while-until body ... (for-loop)))
+    ((_ for-loop ((vars ... flag iter) more-vars ...) body ...)
+      (let-values^ (((vars ... flag) (iter)))
+        (when^ flag
+          (%for-body for-loop (more-vars ...)
+            body ...))))))
 
 
 (define-syntax %for-sequence
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ () (bind ...) body ...)
-        #'(let for-loop ()
-            (%for-body for-loop (bind ...) body ...)))
-      ;; Racket-compatible syntax: (for (((var ...) sequence)) body ...)
-      ((_ (((var ...) sequence) clause2 ...) (bind ...) body ...)
-        #'(%for-sequence ((var ... sequence)) (bind ...) body ...))
-      ;; Simplified syntax: (for ((var ... sequence)) body ...)
-      ((_ ((var ... sequence) clause2 ...) (bind ...) body ...)
-        #'(let ((iter sequence))
-            (%for-sequence (clause2 ...) (bind ... (var ... flag iter)) body ...))))))
+  (syntax-rules ()
+    ((_ () (bind ...) body ...)
+      (let for-loop ()
+        (%for-body for-loop (bind ...) body ...)))
+    ;; Racket-compatible syntax: (for (((var ...) sequence)) body ...)
+    ((_ (((var ...) sequence) clause2 ...) (bind ...) body ...)
+      (%for-sequence ((var ... sequence)) (bind ...) body ...))
+    ;; Simplified syntax: (for ((var ... sequence)) body ...)
+    ((_ ((var ... sequence) clause2 ...) (bind ...) body ...)
+      (let ((iter sequence))
+        (%for-sequence (clause2 ...) (bind ... (var ... flag iter)) body ...)))))
 
 
 (define-syntax for
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ () body ...)
-        #'(begin^ body ... ))
-      ((_ (clause1 clause2 ...) body ...)
-        #'(%for-sequence (clause1 clause2 ...) () body ... )))))
+  (syntax-rules ()
+    ((_ () body ...)
+      (begin^ body ...))
+    ((_ (clause1 clause2 ...) body ...)
+      (%for-sequence (clause1 clause2 ...) () body ...))))
 
 
 
 (define-syntax %for*-inner-part
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ () body ...)
-        #`(begin^ body ...))
-      ((_ ((vars ... flag iter)) body ...)
-        #`(let-values^ (((vars ... flag) (iter)))
-            (when^ flag
-              body ...)))
-      ((_ ((vars ... flag iter) (vars2 ... flag2 iter2) ...) body ...)
-        #`(let-values^ (((vars ... flag) (iter)))
-            (when^ flag
-              (%for*-inner-part ((vars2 ... flag2 iter2) ...)
-                body ...)))))))
+  (syntax-rules ()
+    ((_ () body ...)
+      (begin^ body ...))
+    ((_ ((vars ... flag iter)) body ...)
+      (let-values^ (((vars ... flag) (iter)))
+        (when^ flag
+          body ...)))
+    ((_ ((vars ... flag iter) (vars2 ... flag2 iter2) ...) body ...)
+      (let-values^ (((vars ... flag) (iter)))
+        (when^ flag
+          (%for*-inner-part ((vars2 ... flag2 iter2) ...)
+            body ...))))))
 
 
 ;; repeatedly call (begin body ...) in a loop,
@@ -148,7 +144,8 @@
             #`(let ((iter iterator) ...)
                 (let for*-loop ()
                   (%for*-inner-part ((vars ... flag iter) ...)
-                    body ...
-                    (for*-loop))))))))))
+                    (with-while-until
+                      body ...
+                      (for*-loop)))))))))))
 
 ) ; close library

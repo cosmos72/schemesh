@@ -12,7 +12,7 @@
       ;; bootstrap.ss
 
       ==> ;; _ is already exported by (rnrs)
-      assert* assert-not* begin* catch check check-not define-macro debugf debugf-port
+      assert* assert-not* catch check check-not define-macro debugf debugf-port
       first-value first-value-or-void forever let-macro raise-assert* repeat second-value
       with-locked-objects while until with-while-until
       throws? trace-call trace-define try list->values values->list
@@ -265,32 +265,58 @@
 
 
 ;; version of (begin) that also accepts empty body
-(define-syntax begin*
+(define-syntax begin^
   (syntax-rules ()
-    ((_)      (void))
-    ((_ body) body)
+    ((_)                 (void))
+    ((_ body)            body)
     ((_ body1 body2 ...) (begin body1 body2 ...))))
+
+
+(define-syntax with-while-until
+  (syntax-rules (while until)
+    ((_)
+      (void))
+    ((_ body1)
+      body1)
+    ((_ body1 body2)
+      (begin body1 body2))
+    ((_ while pred body1 body2 ...)
+      (when pred (with-while-until body1 body2 ...)))
+    ((_ until pred body1 body2 ...)
+      (unless pred (with-while-until body1 body2 ...)))
+    ((_ body1 body2 body3 ...)
+      (begin body1 (with-while-until body2 body3 ...)))))
 
 
 (define-syntax forever
   (syntax-rules ()
-    ((_ body ...)  (let %forever () body ... %(forever)))))
+    ((_ body ...)  (let %forever ()
+                     (with-while-until
+                       body ... (%forever))))))
 
 
 (define-syntax repeat
   (syntax-rules ()
     ((_ n body ...) (let %repeat ((i (fxmax 0 n)))
-                      (unless (fxzero? i) body ... (%repeat (fx1- i)))))))
+                      (unless (fxzero? i)
+                        (with-while-until
+                          body ... (%repeat (fx1- i))))))))
 
 
 (define-syntax while
   (syntax-rules ()
-    ((_ pred body ...) (let %while () (when pred body ... (%while))))))
+    ((_ pred body ...) (let %while ()
+                         (when pred
+                           (with-while-until
+                             body ... (%while)))))))
 
 
 (define-syntax until
   (syntax-rules ()
-    ((_ pred body ...) (let %until () (unless pred body ... (%until))))))
+    ((_ pred body ...) (let %until ()
+                         (unless pred
+                           (with-while-until
+                             body ... (%until)))))))
 
 
 (define-syntax try
@@ -300,7 +326,7 @@
         (lambda (k-exit)
           (with-exception-handler
             (lambda (exception)
-              (k-exit (begin* catch-body ...)))
+              (k-exit (begin^ catch-body ...)))
             (lambda ()
               try-body1 try-body2 ...)))))
     ((_ bad-body ...)
@@ -333,18 +359,6 @@
         (lambda () (unlock-object obj1) (lock-object obj2) ...)))))
 
 
-(define-syntax with-while-until
-  (syntax-rules (while until)
-    ((_ body1)
-      body1)
-    ((_ body1 body2)
-      (begin body1 body2))
-    ((_ while pred body1 body2 ...)
-      (when pred (with-while-until body1 body2 ...)))
-    ((_ until pred body1 body2 ...)
-      (unless pred (with-while-until body1 body2 ...)))
-    ((_ body1 body2 body3 ...)
-      (begin body1 (with-while-until body2 body3 ...)))))
 
 
 ;; Scheme implementation of Common Lisp defmacro, defines a global macro.

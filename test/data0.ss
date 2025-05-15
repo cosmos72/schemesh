@@ -28,6 +28,9 @@
   (==> + 2 3 => / _ 4)                             5/4
   (==> and 1 2 ?=> or _ 3)                         2
   (==> and 1 #f ?=> (error 'test-arrow))           #f
+  (let ((x 10))
+    (forever (set! x (fx1- x)) until (fxzero? x))
+    x)                                             0
 
   ;; '(expand-omit-library-invocations #t) (void)  do not use, requires Chez Scheme >= 10.0.0
   ;; '(begin (debugf \"warmup\") (debugf \"a\") (debugf \"b\") (debugf \"c\")) (void)
@@ -39,8 +42,7 @@
   (bytevector-compare #vu8(66 77) #vu8(66 77 0))   -1
   (bytevector-compare #vu8(66 77) #vu8(66 78))     -1
   (bytevector-compare #vu8(79) #vu8(78 0))         1
-  (string-count= "qwertyuiop" 2 "_ertyuio7"
-                        1 8)                       7
+  (string-count= "qwertyuiop" 2 "_ertyuio7" 1 8)   7
 
   (let* ((n   9)
          (bv  (make-bytevector n)))
@@ -223,17 +225,18 @@
   (let ((sp (bytespan)))
     (bytespan-insert-right/char! sp (integer->char #x20ac)) sp)      ,(bytespan 226 130 172)
   (let ((sp (bytespan)))
-    (bytespan-insert-left/char! sp (integer->char #x10348)) sp)    ,(bytespan 240 144 141 136)
+    (bytespan-insert-left/char! sp (integer->char #x10348)) sp)      ,(bytespan 240 144 141 136)
   (let ((sp (bytespan)))
-    (bytespan-insert-left/char! sp (integer->char #x10ffff)) sp)   ,(bytespan 244 143 191 191)
+    (bytespan-insert-left/char! sp (integer->char #x10ffff)) sp)     ,(bytespan 244 143 191 191)
   ;; ----------------- bytespan-fixnum-display ----------------------------
   (let ((sp (bytespan)))
     (for ((n (in-list '(0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000
-                       9999998 10000000 12345678 -1 -9 -10 -87654321))))
+                       9999998 10000000 123456789 -1 -9 -10 -987654321 #f #t))))
+      while (fixnum? n)
       (bytespan-display-right/fixnum! sp n)
       (bytespan-insert-right/u8! sp 32))
     (utf8b-bytespan->string sp))
-              "0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000 9999998 10000000 12345678 -1 -9 -10 -87654321 "
+              "0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000 9999998 10000000 123456789 -1 -9 -10 -987654321 "
 
   ;; ------------------------- span ---------------------------------------
   (span 1 2 3)                             ,(span 1 2 3)
