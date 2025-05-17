@@ -77,11 +77,11 @@
 (define thread-count (foreign-procedure "c_thread_count" () uptr))
 
 
-;; alist (id status . name) of threads that changed status
+;; alist ((id status . name) ...) of threads that changed status
 (define status-changes '())
 
 
-;; consume and return alist (id status . name) of threads that changed status
+;; consume and return alist ((id status . name) ...) of threads that changed status
 (define (threads-status-changes)
   (with-tc-mutex
     (let ((ret status-changes))

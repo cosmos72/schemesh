@@ -205,9 +205,9 @@
 
 ;; thread parameter containing an alist ((param . thunk) ...) where each param and thunk are procedures.
 ;;
-;; each time (fork-thread thunk) is invoked, the new thread will iterate on such alist
-;; and call (param (thunk)) on each element, allowing for example to establish initial values
-;; for other thread parameters.
+;; each time (fork-thread thunk) or (make-thread thunk [name]) are invoked,
+;; the new thread will iterate on such alist and call (param (thunk)) on each element,
+;; allowing for example to establish initial values for other thread parameters.
 ;;
 ;; this is similar in spirit to *default-special-bindings* provided by Common Lisp library Bordeaux Threads.
 ;;
@@ -218,9 +218,9 @@
   (make-thread-parameter
     '()
     (lambda (alist)
-      (assert* 'thread-initial-bindings (list? alist))
       (do ((tail alist (cdr tail)))
           ((null? tail) alist)
+        (assert* 'thread-initial-bindings (pair? tail))
         (let ((a (car tail)))
           (assert* 'thread-initial-bindings (pair? a))
           (assert* 'thread-initial-bindings (procedure? (car a)))
