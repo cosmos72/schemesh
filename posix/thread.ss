@@ -41,7 +41,7 @@
                                   time? time<=? time-difference time-type void with-interrupts-disabled)
     (only (schemesh bootstrap)    assert* assert-not* catch check-interrupts raise-errorf until try)
     (only (schemesh containers hashtable) for-hash)
-    (only (schemesh containers list)      for-list)
+    (only (schemesh containers list)      for-alist for-list)
     (only (schemesh posix signal) raise-condition-received-signal signal-name->number signal-raise)
     (only (schemesh posix status) running stopped ok exception failed))
 

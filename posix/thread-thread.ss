@@ -394,12 +394,8 @@
 
 ;; in newly created thread, call (param (thunk)) for each alist element (param . thunk) in (thread-initial-bindings)
 (define (apply-thread-initial-bindings)
-  (do ((tail (thread-initial-bindings) (cdr tail)))
-      ((null? tail))
-    (let* ((a     (car tail))
-           (param (car a))
-           (thunk (cdr a)))
-      (param (thunk)))))
+  (for-alist ((param thunk (thread-initial-bindings)))
+    (param (thunk))))
 
 
 ;; create a new thread, establish its initial thread parameters as specified by (thread-initial-bindings)
