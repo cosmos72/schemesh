@@ -477,8 +477,8 @@
       (when (sh-job-display-summary?)
         (lineedit-undraw lctx 'flush)
         (let ((port (console-output-port)))
-          (for-alist ((id status (list-remove-consecutive-duplicates! (sort! car<? thread-alist) car-eqv?)))
-            (thread-display-summary id status port))
+          (for-alist ((id status.name (list-remove-consecutive-duplicates! (sort! car<? thread-alist) car-eqv?)))
+            (thread-display-summary id (car status.name) (cdr status.name) port))
 
           (for-list ((job (list-remove-consecutive-duplicates! (sort! sh-job<? job-list) eq?)))
             (display-job-status-change job port))))

@@ -47,9 +47,12 @@
   (void))
 
 
-(define (thread-display-summary id status port)
-  (format port "; thread ~a~s          ~s\n"
-          (pad/job-id id) id (if (eq? (void) status) (ok) status)))
+(define (thread-display-summary id status name port)
+  (format port "; thread ~a~s          ~s"
+          (pad/job-id id) id (if (eq? (void) status) (ok) status))
+  (if (eq? (void) name)
+    (newline port)
+    (format port " \t~s\n" name)))
 
 
 ;; add a job to an internal queue, and return (void)

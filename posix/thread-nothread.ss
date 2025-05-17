@@ -26,7 +26,7 @@
 (define (thread-count) 1)
 
 
-;; return alist (id . status) of threads that changed status
+;; return alist (id status . name) of threads that changed status
 (define (threads-status-changes)
   '())
 
@@ -104,13 +104,13 @@
 
 
 ;; return a fresh hashtable containing the known threads, their id and status
-;; organized as id -> (thread . status)
+;; organized as id -> #(thread status name)
 ;;
 ;; Note: threads may be created or destroyed after this call and before
 ;; the returned value is used.
 (define (threads-status)
   (let ((ret (make-eqv-hashtable)))
-    (hashtable-set! ret 0 (cons (get-initial-thread) (running)))
+    (hashtable-set! ret 0 (vector (get-initial-thread) (running) (void)))
     ret))
 
 

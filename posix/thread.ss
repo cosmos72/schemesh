@@ -33,7 +33,7 @@
       threads threads-status threads-status-changes)
   (import
     (rnrs)
-    (only (rnrs mutable-pairs)    set-cdr!)
+    (only (rnrs mutable-pairs)    set-car!)
     (only (chezscheme)            $primitive abort-handler add-duration base-exception-handler current-time eval exit-handler
                                   foreign-procedure get-thread-id import include keyboard-interrupt-handler library-exports
                                   logbit? meta-cond make-ephemeron-eq-hashtable make-parameter make-time
@@ -230,17 +230,23 @@
 
 
 (define (thread-stop! thread)
+  (assert* 'thread-stop! (thread? thread))
   (thread-kill thread 'sigtstp))
 
 
 ;; SRFI 18 API
 (define thread-sleep! sleep)
 
+
 (define (thread-start! thread)
+  (assert* 'thread-start! (thread? thread))
   (thread-kill thread 'sigcont))
 
-(define (thread-terminate! thread)                             ;
+
+(define (thread-terminate! thread)
+  (assert* 'thread-terminate! (thread? thread))
   (thread-kill thread 'sigint))
+
 
 (define thread-yield! (foreign-procedure "c_sched_yield" () void))
 

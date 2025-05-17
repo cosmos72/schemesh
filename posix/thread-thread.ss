@@ -77,10 +77,11 @@
 (define thread-count (foreign-procedure "c_thread_count" () uptr))
 
 
+;; alist (id status . name) of threads that changed status
 (define status-changes '())
 
 
-;; consume and return alist (id . status) of threads that changed status
+;; consume and return alist (id status . name) of threads that changed status
 (define (threads-status-changes)
   (with-tc-mutex
     (let ((ret status-changes))
@@ -90,8 +91,8 @@
 
 
 ;; must be called with with locked $tc-mutex.
-(define ($threads-status-changes-insert! id status)
-  (set! status-changes (cons (cons id status) status-changes))
+(define ($threads-status-changes-insert! id status name)
+  (set! status-changes (cons (cons id (cons status name)) status-changes))
 
   ;; wake up main thread, to let it display thread status changes
   (let* ((t  (get-initial-thread))
@@ -284,6 +285,16 @@
         #f))))
 
 
+;; extract and return the name from specified thread.
+;; does NOT create xthread it if missing.
+;; Return (void) if tc or xthread are not set.
+(define ($thread-name t)
+  (let ((xthread ($tc-xthread-nocreate ($thread-tc t))))
+    (if xthread
+      (xthread-name xthread)
+      (void))))
+
+
 (define thread-register-self
   (case-lambda
     (()
@@ -297,7 +308,7 @@
             (xthread-signal-set! xthread initial-signal-name)))))))
 
 
-;; hashtable thread -> (id . status)
+;; hashtable thread -> (id status . name)
 (define status-map (make-ephemeron-eq-hashtable))
 
 ;; return status for a thread.
@@ -308,7 +319,7 @@
   (let ((pair (hashtable-ref status-map thread #f)))
     (cond
       (pair
-        (cdr pair))
+        (cadr pair))
       ((eqv? 0 ($thread-tc thread)) ; thread exited
         (void))
       (else
@@ -320,26 +331,23 @@
 (define ($thread-status-set! thread tc new-status)
   (let* ((old-pair     (hashtable-ref status-map thread #f))
          (thread-id    ($tc-id tc))
-         (same-status? (cond ((pair? old-pair) (eq? (cdr old-pair) new-status))
-                             (else             (eq? s-running      new-status)))))
+         (thread-name  ($thread-name thread))
+         (same-status? (cond ((pair? old-pair) (eq? (cadr old-pair) new-status))
+                             (else             (eq? s-running       new-status)))))
     (if old-pair
-      (set-cdr! old-pair new-status)
-      (hashtable-set! status-map thread (cons thread-id new-status)))
+      (set-car! (cdr old-pair) new-status)
+      (hashtable-set! status-map thread (cons thread-id (cons new-status thread-name))))
 
     (unless same-status?
       ;; queue thread status change notification
-      ($threads-status-changes-insert! thread-id new-status))))
+      ($threads-status-changes-insert! thread-id new-status thread-name))))
 
 
 ;; return name of specified thread
 (define (thread-name thread-or-id)
   (let ((thread (datum->thread thread-or-id)))
     (with-tc-mutex*
-      (let* ((tc      ($thread-tc thread))
-             (xthread ($thread-xthread thread tc)))
-        (if xthread
-          (xthread-name xthread)
-          (void))))))
+      ($thread-name thread))))
 
 
 ;; return status of specified thread, i.e. a status object among (running) (stopped) or (void)
@@ -366,20 +374,21 @@
         (xthread-specific-set! xthread value)))))
 
 
-;; return a fresh hashtable containing the known threads, their id and status
-;; organized as id -> (thread . status)
+;; return a fresh hashtable containing the known threads, their id, status and name
+;; organized as id -> #(thread status name)
 ;;
 ;; Note: threads may be created or destroyed after this call and before
 ;; the returned value is used.
 (define (threads-status)
   (let ((ret (make-eqv-hashtable)))
     (with-tc-mutex
-      (for-hash ((t id.status status-map))
-        (hashtable-set! ret (car id.status) (cons t (cdr id.status))))
+      (for-hash ((t id.status.name status-map))
+        (hashtable-set! ret (car id.status.name)
+                            (vector t (cadr id.status.name) (cddr id.status.name))))
       (for-list ((t ($threads)))
         (let ((id ($thread-id t)))
           (when (and id (not (hashtable-ref ret id #f)))
-            (hashtable-set! ret id (cons t ($thread-status t)))))))
+            (hashtable-set! ret id (vector t ($thread-status t) ($thread-name t)))))))
     ret))
 
 
