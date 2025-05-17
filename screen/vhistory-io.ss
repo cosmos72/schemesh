@@ -44,7 +44,7 @@
         (success? #f))
     (try
         ;; write to a temporary file "history.txt.PID"
-        (set! port (file->port temp-path 'write '(create)))
+        (set! port (file->port temp-path 'write '(create) 'binary))
         (set! remove-temp-path? #t)
         (vhistory-save-to-port hist port)
         (close-port port)
