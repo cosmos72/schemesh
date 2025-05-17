@@ -68,6 +68,20 @@
 (define (fork-thread thunk)
   (raise-errorf 'fork-thread "compiled without thread support"))
 
+
+(define make-thread
+  (case-lambda
+    ((thunk name)
+      (raise-errorf 'make-thread "compiled without thread support"))
+    ((thunk)
+      (make-thread thunk (void)))))
+
+
+(define (thread-name thread)
+  (assert* 'thread-status (thread? thread))
+  (void))
+
+
 (define thread-kill
   (let ((c-signal-raise (foreign-procedure "c_thread_signal_raise" (int int) int)))
     (lambda (thread-or-id signal-name)

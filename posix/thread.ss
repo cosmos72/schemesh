@@ -19,10 +19,11 @@
 ;;  (thread-join) also accepts an optional timeout and is interruptible
 
 (library (schemesh posix thread (0 9 1))
-  (export fork-thread get-initial-thread current-thread get-thread-id
-          thread thread? threaded? thread-alive? thread-count thread-find thread-id thread-initial-bindings
-          thread-join thread-kill thread-preserve-ownership! thread-signal-handle thread-status
-          threads threads-status threads-status-changes)
+  (export
+      current-thread fork-thread get-initial-thread get-thread-id make-thread
+      thread thread? threaded? thread-alive? thread-count thread-find thread-id thread-initial-bindings
+      thread-join thread-kill thread-name thread-preserve-ownership! thread-signal-handle thread-status
+      threads threads-status threads-status-changes)
   (import
     (rnrs)
     (only (rnrs mutable-pairs)    set-cdr!)
@@ -43,7 +44,7 @@
 (define c-errno-esrch  ((foreign-procedure "c_errno_esrch"  () int)))
 
 
-;; return number of existing threads.
+;; return list of existing threads.
 ;; must be called with locked $tc-mutex
 (define $threads (foreign-procedure "c_threads" () ptr))
 

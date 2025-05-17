@@ -13,10 +13,12 @@
   (fields
     thread               ; thread, for speeding up (thread) function
     id                   ; thread-id, needed to check for xthread inherited from parent thread
+    (mutable name)       ; thread-name, useful for debugging
+    (mutable specific)   ; thread-specific, defined by SRFI 18
     (mutable pthread-id) ; pthread_t of thread, or #f if not known yet
     (mutable signal)     ; one of: 'sigint 'sigtstp 'sigcont
     changed)             ; condition
-  (nongenerative xthread-7c46d04b-34f4-4046-b5c7-b63753c1be44))
+  (nongenerative xthread-7c46d04b-34f4-4046-b5c7-b63753c1be45))
 
 
 (define c-pthread-kill (foreign-procedure "c_pthread_kill" (uptr int) int))
@@ -238,7 +240,8 @@
   (let* ((id   ($tc-id tc))
          (name (string->symbol (string-append "xthread-" (number->string id)))))
     ;; call pthread_self() only if xthread is for current thread
-    (make-xthread thread id (if (eqv? tc ($tc)) (c-pthread-self) #f)
+    (make-xthread thread id (void) (void)
+                  (if (eqv? tc ($tc)) (c-pthread-self) #f)
                   'sigcont (make-condition name))))
 
 
@@ -281,9 +284,17 @@
         #f))))
 
 
-(define (thread-register-self)
-  (with-tc-mutex
-    ($thread-xthread ($current-thread) ($tc))))
+(define thread-register-self
+  (case-lambda
+    (()
+      (with-tc-mutex
+        ($thread-xthread ($current-thread) ($tc))))
+    ((name initial-signal-name)
+      (with-tc-mutex
+        (let ((xthread ($thread-xthread ($current-thread) ($tc))))
+          (when xthread
+            (xthread-name-set!   xthread name)
+            (xthread-signal-set! xthread initial-signal-name)))))))
 
 
 ;; hashtable thread -> (id . status)
@@ -318,6 +329,17 @@
     (unless same-status?
       ;; queue thread status change notification
       ($threads-status-changes-insert! thread-id new-status))))
+
+
+;; return name of specified thread
+(define (thread-name thread-or-id)
+  (let ((thread (datum->thread thread-or-id)))
+    (with-tc-mutex*
+      (let* ((tc      ($thread-tc thread))
+             (xthread ($thread-xthread thread tc)))
+        (if xthread
+          (xthread-name xthread)
+          (void))))))
 
 
 ;; return status of specified thread, i.e. a status object among (running) (stopped) or (void)
@@ -359,10 +381,10 @@
 ;; then call (thunk) in the new thread.
 ;;
 ;; the thread will exit when (thunk) returns
-(define (fork-thread thunk)
+(define (%thread-create caller thunk name initial-signal-name)
   (import (prefix (only (chezscheme) fork-thread) chez:))
-  (assert* 'fork-thread (procedure? thunk))
-  (assert* 'fork-thread (logbit? 0 (procedure-arity-mask thunk)))
+  (assert* caller (procedure? thunk))
+  (assert* caller (logbit? 0 (procedure-arity-mask thunk)))
 
   ;; register caller's thread pthread_id in case it's missing
   (thread-register-self)
@@ -375,7 +397,7 @@
               ;; we need to receive them in main thread
               ;; Exception: allow receiving SIGCONT in new thread
               (c-thread-signals-block-most)
-              (thread-register-self)
+              (thread-register-self name initial-signal-name)
               (apply-thread-initial-bindings)
               (keyboard-interrupt-handler thread-signal-handle)
               (let ((status
@@ -391,6 +413,7 @@
                                            (base-exception-handler on-exception)
                                            (exit-handler           on-success)
                                            (reset-handler          on-failure))
+                              (check-interrupts)
                               ;; convert (thunk) return values to status
                               (call-with-values thunk ok))))))
                     ;; race condition: may be executed before set! ret above
@@ -398,6 +421,22 @@
                 (with-tc-mutex
                   ($thread-status-set! thread ($tc) status))))))
     ret))
+
+
+;; create a new thread, establish its initial thread parameters as specified by (thread-initial-bindings)
+;; then call (thunk) in the new thread.
+;;
+;; the thread will exit when (thunk) returns
+(define (fork-thread thunk)
+  (%thread-create 'fork-thread thunk (void) 'sigcont))
+
+
+(define make-thread
+  (case-lambda
+    ((thunk name)
+      (%thread-create 'make-thread thunk name 'sigtstp))
+    ((thunk)
+      (%thread-create 'make-thread thunk (void) 'sigtstp))))
 
 
 ;; send a signal to specified thread or thread-id.
