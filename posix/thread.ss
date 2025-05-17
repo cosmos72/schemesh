@@ -10,19 +10,26 @@
 ;; define all the thread-related bindings present in Chez Scheme 10.0.0 with threads
 ;; also on older versions and also on non-threaded builds,
 ;;
-;; plus some useful functions
-;;   (current-thread) (thread) (thread-alive?) (thread-count) (thread-find)
-;;   (thread-id) (thread-initial-bindings) (thread-kill) (threads) (threads-status)
-;;
-;; plus improved functions:
+;; plus improved Chez Scheme functions:
 ;;  (fork-thread) also sets the new thread's thread-local parameters to values returned by (thread-initial-bindings)
 ;;  (thread-join) also accepts an optional timeout and is interruptible
+;;
+;; plus a subset of SRFI 18 multithreading functions:
+;;  (current-thread) (make-thread) (thread-name) (thread-specific) (thread-specific-set!)
+;;  (thread-sleep!) (thread-start!) (thread-terminate!) (thread-yield!)
+;;
+;; plus some useful extra functions
+;;  (thread) (thread-alive?) (thread-count) (thread-find) (thread-id) (thread-initial-bindings)
+;;  (thread-stop!) (threads) (threads-status) (threads-status-changes)
+
 
 (library (schemesh posix thread (0 9 1))
   (export
       current-thread fork-thread get-initial-thread get-thread-id make-thread
       thread thread? threaded? thread-alive? thread-count thread-find thread-id thread-initial-bindings
-      thread-join thread-kill thread-name thread-preserve-ownership! thread-signal-handle thread-status
+      thread-join thread-name thread-preserve-ownership! thread-signal-handle
+      thread-specific thread-specific-set! thread-status
+      thread-sleep! thread-start! thread-stop! thread-terminate! thread-yield!
       threads threads-status threads-status-changes)
   (import
     (rnrs)
@@ -130,6 +137,22 @@
     (thread thread-or-id)))
 
 
+;; create a new thread, establish its initial thread parameters as specified by (thread-initial-bindings)
+;; then call (thunk) in the new thread.
+;;
+;; the thread will exit when (thunk) returns
+(define (fork-thread thunk)
+  (%thread-create 'fork-thread thunk (void) 'sigcont))
+
+
+(define make-thread
+  (case-lambda
+    ((thunk name)
+      (%thread-create 'make-thread thunk name 'sigtstp))
+    ((thunk)
+      (%thread-create 'make-thread thunk (void) 'sigtstp))))
+
+
 ;; wait for specified thread or thread-id to exit.
 ;; timeout is optional: it defaults to #f, and must be #f or a time object with type 'time-utc or 'time-duration
 ;;
@@ -205,6 +228,21 @@
           (assert* 'thread-initial-bindings (logbit? 1 (procedure-arity-mask (car a))))
           (assert* 'thread-initial-bindings (logbit? 0 (procedure-arity-mask (cdr a)))))))))
 
+
+(define (thread-stop! thread)
+  (thread-kill thread 'sigtstp))
+
+
+;; SRFI 18 API
+(define thread-sleep! sleep)
+
+(define (thread-start! thread)
+  (thread-kill thread 'sigcont))
+
+(define (thread-terminate! thread)                             ;
+  (thread-kill thread 'sigint))
+
+(define thread-yield! (foreign-procedure "c_sched_yield" () void))
 
 (meta-cond
   ((threaded?)

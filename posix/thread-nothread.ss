@@ -65,21 +65,26 @@
     (sleep long-duration)))
 
 
-(define (fork-thread thunk)
-  (raise-errorf 'fork-thread "compiled without thread support"))
-
-
-(define make-thread
-  (case-lambda
-    ((thunk name)
-      (raise-errorf 'make-thread "compiled without thread support"))
-    ((thunk)
-      (make-thread thunk (void)))))
+(define (%thread-create caller thunk name initial-signal-name)
+  (raise-errorf caller "compiled without thread support"))
 
 
 (define (thread-name thread)
   (assert* 'thread-status (thread? thread))
   (void))
+
+
+(define thread-specific-value (void))
+
+
+(define (thread-specific thread)
+  (assert* 'thread-specific (thread? thread))
+  thread-specific-value)
+
+
+(define (thread-specific-set! thread value)
+  (assert* 'thread-specific-set! (thread? thread))
+  (set! thread-specific-value value))
 
 
 (define thread-kill

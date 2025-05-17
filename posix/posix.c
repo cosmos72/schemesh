@@ -1900,6 +1900,10 @@ static uptr c_pthread_self(void) {
   return (uptr)pthread_self();
 }
 
+static void c_sched_yield(void) {
+  (void)sched_yield();
+}
+
 static uptr c_thread_count(void) {
 #ifdef FEATURE_PTHREADS
   extern volatile uptr S_nthreads;
@@ -1962,11 +1966,6 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_job_control_available", &c_job_control_available);
   Sregister_symbol("c_job_control_change", &c_job_control_change);
 
-  Sregister_symbol("c_pthread_kill", &c_pthread_kill);
-  Sregister_symbol("c_pthread_self", &c_pthread_self);
-  Sregister_symbol("c_thread_count", &c_thread_count);
-  Sregister_symbol("c_threads", &c_threads);
-
   Sregister_symbol("c_cmd_exec", &c_cmd_exec);
   Sregister_symbol("c_cmd_spawn", &c_cmd_spawn);
   Sregister_symbol("c_euid_get", &c_euid_get);
@@ -1987,6 +1986,12 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_file_delete", &c_file_delete);
   Sregister_symbol("c_file_rename", &c_file_rename);
   Sregister_symbol("c_file_type", &c_file_type);
+
+  Sregister_symbol("c_pthread_kill", &c_pthread_kill);
+  Sregister_symbol("c_pthread_self", &c_pthread_self);
+  Sregister_symbol("c_thread_count", &c_thread_count);
+  Sregister_symbol("c_threads", &c_threads);
+  Sregister_symbol("c_sched_yield", &c_sched_yield);
 
   return 0;
 }

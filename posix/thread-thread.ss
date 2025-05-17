@@ -349,6 +349,22 @@
       ($thread-status thread))))
 
 
+(define (thread-specific thread)
+  (assert* 'thread-specific (thread? thread))
+  (with-tc-mutex*
+    (let ((xthread ($thread-xthread thread ($thread-tc thread))))
+      (if xthread
+        (xthread-specific xthread)
+        (void)))))
+
+
+(define (thread-specific-set! thread value)
+  (assert* 'thread-specific-set! (thread? thread))
+  (with-tc-mutex*
+    (let ((xthread ($thread-xthread thread ($thread-tc thread))))
+      (when xthread
+        (xthread-specific-set! xthread value)))))
+
 
 ;; return a fresh hashtable containing the known threads, their id and status
 ;; organized as id -> (thread . status)
@@ -413,7 +429,7 @@
                                            (base-exception-handler on-exception)
                                            (exit-handler           on-success)
                                            (reset-handler          on-failure))
-                              (check-interrupts)
+                              (thread-signal-handle)
                               ;; convert (thunk) return values to status
                               (call-with-values thunk ok))))))
                     ;; race condition: may be executed before set! ret above
@@ -422,21 +438,6 @@
                   ($thread-status-set! thread ($tc) status))))))
     ret))
 
-
-;; create a new thread, establish its initial thread parameters as specified by (thread-initial-bindings)
-;; then call (thunk) in the new thread.
-;;
-;; the thread will exit when (thunk) returns
-(define (fork-thread thunk)
-  (%thread-create 'fork-thread thunk (void) 'sigcont))
-
-
-(define make-thread
-  (case-lambda
-    ((thunk name)
-      (%thread-create 'make-thread thunk name 'sigtstp))
-    ((thunk)
-      (%thread-create 'make-thread thunk (void) 'sigtstp))))
 
 
 ;; send a signal to specified thread or thread-id.
@@ -473,10 +474,10 @@
   (let* ((tc      ($thread-tc thread))
          (xthread ($thread-xthread thread tc)))
     (if (eqv? 0 tc)
-      c-errno-esrch)
+      c-errno-esrch
       ($tc-kill tc xthread (eqv? 0 ($tc-id tc))
                 (and xthread (xthread-pthread-id xthread))
-                signal-name)))
+                signal-name))))
 
 
 ;; send a signal to specified thread-context tc.
