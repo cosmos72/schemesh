@@ -35,11 +35,11 @@
   (and thread-id
        (thread-id-validate thread-id)
        (eqv? 0 thread-id)
-       (get-thread)))
+       (current-thread)))
 
 
 ;; return caller's thread
-(define (get-thread)
+(define (current-thread)
   (with-tc-mutex
     (car ($threads))))
 
@@ -67,7 +67,6 @@
 
 (define (fork-thread thunk)
   (raise-errorf 'fork-thread "compiled without thread support"))
-
 
 (define thread-kill
   (let ((c-signal-raise (foreign-procedure "c_thread_signal_raise" (int int) int)))

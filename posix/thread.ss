@@ -11,7 +11,7 @@
 ;; also on older versions and also on non-threaded builds,
 ;;
 ;; plus some useful functions
-;;   (get-thread) (thread) (thread-alive?) (thread-count) (thread-find)
+;;   (current-thread) (thread) (thread-alive?) (thread-count) (thread-find)
 ;;   (thread-id) (thread-initial-bindings) (thread-kill) (threads) (threads-status)
 ;;
 ;; plus improved functions:
@@ -19,7 +19,7 @@
 ;;  (thread-join) also accepts an optional timeout and is interruptible
 
 (library (schemesh posix thread (0 9 1))
-  (export fork-thread get-initial-thread get-thread get-thread-id
+  (export fork-thread get-initial-thread current-thread get-thread-id
           thread thread? threaded? thread-alive? thread-count thread-find thread-id thread-initial-bindings
           thread-join thread-kill thread-preserve-ownership! thread-signal-handle thread-status
           threads threads-status threads-status-changes)

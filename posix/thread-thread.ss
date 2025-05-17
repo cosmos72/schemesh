@@ -123,25 +123,25 @@
 
 ;; return caller's thread.
 ;; must be called with locked $tc-mutex
-(define ($get-thread)
+(define ($current-thread)
   (let* ((xthread ($tc-xthread-nocreate ($tc))))
     (if xthread
       (xthread-thread xthread)
       ;; thread not found in ($tc) => scan all threads
-      (let %get-thread ((tl ($threads)) (thread-id (get-thread-id)))
+      (let %current-thread ((tl ($threads)) (thread-id (get-thread-id)))
         (cond
           ((null? tl)
             (raise-errorf 'thread "thread not found: ~s" thread-id))
           ((eqv? thread-id ($thread-id (car tl)))
             (car tl))
           (else
-            (%get-thread (cdr tl) thread-id)))))))
+            (%current-thread (cdr tl) thread-id)))))))
 
 
 ;; return caller's thread
-(define (get-thread)
+(define (current-thread)
   (with-tc-mutex
-     ($get-thread)))
+     ($current-thread)))
 
 
 (define short-timeout (make-time 'time-duration 500000000 0))
@@ -283,7 +283,7 @@
 
 (define (thread-register-self)
   (with-tc-mutex
-    ($thread-xthread ($get-thread) ($tc))))
+    ($thread-xthread ($current-thread) ($tc))))
 
 
 ;; hashtable thread -> (id . status)
@@ -394,7 +394,7 @@
                               ;; convert (thunk) return values to status
                               (call-with-values thunk ok))))))
                     ;; race condition: may be executed before set! ret above
-                    (thread (or ret (get-thread))))
+                    (thread (or ret (current-thread))))
                 (with-tc-mutex
                   ($thread-status-set! thread ($tc) status))))))
     ret))
@@ -482,7 +482,7 @@
   ;; this is for secondary threads only
   (unless (eqv? 0 (get-thread-id))
     (with-tc-mutex
-      (let* ((thread  ($get-thread))
+      (let* ((thread  ($current-thread))
              (tc      ($tc))
              (xthread ($thread-xthread thread tc)))
         (when xthread
