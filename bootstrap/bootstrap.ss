@@ -356,7 +356,7 @@
       (dynamic-wind
         (lambda () (lock-object obj1) (lock-object obj2) ...)
         (lambda () body1 body2 ...)
-        (lambda () (unlock-object obj1) (lock-object obj2) ...)))))
+        (lambda () (unlock-object obj1) (unlock-object obj2) ...)))))
 
 
 

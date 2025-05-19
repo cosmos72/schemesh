@@ -64,13 +64,14 @@
 (define countdown
   (let ((c-countdown (foreign-procedure __collect_safe "c_countdown" (ptr) int)))
     (lambda (duration)
-      (let %countdown ((pair (%duration->pair duration)))
-        (check-interrupts)
-        (let ((ret (with-locked-objects (pair)
-                     (c-countdown pair))))
-          (if (eqv? 1 ret)
-            (%countdown pair)
-            ret))))))
+      (let ((pair (%duration->pair duration)))
+        (with-locked-objects (pair)
+          (let %countdown ((pair pair))
+            (check-interrupts)
+            (let ((ret (c-countdown pair)))
+              (if (eqv? 1 ret)
+                (%countdown pair)
+                ret))))))))
 
 ;; convert one of:
 ;; * an exact or inexact real, indicating the number of seconds
@@ -96,8 +97,8 @@
 ;; otherwise return #f
 (define (%make-c-duration s ns)
   (cond
-    ((not (and (exact? s)  (integer? s)
-               (exact? ns) (integer? ns)))
+    ((not (and (integer? s)  (exact? s)
+               (integer? ns) (exact? ns)))
       ;; (debugf "make-c-duration not exact integer: s=~s ns=~s" s ns)
       #f)
     ((and (>= s 0) (<= (integer-length s) 63) (<= 0 ns 999999999))

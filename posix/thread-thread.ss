@@ -67,7 +67,7 @@
         (dynamic-wind
           (lambda () (disable-interrupts) (mutex-acquire $tc-mutex))
           (lambda () body1 body2 ...)
-          (lambda () (mutex-release $tc-mutex) (enable-interrupts)))))))
+          (lambda () (mutex-release $tc-mutex) (enable-interrupts) (check-interrupts)))))))
 
 
 ;; return current number of threads.
