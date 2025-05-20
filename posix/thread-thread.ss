@@ -422,21 +422,27 @@
               (apply-thread-initial-bindings)
               (keyboard-interrupt-handler thread-signal-handle)
               (let ((status
-                      (call/cc
-                        (lambda (k)
-                          ;; intercept raised exceptions and calls to (abort) (exit) (reset)
-                          (let ((on-success   (lambda args (k (apply ok args))))
-                                (on-failure   (case-lambda
-                                                (()    (k (failed (void))))
-                                                ((arg) (k (failed arg)))))
-                                (on-exception (lambda (ex) (k (exception ex)))))
-                            (parameterize ((abort-handler          on-failure)
-                                           (base-exception-handler on-exception)
-                                           (exit-handler           on-success)
-                                           (reset-handler          on-failure))
-                              (thread-signal-handle)
-                              ;; convert (thunk) return values to status
-                              (call-with-values thunk ok))))))
+		      ;; intercept raised conditions, the hard way.
+		      ;;
+		      ;; setting thread parameter (base-exception-handler)
+		      ;; intercepts them only on Chez Scheme >= 10.0.0
+                      (try
+                        (call/cc
+                          (lambda (k)
+			    (let ((on-success   (lambda args (k (apply ok args))))
+                                  (on-failure   (case-lambda
+						  (()    (k (failed (void))))
+						  ((arg) (k (failed arg))))))
+                              ;; intercept calls to (abort) (exit) (reset)
+                              (parameterize ((abort-handler  on-failure)
+                                             (exit-handler   on-success)
+                                             (reset-handler  on-failure))
+				(thread-signal-handle)
+				;; convert (thunk) return values to status
+				(call-with-values thunk ok)))))
+			(catch (ex)
+			  (exception ex))))
+
                     ;; race condition: may be executed before set! ret above
                     (thread (or ret (current-thread))))
                 (with-tc-mutex
