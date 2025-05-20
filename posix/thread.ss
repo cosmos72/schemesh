@@ -179,11 +179,12 @@
     ;; check if it's actually present, rather than relying on version numbers
     ((memq 'get-initial-thread (library-exports '(chezscheme)))
       (let ()
-         (import (prefix (only (chezscheme) get-initial-thread) chez:))
-         chez:get-initial-thread))
+        (import (prefix (only (chezscheme) get-initial-thread) chez:))
+        chez:get-initial-thread))
     (else
-      (with-tc-mutex
-        (car ($threads))))))
+      (lambda ()
+        (with-tc-mutex
+          (car ($threads)))))))
 
 
 (define thread-preserve-ownership!
