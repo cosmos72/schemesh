@@ -418,9 +418,7 @@
               ;; we need to receive them in main thread
               ;; Exception: allow receiving SIGCONT in new thread
               (c-thread-signals-block-most)
-              (thread-register-self name initial-signal-name)
               (apply-thread-initial-bindings)
-              (keyboard-interrupt-handler thread-signal-handle)
               (let ((status
                       (call/cc
                         (lambda (k)
@@ -432,6 +430,9 @@
                             (lambda (ex)
                               (k (exception ex)))
                             (lambda ()
+                              (thread-register-self name initial-signal-name)
+                              (keyboard-interrupt-handler thread-signal-handle)
+                              (thread-signal-handle)
                               (let ((on-success (lambda args (k (apply ok args))))
                                     (on-failure (case-lambda
                                                   (()    (k (failed (void))))
@@ -440,7 +441,6 @@
                                 (parameterize ((abort-handler on-failure)
                                                (exit-handler  on-success)
                                                (reset-handler on-failure))
-                                  (thread-signal-handle)
                                   ;; convert (thunk) return values to status
                                   (call-with-values thunk ok))))))))
 
