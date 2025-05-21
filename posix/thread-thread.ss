@@ -422,26 +422,27 @@
               (apply-thread-initial-bindings)
               (keyboard-interrupt-handler thread-signal-handle)
               (let ((status
-		      ;; intercept raised conditions, the hard way.
-		      ;;
-		      ;; setting thread parameter (base-exception-handler)
-		      ;; intercepts them only on Chez Scheme >= 10.0.0
-                      (try
-                        (call/cc
-                          (lambda (k)
-			    (let ((on-success   (lambda args (k (apply ok args))))
-                                  (on-failure   (case-lambda
-						  (()    (k (failed (void))))
-						  ((arg) (k (failed arg))))))
-                              ;; intercept calls to (abort) (exit) (reset)
-                              (parameterize ((abort-handler  on-failure)
-                                             (exit-handler   on-success)
-                                             (reset-handler  on-failure))
-				(thread-signal-handle)
-				;; convert (thunk) return values to status
-				(call-with-values thunk ok)))))
-			(catch (ex)
-			  (exception ex))))
+                      (call/cc
+                        (lambda (k)
+                          ;; intercept raised conditions, the hard way.
+                          ;;
+                          ;; setting thread parameter (base-exception-handler)
+                          ;; intercepts them only on Chez Scheme >= 10.0.0
+                          (with-exception-handler
+                            (lambda (ex)
+                              (k (exception ex)))
+                            (lambda ()
+                              (let ((on-success (lambda args (k (apply ok args))))
+                                    (on-failure (case-lambda
+                                                  (()    (k (failed (void))))
+                                                  ((arg) (k (failed arg))))))
+                                ;; intercept calls to (abort) (exit) (reset)
+                                (parameterize ((abort-handler on-failure)
+                                               (exit-handler  on-success)
+                                               (reset-handler on-failure))
+                                  (thread-signal-handle)
+                                  ;; convert (thunk) return values to status
+                                  (call-with-values thunk ok))))))))
 
                     ;; race condition: may be executed before set! ret above
                     (thread (or ret (current-thread))))
