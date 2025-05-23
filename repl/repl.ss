@@ -12,7 +12,7 @@
           repl-answers-display repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length
 
           ;; repl/repl.ss
-          repl repl* repl-eval repl-eval-print-list
+          repl repl* repl-eval repl-eval-print-list repl-initial-parser
           repl-lineedit repl-parse repl-print
           repl-exception-handler repl-break-handler
 
@@ -24,8 +24,8 @@
     (only (chezscheme)
         abort base-exception-handler break-handler
         console-input-port console-output-port console-error-port
-        default-exception-handler display-condition eval exit-handler
-        inspect parameterize pretty-print read-token reset reset-handler void)
+        default-exception-handler display-condition eval exit-handler inspect
+        make-parameter parameterize pretty-print read-token reset reset-handler void)
     (schemesh bootstrap)
     (only (schemesh containers) for-list)
     (only (schemesh screen vhistory) vhistory-path-set!)
@@ -90,6 +90,14 @@
 ;; React to uncaught exceptions
 (define (repl-exception-handler obj)
   (sh-exception-handler obj (reset-handler)))
+
+;; Parameter containing the default initial parser name used by (repl)
+(define repl-initial-parser
+  (make-parameter
+    'shell
+    (lambda (parser-name)
+      (assert* 'repl-initial-parser (hashtable-ref (parsers) parser-name #f))
+      parser-name)))
 
 
 ;; Read user input.
@@ -284,7 +292,8 @@
 ;; Returns values passed to (exit), or (void) on linectx eof
 (define (repl* initial-parser print-func lctx init-file-path quit-file-path)
   ; (to-parser) also checks initial-parser's and enabled-parser's validity
-  (let ((parser (to-parser (linectx-parsers lctx) initial-parser 'repl))
+  (let ((override-parser (and initial-parser
+                              (to-parser (linectx-parsers lctx) initial-parser 'repl)))
         (old-job-control (sh-job-control?))
         (new-job-control #f))
     (assert* 'repl (linectx? lctx))
@@ -293,13 +302,16 @@
         (lineedit-clear! lctx)
         (linectx-load-history! lctx)
         (signal-init-sigwinch)
+        ;; init file may change (repl-initial-parser)
         (try-eval-file init-file-path)
-        ; enable job control if available
+        ;; enable job control if available
         (set! new-job-control (sh-job-control? (sh-job-control-available?)))
         (when new-job-control
           (tty-setraw!)))
       (lambda ()
-        (repl-loop parser print-func lctx))
+        (let ((parser (or override-parser
+                          (to-parser (linectx-parsers lctx) (repl-initial-parser) 'repl))))
+          (repl-loop parser print-func lctx)))
       (lambda ()
         (when new-job-control
           (tty-restore!))
@@ -314,10 +326,10 @@
 ;; parse (repl) options, and return a list of values suitable for calling (repl*)
 (define (repl-parse-options options)
   ; (debugf "repl options=~s" options)
-  (let ((history-path #f)    (history-path? #f)
-        (initial-parser #f)  (initial-parser? #f)
+  (let ((history-path    #f) (history-path?    #f)
+        (print           #f) (print?           #f)
+        (initial-parser  #f) (initial-parser?  #f)
         (enabled-parsers #f) (enabled-parsers? #f)
-        (print #f)           (print? #f)
         (lctx #f)            (lctx? #f)
         (init-file-path #f)  (init-file-path? #f)
         (quit-file-path #f)  (quit-file-path? #f))
@@ -340,8 +352,8 @@
     (when (and lctx? history-path?)
       (vhistory-path-set! (linectx-history lctx) history-path))
     (list
-      (if initial-parser?  initial-parser  'shell)
-      (if print?   print   repl-print)
+      (if initial-parser? initial-parser #f)
+      (if print? print repl-print)
       (if lctx?
         lctx
         (sh-make-linectx
