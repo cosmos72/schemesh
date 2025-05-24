@@ -367,7 +367,6 @@
       (unless (eqv? 1 (thread-count))
         (raise-threaded-message-condition
           "cannot create subshells when multiple threads are running. consider moving secondary threads to a subprocess"))
-
       (assert* 'sh-start (sh-job? job))
       (assert* 'sh-start (procedure? proc))
       (assert* 'sh-start (logbit? 2  (procedure-arity-mask proc)))
@@ -436,6 +435,9 @@
   (let ((c-fork-pid (foreign-procedure "c_fork_pid" (ptr int) int)))
     (case-lambda
       ((proc options)
+        (unless (eqv? 1 (thread-count))
+          (raise-threaded-message-condition
+            "cannot fork when multiple threads are running. consider moving secondary threads to a subprocess"))
         (assert* 'fork-process (procedure? proc))
         (assert* 'fork-process (logbit? 0 (procedure-arity-mask proc)))
         (assert* 'fork-process (plist? options))
