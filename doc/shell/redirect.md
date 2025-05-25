@@ -167,8 +167,7 @@ Note: redirections are applied in order, thus later redirections (or later calls
 As described in the main [README.md](../../README.md#scheme-jobs), Scheme jobs are wrappers around arbitrary Scheme code and are treated as jobs:<br/>
 their file descriptors can be redirected with the usual shell syntax, they can be stopped and resumed, they can be used in a pipeline, etc.
 
-The syntax for creating a Scheme jobs is trivial: just prefix `$` to any parenthesized Scheme expression or declaration.<br/>
-Examples:
+The syntax for creating a Scheme jobs is trivial: just prefix `$` to any parenthesized Scheme expression or declaration. Examples:
 ```lisp
 $(display "hello\n") > greet.txt
 
@@ -180,12 +179,12 @@ $(display
        1))) | cat
 ```
 
-Inside a Scheme job, the standard ports `(current-input-port)` `(current-output-port)` and `(current-error-port)`
-automatically honor redirections:<br/>
+Inside a Scheme job, the standard ports `(current-input-port)` `(current-output-port)` `(current-error-port)` and,
+more in general, `(sh-port N)` automatically honor redirections:<br/>
 in the examples above, `$(display "hello\n") > greet.txt` writes to the file `greet.txt` in current directory<br/>
 and `$(display (let %fib ...)) | cat` writes the 10th Fibonacci number to the pipe connected to `cat`.
 
-If you prefer binary ports, you can use `(sh-stdin)` `(sh-stdout)` and `(sh-stderr)` or, more in general, `(sh-port N)`.
+If you prefer binary ports, you can use `(sh-stdin)` `(sh-stdout)` and `(sh-stderr)` or, more in general, `(sh-port #f N 'binary)`.
 
 If you want OS-level file descriptors, there's also `(sh-fd 0)` `(sh-fd 1)` and `(sh-fd 2)` or, more in general, `(sh-fd N)`.
 
