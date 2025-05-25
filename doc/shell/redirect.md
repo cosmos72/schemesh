@@ -75,7 +75,7 @@ returns a list of binary or textual ports connected to the job.<br/>
 Again, each returned port must be explicitly closed when no longer needed, because it consumes an OS-level file descriptor.
 
 Optional arguments are:
-* `redirections` a property list i.e. an even-sized list containing zero or redirections.
+* `redirections` a property list i.e. an even-sized list containing zero or more redirections.
   Each redirection is a file descriptor fixnum followed by a direction symbol `'<&` `'>&` or `'<>&`.
   Examples:
 
