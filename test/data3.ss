@@ -124,6 +124,7 @@
 
   ;; ------------------------- wildcard expansion -------------------------
   (wildcard #t "a" "bcd" "" "ef")                   ("abcdef")
+  (wildcard #t '* "f" '*)                           ("Makefile" "default.nix" "srfi")
   (wildcard->sh-patterns '(*))                      ,@(span (sh-pattern '*))
   (wildcard->sh-patterns '("/" * ".so"))            ,@(span "/" (sh-pattern '* ".so"))
   (wildcard->sh-patterns '("//abc//" "//def//"))    ,@(span "/" "abc/" "def/")

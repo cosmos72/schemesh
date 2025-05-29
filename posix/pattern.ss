@@ -418,9 +418,9 @@
     (else
       (let* ((sp-pos/not-star (span-index sp (fx1+ sp-start) sp-end (lambda (key) (not (eq? key '*)))))
              (sp-pos/string?  (and sp-pos/not-star (string? (span-ref sp sp-pos/not-star)))))
-        (assert* 'sh-pattern-match sp-pos/not-star)
+        (assert* 'sh-pattern-match? sp-pos/not-star)
         (let-values (((min-len max-len) (%pattern-minmax-length sp sp-pos/not-star sp-end 0 0)))
-          (assert* 'sh-pattern-match (fx>? min-len 1))
+          (assert* 'sh-pattern-match? (fx>? min-len 0))
           (cond
             ((not (fx<=? min-len (fx- str-end str-start) (or max-len (greatest-fixnum))))
               ; name is too short or long, cannot be matched
