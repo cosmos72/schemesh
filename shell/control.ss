@@ -510,19 +510,27 @@
   (when (and id (fx>? id 0))
     (multijob-current-child-index-set! (sh-globals) id)))
 
-;; increase preferred job-id until a started job is found
+;; update preferred job-id to the id of a started job
 (define (sh-preferred-job-id-update!)
   (let* ((g      (sh-globals))
          (old-id (multijob-current-child-index g))
          (jobs   (multijob-children g))
          (n      (span-length jobs)))
-    (let %loop ((id (fxmax 1 (if (and old-id (fx>? old-id 0)) (fx1+ old-id) 1))))
-      (if (fx<? id n)
+    (multijob-current-child-index-set! g -1)
+    (let %loop-right ((id (fxmax 1 (if (and old-id (fx>? old-id 0)) (fx1+ old-id) 1))))
+      (when (fx<? id n)
         (let ((job (span-ref jobs id)))
           (if (and (sh-job? job) (job-started? job))
             (multijob-current-child-index-set! g id)
-            (%loop (fx1+ id))))
-        (multijob-current-child-index-set! g -1)))))
+            (%loop-right (fx1+ id))))))
+    (when (eqv? -1 (multijob-current-child-index g))
+      (let %loop-left ((id (if (and old-id (fx>? old-id 0)) (fx1- old-id) 0)))
+        (when (fx>? id 0)
+          (let ((job (span-ref jobs id)))
+            (if (and (sh-job? job) (job-started? job))
+              (multijob-current-child-index-set! g id)
+              (%loop-left (fx1- id)))))))))
+
 
 
 ;; Return up-to-date status of a job or job-id, which can be one of:
