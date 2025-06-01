@@ -435,6 +435,7 @@
     '(shell (shell-backquote "echo" "ls"))))           ,(sh-cmd* (lambda () (sh-run/string-rtrim-newlines (sh-cmd "echo" "ls"))))
   ;; test wildcards and patterns [...]
   '{echo *}                                            (shell "echo" (shell-wildcard *))
+  '{echo ~user/abc}                                    (shell "echo" (shell-wildcard ~ "user/abc"))
   (caddr (expand '{echo *}))                           ,@(sh-cmd* "echo" (lambda (job) (wildcard job '*)))
   '{echo .*[a-z]?.so}                                  (shell "echo" (shell-wildcard "." * % "a-z" ? ".so"))
   (caddr (expand '{echo .*[a-z]?.so}))                 ,@(sh-cmd* "echo" (lambda (job) (wildcard job "." '* '% "a-z" '? ".so")))

@@ -215,7 +215,7 @@
         (if (string? userhome)
           (if slash
             ; remove the initial '~ and the portion of arg1 before the slash
-            (cons userhome (cons (substring arg1 slash (string-length arg1)) w))
+            (cons userhome (cons (substring arg1 slash (string-length arg1)) (cdr tail)))
             ; remove the initial '~ and the whole arg1
             (cons userhome (cdr tail)))
           ;; (username->homedir) failed: replace symbol '~ with string "~", keep arg1

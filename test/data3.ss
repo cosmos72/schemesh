@@ -138,6 +138,9 @@
                '(if-no-match? string))                 "_does_not_exist_"
   (wildcard* #t '("_does_not_exist_")
                '(if-no-match? string-list))            ("_does_not_exist_")
+  ;; was bugged up to commit c683bae3f0520dccb58f9fc9f2482851004171f4
+  (string-contains
+    (car (wildcard #t '~ "root/foo")) "~")             #f
   (caddr (expand '{ls [ab]*}))                         ,@(sh-cmd* "ls" (lambda (job) (wildcard job '% "ab" '*)))
   (caddr (expand '(shell-wildcard *)))                 ,@(lambda (job) (wildcard job '*))
   (caddr (expand '(shell-wildcard ?)))                 ,@(lambda (job) (wildcard job '?))
