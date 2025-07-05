@@ -18,7 +18,7 @@
       throws? trace-call trace-define try list->values values->list
 
       ;; functions.ss
-      check-interrupts fx<=?* nop parameter-swapper
+      check-interrupts eval-form fx<=?* nop parameter-swapper
       generate-pretty-temporaries generate-pretty-temporary gensym-pretty
 
       raise-assert0 raise-assert1 raise-assert2 raise-assert3

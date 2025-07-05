@@ -18,9 +18,9 @@
       sh-persistent-parameters)
   (import
     (rnrs)
-    (only (chezscheme)  define-top-level-value environment? environment-mutable? eval fx1+
+    (only (chezscheme)  define-top-level-value environment? environment-mutable? fx1+
                         interaction-environment logbit? procedure-arity-mask top-level-bound? top-level-value)
-    (only (schemesh bootstrap) sh-make-parameter sh-make-thread-parameter raise-errorf))
+    (only (schemesh bootstrap) eval-form sh-make-parameter sh-make-thread-parameter raise-errorf))
 
 
 ;; Create and return thread parameter containing the scheme environment where to eval forms,
@@ -42,10 +42,10 @@
 ;; Create and return thread parameter containing the eval function to use.
 ;; Will be called as ((sh-current-eval) obj environment).
 ;;
-;; Initially set to Chez Scheme's eval, because it can also create definitions.
+;; Initially set to eval-form, an enhanced variant of Chez Scheme's eval
 (define (make-parameter-eval)
   (sh-make-thread-parameter
-    eval
+    eval-form
     (lambda (proc)
       (unless (procedure? proc)
         (raise-errorf 'sh-current-eval "~s is not a procedure" proc))

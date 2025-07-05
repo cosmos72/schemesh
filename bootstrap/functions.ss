@@ -15,7 +15,7 @@
 
 (library (schemesh bootstrap functions (0 9 1))
   (export
-      check-interrupts fx<=?* nop parameter-swapper
+      check-interrupts eval-form fx<=?* nop parameter-swapper
       generate-pretty-temporaries generate-pretty-temporary gensym-pretty
 
       raise-assert0 raise-assert1 raise-assert2 raise-assert3
@@ -27,7 +27,7 @@
       sh-make-parameter sh-make-thread-parameter sh-make-volatile-parameter sh-version sh-version-number)
   (import
     (rnrs)
-    (only (chezscheme) $primitive console-error-port format gensym import make-continuation-condition
+    (only (chezscheme) $primitive console-error-port eval format gensym import make-continuation-condition
                        make-format-condition meta-cond interaction-environment library-exports
                        string->immutable-string top-level-bound? top-level-value void))
 
@@ -41,6 +41,50 @@
 ;;
 ;; depending on the event and on user's commands, may or may not return.
 (define check-interrupts ($primitive 3 $event))
+
+
+(define (can-eval-whole? form env)
+  (if (not (and (pair? form) (symbol? (car form))))
+    #t
+    (let ((sym (car form)))
+      (if (eq? 'begin sym)
+        ;; recursively check forms inside (begin ...)
+        (do ((tail (cdr form) (cdr tail)))
+            ((or (null? tail)
+                 (not (can-eval-whole? (car tail) env)))
+              (null? tail)))
+        ;; macros are (top-level-syntax?) but not (top-level-bound?)
+        (top-level-bound? (car form) env)))))
+
+
+(define (eval-one-by-one form env)
+  (if (and (pair? form) (eq? 'begin (car form)))
+    (do ((tail (cdr form) (cdr tail)))
+        ((null? (cdr tail))
+          (eval-one-by-one (car tail) env)) ; return value(s) of last eval
+      (eval-one-by-one (car tail) env))
+    (eval form env)))
+
+
+
+;; enhanced variant of Chez Scheme eval:
+;; if form recursively contains a (begin ...) with one or more macros,
+;; evaluate the sub-forms one-by-one in order.
+;;
+;; Reason: we want to allow things like
+;; (begin
+;;   (library-directories my-dir)
+;;   (import (srfi :197))
+;;   (chain 42 (+ 1 _)))
+;;
+;; where (import (srfi ...)) works only if macroexpanded *after*
+;; calling the procedure (library-directories ...)
+;;
+;; See also https://github.com/cosmos72/schemesh/issues/28
+(define (eval-form form env)
+  (if (can-eval-whole? form env)
+    (eval form env)
+    (eval-one-by-one form env)))
 
 
 ;; version of fx<=? that does not allocate, and allows up to 6 arguments
