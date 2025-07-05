@@ -12,9 +12,9 @@
       sh-autocomplete-func sh-autocomplete-r6rs sh-autocomplete-scheme sh-autocomplete-shell)
   (import
     (rnrs)
-    (only (chezscheme)                    environment-symbols fx1+ fx1- sort!)
+    (only (chezscheme)                    environment-symbols fx1+ fx1- sort! getenv)
     (only (schemesh containers list)      for-list list-remove-consecutive-duplicates!)
-    (only (schemesh containers string)    substring=? string-split string-prefix?)
+    (only (schemesh containers string)    substring=? string-split string-prefix? string-replace-prefix string-empty?)
     (only (schemesh containers hashtable) for-hash-keys)
     (schemesh containers charspan)
     (schemesh containers span)
@@ -423,8 +423,10 @@
   (let* ((dir?       (and slash? (not (fxzero? (string-length dir)))))
          (prefix-len (string-length prefix))
          (prefix?    (not (fxzero? prefix-len)))
-         (prefix-starts-with-dot? (and prefix? (char=? #\. (string-ref prefix 0)))))
-    (for-list ((elem (directory-sort! (directory-list-type dir (list 'prefix prefix 'bytes 'catch)))))
+         (prefix-starts-with-dot? (and prefix? (char=? #\. (string-ref prefix 0))))
+         (dir-starts-with-tilde? (and dir? (char=? #\~ (string-ref dir 0))))
+         (expanded-dir (%expand-tilde dir)))
+    (for-list ((elem (directory-sort! (directory-list-type expanded-dir (list 'prefix prefix 'bytes 'catch)))))
       (let ((name (string->charspan* (utf8b->string (car elem)))))
         (when (or prefix-starts-with-dot? (not (char=? #\. (charspan-ref name 0))))
           (charspan-delete-left! name prefix-len)
@@ -434,7 +436,13 @@
   ; (debugf "lineedit-shell-list/directory completions = ~s" completions)
   )
 
-
+(define (%expand-tilde path)
+  (let* ((starts-with-tilde? (and (not (string-empty? path)) (char=? #\~ (string-ref path 0)))))
+    (or
+      (and starts-with-tilde?
+           (let ((home (getenv "HOME")))
+             (and home (string-replace-prefix path "~" home))))
+      path)))
 
 ;; list environment variables that start with prefix, and append them to completions
 ;; NOTE: prefix always starts with #\$
