@@ -14,7 +14,7 @@
     (rnrs)
     (only (chezscheme)                    environment-symbols fx1+ fx1- sort!)
     (only (schemesh containers list)      for-list list-remove-consecutive-duplicates!)
-    (only (schemesh containers string)    substring=? string-split string-prefix?)
+    (only (schemesh containers string)    substring=? string-empty? string-prefix? string-split)
     (only (schemesh containers hashtable) for-hash-keys)
     (schemesh containers charspan)
     (schemesh containers span)
@@ -25,7 +25,7 @@
     (schemesh lineedit paren)
     (only (schemesh lineedit linectx) linectx-completion-stem linectx-vscreen)
     (only (schemesh shell parameters) sh-current-environment)
-    (only (schemesh shell job)        sh-builtins sh-env-iterate/direct sh-aliases sh-env-ref))
+    (only (schemesh shell job)        sh-aliases sh-builtins sh-env-iterate/direct sh-env-ref sh-userhome))
 
 ;; each sh-autocomplete-... procedure accepts a prefix charspan and a span of charspans,
 ;; and fills the span with possible completions of prefix:
@@ -70,8 +70,7 @@
 (define (sh-autocomplete-shell lctx paren completions)
   (let-values (((stem-is-first-word? x y) (%compute-shell-stem lctx paren)))
     (let* ((stem      (linectx-completion-stem lctx))
-           (stem-len  (charspan-length stem))
-           (stem?     (not (fxzero? stem-len)))
+           (stem?     (not (charspan-empty? stem)))
            (stem-ch0  (and stem? (charspan-ref stem 0)))
            (unescape-func (case stem-ch0
                             ((#\') %unescape-shell-squoted)
@@ -83,8 +82,14 @@
                           (else  %escape-shell-unquoted)))
            (dollar?   (eqv? #\$ stem-ch0))
            (offset    (if (memv stem-ch0 '(#\' #\")) 1 0))
+           ;; when expanding initial tilde, do NOT update dollar? unescape-func escape-func
+           (stem      (if (eqv? #\~ stem-ch0)
+                        (%expand-initial-tilde stem)
+                        stem))
+           (stem-len  (charspan-length stem))
            (slash-pos (and stem? (not dollar?) (charspan-index-right/char stem #\/))))
-      ; (debugf "sh-autocomplete-shell stem=~s, stem-is-first-word?=~s" stem stem-is-first-word?)
+
+      ;; (debugf "sh-autocomplete-shell stem=~s, stem-is-first-word?=~s" stem stem-is-first-word?)
       (cond
         (dollar?
           (%list-shell-env lctx (charspan->string stem) completions))
@@ -99,6 +104,22 @@
           (let ((prefix (unescape-func stem offset stem-len)))
             (%list-directory "." prefix #f escape-func completions)))))))
 
+
+(define (%expand-initial-tilde csp)
+  (let* ((len      (charspan-length csp))
+         (slash    (charspan-index/char csp 1 len #\/))
+         ;; TODO: username may be the initial prefix of one or more existing usernames: autocomplete them
+         (username (charspan->string csp 1 (if slash slash len)))
+         (userhome (if (string-empty? username) (sh-userhome) (sh-userhome username))))
+    (cond
+      ((not userhome)
+        csp)
+      ((not slash) ;; expand ~ or ~user
+        (string->charspan userhome))
+      (else ;; expand ~/some-path or ~user/some-path
+        (let ((ret (string->charspan userhome)))
+          (charspan-insert-right/charspan! ret csp slash len)
+          ret)))))
 
 
 ;; TEMPORARY and APPROXIMATED:
@@ -420,7 +441,7 @@
 
 (define (%list-directory dir prefix slash? quote-func completions)
   ; (debugf "lineedit-shell-list/directory dir = ~s, prefix = ~s, quote-func = ~s" dir prefix quote-func)
-  (let* ((dir?       (and slash? (not (fxzero? (string-length dir)))))
+  (let* ((dir?       (and slash? (not (string-empty? dir))))
          (prefix-len (string-length prefix))
          (prefix?    (not (fxzero? prefix-len)))
          (prefix-starts-with-dot? (and prefix? (char=? #\. (string-ref prefix 0)))))

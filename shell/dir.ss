@@ -220,7 +220,7 @@
 
 ;; return home directory of specified username, which must be a string.
 ;;
-;; if username is not specified, return global environment variable "HOME",
+;; if username is not specified, return environment variable "HOME" for current job,
 ;; which is expected to contain home directory for current user.
 ;;
 ;; otherwise return home directory for specified username, retrieved with C function getpwnam_r()
@@ -229,7 +229,7 @@
 (define sh-userhome
   (case-lambda
     (()
-      (sh-env-ref #t "HOME" #f))
+      (sh-env-ref #f "HOME" #f))
     ((username)
       (let ((userhome (username->homedir (string->utf8b/0 username))))
         (if (string? userhome)
