@@ -105,7 +105,7 @@
 ;; As all builtins do, must return job status.
 (define (builtin-export job prog-and-args options)
   (assert-string-list? 'builtin-export prog-and-args)
-  (let ((parent (job-parent job)))
+  (let ((parent (or (job-parent job) (sh-globals))))
     (if (null? (cdr prog-and-args))
       (%env-display-vars parent 'export) ; returns (void)
       (begin
@@ -298,7 +298,8 @@
 ;; As all builtins do, must return job status.
 (define (builtin-set job prog-and-args options)
   (assert-string-list? 'builtin-set prog-and-args)
-  (let ((parent (job-parent job)))
+  (let ((parent (or (job-parent job) (sh-globals))))
+    ;; (debugf "executing ~s in job ~a, parent job ~a" prog-and-args (sh-job->string job) (sh-job->string parent))
     (cond
       ((null? (cdr prog-and-args))
         (%env-display-vars parent 'all))
@@ -355,7 +356,7 @@
 ;; As all builtins do, must return job status.
 (define (builtin-unexport job prog-and-args options)
   (assert-string-list? 'builtin-unexport prog-and-args)
-  (let ((parent (job-parent job)))
+  (let ((parent (or (job-parent job) (sh-globals))))
     (for-list ((name (cdr prog-and-args)))
       (sh-env-visibility-set! parent name 'private)))
   (void))
@@ -366,7 +367,7 @@
 ;; As all builtins do, must return job status.
 (define (builtin-unset job prog-and-args options)
   (assert-string-list? 'builtin-unset prog-and-args)
-  (let ((parent (job-parent job)))
+  (let ((parent (or (job-parent job) (sh-globals))))
     (for-list ((name (cdr prog-and-args)))
       (sh-env-delete! parent name))
     (void))) ; exit successfully
@@ -383,7 +384,7 @@
         (let ((out (current-output-port)))
           (when (and job (not arg))
             ;; show the preferred job being resumed
-            (sh-job-display-summary job (running (job-id job)) out)
+            (sh-job-display-summary job (running (job-id job)) out) ;
             (flush-output-port out))
           (let ((new-status (sh-wait job)))
             (if (finished? new-status)

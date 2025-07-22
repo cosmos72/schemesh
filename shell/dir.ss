@@ -171,7 +171,7 @@
 ;; As all builtins do, must return job status.
 (define (builtin-cd job prog-and-args options)
   (assert-string-list? 'builtin-cd prog-and-args)
-  (apply sh-cd (or (job-parent job) job) (cdr prog-and-args)))
+  (apply sh-cd (or (job-parent job) (sh-globals)) (cdr prog-and-args)))
 
 
 ;; the "cd-" builtin: set current directory of job's parent
@@ -183,7 +183,7 @@
   (assert-string-list? 'builtin-cd- prog-and-args)
   (unless (null? (cdr prog-and-args))
     (raise-errorf 'cd- "too many arguments"))
-  (sh-cd- (or (job-parent job) job)))
+  (sh-cd- (or (job-parent job) (sh-globals))))
 
 
 ;; the "pwd" builtin: print working directory of parent job,
