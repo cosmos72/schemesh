@@ -13,7 +13,7 @@
 (define (make-sh-cmd program-and-args)
   (let ((current-job (sh-current-job)))
     (%make-cmd
-      #f #f #f #f     ; id oid pid pgid
+      #f #f #f #f #f  ; id oid pid pgid pgid-fg
       (new) #f        ; last-status exception
       (span) 0 #f #f  ; redirections ports
       cmd-start #f    ; start-proc step-proc

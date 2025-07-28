@@ -162,21 +162,20 @@
 ;; Internal function called by (job-wait) called by (sh-fg) (sh-bg) (sh-wait) (sh-job-status)
 (define (mj-pipe-advance caller mj wait-flags)
   ;; (debugf "->  mj-pipe-advance\tcaller=~s\tjob=~a\twait-flags=~s\tstatus=~s" caller mj wait-flags (job-last-status mj))
-  (let ((pgid (job-pgid mj)))
-    ;; we must run children in foreground,
-    ;; otherwise they will not receive SIGTSTP when user types CTRL+Z
-    (with-foreground-pgid wait-flags pgid
-      ;; (debugf "mj-pipe-advance before sigcont job=~s\tstatus=~s" mj (job-last-status mj))
-      (mj-pipe-advance-sigcont        mj wait-flags pgid)
-      (job-status-set/running! mj)
-      ;; (debugf "mj-pipe-advance after  sigcont job=~s\tstatus=~s" mj (job-last-status mj))
-      (call/cc
-        (lambda (k)
-          (let ((k-stop
-                  (lambda (status)
-                    (mj-pipe-advance-stop mj status)
-                    (k status))))
-            (mj-pipe-advance-wait caller mj wait-flags k-stop))))))
+  ;; we must run children in foreground,
+  ;; otherwise they will not receive SIGTSTP when user types CTRL+Z
+  (with-foreground-job wait-flags mj
+    ;; (debugf "mj-pipe-advance before sigcont job=~s\tstatus=~s" mj (job-last-status mj))
+    (mj-pipe-advance-sigcont mj wait-flags (job-pgid-fg mj))
+    (job-status-set/running! mj)
+    ;; (debugf "mj-pipe-advance after  sigcont job=~s\tstatus=~s" mj (job-last-status mj))
+    (call/cc
+      (lambda (k)
+        (let ((k-stop
+                (lambda (status)
+                  (mj-pipe-advance-stop mj status)
+                  (k status))))
+          (mj-pipe-advance-wait caller mj wait-flags k-stop)))))
   ;; (debugf "<-  mj-pipe-advance\tcaller=~s\tjob=~a\twait-flags=~s\tjob-status=~s" caller (job-last-status mj) wait-flags (job-last-status mj))
   )
 

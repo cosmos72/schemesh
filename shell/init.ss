@@ -29,7 +29,7 @@
         ;; pretend it already finished successfully
         (%make-multijob
            0 #f                      ; id oid
-           (pid-get) (pgid-get 0)    ; pid pgid
+           (pid-get) (pgid-get 0) #f ; pid pgid pgid-fg
            (void) #f                 ; last-status exception
            (span) 0                  ; redirections
 

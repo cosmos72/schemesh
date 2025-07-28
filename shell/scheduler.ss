@@ -61,8 +61,10 @@
         (sh-job-control?)
         (job-pgid (sh-globals))))
 
-(define (call-with-foreground-pgid wait-flags new-pgid proc)
-  (let ((our-pgid (global-pgid-if-fg wait-flags new-pgid)))
+
+(define (call-with-foreground-job wait-flags job proc)
+  (let* ((new-pgid (job-pgid-fg job))
+	 (our-pgid (global-pgid-if-fg wait-flags new-pgid)))
     (if our-pgid
       (dynamic-wind
         (lambda () ; before body
@@ -70,16 +72,21 @@
           (%foreground-pgid-cas our-pgid new-pgid))
         proc       ; run   body
         (lambda () ; after body
+	  ;; foreground job may have created some other foreground pgid:
+	  ;; detect it and save inside job, in case user wants to resume it later
+	  (%job-pgid-fg-set! job (foreground-pgid-get))
           ;; try really hard to restore (sh-globals) as the foreground process group
           ;; (debugf "call-dynamic-wind restoring main pgid=~s" our-pgid)
           (%foreground-pgid-cas -1 our-pgid)))
       (proc))))
 
-(define-syntax with-foreground-pgid
+
+(define-syntax with-foreground-job
   (syntax-rules ()
-    ((_  wait-flags new-pgid body1 body2 ...)
-      (call-with-foreground-pgid wait-flags new-pgid
+    ((_  wait-flags job body1 body2 ...)
+      (call-with-foreground-job wait-flags job
         (lambda () body1 body2 ...)))))
+
 
 
 ;; Internal function called by (job-wait)
@@ -91,10 +98,8 @@
     ((not (job-started? job))
       (raise-errorf caller "job not started yet: ~s" job))
     (else
-      (let ((pid  (job-pid job))
-            (pgid (job-pgid job)))
-        (with-foreground-pgid wait-flags pgid
-          (pid-advance-wait    caller job wait-flags pid pgid 'sigcont))))))
+      (with-foreground-job wait-flags job
+        (pid-advance-wait caller job wait-flags (job-pid job) (job-pgid-fg job) 'sigcont)))))
 
 
 ;; Internal function called by (pid-advance)

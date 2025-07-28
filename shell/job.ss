@@ -270,6 +270,7 @@
 
         (job-pid-set!  job #f) ; also updates (sh-pid-table)
         (job-pgid-set! job #f)
+        (%job-pgid-fg-set! job #f)
 
         ; (debugf "job-status-set! caller=~s job=~s status=~s" caller job status)
         (job-unmap-fds! job)

@@ -16,12 +16,13 @@
     (mutable oid)                          ; #f or fixnum >= 0: previous value of job id
     (mutable pid  job-pid  %job-pid-set!)  ; #f or integer > 0: process id
     (mutable pgid job-pgid %job-pgid-set!) ; #f or integer > 0: process group id
-     ; status: last known status
+    (mutable pgid-fg %job-pgid-fg %job-pgid-fg-set!) ; #f or integer > 0: current fg process group id of job, may be a child process spawned by job
+    ;; status: last known status
     (mutable last-status job-last-status %job-last-status-set!)
-    ; #f or exception that caused the job to terminate
+    ;; #f or exception that caused the job to terminate
     (mutable exception)
-    ; span of quadruplets (fd mode to-fd-or-path-or-closure bytevector0)
-    ; to open and redirect between fork() and exec()
+    ;; span of quadruplets (fd mode to-fd-or-path-or-closure bytevector0)
+    ;; to open and redirect between fork() and exec()
     (mutable redirects)
     (mutable redirects-temp-n) ; fixnum, number elements at front of (job-redirects)
                                ; inserted by temporary redirections
@@ -144,6 +145,11 @@
         ; unset job's process group id
         #f))))
 
+;; get the foreground process group id of specified job
+(define (job-pgid-fg job)
+  (or (%job-pgid-fg job)
+      (job-pgid     job)))
+
 
 (define (sh-job<? job1 job2)
   (let ((id1 (job-id job1))
@@ -182,7 +188,7 @@
 ;; Returned job will have no id, status 'new and specified parent.
 (define (cmd-copy j parent)
   (%make-cmd
-    #f #f #f #f          ; id oid pid pgid
+    #f #f #f #f #f       ; id oid pid pgid pgid-fg
     (new) #f             ; status exception
     (let ((redirects (job-redirects j)))
       (span-copy redirects (job-redirects-temp-n j) (span-length redirects)))
@@ -210,8 +216,8 @@
   (let* ((children (job-span-copy (multijob-children j)))
          (ret
     (%make-multijob
-      #f #f #f #f          ; id oid pid pgid
-      (new) #f   ; status exception
+      #f #f #f #f #f   ; id oid pid pgid pgid-fg
+      (new) #f         ; status exception
       (let ((redirects (job-redirects j)))
         ;; skip temporary redirects, copy the rest
         (span-copy redirects (job-redirects-temp-n j) (span-length redirects)))
