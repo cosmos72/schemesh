@@ -377,7 +377,7 @@
 ;; recursive implementation of (sh-patterns/expand)
 ;; appends matching paths to span ret and returns it.
 (define (%patterns/expand sp i sp-end path ret)
-  ; (debugf "%patterns/expand patterns=~s, path=~s" (subspan/shared sp i sp-end) path)
+  ;; (debugf "%patterns/expand patterns=~s, path=~s" (subspan/shared sp i sp-end) path)
   (cond
     ((fx>=? i sp-end) ; check that path exists
       (when (file-type path '(catch symlinks))
@@ -389,22 +389,24 @@
       ret)
     ((string? (span-ref sp i))
       (let ((subpath (%path-append path (span-ref sp i))))
-        ; check that subpath exists.
+        ;; check that subpath exists.
         (if (file-type subpath '(catch))
           (%patterns/expand sp (fx1+ i) sp-end subpath ret)
           ret)))
     (else
-      (let* ((p       (span-ref sp i))
-             (prefix  (or (sh-pattern-ref/string p) ""))
-             (suffix  (or (sh-pattern-ref-right/string p) ""))
+      (let* ((p        (span-ref sp i))
+             (prefix   (or (sh-pattern-ref/string p) ""))
+             (suffix   (or (sh-pattern-ref-right/string p) ""))
              (path-or-dot (if (fxzero? (string-length path)) "." path))
-             (i+1     (fx1+ i)))
-        ; pattern p may end with #\/ thus:
-        ; 1. must add option 'append-slash to mark directories with a final #\/
-        ; 2. cannot add option 'symlinks because it would not mark symlinks with a final #\/ even if they point to a directory
-        (for-list ((name (directory-sort!
-                           (directory-list path-or-dot
-                                           (list 'append-slash 'catch 'prefix prefix 'suffix suffix)))))
+             (i+1      (fx1+ i))
+             (options0 (list 'catch 'prefix prefix 'suffix suffix))
+             (options1 (if (and (string? suffix) (string-suffix? suffix "/"))
+                         (cons 'append-slash options0)
+                         options0)))
+        ;; pattern p may end with #\/ thus:
+        ;; 1. if pattern ends with #\/ we must add option 'append-slash to mark directories with a final #\/ so that they match
+        ;; 2. cannot add option 'symlinks because it would not mark symlinks with a final #\/ even if they point to a directory
+        (for-list ((name (directory-sort! (directory-list path-or-dot options1))))
           (when (sh-pattern-match? p name)
             (%patterns/expand sp i+1 sp-end (%path-append path name) ret)))
         ret))))
