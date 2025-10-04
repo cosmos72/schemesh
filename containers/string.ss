@@ -481,7 +481,7 @@
         (let %copy-string-list! ((l (cdr str-list)) (pos first-len))
           (if (null? l)
             ret
-            (let* ((elem     (car str-list))
+            (let* ((elem     (car l))
                    (elem-len (string-length elem)))
               (string-copy! sep  0 ret pos sep-len)
               (string-copy! elem 0 ret (fx+ pos sep-len) elem-len)
