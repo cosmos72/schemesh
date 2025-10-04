@@ -399,14 +399,16 @@
              (suffix   (or (sh-pattern-ref-right/string p) ""))
              (path-or-dot (if (fxzero? (string-length path)) "." path))
              (i+1      (fx1+ i))
-             (options0 (list 'catch 'prefix prefix 'suffix suffix))
-             (options1 (if (and (string? suffix) (string-suffix? suffix "/"))
-                         (cons 'append-slash options0)
-                         options0)))
-        ;; pattern p may end with #\/ thus:
-        ;; 1. if pattern ends with #\/ we must add option 'append-slash to mark directories with a final #\/ so that they match
-        ;; 2. cannot add option 'symlinks because it would not mark symlinks with a final #\/ even if they point to a directory
-        (for-list ((name (directory-sort! (directory-list path-or-dot options1))))
+             ;; pattern p may end with #\/ thus:
+             ;; 1. if pattern ends with #\/ we must add option 'append-slash
+             ;;    to mark directories with a final #\/ so that they match
+             ;; 2. cannot add option 'symlinks because it would not mark symlinks
+             ;;    with a final #\/ even if they point to a directory
+             (options0 (if (and (string? suffix) (string-suffix? suffix "/"))
+                         '(append-slash catch)
+                         '(catch)))
+             (options  (cons* 'prefix prefix 'suffix suffix options0)))
+        (for-list ((name (directory-sort! (directory-list path-or-dot options))))
           (when (sh-pattern-match? p name)
             (%patterns/expand sp i+1 sp-end (%path-append path name) ret)))
         ret))))
