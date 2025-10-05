@@ -7,7 +7,7 @@ and differences are documented in the main [README.md](../../README.md).
 
 Scheme functions to **create** shell jobs are not documented yet.
 
-Scheme functions to **modify** the environment variables of existing shell jobs are documented in [env.md](env.md)
+Scheme functions to manage the **environment variables** of existing shell jobs are documented in [env.md](env.md)
 
 Scheme functions to **redirect** existing shell jobs, and to access redirected file descriptors of a Scheme job, are documented below.
 
