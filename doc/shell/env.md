@@ -12,12 +12,12 @@ Scheme functions to **modify** the environment variables of existing shell jobs 
 Scheme functions to **redirect** existing shell jobs, and to access redirected file descriptors of a Scheme job, are documented in [redirect.md](redirect.md).
 
 ### Alphabetical index
-* [`(sh-env-copy`](sh-env-copy)
-* [`(sh-env-delete!)`](sh-env-delete!)
+* [`(sh-env-copy)`](#sh-env-copy)
+* [`(sh-env-delete!)`](#sh-env-delete!)
 * [`(sh-env-ref)`](#sh-env-ref)
 * [`(sh-env-set!)`](#sh-env-set!)
-* [`(sh-env-visibility-ref)`](sh-env-visibility-ref)
-* [`(sh-env-visibility-set!)`](sh-env-visibility-set!)
+* [`(sh-env-visibility-ref)`](#sh-env-visibility-ref)
+* [`(sh-env-visibility-set!)`](#sh-env-visibility-set!)
 
 ### Jobs environment variables
 
@@ -49,6 +49,7 @@ and `visibility` not specified or equal to `'maintain` indicates to preserve the
 
 ##### (sh-env-visibility-ref)
 `(sh-env-visibility-ref job-or-id name)` returns the value and visibility of environment variable `name` for specified job or job-id.
+
 If the environment variable `name` is found, returns `(value str vis)`
 where `str` is the the string value of environment variable,
 and `vis` is one of the symbols `'export` `'private`.
@@ -65,6 +66,6 @@ with the only difference that all arguments are mandatory.
 ##### (sh-env-copy)
 `(sh-env-copy job-or-id visibility)` returns a string->string hashtable containing a copy of all environment variables for specified job or job-id.
 
-Argument `visibility` must be one of:
+Argument `visibility` must be one of the symbols:
 * `'export` indicating that only exported environment variables should be returned
 * `'all` indicating that both exported and private environment variables should be returned
