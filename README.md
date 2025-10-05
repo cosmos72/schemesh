@@ -636,6 +636,8 @@ The documentation currently include:
 
 * Key bindings customization, see [doc/lineedit/key.md](doc/lineedit/key.md)
 
+* Job environment variables, see [doc/shell/env.md](doc/shell/env.md)
+
 * Job redirection, see [doc/shell/redirect.md](doc/shell/redirect.md)
 
 * Loading schemesh as a library from plain Chez Scheme, see [doc/schemesh_as_library.md](doc/schemesh_as_library.md)
