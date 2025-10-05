@@ -9,7 +9,7 @@ Scheme functions to **create** shell jobs are not documented yet.
 
 Scheme functions to manage the **environment variables** of existing shell jobs are documented below.
 
-Scheme functions to **redirect** existing shell jobs, and to access redirected file descriptors of a Scheme job, are documented in [redirect.md](redirect.md).
+Scheme functions to **redirect** existing shell jobs, and to access redirected file descriptors of a job, are documented in [redirect.md](redirect.md).
 
 ### Alphabetical index
 * [`(sh-env-copy)`](#sh-env-copy)

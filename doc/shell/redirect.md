@@ -9,7 +9,7 @@ Scheme functions to **create** shell jobs are not documented yet.
 
 Scheme functions to manage the **environment variables** of existing shell jobs are documented in [env.md](env.md)
 
-Scheme functions to **redirect** existing shell jobs, and to access redirected file descriptors of a Scheme job, are documented below.
+Scheme functions to **redirect** existing shell jobs, and to access redirected file descriptors of a job, are documented below.
 
 
 ### Alphabetical index
@@ -178,7 +178,15 @@ Mandatory arguments are:
 Note: redirections are applied in order, thus later redirections (or later calls to `(sh-redirect)`) can overwrite earlier ones.
 
 
-### Access redirected ports or file descriptors
+### Access redirected ports or file descriptors of a generic job
+
+If you want the ports or OS-level file descriptors of a job,
+use `(sh-port job-or-id N [transcoder-sym])` or `(sh-fd job-or-id fd)` documented below.
+
+
+### Access redirected ports or file descriptors of a Scheme job
+
+Some additional/simplified functions are available for accessing the ports or OS-level file descriptors of the **current** Scheme job.
 
 As described in the main [README.md](../../README.md#scheme-jobs), Scheme jobs are wrappers around arbitrary Scheme code and are treated as jobs:<br/>
 their file descriptors can be redirected with the usual shell syntax, or with the functions above.<br/>
@@ -196,7 +204,7 @@ $(display
        1))) | cat
 ```
 
-Inside a Scheme job, the standard ports `(current-input-port)` `(current-output-port)` `(current-error-port)` and,
+**Inside** a Scheme job, the standard ports `(current-input-port)` `(current-output-port)` `(current-error-port)` and,
 more in general, `(sh-port N)` automatically honor redirections:<br/>
 in the examples above, `$(display "hello\n") > greet.txt` writes to the file `greet.txt` in current directory<br/>
 and `$(display (let %fib ...)) | cat` writes the 10th Fibonacci number to the pipe connected to `cat`.
@@ -204,9 +212,6 @@ and `$(display (let %fib ...)) | cat` writes the 10th Fibonacci number to the pi
 If you prefer binary ports, you can use `(sh-stdin)` `(sh-stdout)` and `(sh-stderr)` or, more in general, `(sh-port #f N 'binary)`.
 
 If you want OS-level file descriptors, there's also `(sh-fd 0)` `(sh-fd 1)` and `(sh-fd 2)` or, more in general, `(sh-fd N)`.
-
-If you want the ports or OS-level file descriptors of some other job (i.e. not the current job),
-use `(sh-port job-or-id N [transcoder-sym])` or `(sh-fd job-or-id fd)`.
 
 ##### (sh-port)
 `(sh-port fd)` or `(sh-port job-or-id fd)` or `(sh-port job-or-id fd transcoder-sym)` returns the port
