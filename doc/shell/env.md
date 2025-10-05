@@ -23,7 +23,7 @@ Scheme functions to **redirect** existing shell jobs, and to access redirected f
 
 Each job created by schemesh has its own environment variables, redirections and current directory.
 
-When a new job is created, it *references* environment variables, redirections, and current directory of its parent job.
+When a new job is created, it *references* the environment variables, redirections, and current directory of its parent job.
 Note: the main schemesh process acts the default parent job if none is specified.
 
 This means that by default, changing the environment variables, redirections or current directory of a parent job also affects all its children jobs.

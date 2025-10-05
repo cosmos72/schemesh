@@ -28,12 +28,25 @@ Scheme functions to **redirect** existing shell jobs, and to access redirected f
 * [`(sh-stderr)`](#sh-stderr)
 * [`(sh-stdout)`](#sh-stdout)
 
+### Jobs redirections
+
+Each job created by schemesh has its own environment variables, redirections and current directory.
+
+When a new job is created, it *references* the environment variables, redirections, and current directory of its parent job.
+Note: the main schemesh process acts the default parent job if none is specified.
+
+This means that by default, changing the environment variables, redirections or current directory of a parent job also affects all its children jobs.
+
+To stop such sharing, just redirect a job's file descriptor: the new redirection shadows the inherited one, and such redirection is no longer shared.
+The same applies for environment variables and current directory: if you set some of them, they shadow inherited values.
+
 ### Run a job with redirections
 
-The following functions add redirections to an existing job, start the job in foreground,
-wait for it to finish, and return the output produced by the job.
+The two functions `(sh-run/bytevector)` and `(sh-run/string)` documented below
+add redirections to an existing job, then start the job in foreground,
+wait for it to finish, and finally return the output produced by the job.
 
-The added redirections are *temporary* i.e. they are automatically removed when the job finishes.
+In this case, the added redirections are *temporary* i.e. they are automatically removed when the job finishes.
 
 ##### (sh-run/bytevector)
 `(sh-run/bytevector job)` or `(sh-run/bytevector job options)` starts a job in foreground and waits for it to exit.<br/>
@@ -165,10 +178,11 @@ Mandatory arguments are:
 Note: redirections are applied in order, thus later redirections (or later calls to `(sh-redirect)`) can overwrite earlier ones.
 
 
-### Access redirected ports from a Scheme job
+### Access redirected ports or file descriptors
 
 As described in the main [README.md](../../README.md#scheme-jobs), Scheme jobs are wrappers around arbitrary Scheme code and are treated as jobs:<br/>
-their file descriptors can be redirected with the usual shell syntax, they can be stopped and resumed, they can be used in a pipeline, etc.
+their file descriptors can be redirected with the usual shell syntax, or with the functions above.<br/>
+They can be stopped and resumed, they can be used in a pipeline, etc.<br/>
 
 The syntax for creating a Scheme jobs is trivial: just prefix `$` to any parenthesized Scheme expression or declaration. Examples:
 ```lisp
@@ -190,6 +204,9 @@ and `$(display (let %fib ...)) | cat` writes the 10th Fibonacci number to the pi
 If you prefer binary ports, you can use `(sh-stdin)` `(sh-stdout)` and `(sh-stderr)` or, more in general, `(sh-port #f N 'binary)`.
 
 If you want OS-level file descriptors, there's also `(sh-fd 0)` `(sh-fd 1)` and `(sh-fd 2)` or, more in general, `(sh-fd N)`.
+
+If you want the ports or OS-level file descriptors of some other job (i.e. not the current job),
+use `(sh-port job-or-id N [transcoder-sym])` or `(sh-fd job-or-id fd)`.
 
 ##### (sh-port)
 `(sh-port fd)` or `(sh-port job-or-id fd)` or `(sh-port job-or-id fd transcoder-sym)` returns the port
