@@ -13,11 +13,11 @@ Scheme functions to **redirect** existing shell jobs, and to access redirected f
 
 ### Alphabetical index
 * [`(sh-env-copy)`](#sh-env-copy)
-* [`(sh-env-delete!)`](#sh-env-delete!)
+* [`(sh-env-delete!)`](#sh-env-delete)
 * [`(sh-env-ref)`](#sh-env-ref)
 * [`(sh-env-set!)`](#sh-env-set!)
 * [`(sh-env-visibility-ref)`](#sh-env-visibility-ref)
-* [`(sh-env-visibility-set!)`](#sh-env-visibility-set!)
+* [`(sh-env-visibility-set!)`](#sh-env-visibility-set)
 
 ### Jobs environment variables
 
