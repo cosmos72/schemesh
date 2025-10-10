@@ -500,8 +500,11 @@
   (%add t lineedit-key-cmd-cd-parent  '(27 79 81)) ; KP/   \eOQ   ; F2 on MacOSX
   (%add t lineedit-key-cmd-ls         '(27 79 82)) ; KP*   \eOR   ; F3 on MacOSX
   (%add t lineedit-key-cmd-cd-old-dir '(27 79 83)) ; KP-   \eOS   ; F4 on MacOSx
+  (%add t lineedit-key-cmd-ls         '(27 79 106)); KP*   \eOj   ; xterm
   (%add t lineedit-key-nop            '(27 79 108)); KP+   \eOl
   (%add t lineedit-key-cmd-cd-old-dir '(27 79 109)); KP-   \eOm
+  (%add t lineedit-key-cmd-cd-parent  '(27 79 111)); KP/   \eOo   ; xterm
+
 
   (%add t lineedit-key-nop   '(27 79 110) '(27 79 112) ; KP.  KP0
     '(27 79 113) '(27 79 114) '(27 79 115)             ; KP1  KP2  KP3
