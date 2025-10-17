@@ -148,8 +148,8 @@
       (do ((i start (fx1+ i)))
           ((fx>=? i end))
         (linectx-insert/c! lctx (charspan-ref csp i))))
-    ((lctx bsp)
-      (linectx-insert/bytespan! lctx bsp 0 (bytespan-length bsp)))))
+    ((lctx csp)
+      (linectx-insert/charspan! lctx csp 0 (charspan-length csp)))))
 
 
 ;; read up to n bytes from bytespan bsp, starting at offset = start,
