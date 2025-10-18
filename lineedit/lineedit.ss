@@ -13,7 +13,7 @@
     lineedit-undraw linectx-redraw-all
 
     ;; lineedit.ss
-    linectx-read
+    linectx-read linectx-insert/bytespan! linectx-insert/charspan! linectx-insert/string!
 
     lineedit-clear!     lineedit-display-table
     lineedit-lines-set! lineedit-insert/rbuf!
@@ -137,7 +137,22 @@
   (vscreen-insert/c! (linectx-vscreen lctx) c))
 
 
-;; read up to n chars from charspan bsp, starting at offset = start
+;; read (- end start) chars from string str, starting at offset = start
+;; and insert them into vscreen at cursor.
+;;
+;; Moves cursor appropriately to the right, and reflows vscreen as needed.
+(define linectx-insert/string!
+  (case-lambda
+    ((lctx str start end)
+      (assert* 'linectx-insert/string! (fx<=?* 0 start end (string-length str)))
+      (do ((i start (fx1+ i)))
+          ((fx>=? i end))
+        (linectx-insert/c! lctx (string-ref str i))))
+    ((lctx str)
+      (linectx-insert/string! lctx str 0 (string-length str)))))
+
+
+;; read (- end start) chars from charspan csp, starting at offset = start
 ;; and insert them into vscreen at cursor.
 ;;
 ;; Moves cursor appropriately to the right, and reflows vscreen as needed.
@@ -152,7 +167,7 @@
       (linectx-insert/charspan! lctx csp 0 (charspan-length csp)))))
 
 
-;; read up to n bytes from bytespan bsp, starting at offset = start,
+;; read up to (- end start) bytes from bytespan bsp, starting at offset = start,
 ;; assume they are utf-8, convert them to characters and insert them into vscreen at cursor.
 ;; stops at any byte < 32, unless it's the first byte (which is skipped).
 ;; Also stops at incomplete utf-8 sequences.
@@ -496,10 +511,10 @@
   (%add t lineedit-key-eol   '(27 79 70))          ; END   \eOF
   (%add t lineedit-key-bol   '(27 79 72))          ; HOME  \eOH
   (%add t lineedit-key-newline-left   '(27 79 77)) ; KPRET \eOM
-  (%add t lineedit-key-nop            '(27 79 80)) ; NUMLOCK \eOP ; F1 on MacOSX
-  (%add t lineedit-key-cmd-cd-parent  '(27 79 81)) ; KP/   \eOQ   ; F2 on MacOSX
-  (%add t lineedit-key-cmd-ls         '(27 79 82)) ; KP*   \eOR   ; F3 on MacOSX
-  (%add t lineedit-key-cmd-cd-old-dir '(27 79 83)) ; KP-   \eOS   ; F4 on MacOSx
+  (%add t lineedit-key-nop            '(27 79 80)) ; NUMLOCK \eOP ; F1 on xterm
+  (%add t lineedit-key-cmd-cd-parent  '(27 79 81)) ; KP/   \eOQ   ; F2 on xterm
+  (%add t lineedit-key-cmd-ls         '(27 79 82)) ; KP*   \eOR   ; F3 on xterm
+  (%add t lineedit-key-cmd-cd-old-dir '(27 79 83)) ; KP-   \eOS   ; F4 on xterm
   (%add t lineedit-key-cmd-ls         '(27 79 106)); KP*   \eOj   ; xterm
   (%add t lineedit-key-nop            '(27 79 108)); KP+   \eOl
   (%add t lineedit-key-cmd-cd-old-dir '(27 79 109)); KP-   \eOm
