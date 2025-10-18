@@ -11,7 +11,7 @@
 ;;; procedure names and effect are intentionally compatible with
 ;;; https://docs.racket-lang.org/reference/port-lib.html
 ;;;
-(library (schemesh port stdio (0 9 1))
+(library (schemesh port stdio (0 9 2))
   (export
           sh-stdio-cleanup sh-stdin sh-stdout sh-stderr)
   (import

@@ -217,7 +217,7 @@
               (linectx-insert/charspan! lctx elem-0 0 common-len)
               (when (and (fx=? 1 table-n)
                          (not (char=? #\/ (charspan-ref elem-0 (fx1- common-len)))))
-                (linectx-insert/c! lctx #\space))))
+                (linectx-insert/char! lctx #\space))))
           ((fx>? table-n 1)
             ;; erase prompt and lines (also sets flag "redraw prompt and lines"),
             ;; then list all possible table

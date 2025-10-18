@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh posix dir (0 9 1))
+(library (schemesh posix dir (0 9 2))
   (export
       directory-list directory-list-type directory-sort!
       file-delete file-rename file-type mkdir)

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh port redir (0 9 1))
+(library (schemesh port redir (0 9 2))
   (export
     binary-port-lambda->port textual-port-lambda->port)
   (import

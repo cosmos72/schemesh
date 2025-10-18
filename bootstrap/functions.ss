@@ -13,7 +13,7 @@
 
 #!r6rs
 
-(library (schemesh bootstrap functions (0 9 1))
+(library (schemesh bootstrap functions (0 9 2))
   (export
       check-interrupts eval-form fx<=?* nop parameter-swapper
       generate-pretty-temporaries generate-pretty-temporary gensym-pretty
@@ -279,14 +279,14 @@
 
 ;; return Schemesh version string
 (define sh-version
-  (let ((ret (string->immutable-string "Schemesh Version 0.9.1")))
+  (let ((ret (string->immutable-string "Schemesh Version 0.9.2")))
     (lambda ()
       ret)))
 
 
 ;; return three values: schemesh version MAJOR, MINOR and PATCH fixnums
 (define (sh-version-number)
-  (values 0 9 1))
+  (values 0 9 2))
 
 ) ; close library
 

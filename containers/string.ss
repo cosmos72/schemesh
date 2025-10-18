@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh containers string (0 9 1))
+(library (schemesh containers string (0 9 2))
   (export
     assert-string-list? in-string
     string-any string-contains string-count string-empty? string-every

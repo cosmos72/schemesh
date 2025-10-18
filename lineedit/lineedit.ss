@@ -7,13 +7,13 @@
 
 #!r6rs
 
-(library (schemesh lineedit lineedit (0 9 1))
+(library (schemesh lineedit lineedit (0 9 2))
   (export
     ;; linedraw.ss
     lineedit-undraw linectx-redraw-all
 
     ;; lineedit.ss
-    linectx-read linectx-insert/bytespan! linectx-insert/charspan! linectx-insert/string!
+    linectx-read linectx-insert/bytespan! linectx-insert/char! linectx-insert/charspan! linectx-insert/string!
 
     lineedit-clear!     lineedit-display-table
     lineedit-lines-set! lineedit-insert/rbuf!
@@ -133,7 +133,7 @@
 
 ;; insert a single character or cell into vscreen at cursor.
 ;; Also moves vscreen cursor one character to the right, and reflows vscreen as needed.
-(define (linectx-insert/c! lctx c)
+(define (linectx-insert/char! lctx c)
   (vscreen-insert/c! (linectx-vscreen lctx) c))
 
 
@@ -147,7 +147,7 @@
       (assert* 'linectx-insert/string! (fx<=?* 0 start end (string-length str)))
       (do ((i start (fx1+ i)))
           ((fx>=? i end))
-        (linectx-insert/c! lctx (string-ref str i))))
+        (linectx-insert/char! lctx (string-ref str i))))
     ((lctx str)
       (linectx-insert/string! lctx str 0 (string-length str)))))
 
@@ -162,7 +162,7 @@
       (assert* 'linectx-insert/charspan! (fx<=?* 0 start end (charspan-length csp)))
       (do ((i start (fx1+ i)))
           ((fx>=? i end))
-        (linectx-insert/c! lctx (charspan-ref csp i))))
+        (linectx-insert/char! lctx (charspan-ref csp i))))
     ((lctx csp)
       (linectx-insert/charspan! lctx csp 0 (charspan-length csp)))))
 
@@ -190,7 +190,7 @@
               ((eq? #t ch)
                 (set! incomplete-utf8? #t))
               ((and (char? ch) (char>=? ch #\space))
-                (linectx-insert/c! lctx ch)))))
+                (linectx-insert/char! lctx ch)))))
         (fx- pos start))) ; return number of bytes actually inserted
     ((lctx bsp)
       (linectx-insert/bytespan! lctx bsp 0 (bytespan-length bsp)))))

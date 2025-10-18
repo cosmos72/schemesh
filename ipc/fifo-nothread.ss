@@ -12,7 +12,7 @@
 ;;;
 ;;; exchanges arbitrary objects through thread-safe FIFO
 ;;;
-(library (schemesh ipc fifo (0 9 1))
+(library (schemesh ipc fifo (0 9 2))
   (export make-producer producer? producer-close producer-name producer-put
           make-consumer consumer? consumer-get consumer-eof? consumer-timed-get consumer-try-get)
   (import

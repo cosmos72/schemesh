@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh posix io (0 9 1))
+(library (schemesh posix io (0 9 2))
   (export
     port->utf8b-port fd->port file->port)
   (import

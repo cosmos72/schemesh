@@ -7,7 +7,7 @@
 
 
 ;; define (schemesh ipc) as a library that exports all its imported bindings
-(library-reexport (schemesh ipc (0 9 1))
+(library-reexport (schemesh ipc (0 9 2))
   (import
     (schemesh ipc channel)
     (schemesh ipc fifo)))
