@@ -149,7 +149,7 @@ Example:
 ### Examples
 
 The following code instructs schemesh to start the command `` make -j `nproc` ``
-every time keypad KP+ is pressed, which produces the sequences `ESC O k` at least on xterm:
+every time keypad KP+ is pressed, which produces the sequence `ESC O k` at least on xterm:
 ```
 (linectx-keytable-insert! linectx-default-keytable
   (lambda (lctx)
