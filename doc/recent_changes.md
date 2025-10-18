@@ -1,8 +1,20 @@
 ## RECENT CHANGES
 
-### main branch
+### release v0.9.2, 2025-10-18
+* fix issue #30: bug in `(string-join)`
+* fix wildcards `*FOO` to also match directories whose name ends with `FOO`, instead of only matching non-directories
+* fix an off-by-one error in wildcard expansion
+* implement autocomplete for shell paths starting with `~` - supersedes pull request #29
+* modify functions `(file->port)` and `(sh-port)` to return textual ports by default
+* improve `(sh-eval)` to better handle forms containing `(begin ...)` followed by alternating functions and macros
+* add support for keywords `while` and `until` inside macros `(for)` `(for*)` `(for-...)` `(forever)` `(repeat)` `(until)` `(while)`
+* add more SRFI 18 compatible functions
+* add key bindings for more xterm keys
+* allow calling `(sh-redirect)` on running jobs, and document its behavior in such case
 * subsume functions `(sh-binary-port)` and `(sh-textual-port)` into the new function `(sh-port)`
   for accessing redirections of Scheme jobs
+* export more `linectx` functions
+* improve documentation, add files [lineedit/ansi.md](lineedit/ansi.md) [lineedit/key.md](lineedit/key.md) [lineedit/linectx.md](lineedit/linectx.md) [shell/env.md](shell/env.md) [shell/redirect.md](shell/redirect.md)
 
 ### release v0.9.1, 2025-05-09
 
