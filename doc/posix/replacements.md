@@ -27,7 +27,7 @@ Additional filesystem-related functions are also provided by `(schemesh posix di
 * [`(put-string)`](#put-string)
 * [`(put-string-some)`](#put-string-some)
 
-### Replacement functions
+### Functions
 
 ##### (delete-directory)
 To be documented.

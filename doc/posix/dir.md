@@ -1,4 +1,4 @@
-# schemesh filesystem access
+# schemesh posix dir
 
 The library `(schemesh posix dir)`, which is also included in `(schemesh posix)` and `(schemesh)`,
 provides low-level functions to access POSIX filesystem.
@@ -15,7 +15,7 @@ Additional functions are also provided by `(schemesh posix replacements)`, see [
 * [`(file-type)`](#file-type)
 * [`(mkdir)`](#mkdir)
 
-### Filesystem access
+### Functions
 
 ##### (directory-list)
 `(directory-list dirpath [options])` returns a list of names present in a filesystem directory, in arbitrary order.<br/>
@@ -29,7 +29,7 @@ Optional argument `options` must be a list containing zero or more of:
 * `'suffix` followed by a charspan, string or bytevector, indicating the filter-suffix: only names that end with such filter-suffix will be returned
 * `'symlinks` - only meaningful together with `'types`: returned names that are symlinks will have type `'symlink` instead of the type of the file they point to
 * `'types` - each returned list element will be a pair `(name . type)` where `name` is a bytevector or string, and `type` is a symbol, one of:
-            `'unknown` `'blockdev` `'chardev` `'dir` `'fifo` `'file` `'socket` `'symlink`
+            `'unknown` `'blockdev` `'chardev` `'dir` `'fifo` `'file` `'socket` `'symlink`.
             The type `'symlink` can be returned only if option `'symlinks` is present.
 
 ##### (directory-list-type)
@@ -52,7 +52,7 @@ On error, either returns an integer error code (if `options` contain `'catch`) o
 Improvements compared to Chez Scheme `(delete-file)`:
 * also deletes empty directories.
 * also accepts bytevectors, bytespans or charspans, not only strings.
-* strings and charspans are converted from/to posix paths with UTF-8b instead of UTF-8 - the former can also represent invalid UTF-8 sequences.
+* strings and charspans are converted to posix paths with UTF-8b instead of UTF-8 - the former can also represent invalid UTF-8 sequences.
 * returns `(void)` on success and error code on failure, instead of a boolean.
 
 ##### (file-rename)
@@ -77,14 +77,14 @@ Optional argument `options` must be a list containing zero or more:
 * `'symlinks` - if path is a symlink, returned value will be `'symlink` instead of the type of the file it points to.
 
 If `path` exists, returns its type which as one the symbols:
-`'unknown` `'blockdev` `'chardev` `'dir` `'fifo` `'file` `'socket` `'symlink`
+`'unknown` `'blockdev` `'chardev` `'dir` `'fifo` `'file` `'socket` `'symlink`.
 The type `'symlink` can be returned only if option `'symlinks` is present.
 
 If `path` does not exists, returns `#f`.
 
 
 ##### (mkdir)
-`(mkdir dirpath options)` creates a directory.<br/>
+`(mkdir dirpath [options])` creates a directory.<br/>
 WARNING: Chez Scheme also defines a function (mkdir) with different options.<br/>
 Argument `dirpath` must be a bytevector, string or charspan.<br/>
 Optional argument `options` must be a list containing zero or more:
