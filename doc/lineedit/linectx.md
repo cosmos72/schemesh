@@ -9,31 +9,35 @@ and almost all functions in the library take a `linectx` object as first argumen
 Internals of `linectx` objects are mostly undocumented, the (few) documented functions are:
 
 ##### (linectx?)
-`(linectx? lctx)` returns `#t` if `lctx` is a `linectx` object, otherwise returns `#f`
+`(linectx? lctx)` returns `#t` if `lctx` is a `linectx` object, otherwise returns `#f`.
 
 ##### (linectx-height)
-`(linectx-height lctx)` returns the current terminal height, i.e. the number of rows
+`(linectx-height lctx)` returns the current terminal height, i.e. the number of rows.
 
 ##### (linectx-width)
-`(linectx-width lctx)` returns the current terminal width, i.e. the number of columns
+`(linectx-width lctx)` returns the current terminal width, i.e. the number of columns.
 
 ##### (linectx-clipboard)
-`(linectx-clipboard lctx)` returns the clipboard as a `vcellspan` object
+`(linectx-clipboard lctx)` returns the clipboard as a `vcellspan` object.
 
 ##### (linectx-clipboard-clear!)
-`(linectx-clipboard-clear! lctx)` clears the clipboard contents
+`(linectx-clipboard-clear! lctx)` clears the clipboard contents.
 
 ##### (linectx-history)
-`(linectx-history lctx)` returns the history as a `vhistory` object
+`(linectx-history lctx)` returns the history as a `vhistory` object.
 
 ##### (linectx-insert/bytespan!)
-`(linectx-insert/bytespan! lctx bsp [start end])` inserts the contents of a `bytespan` object into current lines, starting at cursor
+`(linectx-insert/bytespan! lctx bsp [start end])` inserts the contents of a `bytespan` object into current lines, starting at cursor.<br/>
+Added in 0.9.2
 
 ##### (linectx-insert/char!)
-`(linectx-insert/char! lctx ch)` inserts a single character into current lines, starting at cursor
+`(linectx-insert/char! lctx ch)` inserts a single character into current lines, starting at cursor.<br/>
+Added in 0.9.2
 
 ##### (linectx-insert/charspan!)
-`(linectx-insert/charspan! lctx csp [start end])` inserts the contents of a `charspan` object into current lines, starting at cursor
+`(linectx-insert/charspan! lctx csp [start end])` inserts the contents of a `charspan` object into current lines, starting at cursor.<br/>
+Added in 0.9.2
 
 ##### (linectx-insert/string!)
-`(linectx-insert/string! lctx str [stard end])` inserts the contents of a `string` object into current lines, starting at cursor
+`(linectx-insert/string! lctx str [stard end])` inserts the contents of a `string` object into current lines, starting at cursor.<br/>
+Added in 0.9.2

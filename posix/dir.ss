@@ -115,7 +115,7 @@
 ;;   if options contain 'catch, returns an integer error code
 ;;   otherwise raises an exception.
 ;;
-;; Differs from Chez Scheme (rename-file) in three aspects:
+;; Differs from Chez Scheme (rename-file) in several aspects:
 ;; 1. (file-rename) also accepts bytevectors, bytespans and charspans, not only strings.
 ;; 2. (file-rename) converts strings and charspans to UTF-8b, instead of UTF-8.
 ;; 3. (file-rename) also accepts option 'catch, while Chez (rename-file) always raises an exception on failure.

@@ -638,6 +638,8 @@ The documentation currently include:
 
 * Line editing internals, see [doc/lineedit/linectx.md](doc/lineedit/linectx.md)
 
+* Filesystem access, see [doc/posix/dir.md](doc/posix/dir.md)
+
 * Job environment variables, see [doc/shell/env.md](doc/shell/env.md)
 
 * Job redirection, see [doc/shell/redirect.md](doc/shell/redirect.md)
