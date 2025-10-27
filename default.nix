@@ -34,6 +34,6 @@ in
       chmod +x $out/bin/schemesh
 
       patchelf $out/bin/schemesh --set-rpath \
-        "${pkgs.lib.makeLibraryPath [ pkgs.ncurses pkgs.libuuid ]}"
+        "${pkgs.lib.makeLibraryPath [ pkgs.ncurses pkgs.libuuid pkgs.lz4 pkgs.zlib ]}"
     '';
   }
