@@ -548,7 +548,6 @@ gmake install  # must be executed as root
 ```
 
 #### Mac OS X
-
 *WARNING* support for Mac OS X is only slightly tested.
 
 ```shell
@@ -567,6 +566,7 @@ sudo make install
 ```
 
 #### Nix/NixOS
+*WARNING* build instructions for Nix/NixOS below are user-contributed, and the author has very little expertise to investigate possible issues.
 ```shell
 # Build and run by cloning source repository
 git clone https://github.com/cosmos72/schemesh
