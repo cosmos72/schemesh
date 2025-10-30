@@ -507,22 +507,32 @@ static int c_job_control_change(int enable) {
 /******************************************************************************/
 
 static int c_fd_open_max(void) {
+#if defined(OPEN_MAX)
+  int fd_n = OPEN_MAX;
+#elif defined(_POSIX_OPEN_MAX)
+  int fd_n = _POSIX_OPEN_MAX;
+#else
+  int fd_n = 256; /* reasonable? default */
+#endif
+
 #ifdef _SC_OPEN_MAX
   long ret = sysconf(_SC_OPEN_MAX);
   if (ret > 0) {
     if (ret == (long)(int)ret) {
-      return (int)ret;
+      fd_n = (int)ret;
+    } else {
+      fd_n = INT_MAX;
     }
-    return INT_MAX;
   }
 #endif
-#if defined(OPEN_MAX)
-  return OPEN_MAX;
-#elif defined(_POSIX_OPEN_MAX)
-  return _POSIX_OPEN_MAX;
-#else
-  return 256; /* reasonable? default */
+
+#ifdef __APPLE__
+  /* fix issue #33: do not trust high values on macOS, they are not really supported */
+  if (fd_n > 32768) {
+    fd_n = 32768;
+  }
 #endif
+  return fd_n;
 }
 
 /** close specified file descriptor */
