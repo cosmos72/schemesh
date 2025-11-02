@@ -242,11 +242,11 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [limit]\n")
   (let* ((arg-n     (span-length parsed-args))
          (hard-soft (ulimit/hard-soft parsed-args (fx1- arg-n)))
          (args      (if (span-index parsed-args 0 arg-n 'all)
-                      ulimit-keys
+                      (rlimit-keys)
                       parsed-args)))
     (for-span ((arg args))
       (unless (memq arg '(hard soft))
-        (let ((ret (ulimit-ref hard-soft arg)))
+        (let ((ret (rlimit-ref hard-soft arg)))
           (bytespan-insert-right/string!     wbuf (symbol->string arg))
           (bytespan-insert-right/bytevector! wbuf #vu8(9 9)) ;; tabs
           (bytespan-display-right/integer!   wbuf ret)     

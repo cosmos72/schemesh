@@ -1935,7 +1935,7 @@ static ptr c_threads(void) {
 #define NOKEY_RLIMIT INT_MIN
 
 static const int rlimit_keys[] = {
-  /* order must match (ulimit-keys) */
+  /* order must match (rlimit-keys) */
 
 #ifdef RLIMIT_NICE
   RLIMIT_CORE, /* coredump-size */
