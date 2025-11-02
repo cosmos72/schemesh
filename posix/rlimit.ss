@@ -24,8 +24,8 @@
   (lambda ()
     '(coredump-size data-size nice file-size pending-signals
      locked-memory-size memory-size open-files pipe-size msgqueue-size
-     real-time-priority stack-size cpu-time user-processes
-     virtual-memory-size file-locks real-time-nonblocking-time)))
+     realtime-priority stack-size cpu-time user-processes
+     virtual-memory-size file-locks realtime-nonblocking-time)))
 
 
 (define rlimit-key->ckey

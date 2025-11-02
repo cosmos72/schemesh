@@ -191,7 +191,7 @@ The following names are recognized as builtins:\n\n")
           (fd-write/bytespan! fd wbuf)
           ret)
         (let ((ret (ulimit-parse-arg (car tail) wbuf parsed)))
-          (if (status? ret) 
+          (if (status? ret)
             (begin  ;; error parsing argument, bail out
               (unless (bytespan-empty? wbuf)
                 (fd-write/bytespan! fd wbuf))
@@ -205,9 +205,9 @@ The following names are recognized as builtins:\n\n")
           (plist->hashtable string-hash string=?
             '("-H" hard "-S" soft "-a" all "-c" coredump-size "-d" data-size "-e" nice
               "-f" file-size "-i" pending-signals "-l" locked-memory-size "-m" memory-size
-              "-n" open-files "-p" pipe-size "-q" msgqueue-size "-r" real-time-priority
+              "-n" open-files "-p" pipe-size "-q" msgqueue-size "-r" realtime-priority
               "-s" stack-size "-t" cpu-time "-u" user-processes "-v" virtual-memory-size
-              "-x" file-locks "-R" real-time-nonblocking-time))))
+              "-x" file-locks "-R" realtime-nonblocking-time))))
     (lambda (arg wbuf parsed)
       (let ((parsed-i (hashtable-ref htable arg #f)))
         (cond
@@ -222,7 +222,7 @@ The following names are recognized as builtins:\n\n")
             (bytespan-insert-right/string! wbuf ": invalid option
 ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [limit]\n")
             (failed 1)))))))
-  
+
 
 ;; return 'hard if (subspan parsed-args 0 pos) contains symbol 'hard
 ;; and it appears *after* any symbol 'soft
@@ -249,9 +249,9 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [limit]\n")
         (let ((ret (rlimit-ref hard-soft arg)))
           (bytespan-insert-right/string!     wbuf (symbol->string arg))
           (bytespan-insert-right/bytevector! wbuf #vu8(9 9)) ;; tabs
-          (bytespan-display-right/integer!   wbuf ret)     
+          (bytespan-display-right/integer!   wbuf ret)
           (bytespan-insert-right/u8!         wbuf 10)))))) ;; newline
-  
+
 
 
 ;; the "echo" builtin: write arguments to (sh-fd 1)
