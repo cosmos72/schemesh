@@ -10,10 +10,11 @@
 ;; define (schemesh posix) as a library that exports all its imported bindings
 (library-reexport (schemesh posix (0 9 2))
   (import
-    (schemesh posix fd)
     (schemesh posix dir)
+    (schemesh posix fd)
     (schemesh posix io)
     (schemesh posix pattern)
+    (schemesh posix pid)
 
     ;; by default, do not re-export bindings from (schemesh posix replacements) or (schemesh posix thread)
     ;; because they intentionally conflict with R6RS functions (file-exists?) (delete-file)
@@ -30,4 +31,4 @@
     (schemesh posix signal)
     (schemesh posix status)
     (schemesh posix tty)
-    (schemesh posix pid)))
+    (schemesh posix ulimit)))

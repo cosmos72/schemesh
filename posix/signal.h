@@ -12,8 +12,6 @@
 #error "posix/signal.h should only be #included by posix/posix.c"
 #endif
 
-#define N_OF(array) (sizeof(array) / sizeof((array)[0]))
-
 #ifdef ATOMIC_INT_LOCK_FREE /* macro value does not matter */
 #define ATOMIC _Atomic
 #else
@@ -374,4 +372,3 @@ static int c_register_c_functions_posix_signals(void) {
   return 0;
 }
 
-#undef N_OF

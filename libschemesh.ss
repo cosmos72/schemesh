@@ -44,6 +44,7 @@
   (include "posix/status.ss")
   (include "posix/thread.ss")       ; requires posix/signal.ss posix/status.ss
   (include "posix/tty.ss")
+  (include "posix/ulimit.ss")
   (include "posix/replacements.ss") ; requires posix/thread.ss
   (include "posix/pid.ss")
   (include "posix/posix.ss")

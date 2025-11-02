@@ -17,7 +17,7 @@
     bytevector-char-ref bytevector-char-set! char->utf8b-length
     bytespan-ref/char bytespan-set/char! bytespan-insert-left/char! bytespan-insert-right/char!
     bytespan-insert-right/charspan!
-    bytespan-display-right/fixnum! bytespan-insert-right/string!
+    bytespan-display-right/fixnum! bytespan-display-right/integer! bytespan-insert-right/string!
     charspan->utf8b charspan->utf8b/0)
   (import
     (rename (rnrs) (fxarithmetic-shift-left  fx<<)
@@ -315,5 +315,39 @@
           (when (fx>? pos beg)
             (bytevector-copy! bv pos bv beg digit-n))
           (bytespan-resize-right! sp (fx+ len digit-n)))))))
+
+
+;; convert an exact integer to decimal digits and append the digits to bytespan.
+(define (bytespan-display-right/integer! sp n)
+  (assert* 'bytespan-display-right/integer! (exact? n))
+  (assert* 'bytespan-display-right/integer! (integer? n))
+  (cond
+    (#f ; (fixnum? n)
+      (bytespan-display-right/fixnum! sp n))
+    (else
+      (when (< n 0)
+        (bytespan-insert-right/u8! sp 45) ; append '-'
+        (set! n (- n)))                   ; always work with unsigned integers: easier
+      (let ((max-digit-n (fx1+ (fxdiv (fx* (bitwise-length n) 3) 10))) ; upper bound
+            (len (bytespan-length sp)))
+        (bytespan-reserve-right! sp (fx+ len max-digit-n))
+        (let* ((beg (bytespan-peek-end sp)) ; we write after bytespan-peek-end
+               (end (fx+ beg max-digit-n))
+               (pos end)
+               (bv  (bytespan-peek-data sp)) ; bytevector
+               (wpos
+                 (let %loop ((n n) (pos pos))
+                   (if (and (fixnum? n) (fxzero? n))
+                     pos
+                     (let-values (((n/10 n%10) (div-and-mod n 10)))
+                       (let ((pos (fx1- pos)))
+                         (assert* 'bytespan-display-right/integer! (fx>=? pos beg))
+                         (bytevector-u8-set! bv pos (fx+ 48 n%10))
+                         (%loop n/10 pos))))))
+               (digit-n (fx- end wpos)))
+          (when (fx>? wpos beg)
+            (bytevector-copy! bv pos bv beg digit-n))
+          (bytespan-resize-right! sp (fx+ len digit-n)))))))
+
 
 ) ; close library

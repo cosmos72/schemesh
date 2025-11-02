@@ -24,23 +24,24 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <poll.h>
-#include <pthread.h> /* pthread_self() */
-#include <pwd.h>     /* getpwnam_r(), getpwuid_r() */
-#include <sched.h>   /* sched_yield() */
-#include <signal.h>  /* kill(), sigaction(), SIG... */
+#include <sys/resource.h> /* getrlimit(), setrlimit() */
+#include <pthread.h>      /* pthread_self() */
+#include <pwd.h>          /* getpwnam_r(), getpwuid_r() */
+#include <sched.h>        /* sched_yield() */
+#include <signal.h>       /* kill(), sigaction(), SIG... */
 #include <stdatomic.h>
-#include <stddef.h>     /* size_t, NULL */
-#include <stdint.h>     /* int64_t */
-#include <stdio.h>      /* remove(), rename() ... */
-#include <stdlib.h>     /* getenv(), strtoul() */
-#include <string.h>     /* strlen(), strerror() */
-#include <sys/ioctl.h>  /* ioctl(), TIOCGWINSZ */
-#include <sys/socket.h> /* socketpair(), AF_UNIX, SOCK_STREAM */
-#include <sys/stat.h>   /* fstatat() */
+#include <stddef.h>       /* size_t, NULL */
+#include <stdint.h>       /* int64_t, uint64_t */
+#include <stdio.h>        /* remove(), rename() ... */
+#include <stdlib.h>       /* getenv(), strtoul() */
+#include <string.h>       /* strlen(), strerror() */
+#include <sys/ioctl.h>    /* ioctl(), TIOCGWINSZ */
+#include <sys/socket.h>   /* socketpair(), AF_UNIX, SOCK_STREAM */
+#include <sys/stat.h>     /* fstatat() */
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <time.h>   /* clock_nanosleep(), CLOCK_MONOTONIC, nanosleep() */
-#include <unistd.h> /* geteuid(), getpid(), sysconf(), write() */
+#include <time.h>         /* clock_nanosleep(), CLOCK_MONOTONIC, nanosleep() */
+#include <unistd.h>       /* geteuid(), getpid(), sysconf(), write() */
 
 #ifdef __linux__
 #define SCHEMESH_USE_TTY_IOCTL
@@ -55,6 +56,8 @@
 #endif
 
 #define SCHEMESH_POSIX_POSIX_C
+
+#define N_OF(array) (sizeof(array) / sizeof((array)[0]))
 
 /** needed by signal.h */
 static int c_errno(void);
@@ -1929,6 +1932,150 @@ static ptr c_threads(void) {
   return S_threads;
 }
 
+#define NOKEY_RLIMIT INT_MIN
+
+static const int rlimit_keys[] = {
+  /* order must match (ulimit-keys) */
+
+#ifdef RLIMIT_NICE
+  RLIMIT_CORE, /* coredump-size */
+#else
+  NOKEY_RLIMIT,
+#endif
+
+#ifdef RLIMIT_DATA
+  RLIMIT_DATA, /* data-size */
+#else
+  NOKEY_RLIMIT,
+#endif
+
+#ifdef RLIMIT_NICE
+  RLIMIT_NICE, /* nice */
+#else
+  NOKEY_RLIMIT,
+#endif
+
+#ifdef RLIMIT_FSIZE
+  RLIMIT_FSIZE, /* file-size */
+#else
+  NOKEY_RLIMIT,
+#endif
+
+#ifdef RLIMIT_SIGPENDING
+ RLIMIT_SIGPENDING, /* pending-signals */
+#else
+  NOKEY_RLIMIT,
+#endif
+
+#ifdef RLIMIT_MEMLOCK
+  RLIMIT_MEMLOCK, /* locked-memory-size */
+#else
+  NOKEY_RLIMIT,
+#endif
+
+#ifdef RLIMIT_RSS
+  RLIMIT_RSS, /* memory-size */
+#else
+  NOKEY_RLIMIT,
+#endif
+
+#if defined(RLIMIT_NOFILE)
+  RLIMIT_NOFILE, /* open-files */
+#elif defined(RLIMIT_OFILE)
+  RLIMIT_OFILE
+#else
+  NOKEY_RLIMIT,
+#endif
+
+  NOKEY_RLIMIT, /* pipe-size. Retrieved from PIPE_BUF, not getrlimit() */
+
+#ifdef RLIMIT_MSGQUEUE
+  RLIMIT_MSGQUEUE, /* msgqueue-size */
+#else
+  NOKEY_RLIMIT,
+#endif
+
+#ifdef RLIMIT_MSGQUEUE
+   RLIMIT_RTPRIO, /* real-time-priority */
+#else
+  NOKEY_RLIMIT,
+#endif
+
+#ifdef RLIMIT_STACK
+  RLIMIT_STACK, /* stack-size */
+#else
+  NOKEY_RLIMIT,
+#endif
+   
+#ifdef RLIMIT_CPU
+  RLIMIT_CPU, /* cpu-time */
+#else
+  NOKEY_RLIMIT,
+#endif
+
+#ifdef RLIMIT_NPROC
+  RLIMIT_NPROC, /* user-processes */
+#else
+  NOKEY_RLIMIT,
+#endif
+
+#ifdef RLIMIT_AS
+  RLIMIT_AS, /* virtual-memory-size */
+#else
+  NOKEY_RLIMIT,
+#endif
+
+#ifdef RLIMIT_LOCKS
+  RLIMIT_LOCKS, /* file-locks */
+#else
+  NOKEY_RLIMIT,
+#endif
+
+#ifdef RLIMIT_RTTIME
+  RLIMIT_RTTIME, /* real-time-nonblocking-time */
+#else
+  NOKEY_RLIMIT,
+#endif
+
+};
+
+static ptr c_rlimit_keys(void) {
+  ptr l = Snil;
+  /* iteratively create list from tail */
+  for (size_t i = N_OF(rlimit_keys); i > 0; i--) {
+    const int key = rlimit_keys[i - 1];
+    l = Scons(key == NOKEY_RLIMIT ? Sfalse : Sinteger(key), l);
+  }
+  return l;
+}
+
+static ptr c_rlimit_get(int is_hard, int resource) {
+  struct rlimit lim;
+  int err = getrlimit(resource, &lim);
+  if (err < 0) {
+    return Sinteger(c_errno());
+  }
+  uint64_t c_value = is_hard ? lim.rlim_max : lim.rlim_cur;
+  return c_value == RLIM_INFINITY ? Strue : Sunsigned64(c_value);
+}
+
+static int c_rlimit_set(int is_hard, int resource, ptr value) {
+  struct rlimit lim;
+  uint64_t c_value = (value == Strue) ? RLIM_INFINITY : Sunsigned64_value(value);
+  int err = getrlimit(resource, &lim);
+  if (err < 0) {
+    return c_errno();
+  }
+  if (is_hard) {
+    lim.rlim_max = c_value;
+  } else {
+    lim.rlim_cur = c_value;
+  }
+  err = setrlimit(resource, &lim);
+  return err < 0 ? c_errno() : 0;
+}
+
+
 int schemesh_register_c_functions_posix(void) {
   int err;
   if ((err = c_tty_init()) < 0) {
@@ -2002,6 +2149,9 @@ int schemesh_register_c_functions_posix(void) {
   Sregister_symbol("c_thread_count", &c_thread_count);
   Sregister_symbol("c_threads", &c_threads);
   Sregister_symbol("c_sched_yield", &c_sched_yield);
+  Sregister_symbol("c_rlimit_keys", &c_rlimit_keys);
+  Sregister_symbol("c_rlimit_get", &c_rlimit_get);
+  Sregister_symbol("c_rlimit_set", &c_rlimit_set);
 
   return 0;
 }

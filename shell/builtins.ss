@@ -179,6 +179,81 @@ The following names are recognized as builtins:\n\n")
   (void))
 
 
+
+;; implementation of "ulimit" builtin, writes getrlimit() results to file descriptor 1.
+(define (sh-ulimit . args)
+  (let ((wbuf   (make-bytespan 0))
+        (fd     (sh-fd 1))
+        (parsed (make-span 0)))
+    (let %sh-ulimit ((tail args))
+      (if (null? tail)
+        (let ((ret (ulimit/span parsed wbuf)))
+          (fd-write/bytespan! fd wbuf)
+          ret)
+        (let ((ret (ulimit-parse-arg (car tail) wbuf parsed)))
+          (if (status? ret) 
+            (begin  ;; error parsing argument, bail out
+              (unless (bytespan-empty? wbuf)
+                (fd-write/bytespan! fd wbuf))
+              ret)
+            (%sh-ulimit (cdr tail)))))))) ;; argument parsed successfully, iterate
+
+
+;; parse a single (sh-ulimit) argument
+(define ulimit-parse-arg
+  (let ((htable
+          (plist->hashtable string-hash string=?
+            '("-H" hard "-S" soft "-a" all "-c" coredump-size "-d" data-size "-e" nice
+              "-f" file-size "-i" pending-signals "-l" locked-memory-size "-m" memory-size
+              "-n" open-files "-p" pipe-size "-q" msgqueue-size "-r" real-time-priority
+              "-s" stack-size "-t" cpu-time "-u" user-processes "-v" virtual-memory-size
+              "-x" file-locks "-R" real-time-nonblocking-time))))
+    (lambda (arg wbuf parsed)
+      (let ((parsed-i (hashtable-ref htable arg #f)))
+        (cond
+          (parsed-i
+            (span-insert-right! parsed parsed-i)
+            #t) ;; not a job status, tell ulimit/span to keep parsing
+          ((equal? arg "--help")
+            (builtin-help #f '("help" "ulimit") '()))
+          (else
+            (bytespan-insert-right/string! wbuf "schemesh: ulimit: ")
+            (bytespan-insert-right/string! wbuf arg)
+            (bytespan-insert-right/string! wbuf ": invalid option
+ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [limit]\n")
+            (failed 1)))))))
+  
+
+;; return 'hard if (subspan parsed-args 0 pos) contains symbol 'hard
+;; and it appears *after* any symbol 'soft
+;; otherwise return 'soft
+(define (ulimit/hard-soft parsed-args pos)
+  (if (fx<? pos 0)
+    'soft
+    (let ((arg (span-ref parsed-args pos)))
+      (if (memq arg '(hard soft))
+        arg
+        (ulimit/hard-soft parsed-args (fx1- pos))))))
+
+
+;; called by (sh-ulimit) builtin
+(define (ulimit/span parsed-args wbuf)
+  ;; (debugf "ulimit/span ~s" parsed-args)
+  (let* ((arg-n     (span-length parsed-args))
+         (hard-soft (ulimit/hard-soft parsed-args (fx1- arg-n)))
+         (args      (if (span-index parsed-args 0 arg-n 'all)
+                      ulimit-keys
+                      parsed-args)))
+    (for-span ((arg args))
+      (unless (memq arg '(hard soft))
+        (let ((ret (ulimit-ref hard-soft arg)))
+          (bytespan-insert-right/string!     wbuf (symbol->string arg))
+          (bytespan-insert-right/bytevector! wbuf #vu8(9 9)) ;; tabs
+          (bytespan-display-right/integer!   wbuf ret)     
+          (bytespan-insert-right/u8!         wbuf 10)))))) ;; newline
+  
+
+
 ;; the "echo" builtin: write arguments to (sh-fd 1)
 ;; separating each pair with a #\space and terminating them with a #\newline
 ;;
@@ -231,6 +306,14 @@ The following names are recognized as builtins:\n\n")
   (sh-true))
 
 
+;; the "ulimit" builtin: display resource limits
+;;
+;; As all builtins do, must return job status.
+(define (builtin-ulimit job prog-and-args options)
+  (assert-string-list? 'builtin-ulimit prog-and-args)
+  (apply sh-ulimit (cdr prog-and-args)))
+
+
 ;; given a command line prog-and-args i.e. a list of strings,
 ;; extract the first string and return the corresponding builtin.
 ;; Return #f if no corresponding builtin is found.
@@ -257,6 +340,7 @@ The following names are recognized as builtins:\n\n")
     (hashtable-set! t "help"    builtin-help)
     (hashtable-set! t "history" builtin-history)
     (hashtable-set! t "true"    builtin-true)
+    (hashtable-set! t "ulimit"  builtin-ulimit)
     (lambda () t)))
 
 
@@ -314,6 +398,42 @@ is usually available at <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html#
     return success.\n"))
 
     (hashtable-set! t "true"    (hashtable-ref t ":" ""))
+
+    (hashtable-set! t "ulimit" (string->utf8 " [-SHacdefilmnpqrstuvxR] [limit]
+    Modify shell resource limits.
+
+    Provides control over the resources available to the shell and processes it creates.
+
+    Options:
+      -S        use the `soft' resource limit
+      -H        use the `hard' resource limit
+      -a        all current limits are reported
+      -c        the maximum size of core files created
+      -d        the maximum size of a process's data segment
+      -e        the maximum scheduling priority (`nice')
+      -f        the maximum size of files written by the shell and its children
+      -i        the maximum number of pending signals
+     [-k        the maximum number of kqueues allocated for this process]
+      -l        the maximum size a process may lock into memory
+      -m        the maximum resident set size
+      -n        the maximum number of open file descriptors
+      -p        the pipe buffer size
+      -q        the maximum number of bytes in POSIX message queues
+      -r        the maximum real-time scheduling priority
+      -s        the maximum stack size
+      -t        the maximum amount of cpu time in seconds
+      -u        the maximum number of user processes
+      -v        the size of virtual memory
+      -x        the maximum number of file locks
+      -R        the maximum time a real-time process can run before blocking
+
+    If LIMIT is given, it is the new value of the specified resource; the
+    special LIMIT values `soft', `hard', and `unlimited' stand for the
+    current soft limit, the current hard limit, and no limit, respectively.
+    Otherwise, the current value of the specified resource is printed.  If
+    no option is given, then -f is assumed.
+
+    Return success, unless an invalid option is supplied or an error occurs.\n"))
 
     (hashtable-set! t "warranty"       (string->utf8 "
   This program is distributed in the hope that it will be useful,
