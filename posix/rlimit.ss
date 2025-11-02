@@ -75,6 +75,7 @@
                      (if (eq? 'unlimited value) #t value))))
         (when (< ret 0)
           (raise-c-errno 'rlimit-set! 'setrlimit ret hard-soft resource value))
-        ret))))
+        ;; return (void)
+        ))))
 
 ) ; close library
