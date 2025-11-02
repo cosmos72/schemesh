@@ -12,7 +12,7 @@
   (import
     (rnrs)
     (only (chezscheme)                foreign-procedure)
-    (only (schemesh bootstrap)        assert* #|debugf|# raise-assertf)
+    (only (schemesh bootstrap)        assert*) ; debugf
     (only (schemesh containers list)  for-list)
     (only (schemesh posix fd)         raise-c-errno))
 
@@ -37,29 +37,34 @@
       (let ((ckey (hashtable-ref htable resource #f)))
         (unless ckey
           ;; throw if resource is not among (rlimit-keys)
-          (assert* who (memq resource (rlimit-keys)))
-          ;; throw if resource is not among C rlimit_keys[]
-          (raise-assertf who "resource '~s not supported on this platform" resource))
+          (assert* who (memq resource (rlimit-keys))))
+        ;; ckey can be #f if resource is not among C rlimit_keys[]
         ckey))))
 
-  
+
+;; return unsigned per-process hard or soft resource limit, i.e. getrlimit()
+;; returns #f if specified resource is not supported on current OS
+;; returns 'unlimited if resource has no limit
 (define rlimit-ref
   (let ((c-rlimit-get (foreign-procedure "c_rlimit_get" (int int) ptr)))
     (lambda (hard-soft resource)
       ;; (debugf "(rlimit-ref ~s ~s)" hard-soft resource)
       (assert* 'rlimit-ref (memq hard-soft '(hard soft)))
       (let* ((ckey (rlimit-key->ckey 'rlimit-ref resource))
-             (ret  (c-rlimit-get (if (eq? hard-soft 'hard) 1 0) ckey)))
+             (ret  (and ckey (c-rlimit-get (if (eq? hard-soft 'hard) 1 0) ckey))))
         ;; (debugf "(rlimit-ref ~s ~s) -> ret = ~s" hard-soft resource ret)
         (cond
           ((eq? #t ret)
             'unlimited)
-          ((< ret 0)
+          ((and ret (< ret 0))
             (raise-c-errno 'rlimit-ref 'getrlimit ret hard-soft resource))
           (else
             ret))))))
 
 
+;; set per-process hard or soft resource limit, i.e. setrlimit().
+;; limit to set must be an unsigned-64 or symbol 'unlimited
+;; returns (void), or #f if specified resource is not supported on current OS
 (define rlimit-set!
   (let ((c-rlimit-set (foreign-procedure "c_rlimit_set" (int int ptr) int)))
     (lambda (hard-soft resource value)
@@ -69,13 +74,17 @@
         (assert* 'rlimit-set! (integer? value))
         (assert* 'rlimit-set! (<= 0 value #xFFFFFFFFFFFFFFFF)))
       (let* ((ckey (rlimit-key->ckey 'rlimit-set! resource))
-             (ret (c-rlimit-set
-                     (if (eq? hard-soft 'hard) 1 0)
+             (ret  (and
                      ckey
-                     (if (eq? 'unlimited value) #t value))))
-        (when (< ret 0)
-          (raise-c-errno 'rlimit-set! 'setrlimit ret hard-soft resource value))
-        ;; return (void)
-        ))))
+                     (c-rlimit-set
+                       (if (eq? hard-soft 'hard) 1 0)
+                       ckey
+                       (if (eq? 'unlimited value) #t value)))))
+        ;; return (void) if resource was set successfully,
+        ;; or #f if resource is not supported on current OS
+        (if ret
+          (when (< ret 0)
+            (raise-c-errno 'rlimit-set! 'setrlimit ret hard-soft resource value))
+          ret)))))
 
 ) ; close library
