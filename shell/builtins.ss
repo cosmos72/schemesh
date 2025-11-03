@@ -224,41 +224,40 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [limit]\n")
             (failed 1)))))))
 
 
-;; return 'hard if (subspan parsed-args 0 pos) contains symbol 'hard
+;; return 'hard if (subspan sp-args 0 pos) contains symbol 'hard
 ;; and it appears *after* any symbol 'soft
 ;; otherwise return 'soft
-(define (ulimit/hard-soft parsed-args pos)
+(define (ulimit/hard-soft sp-args pos)
   (if (fx<? pos 0)
     'soft
-    (let ((arg (span-ref parsed-args pos)))
+    (let ((arg (span-ref sp-args pos)))
       (if (memq arg '(hard soft))
         arg
-        (ulimit/hard-soft parsed-args (fx1- pos))))))
+        (ulimit/hard-soft sp-args (fx1- pos))))))
 
+(define ulimit-all-keys (list->span (rlimit-keys)))
 
 ;; called by (sh-ulimit) builtin
-(define ulimit/span
-  (let ((args-all (list->span (rlimit-keys))))
-    (lambda (parsed-args wbuf)
-    (debugf "ulimit/span ~s" parsed-args)
-    (let* ((arg-n     (span-length parsed-args))
-           (hard-soft (ulimit/hard-soft parsed-args (fx1- arg-n)))
-           (args      (if (span-index parsed-args 0 arg-n (lambda (elem) (eq? elem 'all)))
-                        args-all
-                        parsed-args)))
-      (for-span ((arg args))
-        (unless (memq arg '(hard soft))
-          (let ((value (rlimit-ref hard-soft arg)))
-            (bytespan-insert-right/string!     wbuf (symbol->string arg))
-            (bytespan-insert-right/bytevector! wbuf #vu8(9 9)) ;; tabs
-            (cond
-              ((symbol? value)
-                (bytespan-insert-right/string!     wbuf (symbol->string value)))
-              ((boolean? value)
-                (bytespan-insert-right/bytevector! wbuf (if value #vu8(35 116) #vu8(35 102))))
-              (else
-                (bytespan-display-right/integer!   wbuf value)))
-            (bytespan-insert-right/u8! wbuf 10)))))))) ;; newline
+(define (ulimit/span sp-args wbuf)
+  ;; (debugf "ulimit/span ~s" sp-args)
+  (let* ((arg-n     (span-length sp-args))
+         (hard-soft (ulimit/hard-soft sp-args (fx1- arg-n)))
+         (args      (if (span-index sp-args 0 arg-n (lambda (elem) (eq? elem 'all)))
+                      ulimit-all-keys
+                      sp-args)))
+    (for-span ((arg args))
+      (unless (memq arg '(hard soft))
+        (let ((value (rlimit-ref hard-soft arg)))
+          (bytespan-insert-right/string!     wbuf (symbol->string arg))
+          (bytespan-insert-right/bytevector! wbuf #vu8(9 9)) ;; tabs
+          (cond
+            ((symbol? value)
+              (bytespan-insert-right/string!     wbuf (symbol->string value)))
+            ((boolean? value)
+              (bytespan-insert-right/bytevector! wbuf (if value #vu8(35 116) #vu8(35 102))))
+            (else
+              (bytespan-display-right/integer!   wbuf value)))
+          (bytespan-insert-right/u8! wbuf 10)))))) ;; newline
 
 
 
