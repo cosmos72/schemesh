@@ -322,7 +322,7 @@
   (assert* 'bytespan-display-right/integer! (exact? n))
   (assert* 'bytespan-display-right/integer! (integer? n))
   (cond
-    (#f ; (fixnum? n)
+    ((fixnum? n)
       (bytespan-display-right/fixnum! sp n))
     (else
       (when (< n 0)
@@ -337,6 +337,7 @@
                (bv  (bytespan-peek-data sp)) ; bytevector
                (wpos
                  (let %loop ((n n) (pos pos))
+                   ;; (debugf "%bytespan-display-right/integer! bv=~s n=~s" bv n)
                    (if (and (fixnum? n) (fxzero? n))
                      pos
                      (let-values (((n/10 n%10) (div-and-mod n 10)))

@@ -237,20 +237,28 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [limit]\n")
 
 
 ;; called by (sh-ulimit) builtin
-(define (ulimit/span parsed-args wbuf)
-  ;; (debugf "ulimit/span ~s" parsed-args)
-  (let* ((arg-n     (span-length parsed-args))
-         (hard-soft (ulimit/hard-soft parsed-args (fx1- arg-n)))
-         (args      (if (span-index parsed-args 0 arg-n 'all)
-                      (rlimit-keys)
-                      parsed-args)))
-    (for-span ((arg args))
-      (unless (memq arg '(hard soft))
-        (let ((ret (rlimit-ref hard-soft arg)))
-          (bytespan-insert-right/string!     wbuf (symbol->string arg))
-          (bytespan-insert-right/bytevector! wbuf #vu8(9 9)) ;; tabs
-          (bytespan-display-right/integer!   wbuf ret)
-          (bytespan-insert-right/u8!         wbuf 10)))))) ;; newline
+(define ulimit/span
+  (let ((args-all (list->span (rlimit-keys))))
+    (lambda (parsed-args wbuf)
+    (debugf "ulimit/span ~s" parsed-args)
+    (let* ((arg-n     (span-length parsed-args))
+           (hard-soft (ulimit/hard-soft parsed-args (fx1- arg-n)))
+           (args      (if (span-index parsed-args 0 arg-n (lambda (elem) (eq? elem 'all)))
+                        args-all
+                        parsed-args)))
+      (for-span ((arg args))
+        (unless (memq arg '(hard soft))
+          (let ((value (rlimit-ref hard-soft arg)))
+            (bytespan-insert-right/string!     wbuf (symbol->string arg))
+            (bytespan-insert-right/bytevector! wbuf #vu8(9 9)) ;; tabs
+            (cond
+              ((symbol? value)
+                (bytespan-insert-right/string!     wbuf (symbol->string value)))
+              ((boolean? value)
+                (bytespan-insert-right/bytevector! wbuf (if value #vu8(35 116) #vu8(35 102))))
+              (else
+                (bytespan-display-right/integer!   wbuf value)))
+            (bytespan-insert-right/u8! wbuf 10)))))))) ;; newline
 
 
 
