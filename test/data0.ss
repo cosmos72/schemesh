@@ -228,7 +228,7 @@
     (bytespan-insert-left/char! sp (integer->char #x10348)) sp)      ,(bytespan 240 144 141 136)
   (let ((sp (bytespan)))
     (bytespan-insert-left/char! sp (integer->char #x10ffff)) sp)     ,(bytespan 244 143 191 191)
-  ;; ----------------- bytespan-fixnum-display ----------------------------
+  ;; ----------------- bytespan-display-right/fixnum! --------------------------
   (let ((sp (bytespan)))
     (for ((n (in-list '(0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000
                        9999998 10000000 123456789 -1 -9 -10 -536870912 #f #t))))
@@ -238,7 +238,7 @@
     (utf8b-bytespan->string sp))
               "0 1 9 10 99 100 999 1000 9999 10000 99999 100000 999999 1000000 9999998 10000000 123456789 -1 -9 -10 -536870912 "
 
-  ;; ------------------------- span ---------------------------------------
+  ;; ------------------------- span --------------------------------------------
   (span 1 2 3)                             ,(span 1 2 3)
   (list->span '(foo bar baz))              ,(span foo bar baz)
   (span-length (span 1 2 3))               3

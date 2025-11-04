@@ -1932,7 +1932,7 @@ static ptr c_threads(void) {
   return S_threads;
 }
 
-#define NOKEY_RLIMIT INT_MIN
+#define NOKEY INT_MIN
 
 static const int rlimit_keys[] = {
 /* order must match (rlimit-keys) */
@@ -1940,43 +1940,43 @@ static const int rlimit_keys[] = {
 #ifdef RLIMIT_CORE
     RLIMIT_CORE, /* coredump-size */
 #else
-    NOKEY_RLIMIT,
+    NOKEY,
 #endif
 
 #ifdef RLIMIT_DATA
     RLIMIT_DATA, /* data-size */
 #else
-    NOKEY_RLIMIT,
+    NOKEY,
 #endif
 
 #ifdef RLIMIT_NICE
     RLIMIT_NICE, /* nice */
 #else
-    NOKEY_RLIMIT,
+    NOKEY,
 #endif
 
 #ifdef RLIMIT_FSIZE
     RLIMIT_FSIZE, /* file-size */
 #else
-    NOKEY_RLIMIT,
+    NOKEY,
 #endif
 
 #ifdef RLIMIT_SIGPENDING
     RLIMIT_SIGPENDING, /* pending-signals */
 #else
-    NOKEY_RLIMIT,
+    NOKEY,
 #endif
 
 #ifdef RLIMIT_MEMLOCK
     RLIMIT_MEMLOCK, /* locked-memory-size */
 #else
-    NOKEY_RLIMIT,
+    NOKEY,
 #endif
 
 #ifdef RLIMIT_RSS
     RLIMIT_RSS, /* memory-size */
 #else
-    NOKEY_RLIMIT,
+    NOKEY,
 #endif
 
 #if defined(RLIMIT_NOFILE)
@@ -1984,57 +1984,57 @@ static const int rlimit_keys[] = {
 #elif defined(RLIMIT_OFILE)
     RLIMIT_OFILE
 #else
-    NOKEY_RLIMIT,
+    NOKEY,
 #endif
 
-    NOKEY_RLIMIT, /* pipe-size. Retrieved from PIPE_BUF, not getrlimit() */
+    NOKEY, /* pipe-size. Retrieved from PIPE_BUF, not getrlimit() */
 
 #ifdef RLIMIT_MSGQUEUE
     RLIMIT_MSGQUEUE, /* msgqueue-size */
 #else
-    NOKEY_RLIMIT,
+    NOKEY,
 #endif
 
 #ifdef RLIMIT_RTPRIO
     RLIMIT_RTPRIO, /* realtime-priority */
 #else
-    NOKEY_RLIMIT,
+    NOKEY,
 #endif
 
 #ifdef RLIMIT_STACK
     RLIMIT_STACK, /* stack-size */
 #else
-    NOKEY_RLIMIT,
+    NOKEY,
 #endif
 
 #ifdef RLIMIT_CPU
     RLIMIT_CPU, /* cpu-time */
 #else
-    NOKEY_RLIMIT,
+    NOKEY,
 #endif
 
 #ifdef RLIMIT_NPROC
     RLIMIT_NPROC, /* user-processes */
 #else
-    NOKEY_RLIMIT,
+    NOKEY,
 #endif
 
 #ifdef RLIMIT_AS
     RLIMIT_AS, /* virtual-memory-size */
 #else
-    NOKEY_RLIMIT,
+    NOKEY,
 #endif
 
 #ifdef RLIMIT_LOCKS
     RLIMIT_LOCKS, /* file-locks */
 #else
-    NOKEY_RLIMIT,
+    NOKEY,
 #endif
 
 #ifdef RLIMIT_RTTIME
     RLIMIT_RTTIME, /* realtime-nonblocking-time */
 #else
-    NOKEY_RLIMIT,
+    NOKEY,
 #endif
 
 };
@@ -2044,10 +2044,12 @@ static ptr c_rlimit_keys(void) {
   /* iteratively create list from tail */
   for (size_t i = N_OF(rlimit_keys); i > 0; i--) {
     const int key = rlimit_keys[i - 1];
-    l             = Scons(key == NOKEY_RLIMIT ? Sfalse : Sinteger(key), l);
+    l             = Scons(key == NOKEY ? Sfalse : Sinteger(key), l);
   }
   return l;
 }
+
+#undef NOKEY
 
 static ptr c_rlimit_get(int is_hard, int resource) {
   struct rlimit lim;

@@ -289,32 +289,44 @@
     ret))
 
 
-;; convert a fixnum to decimal digits and append the digits to bytespan.
+;; convert a fixnum to decimal digits and append such digits to bytespan.
 (define (bytespan-display-right/fixnum! sp n)
-  (if (fx<? n 0)
-    (bytespan-insert-right/u8! sp 45) ; append '-'
-    (set! n (fx- n)))                ; always work with negative fixnum: wider range
-  (if (fx>=? n -9)
-    (bytespan-insert-right/u8! sp (fx- 48 n))                         ; |n| + '0'
-    (let ((max-digit-n (fx1+ (fxdiv (fx* (bitwise-length n) 3) 10))) ; upper bound
-          (len (bytespan-length sp)))
-      (bytespan-reserve-right! sp (fx+ len max-digit-n))
-      (let* ((beg (bytespan-peek-end sp)) ; we write after bytespan-peek-end
-             (end (fx+ beg max-digit-n))
-             (pos end)
-             (bv  (bytespan-peek-data sp))) ; bytevector
-        (do ()
-            ((fxzero? n))
-          (let-values (((n/10 n%10) (fxdiv-and-mod n 10)))
-            (set! n%10 (if (fxzero? n%10) 0 (fx- 10 n%10)))
-            (set! pos (fx1- pos))
-            (assert* 'bytespan-display-right/fixnum! (fx>=? pos beg))
-            (bytevector-u8-set! bv pos (fx+ 48 n%10))
-            (set! n (if (fxzero? n%10) n/10 (fx1+ n/10)))))
-        (let ((digit-n (fx- end pos)))
-          (when (fx>? pos beg)
-            (bytevector-copy! bv pos bv beg digit-n))
-          (bytespan-resize-right! sp (fx+ len digit-n)))))))
+  (let ((n (if (fx<? n 0)
+             (begin
+               (bytespan-insert-right/u8! sp 45) ; append '-'
+               n)
+             (fx- n)))) ; always work with negative fixnum: wider range
+    (if (fx>=? n -9)
+      (bytespan-insert-right/u8! sp (fx- 48 n))  ; |n| + '0'
+      (let ((max-digit-n (fx1+ (fxdiv (fx* (bitwise-length n) 3) 10))) ; upper bound
+            (len         (bytespan-length sp)))
+        (bytespan-reserve-right! sp (fx+ len max-digit-n))
+        (%bytespan-display-right/nfixnum! sp len n max-digit-n)))))
+
+
+;; convert a negative fixnum to decimal digits and append such digits to bytespan.
+;; ignores the sign. does not support n >= 0.
+(define (%bytespan-display-right/nfixnum! sp len n max-digit-n)
+  (let* ((beg (bytespan-peek-end sp)) ; we write after bytespan-peek-end
+         (end (fx+ beg max-digit-n))
+         (bv  (bytespan-peek-data sp)) ; bytevector
+         (wpos
+           (let %display-fixnum-loop ((n n) (pos end))
+             ;; (debugf "%display-fixnum-loop bv=~s pos=~s n=~s" bv pos n)
+             (if (fxzero? n)
+               pos
+               (let-values (((n/10 n%10) (fxdiv-and-mod n 10)))
+                 (let ((n%10 (if (fxzero? n%10) 0 (fx- 10 n%10)))
+                       (pos (fx1- pos)))
+                   (assert* 'bytespan-display-right/fixnum! (fx>=? pos beg))
+                   (bytevector-u8-set! bv pos (fx+ 48 n%10))
+                   (%display-fixnum-loop
+                      (if (fxzero? n%10) n/10 (fx1+ n/10))
+                      pos))))))
+         (digit-n (fx- end wpos)))
+    (when (fx>? wpos beg)
+      (bytevector-copy! bv wpos bv beg digit-n))
+    (bytespan-resize-right! sp (fx+ len digit-n))))
 
 
 ;; convert an exact integer to decimal digits and append the digits to bytespan.
@@ -333,10 +345,9 @@
         (bytespan-reserve-right! sp (fx+ len max-digit-n))
         (let* ((beg (bytespan-peek-end sp)) ; we write after bytespan-peek-end
                (end (fx+ beg max-digit-n))
-               (pos end)
                (bv  (bytespan-peek-data sp)) ; bytevector
                (wpos
-                 (let %loop ((n n) (pos pos))
+                 (let %loop ((n n) (pos end))
                    (if (and (fixnum? n) (fxzero? n))
                      pos
                      (let-values (((n/10 n%10) (div-and-mod n 10)))
@@ -346,7 +357,7 @@
                          (%loop n/10 pos))))))
                (digit-n (fx- end wpos)))
           (when (fx>? wpos beg)
-            (bytevector-copy! bv pos bv beg digit-n))
+            (bytevector-copy! bv wpos bv beg digit-n))
           (bytespan-resize-right! sp (fx+ len digit-n)))))))
 
 
