@@ -304,7 +304,7 @@
         (let* ((bv      (bytespan-peek-data sp))
                (beg     (bytespan-peek-end sp)) ; we write after bytespan-peek-end
                (end     (fx+ beg max-digit-n))
-               (wpos    (%bytevector-display-right/nfixnum! bv end n))
+               (wpos    (%bytevector-display-right/-fixnum! bv end n))
                (digit-n (fx- end wpos)))
           (assert* 'bytespan-display-right/fixnum! (fx>=? wpos beg))
           (when (fx>? wpos beg)
@@ -317,15 +317,15 @@
 ;; return position before leftmost written digit.
 ;;
 ;; ignores n sign. does not support n >= 0.
-(define (%bytevector-display-right/nfixnum! bv pos n)
-  ;; (debugf "%bytevector-display-right/nfixnum! bv=~s pos=~s n=~s" bv pos n)
+(define (%bytevector-display-right/-fixnum! bv pos n)
+  ;; (debugf "%bytevector-display-right/-fixnum! bv=~s pos=~s n=~s" bv pos n)
   (if (fxzero? n)
     pos
     (let-values (((n/10 n%10) (fxdiv-and-mod n 10)))
       (let ((n%10 (if (fxzero? n%10) 0 (fx- 10 n%10)))
             (pos  (fx1- pos)))
         (bytevector-u8-set! bv pos (fx+ 48 n%10))
-        (%bytevector-display-right/nfixnum!
+        (%bytevector-display-right/-fixnum!
             bv pos (if (fxzero? n%10) n/10 (fx1+ n/10)))))))
 
 
@@ -333,33 +333,42 @@
 (define (bytespan-display-right/integer! sp n)
   (assert* 'bytespan-display-right/integer! (exact? n))
   (assert* 'bytespan-display-right/integer! (integer? n))
+  (if (fixnum? n)
+    (bytespan-display-right/fixnum! sp n)
+    (let* ((n (if (< n 0)
+               (begin
+                 (bytespan-insert-right/u8! sp 45) ; append '-'
+                 (- n))       ; always work with unsigned integers: easier
+               n))
+           (max-digit-n (fx1+ (fxdiv (fx* (bitwise-length n) 3) 10))) ; upper bound
+           (len (bytespan-length sp)))
+      (bytespan-reserve-right! sp (fx+ len max-digit-n))
+      (let* ((beg     (bytespan-peek-end sp)) ; we write after bytespan-peek-end
+             (end     (fx+ beg max-digit-n))
+             (bv      (bytespan-peek-data sp)) ; bytevector
+             (wpos    (%bytevector-display-right/unsigned! bv end n))
+             (digit-n (fx- end wpos)))
+        (assert* 'bytespan-display-right/integer! (fx>=? wpos beg))
+        (when (fx>? wpos beg)
+          (bytevector-copy! bv wpos bv beg digit-n))
+        (bytespan-resize-right! sp (fx+ len digit-n))))))
+
+
+;; convert an unsigned exact integer to decimal digits and write such digits to bytevector,
+;; starting at position (fx1- pos) and moving leftward.
+;; return position before leftmost written digit.
+(define (%bytevector-display-right/unsigned! bv pos n)
+  ;; (debugf "%bytevector-display-right/unsigned! bv=~s pos=~s n=~s" bv pos n)
   (cond
-    ((fixnum? n)
-      (bytespan-display-right/fixnum! sp n))
+    ((not (fixnum? n))
+      (let-values (((n/10 n%10) (div-and-mod n 10)))
+        (let ((pos (fx1- pos)))
+          (bytevector-u8-set! bv pos (fx+ 48 n%10))
+          (%bytevector-display-right/unsigned! bv pos n/10))))
+    ((fxzero? n)
+      pos)
     (else
-      (when (< n 0)
-        (bytespan-insert-right/u8! sp 45) ; append '-'
-        (set! n (- n)))                   ; always work with unsigned integers: easier
-      (let ((max-digit-n (fx1+ (fxdiv (fx* (bitwise-length n) 3) 10))) ; upper bound
-            (len (bytespan-length sp)))
-        (bytespan-reserve-right! sp (fx+ len max-digit-n))
-        (let* ((beg (bytespan-peek-end sp)) ; we write after bytespan-peek-end
-               (end (fx+ beg max-digit-n))
-               (bv  (bytespan-peek-data sp)) ; bytevector
-               (wpos
-                 (let %display-integer-loop ((n n) (pos end))
-                   ;; (debugf "%bytespan-display-right/integer! bv=~s n=~s" bv n)
-                   (if (and (fixnum? n) (fxzero? n))
-                     pos
-                     (let-values (((n/10 n%10) (div-and-mod n 10)))
-                       (let ((pos (fx1- pos)))
-                         (assert* 'bytespan-display-right/integer! (fx>=? pos beg))
-                         (bytevector-u8-set! bv pos (fx+ 48 n%10))
-                         (%display-integer-loop n/10 pos))))))
-               (digit-n (fx- end wpos)))
-          (when (fx>? wpos beg)
-            (bytevector-copy! bv wpos bv beg digit-n))
-          (bytespan-resize-right! sp (fx+ len digit-n)))))))
+      (%bytevector-display-right/-fixnum! bv pos (fx- n)))))
 
 
 ) ; close library
