@@ -301,32 +301,32 @@
       (let ((max-digit-n (fx1+ (fxdiv (fx* (bitwise-length n) 3) 10))) ; upper bound
             (len         (bytespan-length sp)))
         (bytespan-reserve-right! sp (fx+ len max-digit-n))
-        (%bytespan-display-right/nfixnum! sp len n max-digit-n)))))
+        (let* ((bv      (bytespan-peek-data sp))
+               (beg     (bytespan-peek-end sp)) ; we write after bytespan-peek-end
+               (end     (fx+ beg max-digit-n))
+               (wpos    (%bytevector-display-right/nfixnum! bv end n))
+               (digit-n (fx- end wpos)))
+          (assert* 'bytespan-display-right/fixnum! (fx>=? wpos beg))
+          (when (fx>? wpos beg)
+            (bytevector-copy! bv wpos bv beg digit-n))
+          (bytespan-resize-right! sp (fx+ len digit-n)))))))
 
 
-;; convert a negative fixnum to decimal digits and append such digits to bytespan.
-;; ignores the sign. does not support n >= 0.
-(define (%bytespan-display-right/nfixnum! sp len n max-digit-n)
-  (let* ((beg (bytespan-peek-end sp)) ; we write after bytespan-peek-end
-         (end (fx+ beg max-digit-n))
-         (bv  (bytespan-peek-data sp)) ; bytevector
-         (wpos
-           (let %display-fixnum-loop ((n n) (pos end))
-             ;; (debugf "%display-fixnum-loop bv=~s pos=~s n=~s" bv pos n)
-             (if (fxzero? n)
-               pos
-               (let-values (((n/10 n%10) (fxdiv-and-mod n 10)))
-                 (let ((n%10 (if (fxzero? n%10) 0 (fx- 10 n%10)))
-                       (pos (fx1- pos)))
-                   (assert* 'bytespan-display-right/fixnum! (fx>=? pos beg))
-                   (bytevector-u8-set! bv pos (fx+ 48 n%10))
-                   (%display-fixnum-loop
-                      (if (fxzero? n%10) n/10 (fx1+ n/10))
-                      pos))))))
-         (digit-n (fx- end wpos)))
-    (when (fx>? wpos beg)
-      (bytevector-copy! bv wpos bv beg digit-n))
-    (bytespan-resize-right! sp (fx+ len digit-n))))
+;; convert a negative fixnum to decimal digits and write such digits to bytevector,
+;; starting at position (fx1- pos) and moving leftward.
+;; return position before leftmost written digit.
+;;
+;; ignores n sign. does not support n >= 0.
+(define (%bytevector-display-right/nfixnum! bv pos n)
+  ;; (debugf "%bytevector-display-right/nfixnum! bv=~s pos=~s n=~s" bv pos n)
+  (if (fxzero? n)
+    pos
+    (let-values (((n/10 n%10) (fxdiv-and-mod n 10)))
+      (let ((n%10 (if (fxzero? n%10) 0 (fx- 10 n%10)))
+            (pos  (fx1- pos)))
+        (bytevector-u8-set! bv pos (fx+ 48 n%10))
+        (%bytevector-display-right/nfixnum!
+            bv pos (if (fxzero? n%10) n/10 (fx1+ n/10)))))))
 
 
 ;; convert an exact integer to decimal digits and append the digits to bytespan.
@@ -347,7 +347,7 @@
                (end (fx+ beg max-digit-n))
                (bv  (bytespan-peek-data sp)) ; bytevector
                (wpos
-                 (let %loop ((n n) (pos end))
+                 (let %display-integer-loop ((n n) (pos end))
                    ;; (debugf "%bytespan-display-right/integer! bv=~s n=~s" bv n)
                    (if (and (fixnum? n) (fxzero? n))
                      pos
@@ -355,7 +355,7 @@
                        (let ((pos (fx1- pos)))
                          (assert* 'bytespan-display-right/integer! (fx>=? pos beg))
                          (bytevector-u8-set! bv pos (fx+ 48 n%10))
-                         (%loop n/10 pos))))))
+                         (%display-integer-loop n/10 pos))))))
                (digit-n (fx- end wpos)))
           (when (fx>? wpos beg)
             (bytevector-copy! bv wpos bv beg digit-n))
