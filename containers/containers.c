@@ -32,6 +32,10 @@ typedef struct {
   size_t char_n;
 } sizepair;
 
+/******************************************************************************/
+/*************************** bytevector functions *****************************/
+/******************************************************************************/
+
 static size_t c_fnv1a(const octet data[], const size_t n) {
 #if SIZE_MAX <= 0xFFFFFFFFu
   const size_t prime = 0x01000193u;
@@ -112,6 +116,26 @@ static ptr c_bytevector_index_u8(ptr bvec, iptr start, iptr end, int value) {
   }
   return Sfalse;
 }
+
+/**
+ * convert a C char[] to Scheme bytevector and return it.
+ * If out of memory, or len > maximum bytevector length, raises condition.
+ */
+ptr schemesh_Sbytevector(const char chars[], const size_t len) {
+  /* Smake_bytevector() wants iptr length */
+  iptr bvec_len = (iptr)len;
+  if (bvec_len < 0 || (size_t)bvec_len != len) {
+    /* Smake_bytevector() will raise condition */
+    bvec_len = -1;
+  }
+  ptr bvec = Smake_bytevector(bvec_len, 0);
+  memcpy(Sbytevector_data(bvec), chars, len);
+  return bvec;
+}
+
+/******************************************************************************/
+/***************************** string functions *******************************/
+/******************************************************************************/
 
 /**
  * INTENTIONALLY fills string with Unicode codepoints in the surrogate range 0xDC80..0xDCFF,
@@ -274,6 +298,10 @@ static ptr c_string_to_utf8b(ptr string, iptr start, iptr end, iptr zeropad_n) {
   return Sfalse;
 }
 #endif /* 0 */
+
+/******************************************************************************/
+/***************************** UTF-8b functions *******************************/
+/******************************************************************************/
 
 /**
  * convert a single UTF-8b sequence to Unicode codepoint,
@@ -557,20 +585,57 @@ ptr schemesh_Sstring_utf8b(const char chars[], size_t len) {
   return Smake_string(-1, 0);
 }
 
-/**
- * convert a C char[] to Scheme bytevector and return it.
- * If out of memory, or len > maximum bytevector length, raises condition.
- */
-ptr schemesh_Sbytevector(const char chars[], const size_t len) {
-  /* Smake_bytevector() wants iptr length */
-  iptr bvec_len = (iptr)len;
-  if (bvec_len < 0 || (size_t)bvec_len != len) {
-    /* Smake_bytevector() will raise condition */
-    bvec_len = -1;
+/******************************************************************************/
+/**************************** flvector functions ******************************/
+/******************************************************************************/
+
+#ifdef Sflvector_ref // defined only by Chez Scheme >= 10.0.0
+
+void c_flvector_copy(ptr src, ptr src_start, ptr dst, ptr dst_start, ptr count) {
+#if 0 /* redundant, already checked by Scheme function (flvector-copy!) */
+  if (Sflvectorp(src) && Sfixnump(src_start) && Sflvectorp(dst) && Sfixnump(dst_start) &&
+      Sfixnump(n))
+#endif
+  {
+    iptr src_i = Sfixnum_value(src_start);
+    iptr dst_i = Sfixnum_value(dst_start);
+    iptr n     = Sfixnum_value(count);
+#if 0 /* redundant, already checked by Scheme function (flvector-copy!) */
+    if (src_offset >= 0 && dst_offset >= 0 && n > 0)
+#endif
+    {
+      const double* src_addr = &Sflvector_ref(src, src_i);
+      double*       dst_addr = &Sflvector_ref(dst, dst_i);
+
+      memmove(dst_addr, src_addr, n * sizeof(double));
+    }
   }
-  ptr bvec = Smake_bytevector(bvec_len, 0);
-  memcpy(Sbytevector_data(bvec), chars, len);
-  return bvec;
+}
+#endif /* Sflvector_ref */
+
+/******************************************************************************/
+/**************************** fxvector functions ******************************/
+/******************************************************************************/
+
+void c_fxvector_copy(ptr src, ptr src_start, ptr dst, ptr dst_start, ptr count) {
+#if 0 /* redundant, already checked by Scheme function (fxvector-copy!) */
+      if (Sfxvectorp(src) && Sfixnump(src_start) && Sfxvectorp(dst) && Sfixnump(dst_start) &&
+          Sfixnump(n))
+#endif
+  {
+    iptr src_i = Sfixnum_value(src_start);
+    iptr dst_i = Sfixnum_value(dst_start);
+    iptr n     = Sfixnum_value(count);
+#if 0 /* redundant, already checked by Scheme function (fxvector-copy!) */
+        if (src_offset >= 0 && dst_offset >= 0 && n > 0)
+#endif
+    {
+      const ptr* src_addr = &Sfxvector_ref(src, src_i);
+      ptr*       dst_addr = &Sfxvector_ref(dst, dst_i);
+
+      memmove(dst_addr, src_addr, n * sizeof(ptr));
+    }
+  }
 }
 
 void schemesh_register_c_functions_containers(void) {
@@ -586,4 +651,9 @@ void schemesh_register_c_functions_containers(void) {
   Sregister_symbol("c_bytevector_utf8b_to_string_length", &c_bytevector_utf8b_to_string_length);
 #endif /* 0 */
   Sregister_symbol("c_bytevector_utf8b_to_string_append", &c_bytevector_utf8b_to_string_append);
+
+#ifdef Sflvector_ref
+  Sregister_symbol("c_flvector_copy", &c_flvector_copy);
+#endif
+  Sregister_symbol("c_fxvector_copy", &c_fxvector_copy);
 }

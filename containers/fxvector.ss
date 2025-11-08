@@ -12,7 +12,8 @@
     fxvector-copy! for-fxvector in-fxvector)
   (import
     (rnrs)
-    (only (chezscheme)         fx1+ fx1- fxvector-length fxvector-ref fxvector-set!
+    (only (chezscheme)         foreign-procedure
+                               fx1+ fx1- fxvector? fxvector-length fxvector-ref fxvector-set!
                                import meta-cond library-exports)
     (only (schemesh bootstrap) assert* fx<=?* generate-pretty-temporaries with-while-until))
 
@@ -35,16 +36,34 @@
 
   (else
     ;; fxvector is a different type, cannot reuse (vector-copy!)
-    (define (fxvector-copy! src src-start dst dst-start n)
-      (if (and (eq? src dst) (fx<? src-start dst-start))
-        ;; copy backward
-        (do ((i (fx1- n) (fx1- i)))
-            ((fx<? i 0))
-          (fxvector-set! dst (fx+ i dst-start) (fxvector-ref src (fx+ i src-start))))
-        ;; copy forward
-        (do ((i 0 (fx1+ i)))
-            ((fx>=? i n))
-          (fxvector-set! dst (fx+ i dst-start) (fxvector-ref src (fx+ i src-start))))))))
+    (define fxvector-copy!
+      (let ((c-fxvector-copy! (foreign-procedure "c_fxvector_copy" (ptr ptr ptr ptr ptr) void)))
+        (lambda (src src-start dst dst-start n)
+          (case n
+            ((3)
+              ;; copy may overlap
+              (let ((e0 (fxvector-ref src      src-start))
+                    (e1 (fxvector-ref src (fx1+ src-start)))
+                    (e2 (fxvector-ref src (fx+ 2 src-start))))
+                (fxvector-set! dst      dst-start e0)
+                (fxvector-set! dst (fx1+ dst-start) e1)
+                (fxvector-set! dst (fx+ 2 dst-start) e2)))
+            ((2)
+              ;; copy may overlap
+              (let ((e0 (fxvector-ref src      src-start))
+                    (e1 (fxvector-ref src (fx1+ src-start))))
+                (fxvector-set! dst      dst-start e0)
+                (fxvector-set! dst (fx1+ dst-start) e1)))
+            ((1)
+              (let ((e0 (fxvector-ref src src-start)))
+                (fxvector-set! dst dst-start e0)))
+            (else
+              (assert* 'fxvector-copy! (fxvector? src))
+              (assert* 'fxvector-copy! (fxvector? dst))
+              (assert* 'fxvector-copy! (fx<=?* 0 src-start (fx+ src-start n) (fxvector-length src)))
+              (assert* 'fxvector-copy! (fx<=?* 0 dst-start (fx+ dst-start n) (fxvector-length dst)))
+              (unless (fxzero? n)
+                (c-fxvector-copy! src src-start dst dst-start n)))))))))
 
 
 ;; Iterate in parallel on elements of given fxvector(s) v ..., and evaluate body ... on each element.

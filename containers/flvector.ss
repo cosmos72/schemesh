@@ -14,17 +14,17 @@
     flvector-copy! for-flvector in-flvector)
   (import
     (rnrs)
-    (only (chezscheme) import library-exports meta-cond fx1+ fx1-)
+    (only (chezscheme)         foreign-procedure import library-exports meta-cond fx1+ fx1-)
     (only (schemesh bootstrap) assert* fx<=?* generate-pretty-temporaries with-while-until))
 
 
 (meta-cond
   ((let ((exports (library-exports '(chezscheme))))
-      (and (memq 'flvector?       exports)
-           (memq 'flvector-length exports)
-           (memq 'flvector-ref    exports)
-           (memq 'flvector-set!   exports)
-           (memq 'make-flvector   exports)))
+     (and (memq 'flvector?       exports)
+          (memq 'flvector-length exports)
+          (memq 'flvector-ref    exports)
+          (memq 'flvector-set!   exports)
+          (memq 'make-flvector   exports)))
     (import (prefix
                 (only (chezscheme) flvector flvector? flvector-length flvector-ref flvector-set! make-flvector)
               chez:))
@@ -58,15 +58,52 @@
 ;; Added in schemesh 0.9.3
 (meta-cond
   ;; flvector-copy! is defined only in Chez Scheme >= 10.2.0
-  ((memq 'flvector-copy! (library-exports '(chezscheme)))
+  ((let ((exports (library-exports '(chezscheme))))
+     (memq 'flvector-copy! exports))
+
     (import (prefix
                 (only (chezscheme) flvector-copy!)
               chez:))
     (define flvector-copy!   chez:flvector-copy!))
 
+  ((let ((exports (library-exports '(chezscheme))))
+     (and (memq 'flvector?       exports)
+          (memq 'flvector-length exports)
+          (memq 'flvector-ref    exports)
+          (memq 'flvector-set!   exports)))
+
+    ;; flvector is a different type in Chez Scheme >= 10.0.0, cannot reuse (vectory-copy!)
+    (define flvector-copy!
+      (let ((c-flvector-copy! (foreign-procedure "c_flvector_copy" (ptr ptr ptr ptr ptr) void)))
+        (lambda (src src-start dst dst-start n)
+          (case n
+            ((3)
+              ;; copy may overlap
+              (let ((e0 (flvector-ref src      src-start))
+                    (e1 (flvector-ref src (fx1+ src-start)))
+                    (e2 (flvector-ref src (fx+ 2 src-start))))
+                (flvector-set! dst      dst-start e0)
+                (flvector-set! dst (fx1+ dst-start) e1)
+                (flvector-set! dst (fx+ 2 dst-start) e2)))
+            ((2)
+              ;; copy may overlap
+              (let ((e0 (flvector-ref src      src-start))
+                    (e1 (flvector-ref src (fx1+ src-start))))
+                (flvector-set! dst      dst-start e0)
+                (flvector-set! dst (fx1+ dst-start) e1)))
+            ((1)
+              (let ((e0 (flvector-ref src src-start)))
+                (flvector-set! dst dst-start e0)))
+            (else
+              (assert* 'flvector-copy! (flvector? src))
+              (assert* 'flvector-copy! (flvector? dst))
+              (assert* 'flvector-copy! (fx<=?* 0 src-start (fx+ src-start n) (flvector-length src)))
+              (assert* 'flvector-copy! (fx<=?* 0 dst-start (fx+ dst-start n) (flvector-length dst)))
+              (unless (fxzero? n)
+                (c-flvector-copy! src src-start dst dst-start n))))))))
+
   (else
-    ;; flvector may be an alias for vector, or may be a separate type
-    ;; => define flvector-copy!
+    ;; flvector is not a different type, it is aliased to vector (see above) in Chez Scheme < 10.0.0
     (define (flvector-copy! src src-start dst dst-start n)
       (if (and (eq? src dst) (fx<? src-start dst-start))
         ;; copy backward
@@ -86,9 +123,9 @@
 ;; and return unspecified value.
 ;;
 ;; The implementation of body ... can call directly or indirectly functions
-;; that inspect or modify the fxvectors elements.
+;; that inspect or modify the flvectors elements.
 ;;
-;; It must NOT call any function that modifies the fxvectors' length, as for example (flvector-truncate!)
+;; It must NOT call any function that modifies the flvectors' length, as for example (flvector-truncate!)
 ;;
 ;; Return unspecified value.
 ;;
