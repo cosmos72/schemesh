@@ -11,12 +11,11 @@
 (library (schemesh containers flvector (0 9 2))
   (export
     flvector-native? flvector flvector? flvector-length flvector-ref flvector-set! make-flvector
-    flvector-copy! in-flvector)
+    flvector-copy! for-flvector in-flvector)
   (import
     (rnrs)
-    (only (chezscheme) import library-exports meta-cond)
-    (only (schemesh bootstrap) assert* fx<=?*)
-    (only (schemesh containers vector) vector-copy!))
+    (only (chezscheme) import library-exports meta-cond fx1+ fx1-)
+    (only (schemesh bootstrap) assert* fx<=?* generate-pretty-temporaries with-while-until))
 
 
 (meta-cond
@@ -49,6 +48,14 @@
     (define make-flvector    make-vector)))
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;     some additional flvector functions    ;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; (flvector-copy! src src-start dst dst-start n)
+;;
+;; Added in schemesh 0.9.3
 (meta-cond
   ;; flvector-copy! is defined only in Chez Scheme >= 10.2.0
   ((memq 'flvector-copy! (library-exports '(chezscheme)))
@@ -58,15 +65,47 @@
     (define flvector-copy!   chez:flvector-copy!))
 
   (else
-    ;; vector-copy! is defined only in Chez Scheme >= 10.3.0
-    ;; => use vectory-copy! from (schemesh containers vector)
-    (define flvector-copy!   vector-copy!)))
+    ;; flvector may be an alias for vector, or may be a separate type
+    ;; => define flvector-copy!
+    (define (flvector-copy! src src-start dst dst-start n)
+      (if (and (eq? src dst) (fx<? src-start dst-start))
+        ;; copy backward
+        (do ((i (fx1- n) (fx1- i)))
+            ((fx<? i 0))
+          (flvector-set! dst (fx+ i dst-start) (flvector-ref src (fx+ i src-start))))
+        ;; copy forward
+        (do ((i 0 (fx1+ i)))
+            ((fx>=? i n))
+          (flvector-set! dst (fx+ i dst-start) (flvector-ref src (fx+ i src-start))))))))
 
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;     some additional flvector functions    ;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Iterate in parallel on elements of given flvector(s) v ..., and evaluate body ... on each element.
+;; Stop iterating when the shortest flvector is exhausted,
+;; and return unspecified value.
+;;
+;; The implementation of body ... can call directly or indirectly functions
+;; that inspect or modify the fxvectors elements.
+;;
+;; It must NOT call any function that modifies the fxvectors' length, as for example (flvector-truncate!)
+;;
+;; Return unspecified value.
+;;
+;; Added in schemesh 0.9.3
+(define-syntax for-flvector
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ ((elem v) ...) body1 body2 ...)
+        (not (null? #'(v ...)))
+        (with-syntax (((tv ...) (generate-pretty-temporaries #'(v ...))))
+          #'(let ((tv v) ...)
+              (let %for-flvector ((i 0) (n (fxmin (flvector-length v) ...)))
+                (when (fx<? i n)
+                  (let ((elem (flvector-ref tv i)) ...)
+                    (with-while-until
+                      body1 body2 ...
+                      (%for-flvector (fx1+ i) n)))))))))))
 
 
 ;; create and return a closure that iterates on elements of flvector v.

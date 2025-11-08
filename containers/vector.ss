@@ -9,15 +9,15 @@
 
 (library (schemesh containers vector (0 9 2))
   (export
-    for-vector
-    in-vector in-fxvector
-    vector-any vector-copy! subvector subvector-fill! vector-index vector-iterate vector->hashtable! subvector->list)
+    for-vector in-vector vector-any vector-copy!
+    subvector subvector-fill!
+    vector-index vector-iterate vector->hashtable! subvector->list)
   (import
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme)         cflonum? cfl+ fl-make-rectangular
                                fx1+ fx1- fxvector-length fxvector-ref
-                               import include meta-cond library-exports scheme-version)
+                               import meta-cond library-exports)
     (only (schemesh bootstrap) assert* fx<=?* raise-errorf generate-pretty-temporaries with-while-until))
 
 
@@ -103,14 +103,14 @@
 
 
 
-;; Iterate in parallel on elements of given vector v ..., and evaluate body ... on each element.
+;; Iterate in parallel on elements of given vector(s) v ..., and evaluate body ... on each element.
 ;; Stop iterating when the shortest vector is exhausted,
 ;; and return unspecified value.
 ;;
 ;; The implementation of body ... can call directly or indirectly functions
-;; that inspect the vectors without modifying them, and can also call (vector-set! ...).
+;; that inspect or modify the vectors elements.
 ;;
-;; It must NOT call any other function that modifies the vector, as for example (vector-truncate!)
+;; It must NOT call any function that modifies the vectors' length, as for example (vector-truncate!)
 ;;
 ;; Return unspecified value.
 (define-syntax for-vector
@@ -250,6 +250,18 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;     some additional fxvector functions    ;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(meta-cond
+  ;; fxvector-copy! is defined only in Chez Scheme >= 10.2.0
+  ((memq 'fxvector-copy! (library-exports '(chezscheme)))
+    (import (prefix
+                (only (chezscheme) fxvector-copy!)
+              chez:))
+    (define fxvector-copy!   chez:fxvector-copy!))
+
+  (else
+    (define fxvector-copy!   vector-copy!)))
 
 
 ;; create and return a closure that iterates on elements of fxvector v.

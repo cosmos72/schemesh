@@ -14,6 +14,7 @@
           (schemesh containers bytevector)
           (schemesh containers charspan)
           (schemesh containers flvector)
+          (schemesh containers fxvector)
           (schemesh containers in)
           (schemesh containers gbuffer)
           (schemesh containers list)
