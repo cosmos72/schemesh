@@ -10,10 +10,13 @@
 
 (library (schemesh containers flvector (0 9 2))
   (export
-    flvector-native? flvector flvector? flvector-length flvector-ref flvector-set! make-flvector)
+    flvector-native? flvector flvector? flvector-length flvector-ref flvector-set! make-flvector
+    flvector-copy! in-flvector)
   (import
     (rnrs)
-    (only (chezscheme) import library-exports meta-cond))
+    (only (chezscheme) import library-exports meta-cond)
+    (only (schemesh bootstrap) assert* fx<=?*)
+    (only (schemesh containers vector) vector-copy!))
 
 
 (meta-cond
@@ -45,5 +48,47 @@
     (define flvector-set!    vector-set!)
     (define make-flvector    make-vector)))
 
+
+(meta-cond
+  ;; flvector-copy! is defined only in Chez Scheme >= 10.2.0
+  ((memq 'flvector-copy! (library-exports '(chezscheme)))
+    (import (prefix
+                (only (chezscheme) flvector-copy!)
+              chez:))
+    (define flvector-copy!   chez:flvector-copy!))
+
+  (else
+    ;; vector-copy! is defined only in Chez Scheme >= 10.3.0
+    ;; => use vectory-copy! from (schemesh containers vector)
+    (define flvector-copy!   vector-copy!)))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;     some additional flvector functions    ;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; create and return a closure that iterates on elements of flvector v.
+;; Requires Chez Scheme >= 10.0.0.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values elem #t) i.e. the next element in flvector v and #t,
+;; or (values #<unspecified> #f) if end of vector is reached.
+(define in-flvector
+  (case-lambda
+    ((v start end step)
+      (assert* 'in-flvector (fx<=?* 0 start end (flvector-length v)))
+      (assert* 'in-flvector (fx>=? step 0))
+      (lambda ()
+        (if (fx<? start end)
+          (let ((elem (flvector-ref v start)))
+            (set! start (fx+ start step))
+            (values elem #t))
+          (values #f #f))))
+    ((v start end)
+      (in-flvector v start end 1))
+    ((v)
+      (in-flvector v 0 (flvector-length v) 1))))
 
 ) ; close library

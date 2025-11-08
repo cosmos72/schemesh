@@ -10,7 +10,7 @@
 (library (schemesh containers vector (0 9 2))
   (export
     for-vector
-    in-vector in-fxvector in-flvector ; in-flvector requires Chez Scheme >= 10.0.0
+    in-vector in-fxvector
     vector-any vector-copy! subvector subvector-fill! vector-index vector-iterate vector->hashtable! subvector->list)
   (import
     (rnrs)
@@ -18,8 +18,7 @@
     (only (chezscheme)         cflonum? cfl+ fl-make-rectangular
                                fx1+ fx1- fxvector-length fxvector-ref
                                import include meta-cond library-exports scheme-version)
-    (only (schemesh bootstrap) assert* fx<=?* raise-errorf generate-pretty-temporaries with-while-until)
-    (only (schemesh containers flvector) flvector-length flvector-ref))
+    (only (schemesh bootstrap) assert* fx<=?* raise-errorf generate-pretty-temporaries with-while-until))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -275,31 +274,5 @@
       (in-fxvector v 0 (fxvector-length v) 1))))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;     some additional flvector functions    ;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-;; create and return a closure that iterates on elements of flvector v.
-;; Requires Chez Scheme >= 10.0.0.
-;;
-;; the returned closure accepts no arguments, and each call to it returns two values:
-;; either (values elem #t) i.e. the next element in flvector v and #t,
-;; or (values #<unspecified> #f) if end of vector is reached.
-(define in-flvector
-  (case-lambda
-    ((v start end step)
-      (assert* 'in-flvector (fx<=?* 0 start end (flvector-length v)))
-      (assert* 'in-flvector (fx>=? step 0))
-      (lambda ()
-        (if (fx<? start end)
-          (let ((elem (flvector-ref v start)))
-            (set! start (fx+ start step))
-            (values elem #t))
-          (values #f #f))))
-    ((v start end)
-      (in-flvector v start end 1))
-    ((v)
-      (in-flvector v 0 (flvector-length v) 1))))
 
 ) ; close library

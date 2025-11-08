@@ -14,11 +14,11 @@
 
   (include "containers/bitmap.ss")
   (include "containers/bytevector.ss")
-  (include "containers/flvector.ss")
   (include "containers/in.ss")
   (include "containers/list.ss")
   (include "containers/string.ss")
   (include "containers/vector.ss")
+  (include "containers/flvector.ss")    ; requires containers/vector.ss
   (include "containers/hashtable.ss")   ; requires containers/list.ss
   (include "containers/bytespan.ss")    ; requires containers/bytevector.ss containers/list.ss
   (include "containers/charspan.ss")    ; requires containers/string.ss
