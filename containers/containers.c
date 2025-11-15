@@ -591,7 +591,7 @@ ptr schemesh_Sstring_utf8b(const char chars[], size_t len) {
 
 #ifdef Sflvector_ref // defined only by Chez Scheme >= 10.0.0
 
-void c_flvector_copy(ptr src, ptr src_start, ptr dst, ptr dst_start, ptr count) {
+static void c_flvector_copy(ptr src, ptr src_start, ptr dst, ptr dst_start, ptr count) {
 #if 0 /* redundant, already checked by Scheme function (flvector-copy!) */
   if (Sflvectorp(src) && Sfixnump(src_start) && Sflvectorp(dst) && Sfixnump(dst_start) &&
       Sfixnump(n))
@@ -617,7 +617,7 @@ void c_flvector_copy(ptr src, ptr src_start, ptr dst, ptr dst_start, ptr count) 
 /**************************** fxvector functions ******************************/
 /******************************************************************************/
 
-void c_fxvector_copy(ptr src, ptr src_start, ptr dst, ptr dst_start, ptr count) {
+static void c_fxvector_copy(ptr src, ptr src_start, ptr dst, ptr dst_start, ptr count) {
 #if 0 /* redundant, already checked by Scheme function (fxvector-copy!) */
       if (Sfxvectorp(src) && Sfixnump(src_start) && Sfxvectorp(dst) && Sfixnump(dst_start) &&
           Sfixnump(n))

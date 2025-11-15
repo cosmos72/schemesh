@@ -45,10 +45,10 @@ static void c_cleanup_signals(void) {
  */
 static ptr c_environ_ref(uptr i) {
   const char* entry = environ[i];
-  if (entry) {
-    const char* separator = strchr(entry, '=');
-    size_t      namelen   = separator ? separator - entry : 0;
-    iptr        inamelen  = Sfixnum_value(Sfixnum(namelen));
+  const char* separator;
+  if (entry && (separator = strchr(entry, '=')) != NULL) {
+    size_t namelen   = separator - entry;
+    iptr   inamelen  = Sfixnum_value(Sfixnum(namelen));
     if (namelen > 0 && inamelen > 0 && namelen == (size_t)inamelen) {
       return Scons(schemesh_Sstring_utf8b(entry, namelen),
                    schemesh_Sstring_utf8b(separator + 1, -1));
