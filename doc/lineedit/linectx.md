@@ -45,7 +45,7 @@ Added in 0.9.2
 ##### (linectx-load-history!)
 `(linectx-load-history! lctx)` loads history from file. Returns `#t` if successful, otherwise returns `#f`.
 
-##### (linectx-save-history!)
+##### (linectx-save-history)
 `(linectx-save-history lctx)` saves history to file. Returns `#t` if successful, otherwise returns `#f`.
 
 ##### (linectx-to-history)
