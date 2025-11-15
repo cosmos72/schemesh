@@ -123,9 +123,9 @@
 ;; and return unspecified value.
 ;;
 ;; The implementation of body ... can call directly or indirectly functions
-;; that inspect or modify the flvectors elements.
+;; that inspect or modify the flvector(s) elements.
 ;;
-;; It must NOT call any function that modifies the flvectors' length, as for example (flvector-truncate!)
+;; It must NOT call any function that modifies the flvector(s) length, as for example (flvector-truncate!)
 ;;
 ;; Return unspecified value.
 ;;

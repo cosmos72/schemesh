@@ -25,7 +25,8 @@
     linectx-completions linectx-completion-stem
     linectx-flags linectx-parser-name linectx-parser-name-set!
     linectx-parsers linectx-parsers-set!
-    linectx-history linectx-history-index linectx-history-index-set! linectx-to-history*
+    linectx-history linectx-history-index linectx-history-index-set!
+    linectx-to-history            linectx-to-history*
     linectx-clear!  linectx-flush linectx-read linectx-read-some linectx-show-error
     linectx-load-history! linectx-save-history
     linectx-eof? linectx-eof-set! linectx-redraw? linectx-redraw-set!
@@ -40,6 +41,7 @@
     (schemesh containers)
     (schemesh posix fd)
     (schemesh screen vcellspan)
+    (only (schemesh screen vlines) vlines-cell-count<=? vlines-shallow-copy)
     (schemesh screen vscreen)
     (schemesh screen vhistory)
     (schemesh screen vhistory io)
@@ -319,12 +321,27 @@
   (vcellspan-clear! (linectx-clipboard lctx)))
 
 
-;; save to history a shallow clone of vlines in linectx-vscreen,
-;; remove empty vlines from history, and return such clone
+;; append to history a shallow copy of current lines, and return such copy.
+;; Also clears current lines, and removes empty lines from history.
+(define (linectx-to-history lctx)
+  (let* ((y    (linectx-history-index lctx))
+         (hist (linectx-history lctx)))
+    ;; always overwrite last history slot
+    (linectx-history-index-set! lctx (fxmax 0 y (fx1- (vhistory-length hist))))
+    (let ((lines (linectx-to-history* lctx)))
+      (vhistory-delete-empty-lines! hist (vhistory-length hist))
+      (linectx-history-index-set! lctx (vhistory-length hist))
+      (linectx-clear! lctx) ;; clear vscreen
+      lines)))
+
+
+;; save to history at current index a shallow copy of current lines, and return such copy.
+;; Does NOT modify current lines.
 (define (linectx-to-history* lctx)
   (let-values (((ret idx) (vhistory-set*! (linectx-history lctx) (linectx-history-index lctx) (linectx-vscreen lctx))))
     (linectx-history-index-set! lctx idx)
     ret))
+
 
 ;; load history from file. return #t if successful, otherwise return #f
 (define (linectx-load-history! lctx)

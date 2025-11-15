@@ -167,6 +167,10 @@
         (lineedit-navigate-history lctx (fx- prev-idx idx))
         (linectx-ixy-set! lctx x y)))))
 
+(define (lineedit-key-to-history lctx)
+  (linectx-to-history lctx)
+  (void))
+
 (define (lineedit-key-insert-clipboard lctx)
   (let* ((screen    (linectx-vscreen lctx))
          (clipboard (linectx-clipboard lctx))

@@ -15,8 +15,8 @@
     vscreen-cursor-ix    vscreen-cursor-iy  vscreen-cursor-ixy  vscreen-cursor-ixy-set!
     vscreen-cursor-vx    vscreen-cursor-vy  vscreen-cursor-vxy  vscreen-cursor-vxy-set!
     vscreen-prompt-end-x vscreen-prompt-end-y vscreen-prompt-length  vscreen-prompt-length-set!
-    vscreen-length-at-y  vscreen-length     vscreen-cell-at-xy
-    vscreen-char-at-xy   vscreen-char-before-xy  vscreen-char-after-xy
+    vscreen-length-at-y  vscreen-length       vscreen-cell-count     vscreen-cell-count<=?
+    vscreen-cell-at-xy   vscreen-char-at-xy   vscreen-char-before-xy  vscreen-char-after-xy
     vscreen-next-xy      vscreen-prev-xy   vscreen-next-xy/or-self  vscreen-prev-xy/or-self
     vscreen-count-before-xy/left  vscreen-count-at-xy/right
     vscreen-clear!       vscreen-empty?
@@ -100,6 +100,15 @@
 ;; return number of vlines in vscreen
 (define vscreen-length vlines-length)
 
+;; return number of cells in vscreen
+(define vscreen-cell-count vlines-cell-count)
+
+;; return #t if number of cells in vscreen is <= n,
+;; otherwise return #f
+;;
+;; faster than (fx<=? (vscreen-cell-count lines) n)
+(define vscreen-cell-count<=? vlines-cell-count<=?)
+
 ;; return prompt length in characters
 (define (vscreen-prompt-length screen)
   (fx+ (vscreen-prompt-end-x screen)
@@ -153,7 +162,7 @@
   (let ((cl (vlines-cell-at-xy screen x y)))
     (and cl (vcell->char cl))))
 
-;; return tow values: cursor x and y position in input vlines
+;; return two values: cursor x and y position in input vlines
 (define (vscreen-cursor-ixy screen)
   (values (vscreen-cursor-ix screen) (vscreen-cursor-iy screen)))
 

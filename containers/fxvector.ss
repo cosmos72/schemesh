@@ -71,9 +71,9 @@
 ;; and return unspecified value.
 ;;
 ;; The implementation of body ... can call directly or indirectly functions
-;; that inspect or modify the fxvectors elements.
+;; that inspect or modify the fxvector(s) elements.
 ;;
-;; It must NOT call any function that modifies the fxvectors' length, as for example (fxvector-truncate!)
+;; It must NOT call any function that modifies the fxvector(s) length, as for example (fxvector-truncate!)
 ;;
 ;; Return unspecified value.
 ;;

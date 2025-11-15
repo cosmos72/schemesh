@@ -12,7 +12,7 @@
     vlines vlines? assert-vlines? vlines->string
     vlines-shallow-copy vlines-copy-on-write vlines-iterate
     vlines-empty? vlines-length vlines-equal/chars?
-    vlines-cell-length vlines-ref vlines-set! vlines-clear!
+    vlines-cell-count vlines-cell-count<=? vlines-ref vlines-set! vlines-clear!
     vlines-index vlines-index-right vlines-count vlines-count-right
     vlines-dirty-start-y vlines-dirty-end-y vlines-dirty-y-add! vlines-dirty-xy-unset!
     vlines-delete-at! vlines-insert-at! vlines-starts-with?
@@ -74,7 +74,7 @@
 
 ;; convert vlines to string, removing all palette colors
 (define (vlines->string lines)
-  (let ((str (make-string (vlines-cell-length lines)))
+  (let ((str (make-string (vlines-cell-count lines)))
         (i 0))
     (vlines-iterate lines
       (lambda (y line)
@@ -136,14 +136,32 @@
 
 
 ;; return the number of cells in a vlines
-(define (vlines-cell-length lines)
-  (let %vlines-cell-length ((ret 0) (lines lines)
-                            (y 0)   (yn (vlines-length lines)))
+(define (vlines-cell-count lines)
+  (let %vlines-cell-count ((ret 0) (lines lines)
+                           (y 0)   (yn (vlines-length lines)))
     (if (fx<? y yn)
-      (%vlines-cell-length
+      (%vlines-cell-count
         (fx+ ret (vline-length (vlines-ref lines y)))
         lines (fx1+ y) yn)
       ret)))
+
+
+;; return #t if number of cells in vlines is <= n,
+;; otherwise return #f
+;;
+;; faster than (fx<=? (vlines-cell-count lines) n)
+(define (vlines-cell-count<=? lines n)
+  (let %vlines-cell-count<=? ((left n) (lines lines)
+                              (y 0)    (yn (vlines-length lines)))
+    (cond
+      ((fx<? left 0)
+        #f)
+      ((fx<? y yn)
+        (%vlines-cell-count<=?
+          (fx- left (vline-length (vlines-ref lines y)))
+          lines (fx1+ y) yn))
+      (else
+        #t))))
 
 
 ;; get n-th line

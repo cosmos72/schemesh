@@ -25,8 +25,8 @@
     lineedit-key-del-word-left lineedit-key-del-word-right
     lineedit-key-del-line lineedit-key-del-line-left lineedit-key-del-line-right
     lineedit-key-enter lineedit-key-newline-left lineedit-key-newline-right
-    lineedit-key-history-next lineedit-key-history-prev lineedit-key-insert-clipboard
-    lineedit-key-redraw lineedit-key-toggle-insert
+    lineedit-key-history-next lineedit-key-history-prev lineedit-key-to-history
+    lineedit-key-insert-clipboard lineedit-key-redraw lineedit-key-toggle-insert
     lineedit-paren-find/before-cursor lineedit-paren-find/surrounds-cursor
     lineedit-read lineedit-read-confirm-y-or-n? lineedit-flush)
   (import
@@ -123,7 +123,7 @@
 
 
 
-;; save current linectx-vscreen to history,
+;; possibly save current linectx-vscreen to history,
 ;; then replace them with specified vlines.
 ;; Sets vscreen cursor to 0 0.
 (define (lineedit-lines-set! lctx lines)
@@ -221,16 +221,7 @@
   (linectx-return-set! lctx #f) ; clear flag "user pressed ENTER"
   (linectx-redraw-set! lctx #t) ; set flag "redraw prompt and lines"
   (linectx-mark-not-bol-set! lctx #t) ; set flag "highlight if prompt is not at bol"
-  (let* ((y (linectx-history-index lctx))
-         (hist (linectx-history lctx)))
-    ; always overwrite last history slot
-    (linectx-history-index-set! lctx (fxmax 0 y (fx1- (vhistory-length hist))))
-    (let* ((screen (linectx-vscreen lctx))
-           (lines (linectx-to-history* lctx)))
-      (vhistory-delete-empty-lines! hist (vhistory-length hist))
-      (linectx-history-index-set! lctx (vhistory-length hist))
-      (linectx-clear! lctx) ;; clear vscreen
-      lines)))
+  (linectx-to-history lctx))
 
 
 ;; repeatedly call (linectx-keytable-call) until ENTER is found and processed,
@@ -495,6 +486,7 @@
   (%add t lineedit-key-history-prev     16) ; CTRL+P
   (%add t lineedit-key-transpose-char   20) ; CTRL+T
   (%add t lineedit-key-del-line-left    21) ; CTRL+U
+  (%add t lineedit-key-to-history       24) ; CTRL+X
   (%add t lineedit-key-insert-clipboard 25) ; CTRL+Y
   (%add t lineedit-key-inspect-linectx  28) ; CTRL+4, CTRL+BACKSLASH
   ; CTRL+W, CTRL+BACKSPACE, ALT+BACKSPACE
