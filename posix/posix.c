@@ -322,7 +322,6 @@ static int            have_raw_conf   = 0;
 
 /** copy initial_conf into conf, then change conf to raw mode */
 static void c_tty_fill_raw_conf(struct termios* conf, const struct termios* initial_conf) {
-  size_t i;
   *conf = *initial_conf;
   conf->c_iflag &= ~(BRKINT | ICRNL | IGNBRK | IGNCR | INLCR | ISTRIP | IXOFF | IXON | PARMRK);
   conf->c_oflag |= OPOST | ONLCR;
@@ -330,10 +329,62 @@ static void c_tty_fill_raw_conf(struct termios* conf, const struct termios* init
   conf->c_cflag |= CS8;
   conf->c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
   /* conf->c_lflag |= TOSTOP; */
-  for (i = 0; i < NCCS; i++) {
-    conf->c_cc[i] = 0;
-  }
+
+#ifdef VINTR
+  conf->c_cc[VINTR] = 0;
+#endif
+#ifdef VQUIT
+  conf->c_cc[VQUIT] = 0;
+#endif
+#if 0 /* #ifdef VERASE */
+  conf->c_cc[VERASE] = '\x7f';
+#endif
+#ifdef VKILL
+  conf->c_cc[VKILL] = 0;
+#endif
+#ifdef VEOF
+  conf->c_cc[VEOF] = 0;
+#endif
+#ifdef VTIME
+  conf->c_cc[VTIME] = 0;
+#endif
   conf->c_cc[VMIN] = 1;
+#ifdef VSWTC
+  conf->c_cc[VSWTC] = 0;
+#endif
+#ifdef VSWTCH
+  conf->c_cc[VSWTCH] = 0;
+#endif
+#ifdef VSTART
+  conf->c_cc[VSTART] = 0;
+#endif
+#ifdef VSTOP
+  conf->c_cc[VSTOP] = 0;
+#endif
+#ifdef VSUSP
+  conf->c_cc[VSUSP] = 0;
+#endif
+#ifdef VEOL
+  conf->c_cc[VEOL] = 0;
+#endif
+#ifdef VREPRINT
+  conf->c_cc[VREPRINT] = 0;
+#endif
+#ifdef VDISCARD
+  conf->c_cc[VDISCARD] = 0;
+#endif
+#ifdef VDSUSP
+  conf->c_cc[VDSUSP] = 0;
+#endif
+#ifdef VWERASE
+  conf->c_cc[VWERASE] = 0;
+#endif
+#ifdef VLNEXT
+  conf->c_cc[VLNEXT] = 0;
+#endif
+#ifdef VEOL2
+  conf->c_cc[VEOL2] = 0;
+#endif
 }
 
 /** restore controlling tty to saved config */
