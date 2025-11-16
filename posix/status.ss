@@ -258,11 +258,12 @@
           (color? (status-display-color?)))
       (put-string port
         (case (and color? kind)
-          ((running)                 "(\x1b;[1;36m")
-          ((stopped)                 "(\x1b;[1;33m")
-          ((exception failed killed) "(\x1b;[1;31m")
-          ((ok)                      "(\x1b;[1;32m")
-          (else                      "(")))
+          ((running)          "(\x1b;[1;36m")
+          ((stopped)          "(\x1b;[1;33m")
+          ((failed)           "(\x1b;[1;31m")
+          ((exception killed) "(\x1b;[1;35m")
+          ((ok)               "(\x1b;[1;32m")
+          (else               "(")))
       (put-datum port kind)
       (when color?
         (put-string port "\x1b;[m"))
