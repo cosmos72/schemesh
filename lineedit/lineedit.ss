@@ -512,11 +512,11 @@
   (%add t lineedit-key-cmd-cd-old-dir '(27 79 109)); KP-   \eOm
   (%add t lineedit-key-cmd-cd-parent  '(27 79 111)); KP/   \eOo   ; xterm
 
-
-  (%add t lineedit-key-nop   '(27 79 110) '(27 79 112) ; KP.  KP0
-    '(27 79 113) '(27 79 114) '(27 79 115)             ; KP1  KP2  KP3
-    '(27 79 116) '(27 79 117) '(27 79 118)             ; KP4  KP5  KP6
-    '(27 79 119) '(27 79 120) '(27 79 121))            ; KP7  KP8  KP9
+  (%add t lineedit-key-nop
+    '(27 79  78) '(27 79 110) '(27 79 112)         ; NUMLOCK on twterm,  KP.  KP0
+    '(27 79 113) '(27 79 114) '(27 79 115)         ; KP1  KP2  KP3
+    '(27 79 116) '(27 79 117) '(27 79 118)         ; KP4  KP5  KP6
+    '(27 79 119) '(27 79 120) '(27 79 121))        ; KP7  KP8  KP9
 
   ; sequences starting with ESC [                  ;
   (%add t lineedit-key-up    '(27 91 65))          ; UP    \e[A
