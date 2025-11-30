@@ -464,8 +464,10 @@ is usually available at <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html#
       -R [LIMIT]  the maximum time a real-time process can run before blocking
 
     If LIMIT is given, it is the new value of the specified resource;
-    Otherwise, the current value of the specified resource(s) is printed.
-    The special LIMIT value `unlimited' stand for no limit.
+    the special LIMIT value `unlimited' stand for no limit.
+
+    The updated value of the specified resource(s) is always printed,
+    both if LIMIT is given and if it's omitted.
 
     Return success, unless an invalid option is supplied or an error occurs.\n"))
 
