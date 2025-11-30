@@ -180,7 +180,7 @@ The following names are recognized as builtins:\n\n")
 
 
 
-;; implementation of "ulimit" builtin, writes getrlimit() results to file descriptor 1.
+;; implementation of "ulimit" builtin, modifies getrlimit() values and copies them to file descriptor 1.
 (define (sh-ulimit . args)
   (let ((wbuf   (make-bytespan 0))
         (fd     (sh-fd 1))
@@ -190,17 +190,17 @@ The following names are recognized as builtins:\n\n")
         (let ((ret (ulimit/span parsed wbuf)))
           (fd-write/bytespan! fd wbuf)
           ret)
-        (let ((ret (ulimit-parse-arg (car tail) wbuf parsed)))
-          (if (status? ret)
+        (let ((next (ulimit-parse-some tail wbuf parsed)))
+          (if (status? next)
             (begin  ;; error parsing argument, bail out
               (unless (bytespan-empty? wbuf)
                 (fd-write/bytespan! fd wbuf))
-              ret)
-            (%sh-ulimit (cdr tail)))))))) ;; argument parsed successfully, iterate
+              next)
+            (%sh-ulimit next))))))) ;; argument parsed successfully, iterate
 
 
-;; parse a single (sh-ulimit) argument
-(define ulimit-parse-arg
+;; parse some (sh-ulimit) arguments. return remaining arguments to be parsed
+(define ulimit-parse-some
   (let ((htable
           (plist->hashtable string-hash string=?
             '("-H" hard "-S" soft "-a" all "-c" coredump-size "-d" data-size "-e" nice
@@ -208,19 +208,32 @@ The following names are recognized as builtins:\n\n")
               "-n" open-files "-p" pipe-size "-q" msgqueue-size "-r" realtime-priority
               "-s" stack-size "-t" cpu-time "-u" user-processes "-v" virtual-memory-size
               "-x" file-locks "-R" realtime-nonblocking-time))))
-    (lambda (arg wbuf parsed)
-      (let ((parsed-i (hashtable-ref htable arg #f)))
+    (lambda (args wbuf parsed)
+      (let* ((arg (car args))
+             (tail (cdr args))
+             (parsed-i (hashtable-ref htable arg #f)))
         (cond
           (parsed-i
             (span-insert-right! parsed parsed-i)
-            #t) ;; not a job status, tell ulimit/span to keep parsing
-          ((equal? arg "--help")
+            (if (null? (cdr args))
+              tail
+              (let ((arg2 (cadr args)))
+                (cond
+                  ((string=? arg2 "unlimited")
+                    (span-insert-right! parsed 'unlimited)
+                    (cdr tail))
+                  ((string-is-unsigned-base10-integer? arg2)
+                    (span-insert-right! parsed (string->number arg2))
+                    (cdr tail))
+                  (else
+                    tail)))))
+          ((string=? arg "--help")
             (builtin-help #f '("help" "ulimit") '()))
           (else
             (bytespan-insert-right/string! wbuf "schemesh: ulimit: ")
             (bytespan-insert-right/string! wbuf arg)
             (bytespan-insert-right/string! wbuf ": invalid option
-ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [limit]\n")
+ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [LIMIT]\n")
             (failed 1)))))))
 
 
@@ -235,29 +248,45 @@ ulimit: usage: ulimit [-SHacdefilmnpqrstuvxR] [limit]\n")
         arg
         (ulimit/hard-soft sp-args (fx1- pos))))))
 
-(define ulimit-all-keys (list->span (rlimit-keys)))
 
 ;; called by (sh-ulimit) builtin
 (define (ulimit/span sp-args wbuf)
   ;; (debugf "ulimit/span ~s" sp-args)
   (let* ((arg-n     (span-length sp-args))
          (hard-soft (ulimit/hard-soft sp-args (fx1- arg-n)))
-         (args      (if (span-index sp-args 0 arg-n (lambda (elem) (eq? elem 'all)))
-                      ulimit-all-keys
-                      sp-args)))
-    (for-span ((arg args))
-      (unless (memq arg '(hard soft))
-        (let ((value (rlimit-ref hard-soft arg)))
-          (bytespan-insert-right/string!     wbuf (symbol->string arg))
-          (bytespan-insert-right/bytevector! wbuf #vu8(9 9)) ;; tabs
-          (cond
-            ((symbol? value)
-              (bytespan-insert-right/string!     wbuf (symbol->string value)))
-            ((boolean? value)
-              (bytespan-insert-right/bytevector! wbuf (if value #vu8(35 116) #vu8(35 102))))
-            (else
-              (bytespan-display-right/integer!   wbuf value)))
-          (bytespan-insert-right/u8! wbuf 10)))))) ;; newline
+         (show-all? (span-index sp-args 0 arg-n (lambda (elem) (eq? elem 'all)))))
+    (let %ulimit/span ((pos 0))
+      (when (fx<? pos arg-n)
+        (let ((arg (span-ref sp-args pos))
+              (pos+1 (fx1+ pos)))
+          (if (memq arg '(all hard soft))
+            (%ulimit/span pos+1) ;; skip 'all 'hard 'soft
+            (let ((new-value (and (fx<? pos+1 arg-n) (span-ref sp-args pos+1))))
+              (when (or (eq? 'unlimited new-value) (integer? new-value))
+                (rlimit-set! hard-soft arg new-value))
+              (unless show-all?
+                (ulimit/show hard-soft arg wbuf))
+              (if (or (eq? 'unlimited new-value) (integer? new-value))
+                (%ulimit/span (fx1+ pos+1)) ;; skip new value just set
+                (%ulimit/span pos+1)))))))
+    (when show-all?
+      (for-list ((arg (rlimit-keys)))
+        (ulimit/show hard-soft arg wbuf)))))
+
+
+;; called by (sh-ulimit) -> (ulimit/span)
+(define (ulimit/show hard-soft arg wbuf)
+  (let ((value (rlimit-ref hard-soft arg)))
+    (bytespan-insert-right/string!     wbuf (symbol->string arg))
+    (bytespan-insert-right/bytevector! wbuf #vu8(9 9)) ;; tabs
+    (cond
+      ((symbol? value)
+        (bytespan-insert-right/string!     wbuf (symbol->string value)))
+      ((boolean? value)
+        (bytespan-insert-right/bytevector! wbuf (if value #vu8(35 116) #vu8(35 102))))
+      (else
+        (bytespan-display-right/integer!   wbuf value)))
+  (bytespan-insert-right/u8! wbuf 10))) ;; newline
 
 
 
@@ -406,39 +435,37 @@ is usually available at <https://www.gnu.org/licenses/old-licenses/gpl-2.0.html#
 
     (hashtable-set! t "true"    (hashtable-ref t ":" ""))
 
-    (hashtable-set! t "ulimit" (string->utf8 " [-SHacdefilmnpqrstuvxR] [limit]
-    Modify shell resource limits.
+    (hashtable-set! t "ulimit" (string->utf8 " [arg ...]
+    Show or modify shell resource limits.
 
     Provides control over the resources available to the shell and processes it creates.
 
     Options:
-      -S        use the `soft' resource limit
-      -H        use the `hard' resource limit
-      -a        all current limits are reported
-      -c        the maximum size of core files created
-      -d        the maximum size of a process's data segment
-      -e        the maximum scheduling priority (`nice')
-      -f        the maximum size of files written by the shell and its children
-      -i        the maximum number of pending signals
-     [-k        the maximum number of kqueues allocated for this process]
-      -l        the maximum size a process may lock into memory
-      -m        the maximum resident set size
-      -n        the maximum number of open file descriptors
-      -p        the pipe buffer size
-      -q        the maximum number of bytes in POSIX message queues
-      -r        the maximum real-time scheduling priority
-      -s        the maximum stack size
-      -t        the maximum amount of cpu time in seconds
-      -u        the maximum number of user processes
-      -v        the size of virtual memory
-      -x        the maximum number of file locks
-      -R        the maximum time a real-time process can run before blocking
+      -S          show or set the `soft' resource limit
+      -H          show or set the `hard' resource limit
+      -a          show all resource limits
+      -c [LIMIT]  the maximum size of core files created
+      -d [LIMIT]  the maximum size of a process's data segment
+      -e [LIMIT]  the maximum scheduling priority (`nice')
+      -f [LIMIT]  the maximum size of files written by the shell and its children
+      -i [LIMIT]  the maximum number of pending signals
+     [-k [LIMIT]  the maximum number of kqueues allocated for this process]
+      -l [LIMIT]  the maximum size a process may lock into memory
+      -m [LIMIT]  the maximum resident set size
+      -n [LIMIT]  the maximum number of open file descriptors
+      -p [LIMIT]  the pipe buffer atomic size
+      -q [LIMIT]  the maximum number of bytes in POSIX message queues
+      -r [LIMIT]  the maximum real-time scheduling priority
+      -s [LIMIT]  the maximum stack size
+      -t [LIMIT]  the maximum amount of cpu time in seconds
+      -u [LIMIT]  the maximum number of user processes
+      -v [LIMIT]  the maximum size of virtual memory
+      -x [LIMIT]  the maximum number of file locks
+      -R [LIMIT]  the maximum time a real-time process can run before blocking
 
-    If LIMIT is given, it is the new value of the specified resource; the
-    special LIMIT values `soft', `hard', and `unlimited' stand for the
-    current soft limit, the current hard limit, and no limit, respectively.
-    Otherwise, the current value of the specified resource is printed.  If
-    no option is given, then -f is assumed.
+    If LIMIT is given, it is the new value of the specified resource;
+    Otherwise, the current value of the specified resource(s) is printed.
+    The special LIMIT value `unlimited' stand for no limit.
 
     Return success, unless an invalid option is supplied or an error occurs.\n"))
 
