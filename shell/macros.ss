@@ -9,13 +9,13 @@
 
 (library (schemesh shell macros (0 9 2))
   (export
-    in-shell-glob sh-include sh-include*
+    for-glob in-glob sh-include sh-include*
     shell shell-backquote shell-env shell-expr shell-glob shell-list shell-string shell-subshell shell-wildcard)
   (import
     (rnrs)
     (only (chezscheme) datum format fx1- meta parameterize reverse!)
     (schemesh bootstrap)
-    (only (schemesh containers list) in-list)
+    (only (schemesh containers list) for-list in-list)
     (only (schemesh posix pattern) wildcard?)
     (schemesh shell job)
     (only (schemesh shell eval) sh-read-file))
@@ -238,10 +238,28 @@
         #`(%shell-glob wildcard1 job-or-id . args)))))
 
 
-;; (in-shell-glob ...) is a shortcut for (in-list (shell-glob ...))
-(define-syntax in-shell-glob
+;; (in-glob ...) is a shortcut for (in-list (shell-glob ...))
+(define-syntax in-glob
   (syntax-rules ()
     ((_ . args)
       (in-list (shell-glob . args)))))
+
+
+;; (for-glob var glob body ...) iterates on shell paths produced by glob,
+;; executing body repeatedly with var bound to each one.
+;;
+;; (for-globs ((var glob) ...) body ...) iterates on shell paths produced by one or more glob ...,
+;; executing body repeatedly with var ... bound to each one.
+;; Stops iterating when the shortest list produced by glob ... is exhausted.
+(define-syntax for-glob
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ ((var glob) ...) body ...)
+        (not (null? #'(glob ...)))
+        #'(for-list ((var (shell-glob glob)) ...)
+           body ...))
+      ((_ var glob body ...)
+        #'(for-list ((var (shell-glob glob)))
+           body ...)))))
 
 ) ; close library

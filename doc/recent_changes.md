@@ -1,6 +1,15 @@
 ## RECENT CHANGES
 
+### git
+
+* add shell builtin `ulimit`
+* add macro `(for-glob)`
+* rename function `(in-shell-glob)` -> `(in-glob)`
+* add function `(linectx-key-to-history)`
+* improve documentation
+
 ### release v0.9.2, 2025-10-18
+
 * fix issue #30: bug in `(string-join)`
 * fix wildcards `*FOO` to also match directories whose name ends with `FOO`, instead of only matching non-directories
 * fix an off-by-one error in wildcard expansion

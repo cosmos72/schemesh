@@ -186,13 +186,13 @@
 (define-syntax for-list
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((elem l) ...) body1 body2 ...)
+      ((_ ((var l) ...) body1 body2 ...)
         (not (null? #'(l ...)))
         (with-syntax (((tail ...) (generate-pretty-temporaries #'(l ...))))
           #'(let %for-list ((tail l) ...)
               (if (or (null? tail) ...)
                 (void)
-                (let ((elem (car tail)) ...)
+                (let ((var (car tail)) ...)
                   (with-while-until
                     body1 body2 ...
                     (%for-list (cdr tail) ...))))))))))
