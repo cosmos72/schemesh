@@ -149,7 +149,7 @@
         (string? (syntax->datum (syntax arg)))
         #`arg)
       ((_ . args)
-        #`(%shell-wildcard wildcard job . args)))))
+        #`(%shell-wildcard wildcard1+ job . args)))))
 
 
 ;; extract the arguments inside a (shell-glob {...}) macro,
@@ -161,23 +161,13 @@
 ;; returns a list of strings containing all the filesystem paths matching the shell glob pattern ~/*.txt
 ;;
 ;; If no filesystem path matches the shell glob pattern, when the form is executed
-;; it will return a list containing a single string: the shell glob pattern converted to string.
+;; it will return an empty list.
 ;;;
-;; In the example above, the list would be ("~/*.txt")
-;;
 ;; If the argument of shell-glob is a NOT a shell glob pattern, then it must be a sequence of literal strings
 ;; and shell environment variable names, possibly starting with ~ or ~user that means a user's home directory.
 ;;
 ;; Example: (shell-glob {~bob}) expands to an (wildcard ...) form that, when executed,
 ;; return a list containing a single string: the home directory of user "bob"
-;;
-;; Example: (shell-glob {$PATH:$HOME/bin}) expands to an (wildcard ...) form that, when executed,
-;; return a list containing a single string: the contatenation of
-;; 1. value of environment variable "PATH"
-;; 2. string ":"
-;; 3. value of environment variable "HOME"
-;; 2. string "/bin"
-
 (define-syntax shell-glob
   (lambda (stx)
     (syntax-case stx ()
@@ -186,7 +176,7 @@
       ((_ job-or-id (macro-name (submacro-name arg)))
         (and (free-identifier=? #'macro-name #'shell )
              (free-identifier=? #'submacro-name #'shell-env))
-        #`(list (sh-env-ref job-or-id arg)))
+        #`(%shell-glob wildcard job-or-id (sh-env-ref job-or-id arg)))
       ((_ job-or-id (macro-name (submacro-name . args)))
         (and (free-identifier=? #'macro-name #'shell )
              (free-identifier=? #'submacro-name #'shell-backquote))
@@ -239,6 +229,8 @@
 
 
 ;; (in-glob ...) is a shortcut for (in-list (shell-glob ...))
+;;
+;; Added in schemesh 0.9.3
 (define-syntax in-glob
   (syntax-rules ()
     ((_ . args)
@@ -248,18 +240,20 @@
 ;; (for-glob var glob body ...) iterates on shell paths produced by glob,
 ;; executing body repeatedly with var bound to each one.
 ;;
-;; (for-globs ((var glob) ...) body ...) iterates on shell paths produced by one or more glob ...,
-;; executing body repeatedly with var ... bound to each one.
+;; (for-globs ((var glob) ...) body ...) iterates in parallel on shell paths produced by zero or more glob ...,
+;; executing body repeatedly with var ... bound to each element in each list.
 ;; Stops iterating when the shortest list produced by glob ... is exhausted.
+;;
+;; If no glob is specified, behave as (forever body ...)
+;;
+;; Added in schemesh 0.9.3
 (define-syntax for-glob
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ ((var glob) ...) body ...)
-        (not (null? #'(glob ...)))
-        #'(for-list ((var (shell-glob glob)) ...)
-           body ...))
-      ((_ var glob body ...)
-        #'(for-list ((var (shell-glob glob)))
-           body ...)))))
+  (syntax-rules ()
+    ((_ ((var glob) ...) body ...)
+      (for-list ((var (shell-glob glob)) ...)
+         body ...))
+    ((_ var glob body ...)
+      (for-list ((var (shell-glob glob)))
+         body ...))))
 
 ) ; close library

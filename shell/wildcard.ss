@@ -20,9 +20,28 @@
 ;; finally expand wildcard symbols to matching filesystem paths.
 ;;
 ;; returns a non-empty list of strings, containing matching filesystem paths.
+;; if w does not match any filesystem path, return an empty list.
+;;
+;; Added in schemesh 0.9.3
+(define (wildcard job-or-id . w)
+  (wildcard* job-or-id w '()))
+
+
+;; expand a path containing wildcards to the list of filesystem entries that match such wildcards.
+;;
+;; each w must be a string, a wildcard symbol ? * ~ % %!
+;; or a closure (lambda (job) ...) or (lambda () ...) that returns a string or a list of strings.
+;;
+;; if first w is the symbol ~ expand it to specified user's home directory,
+;; then call each closure and replace it with the returned string or list of strings,
+;; finally expand wildcard symbols to matching filesystem paths.
+;;
+;; returns a non-empty list of strings, containing matching filesystem paths.
 ;; if w does not match any filesystem path, return a list containing a single string:
 ;;   w converted back to string with shell wildcard syntax.
-(define (wildcard job-or-id . w)
+;;
+;; Added in schemesh 0.9.3
+(define (wildcard1+ job-or-id . w)
   (wildcard* job-or-id w '(if-no-match? string-list)))
 
 
@@ -38,6 +57,8 @@
 ;; returns a single string, containing the only filesystem path matched by w.
 ;; raises an exception if w matches multiple filesystem entries.
 ;; if w does not match any filesystem path, return w converted back to string with shell wildcard syntax.
+;;
+;; Added in schemesh 0.9.3
 (define (wildcard1 job-or-id . w)
   (let ((ret (wildcard* job-or-id w '(if-no-match? string))))
     (cond

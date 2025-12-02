@@ -19,7 +19,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme)         fx1+ fx1- list-copy reverse! void)
-    (only (schemesh bootstrap) generate-pretty-temporaries with-while-until))
+    (only (schemesh bootstrap) forever generate-pretty-temporaries with-while-until))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -181,20 +181,22 @@
 
 
 ;; Iterate in parallel on elements of given lists l ..., and evaluate body ... on each element.
-;; Stop iterating when the shortest list is exhausted,
-;; and return unspecified value.
+;; Stop iterating when the shortest list is exhausted, and return unspecified value.
+;;
+;; If no lists are specified, behave as (forever body ...)
 (define-syntax for-list
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((var l) ...) body1 body2 ...)
-        (not (null? #'(l ...)))
+      ((_ () body ...)
+        #'(forever body ...))
+      ((_ ((var l) ...) body ...)
         (with-syntax (((tail ...) (generate-pretty-temporaries #'(l ...))))
           #'(let %for-list ((tail l) ...)
               (if (or (null? tail) ...)
                 (void)
                 (let ((var (car tail)) ...)
                   (with-while-until
-                    body1 body2 ...
+                    body ...
                     (%for-list (cdr tail) ...))))))))))
 
 
@@ -323,22 +325,24 @@
 
 
 ;; Iterate in parallel on elements of given alists, and evaluate body ... on each element.
-;; Stop iterating when the shortest list is exhausted,
-;; and return unspecified value.
+;; Stop iterating when the shortest list is exhausted, and return unspecified value.
+;;
+;; If no lists are specified, behave as (forever body ...)
 (define-syntax for-alist
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((key val alist) ...) body1 body2 ...)
-        (not (null? #'(alist ...)))
-        (with-syntax (((tail ...) (generate-pretty-temporaries #'(alist ...))))
-          #'(let %for-alist ((tail alist) ...)
-              (if (or (null? tail) ...)
-                (void)
-                (let ((key (caar tail)) ...
-                      (val (cdar tail)) ...)
-                  (with-while-until
-                    body1 body2 ...
-                    (%for-alist (cdr tail) ...))))))))))
+      ((_ ((key val alist) ...) body ...)
+        (if (null? #'(alist ...))
+          #'(forever body ...)
+          (with-syntax (((tail ...) (generate-pretty-temporaries #'(alist ...))))
+            #'(let %for-alist ((tail alist) ...)
+                (if (or (null? tail) ...)
+                  (void)
+                  (let ((key (caar tail)) ...
+                        (val (cdar tail)) ...)
+                    (with-while-until
+                      body ...
+                      (%for-alist (cdr tail) ...)))))))))))
 
 
 ;; return #t if plist is a property list, otherwise return #f
@@ -425,21 +429,23 @@
 
 
 ;; Iterate in parallel on elements of given property lists plist ..., and evaluate body ... on each element.
-;; Stop iterating when the shortest property list is exhausted,
-;; and return unspecified value.
+;; Stop iterating when the shortest property list is exhausted, and return unspecified value.
+;;
+;; If no plists are specified, behave as (forever body ...)
 (define-syntax for-plist
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((key val plist) ...) body1 body2 ...)
-        (not (null? #'(plist ...)))
-        (with-syntax (((tail ...) (generate-pretty-temporaries #'(plist ...))))
-          #'(let %for-plist ((tail plist) ...)
-              (if (or (null? tail) ...)
-                (void)
-                (let ((key (car tail)) ...
-                      (val (cadr tail)) ...)
-                  (with-while-until
-                    body1 body2 ...
-                    (%for-plist (cddr tail) ...))))))))))
+      ((_ ((key val plist) ...) body ...)
+        (if (null? #'(plist ...))
+          #'(forever body ...)
+          (with-syntax (((tail ...) (generate-pretty-temporaries #'(plist ...))))
+            #'(let %for-plist ((tail plist) ...)
+                (if (or (null? tail) ...)
+                  (void)
+                  (let ((key (car tail)) ...
+                        (val (cadr tail)) ...)
+                    (with-while-until
+                      body ...
+                      (%for-plist (cddr tail) ...)))))))))))
 
 ) ; close library

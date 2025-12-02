@@ -15,7 +15,7 @@
   (import
     (rnrs)
     (only (chezscheme)         foreign-procedure import library-exports meta-cond fx1+ fx1-)
-    (only (schemesh bootstrap) assert* fx<=?* generate-pretty-temporaries with-while-until))
+    (only (schemesh bootstrap) assert* forever fx<=?* generate-pretty-temporaries with-while-until))
 
 
 (meta-cond
@@ -127,21 +127,24 @@
 ;;
 ;; It must NOT call any function that modifies the flvector(s) length, as for example (flvector-truncate!)
 ;;
+;; If no flvector is specified, behaves as (forever body ...)
+;;
 ;; Return unspecified value.
 ;;
 ;; Added in schemesh 0.9.3
 (define-syntax for-flvector
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((elem v) ...) body1 body2 ...)
-        (not (null? #'(v ...)))
+      ((_ () body ...)
+        #'(forever body ...))
+      ((_ ((elem v) ...) body ...)
         (with-syntax (((tv ...) (generate-pretty-temporaries #'(v ...))))
           #'(let ((tv v) ...)
               (let %for-flvector ((i 0) (n (fxmin (flvector-length v) ...)))
                 (when (fx<? i n)
                   (let ((elem (flvector-ref tv i)) ...)
                     (with-while-until
-                      body1 body2 ...
+                      body ...
                       (%for-flvector (fx1+ i) n)))))))))))
 
 

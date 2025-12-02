@@ -3,8 +3,10 @@
 ### git
 
 * add shell builtin `ulimit`
+* add key bindings for more xterm keys
 * add macro `(for-glob)`
 * rename function `(in-shell-glob)` -> `(in-glob)`
+* rename functions `(wildcard)` -> `(wildcard1+)` and add function `(wildcard)`
 * add function `(linectx-key-to-history)`
 * improve documentation
 
