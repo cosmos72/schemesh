@@ -18,7 +18,7 @@
     (only (chezscheme)         cflonum? cfl+ fl-make-rectangular
                                fx1+ fx1- fxvector-length fxvector-ref
                                import meta-cond library-exports)
-    (only (schemesh bootstrap) assert* fx<=?* raise-errorf generate-pretty-temporaries with-while-until))
+    (only (schemesh bootstrap) assert* forever fx<=?* raise-errorf generate-pretty-temporaries with-while-until))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -116,15 +116,16 @@
 (define-syntax for-vector
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((elem v) ...) body1 body2 ...)
-        (not (null? #'(v ...)))
+      ((_ () body ...)
+        #'(forever body ...))
+      ((_ ((elem v) ...) body ...)
         (with-syntax (((tv ...) (generate-pretty-temporaries #'(v ...))))
           #'(let ((tv v) ...)
               (let %for-vector ((i 0) (n (fxmin (vector-length v) ...)))
                 (when (fx<? i n)
                   (let ((elem (vector-ref tv i)) ...)
                     (with-while-until
-                      body1 body2 ...
+                      body ...
                       (%for-vector (fx1+ i) n)))))))))))
 
 

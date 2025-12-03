@@ -22,7 +22,7 @@
   (import
     (rnrs)
     (only (chezscheme)                 $primitive fx1+ fx/ include meta record-writer)
-    (only (schemesh bootstrap)         assert* generate-pretty-temporaries with-while-until)
+    (only (schemesh bootstrap)         assert* forever generate-pretty-temporaries with-while-until)
     (only (schemesh containers list)   for-list for-plist)
     (only (schemesh containers vector) vector-index))
 
@@ -247,8 +247,9 @@
 (define-syntax for-hash
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((key val htable) ...) body1 body2 ...)
-        (not (null? #'(htable ...)))
+      ((_ () body ...)
+        #'(forever body ...))
+      ((_ ((key val htable) ...) body ...)
         (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
           (with-syntax (((cell ...) (generate-pretty-temporaries #'(htable ...))))
             #'(let ((iter (make-hash-iterator htable)) ...)
@@ -257,7 +258,7 @@
                     (let ((key (car cell)) ...
                           (val (cdr cell)) ...)
                       (with-while-until
-                        body1 body2 ...
+                        body ...
                         (%for-hash (hash-iterator-next! iter) ...))))))))))))
 
 
@@ -267,8 +268,9 @@
 (define-syntax for-hash-keys
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((key htable) ...) body1 body2 ...)
-        (not (null? #'(htable ...)))
+      ((_ () body ...)
+        #'(forever body ...))
+      ((_ ((key htable) ...) body ...)
         (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
           (with-syntax (((cell ...) (generate-pretty-temporaries #'(htable ...))))
             #'(let ((iter (make-hash-iterator htable)) ...)
@@ -276,7 +278,7 @@
                   (when (and cell ...)
                     (let ((key (car cell)) ...)
                       (with-while-until
-                        body1 body2 ...
+                        body ...
                         (%for-hash-keys (hash-iterator-next! iter) ...))))))))))))
 
 
@@ -292,14 +294,15 @@
 (define-syntax for-hash-pairs
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((pair htable) ...) body1 body2 ...)
-        (not (null? #'(htable ...)))
+      ((_ () body ...)
+        #'(forever body ...))
+      ((_ ((pair htable) ...) body ...)
         (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
           #'(let ((iter (make-hash-iterator htable)) ...)
               (let %for-hash-pairs ((pair (hash-iterator-pair iter)) ...)
                 (when (and pair ...)
                   (with-while-until
-                    body1 body2 ...
+                    body ...
                     (%for-hash-pairs (hash-iterator-next! iter) ...))))))))))
 
 
@@ -309,8 +312,9 @@
 (define-syntax for-hash-values
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((val htable) ...) body1 body2 ...)
-        (not (null? #'(htable ...)))
+      ((_ () body ...)
+        #'(forever body ...))
+      ((_ ((val htable) ...) body ...)
         (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
           (with-syntax (((cell ...) (generate-pretty-temporaries #'(htable ...))))
             #'(let ((iter (make-hash-iterator htable)) ...)
@@ -318,7 +322,7 @@
                   (when (and cell ...)
                     (let ((val (cdr cell)) ...)
                       (with-while-until
-                        body1 body2 ...
+                        body ...
                         (%for-hash-keys (hash-iterator-next! iter) ...))))))))))))
 
 

@@ -24,7 +24,7 @@
   (import
     (rnrs)
     (only (chezscheme) break fx1+ fx1- record-writer reverse! vector-copy void)
-    (only (schemesh bootstrap)         assert* assert-not* fx<=?* generate-pretty-temporaries with-while-until)
+    (only (schemesh bootstrap)         assert* assert-not* forever fx<=?* generate-pretty-temporaries with-while-until)
     (only (schemesh containers list)   for-list)
     (only (schemesh containers vector) subvector vector-copy! subvector-fill! subvector->list))
 
@@ -332,15 +332,16 @@
 (define-syntax for-span
   (lambda (stx)
     (syntax-case stx ()
-      ((_ ((elem sp) ...) body1 body2 ...)
-        (not (null? #'(sp ...)))
+      ((_ () body ...)
+        #'(forever body ...))
+      ((_ ((elem sp) ...) body ...)
         (with-syntax (((tsp ...) (generate-pretty-temporaries #'(sp ...))))
           #'(let ((tsp sp) ...)
               (let %for-span ((i 0) (n (fxmin (span-length sp) ...)))
                 (when (fx<? i n)
                   (let ((elem (span-ref tsp i)) ...)
                     (with-while-until
-                      body1 body2 ...
+                      body ...
                       (%for-span (fx1+ i) n)))))))))))
 
 
