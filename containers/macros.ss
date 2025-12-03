@@ -100,6 +100,19 @@
         (%for-sequence (clause2 ...) (bind ... (var ... flag iter)) body ...)))))
 
 
+;;; Loop in parallel on elements returned by zero or more iterators,
+;;; and execute body ... at each iteration, with vars bound to elements returned by iterators.
+;;;
+;;; The loop finishes when some iterator is exhausted, and returns unspecified value.
+;;;
+;;; If no iterators are specified, behave as (forever body ...)
+;;;
+;;; Typical iterators expressions are (in-list ...) (in-vector ...) (in-hash ...) etc.
+;;;
+;;; The only difference between (for) and (for*) is:
+;;;   (for) evaluates all (iterator) in parallel, then checks if some of them reached their end.
+;;;   (for*) evaluates each (iterator) one by one, and immediately checks if it reached its end:
+;;;          in such case, the remaining iterators are not evaluated.
 (define-syntax for
   (syntax-rules ()
     ((_ (clause ...) body ...)
@@ -122,17 +135,19 @@
             body ...))))))
 
 
-;; repeatedly call (begin body ...) in a loop,
-;; with vars bound to successive elements produced by corresponding iterators.
-;;
-;; the loop finishes when some iterator reaches its end.
-;;
-;; typical iterators expressions are (in-list ...) (in-vector ...) (in-hash ...) etc.
-;;
-;; the only difference between (for) and (for*) is:
-;;   (for) evaluates all (iterator) in parallel, then checks if some of them reached their end.
-;;   (for*) evaluates each (iterator) one by one, and immediately checks if it reached its end:
-;;          in such case, the remaining iterators are not evaluated.
+;;; Loop in parallel on elements returned by zero or more iterators,
+;;; and execute body ... at each iteration, with vars bound to elements returned by iterators.
+;;;
+;;; The loop finishes when some iterator is exhausted, and returns unspecified value.
+;;;
+;;; If no iterators are specified, behave as (forever body ...)
+;;;
+;;; Typical iterators expressions are (in-list ...) (in-vector ...) (in-hash ...) etc.
+;;;
+;;; The only difference between (for) and (for*) is:
+;;;   (for) evaluates all (iterator) in parallel, then checks if some of them reached their end.
+;;;   (for*) evaluates each (iterator) one by one, and immediately checks if it reached its end:
+;;;          in such case, the remaining iterators are not evaluated.
 (define-syntax for*
   (lambda (stx)
     (syntax-case stx ()
