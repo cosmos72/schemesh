@@ -102,10 +102,8 @@
 
 (define-syntax for
   (syntax-rules ()
-    ((_ () body ...)
-      (begin^ body ...))
-    ((_ (clause1 clause2 ...) body ...)
-      (%for-sequence (clause1 clause2 ...) () body ...))))
+    ((_ (clause ...) body ...)
+      (%for-sequence (clause ...) () body ...))))
 
 
 
