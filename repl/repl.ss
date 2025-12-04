@@ -410,7 +410,8 @@
      (for-list ((value irritants))
        (put-char   port #\space)
        (put-datum  port value))
-     (put-char   port #\newline))))
+     (put-char   port #\newline)
+     (flush-output-port port))))
 
 
 ;; Single iteration of (repl-break-handler)

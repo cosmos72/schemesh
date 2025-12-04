@@ -32,7 +32,7 @@
     (rnrs)
     (rnrs exceptions)
     (rnrs mutable-pairs)
-    (only (chezscheme) append! console-output-port current-time disable-interrupts enable-interrupts
+    (only (chezscheme) append! console-error-port current-time disable-interrupts enable-interrupts
                        format foreign-procedure fx1+ fx1- fx/ gensym list-copy list-head lock-object
                        meta pariah reverse! time-second time-nanosecond unlock-object void)
     (schemesh bootstrap arrow)
@@ -71,7 +71,7 @@
 
 ;; port where to write debug messages with (debugf).
 (define (debugf-port)
-  (console-output-port))
+  (console-error-port))
 
 #|
 (define debugf-port

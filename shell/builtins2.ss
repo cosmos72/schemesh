@@ -177,7 +177,7 @@
   (assert-string-list? 'builtin-fg prog-and-args)
   (let-values (((job arg) (prog-and-args->job prog-and-args)))
     (if job
-      (let ((out (current-output-port)))
+      (let ((out (current-error-port)))
         (unless (or arg (job-finished? job))
           ;; show the preferred job being resumed
           (sh-job-display-summary job (running (job-id job)) out)
@@ -381,7 +381,7 @@
   (assert-string-list? 'builtin-wait prog-and-args)
   (let-values (((job arg) (prog-and-args->job prog-and-args)))
       (if job
-        (let ((out (current-output-port)))
+        (let ((out (current-error-port)))
           (when (and job (not arg))
             ;; show the preferred job being resumed
             (sh-job-display-summary job (running (job-id job)) out) ;

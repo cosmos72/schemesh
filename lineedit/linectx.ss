@@ -200,7 +200,7 @@
       rbuf wbuf
       (vscreen (if (pair? sz) (car sz) 80) (if (pair? sz) (cdr sz) 24) "")
       0 0                         ; term-x term-y
-      0 1 -1 flag-redraw?         ; stdin stdout read-timeout flags
+      0 2 -1 flag-redraw?         ; stdin stdout read-timeout flags
       'shell enabled-parsers      ; parser-name parsers
       (bytespan)                  ; prompt
       parenmatcher #f             ; parenmatcher paren
