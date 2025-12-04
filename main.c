@@ -7,6 +7,7 @@
  * (at your option) any later version.
  */
 
+#define _GNU_SOURCE
 #define _POSIX_C_SOURCE 200809L
 
 #include "containers/containers.h" /* schemesh_Sstring_utf8b() */
@@ -20,6 +21,29 @@
 #include <stdlib.h>
 #include <string.h> /* strcmp() */
 #include <time.h>
+#include <unistd.h>
+
+static int drop_privileges(void) {
+  const gid_t gid = getgid();
+  const uid_t uid = getuid();
+
+#ifdef __linux__
+  if (setresgid(gid, gid, gid) != 0) {
+    return schemesh_init_failed("setresgid()");
+  }
+  if (setresuid(uid, uid, uid) != 0) {
+    return schemesh_init_failed("setresuid()");
+  }
+#else
+  if (setegid(gid) != 0) {
+    return schemesh_init_failed("setegid()");
+  }
+  if (seteuid(uid) != 0) {
+    return schemesh_init_failed("seteuid()");
+  }
+#endif
+  return 0;
+}
 
 static jmp_buf jmp_env;
 static int     on_exception = 0;
@@ -30,18 +54,6 @@ enum jmp_arg {
   EVAL_FAILED = 2,
   QUIT_FAILED = 3,
 };
-
-#if 0 /* not used */
-struct timespec now(void) {
-  struct timespec t;
-  (void)clock_gettime(CLOCK_REALTIME, &t);
-  return t;
-}
-
-static double diff(const struct timespec start, const struct timespec end) {
-  return (end.tv_sec - start.tv_sec) + 1e-9 * (end.tv_nsec - start.tv_nsec);
-}
-#endif
 
 static void handle_scheme_exception(void) {
   longjmp(jmp_env, on_exception);
@@ -242,8 +254,10 @@ static void run_files_and_strings(int argc, const char* argv[]) {
 
 int main(int argc, const char* argv[]) {
   struct cmdline cmd = {};
-  int            err = 0;
-
+  int            err = drop_privileges();
+  if (err != 0) {
+    return err;
+  }
   parse_command_line(argc, argv, &cmd);
 
   switch (setjmp(jmp_env)) {

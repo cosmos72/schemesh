@@ -13,6 +13,9 @@
 /** define posix functions. return < 0 if some C system call failed */
 int schemesh_register_c_functions_posix(void);
 
+/** print error message to stderr and return -errno */
+int schemesh_init_failed(const char label[]);
+
 /** POSIX standard says programs need to declare environ by themselves */
 extern char** environ;
 

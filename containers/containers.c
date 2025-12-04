@@ -10,7 +10,6 @@
 #include "containers.h"
 #include "../eval.h"
 
-#include <errno.h>  /* errno */
 #include <stdint.h> /* SIZE_MAX, uint32_t */
 #include <string.h> /* memcmp(), memmove() */
 

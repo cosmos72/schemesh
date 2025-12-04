@@ -101,7 +101,7 @@
 
 
 ;;; Loop in parallel on elements returned by zero or more iterators,
-;;; and execute body ... at each iteration, with vars bound to elements returned by iterators.
+;;; and execute body ... at each iteration, with vars bound to elements returned by the iterators.
 ;;;
 ;;; The loop finishes when some iterator is exhausted, and returns unspecified value.
 ;;;

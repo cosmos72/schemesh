@@ -62,7 +62,6 @@
 /** needed by signal.h */
 static int c_errno(void);
 static int c_errno_set(int errno_value);
-static int c_init_failed(const char label[]);
 
 /** signal.h defines a lot of static functions */
 #include "signal.h"
@@ -120,7 +119,7 @@ static ptr c_strerror_string(int err) {
   return schemesh_Sstring_utf8b(c_strerror(err), -1);
 }
 
-static int c_init_failed(const char label[]) {
+int schemesh_init_failed(const char label[]) {
   const int err = c_errno();
   fprintf(stderr,
           "error initializing POSIX subsystem: %s failed with error %s\n",
@@ -283,10 +282,10 @@ static int tty_pgid = -1;
 static int c_tty_init(void) {
   int fd = c_fd_open_max() - 1;
   if (dup2(0, fd) < 0) {
-    return c_init_failed("dup2(0, tty_fd)");
+    return schemesh_init_failed("dup2(0, tty_fd)");
   } else if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0) {
     (void)close(fd);
-    return c_init_failed("fcntl(tty_fd, F_SETFD, FD_CLOEXEC)");
+    return schemesh_init_failed("fcntl(tty_fd, F_SETFD, FD_CLOEXEC)");
   } else {
     tty_fd = fd;
   }

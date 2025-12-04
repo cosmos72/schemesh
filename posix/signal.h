@@ -80,7 +80,7 @@ static int c_signals_init(void) {
     /* cannot ignore SIGCHLD, it would break waitpid() */
     action.sa_handler = i == 0 ? SIG_DFL : SIG_IGN;
     if (sigaction(signals_tohandle[i], &action, NULL) < 0) {
-      return c_init_failed(labels[i]);
+      return schemesh_init_failed(labels[i]);
     }
   }
   return 0;
@@ -298,7 +298,7 @@ static int c_signal_init_sigwinch(void) {
   action.sa_handler       = &c_sigwinch_handler;
   if (sigaction(SIGWINCH, &action, &c_sigwinch_saved_action) < 0) {
     c_sigwinch_saved_action.sa_handler = SIG_DFL;
-    return c_init_failed("sigaction(SIGWINCH)");
+    return schemesh_init_failed("sigaction(SIGWINCH)");
   }
   return 0;
 }
@@ -356,10 +356,10 @@ static int c_countdown(ptr duration_inout) {
 
 static int c_register_c_functions_posix_signals(void) {
   if (c_signal_init_sigcont() < 0) {
-    return c_init_failed("sigaction(SIGCONT)");
+    return schemesh_init_failed("sigaction(SIGCONT)");
   }
   if (c_signals_unblock_most() < 0) {
-    return c_init_failed("sigprocmask(SIG_UNBLOCK)");
+    return schemesh_init_failed("sigprocmask(SIG_UNBLOCK)");
   }
   Sregister_symbol("c_countdown", &c_countdown);
   Sregister_symbol("c_signals_list", &c_signals_list);
@@ -371,4 +371,3 @@ static int c_register_c_functions_posix_signals(void) {
   Sregister_symbol("c_thread_signals_block_most", &c_thread_signals_block_most);
   return 0;
 }
-
