@@ -24,6 +24,8 @@
 #include <unistd.h>
 
 static int drop_privileges(void) {
+  /* setting gid or uid on Android crashes with SIGSYS */
+#ifndef __ANDROID__
   const gid_t gid = getgid();
   const uid_t uid = getuid();
 
@@ -41,6 +43,7 @@ static int drop_privileges(void) {
   if (seteuid(uid) != 0) {
     return schemesh_init_failed("seteuid()");
   }
+#endif
 #endif
   return 0;
 }
