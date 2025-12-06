@@ -97,7 +97,7 @@
          (serialized-n (and write-fd wbuf (wire-put wbuf datum))))
     (if serialized-n
       (begin
-         (fd-write-all (channel-write-fd c)
+         (fd-write-all write-fd
                        (bytespan-peek-data wbuf)
                        (bytespan-peek-beg  wbuf)
                        (bytespan-peek-end  wbuf))
@@ -161,6 +161,7 @@
 ;; either (values datum #t) i.e. the next datum read from channel and #t,
 ;; or (values #<unspecified> #f) if channel reached end-of-file.
 (define (in-channel c)
+  (assert* 'in-channel (channel? c))
   (lambda ()
     (channel-get c)))
 

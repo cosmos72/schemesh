@@ -47,3 +47,14 @@
       (assert* 'make-time-duration (time? duration))
       (assert* 'make-time-duration (eq? 'time-duration (time-type duration)))
       (make-time 'time-duration (time-nanosecond duration) (time-second duration)))))
+
+
+;; create and return a closure that iterates on data recreived by consumer c.
+;;
+;; the returned closure accepts no arguments, and each call to it returns two values:
+;; either (values datum #t) i.e. the next datum received from consumer and #t,
+;; or (values #<unspecified> #f) if consumer reached end-of-file.
+(define (in-consumer c)
+  (assert* 'in-consumer (consumer? c))
+  (lambda ()
+    (consumer-get c)))

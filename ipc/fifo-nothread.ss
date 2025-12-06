@@ -14,7 +14,7 @@
 ;;;
 (library (schemesh ipc fifo (0 9 2))
   (export make-producer producer? producer-close producer-name producer-put
-          make-consumer consumer? consumer-get consumer-eof? consumer-timed-get consumer-try-get)
+          make-consumer consumer? consumer-get consumer-eof? consumer-timed-get consumer-try-get in-consumer)
   (import
     (rnrs)
     (rnrs mutable-pairs)
