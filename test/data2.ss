@@ -291,7 +291,9 @@
 
   ;; ------------------------- shell job ---------------------------------
   (begin
-    (sh-env-set! #t "foo" "bar")
+    (sh-env-set! #t "foo" "dummy" 'export)
+    (sh-env-delete! #t "foo")
+    (sh-env-set! #t "foo" "bar") ; fixed in 0.9.3, was not working after (sh-env-delete!)
     (cons
       (sh-env-ref   #t "foo")
       (values->list (sh-env-visibility-ref #t "foo"))))

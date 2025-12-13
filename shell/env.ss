@@ -106,18 +106,18 @@
          (vars (job-direct-env job))
          (elem (hashtable-ref vars name #f)))
     (cond
-     ;; env variable already exist, overwrite it
-     ((pair? elem)
-      (set-cdr! elem val)
-      (unless (eq? 'maintain visibility)
-        (set-car! elem visibility)))
-     ;; env variable does not exist, create it
-     ((eq? 'maintain visibility)
-      (let* ((parent (job-parent job))
-             (parent-visibility (and parent (second-value (sh-env-visibility-ref parent name)))))
-        (hashtable-set! vars name (cons (or parent-visibility 'private) val))))
-     (else
-      (hashtable-set! vars name (cons visibility val))))))
+      ((and (pair? elem) (not (eq? 'delete (car elem))))
+        ;; env variable already exist in job, overwrite it
+        (set-cdr! elem val)
+        (unless (eq? 'maintain visibility)
+          (set-car! elem visibility)))
+      ((eq? 'maintain visibility)
+        ;; env variable does not exist in job, create it
+        (let* ((parent (job-parent job))
+               (parent-visibility (and parent (second-value (sh-env-visibility-ref parent name)))))
+          (hashtable-set! vars name (cons (or parent-visibility 'private) val))))
+      (else
+       (hashtable-set! vars name (cons visibility val))))))
 
 
 ;; Unset an environment variable for specified job.
