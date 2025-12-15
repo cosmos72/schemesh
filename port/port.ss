@@ -15,6 +15,9 @@
   (export port->list port->string port->bytes port->lines port->bytes-lines
           byte-lines->port lines->port read-line read-bytes-line
 
+          ;; http.ss
+          http-url->port
+
           ;; redir.ss
           binary-port-lambda->port textual-port-lambda->port
 
@@ -25,6 +28,7 @@
     (rnrs mutable-pairs)
     (only (schemesh bootstrap) assert*)
     (schemesh containers bytespan)
+    (schemesh port http)
     (schemesh port redir)
     (schemesh port stdio))
 
