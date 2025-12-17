@@ -17,21 +17,15 @@
     raise-c-errno)
   (import
     (rnrs)
-    (only (chezscheme)     break foreign-procedure lock-object logbit? void procedure-arity-mask unlock-object)
-    (only (schemesh bootstrap)       assert* check-interrupts raise-errorf sh-make-thread-parameter with-locked-objects while)
+    (only (chezscheme)             foreign-procedure lock-object logbit? void procedure-arity-mask unlock-object)
+    (only (schemesh bootstrap)     assert* check-interrupts raise-errorf sh-make-thread-parameter with-locked-objects while)
     (schemesh containers bytespan)
-    (only (schemesh conversions)     text->bytevector0 transcoder-utf8))
+    (only (schemesh conversions)   text->bytevector0 transcoder-utf8))
 
-(define c-errno
-  (foreign-procedure "c_errno" () int))
-
-(define c-errno-einval
-  ((foreign-procedure "c_errno_einval" () int)))
-
-(define c-errno->string
-  (foreign-procedure "c_strerror_string" (int) ptr))
-
-(define c-exit (foreign-procedure "c_exit" (int) int))
+(define c-errno         (foreign-procedure "c_errno" () int))
+(define c-errno-einval  ((foreign-procedure "c_errno_einval" () int))) ;; integer, not a procedure
+(define c-errno->string (foreign-procedure "c_strerror_string" (int) ptr))
+(define c-exit          (foreign-procedure "c_exit" (int) int))
 
 (define c-hostname
   (let* ((hostname-or-error ((foreign-procedure "c_get_hostname" () ptr)))

@@ -9,9 +9,10 @@
 
 (library (schemesh bootstrap (0 9 2))
   (export
-      ;; bootstrap.ss
-
+      ;; arrow.ss
       ==> ;; _ is already exported by (rnrs)
+
+      ;; bootstrap.ss
       assert* assert-not* catch check check-not define-macro debugf debugf-port
       first-value first-value-or-void forever let-macro raise-assert* repeat second-value
       with-locked-objects while until with-while-until

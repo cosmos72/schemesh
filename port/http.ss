@@ -18,13 +18,14 @@
                                       load-shared-object make-continuation-condition)
     (only (schemesh bootstrap)        assert* assert-not* check-interrupts)
     (only (schemesh containers utf8b) utf8b->string)
-    (only (schemesh conversions)      text->bytevector0))
+    (only (schemesh conversions)      text->bytevector0)
+    (only (schemesh posix io)         port->utf8b-port))
 
 
 ;; wrapper for C http* pointer
 (define-record-type http
   (fields
-    (mutable addr)) ; C http* pointer
+    (mutable addr))  ; C http* pointer
   (nongenerative http-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
@@ -65,6 +66,7 @@
     (make-http addr)))
 
 
+;; create and return an http context for reading from url
 (define (http-open url)
   (let* ((url0 (text->bytevector0 url))
          (ctx  (http-new))
@@ -77,12 +79,14 @@
     ctx))
 
 
+;; clone an http context and deallocate its libcurl resources
 (define (http-close ctx)
   (assert* 'http-close (http? ctx))
   (c-http-del (http-addr ctx))
   (http-addr-set! ctx 0))
 
 
+;; read bytes from an http context
 (define (http-read ctx bv start n)
   (assert* 'http-read (http? ctx))
   (let %http-read-loop ((addr (http-addr ctx)))
@@ -103,14 +107,29 @@
           got)))))
 
 
-(define (http-url->port url)
-  (let ((ctx (http-open url)))
-    (make-custom-binary-input-port
-      url
-      (lambda (bv start n) (http-read ctx bv start n))
-      #f ; cannot tell position
-      #f ; cannot seek
-      (lambda () (http-close ctx)))))
+;; create and return a binary or textual input port that connects to an HTTP or HTTPS url and reads from it.
+;; Internally uses libcurl.
+;;
+;; Arguments:
+;;   mandatory url            must be a bytevector, string, bytespan or charspan
+;;   optional transcoder-sym  must be one of: 'binary 'text 'utf8b and defaults to 'text
+(define http-url->port
+  (case-lambda
+    ((url transcoder-sym)
+      (let ((allowed-transcoder-syms '(binary text utf8b)))
+        (assert* 'http-url->port (memq transcoder-sym allowed-transcoder-syms)))
+      (let* ((ctx (http-open url))
+             (p (make-custom-binary-input-port
+                  url
+                  (lambda (bv start n) (http-read ctx bv start n))
+                  #f ; cannot tell position
+                  #f ; cannot seek
+                  (lambda () (http-close ctx)))))
+        (if (eq? transcoder-sym 'binary)
+          p
+          (port->utf8b-port p))))
+    ((url)
+      (http-url->port url 'text))))
 
 
 (define (raise-http-condition who ctx)

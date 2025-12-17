@@ -302,7 +302,7 @@
 
 
 
-;; create and return a textual input and/or output port that reads/write from/to an underlying binary port
+;; create and return a textual input and/or output port that reads/writes from/to an underlying binary port
 ;; and transcodes between characters and UTF-8b byte sequences
 ;;
 ;; options must be a plist containing zero or more of:

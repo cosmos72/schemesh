@@ -7,13 +7,7 @@
 
 #!r6rs
 
-(library (schemesh repl answers (0 9 2))
-  (export repl-answers-display repl-answers repl-answers-append! repl-answers-clear! repl-answers-max-length)
-  (import
-    (rnrs)
-    (only (chezscheme) fx1+ void)
-    (only (schemesh bootstrap) assert*)
-    (schemesh containers span))
+;; this file should be included only by file repl/repl.ss
 
 
 ;; return span containing all recent values produced by code evaluated at REPL,
@@ -74,5 +68,3 @@
           (newline    port))))
     (()
       (repl-answers-display (current-output-port)))))
-
-) ; close library

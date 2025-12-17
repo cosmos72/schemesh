@@ -22,12 +22,12 @@
     (rnrs)
     (only (rnrs mutable-pairs) set-car!)
     (only (chezscheme)
-        abort base-exception-handler break-handler
-        console-input-port console-output-port console-error-port
-        default-exception-handler display-condition eval exit-handler inspect
-        make-parameter parameterize pretty-print read-token reset reset-handler void)
+        abort base-exception-handler break-handler console-input-port console-output-port
+        console-error-port default-exception-handler display-condition eval exit-handler fx1+
+        include inspect make-parameter parameterize pretty-print read-token reset reset-handler void)
     (schemesh bootstrap)
-    (only (schemesh containers) for-list)
+    (only (schemesh containers list) for-list)
+    (schemesh containers span)
     (only (schemesh screen vhistory) vhistory-path-set!)
     (schemesh screen vlines io)
     (schemesh lineedit lineedit)
@@ -41,9 +41,10 @@
        sh-eval sh-eval-file sh-eval-file* sh-eval-port* sh-eval-parsectx* sh-eval-string*
        sh-foreground-pgid sh-job-control? sh-job-control-available? sh-job-pgid
        repl-history sh-make-linectx sh-schemesh-reload-count
-       sh-run/i sh-stdio-flush xdg-cache-home/ xdg-config-home/)
-    (schemesh repl answers))
+       sh-run/i sh-stdio-flush xdg-cache-home/ xdg-config-home/))
 
+
+(include "repl/answers.ss")
 
 
 ;; variant of (sh-eval-file) that pretty-print the result(s) instead of returning them
