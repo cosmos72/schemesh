@@ -10,9 +10,6 @@ LDFLAGS=-s
 # CFLAGS=-g -pipe -Wall -W -Wextra
 # LDFLAGS=-g
 
-# C compiler with additional flags for C shared library (not compiled by default)
-CC_SO=$(CC) -shared -fPIC
-
 # Autodetect Chez Scheme installation.
 # Alternatively, you can manually specify it, as for example:
 #  CHEZ_SCHEME_DIR=/usr/local/lib/csv10.0.0/ta6le
@@ -49,13 +46,16 @@ MKDIR_P         = mkdir -p
 ######################################################################################
 # no user-serviceable parts below this line
 ######################################################################################
-LIBSCHEMESH_SO=libschemesh_0.9.2.so
-LIBSCHEMESH_C_SO=libschemesh_c_0.9.2.so
+
+######################################################################################
+# schemesh rules
+######################################################################################
+TARGET_LIBSCHEMESH=libschemesh_0.9.2.so
 
 SRCS=containers/containers.c eval.c posix/posix.c shell/shell.c
 OBJS=containers.o eval.o posix.o shell.o
 
-all: schemesh schemesh_test $(LIBSCHEMESH_SO) countdown
+all: schemesh schemesh_test $(TARGET_LIBSCHEMESH) countdown
 
 clean:
 	rm -f *~ *.o *.so schemesh schemesh_test countdown
@@ -72,9 +72,6 @@ posix.o: posix/posix.c posix/posix.h posix/signal.h eval.h
 shell.o: shell/shell.c shell/shell.h containers/containers.h eval.h posix/posix.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)'
 
-
-
-
 main.o: main.c eval.h shell/shell.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'
 
@@ -88,7 +85,7 @@ schemesh: main.o $(OBJS)
 schemesh_test: test.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
 
-$(LIBSCHEMESH_SO): schemesh_test
+$(TARGET_LIBSCHEMESH): schemesh_test
 	./schemesh_test
 
 countdown: utils/countdown.c
@@ -101,17 +98,55 @@ installdirs:
 
 install: all installdirs
 	$(INSTALL_PROGRAM) schemesh countdown '$(DESTDIR)$(bindir)'
-	$(INSTALL_DATA) $(LIBSCHEMESH_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
+	$(INSTALL_DATA) $(TARGET_LIBSCHEMESH) '$(DESTDIR)$(SCHEMESH_DIR)'
 
 uninstall:
-	rm -f '$(DESTDIR)$(bindir)/schemesh' '$(DESTDIR)$(bindir)/countdown' '$(DESTDIR)$(SCHEMESH_DIR)/$(LIBSCHEMESH_SO)' '$(DESTDIR)$(SCHEMESH_DIR)/$(LIBSCHEMESH_C_SO)'
+	rm -f '$(DESTDIR)$(bindir)/schemesh' '$(DESTDIR)$(bindir)/countdown' '$(DESTDIR)$(SCHEMESH_DIR)/$(TARGET_LIBSCHEMESH)'
 
 
-# by default, C shared library is not compiled.
-c_so: $(LIBSCHEMESH_C_SO)
+################################################################################
+# optional C shared libraries
+################################################################################
 
-$(LIBSCHEMESH_C_SO): $(SRCS)
-	$(CC_SO) -o $@ $^ $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)' $(LDFLAGS)
+# by default, C shared libraries are not compiled.
 
-install_c_so: $(LIBSCHEMESH_C_SO) installdirs
-	$(INSTALL_DATA) $(LIBSCHEMESH_C_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
+# C compiler with additional flags for C shared library (not used by default)
+CFLAGS_SO=-fPIC
+# linker flags for C shared library (not used by default)
+LDFLAGS_SO=-shared
+
+
+################################################################################
+# optional C shared library libschemesh_c_X.Y.Z.so
+# contains C functions needed by schemesh and libschemesh
+################################################################################
+
+TARGET_LIBSCHEMESH_C_SO=libschemesh_c_0.9.2.so
+
+c_so: $(TARGET_LIBSCHEMESH_C_SO)
+
+$(TARGET_LIBSCHEMESH_C_SO): $(SRCS)
+	$(CC) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)' $(LDFLAGS) $(LDFLAGS_SO)
+
+install_c_so: $(TARGET_LIBSCHEMESH_C_SO) installdirs
+	$(INSTALL_DATA) $(TARGET_LIBSCHEMESH_C_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
+
+
+################################################################################
+# optional C shared library libchez_curl_c_X.Y.Z.so
+# wraps libcurl and is needed by function (http-url->port)
+################################################################################
+
+LIB_CURL=-lcurl
+
+TARGET_LIBCHEZ_CURL_C_SO=libchez_curl_c_0.9.2.so
+
+batteries: chez_curl
+
+chez_curl: $(TARGET_LIBCHEZ_CURL_C_SO)
+
+$(TARGET_LIBCHEZ_CURL_C_SO): port/http.c
+	$(CC) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) $(LIB_CURL) $(LDFLAGS) $(LDFLAGS_SO)
+
+install_batteries: batteries installdirs
+	$(INSTALL_DATA) $(TARGET_LIBCHEZ_CURL_C_SO) '$(DESTDIR)$(SCHEMESH_DIR)'

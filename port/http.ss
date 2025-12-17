@@ -42,7 +42,7 @@
 (define http-init
   (case-lambda
     (()
-      (http-init "/usr/local/lib/libchez_curl.so.0"))
+      (http-init "/usr/local/lib/schemesh/libchez_curl_c_0.9.2.so"))
     ((path)
       (load-shared-object path)
       (let ((err ((foreign-procedure "http_global_init" () int))))
