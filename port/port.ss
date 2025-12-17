@@ -16,7 +16,7 @@
           byte-lines->port lines->port read-line read-bytes-line
 
           ;; http.ss
-          http-url->port
+          http-init http-open http-read http-close http-url->port
 
           ;; redir.ss
           binary-port-lambda->port textual-port-lambda->port

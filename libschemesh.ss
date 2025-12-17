@@ -50,7 +50,6 @@
   (include "posix/pid.ss")
   (include "posix/posix.ss")
 
-  (include "port/http-init.ss")
   (include "port/http.ss")
   (include "port/redir.ss")
   (include "port/stdio.ss")
