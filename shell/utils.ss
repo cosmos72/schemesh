@@ -17,7 +17,6 @@
                        string->immutable-string)
     (schemesh bootstrap)
     (schemesh containers)
-    (schemesh lineedit linectx)
     (schemesh lineedit lineedit)
     (only (schemesh lineedit paren) paren-name)
     (schemesh lineedit parser)

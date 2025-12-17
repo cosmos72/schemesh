@@ -109,8 +109,8 @@
     (only (schemesh screen vline)      vline-display/bytespan)
     (only (schemesh screen vlines)     vlines-iterate)
     (only (schemesh screen vhistory)   vhistory-iterate vhistory-path-set!)
-    (only (schemesh lineedit linectx)  linectx? linectx-history linectx-save-history linectx-wbuf)
-    (only (schemesh lineedit lineedit) lineedit-display-table lineedit-flush lineedit-undraw)
+    (only (schemesh lineedit lineedit) linectx? linectx-history linectx-save-history linectx-wbuf
+                                       lineedit-display-table lineedit-flush lineedit-undraw)
     (schemesh shell fds)
     (schemesh shell parameters)
     (schemesh shell paths))

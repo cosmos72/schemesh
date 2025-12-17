@@ -7,23 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit lineterm (0 9 2))
-  (export
-    lineterm-write/u8
-    lineterm-write/bytevector lineterm-write/bytespan lineterm-write/charspan lineterm-write/vline lineterm-write/string
-    lineterm-move-dx lineterm-move-dy lineterm-move-to-bol lineterm-clear-to-eol lineterm-clear-to-eos
-    lineterm-move lineterm-move-from lineterm-move-to lineterm-write-not-bol-marker)
-
-  (import
-    (rnrs)
-    (only (chezscheme) fx1+ fx1- void)
-    (schemesh bootstrap)
-    (schemesh containers)
-    (schemesh posix fd)
-    (only (schemesh screen vline)   vline-ref vline-display/bytespan)
-    (only (schemesh screen vscreen) vscreen-height vscreen-width)
-    (schemesh lineedit linectx)
-    (schemesh posix tty))
+;; this file should be included only by file lineedit/lineedit.ss
 
 
 ;; write a byte to wbuf
@@ -160,6 +144,3 @@
         (do ((write-n (fx1- width) (fx- write-n space-n)))
             ((fx<=? write-n 0))
           (bytespan-insert-right/bytevector! wbuf spaces 0 (fxmin write-n space-n)))))))
-
-
-) ; close library

@@ -30,8 +30,6 @@
     (only (schemesh containers) for-list)
     (only (schemesh screen vhistory) vhistory-path-set!)
     (schemesh screen vlines io)
-    (schemesh lineedit linectx)
-    (only (schemesh lineedit lineterm) lineterm-write/u8)
     (schemesh lineedit lineedit)
     (schemesh parser)
     (only (schemesh posix dir) file-type)

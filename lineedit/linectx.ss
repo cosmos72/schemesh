@@ -7,52 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit linectx (0 9 2))
-  (export
-    linectx-prompt-proc linectx-completion-proc
-
-    make-linectx make-linectx* linectx? linectx-rbuf linectx-wbuf
-    linectx-vscreen linectx-width linectx-height linectx-end-y
-    linectx-ix     linectx-iy     linectx-ixy  linectx-ixy-set!
-    linectx-vx     linectx-vy
-    linectx-term-x linectx-term-y linectx-term-xy-set!
-    linectx-stdin  linectx-stdin-set!   linectx-stdout        linectx-stdout-set!
-    linectx-prompt linectx-prompt-set!  linectx-prompt-end-x  linectx-prompt-end-y
-    linectx-prompt-length linectx-prompt-length-set!
-    linectx-prompt-ansi-text            linectx-prompt-ansi-text-set!
-    linectx-parenmatcher linectx-paren linectx-paren-set!
-    linectx-clipboard linectx-clipboard-clear!
-    linectx-completions linectx-completion-stem
-    linectx-flags linectx-parser-name linectx-parser-name-set!
-    linectx-parsers linectx-parsers-set!
-    linectx-history linectx-history-index linectx-history-index-set!
-    linectx-to-history            linectx-to-history*
-    linectx-clear!  linectx-flush linectx-read linectx-read-some linectx-show-error
-    linectx-load-history! linectx-save-history
-    linectx-eof? linectx-eof-set! linectx-redraw? linectx-redraw-set!
-    linectx-return? linectx-return-set! linectx-mark-not-bol? linectx-mark-not-bol-set!
-    linectx-default-keytable linectx-keytable linectx-keytable-find linectx-keytable-insert!
-    linectx-last-key linectx-last-key-set!)
-
-  (import
-    (rnrs)
-    (only (chezscheme) console-error-port display-condition fx1+ fx1- logbit? procedure-arity-mask record-writer void)
-    (schemesh bootstrap)
-    (schemesh containers)
-    (schemesh posix fd)
-    (schemesh screen vcellspan)
-    (only (schemesh screen vlines) vlines-cell-count<=? vlines-shallow-copy)
-    (schemesh screen vscreen)
-    (schemesh screen vhistory)
-    (schemesh screen vhistory io)
-    (schemesh screen vlines io)
-    (schemesh lineedit ansi)
-    (schemesh lineedit paren)
-    (schemesh lineedit parenmatcher)
-    (only (schemesh lineedit parser) make-parsectx*)
-    (schemesh posix tty)
-    (only (schemesh posix signal) signal-consume-sigwinch))
-
+;; this file should be included only by file lineedit/lineedit.ss
 
 
 ;; linectx is the top-level object used by most lineedit functions
@@ -428,6 +383,132 @@
       proc)))
 
 
+
+;; find one key sequence in linectx-keytable matching rbuf and execute it
+(define (linectx-keytable-call lctx)
+  (assert* 'linectx-keytable-call (linectx? lctx))
+  (let ((rbuf (linectx-rbuf lctx)))
+    (let-values (((proc n) (linectx-keytable-find (linectx-keytable lctx) rbuf)))
+      ; (debugf "linectx-keytable-call consume ~s bytes, call ~s" n proc)
+      (cond
+        ((procedure? proc) (void))     ; proc called below, we update rbuf first
+        ((hashtable? proc) (set! n 0)) ; incomplete sequence, wait for more keystrokes
+        (else  ; insert received bytes into current line
+          (set! n (lineedit-insert/rbuf! lctx n))))
+      (unless (fxzero? n)
+        (bytespan-delete-left! rbuf n)
+        (when (bytespan-empty? rbuf)
+          (bytespan-clear! rbuf))) ; set begin, end to 0
+      (cond
+        ((procedure? proc)
+          ; call lineedit-key-... procedure after updating rbuf:
+          ; it may need to read more keystrokes
+          (proc lctx)
+          (linectx-last-key-set! lctx proc))
+        ((not (fxzero? n))
+          (linectx-last-key-set! lctx #f)))
+      n)))
+
+
+;; return three values: position x y of start of word under cursor,
+;; and number of characters between cursor and word start.
+(define (linectx-find-left/word-begin lctx)
+  (let ((screen (linectx-vscreen lctx)))
+    (let-values (((x y) (vscreen-cursor-ixy screen)))
+      (let-values (((x y nsp) (vscreen-count-before-xy/left screen x y %char-is-not-alphanumeric)))
+        (let-values (((x y nw) (vscreen-count-before-xy/left screen x y %char-is-alphanumeric)))
+          (values x y (fx+ nsp nw)))))))
+
+
+;; return three values: position x y of end of word under cursor,
+;; and number of characters between cursor and word end.
+(define (linectx-find-right/word-end lctx)
+  (let ((screen (linectx-vscreen lctx)))
+    (let-values (((x y) (vscreen-cursor-ixy screen)))
+      (let-values (((x y nsp) (vscreen-count-at-xy/right screen x y %char-is-not-alphanumeric)))
+        (let-values (((x y nw) (vscreen-count-at-xy/right screen x y %char-is-alphanumeric)))
+          (values x y (fx+ nsp nw)))))))
+
+
+;; return #t if ch is an alphanumeric i.e. one of [0-9A-Za-z] or a Unicode codepoint >= 128
+;; otherwise return #f
+(define (%char-is-alphanumeric ch)
+  (or (char<=? #\0 ch #\9)
+      (char<=? #\A ch #\Z)
+      (char<=? #\a ch #\z)
+      (fx>=? (char->integer ch) 128)))
+
+;; return #t if ch is not alphanumeric i.e. not one of [0-9A-Za-z] and not a Unicode codepoint >= 128
+;; otherwise return #f
+(define (%char-is-not-alphanumeric ch)
+  (not (%char-is-alphanumeric ch)))
+
+
+;; insert a single character or cell into vscreen at cursor.
+;; Also moves vscreen cursor one character to the right, and reflows vscreen as needed.
+(define (linectx-insert/char! lctx c)
+  (vscreen-insert/c! (linectx-vscreen lctx) c))
+
+
+;; read (- end start) chars from string str, starting at offset = start
+;; and insert them into vscreen at cursor.
+;;
+;; Moves cursor appropriately to the right, and reflows vscreen as needed.
+(define linectx-insert/string!
+  (case-lambda
+    ((lctx str start end)
+      (assert* 'linectx-insert/string! (fx<=?* 0 start end (string-length str)))
+      (do ((i start (fx1+ i)))
+          ((fx>=? i end))
+        (linectx-insert/char! lctx (string-ref str i))))
+    ((lctx str)
+      (linectx-insert/string! lctx str 0 (string-length str)))))
+
+
+;; read (- end start) chars from charspan csp, starting at offset = start
+;; and insert them into vscreen at cursor.
+;;
+;; Moves cursor appropriately to the right, and reflows vscreen as needed.
+(define linectx-insert/charspan!
+  (case-lambda
+    ((lctx csp start end)
+      (assert* 'linectx-insert/charspan! (fx<=?* 0 start end (charspan-length csp)))
+      (do ((i start (fx1+ i)))
+          ((fx>=? i end))
+        (linectx-insert/char! lctx (charspan-ref csp i))))
+    ((lctx csp)
+      (linectx-insert/charspan! lctx csp 0 (charspan-length csp)))))
+
+
+;; read up to (- end start) bytes from bytespan bsp, starting at offset = start,
+;; assume they are utf-8, convert them to characters and insert them into vscreen at cursor.
+;; stops at any byte < 32, unless it's the first byte (which is skipped).
+;; Also stops at incomplete utf-8 sequences.
+;; Moves cursor appropriately to the right, and reflows vscreen as needed.
+;; return number of bytes actually read from bytespan and inserted.
+(define linectx-insert/bytespan!
+  (case-lambda
+    ((lctx bsp start end)
+      (assert* 'linectx-insert/bytespan! (fx<=?* 0 start end (bytespan-length bsp)))
+      (let ((pos start)
+            (incomplete-utf8? #f))
+        (do ()
+            ((or incomplete-utf8?
+                 (fx>=? pos end)
+                 ; stop at any byte < 32, unless it's the first byte (which we skip)
+                 (and (fx>? pos start) (fx<? (bytespan-ref/u8 bsp pos) 32))))
+          (let-values (((ch len) (bytespan-ref/char bsp pos end)))
+            (set! pos (fxmin end (fx+ pos len)))
+            (cond
+              ((eq? #t ch)
+                (set! incomplete-utf8? #t))
+              ((and (char? ch) (char>=? ch #\space))
+                (linectx-insert/char! lctx ch)))))
+        (fx- pos start))) ; return number of bytes actually inserted
+    ((lctx bsp)
+      (linectx-insert/bytespan! lctx bsp 0 (bytespan-length bsp)))))
+
+
 ;; view linectx prompt as mutable ansi-text
 (define (linectx-prompt-ansi-text lctx)
   (make-ansi-text (linectx-prompt lctx) ; reuse bytespan containing prompt
@@ -438,13 +519,3 @@
 (define (linectx-prompt-ansi-text-set! lctx a)
   (linectx-prompt-set! lctx (ansi-text-bytes a))
   (vscreen-prompt-length-set! (linectx-vscreen lctx) (ansi-text-visible-length a)))
-
-
-;; customize how "linectx" objects are printed
-(record-writer (record-type-descriptor linectx)
-  (lambda (lctx port writer)
-    (display "#<linectx " port)
-    (display (linectx-parser-name lctx) port)
-    (display ">" port)))
-
-) ; close library

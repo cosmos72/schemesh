@@ -78,8 +78,6 @@
   (include "lineedit/paren.ss")
   (include "lineedit/parenmatcher.ss")
   (include "lineedit/parser.ss")
-  (include "lineedit/linectx.ss")
-  (include "lineedit/lineterm.ss")
   (include "lineedit/lineedit.ss")
   (include "lineedit/all.ss")
 

@@ -1,4 +1,4 @@
-# schemesh lineedit linectx
+# schemesh lineedit
 
 The effect of key presses at REPL is controlled the library `(schemesh lineedit)` which is also included in `(schemesh)`.
 Users can change these effects, and define new ones, as described in [key.md](key.md).

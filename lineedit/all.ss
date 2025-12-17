@@ -11,8 +11,6 @@
 (library-reexport (schemesh lineedit (0 9 2))
   (import
     (schemesh lineedit ansi)
-    (schemesh lineedit linectx)
-    (schemesh lineedit lineterm)
     (schemesh lineedit lineedit)
     (schemesh lineedit paren)
     (schemesh lineedit parenmatcher)

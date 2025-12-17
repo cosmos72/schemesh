@@ -23,7 +23,7 @@
     (only (schemesh posix dir)        directory-list-type directory-sort!)
     (only (schemesh screen vscreen)   vscreen-char-before-xy vscreen-cursor-ix vscreen-cursor-iy)
     (schemesh lineedit paren)
-    (only (schemesh lineedit linectx) linectx-completion-stem linectx-vscreen)
+    (only (schemesh lineedit lineedit) linectx-completion-stem linectx-vscreen)
     (only (schemesh shell parameters) sh-current-environment)
     (only (schemesh shell job)        sh-aliases sh-builtins sh-env-iterate/direct sh-env-ref sh-userhome))
 
