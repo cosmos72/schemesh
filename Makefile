@@ -42,6 +42,13 @@ INSTALL_DATA    = $(INSTALL) -m 644
 MKDIR_P         = mkdir -p
 
 
+# C compiler for shared libraries (not used by default)
+CC_SO=cc
+# additional C compiler flags for C shared library (not used by default)
+CFLAGS_SO=-fPIC
+# linker flags for C shared library (not used by default)
+LDFLAGS_SO=-shared
+
 
 ######################################################################################
 # no user-serviceable parts below this line
@@ -50,12 +57,12 @@ MKDIR_P         = mkdir -p
 ######################################################################################
 # schemesh rules
 ######################################################################################
-TARGET_LIBSCHEMESH=libschemesh_0.9.2.so
+SCHEMESH_SO=libschemesh_0.9.2.so
 
 SRCS=containers/containers.c eval.c posix/posix.c shell/shell.c
 OBJS=containers.o eval.o posix.o shell.o
 
-all: schemesh schemesh_test $(TARGET_LIBSCHEMESH) countdown
+all: schemesh schemesh_test $(SCHEMESH_SO) countdown
 
 clean:
 	rm -f *~ *.o *.so schemesh schemesh_test countdown
@@ -85,7 +92,7 @@ schemesh: main.o $(OBJS)
 schemesh_test: test.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
 
-$(TARGET_LIBSCHEMESH): schemesh_test
+$(SCHEMESH_SO): schemesh_test
 	./schemesh_test
 
 countdown: utils/countdown.c
@@ -98,10 +105,10 @@ installdirs:
 
 install: all installdirs
 	$(INSTALL_PROGRAM) schemesh countdown '$(DESTDIR)$(bindir)'
-	$(INSTALL_DATA) $(TARGET_LIBSCHEMESH) '$(DESTDIR)$(SCHEMESH_DIR)'
+	$(INSTALL_DATA) $(SCHEMESH_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
 
 uninstall:
-	rm -f '$(DESTDIR)$(bindir)/schemesh' '$(DESTDIR)$(bindir)/countdown' '$(DESTDIR)$(SCHEMESH_DIR)/$(TARGET_LIBSCHEMESH)'
+	rm -f '$(DESTDIR)$(bindir)/schemesh' '$(DESTDIR)$(bindir)/countdown' '$(DESTDIR)$(SCHEMESH_DIR)/$(SCHEMESH_SO)'
 
 
 ################################################################################
@@ -110,26 +117,24 @@ uninstall:
 
 # by default, C shared libraries are not compiled.
 
-# C compiler with additional flags for C shared library (not used by default)
-CFLAGS_SO=-fPIC
-# linker flags for C shared library (not used by default)
-LDFLAGS_SO=-shared
+batteries: schemesh_c_so chez_curl_c_so
 
+install_batteries: install_schemesh_c_so install_chez_curl_c_so
 
 ################################################################################
 # optional C shared library libschemesh_c_X.Y.Z.so
 # contains C functions needed by schemesh and libschemesh
 ################################################################################
 
-TARGET_LIBSCHEMESH_C_SO=libschemesh_c_0.9.2.so
+SCHEMESH_C_SO=libschemesh_c_0.9.2.so
 
-c_so: $(TARGET_LIBSCHEMESH_C_SO)
+schemesh_c_so: $(SCHEMESH_C_SO)
 
-$(TARGET_LIBSCHEMESH_C_SO): $(SRCS)
-	$(CC) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)' $(LDFLAGS) $(LDFLAGS_SO)
+$(SCHEMESH_C_SO): $(SRCS)
+	$(CC_SO) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)' $(LDFLAGS) $(LDFLAGS_SO)
 
-install_c_so: $(TARGET_LIBSCHEMESH_C_SO) installdirs
-	$(INSTALL_DATA) $(TARGET_LIBSCHEMESH_C_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
+install_schemesh_c_so: $(SCHEMESH_C_SO) installdirs
+	$(INSTALL_DATA) $(SCHEMESH_C_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
 
 
 ################################################################################
@@ -139,14 +144,13 @@ install_c_so: $(TARGET_LIBSCHEMESH_C_SO) installdirs
 
 LIB_CURL=-lcurl
 
-TARGET_LIBCHEZ_CURL_C_SO=libchez_curl_c_0.9.2.so
+CHEZ_CURL_C_SO=libchez_curl_c_0.9.2.so
 
-batteries: chez_curl
+chez_curl_c_so: $(CHEZ_CURL_C_SO)
 
-chez_curl: $(TARGET_LIBCHEZ_CURL_C_SO)
+$(CHEZ_CURL_C_SO): port/http.c
+	$(CC_SO) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) $(LIB_CURL) $(LDFLAGS) $(LDFLAGS_SO)
 
-$(TARGET_LIBCHEZ_CURL_C_SO): port/http.c
-	$(CC) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) $(LIB_CURL) $(LDFLAGS) $(LDFLAGS_SO)
+install_chez_curl_c_so: installdirs
+	$(INSTALL_DATA) $(CHEZ_CURL_C_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
 
-install_batteries: batteries installdirs
-	$(INSTALL_DATA) $(TARGET_LIBCHEZ_CURL_C_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
