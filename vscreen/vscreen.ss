@@ -7,55 +7,7 @@
 
 #!r6rs
 
-(library (schemesh screen vscreen (0 9 2))
-  (export
-    make-vscreen  (rename (%vscreen vscreen))  vscreen?  assert-vscreen?
-    vscreen-width        vscreen-height     vscreen-width-at-y  vscreen-resize!
-    vscreen-dirty?       vscreen-dirty-set!
-    vscreen-cursor-ix    vscreen-cursor-iy  vscreen-cursor-ixy  vscreen-cursor-ixy-set!
-    vscreen-cursor-vx    vscreen-cursor-vy  vscreen-cursor-vxy  vscreen-cursor-vxy-set!
-    vscreen-prompt-end-x vscreen-prompt-end-y vscreen-prompt-length  vscreen-prompt-length-set!
-    vscreen-length-at-y  vscreen-length       vscreen-cell-count     vscreen-cell-count<=?
-    vscreen-cell-at-xy   vscreen-char-at-xy   vscreen-char-before-xy  vscreen-char-after-xy
-    vscreen-next-xy      vscreen-prev-xy   vscreen-next-xy/or-self  vscreen-prev-xy/or-self
-    vscreen-count-before-xy/left  vscreen-count-at-xy/right
-    vscreen-clear!       vscreen-empty?
-    vscreen-cursor-move/left! vscreen-cursor-move/right!  vscreen-cursor-move/up!  vscreen-cursor-move/down!
-    vscreen-delete-left/n!     vscreen-delete-right/n!      vscreen-delete-at-xy!
-    vscreen-delete-left/vline!  vscreen-delete-right/vline!
-    vscreen-insert/c!            vscreen-insert-at-xy/c!
-    vscreen-insert-at-xy/newline! vscreen-insert-at-xy/vcellspan!
-    vscreen-assign*!  vscreen-reflow  vscreen-write)
-
-  (import
-    (rnrs)
-    (only (chezscheme)         format fx1+ fx1- record-writer)
-    (only (schemesh bootstrap) assert* fx<=?* while)
-    (only (schemesh containers charspan) charspan-insert-left! charspan-insert-right!)
-    (schemesh containers span)
-    (only (schemesh screen vcell) vcell->char)
-    (schemesh screen vcellspan)
-    (schemesh screen vline)
-    (schemesh screen vlines))
-
-
-;; copy-pasted from containers/gbuffer.ss
-(define-record-type (%gbuffer %make-gbuffer %gbuffer?)
-  (fields
-     (mutable left  gbuffer-left  gbuffer-left-set!)
-     (mutable right gbuffer-right gbuffer-right-set!))
-  (nongenerative %gbuffer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
-
-
-;; copy-pasted from containers/vlines.ss
-(define-record-type (%vlines %make-vlines %vlines?)
-  (parent %gbuffer)
-  (fields
-    ;; lines between y >= dirty-start-y and y < dirty-end-y
-    ;; are completely dirty i.e. must be fully redrawn on screen
-    (mutable dirty-start-y) ;; fixnum
-    (mutable dirty-end-y))  ;; fixnum
-  (nongenerative %vlines-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+;; this file should be included only by file vscreen/all.ss
 
 
 ;; vscreen is an in-memory representation of user-typed input and how it is split
@@ -761,14 +713,14 @@
 ;; returned position may be on the previous line.
 ;; return #f #f if x y is out of range or is the first valid position.
 (define (vscreen-prev-xy screen x y)
-  (vlines-prev-xy x y))
+  (vlines-prev-xy screen x y))
 
 
 ;; return position one character to the right of x y.
 ;; returned position may be on the next line.
 ;; return #f #f if x y is out of range or is the last valid position.
 (define (vscreen-next-xy screen x y)
-  (vlines-next-xy x y))
+  (vlines-next-xy screen x y))
 
 
 ;; return position one character to the left of x y, and n+1.
@@ -861,13 +813,3 @@
     (lambda (i line)
       (display #\space port)
       (vline-write line port))))
-
-
-;; customize how "vscreen" objects are printed
-(record-writer (record-type-descriptor vscreen)
-  (lambda (screen port writer)
-    (display "(vscreen " port)
-    (vscreen-write screen port)
-    (display ")" port)))
-
-) ; close library

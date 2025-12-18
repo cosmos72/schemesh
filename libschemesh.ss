@@ -54,17 +54,7 @@
   (include "port/stdio.ss")
   (include "port/port.ss")
 
-  (include "screen/vcell.ss")
-  (include "screen/vcellvector.ss")
-  (include "screen/vcellspan.ss")
-  (include "screen/vbuffer.ss")
-  (include "screen/vline.ss")
-  (include "screen/vlines.ss")
-  (include "screen/vlines-io.ss")
-  (include "screen/vscreen.ss")
-  (include "screen/vhistory.ss")
-  (include "screen/vhistory-io.ss")
-  (include "screen/all.ss")
+  (include "vscreen/all.ss")
 
 
   (include "ipc/channel.ss") ; requires wire/wire.ss posix/fd.ss

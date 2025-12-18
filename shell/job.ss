@@ -106,9 +106,7 @@
     (only (schemesh posix thread)      thread-count thread-id thread-signal-handle threads-status threads-status-changes)
     (schemesh port redir)
     (schemesh port stdio)
-    (only (schemesh screen vline)      vline-display/bytespan)
-    (only (schemesh screen vlines)     vlines-iterate)
-    (only (schemesh screen vhistory)   vhistory-iterate vhistory-path-set!)
+    (only (schemesh vscreen)           vline-display/bytespan vlines-iterate vhistory-iterate vhistory-path-set!)
     (only (schemesh lineedit lineedit) linectx? linectx-history linectx-save-history linectx-wbuf
                                        lineedit-display-table lineedit-flush lineedit-undraw)
     (schemesh shell fds)

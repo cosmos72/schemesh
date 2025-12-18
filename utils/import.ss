@@ -46,7 +46,7 @@
     (schemesh containers replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
     (schemesh conversions)
     (schemesh wire)
-    (schemesh screen)
+    (schemesh vscreen)
     (schemesh lineedit)
     (schemesh parser)
     (schemesh port)
@@ -73,7 +73,7 @@
     (when (top-level-bound? 'text->bytevector)
       (eval '(import (schemesh conversions))))
     (when (top-level-bound? 'vcell)
-      (eval '(import (schemesh screen))))
+      (eval '(import (schemesh vscreen))))
     (when (top-level-bound? 'lineedit-read)
       (eval '(import (schemesh lineedit))))
     (when (top-level-bound? 'parsers)

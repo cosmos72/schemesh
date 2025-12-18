@@ -7,33 +7,7 @@
 
 #!r6rs
 
-(library (schemesh screen vlines (0 9 2))
-  (export
-    vlines vlines? assert-vlines? vlines->string
-    vlines-shallow-copy vlines-copy-on-write vlines-iterate
-    vlines-empty? vlines-length vlines-equal/chars?
-    vlines-cell-count vlines-cell-count<=? vlines-ref vlines-set! vlines-clear!
-    vlines-index vlines-index-right vlines-count vlines-count-right
-    vlines-dirty-start-y vlines-dirty-end-y vlines-dirty-y-add! vlines-dirty-xy-unset!
-    vlines-delete-at! vlines-insert-at! vlines-starts-with?
-    vlines-next-xy vlines-prev-xy vlines-cell-at-xy vlines-char-at-xy
-    vlines-char-before-xy vlines-char-after-xy
-    in-vlines)
-
-  (import
-    (rnrs)
-    (only (rnrs mutable-pairs)   set-car!)
-    (only (rnrs mutable-strings) string-set!)
-    (only (chezscheme) fx1+ fx1- record-writer string-copy!)
-    (only (schemesh bootstrap)   assert* fx<=?* while)
-    (only (schemesh containers list) for-list)
-    (only (schemesh containers charspan) make-charspan charspan-insert-right! charspan->string*!)
-    (schemesh containers span)
-    (schemesh containers gbuffer)
-    (only (schemesh screen vcell)  vcell->char)
-    (schemesh screen vcellspan)
-    (schemesh screen vbuffer)
-    (schemesh screen vline))
+;; this file should be included only by file vscreen/all.ss
 
 
 ;; copy-pasted from containers/gbuffer.ss
@@ -42,6 +16,7 @@
      (mutable left  gbuffer-left  gbuffer-left-set!)
      (mutable right gbuffer-right gbuffer-right-set!))
   (nongenerative %gbuffer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+
 
 ;; type vlines is a gap-buffer, containing vline elements
 (define-record-type (%vlines %make-vlines vlines?)
@@ -431,14 +406,8 @@
       (in-vlines lines 0 (vlines-length lines) 1))))
 
 
-;; customize how "vlines" objects are printed
-(record-writer (record-type-descriptor %vlines)
-  (lambda (lines port writer)
-    (display "(vlines" port)
-    (vlines-iterate lines
-      (lambda (i line)
-        (display #\space port)
-        (vline-write line port)))
-    (display ")" port)))
-
-) ; close library
+;; create an input port reading from a vlines
+(define (open-vlines-input-port lines)
+  ;; a string-input-port supports unlimited (unget-char)
+  ;; useful for parsers
+  (open-string-input-port (vlines->string lines)))

@@ -7,47 +7,13 @@
 
 #!r6rs
 
+;; this file should be included only by file vscreen/all.ss
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;      define Scheme type "vcellvector", a vector of cells       ;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (schemesh screen vcellvector (0 9 2))
-  (export
-    make-vcellvector list->vcellvector string->vcellvector
-    vcellvector-length vcellvector-empty? vcellvector-ref
-    vcellvector-set! vcellvector-update/char! vcellvector-update/colors! vcellvector-update/palette!
-    vcellvector-fill! vcellvector-copy! vcellvector-copy/string!
-
-    vcellvector-display vcellvector-write)
-
-  (import
-    (rnrs)
-    (rnrs mutable-strings)
-    (only (chezscheme)                     fx1+ fx1- fx/ meta-cond)
-    (only (schemesh bootstrap)             assert* assert-not* fx<=?*)
-    (only (schemesh containers bytevector) subbytevector-fill!)
-    (schemesh screen vcell))
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-(define-syntax vcell-bytes-log2 (identifier-syntax 2))
-(define-syntax vcell-bytes      (identifier-syntax 4))
-
-(define-syntax fx<< (identifier-syntax fxarithmetic-shift-left))
-(define-syntax fx>> (identifier-syntax fxarithmetic-shift-right))
-
-(define-syntax vcell<<
-  (syntax-rules ()
-    ((_ expr) (fx<< expr vcell-bytes-log2))))
-
-(define-syntax vcell>>
-  (syntax-rules ()
-    ((_ expr) (fx>> expr vcell-bytes-log2))))
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 ;; create a vcellvector containing n cells.
@@ -213,6 +179,3 @@
       (vcellvector-write clv 0 (vcellvector-length clv) port))
     ((clv)
       (vcellvector-write clv 0 (vcellvector-length clv) (current-output-port)))))
-
-
-) ; close library

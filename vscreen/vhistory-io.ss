@@ -7,25 +7,7 @@
 
 #!r6rs
 
-(library (schemesh screen vhistory io (0 9 2))
-  (export
-    vhistory-load!           vhistory-save
-    vhistory-load-from-file! vhistory-save-to-path
-    vhistory-load-from-port! vhistory-save-to-port)
-  (import
-    (rnrs)
-    (only (chezscheme)                 #| console-error-port display-condition |# fx1+ void)
-    (only (schemesh bootstrap)         try catch until)
-    (only (schemesh containers string) string-replace/char!)
-    (only (schemesh containers utf8b)  string->utf8b utf8b-bytespan->string)
-    (schemesh containers bytespan)
-    (schemesh containers gbuffer)
-    (only (schemesh posix pid)         pid-get)
-    (only (schemesh posix dir)         file-delete file-rename)
-    (only (schemesh posix io)          file->port)
-    (schemesh screen vline)
-    (schemesh screen vlines)
-    (schemesh screen vhistory))
+;; this file should be included only by file vscreen/all.ss
 
 
 ;; save vhistory to file (vhistory-path hist)
@@ -232,14 +214,3 @@
       start
       end
       (if nl? 'nl (if (and eof? (fx>=? start end)) 'eof #f)))))
-
-
-
-
-
-
-
-
-
-
-) ; close library

@@ -7,27 +7,13 @@
 
 #!r6rs
 
+;; this file should be included only by file vscreen/all.ss
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;   define Scheme type "vbuffer", a gap buffer containing ccells.   ;;;;;;;
 ;;;;; Implementation: contains two vcellspans, a "left" and a "right" one  ;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(library (schemesh screen vbuffer (0 9 2))
-  (export
-    in-vbuffer list->vbuffer string->vbuffer
-    vcellspan->vbuffer vcellspan->vbuffer*
-    make-vbuffer vbuffer vbuffer?
-    vbuffer-length vbuffer-empty?
-    vbuffer-ref vbuffer-set! vbuffer-clear! vbuffer-split-at!
-    vbuffer-insert-at! vbuffer-insert-at/vcellspan! vbuffer-insert-at/vbuffer!
-    vbuffer-delete! vbuffer-iterate
-    vbuffer-display/bytespan vbuffer-write)
-  (import
-    (rnrs)
-    (only (chezscheme)             fx1+ fx/ record-writer void)
-    (only (schemesh bootstrap)     assert* assert-not* fx<=?*)
-    (only (schemesh screen vcell)  vcell->char vcell->vpalette vcell-write vcell-display/bytespan vpalette-display vpalette-display/bytespan)
-    (schemesh screen vcellspan))
 
 ;; a gap-buffer containing vcells
 (define-record-type (%vbuffer %make-vbuffer vbuffer?)
@@ -268,13 +254,3 @@
       (put-char port #\"))
     ((cgb port)
       (vbuffer-write cgb 0 (vbuffer-length cgb) port))))
-
-
-;; customize how "vbuffer" objects are printed
-(record-writer (record-type-descriptor %vbuffer)
-  (lambda (cgb port writer)
-    (display "(string->vbuffer " port)
-    (vbuffer-write cgb port)
-    (display ")" port)))
-
-) ; close library

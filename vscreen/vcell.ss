@@ -7,26 +7,8 @@
 
 #!r6rs
 
+;; this file should be included only by file vscreen/all.ss
 
-(library (schemesh screen vcell (0 9 2))
-  (export
-    vcell vcell? vcell->char vcell->vpalette vcell->vcolors vcell-write vcell-display/bytespan
-
-    vcolor? vrgb/24 vrgb/8 vrgb/4 vgray/5 symbol->vrgb/4
-    vcolors vcolors? vcolors->fg vcolors->bg vcolors->vpalette
-    vpalette? vpalette->vcolors
-
-    vcolor-fg-display vcolor-bg-display vcolors-display vpalette-display
-    vcolor-fg-display/bytespan vcolor-bg-display/bytespan  vcolors-display/bytespan vpalette-display/bytespan)
-  (import
-    (rnrs)
-    (only (chezscheme)                      fx1- meta-cond record-writer)
-    (only (schemesh bootstrap)              assert*)
-    (schemesh containers bytespan)
-    (only (schemesh containers list)        list-index)
-    (only (schemesh containers hashtable)   eqv-hashtable)
-    (schemesh containers span)
-    (only (schemesh containers utf8b)       integer->char* bytespan-display-right/fixnum! bytespan-insert-right/char!))
 
 (define-syntax vcell-bytes-log2 (identifier-syntax 2))
 (define-syntax vcell-bytes      (identifier-syntax 4))
@@ -52,6 +34,13 @@
 (define-syntax fx<< (identifier-syntax fxarithmetic-shift-left))
 (define-syntax fx>> (identifier-syntax fxarithmetic-shift-right))
 
+(define-syntax vcell<<
+  (syntax-rules ()
+    ((_ expr) (fx<< expr vcell-bytes-log2))))
+
+(define-syntax vcell>>
+  (syntax-rules ()
+    ((_ expr) (fx>> expr vcell-bytes-log2))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -354,18 +343,3 @@
     (unless (fx=? palette old-palette)
       (vpalette-display/bytespan palette wbuf))
     (bytespan-insert-right/char! wbuf ch)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-;; customize how "vcolors" objects are printed
-(record-writer (record-type-descriptor %vcolors)
-  (lambda (cols port writer)
-    (display "(vcolors " port)
-    (vcolor-write (vcolors->fg cols) port)
-    (display " " port)
-    (vcolor-write (vcolors->bg cols) port)
-    (display ")" port)))
-
-
-) ; close library

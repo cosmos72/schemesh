@@ -7,32 +7,12 @@
 
 #!r6rs
 
+;; this file should be included only by file vscreen/all.ss
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;  define Scheme type "vcellspan", a resizeable vector of cells  ;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(library (schemesh screen vcellspan (0 9 2))
-  (export
-    list->vcellspan string->vcellspan make-vcellspan
-    vcellspan vcellspan? assert-vcellspan? vcellspan-length vcellspan-empty? vcellspan-clear!
-    vcellspan-capacity vcellspan-capacity-left vcellspan-capacity-right
-    vcellspan-ref vcellspan-ref-right
-    vcellspan-set! vcellspan-fill!  vcellspan-copy vcellspan-copy!
-    vcellspan-reserve-left! vcellspan-reserve-right! vcellspan-resize-left! vcellspan-resize-right!
-    vcellspan-insert-left!         vcellspan-insert-right!
-    vcellspan-insert-left/vcellspan!  vcellspan-insert-right/vcellspan!
-    vcellspan-delete-left!         vcellspan-delete-right! vcellspan-index vcellspan-index/char
-    vcellspan-iterate in-vcellspan  vcellspan-write)
-
-  (import
-    (rnrs)
-    (only (chezscheme)                fx1+ fx1- record-writer bytevector-truncate! void)
-    (only (schemesh bootstrap)        assert* assert-not* fx<=?*)
-    (only (schemesh containers list)  for-list)
-    (schemesh containers charspan)
-    (only (schemesh screen vcell)     vcell->char)
-    (schemesh screen vcellvector))
-
 
 
 (define-record-type (%vcellspan %make-vcellspan vcellspan?)
@@ -389,13 +369,3 @@
         (vcellvector-write (vcellspan-vec csp) (fx+ offset start) (fx+ offset end) port)))
     ((csp port)
       (vcellvector-write (vcellspan-vec csp) (vcellspan-beg csp) (vcellspan-end csp) port))))
-
-
-;; customize how vcellspan objects are printed
-(record-writer (record-type-descriptor %vcellspan)
-  (lambda (csp port writer)
-    (display "(string->vcellspan " port)
-    (vcellspan-write csp port)
-    (display ")" port)))
-
-) ; close library

@@ -7,29 +7,7 @@
 
 #!r6rs
 
-(library (schemesh screen vhistory (0 9 2))
-  (export
-    vhistory vhistory? make-vhistory
-    vhistory-empty? vhistory-length vhistory-ref/cow vhistory-iterate
-    vhistory-index/starts-with vhistory-index-right/starts-with
-    vhistory-delete-empty-lines!
-    vhistory-set*! vhistory-path vhistory-path-set!)
-  (import
-    (rnrs)
-    (only (chezscheme)               fx1+ fx1- record-writer)
-    (only (schemesh bootstrap)       raise-assertf while)
-    (only (schemesh containers list) for-list)
-    (only (schemesh containers span) span make-span list->span)
-    (schemesh containers gbuffer)
-    (only (schemesh screen vline) vline-empty?)
-    (schemesh screen vlines))
-
-;; copy-pasted from containers/gbuffer.ss
-(define-record-type (%gbuffer %make-gbuffer %gbuffer?)
-  (fields
-    (mutable left  gbuffer-left  gbuffer-left-set!)
-    (mutable right gbuffer-right gbuffer-right-set!))
-  (nongenerative %gbuffer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+;; this file should be included only by file vscreen/all.ss
 
 
 ;; type vhistory is a gbuffer containing vlines elements (the history itself)
@@ -159,16 +137,3 @@
     (do ((i (fx1- end) (fx1- i)))
       ((or (fx<? i start) (vlines-starts-with? (gbuffer-ref hist i) prefix-lines prefix-x prefix-y))
        (if (fx>=? i start) i #f)))))
-
-
-;; customize how "vhistory" objects are printed
-(record-writer (record-type-descriptor %vhistory)
-  (lambda (hist port writer)
-    (display "(vhistory" port)
-    (gbuffer-iterate hist
-      (lambda (i elem)
-        (display #\space port)
-        (writer elem port)))
-    (display ")" port)))
-
-) ; close library

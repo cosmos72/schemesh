@@ -7,33 +7,9 @@
 
 #!r6rs
 
-(library (schemesh screen vline (0 9 2))
-  (export
-    vline vline? assert-vline? vline->string
-    vline-nl? vline-copy-on-write vline-empty?
-    vline-length vline-ref vline-ref/char vline-at vline-at/char
-    vline-equal/chars? vline-set! vline-clear!
-    vline-delete! vline-insert-at! vline-insert-at/vcellspan! vline-insert-at/vbuffer!
-    vline-index vline-index-right vline-index/char vline-count vline-count-right
-    vline-dirty-start-x vline-dirty-end-x vline-dirty-x-add! vline-dirty-x-unset!
-    in-vline vline-iterate vline-display/bytespan vline-write)
 
-  (import
-    (rnrs)
-    (only (rnrs mutable-pairs)   set-car!)
-    (only (rnrs mutable-strings) string-set!)
-    (only (chezscheme)           fx1+ fx1- record-writer string-copy!)
-    (only (schemesh bootstrap)   assert* fx<=?*)
-    (schemesh screen vcell)
-    (schemesh screen vcellspan)
-    (schemesh screen vbuffer))
+;; this file should be included only by file vscreen/all.ss
 
-;; copy-pasted from containers/vbuffer.ss
-(define-record-type (%vbuffer %make-vbuffer %vbuffer?)
-  (fields
-     (mutable left  cl< vbuffer-left-set!)
-     (mutable right cl> vbuffer-right-set!))
-  (nongenerative %vbuffer-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 ;; type vline is a cell gap-buffer with additional fields:
 ;;
@@ -315,12 +291,3 @@
 
 ;; write a textual representation of vline to output port
 (define vline-write vbuffer-write)
-
-;; customize how "vline" objects are printed
-(record-writer (record-type-descriptor %vline)
-  (lambda (line port writer)
-    (display "(vline " port)
-    (vline-write line port)
-    (display ")" port)))
-
-) ; close library

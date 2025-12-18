@@ -20,10 +20,8 @@
     (schemesh lineedit lineedit)
     (only (schemesh lineedit paren) paren-name)
     (schemesh lineedit parser)
-    (only (schemesh posix fd) c-hostname)
+    (only (schemesh posix fd)       c-hostname)
     (schemesh parser)
-    (schemesh screen vlines io)
-    (schemesh screen vscreen)
     (schemesh shell autocomplete)
     (schemesh shell job))
 
