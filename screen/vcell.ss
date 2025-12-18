@@ -26,8 +26,7 @@
     (only (schemesh containers list)        list-index)
     (only (schemesh containers hashtable)   eqv-hashtable)
     (schemesh containers span)
-    (only (schemesh containers utf8b)       integer->char*)
-    (only (schemesh containers utf8b utils) bytespan-display-right/fixnum! bytespan-insert-right/char!))
+    (only (schemesh containers utf8b)       integer->char* bytespan-display-right/fixnum! bytespan-insert-right/char!))
 
 (define-syntax vcell-bytes-log2 (identifier-syntax 2))
 (define-syntax vcell-bytes      (identifier-syntax 4))

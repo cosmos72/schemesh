@@ -24,5 +24,4 @@
           (schemesh containers span)
           (schemesh containers string)
           (schemesh containers utf8b)
-          (schemesh containers utf8b utils)
           (schemesh containers vector)))

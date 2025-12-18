@@ -9,17 +9,28 @@
 
 (library (schemesh containers utf8b (0 9 2))
   (export
+    ;; utf8b.ss
     codepoint? codepoint-utf8b? integer->char* string->utf8b string->utf8b/0
-    utf8b->string utf8b->string-copy! utf8b-bytespan->string)
+    utf8b->string utf8b->string-copy! utf8b-bytespan->string
+
+    ;; utf8b-utils.ss
+    bytevector-char-ref bytevector-char-set! char->utf8b-length
+    bytespan-ref/char bytespan-set/char! bytespan-insert-left/char! bytespan-insert-right/char!
+    bytespan-insert-right/charspan!
+    bytespan-display-right/fixnum! bytespan-display-right/integer! bytespan-insert-right/string!
+    charspan->utf8b charspan->utf8b/0)
 
   (import
-    (rnrs)
+    (rename (rnrs) (fxarithmetic-shift-left  fx<<)
+                   (fxarithmetic-shift-right fx>>))
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
-    (only (chezscheme) bytevector foreign-procedure fx1+ fx1- string-truncate!)
+    (only (chezscheme)                     bytevector foreign-procedure fx1+ fx1- include string-truncate!)
     (only (schemesh bootstrap)             assert* fx<=?* raise-assertf)
-    (only (schemesh containers bytespan)   bytespan? bytespan-length bytespan-peek-data bytespan-peek-beg bytespan-peek-end)
-    (only (schemesh containers bytevector) subbytevector-fill!))
+    (only (schemesh containers bytevector) subbytevector-fill!)
+    (only (schemesh containers string)     string-iterate)
+    (schemesh containers bytespan)
+    (schemesh containers charspan))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -186,5 +197,7 @@
       (assert* 'utf8b-bytespan->string (bytespan? bspan))
       (utf8b->string (bytespan-peek-data bspan) (bytespan-peek-beg bspan) (bytespan-peek-end bspan)))))
 
+
+(include "containers/utf8b-utils.ss")
 
 ) ; close library

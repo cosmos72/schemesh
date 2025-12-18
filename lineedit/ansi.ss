@@ -18,8 +18,7 @@
     (only (chezscheme)                      record-writer)
     (only (schemesh bootstrap)              assert*)
     (only (schemesh containers bytespan)    make-bytespan bytespan? bytespan-clear!)
-    (only (schemesh containers utf8b)       utf8b-bytespan->string)
-    (only (schemesh containers utf8b utils) bytespan-insert-right/string!))
+    (only (schemesh containers utf8b)       utf8b-bytespan->string bytespan-insert-right/string!))
 
 
 (define-record-type (ansi-text %make-ansi-text ansi-text?)

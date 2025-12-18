@@ -30,8 +30,8 @@
     (schemesh containers bytespan)
     (only (schemesh containers list)        plist? plist-ref)
     (only (schemesh containers string)      substring-move!)
-    (only (schemesh containers utf8b)       integer->char* utf8b->string utf8b->string-copy!)
-    (only (schemesh containers utf8b utils) bytespan-insert-left/char! bytespan-insert-right/char!
+    (only (schemesh containers utf8b)       integer->char* utf8b->string utf8b->string-copy!
+                                            bytespan-insert-left/char! bytespan-insert-right/char!
                                             bytespan-insert-right/string! bytespan-ref/char)
     (only (schemesh conversions)            text->string)
     (only (schemesh posix fd)               fd-close fd-seek fd-read fd-write file->fd))

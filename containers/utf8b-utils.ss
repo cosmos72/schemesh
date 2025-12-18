@@ -7,27 +7,11 @@
 
 #!r6rs
 
+;; this file should be included only by file containers/utf8b.ss
+
 ;;; define Scheme utility functions on containers:
 ;;; a. converting chars from/to UTF8 and reading/writing them into "bytevector" and "bytespan"
 ;;; b. converting integers to decimal and writing them into "bytevector" and "bytespan"
-
-
-(library (schemesh containers utf8b utils (0 9 2))
-  (export
-    bytevector-char-ref bytevector-char-set! char->utf8b-length
-    bytespan-ref/char bytespan-set/char! bytespan-insert-left/char! bytespan-insert-right/char!
-    bytespan-insert-right/charspan!
-    bytespan-display-right/fixnum! bytespan-display-right/integer! bytespan-insert-right/string!
-    charspan->utf8b charspan->utf8b/0)
-  (import
-    (rename (rnrs) (fxarithmetic-shift-left  fx<<)
-                   (fxarithmetic-shift-right fx>>))
-    (only (chezscheme) fx1+ fx1-)
-    (only (schemesh bootstrap)              assert* fx<=?*)
-    (schemesh containers bytespan)
-    (schemesh containers charspan)
-    (only (schemesh containers string)      string-iterate)
-    (schemesh containers utf8b))
 
 
 ;; encode a single raw byte in the range #x80 ... #xff that is NOT part of a valid UTF-8 sequence
@@ -369,6 +353,3 @@
       pos)
     (else
       (%bytevector-display-right/-fixnum! bv pos (fx- n)))))
-
-
-) ; close library

@@ -151,6 +151,5 @@ chez_curl_c_so: $(CHEZ_CURL_C_SO)
 $(CHEZ_CURL_C_SO): port/http.c
 	$(CC_SO) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) $(LIB_CURL) $(LDFLAGS) $(LDFLAGS_SO)
 
-install_chez_curl_c_so: installdirs
+install_chez_curl_c_so: $(CHEZ_CURL_C_SO) installdirs
 	$(INSTALL_DATA) $(CHEZ_CURL_C_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
-
