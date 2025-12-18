@@ -67,7 +67,7 @@ all: schemesh schemesh_test $(SCHEMESH_SO) countdown
 schemesh_so: $(SCHEMESH_SO)
 
 clean:
-	rm -f *~ *.o *.so schemesh schemesh_test countdown
+	rm -f *~ *.o *.so schemesh schemesh_test countdown compile_chez_batteries
 
 containers.o: containers/containers.c containers/containers.h eval.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'
