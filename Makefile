@@ -64,6 +64,8 @@ OBJS=containers.o eval.o posix.o shell.o
 
 all: schemesh schemesh_test $(SCHEMESH_SO) countdown
 
+schemesh_so: $(SCHEMESH_SO)
+
 clean:
 	rm -f *~ *.o *.so schemesh schemesh_test countdown
 
@@ -112,29 +114,50 @@ uninstall:
 
 
 ################################################################################
-# optional C shared libraries
+# optional libraries
 ################################################################################
 
-# by default, C shared libraries are not compiled.
+# by default, do *not* compile C shared libraries and optional Scheme libraries
 
-batteries: schemesh_c_so chez_curl_c_so
+batteries: chez_batteries_so chez_batteries_c_so chez_curl_c_so
 
-install_batteries: install_schemesh_c_so install_chez_curl_c_so
+install_batteries: install_chez_batteries_so install_chez_batteries_c_so install_chez_curl_c_so
+
 
 ################################################################################
-# optional C shared library libschemesh_c_X.Y.Z.so
-# contains C functions needed by schemesh and libschemesh
+# optional Scheme libraries
 ################################################################################
 
-SCHEMESH_C_SO=libschemesh_c_0.9.2.so
+CHEZ_BATTERIES_SO=libchez_batteries_0.9.2.so
 
-schemesh_c_so: $(SCHEMESH_C_SO)
+chez_batteries_so: $(CHEZ_BATTERIES_SO)
 
-$(SCHEMESH_C_SO): $(SRCS)
+compile_chez_batteries.o: utils/compile_chez_batteries.c eval.h
+	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)'
+
+compile_chez_batteries: compile_chez_batteries.o $(OBJS)
+	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
+
+$(CHEZ_BATTERIES_SO): compile_chez_batteries
+	./compile_chez_batteries
+
+install_chez_batteries_so: $(CHEZ_BATTERIES_SO) installdirs
+	$(INSTALL_DATA) $(CHEZ_BATTERIES_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
+
+################################################################################
+# optional C shared library libchez_batteries_c_X.Y.Z.so
+# contains C functions needed by libchez_batteries_X.Y.Z.so
+################################################################################
+
+CHEZ_BATTERIES_C_SO=libchez_batteries_c_0.9.2.so
+
+chez_batteries_c_so: $(CHEZ_BATTERIES_C_SO)
+
+$(CHEZ_BATTERIES_C_SO): $(SRCS)
 	$(CC_SO) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)' $(LDFLAGS) $(LDFLAGS_SO)
 
-install_schemesh_c_so: $(SCHEMESH_C_SO) installdirs
-	$(INSTALL_DATA) $(SCHEMESH_C_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
+install_chez_batteries_c_so: $(CHEZ_BATTERIES_C_SO) installdirs
+	$(INSTALL_DATA) $(CHEZ_BATTERIES_C_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
 
 
 ################################################################################
