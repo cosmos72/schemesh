@@ -1,14 +1,13 @@
 ;;; Copyright (C) 2023-2025 by Massimiliano Ghilardi
 ;;;
-;;; This program is free software; you can redistribute it and/or modify
-;;; it under the terms of the GNU General Public License as published by
-;;; the Free Software Foundation; either version 2 of the License, or
-;;; (at your option) any later version.
+;;; This library is free software; you can redistribute it and/or
+;;; modify it under the terms of the GNU Library General Public
+;;; License as published by the Free Software Foundation; either
+;;; version 2 of the License, or (at your option) any later version.
 
 #!r6rs
 
 ;; this file should be included only by file lineedit/lineedit.ss
-
 
 ;; n is the number of bytes at the end of (linectx-rbuf)
 ;; that caused the call to this function.
