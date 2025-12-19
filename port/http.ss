@@ -92,7 +92,6 @@
   (assert* 'http-read (http? ctx))
   (let %http-read-loop ((addr (http-addr ctx)))
     (check-interrupts)
-    (check-interrupts)
     (let ((got (c-http-try-read addr bv start (+ start n))))
       (cond
         ((zero? got)
