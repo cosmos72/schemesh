@@ -128,28 +128,28 @@ static void fprint_mc(http* ctx, FILE* out) {
   const char* caller = ctx->errfunc ? ctx->errfunc : "";
   const char* prefix = caller[0] ? " in " : "";
   const char* errmsg = ctx->errbuf[0] ? ctx->errbuf : curl_multi_strerror(ctx->mc);
-  fprintf(out, "curlm error %d%s%s: %s\n", (int)ctx->mc, prefix, caller, errmsg);
+  fprintf(out, "curlm error %d%s%s: %s", (int)ctx->mc, prefix, caller, errmsg);
 }
 
 static size_t sprint_mc(http* ctx, char* out, size_t outlen) {
   const char* caller = ctx->errfunc ? ctx->errfunc : "";
   const char* prefix = caller[0] ? " in " : "";
   const char* errmsg = ctx->errbuf[0] ? ctx->errbuf : curl_multi_strerror(ctx->mc);
-  return snprintf(out, outlen, "curlm error %d%s%s: %s\n", (int)ctx->mc, prefix, caller, errmsg);
+  return snprintf(out, outlen, "curlm error %d%s%s: %s", (int)ctx->mc, prefix, caller, errmsg);
 }
 
 static void fprint_err(http* ctx, FILE* out) {
   const char* caller = ctx->errfunc ? ctx->errfunc : "";
   const char* prefix = caller[0] ? " in " : "";
   const char* errmsg = ctx->errbuf[0] ? ctx->errbuf : curl_easy_strerror(ctx->err);
-  fprintf(out, "curl error %d%s%s: %s\n", (int)ctx->err, prefix, caller, errmsg);
+  fprintf(out, "curl error %d%s%s: %s", (int)ctx->err, prefix, caller, errmsg);
 }
 
 static size_t sprint_err(http* ctx, char* out, size_t outlen) {
   const char* caller = ctx->errfunc ? ctx->errfunc : "";
   const char* prefix = caller[0] ? " in " : "";
   const char* errmsg = ctx->errbuf[0] ? ctx->errbuf : curl_easy_strerror(ctx->err);
-  return snprintf(out, outlen, "curl error %d%s%s: %s\n", (int)ctx->err, prefix, caller, errmsg);
+  return snprintf(out, outlen, "curl error %d%s%s: %s", (int)ctx->err, prefix, caller, errmsg);
 }
 
 static void fprint_errdetail(http* ctx, FILE* out) {
@@ -158,16 +158,16 @@ static void fprint_errdetail(http* ctx, FILE* out) {
   long        detail = ctx->errdetail;
   switch (ctx->err) {
     case CURLE_READ_ERROR:
-      fprintf(out, "I/O error %ld%s%s: %s\n", detail, prefix, caller, strerror((int)detail));
+      fprintf(out, "I/O error %ld%s%s: %s", detail, prefix, caller, strerror((int)detail));
       break;
     case CURLE_SSH:
-      fprintf(out, "SSL error %ld%s%s\n", detail, prefix, caller);
+      fprintf(out, "SSL error %ld%s%s", detail, prefix, caller);
       break;
     case CURLE_PROXY:
-      fprintf(out, "PROXY error %ld%s%s\n", detail, prefix, caller);
+      fprintf(out, "PROXY error %ld%s%s", detail, prefix, caller);
       break;
     case CURLE_HTTP_RETURNED_ERROR:
-      fprintf(out, "HTTP response code %ld%s%s\n", detail, prefix, caller);
+      fprintf(out, "HTTP response code %ld%s%s", detail, prefix, caller);
       break;
     default:
       break;
@@ -181,13 +181,13 @@ static size_t sprint_errdetail(http* ctx, char* out, size_t outlen) {
   switch (ctx->err) {
     case CURLE_READ_ERROR:
       return snprintf(
-          out, outlen, "I/O error %ld%s%s: %s\n", detail, prefix, caller, strerror((int)detail));
+          out, outlen, "I/O error %ld%s%s: %s", detail, prefix, caller, strerror((int)detail));
     case CURLE_SSH:
-      return snprintf(out, outlen, "SSL error %ld%s%s\n", detail, prefix, caller);
+      return snprintf(out, outlen, "SSL error %ld%s%s", detail, prefix, caller);
     case CURLE_PROXY:
-      return snprintf(out, outlen, "PROXY error %ld%s%s\n", detail, prefix, caller);
+      return snprintf(out, outlen, "PROXY error %ld%s%s", detail, prefix, caller);
     case CURLE_HTTP_RETURNED_ERROR:
-      return snprintf(out, outlen, "HTTP response code %ld%s%s\n", detail, prefix, caller);
+      return snprintf(out, outlen, "HTTP response code %ld%s%s", detail, prefix, caller);
     default:
       return 0;
   }
@@ -464,7 +464,7 @@ static size_t http_recv(http* ctx, void* dst, size_t dst_start, size_t dst_end, 
   int       still_running = 1;
   CURLMcode mc;
 
-  if (!ctx) {
+  if (!ctx || !ctx->multi || !ctx->easy) {
     return -1; /* EOF */
   } else if (dst_end <= dst_start) {
     return 0;
