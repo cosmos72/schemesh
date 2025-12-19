@@ -27,7 +27,7 @@
   (fields
     (mutable addr)   ; C http* pointer
     (immutable url)) ; string
-  (nongenerative http-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+  (nongenerative http-7c46d04b-34f4-4046-b5c7-b63753c1be40))
 
 
 (define c-http-new      #f)

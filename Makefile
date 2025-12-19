@@ -123,7 +123,6 @@ batteries: chez_batteries_so chez_batteries_c_so chez_curl_c_so
 
 install_batteries: install_chez_batteries_so install_chez_batteries_c_so install_chez_curl_c_so
 
-
 ################################################################################
 # optional Scheme libraries
 ################################################################################
@@ -170,3 +169,8 @@ $(CHEZ_CURL_C_SO): port/http.c
 
 install_chez_curl_c_so: $(CHEZ_CURL_C_SO) installdirs
 	$(INSTALL_DATA) $(CHEZ_CURL_C_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
+
+################################################################################
+
+clean_batteries:
+	rm -f libchez_batteries_temp.so $(CHEZ_BATTERIES_SO) $(CHEZ_BATTERIES_C_SO) $(CHEZ_CURL_C_SO)
