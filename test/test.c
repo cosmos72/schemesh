@@ -23,6 +23,8 @@
 #undef SCHEMESH_OPTIMIZE
 #endif
 
+#define LIBCHEZ_BATTERIES_SO "libchez_batteries_0.9.2.so"
+
 #define N_OF(array) (sizeof(array) / sizeof((array)[0]))
 
 static void run_scheme_tests(unsigned long* run_n, unsigned long* failed_n, const char* test_file) {
@@ -72,17 +74,17 @@ static void handle_scheme_exception(void) {
  *
  * return 0 if successful, otherwise error code.
  */
-static int compile_libraries(const char* source_dir) {
+static int compile_schemesh_so(const char* source_dir) {
   ptr ret;
   int err;
   if (source_dir == NULL) {
-    fprintf(stderr, "%s", "schemesh: --compile-source-dir argument is null\n");
+    fprintf(stderr, "%s", "schemesh_test: source_dir is null\n");
     return EINVAL;
   }
   if (chdir(source_dir) != 0) {
     err = errno;
     fprintf(stderr,
-            "schemesh: C function chdir(\"%s\") failed with error %d: %s\n",
+            "schemesh_test: C function chdir(\"%s\") failed with error %d: %s\n",
             source_dir,
             err,
             strerror(err));
@@ -104,22 +106,61 @@ static int compile_libraries(const char* source_dir) {
   return ret == Strue ? 0 : EINVAL;
 }
 
+/**
+ * compile libchez_batteries_VERSION.so from sources found in specified directory.
+ *
+ * return 0 if successful, otherwise error code.
+ */
+static int compile_chez_batteries_so(const char* source_dir) {
+  ptr ret;
+  int err;
+  if (source_dir == NULL) {
+    fprintf(stderr, "%s", "schemesh_test: source_dir is null\n");
+    return EINVAL;
+  }
+  if (chdir(source_dir) != 0) {
+    err = errno;
+    fprintf(stderr,
+            "schemesh_test: C function chdir(\"%s\") failed with error %d: %s\n",
+            source_dir,
+            err,
+            strerror(err));
+    return err;
+  }
+#ifdef SCHEMESH_OPTIMIZE
+  ret = schemesh_eval(
+      "(parameterize ((optimize-level 2))\n"
+      "  (compile-file \"libchez_batteries.ss\" \"libchez_batteries_temp.so\")\n"
+      "  (strip-fasl-file \"libchez_batteries_temp.so\" \"" LIBCHEZ_BATTERIES_SO "\"\n"
+      "    (fasl-strip-options inspector-source source-annotations profile-source))\n"
+      "    #t\n)");
+#else /* !SCHEMESH_OPTIMIZE */
+  ret = schemesh_eval("(parameterize ((optimize-level 0)\n"
+                      "               (run-cp0 (lambda (cp0 x) x)))\n"
+                      "  (compile-file \"libchez_batteries.ss\" \"" LIBCHEZ_BATTERIES_SO "\")\n"
+                      "  #t)");
+#endif
+  return ret == Strue ? 0 : EINVAL;
+}
+
 int main(int argc, const char* argv[]) {
-  (void)argc;
-  (void)argv;
+  int err = 0;
 
   schemesh_init(NULL, &handle_scheme_exception);
 
-  if (schemesh_register_c_functions() == 0 && /*     */
-      compile_libraries(".") == 0 &&          /*     */
-      schemesh_load_libraries(".") == 0) {
+  if (argc == 2 && strcmp(argv[1], "--compile_chez_batteries_so") == 0) {
+    err = compile_chez_batteries_so(".");
+  } else {
+    if (schemesh_register_c_functions() == 0 && /*     */
+        compile_schemesh_so(".") == 0 &&        /*     */
+        schemesh_load_libraries(".") == 0) {
 
-    schemesh_import_all_libraries();
+      schemesh_import_all_libraries();
 
-    (void)run_all_tests();
+      (void)run_all_tests();
+    }
   }
-
   schemesh_quit();
 
-  return 0;
+  return err;
 }

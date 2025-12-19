@@ -11,21 +11,22 @@
 
 (library (schemesh port http (0 9 2))
   (export
-    http-init http-open http-read http-close http-url->port)
+    http-init http-open http-read http-close http->port http-url->port)
   (import
     (rnrs)
-    (only (chezscheme)                foreign-procedure foreign-sizeof format
-                                      load-shared-object make-continuation-condition)
+    (only (chezscheme)                foreign-procedure foreign-sizeof format load-shared-object
+                                      make-continuation-condition record-writer)
     (only (schemesh bootstrap)        assert* assert-not* check-interrupts)
     (only (schemesh containers utf8b) utf8b->string)
-    (only (schemesh conversions)      text->bytevector0)
+    (only (schemesh conversions)      text->bytevector0 text->string)
     (only (schemesh posix io)         port->utf8b-port))
 
 
 ;; wrapper for C http* pointer
 (define-record-type http
   (fields
-    (mutable addr))  ; C http* pointer
+    (mutable addr)   ; C http* pointer
+    (immutable url)) ; string
   (nongenerative http-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
@@ -58,18 +59,18 @@
       (set! c-http-sprint-error (foreign-procedure            "http_sprint_error" (void* u8* size_t) size_t)))))
 
 
-(define (http-new)
+(define (http-new url)
   (unless c-http-new
     (http-init))
   (let ((addr (c-http-new)))
     (assert-not* 'http-new (zero? addr))
-    (make-http addr)))
+    (make-http addr (text->string url))))
 
 
 ;; create and return an http context for reading from url
 (define (http-open url)
   (let* ((url0 (text->bytevector0 url))
-         (ctx  (http-new))
+         (ctx  (http-new url))
          (addr (http-addr ctx))
          (err  (c-http-open addr url0)))
     (unless (zero? err)
@@ -86,28 +87,54 @@
   (http-addr-set! ctx 0))
 
 
-;; read bytes from an http context
+;; read up to n bytes from an http context and write them into bytevector bv, starting at position start
 (define (http-read ctx bv start n)
   (assert* 'http-read (http? ctx))
   (let %http-read-loop ((addr (http-addr ctx)))
     (check-interrupts)
-    (unless (zero? (c-http-select addr 500))
-      (raise-http-condition 'http-read ctx))
     (check-interrupts)
     (let ((got (c-http-try-read addr bv start (+ start n))))
       (cond
         ((zero? got)
           (if (zero? (c-http-errcode addr))
-            ;; timeout waiting for data. try again
-            (%http-read-loop addr)
+            (begin
+              ;; no available data. select() then try again
+              (unless (zero? (c-http-select addr 500))
+                (raise-http-condition 'http-read ctx))
+              (%http-read-loop addr))
             (raise-http-condition 'http-read ctx)))
         ((= got c-size_t-max)
           0) ; EOF
         (else
           got)))))
 
+(define validate-transcoder-sym
+  (let ((allowed-transcoder-syms '(binary text utf8b)))
+    (lambda (who transcoder-sym)
+      (assert* who (memq transcoder-sym allowed-transcoder-syms)))))
 
-;; create and return a binary or textual input port that connects to an HTTP or HTTPS url and reads from it.
+
+;; create and return a binary or textual input port that wraps an http context
+;; (which internally uses libcurl)
+(define http->port
+  (case-lambda
+    ((ctx transcoder-sym)
+      (assert* 'http->port (http? ctx))
+      (validate-transcoder-sym 'http->port transcoder-sym)
+      (let ((p (make-custom-binary-input-port
+                (http-url ctx)
+                (lambda (bv start n) (http-read ctx bv start n))
+                #f ; cannot tell position
+                #f ; cannot seek
+                (lambda () (http-close ctx)))))
+        (if (eq? transcoder-sym 'binary)
+          p
+          (port->utf8b-port p))))
+    ((ctx)
+      (http->port ctx 'text))))
+
+
+;; create and return a binary or textual input port that connects to specified HTTP or HTTPS url and reads from it.
 ;; Internally uses libcurl.
 ;;
 ;; Arguments:
@@ -116,18 +143,8 @@
 (define http-url->port
   (case-lambda
     ((url transcoder-sym)
-      (let ((allowed-transcoder-syms '(binary text utf8b)))
-        (assert* 'http-url->port (memq transcoder-sym allowed-transcoder-syms)))
-      (let* ((ctx (http-open url))
-             (p (make-custom-binary-input-port
-                  url
-                  (lambda (bv start n) (http-read ctx bv start n))
-                  #f ; cannot tell position
-                  #f ; cannot seek
-                  (lambda () (http-close ctx)))))
-        (if (eq? transcoder-sym 'binary)
-          p
-          (port->utf8b-port p))))
+      (validate-transcoder-sym 'http-url->port transcoder-sym)
+      (http->port (http-open url) transcoder-sym))
     ((url)
       (http-url->port url 'text))))
 
@@ -156,5 +173,12 @@
         (make-who-condition (if (symbol? who) who (format #f "~s" who)))
         ;; (make-format-condition)
         (make-message-condition str)))))
+
+
+(record-writer (record-type-descriptor http)
+  (lambda (ctx port writer)
+    (display "#<" port)
+    (display (http-url ctx) port)
+    (display ">" port)))
 
 )

@@ -67,7 +67,7 @@ all: schemesh schemesh_test $(SCHEMESH_SO) countdown
 schemesh_so: $(SCHEMESH_SO)
 
 clean:
-	rm -f *~ *.o *.so schemesh schemesh_test countdown compile_chez_batteries
+	rm -f *~ *.o *.so schemesh schemesh_test countdown
 
 containers.o: containers/containers.c containers/containers.h eval.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'
@@ -132,14 +132,8 @@ CHEZ_BATTERIES_SO=libchez_batteries_0.9.2.so
 
 chez_batteries_so: $(CHEZ_BATTERIES_SO)
 
-compile_chez_batteries.o: utils/compile_chez_batteries.c eval.h
-	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)'
-
-compile_chez_batteries: compile_chez_batteries.o $(OBJS)
-	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
-
-$(CHEZ_BATTERIES_SO): compile_chez_batteries
-	./compile_chez_batteries
+$(CHEZ_BATTERIES_SO): schemesh_test
+	./schemesh_test --compile_chez_batteries_so
 
 install_chez_batteries_so: $(CHEZ_BATTERIES_SO) installdirs
 	$(INSTALL_DATA) $(CHEZ_BATTERIES_SO) '$(DESTDIR)$(SCHEMESH_DIR)'

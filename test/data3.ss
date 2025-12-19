@@ -129,9 +129,8 @@
   (wildcard->sh-patterns '("/" * ".so"))            ,@(span "/" (sh-pattern '* ".so"))
   (wildcard->sh-patterns '("//abc//" "//def//"))    ,@(span "/" "abc/" "def/")
   (wildcard->sh-patterns '("/foo/" * "/" "/bar"))   ,@(span "/" "foo/" (sh-pattern '* "/") "bar")
-  (wildcard #t '* "/" '* ".c")                        ("containers/containers.c" "port/http.c" "posix/posix.c"
-                                                        "shell/shell.c" "test/test.c" "utils/benchmark_async_signal_handler.c"
-                                                        "utils/compile_chez_batteries.c" "utils/countdown.c")
+  (wildcard #t '* "/" '* ".c")                        ("containers/containers.c" "port/http.c" "posix/posix.c" "shell/shell.c"
+                                                        "test/test.c" "utils/benchmark_async_signal_handler.c" "utils/countdown.c")
   (wildcard1+ #t "Makefile")                          ("Makefile")
   (wildcard1+ #t "_does_not_exist_")                  ("_does_not_exist_")
   (wildcard* #t '("_does_not_exist_"))                ()

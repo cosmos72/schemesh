@@ -5,7 +5,7 @@
 ;;; License as published by the Free Software Foundation; either
 ;;; version 2 of the License, or (at your option) any later version.
 
-;; pure Scheme implementation of utils/compile_chez_batteries.c
+;; pure Scheme implementation of test/test.c that only compiles libchez_batteries_0.9.2.so
 ;;
 ;; It has the defect of requiring to find the correct Chez Scheme executable.
 
