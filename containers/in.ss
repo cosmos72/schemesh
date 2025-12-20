@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh containers in (0 9 2))
+(library (scheme2k containers in (0 9 2))
   (export
     constant in-value in-interval in-numbers
     in-roundrobin in-list-roundrobin in-sequences number->cflonum)
@@ -15,7 +15,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme)         cflonum? cfl+ fl-make-rectangular fx1+ last-pair)
-    (only (schemesh bootstrap) assert* debugf))
+    (only (scheme2k bootstrap) assert* debugf))
 
 
 ;; create and return a closure that always returns specified argument(s)

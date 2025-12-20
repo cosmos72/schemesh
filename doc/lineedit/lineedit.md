@@ -1,9 +1,9 @@
-# schemesh lineedit
+# lineedit
 
-The effect of key presses at REPL is controlled the library `(schemesh lineedit)` which is also included in `(schemesh)`.
+The effect of key presses at REPL is controlled the library `(scheme2k lineedit)` which is also included in `(schemesh)`.
 Users can change these effects, and define new ones, as described in [key.md](key.md).
 
-The main type defined by library `(schemesh lineedit)` is `linectx`,
+The main type defined by library `(scheme2k lineedit)` is `linectx`,
 and almost all functions in the library take a `linectx` object as first argument.
 
 Internals of `linectx` objects are mostly undocumented, the (few) documented functions are:

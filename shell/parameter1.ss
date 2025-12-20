@@ -20,7 +20,7 @@
     (rnrs)
     (only (chezscheme)  define-top-level-value environment? environment-mutable? fx1+
                         interaction-environment logbit? procedure-arity-mask top-level-bound? top-level-value)
-    (only (schemesh bootstrap) eval-form sh-make-parameter sh-make-thread-parameter raise-errorf))
+    (only (scheme2k bootstrap) eval-form sh-make-parameter sh-make-thread-parameter raise-errorf))
 
 
 ;; Create and return thread parameter containing the scheme environment where to eval forms,

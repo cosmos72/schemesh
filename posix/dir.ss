@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh posix dir (0 9 2))
+(library (scheme2k posix dir (0 9 2))
   (export
       directory-list directory-list-type directory-sort!
       file-delete file-rename file-type mkdir)
@@ -15,10 +15,10 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) foreign-procedure make-continuation-condition make-format-condition sort! void)
-    (only (schemesh bootstrap) catch raise-assertf try)
-    (only (schemesh containers) bytevector<? charspan? for-list string->utf8b)
-    (only (schemesh conversions) text->bytevector text->bytevector0)
-    (only (schemesh posix fd) c-errno->string raise-c-errno))
+    (only (scheme2k bootstrap) catch raise-assertf try)
+    (only (scheme2k containers) bytevector<? charspan? for-list string->utf8b)
+    (only (scheme2k conversions) text->bytevector text->bytevector0)
+    (only (scheme2k posix fd) c-errno->string raise-c-errno))
 
 
 (define c-errno-einval ((foreign-procedure "c_errno_einval" () int)))

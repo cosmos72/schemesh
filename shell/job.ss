@@ -99,15 +99,15 @@
                        make-continuation-condition make-format-condition meta meta-cond open-fd-output-port
                        parameterize port-closed? procedure-arity-mask record-writer register-signal-handler
                        reverse! sort! string-copy! string-truncate! textual-port-output-index threaded? void)
-    (schemesh bootstrap)
-    (schemesh containers)
-    (schemesh conversions)
-    (schemesh posix)
-    (only (schemesh posix thread)      thread-count thread-id thread-signal-handle threads-status threads-status-changes)
-    (schemesh port redir)
-    (schemesh port stdio)
-    (only (schemesh vscreen)           vline-display/bytespan vlines-iterate vhistory-iterate vhistory-path-set!)
-    (only (schemesh lineedit lineedit) linectx? linectx-history linectx-save-history linectx-wbuf
+    (scheme2k bootstrap)
+    (scheme2k containers)
+    (scheme2k conversions)
+    (scheme2k posix)
+    (only (scheme2k posix thread)      thread-count thread-id thread-signal-handle threads-status threads-status-changes)
+    (scheme2k port redir)
+    (scheme2k port stdio)
+    (only (scheme2k vscreen)           vline-display/bytespan vlines-iterate vhistory-iterate vhistory-path-set!)
+    (only (scheme2k lineedit lineedit) linectx? linectx-history linectx-save-history linectx-wbuf
                                        lineedit-display-table lineedit-flush lineedit-undraw)
     (schemesh shell fds)
     (schemesh shell parameters)

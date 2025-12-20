@@ -1,9 +1,9 @@
-# schemesh posix dir
+# posix dir
 
-The library `(schemesh posix dir)`, which is also included in `(schemesh posix)` and `(schemesh)`,
+The library `(scheme2k posix dir)`, which is also included in `(scheme2k posix)` and `(schemesh)`,
 provides low-level functions to access POSIX filesystem.
 
-Additional functions are also provided by `(schemesh posix replacements)`, see [replacements.md](replacements.md).
+Additional functions are also provided by `(scheme2k posix replacements)`, see [replacements.md](replacements.md).
 
 ### Alphabetical index
 

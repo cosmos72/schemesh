@@ -15,7 +15,7 @@
     lex-scheme parse-scheme-forms1 parse-scheme-forms parser-scheme)
   (import
     (rnrs)
-    (only (schemesh lineedit parser) make-parser)
+    (only (scheme2k lineedit parser) make-parser)
     (schemesh parser lisp))
 
 ;; Read a single Chez Scheme token from textual input port 'in.

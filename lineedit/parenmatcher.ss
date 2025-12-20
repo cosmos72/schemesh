@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit parenmatcher (0 9 2))
+(library (scheme2k lineedit parenmatcher (0 9 2))
   (export
     parenmatcher? make-custom-parenmatcher parenmatcher-clear!
     parenmatcher-paren parenmatcher-maybe-update!
@@ -15,8 +15,8 @@
   (import
     (rnrs)
     (only (chezscheme)         record-writer)
-    (only (schemesh bootstrap) assert*)
-    (schemesh lineedit paren))
+    (only (scheme2k bootstrap) assert*)
+    (scheme2k lineedit paren))
 
 ;; type parenmatcher contains bookkeeping information,
 ;; to be filled by an actual function that matches parenthesis

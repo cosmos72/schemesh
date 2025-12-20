@@ -23,8 +23,8 @@
       sh-eval sh-eval-string sh-eval->bytevector)
   (import
     (rnrs)
-    (only (schemesh bootstrap)        sh-make-parameter sh-make-thread-parameter raise-errorf)
-    (only (schemesh conversions)      any->bytevector)
+    (only (scheme2k bootstrap)        sh-make-parameter sh-make-thread-parameter raise-errorf)
+    (only (scheme2k conversions)      any->bytevector)
     (only (schemesh shell parameter1) sh-persistent-parameters))
 
 

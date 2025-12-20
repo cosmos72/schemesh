@@ -1,4 +1,4 @@
-# schemesh shell job environment variables
+# shell job environment variables
 
 Shell jobs are implemented by library `(schemesh shell job)` which is also included in `(schemesh shell)` and `(schemesh)`.
 

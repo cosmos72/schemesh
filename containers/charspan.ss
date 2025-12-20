@@ -11,7 +11,7 @@
 ;;;;;;;;;;;  define Scheme type "charspan", a resizeable string  ;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (schemesh containers charspan (0 9 2))
+(library (scheme2k containers charspan (0 9 2))
   (export
     list->charspan string->charspan string->charspan* make-charspan
     charspan->string charspan->string*!
@@ -33,9 +33,9 @@
     (rnrs)
     (rnrs mutable-strings)
     (only (chezscheme) fx1+ fx1- record-writer string-copy! string-truncate! substring-fill! void)
-    (only (schemesh bootstrap)         assert* assert-not* fx<=?*)
-    (only (schemesh containers list)   for-list)
-    (only (schemesh containers string) string-index substring<? substring=? string-count=))
+    (only (scheme2k bootstrap)         assert* assert-not* fx<=?*)
+    (only (scheme2k containers list)   for-list)
+    (only (scheme2k containers string) string-index substring<? substring=? string-count=))
 
 
 (define-record-type (%charspan %make-charspan charspan?)

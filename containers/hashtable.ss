@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh containers hashtable (0 9 2))
+(library (scheme2k containers hashtable (0 9 2))
   (export
     make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-pair hash-iterator-next!
 
@@ -22,9 +22,9 @@
   (import
     (rnrs)
     (only (chezscheme)                 $primitive fx1+ fx/ include meta record-writer)
-    (only (schemesh bootstrap)         assert* forever generate-pretty-temporaries with-while-until)
-    (only (schemesh containers list)   for-list for-plist)
-    (only (schemesh containers vector) vector-index))
+    (only (scheme2k bootstrap)         assert* forever generate-pretty-temporaries with-while-until)
+    (only (scheme2k containers list)   for-list for-plist)
+    (only (scheme2k containers vector) vector-index))
 
 
 ;; NOTE: (hash-table-for-each) exported by Chez Scheme

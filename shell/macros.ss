@@ -14,9 +14,9 @@
   (import
     (rnrs)
     (only (chezscheme) datum format fx1- meta parameterize reverse!)
-    (schemesh bootstrap)
-    (only (schemesh containers list) for-list in-list)
-    (only (schemesh posix pattern) wildcard?)
+    (scheme2k bootstrap)
+    (only (scheme2k containers list) for-list in-list)
+    (only (scheme2k posix pattern) wildcard?)
     (schemesh shell job)
     (only (schemesh shell eval) sh-read-file))
 

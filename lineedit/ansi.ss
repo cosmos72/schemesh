@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit ansi (0 9 2))
+(library (scheme2k lineedit ansi (0 9 2))
   (export
     ansi-text ansi-text? ansi-text-bytes ansi-text-clear! ansi-text-visible-length make-ansi-text
     string+ color
@@ -16,9 +16,9 @@
   (import
     (rnrs)
     (only (chezscheme)                      record-writer)
-    (only (schemesh bootstrap)              assert*)
-    (only (schemesh containers bytespan)    make-bytespan bytespan? bytespan-clear!)
-    (only (schemesh containers utf8b)       utf8b-bytespan->string bytespan-insert-right/string!))
+    (only (scheme2k bootstrap)              assert*)
+    (only (scheme2k containers bytespan)    make-bytespan bytespan? bytespan-clear!)
+    (only (scheme2k containers utf8b)       utf8b-bytespan->string bytespan-insert-right/string!))
 
 
 (define-record-type (ansi-text %make-ansi-text ansi-text?)

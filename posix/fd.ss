@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh posix fd (0 9 2))
+(library (scheme2k posix fd (0 9 2))
   (export
     c-errno c-errno->string c-exit c-hostname
     fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-seek
@@ -18,9 +18,9 @@
   (import
     (rnrs)
     (only (chezscheme)             foreign-procedure lock-object logbit? void procedure-arity-mask unlock-object)
-    (only (schemesh bootstrap)     assert* check-interrupts raise-errorf sh-make-thread-parameter with-locked-objects while)
-    (schemesh containers bytespan)
-    (only (schemesh conversions)   text->bytevector0 transcoder-utf8))
+    (only (scheme2k bootstrap)     assert* check-interrupts raise-errorf sh-make-thread-parameter with-locked-objects while)
+    (scheme2k containers bytespan)
+    (only (scheme2k conversions)   text->bytevector0 transcoder-utf8))
 
 (define c-errno         (foreign-procedure "c_errno" () int))
 (define c-errno-einval  ((foreign-procedure "c_errno_einval" () int))) ;; integer, not a procedure

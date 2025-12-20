@@ -1,4 +1,4 @@
-(library (schemesh example caller (0 9 2))
+(library (scheme2k example caller (0 9 2))
   (export call^ apply^)
   (import
     (rnrs)
@@ -54,4 +54,4 @@
 ) ; close library
 
 
-(import (schemesh example caller))
+(import (scheme2k example caller))

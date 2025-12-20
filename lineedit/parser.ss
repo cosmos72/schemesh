@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit parser (0 9 2))
+(library (scheme2k lineedit parser (0 9 2))
   (export
     make-parsectx make-parsectx* parsectx? string->parsectx
     parsectx-in parsectx-current-pos parsectx-previous-pos parsectx-enabled-parsers
@@ -27,10 +27,10 @@
     (rnrs mutable-pairs)
     (only (chezscheme) format fx1+ fx1- make-continuation-condition
                        make-format-condition record-writer unread-char void)
-    (only (schemesh bootstrap) assert* until while)
-    (only (schemesh containers hashtable) for-hash)
-    (schemesh containers span)
-    (schemesh containers charspan))
+    (only (scheme2k bootstrap) assert* until while)
+    (only (scheme2k containers hashtable) for-hash)
+    (scheme2k containers span)
+    (scheme2k containers charspan))
 
 
 ;; parser is an object containing two procedures:

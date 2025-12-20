@@ -6,7 +6,7 @@
 ;;; version 2 of the License, or (at your option) any later version.
 
 
-(library (schemesh containers bytevector (0 9 2))
+(library (scheme2k containers bytevector (0 9 2))
   (export
     in-bytevector list->bytevector subbytevector
 
@@ -24,7 +24,7 @@
                                bytevector-u24-ref  bytevector-u40-ref  bytevector-u48-ref  bytevector-u56-ref
                                bytevector-u24-set! bytevector-u40-set! bytevector-u48-set! bytevector-u56-set!
                                foreign-procedure fx1+ fx1- fx/ logbit? procedure-arity-mask void)
-    (only (schemesh bootstrap) assert* fx<=?*))
+    (only (scheme2k bootstrap) assert* fx<=?*))
 
 
 ;; each element in list l must be a fixnum in the range [-128, 255]

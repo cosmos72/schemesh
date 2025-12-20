@@ -9,17 +9,17 @@
 
 ;; scheme wrapper around libcurl
 
-(library (schemesh port http (0 9 2))
+(library (scheme2k port http (0 9 2))
   (export
     http-init http-open http-error-string http-read http-close http->port http-url->port)
   (import
     (rnrs)
     (only (chezscheme)                foreign-procedure foreign-sizeof format load-shared-object
                                       make-continuation-condition record-writer)
-    (only (schemesh bootstrap)        assert* assert-not* check-interrupts)
-    (only (schemesh containers utf8b) utf8b->string)
-    (only (schemesh conversions)      text->bytevector0 text->string)
-    (only (schemesh posix io)         port->utf8b-port))
+    (only (scheme2k bootstrap)        assert* assert-not* check-interrupts)
+    (only (scheme2k containers utf8b) utf8b->string)
+    (only (scheme2k conversions)      text->bytevector0 text->string)
+    (only (scheme2k posix io)         port->utf8b-port))
 
 
 ;; wrapper for C http* pointer
@@ -44,7 +44,7 @@
 (define http-init
   (case-lambda
     (()
-      (http-init "/usr/local/lib/schemesh/libchez_curl_c_0.9.2.so"))
+      (http-init "/usr/local/lib/scheme2k/libscheme2k_http_c_0.9.2.so"))
     ((path)
       (load-shared-object path)
       (let ((err ((foreign-procedure "http_global_init" () int))))

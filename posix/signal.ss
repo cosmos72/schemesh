@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh posix signal (0 9 2))
+(library (scheme2k posix signal (0 9 2))
   (export countdown
           &received-signal make-received-signal raise-condition-received-signal
           received-signal? received-signal-name
@@ -20,8 +20,8 @@
     (only (chezscheme) assertion-violationf foreign-procedure format fx1- integer-length logbit?
                        make-continuation-condition make-format-condition procedure-arity-mask
                        time? time-nanosecond time-second time-type void)
-    (only (schemesh bootstrap)            assert* check-interrupts debugf with-locked-objects)
-    (only (schemesh containers hashtable) alist->eq-hashtable hashtable-transpose))
+    (only (scheme2k bootstrap)            assert* check-interrupts debugf with-locked-objects)
+    (only (scheme2k containers hashtable) alist->eq-hashtable hashtable-transpose))
 
 
 (define c-errno-einval ((foreign-procedure "c_errno_einval" () int)))

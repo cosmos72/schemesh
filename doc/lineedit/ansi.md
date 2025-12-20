@@ -1,6 +1,6 @@
-# schemesh prompt customization
+# prompt customization
 
-schemesh prompt can be customized using two alternative mechanisms:
+prompt can be customized using two alternative mechanisms:
 
 1. by setting the environment variable `$SCHEMESH_PS1`, which is mostly compatible with bash PS1
    as described in section "PROMPTING" of `man bash` and available online at
@@ -19,9 +19,9 @@ or with schemesh facilities for running jobs and capturing their output, as for 
 Users must take care to capture or redirect all the input and output of the external commands,
 because they should **not** read from or write to the current terminal.
 
-### schemesh lineedit
+### scheme2k lineedit
 
-The library `(schemesh lineedit)`, which is also included in `(schemesh)`, provides the following functions for prompt customization:
+The library `(scheme2k lineedit)`, which is also included in `(schemesh)`, provides the following functions for prompt customization:
 
 `(linectx-prompt-proc)` returns the current prompt updater
 
@@ -32,9 +32,9 @@ The library `(schemesh lineedit)`, which is also included in `(schemesh)`, provi
 
 `(linectx-prompt-ansi-text-set! lctx a)` stores the `ansi-text` object `a` into `lctx` as the updated prompt
 
-### schemesh lineedit ansi
+### scheme2k lineedit ansi
 
-The library `(schemesh lineedit ansi)`, which is also included in `(schemesh lineedit)` and in `(schemesh)`, provides several functions for inspecting and modifying `ansi-text` objects:
+The library `(scheme2k lineedit ansi)`, which is also included in `(scheme2k lineedit)` and in `(schemesh)`, provides several functions for inspecting and modifying `ansi-text` objects:
 
 `(ansi-text? a)` returns `#t` if `a` is an `ansi-text` object, otherwise returns `#f`
 

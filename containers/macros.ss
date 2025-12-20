@@ -7,13 +7,13 @@
 
 #!r6rs
 
-(library (schemesh containers macros (0 9 2))
+(library (scheme2k containers macros (0 9 2))
   (export
     begin^ for for* if^ let^ let-values^ unless^ when^)
   (import
     (rnrs)
     (only (chezscheme) void)
-    (only (schemesh bootstrap) generate-pretty-temporaries with-while-until))
+    (only (scheme2k bootstrap) generate-pretty-temporaries with-while-until))
 
 
 ;; extended (begin body ...) that also accepts empty body

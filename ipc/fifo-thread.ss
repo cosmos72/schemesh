@@ -9,7 +9,7 @@
 ;;;
 ;;; exchanges arbitrary objects through thread-safe FIFO
 ;;;
-(library (schemesh ipc fifo (0 9 2))
+(library (scheme2k ipc fifo (0 9 2))
   (export make-producer producer? producer-close producer-name producer-put
           make-consumer consumer? consumer-get consumer-eof? consumer-timed-get consumer-try-get in-consumer)
   (import
@@ -19,7 +19,7 @@
                                make-condition make-mutex mutex-name make-time record-writer
                                time<=? time? time-difference! time-type time-second time-nanosecond
                                with-interrupts-disabled with-mutex)
-    (only (schemesh bootstrap) assert* check-interrupts raise-errorf))
+    (only (scheme2k bootstrap) assert* check-interrupts raise-errorf))
 
 
 (include "ipc/fifo-common.ss")

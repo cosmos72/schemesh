@@ -88,7 +88,7 @@
 ;;;     255 => datum starts with extended tag
 
 
-(library (schemesh wire (0 9 2))
+(library (scheme2k wire (0 9 2))
   (export datum->wire wire->datum wire-get wire-length wire-put
           wire-register-rtd  wire-register-rtd-fields  wire-reserve-tag
           ;; internal functions, exported for types that want to define their own serializer/deserializer
@@ -113,8 +113,8 @@
     (prefix (only (chezscheme) char=? char-ci=? record-constructor string=? string-ci=?)
             chez:)
 
-    (only (schemesh bootstrap) assert* fx<=?*)
-    (schemesh containers))
+    (only (scheme2k bootstrap) assert* fx<=?*)
+    (scheme2k containers))
 
 
 

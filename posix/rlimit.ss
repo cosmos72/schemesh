@@ -7,14 +7,14 @@
 
 #!r6rs
 
-(library (schemesh posix rlimit (0 9 2))
+(library (scheme2k posix rlimit (0 9 2))
   (export rlimit-keys rlimit-ref rlimit-set!)
   (import
     (rnrs)
     (only (chezscheme)                foreign-procedure)
-    (only (schemesh bootstrap)        assert*) ; debugf
-    (only (schemesh containers list)  for-list)
-    (only (schemesh posix fd)         raise-c-errno))
+    (only (scheme2k bootstrap)        assert*) ; debugf
+    (only (scheme2k containers list)  for-list)
+    (only (scheme2k posix fd)         raise-c-errno))
 
 
 (define c-errno-einval ((foreign-procedure "c_errno_einval" () int)))

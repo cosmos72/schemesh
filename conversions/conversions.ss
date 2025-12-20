@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh conversions (0 9 2))
+(library (scheme2k conversions (0 9 2))
   (export
     display-condition* display-any display-bytevector0 write-bytevector0
     any->bytevector text->bytevector text->string
@@ -20,15 +20,15 @@
     (rnrs)
     (only (rnrs mutable-pairs)   set-car!)
     (only (chezscheme)           condition-continuation continuation-condition? fx1+ fx1- void)
-    (only (schemesh bootstrap functions)   raise-assertf)
-    (only (schemesh containers)  bytespan? bytespan->bytevector bytespan->bytevector*! bytespan->bytevector0
+    (only (scheme2k bootstrap functions)   raise-assertf)
+    (only (scheme2k containers)  bytespan? bytespan->bytevector bytespan->bytevector*! bytespan->bytevector0
                                  bytespan-reserve-right! bytespan-insert-right/string! bytespan-insert-right/u8!
                                  bytevector<? bytevector-index
                                  charspan? charspan-empty? charspan-index/char charspan->string charspan->utf8b charspan->utf8b/0
                                  for-hash for-list make-bytespan string-index
                                  string->utf8b string->utf8b/0 utf8b->string utf8b->string
                                  subvector-sort! utf8b-bytespan->string)
-    (schemesh conversions unicode))
+    (scheme2k conversions unicode))
 
 
 (define display-condition*

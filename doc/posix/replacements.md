@@ -1,12 +1,12 @@
-# schemesh posix replacements
+# scheme2k posix replacements
 
-The library `(schemesh posix replacements)`, which is also included in `(schemesh rnrs)` and `(schemesh)`,
+The library `(scheme2k posix replacements)`, which is also included in `(scheme2k rnrs)` and `(schemesh)`,
 exports improved version of several standard Scheme functions defined by R6RS.
 
-Such functions are intentionally *not* exported by library `(schemesh posix)`
+Such functions are intentionally *not* exported by library `(scheme2k posix)`
 to avoid conflicts with standard library `(rnrs)`.
 
-Additional filesystem-related functions are also provided by `(schemesh posix dir)`, see [dir.md](dir.md).
+Additional filesystem-related functions are also provided by `(scheme2k posix dir)`, see [dir.md](dir.md).
 
 ### Alphabetical index
 

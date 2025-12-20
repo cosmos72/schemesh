@@ -29,9 +29,9 @@
   (import
     (rnrs)
     (only (chezscheme)            foreign-procedure sleep void)
-    (only (schemesh bootstrap)    assert*)
-    (only (schemesh posix status) ok->values status->kind status->value)
-    (schemesh posix thread))
+    (only (scheme2k bootstrap)    assert*)
+    (only (scheme2k posix status) ok->values status->kind status->value)
+    (scheme2k posix thread))
 
 
 (define thread-join!

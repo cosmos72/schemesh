@@ -11,7 +11,7 @@
 ;;;;;;;;;;;;;  define Scheme type "span", a resizeable vector  ;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (schemesh containers span (0 9 2))
+(library (scheme2k containers span (0 9 2))
   (export
     list->span vector->span vector->span* make-span span->list span->vector span span?
     span-length span-empty? span-clear! span-capacity span-capacity-left span-capacity-right
@@ -24,9 +24,9 @@
   (import
     (rnrs)
     (only (chezscheme) break fx1+ fx1- record-writer reverse! vector-copy void)
-    (only (schemesh bootstrap)         assert* assert-not* forever fx<=?* generate-pretty-temporaries with-while-until)
-    (only (schemesh containers list)   for-list)
-    (only (schemesh containers vector) subvector vector-copy! subvector-fill! subvector->list))
+    (only (scheme2k bootstrap)         assert* assert-not* forever fx<=?* generate-pretty-temporaries with-while-until)
+    (only (scheme2k containers list)   for-list)
+    (only (scheme2k containers vector) subvector vector-copy! subvector-fill! subvector->list))
 
 (define-record-type (%span %make-span span?)
   (fields

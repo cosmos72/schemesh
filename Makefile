@@ -33,6 +33,9 @@ libdir      = $(exec_prefix)/lib
 
 SCHEMESH_DIR = $(libdir)/schemesh
 
+# not used by default
+SCHEME2K_DIR = $(libdir)/scheme2k
+
 
 # installation programs. Names and values are taken from GNU Makefile conventions
 # and can be overridden from 'make' command line
@@ -124,6 +127,9 @@ install_scheme2k:      install_scheme2k_so install_scheme2k_c_so
 install_scheme2k_full: install_scheme2k_so install_scheme2k_c_so install_scheme2k_http_c_so
 install_batteries:     install_scheme2k_full
 
+install_scheme2k_dirs:
+	$(MKDIR_P) '$(DESTDIR)$(SCHEME2K_DIR)'
+
 ################################################################################
 # optional Scheme libraries
 ################################################################################
@@ -135,8 +141,8 @@ scheme2k_so: $(SCHEME2K_SO)
 $(SCHEME2K_SO): schemesh_test
 	./schemesh_test --compile_scheme2k_so
 
-install_scheme2k_so: $(SCHEME2K_SO) installdirs
-	$(INSTALL_DATA) $(SCHEME2K_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
+install_scheme2k_so: $(SCHEME2K_SO) install_scheme2k_dirs
+	$(INSTALL_DATA) $(SCHEME2K_SO) '$(DESTDIR)$(SCHEME2K_DIR)'
 
 ################################################################################
 # optional C shared library libscheme2k_c_X.Y.Z.so
@@ -150,8 +156,8 @@ scheme2k_c_so: $(SCHEME2K_C_SO)
 $(SCHEME2K_C_SO): $(SRCS)
 	$(CC_SO) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)' $(LDFLAGS) $(LDFLAGS_SO)
 
-install_scheme2k_c_so: $(SCHEME2K_C_SO) installdirs
-	$(INSTALL_DATA) $(SCHEME2K_C_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
+install_scheme2k_c_so: $(SCHEME2K_C_SO) install_scheme2k_dirs
+	$(INSTALL_DATA) $(SCHEME2K_C_SO) '$(DESTDIR)$(SCHEME2K_DIR)'
 
 
 ################################################################################
@@ -168,8 +174,8 @@ scheme2k_http_c_so: $(SCHEME2K_HTTP_C_SO)
 $(SCHEME2K_HTTP_C_SO): port/http.c
 	$(CC_SO) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) $(LIB_CURL) $(LDFLAGS) $(LDFLAGS_SO)
 
-install_scheme2k_http_c_so: $(SCHEME2K_HTTP_C_SO) installdirs
-	$(INSTALL_DATA) $(SCHEME2K_HTTP_C_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
+install_scheme2k_http_c_so: $(SCHEME2K_HTTP_C_SO) install_scheme2k_dirs
+	$(INSTALL_DATA) $(SCHEME2K_HTTP_C_SO) '$(DESTDIR)$(SCHEME2K_DIR)'
 
 ################################################################################
 

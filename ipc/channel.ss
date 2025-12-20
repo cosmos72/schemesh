@@ -10,18 +10,18 @@
 ;;;
 ;;; exchanges serialized data through sockets, pipes or other file descriptors.
 ;;;
-;;; data is serialized/deserialized with library (schemesh wire)
+;;; data is serialized/deserialized with library (scheme2k wire)
 ;;;
-(library (schemesh ipc channel (0 9 2))
+(library (scheme2k ipc channel (0 9 2))
   (export channel? channel-close channel-fd channel-pipe-pair channel-socket-pair
           channel-get channel-eof? channel-put in-channel)
   (import
     (rnrs)
     (only (chezscheme)         record-writer)
-    (only (schemesh bootstrap) assert* raise-errorf)
-    (schemesh containers bytespan)
-    (schemesh posix fd)
-    (schemesh wire))
+    (only (scheme2k bootstrap) assert* raise-errorf)
+    (scheme2k containers bytespan)
+    (scheme2k posix fd)
+    (scheme2k wire))
 
 (define-record-type channel
   (fields
@@ -89,7 +89,7 @@
 ;;
 ;; return (void) if successful
 ;; return #f if channel's write-fd is closed or not set,
-;;           or if library (schemesh wire) does not support serializing/deserializing datum
+;;           or if library (scheme2k wire) does not support serializing/deserializing datum
 ;; raise exception on I/O error
 (define (channel-put c datum)
   (let* ((write-fd     (channel-write-fd c))

@@ -2,15 +2,15 @@
 ;; example file containing a benchmark for (vector-sort!) and (subvector-sort!)
 ;; it is not read, compiled nor evaluated.
 
-(library (schemesh benchmark sort (0 9 2))
+(library (scheme2k benchmark sort (0 9 2))
   (export
     benchmark-make-vector benchmark-vector-sort! benchmark-subvector-sort! )
   (import
     (rnrs)
     (only (chezscheme)           eval-when fx1+ fx1- random time vector-sort!)
-    (only (schemesh bootstrap)     assert*)
-    (only (schemesh containers sort)   subvector-sort!)
-    (only (schemesh containers vector) vector-copy!))
+    (only (scheme2k bootstrap)     assert*)
+    (only (scheme2k containers sort)   subvector-sort!)
+    (only (scheme2k containers vector) vector-copy!))
 
 
 (eval-when (compile) (optimize-level 3) (debug-level 0))
@@ -50,4 +50,4 @@
 
 ) ; close library
 
-(import (schemesh benchmark sort))
+(import (scheme2k benchmark sort))

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh lineedit paren (0 9 2))
+(library (scheme2k lineedit paren (0 9 2))
   (export
     make-paren      make-paren/bad-close
     paren?          paren-name
@@ -23,9 +23,9 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme) console-error-port format fx1+ fx1- record-writer void)
-    (only (schemesh bootstrap) assert* debugf catch try until while)
-    (schemesh containers span)
-    (schemesh containers charspan))
+    (only (scheme2k bootstrap) assert* debugf catch try until while)
+    (scheme2k containers span)
+    (scheme2k containers charspan))
 
 
 ;; paren is an object containing information about the matching parentheses/brackets/braces/quotes

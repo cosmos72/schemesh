@@ -8,7 +8,7 @@
 #!r6rs
 
 
-(library (schemesh lineedit lineedit (0 9 2))
+(library (scheme2k lineedit lineedit (0 9 2))
   (export
     ;; linectx.ss
     linectx-prompt-proc linectx-completion-proc
@@ -68,16 +68,16 @@
     (only (chezscheme)    break-handler console-output-port console-error-port
                           debug-condition display-condition format fx1+ fx1- fx/ include inspect
                           logbit? parameterize procedure-arity-mask record-writer sleep top-level-value void)
-    (schemesh bootstrap)
-    (schemesh containers)
-    (schemesh posix fd)
-    (only (schemesh posix signal) countdown signal-consume-sigwinch)
-    (schemesh posix tty)
-    (schemesh vscreen)
-    (schemesh lineedit ansi)
-    (schemesh lineedit paren)
-    (schemesh lineedit parenmatcher)
-    (only (schemesh lineedit parser) make-parsectx*))
+    (scheme2k bootstrap)
+    (scheme2k containers)
+    (scheme2k posix fd)
+    (only (scheme2k posix signal) countdown signal-consume-sigwinch)
+    (scheme2k posix tty)
+    (scheme2k vscreen)
+    (scheme2k lineedit ansi)
+    (scheme2k lineedit paren)
+    (scheme2k lineedit parenmatcher)
+    (only (scheme2k lineedit parser) make-parsectx*))
 
 
 (include "lineedit/linectx.ss")

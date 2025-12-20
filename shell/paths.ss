@@ -14,9 +14,9 @@
   (import
     (rnrs)
     (only (chezscheme)               fx1+ fx1- void)
-    (only (schemesh bootstrap)       assert* fx<=?* while)
-    (schemesh containers charspan)
-    (only (schemesh containers list) for-list))
+    (only (scheme2k bootstrap)       assert* fx<=?* while)
+    (scheme2k containers charspan)
+    (only (scheme2k containers list) for-list))
 
 
 ;; convert a string or a charspan to charspan

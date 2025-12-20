@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh containers replacements (0 9 2))
+(library (scheme2k containers replacements (0 9 2))
   ;; the following functions *intentionally* conflict with R6RS and Chez Scheme
   ;; functions with the same names,
   ;;
@@ -17,6 +17,6 @@
                   (bytevector-uint-ref*  bytevector-uint-ref)
                   (bytevector-uint-set*! bytevector-uint-set!)))
 
-  (import (only (schemesh containers bytevector)
+  (import (only (scheme2k containers bytevector)
                   bytevector-sint-ref* bytevector-sint-set*!
                   bytevector-uint-ref* bytevector-uint-set*!)))

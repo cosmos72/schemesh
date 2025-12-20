@@ -10,14 +10,14 @@
 ;;; procedure names and effect are intentionally compatible with
 ;;; https://docs.racket-lang.org/reference/port-lib.html
 ;;;
-(library (schemesh port stdio (0 9 2))
+(library (scheme2k port stdio (0 9 2))
   (export
           sh-stdio-cleanup sh-stdin sh-stdout sh-stderr)
   (import
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme)         logbit? procedure-arity-mask set-port-eof!)
-    (only (schemesh bootstrap) assert*))
+    (only (scheme2k bootstrap) assert*))
 
 
 (define (validate-stdio-proc caller old-proc new-proc)

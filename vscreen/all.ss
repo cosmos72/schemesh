@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh vscreen (0 9 2))
+(library (scheme2k vscreen (0 9 2))
   (export
     ;; vcell.ss
     vcell vcell? vcell->char vcell->vpalette vcell->vcolors vcell-write vcell-display/bytespan
@@ -105,20 +105,20 @@
     (rnrs mutable-strings)
     (only (chezscheme)                      bytevector-truncate! format fx1+ fx1- fx1- fx/
                                             include meta-cond record-writer string-copy! void)
-    (only (schemesh bootstrap)              assert* assert-not* catch fx<=?* raise-assertf try until while)
-    (only (schemesh containers bytevector)  subbytevector-fill!)
-    (only (schemesh containers string)      string-replace/char!)
-    (schemesh containers bytespan)
-    (schemesh containers charspan)
-    (only (schemesh containers list)        for-list list-index)
-    (only (schemesh containers hashtable)   eqv-hashtable)
-    (schemesh containers span)
-    (schemesh containers gbuffer)
-    (only (schemesh containers utf8b)       integer->char* bytespan-display-right/fixnum! bytespan-insert-right/char!
+    (only (scheme2k bootstrap)              assert* assert-not* catch fx<=?* raise-assertf try until while)
+    (only (scheme2k containers bytevector)  subbytevector-fill!)
+    (only (scheme2k containers string)      string-replace/char!)
+    (scheme2k containers bytespan)
+    (scheme2k containers charspan)
+    (only (scheme2k containers list)        for-list list-index)
+    (only (scheme2k containers hashtable)   eqv-hashtable)
+    (scheme2k containers span)
+    (scheme2k containers gbuffer)
+    (only (scheme2k containers utf8b)       integer->char* bytespan-display-right/fixnum! bytespan-insert-right/char!
                                             string->utf8b utf8b-bytespan->string)
-    (only (schemesh posix pid)              pid-get)
-    (only (schemesh posix dir)              file-delete file-rename)
-    (only (schemesh posix io)               file->port))
+    (only (scheme2k posix pid)              pid-get)
+    (only (scheme2k posix dir)              file-delete file-rename)
+    (only (scheme2k posix io)               file->port))
 
 
 (include "vscreen/vcell.ss")

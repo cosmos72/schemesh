@@ -7,15 +7,15 @@
 
 #!r6rs
 
-(library (schemesh containers sort (0 9 2))
+(library (scheme2k containers sort (0 9 2))
   (export
     span-sort! subvector-sort!) ; R6RS already defines (vector-sort!)
   (import
     (rnrs)
     (only (chezscheme) eval-when format fx1+ fx1- fxarithmetic-shift-right logbit?
                        mutable-vector? optimize-level pariah procedure-arity-mask void)
-    (only (schemesh bootstrap) assert* fx<=?*)
-    (schemesh containers span))
+    (only (scheme2k bootstrap) assert* fx<=?*)
+    (scheme2k containers span))
 
 
 (eval-when (compile) (optimize-level 3) (debug-level 0))

@@ -11,7 +11,7 @@
 ;;;;;;;;; define Scheme type "bytespan", a resizeable bytevector  ;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (schemesh containers bytespan (0 9 2))
+(library (scheme2k containers bytespan (0 9 2))
   (export
     list->bytespan bytevector->bytespan bytevector->bytespan* make-bytespan
     bytespan->bytevector bytespan->bytevector*! bytespan->bytevector0
@@ -29,9 +29,9 @@
   (import
     (rnrs)
     (only (chezscheme)         bytevector-truncate! fx1+ fx1- record-writer void)
-    (only (schemesh bootstrap) assert* assert-not* fx<=?*)
-    (only (schemesh containers list) for-list)
-    (schemesh containers bytevector))
+    (only (scheme2k bootstrap) assert* assert-not* fx<=?*)
+    (only (scheme2k containers list) for-list)
+    (scheme2k containers bytevector))
 
 (define-record-type (%bytespan %make-bytespan bytespan?)
   (fields

@@ -1,4 +1,4 @@
-(library (schemesh example signal handler (0 9 2))
+(library (scheme2k example signal handler (0 9 2))
   (export check-interrupts init-signal-handlers)
   (import
     (rnrs)
@@ -26,6 +26,6 @@
 (when (top-level-bound? 'sh-version)
   (display (console-error-port)
           "; warning: this signal handler example should be run from vanilla Chez Scheme.\n\
-           ;          running it from schemesh will interfere with signal handlers installed by schemesh.\n"))
+           ;          running it from scheme2k will interfere with signal handlers installed by scheme2k.\n"))
 
-(import (schemesh example signal handler))
+(import (scheme2k example signal handler))

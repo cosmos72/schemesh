@@ -14,11 +14,11 @@
   (import
     (rnrs)
     (only (chezscheme) append! fx1+ fx1- include inspect reverse! unread-char void)
-    (only (schemesh bootstrap) assert* debugf until warnf while)
-    (only (schemesh containers string) string-is-unsigned-base10-integer?)
-    (schemesh containers charspan)
-    (schemesh lineedit paren)
-    (schemesh lineedit parser))
+    (only (scheme2k bootstrap) assert* debugf until warnf while)
+    (only (scheme2k containers string) string-is-unsigned-base10-integer?)
+    (scheme2k containers charspan)
+    (scheme2k lineedit paren)
+    (scheme2k lineedit parser))
 
 
 (include "parser/shell-read-token.ss")

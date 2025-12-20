@@ -1,14 +1,14 @@
 
 
-(library (schemesh example multitasking (0 9 2))
+(library (scheme2k example multitasking (0 9 2))
   (export
     tasks make-task task-yield task-resume)
 
   (import
     (rnrs)
     (only (chezscheme)          logbit? procedure-arity-mask void)
-    (only (schemesh bootstrap)  assert*)
-    (schemesh containers span))
+    (only (scheme2k bootstrap)  assert*)
+    (scheme2k containers span))
 
 
 (define tasks
@@ -92,7 +92,7 @@
 
 ) ; close library
 
-(import (schemesh example multitasking))
+(import (scheme2k example multitasking))
 
 
 (make-task

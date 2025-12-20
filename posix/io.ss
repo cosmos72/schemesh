@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh posix io (0 9 2))
+(library (scheme2k posix io (0 9 2))
   (export
     port->utf8b-port fd->port file->port)
   (import
@@ -26,15 +26,15 @@
 
                         textual-port-input-buffer       textual-port-input-index       textual-port-input-size
                         textual-port-output-buffer      textual-port-output-index      textual-port-output-size)
-    (only (schemesh bootstrap)              assert* trace-define)
-    (schemesh containers bytespan)
-    (only (schemesh containers list)        plist? plist-ref)
-    (only (schemesh containers string)      substring-move!)
-    (only (schemesh containers utf8b)       integer->char* utf8b->string utf8b->string-copy!
+    (only (scheme2k bootstrap)              assert* trace-define)
+    (scheme2k containers bytespan)
+    (only (scheme2k containers list)        plist? plist-ref)
+    (only (scheme2k containers string)      substring-move!)
+    (only (scheme2k containers utf8b)       integer->char* utf8b->string utf8b->string-copy!
                                             bytespan-insert-left/char! bytespan-insert-right/char!
                                             bytespan-insert-right/string! bytespan-ref/char)
-    (only (schemesh conversions)            text->string)
-    (only (schemesh posix fd)               fd-close fd-seek fd-read fd-write file->fd))
+    (only (scheme2k conversions)            text->string)
+    (only (scheme2k posix fd)               fd-close fd-seek fd-read fd-write file->fd))
 
 
 

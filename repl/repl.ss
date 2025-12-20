@@ -25,15 +25,15 @@
         abort base-exception-handler break-handler console-input-port console-output-port
         console-error-port default-exception-handler display-condition eval exit-handler fx1+
         include inspect make-parameter parameterize pretty-print read-token reset reset-handler void)
-    (schemesh bootstrap)
-    (only (schemesh containers list) for-list)
-    (schemesh containers span)
-    (only (schemesh vscreen)         open-vlines-input-port vhistory-path-set!)
-    (schemesh lineedit lineedit)
+    (scheme2k bootstrap)
+    (only (scheme2k containers list) for-list)
+    (scheme2k containers span)
+    (only (scheme2k vscreen)         open-vlines-input-port vhistory-path-set!)
+    (scheme2k lineedit lineedit)
     (schemesh parser)
-    (only (schemesh posix dir)       file-type)
-    (schemesh posix signal)
-    (schemesh posix tty)
+    (only (scheme2k posix dir)       file-type)
+    (scheme2k posix signal)
+    (scheme2k posix tty)
     (only (schemesh shell)
        repl-args repl-args-linectx repl-restart repl-restart?
        sh-consume-signals sh-current-job sh-current-job-kill sh-current-job-suspend sh-exception-handler

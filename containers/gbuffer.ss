@@ -12,7 +12,7 @@
 ;;;;;;; Implementation: contains two spans, a "left" and a "right" ones ;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (schemesh containers gbuffer (0 9 2))
+(library (scheme2k containers gbuffer (0 9 2))
   (export
     list->gbuffer vector->gbuffer vector->gbuffer* span->gbuffer span->gbuffer*
     make-gbuffer gbuffer gbuffer? gbuffer->vector gbuffer->span
@@ -21,9 +21,9 @@
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx/ record-writer void)
-    (only (schemesh bootstrap)         assert* assert-not* fx<=?*)
-    (only (schemesh containers vector) vector-copy!)
-    (schemesh containers span))
+    (only (scheme2k bootstrap)         assert* assert-not* fx<=?*)
+    (only (scheme2k containers vector) vector-copy!)
+    (scheme2k containers span))
 
 (define-record-type (%gbuffer %make-gbuffer gbuffer?)
   (fields

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh bootstrap arrow (0 9 2))
+(library (scheme2k bootstrap arrow (0 9 2))
   (export expand==>)
   (import
     (rnrs)

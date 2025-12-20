@@ -11,15 +11,15 @@
 ;;;
 ;;; exchanges arbitrary objects through thread-safe FIFO
 ;;;
-(library (schemesh ipc fifo (0 9 2))
+(library (scheme2k ipc fifo (0 9 2))
   (export make-producer producer? producer-close producer-name producer-put
           make-consumer consumer? consumer-get consumer-eof? consumer-timed-get consumer-try-get in-consumer)
   (import
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme)            include make-time record-writer time? time-type time-second time-nanosecond)
-    (only (schemesh bootstrap)    assert* check-interrupts raise-errorf)
-    (only (schemesh posix signal) countdown))
+    (only (scheme2k bootstrap)    assert* check-interrupts raise-errorf)
+    (only (scheme2k posix signal) countdown))
 
 
 (include "ipc/fifo-common.ss")

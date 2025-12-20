@@ -11,13 +11,13 @@
 ;;;;;;;;;   define Scheme type "bitmap", a fixed size bit vector   ;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (schemesh containers bitmap (0 9 2))
+(library (scheme2k containers bitmap (0 9 2))
   (export
     bitmap make-bitmap bitmap? bitmap-length bitmap-ref bitmap-set! bitmap-last-zero)
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx1- record-writer void)
-    (only (schemesh bootstrap) assert*))
+    (only (scheme2k bootstrap) assert*))
 
 (define-record-type (%bitmap %make-bitmap bitmap?)
   (fields

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh containers utf8b (0 9 2))
+(library (scheme2k containers utf8b (0 9 2))
   (export
     ;; utf8b.ss
     codepoint? codepoint-utf8b? integer->char* string->utf8b string->utf8b/0
@@ -26,11 +26,11 @@
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
     (only (chezscheme)                     bytevector foreign-procedure fx1+ fx1- include string-truncate!)
-    (only (schemesh bootstrap)             assert* fx<=?* raise-assertf)
-    (only (schemesh containers bytevector) subbytevector-fill!)
-    (only (schemesh containers string)     string-iterate)
-    (schemesh containers bytespan)
-    (schemesh containers charspan))
+    (only (scheme2k bootstrap)             assert* fx<=?* raise-assertf)
+    (only (scheme2k containers bytevector) subbytevector-fill!)
+    (only (scheme2k containers string)     string-iterate)
+    (scheme2k containers bytespan)
+    (scheme2k containers charspan))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -23,7 +23,7 @@
 ;;  (thread-stop!) (threads) (threads-status) (threads-status-changes)
 
 
-(library (schemesh posix thread (0 9 2))
+(library (scheme2k posix thread (0 9 2))
   (export
       current-thread fork-thread get-initial-thread get-thread-id make-thread
       thread thread? threaded? thread-alive? thread-count thread-find thread-id thread-initial-bindings
@@ -39,11 +39,11 @@
                                   logbit? meta-cond make-ephemeron-eq-hashtable make-parameter make-time
                                   parameterize procedure-arity-mask reset-handler sleep thread? threaded?
                                   time? time<=? time-difference time-type void with-interrupts-disabled)
-    (only (schemesh bootstrap)    assert* assert-not* catch check-interrupts raise-errorf until try)
-    (only (schemesh containers hashtable) for-hash)
-    (only (schemesh containers list)      for-alist for-list)
-    (only (schemesh posix signal) raise-condition-received-signal signal-name->number signal-raise)
-    (only (schemesh posix status) running stopped ok exception failed))
+    (only (scheme2k bootstrap)    assert* assert-not* catch check-interrupts raise-errorf until try)
+    (only (scheme2k containers hashtable) for-hash)
+    (only (scheme2k containers list)      for-alist for-list)
+    (only (scheme2k posix signal) raise-condition-received-signal signal-name->number signal-raise)
+    (only (scheme2k posix status) running stopped ok exception failed))
 
 
 (define c-errno-eagain ((foreign-procedure "c_errno_eagain" () int)))

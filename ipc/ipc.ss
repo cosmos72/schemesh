@@ -5,8 +5,8 @@
 ;;; License as published by the Free Software Foundation; either
 ;;; version 2 of the License, or (at your option) any later version.
 
-;; define (schemesh ipc) as a library that exports all its imported bindings
-(library-reexport (schemesh ipc (0 9 2))
+;; define (scheme2k ipc) as a library that exports all its imported bindings
+(library-reexport (scheme2k ipc (0 9 2))
   (import
-    (schemesh ipc channel)
-    (schemesh ipc fifo)))
+    (scheme2k ipc channel)
+    (scheme2k ipc fifo)))

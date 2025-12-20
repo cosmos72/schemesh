@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh posix status (0 9 2))
+(library (scheme2k posix status (0 9 2))
   (export
        exit-with-status status-display-color?
        new running stopped exception failed killed ok
@@ -16,11 +16,11 @@
   (import
     (rnrs)
     (only (chezscheme)            console-output-port console-error-port fx1+ include record-writer void)
-    (only (schemesh bootstrap)    assert* sh-make-parameter)
-    (only (schemesh containers hashtable) for-hash plist->eq-hashtable)
-    (schemesh wire)
-    (only (schemesh posix fd)     c-exit)
-    (only (schemesh posix signal) signal-name->number signal-raise))
+    (only (scheme2k bootstrap)    assert* sh-make-parameter)
+    (only (scheme2k containers hashtable) for-hash plist->eq-hashtable)
+    (scheme2k wire)
+    (only (scheme2k posix fd)     c-exit)
+    (only (scheme2k posix signal) signal-name->number signal-raise))
 
 
 ;; Status of a sh-job or process.

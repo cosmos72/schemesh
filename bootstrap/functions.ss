@@ -13,7 +13,7 @@
 
 #!r6rs
 
-(library (schemesh bootstrap functions (0 9 2))
+(library (scheme2k bootstrap functions (0 9 2))
   (export
       check-interrupts eval-form fx<=?* nop parameter-swapper
       generate-pretty-temporaries generate-pretty-temporary gensym-pretty
@@ -284,7 +284,7 @@
       ret)))
 
 
-;; return three values: schemesh version MAJOR, MINOR and PATCH fixnums
+;; return three values: scheme2k version MAJOR, MINOR and PATCH fixnums
 (define (sh-version-number)
   (values 0 9 2))
 

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh bootstrap (0 9 2))
+(library (scheme2k bootstrap (0 9 2))
   (export
       ;; bootstrap.ss
       ==> ;; _ is already exported by (rnrs)
@@ -34,8 +34,8 @@
     (only (chezscheme) append! console-error-port current-time disable-interrupts enable-interrupts
                        format foreign-procedure fx1+ fx1- fx/ gensym list-copy list-head lock-object
                        meta pariah reverse! time-second time-nanosecond unlock-object void)
-    (schemesh bootstrap arrow)
-    (schemesh bootstrap functions))
+    (scheme2k bootstrap arrow)
+    (scheme2k bootstrap functions))
 
 
 

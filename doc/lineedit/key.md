@@ -1,9 +1,9 @@
-# schemesh lineedit key bindings
+# lineedit key bindings
 
-The effect of key presses at REPL is controlled the library `(schemesh lineedit)` which is also included in `(schemesh)`.
+The effect of key presses at REPL is controlled the library `(scheme2k lineedit)` which is also included in `(schemesh)`.
 Users can change these effects, and define new ones.
 
-The library `(schemesh lineedit)` contains default key bindings suitable for most terminals:<br/>
+The library `(scheme2k lineedit)` contains default key bindings suitable for most terminals:<br/>
 they are stored in the scheme global variable `linectx-default-keytable`<br/> which is a hashtable and can be accessed by calling
 * `(values linectx-default-keytable)`
 * `(hashtable-cells linectx-default-keytable)`
@@ -31,7 +31,7 @@ see [linectx.md](linectx.md) for the (few) documented ones.
 
 ### lineedit key functions
 
-The following functions are predefined by library `(schemesh lineedit)`
+The following functions are predefined by library `(scheme2k lineedit)`
 and can be passed as arguments to `(linectx-keytable-insert!)`.
 
 Note: you need to pass the functions itself - not call it - thus the parentheses must be omitted.<br/>

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh containers string (0 9 2))
+(library (scheme2k containers string (0 9 2))
   (export
     assert-string-list? in-string
     string-any string-contains string-count string-empty? string-every
@@ -24,8 +24,8 @@
     (rnrs mutable-pairs)
     (rnrs mutable-strings)
     (only (chezscheme) fx1+ fx1- reverse! string-copy! string-truncate! void)
-    (only (schemesh bootstrap) assert* fx<=?* while)
-    (only (schemesh containers list) for-list list-copy*))
+    (only (scheme2k bootstrap) assert* fx<=?* while)
+    (only (scheme2k containers list) for-list list-copy*))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

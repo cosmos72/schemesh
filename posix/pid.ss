@@ -7,14 +7,14 @@
 
 #!r6rs
 
-(library (schemesh posix pid (0 9 2))
+(library (scheme2k posix pid (0 9 2))
   (export pid-get pgid-get pid-kill pid-wait)
   (import
     (rnrs)
     (only (chezscheme)            foreign-procedure)
-    (only (schemesh bootstrap)    assert*)
-    (only (schemesh posix fd)     raise-c-errno)
-    (only (schemesh posix signal) signal-name->number))
+    (only (scheme2k bootstrap)    assert*)
+    (only (scheme2k posix fd)     raise-c-errno)
+    (only (scheme2k posix signal) signal-name->number))
 
 
 ;; return pid of current process

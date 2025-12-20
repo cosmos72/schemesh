@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh containers list (0 9 2))
+(library (scheme2k containers list (0 9 2))
   (export
     any count every for-alist for-list for-plist in-alist in-list in-plist on-list
 
@@ -19,7 +19,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme)         fx1+ fx1- list-copy reverse! void)
-    (only (schemesh bootstrap) forever generate-pretty-temporaries with-while-until))
+    (only (scheme2k bootstrap) forever generate-pretty-temporaries with-while-until))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

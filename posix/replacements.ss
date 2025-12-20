@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh posix replacements (0 9 2))
+(library (scheme2k posix replacements (0 9 2))
   (export
       ;; the following functions *intentionally* conflict with R6RS and Chez Scheme
       ;; functions with the same names,
@@ -43,9 +43,9 @@
                                (get-string-some chez:get-string-some)
                                (put-string-some chez:put-string-some))
 
-    (only (schemesh posix fd)  c-errno->string)
-    (only (schemesh posix dir) file-type file-delete)
-    (schemesh posix thread))
+    (only (scheme2k posix fd)  c-errno->string)
+    (only (scheme2k posix dir) file-type file-delete)
+    (scheme2k posix thread))
 
 
 ;;; read and return the next character from textual-input-port,

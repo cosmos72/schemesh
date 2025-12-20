@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh containers vector (0 9 2))
+(library (scheme2k containers vector (0 9 2))
   (export
     for-vector in-vector vector-any vector-copy!
     subvector subvector-fill!
@@ -18,7 +18,7 @@
     (only (chezscheme)         cflonum? cfl+ fl-make-rectangular
                                fx1+ fx1- fxvector-length fxvector-ref
                                import meta-cond library-exports)
-    (only (schemesh bootstrap) assert* forever fx<=?* raise-errorf generate-pretty-temporaries with-while-until))
+    (only (scheme2k bootstrap) assert* forever fx<=?* raise-errorf generate-pretty-temporaries with-while-until))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

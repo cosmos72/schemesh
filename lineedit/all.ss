@@ -7,11 +7,11 @@
 
 #!r6rs
 
-;; define (schemesh lineedit) as a library that exports all imported bindings
-(library-reexport (schemesh lineedit (0 9 2))
+;; define (scheme2k lineedit) as a library that exports all imported bindings
+(library-reexport (scheme2k lineedit (0 9 2))
   (import
-    (schemesh lineedit ansi)
-    (schemesh lineedit lineedit)
-    (schemesh lineedit paren)
-    (schemesh lineedit parenmatcher)
-    (schemesh lineedit parser)))
+    (scheme2k lineedit ansi)
+    (scheme2k lineedit lineedit)
+    (scheme2k lineedit paren)
+    (scheme2k lineedit parenmatcher)
+    (scheme2k lineedit parser)))

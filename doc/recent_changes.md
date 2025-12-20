@@ -8,6 +8,8 @@
 * rename function `(in-shell-glob)` -> `(in-glob)`
 * rename functions `(wildcard)` -> `(wildcard1+)` and add function `(wildcard)`
 * add function `(linectx-key-to-history)`
+* change license GPLv2+ -> LGPLv2+ in all sources except parser/* shell/* repl/* main.c test/*
+* rename all LGPLv2+ C functions and LGPLv2+ Scheme libraries schemesh* -> scheme2k*
 * improve documentation
 
 ### release v0.9.2, 2025-10-18

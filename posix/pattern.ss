@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh posix pattern (0 9 2))
+(library (scheme2k posix pattern (0 9 2))
   (export
     sh-pattern sh-pattern? span->sh-pattern* sh-pattern->span*
     sh-pattern-ref/string sh-pattern-ref-right/string
@@ -15,10 +15,10 @@
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx1- record-writer void)
-    (only (schemesh bootstrap) assert* fx<=?* raise-assertf)
-    (only (schemesh containers string) string-index string-index-right substring=?)
-    (schemesh containers charspan)
-    (schemesh containers span))
+    (only (scheme2k bootstrap) assert* fx<=?* raise-assertf)
+    (only (scheme2k containers string) string-index string-index-right substring=?)
+    (scheme2k containers charspan)
+    (scheme2k containers span))
 
 
 ;; return #t if obj is a wildcard symbol, i.e. one of * ? ~ % %!

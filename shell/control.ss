@@ -95,7 +95,7 @@
   ;;
   ;; => use (register-signal-handler) also for SIGINT
   ;;
-  ;; also, (schemesh posix thread) expects (keyboard-signal-handler)
+  ;; also, (scheme2k posix thread) expects (keyboard-signal-handler)
   ;; to be set to (thread-signal-handle)
   (keyboard-interrupt-handler thread-signal-handle)
 

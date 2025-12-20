@@ -17,9 +17,9 @@
   (import
     (rnrs)
     (only (chezscheme) fx1+ fx1- record-writer)
-    (only (schemesh bootstrap) assert* raise-errorf)
-    (schemesh containers bitmap)
-    (only (schemesh posix fd) fd-open-max))
+    (only (scheme2k bootstrap) assert* raise-errorf)
+    (scheme2k containers bitmap)
+    (only (scheme2k posix fd) fd-open-max))
 
 
 ;; 1+ highest reserved fd

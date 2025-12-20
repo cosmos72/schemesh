@@ -7,14 +7,14 @@
 
 #!r6rs
 
-(library (schemesh containers flvector (0 9 2))
+(library (scheme2k containers flvector (0 9 2))
   (export
     flvector-native? flvector flvector? flvector-length flvector-ref flvector-set! make-flvector
     flvector-copy! for-flvector in-flvector)
   (import
     (rnrs)
     (only (chezscheme)         foreign-procedure import library-exports meta-cond fx1+ fx1-)
-    (only (schemesh bootstrap) assert* forever fx<=?* generate-pretty-temporaries with-while-until))
+    (only (scheme2k bootstrap) assert* forever fx<=?* generate-pretty-temporaries with-while-until))
 
 
 (meta-cond
@@ -54,7 +54,7 @@
 
 ;; (flvector-copy! src src-start dst dst-start n)
 ;;
-;; Added in schemesh 0.9.3
+;; Added in scheme2k 0.9.3
 (meta-cond
   ;; flvector-copy! is defined only in Chez Scheme >= 10.2.0
   ((let ((exports (library-exports '(chezscheme))))
@@ -130,7 +130,7 @@
 ;;
 ;; Return unspecified value.
 ;;
-;; Added in schemesh 0.9.3
+;; Added in scheme2k 0.9.3
 (define-syntax for-flvector
   (lambda (stx)
     (syntax-case stx ()

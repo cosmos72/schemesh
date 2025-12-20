@@ -30,7 +30,7 @@
     (rename (only (chezscheme) put-bytevector-some)
         (put-bytevector-some chez:put-bytevector-some))
 
-    (schemesh port stdio)
+    (scheme2k port stdio)
     (only (schemesh shell job) sh-env-set! sh-env-visibility-ref))
 
 ;;; key must be a string.

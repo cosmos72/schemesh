@@ -7,28 +7,28 @@
 
 #!r6rs
 
-;; define (schemesh posix) as a library that exports all its imported bindings
-(library-reexport (schemesh posix (0 9 2))
+;; define (scheme2k posix) as a library that exports all its imported bindings
+(library-reexport (scheme2k posix (0 9 2))
   (import
-    (schemesh posix dir)
-    (schemesh posix fd)
-    (schemesh posix io)
-    (schemesh posix pattern)
-    (schemesh posix pid)
+    (scheme2k posix dir)
+    (scheme2k posix fd)
+    (scheme2k posix io)
+    (scheme2k posix pattern)
+    (scheme2k posix pid)
 
-    ;; by default, do not re-export bindings from (schemesh posix replacements) or (schemesh posix thread)
+    ;; by default, do not re-export bindings from (scheme2k posix replacements) or (scheme2k posix thread)
     ;; because they intentionally conflict with R6RS functions (file-exists?) (delete-file)
     ;; (get-char) (get-datum) (get-line) (get-string-all) (get-string-n) (get-string-some)
     ;; and with Chez Scheme functions for accessing the filesystem and managing threads.
     ;;
-    ;; Reason for the conflict: the functions in (schemesh posix replacements)
+    ;; Reason for the conflict: the functions in (scheme2k posix replacements)
     ;; are intended as replacements for the default ones, and they add UTF-8b support.
     ;;
-    ;; If a user wants them, they need to (import (schemesh posix replacements)) or (import (schemesh))
+    ;; If a user wants them, they need to (import (scheme2k posix replacements)) or (import (scheme2k))
     ;;
-    ;; (schemesh posix replacements)
+    ;; (scheme2k posix replacements)
 
-    (schemesh posix rlimit)
-    (schemesh posix signal)
-    (schemesh posix status)
-    (schemesh posix tty)))
+    (scheme2k posix rlimit)
+    (scheme2k posix signal)
+    (scheme2k posix status)
+    (scheme2k posix tty)))

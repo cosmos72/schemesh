@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (schemesh port redir (0 9 2))
+(library (scheme2k port redir (0 9 2))
   (export
     binary-port-lambda->port textual-port-lambda->port)
   (import
@@ -21,7 +21,7 @@
                         set-binary-port-output-buffer!  set-binary-port-output-index!  set-binary-port-output-size!
                         set-port-bol! set-port-output-index!
                         textual-port-output-buffer textual-port-output-index textual-port-output-size unread-char void)
-    (only (schemesh bootstrap) assert*))
+    (only (scheme2k bootstrap) assert*))
 
 
 (define (b-mode->input-buffer-size b-mode)

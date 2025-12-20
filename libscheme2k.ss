@@ -72,42 +72,6 @@
   (include "lineedit/lineedit.ss")
   (include "lineedit/all.ss")
 
-  (library-reexport (scheme2k bootstrap (0 9 2))
-    (import (schemesh bootstrap)))
-
-  (library-reexport (scheme2k containers (0 9 2))
-    (import (schemesh containers)))
-
-  ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
-  (library-reexport (scheme2k containers replacements (0 9 2))
-    (import (schemesh containers replacements)))
-
-  (library-reexport (scheme2k conversions (0 9 2))
-    (import (schemesh conversions)))
-
-  (library-reexport (scheme2k ipc (0 9 2))
-    (import (schemesh ipc)))
-
-  (library-reexport (scheme2k lineedit (0 9 2))
-    (import (schemesh lineedit)))
-
-  (library-reexport (scheme2k port (0 9 2))
-    (import (schemesh port)))
-
-  (library-reexport (scheme2k posix (0 9 2))
-    (import (schemesh posix)))
-
-  ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
-  (library-reexport (scheme2k posix replacements (0 9 2))
-    (import (schemesh posix replacements)))
-
-  (library-reexport (scheme2k vscreen (0 9 2))
-    (import (schemesh vscreen)))
-
-  (library-reexport (scheme2k wire (0 9 2))
-    (import (schemesh wire)))
-
-
 
   ;; library (scheme2k rnrs) exports the same bindings as (rnrs),
   ;; except for few bindings that are replaced with improved alternatives:
