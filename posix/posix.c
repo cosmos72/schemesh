@@ -16,7 +16,7 @@
 #define _FILE_OFFSET_BITS 64
 
 #include "posix.h"
-#include "../containers/containers.h" /* schemesh_Sbytevector() */
+#include "../containers/containers.h" /* scheme2k_Sbytevector() */
 #include "../eval.h"                  /* eval() */
 
 #include <dirent.h> /* opendir(), readdir(), closedir() */
@@ -55,7 +55,15 @@
 #include <termios.h> /* struct termios, tcgetattr(), tcsetattr() */
 #endif
 
-#define SCHEMESH_POSIX_POSIX_C
+#ifndef CHEZ_SCHEME_DIR
+#error "please #define CHEZ_SCHEME_DIR to the installation path of Chez Scheme"
+#endif
+
+#define STR_(arg) #arg
+#define STR(arg) STR_(arg)
+#define CHEZ_SCHEME_DIR_STR STR(CHEZ_SCHEME_DIR)
+
+#define SCHEME2K_POSIX_POSIX_C /* tell who we are to posix/signal.h  */
 
 #define N_OF(array) (sizeof(array) / sizeof((array)[0]))
 
@@ -116,10 +124,10 @@ static const char* c_strerror(int err) {
 }
 
 static ptr c_strerror_string(int err) {
-  return schemesh_Sstring_utf8b(c_strerror(err), -1);
+  return scheme2k_Sstring_utf8b(c_strerror(err), -1);
 }
 
-int schemesh_init_failed(const char label[]) {
+int scheme2k_init_failed(const char label[]) {
   const int err = c_errno();
   fprintf(stderr,
           "error initializing POSIX subsystem: %s failed with error %s\n",
@@ -220,7 +228,7 @@ static ptr c_get_cwd(void) {
     /* call getcwd() with a small stack buffer */
     char dir[256];
     if (getcwd(dir, sizeof(dir)) == dir) {
-      return schemesh_Sstring_utf8b(dir, -1);
+      return scheme2k_Sstring_utf8b(dir, -1);
     } else if (c_errno() != -ERANGE) {
       return Smake_string(0, 0);
     }
@@ -231,7 +239,7 @@ static ptr c_get_cwd(void) {
     char*  dir    = NULL;
     while (maxlen && (dir = malloc(maxlen)) != NULL) {
       if (getcwd(dir, maxlen) == dir) {
-        ptr ret = schemesh_Sstring_utf8b(dir, -1);
+        ptr ret = scheme2k_Sstring_utf8b(dir, -1);
         free(dir);
         return ret;
       }
@@ -282,10 +290,10 @@ static int tty_pgid = -1;
 static int c_tty_init(void) {
   int fd = c_fd_open_max() - 1;
   if (dup2(0, fd) < 0) {
-    return schemesh_init_failed("dup2(0, tty_fd)");
+    return scheme2k_init_failed("dup2(0, tty_fd)");
   } else if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0) {
     (void)close(fd);
-    return schemesh_init_failed("fcntl(tty_fd, F_SETFD, FD_CLOEXEC)");
+    return scheme2k_init_failed("fcntl(tty_fd, F_SETFD, FD_CLOEXEC)");
   } else {
     tty_fd = fd;
   }
@@ -1064,7 +1072,7 @@ static ptr c_get_hostname_buf(char* buf, size_t len) {
   if ((end = (const char*)memchr(buf, 0, len)) != NULL) {
     len = end - buf;
   }
-  return schemesh_Sstring_utf8b(buf, len);
+  return scheme2k_Sstring_utf8b(buf, len);
 }
 
 #ifdef HOST_NAME_MAX
@@ -1118,7 +1126,7 @@ static ptr c_get_username(int uid) {
   }
   err = getpwuid_r((uid_t)uid, &pwd, buf, bufsize, &result);
   if (err == 0 && result && result->pw_name) {
-    ret = schemesh_Sstring_utf8b(result->pw_name, -1);
+    ret = scheme2k_Sstring_utf8b(result->pw_name, -1);
   } else {
     ret = Sinteger(c_errno_set(err != 0 ? err : ENOENT));
   }
@@ -1160,7 +1168,7 @@ static ptr c_get_userhome(ptr username0) {
   }
   err = getpwnam_r(username_chars, &pwd, buf, bufsize, &result);
   if (err == 0 && result && result->pw_dir) {
-    ret = schemesh_Sstring_utf8b(result->pw_dir, -1);
+    ret = scheme2k_Sstring_utf8b(result->pw_dir, -1);
   } else {
     ret = Sinteger(c_errno_set(err != 0 ? err : ENOENT));
   }
@@ -1520,7 +1528,7 @@ c_directory_list1(DIR* dir, struct dirent* entry, const s_directory_list_opts* o
     return ret; /* we must only return names that end with '/' */
   }
   filename =
-      opts->ret_bytes ? schemesh_Sbytevector(name, namelen) : schemesh_Sstring_utf8b(name, namelen);
+      opts->ret_bytes ? scheme2k_Sbytevector(name, namelen) : scheme2k_Sstring_utf8b(name, namelen);
   ret = Scons(opts->ret_types ? Scons(filename, type) : filename, ret);
 
   if (name_has_slash) {
@@ -2127,7 +2135,7 @@ static int c_rlimit_set(int is_hard, int resource, ptr value) {
   return err < 0 ? c_errno() : 0;
 }
 
-int schemesh_register_c_functions_posix(void) {
+int scheme2k_register_c_functions_posix(void) {
   int err;
   if ((err = c_tty_init()) < 0) {
     return err;
@@ -2207,12 +2215,38 @@ int schemesh_register_c_functions_posix(void) {
   return 0;
 }
 
+void scheme2k_init(const char* override_boot_dir, void (*on_scheme_exception)(void)) {
+  int loaded = 0;
+
+  c_signals_unblock();
+
+  Sscheme_init(on_scheme_exception);
+  if (override_boot_dir != NULL) {
+    size_t dir_len   = strlen(override_boot_dir);
+    char*  boot_file = (char*)malloc(dir_len + 13);
+    if (boot_file != NULL) {
+      memcpy(boot_file, override_boot_dir, dir_len);
+      memcpy(boot_file + dir_len, "/petite.boot", 13);
+      Sregister_boot_file(boot_file);
+
+      memcpy(boot_file + dir_len, "/scheme.boot", 13);
+      Sregister_boot_file(boot_file);
+      loaded = 1;
+    }
+  }
+  if (loaded == 0) {
+    Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/petite.boot");
+    Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/scheme.boot");
+  }
+  Sbuild_heap(NULL, NULL);
+}
+
 /**
  * quit Chez Scheme. calls:
  *   c_tty_quit()
  *   Sscheme_deinit()
  */
-void schemesh_quit(void) {
+void scheme2k_quit(void) {
   c_tty_quit();
   Sscheme_deinit();
 }

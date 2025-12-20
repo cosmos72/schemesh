@@ -8,7 +8,7 @@
  */
 
 #include "shell.h"
-#include "../containers/containers.h" /* schemesh_Sstring_utf8b() */
+#include "../containers/containers.h" /* scheme2k_Sstring_utf8b() */
 #include "../eval.h"
 #include "../posix/posix.h"
 
@@ -19,23 +19,8 @@
 #include <string.h>
 #include <unistd.h>
 
-#ifndef CHEZ_SCHEME_DIR
-#error "please #define CHEZ_SCHEME_DIR to the installation path of Chez Scheme"
-#endif
-
 #define STR_(arg) #arg
 #define STR(arg) STR_(arg)
-#define CHEZ_SCHEME_DIR_STR STR(CHEZ_SCHEME_DIR)
-#ifdef SCHEMESH_DIR
-#define SCHEMESH_DIR_STR STR(SCHEMESH_DIR)
-#endif
-
-static void c_cleanup_signals(void) {
-  sigset_t set;
-  if (sigemptyset(&set) == 0) {
-    (void)sigprocmask(SIG_SETMASK, &set, NULL);
-  }
-}
 
 /**
  * return i-th environment variable i.e. environ[i]
@@ -47,11 +32,11 @@ static ptr c_environ_ref(uptr i) {
   const char* entry = environ[i];
   const char* separator;
   if (entry && (separator = strchr(entry, '=')) != NULL) {
-    size_t namelen   = separator - entry;
-    iptr   inamelen  = Sfixnum_value(Sfixnum(namelen));
+    size_t namelen  = separator - entry;
+    iptr   inamelen = Sfixnum_value(Sfixnum(namelen));
     if (namelen > 0 && inamelen > 0 && namelen == (size_t)inamelen) {
-      return Scons(schemesh_Sstring_utf8b(entry, namelen),
-                   schemesh_Sstring_utf8b(separator + 1, -1));
+      return Scons(scheme2k_Sstring_utf8b(entry, namelen),
+                   scheme2k_Sstring_utf8b(separator + 1, -1));
     }
   }
   return Sfalse;
@@ -60,9 +45,9 @@ static ptr c_environ_ref(uptr i) {
 int schemesh_register_c_functions(void) {
   int err;
 
-  schemesh_register_c_functions_containers();
+  scheme2k_register_c_functions_containers();
 
-  if ((err = schemesh_register_c_functions_posix()) != 0) {
+  if ((err = scheme2k_register_c_functions_posix()) != 0) {
     return err;
   }
 
@@ -71,81 +56,27 @@ int schemesh_register_c_functions(void) {
   return err;
 }
 
-static ptr call_try_load(ptr try_load_proc, const char* dir) {
-  return Scall1(try_load_proc, schemesh_Sstring_utf8b(dir, -1));
-}
-
 /* return 0 if successful, otherwise error code */
-int schemesh_load_libraries(const char* override_library_dir) {
-#if 0
-  ptr try_load_proc = schemesh_eval
-      ("(lambda (dir)\n"
-       "  (load (string-append dir \"/" LIBSCHEMESH_SO "\"))\n"
-       "  #t)\n");
-#else
-  ptr try_load_proc = schemesh_eval /*                       */
-      ("(lambda (dir)\n"
-       "  (let ((path (string-append dir \"/" LIBSCHEMESH_SO "\")))\n"
-       "    (call/cc\n"
-       "      (lambda (k-exit)\n"
-       "        (with-exception-handler\n"
-       "          (lambda (ex)\n"
-       "            (let ((port (current-error-port)))\n"
-       "              (put-string port \"schemesh: \")"
-       "              (display-condition ex port)\n"
-       "              (newline port)\n"
-       "              (flush-output-port port))\n"
-       "            (k-exit #f))\n" /* exception -> return #f */
-       "          (lambda ()\n"
-       "            (load path)\n"
-       "            #t))))))\n"); /* success -> return #t */
-#endif
-  ptr ret = Sfalse;
-  Slock_object(try_load_proc);
+int schemesh_load_library(const char* override_library_dir) {
+  const char* filename = LIBSCHEMESH_SO;
+  int         err      = -1;
 
   if (override_library_dir != NULL) {
-    ret = call_try_load(try_load_proc, override_library_dir);
+    err = scheme2k_load_library(override_library_dir, filename);
   } else {
-#ifdef SCHEMESH_DIR_STR
-    ret = call_try_load(try_load_proc, SCHEMESH_DIR_STR);
+#ifdef SCHEMESH_DIR
+    err = scheme2k_load_library(STR(SCHEMESH_DIR), filename);
 #endif
-    if (ret != Strue) {
-      ret = call_try_load(try_load_proc, "/usr/local/lib/schemesh");
+    if (err != 0) {
+      err = scheme2k_load_library("/usr/local/lib/schemesh", filename);
     }
-    if (ret != Strue) {
-      ret = call_try_load(try_load_proc, "/usr/lib/schemesh");
+    if (err != 0) {
+      err = scheme2k_load_library("/usr/lib/schemesh", filename);
     }
   }
-  Sunlock_object(try_load_proc);
-  return ret == Strue ? 0 : EINVAL;
+  return err;
 }
 
 void schemesh_import_all_libraries(void) {
-  schemesh_eval("(import (schemesh))\n");
-}
-
-void schemesh_init(const char* override_boot_dir, void (*on_scheme_exception)(void)) {
-  int loaded = 0;
-
-  c_cleanup_signals();
-
-  Sscheme_init(on_scheme_exception);
-  if (override_boot_dir != NULL) {
-    size_t dir_len   = strlen(override_boot_dir);
-    char*  boot_file = (char*)malloc(dir_len + 13);
-    if (boot_file != NULL) {
-      memcpy(boot_file, override_boot_dir, dir_len);
-      memcpy(boot_file + dir_len, "/petite.boot", 13);
-      Sregister_boot_file(boot_file);
-
-      memcpy(boot_file + dir_len, "/scheme.boot", 13);
-      Sregister_boot_file(boot_file);
-      loaded = 1;
-    }
-  }
-  if (loaded == 0) {
-    Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/petite.boot");
-    Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/scheme.boot");
-  }
-  Sbuild_heap(NULL, NULL);
+  scheme2k_eval("(import (schemesh))\n");
 }

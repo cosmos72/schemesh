@@ -8,7 +8,7 @@
  */
 
 /** this file should be included only by posix/posix.c */
-#ifndef SCHEMESH_POSIX_POSIX_C
+#ifndef SCHEME2K_POSIX_POSIX_C
 #error "posix/signal.h should only be #included by posix/posix.c"
 #endif
 
@@ -18,14 +18,21 @@
 #define ATOMIC volatile
 #endif
 
-#undef SCHEMESH_C_DEBUG
-#ifdef SCHEMESH_C_DEBUG
+#undef SCHEME2K_C_DEBUG
+#ifdef SCHEME2K_C_DEBUG
 #define C_DEBUG_WRITE(fd, str) ((void)write(fd, str, sizeof(str) - 1))
 #else
 #define C_DEBUG_WRITE(fd, str) ((void)0)
 #endif
 
 /* ------------------------------------ signals handling ---------------------------------------- */
+
+static void c_signals_unblock(void) {
+  sigset_t set;
+  if (sigemptyset(&set) == 0) {
+    (void)sigprocmask(SIG_SETMASK, &set, NULL);
+  }
+}
 
 static int c_thread_signal_setblocked(int sig, int block);
 
@@ -80,7 +87,7 @@ static int c_signals_init(void) {
     /* cannot ignore SIGCHLD, it would break waitpid() */
     action.sa_handler = i == 0 ? SIG_DFL : SIG_IGN;
     if (sigaction(signals_tohandle[i], &action, NULL) < 0) {
-      return schemesh_init_failed(labels[i]);
+      return scheme2k_init_failed(labels[i]);
     }
   }
   return 0;
@@ -298,7 +305,7 @@ static int c_signal_init_sigwinch(void) {
   action.sa_handler       = &c_sigwinch_handler;
   if (sigaction(SIGWINCH, &action, &c_sigwinch_saved_action) < 0) {
     c_sigwinch_saved_action.sa_handler = SIG_DFL;
-    return schemesh_init_failed("sigaction(SIGWINCH)");
+    return scheme2k_init_failed("sigaction(SIGWINCH)");
   }
   return 0;
 }
@@ -356,10 +363,10 @@ static int c_countdown(ptr duration_inout) {
 
 static int c_register_c_functions_posix_signals(void) {
   if (c_signal_init_sigcont() < 0) {
-    return schemesh_init_failed("sigaction(SIGCONT)");
+    return scheme2k_init_failed("sigaction(SIGCONT)");
   }
   if (c_signals_unblock_most() < 0) {
-    return schemesh_init_failed("sigprocmask(SIG_UNBLOCK)");
+    return scheme2k_init_failed("sigprocmask(SIG_UNBLOCK)");
   }
   Sregister_symbol("c_countdown", &c_countdown);
   Sregister_symbol("c_signals_list", &c_signals_list);

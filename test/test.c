@@ -7,8 +7,9 @@
  * (at your option) any later version.
  */
 
-#include "../containers/containers.h" /* schemesh_Sstring_utf8b() */
+#include "../containers/containers.h" /* scheme2k_Sstring_utf8b() */
 #include "../eval.h"
+#include "../posix/posix.h"
 #include "../shell/shell.h"
 
 #include <errno.h>
@@ -29,7 +30,7 @@
 
 static void run_scheme_tests(unsigned long* run_n, unsigned long* failed_n, const char* test_file) {
 
-  ptr ret = schemesh_call1("run-tests", schemesh_Sstring_utf8b(test_file, -1));
+  ptr ret = scheme2k_call1("run-tests", scheme2k_Sstring_utf8b(test_file, -1));
 
   if (Spairp(ret) && Sfixnump(Scar(ret)) && Sfixnump(Scdr(ret))) {
     *run_n += Sfixnum_value(Scar(ret));
@@ -48,8 +49,8 @@ static int run_all_tests(void) {
   fprintf(stdout, "%s", "running tests ...\n");
   fflush(stdout);
 
-  schemesh_call1("load", schemesh_Sstring_utf8b("test/test.ss", -1));
-  schemesh_eval("(import (schemesh test))");
+  scheme2k_call1("load", scheme2k_Sstring_utf8b("test/test.ss", -1));
+  scheme2k_eval("(import (schemesh test))");
 
   for (unsigned i = 0; i < N_OF(test_files); i++) {
     run_scheme_tests(&run_n, &failed_n, test_files[i]);
@@ -92,13 +93,13 @@ static int compile_schemesh_so(const char* source_dir) {
   }
 #ifdef SCHEMESH_OPTIMIZE
   ret =
-      schemesh_eval("(parameterize ((optimize-level 2))\n"
+      scheme2k_eval("(parameterize ((optimize-level 2))\n"
                     "  (compile-file \"libschemesh.ss\" \"libschemesh_temp.so\")\n"
                     "  (strip-fasl-file \"libschemesh_temp.so\" \"" LIBSCHEMESH_SO "\"\n"
                     "    (fasl-strip-options inspector-source source-annotations profile-source))\n"
                     "    #t\n)");
 #else /* !SCHEMESH_OPTIMIZE */
-  ret = schemesh_eval("(parameterize ((optimize-level 0)\n"
+  ret = scheme2k_eval("(parameterize ((optimize-level 0)\n"
                       "               (run-cp0 (lambda (cp0 x) x)))\n"
                       "  (compile-file \"libschemesh.ss\" \"" LIBSCHEMESH_SO "\")\n"
                       "  #t)");
@@ -128,14 +129,14 @@ static int compile_chez_batteries_so(const char* source_dir) {
     return err;
   }
 #ifdef SCHEMESH_OPTIMIZE
-  ret = schemesh_eval(
+  ret = scheme2k_eval(
       "(parameterize ((optimize-level 2))\n"
       "  (compile-file \"libchez_batteries.ss\" \"libchez_batteries_temp.so\")\n"
       "  (strip-fasl-file \"libchez_batteries_temp.so\" \"" LIBCHEZ_BATTERIES_SO "\"\n"
       "    (fasl-strip-options inspector-source source-annotations profile-source))\n"
       "    #t\n)");
 #else /* !SCHEMESH_OPTIMIZE */
-  ret = schemesh_eval("(parameterize ((optimize-level 0)\n"
+  ret = scheme2k_eval("(parameterize ((optimize-level 0)\n"
                       "               (run-cp0 (lambda (cp0 x) x)))\n"
                       "  (compile-file \"libchez_batteries.ss\" \"" LIBCHEZ_BATTERIES_SO "\")\n"
                       "  #t)");
@@ -146,21 +147,21 @@ static int compile_chez_batteries_so(const char* source_dir) {
 int main(int argc, const char* argv[]) {
   int err = 0;
 
-  schemesh_init(NULL, &handle_scheme_exception);
+  scheme2k_init(NULL, &handle_scheme_exception);
 
   if (argc == 2 && strcmp(argv[1], "--compile_chez_batteries_so") == 0) {
     err = compile_chez_batteries_so(".");
   } else {
     if (schemesh_register_c_functions() == 0 && /*     */
         compile_schemesh_so(".") == 0 &&        /*     */
-        schemesh_load_libraries(".") == 0) {
+        schemesh_load_library(".") == 0) {
 
       schemesh_import_all_libraries();
 
       (void)run_all_tests();
     }
   }
-  schemesh_quit();
+  scheme2k_quit();
 
   return err;
 }

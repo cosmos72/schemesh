@@ -7,8 +7,8 @@
  * version 2 of the License, or (at your option) any later version.
  */
 
-#ifndef CHEZ_BATTERIES_PORT_HTTP_H
-#define CHEZ_BATTERIES_PORT_HTTP_H
+#ifndef SCHEME2K_PORT_HTTP_H
+#define SCHEME2K_PORT_HTTP_H
 
 #include <stddef.h> /* size_t */
 #include <stdio.h>  /* FILE* */
@@ -60,4 +60,4 @@ void http_fprint_error(http* ctx, FILE* out);
 /** Print current error to string buffer, if any */
 size_t http_sprint_error(http* ctx, char* out, size_t outlen);
 
-#endif /* CHEZ_BATTERIES_PORT_HTTP_H */
+#endif /* SCHEME2K_PORT_HTTP_H */

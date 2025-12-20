@@ -12,23 +12,6 @@
 
 #define LIBSCHEMESH_SO "libschemesh_0.9.2.so"
 
-/**
- * initialize Chez Scheme.
- *
- * if override_boot_dir != NULL, calls in sequence:
- *   Sscheme_init(on_scheme_exception);
- *   Sregister_boot_file(string_append(override_boot_dir,  "/petite.boot"));
- *   Sregister_boot_file(string_append(override_boot_dir, "/scheme.boot"));
- *   Sbuild_heap(NULL, NULL);
- *
- * otherwise calls in sequence:
- *   Sscheme_init(on_scheme_exception);
- *   Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/petite.boot");
- *   Sregister_boot_file(CHEZ_SCHEME_DIR_STR "/scheme.boot");
- *   Sbuild_heap(NULL, NULL);
- */
-void schemesh_init(const char* override_boot_dir, void (*on_scheme_exception)(void));
-
 /** register all C functions needed by schemesh libraries. return != 0 if failed */
 int schemesh_register_c_functions(void);
 
@@ -38,18 +21,9 @@ int schemesh_register_c_functions(void);
  *
  * return 0 if successful, otherwise error code.
  */
-int schemesh_load_libraries(const char* override_library_dir);
+int schemesh_load_library(const char* override_library_dir);
 
 /** import all schemesh libraries */
 void schemesh_import_all_libraries(void);
-
-/**
- * quit Chez Scheme. calls:
- *   c_tty_quit()
- *   Sscheme_deinit()
- *
- * implemented in posix/posix.c
- */
-void schemesh_quit(void);
 
 #endif /* SCHEMESH_SHELL_SHELL_H */

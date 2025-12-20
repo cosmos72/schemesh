@@ -34,7 +34,7 @@ static const char* c_strerror(int err) {
   return strerror(err < 0 ? -err : err);
 }
 
-static int schemesh_init_failed(const char label[]) {
+static int scheme2k_init_failed(const char label[]) {
   const int err = c_errno();
   fprintf(stderr,
           "error initializing POSIX subsystem: %s failed with error %s\n",
@@ -57,7 +57,7 @@ static int c_signals_init(void) {
   struct sigaction action = {};
   action.sa_handler       = &c_sigusr1_handler;
   if (sigaction(SIGCHLD, &action, NULL) < 0) {
-    return schemesh_init_failed("sigaction(SIGCHLD)");
+    return scheme2k_init_failed("sigaction(SIGCHLD)");
   }
   return 0;
 }

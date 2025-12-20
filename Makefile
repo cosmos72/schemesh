@@ -76,10 +76,10 @@ eval.o: eval.c eval.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'
 
 posix.o: posix/posix.c posix/posix.h posix/signal.h eval.h
-	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'
+	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)'
 
 shell.o: shell/shell.c shell/shell.h containers/containers.h eval.h posix/posix.h
-	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)'
+	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)'
 
 main.o: main.c eval.h shell/shell.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'

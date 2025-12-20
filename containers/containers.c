@@ -120,7 +120,7 @@ static ptr c_bytevector_index_u8(ptr bvec, iptr start, iptr end, int value) {
  * convert a C char[] to Scheme bytevector and return it.
  * If out of memory, or len > maximum bytevector length, raises condition.
  */
-ptr schemesh_Sbytevector(const char chars[], const size_t len) {
+ptr scheme2k_Sbytevector(const char chars[], const size_t len) {
   /* Smake_bytevector() wants iptr length */
   iptr bvec_len = (iptr)len;
   if (bvec_len < 0 || (size_t)bvec_len != len) {
@@ -147,8 +147,9 @@ ptr schemesh_Sbytevector(const char chars[], const size_t len) {
  *   https://web.archive.org/web/20090830064219/http://mail.nl.linux.org/linux-utf8/2000-07/msg00040.html
  */
 static ptr c_string_fill_utf8b_surrogate_chars(const ptr string) {
-  iptr len, i;
-  if (Sstringp(string) && (len = Sstring_length(string)) > 0) {
+  if (Sstringp(string)) {
+    const iptr len = Sstring_length(string);
+    iptr       i;
     for (i = 0; i < len; i++) {
       Sstring_set(string, i, 0xDC80 | (i & 0x7F));
     }
@@ -564,7 +565,10 @@ static void c_bytevector_utf8b_to_string_append(
  * If out of memory, or required string length > maximum string length, raises condition.
  * If len == (size_t)-1, set len = strlen(chars).
  */
-ptr schemesh_Sstring_utf8b(const char chars[], size_t len) {
+ptr scheme2k_Sstring_utf8b(const char chars[], size_t len) {
+  if (chars == NULL || len == 0) {
+    return Smake_string(0, 0);
+  }
   if (len == (size_t)-1) {
     len = strlen(chars);
   }
@@ -637,7 +641,7 @@ static void c_fxvector_copy(ptr src, ptr src_start, ptr dst, ptr dst_start, ptr 
   }
 }
 
-void schemesh_register_c_functions_containers(void) {
+void scheme2k_register_c_functions_containers(void) {
   Sregister_symbol("c_bytevector_compare", &c_bytevector_compare);
   Sregister_symbol("c_subbytevector_fill", &c_subbytevector_fill);
   Sregister_symbol("c_bytevector_hash", &c_bytevector_hash);

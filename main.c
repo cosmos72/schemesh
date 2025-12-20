@@ -10,7 +10,7 @@
 #define _GNU_SOURCE
 #define _POSIX_C_SOURCE 200809L
 
-#include "containers/containers.h" /* schemesh_Sstring_utf8b() */
+#include "containers/containers.h" /* scheme2k_Sstring_utf8b() */
 #include "eval.h"
 #include "posix/posix.h"
 #include "shell/shell.h"
@@ -31,17 +31,17 @@ static int drop_privileges(void) {
 
 #ifdef __linux__
   if (setresgid(gid, gid, gid) != 0) {
-    return schemesh_init_failed("setresgid()");
+    return scheme2k_init_failed("setresgid()");
   }
   if (setresuid(uid, uid, uid) != 0) {
-    return schemesh_init_failed("setresuid()");
+    return scheme2k_init_failed("setresuid()");
   }
 #else
   if (setegid(gid) != 0) {
-    return schemesh_init_failed("setegid()");
+    return scheme2k_init_failed("setegid()");
   }
   if (seteuid(uid) != 0) {
-    return schemesh_init_failed("seteuid()");
+    return scheme2k_init_failed("seteuid()");
   }
 #endif
 #endif
@@ -191,19 +191,19 @@ static void parse_command_line(int argc, const char* argv[], struct cmdline* cmd
 }
 
 static void eval_string_type(const char filename[], const size_t len, const char* type) {
-  schemesh_call3("sh-eval-string/print*",
-                 schemesh_Sstring_utf8b(filename, len),
+  scheme2k_call3("sh-eval-string/print*",
+                 scheme2k_Sstring_utf8b(filename, len),
                  Sstring_to_symbol(type),
                  Strue);
 }
 
 static void load_file_type(const char filename[], const size_t len, const char* type) {
-  schemesh_call3(
-      "sh-eval-file/print*", schemesh_Sstring_utf8b(filename, len), Sstring_to_symbol(type), Strue);
+  scheme2k_call3(
+      "sh-eval-file/print*", scheme2k_Sstring_utf8b(filename, len), Sstring_to_symbol(type), Strue);
 }
 
 static void load_file_type_compiled(const char filename[], const size_t len) {
-  schemesh_call1("load", schemesh_Sstring_utf8b(filename, len));
+  scheme2k_call1("load", scheme2k_Sstring_utf8b(filename, len));
 }
 
 static void load_file_type_autodetect(const char filename[], size_t len) {
@@ -213,7 +213,7 @@ static void load_file_type_autodetect(const char filename[], size_t len) {
   if (len >= 3 && memcmp(filename + len - 3, ".so", 3) == 0) {
     return load_file_type_compiled(filename, len);
   }
-  schemesh_call1("sh-eval-file/print", schemesh_Sstring_utf8b(filename, len));
+  scheme2k_call1("sh-eval-file/print", scheme2k_Sstring_utf8b(filename, len));
 }
 
 static void run_files_and_strings(int argc, const char* argv[]) {
@@ -277,11 +277,11 @@ int main(int argc, const char* argv[]) {
   }
 
   on_exception = INIT_FAILED;
-  schemesh_init(cmd.boot_dir, &handle_scheme_exception);
+  scheme2k_init(cmd.boot_dir, &handle_scheme_exception);
   if ((err = schemesh_register_c_functions()) != 0) {
     goto finish;
   }
-  if ((err = schemesh_load_libraries(cmd.library_dir)) != 0) {
+  if ((err = schemesh_load_library(cmd.library_dir)) != 0) {
     goto finish;
   }
 
@@ -301,17 +301,17 @@ again:
 #if 1
   on_exception = EVAL_FAILED;
   do {
-    ptr ret = schemesh_call0("repl");
+    ptr ret = scheme2k_call0("repl");
 
     err = Sfixnump(ret) ? Sfixnum_value(ret) : -1;
 
-  } while (schemesh_call0("repl-restart?") == Strue);
+  } while (scheme2k_call0("repl-restart?") == Strue);
 #else
   Sscheme_start(argc, argv);
 #endif /*0*/
 finish:
   on_exception = QUIT_FAILED;
-  schemesh_quit();
+  scheme2k_quit();
 
   return err;
 }
