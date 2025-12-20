@@ -67,15 +67,33 @@
 
 #define N_OF(array) (sizeof(array) / sizeof((array)[0]))
 
+typedef struct {
+  int         val;
+  const char* name;
+} namepair;
+
 /** needed by signal.h */
 static int c_errno(void);
 static int c_errno_set(int errno_value);
+static ptr c_namepair_list(const namepair pairs[], size_t n);
 
 /** signal.h defines a lot of static functions */
 #include "signal.h"
+#include "socket.h"
 
 static int c_fd_open_max(void);
 static int c_job_control_available(void);
+
+static ptr c_namepair_list(const namepair pairs[], size_t n) {
+  ptr    ret = Snil;
+  size_t i;
+  for (i = 0; i < n; i++) {
+    ptr name = Sstring_to_symbol(pairs[i].name);
+    ptr val  = Sfixnum(pairs[i].val);
+    ret      = Scons(Scons(val, name), ret);
+  }
+  return ret;
+}
 
 /******************************************************************************/
 /*                                                                            */
@@ -869,37 +887,6 @@ static ptr c_open_pipe_fds(ptr read_fd_close_on_exec, ptr write_fd_close_on_exec
   (void)close(fds[0]);
   (void)close(fds[1]);
   return Sinteger(err);
-}
-
-/**
- * call socketpair(AF_UNIX, SOCK_STREAM) and return a Scheme cons (socket1_fd . socket2_fd),
- * or c_errno() on error
- */
-static ptr c_open_socketpair_fds(ptr fd1_close_on_exec, ptr fd2_close_on_exec) {
-#if defined(AF_UNIX) && defined(SOCK_STREAM)
-  int fds[2];
-  int err = socketpair(AF_UNIX, SOCK_STREAM, 0, fds);
-  if (err < 0) {
-    return Sinteger(c_errno());
-  }
-  if (fd1_close_on_exec != Sfalse) {
-    err = fcntl(fds[0], F_SETFD, FD_CLOEXEC);
-  }
-  if (err == 0 && fd2_close_on_exec != Sfalse) {
-    err = fcntl(fds[1], F_SETFD, FD_CLOEXEC);
-  }
-  if (err == 0) {
-    return Scons(Sinteger(fds[0]), Sinteger(fds[1]));
-  }
-  err = c_errno();
-  (void)close(fds[0]);
-  (void)close(fds[1]);
-  return Sinteger(err);
-#elif defined(EAFNOSUPPORT)
-  return c_errno_set(EAFNOSUPPORT);
-#else
-  return c_errno_set(EINVAL);
-#endif
 }
 
 /* convert a redirection char < > ≶ (means <>) » (means >>) to open() flags */
@@ -2196,7 +2183,10 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_fd_redirect", &c_fd_redirect);
   Sregister_symbol("c_open_file_fd", &c_open_file_fd);
   Sregister_symbol("c_open_pipe_fds", &c_open_pipe_fds);
+  Sregister_symbol("c_open_socket_fd", &c_open_socket_fd);
   Sregister_symbol("c_open_socketpair_fds", &c_open_socketpair_fds);
+  Sregister_symbol("c_socket_domain_list", &c_socket_domain_list);
+  Sregister_symbol("c_socket_type_list", &c_socket_type_list);
 
   Sregister_symbol("c_tty_restore", &c_tty_restore);
   Sregister_symbol("c_tty_setraw", &c_tty_setraw);

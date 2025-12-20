@@ -117,10 +117,7 @@ static int c_signal_setdefault(int sig) {
   return 0;
 }
 
-static const struct {
-  int         sig;
-  const char* name;
-} signals_known[] = {
+static const namepair signal_names[] = {
     {SIGABRT, "sigabrt"},     {SIGALRM, "sigalrm"}, {SIGBUS, "sigbus"},   {SIGCHLD, "sigchld"},
     {SIGCONT, "sigcont"},     {SIGFPE, "sigfpe"},   {SIGHUP, "sighup"},   {SIGILL, "sigill"},
     {SIGINT, "sigint"},       {SIGKILL, "sigkill"}, {SIGPIPE, "sigpipe"}, {SIGQUIT, "sigquit"},
@@ -172,15 +169,7 @@ static const struct {
  * where sig is a fixnum and name is a symbol
  */
 static ptr c_signals_list(void) {
-
-  ptr    ret = Snil;
-  size_t i;
-  for (i = 0; i < N_OF(signals_known); i++) {
-    ptr name = Sstring_to_symbol(signals_known[i].name);
-    ptr num  = Sfixnum(signals_known[i].sig);
-    ret      = Scons(Scons(num, name), ret);
-  }
-  return ret;
+  return c_namepair_list(signal_names, N_OF(signal_names));
 }
 
 /**
@@ -225,8 +214,8 @@ static int c_signals_unblock_most(void) {
   size_t   i = 0;
 
   sigemptyset(&sigset);
-  for (i = 0; i < N_OF(signals_known); i++) {
-    const int sig = signals_known[i].sig;
+  for (i = 0; i < N_OF(signal_names); i++) {
+    const int sig = signal_names[i].val;
     if (sig != SIGHUP) {
       sigaddset(&sigset, sig);
     }
