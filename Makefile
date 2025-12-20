@@ -78,7 +78,7 @@ containers.o: containers/containers.c containers/containers.h eval.h
 eval.o: eval.c eval.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'
 
-posix.o: posix/posix.c posix/posix.h posix/signal.h eval.h
+posix.o: posix/posix.c eval.h posix/posix.h posix/signal.h posix/socket.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)'
 
 main.o: main.c containers/containers.h eval.h load.h posix/posix.h

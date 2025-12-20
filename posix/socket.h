@@ -126,12 +126,26 @@ static ptr c_socket_type_list(void) {
  *
  * On error, return a Scheme integer equal to c_errno() i.e. < 0
  */
-static ptr c_open_socket_fd(int domain, int type, int protocol) {
-  const int fd = socket(domain, type, protocol);
-  if (fd < 0) {
-    return Sinteger(c_errno());
+static ptr c_open_socket_fd(int domain, int type, int protocol, ptr close_on_exec) {
+  int fd;
+#ifdef SOCK_CLOEXEC
+  if (close_on_exec != Sfalse) {
+    type |= SOCK_CLOEXEC;
   }
-  return Sinteger(fd);
+#endif
+  if ((fd = socket(domain, type, protocol)) >= 0) {
+    int err = 0;
+#ifndef SOCK_CLOEXEC
+    if (close_on_exec != Sfalse) {
+      err = fcntl(fd, F_SETFD, FD_CLOEXEC);
+    }
+#endif
+    if (err >= 0) {
+      return Sinteger(fd);
+    }
+    close(fd);
+  }
+  return Sinteger(c_errno());
 }
 
 /**
