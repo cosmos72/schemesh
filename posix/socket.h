@@ -40,7 +40,7 @@ static const namepair socket_domains[] = {
     {AF_INET, "inet"},
 #endif
 #ifdef AF_INET6
-    {AF_INET, "inet6"},
+    {AF_INET6, "inet6"},
 #endif
 #ifdef AF_IPX
     {AF_IPX, "ipx"},

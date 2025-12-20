@@ -36,7 +36,7 @@
 #include <string.h>       /* strlen(), strerror() */
 #include <sys/ioctl.h>    /* ioctl(), TIOCGWINSZ */
 #include <sys/resource.h> /* getrlimit(), setrlimit() */
-#include <sys/socket.h>   /* socketpair(), AF_UNIX, SOCK_STREAM */
+#include <sys/socket.h>   /* socket(), socketpair(), AF_INET, AF_UNIX, SOCK_STREAM ... */
 #include <sys/stat.h>     /* fstatat() */
 #include <sys/types.h>
 #include <sys/wait.h>
