@@ -68,8 +68,8 @@
 #define N_OF(array) (sizeof(array) / sizeof((array)[0]))
 
 typedef struct {
-  int         val;
-  const char* name;
+  int        val;
+  const char name[12];
 } namepair;
 
 /** needed by signal.h */
