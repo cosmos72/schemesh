@@ -116,9 +116,13 @@ uninstall:
 
 # by default, do *not* compile C shared libraries and optional Scheme libraries
 
-batteries: scheme2k_so scheme2k_c_so scheme2k_http_c_so
+scheme2k:      scheme2k_so scheme2k_c_so
+scheme2k_full: scheme2k_so scheme2k_c_so scheme2k_http_c_so
+batteries:     scheme2k_full
 
-install_batteries: install_scheme2k_so install_scheme2k_c_so install_scheme2k_http_c_so
+install_scheme2k:      install_scheme2k_so install_scheme2k_c_so
+install_scheme2k_full: install_scheme2k_so install_scheme2k_c_so install_scheme2k_http_c_so
+install_batteries:     install_scheme2k_full
 
 ################################################################################
 # optional Scheme libraries
@@ -169,5 +173,8 @@ install_scheme2k_http_c_so: $(SCHEME2K_HTTP_C_SO) installdirs
 
 ################################################################################
 
-clean_batteries:
+clean_scheme2k:
 	rm -f libscheme2k_temp.so $(SCHEME2K_SO) $(SCHEME2K_C_SO) $(SCHEME2K_HTTP_C_SO)
+
+clean_batteries: clean_scheme2k
+
