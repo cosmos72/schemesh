@@ -385,7 +385,7 @@
 ;; Returns an integer file descriptor
 ;; On errors, raises an exception
 (define open-socket-fd
-  (let ((c-open-socket-fd (foreign-procedure "c_open_socket_fd" (int int int int) ptr)))
+  (let ((c-open-socket-fd (foreign-procedure "c_open_socket_fd" (int int int ptr) ptr)))
     (case-lambda
       ((domain type protocol close-on-exec?)
         (let ((domain-int (hashtable-ref socket-domain-name->number domain #f))
