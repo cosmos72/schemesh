@@ -131,7 +131,7 @@ install_scheme2k_dirs:
 	$(MKDIR_P) '$(DESTDIR)$(SCHEME2K_DIR)'
 
 ################################################################################
-# optional Scheme libraries
+# optional Scheme library: libscheme2k_VERSION.so
 ################################################################################
 
 SCHEME2K_SO=libscheme2k_0.9.2.so
@@ -145,8 +145,8 @@ install_scheme2k_so: $(SCHEME2K_SO) install_scheme2k_dirs
 	$(INSTALL_DATA) $(SCHEME2K_SO) '$(DESTDIR)$(SCHEME2K_DIR)'
 
 ################################################################################
-# optional C shared library libscheme2k_c_X.Y.Z.so
-# contains C functions needed by libscheme2k_X.Y.Z.so
+# optional C shared library: libscheme2k_c_VERSION.so
+# contains C functions needed by libscheme2k_VERSION.so
 ################################################################################
 
 SCHEME2K_C_SO=libscheme2k_c_0.9.2.so
@@ -161,7 +161,7 @@ install_scheme2k_c_so: $(SCHEME2K_C_SO) install_scheme2k_dirs
 
 
 ################################################################################
-# optional C shared library libscheme2k_http_c_X.Y.Z.so
+# optional C shared library: libscheme2k_http_c_VERSION.so
 # wraps libcurl and is needed by function (http-url->port)
 ################################################################################
 
