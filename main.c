@@ -12,8 +12,8 @@
 
 #include "containers/containers.h" /* scheme2k_Sstring_utf8b() */
 #include "eval.h"
+#include "load.h"
 #include "posix/posix.h"
-#include "shell/shell.h"
 
 #include <errno.h>
 #include <setjmp.h>
@@ -278,7 +278,7 @@ int main(int argc, const char* argv[]) {
 
   on_exception = INIT_FAILED;
   scheme2k_init(cmd.boot_dir, &handle_scheme_exception);
-  if ((err = schemesh_register_c_functions()) != 0) {
+  if ((err = scheme2k_register_c_functions()) != 0) {
     goto finish;
   }
   if ((err = schemesh_load_library(cmd.library_dir)) != 0) {

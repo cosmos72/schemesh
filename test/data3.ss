@@ -89,7 +89,7 @@
     "asdf" '% "abc." '%! "a-pr-z" "werty" '?)
     "asdf.qwerty.")                                    #t
   (try (sh-pattern-match? (sh-pattern
-    '* '% "ch") "shell.c") (catch (ex) ex))            #t
+    '* '% "ch") "main.c") (catch (ex) ex))            #t
 
   ;; initial wildcards never match an initial dot
   (sh-pattern-match? (sh-pattern '? "foo")      ".foo")    #f
@@ -129,7 +129,7 @@
   (wildcard->sh-patterns '("/" * ".so"))            ,@(span "/" (sh-pattern '* ".so"))
   (wildcard->sh-patterns '("//abc//" "//def//"))    ,@(span "/" "abc/" "def/")
   (wildcard->sh-patterns '("/foo/" * "/" "/bar"))   ,@(span "/" "foo/" (sh-pattern '* "/") "bar")
-  (wildcard #t '* "/" '* ".c")                        ("containers/containers.c" "port/http.c" "posix/posix.c" "shell/shell.c"
+  (wildcard #t '* "/" '* ".c")                        ("containers/containers.c" "port/http.c" "posix/posix.c"
                                                         "test/test.c" "utils/benchmark_async_signal_handler.c" "utils/countdown.c")
   (wildcard1+ #t "Makefile")                          ("Makefile")
   (wildcard1+ #t "_does_not_exist_")                  ("_does_not_exist_")

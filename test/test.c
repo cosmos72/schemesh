@@ -9,8 +9,8 @@
 
 #include "../containers/containers.h" /* scheme2k_Sstring_utf8b() */
 #include "../eval.h"
+#include "../load.h"
 #include "../posix/posix.h"
-#include "../shell/shell.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -19,12 +19,12 @@
 #include <unistd.h> /* chdir() */
 
 #if !defined(__GNUC__) || defined(__OPTIMIZE__)
-#define SCHEMESH_OPTIMIZE
+#define SCHEME_OPTIMIZE
 #else
-#undef SCHEMESH_OPTIMIZE
+#undef SCHEME_OPTIMIZE
 #endif
 
-#define LIBCHEZ_BATTERIES_SO "libchez_batteries_0.9.2.so"
+#define LIBSCHEME2K_SO "libscheme2k_0.9.2.so"
 
 #define N_OF(array) (sizeof(array) / sizeof((array)[0]))
 
@@ -91,14 +91,14 @@ static int compile_schemesh_so(const char* source_dir) {
             strerror(err));
     return err;
   }
-#ifdef SCHEMESH_OPTIMIZE
+#ifdef SCHEME_OPTIMIZE
   ret =
       scheme2k_eval("(parameterize ((optimize-level 2))\n"
                     "  (compile-file \"libschemesh.ss\" \"libschemesh_temp.so\")\n"
                     "  (strip-fasl-file \"libschemesh_temp.so\" \"" LIBSCHEMESH_SO "\"\n"
                     "    (fasl-strip-options inspector-source source-annotations profile-source))\n"
                     "    #t\n)");
-#else /* !SCHEMESH_OPTIMIZE */
+#else /* !SCHEME_OPTIMIZE */
   ret = scheme2k_eval("(parameterize ((optimize-level 0)\n"
                       "               (run-cp0 (lambda (cp0 x) x)))\n"
                       "  (compile-file \"libschemesh.ss\" \"" LIBSCHEMESH_SO "\")\n"
@@ -108,11 +108,11 @@ static int compile_schemesh_so(const char* source_dir) {
 }
 
 /**
- * compile libchez_batteries_VERSION.so from sources found in specified directory.
+ * compile libscheme2k_VERSION.so from sources found in specified directory.
  *
  * return 0 if successful, otherwise error code.
  */
-static int compile_chez_batteries_so(const char* source_dir) {
+static int compile_scheme2k_so(const char* source_dir) {
   ptr ret;
   int err;
   if (source_dir == NULL) {
@@ -128,17 +128,17 @@ static int compile_chez_batteries_so(const char* source_dir) {
             strerror(err));
     return err;
   }
-#ifdef SCHEMESH_OPTIMIZE
-  ret = scheme2k_eval(
-      "(parameterize ((optimize-level 2))\n"
-      "  (compile-file \"libchez_batteries.ss\" \"libchez_batteries_temp.so\")\n"
-      "  (strip-fasl-file \"libchez_batteries_temp.so\" \"" LIBCHEZ_BATTERIES_SO "\"\n"
-      "    (fasl-strip-options inspector-source source-annotations profile-source))\n"
-      "    #t\n)");
-#else /* !SCHEMESH_OPTIMIZE */
+#ifdef SCHEME_OPTIMIZE
+  ret =
+      scheme2k_eval("(parameterize ((optimize-level 2))\n"
+                    "  (compile-file \"libscheme2k.ss\" \"libscheme2k_temp.so\")\n"
+                    "  (strip-fasl-file \"libscheme2k_temp.so\" \"" LIBSCHEME2K_SO "\"\n"
+                    "    (fasl-strip-options inspector-source source-annotations profile-source))\n"
+                    "    #t\n)");
+#else /* !SCHEME_OPTIMIZE */
   ret = scheme2k_eval("(parameterize ((optimize-level 0)\n"
                       "               (run-cp0 (lambda (cp0 x) x)))\n"
-                      "  (compile-file \"libchez_batteries.ss\" \"" LIBCHEZ_BATTERIES_SO "\")\n"
+                      "  (compile-file \"libscheme2k.ss\" \"" LIBSCHEME2K_SO "\")\n"
                       "  #t)");
 #endif
   return ret == Strue ? 0 : EINVAL;
@@ -149,12 +149,12 @@ int main(int argc, const char* argv[]) {
 
   scheme2k_init(NULL, &handle_scheme_exception);
 
-  if (argc == 2 && strcmp(argv[1], "--compile_chez_batteries_so") == 0) {
-    err = compile_chez_batteries_so(".");
+  if (argc == 2 && strcmp(argv[1], "--compile_scheme2k_so") == 0) {
+    err = compile_scheme2k_so(".");
   } else {
-    if (schemesh_register_c_functions() == 0 && /*     */
+    if (scheme2k_register_c_functions() == 0 && /*     */
         compile_schemesh_so(".") == 0 &&        /*     */
-        schemesh_load_library(".") == 0) {
+        scheme2k_load_library(".", LIBSCHEMESH_SO) == 0) {
 
       schemesh_import_all_libraries();
 

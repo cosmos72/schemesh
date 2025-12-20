@@ -34,8 +34,11 @@ void scheme2k_init(const char* override_boot_dir, void (*on_scheme_exception)(vo
  */
 void scheme2k_quit(void);
 
-/** register posix functions. return < 0 if some C system call failed */
-int scheme2k_register_c_functions_posix(void);
+/**
+ * register all C functions needed by scheme2k library.
+ * @return < 0 if some C system call failed
+ */
+int scheme2k_register_c_functions(void);
 
 /** print error message to stderr and return -errno */
 int scheme2k_init_failed(const char label[]);

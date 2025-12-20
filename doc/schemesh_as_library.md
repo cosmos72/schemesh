@@ -16,13 +16,13 @@ Then compile schemesh as a pair of libraries: a C shared library, and a scheme o
 The following commands work at least on Linux, on other systems they may differ.
 ```shell
 make clean
-make -j schemesh_so chez_batteries_c_so
+make -j schemesh_so scheme2k_c_so
 ```
 
 Finally, from Chez Scheme REPL:
 ```lisp
-(load-shared-object "./libchez_batteries_c_0.9.2.so")
-((foreign-procedure "schemesh_register_c_functions" () int)) ; should return 0
+(load-shared-object "./libscheme2k_c_0.9.2.so")
+((foreign-procedure "scheme2k_register_c_functions" () int)) ; should return 0
 (load "./libschemesh_0.9.2.so")
 (import (schemesh))
 (repl) ; optional, user can also continue with Chez Scheme REPL

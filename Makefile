@@ -59,8 +59,8 @@ LDFLAGS_SO=-shared
 ######################################################################################
 SCHEMESH_SO=libschemesh_0.9.2.so
 
-SRCS=containers/containers.c eval.c posix/posix.c shell/shell.c
-OBJS=containers.o eval.o posix.o shell.o
+SRCS=containers/containers.c eval.c posix/posix.c
+OBJS=containers.o eval.o posix.o
 
 all: schemesh schemesh_test $(SCHEMESH_SO) countdown
 
@@ -78,14 +78,11 @@ eval.o: eval.c eval.h
 posix.o: posix/posix.c posix/posix.h posix/signal.h eval.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)'
 
-shell.o: shell/shell.c shell/shell.h containers/containers.h eval.h posix/posix.h
+main.o: main.c containers/containers.h eval.h load.h posix/posix.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)'
 
-main.o: main.c eval.h shell/shell.h
-	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'
-
-test.o: test/test.c eval.h shell/shell.h
-	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'
+test.o: test/test.c containers/containers.h eval.h load.h posix/posix.h
+	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)'
 
 
 schemesh: main.o $(OBJS)
@@ -119,58 +116,58 @@ uninstall:
 
 # by default, do *not* compile C shared libraries and optional Scheme libraries
 
-batteries: chez_batteries_so chez_batteries_c_so chez_curl_c_so
+batteries: scheme2k_so scheme2k_c_so scheme2k_http_c_so
 
-install_batteries: install_chez_batteries_so install_chez_batteries_c_so install_chez_curl_c_so
+install_batteries: install_scheme2k_so install_scheme2k_c_so install_scheme2k_http_c_so
 
 ################################################################################
 # optional Scheme libraries
 ################################################################################
 
-CHEZ_BATTERIES_SO=libchez_batteries_0.9.2.so
+SCHEME2K_SO=libscheme2k_0.9.2.so
 
-chez_batteries_so: $(CHEZ_BATTERIES_SO)
+scheme2k_so: $(SCHEME2K_SO)
 
-$(CHEZ_BATTERIES_SO): schemesh_test
-	./schemesh_test --compile_chez_batteries_so
+$(SCHEME2K_SO): schemesh_test
+	./schemesh_test --compile_scheme2k_so
 
-install_chez_batteries_so: $(CHEZ_BATTERIES_SO) installdirs
-	$(INSTALL_DATA) $(CHEZ_BATTERIES_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
+install_scheme2k_so: $(SCHEME2K_SO) installdirs
+	$(INSTALL_DATA) $(SCHEME2K_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
 
 ################################################################################
-# optional C shared library libchez_batteries_c_X.Y.Z.so
-# contains C functions needed by libchez_batteries_X.Y.Z.so
+# optional C shared library libscheme2k_c_X.Y.Z.so
+# contains C functions needed by libscheme2k_X.Y.Z.so
 ################################################################################
 
-CHEZ_BATTERIES_C_SO=libchez_batteries_c_0.9.2.so
+SCHEME2K_C_SO=libscheme2k_c_0.9.2.so
 
-chez_batteries_c_so: $(CHEZ_BATTERIES_C_SO)
+scheme2k_c_so: $(SCHEME2K_C_SO)
 
-$(CHEZ_BATTERIES_C_SO): $(SRCS)
+$(SCHEME2K_C_SO): $(SRCS)
 	$(CC_SO) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)' $(LDFLAGS) $(LDFLAGS_SO)
 
-install_chez_batteries_c_so: $(CHEZ_BATTERIES_C_SO) installdirs
-	$(INSTALL_DATA) $(CHEZ_BATTERIES_C_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
+install_scheme2k_c_so: $(SCHEME2K_C_SO) installdirs
+	$(INSTALL_DATA) $(SCHEME2K_C_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
 
 
 ################################################################################
-# optional C shared library libchez_curl_c_X.Y.Z.so
+# optional C shared library libscheme2k_http_c_X.Y.Z.so
 # wraps libcurl and is needed by function (http-url->port)
 ################################################################################
 
 LIB_CURL=-lcurl
 
-CHEZ_CURL_C_SO=libchez_curl_c_0.9.2.so
+SCHEME2K_HTTP_C_SO=libscheme2k_http_c_0.9.2.so
 
-chez_curl_c_so: $(CHEZ_CURL_C_SO)
+scheme2k_http_c_so: $(SCHEME2K_HTTP_C_SO)
 
-$(CHEZ_CURL_C_SO): port/http.c
+$(SCHEME2K_HTTP_C_SO): port/http.c
 	$(CC_SO) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) $(LIB_CURL) $(LDFLAGS) $(LDFLAGS_SO)
 
-install_chez_curl_c_so: $(CHEZ_CURL_C_SO) installdirs
-	$(INSTALL_DATA) $(CHEZ_CURL_C_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
+install_scheme2k_http_c_so: $(SCHEME2K_HTTP_C_SO) installdirs
+	$(INSTALL_DATA) $(SCHEME2K_HTTP_C_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
 
 ################################################################################
 
 clean_batteries:
-	rm -f libchez_batteries_temp.so $(CHEZ_BATTERIES_SO) $(CHEZ_BATTERIES_C_SO) $(CHEZ_CURL_C_SO)
+	rm -f libscheme2k_temp.so $(SCHEME2K_SO) $(SCHEME2K_C_SO) $(SCHEME2K_HTTP_C_SO)

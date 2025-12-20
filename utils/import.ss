@@ -45,17 +45,17 @@
     (schemesh containers)
     (schemesh containers replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
     (schemesh conversions)
-    (schemesh wire)
-    (schemesh vscreen)
+    (schemesh ipc)
     (schemesh lineedit)
     (schemesh parser)
     (schemesh port)
     (schemesh posix)
     (schemesh posix replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
-    (schemesh ipc)
     (schemesh shell)
     (schemesh shell replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
-    (schemesh repl)))
+    (schemesh repl)
+    (schemesh vscreen)
+    (schemesh wire)))
 
 
 ;; when reloading libschemesh.ss, reimport (schemesh shell) and (schemesh repl)

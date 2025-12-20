@@ -1,0 +1,151 @@
+;;; Copyright (C) 2023-2025 by Massimiliano Ghilardi
+;;;
+;;; This library is free software; you can redistribute it and/or
+;;; modify it under the terms of the GNU Library General Public
+;;; License as published by the Free Software Foundation; either
+;;; version 2 of the License, or (at your option) any later version.
+
+#!r6rs
+
+;;; This file loads and compiles the subset of schemesh sources
+;;; that are licensed as LGPLv2+ into Scheme library libscheme2k_0.9.2.so
+
+(begin
+  (include "bootstrap/arrow.ss")
+  (include "bootstrap/functions.ss")
+  (include "bootstrap/bootstrap.ss")
+
+  (include "containers/bitmap.ss")
+  (include "containers/bytevector.ss")
+  (include "containers/flvector.ss")
+  (include "containers/fxvector.ss")
+  (include "containers/in.ss")
+  (include "containers/list.ss")
+  (include "containers/string.ss")
+  (include "containers/vector.ss")
+  (include "containers/hashtable.ss")   ; requires containers/list.ss
+  (include "containers/bytespan.ss")    ; requires containers/bytevector.ss containers/list.ss
+  (include "containers/charspan.ss")    ; requires containers/string.ss
+  (include "containers/span.ss")        ; requires containers/vector.ss
+  (include "containers/sort.ss")        ; requires containers/span.ss
+  (include "containers/gbuffer.ss")     ; requires containers/span.ss
+  (include "containers/utf8b.ss")       ; requires containers/bytespan.ss
+  (include "containers/macros.ss")
+  (include "containers/containers.ss")
+  (include "containers/replacements.ss")
+
+  (include "conversions/unicode.ss")
+  (include "conversions/conversions.ss")
+
+  (include "wire/wire.ss")
+
+  (include "posix/fd.ss")
+  (include "posix/dir.ss")
+  (include "posix/io.ss")
+  (include "posix/pattern.ss")
+  (include "posix/signal.ss")
+  (include "posix/status.ss")       ; requires wire/wire.ss
+  (include "posix/thread.ss")       ; requires posix/signal.ss posix/status.ss
+  (include "posix/tty.ss")
+  (include "posix/rlimit.ss")
+  (include "posix/replacements.ss") ; requires posix/thread.ss
+  (include "posix/pid.ss")
+  (include "posix/posix.ss")
+
+  (include "port/http.ss")
+  (include "port/redir.ss")
+  (include "port/stdio.ss")
+  (include "port/port.ss")
+
+  (include "ipc/channel.ss") ; requires wire/wire.ss posix/fd.ss
+  (meta-cond
+    ((threaded?) (include "ipc/fifo-thread.ss"))
+    (else        (include "ipc/fifo-nothread.ss")))
+  (include "ipc/ipc.ss")
+
+  (include "vscreen/all.ss")
+
+  (include "lineedit/ansi.ss")
+  (include "lineedit/paren.ss")
+  (include "lineedit/parenmatcher.ss")
+  (include "lineedit/parser.ss")
+  (include "lineedit/lineedit.ss")
+  (include "lineedit/all.ss")
+
+  (library-reexport (scheme2k bootstrap (0 9 2))
+    (import (schemesh bootstrap)))
+
+  (library-reexport (scheme2k containers (0 9 2))
+    (import (schemesh containers)))
+
+  ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
+  (library-reexport (scheme2k containers replacements (0 9 2))
+    (import (schemesh containers replacements)))
+
+  (library-reexport (scheme2k conversions (0 9 2))
+    (import (schemesh conversions)))
+
+  (library-reexport (scheme2k ipc (0 9 2))
+    (import (schemesh ipc)))
+
+  (library-reexport (scheme2k lineedit (0 9 2))
+    (import (schemesh lineedit)))
+
+  (library-reexport (scheme2k port (0 9 2))
+    (import (schemesh port)))
+
+  (library-reexport (scheme2k posix (0 9 2))
+    (import (schemesh posix)))
+
+  ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
+  (library-reexport (scheme2k posix replacements (0 9 2))
+    (import (schemesh posix replacements)))
+
+  (library-reexport (scheme2k vscreen (0 9 2))
+    (import (schemesh vscreen)))
+
+  (library-reexport (scheme2k wire (0 9 2))
+    (import (schemesh wire)))
+
+
+
+  ;; library (scheme2k rnrs) exports the same bindings as (rnrs),
+  ;; except for few bindings that are replaced with improved alternatives:
+  ;;
+  ;;   bytevector-sint-ref bytevector-sint-set!
+  ;;   bytevector-uint-ref bytevector-uint-set!
+  ;;   file-exists? delete-file
+  ;;   get-bytevector-all get-bytevector-n get-bytevector-some
+  ;;   get-char get-datum get-line get-string-all get-string-n get-u8
+  ;;   put-bytevector put-char put-datum put-string put-u8
+  ;;
+  (library-reexport (scheme2k rnrs (0 9 2))
+    (import
+      (except (rnrs) bytevector-sint-ref bytevector-sint-set!
+                     bytevector-uint-ref bytevector-uint-set!
+                     file-exists? delete-file
+                     get-char get-datum get-line get-string-all get-string-n 
+                     put-char put-datum put-string)
+      (scheme2k containers replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
+      (scheme2k posix replacements)))    ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
+
+
+
+  ;; library (scheme2k) collects and exports *all* bindings defined by all LGPLv2+ libschemesh sub-libraries,
+  ;; including few bindings that intentionally conflict with some R6RS and Chez Scheme functions
+  ;; because they are intended as replacements
+  (library-reexport (scheme2k (0 9 2))
+    (import
+      (scheme2k bootstrap)
+      (scheme2k containers)
+      (scheme2k containers replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
+      (scheme2k conversions)
+      (scheme2k ipc)
+      (scheme2k lineedit)
+      (scheme2k port)
+      (scheme2k posix)
+      (scheme2k posix replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
+      (scheme2k vscreen)
+      (scheme2k wire)))
+
+) ; close begin

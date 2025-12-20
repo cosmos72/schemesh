@@ -2135,7 +2135,27 @@ static int c_rlimit_set(int is_hard, int resource, ptr value) {
   return err < 0 ? c_errno() : 0;
 }
 
-int scheme2k_register_c_functions_posix(void) {
+/**
+ * return i-th environment variable i.e. environ[i]
+ * converted to a cons containing two Scheme strings: (key . value)
+ *
+ * if environ[i] is NULL, return #f
+ */
+static ptr c_environ_ref(uptr i) {
+  const char* entry = environ[i];
+  const char* separator;
+  if (entry && (separator = strchr(entry, '=')) != NULL) {
+    size_t namelen  = separator - entry;
+    iptr   inamelen = Sfixnum_value(Sfixnum(namelen));
+    if (namelen > 0 && inamelen > 0 && namelen == (size_t)inamelen) {
+      return Scons(scheme2k_Sstring_utf8b(entry, namelen),
+                   scheme2k_Sstring_utf8b(separator + 1, -1));
+    }
+  }
+  return Sfalse;
+}
+
+int scheme2k_register_c_functions(void) {
   int err;
   if ((err = c_tty_init()) < 0) {
     return err;
@@ -2143,6 +2163,8 @@ int scheme2k_register_c_functions_posix(void) {
   if ((err = c_register_c_functions_posix_signals()) < 0) {
     return err;
   }
+
+  scheme2k_register_c_functions_containers();
 
   Sregister_symbol("c_errno", &c_errno);
   Sregister_symbol("c_errno_eagain", &c_errno_eagain);
@@ -2153,8 +2175,8 @@ int scheme2k_register_c_functions_posix(void) {
   Sregister_symbol("c_errno_enotdir", &c_errno_enotdir);
   Sregister_symbol("c_errno_esrch", &c_errno_esrch);
 
+  Sregister_symbol("c_environ_ref", &c_environ_ref);
   Sregister_symbol("c_strerror_string", &c_strerror_string);
-
   Sregister_symbol("c_chdir", &c_chdir);
   Sregister_symbol("c_get_cwd", &c_get_cwd);
   Sregister_symbol("c_mkdir", &c_mkdir);
