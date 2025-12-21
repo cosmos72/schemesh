@@ -9,29 +9,58 @@
 
 (library (scheme2k posix socket (0 9 2))
   (export
-    make-sockaddr sockaddr sockaddr? sockaddr-data sockaddr-family socket-sockaddr socket-peeraddr
-    socket-fd socket-connect socket-bind socket-listen socket-accept socketpair-fds)
+    make-endpoint endpoint endpoint? endpoint-bytes endpoint-family endpoint-port endpoint->text
+    socket-fd socket-connect socket-bind socket-listen socket-accept socket-endpoint socket-peer-endpoint
+    socketpair-fds)
   (import
     (rnrs)
-    (only (chezscheme)                    bytevector->immutable-bytevector foreign-procedure procedure-arity-mask void)
+    (only (chezscheme)                    bytevector->immutable-bytevector foreign-procedure procedure-arity-mask record-writer void)
     (only (scheme2k bootstrap)            assert* check-interrupts)
     (only (scheme2k conversions)          text->bytevector text->bytevector0)
+    (only (scheme2k containers utf8b)     utf8b->string)
     (only (scheme2k containers hashtable) alist->eqv-hashtable eq-hashtable hashtable-transpose)
     (only (scheme2k posix fd)             raise-c-errno))
 
 
-(define-record-type (%sockaddr %make-sockaddr sockaddr?)
+(define-record-type (%endpoint %make-endpoint endpoint?)
   (fields
-    (immutable family sockaddr-family) ; a symbol among 'inet 'inet6 'unix ...
-    (immutable data   sockaddr-data))  ; an immutable bytevector containing C sockaddr_* bytes
-  (nongenerative sockaddr-7c46d04b-34f4-4046-b5c7-b63753c1be39))
+    (immutable family  endpoint-family) ; a symbol among 'inet 'inet6 'unix ...
+    (immutable bytes   endpoint-bytes))  ; an immutable bytevector containing C sockaddr_* bytes
+  (nongenerative endpoint-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
-(define (make-sockaddr family data)
-  (assert* 'make-sockaddr (symbol? family))
-  (assert* 'make-sockaddr (bytevector? data))
-  (%make-sockaddr family (bytevector->immutable-bytevector data)))
+(define (make-endpoint family bytes)
+  (assert* 'make-endpoint (symbol? family))
+  (assert* 'make-endpoint (bytevector? bytes))
+  (%make-endpoint family (bytevector->immutable-bytevector bytes)))
 
+
+;; return the port stored in specified endpoint
+;; On errors, raise condition
+(define endpoint-port
+  (let ((c-endpoint-port (foreign-procedure "c_sockaddr_port" (ptr) int)))
+    (lambda (endpoint)
+      (let ((ret (c-endpoint-port (endpoint-bytes endpoint))))
+        (unless (fx<=? 0 ret 65535)
+          (raise-c-errno 'endpoint->port 'c_sockaddr_port ret endpoint))
+        ret))))
+
+
+;; return a newly allocated string containing the textual representation of address stored in endpoint:
+;; - if family is 'inet, return IPv4 network address in dotted-decimal format, "ddd.ddd.ddd.ddd"
+;; - if family is 'inet6, return IPv6 network address in colon-separated hexadecimal format "xxxx:xxxx:..."
+;;     or in IPv6-mapped IPv4 format "xxxx:xxxx:...:ddd.ddd.ddd.ddd"
+;; - if family is 'unix, return unix path
+;; On errors, raise condition
+(define endpoint->text
+  (let ((c-endpoint-to-data (foreign-procedure "c_sockaddr_to_text" (ptr) ptr)))
+    (lambda (endpoint)
+      (let ((bv (c-endpoint-to-data (endpoint-bytes endpoint))))
+        (unless (bytevector? bv)
+          (raise-c-errno 'endpoint->text 'inet_ntop bv endpoint))
+        (utf8b->string bv)))))
+
+  
 
 (define socket-family-number->name
   (alist->eqv-hashtable ((foreign-procedure "c_socket_family_list" () ptr))))
@@ -54,15 +83,16 @@
 ;;   - a bytevector, string, bytespan or charspan containing decimal dotted notation, as for example "127.0.0.1"
 ;;   - (unimplemented) a 32-bit unsigned integer, as for example #x7f000001
 ;; port must be a 16-bit unsigned integer
-(define sockaddr-inet
+;; On errors, raise condition
+(define endpoint-inet
   (let ((c-sockaddr-inet (foreign-procedure "c_sockaddr_inet" (u8* unsigned-16) ptr)))
     (lambda (ipaddr port)
-      (assert* 'sockaddr-inet (fixnum? port))
-      (assert* 'sockaddr-inet (fx<=? 0 port 65535))
-      (let* ((data (c-sockaddr-inet (text->bytevector0 ipaddr) port)))
-        (unless (bytevector? data)
-          (raise-c-errno 'sockaddr-inet 'c_sockaddr_inet data ipaddr port))
-        (make-sockaddr 'inet data)))))
+      (assert* 'endpoint-inet (fixnum? port))
+      (assert* 'endpoint-inet (fx<=? 0 port 65535))
+      (let* ((bytes (c-sockaddr-inet (text->bytevector0 ipaddr) port)))
+        (unless (bytevector? bytes)
+          (raise-c-errno 'endpoint-inet 'c_sockaddr_inet bytes ipaddr port))
+        (make-endpoint 'inet bytes)))))
 
 
 ;; create an INET6 socket address.
@@ -72,53 +102,59 @@
 ;;        -- an IPv4-mapped IPv6 address, as for example "::ffff:204.152.189.116"
 ;;   - (unimplemented) a 128-bit unsigned integer, as for example #xffff0001000200030004000500060007
 ;; port must be a 16-bit unsigned integer
-(define sockaddr-inet6
+;; On errors, raise condition
+(define endpoint-inet6
   (let ((c-sockaddr-inet6 (foreign-procedure "c_sockaddr_inet6" (u8* unsigned-16) ptr)))
     (lambda (ipaddr6 port)
-      (assert* 'sockaddr-inet6 (fixnum? port))
-      (assert* 'sockaddr-inet6 (fx<=? 0 port 65535))
-      (let ((data (c-sockaddr-inet6 (text->bytevector0 ipaddr6) port)))
-        (unless (bytevector? data)
-          (raise-c-errno 'sockaddr-inet6 'c_sockaddr_inet6 data ipaddr6 port))
-        (make-sockaddr 'inet6 data)))))
+      (assert* 'endpoint-inet6 (fixnum? port))
+      (assert* 'endpoint-inet6 (fx<=? 0 port 65535))
+      (let ((bytes (c-sockaddr-inet6 (text->bytevector0 ipaddr6) port)))
+        (unless (bytevector? bytes)
+          (raise-c-errno 'endpoint-inet6 'c_sockaddr_inet6 bytes ipaddr6 port))
+        (make-endpoint 'inet6 bytes)))))
 
 
 ;; create a UNIX socket address. path must be a bytevector, string, bytespan or charspan
-(define sockaddr-unix
+;; On errors, raise condition
+(define endpoint-unix
   (let ((c-sockaddr-unix (foreign-procedure "c_sockaddr_unix" (ptr) ptr)))
     (lambda (path)
       (let ((path (text->bytevector path)))
-        (assert* 'sockaddr-unix (fx<? (bytevector-length path) c-sockaddr-unix-path-max))
-        (let ((data (c-sockaddr-unix path)))
-          (unless (bytevector? data)
-            (raise-c-errno 'sockaddr-unix 'c_sockaddr_unix data path))
-          (make-sockaddr 'unix data))))))
+        (assert* 'endpoint-unix (fx<? (bytevector-length path) c-sockaddr-unix-path-max))
+        (let ((bytes (c-sockaddr-unix path)))
+          (unless (bytevector? bytes)
+            (raise-c-errno 'endpoint-unix 'c-sockaddr-unix bytes path))
+          (make-endpoint 'unix bytes))))))
 
 
-(define sockaddr-constructors
-  (let ((htable (eq-hashtable 'inet sockaddr-inet 'inet6 sockaddr-inet6 'unix sockaddr-unix)))
+;; return hashtable family -> procedure of known endpoint constructors
+(define endpoint-constructors
+  (let ((htable (eq-hashtable 'inet endpoint-inet 'inet6 endpoint-inet6 'unix endpoint-unix)))
     (lambda ()
       htable)))
 
 
-(define (sockaddr-constructor family)
-  (let ((constructor (hashtable-ref (sockaddr-constructors) family #f)))
-    (assert* 'sockaddr (procedure? constructor))
+;; return procedure to construct endpoint for specified family
+(define (endpoint-constructor family)
+  (let ((constructor (hashtable-ref (endpoint-constructors) family #f)))
+    (assert* 'endpoint (procedure? constructor))
     constructor))
 
 
-;; create a socket address
-(define sockaddr
+;; create and return a socket address
+;; On errors, raise condition
+(define endpoint
   (case-lambda
     ((family ipaddr port)
-      ((sockaddr-constructor family) ipaddr port))
+      ((endpoint-constructor family) ipaddr port))
     ((family path)
-      ((sockaddr-constructor family) path))))
+      ((endpoint-constructor family) path))))
 
 
 (define c-errno-eintr       ((foreign-procedure "c_errno_eintr" () int)))
 (define c-errno-eagain      ((foreign-procedure "c_errno_eagain" () int)))
 (define c-errno-einprogress ((foreign-procedure "c_errno_einprogress" () int)))
+
 
 ;; create a socket.
 ;; Mandatory arguments:
@@ -127,10 +163,10 @@
 ;;   type     a symbol among 'dgram 'raw 'stream ... Defaults to 'stream
 ;;   protocol the symbol 'default
 ;;   close-on-exec? if truish, socket will be close-on-exec. Defaults to 'close-on-exec
-;; Returns an integer file descriptor
-;; On errors, raises an exception
+;; Return an integer file descriptor
+;; On errors, raise condition
 (define socket-fd
-  (let ((c-socket-fd (foreign-procedure "c_socket_fd" (int int int ptr) int)))
+  (let ((c_socket_fd (foreign-procedure "c_socket_fd" (int int int ptr) int)))
     (case-lambda
       ((family type protocol close-on-exec?)
         (let ((family-int (hashtable-ref socket-family-name->number family #f))
@@ -138,7 +174,7 @@
           (assert* 'socket-fd family-int)
           (assert* 'socket-fd type-int)
           (assert* 'socket-fd (eq? protocol 'default))
-        (let ((ret (c-socket-fd family-int type-int 0 close-on-exec?)))
+        (let ((ret (c_socket_fd family-int type-int 0 close-on-exec?)))
           (if (>= ret 0)
             ret
             (raise-c-errno 'socket-fd 'socket ret)))))
@@ -154,45 +190,45 @@
 ;; If socket is in blocking mode, blocks until connection either succeeds or fails.
 ;; Mandatory arguments:
 ;;   socket   an integer file descriptor corresponding to an open socket
-;;   sockaddr a sockaddr object
+;;   endpoint an endpoint object
 ;; On success, returns a truish value.
 ;; Otherwise:
 ;;   If system call is interrupted and returns -EINTR, retries.
 ;;   If socket is non-blocking mode and system call would block and returns -EAGAIN or -EINPROGRESS, returns #f.
-;;   On other errors, raises an exception
+;;   On other errors, raise condition
 (define socket-connect
   (let ((c-socket-connect (foreign-procedure "c_socket_connect" (int u8* size_t) int)))
-    (lambda (socket sockaddr)
-      (assert* 'socket-connect (sockaddr? sockaddr))
+    (lambda (socket endpoint)
+      (assert* 'socket-connect (endpoint? endpoint))
       (check-interrupts)
-      (let* ((data (sockaddr-data sockaddr))
-             (err  (c-socket-connect socket data (bytevector-length data))))
+      (let* ((bytes (endpoint-bytes endpoint))
+             (err   (c-socket-connect socket bytes (bytevector-length bytes))))
         (check-interrupts)
         (cond
           ((zero? err)
             (void))
           ((eqv? err c-errno-eintr)
-            (socket-connect socket sockaddr))
+            (socket-connect socket endpoint))
           ((or (eqv? err c-errno-eagain) (eqv? err c-errno-einprogress))
             #f)
           (else
-            (raise-c-errno 'socket-connect 'connect err socket sockaddr)))))))
+            (raise-c-errno 'socket-connect 'connect err socket endpoint)))))))
 
 
 ;; Bind a socket to a local address.
 ;; Mandatory arguments:
 ;;   socket   an integer file descriptor corresponding to an open socket
-;;   sockaddr a sockaddr object
-;; Returns unspecified value.
-;; On errors, raises an exception
+;;   endpoint an endpoint object
+;; Return unspecified value.
+;; On errors, raise condition
 (define socket-bind
   (let ((c-socket-bind (foreign-procedure "c_socket_bind" (int u8* size_t) int)))
-    (lambda (socket sockaddr)
-      (assert* 'socket-bind (sockaddr? sockaddr))
-      (let* ((data (sockaddr-data sockaddr))
-             (err  (c-socket-bind socket data (bytevector-length data))))
+    (lambda (socket endpoint)
+      (assert* 'socket-bind (endpoint? endpoint))
+      (let* ((bytes (endpoint-bytes endpoint))
+             (err   (c-socket-bind socket bytes (bytevector-length bytes))))
         (unless (zero? err)
-          (raise-c-errno 'socket-bind 'bind err socket sockaddr))))))
+          (raise-c-errno 'socket-bind 'bind err socket endpoint))))))
 
 
 ;; Listen on a socket.
@@ -200,8 +236,8 @@
 ;;   socket   an integer file descriptor corresponding to an open socket
 ;; Optional arguments:
 ;;   backlog  the integer length of pending incoming connections queue. Defaults to 3.
-;; Returns unspecified value.
-;; On errors, raises an exception
+;; Return unspecified value.
+;; On errors, raise condition
 (define socket-listen
   (let ((c-socket-listen (foreign-procedure "c_socket_listen" (int int) int)))
     (case-lambda
@@ -222,7 +258,7 @@
 ;; Otherwise:
 ;;   If system call is interrupted and returns -EINTR, retries.
 ;;   If socket is non-blocking mode and system call would block and returns -EAGAIN, returns #f.
-;;   On other errors, raises an exception
+;;   On other errors, raise condition
 (define socket-accept
   (let ((c-socket-accept (foreign-procedure __collect_safe "c_socket_accept" (int) int)))
     (lambda (socket)
@@ -246,18 +282,18 @@
       (let ((ret (c-socket-sockaddr2 socket (if peer? 1 0))))
         (if (pair? ret)
           (let ((family (hashtable-ref socket-family-number->name (car ret) 'unknown)))
-            (make-sockaddr family (cdr ret)))
+            (make-endpoint family (cdr ret)))
           (raise-c-errno
-            (if peer? 'socket-peeraddr 'socket-sockaddr)
-            (if peer? 'getpeername     'getsockname)
+            (if peer? 'socket-peer-endpoint 'socket-endpoint)
+            (if peer? 'getpeername 'getsockname)
             ret socket))))))
 
 
-(define (socket-sockaddr socket)
+(define (socket-endpoint socket)
   (socket-sockaddr2 socket #f))
 
 
-(define (socket-peeraddr socket)
+(define (socket-peer-endpoint socket)
   (socket-sockaddr2 socket 'peer))
 
 
@@ -265,10 +301,10 @@
 ;; Optional arguments:
 ;;   fd1-close-on-exec? if truish the first socket will be close-on-exec. Defaults to 'close-on-exec
 ;;   fd2-close-on-exec? if truish the second socket will be close-on-exec. Defaults to 'close-on-exec
-;; Returns two file descriptors:
+;; Return two file descriptors:
 ;;   the first socket
 ;;   the second socket
-;; On errors, raises an exception
+;; On errors, raise condition
 (define socketpair-fds
   (let ((c-socketpair-fds (foreign-procedure "c_socketpair_fds" (ptr ptr) ptr)))
     (case-lambda
@@ -279,5 +315,18 @@
             (raise-c-errno 'socketpair-fds 'socketpair ret))))
       (()
         (socketpair-fds 'close-on-exec 'close-on-exec)))))
+
+
+;; customize how "endpoint" objects are printed
+(record-writer (record-type-descriptor %endpoint)
+  (lambda (e port writer)
+    (display "(endpoint '" port)
+    (display (endpoint-family e) port)
+    (display #\space port)
+    (put-datum port (endpoint->text e))
+    (when (memq (endpoint-family e) '(inet inet6))
+      (display #\space port)
+      (display (endpoint-port e) port))
+    (display ")" port)))
 
 ) ; close library

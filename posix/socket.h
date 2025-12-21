@@ -69,8 +69,8 @@ static size_t c_sockaddr_unix_path_max(void) {
 /** create a bytevector containing a sockaddr_un with specified path */
 static ptr c_sockaddr_unix(ptr path) {
   if (Sbytevectorp(path)) {
-    const size_t path_len = Sbytevector_length(path);
-    if (path_len < c_sockaddr_unix_path_max()) {
+    const iptr path_len = Sbytevector_length(path);
+    if (path_len >= 0 && path_len < (iptr)c_sockaddr_unix_path_max()) {
       const ptr           ret   = Smake_bytevector(sizeof(struct sockaddr_un), 0);
       struct sockaddr_un* saddr = (struct sockaddr_un*)Sbytevector_data(ret);
       saddr->sun_family         = AF_UNIX;
@@ -92,7 +92,6 @@ static ptr c_sockaddr_unix(ptr path) {
 static ptr c_socket_sockaddr2(int socket, int peer) {
   struct sockaddr_storage saddr;
 
-  ptr       bv;
   socklen_t len = sizeof(saddr);
   int       err = peer ? getpeername(socket, (struct sockaddr*)&saddr, &len) :
                          getsockname(socket, (struct sockaddr*)&saddr, &len);
@@ -100,10 +99,122 @@ static ptr c_socket_sockaddr2(int socket, int peer) {
     return Sinteger(c_errno());
   } else if (len > sizeof(saddr)) {
     return Sinteger(c_errno_set(EINVAL));
+  } else {
+    ptr bv = Smake_bytevector(len, 0);
+    memcpy(Sbytevector_data(bv), &saddr, len);
+    return Scons(Sinteger(saddr.ss_family), bv);
   }
-  bv = Smake_bytevector(len, 0);
-  memcpy(Sbytevector_data(bv), &saddr, len);
-  return Scons(Sinteger(saddr.ss_family), bv);
+}
+
+/**
+ * return uint16_port stored in specified bytevector, which must contain sockaddr bytes,
+ * or < 0 if sockaddr family is neither AF_INET nor AF_INET6.
+ */
+static int c_sockaddr_port(ptr bytes) {
+  iptr len;
+  if (Sbytevectorp(bytes) && (len = Sbytevector_length(bytes)) >= (iptr)sizeof(sa_family_t)) {
+    const struct sockaddr* saddr = (const struct sockaddr*)Sbytevector_data(bytes);
+    switch (saddr->sa_family) {
+      case AF_INET:
+        if (len >= (iptr)sizeof(struct sockaddr_in)) {
+          return ntohs(((const struct sockaddr_in*)saddr)->sin_port);
+        }
+        break;
+      case AF_INET6:
+        if (len >= (iptr)sizeof(struct sockaddr_in6)) {
+          return ntohs(((const struct sockaddr_in6*)saddr)->sin6_port);
+        }
+        break;
+      default:
+        break;
+    }
+  }
+  return c_errno_set(EINVAL);
+}
+
+/**
+ * create and return a bytevector containing a copy of bytes src,
+ * which *may* be '\0' terminated.
+ */
+static ptr c_make_bytevector_maxlen(const void* src, size_t max_len) {
+  const char* end = memchr(src, 0, max_len);
+  size_t      len = end ? (size_t)(end - (const char*)src) : max_len;
+  ptr         bv  = Smake_bytevector(len, 0);
+  memcpy(Sbytevector_data(bv), src, len);
+  return bv;
+}
+
+/**
+ * create and return a bytevector containing dotted-decimal representation
+ * of IPv4 address stored in saddr4->sin_addr
+ */
+static ptr c_sockaddr_inet_to_ipaddr(const struct sockaddr_in* saddr4) {
+  char   buf[INET_ADDRSTRLEN < INET6_ADDRSTRLEN ? INET_ADDRSTRLEN : INET6_ADDRSTRLEN];
+  size_t buf_max = sizeof(buf);
+
+  if (inet_ntop(AF_INET, &saddr4->sin_addr, buf, buf_max) == NULL) {
+    return Sinteger(c_errno_set(EINVAL));
+  } else {
+    return c_make_bytevector_maxlen(buf, buf_max);
+  }
+}
+
+/**
+ * create and return a bytevector containing colon-separated hexadecimal representation
+ * of IPv6 address stored in saddr->sin6_addr
+ */
+static ptr c_sockaddr_inet6_to_ipaddr(const struct sockaddr_in6* saddr6) {
+  char   buf[INET6_ADDRSTRLEN];
+  size_t buf_max = sizeof(buf);
+
+  if (inet_ntop(AF_INET6, &saddr6->sin6_addr, buf, buf_max) == NULL) {
+    return Sinteger(c_errno_set(EINVAL));
+  } else {
+    return c_make_bytevector_maxlen(buf, buf_max);
+  }
+}
+
+/**
+ * create and return a bytevector containing the unix path stored stored in un->sun_path
+ */
+static ptr c_sockaddr_unix_to_path(const struct sockaddr_un* un) {
+  return c_make_bytevector_maxlen(un->sun_path, sizeof(un->sun_path));
+}
+
+/**
+ * return a newly allocated bytevector containing the textual representation of address stored in
+ * specified bytevector, which must contain sockaddr bytes:
+ * - if family is 'inet, return IPv4 network address in dotted-decimal format, "ddd.ddd.ddd.ddd"
+ * - if family is 'inet6, return IPv6 network address in colon-separated hexadecimal format
+ *                    xxxx:xxxx:..." or in IPv6-mapped IPv4 format "xxxx:xxxx:...:ddd.ddd.ddd.ddd"
+ * - if family is 'unix, return unix path
+ * Otherwise return integer error < 0
+ */
+static ptr c_sockaddr_to_text(ptr bytes) {
+  iptr len;
+  if (Sbytevectorp(bytes) && (len = Sbytevector_length(bytes)) >= (iptr)sizeof(sa_family_t)) {
+    const struct sockaddr* saddr = (const struct sockaddr*)Sbytevector_data(bytes);
+    switch (saddr->sa_family) {
+      case AF_INET:
+        if (len >= (iptr)sizeof(struct sockaddr_in)) {
+          return c_sockaddr_inet_to_ipaddr((const struct sockaddr_in*)saddr);
+        }
+        break;
+      case AF_INET6:
+        if (len >= (iptr)sizeof(struct sockaddr_in6)) {
+          return c_sockaddr_inet6_to_ipaddr((const struct sockaddr_in6*)saddr);
+        }
+        break;
+      case AF_UNIX:
+        if (len >= (iptr)sizeof(struct sockaddr_un)) {
+          return c_sockaddr_unix_to_path((const struct sockaddr_un*)saddr);
+        }
+        break;
+      default:
+        break;
+    }
+  }
+  return Sinteger(c_errno_set(EINVAL));
 }
 
 static const namepair socket_families[] = {

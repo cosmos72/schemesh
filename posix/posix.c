@@ -2196,6 +2196,8 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_sockaddr_inet6", &c_sockaddr_inet6);
   Sregister_symbol("c_sockaddr_unix", &c_sockaddr_unix);
   Sregister_symbol("c_sockaddr_unix_path_max", &c_sockaddr_unix_path_max);
+  Sregister_symbol("c_sockaddr_port", &c_sockaddr_port);
+  Sregister_symbol("c_sockaddr_to_text", &c_sockaddr_to_text);
   Sregister_symbol("c_socket_accept", &c_socket_accept);
   Sregister_symbol("c_socket_bind", &c_socket_bind);
   Sregister_symbol("c_socket_connect", &c_socket_connect);
