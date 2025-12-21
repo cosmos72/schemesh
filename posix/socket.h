@@ -44,10 +44,10 @@ static ptr c_sockaddr_inet6(const char* ipaddr6, const uint16_t port) {
   } else {
     const ptr            ret   = Smake_bytevector(sizeof(struct sockaddr_in6), 0);
     struct sockaddr_in6* saddr = (struct sockaddr_in6*)Sbytevector_data(ret);
-    if (inet_pton(AF_INET6, ipaddr6, &saddr->sin6_addr) < 0) {
+    if ((err = inet_pton(AF_INET6, ipaddr6, &saddr->sin6_addr)) < 0) {
       err = c_errno();
     } else if (err == 0) {
-      /* invalid ipaddr string */
+      /* invalid ipaddr6 string */
       err = c_errno_set(EINVAL);
     } else {
       saddr->sin6_family = AF_INET6;
