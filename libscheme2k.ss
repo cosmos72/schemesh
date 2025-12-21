@@ -44,6 +44,7 @@
   (include "posix/io.ss")
   (include "posix/pattern.ss")
   (include "posix/signal.ss")
+  (include "posix/socket.ss")       ; requires posix/fd.ss
   (include "posix/status.ss")       ; requires wire/wire.ss
   (include "posix/thread.ss")       ; requires posix/signal.ss posix/status.ss
   (include "posix/tty.ss")
@@ -88,7 +89,7 @@
       (except (rnrs) bytevector-sint-ref bytevector-sint-set!
                      bytevector-uint-ref bytevector-uint-set!
                      file-exists? delete-file
-                     get-char get-datum get-line get-string-all get-string-n 
+                     get-char get-datum get-line get-string-all get-string-n
                      put-char put-datum put-string)
       (scheme2k containers replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
       (scheme2k posix replacements)))    ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.

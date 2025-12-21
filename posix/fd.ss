@@ -13,8 +13,7 @@
     fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-seek
     fd-read fd-read-all fd-read-insert-right! fd-read-noretry fd-read-u8
     fd-write fd-write-all fd-write-noretry fd-write-u8 fd-select fd-setnonblock
-    file->fd open-pipe-fds open-socket-fd open-socketpair-fds
-    raise-c-errno)
+    file->fd pipe-fds raise-c-errno)
   (import
     (rnrs)
     (only (chezscheme)             foreign-procedure lock-object logbit? void procedure-arity-mask unlock-object)
@@ -332,75 +331,15 @@
 ;;   the read side of the pipe
 ;;   the write side of the pipe
 ;; On errors, raises an exception
-(define open-pipe-fds
-  (let ((c-open-pipe-fds (foreign-procedure "c_open_pipe_fds" (ptr ptr) ptr)))
+(define pipe-fds
+  (let ((c-pipe-fds (foreign-procedure "c_open_pipe_fds" (ptr ptr) ptr)))
     (case-lambda
       ((read-fd-close-on-exec? write-fd-close-on-exec?)
-        (let ((ret (c-open-pipe-fds read-fd-close-on-exec? write-fd-close-on-exec?)))
+        (let ((ret (c-pipe-fds read-fd-close-on-exec? write-fd-close-on-exec?)))
           (if (pair? ret)
             (values (car ret) (cdr ret))
-            (raise-c-errno 'open-pipe-fds 'pipe ret))))
+            (raise-c-errno 'pipe-fds 'pipe ret))))
       (()
-        (open-pipe-fds 'close-on-exec 'close-on-exec)))))
-
-
-;; create a pair of mutually connected AF_UNIX socket file descriptors.
-;; Optional arguments:
-;;   fd1-close-on-exec? if truish the first socket will be close-on-exec. Defaults to 'close-on-exec
-;;   fd2-close-on-exec? if truish the second socket will be close-on-exec. Defaults to 'close-on-exec
-;; Returns two file descriptors:
-;;   the first socket
-;;   the second socket
-;; On errors, raises an exception
-(define open-socketpair-fds
-  (let ((c-open-socketpair-fds (foreign-procedure "c_open_socketpair_fds" (ptr ptr) ptr)))
-    (case-lambda
-      ((fd1-close-on-exec? fd2-close-on-exec?)
-        (let ((ret (c-open-socketpair-fds fd1-close-on-exec? fd2-close-on-exec?)))
-          (if (pair? ret)
-            (values (car ret) (cdr ret))
-            (raise-c-errno 'open-socketpair-fds 'socketpair ret))))
-      (()
-        (open-socketpair-fds 'close-on-exec 'close-on-exec)))))
-
-(define socket-domain-number->name
-  (alist->eq-hashtable ((foreign-procedure "c_socket_domain_list" () ptr))))
-
-(define socket-domain-name->number
-  (hashtable-transpose socket-domain-number->name (make-eqv-hashtable)))
-
-(define socket-type-number->name
-  (alist->eq-hashtable ((foreign-procedure "c_socket_type_list" () ptr))))
-
-(define socket-type-name->number
-  (hashtable-transpose socket-type-number->name (make-eqv-hashtable)))
-
-;; create a socket.
-;; Mandatory arguments:
-;;   domain   a symbol among 'inet 'inet6 'unix ...
-;;   type     a symbol among 'dgram 'raw 'stream ...
-;; Optional arguments:
-;;   protocol the symbol 'default
-;;   close-on-exec? if truish, socket will be close-on-exec. Defaults to 'close-on-exec
-;; Returns an integer file descriptor
-;; On errors, raises an exception
-(define open-socket-fd
-  (let ((c-open-socket-fd (foreign-procedure "c_open_socket_fd" (int int int ptr) ptr)))
-    (case-lambda
-      ((domain type protocol close-on-exec?)
-        (let ((domain-int (hashtable-ref socket-domain-name->number domain #f))
-              (type-int   (hashtable-ref socket-type-name->number type #f)))
-          (assert* 'open-socket-fd domain-int)
-          (assert* 'open-socket-fd type-int)
-          (assert* 'open-socket-fd (eq? protocol 'default))
-        (let ((ret (c-open-socket-fd domain-int type-int 0 close-on-exec?)))
-          (if (or (and (fixnum? ret) (fx>? ret 0))
-                  (and (exact? ret) (integer? ret) (> ret 0)))
-            ret
-            (raise-c-errno 'open-socket-fd 'socket ret)))))
-      ((domain type protocol)
-        (open-socket-fd domain type protocol 'close-on-exec))
-      ((domain type)
-        (open-socket-fd domain type 'default 'close-on-exec)))))
+        (pipe-fds 'close-on-exec 'close-on-exec)))))
 
 ) ; close library

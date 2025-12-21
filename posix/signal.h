@@ -184,8 +184,11 @@ static int c_thread_signal_raise(int sig, int unset_sighandler) {
   }
   (void)c_thread_signal_setblocked(sig, 0);
 
-  if ((err = pthread_kill(pthread_self(), sig)) <
-      0) { /* better than kill(getpid(), sig) in multi-threaded-programs */
+  /*
+   * pthread_kill() guarantees that signal is sent to specified thread.
+   * kill(getpid(), sig) would send signal to *a* thread.
+   */
+  if ((err = pthread_kill(pthread_self(), sig)) < 0) {
     return c_errno();
   }
   return 0;

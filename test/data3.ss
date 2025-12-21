@@ -30,7 +30,7 @@
   (fx<? (countdown (make-time 'time-duration
                               999999999 -1)) 0)        #t
 
-  (let-values (((rfd wfd) (open-pipe-fds #t #t)))
+  (let-values (((rfd wfd) (pipe-fds #t #t)))
     (dynamic-wind
       void
       (lambda ()
@@ -40,7 +40,7 @@
         (fd-close wfd)
         (fd-close rfd))))                              255
 
-  (let-values (((fd1 fd2) (open-socketpair-fds #t #t)))
+  (let-values (((fd1 fd2) (socketpair-fds #t #t)))
     (dynamic-wind
       void
       (lambda ()

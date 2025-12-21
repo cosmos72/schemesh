@@ -123,7 +123,7 @@
       ; we must redirect job fd 0 *before* any redirection configured in the job itself
       (job-redirect-temp-fd! job 0 '<& in-pipe-fd))
     (when redirect-out?
-      (let-values (((fd/read fd/write) (open-pipe-fds #t #t)))
+      (let-values (((fd/read fd/write) (pipe-fds #t #t)))
         (set! out-pipe-fd/read  fd/read)
         (set! out-pipe-fd/write fd/write)
         ; we must redirect job's fd 1 *before* any redirection configured in the job itself

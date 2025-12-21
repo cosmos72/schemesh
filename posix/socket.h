@@ -121,12 +121,12 @@ static ptr c_socket_type_list(void) {
 }
 
 /**
- * call socket(domain, type, protocol) and return a Scheme integer
+ * call socket(domain, type, protocol) and return an int
  * indicating the opened file descriptor.
  *
- * On error, return a Scheme integer equal to c_errno() i.e. < 0
+ * On error, return c_errno() i.e. < 0
  */
-static ptr c_open_socket_fd(int domain, int type, int protocol, ptr close_on_exec) {
+static int c_open_socket_fd(int domain, int type, int protocol, ptr close_on_exec) {
   int fd;
 #ifdef SOCK_CLOEXEC
   if (close_on_exec != Sfalse) {
@@ -141,11 +141,11 @@ static ptr c_open_socket_fd(int domain, int type, int protocol, ptr close_on_exe
     }
 #endif
     if (err >= 0) {
-      return Sinteger(fd);
+      return fd;
     }
     close(fd);
   }
-  return Sinteger(c_errno());
+  return c_errno();
 }
 
 /**

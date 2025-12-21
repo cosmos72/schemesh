@@ -41,6 +41,7 @@
   (include "posix/io.ss")
   (include "posix/pattern.ss")
   (include "posix/signal.ss")
+  (include "posix/socket.ss")       ; requires posix/fd.ss
   (include "posix/status.ss")       ; requires wire/wire.ss
   (include "posix/thread.ss")       ; requires posix/signal.ss posix/status.ss
   (include "posix/tty.ss")

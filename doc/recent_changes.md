@@ -2,14 +2,16 @@
 
 ### git
 
+* change license GPLv2+ -> LGPLv2+ in all sources except `parser/*` `shell/*` `repl/*` `main.c` `test/*`
+* rename all LGPLv2+ C functions and LGPLv2+ Scheme libraries `schemesh*` -> `scheme2k*`
 * add shell builtin `ulimit`
 * add key bindings for more xterm keys
 * add macro `(for-glob)`
 * rename function `(in-shell-glob)` -> `(in-glob)`
-* rename functions `(wildcard)` -> `(wildcard1+)` and add function `(wildcard)`
-* add function `(linectx-key-to-history)`
-* change license GPLv2+ -> LGPLv2+ in all sources except parser/* shell/* repl/* main.c test/*
-* rename all LGPLv2+ C functions and LGPLv2+ Scheme libraries schemesh* -> scheme2k*
+* rename function `(open-pipe-fds)` -> `(pipe-fds)`
+* rename function `(open-socketpair-fds)` -> `(socketpair-fds)`
+* rename function `(wildcard)` -> `(wildcard1+)` and add function `(wildcard)`
+* add functions `(linectx-key-to-history)` `(socket-fd)`
 * improve documentation
 
 ### release v0.9.2, 2025-10-18
@@ -98,7 +100,7 @@
   a list of strings or a single string.
 * add macro `(in-shell-glob)` as a shortcut for `(in-list (shell-glob))`
 * add functions `(bytespan->bytevector0) (countdown) (chargbuffer->charspans*) (chargbuffer->string)`
-  `(charlines->charspan) (charlines->string) (fd-seek) (open-socketpair-fds)`
+  `(charlines->charspan) (charlines->string) (fd-seek) (socketpair-fds)`
   and macro `(with-raw-tty)`
 * rename function `(sh-version)` -> `(sh-version-number)`
   and add function `(sh-version)` that returns a string

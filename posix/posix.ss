@@ -24,11 +24,18 @@
     ;; Reason for the conflict: the functions in (scheme2k posix replacements)
     ;; are intended as replacements for the default ones, and they add UTF-8b support.
     ;;
-    ;; If a user wants them, they need to (import (scheme2k posix replacements)) or (import (scheme2k))
+    ;; If a user wants them, they need one of:
+    ;;    (import (scheme2k posix replacements))
+    ;;    (import (scheme2k posix thread))
+    ;;    (import (scheme2k))
+    ;;
+    ;; as stated, do not import these:
     ;;
     ;; (scheme2k posix replacements)
+    ;; (scheme2k posix thread)
 
     (scheme2k posix rlimit)
     (scheme2k posix signal)
+    (scheme2k posix socket)
     (scheme2k posix status)
     (scheme2k posix tty)))

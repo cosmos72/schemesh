@@ -21,6 +21,7 @@
     (only (scheme2k bootstrap) assert* raise-errorf)
     (scheme2k containers bytespan)
     (scheme2k posix fd)
+    (only (scheme2k posix socket) socketpair-fds)
     (scheme2k wire))
 
 (define-record-type channel
@@ -72,7 +73,7 @@
 ;; the first channel reads serialized data from the read side of a newly created pipe file descriptor,
 ;; the second channel writes serialized data to the write side of the same pipe (which is a different file descriptor).
 (define (channel-pipe-pair)
-  (let-values (((read-fd write-fd) (open-pipe-fds #t #t))) ; mark both pipe file descriptors as close-on-exec
+  (let-values (((read-fd write-fd) (pipe-fds #t #t))) ; mark both pipe file descriptors as close-on-exec
     (values (channel-fd read-fd #f) (channel-fd #f write-fd))))
 
 
@@ -80,7 +81,7 @@
 ;; the first channel reads and writes serialized data from/to the first socket of a socket pair
 ;; the second channel reads and writes serialized data from/to the second socket of the same socket pair (which is a different file descriptor).
 (define (channel-socket-pair)
-  (let-values (((socket1 socket2) (open-socketpair-fds #t #t))) ; mark both socket file descriptors as close-on-exec
+  (let-values (((socket1 socket2) (socketpair-fds #t #t))) ; mark both socket file descriptors as close-on-exec
     (values (channel-fd socket1) (channel-fd socket2))))
 
 

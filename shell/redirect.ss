@@ -81,14 +81,14 @@
           (dir     (cadr redirections)))
       (if (memq dir '(<& >&))
         ;; create pipe fds, all are close-on-exec
-        (let-values (((read-fd write-fd) (open-pipe-fds #t #t)))
+        (let-values (((read-fd write-fd) (pipe-fds #t #t)))
           (vector-set! fdv i
             ;; in fdv, each pair is (our-fd . child-fd)
             (if (eq? dir '<&) (cons write-fd read-fd)
                               (cons read-fd write-fd))))
         ;; direction is '<>&
         ;; create socketpair fds, all are close-on-exec
-        (let-values (((sock1 sock2) (open-socketpair-fds #t #t)))
+        (let-values (((sock1 sock2) (socketpair-fds #t #t)))
           (vector-set! fdv i (cons sock1 sock2)))))
     ;; iterate on remaining redirections
     (open-redirection-fds (cddr redirections) fdv (fx1+ i))))
