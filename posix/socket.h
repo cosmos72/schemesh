@@ -14,18 +14,94 @@
 
 /* ------------------------------------ socket functions ---------------------------------------- */
 
-static const namepair socket_domains[] = {
+/** create a bytevector containing a sockaddr_inet with specified IPv4 address and port */
+static ptr c_sockaddr_inet(const char* ipaddr, const uint16_t port) {
+  int err = 0;
+  if (!ipaddr) {
+    err = c_errno_set(EINVAL);
+  } else {
+    const ptr           ret   = Smake_bytevector(sizeof(struct sockaddr_in), 0);
+    struct sockaddr_in* saddr = (struct sockaddr_in*)Sbytevector_data(ret);
+    if ((err = inet_pton(AF_INET, ipaddr, &saddr->sin_addr)) < 0) {
+      err = c_errno();
+    } else if (err == 0) {
+      /* invalid ipaddr string */
+      err = c_errno_set(EINVAL);
+    } else {
+      saddr->sin_family = AF_INET;
+      saddr->sin_port   = htons(port);
+      return ret;
+    }
+  }
+  return Sinteger(err);
+}
+
+/** create a bytevector containing a sockaddr_inet6 with specified IPv6 address and port */
+static ptr c_sockaddr_inet6(const char* ipaddr6, const uint16_t port) {
+  int err = 0;
+  if (!ipaddr6) {
+    err = c_errno_set(EINVAL);
+  } else {
+    const ptr            ret   = Smake_bytevector(sizeof(struct sockaddr_in6), 0);
+    struct sockaddr_in6* saddr = (struct sockaddr_in6*)Sbytevector_data(ret);
+    if (inet_pton(AF_INET6, ipaddr6, &saddr->sin6_addr) < 0) {
+      err = c_errno();
+    } else if (err == 0) {
+      /* invalid ipaddr string */
+      err = c_errno_set(EINVAL);
+    } else {
+      saddr->sin6_family = AF_INET6;
+      saddr->sin6_port   = htons(port);
+      return ret;
+    }
+  }
+  return Sinteger(err);
+}
+
+static size_t c_sockaddr_unix_path_max(void) {
+#ifdef UNIX_PATH_MAX
+  return UNIX_PATH_MAX;
+#else
+  return sizeof(struct sockaddr_un) - sizeof(sa_family_t);
+#endif
+}
+
+/** create a bytevector containing a sockaddr_un with specified path */
+static ptr c_sockaddr_unix(ptr path) {
+  if (Sbytevectorp(path)) {
+    const size_t path_len = Sbytevector_length(path);
+    if (path_len < c_sockaddr_unix_path_max()) {
+      const ptr           ret   = Smake_bytevector(sizeof(struct sockaddr_un), 0);
+      struct sockaddr_un* saddr = (struct sockaddr_un*)Sbytevector_data(ret);
+      saddr->sun_family         = AF_UNIX;
+      memcpy(saddr->sun_path, Sbytevector_data(path), path_len);
+      return ret;
+    }
+  }
+  return Sinteger(c_errno_set(EINVAL));
+}
+
+static const namepair socket_families[] = {
 #ifdef AF_ALG
     {AF_ALG, "alg"},
 #endif
 #ifdef AF_APPLETALK
     {AF_APPLETALK, "appletalk"},
 #endif
+#ifdef AF_ATMPVC
+    {AF_ATMPVC, "atmpvc"},
+#endif
+#ifdef AF_ATMSVC
+    {AF_ATMSVC, "atmsvc"},
+#endif
 #ifdef AF_AX25
     {AF_AX25, "ax25"},
 #endif
 #ifdef AF_BLUETOOTH
     {AF_BLUETOOTH, "bluetooth"},
+#endif
+#ifdef AF_CAIF
+    {AF_CAIF, "caif"},
 #endif
 #ifdef AF_CAN
     {AF_CAN, "can"},
@@ -36,6 +112,10 @@ static const namepair socket_domains[] = {
 #ifdef AF_IB
     {AF_IB, "ib"},
 #endif
+#ifdef AF_IEEE802154
+    {AF_IEEE802154, "ieee802154"},
+#endif
+
 #ifdef AF_INET
     {AF_INET, "inet"},
 #endif
@@ -44,6 +124,12 @@ static const namepair socket_domains[] = {
 #endif
 #ifdef AF_IPX
     {AF_IPX, "ipx"},
+#endif
+#ifdef AF_ISDN
+    {AF_ISDN, "isdn"},
+#endif
+#ifdef AF_IUCV
+    {AF_IUCV, "iucv"},
 #endif
 #ifdef AF_KCM
     {AF_KCM, "kcm"},
@@ -54,20 +140,41 @@ static const namepair socket_domains[] = {
 #ifdef AF_LLC
     {AF_LLC, "llc"},
 #endif
+#ifdef AF_MCTP
+    {AF_MCTP, "mctp"},
+#endif
 #ifdef AF_MPLS
     {AF_MPLS, "mpls"},
 #endif
 #ifdef AF_NETLINK
     {AF_NETLINK, "netlink"},
 #endif
+#ifdef AF_NETROM
+    {AF_NETROM, "netrom"},
+#endif
 #ifdef AF_PACKET
     {AF_PACKET, "packet"},
+#endif
+#ifdef AF_PHONET
+    {AF_PHONET, "phonet"},
 #endif
 #ifdef AF_PPPOX
     {AF_PPPOX, "ppox"},
 #endif
+#ifdef AF_QIPCRTR
+    {AF_QIPCRTR, "qipcrtr"},
+#endif
 #ifdef AF_RDS
     {AF_RDS, "rds"},
+#endif
+#ifdef AF_ROSE
+    {AF_ROSE, "rose"},
+#endif
+#ifdef AF_RXRPC
+    {AF_RXRPC, "rxrpc"},
+#endif
+#ifdef AF_SMC
+    {AF_SMC, "smc"},
 #endif
 #ifdef AF_TIPC
     {AF_TIPC, "tipc"},
@@ -105,11 +212,11 @@ static const namepair socket_types[] = {
 };
 
 /**
- * return a Scheme list containing pairs (domain . name)
- * where domain is a fixnum and name is a symbol
+ * return a Scheme list containing pairs (family . name)
+ * where family is a fixnum and name is a symbol
  */
-static ptr c_socket_domain_list(void) {
-  return c_namepair_list(socket_domains, N_OF(socket_domains));
+static ptr c_socket_family_list(void) {
+  return c_namepair_list(socket_families, N_OF(socket_families));
 }
 
 /**
@@ -126,7 +233,7 @@ static ptr c_socket_type_list(void) {
  *
  * On error, return c_errno() i.e. < 0
  */
-static int c_open_socket_fd(int domain, int type, int protocol, ptr close_on_exec) {
+static int c_socket_fd(int domain, int type, int protocol, ptr close_on_exec) {
   int fd;
 #ifdef SOCK_CLOEXEC
   if (close_on_exec != Sfalse) {
@@ -148,11 +255,53 @@ static int c_open_socket_fd(int domain, int type, int protocol, ptr close_on_exe
   return c_errno();
 }
 
+static int c_socket_bind(int fd, const struct sockaddr* saddr, size_t saddr_len) {
+  int       err;
+  socklen_t len = (socklen_t)saddr_len;
+  if (!saddr || (size_t)len != saddr_len) {
+    err = c_errno_set(EINVAL);
+  } else if (bind(fd, saddr, len) != 0) {
+    err = c_errno();
+  } else {
+    err = 0;
+  }
+  return err;
+}
+
+static int c_socket_connect(int fd, const struct sockaddr* saddr, size_t saddr_len) {
+  int       err;
+  socklen_t len = (socklen_t)saddr_len;
+  if (!saddr || (size_t)len != saddr_len) {
+    err = c_errno_set(EINVAL);
+  } else if (connect(fd, saddr, len) != 0) {
+    err = c_errno();
+  } else {
+    err = 0;
+  }
+  return err;
+}
+
+static int c_socket_listen(int fd, int backlog) {
+  int err = listen(fd, backlog);
+  if (err != 0) {
+    err = c_errno();
+  }
+  return err;
+}
+
+static int c_socket_accept(int fd) {
+  int err = accept(fd, NULL, 0);
+  if (err < 0) {
+    err = c_errno();
+  }
+  return err;
+}
+
 /**
  * call socketpair(AF_UNIX, SOCK_STREAM) and return a Scheme cons (socket1_fd . socket2_fd),
  * or c_errno() on error
  */
-static ptr c_open_socketpair_fds(ptr fd1_close_on_exec, ptr fd2_close_on_exec) {
+static ptr c_socketpair_fds(ptr fd1_close_on_exec, ptr fd2_close_on_exec) {
 #if defined(AF_UNIX) && defined(SOCK_STREAM)
   int fds[2];
   int err = socketpair(AF_UNIX, SOCK_STREAM, 0, fds);

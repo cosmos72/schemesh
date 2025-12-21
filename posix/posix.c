@@ -19,10 +19,12 @@
 #include "../containers/containers.h" /* scheme2k_Sbytevector() */
 #include "../eval.h"                  /* eval() */
 
-#include <dirent.h> /* opendir(), readdir(), closedir() */
-#include <errno.h>  /* EINVAL, EIO, ESRCH, errno */
+#include <arpa/inet.h> /* inet_pton(), ntohs() */
+#include <dirent.h>    /* opendir(), readdir(), closedir() */
+#include <errno.h>     /* EINVAL, EIO, ESRCH, errno */
 #include <fcntl.h>
 #include <limits.h>
+#include <netinet/in.h> /* struct sockaddr_in ,,, */
 #include <poll.h>
 #include <pthread.h> /* pthread_self() */
 #include <pwd.h>     /* getpwnam_r(), getpwuid_r() */
@@ -38,7 +40,8 @@
 #include <sys/resource.h> /* getrlimit(), setrlimit() */
 #include <sys/socket.h>   /* socket(), socketpair(), AF_INET, AF_UNIX, SOCK_STREAM ... */
 #include <sys/stat.h>     /* fstatat() */
-#include <sys/types.h>
+#include <sys/types.h>    /* ... */
+#include <sys/un.h>       /* struct sockaddr_un */
 #include <sys/wait.h>
 #include <time.h>   /* clock_nanosleep(), CLOCK_MONOTONIC, nanosleep() */
 #include <unistd.h> /* geteuid(), getpid(), sysconf(), write() */
@@ -113,8 +116,8 @@ static int c_errno_eagain(void) {
   return -EAGAIN;
 }
 
-static int c_errno_eio(void) {
-  return -EIO;
+static int c_errno_einprogress(void) {
+  return -EINPROGRESS;
 }
 
 static int c_errno_eintr(void) {
@@ -123,6 +126,10 @@ static int c_errno_eintr(void) {
 
 static int c_errno_einval(void) {
   return -EINVAL;
+}
+
+static int c_errno_eio(void) {
+  return -EIO;
 }
 
 static int c_errno_enoent(void) {
@@ -654,7 +661,7 @@ static int c_fd_dup2(int old_fd, int new_fd) {
 
 /**
  * call fcntl(fd, FD_SETFL, O_NONBLOCK | fcntl(fd, FD_GETFL))
- * to set file descriptor to non-blocking mode.
+ * i.e. set file descriptor to non-blocking mode.
  * returns >= 0 on success, or c_errno() on error
  */
 static int c_fd_setnonblock(int fd) {
@@ -840,11 +847,11 @@ static int c_fd_select(int fd, int rw_mask, int timeout_milliseconds) {
  *   1 => open writeonly
  *   2 => open readwrite
  */
-static int c_open_file_fd(ptr bytevector0_filepath,
-                          int flag_read_write,
-                          int flag_create,
-                          int flag_truncate,
-                          int flag_append) {
+static int c_file_fd(ptr bytevector0_filepath,
+                     int flag_read_write,
+                     int flag_create,
+                     int flag_truncate,
+                     int flag_append) {
   const char* filepath;
   iptr        len;
   int         flags, ret;
@@ -868,7 +875,7 @@ static int c_open_file_fd(ptr bytevector0_filepath,
 }
 
 /** call pipe() and return a Scheme cons (pipe_read_fd . pipe_write_fd), or c_errno() on error */
-static ptr c_open_pipe_fds(ptr read_fd_close_on_exec, ptr write_fd_close_on_exec) {
+static ptr c_pipe_fds(ptr read_fd_close_on_exec, ptr write_fd_close_on_exec) {
   int fds[2];
   int err = pipe(fds);
   if (err < 0) {
@@ -2155,9 +2162,10 @@ int scheme2k_register_c_functions(void) {
 
   Sregister_symbol("c_errno", &c_errno);
   Sregister_symbol("c_errno_eagain", &c_errno_eagain);
-  Sregister_symbol("c_errno_eio", &c_errno_eio);
+  Sregister_symbol("c_errno_einprogress", &c_errno_einprogress);
   Sregister_symbol("c_errno_eintr", &c_errno_eintr);
   Sregister_symbol("c_errno_einval", &c_errno_einval);
+  Sregister_symbol("c_errno_eio", &c_errno_eio);
   Sregister_symbol("c_errno_enoent", &c_errno_enoent);
   Sregister_symbol("c_errno_enotdir", &c_errno_enotdir);
   Sregister_symbol("c_errno_esrch", &c_errno_esrch);
@@ -2181,12 +2189,21 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_fd_select", &c_fd_select);
   Sregister_symbol("c_fd_setnonblock", &c_fd_setnonblock);
   Sregister_symbol("c_fd_redirect", &c_fd_redirect);
-  Sregister_symbol("c_open_file_fd", &c_open_file_fd);
-  Sregister_symbol("c_open_pipe_fds", &c_open_pipe_fds);
-  Sregister_symbol("c_open_socket_fd", &c_open_socket_fd);
-  Sregister_symbol("c_open_socketpair_fds", &c_open_socketpair_fds);
-  Sregister_symbol("c_socket_domain_list", &c_socket_domain_list);
+  Sregister_symbol("c_file_fd", &c_file_fd);
+  Sregister_symbol("c_pipe_fds", &c_pipe_fds);
+
+  Sregister_symbol("c_sockaddr_inet", &c_sockaddr_inet);
+  Sregister_symbol("c_sockaddr_inet6", &c_sockaddr_inet6);
+  Sregister_symbol("c_sockaddr_unix", &c_sockaddr_unix);
+  Sregister_symbol("c_sockaddr_unix_path_max", &c_sockaddr_unix_path_max);
+  Sregister_symbol("c_socket_accept", &c_socket_accept);
+  Sregister_symbol("c_socket_bind", &c_socket_bind);
+  Sregister_symbol("c_socket_connect", &c_socket_connect);
+  Sregister_symbol("c_socket_listen", &c_socket_listen);
+  Sregister_symbol("c_socket_fd", &c_socket_fd);
+  Sregister_symbol("c_socket_family_list", &c_socket_family_list);
   Sregister_symbol("c_socket_type_list", &c_socket_type_list);
+  Sregister_symbol("c_socketpair_fds", &c_socketpair_fds);
 
   Sregister_symbol("c_tty_restore", &c_tty_restore);
   Sregister_symbol("c_tty_setraw", &c_tty_setraw);

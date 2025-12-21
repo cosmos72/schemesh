@@ -260,8 +260,10 @@
 ;; (fd-select fd direction timeout-milliseconds) waits up to timeout-milliseconds
 ;; for file descriptor fd to become ready for input, output or both.
 ;;
-;; direction must be one of: 'read 'write 'rw
-;; timeout-milliseconds < 0 means infinite timeout
+;; Mandatory arguments:
+;;   fd                   an exact integer corresponding to an open file descriptor
+;;   direction            a symbol among: 'read 'write 'rw
+;;   timeout-milliseconds an exact integer, < 0 means infinite timeout
 ;;
 ;; On success, returns one of: 'timeout 'read 'write 'rw
 ;; On error, raises condition.
@@ -269,7 +271,7 @@
 ;; If interrupted, returns 'timeout
 (define fd-select
   (let ((c-fd-select (foreign-procedure __collect_safe "c_fd_select" (int int int) int))
-        (c-errno-eio ((foreign-procedure "c_errno_eio" () int)))
+        (c-errno-eio  ((foreign-procedure "c_errno_eio" () int)))
         (c-errno-eintr ((foreign-procedure "c_errno_eintr" () int))))
     (lambda (fd direction timeout-milliseconds)
       (assert* 'fd-select (memq direction '(read write rw)))
@@ -302,7 +304,7 @@
 ;;   mandatory direction must be one of the symbols: 'read 'write 'rw
 ;;   optional flags must be a list containing zero or more: 'create 'truncate 'append
 (define file->fd
-  (let ((c-open-file-fd (foreign-procedure __collect_safe "c_open_file_fd"
+  (let ((c-open-file-fd (foreign-procedure __collect_safe "c_file_fd"
                           (ptr int int int int) int)))
     (case-lambda
       ((filepath direction flags)
@@ -332,7 +334,7 @@
 ;;   the write side of the pipe
 ;; On errors, raises an exception
 (define pipe-fds
-  (let ((c-pipe-fds (foreign-procedure "c_open_pipe_fds" (ptr ptr) ptr)))
+  (let ((c-pipe-fds (foreign-procedure "c_pipe_fds" (ptr ptr) ptr)))
     (case-lambda
       ((read-fd-close-on-exec? write-fd-close-on-exec?)
         (let ((ret (c-pipe-fds read-fd-close-on-exec? write-fd-close-on-exec?)))
