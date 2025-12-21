@@ -167,6 +167,7 @@
       (check-interrupts)
       (let* ((data (sockaddr-data sockaddr))
              (err  (c-socket-connect socket data (bytevector-length data))))
+        (check-interrupts)
         (cond
           ((zero? err)
             (void))
@@ -227,6 +228,7 @@
     (lambda (socket)
       (check-interrupts)
       (let ((ret (c-socket-accept socket)))
+        (check-interrupts)
         (cond
           ((>= ret 0)
             ret)

@@ -136,9 +136,8 @@
   (case-lambda
     ((fd bytevector-result start end)
       (let %loop ()
-        (check-interrupts)
         (let ((ret (fd-read-noretry fd bytevector-result start end)))
-          (if (eq? #t ret)
+          (if (eq? ret #t)
             (%loop)
             ret))))
     ((fd bytevector-result)
@@ -154,8 +153,10 @@
   (let ((c-fd-read (foreign-procedure __collect_safe "c_fd_read" (int ptr fixnum fixnum) ptr)))
     (case-lambda
       ((fd bytevector-result start end)
+        (check-interrupts)
         (let ((ret (with-locked-objects (bytevector-result)
                      (c-fd-read fd bytevector-result start end))))
+          (check-interrupts)
           (if (or (eq? #t ret) (and (integer? ret) (>= ret 0)))
             ret
             (raise-c-errno 'fd-read 'read ret fd #vu8() start end))))
@@ -173,6 +174,7 @@
       (let %loop ()
         (check-interrupts)
         (let ((ret (c-fd-read-u8 fd)))
+          (check-interrupts)
           (cond
             ((and (fixnum? ret) (fx<=? 0 ret 255))
               ret)
@@ -212,7 +214,6 @@
   (case-lambda
     ((fd bytevector-towrite start end)
       (let %loop ()
-        (check-interrupts)
         (let ((ret (fd-write-noretry fd bytevector-towrite start end)))
           (if (eq? #t ret)
             (%loop)
@@ -230,8 +231,10 @@
   (let ((c-fd-write (foreign-procedure __collect_safe "c_fd_write" (int ptr fixnum fixnum) ptr)))
     (case-lambda
       ((fd bytevector-towrite start end)
+        (check-interrupts)
         (let ((ret (with-locked-objects (bytevector-towrite)
                      (c-fd-write fd bytevector-towrite start end))))
+          (check-interrupts)
           (if (or (eq? #t ret) (and (integer? ret) (>= ret 0)))
             ret
             (raise-c-errno 'fd-write 'write ret fd #vu8() start end))))
@@ -251,6 +254,7 @@
       (let %loop ()
         (check-interrupts)
         (let ((ret (c-fd-write-u8 fd u8)))
+          (check-interrupts)
           (cond
             ((eqv? 0 ret)   (void))
             ((eq? #t ret)   (%loop))
@@ -266,26 +270,27 @@
 ;;   timeout-milliseconds an exact integer, < 0 means infinite timeout
 ;;
 ;; On success, returns one of: 'timeout 'read 'write 'rw
-;; On error, raises condition.
-;;
-;; If interrupted, returns 'timeout
+;; Otherwise:
+;;   If interrupted, returns 'timeout
+;;   On other errors, raises condition.
 (define fd-select
   (let ((c-fd-select (foreign-procedure __collect_safe "c_fd_select" (int int int) int))
         (c-errno-eio  ((foreign-procedure "c_errno_eio" () int)))
         (c-errno-eintr ((foreign-procedure "c_errno_eintr" () int))))
     (lambda (fd direction timeout-milliseconds)
       (assert* 'fd-select (memq direction '(read write rw)))
-      (let* ((rw-mask (cond ((eq? 'rw    direction) 3)
-                            ((eq? 'write direction) 2)
-                            ((eq? 'read  direction) 1)
-                            (else (error 'fd-select "direction must be one of 'read 'write 'rw"))))
-              (ret (c-fd-select fd rw-mask timeout-milliseconds)))
+      (check-interrupts)
+      (let* ((rw-mask (cond ((eq? direction 'read)  1)
+                            ((eq? direction 'write) 2)
+                            (else                   3)))
+             (ret (c-fd-select fd rw-mask timeout-milliseconds)))
+        (check-interrupts)
         (cond
-          ; if c_fd_select() returns EINTR, consider it a timeout
+          ;; if c_fd_select() returns EINTR, consider it a timeout
           ((eqv? ret c-errno-eintr) 'timeout)
           ((< ret 0) (raise-c-errno 'fd-select 'select ret fd rw-mask timeout-milliseconds))
           ((< ret 4) (vector-ref '#(timeout read write rw) ret))
-          ; c_fd_select() called poll() which set (revents & POLLERR)
+          ;; c_fd_select() called poll() which set (revents & POLLERR)
           (else      (raise-c-errno 'fd-select 'select c-errno-eio fd rw-mask timeout-milliseconds)))))))
 
 
