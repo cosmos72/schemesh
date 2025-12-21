@@ -2201,6 +2201,7 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_socket_connect", &c_socket_connect);
   Sregister_symbol("c_socket_listen", &c_socket_listen);
   Sregister_symbol("c_socket_fd", &c_socket_fd);
+  Sregister_symbol("c_socket_sockaddr2", &c_socket_sockaddr2);
   Sregister_symbol("c_socket_family_list", &c_socket_family_list);
   Sregister_symbol("c_socket_type_list", &c_socket_type_list);
   Sregister_symbol("c_socketpair_fds", &c_socketpair_fds);

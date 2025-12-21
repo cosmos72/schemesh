@@ -9,14 +9,14 @@
 
 (library (scheme2k posix socket (0 9 2))
   (export
-    make-sockaddr sockaddr sockaddr? sockaddr-data sockaddr-family
+    make-sockaddr sockaddr sockaddr? sockaddr-data sockaddr-family socket-sockaddr socket-peeraddr
     socket-fd socket-connect socket-bind socket-listen socket-accept socketpair-fds)
   (import
     (rnrs)
     (only (chezscheme)                    bytevector->immutable-bytevector foreign-procedure procedure-arity-mask void)
     (only (scheme2k bootstrap)            assert* check-interrupts)
     (only (scheme2k conversions)          text->bytevector text->bytevector0)
-    (only (scheme2k containers hashtable) alist->eq-hashtable eq-hashtable hashtable-transpose)
+    (only (scheme2k containers hashtable) alist->eqv-hashtable eq-hashtable hashtable-transpose)
     (only (scheme2k posix fd)             raise-c-errno))
 
 
@@ -34,13 +34,13 @@
 
 
 (define socket-family-number->name
-  (alist->eq-hashtable ((foreign-procedure "c_socket_family_list" () ptr))))
+  (alist->eqv-hashtable ((foreign-procedure "c_socket_family_list" () ptr))))
 
 (define socket-family-name->number
   (hashtable-transpose socket-family-number->name (make-eqv-hashtable)))
 
 (define socket-type-number->name
-  (alist->eq-hashtable ((foreign-procedure "c_socket_type_list" () ptr))))
+  (alist->eqv-hashtable ((foreign-procedure "c_socket_type_list" () ptr))))
 
 (define socket-type-name->number
   (hashtable-transpose socket-type-number->name (make-eqv-hashtable)))
@@ -238,6 +238,27 @@
             #f)
           (else
             (raise-c-errno 'socket-accept 'accept ret socket)))))))
+
+
+(define socket-sockaddr2
+  (let ((c-socket-sockaddr2 (foreign-procedure "c_socket_sockaddr2" (int int) ptr)))
+    (lambda (socket peer?)
+      (let ((ret (c-socket-sockaddr2 socket (if peer? 1 0))))
+        (if (pair? ret)
+          (let ((family (hashtable-ref socket-family-number->name (car ret) 'unknown)))
+            (make-sockaddr family (cdr ret)))
+          (raise-c-errno
+            (if peer? 'socket-peeraddr 'socket-sockaddr)
+            (if peer? 'getpeername     'getsockname)
+            ret socket))))))
+
+
+(define (socket-sockaddr socket)
+  (socket-sockaddr2 socket #f))
+
+
+(define (socket-peeraddr socket)
+  (socket-sockaddr2 socket 'peer))
 
 
 ;; create a pair of mutually connected AF_UNIX socket file descriptors.

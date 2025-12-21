@@ -81,6 +81,31 @@ static ptr c_sockaddr_unix(ptr path) {
   return Sinteger(c_errno_set(EINVAL));
 }
 
+/**
+ * if peer == 0, get the current address to which specified socket is bound.
+ * otherwise, get the address of the peer connected to specified socket.
+ * @return a cons containing two values:
+ *   the socket family, as an integer
+ *   the socket (or peer's) address, i.e. a struct sockaddr stored in a bytevector
+ * On error, return Sinteger(c_errno())
+ */
+static ptr c_socket_sockaddr2(int socket, int peer) {
+  struct sockaddr_storage saddr;
+
+  ptr       bv;
+  socklen_t len = sizeof(saddr);
+  int       err = peer ? getpeername(socket, (struct sockaddr*)&saddr, &len) :
+                         getsockname(socket, (struct sockaddr*)&saddr, &len);
+  if (err != 0) {
+    return Sinteger(c_errno());
+  } else if (len > sizeof(saddr)) {
+    return Sinteger(c_errno_set(EINVAL));
+  }
+  bv = Smake_bytevector(len, 0);
+  memcpy(Sbytevector_data(bv), &saddr, len);
+  return Scons(Sinteger(saddr.ss_family), bv);
+}
+
 static const namepair socket_families[] = {
 #ifdef AF_ALG
     {AF_ALG, "alg"},
