@@ -14,6 +14,92 @@
 
 /* ------------------------------------ socket functions ---------------------------------------- */
 
+/**
+ * create and return a bytevector containing a copy of bytes src,
+ * which *may* be '\0' terminated.
+ */
+static ptr c_make_bytevector_maxlen(const void* src, size_t max_len) {
+  const char* end = memchr(src, 0, max_len);
+  size_t      len = end ? (size_t)(end - (const char*)src) : max_len;
+  ptr         bv  = Smake_bytevector(len, 0);
+  memcpy(Sbytevector_data(bv), src, len);
+  return bv;
+}
+
+/**
+ * create and return a Scheme pair containing (num bytevector)
+ * where bytevector contains a copy of len bytes starting at bytes
+ */
+static ptr c_make_pair_int_bytevector(int num, const void* bytes, size_t len) {
+  ptr bv = Smake_bytevector(len, 0);
+  memcpy(Sbytevector_data(bv), &bytes, len);
+  return Scons(Sinteger(num), bv);
+}
+
+static void c_sockaddr_set_port(struct sockaddr* saddr, socklen_t len, uint16_t port) {
+  switch (saddr->sa_family) {
+    case AF_INET:
+      if (len >= sizeof(struct sockaddr_in)) {
+        ((struct sockaddr_in*)saddr)->sin_port = port;
+      }
+      break;
+    case AF_INET6:
+      if (len >= sizeof(struct sockaddr_in6)) {
+        ((struct sockaddr_in6*)saddr)->sin6_port = port;
+      }
+      break;
+  }
+}
+
+static ptr c_list_reverse_inplace(ptr list) {
+  ptr ret = Snil;
+  while (Spairp(list)) {
+    ptr next = Scdr(list);
+    Sset_cdr(list, ret);
+    ret  = list;
+    list = next;
+  }
+  return ret;
+}
+
+/**
+ * request from DNS the IP addresses of specified hostname,
+ * and return them as an alist ((family-int1 . bytevector1) (family-int2 . bytevector2) ... )
+ * where each bytevector contains the resolved IP address, wrapped in a sockaddr.
+ * On error, return Sinteger(c_errno())
+ */
+static ptr c_getaddrinfo(const char*    hostname,
+                         const int      preferred_family,
+                         const char*    servicename_or_port,
+                         const uint16_t override_port) {
+  int err = 0;
+  if (!hostname) {
+    err = c_errno_set(EINVAL);
+  } else {
+    struct addrinfo  hints = {};
+    struct addrinfo* list  = NULL;
+    hints.ai_family        = preferred_family;
+    if (getaddrinfo(hostname, servicename_or_port, &hints, &list) != 0) {
+      err = c_errno();
+    } else {
+      struct addrinfo* info = list;
+      ptr              ret  = Snil;
+      while (info) {
+        struct sockaddr* saddr = info->ai_addr;
+        socklen_t        len   = info->ai_addrlen;
+        if (override_port) {
+          c_sockaddr_set_port(saddr, len, override_port);
+        }
+        ret  = Scons(c_make_pair_int_bytevector(saddr->sa_family, saddr, len), ret);
+        info = info->ai_next;
+      }
+      freeaddrinfo(list);
+      return c_list_reverse_inplace(ret);
+    }
+  }
+  return Sinteger(err);
+}
+
 /** create a bytevector containing a sockaddr_inet with specified IPv4 address and port */
 static ptr c_sockaddr_inet(const char* ipaddr, const uint16_t port) {
   int err = 0;
@@ -100,9 +186,7 @@ static ptr c_socket_sockaddr2(int socket, int peer) {
   } else if (len > sizeof(saddr)) {
     return Sinteger(c_errno_set(EINVAL));
   } else {
-    ptr bv = Smake_bytevector(len, 0);
-    memcpy(Sbytevector_data(bv), &saddr, len);
-    return Scons(Sinteger(saddr.ss_family), bv);
+    return c_make_pair_int_bytevector(saddr.ss_family, &saddr, len);
   }
 }
 
@@ -130,18 +214,6 @@ static int c_sockaddr_port(ptr bytes) {
     }
   }
   return c_errno_set(EINVAL);
-}
-
-/**
- * create and return a bytevector containing a copy of bytes src,
- * which *may* be '\0' terminated.
- */
-static ptr c_make_bytevector_maxlen(const void* src, size_t max_len) {
-  const char* end = memchr(src, 0, max_len);
-  size_t      len = end ? (size_t)(end - (const char*)src) : max_len;
-  ptr         bv  = Smake_bytevector(len, 0);
-  memcpy(Sbytevector_data(bv), src, len);
-  return bv;
 }
 
 /**

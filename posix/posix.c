@@ -24,13 +24,14 @@
 #include <errno.h>     /* EINVAL, EIO, ESRCH, errno */
 #include <fcntl.h>
 #include <limits.h>
+#include <netdb.h>
 #include <netinet/in.h> /* struct sockaddr_in ,,, */
 #include <poll.h>
-#include <pthread.h> /* pthread_self() */
-#include <pwd.h>     /* getpwnam_r(), getpwuid_r() */
-#include <sched.h>   /* sched_yield() */
-#include <signal.h>  /* kill(), sigaction(), SIG... */
-#include <stdatomic.h>
+#include <pthread.h>      /* pthread_self() */
+#include <pwd.h>          /* getpwnam_r(), getpwuid_r() */
+#include <sched.h>        /* sched_yield() */
+#include <signal.h>       /* kill(), sigaction(), SIG... */
+#include <stdatomic.h>    /* _Atomic, atomic_store() */
 #include <stddef.h>       /* size_t, NULL */
 #include <stdint.h>       /* int64_t, uint64_t */
 #include <stdio.h>        /* remove(), rename() ... */
@@ -38,7 +39,7 @@
 #include <string.h>       /* strlen(), strerror() */
 #include <sys/ioctl.h>    /* ioctl(), TIOCGWINSZ */
 #include <sys/resource.h> /* getrlimit(), setrlimit() */
-#include <sys/socket.h>   /* socket(), socketpair(), AF_INET, AF_UNIX, SOCK_STREAM ... */
+#include <sys/socket.h>   /* getaddrinfo(), socket(), socketpair(), AF_*, SOCK_* */
 #include <sys/stat.h>     /* fstatat() */
 #include <sys/types.h>    /* ... */
 #include <sys/un.h>       /* struct sockaddr_un */
@@ -2192,6 +2193,7 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_file_fd", &c_file_fd);
   Sregister_symbol("c_pipe_fds", &c_pipe_fds);
 
+  Sregister_symbol("c_getaddrinfo", &c_getaddrinfo);
   Sregister_symbol("c_sockaddr_inet", &c_sockaddr_inet);
   Sregister_symbol("c_sockaddr_inet6", &c_sockaddr_inet6);
   Sregister_symbol("c_sockaddr_unix", &c_sockaddr_unix);
