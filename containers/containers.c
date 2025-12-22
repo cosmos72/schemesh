@@ -117,18 +117,23 @@ static ptr c_bytevector_index_u8(ptr bvec, iptr start, iptr end, int value) {
 }
 
 /**
- * convert a C char[] to Scheme bytevector and return it.
+ * convert a C byte[] to Scheme bytevector and return it.
  * If out of memory, or len > maximum bytevector length, raises condition.
  */
-ptr scheme2k_Sbytevector(const char chars[], const size_t len) {
+ptr scheme2k_Sbytevector(const char bytes[], size_t len) {
+  ptr  bvec;
+  iptr bvec_len;
+  if (len == (size_t)-1) {
+    len = strlen(bytes);
+  }
   /* Smake_bytevector() wants iptr length */
-  iptr bvec_len = (iptr)len;
+  bvec_len = (iptr)len;
   if (bvec_len < 0 || (size_t)bvec_len != len) {
     /* Smake_bytevector() will raise condition */
     bvec_len = -1;
   }
-  ptr bvec = Smake_bytevector(bvec_len, 0);
-  memcpy(Sbytevector_data(bvec), chars, len);
+  bvec = Smake_bytevector(bvec_len, 0);
+  memcpy(Sbytevector_data(bvec), bytes, len);
   return bvec;
 }
 
@@ -561,18 +566,18 @@ static void c_bytevector_utf8b_to_string_append(
 }
 
 /**
- * convert a C char[] from UTF-8b to Scheme string and return it.
+ * convert a C byte[] from UTF-8b to Scheme string and return it.
  * If out of memory, or required string length > maximum string length, raises condition.
  * If len == (size_t)-1, set len = strlen(chars).
  */
-ptr scheme2k_Sstring_utf8b(const char chars[], size_t len) {
-  if (chars == NULL || len == 0) {
+ptr scheme2k_Sstring_utf8b(const char bytes[], size_t len) {
+  if (bytes == NULL || len == 0) {
     return Smake_string(0, 0);
   }
   if (len == (size_t)-1) {
-    len = strlen(chars);
+    len = strlen(bytes);
   }
-  size_t slen = c_bytes_utf8b_to_string_length((const octet*)chars, len);
+  size_t slen = c_bytes_utf8b_to_string_length((const octet*)bytes, len);
   /* Smake_string() wants iptr length */
   iptr str_len = (iptr)slen;
   if (str_len < 0 || (size_t)str_len != slen) {
@@ -580,7 +585,7 @@ ptr scheme2k_Sstring_utf8b(const char chars[], size_t len) {
     str_len = -1;
   }
   ptr      str = Smake_string(str_len, 0);
-  sizepair ret = c_bytes_utf8b_to_string_append((const octet*)chars, len, str, 0, str_len, Strue);
+  sizepair ret = c_bytes_utf8b_to_string_append((const octet*)bytes, len, str, 0, str_len, Strue);
   if (ret.byte_n == len && ret.char_n == slen) {
     return str;
   }

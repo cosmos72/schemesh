@@ -16,7 +16,7 @@
 #define _FILE_OFFSET_BITS 64
 
 #include "posix.h"
-#include "../containers/containers.h" /* scheme2k_Sbytevector() */
+#include "../containers/containers.h" /* scheme2k_Sbytevector(), scheme2k_Sstring_utf8b() */
 #include "../eval.h"                  /* eval() */
 
 #include <arpa/inet.h> /* inet_pton(), ntohs() */
@@ -2193,13 +2193,13 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_file_fd", &c_file_fd);
   Sregister_symbol("c_pipe_fds", &c_pipe_fds);
 
-  Sregister_symbol("c_getaddrinfo", &c_getaddrinfo);
-  Sregister_symbol("c_sockaddr_inet", &c_sockaddr_inet);
-  Sregister_symbol("c_sockaddr_inet6", &c_sockaddr_inet6);
-  Sregister_symbol("c_sockaddr_unix", &c_sockaddr_unix);
-  Sregister_symbol("c_sockaddr_unix_path_max", &c_sockaddr_unix_path_max);
-  Sregister_symbol("c_sockaddr_port", &c_sockaddr_port);
-  Sregister_symbol("c_sockaddr_to_text", &c_sockaddr_to_text);
+  Sregister_symbol("c_endpoint_inet", &c_endpoint_inet);
+  Sregister_symbol("c_endpoint_inet6", &c_endpoint_inet6);
+  Sregister_symbol("c_endpoint_unix", &c_endpoint_unix);
+  Sregister_symbol("c_endpoint_unix_path_max", &c_endpoint_unix_path_max);
+  Sregister_symbol("c_endpoint_port", &c_endpoint_port);
+  Sregister_symbol("c_endpoint_to_text", &c_endpoint_to_text);
+  Sregister_symbol("c_hostname_to_addr_alist", &c_hostname_to_addr_alist);
   Sregister_symbol("c_socket_accept", &c_socket_accept);
   Sregister_symbol("c_socket_bind", &c_socket_bind);
   Sregister_symbol("c_socket_connect", &c_socket_connect);

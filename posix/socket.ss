@@ -9,7 +9,9 @@
 
 (library (scheme2k posix socket (0 9 2))
   (export
-    make-endpoint endpoint endpoint? endpoint-bytes endpoint-family endpoint-port endpoint->text
+    make-endpoint
+    endpoint endpoint? endpoint-bytes endpoint-family endpoint-port endpoint->text
+    hostname->endpoint-list
     socket-fd socket-connect socket-bind socket-listen socket-accept socket-endpoint socket-peer-endpoint
     socketpair-fds)
   (import
@@ -36,14 +38,13 @@
 
 
 ;; return the port stored in specified endpoint
-;; On errors, raise condition
+;; On errors, return -1. Reason: used also for debugging, raising a condition hampers debugging
 (define endpoint-port
-  (let ((c-endpoint-port (foreign-procedure "c_sockaddr_port" (ptr) int)))
+  (let ((c-endpoint-port (foreign-procedure "c_endpoint_port" (ptr) int)))
     (lambda (endpoint)
-      (let ((ret (c-endpoint-port (endpoint-bytes endpoint))))
-        (unless (fx<=? 0 ret 65535)
-          (raise-c-errno 'endpoint->port 'c_sockaddr_port ret endpoint))
-        ret))))
+      (if (endpoint? endpoint)
+        (c-endpoint-port (endpoint-bytes endpoint))
+        -1))))
 
 
 ;; return a newly allocated string containing the textual representation of address stored in endpoint:
@@ -51,31 +52,57 @@
 ;; - if family is 'inet6, return IPv6 network address in colon-separated hexadecimal format "xxxx:xxxx:..."
 ;;     or in IPv6-mapped IPv4 format "xxxx:xxxx:...:ddd.ddd.ddd.ddd"
 ;; - if family is 'unix, return unix path
-;; On errors, raise condition
+;; On errors, return empty string. Reason: used also for debugging, raising a condition hampers debugging
 (define endpoint->text
-  (let ((c-endpoint-to-data (foreign-procedure "c_sockaddr_to_text" (ptr) ptr)))
+  (let ((c-endpoint-to-text (foreign-procedure "c_endpoint_to_text" (ptr) ptr)))
     (lambda (endpoint)
-      (let ((bv (c-endpoint-to-data (endpoint-bytes endpoint))))
-        (unless (bytevector? bv)
-          (raise-c-errno 'endpoint->text 'inet_ntop bv endpoint))
-        (utf8b->string bv)))))
+      (if (endpoint? endpoint)
+        (let ((str (c-endpoint-to-text (endpoint-bytes endpoint))))
+          (if (string? str) str ""))
+        ""))))
 
-  
 
-(define socket-family-number->name
+(define table-socket-family-number->name
   (alist->eqv-hashtable ((foreign-procedure "c_socket_family_list" () ptr))))
 
-(define socket-family-name->number
-  (hashtable-transpose socket-family-number->name (make-eqv-hashtable)))
+(define table-socket-family-name->number
+  (hashtable-transpose table-socket-family-number->name (make-eq-hashtable)))
 
-(define socket-type-number->name
+(define table-socket-type-number->name
   (alist->eqv-hashtable ((foreign-procedure "c_socket_type_list" () ptr))))
 
-(define socket-type-name->number
-  (hashtable-transpose socket-type-number->name (make-eqv-hashtable)))
+(define table-socket-type-name->number
+  (hashtable-transpose table-socket-type-number->name (make-eq-hashtable)))
 
 
-(define c-sockaddr-unix-path-max ((foreign-procedure "c_sockaddr_unix_path_max" () size_t)))
+(define (socket-family-number->name number)
+  (hashtable-ref table-socket-family-number->name number 'unknown))
+
+;; resolve the IPv4 and IPv6 addresses of specified hostname,
+;; which must be a bytevector, string, bytespan or charspan.
+;;
+;; Return a list of endpoints
+;; On errors, raise condition
+(define hostname->endpoint-list
+  (let ((c-getaddrinfo (foreign-procedure "c_hostname_to_addr_alist" (u8* int u8* unsigned-16) ptr)))
+    (case-lambda
+      ((hostname port)
+        (let* ((hostname0 (text->bytevector0 hostname))
+               (l       (c-getaddrinfo hostname0 0 #f port)))
+          (unless (or (null? l) (pair? l))
+            (raise-c-errno 'hostname->endpoint-list 'c_hostname_to_addr_alist l hostname))
+          (let %endpoint-list ((tail l) (ret '()))
+            (if (null? tail)
+              ret
+              (let* ((item (car tail))
+                     (family (socket-family-number->name (car item)))
+                     (endpoint (make-endpoint family (cdr item))))
+                (%endpoint-list (cdr tail) (cons endpoint ret)))))))
+      ((hostname)
+        (hostname->endpoint-list hostname 0)))))
+
+
+(define c-sockaddr-unix-path-max ((foreign-procedure "c_endpoint_unix_path_max" () size_t)))
 
 
 ;; create an INET socket address.
@@ -85,13 +112,13 @@
 ;; port must be a 16-bit unsigned integer
 ;; On errors, raise condition
 (define endpoint-inet
-  (let ((c-sockaddr-inet (foreign-procedure "c_sockaddr_inet" (u8* unsigned-16) ptr)))
+  (let ((c-sockaddr-inet (foreign-procedure "c_endpoint_inet" (u8* unsigned-16) ptr)))
     (lambda (ipaddr port)
       (assert* 'endpoint-inet (fixnum? port))
       (assert* 'endpoint-inet (fx<=? 0 port 65535))
       (let* ((bytes (c-sockaddr-inet (text->bytevector0 ipaddr) port)))
         (unless (bytevector? bytes)
-          (raise-c-errno 'endpoint-inet 'c_sockaddr_inet bytes ipaddr port))
+          (raise-c-errno 'endpoint-inet 'c_endpoint_inet bytes ipaddr port))
         (make-endpoint 'inet bytes)))))
 
 
@@ -104,20 +131,20 @@
 ;; port must be a 16-bit unsigned integer
 ;; On errors, raise condition
 (define endpoint-inet6
-  (let ((c-sockaddr-inet6 (foreign-procedure "c_sockaddr_inet6" (u8* unsigned-16) ptr)))
+  (let ((c-sockaddr-inet6 (foreign-procedure "c_endpoint_inet6" (u8* unsigned-16) ptr)))
     (lambda (ipaddr6 port)
       (assert* 'endpoint-inet6 (fixnum? port))
       (assert* 'endpoint-inet6 (fx<=? 0 port 65535))
       (let ((bytes (c-sockaddr-inet6 (text->bytevector0 ipaddr6) port)))
         (unless (bytevector? bytes)
-          (raise-c-errno 'endpoint-inet6 'c_sockaddr_inet6 bytes ipaddr6 port))
+          (raise-c-errno 'endpoint-inet6 'c_endpoint_inet6 bytes ipaddr6 port))
         (make-endpoint 'inet6 bytes)))))
 
 
 ;; create a UNIX socket address. path must be a bytevector, string, bytespan or charspan
 ;; On errors, raise condition
 (define endpoint-unix
-  (let ((c-sockaddr-unix (foreign-procedure "c_sockaddr_unix" (ptr) ptr)))
+  (let ((c-sockaddr-unix (foreign-procedure "c_endpoint_unix" (ptr) ptr)))
     (lambda (path)
       (let ((path (text->bytevector path)))
         (assert* 'endpoint-unix (fx<? (bytevector-length path) c-sockaddr-unix-path-max))
@@ -169,8 +196,8 @@
   (let ((c_socket_fd (foreign-procedure "c_socket_fd" (int int int ptr) int)))
     (case-lambda
       ((family type protocol close-on-exec?)
-        (let ((family-int (hashtable-ref socket-family-name->number family #f))
-              (type-int   (hashtable-ref socket-type-name->number type #f)))
+        (let ((family-int (hashtable-ref table-socket-family-name->number family #f))
+              (type-int   (hashtable-ref table-socket-type-name->number type #f)))
           (assert* 'socket-fd family-int)
           (assert* 'socket-fd type-int)
           (assert* 'socket-fd (eq? protocol 'default))
@@ -281,7 +308,7 @@
     (lambda (socket peer?)
       (let ((ret (c-socket-sockaddr2 socket (if peer? 1 0))))
         (if (pair? ret)
-          (let ((family (hashtable-ref socket-family-number->name (car ret) 'unknown)))
+          (let ((family (socket-family-number->name (car ret))))
             (make-endpoint family (cdr ret)))
           (raise-c-errno
             (if peer? 'socket-peer-endpoint 'socket-endpoint)
