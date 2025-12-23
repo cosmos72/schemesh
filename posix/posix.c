@@ -83,6 +83,8 @@ static ptr c_namepair_list(const namepair pairs[], size_t n);
 
 /** signal.h defines a lot of static functions */
 #include "signal.h"
+
+#include "endpoint.h"
 #include "socket.h"
 
 static int c_fd_open_max(void);
@@ -2197,15 +2199,13 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_endpoint_inet6", &c_endpoint_inet6);
   Sregister_symbol("c_endpoint_unix", &c_endpoint_unix);
   Sregister_symbol("c_endpoint_unix_path_max", &c_endpoint_unix_path_max);
-  Sregister_symbol("c_endpoint_port", &c_endpoint_port);
-  Sregister_symbol("c_endpoint_to_text", &c_endpoint_to_text);
-  Sregister_symbol("c_hostname_to_addr_alist", &c_hostname_to_addr_alist);
+  Sregister_symbol("c_hostname_to_endpoint_list", &c_hostname_to_endpoint_list);
   Sregister_symbol("c_socket_accept", &c_socket_accept);
   Sregister_symbol("c_socket_bind", &c_socket_bind);
   Sregister_symbol("c_socket_connect", &c_socket_connect);
   Sregister_symbol("c_socket_listen", &c_socket_listen);
   Sregister_symbol("c_socket_fd", &c_socket_fd);
-  Sregister_symbol("c_socket_sockaddr2", &c_socket_sockaddr2);
+  Sregister_symbol("c_socket_endpoint2", &c_socket_endpoint2);
   Sregister_symbol("c_socket_family_list", &c_socket_family_list);
   Sregister_symbol("c_socket_type_list", &c_socket_type_list);
   Sregister_symbol("c_socketpair_fds", &c_socketpair_fds);

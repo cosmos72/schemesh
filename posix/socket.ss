@@ -9,57 +9,47 @@
 
 (library (scheme2k posix socket (0 9 2))
   (export
-    make-endpoint
-    endpoint endpoint? endpoint-bytes endpoint-family endpoint-port endpoint->text
+    make-endpoint endpoint-type endpoint endpoint?
+    endpoint-address endpoint-bytes endpoint-family endpoint-port endpoint-constructor
     hostname->endpoint-list
     socket-fd socket-connect socket-bind socket-listen socket-accept socket-endpoint socket-peer-endpoint
     socketpair-fds)
   (import
     (rnrs)
-    (only (chezscheme)                    bytevector->immutable-bytevector foreign-procedure procedure-arity-mask record-writer void)
-    (only (scheme2k bootstrap)            assert* check-interrupts)
-    (only (scheme2k conversions)          text->bytevector text->bytevector0)
+    (only (chezscheme)                    bytevector->immutable-bytevector foreign-procedure procedure-arity-mask
+                                          record-writer string->immutable-string void)
+    (only (scheme2k bootstrap)            assert* check-interrupts raise-assert*)
+    (only (scheme2k conversions)          text->bytevector text->bytevector0 text->string)
     (only (scheme2k containers utf8b)     utf8b->string)
     (only (scheme2k containers hashtable) alist->eqv-hashtable eq-hashtable hashtable-transpose)
     (only (scheme2k posix fd)             raise-c-errno))
 
 
-(define-record-type (%endpoint %make-endpoint endpoint?)
+(define c-endpoint-inet6 (foreign-procedure "c_endpoint_inet6" (ptr unsigned-16) ptr))
+(define c-endpoint-unix  (foreign-procedure "c_endpoint_unix"  (ptr unsigned-16) ptr))
+
+;; generic socket endpoint
+(define-record-type (endpoint-type make-endpoint endpoint?)
   (fields
-    (immutable family  endpoint-family) ; a symbol among 'inet 'inet6 'unix ...
-    (immutable bytes   endpoint-bytes))  ; an immutable bytevector containing C sockaddr_* bytes
-  (nongenerative endpoint-7c46d04b-34f4-4046-b5c7-b63753c1be39))
-
-
-(define (make-endpoint family bytes)
-  (assert* 'make-endpoint (symbol? family))
-  (assert* 'make-endpoint (bytevector? bytes))
-  (%make-endpoint family (bytevector->immutable-bytevector bytes)))
-
-
-;; return the port stored in specified endpoint
-;; On errors, return -1. Reason: used also for debugging, raising a condition hampers debugging
-(define endpoint-port
-  (let ((c-endpoint-port (foreign-procedure "c_endpoint_port" (ptr) int)))
-    (lambda (endpoint)
-      (if (endpoint? endpoint)
-        (c-endpoint-port (endpoint-bytes endpoint))
-        -1))))
-
-
-;; return a newly allocated string containing the textual representation of address stored in endpoint:
-;; - if family is 'inet, return IPv4 network address in dotted-decimal format, "ddd.ddd.ddd.ddd"
-;; - if family is 'inet6, return IPv6 network address in colon-separated hexadecimal format "xxxx:xxxx:..."
-;;     or in IPv6-mapped IPv4 format "xxxx:xxxx:...:ddd.ddd.ddd.ddd"
-;; - if family is 'unix, return unix path
-;; On errors, return empty string. Reason: used also for debugging, raising a condition hampers debugging
-(define endpoint->text
-  (let ((c-endpoint-to-text (foreign-procedure "c_endpoint_to_text" (ptr) ptr)))
-    (lambda (endpoint)
-      (if (endpoint? endpoint)
-        (let ((str (c-endpoint-to-text (endpoint-bytes endpoint))))
-          (if (string? str) str ""))
-        ""))))
+    (immutable family  endpoint-family)  ; symbol: one of 'inet 'inet6 'unix ...
+    (immutable address endpoint-address) ; immutable string. one of:
+                                         ;   IPv4 addess in dotted decimal notation "ddd.ddd.ddd.ddd"
+                                         ;   IPv6 addess in colon-separated hexadecimal notation "xxxx:xxxx:..."
+                                         ;   unix socket path
+    (immutable port    endpoint-port)    ; unsigned-16 TCP or UDP port, or -1
+    (immutable bytes   endpoint-bytes))  ; immutable bytevector containing C sockaddr_* bytes
+  (protocol
+    (lambda (new)
+      (lambda (family address port bytes)
+        (assert* 'make-endpoint (symbol? family))
+        (assert* 'make-endpoint (bytevector? bytes))
+        (assert* 'make-endpoint (fixnum? port))
+        (assert* 'make-endpoint (fx<=? -1 port 65535))
+        (new family
+             (string->immutable-string (text->string address))
+             port
+             (bytevector->immutable-bytevector bytes)))))
+  (nongenerative endpoint-type-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
 
 (define table-socket-family-number->name
@@ -78,105 +68,126 @@
 (define (socket-family-number->name number)
   (hashtable-ref table-socket-family-number->name number 'unknown))
 
+
 ;; resolve the IPv4 and IPv6 addresses of specified hostname,
 ;; which must be a bytevector, string, bytespan or charspan.
 ;;
 ;; Return a list of endpoints
 ;; On errors, raise condition
 (define hostname->endpoint-list
-  (let ((c-getaddrinfo (foreign-procedure "c_hostname_to_addr_alist" (u8* int u8* unsigned-16) ptr)))
+  (let ((c-getaddrinfo (foreign-procedure "c_hostname_to_endpoint_list" (u8* int u8* unsigned-16) ptr)))
     (case-lambda
       ((hostname port)
         (let* ((hostname0 (text->bytevector0 hostname))
-               (l       (c-getaddrinfo hostname0 0 #f port)))
+               (l         (c-getaddrinfo hostname0 0 #f port)))
           (unless (or (null? l) (pair? l))
-            (raise-c-errno 'hostname->endpoint-list 'c_hostname_to_addr_alist l hostname))
+            (raise-c-errno 'hostname->endpoint-list 'c_hostname_to_endpoint_list l hostname))
           (let %endpoint-list ((tail l) (ret '()))
             (if (null? tail)
               ret
               (let* ((item (car tail))
-                     (family (socket-family-number->name (car item)))
-                     (endpoint (make-endpoint family (cdr item))))
+                     (family (socket-family-number->name (vector-ref item 0)))
+                     (endpoint
+                       (make-endpoint family (vector-ref item 1) (vector-ref item 2) (vector-ref item 3))))
                 (%endpoint-list (cdr tail) (cons endpoint ret)))))))
       ((hostname)
         (hostname->endpoint-list hostname 0)))))
 
 
-(define c-sockaddr-unix-path-max ((foreign-procedure "c_endpoint_unix_path_max" () size_t)))
+(define c-endpoint-unix-path-max ((foreign-procedure "c_endpoint_unix_path_max" () size_t)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-;; create an INET socket address.
-;; ipaddr must be one of:
+
+;; create and return an INET (i.e. IPv4) socket endpoint
+;; address must be one of:
 ;;   - a bytevector, string, bytespan or charspan containing decimal dotted notation, as for example "127.0.0.1"
 ;;   - (unimplemented) a 32-bit unsigned integer, as for example #x7f000001
 ;; port must be a 16-bit unsigned integer
 ;; On errors, raise condition
-(define endpoint-inet
-  (let ((c-sockaddr-inet (foreign-procedure "c_endpoint_inet" (u8* unsigned-16) ptr)))
-    (lambda (ipaddr port)
+(define make-endpoint-inet
+  (let ((c-endpoint-inet  (foreign-procedure "c_endpoint_inet"  (u8* unsigned-16) ptr)))
+    (lambda (address port)
       (assert* 'endpoint-inet (fixnum? port))
       (assert* 'endpoint-inet (fx<=? 0 port 65535))
-      (let* ((bytes (c-sockaddr-inet (text->bytevector0 ipaddr) port)))
-        (unless (bytevector? bytes)
-          (raise-c-errno 'endpoint-inet 'c_endpoint_inet bytes ipaddr port))
-        (make-endpoint 'inet bytes)))))
+      (let* ((address-bv0 (text->bytevector0 address))
+             (bytes       (c-endpoint-inet address-bv0 port)))
+        (make-endpoint 'inet address port bytes)))))
 
 
-;; create an INET6 socket address.
-;; ipaddr6 must be one of:
+;; create and return an INET6 (i.e. IPv6) socket endpoint
+;; address must be one of:
 ;;   - a bytevector, string, bytespan or charspan containing either
 ;;        -- hexadecimal notation, as for example "::ffff:0001"
 ;;        -- an IPv4-mapped IPv6 address, as for example "::ffff:204.152.189.116"
 ;;   - (unimplemented) a 128-bit unsigned integer, as for example #xffff0001000200030004000500060007
 ;; port must be a 16-bit unsigned integer
 ;; On errors, raise condition
-(define endpoint-inet6
-  (let ((c-sockaddr-inet6 (foreign-procedure "c_endpoint_inet6" (u8* unsigned-16) ptr)))
-    (lambda (ipaddr6 port)
+(define make-endpoint-inet6
+  (let ((c-endpoint-inet6  (foreign-procedure "c_endpoint_inet6"  (u8* unsigned-16) ptr)))
+    (lambda (address port)
       (assert* 'endpoint-inet6 (fixnum? port))
       (assert* 'endpoint-inet6 (fx<=? 0 port 65535))
-      (let ((bytes (c-sockaddr-inet6 (text->bytevector0 ipaddr6) port)))
-        (unless (bytevector? bytes)
-          (raise-c-errno 'endpoint-inet6 'c_endpoint_inet6 bytes ipaddr6 port))
-        (make-endpoint 'inet6 bytes)))))
+      (let* ((address-bv0 (text->bytevector0 address))
+             (bytes       (c-endpoint-inet6 address-bv0 port)))
+        (make-endpoint 'inet6 address port bytes)))))
 
 
-;; create a UNIX socket address. path must be a bytevector, string, bytespan or charspan
+;; create and return a UNIX socket endpoint.
+;; path must be a bytevector, string, bytespan or charspan
 ;; On errors, raise condition
-(define endpoint-unix
-  (let ((c-sockaddr-unix (foreign-procedure "c_endpoint_unix" (ptr) ptr)))
+(define make-endpoint-unix
+  (let ((c-endpoint-unix  (foreign-procedure "c_endpoint_unix"  (ptr) ptr)))
     (lambda (path)
-      (let ((path (text->bytevector path)))
-        (assert* 'endpoint-unix (fx<? (bytevector-length path) c-sockaddr-unix-path-max))
-        (let ((bytes (c-sockaddr-unix path)))
-          (unless (bytevector? bytes)
-            (raise-c-errno 'endpoint-unix 'c-sockaddr-unix bytes path))
-          (make-endpoint 'unix bytes))))))
+      (let ((path-bv  (text->bytevector path)))
+        (assert* 'make-endpoint-unix (fx<? (bytevector-length path-bv) c-endpoint-unix-path-max))
+        (let ((bytes (c-endpoint-unix path-bv)))
+          (make-endpoint 'unix path -1 bytes))))))
 
 
-;; return hashtable family -> procedure of known endpoint constructors
-(define endpoint-constructors
-  (let ((htable (eq-hashtable 'inet endpoint-inet 'inet6 endpoint-inet6 'unix endpoint-unix)))
-    (lambda ()
-      htable)))
+;; hashtable family -> procedure for creating endpoint of such family
+(define table-endpoint-constructor
+  (eq-hashtable 'inet make-endpoint-inet 'inet6 make-endpoint-inet6 'unix make-endpoint-unix))
 
 
-;; return procedure to construct endpoint for specified family
-(define (endpoint-constructor family)
-  (let ((constructor (hashtable-ref (endpoint-constructors) family #f)))
-    (assert* 'endpoint (procedure? constructor))
-    constructor))
+;; set or return procedure for creating endpoint for specified family
+;; Raise condition if procedure for family is not found
+(define endpoint-constructor
+  (case-lambda
+    ((family)
+      ;; return procedure for creating endpoint for family
+      (let ((constructor (hashtable-ref table-endpoint-constructor family #f)))
+        (unless (procedure? constructor)
+          (raise-assert* 'endpoint "(endpoint-constructor family)" family))
+        constructor))
+    ((family constructor)
+      ;; set procedure for creating endpoint for family
+      (assert* 'endpoint-constructor (symbol? family))
+      (assert* 'endpoint-constructor (procedure? constructor))
+      ;; procedure must accept 1 or more args i.e. not zero
+      (assert* 'endpoint-constructor (> (procedure-arity-mask constructor) 1))
+      (hashtable-set! table-endpoint-constructor family constructor))))
 
 
-;; create and return a socket address
+;; create and return an endpoint
 ;; On errors, raise condition
 (define endpoint
   (case-lambda
-    ((family ipaddr port)
-      ((endpoint-constructor family) ipaddr port))
     ((family path)
-      ((endpoint-constructor family) path))))
+      (let ((e ((endpoint-constructor family) path)))
+        (assert* 'endpoint (endpoint? e))
+        e))
+    ((family address port)
+      (let ((e ((endpoint-constructor family) address port)))
+        (assert* 'endpoint (endpoint? e))
+        e))
+    ((family arg1 arg2 arg3 . args)
+      (let ((e (apply (endpoint-constructor family) arg1 arg2 arg3 args)))
+        (assert* 'endpoint (endpoint? e))
+        e))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define c-errno-eintr       ((foreign-procedure "c_errno_eintr" () int)))
 (define c-errno-eagain      ((foreign-procedure "c_errno_eagain" () int)))
@@ -213,7 +224,7 @@
         (socket-fd family 'stream 'default 'close-on-exec)))))
 
 
-;; Connect a socket to a remote address.
+;; Connect a socket to an endpoint.
 ;; If socket is in blocking mode, blocks until connection either succeeds or fails.
 ;; Mandatory arguments:
 ;;   socket   an integer file descriptor corresponding to an open socket
@@ -225,21 +236,21 @@
 ;;   On other errors, raise condition
 (define socket-connect
   (let ((c-socket-connect (foreign-procedure "c_socket_connect" (int u8* size_t) int)))
-    (lambda (socket endpoint)
-      (assert* 'socket-connect (endpoint? endpoint))
+    (lambda (socket e)
+      (assert* 'socket-connect (endpoint? e))
       (check-interrupts)
-      (let* ((bytes (endpoint-bytes endpoint))
+      (let* ((bytes (endpoint-bytes e))
              (err   (c-socket-connect socket bytes (bytevector-length bytes))))
         (check-interrupts)
         (cond
           ((zero? err)
             (void))
           ((eqv? err c-errno-eintr)
-            (socket-connect socket endpoint))
+            (socket-connect socket e))
           ((or (eqv? err c-errno-eagain) (eqv? err c-errno-einprogress))
             #f)
           (else
-            (raise-c-errno 'socket-connect 'connect err socket endpoint)))))))
+            (raise-c-errno 'socket-connect 'connect err socket e)))))))
 
 
 ;; Bind a socket to a local address.
@@ -250,12 +261,12 @@
 ;; On errors, raise condition
 (define socket-bind
   (let ((c-socket-bind (foreign-procedure "c_socket_bind" (int u8* size_t) int)))
-    (lambda (socket endpoint)
-      (assert* 'socket-bind (endpoint? endpoint))
-      (let* ((bytes (endpoint-bytes endpoint))
+    (lambda (socket e)
+      (assert* 'socket-bind (endpoint? e))
+      (let* ((bytes (endpoint-bytes e))
              (err   (c-socket-bind socket bytes (bytevector-length bytes))))
         (unless (zero? err)
-          (raise-c-errno 'socket-bind 'bind err socket endpoint))))))
+          (raise-c-errno 'socket-bind 'bind err socket e))))))
 
 
 ;; Listen on a socket.
@@ -303,25 +314,27 @@
             (raise-c-errno 'socket-accept 'accept ret socket)))))))
 
 
-(define socket-sockaddr2
-  (let ((c-socket-sockaddr2 (foreign-procedure "c_socket_sockaddr2" (int int) ptr)))
+(define socket-endpoint2
+  (let ((c-socket-endpoint2 (foreign-procedure "c_socket_endpoint2" (int int) ptr)))
     (lambda (socket peer?)
-      (let ((ret (c-socket-sockaddr2 socket (if peer? 1 0))))
-        (if (pair? ret)
-          (let ((family (socket-family-number->name (car ret))))
-            (make-endpoint family (cdr ret)))
+      (let ((vec (c-socket-endpoint2 socket (if peer? 1 0))))
+        (if (vector? vec)
+          (let ((family (socket-family-number->name (vector-ref vec 0))))
+            (make-endpoint family (vector-ref vec 1) (vector-ref vec 2) (vector-ref vec 3)))
           (raise-c-errno
             (if peer? 'socket-peer-endpoint 'socket-endpoint)
             (if peer? 'getpeername 'getsockname)
-            ret socket))))))
+            vec socket))))))
 
 
+;; return the endpoint of a bound or connected socket
 (define (socket-endpoint socket)
-  (socket-sockaddr2 socket #f))
+  (socket-endpoint2 socket #f))
 
 
+;; return the peer's endpoint of a bound or connected socket
 (define (socket-peer-endpoint socket)
-  (socket-sockaddr2 socket 'peer))
+  (socket-endpoint2 socket 'peer))
 
 
 ;; create a pair of mutually connected AF_UNIX socket file descriptors.
@@ -344,16 +357,18 @@
         (socketpair-fds 'close-on-exec 'close-on-exec)))))
 
 
-;; customize how "endpoint" objects are printed
-(record-writer (record-type-descriptor %endpoint)
-  (lambda (e port writer)
-    (display "(endpoint '" port)
-    (write (endpoint-family e) port)
-    (display #\space port)
-    (write (endpoint->text e) port)
-    (when (memq (endpoint-family e) '(inet inet6))
-      (display #\space port)
-      (display (endpoint-port e) port))
-    (display ")" port)))
+;; customize how "endpoint-type" objects are printed
+(record-writer (record-type-descriptor endpoint-type)
+  (lambda (e out writer)
+    (display "(endpoint '" out)
+    (write (endpoint-family e) out)
+    (display #\space out)
+    (write (endpoint-address e) out)
+    (let ((port (endpoint-port e)))
+      (when (and (fixnum? port) (fx<=? 0 port 65535))
+        (display #\space out)
+        (display port out)))
+    (display ")" out)))
+
 
 ) ; close library
