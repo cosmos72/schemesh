@@ -81,12 +81,6 @@ static int c_errno(void);
 static int c_errno_set(int errno_value);
 static ptr c_namepair_list(const namepair pairs[], size_t n);
 
-/** signal.h defines a lot of static functions */
-#include "signal.h"
-
-#include "endpoint.h"
-#include "socket.h"
-
 static int c_fd_open_max(void);
 static int c_job_control_available(void);
 
@@ -151,9 +145,15 @@ static const char* c_strerror(int err) {
   return strerror(err < 0 ? -err : err);
 }
 
-static ptr c_strerror_string(int err) {
+static ptr c_errno_to_string(int err) {
   return scheme2k_Sstring_utf8b(c_strerror(err), -1);
 }
+
+/** signal.h defines a lot of static functions */
+#include "signal.h"
+
+#include "endpoint.h"
+#include "socket.h"
 
 int scheme2k_init_failed(const char label[]) {
   const int err = c_errno();
@@ -2172,9 +2172,9 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_errno_enoent", &c_errno_enoent);
   Sregister_symbol("c_errno_enotdir", &c_errno_enotdir);
   Sregister_symbol("c_errno_esrch", &c_errno_esrch);
+  Sregister_symbol("c_errno_to_string", &c_errno_to_string);
 
   Sregister_symbol("c_environ_ref", &c_environ_ref);
-  Sregister_symbol("c_strerror_string", &c_strerror_string);
   Sregister_symbol("c_chdir", &c_chdir);
   Sregister_symbol("c_get_cwd", &c_get_cwd);
   Sregister_symbol("c_mkdir", &c_mkdir);
@@ -2200,6 +2200,7 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_endpoint_unix", &c_endpoint_unix);
   Sregister_symbol("c_endpoint_unix_path_max", &c_endpoint_unix_path_max);
   Sregister_symbol("c_hostname_to_endpoint_list", &c_hostname_to_endpoint_list);
+  Sregister_symbol("c_hostname_error_to_string", &c_hostname_error_to_string);
   Sregister_symbol("c_socket_accept", &c_socket_accept);
   Sregister_symbol("c_socket_bind", &c_socket_bind);
   Sregister_symbol("c_socket_connect", &c_socket_connect);

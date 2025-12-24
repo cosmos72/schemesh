@@ -24,7 +24,7 @@
 
 (define c-errno         (foreign-procedure "c_errno" () int))
 (define c-errno-einval  ((foreign-procedure "c_errno_einval" () int))) ;; integer, not a procedure
-(define c-errno->string (foreign-procedure "c_strerror_string" (int) ptr))
+(define c-errno->string (foreign-procedure "c_errno_to_string" (int) ptr))
 (define c-exit          (foreign-procedure "c_exit" (int) int))
 
 (define c-hostname

@@ -14,6 +14,10 @@
 
 #include "eval.h"
 
+#ifndef SCHEMESH_DIR
+#error "please #define SCHEMESH_DIR to the desired installation path of schemesh"
+#endif
+
 #define LIBSCHEMESH_SO "libschemesh_0.9.2.so"
 
 #define STR_(arg) #arg
@@ -41,5 +45,5 @@ int schemesh_load_library(const char* override_library_dir) {
 }
 
 void schemesh_import_all_libraries(void) {
-  scheme2k_eval("(import (schemesh))\n");
+  scheme2k_eval("(import (schemesh))");
 }

@@ -18,15 +18,12 @@
     (rnrs)
     (only (chezscheme)                    bytevector->immutable-bytevector foreign-procedure procedure-arity-mask
                                           record-writer string->immutable-string void)
-    (only (scheme2k bootstrap)            assert* check-interrupts raise-assert*)
+    (only (scheme2k bootstrap)            assert* check-interrupts raise-assert* raise-errorf)
     (only (scheme2k conversions)          text->bytevector text->bytevector0 text->string)
     (only (scheme2k containers utf8b)     utf8b->string)
     (only (scheme2k containers hashtable) alist->eqv-hashtable eq-hashtable hashtable-transpose)
     (only (scheme2k posix fd)             raise-c-errno))
 
-
-(define c-endpoint-inet6 (foreign-procedure "c_endpoint_inet6" (ptr unsigned-16) ptr))
-(define c-endpoint-unix  (foreign-procedure "c_endpoint_unix"  (ptr unsigned-16) ptr))
 
 ;; generic socket endpoint
 (define-record-type (endpoint-type make-endpoint endpoint?)
@@ -69,19 +66,26 @@
   (hashtable-ref table-socket-family-number->name number 'unknown))
 
 
+(define raise-c-hostname-error
+  (let ((c-hostname-error->string (foreign-procedure "c_hostname_error_to_string" (int) ptr)))
+    (lambda (who c-who c-error . c-args)
+      (raise-errorf who "C function ~s~s failed with error ~s: ~a"
+        c-who c-args c-error (if (integer? c-error) (c-hostname-error->string c-error) "unknown error")))))
+
+
 ;; resolve the IPv4 and IPv6 addresses of specified hostname,
 ;; which must be a bytevector, string, bytespan or charspan.
 ;;
 ;; Return a list of endpoints
 ;; On errors, raise condition
 (define hostname->endpoint-list
-  (let ((c-getaddrinfo (foreign-procedure "c_hostname_to_endpoint_list" (u8* int u8* unsigned-16) ptr)))
+  (let ((c-hostname->endpoint-list (foreign-procedure "c_hostname_to_endpoint_list" (u8* int u8* unsigned-16) ptr)))
     (case-lambda
       ((hostname port)
         (let* ((hostname0 (text->bytevector0 hostname))
-               (l         (c-getaddrinfo hostname0 0 #f port)))
+               (l         (c-hostname->endpoint-list hostname0 0 #f port)))
           (unless (or (null? l) (pair? l))
-            (raise-c-errno 'hostname->endpoint-list 'c_hostname_to_endpoint_list l hostname))
+            (raise-c-hostname-error 'hostname->endpoint-list 'getaddrinfo l hostname port))
           (let %endpoint-list ((tail l) (ret '()))
             (if (null? tail)
               ret
@@ -107,7 +111,7 @@
 ;; port must be a 16-bit unsigned integer
 ;; On errors, raise condition
 (define make-endpoint-inet
-  (let ((c-endpoint-inet  (foreign-procedure "c_endpoint_inet"  (u8* unsigned-16) ptr)))
+  (let ((c-endpoint-inet (foreign-procedure "c_endpoint_inet"  (u8* unsigned-16) ptr)))
     (lambda (address port)
       (assert* 'endpoint-inet (fixnum? port))
       (assert* 'endpoint-inet (fx<=? 0 port 65535))
@@ -125,7 +129,7 @@
 ;; port must be a 16-bit unsigned integer
 ;; On errors, raise condition
 (define make-endpoint-inet6
-  (let ((c-endpoint-inet6  (foreign-procedure "c_endpoint_inet6"  (u8* unsigned-16) ptr)))
+  (let ((c-endpoint-inet6 (foreign-procedure "c_endpoint_inet6"  (u8* unsigned-16) ptr)))
     (lambda (address port)
       (assert* 'endpoint-inet6 (fixnum? port))
       (assert* 'endpoint-inet6 (fx<=? 0 port 65535))
@@ -138,7 +142,7 @@
 ;; path must be a bytevector, string, bytespan or charspan
 ;; On errors, raise condition
 (define make-endpoint-unix
-  (let ((c-endpoint-unix  (foreign-procedure "c_endpoint_unix"  (ptr) ptr)))
+  (let ((c-endpoint-unix (foreign-procedure "c_endpoint_unix"  (ptr) ptr)))
     (lambda (path)
       (let ((path-bv  (text->bytevector path)))
         (assert* 'make-endpoint-unix (fx<? (bytevector-length path-bv) c-endpoint-unix-path-max))

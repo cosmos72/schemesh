@@ -149,7 +149,7 @@ static void c_endpoint_set_port(struct sockaddr* saddr, socklen_t len, uint16_t 
  *   the resolved IP address, converted to a Scheme string
  *   override_port
  *   a C sockaddr containing all the above, wrapped in a Scheme bytevector
- * On error, return Sinteger(c_errno())
+ * On error, return Sinteger(EAI_*)
  */
 static ptr c_hostname_to_endpoint_list(const char* hostname,
                                        int         preferred_family,
@@ -157,14 +157,13 @@ static ptr c_hostname_to_endpoint_list(const char* hostname,
                                        uint16_t    override_port) {
   int err = 0;
   if (!hostname) {
-    err = c_errno_set(EINVAL);
+    c_errno_set(EINVAL);
+    err = EAI_SYSTEM;
   } else {
     struct addrinfo  hints = {};
     struct addrinfo* list  = NULL;
     hints.ai_family        = preferred_family;
-    if (getaddrinfo(hostname, servicename_or_port, &hints, &list) != 0) {
-      err = c_errno();
-    } else {
+    if ((err = getaddrinfo(hostname, servicename_or_port, &hints, &list)) == 0) {
       struct addrinfo* info     = list;
       ptr              ret      = Snil;
       struct sockaddr* prev     = NULL;
@@ -189,6 +188,13 @@ static ptr c_hostname_to_endpoint_list(const char* hostname,
     }
   }
   return Sinteger(err);
+}
+
+static ptr c_hostname_error_to_string(int err) {
+  if (err == 0 || err == EAI_SYSTEM) {
+    return c_errno_to_string(c_errno());
+  }
+  return scheme2k_Sstring_utf8b(gai_strerror(err), -1);
 }
 
 /** create a bytevector containing a sockaddr_inet with specified IPv4 address and port */

@@ -627,15 +627,15 @@ static void c_flvector_copy(ptr src, ptr src_start, ptr dst, ptr dst_start, ptr 
 
 static void c_fxvector_copy(ptr src, ptr src_start, ptr dst, ptr dst_start, ptr count) {
 #if 0 /* redundant, already checked by Scheme function (fxvector-copy!) */
-      if (Sfxvectorp(src) && Sfixnump(src_start) && Sfxvectorp(dst) && Sfixnump(dst_start) &&
-          Sfixnump(n))
+  if (Sfxvectorp(src) && Sfixnump(src_start) && Sfxvectorp(dst) && Sfixnump(dst_start) &&
+      Sfixnump(n))
 #endif
   {
     iptr src_i = Sfixnum_value(src_start);
     iptr dst_i = Sfixnum_value(dst_start);
     iptr n     = Sfixnum_value(count);
 #if 0 /* redundant, already checked by Scheme function (fxvector-copy!) */
-        if (src_offset >= 0 && dst_offset >= 0 && n > 0)
+    if (src_offset >= 0 && dst_offset >= 0 && n > 0)
 #endif
     {
       const ptr* src_addr = &Sfxvector_ref(src, src_i);
