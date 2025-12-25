@@ -7,6 +7,7 @@
 * add shell builtin `ulimit`
 * add key bindings for more xterm keys
 * add macro `(for-glob)`
+* rename function `(channel-fd)` -> `(channel)`
 * rename function `(in-shell-glob)` -> `(in-glob)`
 * rename function `(open-pipe-fds)` -> `(pipe-fds)`
 * rename function `(open-socketpair-fds)` -> `(socketpair-fds)`

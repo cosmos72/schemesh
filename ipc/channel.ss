@@ -13,7 +13,8 @@
 ;;; data is serialized/deserialized with library (scheme2k wire)
 ;;;
 (library (scheme2k ipc channel (0 9 2))
-  (export channel? channel-close channel-fd channel-pipe-pair channel-socket-pair
+  (export (rename (%channel channel))
+          channel? channel-close channel-pipe-pair channel-socket-pair
           channel-get channel-eof? channel-put in-channel)
   (import
     (rnrs)
@@ -48,20 +49,20 @@
 
 
 ;; create and return a channel that reads/writes serialized data from/to specified file descriptors
-(define channel-fd
+(define %channel
   (case-lambda
     ((read-write-fd)
-      (assert* 'channel-fd (fixnum? read-write-fd))
-      (assert* 'channel-fd (fx>=? read-write-fd 0))
-      (channel-fd read-write-fd read-write-fd))
+      (assert* 'channel (fixnum? read-write-fd))
+      (assert* 'channel (fx>=? read-write-fd 0))
+      (%channel read-write-fd read-write-fd))
 
     ((read-fd-or-false write-fd-or-false)
       (when read-fd-or-false
-        (assert* 'channel-fd (fixnum? read-fd-or-false))
-        (assert* 'channel-fd (fx>=? read-fd-or-false 0)))
+        (assert* 'channel (fixnum? read-fd-or-false))
+        (assert* 'channel (fx>=? read-fd-or-false 0)))
       (when write-fd-or-false
-        (assert* 'channel-fd (fixnum? write-fd-or-false))
-        (assert* 'channel-fd (fx>=? write-fd-or-false 0)))
+        (assert* 'channel (fixnum? write-fd-or-false))
+        (assert* 'channel (fx>=? write-fd-or-false 0)))
       (make-channel read-fd-or-false
                     write-fd-or-false
                     (not read-fd-or-false)
@@ -74,7 +75,7 @@
 ;; the second channel writes serialized data to the write side of the same pipe (which is a different file descriptor).
 (define (channel-pipe-pair)
   (let-values (((read-fd write-fd) (pipe-fds #t #t))) ; mark both pipe file descriptors as close-on-exec
-    (values (channel-fd read-fd #f) (channel-fd #f write-fd))))
+    (values (%channel read-fd #f) (%channel #f write-fd))))
 
 
 ;; create and return two connected channels:
@@ -82,7 +83,7 @@
 ;; the second channel reads and writes serialized data from/to the second socket of the same socket pair (which is a different file descriptor).
 (define (channel-socket-pair)
   (let-values (((socket1 socket2) (socketpair-fds #t #t))) ; mark both socket file descriptors as close-on-exec
-    (values (channel-fd socket1) (channel-fd socket2))))
+    (values (%channel socket1) (%channel socket2))))
 
 
 ;; serialize datum, and write its serialized representation to the channel's write file descriptor.
@@ -170,7 +171,7 @@
 ;; customize how "channel" objects are printed
 (record-writer (record-type-descriptor channel)
   (lambda (c port writer)
-    (display "(channel-fd " port)
+    (display "(channel " port)
     (let ((read-fd  (channel-read-fd c))
           (write-fd (channel-write-fd c)))
       (display read-fd port)
