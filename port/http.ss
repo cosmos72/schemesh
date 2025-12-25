@@ -114,6 +114,7 @@
         (else
           got)))))
 
+
 (define validate-transcoder-sym
   (let ((allowed-transcoder-syms '(binary text utf8b)))
     (lambda (who transcoder-sym)

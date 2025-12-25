@@ -156,7 +156,6 @@
         (check-interrupts)
         (let ((ret (with-locked-objects (bytevector-result)
                      (c-fd-read fd bytevector-result start end))))
-          (check-interrupts)
           (if (or (eq? #t ret) (and (integer? ret) (>= ret 0)))
             ret
             (raise-c-errno 'fd-read 'read ret fd #vu8() start end))))
@@ -174,7 +173,6 @@
       (let %loop ()
         (check-interrupts)
         (let ((ret (c-fd-read-u8 fd)))
-          (check-interrupts)
           (cond
             ((and (fixnum? ret) (fx<=? 0 ret 255))
               ret)
@@ -234,7 +232,6 @@
         (check-interrupts)
         (let ((ret (with-locked-objects (bytevector-towrite)
                      (c-fd-write fd bytevector-towrite start end))))
-          (check-interrupts)
           (if (or (eq? #t ret) (and (integer? ret) (>= ret 0)))
             ret
             (raise-c-errno 'fd-write 'write ret fd #vu8() start end))))
@@ -254,11 +251,10 @@
       (let %loop ()
         (check-interrupts)
         (let ((ret (c-fd-write-u8 fd u8)))
-          (check-interrupts)
-          (cond
-            ((eqv? 0 ret)   (void))
-            ((eq? #t ret)   (%loop))
-            (else           (raise-c-errno 'fd-write-u8 'write ret fd #vu8()))))))))
+          (case ret
+            ((0)   (void))
+            ((#t)  (%loop))
+            (else  (raise-c-errno 'fd-write-u8 'write ret fd #vu8()))))))))
 
 
 ;; (fd-select fd direction timeout-milliseconds) waits up to timeout-milliseconds

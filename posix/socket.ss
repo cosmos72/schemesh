@@ -245,7 +245,6 @@
       (check-interrupts)
       (let* ((bytes (endpoint-bytes e))
              (err   (c-socket-connect socket bytes (bytevector-length bytes))))
-        (check-interrupts)
         (cond
           ((zero? err)
             (void))
@@ -306,7 +305,6 @@
     (lambda (socket)
       (check-interrupts)
       (let ((ret (c-socket-accept socket)))
-        (check-interrupts)
         (cond
           ((>= ret 0)
             ret)
