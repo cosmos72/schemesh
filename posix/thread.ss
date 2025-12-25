@@ -217,7 +217,7 @@
 ;;
 ;; this is similar in spirit to *default-special-bindings* provided by Common Lisp library Bordeaux Threads.
 ;;
-;; NOTE: callers are supposed to prefix pairs into the alist, for example with
+;; NOTE: callers are supposed to prefix pairs onto the alist, for example with
 ;;   (thread-initial-bindings (cons (cons my-param my-thunk) (thread-initial-bindings)))
 ;; while *removing* or *modifying* alist elements is almost always a bug
 (define thread-initial-bindings
@@ -235,15 +235,30 @@
           (assert* 'thread-initial-bindings (logbit? 0 (procedure-arity-mask (cdr a)))))))))
 
 
+;; suspend a thread. it can be later resumed by calling (thread-start!)
+;;
+;; WARNING: a suspended thread may have locked mutexes or other resources,
+;; and they will remain locked at least until it is resumed:
+;; attempts to lock the same mutexes from other threads
+;; will block until the suspended thread is resumed and later releases them.
+;;
+;; This is true *especially* if the suspended thread was waiting on a condition:
+;; suspending the thread causes (condition-wait) to return and reacquire the associated mutex,
+;; then the thread will suspend itself and block indefinitely inside the first check for $events.
+;;
+;; As a consequence, a typical mechanism to irreversibly deadlock your shell is:
+;; suspend a thread that sleeps in (consumer-get) - which internally calls (condition-wait) -
+;; then call (producer-put) on the corresponding producer from REPL.
 (define (thread-stop! thread)
   (assert* 'thread-stop! (thread? thread))
   (thread-kill thread 'sigtstp))
 
 
-;; SRFI 18 API
+;; block current thread up to specified duration. Returns early if thread receives a signal.
+;; conforms to: SRFI 18
 (define thread-sleep! sleep)
 
-
+;; start or resume a thread
 (define (thread-start! thread)
   (assert* 'thread-start! (thread? thread))
   (thread-kill thread 'sigcont))
