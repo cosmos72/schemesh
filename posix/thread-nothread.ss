@@ -26,7 +26,7 @@
 (define (thread-count) 1)
 
 
-;; return alist ((id status . name) ...) of threads that changed status
+;; consume and return alist ((id status . name) ...) of threads that changed status
 (define (threads-status-changes)
   '())
 
@@ -88,7 +88,8 @@
 
 
 (define thread-kill
-  (let ((c-signal-raise (foreign-procedure "c_thread_signal_raise" (int int) int)))
+  ;; non-threaded build: there's only one thread.
+  (let ((c-signal-raise (foreign-procedure "c_signal_send_thread_self" (int int) int)))
     (lambda (thread-or-id signal-name)
       (datum->thread thread-or-id) ; validate thread-or-id
       (let ((signal-number (signal-name->number signal-name)))

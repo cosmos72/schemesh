@@ -137,14 +137,19 @@
     (thread thread-or-id)))
 
 
-;; create a new thread, establish its initial thread parameters as specified by (thread-initial-bindings)
-;; then call (thunk) in the new thread.
+;; Create a new thread and establish its initial thread parameters as specified by (thread-initial-bindings).
+;; Return the created thread.
 ;;
-;; the thread will exit when (thunk) returns
+;; The new thread starts immediately: it calls (thunk) and will exit when (thunk) returns.
 (define (fork-thread thunk)
   (%thread-create 'fork-thread thunk (void) 'sigcont))
 
 
+;; Create a new thread and establish its initial thread parameters as specified by (thread-initial-bindings).
+;; Return the created thread.
+;;
+;; The new thread is initially in stopped status, and must be unblocked by calling (thread-start! t) on it.
+;; Only then it will call (thunk) and will exit when (thunk) returns.
 (define make-thread
   (case-lambda
     ((thunk name)

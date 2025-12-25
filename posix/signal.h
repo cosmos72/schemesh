@@ -173,11 +173,12 @@ static ptr c_signals_list(void) {
 }
 
 /**
- * if unset_sighandler != 0, set handler for signal sig to SIG_DFL then unblock the signal.
+ * send signal sig to current thread.
  *
- * raise signal sig.
+ * if unset_sighandler != 0, first restore signal handler to SIG_DFL for current thread,
+ * then unblock the signal for current thread, finally send the signal to current thread.
  */
-static int c_thread_signal_raise(int sig, int unset_sighandler) {
+static int c_signal_send_thread_self(int sig, int unset_sighandler) {
   int err;
   if (unset_sighandler) {
     (void)c_signal_setdefault(sig);
@@ -192,6 +193,19 @@ static int c_thread_signal_raise(int sig, int unset_sighandler) {
     return c_errno();
   }
   return 0;
+}
+
+enum { check_pthread_t_cast = sizeof(char[sizeof(pthread_t) <= sizeof(uptr) ? 1 : -1]) };
+
+/**
+ * send signal sig to specified pthread_t
+ */
+static int c_signal_send_thread(int signal_number, uptr thread_id) {
+  return pthread_kill((pthread_t)thread_id, signal_number);
+}
+
+static uptr c_thread_self(void) {
+  return (uptr)pthread_self();
 }
 
 /**
@@ -230,10 +244,10 @@ static int c_signals_unblock_most(void) {
 }
 
 /**
- * block most signals in caller's thread: we need to receive them in main thread
- * Exception: allow receiving SIGCONT in caller's thread
+ * block most signals in current thread: we need to receive them in main thread
+ * Exception: allow receiving SIGCONT in current thread
  */
-static int c_thread_signals_block_most(void) {
+static int c_signals_thread_block_most(void) {
   static const int block_signals[] = {SIGHUP, SIGINT, SIGQUIT, SIGPIPE, SIGCHLD, SIGWINCH};
   sigset_t         sigset;
   size_t           i;
@@ -362,11 +376,13 @@ static int c_register_c_functions_posix_signals(void) {
   }
   Sregister_symbol("c_countdown", &c_countdown);
   Sregister_symbol("c_signals_list", &c_signals_list);
-  Sregister_symbol("c_thread_signal_raise", &c_thread_signal_raise);
+  Sregister_symbol("c_signal_send_thread", &c_signal_send_thread);
+  Sregister_symbol("c_signal_send_thread_self", &c_signal_send_thread_self);
   Sregister_symbol("c_signal_setdefault", &c_signal_setdefault);
   Sregister_symbol("c_signal_consume_sigwinch", &c_signal_consume_sigwinch);
   Sregister_symbol("c_signal_init_sigwinch", &c_signal_init_sigwinch);
   Sregister_symbol("c_signal_restore_sigwinch", &c_signal_restore_sigwinch);
-  Sregister_symbol("c_thread_signals_block_most", &c_thread_signals_block_most);
+  Sregister_symbol("c_signals_thread_block_most", &c_signals_thread_block_most);
+  Sregister_symbol("c_thread_self", &c_thread_self);
   return 0;
 }

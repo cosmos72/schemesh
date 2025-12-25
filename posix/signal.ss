@@ -143,7 +143,7 @@
 ;;
 ;; Returns 0 if successful, or < 0 if signal-name is unknown, or if C function raise() fails with C errno != 0.
 (define signal-raise
-  (let ((c-signal-raise (foreign-procedure "c_thread_signal_raise" (int int) int)))
+  (let ((c-signal-raise (foreign-procedure "c_signal_send_thread_self" (int int) int)))
     (lambda (signal-name)
       (let ((signal-number (signal-name->number signal-name)))
         (if (fixnum? signal-number)

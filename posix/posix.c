@@ -27,7 +27,7 @@
 #include <netdb.h>
 #include <netinet/in.h> /* struct sockaddr_in ,,, */
 #include <poll.h>
-#include <pthread.h>      /* pthread_self() */
+#include <pthread.h>      /* pthread_kill(), pthread_self() */
 #include <pwd.h>          /* getpwnam_r(), getpwuid_r() */
 #include <sched.h>        /* sched_yield() */
 #include <signal.h>       /* kill(), sigaction(), SIG... */
@@ -43,9 +43,9 @@
 #include <sys/stat.h>     /* fstatat() */
 #include <sys/types.h>    /* ... */
 #include <sys/un.h>       /* struct sockaddr_un */
-#include <sys/wait.h>
-#include <time.h>   /* clock_nanosleep(), CLOCK_MONOTONIC, nanosleep() */
-#include <unistd.h> /* geteuid(), getpid(), sysconf(), write() */
+#include <sys/wait.h>     /* waitpid(), W... */
+#include <time.h>         /* clock_nanosleep(), CLOCK_MONOTONIC, nanosleep() */
+#include <unistd.h>       /* geteuid(), getpid(), sysconf(), write() */
 
 #ifdef __linux__
 #define SCHEMESH_USE_TTY_IOCTL
@@ -1958,16 +1958,6 @@ static char** vector_to_c_argz(ptr vector_of_bytevector0) {
   return c_argz;
 }
 
-enum { check_pthread_t_cast = sizeof(char[sizeof(pthread_t) <= sizeof(uptr) ? 1 : -1]) };
-
-static int c_pthread_kill(uptr id, int signal_number) {
-  return pthread_kill((pthread_t)id, signal_number);
-}
-
-static uptr c_pthread_self(void) {
-  return (uptr)pthread_self();
-}
-
 static void c_sched_yield(void) {
   (void)sched_yield();
 }
@@ -2238,8 +2228,6 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_file_rename", &c_file_rename);
   Sregister_symbol("c_file_type", &c_file_type);
 
-  Sregister_symbol("c_pthread_kill", &c_pthread_kill);
-  Sregister_symbol("c_pthread_self", &c_pthread_self);
   Sregister_symbol("c_thread_count", &c_thread_count);
   Sregister_symbol("c_threads", &c_threads);
   Sregister_symbol("c_sched_yield", &c_sched_yield);

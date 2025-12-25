@@ -82,7 +82,10 @@
     (unless (sh-current-job-sigchld)
       (unless (waiting-for-job)
         ;;z (debugf "; sigchld, no current job, not waiting for job => calling (scheduler-wait #f 'nonblocking)\n")
-        (scheduler-wait #f 'nonblocking)))))
+        (scheduler-wait #f 'nonblocking)))
+    (let ((lctx (repl-args-linectx)))
+      (when lctx
+        (display-status-changes lctx)))))
 
 
 ;; install Scheme procedures invoked when process receives SIGQUIT or SIGTSTP

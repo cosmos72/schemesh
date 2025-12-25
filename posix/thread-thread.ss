@@ -20,12 +20,13 @@
   (nongenerative xthread-7c46d04b-34f4-4046-b5c7-b63753c1be45))
 
 
-(define c-pthread-kill (foreign-procedure "c_pthread_kill" (uptr int) int))
+(define c-signal-send-thread (foreign-procedure "c_signal_send_thread" (int uptr) int))
 
-(define c-pthread-self (foreign-procedure "c_pthread_self" () uptr))
+(define c-thread-self (foreign-procedure "c_thread_self" () uptr))
 
-(define c-thread-signals-block-most (foreign-procedure "c_thread_signals_block_most" () int))
+(define c-thread-signals-block-most (foreign-procedure "c_signals_thread_block_most" () int))
 
+(define n-sigchld (signal-name->number 'sigchld))
 (define n-sigcont (signal-name->number 'sigcont))
 
 (define s-running (running))
@@ -103,7 +104,7 @@
         (when xthread
           (let ((pthread-id (xthread-pthread-id xthread)))
             (when pthread-id
-              (c-pthread-kill pthread-id n-sigcont))))))))
+              (c-signal-send-thread n-sigchld pthread-id))))))))
 
 
 ;; find and return a thread given its thread-id, which must be #f or an exact integer.
@@ -241,7 +242,7 @@
          (name (string->symbol (string-append "xthread-" (number->string id)))))
     ;; call pthread_self() only if xthread is for current thread
     (make-xthread thread id (void) (void)
-                  (if (eqv? tc ($tc)) (c-pthread-self) #f)
+                  (if (eqv? tc ($tc)) (c-thread-self) #f)
                   'sigcont (make-condition name))))
 
 
@@ -264,7 +265,7 @@
         ((not (xthread-pthread-id xthread))
           ;; pthread-id is not known yet, update it if xthread is for current thread
           (when (eqv? tc ($tc))
-            (xthread-pthread-id-set! xthread (c-pthread-self)))
+            (xthread-pthread-id-set! xthread (c-thread-self)))
           xthread)
         (else
           xthread)))))
@@ -294,6 +295,7 @@
       (void))))
 
 
+;; create and install xthread object for current thread, if missing.
 (define thread-register-self
   (case-lambda
     (()
@@ -338,7 +340,9 @@
       (hashtable-set! status-map thread (cons thread-id (cons new-status thread-name))))
 
     (unless same-status?
-      ;; queue thread status change notification
+      ;; queue thread status change notification.
+      ;; Also sends SIGCHLD to main thread, for waking it up
+      ;; and displaying the thread status change notification
       ($threads-status-changes-insert! thread-id new-status thread-name))))
 
 
@@ -506,10 +510,10 @@
     (xthread-signal-set! xthread signal-name))
   ;; set tc fields indicating a pending keyboard interrupt.
   ;; we cannot emulate any other POSIX signal,
-  ;; because Chez Scheme ($event) checks for signals queued by C signal handlers,
+  ;; because Chez Scheme ($event) checks for signals queued by signal handlers it installs,
   ;; and we have no simple way to enqueue them.
   (if main-thread?
-    ($tc-field 'signal-interrupt-pending tc #t)
+    ($tc-field 'signal-interrupt-pending   tc #t)
     ($tc-field 'keyboard-interrupt-pending tc #t))
   ($tc-field 'something-pending tc #t)
   (cond
@@ -517,7 +521,7 @@
       ;; send actual signal to main thread,
       ;; or SIGCONT to secondary threads, for interrupting any blocking system call
       (let* ((sig (if main-thread? (signal-name->number signal-name) n-sigcont))
-             (ret (c-pthread-kill pthread-id sig)))
+             (ret (c-signal-send-thread sig pthread-id)))
         (if (eqv? 0 ret)
           xthread ;; success, return xthread
           ret)))
