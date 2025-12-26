@@ -12,7 +12,7 @@
     c-errno c-errno->string c-exit c-hostname
     fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-seek
     fd-read fd-read-all fd-read-insert-right! fd-read-noretry fd-read-u8
-    fd-write fd-write-all fd-write-noretry fd-write-u8 fd-select fd-setnonblock
+    fd-write fd-write-all fd-write-noretry fd-write-u8 fd-select fd-nonblock? fd-nonblock?-set!
     file->fd pipe-fds raise-c-errno)
   (import
     (rnrs)
@@ -293,13 +293,31 @@
           (else      (raise-c-errno 'fd-select 'select c-errno-eio fd rw-mask timeout-milliseconds)))))))
 
 
-(define fd-setnonblock
-  (let ((c-fd-setnonblock (foreign-procedure __collect_safe "c_fd_setnonblock" (int) int)))
+;; set specified file descriptor to non-blocking or blocking mode.
+;; return unspecified value if successful,
+;; otherwise raise condition
+(define fd-nonblock?-set!
+  (let ((c-fd-nonblock-set (foreign-procedure __collect_safe "c_fd_nonblock_set" (int int) int)))
+    (case-lambda
+      ((fd nonblock?)
+        (let ((ret (c-fd-nonblock-set fd (if nonblock? 1 0))))
+          (unless (zero? ret)
+            (raise-c-errno 'fd-nonblock?-set! 'fcntl ret fd nonblock?))))
+      ((fd)
+        (fd-nonblock?-set! fd 'nonblock)))))
+
+
+;; return #t if specified file descriptor is in non-blocking mode,
+;; otherwise return #f
+;; raise condition on erros.
+(define fd-nonblock?
+  (let ((c-fd-nonblock-get (foreign-procedure __collect_safe "c_fd_nonblock_get" (int) int)))
     (lambda (fd)
-      (let ((ret (c-fd-setnonblock fd)))
-        (if (>= ret 0)
-          ret
-          (raise-c-errno 'fd-setnonblock 'fcntl ret fd))))))
+      (let ((ret (c-fd-nonblock-get fd)))
+        (cond
+          ((zero? ret) #f)
+          ((> ret 0)   #t)
+          (else        (raise-c-errno 'fd-nonblock? 'fcntl ret fd)))))))
 
 
 ;; open a file and returns its file descriptor.

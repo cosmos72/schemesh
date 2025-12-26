@@ -663,18 +663,38 @@ static int c_fd_dup2(int old_fd, int new_fd) {
 }
 
 /**
- * call fcntl(fd, FD_SETFL, O_NONBLOCK | fcntl(fd, FD_GETFL))
- * i.e. set file descriptor to non-blocking mode.
- * returns >= 0 on success, or c_errno() on error
+ * call fcntl(fd, FD_GETFL)
+ * and return > 0 if file descriptor is non-blocking mode,
+ * or 0 if if file descriptor is blocking mode.
+ * On error return c_errno(), which is < 0
  */
-static int c_fd_setnonblock(int fd) {
+static int c_fd_nonblock_get(int fd) {
   int flags;
   while ((flags = fcntl(fd, F_GETFL)) < 0) {
     if (errno != EINTR) {
       return c_errno();
     }
   }
-  flags |= O_NONBLOCK;
+  return flags & O_NONBLOCK;
+}
+
+/**
+ * call fcntl(fd, FD_SETFL, O_NONBLOCK | fcntl(fd, FD_GETFL))
+ * i.e. set file descriptor to non-blocking mode.
+ * return 0 on success, or c_errno() on error
+ */
+static int c_fd_nonblock_set(int fd, int nonblock) {
+  int flags;
+  while ((flags = fcntl(fd, F_GETFL)) < 0) {
+    if (errno != EINTR) {
+      return c_errno();
+    }
+  }
+  if (nonblock) {
+    flags |= O_NONBLOCK;
+  } else {
+    flags &= ~O_NONBLOCK;
+  }
   while (fcntl(fd, F_SETFL, flags) != 0) {
     if (errno != EINTR) {
       return c_errno();
@@ -2180,7 +2200,8 @@ int scheme2k_register_c_functions(void) {
   Sregister_symbol("c_fd_write", &c_fd_write);
   Sregister_symbol("c_fd_write_u8", &c_fd_write_u8);
   Sregister_symbol("c_fd_select", &c_fd_select);
-  Sregister_symbol("c_fd_setnonblock", &c_fd_setnonblock);
+  Sregister_symbol("c_fd_nonblock_get", &c_fd_nonblock_get);
+  Sregister_symbol("c_fd_nonblock_set", &c_fd_nonblock_set);
   Sregister_symbol("c_fd_redirect", &c_fd_redirect);
   Sregister_symbol("c_file_fd", &c_file_fd);
   Sregister_symbol("c_pipe_fds", &c_pipe_fds);

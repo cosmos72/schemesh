@@ -7,12 +7,13 @@
 * add shell builtin `ulimit`
 * add key bindings for more xterm keys
 * add macro `(for-glob)`
-* rename function `(channel-fd)` -> `(channel)`
+* rename function `(channel-fd)` -> `(channel)` and extend it to also accept binary ports in alternative to file descriptors
+* rename function `(fd-setnonblock)` -> `(fd-nonblock?-set!)`
 * rename function `(in-shell-glob)` -> `(in-glob)`
 * rename function `(open-pipe-fds)` -> `(pipe-fds)`
 * rename function `(open-socketpair-fds)` -> `(socketpair-fds)`
 * rename function `(wildcard)` -> `(wildcard1+)` and add function `(wildcard)`
-* add functions `(linectx-key-to-history)` `(socket-fd)`
+* add functions `(fd-nonblock?)` `(linectx-key-to-history)` `(socket-fd)`
 * improve documentation
 
 ### release v0.9.2, 2025-10-18
