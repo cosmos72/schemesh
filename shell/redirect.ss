@@ -293,7 +293,9 @@
 ;; Simultaneous (fd-read-all read-fd) and (sh-wait job)
 ;; assumes that job writes to the peer of read-fd.
 ;;
-;; Closes read-fd before returning.
+;; Blocks until read-fd reaches #!eof, then blocks again until job exits.
+;;
+;; Closes read-fd before returning, and returns bytevector produced by (fd-read-all read-fd)
 ;;
 ;; if job finishes with a status
 ;;   (exception ...)
@@ -309,7 +311,7 @@
              (cap (bytespan-capacity-right bsp))
              (n   (fd-read-noretry read-fd (bytespan-peek-data bsp) end (fx+ beg cap))))
         (cond
-          ((and (integer? n) (> n 0))
+          ((and (fixnum? n) (fx>? n 0))
             (bytespan-resize-right! bsp (fx+ (fx- end beg) n))
             (%loop bsp))
           ((eq? #t n)

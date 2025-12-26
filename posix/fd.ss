@@ -106,12 +106,12 @@
   (let ((bsp (make-bytespan 0)))
     (let %loop ()
       (let ((n (fd-read-insert-right! fd bsp)))
-        (when (and (integer? n) (> n 0))
+        (when (and (fixnum? n) (fx>? n 0))
           (%loop))))
     (bytespan->bytevector*! bsp)))
 
 
-;; read some bytes from fd and append them to specified bytespan
+;; read some bytes from fd and append them to specified bytespan.
 ;; return number of bytes actually read, which can be 0 only on end-of-file,
 ;; or raise exception on I/O error.
 ;;
@@ -122,9 +122,12 @@
          (end (bytespan-peek-end bsp))
          (cap (bytespan-capacity-right bsp))
          (n   (fd-read fd (bytespan-peek-data bsp) end (fx+ beg cap))))
-    (when (and (integer? n) (> n 0))
-       (bytespan-resize-right! bsp (fx+ (fx- end beg) n)))
-     n))
+    (cond
+      ((and (fixnum? n) (fx>? n 0))
+        (bytespan-resize-right! bsp (fx+ (fx- end beg) n))
+        n)
+      (else
+        0)))) ; eof
 
 
 ;; read some bytes from fd and copy them into bytevector

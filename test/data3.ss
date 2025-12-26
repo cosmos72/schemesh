@@ -68,6 +68,20 @@
               (channel-eof? rchan)
               (channel-eof? wchan)))))                 (#t #t #t)
 
+
+  (let-values (((out bv-proc) (open-bytevector-output-port)))
+    (let ((wchan  (channel #f out))
+          (datum1 (bitwise-arithmetic-shift -1 9999)))
+      (channel-put wchan datum1)
+      (channel-close wchan) ;; also closes out
+      (let* ((in     (open-bytevector-input-port (bv-proc)))
+             (rchan  (channel in #f))
+             (datum2 (first-value-or-void (channel-get rchan))))
+        (channel-close rchan) ;; also closes in
+        (list (eqv? datum1 datum2)
+              (channel-eof? rchan)
+              (channel-eof? wchan)))))                 (#t #t #t)
+
   ;; ------------------------ lineedit io ---------------------------------
   (read
     (open-vlines-input-port

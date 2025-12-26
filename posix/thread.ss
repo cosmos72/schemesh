@@ -255,7 +255,7 @@
 
 
 ;; block current thread up to specified duration. Returns early if thread receives a signal.
-;; conforms to: SRFI 18
+;; conforms to: R7RS SRFI 18
 (define thread-sleep! sleep)
 
 ;; start or resume a thread

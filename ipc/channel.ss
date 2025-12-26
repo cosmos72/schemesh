@@ -8,7 +8,7 @@
 
 ;;; inter-process communication library:
 ;;;
-;;; exchanges serialized data through sockets, pipes or other file descriptors.
+;;; exchanges serialized data through binary ports or file descriptors (sockets, pipes ...).
 ;;;
 ;;; data is serialized/deserialized with library (scheme2k wire)
 ;;;
@@ -18,18 +18,20 @@
           channel-get channel-eof? channel-put in-channel)
   (import
     (rnrs)
-    (only (chezscheme)         record-writer)
-    (only (scheme2k bootstrap) assert* raise-errorf)
+    (only (chezscheme)            record-writer void)
+    (only (scheme2k bootstrap)    assert* check-interrupts raise-assertf raise-errorf)
     (scheme2k containers bytespan)
     (scheme2k posix fd)
     (only (scheme2k posix socket) socketpair-fds)
-    (scheme2k wire))
+    (scheme2k wire)
+    (only (scheme2k port)         read-bytes-insert-right!))
+
 
 (define-record-type channel
   (fields
-    (mutable read-fd)   ; #f or unsigned fixnum, read file descriptor
-    (mutable write-fd)  ; #f or unsigned fixnum, write file descriptor
-    (mutable read-eof?) ; boolean, #t if read file descriptor reached end-of-file
+    (mutable in)        ; binary input port, or read file descriptor, or #f
+    (mutable out)       ; binary output port, or write file descriptor, or #f
+    (mutable read-eof?) ; boolean, #t if channel-in reached end-of-file
     rbuf                ; #f or bytespan, read buffer
     wbuf)               ; #f or bytespan, write buffer
   (nongenerative channel-7c46d04b-34f4-4046-b5c7-b63753c1be39))
@@ -37,45 +39,82 @@
 
 ;; close the file descriptor(s) used by channel
 (define (channel-close c)
-  (let ((read-fd  (channel-read-fd c))
-        (write-fd (channel-write-fd c)))
-    (when read-fd
-      (fd-close read-fd)
-      (channel-read-fd-set! c #f))
-    (when write-fd
-      (unless (eqv? write-fd read-fd)
-        (fd-close write-fd))
-      (channel-write-fd-set! c #f))))
+  (let ((in  (channel-in c))
+        (out (channel-out c)))
+    (%channel-close-in c in)
+    (unless (eqv? in out)
+      (%channel-close-out c out))))
 
 
-;; create and return a channel that reads/writes serialized data from/to specified file descriptors
+(define (%channel-close-in c in)
+  (%close in)
+  (channel-in-set! c #f))
+
+
+(define (%channel-close-out c out)
+  (%close out)
+  (channel-out-set! c #f))
+
+
+(define (%close obj)
+  (cond
+    ((not obj)
+      (void))
+    ((fixnum? obj)
+      (fd-close obj))
+    ((port? obj)
+      (close-port obj))))
+
+
+;; create and return a channel that reads/writes serialized data from/to specified file descriptors or ports
 (define %channel
   (case-lambda
-    ((read-write-fd)
-      (assert* 'channel (fixnum? read-write-fd))
-      (assert* 'channel (fx>=? read-write-fd 0))
-      (%channel read-write-fd read-write-fd))
+    ((in-or-false out-or-false)
+      (%channel-validate-in  in-or-false)
+      (%channel-validate-out out-or-false)
+      (make-channel in-or-false
+                    out-or-false
+                    (not in-or-false)
+                    (and in-or-false (bytespan))
+                    (and out-or-false (bytespan))))
+    ((in-out-or-false)
+      (%channel in-out-or-false in-out-or-false))))
 
-    ((read-fd-or-false write-fd-or-false)
-      (when read-fd-or-false
-        (assert* 'channel (fixnum? read-fd-or-false))
-        (assert* 'channel (fx>=? read-fd-or-false 0)))
-      (when write-fd-or-false
-        (assert* 'channel (fixnum? write-fd-or-false))
-        (assert* 'channel (fx>=? write-fd-or-false 0)))
-      (make-channel read-fd-or-false
-                    write-fd-or-false
-                    (not read-fd-or-false)
-                    (and read-fd-or-false (bytespan))
-                    (and write-fd-or-false (bytespan))))))
+
+(define (%channel-validate-in in)
+  (cond
+    ((not in)
+      (void))
+    ((number? in)
+      (assert* 'channel (fixnum? in))
+      (assert* 'channel (fx>=? in 0)))
+    ((port? in)
+      (assert* 'channel (binary-port? in))
+      (assert* 'channel (input-port? in)))
+    (else
+      (raise-assertf 'channel "(or (number? in) (port? in) (not in))"  in))))
+
+
+(define (%channel-validate-out out)
+  (cond
+    ((not out)
+      (void))
+    ((number? out)
+      (assert* 'channel (fixnum? out))
+      (assert* 'channel (fx>=? out 0)))
+    ((port? out)
+      (assert* 'channel (binary-port? out))
+      (assert* 'channel (output-port? out)))
+    (else
+      (raise-assertf 'channel "(or (number? out) (port? out) (not out))"  out))))
 
 
 ;; create and return two connected channels:
 ;; the first channel reads serialized data from the read side of a newly created pipe file descriptor,
 ;; the second channel writes serialized data to the write side of the same pipe (which is a different file descriptor).
 (define (channel-pipe-pair)
-  (let-values (((read-fd write-fd) (pipe-fds #t #t))) ; mark both pipe file descriptors as close-on-exec
-    (values (%channel read-fd #f) (%channel #f write-fd))))
+  (let-values (((in out) (pipe-fds #t #t))) ; mark both pipe file descriptors as close-on-exec
+    (values (%channel in #f) (%channel #f out))))
 
 
 ;; create and return two connected channels:
@@ -86,51 +125,35 @@
     (values (%channel socket1) (%channel socket2))))
 
 
-;; serialize datum, and write its serialized representation to the channel's write file descriptor.
-;; may block while writing to file descriptor.
+;; serialize datum, and write its serialized representation to channel's out.
+;; may block while writing to channel's out.
 ;;
 ;; return (void) if successful
-;; return #f if channel's write-fd is closed or not set,
+;; return #f if channel's out is closed or set to #f,
 ;;           or if library (scheme2k wire) does not support serializing/deserializing datum
 ;; raise exception on I/O error
 (define (channel-put c datum)
-  (let* ((write-fd     (channel-write-fd c))
+  (let* ((out          (channel-out c))
          (wbuf         (channel-wbuf c))
-         (serialized-n (and write-fd wbuf (wire-put wbuf datum))))
+         (serialized-n (and out wbuf (wire-put wbuf datum))))
     (if serialized-n
       (begin
-         (fd-write-all write-fd
-                       (bytespan-peek-data wbuf)
-                       (bytespan-peek-beg  wbuf)
-                       (bytespan-peek-end  wbuf))
-         (bytespan-clear! wbuf))
+        (%out-write-all out wbuf)
+        (bytespan-clear! wbuf))
       #f)))
 
 
-;; implementation of (channel-get)
-(define (%channel-get c fd rbuf)
-  (let-values (((datum pos) (wire-get (bytespan-peek-data rbuf)
-                                      (bytespan-peek-beg  rbuf)
-                                      (bytespan-peek-end  rbuf))))
+(define (%out-write-all out wbuf)
+  (let ((bv    (bytespan-peek-data wbuf))
+        (start (bytespan-peek-beg  wbuf))
+        (end   (bytespan-peek-end  wbuf)))
     (cond
-      ((not (fixnum? pos))
-        (raise-errorf 'channel-get "failed parsing wire-serialized data read from file descriptor ~s" fd))
-      ((fx>=? pos 0)
-        (let ((consumed-n (fx- pos (bytespan-peek-beg rbuf))))
-          (bytespan-delete-left! rbuf consumed-n))
-        (values datum #t))
-      (datum ; must discard (fx- pos) bytes and try again
-        (bytespan-delete-left! rbuf (fx- pos))
-        (%channel-get c fd rbuf))
-      (else ; must read at least (fx- pos) more bytes and try again
-        (bytespan-reserve-right! rbuf (fx+ (fxmax 4096 (fx- pos)) (bytespan-length rbuf)))
-        (let ((read-n (fd-read-insert-right! fd rbuf)))
-          (if (fxzero? read-n)
-            (begin
-              (channel-read-eof?-set! c #t)
-              (bytespan-clear! rbuf)
-              (values #f #f))
-            (%channel-get c fd rbuf)))))))
+      ((fixnum? out)
+        (fd-write-all out bv start end))
+      (else ; (port? out)
+        (check-interrupts)
+        (put-bytevector out bv start (fx- end start))))))
+
 
 
 ;; read serialized data from the channel's read file descriptor,
@@ -140,20 +163,55 @@
 ;;
 ;; return two values:
 ;;   deserialized datum, and #t
-;;   or <unspecified> and #f on end-of-file, or if channel's read-fd is closed or not set.
+;;   or <unspecified> and #f on end-of-file, or if channel's in is closed or not set.
 ;;
 ;; raise exception on I/O error or if serialized data cannot be parsed.
 (define (channel-get c)
   (if (channel-eof? c)
     (values #f #f)
-    (%channel-get c (channel-read-fd c) (channel-rbuf c))))
+    (%channel-get c (channel-in c) (channel-rbuf c))))
 
 
-;; return #t if channel's read-fd is closed, not set or reached end-of-file.
+;; implementation of (channel-get)
+(define (%channel-get c in rbuf)
+  (let-values (((datum pos) (wire-get (bytespan-peek-data rbuf)
+                                      (bytespan-peek-beg  rbuf)
+                                      (bytespan-peek-end  rbuf))))
+    (cond
+      ((not (fixnum? pos))
+        (raise-errorf 'channel-get "failed parsing wire-serialized data read from ~s ~s" in))
+      ((fx>=? pos 0)
+        (let ((consumed-n (fx- pos (bytespan-peek-beg rbuf))))
+          (bytespan-delete-left! rbuf consumed-n))
+        (values datum #t))
+      (datum ; must discard (fx- pos) bytes and try again
+        (bytespan-delete-left! rbuf (fx- pos))
+        (%channel-get c in rbuf))
+      (else ; must read at least (fx- pos) more bytes and try again
+        (bytespan-reserve-right! rbuf (fx+ (fxmax 4096 (fx- pos)) (bytespan-length rbuf)))
+        (let ((read-n (%in-read-insert-right! in rbuf)))
+          (if (fxzero? read-n)
+            (begin
+              (channel-read-eof?-set! c #t)
+              (bytespan-clear! rbuf)
+              (values #f #f))
+            (%channel-get c in rbuf)))))))
+
+
+;; read some bytes from in and append them to rbuf.
+(define (%in-read-insert-right! in rbuf)
+  (cond
+    ((fixnum? in)
+      (fd-read-insert-right! in rbuf))
+    (else ; (port? in)
+      (read-bytes-insert-right! in rbuf))))
+
+
+;; return #t if channel's in is closed, not set or reached end-of-file.
 ;; otherwise return #f
 (define (channel-eof? c)
   (or (channel-read-eof? c)
-      (not (channel-read-fd c))
+      (not (channel-in c))
       (not (channel-rbuf c))))
 
 
@@ -172,12 +230,12 @@
 (record-writer (record-type-descriptor channel)
   (lambda (c port writer)
     (display "(channel " port)
-    (let ((read-fd  (channel-read-fd c))
-          (write-fd (channel-write-fd c)))
-      (display read-fd port)
-      (unless (eqv? read-fd write-fd)
+    (let ((in  (channel-in c))
+          (out (channel-out c)))
+      (display in port)
+      (unless (eqv? in out)
         (display #\space port)
-        (display (channel-write-fd c) port)))
+        (display (channel-out c) port)))
     (display ")" port)))
 
 
