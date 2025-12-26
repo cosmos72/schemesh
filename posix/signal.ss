@@ -8,7 +8,7 @@
 #!r6rs
 
 (library (scheme2k posix signal (0 9 2))
-  (export countdown
+  (export countdown make-duration
           &received-signal make-received-signal raise-condition-received-signal
           received-signal? received-signal-name
 
@@ -18,9 +18,9 @@
   (import
     (rnrs)
     (only (chezscheme) assertion-violationf foreign-procedure format fx1- integer-length logbit?
-                       make-continuation-condition make-format-condition procedure-arity-mask
-                       time? time-nanosecond time-second time-type void)
-    (only (scheme2k bootstrap)            assert* check-interrupts debugf with-locked-objects)
+                       make-continuation-condition make-format-condition make-time
+                       procedure-arity-mask time? time-nanosecond time-second time-type void)
+    (only (scheme2k bootstrap)            assert* check-interrupts debugf raise-assertf  with-locked-objects)
     (only (scheme2k containers hashtable) alist->eq-hashtable hashtable-transpose))
 
 
@@ -45,6 +45,31 @@
           (make-format-condition)
           (make-message-condition (or message "received signal: ~s"))
           (make-irritants-condition (if message message-args (list signal-name))))))))
+
+
+;; create and return time object with type 'time-duration.
+;;
+;; two-arguments version accepts seconds and nanoseconds where both are exact integers
+;;
+;; one-argument version accepts:
+;;  either an exact or inexact real, indicating the number of seconds
+;;  or a time object with type 'time-duration, which is returned verbatim
+;;
+;; Added in scheme2k 0.9.3
+(define make-duration
+  (case-lambda
+    ((seconds nanoseconds)
+      (make-time 'time-duration nanoseconds seconds))
+    ((duration)
+      (cond
+        ((real? duration)
+          (let* ((seconds (exact (floor duration)))
+                 (ns      (exact (round (* 1e9 (- duration seconds))))))
+            (make-time 'time-duration ns seconds)))
+        ((and (time? duration) (eq? 'time-duration (time-type duration)))
+          duration)
+        (else
+          (raise-assertf 'make-duration "(or (real? duration) (eq? 'time-duration (time-type duration)))" duration))))))
 
 
 ;; Pause for user-specified duration.
