@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k port redir (0 9 2))
+(library (scheme2k port redir (0 9 3))
   (export
     binary-port-lambda->port textual-port-lambda->port)
   (import

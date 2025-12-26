@@ -9,7 +9,7 @@
 
 ;; scheme wrapper around libcurl
 
-(library (scheme2k port http (0 9 2))
+(library (scheme2k port http (0 9 3))
   (export
     http-init http-open http-error-string http-read http-close http->port http-url->port)
   (import
@@ -44,7 +44,7 @@
 (define http-init
   (case-lambda
     (()
-      (http-init "/usr/local/lib/scheme2k/libscheme2k_http_c_0.9.2.so"))
+      (http-init "/usr/local/lib/scheme2k/libscheme2k_http_c_0.9.3.so"))
     ((path)
       (load-shared-object path)
       (let ((err ((foreign-procedure "http_global_init" () int))))

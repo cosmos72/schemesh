@@ -11,7 +11,7 @@
 ;;;;;;;;; define Scheme type "bytespan", a resizeable bytevector  ;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(library (scheme2k containers bytespan (0 9 2))
+(library (scheme2k containers bytespan (0 9 3))
   (export
     list->bytespan bytevector->bytespan bytevector->bytespan* make-bytespan
     bytespan->bytevector bytespan->bytevector*! bytespan->bytevector0

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k containers sort (0 9 2))
+(library (scheme2k containers sort (0 9 3))
   (export
     span-sort! subvector-sort!) ; R6RS already defines (vector-sort!)
   (import

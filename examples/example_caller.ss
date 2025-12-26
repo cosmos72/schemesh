@@ -1,4 +1,4 @@
-(library (scheme2k example caller (0 9 2))
+(library (scheme2k example caller (0 9 3))
   (export call^ apply^)
   (import
     (rnrs)

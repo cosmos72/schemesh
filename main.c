@@ -104,7 +104,7 @@ static int usage(const char* name) {
 }
 
 static void display_version(void) {
-  fputs("0.9.2\n", stdout);
+  fputs("0.9.3\n", stdout);
   fflush(stdout);
 }
 

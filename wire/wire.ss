@@ -88,7 +88,7 @@
 ;;;     255 => datum starts with extended tag
 
 
-(library (scheme2k wire (0 9 2))
+(library (scheme2k wire (0 9 3))
   (export datum->wire wire->datum wire-get wire-length wire-put
           wire-register-rtd  wire-register-rtd-fields  wire-reserve-tag
           ;; internal functions, exported for types that want to define their own serializer/deserializer

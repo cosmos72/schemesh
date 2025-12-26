@@ -10,7 +10,7 @@
 ;;; procedure names and effect are intentionally compatible with
 ;;; https://docs.racket-lang.org/reference/port-lib.html
 ;;;
-(library (scheme2k port (0 9 2))
+(library (scheme2k port (0 9 3))
   (export port->list port->string port->bytes port->lines port->bytes-lines
           byte-lines->port lines->port read-line read-bytes-line
           read-bytes-insert-right!

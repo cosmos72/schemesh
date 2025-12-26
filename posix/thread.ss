@@ -23,7 +23,7 @@
 ;;  (thread-stop!) (threads) (threads-status) (threads-status-changes)
 
 
-(library (scheme2k posix thread (0 9 2))
+(library (scheme2k posix thread (0 9 3))
   (export
       current-thread fork-thread get-initial-thread get-thread-id make-thread
       thread thread? threaded? thread-alive? thread-count thread-find thread-id thread-initial-bindings

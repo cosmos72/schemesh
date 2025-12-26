@@ -9,7 +9,7 @@
 
 ;; define all the thread-related bindings required by SRFI 18 multithreading
 
-(library (srfi :18 multithreading (0 9 2))
+(library (srfi :18 multithreading (0 9 3))
   (export
       current-thread make-thread thread? thread-name thread-specific thread-specific-set!
       thread-join! thread-sleep! thread-start! thread-terminate! thread-yield!

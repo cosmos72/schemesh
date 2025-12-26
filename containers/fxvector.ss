@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k containers fxvector (0 9 2))
+(library (scheme2k containers fxvector (0 9 3))
   (export
     fxvector-copy! for-fxvector in-fxvector)
   (import

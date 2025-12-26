@@ -6,7 +6,7 @@
 ;;; version 2 of the License, or (at your option) any later version.
 
 
-(library (scheme2k containers bytevector (0 9 2))
+(library (scheme2k containers bytevector (0 9 3))
   (export
     in-bytevector list->bytevector subbytevector
 

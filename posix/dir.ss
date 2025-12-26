@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k posix dir (0 9 2))
+(library (scheme2k posix dir (0 9 3))
   (export
       directory-list directory-list-type directory-sort!
       file-delete file-rename file-type mkdir)

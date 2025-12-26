@@ -11,7 +11,7 @@
 ;; Define the record-type (s-fd) containing a reference-counted file descriptor
 
 
-(library (schemesh shell fds (0 9 2))
+(library (schemesh shell fds (0 9 3))
   (export
     s-fd s-fd* s-fd? s-fd->int s-fd-copy s-fd-allocate s-fd-release)
   (import

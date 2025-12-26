@@ -1,6 +1,6 @@
 ## RECENT CHANGES
 
-### git
+### release v0.9.3, 2025-12-26
 
 * change license GPLv2+ -> LGPLv2+ in all sources except `parser/*` `shell/*` `repl/*` `main.c` `test/*`
 * rename all LGPLv2+ C functions and LGPLv2+ Scheme libraries `schemesh*` -> `scheme2k*`

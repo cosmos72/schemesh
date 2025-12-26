@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k containers macros (0 9 2))
+(library (scheme2k containers macros (0 9 3))
   (export
     begin^ for for* if^ let^ let-values^ unless^ when^)
   (import

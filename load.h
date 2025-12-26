@@ -18,7 +18,7 @@
 #error "please #define SCHEMESH_DIR to the desired installation path of schemesh"
 #endif
 
-#define LIBSCHEMESH_SO "libschemesh_0.9.2.so"
+#define LIBSCHEMESH_SO "libschemesh_0.9.3.so"
 
 #define STR_(arg) #arg
 #define STR(arg) STR_(arg)

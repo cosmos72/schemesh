@@ -12,7 +12,7 @@
 ;;;
 ;;; data is serialized/deserialized with library (scheme2k wire)
 ;;;
-(library (scheme2k ipc channel (0 9 2))
+(library (scheme2k ipc channel (0 9 3))
   (export (rename (%channel channel))
           channel? channel-close channel-pipe-pair channel-socket-pair
           channel-get channel-eof? channel-put in-channel)

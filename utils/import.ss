@@ -8,7 +8,7 @@
 #!r6rs
 
 ;; define (schemesh minimal) as a library that exports all its imported bindings
-(library-reexport (schemesh minimal (0 9 2))
+(library-reexport (schemesh minimal (0 9 3))
   (import (schemesh shell)
           (schemesh repl)))
 
@@ -23,7 +23,7 @@
 ;;   get-char get-datum get-line get-string-all get-string-n get-u8
 ;;   put-bytevector put-char put-datum put-string put-u8
 ;;
-(library-reexport (schemesh rnrs (0 9 2))
+(library-reexport (schemesh rnrs (0 9 3))
   (import
     (except (rnrs) bytevector-sint-ref bytevector-sint-set!
                    bytevector-uint-ref bytevector-uint-set!
@@ -39,7 +39,7 @@
 ;; library (schemesh) collects and exports *all* bindings defined by all libschemesh sub-libraries,
 ;; including few bindings that intentionally conflict with some R6RS and Chez Scheme functions
 ;; because they are intended as replacements
-(library-reexport (schemesh (0 9 2))
+(library-reexport (schemesh (0 9 3))
   (import
     (scheme2k bootstrap)
     (scheme2k containers)

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k posix tty (0 9 2))
+(library (scheme2k posix tty (0 9 3))
   (export tty-setraw! tty-restore! tty-inspect tty-size with-cooked-tty with-raw-tty)
   (import
     (rnrs)

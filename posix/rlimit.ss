@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k posix rlimit (0 9 2))
+(library (scheme2k posix rlimit (0 9 3))
   (export rlimit-keys rlimit-ref rlimit-set!)
   (import
     (rnrs)

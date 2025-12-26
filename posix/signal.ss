@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k posix signal (0 9 2))
+(library (scheme2k posix signal (0 9 3))
   (export countdown make-duration
           &received-signal make-received-signal raise-condition-received-signal
           received-signal? received-signal-name

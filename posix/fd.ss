@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k posix fd (0 9 2))
+(library (scheme2k posix fd (0 9 3))
   (export
     c-errno c-errno->string c-exit c-hostname
     fd-open-max fd-close fd-close-list fd-dup fd-dup2 fd-seek
@@ -293,9 +293,26 @@
           (else      (raise-c-errno 'fd-select 'select c-errno-eio fd rw-mask timeout-milliseconds)))))))
 
 
+;; return #t if specified file descriptor is in non-blocking mode,
+;; otherwise return #f
+;; raise condition on erros.
+;;
+;; Added in 0.9.3
+(define fd-nonblock?
+  (let ((c-fd-nonblock-get (foreign-procedure __collect_safe "c_fd_nonblock_get" (int) int)))
+    (lambda (fd)
+      (let ((ret (c-fd-nonblock-get fd)))
+        (cond
+          ((zero? ret) #f)
+          ((> ret 0)   #t)
+          (else        (raise-c-errno 'fd-nonblock? 'fcntl ret fd)))))))
+
+
 ;; set specified file descriptor to non-blocking or blocking mode.
 ;; return unspecified value if successful,
 ;; otherwise raise condition
+;;
+;; Added in 0.9.3
 (define fd-nonblock?-set!
   (let ((c-fd-nonblock-set (foreign-procedure __collect_safe "c_fd_nonblock_set" (int int) int)))
     (case-lambda
@@ -305,19 +322,6 @@
             (raise-c-errno 'fd-nonblock?-set! 'fcntl ret fd nonblock?))))
       ((fd)
         (fd-nonblock?-set! fd 'nonblock)))))
-
-
-;; return #t if specified file descriptor is in non-blocking mode,
-;; otherwise return #f
-;; raise condition on erros.
-(define fd-nonblock?
-  (let ((c-fd-nonblock-get (foreign-procedure __collect_safe "c_fd_nonblock_get" (int) int)))
-    (lambda (fd)
-      (let ((ret (c-fd-nonblock-get fd)))
-        (cond
-          ((zero? ret) #f)
-          ((> ret 0)   #t)
-          (else        (raise-c-errno 'fd-nonblock? 'fcntl ret fd)))))))
 
 
 ;; open a file and returns its file descriptor.

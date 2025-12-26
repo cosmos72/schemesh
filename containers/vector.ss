@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k containers vector (0 9 2))
+(library (scheme2k containers vector (0 9 3))
   (export
     for-vector in-vector vector-any vector-copy!
     subvector subvector-fill!

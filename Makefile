@@ -60,7 +60,7 @@ LDFLAGS_SO=-shared
 ######################################################################################
 # schemesh rules
 ######################################################################################
-SCHEMESH_SO=libschemesh_0.9.2.so
+SCHEMESH_SO=libschemesh_0.9.3.so
 
 SRCS=containers/containers.c eval.c posix/posix.c
 OBJS=containers.o eval.o posix.o
@@ -134,7 +134,7 @@ install_scheme2k_dirs:
 # optional Scheme library: libscheme2k_VERSION.so
 ################################################################################
 
-SCHEME2K_SO=libscheme2k_0.9.2.so
+SCHEME2K_SO=libscheme2k_0.9.3.so
 
 scheme2k_so: $(SCHEME2K_SO)
 
@@ -149,7 +149,7 @@ install_scheme2k_so: $(SCHEME2K_SO) install_scheme2k_dirs
 # contains C functions needed by libscheme2k_VERSION.so
 ################################################################################
 
-SCHEME2K_C_SO=libscheme2k_c_0.9.2.so
+SCHEME2K_C_SO=libscheme2k_c_0.9.3.so
 
 scheme2k_c_so: $(SCHEME2K_C_SO)
 
@@ -167,7 +167,7 @@ install_scheme2k_c_so: $(SCHEME2K_C_SO) install_scheme2k_dirs
 
 LIB_CURL=-lcurl
 
-SCHEME2K_HTTP_C_SO=libscheme2k_http_c_0.9.2.so
+SCHEME2K_HTTP_C_SO=libscheme2k_http_c_0.9.3.so
 
 scheme2k_http_c_so: $(SCHEME2K_HTTP_C_SO)
 

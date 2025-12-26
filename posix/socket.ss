@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k posix socket (0 9 2))
+(library (scheme2k posix socket (0 9 3))
   (export
     make-endpoint endpoint-type endpoint endpoint?
     endpoint-address endpoint-bytes endpoint-family endpoint-port endpoint-constructor

@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k vscreen (0 9 2))
+(library (scheme2k vscreen (0 9 3))
   (export
     ;; vcell.ss
     vcell vcell? vcell->char vcell->vpalette vcell->vcolors vcell-write vcell-display/bytespan

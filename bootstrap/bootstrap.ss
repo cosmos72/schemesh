@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k bootstrap (0 9 2))
+(library (scheme2k bootstrap (0 9 3))
   (export
       ;; bootstrap.ss
       ==> ;; _ is already exported by (rnrs)

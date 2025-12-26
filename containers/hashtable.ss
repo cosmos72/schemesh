@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k containers hashtable (0 9 2))
+(library (scheme2k containers hashtable (0 9 3))
   (export
     make-hash-iterator hash-iterator? hash-iterator-copy hash-iterator-pair hash-iterator-next!
 

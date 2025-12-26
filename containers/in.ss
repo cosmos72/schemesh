@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k containers in (0 9 2))
+(library (scheme2k containers in (0 9 3))
   (export
     constant in-value in-interval in-numbers
     in-roundrobin in-list-roundrobin in-sequences number->cflonum)

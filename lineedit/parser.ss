@@ -7,7 +7,7 @@
 
 #!r6rs
 
-(library (scheme2k lineedit parser (0 9 2))
+(library (scheme2k lineedit parser (0 9 3))
   (export
     make-parsectx make-parsectx* parsectx? string->parsectx
     parsectx-in parsectx-current-pos parsectx-previous-pos parsectx-enabled-parsers
