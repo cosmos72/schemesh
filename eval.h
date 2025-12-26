@@ -47,7 +47,7 @@ ptr scheme2k_call3(const char symbol_name[], ptr arg1, ptr arg2, ptr arg3);
 ptr scheme2k_eval(const char str[]);
 
 /**
- * Load a compiled Scheme library.
+ * Load a compiled Scheme library from multiple standard paths, or from override_library_dir.
  *
  * @return 0 if successful,
  * otherwise print error message to (current-error-port) and return < 0

@@ -281,7 +281,10 @@ int main(int argc, const char* argv[]) {
   if ((err = scheme2k_register_c_functions()) != 0) {
     goto finish;
   }
-  if ((err = schemesh_load_library(cmd.library_dir)) != 0) {
+  if ((err = scheme2k_load_library(cmd.library_dir, "libscheme2k_0.9.3.so")) != 0) {
+    goto finish;
+  }
+  if ((err = scheme2k_load_library(cmd.library_dir, "libschemesh_0.9.3.so")) != 0) {
     goto finish;
   }
 

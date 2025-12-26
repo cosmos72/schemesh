@@ -13,6 +13,13 @@
 #include <stddef.h> /* NULL */
 #include <string.h> /* strlen() */
 
+#ifndef SCHEME2K_DIR
+#error "please #define SCHEME2K_DIR to the desired installation path of libscheme2k and libschemesh"
+#endif
+
+#define STR_(arg) #arg
+#define STR(arg) STR_(arg)
+
 static ptr top_level_value(const char symbol_name[]) {
   return Stop_level_value(Sstring_to_symbol(symbol_name));
 }
@@ -70,7 +77,7 @@ ptr scheme2k_eval(const char str[]) {
  * @return 0 if successful,
  * otherwise print error message to (current-error-port) and return < 0
  */
-int scheme2k_load_library(const char* dir, const char* filename) {
+static int c_load_scheme_library(const char* dir, const char* filename) {
   static ptr func_load = Sfalse;
   ptr        ret;
   if (func_load == Sfalse) {
@@ -105,4 +112,29 @@ int scheme2k_load_library(const char* dir, const char* filename) {
                scheme2k_Sstring_utf8b(filename, -1));
   /* Sunlock_object(func_load); */
   return ret == Strue ? 0 : -1;
+}
+
+/**
+ * Load a compiled Scheme library from multiple standard paths, or from override_library_dir.
+ *
+ * @return 0 if successful,
+ * otherwise print error message to (current-error-port) and return < 0
+ */
+int scheme2k_load_library(const char* override_library_dir, const char* filename) {
+  int err = -1;
+
+  if (override_library_dir != NULL) {
+    err = c_load_scheme_library(override_library_dir, filename);
+  } else {
+#ifdef SCHEME2K_DIR
+    err = c_load_scheme_library(STR(SCHEME2K_DIR), filename);
+#endif
+    if (err != 0) {
+      err = c_load_scheme_library("/usr/local/lib/scheme2k", filename);
+    }
+    if (err != 0) {
+      err = c_load_scheme_library("/usr/lib/scheme2k", filename);
+    }
+  }
+  return err;
 }

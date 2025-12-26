@@ -31,9 +31,6 @@ exec_prefix = $(prefix)
 bindir      = $(exec_prefix)/bin
 libdir      = $(exec_prefix)/lib
 
-SCHEMESH_DIR = $(libdir)/schemesh
-
-# not used by default
 SCHEME2K_DIR = $(libdir)/scheme2k
 
 
@@ -60,14 +57,16 @@ LDFLAGS_SO=-shared
 ######################################################################################
 # schemesh rules
 ######################################################################################
+SCHEME2K_SO=libscheme2k_0.9.3.so
 SCHEMESH_SO=libschemesh_0.9.3.so
 
 SRCS=containers/containers.c eval.c posix/posix.c
 OBJS=containers.o eval.o posix.o
 
-all: schemesh schemesh_test $(SCHEMESH_SO) countdown
+all: schemesh schemesh_test $(SCHEME2K_SO) $(SCHEMESH_SO) countdown
 
 schemesh_so: $(SCHEMESH_SO)
+scheme2k_so: $(SCHEME2K_SO)
 
 clean:
 	rm -f *~ *.o *.so schemesh schemesh_test countdown
@@ -76,16 +75,16 @@ containers.o: containers/containers.c containers/containers.h eval.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'
 
 eval.o: eval.c eval.h
-	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'
+	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DSCHEME2K_DIR='$(SCHEME2K_DIR)'
 
 posix.o: posix/posix.c eval.h posix/posix.h posix/signal.h posix/socket.h
 	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)'
 
 main.o: main.c containers/containers.h eval.h load.h posix/posix.h
-	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)'
+	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'
 
 test.o: test/test.c containers/containers.h eval.h load.h posix/posix.h
-	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)'
+	$(CC) -o $@ -c $< $(CFLAGS) -I'$(CHEZ_SCHEME_DIR)'
 
 
 schemesh: main.o $(OBJS)
@@ -94,23 +93,34 @@ schemesh: main.o $(OBJS)
 schemesh_test: test.o $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -L'$(CHEZ_SCHEME_DIR)' $(LIBS)
 
-$(SCHEMESH_SO): schemesh_test
-	./schemesh_test
+$(SCHEME2K_SO): schemesh_test
+	./schemesh_test --compile_scheme2k_so
+
+$(SCHEMESH_SO): schemesh_test $(SCHEME2K_SO)
+	./schemesh_test --compile_schemesh_so && ./schemesh_test
 
 countdown: utils/countdown.c
 	$(CC) -o $@ $< $(CFLAGS)  $(LDFLAGS)
 
+install: install_binaries install_scheme2k_so install_schemesh_so
 
-installdirs:
+install_dirs:
 	$(MKDIR_P) '$(DESTDIR)$(bindir)'
-	$(MKDIR_P) '$(DESTDIR)$(SCHEMESH_DIR)'
+	$(MKDIR_P) '$(DESTDIR)$(SCHEME2K_DIR)'
+	$(MKDIR_P) '$(DESTDIR)$(SCHEME2K_DIR)'
 
-install: all installdirs
+install_binaries: install_dirs
 	$(INSTALL_PROGRAM) schemesh countdown '$(DESTDIR)$(bindir)'
-	$(INSTALL_DATA) $(SCHEMESH_SO) '$(DESTDIR)$(SCHEMESH_DIR)'
+
+install_scheme2k_so: $(SCHEME2K_SO) install_dirs
+	$(INSTALL_DATA) $(SCHEME2K_SO) '$(DESTDIR)$(SCHEME2K_DIR)'
+
+install_schemesh_so: $(SCHEMESH_SO) install_dirs
+	$(INSTALL_DATA) $(SCHEMESH_SO) '$(DESTDIR)$(SCHEME2K_DIR)'
+
 
 uninstall:
-	rm -f '$(DESTDIR)$(bindir)/schemesh' '$(DESTDIR)$(bindir)/countdown' '$(DESTDIR)$(SCHEMESH_DIR)/$(SCHEMESH_SO)'
+	rm -f '$(DESTDIR)$(bindir)/schemesh' '$(DESTDIR)$(bindir)/countdown' '$(DESTDIR)$(SCHEME2K_DIR)/$(SCHEME2K_SO)' '$(DESTDIR)$(SCHEME2K_DIR)/$(SCHEMESH_SO)'
 
 
 ################################################################################
@@ -127,23 +137,6 @@ install_scheme2k:      install_scheme2k_so install_scheme2k_c_so
 install_scheme2k_full: install_scheme2k_so install_scheme2k_c_so install_scheme2k_http_c_so
 install_batteries:     install_scheme2k_full
 
-install_scheme2k_dirs:
-	$(MKDIR_P) '$(DESTDIR)$(SCHEME2K_DIR)'
-
-################################################################################
-# optional Scheme library: libscheme2k_VERSION.so
-################################################################################
-
-SCHEME2K_SO=libscheme2k_0.9.3.so
-
-scheme2k_so: $(SCHEME2K_SO)
-
-$(SCHEME2K_SO): schemesh_test
-	./schemesh_test --compile_scheme2k_so
-
-install_scheme2k_so: $(SCHEME2K_SO) install_scheme2k_dirs
-	$(INSTALL_DATA) $(SCHEME2K_SO) '$(DESTDIR)$(SCHEME2K_DIR)'
-
 ################################################################################
 # optional C shared library: libscheme2k_c_VERSION.so
 # contains C functions needed by libscheme2k_VERSION.so
@@ -154,9 +147,9 @@ SCHEME2K_C_SO=libscheme2k_c_0.9.3.so
 scheme2k_c_so: $(SCHEME2K_C_SO)
 
 $(SCHEME2K_C_SO): $(SRCS)
-	$(CC_SO) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)' -DSCHEMESH_DIR='$(SCHEMESH_DIR)' $(LDFLAGS) $(LDFLAGS_SO)
+	$(CC_SO) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) -I'$(CHEZ_SCHEME_DIR)' -DCHEZ_SCHEME_DIR='$(CHEZ_SCHEME_DIR)' -DSCHEME2K_DIR='$(SCHEME2K_DIR)' $(LDFLAGS) $(LDFLAGS_SO)
 
-install_scheme2k_c_so: $(SCHEME2K_C_SO) install_scheme2k_dirs
+install_scheme2k_c_so: $(SCHEME2K_C_SO) install_dirs
 	$(INSTALL_DATA) $(SCHEME2K_C_SO) '$(DESTDIR)$(SCHEME2K_DIR)'
 
 
@@ -174,7 +167,7 @@ scheme2k_http_c_so: $(SCHEME2K_HTTP_C_SO)
 $(SCHEME2K_HTTP_C_SO): port/http.c
 	$(CC_SO) -o $@ $^ $(CFLAGS) $(CFLAGS_SO) $(LIB_CURL) $(LDFLAGS) $(LDFLAGS_SO)
 
-install_scheme2k_http_c_so: $(SCHEME2K_HTTP_C_SO) install_scheme2k_dirs
+install_scheme2k_http_c_so: $(SCHEME2K_HTTP_C_SO) install_dirs
 	$(INSTALL_DATA) $(SCHEME2K_HTTP_C_SO) '$(DESTDIR)$(SCHEME2K_DIR)'
 
 ################################################################################

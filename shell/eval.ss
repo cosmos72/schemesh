@@ -15,7 +15,7 @@
     (rnrs)
     (rnrs mutable-pairs)
     (only (chezscheme)                 void)
-    (only (scheme2k bootstrap) assert* raise-errorf until)
+    (only (scheme2k bootstrap)         debugf assert* raise-errorf until)
     (only (scheme2k containers list)   for-list)
     (only (scheme2k containers string) assert-string-list? string-suffix? string-index-right)
     (only (scheme2k containers utf8b)  utf8b->string)

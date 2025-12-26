@@ -25,6 +25,7 @@
 #endif
 
 #define LIBSCHEME2K_SO "libscheme2k_0.9.3.so"
+#define LIBSCHEMESH_SO "libschemesh_0.9.3.so"
 
 #define N_OF(array) (sizeof(array) / sizeof((array)[0]))
 
@@ -71,43 +72,6 @@ static void handle_scheme_exception(void) {
 }
 
 /**
- * compile libschemesh_VERSION.so from sources found in specified directory.
- *
- * return 0 if successful, otherwise error code.
- */
-static int compile_schemesh_so(const char* source_dir) {
-  ptr ret;
-  int err;
-  if (source_dir == NULL) {
-    fprintf(stderr, "%s", "schemesh_test: source_dir is null\n");
-    return EINVAL;
-  }
-  if (chdir(source_dir) != 0) {
-    err = errno;
-    fprintf(stderr,
-            "schemesh_test: C function chdir(\"%s\") failed with error %d: %s\n",
-            source_dir,
-            err,
-            strerror(err));
-    return err;
-  }
-#ifdef SCHEME_OPTIMIZE
-  ret =
-      scheme2k_eval("(parameterize ((optimize-level 2))\n"
-                    "  (compile-file \"libschemesh.ss\" \"libschemesh_temp.so\")\n"
-                    "  (strip-fasl-file \"libschemesh_temp.so\" \"" LIBSCHEMESH_SO "\"\n"
-                    "    (fasl-strip-options inspector-source source-annotations profile-source))\n"
-                    "    #t\n)");
-#else /* !SCHEME_OPTIMIZE */
-  ret = scheme2k_eval("(parameterize ((optimize-level 0)\n"
-                      "               (run-cp0 (lambda (cp0 x) x)))\n"
-                      "  (compile-file \"libschemesh.ss\" \"" LIBSCHEMESH_SO "\")\n"
-                      "  #t)");
-#endif
-  return ret == Strue ? 0 : EINVAL;
-}
-
-/**
  * compile libscheme2k_VERSION.so from sources found in specified directory.
  *
  * return 0 if successful, otherwise error code.
@@ -144,6 +108,43 @@ static int compile_scheme2k_so(const char* source_dir) {
   return ret == Strue ? 0 : EINVAL;
 }
 
+/**
+ * compile libschemesh_VERSION.so from sources found in specified directory.
+ *
+ * return 0 if successful, otherwise error code.
+ */
+static int compile_schemesh_so(const char* source_dir) {
+  ptr ret;
+  int err;
+  if (source_dir == NULL) {
+    fprintf(stderr, "%s", "schemesh_test: source_dir is null\n");
+    return EINVAL;
+  }
+  if (chdir(source_dir) != 0) {
+    err = errno;
+    fprintf(stderr,
+            "schemesh_test: C function chdir(\"%s\") failed with error %d: %s\n",
+            source_dir,
+            err,
+            strerror(err));
+    return err;
+  }
+#ifdef SCHEME_OPTIMIZE
+  ret =
+      scheme2k_eval("(parameterize ((optimize-level 2))\n"
+                    "  (compile-file \"libschemesh.ss\" \"libschemesh_temp.so\")\n"
+                    "  (strip-fasl-file \"libschemesh_temp.so\" \"" LIBSCHEMESH_SO "\"\n"
+                    "    (fasl-strip-options inspector-source source-annotations profile-source))\n"
+                    "    #t\n)");
+#else /* !SCHEME_OPTIMIZE */
+  ret = scheme2k_eval("(parameterize ((optimize-level 0)\n"
+                      "               (run-cp0 (lambda (cp0 x) x)))\n"
+                      "  (compile-file \"libschemesh.ss\" \"" LIBSCHEMESH_SO "\")\n"
+                      "  #t)");
+#endif
+  return ret == Strue ? 0 : EINVAL;
+}
+
 int main(int argc, const char* argv[]) {
   int err = 0;
 
@@ -151,16 +152,21 @@ int main(int argc, const char* argv[]) {
 
   if (argc == 2 && strcmp(argv[1], "--compile_scheme2k_so") == 0) {
     err = compile_scheme2k_so(".");
-  } else {
-    if (scheme2k_register_c_functions() == 0 && /*     */
-        compile_schemesh_so(".") == 0 &&        /*     */
-        scheme2k_load_library(".", LIBSCHEMESH_SO) == 0) {
-
-      schemesh_import_all_libraries();
-
-      (void)run_all_tests();
+  } else if (argc == 2 && strcmp(argv[1], "--compile_schemesh_so") == 0) {
+    if ((err = scheme2k_register_c_functions()) != 0) {
+    } else if ((err = scheme2k_load_library(".", LIBSCHEME2K_SO) != 0)) {
+    } else if ((err = compile_schemesh_so(".")) != 0) {
+    } else if ((err = scheme2k_load_library(".", LIBSCHEMESH_SO)) != 0) {
     }
+  } else if (scheme2k_register_c_functions() == 0 &&            /*     */
+             scheme2k_load_library(".", LIBSCHEME2K_SO) == 0 && /*    */
+             scheme2k_load_library(".", LIBSCHEMESH_SO) == 0) {
+
+    schemesh_import_all_libraries();
+
+    (void)run_all_tests();
   }
+
   scheme2k_quit();
 
   return err;
