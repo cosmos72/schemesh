@@ -107,7 +107,6 @@ install: install_binaries install_scheme2k_so install_schemesh_so
 install_dirs:
 	$(MKDIR_P) '$(DESTDIR)$(bindir)'
 	$(MKDIR_P) '$(DESTDIR)$(SCHEME2K_DIR)'
-	$(MKDIR_P) '$(DESTDIR)$(SCHEME2K_DIR)'
 
 install_binaries: install_dirs
 	$(INSTALL_PROGRAM) schemesh countdown '$(DESTDIR)$(bindir)'

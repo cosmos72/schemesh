@@ -25,14 +25,13 @@
     ;; are intended as replacements for the default ones, and they add UTF-8b support.
     ;;
     ;; If a user wants them, they need one of:
-    ;;    (import (scheme2k posix replacements))
-    ;;    (import (scheme2k posix thread))
-    ;;    (import (scheme2k))
+    ;;   (import (scheme2k posix replacements))
+    ;;   (import (scheme2k posix thread))
+    ;;   (import (scheme2k))
     ;;
-    ;; as stated, do not import these:
-    ;;
-    ;; (scheme2k posix replacements)
-    ;; (scheme2k posix thread)
+    ;; The following library imports are commented out as stated above:
+    ;;   (scheme2k posix replacements)
+    ;;   (scheme2k posix thread)
 
     (scheme2k posix rlimit)
     (scheme2k posix signal)
