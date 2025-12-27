@@ -117,6 +117,8 @@
           (if (fxzero? zeropad-byte-n)
             #vu8()
             (make-bytevector zeropad-byte-n 0))))
+      ((str start end)
+        (string->utf8b str start end 0))
       ((str)
         (string->utf8b str 0 (string-length str) 0)))))
 
