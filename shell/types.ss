@@ -62,8 +62,9 @@
     proc                    ; procedure to call for executing the job
     label                   ; #f or source fragment that compiled to proc
     (mutable resume-proc)   ; #f or continuation to resume job
-    (mutable suspend-proc)) ; #f or continuation to suspend job and return to whoever started/resumed it
-  (nongenerative jexpr-7c46d04b-34f4-4046-b5c7-b63753c1be40))
+    (mutable suspend-proc)  ; #f or continuation to suspend job and return to whoever started/resumed it
+    (mutable on-finish))    ; list of thunks to call when job finishes
+  (nongenerative jexpr-7c46d04b-34f4-4046-b5c7-b63753c1be41))
 
 
 ;; Define the record type "multijob"

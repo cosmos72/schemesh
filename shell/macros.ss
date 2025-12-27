@@ -30,14 +30,14 @@
 
 (define-syntax shell-backquote
   (syntax-rules ()
-    ((_)               "")
+    ((_)           "")
     ;; NOTE: (sh-run/string-rtrim-newlines) cannot be stopped and resumed. But neither can $(...) or `...` in POSIX shells
-    ((_ . args)       (lambda () (sh-run/string-rtrim-newlines (shell . args))))))
+    ((_ . args)    (lambda () (sh-run/string-rtrim-newlines (shell . args))))))
 
 
 (define-syntax shell-env
   (syntax-rules ()
-    ((_ arg)      (lambda (job) (sh-env-ref job arg)))))
+    ((_ arg)       (lambda (job) (sh-env-ref job arg)))))
 
 
 ;; macro: read specified file path, parse it with (sh-read-file)
@@ -260,7 +260,7 @@
       (in-list (shell-glob . args)))))
 
 
-;; evaluate body ... with variables var ... bound to expr ..., then always call (close var) ...,
+;; evaluate body ... with variables var ... bound to expr ..., then always call (close expr-value) ...
 ;; even if body ... raises a condition or calls a continuation
 (define-syntax with-resource
   (lambda (stx)
@@ -280,7 +280,7 @@
 
 
 ;; evaluate body ... with parameters param ... set to expr ...,
-;; then always restore param ... and call (close var) ...,
+;; then always restore param ... and call (close expr-value) ...,
 ;; even if body ... raises a condition or calls a continuation
 (define-syntax with-parameterized-resource
   (lambda (stx)
@@ -304,11 +304,9 @@
                          (set! tsave tcurr) ...))))
               (sh-dynamic-wind
                 swap
-                (lambda^ ()
-                  body ...)
+                (lambda^ () body ...)
                 swap
-                (lambda ()
-                  (tclose tobj) ...))))))))
+                (lambda () (tclose tobj) ...))))))))
 
 
 ;; evaluate body ... with variables var ... bound to expr ..., then always call (fd-close var) ...,

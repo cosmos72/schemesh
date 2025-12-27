@@ -26,7 +26,7 @@
     (only (scheme2k posix status)      ok failed)
     (schemesh parser)
     (only (schemesh shell parameters)  sh-eval)
-    (only (schemesh shell job)         sh-fd sh-builtins sh-builtins-help))
+    (only (schemesh shell job)         sh-builtins sh-builtins-help sh-current-job sh-expr? sh-expr-on-finish sh-fd))
 
 
 (define (default-parser-for-file-extension path)
@@ -248,24 +248,51 @@
   (sh-eval (sh-read-string* str initial-parser enabled-parsers)))
 
 
-;; call (before) then call (proc), finally always call (after) and (on-leave)
-;; even if (proc) raises a condition or calls a continuation.
+;; extension of (dynamic-wind):
+;;   call (before) then call (proc), finally always call (after) and (on-leave)
+;;   even if (proc) raises a condition or calls a continuation.
 ;;
 ;; if execution leaves (proc) by calling a continuation then attempts to re-enter it,
-;; raises condition instead of re-entering it.
+;; behavior depends on (sh-current-job):
+;;
+;; if (sh-current-job) is a sh-expr, behaves as dynamic-wind:
+;;   (before) is called again before re-entering (proc),
+;;   and (on-leave) is called only when (sh-current-job) finishes.
+;;
+;; if (sh-current-job) is not a sh-expr,
+;;   raises a condition that prevents re-entering (before) and (proc).
+;;   Reason: there is no way to detect in advance whether (proc) will be re-entered or not,
+;;   thus (on-leave) must be called at the first exit from (proc),
+;;   which means resources needed by (proc) will be released and re-entering it does not make sense.
+;;
 (define (sh-dynamic-wind before proc after on-leave)
-  ;; TODO: if (sh-current-job) is set, save on-leave into it and allow multiple exit and re-enter.
+  ;; if (sh-current-job) is a sh-expr, save on-leave into it and allow multiple exit and re-enter.
+  (let ((job (sh-current-job)))
+    (if (sh-expr? job)
+      (dynamic-wind/jexpr before proc after on-leave job)
+      (dynamic-wind/nojob before proc after on-leave))))
+
+
+;; implementation of (sh-dynamic-wind) if current job is a sh-expr
+(define (dynamic-wind/jexpr before proc after on-leave job)
+  (sh-expr-on-finish job on-leave)
+  (dynamic-wind before proc after))
+
+
+;; implementation of (sh-dynamic-wind) if current job is not a sh-expr.
+;; if execution leaves (proc) by calling a continuation then attempts to re-enter it,
+;; raises a condition that prevents re-entering (before) and (proc).
+(define (dynamic-wind/nojob before proc after on-leave)
   (let ((first-call? #t))
     (dynamic-wind
       (lambda ()
         (unless first-call?
-          (raise-errorf 'sh-dynamic-wind "cannot re-enter a block protected by (sh-dynamic-wind) after leaving it via a continuation. reason: no current job"))
+          (raise-errorf 'sh-dynamic-wind "cannot re-enter block protected by (sh-dynamic-wind) after leaving it via a continuation. reason: current job is #f or not a sh-expr"))
         (set! first-call? #f)
         (before))
       proc
       (lambda ()
-        (after)
-        (on-leave)))))
+        (dynamic-wind void after on-leave)))))
 
 
 ;; the "source" builtin: read a file containing shell script or Scheme source and eval it.
@@ -290,15 +317,16 @@
 
 (begin
   (let ((t (sh-builtins)))
-    ; additional builtins
+    ;; additional builtins
     (hashtable-set! t "."          builtin-source)
     (hashtable-set! t "source"     builtin-source))
 
-  (let ((t (sh-builtins-help)))
-    (hashtable-set! t "."       (string->utf8 " filename
+  (let ((t (sh-builtins-help))
+        (msg (string->utf8 " filename
     read FILENAME and execute the contained shell script or Scheme source code.
 
-    return exit status of last executed command, or value of last evaluated expression.\n"))
-    (hashtable-set! t "source"  (hashtable-ref t "." ""))))
+    return exit status of last executed command, or value of last evaluated expression.\n")))
+    (hashtable-set! t "."      msg)
+    (hashtable-set! t "source" msg)))
 
 ) ; close library

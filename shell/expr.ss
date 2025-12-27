@@ -36,9 +36,26 @@
           (or current-job (sh-globals))              ; default parent job
           proc                                       ; procedure to call for executing the job
           label
-          #f #f)))                                   ; resume-proc suspend-proc
+          #f #f                                      ; resume-proc suspend-proc
+          '())))                                     ; on-finish thunk list
     ((proc)
       (sh-expr proc #f))))
+
+
+;; add a thunk to be called when sh-expr job finishes.
+;; Note: after calling the thunk list, the list itself is removed.
+(define (sh-expr-on-finish job thunk)
+  (assert* 'sh-expr-on-finish (sh-expr? job))
+  (assert* 'sh-expr-on-finish (procedure? thunk))
+  (assert* 'sh-expr-on-finish (logbit? 0 (procedure-arity-mask thunk)))
+  (jexpr-on-finish-set! job (cons thunk (jexpr-on-finish job))))
+
+
+;; call all on-finish thunks added to sh-expr, in reverse order, then remove them.
+(define (jexpr-call-on-finish-forget job)
+  (for-list ((thunk (jexpr-on-finish job)))
+    (thunk))
+  (jexpr-on-finish-set! job '()))
 
 
 ;; NOTE: this is an internal implementation function, use (sh-start) instead.

@@ -170,6 +170,8 @@
       (raise-errorf caller "cannot start job ~s, bad or missing job-start-proc: ~s" job start-proc))
     (job-oid-set! job #f)
     (job-exception-set! job #f)
+    (when (sh-expr? job)
+      (jexpr-on-finish-set! job '()))
     (unless (job-new? job)
       (job-status-set-new/recursive! job))
     (job-status-set/running! job)

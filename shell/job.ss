@@ -48,7 +48,7 @@
     sh-env-iterate/direct sh-env-set/lazy! sh-env-copy sh-env->argv
 
     ;; expr.ss
-    sh-expr
+    sh-expr sh-expr-on-finish
 
     ;; job.ss
     sh-consume-signals sh-cwd
@@ -201,6 +201,16 @@
           (flush-output-port port))))))
 
 
+;; flush, close and forget job's ports
+(define (job-ports-flush-close-forget job)
+  (let ((ports (job-ports job)))
+    (when ports
+      (job-ports-flush job)
+      (unless (eq? job (sh-globals))
+        (job-ports-close job)
+        (hashtable-clear! ports)))))
+
+
 (define (job-default-parents-ports-flush job)
   (job-default-parents-iterate job job-ports-flush))
 
@@ -260,12 +270,9 @@
 
         (sh-stdio-flush)
 
-        (let ((ports (job-ports job)))
-          (when ports
-            (job-ports-flush job)
-            (unless (eq? job (sh-globals))
-              (job-ports-close job)
-              (hashtable-clear! ports))))
+        (job-ports-flush-close-forget job)
+        (when (sh-expr? job)
+          (jexpr-call-on-finish-forget job))
 
         (job-pid-set!  job #f) ; also updates (sh-pid-table)
         (job-pgid-set! job #f)
