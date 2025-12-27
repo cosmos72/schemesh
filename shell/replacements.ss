@@ -18,7 +18,7 @@
 
       get-bytevector-all get-bytevector-n get-bytevector-some get-u8
       put-bytevector                      put-bytevector-some put-u8
-      
+
       with-input-from-file with-output-to-file)
   (import
     (rename (except (rnrs) with-input-from-file with-output-to-file)
