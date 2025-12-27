@@ -82,11 +82,11 @@
   (include "shell/fds.ss")
   (include "shell/paths.ss")
   (include "shell/job.ss")
-  (include "shell/replacements.ss")
   (include "shell/eval.ss")
   (include "shell/macros.ss")
   (include "shell/autocomplete.ss")
   (include "shell/utils.ss")
+  (include "shell/replacements.ss")
   (include "shell/shell.ss")
 
   (include "repl/repl.ss")

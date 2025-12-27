@@ -17,21 +17,26 @@
       getenv putenv
 
       get-bytevector-all get-bytevector-n get-bytevector-some get-u8
-      put-bytevector                      put-bytevector-some put-u8)
+      put-bytevector                      put-bytevector-some put-u8
+      
+      with-input-from-file with-output-to-file)
   (import
-    (rename (rnrs)
-        (get-bytevector-all  r6rs:get-bytevector-all)
-        (get-bytevector-n    r6rs:get-bytevector-n)
-        (get-bytevector-some r6rs:get-bytevector-some)
-        (get-u8              r6rs:get-u8)
-        (put-bytevector      r6rs:put-bytevector)
-        (put-u8              r6rs:put-u8))
+    (rename (except (rnrs) with-input-from-file with-output-to-file)
+        (get-bytevector-all   r6rs:get-bytevector-all)
+        (get-bytevector-n     r6rs:get-bytevector-n)
+        (get-bytevector-some  r6rs:get-bytevector-some)
+        (get-u8               r6rs:get-u8)
+        (put-bytevector       r6rs:put-bytevector)
+        (put-u8               r6rs:put-u8))
 
-    (rename (only (chezscheme) put-bytevector-some)
-        (put-bytevector-some chez:put-bytevector-some))
+    (prefix
+      (only (chezscheme) put-bytevector-some current-input-port current-output-port)
+      chez:)
 
     (scheme2k port stdio)
-    (only (schemesh shell job) sh-env-set! sh-env-visibility-ref))
+    (only (scheme2k posix io)     file->port)
+    (only (schemesh shell job)    sh-env-set! sh-env-visibility-ref)
+    (only (schemesh shell macros) with-parameterized-resource))
 
 ;;; key must be a string.
 ;;; Return the exported environment value associated with key in current job's environment,
@@ -85,12 +90,12 @@
 ;;; (see set-port-nonblocking!) and no input is ready. In this case, an empty bytevector is returned.
 (define get-bytevector-some
   (case-lambda
-    (()     (r6rs:get-bytevector-some (sh-stdout)))
+    (()     (r6rs:get-bytevector-some (sh-stdin)))
     ((port) (r6rs:get-bytevector-some port))))
 
 
 ;;; read and return the next character from textual-input-port,
-;;    which defaults to (current-input-port),
+;;    which defaults to (sh-stdin),
 ;;; or the eof object
 (define get-u8
   (case-lambda
@@ -139,5 +144,29 @@
   (case-lambda
     ((u8)      (r6rs:put-u8 (sh-stdout) u8))
     ((port u8) (r6rs:put-u8 port u8))))
+
+
+;; evaluate body ... with (current-output-port) bound to expr,
+;; then always restore (current-output-port) and call (close-port expr),
+;; even if body ... raises a condition or calls a continuation
+(define with-input-from-file
+  (case-lambda
+    ((path thunk options)
+      (with-parameterized-resource ((chez:current-input-port (file->port path 'read options) close-port))
+        (thunk)))
+    ((path thunk)
+      (with-input-from-file path thunk '()))))
+
+
+;; evaluate body ... with (current-output-port) bound to expr,
+;; then always restore (current-output-port) and call (close-port expr),
+;; even if body ... raises a condition or calls a continuation
+(define with-output-to-file
+  (case-lambda
+    ((path thunk options)
+      (with-parameterized-resource ((chez:current-output-port (file->port path 'write options) close-port))
+        (thunk)))
+    ((path thunk)
+      (with-output-to-file path thunk '()))))
 
 ) ; close library

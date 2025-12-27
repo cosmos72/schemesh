@@ -10,15 +10,18 @@
 (library (schemesh shell macros (0 9 3))
   (export
     for-glob in-glob sh-include sh-include*
-    shell shell-backquote shell-env shell-expr shell-glob shell-list shell-string shell-subshell shell-wildcard)
+    shell shell-backquote shell-env shell-expr shell-glob shell-list shell-string shell-subshell shell-wildcard
+    with-fd with-port with-resource with-parameterized-resource)
   (import
     (rnrs)
-    (only (chezscheme) datum format fx1- meta parameterize reverse!)
+    (only (chezscheme)                 datum format fx1- meta parameterize reverse! void)
     (scheme2k bootstrap)
-    (only (scheme2k containers list) for-list in-list)
-    (only (scheme2k posix pattern) wildcard?)
+    (only (scheme2k containers list)   for-list in-list)
+    (only (scheme2k containers macros) begin^ lambda^ let^ let-pairs)
+    (only (scheme2k posix fd)          fd-close)
+    (only (scheme2k posix pattern)     wildcard?)
     (schemesh shell job)
-    (only (schemesh shell eval) sh-read-file))
+    (only (schemesh shell eval)        sh-read-file sh-dynamic-wind))
 
 ;; wraps shell DSL
 (define-macro (shell . args)
@@ -228,15 +231,6 @@
         #`(%shell-glob wildcard1 job-or-id . args)))))
 
 
-;; (in-glob ...) is a shortcut for (in-list (shell-glob ...))
-;;
-;; Added in schemesh 0.9.3
-(define-syntax in-glob
-  (syntax-rules ()
-    ((_ . args)
-      (in-list (shell-glob . args)))))
-
-
 ;; (for-glob var glob body ...) iterates on shell paths produced by glob,
 ;; executing body repeatedly with var bound to each one.
 ;;
@@ -255,5 +249,88 @@
     ((_ var glob body ...)
       (for-list ((var (shell-glob glob)))
          body ...))))
+
+
+;; (in-glob ...) is a shortcut for (in-list (shell-glob ...))
+;;
+;; Added in schemesh 0.9.3
+(define-syntax in-glob
+  (syntax-rules ()
+    ((_ . args)
+      (in-list (shell-glob . args)))))
+
+
+;; evaluate body ... with var bound to expr, then always call (close var),
+;; even if body ... raises a condition or calls a continuation
+(define-syntax with-resource
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ () body ...)
+        #`(begin^ body ...))
+      ((_ ((var expr close-proc) ...) body ...)
+        (with-syntax (((close ...) (generate-pretty-temporaries #'(close-proc ...))))
+          #`(let-pairs ((var expr close close-proc) ...)
+              (sh-dynamic-wind
+                void
+                (lambda^ () body ...)
+                void
+                (lambda () (close var) ...))))))))
+
+
+
+(define-syntax with-parameterized-resource
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ () body ...)
+        #`(begin^ body ...))
+      ((_ ((param-expr expr close-proc) ...) body ...)
+        (with-syntax (((param ...) (generate-pretty-temporaries #'(param-expr ...)))
+                      ((obj   ...) (generate-pretty-temporaries #'(expr       ...)))
+                      ((close ...) (generate-pretty-temporaries #'(close-proc ...)))
+                      ((toset ...) (generate-pretty-temporaries #'(expr       ...)))
+                      ((curr  ...) (generate-pretty-temporaries #'(param-expr ...))))
+          #`(let* ((param param-expr) ...
+                   (obj   expr)       ...
+                   (close close-proc) ...
+                   (toset obj)        ...
+                   (swap
+                     (lambda ()
+                       (let ((curr (param)) ...)
+                         (param toset) ...
+                         (set!  toset curr) ...))))
+              (sh-dynamic-wind
+                swap
+                (lambda^ ()
+                  body ...)
+                swap
+                (lambda ()
+                  (close obj) ...))))))))
+
+
+;; evaluate body ... with var bound to expr, then always call (fd-close var),
+;; even if body ... raises a condition or calls a continuation
+(define-syntax with-fd
+  (syntax-rules ()
+    ((_ () body ...)
+      (begin^ body ...))
+    ((_ ((var expr)) body ...)
+      (with-resource ((var expr fd-close)) body ...))
+    ((_ ((var1 expr1) (var2 expr2) ...) body ...)
+      (with-resource ((var1 expr1 fd-close))
+        (with-fd ((var2 expr2) ...) body ...)))))
+
+
+;; evaluate body ... with var bound to expr, then always call (close-port var),
+;; even if body ... raises a condition or calls a continuation
+(define-syntax with-port
+  (syntax-rules ()
+    ((_ () body ...)
+      (begin^ body ...))
+    ((_ ((var expr)) body ...)
+      (with-resource ((var expr close-port)) body ...))
+    ((_ ((var1 expr1) (var2 expr2) ...) body ...)
+      (with-resource ((var1 expr1 close-port))
+        (with-port ((var2 expr2) ...) body ...)))))
+
 
 ) ; close library

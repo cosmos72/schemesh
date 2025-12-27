@@ -271,6 +271,13 @@
     ((_ body1 body2 ...) (begin body1 body2 ...))))
 
 
+;; version of (lambda) that also accepts empty body
+(define-syntax lambda^
+  (syntax-rules ()
+    ((_ args)                 (lambda args void))
+    ((_ args body1 body2 ...) (lambda args body1 body2 ...))))
+
+
 (define-syntax with-while-until
   (syntax-rules (while until)
     ((_)

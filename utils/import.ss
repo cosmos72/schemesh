@@ -30,7 +30,8 @@
                    file-exists? delete-file
                    get-bytevector-all get-bytevector-n get-bytevector-some
                    get-char get-datum get-line get-string-all get-string-n get-u8
-                   put-bytevector put-char put-datum put-string put-u8)
+                   put-bytevector put-char put-datum put-string put-u8
+                   with-input-from-file with-output-to-file)
     (scheme2k containers replacements) ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
     (scheme2k posix replacements)      ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.
     (schemesh shell replacements)))    ;; intentionally conflicts with some R6RS and Chez Scheme functions, because it is intended to replace them.

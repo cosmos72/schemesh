@@ -250,16 +250,16 @@
       ((_ () body ...)
         #'(forever body ...))
       ((_ ((key val htable) ...) body ...)
-        (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
-          (with-syntax (((cell ...) (generate-pretty-temporaries #'(htable ...))))
-            #'(let ((iter (make-hash-iterator htable)) ...)
-                (let %for-hash ((cell (hash-iterator-pair iter)) ...)
-                  (when (and cell ...)
-                    (let ((key (car cell)) ...
-                          (val (cdr cell)) ...)
-                      (with-while-until
-                        body ...
-                        (%for-hash (hash-iterator-next! iter) ...))))))))))))
+        (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...)))
+                      ((cell ...) (generate-pretty-temporaries #'(htable ...))))
+          #'(let ((iter (make-hash-iterator htable)) ...)
+              (let %for-hash ((cell (hash-iterator-pair iter)) ...)
+                (when (and cell ...)
+                  (let ((key (car cell)) ...
+                        (val (cdr cell)) ...)
+                    (with-while-until
+                      body ...
+                      (%for-hash (hash-iterator-next! iter) ...)))))))))))
 
 
 ;; Iterate in parallel on elements of given hashtables ht ..., and evaluate body ... on each key.
@@ -271,15 +271,15 @@
       ((_ () body ...)
         #'(forever body ...))
       ((_ ((key htable) ...) body ...)
-        (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
-          (with-syntax (((cell ...) (generate-pretty-temporaries #'(htable ...))))
-            #'(let ((iter (make-hash-iterator htable)) ...)
-                (let %for-hash-keys ((cell (hash-iterator-pair iter)) ...)
-                  (when (and cell ...)
-                    (let ((key (car cell)) ...)
-                      (with-while-until
-                        body ...
-                        (%for-hash-keys (hash-iterator-next! iter) ...))))))))))))
+        (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...)))
+                      ((cell ...) (generate-pretty-temporaries #'(htable ...))))
+          #'(let ((iter (make-hash-iterator htable)) ...)
+              (let %for-hash-keys ((cell (hash-iterator-pair iter)) ...)
+                (when (and cell ...)
+                  (let ((key (car cell)) ...)
+                    (with-while-until
+                      body ...
+                      (%for-hash-keys (hash-iterator-next! iter) ...)))))))))))
 
 
 ;; Iterate in parallel on elements of given hashtables ht ...,
@@ -315,15 +315,15 @@
       ((_ () body ...)
         #'(forever body ...))
       ((_ ((val htable) ...) body ...)
-        (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...))))
-          (with-syntax (((cell ...) (generate-pretty-temporaries #'(htable ...))))
-            #'(let ((iter (make-hash-iterator htable)) ...)
-                (let %for-hash-keys ((cell (hash-iterator-pair iter)) ...)
-                  (when (and cell ...)
-                    (let ((val (cdr cell)) ...)
-                      (with-while-until
-                        body ...
-                        (%for-hash-keys (hash-iterator-next! iter) ...))))))))))))
+        (with-syntax (((iter ...) (generate-pretty-temporaries #'(htable ...)))
+                      ((cell ...) (generate-pretty-temporaries #'(htable ...))))
+          #'(let ((iter (make-hash-iterator htable)) ...)
+              (let %for-hash-keys ((cell (hash-iterator-pair iter)) ...)
+                (when (and cell ...)
+                  (let ((val (cdr cell)) ...)
+                    (with-while-until
+                      body ...
+                      (%for-hash-keys (hash-iterator-next! iter) ...)))))))))))
 
 
 ;; (hashtable-transpose src dst) iterates on all (key . value) elements of hashtable src,

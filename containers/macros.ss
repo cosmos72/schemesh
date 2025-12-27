@@ -9,7 +9,7 @@
 
 (library (scheme2k containers macros (0 9 3))
   (export
-    begin^ for for* if^ let^ let-values^ unless^ when^)
+    begin^ for for* if^ lambda^ let^ let-pairs let-values^ unless^ when^)
   (import
     (rnrs)
     (only (chezscheme) void)
@@ -22,6 +22,13 @@
     ((_)          (void))
     ((_ body)     body)
     ((_ body ...) (begin body ...))))
+
+
+;; extended (lambda args body ...) that also accepts empty body
+(define-syntax lambda^
+  (syntax-rules ()
+    ((_ args)                 (lambda args (void)))
+    ((_ args body1 body2 ...) (lambda args body1 body2 ...))))
 
 
 ;; extended (if expr then else) that also accepts empty then and else
@@ -72,6 +79,23 @@
     ((_ (((var vars ...) expr) more-vars ...) body ...)
       (let-values (((var vars ...) expr))
         (let-values^ (more-vars ...)
+          body ...)))))
+
+
+;; (let-pairs ((var1 expr1 var2 expr2) (var3 expr3 var4 expr4) ...) body ...)
+;; expands to
+;; (let* ((var1 expr1)
+;;        (var2 expr2))
+;;   (let-pairs ((var3 expr3 var4 expr4)...)
+;;     body ...))
+(define-syntax let-pairs
+  (syntax-rules ()
+    ((_ () body ...)
+      (begin^ body ...))
+    ((_ ((var1 expr1 var2 expr2) (var3 expr3 var4 expr4) ...) body ...)
+      (let* ((var1 expr1)
+             (var2 expr2))
+        (let-pairs ((var3 expr3 var4 expr4) ...)
           body ...)))))
 
 
@@ -152,13 +176,13 @@
   (lambda (stx)
     (syntax-case stx ()
       ((_ ((vars ... iterator) ...) body ...)
-        (with-syntax (((flag ...) (generate-pretty-temporaries #'(iterator ...))))
-          (with-syntax (((iter ...) (generate-pretty-temporaries #'(iterator ...))))
-            #`(let ((iter iterator) ...)
-                (let for*-loop ()
-                  (%for*-inner-part ((vars ... flag iter) ...)
-                    (with-while-until
-                      body ...
-                      (for*-loop)))))))))))
+        (with-syntax (((flag ...) (generate-pretty-temporaries #'(iterator ...)))
+                      ((iter ...) (generate-pretty-temporaries #'(iterator ...))))
+          #`(let ((iter iterator) ...)
+              (let for*-loop ()
+                (%for*-inner-part ((vars ... flag iter) ...)
+                  (with-while-until
+                    body ...
+                    (for*-loop))))))))))
 
 ) ; close library

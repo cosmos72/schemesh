@@ -16,7 +16,7 @@ Then compile schemesh as a pair of libraries: a C shared library, and a scheme o
 The following commands work at least on Linux, on other systems they may differ.
 ```shell
 make clean
-make -j schemesh_so scheme2k_c_so
+make -j scheme2k_c_so schemesh_so
 ```
 
 Finally, from Chez Scheme REPL:

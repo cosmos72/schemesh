@@ -10,7 +10,9 @@
 (library (schemesh shell eval (0 9 3))
   (export
     sh-eval-file sh-eval-file* sh-eval-fd* sh-eval-port* sh-eval-parsectx* sh-eval-string*
-    sh-read-file sh-read-file* sh-read-fd* sh-read-port* sh-read-parsectx* sh-read-string*)
+    sh-read-file sh-read-file* sh-read-fd* sh-read-port* sh-read-parsectx* sh-read-string*
+    
+    sh-dynamic-wind)
   (import
     (rnrs)
     (rnrs mutable-pairs)
@@ -245,6 +247,25 @@
 (define (sh-eval-string* str initial-parser enabled-parsers)
   (sh-eval (sh-read-string* str initial-parser enabled-parsers)))
 
+
+;; call (before) then call (proc), finally always call (after) and (on-leave)
+;; even if (proc) raises a condition or calls a continuation.
+;;
+;; if execution leaves (proc) by calling a continuation then attempts to re-enter it,
+;; raises condition instead of re-entering it.
+(define (sh-dynamic-wind before proc after on-leave)
+  ;; TODO: if (sh-current-job) is set, save on-leave into it and allow multiple exit and re-enter.
+  (let ((first-call? #t))
+    (dynamic-wind
+      (lambda ()
+        (unless first-call?
+          (raise-errorf 'sh-dynamic-wind "cannot re-enter a block protected by (sh-dynamic-wind) after leaving it via a continuation. reason: no current job"))
+        (set! first-call? #f)
+        (before))
+      proc
+      (lambda ()
+        (after)
+        (on-leave)))))
 
 
 ;; the "source" builtin: read a file containing shell script or Scheme source and eval it.
