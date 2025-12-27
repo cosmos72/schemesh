@@ -260,7 +260,7 @@
       (in-list (shell-glob . args)))))
 
 
-;; evaluate body ... with var bound to expr, then always call (close var),
+;; evaluate body ... with variables var ... bound to expr ..., then always call (close var) ...,
 ;; even if body ... raises a condition or calls a continuation
 (define-syntax with-resource
   (lambda (stx)
@@ -268,69 +268,67 @@
       ((_ () body ...)
         #`(begin^ body ...))
       ((_ ((var expr close-proc) ...) body ...)
-        (with-syntax (((close ...) (generate-pretty-temporaries #'(close-proc ...))))
-          #`(let-pairs ((var expr close close-proc) ...)
+        (with-syntax (((obj   ...) (generate-pretty-temporaries #'(var ...)))
+                      ((close ...) (generate-pretty-temporaries #'(close-proc ...))))
+          #`(let-pairs ((obj expr close close-proc) ...)
               (sh-dynamic-wind
                 void
-                (lambda^ () body ...)
+                (lambda () (let^ ((var obj) ...) body ...))
                 void
-                (lambda () (close var) ...))))))))
+                (lambda () (close obj) ...))))))))
 
 
 
+;; evaluate body ... with parameters param ... set to expr ...,
+;; then always restore param ... and call (close var) ...,
+;; even if body ... raises a condition or calls a continuation
 (define-syntax with-parameterized-resource
   (lambda (stx)
     (syntax-case stx ()
       ((_ () body ...)
         #`(begin^ body ...))
-      ((_ ((param-expr expr close-proc) ...) body ...)
-        (with-syntax (((param ...) (generate-pretty-temporaries #'(param-expr ...)))
-                      ((obj   ...) (generate-pretty-temporaries #'(expr       ...)))
-                      ((close ...) (generate-pretty-temporaries #'(close-proc ...)))
-                      ((toset ...) (generate-pretty-temporaries #'(expr       ...)))
-                      ((curr  ...) (generate-pretty-temporaries #'(param-expr ...))))
-          #`(let* ((param param-expr) ...
-                   (obj   expr)       ...
-                   (close close-proc) ...
-                   (toset obj)        ...
+      ((_ ((param expr close) ...) body ...)
+        (with-syntax (((tparam ...) (generate-pretty-temporaries #'(param ...)))
+                      ((tobj   ...) (generate-pretty-temporaries #'(expr  ...)))
+                      ((tclose ...) (generate-pretty-temporaries #'(close ...)))
+                      ((tsave  ...) (generate-pretty-temporaries #'(expr  ...)))
+                      ((tcurr  ...) (generate-pretty-temporaries #'(param ...))))
+          #`(let* ((tparam param) ...
+                   (tobj   expr)  ...
+                   (tclose close) ...
+                   (tsave  tobj)  ...
                    (swap
                      (lambda ()
-                       (let ((curr (param)) ...)
-                         (param toset) ...
-                         (set!  toset curr) ...))))
+                       (let ((tcurr (tparam)) ...)
+                         (tparam tsave) ...
+                         (set! tsave tcurr) ...))))
               (sh-dynamic-wind
                 swap
                 (lambda^ ()
                   body ...)
                 swap
                 (lambda ()
-                  (close obj) ...))))))))
+                  (tclose tobj) ...))))))))
 
 
-;; evaluate body ... with var bound to expr, then always call (fd-close var),
+;; evaluate body ... with variables var ... bound to expr ..., then always call (fd-close var) ...,
 ;; even if body ... raises a condition or calls a continuation
 (define-syntax with-fd
   (syntax-rules ()
     ((_ () body ...)
       (begin^ body ...))
-    ((_ ((var expr)) body ...)
-      (with-resource ((var expr fd-close)) body ...))
-    ((_ ((var1 expr1) (var2 expr2) ...) body ...)
-      (with-resource ((var1 expr1 fd-close))
-        (with-fd ((var2 expr2) ...) body ...)))))
+    ((_ ((var expr) ...) body ...)
+      (with-resource ((var expr fd-close) ...) body ...))))
 
 
-;; evaluate body ... with var bound to expr, then always call (close-port var),
+;; evaluate body ... with variables var ... bound to expr ..., then always call (close-port var) ...,
 ;; even if body ... raises a condition or calls a continuation
 (define-syntax with-port
   (syntax-rules ()
     ((_ () body ...)
       (begin^ body ...))
-    ((_ ((var expr)) body ...)
-      (with-resource ((var expr close-port)) body ...))
-    ((_ ((var1 expr1) (var2 expr2) ...) body ...)
-      (with-resource ((var1 expr1 close-port))
-        (with-port ((var2 expr2) ...) body ...)))))
+    ((_ ((var expr) ...) body ...)
+      (with-resource ((var expr close-port) ...) body ...))))
 
 
 ) ; close library
