@@ -298,21 +298,20 @@
 ;; the "source" builtin: read a file containing shell script or Scheme source and eval it.
 ;;
 ;; As all builtins do, must return job status.
-(define (builtin-source job prog-and-args options)
-  (assert-string-list? 'builtin-source prog-and-args)
-  (cond
-    ((null? (cdr prog-and-args))
-      (fd-write-all (sh-fd 2)
-        #vu8(115 99 104 101 109 101 115 104 58 32 115 111 117 114 99 101 58 32 116 111 111
-             32 102 101 119 32 97 114 103 117 109 101 110 116 115 10)) ; "schemesh: source: too few arguments\n"
-      (failed 1))
-    ((not (null? (cddr prog-and-args)))
-      (fd-write-all (sh-fd 2)
-        #vu8(115 99 104 101 109 101 115 104 58 32 115 111 117 114 99 101 58 32 116 111 111
-             32 109 97 110 121 32 97 114 103 117 109 101 110 116 115 10)) ; "schemesh: source: too many arguments\n"
-      (failed 1))
-    (else
-      (ok (sh-eval-file (cadr prog-and-args))))))
+(define builtin-source
+  (let ((bv-too-few-args  (string->utf8 "schemesh: source: too few arguments\n"))
+        (bv-too-many-args (string->utf8 "schemesh: source: too many arguments\n")))
+    (lambda (job prog-and-args options)
+      (assert-string-list? 'builtin-source prog-and-args)
+      (cond
+        ((null? (cdr prog-and-args))
+          (fd-write-all (sh-fd 2) bv-too-few-args)
+          (failed 1))
+        ((not (null? (cddr prog-and-args)))
+          (fd-write-all (sh-fd 2) bv-too-many-args)
+          (failed 1))
+        (else
+          (ok (sh-eval-file (cadr prog-and-args))))))))
 
 
 (begin
