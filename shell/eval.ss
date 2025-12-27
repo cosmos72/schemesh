@@ -249,7 +249,7 @@
 
 
 ;; extension of (dynamic-wind):
-;;   call (before) then call (proc), finally always call (after) and (on-leave)
+;;   call (before) then call (proc), finally always call (after) and (on-finish)
 ;;   even if (proc) raises a condition or calls a continuation.
 ;;
 ;; if execution leaves (proc) by calling a continuation then attempts to re-enter it,
@@ -257,32 +257,32 @@
 ;;
 ;; if (sh-current-job) is a sh-expr, behaves as dynamic-wind:
 ;;   (before) is called again before re-entering (proc),
-;;   and (on-leave) is called only when (sh-current-job) finishes.
+;;   and (on-finish) is called only when (sh-current-job) finishes.
 ;;
 ;; if (sh-current-job) is not a sh-expr,
 ;;   raises a condition that prevents re-entering (before) and (proc).
 ;;   Reason: there is no way to detect in advance whether (proc) will be re-entered or not,
-;;   thus (on-leave) must be called at the first exit from (proc),
+;;   thus (on-finish) must be called at the first exit from (proc),
 ;;   which means resources needed by (proc) will be released and re-entering it does not make sense.
 ;;
-(define (sh-dynamic-wind before proc after on-leave)
-  ;; if (sh-current-job) is a sh-expr, save on-leave into it and allow multiple exit and re-enter.
+(define (sh-dynamic-wind before proc after on-finish)
+  ;; if (sh-current-job) is a sh-expr, save on-finish into it and allow multiple exit and re-enter.
   (let ((job (sh-current-job)))
     (if (sh-expr? job)
-      (dynamic-wind/jexpr before proc after on-leave job)
-      (dynamic-wind/nojob before proc after on-leave))))
+      (dynamic-wind/jexpr before proc after on-finish job)
+      (dynamic-wind/nojob before proc after on-finish))))
 
 
 ;; implementation of (sh-dynamic-wind) if current job is a sh-expr
-(define (dynamic-wind/jexpr before proc after on-leave job)
-  (sh-expr-on-finish job on-leave)
+(define (dynamic-wind/jexpr before proc after on-finish job)
+  (sh-expr-on-finish job on-finish)
   (dynamic-wind before proc after))
 
 
 ;; implementation of (sh-dynamic-wind) if current job is not a sh-expr.
 ;; if execution leaves (proc) by calling a continuation then attempts to re-enter it,
 ;; raises a condition that prevents re-entering (before) and (proc).
-(define (dynamic-wind/nojob before proc after on-leave)
+(define (dynamic-wind/nojob before proc after on-finish)
   (let ((first-call? #t))
     (dynamic-wind
       (lambda ()
@@ -292,7 +292,7 @@
         (before))
       proc
       (lambda ()
-        (dynamic-wind void after on-leave)))))
+        (dynamic-wind void after on-finish)))))
 
 
 ;; the "source" builtin: read a file containing shell script or Scheme source and eval it.
