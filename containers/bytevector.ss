@@ -12,6 +12,7 @@
 
     bytevector-compare subbytevector-fill! bytevector-hash bytevector-index
     bytevector<=? bytevector<? bytevector>=? bytevector>? bytevector-iterate
+    subbytevector=?
 
     bytevector-sint-ref* bytevector-sint-set*!
     bytevector-uint-ref* bytevector-uint-set*!)
@@ -41,7 +42,17 @@
     (bytevector-copy! bvec start dst 0 n)
     dst))
 
-(define c-subbytevector-fill! (foreign-procedure "c_subbytevector_fill" (ptr int int int) void))
+(define c-memory=? (foreign-procedure "c_memory_equal" (u8* iptr u8* iptr iptr) ptr))
+
+(define (subbytevector=? bvec1 start1 bvec2 start2 n)
+  (assert* 'subbytevector=? (fx<=?* 0 start1 (fx+ start1 n) (bytevector-length bvec1)))
+  (assert* 'subbytevector=? (fx<=?* 0 start2 (fx+ start2 n) (bytevector-length bvec2)))
+  (or (fxzero? n)
+      (c-memory=? bvec1 start1 bvec2 start2 n)))
+
+
+
+(define c-subbytevector-fill! (foreign-procedure "c_subbytevector_fill" (ptr iptr iptr int) void))
 
 (define (subbytevector-fill! bvec start end val)
   (assert* 'subbytevector-fill! (fx<=?* 0 start end (bytevector-length bvec)))
@@ -85,28 +96,28 @@
 
 
 
-;; create and return a closure that iterates on elements of bytevector sp.
+;; create and return a closure that iterates on elements of bytevector bv.
 ;;
 ;; the returned closure accepts no arguments, and each call to it returns two values:
-;; either (values elem #t) i.e. the next element in bytevector sp and #t,
+;; either (values elem #t) i.e. the next element in bytevector bv and #t,
 ;; or (values #<unspecified> #f) if end of bytevector is reached.
 (define in-bytevector
   (case-lambda
-    ((sp start end step)
-      (assert* 'in-bytevector (fx<=?* 0 start end (bytevector-length sp)))
+    ((bv start end step)
+      (assert* 'in-bytevector (fx<=?* 0 start end (bytevector-length bv)))
       (assert* 'in-bytevector (fx>=? step 0))
       (let ((%in-bytevector ; name shown when displaying the closure
               (lambda ()
                 (if (fx<? start end)
-                  (let ((elem (bytevector-u8-ref sp start)))
+                  (let ((elem (bytevector-u8-ref bv start)))
                     (set! start (fx+ start step))
                     (values elem #t)))
                   (values 0 #f))))
         %in-bytevector))
-    ((sp start end)
-      (in-bytevector sp start end 1))
-    ((sp)
-      (in-bytevector sp 0 (bytevector-length sp) 1))))
+    ((bv start end)
+      (in-bytevector bv start end 1))
+    ((bv)
+      (in-bytevector bv 0 (bytevector-length bv) 1))))
 
 
 
@@ -127,8 +138,7 @@
 ;; return 0 if they are equal,
 ;; return 1 if bvec1 is lexicographically greater than bvec2
 (define bytevector-compare
-  (let ((c-bytevector-compare (foreign-procedure "c_bytevector_compare"
-          (ptr ptr) integer-8)))
+  (let ((c-bytevector-compare (foreign-procedure "c_bytevector_compare" (ptr ptr) integer-8)))
     (lambda (bvec1 bvec2)
       (assert* 'bytevector-compare (bytevector? bvec1))
       (assert* 'bytevector-compare (bytevector? bvec2))

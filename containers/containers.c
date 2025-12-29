@@ -83,6 +83,14 @@ static signed char c_bytevector_compare(ptr left, ptr right) {
   }
 }
 
+/**
+ * return Strue if n bytes at mem1[start1...] are equal to the n bytes at mem2[start2...],
+ * otherwise return Sfalse.
+ */
+static ptr c_memory_equal(const octet* mem1, iptr start1, const octet* mem2, iptr start2, iptr n) {
+  return (n <= 0 || memcmp(mem1 + start1, mem2 + start2, n) == 0) ? Strue : Sfalse;
+}
+
 /** fill with value a bytevector range  */
 static void c_subbytevector_fill(ptr bvec, iptr start, iptr end, int value) {
   if (Sbytevectorp(bvec) && 0 <= start && start < end && end <= Sbytevector_length(bvec)) {
@@ -648,9 +656,10 @@ static void c_fxvector_copy(ptr src, ptr src_start, ptr dst, ptr dst_start, ptr 
 
 void scheme2k_register_c_functions_containers(void) {
   Sregister_symbol("c_bytevector_compare", &c_bytevector_compare);
-  Sregister_symbol("c_subbytevector_fill", &c_subbytevector_fill);
   Sregister_symbol("c_bytevector_hash", &c_bytevector_hash);
   Sregister_symbol("c_bytevector_index_u8", &c_bytevector_index_u8);
+  Sregister_symbol("c_subbytevector_fill", &c_subbytevector_fill);
+  Sregister_symbol("c_memory_equal", &c_memory_equal);
   Sregister_symbol("c_string_fill_utf8b_surrogate_chars", &c_string_fill_utf8b_surrogate_chars);
   Sregister_symbol("c_string_to_utf8b_length", &c_string_to_utf8b_length);
   Sregister_symbol("c_string_to_utf8b_append", &c_string_to_utf8b_append);

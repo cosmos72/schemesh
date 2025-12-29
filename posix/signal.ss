@@ -49,7 +49,7 @@
 
 ;; create and return time object with type 'time-duration.
 ;;
-;; two-arguments version accepts seconds and nanoseconds where both are exact integers
+;; two-arguments version accepts seconds and nanoseconds, where both are exact integers
 ;;
 ;; one-argument version accepts:
 ;;  either an exact or inexact real, indicating the number of seconds
