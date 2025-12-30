@@ -218,6 +218,10 @@
   (values->list (bytespan-ref/char (bytespan #xef #xBF #xBF) 0))       (#\xFFFF 3)  ; U+FFFF
   (values->list (bytespan-ref/char (bytespan #xf0 #x90 #x80 #x80) 0))  (#\x10000 4) ; U+10000
   (values->list (bytespan-ref/char (bytespan #xf4 #x8f #xBF #xBF) 0))  (#\x10FFFF 4); U+10FFFF
+  (values->list (bytespan-ref/char (bytespan #xf4 #x8f #xBF #xC0) 0))  (#\xDCF4 1)  ; invalid UTF-8
+  (values->list (bytespan-ref/char (bytespan #xf4 #x8f #xC0 #xBF) 0))  (#\xDCF4 1)  ; invalid UTF-8
+  (values->list (bytespan-ref/char (bytespan #xf4 #x90 #xBF #xBF) 0))  (#\xDCF4 1)  ; invalid UTF-8
+  (values->list (bytespan-ref/char (bytespan #xf5 #x8f #xBF #xBF) 0))  (#\xDCF5 1)  ; invalid UTF-8
   (let ((sp (bytespan)))
     (bytespan-insert-right/char! sp #\~) sp)                         ,(bytespan 126)
   (let ((sp (bytespan)))
