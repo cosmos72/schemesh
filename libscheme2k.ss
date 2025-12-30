@@ -25,6 +25,7 @@
   (include "containers/vector.ss")
   (include "containers/hashtable.ss")   ; requires containers/list.ss
   (include "containers/bytespan.ss")    ; requires containers/bytevector.ss containers/list.ss
+  (include "containers/cf32span.ss")    ; requires containers/bytevector.ss containers/list.ss
   (include "containers/charspan.ss")    ; requires containers/string.ss
   (include "containers/span.ss")        ; requires containers/vector.ss
   (include "containers/sort.ss")        ; requires containers/span.ss
