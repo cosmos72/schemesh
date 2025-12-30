@@ -27,8 +27,8 @@
     cf32span-peek-beg cf32span-peek-end cf32span-peek-data)
   (import
     (rnrs)
-    (only (chezscheme)         bytevector-truncate! cfl-real-part cfl-imag-part
-                               exact->inexact fl-make-rectangular fx1+ fx1- record-writer void)
+    (only (chezscheme)         bytevector-truncate! cfl-real-part cfl-imag-part cflonum?
+                               fl-make-rectangular fx1+ fx1- record-writer void)
     (only (scheme2k bootstrap) assert* assert-not* fx<=?*)
     (only (scheme2k containers list) for-list)
     (scheme2k containers bytevector))
@@ -62,7 +62,7 @@
     (do ((tail l (cdr tail))
          (i    0 (fx1+ i)))
         ((null? tail) sp)
-      (cf32span-set! sp i (exact->inexact (car tail))))))
+      (cf32span-set! sp i (car tail)))))
 
 ;; create cf32span copying contents of specified bytevector
 (define (bytevector->cf32span vec)
@@ -72,16 +72,17 @@
 (define (bytevector->cf32span* vec)
   (%make-cf32span 0 (cf32pos (bytevector-length vec)) vec))
 
-;; create cf32span with specified length and optional fill value.
-;; If fill value is not specified, leave contents uninitialized. Warning: in such case, some elements may be infinity or NaN.
+;; create cf32span with specified length and optional fill value, which must be a cflonum
+;; If fill value is not specified, it defaults to 0.0+0.0i.
 (define make-cf32span
   (case-lambda
     ((n fill)
+      (assert* 'make-cf32span (cflonum? fill))
       (let ((sp (%make-cf32span 0 n (make-bytevector (bytepos n)))))
         (cf32span-fill! sp 0 n fill)
         sp))
     ((n)
-      (%make-cf32span 0 n (make-bytevector (bytepos n))))))
+      (make-cf32span n 0.0+0.0i))))
 
 ;; convert a cf32span to bytevector
 (define (cf32span->bytevector sp)
@@ -133,23 +134,23 @@
   (assert* 'cf32span-ref-right (not (cf32span-empty? sp)))
   (cf32span-ref sp (fx1- (cf32span-length sp))))
 
-;; set i-th element of cf32span to value, converted to an inexact complex
-(define (cf32span-set! sp idx value)
+;; set i-th element of cf32span to cfloat, which must be a cflonum
+(define (cf32span-set! sp idx cfloat)
   (assert* 'cf32span-set! (fx<? -1 idx (cf32span-length sp)))
+  (assert* 'cf32span-set! (cflonum? cfloat))
   (let ((bv  (cf32span-vec sp))
-        (pos (bytepos (fx+ idx (cf32span-beg sp))))
-        (cfloat (exact->inexact value)))
+        (pos (bytepos (fx+ idx (cf32span-beg sp)))))
     (bytevector-ieee-single-native-set! bv pos                (cfl-real-part cfloat))
     (bytevector-ieee-single-native-set! bv (bytepos+imag pos) (cfl-imag-part cfloat))))
 
-;; set all cf32span elements in range [start...end) to fill, converted to an inexact complex
+;; set all cf32span elements in range [start...end) to fill, which must be a cflonum
 (define cf32span-fill!
   (case-lambda
     ((sp start end fill)
-      (do ((cfloat (exact->inexact fill))
-           (i start (fx1+ i)))
+      (assert* 'cf32span-fill! (cflonum? fill))
+      (do ((i start (fx1+ i)))
           ((fx>=? i end))
-        (cf32span-set! sp i cfloat)))
+        (cf32span-set! sp i fill)))
     ((sp fill)
       (cf32span-fill! sp 0 (cf32span-length sp) fill))))
 
@@ -266,14 +267,16 @@
   (assert* 'cf32span-resize-right! (fx>=? (cf32span-capacity-right sp) len))
   (cf32span-end-set! sp (fx+ len (cf32span-beg sp))))
 
-(define (cf32span-insert-left! sp value)
+(define (cf32span-insert-left! sp cfloat)
+  (assert* 'cf32span-insert-left! (cflonum? cfloat))
   (cf32span-resize-left! sp (fx1+ (cf32span-length sp)))
-  (cf32span-set! sp 0 value))
+  (cf32span-set! sp 0 cfloat))
 
-(define (cf32span-insert-right! sp value)
+(define (cf32span-insert-right! sp cfloat)
+  (assert* 'cf32span-insert-right! (cflonum? cfloat))
   (let ((pos (cf32span-length sp)))
     (cf32span-resize-right! sp (fx1+ pos))
-    (cf32span-set! sp pos value)))
+    (cf32span-set! sp pos cfloat)))
 
 ;; insert range [src-start, src-end) of cf32span bv-src
 ;; at the beginning of cf32span sp-dst
