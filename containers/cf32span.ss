@@ -27,8 +27,8 @@
     cf32span-peek-beg cf32span-peek-end cf32span-peek-data)
   (import
     (rnrs)
-    (only (chezscheme)         bytevector-truncate! cfl-real-part cfl-imag-part exact->inexact
-                               fl-make-rectangular fx1+ fx1- record-writer void)
+    (only (chezscheme)         bytevector-truncate! cfl-real-part cfl-imag-part
+                               exact->inexact fl-make-rectangular fx1+ fx1- record-writer void)
     (only (scheme2k bootstrap) assert* assert-not* fx<=?*)
     (only (scheme2k containers list) for-list)
     (scheme2k containers bytevector))
@@ -40,14 +40,15 @@
      (mutable vec cf32span-vec cf32span-vec-set!)) ;; bytevector
   (nongenerative %cf32span-7c46d04b-34f4-4046-b5c7-b63753c1be39))
 
-(define (bytepos index)
-  (fxarithmetic-shift-left index 3))
+(define (bytepos cf32-index)
+  (fxarithmetic-shift-left cf32-index 3))
+
+;; given byte-index of real part, return byte-index of imaginary part
+(define (bytepos+imag byte-index)
+  (fx+ byte-index 4))
 
 (define (cf32pos byte-index)
   (fxarithmetic-shift-right byte-index 3))
-
-(define (bytepos+cf32 byte-index)
-  (fx+ byte-index 8))
 
 (define cf32span-peek-beg cf32span-beg)
 (define cf32span-peek-end cf32span-end)
@@ -71,7 +72,8 @@
 (define (bytevector->cf32span* vec)
   (%make-cf32span 0 (cf32pos (bytevector-length vec)) vec))
 
-;; create cf32span with specified length and fill value
+;; create cf32span with specified length and optional fill value.
+;; If fill value is not specified, leave contents uninitialized. Warning: in such case, some elements may be infinity or NaN.
 (define make-cf32span
   (case-lambda
     ((n fill)
@@ -79,7 +81,7 @@
         (cf32span-fill! sp 0 n fill)
         sp))
     ((n)
-      (make-cf32span n 0.0+0.0i))))
+      (%make-cf32span 0 n (make-bytevector (bytepos n))))))
 
 ;; convert a cf32span to bytevector
 (define (cf32span->bytevector sp)
@@ -125,20 +127,22 @@
         (pos (bytepos (fx+ idx (cf32span-beg sp)))))
     (fl-make-rectangular
       (bytevector-ieee-single-native-ref bv pos)
-      (bytevector-ieee-single-native-ref bv (bytepos+cf32 pos)))))
+      (bytevector-ieee-single-native-ref bv (bytepos+imag pos)))))
 
 (define (cf32span-ref-right sp)
   (assert* 'cf32span-ref-right (not (cf32span-empty? sp)))
   (cf32span-ref sp (fx1- (cf32span-length sp))))
 
-;; set i-th element of cf32span to cfloat, which must be a cflonum
-(define (cf32span-set! sp idx cfloat)
+;; set i-th element of cf32span to value, converted to an inexact complex
+(define (cf32span-set! sp idx value)
   (assert* 'cf32span-set! (fx<? -1 idx (cf32span-length sp)))
   (let ((bv  (cf32span-vec sp))
-        (pos (bytepos (fx+ idx (cf32span-beg sp)))))
+        (pos (bytepos (fx+ idx (cf32span-beg sp))))
+        (cfloat (exact->inexact value)))
     (bytevector-ieee-single-native-set! bv pos                (cfl-real-part cfloat))
-    (bytevector-ieee-single-native-set! bv (bytepos+cf32 pos) (cfl-imag-part cfloat))))
+    (bytevector-ieee-single-native-set! bv (bytepos+imag pos) (cfl-imag-part cfloat))))
 
+;; set all cf32span elements in range [start...end) to fill, converted to an inexact complex
 (define cf32span-fill!
   (case-lambda
     ((sp start end fill)
@@ -190,7 +194,7 @@
   (assert* 'cf32span-reallocate-right! (fx<=? 0 len cap))
   (let ((copy-len (fxmin len (cf32span-length sp)))
         (old-vec  (cf32span-vec sp))
-        (new-vec  (make-bytevector cap)))
+        (new-vec  (make-bytevector (bytepos cap))))
     (bytevector-copy! old-vec (bytepos (cf32span-beg sp)) new-vec 0 (bytepos copy-len))
     (cf32span-beg-set! sp 0)
     (cf32span-end-set! sp len)
@@ -206,15 +210,15 @@
 
 ;; ensure distance between begin of internal bytevector and last element is >= n.
 ;; does NOT change the length
-(define (cf32span-reserve-left! sp len)
-  (assert* 'cf32span-reserve-left! (fx>=? len 0))
+(define (cf32span-reserve-left! sp n)
+  (assert* 'cf32span-reserve-left! (fx>=? n 0))
   (let ((vec      (cf32span-vec sp))
         (cap-left (cf32span-capacity-left sp)))
     (cond
-      ((fx<=? len cap-left)
+      ((fx<=? n cap-left)
        ;; nothing to do
        (void))
-      ((fx<=? len (cf32pos (bytevector-length vec)))
+      ((fx<=? n (cf32pos (bytevector-length vec)))
         ;; bytevector is large enough, move elements to the back
         (let* ((cap     (cf32span-capacity sp))
                (old-len (cf32span-length sp))
@@ -223,30 +227,30 @@
           (cf32span-beg-set! sp new-beg)
           (cf32span-end-set! sp cap)))
       (else
-       ;; bytevector is too small, reallocate it
-       (let ((new-cap (fxmax 8 len (fx* 2 cap-left))))
-         (cf32span-reallocate-left! sp (cf32span-length sp) new-cap))))))
+        ;; bytevector is too small, reallocate it
+        (let ((new-cap (fxmax 8 n (fx* 2 cap-left))))
+          (cf32span-reallocate-left! sp (cf32span-length sp) new-cap))))))
 
 ;; ensure distance between first element and end of internal bytevector is >= n.
 ;; does NOT change the length
-(define (cf32span-reserve-right! sp len)
-  (assert* 'cf32span-reserve-right! (fx>=? len 0))
+(define (cf32span-reserve-right! sp n)
+  (assert* 'cf32span-reserve-right! (fx>=? n 0))
   (let ((vec       (cf32span-vec sp))
         (cap-right (cf32span-capacity-right sp)))
     (cond
-      ((fx<=? len cap-right)
+      ((fx<=? n cap-right)
        ;; nothing to do
        (void))
-      ((fx<=? len (cf32pos (bytevector-length vec)))
+      ((fx<=? n (cf32pos (bytevector-length vec)))
         ;; bytevector is large enough, move elements to the front
-        (let ((len (cf32span-length sp)))
-          (bytevector-copy! vec (bytepos (cf32span-beg sp)) vec 0 (bytepos len))
+        (let ((old-len (cf32span-length sp)))
+          (bytevector-copy! vec (bytepos (cf32span-beg sp)) vec 0 (bytepos old-len))
           (cf32span-beg-set! sp 0)
-          (cf32span-end-set! sp len)))
+          (cf32span-end-set! sp n)))
       (else
-       ;; bytevector is too small, reallocate it
-       (let ((new-cap (fxmax 8 len (fx* 2 cap-right))))
-         (cf32span-reallocate-right! sp (cf32span-length sp) new-cap))))))
+        ;; bytevector is too small, reallocate it
+        (let ((new-cap (fxmax 8 n (fx* 2 cap-right))))
+          (cf32span-reallocate-right! sp (cf32span-length sp) new-cap))))))
 
 ;; grow or shrink cf32span on the left (front), set length to len
 (define (cf32span-resize-left! sp len)
@@ -262,14 +266,14 @@
   (assert* 'cf32span-resize-right! (fx>=? (cf32span-capacity-right sp) len))
   (cf32span-end-set! sp (fx+ len (cf32span-beg sp))))
 
-(define (cf32span-insert-left! sp cfloat)
+(define (cf32span-insert-left! sp value)
   (cf32span-resize-left! sp (fx1+ (cf32span-length sp)))
-  (cf32span-set! sp 0 cfloat))
+  (cf32span-set! sp 0 value))
 
-(define (cf32span-insert-right! sp cfloat)
+(define (cf32span-insert-right! sp value)
   (let ((pos (cf32span-length sp)))
     (cf32span-resize-right! sp (fx1+ pos))
-    (cf32span-set! sp pos cfloat)))
+    (cf32span-set! sp pos value)))
 
 ;; insert range [src-start, src-end) of cf32span bv-src
 ;; at the beginning of cf32span sp-dst
@@ -347,10 +351,10 @@
 ;; Returns #t if all calls to (proc index elem) returned truish,
 ;; otherwise returns #f.
 (define (cf32span-iterate sp proc)
-  (let ((len   (cf32span-length sp)))
-    (do ((i 0 (fx1+ i)))
-      ((or (fx>=? i len) (not (proc i (cf32span-ref sp i))))
-       (fx>=? i len)))))
+  (do ((len (cf32span-length sp))
+       (i   0 (fx1+ i)))
+    ((or (fx>=? i len) (not (proc i (cf32span-ref sp i))))
+     (fx>=? i len))))
 
 
 ;; customize how "cf32span" objects are printed
