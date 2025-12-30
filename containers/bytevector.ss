@@ -12,7 +12,8 @@
 
     bytevector-compare subbytevector-fill! bytevector-hash bytevector-index
     bytevector<=? bytevector<? bytevector>=? bytevector>? bytevector-iterate
-    subbytevector=?
+    
+    subbytevector-compare subbytevector=? subbytevector<? subbytevector<=? subbytevector>? subbytevector>=?
 
     bytevector-sint-ref* bytevector-sint-set*!
     bytevector-uint-ref* bytevector-uint-set*!)
@@ -42,17 +43,43 @@
     (bytevector-copy! bvec start dst 0 n)
     dst))
 
-(define c-memory=? (foreign-procedure "c_memory_equal" (u8* iptr u8* iptr iptr) ptr))
+(define c-subbytevector-compare (foreign-procedure "c_subbytevector_compare" (ptr fixnum ptr fixnum fixnum) integer-8))
+(define c-subbytevector-fill!   (foreign-procedure "c_subbytevector_fill"    (ptr fixnum fixnum int) void))
+
+;; compare i1 against i2. return one of:
+;;   -1 if (fx<? i1 i2)
+;;    0 if (fx=? i1 i2)
+;;    1 if (fx>? i1 i2)
+(define (fxcompare i1 i2)
+  (cond
+    ((fx=? i1 i2)  0)
+    ((fx<? i1 i2) -1)
+    (else          1)))
+
+(define (subbytevector-compare bvec1 start1 bvec2 start2 n)
+  (assert* 'subbytevector-compare (fx<=?* 0 start1 (fx+ start1 n) (bytevector-length bvec1)))
+  (assert* 'subbytevector-compare (fx<=?* 0 start2 (fx+ start2 n) (bytevector-length bvec2)))
+  (case n
+    ((0) 0)
+    ((1) (fxcompare (bytevector-u8-ref bvec1 start1) (bytevector-u8-ref bvec2 start2)))
+    (else
+      (c-subbytevector-compare bvec1 start1 bvec2 start2 n))))
 
 (define (subbytevector=? bvec1 start1 bvec2 start2 n)
-  (assert* 'subbytevector=? (fx<=?* 0 start1 (fx+ start1 n) (bytevector-length bvec1)))
-  (assert* 'subbytevector=? (fx<=?* 0 start2 (fx+ start2 n) (bytevector-length bvec2)))
-  (or (fxzero? n)
-      (c-memory=? bvec1 start1 bvec2 start2 n)))
+  (fxzero? (subbytevector-compare bvec1 start1 bvec2 start2 n)))
 
+(define (subbytevector<? bvec1 start1 bvec2 start2 n)
+  (fx<? (subbytevector-compare bvec1 start1 bvec2 start2 n) 0))
 
+(define (subbytevector<=? bvec1 start1 bvec2 start2 n)
+  (fx<=? (subbytevector-compare bvec1 start1 bvec2 start2 n) 0))
 
-(define c-subbytevector-fill! (foreign-procedure "c_subbytevector_fill" (ptr iptr iptr int) void))
+(define (subbytevector>? bvec1 start1 bvec2 start2 n)
+  (fx>? (subbytevector-compare bvec1 start1 bvec2 start2 n) 0))
+
+(define (subbytevector>=? bvec1 start1 bvec2 start2 n)
+  (fx>=? (subbytevector-compare bvec1 start1 bvec2 start2 n) 0))
+
 
 (define (subbytevector-fill! bvec start end val)
   (assert* 'subbytevector-fill! (fx<=?* 0 start end (bytevector-length bvec)))
@@ -137,13 +164,17 @@
 ;; return -1 if bvec1 is lexicographically lesser than bvec2,
 ;; return 0 if they are equal,
 ;; return 1 if bvec1 is lexicographically greater than bvec2
-(define bytevector-compare
-  (let ((c-bytevector-compare (foreign-procedure "c_bytevector_compare" (ptr ptr) integer-8)))
-    (lambda (bvec1 bvec2)
-      (assert* 'bytevector-compare (bytevector? bvec1))
-      (assert* 'bytevector-compare (bytevector? bvec2))
-      (or (eq? bvec1 bvec2)
-          (c-bytevector-compare bvec1 bvec2)))))
+(define (bytevector-compare bvec1 bvec2)
+  (assert* 'bytevector-compare (bytevector? bvec1))
+  (assert* 'bytevector-compare (bytevector? bvec2))
+  (if (eq? bvec1 bvec2)
+    0
+    (let ((n1 (bytevector-length bvec1))
+          (n2 (bytevector-length bvec2)))
+      (case (subbytevector-compare bvec1 0 bvec2 0 (fxmin n1 n2))
+        ((-1) -1)
+        ((1)   1)
+        (else (fxcompare n1 n2)))))) ; bytes compare equal => shorter bytevector compares less
 
 
 (define (bytevector<=? bvec1 bvec2)

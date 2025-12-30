@@ -64,34 +64,29 @@ static ptr c_fnv1a_unsigned_fixnum(const octet data[], const size_t n) {
   return fxhash;
 }
 
-static signed char c_bytevector_compare(ptr left, ptr right) {
-#if 0 /* redundant, already checked by Scheme function (bytevector-compare) */
-  if (Sbytevectorp(left) && Sbytevectorp(right))
-#endif
-  {
-    const iptr left_n  = Sbytevector_length(left);
-    const iptr right_n = Sbytevector_length(right);
-    const iptr n       = left_n < right_n ? left_n : right_n;
-    if (n > 0) {
-      const int cmp = memcmp(Sbytevector_data(left), Sbytevector_data(right), (size_t)n);
-      if (cmp != 0) {
-        return cmp < 0 ? -1 : 1;
+/**
+ * compare n bytes at bvec1[start1...] against n bytes at bvec2[start2...].
+ * return one of:
+ *   -1 if bvec1 compares less than bvec2
+ *    0 if bvec1 compares equal to bvec2
+ *    1 if bvec1 compares greater than bvec2
+ */
+static signed char c_subbytevector_compare(ptr bvec1, iptr start1, ptr bvec2, iptr start2, iptr n) {
+  if (start1 >= 0 && start2 >= 0 && n > 0 && Sbytevectorp(bvec1) && Sbytevectorp(bvec2)) {
+    iptr len1 = Sbytevector_length(bvec1);
+    iptr len2 = Sbytevector_length(bvec2);
+    if (start1 <= len1 && n <= len1 - start1 && start2 <= len2 && n <= len2 - start2) {
+      if (bvec1 != bvec2 || start1 != start2) { /* no need compare some bytes with themselves */
+        int cmp =
+            memcmp(Sbytevector_data(bvec1) + start1, Sbytevector_data(bvec2) + start2, (size_t)n);
+        return cmp == 0 ? 0 : cmp < 0 ? -1 : 1;
       }
     }
-    /* common prefix matches -> shorter bytevector is smaller */
-    return left_n < right_n ? -1 : left_n > right_n ? 1 : 0;
   }
+  return 0;
 }
 
-/**
- * return Strue if n bytes at mem1[start1...] are equal to the n bytes at mem2[start2...],
- * otherwise return Sfalse.
- */
-static ptr c_memory_equal(const octet* mem1, iptr start1, const octet* mem2, iptr start2, iptr n) {
-  return (n <= 0 || memcmp(mem1 + start1, mem2 + start2, n) == 0) ? Strue : Sfalse;
-}
-
-/** fill with value a bytevector range  */
+/** fill with value a memory range  */
 static void c_subbytevector_fill(ptr bvec, iptr start, iptr end, int value) {
   if (Sbytevectorp(bvec) && 0 <= start && start < end && end <= Sbytevector_length(bvec)) {
     memset(Sbytevector_data(bvec) + start, value & 0xFF, (size_t)end - (size_t)start);
@@ -655,11 +650,10 @@ static void c_fxvector_copy(ptr src, ptr src_start, ptr dst, ptr dst_start, ptr 
 }
 
 void scheme2k_register_c_functions_containers(void) {
-  Sregister_symbol("c_bytevector_compare", &c_bytevector_compare);
   Sregister_symbol("c_bytevector_hash", &c_bytevector_hash);
   Sregister_symbol("c_bytevector_index_u8", &c_bytevector_index_u8);
+  Sregister_symbol("c_subbytevector_compare", &c_subbytevector_compare);
   Sregister_symbol("c_subbytevector_fill", &c_subbytevector_fill);
-  Sregister_symbol("c_memory_equal", &c_memory_equal);
   Sregister_symbol("c_string_fill_utf8b_surrogate_chars", &c_string_fill_utf8b_surrogate_chars);
   Sregister_symbol("c_string_to_utf8b_length", &c_string_to_utf8b_length);
   Sregister_symbol("c_string_to_utf8b_append", &c_string_to_utf8b_append);
