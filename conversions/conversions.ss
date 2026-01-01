@@ -20,7 +20,7 @@
     (rnrs)
     (only (rnrs mutable-pairs)   set-car!)
     (only (chezscheme)           condition-continuation continuation-condition? fx1+ fx1- void)
-    (only (scheme2k bootstrap functions)   raise-assertf)
+    (only (scheme2k bootstrap)   assert* fx<=?* raise-assertf)
     (only (scheme2k containers)  bytespan? bytespan->bytevector bytespan->bytevector*! bytespan->bytevector0
                                  bytespan-reserve-right! bytespan-insert-right/string! bytespan-insert-right/u8!
                                  bytevector<? bytevector-index
@@ -135,18 +135,23 @@
 ;;
 ;; returned bytevector can be modified,
 ;; but note that it can share data with original bytevector.
-(define (bytevector->bytevector0 x)
-  (let ((len (bytevector-length x)))
-    (cond
-      ((fxzero? len)
-        #vu8(0))
-      ((fxzero? (bytevector-u8-ref x (fx1- len)))
-        x)
-      (else
-        (let ((ret (make-bytevector (fx1+ len))))
-          (bytevector-copy! x 0 ret 0 len)
-          (bytevector-u8-set! ret len 0)
-          ret)))))
+(define bytevector->bytevector0
+  (case-lambda
+    ((bv start end)
+      (assert* 'bytevector->bytevector0 (fx<=?* 0 start end (bytevector-length bv)))
+      (cond
+        ((fx=? start end)
+          (make-bytevector 1 0))
+        ((fxzero? (bytevector-u8-ref bv (fx1- end)))
+          bv)
+        (else
+          (let* ((len (fx- end start))
+                 (ret (make-bytevector (fx1+ len))))
+            (bytevector-copy! bv start ret 0 len)
+            (bytevector-u8-set! ret len 0)
+            ret))))
+    ((bv)
+      (bytevector->bytevector0 bv 0 (bytevector-length bv)))))
 
 ;; convert a bytevector, bytespan, string or charspan to bytevector, then appends a byte 0.
 ;; uses UTF-8b to convert characters to bytes.

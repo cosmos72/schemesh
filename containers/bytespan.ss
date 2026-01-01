@@ -53,8 +53,13 @@
   (%make-bytespan 0 (bytevector-length vec) (bytevector-copy vec)))
 
 ;; view existing bytevector as bytespan
-(define (bytevector->bytespan* vec)
-  (%make-bytespan 0 (bytevector-length vec) vec))
+(define bytevector->bytespan*
+  (case-lambda
+    ((bv)
+      (%make-bytespan 0 (bytevector-length bv) bv))
+    ((bv start end)
+      (assert* 'bytevector->bytespan* (fx<=?* 0 start end (bytevector-length bv)))
+      (%make-bytespan start end bv))))
 
 (define make-bytespan
   (case-lambda

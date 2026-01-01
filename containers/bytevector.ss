@@ -98,7 +98,7 @@
 ;; returned numerical index will be in the range [start, end).
 ;; return #f if no such byte is found in range.
 (define bytevector-index
-  (let ((c-bytevector-index-u8 (foreign-procedure "c_bytevector_index_u8" (ptr int int int) ptr)))
+  (let ((c-bytevector-index-u8 (foreign-procedure "c_bytevector_index_u8" (ptr fixnum fixnum int) ptr)))
     (case-lambda
       ((bvec start end byte-or-pred)
         (assert* 'bytevector-index (bytevector? bvec))

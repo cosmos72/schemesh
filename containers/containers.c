@@ -110,8 +110,9 @@ static ptr c_bytevector_hash(ptr bvec) {
  */
 static ptr c_bytevector_index_u8(ptr bvec, iptr start, iptr end, int value) {
   if (Sbytevectorp(bvec) && 0 <= start && start < end && end <= Sbytevector_length(bvec)) {
-    const octet* data  = Sbytevector_data(bvec) + start;
-    const octet* match = (const octet*)memchr(data, value & 0xFF, (size_t)end - (size_t)start);
+    const octet* data = Sbytevector_data(bvec);
+    const octet* match =
+        (const octet*)memchr(data + start, value & 0xFF, (size_t)end - (size_t)start);
     if (match) {
       return Sfixnum((size_t)(match - data));
     }

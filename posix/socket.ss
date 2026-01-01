@@ -11,18 +11,19 @@
   (export
     make-endpoint endpoint-type endpoint endpoint?
     endpoint-address endpoint-bytes endpoint-family endpoint-port endpoint-constructor
-    hostname->endpoint-list
+    hostname->endpoint-list url->endpoint
     socket-fd socket-connect socket-bind socket-listen socket-accept socket-endpoint socket-peer-endpoint
     socketpair-fds)
   (import
     (rnrs)
-    (only (chezscheme)                    bytevector->immutable-bytevector foreign-procedure procedure-arity-mask
-                                          record-writer string->immutable-string void)
-    (only (scheme2k bootstrap)            assert* check-interrupts raise-assert* raise-errorf)
-    (only (scheme2k conversions)          text->bytevector text->bytevector0 text->string)
-    (only (scheme2k containers utf8b)     utf8b->string)
-    (only (scheme2k containers hashtable) alist->eqv-hashtable eq-hashtable hashtable-transpose)
-    (only (scheme2k posix fd)             raise-c-errno))
+    (only (chezscheme)                     bytevector->immutable-bytevector foreign-procedure procedure-arity-mask
+                                           fx1+ record-writer string->immutable-string void)
+    (only (scheme2k bootstrap)             assert* check-interrupts raise-assert* raise-errorf)
+    (only (scheme2k conversions)           bytevector->bytevector0 text->bytevector text->bytevector0 text->string)
+    (only (scheme2k containers bytevector) bytevector-index)
+    (only (scheme2k containers hashtable)  alist->eqv-hashtable eq-hashtable hashtable-transpose)
+    (only (scheme2k containers utf8b)      utf8b->string)
+    (only (scheme2k posix fd)              raise-c-errno))
 
 
 ;; generic socket endpoint
@@ -73,32 +74,71 @@
         c-who c-args c-error (if (integer? c-error) (c-hostname-error->string c-error) "unknown error")))))
 
 
-;; resolve the IPv4 and IPv6 addresses of specified hostname,
-;; which must be a bytevector, string, bytespan or charspan.
+(define c-hostname->endpoint-list (foreign-procedure "c_hostname_to_endpoint_list" (u8* int u8* unsigned-16) ptr))
+
+;; resolve specified hostname to IPv4 and/or IPv6 addresses.
+;; hostname must be a bytevector, string, bytespan or charspan.
 ;;
 ;; Return a list of endpoints
 ;; On errors, raise condition
 (define hostname->endpoint-list
-  (let ((c-hostname->endpoint-list (foreign-procedure "c_hostname_to_endpoint_list" (u8* int u8* unsigned-16) ptr)))
-    (case-lambda
-      ((hostname port)
-        (let* ((hostname0 (text->bytevector0 hostname))
-               (l         (c-hostname->endpoint-list hostname0 0 #f port)))
-          (unless (or (null? l) (pair? l))
-            (raise-c-hostname-error 'hostname->endpoint-list 'getaddrinfo l hostname port))
-          (let %endpoint-list ((tail l) (ret '()))
-            (if (null? tail)
-              ret
-              (let* ((item (car tail))
-                     (family (socket-family-number->name (vector-ref item 0)))
-                     (endpoint
-                       (make-endpoint family (vector-ref item 1) (vector-ref item 2) (vector-ref item 3))))
-                (%endpoint-list (cdr tail) (cons endpoint ret)))))))
-      ((hostname)
-        (hostname->endpoint-list hostname 0)))))
+  (case-lambda
+    ((hostname port)
+      (let* ((hostname0 (text->bytevector0 hostname))
+             (l         (c-hostname->endpoint-list hostname0 0 #f port)))
+        (unless (or (null? l) (pair? l))
+          (raise-c-hostname-error 'hostname->endpoint-list 'getaddrinfo l hostname port))
+        (let %endpoint-list ((tail l) (ret '()))
+          (if (null? tail)
+            ret
+            (let* ((item (car tail))
+                   (family (socket-family-number->name (vector-ref item 0)))
+                   (endpoint
+                     (make-endpoint family (vector-ref item 1) (vector-ref item 2) (vector-ref item 3))))
+              (%endpoint-list (cdr tail) (cons endpoint ret)))))))
+    ((hostname)
+      (hostname->endpoint-list hostname 0))))
 
+;; convert URL to endpoint, possibly resolving the hostname contained in the URL
+(define (url->endpoint url)
+  (let* ((url (text->bytevector url))
+         (len (bytevector-length url)))
+    (let-values (((protocol-start protocol-end) (parse-url-protocol url len)))
+      (let-values (((host-start host-end)       (parse-url-hostname url protocol-end len)))
+        (let-values (((port-start port-end)     (parse-url-port     url host-end len)))
+          (list
+            protocol-start protocol-end 
+            host-start host-end
+            port-start port-end))))))
 
-(define c-endpoint-unix-path-max ((foreign-procedure "c_endpoint_unix_path_max" () size_t)))
+(define (parse-url-protocol bv len)
+  (values 0 (or (bytevector-index bv 58) len)))
+
+(define (parse-url-hostname bv start end)
+  (if (fx>=? start end)
+    (values start end)
+    (case (bytevector-u8-ref bv start)
+      ((47 58) ; #\/ #\:
+        (parse-url-hostname bv (fx1+ start) end))
+      (else
+        (let* ((start (fx1+ start))
+               (slash (bytevector-index bv start end 47))  ; #\/
+               (colon (bytevector-index bv start end 58))  ; #\:
+               (bra   (bytevector-index bv start end 91))  ; #\[
+               (ket   (bytevector-index bv start end 93))) ; #\]
+          (if (and bra ket (fx=? start bra) (fx<? bra ket (or slash end)))
+            (values (fx1+ bra) ket) ;; IPv6 address in brackets
+            (values start (if (and colon slash) (fxmin colon slash) (or colon slash end)))))))))
+
+(define (parse-url-port bv start end)
+  (if (fx>=? start end)
+    (values start end)
+    (let* ((slash (bytevector-index bv start end 47)) ; #\/
+           (colon (bytevector-index bv start end 58)) ; #\:
+           (end   (or slash end)))
+      (values (if colon (fx1+ colon) end) end))))
+     
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -142,7 +182,8 @@
 ;; path must be a bytevector, string, bytespan or charspan
 ;; On errors, raise condition
 (define make-endpoint-unix
-  (let ((c-endpoint-unix (foreign-procedure "c_endpoint_unix"  (ptr) ptr)))
+  (let ((c-endpoint-unix           (foreign-procedure "c_endpoint_unix"  (ptr) ptr))
+        (c-endpoint-unix-path-max ((foreign-procedure "c_endpoint_unix_path_max" () size_t))))
     (lambda (path)
       (let ((path-bv  (text->bytevector path)))
         (assert* 'make-endpoint-unix (fx<? (bytevector-length path-bv) c-endpoint-unix-path-max))
