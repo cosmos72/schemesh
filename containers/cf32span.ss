@@ -55,7 +55,7 @@
 (define cf32span-peek-data cf32span-vec)
 
 
-;; convert a list of numbers to cf32span
+;; convert a list of inexact numbers to cf32span
 (define (list->cf32span l)
   (let* ((n  (length l))
          (sp (%make-cf32span 0 n (make-bytevector (bytepos n)))))
@@ -101,7 +101,7 @@
       (bytevector-truncate! bv (bytepos (cf32span-end sp)))
       bv)))
 
-;; create cf32span containing specified numbers
+;; create cf32span containing specified inexact numbers
 (define (cf32span . numbers)
   (list->cf32span numbers))
 
@@ -267,18 +267,20 @@
   (assert* 'cf32span-resize-right! (fx>=? (cf32span-capacity-right sp) len))
   (cf32span-end-set! sp (fx+ len (cf32span-beg sp))))
 
+;; insert one inexact number to the left.
 (define (cf32span-insert-left! sp cfloat)
   (assert* 'cf32span-insert-left! (cflonum? cfloat))
   (cf32span-resize-left! sp (fx1+ (cf32span-length sp)))
   (cf32span-set! sp 0 cfloat))
 
+;; insert one inexact number to the right.
 (define (cf32span-insert-right! sp cfloat)
   (assert* 'cf32span-insert-right! (cflonum? cfloat))
   (let ((pos (cf32span-length sp)))
     (cf32span-resize-right! sp (fx1+ pos))
     (cf32span-set! sp pos cfloat)))
 
-;; insert range [src-start, src-end) of cf32span bv-src
+;; insert range [src-start, src-end) of cf32span sp-src
 ;; at the beginning of cf32span sp-dst
 (define cf32span-insert-left/cf32span!
   (case-lambda
